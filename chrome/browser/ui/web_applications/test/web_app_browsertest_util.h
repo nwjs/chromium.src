@@ -25,6 +25,9 @@ AppId InstallWebApp(Profile* profile, std::unique_ptr<WebApplicationInfo>);
 // Launches a new app window for |app| in |profile|.
 Browser* LaunchWebAppBrowser(Profile*, const AppId&);
 
+// Launches the app, waits for the app url to load.
+Browser* LaunchWebAppBrowserAndWait(Profile*, const AppId&);
+
 // Launches a new tab for |app| in |profile|.
 Browser* LaunchBrowserForWebAppInTab(Profile*, const AppId&);
 
@@ -33,6 +36,30 @@ ExternalInstallOptions CreateInstallOptions(const GURL& url);
 
 // Synchronous version of PendingAppManager::Install.
 InstallResultCode PendingAppManagerInstall(Profile*, ExternalInstallOptions);
+
+// If |proceed_through_interstitial| is true, asserts that a security
+// interstitial is shown, and clicks through it, before returning.
+void NavigateToURLAndWait(Browser* browser,
+                          const GURL& url,
+                          bool proceed_through_interstitial = false);
+
+// Performs a navigation and then checks that the toolbar visibility is as
+// expected.
+void NavigateAndCheckForToolbar(Browser* browser,
+                                const GURL& url,
+                                bool expected_visibility,
+                                bool proceed_through_interstitial = false);
+
+enum AppMenuCommandState {
+  kEnabled,
+  kDisabled,
+  kNotPresent,
+};
+
+// For a non-app browser, determines if the command is enabled/disabled/absent.
+AppMenuCommandState GetAppMenuCommandState(int command_id, Browser* browser);
+
+bool IsBrowserOpen(const Browser* test_browser);
 
 }  // namespace web_app
 

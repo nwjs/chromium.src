@@ -77,10 +77,6 @@ autofill::FormDataImporter* AwAutofillClient::GetFormDataImporter() {
   return nullptr;
 }
 
-autofill::SmsClient* AwAutofillClient::GetSmsClient() {
-  return nullptr;
-}
-
 autofill::payments::PaymentsClient* AwAutofillClient::GetPaymentsClient() {
   return nullptr;
 }
@@ -232,7 +228,7 @@ base::span<const autofill::Suggestion> AwAutofillClient::GetPopupSuggestions()
   return base::span<const autofill::Suggestion>();
 }
 
-void AwAutofillClient::PinPopupViewUntilUpdate() {
+void AwAutofillClient::PinPopupView() {
   NOTIMPLEMENTED();
 }
 

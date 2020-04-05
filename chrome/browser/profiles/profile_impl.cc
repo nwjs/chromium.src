@@ -13,6 +13,7 @@
 
 #include "base/barrier_closure.h"
 #include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/callback.h"
 #include "base/command_line.h"
 #include "base/compiler_specific.h"
@@ -22,6 +23,7 @@
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/logging.h"
+#include "base/memory/ptr_util.h"
 #include "base/memory/weak_ptr.h"
 #include "base/no_destructor.h"
 #include "base/path_service.h"
@@ -32,6 +34,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/post_task.h"
 #include "base/task/task_traits.h"
+#include "base/task/thread_pool.h"
 #include "base/threading/scoped_blocking_call.h"
 #include "base/trace_event/trace_event.h"
 #include "base/version.h"
@@ -65,7 +68,6 @@
 #include "chrome/browser/media/media_device_id_salt.h"
 #include "chrome/browser/native_file_system/chrome_native_file_system_permission_context.h"
 #include "chrome/browser/native_file_system/native_file_system_permission_context_factory.h"
-#include "chrome/browser/permissions/permission_manager.h"
 #include "chrome/browser/permissions/permission_manager_factory.h"
 #include "chrome/browser/policy/chrome_browser_policy_connector.h"
 #include "chrome/browser/policy/profile_policy_connector.h"
@@ -94,8 +96,7 @@
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/signin_ui_util.h"
 #include "chrome/browser/site_isolation/site_isolation_policy.h"
-#include "chrome/browser/ssl/chrome_ssl_host_state_delegate.h"
-#include "chrome/browser/ssl/chrome_ssl_host_state_delegate_factory.h"
+#include "chrome/browser/ssl/stateful_ssl_host_state_delegate_factory.h"
 #include "chrome/browser/startup_data.h"
 #include "chrome/browser/storage/storage_notification_service_factory.h"
 #include "chrome/browser/transition_manager/full_browser_transition_manager.h"
@@ -130,10 +131,12 @@
 #include "components/language/core/common/locale_util.h"
 #include "components/metrics/metrics_service.h"
 #include "components/omnibox/browser/autocomplete_classifier.h"
+#include "components/permissions/permission_manager.h"
 #include "components/policy/core/common/cloud/cloud_policy_manager.h"
 #include "components/policy/core/common/cloud/user_cloud_policy_manager.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/scoped_user_pref_update.h"
+#include "components/security_interstitials/content/stateful_ssl_host_state_delegate.h"
 #include "components/signin/public/base/signin_pref_names.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/sync_preferences/pref_service_syncable.h"
@@ -158,7 +161,6 @@
 #include "ppapi/buildflags/buildflags.h"
 #include "printing/buildflags/buildflags.h"
 #include "services/data_decoder/public/cpp/data_decoder.h"
-#include "services/identity/identity_service.h"
 #include "services/network/public/cpp/features.h"
 #include "services/preferences/public/mojom/preferences.mojom.h"
 #include "services/preferences/public/mojom/tracked_preference_validation_delegate.mojom.h"
@@ -273,11 +275,11 @@ base::Time CreateProfileDirectory(base::SequencedTaskRunner* io_task_runner,
   DVLOG(1) << "Creating directory " << path.value();
   if (base::CreateDirectory(path)) {
     if (create_readme) {
-      base::PostTask(FROM_HERE,
-                     {base::ThreadPool(), base::MayBlock(),
-                      base::TaskPriority::BEST_EFFORT,
-                      base::TaskShutdownBehavior::BLOCK_SHUTDOWN},
-                     base::BindOnce(&CreateProfileReadme, path));
+      base::ThreadPool::PostTask(
+          FROM_HERE,
+          {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
+           base::TaskShutdownBehavior::BLOCK_SHUTDOWN},
+          base::BindOnce(&CreateProfileReadme, path));
     }
     return GetCreationTimeForPath(path);
   }
@@ -331,9 +333,8 @@ std::unique_ptr<Profile> Profile::CreateProfile(const base::FilePath& path,
   // this profile are executed in expected order (what was previously assured by
   // the FILE thread).
   scoped_refptr<base::SequencedTaskRunner> io_task_runner =
-      base::CreateSequencedTaskRunner(
-          {base::ThreadPool(), base::TaskShutdownBehavior::BLOCK_SHUTDOWN,
-           base::MayBlock()});
+      base::ThreadPool::CreateSequencedTaskRunner(
+          {base::TaskShutdownBehavior::BLOCK_SHUTDOWN, base::MayBlock()});
   base::Time creation_time = base::Time::Now();
   if (create_mode == CREATE_MODE_ASYNCHRONOUS) {
     DCHECK(delegate);
@@ -413,16 +414,17 @@ void ProfileImpl::RegisterProfilePrefs(
 #if !defined(OS_ANDROID)
   registry->RegisterBooleanPref(prefs::kShowCastIconInToolbar, false);
 #endif  // !defined(OS_ANDROID)
+  registry->RegisterTimePref(prefs::kProfileCreationTime, base::Time());
 }
 
 ProfileImpl::ProfileImpl(
     const base::FilePath& path,
     Delegate* delegate,
     CreateMode create_mode,
-    base::Time creation_time,
+    base::Time path_creation_time,
     scoped_refptr<base::SequencedTaskRunner> io_task_runner)
     : path_(path),
-      creation_time_(creation_time),
+      path_creation_time_(path_creation_time),
       io_task_runner_(std::move(io_task_runner)),
       io_data_(this),
       last_session_exit_type_(EXIT_NORMAL),
@@ -610,6 +612,15 @@ void ProfileImpl::DoFinalInit() {
   TRACE_EVENT0("browser", "ProfileImpl::DoFinalInit")
 
   PrefService* prefs = GetPrefs();
+
+  // Do not override the existing pref in case a profile directory is copied, or
+  // if the file system does not support creation time and the property (i.e.
+  // st_ctim in posix which is actually the last status change time when the
+  // inode was last updated) use to mimic it changes because of some other
+  // modification.
+  if (!prefs->HasPrefPath(prefs::kProfileCreationTime))
+    prefs->SetTime(prefs::kProfileCreationTime, path_creation_time_);
+
   pref_change_registrar_.Init(prefs);
   pref_change_registrar_.Add(
       prefs::kSupervisedUserId,
@@ -717,10 +728,19 @@ void ProfileImpl::DoFinalInit() {
                               std::make_unique<PrefsInternalsSource>(this));
 
   if (delegate_) {
-    TRACE_EVENT0("browser", "ProfileImpl::DoFileInit:DelegateOnProfileCreated")
-    delegate_->OnProfileCreated(this, true, IsNewProfile());
+    TRACE_EVENT0("browser", "ProfileImpl::DoFileInit:DelegateOnProfileCreated");
+    // Fails if the browser is shutting down. This is done to avoid
+    // launching new UI, finalising profile creation, etc. which
+    // would trigger a crash down the line. See ...
+    const bool shutting_down = g_browser_process->IsShuttingDown();
+    delegate_->OnProfileCreated(this, !shutting_down, IsNewProfile());
+    // The current Profile may be immediately deleted as part of
+    // the call to OnProfileCreated(...) if the initialisation is
+    // reported as a failure, thus no code should be executed past
+    // that point.
+    if (shutting_down)
+      return;
   }
-
   // Ensure that the SharingService is initialized now that io_data_ is
   // initialized. https://crbug.com/171406
   SharingServiceFactory::GetForBrowserContext(this);
@@ -770,10 +790,6 @@ ProfileImpl::~ProfileImpl() {
   }
 
   FullBrowserTransitionManager::Get()->OnProfileDestroyed(this);
-
-  // Must be called before the IdentityManager is destroyed, which will happen
-  // during DependencyManager shutdown below.
-  identity_service_impl_.reset();
 
   // The SimpleDependencyManager should always be passed after the
   // BrowserContextDependencyManager. This is because the KeyedService instances
@@ -829,7 +845,7 @@ base::FilePath ProfileImpl::GetPath() const {
 }
 
 base::Time ProfileImpl::GetCreationTime() const {
-  return creation_time_;
+  return prefs_->GetTime(prefs::kProfileCreationTime);
 }
 
 scoped_refptr<base::SequencedTaskRunner> ProfileImpl::GetIOTaskRunner() {
@@ -1047,15 +1063,6 @@ bool ProfileImpl::ShouldPersistSessionCookies() {
   return true;
 }
 
-identity::mojom::IdentityService* ProfileImpl::GetIdentityService() {
-  if (!identity_service_impl_) {
-    identity_service_impl_ = std::make_unique<identity::IdentityService>(
-        IdentityManagerFactory::GetForProfile(this),
-        remote_identity_service_.BindNewPipeAndPassReceiver());
-  }
-  return remote_identity_service_.get();
-}
-
 PrefService* ProfileImpl::GetPrefs() {
   return const_cast<PrefService*>(
       static_cast<const ProfileImpl*>(this)->GetPrefs());
@@ -1183,7 +1190,7 @@ ProfileImpl::GetStorageNotificationService() {
 }
 
 content::SSLHostStateDelegate* ProfileImpl::GetSSLHostStateDelegate() {
-  return ChromeSSLHostStateDelegateFactory::GetForProfile(this);
+  return StatefulSSLHostStateDelegateFactory::GetForProfile(this);
 }
 
 content::BrowsingDataRemoverDelegate*
@@ -1265,7 +1272,10 @@ bool ProfileImpl::ShouldEnableOutOfBlinkCors() {
   // NetworkContexts will be initialized based on this returned mode.
   if (!cors_legacy_mode_enabled_.has_value()) {
     cors_legacy_mode_enabled_ =
-        GetPrefs()->GetBoolean(prefs::kCorsLegacyModeEnabled);
+        base::FeatureList::IsEnabled(
+            features::kHideCorsLegacyModeEnabledPolicySupport)
+            ? false
+            : GetPrefs()->GetBoolean(prefs::kCorsLegacyModeEnabled);
   }
   if (cors_legacy_mode_enabled_.value())
     return false;
@@ -1418,7 +1428,7 @@ void ProfileImpl::InitChromeOSPreferences() {
 #endif  // defined(OS_CHROMEOS)
 
 void ProfileImpl::SetCreationTimeForTesting(base::Time creation_time) {
-  creation_time_ = creation_time;
+  prefs_->SetTime(prefs::kProfileCreationTime, creation_time);
 }
 
 GURL ProfileImpl::GetHomePage() {
@@ -1499,9 +1509,8 @@ void ProfileImpl::UpdateIsEphemeralInStorage() {
 
 void ProfileImpl::InitializeDataReductionProxy() {
   scoped_refptr<base::SequencedTaskRunner> db_task_runner =
-      base::CreateSequencedTaskRunner(
-          {base::ThreadPool(), base::MayBlock(),
-           base::TaskPriority::BEST_EFFORT,
+      base::ThreadPool::CreateSequencedTaskRunner(
+          {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
            base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN});
   std::unique_ptr<data_reduction_proxy::DataStore> store(
       new data_reduction_proxy::DataStoreImpl(GetPath()));

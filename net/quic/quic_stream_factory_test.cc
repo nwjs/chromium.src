@@ -165,7 +165,7 @@ std::vector<PoolingTestParams> GetPoolingTestParams() {
   std::vector<PoolingTestParams> params;
   quic::ParsedQuicVersionVector all_supported_versions =
       quic::AllSupportedVersions();
-  for (const quic::ParsedQuicVersion version : all_supported_versions) {
+  for (const quic::ParsedQuicVersion& version : all_supported_versions) {
     params.push_back(PoolingTestParams{version, SAME_AS_FIRST, false});
     params.push_back(PoolingTestParams{version, SAME_AS_FIRST, true});
     params.push_back(PoolingTestParams{version, SAME_AS_SECOND, false});
@@ -248,6 +248,7 @@ class QuicStreamFactoryTestBase : public WithTaskEnvironment {
             base::Unretained(this))),
         failed_on_default_network_(false),
         quic_params_(context_.params()) {
+    FLAGS_quic_enable_http3_grease_randomness = false;
     quic_params_->headers_include_h2_stream_dependency =
         client_headers_include_h2_stream_dependency;
     context_.AdvanceTime(quic::QuicTime::Delta::FromSeconds(1));
@@ -827,7 +828,7 @@ class QuicStreamFactoryTestBase : public WithTaskEnvironment {
   }
 
   std::string ConstructDataHeader(size_t body_len) {
-    if (version_.transport_version != quic::QUIC_VERSION_99) {
+    if (!version_.HasIetfQuicFrames()) {
       return "";
     }
     std::unique_ptr<char[]> buffer;
@@ -997,7 +998,7 @@ TEST_P(QuicStreamFactoryTest, Create) {
 
 TEST_P(QuicStreamFactoryTest, CreateZeroRtt) {
   if (version_.handshake_protocol == quic::PROTOCOL_TLS1_3 &&
-      version_.transport_version == quic::QUIC_VERSION_99) {
+      version_.HasIetfQuicFrames()) {
     // 0-rtt is not supported in IETF QUIC yet.
     return;
   }
@@ -1092,7 +1093,7 @@ TEST_P(QuicStreamFactoryTest, FactoryDestroyedWhenJobPending) {
 
 TEST_P(QuicStreamFactoryTest, RequireConfirmation) {
   if (version_.handshake_protocol == quic::PROTOCOL_TLS1_3 &&
-      version_.transport_version == quic::QUIC_VERSION_99) {
+      version_.HasIetfQuicFrames()) {
     // 0-rtt is not supported in IETF QUIC yet.
     return;
   }
@@ -1124,8 +1125,8 @@ TEST_P(QuicStreamFactoryTest, RequireConfirmation) {
 
   EXPECT_FALSE(http_server_properties_->HasLastLocalAddressWhenQuicWorked());
 
-  crypto_client_stream_factory_.last_stream()->SendOnCryptoHandshakeEvent(
-      quic::QuicSession::EVENT_HANDSHAKE_CONFIRMED);
+  crypto_client_stream_factory_.last_stream()
+      ->NotifySessionOneRttKeyAvailable();
 
   EXPECT_TRUE(http_server_properties_->HasLastLocalAddressWhenQuicWorked());
 
@@ -1139,7 +1140,7 @@ TEST_P(QuicStreamFactoryTest, RequireConfirmation) {
 
 TEST_P(QuicStreamFactoryTest, DontRequireConfirmationFromSameIP) {
   if (version_.handshake_protocol == quic::PROTOCOL_TLS1_3 &&
-      version_.transport_version == quic::QUIC_VERSION_99) {
+      version_.HasIetfQuicFrames()) {
     // 0-rtt is not supported in IETF QUIC yet.
     return;
   }
@@ -1180,8 +1181,8 @@ TEST_P(QuicStreamFactoryTest, DontRequireConfirmationFromSameIP) {
   QuicChromiumClientSession* session = GetActiveSession(host_port_pair_);
   EXPECT_FALSE(session->require_confirmation());
 
-  crypto_client_stream_factory_.last_stream()->SendOnCryptoHandshakeEvent(
-      quic::QuicSession::EVENT_HANDSHAKE_CONFIRMED);
+  crypto_client_stream_factory_.last_stream()
+      ->NotifySessionOneRttKeyAvailable();
 
   EXPECT_TRUE(http_server_properties_->HasLastLocalAddressWhenQuicWorked());
 }
@@ -1974,7 +1975,7 @@ TEST_P(QuicStreamFactoryTest, MaxOpenStream) {
 
   quic::QuicStreamId stream_id = GetNthClientInitiatedBidirectionalStreamId(0);
   MockQuicData socket_data(version_);
-  if (version_.transport_version == quic::QUIC_VERSION_99) {
+  if (version_.HasIetfQuicFrames()) {
     int packet_num = 1;
     socket_data.AddWrite(SYNCHRONOUS,
                          ConstructInitialSettingsPacket(packet_num++));
@@ -2277,8 +2278,8 @@ TEST_P(QuicStreamFactoryTest,
   base::RunLoop().RunUntilIdle();
 
   // Complete handshake. QuicStreamFactory::Job should complete and succeed.
-  crypto_client_stream_factory_.last_stream()->SendOnCryptoHandshakeEvent(
-      quic::QuicSession::EVENT_HANDSHAKE_CONFIRMED);
+  crypto_client_stream_factory_.last_stream()
+      ->NotifySessionOneRttKeyAvailable();
   EXPECT_THAT(callback_.WaitForResult(), IsOk());
   EXPECT_TRUE(HasActiveSession(host_port_pair_));
   EXPECT_FALSE(HasActiveJob(host_port_pair_, privacy_mode_));
@@ -2345,8 +2346,8 @@ TEST_P(QuicStreamFactoryTest, WriteErrorInCryptoConnectWithSyncHostResolution) {
   EXPECT_TRUE(HasActiveJob(host_port_pair_, privacy_mode_));
 
   // Complete handshake.
-  crypto_client_stream_factory_.last_stream()->SendOnCryptoHandshakeEvent(
-      quic::QuicSession::EVENT_HANDSHAKE_CONFIRMED);
+  crypto_client_stream_factory_.last_stream()
+      ->NotifySessionOneRttKeyAvailable();
   EXPECT_THAT(callback_.WaitForResult(), IsOk());
   EXPECT_TRUE(HasActiveSession(host_port_pair_));
   EXPECT_FALSE(HasActiveJob(host_port_pair_, privacy_mode_));
@@ -3164,25 +3165,23 @@ void QuicStreamFactoryTestBase::TestOnNetworkMadeDefaultNonMigratableStream(
                                          packet_num++, false, 1, 1, 1));
   } else {
     if (version_.handshake_protocol == quic::PROTOCOL_TLS1_3) {
-      // TLS1.3 supports multiple packet number space, so a proactive ack is no
-      // longer sent.
       if (VersionUsesHttp3(version_.transport_version)) {
         socket_data.AddWrite(
             SYNCHRONOUS,
-            client_maker_.MakeDataRstAndConnectionClosePacket(
+            client_maker_.MakeDataRstAckAndConnectionClosePacket(
                 packet_num++, false, GetQpackDecoderStreamId(),
                 StreamCancellationQpackDecoderInstruction(0),
                 GetNthClientInitiatedBidirectionalStreamId(0),
-                quic::QUIC_STREAM_CANCELLED,
+                quic::QUIC_STREAM_CANCELLED, 1, 1, 1,
                 quic::QUIC_CONNECTION_MIGRATION_NO_MIGRATABLE_STREAMS,
                 "net error"));
       } else {
         socket_data.AddWrite(
             SYNCHRONOUS,
-            client_maker_.MakeRstAndConnectionClosePacket(
+            client_maker_.MakeRstAckAndConnectionClosePacket(
                 packet_num++, false,
                 GetNthClientInitiatedBidirectionalStreamId(0),
-                quic::QUIC_STREAM_CANCELLED,
+                quic::QUIC_STREAM_CANCELLED, 1, 1, 1,
                 quic::QUIC_CONNECTION_MIGRATION_NO_MIGRATABLE_STREAMS,
                 "net error"));
       }
@@ -5601,25 +5600,23 @@ void QuicStreamFactoryTestBase::TestMigrateSessionEarlyNonMigratableStream(
                                          packet_num++, false, 1, 1, 1));
   } else {
     if (version_.handshake_protocol == quic::PROTOCOL_TLS1_3) {
-      // TLS1.3 supports multiple packet number. So a proactive ack is no longer
-      // sent.
       if (VersionUsesHttp3(version_.transport_version)) {
         socket_data.AddWrite(
             SYNCHRONOUS,
-            client_maker_.MakeDataRstAndConnectionClosePacket(
+            client_maker_.MakeDataRstAckAndConnectionClosePacket(
                 packet_num++, false, GetQpackDecoderStreamId(),
                 StreamCancellationQpackDecoderInstruction(0),
                 GetNthClientInitiatedBidirectionalStreamId(0),
-                quic::QUIC_STREAM_CANCELLED,
+                quic::QUIC_STREAM_CANCELLED, 1, 1, 1,
                 quic::QUIC_CONNECTION_MIGRATION_NO_MIGRATABLE_STREAMS,
                 "net error"));
       } else {
         socket_data.AddWrite(
             SYNCHRONOUS,
-            client_maker_.MakeRstAndConnectionClosePacket(
+            client_maker_.MakeRstAckAndConnectionClosePacket(
                 packet_num++, false,
                 GetNthClientInitiatedBidirectionalStreamId(0),
-                quic::QUIC_STREAM_CANCELLED,
+                quic::QUIC_STREAM_CANCELLED, 1, 1, 1,
                 quic::QUIC_CONNECTION_MIGRATION_NO_MIGRATABLE_STREAMS,
                 "net error"));
       }
@@ -6375,8 +6372,8 @@ void QuicStreamFactoryTestBase::
   EXPECT_TRUE(failed_on_default_network_);
 
   // Confirm the handshake on the alternate network.
-  crypto_client_stream_factory_.last_stream()->SendOnCryptoHandshakeEvent(
-      quic::QuicSession::EVENT_HANDSHAKE_CONFIRMED);
+  crypto_client_stream_factory_.last_stream()
+      ->NotifySessionOneRttKeyAvailable();
   EXPECT_THAT(callback_.WaitForResult(), IsOk());
   EXPECT_TRUE(HasActiveSession(host_port_pair_));
   // Resume the data now so that data can be sent and read.
@@ -6491,8 +6488,8 @@ TEST_P(QuicStreamFactoryTest, MigrationOnWriteErrorBeforeHandshakeConfirmed) {
   base::RunLoop().RunUntilIdle();
 
   // Complete handshake. QuicStreamFactory::Job should complete and succeed.
-  crypto_client_stream_factory_.last_stream()->SendOnCryptoHandshakeEvent(
-      quic::QuicSession::EVENT_HANDSHAKE_CONFIRMED);
+  crypto_client_stream_factory_.last_stream()
+      ->NotifySessionOneRttKeyAvailable();
   EXPECT_THAT(callback_.WaitForResult(), IsOk());
   EXPECT_TRUE(HasActiveSession(host_port_pair_));
   EXPECT_FALSE(HasActiveJob(host_port_pair_, privacy_mode_));
@@ -6583,8 +6580,8 @@ TEST_P(QuicStreamFactoryTest,
   EXPECT_TRUE(QuicStreamFactoryPeer::IsLiveSession(factory_.get(), session));
 
   // Confirm the handshake on the alternate network.
-  crypto_client_stream_factory_.last_stream()->SendOnCryptoHandshakeEvent(
-      quic::QuicSession::EVENT_HANDSHAKE_CONFIRMED);
+  crypto_client_stream_factory_.last_stream()
+      ->NotifySessionOneRttKeyAvailable();
   EXPECT_THAT(callback_.WaitForResult(), IsOk());
   EXPECT_TRUE(HasActiveSession(host_port_pair_));
 
@@ -10437,7 +10434,7 @@ TEST_P(QuicStreamFactoryTest, CryptoConfigWhenProofIsInvalid) {
 
 TEST_P(QuicStreamFactoryTest, EnableNotLoadFromDiskCache) {
   if (version_.handshake_protocol == quic::PROTOCOL_TLS1_3 &&
-      version_.transport_version == quic::QUIC_VERSION_99) {
+      version_.HasIetfQuicFrames()) {
     // 0-rtt is not supported in IETF QUIC yet.
     return;
   }
@@ -10587,7 +10584,7 @@ TEST_P(QuicStreamFactoryTest, ReducePingTimeoutOnConnectionTimeOutOpenStreams) {
 // Verifies that the QUIC stream factory is initialized correctly.
 TEST_P(QuicStreamFactoryTest, MaybeInitialize) {
   if (version_.handshake_protocol == quic::PROTOCOL_TLS1_3 &&
-      version_.transport_version == quic::QUIC_VERSION_99) {
+      version_.HasIetfQuicFrames()) {
     // 0-rtt is not supported in IETF QUIC yet.
     return;
   }
@@ -10596,7 +10593,7 @@ TEST_P(QuicStreamFactoryTest, MaybeInitialize) {
 
 TEST_P(QuicStreamFactoryTest, MaybeInitializeWithNetworkIsolationKey) {
   if (version_.handshake_protocol == quic::PROTOCOL_TLS1_3 &&
-      version_.transport_version == quic::QUIC_VERSION_99) {
+      version_.HasIetfQuicFrames()) {
     // 0-rtt is not supported in IETF QUIC yet.
     return;
   }
@@ -10828,7 +10825,7 @@ TEST_P(QuicStreamFactoryTest, CryptoConfigCacheMRUWithNetworkIsolationKey) {
 TEST_P(QuicStreamFactoryTest,
        CryptoConfigCacheMRUWithRealRequestsAndWithNetworkIsolationKey) {
   if (version_.handshake_protocol == quic::PROTOCOL_TLS1_3 &&
-      version_.transport_version == quic::QUIC_VERSION_99) {
+      version_.HasIetfQuicFrames()) {
     // 0-rtt is not supported in IETF QUIC yet.
     return;
   }
@@ -11046,7 +11043,7 @@ TEST_P(QuicStreamFactoryTest, StartCertVerifyJob) {
 
 TEST_P(QuicStreamFactoryTest, YieldAfterPackets) {
   if (version_.handshake_protocol == quic::PROTOCOL_TLS1_3 &&
-      version_.transport_version == quic::QUIC_VERSION_99) {
+      version_.HasIetfQuicFrames()) {
     // 0-rtt is not supported in IETF QUIC yet.
     return;
   }
@@ -11103,7 +11100,7 @@ TEST_P(QuicStreamFactoryTest, YieldAfterPackets) {
 
 TEST_P(QuicStreamFactoryTest, YieldAfterDuration) {
   if (version_.handshake_protocol == quic::PROTOCOL_TLS1_3 &&
-      version_.transport_version == quic::QUIC_VERSION_99) {
+      version_.HasIetfQuicFrames()) {
     // 0-rtt is not supported in IETF QUIC yet.
     return;
   }
@@ -11802,7 +11799,7 @@ TEST_P(QuicStreamFactoryTest, ClearCachedStatesInCryptoConfig) {
 
   // Clear cached states for the origin https://www.example.com:4433.
   GURL origin("https://www.example.com:4433");
-  factory_->ClearCachedStatesInCryptoConfig(base::Bind(
+  factory_->ClearCachedStatesInCryptoConfig(base::BindRepeating(
       static_cast<bool (*)(const GURL&, const GURL&)>(::operator==), origin));
   EXPECT_FALSE(test_cases[0].state->certs().empty());
   EXPECT_FALSE(test_cases[1].state->certs().empty());
@@ -11810,7 +11807,7 @@ TEST_P(QuicStreamFactoryTest, ClearCachedStatesInCryptoConfig) {
 
   // Clear all cached states.
   factory_->ClearCachedStatesInCryptoConfig(
-      base::Callback<bool(const GURL&)>());
+      base::RepeatingCallback<bool(const GURL&)>());
   EXPECT_TRUE(test_cases[0].state->certs().empty());
   EXPECT_TRUE(test_cases[1].state->certs().empty());
   EXPECT_TRUE(test_cases[2].state->certs().empty());
@@ -12384,7 +12381,7 @@ TEST_P(QuicStreamFactoryTest, ResultAfterDNSRaceHostResolveAsyncStaleMatch) {
 TEST_P(QuicStreamFactoryTest,
        ResultAfterDNSRaceHostResolveAsyncConnectAsyncStaleMatch) {
   if (version_.handshake_protocol == quic::PROTOCOL_TLS1_3 &&
-      version_.transport_version == quic::QUIC_VERSION_99) {
+      version_.HasIetfQuicFrames()) {
     // 0-rtt is not supported in IETF QUIC yet.
     return;
   }
@@ -12431,8 +12428,8 @@ TEST_P(QuicStreamFactoryTest,
           failed_on_default_network_callback_, callback_.callback()));
 
   // Send Crypto handshake so connect will call back.
-  crypto_client_stream_factory_.last_stream()->SendOnCryptoHandshakeEvent(
-      quic::QuicSession::EVENT_HANDSHAKE_CONFIRMED);
+  crypto_client_stream_factory_.last_stream()
+      ->NotifySessionOneRttKeyAvailable();
   base::RunLoop().RunUntilIdle();
 
   // Check that the racing job is running.
@@ -12460,7 +12457,7 @@ TEST_P(QuicStreamFactoryTest,
 TEST_P(QuicStreamFactoryTest,
        ResultAfterDNSRaceHostResolveAsyncStaleMatchConnectAsync) {
   if (version_.handshake_protocol == quic::PROTOCOL_TLS1_3 &&
-      version_.transport_version == quic::QUIC_VERSION_99) {
+      version_.HasIetfQuicFrames()) {
     // 0-rtt is not supported in IETF QUIC yet.
     return;
   }
@@ -12513,8 +12510,8 @@ TEST_P(QuicStreamFactoryTest,
 
   // Finish stale connection async, and the stale connection should pass dns
   // validation.
-  crypto_client_stream_factory_.last_stream()->SendOnCryptoHandshakeEvent(
-      quic::QuicSession::EVENT_HANDSHAKE_CONFIRMED);
+  crypto_client_stream_factory_.last_stream()
+      ->NotifySessionOneRttKeyAvailable();
   EXPECT_THAT(callback_.WaitForResult(), IsOk());
   std::unique_ptr<HttpStream> stream = CreateStream(&request);
   EXPECT_TRUE(stream.get());
@@ -12609,9 +12606,8 @@ TEST_P(QuicStreamFactoryTest,
 // With dns race experiment on, dns resolve async, stale used and connects
 // async, finishes before dns, but no match
 TEST_P(QuicStreamFactoryTest, ResultAfterDNSRaceStaleAsyncResolveAsyncNoMatch) {
-  if (version_.handshake_protocol == quic::PROTOCOL_TLS1_3 &&
-      version_.transport_version == quic::QUIC_VERSION_99) {
-    // 0-rtt is not supported in IETF QUIC yet.
+  if (version_.handshake_protocol == quic::PROTOCOL_TLS1_3) {
+    // TODO(fayang): 0-rtt is not supported in IETF QUIC yet. Fix it.
     return;
   }
   quic_params_->race_stale_dns_on_connection = true;
@@ -12674,8 +12670,8 @@ TEST_P(QuicStreamFactoryTest, ResultAfterDNSRaceStaleAsyncResolveAsyncNoMatch) {
           failed_on_default_network_callback_, callback_.callback()));
 
   // Finish the stale connection.
-  crypto_client_stream_factory_.last_stream()->SendOnCryptoHandshakeEvent(
-      quic::QuicSession::EVENT_HANDSHAKE_CONFIRMED);
+  crypto_client_stream_factory_.last_stream()
+      ->NotifySessionOneRttKeyAvailable();
   base::RunLoop().RunUntilIdle();
   EXPECT_TRUE(HasLiveSession(host_port_pair_));
   EXPECT_TRUE(HasActiveJob(host_port_pair_, privacy_mode_));
@@ -12699,9 +12695,8 @@ TEST_P(QuicStreamFactoryTest, ResultAfterDNSRaceStaleAsyncResolveAsyncNoMatch) {
 // With dns race experiment on, dns resolve async, stale used and connects
 // async, dns finishes first, but no match
 TEST_P(QuicStreamFactoryTest, ResultAfterDNSRaceResolveAsyncStaleAsyncNoMatch) {
-  if (version_.handshake_protocol == quic::PROTOCOL_TLS1_3 &&
-      version_.transport_version == quic::QUIC_VERSION_99) {
-    // 0-rtt is not supported in IETF QUIC yet.
+  if (version_.handshake_protocol == quic::PROTOCOL_TLS1_3) {
+    // TODO(fayang): 0-rtt is not supported in IETF QUIC yet. Fix it.
     return;
   }
   quic_params_->race_stale_dns_on_connection = true;
@@ -12761,8 +12756,8 @@ TEST_P(QuicStreamFactoryTest, ResultAfterDNSRaceResolveAsyncStaleAsyncNoMatch) {
   // Finish dns resolution, but need to wait for stale connection.
   host_resolver_->ResolveAllPending();
   base::RunLoop().RunUntilIdle();
-  crypto_client_stream_factory_.last_stream()->SendOnCryptoHandshakeEvent(
-      quic::QuicSession::EVENT_HANDSHAKE_CONFIRMED);
+  crypto_client_stream_factory_.last_stream()
+      ->NotifySessionOneRttKeyAvailable();
   EXPECT_THAT(callback_.WaitForResult(), IsOk());
 
   std::unique_ptr<HttpStream> stream = CreateStream(&request);
@@ -13067,9 +13062,8 @@ TEST_P(QuicStreamFactoryTest, ResultAfterDNSRaceStaleErrorDNSNoMatchError) {
 // With dns race experiment on, dns resolve async and stale connect async, dns
 // resolve returns error and then preconnect finishes
 TEST_P(QuicStreamFactoryTest, ResultAfterDNSRaceResolveAsyncErrorStaleAsync) {
-  if (version_.handshake_protocol == quic::PROTOCOL_TLS1_3 &&
-      version_.transport_version == quic::QUIC_VERSION_99) {
-    // 0-rtt is not supported in IETF QUIC yet.
+  if (version_.handshake_protocol == quic::PROTOCOL_TLS1_3) {
+    // TODO(fayang): 0-rtt is not supported in IETF QUIC yet. Fix it.
     return;
   }
   quic_params_->race_stale_dns_on_connection = true;
@@ -13133,9 +13127,8 @@ TEST_P(QuicStreamFactoryTest, ResultAfterDNSRaceResolveAsyncErrorStaleAsync) {
 // resolve returns error and then preconnect fails.
 TEST_P(QuicStreamFactoryTest,
        ResultAfterDNSRaceResolveAsyncErrorStaleAsyncError) {
-  if (version_.handshake_protocol == quic::PROTOCOL_TLS1_3 &&
-      version_.transport_version == quic::QUIC_VERSION_99) {
-    // 0-rtt is not supported in IETF QUIC yet.
+  if (version_.handshake_protocol == quic::PROTOCOL_TLS1_3) {
+    // TODO(fayang): 0-rtt is not supported in IETF QUIC yet. Fix it.
     return;
   }
   quic_params_->race_stale_dns_on_connection = true;
@@ -13245,7 +13238,7 @@ TEST_P(QuicStreamFactoryTest, ResultAfterDNSRaceHostResolveAsync) {
 // after handshake confirmed, and then fresh resolve returns.
 TEST_P(QuicStreamFactoryTest, StaleNetworkFailedAfterHandshake) {
   if (version_.handshake_protocol == quic::PROTOCOL_TLS1_3 &&
-      version_.transport_version == quic::QUIC_VERSION_99) {
+      version_.HasIetfQuicFrames()) {
     // 0-rtt is not supported in IETF QUIC yet.
     return;
   }
@@ -13325,7 +13318,7 @@ TEST_P(QuicStreamFactoryTest, StaleNetworkFailedAfterHandshake) {
 // handshake
 TEST_P(QuicStreamFactoryTest, StaleNetworkFailedBeforeHandshake) {
   if (version_.handshake_protocol == quic::PROTOCOL_TLS1_3 &&
-      version_.transport_version == quic::QUIC_VERSION_99) {
+      version_.HasIetfQuicFrames()) {
     // 0-rtt is not supported in IETF QUIC yet.
     return;
   }
@@ -13390,8 +13383,8 @@ TEST_P(QuicStreamFactoryTest, StaleNetworkFailedBeforeHandshake) {
   host_resolver_->ResolveAllPending();
   base::RunLoop().RunUntilIdle();
   // Make sure the fresh session is established.
-  crypto_client_stream_factory_.last_stream()->SendOnCryptoHandshakeEvent(
-      quic::QuicSession::EVENT_HANDSHAKE_CONFIRMED);
+  crypto_client_stream_factory_.last_stream()
+      ->NotifySessionOneRttKeyAvailable();
   EXPECT_THAT(callback_.WaitForResult(), IsOk());
 
   std::unique_ptr<HttpStream> stream = CreateStream(&request);
@@ -13467,8 +13460,8 @@ TEST_P(QuicStreamFactoryTest, ConfigInitialRttForHandshake) {
       handshake_timeout.InMilliseconds()));
   task_runner->FastForwardBy(handshake_timeout);
 
-  crypto_client_stream_factory_.last_stream()->SendOnCryptoHandshakeEvent(
-      quic::QuicSession::EVENT_HANDSHAKE_CONFIRMED);
+  crypto_client_stream_factory_.last_stream()
+      ->NotifySessionOneRttKeyAvailable();
 
   EXPECT_THAT(callback_.WaitForResult(), IsOk());
 

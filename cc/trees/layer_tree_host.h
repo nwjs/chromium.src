@@ -34,6 +34,9 @@
 #include "cc/layers/layer_collections.h"
 #include "cc/layers/layer_list_iterator.h"
 #include "cc/metrics/begin_main_frame_metrics.h"
+#include "cc/metrics/event_metrics.h"
+#include "cc/metrics/events_metrics_manager.h"
+#include "cc/metrics/frame_sequence_tracker.h"
 #include "cc/paint/node_id.h"
 #include "cc/trees/browser_controls_params.h"
 #include "cc/trees/compositor_mode.h"
@@ -175,6 +178,10 @@ class CC_EXPORT LayerTreeHost : public MutatorHostClient {
   // when a main frame is requested.
   SwapPromiseManager* GetSwapPromiseManager();
 
+  std::unique_ptr<EventsMetricsManager::ScopedMonitor>
+  GetScopedEventMetricsMonitor(const EventMetrics& event_metrics);
+  void ClearEventsMetrics();
+
   // Visibility and LayerTreeFrameSink -------------------------------
 
   // Sets or gets if the LayerTreeHost is visible. When not visible it will:
@@ -219,7 +226,7 @@ class CC_EXPORT LayerTreeHost : public MutatorHostClient {
 
   // Returns true after SetNeedsAnimate(), SetNeedsUpdateLayers() or
   // SetNeedsCommit(), until it is satisfied.
-  bool RequestedMainFramePendingForTesting();
+  bool RequestedMainFramePendingForTesting() const;
 
   // Requests that the next frame re-chooses crisp raster scales for all layers.
   void SetNeedsRecalculateRasterScales();
@@ -536,10 +543,10 @@ class CC_EXPORT LayerTreeHost : public MutatorHostClient {
   // scrollable layers are registered in this map.
   Layer* LayerByElementId(ElementId element_id) const;
   void RegisterElement(ElementId element_id,
-                       ElementListType list_type,
                        Layer* layer);
-  void UnregisterElement(ElementId element_id, ElementListType list_type);
+  void UnregisterElement(ElementId element_id);
 
+  // For layer list mode only.
   void UpdateActiveElements();
 
   void SetElementIdsForTesting();
@@ -583,7 +590,8 @@ class CC_EXPORT LayerTreeHost : public MutatorHostClient {
   void ApplyScrollAndScale(ScrollAndScaleSet* info);
   void ApplyMutatorEvents(std::unique_ptr<MutatorEvents> events);
   void RecordStartOfFrameMetrics();
-  void RecordEndOfFrameMetrics(base::TimeTicks frame_begin_time);
+  void RecordEndOfFrameMetrics(base::TimeTicks frame_begin_time,
+                               ActiveFrameSequenceTrackers trackers);
 
   LayerTreeHostClient* client() { return client_; }
   LayerTreeHostSchedulingClient* scheduling_client() {
@@ -675,6 +683,13 @@ class CC_EXPORT LayerTreeHost : public MutatorHostClient {
 
   std::unique_ptr<BeginMainFrameMetrics> begin_main_frame_metrics() {
     return std::move(begin_main_frame_metrics_);
+  }
+
+  // Set the the impl proxy when a commit from the main thread begins
+  // processing. Used in metrics to determine the time spent waiting on thread
+  // synchronization.
+  void SetImplCommitStartTime(base::TimeTicks commit_start_time) {
+    impl_commit_start_time_ = commit_start_time;
   }
 
  protected:
@@ -794,13 +809,10 @@ class CC_EXPORT LayerTreeHost : public MutatorHostClient {
   // Used to track the out-bound state for ApplyViewportChanges.
   bool is_pinch_gesture_active_from_impl_ = false;
 
-  int raster_color_space_id_ = -1;
   gfx::ColorSpace raster_color_space_;
 
   bool clear_caches_on_next_commit_ = false;
   viz::LocalSurfaceIdAllocation local_surface_id_allocation_from_parent_;
-  // Used to detect surface invariant violations.
-  bool has_pushed_local_surface_id_from_parent_ = false;
   bool new_local_surface_id_request_ = false;
   uint32_t defer_main_frame_update_count_ = 0;
 
@@ -845,7 +857,7 @@ class CC_EXPORT LayerTreeHost : public MutatorHostClient {
   // Layer id to Layer map.
   std::unordered_map<int, Layer*> layer_id_map_;
 
-  // In layer-list mode, this map is only used for scrollable layers.
+  // This is for layer tree mode only.
   std::unordered_map<ElementId, Layer*, ElementIdHash> element_layers_map_;
 
   bool in_paint_layer_contents_ = false;
@@ -878,6 +890,13 @@ class CC_EXPORT LayerTreeHost : public MutatorHostClient {
   // LocalFrameView that fills in the fields. This object adds the timing for
   // UpdateLayers. CC reads the data during commit, and clears the unique_ptr.
   std::unique_ptr<BeginMainFrameMetrics> begin_main_frame_metrics_;
+
+  // The time that the impl thread started processing the most recent commit
+  // sent from the main thread. Zero if the most recent BeginMainFrame did not
+  // result in a commit (due to no change in content).
+  base::TimeTicks impl_commit_start_time_;
+
+  EventsMetricsManager events_metrics_manager_;
 
   // Used to vend weak pointers to LayerTreeHost to ScopedDeferMainFrameUpdate
   // objects.

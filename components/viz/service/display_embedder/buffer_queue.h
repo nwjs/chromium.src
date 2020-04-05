@@ -14,6 +14,7 @@
 #include "base/gtest_prod_util.h"
 #include "base/macros.h"
 #include "base/memory/ref_counted.h"
+#include "base/optional.h"
 #include "components/viz/service/viz_service_export.h"
 #include "gpu/command_buffer/common/mailbox.h"
 #include "gpu/ipc/common/surface_handle.h"
@@ -64,8 +65,6 @@ class VIZ_SERVICE_EXPORT BufferQueue {
   // |gpu_memory_buffer_manager| and associates them with SharedImages using
   // |sii|.
   BufferQueue(gpu::SharedImageInterface* sii,
-              gfx::BufferFormat format,
-              gpu::GpuMemoryBufferManager* gpu_memory_buffer_manager,
               gpu::SurfaceHandle surface_handle);
   virtual ~BufferQueue();
 
@@ -109,25 +108,27 @@ class VIZ_SERVICE_EXPORT BufferQueue {
   // the buffers after that sync token passes. Otherwise, it's a no-op. Returns
   // true if there was a change of state, false otherwise.
   virtual bool Reshape(const gfx::Size& size,
-                       const gfx::ColorSpace& color_space);
+                       const gfx::ColorSpace& color_space,
+                       gfx::BufferFormat format);
 
-  gfx::BufferFormat buffer_format() const { return format_; }
+  gfx::BufferFormat buffer_format() const { return *format_; }
+  void SetMaxBuffers(size_t max);
 
  private:
   friend class BufferQueueTest;
+  friend class BufferQueueMockedSharedImageInterfaceTest;
   FRIEND_TEST_ALL_PREFIXES(BufferQueueTest, AllocateFails);
+  FRIEND_TEST_ALL_PREFIXES(BufferQueueMockedSharedImageInterfaceTest,
+                           AllocateFails);
 
   // TODO(andrescj): consider renaming this to AllocatedBuffer because 'surface'
   // is an overloaded term (also problematic in the unit tests).
   struct VIZ_SERVICE_EXPORT AllocatedSurface {
-    AllocatedSurface(std::unique_ptr<gfx::GpuMemoryBuffer> buffer,
-                     const gpu::Mailbox& mailbox,
-                     const gfx::Rect& rect);
+    AllocatedSurface(const gpu::Mailbox& mailbox, const gfx::Rect& rect);
     ~AllocatedSurface();
 
     // TODO(crbug.com/958670): if we can have a CreateSharedImage() that takes a
     // SurfaceHandle, we don't have to keep track of |buffer|.
-    std::unique_ptr<gfx::GpuMemoryBuffer> buffer;
     gpu::Mailbox mailbox;
     gfx::Rect damage;  // This is the damage for this frame from the previous.
   };
@@ -147,8 +148,12 @@ class VIZ_SERVICE_EXPORT BufferQueue {
   gpu::SharedImageInterface* const sii_;
   gfx::Size size_;
   gfx::ColorSpace color_space_;
+
+  // We don't want to allow anything more than triple buffering by default.
+  size_t max_buffers_ = 3U;
   size_t allocated_count_;
-  gfx::BufferFormat format_;
+  // The |format_| is optional to prevent use of uninitialized values.
+  base::Optional<gfx::BufferFormat> format_;
   // This surface is currently bound. This may be nullptr if no surface has
   // been bound, or if allocation failed at bind.
   std::unique_ptr<AllocatedSurface> current_surface_;
@@ -159,7 +164,6 @@ class VIZ_SERVICE_EXPORT BufferQueue {
   // These have been swapped but are not displayed yet. Entries of this deque
   // may be nullptr, if they represent frames that have been destroyed.
   base::circular_deque<std::unique_ptr<AllocatedSurface>> in_flight_surfaces_;
-  gpu::GpuMemoryBufferManager* gpu_memory_buffer_manager_;
   gpu::SurfaceHandle surface_handle_;
   SyncTokenProvider* sync_token_provider_ = nullptr;
 

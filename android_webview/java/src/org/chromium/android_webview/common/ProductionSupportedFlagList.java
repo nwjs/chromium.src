@@ -23,18 +23,26 @@ public final class ProductionSupportedFlagList {
      * A list of commandline flags supported on user devices.
      */
     public static final Flag[] sFlagList = {
+            Flag.commandLine(AwSwitches.HIGHLIGHT_ALL_WEBVIEWS,
+                    "Highlight the contents (including web contents) of all WebViews with a yellow "
+                            + "tint. This is useful for identifying WebViews in an Android "
+                            + "application."),
+            Flag.commandLine(AwSwitches.WEBVIEW_VERBOSE_LOGGING,
+                    "WebView will log additional debugging information to logcat, such as "
+                            + "variations and commandline state."),
             Flag.commandLine("show-composited-layer-borders",
                     "Renders a border around compositor layers to help debug and study layer "
                             + "compositing."),
-            Flag.commandLine(AwSwitches.FINCH_SEED_EXPIRATION_AGE + "=0",
-                    "Forces all variations seeds to be considered stale."),
+            Flag.commandLine(AwSwitches.FINCH_SEED_EXPIRATION_AGE,
+                    "Forces all variations seeds to be considered stale.", "0"),
             Flag.commandLine(AwSwitches.FINCH_SEED_IGNORE_PENDING_DOWNLOAD,
                     "Forces the WebView service to reschedule a variations seed download job even "
                             + "if one is already pending."),
-            Flag.commandLine(AwSwitches.FINCH_SEED_MIN_DOWNLOAD_PERIOD + "=0",
-                    "Disables throttling of variations seed download jobs."),
-            Flag.commandLine(AwSwitches.FINCH_SEED_MIN_UPDATE_PERIOD + "=0",
-                    "Disables throttling of new variations seed requests to the WebView service."),
+            Flag.commandLine(AwSwitches.FINCH_SEED_MIN_DOWNLOAD_PERIOD,
+                    "Disables throttling of variations seed download jobs.", "0"),
+            Flag.commandLine(AwSwitches.FINCH_SEED_MIN_UPDATE_PERIOD,
+                    "Disables throttling of new variations seed requests to the WebView service.",
+                    "0"),
             Flag.commandLine("webview-log-js-console-messages",
                     "Mirrors JavaScript console messages to system logs."),
             Flag.commandLine(AwSwitches.CRASH_UPLOADS_ENABLED_FOR_TESTING_SWITCH,
@@ -45,6 +53,7 @@ public final class ProductionSupportedFlagList {
             Flag.baseFeature("OutOfBlinkCors",
                     "Moves CORS logic into the Network Service (rather than inside the blink "
                             + "rendering engine)."),
+            Flag.baseFeature("EnableSharedImageForWebview", "Enables shared images for WebView."),
             Flag.baseFeature("VizForWebView", "Enables Viz for WebView."),
             Flag.baseFeature("WebViewConnectionlessSafeBrowsing",
                     "Uses GooglePlayService's 'connectionless' APIs for Safe Browsing "

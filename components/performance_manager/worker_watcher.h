@@ -13,12 +13,11 @@
 #include "base/logging.h"
 #include "base/macros.h"
 #include "base/scoped_observer.h"
+#include "content/public/browser/dedicated_worker_service.h"
 #include "content/public/browser/global_routing_id.h"
+#include "content/public/browser/service_worker_context.h"
+#include "content/public/browser/service_worker_context_observer.h"
 #include "content/public/browser/shared_worker_service.h"
-
-namespace content {
-class SharedWorkerInstance;
-}
 
 namespace performance_manager {
 
@@ -30,12 +29,15 @@ class WorkerNodeImpl;
 // This class keeps track of running workers of all types for a single browser
 // context and handles the ownership of the worker nodes.
 //
-// TODO(https://crbug.com/993029): Add support for dedicated workers and service
-//                                 workers.
-class WorkerWatcher : public content::SharedWorkerService::Observer {
+// TODO(https://crbug.com/993029): Add support for service workers.
+class WorkerWatcher : public content::DedicatedWorkerService::Observer,
+                      public content::SharedWorkerService::Observer,
+                      public content::ServiceWorkerContextObserver {
  public:
   WorkerWatcher(const std::string& browser_context_id,
+                content::DedicatedWorkerService* dedicated_worker_service,
                 content::SharedWorkerService* shared_worker_service,
+                content::ServiceWorkerContext* service_worker_context,
                 ProcessNodeSource* process_node_source,
                 FrameNodeSource* frame_node_source);
   ~WorkerWatcher() override;
@@ -44,21 +46,48 @@ class WorkerWatcher : public content::SharedWorkerService::Observer {
   // destroyed on the PM graph.
   void TearDown();
 
+  // content::DedicatedWorkerService::Observer:
+  void OnWorkerStarted(
+      content::DedicatedWorkerId dedicated_worker_id,
+      int worker_process_id,
+      content::GlobalFrameRoutingId ancestor_render_frame_host_id) override;
+  void OnBeforeWorkerTerminated(
+      content::DedicatedWorkerId dedicated_worker_id,
+      content::GlobalFrameRoutingId ancestor_render_frame_host_id) override;
+  void OnFinalResponseURLDetermined(
+      content::DedicatedWorkerId dedicated_worker_id,
+      const GURL& url) override;
+
   // content::SharedWorkerService::Observer:
-  void OnWorkerStarted(const content::SharedWorkerInstance& instance,
+  void OnWorkerStarted(content::SharedWorkerId shared_worker_id,
                        int worker_process_id,
                        const base::UnguessableToken& dev_tools_token) override;
   void OnBeforeWorkerTerminated(
-      const content::SharedWorkerInstance& instance) override;
+      content::SharedWorkerId shared_worker_id) override;
+  void OnFinalResponseURLDetermined(content::SharedWorkerId shared_worker_id,
+                                    const GURL& url) override;
   void OnClientAdded(
-      const content::SharedWorkerInstance& instance,
+      content::SharedWorkerId shared_worker_id,
       content::GlobalFrameRoutingId render_frame_host_id) override;
   void OnClientRemoved(
-      const content::SharedWorkerInstance& instance,
+      content::SharedWorkerId shared_worker_id,
       content::GlobalFrameRoutingId render_frame_host_id) override;
+
+  // content::ServiceWorkerContextObserver:
+  void OnVersionStartedRunning(
+      int64_t version_id,
+      const content::ServiceWorkerRunningInfo& running_info) override;
+  void OnVersionStoppedRunning(int64_t version_id) override;
 
  private:
   friend class WorkerWatcherTest;
+
+  void AddClientFrame(
+      WorkerNodeImpl* worker_node,
+      content::GlobalFrameRoutingId client_render_frame_host_id);
+  void RemoveClientFrame(
+      WorkerNodeImpl* worker_node,
+      content::GlobalFrameRoutingId client_render_frame_host_id);
 
   void OnBeforeFrameNodeRemoved(
       content::GlobalFrameRoutingId render_frame_host_id,
@@ -69,17 +98,28 @@ class WorkerWatcher : public content::SharedWorkerService::Observer {
   bool RemoveChildWorker(content::GlobalFrameRoutingId render_frame_host_id,
                          WorkerNodeImpl* child_worker_node);
 
-  // Helper function to retrieve an existing shared worker node.
-  WorkerNodeImpl* GetSharedWorkerNode(
-      const content::SharedWorkerInstance& instance);
+  // Helper functions to retrieve an existing worker node.
+  WorkerNodeImpl* GetDedicatedWorkerNode(
+      content::DedicatedWorkerId dedicated_worker_id);
+  WorkerNodeImpl* GetSharedWorkerNode(content::SharedWorkerId shared_worker_id);
+  WorkerNodeImpl* GetServiceWorkerNode(int64_t version_id);
 
   // The ID of the BrowserContext who owns the shared worker service.
   const std::string browser_context_id_;
 
+  // Observes the DedicatedWorkerService for this browser context.
+  ScopedObserver<content::DedicatedWorkerService,
+                 content::DedicatedWorkerService::Observer>
+      dedicated_worker_service_observer_{this};
+
   // Observes the SharedWorkerService for this browser context.
   ScopedObserver<content::SharedWorkerService,
                  content::SharedWorkerService::Observer>
-      shared_worker_service_observer_;
+      shared_worker_service_observer_{this};
+
+  ScopedObserver<content::ServiceWorkerContext,
+                 content::ServiceWorkerContextObserver>
+      service_worker_context_observer_{this};
 
   // Used to retrieve an existing process node from its render process ID.
   ProcessNodeSource* const process_node_source_;
@@ -88,9 +128,17 @@ class WorkerWatcher : public content::SharedWorkerService::Observer {
   // frame ID. Also allows to subscribe to a frame's deletion notification.
   FrameNodeSource* const frame_node_source_;
 
-  // Maps each SharedWorkerInstance to its worker node.
-  base::flat_map<content::SharedWorkerInstance, std::unique_ptr<WorkerNodeImpl>>
+  // Maps each dedicated worker ID to its worker node.
+  base::flat_map<content::DedicatedWorkerId, std::unique_ptr<WorkerNodeImpl>>
+      dedicated_worker_nodes_;
+
+  // Maps each shared worker ID to its worker node.
+  base::flat_map<content::SharedWorkerId, std::unique_ptr<WorkerNodeImpl>>
       shared_worker_nodes_;
+
+  // Maps each service worker version ID to its worker node.
+  base::flat_map<int64_t /*version_id*/, std::unique_ptr<WorkerNodeImpl>>
+      service_worker_nodes_;
 
   // Maps each frame to the shared workers that this frame is a client of. This
   // is used when a frame is torn down before the OnBeforeWorkerTerminated() is

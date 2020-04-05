@@ -6,7 +6,6 @@
 
 #include <memory>
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/blink/public/platform/web_prerendering_support.h"
 #include "third_party/blink/renderer/core/html/html_document.h"
 #include "third_party/blink/renderer/core/html/parser/text_resource_decoder.h"
 #include "third_party/blink/renderer/core/loader/prerenderer_client.h"
@@ -24,25 +23,9 @@ class MockPrerendererClient : public PrerendererClient {
       : PrerendererClient(page, nullptr), is_prefetch_only_(is_prefetch_only) {}
 
  private:
-  void WillAddPrerender(Prerender*) override {}
   bool IsPrefetchOnly() override { return is_prefetch_only_; }
 
   bool is_prefetch_only_;
-};
-
-class MockWebPrerenderingSupport : public WebPrerenderingSupport {
- public:
-  MockWebPrerenderingSupport() { Initialize(this); }
-
-  void Add(const WebPrerender&) override {}
-  void Cancel(const WebPrerender&) override {}
-  void Abandon(const WebPrerender&) override {}
-  void PrefetchFinished() override { prefetch_finished_ = true; }
-
-  bool IsPrefetchFinished() const { return prefetch_finished_; }
-
- private:
-  bool prefetch_finished_ = false;
 };
 
 class HTMLDocumentParserTest : public PageTestBase {
@@ -60,13 +43,6 @@ class HTMLDocumentParserTest : public PageTestBase {
     parser->SetDecoder(std::move(decoder));
     return parser;
   }
-
-  bool PrefetchFinishedCleanly() {
-    return prerendering_support_.IsPrefetchFinished();
-  }
-
- private:
-  MockWebPrerenderingSupport prerendering_support_;
 };
 
 }  // namespace
@@ -90,7 +66,6 @@ TEST_F(HTMLDocumentParserTest, AppendPrefetch) {
   // DCHECK).
   static_cast<DocumentParser*>(parser)->Finish();
   EXPECT_EQ(HTMLTokenizer::kDataState, parser->Tokenizer()->GetState());
-  EXPECT_TRUE(PrefetchFinishedCleanly());
 }
 
 TEST_F(HTMLDocumentParserTest, AppendNoPrefetch) {

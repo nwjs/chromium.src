@@ -137,6 +137,12 @@ NET_EXPORT extern const base::Feature
 NET_EXPORT extern const base::FeatureParam<int>
     kRecentCreationTimeGrantsLegacyCookieSemanticsMilliseconds;
 
+// When enabled, blocks external requests coming from non-secure contexts. An
+// external request is a request that crosses a network boundary from a more
+// public address space into a less public address space.
+NET_EXPORT extern const base::Feature
+    kBlockExternalRequestsFromNonSecureInitiators;
+
 #if BUILDFLAG(BUILTIN_CERT_VERIFIER_FEATURE_SUPPORTED)
 // When enabled, use the builtin cert verifier instead of the platform verifier.
 NET_EXPORT extern const base::Feature kCertVerifierBuiltinFeature;
@@ -155,6 +161,15 @@ NET_EXPORT extern const base::Feature kTurnOffStreamingMediaCaching;
 // ERR_SSL_OBSOLETE_VERSION error. This is used to trigger an interstitial
 // warning for these pages.
 NET_EXPORT extern const base::Feature kLegacyTLSEnforced;
+
+// When enabled this feature will cause same-site calculations to take into
+// account the scheme of the site-for-cookies and the request/response url.
+NET_EXPORT extern const base::Feature kSchemefulSameSite;
+
+// When enabled, TLS connections will initially not offer 3DES and SHA-1 but
+// enable them on fallback. This is used to improve metrics around usage of
+// those algorithms. If disabled, the algorithms will always be offered.
+NET_EXPORT extern const base::Feature kTLSLegacyCryptoFallbackForMetrics;
 
 }  // namespace features
 }  // namespace net

@@ -63,7 +63,8 @@ const LockStateBehaviorImpl = {
 
   /** @override */
   attached() {
-    this.boundOnActiveModesChanged_ = this.updateUnlockType.bind(this);
+    this.boundOnActiveModesChanged_ =
+        this.updateUnlockType.bind(this, /*activeModesChanged=*/ true);
     this.quickUnlockPrivate.onActiveModesChanged.addListener(
         this.boundOnActiveModesChanged_);
 
@@ -77,7 +78,7 @@ const LockStateBehaviorImpl = {
       this.hasPinLogin = cachedHasPinLogin;
     }
 
-    this.updateUnlockType();
+    this.updateUnlockType(/*activeModesChanged=*/ false);
   },
 
   /** @override */
@@ -90,20 +91,45 @@ const LockStateBehaviorImpl = {
    * Updates the selected unlock type radio group. This function will get called
    * after preferences are initialized, after the quick unlock mode has been
    * changed, and after the lockscreen preference has changed.
+   *
+   * @param {boolean} activeModesChanged If the function is called because
+   *     active modes have changed.
    */
-  updateUnlockType() {
+  updateUnlockType(activeModesChanged) {
     this.quickUnlockPrivate.getActiveModes(modes => {
       if (modes.includes(chrome.quickUnlockPrivate.QuickUnlockMode.PIN)) {
         this.hasPin = true;
         this.selectedUnlockType = LockScreenUnlockType.PIN_PASSWORD;
       } else {
+        // A race condition can occur:
+        // (1) User selects PIN_PASSSWORD, and successfully sets a pin, adding
+        //     QuickUnlockMode.PIN to active modes.
+        // (2) User selects PASSWORD, QuickUnlockMode.PIN capability is cleared
+        //     from the active modes, notifying LockStateBehavior to call
+        //     updateUnlockType to fetch the active modes asynchronously.
+        // (3) User selects PIN_PASSWORD, but the process from step 2 has
+        //     not yet completed.
+        // In this case, do not forcibly select the PASSWORD radio button even
+        // though the unlock type is still PASSWORD (|hasPin| is false). If the
+        // user wishes to set a pin, they will have to click the set pin button.
+        // See https://crbug.com/1054327 for details.
+        if (activeModesChanged && !this.hasPin &&
+            this.selectedUnlockType == LockScreenUnlockType.PIN_PASSWORD) {
+          return;
+        }
         this.hasPin = false;
         this.selectedUnlockType = LockScreenUnlockType.PASSWORD;
       }
     });
   },
 
-  /** Sets the lock screen enabled state. */
+  /**
+   * Sets the lock screen enabled state.
+   * @param {string} authToken The token returned by
+   *                           QuickUnlockPrivate.getAuthToken
+   * @param {boolean} enabled
+   * @see quickUnlockPrivate.setLockScreenEnabled
+   */
   setLockScreenEnabled(authToken, enabled) {
     this.quickUnlockPrivate.setLockScreenEnabled(authToken, enabled);
   },

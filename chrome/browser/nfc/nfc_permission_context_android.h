@@ -5,8 +5,8 @@
 #ifndef CHROME_BROWSER_NFC_NFC_PERMISSION_CONTEXT_ANDROID_H_
 #define CHROME_BROWSER_NFC_NFC_PERMISSION_CONTEXT_ANDROID_H_
 
-#include "chrome/browser/android/nfc_system_level_setting.h"
 #include "chrome/browser/nfc/nfc_permission_context.h"
+#include "components/permissions/android/nfc/nfc_system_level_setting.h"
 
 namespace permissions {
 class PermissionRequestID;
@@ -14,7 +14,8 @@ class PermissionRequestID;
 
 class NfcPermissionContextAndroid : public NfcPermissionContext {
  public:
-  explicit NfcPermissionContextAndroid(Profile* profile);
+  explicit NfcPermissionContextAndroid(
+      content::BrowserContext* browser_context);
   ~NfcPermissionContextAndroid() override;
 
  private:
@@ -25,7 +26,7 @@ class NfcPermissionContextAndroid : public NfcPermissionContext {
   void NotifyPermissionSet(const permissions::PermissionRequestID& id,
                            const GURL& requesting_origin,
                            const GURL& embedding_origin,
-                           BrowserPermissionCallback callback,
+                           permissions::BrowserPermissionCallback callback,
                            bool persist,
                            ContentSetting content_setting) override;
 
@@ -33,18 +34,19 @@ class NfcPermissionContextAndroid : public NfcPermissionContext {
       const permissions::PermissionRequestID& id,
       const GURL& requesting_origin,
       const GURL& embedding_origin,
-      BrowserPermissionCallback callback,
+      permissions::BrowserPermissionCallback callback,
       bool persist,
       ContentSetting content_setting);
 
   // Overrides the NfcSystemLevelSetting object used to determine whether NFC is
   // enabled system-wide on the device.
   void set_nfc_system_level_setting_for_testing(
-      std::unique_ptr<NfcSystemLevelSetting> nfc_system_level_setting) {
+      std::unique_ptr<permissions::NfcSystemLevelSetting>
+          nfc_system_level_setting) {
     nfc_system_level_setting_ = std::move(nfc_system_level_setting);
   }
 
-  std::unique_ptr<NfcSystemLevelSetting> nfc_system_level_setting_;
+  std::unique_ptr<permissions::NfcSystemLevelSetting> nfc_system_level_setting_;
 
   base::WeakPtrFactory<NfcPermissionContextAndroid> weak_factory_{this};
 };

@@ -76,14 +76,11 @@ NGPhysicalBoxFragment::NGPhysicalBoxFragment(
     const NGPhysicalBoxStrut& borders,
     const NGPhysicalBoxStrut& padding,
     WritingMode block_or_line_writing_mode)
-    : NGPhysicalContainerFragment(
-          builder,
-          block_or_line_writing_mode,
-          children_,
-          (builder->node_ && builder->node_.IsRenderedLegend())
-              ? kFragmentRenderedLegend
-              : kFragmentBox,
-          builder->BoxType()) {
+    : NGPhysicalContainerFragment(builder,
+                                  block_or_line_writing_mode,
+                                  children_,
+                                  kFragmentBox,
+                                  builder->BoxType()) {
   DCHECK(layout_object_);
   DCHECK(layout_object_->IsBoxModelObject());
   if (NGFragmentItemsBuilder* items_builder = builder->ItemsBuilder()) {
@@ -101,16 +98,14 @@ NGPhysicalBoxFragment::NGPhysicalBoxFragment(
   has_padding_ = !padding.IsZero();
   if (has_padding_)
     *const_cast<NGPhysicalBoxStrut*>(ComputePaddingAddress()) = padding;
-  // consumed_block_size_ is only updated if we're in block
-  // fragmentation. Otherwise it will always be 0.
-  is_first_for_node_ =
-      builder->consumed_block_size_ <= builder->size_.block_size;
+  is_first_for_node_ = builder->is_first_for_node_;
   is_fieldset_container_ = builder->is_fieldset_container_;
   is_legacy_layout_root_ = builder->is_legacy_layout_root_;
   is_painted_atomically_ =
       builder->space_ && builder->space_->IsPaintedAtomically();
   border_edge_ = builder->border_edges_.ToPhysical(builder->GetWritingMode());
-  children_inline_ = layout_object_->ChildrenInline();
+  is_inline_formatting_context_ = builder->is_inline_formatting_context_;
+  is_generated_text_or_math_fraction_ = builder->is_math_fraction_;
 
   bool has_layout_containment = layout_object_->ShouldApplyLayoutContainment();
   if (builder->baseline_.has_value() && !has_layout_containment) {
@@ -127,6 +122,10 @@ NGPhysicalBoxFragment::NGPhysicalBoxFragment(
     has_last_baseline_ = false;
     last_baseline_ = LayoutUnit::Min();
   }
+
+#if DCHECK_IS_ON()
+  CheckIntegrity();
+#endif
 }
 
 scoped_refptr<const NGLayoutResult>
@@ -270,7 +269,7 @@ PhysicalRect NGPhysicalBoxFragment::ScrollableOverflowFromChildren() const {
       const NGPhysicalLineBoxFragment* line_box = child.LineBoxFragment();
       DCHECK(line_box);
       PhysicalRect child_scrollable_overflow =
-          line_box->ScrollableOverflow(container, style, child, cursor);
+          line_box->ScrollableOverflowForLine(container, style, child, cursor);
       AddChild(child_scrollable_overflow);
     }
 
@@ -320,8 +319,7 @@ PhysicalRect NGPhysicalBoxFragment::ScrollableOverflowFromChildren() const {
   }
 
   // Traverse child fragments.
-  const bool children_inline = ChildrenInline();
-  DCHECK_EQ(children_inline, GetLayoutObject()->ChildrenInline());
+  const bool children_inline = IsInlineFormattingContext();
   // Only add overflow for fragments NG has not reflected into Legacy.
   // These fragments are:
   // - inline fragments,
@@ -490,7 +488,7 @@ void NGPhysicalBoxFragment::CheckSameForSimplifiedLayout(
   DCHECK_EQ(depends_on_percentage_block_size_,
             other.depends_on_percentage_block_size_);
 
-  DCHECK_EQ(children_inline_, other.children_inline_);
+  DCHECK_EQ(is_inline_formatting_context_, other.is_inline_formatting_context_);
   DCHECK_EQ(is_fieldset_container_, other.is_fieldset_container_);
   DCHECK_EQ(is_legacy_layout_root_, other.is_legacy_layout_root_);
   DCHECK_EQ(is_painted_atomically_, other.is_painted_atomically_);
@@ -506,6 +504,58 @@ void NGPhysicalBoxFragment::CheckSameForSimplifiedLayout(
   DCHECK(IsLegacyLayoutRoot() || LastBaseline() == other.LastBaseline());
   DCHECK(Borders() == other.Borders());
   DCHECK(Padding() == other.Padding());
+}
+
+// Check our flags represent the actual children correctly.
+void NGPhysicalBoxFragment::CheckIntegrity() const {
+  bool has_inflow_blocks = false;
+  bool has_inlines = false;
+  bool has_line_boxes = false;
+  bool has_floats = false;
+  bool has_list_markers = false;
+
+  for (const NGLink& child : Children()) {
+    if (child->IsFloating())
+      has_floats = true;
+    else if (child->IsOutOfFlowPositioned())
+      ;  // OOF can be in the fragment tree regardless of |HasItems|.
+    else if (child->IsLineBox())
+      has_line_boxes = true;
+    else if (child->IsListMarker())
+      has_list_markers = true;
+    else if (child->IsInline())
+      has_inlines = true;
+    else
+      has_inflow_blocks = true;
+  }
+
+  // If we have line boxes, |IsInlineFormattingContext()| is true, but the
+  // reverse is not always true.
+  if (has_line_boxes || has_inlines)
+    DCHECK(IsInlineFormattingContext());
+
+  // If display-locked, we may not have any children.
+  DCHECK(layout_object_);
+  if (layout_object_ && layout_object_->PaintBlockedByDisplayLock(
+                            DisplayLockLifecycleTarget::kChildren))
+    return;
+
+  if (RuntimeEnabledFeatures::LayoutNGFragmentItemEnabled()) {
+    if (RuntimeEnabledFeatures::LayoutNGBlockFragmentationEnabled()) {
+      if (has_line_boxes)
+        DCHECK(HasItems());
+    } else {
+      DCHECK_EQ(HasItems(), has_line_boxes);
+    }
+
+    if (has_line_boxes) {
+      DCHECK(!has_inlines);
+      DCHECK(!has_inflow_blocks);
+      // Following objects should be in the items, not in the tree.
+      DCHECK(!has_floats);
+      DCHECK(!has_list_markers);
+    }
+  }
 }
 #endif
 

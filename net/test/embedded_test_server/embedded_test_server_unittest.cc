@@ -82,10 +82,12 @@ class TestConnectionListener
 
   // Get called from the EmbeddedTestServer thread to be notified that
   // a connection was accepted.
-  void AcceptedSocket(const net::StreamSocket& connection) override {
+  std::unique_ptr<StreamSocket> AcceptedSocket(
+      std::unique_ptr<StreamSocket> connection) override {
     base::AutoLock lock(lock_);
     ++socket_accepted_count_;
     accept_loop_.Quit();
+    return connection;
   }
 
   // Get called from the EmbeddedTestServer thread to be notified that
@@ -418,8 +420,8 @@ class InfiniteResponse : public BasicHttpResponse {
   void SendResponse(const SendBytesCallback& send,
                     SendCompleteCallback done) override {
     send.Run(ToResponseString(),
-             base::Bind(&InfiniteResponse::SendInfinite,
-                        weak_ptr_factory_.GetWeakPtr(), send));
+             base::BindOnce(&InfiniteResponse::SendInfinite,
+                            weak_ptr_factory_.GetWeakPtr(), send));
   }
 
  private:
@@ -427,8 +429,8 @@ class InfiniteResponse : public BasicHttpResponse {
     base::ThreadTaskRunnerHandle::Get()->PostTask(
         FROM_HERE,
         base::BindOnce(send, "echo",
-                       base::Bind(&InfiniteResponse::SendInfinite,
-                                  weak_ptr_factory_.GetWeakPtr(), send)));
+                       base::BindOnce(&InfiniteResponse::SendInfinite,
+                                      weak_ptr_factory_.GetWeakPtr(), send)));
   }
 
   base::WeakPtrFactory<InfiniteResponse> weak_ptr_factory_{this};

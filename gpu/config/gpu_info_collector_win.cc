@@ -14,6 +14,7 @@
 #include <windows.h>
 
 #include <d3d11.h>
+#include <d3d11_3.h>
 #include <d3d12.h>
 #include <dxgi.h>
 #include <wrl/client.h>
@@ -33,6 +34,7 @@
 #include "build/branding_buildflags.h"
 #include "gpu/config/gpu_util.h"
 #include "third_party/vulkan/include/vulkan/vulkan.h"
+#include "ui/gl/direct_composition_surface_win.h"
 
 namespace gpu {
 
@@ -40,7 +42,8 @@ namespace {
 
 // These values are persisted to logs. Entries should not be renumbered and
 // numeric values should never be reused.
-// This should match enum D3DFeatureLevel in \tools\metrics\histograms\enums.xml
+// This should match enum D3D12FeatureLevel in
+// \tools\metrics\histograms\enums.xml
 enum class D3D12FeatureLevel {
   kD3DFeatureLevelUnknown = 0,
   kD3DFeatureLevel_12_0 = 1,
@@ -69,6 +72,14 @@ inline D3D12FeatureLevel ConvertToHistogramFeatureLevel(
   }
 }
 
+OverlaySupport FlagsToOverlaySupport(UINT flags) {
+  if (flags & DXGI_OVERLAY_SUPPORT_FLAG_SCALING)
+    return OverlaySupport::kScaling;
+  if (flags & DXGI_OVERLAY_SUPPORT_FLAG_DIRECT)
+    return OverlaySupport::kDirect;
+  return OverlaySupport::kNone;
+}
+
 }  // namespace
 
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING) && defined(OFFICIAL_BUILD)
@@ -84,6 +95,26 @@ bool GetAMDSwitchableInfo(bool* is_switchable,
   return false;
 }
 #endif
+
+// This has to be called after a context is created, active GPU is identified,
+// and GPU driver bug workarounds are computed again. Otherwise the workaround
+// |disable_direct_composition| may not be correctly applied.
+// Also, this has to be called after falling back to SwiftShader decision is
+// finalized because this function depends on GL is ANGLE's GLES or not.
+void CollectHardwareOverlayInfo(OverlayInfo* overlay_info) {
+  if (gl::GetGLImplementation() == gl::kGLImplementationEGLANGLE) {
+    overlay_info->direct_composition =
+        gl::DirectCompositionSurfaceWin::IsDirectCompositionSupported();
+    overlay_info->supports_overlays =
+        gl::DirectCompositionSurfaceWin::AreOverlaysSupported();
+    overlay_info->nv12_overlay_support = FlagsToOverlaySupport(
+        gl::DirectCompositionSurfaceWin::GetOverlaySupportFlags(
+            DXGI_FORMAT_NV12));
+    overlay_info->yuy2_overlay_support = FlagsToOverlaySupport(
+        gl::DirectCompositionSurfaceWin::GetOverlaySupportFlags(
+            DXGI_FORMAT_YUY2));
+  }
+}
 
 bool CollectDriverInfoD3D(GPUInfo* gpu_info) {
   TRACE_EVENT0("gpu", "CollectDriverInfoD3D");
@@ -168,11 +199,10 @@ void GetGpuSupportedD3D12Version(Dx12VulkanVersionInfo* info) {
   info->supports_dx12 = false;
   info->d3d12_feature_level = 0;
 
-  base::NativeLibrary d3d12_library =
-      base::LoadNativeLibrary(base::FilePath(L"d3d12.dll"), nullptr);
-  if (!d3d12_library) {
+  base::ScopedNativeLibrary d3d12_library(
+      base::FilePath(FILE_PATH_LITERAL("d3d12.dll")));
+  if (!d3d12_library.is_valid())
     return;
-  }
 
   // The order of feature levels to attempt to create in D3D CreateDevice
   const D3D_FEATURE_LEVEL feature_levels[] = {
@@ -181,7 +211,7 @@ void GetGpuSupportedD3D12Version(Dx12VulkanVersionInfo* info) {
 
   PFN_D3D12_CREATE_DEVICE D3D12CreateDevice =
       reinterpret_cast<PFN_D3D12_CREATE_DEVICE>(
-          GetProcAddress(d3d12_library, "D3D12CreateDevice"));
+          d3d12_library.GetFunctionPointer("D3D12CreateDevice"));
   if (D3D12CreateDevice) {
     // For the default adapter only. (*pAdapter == nullptr)
     // Check to see if the adapter supports Direct3D 12, but don't create the
@@ -195,8 +225,6 @@ void GetGpuSupportedD3D12Version(Dx12VulkanVersionInfo* info) {
       }
     }
   }
-
-  base::UnloadNativeLibrary(d3d12_library);
 }
 
 bool BadAMDVulkanDriverVersion() {
@@ -270,19 +298,21 @@ bool InitVulkan(base::NativeLibrary* vulkan_library,
       return true;
     }
   }
-  base::UnloadNativeLibrary(*vulkan_library);
+
+  // From the crash reports, unloading the library here might cause a crash in
+  // the Vulkan loader or in the Vulkan driver. To work around it, don't
+  // explicitly unload the DLL. Instead, GPU process shutdown will unload all
+  // loaded DLLs.
+  // base::UnloadNativeLibrary(*vulkan_library);
   return false;
 }
 
 bool InitVulkanInstanceProc(
     const VkInstance& vk_instance,
     const PFN_vkGetInstanceProcAddr& vkGetInstanceProcAddr,
-    PFN_vkDestroyInstance* vkDestroyInstance,
     PFN_vkEnumeratePhysicalDevices* vkEnumeratePhysicalDevices,
     PFN_vkEnumerateDeviceExtensionProperties*
         vkEnumerateDeviceExtensionProperties) {
-  *vkDestroyInstance = reinterpret_cast<PFN_vkDestroyInstance>(
-      vkGetInstanceProcAddr(vk_instance, "vkDestroyInstance"));
 
   *vkEnumeratePhysicalDevices =
       reinterpret_cast<PFN_vkEnumeratePhysicalDevices>(
@@ -293,7 +323,7 @@ bool InitVulkanInstanceProc(
           vkGetInstanceProcAddr(vk_instance,
                                 "vkEnumerateDeviceExtensionProperties"));
 
-  if ((*vkDestroyInstance) && (*vkEnumeratePhysicalDevices) &&
+  if ((*vkEnumeratePhysicalDevices) &&
       (*vkEnumerateDeviceExtensionProperties)) {
     return true;
   }
@@ -311,7 +341,6 @@ void GetGpuSupportedVulkanVersionAndExtensions(
   PFN_vkCreateInstance vkCreateInstance;
   PFN_vkEnumeratePhysicalDevices vkEnumeratePhysicalDevices;
   PFN_vkEnumerateDeviceExtensionProperties vkEnumerateDeviceExtensionProperties;
-  PFN_vkDestroyInstance vkDestroyInstance;
   VkInstance vk_instance = VK_NULL_HANDLE;
   uint32_t physical_device_count = 0;
   info->supports_vulkan = false;
@@ -341,12 +370,12 @@ void GetGpuSupportedVulkanVersionAndExtensions(
   create_info.pApplicationInfo = &app_info;
 
   // Get the Vulkan API version supported in the GPU driver
-  for (int minor_version = 1; minor_version >= 0; --minor_version) {
+  for (int minor_version = 2; minor_version >= 0; --minor_version) {
     app_info.apiVersion = VK_MAKE_VERSION(1, minor_version, 0);
     VkResult result = vkCreateInstance(&create_info, nullptr, &vk_instance);
     if (result == VK_SUCCESS && vk_instance &&
         InitVulkanInstanceProc(vk_instance, vkGetInstanceProcAddr,
-                               &vkDestroyInstance, &vkEnumeratePhysicalDevices,
+                               &vkEnumeratePhysicalDevices,
                                &vkEnumerateDeviceExtensionProperties)) {
       result = vkEnumeratePhysicalDevices(vk_instance, &physical_device_count,
                                           nullptr);
@@ -355,7 +384,8 @@ void GetGpuSupportedVulkanVersionAndExtensions(
         info->vulkan_version = app_info.apiVersion;
         break;
       } else {
-        vkDestroyInstance(vk_instance, nullptr);
+        // Skip destroy here. GPU process shutdown will unload all loaded DLLs.
+        // vkDestroyInstance(vk_instance, nullptr);
         vk_instance = VK_NULL_HANDLE;
       }
     }
@@ -390,11 +420,14 @@ void GetGpuSupportedVulkanVersionAndExtensions(
     }
   }
 
-  if (vk_instance) {
-    vkDestroyInstance(vk_instance, nullptr);
-  }
-
-  base::UnloadNativeLibrary(vulkan_library);
+  // From the crash reports, calling the following two functions might cause a
+  // crash in the Vulkan loader or in the Vulkan driver. To work around it,
+  // don't explicitly unload the DLL. Instead, GPU process shutdown will unload
+  // all loaded DLLs.
+  // if (vk_instance) {
+  //   vkDestroyInstance(vk_instance, nullptr);
+  // }
+  // base::UnloadNativeLibrary(vulkan_library);
 }
 
 void RecordGpuSupportedRuntimeVersionHistograms(Dx12VulkanVersionInfo* info) {
@@ -423,6 +456,70 @@ void RecordGpuSupportedRuntimeVersionHistograms(Dx12VulkanVersionInfo* info) {
     name.append(vulkan_extensions[i]);
     base::UmaHistogramBoolean(name, extension_support[i]);
   }
+}
+
+bool CollectD3D11FeatureInfo(D3D_FEATURE_LEVEL* d3d11_feature_level,
+                             bool* has_discrete_gpu) {
+  Microsoft::WRL::ComPtr<IDXGIFactory> dxgi_factory;
+  if (FAILED(::CreateDXGIFactory(IID_PPV_ARGS(&dxgi_factory))))
+    return false;
+
+  base::ScopedNativeLibrary d3d11_library(
+      base::FilePath(FILE_PATH_LITERAL("d3d11.dll")));
+  if (!d3d11_library.is_valid())
+    return false;
+  PFN_D3D11_CREATE_DEVICE D3D11CreateDevice =
+      reinterpret_cast<PFN_D3D11_CREATE_DEVICE>(
+          d3d11_library.GetFunctionPointer("D3D11CreateDevice"));
+  if (!D3D11CreateDevice)
+    return false;
+
+  // The order of feature levels to attempt to create in D3D CreateDevice
+  const D3D_FEATURE_LEVEL kFeatureLevels[] = {
+      D3D_FEATURE_LEVEL_12_1, D3D_FEATURE_LEVEL_12_0, D3D_FEATURE_LEVEL_11_1,
+      D3D_FEATURE_LEVEL_11_0, D3D_FEATURE_LEVEL_10_1, D3D_FEATURE_LEVEL_10_0,
+      D3D_FEATURE_LEVEL_9_3,  D3D_FEATURE_LEVEL_9_2,  D3D_FEATURE_LEVEL_9_1};
+
+  bool detected_discrete_gpu = false;
+  D3D_FEATURE_LEVEL max_level = D3D_FEATURE_LEVEL_1_0_CORE;
+  Microsoft::WRL::ComPtr<IDXGIAdapter> dxgi_adapter;
+  for (UINT ii = 0; SUCCEEDED(dxgi_factory->EnumAdapters(ii, &dxgi_adapter));
+       ++ii) {
+    DXGI_ADAPTER_DESC desc;
+    if (SUCCEEDED(dxgi_adapter->GetDesc(&desc)) && desc.VendorId == 0x1414) {
+      // Bypass Microsoft software renderer.
+      continue;
+    }
+    Microsoft::WRL::ComPtr<ID3D11Device> d3d11_device;
+    D3D_FEATURE_LEVEL returned_feature_level = D3D_FEATURE_LEVEL_1_0_CORE;
+    if (FAILED(D3D11CreateDevice(dxgi_adapter.Get(), D3D_DRIVER_TYPE_UNKNOWN,
+                                 /*Software=*/0,
+                                 /*Flags=*/0, kFeatureLevels,
+                                 _countof(kFeatureLevels), D3D11_SDK_VERSION,
+                                 &d3d11_device, &returned_feature_level,
+                                 /*ppImmediateContext=*/nullptr))) {
+      continue;
+    }
+    if (returned_feature_level > max_level)
+      max_level = returned_feature_level;
+    Microsoft::WRL::ComPtr<ID3D11Device3> d3d11_device_3;
+    if (FAILED(d3d11_device.As(&d3d11_device_3)))
+      continue;
+    D3D11_FEATURE_DATA_D3D11_OPTIONS2 data = {};
+    if (FAILED(d3d11_device_3->CheckFeatureSupport(D3D11_FEATURE_D3D11_OPTIONS2,
+                                                   &data, sizeof(data)))) {
+      continue;
+    }
+    if (!data.UnifiedMemoryArchitecture)
+      detected_discrete_gpu = true;
+  }
+
+  if (max_level > D3D_FEATURE_LEVEL_1_0_CORE) {
+    *d3d11_feature_level = max_level;
+    *has_discrete_gpu = detected_discrete_gpu;
+    return true;
+  }
+  return false;
 }
 
 bool CollectContextGraphicsInfo(GPUInfo* gpu_info) {

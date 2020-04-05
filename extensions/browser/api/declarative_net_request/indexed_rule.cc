@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <utility>
 
+#include "base/metrics/histogram_macros.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/stl_util.h"
 #include "base/strings/string_number_conversions.h"
@@ -16,6 +17,7 @@
 #include "extensions/browser/api/declarative_net_request/utils.h"
 #include "extensions/common/api/declarative_net_request.h"
 #include "extensions/common/api/declarative_net_request/utils.h"
+#include "net/http/http_util.h"
 #include "third_party/re2/src/re2/re2.h"
 #include "url/gurl.h"
 #include "url/url_constants.h"
@@ -387,6 +389,7 @@ bool DoesActionSupportPriority(dnr_api::RuleActionType type) {
     case dnr_api::RULE_ACTION_TYPE_ALLOW:
     case dnr_api::RULE_ACTION_TYPE_UPGRADESCHEME:
     case dnr_api::RULE_ACTION_TYPE_ALLOWALLREQUESTS:
+    case dnr_api::RULE_ACTION_TYPE_MODIFYHEADERS:
       return true;
     case dnr_api::RULE_ACTION_TYPE_REMOVEHEADERS:
       return false;
@@ -410,12 +413,33 @@ uint8_t GetActionTypePriority(dnr_api::RuleActionType action_type) {
     case dnr_api::RULE_ACTION_TYPE_REDIRECT:
       return 1;
     case dnr_api::RULE_ACTION_TYPE_REMOVEHEADERS:
+    case dnr_api::RULE_ACTION_TYPE_MODIFYHEADERS:
       return 0;
     case dnr_api::RULE_ACTION_TYPE_NONE:
       break;
   }
   NOTREACHED();
   return 0;
+}
+
+void RecordLargeRegexUMA(bool is_large_regex) {
+  UMA_HISTOGRAM_BOOLEAN(kIsLargeRegexHistogram, is_large_regex);
+}
+
+ParseResult ValidateHeaders(
+    const std::vector<dnr_api::ModifyHeaderInfo>& headers,
+    bool are_request_headers) {
+  if (headers.empty()) {
+    return are_request_headers ? ParseResult::ERROR_EMPTY_REQUEST_HEADERS_LIST
+                               : ParseResult::ERROR_EMPTY_RESPONSE_HEADERS_LIST;
+  }
+
+  for (const auto& header_info : headers) {
+    if (!net::HttpUtil::IsValidHeaderName(header_info.header))
+      return ParseResult::ERROR_INVALID_HEADER_NAME;
+  }
+
+  return ParseResult::SUCCESS;
 }
 
 }  // namespace
@@ -467,8 +491,6 @@ ParseResult IndexedRule::CreateIndexedRule(dnr_api::Rule parsed_rule,
   if (parsed_rule.condition.url_filter && parsed_rule.condition.regex_filter)
     return ParseResult::ERROR_MULTIPLE_FILTERS_SPECIFIED;
 
-  // TODO(crbug.com/974391): Implement limits on the number of regex rules an
-  // extension can specify.
   const bool is_regex_rule = !!parsed_rule.condition.regex_filter;
 
   if (!is_regex_rule && indexed_rule->regex_substitution)
@@ -490,6 +512,11 @@ ParseResult IndexedRule::CreateIndexedRule(dnr_api::Rule parsed_rule,
         *parsed_rule.condition.regex_filter,
         CreateRE2Options(IsCaseSensitive(parsed_rule), require_capturing));
 
+    if (regex.error_code() == re2::RE2::ErrorPatternTooLarge) {
+      RecordLargeRegexUMA(true);
+      return ParseResult::ERROR_REGEX_TOO_LARGE;
+    }
+
     if (!regex.ok())
       return ParseResult::ERROR_INVALID_REGEX_FILTER;
 
@@ -498,6 +525,8 @@ ParseResult IndexedRule::CreateIndexedRule(dnr_api::Rule parsed_rule,
         !regex.CheckRewriteString(*indexed_rule->regex_substitution, &error)) {
       return ParseResult::ERROR_INVALID_REGEX_SUBSTITUTION;
     }
+
+    RecordLargeRegexUMA(false);
   }
 
   if (parsed_rule.condition.url_filter) {
@@ -566,6 +595,32 @@ ParseResult IndexedRule::CreateIndexedRule(dnr_api::Rule parsed_rule,
     indexed_rule->remove_headers_set.insert(
         parsed_rule.action.remove_headers_list->begin(),
         parsed_rule.action.remove_headers_list->end());
+  }
+
+  if (parsed_rule.action.type == dnr_api::RULE_ACTION_TYPE_MODIFYHEADERS) {
+    if (!parsed_rule.action.request_headers &&
+        !parsed_rule.action.response_headers)
+      return ParseResult::ERROR_NO_HEADERS_SPECIFIED;
+
+    if (parsed_rule.action.request_headers) {
+      indexed_rule->request_headers =
+          std::move(*parsed_rule.action.request_headers);
+
+      ParseResult result = ValidateHeaders(indexed_rule->request_headers,
+                                           true /* are_request_headers */);
+      if (result != ParseResult::SUCCESS)
+        return result;
+    }
+
+    if (parsed_rule.action.response_headers) {
+      indexed_rule->response_headers =
+          std::move(*parsed_rule.action.response_headers);
+
+      ParseResult result = ValidateHeaders(indexed_rule->response_headers,
+                                           false /* are_request_headers */);
+      if (result != ParseResult::SUCCESS)
+        return result;
+    }
   }
 
   // Some sanity checks to ensure we return a valid IndexedRule.

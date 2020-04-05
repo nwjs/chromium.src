@@ -2,6 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+// clang-format off
+// #import {CrSettingsPrefs, pageVisibility, Router, routes, SearchRequest, setSearchManagerForTesting} from 'chrome://settings/settings.js'
+// #import {eventToPromise, whenAttributeIs} from 'chrome://test/test_util.m.js';
+// #import {flush} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
+// #import {loadTimeData} from 'chrome://resources/js/load_time_data.m.js';
+// #import {TestBrowserProxy} from 'chrome://test/test_browser_proxy.m.js';
+// clang-format on
+
 cr.define('settings_main_page', function() {
   /**
    * Extending TestBrowserProxy even though SearchManager is not a browser proxy
@@ -350,25 +358,6 @@ cr.define('settings_main_page', function() {
       return assertPageVisibility('block', 'block');
     });
 
-    test('verify showChangePassword value', function() {
-      settings.Router.getInstance().navigateTo(settings.routes.BASIC);
-      Polymer.dom.flush();
-      const basicPage = settingsMain.$$('settings-basic-page');
-      assertTrue(!!basicPage);
-      assertFalse(basicPage.showChangePassword);
-      assertFalse(!!basicPage.$$('settings-change-password-page'));
-
-      cr.webUIListenerCallback('change-password-visibility', true);
-      Polymer.dom.flush();
-      assertTrue(basicPage.showChangePassword);
-      assertTrue(!!basicPage.$$('settings-change-password-page'));
-
-      cr.webUIListenerCallback('change-password-visibility', false);
-      Polymer.dom.flush();
-      assertFalse(basicPage.showChangePassword);
-      assertFalse(!!basicPage.$$('settings-change-password-page'));
-    });
-
     test('updates the title based on current route', function() {
       settings.Router.getInstance().navigateTo(settings.routes.BASIC);
       assertEquals(document.title, loadTimeData.getString('settings'));
@@ -381,4 +370,5 @@ cr.define('settings_main_page', function() {
               loadTimeData.getString('aboutPageTitle')));
     });
   });
+  // #cr_define_end
 });

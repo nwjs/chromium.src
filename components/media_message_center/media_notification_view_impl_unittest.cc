@@ -7,6 +7,7 @@
 #include <memory>
 
 #include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/containers/flat_set.h"
 #include "base/macros.h"
 #include "base/strings/utf_string_conversions.h"
@@ -79,7 +80,9 @@ class MockMediaNotificationController : public MediaNotificationController {
   scoped_refptr<base::SequencedTaskRunner> GetTaskRunner() const override {
     return nullptr;
   }
-  MOCK_METHOD1(LogMediaSessionActionButtonPressed, void(const std::string& id));
+  MOCK_METHOD2(LogMediaSessionActionButtonPressed,
+               void(const std::string& id,
+                    media_session::mojom::MediaSessionAction action));
 
  private:
   DISALLOW_COPY_AND_ASSIGN(MockMediaNotificationController);
@@ -303,8 +306,7 @@ class MediaNotificationViewImplTest : public views::ViewsTestBase {
   }
 
   void AdvanceClockMilliseconds(int milliseconds) {
-    ASSERT_TRUE(task_environment_.has_value());
-    task_environment_->FastForwardBy(
+    task_environment()->FastForwardBy(
         base::TimeDelta::FromMilliseconds(milliseconds));
   }
 
@@ -448,7 +450,8 @@ TEST_F(MAYBE_MediaNotificationViewImplTest, PlayPauseButtonTooltipCheck) {
 }
 
 TEST_F(MAYBE_MediaNotificationViewImplTest, NextTrackButtonClick) {
-  EXPECT_CALL(controller(), LogMediaSessionActionButtonPressed(_));
+  EXPECT_CALL(controller(), LogMediaSessionActionButtonPressed(
+                                _, MediaSessionAction::kNextTrack));
   EnableAction(MediaSessionAction::kNextTrack);
 
   EXPECT_EQ(0, media_controller()->next_track_count());
@@ -461,7 +464,8 @@ TEST_F(MAYBE_MediaNotificationViewImplTest, NextTrackButtonClick) {
 }
 
 TEST_F(MAYBE_MediaNotificationViewImplTest, PlayButtonClick) {
-  EXPECT_CALL(controller(), LogMediaSessionActionButtonPressed(_));
+  EXPECT_CALL(controller(),
+              LogMediaSessionActionButtonPressed(_, MediaSessionAction::kPlay));
   EnableAction(MediaSessionAction::kPlay);
 
   EXPECT_EQ(0, media_controller()->resume_count());
@@ -474,7 +478,8 @@ TEST_F(MAYBE_MediaNotificationViewImplTest, PlayButtonClick) {
 }
 
 TEST_F(MAYBE_MediaNotificationViewImplTest, PauseButtonClick) {
-  EXPECT_CALL(controller(), LogMediaSessionActionButtonPressed(_));
+  EXPECT_CALL(controller(), LogMediaSessionActionButtonPressed(
+                                _, MediaSessionAction::kPause));
   EnableAction(MediaSessionAction::kPause);
   EXPECT_CALL(container(), OnMediaSessionInfoChanged(_));
 
@@ -495,7 +500,8 @@ TEST_F(MAYBE_MediaNotificationViewImplTest, PauseButtonClick) {
 }
 
 TEST_F(MAYBE_MediaNotificationViewImplTest, PreviousTrackButtonClick) {
-  EXPECT_CALL(controller(), LogMediaSessionActionButtonPressed(_));
+  EXPECT_CALL(controller(), LogMediaSessionActionButtonPressed(
+                                _, MediaSessionAction::kPreviousTrack));
   EnableAction(MediaSessionAction::kPreviousTrack);
 
   EXPECT_EQ(0, media_controller()->previous_track_count());
@@ -508,7 +514,8 @@ TEST_F(MAYBE_MediaNotificationViewImplTest, PreviousTrackButtonClick) {
 }
 
 TEST_F(MAYBE_MediaNotificationViewImplTest, SeekBackwardButtonClick) {
-  EXPECT_CALL(controller(), LogMediaSessionActionButtonPressed(_));
+  EXPECT_CALL(controller(), LogMediaSessionActionButtonPressed(
+                                _, MediaSessionAction::kSeekBackward));
   EnableAction(MediaSessionAction::kSeekBackward);
 
   EXPECT_EQ(0, media_controller()->seek_backward_count());
@@ -521,7 +528,8 @@ TEST_F(MAYBE_MediaNotificationViewImplTest, SeekBackwardButtonClick) {
 }
 
 TEST_F(MAYBE_MediaNotificationViewImplTest, SeekForwardButtonClick) {
-  EXPECT_CALL(controller(), LogMediaSessionActionButtonPressed(_));
+  EXPECT_CALL(controller(), LogMediaSessionActionButtonPressed(
+                                _, MediaSessionAction::kSeekForward));
   EnableAction(MediaSessionAction::kSeekForward);
 
   EXPECT_EQ(0, media_controller()->seek_forward_count());
@@ -817,7 +825,7 @@ TEST_F(MAYBE_MediaNotificationViewImplTest, UpdateArtworkFromItem) {
 
   SkBitmap image;
   image.allocN32Pixels(10, 10);
-  image.eraseColor(SK_ColorMAGENTA);
+  image.eraseColor(SK_ColorGREEN);
 
   EXPECT_TRUE(GetArtworkImage().isNull());
 
@@ -1217,6 +1225,87 @@ TEST_F(MAYBE_MediaNotificationViewImplTest, UnfreezingWaitsForArtwork_Timeout) {
   EXPECT_EQ(base::ASCIIToUTF16("title2"), title_label()->GetText());
   EXPECT_EQ(base::ASCIIToUTF16("artist2"), artist_label()->GetText());
   EXPECT_TRUE(GetArtworkImage().isNull());
+}
+
+TEST_F(MAYBE_MediaNotificationViewImplTest, UnfreezingWaitsForActions) {
+  EnableAction(MediaSessionAction::kPlay);
+  EnableAction(MediaSessionAction::kPause);
+  EnableAction(MediaSessionAction::kNextTrack);
+  EnableAction(MediaSessionAction::kPreviousTrack);
+
+  // Freeze the item and clear the metadata and actions.
+  base::MockOnceClosure unfrozen_callback;
+  EXPECT_CALL(unfrozen_callback, Run).Times(0);
+  GetItem()->Freeze(unfrozen_callback.Get());
+  GetItem()->MediaSessionInfoChanged(nullptr);
+  GetItem()->MediaSessionMetadataChanged(base::nullopt);
+  DisableAction(MediaSessionAction::kPlay);
+  DisableAction(MediaSessionAction::kPause);
+  DisableAction(MediaSessionAction::kNextTrack);
+  DisableAction(MediaSessionAction::kPreviousTrack);
+
+  // The item should be frozen and the view should contain the old data.
+  EXPECT_TRUE(GetItem()->frozen());
+  EXPECT_TRUE(GetButtonForAction(MediaSessionAction::kPlay));
+  EXPECT_FALSE(GetButtonForAction(MediaSessionAction::kPause));
+  EXPECT_TRUE(GetButtonForAction(MediaSessionAction::kNextTrack));
+  EXPECT_TRUE(GetButtonForAction(MediaSessionAction::kPreviousTrack));
+  EXPECT_EQ(base::ASCIIToUTF16("title"), title_label()->GetText());
+  EXPECT_EQ(base::ASCIIToUTF16("artist"), artist_label()->GetText());
+
+  // Bind the item to a new controller that's playing instead of paused.
+  auto new_media_controller = std::make_unique<TestMediaController>();
+  media_session::mojom::MediaSessionInfoPtr session_info(
+      media_session::mojom::MediaSessionInfo::New());
+  session_info->playback_state =
+      media_session::mojom::MediaPlaybackState::kPlaying;
+  session_info->is_controllable = true;
+  GetItem()->SetController(new_media_controller->CreateMediaControllerRemote(),
+                           session_info.Clone());
+
+  // The item will receive a MediaSessionInfoChanged.
+  GetItem()->MediaSessionInfoChanged(session_info.Clone());
+
+  // The item should still be frozen, and the view should contain the old data.
+  EXPECT_TRUE(GetItem()->frozen());
+  EXPECT_TRUE(GetButtonForAction(MediaSessionAction::kPlay));
+  EXPECT_FALSE(GetButtonForAction(MediaSessionAction::kPause));
+  EXPECT_TRUE(GetButtonForAction(MediaSessionAction::kNextTrack));
+  EXPECT_TRUE(GetButtonForAction(MediaSessionAction::kPreviousTrack));
+  EXPECT_EQ(base::ASCIIToUTF16("title"), title_label()->GetText());
+  EXPECT_EQ(base::ASCIIToUTF16("artist"), artist_label()->GetText());
+
+  // Update the metadata.
+  media_session::MediaMetadata metadata;
+  metadata.title = base::ASCIIToUTF16("title2");
+  metadata.artist = base::ASCIIToUTF16("artist2");
+  GetItem()->MediaSessionMetadataChanged(metadata);
+
+  // The item should still be frozen, and waiting for new actions.
+  EXPECT_TRUE(GetItem()->frozen());
+  testing::Mock::VerifyAndClearExpectations(&unfrozen_callback);
+  EXPECT_TRUE(GetButtonForAction(MediaSessionAction::kPlay));
+  EXPECT_FALSE(GetButtonForAction(MediaSessionAction::kPause));
+  EXPECT_TRUE(GetButtonForAction(MediaSessionAction::kNextTrack));
+  EXPECT_TRUE(GetButtonForAction(MediaSessionAction::kPreviousTrack));
+  EXPECT_EQ(base::ASCIIToUTF16("title"), title_label()->GetText());
+  EXPECT_EQ(base::ASCIIToUTF16("artist"), artist_label()->GetText());
+
+  // Once we receive actions, the item should unfreeze.
+  EXPECT_CALL(unfrozen_callback, Run);
+  EnableAction(MediaSessionAction::kPlay);
+  EnableAction(MediaSessionAction::kPause);
+  EnableAction(MediaSessionAction::kSeekForward);
+  EnableAction(MediaSessionAction::kSeekBackward);
+
+  EXPECT_FALSE(GetItem()->frozen());
+  testing::Mock::VerifyAndClearExpectations(&unfrozen_callback);
+  EXPECT_FALSE(GetButtonForAction(MediaSessionAction::kPlay));
+  EXPECT_TRUE(GetButtonForAction(MediaSessionAction::kPause));
+  EXPECT_TRUE(GetButtonForAction(MediaSessionAction::kSeekForward));
+  EXPECT_TRUE(GetButtonForAction(MediaSessionAction::kSeekBackward));
+  EXPECT_EQ(base::ASCIIToUTF16("title2"), title_label()->GetText());
+  EXPECT_EQ(base::ASCIIToUTF16("artist2"), artist_label()->GetText());
 }
 
 TEST_F(MAYBE_MediaNotificationViewImplTest,

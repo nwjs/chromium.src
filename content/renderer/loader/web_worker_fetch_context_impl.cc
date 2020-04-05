@@ -9,6 +9,7 @@
 #include "base/bind.h"
 #include "base/single_thread_task_runner.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "base/threading/sequenced_task_runner_handle.h"
 #include "content/child/child_thread_impl.h"
 #include "content/child/thread_safe_sender.h"
@@ -443,12 +444,12 @@ void WebWorkerFetchContextImpl::WillSendRequest(blink::WebURLRequest& request) {
                                "1");
   }
 
-  auto extra_data = std::make_unique<RequestExtraData>();
+  auto extra_data = base::MakeRefCounted<RequestExtraData>();
   extra_data->set_render_frame_id(ancestor_frame_id_);
   extra_data->set_frame_request_blocker(frame_request_blocker_);
   if (throttle_provider_) {
-    extra_data->set_url_loader_throttles(throttle_provider_->CreateThrottles(
-        ancestor_frame_id_, request, WebURLRequestToResourceType(request)));
+    extra_data->set_url_loader_throttles(
+        throttle_provider_->CreateThrottles(ancestor_frame_id_, request));
   }
   if (response_override_) {
     using RequestContextType = blink::mojom::RequestContextType;
@@ -627,6 +628,7 @@ WebWorkerFetchContextImpl::CloneForNestedWorkerInternal(
   new_context->is_on_sub_frame_ = is_on_sub_frame_;
   new_context->ancestor_frame_id_ = ancestor_frame_id_;
   new_context->frame_request_blocker_ = frame_request_blocker_;
+  new_context->site_for_cookies_ = site_for_cookies_;
   new_context->top_frame_origin_ = top_frame_origin_;
   child_preference_watchers_.Add(std::move(preference_watcher));
   return new_context;
@@ -655,9 +657,8 @@ void WebWorkerFetchContextImpl::ResetServiceWorkerURLLoaderFactory() {
       service_worker_container_host.InitWithNewPipeAndPassReceiver());
   // To avoid potential dead-lock while synchronous loading, create the
   // SubresourceLoaderFactory on a background thread.
-  auto task_runner = base::CreateSequencedTaskRunner(
-      {base::ThreadPool(), base::MayBlock(),
-       base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN});
+  auto task_runner = base::ThreadPool::CreateSequencedTaskRunner(
+      {base::MayBlock(), base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN});
   task_runner->PostTask(
       FROM_HERE,
       base::BindOnce(

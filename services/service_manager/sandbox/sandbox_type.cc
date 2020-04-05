@@ -19,16 +19,22 @@ bool IsUnsandboxedSandboxType(SandboxType sandbox_type) {
 #if defined(OS_WIN)
     case SandboxType::kNoSandboxAndElevatedPrivileges:
       return true;
-
     case SandboxType::kXrCompositing:
       return !base::FeatureList::IsEnabled(
           service_manager::features::kXRSandbox);
+    case SandboxType::kProxyResolver:
+    case SandboxType::kPdfConversion:
+      return false;
 #endif
     case SandboxType::kAudio:
       return !IsAudioSandboxEnabled();
     case SandboxType::kNetwork:
+#if defined(OS_MACOSX)
+      return false;
+#else
       return !base::FeatureList::IsEnabled(
           service_manager::features::kNetworkServiceSandbox);
+#endif  // defined(OS_MACOSX)
     case SandboxType::kInvalid:
     case SandboxType::kRenderer:
     case SandboxType::kUtility:
@@ -45,6 +51,9 @@ bool IsUnsandboxedSandboxType(SandboxType sandbox_type) {
 #if defined(OS_CHROMEOS)
     case SandboxType::kIme:
 #endif
+#if !defined(OS_MACOSX)
+    case SandboxType::kSharingService:
+#endif
     case SandboxType::kSoda:
       return false;
   }
@@ -54,7 +63,15 @@ void SetCommandLineFlagsForSandboxType(base::CommandLine* command_line,
                                        SandboxType sandbox_type) {
   switch (sandbox_type) {
     case SandboxType::kNoSandbox:
-      command_line->AppendSwitch(switches::kNoSandbox);
+      if (command_line->GetSwitchValueASCII(switches::kProcessType) ==
+          switches::kUtilityProcess) {
+        DCHECK(!command_line->HasSwitch(switches::kServiceSandboxType));
+        command_line->AppendSwitchASCII(
+            switches::kServiceSandboxType,
+            StringFromUtilitySandboxType(sandbox_type));
+      } else {
+        command_line->AppendSwitch(switches::kNoSandbox);
+      }
       break;
 #if defined(OS_WIN)
     case SandboxType::kNoSandboxAndElevatedPrivileges:
@@ -86,10 +103,15 @@ void SetCommandLineFlagsForSandboxType(base::CommandLine* command_line,
     case SandboxType::kAudio:
 #if defined(OS_WIN)
     case SandboxType::kXrCompositing:
+    case SandboxType::kProxyResolver:
+    case SandboxType::kPdfConversion:
 #endif  // defined(OS_WIN)
 #if defined(OS_CHROMEOS)
     case SandboxType::kIme:
 #endif  // defined(OS_CHROMEOS)
+#if !defined(OS_MACOSX)
+    case SandboxType::kSharingService:
+#endif
     case SandboxType::kSoda:
       DCHECK(command_line->GetSwitchValueASCII(switches::kProcessType) ==
              switches::kUtilityProcess);
@@ -166,11 +188,19 @@ std::string StringFromUtilitySandboxType(SandboxType sandbox_type) {
       return switches::kUtilitySandbox;
     case SandboxType::kAudio:
       return switches::kAudioSandbox;
+#if !defined(OS_MACOSX)
+    case SandboxType::kSharingService:
+      return switches::kSharingServiceSandbox;
+#endif
     case SandboxType::kSoda:
       return switches::kSodaSandbox;
 #if defined(OS_WIN)
     case SandboxType::kXrCompositing:
       return switches::kXrCompositingSandbox;
+    case SandboxType::kProxyResolver:
+      return switches::kProxyResolverSandbox;
+    case SandboxType::kPdfConversion:
+      return switches::kPdfConversionSandbox;
 #endif  // defined(OS_WIN)
 #if defined(OS_CHROMEOS)
     case SandboxType::kIme:
@@ -215,6 +245,10 @@ SandboxType UtilitySandboxTypeFromString(const std::string& sandbox_string) {
 #if defined(OS_WIN)
   if (sandbox_string == switches::kXrCompositingSandbox)
     return SandboxType::kXrCompositing;
+  if (sandbox_string == switches::kProxyResolverSandbox)
+    return SandboxType::kProxyResolver;
+  if (sandbox_string == switches::kPdfConversionSandbox)
+    return SandboxType::kPdfConversion;
 #endif
   if (sandbox_string == switches::kAudioSandbox)
     return SandboxType::kAudio;

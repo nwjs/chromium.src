@@ -20,7 +20,6 @@ namespace prefs {
 // Crostini (Called "Linux Apps" in UI).
 const char kCrostiniEnabled[] = "crostini.enabled";
 const char kCrostiniMimeTypes[] = "crostini.mime_types";
-const char kCrostiniRegistry[] = "crostini.registry";
 // List of USB devices with their system guid, a name/description and their
 // enabled state for use with Crostini.
 const char kCrostiniSharedUsbDevices[] = "crostini.shared_usb_devices";
@@ -73,11 +72,22 @@ const char kCrostiniLastLaunchTimeWindowStart[] =
     "crostini.last_launch.time_window_start";
 // The value of the last sample of the disk space used by Crostini.
 const char kCrostiniLastDiskSize[] = "crostini.last_disk_size";
+// A dictionary preference representing a user's settings of forwarded ports
+// to Crostini.
+const char kCrostiniPortForwarding[] = "crostini.port_forwarding.ports";
+// A boolean preference indicating whether Crostini is able to access the mic.
+const char kCrostiniMicSharing[] = "crostini.mic_sharing";
+// A boolean preference indicating whether Crostini was given access to the mic
+// the last time it launched.
+const char kCrostiniMicSharingAtLastLaunch[] =
+    "crostini.mic_sharing_at_last_launch";
 
 void RegisterProfilePrefs(PrefRegistrySimple* registry) {
   registry->RegisterBooleanPref(kCrostiniEnabled, false);
+  registry->RegisterBooleanPref(kCrostiniMicSharing, false);
+  registry->RegisterBooleanPref(kCrostiniMicSharingAtLastLaunch, false);
   registry->RegisterDictionaryPref(kCrostiniMimeTypes);
-  registry->RegisterDictionaryPref(kCrostiniRegistry);
+  registry->RegisterListPref(kCrostiniPortForwarding);
   registry->RegisterListPref(kCrostiniSharedUsbDevices);
 
   // Set a default value for crostini.containers to ensure that we track the

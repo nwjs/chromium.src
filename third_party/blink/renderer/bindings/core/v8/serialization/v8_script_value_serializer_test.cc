@@ -1904,4 +1904,28 @@ TEST(V8ScriptValueSerializerTest, RoundTripReadableStream) {
   EXPECT_FALSE(transferred->locked(script_state, ASSERT_NO_EXCEPTION));
 }
 
+TEST(V8ScriptValueSerializerTest, RoundTripDOMException) {
+  V8TestingScope scope;
+  DOMException* exception =
+      DOMException::Create("message", "InvalidStateError");
+  v8::Local<v8::Value> wrapper =
+      ToV8(exception, scope.GetContext()->Global(), scope.GetIsolate());
+  v8::Local<v8::Value> result = RoundTrip(wrapper, scope);
+  ASSERT_TRUE(V8DOMException::HasInstance(result, scope.GetIsolate()));
+  DOMException* new_exception = V8DOMException::ToImpl(result.As<v8::Object>());
+  EXPECT_NE(exception, new_exception);
+  EXPECT_EQ(exception->code(), new_exception->code());
+  EXPECT_EQ(exception->name(), new_exception->name());
+  EXPECT_EQ(exception->message(), new_exception->message());
+}
+
+TEST(V8ScriptValueSerializerTest, DecodeDOMExceptionWithInvalidNameString) {
+  V8TestingScope scope;
+  scoped_refptr<SerializedScriptValue> input = SerializedValue(
+      {0xff, 0x13, 0xff, 0x0d, 0x5c, 0x78, 0x01, 0xff, 0x00, 0x00});
+  v8::Local<v8::Value> result =
+      V8ScriptValueDeserializer(scope.GetScriptState(), input).Deserialize();
+  EXPECT_TRUE(result->IsNull());
+}
+
 }  // namespace blink

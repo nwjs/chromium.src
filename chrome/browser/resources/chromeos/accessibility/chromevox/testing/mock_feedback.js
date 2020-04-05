@@ -140,6 +140,20 @@ MockFeedback = class {
   }
 
   /**
+   * Returns true if |utterance| is in |pendingUtterances_|.
+   * @param {string} utterance
+   * @return {boolean}
+   */
+  utteranceInQueue(utterance) {
+    for (const pendingUtterance of this.pendingUtterances_) {
+      if (pendingUtterance.text === utterance) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
    * Adds an expectation for one or more spoken utterances.
    * @param {...(string|RegExp)} var_args One or more utterance to add as
    *     expectations.
@@ -206,7 +220,7 @@ MockFeedback = class {
    * @param {...(string)} rest One or more utterances to add as expectations.
    * @return {MockFeedback} |this| for chaining
    */
-  expectSpeechWithLanguage(language, ...rest) {
+  expectSpeechWithLocale(language, ...rest) {
     return this.expectSpeechWithProperties.apply(
         this, [{lang: language}].concat(rest));
   }
@@ -351,7 +365,7 @@ MockFeedback = class {
   }
 
   /**
-   * Processes any feedback that has been received so far and treis to
+   * Processes any feedback that has been received so far and tries to
    * satisfy the registered expectations.  Any feedback that is received
    * after this call (via the installed mock objects) is processed immediately.
    * When all expectations are satisfied and registered callbacks called,
@@ -488,7 +502,8 @@ MockFeedback = class {
      * @private
      */
     static matchAndConsume_(text, props, pending) {
-      for (var i = 0, candidate; candidate = pending[i]; ++i) {
+      let i, candidate;
+      for (i = 0; candidate = pending[i]; ++i) {
         let candidateText = candidate.text;
         if (typeof (candidateText) != 'string') {
           candidateText = candidateText.toString();

@@ -33,11 +33,12 @@ import org.chromium.base.CommandLine;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.library_loader.LibraryLoader;
 import org.chromium.base.test.util.CommandLineFlags;
+import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.MinAndroidSdkLevel;
 import org.chromium.base.test.util.Restriction;
-import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.customtabs.CustomTabActivity;
 import org.chromium.chrome.browser.customtabs.CustomTabActivityTestRule;
+import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabBrowserControlsConstraintsHelper;
 import org.chromium.chrome.browser.tab.TabThemeColorHelper;
@@ -130,6 +131,7 @@ public class TrustedWebActivityTest {
      */
     @Test
     @MediumTest
+    @Feature({"StatusBar"})
     @MinAndroidSdkLevel(Build.VERSION_CODES.LOLLIPOP_MR1)
     @Restriction({UiRestriction.RESTRICTION_TYPE_PHONE})
     // Customizing status bar color is disallowed for tablets.
@@ -151,6 +153,7 @@ public class TrustedWebActivityTest {
      */
     @Test
     @MediumTest
+    @Feature({"StatusBar"})
     @MinAndroidSdkLevel(Build.VERSION_CODES.LOLLIPOP_MR1)
     @Restriction({UiRestriction.RESTRICTION_TYPE_PHONE})
     public void testStatusBarColorNoPageThemeColor() throws ExecutionException, TimeoutException {
@@ -181,6 +184,7 @@ public class TrustedWebActivityTest {
      */
     @Test
     @MediumTest
+    @Feature({"StatusBar"})
     @MinAndroidSdkLevel(Build.VERSION_CODES.LOLLIPOP_MR1)
     @Restriction({UiRestriction.RESTRICTION_TYPE_PHONE})
     public void testStatusBarColorCertificateError() throws ExecutionException, TimeoutException {

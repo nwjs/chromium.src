@@ -463,9 +463,12 @@ void TracingControllerImpl::EndStartupTracing() {
   if (!tracing::TraceStartupConfig::GetInstance()->IsEnabled())
     return;
 
+  // Use USER_VISIBLE priority because BEST_EFFORT tasks are not run at startup
+  // and we want the trace file to be written soon.
   StopTracing(CreateFileEndpoint(
       startup_trace_file_,
-      base::BindRepeating(OnStoppedStartupTracing, startup_trace_file_)));
+      base::BindRepeating(OnStoppedStartupTracing, startup_trace_file_),
+      base::TaskPriority::USER_VISIBLE));
 }
 
 void TracingControllerImpl::FinalizeStartupTracingIfNeeded() {

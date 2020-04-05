@@ -27,7 +27,7 @@ Polymer({
   ],
 
   properties: {
-    /** @type {?SettingsRoutes} */
+    /** @type {?OsSettingsRoutes} */
     routes: {
       type: Object,
       value: settings.routes,
@@ -69,11 +69,10 @@ Polymer({
 
     /**
      * Authentication token provided by password-prompt-dialog.
-     * @private {string}
+     * @private {!chrome.quickUnlockPrivate.TokenInfo|undefined}
      */
     authToken_: {
-      type: String,
-      value: '',
+      type: Object,
     },
   },
 
@@ -148,6 +147,7 @@ Polymer({
     if (!enabled) {
       // No authentication check is required to disable.
       this.browserProxy_.setSmartLockSignInEnabled(false /* enabled */);
+      settings.recordSettingChange();
       return;
     }
 
@@ -168,12 +168,22 @@ Polymer({
     // If |this.authToken_| is set when the dialog has been closed, this means
     // that the user entered the correct password into the dialog when
     // attempting to enable SignIn with Smart Lock.
-    if (this.authToken_ !== '') {
+    if (this.authToken_) {
       this.browserProxy_.setSmartLockSignInEnabled(
-          true /* enabled */, this.authToken_);
+          true /* enabled */, this.authToken_.token);
+      settings.recordSettingChange();
     }
 
     // Always require password entry if re-enabling SignIn with Smart Lock.
-    this.authToken_ = '';
+    this.authToken_ = undefined;
   },
+
+  /**
+   * @param {!CustomEvent<!chrome.quickUnlockPrivate.TokenInfo>} e
+   * @private
+   */
+  onTokenObtained_(e) {
+    this.authToken_ = e.detail;
+  },
+
 });

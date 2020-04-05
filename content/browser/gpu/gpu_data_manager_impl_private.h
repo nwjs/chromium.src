@@ -31,10 +31,6 @@ namespace base {
 class CommandLine;
 }
 
-namespace gpu {
-struct GpuPreferences;
-}
-
 namespace content {
 
 class CONTENT_EXPORT GpuDataManagerImplPrivate {
@@ -68,9 +64,13 @@ class CONTENT_EXPORT GpuDataManagerImplPrivate {
   void UpdateDxDiagNode(const gpu::DxDiagNode& dx_diagnostics);
   void UpdateDx12VulkanInfo(
       const gpu::Dx12VulkanVersionInfo& dx12_vulkan_version_info);
+  void UpdateDevicePerfInfo(const gpu::DevicePerfInfo& device_perf_info);
+
+  void UpdateOverlayInfo(const gpu::OverlayInfo& overlay_info);
   void UpdateDx12VulkanRequestStatus(bool request_continues);
   void UpdateDxDiagNodeRequestStatus(bool request_continues);
   bool Dx12VulkanRequested() const;
+  void OnBrowserThreadsStarted();
 #endif
   void UpdateGpuFeatureInfo(const gpu::GpuFeatureInfo& gpu_feature_info,
                             const base::Optional<gpu::GpuFeatureInfo>&

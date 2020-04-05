@@ -6,11 +6,11 @@ package org.chromium.chrome.browser.contextualsearch;
 
 import android.content.Context;
 import android.net.Uri;
-import android.support.annotation.NonNull;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.text.format.DateUtils;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
@@ -23,8 +23,8 @@ import org.chromium.chrome.browser.contextualsearch.ContextualSearchSelectionCon
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.SharedPreferencesManager;
-import org.chromium.chrome.browser.settings.privacy.PrivacyPreferencesManager;
-import org.chromium.chrome.browser.util.UrlConstants;
+import org.chromium.chrome.browser.privacy.settings.PrivacyPreferencesManager;
+import org.chromium.components.embedder_support.util.UrlConstants;
 
 import java.net.URL;
 import java.util.HashSet;

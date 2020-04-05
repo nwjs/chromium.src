@@ -24,7 +24,6 @@
 #include "gpu/config/gpu_info_collector.h"
 #include "gpu/config/gpu_preferences.h"
 #include "gpu/config/gpu_util.h"
-#include "gpu/ipc/gpu_in_process_thread_service.h"
 #include "gpu/ipc/service/gpu_watchdog_thread.h"
 #include "mojo/public/cpp/bindings/strong_binding.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -162,6 +161,15 @@ TestGpuServiceHolder::~TestGpuServiceHolder() {
   io_thread_.Stop();
 }
 
+scoped_refptr<gpu::SharedContextState>
+TestGpuServiceHolder::GetSharedContextState() {
+  return gpu_service_->GetContextState();
+}
+
+scoped_refptr<gl::GLShareGroup> TestGpuServiceHolder::GetShareGroup() {
+  return gpu_service_->share_group();
+}
+
 void TestGpuServiceHolder::ScheduleGpuTask(base::OnceClosure callback) {
   DCHECK(gpu_task_sequence_);
   gpu_task_sequence_->ScheduleTask(std::move(callback), {});
@@ -177,14 +185,14 @@ void TestGpuServiceHolder::InitializeOnGpuThread(
     bool use_swiftshader = gpu_preferences.use_vulkan ==
                            gpu::VulkanImplementationName::kSwiftshader;
 
-#ifndef USE_X11
+#if !defined(USE_X11)
     // TODO(samans): Support Swiftshader on more platforms.
     // https://crbug.com/963988
     LOG_IF(ERROR, use_swiftshader)
         << "Unable to use Vulkan Swiftshader on this platform. Falling back to "
            "GPU.";
     use_swiftshader = false;
-#endif
+#endif  // !defined(USE_X11)
     vulkan_implementation_ = gpu::CreateVulkanImplementation(use_swiftshader);
     if (!vulkan_implementation_ ||
         !vulkan_implementation_->InitializeVulkanInstance(
@@ -217,6 +225,7 @@ void TestGpuServiceHolder::InitializeOnGpuThread(
       /*gpu_info_for_hardware_gpu=*/gpu::GPUInfo(),
       /*gpu_feature_info_for_hardware_gpu=*/gpu::GpuFeatureInfo(),
       /*gpu_extra_info=*/gpu::GpuExtraInfo(),
+      /*device_perf_info=*/base::nullopt,
 #if BUILDFLAG(ENABLE_VULKAN)
       vulkan_implementation_.get(),
 #else
@@ -235,19 +244,15 @@ void TestGpuServiceHolder::InitializeOnGpuThread(
       /*shutdown_event=*/nullptr);
 
   task_executor_ = std::make_unique<gpu::GpuInProcessThreadService>(
-      gpu_thread_.task_runner(), gpu_service_->GetGpuScheduler(),
+      this, gpu_thread_.task_runner(), gpu_service_->GetGpuScheduler(),
       gpu_service_->sync_point_manager(), gpu_service_->mailbox_manager(),
-      gpu_service_->share_group(),
       gpu_service_->gpu_channel_manager()
           ->default_offscreen_surface()
           ->GetFormat(),
       gpu_service_->gpu_feature_info(),
       gpu_service_->gpu_channel_manager()->gpu_preferences(),
       gpu_service_->shared_image_manager(),
-      gpu_service_->gpu_channel_manager()->program_cache(),
-      // Unretained is safe since |gpu_service_| outlives |task_executor_|.
-      base::BindRepeating(&GpuServiceImpl::GetContextState,
-                          base::Unretained(gpu_service_.get())));
+      gpu_service_->gpu_channel_manager()->program_cache());
 
   // TODO(weiliangc): Since SkiaOutputSurface should not depend on command
   // buffer, the |gpu_task_sequence_| should be coming from

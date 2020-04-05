@@ -31,7 +31,6 @@
 #include "chrome/browser/defaults.h"
 #include "chrome/common/buildflags.h"
 #include "chrome/common/channel_info.h"
-#include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_content_client.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_paths.h"
@@ -47,7 +46,7 @@
 #include "chrome/utility/chrome_content_utility_client.h"
 #include "components/component_updater/component_updater_paths.h"
 #include "components/content_settings/core/common/content_settings_pattern.h"
-#include "components/crash/content/app/crash_reporter_client.h"
+#include "components/crash/core/app/crash_reporter_client.h"
 #include "components/crash/core/common/crash_key.h"
 #include "components/crash/core/common/crash_keys.h"
 #include "components/gwp_asan/buildflags/buildflags.h"
@@ -55,10 +54,12 @@
 #include "components/services/heap_profiling/public/cpp/profiling_client.h"
 #include "components/version_info/version_info.h"
 #include "content/public/common/content_client.h"
+#include "content/public/common/content_constants.h"
 #include "content/public/common/content_paths.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/profiling.h"
 #include "content/public/common/service_names.mojom.h"
+#include "content/public/common/url_constants.h"
 #include "extensions/common/constants.h"
 #include "net/url_request/url_request.h"
 #include "pdf/buildflags.h"
@@ -66,7 +67,6 @@
 #include "printing/buildflags/buildflags.h"
 #include "services/service_manager/embedder/switches.h"
 #include "services/tracing/public/cpp/stack_sampling/tracing_sampler_profiler.h"
-#include "ui/base/material_design/material_design_controller.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/ui_base_switches.h"
 
@@ -81,6 +81,8 @@
 #include "chrome/child/v8_crashpad_support_win.h"
 #include "chrome/chrome_elf/chrome_elf_main.h"
 #include "chrome/common/child_process_logging.h"
+#include "chrome/install_static/install_util.h"
+#include "components/browser_watcher/extended_crash_reporting.h"
 #include "sandbox/win/src/sandbox.h"
 #include "ui/base/resource/resource_bundle_win.h"
 #endif
@@ -124,6 +126,7 @@
 #if defined(OS_ANDROID)
 #include "base/android/java_exception_reporter.h"
 #include "chrome/browser/android/crash/pure_java_exception_handler.h"
+#include "chrome/browser/android/metrics/uma_session_stats.h"
 #include "chrome/browser/flags/android/chrome_feature_list.h"
 #include "chrome/common/chrome_descriptors.h"
 #include "net/android/network_change_notifier_factory_android.h"
@@ -140,7 +143,7 @@
 #endif
 
 #if defined(OS_POSIX) && !defined(OS_MACOSX) && !defined(OS_ANDROID)
-#include "components/crash/content/app/breakpad_linux.h"
+#include "components/crash/core/app/breakpad_linux.h"
 #include "v8/include/v8-wasm-trap-handler-posix.h"
 #include "v8/include/v8.h"
 #endif
@@ -152,7 +155,7 @@
 #if defined(OS_MACOSX) || defined(OS_WIN) || defined(OS_ANDROID) || \
     defined(OS_LINUX)
 #include "chrome/browser/policy/policy_path_parser.h"
-#include "components/crash/content/app/crashpad.h"
+#include "components/crash/core/app/crashpad.h"
 #endif
 
 #if BUILDFLAG(ENABLE_NACL)
@@ -205,7 +208,9 @@ extern int CloudPrintServiceProcessMain(const content::MainFunctionParams&);
 #endif
 
 const char* const ChromeMainDelegate::kNonWildcardDomainNonPortSchemes[] = {
-    extensions::kExtensionScheme, chrome::kChromeSearchScheme};
+    extensions::kExtensionScheme, chrome::kChromeSearchScheme,
+    content::kChromeDevToolsScheme, content::kChromeUIScheme,
+    content::kChromeUIUntrustedScheme};
 const size_t ChromeMainDelegate::kNonWildcardDomainNonPortSchemesSize =
     base::size(kNonWildcardDomainNonPortSchemes);
 
@@ -264,43 +269,49 @@ bool UseHooks() {
 #endif
 }
 
+void SetUpExtendedCrashReporting(bool is_browser_process) {
+  browser_watcher::ExtendedCrashReporting* extended_crash_reporting =
+      browser_watcher::ExtendedCrashReporting::SetUpIfEnabled(
+          is_browser_process
+              ? browser_watcher::ExtendedCrashReporting::kBrowserProcess
+              : browser_watcher::ExtendedCrashReporting::kOther);
+
+  if (!extended_crash_reporting)
+    return;
+
+  // Record product, version, channel and special build strings.
+  wchar_t exe_file[MAX_PATH] = {};
+  CHECK(::GetModuleFileName(nullptr, exe_file, base::size(exe_file)));
+
+  base::string16 product_name;
+  base::string16 version_number;
+  base::string16 channel_name;
+  base::string16 special_build;
+  install_static::GetExecutableVersionDetails(
+      exe_file, &product_name, &version_number, &special_build, &channel_name);
+
+  extended_crash_reporting->SetProductStrings(product_name, version_number,
+                                              channel_name, special_build);
+}
+
 #endif  // defined(OS_WIN)
 
 #if defined(OS_LINUX)
 void AdjustLinuxOOMScore(const std::string& process_type) {
-  // Browsers and zygotes should still be killable, but killed last.
-  const int kZygoteScore = 0;
-  // The minimum amount to bump a score by.  This is large enough that
-  // even if it's translated into the old values, it will still go up
-  // by at least one.
-  const int kScoreBump = 100;
-  // This is the lowest score that renderers and extensions start with
-  // in the OomPriorityManager.
-  const int kRendererScore = chrome::kLowestRendererOomScore;
-  // For "miscellaneous" things, we want them after renderers,
-  // but before plugins.
-  const int kMiscScore = kRendererScore - kScoreBump;
-  // We want plugins to die after the renderers.
-  const int kPluginScore = kMiscScore - kScoreBump;
   int score = -1;
 
-  DCHECK_GT(kMiscScore, 0);
-  DCHECK_GT(kPluginScore, 0);
-
   if (process_type == switches::kPpapiPluginProcess) {
-    score = kPluginScore;
-  } else if (process_type == switches::kPpapiBrokerProcess) {
-    // The broker should be killed before the PPAPI plugin.
-    score = kPluginScore + kScoreBump;
+    score = content::kPluginOomScore;
   } else if (process_type == switches::kUtilityProcess ||
              process_type == switches::kGpuProcess ||
              process_type == switches::kCloudPrintServiceProcess ||
-             process_type == service_manager::switches::kProcessTypeService) {
-    score = kMiscScore;
+             process_type == service_manager::switches::kProcessTypeService ||
+             process_type == switches::kPpapiBrokerProcess) {
+    score = content::kMiscOomScore;
 #if BUILDFLAG(ENABLE_NACL)
   } else if (process_type == switches::kNaClLoaderProcess ||
              process_type == switches::kNaClLoaderNonSfiProcess) {
-    score = kPluginScore;
+    score = content::kPluginOomScore;
 #endif
   } else if (process_type == service_manager::switches::kZygoteProcess ||
              process_type ==
@@ -308,14 +319,14 @@ void AdjustLinuxOOMScore(const std::string& process_type) {
              process_type.empty()) {
     // For zygotes and unlabeled process types, we want to still make
     // them killable by the OOM killer.
-    score = kZygoteScore;
+    score = content::kZygoteOomScore;
   } else if (process_type == switches::kRendererProcess) {
     LOG(WARNING) << "process type 'renderer' "
                  << "should be created through the zygote.";
     // When debugging, this process type can end up being run directly, but
     // this isn't the typical path for assigning the OOM score for it.  Still,
     // we want to assign a score that is somewhat representative for debugging.
-    score = kRendererScore;
+    score = content::kLowestRendererOomScore;
   } else {
     NOTREACHED() << "Unknown process type";
   }
@@ -505,23 +516,31 @@ void InitLogging(const std::string& process_type) {
 #endif
 
 #if !defined(CHROME_MULTIPLE_DLL_CHILD)
-void RecordMainStartupMetrics(base::TimeTicks exe_entry_point_ticks) {
-  if (!exe_entry_point_ticks.is_null())
-    startup_metric_utils::RecordExeMainEntryPointTicks(exe_entry_point_ticks);
+void RecordMainStartupMetrics(base::TimeTicks application_start_time) {
+  const base::TimeTicks now = base::TimeTicks::Now();
+
+#if defined(OS_WIN)
+  DCHECK(!application_start_time.is_null());
+  startup_metric_utils::RecordApplicationStartTime(application_start_time);
+#elif defined(OS_ANDROID)
+  // On Android the main entry point time is the time when the Java code starts.
+  // This happens before the shared library containing this code is even loaded.
+  // The Java startup code has recorded that time, but the C++ code can't fetch
+  // it from the Java side until it has initialized the JNI. See
+  // ChromeMainDelegateAndroid.
+#else
+  // On other platforms, |application_start_time| == |now| since the application
+  // starts with ChromeMain().
+  startup_metric_utils::RecordApplicationStartTime(now);
+#endif
+
 #if defined(OS_MACOSX) || defined(OS_WIN) || defined(OS_LINUX)
   // Record the startup process creation time on supported platforms.
   startup_metric_utils::RecordStartupProcessCreationTime(
       base::Process::Current().CreationTime());
 #endif
 
-// On Android the main entry point time is the time when the Java code starts.
-// This happens before the shared library containing this code is even loaded.
-// The Java startup code has recorded that time, but the C++ code can't fetch it
-// from the Java side until it has initialized the JNI. See
-// ChromeMainDelegateAndroid.
-#if !defined(OS_ANDROID)
-  startup_metric_utils::RecordMainEntryPointTime(base::TimeTicks::Now());
-#endif
+  startup_metric_utils::RecordChromeMainEntryTime(now);
 }
 #endif  // !defined(CHROME_MULTIPLE_DLL_CHILD)
 
@@ -590,6 +609,10 @@ void ChromeMainDelegate::PostEarlyInitialization(bool is_running_tests) {
     if (record)
       startup_data_->RecordCoreSystemProfile();
   }
+
+#if defined(OS_ANDROID)
+  UmaSessionStats::OnStartup();
+#endif
 }
 
 bool ChromeMainDelegate::ShouldCreateFeatureList() {
@@ -641,6 +664,7 @@ void ChromeMainDelegate::PostFieldTrialInitialization() {
   }
 
 #if defined(OS_WIN)
+  SetUpExtendedCrashReporting(is_browser_process);
   base::Time::ReadMinTimerIntervalLowResMs();
 #endif
 }
@@ -1109,7 +1133,6 @@ void ChromeMainDelegate::PreSandboxStartup() {
     base::i18n::SetICUDefaultLocale(locale);
     const std::string loaded_locale = locale;
 #else
-    ui::MaterialDesignController::Initialize();
     const std::string loaded_locale =
         ui::ResourceBundle::InitSharedInstanceWithLocale(
             locale, NULL, ui::ResourceBundle::LOAD_COMMON_RESOURCES);
@@ -1122,10 +1145,6 @@ void ChromeMainDelegate::PreSandboxStartup() {
     CHECK(!loaded_locale.empty()) << "Locale could not be found for " <<
         locale;
   }
-
-#if !defined(CHROME_MULTIPLE_DLL_BROWSER) && BUILDFLAG(ENABLE_PDF)
-  InitializePDF();
-#endif
 
 #if defined(OS_POSIX) && !defined(OS_MACOSX)
   // Zygote needs to call InitCrashReporter() in RunZygote().
@@ -1153,11 +1172,16 @@ void ChromeMainDelegate::PreSandboxStartup() {
   // After all the platform Breakpads have been initialized, store the command
   // line for crash reporting.
   crash_keys::SetCrashKeysFromCommandLine(command_line);
+
 #if 1 //!defined(OS_WIN)
   if (!report_url.empty()) {
     GURL url(report_url);
     chrome_content_client_.SetNWReportURL(url);
   }
+#endif
+
+#if !defined(CHROME_MULTIPLE_DLL_BROWSER) && BUILDFLAG(ENABLE_PDF)
+  MaybeInitializeGDI();
 #endif
 }
 
@@ -1238,27 +1262,7 @@ void ChromeMainDelegate::ProcessExiting(const std::string& process_type) {
 #endif  // !defined(OS_ANDROID)
 }
 
-#if defined(OS_MACOSX)
-bool ChromeMainDelegate::ProcessRegistersWithSystemProcess(
-    const std::string& process_type) {
-#if !BUILDFLAG(ENABLE_NACL)
-  return false;
-#else
-  return process_type == switches::kNaClLoaderProcess;
-#endif
-}
-
-bool ChromeMainDelegate::DelaySandboxInitialization(
-    const std::string& process_type) {
-#if BUILDFLAG(ENABLE_NACL)
-  // NaClLoader does this in NaClMainPlatformDelegate::EnableSandbox().
-  // No sandbox needed for relauncher.
-  if (process_type == switches::kNaClLoaderProcess)
-    return true;
-#endif
-  return process_type == switches::kRelauncherProcess;
-}
-#elif defined(OS_LINUX)
+#if defined(OS_LINUX)
 void ChromeMainDelegate::ZygoteStarting(
     std::vector<std::unique_ptr<service_manager::ZygoteForkDelegate>>*
         delegates) {

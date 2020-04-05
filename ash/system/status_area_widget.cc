@@ -31,7 +31,6 @@
 #include "chromeos/constants/chromeos_switches.h"
 #include "ui/compositor/scoped_layer_animation_settings.h"
 #include "ui/display/display.h"
-#include "ui/native_theme/native_theme_dark_aura.h"
 
 namespace ash {
 
@@ -85,19 +84,14 @@ void StatusAreaWidget::Initialize() {
   overview_button_tray_ = std::make_unique<OverviewButtonTray>(shelf_);
   AddTrayButton(overview_button_tray_.get());
 
-  // The layout depends on the number of children, so build it once after
-  // adding all of them.
-  status_area_widget_delegate_->UpdateLayout();
-
   // Initialize after all trays have been created.
   for (TrayBackgroundView* tray_button : tray_buttons_)
     tray_button->Initialize();
 
-  UpdateAfterShelfAlignmentChange();
   UpdateAfterLoginStatusChange(
       Shell::Get()->session_controller()->login_status());
+  UpdateLayout(/*animate=*/false);
 
-  ShelfConfig::Get()->AddObserver(this);
   Shell::Get()->session_controller()->AddObserver(this);
 
   // NOTE: Container may be hidden depending on login/display state.
@@ -107,14 +101,7 @@ void StatusAreaWidget::Initialize() {
 }
 
 StatusAreaWidget::~StatusAreaWidget() {
-  ShelfConfig::Get()->RemoveObserver(this);
   Shell::Get()->session_controller()->RemoveObserver(this);
-}
-
-void StatusAreaWidget::UpdateAfterShelfAlignmentChange() {
-  for (TrayBackgroundView* tray_button : tray_buttons_)
-    tray_button->UpdateAfterShelfChange();
-  status_area_widget_delegate_->UpdateLayout();
 }
 
 void StatusAreaWidget::UpdateAfterLoginStatusChange(LoginStatus login_status) {
@@ -123,15 +110,12 @@ void StatusAreaWidget::UpdateAfterLoginStatusChange(LoginStatus login_status) {
   login_status_ = login_status;
 
   for (TrayBackgroundView* tray_button : tray_buttons_)
-    tray_button->UpdateAfterLoginStatusChange(login_status);
+    tray_button->UpdateAfterLoginStatusChange();
 }
 
 void StatusAreaWidget::SetSystemTrayVisibility(bool visible) {
   TrayBackgroundView* tray = unified_system_tray_.get();
   tray->SetVisiblePreferred(visible);
-  // Opacity is set to prevent flakiness in kiosk browser tests. See
-  // https://crbug.com/624584.
-  SetOpacity(visible ? 1.f : 0.f);
   if (visible) {
     Show();
   } else {
@@ -146,33 +130,7 @@ void StatusAreaWidget::OnSessionStateChanged(
 }
 
 void StatusAreaWidget::UpdateCollapseState() {
-  // The status area is only collapsible in tablet mode. Otherwise, we just show
-  // all trays.
-  if (!Shell::Get()->tablet_mode_controller())
-    return;
-
-  // An update may occur during initialization of the shelf, so just skip it.
-  if (!initialized_)
-    return;
-
-  bool is_collapsible =
-      chromeos::switches::ShouldShowShelfHotseat() &&
-      Shell::Get()->tablet_mode_controller()->InTabletMode() &&
-      ShelfConfig::Get()->is_in_app();
-
-  bool force_collapsible = base::CommandLine::ForCurrentProcess()->HasSwitch(
-      switches::kAshForceStatusAreaCollapsible);
-
-  is_collapsible |= force_collapsible;
-  if (is_collapsible) {
-    // Update the collapse state based on the previous overflow button state.
-    collapse_state_ = overflow_button_tray_->state() ==
-                              StatusAreaOverflowButtonTray::CLICK_TO_EXPAND
-                          ? CollapseState::COLLAPSED
-                          : CollapseState::EXPANDED;
-  } else {
-    collapse_state_ = CollapseState::NOT_COLLAPSIBLE;
-  }
+  collapse_state_ = CalculateCollapseState();
 
   if (collapse_state_ == CollapseState::COLLAPSED) {
     CalculateButtonVisibilityForCollapsedState();
@@ -193,35 +151,86 @@ void StatusAreaWidget::UpdateCollapseState() {
 }
 
 void StatusAreaWidget::CalculateTargetBounds() {
-  // TODO(manucornet): Move target bounds calculations from the shelf layout
-  // manager.
+  for (TrayBackgroundView* tray_button : tray_buttons_)
+    tray_button->CalculateTargetBounds();
+  status_area_widget_delegate_->CalculateTargetBounds();
+
+  gfx::Size status_size(status_area_widget_delegate_->GetTargetBounds().size());
+  const gfx::Size shelf_size = shelf_->shelf_widget()->GetTargetBounds().size();
+  const gfx::Point shelf_origin =
+      shelf_->shelf_widget()->GetTargetBounds().origin();
+
+  if (shelf_->IsHorizontalAlignment())
+    status_size.set_height(shelf_size.height());
+  else
+    status_size.set_width(shelf_size.width());
+
+  gfx::Point status_origin = shelf_->SelectValueForShelfAlignment(
+      gfx::Point(0, 0),
+      gfx::Point(shelf_size.width() - status_size.width(),
+                 shelf_size.height() - status_size.height()),
+      gfx::Point(0, shelf_size.height() - status_size.height()));
+  if (shelf_->IsHorizontalAlignment() && !base::i18n::IsRTL())
+    status_origin.set_x(shelf_size.width() - status_size.width());
+  status_origin.Offset(shelf_origin.x(), shelf_origin.y());
+  target_bounds_ = gfx::Rect(status_origin, status_size);
+}
+
+gfx::Rect StatusAreaWidget::GetTargetBounds() const {
+  return target_bounds_;
 }
 
 void StatusAreaWidget::UpdateLayout(bool animate) {
-  const ShelfLayoutManager* layout_manager = shelf_->shelf_layout_manager();
-  ui::Layer* layer = GetNativeView()->layer();
-  ui::ScopedLayerAnimationSettings animation_setter(layer->GetAnimator());
-  layer->SetOpacity(layout_manager->GetOpacity());
+  const LayoutInputs new_layout_inputs = GetLayoutInputs();
+  if (layout_inputs_ == new_layout_inputs)
+    return;
 
+  for (TrayBackgroundView* tray_button : tray_buttons_)
+    tray_button->UpdateLayout();
+  status_area_widget_delegate_->UpdateLayout(animate);
+
+  // Having a window which is visible but does not have an opacity is an
+  // illegal state.
+  ui::Layer* layer = GetNativeView()->layer();
+  layer->SetOpacity(new_layout_inputs.opacity);
+  if (new_layout_inputs.opacity)
+    ShowInactive();
+  else
+    Hide();
+
+  ui::ScopedLayerAnimationSettings animation_setter(layer->GetAnimator());
   animation_setter.SetTransitionDuration(
       animate ? ShelfConfig::Get()->shelf_animation_duration()
               : base::TimeDelta::FromMilliseconds(0));
   animation_setter.SetTweenType(gfx::Tween::EASE_OUT);
   animation_setter.SetPreemptionStrategy(
       ui::LayerAnimator::IMMEDIATELY_ANIMATE_TO_NEW_TARGET);
-  SetBounds(layout_manager->GetStatusAreaBoundsInScreen());
+  SetBounds(new_layout_inputs.bounds);
+  layout_inputs_ = new_layout_inputs;
+}
+
+void StatusAreaWidget::UpdateTargetBoundsForGesture(int shelf_position) {
+  const gfx::Point shelf_origin =
+      shelf_->shelf_widget()->GetTargetBounds().origin();
+  if (shelf_->IsHorizontalAlignment())
+    target_bounds_.set_y(shelf_origin.y());
+  else
+    target_bounds_.set_x(shelf_origin.x());
 }
 
 void StatusAreaWidget::CalculateButtonVisibilityForCollapsedState() {
+  if (!initialized_)
+    return;
+
   DCHECK(collapse_state_ == CollapseState::COLLAPSED);
 
   bool force_collapsible = base::CommandLine::ForCurrentProcess()->HasSwitch(
       switches::kAshForceStatusAreaCollapsible);
 
   // We update visibility of each tray button based on the available width.
-  int shelf_width =
+  const int shelf_width =
       shelf_->shelf_widget()->GetClientAreaBoundsInScreen().width();
-  int available_width =
+  const int available_width =
       force_collapsible ? kStatusAreaForceCollapseAvailableWidth
                         : shelf_width / 2 - kStatusAreaLeftPaddingForOverflow;
 
@@ -236,12 +245,6 @@ void StatusAreaWidget::CalculateButtonVisibilityForCollapsedState() {
   bool show_overflow_button = false;
   int used_width = 0;
   for (TrayBackgroundView* tray : base::Reversed(tray_buttons_)) {
-    // If we reach the final overflow tray button, then all the tray buttons fit
-    // and there is no need for a collapse state.
-    if (tray == overflow_button_tray_.get()) {
-      collapse_state_ = CollapseState::NOT_COLLAPSIBLE;
-      break;
-    }
 
     // Skip non-enabled tray buttons.
     if (!tray->visible_preferred())
@@ -269,6 +272,65 @@ void StatusAreaWidget::CalculateButtonVisibilityForCollapsedState() {
   overflow_button_tray_->UpdateAfterStatusAreaCollapseChange();
   for (TrayBackgroundView* tray_button : tray_buttons_)
     tray_button->UpdateAfterStatusAreaCollapseChange();
+}
+
+StatusAreaWidget::CollapseState StatusAreaWidget::CalculateCollapseState()
+    const {
+  // The status area is only collapsible in tablet mode. Otherwise, we just show
+  // all trays.
+  if (!Shell::Get()->tablet_mode_controller())
+    return CollapseState::NOT_COLLAPSIBLE;
+
+  // An update may occur during initialization of the shelf, so just skip it.
+  if (!initialized_)
+    return CollapseState::NOT_COLLAPSIBLE;
+
+  bool is_collapsible =
+      chromeos::switches::ShouldShowShelfHotseat() &&
+      Shell::Get()->tablet_mode_controller()->InTabletMode() &&
+      ShelfConfig::Get()->is_in_app();
+
+  bool force_collapsible = base::CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kAshForceStatusAreaCollapsible);
+
+  is_collapsible |= force_collapsible;
+  CollapseState state = CollapseState::NOT_COLLAPSIBLE;
+  if (is_collapsible) {
+    // Update the collapse state based on the previous overflow button state.
+    state = overflow_button_tray_->state() ==
+                    StatusAreaOverflowButtonTray::CLICK_TO_EXPAND
+                ? CollapseState::COLLAPSED
+                : CollapseState::EXPANDED;
+  } else {
+    state = CollapseState::NOT_COLLAPSIBLE;
+  }
+
+  if (state == CollapseState::COLLAPSED) {
+    // We might not need to be collapsed, if there is enough space for all the
+    // buttons.
+    const int shelf_width =
+        shelf_->shelf_widget()->GetClientAreaBoundsInScreen().width();
+    const int available_width =
+        force_collapsible ? kStatusAreaForceCollapseAvailableWidth
+                          : shelf_width / 2 - kStatusAreaLeftPaddingForOverflow;
+    int used_width = 0;
+    for (TrayBackgroundView* tray : base::Reversed(tray_buttons_)) {
+      // If we reach the final overflow tray button, then all the tray buttons
+      // fit and there is no need for a collapse state.
+      if (tray == overflow_button_tray_.get())
+        return CollapseState::NOT_COLLAPSIBLE;
+
+      // Skip non-enabled tray buttons.
+      if (!tray->visible_preferred())
+        continue;
+      int tray_width = tray->tray_container()->GetPreferredSize().width();
+      if (used_width + tray_width > available_width)
+        break;
+
+      used_width += tray_width;
+    }
+  }
+  return state;
 }
 
 TrayBackgroundView* StatusAreaWidget::GetSystemTrayAnchor() const {
@@ -304,7 +366,7 @@ void StatusAreaWidget::SchedulePaint() {
 }
 
 const ui::NativeTheme* StatusAreaWidget::GetNativeTheme() const {
-  return ui::NativeThemeDarkAura::instance();
+  return ui::NativeTheme::GetInstanceForDarkUI();
 }
 
 bool StatusAreaWidget::OnNativeWidgetActivationChanged(bool active) {
@@ -318,7 +380,7 @@ bool StatusAreaWidget::OnNativeWidgetActivationChanged(bool active) {
 void StatusAreaWidget::OnMouseEvent(ui::MouseEvent* event) {
   if (event->IsMouseWheelEvent()) {
     ui::MouseWheelEvent* mouse_wheel_event = event->AsMouseWheelEvent();
-    shelf_->ProcessMouseWheelEvent(mouse_wheel_event);
+    shelf_->ProcessMouseWheelEvent(mouse_wheel_event, /*from_touchpad=*/false);
     return;
   }
 
@@ -345,10 +407,10 @@ void StatusAreaWidget::OnGestureEvent(ui::GestureEvent* event) {
   views::Widget::OnGestureEvent(event);
 }
 
-void StatusAreaWidget::OnShelfConfigUpdated() {
-  for (TrayBackgroundView* tray_button : tray_buttons_)
-    tray_button->UpdateAfterShelfChange();
-  UpdateCollapseState();
+void StatusAreaWidget::OnScrollEvent(ui::ScrollEvent* event) {
+  shelf_->ProcessScrollEvent(event);
+  if (!event->handled())
+    views::Widget::OnScrollEvent(event);
 }
 
 void StatusAreaWidget::UpdateAfterColorModeChange() {
@@ -359,6 +421,17 @@ void StatusAreaWidget::UpdateAfterColorModeChange() {
 void StatusAreaWidget::AddTrayButton(TrayBackgroundView* tray_button) {
   status_area_widget_delegate_->AddChildView(tray_button);
   tray_buttons_.push_back(tray_button);
+}
+
+StatusAreaWidget::LayoutInputs StatusAreaWidget::GetLayoutInputs() const {
+  long child_visibility_bitmask = 0;
+  DCHECK(tray_buttons_.size() <
+         std::numeric_limits<decltype(child_visibility_bitmask)>::digits);
+  for (unsigned int i = 0; i < tray_buttons_.size(); ++i)
+    child_visibility_bitmask |= (tray_buttons_[i]->GetVisible() ? 1 : 0) << i;
+  return {target_bounds_, CalculateCollapseState(),
+          shelf_->shelf_layout_manager()->GetOpacity(),
+          child_visibility_bitmask};
 }
 
 }  // namespace ash

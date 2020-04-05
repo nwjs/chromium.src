@@ -46,7 +46,9 @@ struct NET_EXPORT DnsConfig {
   // Value only contains the number of hosts rather than the full list.
   std::unique_ptr<base::Value> ToValue() const;
 
-  bool IsValid() const { return !nameservers.empty(); }
+  bool IsValid() const {
+    return !nameservers.empty() || !dns_over_https_servers.empty();
+  }
 
   struct NET_EXPORT DnsOverHttpsServerConfig {
     DnsOverHttpsServerConfig(const std::string& server_template, bool use_post);
@@ -103,6 +105,9 @@ struct NET_EXPORT DnsConfig {
   base::TimeDelta timeout;
   // Maximum number of attempts, see res_state.retry.
   int attempts;
+  // Maximum number of times a DoH server is attempted per attempted per DNS
+  // transaction. This is separate from the global failure limit.
+  int doh_attempts;
   // Round robin entries in |nameservers| for subsequent requests.
   bool rotate;
 

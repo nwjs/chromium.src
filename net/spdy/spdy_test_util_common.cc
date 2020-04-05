@@ -26,6 +26,7 @@
 #include "net/http/http_network_transaction.h"
 #include "net/http/http_proxy_connect_job.h"
 #include "net/log/net_log_with_source.h"
+#include "net/proxy_resolution/configured_proxy_resolution_service.h"
 #include "net/quic/quic_context.h"
 #include "net/socket/client_socket_handle.h"
 #include "net/socket/next_proto.h"
@@ -318,7 +319,8 @@ MockECSignatureCreatorFactory::Create(crypto::ECPrivateKey* key) {
 }
 
 SpdySessionDependencies::SpdySessionDependencies()
-    : SpdySessionDependencies(ProxyResolutionService::CreateDirect()) {}
+    : SpdySessionDependencies(
+          ConfiguredProxyResolutionService::CreateDirect()) {}
 
 SpdySessionDependencies::SpdySessionDependencies(
     std::unique_ptr<ProxyResolutionService> proxy_resolution_service)
@@ -439,7 +441,8 @@ SpdyURLRequestContext::SpdyURLRequestContext() : storage_(this) {
   storage_.set_cert_verifier(std::make_unique<MockCertVerifier>());
   storage_.set_transport_security_state(
       std::make_unique<TransportSecurityState>());
-  storage_.set_proxy_resolution_service(ProxyResolutionService::CreateDirect());
+  storage_.set_proxy_resolution_service(
+      ConfiguredProxyResolutionService::CreateDirect());
   storage_.set_ct_policy_enforcer(std::make_unique<DefaultCTPolicyEnforcer>());
   storage_.set_cert_transparency_verifier(
       std::make_unique<DoNothingCTVerifier>());

@@ -35,6 +35,7 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/gfx/color_palette.h"
 #include "ui/gfx/color_utils.h"
+#include "ui/native_theme/test_native_theme.h"
 
 #if BUILDFLAG(ENABLE_SUPERVISED_USERS)
 #include "chrome/browser/supervised_user/supervised_user_service.h"
@@ -184,6 +185,7 @@ class ThemeServiceTest : public extensions::ExtensionServiceTestBase {
   }
 
  protected:
+  ui::TestNativeTheme native_theme_;
   extensions::ExtensionRegistry* registry_ = nullptr;
   ThemeService* theme_service_ = nullptr;
 };
@@ -303,24 +305,6 @@ TEST_F(ThemeServiceTest, IncognitoTest) {
   EXPECT_NE(provider.GetColor(ThemeProperties::COLOR_TOOLBAR),
             otr_provider.GetColor(ThemeProperties::COLOR_TOOLBAR));
 #endif
-}
-
-TEST_F(ThemeServiceTest, GetDefaultThemeProviderForProfile) {
-  SkColor default_toolbar_color =
-      ThemeService::GetThemeProviderForProfile(profile()).GetColor(
-          ThemeProperties::COLOR_TOOLBAR);
-
-  ThemeScoper scoper = LoadUnpackedTheme();
-
-  // Should get a new color after installing a theme.
-  EXPECT_NE(ThemeService::GetThemeProviderForProfile(profile()).GetColor(
-                ThemeProperties::COLOR_TOOLBAR),
-            default_toolbar_color);
-
-  // Should get the same color when requesting a default color.
-  EXPECT_EQ(ThemeService::GetDefaultThemeProviderForProfile(profile()).GetColor(
-                ThemeProperties::COLOR_TOOLBAR),
-            default_toolbar_color);
 }
 
 TEST_F(ThemeServiceTest, GetColorForToolbarButton) {
@@ -478,12 +462,13 @@ TEST_F(ThemeServiceTest, UseDefaultTheme_DisableExtensionTest) {
 TEST_F(ThemeServiceTest, OmniboxContrast) {
   using TP = ThemeProperties;
   for (bool dark : {false, true}) {
+    native_theme_.SetDarkMode(dark);
     for (bool high_contrast : {false, true}) {
       set_theme_supplier(
           theme_service_,
-          high_contrast
-              ? base::MakeRefCounted<IncreasedContrastThemeSupplier>(dark)
-              : nullptr);
+          high_contrast ? base::MakeRefCounted<IncreasedContrastThemeSupplier>(
+                              &native_theme_)
+                        : nullptr);
       constexpr int contrasting_ids[][2] = {
           {TP::COLOR_OMNIBOX_TEXT, TP::COLOR_OMNIBOX_BACKGROUND},
           {TP::COLOR_OMNIBOX_TEXT, TP::COLOR_OMNIBOX_BACKGROUND_HOVERED},
@@ -598,6 +583,27 @@ TEST_F(ThemeServiceTest, TranslucentOmniboxBackgroundAndText) {
     GetOmniboxColor(theme_service_, id, false);
     GetOmniboxColor(theme_service_, id, true);
   }
+}
+
+TEST_F(ThemeServiceTest, NativeIncreasedContrastChanged) {
+  theme_service_->UseDefaultTheme();
+
+  native_theme_.SetUsesHighContrastColors(true);
+  theme_service_->OnNativeThemeUpdated(&native_theme_);
+  EXPECT_TRUE(theme_service_->UsingDefaultTheme());
+  bool using_increased_contrast =
+      theme_service_->GetThemeSupplier() &&
+      theme_service_->GetThemeSupplier()->get_theme_type() ==
+          CustomThemeSupplier::ThemeType::INCREASED_CONTRAST;
+  bool expecting_increased_contrast =
+      theme_service_->theme_helper_for_testing()
+          .ShouldUseIncreasedContrastThemeSupplier(&native_theme_);
+  EXPECT_EQ(using_increased_contrast, expecting_increased_contrast);
+
+  native_theme_.SetUsesHighContrastColors(false);
+  theme_service_->OnNativeThemeUpdated(&native_theme_);
+  EXPECT_TRUE(theme_service_->UsingDefaultTheme());
+  EXPECT_EQ(theme_service_->GetThemeSupplier(), nullptr);
 }
 
 }  // namespace theme_service_internal

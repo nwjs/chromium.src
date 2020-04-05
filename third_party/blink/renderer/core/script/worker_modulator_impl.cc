@@ -18,30 +18,28 @@ WorkerModulatorImpl::WorkerModulatorImpl(ScriptState* script_state)
     : ModulatorImplBase(script_state) {}
 
 ModuleScriptFetcher* WorkerModulatorImpl::CreateModuleScriptFetcher(
-    ModuleScriptCustomFetchType custom_fetch_type) {
+    ModuleScriptCustomFetchType custom_fetch_type,
+    util::PassKey<ModuleScriptLoader> pass_key) {
   auto* global_scope = To<WorkerGlobalScope>(GetExecutionContext());
   switch (custom_fetch_type) {
     case ModuleScriptCustomFetchType::kNone:
-      return MakeGarbageCollected<DocumentModuleScriptFetcher>();
+      return MakeGarbageCollected<DocumentModuleScriptFetcher>(pass_key);
     case ModuleScriptCustomFetchType::kWorkerConstructor:
-      return MakeGarbageCollected<WorkerModuleScriptFetcher>(global_scope);
+      return MakeGarbageCollected<WorkerModuleScriptFetcher>(global_scope,
+                                                             pass_key);
     case ModuleScriptCustomFetchType::kWorkletAddModule:
       break;
     case ModuleScriptCustomFetchType::kInstalledServiceWorker:
       return MakeGarbageCollected<InstalledServiceWorkerModuleScriptFetcher>(
-          global_scope);
+          global_scope, pass_key);
   }
   NOTREACHED();
   return nullptr;
 }
 
 bool WorkerModulatorImpl::IsDynamicImportForbidden(String* reason) {
-  // TODO(nhiroki): Remove this flag check once module loading for
-  // DedicatedWorker is enabled by default (https://crbug.com/680046).
-  if (GetExecutionContext()->IsDedicatedWorkerGlobalScope() &&
-      RuntimeEnabledFeatures::ModuleDedicatedWorkerEnabled()) {
+  if (GetExecutionContext()->IsDedicatedWorkerGlobalScope())
     return false;
-  }
 
   // TODO(https://crbug.com/824646): Remove this flag check once module loading
   // for SharedWorker is enabled by default.

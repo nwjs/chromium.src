@@ -10,9 +10,12 @@
 #include <vector>
 
 #include "base/bind.h"
+#include "base/bind_helpers.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/run_loop.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/test/bind_test_util.h"
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/safe_browsing/cloud_content_scanning/binary_upload_service.h"
 #include "chrome/browser/safe_browsing/cloud_content_scanning/fake_deep_scanning_dialog_delegate.h"
@@ -58,6 +61,7 @@ class BaseTest : public testing::Test {
   BaseTest() : profile_manager_(TestingBrowserProcess::GetGlobal()) {
     EXPECT_TRUE(profile_manager_.SetUp());
     profile_ = profile_manager_.CreateTestingProfile("test-user");
+    DeepScanningDialogDelegate::DisableUIForTesting();
   }
 
   void EnableFeatures(const std::vector<base::Feature>& features) {
@@ -88,6 +92,11 @@ class BaseTest : public testing::Test {
   void SetMalwarePolicy(SendFilesForMalwareCheckValues state) {
     profile_->GetPrefs()->SetInteger(
         prefs::kSafeBrowsingSendFilesForMalwareCheck, state);
+  }
+
+  void SetBlockLargeFilePolicy(BlockLargeFileTransferValues state) {
+    TestingBrowserProcess::GetGlobal()->local_state()->SetInteger(
+        prefs::kBlockLargeFileTransfer, state);
   }
 
   void AddUrlToList(const char* pref_name, const GURL& url) {
@@ -126,6 +135,8 @@ class BaseTest : public testing::Test {
   TestingProfileManager profile_manager_;
   TestingProfile* profile_;
 };
+
+}  // namespace
 
 using DeepScanningDialogDelegateIsEnabledTest = BaseTest;
 
@@ -1241,9 +1252,10 @@ TEST_F(DeepScanningDialogDelegateAuditOnlyTest, SupportedTypes) {
   data.paths.emplace_back(FILE_PATH_LITERAL("/tmp/foo.zip"));
 
   // Mark all files with failed scans.
-  for (const auto& path : data.paths)
+  for (const auto& path : data.paths) {
     PathFailsDeepScan(path, FakeDeepScanningDialogDelegate::MalwareResponse(
                                 MalwareDeepScanningVerdict::UWS));
+  }
 
   bool called = false;
   ScanUpload(contents(), std::move(data),
@@ -1263,7 +1275,7 @@ TEST_F(DeepScanningDialogDelegateAuditOnlyTest, SupportedTypes) {
   EXPECT_TRUE(called);
 }
 
-TEST_F(DeepScanningDialogDelegateAuditOnlyTest, UnsupportedTypes) {
+TEST_F(DeepScanningDialogDelegateAuditOnlyTest, UnsupportedTypesDefaultPolicy) {
   GURL url(kTestUrl);
   DeepScanningDialogDelegate::Data data;
   ASSERT_TRUE(DeepScanningDialogDelegate::IsEnabled(profile(), url, &data));
@@ -1276,9 +1288,10 @@ TEST_F(DeepScanningDialogDelegateAuditOnlyTest, UnsupportedTypes) {
   data.paths.emplace_back(FILE_PATH_LITERAL("/tmp/foo.supported"));
 
   // Mark all files with failed scans.
-  for (const auto& path : data.paths)
+  for (const auto& path : data.paths) {
     PathFailsDeepScan(path, FakeDeepScanningDialogDelegate::MalwareResponse(
                                 MalwareDeepScanningVerdict::UWS));
+  }
 
   bool called = false;
   ScanUpload(contents(), std::move(data),
@@ -1288,9 +1301,49 @@ TEST_F(DeepScanningDialogDelegateAuditOnlyTest, UnsupportedTypes) {
                    EXPECT_EQ(6u, data.paths.size());
                    ASSERT_EQ(6u, result.paths_results.size());
 
-                   // The unsupported types should be marked as true.
+                   // The unsupported types should be marked as true since the
+                   // default policy behavior is to allow them through.
                    for (const bool path_result : result.paths_results)
                      EXPECT_TRUE(path_result);
+                   *called = true;
+                 },
+                 &called));
+  RunUntilDone();
+  EXPECT_TRUE(called);
+}
+
+TEST_F(DeepScanningDialogDelegateAuditOnlyTest, UnsupportedTypesBlockPolicy) {
+  TestingBrowserProcess::GetGlobal()->local_state()->SetInteger(
+      prefs::kBlockUnsupportedFiletypes, BLOCK_UNSUPPORTED_FILETYPES_UPLOADS);
+  GURL url(kTestUrl);
+  DeepScanningDialogDelegate::Data data;
+  EXPECT_TRUE(DeepScanningDialogDelegate::IsEnabled(profile(), url, &data));
+
+  data.paths.emplace_back(FILE_PATH_LITERAL("/tmp/foo.these"));
+  data.paths.emplace_back(FILE_PATH_LITERAL("/tmp/foo.file"));
+  data.paths.emplace_back(FILE_PATH_LITERAL("/tmp/foo.types"));
+  data.paths.emplace_back(FILE_PATH_LITERAL("/tmp/foo.are"));
+  data.paths.emplace_back(FILE_PATH_LITERAL("/tmp/foo.not"));
+  data.paths.emplace_back(FILE_PATH_LITERAL("/tmp/foo.supported"));
+
+  // Mark all files with failed scans.
+  for (const auto& path : data.paths) {
+    PathFailsDeepScan(path, FakeDeepScanningDialogDelegate::MalwareResponse(
+                                MalwareDeepScanningVerdict::UWS));
+  }
+
+  bool called = false;
+  ScanUpload(contents(), std::move(data),
+             base::BindOnce(
+                 [](bool* called, const DeepScanningDialogDelegate::Data& data,
+                    const DeepScanningDialogDelegate::Result& result) {
+                   EXPECT_EQ(6u, data.paths.size());
+                   ASSERT_EQ(6u, result.paths_results.size());
+
+                   // The unsupported types should be marked as false since the
+                   // block policy behavior is to not allow them through.
+                   for (const bool path_result : result.paths_results)
+                     EXPECT_FALSE(path_result);
                    *called = true;
                  },
                  &called));
@@ -1321,9 +1374,10 @@ TEST_F(DeepScanningDialogDelegateAuditOnlyTest, SupportedAndUnsupportedTypes) {
   data.paths.emplace_back(FILE_PATH_LITERAL("/tmp/foo.doc"));
 
   // Mark all files with failed scans.
-  for (const auto& path : data.paths)
+  for (const auto& path : data.paths) {
     PathFailsDeepScan(path, FakeDeepScanningDialogDelegate::MalwareResponse(
                                 MalwareDeepScanningVerdict::UWS));
+  }
 
   bool called = false;
   ScanUpload(
@@ -1433,6 +1487,49 @@ INSTANTIATE_TEST_SUITE_P(
                     BinaryUploadService::Result::UNAUTHORIZED,
                     BinaryUploadService::Result::FILE_ENCRYPTED));
 
-}  // namespace
+using DeepScanningDialogDelegatePolicyResultsTest = BaseTest;
+
+TEST_F(DeepScanningDialogDelegatePolicyResultsTest, BlockLargeFile) {
+  // The value returned by ResultShouldAllowDataUse for FILE_TOO_LARGE should
+  // match the BlockLargeFilePolicy.
+  SetBlockLargeFilePolicy(
+      BlockLargeFileTransferValues::BLOCK_LARGE_UPLOADS_AND_DOWNLOADS);
+  EXPECT_FALSE(DeepScanningDialogDelegate::ResultShouldAllowDataUse(
+      BinaryUploadService::Result::FILE_TOO_LARGE));
+
+  SetBlockLargeFilePolicy(BlockLargeFileTransferValues::BLOCK_LARGE_DOWNLOADS);
+  EXPECT_TRUE(DeepScanningDialogDelegate::ResultShouldAllowDataUse(
+      BinaryUploadService::Result::FILE_TOO_LARGE));
+
+  SetBlockLargeFilePolicy(BlockLargeFileTransferValues::BLOCK_LARGE_UPLOADS);
+  EXPECT_FALSE(DeepScanningDialogDelegate::ResultShouldAllowDataUse(
+      BinaryUploadService::Result::FILE_TOO_LARGE));
+
+  SetBlockLargeFilePolicy(BlockLargeFileTransferValues::BLOCK_NONE);
+  EXPECT_TRUE(DeepScanningDialogDelegate::ResultShouldAllowDataUse(
+      BinaryUploadService::Result::FILE_TOO_LARGE));
+}
+
+TEST_F(DeepScanningDialogDelegatePolicyResultsTest,
+       AllowPasswordProtectedFiles) {
+  // The value returned by ResultShouldAllowDataUse for FILE_ENCRYPTED should
+  // match the AllowPasswordProtectedFiles policy.
+  SetAllowPasswordPolicy(
+      AllowPasswordProtectedFilesValues::ALLOW_UPLOADS_AND_DOWNLOADS);
+  EXPECT_TRUE(DeepScanningDialogDelegate::ResultShouldAllowDataUse(
+      BinaryUploadService::Result::FILE_ENCRYPTED));
+
+  SetAllowPasswordPolicy(AllowPasswordProtectedFilesValues::ALLOW_DOWNLOADS);
+  EXPECT_FALSE(DeepScanningDialogDelegate::ResultShouldAllowDataUse(
+      BinaryUploadService::Result::FILE_ENCRYPTED));
+
+  SetAllowPasswordPolicy(AllowPasswordProtectedFilesValues::ALLOW_UPLOADS);
+  EXPECT_TRUE(DeepScanningDialogDelegate::ResultShouldAllowDataUse(
+      BinaryUploadService::Result::FILE_ENCRYPTED));
+
+  SetAllowPasswordPolicy(AllowPasswordProtectedFilesValues::ALLOW_NONE);
+  EXPECT_FALSE(DeepScanningDialogDelegate::ResultShouldAllowDataUse(
+      BinaryUploadService::Result::FILE_ENCRYPTED));
+}
 
 }  // namespace safe_browsing

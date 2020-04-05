@@ -26,8 +26,16 @@ namespace ui {
 #define EXPECT_INVALIDARG(expr) \
   EXPECT_EQ(static_cast<HRESULT>(E_INVALIDARG), (expr))
 
-class AXPlatformNodeTextProviderTest : public ui::AXPlatformNodeWinTest {
+class AXPlatformNodeTextProviderTest : public AXPlatformNodeWinTest {
  public:
+  AXPlatformNodeTextProviderTest() = default;
+  ~AXPlatformNodeTextProviderTest() override = default;
+  AXPlatformNodeTextProviderTest(const AXPlatformNodeTextProviderTest&) =
+      delete;
+  AXPlatformNodeTextProviderTest& operator=(
+      const AXPlatformNodeTextProviderTest&) = delete;
+
+ protected:
   ui::AXPlatformNodeWin* GetOwner(
       const AXPlatformNodeTextProviderWin* text_provider) {
     return text_provider->owner_.Get();
@@ -116,8 +124,7 @@ TEST_F(AXPlatformNodeTextProviderTest, ITextProviderRangeFromChild) {
 
   Init(update);
 
-  AXNode* root_node = GetRootNode();
-  AXNodePosition::SetTree(tree_.get());
+  AXNode* root_node = GetRootAsAXNode();
   AXNode* text_node = root_node->children()[0];
   AXNode* empty_text_node = root_node->children()[1];
 
@@ -140,7 +147,7 @@ TEST_F(AXPlatformNodeTextProviderTest, ITextProviderRangeFromChild) {
   base::win::ScopedBstr text_content;
   EXPECT_HRESULT_SUCCEEDED(
       text_range_provider->GetText(-1, text_content.Receive()));
-  EXPECT_EQ(0, wcscmp(static_cast<BSTR>(text_content), L"some text"));
+  EXPECT_EQ(0, wcscmp(text_content.Get(), L"some text"));
 
   // Now test that the reverse relation doesn't return a valid
   // ITextRangeProvider, and instead returns E_INVALIDARG.
@@ -160,7 +167,7 @@ TEST_F(AXPlatformNodeTextProviderTest, ITextProviderRangeFromChild) {
   base::win::ScopedBstr empty_text_content;
   EXPECT_HRESULT_SUCCEEDED(
       text_range_provider->GetText(-1, empty_text_content.Receive()));
-  EXPECT_EQ(0, wcscmp(static_cast<BSTR>(empty_text_content), L""));
+  EXPECT_EQ(0, wcscmp(empty_text_content.Get(), L""));
 
   // Test that passing in an object from a different instance of
   // IRawElementProviderSimple than that of the valid text provider
@@ -239,8 +246,7 @@ TEST_F(AXPlatformNodeTextProviderTest,
 
   Init(update);
 
-  AXNode* root_node = GetRootNode();
-  AXNodePosition::SetTree(tree_.get());
+  AXNode* root_node = GetRootAsAXNode();
   AXNode* dialog_node = root_node->children()[0];
 
   ComPtr<IRawElementProviderSimple> root_node_raw =
@@ -260,12 +266,11 @@ TEST_F(AXPlatformNodeTextProviderTest,
   base::win::ScopedBstr text_content;
   EXPECT_HRESULT_SUCCEEDED(
       text_range_provider->GetText(-1, text_content.Receive()));
-  EXPECT_EQ(0, wcscmp(static_cast<BSTR>(text_content),
-                      (L"Dialog label.Dialog description." +
-                       kEmbeddedCharacterAsString +
-                       "ok.Some more detail "
-                       L"about dialog.")
-                          .c_str()));
+  EXPECT_EQ(0, wcscmp(text_content.Get(), (L"Dialog label.Dialog description." +
+                                           kEmbeddedCharacterAsString +
+                                           "ok.Some more detail "
+                                           L"about dialog.")
+                                              .c_str()));
 
   // Check the reverse relationship that GetEnclosingElement on the text range
   // gives back the dialog.
@@ -286,14 +291,13 @@ TEST_F(AXPlatformNodeTextProviderTest, NearestTextIndexToPoint) {
 
   ui::AXNodeData root_data;
   root_data.id = 1;
-  root_data.role = ax::mojom::Role::kStaticText;
+  root_data.role = ax::mojom::Role::kRootWebArea;
   root_data.relative_bounds.bounds = gfx::RectF(1, 1, 2, 2);
   root_data.child_ids.push_back(2);
 
   Init(root_data, text_data);
 
-  AXNode* root_node = GetRootNode();
-  AXNodePosition::SetTree(tree_.get());
+  AXNode* root_node = GetRootAsAXNode();
   AXNode* text_node = root_node->children()[0];
 
   struct NearestTextIndexTestData {
@@ -445,8 +449,6 @@ TEST_F(AXPlatformNodeTextProviderTest, ITextProviderGetSelection) {
   update.nodes.push_back(textbox_data);
   Init(update);
 
-  AXNodePosition::SetTree(tree_.get());
-
   ComPtr<IRawElementProviderSimple> root_node =
       GetRootIRawElementProviderSimple();
 
@@ -487,7 +489,7 @@ TEST_F(AXPlatformNodeTextProviderTest, ITextProviderGetSelection) {
   base::win::ScopedBstr text_content;
   EXPECT_HRESULT_SUCCEEDED(
       text_range_provider->GetText(-1, text_content.Receive()));
-  EXPECT_EQ(0, wcscmp(text_content, L"some"));
+  EXPECT_EQ(0, wcscmp(text_content.Get(), L"some"));
   text_content.Reset();
   selections.Reset();
   text_range_provider.Reset();
@@ -512,7 +514,7 @@ TEST_F(AXPlatformNodeTextProviderTest, ITextProviderGetSelection) {
 
   EXPECT_HRESULT_SUCCEEDED(
       text_range_provider->GetText(-1, text_content.Receive()));
-  EXPECT_EQ(0, wcscmp(text_content, L"some"));
+  EXPECT_EQ(0, wcscmp(text_content.Get(), L"some"));
   text_content.Reset();
   selections.Reset();
   text_range_provider.Reset();
@@ -524,7 +526,7 @@ TEST_F(AXPlatformNodeTextProviderTest, ITextProviderGetSelection) {
   selected_tree_data.sel_anchor_offset = 1;
   selected_tree_data.sel_focus_offset = 1;
 
-  AXNode* text_edit_node = GetRootNode()->children()[1];
+  AXNode* text_edit_node = GetRootAsAXNode()->children()[1];
 
   ComPtr<IRawElementProviderSimple> text_edit_com =
       QueryInterfaceFromNode<IRawElementProviderSimple>(text_edit_node);
@@ -550,7 +552,7 @@ TEST_F(AXPlatformNodeTextProviderTest, ITextProviderGetSelection) {
 
   EXPECT_HRESULT_SUCCEEDED(
       text_edit_range_provider->GetText(-1, text_content.Receive()));
-  EXPECT_EQ(0U, SysStringLen(text_content));
+  EXPECT_EQ(0U, text_content.Length());
   text_content.Reset();
   selections.Reset();
   text_edit_range_provider.Reset();
@@ -574,7 +576,7 @@ TEST_F(AXPlatformNodeTextProviderTest, ITextProviderGetSelection) {
 
   EXPECT_HRESULT_SUCCEEDED(
       text_range_provider->GetText(-1, text_content.Receive()));
-  EXPECT_EQ(0, wcscmp(text_content, L"some texttextbox text"));
+  EXPECT_EQ(0, wcscmp(text_content.Get(), L"some texttextbox text"));
   text_content.Reset();
   selections.Reset();
   text_range_provider.Reset();
@@ -592,12 +594,10 @@ TEST_F(AXPlatformNodeTextProviderTest, ITextProviderGetSelection) {
   // Now delete the tree (which will delete the associated elements) and verify
   // that UIA_E_ELEMENTNOTAVAILABLE is returned when calling GetSelection on
   // a dead element
-  tree_.reset();
+  DestroyTree();
 
   EXPECT_EQ(static_cast<HRESULT>(UIA_E_ELEMENTNOTAVAILABLE),
             text_edit_provider->GetSelection(selections.Receive()));
-
-  AXNodePosition::SetTree(nullptr);
 }
 
 TEST_F(AXPlatformNodeTextProviderTest, ITextProviderGetActiveComposition) {
@@ -621,8 +621,6 @@ TEST_F(AXPlatformNodeTextProviderTest, ITextProviderGetActiveComposition) {
   update.nodes.push_back(root_data);
   update.nodes.push_back(text_data);
   Init(update);
-
-  AXNodePosition::SetTree(tree_.get());
 
   ComPtr<IRawElementProviderSimple> root_node =
       GetRootIRawElementProviderSimple();
@@ -683,8 +681,6 @@ TEST_F(AXPlatformNodeTextProviderTest, ITextProviderGetConversionTarget) {
   update.nodes.push_back(root_data);
   update.nodes.push_back(text_data);
   Init(update);
-
-  AXNodePosition::SetTree(tree_.get());
 
   ComPtr<IRawElementProviderSimple> root_node =
       GetRootIRawElementProviderSimple();

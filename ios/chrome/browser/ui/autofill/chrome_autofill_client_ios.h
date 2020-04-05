@@ -57,7 +57,6 @@ class ChromeAutofillClientIOS : public AutofillClient {
   syncer::SyncService* GetSyncService() override;
   signin::IdentityManager* GetIdentityManager() override;
   FormDataImporter* GetFormDataImporter() override;
-  SmsClient* GetSmsClient() override;
   payments::PaymentsClient* GetPaymentsClient() override;
   StrikeDatabase* GetStrikeDatabase() override;
   ukm::UkmRecorder* GetUkmRecorder() override;
@@ -65,6 +64,7 @@ class ChromeAutofillClientIOS : public AutofillClient {
   AddressNormalizer* GetAddressNormalizer() override;
   security_state::SecurityLevel GetSecurityLevelForUmaHistograms() override;
   std::string GetPageLanguage() const override;
+  std::string GetVariationConfigCountryCode() const override;
 
   void ShowAutofillSettings(bool show_credit_card_settings) override;
   void ShowUnmaskPrompt(const CreditCard& card,
@@ -116,7 +116,7 @@ class ChromeAutofillClientIOS : public AutofillClient {
       const std::vector<base::string16>& values,
       const std::vector<base::string16>& labels) override;
   base::span<const autofill::Suggestion> GetPopupSuggestions() const override;
-  void PinPopupViewUntilUpdate() override;
+  void PinPopupView() override;
   void UpdatePopup(const std::vector<autofill::Suggestion>& suggestions,
                    PopupType popup_type) override;
   void HideAutofillPopup(PopupHidingReason reason) override;

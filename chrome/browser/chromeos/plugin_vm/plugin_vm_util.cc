@@ -8,18 +8,19 @@
 #include <utility>
 
 #include "base/bind.h"
-#include "base/command_line.h"
 #include "base/files/file_util.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "chrome/browser/chromeos/plugin_vm/plugin_vm_drive_image_download_service.h"
 #include "chrome/browser/chromeos/plugin_vm/plugin_vm_manager.h"
 #include "chrome/browser/chromeos/plugin_vm/plugin_vm_pref_names.h"
 #include "chrome/browser/chromeos/profiles/profile_helper.h"
 #include "chrome/browser/chromeos/settings/cros_settings.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/ash/launcher/chrome_launcher_controller.h"
 #include "chrome/common/chrome_features.h"
-#include "chromeos/constants/chromeos_switches.h"
+#include "chromeos/dbus/dlcservice/dlcservice_client.h"
 #include "chromeos/tpm/install_attributes.h"
 #include "components/exo/shell_surface_util.h"
 #include "components/prefs/pref_service.h"
@@ -40,16 +41,9 @@ static std::string& GetFakeLicenseKey() {
 // For PluginVm to be allowed:
 // * Profile should be eligible.
 // * PluginVm feature should be enabled.
-// If device is not enterprise enrolled:
-//     * Device should be in a dev mode.
-// If device is enterprise enrolled:
-//     * User should be affiliated.
-//     * All necessary policies should be set (PluginVmAllowed, PluginVmImage
-//       and PluginVmLicenseKey).
-//
-// TODO(okalitova, aoldemeier): PluginVm should be disabled in case of
-// non-managed devices once it is launched. Currently this conditions are used
-// for making manual tests easier.
+// * Device should be enterprise enrolled:
+//   * User should be affiliated.
+//   * PluginVmAllowed and PluginVmLicenseKey policies should be set.
 bool IsPluginVmAllowedForProfile(const Profile* profile) {
   // Check that the profile is eligible.
   if (!profile || profile->IsChild() || profile->IsLegacySupervised() ||
@@ -68,16 +62,9 @@ bool IsPluginVmAllowedForProfile(const Profile* profile) {
   if (FakeLicenseKeyIsSet())
     return true;
 
-  // TODO(okalitova, aoldemeier): Remove once PluginVm is ready to be launched.
-  // Check for alternative condition for manual testing, i.e. the device is in
-  // developer mode and the device is not enterprise-enrolled.
-  if (!chromeos::InstallAttributes::Get()->IsEnterpriseManaged()) {
-    if (base::CommandLine::ForCurrentProcess()->HasSwitch(
-            chromeos::switches::kSystemDevMode)) {
-      return true;
-    }
+  // Check that the device is enterprise enrolled.
+  if (!chromeos::InstallAttributes::Get()->IsEnterpriseManaged())
     return false;
-  }
 
   // Check that the user is affiliated.
   const user_manager::User* const user =
@@ -103,22 +90,15 @@ bool IsPluginVmAllowedForProfile(const Profile* profile) {
   if (plugin_vm_license_key == std::string())
     return false;
 
-  // Check that a VM image is set.
-  if (!profile->GetPrefs()->HasPrefPath(plugin_vm::prefs::kPluginVmImage))
-    return false;
-
   return true;
 }
 
-bool IsPluginVmConfigured(Profile* profile) {
-  if (!profile->GetPrefs()->GetBoolean(
-          plugin_vm::prefs::kPluginVmImageExists)) {
-    return false;
-  }
-  return true;
+bool IsPluginVmConfigured(const Profile* profile) {
+  return profile->GetPrefs()->GetBoolean(
+      plugin_vm::prefs::kPluginVmImageExists);
 }
 
-bool IsPluginVmEnabled(Profile* profile) {
+bool IsPluginVmEnabled(const Profile* profile) {
   return IsPluginVmAllowedForProfile(profile) && IsPluginVmConfigured(profile);
 }
 
@@ -171,9 +151,8 @@ void RemoveDriveDownloadDirectoryIfExists() {
     }
   };
 
-  base::PostTaskAndReplyWithResult(
-      FROM_HERE,
-      {base::ThreadPool(), base::MayBlock(), base::TaskPriority::BEST_EFFORT},
+  base::ThreadPool::PostTaskAndReplyWithResult(
+      FROM_HERE, {base::MayBlock(), base::TaskPriority::BEST_EFFORT},
       base::BindOnce(&base::DeleteFileRecursively,
                      base::FilePath(kPluginVmDriveDownloadDirectory)),
       base::BindOnce(std::move(log_file_deletion_if_failed)));
@@ -198,6 +177,13 @@ std::string GetIdFromDriveUrl(const GURL& url) {
     return spec.substr(id_start);
   else
     return spec.substr(id_start, first_ampersand - id_start);
+}
+
+dlcservice::DlcModuleList GetPluginVmDlcModuleList() {
+  dlcservice::DlcModuleList dlc_module_list;
+  auto* dlc_module_info = dlc_module_list.add_dlc_module_infos();
+  dlc_module_info->set_dlc_id("pita");
+  return dlc_module_list;
 }
 
 }  // namespace plugin_vm

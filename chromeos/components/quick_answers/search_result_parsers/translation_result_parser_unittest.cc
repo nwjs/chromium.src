@@ -7,6 +7,7 @@
 #include <memory>
 #include <string>
 
+#include "base/strings/utf_string_conversions.h"
 #include "base/values.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -44,6 +45,16 @@ TEST_F(TranslationResultParserTest, Success) {
   EXPECT_EQ(ResultType::kTranslationResult, quick_answer.result_type);
   EXPECT_EQ("ox\\xC3\\xADgeno", quick_answer.primary_answer);
   EXPECT_EQ("oxygen · English", quick_answer.secondary_answer);
+
+  EXPECT_EQ(1u, quick_answer.title.size());
+  EXPECT_EQ(1u, quick_answer.first_answer_row.size());
+  auto* title = static_cast<QuickAnswerText*>(quick_answer.title[0].get());
+  EXPECT_EQ(base::UTF8ToUTF16("oxygen · English"), title->text);
+  EXPECT_EQ(gfx::kGoogleGrey900, title->color);
+  auto* answer =
+      static_cast<QuickAnswerText*>(quick_answer.first_answer_row[0].get());
+  EXPECT_EQ(base::UTF8ToUTF16("ox\\xC3\\xADgeno"), answer->text);
+  EXPECT_EQ(gfx::kGoogleGrey700, answer->color);
 }
 
 TEST_F(TranslationResultParserTest, MissingSourceText) {

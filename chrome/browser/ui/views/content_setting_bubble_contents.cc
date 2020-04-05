@@ -241,7 +241,8 @@ void ContentSettingBubbleContents::ListItemContainer::AddItem(
         *item_icon, CONTEXT_BODY_TEXT_SMALL, views::style::STYLE_PRIMARY);
     item_icon->SetImage(CreateVectorIconWithBadge(
         *item.image, GetLayoutConstant(LOCATION_BAR_ICON_SIZE), icon_color,
-        item.has_blocked_badge ? kBlockedBadgeIcon : gfx::kNoneIcon));
+        item.has_blocked_badge ? vector_icons::kBlockedBadgeIcon
+                               : gfx::kNoneIcon));
   }
 
   std::unique_ptr<views::View> item_contents;
@@ -380,11 +381,14 @@ ContentSettingBubbleContents::ContentSettingBubbleContents(
   DCHECK(content_setting_bubble_model_);
   const base::string16& done_text =
       content_setting_bubble_model_->bubble_content().done_button_text;
-  DialogDelegate::set_buttons(ui::DIALOG_BUTTON_OK);
-  DialogDelegate::set_button_label(
+  DialogDelegate::SetButtons(ui::DIALOG_BUTTON_OK);
+  DialogDelegate::SetButtonLabel(
       ui::DIALOG_BUTTON_OK,
       done_text.empty() ? l10n_util::GetStringUTF16(IDS_DONE) : done_text);
   DialogDelegate::SetExtraView(CreateHelpAndManageView());
+  DialogDelegate::SetAcceptCallback(
+      base::BindOnce(&ContentSettingBubbleModel::OnDoneButtonClicked,
+                     base::Unretained(content_setting_bubble_model_.get())));
 }
 
 ContentSettingBubbleContents::~ContentSettingBubbleContents() {
@@ -551,16 +555,6 @@ void ContentSettingBubbleContents::Init() {
   }
 
   content_setting_bubble_model_->set_owner(this);
-}
-
-bool ContentSettingBubbleContents::Accept() {
-  content_setting_bubble_model_->OnDoneButtonClicked();
-
-  return true;
-}
-
-bool ContentSettingBubbleContents::Close() {
-  return true;
 }
 
 void ContentSettingBubbleContents::StyleLearnMoreButton() {

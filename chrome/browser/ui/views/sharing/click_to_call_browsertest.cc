@@ -5,6 +5,7 @@
 #include <memory>
 #include <string>
 
+#include "base/bind_helpers.h"
 #include "base/macros.h"
 #include "base/run_loop.h"
 #include "base/strings/strcat.h"
@@ -98,10 +99,10 @@ class ClickToCallBrowserTest : public BaseClickToCallBrowserTest {
 // TODO(himanshujaju): Add UI checks.
 IN_PROC_BROWSER_TEST_F(ClickToCallBrowserTest,
                        ContextMenu_TelLink_SingleDeviceAvailable) {
-  Init(sync_pb::SharingSpecificFields::CLICK_TO_CALL,
+  Init(sync_pb::SharingSpecificFields::CLICK_TO_CALL_V2,
        sync_pb::SharingSpecificFields::UNKNOWN);
   auto devices = sharing_service()->GetDeviceCandidates(
-      sync_pb::SharingSpecificFields::CLICK_TO_CALL);
+      sync_pb::SharingSpecificFields::CLICK_TO_CALL_V2);
   ASSERT_EQ(1u, devices.size());
 
   std::unique_ptr<TestRenderViewContextMenu> menu =
@@ -123,7 +124,7 @@ IN_PROC_BROWSER_TEST_F(ClickToCallBrowserTest, ContextMenu_NoDevicesAvailable) {
   Init(sync_pb::SharingSpecificFields::UNKNOWN,
        sync_pb::SharingSpecificFields::UNKNOWN);
   auto devices = sharing_service()->GetDeviceCandidates(
-      sync_pb::SharingSpecificFields::CLICK_TO_CALL);
+      sync_pb::SharingSpecificFields::CLICK_TO_CALL_V2);
   ASSERT_EQ(0u, devices.size());
 
   std::unique_ptr<TestRenderViewContextMenu> menu =
@@ -136,18 +137,17 @@ IN_PROC_BROWSER_TEST_F(ClickToCallBrowserTest, ContextMenu_NoDevicesAvailable) {
 
 IN_PROC_BROWSER_TEST_F(ClickToCallBrowserTest,
                        ContextMenu_DevicesAvailable_SyncTurnedOff) {
-  if (base::FeatureList::IsEnabled(kSharingUseDeviceInfo) &&
-      base::FeatureList::IsEnabled(kSharingDeriveVapidKey) &&
+  if (base::FeatureList::IsEnabled(kSharingDeriveVapidKey) &&
       base::FeatureList::IsEnabled(switches::kSyncDeviceInfoInTransportMode)) {
     // Turning off sync will have no effect when Click to Call is available on
     // sign-in.
     return;
   }
 
-  Init(sync_pb::SharingSpecificFields::CLICK_TO_CALL,
+  Init(sync_pb::SharingSpecificFields::CLICK_TO_CALL_V2,
        sync_pb::SharingSpecificFields::UNKNOWN);
   auto devices = sharing_service()->GetDeviceCandidates(
-      sync_pb::SharingSpecificFields::CLICK_TO_CALL);
+      sync_pb::SharingSpecificFields::CLICK_TO_CALL_V2);
   ASSERT_EQ(1u, devices.size());
 
   // Disable syncing preferences which is necessary for Sharing.
@@ -164,10 +164,10 @@ IN_PROC_BROWSER_TEST_F(ClickToCallBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(ClickToCallBrowserTest,
                        ContextMenu_TelLink_MultipleDevicesAvailable) {
-  Init(sync_pb::SharingSpecificFields::CLICK_TO_CALL,
-       sync_pb::SharingSpecificFields::CLICK_TO_CALL);
+  Init(sync_pb::SharingSpecificFields::CLICK_TO_CALL_V2,
+       sync_pb::SharingSpecificFields::CLICK_TO_CALL_V2);
   auto devices = sharing_service()->GetDeviceCandidates(
-      sync_pb::SharingSpecificFields::CLICK_TO_CALL);
+      sync_pb::SharingSpecificFields::CLICK_TO_CALL_V2);
   ASSERT_EQ(2u, devices.size());
 
   std::unique_ptr<TestRenderViewContextMenu> menu =
@@ -197,10 +197,10 @@ IN_PROC_BROWSER_TEST_F(ClickToCallBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(ClickToCallBrowserTest,
                        ContextMenu_HighlightedText_MultipleDevicesAvailable) {
-  Init(sync_pb::SharingSpecificFields::CLICK_TO_CALL,
-       sync_pb::SharingSpecificFields::CLICK_TO_CALL);
+  Init(sync_pb::SharingSpecificFields::CLICK_TO_CALL_V2,
+       sync_pb::SharingSpecificFields::CLICK_TO_CALL_V2);
   auto devices = sharing_service()->GetDeviceCandidates(
-      sync_pb::SharingSpecificFields::CLICK_TO_CALL);
+      sync_pb::SharingSpecificFields::CLICK_TO_CALL_V2);
   ASSERT_EQ(2u, devices.size());
 
   std::unique_ptr<TestRenderViewContextMenu> menu =
@@ -233,7 +233,7 @@ IN_PROC_BROWSER_TEST_F(ClickToCallBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(ClickToCallBrowserTest, ContextMenu_TelLink_Histograms) {
   base::HistogramTester histograms;
-  Init(sync_pb::SharingSpecificFields::CLICK_TO_CALL,
+  Init(sync_pb::SharingSpecificFields::CLICK_TO_CALL_V2,
        sync_pb::SharingSpecificFields::UNKNOWN);
 
   // Trigger a context menu for a link with 8 digits and 9 characters.
@@ -245,24 +245,10 @@ IN_PROC_BROWSER_TEST_F(ClickToCallBrowserTest, ContextMenu_TelLink_Histograms) {
   base::HistogramTester::CountsMap expected_counts = {
       {HistogramName("DevicesToShow"), 1},
       {HistogramName("DevicesToShow.ContextMenu"), 1},
-      {HistogramName("PhoneNumberDigits"), 1},
-      {HistogramName("PhoneNumberDigits.RightClickLink.Showing"), 1},
-      {HistogramName("PhoneNumberLength"), 1},
-      {HistogramName("PhoneNumberLength.RightClickLink.Showing"), 1},
   };
+
   EXPECT_THAT(histograms.GetTotalCountsForPrefix(HistogramName("")),
               testing::ContainerEq(expected_counts));
-
-  histograms.ExpectUniqueSample(HistogramName("PhoneNumberDigits"),
-                                /*sample=*/8, /*count=*/1);
-  histograms.ExpectUniqueSample(
-      HistogramName("PhoneNumberDigits.RightClickLink.Showing"),
-      /*sample=*/8, /*count=*/1);
-  histograms.ExpectUniqueSample(HistogramName("PhoneNumberLength"),
-                                /*sample=*/9, /*count=*/1);
-  histograms.ExpectUniqueSample(
-      HistogramName("PhoneNumberLength.RightClickLink.Showing"),
-      /*sample=*/9, /*count=*/1);
 
   // Send the number to the device in the context menu.
   menu->ExecuteCommand(IDC_CONTENT_CONTEXT_SHARING_CLICK_TO_CALL_SINGLE_DEVICE,
@@ -273,31 +259,16 @@ IN_PROC_BROWSER_TEST_F(ClickToCallBrowserTest, ContextMenu_TelLink_Histograms) {
   expected_counts.insert({
       {HistogramName("SelectedDeviceIndex"), 1},
       {HistogramName("SelectedDeviceIndex.ContextMenu"), 1},
-      {HistogramName("PhoneNumberDigits.RightClickLink.Sending"), 1},
-      {HistogramName("PhoneNumberLength.RightClickLink.Sending"), 1},
   });
-  expected_counts[HistogramName("PhoneNumberDigits")] = 2;
-  expected_counts[HistogramName("PhoneNumberLength")] = 2;
 
   EXPECT_THAT(histograms.GetTotalCountsForPrefix(HistogramName("")),
               testing::ContainerEq(expected_counts));
-
-  histograms.ExpectUniqueSample(HistogramName("PhoneNumberDigits"),
-                                /*sample=*/8, /*count=*/2);
-  histograms.ExpectUniqueSample(
-      HistogramName("PhoneNumberDigits.RightClickLink.Sending"),
-      /*sample=*/8, /*count=*/1);
-  histograms.ExpectUniqueSample(HistogramName("PhoneNumberLength"),
-                                /*sample=*/9, /*count=*/2);
-  histograms.ExpectUniqueSample(
-      HistogramName("PhoneNumberLength.RightClickLink.Sending"),
-      /*sample=*/9, /*count=*/1);
 }
 
 IN_PROC_BROWSER_TEST_F(ClickToCallBrowserTest,
                        ContextMenu_HighlightedText_Histograms) {
   base::HistogramTester histograms;
-  Init(sync_pb::SharingSpecificFields::CLICK_TO_CALL,
+  Init(sync_pb::SharingSpecificFields::CLICK_TO_CALL_V2,
        sync_pb::SharingSpecificFields::UNKNOWN);
 
   // Trigger a context menu for a selection with 8 digits and 9 characters.
@@ -309,26 +280,11 @@ IN_PROC_BROWSER_TEST_F(ClickToCallBrowserTest,
   base::HistogramTester::CountsMap expected_counts = {
       {HistogramName("DevicesToShow"), 1},
       {HistogramName("DevicesToShow.ContextMenu"), 1},
-      {HistogramName("PhoneNumberDigits"), 1},
-      {HistogramName("PhoneNumberDigits.RightClickSelection.Showing"), 1},
-      {HistogramName("PhoneNumberLength"), 1},
-      {HistogramName("PhoneNumberLength.RightClickSelection.Showing"), 1},
       {HistogramName("ContextMenuPhoneNumberParsingDelay"), 1},
-      {HistogramName("ContextMenuPhoneNumberParsingDelay.Simple"), 1},
   };
+
   EXPECT_THAT(histograms.GetTotalCountsForPrefix(HistogramName("")),
               testing::ContainerEq(expected_counts));
-
-  histograms.ExpectUniqueSample(HistogramName("PhoneNumberDigits"),
-                                /*sample=*/8, /*count=*/1);
-  histograms.ExpectUniqueSample(
-      HistogramName("PhoneNumberDigits.RightClickSelection.Showing"),
-      /*sample=*/8, /*count=*/1);
-  histograms.ExpectUniqueSample(HistogramName("PhoneNumberLength"),
-                                /*sample=*/9, /*count=*/1);
-  histograms.ExpectUniqueSample(
-      HistogramName("PhoneNumberLength.RightClickSelection.Showing"),
-      /*sample=*/9, /*count=*/1);
 
   // Send the number to the device in the context menu.
   menu->ExecuteCommand(IDC_CONTENT_CONTEXT_SHARING_CLICK_TO_CALL_SINGLE_DEVICE,
@@ -339,37 +295,17 @@ IN_PROC_BROWSER_TEST_F(ClickToCallBrowserTest,
   expected_counts.insert({
       {HistogramName("SelectedDeviceIndex"), 1},
       {HistogramName("SelectedDeviceIndex.ContextMenu"), 1},
-      {HistogramName("PhoneNumberDigits.RightClickSelection.Sending"), 1},
-      {HistogramName("PhoneNumberLength"), 2},
-      {HistogramName("PhoneNumberLength.RightClickSelection.Sending"), 1},
   });
-  expected_counts[HistogramName("PhoneNumberDigits")] = 2;
-  expected_counts[HistogramName("PhoneNumberLength")] = 2;
 
   EXPECT_THAT(histograms.GetTotalCountsForPrefix(HistogramName("")),
               testing::ContainerEq(expected_counts));
-
-  histograms.ExpectUniqueSample(HistogramName("PhoneNumberDigits"),
-                                /*sample=*/8,
-                                /*count=*/2);
-  histograms.ExpectUniqueSample(
-      HistogramName("PhoneNumberDigits.RightClickSelection.Sending"),
-      /*sample=*/8,
-      /*count=*/1);
-  histograms.ExpectUniqueSample(HistogramName("PhoneNumberLength"),
-                                /*sample=*/9,
-                                /*count=*/2);
-  histograms.ExpectUniqueSample(
-      HistogramName("PhoneNumberLength.RightClickSelection.Sending"),
-      /*sample=*/9,
-      /*count=*/1);
 }
 
 IN_PROC_BROWSER_TEST_F(ClickToCallBrowserTest, ContextMenu_UKM) {
-  Init(sync_pb::SharingSpecificFields::CLICK_TO_CALL,
+  Init(sync_pb::SharingSpecificFields::CLICK_TO_CALL_V2,
        sync_pb::SharingSpecificFields::UNKNOWN);
   auto devices = sharing_service()->GetDeviceCandidates(
-      sync_pb::SharingSpecificFields::CLICK_TO_CALL);
+      sync_pb::SharingSpecificFields::CLICK_TO_CALL_V2);
   ASSERT_EQ(1u, devices.size());
 
   ukm::TestAutoSetUkmRecorder ukm_recorder;
@@ -418,10 +354,10 @@ IN_PROC_BROWSER_TEST_F(ClickToCallBrowserTest, ContextMenu_UKM) {
 }
 
 IN_PROC_BROWSER_TEST_F(ClickToCallBrowserTest, CloseTabWithBubble) {
-  Init(sync_pb::SharingSpecificFields::CLICK_TO_CALL,
+  Init(sync_pb::SharingSpecificFields::CLICK_TO_CALL_V2,
        sync_pb::SharingSpecificFields::UNKNOWN);
   auto devices = sharing_service()->GetDeviceCandidates(
-      sync_pb::SharingSpecificFields::CLICK_TO_CALL);
+      sync_pb::SharingSpecificFields::CLICK_TO_CALL_V2);
   ASSERT_EQ(1u, devices.size());
 
   base::RunLoop run_loop;
@@ -443,10 +379,10 @@ IN_PROC_BROWSER_TEST_F(ClickToCallBrowserTest, CloseTabWithBubble) {
 // TODO(himanshujaju) - Add chromeos test for same flow.
 #if !defined(OS_CHROMEOS)
 IN_PROC_BROWSER_TEST_F(ClickToCallBrowserTest, LeftClick_ChooseDevice) {
-  Init(sync_pb::SharingSpecificFields::CLICK_TO_CALL,
+  Init(sync_pb::SharingSpecificFields::CLICK_TO_CALL_V2,
        sync_pb::SharingSpecificFields::UNKNOWN);
   auto devices = sharing_service()->GetDeviceCandidates(
-      sync_pb::SharingSpecificFields::CLICK_TO_CALL);
+      sync_pb::SharingSpecificFields::CLICK_TO_CALL_V2);
   ASSERT_EQ(1u, devices.size());
 
   base::RunLoop run_loop;
@@ -488,7 +424,7 @@ IN_PROC_BROWSER_TEST_F(ClickToCallBrowserTest, LeftClick_ChooseDevice) {
 #endif
 
 IN_PROC_BROWSER_TEST_F(ClickToCallBrowserTest, OpenNewTabAndShowBubble) {
-  Init(sync_pb::SharingSpecificFields::CLICK_TO_CALL,
+  Init(sync_pb::SharingSpecificFields::CLICK_TO_CALL_V2,
        sync_pb::SharingSpecificFields::UNKNOWN);
 
   // Open tab to different origin.
@@ -526,7 +462,7 @@ IN_PROC_BROWSER_TEST_F(ClickToCallBrowserTest, OpenNewTabAndShowBubble) {
 }
 
 IN_PROC_BROWSER_TEST_F(ClickToCallBrowserTest, NavigateDifferentOrigin) {
-  Init(sync_pb::SharingSpecificFields::CLICK_TO_CALL,
+  Init(sync_pb::SharingSpecificFields::CLICK_TO_CALL_V2,
        sync_pb::SharingSpecificFields::UNKNOWN);
 
   base::RunLoop run_loop;
@@ -607,54 +543,3 @@ INSTANTIATE_TEST_SUITE_P(All,
                          ::testing::Values(ClickToCallPolicy::kNotConfigured,
                                            ClickToCallPolicy::kFalse,
                                            ClickToCallPolicy::kTrue));
-
-class ClickToCallBrowserTestDetectionV2 : public BaseClickToCallBrowserTest {
- public:
-  ClickToCallBrowserTestDetectionV2() {
-    feature_list_.InitWithFeatures({kClickToCallUI, kClickToCallDetectionV2},
-                                   {});
-  }
-
- protected:
-  base::test::ScopedFeatureList feature_list_;
-};
-
-IN_PROC_BROWSER_TEST_F(ClickToCallBrowserTestDetectionV2,
-                       ContextMenu_HighlightedText_Histograms) {
-  base::HistogramTester histograms;
-  Init(sync_pb::SharingSpecificFields::CLICK_TO_CALL,
-       sync_pb::SharingSpecificFields::UNKNOWN);
-
-  // Trigger a context menu for a selection with 8 digits and 9 characters.
-  std::unique_ptr<TestRenderViewContextMenu> menu =
-      InitContextMenu(GURL(kNonTelUrl), kLinkText, "1234-5678");
-  // RegexVariantResult is logged on a thread pool.
-  base::ThreadPoolInstance::Get()->FlushForTesting();
-
-  histograms.ExpectTotalCount(
-      HistogramName("ContextMenuPhoneNumberParsingDelay"), 2);
-  histograms.ExpectTotalCount(
-      HistogramName("ContextMenuPhoneNumberParsingDelay.LowConfidenceModified"),
-      1);
-  histograms.ExpectUniqueSample(
-      HistogramName(
-          "PhoneNumberRegexVariantResult.LowConfidenceModified.Showing"),
-      /*sample=*/PhoneNumberRegexVariantResult::kBothMatch, /*count=*/1);
-
-  // Send the number to the device in the context menu.
-  menu->ExecuteCommand(IDC_CONTENT_CONTEXT_SHARING_CLICK_TO_CALL_SINGLE_DEVICE,
-                       0);
-  // RegexVariantResult is logged on a thread pool.
-  base::ThreadPoolInstance::Get()->FlushForTesting();
-
-  histograms.ExpectTotalCount(
-      HistogramName("ContextMenuPhoneNumberParsingDelay"), 2);
-  histograms.ExpectTotalCount(
-      HistogramName("ContextMenuPhoneNumberParsingDelay.LowConfidenceModified"),
-      1);
-  histograms.ExpectUniqueSample(
-      HistogramName(
-          "PhoneNumberRegexVariantResult.LowConfidenceModified.Sending"),
-      /*sample=*/PhoneNumberRegexVariantResult::kBothMatch,
-      /*count=*/1);
-}

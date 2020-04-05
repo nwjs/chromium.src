@@ -4,6 +4,8 @@
 
 #include "components/performance_manager/public/performance_manager.h"
 
+#include <utility>
+
 #include "components/performance_manager/graph/page_node_impl.h"
 #include "components/performance_manager/performance_manager_impl.h"
 #include "components/performance_manager/performance_manager_registry_impl.h"
@@ -15,10 +17,13 @@ PerformanceManager::PerformanceManager() = default;
 PerformanceManager::~PerformanceManager() = default;
 
 // static
-bool PerformanceManager::IsAvailable() {
-  return PerformanceManagerImpl::GetInstance();
-}
+void PerformanceManager::CallOnGraph(const base::Location& from_here,
+                                     base::OnceClosure callback) {
+  DCHECK(callback);
 
+  PerformanceManagerImpl::GetTaskRunner()->PostTask(from_here,
+                                                    std::move(callback));
+}
 // static
 void PerformanceManager::CallOnGraph(const base::Location& from_here,
                                      GraphCallback callback) {

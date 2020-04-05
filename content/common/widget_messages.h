@@ -22,7 +22,6 @@
 #include "third_party/blink/public/platform/viewport_intersection_state.h"
 #include "third_party/blink/public/platform/web_float_rect.h"
 #include "third_party/blink/public/platform/web_intrinsic_sizing_info.h"
-#include "third_party/blink/public/web/web_text_direction.h"
 #include "ui/base/ime/text_input_action.h"
 #include "ui/base/ime/text_input_mode.h"
 #include "ui/base/ui_base_types.h"
@@ -60,14 +59,14 @@ IPC_STRUCT_TRAITS_BEGIN(blink::WebDeviceEmulationParams)
   IPC_STRUCT_TRAITS_MEMBER(screen_orientation_type)
 IPC_STRUCT_TRAITS_END()
 
-IPC_ENUM_TRAITS_MAX_VALUE(blink::WebTextDirection,
-                          blink::WebTextDirection::kWebTextDirectionLast)
+IPC_ENUM_TRAITS_MAX_VALUE(base::i18n::TextDirection,
+                          base::i18n::TEXT_DIRECTION_MAX)
 
 IPC_STRUCT_BEGIN(WidgetHostMsg_SelectionBounds_Params)
   IPC_STRUCT_MEMBER(gfx::Rect, anchor_rect)
-  IPC_STRUCT_MEMBER(blink::WebTextDirection, anchor_dir)
+  IPC_STRUCT_MEMBER(base::i18n::TextDirection, anchor_dir)
   IPC_STRUCT_MEMBER(gfx::Rect, focus_rect)
-  IPC_STRUCT_MEMBER(blink::WebTextDirection, focus_dir)
+  IPC_STRUCT_MEMBER(base::i18n::TextDirection, focus_dir)
   IPC_STRUCT_MEMBER(bool, is_anchor_first)
 IPC_STRUCT_END()
 
@@ -131,7 +130,7 @@ IPC_MESSAGE_ROUTED1(WidgetMsg_SetActive, bool /* active */)
 
 // Changes the text direction of the currently selected input field (if any).
 IPC_MESSAGE_ROUTED1(WidgetMsg_SetTextDirection,
-                    blink::WebTextDirection /* direction */)
+                    base::i18n::TextDirection /* direction */)
 
 // Reply to WidgetHostMsg_RequestSetBounds, WidgetHostMsg_ShowWidget, and
 // FrameHostMsg_ShowCreatedWindow, to inform the renderer that the browser has
@@ -184,13 +183,6 @@ IPC_MESSAGE_ROUTED2(WidgetMsg_UpdateRenderThrottlingStatus,
 IPC_MESSAGE_ROUTED1(WidgetMsg_WaitForNextFrameForTests,
                     int /* main_frame_thread_observer_routing_id */)
 
-// Tells the render side that a WidgetHostMsg_LockMouse message has been
-// processed. |succeeded| indicates whether the mouse has been successfully
-// locked or not.
-IPC_MESSAGE_ROUTED1(WidgetMsg_LockMouse_ACK, bool /* succeeded */)
-// Tells the render side that the mouse has been unlocked.
-IPC_MESSAGE_ROUTED0(WidgetMsg_MouseLockLost)
-
 //
 // Renderer -> Browser Messages.
 //
@@ -221,7 +213,7 @@ IPC_MESSAGE_ROUTED1(WidgetHostMsg_IntrinsicSizingInfoChanged,
 // Send the tooltip text for the current mouse position to the browser.
 IPC_MESSAGE_ROUTED2(WidgetHostMsg_SetTooltipText,
                     base::string16 /* tooltip text string */,
-                    blink::WebTextDirection /* text direction hint */)
+                    base::i18n::TextDirection /* text direction hint */)
 
 // Updates the current cursor to be used by the browser for indicating the
 // location of a pointing device.
@@ -246,21 +238,6 @@ IPC_MESSAGE_ROUTED1(WidgetHostMsg_TextInputStateChanged,
 // the widget. This corresponds to the window.resizeTo() and window.moveTo()
 // APIs, and the browser may ignore this message.
 IPC_MESSAGE_ROUTED1(WidgetHostMsg_RequestSetBounds, gfx::Rect /* bounds */)
-
-// Requests to lock the mouse. Will result in a WidgetMsg_LockMouse_ACK message
-// being sent back.
-// |privileged| is used by Pepper Flash. If this flag is set to true, we won't
-// pop up a bubble to ask for user permission or take mouse lock content into
-// account.
-IPC_MESSAGE_ROUTED3(WidgetHostMsg_LockMouse,
-                    bool /* user_gesture */,
-                    bool /* privileged */,
-                    bool /* request_raw_movement */)
-
-// Requests to unlock the mouse. A WidgetMsg_MouseLockLost message will be sent
-// whenever the mouse is unlocked (which may or may not be caused by
-// WidgetHostMsg_UnlockMouse).
-IPC_MESSAGE_ROUTED0(WidgetHostMsg_UnlockMouse)
 
 // Sent by the renderer process in response to an earlier WidgetMsg_ForceRedraw
 // message. The reply includes the snapshot-id from the request.

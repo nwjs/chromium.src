@@ -18,6 +18,7 @@
 #include "base/stl_util.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "content/public/browser/browser_task_traits.h"
@@ -125,6 +126,14 @@ bool WriteBigEndianFloatToFile(base::File& file, float val) {
   return file.WriteAtCurrentPos(buffer, sizeof(buffer)) == sizeof(buffer);
 }
 
+// TODO(khushalsagar): This is a hack to ensure correct byte size computation
+// for SkPixelRefs wrapping encoded data for ETC1 compressed bitmaps. We ideally
+// shouldn't be using SkPixelRefs to wrap encoded data.
+size_t ETC1RowBytes(int width) {
+  DCHECK_EQ(width & 1, 0);
+  return width / 2;
+}
+
 }  // anonymous namespace
 
 ThumbnailCache::ThumbnailCache(size_t default_cache_size,
@@ -134,8 +143,8 @@ ThumbnailCache::ThumbnailCache(size_t default_cache_size,
                                bool use_approximation_thumbnail,
                                bool save_jpeg_thumbnails,
                                double jpeg_aspect_ratio)
-    : file_sequenced_task_runner_(base::CreateSequencedTaskRunner(
-          {base::ThreadPool(), base::MayBlock()})),
+    : file_sequenced_task_runner_(
+          base::ThreadPool::CreateSequencedTaskRunner({base::MayBlock()})),
       jpeg_aspect_ratio_(jpeg_aspect_ratio),
       compression_queue_max_size_(compression_queue_max_size),
       write_queue_max_size_(write_queue_max_size),
@@ -428,9 +437,9 @@ void ThumbnailCache::SaveAsJpeg(TabId tab_id, const SkBitmap& bitmap) {
       base::Bind(&ThumbnailCache::WriteJpegThumbnailIfNecessary,
                  weak_factory_.GetWeakPtr(), tab_id);
 
-  base::PostTask(
+  base::ThreadPool::PostTask(
       FROM_HERE,
-      {base::ThreadPool(), base::TaskPriority::BEST_EFFORT,
+      {base::TaskPriority::BEST_EFFORT,
        base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
       base::BindOnce(&ThumbnailCache::JpegProcessingTask, jpeg_aspect_ratio_,
                      bitmap, post_jpeg_compression_task));
@@ -456,11 +465,12 @@ void ThumbnailCache::CompressThumbnailIfNecessary(TabId tab_id,
   gfx::Size encoded_size = GetEncodedSize(
       raw_data_size, ui_resource_provider_->SupportsETC1NonPowerOfTwo());
 
-  base::PostTask(FROM_HERE,
-                 {base::ThreadPool(), base::TaskPriority::BEST_EFFORT,
-                  base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
-                 base::BindOnce(&ThumbnailCache::CompressionTask, bitmap,
-                                encoded_size, post_compression_task));
+  base::ThreadPool::PostTask(
+      FROM_HERE,
+      {base::TaskPriority::BEST_EFFORT,
+       base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
+      base::BindOnce(&ThumbnailCache::CompressionTask, bitmap, encoded_size,
+                     post_compression_task));
 
   if (save_jpeg_thumbnails_) {
     SaveAsJpeg(tab_id, bitmap);
@@ -682,8 +692,8 @@ void ThumbnailCache::CompressionTask(
         SkImageInfo::Make(encoded_size.width(), encoded_size.height(),
                           kUnknown_SkColorType, kUnpremul_SkAlphaType);
     sk_sp<SkData> etc1_pixel_data(SkData::MakeUninitialized(encoded_bytes));
-    sk_sp<SkPixelRef> etc1_pixel_ref(
-        SkMallocPixelRef::MakeWithData(info, 0, std::move(etc1_pixel_data)));
+    sk_sp<SkPixelRef> etc1_pixel_ref(SkMallocPixelRef::MakeWithData(
+        info, ETC1RowBytes(encoded_size.width()), std::move(etc1_pixel_data)));
 
     bool success = etc1_encode_image(
         reinterpret_cast<unsigned char*>(raw_data.getPixels()),
@@ -832,8 +842,8 @@ bool ReadFromFile(base::File& file,
   SkImageInfo info = SkImageInfo::Make(
       raw_width, raw_height, kUnknown_SkColorType, kUnpremul_SkAlphaType);
 
-  *out_pixels =
-      SkMallocPixelRef::MakeWithData(info, 0, std::move(etc1_pixel_data));
+  *out_pixels = SkMallocPixelRef::MakeWithData(info, ETC1RowBytes(raw_width),
+                                               std::move(etc1_pixel_data));
 
   int extra_data_version = 0;
   if (!ReadBigEndianFromFile(file, &extra_data_version))
@@ -881,10 +891,10 @@ void ThumbnailCache::ReadTask(
   }
 
   if (decompress) {
-    base::PostTask(FROM_HERE,
-                   {base::ThreadPool(), base::TaskPriority::USER_VISIBLE},
-                   base::BindOnce(post_read_task, std::move(compressed_data),
-                                  scale, content_size));
+    base::ThreadPool::PostTask(
+        FROM_HERE, {base::TaskPriority::USER_VISIBLE},
+        base::BindOnce(post_read_task, std::move(compressed_data), scale,
+                       content_size));
   } else {
     base::PostTask(FROM_HERE, {content::BrowserThread::UI},
                    base::BindOnce(post_read_task, std::move(compressed_data),

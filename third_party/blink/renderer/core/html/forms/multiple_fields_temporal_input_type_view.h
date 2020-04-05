@@ -58,6 +58,8 @@ class MultipleFieldsTemporalInputTypeView final
   ~MultipleFieldsTemporalInputTypeView() override;
   void Trace(Visitor*) override;
 
+  String RawValue() const override;
+
  private:
   // DateTimeEditElement::EditControlOwner functions
   void DidBlurFromControl(mojom::blink::FocusType) final;
@@ -85,6 +87,7 @@ class MultipleFieldsTemporalInputTypeView final
   Element& PickerOwnerElement() const final;
   bool SetupDateTimeChooserParameters(DateTimeChooserParameters&) final;
   void DidEndChooser() final;
+  String AriaRoleForPickerIndicator() const final;
 
   // ClearButtonElement::ClearButtonOwner functions.
   void FocusAndSelectClearButtonOwner() override;
@@ -95,8 +98,7 @@ class MultipleFieldsTemporalInputTypeView final
   void Blur() final;
   void ClosePopupView() override;
   bool HasOpenedPopup() const override;
-  scoped_refptr<ComputedStyle> CustomStyleForLayoutObject(
-      scoped_refptr<ComputedStyle>) override;
+  void CustomStyleForLayoutObject(ComputedStyle& style) override;
   void CreateShadowSubtree() final;
   void DestroyShadowSubtree() final;
   void DisabledAttributeChanged() final;
@@ -120,7 +122,6 @@ class MultipleFieldsTemporalInputTypeView final
   void UpdateClearButtonVisibility() final;
   TextDirection ComputedTextDirection() final;
   AXObject* PopupRootAXObject() final;
-  bool TypeShouldForceLegacyLayout() const final;
 
   DateTimeEditElement* GetDateTimeEditElement() const;
   SpinButtonElement* GetSpinButtonElement() const;

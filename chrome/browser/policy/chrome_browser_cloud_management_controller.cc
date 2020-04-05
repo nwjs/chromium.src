@@ -13,12 +13,15 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/path_service.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/enterprise_reporting/report_generator.h"
-#include "chrome/browser/enterprise_reporting/report_scheduler.h"
+#include "chrome/browser/device_identity/device_oauth2_token_service.h"
+#include "chrome/browser/device_identity/device_oauth2_token_service_factory.h"
+#include "chrome/browser/enterprise/reporting/report_generator.h"
+#include "chrome/browser/enterprise/reporting/report_scheduler.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/net/system_network_context_manager.h"
 #include "chrome/browser/policy/browser_dm_token_storage.h"
@@ -154,9 +157,8 @@ ChromeBrowserCloudManagementController::CreatePolicyManager(
   std::unique_ptr<MachineLevelUserCloudPolicyStore> policy_store =
       MachineLevelUserCloudPolicyStore::Create(
           dm_token, client_id, policy_dir, cloud_policy_has_priority,
-          base::CreateSequencedTaskRunner(
-              {base::ThreadPool(), base::MayBlock(),
-               base::TaskPriority::BEST_EFFORT,
+          base::ThreadPool::CreateSequencedTaskRunner(
+              {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
                // Block shutdown to make sure the policy cache update is always
                // finished.
                base::TaskShutdownBehavior::BLOCK_SHUTDOWN}));
@@ -172,10 +174,10 @@ void ChromeBrowserCloudManagementController::Init(
   if (!IsEnabled())
     return;
 
-  base::PostTask(
+  base::ThreadPool::PostTask(
       FROM_HERE,
       {base::TaskPriority::BEST_EFFORT,
-       base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN, base::ThreadPool()},
+       base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN},
       base::BindOnce(
           &ChromeBrowserCloudManagementController::CreateReportSchedulerAsync,
           base::Unretained(this), base::ThreadTaskRunnerHandle::Get()));
@@ -237,16 +239,15 @@ void ChromeBrowserCloudManagementController::Init(
         base::Bind(&ChromeBrowserCloudManagementController::
                        RegisterForCloudManagementWithEnrollmentTokenCallback,
                    base::Unretained(this)));
-#if defined(OS_WIN)
-    // This metric is only published on Windows to indicate how many user level
-    // installs try to enroll, as these can't store the DM token
-    // in the registry at the end of enrollment. Mac and Linux do not need
-    // this metric for now as they might use a different token storage mechanism
-    // in the future.
-    UMA_HISTOGRAM_BOOLEAN(
-        "Enterprise.MachineLevelUserCloudPolicyEnrollment.InstallLevel_Win",
-        install_static::IsSystemInstall());
-#endif
+    // On Windows, if Chrome is installed on the user level, we can't store the
+    // DM token in the registry at the end of enrollment. Hence Chrome needs to
+    // re-enroll every launch.
+    // Based on the UMA metrics
+    // Enterprise.MachineLevelUserCloudPolicyEnrollment.InstallLevel_Win,
+    // the number of user-level enrollment is very low
+    // compare to the total CBCM users. In additional to that, devices are now
+    // mostly enrolled with Google Update on Windows. Based on that, we won't do
+    // anything special for user-level install enrollment.
   }
 }
 
@@ -341,6 +342,12 @@ void ChromeBrowserCloudManagementController::OnClientError(
   // browser has been unenrolled.
   if (client->status() == DM_STATUS_SERVICE_DEVICE_NOT_FOUND)
     UnenrollBrowser();
+}
+
+void ChromeBrowserCloudManagementController::OnServiceAccountChanged(
+    CloudPolicyClient* client) {
+  DeviceOAuth2TokenServiceFactory::Get()->SetServiceAccountEmail(
+      client->service_account_email());
 }
 
 void ChromeBrowserCloudManagementController::ShutDown() {
@@ -441,9 +448,6 @@ void ChromeBrowserCloudManagementController::CreateReportSchedulerAsync(
 }
 
 void ChromeBrowserCloudManagementController::CreateReportScheduler() {
-  if (!base::FeatureList::IsEnabled(features::kEnterpriseReportingInBrowser))
-    return;
-
   cloud_policy_client_ = std::make_unique<policy::CloudPolicyClient>(
       std::string() /* machine_id */, std::string() /* machine_model */,
       std::string() /* brand_code */, std::string() /* ethernet_mac_address */,

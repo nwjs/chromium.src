@@ -10,7 +10,6 @@
 #include "chrome/browser/apps/launch_service/launch_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/web_applications/web_app_launch_manager.h"
-#include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/common/chrome_features.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/common/extension.h"
@@ -43,29 +42,23 @@ LaunchService::LaunchService(Profile* profile) : profile_(profile) {
 
 LaunchService::~LaunchService() {}
 
+content::WebContents* LaunchService::OpenApplication(
+    const AppLaunchParams& params) {
+  return GetLaunchManagerForApp(params.app_id).OpenApplication(params);
+}
+
 LaunchManager& LaunchService::GetLaunchManagerForApp(
     const std::string& app_id) {
+  // --app old-style app shortcuts
+  if (app_id.empty())
+    return *extension_app_launch_manager_;
+
   const extensions::Extension* extension =
       extensions::ExtensionRegistry::Get(profile_)->GetInstalledExtension(
           app_id);
   return (!extension || extension->from_bookmark())
              ? *web_app_launch_manager_
              : *extension_app_launch_manager_;
-}
-
-content::WebContents* LaunchService::OpenApplication(
-    const AppLaunchParams& params) {
-  return GetLaunchManagerForApp(params.app_id).OpenApplication(params);
-}
-
-void LaunchService::LaunchApplication(
-    const std::string& app_id,
-    const base::CommandLine& command_line,
-    const base::FilePath& current_directory,
-    base::OnceCallback<void(Browser* browser,
-                            apps::mojom::LaunchContainer container)> callback) {
-  GetLaunchManagerForApp(app_id).LaunchApplication(
-      app_id, command_line, current_directory, std::move(callback));
 }
 
 }  // namespace apps

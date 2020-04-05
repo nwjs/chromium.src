@@ -30,6 +30,7 @@
 
 #include "third_party/blink/renderer/core/html/forms/date_time_chooser_impl.h"
 
+#include "build/build_config.h"
 #include "third_party/blink/public/mojom/choosers/date_time_chooser.mojom-blink.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/strings/grit/blink_strings.h"
@@ -169,6 +170,16 @@ void DateTimeChooserImpl::WriteDocument(SharedBuffer* data) {
   AddProperty("axShowPreviousMonth",
               GetLocale().QueryString(IDS_AX_CALENDAR_SHOW_PREVIOUS_MONTH),
               data);
+  AddProperty("axHourLabel", GetLocale().QueryString(IDS_AX_HOUR_FIELD_TEXT),
+              data);
+  AddProperty("axMinuteLabel",
+              GetLocale().QueryString(IDS_AX_MINUTE_FIELD_TEXT), data);
+  AddProperty("axSecondLabel",
+              GetLocale().QueryString(IDS_AX_SECOND_FIELD_TEXT), data);
+  AddProperty("axMillisecondLabel",
+              GetLocale().QueryString(IDS_AX_MILLISECOND_FIELD_TEXT), data);
+  AddProperty("axAmPmLabel", GetLocale().QueryString(IDS_AX_AM_PM_FIELD_TEXT),
+              data);
   AddProperty("weekStartDay", locale_->FirstDayOfWeek(), data);
   AddProperty("shortMonthLabels", locale_->ShortMonthLabels(), data);
   AddProperty("dayLabels", locale_->WeekDayShortLabels(), data);
@@ -177,6 +188,10 @@ void DateTimeChooserImpl::WriteDocument(SharedBuffer* data) {
   AddProperty("isRTL", parameters_->is_anchor_element_rtl, data);
   AddProperty("isFormControlsRefreshEnabled",
               features::IsFormControlsRefreshEnabled(), data);
+#if defined(OS_MACOSX)
+  AddProperty("isBorderTransparent", features::IsFormControlsRefreshEnabled(),
+              data);
+#endif
   AddProperty("mode", parameters_->type.GetString(), data);
   AddProperty("isAMPMFirst", parameters_->is_ampm_first, data);
   AddProperty("hasAMPM", parameters_->has_ampm, data);

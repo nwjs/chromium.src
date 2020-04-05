@@ -717,7 +717,7 @@ luci.console_view(
             short_name = 'rel',
         ),
         luci.console_view_entry(
-            builder = 'ci/linux-bfcache-debug',
+            builder = 'ci/linux-bfcache-rel',
             category = 'week15a|linux',
             short_name = 'bfc',
         ),
@@ -752,7 +752,7 @@ luci.console_view(
             short_name = 'asan',
         ),
         luci.console_view_entry(
-            builder = 'ci/android-bfcache-debug',
+            builder = 'ci/android-bfcache-rel',
             category = 'week15b|android',
             short_name = 'bfc',
         ),
@@ -767,7 +767,7 @@ luci.console_view(
             short_name = 'arm64',
         ),
         luci.console_view_entry(
-            builder = 'ci/android-pie-x86-fyi-rel',
+            builder = 'ci/android-pie-x86-rel',
             category = 'week15b|android|pie',
             short_name = 'x86',
         ),
@@ -1047,20 +1047,11 @@ luci.console_view(
             short_name = 'gpu',
         ),
         luci.console_view_entry(
-            builder = 'ci-beta/Win x64 Builder',
-            category = 'win|week5|beta',
-        ),
-        luci.console_view_entry(
-            builder = 'ci-beta/GPU Win x64 Builder',
-            category = 'win|week5|beta',
-            short_name = 'gpu',
-        ),
-        luci.console_view_entry(
-            builder = 'ci-stable/Win x64 Builder',
+            builder = 'ci-m81/Win x64 Builder',
             category = 'win|week5|stable',
         ),
         luci.console_view_entry(
-            builder = 'ci-stable/GPU Win x64 Builder',
+            builder = 'ci-m81/GPU Win x64 Builder',
             category = 'win|week5|stable',
             short_name = 'gpu',
         ),
@@ -1153,6 +1144,70 @@ luci.console_view(
             builder = 'ci/chromeos-kevin-rel-hw-tests',
             category = 'cros|week3|kevin',
             short_name = 'hwtests',
+        ),
+        luci.console_view_entry(
+            builder = 'webrtc.fyi/WebRTC Chromium FYI ios-device',
+            category = 'ios|week1a',
+            short_name = 'dev',
+        ),
+        luci.console_view_entry(
+            builder = 'webrtc.fyi/WebRTC Chromium FYI ios-simulator',
+            category = 'ios|week1a',
+            short_name = 'sim',
+        ),
+        luci.console_view_entry(
+            builder = 'ci/ios-device',
+            category = 'ios|week1b',
+            short_name = 'dev',
+        ),
+        luci.console_view_entry(
+            builder = 'ci/ios-simulator',
+            category = 'ios|week1b|sim',
+        ),
+        luci.console_view_entry(
+            builder = 'ci/ios-simulator-full-configs',
+            category = 'ios|week1b|sim',
+            short_name = 'fullconf',
+        ),
+        luci.console_view_entry(
+            builder = 'ci/ios-simulator-noncq',
+            category = 'ios|week1b|sim',
+            short_name = 'noncq',
+        ),
+        luci.console_view_entry(
+            builder = 'ci/ios13-beta-simulator',
+            category = 'ios|week1b|ios13|beta',
+            short_name = 'sim',
+        ),
+        luci.console_view_entry(
+            builder = 'ci/ios13-sdk-simulator',
+            category = 'ios|week1b|ios13|sdk',
+            short_name = 'sim',
+        ),
+        luci.console_view_entry(
+            builder = 'ci/ios-simulator-cronet',
+            category = 'ios|week1c',
+            short_name = 'cro',
+        ),
+        luci.console_view_entry(
+            builder = 'ci/ios-simulator-cr-recipe',
+            category = 'ios|week1c',
+            short_name = 'crr',
+        ),
+        luci.console_view_entry(
+            builder = 'ci/ios-webkit-tot',
+            category = 'ios|week1c',
+            short_name = 'webkit',
+        ),
+        luci.console_view_entry(
+            builder = 'ci/ios13-sdk-device',
+            category = 'ios|week1c|ios13',
+            short_name = 'dev',
+        ),
+        luci.console_view_entry(
+            builder = 'ci/ios-simulator-code-coverage',
+            category = 'ios|week1d',
+            short_name = 'code',
         ),
     ],
 )

@@ -78,10 +78,10 @@
 #include "third_party/blink/renderer/platform/scheduler/public/thread_scheduler.h"
 #include "third_party/blink/renderer/platform/weborigin/known_ports.h"
 #include "third_party/blink/renderer/platform/weborigin/origin_access_entry.h"
+#include "third_party/blink/renderer/platform/weborigin/reporting_disposition.h"
 #include "third_party/blink/renderer/platform/weborigin/scheme_registry.h"
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
 #include "third_party/blink/renderer/platform/weborigin/security_policy.h"
-#include "third_party/blink/renderer/platform/weborigin/security_violation_reporting_policy.h"
 #include "third_party/blink/renderer/platform/wtf/assertions.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
@@ -191,7 +191,7 @@ static ThreadSpecific<PriorityObserverMap>& PriorityObservers() {
 ResourceLoadPriority AdjustPriorityWithPriorityHint(
     ResourceLoadPriority priority_so_far,
     ResourceType type,
-    const ResourceRequest& resource_request,
+    const ResourceRequestHead& resource_request,
     FetchParameters::DeferOption defer_option,
     bool is_link_preload) {
   mojom::FetchImportanceMode importance_mode =
@@ -241,7 +241,7 @@ ResourceLoadPriority AdjustPriorityWithDeferScriptIntervention(
     const FetchContext& fetch_context,
     ResourceLoadPriority priority_so_far,
     ResourceType type,
-    const ResourceRequest& resource_request,
+    const ResourceRequestHead& resource_request,
     FetchParameters::DeferOption defer_option,
     bool is_link_preload) {
   if (!base::FeatureList::IsEnabled(
@@ -417,7 +417,7 @@ void ResourceFetcher::AddPriorityObserverForTesting(
 // images, which may need to be reprioritized.
 ResourceLoadPriority ResourceFetcher::ComputeLoadPriority(
     ResourceType type,
-    const ResourceRequest& resource_request,
+    const ResourceRequestHead& resource_request,
     ResourcePriority::VisibilityStatus visibility,
     FetchParameters::DeferOption defer_option,
     FetchParameters::SpeculativePreloadType speculative_preload_type,
@@ -625,7 +625,7 @@ void ResourceFetcher::DidLoadResourceFromMemoryCache(
     // they're used.
     scoped_refptr<ResourceTimingInfo> info = ResourceTimingInfo::Create(
         resource->Options().initiator_info.name, base::TimeTicks::Now(),
-        request.GetRequestContext());
+        request.GetRequestContext(), request.GetRequestDestination());
     // TODO(yoav): GetInitialUrlForResourceTiming() is only needed until
     // Out-of-Blink CORS lands: https://crbug.com/736308
     info->SetInitialURL(
@@ -744,9 +744,6 @@ void ResourceFetcher::UpdateMemoryCacheStats(Resource* resource,
   if (is_static_data)
     return;
 
-  UMA_HISTOGRAM_BOOLEAN("Blink.ResourceFetcher.StaleWhileRevalidate",
-                        params.IsStaleRevalidation());
-
   if (params.IsSpeculativePreload() || params.IsLinkPreload()) {
     DEFINE_RESOURCE_HISTOGRAM("Preload.");
   } else {
@@ -798,10 +795,9 @@ base::Optional<ResourceRequestBlockedReason> ResourceFetcher::PrepareRequest(
   params.OverrideContentType(factory.ContentType());
 
   // Don't send security violation reports for speculative preloads.
-  SecurityViolationReportingPolicy reporting_policy =
-      params.IsSpeculativePreload()
-          ? SecurityViolationReportingPolicy::kSuppressReporting
-          : SecurityViolationReportingPolicy::kReport;
+  ReportingDisposition reporting_disposition =
+      params.IsSpeculativePreload() ? ReportingDisposition::kSuppressReporting
+                                    : ReportingDisposition::kReport;
 
   // Note that resource_request.GetRedirectStatus() may return kFollowedRedirect
   // here since e.g. ThreadableLoader may create a new Resource from
@@ -814,7 +810,7 @@ base::Optional<ResourceRequestBlockedReason> ResourceFetcher::PrepareRequest(
   Context().CheckCSPForRequest(
       resource_request.GetRequestContext(),
       MemoryCache::RemoveFragmentIdentifierIfNeeded(params.Url()), options,
-      reporting_policy, resource_request.GetRedirectStatus());
+      reporting_disposition, resource_request.GetRedirectStatus());
 
   // This may modify params.Url() (via the resource_request argument).
   Context().PopulateResourceRequest(
@@ -874,7 +870,7 @@ base::Optional<ResourceRequestBlockedReason> ResourceFetcher::PrepareRequest(
   KURL url = MemoryCache::RemoveFragmentIdentifierIfNeeded(params.Url());
   base::Optional<ResourceRequestBlockedReason> blocked_reason =
       Context().CanRequest(resource_type, resource_request, url, options,
-                           reporting_policy,
+                           reporting_disposition,
                            resource_request.GetRedirectStatus());
 
   if (Context().CalculateIfAdSubresource(resource_request, resource_type))
@@ -928,10 +924,6 @@ Resource* ResourceFetcher::RequestResource(FetchParameters& params,
 
   if (should_log_request_as_invalid_in_imported_document_) {
     DCHECK(properties_->IsDetached());
-    // We don't expect the fetcher to be used, so count such unexpected use.
-    UMA_HISTOGRAM_ENUMERATION("HTMLImport.UnexpectedRequest",
-                              factory.GetType());
-
     base::debug::DumpWithoutCrashing();
   }
 
@@ -1101,7 +1093,8 @@ Resource* ResourceFetcher::RequestResource(FetchParameters& params,
   // the resource was already initialized for the revalidation here, but won't
   // start loading.
   if (ResourceNeedsLoad(resource, params, policy)) {
-    if (!StartLoad(resource)) {
+    if (!StartLoad(resource,
+                   std::move(params.MutableResourceRequest().MutableBody()))) {
       resource->FinishAsError(ResourceError::CancelledError(params.Url()),
                               task_runner_.get());
     }
@@ -1217,7 +1210,8 @@ void ResourceFetcher::StorePerformanceTimingInitiatorInformation(
 
   scoped_refptr<ResourceTimingInfo> info = ResourceTimingInfo::Create(
       fetch_initiator, base::TimeTicks::Now(),
-      resource->GetResourceRequest().GetRequestContext());
+      resource->GetResourceRequest().GetRequestContext(),
+      resource->GetResourceRequest().GetRequestDestination());
 
   resource_timing_info_map_.insert(resource, std::move(info));
 }
@@ -1857,6 +1851,11 @@ void ResourceFetcher::MoveResourceLoaderToNonBlocking(ResourceLoader* loader) {
 }
 
 bool ResourceFetcher::StartLoad(Resource* resource) {
+  return StartLoad(resource, ResourceRequestBody());
+}
+
+bool ResourceFetcher::StartLoad(Resource* resource,
+                                ResourceRequestBody request_body) {
   DCHECK(resource);
   DCHECK(resource->StillNeedsLoad());
 
@@ -1874,11 +1873,13 @@ bool ResourceFetcher::StartLoad(Resource* resource) {
       return false;
     }
 
-    const auto& request = resource->GetResourceRequest();
-    ResourceResponse response;
+    const ResourceRequestHead& request_head = resource->GetResourceRequest();
 
     if (resource_load_observer_) {
       DCHECK(!IsDetached());
+      ResourceRequest request(request_head);
+      request.SetHttpBody(request_body.FormBody());
+      ResourceResponse response;
       resource_load_observer_->WillSendRequest(
           resource->InspectorId(), request, response, resource->GetType(),
           resource->Options().initiator_info);
@@ -1886,8 +1887,8 @@ bool ResourceFetcher::StartLoad(Resource* resource) {
 
     using QuotaType = decltype(inflight_keepalive_bytes_);
     QuotaType size = 0;
-    if (request.GetKeepalive() && request.HttpBody()) {
-      auto original_size = request.HttpBody()->SizeInBytes();
+    if (request_head.GetKeepalive() && request_body.FormBody()) {
+      auto original_size = request_body.FormBody()->SizeInBytes();
       DCHECK_LE(inflight_keepalive_bytes_, kKeepaliveInflightBytesQuota);
       if (original_size > std::numeric_limits<QuotaType>::max())
         return false;
@@ -1898,8 +1899,8 @@ bool ResourceFetcher::StartLoad(Resource* resource) {
       inflight_keepalive_bytes_ += size;
     }
 
-    loader =
-        MakeGarbageCollected<ResourceLoader>(this, scheduler_, resource, size);
+    loader = MakeGarbageCollected<ResourceLoader>(
+        this, scheduler_, resource, std::move(request_body), size);
     // Preload requests should not block the load event. IsLinkPreload()
     // actually continues to return true for Resources matched from the preload
     // cache that must block the load event, but that is OK because this method
@@ -2037,11 +2038,12 @@ void ResourceFetcher::EmulateLoadStartedForInspector(
 
   ResourceLoaderOptions options = resource->Options();
   options.initiator_info.name = initiator_name;
-  FetchParameters params(resource_request, options);
-  Context().CanRequest(resource->GetType(), resource->LastResourceRequest(),
-                       resource->LastResourceRequest().Url(), params.Options(),
-                       SecurityViolationReportingPolicy::kReport,
-                       resource->LastResourceRequest().GetRedirectStatus());
+  FetchParameters params(std::move(resource_request), options);
+  ResourceRequest last_resource_request(resource->LastResourceRequest());
+  Context().CanRequest(resource->GetType(), last_resource_request,
+                       last_resource_request.Url(), params.Options(),
+                       ReportingDisposition::kReport,
+                       last_resource_request.GetRedirectStatus());
   DidLoadResourceFromMemoryCache(resource->InspectorId(), resource,
                                  params.GetResourceRequest(),
                                  false /* is_static_data */);
@@ -2097,7 +2099,9 @@ void ResourceFetcher::RevalidateStaleResource(Resource* stale_resource) {
   // purpose this is probably fine.
   // TODO(dtapuska): revisit this when we have a better way to re-dispatch
   // requests.
-  FetchParameters params(stale_resource->GetResourceRequest());
+  ResourceRequest request;
+  request.CopyHeadFrom(stale_resource->GetResourceRequest());
+  FetchParameters params(std::move(request));
   params.SetStaleRevalidation(true);
   params.MutableResourceRequest().SetSkipServiceWorker(true);
   // Stale revalidation resource requests should be very low regardless of
@@ -2120,7 +2124,7 @@ FrameScheduler* ResourceFetcher::GetFrameScheduler() {
   return frame_scheduler_.get();
 }
 
-void ResourceFetcher::Trace(blink::Visitor* visitor) {
+void ResourceFetcher::Trace(Visitor* visitor) {
   visitor->Trace(context_);
   visitor->Trace(properties_);
   visitor->Trace(resource_load_observer_);

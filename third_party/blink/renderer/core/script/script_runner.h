@@ -30,7 +30,7 @@
 #include "base/macros.h"
 #include "base/single_thread_task_runner.h"
 #include "third_party/blink/renderer/core/core_export.h"
-#include "third_party/blink/renderer/core/execution_context/context_lifecycle_state_observer.h"
+#include "third_party/blink/renderer/core/execution_context/execution_context_lifecycle_state_observer.h"
 #include "third_party/blink/renderer/platform/bindings/name_client.h"
 #include "third_party/blink/renderer/platform/heap/handle.h"
 #include "third_party/blink/renderer/platform/wtf/deque.h"
@@ -42,9 +42,10 @@ class Document;
 class PendingScript;
 class ScriptLoader;
 
-class CORE_EXPORT ScriptRunner final : public GarbageCollected<ScriptRunner>,
-                                       public ContextLifecycleStateObserver,
-                                       public NameClient {
+class CORE_EXPORT ScriptRunner final
+    : public GarbageCollected<ScriptRunner>,
+      public ExecutionContextLifecycleStateObserver,
+      public NameClient {
   USING_GARBAGE_COLLECTED_MIXIN(ScriptRunner);
 
  public:
@@ -59,8 +60,13 @@ class CORE_EXPORT ScriptRunner final : public GarbageCollected<ScriptRunner>,
   void NotifyScriptReady(PendingScript*);
 
   void ContextLifecycleStateChanged(mojom::FrameLifecycleState) final;
+  void ContextDestroyed() final {}
 
   static void MovePendingScript(Document&, Document&, ScriptLoader*);
+
+  void SetTaskRunnerForTesting(base::SingleThreadTaskRunner* task_runner) {
+    task_runner_ = task_runner;
+  }
 
   void Trace(Visitor*) override;
   const char* NameInHeapSnapshot() const override { return "ScriptRunner"; }

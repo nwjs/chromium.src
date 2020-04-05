@@ -133,7 +133,7 @@ bool LayoutEmbeddedContent::RequiresAcceleratedCompositing() const {
       return true;
     if (base::FeatureList::IsEnabled(
             blink::features::kCompositeCrossOriginIframes) &&
-        content_frame->IsCrossOriginSubframe()) {
+        content_frame->IsCrossOriginToParentFrame()) {
       return true;
     }
   }
@@ -309,7 +309,7 @@ void LayoutEmbeddedContent::InvalidatePaint(
 }
 
 CursorDirective LayoutEmbeddedContent::GetCursor(const PhysicalOffset& point,
-                                                 Cursor& cursor) const {
+                                                 ui::Cursor& cursor) const {
   if (Plugin()) {
     // A plugin is responsible for setting the cursor when the pointer is over
     // it.

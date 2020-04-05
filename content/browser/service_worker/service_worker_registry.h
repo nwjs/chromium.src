@@ -28,6 +28,9 @@ namespace content {
 class ServiceWorkerContextCore;
 class ServiceWorkerVersion;
 
+class ServiceWorkerRegistryTest;
+FORWARD_DECLARE_TEST(ServiceWorkerRegistryTest, StoragePolicyChange);
+
 // This class manages in-memory representation of service worker registrations
 // (i.e., ServiceWorkerRegistration) including installing and uninstalling
 // registrations. The instance of this class is owned by
@@ -35,8 +38,6 @@ class ServiceWorkerVersion;
 // The instance owns ServiceworkerStorage and uses it to store/retrieve
 // registrations to/from persistent storage.
 // The instance lives on the core thread.
-// TODO(crbug.com/1039200): Move ServiceWorkerStorage's method and fields which
-// depend on ServiceWorkerRegistration into this class.
 class CONTENT_EXPORT ServiceWorkerRegistry {
  public:
   using ResourceList = ServiceWorkerStorage::ResourceList;
@@ -60,7 +61,8 @@ class CONTENT_EXPORT ServiceWorkerRegistry {
   using GetUserDataForAllRegistrationsCallback = base::OnceCallback<void(
       const std::vector<std::pair<int64_t, std::string>>& user_data,
       blink::ServiceWorkerStatusCode status)>;
-  using StatusCallback = ServiceWorkerStorage::StatusCallback;
+  using StatusCallback =
+      base::OnceCallback<void(blink::ServiceWorkerStatusCode status)>;
 
   ServiceWorkerRegistry(
       const base::FilePath& user_data_directory,
@@ -81,16 +83,21 @@ class CONTENT_EXPORT ServiceWorkerRegistry {
   // Creates a new in-memory representation of registration. Can be null when
   // storage is disabled. This method must be called after storage is
   // initialized.
-  scoped_refptr<ServiceWorkerRegistration> CreateNewRegistration(
-      blink::mojom::ServiceWorkerRegistrationOptions options);
+  using NewRegistrationCallback = base::OnceCallback<void(
+      scoped_refptr<ServiceWorkerRegistration> registration)>;
+  void CreateNewRegistration(
+      blink::mojom::ServiceWorkerRegistrationOptions options,
+      NewRegistrationCallback callback);
 
   // Create a new instance of ServiceWorkerVersion which is associated with the
   // given |registration|. Can be null when storage is disabled. This method
   // must be called after storage is initialized.
-  scoped_refptr<ServiceWorkerVersion> CreateNewVersion(
-      ServiceWorkerRegistration* registration,
-      const GURL& script_url,
-      blink::mojom::ScriptType script_type);
+  using NewVersionCallback =
+      base::OnceCallback<void(scoped_refptr<ServiceWorkerVersion> version)>;
+  void CreateNewVersion(scoped_refptr<ServiceWorkerRegistration> registration,
+                        const GURL& script_url,
+                        blink::mojom::ScriptType script_type,
+                        NewVersionCallback callback);
 
   // Finds registration for |client_url| or |scope| or |registration_id|.
   // The Find methods will find stored and initially installing registrations.
@@ -130,6 +137,9 @@ class CONTENT_EXPORT ServiceWorkerRegistry {
 
   ServiceWorkerRegistration* GetUninstallingRegistration(const GURL& scope);
 
+  std::vector<scoped_refptr<ServiceWorkerRegistration>>
+  GetUninstallingRegistrationsForOrigin(const GURL& origin);
+
   // Commits |registration| with the installed but not activated |version|
   // to storage, overwriting any pre-existing registration data for the scope.
   // A pre-existing version's script resources remain available if that version
@@ -167,6 +177,21 @@ class CONTENT_EXPORT ServiceWorkerRegistry {
   void UpdateToActiveState(int64_t registration_id,
                            const GURL& origin,
                            StatusCallback callback);
+  void UpdateLastUpdateCheckTime(int64_t registration_id,
+                                 const GURL& origin,
+                                 base::Time last_update_check_time,
+                                 StatusCallback callback);
+  void UpdateNavigationPreloadEnabled(int64_t registration_id,
+                                      const GURL& origin,
+                                      bool enable,
+                                      StatusCallback callback);
+  void UpdateNavigationPreloadHeader(int64_t registration_id,
+                                     const GURL& origin,
+                                     const std::string& value,
+                                     StatusCallback callback);
+  void StoreUncommittedResourceId(int64_t resource_id, const GURL& origin);
+  void DoomUncommittedResource(int64_t resource_id);
+  void DoomUncommittedResources(const std::set<int64_t>& resource_ids);
   void GetUserData(int64_t registration_id,
                    const std::vector<std::string>& keys,
                    GetUserDataCallback callback);
@@ -197,20 +222,31 @@ class CONTENT_EXPORT ServiceWorkerRegistry {
       const std::string& key_prefix,
       GetUserDataForAllRegistrationsCallback callback);
 
-  // TODO(crbug.com/1039200): Make this private once methods/fields related to
-  // ServiceWorkerRegistration in ServiceWorkerStorage are moved into this
-  // class.
-  scoped_refptr<ServiceWorkerRegistration> GetOrCreateRegistration(
-      const ServiceWorkerDatabase::RegistrationData& data,
-      const ResourceList& resources);
+  // Disables the internal storage to prepare for error recovery.
+  void PrepareForDeleteAndStarOver();
+
+  // Deletes this registry and internal storage, then starts over for error
+  // recovery.
+  void DeleteAndStartOver(StatusCallback callback);
+
+  void DisableDeleteAndStartOverForTesting();
 
  private:
+  friend class ServiceWorkerRegistryTest;
+  FRIEND_TEST_ALL_PREFIXES(ServiceWorkerRegistryTest, StoragePolicyChange);
+
+  void Start();
+
   ServiceWorkerRegistration* FindInstallingRegistrationForClientUrl(
       const GURL& client_url);
   ServiceWorkerRegistration* FindInstallingRegistrationForScope(
       const GURL& scope);
   ServiceWorkerRegistration* FindInstallingRegistrationForId(
       int64_t registration_id);
+
+  scoped_refptr<ServiceWorkerRegistration> GetOrCreateRegistration(
+      const storage::mojom::ServiceWorkerRegistrationData& data,
+      const ResourceList& resources);
 
   // Looks up live registrations and returns an optional value which may contain
   // a "findable" registration. See the implementation of this method for
@@ -222,75 +258,120 @@ class CONTENT_EXPORT ServiceWorkerRegistry {
       const GURL& client_url,
       int64_t trace_event_id,
       FindRegistrationCallback callback,
-      blink::ServiceWorkerStatusCode status,
-      std::unique_ptr<ServiceWorkerDatabase::RegistrationData> data,
-      std::unique_ptr<ResourceList> resources);
+      storage::mojom::ServiceWorkerRegistrationDataPtr data,
+      std::unique_ptr<ResourceList> resources,
+      storage::mojom::ServiceWorkerDatabaseStatus database_status);
   void DidFindRegistrationForScope(
       FindRegistrationCallback callback,
-      blink::ServiceWorkerStatusCode status,
-      std::unique_ptr<ServiceWorkerDatabase::RegistrationData> data,
-      std::unique_ptr<ResourceList> resources);
+      storage::mojom::ServiceWorkerRegistrationDataPtr data,
+      std::unique_ptr<ResourceList> resources,
+      storage::mojom::ServiceWorkerDatabaseStatus database_status);
   void DidFindRegistrationForId(
       int64_t registration_id,
       FindRegistrationCallback callback,
-      blink::ServiceWorkerStatusCode status,
-      std::unique_ptr<ServiceWorkerDatabase::RegistrationData> data,
-      std::unique_ptr<ResourceList> resources);
+      storage::mojom::ServiceWorkerRegistrationDataPtr data,
+      std::unique_ptr<ResourceList> resources,
+      storage::mojom::ServiceWorkerDatabaseStatus database_status);
 
   void DidGetRegistrationsForOrigin(
       GetRegistrationsCallback callback,
       const GURL& origin_filter,
-      blink::ServiceWorkerStatusCode status,
+      storage::mojom::ServiceWorkerDatabaseStatus database_status,
       std::unique_ptr<RegistrationList> registration_data_list,
       std::unique_ptr<std::vector<ResourceList>> resources_list);
   void DidGetAllRegistrations(
       GetRegistrationsInfosCallback callback,
-      blink::ServiceWorkerStatusCode status,
+      storage::mojom::ServiceWorkerDatabaseStatus database_status,
       std::unique_ptr<RegistrationList> registration_data_list);
 
   void DidStoreRegistration(
-      const ServiceWorkerDatabase::RegistrationData& data,
+      int64_t stored_registration_id,
+      uint64_t stored_resources_total_size_bytes,
+      const GURL& stored_scope,
       StatusCallback callback,
-      blink::ServiceWorkerStatusCode status,
+      storage::mojom::ServiceWorkerDatabaseStatus database_status,
       int64_t deleted_version_id,
       const std::vector<int64_t>& newly_purgeable_resources);
   void DidDeleteRegistration(
       int64_t registration_id,
+      const GURL& origin,
       StatusCallback callback,
-      blink::ServiceWorkerStatusCode status,
+      storage::mojom::ServiceWorkerDatabaseStatus database_status,
+      ServiceWorkerStorage::OriginState origin_state,
       int64_t deleted_version_id,
       const std::vector<int64_t>& newly_purgeable_resources);
 
-  void DidUpdateToActiveState(StatusCallback callback,
-                              ServiceWorkerDatabase::Status status);
+  void DidUpdateToActiveState(
+      const GURL& origin,
+      StatusCallback callback,
+      storage::mojom::ServiceWorkerDatabaseStatus status);
+  void DidWriteUncommittedResourceIds(
+      storage::mojom::ServiceWorkerDatabaseStatus status);
+  void DidDoomUncommittedResourceIds(
+      const std::set<int64_t>& resource_ids,
+      storage::mojom::ServiceWorkerDatabaseStatus status);
   void DidGetUserData(GetUserDataCallback callback,
                       const std::vector<std::string>& data,
-                      ServiceWorkerDatabase::Status status);
+                      storage::mojom::ServiceWorkerDatabaseStatus status);
   void DidGetUserKeysAndData(
       GetUserKeysAndDataCallback callback,
       const base::flat_map<std::string, std::string>& data_map,
-      ServiceWorkerDatabase::Status status);
+      storage::mojom::ServiceWorkerDatabaseStatus status);
   void DidStoreUserData(StatusCallback callback,
-                        ServiceWorkerDatabase::Status status);
+                        storage::mojom::ServiceWorkerDatabaseStatus status);
   void DidClearUserData(StatusCallback callback,
-                        ServiceWorkerDatabase::Status status);
+                        storage::mojom::ServiceWorkerDatabaseStatus status);
   void DidGetUserDataForAllRegistrations(
       GetUserDataForAllRegistrationsCallback callback,
       const std::vector<std::pair<int64_t, std::string>>& user_data,
-      ServiceWorkerDatabase::Status status);
+      storage::mojom::ServiceWorkerDatabaseStatus status);
+
+  void DidGetNewRegistrationId(
+      blink::mojom::ServiceWorkerRegistrationOptions options,
+      NewRegistrationCallback callback,
+      int64_t registration_id);
+  void DidGetNewVersionId(scoped_refptr<ServiceWorkerRegistration> registration,
+                          const GURL& script_url,
+                          blink::mojom::ScriptType script_type,
+                          NewVersionCallback callback,
+                          int64_t version_id);
 
   void ScheduleDeleteAndStartOver();
+
+  // TODO(bashi): Consider introducing a helper class that handles the below.
+  // These are almost the same as DOMStorageContextWrapper.
+  void DidGetRegisteredOriginsOnStartup(std::vector<url::Origin> origins);
+  void EnsureRegisteredOriginIsTracked(const url::Origin& origin);
+  void OnStoragePolicyChanged();
+  bool ShouldPurgeOnShutdown(const url::Origin& origin);
 
   // The ServiceWorkerContextCore object must outlive this.
   ServiceWorkerContextCore* const context_;
 
   std::unique_ptr<ServiceWorkerStorage> storage_;
+  bool is_storage_disabled_ = false;
+
+  const scoped_refptr<storage::SpecialStoragePolicy> special_storage_policy_;
+  class StoragePolicyObserver;
+  base::SequenceBound<StoragePolicyObserver> storage_policy_observer_;
+
+  // TODO(bashi): Avoid duplication. Merge this with LocalStorageOriginState.
+  struct StorageOriginState {
+    bool should_purge_on_shutdown = false;
+    bool will_purge_on_shutdown = false;
+  };
+  // IMPORTANT: Don't use this other than updating storage policies. This can
+  // be out of sync with |registered_origins_| in ServiceWorkerStorage.
+  std::map<url::Origin, StorageOriginState> tracked_origins_for_policy_update_;
 
   // For finding registrations being installed or uninstalled.
   using RegistrationRefsById =
       std::map<int64_t, scoped_refptr<ServiceWorkerRegistration>>;
   RegistrationRefsById installing_registrations_;
   RegistrationRefsById uninstalling_registrations_;
+
+  // Indicates whether recovery process should be scheduled.
+  bool should_schedule_delete_and_start_over_ = true;
 
   base::WeakPtrFactory<ServiceWorkerRegistry> weak_factory_{this};
 };

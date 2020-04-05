@@ -1072,6 +1072,15 @@ void RasterImplementation::CopySubTexture(const gpu::Mailbox& source_mailbox,
   CheckGLError();
 }
 
+void RasterImplementation::WritePixels(const gpu::Mailbox& dest_mailbox,
+                                       int dst_x_offset,
+                                       int dst_y_offset,
+                                       GLenum texture_target,
+                                       const SkImageInfo& src_info,
+                                       const void* src_pixels) {
+  NOTREACHED();
+}
+
 void RasterImplementation::BeginRasterCHROMIUM(
     GLuint sk_color,
     GLuint msaa_sample_count,
@@ -1183,6 +1192,34 @@ SyncToken RasterImplementation::ScheduleImageDecode(
   return decode_sync_token;
 }
 
+void RasterImplementation::ReadbackARGBPixelsAsync(
+    const gpu::Mailbox& source_mailbox,
+    GLenum source_target,
+    const gfx::Size& dst_size,
+    unsigned char* out,
+    GLenum format,
+    base::OnceCallback<void(bool)> readback_done) {
+  NOTREACHED();
+}
+
+void RasterImplementation::ReadbackYUVPixelsAsync(
+    const gpu::Mailbox& source_mailbox,
+    GLenum source_target,
+    const gfx::Size& source_size,
+    const gfx::Rect& output_rect,
+    bool vertically_flip_texture,
+    int y_plane_row_stride_bytes,
+    unsigned char* y_plane_data,
+    int u_plane_row_stride_bytes,
+    unsigned char* u_plane_data,
+    int v_plane_row_stride_bytes,
+    unsigned char* v_plane_data,
+    const gfx::Point& paste_location,
+    base::OnceCallback<void()> release_mailbox,
+    base::OnceCallback<void(bool)> readback_done) {
+  NOTREACHED();
+}
+
 void RasterImplementation::IssueImageDecodeCacheEntryCreation(
     base::span<const uint8_t> encoded_data,
     const gfx::Size& output_size,
@@ -1230,6 +1267,20 @@ void RasterImplementation::BeginSharedImageAccessDirectCHROMIUM(GLuint texture,
 
 void RasterImplementation::EndSharedImageAccessDirectCHROMIUM(GLuint texture) {
   NOTREACHED();
+}
+
+void RasterImplementation::InitializeDiscardableTextureCHROMIUM(
+    GLuint texture) {
+  NOTREACHED();
+}
+
+void RasterImplementation::UnlockDiscardableTextureCHROMIUM(GLuint texture) {
+  NOTREACHED();
+}
+
+bool RasterImplementation::LockDiscardableTextureCHROMIUM(GLuint texture) {
+  NOTREACHED();
+  return false;
 }
 
 void RasterImplementation::TraceBeginCHROMIUM(const char* category_name,

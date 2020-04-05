@@ -1,16 +1,23 @@
 <?xml version="1.0" ?>
 <!DOCTYPE translationbundle>
 <translationbundle lang="mn">
+<translation id="1195447618553298278">Үл танигдах алдаа гаргасан байна</translation>
+<translation id="1468664791493211953">Саналууд</translation>
 <translation id="1482734542997480527"><ph name="ENROLLMENT_DOMAIN" /> энэ төхөөрөмжийг удирддаг бөгөөд таны үйл ажиллагааг хянах боломжтой байж болзошгүй.</translation>
+<translation id="150962533380566081">PUK буруу байна.</translation>
 <translation id="1510238584712386396">Launcher</translation>
+<translation id="159973520823200404">Танилцах</translation>
 <translation id="1734367976349034509">Энэ төхөөрөмжийг байгууллагаас удирддаг</translation>
+<translation id="1905710495812624430">Оролдлогын тоо дээд хэмжээнээс хэтэрсэн.</translation>
 <translation id="1930797645656624981">Chrome OS-н оруулах аргын үйлчилгээ</translation>
 <translation id="1979103255016296513">Нууц үг солих хугацаа хэтэрсэн</translation>
 <translation id="2049639323467105390">Энэ төхөөрөмжийг <ph name="DOMAIN" /> удирдан ажиллаж байна .</translation>
 <translation id="2338501278241028356">Ойролцоох төхөөрөмж хайхын тулд Bluetooth-г асаана уу</translation>
+<translation id="2375079107209812402"><ph name="ATTEMPTS_LEFT" /> оролдлого үлдсэн</translation>
 <translation id="2805756323405976993">Програм</translation>
 <translation id="2872961005593481000">Унтраах</translation>
 <translation id="3008341117444806826">ДАХИН ШИНЭЧЛЭХ</translation>
+<translation id="3820172043799983114">ПИН буруу байна.</translation>
 <translation id="3838338534323494292">Шинэ нууц үг</translation>
 <translation id="4003259559679196451"><ph name="ENROLLMENT_DOMAIN" /> энэ төхөөрөмжийг удирддаг бөгөөд хэрэглэгчийн зочилсон вэб хуудас, нууц үг болон имэйл зэрэг бүх үйл ажиллагаанд хандах эрхтэй.</translation>
 <translation id="4227825898293920515">Нууц үгний хугацаа <ph name="TIME" />-н дотор дуусна</translation>
@@ -34,7 +41,9 @@
 <translation id="7658239707568436148">Болих</translation>
 <translation id="7690294790491645610">Шинэ нууц үг баталгаажуулна уу</translation>
 <translation id="808894953321890993">Нууц үгийг солих</translation>
+<translation id="8208861521865154048">Нэмэлтүүд</translation>
 <translation id="8747900814994928677">Өөрчлөлтийг баталгаажуулах</translation>
+<translation id="89415009803968170"><ph name="ERROR_MESSAGE" /> <ph name="ATTEMPTS_LEFT" /> оролдлого үлдлээ</translation>
 <translation id="910415269708673980"><ph name="PRINCIPAL_NAME" />-н тасалбарыг дахин шинэчлэх</translation>
 <translation id="9111102763498581341">Нээх</translation>
 </translationbundle>

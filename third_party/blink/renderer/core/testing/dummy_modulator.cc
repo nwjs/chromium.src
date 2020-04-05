@@ -41,7 +41,7 @@ DummyModulator::DummyModulator()
 
 DummyModulator::~DummyModulator() = default;
 
-void DummyModulator::Trace(blink::Visitor* visitor) {
+void DummyModulator::Trace(Visitor* visitor) {
   visitor->Trace(resolver_);
   Modulator::Trace(visitor);
 }
@@ -62,16 +62,6 @@ bool DummyModulator::IsScriptingDisabled() const {
 bool DummyModulator::ImportMapsEnabled() const {
   return false;
 }
-
-bool DummyModulator::BuiltInModuleInfraEnabled() const {
-  return false;
-}
-
-bool DummyModulator::BuiltInModuleEnabled(blink::layered_api::Module) const {
-  return false;
-}
-
-void DummyModulator::BuiltInModuleUseCount(blink::layered_api::Module) const {}
 
 ModuleRecordResolver* DummyModulator::GetModuleRecordResolver() {
   return resolver_.Get();
@@ -184,7 +174,8 @@ ScriptValue DummyModulator::ExecuteModule(ModuleScript*, CaptureEvalErrorFlag) {
 }
 
 ModuleScriptFetcher* DummyModulator::CreateModuleScriptFetcher(
-    ModuleScriptCustomFetchType) {
+    ModuleScriptCustomFetchType,
+    util::PassKey<ModuleScriptLoader> pass_key) {
   NOTREACHED();
   return nullptr;
 }

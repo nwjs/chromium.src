@@ -23,6 +23,7 @@ source_set("tests") {
     "data_view_unittest.cc",
     "enum_headers_unittest.cc",
     "equals_unittest.cc",
+    "extra_cpp_template_unittest.cc",
     "flush_async_unittest.cc",
     "handle_passing_unittest.cc",
     "hash_unittest.cc",
@@ -33,6 +34,7 @@ source_set("tests") {
     "message_queue.h",
     "message_quota_checker_unittest.cc",
     "message_unittest.cc",
+    "mojom_types_downgrader_unittest.cc",
     "multiplex_router_unittest.cc",
     "native_struct_unittest.cc",
     "new_endpoint_types_unittest.cc",
@@ -60,7 +62,9 @@ source_set("tests") {
   ]
 
   deps = [
+    ":downgraded_mojom",
     ":mojo_public_bindings_test_utils",
+    ":test_extra_cpp_template_mojom",
     ":test_mojom",
     "//base/test:test_support",
     "//mojo/core/embedder",
@@ -134,6 +138,14 @@ source_set("struct_with_traits_impl") {
   ]
 }
 
+mojom("test_extra_cpp_template_mojom") {
+  testonly = true
+  sources = [ "extra_cpp_template_unittest.test-mojom" ]
+
+  extra_cpp_template_paths = [ "extra_cpp_template_unittest.h.tmpl" ]
+  public_deps = [ "//mojo/public/mojom/base" ]
+}
+
 mojom("test_mojom") {
   testonly = true
   sources = [
@@ -148,7 +160,12 @@ mojom("test_mojom") {
     "struct_headers_unittest.test-mojom",
   ]
 
-  public_deps = [ "//mojo/public/mojom/base" ]
+  public_deps = [
+    # NOTE: This is a kind of test in itself, to verify that mojom() rules can
+    # operate on generated mojom files and produce compilable outputs.
+    ":generated_test_mojom",
+    "//mojo/public/mojom/base",
+  ]
 
   support_lazy_serialization = true
 }
@@ -181,4 +198,33 @@ source_set("mojo_public_bindings_test_utils") {
   ]
 
   deps = [ "//mojo/public/c/system" ]
+}
+
+action("generate_test_mojom") {
+  script = "generate_test_mojom.py"
+  outputs = [ "$target_gen_dir/generated.test-mojom" ]
+  args = [ rebase_path("$target_gen_dir/generated.test-mojom") ]
+}
+
+mojom("generated_test_mojom") {
+  testonly = true
+  sources = [ "$target_gen_dir/generated.test-mojom" ]
+  parser_deps = [ ":generate_test_mojom" ]
+}
+
+action("mojom_types_downgrader") {
+  script = "//mojo/public/tools/bindings/mojom_types_downgrader.py"
+  sources = [ "module_to_downgrade.test-mojom" ]
+  outputs = [ "$target_gen_dir/module_to_downgrade.test-mojom" ]
+  args = [
+    "--outdir",
+    rebase_path(target_gen_dir),
+    rebase_path("module_to_downgrade.test-mojom"),
+  ]
+}
+
+mojom("downgraded_mojom") {
+  testonly = true
+  sources = [ "$target_gen_dir/module_to_downgrade.test-mojom" ]
+  parser_deps = [ ":mojom_types_downgrader" ]
 }

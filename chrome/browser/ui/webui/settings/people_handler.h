@@ -16,7 +16,6 @@
 #include "build/buildflag.h"
 #include "chrome/browser/ui/webui/settings/settings_page_ui_handler.h"
 #include "chrome/browser/ui/webui/signin/login_ui_service.h"
-#include "components/history/core/browser/web_history_service.h"
 #include "components/prefs/pref_change_registrar.h"
 #include "components/signin/public/base/signin_buildflags.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
@@ -48,13 +47,9 @@ class PeopleHandler : public SettingsPageUIHandler,
  public:
   // TODO(tommycli): Remove these strings and instead use WebUIListener events.
   // These string constants are used from JavaScript (sync_browser_proxy.js).
-  static const char kSpinnerPageStatus[];
   static const char kConfigurePageStatus[];
-  static const char kTimeoutPageStatus[];
   static const char kDonePageStatus[];
   static const char kPassphraseFailedPageStatus[];
-  // TODO(crbug.com/): Remove kSpinnerPageStatus and kTimeoutPageStatus (plus
-  // their JS-side handling); they're unused.
 
   explicit PeopleHandler(Profile* profile);
   ~PeopleHandler() override;
@@ -99,10 +94,10 @@ class PeopleHandler : public SettingsPageUIHandler,
   FRIEND_TEST_ALL_PREFIXES(PeopleHandlerTest, EnterWrongExistingPassphrase);
   FRIEND_TEST_ALL_PREFIXES(PeopleHandlerTest, EnterBlankExistingPassphrase);
   FRIEND_TEST_ALL_PREFIXES(PeopleHandlerTest, TurnOnEncryptAllDisallowed);
-  FRIEND_TEST_ALL_PREFIXES(PeopleHandlerNonCrosTest,
+  FRIEND_TEST_ALL_PREFIXES(PeopleHandlerTest,
                            UnrecoverableErrorInitializingSync);
-  FRIEND_TEST_ALL_PREFIXES(PeopleHandlerNonCrosTest, GaiaErrorInitializingSync);
-  FRIEND_TEST_ALL_PREFIXES(PeopleHandlerFirstSigninTest, DisplayBasicLogin);
+  FRIEND_TEST_ALL_PREFIXES(PeopleHandlerTest, GaiaErrorInitializingSync);
+  FRIEND_TEST_ALL_PREFIXES(PeopleHandlerTest, DisplayBasicLogin);
   FRIEND_TEST_ALL_PREFIXES(PeopleHandlerTest,
                            AcquireSyncBlockerWhenLoadingSyncSettingsSubpage);
   FRIEND_TEST_ALL_PREFIXES(PeopleHandlerTest, RestartSyncAfterDashboardClear);
@@ -116,6 +111,8 @@ class PeopleHandler : public SettingsPageUIHandler,
   FRIEND_TEST_ALL_PREFIXES(PeopleHandlerDiceUnifiedConsentTest,
                            StoredAccountsList);
   FRIEND_TEST_ALL_PREFIXES(PeopleHandlerGuestModeTest, GetStoredAccountsList);
+  FRIEND_TEST_ALL_PREFIXES(PeopleHandlerTest, TurnOffSync);
+  FRIEND_TEST_ALL_PREFIXES(PeopleHandlerTest, GetStoredAccountsList);
 
   // SettingsPageUIHandler implementation.
   void RegisterMessages() override;
@@ -156,12 +153,11 @@ class PeopleHandler : public SettingsPageUIHandler,
   void HandleSetDatatypes(const base::ListValue* args);
   void HandleSetEncryption(const base::ListValue* args);
   void HandleShowSetupUI(const base::ListValue* args);
-  void HandleAttemptUserExit(const base::ListValue* args);
   void HandleSyncPrefsDispatch(const base::ListValue* args);
-  void HandleGetIsHistoryRecordingEnabledAndCanBeUsed(
-      const base::ListValue* args);
 #if defined(OS_CHROMEOS)
-  void HandleRequestPinLoginState(const base::ListValue* args);
+  void HandleAttemptUserExit(const base::ListValue* args);
+  void HandleTurnOnSync(const base::ListValue* args);
+  void HandleTurnOffSync(const base::ListValue* args);
 #endif
 #if !defined(OS_CHROMEOS)
   void HandleStartSignin(const base::ListValue* args);
@@ -180,15 +176,6 @@ class PeopleHandler : public SettingsPageUIHandler,
   virtual void DisplayGaiaLoginInNewTabOrWindow(
       signin_metrics::AccessPoint access_point);
 #endif
-
-#if defined(OS_CHROMEOS)
-  void OnPinLoginAvailable(bool is_available);
-#endif
-
-  void OnQueryHistoryRecordingCompletion(
-      const std::string& webui_callback_id,
-      history::WebHistoryService::Request* request,
-      const base::Optional<bool>& history_recording_enabled);
 
   void HandleGetStoredAccounts(const base::ListValue* args);
   void HandleStartSyncingWithEmail(const base::ListValue* args);
@@ -232,11 +219,6 @@ class PeopleHandler : public SettingsPageUIHandler,
 
   // Used to listen for pref changes to allow or disallow signin.
   PrefChangeRegistrar profile_pref_registrar_;
-
-  // Pending web and app activity requests to query whether history recording
-  // is enabled or not.
-  std::set<std::unique_ptr<history::WebHistoryService::Request>>
-      web_and_app_activity_requests_;
 
   // Manages observer lifetimes.
   ScopedObserver<signin::IdentityManager, signin::IdentityManager::Observer>

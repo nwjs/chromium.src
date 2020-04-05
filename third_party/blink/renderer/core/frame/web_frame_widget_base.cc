@@ -7,7 +7,11 @@
 #include <memory>
 #include <utility>
 
+#include "base/metrics/histogram_macros.h"
+#include "base/single_thread_task_runner.h"
 #include "base/time/time.h"
+#include "cc/trees/layer_tree_host.h"
+#include "cc/trees/swap_promise.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/web/web_local_frame.h"
 #include "third_party/blink/public/web/web_widget_client.h"
@@ -16,6 +20,7 @@
 #include "third_party/blink/renderer/core/events/web_input_event_conversion.h"
 #include "third_party/blink/renderer/core/events/wheel_event.h"
 #include "third_party/blink/renderer/core/exported/web_view_impl.h"
+#include "third_party/blink/renderer/core/frame/local_frame_ukm_aggregator.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
 #include "third_party/blink/renderer/core/frame/visual_viewport.h"
 #include "third_party/blink/renderer/core/frame/web_local_frame_impl.h"
@@ -34,7 +39,19 @@
 #include "third_party/blink/renderer/platform/graphics/animation_worklet_mutator_dispatcher_impl.h"
 #include "third_party/blink/renderer/platform/graphics/compositor_mutator_client.h"
 #include "third_party/blink/renderer/platform/graphics/paint_worklet_paint_dispatcher.h"
+#include "third_party/blink/renderer/platform/scheduler/public/post_cross_thread_task.h"
+#include "third_party/blink/renderer/platform/widget/widget_base.h"
 #include "third_party/blink/renderer/platform/wtf/assertions.h"
+#include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
+
+namespace WTF {
+template <>
+struct CrossThreadCopier<blink::WebReportTimeCallback>
+    : public CrossThreadCopierByValuePassThrough<blink::WebReportTimeCallback> {
+  STATIC_ONLY(CrossThreadCopier);
+};
+
+}  // namespace WTF
 
 namespace blink {
 
@@ -51,8 +68,22 @@ STATIC_ASSERT_ENUM(kDragOperationEvery, kWebDragOperationEvery);
 
 bool WebFrameWidgetBase::ignore_input_events_ = false;
 
-WebFrameWidgetBase::WebFrameWidgetBase(WebWidgetClient& client)
-    : client_(&client) {}
+WebFrameWidgetBase::WebFrameWidgetBase(
+    WebWidgetClient& client,
+    CrossVariantMojoAssociatedRemote<mojom::blink::FrameWidgetHostInterfaceBase>
+        frame_widget_host,
+    CrossVariantMojoAssociatedReceiver<mojom::blink::FrameWidgetInterfaceBase>
+        frame_widget,
+    CrossVariantMojoAssociatedRemote<mojom::blink::WidgetHostInterfaceBase>
+        widget_host,
+    CrossVariantMojoAssociatedReceiver<mojom::blink::WidgetInterfaceBase>
+        widget)
+    : widget_base_(std::make_unique<WidgetBase>(this,
+                                                std::move(widget_host),
+                                                std::move(widget))),
+      client_(&client),
+      frame_widget_host_(std::move(frame_widget_host)),
+      receiver_(this, std::move(frame_widget)) {}
 
 WebFrameWidgetBase::~WebFrameWidgetBase() = default;
 
@@ -71,6 +102,7 @@ void WebFrameWidgetBase::Close() {
   local_root_ = nullptr;
   client_ = nullptr;
   request_animation_after_delay_timer_.reset();
+  widget_base_.reset();
 }
 
 WebLocalFrame* WebFrameWidgetBase::LocalRoot() const {
@@ -231,6 +263,16 @@ void WebFrameWidgetBase::DragSourceSystemDragEnded() {
   CancelDrag();
 }
 
+void WebFrameWidgetBase::SetBackgroundOpaque(bool opaque) {
+  if (opaque) {
+    View()->ClearBaseBackgroundColorOverride();
+    View()->ClearBackgroundColorOverride();
+  } else {
+    View()->SetBaseBackgroundColorOverride(SK_ColorTRANSPARENT);
+    View()->SetBackgroundColorOverride(SK_ColorTRANSPARENT);
+  }
+}
+
 void WebFrameWidgetBase::CancelDrag() {
   // It's possible for this to be called while we're not doing a drag if
   // it's from a previous page that got unloaded.
@@ -348,9 +390,115 @@ void WebFrameWidgetBase::RequestDecode(
   Client()->RequestDecode(image, std::move(callback));
 }
 
-void WebFrameWidgetBase::Trace(blink::Visitor* visitor) {
+void WebFrameWidgetBase::Trace(Visitor* visitor) {
   visitor->Trace(local_root_);
   visitor->Trace(current_drag_data_);
+}
+
+void WebFrameWidgetBase::SetNeedsRecalculateRasterScales() {
+  if (!View()->does_composite())
+    return;
+  widget_base_->LayerTreeHost()->SetNeedsRecalculateRasterScales();
+}
+
+void WebFrameWidgetBase::SetBackgroundColor(SkColor color) {
+  if (!View()->does_composite())
+    return;
+  widget_base_->LayerTreeHost()->set_background_color(color);
+}
+
+void WebFrameWidgetBase::SetOverscrollBehavior(
+    const cc::OverscrollBehavior& overscroll_behavior) {
+  if (!View()->does_composite())
+    return;
+  widget_base_->LayerTreeHost()->SetOverscrollBehavior(overscroll_behavior);
+}
+
+void WebFrameWidgetBase::RegisterSelection(cc::LayerSelection selection) {
+  if (!View()->does_composite())
+    return;
+  widget_base_->LayerTreeHost()->RegisterSelection(selection);
+}
+
+void WebFrameWidgetBase::StartPageScaleAnimation(
+    const gfx::Vector2d& destination,
+    bool use_anchor,
+    float new_page_scale,
+    base::TimeDelta duration) {
+  widget_base_->LayerTreeHost()->StartPageScaleAnimation(
+      destination, use_anchor, new_page_scale, duration);
+}
+
+void WebFrameWidgetBase::RequestBeginMainFrameNotExpected(bool request) {
+  if (!View()->does_composite())
+    return;
+  widget_base_->LayerTreeHost()->RequestBeginMainFrameNotExpected(request);
+}
+
+int WebFrameWidgetBase::GetLayerTreeId() {
+  if (!View()->does_composite())
+    return 0;
+  return widget_base_->LayerTreeHost()->GetId();
+}
+
+void WebFrameWidgetBase::SetHaveScrollEventHandlers(bool has_handlers) {
+  widget_base_->LayerTreeHost()->SetHaveScrollEventHandlers(has_handlers);
+}
+
+void WebFrameWidgetBase::SetEventListenerProperties(
+    cc::EventListenerClass listener_class,
+    cc::EventListenerProperties listener_properties) {
+  widget_base_->LayerTreeHost()->SetEventListenerProperties(
+      listener_class, listener_properties);
+}
+
+cc::EventListenerProperties WebFrameWidgetBase::EventListenerProperties(
+    cc::EventListenerClass listener_class) const {
+  return widget_base_->LayerTreeHost()->event_listener_properties(
+      listener_class);
+}
+
+void WebFrameWidgetBase::StartDeferringCommits(base::TimeDelta timeout) {
+  if (!View()->does_composite())
+    return;
+  widget_base_->LayerTreeHost()->StartDeferringCommits(timeout);
+}
+
+void WebFrameWidgetBase::StopDeferringCommits(
+    cc::PaintHoldingCommitTrigger triggger) {
+  if (!View()->does_composite())
+    return;
+  widget_base_->LayerTreeHost()->StopDeferringCommits(triggger);
+}
+
+std::unique_ptr<cc::ScopedDeferMainFrameUpdate>
+WebFrameWidgetBase::DeferMainFrameUpdate() {
+  return widget_base_->LayerTreeHost()->DeferMainFrameUpdate();
+}
+
+void WebFrameWidgetBase::SetBrowserControlsShownRatio(float top_ratio,
+                                                      float bottom_ratio) {
+  widget_base_->LayerTreeHost()->SetBrowserControlsShownRatio(top_ratio,
+                                                              bottom_ratio);
+}
+
+void WebFrameWidgetBase::SetBrowserControlsParams(
+    cc::BrowserControlsParams params) {
+  widget_base_->LayerTreeHost()->SetBrowserControlsParams(params);
+}
+
+cc::LayerTreeDebugState WebFrameWidgetBase::GetLayerTreeDebugState() {
+  return widget_base_->LayerTreeHost()->GetDebugState();
+}
+
+void WebFrameWidgetBase::SetLayerTreeDebugState(
+    const cc::LayerTreeDebugState& state) {
+  widget_base_->LayerTreeHost()->SetDebugState(state);
+}
+
+void WebFrameWidgetBase::SynchronouslyCompositeForTesting(
+    base::TimeTicks frame_time) {
+  widget_base_->LayerTreeHost()->Composite(frame_time, false);
 }
 
 // TODO(665924): Remove direct dispatches of mouse events from
@@ -432,6 +580,57 @@ WebLocalFrame* WebFrameWidgetBase::FocusedWebLocalFrameInWidget() const {
   return WebLocalFrameImpl::FromFrame(FocusedLocalFrameInWidget());
 }
 
+void WebFrameWidgetBase::SetCompositorHosts(cc::LayerTreeHost* layer_tree_host,
+                                            cc::AnimationHost* animation_host) {
+  widget_base_->SetCompositorHosts(layer_tree_host, animation_host);
+  GetPage()->AnimationHostInitialized(*AnimationHost(),
+                                      GetLocalFrameViewForAnimationScrolling());
+}
+
+void WebFrameWidgetBase::SetCompositorVisible(bool visible) {
+  widget_base_->SetCompositorVisible(visible);
+}
+
+void WebFrameWidgetBase::UpdateVisualState() {
+  widget_base_->UpdateVisualState();
+}
+
+void WebFrameWidgetBase::RecordTimeToFirstActivePaint(
+    base::TimeDelta duration) {
+  Client()->RecordTimeToFirstActivePaint(duration);
+}
+
+void WebFrameWidgetBase::BeginFrame(base::TimeTicks frame_time) {
+  widget_base_->BeginMainFrame(frame_time);
+}
+
+void WebFrameWidgetBase::WillBeginCompositorFrame() {
+  widget_base_->WillBeginCompositorFrame();
+}
+
+void WebFrameWidgetBase::DispatchRafAlignedInput(base::TimeTicks frame_time) {
+  base::TimeTicks raf_aligned_input_start_time;
+  if (LocalRootImpl() && WidgetBase::ShouldRecordBeginMainFrameMetrics()) {
+    raf_aligned_input_start_time = base::TimeTicks::Now();
+  }
+
+  Client()->DispatchRafAlignedInput(frame_time);
+
+  if (LocalRootImpl() && WidgetBase::ShouldRecordBeginMainFrameMetrics()) {
+    LocalRootImpl()->GetFrame()->View()->EnsureUkmAggregator().RecordSample(
+        LocalFrameUkmAggregator::kHandleInputEvents,
+        raf_aligned_input_start_time, base::TimeTicks::Now());
+  }
+}
+
+void WebFrameWidgetBase::ApplyViewportChangesForTesting(
+    const ApplyViewportChangesArgs& args) {
+  // TODO(dtapuska): Temporarily just call ApplyViewportChanges.
+  // ApplyViewportChanges will eventually be removed when compositing moves into
+  // |widget_base_|.
+  ApplyViewportChanges(args);
+}
+
 void WebFrameWidgetBase::RequestAnimationAfterDelay(
     const base::TimeDelta& delay) {
   DCHECK(request_animation_after_delay_timer_.get());
@@ -453,7 +652,7 @@ base::WeakPtr<AnimationWorkletMutatorDispatcherImpl>
 WebFrameWidgetBase::EnsureCompositorMutatorDispatcher(
     scoped_refptr<base::SingleThreadTaskRunner>* mutator_task_runner) {
   if (!mutator_task_runner_) {
-    Client()->SetLayerTreeMutator(
+    widget_base_->LayerTreeHost()->SetLayerTreeMutator(
         AnimationWorkletMutatorDispatcherImpl::CreateCompositorThreadClient(
             &mutator_dispatcher_, &mutator_task_runner_));
   }
@@ -463,13 +662,17 @@ WebFrameWidgetBase::EnsureCompositorMutatorDispatcher(
   return mutator_dispatcher_;
 }
 
+cc::AnimationHost* WebFrameWidgetBase::AnimationHost() const {
+  return widget_base_->AnimationHost();
+}
+
 base::WeakPtr<PaintWorkletPaintDispatcher>
 WebFrameWidgetBase::EnsureCompositorPaintDispatcher(
     scoped_refptr<base::SingleThreadTaskRunner>* paint_task_runner) {
   // We check paint_task_runner_ not paint_dispatcher_ because the dispatcher is
   // a base::WeakPtr that should only be used on the compositor thread.
   if (!paint_task_runner_) {
-    Client()->SetPaintWorkletLayerPainterClient(
+    widget_base_->LayerTreeHost()->SetPaintWorkletLayerPainter(
         PaintWorkletPaintDispatcher::CreateCompositorThreadPainter(
             &paint_dispatcher_));
     paint_task_runner_ = Thread::CompositorThread()->GetTaskRunner();
@@ -477,6 +680,155 @@ WebFrameWidgetBase::EnsureCompositorPaintDispatcher(
   DCHECK(paint_task_runner_);
   *paint_task_runner = paint_task_runner_;
   return paint_dispatcher_;
+}
+
+// Enables measuring and reporting both presentation times and swap times in
+// swap promises.
+class ReportTimeSwapPromise : public cc::SwapPromise {
+ public:
+  ReportTimeSwapPromise(WebReportTimeCallback swap_time_callback,
+                        WebReportTimeCallback presentation_time_callback,
+                        scoped_refptr<base::SingleThreadTaskRunner> task_runner,
+                        WebFrameWidgetBase* widget)
+      : swap_time_callback_(std::move(swap_time_callback)),
+        presentation_time_callback_(std::move(presentation_time_callback)),
+        task_runner_(std::move(task_runner)),
+        widget_(widget) {}
+  ~ReportTimeSwapPromise() override = default;
+
+  void DidActivate() override {}
+
+  void WillSwap(viz::CompositorFrameMetadata* metadata) override {
+    DCHECK_GT(metadata->frame_token, 0u);
+    // The interval between the current swap and its presentation time is
+    // reported in UMA (see corresponding code in DidSwap() below).
+    frame_token_ = metadata->frame_token;
+  }
+
+  void DidSwap() override {
+    DCHECK_GT(frame_token_, 0u);
+    PostCrossThreadTask(
+        *task_runner_, FROM_HERE,
+        CrossThreadBindOnce(
+            &RunCallbackAfterSwap, widget_, base::TimeTicks::Now(),
+            std::move(swap_time_callback_),
+            std::move(presentation_time_callback_), frame_token_));
+  }
+
+  cc::SwapPromise::DidNotSwapAction DidNotSwap(
+      DidNotSwapReason reason) override {
+    WebSwapResult result;
+    switch (reason) {
+      case cc::SwapPromise::DidNotSwapReason::SWAP_FAILS:
+        result = WebSwapResult::kDidNotSwapSwapFails;
+        break;
+      case cc::SwapPromise::DidNotSwapReason::COMMIT_FAILS:
+        result = WebSwapResult::kDidNotSwapCommitFails;
+        break;
+      case cc::SwapPromise::DidNotSwapReason::COMMIT_NO_UPDATE:
+        result = WebSwapResult::kDidNotSwapCommitNoUpdate;
+        break;
+      case cc::SwapPromise::DidNotSwapReason::ACTIVATION_FAILS:
+        result = WebSwapResult::kDidNotSwapActivationFails;
+        break;
+    }
+    // During a failed swap, return the current time regardless of whether we're
+    // using presentation or swap timestamps.
+    PostCrossThreadTask(
+        *task_runner_, FROM_HERE,
+        CrossThreadBindOnce(
+            [](WebSwapResult result, base::TimeTicks swap_time,
+               WebReportTimeCallback swap_time_callback,
+               WebReportTimeCallback presentation_time_callback) {
+              ReportTime(std::move(swap_time_callback), result, swap_time);
+              ReportTime(std::move(presentation_time_callback), result,
+                         swap_time);
+            },
+            result, base::TimeTicks::Now(), std::move(swap_time_callback_),
+            std::move(presentation_time_callback_)));
+    return DidNotSwapAction::BREAK_PROMISE;
+  }
+
+  int64_t TraceId() const override { return 0; }
+
+ private:
+  static void RunCallbackAfterSwap(
+      WebFrameWidgetBase* widget,
+      base::TimeTicks swap_time,
+      WebReportTimeCallback swap_time_callback,
+      WebReportTimeCallback presentation_time_callback,
+      int frame_token) {
+    // If the widget was collected or the widget wasn't collected yet, but
+    // it was closed don't schedule a presentation callback.
+    if (widget && widget->Client()) {
+      widget->Client()->AddPresentationCallback(
+          frame_token,
+          WTF::Bind(&RunCallbackAfterPresentation,
+                    std::move(presentation_time_callback), swap_time));
+      ReportTime(std::move(swap_time_callback), WebSwapResult::kDidSwap,
+                 swap_time);
+    } else {
+      ReportTime(std::move(swap_time_callback), WebSwapResult::kDidSwap,
+                 swap_time);
+      ReportTime(std::move(presentation_time_callback), WebSwapResult::kDidSwap,
+                 swap_time);
+    }
+  }
+
+  static void RunCallbackAfterPresentation(
+      WebReportTimeCallback presentation_time_callback,
+      base::TimeTicks swap_time,
+      base::TimeTicks presentation_time) {
+    DCHECK(!swap_time.is_null());
+    bool presentation_time_is_valid =
+        !presentation_time.is_null() && (presentation_time > swap_time);
+    UMA_HISTOGRAM_BOOLEAN("PageLoad.Internal.Renderer.PresentationTime.Valid",
+                          presentation_time_is_valid);
+    if (presentation_time_is_valid) {
+      // This measures from 1ms to 10seconds.
+      UMA_HISTOGRAM_TIMES(
+          "PageLoad.Internal.Renderer.PresentationTime.DeltaFromSwapTime",
+          presentation_time - swap_time);
+    }
+    ReportTime(std::move(presentation_time_callback), WebSwapResult::kDidSwap,
+               presentation_time_is_valid ? presentation_time : swap_time);
+  }
+
+  static void ReportTime(WebReportTimeCallback callback,
+                         WebSwapResult result,
+                         base::TimeTicks time) {
+    if (callback)
+      std::move(callback).Run(result, time);
+  }
+
+  WebReportTimeCallback swap_time_callback_;
+  WebReportTimeCallback presentation_time_callback_;
+  scoped_refptr<base::SingleThreadTaskRunner> task_runner_;
+  CrossThreadWeakPersistent<WebFrameWidgetBase> widget_;
+  uint32_t frame_token_ = 0;
+
+  DISALLOW_COPY_AND_ASSIGN(ReportTimeSwapPromise);
+};
+
+void WebFrameWidgetBase::NotifySwapAndPresentationTimeInBlink(
+    WebReportTimeCallback swap_time_callback,
+    WebReportTimeCallback presentation_time_callback) {
+  NotifySwapAndPresentationTime(std::move(swap_time_callback),
+                                std::move(presentation_time_callback));
+}
+
+void WebFrameWidgetBase::NotifySwapAndPresentationTime(
+    WebReportTimeCallback swap_time_callback,
+    WebReportTimeCallback presentation_time_callback) {
+  if (!View()->does_composite())
+    return;
+  widget_base_->LayerTreeHost()->QueueSwapPromise(
+      std::make_unique<ReportTimeSwapPromise>(
+          std::move(swap_time_callback), std::move(presentation_time_callback),
+          widget_base_->LayerTreeHost()
+              ->GetTaskRunnerProvider()
+              ->MainThreadTaskRunner(),
+          this));
 }
 
 }  // namespace blink

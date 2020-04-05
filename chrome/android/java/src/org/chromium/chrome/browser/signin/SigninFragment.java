@@ -16,9 +16,9 @@ import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.SyncFirstSetupCompleteSource;
 import org.chromium.chrome.browser.settings.SettingsLauncher;
-import org.chromium.chrome.browser.settings.sync.SyncAndServicesSettings;
 import org.chromium.chrome.browser.sync.ProfileSyncService;
-import org.chromium.components.signin.AccountManagerFacade;
+import org.chromium.chrome.browser.sync.settings.SyncAndServicesSettings;
+import org.chromium.components.signin.AccountManagerFacadeProvider;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
 
 import java.lang.annotation.Retention;
@@ -104,9 +104,8 @@ public class SigninFragment extends SigninFragmentBase {
                 || accessPoint == SigninAccessPoint.NTP_CONTENT_SUGGESTIONS
                 || accessPoint == SigninAccessPoint.RECENT_TABS
                 || accessPoint == SigninAccessPoint.SETTINGS
-                || accessPoint == SigninAccessPoint.SIGNIN_PROMO
                 || accessPoint
-                        == SigninAccessPoint.START_PAGE : "invalid access point: " + accessPoint;
+                        == SigninAccessPoint.SIGNIN_PROMO : "invalid access point: " + accessPoint;
         mSigninAccessPoint = accessPoint;
         mPromoAction =
                 getSigninArguments().getInt(ARGUMENT_PERSONALIZED_PROMO_ACTION, PromoAction.NONE);
@@ -130,7 +129,8 @@ public class SigninFragment extends SigninFragmentBase {
     protected void onSigninAccepted(String accountName, boolean isDefaultAccount,
             boolean settingsClicked, Runnable callback) {
         // TODO(https://crbug.com/1002056): Change onSigninAccepted to get CoreAccountInfo.
-        Account account = AccountManagerFacade.get().getAccountFromName(accountName);
+        Account account =
+                AccountManagerFacadeProvider.getInstance().getAccountFromName(accountName);
         if (account == null) {
             callback.run();
             return;

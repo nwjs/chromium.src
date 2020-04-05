@@ -8,27 +8,26 @@
 #include <map>
 #include <string>
 
-#include "ash/assistant/model/assistant_interaction_model.h"
-#include "ash/assistant/model/assistant_interaction_model_observer.h"
-#include "ash/assistant/model/assistant_notification_model.h"
-#include "ash/assistant/model/assistant_notification_model_observer.h"
-#include "ash/assistant/model/assistant_suggestions_model.h"
-#include "ash/assistant/model/assistant_suggestions_model_observer.h"
-#include "ash/assistant/model/assistant_ui_model.h"
-#include "ash/assistant/model/assistant_ui_model_observer.h"
-#include "ash/assistant/ui/assistant_mini_view.h"
-#include "ash/assistant/ui/caption_bar.h"
-#include "ash/assistant/ui/dialog_plate/dialog_plate.h"
-#include "ash/assistant/ui/main_stage/assistant_opt_in_view.h"
 #include "ash/public/cpp/assistant/assistant_image_downloader.h"
 #include "ash/public/cpp/assistant/assistant_state.h"
 #include "base/component_export.h"
 #include "base/observer_list_types.h"
 #include "chromeos/services/assistant/public/mojom/assistant.mojom.h"
-#include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "ui/wm/core/cursor_manager.h"
 
 namespace ash {
+
+class AssistantAlarmTimerModel;
+class AssistantAlarmTimerModelObserver;
+class AssistantInteractionModel;
+class AssistantInteractionModelObserver;
+class AssistantNotificationModel;
+class AssistantNotificationModelObserver;
+class AssistantSuggestionsModel;
+class AssistantSuggestionsModelObserver;
+class AssistantUiModel;
+class AssistantUiModelObserver;
+enum class AssistantButtonId;
 
 namespace assistant {
 namespace util {
@@ -47,8 +46,8 @@ class COMPONENT_EXPORT(ASSISTANT_UI) AssistantViewDelegateObserver
   // Invoked when the dialog plate contents have been committed.
   virtual void OnDialogPlateContentsCommitted(const std::string& text) {}
 
-  // Invoked when the mini view is pressed.
-  virtual void OnMiniViewPressed() {}
+  // Invoked when the host view's visibility changed.
+  virtual void OnHostViewVisibilityChanged(bool visible) {}
 
   // Invoked when the opt in button is pressed.
   virtual void OnOptInButtonPressed() {}
@@ -75,49 +74,52 @@ class COMPONENT_EXPORT(ASSISTANT_UI) AssistantViewDelegate {
 
   virtual ~AssistantViewDelegate() {}
 
-  // Gets the interaction model associated with the view delegate.
+  // Gets the alarm/timer model.
+  virtual const AssistantAlarmTimerModel* GetAlarmTimerModel() const = 0;
+
+  // Gets the interaction model.
   virtual const AssistantInteractionModel* GetInteractionModel() const = 0;
 
-  // Gets the notification model associated with the view delegate.
+  // Gets the notification model.
   virtual const AssistantNotificationModel* GetNotificationModel() const = 0;
 
-  // Gets the suggestions model associated with the view delegate.
+  // Gets the suggestions model.
   virtual const AssistantSuggestionsModel* GetSuggestionsModel() const = 0;
 
-  // Gets the ui model associated with the view delegate.
+  // Gets the ui model.
   virtual const AssistantUiModel* GetUiModel() const = 0;
 
   // Adds/removes the specified view delegate observer.
   virtual void AddObserver(AssistantViewDelegateObserver* observer) = 0;
   virtual void RemoveObserver(AssistantViewDelegateObserver* observer) = 0;
 
-  // Adds/removes the interaction model observer associated with the view
-  // delegate.
+  // Adds/removes the specified alarm/timer model observer.
+  virtual void AddAlarmTimerModelObserver(
+      AssistantAlarmTimerModelObserver* observer) = 0;
+  virtual void RemoveAlarmTimerModelObserver(
+      AssistantAlarmTimerModelObserver* observer) = 0;
+
+  // Adds/removes the interaction model observer.
   virtual void AddInteractionModelObserver(
       AssistantInteractionModelObserver* observer) = 0;
   virtual void RemoveInteractionModelObserver(
       AssistantInteractionModelObserver* observer) = 0;
 
-  // Adds/removes the notification model observer associated with the view
-  // delegate.
+  // Adds/removes the notification model observer.
   virtual void AddNotificationModelObserver(
       AssistantNotificationModelObserver* observer) = 0;
   virtual void RemoveNotificationModelObserver(
       AssistantNotificationModelObserver* observer) = 0;
 
-  // Adds/removes the suggestions model observer associated with the view
-  // delegate.
+  // Adds/removes the suggestions model observer.
   virtual void AddSuggestionsModelObserver(
       AssistantSuggestionsModelObserver* observer) = 0;
   virtual void RemoveSuggestionsModelObserver(
       AssistantSuggestionsModelObserver* observer) = 0;
 
-  // Adds/removes the ui model observer associated with the view delegate.
+  // Adds/removes the ui model observer.
   virtual void AddUiModelObserver(AssistantUiModelObserver* observer) = 0;
   virtual void RemoveUiModelObserver(AssistantUiModelObserver* observer) = 0;
-
-  // Gets the caption bar delegate associated with the view delegate.
-  virtual CaptionBarDelegate* GetCaptionBarDelegate() = 0;
 
   // Downloads the image found at the specified |url|. On completion, the
   // supplied |callback| will be run with the downloaded image. If the download
@@ -144,8 +146,8 @@ class COMPONENT_EXPORT(ASSISTANT_UI) AssistantViewDelegate {
   // Invoked when the dialog plate contents have been committed.
   virtual void OnDialogPlateContentsCommitted(const std::string& text) = 0;
 
-  // Invoked when the mini view is pressed.
-  virtual void OnMiniViewPressed() = 0;
+  // Invoked when the host view's visibility changed.
+  virtual void OnHostViewVisibilityChanged(bool visible) = 0;
 
   // Invoked when an in-Assistant notification button is pressed.
   virtual void OnNotificationButtonPressed(const std::string& notification_id,

@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "base/callback.h"
+#include "base/i18n/rtl.h"
 #include "build/build_config.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/native_web_keyboard_event.h"
@@ -22,7 +23,6 @@
 #include "third_party/blink/public/common/input/web_gesture_event.h"
 #include "third_party/blink/public/common/input/web_input_event.h"
 #include "third_party/blink/public/platform/web_drag_operation.h"
-#include "third_party/blink/public/web/web_text_direction.h"
 #include "ui/surface/transport_dib.h"
 
 namespace blink {
@@ -35,6 +35,7 @@ class Point;
 }
 
 namespace ui {
+class Cursor;
 class LatencyInfo;
 }
 
@@ -43,8 +44,6 @@ class FrameSinkId;
 }
 
 namespace content {
-
-struct CursorInfo;
 class RenderProcessHost;
 class RenderWidgetHostIterator;
 class RenderWidgetHostObserver;
@@ -144,7 +143,8 @@ class CONTENT_EXPORT RenderWidgetHost : public IPC::Sender {
   // In this scenario, we receive a menu event only once and we should update
   // the text direction immediately when a user chooses a menu item. So, we
   // should call both functions at once as listed in the following snippet.
-  //   void RenderViewHost::SetTextDirection(WebTextDirection direction) {
+  //   void RenderViewHost::SetTextDirection(
+  //       base::i18n::TextDirection direction) {
   //     UpdateTextDirection(direction);
   //     NotifyTextDirection();
   //   }
@@ -170,7 +170,7 @@ class CONTENT_EXPORT RenderWidgetHost : public IPC::Sender {
   // NotifyTextDirection(). (We may receive keydown events even after we
   // canceled updating the text direction because of auto-repeat.)
   // Note: we cannot undo this change for compatibility with Firefox and IE.
-  virtual void UpdateTextDirection(blink::WebTextDirection direction) = 0;
+  virtual void UpdateTextDirection(base::i18n::TextDirection direction) = 0;
   virtual void NotifyTextDirection() = 0;
 
   virtual void Focus() = 0;
@@ -317,7 +317,7 @@ class CONTENT_EXPORT RenderWidgetHost : public IPC::Sender {
   virtual void FilterDropData(DropData* drop_data) {}
 
   // Sets cursor to a specified one when it is over this widget.
-  virtual void SetCursor(const CursorInfo& cursor_info) {}
+  virtual void SetCursor(const ui::Cursor& cursor) {}
 };
 
 }  // namespace content

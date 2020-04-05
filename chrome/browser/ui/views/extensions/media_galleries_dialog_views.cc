@@ -79,8 +79,12 @@ MediaGalleriesDialogViews::MediaGalleriesDialogViews(
       auxiliary_button_(nullptr),
       confirm_available_(false),
       accepted_(false) {
-  DialogDelegate::set_button_label(ui::DIALOG_BUTTON_OK,
+  DialogDelegate::SetButtonLabel(ui::DIALOG_BUTTON_OK,
                                    controller_->GetAcceptButtonText());
+  DialogDelegate::SetAcceptCallback(base::BindOnce(
+      [](MediaGalleriesDialogViews* dialog) { dialog->accepted_ = true; },
+      base::Unretained(this)));
+
   auxiliary_button_ = DialogDelegate::SetExtraView(
       CreateAuxiliaryButton(this, controller_->GetAuxiliaryButtonText()));
 
@@ -105,10 +109,6 @@ void MediaGalleriesDialogViews::AcceptDialogForTesting() {
           controller_->WebContents());
   DCHECK(manager);
   web_modal::WebContentsModalDialogManager::TestApi(manager).CloseAllDialogs();
-}
-
-const views::Widget* MediaGalleriesDialogViews::GetWidgetImpl() const {
-  return contents_->GetWidget();
 }
 
 void MediaGalleriesDialogViews::InitChildViews() {
@@ -241,6 +241,14 @@ void MediaGalleriesDialogViews::DeleteDelegate() {
   controller_->DialogFinished(accepted_);
 }
 
+views::Widget* MediaGalleriesDialogViews::GetWidget() {
+  return contents_->GetWidget();
+}
+
+const views::Widget* MediaGalleriesDialogViews::GetWidget() const {
+  return contents_->GetWidget();
+}
+
 views::View* MediaGalleriesDialogViews::GetContentsView() {
   return contents_;
 }
@@ -252,15 +260,6 @@ bool MediaGalleriesDialogViews::IsDialogButtonEnabled(
 
 ui::ModalType MediaGalleriesDialogViews::GetModalType() const {
   return ui::MODAL_TYPE_CHILD;
-}
-
-bool MediaGalleriesDialogViews::Cancel() {
-  return true;
-}
-
-bool MediaGalleriesDialogViews::Accept() {
-  accepted_ = true;
-  return true;
 }
 
 void MediaGalleriesDialogViews::ButtonPressed(views::Button* sender,

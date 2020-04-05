@@ -24,8 +24,8 @@
 #include "ui/accessibility/ax_node_position.h"
 #include "ui/accessibility/ax_offscreen_result.h"
 #include "ui/accessibility/ax_position.h"
-#include "ui/accessibility/ax_text_boundary.h"
 #include "ui/accessibility/ax_text_utils.h"
+#include "ui/accessibility/ax_tree.h"
 #include "ui/accessibility/ax_tree_id.h"
 #include "ui/accessibility/platform/ax_unique_id.h"
 #include "ui/gfx/geometry/vector2d.h"
@@ -42,7 +42,6 @@ namespace ui {
 struct AXActionData;
 struct AXNodeData;
 struct AXTreeData;
-class AXTree;
 class AXPlatformNode;
 
 using TextAttribute = std::pair<std::string, std::string>;
@@ -99,10 +98,11 @@ class AX_EXPORT AXPlatformNodeDelegate {
   virtual gfx::NativeViewAccessible GetParent() = 0;
 
   // Get the index in parent. Typically this is the AXNode's index_in_parent_.
+  // This should return -1 if the index in parent is unknown.
   virtual int GetIndexInParent() = 0;
 
   // Get the number of children of this node.
-  virtual int GetChildCount() = 0;
+  virtual int GetChildCount() const = 0;
 
   // Get the child of a node given a 0-based index.
   virtual gfx::NativeViewAccessible ChildAtIndex(int index) = 0;
@@ -148,6 +148,9 @@ class AX_EXPORT AXPlatformNodeDelegate {
   virtual std::unique_ptr<AXPlatformNodeDelegate::ChildIterator>
   ChildrenEnd() = 0;
 
+  // Returns the accessible name for the node.
+  virtual std::string GetName() const = 0;
+
   // Returns the text of this node and represent the text of descendant nodes
   // with a special character in place of every embedded object. This represents
   // the concept of text in ATK and IA2 APIs.
@@ -182,6 +185,9 @@ class AX_EXPORT AXPlatformNodeDelegate {
       const AXClippingBehavior clipping_behavior,
       AXOffscreenResult* offscreen_result = nullptr) const = 0;
 
+  virtual gfx::Rect GetClippedScreenBoundsRect(
+      AXOffscreenResult* offscreen_result = nullptr) const = 0;
+
   // Return the bounds of the text range given by text offsets relative to
   // GetHypertext in the coordinate system indicated. If the clipping behavior
   // is set to clipped, clipping is applied. If an offscreen result address is
@@ -206,9 +212,9 @@ class AX_EXPORT AXPlatformNodeDelegate {
       const AXClippingBehavior clipping_behavior,
       AXOffscreenResult* offscreen_result = nullptr) const = 0;
 
-  // Do a *synchronous* hit test of the given location in global screen
-  // coordinates, and the node within this node's subtree (inclusive) that's
-  // hit, if any.
+  // Do a *synchronous* hit test of the given location in global screen physical
+  // pixel coordinates, and the node within this node's subtree (inclusive)
+  // that's hit, if any.
   //
   // If the result is anything other than this object or NULL, it will be
   // hit tested again recursively - that allows hit testing to work across
@@ -217,7 +223,9 @@ class AX_EXPORT AXPlatformNodeDelegate {
   //
   // This function is mainly used by accessibility debugging software.
   // Platforms with touch accessibility use a different asynchronous interface.
-  virtual gfx::NativeViewAccessible HitTestSync(int x, int y) = 0;
+  virtual gfx::NativeViewAccessible HitTestSync(
+      int screen_physical_pixel_x,
+      int screen_physical_pixel_y) const = 0;
 
   // Return the node within this node's subtree (inclusive) that currently has
   // focus, or return nullptr if this subtree is not connected to the top
@@ -252,9 +260,9 @@ class AX_EXPORT AXPlatformNodeDelegate {
       ax::mojom::IntAttribute attr) = 0;
 
   // Given a node ID attribute (one where IsNodeIdIntListAttribute is true),
-  // return a set of all target nodes for which this delegate's node has that
+  // return a vector of all target nodes for which this delegate's node has that
   // relationship attribute.
-  virtual std::set<AXPlatformNode*> GetTargetNodesForRelation(
+  virtual std::vector<AXPlatformNode*> GetTargetNodesForRelation(
       ax::mojom::IntListAttribute attr) = 0;
 
   // Given a node ID attribute (one where IsNodeIdIntAttribute is true), return
@@ -288,13 +296,14 @@ class AX_EXPORT AXPlatformNodeDelegate {
   // this value and it is the responsibility of the AXPlatformNode itself to
   // to calculate it.
   virtual base::Optional<int> FindTextBoundary(
-      AXTextBoundary boundary,
+      ax::mojom::TextBoundary boundary,
       int offset,
-      AXTextBoundaryDirection direction,
+      ax::mojom::MoveDirection direction,
       ax::mojom::TextAffinity affinity) const = 0;
 
-  // Return a vector of all the descendants of this delegate's node.
-  virtual const std::vector<gfx::NativeViewAccessible> GetDescendants()
+  // Return a vector of all the descendants of this delegate's node. This method
+  // is only meaningful for Windows UIA.
+  virtual const std::vector<gfx::NativeViewAccessible> GetUIADescendants()
       const = 0;
 
   // Return a string representing the language code.

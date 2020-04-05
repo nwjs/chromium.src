@@ -7,26 +7,18 @@
 #include <jni.h>
 #include <cstdint>
 
+#include "android_webview/browser/lifecycle/aw_contents_lifecycle_notifier.h"
 #include "android_webview/browser/metrics/aw_stability_metrics_provider.h"
 #include "android_webview/browser_jni_headers/AwMetricsServiceClient_jni.h"
 #include "android_webview/common/aw_features.h"
 #include "base/android/jni_android.h"
-#include "base/android/jni_string.h"
-#include "base/base_paths_android.h"
 #include "base/feature_list.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/no_destructor.h"
-#include "components/metrics/android_metrics_provider.h"
-#include "components/metrics/call_stack_profile_metrics_provider.h"
-#include "components/metrics/drive_metrics_provider.h"
-#include "components/metrics/entropy_state_provider.h"
-#include "components/metrics/gpu/gpu_metrics_provider.h"
 #include "components/metrics/metrics_pref_names.h"
 #include "components/metrics/metrics_service.h"
-#include "components/metrics/version_utils.h"
 #include "components/prefs/pref_service.h"
 #include "components/version_info/android/channel_getter.h"
-#include "components/version_info/version_info.h"
 
 namespace android_webview {
 
@@ -38,12 +30,12 @@ namespace {
 // Sample at 2%, based on storage concerns. We sample at a different rate than
 // Chrome because we have more metrics "clients" (each app on the device counts
 // as a separate client).
-const double kStableSampledInRate = 0.02;
+const int kStableSampledInRatePerMille = 20;
 
 // Sample non-stable channels at 99%, to boost volume for pre-stable
 // experiments. We choose 99% instead of 100% for consistency with Chrome and to
 // exercise the out-of-sample code path.
-const double kBetaDevCanarySampledInRate = 0.99;
+const int kBetaDevCanarySampledInRatePerMille = 990;
 
 // As a mitigation to preserve use privacy, the privacy team has asked that we
 // upload package name with no more than 10% of UMA clients. This is to mitigate
@@ -51,7 +43,7 @@ const double kBetaDevCanarySampledInRate = 0.99;
 // a small handful of users, there's a very good chance many of them won't be
 // uploading UMA records due to sampling). Do not change this constant without
 // consulting with the privacy team.
-const double kPackageNameLimitRate = 0.10;
+const int kPackageNameLimitRatePerMille = 100;
 
 // Normally kMetricsReportingEnabledTimestamp would be set by the
 // MetricsStateManager. However, it assumes kMetricsClientID and
@@ -123,23 +115,15 @@ int32_t AwMetricsServiceClient::GetProduct() {
   return metrics::ChromeUserMetricsExtension::ANDROID_WEBVIEW;
 }
 
-metrics::SystemProfileProto::Channel AwMetricsServiceClient::GetChannel() {
-  return metrics::AsProtobufChannel(version_info::android::GetChannel());
-}
-
-std::string AwMetricsServiceClient::GetVersionString() {
-  return version_info::GetVersionNumber();
-}
-
-double AwMetricsServiceClient::GetSampleRate() {
+int AwMetricsServiceClient::GetSampleRatePerMille() {
   // Down-sample unknown channel as a precaution in case it ends up being
   // shipped to Stable users.
   version_info::Channel channel = version_info::android::GetChannel();
   if (channel == version_info::Channel::STABLE ||
       channel == version_info::Channel::UNKNOWN) {
-    return kStableSampledInRate;
+    return kStableSampledInRatePerMille;
   }
-  return kBetaDevCanarySampledInRate;
+  return kBetaDevCanarySampledInRatePerMille;
 }
 
 void AwMetricsServiceClient::InitInternal() {
@@ -147,15 +131,46 @@ void AwMetricsServiceClient::InitInternal() {
 }
 
 void AwMetricsServiceClient::OnMetricsStart() {
+  AwContentsLifecycleNotifier::GetInstance().AddObserver(this);
   SetReportingEnabledDateIfNotSet(pref_service());
 }
 
-double AwMetricsServiceClient::GetPackageNameLimitRate() {
-  return kPackageNameLimitRate;
+int AwMetricsServiceClient::GetPackageNameLimitRatePerMille() {
+  return kPackageNameLimitRatePerMille;
 }
 
 bool AwMetricsServiceClient::ShouldWakeMetricsService() {
   return base::FeatureList::IsEnabled(features::kWebViewWakeMetricsService);
+}
+
+void AwMetricsServiceClient::OnAppStateChanged(
+    WebViewAppStateObserver::State state) {
+  // To match MetricsService's expectation,
+  // - does nothing if no WebView has ever been created.
+  // - starts notifying MetricsService once a WebView is created and the app
+  //   is foreground.
+  // - consolidates the other states other than kForeground into background.
+  // - avoids the duplicated notification.
+  if (state == WebViewAppStateObserver::State::kDestroyed &&
+      !AwContentsLifecycleNotifier::GetInstance()
+           .has_aw_contents_ever_created()) {
+    return;
+  }
+
+  bool foreground = state == WebViewAppStateObserver::State::kForeground;
+
+  if (foreground == app_in_foreground_)
+    return;
+
+  app_in_foreground_ = foreground;
+  if (app_in_foreground_) {
+    GetMetricsService()->OnAppEnterForeground();
+  } else {
+    // TODO(https://crbug.com/1052392): Turn on the background recording.
+    // Not recording in background, this matches Chrome's behavior.
+    GetMetricsService()->OnAppEnterBackground(
+        /* keep_recording_in_background = false */);
+  }
 }
 
 void AwMetricsServiceClient::RegisterAdditionalMetricsProviders(
@@ -165,29 +180,6 @@ void AwMetricsServiceClient::RegisterAdditionalMetricsProviders(
         std::make_unique<android_webview::AwStabilityMetricsProvider>(
             pref_service()));
   }
-  service->RegisterMetricsProvider(
-      std::make_unique<metrics::AndroidMetricsProvider>());
-  service->RegisterMetricsProvider(
-      std::make_unique<metrics::DriveMetricsProvider>(
-          base::DIR_ANDROID_APP_DATA));
-  service->RegisterMetricsProvider(
-      std::make_unique<metrics::GPUMetricsProvider>());
-}
-
-std::string AwMetricsServiceClient::GetAppPackageNameInternal() {
-  JNIEnv* env = base::android::AttachCurrentThread();
-  base::android::ScopedJavaLocalRef<jstring> j_app_name =
-      Java_AwMetricsServiceClient_getAppPackageName(env);
-  if (j_app_name)
-    return ConvertJavaStringToUTF8(env, j_app_name);
-  return std::string();
-}
-
-bool AwMetricsServiceClient::CanRecordPackageNameForAppType() {
-  // Check with Java side, to see if it's OK to log the package name for this
-  // type of app (see Java side for the specific requirements).
-  JNIEnv* env = base::android::AttachCurrentThread();
-  return Java_AwMetricsServiceClient_canRecordPackageNameForAppType(env);
 }
 
 // static

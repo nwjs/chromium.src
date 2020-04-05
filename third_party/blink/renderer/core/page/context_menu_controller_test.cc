@@ -496,7 +496,7 @@ TEST_F(ContextMenuControllerTest, EditingActionsEnabledInSVGDocument) {
   ASSERT_TRUE(document->IsSVGDocument());
 
   Element* text_element = document->getElementById("t");
-  document->UpdateStyleAndLayout();
+  document->UpdateStyleAndLayout(DocumentUpdateReason::kTest);
   FrameSelection& selection = document->GetFrame()->Selection();
 
   // <text> element
@@ -539,7 +539,7 @@ TEST_F(ContextMenuControllerTest, EditingActionsEnabledInXMLDocument) {
   ASSERT_FALSE(IsA<HTMLDocument>(document));
 
   Element* text_element = document->getElementById("t");
-  document->UpdateStyleAndLayout();
+  document->UpdateStyleAndLayout(DocumentUpdateReason::kTest);
   FrameSelection& selection = document->GetFrame()->Selection();
 
   selection.SelectAll();
@@ -553,12 +553,12 @@ TEST_F(ContextMenuControllerTest, EditingActionsEnabledInXMLDocument) {
 }
 
 TEST_F(ContextMenuControllerTest, ShowNonLocatedContextMenuEvent) {
-  GetDocument()->documentElement()->SetInnerHTMLFromString(
+  GetDocument()->documentElement()->setInnerHTML(
       "<input id='sample' type='text' size='5' value='Sample Input Text'>");
 
   Document* document = GetDocument();
   Element* input_element = document->getElementById("sample");
-  document->UpdateStyleAndLayout();
+  document->UpdateStyleAndLayout(DocumentUpdateReason::kTest);
 
   // Select the 'Sample' of |input|.
   DOMRect* rect = input_element->getBoundingClientRect();
@@ -597,12 +597,12 @@ TEST_F(ContextMenuControllerTest, ShowNonLocatedContextMenuEvent) {
 }
 
 TEST_F(ContextMenuControllerTest, SelectionRectClipped) {
-  GetDocument()->documentElement()->SetInnerHTMLFromString(
+  GetDocument()->documentElement()->setInnerHTML(
       "<textarea id='text-area' cols=6 rows=2>Sample editable text</textarea>");
 
   Document* document = GetDocument();
   Element* editable_element = document->getElementById("text-area");
-  document->UpdateStyleAndLayout();
+  document->UpdateStyleAndLayout(DocumentUpdateReason::kTest);
   FrameSelection& selection = document->GetFrame()->Selection();
 
   // Select the 'Sample' of |textarea|.

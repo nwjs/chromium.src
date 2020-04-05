@@ -15,6 +15,7 @@
 #include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
 #include "chrome/browser/chromeos/arc/arc_util.h"
 #include "chrome/browser/chromeos/crostini/crostini_features.h"
+#include "chrome/browser/chromeos/crostini/crostini_shelf_utils.h"
 #include "chrome/browser/chromeos/plugin_vm/plugin_vm_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/app_list/arc/arc_app_utils.h"
@@ -37,6 +38,19 @@
 #include "ui/aura/env.h"
 #include "ui/aura/window.h"
 #include "ui/views/widget/widget.h"
+
+namespace {
+
+// Returns the app id from the app id or the shelf group id.
+std::string GetAppId(const std::string& id) {
+  const arc::ArcAppShelfId arc_app_shelf_id =
+      arc::ArcAppShelfId::FromString(id);
+  if (!arc_app_shelf_id.valid() || !arc_app_shelf_id.has_shelf_group_id())
+    return id;
+  return arc_app_shelf_id.app_id();
+}
+
+}  // namespace
 
 AppServiceAppWindowLauncherController::AppServiceAppWindowLauncherController(
     ChromeLauncherController* owner)
@@ -185,7 +199,7 @@ void AppServiceAppWindowLauncherController::OnWindowVisibilityChanged(
   // set it as |kVisible|, otherwise, clear the visible bit.
   apps::InstanceState state =
       app_service_instance_helper_->CalculateVisibilityState(window, visible);
-  app_service_instance_helper_->OnInstances(shelf_id.app_id, window,
+  app_service_instance_helper_->OnInstances(GetAppId(shelf_id.app_id), window,
                                             shelf_id.launch_id, state);
 
   if (!visible || shelf_id.app_id == extension_misc::kChromeAppId)
@@ -220,8 +234,9 @@ void AppServiceAppWindowLauncherController::OnWindowDestroying(
   }
 
   // Delete the instance from InstanceRegistry.
-  app_service_instance_helper_->OnInstances(
-      shelf_id.app_id, window, std::string(), apps::InstanceState::kDestroyed);
+  app_service_instance_helper_->OnInstances(GetAppId(shelf_id.app_id), window,
+                                            std::string(),
+                                            apps::InstanceState::kDestroyed);
 
   auto app_window_it = aura_window_to_app_window_.find(window);
   if (app_window_it == aura_window_to_app_window_.end())
@@ -286,8 +301,7 @@ void AppServiceAppWindowLauncherController::OnInstanceUpdate(
     std::string app_id = update.AppId();
     if (proxy_->AppRegistryCache().GetAppType(app_id) ==
             apps::mojom::AppType::kCrostini ||
-        base::StartsWith(app_id, crostini::kCrostiniAppIdPrefix,
-                         base::CompareCase::SENSITIVE)) {
+        crostini::IsUnmatchedCrostiniShelfAppId(app_id)) {
       window->SetProperty(aura::client::kAppType,
                           static_cast<int>(ash::AppType::CROSTINI_APP));
     }
@@ -413,7 +427,7 @@ void AppServiceAppWindowLauncherController::SetWindowActivated(
 
   apps::InstanceState state =
       app_service_instance_helper_->CalculateActivatedState(window, active);
-  app_service_instance_helper_->OnInstances(shelf_id.app_id, window,
+  app_service_instance_helper_->OnInstances(GetAppId(shelf_id.app_id), window,
                                             std::string(), state);
 }
 
@@ -468,7 +482,8 @@ void AppServiceAppWindowLauncherController::AddAppWindowToShelf(
       owner()->shelf_model()->GetAppWindowLauncherItemController(shelf_id);
   if (item_controller == nullptr) {
     auto controller =
-        std::make_unique<AppServiceAppWindowLauncherItemController>(shelf_id);
+        std::make_unique<AppServiceAppWindowLauncherItemController>(shelf_id,
+                                                                    this);
     item_controller = controller.get();
     if (!owner()->GetItem(shelf_id)) {
       owner()->CreateAppLauncherItem(std::move(controller),

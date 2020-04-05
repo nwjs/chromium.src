@@ -7,6 +7,7 @@
 
 #include "base/bind.h"
 #include "base/macros.h"
+#include "components/safe_browsing/buildflags.h"
 #include "components/safe_browsing/core/browser/safe_browsing_network_context.h"
 #include "components/safe_browsing/core/proto/csd.pb.h"
 #include "components/safe_browsing/core/proto/realtimeapi.pb.h"
@@ -18,6 +19,10 @@
 #include "mojo/public/cpp/bindings/remote.h"
 #include "services/network/public/mojom/cookie_manager.mojom.h"
 #include "services/network/public/mojom/network_context.mojom.h"
+
+#if BUILDFLAG(FULL_SAFE_BROWSING)
+#include "components/safe_browsing/core/proto/webprotect.pb.h"
+#endif
 
 namespace base {
 class ListValue;
@@ -107,6 +112,15 @@ class SafeBrowsingUIHandler : public content::WebUIMessageHandler {
   // currently open chrome://safe-browsing tab was opened.
   void GetReportingEvents(const base::ListValue* args);
 
+#if BUILDFLAG(FULL_SAFE_BROWSING)
+  // Get the deep scanning requests that have been collected since the oldest
+  // currently open chrome://safe-browsing tab was opened.
+  void GetDeepScanRequests(const base::ListValue* args);
+
+  // Get the deep scanning responses that have been collected since the oldest
+  // currently open chrome://safe-browsing tab was opened.
+  void GetDeepScanResponses(const base::ListValue* args);
+#endif
   // Register callbacks for WebUI messages.
   void RegisterMessages() override;
 
@@ -167,6 +181,19 @@ class SafeBrowsingUIHandler : public content::WebUIMessageHandler {
   // are open.
   void NotifyReportingEventJsListener(const base::Value& event);
 
+#if BUILDFLAG(FULL_SAFE_BROWSING)
+  // Called when any new deep scan requests are sent while one or more WebUI
+  // tabs are open.
+  void NotifyDeepScanRequestJsListener(
+      const DeepScanningClientRequest& request);
+
+  // Called when any new PhishGuard responses are received while one or more
+  // WebUI tabs are open.
+  void NotifyDeepScanResponseJsListener(
+      const std::string& token,
+      const std::string& status,
+      const DeepScanningClientResponse& response);
+#endif
   // Callback when the CookieManager has returned the cookie.
   void OnGetCookie(const std::string& callback_id,
                    const std::vector<net::CanonicalCookie>& cookies);
@@ -193,6 +220,13 @@ class SafeBrowsingUI : public content::WebUIController {
 
 class WebUIInfoSingleton {
  public:
+#if BUILDFLAG(FULL_SAFE_BROWSING)
+  using DeepScanningRequestMap =
+      std::map<std::string, DeepScanningClientRequest>;
+  using StatusAndDeepScanningResponseMap =
+      std::map<std::string, std::pair<std::string, DeepScanningClientResponse>>;
+#endif
+
   static WebUIInfoSingleton* GetInstance();
 
   // Returns true when there is a listening chrome://safe-browsing tab.
@@ -277,6 +311,22 @@ class WebUIInfoSingleton {
   // Clear |reporting_events_|.
   void ClearReportingEvents();
 
+#if BUILDFLAG(FULL_SAFE_BROWSING)
+  // Add the new request to |deep_scan_requests_| and send it to all the open
+  // chrome://safe-browsing tabs. Uses |request.request_token()| as an
+  // identifier that can be used in |AddToDeepScanResponses| to correlate a ping
+  // and response.
+  void AddToDeepScanRequests(const DeepScanningClientRequest& request);
+
+  // Add the new response to |deep_scan_responses_| and send it to all the open
+  // chrome://safe-browsing tabs.
+  void AddToDeepScanResponses(const std::string& token,
+                              const std::string& status,
+                              const DeepScanningClientResponse& response);
+
+  // Clear the list of deep scan requests and responses.
+  void ClearDeepScans();
+#endif
   // Register the new WebUI listener object.
   void RegisterWebUIInstance(SafeBrowsingUIHandler* webui);
 
@@ -346,6 +396,21 @@ class WebUIInfoSingleton {
     return rt_lookup_responses_;
   }
 
+#if BUILDFLAG(FULL_SAFE_BROWSING)
+  // Get the collection of deep scanning requests since the oldest currently
+  // open chrome://safe-browsing tab was opened. Returns a map from a unique
+  // token to the request proto.
+  const DeepScanningRequestMap& deep_scan_requests() const {
+    return deep_scan_requests_;
+  }
+
+  // Get the list of deep scan responses since the oldest currently open
+  // chrome://safe-browsing tab was opened.
+  const StatusAndDeepScanningResponseMap& deep_scan_responses() const {
+    return deep_scan_responses_;
+  }
+#endif
+
   ReferrerChainProvider* referrer_chain_provider() {
     return referrer_chain_provider_;
   }
@@ -370,11 +435,15 @@ class WebUIInfoSingleton {
 
   void AddListenerForTesting() { has_test_listener_ = true; }
 
+  void ClearListenerForTesting();
+
  private:
   WebUIInfoSingleton();
   ~WebUIInfoSingleton();
 
   void InitializeCookieManager();
+
+  void MaybeClearData();
 
   friend struct base::DefaultSingletonTraits<WebUIInfoSingleton>;
 
@@ -434,6 +503,17 @@ class WebUIInfoSingleton {
   // List of reporting events logged since the oldest currently open
   // chrome://safe-browsing tab was opened.
   std::vector<base::Value> reporting_events_;
+
+#if BUILDFLAG(FULL_SAFE_BROWSING)
+  // Map of deep scan requests sent since the oldest currently open
+  // chrome://safe-browsing tab was opened. Maps from the unique token per
+  // request to the request proto.
+  DeepScanningRequestMap deep_scan_requests_;
+
+  // List of deep scan responses received since the oldest currently open
+  // chrome://safe-browsing tab was opened.
+  StatusAndDeepScanningResponseMap deep_scan_responses_;
+#endif
 
   // The current referrer chain provider, if any. Can be nullptr.
   ReferrerChainProvider* referrer_chain_provider_ = nullptr;

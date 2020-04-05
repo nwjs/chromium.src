@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/path_service.h"
 #include "base/run_loop.h"
 #include "base/stl_util.h"
@@ -101,6 +102,14 @@ class SpellcheckServiceBrowserTest : public InProcessBrowserTest,
 
     SpellcheckService* spellcheck =
         SpellcheckServiceFactory::GetForContext(renderer_->GetBrowserContext());
+
+#if BUILDFLAG(USE_WIN_HYBRID_SPELLCHECKER)
+    if (spellcheck::UseWinHybridSpellChecker()) {
+      // If the Windows hybrid spell checker is in use, initialization is async.
+      RunTestRunLoop();
+    }
+#endif  // BUILDFLAG(USE_WIN_HYBRID_SPELLCHECKER)
+
     ASSERT_NE(nullptr, spellcheck);
   }
 

@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#import <XCTest/XCTest.h>
-
 #include "base/ios/ios_util.h"
 #include "base/macros.h"
 #include "base/stl_util.h"
@@ -12,6 +10,7 @@
 #import "ios/chrome/browser/metrics/metrics_app_interface.h"
 #import "ios/chrome/browser/ui/authentication/signin_earl_grey_ui.h"
 #import "ios/chrome/browser/ui/authentication/signin_earlgrey_utils.h"
+#import "ios/chrome/browser/ui/authentication/signin_earlgrey_utils_app_interface.h"
 #include "ios/chrome/grit/ios_strings.h"
 #import "ios/chrome/test/earl_grey/chrome_actions.h"
 #import "ios/chrome/test/earl_grey/chrome_earl_grey.h"
@@ -40,9 +39,6 @@ using chrome_test_util::SyncSwitchCell;
 using chrome_test_util::TurnSyncSwitchOn;
 
 namespace {
-
-// Constant for timeout while waiting for asynchronous sync and UKM operations.
-const NSTimeInterval kSyncUKMOperationsTimeout = 10.0;
 
 void ClearBrowsingData() {
   [ChromeEarlGreyUI openSettingsMenu];
@@ -95,26 +91,6 @@ void OpenNewRegularTab() {
   [ChromeEarlGrey waitForMainTabCount:(tab_count + 1)];
 }
 
-// Signs out of sync.
-void SignOut() {
-  [ChromeEarlGreyUI openSettingsMenu];
-  [ChromeEarlGreyUI tapSettingsMenuButton:SettingsAccountButton()];
-
-  // Remove |identity| from the device.
-  FakeChromeIdentity* identity = [SigninEarlGreyUtils fakeIdentity1];
-  [[EarlGrey
-      selectElementWithMatcher:ButtonWithAccessibilityLabel(identity.userEmail)]
-      performAction:grey_tap()];
-  [[EarlGrey
-      selectElementWithMatcher:ButtonWithAccessibilityLabel(@"Remove account")]
-      performAction:grey_tap()];
-
-  [[EarlGrey selectElementWithMatcher:SettingsDoneButton()]
-      performAction:grey_tap()];
-
-  [SigninEarlGreyUtils checkSignedOut];
-}
-
 }  // namespace
 
 // UKM tests.
@@ -150,7 +126,7 @@ void SignOut() {
   [super setUp];
 
   [ChromeEarlGrey waitForSyncInitialized:NO
-                             syncTimeout:kSyncUKMOperationsTimeout];
+                             syncTimeout:syncher::kSyncUKMOperationsTimeout];
   GREYAssert([MetricsAppInterface checkUKMRecordingEnabled:NO],
              @"Failed to assert that UKM was not enabled.");
   // Sign in to Chrome and turn sync on.
@@ -160,7 +136,7 @@ void SignOut() {
   // flow that enables UKM.
   [SigninEarlGreyUI signinWithFakeIdentity:[SigninEarlGreyUtils fakeIdentity1]];
   [ChromeEarlGrey waitForSyncInitialized:YES
-                             syncTimeout:kSyncUKMOperationsTimeout];
+                             syncTimeout:syncher::kSyncUKMOperationsTimeout];
 
   // Grant metrics consent and update MetricsServicesManager.
   [MetricsAppInterface overrideMetricsAndCrashReportingForTesting];
@@ -172,7 +148,7 @@ void SignOut() {
 
 - (void)tearDown {
   [ChromeEarlGrey waitForSyncInitialized:YES
-                             syncTimeout:kSyncUKMOperationsTimeout];
+                             syncTimeout:syncher::kSyncUKMOperationsTimeout];
   GREYAssert([MetricsAppInterface checkUKMRecordingEnabled:YES],
              @"Failed to assert that UKM was enabled.");
 
@@ -183,14 +159,17 @@ void SignOut() {
   GREYAssert([MetricsAppInterface checkUKMRecordingEnabled:NO],
              @"Failed to assert that UKM was not enabled.");
 
-  // Sign out of Chrome and Turn sync off.
+  // Sign out of Chrome and Turn off sync.
   //
   // Note: URL-keyed anonymized data collection is turned off as part of the
-  // flow to Sign out of Chrome and Turn sync off. This matchers the main user
+  // flow to Sign out of Chrome and Turn sync off. This matches the main user
   // flow that disables UKM.
-  SignOut();
+  if (![SigninEarlGreyUtilsAppInterface isSignedOut]) {
+    [SigninEarlGreyUtilsAppInterface signOut];
+  }
+
   [ChromeEarlGrey waitForSyncInitialized:NO
-                             syncTimeout:kSyncUKMOperationsTimeout];
+                             syncTimeout:syncher::kSyncUKMOperationsTimeout];
   [ChromeEarlGrey clearSyncServerData];
 
   [super tearDown];
@@ -200,14 +179,13 @@ void SignOut() {
 // //chrome/browser/metrics/ukm_browsertest.cc
 
 // Make sure that UKM is disabled while an incognito tab is open.
-- (void)testRegularPlusIncognito {
 #if defined(CHROME_EARL_GREY_1)
-  // TODO(crbug.com/1033726): EG1 Test fails on iOS 12.
-  if (!base::ios::IsRunningOnIOS13OrLater()) {
-    EARL_GREY_TEST_DISABLED(@"EG1 Fails on iOS 12.");
-  }
+// TODO(crbug.com/1033726): EG1 Test fails on iOS 12.
+#define MAYBE_testRegularPlusIncognito DISABLED_testRegularPlusIncognito
+#else
+#define MAYBE_testRegularPlusIncognito testRegularPlusIncognito
 #endif
-
+- (void)MAYBE_testRegularPlusIncognito {
   uint64_t originalClientID = [MetricsAppInterface UKMClientID];
 
   OpenNewIncognitoTab();
@@ -237,14 +215,13 @@ void SignOut() {
 }
 
 // Make sure opening a real tab after Incognito doesn't enable UKM.
-- (void)testIncognitoPlusRegular {
 #if defined(CHROME_EARL_GREY_1)
-  // TODO(crbug.com/1033726): EG1 Test fails on iOS 12.
-  if (!base::ios::IsRunningOnIOS13OrLater()) {
-    EARL_GREY_TEST_DISABLED(@"EG1 Fails on iOS 12.");
-  }
+// TODO(crbug.com/1033726): EG1 Test fails on iOS 12.
+#define MAYBE_testIncognitoPlusRegular DISABLED_testIncognitoPlusRegular
+#else
+#define MAYBE_testIncognitoPlusRegular testIncognitoPlusRegular
 #endif
-
+- (void)MAYBE_testIncognitoPlusRegular {
   uint64_t originalClientID = [MetricsAppInterface UKMClientID];
   [ChromeEarlGrey closeAllTabs];
   [ChromeEarlGrey waitForMainTabCount:0];
@@ -297,7 +274,7 @@ void SignOut() {
 
 // Make sure that providing metrics consent doesn't enable UKM w/o sync.
 - (void)testConsentAddedButNoSync {
-  SignOut();
+  [SigninEarlGreyUtilsAppInterface signOut];
   [MetricsAppInterface setMetricsAndCrashReportingForTesting:NO];
   GREYAssert([MetricsAppInterface checkUKMRecordingEnabled:NO],
              @"Failed to assert that UKM was not enabled.");
@@ -366,7 +343,7 @@ void SignOut() {
 #endif
   uint64_t originalClientID = [MetricsAppInterface UKMClientID];
 
-  SignOut();
+  [SigninEarlGreyUtilsAppInterface signOut];
 
   GREYAssert([MetricsAppInterface checkUKMRecordingEnabled:NO],
              @"Failed to assert that UKM was not enabled.");

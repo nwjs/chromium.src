@@ -36,7 +36,6 @@
 
 namespace blink {
 
-class FloatRect;
 class Image;
 
 enum SourceImageStatus {
@@ -70,7 +69,6 @@ class CORE_EXPORT CanvasImageSource {
 
   virtual FloatSize ElementSize(const FloatSize& default_object_size,
                                 const RespectImageOrientationEnum) const = 0;
-
   virtual FloatSize DefaultDestinationSize(
       const FloatSize& default_object_size,
       const RespectImageOrientationEnum respect_orientation) const {

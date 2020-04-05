@@ -38,8 +38,13 @@ def _CheckForWrongMojomIncludes(input_api, output_api):
     # headers, except in public where only -shared.h headers should be
     # used to avoid exporting Blink types outside Blink.
     def source_file_filter(path):
-        return input_api.FilterSourceFile(path,
-                                          black_list=[r'third_party/blink/common/', r'third_party/blink/public/common'])
+        return input_api.FilterSourceFile(
+            path,
+            black_list=[
+                r'third_party/blink/common/',
+                r'third_party/blink/public/common',
+                r'third_party/blink/renderer/platform/loader/fetch/url_loader',
+            ])
 
     pattern = input_api.re.compile(r'#include\s+[<"](.+)\.mojom(.*)\.h[>"]')
     public_folder = input_api.os_path.normpath('third_party/blink/public/')
@@ -51,14 +56,20 @@ def _CheckForWrongMojomIncludes(input_api, output_api):
     # - Its pros/cons is discussed and have consensus on platform-architecture-dev@ and/or
     # - It uses POD types that will not import STL (or base string) types into blink
     #   (such as no strings or vectors).
-    allowed_interfaces = (r'services/network/public/mojom/load_timing_info.mojom')
+    #
+    # So far, non-blink interfaces are allowed only for loading / loader
+    # interfaces so that we don't need type conversions to get through the
+    # boundary between Blink and non-Blink.
+    allowed_interfaces = (r'services/network/public/mojom/cross_origin_embedder_policy', r'services/network/public/mojom/fetch_api',
+                          r'services/network/public/mojom/load_timing_info',
+                          r'third_party/blink/public/mojom/worker/subresource_loader_updater')
 
     for f in input_api.AffectedFiles(file_filter=source_file_filter):
         for line_num, line in f.ChangedContents():
             error_list = None
             match = pattern.match(line)
             if (match and match.group(1) not in allowed_interfaces):
-                if match.group(2) != '-shared':
+                if match.group(2) not in ('-shared', '-forward'):
                     if f.LocalPath().startswith(public_folder):
                         error_list = public_blink_mojom_errors
                     elif match.group(2) not in ('-blink', '-blink-forward', '-blink-test-utils'):
@@ -73,13 +84,13 @@ def _CheckForWrongMojomIncludes(input_api, output_api):
     if non_blink_mojom_errors:
         results.append(output_api.PresubmitError(
             'Files that include non-Blink variant mojoms found. '
-            'You must include .mojom-blink.h or .mojom-shared.h instead:',
+            'You must include .mojom-blink.h, .mojom-forward.h or .mojom-shared.h instead:',
             non_blink_mojom_errors))
 
     if public_blink_mojom_errors:
         results.append(output_api.PresubmitError(
             'Public blink headers using Blink variant mojoms found. '
-            'You must include .mojom-shared.h instead:',
+            'You must include .mojom-forward.h or .mojom-shared.h instead:',
             public_blink_mojom_errors))
 
     return results

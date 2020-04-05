@@ -9,6 +9,7 @@
 
 #include "base/bind_helpers.h"
 #include "base/lazy_instance.h"
+#include "base/location.h"
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
 #include "base/message_loop/message_pump.h"
@@ -135,7 +136,7 @@ class TaskEnvironment::TestTaskTracker
   ConditionVariable can_run_tasks_cv_ GUARDED_BY(lock_);
 
   // Signaled when a task is completed.
-  ConditionVariable task_completed_ GUARDED_BY(lock_);
+  ConditionVariable task_completed_cv_ GUARDED_BY(lock_);
 
   // Number of tasks that are currently running.
   int num_tasks_running_ GUARDED_BY(lock_) = 0;
@@ -176,8 +177,12 @@ class TaskEnvironment::MockTimeDomain : public sequence_manager::TimeDomain,
 
   void AdvanceClock(TimeDelta delta) {
     DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-    AutoLock lock(now_ticks_lock_);
-    now_ticks_ += delta;
+    {
+      AutoLock lock(now_ticks_lock_);
+      now_ticks_ += delta;
+    }
+    if (thread_pool_)
+      thread_pool_->ProcessRipeDelayedTasksForTesting();
   }
 
   static std::unique_ptr<TaskEnvironment::MockTimeDomain> CreateAndRegister(
@@ -380,22 +385,16 @@ TaskEnvironment::TaskEnvironment(
       scoped_lazy_task_runner_list_for_testing_(
           std::make_unique<internal::ScopedLazyTaskRunnerListForTesting>()),
       // TODO(https://crbug.com/922098): Enable Run() timeouts even for
-      // instances created with *MOCK_TIME.
+      // instances created with TimeSource::MOCK_TIME.
       run_loop_timeout_(
           mock_time_domain_
               ? nullptr
-              : std::make_unique<RunLoop::ScopedRunTimeoutForTest>(
+              : std::make_unique<ScopedRunLoopTimeout>(
+                    FROM_HERE,
                     TestTimeouts::action_timeout(),
-                    BindRepeating(
-                        [](sequence_manager::SequenceManager*
-                               sequence_manager) {
-                          ADD_FAILURE()
-                              << "RunLoop::Run() timed out with the following "
-                                 "pending task(s) in its TaskEnvironment's "
-                                 "main thread queue:\n"
-                              << sequence_manager->DescribeAllPendingTasks();
-                        },
-                        Unretained(sequence_manager_.get())))) {
+                    BindRepeating(&sequence_manager::SequenceManager::
+                                      DescribeAllPendingTasks,
+                                  Unretained(sequence_manager_.get())))) {
   CHECK(!base::ThreadTaskRunnerHandle::IsSet());
   // If |subclass_creates_default_taskrunner| is true then initialization is
   // deferred until DeferredInitFromSubclass().
@@ -732,7 +731,12 @@ void TaskEnvironment::RemoveDestructionObserver(DestructionObserver* observer) {
 TaskEnvironment::TestTaskTracker::TestTaskTracker()
     : internal::ThreadPoolImpl::TaskTrackerImpl(std::string()),
       can_run_tasks_cv_(&lock_),
-      task_completed_(&lock_) {}
+      task_completed_cv_(&lock_) {
+  // Consider threads blocked on these as idle (avoids instantiating
+  // ScopedBlockingCalls and confusing some //base internals tests).
+  can_run_tasks_cv_.declare_only_used_while_idle();
+  task_completed_cv_.declare_only_used_while_idle();
+}
 
 bool TaskEnvironment::TestTaskTracker::AllowRunTasks() {
   AutoLock auto_lock(lock_);
@@ -755,7 +759,7 @@ bool TaskEnvironment::TestTaskTracker::DisallowRunTasks() {
     // Attempt to wait a bit so that the caller doesn't busy-loop with the same
     // set of pending work. A short wait is required to avoid deadlock
     // scenarios. See DisallowRunTasks()'s declaration for more details.
-    task_completed_.TimedWait(TimeDelta::FromMilliseconds(1));
+    task_completed_cv_.TimedWait(TimeDelta::FromMilliseconds(1));
     return false;
   }
 
@@ -801,7 +805,7 @@ void TaskEnvironment::TestTaskTracker::RunTask(internal::Task task,
 
     --num_tasks_running_;
 
-    task_completed_.Broadcast();
+    task_completed_cv_.Broadcast();
   }
 }
 

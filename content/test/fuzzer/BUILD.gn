@@ -18,7 +18,7 @@ source_set("fuzzer_support") {
   ]
   public_deps = [
     "//base",
-    "//base/test:test_config",
+    "//base/test:test_support",
     "//content/renderer:for_content_tests",
     "//content/shell:content_shell_lib",
     "//content/test:test_support",
@@ -35,18 +35,6 @@ fuzzer_test("origin_trial_token_fuzzer") {
   dict =
       "//content/test/data/fuzzer_dictionaries/origin_trial_token_fuzzer.dict"
   seed_corpus = "//content/test/data/fuzzer_corpus/origin_trial_token_data/"
-}
-
-fuzzer_test("origin_policy_parser_fuzzer") {
-  sources = [ "origin_policy_parser_fuzzer.cc" ]
-  deps = [
-    "//base",
-    "//base:i18n",
-    "//content/test:test_support",
-  ]
-  dict =
-      "//content/test/data/fuzzer_dictionaries/origin_policy_parser_fuzzer.dict"
-  seed_corpus = "//content/test/data/fuzzer_corpus/origin_policy_parser_data/"
 }
 
 fuzzer_test("renderer_fuzzer") {

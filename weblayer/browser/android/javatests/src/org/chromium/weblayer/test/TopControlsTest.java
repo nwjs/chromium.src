@@ -4,6 +4,7 @@
 
 package org.chromium.weblayer.test;
 
+import android.os.Build;
 import android.support.test.filters.SmallTest;
 import android.support.v4.app.Fragment;
 import android.view.View;
@@ -16,7 +17,7 @@ import org.junit.runner.RunWith;
 
 import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.CommandLineFlags;
-import org.chromium.base.test.util.FlakyTest;
+import org.chromium.base.test.util.MinAndroidSdkLevel;
 import org.chromium.base.test.util.UrlUtils;
 import org.chromium.content_public.browser.test.util.Criteria;
 import org.chromium.content_public.browser.test.util.CriteriaHelper;
@@ -74,17 +75,24 @@ public class TopControlsTest {
         helper.waitForCallback(0);
     }
 
+    // Disabled on L bots due to unexplained flakes. See crbug.com/1035894.
+    @MinAndroidSdkLevel(Build.VERSION_CODES.M)
     @Test
     @SmallTest
-    @FlakyTest(message = "see crbug.com/1035894")
     public void testBasic() throws Exception {
         final String url = UrlUtils.encodeHtmlDataUri("<body><p style='height:5000px'>");
         InstrumentationActivity activity = mActivityTestRule.launchShellWithUrl(url);
 
+        // Poll until the top view becomes visible.
+        CriteriaHelper.pollUiThread(new Criteria() {
+            @Override
+            public boolean isSatisfied() {
+                return View.VISIBLE == activity.getTopContentsContainer().getVisibility();
+            }
+        });
         TestThreadUtils.runOnUiThreadBlocking(() -> {
             mTopControlsHeight = activity.getTopContentsContainer().getHeight();
             Assert.assertTrue(mTopControlsHeight > 0);
-            Assert.assertEquals(View.VISIBLE, activity.getTopContentsContainer().getVisibility());
         });
 
         // Get the size of the page.

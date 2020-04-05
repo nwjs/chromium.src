@@ -16,6 +16,7 @@
 #include "base/sequence_checker.h"
 #include "device/fido/authenticator_make_credential_response.h"
 #include "device/fido/authenticator_selection_criteria.h"
+#include "device/fido/client_data.h"
 #include "device/fido/ctap_make_credential_request.h"
 #include "device/fido/fido_constants.h"
 #include "device/fido/fido_request_handler_base.h"
@@ -89,7 +90,10 @@ class COMPONENT_EXPORT(DEVICE_FIDO) MakeCredentialRequestHandler
       FidoAuthenticator* authenticator,
       CtapDeviceResponseCode response_code,
       base::Optional<AuthenticatorMakeCredentialResponse> response);
-  void HandleTouch(FidoAuthenticator* authenticator);
+  void CollectPINThenSendRequest(FidoAuthenticator* authenticator);
+  void StartPINFallbackForInternalUv(FidoAuthenticator* authenticator);
+  void SetPINThenSendRequest(FidoAuthenticator* authenticator);
+  void HandleInternalUvLocked(FidoAuthenticator* authenticator);
   void HandleInapplicableAuthenticator(FidoAuthenticator* authenticator);
   void OnHavePIN(std::string pin);
   void OnRetriesResponse(CtapDeviceResponseCode status,
@@ -99,11 +103,19 @@ class COMPONENT_EXPORT(DEVICE_FIDO) MakeCredentialRequestHandler
                     base::Optional<pin::EmptyResponse> response);
   void OnHavePINToken(CtapDeviceResponseCode status,
                       base::Optional<pin::TokenResponse> response);
+  void OnUvRetriesResponse(CtapDeviceResponseCode status,
+                           base::Optional<pin::RetriesResponse> response);
+  void OnHaveUvToken(FidoAuthenticator* authenticator,
+                     CtapDeviceResponseCode status,
+                     base::Optional<pin::TokenResponse> response);
+  void DispatchRequestWithToken(pin::TokenResponse token);
 
   CompletionCallback completion_callback_;
   State state_ = State::kWaitingForTouch;
   CtapMakeCredentialRequest request_;
   AuthenticatorSelectionCriteria authenticator_selection_criteria_;
+  base::Optional<AndroidClientDataExtensionInput> android_client_data_ext_;
+
   // If true, the request handler may skip the first touch to select a device
   // that will require a PIN.
   bool allow_skipping_pin_touch_;

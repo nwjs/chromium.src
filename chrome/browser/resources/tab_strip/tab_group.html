@@ -4,27 +4,46 @@
   --tabstrip-tab-group-title-margin: var(--tabstrip-tab-spacing);
 }
 
+:host(:empty:not([dragging])) {
+  /* A tab group can temporarily become empty as a tab is being dragged out. */
+  display: none;
+}
+
 #tabGroup {
   border-radius: 8px;
-  box-shadow: 0 0 0 1px rgba(var(--tabstrip-tab-group-color-rgb), .24);
+  box-shadow: 0 0 0 1px rgb(var(--tabstrip-tab-group-color-rgb));
   padding: var(--tabstrip-tab-spacing);
+}
+
+#chipContainer {
+  min-width: 100%;
+  width: 0;
 }
 
 #chip {
   display: inline-block;
   height: var(--tabstrip-tab-group-title-height);
   margin-bottom: var(--tabstrip-tab-group-title-margin);
+  max-width: 100%;
+}
+
+#chip:focus {
+  outline: none;
 }
 
 #title {
-  background: rgba(var(--tabstrip-tab-group-color-rgb), 1);
+  background: rgb(var(--tabstrip-tab-group-color-rgb));
   border-radius: 4px;
   box-sizing: border-box;
   color: rgb(var(--tabstrip-tab-group-text-color-rgb));
   display: inline-block;
   height: var(--tabstrip-tab-group-title-height);
   line-height: var(--tabstrip-tab-group-title-height);
+  max-width: 100%;
+  overflow: hidden;
   padding: 0 6px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 #title:empty {
@@ -32,6 +51,11 @@
   height: 16px;
   margin-top: 4px;
   width: 16px;
+}
+
+#chip:focus #title {
+  box-shadow: 0 0 0 2px var(--tabstrip-focus-outline-color);
+  outline: none;
 }
 
 #tabs {
@@ -67,8 +91,12 @@
   --drag-image-padding: 25px;
   padding: var(--drag-image-padding);
   transform: translate(
-      calc(-1 * var(--drag-image-padding)),
+      calc(var(--drag-image-x-direction, -1) * var(--drag-image-padding)),
       calc(-1 * var(--drag-image-padding)));
+}
+
+:host-context([dir='rtl']):host([getting-drag-image_]) #dragImage {
+  --drag-image-x-direction: 1;
 }
 
 :host([getting-drag-image_]) #tabGroup {
@@ -77,6 +105,7 @@
   box-shadow: var(--tabstrip-tab-dragging-shadow);
   height: var(--tabstrip-tab-height);
   overflow: hidden;
+  transform: scale(var(--tabstrip-tab-drag-image-scale));
 }
 
 :host([getting-drag-image_]) ::slotted(tabstrip-tab) {
@@ -139,8 +168,11 @@
 
 <div id="dragImage">
   <div id="tabGroup">
-    <div id="chip" draggable="true">
-      <div id="title"></div>
+    <div id="chipContainer">
+      <div id="chip" draggable="true" tabindex="0" role="button"
+         aria-describedby="tabs">
+        <div id="title"></div>
+      </div>
     </div>
     <div id="tabs">
       <slot></slot>

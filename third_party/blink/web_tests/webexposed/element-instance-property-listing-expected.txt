@@ -41,6 +41,7 @@ namespace http://www.w3.org/1999/xhtml
     property ariaControlsElements
     property ariaCurrent
     property ariaDescribedByElements
+    property ariaDescription
     property ariaDetailsElements
     property ariaDisabled
     property ariaErrorMessageElement
@@ -124,6 +125,7 @@ namespace http://www.w3.org/1999/xhtml
     property getElementsByClassName
     property getElementsByTagName
     property getElementsByTagNameNS
+    property getInnerHTML
     property getRootNode
     property hasAttribute
     property hasAttributeNS
@@ -287,12 +289,10 @@ namespace http://www.w3.org/1999/xhtml
     property removeAttributeNode
     property removeChild
     property removeEventListener
-    property renderSubtree
     property replaceChild
     property replaceWith
     property requestFullscreen
     property requestPointerLock
-    property resetSubtreeRendered
     property role
     property scroll
     property scrollBy
@@ -319,7 +319,6 @@ namespace http://www.w3.org/1999/xhtml
     property toString
     property toggleAttribute
     property translate
-    property updateRendering
     property webkitMatchesSelector
     property webkitRequestFullScreen
     property webkitRequestFullscreen
@@ -462,6 +461,7 @@ html element body
     property onportalactivate
     property onrejectionhandled
     property onstorage
+    property ontimezonechange
     property onunhandledrejection
     property onunload
     property text
@@ -614,6 +614,7 @@ html element frameset
     property onportalactivate
     property onrejectionhandled
     property onstorage
+    property ontimezonechange
     property onunhandledrejection
     property onunload
     property rows
@@ -665,6 +666,7 @@ html element iframe
     property scrolling
     property src
     property srcdoc
+    property trustToken
     property width
 html element img
     property align
@@ -725,6 +727,7 @@ html element input
     property name
     property pattern
     property placeholder
+    property rawValue
     property readOnly
     property reportValidity
     property required
@@ -1247,6 +1250,7 @@ namespace http://www.w3.org/2000/svg
     property ariaControlsElements
     property ariaCurrent
     property ariaDescribedByElements
+    property ariaDescription
     property ariaDetailsElements
     property ariaDisabled
     property ariaErrorMessageElement
@@ -1323,6 +1327,7 @@ namespace http://www.w3.org/2000/svg
     property getElementsByClassName
     property getElementsByTagName
     property getElementsByTagNameNS
+    property getInnerHTML
     property getRootNode
     property hasAttribute
     property hasAttributeNS
@@ -1475,12 +1480,10 @@ namespace http://www.w3.org/2000/svg
     property removeAttributeNode
     property removeChild
     property removeEventListener
-    property renderSubtree
     property replaceChild
     property replaceWith
     property requestFullscreen
     property requestPointerLock
-    property resetSubtreeRendered
     property role
     property scroll
     property scrollBy
@@ -1503,7 +1506,6 @@ namespace http://www.w3.org/2000/svg
     property tagName
     property textContent
     property toggleAttribute
-    property updateRendering
     property viewportElement
     property webkitMatchesSelector
     property webkitRequestFullScreen

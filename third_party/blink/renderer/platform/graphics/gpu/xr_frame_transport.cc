@@ -125,12 +125,11 @@ void XRFrameTransport::FrameSubmit(
     }
 
     // We decompose the cloned handle, and use it to create a
-    // mojo::ScopedHandle which will own cleanup of the handle, and will be
+    // mojo::PlatformHandle which will own cleanup of the handle, and will be
     // passed over IPC.
     gfx::GpuMemoryBufferHandle gpu_handle = gpu_memory_buffer->CloneHandle();
     vr_presentation_provider->SubmitFrameWithTextureHandle(
-        vr_frame_id,
-        mojo::WrapPlatformFile(gpu_handle.dxgi_handle.GetHandle()));
+        vr_frame_id, mojo::PlatformHandle(std::move(gpu_handle.dxgi_handle)));
 #else
     NOTIMPLEMENTED();
 #endif
@@ -143,9 +142,7 @@ void XRFrameTransport::FrameSubmit(
     // image until the mailbox was consumed.
     StaticBitmapImage* static_image =
         static_cast<StaticBitmapImage*>(image_ref.get());
-    TRACE_EVENT_BEGIN0("gpu", "XRFrameTransport::EnsureMailbox");
-    static_image->EnsureMailbox(kVerifiedSyncToken, GL_NEAREST);
-    TRACE_EVENT_END0("gpu", "XRFrameTransport::EnsureMailbox");
+    static_image->EnsureSyncTokenVerified();
 
     // Conditionally wait for the previous render to finish. A late wait here
     // attempts to overlap work in parallel with the previous frame's
@@ -248,6 +245,6 @@ base::TimeDelta XRFrameTransport::WaitForGpuFenceReceived() {
   return base::TimeTicks::Now() - start;
 }
 
-void XRFrameTransport::Trace(blink::Visitor* visitor) {}
+void XRFrameTransport::Trace(Visitor* visitor) {}
 
 }  // namespace blink

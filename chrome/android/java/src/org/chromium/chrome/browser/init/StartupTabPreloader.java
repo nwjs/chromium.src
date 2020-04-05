@@ -9,6 +9,7 @@ import android.text.TextUtils;
 
 import androidx.annotation.VisibleForTesting;
 
+import org.chromium.base.IntentUtils;
 import org.chromium.base.TraceEvent;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.supplier.Supplier;
@@ -26,7 +27,6 @@ import org.chromium.chrome.browser.tab.TabBuilder;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.ChromeTabCreator;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
-import org.chromium.chrome.browser.util.IntentUtils;
 import org.chromium.components.url_formatter.UrlFormatter;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.WebContents;
@@ -34,6 +34,7 @@ import org.chromium.content_public.common.Referrer;
 import org.chromium.network.mojom.ReferrerPolicy;
 import org.chromium.ui.base.PageTransition;
 import org.chromium.ui.base.WindowAndroid;
+import org.chromium.url.GURL;
 
 /**
  * This class attempts to preload the tab if the url is known from the intent when the profile
@@ -171,13 +172,13 @@ public class StartupTabPreloader implements ProfileManager.Observer, Destroyable
 
     private void loadTab() {
         Intent intent = mIntentSupplier.get();
-        String url = UrlFormatter.fixupUrl(getUrlFromIntent(intent));
+        GURL url = UrlFormatter.fixupUrl(getUrlFromIntent(intent));
 
         ChromeTabCreator chromeTabCreator =
                 (ChromeTabCreator) mTabCreatorManager.getTabCreator(false);
         WebContents webContents = WebContentsFactory.createWebContents(false, false);
 
-        mLoadUrlParams = new LoadUrlParams(url);
+        mLoadUrlParams = new LoadUrlParams(url.getValidSpecOrEmpty());
         String referrer = IntentHandler.getReferrerUrlIncludingExtraHeaders(intent);
         if (referrer != null && !referrer.isEmpty()) {
             mLoadUrlParams.setReferrer(new Referrer(referrer, ReferrerPolicy.DEFAULT));

@@ -17,6 +17,7 @@
 #include "chromeos/constants/chromeos_switches.h"
 #include "components/signin/public/base/signin_metrics.h"
 #include "components/signin/public/identity_manager/accounts_mutator.h"
+#include "components/signin/public/identity_manager/consent_level.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/user_manager/user_manager.h"
 #include "google_apis/gaia/gaia_auth_util.h"
@@ -88,14 +89,15 @@ void OAuth2LoginManager::RestoreSessionFromSavedTokens() {
   } else {
     VLOG(1) << "Waiting for OAuth2 refresh token being loaded from database.";
 
-    const CoreAccountInfo account_info =
-        identity_manager->GetUnconsentedPrimaryAccountInfo();
     // Flag user with unknown token status in case there are no saved tokens
     // and OnRefreshTokenAvailable is not called. Flagging it here would
     // cause user to go through Gaia in next login to obtain a new refresh
     // token.
     user_manager::UserManager::Get()->SaveUserOAuthStatus(
-        AccountId::FromUserEmail(account_info.email),
+        AccountId::FromUserEmail(
+            identity_manager
+                ->GetPrimaryAccountInfo(signin::ConsentLevel::kNotRequired)
+                .email),
         user_manager::User::OAUTH_TOKEN_STATUS_UNKNOWN);
   }
 }
@@ -152,7 +154,8 @@ signin::IdentityManager* OAuth2LoginManager::GetIdentityManager() {
 CoreAccountId OAuth2LoginManager::GetUnconsentedPrimaryAccountId() {
   // Use the primary ID whether or not the user has consented to browser sync.
   const CoreAccountId primary_account_id =
-      GetIdentityManager()->GetUnconsentedPrimaryAccountId();
+      GetIdentityManager()->GetPrimaryAccountId(
+          signin::ConsentLevel::kNotRequired);
   LOG_IF(ERROR, primary_account_id.empty()) << "Primary account id is empty.";
   return primary_account_id;
 }
@@ -162,9 +165,11 @@ void OAuth2LoginManager::StoreOAuth2Token() {
 
   signin::IdentityManager* identity_manager = GetIdentityManager();
   // The primary account must be already set at this point.
-  DCHECK(identity_manager->HasUnconsentedPrimaryAccount());
+  DCHECK(
+      identity_manager->HasPrimaryAccount(signin::ConsentLevel::kNotRequired));
   const CoreAccountInfo primary_account_info =
-      identity_manager->GetUnconsentedPrimaryAccountInfo();
+      identity_manager->GetPrimaryAccountInfo(
+          signin::ConsentLevel::kNotRequired);
 
   // We already have the refresh token at this
   // point, and will not get any additional callbacks from Account Manager or

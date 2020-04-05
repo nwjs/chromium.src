@@ -32,6 +32,7 @@
 
 #include <memory>
 
+#include "third_party/blink/public/mojom/frame/frame_owner_properties.mojom-blink.h"
 #include "third_party/blink/public/web/web_local_frame_client.h"
 #include "third_party/blink/public/web/web_remote_frame_client.h"
 #include "third_party/blink/renderer/bindings/core/v8/window_proxy_manager.h"
@@ -40,6 +41,7 @@
 #include "third_party/blink/renderer/core/dom/node_computed_style.h"
 #include "third_party/blink/renderer/core/execution_context/window_agent_factory.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
+#include "third_party/blink/renderer/core/frame/remote_frame_owner.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/html/html_frame_element_base.h"
 #include "third_party/blink/renderer/core/input/event_handler.h"
@@ -48,6 +50,7 @@
 #include "third_party/blink/renderer/core/page/focus_controller.h"
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
+#include "third_party/blink/renderer/core/xmlhttprequest/main_thread_disallow_synchronous_xhr_scope.h"
 #include "third_party/blink/renderer/platform/instrumentation/instance_counters.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_error.h"
@@ -61,7 +64,7 @@ Frame::~Frame() {
   DCHECK(IsDetached());
 }
 
-void Frame::Trace(blink::Visitor* visitor) {
+void Frame::Trace(Visitor* visitor) {
   visitor->Trace(tree_node_);
   visitor->Trace(page_);
   visitor->Trace(owner_);
@@ -79,6 +82,7 @@ void Frame::Detach(FrameDetachType type) {
   // Detach() can be re-entered, so this can't simply DCHECK(IsAttached()).
   DCHECK(!IsDetached());
   lifecycle_.AdvanceTo(FrameLifecycle::kDetaching);
+  MainThreadDisallowSynchronousXHRScope disallow_synchronous_xhr;
 
   DetachImpl(type);
 
@@ -134,12 +138,24 @@ bool Frame::IsMainFrame() const {
   return !Tree().Parent();
 }
 
-bool Frame::IsCrossOriginSubframe() const {
+bool Frame::IsCrossOriginToMainFrame() const {
   DCHECK(GetSecurityContext());
   const SecurityOrigin* security_origin =
       GetSecurityContext()->GetSecurityOrigin();
   return !security_origin->CanAccess(
       Tree().Top().GetSecurityContext()->GetSecurityOrigin());
+}
+
+bool Frame::IsCrossOriginToParentFrame() const {
+  DCHECK(GetSecurityContext());
+  if (IsMainFrame())
+    return false;
+  Frame* parent = Tree().Parent();
+  const SecurityOrigin* parent_security_origin =
+      parent->GetSecurityContext()->GetSecurityOrigin();
+  const SecurityOrigin* security_origin =
+      GetSecurityContext()->GetSecurityOrigin();
+  return !security_origin->CanAccess(parent_security_origin);
 }
 
 HTMLFrameOwnerElement* Frame::DeprecatedLocalOwner() const {
@@ -340,6 +356,24 @@ void Frame::FocusImpl() {
   // which already knows the latest focused frame.
   GetPage()->GetFocusController().FocusDocumentView(
       this, false /* notify_embedder */);
+}
+
+void Frame::ApplyFrameOwnerProperties(
+    mojom::blink::FrameOwnerPropertiesPtr properties) {
+  // At the moment, this is only used to replicate frame owner properties
+  // for frames with a remote owner.
+  auto* owner = To<RemoteFrameOwner>(Owner());
+
+  owner->set_nwfaketop(properties->nwfaketop);
+  owner->set_nwuseragent(properties->nwuseragent);
+  owner->SetBrowsingContextContainerName(properties->name);
+  owner->SetScrollbarMode(properties->scrollbar_mode);
+  owner->SetMarginWidth(properties->margin_width);
+  owner->SetMarginHeight(properties->margin_height);
+  owner->SetAllowFullscreen(properties->allow_fullscreen);
+  owner->SetAllowPaymentRequest(properties->allow_payment_request);
+  owner->SetIsDisplayNone(properties->is_display_none);
+  owner->SetRequiredCsp(properties->required_csp);
 }
 
 STATIC_ASSERT_ENUM(FrameDetachType::kRemove,

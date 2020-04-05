@@ -14,6 +14,7 @@
 #include "base/sequenced_task_runner.h"
 #include "base/synchronization/waitable_event.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "base/test/bind_test_util.h"
 #include "base/test/simple_test_clock.h"
 #include "base/threading/thread_restrictions.h"
@@ -197,7 +198,10 @@ class SQLitePersistentReportingAndNelStoreTest
     info.url = url;
     info.priority = priority;
     info.weight = weight;
-    ReportingEndpoint endpoint(origin, group_name, std::move(info));
+    ReportingEndpoint endpoint(
+        ReportingEndpointGroupKey(NetworkIsolationKey::Todo(), origin,
+                                  group_name),
+        std::move(info));
     return endpoint;
   }
 
@@ -207,8 +211,10 @@ class SQLitePersistentReportingAndNelStoreTest
       base::Time last_used,
       OriginSubdomains include_subdomains = OriginSubdomains::DEFAULT,
       base::Time expires = kExpires) {
-    return CachedReportingEndpointGroup(origin, group_name, include_subdomains,
-                                        expires, last_used);
+    return CachedReportingEndpointGroup(
+        ReportingEndpointGroupKey(NetworkIsolationKey::Todo(), origin,
+                                  group_name),
+        include_subdomains, expires, last_used);
   }
 
  protected:
@@ -217,7 +223,7 @@ class SQLitePersistentReportingAndNelStoreTest
   const scoped_refptr<base::SequencedTaskRunner> client_task_runner_ =
       base::ThreadTaskRunnerHandle::Get();
   const scoped_refptr<base::SequencedTaskRunner> background_task_runner_ =
-      base::CreateSequencedTaskRunner({base::ThreadPool(), base::MayBlock()});
+      base::ThreadPool::CreateSequencedTaskRunner({base::MayBlock()});
 };
 
 TEST_F(SQLitePersistentReportingAndNelStoreTest, CreateDBAndTables) {

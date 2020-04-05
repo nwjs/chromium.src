@@ -4,9 +4,10 @@
 
 #include "chrome/browser/net/secure_dns_policy_handler.h"
 
+#include <string>
+
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_piece.h"
-#include "base/strings/string_split.h"
 #include "base/values.h"
 #include "chrome/browser/net/dns_util.h"
 #include "chrome/browser/prefs/session_startup_pref.h"
@@ -16,6 +17,7 @@
 #include "components/policy/policy_constants.h"
 #include "components/prefs/pref_value_map.h"
 #include "components/strings/grit/components_strings.h"
+#include "net/dns/public/util.h"
 
 namespace policy {
 
@@ -43,11 +45,9 @@ bool SecureDnsPolicyHandler::CheckPolicySettings(const PolicyMap& policies,
     if (mode_str.size() == 0) {
       errors->AddError(key::kDnsOverHttpsMode, IDS_POLICY_NOT_SPECIFIED_ERROR);
       mode_is_applicable = false;
-    } else if (mode_str == chrome_browser_net::kDnsOverHttpsModeSecure) {
-      errors->AddError(key::kDnsOverHttpsMode,
-                       IDS_POLICY_SECURE_DNS_MODE_NOT_SUPPORTED_ERROR);
     } else if (mode_str != chrome_browser_net::kDnsOverHttpsModeOff &&
-               mode_str != chrome_browser_net::kDnsOverHttpsModeAutomatic) {
+               mode_str != chrome_browser_net::kDnsOverHttpsModeAutomatic &&
+               mode_str != chrome_browser_net::kDnsOverHttpsModeSecure) {
       errors->AddError(key::kDnsOverHttpsMode,
                        IDS_POLICY_INVALID_SECURE_DNS_MODE_ERROR);
       mode_is_applicable = false;
@@ -66,7 +66,7 @@ bool SecureDnsPolicyHandler::CheckPolicySettings(const PolicyMap& policies,
     templates_is_applicable = false;
   } else {
     // Templates is set and is a string.
-    base::StringPiece templates_str = templates->GetString();
+    const std::string& templates_str = templates->GetString();
 
     if (templates_str.size() != 0 && !mode) {
       errors->AddError(key::kDnsOverHttpsTemplates,
@@ -78,7 +78,7 @@ bool SecureDnsPolicyHandler::CheckPolicySettings(const PolicyMap& policies,
                mode_str == chrome_browser_net::kDnsOverHttpsModeOff) {
       errors->AddError(key::kDnsOverHttpsTemplates,
                        IDS_POLICY_SECURE_DNS_TEMPLATES_IRRELEVANT_MODE_ERROR);
-    } else if (IsTemplatesPolicyInvalid(templates_str)) {
+    } else if (!chrome_browser_net::IsValidDohTemplateGroup(templates_str)) {
       errors->AddError(key::kDnsOverHttpsTemplates,
                        IDS_POLICY_SECURE_DNS_TEMPLATES_INVALID_ERROR);
     }
@@ -93,12 +93,11 @@ void SecureDnsPolicyHandler::ApplyPolicySettings(const PolicyMap& policies,
   base::StringPiece mode_str;
   if (mode && mode->is_string()) {
     mode_str = mode->GetString();
-    // TODO(http://crbug.com/955454): Include secure in conditional when
-    // support is implemented.
-    if (mode_str == chrome_browser_net::kDnsOverHttpsModeAutomatic) {
+    if (mode_str == chrome_browser_net::kDnsOverHttpsModeAutomatic ||
+        mode_str == chrome_browser_net::kDnsOverHttpsModeSecure) {
       prefs->SetString(prefs::kDnsOverHttpsMode, mode_str.as_string());
     } else {
-      // Captures "off" and "secure".
+      // Captures "off".
       prefs->SetString(prefs::kDnsOverHttpsMode,
                        chrome_browser_net::kDnsOverHttpsModeOff);
     }
@@ -127,23 +126,6 @@ bool SecureDnsPolicyHandler::IsTemplatesPolicyNotSpecified(
 
     if (templates_str.size() == 0)
       return true;
-  }
-
-  return false;
-}
-
-bool SecureDnsPolicyHandler::IsTemplatesPolicyInvalid(
-    const base::StringPiece templates_str) {
-  // server_method is unused, it's just to satisfy IsValidDohTemplate()'s
-  // function signature
-  std::string server_method;
-  for (const std::string& server_template :
-       SplitString(templates_str, " ", base::TRIM_WHITESPACE,
-                   base::SPLIT_WANT_NONEMPTY)) {
-    if (!chrome_browser_net::IsValidDohTemplate(server_template,
-                                                &server_method)) {
-      return true;
-    }
   }
 
   return false;

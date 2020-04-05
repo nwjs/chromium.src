@@ -307,12 +307,12 @@ ImageRequest.prototype.downloadOriginal_ = function(onSuccess, onFailure) {
     this.piexLoader_.load(this.request_.url)
         .then(
             function(data) {
-              const blob = new Blob([data.thumbnail], {type: 'image/jpeg'});
-              const url = URL.createObjectURL(blob);
-              this.image_.src = url;
               this.request_.orientation = data.orientation;
               this.request_.colorSpace = data.colorSpace;
               this.ifd_ = data.ifd;
+              this.contentType_ = data.mimeType;
+              const blob = new Blob([data.thumbnail], {type: data.mimeType});
+              this.image_.src = URL.createObjectURL(blob);
             }.bind(this),
             function() {
               // The error has already been logged in PiexLoader.

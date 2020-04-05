@@ -15,10 +15,20 @@ constexpr const char kUserActionDontEnrollButtonClicked[] = "dont-enroll";
 
 namespace chromeos {
 
+// static
+std::string PackagedLicenseScreen::GetResultString(Result result) {
+  switch (result) {
+    case Result::DONT_ENROLL:
+      return "DontEnroll";
+    case Result::ENROLL:
+      return "Enroll";
+  }
+}
+
 PackagedLicenseScreen::PackagedLicenseScreen(
     PackagedLicenseView* view,
     const ScreenExitCallback& exit_callback)
-    : BaseScreen(PackagedLicenseView::kScreenId),
+    : BaseScreen(PackagedLicenseView::kScreenId, OobeScreenPriority::DEFAULT),
       view_(view),
       exit_callback_(exit_callback) {
   if (view_)
@@ -30,12 +40,12 @@ PackagedLicenseScreen::~PackagedLicenseScreen() {
     view_->Unbind();
 }
 
-void PackagedLicenseScreen::Show() {
+void PackagedLicenseScreen::ShowImpl() {
   if (view_)
     view_->Show();
 }
 
-void PackagedLicenseScreen::Hide() {
+void PackagedLicenseScreen::HideImpl() {
   if (view_)
     view_->Hide();
 }

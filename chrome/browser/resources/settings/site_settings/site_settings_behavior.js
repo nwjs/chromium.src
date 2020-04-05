@@ -6,6 +6,11 @@
  * @fileoverview Behavior common to Site Settings classes.
  */
 
+// clang-format off
+// #import {ContentSetting,ContentSettingsTypes} from './constants.m.js';
+// #import {loadTimeData} from 'chrome://resources/js/load_time_data.m.js';
+// #import {RawSiteException,SiteException,SiteSettingsPrefsBrowserProxy,SiteSettingsPrefsBrowserProxyImpl} from './site_settings_prefs_browser_proxy.m.js';
+// clang-format on
 
 /**
  * The source information on site exceptions doesn't exactly match the
@@ -13,7 +18,7 @@
  * TODO(dschuyler): Can they be unified (and this dictionary removed)?
  * @type {!Object}
  */
-const kControlledByLookup = {
+/* #export */ const kControlledByLookup = {
   'extension': chrome.settingsPrivate.ControlledBy.EXTENSION,
   'HostedApp': chrome.settingsPrivate.ControlledBy.EXTENSION,
   'platform_app': chrome.settingsPrivate.ControlledBy.EXTENSION,
@@ -122,6 +127,21 @@ const SiteSettingsBehaviorImpl = {
   },
 
   /**
+   * Returns a user-friendly name for the origin.
+   * @param {string} origin
+   * @return {string} The user-friendly name.
+   * @protected
+   */
+  originRepresentation(origin) {
+    try {
+      const url = this.toUrl(origin);
+      return url ? (url.host || url.origin) : '';
+    } catch (error) {
+      return '';
+    }
+  },
+
+  /**
    * Convert an exception (received from the C++ handler) to a full
    * SiteException.
    * @param {!RawSiteException} exception The raw site exception from C++.
@@ -214,10 +234,13 @@ const SiteSettingsBehaviorImpl = {
         settings.ContentSettingsTypes.AR, 'enableWebXrContentSetting');
     addOrRemoveSettingWithFlag(
         settings.ContentSettingsTypes.VR, 'enableWebXrContentSetting');
+    addOrRemoveSettingWithFlag(
+        settings.ContentSettingsTypes.BLUETOOTH_DEVICES,
+        'enableWebBluetoothNewPermissionsBackend');
     return this.contentTypes_.slice(0);
   },
 
 };
 
 /** @polymerBehavior */
-const SiteSettingsBehavior = [SiteSettingsBehaviorImpl];
+/* #export */ const SiteSettingsBehavior = [SiteSettingsBehaviorImpl];

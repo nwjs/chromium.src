@@ -20,6 +20,7 @@ import android.support.test.filters.SmallTest;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestRule;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
@@ -34,27 +35,29 @@ import org.chromium.base.metrics.test.DisableHistogramsRule;
 import org.chromium.base.metrics.test.ShadowRecordHistogram;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.ChromeVersionInfo;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.SharedPreferencesManager;
 import org.chromium.chrome.browser.ui.messages.snackbar.Snackbar;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
+import org.chromium.chrome.test.util.browser.Features;
 import org.chromium.components.search_engines.TemplateUrl;
 import org.chromium.components.search_engines.TemplateUrlService;
-
-import java.util.HashMap;
 
 /**
  * Unit tests for {@link SearchEngineChoiceNotification}.
  */
 @RunWith(BaseRobolectricTestRunner.class)
 @Config(manifest = Config.NONE, shadows = {ShadowRecordHistogram.class})
+@Features.EnableFeatures({})
 public final class SearchEngineChoiceNotificationTest {
     private static final String TEST_INITIAL_ENGINE = "google.com";
     private static final String TEST_ALTERNATIVE_ENGINE = "duckduckgo.com";
 
     @Rule
     public DisableHistogramsRule mDisableHistogramsRule = new DisableHistogramsRule();
+    @Rule
+    public TestRule mFeaturesProcessorRule = new Features.JUnitProcessor();
+
     @Spy
     private Context mContext = RuntimeEnvironment.application.getApplicationContext();
     @Mock
@@ -73,7 +76,6 @@ public final class SearchEngineChoiceNotificationTest {
         MockitoAnnotations.initMocks(this);
         ContextUtils.initApplicationContextForTests(mContext);
 
-        ChromeFeatureList.setTestFeatures(new HashMap<String, Boolean>());
         ShadowRecordHistogram.reset();
 
         // Sets up appropriate responses from Template URL service.
@@ -117,6 +119,26 @@ public final class SearchEngineChoiceNotificationTest {
         SearchEngineChoiceNotification.handleSearchEngineChoice(mContext, null);
 
         assertFalse("When not requested, the call should have been ignored.",
+                prefs.contains(ChromePreferenceKeys.SEARCH_ENGINE_CHOICE_PRESENTED_VERSION));
+
+        assertEquals(0,
+                ShadowRecordHistogram.getHistogramValueCountForTesting(
+                        "Android.SearchEngineChoice.Events",
+                        SearchEngineChoiceMetrics.Events.SNACKBAR_SHOWN));
+    }
+
+    @Test
+    @SmallTest
+    public void handleSearchEngineChoice_ignoredWhenDefaultSearchManaged() {
+        doReturn(true).when(mTemplateUrlService).isDefaultSearchManaged();
+        SearchEngineChoiceNotification.receiveSearchEngineChoiceRequest();
+        SharedPreferencesManager prefs = SharedPreferencesManager.getInstance();
+        assertFalse(prefs.contains(ChromePreferenceKeys.SEARCH_ENGINE_CHOICE_PRESENTED_VERSION));
+
+        SearchEngineChoiceNotification.handleSearchEngineChoice(mContext, null);
+
+        assertFalse(
+                "When search engine settings are controlled by policy, the call should be ignored.",
                 prefs.contains(ChromePreferenceKeys.SEARCH_ENGINE_CHOICE_PRESENTED_VERSION));
 
         assertEquals(0,

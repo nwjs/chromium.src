@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#include "base/task/thread_pool.h"
 #include "chrome/browser/sharing/proto/sharing_message.pb.h"
 
 #include "base/callback.h"
@@ -66,10 +67,9 @@ SharingDeviceSourceSync::SharingDeviceSourceSync(
       local_device_info_provider_(local_device_info_provider),
       device_info_tracker_(device_info_tracker),
       sync_prefs_(sync_prefs) {
-  base::PostTaskAndReplyWithResult(
+  base::ThreadPool::PostTaskAndReplyWithResult(
       FROM_HERE,
-      {base::ThreadPool(), base::MayBlock(),
-       base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN},
+      {base::MayBlock(), base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN},
       base::BindOnce(syncer::GetPersonalizableDeviceNameBlocking),
       base::BindOnce(
           &SharingDeviceSourceSync::InitPersonalizableLocalDeviceName,
@@ -157,10 +157,10 @@ SharingDeviceSourceSync::FilterDeviceCandidates(
     sync_pb::SharingSpecificFields::EnabledFeatures required_feature) const {
   std::set<SharingSpecificFields::EnabledFeatures> accepted_features{
       required_feature};
-  if (required_feature == SharingSpecificFields::CLICK_TO_CALL) {
+  if (required_feature == SharingSpecificFields::CLICK_TO_CALL_V2) {
     accepted_features.insert(SharingSpecificFields::CLICK_TO_CALL_VAPID);
   }
-  if (required_feature == SharingSpecificFields::SHARED_CLIPBOARD) {
+  if (required_feature == SharingSpecificFields::SHARED_CLIPBOARD_V2) {
     accepted_features.insert(SharingSpecificFields::SHARED_CLIPBOARD_VAPID);
   }
 

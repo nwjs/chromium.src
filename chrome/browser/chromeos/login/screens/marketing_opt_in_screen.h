@@ -7,7 +7,9 @@
 
 #include "base/callback.h"
 #include "base/macros.h"
+#include "base/memory/weak_ptr.h"
 #include "chrome/browser/chromeos/login/screens/base_screen.h"
+#include "components/prefs/pref_change_registrar.h"
 
 namespace chromeos {
 
@@ -21,17 +23,35 @@ class MarketingOptInScreen : public BaseScreen {
                        const base::RepeatingClosure& exit_callback);
   ~MarketingOptInScreen() override;
 
-  // BaseScreen:
-  void Show() override;
-  void Hide() override;
+  // On "Get Started" button pressed.
+  void OnGetStarted(bool chromebook_email_opt_in);
 
-  // On "All set" button pressed.
-  void OnAllSet(bool play_communications_opt_in,
-                bool tips_communications_opt_in);
+  void set_exit_callback_for_testing(
+      const base::RepeatingClosure& exit_callback) {
+    exit_callback_ = exit_callback;
+  }
+
+ protected:
+  // BaseScreen:
+  void ShowImpl() override;
+  void HideImpl() override;
 
  private:
+  // Exits the screen.
+  void ExitScreen();
+
+  void OnA11yShelfNavigationButtonPrefChanged();
+
   MarketingOptInScreenView* const view_;
+
+  // Whether the screen is shown and exit callback has not been run.
+  bool active_ = false;
+
   base::RepeatingClosure exit_callback_;
+
+  std::unique_ptr<PrefChangeRegistrar> active_user_pref_change_registrar_;
+
+  base::WeakPtrFactory<MarketingOptInScreen> weak_factory_{this};
 
   DISALLOW_COPY_AND_ASSIGN(MarketingOptInScreen);
 };

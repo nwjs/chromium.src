@@ -15,6 +15,7 @@
 #include "base/macros.h"
 #include "base/memory/ref_counted.h"
 #include "base/optional.h"
+#include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "build/build_config.h"
 #include "chrome/browser/profiles/profile.h"
@@ -24,8 +25,6 @@
 #include "components/prefs/pref_change_registrar.h"
 #include "content/public/browser/content_browser_client.h"
 #include "extensions/buildflags/buildflags.h"
-#include "mojo/public/cpp/bindings/remote.h"
-#include "services/identity/public/mojom/identity_service.mojom.h"
 
 #if !defined(OS_ANDROID)
 #include "chrome/browser/ui/zoom/chrome_zoom_level_prefs.h"
@@ -46,10 +45,6 @@ class SupervisedUserTestBase;
 
 namespace base {
 class SequencedTaskRunner;
-}
-
-namespace identity {
-class IdentityService;
 }
 
 namespace policy {
@@ -162,7 +157,6 @@ class ProfileImpl : public Profile {
   ExitType GetLastSessionExitType() override;
   bool ShouldRestoreOldSessionCookies() override;
   bool ShouldPersistSessionCookies() override;
-  identity::mojom::IdentityService* GetIdentityService() override;
 
 #if defined(OS_CHROMEOS)
   void ChangeAppLocale(const std::string& locale, AppLocaleChangedVia) override;
@@ -188,7 +182,7 @@ class ProfileImpl : public Profile {
   ProfileImpl(const base::FilePath& path,
               Delegate* delegate,
               CreateMode create_mode,
-              base::Time creation_time,
+              base::Time path_creation_time,
               scoped_refptr<base::SequencedTaskRunner> io_task_runner);
 
 #if defined(OS_ANDROID)
@@ -230,19 +224,10 @@ class ProfileImpl : public Profile {
 
   base::FilePath path_;
 
-  base::Time creation_time_;
+  base::Time path_creation_time_;
 
   // Task runner used for file access in the profile path.
   scoped_refptr<base::SequencedTaskRunner> io_task_runner_;
-
-  // The Identity Service instance for this profile. This should not be exposed
-  // outside of ProfileImpl except through |remote_identity_service_| by way of
-  // |GetIdentityService()|.
-  std::unique_ptr<identity::IdentityService> identity_service_impl_;
-
-  // A Mojo connection to the above service instance. Exposed to clients via
-  // |GetIdentityService()|.
-  mojo::Remote<identity::mojom::IdentityService> remote_identity_service_;
 
   // !!! BIG HONKING WARNING !!!
   //  The order of the members below is important. Do not change it unless

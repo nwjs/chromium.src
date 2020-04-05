@@ -2,11 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import {browserProxy} from './browser_proxy/browser_proxy.js';
 import {assert, assertInstanceof} from './chrome_util.js';
-import {FileVideoSaver} from './models/file_video_saver.js';
 import * as filesystem from './models/filesystem.js';
 // eslint-disable-next-line no-unused-vars
 import {ResultSaver} from './models/result_saver.js';
+import {VideoSaver} from './models/video_saver.js';
 import * as util from './util.js';
 
 /**
@@ -104,7 +105,7 @@ export class GalleryButton {
       // TODO(yuli): Remove this workaround for unable watching changed-files.
       await this.checkCover_();
       if (this.cover_ !== null) {
-        this.openGallery_(this.cover_.file);
+        await browserProxy.openGallery(this.cover_.file);
       }
     });
   }
@@ -176,25 +177,6 @@ export class GalleryButton {
   }
 
   /**
-   * Opens the gallery to browse the picture.
-   * @param {!FileEntry} file File of picture to be browsed.
-   * @private
-   */
-  openGallery_(file) {
-    const id = 'nlkncpkkdoccmpiclbokaimcnedabhhm|app|open';
-    chrome.fileManagerPrivate.executeTask(id, [file], (result) => {
-      if (chrome.runtime.lastError) {
-        console.warn(
-            'Unable to open picture: ' + chrome.runtime.lastError.message);
-        return;
-      }
-      if (result !== 'opened' && result !== 'message_sent') {
-        console.warn('Unable to open picture: ' + result);
-      }
-    });
-  }
-
-  /**
    * @override
    */
   async savePhoto(blob, name) {
@@ -215,7 +197,7 @@ export class GalleryButton {
    */
   async startSaveVideo() {
     const tempFile = await filesystem.createTempVideoFile();
-    return FileVideoSaver.createFileVideoSaver(tempFile);
+    return VideoSaver.createForFile(tempFile);
   }
 
   /**

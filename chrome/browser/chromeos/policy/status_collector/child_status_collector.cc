@@ -26,10 +26,12 @@
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "base/threading/sequenced_task_runner_handle.h"
 #include "base/values.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chromeos/policy/status_collector/child_activity_storage.h"
+#include "chrome/browser/chromeos/policy/status_collector/interval_map.h"
 #include "chrome/browser/chromeos/policy/status_collector/status_collector_state.h"
 #include "chrome/browser/chromeos/settings/cros_settings.h"
 #include "chrome/browser/profiles/profile.h"
@@ -156,9 +158,8 @@ ChildStatusCollector::ChildStatusCollector(
   UpdateReportingSettings();
 
   // Get the OS version.
-  base::PostTaskAndReplyWithResult(
-      FROM_HERE,
-      {base::ThreadPool(), base::MayBlock(), base::TaskPriority::BEST_EFFORT},
+  base::ThreadPool::PostTaskAndReplyWithResult(
+      FROM_HERE, {base::MayBlock(), base::TaskPriority::BEST_EFFORT},
       base::BindOnce(&chromeos::version_loader::GetVersion,
                      chromeos::version_loader::VERSION_FULL),
       base::BindOnce(&ChildStatusCollector::OnOSVersion,
@@ -263,25 +264,28 @@ bool ChildStatusCollector::GetActivityTimes(
   UpdateChildUsageTime();
 
   // Signed-in user is reported in child reporting.
-  std::vector<ActivityStorage::ActivityPeriod> activity_times =
-      activity_storage_->GetStoredActivityPeriods();
+  auto activity_times = activity_storage_->GetStoredActivityPeriods();
 
   bool anything_reported = false;
   for (const auto& activity_period : activity_times) {
+    // Skip intervals where there was no activity.
+    if (!activity_period.second.has_value()) {
+      continue;
+    }
+
     // This is correct even when there are leap seconds, because when a leap
     // second occurs, two consecutive seconds have the same timestamp.
     int64_t end_timestamp =
-        activity_period.start_timestamp + Time::kMillisecondsPerDay;
+        activity_period.first.begin + Time::kMillisecondsPerDay;
 
     em::ScreenTimeSpan* screen_time_span = status->add_screen_time_span();
     em::TimePeriod* period = screen_time_span->mutable_time_period();
-    period->set_start_timestamp(activity_period.start_timestamp);
+    period->set_start_timestamp(activity_period.first.begin);
     period->set_end_timestamp(end_timestamp);
-    screen_time_span->set_active_duration_ms(
-        activity_period.activity_milliseconds);
-    if (activity_period.start_timestamp >= last_reported_day_) {
-      last_reported_day_ = activity_period.start_timestamp;
-      duration_for_last_reported_day_ = activity_period.activity_milliseconds;
+    screen_time_span->set_active_duration_ms(activity_period.first.end -
+                                             activity_period.first.begin);
+    if (last_reported_end_timestamp_ < end_timestamp) {
+      last_reported_end_timestamp_ = end_timestamp;
     }
     anything_reported = true;
   }
@@ -295,7 +299,7 @@ bool ChildStatusCollector::GetAppActivity(
     return false;
   }
 
-  const chromeos::app_time::AppActivityReportInterface* app_activity_reporting =
+  chromeos::app_time::AppActivityReportInterface* app_activity_reporting =
       chromeos::app_time::AppActivityReportInterface::Get(profile_);
   DCHECK(app_activity_reporting);
 
@@ -385,8 +389,7 @@ void ChildStatusCollector::FillChildStatusReportRequest(
 }
 
 void ChildStatusCollector::OnSubmittedSuccessfully() {
-  activity_storage_->TrimActivityPeriods(last_reported_day_,
-                                         duration_for_last_reported_day_,
+  activity_storage_->TrimActivityPeriods(last_reported_end_timestamp_,
                                          std::numeric_limits<int64_t>::max());
   OnAppActivityReportSubmitted();
 }
@@ -404,6 +407,10 @@ bool ChildStatusCollector::ShouldReportUsers() const {
 }
 
 bool ChildStatusCollector::ShouldReportHardwareStatus() const {
+  return false;
+}
+
+bool ChildStatusCollector::ShouldReportCrashReportInfo() const {
   return false;
 }
 

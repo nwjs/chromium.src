@@ -30,7 +30,8 @@ enum UIDisplayDisposition {
   MANUAL_WITH_PASSWORD_PENDING_UPDATE,
   AUTOMATIC_WITH_PASSWORD_PENDING_UPDATE,
   MANUAL_GENERATED_PASSWORD_CONFIRMATION,
-  NUM_DISPLAY_DISPOSITIONS
+  AUTOMATIC_SAVE_UNSYNCED_CREDENTIALS_LOCALLY,
+  NUM_DISPLAY_DISPOSITIONS,
 };
 
 // Metrics: "PasswordManager.UIDismissalReason"
@@ -224,13 +225,6 @@ enum class CredentialManagerGetResult {
   kMaxValue = kAutoSignIn,
 };
 
-// Metrics: "PasswordManager.HttpPasswordMigrationMode"
-enum HttpPasswordMigrationMode {
-  HTTP_PASSWORD_MIGRATION_MODE_MOVE,
-  HTTP_PASSWORD_MIGRATION_MODE_COPY,
-  HTTP_PASSWORD_MIGRATION_MODE_COUNT
-};
-
 enum PasswordReusePasswordFieldDetected {
   NO_PASSWORD_FIELD,
   HAS_PASSWORD_FIELD,
@@ -250,6 +244,7 @@ enum class SubmittedFormFrame {
 enum AccessPasswordInSettingsEvent {
   ACCESS_PASSWORD_VIEWED = 0,
   ACCESS_PASSWORD_COPIED = 1,
+  ACCESS_PASSWORD_EDITED = 2,
   ACCESS_PASSWORD_COUNT
 };
 
@@ -511,12 +506,6 @@ void LogAutoSigninPromoUserAction(AutoSigninPromoUserAction action);
 void LogAccountChooserUserActionOneAccount(AccountChooserUserAction action);
 void LogAccountChooserUserActionManyAccounts(AccountChooserUserAction action);
 
-// Logs number of passwords migrated from HTTP to HTTPS.
-void LogCountHttpMigratedPasswords(int count);
-
-// Logs mode of HTTP password migration.
-void LogHttpPasswordMigrationMode(HttpPasswordMigrationMode mode);
-
 // Log the result of navigator.credentials.get.
 void LogCredentialManagerGetResult(CredentialManagerGetResult result,
                                    CredentialMediationRequirement mediation);
@@ -593,7 +582,8 @@ void LogIsSyncPasswordHashSaved(IsSyncPasswordHashSaved state,
 // password hashes saved. Currently only called on profile start up.
 void LogProtectedPasswordHashCounts(size_t gaia_hash_count,
                                     size_t enterprise_hash_count,
-                                    bool does_primary_account_exists);
+                                    bool does_primary_account_exists,
+                                    bool is_signed_in);
 
 #endif
 

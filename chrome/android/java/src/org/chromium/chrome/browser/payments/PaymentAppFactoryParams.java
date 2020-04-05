@@ -7,9 +7,11 @@ package org.chromium.chrome.browser.payments;
 import androidx.annotation.Nullable;
 
 import org.chromium.chrome.browser.payments.PaymentApp.PaymentRequestUpdateEventCallback;
+import org.chromium.content_public.browser.RenderFrameHost;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.payments.mojom.PaymentDetailsModifier;
 import org.chromium.payments.mojom.PaymentMethodData;
+import org.chromium.url.Origin;
 
 import java.util.Map;
 
@@ -17,6 +19,9 @@ import java.util.Map;
 public interface PaymentAppFactoryParams {
     /** @return The web contents where the payment is being requested. */
     WebContents getWebContents();
+
+    /** @return The RenderFrameHost for the frame that initiates the payment request. */
+    RenderFrameHost getRenderFrameHost();
 
     /**
      * @return The unmodifiable mapping of payment method identifier to the method-specific data in
@@ -46,6 +51,15 @@ public interface PaymentAppFactoryParams {
     }
 
     /**
+     * @return The origin of the iframe that invoked the PaymentRequest API. Can be opaque. Used by
+     * security features like 'Sec-Fetch-Site' and 'Cross-Origin-Resource-Policy'. Should not be
+     * null.
+     */
+    default Origin getPaymentRequestSecurityOrigin() {
+        return null;
+    }
+
+    /**
      * @return The certificate chain of the top-level context as returned by
      * CertificateChainHelper.getCertificateChain(). Can be null.
      */
@@ -56,9 +70,8 @@ public interface PaymentAppFactoryParams {
 
     /**
      * @return The unmodifiable mapping of method names to modifiers, which include modified totals
-     * and additional line items. Used to display modified totals for each payment instrument,
-     * modified total in order summary, and additional line items in order summary. Should not be
-     * null.
+     * and additional line items. Used to display modified totals for each payment app, modified
+     * total in order summary, and additional line items in order summary. Should not be null.
      */
     default Map<String, PaymentDetailsModifier> getModifiers() {
         return null;
@@ -75,6 +88,11 @@ public interface PaymentAppFactoryParams {
      * @return The listener for payment method, shipping address, and shipping option change events.
      */
     default PaymentRequestUpdateEventCallback getPaymentRequestUpdateEventCallback() {
+        return null;
+    }
+
+    /** @return The currency of the total amount. Should not be null. */
+    default String getTotalAmountCurrency() {
         return null;
     }
 }

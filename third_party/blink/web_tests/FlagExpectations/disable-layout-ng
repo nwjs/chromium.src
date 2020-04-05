@@ -3,6 +3,14 @@
 # tags: [ Release Debug ]
 # results: [ Timeout Crash Pass Failure Slow Skip ]
 
+# These expectations are used when LayoutNG is disabled. We test this
+# configuration on trybot linux_layout_tests_layout_ng_disabled.
+# Though LayoutNG has been enabled in M76, we still keep running web tests with
+# LayoutNG disabled because we still use legacy layout for editing, multicol,
+# etc. Though we have tests for editing and multicol, the tests don't fully
+# cover all layout code paths, so we need to run all web tests to ensure legacy
+# layout still fully works.
+
 # Tests that fail in legacy but pass in NG
 
 # accessibility/
@@ -77,13 +85,10 @@ crbug.com/457718 external/wpt/css/css-pseudo/marker-content-003b.html [ Failure 
 crbug.com/457718 external/wpt/css/css-pseudo/marker-content-004.html [ Failure ]
 crbug.com/457718 external/wpt/css/css-pseudo/marker-content-006.html [ Failure ]
 crbug.com/457718 external/wpt/css/css-pseudo/marker-content-012.html [ Failure ]
-crbug.com/457718 external/wpt/css/css-pseudo/marker-content-014.html [ Failure ]
 crbug.com/457718 external/wpt/css/css-pseudo/marker-content-015.html [ Failure ]
 crbug.com/457718 external/wpt/css/css-pseudo/marker-content-016.html [ Failure ]
 crbug.com/457718 external/wpt/css/css-pseudo/marker-content-017.html [ Failure ]
 crbug.com/457718 external/wpt/css/css-pseudo/marker-content-018.html [ Failure ]
-crbug.com/457718 external/wpt/css/css-pseudo/marker-content-019.html [ Failure ]
-crbug.com/457718 external/wpt/css/css-pseudo/marker-content-020.html [ Failure ]
 crbug.com/457718 external/wpt/css/css-pseudo/marker-content-021.html [ Failure ]
 crbug.com/1012289 external/wpt/css/css-pseudo/marker-unicode-bidi-default.html [ Failure ]
 crbug.com/1012289 external/wpt/css/css-pseudo/marker-unicode-bidi-normal.html [ Failure ]
@@ -95,6 +100,13 @@ crbug.com/591099 external/wpt/css/css-shapes/shape-outside/supported-shapes/poly
 crbug.com/591099 external/wpt/css/css-sizing/clone-nowrap-intrinsic-size-bidi.html [ Failure ]
 crbug.com/591099 external/wpt/css/css-sizing/intrinsic-percent-non-replaced-004.html [ Failure ]
 crbug.com/591099 external/wpt/css/css-sizing/intrinsic-percent-non-replaced-005.html [ Failure ]
+crbug.com/591099 external/wpt/css/css-sizing/intrinsic-percent-replaced-008.html [ Failure ]
+crbug.com/591099 external/wpt/css/css-sizing/intrinsic-percent-replaced-dynamic-001.html [ Failure ]
+crbug.com/591099 external/wpt/css/css-sizing/intrinsic-percent-replaced-dynamic-002.html [ Failure ]
+crbug.com/591099 external/wpt/css/css-sizing/intrinsic-percent-replaced-dynamic-004.html [ Failure ]
+crbug.com/591099 external/wpt/css/css-sizing/intrinsic-percent-replaced-dynamic-006.html [ Failure ]
+crbug.com/591099 external/wpt/css/css-sizing/intrinsic-percent-replaced-dynamic-007.html [ Failure ]
+crbug.com/591099 external/wpt/css/css-sizing/intrinsic-percent-replaced-dynamic-008.html [ Failure ]
 crbug.com/591099 external/wpt/css/css-sizing/whitespace-and-break.html [ Failure ]
 crbug.com/591099 external/wpt/css/css-sizing/ortho-writing-mode-001.html [ Failure ]
 
@@ -174,6 +186,7 @@ crbug.com/1017164 external/wpt/css/css-text/word-break/word-break-break-all-inli
 
 ### external/wpt/css/css-ui/
 crbug.com/591099 external/wpt/css/css-ui/text-overflow-010.html [ Failure ]
+crbug.com/1063319 external/wpt/css/css-ui/text-overflow-028.html [ Failure ]
 
 ### external/wpt/css/css-writing-modes/
 crbug.com/591099 external/wpt/css/css-writing-modes/abs-pos-non-replaced-icb-vlr-003.xht [ Failure ]
@@ -249,6 +262,7 @@ crbug.com/591099 external/wpt/css/css-writing-modes/abs-pos-non-replaced-vrl-204
 crbug.com/591099 external/wpt/css/css-writing-modes/abs-pos-non-replaced-vrl-208.xht [ Failure ]
 crbug.com/591099 external/wpt/css/css-writing-modes/abs-pos-non-replaced-vrl-220.xht [ Failure ]
 crbug.com/591099 external/wpt/css/css-writing-modes/abs-pos-non-replaced-vrl-224.xht [ Failure ]
+crbug.com/591099 external/wpt/css/css-writing-modes/abs-pos-with-replaced-child.html [ Failure ]
 crbug.com/591099 external/wpt/css/css-writing-modes/available-size-002.html [ Failure ]
 crbug.com/591099 external/wpt/css/css-writing-modes/available-size-010.html [ Failure ]
 crbug.com/591099 external/wpt/css/css-writing-modes/available-size-017.html [ Failure ]
@@ -335,6 +349,9 @@ crbug.com/591099 external/wpt/quirks/line-height-trailing-collapsable-whitespace
 ### fast/css/
 crbug.com/591099 fast/css/absolute-inline-alignment-2.html [ Failure ]
 
+### external/wpt/html/rendering
+crbug.com/875235 external/wpt/html/rendering/non-replaced-elements/the-fieldset-and-legend-elements/legend-painting-order.html [ Failure ]
+
 ### virtual/text-antialias/
 crbug.com/591099 virtual/text-antialias/justify-ideograph-simple.html [ Failure ]
 
@@ -364,6 +381,15 @@ virtual/controls-refresh-hc/* [ Skip ]
 
 ### virtual/form-controls-refresh-disabled/
 virtual/form-controls-refresh-disabled/* [ Skip ]
+
+### virtual/layout_ng_block_frag/
+virtual/layout_ng_block_frag/* [ Skip ]
+
+### virtual/layout_ng_fieldset/
+virtual/layout_ng_fieldset/* [ Skip ]
+
+### virtual/layout_ng_fragment_traversal/
+virtual/layout_ng_fragment_traversal/* [ Skip ]
 
 ### virtual/omt-worker-fetch/external/wpt/service-workers/service-worker/
 crbug.com/591099 virtual/omt-worker-fetch/external/wpt/service-workers/service-worker/registration-updateviacache.https.html [ Failure ]
@@ -425,8 +451,7 @@ crbug.com/1016759 paint/invalidation/svg/animated-path-inside-transformed-html.x
 crbug.com/1016759 paint/invalidation/svg/circle-move-invalidation.svg [ Failure ]
 
 # display-locking
-crbug.com/591099 wpt_internal/display-lock/css-render-subtree/invisible-size-contained.html [ Failure ]
-crbug.com/1007506 wpt_internal/display-lock/rendersubtree/sizing/overflow-auto-with-overflow.html [ Failure ]
+crbug.com/591099 wpt_internal/display-lock/css-subtree-visibility/matchable/subtree-visibility-matchable-005.html [ Failure ]
 
 # 10/02/2019 Mark tests as failing. Mostly shapes, slight image differences
 external/wpt/css/CSS2/text/white-space-bidirectionality-001.xht [ Failure ]
@@ -453,7 +478,6 @@ svg/zoom/text/zoom-svg-float-border-padding.xml [ Failure ]
 virtual/composite-after-paint/scrollingcoordinator/non-fast-scrollable-transform-changed.html [ Crash ]
 virtual/forced-high-contrast-colors/fast/css/forced-colors-mode/forced-colors-mode-15.html [ Failure ]
 virtual/forced-high-contrast-colors/fast/css/forced-colors-mode/backplate/forced-colors-mode-backplate-07.html [ Failure ]
-virtual/layout_ng_block_frag/external/wpt/css/css-break/hit-test-inline-fragmentation-with-border-radius.html [ Failure ]
 
 
 # 10/27/2019 updates.
@@ -496,8 +520,6 @@ crbug.com/1035582 paint/invalidation/svg/focus-element.html [ Failure ]
 crbug.com/1035582 paint/invalidation/svg/scrolling-embedded-svg-file-image-repaint-problem.html [ Failure ]
 crbug.com/1035582 paint/invalidation/svg/transform-focus-ring-repaint.html [ Failure ]
 crbug.com/1035582 paint/invalidation/table/caret-contenteditable-content-after.html [ Failure ]
-crbug.com/1035582 virtual/mouseevent_fractional/fast/events/sequential-focus-navigation-starting-point.html [ Skip ]
-crbug.com/1035582 external/wpt/css/css-pseudo/selection-text-shadow-016.html [ Failure ]
 crbug.com/1035582 external/wpt/css/css-text-decor/text-decoration-subelements-001.html [ Failure ]
 crbug.com/1035582 paint/background/background-clip-text-descendants.html [ Failure ]
 crbug.com/1035582 tables/mozilla/bugs/bug2479-3.html [ Failure ]

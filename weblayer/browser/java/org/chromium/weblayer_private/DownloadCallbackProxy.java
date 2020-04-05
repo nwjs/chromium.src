@@ -21,19 +21,16 @@ import org.chromium.weblayer_private.interfaces.ObjectWrapper;
 @JNINamespace("weblayer")
 public final class DownloadCallbackProxy {
     private long mNativeDownloadCallbackProxy;
-    private BrowserImpl mBrowser;
+    private String mProfileName;
     private IDownloadCallbackClient mClient;
 
-    DownloadCallbackProxy(BrowserImpl browser, long tab, IDownloadCallbackClient client) {
-        assert client != null;
-        mBrowser = browser;
-        mClient = client;
+    DownloadCallbackProxy(String profileName, long profile) {
+        mProfileName = profileName;
         mNativeDownloadCallbackProxy =
-                DownloadCallbackProxyJni.get().createDownloadCallbackProxy(this, tab);
+                DownloadCallbackProxyJni.get().createDownloadCallbackProxy(this, profile);
     }
 
     public void setClient(IDownloadCallbackClient client) {
-        assert client != null;
         mClient = client;
     }
 
@@ -45,6 +42,10 @@ public final class DownloadCallbackProxy {
     @CalledByNative
     private boolean interceptDownload(String url, String userAgent, String contentDisposition,
             String mimetype, long contentLength) throws RemoteException {
+        if (mClient == null) {
+            return true;
+        }
+
         return mClient.interceptDownload(
                 url, userAgent, contentDisposition, mimetype, contentLength);
     }
@@ -54,6 +55,11 @@ public final class DownloadCallbackProxy {
             long callbackId) throws RemoteException {
         if (WebLayerFactoryImpl.getClientMajorVersion() < 81) {
             DownloadCallbackProxyJni.get().allowDownload(callbackId, true);
+            return;
+        }
+
+        if (mClient == null) {
+            DownloadCallbackProxyJni.get().allowDownload(callbackId, false);
             return;
         }
 
@@ -71,31 +77,39 @@ public final class DownloadCallbackProxy {
     }
 
     @CalledByNative
-    private DownloadImpl createDownload(long nativeDownloadImpl) {
-        return new DownloadImpl(mBrowser, mClient, nativeDownloadImpl);
+    private DownloadImpl createDownload(long nativeDownloadImpl, int id) {
+        return new DownloadImpl(mProfileName, mClient, nativeDownloadImpl, id);
     }
 
     @CalledByNative
     private void downloadStarted(DownloadImpl download) throws RemoteException {
-        mClient.downloadStarted(download.getClientDownload());
+        if (mClient != null) {
+            mClient.downloadStarted(download.getClientDownload());
+        }
         download.downloadStarted();
     }
 
     @CalledByNative
     private void downloadProgressChanged(DownloadImpl download) throws RemoteException {
-        mClient.downloadProgressChanged(download.getClientDownload());
+        if (mClient != null) {
+            mClient.downloadProgressChanged(download.getClientDownload());
+        }
         download.downloadProgressChanged();
     }
 
     @CalledByNative
     private void downloadCompleted(DownloadImpl download) throws RemoteException {
-        mClient.downloadCompleted(download.getClientDownload());
+        if (mClient != null) {
+            mClient.downloadCompleted(download.getClientDownload());
+        }
         download.downloadCompleted();
     }
 
     @CalledByNative
     private void downloadFailed(DownloadImpl download) throws RemoteException {
-        mClient.downloadFailed(download.getClientDownload());
+        if (mClient != null) {
+            mClient.downloadFailed(download.getClientDownload());
+        }
         download.downloadFailed();
     }
 

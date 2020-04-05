@@ -76,6 +76,8 @@ android_library("net_java_test_support") {
     "//base:base_java",
     "//base:base_java_test_support",
     "//third_party/android_deps:androidx_annotation_annotation_java",
+    "//third_party/android_deps:androidx_test_monitor_java",
+    "//third_party/android_deps:androidx_test_uiautomator_uiautomator_java",
     "//third_party/android_support_test_runner:rules_java",
     "//third_party/android_support_test_runner:runner_java",
     "//third_party/junit",
@@ -148,7 +150,15 @@ android_apk("net_test_support_apk") {
 }
 
 android_resources("net_unittests_apk_resources") {
-  resource_dirs = [ "unittest_support/res" ]
+  sources = [
+    "unittest_support/res/mipmap-hdpi/app_icon.png",
+    "unittest_support/res/mipmap-mdpi/app_icon.png",
+    "unittest_support/res/mipmap-xhdpi/app_icon.png",
+    "unittest_support/res/mipmap-xxhdpi/app_icon.png",
+    "unittest_support/res/mipmap-xxxhdpi/app_icon.png",
+    "unittest_support/res/xml/dummy_spnego_account_preferences.xml",
+    "unittest_support/res/xml/dummy_spnego_authenticator.xml",
+  ]
   custom_package = "org.chromium.native_test"
 }
 

@@ -304,8 +304,8 @@ bool PrintBackendWin::GetPrinterSemanticCapsAndDefaults(
   caps.collate_capable =
       (DeviceCapabilities(name, port, DC_COLLATE, nullptr, nullptr) == 1);
 
-  caps.copies_capable =
-      (DeviceCapabilities(name, port, DC_COPIES, nullptr, nullptr) > 1);
+  caps.copies_max =
+      std::max(1, DeviceCapabilities(name, port, DC_COPIES, nullptr, nullptr));
 
   LoadPaper(name, port, user_settings.get(), &caps);
   LoadDpi(name, port, user_settings.get(), &caps);
@@ -393,7 +393,8 @@ bool PrintBackendWin::IsValidPrinter(const std::string& printer_name) {
 // static
 scoped_refptr<PrintBackend> PrintBackend::CreateInstanceImpl(
     const base::DictionaryValue* print_backend_settings,
-    const std::string& locale) {
+    const std::string& locale,
+    bool /*for_cloud_print*/) {
   return base::MakeRefCounted<PrintBackendWin>(locale);
 }
 

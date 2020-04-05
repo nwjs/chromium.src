@@ -72,6 +72,7 @@ PerformanceResourceTiming::PerformanceResourceTiming(
       last_redirect_end_time_(info.last_redirect_end_time),
       response_end_(info.response_end),
       context_type_(info.context_type),
+      request_destination_(info.request_destination),
       transfer_size_(info.transfer_size),
       encoded_body_size_(info.encoded_body_size),
       decoded_body_size_(info.decoded_body_size),
@@ -96,6 +97,7 @@ PerformanceResourceTiming::PerformanceResourceTiming(
     : PerformanceEntry(name, 0.0, 0.0),
       time_origin_(time_origin),
       context_type_(mojom::RequestContextType::HYPERLINK),
+      request_destination_(network::mojom::RequestDestination::kDocument),
       is_secure_context_(is_secure_context),
       server_timing_(std::move(server_timing)),
       worker_timing_receiver_(this, mojo::NullReceiver()) {}
@@ -146,16 +148,32 @@ AtomicString PerformanceResourceTiming::ConnectionInfo() const {
   return connection_info_;
 }
 
+namespace {
+bool IsDocumentDestination(mojom::blink::RequestContextType context_type) {
+  // TODO(crbug.com/889751) : Need to change using RequestDestination
+  return context_type == mojom::blink::RequestContextType::IFRAME ||
+         context_type == mojom::blink::RequestContextType::FRAME ||
+         context_type == mojom::blink::RequestContextType::FORM ||
+         context_type == mojom::blink::RequestContextType::HYPERLINK;
+}
+
+}  // namespace
+
 AtomicString PerformanceResourceTiming::GetNextHopProtocol(
     const AtomicString& alpn_negotiated_protocol,
-    const AtomicString& connection_info) {
+    const AtomicString& connection_info) const {
   // Fallback to connection_info when alpn_negotiated_protocol is unknown.
   AtomicString returnedProtocol = (alpn_negotiated_protocol == "unknown")
                                       ? connection_info
                                       : alpn_negotiated_protocol;
-  // If connection_info is also unknown, return empty string.
-  // (https://github.com/w3c/navigation-timing/issues/71)
-  returnedProtocol = (returnedProtocol == "unknown") ? "" : returnedProtocol;
+  // If connection_info is unknown, or if this is a `document` destination and
+  // TAO didn't pass, return the empty string.
+  // https://github.com/w3c/navigation-timing/issues/71
+  // https://github.com/w3c/resource-timing/pull/224
+  if (returnedProtocol == "unknown" ||
+      (!AllowTimingDetails() && IsDocumentDestination(context_type_))) {
+    returnedProtocol = "";
+  }
 
   return returnedProtocol;
 }
@@ -164,16 +182,6 @@ AtomicString PerformanceResourceTiming::nextHopProtocol() const {
   return PerformanceResourceTiming::GetNextHopProtocol(AlpnNegotiatedProtocol(),
                                                        ConnectionInfo());
 }
-
-namespace {
-bool IsDocumentDestination(mojom::RequestContextType context_type) {
-  return context_type == mojom::RequestContextType::IFRAME ||
-         context_type == mojom::RequestContextType::FRAME ||
-         context_type == mojom::RequestContextType::FORM ||
-         context_type == mojom::RequestContextType::HYPERLINK;
-}
-
-}  // namespace
 
 DOMHighResTimeStamp PerformanceResourceTiming::workerStart() const {
   ResourceLoadTiming* timing = GetResourceLoadTiming();
@@ -431,7 +439,7 @@ void PerformanceResourceTiming::AddPerformanceEntry(
   }
 }
 
-void PerformanceResourceTiming::Trace(blink::Visitor* visitor) {
+void PerformanceResourceTiming::Trace(Visitor* visitor) {
   visitor->Trace(server_timing_);
   visitor->Trace(worker_timing_);
   PerformanceEntry::Trace(visitor);

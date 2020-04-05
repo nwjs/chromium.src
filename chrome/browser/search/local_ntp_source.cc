@@ -22,6 +22,7 @@
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "base/values.h"
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
@@ -83,6 +84,23 @@ using search_provider_logos::LogoCallbackReason;
 using search_provider_logos::LogoMetadata;
 using search_provider_logos::LogoService;
 
+const char kGoogleGIconResourceName[] = "google_g";
+const char kBookmarkIconResourceName[] = "bookmark";
+const char kCalculatorIconResourceName[] = "calculator";
+const char kClockIconResourceName[] = "clock";
+const char kDriveDocsIconResourceName[] = "drive_docs";
+const char kDriveFolderIconResourceName[] = "drive_folder";
+const char kDriveFormIconResourceName[] = "drive_form";
+const char kDriveImageIconResourceName[] = "drive_image";
+const char kDriveLogoIconResourceName[] = "drive_logo";
+const char kDrivePdfIconResourceName[] = "drive_pdf";
+const char kDriveSheetsIconResourceName[] = "drive_sheets";
+const char kDriveSlidesIconResourceName[] = "drive_slides";
+const char kDriveVideoIconResourceName[] = "drive_video";
+const char kExtensionAppIconResourceName[] = "extension_app";
+const char kPageIconResourceName[] = "page";
+const char kSearchIconResourceName[] = "search";
+
 namespace {
 
 // Language code used to check features run in English in the US.
@@ -137,6 +155,32 @@ const struct Resource{
     // added complexity.
     {chrome::kChromeSearchLocalNtpBackgroundFilename, kLocalResource,
      "image/jpg"},
+    {kGoogleGIconResourceName, IDR_WEBUI_IMAGES_200_LOGO_GOOGLE_G, "image/png"},
+    {kBookmarkIconResourceName, IDR_LOCAL_NTP_ICONS_BOOKMARK, "image/svg+xml"},
+    {kCalculatorIconResourceName, IDR_LOCAL_NTP_ICONS_CALCULATOR,
+     "image/svg+xml"},
+    {kClockIconResourceName, IDR_LOCAL_NTP_ICONS_CLOCK, "image/svg+xml"},
+    {kDriveDocsIconResourceName, IDR_LOCAL_NTP_ICONS_DRIVE_DOCS,
+     "image/svg+xml"},
+    {kDriveFolderIconResourceName, IDR_LOCAL_NTP_ICONS_DRIVE_FOLDER,
+     "image/svg+xml"},
+    {kDriveFormIconResourceName, IDR_LOCAL_NTP_ICONS_DRIVE_FORM,
+     "image/svg+xml"},
+    {kDriveImageIconResourceName, IDR_LOCAL_NTP_ICONS_DRIVE_IMAGE,
+     "image/svg+xml"},
+    {kDriveLogoIconResourceName, IDR_LOCAL_NTP_ICONS_DRIVE_LOGO,
+     "image/svg+xml"},
+    {kDrivePdfIconResourceName, IDR_LOCAL_NTP_ICONS_DRIVE_PDF, "image/svg+xml"},
+    {kDriveSheetsIconResourceName, IDR_LOCAL_NTP_ICONS_DRIVE_SHEETS,
+     "image/svg+xml"},
+    {kDriveSlidesIconResourceName, IDR_LOCAL_NTP_ICONS_DRIVE_SLIDES,
+     "image/svg+xml"},
+    {kDriveVideoIconResourceName, IDR_LOCAL_NTP_ICONS_DRIVE_VIDEO,
+     "image/svg+xml"},
+    {kExtensionAppIconResourceName, IDR_LOCAL_NTP_ICONS_EXTENSION_APP,
+     "image/svg+xml"},
+    {kPageIconResourceName, IDR_LOCAL_NTP_ICONS_PAGE, "image/svg+xml"},
+    {kSearchIconResourceName, IDR_WEBUI_IMAGES_ICON_SEARCH, "image/svg+xml"},
 };
 
 // This enum must match the numbering for NTPSearchSuggestionsRequestStatusi in
@@ -620,7 +664,14 @@ class LocalNtpSource::SearchConfigurationProvider
           "suggestionTransparencyEnabled",
           base::FeatureList::IsEnabled(
               omnibox::kOmniboxSuggestionTransparencyOptions));
+      config_data.SetBoolean(
+          "useGoogleGIcon",
+          base::FeatureList::IsEnabled(ntp_features::kRealboxUseGoogleGIcon));
     }
+
+    config_data.SetBoolean(
+        "doodleNotifierEnabled",
+        base::FeatureList::IsEnabled(ntp_features::kDoodleNotifier));
 
     // Serialize the dictionary.
     std::string js_text;
@@ -747,7 +798,7 @@ class LocalNtpSource::DesktopLogoObserver {
     if (!observing()) {
       ++version_started_;
     }
-    service->GetLogo(std::move(callbacks));
+    service->GetLogo(std::move(callbacks), /*for_webui_ntp=*/false);
   }
 
   bool observing() const {
@@ -835,10 +886,8 @@ void LocalNtpSource::StartDataRequest(
   }
 
   if (stripped_path == chrome::kChromeSearchLocalNtpBackgroundFilename) {
-    base::PostTaskAndReplyWithResult(
-        FROM_HERE,
-        {base::ThreadPool(), base::TaskPriority::USER_VISIBLE,
-         base::MayBlock()},
+    base::ThreadPool::PostTaskAndReplyWithResult(
+        FROM_HERE, {base::TaskPriority::USER_VISIBLE, base::MayBlock()},
         base::BindOnce(&ReadBackgroundImageData, profile_->GetPath()),
         base::BindOnce(&ServeBackgroundImageData, std::move(callback)));
     return;
@@ -1037,8 +1086,8 @@ void LocalNtpSource::StartDataRequest(
 
     bool use_google_g_icon =
         base::FeatureList::IsEnabled(ntp_features::kRealboxUseGoogleGIcon);
-    replacements["realboxIconClass"] =
-        use_google_g_icon ? "google-g-icon" : "search-icon";
+    replacements["realboxDefaultIcon"] =
+        use_google_g_icon ? kGoogleGIconResourceName : kSearchIconResourceName;
 
     ui::ResourceBundle& bundle = ui::ResourceBundle::GetSharedInstance();
     base::StringPiece html = bundle.GetRawDataResource(IDR_LOCAL_NTP_HTML);

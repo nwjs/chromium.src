@@ -19,8 +19,9 @@ class ChromeBrowserState;
 @class SessionWindowIOS;
 @class SessionIOSFactory;
 class SessionRestorationObserver;
-class WebStateList;
 @class SessionServiceIOS;
+class WebStateList;
+class WebUsageEnablerBrowserAgent;
 
 // This class is responsible for handling requests of session restoration. It
 // can be observed via SeassonRestorationObserver which it uses to notify
@@ -74,13 +75,16 @@ class SessionRestorationBrowserAgent
                            web::WebState* old_web_state,
                            web::WebState* new_web_state,
                            int active_index,
-                           int reason) override;
+                           ActiveWebStateChangeReason reason) override;
 
   // The service object which handles the actual saving of sessions.
   SessionServiceIOS* session_service_;
 
   // The list of web states to be saved.
   WebStateList* web_state_list_;
+
+  // The web usage enabler for the web state list being restored.
+  WebUsageEnablerBrowserAgent* web_enabler_;
 
   base::ObserverList<SessionRestorationObserver, true> observers_;
 

@@ -54,6 +54,9 @@ class CONTENT_EXPORT AuthenticatorRequestClientDelegate
     // because the authenticator has insufficient storage.
     kStorageFull,
     kUserConsentDenied,
+    // kWinUserCancelled means that the user clicked "Cancel" in the native
+    // Windows UI.
+    kWinUserCancelled,
   };
 
   AuthenticatorRequestClientDelegate();
@@ -195,15 +198,17 @@ class CONTENT_EXPORT AuthenticatorRequestClientDelegate
   using TouchIdAuthenticatorConfig = device::fido::mac::AuthenticatorConfig;
 
   // Returns configuration data for the built-in Touch ID platform
-  // authenticator. May return nullopt if the authenticator is not used or not
-  // available.
+  // authenticator. May return nullopt if the authenticator is not available in
+  // the current context, in which case the Touch ID authenticator will be
+  // unavailable.
   virtual base::Optional<TouchIdAuthenticatorConfig>
   GetTouchIdAuthenticatorConfig();
 #endif  // defined(OS_MACOSX)
 
-  // Returns true if a user verifying platform authenticator is available and
-  // configured.
-  virtual bool IsUserVerifyingPlatformAuthenticatorAvailable();
+  // Returns a bool if the result of the isUserVerifyingPlatformAuthenticator
+  // API call should be overridden with that value, or base::nullopt otherwise.
+  virtual base::Optional<bool>
+  IsUserVerifyingPlatformAuthenticatorAvailableOverride();
 
   // Returns a FidoDiscoveryFactory that has been configured for the current
   // environment.
@@ -248,6 +253,8 @@ class CONTENT_EXPORT AuthenticatorRequestClientDelegate
       base::Optional<int> attempts,
       base::OnceCallback<void(std::string)> provide_pin_cb) override;
   void FinishCollectToken() override;
+  void OnRetryUserVerification(int attempts) override;
+  void OnInternalUserVerificationLocked() override;
 
  protected:
   // CustomizeDiscoveryFactory may be overridden in order to configure

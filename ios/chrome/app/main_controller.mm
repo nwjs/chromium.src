@@ -3,31 +3,17 @@
 // found in the LICENSE file.
 
 #import "ios/chrome/app/main_controller.h"
+#import "ios/chrome/app/main_controller_private.h"
 
 #include <memory>
-#include <string>
-
-#import <CoreSpotlight/CoreSpotlight.h>
-#import <objc/objc.h>
-#import <objc/runtime.h>
-
-#include "base/bind.h"
-#include "base/feature_list.h"
-#include "base/files/file_path.h"
-#include "base/ios/block_types.h"
 #include "base/mac/bundle_locations.h"
 #include "base/mac/foundation_util.h"
-#include "base/macros.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/path_service.h"
 #include "base/strings/sys_string_conversions.h"
-#include "base/task/post_task.h"
-#include "base/time/time.h"
 #include "components/component_updater/component_updater_service.h"
 #include "components/component_updater/crl_set_remover.h"
 #include "components/component_updater/installer_policies/on_device_head_suggest_component_installer.h"
-#include "components/content_settings/core/browser/host_content_settings_map.h"
 #include "components/feature_engagement/public/event_constants.h"
 #include "components/feature_engagement/public/tracker.h"
 #include "components/metrics/metrics_pref_names.h"
@@ -36,22 +22,12 @@
 #include "components/password_manager/core/common/passwords_directory_util_ios.h"
 #include "components/prefs/ios/pref_observer_bridge.h"
 #include "components/prefs/pref_change_registrar.h"
-#include "components/search_engines/template_url_service.h"
-#include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/ukm/ios/features.h"
-#include "components/url_formatter/url_formatter.h"
 #include "components/web_resource/web_resource_pref_names.h"
-#import "ios/chrome/app/application_delegate/app_state.h"
 #import "ios/chrome/app/application_delegate/metrics_mediator.h"
-#import "ios/chrome/app/application_delegate/url_opener.h"
-#include "ios/chrome/app/application_mode.h"
 #import "ios/chrome/app/deferred_initialization_runner.h"
-#import "ios/chrome/app/firebase_utils.h"
-#import "ios/chrome/app/main_controller_private.h"
 #import "ios/chrome/app/memory_monitor.h"
 #import "ios/chrome/app/spotlight/spotlight_manager.h"
-#import "ios/chrome/app/spotlight/spotlight_util.h"
-#include "ios/chrome/app/startup/chrome_app_startup_parameters.h"
 #include "ios/chrome/app/startup/chrome_main_starter.h"
 #include "ios/chrome/app/startup/client_registration.h"
 #import "ios/chrome/app/startup/content_suggestions_scheduler_notifications.h"
@@ -65,13 +41,9 @@
 #include "ios/chrome/browser/browser_state/chrome_browser_state.h"
 #include "ios/chrome/browser/browser_state/chrome_browser_state_manager.h"
 #include "ios/chrome/browser/browser_state/chrome_browser_state_removal_controller.h"
-#include "ios/chrome/browser/browsing_data/browsing_data_remove_mask.h"
 #include "ios/chrome/browser/browsing_data/browsing_data_remover.h"
 #include "ios/chrome/browser/browsing_data/browsing_data_remover_factory.h"
 #include "ios/chrome/browser/chrome_paths.h"
-#include "ios/chrome/browser/chrome_url_constants.h"
-#import "ios/chrome/browser/chrome_url_util.h"
-#include "ios/chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "ios/chrome/browser/crash_report/breadcrumbs/breadcrumb_manager_keyed_service.h"
 #include "ios/chrome/browser/crash_report/breadcrumbs/breadcrumb_manager_keyed_service_factory.h"
 #include "ios/chrome/browser/crash_report/breadcrumbs/features.h"
@@ -82,67 +54,41 @@
 #import "ios/chrome/browser/external_files/external_file_remover_factory.h"
 #import "ios/chrome/browser/external_files/external_file_remover_impl.h"
 #include "ios/chrome/browser/feature_engagement/tracker_factory.h"
-#include "ios/chrome/browser/feature_engagement/tracker_util.h"
-#include "ios/chrome/browser/file_metadata_util.h"
 #import "ios/chrome/browser/first_run/first_run.h"
 #include "ios/chrome/browser/geolocation/omnibox_geolocation_controller.h"
-#include "ios/chrome/browser/ios_chrome_io_thread.h"
-#include "ios/chrome/browser/mailto/features.h"
 #include "ios/chrome/browser/main/browser.h"
 #import "ios/chrome/browser/memory/memory_debugger_manager.h"
 #include "ios/chrome/browser/metrics/first_user_action_recorder.h"
 #import "ios/chrome/browser/metrics/previous_session_info.h"
 #import "ios/chrome/browser/net/cookie_util.h"
 #include "ios/chrome/browser/ntp_snippets/ios_chrome_content_suggestions_service_factory.h"
+#import "ios/chrome/browser/omaha/omaha_service.h"
 #include "ios/chrome/browser/pref_names.h"
-#import "ios/chrome/browser/reading_list/reading_list_download_service.h"
-#import "ios/chrome/browser/reading_list/reading_list_download_service_factory.h"
 #import "ios/chrome/browser/search_engines/extension_search_engine_data_updater.h"
 #include "ios/chrome/browser/search_engines/search_engines_util.h"
 #include "ios/chrome/browser/search_engines/template_url_service_factory.h"
 #import "ios/chrome/browser/share_extension/share_extension_service.h"
 #import "ios/chrome/browser/share_extension/share_extension_service_factory.h"
-#include "ios/chrome/browser/signin/authentication_service.h"
 #include "ios/chrome/browser/signin/authentication_service_delegate.h"
 #include "ios/chrome/browser/signin/authentication_service_factory.h"
-#include "ios/chrome/browser/signin/identity_manager_factory.h"
 #import "ios/chrome/browser/snapshots/snapshot_cache.h"
 #import "ios/chrome/browser/snapshots/snapshot_cache_factory.h"
-#import "ios/chrome/browser/snapshots/snapshot_tab_helper.h"
 #include "ios/chrome/browser/system_flags.h"
 #import "ios/chrome/browser/tabs/tab_model.h"
 #import "ios/chrome/browser/ui/appearance/appearance_customization.h"
-#import "ios/chrome/browser/ui/authentication/signed_in_accounts_view_controller.h"
-#import "ios/chrome/browser/ui/browser_view/browser_coordinator.h"
-#import "ios/chrome/browser/ui/browser_view/browser_view_controller.h"
 #import "ios/chrome/browser/ui/commands/browser_commands.h"
-#import "ios/chrome/browser/ui/commands/browsing_data_commands.h"
-#import "ios/chrome/browser/ui/commands/open_new_tab_command.h"
-#import "ios/chrome/browser/ui/commands/show_signin_command.h"
 #import "ios/chrome/browser/ui/first_run/first_run_util.h"
-#import "ios/chrome/browser/ui/first_run/orientation_limiting_navigation_controller.h"
 #import "ios/chrome/browser/ui/first_run/welcome_to_chrome_view_controller.h"
-#include "ios/chrome/browser/ui/history/history_coordinator.h"
 #import "ios/chrome/browser/ui/main/browser_view_wrangler.h"
 #import "ios/chrome/browser/ui/main/scene_controller_guts.h"
-#import "ios/chrome/browser/ui/promos/signin_promo_view_controller.h"
-#import "ios/chrome/browser/ui/settings/settings_navigation_controller.h"
-#include "ios/chrome/browser/ui/tab_grid/tab_grid_coordinator.h"
-#import "ios/chrome/browser/ui/tab_grid/tab_switcher.h"
-#import "ios/chrome/browser/ui/tab_grid/view_controller_swapping.h"
+#import "ios/chrome/browser/ui/main/scene_delegate.h"
 #import "ios/chrome/browser/ui/ui_feature_flags.h"
-#include "ios/chrome/browser/ui/util/ui_util.h"
-#import "ios/chrome/browser/ui/util/uikit_ui_util.h"
+#include "ios/chrome/browser/ui/util/multi_window_support.h"
 #import "ios/chrome/browser/ui/webui/chrome_web_ui_ios_controller_factory.h"
-#import "ios/chrome/browser/url_loading/app_url_loading_service.h"
 #import "ios/chrome/browser/url_loading/url_loading_params.h"
-#import "ios/chrome/browser/url_loading/url_loading_service.h"
-#import "ios/chrome/browser/url_loading/url_loading_service_factory.h"
 #import "ios/chrome/browser/web/tab_id_tab_helper.h"
 #import "ios/chrome/browser/web_state_list/web_state_list.h"
-#import "ios/chrome/browser/web_state_list/web_state_list_observer_bridge.h"
 #include "ios/chrome/common/app_group/app_group_constants.h"
-#include "ios/chrome/common/app_group/app_group_field_trial_version.h"
 #include "ios/chrome/common/app_group/app_group_utils.h"
 #include "ios/net/cookies/cookie_store_ios.h"
 #import "ios/net/empty_nsurlcache.h"
@@ -150,16 +96,9 @@
 #include "ios/public/provider/chrome/browser/distribution/app_distribution_provider.h"
 #include "ios/public/provider/chrome/browser/mailto/mailto_handler_provider.h"
 #import "ios/public/provider/chrome/browser/overrides_provider.h"
-#include "ios/public/provider/chrome/browser/signin/chrome_identity_service.h"
 #import "ios/public/provider/chrome/browser/user_feedback/user_feedback_provider.h"
-#import "ios/third_party/material_components_ios/src/components/Typography/src/MaterialTypography.h"
-#import "ios/web/common/web_view_creation_util.h"
-#import "ios/web/public/navigation/navigation_item.h"
-#import "ios/web/public/navigation/navigation_manager.h"
-#include "ios/web/public/thread/web_task_traits.h"
-#import "ios/web/public/web_state.h"
+#import "ios/web/common/features.h"
 #include "ios/web/public/webui/web_ui_ios_controller_factory.h"
-#include "mojo/core/embedder/embedder.h"
 #import "net/base/mac/url_conversions.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 
@@ -168,9 +107,6 @@
 #endif
 
 namespace {
-
-// Preference key used to store which profile is current.
-NSString* kIncognitoCurrentKey = @"IncognitoActive";
 
 // Constants for deferring notifying the AuthenticationService of a new cold
 // start.
@@ -215,9 +151,6 @@ NSString* const kStartSpotlightBookmarksIndexing =
 
 // Constants for deferring the enterprise managed device check.
 NSString* const kEnterpriseManagedDeviceCheck = @"EnterpriseManagedDeviceCheck";
-
-// Constants for deferred promo display.
-const NSTimeInterval kDisplayPromoDelay = 0.1;
 
 // Adapted from chrome/browser/ui/browser_init.cc.
 void RegisterComponentsForUpdate() {
@@ -277,8 +210,7 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
 
 }  // namespace
 
-@interface MainController () <BrowserStateStorageSwitching,
-                              PrefObserverDelegate> {
+@interface MainController () <PrefObserverDelegate> {
   IBOutlet UIWindow* _window;
 
   // Weak; owned by the ChromeBrowserProvider.
@@ -287,8 +219,6 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
   // The object that drives the Chrome startup/shutdown logic.
   std::unique_ptr<IOSChromeMain> _chromeMain;
 
-  // TabSwitcher object -- the tab grid.
-  id<TabSwitcher> _tabSwitcher;
 
   // True if the current session began from a cold start. False if the app has
   // entered the background at least once since start up.
@@ -296,10 +226,6 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
 
   // An object to record metrics related to the user's first action.
   std::unique_ptr<FirstUserActionRecorder> _firstUserActionRecorder;
-
-  // True if First Run UI (terms of service & sync sign-in) is being presented
-  // in a modal dialog.
-  BOOL _isPresentingFirstRunUI;
 
   // Bridge to listen to pref changes.
   std::unique_ptr<PrefObserverBridge> _localStatePrefObserverBridge;
@@ -333,26 +259,11 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
   BOOL _animationDisabled;
 }
 
-// Wrangler to handle BVC and tab model creation, access, and related logic.
-// Implements faetures exposed from this object through the
-// BrowserViewInformation protocol.
-@property(nonatomic, strong) BrowserViewWrangler* browserViewWrangler;
-
 // The ChromeBrowserState associated with the main (non-OTR) browsing mode.
 @property(nonatomic, assign) ChromeBrowserState* mainBrowserState;  // Weak.
 
-// The main coordinator, lazily created the first time it is accessed. Manages
-// the main view controller. This property should not be accessed before the
-// browser has started up to the FOREGROUND stage.
-@property(nonatomic, readonly) TabGridCoordinator* mainCoordinator;
-
 // Returns whether the restore infobar should be displayed.
 - (bool)mustShowRestoreInfobar;
-// Switch all global states for the given mode (normal or incognito).
-- (void)switchGlobalStateToMode:(ApplicationMode)mode;
-// Updates the local storage, cookie store, and sets the global state.
-- (void)changeStorageFromBrowserState:(ChromeBrowserState*)oldState
-                       toBrowserState:(ChromeBrowserState*)newState;
 // Returns the set of the sessions ids of the tabs in the given |tabModel|.
 - (NSMutableSet*)liveSessionsForTabModel:(TabModel*)tabModel;
 // Purge the unused snapshots.
@@ -374,8 +285,6 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
 - (void)scheduleMemoryDebuggingTools;
 // Asynchronously kick off regular free memory checks.
 - (void)startFreeMemoryMonitoring;
-// Asynchronously schedules the notification of the AuthenticationService.
-- (void)scheduleAuthenticationServiceNotification;
 // Asynchronously schedules the reset of the failed startup attempt counter.
 - (void)scheduleStartupAttemptReset;
 // Asynchronously schedules the cleanup of crash reports.
@@ -390,18 +299,10 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
 - (void)scheduleTasksRequiringBVCWithBrowserState;
 // Schedules the deletion of user downloaded files that might be leftover
 // from the last time Chrome was run.
-- (void)scheduleDeleteDownloadsDirectory;
+- (void)scheduleDeleteTempDownloadsDirectory;
 // Schedule the deletion of the temporary passwords files that might
 // be left over from incomplete export operations.
 - (void)scheduleDeleteTempPasswordsDirectory;
-// Returns whether or not the app can launch in incognito mode.
-- (BOOL)canLaunchInIncognito;
-// Determines which UI should be shown on startup, and shows it.
-- (void)createInitialUI:(ApplicationMode)launchMode;
-// Initializes the first run UI and presents it to the user.
-- (void)showFirstRunUI;
-// Schedules presentation of the first eligible promo found, if any.
-- (void)scheduleShowPromo;
 // Crashes the application if requested.
 - (void)crashIfRequested;
 // Handles the notification that first run modal dialog UI is about to complete.
@@ -426,8 +327,6 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
 
 @implementation MainController
 // Defined by MainControllerGuts.
-@synthesize appURLLoadingService;
-@synthesize dismissingTabSwitcher = _dismissingTabSwitcher;
 @synthesize restoreHelper = _restoreHelper;
 
 // Defined by public protocols.
@@ -435,13 +334,9 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
 @synthesize launchOptions = _launchOptions;
 @synthesize browserInitializationStage = _browserInitializationStage;
 // - StartupInformation
-@synthesize isPresentingFirstRunUI = _isPresentingFirstRunUI;
 @synthesize isColdStart = _isColdStart;
 @synthesize startupParameters = _startupParameters;
 @synthesize appLaunchTime = _appLaunchTime;
-// Defined in private interface
-@synthesize mainCoordinator = _mainCoordinator;
-@synthesize tabSwitcherIsActive;
 
 #pragma mark - Application lifecycle
 
@@ -489,6 +384,17 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
 
   // Register all providers before calling any Chromium code.
   [ProviderRegistration registerProviders];
+
+  if (@available(iOS 13, *)) {
+    if (IsMultiwindowSupported()) {
+      // Subscribe for scene connection and disconnection notifications.
+      [[NSNotificationCenter defaultCenter]
+          addObserver:self
+             selector:@selector(sceneWillConnect:)
+                 name:UISceneWillConnectNotification
+               object:nil];
+    }
+  }
 }
 
 - (void)startUpBrowserBackgroundInitialization {
@@ -526,15 +432,14 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
   [NSURLCache setSharedURLCache:[EmptyNSURLCache emptyNSURLCache]];
 }
 
-- (void)startUpBrowserForegroundInitialization {
+// This initialization must happen before any windows are created.
+// Returns YES iff there's a session restore available.
+- (BOOL)startUpBeforeFirstWindowCreatedAndPrepareForRestorationPostCrash:
+    (BOOL)isPostCrashLaunch {
   // Give tests a chance to prepare for testing.
   tests_hook::SetUpTestsIfPresent();
 
   GetApplicationContext()->OnAppEnterForeground();
-
-  // TODO(crbug.com/546171): Audit all the following code to see if some of it
-  // should move into BrowserMainParts or BrowserProcess.
-  NSUserDefaults* standardDefaults = [NSUserDefaults standardUserDefaults];
 
   // Although this duplicates some metrics_service startup logic also in
   // IOSChromeMain(), this call does additional work, checking for wifi-only
@@ -566,15 +471,11 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
   // The CrashRestoreHelper must clean up the old browser state information
   // before the tabModels can be created.  |self.restoreHelper| must be kept
   // alive until the BVC receives the browser state and tab model.
-  BOOL postCrashLaunch = [self mustShowRestoreInfobar];
-  if (postCrashLaunch) {
-    self.restoreHelper =
-        [[CrashRestoreHelper alloc] initWithBrowserState:chromeBrowserState];
-    [self.restoreHelper moveAsideSessionInformation];
+  BOOL needRestoration = NO;
+  if (isPostCrashLaunch) {
+    needRestoration = [CrashRestoreHelper
+        moveAsideSessionInformationForBrowserState:chromeBrowserState];
   }
-
-  self.appURLLoadingService = new AppUrlLoadingService();
-  self.appURLLoadingService->SetDelegate(self.sceneController);
 
   // Initialize and set the main browser state.
   [self initializeBrowserState:chromeBrowserState];
@@ -585,15 +486,6 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
         BreadcrumbManagerKeyedServiceFactory::GetForBrowserState(
             self.mainBrowserState));
   }
-
-  [self.browserViewWrangler shutdown];
-  self.browserViewWrangler = [[BrowserViewWrangler alloc]
-             initWithBrowserState:self.mainBrowserState
-             webStateListObserver:self.sceneController
-       applicationCommandEndpoint:self.sceneController
-      browsingDataCommandEndpoint:self
-             appURLLoadingService:self.appURLLoadingService
-                  storageSwitcher:self];
 
   // Force an obvious initialization of the AuthenticationService. This must
   // be done before creation of the UI to ensure the service is initialised
@@ -610,9 +502,6 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
   feature_engagement::TrackerFactory::GetForBrowserState(chromeBrowserState)
       ->NotifyEvent(feature_engagement::events::kChromeOpened);
 
-  // Ensure the main tab model is created. This also creates the BVC.
-  [self.browserViewWrangler createMainBrowser];
-
   _spotlightManager =
       [SpotlightManager spotlightManagerWithBrowserState:self.mainBrowserState];
 
@@ -620,32 +509,32 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
       ShareExtensionServiceFactory::GetForBrowserState(self.mainBrowserState);
   service->Initialize();
 
-  // Before bringing up the UI, make sure the launch mode is correct, and
-  // check for previous crashes.
-  BOOL startInIncognito = [standardDefaults boolForKey:kIncognitoCurrentKey];
-  BOOL switchFromIncognito = startInIncognito && ![self canLaunchInIncognito];
-
-  if (postCrashLaunch || switchFromIncognito) {
-    [self.sceneController clearIOSSpecificIncognitoData];
-    if (switchFromIncognito)
-      [self switchGlobalStateToMode:ApplicationMode::NORMAL];
-  }
-  if (switchFromIncognito)
-    startInIncognito = NO;
-
   if ([PreviousSessionInfo sharedInstance].isFirstSessionAfterLanguageChange) {
     IOSChromeContentSuggestionsServiceFactory::GetForBrowserState(
         chromeBrowserState)
         ->ClearAllCachedSuggestions();
   }
 
-  [self createInitialUI:(startInIncognito ? ApplicationMode::INCOGNITO
-                                          : ApplicationMode::NORMAL)];
+  return needRestoration;
+}
+
+// This initialization must only happen once there's at least one Chrome window
+// open.
+- (void)startUpAfterFirstWindowCreated {
+  // "Low priority" tasks
+  [_startupTasks registerForApplicationWillResignActiveNotification];
+  [self registerForOrientationChangeNotifications];
+
+  _launchOptions = nil;
+
+  [self scheduleTasksRequiringBVCWithBrowserState];
+
+  CustomizeUIAppearance();
 
   [self scheduleStartupCleanupTasks];
   [MetricsMediator
       logLaunchMetricsWithStartupInformation:self
-                           interfaceProvider:self.interfaceProvider];
+                             connectedScenes:self.appState.connectedScenes];
   if (self.isColdStart) {
     [ContentSuggestionsSchedulerNotifications
         notifyColdStart:self.mainBrowserState];
@@ -657,29 +546,27 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
 
   [self scheduleLowPriorityStartupTasks];
 
-  [self.browserViewWrangler updateDeviceSharingManager];
-
-  [self.sceneController openTabFromLaunchOptions:_launchOptions
-                              startupInformation:self
-                                        appState:self.appState];
-  _launchOptions = nil;
-
-  if (!self.startupParameters) {
-    // The startup parameters may create new tabs or navigations. If the restore
-    // infobar is displayed now, it may be dismissed immediately and the user
-    // will never be able to restore the session.
-    TabModel* currentTabModel = [self currentTabModel];
-    [self.restoreHelper
-        showRestoreIfNeededUsingWebState:currentTabModel.webStateList
-                                             ->GetActiveWebState()
-                         sessionRestorer:currentTabModel];
-    self.restoreHelper = nil;
-  }
-
-  [self scheduleTasksRequiringBVCWithBrowserState];
-
   // Now that everything is properly set up, run the tests.
   tests_hook::RunTestsIfPresent();
+}
+
+- (void)startUpBrowserForegroundInitialization {
+  BOOL postCrashLaunch = [self mustShowRestoreInfobar];
+  BOOL needRestore =
+      [self startUpBeforeFirstWindowCreatedAndPrepareForRestorationPostCrash:
+                postCrashLaunch];
+
+  if (@available(iOS 13, *)) {
+    if (IsMultiwindowSupported()) {
+      // The rest of the startup sequence is handled by the Scenes and in
+      // response to notifications.
+      return;
+    }
+  }
+
+  [self.sceneController startUpChromeUIPostCrash:postCrashLaunch
+                                 needRestoration:needRestore];
+  [self startUpAfterFirstWindowCreated];
 }
 
 - (void)initializeBrowserState:(ChromeBrowserState*)browserState {
@@ -690,8 +577,6 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
 }
 
 - (void)handleFirstRunUIWillFinish {
-  DCHECK(_isPresentingFirstRunUI);
-  _isPresentingFirstRunUI = NO;
   [[NSNotificationCenter defaultCenter]
       removeObserver:self
                 name:kChromeFirstRunUIWillFinishNotification
@@ -725,29 +610,33 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
       triggerSystemPromptForNewUser:YES];
 }
 
+#pragma mark - AppStateObserver
+
+// Called when the first scene becomes active.
+- (void)appState:(AppState*)appState
+    firstSceneActivated:(SceneState*)sceneState {
+  [self startUpAfterFirstWindowCreated];
+}
+
+#pragma mark - Scene notifications
+
+// Handler for UISceneWillConnectNotification.
+- (void)sceneWillConnect:(NSNotification*)notification {
+  DCHECK(IsMultiwindowSupported());
+  if (@available(iOS 13, *)) {
+    UIWindowScene* scene =
+        base::mac::ObjCCastStrict<UIWindowScene>(notification.object);
+    SceneDelegate* sceneDelegate =
+        base::mac::ObjCCastStrict<SceneDelegate>(scene.delegate);
+    self.sceneController = sceneDelegate.sceneController;
+    sceneDelegate.sceneController.mainController = self;
+  }
+}
 
 #pragma mark - Property implementation.
 
 - (id<BrowserInterfaceProvider>)interfaceProvider {
-  return self.browserViewWrangler;
-}
-
-- (TabGridCoordinator*)mainCoordinator {
-  if (_browserInitializationStage == INITIALIZATION_STAGE_BASIC) {
-    NOTREACHED() << "mainCoordinator accessed too early in initialization.";
-    return nil;
-  }
-  if (!_mainCoordinator) {
-    // Lazily create the main coordinator.
-    TabGridCoordinator* tabGridCoordinator =
-        [[TabGridCoordinator alloc] initWithWindow:self.window
-                        applicationCommandEndpoint:self.sceneController
-                       browsingDataCommandEndpoint:self];
-    tabGridCoordinator.regularBrowser = self.mainBrowser;
-    tabGridCoordinator.incognitoBrowser = self.otrBrowser;
-    _mainCoordinator = tabGridCoordinator;
-  }
-  return _mainCoordinator;
+  return self.appState.connectedScenes[0].interfaceProvider;
 }
 
 - (BOOL)isFirstLaunchAfterUpgrade {
@@ -755,6 +644,15 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
 }
 
 #pragma mark - StartupInformation implementation.
+
+- (BOOL)isPresentingFirstRunUI {
+  BOOL isPresentingFirstRunUI = NO;
+  for (SceneState* scene in self.appState.connectedScenes) {
+    isPresentingFirstRunUI &= scene.presentingFirstRunUI;
+  }
+
+  return isPresentingFirstRunUI;
+}
 
 - (FirstUserActionRecorder*)firstUserActionRecorder {
   return _firstUserActionRecorder.get();
@@ -777,11 +675,13 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
 }
 
 - (void)stopChromeMain {
+  // This code is per-window.
+
   // Teardown UI state that is associated with scenes.
   [self.sceneController teardownUI];
+  // End of per-window code.
 
-  [_mainCoordinator stop];
-  _mainCoordinator = nil;
+  OmahaService::Stop();
 
   [_spotlightManager shutdown];
   _spotlightManager = nil;
@@ -796,11 +696,6 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
         BreadcrumbManagerKeyedServiceFactory::GetForBrowserState(
             self.mainBrowserState));
   }
-
-  // Invariant: The UI is stopped before the model is shutdown.
-  DCHECK(!_mainCoordinator);
-  [self.browserViewWrangler shutdown];
-  self.browserViewWrangler = nil;
 
   _extensionSearchEngineDataUpdater = nullptr;
 
@@ -865,7 +760,7 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
     return;
   }
   CGFloat level = [UIDevice currentDevice].batteryLevel;
-  if (level < 0.2) {
+  if (level < web::features::kLowBatteryLevelThreshold) {
     if (!_animationDisabled) {
       _animationDisabled = YES;
       [UIView setAnimationsEnabled:NO];
@@ -918,29 +813,18 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
                   block:^{
                     auto URLLoaderFactory =
                         self.mainBrowserState->GetSharedURLLoaderFactory();
-                    bool is_first_run = FirstRun::IsChromeFirstRun();
+                    const bool is_first_run = FirstRun::IsChromeFirstRun();
                     ios::GetChromeBrowserProvider()
                         ->GetAppDistributionProvider()
                         ->ScheduleDistributionNotifications(URLLoaderFactory,
                                                             is_first_run);
-                    InitializeFirebase(is_first_run);
-                  }];
-}
 
-- (void)scheduleAuthenticationServiceNotification {
-  [[DeferredInitializationRunner sharedInstance]
-      enqueueBlockNamed:kAuthenticationServiceNotification
-                  block:^{
-                    // Active browser state should have been set before
-                    // scheduling any authentication service notification.
-                    DCHECK([self currentBrowserState]);
-                    if ([SignedInAccountsViewController
-                            shouldBePresentedForBrowserState:
-                                [self currentBrowserState]]) {
-                      [self.sceneController
-                          presentSignedInAccountsViewControllerForBrowserState:
-                              [self currentBrowserState]];
-                    }
+                    const int64_t install_date =
+                        GetApplicationContext()->GetLocalState()->GetInt64(
+                            metrics::prefs::kInstallDate);
+                    ios::GetChromeBrowserProvider()
+                        ->GetAppDistributionProvider()
+                        ->InitializeFirebase(install_date, is_first_run);
                   }];
 }
 
@@ -1078,8 +962,7 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
 - (void)scheduleLowPriorityStartupTasks {
   [_startupTasks initializeOmaha];
   [_startupTasks donateIntents];
-  [_startupTasks registerForApplicationWillResignActiveNotification];
-  [self registerForOrientationChangeNotifications];
+
   [self registerBatteryMonitoringNotifications];
 
   // Deferred tasks.
@@ -1087,10 +970,9 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
   [self scheduleMemoryDebuggingTools];
   [StartupTasks
       scheduleDeferredBrowserStateInitialization:self.mainBrowserState];
-  [self scheduleAuthenticationServiceNotification];
   [self sendQueuedFeedback];
   [self scheduleSpotlightResync];
-  [self scheduleDeleteDownloadsDirectory];
+  [self scheduleDeleteTempDownloadsDirectory];
   [self scheduleDeleteTempPasswordsDirectory];
   [self scheduleStartupAttemptReset];
   [self startFreeMemoryMonitoring];
@@ -1109,14 +991,13 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
             base::TimeDelta::FromSeconds(kExternalFilesCleanupDelaySeconds),
             base::OnceClosure());
   }
-  [self scheduleShowPromo];
 }
 
-- (void)scheduleDeleteDownloadsDirectory {
+- (void)scheduleDeleteTempDownloadsDirectory {
   [[DeferredInitializationRunner sharedInstance]
       enqueueBlockNamed:kDeleteDownloads
                   block:^{
-                    DeleteDownloadsDirectory();
+                    DeleteTempDownloadsDirectory();
                   }];
 }
 
@@ -1170,77 +1051,7 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
   return ![self.otrTabModel isEmpty];
 }
 
-- (void)createInitialUI:(ApplicationMode)launchMode {
-  DCHECK(self.mainBrowserState);
-
-  // In order to correctly set the mode switch icon, we need to know how many
-  // tabs are in the other tab model. That means loading both models.  They
-  // may already be loaded.
-  // TODO(crbug.com/546203): Find a way to handle this that's closer to the
-  // point where it is necessary.
-  TabModel* mainTabModel = self.mainTabModel;
-  TabModel* otrTabModel = self.otrTabModel;
-
-  // MainCoordinator shouldn't have been initialized yet.
-  DCHECK(!_mainCoordinator);
-
-  // Enables UI initializations to query the keyWindow's size.
-  [self.window makeKeyAndVisible];
-
-  CustomizeUIAppearance();
-
-  // Lazy init of mainCoordinator.
-  [self.mainCoordinator start];
-
-  _tabSwitcher = self.mainCoordinator.tabSwitcher;
-  // Call -restoreInternalState so that the grid shows the correct panel.
-  [_tabSwitcher restoreInternalStateWithMainBrowser:self.mainBrowser
-                                         otrBrowser:self.otrBrowser
-                                      activeBrowser:self.currentBrowser];
-
-  // Decide if the First Run UI needs to run.
-  BOOL firstRun = (FirstRun::IsChromeFirstRun() ||
-                   experimental_flags::AlwaysDisplayFirstRun()) &&
-                  !tests_hook::DisableFirstRun();
-
-  ChromeBrowserState* browserState =
-      (launchMode == ApplicationMode::INCOGNITO)
-          ? self.mainBrowserState->GetOffTheRecordChromeBrowserState()
-          : self.mainBrowserState;
-  [self changeStorageFromBrowserState:nullptr toBrowserState:browserState];
-
-  TabModel* tabModel;
-  if (launchMode == ApplicationMode::INCOGNITO) {
-    tabModel = otrTabModel;
-    [self.sceneController
-        setCurrentInterfaceForMode:ApplicationMode::INCOGNITO];
-  } else {
-    tabModel = mainTabModel;
-    [self.sceneController setCurrentInterfaceForMode:ApplicationMode::NORMAL];
-  }
-  if (self.tabSwitcherIsActive) {
-    DCHECK(!self.dismissingTabSwitcher);
-    [self.sceneController
-        beginDismissingTabSwitcherWithCurrentModel:self.mainTabModel
-                                      focusOmnibox:NO];
-    [self.sceneController finishDismissingTabSwitcher];
-  }
-  if (firstRun ||
-      [self.sceneController shouldOpenNTPTabOnActivationOfTabModel:tabModel]) {
-    OpenNewTabCommand* command = [OpenNewTabCommand
-        commandWithIncognito:(self.currentBVC == self.otrBVC)];
-    command.userInitiated = NO;
-    [self.currentBVC.dispatcher openURLInNewTab:command];
-  }
-
-  if (firstRun) {
-    [self showFirstRunUI];
-    // Do not ever show the 'restore' infobar during first run.
-    self.restoreHelper = nil;
-  }
-}
-
-- (void)showFirstRunUI {
+- (void)prepareForFirstRunUI {
   // Register for notification when First Run is completed.
   // Some initializations are held back until First Run modal dialog
   // is dismissed.
@@ -1254,21 +1065,6 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
          selector:@selector(handleFirstRunUIDidFinish)
              name:kChromeFirstRunUIDidFinishNotification
            object:nil];
-
-  WelcomeToChromeViewController* welcomeToChrome =
-      [[WelcomeToChromeViewController alloc]
-          initWithBrowser:self.interfaceProvider.mainInterface.browser
-                presenter:self.mainBVC
-               dispatcher:self.mainBVC.dispatcher];
-  UINavigationController* navController =
-      [[OrientationLimitingNavigationController alloc]
-          initWithRootViewController:welcomeToChrome];
-  [navController setModalTransitionStyle:UIModalTransitionStyleCrossDissolve];
-  navController.modalPresentationStyle = UIModalPresentationFullScreen;
-  CGRect appFrame = [[UIScreen mainScreen] bounds];
-  [[navController view] setFrame:appFrame];
-  _isPresentingFirstRunUI = YES;
-  [self.mainBVC presentViewController:navController animated:NO completion:nil];
 }
 
 - (void)crashIfRequested {
@@ -1280,68 +1076,6 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
     *x = 0;
   }
 }
-
-#pragma mark - Promo support
-
-- (void)scheduleShowPromo {
-  // Don't show promos if first run is shown.  (Note:  This flag is only YES
-  // while the first run UI is visible.  However, as this function is called
-  // immediately after the UI is shown, it's a safe check.)
-  if (_isPresentingFirstRunUI)
-    return;
-  // Don't show promos in Incognito mode.
-  if (self.currentBVC == self.otrBVC)
-    return;
-  // Don't show promos if the app was launched from a URL.
-  if (self.startupParameters)
-    return;
-
-  // Show the sign-in promo if needed
-  if ([SigninPromoViewController
-          shouldBePresentedForBrowserState:self.mainBrowserState]) {
-    Browser* browser = self.interfaceProvider.mainInterface.browser;
-    UIViewController* promoController = [[SigninPromoViewController alloc]
-        initWithBrowser:browser
-             dispatcher:self.mainBVC.dispatcher];
-
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW,
-                                 (int64_t)(kDisplayPromoDelay * NSEC_PER_SEC)),
-                   dispatch_get_main_queue(), ^{
-                     [self showPromo:promoController];
-                   });
-  }
-}
-
-- (void)showPromo:(UIViewController*)promo {
-  // Make sure we have the BVC here with a valid profile.
-  DCHECK([self.currentBVC browserState]);
-
-  OrientationLimitingNavigationController* navController =
-      [[OrientationLimitingNavigationController alloc]
-          initWithRootViewController:promo];
-
-  // Avoid presenting the promo if the current device orientation is not
-  // supported. The promo will be presented at a later moment, when the device
-  // orientation is supported.
-  UIInterfaceOrientation orientation =
-      [UIApplication sharedApplication].statusBarOrientation;
-  NSUInteger supportedOrientationsMask =
-      [navController supportedInterfaceOrientations];
-  if (!((1 << orientation) & supportedOrientationsMask))
-    return;
-
-  [navController setModalTransitionStyle:[promo modalTransitionStyle]];
-  [navController setNavigationBarHidden:YES];
-  [[navController view] setFrame:[[UIScreen mainScreen] bounds]];
-
-  [self.mainBVC presentViewController:navController
-                             animated:YES
-                           completion:nil];
-}
-
-
-
-
 
 #pragma mark - Preferences Management
 
@@ -1355,11 +1089,6 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
 
 #pragma mark - Helper methods backed by interfaces.
 
-- (BrowserViewController*)mainBVC {
-  DCHECK(self.interfaceProvider);
-  return self.interfaceProvider.mainInterface.bvc;
-}
-
 - (Browser*)mainBrowser {
   DCHECK(self.interfaceProvider);
   return self.interfaceProvider.mainInterface.browser;
@@ -1368,11 +1097,6 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
 - (TabModel*)mainTabModel {
   DCHECK(self.interfaceProvider);
   return self.interfaceProvider.mainInterface.tabModel;
-}
-
-- (BrowserViewController*)otrBVC {
-  DCHECK(self.interfaceProvider);
-  return self.interfaceProvider.incognitoInterface.bvc;
 }
 
 - (TabModel*)otrTabModel {
@@ -1385,43 +1109,15 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
   return self.interfaceProvider.incognitoInterface.browser;
 }
 
-- (BrowserViewController*)currentBVC {
-  DCHECK(self.interfaceProvider);
-  return self.interfaceProvider.currentInterface.bvc;
-}
-
-
-
-
-#pragma mark - Mode Switching
-
-- (void)switchGlobalStateToMode:(ApplicationMode)mode {
-  const BOOL incognito = (mode == ApplicationMode::INCOGNITO);
-  // Write the state to disk of what is "active".
-  NSUserDefaults* standardDefaults = [NSUserDefaults standardUserDefaults];
-  [standardDefaults setBool:incognito forKey:kIncognitoCurrentKey];
-  // Save critical state information for switching between normal and
-  // incognito.
-  [standardDefaults synchronize];
-}
-
-- (void)changeStorageFromBrowserState:(ChromeBrowserState*)oldState
-                       toBrowserState:(ChromeBrowserState*)newState {
-  ApplicationMode mode = newState->IsOffTheRecord() ? ApplicationMode::INCOGNITO
-                                                    : ApplicationMode::NORMAL;
-  [self switchGlobalStateToMode:mode];
-}
-
-- (TabModel*)currentTabModel {
-  return self.currentBVC.tabModel;
-}
-
 - (Browser*)currentBrowser {
   return self.interfaceProvider.currentInterface.browser;
 }
 
 - (ChromeBrowserState*)currentBrowserState {
-  return self.currentBVC.browserState;
+  if (!self.interfaceProvider.currentInterface.browser) {
+    return nullptr;
+  }
+  return self.interfaceProvider.currentInterface.browser->GetBrowserState();
 }
 
 - (bool)mustShowRestoreInfobar {
@@ -1463,12 +1159,6 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
 
 
 
-#pragma mark - SceneController plumbing
-
-- (BOOL)currentPageIsIncognito {
-  return [self currentBrowserState] -> IsOffTheRecord();
-}
-
 #pragma mark - BrowsingDataCommands
 
 - (void)removeBrowsingDataForBrowserState:(ChromeBrowserState*)browserState
@@ -1493,48 +1183,60 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
     disableWebUsageDuringRemoval = NO;
   }
 
-  if (disableWebUsageDuringRemoval) {
-    // Disables browsing and purges web views.
-    // Must be called only on the main thread.
-    DCHECK([NSThread isMainThread]);
-    self.interfaceProvider.mainInterface.userInteractionEnabled = NO;
-    self.interfaceProvider.incognitoInterface.userInteractionEnabled = NO;
-  } else if (showActivityIndicator) {
-    // Show activity overlay so users know that clear browsing data is in
-    // progress.
-    [self.mainBVC.dispatcher showActivityOverlay:YES];
+  for (SceneState* sceneState in self.appState.connectedScenes) {
+    // Assumes all scenes share |browserState|.
+    id<BrowserInterfaceProvider> sceneInterface = sceneState.interfaceProvider;
+    if (disableWebUsageDuringRemoval) {
+      // Disables browsing and purges web views.
+      // Must be called only on the main thread.
+      DCHECK([NSThread isMainThread]);
+      sceneInterface.mainInterface.userInteractionEnabled = NO;
+      sceneInterface.incognitoInterface.userInteractionEnabled = NO;
+    } else if (showActivityIndicator) {
+      // Show activity overlay so users know that clear browsing data is in
+      // progress.
+      // TODO(crbug.com/1045047): Use HandlerForProtocol after commands protocol
+      // clean up.
+      id<BrowserCommands> handler = static_cast<id<BrowserCommands>>(
+          sceneInterface.mainInterface.browser->GetCommandDispatcher());
+      [handler showActivityOverlay:YES];
+    }
   }
 
+  auto removalCompletion = ^{
+    // Activates browsing and enables web views.
+    // Must be called only on the main thread.
+    DCHECK([NSThread isMainThread]);
+    for (SceneState* sceneState in self.appState.connectedScenes) {
+      // Assumes all scenes share |browserState|.
+      id<BrowserInterfaceProvider> sceneInterface =
+          sceneState.interfaceProvider;
+
+      if (showActivityIndicator) {
+        // User interaction still needs to be disabled as a way to
+        // force reload all the web states and to reset NTPs.
+        sceneInterface.mainInterface.userInteractionEnabled = NO;
+        sceneInterface.incognitoInterface.userInteractionEnabled = NO;
+
+        // TODO(crbug.com/1045047): Use HandlerForProtocol after commands
+        // protocol clean up.
+        id<BrowserCommands> handler = static_cast<id<BrowserCommands>>(
+            sceneInterface.mainInterface.browser->GetCommandDispatcher());
+        [handler showActivityOverlay:NO];
+      }
+      sceneInterface.mainInterface.userInteractionEnabled = YES;
+      sceneInterface.incognitoInterface.userInteractionEnabled = YES;
+      [sceneInterface.currentInterface setPrimary:YES];
+    }
+    // |completionBlock is run once, not once per scene.
+    if (completionBlock)
+      completionBlock();
+  };
+
   BrowsingDataRemoverFactory::GetForBrowserState(browserState)
-      ->Remove(
-          timePeriod, removeMask, base::BindOnce(^{
-            // Activates browsing and enables web views.
-            // Must be called only on the main thread.
-            DCHECK([NSThread isMainThread]);
-            if (showActivityIndicator) {
-              // User interaction still needs to be disabled as a way to
-              // force reload all the web states and to reset NTPs.
-              self.interfaceProvider.mainInterface.userInteractionEnabled = NO;
-              self.interfaceProvider.incognitoInterface.userInteractionEnabled =
-                  NO;
-
-              [self.mainBVC.dispatcher showActivityOverlay:NO];
-            }
-            self.interfaceProvider.mainInterface.userInteractionEnabled = YES;
-            self.interfaceProvider.incognitoInterface.userInteractionEnabled =
-                YES;
-            [self.currentBVC setPrimary:YES];
-
-            if (completionBlock)
-              completionBlock();
-          }));
+      ->Remove(timePeriod, removeMask, base::BindOnce(removalCompletion));
 }
 
-#pragma mark - MainControllerGuts
-
-- (id<TabSwitcher>)tabSwitcher {
-  return _tabSwitcher;
-}
 
 @end
 
@@ -1542,22 +1244,22 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
 
 @implementation MainController (TestingOnly)
 
+- (BOOL)tabSwitcherActive {
+  return self.sceneController.isTabSwitcherActive;
+}
+
 - (void)dismissModalDialogsWithCompletion:(ProceduralBlock)completion
                            dismissOmnibox:(BOOL)dismissOmnibox {
   [self.sceneController dismissModalDialogsWithCompletion:completion
                                            dismissOmnibox:dismissOmnibox];
 }
 
-- (DeviceSharingManager*)deviceSharingManager {
-  return [self.browserViewWrangler deviceSharingManager];
-}
-
 - (void)setTabSwitcher:(id<TabSwitcher>)switcher {
-  _tabSwitcher = switcher;
+  [self.sceneController setTabSwitcher:switcher];
 }
 
-- (void)setTabSwitcherActive:(BOOL)active {
-  self.tabSwitcherIsActive = active;
+- (id<TabSwitcher>)tabSwitcher {
+  return self.sceneController.tabSwitcher;
 }
 
 - (void)setStartupParametersWithURL:(const GURL&)launchURL {
@@ -1565,6 +1267,11 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
   self.startupParameters = [ChromeAppStartupParameters
       newChromeAppStartupParametersWithURL:net::NSURLWithGURL(launchURL)
                      fromSourceApplication:sourceApplication];
+}
+
+// Defined in FirstRunAppInterface for EGTests.
+- (void)showFirstRunUI {
+  [self.sceneController showFirstRunUI];
 }
 
 @end

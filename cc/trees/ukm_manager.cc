@@ -4,6 +4,7 @@
 
 #include "cc/trees/ukm_manager.h"
 
+#include "cc/metrics/throughput_ukm_reporter.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
 #include "services/metrics/public/cpp/ukm_recorder.h"
 
@@ -94,7 +95,7 @@ void UkmManager::RecordThroughputUKM(
     FrameSequenceTrackerType tracker_type,
     FrameSequenceMetrics::ThreadType thread_type,
     int64_t throughput) const {
-  ukm::builders::Graphics_Smoothness_Throughput builder(source_id_);
+  ukm::builders::Graphics_Smoothness_PercentDroppedFrames builder(source_id_);
   switch (thread_type) {
     case FrameSequenceMetrics::ThreadType::kMain: {
       switch (tracker_type) {
@@ -169,15 +170,31 @@ void UkmManager::RecordThroughputUKM(
   builder.Record(recorder_.get());
 }
 
+void UkmManager::RecordAggregateThroughput(AggregationType aggregation_type,
+                                           int64_t throughput_percent) const {
+  ukm::builders::Graphics_Smoothness_PercentDroppedFrames builder(source_id_);
+  switch (aggregation_type) {
+    case AggregationType::kAllAnimations:
+      builder.SetAllAnimations(throughput_percent);
+      break;
+    case AggregationType::kAllInteractions:
+      builder.SetAllInteractions(throughput_percent);
+      break;
+    case AggregationType::kAllSequences:
+      builder.SetAllSequences(throughput_percent);
+      break;
+  }
+  builder.Record(recorder_.get());
+}
+
 void UkmManager::RecordLatencyUKM(
-    CompositorFrameReporter::DroppedFrameReportType report_type,
+    CompositorFrameReporter::FrameReportType report_type,
     const std::vector<CompositorFrameReporter::StageData>& stage_history,
     const base::flat_set<FrameSequenceTrackerType>* active_trackers,
     const viz::FrameTimingDetails& viz_breakdown) const {
   ukm::builders::Graphics_Smoothness_Latency builder(source_id_);
 
-  if (report_type ==
-      CompositorFrameReporter::DroppedFrameReportType::kDroppedFrame) {
+  if (report_type == CompositorFrameReporter::FrameReportType::kDroppedFrame) {
     builder.SetMissedFrame(true);
   }
 
@@ -219,9 +236,14 @@ void UkmManager::RecordLatencyUKM(
         if (viz_breakdown.swap_timings.is_null())
           break;
         builder
-            .SetSubmitCompositorFrameToPresentationCompositorFrame_StartDrawToSwapEnd(
-                (viz_breakdown.swap_timings.swap_end -
+            .SetSubmitCompositorFrameToPresentationCompositorFrame_StartDrawToSwapStart(
+                (viz_breakdown.swap_timings.swap_start -
                  viz_breakdown.draw_start_timestamp)
+                    .InMicroseconds());
+        builder
+            .SetSubmitCompositorFrameToPresentationCompositorFrame_SwapStartToSwapEnd(
+                (viz_breakdown.swap_timings.swap_end -
+                 viz_breakdown.swap_timings.swap_start)
                     .InMicroseconds());
         builder
             .SetSubmitCompositorFrameToPresentationCompositorFrame_SwapEndToPresentationCompositorFrame(

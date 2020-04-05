@@ -241,6 +241,7 @@ void VideoTrackRecorderImpl::Encoder::StartFrameEncode(
 
   if (!(video_frame->format() == media::PIXEL_FORMAT_I420 ||
         video_frame->format() == media::PIXEL_FORMAT_ARGB ||
+        video_frame->format() == media::PIXEL_FORMAT_ABGR ||
         video_frame->format() == media::PIXEL_FORMAT_I420A ||
         video_frame->format() == media::PIXEL_FORMAT_NV12 ||
         video_frame->format() == media::PIXEL_FORMAT_XRGB)) {
@@ -313,6 +314,7 @@ void VideoTrackRecorderImpl::Encoder::RetrieveFrameOnMainThread(
     // TODO(crbug/1023390): Add browsertest for these.
     DCHECK(video_frame->HasTextures());
     DCHECK(video_frame->format() == media::PIXEL_FORMAT_ARGB ||
+           video_frame->format() == media::PIXEL_FORMAT_ABGR ||
            video_frame->format() == media::PIXEL_FORMAT_XRGB);
 
     const gfx::Size& old_visible_size = video_frame->visible_rect().size();
@@ -353,9 +355,11 @@ void VideoTrackRecorderImpl::Encoder::RetrieveFrameOnMainThread(
       return;
     }
 
-    const uint32_t source_pixel_format =
-        (kN32_SkColorType == kRGBA_8888_SkColorType) ? libyuv::FOURCC_ABGR
-                                                     : libyuv::FOURCC_ARGB;
+#if SK_PMCOLOR_BYTE_ORDER(R, G, B, A)
+    const uint32_t source_pixel_format = libyuv::FOURCC_ABGR;
+#else
+    const uint32_t source_pixel_format = libyuv::FOURCC_ARGB;
+#endif
     if (libyuv::ConvertToI420(static_cast<uint8_t*>(pixmap.writable_addr()),
                               pixmap.computeByteSize(),
                               frame->visible_data(media::VideoFrame::kYPlane),

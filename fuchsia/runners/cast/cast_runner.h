@@ -16,10 +16,15 @@
 #include "base/containers/unique_ptr_adapters.h"
 #include "base/fuchsia/startup_context.h"
 #include "base/macros.h"
-#include "fuchsia/base/agent_manager.h"
 #include "fuchsia/fidl/chromium/cast/cpp/fidl.h"
 #include "fuchsia/runners/cast/cast_component.h"
 #include "fuchsia/runners/common/web_content_runner.h"
+
+namespace base {
+namespace fuchsia {
+class FilteredServiceDirectory;
+}  // namespace fuchsia
+}  // namespace base
 
 // sys::Runner which instantiates Cast activities specified via cast/casts URIs.
 class CastRunner : public WebContentRunner {
@@ -61,6 +66,10 @@ class CastRunner : public WebContentRunner {
              fuchsia::web::ContextPtr context,
              bool is_headless);
 
+  // Initializes the service directory that's passed to the web context. Must be
+  // called during initialization, before the context is created.
+  void InitializeServiceDirectory();
+
   // Starts a component once all configuration data is available.
   void MaybeStartComponent(
       CastComponent::CastComponentParams* pending_component_params);
@@ -82,6 +91,10 @@ class CastRunner : public WebContentRunner {
   CastRunner* CreateChildRunnerForIsolatedComponent(
       CastComponent::CastComponentParams* params);
 
+  // Handler for fuchsia.media.Audio requests in |service_directory_|.
+  void ConnectAudioProtocol(
+      fidl::InterfaceRequest<fuchsia::media::Audio> request);
+
   // Holds StartComponent() requests while the ApplicationConfig is being
   // fetched from the ApplicationConfigManager.
   base::flat_set<std::unique_ptr<CastComponent::CastComponentParams>,
@@ -98,6 +111,11 @@ class CastRunner : public WebContentRunner {
   // Manages isolated CastRunners owned by |this| instance.
   base::flat_set<std::unique_ptr<CastRunner>, base::UniquePtrComparator>
       isolated_runners_;
+
+  std::unique_ptr<base::fuchsia::FilteredServiceDirectory> service_directory_;
+
+  // Last component that was created with permission to access MICROPHONE.
+  CastComponent* audio_capturer_component_ = nullptr;
 };
 
 #endif  // FUCHSIA_RUNNERS_CAST_CAST_RUNNER_H_

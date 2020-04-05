@@ -26,6 +26,7 @@ THIS_DIR = os.path.dirname(__file__)
 UPDATE_PY_PATH = os.path.join(THIS_DIR, "update.py")
 CHROMIUM_DIR = os.path.abspath(os.path.join(THIS_DIR, '..', '..', '..'))
 
+# Keep lines in here at <= 72 columns, else they wrap in gerrit.
 COMMIT_FOOTER = \
 '''
 
@@ -38,11 +39,11 @@ Cq-Include-Trybots: chromium/try:linux-chromeos-dbg,win-asan
 Cq-Include-Trybots: chromium/try:chromeos-amd64-generic-cfi-thin-lto-rel
 Cq-Include-Trybots: chromium/try:linux_chromium_compile_dbg_32_ng
 Cq-Include-Trybots: chromium/try:win7-rel,win-angle-deqp-rel-32
-Cq-Include-Trybots: chromium/try:win-angle-deqp-rel-64,dawn-win10-x86-deps-rel
+Cq-Include-Trybots: chromium/try:win-angle-deqp-rel-64
+Cq-Include-Trybots: chromium/try:dawn-win10-x86-deps-rel
+Cq-Include-Trybots: chrome/try:iphone-device,ipad-device
+Cq-Include-Trybots: chrome/try:linux-chromeos-chrome
 '''
-# TODO(https://crbug.com/1047347): Add:
-# Cq-Include-Trybots: chrome/try:iphone-device,ipad-device,linux-chromeos-chrome
-# and remove that from updating_clang.md
 
 is_win = sys.platform.startswith('win32')
 
@@ -91,14 +92,10 @@ def main():
   clang_svn_revision = 'n' + GetCommitCount(clang_git_revision)
   clang_sub_revision = args.clang_sub_revision
 
-  # Needs shell=True on Windows due to git.bat in depot_tools.
   os.chdir(CHROMIUM_DIR)
-  git_revision = subprocess.check_output(
-      ["git", "rev-parse", "origin/master"], shell=is_win).strip()
 
   print("Making a patch for Clang {}-{}-{}".format(
       clang_svn_revision, clang_git_revision[:8], clang_sub_revision))
-  print("Chrome revision: {}".format(git_revision))
 
   clang_old_git_revision, clang_old_svn_revision, clang_old_sub_revision = \
       PatchRevision(clang_git_revision, clang_svn_revision, clang_sub_revision)
@@ -106,7 +103,7 @@ def main():
   rev_string = "{}-{}-{}".format(clang_svn_revision,
                                  clang_git_revision[:8],
                                  clang_sub_revision)
-  Git(["checkout", "-b", "clang-{}".format(rev_string)])
+  Git(["checkout", "origin/master", "-b", "clang-{}".format(rev_string)])
   Git(["add", UPDATE_PY_PATH])
 
   old_rev_string = "{}-{}-{}".format(clang_old_svn_revision,
@@ -118,11 +115,10 @@ def main():
       old_rev_string, rev_string, commit_message)])
 
   Git(["cl", "upload", "-f", "--bypass-hooks"])
-  Git(["cl", "try", "-B", "chromium/try",
-       "-b", "linux_upload_clang",
-       "-b", "mac_upload_clang",
-       "-b", "win_upload_clang",
-       "-r", git_revision])
+  Git([
+      "cl", "try", "-B", "chromium/try", "-b", "linux_upload_clang", "-b",
+      "mac_upload_clang", "-b", "win_upload_clang"
+  ])
 
   print ("Please, wait until the try bots succeeded "
          "and then push the binaries to goma.")

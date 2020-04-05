@@ -54,7 +54,7 @@ class CORE_EXPORT NGPhysicalLineBoxFragment final
   // This may be different from the direction of the container box when
   // first-line style is used, or when 'unicode-bidi: plaintext' is used.
   TextDirection BaseDirection() const {
-    return static_cast<TextDirection>(base_direction_);
+    return static_cast<TextDirection>(base_or_resolved_direction_);
   }
 
   // Compute the baseline metrics for this linebox.
@@ -66,10 +66,10 @@ class CORE_EXPORT NGPhysicalLineBoxFragment final
   // to resolve relative position of its children.
   PhysicalRect ScrollableOverflow(const NGPhysicalBoxFragment& container,
                                   const ComputedStyle& container_style) const;
-  PhysicalRect ScrollableOverflow(const NGPhysicalBoxFragment& container,
-                                  const ComputedStyle& container_style,
-                                  const NGFragmentItem& child,
-                                  const NGInlineCursor& cursor) const;
+  PhysicalRect ScrollableOverflowForLine(const NGPhysicalBoxFragment& container,
+                                         const ComputedStyle& container_style,
+                                         const NGFragmentItem& line,
+                                         const NGInlineCursor& cursor) const;
 
   // Whether the content soft-wraps to the next line.
   bool HasSoftWrapToNextLine() const;

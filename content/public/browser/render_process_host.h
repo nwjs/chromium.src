@@ -37,10 +37,11 @@
 #include "third_party/blink/public/mojom/indexeddb/indexeddb.mojom-forward.h"
 #include "third_party/blink/public/mojom/locks/lock_manager.mojom-forward.h"
 #include "third_party/blink/public/mojom/native_file_system/native_file_system_manager.mojom-forward.h"
+#include "third_party/blink/public/mojom/native_io/native_io.mojom-forward.h"
 #include "third_party/blink/public/mojom/notifications/notification_service.mojom-forward.h"
 #include "third_party/blink/public/mojom/payments/payment_app.mojom-forward.h"
 #include "third_party/blink/public/mojom/permissions/permission.mojom-forward.h"
-#include "third_party/blink/public/mojom/quota/quota_dispatcher_host.mojom-forward.h"
+#include "third_party/blink/public/mojom/quota/quota_manager_host.mojom-forward.h"
 #include "third_party/blink/public/mojom/websockets/websocket_connector.mojom-forward.h"
 #include "ui/gfx/native_widget_types.h"
 
@@ -54,6 +55,10 @@ namespace base {
 class PersistentMemoryAllocator;
 class TimeDelta;
 class Token;
+}
+
+namespace network {
+struct CrossOriginEmbedderPolicy;
 }
 
 namespace url {
@@ -465,7 +470,9 @@ class CONTENT_EXPORT RenderProcessHost : public IPC::Sender,
   // The following several methods are for internal use only, and are only
   // exposed here to support MockRenderProcessHost usage in tests.
   virtual void BindCacheStorage(
-      network::mojom::CrossOriginEmbedderPolicy cross_origin_embedder_policy,
+      const network::CrossOriginEmbedderPolicy& cross_origin_embedder_policy,
+      mojo::PendingRemote<network::mojom::CrossOriginEmbedderPolicyReporter>
+          coep_reporter_remote,
       const url::Origin& origin,
       mojo::PendingReceiver<blink::mojom::CacheStorage> receiver) = 0;
   virtual void BindFileSystemManager(
@@ -479,7 +486,6 @@ class CONTENT_EXPORT RenderProcessHost : public IPC::Sender,
   // |render_frame_id| is the frame associated with |receiver|, or
   // MSG_ROUTING_NONE if |receiver| is associated with a worker.
   virtual void BindIndexedDB(
-      int render_frame_id,
       const url::Origin& origin,
       mojo::PendingReceiver<blink::mojom::IDBFactory> receiver) = 0;
   virtual void BindRestrictedCookieManagerForServiceWorker(
@@ -488,10 +494,10 @@ class CONTENT_EXPORT RenderProcessHost : public IPC::Sender,
           receiver) = 0;
   virtual void BindVideoDecodePerfHistory(
       mojo::PendingReceiver<media::mojom::VideoDecodePerfHistory> receiver) = 0;
-  virtual void BindQuotaDispatcherHost(
+  virtual void BindQuotaManagerHost(
       int render_frame_id,
       const url::Origin& origin,
-      mojo::PendingReceiver<blink::mojom::QuotaDispatcherHost> receiver) = 0;
+      mojo::PendingReceiver<blink::mojom::QuotaManagerHost> receiver) = 0;
   virtual void CreateLockManager(
       int render_frame_id,
       const url::Origin& origin,
@@ -525,13 +531,14 @@ class CONTENT_EXPORT RenderProcessHost : public IPC::Sender,
 
   // Controls whether the destructor of RenderProcessHost*Impl* will end up
   // cleaning the memory used by the exception added via
-  // RenderProcessHostImpl::AddCorbExceptionForPlugin.
+  // RenderProcessHostImpl::AddCorbExceptionForPlugin and
+  // AddAllowedRequestInitiatorForPlugin.
   //
   // TODO(lukasza): https://crbug.com/652474: This method shouldn't be part of
   // the //content public API, because it shouldn't be called by anyone other
   // than RenderProcessHostImpl (from underneath
   // RenderProcessHostImpl::AddCorbExceptionForPlugin).
-  virtual void CleanupCorbExceptionForPluginUponDestruction() = 0;
+  virtual void CleanupNetworkServicePluginExceptionsUponDestruction() = 0;
 
   // Static management functions -----------------------------------------------
 

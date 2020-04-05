@@ -6,8 +6,8 @@
 
 #include "ash/test/ash_test_base.h"
 #include "base/run_loop.h"
+#include "base/test/bind_test_util.h"
 #include "base/test/metrics/histogram_tester.h"
-#include "build/build_config.h"
 #include "ui/aura/window.h"
 #include "ui/compositor/compositor.h"
 #include "ui/compositor/layer.h"
@@ -22,25 +22,18 @@ using PresentationTimeRecorderTest = ash::AshTestBase;
 constexpr char kName[] = "Histogram";
 constexpr char kMaxLatencyName[] = "MaxLatency.Histogram";
 
-// The test is flaky on CrOS. crbug.com/1043465.
-#if defined(OS_CHROMEOS)
-#define MAYBE_Histogram DISABLED_Histogram
-#else
-#define MAYBE_Histogram Histogram
-#endif
-TEST_F(PresentationTimeRecorderTest, MAYBE_Histogram) {
+TEST_F(PresentationTimeRecorderTest, Histogram) {
   base::HistogramTester histogram_tester;
 
-  auto* compositor = CurrentContext()->layer()->GetCompositor();
+  auto* compositor = GetContext()->layer()->GetCompositor();
   auto test_recorder = CreatePresentationTimeHistogramRecorder(
       compositor, kName, kMaxLatencyName);
-
-  // Flush pending draw requests.
-  for (int i = 0; i < 30; i++) {
-    compositor->ScheduleFullRedraw();
-    WaitForNextFrameToBePresented(compositor);
-    base::RunLoop().RunUntilIdle();
-  }
+  // Flush pending draw callbask by waiting for presentation until it times out.
+  // We assume if the new frame wasn't generated for 100ms (6 frames worth
+  // time) there is no pending draw request.
+  while (ui::WaitForNextFrameToBePresented(
+      compositor, base::TimeDelta::FromMilliseconds(100)))
+    ;
 
   compositor->ScheduleFullRedraw();
   histogram_tester.ExpectTotalCount(kName, 0);
@@ -50,24 +43,24 @@ TEST_F(PresentationTimeRecorderTest, MAYBE_Histogram) {
   histogram_tester.ExpectTotalCount(kName, 0);
   histogram_tester.ExpectTotalCount(kMaxLatencyName, 0);
 
-  WaitForNextFrameToBePresented(compositor);
+  EXPECT_TRUE(ui::WaitForNextFrameToBePresented(compositor));
   histogram_tester.ExpectTotalCount(kName, 1);
   histogram_tester.ExpectTotalCount(kMaxLatencyName, 0);
 
   compositor->ScheduleFullRedraw();
-  WaitForNextFrameToBePresented(compositor);
+  EXPECT_TRUE(ui::WaitForNextFrameToBePresented(compositor));
   histogram_tester.ExpectTotalCount(kName, 1);
   histogram_tester.ExpectTotalCount(kMaxLatencyName, 0);
 
   test_recorder->RequestNext();
   compositor->ScheduleFullRedraw();
-  WaitForNextFrameToBePresented(compositor);
+  EXPECT_TRUE(ui::WaitForNextFrameToBePresented(compositor));
   histogram_tester.ExpectTotalCount(kName, 2);
   histogram_tester.ExpectTotalCount(kMaxLatencyName, 0);
 
   // Drawing without RequestNext should not affect histogram.
   compositor->ScheduleFullRedraw();
-  WaitForNextFrameToBePresented(compositor);
+  EXPECT_TRUE(ui::WaitForNextFrameToBePresented(compositor));
   histogram_tester.ExpectTotalCount(kName, 2);
   histogram_tester.ExpectTotalCount(kMaxLatencyName, 0);
 
@@ -79,7 +72,7 @@ TEST_F(PresentationTimeRecorderTest, MAYBE_Histogram) {
 
 TEST_F(PresentationTimeRecorderTest, NoSuccessNoHistogram) {
   base::HistogramTester histogram_tester;
-  auto* compositor = CurrentContext()->layer()->GetCompositor();
+  auto* compositor = GetContext()->layer()->GetCompositor();
   auto test_recorder = CreatePresentationTimeHistogramRecorder(
       compositor, kName, kMaxLatencyName);
   PresentationTimeRecorder::TestApi test_api(test_recorder.get());
@@ -98,7 +91,7 @@ TEST_F(PresentationTimeRecorderTest, NoSuccessNoHistogram) {
 
 TEST_F(PresentationTimeRecorderTest, DelayedHistogram) {
   base::HistogramTester histogram_tester;
-  auto* compositor = CurrentContext()->layer()->GetCompositor();
+  auto* compositor = GetContext()->layer()->GetCompositor();
   auto test_recorder = CreatePresentationTimeHistogramRecorder(
       compositor, kName, kMaxLatencyName);
   test_recorder->RequestNext();
@@ -110,13 +103,13 @@ TEST_F(PresentationTimeRecorderTest, DelayedHistogram) {
 
   // Draw next frame and make sure the histgoram is recorded.
   compositor->ScheduleFullRedraw();
-  WaitForNextFrameToBePresented(compositor);
+  EXPECT_TRUE(ui::WaitForNextFrameToBePresented(compositor));
   histogram_tester.ExpectTotalCount(kName, 1);
   histogram_tester.ExpectTotalCount(kMaxLatencyName, 1);
 }
 
 TEST_F(PresentationTimeRecorderTest, Failure) {
-  auto* compositor = CurrentContext()->layer()->GetCompositor();
+  auto* compositor = GetContext()->layer()->GetCompositor();
   auto test_recorder = CreatePresentationTimeHistogramRecorder(
       compositor, kName, kMaxLatencyName);
   PresentationTimeRecorder::TestApi test_api(test_recorder.get());

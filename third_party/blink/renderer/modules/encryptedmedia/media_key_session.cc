@@ -207,7 +207,7 @@ class MediaKeySession::PendingAction final
         string_data_(string_data) {}
   ~PendingAction() = default;
 
-  void Trace(blink::Visitor* visitor) {
+  void Trace(Visitor* visitor) {
     visitor->Trace(result_);
     visitor->Trace(data_);
   }
@@ -249,7 +249,7 @@ class NewSessionResultPromise : public ContentDecryptionModuleResultPromise {
     Resolve();
   }
 
-  void Trace(blink::Visitor* visitor) override {
+  void Trace(Visitor* visitor) override {
     visitor->Trace(session_);
     ContentDecryptionModuleResultPromise::Trace(visitor);
   }
@@ -292,7 +292,7 @@ class LoadSessionResultPromise : public ContentDecryptionModuleResultPromise {
     Resolve(true);
   }
 
-  void Trace(blink::Visitor* visitor) override {
+  void Trace(Visitor* visitor) override {
     visitor->Trace(session_);
     ContentDecryptionModuleResultPromise::Trace(visitor);
   }
@@ -326,7 +326,7 @@ class SimpleResultPromise : public ContentDecryptionModuleResultPromise {
     Resolve();
   }
 
-  void Trace(blink::Visitor* visitor) override {
+  void Trace(Visitor* visitor) override {
     visitor->Trace(session_);
     ContentDecryptionModuleResultPromise::Trace(visitor);
   }
@@ -340,7 +340,7 @@ class SimpleResultPromise : public ContentDecryptionModuleResultPromise {
 MediaKeySession::MediaKeySession(ScriptState* script_state,
                                  MediaKeys* media_keys,
                                  WebEncryptedMediaSessionType session_type)
-    : ContextLifecycleObserver(ExecutionContext::From(script_state)),
+    : ExecutionContextLifecycleObserver(ExecutionContext::From(script_state)),
       async_event_queue_(
           MakeGarbageCollected<EventQueue>(GetExecutionContext(),
                                            TaskType::kMediaElementEvent)),
@@ -1011,7 +1011,7 @@ const AtomicString& MediaKeySession::InterfaceName() const {
 }
 
 ExecutionContext* MediaKeySession::GetExecutionContext() const {
-  return ContextLifecycleObserver::GetExecutionContext();
+  return ExecutionContextLifecycleObserver::GetExecutionContext();
 }
 
 bool MediaKeySession::HasPendingActivity() const {
@@ -1032,7 +1032,7 @@ bool MediaKeySession::HasPendingActivity() const {
          (media_keys_ && !is_closing_or_closed_);
 }
 
-void MediaKeySession::ContextDestroyed(ExecutionContext*) {
+void MediaKeySession::ContextDestroyed() {
   // Stop the CDM from firing any more events for this session.
   session_.reset();
   is_closing_or_closed_ = true;
@@ -1040,14 +1040,14 @@ void MediaKeySession::ContextDestroyed(ExecutionContext*) {
   pending_actions_.clear();
 }
 
-void MediaKeySession::Trace(blink::Visitor* visitor) {
+void MediaKeySession::Trace(Visitor* visitor) {
   visitor->Trace(async_event_queue_);
   visitor->Trace(pending_actions_);
   visitor->Trace(media_keys_);
   visitor->Trace(key_statuses_map_);
   visitor->Trace(closed_promise_);
   EventTargetWithInlineData::Trace(visitor);
-  ContextLifecycleObserver::Trace(visitor);
+  ExecutionContextLifecycleObserver::Trace(visitor);
 }
 
 }  // namespace blink

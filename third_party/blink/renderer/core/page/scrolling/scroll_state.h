@@ -51,7 +51,7 @@ class CORE_EXPORT ScrollState final : public ScriptWrappable {
   double deltaGranularity() const {
     return static_cast<double>(data_->delta_granularity);
   }
-  ui::input_types::ScrollGranularity delta_granularity() const {
+  ui::ScrollGranularity delta_granularity() const {
     return data_->delta_granularity;
   }
   // Positive if moving right.
@@ -94,7 +94,7 @@ class CORE_EXPORT ScrollState final : public ScriptWrappable {
 
   ScrollStateData* Data() const { return data_.get(); }
 
-  void Trace(blink::Visitor* visitor) override {
+  void Trace(Visitor* visitor) override {
     visitor->Trace(node_);
     ScriptWrappable::Trace(visitor);
   }

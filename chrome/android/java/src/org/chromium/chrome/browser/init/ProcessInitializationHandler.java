@@ -49,9 +49,10 @@ import org.chromium.chrome.browser.download.DownloadController;
 import org.chromium.chrome.browser.download.DownloadManagerService;
 import org.chromium.chrome.browser.download.ExploreOfflineStatusProvider;
 import org.chromium.chrome.browser.firstrun.ForcedSigninProcessor;
+import org.chromium.chrome.browser.flags.CachedFeatureFlags;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
-import org.chromium.chrome.browser.flags.FeatureUtilities;
 import org.chromium.chrome.browser.history.HistoryDeletionBridge;
+import org.chromium.chrome.browser.homepage.HomepageManager;
 import org.chromium.chrome.browser.identity.UniqueIdentificationGeneratorFactory;
 import org.chromium.chrome.browser.identity.UuidBasedUniqueIdentificationGenerator;
 import org.chromium.chrome.browser.incognito.IncognitoTabLauncher;
@@ -65,7 +66,6 @@ import org.chromium.chrome.browser.metrics.WebApkUma;
 import org.chromium.chrome.browser.net.spdyproxy.DataReductionProxySettings;
 import org.chromium.chrome.browser.notifications.channels.ChannelsUpdater;
 import org.chromium.chrome.browser.ntp.NewTabPage;
-import org.chromium.chrome.browser.partnercustomizations.HomepageManager;
 import org.chromium.chrome.browser.partnercustomizations.PartnerBrowserCustomizations;
 import org.chromium.chrome.browser.photo_picker.PhotoPickerDialog;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
@@ -74,16 +74,15 @@ import org.chromium.chrome.browser.profiles.ProfileManagerUtils;
 import org.chromium.chrome.browser.rlz.RevenueStats;
 import org.chromium.chrome.browser.searchwidget.SearchWidgetProvider;
 import org.chromium.chrome.browser.services.GoogleServicesManager;
-import org.chromium.chrome.browser.share.ShareHelper;
+import org.chromium.chrome.browser.share.ShareImageFileUtils;
 import org.chromium.chrome.browser.sharing.shared_clipboard.SharedClipboardShareActivity;
 import org.chromium.chrome.browser.sync.SyncController;
 import org.chromium.chrome.browser.util.ConversionUtils;
 import org.chromium.chrome.browser.webapps.WebApkVersionManager;
 import org.chromium.chrome.browser.webapps.WebappRegistry;
 import org.chromium.components.background_task_scheduler.BackgroundTaskSchedulerFactory;
-import org.chromium.components.download.DownloadCollectionBridge;
 import org.chromium.components.minidump_uploader.CrashFileManager;
-import org.chromium.components.signin.AccountManagerFacade;
+import org.chromium.components.signin.AccountManagerFacadeProvider;
 import org.chromium.components.signin.AccountsChangeObserver;
 import org.chromium.components.viz.common.VizSwitches;
 import org.chromium.components.viz.common.display.DeJellyUtils;
@@ -158,14 +157,14 @@ public class ProcessInitializationHandler {
     protected void handlePreNativeInitialization() {
         BrowserTaskExecutor.register();
         BrowserTaskExecutor.setShouldPrioritizeBootstrapTasks(
-                FeatureUtilities.shouldPrioritizeBootstrapTasks());
+                CachedFeatureFlags.isEnabled(ChromeFeatureList.PRIORITIZE_BOOTSTRAP_TASKS));
 
         Context application = ContextUtils.getApplicationContext();
 
         // Initialize the AccountManagerFacade with the correct AccountManagerDelegate. Must be done
         // only once and before AccountMangerHelper.get(...) is called to avoid using the
         // default AccountManagerDelegate.
-        AccountManagerFacade.initializeAccountManagerFacade(
+        AccountManagerFacadeProvider.initializeAccountManagerFacade(
                 AppHooks.get().createAccountManagerDelegate());
 
         // Set the unique identification generator for invalidations.  The
@@ -184,11 +183,6 @@ public class ProcessInitializationHandler {
                 new UuidBasedUniqueIdentificationGenerator(
                         application, ChromePreferenceKeys.SYNC_SESSIONS_UUID),
                 false);
-
-        // Set up the DownloadCollectionBridge early as display names may be immediately retrieved
-        // after native is loaded.
-        DownloadCollectionBridge.setDownloadCollectionBridge(
-                AppHooks.get().getDownloadCollectionBridge());
 
         // De-jelly can also be controlled by a system property. As sandboxed processes can't
         // read this property directly, convert it to the equivalent command line flag.
@@ -309,19 +303,20 @@ public class ProcessInitializationHandler {
 
                 AfterStartupTaskUtils.setStartupComplete();
 
-                PartnerBrowserCustomizations.setOnInitializeAsyncFinished(new Runnable() {
-                    @Override
-                    public void run() {
-                        String homepageUrl = HomepageManager.getHomepageUri();
-                        LaunchMetrics.recordHomePageLaunchMetrics(
-                                HomepageManager.isHomepageEnabled(),
-                                NewTabPage.isNTPUrl(homepageUrl), homepageUrl);
-                    }
-                });
+                PartnerBrowserCustomizations.getInstance().setOnInitializeAsyncFinished(
+                        new Runnable() {
+                            @Override
+                            public void run() {
+                                String homepageUrl = HomepageManager.getHomepageUri();
+                                LaunchMetrics.recordHomePageLaunchMetrics(
+                                        HomepageManager.isHomepageEnabled(),
+                                        NewTabPage.isNTPUrl(homepageUrl), homepageUrl);
+                            }
+                        });
 
                 PowerMonitor.create();
 
-                ShareHelper.clearSharedImages();
+                ShareImageFileUtils.clearSharedImages();
 
                 SelectFileDialog.clearCapturedCameraFiles();
 
@@ -355,6 +350,7 @@ public class ProcessInitializationHandler {
             public void run() {
                 HomepageManager.recordHomeButtonPreferenceState();
                 HomepageManager.recordHomepageIsCustomized(HomepageManager.isHomepageCustomized());
+                HomepageManager.recordHomepageLocationTypeIfEnabled();
             }
         });
 
@@ -378,7 +374,7 @@ public class ProcessInitializationHandler {
             @Override
             public void run() {
                 ForcedSigninProcessor.start(null);
-                AccountManagerFacade.get().addObserver(
+                AccountManagerFacadeProvider.getInstance().addObserver(
                         new AccountsChangeObserver() {
                             @Override
                             public void onAccountsChanged() {

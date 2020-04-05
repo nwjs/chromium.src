@@ -19,9 +19,6 @@ import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
-import android.support.v7.content.res.AppCompatResources;
-import android.support.v7.widget.GridLayoutManager;
-import android.support.v7.widget.helper.ItemTouchHelper;
 import android.text.TextUtils;
 import android.util.Pair;
 import android.view.View;
@@ -31,6 +28,9 @@ import android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
+import androidx.appcompat.content.res.AppCompatResources;
+import androidx.recyclerview.widget.GridLayoutManager;
+import androidx.recyclerview.widget.ItemTouchHelper;
 
 import org.chromium.base.Callback;
 import org.chromium.base.Log;
@@ -38,15 +38,13 @@ import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.task.PostTask;
 import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
-import org.chromium.chrome.browser.flags.FeatureUtilities;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.native_page.NativePageFactory;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tab.TabFeatureUtilities;
+import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tab.TabImpl;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabObserver;
@@ -64,9 +62,9 @@ import org.chromium.chrome.browser.tasks.tab_groups.EmptyTabGroupModelFilterObse
 import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
 import org.chromium.chrome.browser.tasks.tab_groups.TabGroupUtils;
 import org.chromium.chrome.browser.tasks.tab_management.TabProperties.UiType;
-import org.chromium.chrome.browser.util.UrlUtilities;
 import org.chromium.chrome.tab_ui.R;
 import org.chromium.components.browser_ui.widget.selectable_list.SelectionDelegate;
+import org.chromium.components.embedder_support.util.UrlUtilities;
 import org.chromium.components.feature_engagement.FeatureConstants;
 import org.chromium.components.search_engines.TemplateUrlService;
 import org.chromium.content_public.browser.LoadUrlParams;
@@ -159,6 +157,14 @@ class TabListMediator {
          * @return {@link Pair} that contains previous and target position of this action.
          */
         Pair<Integer, Integer> getPositionsOfReorderAction(View view, int action);
+
+        /**
+         * This method returns whether the given action is a type of the reordering actions.
+         *
+         * @param action The accessibility action.
+         * @return Whether the given action is a reordering action.
+         */
+        boolean isReorderAction(int action);
     }
 
     /**
@@ -216,18 +222,6 @@ class TabListMediator {
     };
 
     /**
-     * An interface to get the onClickListener for "Create group" button.
-     */
-    public interface CreateGroupButtonProvider {
-        /**
-         * @return {@link TabActionListener} to create tab group. If the given {@link Tab} is not
-         * able to create group, return null;
-         */
-        @Nullable
-        TabActionListener getCreateGroupButtonOnClickListener(Tab tab);
-    }
-
-    /**
      * An interface to get a SelectionDelegate that contains the selected items for a selectable
      * tab list.
      */
@@ -266,17 +260,17 @@ class TabListMediator {
     private static Map<Integer, Integer> sTabClosedFromMapTabClosedFromMap = new HashMap<>();
 
     private final Context mContext;
-    private final TabListFaviconProvider mTabListFaviconProvider;
     private final TabListModel mModel;
     private final TabModelSelector mTabModelSelector;
     private final ThumbnailProvider mThumbnailProvider;
     private final TabActionListener mTabClosedListener;
     private final TitleProvider mTitleProvider;
-    private final CreateGroupButtonProvider mCreateGroupButtonProvider;
     private final SelectionDelegateProvider mSelectionDelegateProvider;
     private final GridCardOnClickListenerProvider mGridCardOnClickListenerProvider;
     private final TabGridDialogHandler mTabGridDialogHandler;
     private final String mComponentName;
+
+    private TabListFaviconProvider mTabListFaviconProvider;
     private boolean mActionsOnAllRelatedTabs;
     private ComponentCallbacks mComponentCallbacks;
     private TabGridItemTouchHelperCallback mTabGridItemTouchHelperCallback;
@@ -365,7 +359,7 @@ class TabListMediator {
     private final TabObserver mTabObserver = new EmptyTabObserver() {
         @Override
         public void onDidStartNavigation(Tab tab, NavigationHandle navigationHandle) {
-            if (NativePageFactory.isNativePageUrl(tab.getUrl(), tab.isIncognito())) return;
+            if (NativePageFactory.isNativePageUrl(tab.getUrlString(), tab.isIncognito())) return;
             if (navigationHandle.isSameDocument() || !navigationHandle.isInMainFrame()) return;
             if (mModel.indexFromId(tab.getId()) == TabModel.INVALID_TAB_INDEX) return;
             mModel.get(mModel.indexFromId(tab.getId()))
@@ -387,7 +381,7 @@ class TabListMediator {
 
         @Override
         public void onUrlUpdated(Tab tab) {
-            if (!FeatureUtilities.isTabGroupsAndroidContinuationEnabled()) return;
+            if (!TabUiFeatureUtilities.isTabGroupsAndroidContinuationEnabled()) return;
             int index = mModel.indexFromId(tab.getId());
 
             if (index == TabModel.INVALID_TAB_INDEX && mActionsOnAllRelatedTabs) {
@@ -429,9 +423,6 @@ class TabListMediator {
      * @param tabListFaviconProvider Provider for all favicon related drawables.
      * @param actionOnRelatedTabs Whether tab-related actions should be operated on all related
      *                            tabs.
-     * @param createGroupButtonProvider {@link CreateGroupButtonProvider} to provide "Create group"
-     *                                   button information. It's null when "Create group" is not
-     *                                   possible.
      * @param selectionDelegateProvider Provider for a {@link SelectionDelegate} that is used for
      *                                  a selectable list. It's null when selection is not possible.
      * @param gridCardOnClickListenerProvider Provides the onClickListener for opening dialog when
@@ -443,7 +434,6 @@ class TabListMediator {
     public TabListMediator(Context context, TabListModel model, TabModelSelector tabModelSelector,
             @Nullable ThumbnailProvider thumbnailProvider, @Nullable TitleProvider titleProvider,
             TabListFaviconProvider tabListFaviconProvider, boolean actionOnRelatedTabs,
-            @Nullable CreateGroupButtonProvider createGroupButtonProvider,
             @Nullable SelectionDelegateProvider selectionDelegateProvider,
             @Nullable GridCardOnClickListenerProvider gridCardOnClickListenerProvider,
             @Nullable TabGridDialogHandler dialogHandler, String componentName,
@@ -455,7 +445,6 @@ class TabListMediator {
         mTabListFaviconProvider = tabListFaviconProvider;
         mComponentName = componentName;
         mTitleProvider = titleProvider != null ? titleProvider : Tab::getTitle;
-        mCreateGroupButtonProvider = createGroupButtonProvider;
         mSelectionDelegateProvider = selectionDelegateProvider;
         mGridCardOnClickListenerProvider = gridCardOnClickListenerProvider;
         mTabGridDialogHandler = dialogHandler;
@@ -519,7 +508,8 @@ class TabListMediator {
             }
 
             @Override
-            public void didAddTab(Tab tab, @TabLaunchType int type) {
+            public void didAddTab(
+                    Tab tab, @TabLaunchType int type, @TabCreationState int creationState) {
                 boolean isTabModelRestoreCompleted = mTabModelSelector.getTabModelFilterProvider()
                                                              .getCurrentTabModelFilter()
                                                              .isTabModelRestored();
@@ -758,7 +748,14 @@ class TabListMediator {
             }
         };
 
-        if (FeatureUtilities.isTabGroupsAndroidUiImprovementsEnabled()) {
+        mTabGridItemTouchHelperCallback =
+                new TabGridItemTouchHelperCallback(mModel, mTabModelSelector, mTabClosedListener,
+                        mTabGridDialogHandler, mComponentName, mActionsOnAllRelatedTabs);
+    }
+
+    public void initWithNative(Profile profile) {
+        mTabListFaviconProvider.initWithNative(profile);
+        if (TabUiFeatureUtilities.isTabGroupsAndroidContinuationEnabled()) {
             mTabGroupTitleEditor = new TabGroupTitleEditor(mTabModelSelector) {
                 @Override
                 protected void updateTabGroupTitle(Tab tab, String title) {
@@ -788,7 +785,7 @@ class TabListMediator {
             };
         }
 
-        if (TabUiFeatureUtilities.isSearchTermChipEnabled()) {
+        if (TabUiFeatureUtilities.ENABLE_SEARCH_CHIP.getValue()) {
             mSearchChipIconDrawableId = getSearchChipIconDrawableId();
             mTemplateUrlObserver = () -> {
                 mSearchChipIconDrawableId = getSearchChipIconDrawableId();
@@ -799,10 +796,6 @@ class TabListMediator {
             };
             TemplateUrlServiceFactory.get().addObserver(mTemplateUrlObserver);
         }
-
-        mTabGridItemTouchHelperCallback =
-                new TabGridItemTouchHelperCallback(mModel, mTabModelSelector, mTabClosedListener,
-                        mTabGridDialogHandler, mComponentName, mActionsOnAllRelatedTabs);
     }
 
     private void onTabClosedFrom(int tabId, String fromComponent) {
@@ -876,7 +869,7 @@ class TabListMediator {
      * The selected border should re-appear in the final fading-in stage.
      */
     void prepareOverview() {
-        if (!TabFeatureUtilities.isTabToGtsAnimationEnabled()
+        if (!TabUiFeatureUtilities.isTabToGtsAnimationEnabled()
                 || !mTabModelSelector.getTabModelFilterProvider()
                             .getCurrentTabModelFilter()
                             .isTabModelRestored()) {
@@ -1005,13 +998,11 @@ class TabListMediator {
             }
         }
         mModel.get(index).model.set(TabProperties.TAB_SELECTED_LISTENER, tabSelectedListener);
-        mModel.get(index).model.set(
-                TabProperties.CREATE_GROUP_LISTENER, getCreateGroupButtonListener(tab, isSelected));
         mModel.get(index).model.set(TabProperties.IS_SELECTED, isSelected);
         mModel.get(index).model.set(TabProperties.TITLE, getLatestTitleForTab(tab));
         mModel.get(index).model.set(TabProperties.URL, getUrlForTab(tab));
 
-        if (TabUiFeatureUtilities.isSearchTermChipEnabled() && mUiType == UiType.CLOSABLE) {
+        if (TabUiFeatureUtilities.ENABLE_SEARCH_CHIP.getValue() && mUiType == UiType.CLOSABLE) {
             mModel.get(index).model.set(TabProperties.SEARCH_QUERY, getLastSearchTerm(tab));
             mModel.get(index).model.set(TabProperties.SEARCH_LISTENER,
                     SearchTermChipUtils.getSearchQueryListener(tab, mTabSelectedListener));
@@ -1025,7 +1016,7 @@ class TabListMediator {
                 && (mModel.get(index).model.get(TabProperties.THUMBNAIL_FETCHER) == null
                         || forceUpdate || isUpdatingId)) {
             ThumbnailFetcher callback = new ThumbnailFetcher(mThumbnailProvider, tab, forceUpdate,
-                    forceUpdate && !TabFeatureUtilities.isTabToGtsAnimationEnabled());
+                    forceUpdate && !TabUiFeatureUtilities.isTabToGtsAnimationEnabled());
             mModel.get(index).model.set(TabProperties.THUMBNAIL_FETCHER, callback);
         }
     }
@@ -1075,7 +1066,7 @@ class TabListMediator {
             public int getSpanSize(int position) {
                 int itemType = mModel.get(position).type;
 
-                if (itemType == TabProperties.UiType.MESSAGE) return spanCount;
+                if (itemType == TabProperties.UiType.MESSAGE) return manager.getSpanCount();
                 return 1;
             }
         });
@@ -1086,7 +1077,7 @@ class TabListMediator {
      * @param helper The {@link TabGridAccessibilityHelper} used to setup accessibility support.
      */
     void setupAccessibilityDelegate(TabGridAccessibilityHelper helper) {
-        if (!FeatureUtilities.isTabGroupsAndroidContinuationEnabled()) {
+        if (!TabUiFeatureUtilities.isTabGroupsAndroidContinuationEnabled()) {
             return;
         }
         mAccessibilityDelegate = new View.AccessibilityDelegate() {
@@ -1103,6 +1094,10 @@ class TabListMediator {
 
             @Override
             public boolean performAccessibilityAction(View host, int action, Bundle args) {
+                if (!helper.isReorderAction(action)) {
+                    return super.performAccessibilityAction(host, action, args);
+                }
+
                 Pair<Integer, Integer> positions = helper.getPositionsOfReorderAction(host, action);
                 int currentPosition = positions.first;
                 int targetPosition = positions.second;
@@ -1110,6 +1105,7 @@ class TabListMediator {
                     return false;
                 }
                 mModel.move(currentPosition, targetPosition);
+                RecordUserAction.record("TabGrid.AccessibilityDelegate.Reordered");
                 return true;
             }
         };
@@ -1192,15 +1188,9 @@ class TabListMediator {
                                         tab.isIncognito()))
                         .with(TabProperties.IS_SELECTED, isSelected)
                         .with(TabProperties.IPH_PROVIDER, showIPH ? mIphProvider : null)
-                        .with(TabProperties.TAB_SELECTED_LISTENER, tabSelectedListener)
-                        .with(TabProperties.TAB_CLOSED_LISTENER, mTabClosedListener)
-                        .with(TabProperties.CREATE_GROUP_LISTENER,
-                                getCreateGroupButtonListener(tab, isSelected))
                         .with(CARD_ALPHA, 1f)
                         .with(TabProperties.CARD_ANIMATION_STATUS,
                                 ClosableTabGridView.AnimationStatus.CARD_RESTORE)
-                        .with(TabProperties.SELECTABLE_TAB_CLICKED_LISTENER,
-                                mSelectableTabOnClickListener)
                         .with(TabProperties.TAB_SELECTION_DELEGATE, getTabSelectionDelegate())
                         .with(TabProperties.IS_INCOGNITO, tab.isIncognito())
                         .with(TabProperties.SELECTED_TAB_BACKGROUND_DRAWABLE_ID,
@@ -1211,7 +1201,7 @@ class TabListMediator {
                         .with(CARD_TYPE, TAB)
                         .build();
 
-        if (TabUiFeatureUtilities.isSearchTermChipEnabled() && mUiType == UiType.CLOSABLE) {
+        if (TabUiFeatureUtilities.ENABLE_SEARCH_CHIP.getValue() && mUiType == UiType.CLOSABLE) {
             tabInfo.set(TabProperties.SEARCH_QUERY, getLastSearchTerm(tab));
             tabInfo.set(TabProperties.SEARCH_LISTENER,
                     SearchTermChipUtils.getSearchQueryListener(tab, mTabSelectedListener));
@@ -1241,6 +1231,11 @@ class TabListMediator {
                     actionButtonBackgroundColorList);
             tabInfo.set(TabProperties.SELECTABLE_TAB_ACTION_BUTTON_SELECTED_BACKGROUND,
                     actionbuttonSelectedBackgroundColorList);
+            tabInfo.set(
+                    TabProperties.SELECTABLE_TAB_CLICKED_LISTENER, mSelectableTabOnClickListener);
+        } else {
+            tabInfo.set(TabProperties.TAB_SELECTED_LISTENER, tabSelectedListener);
+            tabInfo.set(TabProperties.TAB_CLOSED_LISTENER, mTabClosedListener);
         }
 
         if (index >= mModel.size()) {
@@ -1253,15 +1248,15 @@ class TabListMediator {
 
         if (mThumbnailProvider != null && mVisible) {
             ThumbnailFetcher callback = new ThumbnailFetcher(mThumbnailProvider, tab, isSelected,
-                    isSelected && !TabFeatureUtilities.isTabToGtsAnimationEnabled());
+                    isSelected && !TabUiFeatureUtilities.isTabToGtsAnimationEnabled());
             tabInfo.set(TabProperties.THUMBNAIL_FETCHER, callback);
         }
         tab.addObserver(mTabObserver);
     }
 
     private String getLastSearchTerm(Tab tab) {
-        assert TabUiFeatureUtilities.isSearchTermChipEnabled();
-        if (mActionsOnAllRelatedTabs && FeatureUtilities.isTabGroupsAndroidEnabled()
+        assert TabUiFeatureUtilities.ENABLE_SEARCH_CHIP.getValue();
+        if (mActionsOnAllRelatedTabs && TabUiFeatureUtilities.isTabGroupsAndroidEnabled()
                 && getRelatedTabsForId(tab.getId()).size() > 1) {
             return null;
         }
@@ -1270,7 +1265,7 @@ class TabListMediator {
 
     private int getSearchChipIconDrawableId() {
         int iconDrawableId;
-        if (isSearchChipAdaptiveIconEnabled()) {
+        if (TabUiFeatureUtilities.ENABLE_SEARCH_CHIP_ADAPTIVE.getValue()) {
             iconDrawableId = TemplateUrlServiceFactory.get().isDefaultSearchEngineGoogle()
                     ? R.drawable.ic_logo_googleg_24dp
                     : R.drawable.ic_search;
@@ -1280,33 +1275,19 @@ class TabListMediator {
         return iconDrawableId;
     }
 
-    private boolean isSearchChipAdaptiveIconEnabled() {
-        if (SearchTermChipUtils.sIsSearchChipAdaptiveIconEnabledForTesting != null) {
-            return SearchTermChipUtils.sIsSearchChipAdaptiveIconEnabledForTesting;
-        }
-        if (!FeatureUtilities.isGridTabSwitcherEnabled() || !ChromeFeatureList.isInitialized()
-                || !TabUiFeatureUtilities.isSearchTermChipEnabled()
-                || !ChromeFeatureList
-                            .getFieldTrialParamByFeature(ChromeFeatureList.TAB_GRID_LAYOUT_ANDROID,
-                                    "enable_search_term_chip_adaptive_icon")
-                            .equals("true")) {
-            return false;
-        }
-        return true;
-    }
-
     private String getUrlForTab(Tab tab) {
-        if (!FeatureUtilities.isTabGroupsAndroidContinuationEnabled()) return "";
-        if (!mActionsOnAllRelatedTabs) return tab.getUrl();
+        if (!TabUiFeatureUtilities.isTabGroupsAndroidContinuationEnabled()) return "";
+        if (!mActionsOnAllRelatedTabs) return tab.getUrlString();
 
         List<Tab> relatedTabs = getRelatedTabsForId(tab.getId());
-        if (relatedTabs.size() == 1) return tab.getUrl();
+        if (relatedTabs.size() == 1) return tab.getUrlString();
 
         StringBuilder builder = new StringBuilder();
         // TODO(1024925): Address i18n issue for the list separator.
         String separator = ", ";
         for (int i = 0; i < relatedTabs.size(); i++) {
-            String domain = UrlUtilities.getDomainAndRegistry(relatedTabs.get(i).getUrl(), false);
+            String domain =
+                    UrlUtilities.getDomainAndRegistry(relatedTabs.get(i).getUrlString(), false);
             if (!domain.isEmpty()) {
                 builder.append(domain);
 
@@ -1321,16 +1302,6 @@ class TabListMediator {
         return mSelectionDelegateProvider == null
                 ? null
                 : mSelectionDelegateProvider.getSelectionDelegate();
-    }
-
-    @Nullable
-    private TabActionListener getCreateGroupButtonListener(Tab tab, boolean isSelected) {
-        TabActionListener createGroupButtonOnClickListener = null;
-        if (isSelected && mCreateGroupButtonProvider != null) {
-            createGroupButtonOnClickListener =
-                    mCreateGroupButtonProvider.getCreateGroupButtonOnClickListener(tab);
-        }
-        return createGroupButtonOnClickListener;
     }
 
     @VisibleForTesting
@@ -1374,10 +1345,15 @@ class TabListMediator {
             mModel.get(modelIndex).model.set(TabProperties.FAVICON, null);
             return;
         }
+
+        if (!mTabListFaviconProvider.isInitialized()) {
+            return;
+        }
+
         // If there is an available icon, we fetch favicon synchronously; otherwise asynchronously.
         if (icon != null) {
             Drawable drawable = mTabListFaviconProvider.getFaviconForUrlSync(
-                    tab.getUrl(), tab.isIncognito(), icon);
+                    tab.getUrlString(), tab.isIncognito(), icon);
             mModel.get(modelIndex).model.set(TabProperties.FAVICON, drawable);
             return;
         }
@@ -1391,7 +1367,7 @@ class TabListMediator {
             }
         };
         mTabListFaviconProvider.getFaviconForUrlAsync(
-                tab.getUrl(), tab.isIncognito(), faviconCallback);
+                tab.getUrlString(), tab.isIncognito(), faviconCallback);
     }
 
     /**
@@ -1420,6 +1396,13 @@ class TabListMediator {
     void removeSpecialItemFromModel(@UiType int uiType, int itemIdentifier) {
         int index = TabModel.INVALID_TAB_INDEX;
         if (uiType == UiType.MESSAGE) {
+            if (itemIdentifier == MessageService.MessageType.ALL) {
+                while (mModel.lastIndexForMessageItem() != TabModel.INVALID_TAB_INDEX) {
+                    index = mModel.lastIndexForMessageItem();
+                    mModel.removeAt(index);
+                }
+                return;
+            }
             index = mModel.lastIndexForMessageItemFromType(itemIdentifier);
         } else if (uiType == UiType.NEW_TAB_TILE) {
             index = mModel.getIndexForNewTabTile();
@@ -1500,11 +1483,6 @@ class TabListMediator {
                 select.run(tabId);
                 navigateToLastSearchQuery(originalTab);
             };
-        }
-
-        @VisibleForTesting
-        static void setIsSearchChipAdaptiveIconEnabledForTesting(Boolean isEnabled) {
-            sIsSearchChipAdaptiveIconEnabledForTesting = isEnabled;
         }
     }
 }

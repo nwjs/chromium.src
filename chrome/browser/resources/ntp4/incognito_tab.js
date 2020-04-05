@@ -3,6 +3,8 @@
 // found in the LICENSE file.
 
 window.addEventListener('load', function() {
+  let cookieSettingsUrl;
+
   cr.addWebUIListener('theme-changed', themeData => {
     document.documentElement.setAttribute(
         'hascustombackground', themeData.hasCustomBackground);
@@ -13,9 +15,10 @@ window.addEventListener('load', function() {
 
   cr.addWebUIListener('cookie-controls-changed', dict => {
     $('cookie-controls-tooltip-icon').hidden = !dict.enforced;
+    $('cookie-controls-tooltip-icon').iconClass = dict.icon;
     $('cookie-controls-toggle').disabled = dict.enforced;
     $('cookie-controls-toggle').checked = dict.checked;
-    $('cookie-controls-toggle').iconClass = dict.icon;
+    cookieSettingsUrl = dict.cookieSettingsUrl;
   });
   $('cookie-controls-toggle').addEventListener('change', event => {
     chrome.send('cookieControlsToggleChanged', [event.detail]);
@@ -27,7 +30,7 @@ window.addEventListener('load', function() {
     }
   });
   $('cookie-controls-tooltip-icon').onclick = () => {
-    window.location.href = 'chrome://settings/content/cookies';
+    window.location.href = cookieSettingsUrl;
   };
   chrome.send('observeCookieControlsSettingsChanges');
 });

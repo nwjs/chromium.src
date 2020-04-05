@@ -4,6 +4,7 @@
 
 #include "components/metrics/metrics_service.h"
 
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -12,6 +13,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/optional.h"
 #include "base/test/metrics/histogram_tester.h"
+#include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/metrics/chrome_metrics_service_accessor.h"
 #include "chrome/browser/metrics/chrome_metrics_services_manager_client.h"
@@ -80,18 +82,14 @@ class MetricsServiceUserDemographicsBrowserTest
       return base::nullopt;
     }
 
-    // Force the creation of a log record (i.e., trigger all metrics providers).
-    metrics_service->CloseCurrentLogForTest();
-
-    // Stage/serialize the log record for transmission.
-    MetricsLogStore* const log_store = metrics_service->LogStoreForTest();
-    log_store->StageNextLog();
-    if (!log_store->has_staged_log()) {
+    // Stage the current log in the log store.
+    if (!metrics_service->StageCurrentLogForTest()) {
       LOG(ERROR) << "No staged log.";
       return base::nullopt;
     }
 
     // Decompress the staged log.
+    MetricsLogStore* const log_store = metrics_service->LogStoreForTest();
     std::string uncompressed_log;
     if (!compression::GzipUncompress(log_store->staged_log(),
                                      &uncompressed_log)) {
@@ -118,8 +116,15 @@ class MetricsServiceUserDemographicsBrowserTest
 };
 
 // TODO(crbug/1016118): Add the remaining test cases.
+#if defined(OS_ANDROID)
+#define MAYBE_AddSyncedUserBirthYearAndGenderToProtoData \
+  DISABLED_AddSyncedUserBirthYearAndGenderToProtoData
+#else
+#define MAYBE_AddSyncedUserBirthYearAndGenderToProtoData \
+  AddSyncedUserBirthYearAndGenderToProtoData
+#endif
 IN_PROC_BROWSER_TEST_P(MetricsServiceUserDemographicsBrowserTest,
-                       AddSyncedUserBirthYearAndGenderToProtoData) {
+                       MAYBE_AddSyncedUserBirthYearAndGenderToProtoData) {
   test::DemographicsTestParams param = GetParam();
 
   base::HistogramTester histogram;

@@ -730,7 +730,8 @@ void WebViewGuest::SetUserAgentOverride(
   if (is_overriding_user_agent_) {
     base::RecordAction(UserMetricsAction("WebView.Guest.OverrideUA"));
   }
-  web_contents()->SetUserAgentOverride(user_agent_override, false);
+  web_contents()->SetUserAgentOverride(
+      blink::UserAgentOverride::UserAgentOnly(user_agent_override), false);
 }
 
 void WebViewGuest::Stop() {
@@ -957,12 +958,13 @@ void WebViewGuest::RenderProcessGone(base::TerminationStatus status) {
       std::make_unique<GuestViewEvent>(webview::kEventExit, std::move(args)));
 }
 
-void WebViewGuest::UserAgentOverrideSet(const std::string& user_agent) {
+void WebViewGuest::UserAgentOverrideSet(
+    const blink::UserAgentOverride& ua_override) {
   content::NavigationController& controller = web_contents()->GetController();
   content::NavigationEntry* entry = controller.GetVisibleEntry();
   if (!entry)
     return;
-  entry->SetIsOverridingUserAgent(!user_agent.empty());
+  entry->SetIsOverridingUserAgent(!ua_override.ua_string_override.empty());
   web_contents()->GetController().Reload(content::ReloadType::NORMAL, false);
 }
 
@@ -1062,14 +1064,6 @@ void WebViewGuest::CanDownload(const GURL& url,
                                            std::move(callback));
 }
 
-void WebViewGuest::RequestPointerLockPermission(
-    bool user_gesture,
-    bool last_unlocked_by_target,
-    base::OnceCallback<void(bool)> callback) {
-  web_view_permission_helper_->RequestPointerLockPermission(
-      user_gesture, last_unlocked_by_target, std::move(callback));
-}
-
 void WebViewGuest::SignalWhenReady(base::OnceClosure callback) {
   auto* manager = WebViewContentScriptManager::Get(browser_context());
   manager->SignalOnScriptsLoaded(std::move(callback));
@@ -1127,7 +1121,8 @@ bool WebViewGuest::HandleKeyboardShortcuts(
   // mouse if necessary.
   if ((event.windows_key_code == ui::VKEY_ESCAPE) &&
       !(event.GetModifiers() & blink::WebInputEvent::kInputModifiers)) {
-    return web_contents()->GotResponseToLockMouseRequest(false);
+    return web_contents()->GotResponseToLockMouseRequest(
+        blink::mojom::PointerLockResult::kUserRejected);
   }
 
 #if defined(OS_MACOSX)
@@ -1462,10 +1457,10 @@ bool WebViewGuest::IsFullscreenForTabOrPending(
 void WebViewGuest::RequestToLockMouse(WebContents* web_contents,
                                       bool user_gesture,
                                       bool last_unlocked_by_target) {
-  RequestPointerLockPermission(
+  web_view_permission_helper_->RequestPointerLockPermission(
       user_gesture, last_unlocked_by_target,
       base::Bind(
-          base::IgnoreResult(&WebContents::GotResponseToLockMouseRequest),
+          base::IgnoreResult(&WebContents::GotLockMousePermissionResponse),
           base::Unretained(web_contents)));
 }
 

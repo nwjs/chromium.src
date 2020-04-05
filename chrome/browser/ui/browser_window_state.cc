@@ -80,11 +80,20 @@ class WindowPlacementPrefUpdate : public DictionaryPrefUpdate {
 std::string GetWindowName(const Browser* browser) {
   if (browser->is_type_popup() && !browser->windows_key().empty())
     return browser->windows_key();
-  if (browser->app_name().empty()) {
-    return browser->is_type_normal() ? prefs::kBrowserWindowPlacement
-                                     : prefs::kBrowserWindowPlacementPopup;
+  switch (browser->type()) {
+    case Browser::TYPE_NORMAL:
+#if defined(OS_CHROMEOS)
+    case Browser::TYPE_CUSTOM_TAB:
+#endif
+      return prefs::kBrowserWindowPlacement;
+    case Browser::TYPE_POPUP:
+      return prefs::kBrowserWindowPlacementPopup;
+    case Browser::TYPE_APP:
+    case Browser::TYPE_DEVTOOLS:
+      return browser->app_name();
+    case Browser::TYPE_APP_POPUP:
+      return browser->app_name() + "_popup";
   }
-  return browser->app_name();
 }
 
 std::unique_ptr<DictionaryPrefUpdate> GetWindowPlacementDictionaryReadWrite(
@@ -157,7 +166,7 @@ void SaveWindowWorkspace(const Browser* browser, const std::string& workspace) {
     session_service->SetWindowWorkspace(browser->session_id(), workspace);
 }
 
-bool GetSavedWindowBoundsAndShowState(const Browser* browser,
+void GetSavedWindowBoundsAndShowState(const Browser* browser,
                                       gfx::Rect* bounds,
                                       ui::WindowShowState* show_state) {
   DCHECK(browser);
@@ -165,16 +174,14 @@ bool GetSavedWindowBoundsAndShowState(const Browser* browser,
   DCHECK(show_state);
 
   *bounds = browser->override_bounds();
-
-  bool ret = WindowSizer::GetBrowserWindowBoundsAndShowState(browser->app_name(), *bounds,
-                                                  browser, bounds, show_state);
+  WindowSizer::GetBrowserWindowBoundsAndShowState(*bounds, browser, bounds,
+                                                  show_state);
 
   const base::CommandLine& parsed_command_line =
       *base::CommandLine::ForCurrentProcess();
 
   internal::UpdateWindowBoundsAndShowStateFromCommandLine(parsed_command_line,
                                                           bounds, show_state);
-  return ret;
 }
 
 namespace internal {

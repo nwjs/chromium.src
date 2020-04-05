@@ -3,6 +3,7 @@
     {
       "name": "Scrolling background of LayoutView #document",
       "bounds": [785, 10016],
+      "contentsOpaque": true,
       "transform": 1
     },
     {
@@ -12,9 +13,7 @@
     },
     {
       "name": "LayoutNGBlockFlow HTML",
-      "position": [8, 8],
-      "bounds": [200, 10000],
-      "contentsOpaque": true,
+      "bounds": [785, 10016],
       "backgroundColor": "#ADD8E6",
       "transform": 1
     },

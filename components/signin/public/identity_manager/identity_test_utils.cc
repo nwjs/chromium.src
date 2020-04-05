@@ -14,6 +14,7 @@
 #include "components/signin/internal/identity_manager/profile_oauth2_token_service.h"
 #include "components/signin/internal/identity_manager/profile_oauth2_token_service_delegate.h"
 #include "components/signin/public/base/list_accounts_test_utils.h"
+#include "components/signin/public/identity_manager/consent_level.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/signin/public/identity_manager/test_identity_manager_observer.h"
 #include "google_apis/gaia/gaia_auth_util.h"
@@ -74,6 +75,21 @@ void UpdateRefreshTokenForAccount(
   run_loop.Run();
 }
 
+// Ensures that an account for |email| exists in the AccountTrackerService,
+// seeding it if necessary. Returns AccountInfo for the account.
+AccountInfo EnsureAccountExists(AccountTrackerService* account_tracker_service,
+                                const std::string& email) {
+  AccountInfo account_info =
+      account_tracker_service->FindAccountInfoByEmail(email);
+  if (account_info.account_id.empty()) {
+    std::string gaia_id = GetTestGaiaIdForEmail(email);
+    account_tracker_service->SeedAccountInfo(gaia_id, email);
+    account_info = account_tracker_service->FindAccountInfoByEmail(email);
+    DCHECK(!account_info.account_id.empty());
+  }
+  return account_info;
+}
+
 }  // namespace
 
 CoreAccountInfo SetPrimaryAccount(IdentityManager* identity_manager,
@@ -83,24 +99,36 @@ CoreAccountInfo SetPrimaryAccount(IdentityManager* identity_manager,
       identity_manager->GetPrimaryAccountManager();
   DCHECK(!primary_account_manager->IsAuthenticated());
 
-  AccountTrackerService* account_tracker_service =
-      identity_manager->GetAccountTrackerService();
   AccountInfo account_info =
-      account_tracker_service->FindAccountInfoByEmail(email);
-  if (account_info.account_id.empty()) {
-    std::string gaia_id = GetTestGaiaIdForEmail(email);
-    account_tracker_service->SeedAccountInfo(gaia_id, email);
-    account_info = account_tracker_service->FindAccountInfoByEmail(email);
-  }
-
-  std::string gaia_id = account_info.gaia;
-  DCHECK(!gaia_id.empty());
+      EnsureAccountExists(identity_manager->GetAccountTrackerService(), email);
+  DCHECK(!account_info.gaia.empty());
 
   primary_account_manager->SignIn(email);
 
   DCHECK(primary_account_manager->IsAuthenticated());
   DCHECK(identity_manager->HasPrimaryAccount());
   return identity_manager->GetPrimaryAccountInfo();
+}
+
+CoreAccountInfo SetUnconsentedPrimaryAccount(IdentityManager* identity_manager,
+                                             const std::string& email) {
+  DCHECK(!identity_manager->HasPrimaryAccount(ConsentLevel::kNotRequired));
+
+  AccountInfo account_info =
+      EnsureAccountExists(identity_manager->GetAccountTrackerService(), email);
+  DCHECK(!account_info.gaia.empty());
+
+  PrimaryAccountManager* primary_account_manager =
+      identity_manager->GetPrimaryAccountManager();
+  primary_account_manager->SetUnconsentedPrimaryAccountInfo(account_info);
+
+  DCHECK(identity_manager->HasPrimaryAccount(ConsentLevel::kNotRequired));
+  DCHECK_EQ(account_info.gaia,
+            identity_manager
+                ->GetPrimaryAccountInfo(signin::ConsentLevel::kNotRequired)
+                .gaia);
+  return identity_manager->GetPrimaryAccountInfo(
+      signin::ConsentLevel::kNotRequired);
 }
 
 void SetRefreshTokenForPrimaryAccount(IdentityManager* identity_manager,

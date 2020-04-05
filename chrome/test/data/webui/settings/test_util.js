@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+// clang-format off
+// #import {ChooserType,ContentSetting,ContentSettingsTypes,SiteSettingSource} from 'chrome://settings/lazy_load.js';
+// #import {Router, Route} from 'chrome://settings/settings.js';
+// clang-format on
+
 cr.define('test_util', function() {
 
   /**
@@ -13,7 +18,8 @@ cr.define('test_util', function() {
    * @param {Object} value The value to map to |contentType|.
    * @return {Object<setting: settings.ContentSettingsTypes, value: Object>}
    */
-  function createContentSettingTypeToValuePair(contentType, value) {
+  /* #export */ function createContentSettingTypeToValuePair(
+      contentType, value) {
     return {setting: contentType, value: value};
   }
 
@@ -24,7 +30,7 @@ cr.define('test_util', function() {
    * overwrite the defaults in this function's return value.
    * @return {DefaultContentSetting}
    */
-  function createDefaultContentSetting(override) {
+  /* #export */ function createDefaultContentSetting(override) {
     if (override === undefined) {
       override = {};
     }
@@ -44,7 +50,7 @@ cr.define('test_util', function() {
    *     defaults in this function's return value.
    * @return {RawSiteException}
    */
-  function createRawSiteException(origin, override) {
+  /* #export */ function createRawSiteException(origin, override) {
     if (override === undefined) {
       override = {};
     }
@@ -70,7 +76,8 @@ cr.define('test_util', function() {
    *     the defaults in this function's return value.
    * @return {RawChooserException}
    */
-  function createRawChooserException(chooserType, sites, override) {
+  /* #export */ function createRawChooserException(
+      chooserType, sites, override) {
     return Object.assign(
         {chooserType: chooserType, displayName: '', object: {}, sites: sites},
         override || {});
@@ -95,7 +102,7 @@ cr.define('test_util', function() {
    *     this function.
    * @return {SiteSettingsPref}
    */
-  function createSiteSettingsPrefs(
+  /* #export */ function createSiteSettingsPrefs(
       defaultsList, exceptionsList, chooserExceptionsList = []) {
     // These test defaults reflect the actual defaults assigned to each
     // ContentSettingType, but keeping these in sync shouldn't matter for tests.
@@ -158,7 +165,7 @@ cr.define('test_util', function() {
    *     in the site group.
    * @return {SiteGroup}
    */
-  function createSiteGroup(eTLDPlus1Name, originList, mockUsage) {
+  /* #export */ function createSiteGroup(eTLDPlus1Name, originList, mockUsage) {
     if (mockUsage == undefined) {
       mockUsage = 0;
     }
@@ -171,7 +178,7 @@ cr.define('test_util', function() {
     };
   }
 
-  function createOriginInfo(origin, override) {
+  /* #export */ function createOriginInfo(origin, override) {
     if (override === undefined) {
       override = {};
     }
@@ -193,7 +200,7 @@ cr.define('test_util', function() {
    *     permission.
    * @return {?settings.ContentSettingsType}
    */
-  function getContentSettingsTypeFromChooserType(chooserType) {
+  /* #export */ function getContentSettingsTypeFromChooserType(chooserType) {
     switch (chooserType) {
       case settings.ChooserType.USB_DEVICES:
         return settings.ContentSettingsTypes.USB_DEVICES;
@@ -202,7 +209,7 @@ cr.define('test_util', function() {
     }
   }
 
-  function setupPopstateListener() {
+  /* #export */ function setupPopstateListener() {
     window.addEventListener('popstate', function(event) {
       // On pop state, do not push the state onto the window.history again.
       const routerInstance = settings.Router.getInstance();
@@ -214,6 +221,7 @@ cr.define('test_util', function() {
     });
   }
 
+  // #cr_define_end
   return {
     createContentSettingTypeToValuePair: createContentSettingTypeToValuePair,
     createDefaultContentSetting: createDefaultContentSetting,

@@ -11,10 +11,6 @@ import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.InsetDrawable;
 import android.os.Build;
-import android.support.graphics.drawable.AnimatedVectorDrawableCompat;
-import android.support.v4.content.res.ResourcesCompat;
-import android.support.v4.graphics.drawable.DrawableCompat;
-import android.support.v4.view.ViewCompat;
 import android.text.TextUtils;
 import android.view.View;
 import android.view.ViewGroup;
@@ -22,12 +18,15 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.Nullable;
+import androidx.core.content.res.ResourcesCompat;
+import androidx.core.graphics.drawable.DrawableCompat;
+import androidx.core.view.ViewCompat;
+import androidx.vectordrawable.graphics.drawable.AnimatedVectorDrawableCompat;
 
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.base.Callback;
 import org.chromium.base.MathUtils;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
-import org.chromium.chrome.browser.flags.FeatureUtilities;
 import org.chromium.chrome.tab_ui.R;
 import org.chromium.ui.modelutil.PropertyKey;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -102,7 +101,10 @@ class TabGridViewBinder {
             @Nullable PropertyKey propertyKey) {
         if (TabProperties.TITLE == propertyKey) {
             String title = model.get(TabProperties.TITLE);
-            ((TextView) view.fastFindViewById(R.id.tab_title)).setText(title);
+            TextView tabTitleView = (TextView) view.fastFindViewById(R.id.tab_title);
+            tabTitleView.setText(title);
+            tabTitleView.setContentDescription(
+                    view.getResources().getString(R.string.accessibility_tabstrip_tab, title));
         } else if (TabProperties.IS_SELECTED == propertyKey) {
             int selectedTabBackground =
                     model.get(TabProperties.SELECTED_TAB_BACKGROUND_DRAWABLE_ID);
@@ -125,7 +127,7 @@ class TabGridViewBinder {
                         (int) res.getDimension(R.dimen.tab_list_selected_inset));
                 view.setForeground(model.get(TabProperties.IS_SELECTED) ? drawable : null);
             }
-            if (TabUiFeatureUtilities.isSearchTermChipEnabled()) {
+            if (TabUiFeatureUtilities.ENABLE_SEARCH_CHIP.getValue()) {
                 ChipView searchButton = (ChipView) view.fastFindViewById(R.id.search_button);
                 searchButton.getPrimaryTextView().setTextAlignment(View.TEXT_ALIGNMENT_VIEW_START);
                 searchButton.getPrimaryTextView().setEllipsize(TextUtils.TruncateAt.END);
@@ -192,8 +194,7 @@ class TabGridViewBinder {
             updateColor(view, model.get(TabProperties.IS_INCOGNITO), TabProperties.UiType.CLOSABLE);
         } else if (TabProperties.ACCESSIBILITY_DELEGATE == propertyKey) {
             view.setAccessibilityDelegate(model.get(TabProperties.ACCESSIBILITY_DELEGATE));
-        } else if (TabUiFeatureUtilities.isSearchTermChipEnabled()
-                && TabProperties.SEARCH_QUERY == propertyKey) {
+        } else if (TabProperties.SEARCH_QUERY == propertyKey) {
             String query = model.get(TabProperties.SEARCH_QUERY);
             ChipView searchButton = (ChipView) view.fastFindViewById(R.id.search_button);
             if (TextUtils.isEmpty(query)) {
@@ -202,8 +203,7 @@ class TabGridViewBinder {
                 searchButton.setVisibility(View.VISIBLE);
                 searchButton.getPrimaryTextView().setText(query);
             }
-        } else if (TabUiFeatureUtilities.isSearchTermChipEnabled()
-                && TabProperties.SEARCH_LISTENER == propertyKey) {
+        } else if (TabProperties.SEARCH_LISTENER == propertyKey) {
             TabListMediator.TabActionListener listener = model.get(TabProperties.SEARCH_LISTENER);
             ChipView searchButton = (ChipView) view.fastFindViewById(R.id.search_button);
             if (listener == null) {
@@ -214,8 +214,7 @@ class TabGridViewBinder {
                 int tabId = model.get(TabProperties.TAB_ID);
                 listener.run(tabId);
             });
-        } else if (TabUiFeatureUtilities.isSearchTermChipEnabled()
-                && TabProperties.SEARCH_CHIP_ICON_DRAWABLE_ID == propertyKey) {
+        } else if (TabProperties.SEARCH_CHIP_ICON_DRAWABLE_ID == propertyKey) {
             ChipView searchButton = (ChipView) view.fastFindViewById(R.id.search_button);
             int iconDrawableId = model.get(TabProperties.SEARCH_CHIP_ICON_DRAWABLE_ID);
             boolean shouldTint = iconDrawableId != R.drawable.ic_logo_googleg_24dp;
@@ -243,7 +242,9 @@ class TabGridViewBinder {
             actionButton.getDrawable().setAlpha(isSelected ? 255 : 0);
             ApiCompatibilityUtils.setImageTintList(actionButton,
                     isSelected ? model.get(TabProperties.CHECKED_DRAWABLE_STATE_LIST) : null);
-            if (isSelected) ((AnimatedVectorDrawableCompat) actionButton.getDrawable()).start();
+            if (isSelected) {
+                ((AnimatedVectorDrawableCompat) actionButton.getDrawable()).start();
+            }
         } else if (TabProperties.SELECTABLE_TAB_CLICKED_LISTENER == propertyKey) {
             view.setOnClickListener(v -> {
                 model.get(TabProperties.SELECTABLE_TAB_CLICKED_LISTENER).run(tabId);
@@ -288,7 +289,7 @@ class TabGridViewBinder {
     }
 
     private static void releaseThumbnail(ImageView thumbnail) {
-        if (FeatureUtilities.isTabThumbnailAspectRatioNotOne()) {
+        if (TabUiFeatureUtilities.isTabThumbnailAspectRatioNotOne()) {
             float expectedThumbnailAspectRatio =
                     (float) ChromeFeatureList.getFieldTrialParamByFeatureAsDouble(
                             ChromeFeatureList.TAB_GRID_LAYOUT_ANDROID, "thumbnail_aspect_ratio",
@@ -338,7 +339,7 @@ class TabGridViewBinder {
                     TabUiColorProvider.getThumbnailPlaceHolderColorResource(isIncognito));
         }
 
-        if (FeatureUtilities.isTabGroupsAndroidEnabled()) {
+        if (TabUiFeatureUtilities.isTabGroupsAndroidEnabled()) {
             ViewCompat.setBackgroundTintList(backgroundView,
                     TabUiColorProvider.getHoveredCardBackgroundTintList(
                             backgroundView.getContext(), isIncognito));

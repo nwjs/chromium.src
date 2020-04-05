@@ -11,11 +11,25 @@ login.createScreen('RecommendAppsScreen', 'recommend-apps', function() {
     EXTERNAL_API:
         ['loadAppList', 'setThrobberVisible', 'setWebview', 'showError'],
 
+    /** Initial UI State for screen */
+    getOobeUIInitialState() {
+      return OOBE_UI_STATE.ONBOARDING;
+    },
+
     /**
      * Returns the control which should receive initial focus.
      */
     get defaultControl() {
       return $('recommend-apps-screen');
+    },
+
+    /**
+     * Event handler that is invoked just before the screen is shown.
+     * @param {Object} data Screen init payload.
+     */
+    onBeforeShow(data) {
+      $('recommend-apps-loading').onBeforeShow();
+      $('recommend-apps-screen').onBeforeShow();
     },
 
     /*

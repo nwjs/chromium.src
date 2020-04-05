@@ -87,7 +87,6 @@ class SyncManagerImpl
       std::unique_ptr<InvalidationInterface> invalidation) override;
   void AddObserver(SyncManager::Observer* observer) override;
   void RemoveObserver(SyncManager::Observer* observer) override;
-  SyncStatus GetDetailedStatus() const override;
   void SaveChanges() override;
   void ShutdownOnSyncThread() override;
   UserShare* GetUserShare() override;
@@ -173,8 +172,6 @@ class SyncManagerImpl
   void NudgeForInitialDownload(ModelType type) override;
   void NudgeForCommit(ModelType type) override;
 
-  static std::string GenerateCacheGUIDForTest();
-
  protected:
   // Helper functions.  Virtual for testing.
   virtual void NotifyInitializationSuccess();
@@ -214,7 +211,7 @@ class SyncManagerImpl
                                const Cryptographer* cryptographer) const;
 
   // Opens the directory.
-  bool OpenDirectory(InitArgs* args);
+  bool OpenDirectory(const InitArgs* args);
 
   void RequestNudgeForDataTypes(const base::Location& nudge_location,
                                 ModelTypeSet type);

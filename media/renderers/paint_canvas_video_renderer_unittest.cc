@@ -951,26 +951,26 @@ class TestGLES2Interface : public gpu::gles2::GLES2InterfaceStub {
     }
   }
 
-  base::Callback<void(GLenum target,
-                      GLint level,
-                      GLint internalformat,
-                      GLsizei width,
-                      GLsizei height,
-                      GLint border,
-                      GLenum format,
-                      GLenum type,
-                      const void* pixels)>
+  base::RepeatingCallback<void(GLenum target,
+                               GLint level,
+                               GLint internalformat,
+                               GLsizei width,
+                               GLsizei height,
+                               GLint border,
+                               GLenum format,
+                               GLenum type,
+                               const void* pixels)>
       teximage2d_callback_;
 
-  base::Callback<void(GLenum target,
-                      GLint level,
-                      GLint xoffset,
-                      GLint yoffset,
-                      GLsizei width,
-                      GLsizei height,
-                      GLenum format,
-                      GLenum type,
-                      const void* pixels)>
+  base::RepeatingCallback<void(GLenum target,
+                               GLint level,
+                               GLint xoffset,
+                               GLint yoffset,
+                               GLsizei width,
+                               GLsizei height,
+                               GLenum format,
+                               GLenum type,
+                               const void* pixels)>
       texsubimage2d_callback_;
 };
 
@@ -1129,13 +1129,15 @@ class PaintCanvasVideoRendererWithGLTest : public PaintCanvasVideoRendererTest {
     gl::GLSurfaceTestSupport::InitializeOneOff();
     enable_pixels_.emplace();
     media_context_ = base::MakeRefCounted<viz::TestInProcessContextProvider>(
-        false /* enable_oop_rasterization */, false /* support_locking */);
+        /*enable_gpu_rasterization=*/false,
+        /*enable_oop_rasterization=*/false, /*support_locking=*/false);
     gpu::ContextResult result = media_context_->BindToCurrentThread();
     ASSERT_EQ(result, gpu::ContextResult::kSuccess);
 
     destination_context_ =
         base::MakeRefCounted<viz::TestInProcessContextProvider>(
-            false /* enable_oop_rasterization */, false /* support_locking */);
+            /*enable_gpu_rasterization=*/false,
+            /*enable_oop_rasterization=*/false, /*support_locking=*/false);
     result = destination_context_->BindToCurrentThread();
     ASSERT_EQ(result, gpu::ContextResult::kSuccess);
   }

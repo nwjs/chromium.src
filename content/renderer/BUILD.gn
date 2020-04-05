@@ -47,6 +47,8 @@ target(link_target_type, "renderer") {
     "accessibility/blink_ax_tree_source.h",
     "accessibility/render_accessibility_impl.cc",
     "accessibility/render_accessibility_impl.h",
+    "accessibility/render_accessibility_manager.cc",
+    "accessibility/render_accessibility_manager.h",
     "android/synchronous_layer_tree_frame_sink.cc",
     "android/synchronous_layer_tree_frame_sink.h",
     "browser_exposed_renderer_interfaces.cc",
@@ -76,8 +78,8 @@ target(link_target_type, "renderer") {
     "effective_connection_type_helper.h",
     "frame_blame_context.cc",
     "frame_blame_context.h",
-    "frame_owner_properties.cc",
-    "frame_owner_properties.h",
+    "frame_owner_properties_converter.cc",
+    "frame_owner_properties_converter.h",
     "frame_swap_message_queue.cc",
     "frame_swap_message_queue.h",
     "gpu_benchmarking_extension.cc",
@@ -293,6 +295,8 @@ target(link_target_type, "renderer") {
     "top_level_blame_context.h",
     "v8_value_converter_impl.cc",
     "v8_value_converter_impl.h",
+    "variations_render_thread_observer.cc",
+    "variations_render_thread_observer.h",
     "web_ui_extension.cc",
     "web_ui_extension.h",
     "web_ui_extension_data.cc",
@@ -341,6 +345,7 @@ target(link_target_type, "renderer") {
     "//components/metrics",
     "//components/metrics:single_sample_metrics",
     "//components/url_formatter",
+    "//components/variations/net",
     "//components/viz/client",
     "//components/viz/common",
     "//content:content_resources",
@@ -475,6 +480,8 @@ target(link_target_type, "renderer") {
 
   if (is_fuchsia) {
     sources += [
+      "media/audio/fuchsia_audio_device_factory.cc",
+      "media/audio/fuchsia_audio_device_factory.h",
       "media/fuchsia_renderer_factory.cc",
       "media/fuchsia_renderer_factory.h",
       "render_view_fuchsia.cc",
@@ -484,6 +491,7 @@ target(link_target_type, "renderer") {
     deps += [
       "//media/fuchsia/audio",
       "//media/fuchsia/cdm/client",
+      "//media/fuchsia/mojom",
     ]
   }
 
@@ -644,6 +652,8 @@ target(link_target_type, "renderer") {
       "//ppapi/shared_impl",
       "//third_party/libvpx",
       "//third_party/opus",
+      "//ui/base/cursor",
+      "//ui/base/mojom:cursor_type",
     ]
   }
 

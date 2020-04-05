@@ -82,7 +82,7 @@ class SyncEngineImpl : public SyncEngine, public InvalidationHandler {
   void DeactivateNonBlockingDataType(ModelType type) override;
   void EnableEncryptEverything() override;
   UserShare* GetUserShare() const override;
-  Status GetDetailedStatus() override;
+  const Status& GetDetailedStatus() const override;
   void HasUnsyncedItemsForTest(
       base::OnceCallback<void(bool)> cb) const override;
   void GetModelSafeRoutingInfo(ModelSafeRoutingInfo* out) const override;
@@ -100,7 +100,7 @@ class SyncEngineImpl : public SyncEngine, public InvalidationHandler {
   // InvalidationHandler implementation.
   void OnInvalidatorStateChange(InvalidatorState state) override;
   void OnIncomingInvalidation(
-      const ObjectIdInvalidationMap& invalidation_map) override;
+      const TopicInvalidationMap& invalidation_map) override;
   std::string GetOwnerName() const override;
   void OnInvalidatorClientIdChange(const std::string& client_id) override;
 
@@ -125,7 +125,6 @@ class SyncEngineImpl : public SyncEngine, public InvalidationHandler {
       const WeakHandle<JsBackend> js_backend,
       const WeakHandle<DataTypeDebugInfoListener> debug_info_listener,
       std::unique_ptr<ModelTypeConnector> model_type_connector,
-      const std::string& cache_guid,
       const std::string& birthday,
       const std::string& bag_of_chips,
       const std::string& last_keystore_key);
@@ -160,6 +159,8 @@ class SyncEngineImpl : public SyncEngine, public InvalidationHandler {
   // set of invalidation versions for each type.
   void UpdateInvalidationVersions(
       const std::map<ModelType, int64_t>& invalidation_versions);
+
+  void HandleSyncStatusChanged(const SyncStatus& status);
 
  private:
   friend class SyncEngineBackend;
@@ -216,6 +217,8 @@ class SyncEngineImpl : public SyncEngine, public InvalidationHandler {
   bool invalidation_handler_registered_ = false;
   ModelTypeSet last_enabled_types_;
   bool sessions_invalidation_enabled_ = false;
+
+  SyncStatus cached_status_;
 
   // Checks that we're on the same thread this was constructed on (UI thread).
   SEQUENCE_CHECKER(sequence_checker_);

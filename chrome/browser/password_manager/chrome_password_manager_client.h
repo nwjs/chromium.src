@@ -14,7 +14,8 @@
 #include "base/macros.h"
 #include "base/optional.h"
 #include "build/build_config.h"
-#include "components/autofill/content/common/mojom/autofill_driver.mojom.h"
+#include "chrome/browser/signin/reauth_result.h"
+#include "components/autofill/content/common/mojom/autofill_driver.mojom-forward.h"
 #include "components/password_manager/content/browser/content_credential_manager.h"
 #include "components/password_manager/content/browser/content_password_manager_driver_factory.h"
 #include "components/password_manager/core/browser/http_auth_manager.h"
@@ -29,6 +30,7 @@
 #include "components/password_manager/core/browser/password_manager_metrics_util.h"
 #include "components/password_manager/core/browser/password_manager_onboarding.h"
 #include "components/password_manager/core/browser/password_reuse_detection_manager.h"
+#include "components/password_manager/core/browser/password_reuse_detector.h"
 #include "components/password_manager/core/browser/sync_credentials_filter.h"
 #include "components/prefs/pref_member.h"
 #include "components/safe_browsing/buildflags.h"
@@ -49,6 +51,7 @@ class ChromeBiometricAuthenticator;
 class PasswordGenerationPopupObserver;
 class PasswordGenerationPopupControllerImpl;
 class Profile;
+struct CoreAccountId;
 
 namespace autofill {
 namespace password_generation {
@@ -117,7 +120,8 @@ class ChromePasswordManagerClient
           saved_form_manager) override;
   void UpdateCredentialCache(
       const GURL& origin,
-      const std::vector<const autofill::PasswordForm*>& best_matches) override;
+      const std::vector<const autofill::PasswordForm*>& best_matches,
+      bool is_blacklisted) override;
   void PasswordWasAutofilled(
       const std::vector<const autofill::PasswordForm*>& best_matches,
       const GURL& origin,
@@ -128,7 +132,11 @@ class ChromePasswordManagerClient
       const password_manager::PasswordFormManagerForUI* form_manager) override;
   void NotifyUserCredentialsWereLeaked(
       password_manager::CredentialLeakType leak_type,
-      const GURL& origin) override;
+      const GURL& origin,
+      const base::string16& username) override;
+  void TriggerReauthForAccount(
+      const CoreAccountId& account_id,
+      base::OnceCallback<void(ReauthSucceeded)> reauth_callback) override;
   bool IsIsolationForPasswordSitesEnabled() const override;
 
   PrefService* GetPrefs() const override;
@@ -203,7 +211,8 @@ class ChromePasswordManagerClient
   void CheckProtectedPasswordEntry(
       password_manager::metrics_util::PasswordType reused_password_type,
       const std::string& username,
-      const std::vector<std::string>& matching_domains,
+      const std::vector<password_manager::MatchingReusedCredential>&
+          matching_reused_credentials,
       bool password_field_exists) override;
 #endif
 
@@ -244,6 +253,11 @@ class ChromePasswordManagerClient
 
   password_manager::CredentialCache* GetCredentialCacheForTesting() {
     return &credential_cache_;
+  }
+
+  bool WasCredentialLeakDialogShown() const override;
+  void SetCredentialLeakDialogWasShownForTesting(bool value) {
+    was_leak_dialog_shown_ = value;
   }
 #endif
 
@@ -304,7 +318,7 @@ class ChromePasswordManagerClient
   Profile* const profile_;
 
   password_manager::PasswordManager password_manager_;
-  const password_manager::PasswordFeatureManagerImpl password_feature_manager_;
+  password_manager::PasswordFeatureManagerImpl password_feature_manager_;
   password_manager::HttpAuthManagerImpl httpauth_manager_;
 
 #if defined(SYNC_PASSWORD_REUSE_DETECTION_ENABLED)
@@ -324,6 +338,10 @@ class ChromePasswordManagerClient
   // event is triggered. It is sent to password reuse detection manager and
   // reset when ime finish composing text event is triggered.
   base::string16 last_composing_text_;
+
+  // Whether a leak warning was shown. Used only for tests or when
+  // ENABLE_PASSWORD_CHANGE is defined.
+  bool was_leak_dialog_shown_ = false;
 #endif
 
   std::unique_ptr<ChromeBiometricAuthenticator> biometric_authenticator_;

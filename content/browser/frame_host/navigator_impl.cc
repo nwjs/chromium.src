@@ -56,20 +56,6 @@ namespace nw {
 
 namespace content {
 
-namespace {
-
-// A renderer-initiated navigation should be ignored iff a) there is an ongoing
-// request b) which is browser initiated and c) the renderer request is not
-// user-initiated.
-bool ShouldIgnoreIncomingRendererRequest(
-    NavigationRequest* ongoing_navigation_request,
-    bool has_user_gesture) {
-  return ongoing_navigation_request &&
-         ongoing_navigation_request->browser_initiated() && !has_user_gesture;
-}
-
-}  // namespace
-
 struct NavigatorImpl::NavigationMetricsData {
   NavigationMetricsData(base::TimeTicks start_time,
                         GURL url,
@@ -114,6 +100,17 @@ void NavigatorImpl::CheckWebUIRendererDoesNotDisplayNormalURL(
         url, root_node->current_url().possibly_invalid_spec());
     CHECK(0);
   }
+}
+
+// A renderer-initiated navigation should be ignored iff a) there is an ongoing
+// request b) which is browser initiated and c) the renderer request is not
+// user-initiated.
+// static
+bool NavigatorImpl::ShouldIgnoreIncomingRendererRequest(
+    const NavigationRequest* ongoing_navigation_request,
+    bool has_user_gesture) {
+  return ongoing_navigation_request &&
+         ongoing_navigation_request->browser_initiated() && !has_user_gesture;
 }
 
 NavigatorDelegate* NavigatorImpl::GetDelegate() {
@@ -181,7 +178,10 @@ void NavigatorImpl::DidNavigate(
   // frame's origin.  See https://crbug.com/825283.
   frame_tree_node->render_manager()->DidNavigateFrame(
       render_frame_host, params.gesture == NavigationGestureUser,
-      is_same_document_navigation, pending_frame_policy);
+      is_same_document_navigation,
+      navigation_request
+          ->require_coop_browsing_instance_swap() /* clear_proxies_on_commit */,
+      pending_frame_policy);
 
   // Save the new page's origin and other properties, and replicate them to
   // proxies, including the proxy created in DidNavigateFrame() to replace the
@@ -299,7 +299,10 @@ void NavigatorImpl::Navigate(std::unique_ptr<NavigationRequest> request,
       "navigation,rail", "NavigationTiming navigationStart",
       TRACE_EVENT_SCOPE_GLOBAL, request->common_params().navigation_start);
 
-  const GURL& dest_url = request->common_params().url;
+  // Save destination url, as it is needed for
+  // DidStartNavigationToPendingEntry and request could be destroyed after
+  // BeginNavigation below.
+  GURL dest_url = request->common_params().url;
   FrameTreeNode* frame_tree_node = request->frame_tree_node();
 
   navigation_data_.reset(new NavigationMetricsData(
@@ -486,9 +489,9 @@ void NavigatorImpl::NavigateFromFrameProxy(
       extra_headers, std::move(blob_url_loader_factory));
 }
 
-void NavigatorImpl::OnBeforeUnloadACK(FrameTreeNode* frame_tree_node,
-                                      bool proceed,
-                                      const base::TimeTicks& proceed_time) {
+void NavigatorImpl::BeforeUnloadCompleted(FrameTreeNode* frame_tree_node,
+                                          bool proceed,
+                                          const base::TimeTicks& proceed_time) {
   DCHECK(frame_tree_node);
 
   NavigationRequest* navigation_request = frame_tree_node->navigation_request();
@@ -602,7 +605,8 @@ void NavigatorImpl::OnBeginNavigation(
 
   // This frame has already run beforeunload before it sent this IPC.  See if
   // any of its cross-process subframes also need to run beforeunload.  If so,
-  // delay the navigation until receiving beforeunload ACKs from those frames.
+  // delay the navigation until beforeunload completion callbacks are invoked on
+  // those frames.
   DCHECK(!NavigationTypeUtils::IsSameDocument(
       navigation_request->common_params().navigation_type));
   bool should_dispatch_beforeunload =

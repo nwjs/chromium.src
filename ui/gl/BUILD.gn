@@ -10,7 +10,6 @@ import("//build/config/ui.gni")
 import("//testing/test.gni")
 import("//ui/gl/features.gni")
 import("//ui/ozone/ozone.gni")
-
 declare_args() {
   enable_swiftshader = (is_win || is_linux || (is_mac && use_egl) ||
                         is_chromeos || is_fuchsia) &&
@@ -32,7 +31,7 @@ if (is_android) {
 
 # Reset sources_assignment_filter for the BUILD.gn file to prevent
 # regression during the migration of Chromium away from the feature.
-# See build/no_sources_assignment_filter.md for more information.
+# See docs/no_sources_assignment_filter.md for more information.
 # TODO(crbug.com/1018739): remove this when migration is done.
 set_sources_assignment_filter([])
 
@@ -256,13 +255,16 @@ jumbo_component("gl") {
 
   if (use_x11) {
     sources += [
-      "gl_surface_egl_x11.cc",
-      "gl_surface_egl_x11.h",
+      "gl_surface_egl_x11_gles2.cc",
+      "gl_surface_egl_x11_gles2.h",
       "gl_surface_glx_x11.cc",
       "gl_surface_glx_x11.h",
     ]
 
-    deps += [ "//ui/base/x" ]
+    deps += [
+      "//ui/base/x",
+      "//ui/events/platform/x11:x11",
+    ]
 
     assert(use_egl)
     data_deps += [
@@ -422,7 +424,7 @@ if (is_mac && use_egl) {
   }
 
   if (enable_swiftshader) {
-    copy("swiftshader_library_copy") {
+    copy("swiftshader_egl_library_copy") {
       sources = [
         "$root_out_dir/libswiftshader_libEGL.dylib",
         "$root_out_dir/libswiftshader_libGLESv2.dylib",
@@ -431,6 +433,17 @@ if (is_mac && use_egl) {
       deps = [
         "//third_party/swiftshader/src/OpenGL/libEGL:swiftshader_libEGL",
         "//third_party/swiftshader/src/OpenGL/libGLESv2:swiftshader_libGLESv2",
+      ]
+    }
+    copy("swiftshader_vk_library_copy") {
+      sources = [
+        "$root_out_dir/libvk_swiftshader.dylib",
+        "$root_out_dir/vk_swiftshader_icd.json",
+      ]
+      outputs = [ "$root_out_dir/vk_intermediates/{{source_file_part}}" ]
+      deps = [
+        "//third_party/swiftshader/src/Vulkan:icd_file",
+        "//third_party/swiftshader/src/Vulkan:swiftshader_libvulkan",
       ]
     }
   }

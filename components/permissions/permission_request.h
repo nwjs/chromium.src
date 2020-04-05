@@ -53,6 +53,7 @@ enum class PermissionRequestType {
   PERMISSION_CLIPBOARD_READ_WRITE = 20,
   PERMISSION_VR = 21,
   PERMISSION_AR = 22,
+  PERMISSION_STORAGE_ACCESS = 23,
   // NUM must be the last value in the enum.
   NUM
 };
@@ -93,9 +94,6 @@ class PermissionRequest {
   virtual IconId GetIconId() const = 0;
 
 #if defined(OS_ANDROID)
-  // Returns the title of this permission as text.
-  virtual base::string16 GetTitleText() const = 0;
-
   // Returns the full prompt text for this permission. This is currently only
   // used on Android.
   virtual base::string16 GetMessageText() const = 0;
@@ -115,6 +113,13 @@ class PermissionRequest {
   // bubble may coalesce different requests, and if it does, this text will
   // be displayed next to an image and indicate the user grants the permission.
   virtual base::string16 GetMessageTextFragment() const = 0;
+
+  // Returns a warning prompt text related to this permission.
+  virtual base::string16 GetMessageTextWarningFragment() const;
+
+  // Get the top-level origin currently displayed in the address bar associated
+  // with this request.
+  virtual GURL GetEmbeddingOrigin() const;
 
   // Get the origin on whose behalf this permission request is being made.
   virtual GURL GetOrigin() const = 0;

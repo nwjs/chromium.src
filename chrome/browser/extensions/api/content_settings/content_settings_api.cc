@@ -25,7 +25,6 @@
 #include "chrome/browser/extensions/api/preference/preference_api_constants.h"
 #include "chrome/browser/extensions/api/preference/preference_helpers.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/api/content_settings.h"
 #include "components/content_settings/core/browser/content_settings_info.h"
@@ -34,6 +33,7 @@
 #include "components/content_settings/core/browser/cookie_settings.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
 #include "components/content_settings/core/common/content_settings.h"
+#include "components/permissions/features.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/common/webplugininfo.h"
@@ -269,7 +269,8 @@ ContentSettingsContentSettingSetFunction::Run() {
   if (primary_pattern != secondary_pattern &&
       secondary_pattern != ContentSettingsPattern::Wildcard() &&
       !info->website_settings_info()->SupportsEmbeddedExceptions() &&
-      base::FeatureList::IsEnabled(::features::kPermissionDelegation)) {
+      base::FeatureList::IsEnabled(
+          permissions::features::kPermissionDelegation)) {
     static const char kUnsupportedEmbeddedException[] =
         "Embedded patterns are not supported for this setting.";
     return RespondNow(Error(kUnsupportedEmbeddedException));
@@ -313,13 +314,13 @@ ContentSettingsContentSettingSetFunction::Run() {
   return RespondNow(NoArguments());
 }
 
-bool ContentSettingsContentSettingGetResourceIdentifiersFunction::RunAsync() {
+ExtensionFunction::ResponseAction
+ContentSettingsContentSettingGetResourceIdentifiersFunction::Run() {
   ContentSettingsType content_type;
   EXTENSION_FUNCTION_VALIDATE(RemoveContentType(args_.get(), &content_type));
 
   if (content_type != ContentSettingsType::PLUGINS) {
-    SendResponse(true);
-    return true;
+    return RespondNow(NoArguments());
   }
 
 #if BUILDFLAG(ENABLE_PLUGINS)
@@ -329,12 +330,13 @@ bool ContentSettingsContentSettingGetResourceIdentifiersFunction::RunAsync() {
       this));
 #endif
 
-  return true;
+  return RespondLater();
 }
 
 #if BUILDFLAG(ENABLE_PLUGINS)
 void ContentSettingsContentSettingGetResourceIdentifiersFunction::OnGotPlugins(
     const std::vector<content::WebPluginInfo>& plugins) {
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
   PluginFinder* finder = PluginFinder::GetInstance();
   std::set<std::string> group_identifiers;
   std::unique_ptr<base::ListValue> list(new base::ListValue());
@@ -352,13 +354,7 @@ void ContentSettingsContentSettingGetResourceIdentifiersFunction::OnGotPlugins(
                     plugin_metadata->name());
     list->Append(std::move(dict));
   }
-  SetResult(std::move(list));
-  base::PostTask(
-      FROM_HERE, {BrowserThread::UI},
-      base::BindOnce(
-          &ContentSettingsContentSettingGetResourceIdentifiersFunction::
-              SendResponse,
-          this, true));
+  Respond(OneArgument(std::move(list)));
 }
 #endif  // BUILDFLAG(ENABLE_PLUGINS)
 

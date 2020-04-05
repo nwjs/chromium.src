@@ -42,6 +42,8 @@ COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 extern const char kArcDisableGmsCoreCache[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) extern const char kArcDisableLocaleSync[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
+extern const char kArcDisableSystemDefaultApps[];
+COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 extern const char kArcDisablePlayAutoInstall[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) extern const char kArcForceCacheAppIcons[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) extern const char kArcForceShowOptInUi[];
@@ -97,7 +99,6 @@ extern const char kDisableVolumeAdjustSound[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) extern const char kDisableWakeOnWifi[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) extern const char kEnableArc[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
-extern const char kEnableArcOobeOptinNoSkip[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) extern const char kEnableArcVm[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) extern const char kEnableCastReceiver[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
@@ -109,10 +110,9 @@ COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 extern const char kEnableEncryptionMigration[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 extern const char kEnableExtensionAssetsSharing[];
-COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
-extern const char kEnableFirstRunUITransitions[];
-COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
-extern const char kEnableMarketingOptInScreen[];
+COMPONENT_EXPORT(CHROMEOS_CONSTANTS) extern const char kEnableHoudini[];
+COMPONENT_EXPORT(CHROMEOS_CONSTANTS) extern const char kEnableHoudini64[];
+COMPONENT_EXPORT(CHROMEOS_CONSTANTS) extern const char kEnableNdkTranslation[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 extern const char kEnableRequestTabletSite[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
@@ -163,11 +163,14 @@ COMPONENT_EXPORT(CHROMEOS_CONSTANTS) extern const char kKernelnextRestrictVMs[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) extern const char kLoginManager[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) extern const char kLoginProfile[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) extern const char kLoginUser[];
+COMPONENT_EXPORT(CHROMEOS_CONSTANTS) extern const char kMarketingOptInUrl[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) extern const char kNaturalScrollDefault[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 extern const char kNeedArcMigrationPolicyCheck[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) extern const char kNoteTakingAppIds[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) extern const char kOobeForceShowScreen[];
+COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
+extern const char kOobeForceTabletFirstRun[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) extern const char kOobeGuestSession[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) extern const char kOobeSkipPostLogin[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) extern const char kOobeSkipToLogin[];
@@ -181,6 +184,7 @@ COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 extern const char kRedirectLibassistantLogging[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) extern const char kRegulatoryLabelDir[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) extern const char kRlzPingDelay[];
+COMPONENT_EXPORT(CHROMEOS_CONSTANTS) extern const char kSafeMode[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) extern const char kSamlPasswordChangeUrl[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) extern const char kShelfHoverPreviews[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) extern const char kShelfHotseat[];
@@ -198,8 +202,6 @@ extern const char kWaitForInitialPolicyFetchForTest[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) extern const char kWakeOnWifiPacket[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 extern const char kUnfilteredBluetoothDevices[];
-COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
-extern const char kUseUnconsentedPrimaryAccount[];
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -228,9 +230,6 @@ COMPONENT_EXPORT(CHROMEOS_CONSTANTS) bool ShouldShowShelfHotseat();
 // on the shelf.
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) bool ShouldShowShelfHoverPreviews();
 
-// Returns true if we should show a scrollable list of apps in the main shelf.
-COMPONENT_EXPORT(CHROMEOS_CONSTANTS) bool ShouldShowScrollableShelf();
-
 // Returns true if the Chromebook should ignore its wired connections when
 // deciding whether to run scans for tethering hosts. Should be used only for
 // testing.
@@ -252,8 +251,10 @@ COMPONENT_EXPORT(CHROMEOS_CONSTANTS) bool IsArcCpuRestrictionDisabled();
 // Returns true if all Bluetooth devices in UI (System Tray/Settings Page.)
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) bool IsUnfilteredBluetoothDevicesEnabled();
 
-// See kUseUnconsentedPrimaryAccount.
-COMPONENT_EXPORT(CHROMEOS_CONSTANTS) bool UseUnconsentedPrimaryAccount();
+// Returns whether the first user run OOBE flow (sequence of screens shown to
+// the user on their first login) should show tablet mode screens when the
+// device is not in tablet mode.
+COMPONENT_EXPORT(CHROMEOS_CONSTANTS) bool ShouldOobeUseTabletModeFirstRun();
 
 }  // namespace switches
 }  // namespace chromeos

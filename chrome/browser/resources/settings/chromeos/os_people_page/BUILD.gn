@@ -46,6 +46,7 @@ js_library("fingerprint_browser_proxy") {
 js_library("fingerprint_list") {
   deps = [
     ":fingerprint_browser_proxy",
+    "..:metrics_recorder",
     "..:os_route",
     "../..:router",
     "//third_party/polymer/v1_0/components-chromium/iron-resizable-behavior:iron-resizable-behavior-extracted",
@@ -61,6 +62,7 @@ js_library("fingerprint_list") {
 js_library("kerberos_accounts") {
   deps = [
     ":kerberos_accounts_browser_proxy",
+    "..:metrics_recorder",
     "../..:router",
     "//ui/webui/resources/js:cr",
     "//ui/webui/resources/js:i18n_behavior",
@@ -76,6 +78,7 @@ js_library("kerberos_accounts_browser_proxy") {
 js_library("kerberos_add_account_dialog") {
   deps = [
     ":kerberos_accounts_browser_proxy",
+    "..:metrics_recorder",
     "//chrome/browser/resources/settings/controls:settings_textarea",
     "//ui/webui/resources/cr_elements/cr_input:cr_input",
     "//ui/webui/resources/js:cr",
@@ -135,7 +138,7 @@ js_library("os_people_page") {
     "//chrome/browser/resources/settings/people_page:signout_dialog",
     "//chrome/browser/resources/settings/people_page:sync_browser_proxy",
     "//ui/webui/resources/cr_components/chromeos/quick_unlock:lock_screen_constants",
-    "//ui/webui/resources/cr_elements/chromeos/cr_picture:cr_png_behavior",
+    "//ui/webui/resources/cr_elements/chromeos/cr_picture:png",
     "//ui/webui/resources/js:assert",
     "//ui/webui/resources/js:i18n_behavior",
     "//ui/webui/resources/js:icon",
@@ -155,7 +158,9 @@ js_library("os_sync_browser_proxy") {
 js_library("os_sync_controls") {
   deps = [
     ":os_sync_browser_proxy",
+    "..:metrics_recorder",
     "../../:router",
+    "../localized_link",
     "//ui/webui/resources/cr_elements/cr_toggle:cr_toggle",
     "//ui/webui/resources/js:assert",
     "//ui/webui/resources/js:web_ui_listener_behavior",
@@ -165,6 +170,7 @@ js_library("os_sync_controls") {
 js_library("setup_fingerprint_dialog") {
   deps = [
     ":fingerprint_browser_proxy",
+    "..:metrics_recorder",
     "//ui/webui/resources/cr_elements/chromeos/cr_lottie:cr_lottie",
     "//ui/webui/resources/cr_elements/cr_fingerprint:cr_fingerprint_progress_arc",
     "//ui/webui/resources/js:i18n_behavior",

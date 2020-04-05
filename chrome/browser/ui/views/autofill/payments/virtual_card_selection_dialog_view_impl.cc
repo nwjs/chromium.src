@@ -27,10 +27,16 @@ namespace autofill {
 VirtualCardSelectionDialogViewImpl::VirtualCardSelectionDialogViewImpl(
     VirtualCardSelectionDialogController* controller)
     : controller_(controller) {
-  DialogDelegate::set_button_label(ui::DIALOG_BUTTON_OK,
+  DialogDelegate::SetButtonLabel(ui::DIALOG_BUTTON_OK,
                                    controller_->GetOkButtonLabel());
-  DialogDelegate::set_button_label(ui::DIALOG_BUTTON_CANCEL,
+  DialogDelegate::SetButtonLabel(ui::DIALOG_BUTTON_CANCEL,
                                    controller_->GetCancelButtonLabel());
+  DialogDelegate::SetAcceptCallback(
+      base::Bind(&VirtualCardSelectionDialogController::OnOkButtonClicked,
+                 base::Unretained(controller_)));
+  DialogDelegate::SetCancelCallback(
+      base::Bind(&VirtualCardSelectionDialogController::OnCancelButtonClicked,
+                 base::Unretained(controller_)));
 }
 
 VirtualCardSelectionDialogViewImpl::~VirtualCardSelectionDialogViewImpl() {
@@ -69,16 +75,6 @@ gfx::Size VirtualCardSelectionDialogViewImpl::CalculatePreferredSize() const {
 
 void VirtualCardSelectionDialogViewImpl::AddedToWidget() {
   // TODO(crbug.com/1020740): The header image is not ready. Implement it later.
-}
-
-bool VirtualCardSelectionDialogViewImpl::Accept() {
-  controller_->OnOkButtonClicked();
-  return true;
-}
-
-bool VirtualCardSelectionDialogViewImpl::Cancel() {
-  controller_->OnCancelButtonClicked();
-  return true;
 }
 
 bool VirtualCardSelectionDialogViewImpl::IsDialogButtonEnabled(

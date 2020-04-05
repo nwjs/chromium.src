@@ -6,10 +6,12 @@
 
 #include "ash/assistant/model/ui/assistant_card_element.h"
 #include "ash/assistant/model/ui/assistant_text_element.h"
+#include "ash/assistant/model/ui/assistant_timers_element.h"
 #include "ash/assistant/model/ui/assistant_ui_element.h"
 #include "ash/assistant/ui/assistant_view_delegate.h"
 #include "ash/assistant/ui/main_stage/assistant_card_element_view.h"
 #include "ash/assistant/ui/main_stage/assistant_text_element_view.h"
+#include "ash/assistant/ui/main_stage/assistant_timers_element_view.h"
 #include "ash/assistant/ui/main_stage/assistant_ui_element_view.h"
 
 namespace ash {
@@ -21,14 +23,17 @@ AssistantUiElementViewFactory::AssistantUiElementViewFactory(
 AssistantUiElementViewFactory::~AssistantUiElementViewFactory() = default;
 
 std::unique_ptr<AssistantUiElementView> AssistantUiElementViewFactory::Create(
-    AssistantUiElement* ui_element) const {
+    const AssistantUiElement* ui_element) const {
   switch (ui_element->type()) {
     case AssistantUiElementType::kCard:
       return std::make_unique<AssistantCardElementView>(
-          delegate_, static_cast<AssistantCardElement*>(ui_element));
+          delegate_, static_cast<const AssistantCardElement*>(ui_element));
     case AssistantUiElementType::kText:
       return std::make_unique<AssistantTextElementView>(
-          static_cast<AssistantTextElement*>(ui_element));
+          static_cast<const AssistantTextElement*>(ui_element));
+    case AssistantUiElementType::kTimers:
+      return std::make_unique<AssistantTimersElementView>(
+          delegate_, static_cast<const AssistantTimersElement*>(ui_element));
   }
 }
 

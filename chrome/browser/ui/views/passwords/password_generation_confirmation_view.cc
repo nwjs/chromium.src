@@ -22,15 +22,15 @@ PasswordGenerationConfirmationView::PasswordGenerationConfirmationView(
     DisplayReason reason)
     : PasswordBubbleViewBase(web_contents,
                              anchor_view,
-                             reason,
                              /*auto_dismissable=*/false),
-      controller_(PasswordsModelDelegateFromWebContents(web_contents),
-                  reason == AUTOMATIC
-                      ? ManagePasswordsBubbleModel::AUTOMATIC
-                      : ManagePasswordsBubbleModel::USER_ACTION) {
+      controller_(
+          PasswordsModelDelegateFromWebContents(web_contents),
+          reason == AUTOMATIC
+              ? PasswordBubbleControllerBase::DisplayReason::kAutomatic
+              : PasswordBubbleControllerBase::DisplayReason::kUserAction) {
   SetLayoutManager(std::make_unique<views::FillLayout>());
 
-  DialogDelegate::set_buttons(ui::DIALOG_BUTTON_NONE);
+  DialogDelegate::SetButtons(ui::DIALOG_BUTTON_NONE);
 
   auto label = std::make_unique<views::StyledLabel>(
       controller_.save_confirmation_text(), this);

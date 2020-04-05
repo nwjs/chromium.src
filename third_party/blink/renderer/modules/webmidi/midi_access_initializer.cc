@@ -37,11 +37,11 @@ void MIDIAccessInitializer::Dispose() {
   permission_service_.reset();
 }
 
-void MIDIAccessInitializer::ContextDestroyed(ExecutionContext* context) {
+void MIDIAccessInitializer::ContextDestroyed() {
   dispatcher_.reset();
   permission_service_.reset();
 
-  ScriptPromiseResolver::ContextDestroyed(context);
+  ScriptPromiseResolver::ContextDestroyed();
 }
 
 ScriptPromise MIDIAccessInitializer::Start() {
@@ -55,7 +55,7 @@ ScriptPromise MIDIAccessInitializer::Start() {
       GetExecutionContext(),
       permission_service_.BindNewPipeAndPassReceiver(std::move(task_runner)));
 
-  Document& doc = To<Document>(*GetExecutionContext());
+  Document& doc = Document::From(*GetExecutionContext());
   permission_service_->RequestPermission(
       CreateMidiPermissionDescriptor(options_->hasSysex() && options_->sysex()),
       LocalFrame::HasTransientUserActivation(doc.GetFrame()),

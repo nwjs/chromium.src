@@ -9,6 +9,7 @@
 #include "base/threading/thread_task_runner_handle.h"
 #include "net/cert/mock_cert_verifier.h"
 #include "net/dns/mock_host_resolver.h"
+#include "net/proxy_resolution/configured_proxy_resolution_service.h"
 #include "net/test/test_data_directory.h"
 #include "net/test/test_with_task_environment.h"
 #include "net/third_party/quiche/src/quic/test_tools/crypto_test_utils.h"
@@ -39,12 +40,13 @@ class MockVisitor : public QuicTransportClient::Visitor {
 class QuicTransportEndToEndTest : public TestWithTaskEnvironment {
  public:
   QuicTransportEndToEndTest() {
+    quic::QuicEnableVersion(quic::DefaultVersionForQuicTransport());
     origin_ = url::Origin::Create(GURL{"https://example.org"});
     isolation_key_ = NetworkIsolationKey(origin_, origin_);
 
     URLRequestContextBuilder builder;
     builder.set_proxy_resolution_service(
-        ProxyResolutionService::CreateDirect());
+        ConfiguredProxyResolutionService::CreateDirect());
 
     auto cert_verifier = std::make_unique<MockCertVerifier>();
     cert_verifier->set_default_result(OK);
@@ -56,7 +58,7 @@ class QuicTransportEndToEndTest : public TestWithTaskEnvironment {
 
     auto quic_context = std::make_unique<QuicContext>();
     quic_context->params()->supported_versions.push_back(
-        quic::ParsedQuicVersion{quic::PROTOCOL_TLS1_3, quic::QUIC_VERSION_99});
+        quic::DefaultVersionForQuicTransport());
     // This is required to bypass the check that only allows known certificate
     // roots in QUIC.
     quic_context->params()->origins_to_force_quic_on.insert(
@@ -101,6 +103,7 @@ class QuicTransportEndToEndTest : public TestWithTaskEnvironment {
   }
 
  protected:
+  QuicFlagSaver flags_;  // Save/restore all QUIC flag values.
   std::unique_ptr<URLRequestContext> context_;
   std::unique_ptr<QuicTransportClient> client_;
   MockVisitor visitor_;

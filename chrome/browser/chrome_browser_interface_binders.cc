@@ -14,25 +14,32 @@
 #include "chrome/browser/dom_distiller/dom_distiller_service_factory.h"
 #include "chrome/browser/engagement/site_engagement_details.mojom.h"
 #include "chrome/browser/language/translate_frame_binder.h"
+#include "chrome/browser/media/feeds/media_feeds_store.mojom.h"
 #include "chrome/browser/media/history/media_history_store.mojom.h"
 #include "chrome/browser/media/media_engagement_score_details.mojom.h"
 #include "chrome/browser/navigation_predictor/navigation_predictor.h"
 #include "chrome/browser/predictors/network_hints_handler_impl.h"
 #include "chrome/browser/prerender/prerender_contents.h"
+#include "chrome/browser/prerender/prerender_processor_impl.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/soda/soda_service.h"
+#include "chrome/browser/soda/soda_service_factory.h"
 #include "chrome/browser/ssl/insecure_sensitive_input_driver_factory.h"
+#include "chrome/browser/ssl/security_state_tab_helper.h"
 #include "chrome/browser/ui/webui/bluetooth_internals/bluetooth_internals.mojom.h"
 #include "chrome/browser/ui/webui/bluetooth_internals/bluetooth_internals_ui.h"
 #include "chrome/browser/ui/webui/engagement/site_engagement_ui.h"
 #include "chrome/browser/ui/webui/interventions_internals/interventions_internals.mojom.h"
 #include "chrome/browser/ui/webui/interventions_internals/interventions_internals_ui.h"
 #include "chrome/browser/ui/webui/media/media_engagement_ui.h"
+#include "chrome/browser/ui/webui/media/media_feeds_ui.h"
 #include "chrome/browser/ui/webui/media/media_history_ui.h"
 #include "chrome/browser/ui/webui/omnibox/omnibox.mojom.h"
 #include "chrome/browser/ui/webui/omnibox/omnibox_ui.h"
 #include "chrome/browser/ui/webui/usb_internals/usb_internals.mojom.h"
 #include "chrome/browser/ui/webui/usb_internals/usb_internals_ui.h"
-#include "chrome/common/prerender.mojom.h"
+#include "chrome/common/pref_names.h"
+#include "components/contextual_search/buildflags.h"
 #include "components/dom_distiller/content/browser/distillability_driver.h"
 #include "components/dom_distiller/content/browser/distiller_javascript_service_impl.h"
 #include "components/dom_distiller/content/common/mojom/distillability_service.mojom.h"
@@ -41,18 +48,23 @@
 #include "components/feed/buildflags.h"
 #include "components/performance_manager/performance_manager_tab_helper.h"
 #include "components/performance_manager/public/mojom/coordination_unit.mojom.h"
+#include "components/prefs/pref_service.h"
 #include "components/safe_browsing/buildflags.h"
+#include "components/security_state/content/content_utils.h"
+#include "components/security_state/core/security_state.h"
 #include "components/translate/content/common/translate.mojom.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/common/content_features.h"
 #include "content/public/common/url_constants.h"
 #include "extensions/buildflags/buildflags.h"
+#include "media/mojo/mojom/soda_service.mojom.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "services/image_annotation/public/mojom/image_annotation.mojom.h"
 #include "third_party/blink/public/mojom/insecure_input/insecure_input_service.mojom.h"
 #include "third_party/blink/public/mojom/loader/navigation_predictor.mojom.h"
 #include "third_party/blink/public/mojom/payments/payment_request.mojom.h"
+#include "third_party/blink/public/mojom/prerender/prerender.mojom.h"
 #include "third_party/blink/public/public_buildflags.h"
 
 #if BUILDFLAG(ENABLE_FEED_IN_CHROME)
@@ -101,6 +113,7 @@
     defined(OS_CHROMEOS)
 #include "chrome/browser/ui/webui/discards/discards.mojom.h"
 #include "chrome/browser/ui/webui/discards/discards_ui.h"
+#include "chrome/browser/ui/webui/discards/site_data.mojom.h"
 #endif
 
 #if defined(OS_CHROMEOS)
@@ -120,6 +133,12 @@
 #include "chrome/browser/ui/webui/chromeos/multidevice_setup/multidevice_setup_dialog.h"
 #include "chrome/browser/ui/webui/chromeos/network_ui.h"
 #include "chrome/browser/ui/webui/settings/chromeos/os_settings_ui.h"
+#include "chrome/browser/ui/webui/settings/chromeos/search/search.mojom.h"
+#include "chrome/browser/ui/webui/settings/chromeos/search/user_action_recorder.mojom.h"
+#include "chromeos/components/help_app_ui/help_app_ui.h"
+#include "chromeos/components/help_app_ui/help_app_ui.mojom.h"
+#include "chromeos/components/media_app_ui/media_app_ui.h"
+#include "chromeos/components/media_app_ui/media_app_ui.mojom.h"
 #include "chromeos/components/multidevice/debug_webui/proximity_auth_ui.h"
 #include "chromeos/services/cellular_setup/public/mojom/cellular_setup.mojom.h"
 #include "chromeos/services/multidevice_setup/multidevice_setup_service.h"
@@ -162,7 +181,7 @@ void BindUnhandledTapWebContentsObserver(
 }
 #endif  // BUILDFLAG(ENABLE_UNHANDLED_TAP)
 
-#if defined(OS_ANDROID)
+#if BUILDFLAG(BUILD_CONTEXTUAL_SEARCH)
 void BindContextualSearchObserver(
     content::RenderFrameHost* const host,
     mojo::PendingReceiver<
@@ -180,7 +199,7 @@ void BindContextualSearchObserver(
         contextual_search_observer->api_handler(), std::move(receiver));
   }
 }
-#endif
+#endif  // BUILDFLAG(BUILD_CONTEXTUAL_SEARCH)
 
 // Forward image Annotator requests to the profile's AccessibilityLabelsService.
 void BindImageAnnotator(
@@ -204,6 +223,14 @@ void BindDistillabilityService(
       dom_distiller::DistillabilityDriver::FromWebContents(web_contents);
   if (!driver)
     return;
+  driver->SetIsDangerousCallback(
+      base::BindRepeating([](content::WebContents* contents) {
+        // SecurityStateTabHelper uses chrome-specific
+        // GetVisibleSecurityState to determine if a page is DANGEROUS.
+        return SecurityStateTabHelper::FromWebContents(contents)
+                   ->GetSecurityLevel() !=
+               security_state::SecurityLevel::DANGEROUS;
+      }));
   driver->CreateDistillabilityService(std::move(receiver));
 }
 
@@ -316,6 +343,15 @@ void BindNetworkHintsHandler(
   predictors::NetworkHintsHandlerImpl::Create(frame_host, std::move(receiver));
 }
 
+void BindSodaContextHandler(
+    content::RenderFrameHost* frame_host,
+    mojo::PendingReceiver<media::mojom::SodaContext> receiver) {
+  Profile* profile = Profile::FromBrowserContext(
+      frame_host->GetProcess()->GetBrowserContext());
+  PrefService* profile_prefs = profile->GetPrefs();
+  if (profile_prefs->GetBoolean(prefs::kLiveCaptionEnabled))
+    SodaServiceFactory::GetForProfile(profile)->Create(std::move(receiver));
+}
 void PopulateChromeFrameBinders(
     service_manager::BinderMapWithContext<content::RenderFrameHost*>* map) {
   map->Add<image_annotation::mojom::Annotator>(
@@ -335,6 +371,9 @@ void PopulateChromeFrameBinders(
 
   map->Add<mojom::PrerenderCanceler>(
       base::BindRepeating(&BindPrerenderCanceler));
+
+  map->Add<blink::mojom::PrerenderProcessor>(
+      base::BindRepeating(&prerender::PrerenderProcessorImpl::Create));
 
   map->Add<performance_manager::mojom::DocumentCoordinationUnit>(
       base::BindRepeating(&BindDocumentCoordinationUnit));
@@ -358,6 +397,7 @@ void PopulateChromeFrameBinders(
   map->Add<blink::mojom::ShareService>(base::BindRepeating(
       &ForwardToJavaWebContents<blink::mojom::ShareService>));
 
+#if BUILDFLAG(BUILD_CONTEXTUAL_SEARCH)
   map->Add<contextual_search::mojom::ContextualSearchJsApiService>(
       base::BindRepeating(&BindContextualSearchObserver));
 
@@ -365,6 +405,7 @@ void PopulateChromeFrameBinders(
   map->Add<blink::mojom::UnhandledTapNotifier>(
       base::BindRepeating(&BindUnhandledTapWebContentsObserver));
 #endif  // BUILDFLAG(ENABLE_UNHANDLED_TAP)
+#endif  // BUILDFLAG(BUILD_CONTEXTUAL_SEARCH)
 
 #if defined(ENABLE_SPATIAL_NAVIGATION_HOST)
   map->Add<blink::mojom::SpatialNavigationHost>(base::BindRepeating(
@@ -388,6 +429,9 @@ void PopulateChromeFrameBinders(
 
   map->Add<network_hints::mojom::NetworkHintsHandler>(
       base::BindRepeating(&BindNetworkHintsHandler));
+
+  map->Add<media::mojom::SodaContext>(
+      base::BindRepeating(&BindSodaContextHandler));
 }
 
 void PopulateChromeWebUIFrameBinders(
@@ -403,6 +447,9 @@ void PopulateChromeWebUIFrameBinders(
       media::mojom::MediaEngagementScoreDetailsProvider, MediaEngagementUI>(
       map);
 #if 0
+
+  RegisterWebUIControllerInterfaceBinder<media_feeds::mojom::MediaFeedsStore,
+                                         MediaFeedsUI>(map);
 
   RegisterWebUIControllerInterfaceBinder<
       media_history::mojom::MediaHistoryStore, MediaHistoryUI>(map);
@@ -442,6 +489,14 @@ void PopulateChromeWebUIFrameBinders(
       chromeos::settings::OSSettingsUI>(map);
 
   RegisterWebUIControllerInterfaceBinder<
+      chromeos::settings::mojom::UserActionRecorder,
+      chromeos::settings::OSSettingsUI>(map);
+
+  RegisterWebUIControllerInterfaceBinder<
+      chromeos::settings::mojom::SearchHandler,
+      chromeos::settings::OSSettingsUI>(map);
+
+  RegisterWebUIControllerInterfaceBinder<
       chromeos::cellular_setup::mojom::CellularSetup,
       chromeos::cellular_setup::CellularSetupDialogUI>(map);
 
@@ -471,6 +526,12 @@ void PopulateChromeWebUIFrameBinders(
       chromeos::InternetConfigDialogUI, chromeos::InternetDetailDialogUI,
       chromeos::NetworkUI, chromeos::OobeUI, chromeos::settings::OSSettingsUI>(
       map);
+
+  RegisterWebUIControllerInterfaceBinder<help_app_ui::mojom::PageHandlerFactory,
+                                         chromeos::HelpAppUI>(map);
+
+  RegisterWebUIControllerInterfaceBinder<
+      media_app_ui::mojom::PageHandlerFactory, chromeos::MediaAppUI>(map);
 #endif
 
 #if 0
@@ -478,6 +539,9 @@ void PopulateChromeWebUIFrameBinders(
                                          DiscardsUI>(map);
 
   RegisterWebUIControllerInterfaceBinder<discards::mojom::GraphDump,
+                                         DiscardsUI>(map);
+
+  RegisterWebUIControllerInterfaceBinder<discards::mojom::SiteDataProvider,
                                          DiscardsUI>(map);
 #endif
 

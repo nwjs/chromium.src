@@ -88,10 +88,6 @@ class CORE_EXPORT NGContainerFragmentBuilder : public NGFragmentBuilder {
 
   const ChildrenVector& Children() const { return children_; }
 
-  // Returns offset for given child. DCHECK if child not found.
-  // Warning: Do not call unless necessary.
-  LogicalOffset GetChildOffset(const LayoutObject* child) const;
-
   // Builder has non-trivial OOF-positioned methods.
   // They are intended to be used by a layout algorithm like this:
   //
@@ -183,8 +179,9 @@ class CORE_EXPORT NGContainerFragmentBuilder : public NGFragmentBuilder {
 #endif
 
  protected:
-  friend class NGPhysicalContainerFragment;
+  friend class NGInlineLayoutStateStack;
   friend class NGLayoutResult;
+  friend class NGPhysicalContainerFragment;
 
   NGContainerFragmentBuilder(NGLayoutInputNode node,
                              scoped_refptr<const ComputedStyle> style,

@@ -18,11 +18,6 @@ class PasswordFeatureManager {
 
   virtual bool IsGenerationEnabled() const = 0;
 
-  // Whether we should, upon the detection of a leaked password, check if the
-  // same password is reused on other website. That's used only for the UI
-  // string.
-  virtual bool ShouldCheckReuseOnLeakDetection() const = 0;
-
   // Whether the current signed-in user (aka unconsented primary account) has
   // opted in to use the Google account storage for passwords (as opposed to
   // local/profile storage).
@@ -36,6 +31,12 @@ class PasswordFeatureManager {
   // Sets or clears the opt-in to using account storage for passwords for the
   // current signed-in user (unconsented primary account).
   virtual void SetAccountStorageOptIn(bool opt_in) = 0;
+
+  // Whether it makes sense to ask the user about the store when saving a
+  // password (i.e. profile or account store). This is true if the user has
+  // opted-in already or hasn't opted in but all other requirements are met
+  // (i.e. there is a signed-in user etc).
+  virtual bool ShouldShowPasswordStorePicker() const = 0;
 
   // Sets the default password store selected by user in prefs. This store is
   // used for saving new credentials and adding blacking listing entries.

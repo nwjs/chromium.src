@@ -145,6 +145,8 @@ class WebGLConformanceIntegrationTest(gpu_integration_test.GpuIntegrationTest):
         'EXT_frag_depth',
         'EXT_shader_texture_lod',
         'EXT_sRGB',
+        'EXT_texture_compression_bptc',
+        'EXT_texture_compression_rgtc',
         'EXT_texture_filter_anisotropic',
         'KHR_parallel_shader_compile',
         'OES_element_index_uint',
@@ -175,6 +177,8 @@ class WebGLConformanceIntegrationTest(gpu_integration_test.GpuIntegrationTest):
         'EXT_color_buffer_float',
         'EXT_disjoint_timer_query_webgl2',
         'EXT_float_blend',
+        'EXT_texture_compression_bptc',
+        'EXT_texture_compression_rgtc',
         'EXT_texture_filter_anisotropic',
         'EXT_texture_norm16',
         'KHR_parallel_shader_compile',
@@ -231,6 +235,7 @@ class WebGLConformanceIntegrationTest(gpu_integration_test.GpuIntegrationTest):
         'opengl': 'gl',
         'opengles': 'gles',
         'vulkan': 'vulkan',
+        'swiftshader': 'swiftshader',
       }
       current_angle_backend = gpu_helper.GetANGLERenderer(gpu_info)
       if (current_angle_backend not in known_backend_flag_map or
@@ -494,7 +499,8 @@ class WebGLConformanceIntegrationTest(gpu_integration_test.GpuIntegrationTest):
             assert match
             if (driver_vendor == match.group(1) and
                 gpu_helper.EvaluateVersionComparison(
-                    driver_version, match.group(2), match.group(3))):
+                    driver_version, match.group(2), match.group(3),
+                    browser.platform.GetOSName(), driver_vendor)):
               tags.append(tag)
     return tags
 

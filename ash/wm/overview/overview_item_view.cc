@@ -22,12 +22,15 @@
 #include "ui/compositor/layer.h"
 #include "ui/compositor/scoped_layer_animation_settings.h"
 #include "ui/gfx/geometry/size_conversions.h"
+#include "ui/gfx/image/image_skia_operations.h"
 #include "ui/gfx/paint_vector_icon.h"
 #include "ui/strings/grit/ui_strings.h"
 #include "ui/views/animation/flood_fill_ink_drop_ripple.h"
 #include "ui/views/animation/ink_drop_impl.h"
 #include "ui/views/animation/ink_drop_mask.h"
 #include "ui/views/controls/button/image_button.h"
+#include "ui/views/controls/highlight_path_generator.h"
+#include "ui/views/controls/image_view.h"
 #include "ui/views/controls/label.h"
 #include "ui/views/widget/widget.h"
 
@@ -51,7 +54,7 @@ constexpr base::TimeDelta kCloseButtonSlowFadeInDuration =
 constexpr base::TimeDelta kCloseButtonSlowFadeInDelay =
     base::TimeDelta::FromMilliseconds(750);
 
-constexpr int kCloseButtonInkDropInsetDp = 2;
+constexpr int kCloseButtonInkDropRadiusDp = 18;
 
 constexpr SkColor kCloseButtonColor = SK_ColorWHITE;
 
@@ -64,6 +67,21 @@ constexpr SkColor kCloseButtonInkDropRippleColor =
     SkColorSetA(kCloseButtonColor, 0x0F);
 constexpr SkColor kCloseButtonInkDropRippleHighlightColor =
     SkColorSetA(kCloseButtonColor, 0x14);
+
+// Shadow values for shadow on overview header views.
+constexpr int kTitleShadowBlur = 28;
+constexpr SkColor kTitleShadowColor = SkColorSetA(SK_ColorBLACK, 82);
+constexpr int kIconShadowBlur = 10;
+constexpr SkColor kIconShadowColor = SkColorSetA(SK_ColorBLACK, 31);
+
+gfx::ShadowValues GetTitleShadowValues() {
+  return {
+      gfx::ShadowValue(gfx::Vector2d(), kTitleShadowBlur, kTitleShadowColor)};
+}
+
+gfx::ShadowValues GetIconShadowValues() {
+  return {gfx::ShadowValue(gfx::Vector2d(), kIconShadowBlur, kIconShadowColor)};
+}
 
 // Animates |layer| from 0 -> 1 opacity if |visible| and 1 -> 0 opacity
 // otherwise. The tween type differs for |visible| and if |visible| is true
@@ -94,16 +112,25 @@ class OverviewCloseButton : public views::ImageButton {
   explicit OverviewCloseButton(views::ButtonListener* listener)
       : views::ImageButton(listener) {
     SetInkDropMode(InkDropMode::ON_NO_GESTURE_HANDLER);
-    SetImage(
-        views::Button::STATE_NORMAL,
-        gfx::CreateVectorIcon(kOverviewWindowCloseIcon, kCloseButtonColor));
+
+    // Add a shadow to the close vector icon.
+    gfx::ImageSkia image_shadow =
+        gfx::ImageSkiaOperations::CreateImageWithDropShadow(
+            gfx::CreateVectorIcon(kOverviewWindowCloseIcon, kCloseButtonColor),
+            GetIconShadowValues());
+    SetImage(views::Button::STATE_NORMAL, image_shadow);
+
     SetImageHorizontalAlignment(views::ImageButton::ALIGN_CENTER);
     SetImageVerticalAlignment(views::ImageButton::ALIGN_MIDDLE);
     SetMinimumImageSize(gfx::Size(kHeaderHeightDp, kHeaderHeightDp));
     SetAccessibleName(l10n_util::GetStringUTF16(IDS_APP_ACCNAME_CLOSE));
     SetTooltipText(l10n_util::GetStringUTF16(IDS_APP_ACCNAME_CLOSE));
-  }
 
+    views::InstallFixedSizeCircleHighlightPathGenerator(
+        this, kCloseButtonInkDropRadiusDp);
+  }
+  OverviewCloseButton(const OverviewCloseButton&) = delete;
+  OverviewCloseButton& operator=(const OverviewCloseButton&) = delete;
   ~OverviewCloseButton() override = default;
 
   // Resets the listener so that the listener can go out of scope.
@@ -115,7 +142,6 @@ class OverviewCloseButton : public views::ImageButton {
     auto ink_drop = std::make_unique<views::InkDropImpl>(this, size());
     ink_drop->SetAutoHighlightMode(
         views::InkDropImpl::AutoHighlightMode::SHOW_ON_RIPPLE);
-    ink_drop->SetShowHighlightOnHover(true);
     return ink_drop;
   }
 
@@ -127,24 +153,11 @@ class OverviewCloseButton : public views::ImageButton {
 
   std::unique_ptr<views::InkDropHighlight> CreateInkDropHighlight()
       const override {
-    return std::make_unique<views::InkDropHighlight>(
-        gfx::PointF(GetLocalBounds().CenterPoint()),
-        std::make_unique<views::CircleLayerDelegate>(
-            kCloseButtonInkDropRippleHighlightColor, GetInkDropRadius()));
+    auto highlight = std::make_unique<views::InkDropHighlight>(
+        gfx::SizeF(size()), kCloseButtonInkDropRippleHighlightColor);
+    highlight->set_visible_opacity(1.f);
+    return highlight;
   }
-
-  std::unique_ptr<views::InkDropMask> CreateInkDropMask() const override {
-    return std::make_unique<views::CircleInkDropMask>(
-        size(), GetLocalBounds().CenterPoint(), GetInkDropRadius());
-  }
-
- private:
-  int GetInkDropRadius() const {
-    return std::min(size().width(), size().height()) / 2 -
-           kCloseButtonInkDropInsetDp;
-  }
-
-  DISALLOW_COPY_AND_ASSIGN(OverviewCloseButton);
 };
 
 }  // namespace
@@ -162,6 +175,11 @@ OverviewItemView::OverviewItemView(OverviewItem* overview_item,
       std::make_unique<OverviewCloseButton>(overview_item_));
   close_button_->SetPaintToLayer();
   close_button_->layer()->SetFillsBoundsOpaquely(false);
+  // The button's image may be larger than |kHeaderHeightDp| due to added
+  // shadows.
+  close_button_->SetPreferredSize(gfx::Size(kHeaderHeightDp, kHeaderHeightDp));
+
+  title_label()->SetShadows(GetTitleShadowValues());
 
   // Call this last as it calls |Layout()| which relies on the some of the other
   // elements existing.
@@ -174,6 +192,13 @@ OverviewItemView::OverviewItemView(OverviewItem* overview_item,
   }
 
   border_ptr()->set_extra_margin(kWindowMargin);
+
+  UpdateIconView();
+
+  // Do not use a layout manager for the header as its elements have shadows
+  // which need to overlap each other. Remove the FlexLayout set in
+  // WindowMiniView.
+  header_view()->SetLayoutManager(nullptr);
 }
 
 OverviewItemView::~OverviewItemView() = default;
@@ -246,8 +271,7 @@ gfx::Rect OverviewItemView::GetHeaderBounds() const {
   // additional padding would be equal to half the difference in width between
   // the preferred width and the image size. The resulting padding would be that
   // number plus the padding in the resource, in dips.
-  const int image_width =
-      close_button_->GetImage(views::ImageButton::STATE_NORMAL).width();
+  const int image_width = kIconSize.width();
   const int close_button_width = close_button_->GetPreferredSize().width();
   const int right_padding =
       (close_button_width - image_width) / 2 + kCloseButtonIconMarginDp;
@@ -282,20 +306,55 @@ gfx::Size OverviewItemView::GetPreviewViewSize() const {
   const float aspect_ratio =
       preview_pref_size.width() / preview_pref_size.height();
   gfx::SizeF target_size(GetContentAreaBounds().size());
-  ScopedOverviewTransformWindow::GridWindowFillMode fill_mode =
+  OverviewGridWindowFillMode fill_mode =
       overview_item_->GetWindowDimensionsType();
   switch (fill_mode) {
-    case ScopedOverviewTransformWindow::GridWindowFillMode::kNormal:
+    case OverviewGridWindowFillMode::kNormal:
       break;
-    case ScopedOverviewTransformWindow::GridWindowFillMode::kLetterBoxed:
+    case OverviewGridWindowFillMode::kLetterBoxed:
       target_size.set_height(target_size.width() / aspect_ratio);
       break;
-    case ScopedOverviewTransformWindow::GridWindowFillMode::kPillarBoxed:
+    case OverviewGridWindowFillMode::kPillarBoxed:
       target_size.set_width(target_size.height() * aspect_ratio);
       break;
   }
 
   return gfx::ToRoundedSize(target_size);
+}
+
+gfx::ImageSkia OverviewItemView::ModifyIcon(gfx::ImageSkia* image) const {
+  gfx::ImageSkia image_resized = gfx::ImageSkiaOperations::CreateResizedImage(
+      *image, skia::ImageOperations::RESIZE_BEST, kIconSize);
+  return gfx::ImageSkiaOperations::CreateImageWithDropShadow(
+      image_resized, GetIconShadowValues());
+}
+
+void OverviewItemView::Layout() {
+  WindowMiniView::Layout();
+
+  // Layout the header items. The icon, if available should be aligned left, the
+  // close button should be aligned right and the title should take up all the
+  // space in between but the text should be aligned left.
+  gfx::Rect header_bounds = header_view()->GetLocalBounds();
+  const int width = header_bounds.width();
+  const int height = header_bounds.height();
+  int x = 0;
+  if (icon_view()) {
+    const int icon_width = kIconSize.width();
+    icon_view()->SetBounds(x, 0, icon_width, height);
+    x += icon_width;
+  }
+  const gfx::Size close_button_size = close_button()->GetPreferredSize();
+  close_button()->SetBoundsRect(gfx::Rect(
+      gfx::Point(width - close_button_size.width(), 0), close_button_size));
+
+  // The title label text has shadow blur of |kTitleShadowBlur|. This will cause
+  // the preferred size of the title label to increase by |kTitleShadowBlur| / 2
+  // on all sides. To create the visual of the title label being
+  // |kHeaderPaddingDp| away from the icon (excluding the shadows), layout it
+  // somewhat on top of the icon.
+  x -= (kTitleShadowBlur / 2 - kHeaderPaddingDp);
+  title_label()->SetBounds(x, 0, width - close_button_size.width() - x, height);
 }
 
 views::View* OverviewItemView::GetView() {

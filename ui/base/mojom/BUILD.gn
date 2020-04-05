@@ -13,11 +13,18 @@ mojom("mojom") {
   ]
 
   public_deps = [
+    ":cursor_type",
     "//mojo/public/mojom/base",
     "//skia/public/mojom",
     "//ui/gfx/geometry/mojom",
     "//url/mojom:url_mojom_gurl",
   ]
+}
+
+mojom("cursor_type") {
+  generate_java = true
+
+  sources = [ "cursor_type.mojom" ]
 }
 
 source_set("unittests") {
@@ -28,6 +35,7 @@ source_set("unittests") {
     "//skia/public/mojom",
     "//testing/gtest",
     "//ui/base",
+    "//ui/base/cursor",
     "//ui/events",
     "//ui/gfx/geometry/mojom:mojom_traits",
   ]

@@ -14,7 +14,6 @@
 #include "chrome/browser/content_settings/cookie_settings_factory.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/engagement/important_sites_util.h"
-#include "chrome/browser/permissions/permission_request_manager.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "chrome/test/base/testing_profile.h"
 #include "components/bookmarks/test/bookmark_test_helpers.h"
@@ -24,6 +23,7 @@
 #include "content/public/browser/permission_controller_delegate.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
+#include "content/public/browser/web_contents.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 using bookmarks::BookmarkModel;
@@ -48,7 +48,7 @@ class TestDurablePermissionContext : public DurableStoragePermissionContext {
 
   ContentSetting GetContentSettingFromMap(const GURL& url_a,
                                           const GURL& url_b) {
-    return HostContentSettingsMapFactory::GetForProfile(profile())
+    return HostContentSettingsMapFactory::GetForProfile(browser_context())
         ->GetContentSetting(url_a.GetOrigin(), url_b.GetOrigin(),
                             ContentSettingsType::DURABLE_STORAGE,
                             std::string());
@@ -59,7 +59,7 @@ class TestDurablePermissionContext : public DurableStoragePermissionContext {
   void NotifyPermissionSet(const permissions::PermissionRequestID& id,
                            const GURL& requesting_origin,
                            const GURL& embedder_origin,
-                           BrowserPermissionCallback callback,
+                           permissions::BrowserPermissionCallback callback,
                            bool persist,
                            ContentSetting content_setting) override {
     permission_set_count_++;

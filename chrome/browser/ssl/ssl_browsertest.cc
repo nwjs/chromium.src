@@ -44,7 +44,6 @@
 #include "chrome/browser/chrome_content_browser_client.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/content_settings/tab_specific_content_settings.h"
-#include "chrome/browser/extensions/browsertest_util.h"
 #include "chrome/browser/interstitials/security_interstitial_idn_test.h"
 #include "chrome/browser/interstitials/security_interstitial_page_test_utils.h"
 #include "chrome/browser/net/profile_network_context_service.h"
@@ -55,7 +54,6 @@
 #include "chrome/browser/ssl/cert_verifier_browser_test.h"
 #include "chrome/browser/ssl/certificate_reporting_test_utils.h"
 #include "chrome/browser/ssl/chrome_security_blocking_page_factory.h"
-#include "chrome/browser/ssl/chrome_ssl_host_state_delegate.h"
 #include "chrome/browser/ssl/security_state_tab_helper.h"
 #include "chrome/browser/ssl/ssl_browsertest_util.h"
 #include "chrome/browser/ssl/ssl_error_controller_client.h"
@@ -67,6 +65,7 @@
 #include "chrome/browser/ui/browser_navigator_params.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/browser/ui/web_applications/test/web_app_browsertest_util.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
@@ -100,6 +99,7 @@
 #include "components/security_interstitials/content/ssl_error_assistant.h"
 #include "components/security_interstitials/content/ssl_error_assistant.pb.h"
 #include "components/security_interstitials/content/ssl_error_handler.h"
+#include "components/security_interstitials/content/stateful_ssl_host_state_delegate.h"
 #include "components/security_interstitials/core/controller_client.h"
 #include "components/security_interstitials/core/metrics_helper.h"
 #include "components/security_state/core/features.h"
@@ -144,7 +144,6 @@
 #include "content/public/test/test_utils.h"
 #include "crypto/sha2.h"
 #include "extensions/browser/event_router.h"
-#include "extensions/common/extension.h"
 #include "mojo/public/cpp/bindings/associated_remote.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
@@ -207,6 +206,10 @@
 #include "components/policy/core/common/policy_service.h"
 #include "components/session_manager/core/session_manager.h"
 #endif  // defined(OS_CHROMEOS)
+
+#if defined(OS_MACOSX)
+#include "base/mac/mac_util.h"
+#endif
 
 using content::InterstitialPageDelegate;
 using content::WebContents;
@@ -779,22 +782,19 @@ class SSLUITestBase : public InProcessBrowserTest,
                                  https_server_.GetURL(replacement_path));
   }
 
-  Browser* InstallAndOpenTestBookmarkApp(const GURL& app_url) {
-    WebApplicationInfo web_app_info;
-    web_app_info.app_url = app_url;
-    web_app_info.scope = app_url.GetWithoutFilename();
-    web_app_info.title = base::UTF8ToUTF16("Test app");
-    web_app_info.description = base::UTF8ToUTF16("Test description");
+  Browser* InstallAndOpenTestWebApp(const GURL& app_url) {
+    auto web_app_info = std::make_unique<WebApplicationInfo>();
+    web_app_info->app_url = app_url;
+    web_app_info->scope = app_url.GetWithoutFilename();
+    web_app_info->title = base::UTF8ToUTF16("Test app");
+    web_app_info->description = base::UTF8ToUTF16("Test description");
 
     Profile* profile = browser()->profile();
-    const extensions::Extension* bookmark_app =
-        extensions::browsertest_util::InstallBookmarkApp(profile, web_app_info);
 
-    ui_test_utils::UrlLoadObserver url_observer(
-        app_url, content::NotificationService::AllSources());
-    Browser* app_browser =
-        extensions::browsertest_util::LaunchAppBrowser(profile, bookmark_app);
-    url_observer.Wait();
+    web_app::AppId app_id =
+        web_app::InstallWebApp(profile, std::move(web_app_info));
+
+    Browser* app_browser = web_app::LaunchWebAppBrowserAndWait(profile, app_id);
     return app_browser;
   }
 
@@ -1384,7 +1384,7 @@ IN_PROC_BROWSER_TEST_F(SSLUITest, InAppTestHTTPSExpiredCertAndProceed) {
   ASSERT_TRUE(https_server_expired_.Start());
 
   const GURL app_url = https_server_expired_.GetURL("/ssl/google.html");
-  Browser* app_browser = InstallAndOpenTestBookmarkApp(app_url);
+  Browser* app_browser = InstallAndOpenTestWebApp(app_url);
 
   WebContents* app_tab = app_browser->tab_strip_model()->GetActiveWebContents();
   WaitForInterstitial(app_tab);
@@ -1415,7 +1415,7 @@ IN_PROC_BROWSER_TEST_F(SSLUITest,
   ssl_test_util::CheckAuthenticationBrokenState(
       initial_tab, net::CERT_STATUS_DATE_INVALID, AuthState::NONE);
 
-  Browser* app_browser = InstallAndOpenTestBookmarkApp(app_url);
+  Browser* app_browser = InstallAndOpenTestWebApp(app_url);
 
   // Apps are not allowed to have SSL errors, so the interstitial should be
   // showing even though the user proceeded through it in a regular tab.
@@ -1721,9 +1721,19 @@ IN_PROC_BROWSER_TEST_F(SSLUITest, SHA1IsDefaultDisabled) {
   ui_test_utils::NavigateToURL(browser(),
                                https_server_sha1_.GetURL("/ssl/google.html"));
 
+  int expected_error = net::CERT_STATUS_WEAK_SIGNATURE_ALGORITHM;
+
+#if defined(OS_MACOSX)
+  // On macOS 10.15 (and presumably later) SHA1 certs are considered prima
+  // facie invalid by the system verifier.
+  // TODO(https://crbug.com/977767): Reconsider this when the built-in verifier
+  // is used on Mac.
+  if (base::mac::IsAtLeastOS10_15())
+    expected_error |= net::CERT_STATUS_INVALID;
+#endif
+
   ssl_test_util::CheckAuthenticationBrokenState(
-      browser()->tab_strip_model()->GetActiveWebContents(),
-      net::CERT_STATUS_WEAK_SIGNATURE_ALGORITHM,
+      browser()->tab_strip_model()->GetActiveWebContents(), expected_error,
       AuthState::SHOWING_INTERSTITIAL);
 }
 
@@ -4486,8 +4496,8 @@ IN_PROC_BROWSER_TEST_F(SSLUITest, BadCertFollowedByGoodCert) {
   WebContents* tab = browser()->tab_strip_model()->GetActiveWebContents();
 
   Profile* profile = Profile::FromBrowserContext(tab->GetBrowserContext());
-  ChromeSSLHostStateDelegate* state =
-      reinterpret_cast<ChromeSSLHostStateDelegate*>(
+  StatefulSSLHostStateDelegate* state =
+      reinterpret_cast<StatefulSSLHostStateDelegate*>(
           profile->GetSSLHostStateDelegate());
 
   // First check that frame requests revoke the decision.
@@ -4521,6 +4531,51 @@ IN_PROC_BROWSER_TEST_F(SSLUITest, BadCertFollowedByGoodCert) {
       &result));
   EXPECT_TRUE(result);
   EXPECT_FALSE(state->HasAllowException(https_server_host, tab));
+}
+
+// Verifies that if a bad certificate is seen for a host and the user proceeds
+// through the interstitial, the decision to proceed is not forgotten once blob
+// URLs are loaded (blob loads never have certificate errors).  This is a
+// regression test for https://crbug.com/1049625.
+IN_PROC_BROWSER_TEST_F(SSLUITest, BadCertFollowedByBlobUrl) {
+  ASSERT_TRUE(https_server_expired_.Start());
+  std::string https_server_host =
+      https_server_expired_.GetURL("/ssl/google.html").host();
+
+  WebContents* tab = browser()->tab_strip_model()->GetActiveWebContents();
+  Profile* profile = Profile::FromBrowserContext(tab->GetBrowserContext());
+  StatefulSSLHostStateDelegate* state =
+      reinterpret_cast<StatefulSSLHostStateDelegate*>(
+          profile->GetSSLHostStateDelegate());
+
+  // Proceed through the interstitial, accepting the broken cert.
+  ui_test_utils::NavigateToURL(
+      browser(), https_server_expired_.GetURL("/ssl/google.html"));
+  ProceedThroughInterstitial(tab);
+  ASSERT_TRUE(state->HasAllowException(https_server_host, tab));
+
+  // Load a blob URL.
+  content::WebContentsConsoleObserver console_observer(tab);
+  console_observer.SetPattern("hello from blob");
+  const char kScript[] = R"(
+      new Promise(function (resolvePromise, rejectPromise) {
+          var blob = new Blob(['console.log("hello from blob")'],
+                              {type : 'application/javascript'});
+          script = document.createElement('script');
+          script.onerror = rejectPromise;
+          script.onload = () => resolvePromise('success');
+          script.src = URL.createObjectURL(blob);
+          document.body.appendChild(script);
+      });
+  )";
+  ASSERT_EQ("success", content::EvalJs(tab, kScript));
+
+  // Verify that the script from the blob has successfully run.
+  console_observer.Wait();
+
+  // Verify that the decision to accept the broken cert has not been revoked
+  // (this is a regression test for https://crbug.com/1049625).
+  EXPECT_TRUE(state->HasAllowException(https_server_host, tab));
 }
 
 // Tests that the SSLStatus of a navigation entry for an SSL
@@ -5364,9 +5419,11 @@ class SSLBlockingPageIDNTest
     ssl_info.cert =
         net::ImportCertFromFile(net::GetTestCertsDirectory(), "ok_cert.pem");
     ChromeSecurityBlockingPageFactory blocking_page_factory;
-    return blocking_page_factory.CreateSSLPage(
-        contents, net::ERR_CERT_CONTAINS_ERRORS, ssl_info, request_url, 0,
-        base::Time::NowFromSystemTime(), GURL(), nullptr);
+    return blocking_page_factory
+        .CreateSSLPage(contents, net::ERR_CERT_CONTAINS_ERRORS, ssl_info,
+                       request_url, 0, base::Time::NowFromSystemTime(), GURL(),
+                       nullptr)
+        .release();
   }
 };
 
@@ -6967,17 +7024,6 @@ IN_PROC_BROWSER_TEST_F(SSLUIMITMSoftwareEnabledTest,
   TestNoMITMSoftwareInterstitial();
 }
 
-void SetShouldNotRequireCTForTesting() {
-  mojo::Remote<network::mojom::NetworkServiceTest> network_service_test;
-  content::GetNetworkService()->BindTestInterface(
-      network_service_test.BindNewPipeAndPassReceiver());
-  network::mojom::NetworkServiceTest::ShouldRequireCT required_ct =
-      network::mojom::NetworkServiceTest::ShouldRequireCT::DONT_REQUIRE;
-
-  mojo::ScopedAllowSyncCallForTesting allow_sync_call;
-  network_service_test->SetShouldRequireCT(required_ct);
-}
-
 class TLSLegacyVersionSSLUITest : public SSLUITest {
  public:
   TLSLegacyVersionSSLUITest() = default;
@@ -6986,7 +7032,6 @@ class TLSLegacyVersionSSLUITest : public SSLUITest {
   void SetUpOnMainThread() override {
     SSLUITest::SetUpOnMainThread();
     mock_cert_verifier()->set_default_result(net::OK);
-    SetShouldNotRequireCTForTesting();
   }
 
   void SetUpCommandLine(base::CommandLine* command_line) override {
@@ -8078,8 +8123,8 @@ IN_PROC_BROWSER_TEST_F(RecurrentInterstitialBrowserTest,
   mock_cert_verifier()->set_default_result(
       net::ERR_CERTIFICATE_TRANSPARENCY_REQUIRED);
 
-  ChromeSSLHostStateDelegate* state =
-      reinterpret_cast<ChromeSSLHostStateDelegate*>(
+  StatefulSSLHostStateDelegate* state =
+      reinterpret_cast<StatefulSSLHostStateDelegate*>(
           browser()->profile()->GetSSLHostStateDelegate());
   state->ResetRecurrentErrorCountForTesting();
 

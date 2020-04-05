@@ -52,6 +52,8 @@ class VIZ_SERVICE_EXPORT OverlayProcessorInterface {
   using FilterOperationsMap =
       base::flat_map<RenderPassId, cc::FilterOperations*>;
 
+  virtual bool DisableSplittingQuads() const;
+
   // Used by Window's DCLayerOverlay system and OverlayProcessorUsingStrategy.
   static void RecordOverlayDamageRectHistograms(
       bool is_overlay,
@@ -79,6 +81,8 @@ class VIZ_SERVICE_EXPORT OverlayProcessorInterface {
     // TODO(weiliangc): Should be replaced by SharedImage mailbox.
     // Gpu fence to wait for before overlay is ready for display.
     unsigned gpu_fence_id;
+    // Mailbox corresponding to the buffer backing the primary plane.
+    gpu::Mailbox mailbox;
   };
 
   // TODO(weiliangc): Eventually the asymmetry between primary plane and
@@ -88,13 +92,15 @@ class VIZ_SERVICE_EXPORT OverlayProcessorInterface {
       const gfx::Size& viewport_size,
       const gfx::BufferFormat& buffer_format,
       const gfx::ColorSpace& color_space,
-      bool has_alpha);
+      bool has_alpha,
+      const gpu::Mailbox& mailbox);
 
   static std::unique_ptr<OverlayProcessorInterface> CreateOverlayProcessor(
       gpu::SurfaceHandle surface_handle,
       const OutputSurface::Capabilities& capabilities,
       const RendererSettings& renderer_settings,
       gpu::SharedImageManager* shared_image_manager,
+      gpu::MemoryTracker* memory_tracker,
       scoped_refptr<gpu::GpuTaskSchedulerHelper> gpu_task_scheduler,
       gpu::SharedImageInterface* shared_image_interface);
 

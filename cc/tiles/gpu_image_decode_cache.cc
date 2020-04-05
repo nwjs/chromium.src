@@ -41,7 +41,6 @@
 #include "third_party/skia/include/core/SkYUVAIndex.h"
 #include "third_party/skia/include/gpu/GrBackendSurface.h"
 #include "third_party/skia/include/gpu/GrContext.h"
-#include "third_party/skia/include/gpu/GrTexture.h"
 #include "ui/gfx/color_space.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/gfx/skia_util.h"
@@ -497,7 +496,7 @@ void DeleteSkImageAndPreventCaching(viz::RasterContextProvider* context,
     // holding the context lock here, so we can delete immediately.
     uint32_t texture_id =
         GpuImageDecodeCache::GlIdFromSkImage(image_owned.get());
-    context->ContextGL()->DeleteTextures(1, &texture_id);
+    context->RasterInterface()->DeleteGpuRasterTexture(texture_id);
   }
 }
 
@@ -1186,7 +1185,8 @@ bool GpuImageDecodeCache::UseCacheForDrawImage(
 
 DecodedDrawImage GpuImageDecodeCache::GetDecodedImageForDraw(
     const DrawImage& draw_image) {
-  TRACE_EVENT0("cc", "GpuImageDecodeCache::GetDecodedImageForDraw");
+  TRACE_EVENT0(TRACE_DISABLED_BY_DEFAULT("cc.debug"),
+               "GpuImageDecodeCache::GetDecodedImageForDraw");
 
   // We are being called during raster. The context lock must already be
   // acquired by the caller.
@@ -1253,7 +1253,8 @@ DecodedDrawImage GpuImageDecodeCache::GetDecodedImageForDraw(
 void GpuImageDecodeCache::DrawWithImageFinished(
     const DrawImage& draw_image,
     const DecodedDrawImage& decoded_draw_image) {
-  TRACE_EVENT0("cc", "GpuImageDecodeCache::DrawWithImageFinished");
+  TRACE_EVENT0(TRACE_DISABLED_BY_DEFAULT("cc.debug"),
+               "GpuImageDecodeCache::DrawWithImageFinished");
 
   // Release decoded_draw_image to ensure the referenced SkImage can be
   // cleaned up below.
@@ -1275,7 +1276,7 @@ void GpuImageDecodeCache::DrawWithImageFinished(
   RunPendingContextThreadOperations();
 }
 
-void GpuImageDecodeCache::ReduceCacheUsage() {
+void GpuImageDecodeCache::ReduceCacheUsage() NO_THREAD_SAFETY_ANALYSIS {
   TRACE_EVENT0(TRACE_DISABLED_BY_DEFAULT("cc.debug"),
                "GpuImageDecodeCache::ReduceCacheUsage");
   base::AutoLock lock(lock_);
@@ -1284,6 +1285,8 @@ void GpuImageDecodeCache::ReduceCacheUsage() {
   // This is typically called when no tasks are running (between scheduling
   // tasks). Try to lock and run pending operations if possible, but don't
   // block on it.
+  //
+  // NO_THREAD_SAFETY_ANALYSIS: runtime-dependent locking.
   if (context_->GetLock() && !context_->GetLock()->Try())
     return;
 
@@ -2224,11 +2227,11 @@ void GpuImageDecodeCache::UploadImageIfNecessary(const DrawImage& draw_image,
     if (image_data->mode == DecodedDataMode::kGpu) {
       // Notify the discardable system of the planes so they will count against
       // budgets.
-      context_->ContextGL()->InitializeDiscardableTextureCHROMIUM(
+      context_->RasterInterface()->InitializeDiscardableTextureCHROMIUM(
           image_data->upload.gl_y_id());
-      context_->ContextGL()->InitializeDiscardableTextureCHROMIUM(
+      context_->RasterInterface()->InitializeDiscardableTextureCHROMIUM(
           image_data->upload.gl_u_id());
-      context_->ContextGL()->InitializeDiscardableTextureCHROMIUM(
+      context_->RasterInterface()->InitializeDiscardableTextureCHROMIUM(
           image_data->upload.gl_v_id());
     }
     // YUV decoding ends.
@@ -2273,7 +2276,7 @@ void GpuImageDecodeCache::UploadImageIfNecessary(const DrawImage& draw_image,
   if (image_data->mode == DecodedDataMode::kGpu) {
     // Notify the discardable system of this image so it will count against
     // budgets.
-    context_->ContextGL()->InitializeDiscardableTextureCHROMIUM(
+    context_->RasterInterface()->InitializeDiscardableTextureCHROMIUM(
         image_data->upload.gl_id());
   }
 }
@@ -2559,7 +2562,7 @@ void GpuImageDecodeCache::RunPendingContextThreadOperations() {
 
   FlushYUVImages(&yuv_images_pending_unlock_);
   for (auto* image : images_pending_unlock_) {
-    context_->ContextGL()->UnlockDiscardableTextureCHROMIUM(
+    context_->RasterInterface()->UnlockDiscardableTextureCHROMIUM(
         GlIdFromSkImage(image));
   }
   images_pending_unlock_.clear();
@@ -2573,8 +2576,9 @@ void GpuImageDecodeCache::RunPendingContextThreadOperations() {
   FlushYUVImages(&yuv_images_pending_deletion_);
   for (auto& image : images_pending_deletion_) {
     uint32_t texture_id = GlIdFromSkImage(image.get());
-    if (context_->ContextGL()->LockDiscardableTextureCHROMIUM(texture_id)) {
-      context_->ContextGL()->DeleteTextures(1, &texture_id);
+    if (context_->RasterInterface()->LockDiscardableTextureCHROMIUM(
+            texture_id)) {
+      context_->RasterInterface()->DeleteGpuRasterTexture(texture_id);
     }
   }
   images_pending_deletion_.clear();
@@ -2616,20 +2620,20 @@ bool GpuImageDecodeCache::TryLockImage(HaveContextLock have_context_lock,
       return true;
     }
   } else if (have_context_lock == HaveContextLock::kYes) {
-    auto* gl_context = context_->ContextGL();
+    auto* ri = context_->RasterInterface();
     // If |have_context_lock|, we can immediately lock the image and send
     // the lock command to the GPU process.
     // TODO(crbug.com/914622): Add Chrome GL extension to upload texture array.
     if (data->is_yuv &&
-        gl_context->LockDiscardableTextureCHROMIUM(data->upload.gl_y_id()) &&
-        gl_context->LockDiscardableTextureCHROMIUM(data->upload.gl_u_id()) &&
-        gl_context->LockDiscardableTextureCHROMIUM(data->upload.gl_v_id())) {
+        ri->LockDiscardableTextureCHROMIUM(data->upload.gl_y_id()) &&
+        ri->LockDiscardableTextureCHROMIUM(data->upload.gl_u_id()) &&
+        ri->LockDiscardableTextureCHROMIUM(data->upload.gl_v_id())) {
       DCHECK(!use_transfer_cache_);
       DCHECK(data->mode == DecodedDataMode::kGpu);
       data->upload.OnLock();
       return true;
-    } else if (!(data->is_yuv) && gl_context->LockDiscardableTextureCHROMIUM(
-                                      data->upload.gl_id())) {
+    } else if (!(data->is_yuv) &&
+               ri->LockDiscardableTextureCHROMIUM(data->upload.gl_id())) {
       DCHECK(!use_transfer_cache_);
       DCHECK(data->mode == DecodedDataMode::kGpu);
       data->upload.OnLock();
@@ -2979,11 +2983,11 @@ void GpuImageDecodeCache::UpdateMipsIfNeeded(const DrawImage& draw_image,
     image_data->upload.SetYuvImage(std::move(image_y_with_mips_owned),
                                    std::move(image_u_with_mips_owned),
                                    std::move(image_v_with_mips_owned));
-    context_->ContextGL()->InitializeDiscardableTextureCHROMIUM(
+    context_->RasterInterface()->InitializeDiscardableTextureCHROMIUM(
         image_data->upload.gl_y_id());
-    context_->ContextGL()->InitializeDiscardableTextureCHROMIUM(
+    context_->RasterInterface()->InitializeDiscardableTextureCHROMIUM(
         image_data->upload.gl_u_id());
-    context_->ContextGL()->InitializeDiscardableTextureCHROMIUM(
+    context_->RasterInterface()->InitializeDiscardableTextureCHROMIUM(
         image_data->upload.gl_v_id());
     return;  // End YUV mip mapping.
   }
@@ -3024,7 +3028,7 @@ void GpuImageDecodeCache::UpdateMipsIfNeeded(const DrawImage& draw_image,
   // Set the new image on the cache.
   image_data->upload.Reset();
   image_data->upload.SetImage(std::move(image_with_mips_owned));
-  context_->ContextGL()->InitializeDiscardableTextureCHROMIUM(
+  context_->RasterInterface()->InitializeDiscardableTextureCHROMIUM(
       image_data->upload.gl_id());
 }
 

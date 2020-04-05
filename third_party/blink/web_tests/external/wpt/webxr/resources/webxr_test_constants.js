@@ -85,8 +85,8 @@ const VALID_BOUNDS = [
 ];
 
 const VALID_RESOLUTION = {
-    width: 20,
-    height: 20
+    width: 200,
+    height: 200
 };
 
 const LEFT_OFFSET = {
@@ -121,12 +121,13 @@ const NON_IMMERSIVE_VIEWS = [{
 ];
 
 const ALL_FEATURES = [
-    "viewer",
-    "local",
-    "local-floor",
-    "bounded-floor",
-    "unbounded",
-    "hit-test",
+  'viewer',
+  'local',
+  'local-floor',
+  'bounded-floor',
+  'unbounded',
+  'hit-test',
+  'dom-overlay',
 ];
 
 const TRACKED_IMMERSIVE_DEVICE = {

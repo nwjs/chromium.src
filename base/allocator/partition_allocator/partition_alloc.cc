@@ -15,6 +15,7 @@
 #include "base/allocator/partition_allocator/spin_lock.h"
 #include "base/logging.h"
 #include "base/no_destructor.h"
+#include "base/synchronization/lock.h"
 
 namespace base {
 
@@ -56,15 +57,19 @@ PartitionRootGeneric::PartitionRootGeneric() = default;
 PartitionRootGeneric::~PartitionRootGeneric() = default;
 PartitionAllocatorGeneric::PartitionAllocatorGeneric() = default;
 
-subtle::SpinLock& GetLock() {
-  static NoDestructor<subtle::SpinLock> s_initialized_lock;
+Lock& GetLock() {
+  static NoDestructor<Lock> s_initialized_lock;
   return *s_initialized_lock;
 }
 static bool g_initialized = false;
 
+Lock& GetHooksLock() {
+  static NoDestructor<Lock> lock;
+  return *lock;
+}
+
 OomFunction internal::PartitionRootBase::g_oom_handling_function = nullptr;
 std::atomic<bool> PartitionAllocHooks::hooks_enabled_(false);
-subtle::SpinLock PartitionAllocHooks::set_hooks_lock_;
 std::atomic<PartitionAllocHooks::AllocationObserverHook*>
     PartitionAllocHooks::allocation_observer_hook_(nullptr);
 std::atomic<PartitionAllocHooks::FreeObserverHook*>
@@ -78,7 +83,7 @@ std::atomic<PartitionAllocHooks::ReallocOverrideHook*>
 
 void PartitionAllocHooks::SetObserverHooks(AllocationObserverHook* alloc_hook,
                                            FreeObserverHook* free_hook) {
-  subtle::SpinLock::Guard guard(set_hooks_lock_);
+  AutoLock guard(GetHooksLock());
 
   // Chained hooks are not supported. Registering a non-null hook when a
   // non-null hook is already registered indicates somebody is trying to
@@ -95,7 +100,7 @@ void PartitionAllocHooks::SetObserverHooks(AllocationObserverHook* alloc_hook,
 void PartitionAllocHooks::SetOverrideHooks(AllocationOverrideHook* alloc_hook,
                                            FreeOverrideHook* free_hook,
                                            ReallocOverrideHook realloc_hook) {
-  subtle::SpinLock::Guard guard(set_hooks_lock_);
+  AutoLock guard(GetHooksLock());
 
   CHECK((!allocation_override_hook_ && !free_override_hook_ &&
          !realloc_override_hook_) ||
@@ -171,7 +176,7 @@ bool PartitionAllocHooks::ReallocOverrideHookIfEnabled(size_t* out,
 static void PartitionAllocBaseInit(internal::PartitionRootBase* root) {
   DCHECK(!root->initialized);
   {
-    subtle::SpinLock::Guard guard(GetLock());
+    AutoLock guard(GetLock());
     if (!g_initialized) {
       g_initialized = true;
       // We mark the sentinel bucket/page as free to make sure it is skipped by

@@ -95,7 +95,6 @@ class ChromeAuthenticatorRequestDelegate
       device::FidoTransportProtocol transport) override;
   void DisableUI() override;
   bool IsWebAuthnUIEnabled() override;
-  bool IsUserVerifyingPlatformAuthenticatorAvailable() override;
 
   // device::FidoRequestHandlerBase::Observer:
   void OnTransportAvailabilityEnumerated(
@@ -117,6 +116,8 @@ class ChromeAuthenticatorRequestDelegate
       base::Optional<int> attempts,
       base::OnceCallback<void(std::string)> provide_pin_cb) override;
   void FinishCollectToken() override;
+  void OnRetryUserVerification(int attempts) override;
+  void OnInternalUserVerificationLocked() override;
   void SetMightCreateResidentCredential(bool v) override;
 
   // AuthenticatorRequestDialogModel::Observer:

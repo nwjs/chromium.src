@@ -7,7 +7,8 @@ package org.chromium.chrome.browser.sync;
 import android.accounts.Account;
 import android.content.Context;
 import android.support.test.InstrumentationRegistry;
-import android.support.v7.preference.TwoStatePreference;
+
+import androidx.preference.TwoStatePreference;
 
 import org.junit.Assert;
 import org.junit.runner.Description;
@@ -256,8 +257,13 @@ public class SyncTestRule extends ChromeActivityTestRule<ChromeActivity> {
                     mFakeServerHelper = FakeServerHelper.get();
                 });
                 FakeServerHelper.useFakeServer(mContext);
-                TestThreadUtils.runOnUiThreadBlocking(
-                        () -> { mProfileSyncService = ProfileSyncService.get(); });
+                TestThreadUtils.runOnUiThreadBlocking(() -> {
+                    ProfileSyncService profileSyncService = createProfileSyncService();
+                    if (profileSyncService != null) {
+                        ProfileSyncService.overrideForTests(profileSyncService);
+                    }
+                    mProfileSyncService = ProfileSyncService.get();
+                });
 
                 UniqueIdentificationGeneratorFactory.registerGenerator(
                         UuidBasedUniqueIdentificationGenerator.GENERATOR_ID,
@@ -333,6 +339,13 @@ public class SyncTestRule extends ChromeActivityTestRule<ChromeActivity> {
             pref.setChecked(newValue);
         });
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+    }
+
+    /**
+     * Returns an instance of ProfileSyncService that can be overridden by subclasses.
+     */
+    protected ProfileSyncService createProfileSyncService() {
+        return null;
     }
 
     private void signinAndEnableSyncInternal(final Account account, boolean setFirstSetupComplete) {

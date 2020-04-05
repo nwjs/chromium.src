@@ -60,7 +60,7 @@ class AppCacheHostTest : public testing::Test {
   class MockFrontend : public blink::mojom::AppCacheFrontend,
                        public WebContentsObserver {
    public:
-    MockFrontend(WebContents* web_contents)
+    explicit MockFrontend(WebContents* web_contents)
         : WebContentsObserver(web_contents),
           last_cache_id_(kUnsetCacheId),
           last_status_(blink::mojom::AppCacheStatus::APPCACHE_STATUS_OBSOLETE),
@@ -148,7 +148,7 @@ class AppCacheHostTest : public testing::Test {
     std::map<url::Origin, int> inuse_;
 
    protected:
-    ~MockQuotaManagerProxy() override {}
+    ~MockQuotaManagerProxy() override = default;
   };
 
   void GetStatusCallback(blink::mojom::AppCacheStatus status) {
@@ -748,7 +748,6 @@ TEST_F(AppCacheHostTest, SelectCacheAfterProcessCleanup) {
 
   EXPECT_TRUE(
       security_policy->CanAccessDataForOrigin(kProcessIdForTest, kDocumentURL));
-  EXPECT_TRUE(security_policy->HasSecurityState(kProcessIdForTest));
 
   // Destroy the WebContents so the process gets cleaned up.
   web_contents_.reset();
@@ -801,7 +800,6 @@ TEST_F(AppCacheHostTest, ForeignEntryAfterProcessCleanup) {
 
   EXPECT_TRUE(
       security_policy->CanAccessDataForOrigin(kProcessIdForTest, kDocumentURL));
-  EXPECT_TRUE(security_policy->HasSecurityState(kProcessIdForTest));
 
   // Destroy the WebContents so the process gets cleaned up.
   web_contents_.reset();

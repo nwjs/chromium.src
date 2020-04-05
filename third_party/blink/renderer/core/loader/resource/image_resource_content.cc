@@ -6,6 +6,7 @@
 
 #include <memory>
 
+#include "base/metrics/histogram_macros.h"
 #include "third_party/blink/public/mojom/feature_policy/feature_policy_feature.mojom-blink.h"
 #include "third_party/blink/public/mojom/feature_policy/policy_value.mojom-blink.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
@@ -16,7 +17,6 @@
 #include "third_party/blink/renderer/platform/geometry/int_size.h"
 #include "third_party/blink/renderer/platform/graphics/bitmap_image.h"
 #include "third_party/blink/renderer/platform/graphics/placeholder_image.h"
-#include "third_party/blink/renderer/platform/instrumentation/histogram.h"
 #include "third_party/blink/renderer/platform/instrumentation/tracing/trace_event.h"
 #include "third_party/blink/renderer/platform/network/http_parsers.h"
 #include "third_party/blink/renderer/platform/network/mime/mime_type_registry.h"
@@ -37,9 +37,7 @@ class NullImageResourceInfo final
  public:
   NullImageResourceInfo() = default;
 
-  void Trace(blink::Visitor* visitor) override {
-    ImageResourceInfo::Trace(visitor);
-  }
+  void Trace(Visitor* visitor) override { ImageResourceInfo::Trace(visitor); }
 
  private:
   const KURL& Url() const override { return url_; }
@@ -70,6 +68,8 @@ class NullImageResourceInfo final
       const AtomicString& initiator_name) override {}
 
   void LoadDeferredImage(ResourceFetcher* fetcher) override {}
+
+  bool IsAdResource() const override { return false; }
 
   const KURL url_;
   const ResourceResponse response_;
@@ -143,7 +143,7 @@ void ImageResourceContent::SetImageResourceInfo(ImageResourceInfo* info) {
   info_ = info;
 }
 
-void ImageResourceContent::Trace(blink::Visitor* visitor) {
+void ImageResourceContent::Trace(Visitor* visitor) {
   visitor->Trace(info_);
   ImageObserver::Trace(visitor);
 }
@@ -469,7 +469,7 @@ ImageResourceContent::UpdateImageResult ImageResourceContent::UpdateImage(
       // consider such an image as DecodeError.
       // https://www.w3.org/TR/SVG/struct.html#SVGElementWidthAttribute
       if (!image_ ||
-          (image_->IsNull() && (!image_->IsSVGImage() ||
+          (image_->IsNull() && (!IsA<SVGImage>(image_.get()) ||
                                 size_available_ == Image::kSizeUnavailable))) {
         ClearImage();
         return UpdateImageResult::kShouldDecodeError;
@@ -511,7 +511,7 @@ ImageDecoder::CompressionFormat ImageResourceContent::GetCompressionFormat()
 }
 
 bool ImageResourceContent::IsAcceptableCompressionRatio(
-    const ExecutionContext& context) {
+    ExecutionContext& context) {
   if (!image_)
     return true;
 
@@ -533,24 +533,6 @@ bool ImageResourceContent::IsAcceptableCompressionRatio(
   double compression_ratio_10k = (resource_length - 10240) / pixels;
 
   ImageDecoder::CompressionFormat compression_format = GetCompressionFormat();
-  const auto max_value =
-      PolicyValue::CreateMaxPolicyValue(mojom::PolicyValueType::kDecDouble);
-  // If an unoptimized-*-images policy is specified, the specified compression
-  // ratio will be less than the max value.
-  bool is_policy_specified =
-      !context.IsFeatureEnabled(
-          mojom::blink::FeaturePolicyFeature::kUnoptimizedLossyImages,
-          max_value) ||
-      !context.IsFeatureEnabled(
-          mojom::blink::FeaturePolicyFeature::kUnoptimizedLosslessImagesStrict,
-          max_value) ||
-      !context.IsFeatureEnabled(
-          mojom::blink::FeaturePolicyFeature::kUnoptimizedLosslessImages,
-          max_value);
-  if (is_policy_specified) {
-    UMA_HISTOGRAM_ENUMERATION("Blink.UseCounter.FeaturePolicy.ImageFormats",
-                              compression_format);
-  }
 
   // Pass image url to reporting API.
   const String& image_url = Url().GetString();
@@ -558,18 +540,18 @@ bool ImageResourceContent::IsAcceptableCompressionRatio(
   if (compression_format == ImageDecoder::kLossyFormat) {
     // Enforce the lossy image policy.
     return context.IsFeatureEnabled(
-        mojom::blink::FeaturePolicyFeature::kUnoptimizedLossyImages,
+        mojom::blink::DocumentPolicyFeature::kUnoptimizedLossyImages,
         PolicyValue(compression_ratio_1k), ReportOptions::kReportOnFailure,
         g_empty_string, image_url);
   }
   if (compression_format == ImageDecoder::kLosslessFormat) {
     // Enforce the lossless image policy.
     bool enabled_by_10k_policy = context.IsFeatureEnabled(
-        mojom::blink::FeaturePolicyFeature::kUnoptimizedLosslessImages,
+        mojom::blink::DocumentPolicyFeature::kUnoptimizedLosslessImages,
         PolicyValue(compression_ratio_10k), ReportOptions::kReportOnFailure,
         g_empty_string, image_url);
     bool enabled_by_1k_policy = context.IsFeatureEnabled(
-        mojom::blink::FeaturePolicyFeature::kUnoptimizedLosslessImagesStrict,
+        mojom::blink::DocumentPolicyFeature::kUnoptimizedLosslessImagesStrict,
         PolicyValue(compression_ratio_1k), ReportOptions::kReportOnFailure,
         g_empty_string, image_url);
     return enabled_by_10k_policy && enabled_by_1k_policy;
@@ -703,6 +685,10 @@ bool ImageResourceContent::IsCacheValidator() const {
 
 void ImageResourceContent::LoadDeferredImage(ResourceFetcher* fetcher) {
   info_->LoadDeferredImage(fetcher);
+}
+
+bool ImageResourceContent::IsAdResource() const {
+  return info_->IsAdResource();
 }
 
 }  // namespace blink

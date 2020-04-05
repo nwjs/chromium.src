@@ -30,6 +30,7 @@
 #include "base/strings/string_piece.h"
 #include "base/task/post_task.h"
 #include "base/task/task_traits.h"
+#include "base/task/thread_pool.h"
 #include "base/threading/platform_thread.h"
 #include "base/threading/sequenced_task_runner_handle.h"
 #include "base/threading/thread_task_runner_handle.h"
@@ -60,7 +61,6 @@
 #include "chrome/common/chrome_paths_internal.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
-#include "components/browser_watcher/stability_paths.h"
 #include "components/crash/core/common/crash_keys.h"
 #include "components/history/core/browser/history_service.h"
 #include "components/metrics/call_stack_profile_metrics_provider.h"
@@ -71,6 +71,7 @@
 #include "components/metrics/entropy_state_provider.h"
 #include "components/metrics/field_trials_provider.h"
 #include "components/metrics/gpu/gpu_metrics_provider.h"
+#include "components/metrics/gpu/rendering_perf_metrics_provider.h"
 #include "components/metrics/metrics_log_uploader.h"
 #include "components/metrics/metrics_pref_names.h"
 #include "components/metrics/metrics_reporting_default_state.h"
@@ -147,11 +148,9 @@
 
 #include "chrome/browser/metrics/antivirus_metrics_provider_win.h"
 #include "chrome/browser/metrics/google_update_metrics_provider_win.h"
-#include "chrome/common/metrics_constants_util_win.h"
 #include "chrome/install_static/install_util.h"
 #include "chrome/installer/util/util_constants.h"
 #include "chrome/notification_helper/notification_helper_constants.h"
-#include "components/browser_watcher/watcher_metrics_provider_win.h"
 #include "content/public/browser/system_connector.h"
 #endif
 
@@ -238,9 +237,9 @@ void RegisterOrRemovePreviousRunMetricsFile(
   } else {
     // When metrics reporting is not enabled, any existing file should be
     // deleted in order to preserve user privacy.
-    base::PostTask(
+    base::ThreadPool::PostTask(
         FROM_HERE,
-        {base::ThreadPool(), base::MayBlock(), base::TaskPriority::BEST_EFFORT,
+        {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
          base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
         base::BindOnce(base::IgnoreResult(&base::DeleteFile), metrics_file,
                        /*recursive=*/false));
@@ -292,13 +291,13 @@ std::unique_ptr<metrics::FileMetricsProvider> CreateFileMetricsProvider(
     } else {
       // When metrics reporting is not enabled, any existing files should be
       // deleted in order to preserve user privacy.
-      base::PostTask(FROM_HERE,
-                     {base::ThreadPool(), base::MayBlock(),
-                      base::TaskPriority::BEST_EFFORT,
-                      base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN},
-                     base::BindOnce(base::IgnoreResult(&base::DeleteFile),
-                                    std::move(browser_metrics_upload_dir),
-                                    /*recursive=*/true));
+      base::ThreadPool::PostTask(
+          FROM_HERE,
+          {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
+           base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN},
+          base::BindOnce(base::IgnoreResult(&base::DeleteFile),
+                         std::move(browser_metrics_upload_dir),
+                         /*recursive=*/true));
     }
   }
 
@@ -328,10 +327,9 @@ std::unique_ptr<metrics::FileMetricsProvider> CreateFileMetricsProvider(
               metrics::FileMetricsProvider::ASSOCIATE_CURRENT_RUN,
               notification_helper::kNotificationHelperHistogramAllocatorName));
     } else {
-      base::PostTask(
+      base::ThreadPool::PostTask(
           FROM_HERE,
-          {base::ThreadPool(), base::MayBlock(),
-           base::TaskPriority::BEST_EFFORT,
+          {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
            base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
           base::BindOnce(base::IgnoreResult(&base::DeleteFile),
                          std::move(notification_helper_metrics_upload_dir),
@@ -342,24 +340,6 @@ std::unique_ptr<metrics::FileMetricsProvider> CreateFileMetricsProvider(
 
   return file_metrics_provider;
 }
-
-#if defined(OS_WIN)
-void GetExecutableVersionDetails(base::string16* product_name,
-                                 base::string16* version_number,
-                                 base::string16* channel_name) {
-  DCHECK_NE(nullptr, product_name);
-  DCHECK_NE(nullptr, version_number);
-  DCHECK_NE(nullptr, channel_name);
-
-  wchar_t exe_file[MAX_PATH] = {};
-  CHECK(::GetModuleFileName(nullptr, exe_file, base::size(exe_file)));
-
-  base::string16 unused_special_build;
-  install_static::GetExecutableVersionDetails(
-      exe_file, product_name, version_number, &unused_special_build,
-      channel_name);
-}
-#endif  // OS_WIN
 
 ChromeMetricsServiceClient::IsProcessRunningFunction g_is_process_running =
     nullptr;
@@ -539,14 +519,6 @@ void ChromeMetricsServiceClient::OnEnvironmentUpdate(std::string* environment) {
 #endif  // OS_WIN || OS_MACOSX || OS_ANDROID
 }
 
-void ChromeMetricsServiceClient::OnLogCleanShutdown() {
-#if defined(OS_WIN)
-  base::FilePath user_data_dir;
-  if (base::PathService::Get(chrome::DIR_USER_DATA, &user_data_dir))
-    browser_watcher::MarkOwnStabilityFileDeleted(user_data_dir);
-#endif  // OS_WIN
-}
-
 void ChromeMetricsServiceClient::CollectFinalMetricsForLog(
     base::OnceClosure done_callback) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -653,6 +625,9 @@ void ChromeMetricsServiceClient::RegisterMetricsServiceProviders() {
       std::make_unique<metrics::GPUMetricsProvider>());
 
   metrics_service_->RegisterMetricsProvider(
+      std::make_unique<metrics::RenderingPerfMetricsProvider>());
+
+  metrics_service_->RegisterMetricsProvider(
       std::make_unique<metrics::CPUMetricsProvider>());
 
   metrics_service_->RegisterMetricsProvider(
@@ -703,20 +678,6 @@ void ChromeMetricsServiceClient::RegisterMetricsServiceProviders() {
 #if defined(OS_WIN)
   metrics_service_->RegisterMetricsProvider(
       std::make_unique<GoogleUpdateMetricsProviderWin>());
-
-  base::FilePath user_data_dir;
-  base::FilePath crash_dir;
-  if (!base::PathService::Get(chrome::DIR_USER_DATA, &user_data_dir) ||
-      !base::PathService::Get(chrome::DIR_CRASH_DUMPS, &crash_dir)) {
-    // If either call fails, then clear both.
-    user_data_dir = base::FilePath();
-    crash_dir = base::FilePath();
-  }
-  metrics_service_->RegisterMetricsProvider(
-      std::make_unique<browser_watcher::WatcherMetricsProviderWin>(
-          chrome::GetBrowserExitCodesRegistryPath(), user_data_dir, crash_dir,
-          base::Bind(&GetExecutableVersionDetails)));
-
   metrics_service_->RegisterMetricsProvider(
       std::make_unique<AntiVirusMetricsProvider>());
 #endif  // defined(OS_WIN)
@@ -818,7 +779,7 @@ void ChromeMetricsServiceClient::RegisterUKMProviders() {
   ukm_service_->RegisterMetricsProvider(
       std::make_unique<metrics::ScreenInfoMetricsProvider>());
 
-  // TODO(rkaplow): Support synthetic trials for UKM.
+  // TODO(crbug.com/754877): Support synthetic trials for UKM.
   ukm_service_->RegisterMetricsProvider(
       std::make_unique<variations::FieldTrialsProvider>(nullptr,
                                                         kUKMFieldTrialSuffix));

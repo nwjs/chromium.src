@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include <stdint.h>
+#include <memory>
 #include <utility>
 
 #include "base/auto_reset.h"
@@ -11,23 +12,25 @@
 #include "base/files/scoped_temp_dir.h"
 #include "base/logging.h"
 #include "base/macros.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/run_loop.h"
 #include "base/stl_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/bind_test_util.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/simple_test_clock.h"
+#include "base/test/task_environment.h"
 #include "base/test/test_simple_task_runner.h"
 #include "base/threading/sequenced_task_runner_handle.h"
 #include "base/time/default_clock.h"
 #include "components/services/storage/indexed_db/leveldb/fake_leveldb_factory.h"
 #include "components/services/storage/indexed_db/transactional_leveldb/transactional_leveldb_database.h"
 #include "components/services/storage/public/mojom/indexed_db_control.mojom-test-utils.h"
+#include "content/browser/indexed_db/indexed_db_backing_store.h"
 #include "content/browser/indexed_db/indexed_db_class_factory.h"
 #include "content/browser/indexed_db/indexed_db_connection.h"
 #include "content/browser/indexed_db/indexed_db_context_impl.h"
 #include "content/browser/indexed_db/indexed_db_data_format_version.h"
-#include "content/browser/indexed_db/indexed_db_execution_context_connection_tracker.h"
 #include "content/browser/indexed_db/indexed_db_factory_impl.h"
 #include "content/browser/indexed_db/indexed_db_leveldb_env.h"
 #include "content/browser/indexed_db/indexed_db_origin_state.h"
@@ -35,11 +38,9 @@
 #include "content/browser/indexed_db/indexed_db_transaction.h"
 #include "content/browser/indexed_db/mock_indexed_db_callbacks.h"
 #include "content/browser/indexed_db/mock_indexed_db_database_callbacks.h"
-#include "content/public/browser/storage_usage_info.h"
-#include "content/public/test/browser_task_environment.h"
-#include "content/public/test/test_utils.h"
 #include "mojo/public/cpp/bindings/associated_remote.h"
 #include "storage/browser/test/mock_quota_manager_proxy.h"
+#include "storage/browser/test/mock_special_storage_policy.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/indexeddb/web_idb_types.h"
 #include "third_party/blink/public/mojom/indexeddb/indexeddb.mojom.h"
@@ -54,11 +55,6 @@ namespace content {
 
 namespace {
 
-base::FilePath CreateAndReturnTempDir(base::ScopedTempDir* temp_dir) {
-  CHECK(temp_dir->CreateUniqueTempDir());
-  return temp_dir->GetPath();
-}
-
 void CreateAndBindTransactionPlaceholder(
     base::WeakPtr<IndexedDBTransaction> transaction) {}
 
@@ -67,15 +63,22 @@ void CreateAndBindTransactionPlaceholder(
 class IndexedDBFactoryTest : public testing::Test {
  public:
   IndexedDBFactoryTest()
-      : task_environment_(std::make_unique<BrowserTaskEnvironment>()),
-        quota_manager_proxy_(
-            base::MakeRefCounted<MockQuotaManagerProxy>(nullptr, nullptr)) {}
+      : task_environment_(std::make_unique<base::test::TaskEnvironment>()) {}
 
   explicit IndexedDBFactoryTest(
-      std::unique_ptr<BrowserTaskEnvironment> task_environment)
-      : task_environment_(std::move(task_environment)),
-        quota_manager_proxy_(
-            base::MakeRefCounted<MockQuotaManagerProxy>(nullptr, nullptr)) {}
+      std::unique_ptr<base::test::TaskEnvironment> task_environment)
+      : task_environment_(std::move(task_environment)) {}
+
+  void SetUp() override {
+    ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
+    quota_policy_ = base::MakeRefCounted<storage::MockSpecialStoragePolicy>();
+    quota_manager_ = base::MakeRefCounted<storage::MockQuotaManager>(
+        false /*is_incognito*/, temp_dir_.GetPath(),
+        base::ThreadTaskRunnerHandle::Get().get(), quota_policy_.get());
+
+    quota_manager_proxy_ = base::MakeRefCounted<storage::MockQuotaManagerProxy>(
+        quota_manager_.get(), base::ThreadTaskRunnerHandle::Get().get());
+  }
 
   void TearDown() override {
     quota_manager_proxy_->SimulateQuotaManagerDestroyed();
@@ -87,44 +90,32 @@ class IndexedDBFactoryTest : public testing::Test {
       // deletion of the leveldb state. Once the states are no longer around,
       // delete all of the databases on disk.
       auto open_factory_origins = factory->GetOpenOrigins();
-      base::RunLoop loop;
-      auto callback = base::BarrierClosure(
-          open_factory_origins.size(), base::BindLambdaForTesting([&]() {
-            // All leveldb databases are closed, and they can be deleted.
-            for (auto origin : context_->GetAllOrigins()) {
-              bool success = false;
-              storage::mojom::IndexedDBControlAsyncWaiter waiter(
-                  context_.get());
-              waiter.DeleteForOrigin(origin, &success);
-              EXPECT_TRUE(success);
-            }
-            loop.Quit();
-          }));
       for (auto origin : open_factory_origins) {
-        IndexedDBOriginState* per_origin_factory =
-            factory->GetOriginFactory(origin);
-        per_origin_factory->backing_store()
-            ->db()
-            ->leveldb_state()
-            ->RequestDestruction(callback,
-                                 base::SequencedTaskRunnerHandle::Get());
         context_->ForceCloseSync(
             origin,
             storage::mojom::ForceCloseReason::FORCE_CLOSE_DELETE_ORIGIN);
       }
-      loop.Run();
+      // All leveldb databases are closed, and they can be deleted.
+      for (auto origin : context_->GetAllOrigins()) {
+        bool success = false;
+        storage::mojom::IndexedDBControlAsyncWaiter waiter(context_.get());
+        waiter.DeleteForOrigin(origin, &success);
+        EXPECT_TRUE(success);
+      }
     }
     if (temp_dir_.IsValid())
       ASSERT_TRUE(temp_dir_.Delete());
     IndexedDBClassFactory::Get()->SetLevelDBFactoryForTesting(nullptr);
+    quota_manager_.reset();
   }
 
   void SetupContext() {
     context_ = base::MakeRefCounted<IndexedDBContextImpl>(
-        CreateAndReturnTempDir(&temp_dir_),
+        temp_dir_.GetPath(),
         /*special_storage_policy=*/nullptr, quota_manager_proxy_.get(),
         base::DefaultClock::GetInstance(),
         /*blob_storage_context=*/mojo::NullRemote(),
+        /*native_file_system_context=*/mojo::NullRemote(),
         base::SequencedTaskRunnerHandle::Get(),
         base::SequencedTaskRunnerHandle::Get());
   }
@@ -135,15 +126,17 @@ class IndexedDBFactoryTest : public testing::Test {
         /*special_storage_policy=*/nullptr, quota_manager_proxy_.get(),
         base::DefaultClock::GetInstance(),
         /*blob_storage_context=*/mojo::NullRemote(),
+        /*native_file_system_context=*/mojo::NullRemote(),
         base::SequencedTaskRunnerHandle::Get(),
         base::SequencedTaskRunnerHandle::Get());
   }
 
   void SetupContextWithFactories(LevelDBFactory* factory, base::Clock* clock) {
     context_ = base::MakeRefCounted<IndexedDBContextImpl>(
-        CreateAndReturnTempDir(&temp_dir_),
+        temp_dir_.GetPath(),
         /*special_storage_policy=*/nullptr, quota_manager_proxy_.get(), clock,
         /*blob_storage_context=*/mojo::NullRemote(),
+        /*native_file_system_context=*/mojo::NullRemote(),
         base::SequencedTaskRunnerHandle::Get(),
         base::SequencedTaskRunnerHandle::Get());
     if (factory)
@@ -163,7 +156,6 @@ class IndexedDBFactoryTest : public testing::Test {
         base::BindOnce(&CreateAndBindTransactionPlaceholder);
     auto connection = std::make_unique<IndexedDBPendingConnection>(
         callbacks, db_callbacks,
-        IndexedDBExecutionContextConnectionTracker::Handle::CreateForTesting(),
         transaction_id, IndexedDBDatabaseMetadata::NO_VERSION,
         std::move(create_transaction_callback));
 
@@ -209,7 +201,7 @@ class IndexedDBFactoryTest : public testing::Test {
 
   IndexedDBFactoryImpl* factory() const { return context_->GetIDBFactory(); }
 
-  BrowserTaskEnvironment* task_environment() const {
+  base::test::TaskEnvironment* task_environment() const {
     return task_environment_.get();
   }
 
@@ -218,11 +210,15 @@ class IndexedDBFactoryTest : public testing::Test {
     return handle.origin_state();
   }
 
+  storage::MockQuotaManager* quota_manager() { return quota_manager_.get(); }
+
  private:
-  std::unique_ptr<BrowserTaskEnvironment> task_environment_;
+  std::unique_ptr<base::test::TaskEnvironment> task_environment_;
 
   base::ScopedTempDir temp_dir_;
-  scoped_refptr<MockQuotaManagerProxy> quota_manager_proxy_;
+  scoped_refptr<storage::MockSpecialStoragePolicy> quota_policy_;
+  scoped_refptr<storage::MockQuotaManager> quota_manager_;
+  scoped_refptr<storage::MockQuotaManagerProxy> quota_manager_proxy_;
   scoped_refptr<IndexedDBContextImpl> context_;
 
   DISALLOW_COPY_AND_ASSIGN(IndexedDBFactoryTest);
@@ -231,7 +227,7 @@ class IndexedDBFactoryTest : public testing::Test {
 class IndexedDBFactoryTestWithMockTime : public IndexedDBFactoryTest {
  public:
   IndexedDBFactoryTestWithMockTime()
-      : IndexedDBFactoryTest(std::make_unique<BrowserTaskEnvironment>(
+      : IndexedDBFactoryTest(std::make_unique<base::test::TaskEnvironment>(
             base::test::TaskEnvironment::TimeSource::MOCK_TIME)) {}
 
  private:
@@ -465,7 +461,6 @@ TEST_F(IndexedDBFactoryTest, ContextDestructionClosesConnections) {
       base::BindOnce(&CreateAndBindTransactionPlaceholder);
   auto connection = std::make_unique<IndexedDBPendingConnection>(
       callbacks, db_callbacks,
-      IndexedDBExecutionContextConnectionTracker::Handle::CreateForTesting(),
       transaction_id, IndexedDBDatabaseMetadata::DEFAULT_VERSION,
       std::move(create_transaction_callback));
   factory()->Open(ASCIIToUTF16("db"), std::move(connection), origin,
@@ -527,7 +522,6 @@ TEST_F(IndexedDBFactoryTest, ConnectionForceClose) {
       base::BindOnce(&CreateAndBindTransactionPlaceholder);
   auto connection = std::make_unique<IndexedDBPendingConnection>(
       callbacks, db_callbacks,
-      IndexedDBExecutionContextConnectionTracker::Handle::CreateForTesting(),
       transaction_id, IndexedDBDatabaseMetadata::DEFAULT_VERSION,
       std::move(create_transaction_callback));
   factory()->Open(ASCIIToUTF16("db"), std::move(connection), origin,
@@ -559,7 +553,6 @@ TEST_F(IndexedDBFactoryTest, DatabaseForceCloseDuringUpgrade) {
       base::BindOnce(&CreateAndBindTransactionPlaceholder);
   auto connection = std::make_unique<IndexedDBPendingConnection>(
       callbacks, db_callbacks,
-      IndexedDBExecutionContextConnectionTracker::Handle::CreateForTesting(),
       transaction_id, IndexedDBDatabaseMetadata::NO_VERSION,
       std::move(create_transaction_callback));
 
@@ -597,7 +590,6 @@ TEST_F(IndexedDBFactoryTest, ConnectionCloseDuringUpgrade) {
       base::BindOnce(&CreateAndBindTransactionPlaceholder);
   auto connection = std::make_unique<IndexedDBPendingConnection>(
       callbacks, db_callbacks,
-      IndexedDBExecutionContextConnectionTracker::Handle::CreateForTesting(),
       transaction_id, IndexedDBDatabaseMetadata::NO_VERSION,
       std::move(create_transaction_callback));
 
@@ -738,11 +730,33 @@ TEST_F(IndexedDBFactoryTest, QuotaErrorOnDiskFull) {
       base::BindOnce(&CreateAndBindTransactionPlaceholder);
   auto connection = std::make_unique<IndexedDBPendingConnection>(
       callbacks, dummy_database_callbacks,
-      IndexedDBExecutionContextConnectionTracker::Handle::CreateForTesting(),
       /*transaction_id=*/1, /*version=*/1,
       std::move(create_transaction_callback));
   factory()->Open(name, std::move(connection), origin, context()->data_path());
   EXPECT_TRUE(callbacks->error_called());
+  base::RunLoop().RunUntilIdle();
+
+  ASSERT_EQ(1U, quota_manager()->write_error_tracker().size());
+  EXPECT_EQ(origin, quota_manager()->write_error_tracker().begin()->first);
+  EXPECT_EQ(1, quota_manager()->write_error_tracker().begin()->second);
+}
+
+TEST_F(IndexedDBFactoryTest, NotifyQuotaOnDatabaseError) {
+  SetupContext();
+  const Origin origin = Origin::Create(GURL("www.example.com"));
+  factory()->OnDatabaseError(origin,
+                             leveldb::Status::Corruption("Corrupted stuff."),
+                             "Corrupted stuff.");
+  base::RunLoop().RunUntilIdle();
+  // Quota should not be notified unless the status is IOError.
+  ASSERT_EQ(0U, quota_manager()->write_error_tracker().size());
+
+  factory()->OnDatabaseError(origin, leveldb::Status::IOError("Disk is full."),
+                             "Disk is full.");
+  base::RunLoop().RunUntilIdle();
+  ASSERT_EQ(1U, quota_manager()->write_error_tracker().size());
+  EXPECT_EQ(origin, quota_manager()->write_error_tracker().begin()->first);
+  EXPECT_EQ(1, quota_manager()->write_error_tracker().begin()->second);
 }
 
 class ErrorCallbacks : public MockIndexedDBCallbacks {
@@ -779,7 +793,6 @@ TEST_F(IndexedDBFactoryTest, DatabaseFailedOpen) {
 
   auto connection = std::make_unique<IndexedDBPendingConnection>(
       callbacks, db_callbacks,
-      IndexedDBExecutionContextConnectionTracker::Handle::CreateForTesting(),
       transaction_id, db_version, std::move(create_transaction_callback));
   {
     base::RunLoop loop;
@@ -814,7 +827,6 @@ TEST_F(IndexedDBFactoryTest, DatabaseFailedOpen) {
         base::BindOnce(&CreateAndBindTransactionPlaceholder);
     auto connection = std::make_unique<IndexedDBPendingConnection>(
         failed_open_callbacks, db_callbacks2,
-        IndexedDBExecutionContextConnectionTracker::Handle::CreateForTesting(),
         transaction_id, db_version, std::move(create_transaction_callback));
     factory()->Open(db_name, std::move(connection), origin,
                     context()->data_path());
@@ -862,7 +874,6 @@ TEST_F(IndexedDBFactoryTest, DataFormatVersion) {
         base::BindOnce(&CreateAndBindTransactionPlaceholder);
     auto pending_connection = std::make_unique<IndexedDBPendingConnection>(
         callbacks, db_callbacks,
-        IndexedDBExecutionContextConnectionTracker::Handle::CreateForTesting(),
         transaction_id,
         /*version=*/1, std::move(create_transaction_callback));
 

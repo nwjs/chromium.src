@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright (c) 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -324,6 +324,8 @@ class MockVideoRenderer : public VideoRenderer {
   MOCK_METHOD1(StartPlayingFrom, void(base::TimeDelta));
   MOCK_METHOD0(OnTimeProgressing, void());
   MOCK_METHOD0(OnTimeStopped, void());
+  MOCK_METHOD1(SetLatencyHint,
+               void(base::Optional<base::TimeDelta> latency_hint));
 
  private:
   DISALLOW_COPY_AND_ASSIGN(MockVideoRenderer);
@@ -407,7 +409,7 @@ class MockRendererFactory : public RendererFactory {
                    const scoped_refptr<base::TaskRunner>&,
                    AudioRendererSink*,
                    VideoRendererSink*,
-                   const RequestOverlayInfoCB&,
+                   RequestOverlayInfoCB,
                    const gfx::ColorSpace&));
 
  private:
@@ -489,18 +491,16 @@ class MockDecryptor : public Decryptor {
   ~MockDecryptor() override;
 
   MOCK_METHOD2(RegisterNewKeyCB,
-               void(StreamType stream_type, const NewKeyCB& new_key_cb));
+               void(StreamType stream_type, NewKeyCB new_key_cb));
   MOCK_METHOD3(Decrypt,
                void(StreamType stream_type,
                     scoped_refptr<DecoderBuffer> encrypted,
-                    const DecryptCB& decrypt_cb));
+                    DecryptCB decrypt_cb));
   MOCK_METHOD1(CancelDecrypt, void(StreamType stream_type));
   MOCK_METHOD2(InitializeAudioDecoder,
-               void(const AudioDecoderConfig& config,
-                    const DecoderInitCB& init_cb));
+               void(const AudioDecoderConfig& config, DecoderInitCB init_cb));
   MOCK_METHOD2(InitializeVideoDecoder,
-               void(const VideoDecoderConfig& config,
-                    const DecoderInitCB& init_cb));
+               void(const VideoDecoderConfig& config, DecoderInitCB init_cb));
   MOCK_METHOD2(DecryptAndDecodeAudio,
                void(scoped_refptr<DecoderBuffer> encrypted,
                     const AudioDecodeCB& audio_decode_cb));
@@ -644,20 +644,20 @@ class MockCdmFactory : public CdmFactory {
               const SessionClosedCB& session_closed_cb,
               const SessionKeysChangeCB& session_keys_change_cb,
               const SessionExpirationUpdateCB& session_expiration_update_cb,
-              const CdmCreatedCB& cdm_created_cb) override;
+              CdmCreatedCB cdm_created_cb) override;
 
   // Return a pointer to the created CDM.
   MockCdm* GetCreatedCdm();
 
   // Provide a callback to be called before the CDM is created and returned.
-  void SetBeforeCreationCB(const base::Closure& before_creation_cb);
+  void SetBeforeCreationCB(base::RepeatingClosure before_creation_cb);
 
  private:
   // Reference to the created CDM.
   scoped_refptr<MockCdm> created_cdm_;
 
   // Callback to be used before Create() successfully calls |cdm_created_cb|.
-  base::Closure before_creation_cb_;
+  base::RepeatingClosure before_creation_cb_;
 
   DISALLOW_COPY_AND_ASSIGN(MockCdmFactory);
 };

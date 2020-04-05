@@ -51,16 +51,15 @@ class CONTENT_EXPORT ServiceWorkerProviderHost {
   ServiceWorkerProviderHost(
       mojo::PendingAssociatedReceiver<blink::mojom::ServiceWorkerContainerHost>
           host_receiver,
-      scoped_refptr<ServiceWorkerVersion> running_hosted_version,
+      ServiceWorkerVersion* running_hosted_version,
       base::WeakPtr<ServiceWorkerContextCore> context);
   ~ServiceWorkerProviderHost();
 
   int provider_id() const { return provider_id_; }
   int worker_process_id() const { return worker_process_id_; }
-
-  // This is nullptr when the worker is still starting up (until
-  // CompleteStartWorkerPreparation() is called).
-  ServiceWorkerVersion* running_hosted_version() const;
+  ServiceWorkerVersion* running_hosted_version() const {
+    return running_hosted_version_;
+  }
 
   // Completes initialization of this provider host. It is called once a
   // renderer process has been found to host the worker.
@@ -71,12 +70,17 @@ class CONTENT_EXPORT ServiceWorkerProviderHost {
 
   void CreateQuicTransportConnector(
       mojo::PendingReceiver<blink::mojom::QuicTransportConnector> receiver);
+  // Used only when EagerCacheStorageSetupForServiceWorkers is disabled.
+  void BindCacheStorage(
+      mojo::PendingReceiver<blink::mojom::CacheStorage> receiver);
 
   content::ServiceWorkerContainerHost* container_host() {
     return container_host_.get();
   }
 
   base::WeakPtr<ServiceWorkerProviderHost> GetWeakPtr();
+
+  void ReportNoBinderForInterface(const std::string& error);
 
  private:
   // Unique among all provider hosts.
@@ -85,8 +89,8 @@ class CONTENT_EXPORT ServiceWorkerProviderHost {
   int worker_process_id_ = ChildProcessHost::kInvalidUniqueID;
 
   // The instance of service worker this provider hosts.
-  // TODO(https://crbug.com/931087): Change this to a rawptr.
-  const scoped_refptr<ServiceWorkerVersion> running_hosted_version_;
+  // Raw pointer is safe because the version owns |this|.
+  ServiceWorkerVersion* const running_hosted_version_;
 
   BrowserInterfaceBrokerImpl<ServiceWorkerProviderHost,
                              const ServiceWorkerVersionInfo&>

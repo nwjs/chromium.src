@@ -38,8 +38,7 @@ login.createScreen('UpdateScreen', 'update', function() {
      * Cancels the screen.
      */
     cancel() {
-      $('oobe-update-md')
-          .setCancelHint(loadTimeData.getString('cancelledUpdateMessage'));
+      $('oobe-update-md').cancelHint = 'cancelledUpdateMessage';
       this.send(
           login.Screen.CALLBACK_USER_ACTED, USER_ACTION_CANCEL_UPDATE_SHORTCUT);
     },
@@ -62,7 +61,6 @@ login.createScreen('UpdateScreen', 'update', function() {
      */
     showEstimatedTimeLeft(visible) {
       $('oobe-update-md').estimatedTimeLeftShown = visible;
-      $('oobe-update-md').progressMessageShown = !visible;
     },
 
     /**
@@ -70,23 +68,7 @@ login.createScreen('UpdateScreen', 'update', function() {
      * @param {number} seconds Time left in seconds.
      */
     setEstimatedTimeLeft(seconds) {
-      var minutes = Math.ceil(seconds / 60);
-      var message = '';
-      if (minutes > 60) {
-        message = loadTimeData.getString('downloadingTimeLeftLong');
-      } else if (minutes > 55) {
-        message = loadTimeData.getString('downloadingTimeLeftStatusOneHour');
-      } else if (minutes > 20) {
-        message = loadTimeData.getStringF(
-            'downloadingTimeLeftStatusMinutes', Math.ceil(minutes / 5) * 5);
-      } else if (minutes > 1) {
-        message = loadTimeData.getStringF(
-            'downloadingTimeLeftStatusMinutes', minutes);
-      } else {
-        message = loadTimeData.getString('downloadingTimeLeftSmall');
-      }
-      $('oobe-update-md').estimatedTimeLeft =
-          loadTimeData.getStringF('downloading', message);
+      $('oobe-update-md').estimatedTimeLeft = seconds;
     },
 
     /**
@@ -98,7 +80,6 @@ login.createScreen('UpdateScreen', 'update', function() {
       var visible = !!message;
       $('oobe-update-md').progressMessage = message;
       $('oobe-update-md').estimatedTimeLeftShown = !visible;
-      $('oobe-update-md').progressMessageShown = visible;
     },
 
     /**

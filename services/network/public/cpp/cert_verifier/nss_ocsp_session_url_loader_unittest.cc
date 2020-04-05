@@ -23,6 +23,7 @@
 #include "base/synchronization/lock.h"
 #include "base/task/post_task.h"
 #include "base/task/task_traits.h"
+#include "base/task/thread_pool.h"
 #include "base/test/bind_test_util.h"
 #include "base/test/task_environment.h"
 #include "base/threading/scoped_blocking_call.h"
@@ -109,6 +110,8 @@ class OCSPRequestSessionDelegateURLLoaderTest : public ::testing::Test {
     old_interceptor_ = base::BindLambdaForTesting(
         [this](const network::ResourceRequest& request) {
           EXPECT_EQ(request.url, intercept_url_);
+          EXPECT_TRUE(request.trusted_params.has_value());
+          EXPECT_TRUE(request.trusted_params->disable_secure_dns);
           num_loaders_created_++;
         });
     loader_factory_->SetInterceptor(old_interceptor_);
@@ -149,8 +152,8 @@ class OCSPRequestSessionDelegateURLLoaderTest : public ::testing::Test {
   // returns the nth one.
   scoped_refptr<base::SequencedTaskRunner> worker_thread(size_t n) {
     while (worker_threads_.size() <= n) {
-      worker_threads_.push_back(base::CreateSequencedTaskRunner(
-          {base::ThreadPool(), base::MayBlock()}));
+      worker_threads_.push_back(
+          base::ThreadPool::CreateSequencedTaskRunner({base::MayBlock()}));
     }
     return worker_threads_[n];
   }
@@ -468,6 +471,8 @@ class NssHttpURLLoaderTest : public net::TestWithTaskEnvironment {
     loader_factory_.SetInterceptor(base::BindLambdaForTesting(
         [this](const network::ResourceRequest& request) {
           EXPECT_EQ(request.url, intercept_url_);
+          EXPECT_TRUE(request.trusted_params.has_value());
+          EXPECT_TRUE(request.trusted_params->disable_secure_dns);
           num_loaders_created_++;
         }));
 

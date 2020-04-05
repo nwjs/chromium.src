@@ -7,25 +7,22 @@
 
 #import <Foundation/Foundation.h>
 
-namespace web {
-struct SSLStatus;
-}
+#include "ios/chrome/browser/main/browser.h"
+#import "ios/web/public/web_state_observer_bridge.h"
 
-@class PageInfoConfig;
-class GURL;
+@protocol PageInfoConsumer;
 
-// Mediator for the PageInfo, extracting the data to be displayed for the web
-// informations.
+// The mediator is pushing the data for the root of the info page page to the
+// consumer.
 @interface PageInfoMediator : NSObject
 
-// For now this object only have static method.
+- (instancetype)initWithWebState:(web::WebState*)webState
+    NS_DESIGNATED_INITIALIZER;
+
 - (instancetype)init NS_UNAVAILABLE;
 
-// Returns a configuration based on the |URL|, the SSL |status| and if the
-// current page is an |offlinePage|.
-+ (PageInfoConfig*)configurationForURL:(const GURL&)URL
-                             SSLStatus:(web::SSLStatus&)status
-                           offlinePage:(BOOL)offlinePage;
+// The consumer for this mediator.
+@property(nonatomic, weak) id<PageInfoConsumer> consumer;
 
 @end
 

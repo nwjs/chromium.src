@@ -40,8 +40,6 @@ namespace test_runner {
 class WebWidgetTestProxy;
 struct TestPreferences;
 
-constexpr int kDefaultDatabaseQuota = -1;
-
 class WebTestDelegate {
  public:
   virtual ~WebTestDelegate() = default;
@@ -74,9 +72,6 @@ class WebTestDelegate {
   // Convert the provided relative path into an absolute path.
   virtual blink::WebString GetAbsoluteWebStringFromUTF8Path(
       const std::string& path) = 0;
-
-  // Reads in the given file and returns its contents as data URL.
-  virtual blink::WebURL LocalFileToDataURL(const blink::WebURL& file_url) = 0;
 
   // Replaces file:///tmp/web_tests/ with the actual path to the
   // web_tests directory, or rewrite URLs generated from absolute
@@ -263,6 +258,9 @@ class WebTestDelegate {
   // Forces a text input state update for the client of WebFrameWidget
   // associated with |frame|.
   virtual void ForceTextInputStateUpdate(blink::WebLocalFrame* frame) = 0;
+
+  // Mark the orientation changed for fullscreen layout tests.
+  virtual void SetScreenOrientationChanged() = 0;
 };
 
 }  // namespace test_runner

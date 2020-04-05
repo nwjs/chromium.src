@@ -30,6 +30,7 @@
 #include "base/task/thread_pool/task_tracker.h"
 #include "base/threading/platform_thread.h"
 #include "base/threading/scoped_blocking_call.h"
+#include "base/threading/scoped_blocking_call_internal.h"
 #include "base/threading/thread_checker.h"
 #include "base/threading/thread_restrictions.h"
 #include "base/time/time_override.h"
@@ -416,8 +417,9 @@ void ThreadGroupImpl::Start(
   DCHECK(!replacement_thread_group_);
 
   in_start().may_block_without_delay =
-      FeatureList::IsEnabled(kMayBlockWithoutDelay) &&
-      priority_hint_ == ThreadPriority::NORMAL;
+      FeatureList::IsEnabled(kMayBlockWithoutDelay);
+  in_start().fixed_max_best_effort_tasks =
+      FeatureList::IsEnabled(kFixedMaxBestEffortTasks);
   in_start().may_block_threshold =
       may_block_threshold ? may_block_threshold.value()
                           : (priority_hint_ == ThreadPriority::NORMAL
@@ -762,13 +764,6 @@ void ThreadGroupImpl::WorkerThreadDelegateImpl::CleanupLockRequired(
       std::find(outer_->workers_.begin(), outer_->workers_.end(), worker);
   DCHECK(worker_iter != outer_->workers_.end());
   outer_->workers_.erase(worker_iter);
-
-  ++outer_->num_workers_cleaned_up_for_testing_;
-#if DCHECK_IS_ON()
-  outer_->some_workers_cleaned_up_for_testing_ = true;
-#endif
-  if (outer_->num_workers_cleaned_up_for_testing_cv_)
-    outer_->num_workers_cleaned_up_for_testing_cv_->Signal();
 }
 
 void ThreadGroupImpl::WorkerThreadDelegateImpl::OnWorkerBecomesIdleLockRequired(
@@ -805,6 +800,19 @@ void ThreadGroupImpl::WorkerThreadDelegateImpl::OnMainExit(
 #if defined(OS_WIN)
   worker_only().win_thread_environment.reset();
 #endif  // defined(OS_WIN)
+
+  // Count cleaned up workers for tests. It's important to do this here instead
+  // of at the end of CleanupLockRequired() because some side-effects of
+  // cleaning up happen outside the lock (e.g. recording histograms) and
+  // resuming from tests must happen-after that point or checks on the main
+  // thread will be flaky (crbug.com/1047733).
+  CheckedAutoLock auto_lock(outer_->lock_);
+  ++outer_->num_workers_cleaned_up_for_testing_;
+#if DCHECK_IS_ON()
+  outer_->some_workers_cleaned_up_for_testing_ = true;
+#endif
+  if (outer_->num_workers_cleaned_up_for_testing_cv_)
+    outer_->num_workers_cleaned_up_for_testing_cv_->Signal();
 }
 
 void ThreadGroupImpl::WorkerThreadDelegateImpl::BlockingStarted(
@@ -813,8 +821,11 @@ void ThreadGroupImpl::WorkerThreadDelegateImpl::BlockingStarted(
   DCHECK(worker_only().is_running_task);
 
   // MayBlock with no delay reuses WillBlock implementation.
-  if (outer_->after_start().may_block_without_delay)
+  // WillBlock is always used when time overrides is active. crbug.com/1038867
+  if (outer_->after_start().may_block_without_delay ||
+      base::subtle::ScopedTimeClockOverrides::overrides_active()) {
     blocking_type = BlockingType::WILL_BLOCK;
+  }
 
   switch (blocking_type) {
     case BlockingType::MAY_BLOCK:
@@ -830,10 +841,12 @@ void ThreadGroupImpl::WorkerThreadDelegateImpl::BlockingTypeUpgraded() {
   DCHECK_CALLED_ON_VALID_THREAD(worker_thread_checker_);
   DCHECK(worker_only().is_running_task);
 
-  // The blocking type always being WILL_BLOCK in this experiment, it should
-  // never be considered "upgraded".
-  if (outer_->after_start().may_block_without_delay)
+  // The blocking type always being WILL_BLOCK in this experiment and with time
+  // overrides, it should never be considered "upgraded".
+  if (outer_->after_start().may_block_without_delay ||
+      base::subtle::ScopedTimeClockOverrides::overrides_active()) {
     return;
+  }
 
   {
     CheckedAutoLock auto_lock(outer_->lock_);
@@ -1205,16 +1218,20 @@ void ThreadGroupImpl::DecrementMaxTasksLockRequired(TaskPriority priority) {
   DCHECK_GT(num_running_tasks_, 0U);
   DCHECK_GT(max_tasks_, 0U);
   --max_tasks_;
-  if (priority == TaskPriority::BEST_EFFORT)
+  if (priority == TaskPriority::BEST_EFFORT &&
+      !after_start().fixed_max_best_effort_tasks) {
     --max_best_effort_tasks_;
+  }
   UpdateMinAllowedPriorityLockRequired();
 }
 
 void ThreadGroupImpl::IncrementMaxTasksLockRequired(TaskPriority priority) {
   DCHECK_GT(num_running_tasks_, 0U);
   ++max_tasks_;
-  if (priority == TaskPriority::BEST_EFFORT)
+  if (priority == TaskPriority::BEST_EFFORT &&
+      !after_start().fixed_max_best_effort_tasks) {
     ++max_best_effort_tasks_;
+  }
   UpdateMinAllowedPriorityLockRequired();
 }
 

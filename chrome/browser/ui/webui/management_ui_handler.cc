@@ -15,6 +15,7 @@
 #include "base/bind_helpers.h"
 #include "base/callback.h"
 #include "base/feature_list.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/metrics/user_metrics.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/values.h"
@@ -134,6 +135,7 @@ const char kManagementReportHardwareStatus[] = "managementReportHardwareStatus";
 const char kManagementReportNetworkInterfaces[] =
     "managementReportNetworkInterfaces";
 const char kManagementReportUsers[] = "managementReportUsers";
+const char kManagementReportCrashReports[] = "managementReportCrashReports";
 const char kManagementReportExtensions[] = "managementReportExtensions";
 const char kManagementReportAndroidApplications[] =
     "managementReportAndroidApplications";
@@ -147,6 +149,8 @@ const char kOverview[] = "overview";
 #endif  // defined(OS_CHROMEOS)
 
 const char kCustomerLogo[] = "customerLogo";
+
+const char kPowerfulExtensionsCountHistogram[] = "Extensions.PowerfulCount";
 
 namespace {
 
@@ -176,6 +180,7 @@ enum class DeviceReportingType {
   kDeviceActivity,
   kDeviceStatistics,
   kDevice,
+  kCrashReport,
   kLogs,
   kPrint,
   kCrostini,
@@ -195,6 +200,8 @@ std::string ToJSDeviceReportingType(const DeviceReportingType& type) {
       return "device statistics";
     case DeviceReportingType::kDevice:
       return "device";
+    case DeviceReportingType::kCrashReport:
+      return "crash report";
     case DeviceReportingType::kLogs:
       return "logs";
     case DeviceReportingType::kPrint:
@@ -258,6 +265,10 @@ void AddDeviceReportingInfo(base::Value* report_sources, Profile* profile) {
                               kManagementReportNetworkInterfaces,
                               DeviceReportingType::kDevice);
   }
+  if (collector->ShouldReportCrashReportInfo()) {
+    AddDeviceReportingElement(report_sources, kManagementReportCrashReports,
+                              DeviceReportingType::kCrashReport);
+  }
   if (manager->GetSystemLogUploader()->upload_enabled()) {
     AddDeviceReportingElement(report_sources, kManagementLogUploadEnabled,
                               DeviceReportingType::kLogs);
@@ -306,13 +317,14 @@ std::vector<base::Value> GetPermissionsForExtension(
     return permission_messages;
 
   extensions::PermissionIDSet permissions =
-      extensions::PermissionMessageProvider::Get()->GetAllPermissionIDs(
-          extension->permissions_data()->active_permissions(),
-          extension->GetType());
+      extensions::PermissionMessageProvider::Get()
+          ->GetManagementUIPermissionIDs(
+              extension->permissions_data()->active_permissions(),
+              extension->GetType());
 
   const extensions::PermissionMessages messages =
-      extensions::PermissionMessageProvider::Get()
-          ->GetPowerfulPermissionMessages(permissions);
+      extensions::PermissionMessageProvider::Get()->GetPermissionMessages(
+          permissions);
 
   for (const auto& message : messages)
     permission_messages.push_back(base::Value(message.message()));
@@ -554,9 +566,8 @@ void ManagementUIHandler::AddReportingInfo(base::Value* report_sources) {
   }
 }
 
-base::DictionaryValue ManagementUIHandler::GetContextualManagedData(
-    Profile* profile) {
-  base::DictionaryValue response;
+base::Value ManagementUIHandler::GetContextualManagedData(Profile* profile) {
+  base::Value response(base::Value::Type::DICTIONARY);
 #if defined(OS_CHROMEOS)
   std::string management_domain = GetDeviceDomain();
   if (management_domain.empty())
@@ -564,26 +575,27 @@ base::DictionaryValue ManagementUIHandler::GetContextualManagedData(
 #else
   std::string management_domain = GetAccountDomain(profile);
 
-  response.SetString("browserManagementNotice",
-                     l10n_util::GetStringFUTF16(
-                         managed_() ? IDS_MANAGEMENT_BROWSER_NOTICE
-                                    : IDS_MANAGEMENT_NOT_MANAGED_NOTICE,
-                         base::UTF8ToUTF16(chrome::kManagedUiLearnMoreUrl)));
+  response.SetStringPath(
+      "browserManagementNotice",
+      l10n_util::GetStringFUTF16(
+          managed_() ? IDS_MANAGEMENT_BROWSER_NOTICE
+                     : IDS_MANAGEMENT_NOT_MANAGED_NOTICE,
+          base::UTF8ToUTF16(chrome::kManagedUiLearnMoreUrl)));
 #endif
 
   if (management_domain.empty()) {
-    response.SetString(
+    response.SetStringPath(
         "extensionReportingTitle",
         l10n_util::GetStringUTF16(IDS_MANAGEMENT_EXTENSIONS_INSTALLED));
 
 #if !defined(OS_CHROMEOS)
-    response.SetString("pageSubtitle",
-                       l10n_util::GetStringUTF16(
-                           managed_() ? IDS_MANAGEMENT_SUBTITLE
-                                      : IDS_MANAGEMENT_NOT_MANAGED_SUBTITLE));
+    response.SetStringPath(
+        "pageSubtitle", l10n_util::GetStringUTF16(
+                            managed_() ? IDS_MANAGEMENT_SUBTITLE
+                                       : IDS_MANAGEMENT_NOT_MANAGED_SUBTITLE));
 #else
     const auto device_type = ui::GetChromeOSDeviceTypeResourceId();
-    response.SetString(
+    response.SetStringPath(
         "pageSubtitle",
         managed_()
             ? l10n_util::GetStringFUTF16(IDS_MANAGEMENT_SUBTITLE_MANAGED,
@@ -594,13 +606,13 @@ base::DictionaryValue ManagementUIHandler::GetContextualManagedData(
 #endif  // !defined(OS_CHROMEOS)
 
   } else {
-    response.SetString(
+    response.SetStringPath(
         "extensionReportingTitle",
         l10n_util::GetStringFUTF16(IDS_MANAGEMENT_EXTENSIONS_INSTALLED_BY,
                                    base::UTF8ToUTF16(management_domain)));
 
 #if !defined(OS_CHROMEOS)
-    response.SetString(
+    response.SetStringPath(
         "pageSubtitle",
         managed_()
             ? l10n_util::GetStringFUTF16(IDS_MANAGEMENT_SUBTITLE_MANAGED_BY,
@@ -608,7 +620,7 @@ base::DictionaryValue ManagementUIHandler::GetContextualManagedData(
             : l10n_util::GetStringUTF16(IDS_MANAGEMENT_NOT_MANAGED_SUBTITLE));
 #else
     const auto device_type = ui::GetChromeOSDeviceTypeResourceId();
-    response.SetString(
+    response.SetStringPath(
         "pageSubtitle",
         managed_()
             ? l10n_util::GetStringFUTF16(IDS_MANAGEMENT_SUBTITLE_MANAGED_BY,
@@ -619,11 +631,11 @@ base::DictionaryValue ManagementUIHandler::GetContextualManagedData(
                   l10n_util::GetStringUTF16(device_type)));
 #endif  // !defined(OS_CHROMEOS)
   }
-  response.SetBoolean("managed", managed_());
+  response.SetBoolPath("managed", managed_());
   GetManagementStatus(profile, &response);
   AsyncUpdateLogo();
   if (!fetched_image_.empty())
-    response.SetKey(kCustomerLogo, base::Value(fetched_image_));
+    response.SetPath(kCustomerLogo, base::Value(fetched_image_));
   return response;
 }
 
@@ -817,6 +829,11 @@ void ManagementUIHandler::HandleGetExtensions(const base::ListValue* args) {
           ->enabled_extensions();
 
   base::Value powerful_extensions = GetPowerfulExtensions(extensions);
+
+  // The number of extensions to be reported in chrome://management with
+  // powerful permissions.
+  base::UmaHistogramCounts1000(kPowerfulExtensionsCountHistogram,
+                               powerful_extensions.GetList().size());
 
   ResolveJavascriptCallback(args->GetList()[0] /* callback_id */,
                             powerful_extensions);

@@ -357,6 +357,7 @@ void TranslateBubbleView::ButtonPressed(views::Button* sender,
       break;
     }
     case BUTTON_ID_CLOSE: {
+      translate::ReportUiAction(translate::CLOSE_BUTTON_CLICKED);
       GetWidget()->Close();
       break;
     }
@@ -656,7 +657,7 @@ TranslateBubbleView::TranslateBubbleView(
   if (web_contents)  // web_contents can be null in unit_tests.
     mouse_handler_ =
         std::make_unique<WebContentMouseHandler>(this, web_contents);
-  DialogDelegate::set_buttons(ui::DIALOG_BUTTON_NONE);
+  DialogDelegate::SetButtons(ui::DIALOG_BUTTON_NONE);
   DialogDelegate::SetFootnoteView(CreateWordmarkView(bubble_ui_model_));
   chrome::RecordDialogCreation(chrome::DialogIdentifier::TRANSLATE);
 }
@@ -923,15 +924,15 @@ std::unique_ptr<views::View> TranslateBubbleView::CreateViewTab() {
                     provider->GetDistanceMetric(
                         views::DISTANCE_RELATED_BUTTON_HORIZONTAL)));
   }
-  tabbed_pane_->SetProperty(views::kFlexBehaviorKey,
-                            views::FlexSpecification::ForSizeRule(
-                                views::MinimumFlexSizeRule::kScaleToMinimum,
-                                views::MaximumFlexSizeRule::kPreferred));
-  padding_view->SetProperty(views::kFlexBehaviorKey,
-                            views::FlexSpecification::ForSizeRule(
-                                views::MinimumFlexSizeRule::kScaleToZero,
-                                views::MaximumFlexSizeRule::kUnbounded)
-                                .WithOrder(2));
+  tabbed_pane_->SetProperty(
+      views::kFlexBehaviorKey,
+      views::FlexSpecification(views::MinimumFlexSizeRule::kScaleToMinimum,
+                               views::MaximumFlexSizeRule::kPreferred));
+  padding_view->SetProperty(
+      views::kFlexBehaviorKey,
+      views::FlexSpecification(views::MinimumFlexSizeRule::kScaleToZero,
+                               views::MaximumFlexSizeRule::kUnbounded)
+          .WithOrder(2));
   options_menu->SetProperty(
       views::kMarginsKey,
       gfx::Insets(0, provider->GetDistanceMetric(
@@ -1510,7 +1511,7 @@ std::unique_ptr<views::Button> TranslateBubbleView::CreateOptionsMenuButton() {
 }
 
 std::unique_ptr<views::Button> TranslateBubbleView::CreateCloseButton() {
-  auto close_button = views::BubbleFrameView::CreateCloseButton(this, false);
+  auto close_button = views::BubbleFrameView::CreateCloseButton(this);
   close_button->SetID(BUTTON_ID_CLOSE);
   return close_button;
 }

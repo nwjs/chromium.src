@@ -7,6 +7,7 @@
 <translation id="1019413721762100891">Av</translation>
 <translation id="1021110881106174305">Godkjente kort</translation>
 <translation id="1021753677514347426">Dette problemet oppstår på grunn av et sertifikat du eller noen andre har installert på enheten. Det er kjent at sertifikatet brukes til nettverksavlytting og -overvåking, og Chromium stoler ikke på det. Selv om det finnes legitime bruksområder for overvåking, f.eks. på skole- eller bedriftsnettverk, vil Chromium sørge for at du er klar over at det foregår, selv om du ikke kan stoppe det. Overvåking kan skje i alle nettlesere og applikasjoner som bruker nettet.</translation>
+<translation id="1030706264415084469"><ph name="URL" /> ber om å lagre store datamengder permanent på enheten din</translation>
 <translation id="1032854598605920125">Rotér med klokken</translation>
 <translation id="1036348656032585052">Slå av</translation>
 <translation id="1038842779957582377">ukjent navn</translation>
@@ -32,7 +33,6 @@
 <translation id="1110994991967754504">Velg tillatelse for <ph name="PERMISSION_NAME" /></translation>
 <translation id="1113869188872983271">&amp;Angre omorganiseringen</translation>
 <translation id="1125573121925420732">Det kan hende du ser mange advarsler mens nettstedene oppdaterer sikkerheten sin. Dette forbedres snart.</translation>
-<translation id="1126551341858583091">Størrelsen på den lokale lagringsplassen er <ph name="CRASH_SIZE" />.</translation>
 <translation id="112840717907525620">Bufferen for enhetsinnstillinger er OK</translation>
 <translation id="1131264053432022307">Bildet du kopierte</translation>
 <translation id="1150979032973867961">Denne tjeneren kunne ikke bevise at den er <ph name="DOMAIN" />. Sikkerhetssertifikatet til tjeneren er ikke klarert av datamaskinens operativsystem. Dette kan være forårsaket av en feilkonfigurering eller en angriper som avskjærer tilkoblingen din.</translation>
@@ -48,6 +48,7 @@
 <translation id="1178581264944972037">Stans midlertidig</translation>
 <translation id="1181037720776840403">Fjern</translation>
 <translation id="1186201132766001848">Kontrollér passordene</translation>
+<translation id="1195558154361252544">Varsler blokkeres automatisk for alle nettsteder unntatt dem du tillater</translation>
 <translation id="1197088940767939838">Oransje</translation>
 <translation id="1201402288615127009">Neste</translation>
 <translation id="1201895884277373915">Mer fra dette nettstedet</translation>
@@ -69,11 +70,9 @@
     &lt;/ol&gt;</translation>
 <translation id="1257286744552378071">Du har skrevet inn passordet ditt på et nettsted som ikke administreres av organisasjonen din. For å beskytte kontoen din må du ikke bruke det samme passordet i andre apper eller på andre nettsteder.</translation>
 <translation id="1263231323834454256">Leseliste</translation>
-<translation id="1264126396475825575">Programstopprapport fra <ph name="CRASH_TIME" /> (ignorert eller ikke lastet opp ennå)</translation>
 <translation id="1270502636509132238">Hentemåte</translation>
 <translation id="1281476433249504884">Hylle 1</translation>
 <translation id="1285320974508926690">Oversett aldri dette nettstedet</translation>
-<translation id="1285400217480592994">Gjennomsøk innholdet i filene du laster ned eller opp i Chrome.</translation>
 <translation id="1292701964462482250">«Det er programvare på datamaskinen din som hindrer Chrome i å koble trygt til Internett» (bare på Windows-datamaskiner)</translation>
 <translation id="1294154142200295408">Variasjoner i kommandolinjen</translation>
 <translation id="129553762522093515">Nylig lukket</translation>
@@ -81,6 +80,7 @@
 <translation id="129863573139666797"><ph name="BEGIN_LINK" />Prøv å slette informasjonskapslene dine<ph name="END_LINK" /></translation>
 <translation id="1301324364792935241">Kontrollér innstillingene for sikker DNS</translation>
 <translation id="1307966114820526988">Avviklede funksjoner</translation>
+<translation id="131405271941274527"><ph name="URL" /> vil sende og motta info når du berører NFC-enheter med telefonen</translation>
 <translation id="1314509827145471431">Innbinding høyre</translation>
 <translation id="1320233736580025032">Prc1 (konvolutt)</translation>
 <translation id="132301787627749051">Søk etter bilde på utklippstavlen</translation>
@@ -169,6 +169,7 @@
 <translation id="1644574205037202324">Logg</translation>
 <translation id="1645368109819982629">Protokollen støttes ikke</translation>
 <translation id="1652415888492971589">JIS B8</translation>
+<translation id="1656024727720460136">Chrome har forenklet denne siden for å gjøre den lettere å lese. Chrome hentet den opprinnelige siden via en sikker forbindelse.</translation>
 <translation id="1656489000284462475">Henting</translation>
 <translation id="1662550410081243962">Lagre og fyll ut betalingsmåter</translation>
 <translation id="1663943134801823270">Kortene og adressene er fra Chrome. Du kan administrere dem i <ph name="BEGIN_LINK" />Innstillinger<ph name="END_LINK" />.</translation>
@@ -180,6 +181,7 @@
 <translation id="1703835215927279855">Letter</translation>
 <translation id="1706954506755087368">{1,plural, =1{Denne tjeneren kunne ikke bevise at den er <ph name="DOMAIN" />, ettersom sikkerhetssertifikatet ser ut til å være fra i morgen. Dette kan skyldes en feilkonfigurasjon eller at en angriper avskjærer tilkoblingen mellom deg og nettstedet.}other{Denne tjeneren kunne ikke bevise at den er <ph name="DOMAIN" />, ettersom sikkerhetssertifikatet ser ut til å være fra # dager frem i tid. Dette kan skyldes en feilkonfigurasjon eller at en angriper avskjærer tilkoblingen mellom deg og nettstedet.}}</translation>
 <translation id="1710259589646384581">OS</translation>
+<translation id="1712552549805331520"><ph name="URL" /> ber om å lagre data permanent på datamaskinen din</translation>
 <translation id="1713628304598226412">Skuff 2</translation>
 <translation id="1715874602234207">F</translation>
 <translation id="1717494416764505390">Postkasse 3</translation>
@@ -223,6 +225,7 @@
 <translation id="1883255238294161206">Skjul liste</translation>
 <translation id="1898423065542865115">Filtrering</translation>
 <translation id="1901443836186977402">{1,plural, =1{Denne tjeneren kunne ikke bevise at den er <ph name="DOMAIN" />. Tjenerens sikkerhetssertifikat har utløpt i løpet av det siste døgnet. Dette kan skyldes en feilkonfigurering eller at en angriper avskjærer tilkoblingen din. Klokken på datamaskinen din er stilt til <ph name="CURRENT_DATE" />. Ser det riktig ut? Hvis ikke bør du stille klokken på systemet og laste inn denne siden på nytt.}other{Denne tjeneren kunne ikke bevise at den er <ph name="DOMAIN" />. Tjenerens sikkerhetssertifikat har utløpt for # dager siden. Dette kan skyldes en feilkonfigurering eller at en angriper avskjærer tilkoblingen din. Klokken på datamaskinen din er stilt til <ph name="CURRENT_DATE" />. Ser det riktig ut? Hvis ikke bør du stille klokken på systemet og laste inn denne siden på nytt.}}</translation>
+<translation id="1902576642799138955">Gyldighetsperiode</translation>
 <translation id="1914326953223720820">Utpakkingstjeneste</translation>
 <translation id="1915697529809968049">Vil du bruke Touch ID i stedet for CVC?</translation>
 <translation id="1916770123977586577">Last inn denne siden på nytt for å ta i bruk de oppdaterte innstillingene dine på dette nettstedet.</translation>
@@ -241,9 +244,16 @@
 <translation id="1978555033938440688">Fastvareversjon</translation>
 <translation id="1981206234434200693">Tøm nettlesingsloggen i Chrome</translation>
 <translation id="1992331125980284532">JIS B3</translation>
+<translation id="1992796205810278279">få tilgang til informasjonskapsler og nettstedsdata.
+
+Vil du gi <ph name="EMBEDDED_URL" /> tillatelse til å bruke informasjonskapsler og nettstedsdata på <ph name="TOP_LEVEL_URL" />?
+
+I motsatt fall blir dette blokkert av personverninnstillingene. Dette gjør at innholdet du brukte, får lov til å fungere som det skal, men det kan også gjøre det mulig for <ph name="EMBEDDED_URL" /> å spore aktiviteten din.</translation>
+<translation id="1997484222658892567"><ph name="URL" /> ber om å lagre store mengder data permanent på datamaskinen din</translation>
 <translation id="2001146170449793414">{COUNT,plural, =1{og 1 til}other{og # til}}</translation>
 <translation id="2003709556000175978">Tilbakestill passordet ditt nå</translation>
 <translation id="2003775180883135320">Fire hull topp</translation>
+<translation id="2025115093177348061">Utvidet virkelighet</translation>
 <translation id="2025186561304664664">Mellomtjeneren er innstilt på automatisk konfigurasjon.</translation>
 <translation id="2030481566774242610">Mener du <ph name="LINK" />?</translation>
 <translation id="2032962459168915086"><ph name="BEGIN_LINK" />Sjekk proxy-tjeneren og brannmuren<ph name="END_LINK" /></translation>
@@ -251,7 +261,6 @@
 <translation id="2053111141626950936">Sider på <ph name="LANGUAGE" /> oversettes ikke.</translation>
 <translation id="2053553514270667976">Postnummer</translation>
 <translation id="2064691555167957331">{COUNT,plural, =1{1 forslag}other{# forslag}}</translation>
-<translation id="2068663545051464999">ID-en for den opplastede programstopprapporten <ph name="CRASH_ID" /> (lokal kontekst: <ph name="CRASH_LOCAL_ID" />)</translation>
 <translation id="2079545284768500474">Angre</translation>
 <translation id="20817612488360358">Innstillinger for systemmellomtjener er stilt inn på å brukes, men en uttrykkelig mellomtjenerkonfigurasjon er også angitt.</translation>
 <translation id="2082238445998314030">Resultat <ph name="RESULT_NUMBER" /> av <ph name="TOTAL_RESULTS" /></translation>
@@ -308,13 +317,16 @@
 <translation id="2288422996159078444">Alt du skriver, alle sider du besøker, og all annen aktivitet på nettet blir overvåket. Innholdet på nettsteder kan bli endret uten at du vet om det.</translation>
 <translation id="2289385804009217824">Beskjær</translation>
 <translation id="2292556288342944218">Internett-tilgangen din er blokkert</translation>
+<translation id="2293443924986248631">Når dette er på, kan ikke nettsteder bruke informasjonskapsler som sporer deg på nettet. Det kan hende at funksjoner på enkelte nettsteder slutter å fungere.</translation>
 <translation id="2297722699537546652">B5 (konvolutt)</translation>
+<translation id="2300306941146563769">Ikke lastet opp</translation>
 <translation id="2310021320168182093">Chou2 (konvolutt)</translation>
 <translation id="2315864634253056100">Navnet på dette nettstedet ligner på <ph name="LOOKALIKE_DOMAIN" />. Noen ganger etterligner angripere nettsteder ved å gjøre endringer i nettadressen som er vanskelige å se.</translation>
 <translation id="2316887270356262533">Frigjør mindre enn 1 MB. Det kan hende enkelte nettsteder lastes inn tregere neste gang du besøker dem.</translation>
 <translation id="2317259163369394535"><ph name="DOMAIN" /> krever brukernavn og passord.</translation>
 <translation id="2330137317877982892"><ph name="CREDIT_CARD" /> – utløper <ph name="EXPIRATION_DATE_ABBR" /></translation>
 <translation id="2337852623177822836">Innstillingen kontrolleres av administratoren din</translation>
+<translation id="2344028582131185878">Automatiske nedlastinger</translation>
 <translation id="2346319942568447007">Bildet du kopierte</translation>
 <translation id="2354001756790975382">Andre bokmerker</translation>
 <translation id="2354430244986887761">Google Safe Browsing har nylig <ph name="BEGIN_LINK" />funnet skadelige apper<ph name="END_LINK" /> på <ph name="SITE" />.</translation>
@@ -323,7 +335,6 @@
 <translation id="2359629602545592467">Flere</translation>
 <translation id="2359808026110333948">Fortsett</translation>
 <translation id="2360873523816792727">For å bruke kortene dine på alle enheter, slå på synkronisering.</translation>
-<translation id="2365563543831475020">Programstopprapporten fra <ph name="CRASH_TIME" /> ble ikke lastet opp</translation>
 <translation id="2367567093518048410">Nivå</translation>
 <translation id="2380886658946992094">Legal</translation>
 <translation id="2384307209577226199">Bedriftsstandard</translation>
@@ -376,11 +387,6 @@
 <translation id="2618023639789766142">C10 (konvolutt)</translation>
 <translation id="2625385379895617796">Klokken går for fort</translation>
 <translation id="2634124572758952069">Fant ikke IP-adressen til tjeneren for <ph name="HOST_NAME" />.</translation>
-<translation id="2638745661847473633">Tjeneren du er på vei til (<ph name="ORIGIN" />), har bedt om at
-    en opphavsregel brukes for alle forespørsler som sendes til den. Men nå har tjeneren
-    sendt en ugyldig regel, noe som betyr at nettleseren ikke kan utføre
-    forespørselen din til <ph name="SITE" />. Nettstedsoperatører kan bruke
-    opphavsregler til å konfigurere sikkerhet og andre egenskaper for nettsteder.</translation>
 <translation id="2639739919103226564">Status:</translation>
 <translation id="2649204054376361687"><ph name="CITY" />, <ph name="COUNTRY" /></translation>
 <translation id="2650446666397867134">Tilgang til filen ble nektet</translation>
@@ -443,6 +449,7 @@ brukere av denne nettleseren.</translation>
 <translation id="2909946352844186028">En nettverksendring ble oppdaget.</translation>
 <translation id="2910133103376701357">Enheten og kontoen din administreres av <ph name="ENROLLMENT_DOMAIN" />.</translation>
 <translation id="2911973620368911614">Bruker-ID for jobbregnskap</translation>
+<translation id="2915068235268646559">Krasj fra <ph name="CRASH_TIME" /></translation>
 <translation id="2916038427272391327">Lukk andre programmer</translation>
 <translation id="2922350208395188000">Tjenerens sertifikat kan ikke kontrolleres.</translation>
 <translation id="2925673989565098301">Leveringsmåte</translation>
@@ -451,6 +458,7 @@ brukere av denne nettleseren.</translation>
 <translation id="2930577230479659665">Beskjær etter hver kopi</translation>
 <translation id="2934466151127459956">Government-Letter</translation>
 <translation id="2941952326391522266">Denne tjeneren kunne ikke bevise at den er <ph name="DOMAIN" />. Tjenerens sikkerhetssertifikat er fra <ph name="DOMAIN2" />. Dette kan være forårsaket av en feilkonfigurering eller en angriper som avskjærer tilkoblingen din.</translation>
+<translation id="2943895734390379394">Opplastingstidspunkt:</translation>
 <translation id="2948083400971632585">På innstillingssiden kan du deaktivere eventuelle proxy-tjenere for tilkoblinger.</translation>
 <translation id="2951588413176968965">Min postkasse</translation>
 <translation id="295526156371527179">Advarsel: Denne regelen ble ikke sammenslått som en regelspesifisert ordliste fordi den ikke er en ordliste.</translation>
@@ -472,11 +480,11 @@ brukere av denne nettleseren.</translation>
 <translation id="3008447029300691911">Skriv inn verifiseringskoden for <ph name="CREDIT_CARD" />. Når du bekrefter, deles kortinformasjonen din med dette nettstedet.</translation>
 <translation id="3010559122411665027">Listeoppføring «<ph name="ENTRY_INDEX" />»: <ph name="ERROR" /></translation>
 <translation id="301521992641321250">Automatisk blokkert</translation>
+<translation id="3016780570757425217">vite hvor du er</translation>
 <translation id="3023071826883856138">You4 (konvolutt)</translation>
 <translation id="3024663005179499861">Feil type enhetsinnstillinger</translation>
 <translation id="3037605927509011580">Æsj!</translation>
 <translation id="3041612393474885105">Sertifikatinformasjon</translation>
-<translation id="3057676462092457419">DnsOverHttps-modusen <ph name="SECURE_DNS_MODE_SECURE" /> støttes ikke ennå. Modusen er satt til <ph name="SECURE_DNS_MODE_OFF" />.</translation>
 <translation id="3060227939791841287">C9 (konvolutt)</translation>
 <translation id="3061707000357573562">Feilrettingstjeneste</translation>
 <translation id="3064966200440839136">Går ut av inkognitomodus for å betale via en ekstern app. Vil du fortsette?</translation>
@@ -507,6 +515,7 @@ brukere av denne nettleseren.</translation>
       ikke tror du trenger å bruke noen proxy-tjener:
       <ph name="PLATFORM_TEXT" /></translation>
 <translation id="3188393374551744535">Kontosaldo</translation>
+<translation id="3194737229810486521"><ph name="URL" /> ber om å lagre data permanent på enheten din</translation>
 <translation id="3195213714973468956"><ph name="PRINTER_NAME" /> på <ph name="SERVER_NAME" /></translation>
 <translation id="320323717674993345">Avbryt betalingen</translation>
 <translation id="3207960819495026254">Bokmerket</translation>
@@ -528,6 +537,7 @@ brukere av denne nettleseren.</translation>
 <translation id="3287510313208355388">Last ned når du er koblet til Internett</translation>
 <translation id="3293642807462928945">Finn ut mer om regelen <ph name="POLICY_NAME" /></translation>
 <translation id="3303855915957856445">Søket ga ingen treff</translation>
+<translation id="3308006649705061278">Organisasjonsenhet (OU)</translation>
 <translation id="3320021301628644560">Legg til faktureringsadresse</translation>
 <translation id="3324983252691184275">Karmosinrød</translation>
 <translation id="3329013043687509092">Metning</translation>
@@ -535,10 +545,10 @@ brukere av denne nettleseren.</translation>
 <translation id="3355823806454867987">Endre innstillinger for proxy-tjener</translation>
 <translation id="3360103848165129075">Ark for betalingsbehandling</translation>
 <translation id="3362968246557010467">Denne regelen ble automatisk kopiert fra den avviklede regelen <ph name="OLD_POLICY" />. Du bør bruke denne regelen i stedet.</translation>
+<translation id="3364869320075768271"><ph name="URL" /> vil bruke virtuell virkelighet-enheten din og -dataene dine</translation>
 <translation id="3366477098757335611">Vis kort</translation>
 <translation id="3369192424181595722">Klokkefeil</translation>
 <translation id="337363190475750230">Godkjenningen er opphevet</translation>
-<translation id="3376829916920036789"><ph name="ENROLLMENT_DOMAIN" /> har slått på Enterprise Service Hooks i nettleseren din. Disse hookene har tilgang til noen av dataene dine.</translation>
 <translation id="3377144306166885718">Tjeneren brukte en foreldet versjon av TLS.</translation>
 <translation id="3377188786107721145">Feil under analysen av enhetsinnstillinger</translation>
 <translation id="3377736046129930310">Bruk skjermlås til å bekrefte kort raskere</translation>
@@ -549,6 +559,7 @@ brukere av denne nettleseren.</translation>
 <translation id="3395827396354264108">Hentemetode</translation>
 <translation id="3399952811970034796">Leveringsadresse</translation>
 <translation id="3402261774528610252">Tilkoblingen som ble brukt til å laste inn dette nettstedet, brukte TLS 1.0 eller TLS 1.1, som er foreldet og kommer til å bli slått av i fremtiden. Når det er slått av, blir brukerne hindret i å laste inn dette nettstedet. Tjeneren bør slå på TLS 1.2 eller nyere.</translation>
+<translation id="3414952576877147120">Størrelse:</translation>
 <translation id="3422248202833853650">Prøv å lukke andre programmer for å frigjøre minne.</translation>
 <translation id="3422472998109090673"><ph name="HOST_NAME" /> er ikke tilgjengelig for øyeblikket.</translation>
 <translation id="3423742043356668186">Systemspesifisert</translation>
@@ -557,12 +568,14 @@ brukere av denne nettleseren.</translation>
 <translation id="342781501876943858">Chromium anbefaler at du tilbakestiller passordet ditt hvis du også har brukt det på andre nettsteder.</translation>
 <translation id="3428151540071562330">Én eller flere av URI-ene for DnsOverHttpsTemplates-tjenermaler er ugyldige og blir ikke brukt.</translation>
 <translation id="3431636764301398940">Lagre dette kortet på denne enheten</translation>
+<translation id="3432601291244612633">Lukk siden</translation>
 <translation id="3443726618221119081">Juuro-Ku-Kai</translation>
 <translation id="3447661539832366887">Eieren av denne enheten har slått av dinosaurspillet.</translation>
 <translation id="3447884698081792621">Vis sertifikat (utstedt av <ph name="ISSUER" />)</translation>
 <translation id="3452404311384756672">Hentingsintervall:</translation>
 <translation id="3453962258458347894">Antall forsøk</translation>
 <translation id="3456231139987291353">Number-11 (konvolutt)</translation>
+<translation id="3461266716147554923"><ph name="URL" /> ber om å se tekst og bilder som er kopiert til utklippstavlen</translation>
 <translation id="3461824795358126837">Markering</translation>
 <translation id="3462200631372590220">Skjul detaljer</translation>
 <translation id="3467763166455606212">Kortinnhaverens navn er obligatorisk</translation>
@@ -572,13 +585,14 @@ brukere av denne nettleseren.</translation>
 <translation id="3487845404393360112">Skuff 4</translation>
 <translation id="3495081129428749620">Finn på siden
     <ph name="PAGE_TITLE" /></translation>
+<translation id="3507936815618196901">lage et 3D-kart av omgivelsene dine og spore kameraposisjonen</translation>
 <translation id="3512163584740124171">Denne regelen ignoreres fordi en annen regel i den samme regelgruppen har høyere prioritet.</translation>
-<translation id="3513704683820682405">Utvidet virkelighet</translation>
 <translation id="3518941727116570328">Håndtering av flere objekter</translation>
 <translation id="3528171143076753409">Tjenerens sertifikat er ikke pålitelig.</translation>
 <translation id="3528485271872257980">Mørk brun</translation>
 <translation id="3530944546672790857">{COUNT,plural, =0{Minst 1 element på synkroniserte enheter}=1{1 element (og flere på synkroniserte enheter)}other{# elementer (og flere på synkroniserte enheter)}}</translation>
 <translation id="3531780078352352885">Jobbark</translation>
+<translation id="3532844647053365774"><ph name="HOST" /> ber om å bruke mikrofonen din</translation>
 <translation id="3533328374079021623">Postkasse 5</translation>
 <translation id="3539171420378717834">Lagre en kopi av dette kortet på denne enheten</translation>
 <translation id="3558573058928565255">Dagtid</translation>
@@ -593,6 +607,7 @@ brukere av denne nettleseren.</translation>
 <translation id="3587738293690942763">Midtre</translation>
 <translation id="3592413004129370115">Italian (konvolutt)</translation>
 <translation id="3600246354004376029"><ph name="TITLE" />, <ph name="DOMAIN" />, <ph name="TIME" /></translation>
+<translation id="3603507503523709">Programmet er blokkert av administratoren din</translation>
 <translation id="3608932978122581043">Feed-retning</translation>
 <translation id="3614103345592970299">Størrelse 2</translation>
 <translation id="361438452008624280">Listeoppføringen «<ph name="LANGUAGE_ID" />»: Språket er ukjent eller støttes ikke.</translation>
@@ -612,17 +627,11 @@ brukere av denne nettleseren.</translation>
 <translation id="3677008721441257057">Mente du &lt;a href="#" id="dont-proceed-link"&gt;<ph name="DOMAIN" />&lt;/a&gt;?</translation>
 <translation id="3678029195006412963">Forespørselen kunne ikke undertegnes</translation>
 <translation id="3678529606614285348">Åpne siden i et nytt inkognitovindu (Ctrl + Shift + N)</translation>
-<translation id="3679803492151881375">Programstopprapport generert <ph name="CRASH_TIME" /> og lastet opp <ph name="UPLOAD_TIME" /></translation>
 <translation id="3681007416295224113">Sertifikatinformasjon</translation>
-<translation id="3688109723158850780">Tjeneren du er på vei til (<ph name="ORIGIN" />), har bedt om at
-    en opphavsregel brukes for alle forespørsler som sendes til den. Men i stedet for
-    å sende en regel har tjeneren viderekoblet nettleseren, og dette forhindrer
-    nettleseren fra å utføre forespørselen din til <ph name="SITE" />. Nettstedsoperatører
-    kan bruke opphavsregler til å konfigurere sikkerhet og andre
-    egenskaper for nettsteder.</translation>
 <translation id="3701427423622901115">Tilbakestillingen er godtatt.</translation>
 <translation id="3704162925118123524">Det kan hende at det er et krav for nettverket du bruker, at du besøker påloggingssiden for nettverket.</translation>
 <translation id="3704609568417268905"><ph name="TIME" /> <ph name="BOOKMARKED" /> <ph name="TITLE" /> <ph name="DOMAIN" /></translation>
+<translation id="3705189812819839667"><ph name="RESULT_OWNER" /> – <ph name="RESULT_PRODUCT_SOURCE" /></translation>
 <translation id="370665806235115550">Laster inn ...</translation>
 <translation id="3709599264800900598">Teksten du kopierte</translation>
 <translation id="3711895659073496551">Suspender</translation>
@@ -647,8 +656,10 @@ brukere av denne nettleseren.</translation>
 <translation id="3780694243617746492">Ut-skuff</translation>
 <translation id="3781428340399460090">Knallrosa</translation>
 <translation id="3783418713923659662">Mastercard</translation>
+<translation id="3784372983762739446">Bluetooth-enheter</translation>
 <translation id="3787705759683870569">Utløper <ph name="EXPIRATION_MONTH" />/<ph name="EXPIRATION_YEAR" /></translation>
 <translation id="3789155188480882154">Størrelse 16</translation>
+<translation id="3793574014653384240">Tall for og årsaker til krasjene som har forekommet nylig</translation>
 <translation id="3797522431967816232">Prc3 (konvolutt)</translation>
 <translation id="3799805948399000906">Forespurt skrifttype</translation>
 <translation id="3807366285948165054">X-forskyvning av bilde</translation>
@@ -671,6 +682,7 @@ brukere av denne nettleseren.</translation>
 <translation id="3901925938762663762">Kortet er utløpt</translation>
 <translation id="3906600011954732550">B5-Extra</translation>
 <translation id="3906954721959377182">Nettbrett</translation>
+<translation id="3909477809443608991"><ph name="URL" /> ber om tillatelse til å spille beskyttet innhold. Identiteten til enheten din bekreftes av Google og kan bli gjort tilgjengelig for dette nettstedet.</translation>
 <translation id="3909695131102177774"><ph name="LABEL" /> <ph name="ERROR" /></translation>
 <translation id="3939773374150895049">Vil du bruke WebAuthn i stedet for CVC?</translation>
 <translation id="3946209740501886391">Spør alltid på dette nettstedet</translation>
@@ -680,6 +692,7 @@ brukere av denne nettleseren.</translation>
 <translation id="3950820424414687140">Logg på</translation>
 <translation id="3961148744525529027">Arket for betalingsbehandling er halvveis åpnet</translation>
 <translation id="3962859241508114581">Forrige spor</translation>
+<translation id="3963721102035795474">Lesermodus</translation>
 <translation id="3963837677003247395">Vil du fortsette manuelt?</translation>
 <translation id="3964661563329879394">{COUNT,plural, =0{Ingen}=1{Fra 1 nettsted }other{Fra # nettsteder }}</translation>
 <translation id="397105322502079400">Beregner …</translation>
@@ -690,6 +703,7 @@ brukere av denne nettleseren.</translation>
 <translation id="3987940399970879459">Under 1 MB</translation>
 <translation id="3990250421422698716">Støtforskyvning</translation>
 <translation id="40103911065039147">{URL_count,plural, =1{1 Like ved-nettside}other{# Like ved-nettsider}}</translation>
+<translation id="4014128326099193693">{COUNT,plural, =1{PDF-dokument som inneholder {COUNT} side}other{PDF-dokument som inneholder {COUNT} sider}}</translation>
 <translation id="4030383055268325496">&amp;Angre tilleggingen</translation>
 <translation id="4032320456957708163">Nettleseren din administreres av <ph name="ENROLLMENT_DOMAIN" /></translation>
 <translation id="4058922952496707368">Nøkkel – «<ph name="SUBKEY" />»: <ph name="ERROR" /></translation>
@@ -711,6 +725,7 @@ brukere av denne nettleseren.</translation>
 <translation id="4116663294526079822">Tillat alltid på dette nettstedet</translation>
 <translation id="4116701314593212016">JIS B7</translation>
 <translation id="4117700440116928470">Omfanget for innstillingen støttes ikke.</translation>
+<translation id="4121428309786185360">Utløper </translation>
 <translation id="4123572138124678573">Tre hull bunn</translation>
 <translation id="4129401438321186435">{COUNT,plural, =1{1 til}other{# til}}</translation>
 <translation id="4130226655945681476">Sjekk nettverkskablene, modemet og ruteren</translation>
@@ -718,9 +733,12 @@ brukere av denne nettleseren.</translation>
 <translation id="4142935452406587478">Skuff 10</translation>
 <translation id="4148925816941278100">American Express</translation>
 <translation id="4151403195736952345">Bruk global standard (oppdag)</translation>
+<translation id="4152318981910038897">{COUNT,plural, =1{Side 1}other{Side {COUNT}}}</translation>
+<translation id="4154664944169082762">Fingeravtrykk</translation>
 <translation id="4159784952369912983">Fiolett</translation>
 <translation id="4165986682804962316">Nettstedsinnstillinger</translation>
 <translation id="4171400957073367226">Ugyldig bekreftelsessignatur</translation>
+<translation id="4171489848299289778"><ph name="RESULT_MODIFIED_DATE" /> – <ph name="RESULT_OWNER" /> – <ph name="RESULT_PRODUCT_SOURCE" /></translation>
 <translation id="4173315687471669144">Foolscap</translation>
 <translation id="4173827307318847180">{MORE_ITEMS,plural, =1{<ph name="ITEM_COUNT" /> element til}other{<ph name="ITEM_COUNT" /> elementer til}}</translation>
 <translation id="4176463684765177261">Deaktivert</translation>
@@ -728,6 +746,7 @@ brukere av denne nettleseren.</translation>
 <translation id="4194250254487269611">Kan ikke lagre kortet ditt akkurat nå</translation>
 <translation id="4196861286325780578">&amp;Flytt likevel</translation>
 <translation id="4203896806696719780"><ph name="BEGIN_LINK" />Sjekk brannmur- og antiviruskonfigurasjonen<ph name="END_LINK" /></translation>
+<translation id="421066178035138955">Bruk virtuell virkelighet-enheter og -data</translation>
 <translation id="4214357935346142455">profil for påloggingsskjermen</translation>
 <translation id="4215751373031079683">7x9 (konvolutt)</translation>
 <translation id="4220128509585149162">Kræsj</translation>
@@ -839,8 +858,11 @@ brukere av denne nettleseren.</translation>
 <translation id="4646534391647090355">Gå dit nå</translation>
 <translation id="4658638640878098064">Stift oppe til venstre</translation>
 <translation id="4668929960204016307">,</translation>
+<translation id="4670064810192446073">Virtuell virkelighet</translation>
 <translation id="467662567472608290">Denne tjeneren kunne ikke bevise at den er <ph name="DOMAIN" />. Sikkerhetssertifikatet til tjeneren inneholder feil. Dette kan være forårsaket av en feilkonfigurering eller en angriper som avskjærer tilkoblingen din.</translation>
+<translation id="4677585247300749148"><ph name="URL" /> ber om å svare på tilgjengelighetshendelser</translation>
 <translation id="467809019005607715">Google Presentasjoner</translation>
+<translation id="4680804919228900307">Du har nettopp skrevet inn passordet ditt på et villedende nettsted. Chromium anbefaler at du sjekker de lagrede passordene dine for <ph name="WEBSITE_1" />, <ph name="WEBSITE_2" />, <ph name="WEBSITE_3" /> og andre nettsteder der du bruker dette passordet, nå.</translation>
 <translation id="4690462567478992370">Slutt å bruke et ugyldig sertifikat</translation>
 <translation id="4691835149146451662">Architecture-A (konvolutt)</translation>
 <translation id="4701488924964507374"><ph name="SENTENCE1" /> <ph name="SENTENCE2" /></translation>
@@ -851,7 +873,9 @@ brukere av denne nettleseren.</translation>
 <translation id="4726672564094551039">Last inn retningslinjer på nytt</translation>
 <translation id="4728558894243024398">Plattform</translation>
 <translation id="4731967714531604179">Prc2 (konvolutt)</translation>
+<translation id="4733082559415072992"><ph name="URL" /> ber om å bruke posisjonen til enheten din</translation>
 <translation id="4736825316280949806">Start Chromium på nytt</translation>
+<translation id="4737121147659370456">Administratoren har slått på Chrome Enterprise Connectors i nettleseren din. Disse koblingene har tilgang til noen av dataene dine.</translation>
 <translation id="473775607612524610">Oppdater</translation>
 <translation id="4738601419177586157">Søkeforslag for <ph name="TEXT" /></translation>
 <translation id="4742407542027196863">Administrer passord…</translation>
@@ -859,6 +883,7 @@ brukere av denne nettleseren.</translation>
 <translation id="4750917950439032686">Informasjonen din (for eksempel passord eller kredittkortnumre) er privat når den sendes til dette nettstedet.</translation>
 <translation id="4756388243121344051">&amp;Logg</translation>
 <translation id="4758311279753947758">Legg til kontaktinformasjon</translation>
+<translation id="4761104368405085019">bruke mikrofonen din</translation>
 <translation id="4764776831041365478">Det kan hende at nettsiden på <ph name="URL" /> er midlertidig nede eller flyttet permanent til en ny nettadresse.</translation>
 <translation id="4766713847338118463">To stifter bunn</translation>
 <translation id="4771973620359291008">Det har oppstått en ukjent feil.</translation>
@@ -895,10 +920,10 @@ brukere av denne nettleseren.</translation>
 <translation id="4926159001844873046">På <ph name="SITE" /> står det</translation>
 <translation id="4926340098269537727"><ph name="ACTIVE_MATCH" />/<ph name="TOTAL_MATCHCOUNT" /></translation>
 <translation id="4930153903256238152">Stor kapasitet</translation>
-<translation id="4943703118917034429">Virtuell virkelighet</translation>
 <translation id="4943872375798546930">Ingen resultater</translation>
 <translation id="4950898438188848926">Knappen for å bytte fane – trykk på Enter for å bytte til den åpne fanen, <ph name="TAB_SWITCH_FOCUSED_FRIENDLY_MATCH_TEXT" /></translation>
 <translation id="495170559598752135">Handlinger</translation>
+<translation id="4953689047182316270">Svar på tilgjengelighetshendelser</translation>
 <translation id="4955242332710481440">A5-Extra</translation>
 <translation id="4958444002117714549">Utvid liste</translation>
 <translation id="4973922308112707173">To hull topp</translation>
@@ -915,9 +940,10 @@ brukere av denne nettleseren.</translation>
 <translation id="5019198164206649151">Ugyldig funksjonalitet for sikkerhetskopiering</translation>
 <translation id="5023310440958281426">Kontrollér retningslinjene til administratoren din</translation>
 <translation id="5029568752722684782">Slett kopi</translation>
+<translation id="5030338702439866405">Utstedt av</translation>
 <translation id="503069730517007720">Et rotsertifikat for «<ph name="SOFTWARE_NAME" />» kreves, men er ikke installert. IT-administratoren din bør se på konfigurasjonsveiledningen for «<ph name="SOFTWARE_NAME" />» for å løse dette problemet. <ph name="FURTHER_EXPLANATION" /></translation>
 <translation id="5031870354684148875">Om Google Oversett</translation>
-<translation id="5034369478845443529">Lokal kontekst <ph name="CRASH_LOCAL_ID" /></translation>
+<translation id="503498442187459473"><ph name="HOST" /> ber om å bruke kameraet ditt og mikrofonen din</translation>
 <translation id="5039804452771397117">Tillat</translation>
 <translation id="5040262127954254034">Personvern</translation>
 <translation id="5043480802608081735">Linken du kopierte</translation>
@@ -947,6 +973,7 @@ brukere av denne nettleseren.</translation>
 <translation id="5138227688689900538">Vis færre</translation>
 <translation id="5141240743006678641">Kryptér synkroniserte passord med Google-legitimasjonen din</translation>
 <translation id="5145883236150621069">Feilkode i responsen for enhetsinnstillinger</translation>
+<translation id="5146995429444047494">Varsler for <ph name="ORIGIN" /> er blokkert</translation>
 <translation id="5148809049217731050">Forsiden opp</translation>
 <translation id="515292512908731282">C4 (konvolutt)</translation>
 <translation id="5158275234811857234">Omslag</translation>
@@ -960,9 +987,9 @@ brukere av denne nettleseren.</translation>
 <translation id="5179510805599951267">Er ikke dette <ph name="ORIGINAL_LANGUAGE" />? Rapportér denne feilen</translation>
 <translation id="5190835502935405962">Bokmerkerad</translation>
 <translation id="519422657042045905">Annotering er ikke tilgjengelig</translation>
-<translation id="5196187217592847346">Enterprise Service Hooks</translation>
 <translation id="5201306358585911203">På en innebygd side på denne siden står det</translation>
 <translation id="5205222826937269299">Navn er obligatorisk</translation>
+<translation id="5209518306177824490">SHA-1-fingeravtrykk</translation>
 <translation id="5215116848420601511">Betalingsmåter og adresser som bruker Google Pay</translation>
 <translation id="5215363486134917902">Folio-Sp</translation>
 <translation id="5222812217790122047">E-post er obligatorisk</translation>
@@ -1001,12 +1028,20 @@ brukere av denne nettleseren.</translation>
 <translation id="5329858041417644019">Nettleseren din administreres ikke</translation>
 <translation id="5332219387342487447">Leveringsmetode</translation>
 <translation id="5334013548165032829">Detaljerte systemlogger</translation>
+<translation id="5340250774223869109">Programmet er blokkert</translation>
 <translation id="534295439873310000">NFC-enheter</translation>
 <translation id="5344579389779391559">Denne siden kan prøve å belaste deg for penger</translation>
+<translation id="5346336634660260557">Gjennomsøk innholdet på utklippstavlen og i filene du laster ned eller opp i Chrome.</translation>
 <translation id="5355557959165512791">Du kan ikke gå til <ph name="SITE" /> akkurat nå, siden sertifikatet for nettstedet er trukket tilbake. Nettverksfeil- og angrep er vanligvis midlertidige, så denne siden fungerer sannsynligvis senere.</translation>
 <translation id="536296301121032821">Kunne ikke lagre angivelsen for enhetsinnstillinger</translation>
 <translation id="5371425731340848620">Oppdater kortet</translation>
 <translation id="5377026284221673050">«Klokken går for sent», «Klokken går for fort» eller «&lt;span class="error-code"&gt;NET::ERR_CERT_DATE_INVALID&lt;/span&gt;»</translation>
+<translation id="5380442954567233718">Tjeneren du er på vei til (<ph name="ORIGIN" />), har angitt en header
+    som krever at en opphavsregel brukes for alle forespørsler som sendes til den. Men
+    headeren har feil format, og dette forhindrer nettleseren fra å 
+effektuere
+    forespørselen din til <ph name="SITE" />. Nettstedsoperatører kan bruke
+    opphavsregler til å konfigurere sikkerhet og andre egenskaper for nettsteder.</translation>
 <translation id="5386426401304769735">Sertifikatkjeden for dette nettstedet inneholder et sertifikat som er signert med SHA-1.</translation>
 <translation id="538659543871111977">A4-Tab</translation>
 <translation id="5396631636586785122">Kantstifting høyre</translation>
@@ -1014,6 +1049,7 @@ brukere av denne nettleseren.</translation>
 <translation id="540969355065856584">Denne tjeneren kunne ikke bevise at den er <ph name="DOMAIN" />. Sikkerhetssertifikatet til tjeneren er ikke gyldig for øyeblikket. Dette kan være forårsaket av en feilkonfigurasjon eller en angriper som lytter på tilkoblingen din.</translation>
 <translation id="541416427766103491">Hylle 4</translation>
 <translation id="5421136146218899937">Slett nettleserdata</translation>
+<translation id="5426179911063097041"><ph name="SITE" /> vil sende deg varsler</translation>
 <translation id="5430298929874300616">Fjern bokmerke</translation>
 <translation id="5431657950005405462">Filen ble ikke funnet</translation>
 <translation id="5439770059721715174">Skjemavalideringsfeil i «<ph name="ERROR_PATH" />»: <ph name="ERROR" /></translation>
@@ -1023,7 +1059,6 @@ brukere av denne nettleseren.</translation>
 <translation id="5457113250005438886">Ugyldig</translation>
 <translation id="5458150163479425638">{CONTACT,plural, =0{<ph name="CONTACT_PREVIEW" />}=1{<ph name="CONTACT_PREVIEW" /> og <ph name="NUMBER_OF_ADDITIONAL_CONTACTS" /> til}other{<ph name="CONTACT_PREVIEW" /> og <ph name="NUMBER_OF_ADDITIONAL_CONTACTS" /> til}}</translation>
 <translation id="5470861586879999274">&amp;Endre likevel</translation>
-<translation id="5472133193607270166">Når dette er påslått, kan ikke nettsteder bruke nettleseraktiviteten din fra ulike nettsteder for å vise deg personlig tilpassede annonser. Noen nettsteder fungerer kanskje ikke som de skal.</translation>
 <translation id="5478437291406423475">B6/C4 (konvolutt)</translation>
 <translation id="5481076368049295676">Dette innholdet kan prøve å installere farlig programvare som stjeler eller sletter informasjon, på enheten din. <ph name="BEGIN_LINK" />Vis det likevel<ph name="END_LINK" /></translation>
 <translation id="54817484435770891">Du må angi en gyldig adresse</translation>
@@ -1034,9 +1069,9 @@ brukere av denne nettleseren.</translation>
 <translation id="549333378215107354">Størrelse 3</translation>
 <translation id="5509762909502811065">B0</translation>
 <translation id="5509780412636533143">Administrerte bokmerker</translation>
+<translation id="5510481203689988000">Dette styres i innstillingene for informasjonskapsler.</translation>
 <translation id="5510766032865166053">Den kan ha blitt flyttet eller slettet.</translation>
 <translation id="5523118979700054094">Navn på retningslinje</translation>
-<translation id="552553974213252141">Ble tekstutdraget riktig?</translation>
 <translation id="55293785478302737">Kantstifting</translation>
 <translation id="553484882784876924">Prc6 (konvolutt)</translation>
 <translation id="5539243836947087108">Flåte</translation>
@@ -1060,6 +1095,7 @@ brukere av denne nettleseren.</translation>
 <translation id="5608165884683734521">Dette nettstedet kan være falskt eller prøve å svindle deg. Chrome anbefaler at du forlater det nå.</translation>
 <translation id="5610142619324316209">Sjekk tilkoblingen</translation>
 <translation id="5610807607761827392">Du kan administrere kort og adresser i <ph name="BEGIN_LINK" />Innstillinger<ph name="END_LINK" />.</translation>
+<translation id="5612720917913232150"><ph name="URL" /> ber om å bruke posisjonen til enheten din</translation>
 <translation id="5617949217645503996"><ph name="HOST_NAME" /> viderekoblet deg for mange ganger.</translation>
 <translation id="5629630648637658800">Kunne ikke laste in angivelsen for enhetsinnstillinger</translation>
 <translation id="5631439013527180824">Ugyldig token for enhetsadministrering</translation>
@@ -1068,6 +1104,7 @@ brukere av denne nettleseren.</translation>
 <translation id="563324245173044180">Villedende innhold er blokkert.</translation>
 <translation id="5644090287519800334">X-forskyvning av bilde på side 1</translation>
 <translation id="5645854190134202180">Andre vakt</translation>
+<translation id="5654927323611874862">ID for opplastet programstopprapport:</translation>
 <translation id="5659593005791499971">E-post</translation>
 <translation id="5663614846592581799">9x11 (konvolutt)</translation>
 <translation id="5663955426505430495">Enhetsadministratoren har installert utvidelser for tilleggsfunksjoner. Utvidelsene har tilgang til noen av dataene dine.</translation>
@@ -1101,9 +1138,11 @@ brukere av denne nettleseren.</translation>
 <translation id="5798683403665926540">Endre startsiden i Chrome-innstillingene</translation>
 <translation id="5803412860119678065">Vil du fylle ut informasjonen knyttet til <ph name="CARD_DETAIL" />?</translation>
 <translation id="5804241973901381774">Tillatelser</translation>
+<translation id="5804427196348435412">Bruk NFC-enheter</translation>
 <translation id="5810442152076338065">Tilkoblingen til <ph name="DOMAIN" /> er kryptert med en foreldet chifferserie.</translation>
 <translation id="5813119285467412249">&amp;Legg til likevel</translation>
 <translation id="5824687817967109979">{NUM_CARDS,plural, =1{Dette kortet blir belastet når du betaler, men det egentlige kortnummeret deles ikke med dette nettstedet. En midlertidig CVC-kode blir generert for ekstra sikkerhet.}other{Kortet du velger, blir belastet når du betaler, men det egentlige kortnummeret deles ikke med dette nettstedet. En midlertidig CVC-kode blir generert for ekstra sikkerhet.}}</translation>
+<translation id="5826507051599432481">Vanlig navn (CN)</translation>
 <translation id="583281660410589416">Ukjent</translation>
 <translation id="5838278095973806738">Du bør ikke oppgi sensitiv informasjon på dette nettstedet (for eksempel passord eller kredittkort) fordi den kan bli stjålet av angripere.</translation>
 <translation id="5851548754964597211">Faneliste</translation>
@@ -1118,6 +1157,7 @@ brukere av denne nettleseren.</translation>
 <translation id="5869522115854928033">Lagrede passord</translation>
 <translation id="5887400589839399685">Kortet er lagret</translation>
 <translation id="5895138241574237353">Start på nytt</translation>
+<translation id="5895187275912066135">Utstedt</translation>
 <translation id="5901630391730855834">Gul</translation>
 <translation id="5905445707201418379">Blokkert i samsvar med opphavsregelen for <ph name="ORIGIN" />.</translation>
 <translation id="5908541034548427511"><ph name="TYPE_1" /> (synkronisert)</translation>
@@ -1144,7 +1184,6 @@ brukere av denne nettleseren.</translation>
 <translation id="6008256403891681546">JCB</translation>
 <translation id="6014801569448771146">Kontrollér passordene dine</translation>
 <translation id="6015796118275082299">År</translation>
-<translation id="6016158022840135739">{COUNT,plural, =1{Side 1}other{Side #}}</translation>
 <translation id="6017514345406065928">Grønn</translation>
 <translation id="6017850046339264347">Angripere på <ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> kan installere villedende apper som ser ut til å være noe annet, eller samle inn data som kan brukes til å spore deg. <ph name="BEGIN_LEARN_MORE_LINK" />Finn ut mer<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="6025416945513303461"><ph name="TYPE_1" />, <ph name="TYPE_2" /> og <ph name="TYPE_3" /> (synkronisert)</translation>
@@ -1173,8 +1212,12 @@ brukere av denne nettleseren.</translation>
 <translation id="6094273045989040137">Annoter</translation>
 <translation id="6104072995492677441">JIS B6</translation>
 <translation id="6106989379647458772">Det kan hende at nettsiden på <ph name="PAGE" /> er midlertidig nede eller flyttet permanent til en ny nettadresse.</translation>
+<translation id="6107012941649240045">Utstedt til</translation>
 <translation id="610911394827799129">Det kan hende Google-kontoen din har andre typer nettleserlogger på <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" />.</translation>
+<translation id="6116338172782435947">Se tekst og bilder som er kopiert til utklippstavlen</translation>
 <translation id="6120179357481664955">Husker du UPI-ID-en din?</translation>
+<translation id="6124432979022149706">Chrome Enterprise Connectors</translation>
+<translation id="6135641591018127088">Bruk Google-kontoen din til å generere et sterkt passord</translation>
 <translation id="6146055958333702838">Sjekk alle kabler, og start rutere, modemer eller andre nettverksenheter
      du bruker, på nytt.</translation>
 <translation id="614940544461990577">Prøv dette:</translation>
@@ -1220,6 +1263,7 @@ brukere av denne nettleseren.</translation>
 <translation id="6328639280570009161">Prøv å slå av nettverksforutsigelse</translation>
 <translation id="6328784461820205019">«Tilkoblingen din er ikke privat», «&lt;span class="error-code"&gt;NET::ERR_CERT_AUTHORITY_INVALID&lt;/span&gt;», «&lt;span class="error-code"&gt;ERR_CERT_COMMON_NAME_INVALID&lt;/span&gt;», «&lt;span class="error-code"&gt;NET::ERR_CERT_WEAK_SIGNATURE_ALGORITHM&lt;/span&gt;», «&lt;span class="error-code"&gt;ERR_CERT_SYMANTEC_LEGACY&lt;/span&gt;» eller «SSL-sertifikatfeil»</translation>
 <translation id="6328786501058569169">Dette nettstedet er villedende</translation>
+<translation id="6333334544069706521">Bruk passord som er lagret i Google-kontoen din</translation>
 <translation id="6337133576188860026">Frigjør mindre enn <ph name="SIZE" />. Det kan hende enkelte nettsteder lastes inn tregere neste gang du besøker dem.</translation>
 <translation id="6337534724793800597">Filtrér retningslinjer etter navn</translation>
 <translation id="6353505687280762741">{COUNT,plural, =0{Ingen}=1{1 passord (for <ph name="DOMAIN_LIST" /> – synkronisert)}=2{2 passord (for <ph name="DOMAIN_LIST" /> – synkronisert)}other{# passord (for <ph name="DOMAIN_LIST" /> – synkronisert)}}</translation>
@@ -1252,7 +1296,6 @@ brukere av denne nettleseren.</translation>
 <translation id="6446163441502663861">Kahu (konvolutt)</translation>
 <translation id="6446608382365791566">Legg til mer informasjon</translation>
 <translation id="6447842834002726250">Informasjonskapsler</translation>
-<translation id="644931407731409778">PDF-dokument som inneholder {COUNT,plural, =1{1 side}other{# sider}}</translation>
 <translation id="6451458296329894277">Bekreft ny innsending av skjema</translation>
 <translation id="6457206614190510200">Ryggstifting</translation>
 <translation id="6465306955648956876">Administrer passord…</translation>
@@ -1266,6 +1309,7 @@ brukere av denne nettleseren.</translation>
 <translation id="6521745193039995384">Ikke aktiv</translation>
 <translation id="6529602333819889595">&amp;Slett likevel</translation>
 <translation id="6534179046333460208">Fysisk nett-forslag</translation>
+<translation id="6543609420755597723">Del data om sikkerhetshendelser som er rapportert av Chrome Enterprise Connectors, med administratoren din. Dette kan omfatte nettadressene til sider du besøker, filnavn, metadata og brukernavnet du bruker når du logger på enheten din og Chrome.</translation>
 <translation id="6545864417968258051">Bluetooth-skanning</translation>
 <translation id="6547208576736763147">To hull venstre</translation>
 <translation id="6554795675067793129">Kontoen din administreres av <ph name="ENROLLMENT_DOMAIN" />.</translation>
@@ -1305,6 +1349,7 @@ brukere av denne nettleseren.</translation>
 <translation id="6710594484020273272">&lt;Skriv inn en søketerm&gt;</translation>
 <translation id="671076103358959139">Registreringstoken:</translation>
 <translation id="6711464428925977395">Det er noe galt med proxy-tjeneren, eller adressen er feil.</translation>
+<translation id="6716672519412350405"><ph name="URL" /> vil lage et 3D-kart av omgivelsene dine og spore kameraposisjonen</translation>
 <translation id="6738516213925468394">Dataene dine ble kryptert med <ph name="BEGIN_LINK" />passordfrasen for synkronisering<ph name="END_LINK" /> <ph name="TIME" />. Skriv den inn for å starte synkroniseringen.</translation>
 <translation id="674375294223700098">Ukjent feil med tjenersertifikat.</translation>
 <translation id="6744009308914054259">Mens du venter på å koble til, kan du gå til Nedlastinger for å lese artikler uten nett.</translation>
@@ -1330,9 +1375,12 @@ brukere av denne nettleseren.</translation>
 <translation id="6874604403660855544">&amp;Legg til likevel</translation>
 <translation id="6884662655240309489">Størrelse 1</translation>
 <translation id="6886577214605505410"><ph name="LOCATION_TITLE" /> <ph name="SHORT_URL" /></translation>
+<translation id="6888584790432772780">Chrome har forenklet denne siden for å gjøre den lettere å lese. Chrome hentet den opprinnelige siden via en usikker forbindelse.</translation>
 <translation id="6891596781022320156">Innstillingsnivået støttes ikke.</translation>
 <translation id="6895330447102777224">Kortet ditt er bekreftet</translation>
 <translation id="6897140037006041989">Brukeragent</translation>
+<translation id="6898699227549475383">Organisasjon (O)</translation>
+<translation id="6910240653697687763"><ph name="URL" /> ber om full kontroll over MIDI-enhetene dine</translation>
 <translation id="6915804003454593391">Bruker:</translation>
 <translation id="6934672428414710184">Dette navnet er fra Google-kontoen din</translation>
 <translation id="6944692733090228304">Du har skrevet inn passordet ditt på et nettsted som ikke administreres av <ph name="BEGIN_BOLD" /><ph name="ORG_NAME" /><ph name="END_BOLD" />. For å beskytte kontoen din må du ikke bruke det samme passordet i andre apper eller på andre nettsteder.</translation>
@@ -1340,6 +1388,7 @@ brukere av denne nettleseren.</translation>
 <translation id="6948701128805548767">For å se hentemetoder og -krav, velg en adresse</translation>
 <translation id="6949872517221025916">Tilbakestill passordet</translation>
 <translation id="6950684638814147129">Feil under parsering av JSON-verdi: <ph name="ERROR" /></translation>
+<translation id="695140971690006676">Tilbakestill alle</translation>
 <translation id="6957887021205513506">Tjenersertifikatet ser ut til å være forfalsket.</translation>
 <translation id="6964255747740675745">Nettverkskonfigurasjonen kunne ikke parses (ugyldig JSON).</translation>
 <translation id="6965382102122355670">OK</translation>
@@ -1369,9 +1418,11 @@ brukere av denne nettleseren.</translation>
 <translation id="7079718277001814089">Dette nettstedet inneholder skadelig programvare</translation>
 <translation id="7081308185095828845">Denne funksjonen er ikke tilgjengelig på enheten din</translation>
 <translation id="7083258188081898530">Skuff 9</translation>
+<translation id="7086090958708083563">Opplasting forespurt av bruker</translation>
 <translation id="7087282848513945231">Fylke</translation>
 <translation id="7090678807593890770">Søk på Google etter <ph name="LINK" /></translation>
 <translation id="7108338896283013870">Skjul</translation>
+<translation id="7108634116785509031"><ph name="HOST" /> ber om å bruke kameraet ditt</translation>
 <translation id="7108819624672055576">Tillatt av en utvidelse</translation>
 <translation id="7111012039238467737">(Gyldig)</translation>
 <translation id="7118618213916969306">Søk etter nettadressen <ph name="SHORT_URL" /> på utklippstavlen</translation>
@@ -1401,7 +1452,11 @@ brukere av denne nettleseren.</translation>
 <translation id="721197778055552897"><ph name="BEGIN_LINK" />Mer informasjon<ph name="END_LINK" /> om dette problemet.</translation>
 <translation id="7219179957768738017">Tilkoblingen bruker <ph name="SSL_VERSION" />.</translation>
 <translation id="7220786058474068424">Behandler</translation>
+<translation id="7221855153210829124">Vis varsler</translation>
+<translation id="7229659723041939809">Du har nettopp skrevet inn passordet ditt på et villedende nettsted. Chrome anbefaler at du sjekker de lagrede passordene dine for <ph name="WEBSITE_1" />, <ph name="WEBSITE_2" />, <ph name="WEBSITE_3" /> og andre nettsteder der du bruker dette passordet, nå.</translation>
 <translation id="7233592378249864828">Skriv ut bekreftelsesark</translation>
+<translation id="7238585580608191973">SHA-256-fingeravtrykk</translation>
+<translation id="7240120331469437312">Alternativt navn på sertifikatemne</translation>
 <translation id="7243010569062352439"><ph name="PASSWORDS" />; <ph name="SIGNIN_DATA" /></translation>
 <translation id="724691107663265825">Nettstedet du er på vei til, inneholder skadelig programvare</translation>
 <translation id="724975217298816891">Skriv inn utløpsdatoen og verifiseringskoden for <ph name="CREDIT_CARD" /> for å oppdatere kortinformasjonen din. Når du bekrefter, deles denne informasjonen med dette nettstedet.</translation>
@@ -1410,13 +1465,11 @@ brukere av denne nettleseren.</translation>
 <translation id="725866823122871198">En privat forbindelse til <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" /> kan ikke opprettes fordi datoen og klokkeslettet (<ph name="DATE_AND_TIME" />) på datamaskinen er feil.</translation>
 <translation id="7260504762447901703">Opphev tilgangen</translation>
 <translation id="7275334191706090484">Administrerte bokmerker</translation>
-<translation id="7288778322931489286">Administratoren har slått på Enterprise Service Hooks i nettleseren din. Disse hookene har tilgang til noen av dataene dine.</translation>
 <translation id="7292031607255951991">Mottakerens navn</translation>
 <translation id="7298195798382681320">Anbefalt</translation>
 <translation id="7300012071106347854">Koboltblå</translation>
 <translation id="7302712225291570345">«<ph name="TEXT" />»</translation>
 <translation id="7304030187361489308">Høyt</translation>
-<translation id="7309308571273880165">Programstopprapport opprettet <ph name="CRASH_TIME" /> (opplasting er forespurt av brukeren, men den har ikke blitt utført ennå)</translation>
 <translation id="7313965965371928911"><ph name="BEGIN_LINK" />Safe Browsing<ph name="END_LINK" />-advarsler</translation>
 <translation id="7319430975418800333">A3</translation>
 <translation id="7320336641823683070">Tilkoblingshjelp</translation>
@@ -1448,10 +1501,12 @@ brukere av denne nettleseren.</translation>
       &lt;li&gt;Klikk på &lt;strong&gt;Bruk&lt;/strong&gt; og deretter på &lt;strong&gt;OK&lt;/strong&gt;.
       &lt;li&gt;Gå til &lt;a href="https://support.google.com/chrome/answer/6098869"&gt;brukerstøtten for Chrome&lt;/a&gt; for å finne ut hvordan du fjerner programvaren fra datamaskinen permanent.
       &lt;/ol&gt;</translation>
+<translation id="7409836189476010449">Kjør Flash</translation>
 <translation id="741007362987735528">Wide-Format</translation>
 <translation id="7416351320495623771">Administrer passord…</translation>
 <translation id="7419106976560586862">Profilbane</translation>
 <translation id="7437289804838430631">Legg til kontaktinformasjon</translation>
+<translation id="7438976808740265764">Etter desember 2020 støttes ikke Flash Player lenger.</translation>
 <translation id="7440140511386898319">Utforsk uten nett</translation>
 <translation id="7441627299479586546">Feil emne for innstillinger</translation>
 <translation id="7442725080345379071">Lys oransje</translation>
@@ -1464,6 +1519,7 @@ brukere av denne nettleseren.</translation>
 <translation id="7485870689360869515">Ingen data ble funnet.</translation>
 <translation id="7495290002932347110">Et databrudd på et nettsted eller i en app har avdekket passordet ditt. Chrome anbefaler at du sjekker de lagrede passordene dine og endrer passordet på <ph name="ORIGIN" /> nå.</translation>
 <translation id="7498234416455752244">Fortsett å endre</translation>
+<translation id="7503664977220660814">Du har nettopp skrevet inn passordet ditt på et villedende nettsted. Chromium anbefaler at du sjekker de lagrede passordene dine for <ph name="WEBSITE_1" />, <ph name="WEBSITE_2" /> og andre nettsteder der du bruker dette passordet, nå.</translation>
 <translation id="7508255263130623398">Den returnerte enhets-ID-en for regelen er tom eller samsvarer ikke med den faktiske enhets-ID-en</translation>
 <translation id="7508870219247277067">Avokadogrønn</translation>
 <translation id="7511955381719512146">Det kan hende at Wi-Fi-nettverket du bruker, krever at du besøker <ph name="BEGIN_BOLD" /><ph name="LOGIN_URL" /><ph name="END_BOLD" />.</translation>
@@ -1489,6 +1545,7 @@ brukere av denne nettleseren.</translation>
 <translation id="7575207903026901870">Knapp for å fjerne forslag – trykk på Enter for å fjerne dette forslaget</translation>
 <translation id="7578104083680115302">Når du lagrer kort med Google, kan du bruke dem til å betale raskt på nettsteder og i apper – uansett hvilken enhet du bruker.</translation>
 <translation id="7581199239021537589">Y-forskyvning av bilde på side 2</translation>
+<translation id="7591636454931265313"><ph name="EMBEDDED_URL" /> vil bruke informasjonskapsler og nettstedsdata på <ph name="TOP_LEVEL_URL" /></translation>
 <translation id="7592362899630581445">Tjenerens sertifikat bryter navnereglene.</translation>
 <translation id="7598391785903975535">Under <ph name="UPPER_ESTIMATE" /></translation>
 <translation id="759889825892636187"><ph name="HOST_NAME" /> kan for øyeblikket ikke behandle denne forespørselen.</translation>
@@ -1503,6 +1560,7 @@ brukere av denne nettleseren.</translation>
 <translation id="7638605456503525968">Serielle porter</translation>
 <translation id="7639968568612851608">Mørk grå</translation>
 <translation id="7647206758853451655">Utskriftskvalitet</translation>
+<translation id="7648992873808071793">lagre filer på denne enheten</translation>
 <translation id="7653957176542370971">Arket for betalingsbehandling er lukket</translation>
 <translation id="765676359832457558">Skjul avanserte innstillinger</translation>
 <translation id="7658239707568436148">Avbryt</translation>
@@ -1525,6 +1583,7 @@ brukere av denne nettleseren.</translation>
 <translation id="7704050614460855821"><ph name="BEGIN_LINK" />Fortsett til <ph name="SITE" /> (usikker side)<ph name="END_LINK" /></translation>
 <translation id="7714464543167945231">Sertifikat</translation>
 <translation id="7716147886133743102">Blokkert av administratoren din</translation>
+<translation id="7716375162095500223">Ignorert eller ikke lastet opp ennå</translation>
 <translation id="7716424297397655342">Dette nettstedet kan ikke lastes inn fra bufferen</translation>
 <translation id="7723047071702270851">Endre kortet</translation>
 <translation id="7740996059027112821">Standard</translation>
@@ -1533,15 +1592,18 @@ brukere av denne nettleseren.</translation>
 <translation id="7757555340166475417">Dai-Pa-Kai</translation>
 <translation id="7758069387465995638">Brannmur- eller antivirusprogramvare kan ha blokkert tilkoblingen.</translation>
 <translation id="7759163816903619567">Visningsdomene:</translation>
+<translation id="776110834126722255">Avviklet</translation>
 <translation id="7761701407923456692">Tjenerens sertifikat samsvarer ikke med nettadressen.</translation>
 <translation id="7763386264682878361">Parser for betalingsmanifest</translation>
 <translation id="7764225426217299476">Legg til adresse</translation>
 <translation id="7766518757692125295">Skjørt</translation>
+<translation id="7767271804335921384">Programmet er blokkert av administratoren din</translation>
 <translation id="7770259615151589601">Designated-Long</translation>
 <translation id="7773005668374414287">Samme rekkefølge – forsiden opp</translation>
 <translation id="777702478322588152">Prefektur</translation>
 <translation id="7791196057686275387">Bunt</translation>
 <translation id="7791543448312431591">Legg til</translation>
+<translation id="7798389633136518089">Ignorert fordi regelen ikke er angitt av en skykilde.</translation>
 <translation id="7800304661137206267">Tilkoblingen er kryptert ved hjelp av <ph name="CIPHER" />, med <ph name="MAC" /> for autentisering av meldinger og <ph name="KX" /> som nøkkelutvekslingsmekanisme.</translation>
 <translation id="7802523362929240268">Nettstedet er legitimt</translation>
 <translation id="780301667611848630">Nei takk</translation>
@@ -1557,6 +1619,7 @@ brukere av denne nettleseren.</translation>
 <translation id="7855695075675558090"><ph name="TOTAL_LABEL" /> <ph name="CURRENCY_CODE" /> <ph name="FORMATTED_TOTAL_AMOUNT" /></translation>
 <translation id="7862185352068345852">Vil du forlate nettstedet?</translation>
 <translation id="7865448901209910068">Beste hastighet</translation>
+<translation id="7874263914261512992">Du har nettopp skrevet inn passordet ditt på et villedende nettsted. Chrome anbefaler at du sjekker de lagrede passordene dine for <ph name="WEBSITE_1" />, <ph name="WEBSITE_2" /> og andre nettsteder der du bruker dette passordet, nå.</translation>
 <translation id="7878562273885520351">Passordet ditt kan være kompromittert</translation>
 <translation id="7882421473871500483">Brun</translation>
 <translation id="7887683347370398519">Kontrollér CVC-koden din, og prøv igjen.</translation>
@@ -1566,6 +1629,7 @@ brukere av denne nettleseren.</translation>
 <translation id="7932579305932748336">Belegg</translation>
 <translation id="79338296614623784">Angi et gyldig telefonnummer</translation>
 <translation id="7934052535022478634">Betalingen er fullført</translation>
+<translation id="7934414805353235750"><ph name="URL" /> vil spille av beskyttet innhold. Identiteten til enheten din blir bekreftet av Google.</translation>
 <translation id="7935031712718413217">Nettadresse med mulig forfalskning</translation>
 <translation id="7935318582918952113">DOM Distiller</translation>
 <translation id="7937554595067888181">Utløper <ph name="EXPIRATION_DATE_ABBR" /></translation>
@@ -1651,6 +1715,7 @@ brukere av denne nettleseren.</translation>
 <translation id="8269981117540303696">Nå kan du surfe privat. Andre som bruker denne enheten, ser ikke aktiviteten din, men nedlastinger og bokmerker blir lagret.</translation>
 <translation id="8277900682056760511">Arket for betalingsbehandling er åpnet</translation>
 <translation id="8281084378435768645">Large-Photo</translation>
+<translation id="8282947398454257691">få kjennskap til den unike enhetsidentifikatoren</translation>
 <translation id="8286036467436129157">Logg på</translation>
 <translation id="8288807391153049143">Vis sertifikat</translation>
 <translation id="8289355894181816810">Kontakt nettverksadministratoren hvis du ikke er sikker på hva dette betyr.</translation>
@@ -1667,13 +1732,14 @@ brukere av denne nettleseren.</translation>
 <translation id="8340095855084055290"><ph name="EXPIRATION_MONTH" />/<ph name="EXPIRATION_YEAR" /></translation>
 <translation id="834457929814110454">Hvis du forstår sikkerhetsrisikoen, kan du <ph name="BEGIN_LINK" />gå til det usikre nettstedet<ph name="END_LINK" /> før de farlige programmene er fjernet.</translation>
 <translation id="8349305172487531364">Bokmerkerad</translation>
+<translation id="8355270400102541638">Lokal krasjkontekst:</translation>
 <translation id="8363502534493474904">Slå av flymodus</translation>
 <translation id="8364627913115013041">Ikke angitt.</translation>
 <translation id="8368476060205742148">Google Play-tjenester</translation>
 <translation id="8371889962595521444">Tilpassede rotsertifikater</translation>
 <translation id="8380941800586852976">Farlig</translation>
 <translation id="8381674639488873545">Disse belastningene kan skje én gang eller være gjentakende, og det er ikke sikkert de er åpenbare. <ph name="BEGIN_LINK" />Vis likevel<ph name="END_LINK" /></translation>
-<translation id="8398259832188219207">Programstopprapport lastet opp <ph name="UPLOAD_TIME" /></translation>
+<translation id="8405166164747488837"><ph name="ENROLLMENT_DOMAIN" /> har slått på Chrome Enterprise Connectors i nettleseren din. Disse koblingene har tilgang til noen av dataene dine.</translation>
 <translation id="8412145213513410671">Kræsj (<ph name="CRASH_COUNT" />)</translation>
 <translation id="8412392972487953978">Du må angi den samme passordfrasen to ganger.</translation>
 <translation id="8416694386774425977">Nettverkskonfigurasjonen er ugyldig og kan ikke importeres.
@@ -1688,8 +1754,10 @@ Mer informasjon:
 <translation id="8461694314515752532">Kryptér synkroniserte data med din egen passordfrase for synkronisering</translation>
 <translation id="8466379296835108687">{COUNT,plural, =1{1 kredittkort}other{# kredittkort}}</translation>
 <translation id="8473863474539038330">Adresser med mer</translation>
+<translation id="8474910779563686872">Vis utviklerdetaljer</translation>
 <translation id="8479754468255770962">Stift nede til venstre</translation>
 <translation id="8483780878231876732">For å bruke kredittkort du har lagret i Google-kontoen din, logg på Chrome</translation>
+<translation id="8485393050551136813">Du har nettopp skrevet inn passordet ditt på et villedende nettsted. Chromium anbefaler at du sjekker de lagrede passordene dine for <ph name="WEBSITE_1" /> og andre nettsteder der du bruker dette passordet, nå.</translation>
 <translation id="8488350697529856933">Gjelder for</translation>
 <translation id="8490137692873530638">Hylle 10</translation>
 <translation id="8498891568109133222"><ph name="HOST_NAME" /> brukte for lang tid på å svare.</translation>
@@ -1697,6 +1765,7 @@ Mer informasjon:
 <translation id="8503813439785031346">Brukernavn</translation>
 <translation id="8508648098325802031">Søkeikon</translation>
 <translation id="8522552481199248698">Chrome kan hjelpe deg med å beskytte Google-kontoen din og endre passordet ditt.</translation>
+<translation id="8541158209346794904">Bluetooth-enhet</translation>
 <translation id="8542014550340843547">Tre stifter bunn</translation>
 <translation id="8543181531796978784">Du kan <ph name="BEGIN_ERROR_LINK" />rapportere et påvisningsproblem<ph name="END_ERROR_LINK" /> eller, hvis du forstår sikkerhetsrisikoen, <ph name="BEGIN_LINK" />gå til dette usikre nettstedet<ph name="END_LINK" />.</translation>
 <translation id="8553075262323480129">Oversettelsen mislyktes fordi sidens språk ikke kunne fastslås.</translation>
@@ -1709,11 +1778,10 @@ Mer informasjon:
 <translation id="858637041960032120">Legg til telefonnummer</translation>
 <translation id="8589998999637048520">Beste kvalitet</translation>
 <translation id="860043288473659153">Kortinnehavers navn</translation>
-<translation id="8616822740383114808">Denne innstillingen er påkrevet av «<ph name="ENFORCING_SETTING" />» i «<ph name="SETTINGS_PAGE" />»</translation>
+<translation id="8606726445206553943">bruke MIDI-enhetene dine</translation>
 <translation id="861775596732816396">Størrelse 4</translation>
 <translation id="8622948367223941507">Legal-Extra</translation>
 <translation id="8625384913736129811">Lagre dette kortet på denne enheten</translation>
-<translation id="8647750283161643317">Tilbakestill alle til standard</translation>
 <translation id="8663226718884576429">Bestillingssammendrag, <ph name="TOTAL_LABEL" />, mer informasjon</translation>
 <translation id="867224526087042813">Signatur</translation>
 <translation id="8676424191133491403">Uten forsinkelse</translation>
@@ -1724,6 +1792,7 @@ Mer informasjon:
 <translation id="868922510921656628">Sider pr. sett</translation>
 <translation id="869891660844655955">Utløpsdato</translation>
 <translation id="8703575177326907206">Tilkoblingen til <ph name="DOMAIN" /> er ikke kryptert.</translation>
+<translation id="8705331520020532516">Serienummer</translation>
 <translation id="8718314106902482036">Betalingen er ikke fullført</translation>
 <translation id="8719263113926255150"><ph name="ENTITY" />, <ph name="DESCRIPTION" />, søkeforslag</translation>
 <translation id="8719528812645237045">Flere hull topp</translation>
@@ -1738,6 +1807,7 @@ Mer informasjon:
 <translation id="87601671197631245">Dette nettstedet bruker en utdatert sikkerhetskonfigurasjon, som betyr at informasjonen din (for eksempel passord, meldinger eller kredittkort) kan bli avslørt når den sendes til dette nettstedet.</translation>
 <translation id="8761567432415473239">Google Safe Browsing oppdaget nylig <ph name="BEGIN_LINK" />skadelige programmer<ph name="END_LINK" /> på <ph name="SITE" />.</translation>
 <translation id="8763927697961133303">USB-enhet</translation>
+<translation id="8774457497170244317">Du har nettopp skrevet inn passordet ditt på et villedende nettsted. Chrome anbefaler at du sjekker de lagrede passordene dine for <ph name="WEBSITE_1" /> og andre nettsteder der du bruker dette passordet, nå.</translation>
 <translation id="877985182522063539">A4</translation>
 <translation id="8790007591277257123">&amp;Slett likevel</translation>
 <translation id="8792621596287649091">Du kan miste tilgangen til <ph name="ORG_NAME" />-kontoen din eller bli utsatt for identitetstyveri. Chromium anbefaler at du endrer passordet ditt nå.</translation>
@@ -1753,7 +1823,6 @@ Mer informasjon:
 <translation id="8866481888320382733">Analysefeil i angivelsen av enhetrsinnstillinger</translation>
 <translation id="8866928039507595380">Fals</translation>
 <translation id="886872106311861689">B3</translation>
-<translation id="8869862664961249123">Del data om sikkerhetshendelser som er rapportert av Enterprise Service Hooks, med administratoren din. Dette kan omfatte nettadressene til sider du besøker, filnavn, metadata og brukernavnet du bruker når du logger på enheten din og Chrome.</translation>
 <translation id="8870413625673593573">Nylig lukket</translation>
 <translation id="8870494189203302833">Samme rekkefølge – forsiden ned</translation>
 <translation id="8874824191258364635">Angi et gyldig kortnummer</translation>
@@ -1811,11 +1880,13 @@ Mer informasjon:
 <translation id="9103872766612412690"><ph name="SITE" /> bruker vanligvis kryptering for å beskytte informasjonen din. Da Chromium prøvde å koble til <ph name="SITE" /> denne gangen, sendte nettstedet tilbake uvanlig og feil legitimasjon. Dette kan skje hvis en angriper prøver å utgi seg for å være <ph name="SITE" />, eller hvis en Wi-Fi-påloggingsskjerm har avbrutt tilkoblingen. Informasjonen din er likevel sikker fordi Chromium stoppet tilkoblingen før det ble utvekslet noen data.</translation>
 <translation id="9106062320799175032">Legg til faktureringsadresse</translation>
 <translation id="9114524666733003316">Bekrefter kortet …</translation>
+<translation id="9119042192571987207">Opplastet</translation>
 <translation id="9128870381267983090">Koble til nettverk</translation>
 <translation id="9137013805542155359">Vis original</translation>
 <translation id="9141013498910525015">Administrer adresser</translation>
 <translation id="9148088599418889305">Velg leveringsmåte</translation>
 <translation id="9148507642005240123">&amp;Angre endringen</translation>
+<translation id="9150045010208374699">bruke kameraet ditt</translation>
 <translation id="9154194610265714752">Oppdatert</translation>
 <translation id="9157595877708044936">Konfigurerer ...</translation>
 <translation id="9158625974267017556">C6 (konvolutt)</translation>

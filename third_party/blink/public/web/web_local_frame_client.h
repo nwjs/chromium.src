@@ -33,6 +33,8 @@
 
 #include <memory>
 
+#include "base/i18n/rtl.h"
+#include "base/optional.h"
 #include "base/unguessable_token.h"
 #include "mojo/public/cpp/bindings/scoped_interface_endpoint_handle.h"
 #include "third_party/blink/public/common/feature_policy/feature_policy.h"
@@ -41,6 +43,7 @@
 #include "third_party/blink/public/common/loader/loading_behavior_flag.h"
 #include "third_party/blink/public/common/loader/url_loader_factory_bundle.h"
 #include "third_party/blink/public/common/navigation/triggering_event_info.h"
+#include "third_party/blink/public/common/user_agent/user_agent_metadata.h"
 #include "third_party/blink/public/mojom/frame/blocked_navigation_types.mojom-shared.h"
 #include "third_party/blink/public/mojom/frame/lifecycle.mojom-shared.h"
 #include "third_party/blink/public/mojom/frame/user_activation_update_types.mojom-shared.h"
@@ -52,7 +55,6 @@
 #include "third_party/blink/public/platform/web_content_settings_client.h"
 #include "third_party/blink/public/platform/web_effective_connection_type.h"
 #include "third_party/blink/public/platform/web_file_system_type.h"
-#include "third_party/blink/public/platform/web_insecure_request_policy.h"
 #include "third_party/blink/public/platform/web_prescient_networking.h"
 #include "third_party/blink/public/platform/web_set_sink_id_callbacks.h"
 #include "third_party/blink/public/platform/web_source_location.h"
@@ -69,19 +71,13 @@
 #include "third_party/blink/public/web/web_frame_owner_properties.h"
 #include "third_party/blink/public/web/web_history_commit_type.h"
 #include "third_party/blink/public/web/web_history_item.h"
-#include "third_party/blink/public/web/web_icon_url.h"
 #include "third_party/blink/public/web/web_media_inspector.h"
 #include "third_party/blink/public/web/web_navigation_params.h"
 #include "third_party/blink/public/web/web_navigation_policy.h"
 #include "third_party/blink/public/web/web_navigation_type.h"
-#include "third_party/blink/public/web/web_text_direction.h"
 #include "ui/accessibility/ax_enums.mojom-shared.h"
 #include "ui/events/types/scroll_types.h"
 #include "v8/include/v8.h"
-
-namespace service_manager {
-class InterfaceProvider;
-}
 
 namespace blink {
 namespace mojom {
@@ -119,7 +115,6 @@ struct WebContextMenuData;
 struct WebPluginParams;
 struct WebPopupMenuInfo;
 struct WebRect;
-struct WebURLError;
 
 class BLINK_EXPORT WebLocalFrameClient {
  public:
@@ -194,11 +189,6 @@ class BLINK_EXPORT WebLocalFrameClient {
   // Returns a blame context for attributing work belonging to this frame.
   virtual BlameContext* GetFrameBlameContext() { return nullptr; }
 
-  // DEPRECATED. Please use GetBrowserInterfaceBroker() instead.
-  // Returns an InterfaceProvider the frame can use to request interfaces from
-  // the browser. This method may not return nullptr.
-  virtual service_manager::InterfaceProvider* GetInterfaceProvider();
-
   // Returns a BrowserInterfaceBrokerProxy the frame can use to request
   // interfaces from the browser.
   virtual blink::BrowserInterfaceBrokerProxy* GetBrowserInterfaceBroker();
@@ -272,16 +262,9 @@ class BLINK_EXPORT WebLocalFrameClient {
   // HTTP header (for sandbox flags) is encountered while loading the frame's
   // document.
   virtual void DidSetFramePolicyHeaders(
-      WebSandboxFlags flags,
+      mojom::WebSandboxFlags flags,
       const ParsedFeaturePolicy& feature_policy_header,
       const DocumentPolicy::FeatureState& document_policy_header) {}
-
-  // Called when a new Content Security Policy is added to the frame's
-  // document.  This can be triggered by handling of HTTP headers, handling
-  // of <meta> element, or by inheriting CSP from the parent (in case of
-  // about:blank).
-  virtual void DidAddContentSecurityPolicies(
-      const WebVector<WebContentSecurityPolicy>& policies) {}
 
   // Some frame owner properties have changed for a child frame of this frame.
   // Frame owner properties currently include: scrolling, marginwidth and
@@ -293,10 +276,6 @@ class BLINK_EXPORT WebLocalFrameClient {
   virtual void DidMatchCSS(
       const WebVector<WebString>& newly_matching_selectors,
       const WebVector<WebString>& stopped_matching_selectors) {}
-
-  // Replicate user activation state updates for this frame to the embedder.
-  virtual void UpdateUserActivationState(
-      mojom::UserActivationUpdateType update_type) {}
 
   // Called when a frame is capturing mouse input, such as when a scrollbar
   // is being dragged.
@@ -314,16 +293,6 @@ class BLINK_EXPORT WebLocalFrameClient {
                                       const WebString& source_name,
                                       unsigned source_line,
                                       const WebString& stack_trace) {}
-
-  // Load commands -------------------------------------------------------
-
-  // The client should handle the request as a download.
-  // If the request is for a blob: URL, a BlobURLToken should be provided
-  // as |blob_url_token| to ensure the correct blob gets downloaded.
-  virtual void DownloadURL(
-      const WebURLRequest&,
-      network::mojom::RedirectMode cross_origin_redirect_behavior,
-      mojo::ScopedMessagePipeHandle blob_url_token) {}
 
   // Navigational queries ------------------------------------------------
 
@@ -369,12 +338,11 @@ class BLINK_EXPORT WebLocalFrameClient {
   // datasource will become the provisional datasource for the frame.
   virtual void DidCreateDocumentLoader(WebDocumentLoader*) {}
 
-  // A new provisional load has been started.
-  virtual void DidStartProvisionalLoad(WebDocumentLoader* document_loader) {}
-
-  // The provisional datasource is now committed.  The first part of the
-  // response body has been received, and the encoding of the response
-  // body is known.
+  // The navigation has been committed, as a result of
+  // WebNavigationControl::CommitNavigation call. The newly created document
+  // is committed to the frame, the encoding of the response body is known,
+  // but no content has been loaded or parsed yet.
+  //
   // When a load commits and a new Document is created, WebLocalFrameClient
   // creates a new BrowserInterfaceBroker endpoint to ensure that interface
   // receivers in the newly committed Document are associated with the correct
@@ -382,13 +350,19 @@ class BLINK_EXPORT WebLocalFrameClient {
   // The one exception is if the Window object is reused; in that case, blink
   // passes |should_reset_browser_interface_broker| = false, and the old
   // BrowserInterfaceBroker connection will be reused.
-  virtual void DidCommitProvisionalLoad(
-      const WebHistoryItem&,
-      WebHistoryCommitType,
-      bool should_reset_browser_interface_broker) {}
+  virtual void DidCommitNavigation(const WebHistoryItem&,
+                                   WebHistoryCommitType,
+                                   bool should_reset_browser_interface_broker) {
+  }
 
-  // The frame's document has just been initialized.
-  virtual void DidCreateNewDocument() {}
+  // The frame's initial empty document has just been initialized.
+  virtual void DidCreateInitialEmptyDocument() {}
+
+  // A new document has just been committed as a result of evaluating
+  // javascript url. This document inherited everything from the previous
+  // document (url, origin, global object, etc.).
+  // DidCommitNavigation is not called in this case.
+  virtual void DidCommitJavascriptUrlNavigation(WebDocumentLoader*) {}
 
   // The window object for the frame has been cleared of any extra properties
   // that may have been set by script from the previously loaded document. This
@@ -405,11 +379,7 @@ class BLINK_EXPORT WebLocalFrameClient {
   virtual void RunScriptsAtDocumentElementAvailable() {}
 
   // The page title is available.
-  virtual void DidReceiveTitle(const WebString& title,
-                               WebTextDirection direction) {}
-
-  // The icon for the page have changed.
-  virtual void DidChangeIcon(WebIconURL::Type) {}
+  virtual void DidReceiveTitle(const WebString& title) {}
 
   // The frame's document finished loading.
   // This method may not execute JavaScript code.
@@ -426,11 +396,6 @@ class BLINK_EXPORT WebLocalFrameClient {
 
   // The 'load' event was dispatched.
   virtual void DidHandleOnloadEvents() {}
-
-  // The frame's document or one of its subresources failed to load. The
-  // WebHistoryCommitType is the commit type that would have been used had the
-  // load succeeded.
-  virtual void DidFailLoad(const WebURLError&, WebHistoryCommitType) {}
 
   // The frame's document and all of its subresources succeeded to load.
   virtual void DidFinishLoad() {}
@@ -494,12 +459,12 @@ class BLINK_EXPORT WebLocalFrameClient {
   // the given frame. Additional context data is supplied.
   virtual void ShowContextMenu(const WebContextMenuData&) {}
 
-  // This method is called in response to WebView's saveImageAt(x, y).
-  // A data url from <canvas> or <img> is passed to the method's argument.
-  virtual void SaveImageFromDataURL(const WebString&) {}
-
   // Called when the frame rects changed.
   virtual void FrameRectsChanged(const WebRect&) {}
+
+  // Called when a new element gets focused. |from_element| is the previously
+  // focused element, |to_element| is the newly focused one. Either can be null.
+  virtual void FocusedElementChanged(const WebElement& element) {}
 
   // Called when a frame's intersection with the main frame's document has
   // changed.
@@ -535,6 +500,9 @@ class BLINK_EXPORT WebLocalFrameClient {
 
   // A performance timing event (e.g. first paint) occurred
   virtual void DidChangePerformanceTiming() {}
+
+  // An Input Event observed.
+  virtual void DidObserveInputDelay(base::TimeDelta input_delay) {}
 
   // A cpu task or tasks completed.  Triggered when at least 100ms of wall time
   // was spent in tasks on the frame.
@@ -617,22 +585,21 @@ class BLINK_EXPORT WebLocalFrameClient {
 
   // Asks the embedder if a specific user agent should be used. Non-empty
   // strings indicate an override should be used. Otherwise,
-  // Platform::current()->userAgent() will be called to provide one.
+  // Platform::current()->UserAgent() will be called to provide one.
   virtual WebString UserAgentOverride() { return WebString(); }
+
+  // Asks the embedder what values to send for User Agent client hints
+  // (or nullopt if none).  Used only when UserAgentOverride() is non-empty;
+  // Platform::current()->UserAgentMetadata() is used otherwise.
+  virtual base::Optional<UserAgentMetadata> UserAgentMetadataOverride() {
+    return base::nullopt;
+  }
 
   // Do not track ----------------------------------------------------
 
   // Asks the embedder what value the network stack will send for the DNT
   // header. An empty string indicates that no DNT header will be send.
   virtual WebString DoNotTrackValue() { return WebString(); }
-
-  // WebGL ------------------------------------------------------
-
-  // Asks the embedder whether WebGL is blocked for the WebFrame. This call is
-  // placed here instead of WebContentSettingsClient because this class is
-  // implemented in content/, and putting it here avoids adding more public
-  // content/ APIs.
-  virtual bool ShouldBlockWebGL() { return false; }
 
   // Accessibility -------------------------------------------------------
 

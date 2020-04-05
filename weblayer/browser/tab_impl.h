@@ -11,6 +11,7 @@
 #include "base/macros.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
+#include "base/strings/string16.h"
 #include "base/timer/timer.h"
 #include "build/build_config.h"
 #include "components/find_in_page/find_result_observer.h"
@@ -30,6 +31,7 @@ class AutofillProvider;
 
 namespace content {
 class WebContents;
+struct ContextMenuParams;
 }
 
 namespace sessions {
@@ -45,6 +47,7 @@ class ProfileImpl;
 
 #if defined(OS_ANDROID)
 class TopControlsContainerView;
+enum class ControlsVisibilityReason;
 #endif
 
 class TabImpl : public Tab,
@@ -58,11 +61,12 @@ class TabImpl : public Tab,
           const base::android::JavaParamRef<jobject>& java_impl);
 #endif
   explicit TabImpl(ProfileImpl* profile,
-                   std::unique_ptr<content::WebContents> = nullptr);
+                   std::unique_ptr<content::WebContents> = nullptr,
+                   const std::string& guid = std::string());
   ~TabImpl() override;
 
-  // Returns the TabImpl from the specified WebContents, or null if
-  // |web_contents| was not created by a TabImpl.
+  // Returns the TabImpl from the specified WebContents (which may be null), or
+  // null if |web_contents| was not created by a TabImpl.
   static TabImpl* FromWebContents(content::WebContents* web_contents);
 
   ProfileImpl* profile() { return profile_; }
@@ -73,6 +77,10 @@ class TabImpl : public Tab,
   content::WebContents* web_contents() const { return web_contents_.get(); }
 
   bool has_new_tab_delegate() const { return new_tab_delegate_ != nullptr; }
+
+  bool IsActive();
+
+  void ShowContextMenu(const content::ContextMenuParams& params);
 
 #if defined(OS_ANDROID)
   base::android::ScopedJavaGlobalRef<jobject> GetJavaTab() {
@@ -108,14 +116,16 @@ class TabImpl : public Tab,
   void OnAutofillProviderChanged(
       JNIEnv* env,
       const base::android::JavaParamRef<jobject>& autofill_provider);
+
+  void UpdateBrowserControlsState(JNIEnv* env, jint constraint);
+
+  base::android::ScopedJavaLocalRef<jstring> GetGuid(JNIEnv* env);
 #endif
 
-  DownloadDelegate* download_delegate() { return download_delegate_; }
   ErrorPageDelegate* error_page_delegate() { return error_page_delegate_; }
   FullscreenDelegate* fullscreen_delegate() { return fullscreen_delegate_; }
 
   // Tab:
-  void SetDownloadDelegate(DownloadDelegate* delegate) override;
   void SetErrorPageDelegate(ErrorPageDelegate* delegate) override;
   void SetFullscreenDelegate(FullscreenDelegate* delegate) override;
   void SetNewTabDelegate(NewTabDelegate* delegate) override;
@@ -125,9 +135,13 @@ class TabImpl : public Tab,
   void ExecuteScript(const base::string16& script,
                      bool use_separate_isolate,
                      JavaScriptResultCallback callback) override;
+  const std::string& GetGuid() override;
 #if !defined(OS_ANDROID)
   void AttachToView(views::WebView* web_view) override;
 #endif
+
+  void WebPreferencesChanged();
+  bool GetPasswordEchoEnabled();
 
   // Executes |script| with a user gesture.
   void ExecuteScriptWithUserGestureForTests(const base::string16& script);
@@ -141,7 +155,10 @@ class TabImpl : public Tab,
   content::WebContents* OpenURLFromTab(
       content::WebContents* source,
       const content::OpenURLParams& params) override;
-  void DidNavigateMainFramePostCommit(
+  void ShowRepostFormWarningDialog(content::WebContents* source) override;
+  void NavigationStateChanged(content::WebContents* source,
+                              content::InvalidateTypes changed_flags) override;
+  content::JavaScriptDialogManager* GetJavaScriptDialogManager(
       content::WebContents* web_contents) override;
   content::ColorChooser* OpenColorChooser(
       content::WebContents* web_contents,
@@ -188,6 +205,7 @@ class TabImpl : public Tab,
   void DidFinishNavigation(
       content::NavigationHandle* navigation_handle) override;
   void RenderProcessGone(base::TerminationStatus status) override;
+  void DidChangeVisibleSecurityState() override;
 
   // find_in_page::FindResultObserver:
   void OnFindResultAvailable(content::WebContents* web_contents) override;
@@ -206,13 +224,13 @@ class TabImpl : public Tab,
       content::WebContents* web_contents);
 
 #if defined(OS_ANDROID)
-  void UpdateBrowserControlsState(content::BrowserControlsState constraints,
-                                  content::BrowserControlsState current,
-                                  bool animate);
+  void SetBrowserControlsConstraint(ControlsVisibilityReason reason,
+                                    content::BrowserControlsState constraint);
 #endif
 
+  void UpdateBrowserVisibleSecurityStateIfNecessary();
+
   BrowserImpl* browser_ = nullptr;
-  DownloadDelegate* download_delegate_ = nullptr;
   ErrorPageDelegate* error_page_delegate_ = nullptr;
   FullscreenDelegate* fullscreen_delegate_ = nullptr;
   NewTabDelegate* new_tab_delegate_ = nullptr;
@@ -232,6 +250,10 @@ class TabImpl : public Tab,
   bool processing_enter_fullscreen_ = false;
 
   std::unique_ptr<autofill::AutofillProvider> autofill_provider_;
+
+  const std::string guid_;
+
+  base::string16 title_;
 
   base::WeakPtrFactory<TabImpl> weak_ptr_factory_{this};
 

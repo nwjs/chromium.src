@@ -16,12 +16,16 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "base/task_runner_util.h"
 #include "base/threading/scoped_blocking_call.h"
 #include "build/build_config.h"
 #include "chrome/browser/profiles/profile_avatar_downloader.h"
 #include "chrome/browser/profiles/profile_avatar_icon_util.h"
+#include "chrome/browser/profiles/profile_metrics.h"
 #include "chrome/grit/generated_resources.h"
+#include "components/policy/core/browser/browser_policy_connector.h"
+#include "components/profile_metrics/state.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "third_party/icu/source/i18n/unicode/coll.h"
@@ -53,6 +57,13 @@ const int kDefaultNames[] = {
   IDS_DEFAULT_AVATAR_NAME_24,
   IDS_DEFAULT_AVATAR_NAME_25,
   IDS_DEFAULT_AVATAR_NAME_26
+};
+
+enum class MultiProfileUserType {
+  kSingleProfile,       // There is only one profile.
+  kActiveMultiProfile,  // Several profiles are actively used.
+  kLatentMultiProfile   // There are several profiles, but only one is actively
+                        // used.
 };
 
 // Reads a PNG from disk and decodes it. If the bitmap was successfully read
@@ -136,13 +147,85 @@ bool ProfileAttributesSortComparator::operator()(
   return a->GetPath().value() < b->GetPath().value();
 }
 
+MultiProfileUserType GetMultiProfileUserType(
+    const std::vector<ProfileAttributesEntry*>& entries) {
+  DCHECK(entries.size() > 0);
+  if (entries.size() == 1u)
+    return MultiProfileUserType::kSingleProfile;
+
+  int active_count = std::count_if(
+      entries.begin(), entries.end(), [](ProfileAttributesEntry* entry) {
+        return ProfileMetrics::IsProfileActive(entry);
+      });
+
+  if (active_count <= 1)
+    return MultiProfileUserType::kLatentMultiProfile;
+  return MultiProfileUserType::kActiveMultiProfile;
+}
+
+profile_metrics::AvatarState GetAvatarState(ProfileAttributesEntry* entry) {
+  size_t index = entry->GetAvatarIconIndex();
+  bool is_modern = profiles::IsModernAvatarIconIndex(index);
+  if (entry->GetSigninState() == SigninState::kNotSignedIn) {
+    if (index == profiles::GetPlaceholderAvatarIndex())
+      return profile_metrics::AvatarState::kSignedOutDefault;
+    return is_modern ? profile_metrics::AvatarState::kSignedOutModern
+                     : profile_metrics::AvatarState::kSignedOutOld;
+  }
+  if (entry->IsUsingGAIAPicture())
+    return profile_metrics::AvatarState::kSignedInGaia;
+  return is_modern ? profile_metrics::AvatarState::kSignedInModern
+                   : profile_metrics::AvatarState::kSignedInOld;
+}
+
+profile_metrics::NameState GetNameState(ProfileAttributesEntry* entry) {
+  bool has_default_name = entry->IsUsingDefaultName();
+  switch (entry->GetNameForm()) {
+    case NameForm::kGaiaName:
+      return profile_metrics::NameState::kGaiaName;
+    case NameForm::kLocalName:
+      return has_default_name ? profile_metrics::NameState::kDefaultName
+                              : profile_metrics::NameState::kCustomName;
+    case NameForm::kGaiaAndLocalName:
+      return has_default_name ? profile_metrics::NameState::kGaiaAndDefaultName
+                              : profile_metrics::NameState::kGaiaAndCustomName;
+  }
+}
+
+profile_metrics::UnconsentedPrimaryAccountType GetUnconsentedPrimaryAccountType(
+    ProfileAttributesEntry* entry) {
+  if (entry->GetSigninState() == SigninState::kNotSignedIn)
+    return profile_metrics::UnconsentedPrimaryAccountType::kSignedOut;
+  if (entry->IsChild())
+    return profile_metrics::UnconsentedPrimaryAccountType::kChild;
+  // TODO(crbug.com/1060113): Replace this check by
+  // !entry->GetHostedDomain().has_value() in M84 (once the cache gets
+  // reasonably well populated).
+  if (policy::BrowserPolicyConnector::IsNonEnterpriseUser(
+          base::UTF16ToUTF8(entry->GetUserName()))) {
+    return profile_metrics::UnconsentedPrimaryAccountType::kConsumer;
+  }
+  // TODO(crbug.com/1060113): Figure out how to distinguish EDU accounts from
+  // other enterprise.
+  return profile_metrics::UnconsentedPrimaryAccountType::kEnterprise;
+}
+
+void RecordProfileState(ProfileAttributesEntry* entry,
+                        profile_metrics::StateSuffix suffix) {
+  profile_metrics::LogProfileAvatar(GetAvatarState(entry), suffix);
+  profile_metrics::LogProfileName(GetNameState(entry), suffix);
+  profile_metrics::LogProfileAccountType(
+      GetUnconsentedPrimaryAccountType(entry), suffix);
+  profile_metrics::LogProfileDaysSinceLastUse(
+      (base::Time::Now() - entry->GetActiveTime()).InDays(), suffix);
+}
+
 }  // namespace
 
 ProfileAttributesStorage::ProfileAttributesStorage(PrefService* prefs)
     : prefs_(prefs),
-      file_task_runner_(base::CreateSequencedTaskRunner(
-          {base::ThreadPool(), base::MayBlock(),
-           base::TaskPriority::USER_VISIBLE,
+      file_task_runner_(base::ThreadPool::CreateSequencedTaskRunner(
+          {base::MayBlock(), base::TaskPriority::USER_VISIBLE,
            base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN})) {}
 
 ProfileAttributesStorage::~ProfileAttributesStorage() {
@@ -300,6 +383,40 @@ void ProfileAttributesStorage::RemoveObserver(Observer* obs) {
   observer_list_.RemoveObserver(obs);
 }
 
+void ProfileAttributesStorage::RecordProfilesState() {
+  std::vector<ProfileAttributesEntry*> entries = GetAllProfilesAttributes();
+  if (entries.size() == 0)
+    return;
+
+  MultiProfileUserType type = GetMultiProfileUserType(entries);
+
+  for (ProfileAttributesEntry* entry : entries) {
+    RecordProfileState(entry, profile_metrics::StateSuffix::kAll);
+
+    switch (type) {
+      case MultiProfileUserType::kSingleProfile:
+        RecordProfileState(entry, profile_metrics::StateSuffix::kSingleProfile);
+        break;
+      case MultiProfileUserType::kActiveMultiProfile:
+        RecordProfileState(entry,
+                           profile_metrics::StateSuffix::kActiveMultiProfile);
+        break;
+      case MultiProfileUserType::kLatentMultiProfile: {
+        RecordProfileState(entry,
+                           profile_metrics::StateSuffix::kLatentMultiProfile);
+        if (ProfileMetrics::IsProfileActive(entry)) {
+          RecordProfileState(
+              entry, profile_metrics::StateSuffix::kLatentMultiProfileActive);
+        } else {
+          RecordProfileState(
+              entry, profile_metrics::StateSuffix::kLatentMultiProfileOthers);
+        }
+        break;
+      }
+    }
+  }
+}
+
 void ProfileAttributesStorage::NotifyOnProfileAvatarChanged(
     const base::FilePath& profile_path) const {
   for (auto& observer : observer_list_)
@@ -315,7 +432,6 @@ void ProfileAttributesStorage::NotifyOnProfileHighResAvatarLoaded(
 void ProfileAttributesStorage::DownloadHighResAvatarIfNeeded(
     size_t icon_index,
     const base::FilePath& profile_path) {
-// Downloading is only supported on desktop.
 #if 1
   return;
 #endif
@@ -340,10 +456,7 @@ void ProfileAttributesStorage::DownloadHighResAvatarIfNeeded(
 void ProfileAttributesStorage::DownloadHighResAvatar(
     size_t icon_index,
     const base::FilePath& profile_path) {
-// Downloading is only supported on desktop.
-#if defined(OS_ANDROID) || defined(OS_CHROMEOS)
-  return;
-#endif
+#if !defined(OS_ANDROID)
   const char* file_name =
       profiles::GetDefaultAvatarIconFileNameAtIndex(icon_index);
   DCHECK(file_name);
@@ -357,10 +470,12 @@ void ProfileAttributesStorage::DownloadHighResAvatar(
   std::unique_ptr<ProfileAvatarDownloader>& current_downloader =
       avatar_images_downloads_in_progress_[file_name];
   current_downloader.reset(new ProfileAvatarDownloader(
-      icon_index, base::Bind(&ProfileAttributesStorage::SaveAvatarImageAtPath,
-                             AsWeakPtr(), profile_path)));
+      icon_index,
+      base::BindOnce(&ProfileAttributesStorage::SaveAvatarImageAtPathNoCallback,
+                     AsWeakPtr(), profile_path)));
 
   current_downloader->Start();
+#endif
 }
 
 void ProfileAttributesStorage::SaveAvatarImageAtPath(
@@ -433,4 +548,13 @@ void ProfileAttributesStorage::OnAvatarPictureSaved(
     std::move(callback).Run();
 
   NotifyOnProfileHighResAvatarLoaded(profile_path);
+}
+
+void ProfileAttributesStorage::SaveAvatarImageAtPathNoCallback(
+    const base::FilePath& profile_path,
+    gfx::Image image,
+    const std::string& key,
+    const base::FilePath& image_path) {
+  SaveAvatarImageAtPath(profile_path, image, key, image_path,
+                        base::OnceClosure());
 }

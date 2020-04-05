@@ -14,6 +14,7 @@
 #include "ios/chrome/browser/browser_state/chrome_browser_state.h"
 #import "ios/chrome/browser/favicon/favicon_loader.h"
 #include "ios/chrome/browser/favicon/ios_chrome_favicon_loader_factory.h"
+#import "ios/chrome/browser/main/browser.h"
 #import "ios/chrome/browser/metrics/new_tab_page_uma.h"
 #import "ios/chrome/browser/ui/alert_coordinator/action_sheet_coordinator.h"
 #import "ios/chrome/browser/ui/alert_coordinator/alert_coordinator.h"
@@ -48,14 +49,13 @@
 #import "ios/chrome/browser/ui/util/rtl_geometry.h"
 #import "ios/chrome/browser/ui/util/ui_util.h"
 #import "ios/chrome/browser/ui/util/uikit_ui_util.h"
+#import "ios/chrome/browser/url_loading/url_loading_browser_agent.h"
 #import "ios/chrome/browser/url_loading/url_loading_params.h"
-#import "ios/chrome/browser/url_loading/url_loading_service.h"
-#import "ios/chrome/browser/url_loading/url_loading_service_factory.h"
 #import "ios/chrome/browser/web_state_list/web_state_list.h"
-#import "ios/chrome/common/colors/semantic_color_names.h"
-#import "ios/chrome/common/favicon/favicon_attributes.h"
-#import "ios/chrome/common/favicon/favicon_view.h"
-#import "ios/chrome/common/ui_util/constraints_ui_util.h"
+#import "ios/chrome/common/ui/colors/semantic_color_names.h"
+#import "ios/chrome/common/ui/favicon/favicon_attributes.h"
+#import "ios/chrome/common/ui/favicon/favicon_view.h"
+#import "ios/chrome/common/ui/util/constraints_ui_util.h"
 #include "ios/chrome/grit/ios_strings.h"
 #import "ios/web/public/navigation/navigation_manager.h"
 #include "ios/web/public/navigation/referrer.h"
@@ -133,6 +133,9 @@ std::vector<GURL> GetUrlsToOpen(const std::vector<const BookmarkNode*>& nodes) {
 // The bookmark model used.
 @property(nonatomic, assign) bookmarks::BookmarkModel* bookmarks;
 
+// The Browser in which bookmarks are presented
+@property(nonatomic, assign) Browser* browser;
+
 // The user's browser state model used.
 @property(nonatomic, assign) ChromeBrowserState* browserState;
 
@@ -160,9 +163,9 @@ std::vector<GURL> GetUrlsToOpen(const std::vector<const BookmarkNode*>& nodes) {
 // This is so that the cache code is called only once in loadBookmarkViews.
 @property(nonatomic, assign) BOOL isReconstructingFromCache;
 
-// Dispatcher for sending commands.
+// Handler for commands.
 @property(nonatomic, readonly, weak) id<ApplicationCommands, BrowserCommands>
-    dispatcher;
+    handler;
 
 // The current search term.  Set to the empty string when no search is active.
 @property(nonatomic, copy) NSString* searchTerm;
@@ -205,21 +208,23 @@ std::vector<GURL> GetUrlsToOpen(const std::vector<const BookmarkNode*>& nodes) {
 
 #pragma mark - Initializer
 
-- (instancetype)
-    initWithBrowserState:(ChromeBrowserState*)browserState
-              dispatcher:(id<ApplicationCommands, BrowserCommands>)dispatcher
-            webStateList:(WebStateList*)webStateList {
-  DCHECK(browserState);
+- (instancetype)initWithBrowser:(Browser*)browser {
+  DCHECK(browser);
   self = [super initWithStyle:UITableViewStylePlain];
   if (self) {
-    _browserState = browserState->GetOriginalChromeBrowserState();
-    _dispatcher = dispatcher;
-    _webStateList = webStateList;
+    _browser = browser;
+    _browserState =
+        _browser->GetBrowserState()->GetOriginalChromeBrowserState();
+    // TODO(crbug.com/1045047): Use HandlerForProtocol after commands protocol
+    // clean up.
+    _handler = static_cast<id<ApplicationCommands, BrowserCommands>>(
+        _browser->GetCommandDispatcher());
+    _webStateList = _browser->GetWebStateList();
 
     _faviconLoader =
         IOSChromeFaviconLoaderFactory::GetForBrowserState(_browserState);
 
-    _bookmarks = ios::BookmarkModelFactory::GetForBrowserState(browserState);
+    _bookmarks = ios::BookmarkModelFactory::GetForBrowserState(_browserState);
 
     _bridge.reset(new bookmarks::BookmarkModelBridge(self, _bookmarks));
   }
@@ -305,9 +310,6 @@ std::vector<GURL> GetUrlsToOpen(const std::vector<const BookmarkNode*>& nodes) {
 
   // Set Navigation Bar, Toolbar and TableView appearance.
   self.navigationController.navigationBarHidden = NO;
-  // Add a tableFooterView in order to disable separators at the bottom of the
-  // tableView.
-  self.tableView.tableFooterView = [[UIView alloc] init];
 
   self.navigationController.toolbar.accessibilityIdentifier =
       kBookmarkHomeUIToolbarIdentifier;
@@ -581,8 +583,8 @@ std::vector<GURL> GetUrlsToOpen(const std::vector<const BookmarkNode*>& nodes) {
 }
 
 - (void)showSignin:(ShowSigninCommand*)command {
-  [self.dispatcher showSignin:command
-           baseViewController:self.navigationController];
+  [self.handler showSignin:command
+        baseViewController:self.navigationController];
 }
 
 - (void)configureSigninPromoWithConfigurator:
@@ -614,13 +616,13 @@ std::vector<GURL> GetUrlsToOpen(const std::vector<const BookmarkNode*>& nodes) {
   DCHECK(nodes.size() > 0);
   const BookmarkNode* editedNode = *(nodes.begin());
   const BookmarkNode* selectedFolder = editedNode->parent();
-  self.folderSelector = [[BookmarkFolderViewController alloc]
-      initWithBookmarkModel:self.bookmarks
-           allowsNewFolders:YES
-                editedNodes:nodes
-               allowsCancel:YES
-             selectedFolder:selectedFolder
-                 dispatcher:self.dispatcher];
+  self.folderSelector =
+      [[BookmarkFolderViewController alloc] initWithBookmarkModel:self.bookmarks
+                                                 allowsNewFolders:YES
+                                                      editedNodes:nodes
+                                                     allowsCancel:YES
+                                                   selectedFolder:selectedFolder
+                                                       dispatcher:self.handler];
   self.folderSelector.delegate = self;
   UINavigationController* navController = [[BookmarkNavigationController alloc]
       initWithRootViewController:self.folderSelector];
@@ -631,7 +633,7 @@ std::vector<GURL> GetUrlsToOpen(const std::vector<const BookmarkNode*>& nodes) {
 // Deletes the current node.
 - (void)deleteNodes:(const std::set<const BookmarkNode*>&)nodes {
   DCHECK_GE(nodes.size(), 1u);
-  [self.dispatcher
+  [self.handler
       showSnackbarMessage:bookmark_utils_ios::DeleteBookmarksWithUndoToast(
                               nodes, self.bookmarks, self.browserState)];
   [self setTableViewEditing:NO];
@@ -640,11 +642,9 @@ std::vector<GURL> GetUrlsToOpen(const std::vector<const BookmarkNode*>& nodes) {
 // Opens the editor on the given node.
 - (void)editNode:(const BookmarkNode*)node {
   if (!self.bookmarkInteractionController) {
-    self.bookmarkInteractionController = [[BookmarkInteractionController alloc]
-        initWithBrowserState:self.browserState
-            parentController:self
-                  dispatcher:self.dispatcher
-                webStateList:self.webStateList];
+    self.bookmarkInteractionController =
+        [[BookmarkInteractionController alloc] initWithBrowser:self.browser
+                                              parentController:self];
     self.bookmarkInteractionController.delegate = self;
   }
 
@@ -665,6 +665,7 @@ std::vector<GURL> GetUrlsToOpen(const std::vector<const BookmarkNode*>& nodes) {
 #pragma mark - Navigation Bar Callbacks
 
 - (void)navigationBarCancel:(id)sender {
+  base::RecordAction(base::UserMetricsAction("MobileBookmarkManagerClose"));
   [self navigateAway];
   [self dismissWithURL:GURL()];
 }
@@ -812,7 +813,7 @@ std::vector<GURL> GetUrlsToOpen(const std::vector<const BookmarkNode*>& nodes) {
 
 - (void)handleMoveNode:(const bookmarks::BookmarkNode*)node
             toPosition:(int)position {
-  [self.dispatcher
+  [self.handler
       showSnackbarMessage:
           bookmark_utils_ios::UpdateBookmarkPositionWithUndoToast(
               node, _rootNode, position, self.bookmarks, self.browserState)];
@@ -852,7 +853,7 @@ std::vector<GURL> GetUrlsToOpen(const std::vector<const BookmarkNode*>& nodes) {
   DCHECK(!folder->is_url());
   DCHECK_GE(folderPicker.editedNodes.size(), 1u);
 
-  [self.dispatcher
+  [self.handler
       showSnackbarMessage:bookmark_utils_ios::MoveBookmarksWithUndoToast(
                               folderPicker.editedNodes, self.bookmarks, folder,
                               self.browserState)];
@@ -1069,7 +1070,7 @@ std::vector<GURL> GetUrlsToOpen(const std::vector<const BookmarkNode*>& nodes) {
       base::UserMetricsAction("MobileBookmarkManagerEntryOpened"));
   UrlLoadParams params = UrlLoadParams::InCurrentTab(url);
   params.web_params.transition_type = ui::PAGE_TRANSITION_AUTO_BOOKMARK;
-  UrlLoadingServiceFactory::GetForBrowserState(self.browserState)->Load(params);
+  UrlLoadingBrowserAgent::FromBrowser(self.browser)->Load(params);
 }
 
 - (void)addNewFolder {
@@ -1113,10 +1114,8 @@ std::vector<GURL> GetUrlsToOpen(const std::vector<const BookmarkNode*>& nodes) {
 
 - (BookmarkHomeViewController*)createControllerWithRootFolder:
     (const bookmarks::BookmarkNode*)folder {
-  BookmarkHomeViewController* controller = [[BookmarkHomeViewController alloc]
-      initWithBrowserState:self.browserState
-                dispatcher:self.dispatcher
-              webStateList:self.webStateList];
+  BookmarkHomeViewController* controller =
+      [[BookmarkHomeViewController alloc] initWithBrowser:self.browser];
   [controller setRootNode:folder];
   controller.homeDelegate = self.homeDelegate;
   return controller;
@@ -2004,6 +2003,8 @@ std::vector<GURL> GetUrlsToOpen(const std::vector<const BookmarkNode*>& nodes) {
 
 - (void)presentationControllerDidDismiss:
     (UIPresentationController*)presentationController {
+  base::RecordAction(
+      base::UserMetricsAction("IOSBookmarkManagerCloseWithSwipe"));
   // Cleanup once the dismissal is complete.
   [self dismissWithURL:GURL()];
 }

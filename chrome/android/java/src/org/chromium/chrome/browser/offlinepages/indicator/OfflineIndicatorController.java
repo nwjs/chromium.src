@@ -9,10 +9,10 @@ import android.app.Activity;
 import android.graphics.Color;
 import android.graphics.drawable.Drawable;
 import android.os.SystemClock;
-import android.support.v7.content.res.AppCompatResources;
 import android.text.TextUtils;
 
 import androidx.annotation.VisibleForTesting;
+import androidx.appcompat.content.res.AppCompatResources;
 
 import org.chromium.base.ApplicationState;
 import org.chromium.base.ApplicationStatus;
@@ -176,7 +176,7 @@ public class OfflineIndicatorController implements ConnectivityDetector.Observer
         if (tab == null) return false;
         if (tab.isShowingErrorPage()) return false;
         if (OfflinePageUtils.isOfflinePage(tab)) return false;
-        if (TextUtils.equals(tab.getUrl(), ContentUrlConstants.ABOUT_BLANK_DISPLAY_URL)) {
+        if (TextUtils.equals(tab.getUrlString(), ContentUrlConstants.ABOUT_BLANK_DISPLAY_URL)) {
             return false;
         }
 
@@ -250,7 +250,7 @@ public class OfflineIndicatorController implements ConnectivityDetector.Observer
                         .setSingleLine(true)
                         .setProfileImage(icon)
                         .setBackgroundColor(Color.BLACK)
-                        .setTextAppearance(R.style.TextAppearance_WhiteBody)
+                        .setTextAppearance(R.style.TextAppearance_TextMedium_Primary_Light)
                         .setDuration(SNACKBAR_DURATION_MS)
                         .setAction(chromeActivity.getString(
                                            R.string.offline_indicator_view_offline_content),

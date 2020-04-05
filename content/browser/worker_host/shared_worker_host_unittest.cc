@@ -53,15 +53,15 @@ class SharedWorkerHostTest : public testing::Test {
     GURL url("http://www.example.com/w.js");
 
     SharedWorkerInstance instance(
-        service_.next_shared_worker_instance_id_++, url,
-        blink::mojom::ScriptType::kClassic,
+        url, blink::mojom::ScriptType::kClassic,
         network::mojom::CredentialsMode::kSameOrigin, "name",
         url::Origin::Create(url), /*content_security_policy=*/"",
         network::mojom::ContentSecurityPolicyType::kReport,
         network::mojom::IPAddressSpace::kPublic,
         blink::mojom::SharedWorkerCreationContextType::kSecure);
-    auto host = std::make_unique<SharedWorkerHost>(&service_, instance,
-                                                   &mock_render_process_host_);
+    auto host = std::make_unique<SharedWorkerHost>(
+        &service_, service_.shared_worker_id_generator_.GenerateNextId(),
+        instance, &mock_render_process_host_);
     auto weak_host = host->AsWeakPtr();
     service_.worker_hosts_.insert(std::move(host));
     return weak_host;
@@ -117,7 +117,11 @@ class SharedWorkerHostTest : public testing::Test {
     host->Start(std::move(factory), std::move(main_script_load_params),
                 std::move(subresource_loader_factories),
                 nullptr /* controller */,
-                nullptr /* controller_service_worker_object_host */);
+                nullptr /* controller_service_worker_object_host */,
+                blink::mojom::FetchClientSettingsObject::New(
+                    network::mojom::ReferrerPolicy::kDefault,
+                    GURL() /* outgoing_referrer */,
+                    blink::mojom::InsecureRequestsPolicy::kDoNotUpgrade));
   }
 
   MessagePortChannel AddClient(

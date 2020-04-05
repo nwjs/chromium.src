@@ -10,6 +10,10 @@
 #include "base/memory/memory_pressure_listener.h"
 #include "base/metrics/user_metrics.h"
 
+namespace base {
+class TimeTicks;
+}  // namespace base
+
 class BreadcrumbManager;
 
 // Listens for and logs application wide breadcrumb events to the
@@ -24,12 +28,15 @@ class ApplicationBreadcrumbsLogger {
 
   // Callback which processes and logs the user action |action| to
   // |breadcrumb_manager_|.
-  void OnUserAction(const std::string& action);
+  void OnUserAction(const std::string& action, base::TimeTicks action_time);
 
   // Callback which processes and logs memory pressure warnings to
   // |breadcrumb_manager_|.
   void OnMemoryPressure(
       base::MemoryPressureListener::MemoryPressureLevel memory_pressure_level);
+
+  // Returns true if |action| (UMA User Action) is user triggered.
+  static bool IsUserTriggeredAction(const std::string& action);
 
   // The BreadcrumbManager to log events.
   BreadcrumbManager* breadcrumb_manager_;

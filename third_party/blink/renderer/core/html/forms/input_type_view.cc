@@ -78,9 +78,9 @@ void InputTypeView::AccessKeyAction(bool) {
 }
 
 bool InputTypeView::ShouldSubmitImplicitly(const Event& event) {
-  return event.IsKeyboardEvent() &&
-         event.type() == event_type_names::kKeypress &&
-         ToKeyboardEvent(event).charCode() == '\r';
+  auto* keyboard_event = DynamicTo<KeyboardEvent>(event);
+  return keyboard_event && event.type() == event_type_names::kKeypress &&
+         keyboard_event->charCode() == '\r';
 }
 
 HTMLFormElement* InputTypeView::FormForSubmission() const {
@@ -88,7 +88,7 @@ HTMLFormElement* InputTypeView::FormForSubmission() const {
 }
 
 bool InputTypeView::TypeShouldForceLegacyLayout() const {
-  return true;
+  return false;
 }
 
 LayoutObject* InputTypeView::CreateLayoutObject(const ComputedStyle& style,
@@ -96,10 +96,7 @@ LayoutObject* InputTypeView::CreateLayoutObject(const ComputedStyle& style,
   return LayoutObject::CreateObject(&GetElement(), style, legacy);
 }
 
-scoped_refptr<ComputedStyle> InputTypeView::CustomStyleForLayoutObject(
-    scoped_refptr<ComputedStyle> original_style) {
-  return original_style;
-}
+void InputTypeView::CustomStyleForLayoutObject(ComputedStyle&) {}
 
 TextDirection InputTypeView::ComputedTextDirection() {
   return GetElement().ComputedStyleRef().Direction();
@@ -208,6 +205,10 @@ bool InputTypeView::HasBadInput() const {
 void ClickHandlingState::Trace(Visitor* visitor) {
   visitor->Trace(checked_radio_button);
   EventDispatchHandlingState::Trace(visitor);
+}
+
+String InputTypeView::RawValue() const {
+  return g_empty_string;
 }
 
 }  // namespace blink

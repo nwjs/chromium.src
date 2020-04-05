@@ -32,7 +32,7 @@ struct Mailbox;
 // Implementation of SharedImageBacking that holds buffer (front buffer/back
 // buffer of swap chain) texture (as gles2::Texture/gles2::TexturePassthrough)
 // and a reference to created swap chain.
-class SharedImageBackingD3D : public SharedImageBacking {
+class SharedImageBackingD3D : public ClearTrackingSharedImageBacking {
  public:
   SharedImageBackingD3D(
       const Mailbox& mailbox,
@@ -41,8 +41,7 @@ class SharedImageBackingD3D : public SharedImageBacking {
       const gfx::ColorSpace& color_space,
       uint32_t usage,
       Microsoft::WRL::ComPtr<IDXGISwapChain1> swap_chain,
-      gles2::Texture* texture,
-      scoped_refptr<gles2::TexturePassthrough> texture_passthrough,
+      scoped_refptr<gles2::TexturePassthrough> texture,
       scoped_refptr<gl::GLImageD3D> image,
       size_t buffer_index,
       Microsoft::WRL::ComPtr<ID3D11Texture2D> d3d11_texture,
@@ -50,10 +49,6 @@ class SharedImageBackingD3D : public SharedImageBacking {
       Microsoft::WRL::ComPtr<IDXGIKeyedMutex> dxgi_keyed_mutex);
 
   ~SharedImageBackingD3D() override;
-
-  // Texture is cleared on initialization.
-  gfx::Rect ClearedRect() const override;
-  void SetClearedRect(const gfx::Rect& cleared_rect) override {}
 
   void Update(std::unique_ptr<gfx::GpuFence> in_fence) override;
 
@@ -80,10 +75,6 @@ class SharedImageBackingD3D : public SharedImageBacking {
   bool PresentSwapChain() override;
 
  protected:
-  std::unique_ptr<SharedImageRepresentationGLTexture> ProduceGLTexture(
-      SharedImageManager* manager,
-      MemoryTypeTracker* tracker) override;
-
   std::unique_ptr<SharedImageRepresentationGLTexturePassthrough>
   ProduceGLTexturePassthrough(SharedImageManager* manager,
                               MemoryTypeTracker* tracker) override;
@@ -95,8 +86,7 @@ class SharedImageBackingD3D : public SharedImageBacking {
 
  private:
   Microsoft::WRL::ComPtr<IDXGISwapChain1> swap_chain_;
-  gles2::Texture* texture_ = nullptr;
-  scoped_refptr<gles2::TexturePassthrough> texture_passthrough_;
+  scoped_refptr<gles2::TexturePassthrough> texture_;
   scoped_refptr<gl::GLImageD3D> image_;
   const size_t buffer_index_;
   Microsoft::WRL::ComPtr<ID3D11Texture2D> d3d11_texture_;

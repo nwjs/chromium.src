@@ -349,12 +349,6 @@ void DownloadItemView::OnDownloadUpdated() {
              model_->GetState() != DownloadItem::CANCELLED) {
     if (!IsShowingDeepScanning())
       TransitionToDeepScanningDialog();
-
-    if (should_open_while_scanning_ &&
-        model_->GetState() == DownloadItem::COMPLETE) {
-      should_open_while_scanning_ = false;
-      model_->OpenDownload();
-    }
   } else {
 #endif
     TransitionToNormalMode();
@@ -673,6 +667,7 @@ void DownloadItemView::AddedToWidget() {
 }
 
 void DownloadItemView::OnThemeChanged() {
+  views::View::OnThemeChanged();
   UpdateColorsFromTheme();
   SchedulePaint();
   UpdateDropdownButton();
@@ -1118,6 +1113,12 @@ void DownloadItemView::TransitionToDeepScanningDialog() {
 
   ShowDeepScanningDialog();
 
+  UpdateAccessibleAlert(
+      l10n_util::GetStringFUTF16(
+          IDS_PROMPT_APP_DEEP_SCANNING_ACCESSIBLE_ALERT,
+          model_->GetFileNameToReportUser().LossyDisplayName()),
+      false);
+
   // We need to load the icon now that the download has the real path.
   LoadIcon();
 
@@ -1250,6 +1251,7 @@ gfx::ImageSkia DownloadItemView::GetWarningIcon() {
           GetNativeTheme()->GetSystemColor(
               ui::NativeTheme::kColorId_DefaultIconColor));
 
+    case download::DOWNLOAD_DANGER_TYPE_BLOCKED_UNSUPPORTED_FILETYPE:
     case download::DOWNLOAD_DANGER_TYPE_DEEP_SCANNED_SAFE:
     case download::DOWNLOAD_DANGER_TYPE_DEEP_SCANNED_OPENED_DANGEROUS:
     case download::DOWNLOAD_DANGER_TYPE_NOT_DANGEROUS:
@@ -1629,7 +1631,7 @@ base::string16 DownloadItemView::ElidedFilename() {
 
 void DownloadItemView::OpenDownloadDuringAsyncScanning() {
   //model_->CompleteSafeBrowsingScan();
-  should_open_while_scanning_ = true;
+  model_->SetOpenWhenComplete(true);
 }
 
 void DownloadItemView::StyleFilenameInLabel(views::StyledLabel* label) {

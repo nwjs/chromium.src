@@ -54,7 +54,10 @@ void ConnectToSharedWorker(
   blink::mojom::SharedWorkerInfoPtr info(blink::mojom::SharedWorkerInfo::New(
       url, std::move(options), std::string(),
       network::mojom::ContentSecurityPolicyType::kReport,
-      network::mojom::IPAddressSpace::kPublic));
+      network::mojom::IPAddressSpace::kPublic,
+      blink::mojom::FetchClientSettingsObject::New(
+          network::mojom::ReferrerPolicy::kDefault, GURL(),
+          blink::mojom::InsecureRequestsPolicy::kDoNotUpgrade)));
 
   mojo::MessagePipe message_pipe;
   *local_port = MessagePortChannel(std::move(message_pipe.handle0));
@@ -62,9 +65,7 @@ void ConnectToSharedWorker(
   mojo::PendingRemote<blink::mojom::SharedWorkerClient> client_proxy;
   client->Bind(client_proxy.InitWithNewPipeAndPassReceiver());
 
-  connector->Connect(std::move(info),
-                     blink::mojom::FetchClientSettingsObject::New(),
-                     std::move(client_proxy),
+  connector->Connect(std::move(info), std::move(client_proxy),
                      blink::mojom::SharedWorkerCreationContextType::kSecure,
                      std::move(message_pipe.handle1), mojo::NullRemote());
 }
@@ -1271,26 +1272,28 @@ class TestSharedWorkerServiceObserver : public SharedWorkerService::Observer {
   ~TestSharedWorkerServiceObserver() override = default;
 
   // SharedWorkerService::Observer:
-  void OnWorkerStarted(const SharedWorkerInstance& instance,
+  void OnWorkerStarted(SharedWorkerId shared_worker_id,
                        int worker_process_id,
                        const base::UnguessableToken& dev_tools_token) override {
-    EXPECT_TRUE(running_workers_.insert({instance, {}}).second);
+    EXPECT_TRUE(running_workers_.insert({shared_worker_id, {}}).second);
   }
-  void OnBeforeWorkerTerminated(const SharedWorkerInstance& instance) override {
-    EXPECT_EQ(1u, running_workers_.erase(instance));
+  void OnBeforeWorkerTerminated(SharedWorkerId shared_worker_id) override {
+    EXPECT_EQ(1u, running_workers_.erase(shared_worker_id));
   }
+  void OnFinalResponseURLDetermined(SharedWorkerId shared_worker_id,
+                                    const GURL& url) override {}
   void OnClientAdded(
-      const SharedWorkerInstance& instance,
+      SharedWorkerId shared_worker_id,
       GlobalFrameRoutingId client_render_frame_host_id) override {
-    auto it = running_workers_.find(instance);
+    auto it = running_workers_.find(shared_worker_id);
     EXPECT_TRUE(it != running_workers_.end());
     std::set<GlobalFrameRoutingId>& clients = it->second;
     EXPECT_TRUE(clients.insert(client_render_frame_host_id).second);
   }
   void OnClientRemoved(
-      const SharedWorkerInstance& instance,
+      SharedWorkerId shared_worker_id,
       GlobalFrameRoutingId client_render_frame_host_id) override {
-    auto it = running_workers_.find(instance);
+    auto it = running_workers_.find(shared_worker_id);
     EXPECT_TRUE(it != running_workers_.end());
     std::set<GlobalFrameRoutingId>& clients = it->second;
     EXPECT_EQ(1u, clients.erase(client_render_frame_host_id));
@@ -1306,7 +1309,7 @@ class TestSharedWorkerServiceObserver : public SharedWorkerService::Observer {
   }
 
  private:
-  base::flat_map<SharedWorkerInstance, std::set<GlobalFrameRoutingId>>
+  base::flat_map<SharedWorkerId, std::set<GlobalFrameRoutingId>>
       running_workers_;
 
   DISALLOW_COPY_AND_ASSIGN(TestSharedWorkerServiceObserver);
@@ -1366,6 +1369,60 @@ TEST_F(SharedWorkerServiceImplTest, Observer) {
 
   EXPECT_EQ(0u, observer.GetWorkerCount());
   EXPECT_EQ(0u, observer.GetClientCount());
+}
+
+TEST_F(SharedWorkerServiceImplTest, EnumerateSharedWorkers) {
+  TestSharedWorkerServiceObserver observer;
+
+  std::unique_ptr<TestWebContents> web_contents =
+      CreateWebContents(GURL("http://example.com/"));
+  TestRenderFrameHost* render_frame_host = web_contents->GetMainFrame();
+  MockRenderProcessHost* renderer_host = render_frame_host->GetProcess();
+  const int process_id = renderer_host->GetID();
+  renderer_host->OverrideBinderForTesting(
+      blink::mojom::SharedWorkerFactory::Name_,
+      base::BindRepeating(&SharedWorkerServiceImplTest::BindSharedWorkerFactory,
+                          base::Unretained(this), process_id));
+
+  MockSharedWorkerClient client;
+  MessagePortChannel local_port;
+  const GURL kUrl("http://example.com/w.js");
+  ConnectToSharedWorker(
+      MakeSharedWorkerConnector(render_frame_host->GetGlobalFrameRoutingId()),
+      kUrl, "name", &client, &local_port);
+
+  mojo::PendingReceiver<blink::mojom::SharedWorkerFactory> factory_receiver =
+      WaitForFactoryReceiver(process_id);
+  MockSharedWorkerFactory factory(std::move(factory_receiver));
+  base::RunLoop().RunUntilIdle();
+
+  mojo::Remote<blink::mojom::SharedWorkerHost> worker_host;
+  mojo::PendingReceiver<blink::mojom::SharedWorker> worker_receiver;
+  EXPECT_TRUE(factory.CheckReceivedCreateSharedWorker(
+      kUrl, "name", network::mojom::ContentSecurityPolicyType::kReport,
+      &worker_host, &worker_receiver));
+  MockSharedWorker worker(std::move(worker_receiver));
+  base::RunLoop().RunUntilIdle();
+
+  int connection_request_id;
+  MessagePortChannel port;
+  EXPECT_TRUE(worker.CheckReceivedConnect(&connection_request_id, &port));
+
+  EXPECT_TRUE(client.CheckReceivedOnCreated());
+
+  // The observer was never registered to the SharedWorkerService.
+  EXPECT_EQ(0u, observer.GetWorkerCount());
+
+  // Retrieve running shared workers.
+  content::BrowserContext::GetDefaultStoragePartition(browser_context_.get())
+      ->GetSharedWorkerService()
+      ->EnumerateSharedWorkers(&observer);
+
+  EXPECT_EQ(1u, observer.GetWorkerCount());
+
+  // Cleanup.
+  worker_host->OnContextClosed();
+  base::RunLoop().RunUntilIdle();
 }
 
 TEST_F(SharedWorkerServiceImplTest, CollapseDuplicateNotifications) {

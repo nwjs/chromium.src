@@ -5,6 +5,7 @@
 #include "ash/assistant/model/assistant_ui_model.h"
 #include "ash/assistant/test/assistant_ash_test_base.h"
 #include "ash/assistant/ui/assistant_ui_constants.h"
+#include "ash/assistant/ui/main_stage/suggestion_chip_view.h"
 #include "base/run_loop.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chromeos/services/assistant/public/mojom/assistant.mojom-shared.h"
@@ -29,12 +30,18 @@ using chromeos::assistant::mojom::AssistantInteractionType;
     EXPECT_EQ(interaction->type, type_);                       \
   })
 
+#define EXPECT_NO_INTERACTION()                                \
+  ({                                                           \
+    base::Optional<AssistantInteractionMetadata> interaction = \
+        current_interaction();                                 \
+    ASSERT_FALSE(interaction.has_value());                     \
+  })
+
 // Ensures that the given view has the focus. If it doesn't, this will print a
 // nice error message indicating which view has the focus instead.
 #define EXPECT_HAS_FOCUS(expected_)                                           \
   ({                                                                          \
-    const views::View* actual =                                               \
-        main_view()->GetFocusManager()->GetFocusedView();                     \
+    const views::View* actual = GetFocusedView();                             \
     EXPECT_TRUE(expected_->HasFocus())                                        \
         << "Expected focus on '" << expected_->GetClassName()                 \
         << "' but it is on '" << (actual ? actual->GetClassName() : "<null>") \
@@ -172,8 +179,79 @@ class AssistantPageViewTest : public AssistantAshTestBase {
     return view->GetBoundsInScreen().CenterPoint();
   }
 
+  void PressKey(ui::KeyboardCode key_code) {
+    // Any key press consists of 2 events, namely |press| and |release|.
+    GetEventGenerator()->PressKey(key_code, /*flags=*/ui::EF_NONE);
+    GetEventGenerator()->ReleaseKey(key_code, /*flags=*/ui::EF_NONE);
+  }
+
+  void PressKeyAndWait(ui::KeyboardCode key_code) {
+    PressKey(key_code);
+    base::RunLoop().RunUntilIdle();
+  }
+
+  ash::SuggestionChipView* CreateAndGetSuggestionChip(
+      const std::string& chip_query) {
+    MockTextInteraction().WithSuggestionChip(chip_query);
+    auto suggestion_chips = GetSuggestionChips();
+    DCHECK_EQ(suggestion_chips.size(), 1u);
+    return suggestion_chips[0];
+  }
+
+  const views::View* GetFocusedView() {
+    return main_view()->GetFocusManager()->GetFocusedView();
+  }
+
  private:
   DISALLOW_COPY_AND_ASSIGN(AssistantPageViewTest);
+};
+
+// Counts the number of Assistant interactions that are started.
+class AssistantInteractionCounter
+    : private chromeos::assistant::mojom::AssistantInteractionSubscriber {
+ public:
+  explicit AssistantInteractionCounter(
+      chromeos::assistant::mojom::Assistant* service) {
+    service->AddAssistantInteractionSubscriber(
+        receiver_.BindNewPipeAndPassRemote());
+  }
+  AssistantInteractionCounter(AssistantInteractionCounter&) = delete;
+  AssistantInteractionCounter& operator=(AssistantInteractionCounter&) = delete;
+  ~AssistantInteractionCounter() override = default;
+
+  int interaction_count() const { return interaction_count_; }
+
+ private:
+  // AssistantInteractionSubscriber implementation:
+  void OnInteractionStarted(
+      chromeos::assistant::mojom::AssistantInteractionMetadataPtr) override {
+    interaction_count_++;
+  }
+  void OnInteractionFinished(
+      chromeos::assistant::mojom::AssistantInteractionResolution) override {}
+  void OnHtmlResponse(const std::string& response,
+                      const std::string& fallback) override {}
+  void OnSuggestionsResponse(
+      std::vector<chromeos::assistant::mojom::AssistantSuggestionPtr> response)
+      override {}
+  void OnTextResponse(const std::string& response) override {}
+  void OnTimersResponse(const std::vector<std::string>& timer_ids) override {}
+  void OnOpenUrlResponse(const ::GURL& url, bool in_background) override {}
+  void OnOpenAppResponse(chromeos::assistant::mojom::AndroidAppInfoPtr app_info,
+                         OnOpenAppResponseCallback callback) override {}
+  void OnSpeechRecognitionStarted() override {}
+  void OnSpeechRecognitionIntermediateResult(
+      const std::string& high_confidence_text,
+      const std::string& low_confidence_text) override {}
+  void OnSpeechRecognitionEndOfUtterance() override {}
+  void OnSpeechRecognitionFinalResult(
+      const std::string& final_result) override {}
+  void OnSpeechLevelUpdated(float speech_level) override {}
+  void OnTtsStarted(bool due_to_error) override {}
+  void OnWaitStarted() override {}
+
+  mojo::Receiver<AssistantInteractionSubscriber> receiver_{this};
+  int interaction_count_ = 0;
 };
 
 }  // namespace
@@ -189,7 +267,7 @@ TEST_F(AssistantPageViewTest,
        ShouldRemainAtMinimumHeightWhenDisplayingOneLiner) {
   ShowAssistantUi();
 
-  MockAssistantInteractionWithResponse("Short one-liner");
+  MockTextInteraction().WithTextResponse("Short one-liner");
 
   base::RunLoop().RunUntilIdle();
   EXPECT_EQ(kMinHeightEmbeddedDip, main_view()->size().height());
@@ -198,7 +276,7 @@ TEST_F(AssistantPageViewTest,
 TEST_F(AssistantPageViewTest, ShouldGetBiggerWithMultilineText) {
   ShowAssistantUi();
 
-  MockAssistantInteractionWithResponse(
+  MockTextInteraction().WithTextResponse(
       "This\ntext\nhas\na\nlot\nof\nlinebreaks.");
 
   base::RunLoop().RunUntilIdle();
@@ -208,7 +286,7 @@ TEST_F(AssistantPageViewTest, ShouldGetBiggerWithMultilineText) {
 TEST_F(AssistantPageViewTest, ShouldGetBiggerWhenWrappingTextLine) {
   ShowAssistantUi();
 
-  MockAssistantInteractionWithResponse(
+  MockTextInteraction().WithTextResponse(
       "This is a very long text without any linebreaks. "
       "This will wrap, and should cause the Assistant view to get bigger. "
       "If it doesn't, this looks really bad. This is what caused b/134963994.");
@@ -257,7 +335,7 @@ TEST_F(AssistantPageViewTest,
        ShouldNotLoseTextfieldFocusWhenDisplayingResponse) {
   ShowAssistantUi();
 
-  MockAssistantInteractionWithResponse("The response");
+  MockTextInteraction().WithTextResponse("The response");
 
   EXPECT_HAS_FOCUS(input_text_field());
 }
@@ -265,11 +343,32 @@ TEST_F(AssistantPageViewTest,
 TEST_F(AssistantPageViewTest, ShouldNotLoseTextfieldFocusWhenResizing) {
   ShowAssistantUi();
 
-  MockAssistantInteractionWithResponse(
+  MockTextInteraction().WithTextResponse(
       "This\ntext\nis\nbig\nenough\nto\ncause\nthe\nassistant\nscreen\nto\n"
       "resize.");
 
   EXPECT_HAS_FOCUS(input_text_field());
+}
+
+TEST_F(AssistantPageViewTest, FocusShouldRemainInAssistantViewWhenPressingTab) {
+  constexpr int kMaxIterations = 100;
+  ShowAssistantUi();
+
+  const views::View* initial_focused_view = GetFocusedView();
+  const views::View* focused_view;
+  int num_views = 0;
+
+  do {
+    PressKeyAndWait(ui::VKEY_TAB);
+    focused_view = GetFocusedView();
+    EXPECT_TRUE(page_view()->Contains(focused_view))
+        << "Focus advanced to view '" << focused_view->GetClassName()
+        << "' which is not a part of the Assistant UI";
+
+    // Sanity check to ensure we do not loop forever
+    num_views++;
+    ASSERT_LT(num_views, kMaxIterations);
+  } while (focused_view != initial_focused_view);
 }
 
 TEST_F(AssistantPageViewTest, ShouldFocusMicWhenOpeningWithHotword) {
@@ -287,7 +386,7 @@ TEST_F(AssistantPageViewTest, ShouldShowGreetingLabelWhenOpening) {
 TEST_F(AssistantPageViewTest, ShouldDismissGreetingLabelAfterQuery) {
   ShowAssistantUi();
 
-  MockAssistantInteractionWithResponse("The response");
+  MockTextInteraction().WithTextResponse("The response");
 
   EXPECT_FALSE(greeting_label()->GetVisible());
 }
@@ -296,7 +395,7 @@ TEST_F(AssistantPageViewTest, ShouldShowGreetingLabelAgainAfterReopening) {
   ShowAssistantUi();
 
   // Cause the label to be hidden.
-  MockAssistantInteractionWithResponse("The response");
+  MockTextInteraction().WithTextResponse("The response");
   ASSERT_FALSE(greeting_label()->GetVisible());
 
   // Close and reopen the Assistant UI.
@@ -340,6 +439,146 @@ TEST_F(AssistantPageViewTest,
   EXPECT_FALSE(current_interaction().has_value());
 }
 
+TEST_F(AssistantPageViewTest, ShouldShowOptInViewUnlessUserHasGivenConsent) {
+  ShowAssistantUi();
+  const views::View* suggestion_chips = suggestion_chip_container();
+  const views::View* opt_in = opt_in_view();
+
+  SetConsentStatus(ConsentStatus::kUnauthorized);
+  EXPECT_TRUE(opt_in->IsDrawn());
+  EXPECT_FALSE(suggestion_chips->IsDrawn());
+
+  SetConsentStatus(ConsentStatus::kNotFound);
+  EXPECT_TRUE(opt_in->IsDrawn());
+  EXPECT_FALSE(suggestion_chips->IsDrawn());
+
+  SetConsentStatus(ConsentStatus::kUnknown);
+  EXPECT_TRUE(opt_in->IsDrawn());
+  EXPECT_FALSE(suggestion_chips->IsDrawn());
+
+  SetConsentStatus(ConsentStatus::kActivityControlAccepted);
+  EXPECT_FALSE(opt_in->IsDrawn());
+  EXPECT_TRUE(suggestion_chips->IsDrawn());
+}
+
+TEST_F(AssistantPageViewTest, ShouldSubmitQueryWhenClickingOnSuggestionChip) {
+  ShowAssistantUi();
+  ash::SuggestionChipView* suggestion_chip =
+      CreateAndGetSuggestionChip("<suggestion chip query>");
+
+  ClickOnAndWait(suggestion_chip);
+
+  EXPECT_INTERACTION_OF_TYPE(AssistantInteractionType::kText);
+  EXPECT_EQ("<suggestion chip query>", current_interaction()->query);
+}
+
+TEST_F(AssistantPageViewTest,
+       ShouldSubmitQueryWhenPressingEnterOnSuggestionChip) {
+  ShowAssistantUi();
+  ash::SuggestionChipView* suggestion_chip =
+      CreateAndGetSuggestionChip("<suggestion chip query>");
+
+  suggestion_chip->RequestFocus();
+  PressKeyAndWait(ui::VKEY_RETURN);
+
+  EXPECT_INTERACTION_OF_TYPE(AssistantInteractionType::kText);
+  EXPECT_EQ("<suggestion chip query>", current_interaction()->query);
+}
+
+TEST_F(AssistantPageViewTest,
+       ShouldNotSubmitQueryWhenPressingSpaceOnSuggestionChip) {
+  ShowAssistantUi();
+  ash::SuggestionChipView* suggestion_chip =
+      CreateAndGetSuggestionChip("<suggestion chip query>");
+
+  suggestion_chip->RequestFocus();
+  PressKeyAndWait(ui::VKEY_SPACE);
+
+  EXPECT_NO_INTERACTION();
+}
+
+TEST_F(AssistantPageViewTest,
+       ShouldOnlySubmitOneQueryWhenClickingSuggestionChipMultipleTimes) {
+  ShowAssistantUi();
+  ash::SuggestionChipView* suggestion_chip =
+      CreateAndGetSuggestionChip("<suggestion chip query>");
+
+  AssistantInteractionCounter counter{assistant_service()};
+  ClickOnAndWait(suggestion_chip, /*check_if_view_can_process_events=*/false);
+  ClickOnAndWait(suggestion_chip, /*check_if_view_can_process_events=*/false);
+  ClickOnAndWait(suggestion_chip, /*check_if_view_can_process_events=*/false);
+  ClickOnAndWait(suggestion_chip, /*check_if_view_can_process_events=*/false);
+
+  EXPECT_EQ(1, counter.interaction_count());
+}
+
+TEST_F(AssistantPageViewTest,
+       ShouldOnlySubmitQueryFromFirstSuggestionChipClickedOn) {
+  ShowAssistantUi();
+  MockTextInteraction()
+      .WithSuggestionChip("<first query>")
+      .WithSuggestionChip("<second query>")
+      .WithSuggestionChip("<third query>");
+  auto suggestion_chips = GetSuggestionChips();
+
+  AssistantInteractionCounter counter{assistant_service()};
+  ClickOnAndWait(suggestion_chips[0]);
+  // All next clicks should be no-ops.
+  ClickOnAndWait(suggestion_chips[0],
+                 /*check_if_view_can_process_events=*/false);
+  ClickOnAndWait(suggestion_chips[1],
+                 /*check_if_view_can_process_events=*/false);
+  ClickOnAndWait(suggestion_chips[2],
+                 /*check_if_view_can_process_events=*/false);
+
+  EXPECT_EQ(1, counter.interaction_count());
+  EXPECT_EQ("<first query>", current_interaction()->query);
+}
+
+TEST_F(AssistantPageViewTest,
+       SuggestionChipsShouldNotBeFocusableAfterSubmittingQuery) {
+  ShowAssistantUi();
+  MockTextInteraction()
+      .WithSuggestionChip("<first query>")
+      .WithSuggestionChip("<second query>")
+      .WithSuggestionChip("<third query>");
+  auto suggestion_chips = GetSuggestionChips();
+
+  suggestion_chips[0]->RequestFocus();
+  PressKeyAndWait(ui::VKEY_RETURN);
+
+  for (auto* suggestion_chip : suggestion_chips) {
+    EXPECT_FALSE(suggestion_chip->IsFocusable())
+        << "Suggestion chip '" << suggestion_chip->GetText()
+        << "' is still focusable";
+  }
+}
+
+TEST_F(AssistantPageViewTest,
+       ShouldFocusTextFieldWhenSubmittingSuggestionChipInTextMode) {
+  ShowAssistantUiInTextMode();
+  ash::SuggestionChipView* suggestion_chip =
+      CreateAndGetSuggestionChip("<suggestion chip query>");
+
+  suggestion_chip->RequestFocus();
+  PressKeyAndWait(ui::VKEY_RETURN);
+
+  EXPECT_HAS_FOCUS(input_text_field());
+}
+
+TEST_F(AssistantPageViewTest,
+       ShouldFocusMicWhenSubmittingSuggestionChipInVoiceMode) {
+  ShowAssistantUi();
+  ash::SuggestionChipView* suggestion_chip =
+      CreateAndGetSuggestionChip("<suggestion chip query>");
+  ClickOnAndWait(voice_input_toggle());
+
+  suggestion_chip->RequestFocus();
+  PressKeyAndWait(ui::VKEY_RETURN);
+
+  EXPECT_HAS_FOCUS(mic_view());
+}
+
 TEST_F(AssistantPageViewTest,
        ShouldFocusTextFieldWhenPressingKeyboardInputToggle) {
   ShowAssistantUiInVoiceMode();
@@ -349,30 +588,52 @@ TEST_F(AssistantPageViewTest,
   EXPECT_HAS_FOCUS(input_text_field());
 }
 
+TEST_F(AssistantPageViewTest,
+       ShouldNotScrollSuggestionChipsWhenSubmittingQuery) {
+  ShowAssistantUiInTextMode();
+  MockTextInteraction()
+      .WithSuggestionChip("there are                                        x")
+      .WithSuggestionChip("enough queries                                   x")
+      .WithSuggestionChip("to ensure                                        x")
+      .WithSuggestionChip("the                                              x")
+      .WithSuggestionChip("suggestion chips container                       x")
+      .WithSuggestionChip("can scroll.                                      x");
+
+  views::View* chip = GetSuggestionChips()[3];
+  chip->RequestFocus();
+  chip->ScrollViewToVisible();
+
+  gfx::Rect initial_bounds = chip->GetBoundsInScreen();
+  PressKeyAndWait(ui::VKEY_RETURN);
+  gfx::Rect final_bounds = chip->GetBoundsInScreen();
+
+  EXPECT_EQ(initial_bounds, final_bounds);
+}
+
 TEST_F(AssistantPageViewTest, RememberAndShowHistory) {
   ShowAssistantUiInTextMode();
   EXPECT_HAS_FOCUS(input_text_field());
 
-  MockAssistantInteractionWithQueryAndResponse("query 1", "response 1");
-  MockAssistantInteractionWithQueryAndResponse("query 2", "response 2");
+  MockTextInteraction().WithQuery("query 1").WithTextResponse("response 1");
+  MockTextInteraction().WithQuery("query 2").WithTextResponse("response 2");
 
   EXPECT_HAS_FOCUS(input_text_field());
 
   EXPECT_TRUE(input_text_field()->GetText().empty());
 
-  GetEventGenerator()->PressKey(ui::KeyboardCode::VKEY_UP, /*flags=*/0);
+  PressKey(ui::VKEY_UP);
   EXPECT_EQ(input_text_field()->GetText(), base::UTF8ToUTF16("query 2"));
 
-  GetEventGenerator()->PressKey(ui::KeyboardCode::VKEY_UP, /*flags=*/0);
+  PressKey(ui::VKEY_UP);
   EXPECT_EQ(input_text_field()->GetText(), base::UTF8ToUTF16("query 1"));
 
-  GetEventGenerator()->PressKey(ui::KeyboardCode::VKEY_UP, /*flags=*/0);
+  PressKey(ui::VKEY_UP);
   EXPECT_EQ(input_text_field()->GetText(), base::UTF8ToUTF16("query 1"));
 
-  GetEventGenerator()->PressKey(ui::KeyboardCode::VKEY_DOWN, /*flags=*/0);
+  PressKey(ui::VKEY_DOWN);
   EXPECT_EQ(input_text_field()->GetText(), base::UTF8ToUTF16("query 2"));
 
-  GetEventGenerator()->PressKey(ui::KeyboardCode::VKEY_DOWN, /*flags=*/0);
+  PressKey(ui::VKEY_DOWN);
   EXPECT_TRUE(input_text_field()->GetText().empty());
 }
 
@@ -623,6 +884,14 @@ TEST_F(AssistantPageViewTabletModeTest,
   CloseAssistantUi();
 
   EXPECT_FALSE(text_field_observer.was_drawn());
+}
+
+TEST_F(AssistantPageViewTabletModeTest, ShouldCloseAssistantUIInOverviewMode) {
+  ShowAssistantUi(AssistantEntryPoint::kLongPressLauncher);
+  EXPECT_TRUE(IsVisible());
+
+  StartOverview();
+  EXPECT_FALSE(IsVisible());
 }
 
 }  // namespace ash

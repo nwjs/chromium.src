@@ -5,7 +5,6 @@
 #include "components/exo/test/exo_test_base.h"
 
 #include "ash/shell.h"
-#include "components/exo/test/exo_test_helper.h"
 #include "components/exo/wm_helper.h"
 #include "components/exo/wm_helper_chromeos.h"
 #include "components/viz/service/frame_sinks/frame_sink_manager_impl.h"
@@ -21,11 +20,9 @@ namespace test {
 ////////////////////////////////////////////////////////////////////////////////
 // ExoTestBase, public:
 
-ExoTestBase::ExoTestBase()
-    : exo_test_helper_(new ExoTestHelper),
-      scale_mode_(ui::ScopedAnimationDurationScaleMode::ZERO_DURATION) {}
+ExoTestBase::ExoTestBase() = default;
 
-ExoTestBase::~ExoTestBase() {}
+ExoTestBase::~ExoTestBase() = default;
 
 void ExoTestBase::SetUp() {
   AshTestBase::SetUp();
@@ -41,7 +38,7 @@ void ExoTestBase::TearDown() {
 
 viz::SurfaceManager* ExoTestBase::GetSurfaceManager() {
   return static_cast<ui::InProcessContextFactory*>(
-             aura::Env::GetInstance()->context_factory_private())
+             aura::Env::GetInstance()->context_factory())
       ->GetFrameSinkManager()
       ->surface_manager();
 }

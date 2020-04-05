@@ -232,12 +232,11 @@ void SurfaceTreeHost::SubmitCompositorFrame() {
     const std::string* app_id = GetShellApplicationId(toplevel);
     const std::string* startup_id = GetShellStartupId(toplevel);
     auto* shell_surface = GetShellSurfaceBaseForWindow(toplevel);
-    DCHECK(!frame.size_in_pixels().IsEmpty())
+    CHECK(!frame.size_in_pixels().IsEmpty())
         << " Title=" << shell_surface->GetWindowTitle()
         << ", AppType=" << static_cast<int>(app_type)
         << ", AppId=" << (app_id ? *app_id : "''")
         << ", StartupId=" << (startup_id ? *startup_id : "''");
-    return;
   }
 
   root_surface_->AppendSurfaceHierarchyCallbacks(&frame_callbacks_,

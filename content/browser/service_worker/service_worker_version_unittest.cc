@@ -92,20 +92,20 @@ class ServiceWorkerVersionTest : public testing::Test {
     scope_ = GURL("https://www.example.com/test/");
     blink::mojom::ServiceWorkerRegistrationOptions options;
     options.scope = scope_;
-    registration_ =
-        helper_->context()->registry()->CreateNewRegistration(options);
-    version_ = helper_->context()->registry()->CreateNewVersion(
-        registration_.get(),
+    registration_ = CreateNewServiceWorkerRegistration(
+        helper_->context()->registry(), options);
+    version_ = CreateNewServiceWorkerVersion(
+        helper_->context()->registry(), registration_.get(),
         GURL("https://www.example.com/test/service_worker.js"),
         blink::mojom::ScriptType::kClassic);
     EXPECT_EQ(url::Origin::Create(scope_), version_->script_origin());
-    std::vector<ServiceWorkerDatabase::ResourceRecord> records;
-    records.push_back(WriteToDiskCacheSync(
+    std::vector<storage::mojom::ServiceWorkerResourceRecordPtr> records;
+    records.push_back(WriteToDiskCacheWithIdSync(
         helper_->context()->storage(), version_->script_url(), 10,
         {} /* headers */, "I'm a body", "I'm a meta data"));
     version_->script_cache_map()->SetResources(records);
-    version_->SetMainScriptHttpResponseInfo(
-        EmbeddedWorkerTestHelper::CreateHttpResponseInfo());
+    version_->SetMainScriptResponse(
+        EmbeddedWorkerTestHelper::CreateMainScriptResponse());
     if (GetFetchHandlerExistence() !=
         ServiceWorkerVersion::FetchHandlerExistence::UNKNOWN) {
       version_->set_fetch_handler_existence(GetFetchHandlerExistence());
@@ -1114,10 +1114,10 @@ TEST_F(ServiceWorkerVersionTest, BadOrigin) {
   const GURL scope("bad-origin://www.example.com/test/");
   blink::mojom::ServiceWorkerRegistrationOptions options;
   options.scope = scope;
-  auto registration =
-      helper_->context()->registry()->CreateNewRegistration(options);
-  auto version = helper_->context()->registry()->CreateNewVersion(
-      registration_.get(),
+  auto registration = CreateNewServiceWorkerRegistration(
+      helper_->context()->registry(), options);
+  auto version = CreateNewServiceWorkerVersion(
+      helper_->context()->registry(), registration_.get(),
       GURL("bad-origin://www.example.com/test/service_worker.js"),
       blink::mojom::ScriptType::kClassic);
   ASSERT_EQ(blink::ServiceWorkerStatusCode::kErrorDisallowed,
@@ -1214,13 +1214,18 @@ TEST_F(ServiceWorkerVersionTest,
   // This is necessary to make OnBeginNavigationCommit() work.
   auto remote_controller = container_host->GetRemoteControllerServiceWorker();
 
+  // Establish a dummy connection to allow sending messages without errors.
+  mojo::PendingRemote<network::mojom::CrossOriginEmbedderPolicyReporter>
+      reporter;
+  auto dummy = reporter.InitWithNewPipeAndPassReceiver();
+
   // Now begin the navigation commit with the same process id used by the
   // worker. This should cause the worker to stop being considered foreground
   // priority.
   container_host->OnBeginNavigationCommit(
       version_->embedded_worker()->process_id(),
-      /* render_frame_id = */ 1,
-      network::mojom::CrossOriginEmbedderPolicy::kNone);
+      /* render_frame_id = */ 1, network::CrossOriginEmbedderPolicy(),
+      std::move(reporter));
 
   // RenderProcessHost should be notified of foreground worker.
   base::RunLoop().RunUntilIdle();

@@ -12,6 +12,7 @@ import org.chromium.weblayer_private.interfaces.ICrashReporterController;
 import org.chromium.weblayer_private.interfaces.IObjectWrapper;
 import org.chromium.weblayer_private.interfaces.IProfile;
 import org.chromium.weblayer_private.interfaces.IRemoteFragmentClient;
+import org.chromium.weblayer_private.interfaces.IWebLayerClient;
 
 interface IWebLayer {
   // Deprecated, use loadAsync().
@@ -71,4 +72,10 @@ interface IWebLayer {
 
   // Forwards download intent notifications to the implementation.
   void onReceivedDownloadNotification(in IObjectWrapper appContext, in Intent intent) = 11;
+
+  // Added in Version 82.
+  void enumerateAllProfileNames(in IObjectWrapper valueCallback) = 12;
+
+  // Added in Version 83.
+  void setClient(in IWebLayerClient client) = 13;
 }

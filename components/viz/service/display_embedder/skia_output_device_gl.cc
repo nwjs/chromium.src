@@ -20,6 +20,7 @@
 #include "third_party/skia/include/gpu/GrBackendSurface.h"
 #include "third_party/skia/include/gpu/GrContext.h"
 #include "third_party/skia/include/gpu/gl/GrGLTypes.h"
+#include "ui/gfx/buffer_format_util.h"
 #include "ui/gl/dc_renderer_layer_params.h"
 #include "ui/gl/gl_bindings.h"
 #include "ui/gl/gl_context.h"
@@ -35,14 +36,14 @@ SkiaOutputDeviceGL::SkiaOutputDeviceGL(
     scoped_refptr<gpu::gles2::FeatureInfo> feature_info,
     gpu::MemoryTracker* memory_tracker,
     DidSwapBufferCompleteCallback did_swap_buffer_complete_callback)
-    : SkiaOutputDevice(/*need_swap_semaphore=*/false,
-                       memory_tracker,
+    : SkiaOutputDevice(memory_tracker,
                        std::move(did_swap_buffer_complete_callback)),
       mailbox_manager_(mailbox_manager),
       context_state_(context_state),
       gl_surface_(std::move(gl_surface)),
       supports_async_swap_(gl_surface_->SupportsAsyncSwap()) {
-  capabilities_.flipped_output_surface = gl_surface_->FlipsVertically();
+  capabilities_.uses_default_gl_framebuffer = true;
+  capabilities_.output_surface_origin = gl_surface_->GetOrigin();
   capabilities_.supports_post_sub_buffer = gl_surface_->SupportsPostSubBuffer();
   if (feature_info->workarounds()
           .disable_post_sub_buffers_for_onscreen_surfaces) {
@@ -53,7 +54,6 @@ SkiaOutputDeviceGL::SkiaOutputDeviceGL(
       gl_surface_->SupportsCommitOverlayPlanes();
   capabilities_.supports_gpu_vsync = gl_surface_->SupportsGpuVSync();
   capabilities_.supports_dc_layers = gl_surface_->SupportsDCLayers();
-  capabilities_.supports_dc_video_overlays = gl_surface_->UseOverlaysForVideo();
 #if defined(OS_ANDROID)
   // TODO(weiliangc): This capability is used to check whether we should do
   // overlay. Since currently none of the other overlay system is implemented,
@@ -89,18 +89,32 @@ SkiaOutputDeviceGL::SkiaOutputDeviceGL(
   }
   CHECK_GL_ERROR();
   supports_alpha_ = alpha_bits > 0;
+
+  capabilities_.sk_color_type =
+      supports_alpha_ ? kRGBA_8888_SkColorType : kRGB_888x_SkColorType;
+  capabilities_.gr_backend_format =
+      context_state_->gr_context()->defaultBackendFormat(
+          capabilities_.sk_color_type, GrRenderable::kYes);
+  capabilities_.sk_color_type_for_hdr = kRGBA_F16_SkColorType;
+  capabilities_.gr_backend_format_for_hdr =
+      context_state_->gr_context()->defaultBackendFormat(
+          capabilities_.sk_color_type_for_hdr, GrRenderable::kYes);
 }
 
-SkiaOutputDeviceGL::~SkiaOutputDeviceGL() = default;
+SkiaOutputDeviceGL::~SkiaOutputDeviceGL() {
+  // gl_surface_ will be destructed soon.
+  memory_type_tracker_->TrackMemFree(backbuffer_estimated_size_);
+}
 
 bool SkiaOutputDeviceGL::Reshape(const gfx::Size& size,
                                  float device_scale_factor,
                                  const gfx::ColorSpace& color_space,
-                                 bool has_alpha,
+                                 gfx::BufferFormat buffer_format,
                                  gfx::OverlayTransform transform) {
   DCHECK_EQ(transform, gfx::OVERLAY_TRANSFORM_NONE);
 
-  if (!gl_surface_->Resize(size, device_scale_factor, color_space, has_alpha)) {
+  if (!gl_surface_->Resize(size, device_scale_factor, color_space,
+                           gfx::AlphaBitsForBufferFormat(buffer_format))) {
     DLOG(ERROR) << "Failed to resize.";
     return false;
   }
@@ -108,27 +122,36 @@ bool SkiaOutputDeviceGL::Reshape(const gfx::Size& size,
       SkSurfaceProps(0, SkSurfaceProps::kLegacyFontHost_InitType);
 
   GrGLFramebufferInfo framebuffer_info;
-  framebuffer_info.fFBOID = gl_surface_->GetBackingFramebufferObject();
+  framebuffer_info.fFBOID = 0;
+  DCHECK_EQ(gl_surface_->GetBackingFramebufferObject(), 0u);
 
   SkColorType color_type;
+  // TODO(https://crbug.com/1049334): The pixel format should be determined by
+  // |buffer_format|, not |color_space|, and not |supports_alpha_|.
   if (color_space.IsHDR()) {
+    color_type = capabilities_.sk_color_type_for_hdr;
     framebuffer_info.fFormat = GL_RGBA16F;
-    color_type = kRGBA_F16_SkColorType;
+    DCHECK_EQ(capabilities_.gr_backend_format_for_hdr.asGLFormat(),
+              GrGLFormat::kRGBA16F);
   } else if (supports_alpha_) {
+    color_type = capabilities_.sk_color_type;
     framebuffer_info.fFormat = GL_RGBA8;
-    color_type = kRGBA_8888_SkColorType;
+    DCHECK_EQ(capabilities_.gr_backend_format.asGLFormat(), GrGLFormat::kRGBA8);
   } else {
-    framebuffer_info.fFormat = GL_RGB8_OES;
-    color_type = kRGB_888x_SkColorType;
+    color_type = capabilities_.sk_color_type;
+    framebuffer_info.fFormat = GL_RGB8;
+    DCHECK_EQ(capabilities_.gr_backend_format.asGLFormat(), GrGLFormat::kRGB8);
   }
   // TODO(kylechar): We might need to support RGB10A2 for HDR10. HDR10 was only
   // used with Windows updated RS3 (2017) as a workaround for a DWM bug so it
   // might not be relevant to support anymore as a result.
 
-  GrBackendRenderTarget render_target(size.width(), size.height(), 0, 8,
-                                      framebuffer_info);
-  auto origin = gl_surface_->FlipsVertically() ? kTopLeft_GrSurfaceOrigin
-                                               : kBottomLeft_GrSurfaceOrigin;
+  GrBackendRenderTarget render_target(size.width(), size.height(),
+                                      /*sampleCnt=*/0,
+                                      /*stencilBits=*/0, framebuffer_info);
+  auto origin = (gl_surface_->GetOrigin() == gfx::SurfaceOrigin::kTopLeft)
+                    ? kTopLeft_GrSurfaceOrigin
+                    : kBottomLeft_GrSurfaceOrigin;
   sk_surface_ = SkSurface::MakeFromBackendRenderTarget(
       context_state_->gr_context(), render_target, origin, color_type,
       color_space.ToSkColorSpace(), &surface_props);
@@ -139,6 +162,19 @@ bool SkiaOutputDeviceGL::Reshape(const gfx::Size& size,
                << framebuffer_info.fFormat << " " << color_space.ToString()
                << " " << size.ToString();
   }
+
+  memory_type_tracker_->TrackMemFree(backbuffer_estimated_size_);
+  GLenum format = gpu::gles2::TextureManager::ExtractFormatFromStorageFormat(
+      framebuffer_info.fFormat);
+  GLenum type = gpu::gles2::TextureManager::ExtractTypeFromStorageFormat(
+      framebuffer_info.fFormat);
+  uint32_t estimated_size;
+  gpu::gles2::GLES2Util::ComputeImageDataSizes(
+      size.width(), size.height(), 1 /* depth */, format, type,
+      4 /* alignment */, &estimated_size, nullptr, nullptr);
+  backbuffer_estimated_size_ = estimated_size * gl_surface_->GetBufferCount();
+  memory_type_tracker_->TrackMemAlloc(backbuffer_estimated_size_);
+
   return !!sk_surface_;
 }
 
@@ -278,12 +314,13 @@ void SkiaOutputDeviceGL::DiscardBackbuffer() {
   gl_surface_->SetBackbufferAllocation(false);
 }
 
-SkSurface* SkiaOutputDeviceGL::BeginPaint() {
+SkSurface* SkiaOutputDeviceGL::BeginPaint(
+    std::vector<GrBackendSemaphore>* end_semaphores) {
   DCHECK(sk_surface_);
   return sk_surface_.get();
 }
 
-void SkiaOutputDeviceGL::EndPaint(const GrBackendSemaphore& semaphore) {}
+void SkiaOutputDeviceGL::EndPaint() {}
 
 scoped_refptr<gl::GLImage> SkiaOutputDeviceGL::GetGLImageForMailbox(
     const gpu::Mailbox& mailbox) {

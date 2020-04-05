@@ -8,13 +8,14 @@
 #include <memory>
 #include <utility>
 
+#include "base/metrics/histogram_functions.h"
+#include "components/schema_org/common/metadata.mojom-blink.h"
 #include "third_party/blink/public/mojom/document_metadata/document_metadata.mojom-blink.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/element_traversal.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/html/html_element.h"
 #include "third_party/blink/renderer/core/html_names.h"
-#include "third_party/blink/renderer/platform/instrumentation/histogram.h"
 #include "third_party/blink/renderer/platform/instrumentation/tracing/trace_event.h"
 #include "third_party/blink/renderer/platform/json/json_parser.h"
 #include "third_party/blink/renderer/platform/json/json_values.h"
@@ -26,14 +27,14 @@ namespace blink {
 
 namespace {
 
-using mojom::blink::Entity;
-using mojom::blink::EntityPtr;
-using mojom::blink::Property;
-using mojom::blink::PropertyPtr;
-using mojom::blink::Values;
-using mojom::blink::ValuesPtr;
 using mojom::blink::WebPage;
 using mojom::blink::WebPagePtr;
+using schema_org::mojom::blink::Entity;
+using schema_org::mojom::blink::EntityPtr;
+using schema_org::mojom::blink::Property;
+using schema_org::mojom::blink::PropertyPtr;
+using schema_org::mojom::blink::Values;
+using schema_org::mojom::blink::ValuesPtr;
 
 // App Indexing enforces a max nesting depth of 5. Our top level message
 // corresponds to the WebPage, so this only leaves 4 more levels. We will parse
@@ -248,9 +249,15 @@ void ExtractEntityFromTopLevelObject(const JSONObject& val,
   ExtractTopLevelEntity(val, entities);
 }
 
-// ExtractionStatus is used in UMA, hence is append-only.
-// kCount must be the last entry.
-enum ExtractionStatus { kOK, kEmpty, kParseFailure, kWrongType, kCount };
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+enum ExtractionStatus {
+  kOK,
+  kEmpty,
+  kParseFailure,
+  kWrongType,
+  kMaxValue = kWrongType,
+};
 
 ExtractionStatus ExtractMetadata(const Element& root,
                                  Vector<EntityPtr>& entities) {
@@ -261,7 +268,7 @@ ExtractionStatus ExtractMetadata(const Element& root,
       std::unique_ptr<JSONValue> json = ParseJSON(element.textContent());
       if (!json) {
         LOG(ERROR) << "Failed to parse json.";
-        return kParseFailure;
+        return ExtractionStatus::kParseFailure;
       }
       switch (json->GetType()) {
         case JSONValue::ValueType::kTypeArray:
@@ -272,14 +279,14 @@ ExtractionStatus ExtractMetadata(const Element& root,
                                           entities);
           break;
         default:
-          return kWrongType;
+          return ExtractionStatus::kWrongType;
       }
     }
   }
   if (entities.IsEmpty()) {
-    return kEmpty;
+    return ExtractionStatus::kEmpty;
   }
-  return kOK;
+  return ExtractionStatus::kOK;
 }
 
 }  // namespace
@@ -301,20 +308,19 @@ WebPagePtr DocumentMetadataExtractor::Extract(const Document& document) {
   ExtractionStatus status = ExtractMetadata(*html, page->entities);
   base::TimeDelta elapsed_time = base::TimeTicks::Now() - start_time;
 
-  DEFINE_STATIC_LOCAL(EnumerationHistogram, status_histogram,
-                      ("CopylessPaste.ExtractionStatus", kCount));
-  status_histogram.Count(status);
+  base::UmaHistogramEnumeration("CopylessPaste.ExtractionStatus", status);
 
-  if (status != kOK) {
-    DEFINE_STATIC_LOCAL(
-        CustomCountHistogram, extraction_histogram,
-        ("CopylessPaste.ExtractionFailedUs", 1, 1000 * 1000, 50));
-    extraction_histogram.CountMicroseconds(elapsed_time);
+  if (status != ExtractionStatus::kOK) {
+    base::UmaHistogramCustomMicrosecondsTimes(
+        "CopylessPaste.ExtractionFailedUs", elapsed_time,
+        base::TimeDelta::FromMicroseconds(1), base::TimeDelta::FromSeconds(1),
+        50);
     return nullptr;
   }
-  DEFINE_STATIC_LOCAL(CustomCountHistogram, extraction_histogram,
-                      ("CopylessPaste.ExtractionUs", 1, 1000 * 1000, 50));
-  extraction_histogram.CountMicroseconds(elapsed_time);
+  base::UmaHistogramCustomMicrosecondsTimes(
+      "CopylessPaste.ExtractionUs", elapsed_time,
+      base::TimeDelta::FromMicroseconds(1), base::TimeDelta::FromSeconds(1),
+      50);
 
   page->url = document.Url();
   page->title = document.title();

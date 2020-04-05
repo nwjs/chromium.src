@@ -9,6 +9,7 @@ import android.text.TextUtils;
 
 import androidx.annotation.Nullable;
 
+import org.chromium.base.IntentUtils;
 import org.chromium.base.SysUtils;
 import org.chromium.base.TraceEvent;
 import org.chromium.base.supplier.Supplier;
@@ -16,10 +17,11 @@ import org.chromium.chrome.browser.ChromeActivity;
 import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.ServiceTabLauncher;
 import org.chromium.chrome.browser.init.StartupTabPreloader;
-import org.chromium.chrome.browser.net.spdyproxy.DataReductionProxySettings;
+import org.chromium.chrome.browser.ntp.NewTabPage;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabAssociatedApp;
 import org.chromium.chrome.browser.tab.TabBuilder;
+import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tab.TabDelegateFactory;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabParentIntent;
@@ -27,18 +29,28 @@ import org.chromium.chrome.browser.tab.TabRedirectHandler;
 import org.chromium.chrome.browser.tab.TabState;
 import org.chromium.chrome.browser.tab_activity_glue.ReparentingDelegateFactory;
 import org.chromium.chrome.browser.tab_activity_glue.ReparentingTask;
-import org.chromium.chrome.browser.util.IntentUtils;
 import org.chromium.components.url_formatter.UrlFormatter;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.common.Referrer;
 import org.chromium.ui.base.PageTransition;
 import org.chromium.ui.base.WindowAndroid;
+import org.chromium.url.GURL;
 
 /**
  * This class creates various kinds of new tabs and adds them to the right {@link TabModel}.
  */
 public class ChromeTabCreator extends TabCreatorManager.TabCreator {
+    /**Interface to handle showing overview instead of NTP if needed. */
+    public interface OverviewNTPCreator {
+        /**
+         * Handles showing the StartSurface instead of the NTP if needed.
+         * @param isNTPUrl Whether tab with NTP should be created.
+         * @param isIncognito Whether tab is created in incognito.
+         * @return Whether NTP creation was handled.
+         */
+        boolean handleCreateNTPIfNeeded(boolean isNTP, boolean incognito);
+    }
 
     private final ChromeActivity mActivity;
     private final StartupTabPreloader mStartupTabPreloader;
@@ -48,15 +60,19 @@ public class ChromeTabCreator extends TabCreatorManager.TabCreator {
     private TabModel mTabModel;
     private TabModelOrderController mOrderController;
     private Supplier<TabDelegateFactory> mTabDelegateFactorySupplier;
+    @Nullable
+    private OverviewNTPCreator mOverviewNTPCreator;
 
     public ChromeTabCreator(ChromeActivity activity, WindowAndroid nativeWindow,
             StartupTabPreloader startupTabPreloader,
-            Supplier<TabDelegateFactory> tabDelegateFactory, boolean incognito) {
+            Supplier<TabDelegateFactory> tabDelegateFactory, boolean incognito,
+            OverviewNTPCreator overviewNTPCreator) {
         mActivity = activity;
         mStartupTabPreloader = startupTabPreloader;
         mNativeWindow = nativeWindow;
         mTabDelegateFactorySupplier = tabDelegateFactory;
         mIncognito = incognito;
+        mOverviewNTPCreator = overviewNTPCreator;
     }
 
     @Override
@@ -105,12 +121,19 @@ public class ChromeTabCreator extends TabCreatorManager.TabCreator {
      */
     private Tab createNewTab(LoadUrlParams loadUrlParams, @TabLaunchType int type, Tab parent,
             int position, Intent intent) {
+        if (mOverviewNTPCreator != null
+                && mOverviewNTPCreator.handleCreateNTPIfNeeded(
+                        NewTabPage.isNTPUrl(loadUrlParams.getUrl()), mIncognito)) {
+            return null;
+        }
         try {
             TraceEvent.begin("ChromeTabCreator.createNewTab");
             int parentId = parent != null ? parent.getId() : Tab.INVALID_TAB_ID;
 
+            GURL url = UrlFormatter.fixupUrl(loadUrlParams.getUrl());
+
             // Sanitize the url.
-            loadUrlParams.setUrl(UrlFormatter.fixupUrl(loadUrlParams.getUrl()));
+            loadUrlParams.setUrl(url.getValidSpecOrEmpty());
             loadUrlParams.setTransitionType(getTransitionType(type, intent));
 
             // Check if the tab is being created asynchronously.
@@ -123,6 +146,8 @@ public class ChromeTabCreator extends TabCreatorManager.TabCreator {
             TabDelegateFactory delegateFactory =
                     parent == null ? createDefaultTabDelegateFactory() : null;
             Tab tab;
+            @TabCreationState
+            int creationState = TabCreationState.LIVE_IN_FOREGROUND;
             if (asyncParams != null && asyncParams.getTabToReparent() != null) {
                 type = TabLaunchType.FROM_REPARENTING;
 
@@ -131,7 +156,7 @@ public class ChromeTabCreator extends TabCreatorManager.TabCreator {
                 ReparentingTask.from(tab).finish(
                         ReparentingDelegateFactory.createReparentingTaskDelegate(
                                 mActivity.getCompositorViewHolder(), mActivity.getWindowAndroid(),
-                                mActivity.getTabDelegateFactory()),
+                                createDefaultTabDelegateFactory()),
                         params.getFinalizeCallback());
             } else if (asyncParams != null && asyncParams.getWebContents() != null) {
                 openInForeground = true;
@@ -169,6 +194,7 @@ public class ChromeTabCreator extends TabCreatorManager.TabCreator {
                               .setDelegateFactory(delegateFactory)
                               .setInitiallyHidden(!openInForeground)
                               .build();
+                creationState = TabCreationState.FROZEN_FOR_LAZY_LOAD;
             } else {
                 tab = (mStartupTabPreloader != null)
                         ? mStartupTabPreloader.takeTabIfMatchingOrDestroy(loadUrlParams, type)
@@ -195,7 +221,10 @@ public class ChromeTabCreator extends TabCreatorManager.TabCreator {
                         tab.getWebContents());
             }
 
-            mTabModel.addTab(tab, position, type);
+            if (creationState == TabCreationState.LIVE_IN_FOREGROUND && !openInForeground) {
+                creationState = TabCreationState.LIVE_IN_BACKGROUND;
+            }
+            mTabModel.addTab(tab, position, type, creationState);
             return tab;
         } finally {
             TraceEvent.end("ChromeTabCreator.createNewTab");
@@ -226,7 +255,10 @@ public class ChromeTabCreator extends TabCreatorManager.TabCreator {
                           .setDelegateFactory(delegateFactory)
                           .setInitiallyHidden(!openInForeground)
                           .build();
-        mTabModel.addTab(tab, position, type);
+        @TabCreationState
+        int creationState = openInForeground ? TabCreationState.LIVE_IN_FOREGROUND
+                                             : TabCreationState.LIVE_IN_BACKGROUND;
+        mTabModel.addTab(tab, position, type, creationState);
         return true;
     }
 
@@ -270,12 +302,6 @@ public class ChromeTabCreator extends TabCreatorManager.TabCreator {
             String appId, boolean forceNewTab, Intent intent, long intentTimestamp) {
         assert !mIncognito;
         boolean isLaunchedFromChrome = TextUtils.equals(appId, mActivity.getPackageName());
-
-        // If an external app sends an intent for a Weblite URL and the Data Reduction Proxy is
-        // using Weblite mode, then use the URL in the lite_url parameter if its scheme is HTTP.
-        // This is used by ChromeTabbedActvity intents so that the user does not receive Weblite
-        // pages when they could be served a Data Reduction Proxy preview page.
-        if (url != null) url = DataReductionProxySettings.getInstance().maybeRewriteWebliteUrl(url);
 
         if (forceNewTab && !isLaunchedFromChrome) {
             // We don't associate the tab with that app ID, as it is assumed that if the
@@ -325,7 +351,28 @@ public class ChromeTabCreator extends TabCreatorManager.TabCreator {
         Tab parent = selector != null ? selector.getTabById(state.parentId) : null;
         boolean selectTab = mOrderController.willOpenInForeground(
                 TabLaunchType.FROM_RESTORE, state.isIncognito());
-        Tab tab = TabBuilder.createFromFrozenState()
+        AsyncTabParams asyncParams = AsyncTabParamsManager.remove(id);
+        Tab tab = null;
+        @TabLaunchType
+        int launchType = TabLaunchType.FROM_RESTORE;
+        @TabCreationState
+        int creationState = TabCreationState.FROZEN_ON_RESTORE;
+        if (asyncParams != null && asyncParams.getTabToReparent() != null) {
+            creationState = TabCreationState.LIVE_IN_BACKGROUND;
+
+            TabReparentingParams params = (TabReparentingParams) asyncParams;
+            tab = params.getTabToReparent();
+            if (tab.isIncognito() != state.isIncognito()) {
+                throw new IllegalStateException("Incognito state mismatch");
+            }
+            ReparentingTask.from(tab).finish(
+                    ReparentingDelegateFactory.createReparentingTaskDelegate(
+                            mActivity.getCompositorViewHolder(), mActivity.getWindowAndroid(),
+                            createDefaultTabDelegateFactory()),
+                    params.getFinalizeCallback());
+        }
+        if (tab == null) {
+            tab = TabBuilder.createFromFrozenState()
                           .setId(id)
                           .setParent(parent)
                           .setIncognito(state.isIncognito())
@@ -334,8 +381,9 @@ public class ChromeTabCreator extends TabCreatorManager.TabCreator {
                           .setInitiallyHidden(!selectTab)
                           .setTabState(state)
                           .build();
+        }
         assert state.isIncognito() == mIncognito;
-        mTabModel.addTab(tab, index, TabLaunchType.FROM_RESTORE);
+        mTabModel.addTab(tab, index, launchType, creationState);
         return tab;
     }
 

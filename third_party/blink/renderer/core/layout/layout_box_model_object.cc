@@ -37,6 +37,8 @@
 #include "third_party/blink/renderer/core/layout/layout_geometry_map.h"
 #include "third_party/blink/renderer/core/layout/layout_inline.h"
 #include "third_party/blink/renderer/core/layout/layout_view.h"
+#include "third_party/blink/renderer/core/layout/ng/ng_constraint_space.h"
+#include "third_party/blink/renderer/core/layout/ng/ng_layout_result.h"
 #include "third_party/blink/renderer/core/paint/compositing/composited_layer_mapping.h"
 #include "third_party/blink/renderer/core/paint/compositing/paint_layer_compositor.h"
 #include "third_party/blink/renderer/core/paint/object_paint_invalidator.h"
@@ -94,9 +96,10 @@ bool LayoutBoxModelObject::UsesCompositedScrolling() const {
          Layer()->GetScrollableArea()->UsesCompositedScrolling();
 }
 
-BackgroundPaintLocation LayoutBoxModelObject::GetBackgroundPaintLocation(
+BackgroundPaintLocation
+LayoutBoxModelObject::ComputeBackgroundPaintLocationIfComposited(
     uint32_t* main_thread_scrolling_reasons) const {
-  bool may_have_scrolling_layers_without_scrolling = IsLayoutView();
+  bool may_have_scrolling_layers_without_scrolling = IsA<LayoutView>(this);
   const auto* scrollable_area = GetScrollableArea();
   bool scrolls_overflow = scrollable_area && scrollable_area->ScrollsOverflow();
   if (!scrolls_overflow && !may_have_scrolling_layers_without_scrolling)
@@ -105,7 +108,7 @@ BackgroundPaintLocation LayoutBoxModelObject::GetBackgroundPaintLocation(
   // If we care about LCD text, paint root backgrounds into scrolling contents
   // layer even if style suggests otherwise. (For non-root scrollers, we just
   // avoid compositing - see PLSA::ComputeNeedsCompositedScrolling.)
-  if (IsLayoutView()) {
+  if (IsA<LayoutView>(this)) {
     if (!GetDocument().GetSettings()->GetPreferCompositingToLCDTextEnabled())
       return kBackgroundPaintInScrollingContents;
   }
@@ -312,7 +315,7 @@ void LayoutBoxModelObject::StyleDidChange(StyleDifference diff,
     if (EverHadLayout())
       SetChildNeedsLayout();
     if (had_transform_related_property) {
-      SetNeedsLayoutAndPrefWidthsRecalcAndFullPaintInvalidation(
+      SetNeedsLayoutAndIntrinsicWidthsRecalcAndFullPaintInvalidation(
           layout_invalidation_reason::kStyleChange);
     }
     if (!NeedsLayout()) {
@@ -436,7 +439,6 @@ void LayoutBoxModelObject::StyleDidChange(StyleDifference diff,
 
         // Remove sticky constraints for this layer.
         if (Layer()) {
-          DisableCompositingQueryAsserts disabler;
           if (const PaintLayer* ancestor_overflow_layer =
                   Layer()->AncestorOverflowLayer()) {
             if (PaintLayerScrollableArea* scrollable_area =
@@ -511,7 +513,6 @@ void LayoutBoxModelObject::InvalidateStickyConstraints() {
   // This intentionally uses the stale ancestor overflow layer compositing input
   // as if we have saved constraints for this layer they were saved in the
   // previous frame.
-  DisableCompositingQueryAsserts disabler;
   if (const PaintLayer* ancestor_overflow_layer =
           enclosing->AncestorOverflowLayer()) {
     if (PaintLayerScrollableArea* ancestor_scrollable_area =
@@ -529,6 +530,8 @@ void LayoutBoxModelObject::CreateLayerAfterStyleChange() {
   // Creating a layer may affect existence of the LocalBorderBoxProperties, so
   // we need to ensure that we update paint properties.
   SetNeedsPaintPropertyUpdate();
+  if (GetScrollableArea())
+    GetScrollableArea()->InvalidateScrollTimeline();
 }
 
 void LayoutBoxModelObject::DestroyLayer() {
@@ -538,6 +541,7 @@ void LayoutBoxModelObject::DestroyLayer() {
   // Removing a layer may affect existence of the LocalBorderBoxProperties, so
   // we need to ensure that we update paint properties.
   SetNeedsPaintPropertyUpdate();
+  SetBackgroundPaintLocation(kBackgroundPaintInGraphicsLayer);
 }
 
 bool LayoutBoxModelObject::HasSelfPaintingLayer() const {
@@ -671,7 +675,7 @@ LayoutBlock* LayoutBoxModelObject::ContainingBlockForAutoHeightDetection(
 
   // Match LayoutBox::availableLogicalHeightUsing by special casing the layout
   // view. The available height is taken from the frame.
-  if (cb->IsLayoutView())
+  if (IsA<LayoutView>(cb))
     return nullptr;
 
   if (IsOutOfFlowPositionedWithImplicitHeight(cb))
@@ -692,10 +696,17 @@ bool LayoutBoxModelObject::HasAutoHeightOrContainingBlockWithAutoHeight(
       logical_height_length.IsPercentOrCalc() && cb && IsBox()) {
     cb->AddPercentHeightDescendant(const_cast<LayoutBox*>(ToLayoutBox(this)));
   }
-  if (this_box && this_box->IsFlexItem()) {
-    const LayoutFlexibleBox& flex_box = ToLayoutFlexibleBox(*Parent());
-    if (flex_box.UseOverrideLogicalHeightForPerentageResolution(*this_box))
-      return false;
+  if (this_box && this_box->IsFlexItemIncludingNG()) {
+    if (this_box->IsFlexItem()) {
+      const LayoutFlexibleBox& flex_box = ToLayoutFlexibleBox(*Parent());
+      if (flex_box.UseOverrideLogicalHeightForPerentageResolution(*this_box))
+        return false;
+    } else if (this_box->GetCachedLayoutResult()) {
+      const NGConstraintSpace& space =
+          this_box->GetCachedLayoutResult()->GetConstraintSpaceForCaching();
+      if (space.IsFixedBlockSize() && !space.IsFixedBlockSizeIndefinite())
+        return false;
+    }
   }
   if (this_box && this_box->IsGridItem() &&
       this_box->HasOverrideContainingBlockContentLogicalHeight())
@@ -879,7 +890,7 @@ void LayoutBoxModelObject::UpdateStickyPositionConstraints() const {
       ToLayoutBox(Layer()->AncestorOverflowLayer()->GetLayoutObject());
 
   LayoutUnit max_container_width =
-      containing_block->IsLayoutView()
+      IsA<LayoutView>(containing_block)
           ? containing_block->LogicalWidth()
           : containing_block->ContainingBlockLogicalWidthForContent();
   // Sticky positioned element ignore any override logical width on the

@@ -15,13 +15,14 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import org.chromium.base.test.util.CommandLineFlags;
+import org.chromium.base.test.util.DisabledTest;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeActivity;
-import org.chromium.chrome.browser.ChromeSwitches;
-import org.chromium.chrome.browser.util.UrlConstants;
+import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.test.ChromeActivityTestRule;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.util.browser.signin.SigninTestUtil;
+import org.chromium.components.embedder_support.util.UrlConstants;
 
 /**
  * Instrumentation test for Identity Disc.
@@ -46,6 +47,7 @@ public class IdentityDiscControllerTest {
 
     @Test
     @MediumTest
+    @DisabledTest(message = "Flaky crbug.com/1064269")
     public void testIdentityDiscWithNavigation() {
         // User is signed in.
         SigninTestUtil.addAndSignInTestAccount();
@@ -53,7 +55,7 @@ public class IdentityDiscControllerTest {
         // Identity Disc should be visible on NTP.
         mActivityTestRule.startMainActivityWithURL(UrlConstants.NTP_URL);
         View experimentalButton =
-                mActivityTestRule.getActivity().findViewById(R.id.experimental_toolbar_button);
+                mActivityTestRule.getActivity().findViewById(R.id.optional_toolbar_button);
         Assert.assertNotNull("IdentityDisc is not inflated", experimentalButton);
         Assert.assertEquals(
                 "IdentityDisc is not visible", View.VISIBLE, experimentalButton.getVisibility());
@@ -70,7 +72,7 @@ public class IdentityDiscControllerTest {
         // When user is signed out, Identity Disc should not be visible.
         mActivityTestRule.startMainActivityWithURL(UrlConstants.NTP_URL);
         View experimentalButton =
-                mActivityTestRule.getActivity().findViewById(R.id.experimental_toolbar_button);
+                mActivityTestRule.getActivity().findViewById(R.id.optional_toolbar_button);
         Assert.assertNull("IdentityDisc is visible for signed out user", experimentalButton);
 
         // Identity Disc should be shown on sign-in state change without NTP refresh.
@@ -80,7 +82,7 @@ public class IdentityDiscControllerTest {
         mActivityTestRule.loadUrl(UrlConstants.NTP_URL);
 
         experimentalButton =
-                mActivityTestRule.getActivity().findViewById(R.id.experimental_toolbar_button);
+                mActivityTestRule.getActivity().findViewById(R.id.optional_toolbar_button);
         Assert.assertNotNull("IdentityDisc is not inflated", experimentalButton);
         Assert.assertEquals(
                 "IdentityDisc is not visible", View.VISIBLE, experimentalButton.getVisibility());

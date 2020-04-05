@@ -24,8 +24,8 @@ BatteryManager* BatteryManager::Create(ExecutionContext* context) {
 BatteryManager::~BatteryManager() = default;
 
 BatteryManager::BatteryManager(ExecutionContext* context)
-    : ContextLifecycleStateObserver(context),
-      PlatformEventController(To<Document>(context)) {}
+    : ExecutionContextLifecycleStateObserver(context),
+      PlatformEventController(Document::From(context)) {}
 
 ScriptPromise BatteryManager::StartRequest(ScriptState* script_state) {
   if (!battery_property_) {
@@ -71,7 +71,7 @@ void BatteryManager::DidUpdateData() {
     return;
   }
 
-  Document* document = To<Document>(GetExecutionContext());
+  Document* document = Document::From(GetExecutionContext());
   DCHECK(document);
   if (document->IsContextPaused() || document->IsContextDestroyed())
     return;
@@ -109,7 +109,7 @@ void BatteryManager::ContextLifecycleStateChanged(
   }
 }
 
-void BatteryManager::ContextDestroyed(ExecutionContext*) {
+void BatteryManager::ContextDestroyed() {
   has_event_listener_ = false;
   battery_property_ = nullptr;
   StopUpdating();
@@ -123,11 +123,11 @@ bool BatteryManager::HasPendingActivity() const {
           battery_property_->GetState() == BatteryProperty::kPending);
 }
 
-void BatteryManager::Trace(blink::Visitor* visitor) {
+void BatteryManager::Trace(Visitor* visitor) {
   visitor->Trace(battery_property_);
   PlatformEventController::Trace(visitor);
   EventTargetWithInlineData::Trace(visitor);
-  ContextLifecycleStateObserver::Trace(visitor);
+  ExecutionContextLifecycleStateObserver::Trace(visitor);
 }
 
 }  // namespace blink

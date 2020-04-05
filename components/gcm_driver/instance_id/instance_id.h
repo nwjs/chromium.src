@@ -64,9 +64,9 @@ class InstanceID {
 
   // Asynchronous callbacks. Must not synchronously delete |this| (using
   // InstanceIDDriver::RemoveInstanceID).
-  using GetIDCallback = base::Callback<void(const std::string& id)>;
+  using GetIDCallback = base::OnceCallback<void(const std::string& id)>;
   using GetCreationTimeCallback =
-      base::Callback<void(const base::Time& creation_time)>;
+      base::OnceCallback<void(const base::Time& creation_time)>;
   using GetTokenCallback =
       base::OnceCallback<void(const std::string& token, Result result)>;
   using ValidateTokenCallback = base::OnceCallback<void(bool is_valid)>;
@@ -87,10 +87,10 @@ class InstanceID {
   virtual ~InstanceID();
 
   // Returns the Instance ID.
-  virtual void GetID(const GetIDCallback& callback) = 0;
+  virtual void GetID(GetIDCallback callback) = 0;
 
   // Returns the time when the InstanceID has been generated.
-  virtual void GetCreationTime(const GetCreationTimeCallback& callback) = 0;
+  virtual void GetCreationTime(GetCreationTimeCallback callback) = 0;
 
   // Retrieves a token that allows the authorized entity to access the service
   // defined as "scope".
@@ -99,6 +99,7 @@ class InstanceID {
   //                      another Instance ID or a project ID.
   // |scope|: identifies authorized actions that the authorized entity can take.
   //          E.g. for sending GCM messages, "GCM" scope should be used.
+  // |time_to_live|: TTL of retrieved token, unlimited if zero value passed.
   // |options|: allows including a small number of string key/value pairs that
   //            will be associated with the token and may be used in processing
   //            the request.
@@ -106,6 +107,7 @@ class InstanceID {
   // |callback|: to be called once the asynchronous operation is done.
   virtual void GetToken(const std::string& authorized_entity,
                         const std::string& scope,
+                        base::TimeDelta time_to_live,
                         const std::map<std::string, std::string>& options,
                         std::set<Flags> flags,
                         GetTokenCallback callback) = 0;

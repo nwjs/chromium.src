@@ -271,7 +271,6 @@ class WebAXObject {
 
   BLINK_EXPORT WebNode GetNode() const;
   BLINK_EXPORT WebDocument GetDocument() const;
-  BLINK_EXPORT bool HasComputedStyle() const;
   BLINK_EXPORT WebString ComputedStyleDisplay() const;
   BLINK_EXPORT bool AccessibilityIsIgnored() const;
   BLINK_EXPORT bool AccessibilityIsIncludedInTree() const;
@@ -355,7 +354,10 @@ class WebAXObject {
                                       WebVector<int>& ends) const;
 
   // Scrollable containers.
+  // Programmatically scrollable.
   BLINK_EXPORT bool IsScrollableContainer() const;
+  // Also scrollable by user.
+  BLINK_EXPORT bool IsUserScrollable() const;
   BLINK_EXPORT gfx::Point GetScrollOffset() const;
   BLINK_EXPORT gfx::Point MinimumScrollOffset() const;
   BLINK_EXPORT gfx::Point MaximumScrollOffset() const;

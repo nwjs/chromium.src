@@ -28,6 +28,7 @@ import org.chromium.content_public.browser.test.util.CriteriaHelper;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.net.test.EmbeddedTestServer;
 import org.chromium.net.test.EmbeddedTestServerRule;
+import org.chromium.weblayer.NavigationController;
 import org.chromium.weblayer.Tab;
 import org.chromium.weblayer.WebLayer;
 import org.chromium.weblayer.shell.InstrumentationActivity;
@@ -151,18 +152,19 @@ public class InstrumentationActivityTestRule extends ActivityTestRule<Instrument
         navigateAndWait(getActivity().getTab(), url, true /* waitForPaint */);
     }
 
-    public void navigateAndWait(Tab controller, String url, boolean waitForPaint) {
-        (new NavigationWaiter(url, controller, false /* expectFailure */, waitForPaint))
-                .navigateAndWait();
+    public void navigateAndWait(Tab tab, String url, boolean waitForPaint) {
+        (new NavigationWaiter(url, tab, false /* expectFailure */, waitForPaint)).navigateAndWait();
     }
 
     /**
      * Loads the given URL in the shell, expecting failure.
      */
     public void navigateAndWaitForFailure(String url) {
-        (new NavigationWaiter(
-                 url, getActivity().getTab(), true /* expectFailure */, true /* waitForPaint */))
-                .navigateAndWait();
+        navigateAndWaitForFailure(getActivity().getTab(), url, true /* waitForPaint */);
+    }
+
+    public void navigateAndWaitForFailure(Tab tab, String url, boolean waitForPaint) {
+        (new NavigationWaiter(url, tab, true /* expectFailure */, waitForPaint)).navigateAndWait();
     }
 
     /**
@@ -196,11 +198,12 @@ public class InstrumentationActivityTestRule extends ActivityTestRule<Instrument
     /**
      * Executes the script passed in and waits for the result.
      */
-    public JSONObject executeScriptSync(String script, boolean useSeparateIsolate) {
+    public JSONObject executeScriptSync(String script, boolean useSeparateIsolate, Tab tab) {
         JSONCallbackHelper callbackHelper = new JSONCallbackHelper();
         int count = callbackHelper.getCallCount();
         TestThreadUtils.runOnUiThreadBlocking(() -> {
-            getActivity().getBrowser().getActiveTab().executeScript(script, useSeparateIsolate,
+            Tab scriptTab = tab == null ? getActivity().getBrowser().getActiveTab() : tab;
+            scriptTab.executeScript(script, useSeparateIsolate,
                     (JSONObject result) -> { callbackHelper.notifyCalled(result); });
         });
         try {
@@ -209,6 +212,10 @@ public class InstrumentationActivityTestRule extends ActivityTestRule<Instrument
             throw new RuntimeException(e);
         }
         return callbackHelper.getResult();
+    }
+
+    public JSONObject executeScriptSync(String script, boolean useSeparateIsolate) {
+        return executeScriptSync(script, useSeparateIsolate, null);
     }
 
     public int executeScriptAndExtractInt(String script) {
@@ -251,6 +258,22 @@ public class InstrumentationActivityTestRule extends ActivityTestRule<Instrument
 
     public String getTestDataURL(String path) {
         return getTestServer().getURL("/weblayer/test/data/" + path);
+    }
+
+    // Returns the display URL of the last committed navigation entry in |tab|. Note that this will
+    // return an empty URL if there have been no committed navigations in |tab|.
+    public String getLastCommittedUrlInTab(Tab tab) {
+        return TestThreadUtils.runOnUiThreadBlockingNoException(() -> {
+            NavigationController navController = tab.getNavigationController();
+            return navController
+                    .getNavigationEntryDisplayUri(navController.getNavigationListCurrentIndex())
+                    .toString();
+        });
+    }
+
+    // Returns the URL that is currently being displayed to the user.
+    public String getCurrentDisplayUrl() {
+        return getActivity().getCurrentDisplayUrl();
     }
 
     public void setRetainInstance(boolean retain) {

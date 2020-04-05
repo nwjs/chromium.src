@@ -35,23 +35,24 @@ import org.chromium.base.ThreadUtils;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.task.PostTask;
 import org.chromium.base.test.util.CommandLineFlags;
+import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeActivity;
-import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.ShortcutHelper;
 import org.chromium.chrome.browser.customtabs.CustomTabActivityTestRule;
 import org.chromium.chrome.browser.customtabs.CustomTabsTestUtils;
 import org.chromium.chrome.browser.engagement.SiteEngagementService;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.infobar.InfoBar;
 import org.chromium.chrome.browser.infobar.InfoBarContainer;
 import org.chromium.chrome.browser.infobar.InfoBarContainer.InfoBarAnimationListener;
-import org.chromium.chrome.browser.infobar.InfoBarContainerLayout.Item;
 import org.chromium.chrome.browser.infobar.InstallableAmbientBadgeInfoBar;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabImpl;
+import org.chromium.chrome.browser.ui.messages.infobar.InfoBarUiItem;
 import org.chromium.chrome.browser.webapps.WebappDataStorage;
 import org.chromium.chrome.test.ChromeActivityTestRule;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
@@ -170,7 +171,7 @@ public class AppBannerManagerTest {
         }
 
         @Override
-        public void notifyAllAnimationsFinished(Item frontInfoBar) {
+        public void notifyAllAnimationsFinished(InfoBarUiItem frontInfoBar) {
             mDoneAnimating = true;
         }
     }
@@ -210,7 +211,8 @@ public class AppBannerManagerTest {
 
     private void resetEngagementForUrl(final String url, final double engagement) {
         ThreadUtils.runOnUiThreadBlocking(() -> {
-            SiteEngagementService.getForProfile(Profile.getLastUsedProfile())
+            // TODO (https://crbug.com/1063807):  Add incognito mode tests.
+            SiteEngagementService.getForProfile(Profile.getLastUsedRegularProfile())
                     .resetBaseScoreForUrl(url, engagement);
         });
     }
@@ -631,6 +633,7 @@ public class AppBannerManagerTest {
     @MediumTest
     @Feature({"AppBanners"})
     @CommandLineFlags.Add("enable-features=" + ChromeFeatureList.INSTALLABLE_AMBIENT_BADGE_INFOBAR)
+    @DisabledTest(message = "Test is flaky, see crbug.com/1054196")
     public void testAmbientBadgeDoesNotAppearWhenEventCanceled() throws Exception {
         String webBannerUrl = WebappTestPage.getServiceWorkerUrlWithAction(
                 mTestServer, "stash_event_and_prevent_default");

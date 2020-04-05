@@ -28,35 +28,42 @@
 
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/dom/frame_request_callback_collection.h"
-#include "third_party/blink/renderer/core/execution_context/context_lifecycle_state_observer.h"
+#include "third_party/blink/renderer/core/execution_context/execution_context_lifecycle_state_observer.h"
 #include "third_party/blink/renderer/platform/bindings/name_client.h"
 #include "third_party/blink/renderer/platform/heap/handle.h"
 #include "third_party/blink/renderer/platform/wtf/casting.h"
+#include "third_party/blink/renderer/platform/wtf/functional.h"
 #include "third_party/blink/renderer/platform/wtf/text/atomic_string.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_impl.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
 
 namespace blink {
 
-class Document;
 class Event;
 class EventTarget;
+class LocalDOMWindow;
 class MediaQueryListListener;
 
 class CORE_EXPORT ScriptedAnimationController
     : public GarbageCollected<ScriptedAnimationController>,
-      public ContextLifecycleStateObserver,
+      public ExecutionContextLifecycleStateObserver,
       public NameClient {
   USING_GARBAGE_COLLECTED_MIXIN(ScriptedAnimationController);
 
  public:
-  explicit ScriptedAnimationController(Document*);
+  explicit ScriptedAnimationController(LocalDOMWindow*);
   ~ScriptedAnimationController() override = default;
 
   void Trace(Visitor*) override;
   const char* NameInHeapSnapshot() const override {
     return "ScriptedAnimationController";
   }
+
+  // Runs all the video.requestAnimationFrame() callbacks associated with one
+  // HTMLVideoElement. |double| is the current frame time in milliseconds
+  // (e.g. |current_frame_time_ms_|), to be passed as the "now" parameter
+  // when running the callbacks.
+  using VideoRafExecutionCallback = base::OnceCallback<void(double)>;
 
   // Animation frame callbacks are used for requestAnimationFrame().
   typedef int CallbackId;
@@ -69,6 +76,10 @@ class CORE_EXPORT ScriptedAnimationController
   CallbackId RegisterPostFrameCallback(
       FrameRequestCallbackCollection::FrameCallback*);
   void CancelPostFrameCallback(CallbackId);
+
+  // Queues up the execution of video.requestAnimationFrame() callbacks for a
+  // specific HTMLVideoELement, as part of the next rendering steps.
+  void ScheduleVideoRafExecution(VideoRafExecutionCallback);
 
   // Animation frame events are used for resize events, scroll events, etc.
   void EnqueueEvent(Event*);
@@ -87,6 +98,7 @@ class CORE_EXPORT ScriptedAnimationController
   void RunPostFrameCallbacks();
 
   void ContextLifecycleStateChanged(mojom::FrameLifecycleState) final;
+  void ContextDestroyed() final {}
 
   void DispatchEventsAndCallbacksForPrinting();
 
@@ -100,17 +112,19 @@ class CORE_EXPORT ScriptedAnimationController
   void DispatchEvents(
       const AtomicString& event_interface_filter = AtomicString());
   void ExecuteFrameCallbacks();
+  void ExecuteVideoRafCallbacks();
   void CallMediaQueryListListeners();
 
   bool HasScheduledFrameTasks() const;
 
-  Document* GetDocument() const { return To<Document>(GetExecutionContext()); }
+  LocalDOMWindow* GetWindow() const;
 
   ALWAYS_INLINE bool InsertToPerFrameEventsMap(const Event* event);
   ALWAYS_INLINE void EraseFromPerFrameEventsMap(const Event* event);
 
   FrameRequestCallbackCollection callback_collection_;
   Vector<base::OnceClosure> task_queue_;
+  Vector<VideoRafExecutionCallback> video_raf_queue_;
   HeapVector<Member<Event>> event_queue_;
   using PerFrameEventsMap =
       HeapHashMap<Member<const EventTarget>, HashSet<const StringImpl*>>;

@@ -9,6 +9,7 @@
 #include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_process_platform_part.h"
@@ -90,9 +91,8 @@ HatsNotificationController::HatsNotificationController(Profile* profile)
     : profile_(profile) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
-  base::PostTaskAndReplyWithResult(
-      FROM_HERE,
-      {base::ThreadPool(), base::MayBlock(), base::TaskPriority::BEST_EFFORT},
+  base::ThreadPool::PostTaskAndReplyWithResult(
+      FROM_HERE, {base::MayBlock(), base::TaskPriority::BEST_EFFORT},
       base::BindOnce(&IsNewDevice),
       base::BindOnce(&HatsNotificationController::Initialize,
                      weak_pointer_factory_.GetWeakPtr()));
@@ -137,12 +137,6 @@ bool HatsNotificationController::ShouldShowSurveyToProfile(Profile* profile) {
   if (profile->IsGuestSession())
     return false;
 
-  // Do not show survey if this is a child profile, for now. See crbug/1055022.
-  // TODO(crbug/1050807): remove this check after enabling HaTS for supervised
-  // users.
-  if (profile->IsChild())
-    return false;
-
   const bool is_enterprise_enrolled = g_browser_process->platform_part()
                                           ->browser_policy_connector_chromeos()
                                           ->IsEnterpriseManaged();
@@ -154,6 +148,8 @@ bool HatsNotificationController::ShouldShowSurveyToProfile(Profile* profile) {
 
   // In an enterprise enrolled device, the user can never be the owner, hence
   // only check for ownership on a non enrolled device.
+  // TODO(crbug/1060436): Remove the IsOwnerProfile() check so that HaTS is
+  // enabled for all users, not just device owners.
   if (!is_enterprise_enrolled && !ProfileHelper::IsOwnerProfile(profile))
     return false;
 

@@ -59,7 +59,9 @@ Polymer({
    * @return {boolean}
    */
   wasConfirmed() {
-    return this.$.dialog.getNative().returnValue == 'success';
+    return /** @type {!CrDialogElement} */ (this.$.dialog)
+               .getNative()
+               .returnValue == 'success';
   },
 
   /**
@@ -109,13 +111,19 @@ Polymer({
 
   /** @private */
   onDisconnectCancel_() {
-    this.$.dialog.cancel();
+    /** @type {!CrDialogElement} */ (this.$.dialog).cancel();
   },
 
   /** @private */
   onDisconnectConfirm_() {
     this.$.dialog.close();
+    // <if expr="not chromeos">
     const deleteProfile = !!this.syncStatus.domain || this.deleteProfile_;
     settings.SyncBrowserProxyImpl.getInstance().signOut(deleteProfile);
+    // </if>
+    // <if expr="chromeos">
+    // Chrome OS users are always signed-in, so just turn off sync.
+    settings.SyncBrowserProxyImpl.getInstance().turnOffSync();
+    // </if>
   },
 });

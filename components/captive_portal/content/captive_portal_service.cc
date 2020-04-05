@@ -10,6 +10,7 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/time/tick_clock.h"
 #include "build/build_config.h"
+#include "components/captive_portal/core/captive_portal_metrics.h"
 #include "components/captive_portal/core/captive_portal_types.h"
 #include "components/embedder_support/pref_names.h"
 #include "components/prefs/pref_service.h"
@@ -22,7 +23,7 @@
 #include "base/win/windows_version.h"
 #endif
 
-using captive_portal::CaptivePortalResult;
+namespace captive_portal {
 
 namespace {
 
@@ -90,13 +91,13 @@ void RecordRepeatHistograms(CaptivePortalResult result,
 }
 
 CaptivePortalDetectionResult GetHistogramEntryForDetectionResult(
-    const captive_portal::CaptivePortalDetector::Results& results) {
+    const CaptivePortalDetector::Results& results) {
   bool is_https = results.landing_url.SchemeIs("https");
   bool is_ip = results.landing_url.HostIsIPAddress();
   switch (results.result) {
-    case captive_portal::RESULT_INTERNET_CONNECTED:
+    case RESULT_INTERNET_CONNECTED:
       return DETECTION_RESULT_INTERNET_CONNECTED;
-    case captive_portal::RESULT_NO_RESPONSE:
+    case RESULT_NO_RESPONSE:
       if (is_ip) {
         return is_https
                    ? DETECTION_RESULT_NO_RESPONSE_HTTPS_LANDING_URL_IP_ADDRESS
@@ -104,7 +105,7 @@ CaptivePortalDetectionResult GetHistogramEntryForDetectionResult(
       }
       return is_https ? DETECTION_RESULT_NO_RESPONSE_HTTPS_LANDING_URL
                       : DETECTION_RESULT_NO_RESPONSE;
-    case captive_portal::RESULT_BEHIND_CAPTIVE_PORTAL:
+    case RESULT_BEHIND_CAPTIVE_PORTAL:
       if (is_ip) {
         return is_https
                    ? DETECTION_RESULT_BEHIND_CAPTIVE_PORTAL_HTTPS_LANDING_URL_IP_ADDRESS
@@ -116,20 +117,6 @@ CaptivePortalDetectionResult GetHistogramEntryForDetectionResult(
       NOTREACHED();
       return DETECTION_RESULT_COUNT;
   }
-}
-
-bool ShouldDeferToNativeCaptivePortalDetection() {
-  // On Windows 8, defer to the native captive portal detection.  OSX Lion and
-  // later also have captive portal detection, but experimentally, this code
-  // works in cases its does not.
-  //
-  // TODO(mmenke): Investigate how well Windows 8's captive portal detection
-  // works.
-#if defined(OS_WIN)
-  return base::win::GetVersion() >= base::win::Version::WIN8;
-#else
-  return false;
-#endif
 }
 
 }  // namespace
@@ -172,9 +159,9 @@ CaptivePortalService::CaptivePortalService(
     : browser_context_(browser_context),
       state_(STATE_IDLE),
       enabled_(false),
-      last_detection_result_(captive_portal::RESULT_INTERNET_CONNECTED),
+      last_detection_result_(RESULT_INTERNET_CONNECTED),
       num_checks_with_same_result_(0),
-      test_url_(captive_portal::CaptivePortalDetector::kDefaultURL),
+      test_url_(CaptivePortalDetector::kDefaultURL),
       tick_clock_for_testing_(clock_for_testing) {
   network::mojom::URLLoaderFactory* loader_factory;
   if (loader_factory_for_testing) {
@@ -186,7 +173,7 @@ CaptivePortalService::CaptivePortalService(
     loader_factory = shared_url_loader_factory_.get();
   }
   captive_portal_detector_ =
-      std::make_unique<captive_portal::CaptivePortalDetector>(loader_factory);
+      std::make_unique<CaptivePortalDetector>(loader_factory);
 
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   // The order matters here:
@@ -205,7 +192,8 @@ CaptivePortalService::~CaptivePortalService() {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 }
 
-void CaptivePortalService::DetectCaptivePortal() {
+void CaptivePortalService::DetectCaptivePortal(
+    CaptivePortalProbeReason probe_reason) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
   // Detection should be disabled only in tests.
@@ -221,11 +209,13 @@ void CaptivePortalService::DetectCaptivePortal() {
   // Start asynchronously.
   state_ = STATE_TIMER_RUNNING;
   check_captive_portal_timer_.Start(
-      FROM_HERE, time_until_next_check, this,
-      &CaptivePortalService::DetectCaptivePortalInternal);
+      FROM_HERE, time_until_next_check,
+      base::BindOnce(&CaptivePortalService::DetectCaptivePortalInternal,
+                     base::Unretained(this), probe_reason));
 }
 
-void CaptivePortalService::DetectCaptivePortalInternal() {
+void CaptivePortalService::DetectCaptivePortalInternal(
+    CaptivePortalProbeReason probe_reason) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   DCHECK(state_ == STATE_TIMER_RUNNING || state_ == STATE_IDLE);
   DCHECK(!TimerRunning());
@@ -237,7 +227,7 @@ void CaptivePortalService::DetectCaptivePortalInternal() {
     // Count this as a success, so the backoff entry won't apply exponential
     // backoff, but will apply the standard delay.
     backoff_entry_->InformOfRequest(true);
-    OnResult(captive_portal::RESULT_INTERNET_CONNECTED, GURL());
+    OnResult(RESULT_INTERNET_CONNECTED, GURL());
     return;
   }
 
@@ -269,6 +259,9 @@ void CaptivePortalService::DetectCaptivePortalInternal() {
             }
           }
         })");
+
+  captive_portal::CaptivePortalMetrics::LogCaptivePortalProbeReason(
+      probe_reason);
   captive_portal_detector_->DetectCaptivePortal(
       test_url_,
       base::BindOnce(&CaptivePortalService::OnPortalDetectionCompleted,
@@ -277,7 +270,7 @@ void CaptivePortalService::DetectCaptivePortalInternal() {
 }
 
 void CaptivePortalService::OnPortalDetectionCompleted(
-    const captive_portal::CaptivePortalDetector::Results& results) {
+    const CaptivePortalDetector::Results& results) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   DCHECK_EQ(STATE_CHECKING_FOR_PORTAL, state_);
   DCHECK(!TimerRunning());
@@ -359,7 +352,7 @@ void CaptivePortalService::OnResult(CaptivePortalResult result,
 }
 
 void CaptivePortalService::ResetBackoffEntry(CaptivePortalResult result) {
-  if (!enabled_ || result == captive_portal::RESULT_BEHIND_CAPTIVE_PORTAL) {
+  if (!enabled_ || result == RESULT_BEHIND_CAPTIVE_PORTAL) {
     // Use the shorter time when the captive portal service is not enabled, or
     // behind a captive portal.
     recheck_policy_.backoff_policy.initial_delay_ms =
@@ -378,12 +371,6 @@ void CaptivePortalService::UpdateEnabledState() {
   bool enabled_before = enabled_;
   enabled_ = testing_state_ != DISABLED_FOR_TESTING &&
              resolve_errors_with_web_service_.GetValue();
-
-  if (testing_state_ != SKIP_OS_CHECK_FOR_TESTING &&
-      testing_state_ != IGNORE_REQUESTS_FOR_TESTING &&
-      ShouldDeferToNativeCaptivePortalDetection()) {
-    enabled_ = false;
-  }
 
   if (enabled_before == enabled_)
     return;
@@ -404,7 +391,7 @@ void CaptivePortalService::UpdateEnabledState() {
 
     // Since a captive portal request was queued or running, something may be
     // expecting to receive a captive portal result.
-    DetectCaptivePortal();
+    DetectCaptivePortal(CaptivePortalProbeReason::kUnspecified);
   }
 }
 
@@ -421,3 +408,5 @@ bool CaptivePortalService::DetectionInProgress() const {
 bool CaptivePortalService::TimerRunning() const {
   return check_captive_portal_timer_.IsRunning();
 }
+
+}  // namespace captive_portal

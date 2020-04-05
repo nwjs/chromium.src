@@ -58,9 +58,17 @@ class PathManager(object):
         cls._root_gen_dir = os.path.abspath(root_gen_dir)
         cls._component_reldirs = {
             component: posixpath.normpath(rel_dir)
-            for component, rel_dir in component_reldirs.iteritems()
+            for component, rel_dir in component_reldirs.items()
         }
         cls._is_initialized = True
+
+    @classmethod
+    def component_path(cls, component, filepath):
+        """
+        Returns the relative path to |filepath| in |component|'s directory.
+        """
+        assert cls._is_initialized, cls._REQUIRE_INIT_MESSAGE
+        return posixpath.join(cls._component_reldirs[component], filepath)
 
     @classmethod
     def gen_path_to(cls, path):
@@ -115,13 +123,23 @@ class PathManager(object):
 
         self._api_dir = self._component_reldirs[self._api_component]
         self._impl_dir = self._component_reldirs[self._impl_component]
-        self._v8_bind_basename = name_style.file("v8",
-                                                 idl_definition.identifier)
+        self._api_basename = name_style.file("v8", idl_definition.identifier)
+        self._impl_basename = name_style.file("v8", idl_definition.identifier)
         # TODO(peria, yukishiino): Add "v8" prefix to union's files.  Trying to
         # produce the same filepaths with the old bindings generator for the
         # time being.
         if isinstance(idl_definition, web_idl.Union):
-            self._v8_bind_basename = name_style.file(idl_definition.identifier)
+            union_class_name = idl_definition.identifier
+            union_filepath = _BACKWARD_COMPATIBLE_UNION_FILEPATHS.get(
+                union_class_name, union_class_name)
+            self._api_basename = name_style.file(union_filepath)
+            self._impl_basename = name_style.file(union_filepath)
+
+        if not isinstance(idl_definition, web_idl.Union):
+            idl_path = idl_definition.debug_info.location.filepath
+            self._blink_dir = posixpath.dirname(idl_path)
+            self._blink_basename = name_style.file(
+                blink_class_name(idl_definition))
 
     @property
     def is_cross_components(self):
@@ -138,7 +156,7 @@ class PathManager(object):
     def api_path(self, filename=None, ext=None):
         return self._join(
             dirpath=self.api_dir,
-            filename=(filename or self._v8_bind_basename),
+            filename=(filename or self._api_basename),
             ext=ext)
 
     @property
@@ -152,7 +170,17 @@ class PathManager(object):
     def impl_path(self, filename=None, ext=None):
         return self._join(
             dirpath=self.impl_dir,
-            filename=(filename or self._v8_bind_basename),
+            filename=(filename or self._impl_basename),
+            ext=ext)
+
+    @property
+    def blink_dir(self):
+        return self._blink_dir
+
+    def blink_path(self, filename=None, ext=None):
+        return self._join(
+            dirpath=self.blink_dir,
+            filename=(filename or self._blink_basename),
             ext=ext)
 
     @staticmethod
@@ -160,3 +188,34 @@ class PathManager(object):
         if ext is not None:
             filename = posixpath.extsep.join([filename, ext])
         return posixpath.join(dirpath, filename)
+
+
+# A hack to make the filepaths to generated IDL unions compatible with the old
+# bindings generator.
+#
+# Copied from |shorten_union_name| defined in
+# //third_party/blink/renderer/bindings/scripts/utilities.py
+_BACKWARD_COMPATIBLE_UNION_FILEPATHS = {
+    # modules/canvas2d/CanvasRenderingContext2D.idl
+    "CSSImageValueOrHTMLImageElementOrSVGImageElementOrHTMLVideoElementOrHTMLCanvasElementOrImageBitmapOrOffscreenCanvas":
+    "CanvasImageSource",
+    # modules/canvas/htmlcanvas/html_canvas_element_module_support_webgl2_compute.idl
+    "CanvasRenderingContext2DOrWebGLRenderingContextOrWebGL2RenderingContextOrWebGL2ComputeRenderingContextOrImageBitmapRenderingContextOrGPUCanvasContext":
+    "RenderingContext",
+    # modules/canvas/htmlcanvas/html_canvas_element_module.idl
+    "CanvasRenderingContext2DOrWebGLRenderingContextOrWebGL2RenderingContextOrImageBitmapRenderingContextOrGPUCanvasContext":
+    "RenderingContext",
+    # core/frame/window_or_worker_global_scope.idl
+    "HTMLImageElementOrSVGImageElementOrHTMLVideoElementOrHTMLCanvasElementOrBlobOrImageDataOrImageBitmapOrOffscreenCanvas":
+    "ImageBitmapSource",
+    # bindings/tests/idls/core/TestTypedefs.idl
+    "NodeOrLongSequenceOrEventOrXMLHttpRequestOrStringOrStringByteStringOrNodeListRecord":
+    "NestedUnionType",
+    # modules/canvas/offscreencanvas/offscreen_canvas_module_support_webgl2_compute.idl.
+    # Due to offscreen_canvas_module_support_webgl2_compute.idl and offscreen_canvas_module.idl are exclusive in modules_idl_files.gni, they have same shorten name.
+    "OffscreenCanvasRenderingContext2DOrWebGLRenderingContextOrWebGL2RenderingContextOrWebGL2ComputeRenderingContextOrImageBitmapRenderingContext":
+    "OffscreenRenderingContext",
+    # modules/canvas/offscreencanvas/offscreen_canvas_module.idl
+    "OffscreenCanvasRenderingContext2DOrWebGLRenderingContextOrWebGL2RenderingContextOrImageBitmapRenderingContext":
+    "OffscreenRenderingContext",
+}

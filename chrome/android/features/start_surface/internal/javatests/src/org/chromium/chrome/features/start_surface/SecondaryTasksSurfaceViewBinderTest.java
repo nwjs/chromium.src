@@ -7,6 +7,7 @@ package org.chromium.chrome.features.start_surface;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNull;
 
 import static org.chromium.chrome.features.start_surface.StartSurfaceProperties.IS_SECONDARY_SURFACE_VISIBLE;
 import static org.chromium.chrome.features.start_surface.StartSurfaceProperties.IS_SHOWING_OVERVIEW;
@@ -34,6 +35,7 @@ public class SecondaryTasksSurfaceViewBinderTest extends DummyUiActivityTestCase
     private ViewGroup mParentView;
     private View mTasksSurfaceView;
     private PropertyModel mPropertyModel;
+    @SuppressWarnings({"FieldCanBeLocal", "unused"})
     private PropertyModelChangeProcessor mPropertyModelChangeProcessor;
 
     @Override
@@ -60,10 +62,10 @@ public class SecondaryTasksSurfaceViewBinderTest extends DummyUiActivityTestCase
     public void testSetVisibilityAfterShowingOverview() {
         assertFalse(mPropertyModel.get(IS_SHOWING_OVERVIEW));
         assertFalse(mPropertyModel.get(IS_SECONDARY_SURFACE_VISIBLE));
-        assertEquals(mTasksSurfaceView.getParent(), null);
+        assertNull(mTasksSurfaceView.getParent());
 
         mPropertyModel.set(IS_SHOWING_OVERVIEW, true);
-        assertEquals(mTasksSurfaceView.getParent(), null);
+        assertNull(mTasksSurfaceView.getParent());
         assertEquals(mTasksSurfaceView.getVisibility(), View.GONE);
 
         mPropertyModel.set(IS_SECONDARY_SURFACE_VISIBLE, true);
@@ -85,10 +87,10 @@ public class SecondaryTasksSurfaceViewBinderTest extends DummyUiActivityTestCase
     public void testSetVisibilityBeforeShowingOverview() {
         assertFalse(mPropertyModel.get(IS_SHOWING_OVERVIEW));
         assertFalse(mPropertyModel.get(IS_SECONDARY_SURFACE_VISIBLE));
-        assertEquals(mTasksSurfaceView.getParent(), null);
+        assertNull(mTasksSurfaceView.getParent());
 
         mPropertyModel.set(IS_SECONDARY_SURFACE_VISIBLE, true);
-        assertEquals(mTasksSurfaceView.getParent(), null);
+        assertNull(mTasksSurfaceView.getParent());
         assertEquals(mTasksSurfaceView.getVisibility(), View.GONE);
 
         mPropertyModel.set(IS_SHOWING_OVERVIEW, true);
@@ -110,11 +112,11 @@ public class SecondaryTasksSurfaceViewBinderTest extends DummyUiActivityTestCase
     public void testSetVisibilityWithTopBar() {
         assertFalse(mPropertyModel.get(IS_SHOWING_OVERVIEW));
         assertFalse(mPropertyModel.get(IS_SECONDARY_SURFACE_VISIBLE));
-        assertEquals(mTasksSurfaceView.getParent(), null);
+        assertNull(mTasksSurfaceView.getParent());
         mPropertyModel.set(TOP_BAR_HEIGHT, 20);
 
         mPropertyModel.set(IS_SHOWING_OVERVIEW, true);
-        assertEquals(mTasksSurfaceView.getParent(), null);
+        assertNull(mTasksSurfaceView.getParent());
         assertEquals(mTasksSurfaceView.getVisibility(), View.GONE);
 
         mPropertyModel.set(IS_SECONDARY_SURFACE_VISIBLE, true);
@@ -130,5 +132,27 @@ public class SecondaryTasksSurfaceViewBinderTest extends DummyUiActivityTestCase
         mPropertyModel.set(IS_SHOWING_OVERVIEW, false);
         assertNotEquals(mTasksSurfaceView.getParent(), null);
         assertEquals(mTasksSurfaceView.getVisibility(), View.GONE);
+    }
+
+    @Test
+    @UiThreadTest
+    @SmallTest
+    public void testSetTopBarHeight() {
+        assertFalse(mPropertyModel.get(IS_SHOWING_OVERVIEW));
+        assertFalse(mPropertyModel.get(IS_SECONDARY_SURFACE_VISIBLE));
+        assertNull(mTasksSurfaceView.getParent());
+
+        // Setting the top bar height shouldn't cause a NullPointerException when the layout params
+        // are null, since this should be handled in the *ViewBinder.
+        mPropertyModel.set(TOP_BAR_HEIGHT, 20);
+        mPropertyModel.set(IS_SHOWING_OVERVIEW, true);
+        mPropertyModel.set(IS_SECONDARY_SURFACE_VISIBLE, true);
+
+        MarginLayoutParams layoutParams = (MarginLayoutParams) mTasksSurfaceView.getLayoutParams();
+        assertEquals("Top bar height isn't initialized correctly.", 20, layoutParams.topMargin);
+
+        layoutParams = (MarginLayoutParams) mTasksSurfaceView.getLayoutParams();
+        mPropertyModel.set(TOP_BAR_HEIGHT, 40);
+        assertEquals("Wrong top bar height.", 40, layoutParams.topMargin);
     }
 }

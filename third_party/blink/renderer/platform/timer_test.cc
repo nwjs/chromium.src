@@ -119,7 +119,7 @@ class OnHeapTimerOwner final : public GarbageCollected<OnHeapTimerOwner> {
     timer_.StartOneShot(interval, caller);
   }
 
-  void Trace(blink::Visitor* visitor) {}
+  void Trace(Visitor* visitor) {}
 
  private:
   void Fired(TimerBase*) {
@@ -667,6 +667,7 @@ TEST_F(TimerTest, MarkOnHeapTimerAsUnreachable) {
     platform_->RunUntilIdle();
     EXPECT_FALSE(record->TimerHasFired());
     EXPECT_FALSE(record->OwnerIsDestructed());
+    ThreadState::Current()->CompleteSweep();
   }
 }
 

@@ -3,6 +3,8 @@
 // found in the LICENSE file.
 
 #include "net/disk_cache/simple/simple_backend_impl.h"
+#include "base/callback_helpers.h"
+#include "base/task/thread_pool.h"
 
 #include <algorithm>
 #include <cstdlib>
@@ -46,8 +48,6 @@
 #include "net/disk_cache/simple/simple_util.h"
 #include "net/disk_cache/simple/simple_version_upgrade.h"
 
-using base::Callback;
-using base::Closure;
 using base::FilePath;
 using base::Time;
 using base::DirectoryExists;
@@ -226,9 +226,8 @@ SimpleBackendImpl::SimpleBackendImpl(
       file_tracker_(file_tracker ? file_tracker
                                  : g_simple_file_tracker.Pointer()),
       path_(path),
-      cache_runner_(base::CreateSequencedTaskRunner(
-          {base::ThreadPool(), base::MayBlock(),
-           base::TaskPriority::USER_BLOCKING,
+      cache_runner_(base::ThreadPool::CreateSequencedTaskRunner(
+          {base::MayBlock(), base::TaskPriority::USER_BLOCKING,
            base::TaskShutdownBehavior::BLOCK_SHUTDOWN})),
       orig_max_size_(max_bytes),
       entry_operations_mode_((cache_type == net::DISK_CACHE ||
@@ -259,8 +258,8 @@ void SimpleBackendImpl::SetTaskRunnerForTesting(
 }
 
 net::Error SimpleBackendImpl::Init(CompletionOnceCallback completion_callback) {
-  auto worker_pool = base::CreateTaskRunner(
-      {base::ThreadPool(), base::MayBlock(), base::WithBaseSyncPrimitives(),
+  auto worker_pool = base::ThreadPool::CreateTaskRunner(
+      {base::MayBlock(), base::WithBaseSyncPrimitives(),
        base::TaskPriority::USER_BLOCKING,
        base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN});
 

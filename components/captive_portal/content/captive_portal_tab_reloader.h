@@ -9,9 +9,11 @@
 #include "base/compiler_specific.h"
 #include "base/macros.h"
 #include "base/memory/weak_ptr.h"
+#include "base/optional.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "components/captive_portal/content/captive_portal_service.h"
+#include "net/dns/public/resolve_error_info.h"
 
 namespace content {
 class WebContents;
@@ -20,6 +22,10 @@ class WebContents;
 namespace net {
 class SSLInfo;
 }
+
+class CaptivePortalBrowserTest;
+
+namespace captive_portal {
 
 // Keeps track of whether a tab has encountered a navigation error caused by a
 // captive portal.  Also triggers captive portal checks when a page load may
@@ -85,15 +91,17 @@ class CaptivePortalTabReloader {
   // loads and for error pages.
   virtual void OnLoadStart(bool is_ssl);
 
-  // Called when the main frame is committed.  |net_error| will be net::OK in
-  // the case of a successful load.  For an errror page, the entire 3-step
+  // Called when the main frame is committed. |net_error| will be net::OK in
+  // the case of a successful load. |resolve_error_info| contains information
+  // about any hostname resolution error. For an error page, the entire 3-step
   // process of getting the error, starting a new provisional load for the error
   // page, and committing the error page is treated as a single commit.
   //
   // The Link Doctor page will typically be one OnLoadCommitted with an error
   // code, followed by another OnLoadCommitted with net::OK for the Link Doctor
   // page.
-  virtual void OnLoadCommitted(int net_error);
+  virtual void OnLoadCommitted(int net_error,
+                               net::ResolveErrorInfo resolve_error_info);
 
   // This is called when the current provisional main frame load is canceled.
   // Sets state to STATE_NONE, unless this is a login tab.
@@ -103,9 +111,8 @@ class CaptivePortalTabReloader {
   virtual void OnRedirect(bool is_ssl);
 
   // Called whenever a captive portal test completes.
-  virtual void OnCaptivePortalResults(
-      captive_portal::CaptivePortalResult previous_result,
-      captive_portal::CaptivePortalResult result);
+  virtual void OnCaptivePortalResults(CaptivePortalResult previous_result,
+                                      CaptivePortalResult result);
 
   // Called on certificate errors, which often indicate a captive portal.
   void OnSSLCertError(const net::SSLInfo& ssl_info);
@@ -128,15 +135,21 @@ class CaptivePortalTabReloader {
   base::OneShotTimer slow_ssl_load_timer_;
 
  private:
-  friend class CaptivePortalBrowserTest;
+  friend class ::CaptivePortalBrowserTest;
 
   // Sets |state_| and takes any action associated with the new state.  Also
-  // stops the timer, if needed.
-  void SetState(State new_state);
+  // stops the timer, if needed. If |new_state| is STATE_MAYBE_BROKEN_BY_PORTAL,
+  // |probe_trigger| should be specified.
+  void SetState(
+      State new_state,
+      base::Optional<CaptivePortalProbeReason> probe_reason = base::nullopt);
 
   // Called by a timer when an SSL main frame provisional load is taking a
   // while to commit.
-  void OnSlowSSLConnect();
+  void OnSlowSSLConnect(CaptivePortalProbeReason probe_reason);
+
+  // Called when a main frame loads with a secure DNS network error.
+  void OnSecureDnsNetworkError();
 
   // Reloads the tab if there's no provisional load going on and the current
   // state is STATE_NEEDS_RELOAD.  Not safe to call synchronously when called
@@ -154,7 +167,7 @@ class CaptivePortalTabReloader {
   virtual void MaybeOpenCaptivePortalLoginTab();
 
   // Has |captive_portal_service_| (if present) start a captive portal check.
-  virtual void CheckForCaptivePortal();
+  virtual void CheckForCaptivePortal(CaptivePortalProbeReason probe_reason);
 
   CaptivePortalService* captive_portal_service_;
   content::WebContents* web_contents_;
@@ -181,5 +194,7 @@ class CaptivePortalTabReloader {
 
   DISALLOW_COPY_AND_ASSIGN(CaptivePortalTabReloader);
 };
+
+}  // namespace captive_portal
 
 #endif  // COMPONENTS_CAPTIVE_PORTAL_CONTENT_CAPTIVE_PORTAL_TAB_RELOADER_H_

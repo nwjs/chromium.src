@@ -31,6 +31,7 @@
 #include "base/threading/thread.h"
 #include "gpu/config/gpu_preferences.h"
 #include "media/base/video_color_space.h"
+#include "media/base/win/mf_initializer.h"
 #include "media/gpu/gpu_video_decode_accelerator_helpers.h"
 #include "media/gpu/media_gpu_export.h"
 #include "media/gpu/windows/d3d11_com_defs.h"
@@ -400,6 +401,9 @@ class MEDIA_GPU_EXPORT DXVAVideoDecodeAccelerator
   // To expose client callbacks from VideoDecodeAccelerator.
   VideoDecodeAccelerator::Client* client_;
 
+  // MediaFoundation session, calls MFShutdown on deletion.
+  MFSessionLifetime session_;
+
   Microsoft::WRL::ComPtr<IMFTransform> decoder_;
 
   Microsoft::WRL::ComPtr<IDirect3D9Ex> d3d9_;
@@ -570,8 +574,8 @@ class MEDIA_GPU_EXPORT DXVAVideoDecodeAccelerator
   // H/W decoding.
   bool use_dx11_;
 
-  // True when using Microsoft's VP9 HMFT for decoding.
-  bool using_ms_vp9_mft_ = false;
+  // True when using Microsoft's VPx HMFT for decoding.
+  bool using_ms_vpx_mft_ = false;
 
   // True if we should use DXGI keyed mutexes to synchronize between the two
   // contexts.
@@ -606,6 +610,7 @@ class MEDIA_GPU_EXPORT DXVAVideoDecodeAccelerator
   VideoColorSpace current_color_space_;
 
   base::Optional<DisplayHelper> display_helper_;
+  bool use_empty_video_hdr_metadata_ = false;
 
   // WeakPtrFactory for posting tasks back to |this|.
   base::WeakPtrFactory<DXVAVideoDecodeAccelerator> weak_this_factory_{this};

@@ -11,8 +11,10 @@
 #include "ash/ash_export.h"
 #include "ash/public/cpp/shelf_types.h"
 #include "ash/session/session_observer.h"
+#include "ash/shelf/contextual_tooltip.h"
 #include "ash/shelf/hotseat_transition_animator.h"
 #include "ash/shelf/hotseat_widget.h"
+#include "ash/shelf/shelf.h"
 #include "ash/shelf/shelf_background_animator.h"
 #include "ash/shelf/shelf_component.h"
 #include "ash/shelf/shelf_layout_manager_observer.h"
@@ -23,9 +25,11 @@
 namespace ash {
 enum class AnimationChangeType;
 class ApplicationDragAndDropHost;
+class DragHandle;
 class FocusCycler;
 class HotseatWidget;
 class LoginShelfView;
+class LoginShelfGestureController;
 class Shelf;
 class ShelfLayoutManager;
 class ShelfNavigationWidget;
@@ -57,12 +61,6 @@ class ASH_EXPORT ShelfWidget : public AccessibilityObserver,
   // Returns true if the views-based shelf is being shown.
   static bool IsUsingViewsShelf();
 
-  void CreateNavigationWidget(aura::Window* container);
-  void CreateHotseatWidget(aura::Window* container);
-  void CreateStatusAreaWidget(aura::Window* status_container);
-
-  void OnShelfAlignmentChanged();
-
   void OnTabletModeChanged();
 
   ShelfBackgroundType GetBackgroundType() const;
@@ -71,18 +69,18 @@ class ASH_EXPORT ShelfWidget : public AccessibilityObserver,
   int GetBackgroundAlphaValue(ShelfBackgroundType background_type) const;
 
   const Shelf* shelf() const { return shelf_; }
+  void RegisterHotseatWidget(HotseatWidget* hotseat_widget);
   ShelfLayoutManager* shelf_layout_manager() { return shelf_layout_manager_; }
 
-  // TODO(manucornet): Move these three getters directly to |Shelf| to make it
-  // clear that they are on the same level as the shelf widget.
+  // TODO(manucornet): Remove these getters once all callers get the shelf
+  // components from the shelf directly.
   ShelfNavigationWidget* navigation_widget() const {
-    return navigation_widget_.get();
+    return shelf_->navigation_widget();
   }
-  HotseatWidget* hotseat_widget() const { return hotseat_widget_.get(); }
+  HotseatWidget* hotseat_widget() const { return shelf_->hotseat_widget(); }
   StatusAreaWidget* status_area_widget() const {
-    return status_area_widget_.get();
+    return shelf_->status_area_widget();
   }
-
   void PostCreateShelf();
 
   bool IsShowingAppList() const;
@@ -95,6 +93,11 @@ class ASH_EXPORT ShelfWidget : public AccessibilityObserver,
   // See Shelf::GetScreenBoundsOfItemIconForWindow().
   gfx::Rect GetScreenBoundsOfItemIconForWindow(aura::Window* window);
 
+  // Returns the bounds of the shelf on the screen. The returned rect does
+  // not include portions of the shelf that extend beyond its own display,
+  // as those are not visible to the user.
+  gfx::Rect GetVisibleShelfBounds() const;
+
   // Returns the ApplicationDragAndDropHost for this shelf.
   ApplicationDragAndDropHost* GetDragAndDropHostForAppList();
 
@@ -106,12 +109,20 @@ class ASH_EXPORT ShelfWidget : public AccessibilityObserver,
   // views::Widget:
   void OnMouseEvent(ui::MouseEvent* event) override;
   void OnGestureEvent(ui::GestureEvent* event) override;
+  void OnScrollEvent(ui::ScrollEvent* event) override;
   bool OnNativeWidgetActivationChanged(bool active) override;
 
   // ShelfComponent:
   void CalculateTargetBounds() override;
   gfx::Rect GetTargetBounds() const override;
   void UpdateLayout(bool animate) override;
+  void UpdateTargetBoundsForGesture(int shelf_position) override;
+
+  // TODO(manucornet): Remove this method when all this widget's layout
+  // logic is part of this class.
+  void set_target_bounds(gfx::Rect target_bounds) {
+    target_bounds_ = target_bounds;
+  }
 
   // ShelfLayoutManagerObserver:
   void WillDeleteShelfLayoutManager() override;
@@ -134,6 +145,15 @@ class ASH_EXPORT ShelfWidget : public AccessibilityObserver,
   void ForceToShowHotseat();
   void ForceToHideHotseat();
 
+  // Creates a login shelf gesture controller (which enabled login shelf gesture
+  // detection). See ash/public/cpp/login_screen.h for more info.
+  bool SetLoginShelfSwipeHandler(const base::string16& nudge_text,
+                                 const base::RepeatingClosure& fling_callback,
+                                 base::OnceClosure exit_callback);
+
+  // Resets a previously create login shelf gesture controller, if any.
+  void ClearLoginShelfSwipeHandler();
+
   bool is_hotseat_forced_to_show() const { return is_hotseat_forced_to_show_; }
 
   // Gets the layer used to draw the shelf background.
@@ -148,10 +168,21 @@ class ASH_EXPORT ShelfWidget : public AccessibilityObserver,
   ui::Layer* GetAnimatingDragHandle();
 
   // Gets the view used to display the drag handle on the in-app shelf.
-  views::View* GetDragHandle();
+  DragHandle* GetDragHandle();
+
+  // Starts the animation to show the drag handle nudge.
+  void ScheduleShowDragHandleNudge();
+
+  // Starts the animation to hide the drag handle nudge.
+  void HideDragHandleNudge(contextual_tooltip::DismissNudgeReason context);
 
   // Sets opacity of login shelf buttons to be consistent with shelf icons.
   void SetLoginShelfButtonOpacity(float target_opacity);
+
+  // Handles shelf widget gesture events for login shelf, if login shelf view is
+  // visible. Returns whether the gesture was handled (the gesture will not be
+  // handled if the login shelf view is hidden).
+  bool HandleLoginShelfGestureEvent(const ui::GestureEvent& event_in_screen);
 
   // Internal implementation detail. Do not expose outside of tests.
   ShelfView* shelf_view_for_testing() const {
@@ -162,7 +193,11 @@ class ASH_EXPORT ShelfWidget : public AccessibilityObserver,
     return &background_animator_;
   }
 
-  HotseatTransitionAnimator* hotseat_transition_animator_for_testing() {
+  LoginShelfGestureController* login_shelf_gesture_controller_for_testing() {
+    return login_shelf_gesture_controller_.get();
+  }
+
+  HotseatTransitionAnimator* hotseat_transition_animator() {
     return hotseat_transition_animator_.get();
   }
 
@@ -183,16 +218,14 @@ class ASH_EXPORT ShelfWidget : public AccessibilityObserver,
   const ShelfView* GetShelfView() const;
 
   Shelf* shelf_;
-
+  gfx::Rect target_bounds_;
   ShelfBackgroundAnimator background_animator_;
 
   // Owned by the shelf container's window.
   ShelfLayoutManager* shelf_layout_manager_;
 
-  // Pointers to widgets that are visually part of the shelf.
-  std::unique_ptr<ShelfNavigationWidget> navigation_widget_;
-  std::unique_ptr<HotseatWidget> hotseat_widget_;
-  std::unique_ptr<StatusAreaWidget> status_area_widget_;
+  // Sets shelf opacity to 0 after all animations have completed.
+  std::unique_ptr<ui::ImplicitAnimationObserver> hide_animation_observer_;
 
   // |delegate_view_| is the contents view of this widget and is cleaned up
   // during CloseChildWindows of the associated RootWindowController.
@@ -205,6 +238,10 @@ class ASH_EXPORT ShelfWidget : public AccessibilityObserver,
   // View containing the shelf items for Login/Lock/OOBE/Add User screens.
   // Owned by the views hierarchy.
   LoginShelfView* login_shelf_view_;
+
+  // Used to handle gestures on login shelf - created only if
+  // SetLoginShelfSwipeHandler() gets called.
+  std::unique_ptr<LoginShelfGestureController> login_shelf_gesture_controller_;
 
   ScopedSessionObserver scoped_session_observer_;
 

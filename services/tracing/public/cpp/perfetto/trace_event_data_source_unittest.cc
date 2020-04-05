@@ -16,9 +16,11 @@
 #include "base/json/json_reader.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/metrics/metrics_hashes.h"
+#include "base/metrics/user_metrics.h"
 #include "base/run_loop.h"
 #include "base/synchronization/waitable_event.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "base/test/task_environment.h"
 #include "base/threading/sequenced_task_runner_handle.h"
 #include "base/threading/thread_id_name_manager.h"
@@ -238,6 +240,7 @@ class TraceEventDataSourceTest : public testing::Test {
         base::trace_event::TraceLog::GetInstance()->process_name();
     base::trace_event::TraceLog::GetInstance()->set_process_name(kTestProcess);
 
+    PerfettoTracedProcess::Get()->ClearDataSourcesForTesting();
     PerfettoTracedProcess::ResetTaskRunnerForTesting();
     PerfettoTracedProcess::GetTaskRunner()->GetOrCreateTaskRunner();
     auto perfetto_wrapper = std::make_unique<PerfettoTaskRunner>(
@@ -1471,31 +1474,30 @@ TEST_F(TraceEventDataSourceTest, StartupTracingTimeout) {
       base::SequencedTaskRunnerHandle::Get());
   constexpr char kStartupTestEvent1[] = "startup_registry";
   auto* data_source = TraceEventDataSource::GetInstance();
+  PerfettoTracedProcess::Get()->AddDataSource(data_source);
 
-  // Start startup tracing registry with no timeout. This would cause startup
-  // tracing to abort and flush as soon the current thread can run tasks.
-  data_source->set_startup_tracing_timeout_for_testing(base::TimeDelta());
-  data_source->SetupStartupTracing(true);
-  base::trace_event::TraceLog::GetInstance()->SetEnabled(
-      base::trace_event::TraceConfig(),
-      base::trace_event::TraceLog::RECORDING_MODE);
+  // Start startup tracing with no timeout. This would cause startup tracing to
+  // abort and flush as soon the current thread can run tasks.
+  producer_client()->set_startup_tracing_timeout_for_testing(base::TimeDelta());
+  producer_client()->SetupStartupTracing(base::trace_event::TraceConfig(),
+                                         /*privacy_filtering_enabled=*/true);
 
-  // The trace event will be added to the startup registry since the abort is
-  // not run yet.
+  // The trace event will be added to the SMB for the (soon to be aborted)
+  // startup tracing session, since the abort didn't run yet.
   TRACE_EVENT_BEGIN0(kCategoryGroup, kStartupTestEvent1);
 
   // Run task on background thread to add trace events while aborting and
   // starting tracing on the data source. This is to test we do not have any
   // crashes when a background thread is trying to create trace writers when
-  // deleting startup registry and setting the producer.
+  // aborting startup tracing and resetting tracing for the next session.
   auto wait_for_start_tracing = std::make_unique<base::WaitableEvent>();
   base::WaitableEvent* wait_ptr = wait_for_start_tracing.get();
-  base::PostTask(
-      FROM_HERE, {base::ThreadPool(), base::TaskPriority::BEST_EFFORT},
+  base::ThreadPool::PostTask(
+      FROM_HERE, {base::TaskPriority::BEST_EFFORT},
       base::BindOnce(
           [](std::unique_ptr<base::WaitableEvent> wait_for_start_tracing) {
-            // This event can be hit anytime before startup registry is
-            // destroyed to tracing started using producer.
+            // This event can be hit anytime before startup tracing is
+            // aborted to after tracing is started using the producer.
             TRACE_EVENT_BEGIN0(kCategoryGroup, "maybe_lost");
             base::ScopedAllowBaseSyncPrimitivesForTesting allow;
             wait_for_start_tracing->Wait();
@@ -1506,8 +1508,8 @@ TEST_F(TraceEventDataSourceTest, StartupTracingTimeout) {
           std::move(wait_for_start_tracing)));
 
   // Let tasks run on this thread, which should abort startup tracing and flush
-  // since we have not added a producer to the data source.
-  data_source->OnTaskSchedulerAvailable();
+  // TraceLog, since the data source hasn't been started by a producer.
+  producer_client()->OnThreadPoolAvailable();
   base::RunLoop().RunUntilIdle();
   ASSERT_FALSE(base::trace_event::TraceLog::GetInstance()->IsEnabled());
 
@@ -1630,9 +1632,10 @@ TEST_F(TraceEventDataSourceTest, TypedArgumentsTracingOnBeginAndEnd) {
 TEST_F(TraceEventDataSourceTest, TypedArgumentsTracingOnInstant) {
   CreateTraceEventDataSource();
 
-  TRACE_EVENT_INSTANT("browser", "bar", [&](perfetto::EventContext ctx) {
-    ctx.event()->set_log_message()->set_body_iid(42);
-  });
+  TRACE_EVENT_INSTANT("browser", "bar", TRACE_EVENT_SCOPE_THREAD,
+                      [&](perfetto::EventContext ctx) {
+                        ctx.event()->set_log_message()->set_body_iid(42);
+                      });
 
   EXPECT_EQ(producer_client()->GetFinalizedPacketCount(), 4u);
   ExpectStandardPreamble();  // 3 preamble packets.
@@ -1764,7 +1767,7 @@ TEST_F(TraceEventDataSourceTest, HistogramSample) {
 
   UMA_HISTOGRAM_BOOLEAN("Foo.Bar", true);
 
-  EXPECT_EQ(producer_client()->GetFinalizedPacketCount(), 5u);
+  EXPECT_EQ(producer_client()->GetFinalizedPacketCount(), 4u);
   ExpectStandardPreamble();  // 3 preamble packets.
 
   auto* e_packet = producer_client()->GetFinalizedPacket(3);
@@ -1776,6 +1779,34 @@ TEST_F(TraceEventDataSourceTest, HistogramSample) {
   EXPECT_EQ(e_packet->track_event().chrome_histogram_sample().name_hash(),
             base::HashMetricName("Foo.Bar"));
   EXPECT_EQ(e_packet->track_event().chrome_histogram_sample().sample(), 1u);
+}
+
+TEST_F(TraceEventDataSourceTest, UserActionEvent) {
+  base::SetRecordActionTaskRunner(base::ThreadTaskRunnerHandle::Get());
+
+  base::trace_event::TraceConfig trace_config(
+      "-*,disabled-by-default-user_action_samples",
+      base::trace_event::RECORD_UNTIL_FULL);
+
+  CreateTraceEventDataSource(/*privacy_filtering_enabled=*/false,
+                             /*start_trace=*/true, trace_config.ToString());
+
+  // Wait for registering callback on current thread.
+  base::RunLoop().RunUntilIdle();
+
+  base::RecordAction(base::UserMetricsAction("Test_Action"));
+
+  EXPECT_EQ(producer_client()->GetFinalizedPacketCount(), 4u);
+  ExpectStandardPreamble();  // 3 preamble packets.
+
+  auto* e_packet = producer_client()->GetFinalizedPacket(3);
+
+  ExpectEventCategories(
+      e_packet, {{1u, TRACE_DISABLED_BY_DEFAULT("user_action_samples")}});
+  ExpectEventNames(e_packet, {{1u, "UserAction"}});
+  ASSERT_TRUE(e_packet->track_event().has_chrome_user_event());
+  EXPECT_EQ(e_packet->track_event().chrome_user_event().action_hash(),
+            base::HashMetricName("Test_Action"));
 }
 
 // TODO(eseckler): Add startup tracing unittests.

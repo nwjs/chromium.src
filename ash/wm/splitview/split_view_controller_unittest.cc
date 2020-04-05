@@ -52,6 +52,7 @@
 #include "ash/wm/window_state_delegate.h"
 #include "ash/wm/window_util.h"
 #include "ash/wm/wm_event.h"
+#include "base/memory/ptr_util.h"
 #include "base/stl_util.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
@@ -214,11 +215,15 @@ class SplitViewControllerTest : public MultiDisplayOverviewAndSplitViewTest {
     void OnWindowDestroyed(aura::Window* window) override { delete this; }
   };
 
+  void CheckForDuplicateTraceName(const char* trace) {
+    DCHECK(!base::Contains(trace_names_, trace)) << trace;
+    trace_names_.push_back(trace);
+  }
+
   void CheckOverviewEnterExitHistogram(const char* trace,
                                        std::vector<int>&& enter_counts,
                                        std::vector<int>&& exit_counts) {
-    DCHECK(!base::Contains(trace_names_, trace)) << trace;
-    trace_names_.push_back(trace);
+    CheckForDuplicateTraceName(trace);
     {
       SCOPED_TRACE(trace + std::string(".Enter"));
       CheckOverviewHistogram("Ash.Overview.AnimationSmoothness.Enter",
@@ -1243,6 +1248,19 @@ TEST_P(SplitViewControllerTest, DragAndDoubleTapDivider) {
   EXPECT_EQ(split_view_controller()->right_window(), window2.get());
 }
 
+// Verify overview does not steal focus from a split view window when trading
+// places with it.
+TEST_P(SplitViewControllerTest, OverviewNotStealFocusOnSwapWindows) {
+  const gfx::Rect bounds(0, 0, 400, 400);
+  std::unique_ptr<aura::Window> window1(CreateWindow(bounds));
+  std::unique_ptr<aura::Window> window2(CreateWindow(bounds));
+  ToggleOverview();
+  split_view_controller()->SnapWindow(window2.get(), SplitViewController::LEFT);
+  wm::ActivateWindow(window2.get());
+  split_view_controller()->SwapWindows();
+  EXPECT_TRUE(wm::IsActiveWindow(window2.get()));
+}
+
 // Verify that you cannot start dragging the divider during its snap animation.
 TEST_P(SplitViewControllerTest, StartDraggingDividerDuringSnapAnimation) {
   const gfx::Rect bounds(0, 0, 400, 400);
@@ -1396,50 +1414,44 @@ TEST_P(SplitViewControllerTest, LongPressExitsSplitViewWithTransientChild) {
 }
 
 // Verify that split view mode get activated when long pressing on the overview
-// button while in overview mode iff we have more than two windows in the mru
-// list.
+// button while in overview mode iff we have at least one window.
 TEST_P(SplitViewControllerTest, LongPressInOverviewMode) {
-  const gfx::Rect bounds(0, 0, 400, 400);
-  std::unique_ptr<aura::Window> window1(CreateWindow(bounds));
-  wm::ActivateWindow(window1.get());
-
   ToggleOverview();
   ASSERT_TRUE(Shell::Get()->overview_controller()->InOverviewSession());
   ASSERT_FALSE(split_view_controller()->InSplitViewMode());
-  CheckOverviewEnterExitHistogram("EnterInTablet", {1, 0}, {0, 0});
+  CheckOverviewEnterExitHistogram("EnterInTablet", {0, 0}, {0, 0});
 
-  // Nothing happens if there is only one window.
+  // Nothing happens if there are no windows.
   LongPressOnOverivewButtonTray();
   EXPECT_FALSE(split_view_controller()->InSplitViewMode());
+  EXPECT_TRUE(Shell::Get()->overview_controller()->InOverviewSession());
 
-  // Verify that with two windows, a long press on the overview button tray will
+  // Verify that with a window, a long press on the overview button tray will
   // enter splitview.
-  std::unique_ptr<aura::Window> window2(CreateWindow(bounds));
-  wm::ActivateWindow(window2.get());
-  CheckOverviewEnterExitHistogram("ExitByActivation", {1, 0}, {1, 0});
+  std::unique_ptr<aura::Window> window(CreateWindow(gfx::Rect(0, 0, 400, 400)));
+  wm::ActivateWindow(window.get());
+  CheckOverviewEnterExitHistogram("ExitByActivation", {0, 0}, {0, 0});
 
   ToggleOverview();
-  CheckOverviewEnterExitHistogram("EnterInTablet2", {2, 0}, {1, 0});
+  CheckOverviewEnterExitHistogram("EnterInTablet2", {1, 0}, {0, 0});
   ASSERT_TRUE(Shell::Get()->overview_controller()->InOverviewSession());
   ASSERT_FALSE(split_view_controller()->InSplitViewMode());
 
   LongPressOnOverivewButtonTray();
   EXPECT_TRUE(split_view_controller()->InSplitViewMode());
-  EXPECT_EQ(window2.get(), split_view_controller()->left_window());
+  EXPECT_EQ(window.get(), split_view_controller()->left_window());
   // This scenario should not trigger animation.
-  CheckOverviewEnterExitHistogram("NoTransition", {2, 0}, {1, 0});
+  CheckOverviewEnterExitHistogram("NoTransition", {1, 0}, {0, 0});
 }
 
 TEST_P(SplitViewControllerTest, LongPressWithUnsnappableWindow) {
-  // Add one unsnappable window and two regular windows.
+  // Add an unsnappable window and a regular window.
   const gfx::Rect bounds(0, 0, 400, 400);
   std::unique_ptr<aura::Window> unsnappable_window(
       CreateNonSnappableWindow(bounds));
   ASSERT_FALSE(split_view_controller()->InSplitViewMode());
-  std::unique_ptr<aura::Window> window2(CreateWindow(bounds));
-  std::unique_ptr<aura::Window> window3(CreateWindow(bounds));
-  wm::ActivateWindow(window2.get());
-  wm::ActivateWindow(window3.get());
+  std::unique_ptr<aura::Window> regular_window(CreateWindow(bounds));
+  wm::ActivateWindow(regular_window.get());
   wm::ActivateWindow(unsnappable_window.get());
   ASSERT_EQ(unsnappable_window.get(), window_util::GetActiveWindow());
 
@@ -4000,7 +4012,7 @@ TEST_P(SplitViewTabDraggingTest, SourceWindowBackgroundTest) {
   EXPECT_TRUE(window4->IsVisible());
 
   // Home launcher should be shown because none of these windows are activated.
-  EXPECT_TRUE(Shell::Get()->app_list_controller()->IsVisible());
+  EXPECT_TRUE(Shell::Get()->app_list_controller()->IsVisible(base::nullopt));
 
   // 1) Start dragging |window1|. |window2| is the source window.
   std::unique_ptr<WindowResizer> resizer =
@@ -4015,7 +4027,7 @@ TEST_P(SplitViewTabDraggingTest, SourceWindowBackgroundTest) {
   EXPECT_FALSE(window4->IsVisible());
 
   // Test that home launcher is not shown because a window is active.
-  EXPECT_FALSE(Shell::Get()->app_list_controller()->IsVisible());
+  EXPECT_FALSE(Shell::Get()->app_list_controller()->IsVisible(base::nullopt));
 
   // Test that during dragging, we could not show a hidden window.
   window3->Show();
@@ -4029,7 +4041,7 @@ TEST_P(SplitViewTabDraggingTest, SourceWindowBackgroundTest) {
   EXPECT_TRUE(window4->IsVisible());
 
   // Test that home launcher is still not shown, because a window is active.
-  EXPECT_FALSE(Shell::Get()->app_list_controller()->IsVisible());
+  EXPECT_FALSE(Shell::Get()->app_list_controller()->IsVisible(base::nullopt));
 }
 
 // Tests that the dragged window should be the active and top window if overview
@@ -4169,28 +4181,6 @@ TEST_P(SplitViewTabDraggingTest, MergeBackToSourceWindow) {
   EXPECT_FALSE(
       source_window->GetProperty(kIsDeferredTabDraggingTargetWindowKey));
   EndSplitView();
-}
-
-// Tests that if window being dragged into drop target when preview area is
-// shown, window should go to be snapped instead of being dropped into overview.
-TEST_P(SplitViewTabDraggingTest, DragWindowIntoPreviewAreaAndDropTarget) {
-  const gfx::Rect bounds(0, 0, 400, 400);
-  std::unique_ptr<aura::Window> browser_window(
-      CreateWindowWithType(bounds, AppType::BROWSER));
-  WindowState::Get(browser_window.get())->Maximize();
-
-  std::unique_ptr<WindowResizer> resizer =
-      StartDrag(browser_window.get(), browser_window.get());
-  gfx::Rect drop_target_bounds =
-      GetDropTargetBoundsDuringDrag(browser_window.get());
-  // Drag window to inside the drop target.
-  DragWindowTo(resizer.get(), gfx::Point(drop_target_bounds.x() + 5,
-                                         drop_target_bounds.y() + 5));
-  EXPECT_EQ(SplitViewDragIndicators::WindowDraggingState::kToSnapLeft,
-            GetWindowDraggingState(resizer.get()));
-  CompleteDrag(std::move(resizer));
-  EXPECT_EQ(SplitViewController::State::kLeftSnapped,
-            split_view_controller()->state());
 }
 
 // Tests that if a fling event happens on a tab, the tab might or might not
@@ -4516,6 +4506,8 @@ class TestWindowDelegateWithWidget : public views::WidgetDelegate {
 
   // views::WidgetDelegate:
   void DeleteDelegate() override { delete this; }
+  views::Widget* GetWidget() override { return widget_; }
+  const views::Widget* GetWidget() const override { return widget_; }
   bool CanActivate() const override { return true; }
   bool CanResize() const override { return can_resize_; }
   bool CanMaximize() const override { return true; }
@@ -4524,9 +4516,6 @@ class TestWindowDelegateWithWidget : public views::WidgetDelegate {
   void set_widget(views::Widget* widget) { widget_ = widget; }
 
  private:
-  // views::WidgetDelegate:
-  const views::Widget* GetWidgetImpl() const override { return widget_; }
-
   bool can_resize_;
   views::Widget* widget_ = nullptr;
 
@@ -4554,7 +4543,7 @@ class SplitViewAppDraggingTest : public SplitViewControllerTest {
         std::make_unique<TestWindowDelegateWithWidget>(can_resize);
     widget_delegate->set_widget(widget);
     params.delegate = widget_delegate.release();
-    params.context = CurrentContext();
+    params.context = GetContext();
     widget->Init(std::move(params));
     widget->Show();
     return base::WrapUnique<aura::Window>(widget->GetNativeView());

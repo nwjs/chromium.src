@@ -16,10 +16,11 @@ import static org.mockito.Mockito.inOrder;
 import android.content.Intent;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.filters.MediumTest;
-import android.support.v7.widget.RecyclerView;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
+
+import androidx.recyclerview.widget.RecyclerView;
 
 import org.junit.After;
 import org.junit.Assert;
@@ -36,7 +37,7 @@ import org.chromium.base.ThreadUtils;
 import org.chromium.base.library_loader.LibraryLoader;
 import org.chromium.base.test.util.UrlUtils;
 import org.chromium.chrome.autofill_assistant.R;
-import org.chromium.chrome.browser.autofill_assistant.carousel.AssistantCarouselCoordinator;
+import org.chromium.chrome.browser.autofill_assistant.carousel.AssistantActionsCarouselCoordinator;
 import org.chromium.chrome.browser.autofill_assistant.carousel.AssistantCarouselModel;
 import org.chromium.chrome.browser.autofill_assistant.carousel.AssistantChip;
 import org.chromium.chrome.browser.autofill_assistant.details.AssistantDetails;
@@ -121,7 +122,8 @@ public class AutofillAssistantUiTest {
         AssistantCoordinator assistantCoordinator = ThreadUtils.runOnUiThreadBlocking(
                 ()
                         -> new AssistantCoordinator(getActivity(), bottomSheetController,
-                                /* overlayCoordinator= */ null));
+                                getActivity().getTabObscuringHandler(),
+                                /* overlayCoordinator= */ null, null));
 
         // Bottom sheet is shown in the BottomSheet when creating the AssistantCoordinator.
         ViewGroup bottomSheetContent =
@@ -148,10 +150,6 @@ public class AutofillAssistantUiTest {
                                 AssistantOverlayModel.STATE, AssistantOverlayState.FULL));
         View scrim = getActivity().getScrim();
         Assert.assertTrue(scrim.isShown());
-
-        // Test suggestions and actions carousels.
-        testChips(inOrder, assistantCoordinator.getModel().getSuggestionsModel(),
-                assistantCoordinator.getBottomBarCoordinator().getSuggestionsCoordinator());
 
         // TODO(crbug.com/806868): Fix test of actions carousel. This is currently broken as chips
         // are displayed in the reversed order in the actions carousel and calling
@@ -216,15 +214,15 @@ public class AutofillAssistantUiTest {
     }
 
     private void testChips(InOrder inOrder, AssistantCarouselModel carouselModel,
-            AssistantCarouselCoordinator carouselCoordinator) {
+            AssistantActionsCarouselCoordinator carouselCoordinator) {
         List<AssistantChip> chips = Arrays.asList(
                 new AssistantChip(AssistantChip.Type.CHIP_ASSISTIVE, AssistantChip.Icon.NONE,
                         "chip 0",
-                        /* disabled= */ false, /* sticky= */ false, () -> {/* do nothing */}),
+                        /* disabled= */ false, /* sticky= */ false, "", () -> {/* do nothing */}),
                 new AssistantChip(AssistantChip.Type.CHIP_ASSISTIVE, AssistantChip.Icon.NONE,
                         "chip 1",
-                        /* disabled= */ false, /* sticky= */ false, mRunnableMock));
-        ThreadUtils.runOnUiThreadBlocking(() -> carouselModel.getChipsModel().set(chips));
+                        /* disabled= */ false, /* sticky= */ false, "", mRunnableMock));
+        ThreadUtils.runOnUiThreadBlocking(() -> carouselModel.setChips(chips));
         RecyclerView chipsViewContainer = carouselCoordinator.getView();
         Assert.assertEquals(2, chipsViewContainer.getAdapter().getItemCount());
 
@@ -245,7 +243,8 @@ public class AutofillAssistantUiTest {
         AssistantCoordinator assistantCoordinator = ThreadUtils.runOnUiThreadBlocking(
                 ()
                         -> new AssistantCoordinator(getActivity(), bottomSheetController,
-                                /* overlayCoordinator= */ null));
+                                getActivity().getTabObscuringHandler(),
+                                /* overlayCoordinator= */ null, null));
 
         // Bottom sheet is shown in the BottomSheet when creating the AssistantCoordinator.
         ViewGroup bottomSheetContent =

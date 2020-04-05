@@ -556,6 +556,14 @@ class WebBundleTrustableFileBrowserTest
   }
   ~WebBundleTrustableFileBrowserTest() override = default;
 
+  std::string ExecuteAndGetString(const std::string& script) {
+    std::string result;
+    EXPECT_TRUE(content::ExecuteScriptAndExtractString(
+        shell()->web_contents(), "domAutomationController.send(" + script + ")",
+        &result));
+    return result;
+  }
+
  private:
   DISALLOW_COPY_AND_ASSIGN(WebBundleTrustableFileBrowserTest);
 };
@@ -635,6 +643,34 @@ IN_PROC_BROWSER_TEST_P(WebBundleTrustableFileBrowserTest, NavigationWithHash) {
     return;
   NavigateToBundleAndWaitForReady(test_data_url(), GURL(kTestPageUrl));
   NavigateToURLAndWaitForTitle(GURL(kTestPageForHashUrl), "#hello");
+
+  EXPECT_EQ(ExecuteAndGetString("window.location.href"),
+            "https://test.example.org/hash.html#hello");
+  EXPECT_EQ(ExecuteAndGetString("document.location.href"),
+            "https://test.example.org/hash.html#hello");
+  EXPECT_EQ(ExecuteAndGetString("document.URL"),
+            "https://test.example.org/hash.html#hello");
+}
+
+IN_PROC_BROWSER_TEST_P(WebBundleTrustableFileBrowserTest, BaseURI) {
+  // Don't run the test if we couldn't override BrowserClient. It happens only
+  // on Android Kitkat or older systems.
+  if (!original_client_)
+    return;
+  NavigateToBundleAndWaitForReady(test_data_url(), GURL(kTestPageUrl));
+  EXPECT_EQ(ExecuteAndGetString("(new Request('./foo/bar')).url"),
+            "https://test.example.org/foo/bar");
+  EXPECT_EQ(ExecuteAndGetString(R"(
+            (() => {
+              const base_element = document.createElement('base');
+              base_element.href = 'https://example.org/piyo/';
+              document.body.appendChild(base_element);
+              return document.baseURI;
+            })()
+            )"),
+            "https://example.org/piyo/");
+  EXPECT_EQ(ExecuteAndGetString("(new Request('./foo/bar')).url"),
+            "https://example.org/piyo/foo/bar");
 }
 
 INSTANTIATE_TEST_SUITE_P(WebBundleTrustableFileBrowserTests,
@@ -972,6 +1008,47 @@ IN_PROC_BROWSER_TEST_P(WebBundleFileBrowserTest, Variants) {
       document.title = data.text;
     })();)",
                                "fr");
+}
+
+IN_PROC_BROWSER_TEST_P(WebBundleFileBrowserTest, IframeNavigationNoCrash) {
+  // Regression test for crbug.com/1058721. There was a bug that navigation of
+  // OOPIF's remote iframe in Web Bundle file cause crash.
+  const GURL test_data_url =
+      GetTestUrlForFile(GetTestDataPath("web_bundle_browsertest.wbn"));
+  NavigateToBundleAndWaitForReady(
+      test_data_url, web_bundle_utils::GetSynthesizedUrlForWebBundle(
+                         test_data_url, GURL(kTestPageUrl)));
+
+  const std::string empty_page_path = "/web_bundle/empty_page.html";
+  ASSERT_TRUE(embedded_test_server()->Start());
+  const GURL empty_page_url = embedded_test_server()->GetURL(empty_page_path);
+
+  ExecuteScriptAndWaitForTitle(
+      base::StringPrintf(R"(
+    (async function() {
+      const empty_page_url = '%s';
+      const iframe = document.createElement('iframe');
+      const onload = () => {
+        iframe.removeEventListener('load', onload);
+        document.title = 'Iframe loaded';
+      }
+      iframe.addEventListener('load', onload);
+      iframe.src = empty_page_url;
+      document.body.appendChild(iframe);
+    })();)",
+                         empty_page_url.spec().c_str()),
+      "Iframe loaded");
+
+  ExecuteScriptAndWaitForTitle(R"(
+    (async function() {
+      const iframe = document.querySelector("iframe");
+      const onload = () => {
+        document.title = 'Iframe loaded again';
+      }
+      iframe.addEventListener('load', onload);
+      iframe.src = iframe.src + '?';
+    })();)",
+                               "Iframe loaded again");
 }
 
 INSTANTIATE_TEST_SUITE_P(WebBundleFileBrowserTest,

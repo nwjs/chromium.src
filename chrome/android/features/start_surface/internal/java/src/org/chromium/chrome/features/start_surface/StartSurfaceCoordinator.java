@@ -4,19 +4,17 @@
 
 package org.chromium.chrome.features.start_surface;
 
-import static org.chromium.chrome.features.start_surface.StartSurfaceProperties.TOP_BAR_HEIGHT;
-
 import androidx.annotation.Nullable;
 
 import org.chromium.base.ActivityState;
 import org.chromium.base.ApplicationStatus;
 import org.chromium.chrome.browser.ChromeActivity;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
-import org.chromium.chrome.browser.flags.FeatureUtilities;
 import org.chromium.chrome.browser.tasks.TasksSurface;
 import org.chromium.chrome.browser.tasks.TasksSurfaceProperties;
+import org.chromium.chrome.browser.tasks.tab_management.TabManagementDelegate.TabSwitcherType;
 import org.chromium.chrome.browser.tasks.tab_management.TabManagementModuleProvider;
 import org.chromium.chrome.browser.tasks.tab_management.TabSwitcher;
+import org.chromium.chrome.browser.toolbar.bottom.BottomToolbarConfiguration;
 import org.chromium.chrome.features.start_surface.StartSurfaceMediator.SurfaceMode;
 import org.chromium.chrome.start_surface.R;
 import org.chromium.ui.modelutil.PropertyKey;
@@ -77,12 +75,15 @@ public class StartSurfaceCoordinator implements StartSurface {
         mActivity = activity;
         mSurfaceMode = computeSurfaceMode();
 
+        boolean excludeMVTiles = StartSurfaceConfiguration.START_SURFACE_EXCLUDE_MV_TILES.getValue()
+                || mSurfaceMode == SurfaceMode.OMNIBOX_ONLY
+                || mSurfaceMode == SurfaceMode.NO_START_SURFACE;
         if (mSurfaceMode == SurfaceMode.NO_START_SURFACE) {
             // Create Tab switcher directly to save one layer in the view hierarchy.
             mTabSwitcher = TabManagementModuleProvider.getDelegate().createGridTabSwitcher(
                     mActivity, mActivity.getCompositorViewHolder());
         } else {
-            createAndSetStartSurface();
+            createAndSetStartSurface(excludeMVTiles);
         }
 
         TabSwitcher.Controller controller =
@@ -94,12 +95,9 @@ public class StartSurfaceCoordinator implements StartSurface {
                         : mExploreSurfaceCoordinator.getFeedSurfaceCreator(),
                 mSurfaceMode == SurfaceMode.SINGLE_PANE ? this::initializeSecondaryTasksSurface
                                                         : null,
-                mSurfaceMode,
-                mSurfaceMode != SurfaceMode.NO_START_SURFACE
-                        ? mActivity.getToolbarManager().getFakeboxDelegate()
-                        : null,
-                mActivity.getNightModeStateProvider(), mActivity.getFullscreenManager(),
-                this::isActivityFinishingOrDestroyed);
+                mSurfaceMode, mActivity.getNightModeStateProvider(),
+                mActivity.getFullscreenManager(), this::isActivityFinishingOrDestroyed,
+                excludeMVTiles);
     }
 
     // Implements StartSurface.
@@ -137,6 +135,21 @@ public class StartSurfaceCoordinator implements StartSurface {
     }
 
     @Override
+    public void initWithNative() {
+        mStartSurfaceMediator.initWithNative(mSurfaceMode != SurfaceMode.NO_START_SURFACE
+                        ? mActivity.getToolbarManager().getFakeboxDelegate()
+                        : null);
+        if (mTabSwitcher != null) {
+            mTabSwitcher.initWithNative(mActivity, mActivity.getTabContentManager(),
+                    mActivity.getCompositorViewHolder().getDynamicResourceLoader(), mActivity);
+        }
+        if (mTasksSurface != null) {
+            mTasksSurface.onFinishNativeInitialization(
+                    mActivity, mActivity.getToolbarManager().getFakeboxDelegate());
+        }
+    }
+
+    @Override
     public Controller getController() {
         return mStartSurfaceMediator;
     }
@@ -158,22 +171,25 @@ public class StartSurfaceCoordinator implements StartSurface {
     private @SurfaceMode int computeSurfaceMode() {
         // Check the cached flag before getting the parameter to be consistent with the other
         // places. Note that the cached flag may have been set before native initialization.
-        if (!FeatureUtilities.isStartSurfaceEnabled()) {
+        if (!StartSurfaceConfiguration.isStartSurfaceEnabled()) {
             return SurfaceMode.NO_START_SURFACE;
         }
 
-        // TODO(crbug.com/982018): use cached variation.
-        String feature = ChromeFeatureList.getFieldTrialParamByFeature(
-                ChromeFeatureList.START_SURFACE_ANDROID, "start_surface_variation");
+        String feature = StartSurfaceConfiguration.START_SURFACE_VARIATION.getValue();
 
         if (feature.equals("twopanes")) {
             // Do not enable two panes when the bottom bar is enabled since it will
             // overlap the two panes' bottom bar.
-            return FeatureUtilities.isBottomToolbarEnabled() ? SurfaceMode.SINGLE_PANE
-                                                             : SurfaceMode.TWO_PANES;
+            return BottomToolbarConfiguration.isBottomToolbarEnabled() ? SurfaceMode.SINGLE_PANE
+                                                                       : SurfaceMode.TWO_PANES;
         }
 
-        if (feature.equals("single")) return SurfaceMode.SINGLE_PANE;
+        // TODO(crbug.com/982018): Remove isStartSurfaceSinglePaneEnabled check after
+        // removing ChromePreferenceKeys.START_SURFACE_SINGLE_PANE_ENABLED_KEY.
+        if (feature.equals("single")
+                || StartSurfaceConfiguration.isStartSurfaceSinglePaneEnabled()) {
+            return SurfaceMode.SINGLE_PANE;
+        }
 
         if (feature.equals("tasksonly")) return SurfaceMode.TASKS_ONLY;
 
@@ -181,22 +197,24 @@ public class StartSurfaceCoordinator implements StartSurface {
 
         // Default to SurfaceMode.TASKS_ONLY. This could happen when the start surface has been
         // changed from enabled to disabled in native side, but the cached flag has not been updated
-        // yet, so FeatureUtilities.isStartSurfaceEnabled() above returns true.
+        // yet, so StartSurfaceConfiguration.isStartSurfaceEnabled() above returns true.
         // TODO(crbug.com/1016548): Remember the last surface mode so as to default to it.
         return SurfaceMode.TASKS_ONLY;
     }
 
-    private void createAndSetStartSurface() {
+    private void createAndSetStartSurface(boolean excludeMVTiles) {
         ArrayList<PropertyKey> allProperties =
                 new ArrayList<>(Arrays.asList(TasksSurfaceProperties.ALL_KEYS));
         allProperties.addAll(Arrays.asList(StartSurfaceProperties.ALL_KEYS));
         mPropertyModel = new PropertyModel(allProperties);
-        mPropertyModel.set(TOP_BAR_HEIGHT,
-                mActivity.getResources().getDimensionPixelSize(R.dimen.toolbar_height_no_shadow));
 
-        mTasksSurface = TabManagementModuleProvider.getDelegate().createTasksSurface(mActivity,
-                mPropertyModel, mActivity.getToolbarManager().getFakeboxDelegate(),
-                mSurfaceMode == SurfaceMode.SINGLE_PANE);
+        int tabSwitcherType = mSurfaceMode == SurfaceMode.SINGLE_PANE ? TabSwitcherType.CAROUSEL
+                                                                      : TabSwitcherType.GRID;
+        if (StartSurfaceConfiguration.START_SURFACE_LAST_ACTIVE_TAB_ONLY.getValue()) {
+            tabSwitcherType = TabSwitcherType.SINGLE;
+        }
+        mTasksSurface = TabManagementModuleProvider.getDelegate().createTasksSurface(
+                mActivity, mPropertyModel, tabSwitcherType, !excludeMVTiles);
         mTasksSurface.getView().setId(R.id.primary_tasks_surface_view);
 
         mTasksSurfacePropertyModelChangeProcessor =
@@ -227,14 +245,11 @@ public class StartSurfaceCoordinator implements StartSurface {
 
         PropertyModel propertyModel = new PropertyModel(TasksSurfaceProperties.ALL_KEYS);
         mStartSurfaceMediator.setSecondaryTasksSurfacePropertyModel(propertyModel);
-        mSecondaryTasksSurface =
-                TabManagementModuleProvider.getDelegate().createTasksSurface(mActivity,
-                        propertyModel, mActivity.getToolbarManager().getFakeboxDelegate(), false);
-
-        // Intentionally do not call mSecondaryTasksSurface.initialize since the secondary tasks
-        // surface will never show MV tiles.
-        // TODO(crbug.com/1041047): Remove constructing of the MV tilles from the
-        // TasksSurfaceCoordinator.
+        mSecondaryTasksSurface = TabManagementModuleProvider.getDelegate().createTasksSurface(
+                mActivity, propertyModel, TabSwitcherType.GRID, false);
+        mSecondaryTasksSurface.onFinishNativeInitialization(
+                mActivity, mActivity.getToolbarManager().getFakeboxDelegate());
+        mSecondaryTasksSurface.initialize();
 
         mSecondaryTasksSurface.getView().setId(R.id.secondary_tasks_surface_view);
         mSecondaryTasksSurfacePropertyModelChangeProcessor =

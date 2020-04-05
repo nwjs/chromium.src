@@ -181,10 +181,11 @@ VISIT_PROTO_FIELDS(const sync_pb::BookmarkSpecifics& proto) {
   VISIT(url);
   VISIT_BYTES(favicon);
   VISIT(guid);
-  VISIT(title);
+  VISIT(legacy_canonicalized_title);
   VISIT(creation_time_us);
   VISIT(icon_url);
   VISIT_REP(meta_info);
+  VISIT(full_title);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::ChromiumExtensionsActivity& proto) {
@@ -336,9 +337,9 @@ VISIT_PROTO_FIELDS(const sync_pb::SharingSpecificFields& proto) {
   VISIT_BYTES(vapid_p256dh);
   VISIT_BYTES(vapid_auth_secret);
   VISIT_REP(enabled_features);
-  VISIT(sender_id_fcm_token);
-  VISIT_BYTES(sender_id_p256dh);
-  VISIT_BYTES(sender_id_auth_secret);
+  VISIT(sender_id_fcm_token_v2);
+  VISIT_BYTES(sender_id_p256dh_v2);
+  VISIT_BYTES(sender_id_auth_secret_v2);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::DictionarySpecifics& proto) {
@@ -469,10 +470,6 @@ VISIT_PROTO_FIELDS(const sync_pb::FaviconTrackingSpecifics& proto) {
   VISIT(is_bookmarked);
 }
 
-VISIT_PROTO_FIELDS(const sync_pb::UserEventSpecifics::FieldTrial& proto) {
-  VISIT_REP(variation_ids);
-}
-
 VISIT_PROTO_FIELDS(const sync_pb::GcmChannelFlags& proto) {
   VISIT(enabled);
 }
@@ -535,18 +532,6 @@ VISIT_PROTO_FIELDS(const sync_pb::KeystoreEncryptionFlags& proto) {
   VISIT(enabled);
 }
 
-VISIT_PROTO_FIELDS(
-    const sync_pb::UserEventSpecifics::LanguageDetection::Language& proto) {
-  VISIT(language_code);
-  VISIT(is_reliable);
-}
-
-VISIT_PROTO_FIELDS(
-    const sync_pb::UserEventSpecifics::LanguageDetection& proto) {
-  VISIT_REP(detected_languages);
-  VISIT(adopted_language_code);
-}
-
 VISIT_PROTO_FIELDS(const sync_pb::LinkedAppIconInfo& proto) {
   VISIT(url);
   VISIT(size);
@@ -606,6 +591,7 @@ VISIT_PROTO_FIELDS(const sync_pb::NigoriModel& proto) {
   VISIT_REP(encrypted_types_specifics_field_number);
   VISIT_REP(keystore_key);
   VISIT(pending_keystore_decryptor_token);
+  VISIT(last_default_trusted_vault_key_name);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::NigoriLocalData& proto) {
@@ -939,31 +925,9 @@ VISIT_PROTO_FIELDS(const sync_pb::TimeRangeDirective& proto) {
   VISIT(end_time_usec);
 }
 
-VISIT_PROTO_FIELDS(const sync_pb::UserEventSpecifics::Translation& proto) {
-  VISIT(from_language_code);
-  VISIT(to_language_code);
-  VISIT_ENUM(interaction);
-}
-
 VISIT_PROTO_FIELDS(const sync_pb::UrlDirective& proto) {
   VISIT(url);
   VISIT(end_time_usec);
-}
-
-// TODO(vitaliii): Delete once UserEventSpecifics::UserConsent is completely
-// deprecated.
-VISIT_PROTO_FIELDS(const sync_pb::UserEventSpecifics::UserConsent& proto) {
-  VISIT_ENUM(feature);
-  VISIT_REP(description_grd_ids);
-  VISIT(confirmation_grd_id);
-  VISIT(locale);
-  VISIT_ENUM(status);
-  VISIT(account_id);
-  VISIT(sync_consent);
-  VISIT(arc_backup_and_restore_consent);
-  VISIT(arc_location_service_consent);
-  VISIT(arc_play_terms_of_service_consent);
-  VISIT(arc_metrics_and_usage_consent);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::TypeHint& proto) {
@@ -987,17 +951,12 @@ VISIT_PROTO_FIELDS(const sync_pb::UniquePosition& proto) {
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::UserConsentSpecifics& proto) {
-  VISIT_ENUM(feature);
-  VISIT_REP(description_grd_ids);
-  VISIT(confirmation_grd_id);
   VISIT(locale);
-  VISIT_ENUM(status);
   VISIT(account_id);
   VISIT(sync_consent);
   VISIT(arc_backup_and_restore_consent);
   VISIT(arc_location_service_consent);
   VISIT(arc_play_terms_of_service_consent);
-  VISIT(arc_metrics_and_usage_consent);
 }
 
 VISIT_PROTO_FIELDS(
@@ -1008,12 +967,6 @@ VISIT_PROTO_FIELDS(
 
 VISIT_PROTO_FIELDS(
     const sync_pb::UserConsentTypes::ArcGoogleLocationServiceConsent& proto) {
-  VISIT_REP(description_grd_ids);
-  VISIT_ENUM(status);
-}
-
-VISIT_PROTO_FIELDS(
-    const sync_pb::UserConsentTypes::ArcMetricsAndUsageConsent& proto) {
   VISIT_REP(description_grd_ids);
   VISIT_ENUM(status);
 }
@@ -1043,10 +996,6 @@ VISIT_PROTO_FIELDS(const sync_pb::UserEventSpecifics& proto) {
   VISIT(navigation_id);
   VISIT(session_id);
   VISIT(test_event);
-  VISIT(field_trial_event);
-  VISIT(language_detection_event);
-  VISIT(translation_event);
-  VISIT(user_consent);
   VISIT(gaia_password_reuse_event);
   VISIT(gaia_password_captured_event);
 }
@@ -1061,6 +1010,10 @@ VISIT_PROTO_FIELDS(const sync_pb::CloudTokenData& proto) {
   VISIT(instrument_token);
 }
 
+VISIT_PROTO_FIELDS(const sync_pb::CardIssuer& proto) {
+  VISIT_ENUM(issuer);
+}
+
 VISIT_PROTO_FIELDS(const sync_pb::WalletMaskedCreditCard& proto) {
   VISIT(id);
   VISIT_ENUM(status);
@@ -1071,6 +1024,8 @@ VISIT_PROTO_FIELDS(const sync_pb::WalletMaskedCreditCard& proto) {
   VISIT(exp_year);
   VISIT(billing_address_id);
   VISIT(bank_name);
+  VISIT(nickname);
+  VISIT(card_issuer);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::WalletMetadataSpecifics& proto) {
@@ -1122,20 +1077,15 @@ VISIT_PROTO_FIELDS(const sync_pb::WebAppSpecifics& proto) {
   VISIT(theme_color);
 }
 
-VISIT_PROTO_FIELDS(const sync_pb::WifiConfigurationSpecifics& proto) {
-  VISIT(encrypted);
-  VISIT(client_only_encrypted_data);
-}
-
 VISIT_PROTO_FIELDS(
-    const sync_pb::WifiConfigurationSpecificsData::ProxyConfiguration& proto) {
+    const sync_pb::WifiConfigurationSpecifics::ProxyConfiguration& proto) {
   VISIT_ENUM(proxy_option);
   VISIT(proxy_url);
   VISIT(proxy_port);
   VISIT_REP(whitelisted_domains);
 }
 
-VISIT_PROTO_FIELDS(const sync_pb::WifiConfigurationSpecificsData& proto) {
+VISIT_PROTO_FIELDS(const sync_pb::WifiConfigurationSpecifics& proto) {
   VISIT_BYTES(hex_ssid);
   VISIT_ENUM(security_type);
   VISIT_BYTES(passphrase);

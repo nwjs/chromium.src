@@ -103,8 +103,6 @@ class CORE_EXPORT FrameLoader final {
   void CommitNavigation(
       std::unique_ptr<WebNavigationParams> navigation_params,
       std::unique_ptr<WebDocumentLoader::ExtraData> extra_data,
-      base::OnceClosure call_before_attaching_new_document =
-          base::DoNothing::Once(),
       bool is_javascript_url = false);
 
   // Called before the browser process is asked to navigate this frame, to mark
@@ -135,7 +133,7 @@ class CORE_EXPORT FrameLoader final {
   void DidExplicitOpen();
 
   String UserAgent() const;
-  blink::UserAgentMetadata UserAgentMetadata() const;
+  base::Optional<blink::UserAgentMetadata> UserAgentMetadata() const;
 
   void DispatchDidClearWindowObjectInMainWorld();
   void DispatchDidClearDocumentOfWindowObject();
@@ -144,13 +142,13 @@ class CORE_EXPORT FrameLoader final {
 
   // The following sandbox flags will be forced, regardless of changes to the
   // sandbox attribute of any parent frames.
-  void ForceSandboxFlags(WebSandboxFlags flags) {
+  void ForceSandboxFlags(mojom::blink::WebSandboxFlags flags) {
     forced_sandbox_flags_ |= flags;
   }
 
   // Set frame_owner's effective sandbox flags, which are sandbox flags value
   // at the beginning of navigation.
-  void SetFrameOwnerSandboxFlags(WebSandboxFlags flags) {
+  void SetFrameOwnerSandboxFlags(mojom::blink::WebSandboxFlags flags) {
     frame_owner_sandbox_flags_ = flags;
   }
 
@@ -159,13 +157,13 @@ class CORE_EXPORT FrameLoader final {
   // navigation. Note: with FeaturePolicyForSandbox the frame owner's sandbox
   // flags only includes the flags which are *not* implemented as feature
   // policies already present in the FrameOwner's ContainerPolicy.
-  WebSandboxFlags EffectiveSandboxFlags() const;
+  mojom::blink::WebSandboxFlags EffectiveSandboxFlags() const;
 
   // Includes the collection of forced, inherited, and FrameOwner's sandbox
   // flags. Note: with FeaturePolicyForSandbox the frame owner's sandbox flags
   // only includes the flags which are *not* implemented as feature policies
   // already present in the FrameOwner's ContainerPolicy.
-  WebSandboxFlags PendingEffectiveSandboxFlags() const;
+  mojom::blink::WebSandboxFlags PendingEffectiveSandboxFlags() const;
 
   // Modifying itself is done based on |fetch_client_settings_object|.
   // |document_for_logging| is used only for logging, use counters,
@@ -234,7 +232,7 @@ class CORE_EXPORT FrameLoader final {
   // the navigation.
   void CancelClientNavigation();
 
-  void Trace(blink::Visitor*);
+  void Trace(Visitor*);
 
   void DidDropNavigation();
   void MarkAsLoading();
@@ -281,17 +279,19 @@ class CORE_EXPORT FrameLoader final {
   std::unique_ptr<TracedValue> ToTracedValue() const;
   void TakeObjectSnapshot() const;
 
+  enum class CommitReason {
+    // Committing initial empty document.
+    kInitialization,
+    // Committing navigation as a result of javascript URL execution.
+    kJavascriptUrl,
+    // All other navigations.
+    kRegular
+  };
   // Commits the given |document_loader|.
-  // |is_initialization| should be true when committing the initial empty
-  // document. |is_javascript_url| should be true when committing a navigation
-  // to a javascript URL (eg. javascript:foo).
-  void CommitDocumentLoader(
-      DocumentLoader* document_loader,
-      const base::Optional<Document::UnloadEventTiming>&,
-      HistoryItem* previous_history_item,
-      bool is_initialization,
-      base::OnceClosure call_before_attaching_new_document,
-      bool is_javascript_url);
+  void CommitDocumentLoader(DocumentLoader* document_loader,
+                            const base::Optional<Document::UnloadEventTiming>&,
+                            HistoryItem* previous_history_item,
+                            CommitReason);
 
   // Creates CSP based on |response| and checks that they allow loading |url|.
   // Returns nullptr if the check fails.
@@ -324,14 +324,15 @@ class CORE_EXPORT FrameLoader final {
   };
   std::unique_ptr<ClientNavigationState> client_navigation_;
 
-  WebSandboxFlags forced_sandbox_flags_;
+  mojom::blink::WebSandboxFlags forced_sandbox_flags_;
   // A snapshot value of frame_owner's sandbox flags states at the beginning of
   // navigation. For main frame which does not have a frame owner, the value is
   // base::nullopt.
   // The snapshot value is needed because of potential racing conditions on
   // sandbox attribute on iframe element.
   // crbug.com/1026627
-  base::Optional<WebSandboxFlags> frame_owner_sandbox_flags_ = base::nullopt;
+  base::Optional<mojom::blink::WebSandboxFlags> frame_owner_sandbox_flags_ =
+      base::nullopt;
 
   String user_agent_override_;
 

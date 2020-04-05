@@ -8,15 +8,28 @@ import 'chrome://resources/mojo/mojo/public/mojom/base/text_direction.mojom-lite
 
 import {BrowserProxy} from 'chrome://new-tab-page/browser_proxy.js';
 import {isMac} from 'chrome://resources/js/cr.m.js';
-import {assertStyle, keydown, TestProxy} from 'chrome://test/new_tab_page/test_support.js';
+import {assertStyle, createTestProxy, keydown} from 'chrome://test/new_tab_page/test_support.js';
 import {eventToPromise, flushTasks} from 'chrome://test/test_util.m.js';
 
 suite('NewTabPageMostVisitedTest', () => {
   /** @type {!MostVisitedElement} */
   let mostVisited;
 
-  /** @type {TestProxy} */
+  /**
+   * @implements {BrowserProxy}
+   * @extends {TestBrowserProxy}
+   */
   let testProxy;
+
+
+  /** @type {!MediaListenerList} */
+  let mediaListenerWideWidth;
+
+  /** @type {!MediaListenerList} */
+  let mediaListenerMediumWidth;
+
+  /** @type {!Function} */
+  let mediaListener;
 
   /**
    * @param {string}
@@ -61,21 +74,73 @@ suite('NewTabPageMostVisitedTest', () => {
     await tilesRendered;
   }
 
-  setup(() => {
+  /** @private */
+  function assertAddShortcutHidden() {
+    assertTrue(mostVisited.$.addShortcut.hidden);
+  }
+
+  /** @private */
+  function assertAddShortcutShown() {
+    assertFalse(mostVisited.$.addShortcut.hidden);
+  }
+
+  /**
+   * @param {boolean} isWide
+   * @param {boolean} isMedium
+   */
+  function updateScreenWidth(isWide, isMedium) {
+    assertTrue(!!mediaListenerWideWidth);
+    assertTrue(!!mediaListenerMediumWidth);
+    mediaListenerWideWidth.matches = isWide;
+    mediaListenerMediumWidth.matches = isMedium;
+    mediaListener();
+  }
+
+  function wide() {
+    updateScreenWidth(true, true);
+  }
+
+  setup(async () => {
     PolymerTest.clearBody();
 
-    testProxy = new TestProxy();
+    testProxy = createTestProxy();
+    testProxy.handler.setResultFor('addMostVisitedTile', Promise.resolve({
+      success: true,
+    }));
+    testProxy.handler.setResultFor('updateMostVisitedTile', Promise.resolve({
+      success: true,
+    }));
+    testProxy.setResultMapperFor('matchMedia', query => {
+      const mediaListenerList = {
+        matches: false,  // Used to determine the screen width.
+        media: query,
+        addListener(listener) {
+          mediaListener = listener;
+        },
+        removeListener() {},
+      };
+      if (query === '(min-width: 672px)') {
+        mediaListenerWideWidth = mediaListenerList;
+      } else if (query === '(min-width: 560px)') {
+        mediaListenerMediumWidth = mediaListenerList;
+      } else {
+        assertTrue(false);
+      }
+      return mediaListenerList;
+    });
     BrowserProxy.instance_ = testProxy;
-
     mostVisited = document.createElement('ntp-most-visited');
     document.body.appendChild(mostVisited);
+
+    await testProxy.whenCalled('matchMedia', 2);
+    wide();
   });
 
   test('empty shows add shortcut only', async () => {
-    assertTrue(mostVisited.$.addShortcut.hidden);
+    assertAddShortcutHidden();
     await addTiles(0);
     assertEquals(0, queryTiles().length);
-    assertFalse(mostVisited.$.addShortcut.hidden);
+    assertAddShortcutShown();
   });
 
   test('clicking on add shortcut opens dialog', () => {
@@ -101,7 +166,7 @@ suite('NewTabPageMostVisitedTest', () => {
   test('four tiles fit on one line with addShortcut', async () => {
     await addTiles(4);
     assertEquals(4, queryTiles().length);
-    assertFalse(mostVisited.$.addShortcut.hidden);
+    assertAddShortcutShown();
     const tops = queryAll('a').map(({offsetTop}) => offsetTop);
     assertEquals(5, tops.length);
     tops.forEach(top => {
@@ -112,7 +177,7 @@ suite('NewTabPageMostVisitedTest', () => {
   test('five tiles are displayed on two rows with addShortcut', async () => {
     await addTiles(5);
     assertEquals(5, queryTiles().length);
-    assertFalse(mostVisited.$.addShortcut.hidden);
+    assertAddShortcutShown();
     const tops = queryAll('a').map(({offsetTop}) => offsetTop);
     assertEquals(6, tops.length);
     const firstRowTop = tops[0];
@@ -129,7 +194,7 @@ suite('NewTabPageMostVisitedTest', () => {
   test('nine tiles are displayed on two rows with addShortcut', async () => {
     await addTiles(9);
     assertEquals(9, queryTiles().length);
-    assertFalse(mostVisited.$.addShortcut.hidden);
+    assertAddShortcutShown();
     const tops = queryAll('a').map(({offsetTop}) => offsetTop);
     assertEquals(10, tops.length);
     const firstRowTop = tops[0];
@@ -146,7 +211,7 @@ suite('NewTabPageMostVisitedTest', () => {
   test('ten tiles are displayed on two rows without addShortcut', async () => {
     await addTiles(10);
     assertEquals(10, queryTiles().length);
-    assertTrue(mostVisited.$.addShortcut.hidden);
+    assertAddShortcutHidden();
     const tops = queryAll('a:not([hidden])').map(a => a.offsetTop);
     assertEquals(10, tops.length);
     const firstRowTop = tops[0];
@@ -163,18 +228,18 @@ suite('NewTabPageMostVisitedTest', () => {
   test('ten tiles is the max tiles displayed', async () => {
     await addTiles(11);
     assertEquals(10, queryTiles().length);
-    assertTrue(mostVisited.$.addShortcut.hidden);
+    assertAddShortcutHidden();
   });
 
   test('eight tiles is the max (customLinksEnabled=false)', async () => {
     await addTiles(11, /* customLinksEnabled */ true);
     assertEquals(10, queryTiles().length);
     assertEquals(0, queryAll('.tile[hidden]').length);
-    assertTrue(mostVisited.$.addShortcut.hidden);
+    assertAddShortcutHidden();
     await addTiles(11, /* customLinksEnabled */ false);
     assertEquals(10, queryTiles().length);
     assertEquals(2, queryAll('.tile[hidden]').length);
-    assertTrue(mostVisited.$.addShortcut.hidden);
+    assertAddShortcutHidden();
     await addTiles(11, /* customLinksEnabled */ true);
     assertEquals(10, queryTiles().length);
     assertEquals(0, queryAll('.tile[hidden]').length);
@@ -182,11 +247,11 @@ suite('NewTabPageMostVisitedTest', () => {
 
   test('7 tiles and no add shortcut (customLinksEnabled=false)', async () => {
     await addTiles(7, /* customLinksEnabled */ true);
-    assertFalse(mostVisited.$.addShortcut.hidden);
+    assertAddShortcutShown();
     await addTiles(7, /* customLinksEnabled */ false);
-    assertTrue(mostVisited.$.addShortcut.hidden);
+    assertAddShortcutHidden();
     await addTiles(7, /* customLinksEnabled */ true);
-    assertFalse(mostVisited.$.addShortcut.hidden);
+    assertAddShortcutShown();
   });
 
   test('no tiles shown when (visible=false)', async () => {
@@ -206,6 +271,44 @@ suite('NewTabPageMostVisitedTest', () => {
     assertFalse(dialog.open);
     mostVisited.$.addShortcut.click();
     assertTrue(dialog.open);
+  });
+
+  suite('test various widths', () => {
+    function medium() {
+      updateScreenWidth(false, true);
+    }
+
+    function narrow() {
+      updateScreenWidth(false, false);
+    }
+
+    test('hide add shortcut if on third row (narrow)', async () => {
+      await addTiles(6);
+      medium();
+      assertAddShortcutShown();
+      narrow();
+      assertAddShortcutHidden();
+      medium();
+      assertAddShortcutShown();
+    });
+
+    test('hide add shortcut if on third row (medium)', async () => {
+      await addTiles(8);
+      wide();
+      assertAddShortcutShown();
+      medium();
+      assertAddShortcutHidden();
+      wide();
+      assertAddShortcutShown();
+    });
+
+    test('hide add shortcut if on third row (medium)', async () => {
+      await addTiles(9);
+      wide();
+      assertAddShortcutShown();
+      await addTiles(10);
+      assertAddShortcutHidden();
+    });
   });
 
   suite('add dialog', () => {
@@ -464,9 +567,12 @@ suite('NewTabPageMostVisitedTest', () => {
     assertTrue(mostVisited.$.toast.open);
   });
 
-  test('ctrl+z undo', async () => {
+  test('ctrl+z undo and toast hidden', async () => {
+    const {toast} = mostVisited.$;
+    toast.show();
     const undoCalled =
         testProxy.handler.whenCalled('undoMostVisitedTileAction');
+    assertTrue(toast.open);
     mostVisited.dispatchEvent(new KeyboardEvent('keydown', {
       bubbles: true,
       ctrlKey: !isMac,
@@ -474,6 +580,7 @@ suite('NewTabPageMostVisitedTest', () => {
       metaKey: isMac,
     }));
     await undoCalled;
+    assertFalse(toast.open);
   });
 
   test('toast restore defaults button', async () => {
@@ -600,8 +707,9 @@ suite('NewTabPageMostVisitedTest', () => {
 
   test('setting color styles tile color', () => {
     // Act.
-    mostVisited.style.setProperty('--tile-title-color', 'blue');
-    mostVisited.style.setProperty('--icon-background-color', 'red');
+    mostVisited.style.setProperty('--ntp-theme-text-color', 'blue');
+    mostVisited.style.setProperty(
+        '--ntp-theme-shortcut-background-color', 'red');
 
     // Assert.
     queryAll('.tile-title').forEach(tile => {

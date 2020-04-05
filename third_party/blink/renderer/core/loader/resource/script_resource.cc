@@ -139,7 +139,7 @@ void ScriptResource::Prefinalize() {
   watcher_.reset();
 }
 
-void ScriptResource::Trace(blink::Visitor* visitor) {
+void ScriptResource::Trace(Visitor* visitor) {
   visitor->Trace(streamer_);
   visitor->Trace(response_body_loader_client_);
   TextResource::Trace(visitor);
@@ -231,7 +231,8 @@ void ScriptResource::DestroyDecodedDataForFailedRevalidation() {
   SetDecodedSize(0);
 }
 
-void ScriptResource::SetRevalidatingRequest(const ResourceRequest& request) {
+void ScriptResource::SetRevalidatingRequest(
+    const ResourceRequestHead& request) {
   CHECK_EQ(streaming_state_, StreamingState::kFinishedNotificationSent);
   if (streamer_) {
     CHECK(streamer_->IsStreamingFinished());

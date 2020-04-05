@@ -182,7 +182,8 @@ void LayoutText::StyleDidChange(StyleDifference diff,
   // We do have to schedule layouts, though, since a style change can force us
   // to need to relayout.
   if (diff.NeedsFullLayout()) {
-    SetNeedsLayoutAndPrefWidthsRecalc(layout_invalidation_reason::kStyleChange);
+    SetNeedsLayoutAndIntrinsicWidthsRecalc(
+        layout_invalidation_reason::kStyleChange);
     known_to_have_no_overflow_and_no_fallback_fonts_ = false;
   }
 
@@ -277,12 +278,11 @@ void LayoutText::DeleteTextBoxes() {
   DetachAbstractInlineTextBoxesIfNeeded();
 }
 
-void LayoutText::DetachAbstractInlineTextBoxesIfNeeded() {
+void LayoutText::DetachAbstractInlineTextBoxes() {
   // TODO(layout-dev): Because We should call |WillDestroy()| once for
   // associated fragments, when you reuse fragments, you should construct
   // NGAbstractInlineTextBox for them.
-  if (!has_abstract_inline_text_box_)
-    return;
+  DCHECK(has_abstract_inline_text_box_);
   has_abstract_inline_text_box_ = false;
   if (!RuntimeEnabledFeatures::LayoutNGFragmentItemEnabled()) {
     for (NGPaintFragment* fragment : NGPaintFragment::InlineFragmentsFor(this))
@@ -350,7 +350,7 @@ Vector<LayoutText::TextBoxInfo> LayoutText::GetTextBoxInfo() const {
       // TODO(yosin): We should introduce
       // |NGPhysicalTextFragment::IsTruncated()| to skip them instead of using
       // |IsHiddenForPaint()| with ordering of fragments.
-      if (cursor.IsHiddenForPaint()) {
+      if (cursor.Current().IsHiddenForPaint()) {
         in_hidden_for_paint = true;
       } else if (in_hidden_for_paint) {
         // Because of we finished original fragments (not painted), we should
@@ -359,24 +359,24 @@ Vector<LayoutText::TextBoxInfo> LayoutText::GetTextBoxInfo() const {
       }
       // We don't put generated texts, e.g. ellipsis, hyphen, etc. not in text
       // content, into results. Note: CSS "content" aren't categorized this.
-      if (cursor.IsGeneratedTextType())
+      if (cursor.Current().IsGeneratedTextType())
         continue;
       // When the corresponding DOM range contains collapsed whitespaces, NG
       // produces one fragment but legacy produces multiple text boxes broken at
       // collapsed whitespaces. We break the fragment at collapsed whitespaces
       // to match the legacy output.
+      const NGTextOffset offset = cursor.Current().TextOffset();
       for (const NGOffsetMappingUnit& unit :
-           mapping->GetMappingUnitsForTextContentOffsetRange(
-               cursor.CurrentTextStartOffset(),
-               cursor.CurrentTextEndOffset())) {
+           mapping->GetMappingUnitsForTextContentOffsetRange(offset.start,
+                                                             offset.end)) {
         DCHECK_EQ(unit.GetLayoutObject(), this);
         if (unit.GetType() == NGOffsetMappingUnitType::kCollapsed)
           continue;
         // [clamped_start, clamped_end] of |fragment| matches a legacy text box.
         const unsigned clamped_start =
-            std::max(unit.TextContentStart(), cursor.CurrentTextStartOffset());
+            std::max(unit.TextContentStart(), offset.start);
         const unsigned clamped_end =
-            std::min(unit.TextContentEnd(), cursor.CurrentTextEndOffset());
+            std::min(unit.TextContentEnd(), offset.end);
         DCHECK_LT(clamped_start, clamped_end);
         const unsigned box_length = clamped_end - clamped_start;
 
@@ -413,18 +413,13 @@ Vector<LayoutText::TextBoxInfo> LayoutText::GetTextBoxInfo() const {
   return results;
 }
 
-bool LayoutText::HasTextBoxes() const {
-  if (RuntimeEnabledFeatures::LayoutNGEnabled()) {
+bool LayoutText::HasInlineFragments() const {
     if (IsInLayoutNGInlineFormattingContext()) {
       NGInlineCursor cursor;
       cursor.MoveTo(*this);
       return cursor.IsNotNull();
     }
 
-    // When legacy is forced, IsInLayoutNGInlineFormattingContext is false,
-    // and we fall back to normal HasTextBox
-    return FirstTextBox();
-  }
   return FirstTextBox();
 }
 
@@ -509,7 +504,7 @@ void LayoutText::CollectLineBoxRects(const PhysicalRectCollector& yield,
     for (; cursor; cursor.MoveToNextForSameLayoutObject()) {
       if (UNLIKELY(option != ClippingOption::kNoClipping)) {
         DCHECK_EQ(option, ClippingOption::kClipToEllipsis);
-        if (cursor.IsHiddenForPaint())
+        if (cursor.Current().IsHiddenForPaint())
           continue;
       }
       yield(cursor.Current().RectInContainerBlock());
@@ -621,7 +616,7 @@ void LayoutText::AbsoluteQuadsForRange(Vector<FloatQuad>& quads,
       block_for_flipping = ContainingBlock();
     NGInlineCursor cursor;
     for (cursor.MoveTo(*this); cursor; cursor.MoveToNextForSameLayoutObject()) {
-      const NGTextOffset offset = cursor.CurrentTextOffset();
+      const NGTextOffset offset = cursor.Current().TextOffset();
       if (start > offset.end || end < offset.start)
         continue;
       const unsigned clamped_start = std::max(start, offset.start);
@@ -1015,7 +1010,7 @@ void LayoutText::TrimmedPrefWidths(LayoutUnit lead_width_layout_unit,
   if (!collapse_white_space)
     strip_front_spaces = false;
 
-  if (has_tab_ || PreferredLogicalWidthsDirty())
+  if (has_tab_ || IntrinsicLogicalWidthsDirty())
     ComputePreferredLogicalWidths(lead_width);
 
   has_breakable_start = !strip_front_spaces && has_breakable_start_;
@@ -1106,14 +1101,14 @@ void LayoutText::TrimmedPrefWidths(LayoutUnit lead_width_layout_unit,
 }
 
 float LayoutText::MinLogicalWidth() const {
-  if (PreferredLogicalWidthsDirty())
+  if (IntrinsicLogicalWidthsDirty())
     const_cast<LayoutText*>(this)->ComputePreferredLogicalWidths(0);
 
   return min_width_;
 }
 
 float LayoutText::MaxLogicalWidth() const {
-  if (PreferredLogicalWidthsDirty())
+  if (IntrinsicLogicalWidthsDirty())
     const_cast<LayoutText*>(this)->ComputePreferredLogicalWidths(0);
 
   return max_width_;
@@ -1209,7 +1204,7 @@ void LayoutText::ComputePreferredLogicalWidths(
     float lead_width,
     HashSet<const SimpleFontData*>& fallback_fonts,
     FloatRect& glyph_bounds) {
-  DCHECK(has_tab_ || PreferredLogicalWidthsDirty() ||
+  DCHECK(has_tab_ || IntrinsicLogicalWidthsDirty() ||
          !known_to_have_no_overflow_and_no_fallback_fonts_);
 
   min_width_ = 0;
@@ -1559,7 +1554,7 @@ void LayoutText::ComputePreferredLogicalWidths(
   known_to_have_no_overflow_and_no_fallback_fonts_ =
       fallback_fonts.IsEmpty() && glyph_overflow.IsApproximatelyZero();
 
-  ClearPreferredLogicalWidthsDirty();
+  ClearIntrinsicLogicalWidthsDirty();
 }
 
 bool LayoutText::IsAllCollapsibleWhitespace() const {
@@ -1600,7 +1595,7 @@ UChar32 LayoutText::FirstCharacterAfterWhitespaceCollapsing() const {
     NGInlineCursor cursor;
     cursor.MoveTo(*this);
     if (cursor) {
-      const StringView text = cursor.CurrentText();
+      const StringView text = cursor.Current().Text(cursor);
       return text.length() ? text.CodepointAt(0) : 0;
     }
   }
@@ -1616,7 +1611,7 @@ UChar32 LayoutText::LastCharacterAfterWhitespaceCollapsing() const {
     NGInlineCursor cursor;
     cursor.MoveTo(*this);
     if (cursor) {
-      const StringView text = cursor.CurrentText();
+      const StringView text = cursor.Current().Text(cursor);
       return text.length() ? text.CodepointAt(text.length() - 1) : 0;
     }
   }
@@ -1837,7 +1832,7 @@ static inline bool IsInlineFlowOrEmptyText(const LayoutObject* o) {
 }
 
 OnlyWhitespaceOrNbsp LayoutText::ContainsOnlyWhitespaceOrNbsp() const {
-  return PreferredLogicalWidthsDirty() ? OnlyWhitespaceOrNbsp::kUnknown
+  return IntrinsicLogicalWidthsDirty() ? OnlyWhitespaceOrNbsp::kUnknown
                                        : static_cast<OnlyWhitespaceOrNbsp>(
                                              contains_only_whitespace_or_nbsp_);
 }
@@ -1928,10 +1923,10 @@ void LayoutText::ForceSetText(scoped_refptr<StringImpl> text) {
 void LayoutText::TextDidChange() {
   // If preferredLogicalWidthsDirty() of an orphan child is true,
   // LayoutObjectChildList::insertChildNode() fails to set true to owner.
-  // To avoid that, we call setNeedsLayoutAndPrefWidthsRecalc() only if this
-  // LayoutText has parent.
+  // To avoid that, we call SetNeedsLayoutAndIntrinsicWidthsRecalc() only if
+  // this LayoutText has parent.
   if (Parent()) {
-    SetNeedsLayoutAndPrefWidthsRecalcAndFullPaintInvalidation(
+    SetNeedsLayoutAndIntrinsicWidthsRecalcAndFullPaintInvalidation(
         layout_invalidation_reason::kTextChanged);
   }
   TextDidChangeWithoutInvalidation();
@@ -1955,6 +1950,14 @@ void LayoutText::TextDidChangeWithoutInvalidation() {
 
   valid_ng_items_ = false;
   SetNeedsCollectInlines();
+}
+
+void LayoutText::InvalidateSubtreeLayoutForFontUpdates() {
+  known_to_have_no_overflow_and_no_fallback_fonts_ = false;
+  valid_ng_items_ = false;
+  SetNeedsCollectInlines();
+  SetNeedsLayoutAndIntrinsicWidthsRecalcAndFullPaintInvalidation(
+      layout_invalidation_reason::kFontsChanged);
 }
 
 void LayoutText::DirtyOrDeleteLineBoxesIfNeeded(bool full_layout) {
@@ -2038,7 +2041,7 @@ float LayoutText::Width(unsigned from,
     if (!StyleRef().PreserveNewline() && !from && len == TextLength()) {
       if (fallback_fonts) {
         DCHECK(glyph_bounds);
-        if (PreferredLogicalWidthsDirty() ||
+        if (IntrinsicLogicalWidthsDirty() ||
             !known_to_have_no_overflow_and_no_fallback_fonts_) {
           const_cast<LayoutText*>(this)->ComputePreferredLogicalWidths(
               0, *fallback_fonts, *glyph_bounds);
@@ -2149,7 +2152,7 @@ PhysicalRect LayoutText::LocalSelectionVisualRect() const {
     PhysicalRect rect;
     NGInlineCursor cursor(*RootInlineFormattingContext());
     for (cursor.MoveTo(*this); cursor; cursor.MoveToNextForSameLayoutObject()) {
-      if (cursor.IsHiddenForPaint())
+      if (cursor.Current().IsHiddenForPaint())
         continue;
       const LayoutSelectionStatus status =
           frame_selection.ComputeLayoutSelectionStatus(cursor);
@@ -2506,12 +2509,10 @@ PhysicalRect LayoutText::DebugRect() const {
 DOMNodeId LayoutText::EnsureNodeId() {
   if (node_id_ == kInvalidDOMNodeId) {
     auto* content_capture_manager = GetContentCaptureManager();
-    if (content_capture_manager)
+    if (content_capture_manager) {
       content_capture_manager->ScheduleTaskIfNeeded();
-
-    // If either content capture or accessibility are enabled, store a node ID.
-    if (content_capture_manager || GetDocument().ExistingAXObjectCache())
       node_id_ = DOMNodeIds::IdForNode(GetNode());
+    }
   }
   return node_id_;
 }

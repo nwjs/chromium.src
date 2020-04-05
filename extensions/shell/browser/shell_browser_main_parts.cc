@@ -215,8 +215,6 @@ void ShellBrowserMainParts::PreMainMessageLoopRun() {
 
 #if defined(USE_AURA)
   aura::Env::GetInstance()->set_context_factory(content::GetContextFactory());
-  aura::Env::GetInstance()->set_context_factory_private(
-      content::GetContextFactoryPrivate());
 #endif
 
   storage_monitor::StorageMonitor::Create();
@@ -239,7 +237,7 @@ void ShellBrowserMainParts::PreMainMessageLoopRun() {
   // such as in browser tests.
   task_tracker_.PostTask(
       base::CreateSingleThreadTaskRunner({BrowserThread::IO}).get(), FROM_HERE,
-      base::Bind(nacl::NaClProcessHost::EarlyStartup));
+      base::BindOnce(nacl::NaClProcessHost::EarlyStartup));
 #endif
 
   content::ShellDevToolsManagerDelegate::StartHttpHandler(

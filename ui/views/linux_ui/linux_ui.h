@@ -5,6 +5,7 @@
 #ifndef UI_VIEWS_LINUX_UI_LINUX_UI_H_
 #define UI_VIEWS_LINUX_UI_LINUX_UI_H_
 
+#include <memory>
 #include <string>
 
 #include "base/callback.h"
@@ -23,8 +24,6 @@
 
 // The main entrypoint into Linux toolkit specific code. GTK code should only
 // be executed behind this interface.
-
-class PrefService;
 
 namespace aura {
 class Window;
@@ -47,11 +46,8 @@ class Border;
 class DeviceScaleFactorObserver;
 class LabelButton;
 class LabelButtonBorder;
-class WindowButtonOrderObserver;
-
-#if BUILDFLAG(ENABLE_NATIVE_WINDOW_NAV_BUTTONS)
 class NavButtonProvider;
-#endif
+class WindowButtonOrderObserver;
 
 // Adapter class with targets to render like different toolkits. Set by any
 // project that wants to do linux desktop native rendering.
@@ -98,7 +94,7 @@ class VIEWS_EXPORT LinuxUI : public ui::LinuxInputMethodContextFactory,
   virtual bool GetTint(int id, color_utils::HSL* tint) const = 0;
   virtual bool GetColor(int id,
                         SkColor* color,
-                        PrefService* pref_service) const = 0;
+                        bool use_custom_frame) const = 0;
   virtual bool GetDisplayProperty(int id, int* result) const = 0;
 
   // Returns the preferences that we pass to Blink.
@@ -173,11 +169,9 @@ class VIEWS_EXPORT LinuxUI : public ui::LinuxInputMethodContextFactory,
   // preferred.
   virtual bool PreferDarkTheme() const = 0;
 
-#if BUILDFLAG(ENABLE_NATIVE_WINDOW_NAV_BUTTONS)
   // Returns a new NavButtonProvider, or nullptr if the underlying
   // toolkit does not support drawing client-side navigation buttons.
   virtual std::unique_ptr<NavButtonProvider> CreateNavButtonProvider() = 0;
-#endif
 
   // Returns a map of KeyboardEvent code to KeyboardEvent key values.
   virtual base::flat_map<std::string, std::string> GetKeyboardLayoutMap() = 0;

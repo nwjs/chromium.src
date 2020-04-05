@@ -18,8 +18,8 @@ import org.chromium.payments.mojom.PaymentMethodData;
 import org.chromium.payments.mojom.PaymentOptions;
 import org.chromium.payments.mojom.PaymentRequestDetailsUpdate;
 import org.chromium.payments.mojom.PaymentShippingOption;
+import org.chromium.url.URI;
 
-import java.net.URI;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
@@ -35,7 +35,7 @@ import java.util.Set;
  *
  * @see https://w3c.github.io/payment-handler/
  */
-public class ServiceWorkerPaymentApp extends PaymentInstrument {
+public class ServiceWorkerPaymentApp extends PaymentApp {
     private final WebContents mWebContents;
     private final long mRegistrationId;
     private final URI mScope;
@@ -55,6 +55,19 @@ public class ServiceWorkerPaymentApp extends PaymentInstrument {
      * change-[payment-method|shipping-address|shipping-option] events.
      */
     private PaymentHandlerHost mPaymentHandlerHost;
+
+    /** Whether the app can show its own UI when it is invoked. */
+    private boolean mCanShowOwnUI = true;
+
+    /** Whether the app is ready for minial UI flow. */
+    private boolean mIsReadyForMinimalUI;
+
+    /** UKM source Id generated using the app's origin. */
+    private long mUkmSourceId;
+
+    /** The account balance to be used in the minimal UI flow. */
+    @Nullable
+    private String mAccountBalance;
 
     /**
      * This class represents capabilities of a payment instrument. It is currently only used for
@@ -137,6 +150,7 @@ public class ServiceWorkerPaymentApp extends PaymentInstrument {
         mAppName = name;
         mSwUri = null;
         mUseCache = false;
+        mUkmSourceId = 0;
     }
 
     /**
@@ -183,6 +197,7 @@ public class ServiceWorkerPaymentApp extends PaymentInstrument {
         mAppName = name;
         mSwUri = swUri;
         mUseCache = useCache;
+        mUkmSourceId = 0;
     }
 
     /**
@@ -261,7 +276,7 @@ public class ServiceWorkerPaymentApp extends PaymentInstrument {
             List<PaymentShippingOption> shippingOptions, InstrumentDetailsCallback callback) {
         assert mPaymentHandlerHost != null;
         if (mNeedsInstallation) {
-            assert !mIsMicrotransaction;
+            assert mCanShowOwnUI;
             BitmapDrawable icon = (BitmapDrawable) getDrawableIcon();
             ServiceWorkerPaymentAppBridge.installAndInvokePaymentApp(mWebContents, origin,
                     iframeOrigin, id, new HashSet<>(methodData.values()), total,
@@ -273,7 +288,7 @@ public class ServiceWorkerPaymentApp extends PaymentInstrument {
             ServiceWorkerPaymentAppBridge.invokePaymentApp(mWebContents, mRegistrationId,
                     mScope.toString(), origin, iframeOrigin, id, new HashSet<>(methodData.values()),
                     total, new HashSet<>(modifiers.values()), paymentOptions, shippingOptions,
-                    mPaymentHandlerHost, mIsMicrotransaction, callback);
+                    mPaymentHandlerHost, mCanShowOwnUI, callback);
         }
     }
 
@@ -305,6 +320,32 @@ public class ServiceWorkerPaymentApp extends PaymentInstrument {
     public void dismissInstrument() {}
 
     @Override
+    public void setIsReadyForMinimalUI(boolean isReadyForMinimalUI) {
+        mIsReadyForMinimalUI = isReadyForMinimalUI;
+    }
+
+    @Override
+    public boolean isReadyForMinimalUI() {
+        return mIsReadyForMinimalUI;
+    }
+
+    @Override
+    public void setAccountBalance(@Nullable String accountBalance) {
+        mAccountBalance = accountBalance;
+    }
+
+    @Override
+    @Nullable
+    public String accountBalance() {
+        return mAccountBalance;
+    }
+
+    @Override
+    public void disableShowingOwnUI() {
+        mCanShowOwnUI = false;
+    }
+
+    @Override
     public boolean canPreselect() {
         return mCanPreselect;
     }
@@ -330,19 +371,16 @@ public class ServiceWorkerPaymentApp extends PaymentInstrument {
     }
 
     @Override
-    public boolean isReadyForMicrotransaction() {
-        return true; // TODO(https://crbug.com/1000432): Implement microtransactions.
-    }
-
-    @Override
-    @Nullable
-    public String accountBalance() {
-        return "18.00"; // TODO(https://crbug.com/1000432): Implement microtransactions.
-    }
-
-    @Override
     @Nullable
     public Set<String> getApplicationIdentifiersThatHideThisApp() {
         return mPreferredRelatedApplicationIds;
+    }
+
+    @Override
+    public long getUkmSourceId() {
+        if (mUkmSourceId == 0) {
+            mUkmSourceId = ServiceWorkerPaymentAppBridge.getSourceIdForPaymentAppFromScope(mScope);
+        }
+        return mUkmSourceId;
     }
 }

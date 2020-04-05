@@ -5,9 +5,9 @@
 #include <algorithm>
 #include <memory>
 
+#include "ash/accessibility/accessibility_controller_impl.h"
 #include "ash/app_list/app_list_controller_impl.h"
 #include "ash/app_list/app_list_presenter_impl.h"
-#include "ash/app_list/app_list_util.h"
 #include "ash/app_list/model/app_list_item.h"
 #include "ash/app_list/test/app_list_test_helper.h"
 #include "ash/app_list/test/app_list_test_model.h"
@@ -23,6 +23,7 @@
 #include "ash/app_list/views/search_box_view.h"
 #include "ash/app_list/views/search_result_page_view.h"
 #include "ash/app_list/views/test/apps_grid_view_test_api.h"
+#include "ash/home_screen/home_screen_controller.h"
 #include "ash/keyboard/ui/keyboard_ui_controller.h"
 #include "ash/keyboard/ui/test/keyboard_test_util.h"
 #include "ash/public/cpp/app_list/app_list_config.h"
@@ -39,8 +40,10 @@
 #include "ash/public/cpp/shell_window_ids.h"
 #include "ash/public/cpp/test/shell_test_api.h"
 #include "ash/root_window_controller.h"
+#include "ash/shelf/home_button.h"
 #include "ash/shelf/shelf.h"
 #include "ash/shelf/shelf_layout_manager.h"
+#include "ash/shelf/shelf_navigation_widget.h"
 #include "ash/shelf/shelf_view.h"
 #include "ash/shell.h"
 #include "ash/system/unified/unified_system_tray.h"
@@ -216,10 +219,7 @@ class PopulatedAppListTest : public AshTestBase,
  protected:
   void CreateAndOpenAppList() {
     app_list_view_ = new AppListView(app_list_test_delegate_.get());
-    app_list_view_->InitView(
-        false /*is_tablet_mode*/, CurrentContext(),
-        base::BindRepeating(&UpdateActivationForAppListView, app_list_view_,
-                            /*is_tablet_mode=*/false));
+    app_list_view_->InitView(/*is_tablet_mode=*/false, GetContext());
     app_list_view_->Show(false /*is_side_shelf*/, false /*is_tablet_mode*/);
   }
 
@@ -1261,9 +1261,8 @@ TEST_F(AppListPresenterDelegateTest, AppListShownWhileClosing) {
   GetAppListTestHelper()->ShowAndRunLoop(GetPrimaryDisplayId());
 
   // Finish app list animations.
-  ASSERT_TRUE(
-      GetAppListView()->GetWidget()->GetLayer()->GetAnimator()->is_animating());
-  GetAppListView()->GetWidget()->GetLayer()->GetAnimator()->StopAnimating();
+  if (GetAppListView()->GetWidget()->GetLayer()->GetAnimator()->is_animating())
+    GetAppListView()->GetWidget()->GetLayer()->GetAnimator()->StopAnimating();
 
   EXPECT_FALSE(GetAppListView()->shelf_has_rounded_corners());
   EXPECT_EQ(ShelfBackgroundType::kMaximizedWithAppList,
@@ -1737,6 +1736,170 @@ TEST_P(AppListPresenterDelegateTest,
   GetAppListTestHelper()->CheckVisibility(false);
 }
 
+// Tests that a drag to the bezel from Fullscreen/Peeking will close the app
+// list even on external display with non zero y origin.
+TEST_P(AppListPresenterDelegateTest,
+       DragToBezelClosesAppListFromFullscreenAndPeekingOnExternal) {
+  UpdateDisplay("800x600,1000x768");
+
+  const bool test_fullscreen = GetParam();
+  GetAppListTestHelper()->ShowAndRunLoop(GetSecondaryDisplay().id());
+  AppListView* view = GetAppListView();
+  {
+    SCOPED_TRACE("Peeking");
+    GetAppListTestHelper()->CheckState(AppListViewState::kPeeking);
+  }
+  EXPECT_EQ(Shell::GetAllRootWindows()[1],
+            view->GetWidget()->GetNativeWindow()->GetRootWindow());
+
+  if (test_fullscreen) {
+    FlingUpOrDown(GetEventGenerator(), view, true /* up */);
+    GetAppListTestHelper()->WaitUntilIdle();
+    SCOPED_TRACE("FullscreenAllApps");
+    GetAppListTestHelper()->CheckState(AppListViewState::kFullscreenAllApps);
+  }
+
+  // Drag the app list to 50 DIPs from the bottom bezel.
+  display::Display display =
+      display::Screen::GetScreen()->GetDisplayNearestView(
+          view->GetWidget()->GetNativeWindow());
+  const int bezel_y = display.bounds().bottom();
+  const int drag_x = display.bounds().x() + 10;
+  GetEventGenerator()->GestureScrollSequence(
+      gfx::Point(drag_x, bezel_y - (kAppListBezelMargin + 100)),
+      gfx::Point(drag_x, bezel_y - (kAppListBezelMargin)),
+      base::TimeDelta::FromMilliseconds(1500), 100);
+
+  GetAppListTestHelper()->WaitUntilIdle();
+  SCOPED_TRACE("Closed");
+  GetAppListTestHelper()->CheckState(AppListViewState::kClosed);
+  GetAppListTestHelper()->CheckVisibility(false);
+}
+
+// Tests that the app list window's bounds height (from the shelf) in kPeeking
+// state is the same whether the app list is shown on the primary display
+// or the secondary display fir different display placements.
+TEST_F(AppListPresenterDelegateTest, AppListPeekingStateHeightOnMultiDisplay) {
+  UpdateDisplay("800x1000, 800x600");
+
+  const std::vector<display::DisplayPlacement::Position> placements = {
+      display::DisplayPlacement::LEFT, display::DisplayPlacement::RIGHT,
+      display::DisplayPlacement::BOTTOM, display::DisplayPlacement::TOP};
+  for (const display::DisplayPlacement::Position placement : placements) {
+    SCOPED_TRACE(testing::Message() << "Testing placement " << placement);
+
+    GetAppListTestHelper()->CheckVisibility(false);
+    Shell::Get()->display_manager()->SetLayoutForCurrentDisplays(
+        display::test::CreateDisplayLayout(display_manager(), placement, 0));
+
+    GetAppListTestHelper()->ShowAndRunLoop(GetPrimaryDisplayId());
+    GetAppListTestHelper()->CheckVisibility(true);
+    SetAppListStateAndWait(AppListViewState::kPeeking);
+
+    views::Widget* app_list_widget = GetAppListView()->GetWidget();
+    EXPECT_EQ(Shell::GetAllRootWindows()[0],
+              app_list_widget->GetNativeWindow()->GetRootWindow());
+    const display::Display primary_display =
+        display::Screen::GetScreen()->GetDisplayNearestView(
+            app_list_widget->GetNativeWindow());
+    const int primary_display_height =
+        app_list_widget->GetWindowBoundsInScreen().y() -
+        primary_display.bounds().bottom();
+
+    GetAppListTestHelper()->Dismiss();
+    GetAppListTestHelper()->CheckVisibility(false);
+    const int primary_display_closed_height =
+        app_list_widget->GetWindowBoundsInScreen().y() -
+        primary_display.bounds().bottom();
+
+    GetAppListTestHelper()->ShowAndRunLoop(GetSecondaryDisplay().id());
+    GetAppListTestHelper()->CheckVisibility(true);
+    SetAppListStateAndWait(AppListViewState::kPeeking);
+
+    app_list_widget = GetAppListView()->GetWidget();
+    EXPECT_EQ(Shell::GetAllRootWindows()[1],
+              app_list_widget->GetNativeWindow()->GetRootWindow());
+    const display::Display secondary_display =
+        display::Screen::GetScreen()->GetDisplayNearestView(
+            app_list_widget->GetNativeWindow());
+    const int secondary_display_height =
+        app_list_widget->GetWindowBoundsInScreen().y() -
+        secondary_display.bounds().bottom();
+
+    EXPECT_EQ(secondary_display_height, primary_display_height);
+
+    GetAppListTestHelper()->Dismiss();
+    GetAppListTestHelper()->CheckVisibility(false);
+
+    const int secondary_display_closed_height =
+        app_list_widget->GetWindowBoundsInScreen().y() -
+        secondary_display.bounds().bottom();
+    EXPECT_EQ(secondary_display_closed_height, primary_display_closed_height);
+  }
+}
+
+// Tests that the app list window's bounds height (from the shelf) in kHalf
+// state is the same whether the app list is shown on the primary display
+// or the secondary display fir different display placements.
+TEST_F(AppListPresenterDelegateTest, AppListHalfStateHeightOnMultiDisplay) {
+  UpdateDisplay("800x1000, 800x600");
+
+  const std::vector<display::DisplayPlacement::Position> placements = {
+      display::DisplayPlacement::LEFT, display::DisplayPlacement::RIGHT,
+      display::DisplayPlacement::BOTTOM, display::DisplayPlacement::TOP};
+  for (const display::DisplayPlacement::Position placement : placements) {
+    SCOPED_TRACE(testing::Message() << "Testing placement " << placement);
+
+    GetAppListTestHelper()->CheckVisibility(false);
+    Shell::Get()->display_manager()->SetLayoutForCurrentDisplays(
+        display::test::CreateDisplayLayout(display_manager(), placement, 0));
+
+    GetAppListTestHelper()->ShowAndRunLoop(GetPrimaryDisplayId());
+    GetAppListTestHelper()->CheckVisibility(true);
+    SetAppListStateAndWait(AppListViewState::kHalf);
+
+    views::Widget* app_list_widget = GetAppListView()->GetWidget();
+    EXPECT_EQ(Shell::GetAllRootWindows()[0],
+              app_list_widget->GetNativeWindow()->GetRootWindow());
+    const display::Display primary_display =
+        display::Screen::GetScreen()->GetDisplayNearestView(
+            app_list_widget->GetNativeWindow());
+    const int primary_display_height =
+        app_list_widget->GetWindowBoundsInScreen().y() -
+        primary_display.bounds().bottom();
+
+    GetAppListTestHelper()->Dismiss();
+    GetAppListTestHelper()->CheckVisibility(false);
+    const int primary_display_closed_height =
+        app_list_widget->GetWindowBoundsInScreen().y() -
+        primary_display.bounds().bottom();
+
+    GetAppListTestHelper()->ShowAndRunLoop(GetSecondaryDisplay().id());
+    GetAppListTestHelper()->CheckVisibility(true);
+    SetAppListStateAndWait(AppListViewState::kHalf);
+
+    app_list_widget = GetAppListView()->GetWidget();
+    EXPECT_EQ(Shell::GetAllRootWindows()[1],
+              app_list_widget->GetNativeWindow()->GetRootWindow());
+    const display::Display secondary_display =
+        display::Screen::GetScreen()->GetDisplayNearestView(
+            app_list_widget->GetNativeWindow());
+    const int secondary_display_height =
+        app_list_widget->GetWindowBoundsInScreen().y() -
+        secondary_display.bounds().bottom();
+
+    EXPECT_EQ(secondary_display_height, primary_display_height);
+
+    GetAppListTestHelper()->Dismiss();
+    GetAppListTestHelper()->CheckVisibility(false);
+
+    const int secondary_display_closed_height =
+        app_list_widget->GetWindowBoundsInScreen().y() -
+        secondary_display.bounds().bottom();
+    EXPECT_EQ(secondary_display_closed_height, primary_display_closed_height);
+  }
+}
+
 // Tests that a fling from Fullscreen/Peeking closes the app list.
 TEST_P(AppListPresenterDelegateTest,
        FlingDownClosesAppListFromFullscreenAndPeeking) {
@@ -2039,11 +2202,11 @@ TEST_F(AppListPresenterDelegateTest, TapAutoHideShelfWithAppListOpened) {
   GetAppListTestHelper()->CheckVisibility(true);
   EXPECT_EQ(SHELF_AUTO_HIDE_SHOWN, shelf->GetAutoHideState());
 
-  // Test that tapping the auto-hidden shelf keeps the app list and shelf
-  // visible.
+  // Test that tapping the auto-hidden shelf keeps shelf visible but dismiss the
+  // app list.
   generator->GestureTapAt(
       shelf->GetShelfViewForTesting()->GetBoundsInScreen().CenterPoint());
-  GetAppListTestHelper()->CheckVisibility(true);
+  GetAppListTestHelper()->CheckVisibility(false);
   EXPECT_EQ(SHELF_AUTO_HIDE_SHOWN, shelf->GetAutoHideState());
 }
 
@@ -2828,11 +2991,29 @@ class AppListPresenterDelegateHomeLauncherTest
     GetAppListTestHelper()->WaitUntilIdle();
   }
 
-  void PressHomeButton() {
-    Shell::Get()->app_list_controller()->ToggleAppList(
-        GetPrimaryDisplayId(), AppListShowSource::kShelfButton,
-        base::TimeTicks());
+  void TapHomeButton(int64_t display_id) {
+    HomeButton* const home_button =
+        Shell::GetRootWindowControllerWithDisplayId(display_id)
+            ->shelf()
+            ->navigation_widget()
+            ->GetHomeButton();
+    gfx::Point tap_point = home_button->GetBoundsInScreen().CenterPoint();
+    GetEventGenerator()->GestureTapDownAndUp(tap_point);
     GetAppListTestHelper()->WaitUntilIdle();
+  }
+
+  // Ensures transition to home screen in tablet mode (where home button is not
+  // always shown).
+  void GoHome() {
+    const int64_t primary_display_id = GetPrimaryDisplay().id();
+    // If home button is not expected to be shown, use
+    // HomeScreenController::GoHome() directly, otherwise tap on the primary
+    // screen home button.
+    if (!Shell::Get()->shelf_config()->shelf_controls_shown()) {
+      Shell::Get()->home_screen_controller()->GoHome(primary_display_id);
+      return;
+    }
+    TapHomeButton(primary_display_id);
   }
 
   SplitViewController* split_view_controller() {
@@ -3305,6 +3486,12 @@ TEST_P(AppListPresenterDelegateHomeLauncherTest,
   GetAppListTestHelper()->CheckVisibility(true);
   GetAppListTestHelper()->CheckState(AppListViewState::kFullscreenAllApps);
 
+  // Enable accessibility feature that forces home button to be shown even with
+  // kHideShelfControlsInTabletMode enabled.
+  // TODO(https://crbug.com/1050544) Use the a11y feature specific to showing
+  // navigation buttons in tablet mode once it lands.
+  Shell::Get()->accessibility_controller()->SetAutoclickEnabled(true);
+
   // Enter text in the searchbox, the app list should transition to fullscreen
   // search.
   ui::test::EventGenerator* generator = GetEventGenerator();
@@ -3313,7 +3500,7 @@ TEST_P(AppListPresenterDelegateHomeLauncherTest,
   GetAppListTestHelper()->CheckState(AppListViewState::kFullscreenSearch);
 
   // Tap home button - verify that home goes back to showing the apps page.
-  PressHomeButton();
+  TapHomeButton(GetPrimaryDisplay().id());
 
   GetAppListTestHelper()->CheckState(AppListViewState::kFullscreenAllApps);
 }
@@ -3382,8 +3569,8 @@ TEST_P(AppListPresenterDelegateHomeLauncherTest,
   GetAppListTestHelper()->CheckVisibility(true);
 }
 
-// Tests that the home button will minimize all windows.
-TEST_P(AppListPresenterDelegateHomeLauncherTest, HomeButtonMinimizeAllWindows) {
+// Tests that going home will minimize all windows.
+TEST_P(AppListPresenterDelegateHomeLauncherTest, GoingHomeMinimizesAllWindows) {
   // Show app list in tablet mode. Maximize all windows.
   EnableTabletMode(true);
   GetAppListTestHelper()->CheckVisibility(true);
@@ -3407,8 +3594,7 @@ TEST_P(AppListPresenterDelegateHomeLauncherTest, HomeButtonMinimizeAllWindows) {
   auto ordering =
       Shell::Get()->mru_window_tracker()->BuildWindowForCycleList(kActiveDesk);
 
-  // Press home button.
-  PressHomeButton();
+  GoHome();
   EXPECT_TRUE(state1->IsMinimized());
   EXPECT_TRUE(state2->IsMinimized());
   EXPECT_TRUE(state3->IsMinimized());
@@ -3420,8 +3606,8 @@ TEST_P(AppListPresenterDelegateHomeLauncherTest, HomeButtonMinimizeAllWindows) {
   EXPECT_TRUE(std::equal(ordering.begin(), ordering.end(), new_order.begin()));
 }
 
-// Tests that the home button will end split view mode.
-TEST_P(AppListPresenterDelegateHomeLauncherTest, HomeButtonEndSplitViewMode) {
+// Tests that going home will end split view mode.
+TEST_P(AppListPresenterDelegateHomeLauncherTest, GoingHomeEndsSplitViewMode) {
   // Show app list in tablet mode. Enter split view mode.
   EnableTabletMode(true);
   GetAppListTestHelper()->CheckVisibility(true);
@@ -3429,14 +3615,13 @@ TEST_P(AppListPresenterDelegateHomeLauncherTest, HomeButtonEndSplitViewMode) {
   split_view_controller()->SnapWindow(window.get(), SplitViewController::LEFT);
   EXPECT_TRUE(split_view_controller()->InSplitViewMode());
 
-  // Press home button.
-  PressHomeButton();
+  GoHome();
   EXPECT_FALSE(split_view_controller()->InSplitViewMode());
   GetAppListTestHelper()->CheckVisibility(true);
 }
 
-// Tests that the home button will end overview mode.
-TEST_P(AppListPresenterDelegateHomeLauncherTest, HomeButtonEndOverviewMode) {
+// Tests that going home will end overview mode.
+TEST_P(AppListPresenterDelegateHomeLauncherTest, GoingHomeEndOverviewMode) {
   // Show app list in tablet mode. Enter overview mode.
   EnableTabletMode(true);
   GetAppListTestHelper()->CheckVisibility(true);
@@ -3445,16 +3630,15 @@ TEST_P(AppListPresenterDelegateHomeLauncherTest, HomeButtonEndOverviewMode) {
   overview_controller->StartOverview();
   EXPECT_TRUE(overview_controller->InOverviewSession());
 
-  // Press home button.
-  PressHomeButton();
+  GoHome();
   EXPECT_FALSE(overview_controller->InOverviewSession());
   GetAppListTestHelper()->CheckVisibility(true);
 }
 
-// Tests that the home button will end overview and split view mode if both are
+// Tests that going home will end overview and split view mode if both are
 // active (e.g. one side of the split view contains overview).
 TEST_P(AppListPresenterDelegateHomeLauncherTest,
-       HomeButtonEndSplitViewModeWithOverview) {
+       GoingHomeEndsSplitViewModeWithOverview) {
   // Show app list in tablet mode. Enter split view mode.
   EnableTabletMode(true);
   GetAppListTestHelper()->CheckVisibility(true);
@@ -3470,8 +3654,7 @@ TEST_P(AppListPresenterDelegateHomeLauncherTest,
   EXPECT_TRUE(split_view_controller()->InSplitViewMode());
   EXPECT_TRUE(overview_controller->InOverviewSession());
 
-  // Press home button.
-  PressHomeButton();
+  GoHome();
   EXPECT_FALSE(split_view_controller()->InSplitViewMode());
   EXPECT_FALSE(overview_controller->InOverviewSession());
 
@@ -3716,6 +3899,25 @@ TEST_P(AppListPresenterDelegateVirtualKeyboardTest,
   }
   GetAppListTestHelper()->CheckState(AppListViewState::kFullscreenAllApps);
   EXPECT_FALSE(GetAppListView()->search_box_view()->is_search_box_active());
+}
+
+TEST_P(AppListPresenterDelegateHomeLauncherTest,
+       TapHomeButtonOnExternalDisplay) {
+  UpdateDisplay("800x600,1000x768");
+
+  TapHomeButton(GetSecondaryDisplay().id());
+  {
+    SCOPED_TRACE("1st tap");
+    GetAppListTestHelper()->CheckVisibility(true);
+    GetAppListTestHelper()->CheckState(AppListViewState::kPeeking);
+  }
+
+  TapHomeButton(GetSecondaryDisplay().id());
+  {
+    SCOPED_TRACE("2nd tap");
+    GetAppListTestHelper()->CheckVisibility(false);
+    GetAppListTestHelper()->CheckState(AppListViewState::kClosed);
+  }
 }
 
 }  // namespace ash

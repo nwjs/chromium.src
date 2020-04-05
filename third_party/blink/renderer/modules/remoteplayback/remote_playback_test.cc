@@ -23,6 +23,8 @@
 
 namespace blink {
 
+namespace {
+
 class MockFunction : public ScriptFunction {
  public:
   static testing::StrictMock<MockFunction>* Create(ScriptState* script_state) {
@@ -55,6 +57,7 @@ class MockPresentationController final : public PresentationController {
   MOCK_METHOD1(RemoveAvailabilityObserver,
                void(PresentationAvailabilityObserver*));
 };
+}  // namespace
 
 class RemotePlaybackTest : public testing::Test,
                            private ScopedRemotePlaybackBackendForTest {
@@ -259,7 +262,7 @@ TEST_F(RemotePlaybackTest,
   remote_playback.prompt(scope.GetScriptState())
       .Then(resolve->Bind(), reject->Bind());
   HTMLMediaElementRemotePlayback::SetBooleanAttribute(
-      html_names::kDisableremoteplaybackAttr, *element, true);
+      *element, html_names::kDisableremoteplaybackAttr, true);
 
   // Runs pending promises.
   v8::MicrotasksScope::PerformCheckpoint(scope.GetIsolate());
@@ -299,7 +302,7 @@ TEST_F(RemotePlaybackTest, DisableRemotePlaybackCancelsAvailabilityCallbacks) {
       .Then(resolve->Bind(), reject->Bind());
 
   HTMLMediaElementRemotePlayback::SetBooleanAttribute(
-      html_names::kDisableremoteplaybackAttr, *element, true);
+      *element, html_names::kDisableremoteplaybackAttr, true);
 
   // Runs pending promises.
   v8::MicrotasksScope::PerformCheckpoint(scope.GetIsolate());

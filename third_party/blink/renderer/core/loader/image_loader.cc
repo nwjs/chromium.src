@@ -73,7 +73,7 @@ namespace blink {
 
 namespace {
 
-bool CheckForUnoptimizedImagePolicy(const Document& document,
+bool CheckForUnoptimizedImagePolicy(Document& document,
                                     ImageResourceContent* new_image) {
   if (!new_image)
     return false;
@@ -81,8 +81,12 @@ bool CheckForUnoptimizedImagePolicy(const Document& document,
   // Render the image as a placeholder image if the image is not sufficiently
   // well-compressed, according to the unoptimized image feature policies on
   // |document|.
-  if (RuntimeEnabledFeatures::UnoptimizedImagePoliciesEnabled(&document) &&
-      !new_image->IsAcceptableCompressionRatio(document)) {
+  // Note: UnoptimizedImagePolicies is currently part of DocumentPolicy.
+  // The original runtime feature UnoptimizedImagePolicies is no longer used,
+  // and are planned to be removed.
+  if (RuntimeEnabledFeatures::DocumentPolicyEnabled(&document) &&
+      !new_image->IsAcceptableCompressionRatio(
+          *document.ToExecutionContext())) {
     return true;
   }
 
@@ -96,7 +100,7 @@ static ImageLoader::BypassMainWorldBehavior ShouldBypassMainWorldCSP(
   DCHECK(loader);
   DCHECK(loader->GetElement());
   if (ContentSecurityPolicy::ShouldBypassMainWorld(
-          &loader->GetElement()->GetDocument())) {
+          loader->GetElement()->GetDocument().ToExecutionContext())) {
     return ImageLoader::kBypassMainWorldCSP;
   }
   return ImageLoader::kDoNotBypassMainWorldCSP;
@@ -113,8 +117,9 @@ class ImageLoader::Task {
         update_behavior_(update_behavior),
         referrer_policy_(referrer_policy),
         request_url_(request_url) {
-    ExecutionContext& context = loader_->GetElement()->GetDocument();
-    probe::AsyncTaskScheduled(&context, "Image", &async_task_id_);
+    ExecutionContext* context =
+        loader_->GetElement()->GetDocument().ToExecutionContext();
+    probe::AsyncTaskScheduled(context, "Image", &async_task_id_);
     v8::Isolate* isolate = V8PerIsolateData::MainThreadIsolate();
     v8::HandleScope scope(isolate);
     // If we're invoked from C++ without a V8 context on the stack, we should
@@ -131,8 +136,9 @@ class ImageLoader::Task {
   void Run() {
     if (!loader_)
       return;
-    ExecutionContext& context = loader_->GetElement()->GetDocument();
-    probe::AsyncTask async_task(&context, &async_task_id_);
+    ExecutionContext* context =
+        loader_->GetElement()->GetDocument().ToExecutionContext();
+    probe::AsyncTask async_task(context, &async_task_id_);
     if (script_state_ && script_state_->ContextIsValid()) {
       ScriptState::Scope scope(script_state_);
       loader_->DoUpdateFromElement(should_bypass_main_world_csp_,
@@ -263,7 +269,7 @@ void ImageLoader::RejectPendingDecodes(UpdateType update_type) {
   }
 }
 
-void ImageLoader::Trace(blink::Visitor* visitor) {
+void ImageLoader::Trace(Visitor* visitor) {
   visitor->Trace(image_content_);
   visitor->Trace(image_content_for_image_document_);
   visitor->Trace(element_);
@@ -301,6 +307,9 @@ bool ImageLoader::ShouldUpdateOnInsertedInto(
 }
 
 bool ImageLoader::ImageIsPotentiallyAvailable() const {
+  bool is_lazyload = lazy_image_load_state_ == LazyImageLoadState::kDeferred &&
+                     was_fully_deferred_;
+
   bool image_has_loaded = image_content_ && !image_content_->IsLoading() &&
                           !image_content_->ErrorOccurred();
   bool image_still_loading = !image_has_loaded && HasPendingActivity() &&
@@ -323,7 +332,7 @@ bool ImageLoader::ImageIsPotentiallyAvailable() const {
   // ImageResourceContent has non-null image data associated with it, which
   // isn't folded into |image_has_loaded| above.
   return (image_has_loaded && image_has_image) || image_still_loading ||
-         image_is_document;
+         image_is_document || is_lazyload;
 }
 
 void ImageLoader::ClearImage() {
@@ -509,7 +518,8 @@ void ImageLoader::DoUpdateFromElement(
     }
 
     DCHECK(document.GetFrame());
-    FetchParameters params(resource_request, resource_loader_options);
+    FetchParameters params(std::move(resource_request),
+                           resource_loader_options);
     ConfigureRequest(params, bypass_behavior, *element_,
                      document.GetFrame()->GetClientHintsPreferences());
 
@@ -562,18 +572,7 @@ void ImageLoader::DoUpdateFromElement(
       }
     }
 
-    if (lazy_image_load_state_ == LazyImageLoadState::kDeferred &&
-        was_fully_deferred_ && !ShouldLoadImmediately(url)) {
-      // TODO(rajendrant): Remove this temporary workaround of creating a 1x1
-      // placeholder to fix an intersection observer issue not firing with
-      // certain styles (https://crbug.com/992765). Instead
-      // NoImageResourceToLoad() should be skipped when the image is deferred.
-      // https://crbug.com/999209
-      new_image_content = ImageResourceContent::CreateLazyImagePlaceholder();
-    } else {
-      new_image_content =
-          ImageResourceContent::Fetch(params, document.Fetcher());
-    }
+    new_image_content = ImageResourceContent::Fetch(params, document.Fetcher());
 
     // If this load is starting while navigating away, treat it as an auditing
     // keepalive request, and don't report its results back to the element.
@@ -598,11 +597,16 @@ void ImageLoader::DoUpdateFromElement(
       new_image_content == old_image_content) {
     ToLayoutImage(element_->GetLayoutObject())->IntrinsicSizeChanged();
   } else {
+    bool is_lazyload =
+        lazy_image_load_state_ == LazyImageLoadState::kDeferred &&
+        was_fully_deferred_;
+
     // Loading didn't start (loading of images was disabled). We show fallback
     // contents here, while we don't dispatch an 'error' event etc., because
     // spec-wise the image remains in the "Unavailable" state.
     if (new_image_content &&
-        new_image_content->GetContentStatus() == ResourceStatus::kNotStarted)
+        new_image_content->GetContentStatus() == ResourceStatus::kNotStarted &&
+        !is_lazyload)
       NoImageResourceToLoad();
 
     if (pending_load_event_.IsActive())
@@ -788,15 +792,14 @@ void ImageLoader::ImageNotifyFinished(ImageResourceContent* resource) {
   if (image_content_ && image_content_->HasImage()) {
     Image& image = *image_content_->GetImage();
 
-    if (image.IsSVGImage()) {
-      SVGImage& svg_image = ToSVGImage(image);
+    if (auto* svg_image = DynamicTo<SVGImage>(image)) {
       // SVG's document should be completely loaded before access control
       // checks, which can occur anytime after ImageNotifyFinished()
       // (See SVGImage::CurrentFrameHasSingleSecurityOrigin()).
       // We check the document is loaded here to catch violation of the
       // assumption reliably.
-      svg_image.CheckLoaded();
-      svg_image.UpdateUseCounters(GetElement()->GetDocument());
+      svg_image->CheckLoaded();
+      svg_image->UpdateUseCounters(GetElement()->GetDocument());
     }
   }
 
@@ -852,8 +855,8 @@ LayoutImageResource* ImageLoader::GetLayoutImageResource() {
   if (layout_object->IsSVGImage())
     return ToLayoutSVGImage(layout_object)->ImageResource();
 
-  if (layout_object->IsVideo())
-    return ToLayoutVideo(layout_object)->ImageResource();
+  if (auto* layout_video = DynamicTo<LayoutVideo>(layout_object))
+    return layout_video->ImageResource();
 
   return nullptr;
 }
@@ -1003,7 +1006,7 @@ void ImageLoader::DecodeRequest::NotifyDecodeDispatched() {
   state_ = kDispatched;
 }
 
-void ImageLoader::DecodeRequest::Trace(blink::Visitor* visitor) {
+void ImageLoader::DecodeRequest::Trace(Visitor* visitor) {
   visitor->Trace(resolver_);
   visitor->Trace(loader_);
 }

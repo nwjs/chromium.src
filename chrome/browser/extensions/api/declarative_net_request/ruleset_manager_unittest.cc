@@ -43,8 +43,6 @@ namespace dnr_api = api::declarative_net_request;
 namespace {
 
 constexpr char kJSONRulesFilename[] = "rules_file.json";
-const base::FilePath::CharType kJSONRulesetFilepath[] =
-    FILE_PATH_LITERAL("rules_file.json");
 
 class RulesetManagerTest : public DNRTestBase {
  public:
@@ -70,11 +68,12 @@ class RulesetManagerTest : public DNRTestBase {
 
     // Create extension directory.
     ASSERT_TRUE(base::CreateDirectory(extension_dir));
-    WriteManifestAndRuleset(extension_dir, kJSONRulesetFilepath,
-                            kJSONRulesFilename, rules, host_permissions,
-                            has_background_script,
-                            false /* has_feedback_permission */,
-                            false /* has_active_tab_permission */);
+    ConfigFlag flags = has_background_script
+                           ? ConfigFlag::kConfig_HasBackgroundScript
+                           : ConfigFlag::kConfig_None;
+
+    TestRulesetInfo info = {kJSONRulesFilename, std::move(*ToListValue(rules))};
+    WriteManifestAndRuleset(extension_dir, info, host_permissions, flags);
 
     last_loaded_extension_ =
         CreateExtensionLoader()->LoadExtension(extension_dir);
@@ -83,16 +82,20 @@ class RulesetManagerTest : public DNRTestBase {
     ExtensionRegistry::Get(browser_context())
         ->AddEnabled(last_loaded_extension_);
 
+    std::vector<RulesetSource> sources =
+        RulesetSource::CreateStatic(*last_loaded_extension_);
+    ASSERT_EQ(1u, sources.size());
+
     int expected_checksum;
     EXPECT_TRUE(ExtensionPrefs::Get(browser_context())
-                    ->GetDNRRulesetChecksum(last_loaded_extension_->id(),
-                                            &expected_checksum));
+                    ->GetDNRStaticRulesetChecksum(last_loaded_extension_->id(),
+                                                  sources[0].id(),
+                                                  &expected_checksum));
 
     std::vector<std::unique_ptr<RulesetMatcher>> matchers(1);
     EXPECT_EQ(RulesetMatcher::kLoadSuccess,
               RulesetMatcher::CreateVerifiedMatcher(
-                  RulesetSource::CreateStatic(*last_loaded_extension_),
-                  expected_checksum, &matchers[0]));
+                  std::move(sources[0]), expected_checksum, &matchers[0]));
 
     *matcher = std::make_unique<CompositeMatcher>(std::move(matchers));
   }

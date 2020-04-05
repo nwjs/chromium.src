@@ -4,6 +4,9 @@
 
 #include "ui/views/examples/scroll_view_example.h"
 
+#include <memory>
+#include <utility>
+
 #include "base/macros.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
@@ -64,8 +67,7 @@ class ScrollViewExample::ScrollableView : public View {
   DISALLOW_COPY_AND_ASSIGN(ScrollableView);
 };
 
-ScrollViewExample::ScrollViewExample() : ExampleBase("Scroll View") {
-}
+ScrollViewExample::ScrollViewExample() : ExampleBase("Scroll View") {}
 
 ScrollViewExample::~ScrollViewExample() = default;
 

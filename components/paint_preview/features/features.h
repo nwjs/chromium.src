@@ -9,11 +9,18 @@
 
 namespace paint_preview {
 
-// Used to enable a main menu item on Android that captures a paint preview for
-// the current page. Metrics for the capture are logged and a toast is raised.
-// The resulting paint preview is then deleted. This intended to test whether
-// capturing works on a specific site.
-extern const base::Feature kPaintPreviewTest;
+// Used to enable the paint preview capture experiment on Android. If enabled,
+// paint preview capture will be triggered for a fraction of page loads, with
+// accordance to a probability threshold that is set by a field trial param.
+// Metrics for the capture are logged and the resulting paint preview is then
+// deleted.
+extern const base::Feature kPaintPreviewCaptureExperiment;
+
+// Used to enable a main menu item on Android that captures and displays a paint
+// preview for the current page. The paint preview UI will be dismissed on back
+// press and all associated stored files deleted. This intended to test whether
+// capturing and playing paint preview works on a specific site.
+extern const base::Feature kPaintPreviewDemo;
 
 }  // namespace paint_preview
 

@@ -9,9 +9,11 @@
 #include "services/network/public/mojom/content_security_policy.mojom.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "third_party/blink/public/mojom/frame/frame.mojom.h"
+#include "third_party/blink/public/mojom/frame/frame_owner_properties.mojom.h"
 #include "third_party/blink/public/mojom/frame/intrinsic_sizing_info.mojom.h"
 #include "third_party/blink/public/mojom/frame/user_activation_update_types.mojom.h"
 #include "third_party/blink/public/mojom/scroll/scroll_into_view_params.mojom.h"
+#include "third_party/blink/public/mojom/security_context/insecure_request_policy.mojom.h"
 #include "ui/events/types/scroll_types.h"
 
 namespace base {
@@ -42,6 +44,10 @@ class FakeRemoteFrame : public blink::mojom::RemoteFrame {
       override;
   void ResetReplicatedContentSecurityPolicy() override;
   void EnforceInsecureNavigationsSet(const std::vector<uint32_t>& set) override;
+  void SetFrameOwnerProperties(
+      blink::mojom::FrameOwnerPropertiesPtr properties) override;
+  void EnforceInsecureRequestPolicy(
+      blink::mojom::InsecureRequestPolicy policy) override;
   void SetReplicatedOrigin(
       const url::Origin& origin,
       bool is_potentially_trustworthy_unique_origin) override;
@@ -52,9 +58,8 @@ class FakeRemoteFrame : public blink::mojom::RemoteFrame {
   void Focus() override;
   void SetHadStickyUserActivationBeforeNavigation(bool value) override;
   void SetNeedsOcclusionTracking(bool needs_tracking) override;
-  void BubbleLogicalScroll(
-      blink::mojom::ScrollDirection direction,
-      ui::input_types::ScrollGranularity granularity) override;
+  void BubbleLogicalScroll(blink::mojom::ScrollDirection direction,
+                           ui::ScrollGranularity granularity) override;
   void UpdateUserActivationState(
       blink::mojom::UserActivationUpdateType) override;
   void SetEmbeddingToken(
@@ -69,9 +74,13 @@ class FakeRemoteFrame : public blink::mojom::RemoteFrame {
       blink::mojom::ScrollIntoViewParamsPtr params) override;
   void DidStartLoading() override;
   void DidStopLoading() override;
-
   void IntrinsicSizingInfoOfChildChanged(
       blink::mojom::IntrinsicSizingInfoPtr sizing_info) override;
+  void DidSetFramePolicyHeaders(
+      blink::mojom::WebSandboxFlags sandbox_flags,
+      const std::vector<blink::ParsedFeaturePolicyDeclaration>&
+          parsed_feature_policy) override {}
+  void DidUpdateFramePolicy(const blink::FramePolicy& frame_policy) override {}
 
  private:
   void BindFrameHostReceiver(mojo::ScopedInterfaceEndpointHandle handle);

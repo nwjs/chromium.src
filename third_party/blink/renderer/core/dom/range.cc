@@ -25,7 +25,6 @@
 
 #include "third_party/blink/renderer/core/dom/range.h"
 
-#include "third_party/blink/renderer/bindings/core/v8/string_or_trusted_html.h"
 #include "third_party/blink/renderer/core/dom/character_data.h"
 #include "third_party/blink/renderer/core/dom/container_node.h"
 #include "third_party/blink/renderer/core/dom/document_fragment.h"
@@ -963,28 +962,12 @@ String Range::GetText() const {
 }
 
 DocumentFragment* Range::createContextualFragment(
-    const StringOrTrustedHTML& string_or_html,
-    ExceptionState& exception_state) {
-  // Algorithm:
-  // http://domparsing.spec.whatwg.org/#extensions-to-the-range-interface
-
-  DCHECK(!string_or_html.IsNull());
-
-  Document& document = start_.Container().GetDocument();
-
-  String markup =
-      GetStringFromTrustedHTML(string_or_html, &document, exception_state);
-  if (!exception_state.HadException()) {
-    return createContextualFragmentFromString(markup, exception_state);
-  }
-  return nullptr;
-}
-
-DocumentFragment* Range::createContextualFragmentFromString(
     const String& markup,
     ExceptionState& exception_state) {
   // Algorithm:
   // http://domparsing.spec.whatwg.org/#extensions-to-the-range-interface
+
+  DCHECK(!markup.IsNull());
 
   Node* node = &start_.Container();
 
@@ -1599,7 +1582,7 @@ void Range::DidSplitTextNode(const Text& old_node) {
 void Range::expand(const String& unit, ExceptionState& exception_state) {
   if (!StartPosition().IsConnected() || !EndPosition().IsConnected())
     return;
-  owner_document_->UpdateStyleAndLayout();
+  owner_document_->UpdateStyleAndLayout(DocumentUpdateReason::kJavaScript);
   VisiblePosition start = CreateVisiblePosition(StartPosition());
   VisiblePosition end = CreateVisiblePosition(EndPosition());
   if (unit == "word") {
@@ -1626,7 +1609,7 @@ void Range::expand(const String& unit, ExceptionState& exception_state) {
 }
 
 DOMRectList* Range::getClientRects() const {
-  owner_document_->UpdateStyleAndLayout();
+  owner_document_->UpdateStyleAndLayout(DocumentUpdateReason::kJavaScript);
 
   Vector<FloatQuad> quads;
   GetBorderAndTextQuads(quads);
@@ -1747,7 +1730,7 @@ void Range::GetBorderAndTextQuads(Vector<FloatQuad>& quads) const {
 }
 
 FloatRect Range::BoundingRect() const {
-  owner_document_->UpdateStyleAndLayout();
+  owner_document_->UpdateStyleAndLayout(DocumentUpdateReason::kJavaScript);
 
   Vector<FloatQuad> quads;
   GetBorderAndTextQuads(quads);

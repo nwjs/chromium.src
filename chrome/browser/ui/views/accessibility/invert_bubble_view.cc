@@ -23,6 +23,7 @@
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/window_open_disposition.h"
 #include "ui/gfx/color_utils.h"
+#include "ui/native_theme/native_theme.h"
 #include "ui/views/bubble/bubble_dialog_delegate_view.h"
 #include "ui/views/controls/button/image_button.h"
 #include "ui/views/controls/button/image_button_factory.h"
@@ -47,9 +48,8 @@ constexpr char kLearnMoreUrl[] =
 constexpr int kLearnMoreButton = 100;
 
 std::unique_ptr<views::View> CreateExtraView(views::ButtonListener* listener) {
-  auto learn_more = views::CreateVectorImageButton(listener);
-  views::SetImageFromVectorIcon(learn_more.get(),
-                                vector_icons::kHelpOutlineIcon);
+  auto learn_more = views::CreateVectorImageButtonWithNativeTheme(
+      listener, vector_icons::kHelpOutlineIcon);
   learn_more->SetTooltipText(l10n_util::GetStringUTF16(IDS_LEARN_MORE));
   learn_more->set_tag(kLearnMoreButton);
   return learn_more;
@@ -83,8 +83,8 @@ InvertBubbleView::InvertBubbleView(Browser* browser, views::View* anchor_view)
     : views::BubbleDialogDelegateView(anchor_view,
                                       views::BubbleBorder::TOP_RIGHT),
       browser_(browser) {
-  DialogDelegate::set_buttons(ui::DIALOG_BUTTON_OK);
-  DialogDelegate::set_button_label(ui::DIALOG_BUTTON_OK,
+  DialogDelegate::SetButtons(ui::DIALOG_BUTTON_OK);
+  DialogDelegate::SetButtonLabel(ui::DIALOG_BUTTON_OK,
                                    l10n_util::GetStringUTF16(IDS_DONE));
   DialogDelegate::SetExtraView(::CreateExtraView(this));
   set_margins(gfx::Insets());
@@ -161,7 +161,9 @@ void MaybeShowInvertBubbleView(BrowserView* browser_view) {
   PrefService* pref_service = browser->profile()->GetPrefs();
   views::View* anchor =
       browser_view->toolbar_button_provider()->GetAppMenuButton();
-  if (color_utils::IsInvertedColorScheme() && anchor && anchor->GetWidget() &&
+  if (anchor && anchor->GetWidget() &&
+      anchor->GetNativeTheme()->GetHighContrastColorScheme() ==
+          ui::NativeTheme::HighContrastColorScheme::kDark &&
       !pref_service->GetBoolean(prefs::kInvertNotificationShown)) {
     pref_service->SetBoolean(prefs::kInvertNotificationShown, true);
     ShowInvertBubbleView(browser, anchor);

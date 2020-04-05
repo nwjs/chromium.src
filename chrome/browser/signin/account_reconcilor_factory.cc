@@ -29,7 +29,10 @@
 #include "chrome/browser/chromeos/account_manager/account_migration_runner.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chromeos/tpm/install_attributes.h"
+#include "components/pref_registry/pref_registry_syncable.h"
+#include "components/prefs/pref_service.h"
 #include "components/signin/core/browser/active_directory_account_reconcilor_delegate.h"
+#include "components/signin/public/base/signin_pref_names.h"
 #include "components/user_manager/user_manager.h"
 #include "google_apis/gaia/google_service_auth_error.h"
 #endif
@@ -41,15 +44,36 @@
 namespace {
 
 #if defined(OS_CHROMEOS)
-class ChromeOSChildAccountReconcilorDelegate
+class ChromeOSLimitedAccessAccountReconcilorDelegate
     : public signin::MirrorAccountReconcilorDelegate {
  public:
-  explicit ChromeOSChildAccountReconcilorDelegate(
+  enum class ReconcilorBehavior {
+    kChild,
+    kEnterprise,
+  };
+
+  ChromeOSLimitedAccessAccountReconcilorDelegate(
+      ReconcilorBehavior reconcilor_behavior,
       signin::IdentityManager* identity_manager)
-      : signin::MirrorAccountReconcilorDelegate(identity_manager) {}
+      : signin::MirrorAccountReconcilorDelegate(identity_manager),
+        reconcilor_behavior_(reconcilor_behavior) {}
+
+  ChromeOSLimitedAccessAccountReconcilorDelegate(
+      const ChromeOSLimitedAccessAccountReconcilorDelegate&) = delete;
+  ChromeOSLimitedAccessAccountReconcilorDelegate& operator=(
+      const ChromeOSLimitedAccessAccountReconcilorDelegate&) = delete;
 
   base::TimeDelta GetReconcileTimeout() const override {
-    return base::TimeDelta::FromSeconds(10);
+    switch (reconcilor_behavior_) {
+      case ReconcilorBehavior::kChild:
+        return base::TimeDelta::FromSeconds(10);
+      case ReconcilorBehavior::kEnterprise:
+        // 60 seconds is enough to cover about 99% of all reconcile cases.
+        return base::TimeDelta::FromSeconds(60);
+      default:
+        NOTREACHED();
+        return MirrorAccountReconcilorDelegate::GetReconcileTimeout();
+    }
   }
 
   void OnReconcileError(const GoogleServiceAuthError& error) override {
@@ -58,20 +82,29 @@ class ChromeOSChildAccountReconcilorDelegate
       return;
     }
 
+    if (!GetIdentityManager()->HasAccountWithRefreshTokenInPersistentErrorState(
+            GetIdentityManager()->GetPrimaryAccountId(
+                signin::ConsentLevel::kNotRequired))) {
+      return;
+    }
+
     // Mark the account to require an online sign in.
     const user_manager::User* primary_user =
         user_manager::UserManager::Get()->GetPrimaryUser();
+    DCHECK(primary_user);
     user_manager::UserManager::Get()->SaveForceOnlineSignin(
         primary_user->GetAccountId(), true /* force_online_signin */);
 
+    if (reconcilor_behavior_ == ReconcilorBehavior::kChild) {
+      UMA_HISTOGRAM_BOOLEAN(
+          "ChildAccountReconcilor.ForcedUserExitOnReconcileError", true);
+    }
     // Force a logout.
-    UMA_HISTOGRAM_BOOLEAN(
-        "ChildAccountReconcilor.ForcedUserExitOnReconcileError", true);
     chrome::AttemptUserExit();
   }
 
  private:
-  DISALLOW_COPY_AND_ASSIGN(ChromeOSChildAccountReconcilorDelegate);
+  const ReconcilorBehavior reconcilor_behavior_;
 };
 
 // An |AccountReconcilorDelegate| for Chrome OS that is exactly the same as
@@ -147,6 +180,14 @@ KeyedService* AccountReconcilorFactory::BuildServiceInstanceFor(
   return reconcilor;
 }
 
+void AccountReconcilorFactory::RegisterProfilePrefs(
+    user_prefs::PrefRegistrySyncable* registry) {
+#if defined(OS_CHROMEOS)
+  registry->RegisterBooleanPref(prefs::kForceLogoutUnauthenticatedUserEnabled,
+                                false);
+#endif
+}
+
 // static
 std::unique_ptr<signin::AccountReconcilorDelegate>
 AccountReconcilorFactory::CreateAccountReconcilorDelegate(Profile* profile) {
@@ -158,7 +199,9 @@ AccountReconcilorFactory::CreateAccountReconcilorDelegate(Profile* profile) {
       // Only for child accounts on Chrome OS, use the specialized Mirror
       // delegate.
       if (profile->IsChild()) {
-        return std::make_unique<ChromeOSChildAccountReconcilorDelegate>(
+        return std::make_unique<ChromeOSLimitedAccessAccountReconcilorDelegate>(
+            ChromeOSLimitedAccessAccountReconcilorDelegate::ReconcilorBehavior::
+                kChild,
             IdentityManagerFactory::GetForProfile(profile));
       }
 
@@ -170,6 +213,14 @@ AccountReconcilorFactory::CreateAccountReconcilorDelegate(Profile* profile) {
           chromeos::InstallAttributes::Get()->IsActiveDirectoryManaged()) {
         return std::make_unique<
             signin::ActiveDirectoryAccountReconcilorDelegate>();
+      }
+
+      if (profile->GetPrefs()->GetBoolean(
+              prefs::kForceLogoutUnauthenticatedUserEnabled)) {
+        return std::make_unique<ChromeOSLimitedAccessAccountReconcilorDelegate>(
+            ChromeOSLimitedAccessAccountReconcilorDelegate::ReconcilorBehavior::
+                kEnterprise,
+            IdentityManagerFactory::GetForProfile(profile));
       }
 
       // TODO(sinhak): Use |MirrorAccountReconcilorDelegate|) when all Chrome OS

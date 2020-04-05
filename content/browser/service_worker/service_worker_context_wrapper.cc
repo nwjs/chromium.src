@@ -21,6 +21,7 @@
 #include "base/run_loop.h"
 #include "base/single_thread_task_runner.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "content/browser/blob_storage/chrome_blob_storage_context.h"
 #include "content/browser/loader/navigation_url_loader_impl.h"
@@ -125,12 +126,17 @@ void FoundRegistrationForStartWorker(
                                           ? registration->active_version()
                                           : registration->installing_version();
   // Since FindRegistrationForScope returned
-  // blink::ServiceWorkerStatusCode::kOk, there must be either: -
-  // an active version, which optionally might have activated from a waiting
+  // blink::ServiceWorkerStatusCode::kOk, there must have been either:
+  // - an active version, which optionally might have activated from a waiting
   //   version (as DidFindRegistrationForFindImpl will activate any waiting
   //   version).
   // - or an installing version.
-  DCHECK(version_ptr);
+  // However, if the installation is rejected, the installing version can go
+  // away by the time we reach here from DidFindRegistrationForFindImpl.
+  if (!version_ptr) {
+    callback_runner->PostTask(FROM_HERE, std::move(failure_callback));
+    return;
+  }
 
   // Note: There might be a remote possibility that |registration|'s |version|
   // might change between here and DidStartWorker, so bind |version| to
@@ -241,9 +247,8 @@ void ServiceWorkerContextWrapper::Init(
   // TODO(falken): Only block shutdown for that particular task, when someday
   // task runners support mixing task shutdown behaviors.
   scoped_refptr<base::SequencedTaskRunner> database_task_runner =
-      base::CreateSequencedTaskRunner(
-          {base::ThreadPool(), base::MayBlock(),
-           base::TaskShutdownBehavior::BLOCK_SHUTDOWN});
+      base::ThreadPool::CreateSequencedTaskRunner(
+          {base::MayBlock(), base::TaskShutdownBehavior::BLOCK_SHUTDOWN});
   std::unique_ptr<blink::PendingURLLoaderFactoryBundle>
       non_network_pending_loader_factory_bundle_for_update_check;
   if (blink::ServiceWorkerUtils::IsImportedScriptUpdateCheckEnabled()) {
@@ -391,9 +396,8 @@ void ServiceWorkerContextWrapper::OnStarted(int64_t version_id,
   DCHECK(insertion_result.second);
 
   const auto& running_info = insertion_result.first->second;
-  for (auto& observer : observer_list_) {
-    observer.OnVersionStartedRunning(this, version_id, running_info);
-  }
+  for (auto& observer : observer_list_)
+    observer.OnVersionStartedRunning(version_id, running_info);
 }
 
 void ServiceWorkerContextWrapper::OnStopped(int64_t version_id) {
@@ -403,7 +407,7 @@ void ServiceWorkerContextWrapper::OnStopped(int64_t version_id) {
   if (it != running_service_workers_.end()) {
     running_service_workers_.erase(it);
     for (auto& observer : observer_list_)
-      observer.OnVersionStoppedRunning(this, version_id);
+      observer.OnVersionStoppedRunning(version_id);
   }
 }
 
@@ -413,7 +417,7 @@ void ServiceWorkerContextWrapper::OnDeleteAndStartOver() {
   for (const auto& kv : running_service_workers_) {
     int64_t version_id = kv.first;
     for (auto& observer : observer_list_)
-      observer.OnVersionStoppedRunning(this, version_id);
+      observer.OnVersionStoppedRunning(version_id);
   }
   running_service_workers_.clear();
 }
@@ -494,7 +498,7 @@ void ServiceWorkerContextWrapper::UnregisterServiceWorker(
   }
 
   context()->UnregisterServiceWorker(
-      net::SimplifyUrlForRequest(scope),
+      net::SimplifyUrlForRequest(scope), /*is_immediate=*/false,
       base::BindOnce(&FinishUnregistrationOnCoreThread, std::move(callback)));
 }
 

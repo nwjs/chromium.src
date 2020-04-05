@@ -92,7 +92,8 @@ UsbDeviceFilterPtr ConvertDeviceFilter(const USBDeviceFilter* filter,
 
 }  // namespace
 
-USB::USB(ExecutionContext& context) : ContextLifecycleObserver(&context) {}
+USB::USB(ExecutionContext& context)
+    : ExecutionContextLifecycleObserver(&context) {}
 
 USB::~USB() {
   // |service_| may still be valid but there should be no more outstanding
@@ -178,14 +179,14 @@ ScriptPromise USB::requestDevice(ScriptState* script_state,
 }
 
 ExecutionContext* USB::GetExecutionContext() const {
-  return ContextLifecycleObserver::GetExecutionContext();
+  return ExecutionContextLifecycleObserver::GetExecutionContext();
 }
 
 const AtomicString& USB::InterfaceName() const {
   return event_target_names::kUSB;
 }
 
-void USB::ContextDestroyed(ExecutionContext*) {
+void USB::ContextDestroyed() {
   service_.reset();
   get_devices_requests_.clear();
   get_permission_requests_.clear();
@@ -319,12 +320,12 @@ bool USB::IsFeatureEnabled(ReportOptions report_options) const {
       mojom::blink::FeaturePolicyFeature::kUsb, report_options);
 }
 
-void USB::Trace(blink::Visitor* visitor) {
+void USB::Trace(Visitor* visitor) {
   visitor->Trace(get_devices_requests_);
   visitor->Trace(get_permission_requests_);
   visitor->Trace(device_cache_);
   EventTargetWithInlineData::Trace(visitor);
-  ContextLifecycleObserver::Trace(visitor);
+  ExecutionContextLifecycleObserver::Trace(visitor);
 }
 
 }  // namespace blink

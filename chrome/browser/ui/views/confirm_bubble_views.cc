@@ -28,10 +28,10 @@
 namespace {
 
 std::unique_ptr<views::View> CreateExtraView(views::ButtonListener* listener) {
-  auto help_button = CreateVectorImageButton(listener);
+  auto help_button = CreateVectorImageButtonWithNativeTheme(
+      listener, vector_icons::kHelpOutlineIcon);
   help_button->SetFocusForPlatform();
   help_button->SetTooltipText(l10n_util::GetStringUTF16(IDS_LEARN_MORE));
-  SetImageFromVectorIcon(help_button.get(), vector_icons::kHelpOutlineIcon);
   return help_button;
 }
 
@@ -40,14 +40,14 @@ std::unique_ptr<views::View> CreateExtraView(views::ButtonListener* listener) {
 ConfirmBubbleViews::ConfirmBubbleViews(
     std::unique_ptr<ConfirmBubbleModel> model)
     : model_(std::move(model)), help_button_(nullptr) {
-  DialogDelegate::set_button_label(
+  DialogDelegate::SetButtonLabel(
       ui::DIALOG_BUTTON_OK, model_->GetButtonLabel(ui::DIALOG_BUTTON_OK));
-  DialogDelegate::set_button_label(
+  DialogDelegate::SetButtonLabel(
       ui::DIALOG_BUTTON_CANCEL,
       model_->GetButtonLabel(ui::DIALOG_BUTTON_CANCEL));
-  DialogDelegate::set_accept_callback(base::BindOnce(
+  DialogDelegate::SetAcceptCallback(base::BindOnce(
       &ConfirmBubbleModel::Accept, base::Unretained(model_.get())));
-  DialogDelegate::set_cancel_callback(base::BindOnce(
+  DialogDelegate::SetCancelCallback(base::BindOnce(
       &ConfirmBubbleModel::Cancel, base::Unretained(model_.get())));
   help_button_ = DialogDelegate::SetExtraView(::CreateExtraView(this));
 

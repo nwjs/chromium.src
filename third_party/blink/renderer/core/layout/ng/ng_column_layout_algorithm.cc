@@ -171,10 +171,9 @@ scoped_refptr<const NGLayoutResult> NGColumnLayoutAlgorithm::Layout() {
   if (is_constrained_by_outer_fragmentation_context_) {
     // In addition to establishing one, we're nested inside another
     // fragmentation context.
-    FinishFragmentation(ConstraintSpace(), block_size, intrinsic_block_size_,
-                        previously_consumed_block_size,
-                        FragmentainerSpaceAtBfcStart(ConstraintSpace()),
-                        &container_builder_);
+    FinishFragmentation(
+        ConstraintSpace(), BreakToken(), block_size, intrinsic_block_size_,
+        FragmentainerSpaceAtBfcStart(ConstraintSpace()), &container_builder_);
   } else {
     container_builder_.SetBlockSize(block_size);
     container_builder_.SetIntrinsicBlockSize(intrinsic_block_size_);
@@ -189,19 +188,17 @@ scoped_refptr<const NGLayoutResult> NGColumnLayoutAlgorithm::Layout() {
   return container_builder_.ToBoxFragment();
 }
 
-base::Optional<MinMaxSize> NGColumnLayoutAlgorithm::ComputeMinMaxSize(
-    const MinMaxSizeInput& input) const {
+base::Optional<MinMaxSizes> NGColumnLayoutAlgorithm::ComputeMinMaxSizes(
+    const MinMaxSizesInput& input) const {
   // First calculate the min/max sizes of columns.
   NGConstraintSpace space = CreateConstraintSpaceForMinMax();
   NGFragmentGeometry fragment_geometry =
       CalculateInitialMinMaxFragmentGeometry(space, Node());
   NGBlockLayoutAlgorithm algorithm({Node(), fragment_geometry, space});
-  MinMaxSizeInput child_input(input);
-  child_input.size_type = NGMinMaxSizeType::kContentBoxSize;
-  base::Optional<MinMaxSize> min_max_sizes =
-      algorithm.ComputeMinMaxSize(child_input);
+  base::Optional<MinMaxSizes> min_max_sizes =
+      algorithm.ComputeMinMaxSizes(input);
   DCHECK(min_max_sizes.has_value());
-  MinMaxSize sizes = *min_max_sizes;
+  MinMaxSizes sizes = *min_max_sizes;
 
   // If column-width is non-auto, pick the larger of that and intrinsic column
   // width.
@@ -222,10 +219,7 @@ base::Optional<MinMaxSize> NGColumnLayoutAlgorithm::ComputeMinMaxSize(
 
   // TODO(mstensho): Need to include spanners.
 
-  if (input.size_type == NGMinMaxSizeType::kBorderBoxSize) {
-    sizes += border_scrollbar_padding_.InlineSum();
-  }
-
+  sizes += border_scrollbar_padding_.InlineSum();
   return sizes;
 }
 
@@ -666,7 +660,8 @@ NGBreakStatus NGColumnLayoutAlgorithm::LayoutSpanner(
   margin_strut->Append(margins.block_start, /* is_quirky */ false);
 
   LayoutUnit block_offset = intrinsic_block_size_ + margin_strut->Sum();
-  auto spanner_space = CreateConstraintSpaceForSpanner(block_offset);
+  auto spanner_space =
+      CreateConstraintSpaceForSpanner(spanner_node, block_offset);
 
   const NGEarlyBreak* early_break_in_child = nullptr;
   if (early_break_ && early_break_->Type() == NGEarlyBreak::kBlock &&
@@ -885,7 +880,7 @@ LayoutUnit NGColumnLayoutAlgorithm::ConstrainColumnBlockSize(
 
   const ComputedStyle& style = Style();
   LayoutUnit max = ResolveMaxBlockLength(
-      ConstraintSpace(), style, border_padding_, style.LogicalMaxHeight(), size,
+      ConstraintSpace(), style, border_padding_, style.LogicalMaxHeight(),
       LengthResolvePhase::kLayout);
   LayoutUnit extent = ResolveMainBlockLength(
       ConstraintSpace(), style, border_padding_, style.LogicalHeight(), size,
@@ -994,6 +989,7 @@ NGConstraintSpace NGColumnLayoutAlgorithm::CreateConstraintSpaceForBalancing(
 }
 
 NGConstraintSpace NGColumnLayoutAlgorithm::CreateConstraintSpaceForSpanner(
+    const NGBlockNode& spanner,
     LayoutUnit block_offset) const {
   NGConstraintSpaceBuilder space_builder(
       ConstraintSpace(), Style().GetWritingMode(), /* is_new_fc */ true);
@@ -1001,7 +997,7 @@ NGConstraintSpace NGColumnLayoutAlgorithm::CreateConstraintSpaceForSpanner(
   space_builder.SetPercentageResolutionSize(content_box_size_);
 
   if (ConstraintSpace().HasBlockFragmentation()) {
-    SetupFragmentation(ConstraintSpace(), block_offset, &space_builder,
+    SetupFragmentation(ConstraintSpace(), spanner, block_offset, &space_builder,
                        /* is_new_fc */ true);
   }
 

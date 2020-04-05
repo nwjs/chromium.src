@@ -79,17 +79,6 @@ gfx::OverlayTransform GetOverlayTransform(const gfx::Transform& quad_transform,
     return gfx::OVERLAY_TRANSFORM_INVALID;
 }
 
-// TODO(oshima): Move this to ui/gfx/geometry.
-gfx::Rect ToRoundedRect(const gfx::RectF& rect) {
-  int left = gfx::ToRoundedInt(rect.x());
-  int top = gfx::ToRoundedInt(rect.y());
-  int right = gfx::ToRoundedInt(rect.right());
-  int bottom = gfx::ToRoundedInt(rect.bottom());
-  gfx::Rect result;
-  result.SetByBounds(left, top, right, bottom);
-  return result;
-}
-
 }  // namespace
 
 OverlayCandidate::OverlayCandidate()
@@ -141,9 +130,6 @@ bool OverlayCandidate::FromDrawQuad(DisplayResourceProvider* resource_provider,
     case DrawQuad::Material::kTextureContent:
       return FromTextureQuad(resource_provider,
                              TextureDrawQuad::MaterialCast(quad), candidate);
-    case DrawQuad::Material::kTiledContent:
-      return FromTileQuad(resource_provider, TileDrawQuad::MaterialCast(quad),
-                          candidate);
     case DrawQuad::Material::kVideoHole:
       return FromVideoHoleQuad(
           resource_provider, VideoHoleDrawQuad::MaterialCast(quad), candidate);
@@ -177,12 +163,12 @@ bool OverlayCandidate::IsOccluded(const OverlayCandidate& candidate,
                                   QuadList::ConstIterator quad_list_end) {
   // The rects are rounded as they're snapped by the compositor to pixel unless
   // it is AA'ed, in which case, it won't be overlaid.
-  gfx::Rect display_rect = ToRoundedRect(candidate.display_rect);
+  gfx::Rect display_rect = gfx::ToRoundedRect(candidate.display_rect);
 
   // Check that no visible quad overlaps the candidate.
   for (auto overlap_iter = quad_list_begin; overlap_iter != quad_list_end;
        ++overlap_iter) {
-    gfx::Rect overlap_rect = ToRoundedRect(cc::MathUtil::MapClippedRect(
+    gfx::Rect overlap_rect = gfx::ToRoundedRect(cc::MathUtil::MapClippedRect(
         overlap_iter->shared_quad_state->quad_to_target_transform,
         gfx::RectF(overlap_iter->rect)));
 
@@ -313,19 +299,6 @@ bool OverlayCandidate::FromTextureQuad(
   }
   candidate->resource_size_in_pixels = quad->resource_size_in_pixels();
   candidate->uv_rect = BoundingRect(quad->uv_top_left, quad->uv_bottom_right);
-  return true;
-}
-
-// static
-bool OverlayCandidate::FromTileQuad(DisplayResourceProvider* resource_provider,
-                                    const TileDrawQuad* quad,
-                                    OverlayCandidate* candidate) {
-  if (!FromDrawQuadResource(resource_provider, quad, quad->resource_id(), false,
-                            candidate)) {
-    return false;
-  }
-  candidate->resource_size_in_pixels = quad->texture_size;
-  candidate->uv_rect = quad->tex_coord_rect;
   return true;
 }
 

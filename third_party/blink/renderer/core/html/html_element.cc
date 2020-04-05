@@ -294,7 +294,7 @@ void HTMLElement::CollectStyleForPresentationAttribute(
           style, CSSPropertyID::kWebkitLineBreak, CSSValueID::kAfterWhiteSpace);
       UseCounter::Count(GetDocument(),
                         WebFeature::kContentEditablePlainTextOnly);
-    } else if (DeprecatedEqualIgnoringCase(value, "false")) {
+    } else if (EqualIgnoringASCIICase(value, "false")) {
       AddPropertyToPresentationAttributeStyle(
           style, CSSPropertyID::kWebkitUserModify, CSSValueID::kReadOnly);
     }
@@ -308,7 +308,7 @@ void HTMLElement::CollectStyleForPresentationAttribute(
           style, CSSPropertyID::kWebkitUserDrag, CSSValueID::kElement);
       AddPropertyToPresentationAttributeStyle(style, CSSPropertyID::kUserSelect,
                                               CSSValueID::kNone);
-    } else if (DeprecatedEqualIgnoringCase(value, "false")) {
+    } else if (EqualIgnoringASCIICase(value, "false")) {
       AddPropertyToPresentationAttributeStyle(
           style, CSSPropertyID::kWebkitUserDrag, CSSValueID::kNone);
     }
@@ -890,9 +890,9 @@ void HTMLElement::ApplyAlignmentAttributeToStyle(
   CSSValueID float_value = CSSValueID::kInvalid;
   CSSValueID vertical_align_value = CSSValueID::kInvalid;
 
-  if (DeprecatedEqualIgnoringCase(alignment, "absmiddle")) {
+  if (EqualIgnoringASCIICase(alignment, "absmiddle")) {
     vertical_align_value = CSSValueID::kMiddle;
-  } else if (DeprecatedEqualIgnoringCase(alignment, "absbottom")) {
+  } else if (EqualIgnoringASCIICase(alignment, "absbottom")) {
     vertical_align_value = CSSValueID::kBottom;
   } else if (EqualIgnoringASCIICase(alignment, "left")) {
     float_value = CSSValueID::kLeft;
@@ -935,7 +935,7 @@ String HTMLElement::contentEditable() const {
     return "inherit";
   if (value.IsEmpty() || EqualIgnoringASCIICase(value, "true"))
     return "true";
-  if (DeprecatedEqualIgnoringCase(value, "false"))
+  if (EqualIgnoringASCIICase(value, "false"))
     return "false";
   if (EqualIgnoringASCIICase(value, "plaintext-only"))
     return "plaintext-only";
@@ -947,7 +947,7 @@ void HTMLElement::setContentEditable(const String& enabled,
                                      ExceptionState& exception_state) {
   if (EqualIgnoringASCIICase(enabled, "true"))
     setAttribute(html_names::kContenteditableAttr, "true");
-  else if (DeprecatedEqualIgnoringCase(enabled, "false"))
+  else if (EqualIgnoringASCIICase(enabled, "false"))
     setAttribute(html_names::kContenteditableAttr, "false");
   else if (EqualIgnoringASCIICase(enabled, "plaintext-only"))
     setAttribute(html_names::kContenteditableAttr, "plaintext-only");
@@ -1026,8 +1026,7 @@ TranslateAttributeMode HTMLElement::GetTranslateAttributeMode() const {
 
   if (value == g_null_atom)
     return kTranslateAttributeInherit;
-  if (DeprecatedEqualIgnoringCase(value, "yes") ||
-      EqualIgnoringASCIICase(value, ""))
+  if (EqualIgnoringASCIICase(value, "yes") || EqualIgnoringASCIICase(value, ""))
     return kTranslateAttributeYes;
   if (EqualIgnoringASCIICase(value, "no"))
     return kTranslateAttributeNo;
@@ -1064,11 +1063,11 @@ static inline const AtomicString& ToValidDirValue(const AtomicString& value) {
   DEFINE_STATIC_LOCAL(const AtomicString, rtl_value, ("rtl"));
   DEFINE_STATIC_LOCAL(const AtomicString, auto_value, ("auto"));
 
-  if (DeprecatedEqualIgnoringCase(value, ltr_value))
+  if (EqualIgnoringASCIICase(value, ltr_value))
     return ltr_value;
-  if (DeprecatedEqualIgnoringCase(value, rtl_value))
+  if (EqualIgnoringASCIICase(value, rtl_value))
     return rtl_value;
-  if (DeprecatedEqualIgnoringCase(value, auto_value))
+  if (EqualIgnoringASCIICase(value, auto_value))
     return auto_value;
   return g_null_atom;
 }
@@ -1124,7 +1123,7 @@ TextDirection HTMLElement::Directionality() const {
   while (node) {
     // Skip bdi, script, style and text form controls.
     auto* element = DynamicTo<Element>(node);
-    if (DeprecatedEqualIgnoringCase(node->nodeName(), "bdi") ||
+    if (EqualIgnoringASCIICase(node->nodeName(), "bdi") ||
         IsA<HTMLScriptElement>(*node) || IsA<HTMLStyleElement>(*node) ||
         (element && element->IsTextControl()) ||
         (element && element->ShadowPseudoId() == "-webkit-input-placeholder")) {
@@ -1213,11 +1212,8 @@ Node::InsertionNotificationRequest HTMLElement::InsertedInto(
   // Process the superclass first to ensure that `InActiveDocument()` is
   // updated.
   Element::InsertedInto(insertion_point);
+  HideNonce();
 
-  if (GetDocument().GetContentSecurityPolicy()->HasHeaderDeliveredPolicy() &&
-      InActiveDocument() && FastHasAttribute(html_names::kNonceAttr)) {
-    setAttribute(html_names::kNonceAttr, g_empty_atom);
-  }
   if (IsFormAssociatedCustomElement())
     EnsureElementInternals().InsertedInto(insertion_point);
 
@@ -1338,7 +1334,7 @@ bool HTMLElement::ParseColorWithLegacyRules(const String& attribute_value,
   String color_string = attribute_value.StripWhiteSpace();
 
   // "transparent" doesn't apply a color either.
-  if (DeprecatedEqualIgnoringCase(color_string, "transparent"))
+  if (EqualIgnoringASCIICase(color_string, "transparent"))
     return false;
 
   // If the string is a 3/6-digit hex color or a named CSS color, use that.
@@ -1382,8 +1378,9 @@ bool HTMLElement::IsInteractiveContent() const {
 }
 
 void HTMLElement::DefaultEventHandler(Event& event) {
-  if (event.type() == event_type_names::kKeypress && event.IsKeyboardEvent()) {
-    HandleKeypressEvent(ToKeyboardEvent(event));
+  auto* keyboard_event = DynamicTo<KeyboardEvent>(event);
+  if (event.type() == event_type_names::kKeypress && keyboard_event) {
+    HandleKeypressEvent(*keyboard_event);
     if (event.DefaultHandled())
       return;
   }
@@ -1392,15 +1389,16 @@ void HTMLElement::DefaultEventHandler(Event& event) {
 }
 
 bool HTMLElement::HandleKeyboardActivation(Event& event) {
-  if (event.IsKeyboardEvent()) {
+  auto* keyboard_event = DynamicTo<KeyboardEvent>(event);
+  if (keyboard_event) {
     if (event.type() == event_type_names::kKeydown &&
-        ToKeyboardEvent(event).key() == " ") {
+        keyboard_event->key() == " ") {
       SetActive(true);
       // No setDefaultHandled() - IE dispatches a keypress in this case.
       return true;
     }
     if (event.type() == event_type_names::kKeypress) {
-      switch (ToKeyboardEvent(event).charCode()) {
+      switch (keyboard_event->charCode()) {
         case '\r':
           DispatchSimulatedClick(&event);
           event.SetDefaultHandled();
@@ -1412,7 +1410,7 @@ bool HTMLElement::HandleKeyboardActivation(Event& event) {
       }
     }
     if (event.type() == event_type_names::kKeyup &&
-        ToKeyboardEvent(event).key() == " ") {
+        keyboard_event->key() == " ") {
       if (IsActive())
         DispatchSimulatedClick(&event);
       event.SetDefaultHandled();
@@ -1434,7 +1432,7 @@ bool HTMLElement::MatchesReadWritePseudoClass() const {
     if (value.IsEmpty() || EqualIgnoringASCIICase(value, "true") ||
         EqualIgnoringASCIICase(value, "plaintext-only"))
       return true;
-    if (DeprecatedEqualIgnoringCase(value, "false"))
+    if (EqualIgnoringASCIICase(value, "false"))
       return false;
     // All other values should be treated as "inherit".
   }
@@ -1462,7 +1460,8 @@ void HTMLElement::HandleKeypressEvent(KeyboardEvent& event) {
 }
 
 int HTMLElement::offsetLeftForBinding() {
-  GetDocument().EnsurePaintLocationDataValidForNode(this);
+  GetDocument().EnsurePaintLocationDataValidForNode(
+      this, DocumentUpdateReason::kJavaScript);
   Element* offset_parent = unclosedOffsetParent();
   if (LayoutBoxModelObject* layout_object = GetLayoutBoxModelObject())
     return AdjustForAbsoluteZoom::AdjustLayoutUnit(
@@ -1473,7 +1472,8 @@ int HTMLElement::offsetLeftForBinding() {
 }
 
 int HTMLElement::offsetTopForBinding() {
-  GetDocument().EnsurePaintLocationDataValidForNode(this);
+  GetDocument().EnsurePaintLocationDataValidForNode(
+      this, DocumentUpdateReason::kJavaScript);
   Element* offset_parent = unclosedOffsetParent();
   if (LayoutBoxModelObject* layout_object = GetLayoutBoxModelObject())
     return AdjustForAbsoluteZoom::AdjustLayoutUnit(
@@ -1484,7 +1484,8 @@ int HTMLElement::offsetTopForBinding() {
 }
 
 int HTMLElement::offsetWidthForBinding() {
-  GetDocument().EnsurePaintLocationDataValidForNode(this);
+  GetDocument().EnsurePaintLocationDataValidForNode(
+      this, DocumentUpdateReason::kJavaScript);
   Element* offset_parent = unclosedOffsetParent();
   if (LayoutBoxModelObject* layout_object = GetLayoutBoxModelObject())
     return AdjustForAbsoluteZoom::AdjustLayoutUnit(
@@ -1497,7 +1498,8 @@ int HTMLElement::offsetWidthForBinding() {
 
 DISABLE_CFI_PERF
 int HTMLElement::offsetHeightForBinding() {
-  GetDocument().EnsurePaintLocationDataValidForNode(this);
+  GetDocument().EnsurePaintLocationDataValidForNode(
+      this, DocumentUpdateReason::kJavaScript);
   Element* offset_parent = unclosedOffsetParent();
   if (LayoutBoxModelObject* layout_object = GetLayoutBoxModelObject())
     return AdjustForAbsoluteZoom::AdjustLayoutUnit(
@@ -1509,7 +1511,8 @@ int HTMLElement::offsetHeightForBinding() {
 }
 
 Element* HTMLElement::unclosedOffsetParent() {
-  GetDocument().UpdateStyleAndLayoutForNode(this);
+  GetDocument().UpdateStyleAndLayoutForNode(this,
+                                            DocumentUpdateReason::kJavaScript);
 
   LayoutObject* layout_object = GetLayoutObject();
   if (!layout_object)
@@ -1657,6 +1660,6 @@ void HTMLElement::FinishParsingChildren() {
 void dumpInnerHTML(blink::HTMLElement*);
 
 void dumpInnerHTML(blink::HTMLElement* element) {
-  printf("%s\n", element->InnerHTMLAsString().Ascii().c_str());
+  printf("%s\n", element->innerHTML().Ascii().c_str());
 }
 #endif

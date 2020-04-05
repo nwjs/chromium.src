@@ -39,7 +39,7 @@ class ContentIndex final : public ScriptWrappable {
   ScriptPromise getDescriptions(ScriptState* script_state,
                                 ExceptionState& exception_state);
 
-  void Trace(blink::Visitor* visitor) override;
+  void Trace(Visitor* visitor) override;
 
  private:
   mojom::blink::ContentIndexService* GetService();
@@ -47,7 +47,7 @@ class ContentIndex final : public ScriptWrappable {
   // Callbacks.
   void DidGetIconSizes(ScriptPromiseResolver* resolver,
                        mojom::blink::ContentDescriptionPtr description,
-                       const Vector<WebSize>& icon_sizes);
+                       const Vector<gfx::Size>& icon_sizes);
   void DidGetIcons(ScriptPromiseResolver* resolver,
                    mojom::blink::ContentDescriptionPtr description,
                    Vector<SkBitmap> icons);

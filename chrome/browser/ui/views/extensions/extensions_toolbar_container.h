@@ -38,7 +38,22 @@ class ExtensionsToolbarContainer : public ToolbarIconContainerView,
   using ToolbarIconMap = std::map<ToolbarActionsModel::ActionId,
                                   std::unique_ptr<ToolbarActionView>>;
 
-  explicit ExtensionsToolbarContainer(Browser* browser);
+  // Determines how the container displays - specifically whether the menu and
+  // popped out action can be hidden.
+  enum class DisplayMode {
+    // In normal mode, the menu icon and popped-out action is always visible.
+    // Normal mode is used for the main toolbar and in windows where there is
+    // always enough space to show at least two icons.
+    kNormal,
+    // In compact mode, one or both of the menu icon and popped-out action may
+    // be hidden. Compact mode is used in smaller windows (e.g. webapps) where
+    // there may not be enough space to display the buttons.
+    kCompact,
+  };
+
+  explicit ExtensionsToolbarContainer(
+      Browser* browser,
+      DisplayMode display_mode = DisplayMode::kNormal);
   ~ExtensionsToolbarContainer() override;
 
   ExtensionsToolbarButton* extensions_button() const {
@@ -63,6 +78,11 @@ class ExtensionsToolbarContainer : public ToolbarIconContainerView,
   views::Widget* GetAnchoredWidgetForExtensionForTesting(
       const std::string& extension_id);
 
+  base::Optional<extensions::ExtensionId>
+  GetExtensionWithOpenContextMenuForTesting() {
+    return extension_with_open_context_menu_id_;
+  }
+
   // ToolbarIconContainerView:
   void UpdateAllIcons() override;
   bool GetDropFormats(int* formats,
@@ -72,11 +92,14 @@ class ExtensionsToolbarContainer : public ToolbarIconContainerView,
   int OnDragUpdated(const ui::DropTargetEvent& event) override;
   void OnDragExited() override;
   int OnPerformDrop(const ui::DropTargetEvent& event) override;
+  const char* GetClassName() const override;
 
   // ExtensionsContainer:
   ToolbarActionViewController* GetActionForId(
       const std::string& action_id) override;
   ToolbarActionViewController* GetPoppedOutAction() const override;
+  void OnContextMenuShown(ToolbarActionViewController* extension) override;
+  void OnContextMenuClosed(ToolbarActionViewController* extension) override;
   bool IsActionVisibleOnToolbar(
       const ToolbarActionViewController* action) const override;
   void UndoPopOut() override;
@@ -189,6 +212,7 @@ class ExtensionsToolbarContainer : public ToolbarIconContainerView,
   ScopedObserver<ToolbarActionsModel, ToolbarActionsModel::Observer>
       model_observer_;
   ExtensionsToolbarButton* const extensions_button_;
+  DisplayMode display_mode_;
 
   // TODO(pbos): Create actions and icons only for pinned pinned / popped out
   // actions (lazily). Currently code expects GetActionForId() to return
@@ -201,6 +225,8 @@ class ExtensionsToolbarContainer : public ToolbarIconContainerView,
   ToolbarActionViewController* popped_out_action_ = nullptr;
   // The action that triggered the current popup, if any.
   ToolbarActionViewController* popup_owner_ = nullptr;
+  // Extension with an open context menu, if any.
+  base::Optional<extensions::ExtensionId> extension_with_open_context_menu_id_;
 
   // The widgets currently popped out and, for each, the extension it is
   // associated with. See AnchoredWidget.

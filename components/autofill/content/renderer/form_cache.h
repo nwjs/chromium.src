@@ -9,11 +9,13 @@
 
 #include <map>
 #include <set>
+#include <string>
 #include <vector>
 
 #include "base/gtest_prod_util.h"
 #include "base/macros.h"
 #include "base/strings/string16.h"
+#include "components/autofill/content/renderer/field_data_manager.h"
 #include "components/autofill/core/common/form_data.h"
 
 namespace blink {
@@ -35,7 +37,8 @@ class FormCache {
   // Scans the DOM in |frame_| extracting and storing forms that have not been
   // seen before. Returns the extracted forms. Note that modified forms are
   // considered new forms.
-  std::vector<FormData> ExtractNewForms();
+  std::vector<FormData> ExtractNewForms(
+      const FieldDataManager* field_data_manager);
 
   // Resets the forms.
   void Reset();
@@ -77,6 +80,10 @@ class FormCache {
   bool ShouldShowAutocompleteConsoleWarnings(
       const std::string& predicted_autocomplete,
       const std::string& actual_autocomplete);
+
+  // Clears the value of the |control_element|.
+  void ClearElement(blink::WebFormControlElement& control_element,
+                    const blink::WebFormControlElement& element);
 
   // Clears all entries from |initial_select_values_| and
   // |initial_checked_state_| whose keys not contained in |ids_to_retain|.

@@ -130,6 +130,7 @@
     <file path="strings/chromeos_strings_sl.xtb" lang="sl" />
     <file path="strings/chromeos_strings_sq.xtb" lang="sq" />
     <file path="strings/chromeos_strings_sr.xtb" lang="sr" />
+    <file path="strings/chromeos_strings_sr-Latn.xtb" lang="sr-Latn" />
     <file path="strings/chromeos_strings_sv.xtb" lang="sv" />
     <file path="strings/chromeos_strings_sw.xtb" lang="sw" />
     <file path="strings/chromeos_strings_ta.xtb" lang="ta" />
@@ -268,6 +269,37 @@ Try tapping the mic to ask me anything.
 
       <message name="IDS_IME_SERVICE_DISPLAY_NAME" desc="The display name (in the system task manager, etc) of the service process providing the input methods.">
         Chrome OS Input Method Service
+      </message>
+
+      <!-- Help App -->
+      <message name="IDS_HELP_APP_DISCOVER" desc="Name of the discover app in the app shelf. This app is to help users 'discover' new content and ways to use their device." meaning="App name.">
+        Discover
+      </message>
+      <message name="IDS_HELP_APP_OFFERS" desc="Name of a tab in the Help app that offers users discounts or freebies, 'offers'.">
+        Offers
+      </message>
+      <message name="IDS_HELP_APP_PERKS" desc="Name of a tab in the Help app that offers users additional perks like apps or drive storage space.">
+        Perks
+      </message>
+
+      <!-- Pin dialog error messages -->
+      <message name="IDS_REQUEST_PIN_DIALOG_INVALID_PIN_ERROR" desc="The error message displayed in the certificate provider PIN request dialog when an invalid PIN was entered. Should end with a full stop since it can be chained with more text.">
+        Invalid PIN.
+      </message>
+      <message name="IDS_REQUEST_PIN_DIALOG_INVALID_PUK_ERROR" desc="The error message displayed in the certificate provider PIN request dialog when an invalid PUK was entered. Should end with a full stop since it can be chained with more text.">
+        Invalid PUK.
+      </message>
+      <message name="IDS_REQUEST_PIN_DIALOG_MAX_ATTEMPTS_EXCEEDED_ERROR" desc="The error message displayed in the certificate provider PIN request dialog when maximum allowed attempts exceeded.">
+        Maximum allowed attempts exceeded.
+      </message>
+      <message name="IDS_REQUEST_PIN_DIALOG_UNKNOWN_ERROR" desc="The error message displayed in the certificate provider PIN request dialog when unknown error occurred in extension code. Should end with a full stop since it can be chained with more text.">
+        Unknown error.
+      </message>
+      <message name="IDS_REQUEST_PIN_DIALOG_ATTEMPTS_LEFT" desc="The text displayed in the certificate provider PIN request dialog about the number of attempts left">
+        <ph name="ATTEMPTS_LEFT">$1<ex>3</ex></ph> attempts left
+      </message>
+      <message name="IDS_REQUEST_PIN_DIALOG_ERROR_ATTEMPTS" desc="The text displayed in the certificate provider PIN request dialog when the previous login attempt was unsuccessful but there are more attempts remaining. Includes the reason for the previous failure.">
+        <ph name="ERROR_MESSAGE">$1<ex>Invalid PIN.</ex></ph> <ph name="ATTEMPTS_LEFT">$2<ex>3</ex></ph> attempts left
       </message>
     </messages>
   </release>

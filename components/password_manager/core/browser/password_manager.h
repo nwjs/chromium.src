@@ -35,7 +35,7 @@ class PrefRegistrySyncable;
 namespace autofill {
 struct FormData;
 class FormStructure;
-}
+}  // namespace autofill
 
 namespace password_manager {
 
@@ -46,6 +46,18 @@ class PasswordFormManagerForUI;
 class PasswordFormManager;
 class PasswordManagerMetricsRecorder;
 struct PossibleUsernameData;
+
+// Define the modes of collaboration between Password Manager and Autofill
+// Assistant (who handles form submissions, whether to show prompts or not).
+enum class AutofillAssistantMode {
+  // Autofill Assistant is not running. Password Manager operates in the regular
+  // mode - it handles submissions and shows prompts.
+  kNotRunning = 0,
+  // Autofill Assistant runs a manually curated script. The password manager
+  // is basically off - it does not handle submissions and therefore does not
+  // show prompts. The script does all the work instead.
+  kManuallyCuratedScript
+};
 
 // Per-tab password manager. Handles creation and management of UI elements,
 // receiving password form data from the renderer and managing the password
@@ -179,6 +191,11 @@ class PasswordManager : public FormSubmissionObserver {
   // Notifies that Credential Management API function store() is called.
   void NotifyStorePasswordCalled();
 
+  void set_autofill_assistance_mode(
+      AutofillAssistantMode autofill_assistant_mode) {
+    autofill_assistant_mode_ = autofill_assistant_mode;
+  }
+
 #if defined(OS_IOS)
   // TODO(https://crbug.com/866444): Use these methods instead olds ones when
   // the old parser is gone.
@@ -195,7 +212,8 @@ class PasswordManager : public FormSubmissionObserver {
   // Updates the state if the PasswordFormManager which corresponds to the form
   // with |form_identifier|. In case if there is a presaved credential it
   // updates the presaved credential.
-  void UpdateStateOnUserInput(const base::string16& form_identifier,
+  void UpdateStateOnUserInput(PasswordManagerDriver* driver,
+                              const base::string16& form_identifier,
                               const base::string16& field_identifier,
                               const base::string16& field_value);
 
@@ -285,7 +303,7 @@ class PasswordManager : public FormSubmissionObserver {
 
   // Returns the manager which manages |form|. |driver| is needed to determine
   // the match. Returns nullptr when no matched manager is found.
-  PasswordFormManager* GetMatchedManager(const PasswordManagerDriver* driver,
+  PasswordFormManager* GetMatchedManager(PasswordManagerDriver* driver,
                                          const autofill::FormData& form);
 
   // Log a frame (main frame, iframe) of a submitted password form.
@@ -296,6 +314,11 @@ class PasswordManager : public FormSubmissionObserver {
   //  to find predictions for the form which contains |possible_username_| in
   //  |predictions_|.
   void TryToFindPredictionsToPossibleUsernameData();
+
+  // Handles a request to show manual fallback for password saving, i.e. the
+  // omnibox icon with the anchored hidden prompt. todo
+  void ShowManualFallbackForSavingImpl(PasswordFormManager* form_manager,
+                                       const autofill::FormData& form_data);
 
   // PasswordFormManager transition schemes:
   // 1. HTML submission with navigation afterwads.
@@ -347,6 +370,11 @@ class PasswordManager : public FormSubmissionObserver {
   LeakDetectionDelegate leak_delegate_;
 
   base::Optional<PossibleUsernameData> possible_username_;
+
+  // By default Autofill Assistant is not running. Password Manager handles
+  // submissions and shows prompts.
+  AutofillAssistantMode autofill_assistant_mode_ =
+      AutofillAssistantMode::kNotRunning;
 
   DISALLOW_COPY_AND_ASSIGN(PasswordManager);
 };

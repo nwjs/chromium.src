@@ -4,6 +4,7 @@
 
 module apps.mojom;
 
+import "mojo/public/mojom/base/file_path.mojom";
 import "mojo/public/mojom/base/time.mojom";
 import "ui/gfx/image/mojom/image.mojom";
 
@@ -182,6 +183,11 @@ enum LaunchSource {
   kFromLink = 9,                    // Left-licking on links in the browser.
   kFromOmnibox = 10,                // Enter URL in the Omnibox in the browser.
   kFromChromeInternal = 11,         // Chrome internal call.
+  kFromKeyboard = 12,               // Keyboard shortcut for opening app.
+  kFromOtherApp = 13,               // Clicking link in another app or webui.
+  kFromMenu = 14,                   // Menu.
+  kFromInstalledNotification = 15,  // Installed notification
+  kFromTest = 16,                   // Test
 };
 
 enum TriState {
@@ -200,9 +206,11 @@ enum PermissionValueType {
 // Please update comments below (MenuItemType -> [fields expected for usage])
 // when anything changed to MenuItemType or MenuItem.
 //
-// kCommand -> [command_id, string_id].
-// kRadio   -> [command_id, string_id, radio_group_id].
-// kSubmenu -> [command_id, string_id, submenu].
+// kCommand    -> [command_id, string_id].
+// kRadio      -> [command_id, string_id, radio_group_id].
+// kSeparator  -> [command_id].
+// kSubmenu    -> [command_id, string_id, submenu].
+// kArcCommand -> [command_id, shortcut_id, label, image].
 //
 struct MenuItems {
   array<MenuItem> items;
@@ -214,13 +222,18 @@ struct MenuItem {
   int32 string_id;                   // The id of the menu item label.
   array<MenuItem> submenu;           // The optional nested submenu item list.
   int32 radio_group_id;              // The radio group id.
+  string shortcut_id;                // The shortcut id, may be empty.
+  string label;                      // The string label, may be empty.
+  gfx.mojom.ImageSkia? image;        // The image icon, may be null.
 };
 
 // The types of menu items shown in the app list or shelf.
 enum MenuItemType {
   kCommand,    // Performs an action when selected.
   kRadio,      // Can be selected/checked among a group of choices.
+  kSeparator,  // Shows a horizontal line separator.
   kSubmenu,    // Presents a submenu within another menu.
+  kArcCommand, // Performs an ARC shortcut action when selected.
 };
 
 // Which component requests context menus, the app list or shelf.
@@ -274,4 +287,20 @@ struct Intent {
   string? scheme; // URL scheme. e.g. https.
   string? host;   // URL host. e.g. www.google.com.
   string? path;   // URL path. e.g. /abc.
+};
+
+// Represents a group of |app_ids| that is no longer preferred app of their
+// corresponding |intent_filters|.
+struct ReplacedAppPreferences {
+  map<string, array<IntentFilter>> replaced_preference;
+};
+
+// The preferred app represents by |app_id| for |intent_fitler|.
+struct PreferredApp {
+  IntentFilter intent_filter;
+  string app_id;
+};
+
+struct FilePaths {
+  array<mojo_base.mojom.FilePath> file_paths;
 };

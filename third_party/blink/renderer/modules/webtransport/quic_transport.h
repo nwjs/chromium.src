@@ -17,7 +17,7 @@
 #include "services/network/public/mojom/quic_transport.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/core/v8/active_script_wrappable.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
-#include "third_party/blink/renderer/core/execution_context/context_lifecycle_observer.h"
+#include "third_party/blink/renderer/core/execution_context/execution_context_lifecycle_observer.h"
 #include "third_party/blink/renderer/modules/modules_export.h"
 #include "third_party/blink/renderer/platform/bindings/script_wrappable.h"
 #include "third_party/blink/renderer/platform/heap/heap_allocator.h"
@@ -27,7 +27,6 @@
 namespace blink {
 
 class ExceptionState;
-class ExecutionContext;
 class ReadableStream;
 class ReadableStreamDefaultControllerWithScriptScope;
 class ScriptPromiseResolver;
@@ -42,7 +41,7 @@ class WebTransportCloseProxy;
 class MODULES_EXPORT QuicTransport final
     : public ScriptWrappable,
       public ActiveScriptWrappable<QuicTransport>,
-      public ContextLifecycleObserver,
+      public ExecutionContextLifecycleObserver,
       public network::mojom::blink::QuicTransportHandshakeClient,
       public network::mojom::blink::QuicTransportClient {
   DEFINE_WRAPPERTYPEINFO();
@@ -60,6 +59,7 @@ class MODULES_EXPORT QuicTransport final
 
   // QuicTransport IDL implementation.
   ScriptPromise createSendStream(ScriptState*, ExceptionState&);
+  ReadableStream* receiveStreams() { return received_streams_; }
 
   WritableStream* sendDatagrams() { return outgoing_datagrams_; }
   ReadableStream* receiveDatagrams() { return received_datagrams_; }
@@ -78,8 +78,8 @@ class MODULES_EXPORT QuicTransport final
   void OnDatagramReceived(base::span<const uint8_t> data) override;
   void OnIncomingStreamClosed(uint32_t stream_id, bool fin_received) override;
 
-  // Implementation of ContextLifecycleObserver
-  void ContextDestroyed(ExecutionContext*) final;
+  // Implementation of ExecutionContextLifecycleObserver
+  void ContextDestroyed() final;
 
   // Implementation of ActiveScriptWrappable
   bool HasPendingActivity() const final;
@@ -87,12 +87,16 @@ class MODULES_EXPORT QuicTransport final
   // Forwards a SendFin() message to the mojo interface.
   void SendFin(uint32_t stream_id);
 
+  // Removes the reference to a stream.
+  void ForgetStream(uint32_t stream_id);
+
   // ScriptWrappable implementation
   void Trace(Visitor* visitor) override;
 
  private:
   class DatagramUnderlyingSink;
   class DatagramUnderlyingSource;
+  class ReceivedStreamsUnderlyingSource;
 
   void Init(const String& url, ExceptionState&);
 
@@ -141,6 +145,11 @@ class MODULES_EXPORT QuicTransport final
   // Tracks resolvers for in-progress createSendStream() operations so they can
   // be rejected
   HeapHashSet<Member<ScriptPromiseResolver>> create_send_stream_resolvers_;
+
+  // The [[ReceivedStreams]] slot.
+  // https://wicg.github.io/web-transport/#dom-quictransport-receivedstreams-slot
+  Member<ReadableStream> received_streams_;
+  Member<ReceivedStreamsUnderlyingSource> received_streams_underlying_source_;
 };
 
 }  // namespace blink

@@ -107,31 +107,32 @@ void DumpAccessibilityTestBase::SetUpOnMainThread() {
 void DumpAccessibilityTestBase::SetUp() {
   std::vector<base::Feature> enabled_features;
   std::vector<base::Feature> disabled_features;
+  ChooseFeatures(&enabled_features, &disabled_features);
+
+  scoped_feature_list_.InitWithFeatures(enabled_features, disabled_features);
+  ContentBrowserTest::SetUp();
+}
+
+void DumpAccessibilityTestBase::ChooseFeatures(
+    std::vector<base::Feature>* enabled_features,
+    std::vector<base::Feature>* disabled_features) {
+  // Enable exposing ARIA Annotation roles.
+  // TODO(aleventhal) Remove when we completely remove runtime flag around m83.
+  // enabled_features.emplace_back(
+  //     features::kEnableAccessibilityExposeARIAAnnotations);
 
   // Enable exposing "display: none" nodes to the browser process for testing.
-  enabled_features.emplace_back(
-      features::kEnableAccessibilityExposeARIAAnnotations);
-
-  // Enable exposing ARIA Annotation roles.
-  enabled_features.emplace_back(
+  enabled_features->emplace_back(
       features::kEnableAccessibilityExposeDisplayNone);
 
-  // Enable the FormControlsRefresh feature to make sure the
-  // accessibility tree is the same across platforms.
-  // TODO(1012108): remove this once Mac is also enabled by default.
-  enabled_features.emplace_back(features::kFormControlsRefresh);
-
-  enabled_features.emplace_back(blink::features::kPortals);
+  enabled_features->emplace_back(blink::features::kPortals);
 
   // TODO(dmazzoni): DumpAccessibilityTree expectations are based on the
   // assumption that the accessibility labels feature is off. (There are
   // also several tests that explicitly enable the feature.) It'd be better
   // if DumpAccessibilityTree tests assumed that the feature is on by
   // default instead.  http://crbug.com/940330
-  disabled_features.emplace_back(features::kExperimentalAccessibilityLabels);
-
-  scoped_feature_list_.InitWithFeatures(enabled_features, disabled_features);
-  ContentBrowserTest::SetUp();
+  disabled_features->emplace_back(features::kExperimentalAccessibilityLabels);
 }
 
 base::string16
@@ -240,10 +241,6 @@ void DumpAccessibilityTestBase::RunTestForPlatform(
   // we want all events to fire immediately to make tests predictable and not
   // flaky.
   BrowserAccessibilityManager::NeverSuppressOrDelayEventsForTesting();
-
-  // Extra mac nodes are disabled temporarily for stability purposes, but keep
-  // them on for tests.
-  BrowserAccessibilityManager::AllowExtraMacNodesForTesting();
 
   EXPECT_TRUE(NavigateToURL(shell(), GURL(url::kAboutBlankURL)));
 
@@ -375,7 +372,6 @@ void DumpAccessibilityTestBase::RunTestForPlatform(
   }
 
   // Validate against the expectation file.
-  actual_lines.push_back(kMarkEndOfFile);
   bool matches_expectation = test_helper.ValidateAgainstExpectation(
       file_path, expected_file, actual_lines, *expected_lines);
   EXPECT_TRUE(matches_expectation);

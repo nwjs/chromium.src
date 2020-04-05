@@ -238,6 +238,8 @@ if (enable_extensions) {
       "manifest_handlers/shared_module_info.h",
       "manifest_handlers/web_accessible_resources_info.cc",
       "manifest_handlers/web_accessible_resources_info.h",
+      "manifest_handlers/web_app_file_handler.cc",
+      "manifest_handlers/web_app_file_handler.h",
       "manifest_handlers/webview_info.cc",
       "manifest_handlers/webview_info.h",
       "manifest_url_handlers.cc",
@@ -339,6 +341,7 @@ if (enable_extensions) {
       "//third_party/icu",
       "//third_party/re2",
       "//third_party/zlib/google:compression_utils",
+      "//tools/json_schema_compiler:generated_api_util",
       "//ui/base",
       "//ui/gfx/geometry",
       "//ui/gfx/ipc",
@@ -395,6 +398,7 @@ if (enable_extensions) {
     deps = [
       ":common",
       "//base",
+      "//extensions/common/api",
     ]
   }
 
@@ -417,6 +421,7 @@ if (enable_extensions) {
       "extension_resource_unittest.cc",
       "extension_set_unittest.cc",
       "extension_unittest.cc",
+      "feature_switch_unittest.cc",
       "features/complex_feature_unittest.cc",
       "features/feature_provider_unittest.cc",
       "features/simple_feature_unittest.cc",
@@ -437,6 +442,7 @@ if (enable_extensions) {
       "manifest_handlers/oauth2_manifest_unittest.cc",
       "manifest_handlers/replacement_apps_unittest.cc",
       "manifest_handlers/shared_module_manifest_unittest.cc",
+      "manifest_handlers/web_app_file_handler_manifest_unittest.cc",
       "manifest_unittest.cc",
       "message_bundle_unittest.cc",
       "permissions/api_permission_set_unittest.cc",
@@ -463,6 +469,7 @@ if (enable_extensions) {
       "//components/version_info:version_info",
       "//content/test:test_support",
       "//extensions:extensions_resources",
+      "//extensions/common/api",
 
       # TODO(brettw) these tests should not be including headers from browser.
       "//extensions:test_support",

@@ -9,7 +9,7 @@
 #include "chrome/browser/sharing/shared_clipboard/shared_clipboard_ui_controller.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/views/autofill/payments/local_card_migration_icon_view.h"
-#include "chrome/browser/ui/views/autofill/payments/save_card_icon_view.h"
+#include "chrome/browser/ui/views/autofill/payments/save_payment_icon_view.h"
 #include "chrome/browser/ui/views/location_bar/cookie_controls_icon_view.h"
 #include "chrome/browser/ui/views/location_bar/find_bar_icon.h"
 #include "chrome/browser/ui/views/location_bar/intent_picker_view.h"
@@ -116,14 +116,15 @@ void PageActionIconController::Init(const PageActionIconParams& params,
         DCHECK(params.command_updater);
         reader_mode_icon_ = new ReaderModeIconView(
             params.command_updater, params.icon_label_bubble_delegate,
-            params.page_action_icon_delegate);
+            params.page_action_icon_delegate,
+            params.browser->profile()->GetPrefs());
         page_action_icons_.push_back(reader_mode_icon_);
         break;
       case PageActionIconType::kSaveCard:
-        save_card_icon_ = new autofill::SaveCardIconView(
+        save_payment_icon_ = new autofill::SavePaymentIconView(
             params.command_updater, params.icon_label_bubble_delegate,
             params.page_action_icon_delegate);
-        page_action_icons_.push_back(save_card_icon_);
+        page_action_icons_.push_back(save_payment_icon_);
         break;
       case PageActionIconType::kSendTabToSelf:
         send_tab_to_self_icon_ = new send_tab_to_self::SendTabToSelfIconView(
@@ -163,8 +164,6 @@ void PageActionIconController::Init(const PageActionIconParams& params,
     icon->SetVisible(false);
     icon->set_ink_drop_visible_opacity(
         params.page_action_icon_delegate->GetPageActionInkDropVisibleOpacity());
-    if (params.icon_size)
-      icon->set_icon_size(*params.icon_size);
     if (params.icon_color)
       icon->SetIconColor(*params.icon_color);
     if (params.font_list)
@@ -208,7 +207,7 @@ PageActionIconView* PageActionIconController::GetIconView(
     case PageActionIconType::kReaderMode:
       return reader_mode_icon_;
     case PageActionIconType::kSaveCard:
-      return save_card_icon_;
+      return save_payment_icon_;
     case PageActionIconType::kSendTabToSelf:
       return send_tab_to_self_icon_;
     case PageActionIconType::kSharedClipboard:
@@ -259,6 +258,12 @@ void PageActionIconController::SetFontList(const gfx::FontList& font_list) {
 void PageActionIconController::ZoomChangedForActiveTab(bool can_show_bubble) {
   if (zoom_icon_)
     zoom_icon_->ZoomChangedForActiveTab(can_show_bubble);
+}
+
+std::vector<const PageActionIconView*>
+PageActionIconController::GetPageActionIconViewsForTesting() const {
+  return std::vector<const PageActionIconView*>(page_action_icons_.begin(),
+                                                page_action_icons_.end());
 }
 
 void PageActionIconController::OnDefaultZoomLevelChanged() {

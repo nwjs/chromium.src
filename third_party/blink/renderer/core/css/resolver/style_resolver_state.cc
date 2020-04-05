@@ -154,12 +154,6 @@ void StyleResolverState::CacheUserAgentBorderAndBackground() {
   cached_ua_style_ = std::make_unique<CachedUAStyle>(Style());
 }
 
-UAStyle* StyleResolverState::EnsureUAStyle() {
-  if (!ua_style_)
-    ua_style_ = std::make_unique<UAStyle>();
-  return ua_style_.get();
-}
-
 void StyleResolverState::LoadPendingResources() {
   element_style_resources_.LoadPendingResources(Style());
 }
@@ -210,6 +204,10 @@ StyleResolverState::ParsedPropertiesForPendingSubstitutionCache(
     parsed_properties_for_pending_substitution_cache_.Set(&value, map);
   }
   return *map;
+}
+
+CSSParserMode StyleResolverState::GetParserMode() const {
+  return GetDocument().InQuirksMode() ? kHTMLQuirksMode : kHTMLStandardMode;
 }
 
 const Element* StyleResolverState::GetAnimatingElement() const {

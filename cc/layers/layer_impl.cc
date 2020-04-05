@@ -55,7 +55,6 @@ LayerImpl::LayerImpl(LayerTreeImpl* tree_impl,
       layer_property_changed_from_property_trees_(false),
       may_contain_video_(false),
       contents_opaque_(false),
-      use_parent_backface_visibility_(false),
       should_check_backface_visibility_(false),
       draws_content_(false),
       contributes_to_drawn_render_surface_(false),
@@ -259,6 +258,12 @@ void LayerImpl::AppendDebugBorderQuad(
   if (!ShowDebugBorders(DebugBorderType::LAYER))
     return;
 
+  // This is the debug border quad layer size. The mojo serialization will fail
+  // if the area overflows, so just drop this debug border quad in that case to
+  // avoid crashes.
+  if (!quad_rect.size().GetCheckedArea().IsValid())
+    return;
+
   gfx::Rect visible_quad_rect(quad_rect);
   auto* debug_border_quad =
       render_pass->CreateAndAppendDrawQuad<viz::DebugBorderDrawQuad>();
@@ -294,26 +299,37 @@ void LayerImpl::GetContentsResourceId(viz::ResourceId* resource_id,
 gfx::Vector2dF LayerImpl::ScrollBy(const gfx::Vector2dF& scroll) {
   ScrollTree& scroll_tree = GetScrollTree();
   ScrollNode* scroll_node = scroll_tree.Node(scroll_tree_index());
-  return scroll_tree.ScrollBy(scroll_node, scroll, layer_tree_impl());
+  DCHECK(scroll_node);
+  return scroll_tree.ScrollBy(*scroll_node, scroll, layer_tree_impl());
 }
 
-void LayerImpl::SetScrollable(const gfx::Size& bounds) {
-  if (scrollable_ && scroll_container_bounds_ == bounds)
+void LayerImpl::UpdateScrollable() {
+  if (!element_id()) {
+    scrollable_ = false;
     return;
+  }
 
+  const auto* scroll_node = GetScrollTree().FindNodeFromElementId(element_id());
   bool was_scrollable = scrollable_;
-  scrollable_ = true;
-  scroll_container_bounds_ = bounds;
+  scrollable_ = scroll_node && scroll_node->scrollable;
+  if (was_scrollable == scrollable_) {
+    if (!scrollable_)
+      return;
+    if (scroll_container_bounds_ == scroll_node->container_bounds &&
+        scroll_contents_bounds_ == scroll_node->bounds)
+      return;
+  }
+
+  scroll_container_bounds_ =
+      scrollable_ ? scroll_node->container_bounds : gfx::Size();
+  scroll_contents_bounds_ = scrollable_ ? scroll_node->bounds : gfx::Size();
 
   // Scrollbar positions depend on the bounds.
   layer_tree_impl()->SetScrollbarGeometriesNeedUpdate();
 
-  if (!was_scrollable)
-    layer_tree_impl()->AddScrollableLayer(this);
-
   if (layer_tree_impl()->settings().scrollbar_animator ==
       LayerTreeSettings::AURA_OVERLAY) {
-    set_needs_show_scrollbars(true);
+    set_needs_show_scrollbars(scrollable_);
   }
 
   NoteLayerPropertyChanged();
@@ -354,12 +370,12 @@ void LayerImpl::PushPropertiesTo(LayerImpl* layer) {
   // depend on it. Referencing element id on a layer is
   // deprecated. http://crbug.com/709137
   layer->SetElementId(element_id_);
+  layer->SetFrameElementId(frame_element_id_);
 
   layer->has_transform_node_ = has_transform_node_;
   layer->offset_to_transform_parent_ = offset_to_transform_parent_;
   layer->contents_opaque_ = contents_opaque_;
   layer->may_contain_video_ = may_contain_video_;
-  layer->use_parent_backface_visibility_ = use_parent_backface_visibility_;
   layer->should_check_backface_visibility_ = should_check_backface_visibility_;
   layer->draws_content_ = draws_content_;
   layer->hit_testable_ = hit_testable_;
@@ -390,8 +406,7 @@ void LayerImpl::PushPropertiesTo(LayerImpl* layer) {
     layer->layer_property_changed_from_property_trees_ = true;
 
   layer->SetBounds(bounds_);
-  if (scrollable_)
-    layer->SetScrollable(scroll_container_bounds_);
+  layer->UpdateScrollable();
 
   layer->set_is_scrollbar(is_scrollbar_);
 
@@ -408,55 +423,6 @@ bool LayerImpl::IsAffectedByPageScale() const {
   TransformTree& transform_tree = GetTransformTree();
   return transform_tree.Node(transform_tree_index())
       ->in_subtree_of_page_scale_layer;
-}
-
-std::unique_ptr<base::DictionaryValue> LayerImpl::LayerAsJson() const {
-  std::unique_ptr<base::DictionaryValue> result(new base::DictionaryValue);
-  result->SetInteger("LayerId", id());
-  if (element_id())
-    result->SetString("ElementId", element_id().ToString());
-  result->SetString("LayerType", LayerTypeAsString());
-
-  auto list = std::make_unique<base::ListValue>();
-  list->AppendInteger(bounds().width());
-  list->AppendInteger(bounds().height());
-  result->Set("Bounds", std::move(list));
-
-  list = std::make_unique<base::ListValue>();
-  list->AppendInteger(offset_to_transform_parent().x());
-  list->AppendInteger(offset_to_transform_parent().y());
-  result->Set("OffsetToTransformParent", std::move(list));
-
-  result->SetBoolean("DrawsContent", draws_content_);
-  result->SetBoolean("HitTestable", hit_testable_);
-  result->SetBoolean("Is3dSorted", Is3dSorted());
-  result->SetDouble("Opacity", Opacity());
-  result->SetBoolean("ContentsOpaque", contents_opaque_);
-
-  result->SetInteger("transform_tree_index", transform_tree_index());
-  result->SetInteger("clip_tree_index", clip_tree_index());
-  result->SetInteger("effect_tree_index", effect_tree_index());
-  result->SetInteger("scroll_tree_index", scroll_tree_index());
-
-  if (scrollable())
-    result->SetBoolean("Scrollable", true);
-
-  if (!GetAllTouchActionRegions().IsEmpty()) {
-    std::unique_ptr<base::Value> region = GetAllTouchActionRegions().AsValue();
-    result->Set("TouchRegion", std::move(region));
-  }
-
-  if (!wheel_event_handler_region_.IsEmpty()) {
-    std::unique_ptr<base::Value> region = wheel_event_handler_region_.AsValue();
-    result->Set("WheelRegion", std::move(region));
-  }
-
-  if (!non_fast_scrollable_region_.IsEmpty()) {
-    std::unique_ptr<base::Value> region = non_fast_scrollable_region_.AsValue();
-    result->Set("NonFastScrollableRegion", std::move(region));
-  }
-
-  return result;
 }
 
 bool LayerImpl::LayerPropertyChanged() const {
@@ -540,7 +506,7 @@ void LayerImpl::SetBounds(const gfx::Size& bounds) {
   bounds_ = bounds;
 
   // Scrollbar positions depend on the scrolling layer bounds.
-  if (scrollable())
+  if (scrollable_)
     layer_tree_impl()->SetScrollbarGeometriesNeedUpdate();
 
   NoteLayerPropertyChanged();
@@ -622,7 +588,7 @@ void LayerImpl::SetElementId(ElementId element_id) {
     return;
 
   TRACE_EVENT1(TRACE_DISABLED_BY_DEFAULT("cc.debug"), "LayerImpl::SetElementId",
-               "element", element_id.AsValue().release());
+               "element", element_id.ToString());
 
   layer_tree_impl_->RemoveFromElementLayerList(element_id_);
   element_id_ = element_id;
@@ -643,10 +609,6 @@ void LayerImpl::SetCurrentScrollOffset(const gfx::ScrollOffset& scroll_offset) {
     layer_tree_impl()->DidUpdateScrollOffset(element_id());
 }
 
-gfx::ScrollOffset LayerImpl::CurrentScrollOffset() const {
-  return GetScrollTree().current_scroll_offset(element_id());
-}
-
 SimpleEnclosedRegion LayerImpl::VisibleOpaqueRegion() const {
   if (contents_opaque())
     return SimpleEnclosedRegion(visible_layer_rect());
@@ -664,26 +626,6 @@ void LayerImpl::OnPurgeMemory() {
 void LayerImpl::ReleaseTileResources() {}
 
 void LayerImpl::RecreateTileResources() {}
-
-gfx::ScrollOffset LayerImpl::MaxScrollOffset() const {
-  return GetScrollTree().MaxScrollOffset(scroll_tree_index());
-}
-
-gfx::ScrollOffset LayerImpl::ClampScrollOffsetToLimits(
-    gfx::ScrollOffset offset) const {
-  offset.SetToMin(MaxScrollOffset());
-  offset.SetToMax(gfx::ScrollOffset());
-  return offset;
-}
-
-gfx::Vector2dF LayerImpl::ClampScrollToMaxScrollOffset() {
-  gfx::ScrollOffset old_offset = CurrentScrollOffset();
-  gfx::ScrollOffset clamped_offset = ClampScrollOffsetToLimits(old_offset);
-  gfx::Vector2dF delta = clamped_offset.DeltaFrom(old_offset);
-  if (!delta.IsZero())
-    ScrollBy(delta);
-  return delta;
-}
 
 void LayerImpl::SetNeedsPushProperties() {
   // There's no need to push layer properties on the active tree, or when
@@ -736,8 +678,6 @@ void LayerImpl::AsValueInto(base::trace_event::TracedValue* state) const {
   if (element_id_)
     element_id_.AddToTracedValue(state);
 
-  MathUtil::AddToTracedValue("scroll_offset", CurrentScrollOffset(), state);
-
   if (!ScreenSpaceTransform().IsIdentity())
     MathUtil::AddToTracedValue("screen_space_transform", ScreenSpaceTransform(),
                                state);
@@ -763,6 +703,7 @@ void LayerImpl::AsValueInto(base::trace_event::TracedValue* state) const {
     state->EndArray();
   }
 
+  state->SetBoolean("hit_testable", HitTestable());
   state->SetBoolean("can_use_lcd_text", CanUseLCDText());
   state->SetBoolean("contents_opaque", contents_opaque());
 
@@ -803,13 +744,9 @@ void LayerImpl::AsValueInto(base::trace_event::TracedValue* state) const {
 }
 
 std::string LayerImpl::ToString() const {
-  std::string str;
-  base::JSONWriter::WriteWithOptions(
-      *LayerAsJson(),
-      base::JSONWriter::OPTIONS_OMIT_DOUBLE_TYPE_PRESERVATION |
-          base::JSONWriter::OPTIONS_PRETTY_PRINT,
-      &str);
-  return str;
+  base::trace_event::TracedValueJSON value;
+  AsValueInto(&value);
+  return value.ToFormattedJSON();
 }
 
 size_t LayerImpl::GPUMemoryUsageInBytes() const { return 0; }
@@ -1038,6 +975,10 @@ int LayerImpl::CalculateJitter() {
 
 std::string LayerImpl::DebugName() const {
   return debug_info_ ? debug_info_->name : "";
+}
+
+gfx::ContentColorUsage LayerImpl::GetContentColorUsage() const {
+  return gfx::ContentColorUsage::kSRGB;
 }
 
 }  // namespace cc

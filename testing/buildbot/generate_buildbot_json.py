@@ -15,6 +15,7 @@ import difflib
 import itertools
 import json
 import os
+import re
 import string
 import sys
 import traceback
@@ -94,11 +95,17 @@ class GTestGenerator(BaseGenerator):
     # losing the order by avoiding coalescing the dictionaries into one.
     gtests = []
     for test_name, test_config in sorted(input_tests.iteritems()):
-      test = self.bb_gen.generate_gtest(
-        waterfall, tester_name, tester_config, test_name, test_config)
-      if test:
-        # generate_gtest may veto the test generation on this tester.
-        gtests.append(test)
+      # Variants allow more than one definition for a given test, and is defined
+      # in array format from resolve_variants().
+      if not isinstance(test_config, list):
+        test_config = [test_config]
+
+      for config in test_config:
+        test = self.bb_gen.generate_gtest(
+            waterfall, tester_name, tester_config, test_name, config)
+        if test:
+          # generate_gtest may veto the test generation on this tester.
+          gtests.append(test)
     return gtests
 
   def sort(self, tests):
@@ -112,10 +119,16 @@ class IsolatedScriptTestGenerator(BaseGenerator):
   def generate(self, waterfall, tester_name, tester_config, input_tests):
     isolated_scripts = []
     for test_name, test_config in sorted(input_tests.iteritems()):
-      test = self.bb_gen.generate_isolated_script_test(
-        waterfall, tester_name, tester_config, test_name, test_config)
-      if test:
-        isolated_scripts.append(test)
+      # Variants allow more than one definition for a given test, and is defined
+      # in array format from resolve_variants().
+      if not isinstance(test_config, list):
+        test_config = [test_config]
+
+      for config in test_config:
+        test = self.bb_gen.generate_isolated_script_test(
+          waterfall, tester_name, tester_config, test_name, config)
+        if test:
+          isolated_scripts.append(test)
     return isolated_scripts
 
   def sort(self, tests):
@@ -188,6 +201,69 @@ class InstrumentationTestGenerator(BaseGenerator):
     return sorted(tests, cmp=cmp_tests)
 
 
+def check_compound_references(other_test_suites=None,
+                              sub_suite=None,
+                              suite=None,
+                              target_test_suites=None,
+                              test_type=None,
+                              **kwargs):
+  """Ensure comound reference's don't target other compounds"""
+  del kwargs
+  if sub_suite in other_test_suites or sub_suite in target_test_suites:
+      raise BBGenErr('%s may not refer to other composition type test '
+                     'suites (error found while processing %s)'
+                     % (test_type, suite))
+
+def check_basic_references(basic_suites=None,
+                           sub_suite=None,
+                           suite=None,
+                           **kwargs):
+  """Ensure test has a basic suite reference"""
+  del kwargs
+  if sub_suite not in basic_suites:
+      raise BBGenErr('Unable to find reference to %s while processing %s'
+                     % (sub_suite, suite))
+
+def check_conflicting_definitions(basic_suites=None,
+                                  seen_tests=None,
+                                  sub_suite=None,
+                                  suite=None,
+                                  test_type=None,
+                                  **kwargs):
+  """Ensure that if a test is reachable via multiple basic suites,
+  all of them have an identical definition of the tests.
+  """
+  del kwargs
+  for test_name in basic_suites[sub_suite]:
+    if (test_name in seen_tests and
+        basic_suites[sub_suite][test_name] !=
+        basic_suites[seen_tests[test_name]][test_name]):
+      raise BBGenErr('Conflicting test definitions for %s from %s '
+                     'and %s in %s (error found while processing %s)'
+                     % (test_name, seen_tests[test_name], sub_suite,
+                     test_type, suite))
+    seen_tests[test_name] = sub_suite
+
+def check_matrix_identifier(sub_suite=None,
+                            suite=None,
+                            suite_def=None,
+                            all_variants=None,
+                            **kwargs):
+  """Ensure 'idenfitier' is defined for each variant"""
+  del kwargs
+  sub_suite_config = suite_def[sub_suite]
+  for variant in sub_suite_config.get('variants', []):
+    if isinstance(variant, str):
+      if variant not in all_variants:
+        raise BBGenErr('Missing variant definition for %s in variants.pyl'
+                       % variant)
+      variant = all_variants[variant]
+
+    if not 'identifier' in variant:
+      raise BBGenErr('Missing required identifier field in matrix '
+                     'compound suite %s, %s' % (suite, sub_suite))
+
+
 class BBJSONGenerator(object):
   def __init__(self):
     self.this_dir = THIS_DIR
@@ -197,6 +273,7 @@ class BBJSONGenerator(object):
     self.exceptions = None
     self.mixins = None
     self.gn_isolate_map = None
+    self.variants = None
 
   def generate_abs_file_path(self, relative_path):
     return os.path.join(self.this_dir, relative_path) # pragma: no cover
@@ -385,7 +462,6 @@ class BBJSONGenerator(object):
 
   def initialize_args_for_test(
       self, generated_test, tester_config, additional_arg_keys=None):
-
     args = []
     args.extend(generated_test.get('args', []))
     args.extend(tester_config.get('args', []))
@@ -416,7 +492,8 @@ class BBJSONGenerator(object):
       generated_test['swarming'] = {}
     if not 'can_use_on_swarming_builders' in generated_test['swarming']:
       generated_test['swarming'].update({
-        'can_use_on_swarming_builders': tester_config.get('use_swarming', True)
+        'can_use_on_swarming_builders': tester_config.get('use_swarming',
+                                                          True)
       })
     if 'swarming' in tester_config:
       if ('dimension_sets' not in generated_test['swarming'] and
@@ -609,7 +686,7 @@ class BBJSONGenerator(object):
       return None
     result = copy.deepcopy(test_config)
     result['isolate_name'] = result.get('isolate_name', test_name)
-    result['name'] = test_name
+    result['name'] = result.get('name', test_name)
     self.initialize_swarming_dictionary_for_test(result, tester_config)
     self.initialize_args_for_test(result, tester_config)
     if tester_config.get('use_android_presentation', False):
@@ -716,7 +793,8 @@ class BBJSONGenerator(object):
       waterfall, tester_name, tester_config, step_name, test_config)
     if not result:
       return None
-    result['isolate_name'] = 'telemetry_gpu_integration_test'
+    result['isolate_name'] = test_config.get(
+      'isolate_name', 'telemetry_gpu_integration_test')
     args = result.get('args', [])
     test_to_run = result.pop('telemetry_test_name', test_name)
 
@@ -776,45 +854,42 @@ class BBJSONGenerator(object):
       'gpu_telemetry_tests': 'isolated_scripts',
     }
 
-  def check_composition_type_test_suites(self, test_type):
-    # Pre-pass to catch errors reliably.
-    target_test_suites = self.test_suites.get(test_type, {})
-    # This check is used by both matrix and composition test suites.
-    # Neither can reference each other nor themselves, so we switch depending
-    # on the type that's being checked.
-    if test_type == 'matrix_compound_suites':
-      other_type = 'compound_suites'
-    else:
-      other_type = 'matrix_compound_suites'
-    other_test_suites = self.test_suites.get(other_type, {})
+  def check_composition_type_test_suites(self, test_type,
+                                         additional_validators=None):
+    """Pre-pass to catch errors reliabily for compound/matrix suites"""
+    validators = [check_compound_references,
+                  check_basic_references,
+                  check_conflicting_definitions]
+    if additional_validators:
+      validators += additional_validators
+
+    target_suites = self.test_suites.get(test_type, {})
+    other_test_type = ('compound_suites'
+                       if test_type == 'matrix_compound_suites'
+                       else 'matrix_compound_suites')
+    other_suites = self.test_suites.get(other_test_type, {})
     basic_suites = self.test_suites.get('basic_suites', {})
 
-    for suite, suite_def in target_test_suites.iteritems():
+    for suite, suite_def in target_suites.iteritems():
       if suite in basic_suites:
         raise BBGenErr('%s names may not duplicate basic test suite names '
                        '(error found while processsing %s)'
                        % (test_type, suite))
-      seen_tests = {}  # Maps a test to a test definition.
-      for sub_suite in suite_def:
-        if sub_suite in other_test_suites or sub_suite in target_test_suites:
-          raise BBGenErr('%s may not refer to other composition type test '
-                         'suites (error found while processing %s)'
-                         % (test_type, suite))
-        if sub_suite not in basic_suites:
-          raise BBGenErr('Unable to find reference to %s while processing %s'
-                         % (sub_suite, suite))
 
-        # Ensure that if a test is reachable via multiple basic suites,
-        # all of them have an identical definition of the test.
-        for test_name in basic_suites[sub_suite]:
-          if (test_name in seen_tests and
-              basic_suites[sub_suite][test_name] !=
-              basic_suites[seen_tests[test_name]][test_name]):
-            raise BBGenErr('Conflicting test definitions for %s from %s '
-                           'and %s in %s (error found while processing %s)'
-                           % (test_name, seen_tests[test_name], sub_suite,
-                           test_type, suite))
-          seen_tests[test_name] = sub_suite
+      seen_tests = {}
+      for sub_suite in suite_def:
+        for validator in validators:
+          validator(
+                    basic_suites=basic_suites,
+                    other_test_suites=other_suites,
+                    seen_tests=seen_tests,
+                    sub_suite=sub_suite,
+                    suite=suite,
+                    suite_def=suite_def,
+                    target_test_suites=target_suites,
+                    test_type=test_type,
+                    all_variants=self.variants
+                    )
 
   def flatten_test_suites(self):
     new_test_suites = {}
@@ -861,32 +936,93 @@ class BBJSONGenerator(object):
         full_suite.update(suite)
       compound_suites[name] = full_suite
 
+  def resolve_variants(self, basic_test_definition, variants):
+    """ Merge variant-defined configurations to each test case definition in a
+    test suite.
+
+    The output maps a unique test name to an array of configurations because
+    there may exist more than one definition for a test name using variants. The
+    test name is referenced while mapping machines to test suites, so unpacking
+    the array is done by the generators.
+
+    Args:
+      basic_test_definition: a {} defined test suite in the format
+        test_name:test_config
+      variants: an [] of {} defining configurations to be applied to each test
+        case in the basic test_definition
+
+    Return:
+      a {} of test_name:[{}], where each {} is a merged configuration
+    """
+
+    # Each test in a basic test suite will have a definition per variant.
+    test_suite = {}
+    for test_name, test_config in basic_test_definition.iteritems():
+      definitions = []
+      for variant in variants:
+        # Unpack the variant from variants.pyl if it's string based.
+        if isinstance(variant, str):
+          variant = self.variants[variant]
+
+        # Clone a copy of test_config so that we can have a uniquely updated
+        # version of it per variant
+        cloned_config = copy.deepcopy(test_config)
+        # The variant definition needs to be re-used for each test, so we'll
+        # create a clone and work with it as well.
+        cloned_variant = copy.deepcopy(variant)
+
+        cloned_config['args'] = (cloned_config.get('args', []) +
+                                 cloned_variant.get('args', []))
+        cloned_config['mixins'] = (cloned_config.get('mixins', []) +
+                                   cloned_variant.get('mixins', []))
+
+        basic_swarming_def = cloned_config.get('swarming', {})
+        variant_swarming_def = cloned_variant.get('swarming', {})
+        if basic_swarming_def and variant_swarming_def:
+          if ('dimension_sets' in basic_swarming_def and
+              'dimension_sets' in variant_swarming_def):
+            # Retain swarming dimension set merge behavior when both variant and
+            # the basic test configuration both define it
+            self.dictionary_merge(basic_swarming_def, variant_swarming_def)
+            # Remove dimension_sets from the variant definition, so that it does
+            # not replace what's been done by dictionary_merge in the update
+            # call below.
+            del variant_swarming_def['dimension_sets']
+
+        # Update the swarming definition with whatever is defined for swarming
+        # by the variant.
+        basic_swarming_def.update(variant_swarming_def)
+        cloned_config['swarming'] = basic_swarming_def
+
+        # The identifier is used to make the name of the test unique.
+        # Generators in the recipe uniquely identify a test by it's name, so we
+        # don't want to have the same name for each variant.
+        cloned_config['name'] = '{}_{}'.format(test_name,
+                                               cloned_variant['identifier'])
+        definitions.append(cloned_config)
+      test_suite[test_name] = definitions
+    return test_suite
+
   def resolve_matrix_compound_test_suites(self):
-    self.check_composition_type_test_suites('matrix_compound_suites')
+    self.check_composition_type_test_suites('matrix_compound_suites',
+                                            [check_matrix_identifier])
 
     matrix_compound_suites = self.test_suites.get('matrix_compound_suites', {})
-    # check_composition_type_test_suites() checks that all basic suites
+    # check_composition_type_test_suites() checks that all basic suites are
     # referenced by matrix suites exist.
     basic_suites = self.test_suites.get('basic_suites')
 
-    for name, value in matrix_compound_suites.iteritems():
-      # Resolve this to a dictionary.
+    for test_name, matrix_config in matrix_compound_suites.iteritems():
       full_suite = {}
-      for test_suite_name, test_suite_config in value.iteritems():
-        swarming_defined = bool(
-          'swarming' in test_suite_config
-          and 'dimension_sets' in test_suite_config['swarming'])
-        test = copy.deepcopy(basic_suites[test_suite_name])
-        for test_config in test.values():
-          if (swarming_defined
-              and 'swarming' in test_config
-              and 'dimension_sets' in test_config['swarming']):
-              self.dictionary_merge(test_config['swarming'],
-            test_suite_config['swarming'])
-          else:
-            test_config.update(test_suite_config)
-        full_suite.update(test)
-      matrix_compound_suites[name] = full_suite
+
+      for test_suite, mtx_test_suite_config in matrix_config.iteritems():
+        basic_test_def = copy.deepcopy(basic_suites[test_suite])
+
+        if 'variants' in mtx_test_suite_config:
+          result = self.resolve_variants(basic_test_def,
+                                         mtx_test_suite_config['variants'])
+          full_suite.update(result)
+      matrix_compound_suites[test_name] = full_suite
 
   def link_waterfalls_to_test_suites(self):
     for waterfall in self.waterfalls:
@@ -904,6 +1040,7 @@ class BBJSONGenerator(object):
     self.exceptions = self.load_pyl_file('test_suite_exceptions.pyl')
     self.mixins = self.load_pyl_file('mixins.pyl')
     self.gn_isolate_map = self.load_pyl_file('gn_isolate_map.pyl')
+    self.variants = self.load_pyl_file('variants.pyl')
 
   def resolve_configuration_files(self):
     self.resolve_full_test_targets()
@@ -935,6 +1072,7 @@ class BBJSONGenerator(object):
       """Asserts that the mixin is valid."""
       if mixin_name not in self.mixins:
         raise BBGenErr("bad mixin %s" % mixin_name)
+
     def must_be_list(mixins, typ, name):
       """Asserts that given mixins are a list."""
       if not isinstance(mixins, list):
@@ -985,7 +1123,7 @@ class BBJSONGenerator(object):
       # we don't want, we can just delete its entry.
       valid_mixin(mixin)
       test = self.apply_mixin(self.mixins[mixin], test)
-      del test['mixins']
+    del test['mixins']
     return test
 
   def apply_mixin(self, mixin, test):
@@ -1002,7 +1140,6 @@ class BBJSONGenerator(object):
     """
     new_test = copy.deepcopy(test)
     mixin = copy.deepcopy(mixin)
-
     if 'swarming' in mixin:
       swarming_mixin = mixin['swarming']
       new_test.setdefault('swarming', {})
@@ -1011,7 +1148,6 @@ class BBJSONGenerator(object):
         for dimension_set in new_test['swarming']['dimension_sets']:
           dimension_set.update(swarming_mixin['dimensions'])
         del swarming_mixin['dimensions']
-
       # python dict update doesn't do recursion at all. Just hard code the
       # nested update we need (mixin['swarming'] shouldn't clobber
       # test['swarming'], but should update it).
@@ -1036,52 +1172,95 @@ class BBJSONGenerator(object):
       del mixin['$mixin_append']
 
     new_test.update(mixin)
-
     return new_test
 
-  def generate_waterfall_json(self, waterfall):
-    all_tests = {}
+  def generate_output_tests(self, waterfall):
+    """Generates the tests for a waterfall.
+
+    Args:
+      waterfall: a dictionary parsed from a master pyl file
+    Returns:
+      A dictionary mapping builders to test specs
+      """
+    return {
+      name: self.get_tests_for_config(waterfall, name, config)
+        for name, config
+        in waterfall['machines'].iteritems()
+    }
+
+  def get_tests_for_config(self, waterfall, name, config):
     generator_map = self.get_test_generator_map()
     test_type_remapper = self.get_test_type_remapper()
-    for name, config in waterfall['machines'].iteritems():
-      tests = {}
-      # Copy only well-understood entries in the machine's configuration
-      # verbatim into the generated JSON.
-      if 'additional_compile_targets' in config:
-        tests['additional_compile_targets'] = config[
-          'additional_compile_targets']
-      for test_type, input_tests in config.get('test_suites', {}).iteritems():
-        if test_type not in generator_map:
-          raise self.unknown_test_suite_type(
-            test_type, name, waterfall['name']) # pragma: no cover
-        test_generator = generator_map[test_type]
-        # Let multiple kinds of generators generate the same kinds
-        # of tests. For example, gpu_telemetry_tests are a
-        # specialization of isolated_scripts.
-        new_tests = test_generator.generate(
-          waterfall, name, config, input_tests)
-        remapped_test_type = test_type_remapper.get(test_type, test_type)
-        tests[remapped_test_type] = test_generator.sort(
-          tests.get(remapped_test_type, []) + new_tests)
-      all_tests[name] = tests
-    all_tests['AAAAA1 AUTOGENERATED FILE DO NOT EDIT'] = {}
-    all_tests['AAAAA2 See generate_buildbot_json.py to make changes'] = {}
-    return json.dumps(all_tests, indent=2, separators=(',', ': '),
-                      sort_keys=True) + '\n'
 
-  def generate_waterfalls(self): # pragma: no cover
+    tests = {}
+    # Copy only well-understood entries in the machine's configuration
+    # verbatim into the generated JSON.
+    if 'additional_compile_targets' in config:
+      tests['additional_compile_targets'] = config[
+        'additional_compile_targets']
+    for test_type, input_tests in config.get('test_suites', {}).iteritems():
+      if test_type not in generator_map:
+        raise self.unknown_test_suite_type(
+          test_type, name, waterfall['name']) # pragma: no cover
+      test_generator = generator_map[test_type]
+      # Let multiple kinds of generators generate the same kinds
+      # of tests. For example, gpu_telemetry_tests are a
+      # specialization of isolated_scripts.
+      new_tests = test_generator.generate(
+        waterfall, name, config, input_tests)
+      remapped_test_type = test_type_remapper.get(test_type, test_type)
+      tests[remapped_test_type] = test_generator.sort(
+        tests.get(remapped_test_type, []) + new_tests)
+
+    return tests
+
+  def jsonify(self, all_tests):
+    return json.dumps(
+        all_tests, indent=2, separators=(',', ': '),
+        sort_keys=True) + '\n'
+
+  def generate_outputs(self): # pragma: no cover
     self.load_configuration_files()
     self.resolve_configuration_files()
     filters = self.args.waterfall_filters
+    result = collections.defaultdict(dict)
+
+    required_fields = ('project', 'bucket', 'name')
+    for waterfall in self.waterfalls:
+      for field in required_fields:
+        # Verify required fields
+        if field not in waterfall:
+          raise BBGenErr("Waterfall %s has no %s" % (waterfall['name'], field))
+
+      # Handle filter flag, if specified
+      if filters and waterfall['name'] not in filters:
+        continue
+
+      # Join config files and hardcoded values together
+      all_tests = self.generate_output_tests(waterfall)
+      result[waterfall['name']] = all_tests
+
+      # Deduce per-bucket mappings
+      # This will be the standard after masternames are gone
+      bucket_filename = waterfall['project'] + '.' + waterfall['bucket']
+      for buildername in waterfall['machines'].keys():
+        result[bucket_filename][buildername] = all_tests[buildername]
+
+    # Add do not edit warning
+    for tests in result.values():
+      tests['AAAAA1 AUTOGENERATED FILE DO NOT EDIT'] = {}
+      tests['AAAAA2 See generate_buildbot_json.py to make changes'] = {}
+
+    return result
+
+  def write_json_result(self, result): # pragma: no cover
     suffix = '.json'
     if self.args.new_files:
       suffix = '.new' + suffix
-    for waterfall in self.waterfalls:
-      should_gen = not filters or waterfall['name'] in filters
-      if should_gen:
-        file_path = waterfall['name'] + suffix
-        self.write_file(self.pyl_file_path(file_path),
-                        self.generate_waterfall_json(waterfall))
+
+    for filename, contents in result.items():
+      jsonstr = self.jsonify(contents)
+      self.write_file(self.pyl_file_path(filename + suffix), jsonstr)
 
   def get_valid_bot_names(self):
     # Extract bot names from infra/config/luci-milo.cfg.
@@ -1159,6 +1338,13 @@ class BBJSONGenerator(object):
       'Win x64 Builder Code Coverage',
       'Win10 Tests x64 Code Coverage',
       'Win10 x64 Release (NVIDIA) Code Coverage',
+      # TODO(crbug.com/1024915) Delete these when coverage is enabled by default
+      # on Mac OS tryjobs.
+      'Mac Builder Code Coverage',
+      'Mac10.13 Tests Code Coverage',
+      'GPU Mac Builder Code Coverage',
+      'Mac Release (Intel) Code Coverage',
+      'Mac Retina Release (AMD) Code Coverage',
     ]
 
   def get_internal_waterfalls(self):
@@ -1171,7 +1357,8 @@ class BBJSONGenerator(object):
 
     self.load_configuration_files()
     self.check_composition_type_test_suites('compound_suites')
-    self.check_composition_type_test_suites('matrix_compound_suites')
+    self.check_composition_type_test_suites('matrix_compound_suites',
+                                            [check_matrix_identifier])
     self.resolve_full_test_targets()
     self.flatten_test_suites()
 
@@ -1276,6 +1463,24 @@ class BBJSONGenerator(object):
       raise BBGenErr('The following mixins are unreferenced: %s. They must be'
                      ' referenced in a waterfall, machine, or test suite.' % (
                          str(missing_mixins)))
+
+    # All variant references must be referenced
+    seen_variants = set()
+    for suite in self.test_suites.values():
+      if isinstance(suite, list):
+        continue
+
+      for test in suite.values():
+        if isinstance(test, dict):
+          for variant in test.get('variants', []):
+            if isinstance(variant, str):
+              seen_variants.add(variant)
+
+    missing_variants = set(self.variants.keys()) - seen_variants
+    if missing_variants:
+      raise BBGenErr('The following variants were unreferenced: %s. They must '
+                     'be referenced in a matrix test suite under the variants '
+                     'key.' % str(missing_variants))
 
 
   def type_assert(self, node, typ, filename, verbose=False):
@@ -1512,28 +1717,31 @@ class BBJSONGenerator(object):
 
   def check_output_file_consistency(self, verbose=False):
     self.load_configuration_files()
-    # All waterfalls must have been written by this script already.
+    # All waterfalls/bucket .json files must have been written
+    # by this script already.
     self.resolve_configuration_files()
-    ungenerated_waterfalls = set()
-    for waterfall in self.waterfalls:
-      expected = self.generate_waterfall_json(waterfall)
-      file_path = waterfall['name'] + '.json'
+    ungenerated_files = set()
+    for filename, expected_contents in self.generate_outputs().items():
+      expected = self.jsonify(expected_contents)
+      file_path = filename + '.json'
       current = self.read_file(self.pyl_file_path(file_path))
       if expected != current:
-        ungenerated_waterfalls.add(waterfall['name'])
+        ungenerated_files.add(filename)
         if verbose: # pragma: no cover
-          self.print_line('Waterfall ' +  waterfall['name'] +
-                 ' did not have the following expected '
+          self.print_line('File ' +  filename +
+                 '.json did not have the following expected '
                  'contents:')
           for line in difflib.unified_diff(
               expected.splitlines(),
               current.splitlines(),
               fromfile='expected', tofile='current'):
             self.print_line(line)
-    if ungenerated_waterfalls:
-      raise BBGenErr('The following waterfalls have not been properly '
-                     'autogenerated by generate_buildbot_json.py: ' +
-                     str(ungenerated_waterfalls))
+
+    if ungenerated_files:
+      raise BBGenErr(
+          'The following files have not been properly '
+           'autogenerated by generate_buildbot_json.py: ' +
+           ', '.join([filename + '.json' for filename in ungenerated_files]))
 
   def check_consistency(self, verbose=False):
     self.check_input_file_consistency(verbose) # pragma: no cover
@@ -1698,11 +1906,10 @@ class BBJSONGenerator(object):
   def flatten_waterfalls_for_query(self, waterfalls):
     bots = {}
     for waterfall in waterfalls:
-      waterfall_json = json.loads(self.generate_waterfall_json(waterfall))
-      for bot in waterfall_json:
-        bot_info = waterfall_json[bot]
-        if 'AAAAA' not in bot:
-          bots[bot] = bot_info
+      waterfall_tests = self.generate_output_tests(waterfall)
+      for bot in waterfall_tests:
+        bot_info = waterfall_tests[bot]
+        bots[bot] = bot_info
     return bots
 
   def flatten_tests_for_bot(self, bot_info):
@@ -1881,7 +2088,7 @@ class BBJSONGenerator(object):
     elif self.args.query:
       self.query(self.args)
     else:
-      self.generate_waterfalls()
+      self.write_json_result(self.generate_outputs())
     return 0
 
 if __name__ == "__main__": # pragma: no cover

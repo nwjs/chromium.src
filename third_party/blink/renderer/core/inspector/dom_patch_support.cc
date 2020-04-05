@@ -132,7 +132,7 @@ Node* DOMPatchSupport::PatchNode(Node* node,
     old_list.push_back(CreateDigest(child, nullptr));
 
   // Compose the new list.
-  String markup_copy = markup.DeprecatedLower();
+  String markup_copy = markup.LowerASCII();
   HeapVector<Member<Digest>> new_list;
   for (Node* child = parent_node->firstChild(); child != node;
        child = child->nextSibling())
@@ -532,7 +532,7 @@ void DOMPatchSupport::MarkNodeAsUsed(Digest* digest) {
   }
 }
 
-void DOMPatchSupport::Digest::Trace(blink::Visitor* visitor) {
+void DOMPatchSupport::Digest::Trace(Visitor* visitor) {
   visitor->Trace(node_);
   visitor->Trace(children_);
 }

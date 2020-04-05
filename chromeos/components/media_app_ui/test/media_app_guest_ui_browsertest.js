@@ -2,41 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-/**
- * @fileoverview Test suite for chrome://media-app-guest.
- */
+/** @fileoverview Test suite for chrome-untrusted://media-app. */
 
-GEN('#include "chromeos/constants/chromeos_features.h"');
-
-var MediaAppGuestUIBrowserTest = class extends testing.Test {
-  /** @override */
-  get browsePreload() {
-    return 'chrome://media-app-guest/app.html';
-  }
-
-  /** @override */
-  get featureList() {
-    return {enabled: ['chromeos::features::kMediaApp']};
-  }
-
-  /** @override */
-  get runAccessibilityChecks() {
-    return false;
-  }
-
-  /** @override */
-  preLoad() {
-    document.addEventListener('DOMContentLoaded', () => {
-      const mojoBindingsLite = document.createElement('script');
-      mojoBindingsLite.src = 'chrome://resources/mojo/mojo/public/js/mojo_bindings_lite.js';
-      document.head.appendChild(mojoBindingsLite);
-    });
-  }
-};
-
-// Test web workers can be spawned from chrome://media-app-guest. Errors
+// Test web workers can be spawned from chrome-untrusted://media-app. Errors
 // will be logged in console from web_ui_browser_test.cc.
-TEST_F('MediaAppGuestUIBrowserTest', 'GuestCanSpawnWorkers', () => {
+GUEST_TEST('GuestCanSpawnWorkers', () => {
   let error = null;
 
   try {
@@ -45,5 +15,5 @@ TEST_F('MediaAppGuestUIBrowserTest', 'GuestCanSpawnWorkers', () => {
     error = e;
   }
 
-  assertEquals(error, null);
+  assertEquals(error, null, error && error.message);
 });

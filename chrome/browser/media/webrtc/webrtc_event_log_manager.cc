@@ -8,7 +8,9 @@
 
 #include "base/bind.h"
 #include "base/bind_helpers.h"
+#include "base/memory/ptr_util.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile.h"
@@ -139,9 +141,8 @@ base::FilePath WebRtcEventLogManager::GetRemoteBoundWebRtcEventLogsDir(
 }
 
 WebRtcEventLogManager::WebRtcEventLogManager()
-    : task_runner_(base::CreateUpdateableSequencedTaskRunner(
-          {base::ThreadPool(), base::MayBlock(),
-           base::TaskPriority::USER_VISIBLE,
+    : task_runner_(base::ThreadPool::CreateUpdateableSequencedTaskRunner(
+          {base::MayBlock(), base::TaskPriority::USER_VISIBLE,
            base::ThreadPolicy::PREFER_BACKGROUND,
            base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN})),
       num_user_blocking_tasks_(0),

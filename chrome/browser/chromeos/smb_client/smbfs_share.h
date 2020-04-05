@@ -10,7 +10,9 @@
 
 #include "base/callback.h"
 #include "base/files/file_path.h"
+#include "base/time/time.h"
 #include "chrome/browser/chromeos/smb_client/smb_errors.h"
+#include "chrome/browser/chromeos/smb_client/smb_url.h"
 #include "chromeos/components/smbfs/smbfs_host.h"
 #include "chromeos/components/smbfs/smbfs_mounter.h"
 
@@ -27,6 +29,7 @@ class SmbFsShare : public smbfs::SmbFsHost::Delegate {
   using KerberosOptions = smbfs::SmbFsMounter::KerberosOptions;
   using MountOptions = smbfs::SmbFsMounter::MountOptions;
   using MountCallback = base::OnceCallback<void(SmbMountResult)>;
+  using UnmountCallback = base::OnceCallback<void(chromeos::MountError)>;
   using MounterCreationCallback =
       base::RepeatingCallback<std::unique_ptr<smbfs::SmbFsMounter>(
           const std::string& share_path,
@@ -35,7 +38,7 @@ class SmbFsShare : public smbfs::SmbFsHost::Delegate {
           smbfs::SmbFsHost::Delegate* delegate)>;
 
   SmbFsShare(Profile* profile,
-             const std::string& share_path,
+             const SmbUrl& share_url,
              const std::string& display_name,
              const MountOptions& options);
   ~SmbFsShare() override;
@@ -48,11 +51,23 @@ class SmbFsShare : public smbfs::SmbFsHost::Delegate {
   // progress.
   void Mount(MountCallback callback);
 
+  // Remount an unmounted SMB filesystem with |options| and run |callback|
+  // when completed. |options_| will be updated by |options|.
+  void Remount(const MountOptions& options, MountCallback callback);
+
+  // Unmounts the filesystem and cancels any pending mount request.
+  void Unmount(UnmountCallback callback);
+
+  // Allow smbfs to make credentials request for a short period of time
+  // (currently 5 seconds).
+  void AllowCredentialsRequest();
+
   // Returns whether the filesystem is mounted and accessible via mount_path().
   bool IsMounted() const { return bool(host_); }
 
   const std::string& mount_id() const { return mount_id_; }
-  const std::string& share_path() const { return share_path_; }
+  const SmbUrl& share_url() const { return share_url_; }
+  const MountOptions& options() const { return options_; }
 
   base::FilePath mount_path() const {
     return host_ ? host_->mount_path() : base::FilePath();
@@ -61,26 +76,32 @@ class SmbFsShare : public smbfs::SmbFsHost::Delegate {
   void SetMounterCreationCallbackForTest(MounterCreationCallback callback);
 
  private:
-  // Unmounts the filesystem and cancels any pending mount request.
-  void Unmount();
-
   // Callback for smbfs::SmbFsMounter::Mount().
   void OnMountDone(MountCallback callback,
                    smbfs::mojom::MountError mount_error,
                    std::unique_ptr<smbfs::SmbFsHost> smbfs_host);
 
+  // Called after cros-disks has attempted to unmount the share.
+  void OnUnmountDone(SmbFsShare::UnmountCallback callback,
+                     chromeos::MountError result);
+
   // smbfs::SmbFsHost::Delegate overrides:
   void OnDisconnected() override;
+  void RequestCredentials(RequestCredentialsCallback callback) override;
 
   Profile* const profile_;
-  const std::string share_path_;
+  const SmbUrl share_url_;
   const std::string display_name_;
-  const MountOptions options_;
+  MountOptions options_;
   const std::string mount_id_;
+  bool unmount_pending_ = false;
 
   MounterCreationCallback mounter_creation_callback_for_test_;
   std::unique_ptr<smbfs::SmbFsMounter> mounter_;
   std::unique_ptr<smbfs::SmbFsHost> host_;
+
+  base::TimeTicks allow_credential_request_expiry_;
+  bool allow_credential_request_ = false;
 };
 
 }  // namespace smb_client

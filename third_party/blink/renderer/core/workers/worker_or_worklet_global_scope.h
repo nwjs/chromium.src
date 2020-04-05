@@ -19,6 +19,7 @@
 #include "third_party/blink/renderer/core/workers/global_scope_creation_params.h"
 #include "third_party/blink/renderer/core/workers/worker_clients.h"
 #include "third_party/blink/renderer/core/workers/worker_navigator.h"
+#include "third_party/blink/renderer/platform/loader/fetch/resource_loader_options.h"
 #include "third_party/blink/renderer/platform/scheduler/public/worker_scheduler.h"
 #include "third_party/blink/renderer/platform/wtf/casting.h"
 
@@ -43,7 +44,6 @@ class CORE_EXPORT WorkerOrWorkletGlobalScope : public EventTargetWithInlineData,
       v8::Isolate*,
       scoped_refptr<SecurityOrigin> origin,
       Agent* agent,
-      OffMainThreadWorkerScriptFetchOption,
       const String& name,
       const base::UnguessableToken& parent_devtools_token,
       V8CacheOptions,
@@ -57,8 +57,8 @@ class CORE_EXPORT WorkerOrWorkletGlobalScope : public EventTargetWithInlineData,
   const AtomicString& InterfaceName() const override;
 
   // ScriptWrappable
-  v8::Local<v8::Object> Wrap(v8::Isolate*,
-                             v8::Local<v8::Object> creation_context) final;
+  v8::Local<v8::Value> Wrap(v8::Isolate*,
+                            v8::Local<v8::Object> creation_context) final;
   v8::Local<v8::Object> AssociateWithWrapper(
       v8::Isolate*,
       const WrapperTypeInfo*,
@@ -70,6 +70,11 @@ class CORE_EXPORT WorkerOrWorkletGlobalScope : public EventTargetWithInlineData,
   bool IsJSExecutionForbidden() const final;
   void DisableEval(const String& error_message) final;
   bool CanExecuteScripts(ReasonForCallingCanExecuteScripts) final;
+
+  SecurityContext& GetSecurityContext() final { return security_context_; }
+  const SecurityContext& GetSecurityContext() const final {
+    return security_context_;
+  }
 
   // Returns true when the WorkerOrWorkletGlobalScope is closing (e.g. via
   // WorkerGlobalScope#close() method). If this returns true, the worker is
@@ -97,6 +102,14 @@ class CORE_EXPORT WorkerOrWorkletGlobalScope : public EventTargetWithInlineData,
 
   // Returns nullptr if this global scope is a WorkletGlobalScope
   virtual WorkerNavigator* navigator() const { return nullptr; }
+
+  // Returns true when we should reject a response without
+  // cross-origin-embedder-policy: require-corp.
+  // TODO(crbug.com/1064920): Remove this once PlzDedicatedWorker ships.
+  virtual RejectCoepUnsafeNone ShouldRejectCoepUnsafeNoneTopModuleScript()
+      const {
+    return RejectCoepUnsafeNone(false);
+  }
 
   // Returns the resource fetcher for subresources (a.k.a. inside settings
   // resource fetcher). See core/workers/README.md for details.
@@ -135,14 +148,9 @@ class CORE_EXPORT WorkerOrWorkletGlobalScope : public EventTargetWithInlineData,
 
   WorkerReportingProxy& ReportingProxy() { return reporting_proxy_; }
 
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
 
   scoped_refptr<base::SingleThreadTaskRunner> GetTaskRunner(TaskType) override;
-
-  OffMainThreadWorkerScriptFetchOption GetOffMainThreadWorkerScriptFetchOption()
-      const {
-    return off_main_thread_fetch_option_;
-  }
 
   void ApplySandboxFlags(SandboxFlags mask);
 
@@ -175,6 +183,10 @@ class CORE_EXPORT WorkerOrWorkletGlobalScope : public EventTargetWithInlineData,
     web_worker_fetch_context_->SetIsOfflineMode(is_offline_mode);
   }
 
+  WebWorkerFetchContext* web_worker_fetch_context() const {
+    return web_worker_fetch_context_.get();
+  }
+
  private:
   void InitializeWebFetchContextIfNeeded();
   ResourceFetcher* CreateFetcherInternal(const FetchClientSettingsObject&,
@@ -183,7 +195,8 @@ class CORE_EXPORT WorkerOrWorkletGlobalScope : public EventTargetWithInlineData,
 
   bool web_fetch_context_initialized_ = false;
 
-  const OffMainThreadWorkerScriptFetchOption off_main_thread_fetch_option_;
+  SecurityContext security_context_;
+
   const String name_;
   const base::UnguessableToken parent_devtools_token_;
 

@@ -22,6 +22,7 @@
 
 // Messages sent from the browser to the renderer.
 
+// TODO(yuzus): Migrate this as a part of blink::mojom::SetPageLifecycleState.
 IPC_MESSAGE_ROUTED1(PageMsg_VisibilityChanged, content::PageVisibilityState)
 
 // Sent when the history for this page is altered from another process. The
@@ -32,11 +33,6 @@ IPC_MESSAGE_ROUTED2(PageMsg_SetHistoryOffsetAndLength,
                     int /* history_length */)
 
 IPC_MESSAGE_ROUTED1(PageMsg_AudioStateChanged, bool /* is_audio_playing */)
-
-// Sent to renderers with remote main frames when page-related visual properties
-// change.
-IPC_MESSAGE_ROUTED1(PageMsg_UpdatePageVisualProperties,
-                    gfx::Size /* VisualViewport size */)
 
 // Sent to all renderers, instructing them to freeze or unfreeze all frames that
 // belongs to this page.

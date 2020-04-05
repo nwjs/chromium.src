@@ -10,13 +10,29 @@
 
 namespace payments {
 
-PaymentRequestTestController::PaymentRequestTestController() {}
+PaymentRequestTestController::PaymentRequestTestController() = default;
 
 PaymentRequestTestController::~PaymentRequestTestController() = default;
 
 content::WebContents*
 PaymentRequestTestController::GetPaymentHandlerWebContents() {
   return GetPaymentHandlerWebContentsForTest();
+}
+
+bool PaymentRequestTestController::ClickPaymentHandlerSecurityIcon() {
+  return ClickPaymentHandlerSecurityIconForTest();
+}
+
+bool PaymentRequestTestController::ConfirmMinimalUI() {
+  return ConfirmMinimalUIForTest();
+}
+
+bool PaymentRequestTestController::DismissMinimalUI() {
+  return DismissMinimalUIForTest();
+}
+
+bool PaymentRequestTestController::IsAndroidMarshmallowOrLollipop() {
+  return IsAndroidMarshmallowOrLollipopForTest();
 }
 
 void PaymentRequestTestController::SetUpOnMainThread() {
@@ -45,6 +61,8 @@ void PaymentRequestTestController::SetUpOnMainThread() {
       base::BindRepeating(&PaymentRequestTestController::OnAbortCalled,
                           base::Unretained(this)),
       base::BindRepeating(&PaymentRequestTestController::OnCompleteCalled,
+                          base::Unretained(this)),
+      base::BindRepeating(&PaymentRequestTestController::OnMinimalUIReady,
                           base::Unretained(this)));
 
   SetUseDelegateOnPaymentRequestForTesting(
@@ -125,6 +143,11 @@ void PaymentRequestTestController::OnAbortCalled() {
 void PaymentRequestTestController::OnCompleteCalled() {
   if (observer_)
     observer_->OnCompleteCalled();
+}
+
+void PaymentRequestTestController::OnMinimalUIReady() {
+  if (observer_)
+    observer_->OnMinimalUIReady();
 }
 
 }  // namespace payments

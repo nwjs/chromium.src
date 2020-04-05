@@ -5,7 +5,6 @@
 #include "weblayer/browser/navigation_controller_impl.h"
 
 #include "base/strings/utf_string_conversions.h"
-#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/web_contents.h"
@@ -21,6 +20,8 @@
 
 #if defined(OS_ANDROID)
 using base::android::AttachCurrentThread;
+using base::android::JavaParamRef;
+using base::android::ScopedJavaLocalRef;
 #endif
 
 namespace weblayer {
@@ -33,42 +34,43 @@ NavigationControllerImpl::~NavigationControllerImpl() = default;
 #if defined(OS_ANDROID)
 void NavigationControllerImpl::SetNavigationControllerImpl(
     JNIEnv* env,
-    const base::android::JavaParamRef<jobject>& java_controller) {
-  java_controller_.Reset(env, java_controller);
+    const JavaParamRef<jobject>& java_controller) {
+  java_controller_ = java_controller;
 }
 
-void NavigationControllerImpl::GoToIndex(
-    JNIEnv* env,
-    const base::android::JavaParamRef<jobject>& obj,
-    int index) {
+void NavigationControllerImpl::GoToIndex(JNIEnv* env,
+                                         const JavaParamRef<jobject>& obj,
+                                         int index) {
   return GoToIndex(index);
 }
 
-void NavigationControllerImpl::Navigate(
-    JNIEnv* env,
-    const base::android::JavaParamRef<jobject>& obj,
-    const base::android::JavaParamRef<jstring>& url) {
+void NavigationControllerImpl::Navigate(JNIEnv* env,
+                                        const JavaParamRef<jobject>& obj,
+                                        const JavaParamRef<jstring>& url) {
   Navigate(GURL(base::android::ConvertJavaStringToUTF8(env, url)));
 }
 
-base::android::ScopedJavaLocalRef<jstring>
-NavigationControllerImpl::GetNavigationEntryDisplayUri(
-    JNIEnv* env,
-    const base::android::JavaParamRef<jobject>& obj,
-    int index) {
-  return base::android::ScopedJavaLocalRef<jstring>(
-      base::android::ConvertUTF8ToJavaString(
-          env, GetNavigationEntryDisplayURL(index).spec()));
+void NavigationControllerImpl::Replace(JNIEnv* env,
+                                       const JavaParamRef<jobject>& obj,
+                                       const JavaParamRef<jstring>& url) {
+  Replace(GURL(base::android::ConvertJavaStringToUTF8(env, url)));
 }
 
-base::android::ScopedJavaLocalRef<jstring>
-NavigationControllerImpl::GetNavigationEntryTitle(
+ScopedJavaLocalRef<jstring>
+NavigationControllerImpl::GetNavigationEntryDisplayUri(
     JNIEnv* env,
-    const base::android::JavaParamRef<jobject>& obj,
+    const JavaParamRef<jobject>& obj,
     int index) {
-  return base::android::ScopedJavaLocalRef<jstring>(
-      base::android::ConvertUTF8ToJavaString(env,
-                                             GetNavigationEntryTitle(index)));
+  return ScopedJavaLocalRef<jstring>(base::android::ConvertUTF8ToJavaString(
+      env, GetNavigationEntryDisplayURL(index).spec()));
+}
+
+ScopedJavaLocalRef<jstring> NavigationControllerImpl::GetNavigationEntryTitle(
+    JNIEnv* env,
+    const JavaParamRef<jobject>& obj,
+    int index) {
+  return ScopedJavaLocalRef<jstring>(base::android::ConvertUTF8ToJavaString(
+      env, GetNavigationEntryTitle(index)));
 }
 #endif
 
@@ -81,13 +83,13 @@ void NavigationControllerImpl::RemoveObserver(NavigationObserver* observer) {
 }
 
 void NavigationControllerImpl::Navigate(const GURL& url) {
+  DoNavigate(content::NavigationController::LoadURLParams(url));
+}
+
+void NavigationControllerImpl::Replace(const GURL& url) {
   content::NavigationController::LoadURLParams params(url);
-  params.transition_type = ui::PageTransitionFromInt(
-      ui::PAGE_TRANSITION_TYPED | ui::PAGE_TRANSITION_FROM_ADDRESS_BAR);
-  web_contents()->GetController().LoadURLWithParams(params);
-  // So that if the user had entered the UI in a bar it stops flashing the
-  // caret.
-  web_contents()->Focus();
+  params.should_replace_current_entry = true;
+  DoNavigate(std::move(params));
 }
 
 void NavigationControllerImpl::GoBack() {
@@ -111,7 +113,7 @@ void NavigationControllerImpl::GoToIndex(int index) {
 }
 
 void NavigationControllerImpl::Reload() {
-  web_contents()->GetController().Reload(content::ReloadType::NORMAL, false);
+  web_contents()->GetController().Reload(content::ReloadType::NORMAL, true);
 }
 
 void NavigationControllerImpl::Stop() {
@@ -287,6 +289,16 @@ void NavigationControllerImpl::NotifyLoadStateChanged() {
     observer.LoadStateChanged(web_contents()->IsLoading(),
                               web_contents()->IsLoadingToDifferentDocument());
   }
+}
+
+void NavigationControllerImpl::DoNavigate(
+    content::NavigationController::LoadURLParams&& params) {
+  params.transition_type = ui::PageTransitionFromInt(
+      ui::PAGE_TRANSITION_TYPED | ui::PAGE_TRANSITION_FROM_ADDRESS_BAR);
+  web_contents()->GetController().LoadURLWithParams(params);
+  // So that if the user had entered the UI in a bar it stops flashing the
+  // caret.
+  web_contents()->Focus();
 }
 
 #if defined(OS_ANDROID)

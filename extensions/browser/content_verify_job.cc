@@ -11,6 +11,7 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/stl_util.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "base/timer/elapsed_timer.h"
 #include "content/public/browser/browser_thread.h"
 #include "crypto/secure_hash.h"
@@ -123,9 +124,8 @@ void ContentVerifyJob::DidGetContentHashOnIO(
   if (test_observer)
     test_observer->JobStarted(extension_id_, relative_path_);
   // Build |hash_reader_|.
-  base::PostTaskAndReplyWithResult(
-      FROM_HERE,
-      {base::ThreadPool(), base::MayBlock(), base::TaskPriority::USER_VISIBLE},
+  base::ThreadPool::PostTaskAndReplyWithResult(
+      FROM_HERE, {base::MayBlock(), base::TaskPriority::USER_VISIBLE},
       base::BindOnce(&ContentHashReader::Create, relative_path_, content_hash),
       base::BindOnce(&ContentVerifyJob::OnHashesReady, this));
 }
@@ -243,21 +243,24 @@ bool ContentVerifyJob::FinishBlock() {
 void ContentVerifyJob::OnHashesReady(
     std::unique_ptr<const ContentHashReader> hash_reader) {
   base::AutoLock auto_lock(lock_);
-  const bool success = hash_reader->succeeded();
   hash_reader_ = std::move(hash_reader);
 
   if (g_ignore_verification_for_tests)
     return;
   scoped_refptr<TestObserver> test_observer = GetTestObserver();
   if (test_observer)
-    test_observer->OnHashesReady(extension_id_, relative_path_, success);
-  if (!success) {
-    if (!hash_reader_->has_content_hashes()) {
+    test_observer->OnHashesReady(extension_id_, relative_path_, *hash_reader_);
+
+  switch (hash_reader_->status()) {
+    case ContentHashReader::InitStatus::HASHES_MISSING: {
       DispatchFailureCallback(MISSING_ALL_HASHES);
       return;
     }
-
-    if (hash_reader_->file_missing_from_verified_contents()) {
+    case ContentHashReader::InitStatus::HASHES_DAMAGED: {
+      DispatchFailureCallback(CORRUPTED_HASHES);
+      return;
+    }
+    case ContentHashReader::InitStatus::NO_HASHES_FOR_NON_EXISTING_RESOURCE: {
       // Ignore verification of non-existent resources.
       scoped_refptr<TestObserver> test_observer = GetTestObserver();
       if (test_observer)
@@ -266,9 +269,15 @@ void ContentVerifyJob::OnHashesReady(
         success_callback_.Run();
       return;
     }
-    DispatchFailureCallback(NO_HASHES_FOR_FILE);
-    return;
+    case ContentHashReader::InitStatus::NO_HASHES_FOR_RESOURCE: {
+      DispatchFailureCallback(NO_HASHES_FOR_FILE);
+      return;
+    }
+    case ContentHashReader::InitStatus::SUCCESS: {
+      // Just proceed with hashes in case of success.
+    }
   }
+  DCHECK_EQ(ContentHashReader::InitStatus::SUCCESS, hash_reader_->status());
 
   DCHECK(!failed_);
 

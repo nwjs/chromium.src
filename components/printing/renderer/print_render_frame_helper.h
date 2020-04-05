@@ -54,6 +54,10 @@ class WebLocalFrame;
 class WebView;
 }
 
+namespace content {
+class AXTreeSnapshotter;
+}
+
 namespace printing {
 
 struct PageSizeMargins;
@@ -181,7 +185,7 @@ class PrintRenderFrameHelper
     PREVIEW_ERROR_MAC_DRAFT_METAFILE_INIT_FAILED_DEPRECATED = 5,
     PREVIEW_ERROR_PAGE_RENDERED_WITHOUT_METAFILE_DEPRECATED = 6,
     PREVIEW_ERROR_INVALID_PRINTER_SETTINGS = 7,
-    PREVIEW_ERROR_METAFILE_CAPTURE_FAILED = 8,
+    PREVIEW_ERROR_METAFILE_CAPTURE_FAILED_DEPRECATED = 8,
     PREVIEW_ERROR_LAST_ENUM  // Always last.
   };
 
@@ -468,7 +472,8 @@ class PrintRenderFrameHelper
         std::unique_ptr<PrepareFrameAndViewForPrint> prepared_frame,
         const std::vector<int>& pages,
         SkiaDocumentType doc_type,
-        int document_cookie);
+        int document_cookie,
+        bool require_document_metafile);
 
     // Called after a page gets rendered. |page_time| is how long the
     // rendering took.
@@ -543,6 +548,8 @@ class PrintRenderFrameHelper
     blink::WebNode source_node_;
 
     std::unique_ptr<PrepareFrameAndViewForPrint> prep_frame_view_;
+
+    // A document metafile is needed when not using the print compositor.
     std::unique_ptr<MetafileSkia> metafile_;
 
     // Total page count in the renderer.
@@ -602,6 +609,13 @@ class PrintRenderFrameHelper
   bool is_scripted_preview_delayed_ = false;
   int ipc_nesting_level_ = 0;
   bool render_frame_gone_ = false;
+
+  // If tagged PDF exporting is enabled, we also need to capture an
+  // accessibility tree and store it in the metafile. AXTreeSnapshotter should
+  // stay alive through the duration of printing one document, because text
+  // drawing commands are only annotated with a DOMNodeId if accessibility
+  // is enabled.
+  std::unique_ptr<content::AXTreeSnapshotter> snapshotter_;
 
   // Used to fix a race condition where the source is a PDF and print preview
   // hangs because RequestPrintPreview is called before DidStopLoading() is

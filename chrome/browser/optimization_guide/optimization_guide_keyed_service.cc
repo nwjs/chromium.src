@@ -4,6 +4,7 @@
 
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
 
+#include "base/bind_helpers.h"
 #include "base/callback_forward.h"
 #include "base/files/file_path.h"
 #include "chrome/browser/optimization_guide/optimization_guide_hints_manager.h"
@@ -132,6 +133,11 @@ void OptimizationGuideKeyedService::Initialize(
   }
 }
 
+OptimizationGuideHintsManager*
+OptimizationGuideKeyedService::GetHintsManager() {
+  return hints_manager_.get();
+}
+
 void OptimizationGuideKeyedService::OnNavigationStartOrRedirect(
     content::NavigationHandle* navigation_handle) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
@@ -143,11 +149,14 @@ void OptimizationGuideKeyedService::OnNavigationStartOrRedirect(
 }
 
 void OptimizationGuideKeyedService::OnNavigationFinish(
-    const GURL& navigation_url) {
+    const std::vector<GURL>& navigation_redirect_chain,
+    OptimizationGuideNavigationData* navigation_data) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
-  if (hints_manager_)
-    hints_manager_->OnNavigationFinish(navigation_url);
+  if (hints_manager_) {
+    hints_manager_->OnNavigationFinish(navigation_redirect_chain,
+                                       navigation_data);
+  }
 }
 
 void OptimizationGuideKeyedService::RegisterOptimizationTypesAndTargets(

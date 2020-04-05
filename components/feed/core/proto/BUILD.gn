@@ -19,33 +19,38 @@ proto_library("proto") {
 proto_library("proto_v2") {
   proto_in_dir = "../../../../"
   sources = [
-    "ui/action/feed_action_payload.proto",
-    "ui/action/ui_feed_action.proto",
-    "ui/piet/accessibility.proto",
-    "ui/piet/actions.proto",
-    "ui/piet/binding_refs.proto",
-    "ui/piet/elements.proto",
-    "ui/piet/errors.proto",
-    "ui/piet/form_fields.proto",
-    "ui/piet/gradients.proto",
-    "ui/piet/images.proto",
-    "ui/piet/log_data.proto",
-    "ui/piet/media_queries.proto",
-    "ui/piet/piet.proto",
-    "ui/piet/piet_android_support.proto",
-    "ui/piet/rounded_corners.proto",
-    "ui/piet/shadows.proto",
-    "ui/piet/styles.proto",
-    "ui/piet/text.proto",
-    "ui/stream/stream_structure.proto",
     "v2/store.proto",
-    "wire/action_payload.proto",
-    "wire/content_id.proto",
-    "wire/data_operation.proto",
-    "wire/feature.proto",
-    "wire/payload_metadata.proto",
-    "wire/piet_shared_state_item.proto",
-    "wire/semantic_properties.proto",
+    "v2/ui.proto",
+    "v2/wire/action_payload.proto",
+    "v2/wire/action_request.proto",
+    "v2/wire/action_response.proto",
+    "v2/wire/capability.proto",
+    "v2/wire/client_info.proto",
+    "v2/wire/consistency_token.proto",
+    "v2/wire/content_id.proto",
+    "v2/wire/data_operation.proto",
+    "v2/wire/display_info.proto",
+    "v2/wire/duration.proto",
+    "v2/wire/expiration_info.proto",
+    "v2/wire/feature.proto",
+    "v2/wire/feed_action.proto",
+    "v2/wire/feed_action_request.proto",
+    "v2/wire/feed_action_response.proto",
+    "v2/wire/feed_id.proto",
+    "v2/wire/feed_query.proto",
+    "v2/wire/feed_request.proto",
+    "v2/wire/feed_response.proto",
+    "v2/wire/in_place_update_handle.proto",
+    "v2/wire/next_page_token.proto",
+    "v2/wire/payload_metadata.proto",
+    "v2/wire/render_data.proto",
+    "v2/wire/request.proto",
+    "v2/wire/response.proto",
+    "v2/wire/response_status_code.proto",
+    "v2/wire/stream_structure.proto",
+    "v2/wire/templates.proto",
+    "v2/wire/token.proto",
+    "v2/wire/version.proto",
   ]
 }
 
@@ -107,5 +112,10 @@ if (is_android) {
       "wire/token.proto",
       "wire/version.proto",
     ]
+  }
+
+  proto_java_library("proto_java_v2") {
+    proto_path = "../../../../"
+    sources = [ "v2/ui.proto" ]
   }
 }

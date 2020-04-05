@@ -258,26 +258,17 @@ TEST(SetupUtilTest, RecordUnPackMetricsTest) {
   base::HistogramTester histogram_tester;
   std::string unpack_status_metrics_name =
       std::string(installer::kUnPackStatusMetricsName) + "_SetupExePatch";
-  std::string unpack_result_metrics_name =
-      std::string(installer::kUnPackResultMetricsName) + "_SetupExePatch";
-  std::string ntstatus_metrics_name =
-      std::string(installer::kUnPackNTSTATUSMetricsName) + "_SetupExePatch";
   histogram_tester.ExpectTotalCount(unpack_status_metrics_name, 0);
 
-  RecordUnPackMetrics(UnPackStatus::UNPACK_NO_ERROR, base::nullopt,
-                      base::nullopt,
+  RecordUnPackMetrics(UnPackStatus::UNPACK_NO_ERROR,
                       installer::UnPackConsumer::SETUP_EXE_PATCH);
   histogram_tester.ExpectTotalCount(unpack_status_metrics_name, 1);
   histogram_tester.ExpectBucketCount(unpack_status_metrics_name, 0, 1);
 
-  RecordUnPackMetrics(UnPackStatus::UNPACK_EXTRACT_ERROR, 1, 2,
+  RecordUnPackMetrics(UnPackStatus::UNPACK_EXTRACT_ERROR,
                       installer::UnPackConsumer::SETUP_EXE_PATCH);
   histogram_tester.ExpectTotalCount(unpack_status_metrics_name, 2);
   histogram_tester.ExpectBucketCount(unpack_status_metrics_name, 4, 1);
-  histogram_tester.ExpectTotalCount(unpack_result_metrics_name, 1);
-  histogram_tester.ExpectBucketCount(unpack_result_metrics_name, 2, 1);
-  histogram_tester.ExpectTotalCount(ntstatus_metrics_name, 1);
-  histogram_tester.ExpectBucketCount(ntstatus_metrics_name, 1, 1);
 }
 
 namespace {
@@ -676,13 +667,9 @@ class LegacyCleanupsTest : public ::testing::Test {
                                   KEY_WRITE)
                     .Valid());
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-    ASSERT_TRUE(base::win::RegKey(HKEY_CURRENT_USER, kGCFClientsKeyPath,
-                                  KEY_WRITE | KEY_WOW64_32KEY)
-                    .Valid());
     ASSERT_TRUE(base::win::RegKey(HKEY_CURRENT_USER, kAppLauncherClientsKeyPath,
                                   KEY_WRITE | KEY_WOW64_32KEY)
                     .Valid());
-    ASSERT_GT(base::WriteFile(GetAppHostExePath(), "cha", 3), 0);
     ASSERT_TRUE(
         base::win::RegKey(HKEY_CURRENT_USER,
                           GetChromeAppCommandPath(L"install-extension").c_str(),
@@ -706,19 +693,11 @@ class LegacyCleanupsTest : public ::testing::Test {
   }
 
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-  bool HasMultiGCFVersionKey() const {
-    return base::win::RegKey(HKEY_CURRENT_USER, kGCFClientsKeyPath,
-                             KEY_QUERY_VALUE | KEY_WOW64_32KEY)
-        .Valid();
-  }
-
   bool HasAppLauncherVersionKey() const {
     return base::win::RegKey(HKEY_CURRENT_USER, kAppLauncherClientsKeyPath,
                              KEY_QUERY_VALUE | KEY_WOW64_32KEY)
         .Valid();
   }
-
-  bool HasAppHostExe() const { return base::PathExists(GetAppHostExePath()); }
 
   bool HasInstallExtensionCommand() const {
     return base::win::RegKey(
@@ -743,10 +722,6 @@ class LegacyCleanupsTest : public ::testing::Test {
   };
 
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-  base::FilePath GetAppHostExePath() const {
-    return installer_state_->target_path().AppendASCII("app_host.exe");
-  }
-
   base::string16 GetChromeAppCommandPath(const wchar_t* command) const {
     return base::string16(
                L"SOFTWARE\\Google\\Update\\Clients\\"
@@ -758,7 +733,6 @@ class LegacyCleanupsTest : public ::testing::Test {
   static const wchar_t kBinariesClientsKeyPath[];
   static const wchar_t kCommandExecuteImplClsid[];
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-  static const wchar_t kGCFClientsKeyPath[];
   static const wchar_t kAppLauncherClientsKeyPath[];
 #endif
 
@@ -774,9 +748,6 @@ const wchar_t LegacyCleanupsTest::kBinariesClientsKeyPath[] =
     L"{4DC8B4CA-1BDA-483e-B5FA-D3C12E15B62D}";
 const wchar_t LegacyCleanupsTest::kCommandExecuteImplClsid[] =
     L"Software\\Classes\\CLSID\\{5C65F4B0-3651-4514-B207-D10CB699B14B}";
-const wchar_t LegacyCleanupsTest::kGCFClientsKeyPath[] =
-    L"SOFTWARE\\Google\\Update\\Clients\\"
-    L"{8BA986DA-5100-405E-AA35-86F34A02ACBF}";
 const wchar_t LegacyCleanupsTest::kAppLauncherClientsKeyPath[] =
     L"SOFTWARE\\Google\\Update\\Clients\\"
     L"{FDA71E6F-AC4C-4a00-8B70-9958A68906BF}";
@@ -792,9 +763,7 @@ TEST_F(LegacyCleanupsTest, NoOpOnFailedUpdate) {
   EXPECT_TRUE(HasBinariesVersionKey());
   EXPECT_TRUE(HasCommandExecuteImplClassKey());
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-  EXPECT_TRUE(HasMultiGCFVersionKey());
   EXPECT_TRUE(HasAppLauncherVersionKey());
-  EXPECT_TRUE(HasAppHostExe());
   EXPECT_TRUE(HasInstallExtensionCommand());
 #endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 }
@@ -804,9 +773,7 @@ TEST_F(LegacyCleanupsTest, Do) {
   EXPECT_FALSE(HasBinariesVersionKey());
   EXPECT_FALSE(HasCommandExecuteImplClassKey());
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-  EXPECT_FALSE(HasMultiGCFVersionKey());
   EXPECT_FALSE(HasAppLauncherVersionKey());
-  EXPECT_FALSE(HasAppHostExe());
   EXPECT_FALSE(HasInstallExtensionCommand());
 #endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 }

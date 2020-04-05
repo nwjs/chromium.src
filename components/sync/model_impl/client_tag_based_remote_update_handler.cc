@@ -5,6 +5,7 @@
 #include "components/sync/model_impl/client_tag_based_remote_update_handler.h"
 
 #include <utility>
+#include <vector>
 
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
@@ -12,6 +13,7 @@
 #include "components/sync/model/metadata_change_list.h"
 #include "components/sync/model/model_type_sync_bridge.h"
 #include "components/sync/model_impl/processor_entity.h"
+#include "components/sync/model_impl/processor_entity_tracker.h"
 
 namespace syncer {
 
@@ -41,18 +43,12 @@ void LogNonReflectionUpdateFreshnessToUma(ModelType type,
 ClientTagBasedRemoteUpdateHandler::ClientTagBasedRemoteUpdateHandler(
     ModelType type,
     ModelTypeSyncBridge* bridge,
-    sync_pb::ModelTypeState* model_type_state,
-    std::map<std::string, ClientTagHash>* storage_key_to_tag_hash,
-    std::map<ClientTagHash, std::unique_ptr<ProcessorEntity>>* entities)
+    ProcessorEntityTracker* entity_tracker)
     : type_(type),
       bridge_(bridge),
-      model_type_state_(model_type_state),
-      storage_key_to_tag_hash_(storage_key_to_tag_hash),
-      entities_(entities) {
+      entity_tracker_(entity_tracker) {
   DCHECK(bridge_);
-  DCHECK(model_type_state_);
-  DCHECK(storage_key_to_tag_hash_);
-  DCHECK(entities_);
+  DCHECK(entity_tracker_);
 }
 
 base::Optional<ModelError>
@@ -65,9 +61,9 @@ ClientTagBasedRemoteUpdateHandler::ProcessIncrementalUpdate(
 
   metadata_changes->UpdateModelTypeState(model_type_state);
   const bool got_new_encryption_requirements =
-      model_type_state_->encryption_key_name() !=
+      entity_tracker_->model_type_state().encryption_key_name() !=
       model_type_state.encryption_key_name();
-  *model_type_state_ = model_type_state;
+  entity_tracker_->set_model_type_state(model_type_state);
 
   // If new encryption requirements come from the server, the entities that are
   // in |updates| will be recorded here so they can be ignored during the
@@ -102,7 +98,6 @@ ClientTagBasedRemoteUpdateHandler::ProcessIncrementalUpdate(
       // the database.
       if (!storage_key_to_clear.empty()) {
         metadata_changes->ClearMetadata(storage_key_to_clear);
-        storage_key_to_tag_hash_->erase(storage_key_to_clear);
       }
       continue;
     }
@@ -111,9 +106,7 @@ ClientTagBasedRemoteUpdateHandler::ProcessIncrementalUpdate(
 
     if (entity->CanClearMetadata()) {
       metadata_changes->ClearMetadata(entity->storage_key());
-      storage_key_to_tag_hash_->erase(entity->storage_key());
-      entities_->erase(
-          ClientTagHash::FromHashed(entity->metadata().client_tag_hash()));
+      entity_tracker_->RemoveEntityForStorageKey(entity->storage_key());
     } else {
       metadata_changes->UpdateMetadata(entity->storage_key(),
                                        entity->metadata());
@@ -128,7 +121,12 @@ ClientTagBasedRemoteUpdateHandler::ProcessIncrementalUpdate(
     // TODO(pavely): Currently we recommit all entities. We should instead
     // recommit only the ones whose encryption key doesn't match the one in
     // DataTypeState. Work is tracked in http://crbug.com/727874.
-    RecommitAllForEncryption(already_updated, metadata_changes.get());
+    std::vector<const ProcessorEntity*> entities =
+        entity_tracker_->IncrementSequenceNumberForAllExcept(already_updated);
+    for (const ProcessorEntity* entity : entities) {
+      metadata_changes->UpdateMetadata(entity->storage_key(),
+                                       entity->metadata());
+    }
   }
 
   // Inform the bridge of the new or updated data.
@@ -158,7 +156,8 @@ ProcessorEntity* ClientTagBasedRemoteUpdateHandler::ProcessUpdate(
     return nullptr;
   }
 
-  ProcessorEntity* entity = GetEntityForTagHash(client_tag_hash);
+  ProcessorEntity* entity =
+      entity_tracker_->GetEntityForTagHash(client_tag_hash);
 
   // Handle corner cases first.
   if (entity == nullptr && data.is_deleted()) {
@@ -182,13 +181,9 @@ ProcessorEntity* ClientTagBasedRemoteUpdateHandler::ProcessUpdate(
   // moved away into ResolveConflict().
   const std::string update_encryption_key_name = update.encryption_key_name;
   const bool update_is_tombstone = data.is_deleted();
-  ConflictResolution resolution_type = ConflictResolution::kTypeSize;
   if (entity && entity->IsUnsynced()) {
-    // Handle conflict resolution.
-    resolution_type = ResolveConflict(std::move(update), entity, entity_changes,
-                                      storage_key_to_clear);
-    UMA_HISTOGRAM_ENUMERATION("Sync.ResolveConflict", resolution_type,
-                              ConflictResolution::kTypeSize);
+    ResolveConflict(std::move(update), entity, entity_changes,
+                    storage_key_to_clear);
   } else {
     // Handle simple create/delete/update.
     base::Optional<EntityChange::ChangeType> change_type;
@@ -230,47 +225,25 @@ ProcessorEntity* ClientTagBasedRemoteUpdateHandler::ProcessUpdate(
   // commit to fix it. Tombstones aren't encrypted and hence shouldn't be
   // checked.
   if (!update_is_tombstone &&
-      model_type_state_->encryption_key_name() != update_encryption_key_name) {
+      entity_tracker_->model_type_state().encryption_key_name() !=
+          update_encryption_key_name) {
     DVLOG(2) << ModelTypeToString(type_) << ": Requesting re-encrypt commit "
              << update_encryption_key_name << " -> "
-             << model_type_state_->encryption_key_name();
+             << entity_tracker_->model_type_state().encryption_key_name();
 
     entity->IncrementSequenceNumber(base::Time::Now());
   }
   return entity;
 }
 
-void ClientTagBasedRemoteUpdateHandler::RecommitAllForEncryption(
-    const std::unordered_set<std::string>& already_updated,
-    MetadataChangeList* metadata_changes) {
-  ModelTypeSyncBridge::StorageKeyList entities_needing_data;
-
-  for (const auto& kv : *entities_) {
-    ProcessorEntity* entity = kv.second.get();
-    if (entity->storage_key().empty() ||
-        (already_updated.find(entity->storage_key()) !=
-         already_updated.end())) {
-      // Entities with empty storage key were already processed. ProcessUpdate()
-      // incremented their sequence numbers and cached commit data. Their
-      // metadata will be persisted in UpdateStorageKey().
-      continue;
-    }
-    entity->IncrementSequenceNumber(base::Time::Now());
-    if (entity->RequiresCommitData()) {
-      entities_needing_data.push_back(entity->storage_key());
-    }
-    metadata_changes->UpdateMetadata(entity->storage_key(), entity->metadata());
-  }
-}
-
-ConflictResolution ClientTagBasedRemoteUpdateHandler::ResolveConflict(
+void ClientTagBasedRemoteUpdateHandler::ResolveConflict(
     UpdateResponseData update,
     ProcessorEntity* entity,
     EntityChangeList* changes,
     std::string* storage_key_to_clear) {
   const EntityData& remote_data = update.entity;
 
-  ConflictResolution resolution_type = ConflictResolution::kTypeSize;
+  ConflictResolution resolution_type = ConflictResolution::kChangesMatch;
 
   // Determine the type of resolution.
   if (entity->MatchesData(remote_data)) {
@@ -324,7 +297,8 @@ ConflictResolution ClientTagBasedRemoteUpdateHandler::ResolveConflict(
         // bridges, so we may need to wait until UpdateStorageKey() is called.
         if (!bridge_->SupportsGetStorageKey()) {
           *storage_key_to_clear = entity->storage_key();
-          entity->ClearStorageKey();
+          entity_tracker_->ClearStorageKey(entity->storage_key());
+          DCHECK(entity->storage_key().empty());
         }
         // Squash the pending commit.
         entity->RecordForcedUpdate(update);
@@ -332,36 +306,15 @@ ConflictResolution ClientTagBasedRemoteUpdateHandler::ResolveConflict(
                                                    std::move(update.entity)));
       }
       break;
-    case ConflictResolution::kUseNewDEPRECATED:
-    case ConflictResolution::kTypeSize:
-      NOTREACHED();
-      break;
   }
-
-  return resolution_type;
-}
-
-ProcessorEntity* ClientTagBasedRemoteUpdateHandler::GetEntityForTagHash(
-    const ClientTagHash& tag_hash) {
-  const auto it = entities_->find(tag_hash);
-  return it != entities_->end() ? it->second.get() : nullptr;
 }
 
 ProcessorEntity* ClientTagBasedRemoteUpdateHandler::CreateEntity(
     const std::string& storage_key,
     const EntityData& data) {
   DCHECK(!data.client_tag_hash.value().empty());
-  DCHECK(entities_->find(data.client_tag_hash) == entities_->end());
   DCHECK(!bridge_->SupportsGetStorageKey() || !storage_key.empty());
-  DCHECK(storage_key.empty() || storage_key_to_tag_hash_->find(storage_key) ==
-                                    storage_key_to_tag_hash_->end());
-  std::unique_ptr<ProcessorEntity> entity = ProcessorEntity::CreateNew(
-      storage_key, data.client_tag_hash, data.id, data.creation_time);
-  ProcessorEntity* entity_ptr = entity.get();
-  (*entities_)[data.client_tag_hash] = std::move(entity);
-  if (!storage_key.empty())
-    (*storage_key_to_tag_hash_)[storage_key] = data.client_tag_hash;
-  return entity_ptr;
+  return entity_tracker_->Add(storage_key, data);
 }
 
 ProcessorEntity* ClientTagBasedRemoteUpdateHandler::CreateEntity(

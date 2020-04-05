@@ -11,6 +11,7 @@
 #include "components/embedder_support/android/delegate/web_contents_delegate_android.h"
 #include "components/find_in_page/find_result_observer.h"
 #include "components/find_in_page/find_tab_helper.h"
+#include "components/paint_preview/buildflags/buildflags.h"
 #include "content/public/browser/bluetooth_chooser.h"
 #include "printing/buildflags/buildflags.h"
 #include "third_party/blink/public/mojom/frame/blocked_navigation_types.mojom.h"
@@ -113,11 +114,9 @@ class TabWebContentsDelegateAndroid
       const viz::SurfaceId&,
       const gfx::Size&) override;
   void ExitPictureInPicture() override;
-  std::unique_ptr<content::WebContents> SwapWebContents(
-      content::WebContents* old_contents,
-      std::unique_ptr<content::WebContents> new_contents,
-      bool did_start_load,
-      bool did_finish_load) override;
+  std::unique_ptr<content::WebContents> ActivatePortalWebContents(
+      content::WebContents* predecessor_contents,
+      std::unique_ptr<content::WebContents> portal_contents) override;
 
 #if BUILDFLAG(ENABLE_PRINTING)
   void PrintCrossProcessSubframe(
@@ -125,6 +124,14 @@ class TabWebContentsDelegateAndroid
       const gfx::Rect& rect,
       int document_cookie,
       content::RenderFrameHost* subframe_host) const override;
+#endif
+
+#if BUILDFLAG(ENABLE_PAINT_PREVIEW)
+  void CapturePaintPreviewOfCrossProcessSubframe(
+      content::WebContents* web_contents,
+      const gfx::Rect& rect,
+      const base::UnguessableToken& guid,
+      content::RenderFrameHost* render_frame_host) override;
 #endif
 
   // find_in_page::FindResultObserver:

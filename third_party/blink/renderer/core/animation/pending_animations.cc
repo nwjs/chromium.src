@@ -49,7 +49,14 @@ void PendingAnimations::Add(Animation* animation) {
     document->View()->ScheduleAnimation();
 
   bool visible = document->GetPage() && document->GetPage()->IsPageVisible();
-  if (!visible && !timer_.IsActive()) {
+  if (!visible && !timer_.IsActive() &&
+      // TODO(crbug.com/916117): Firing a timer for animations linked to
+      // inactive timelines creates an unnecessary cycle of unsuccessfully
+      // starting such animations. Instead, let the animation frame call
+      // PendingAnimations::Update when the timeline becomes active.
+      // Revisit this condition and add a test as part of inactive timeline
+      // implementation.
+      animation->timeline() && animation->timeline()->IsActive()) {
     timer_.StartOneShot(base::TimeDelta(), FROM_HERE);
   }
 }
@@ -77,12 +84,17 @@ bool PendingAnimations::Update(
         started_synchronized_on_compositor = true;
       }
 
-      if (!animation->timeline() || !animation->timeline()->IsActive())
+      // TODO(crbug.com/916117): Revisit this condition as part of handling
+      // inactive timelines work.
+      if (!animation->timeline() || !animation->timeline()->IsActive()) {
+        DCHECK(!animation->timeline() ||
+               !animation->timeline()->IsScrollTimeline());
         continue;
+      }
 
       if (animation->Playing() && !animation->startTime()) {
         waiting_for_start_time.push_back(animation.Get());
-      } else if (animation->pending()) {
+      } else if (animation->PendingInternal()) {
         // A pending animation that is not waiting on a start time does not need
         // to be synchronized with animations that are starting up. Nonetheless,
         // it needs to notify the animation to resolve the ready promise and
@@ -119,7 +131,6 @@ bool PendingAnimations::Update(
   }
 
   DCHECK(pending_.IsEmpty());
-  DCHECK(start_on_compositor || deferred.IsEmpty());
   for (auto& animation : deferred)
     animation->SetCompositorPending();
   DCHECK_EQ(pending_.size(), deferred.size());
@@ -153,7 +164,7 @@ void PendingAnimations::NotifyCompositorAnimationStarted(
   animations.swap(waiting_for_compositor_animation_start_);
 
   for (auto animation : animations) {
-    if (animation->startTime() || !animation->pending() ||
+    if (animation->startTime() || !animation->PendingInternal() ||
         !animation->timeline() || !animation->timeline()->IsActive()) {
       // Already started or no longer relevant.
       continue;
@@ -205,7 +216,7 @@ void PendingAnimations::FlushWaitingNonCompositedAnimations() {
   }
 }
 
-void PendingAnimations::Trace(blink::Visitor* visitor) {
+void PendingAnimations::Trace(Visitor* visitor) {
   visitor->Trace(pending_);
   visitor->Trace(waiting_for_compositor_animation_start_);
 }

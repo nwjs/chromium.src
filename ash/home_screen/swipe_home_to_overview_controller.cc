@@ -6,11 +6,15 @@
 
 #include "ash/home_screen/home_screen_controller.h"
 #include "ash/home_screen/home_screen_delegate.h"
+#include "ash/public/cpp/ash_features.h"
 #include "ash/public/cpp/shelf_config.h"
+#include "ash/session/session_controller_impl.h"
+#include "ash/shelf/contextual_tooltip.h"
 #include "ash/shelf/shelf_metrics.h"
 #include "ash/shell.h"
 #include "ash/wm/overview/overview_controller.h"
 #include "ash/wm/overview/overview_session.h"
+#include "base/bind_helpers.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/numerics/ranges.h"
 #include "base/optional.h"
@@ -178,6 +182,12 @@ void SwipeHomeToOverviewController::ScheduleFinalizeDragAndShowOverview() {
 void SwipeHomeToOverviewController::FinalizeDragAndShowOverview() {
   state_ = State::kFinished;
   overview_transition_threshold_y_ = 0;
+
+  if (features::AreContextualNudgesEnabled()) {
+    contextual_tooltip::HandleGesturePerformed(
+        Shell::Get()->session_controller()->GetActivePrefService(),
+        contextual_tooltip::TooltipType::kHomeToOverview);
+  }
 
   UMA_HISTOGRAM_ENUMERATION(kEnterOverviewHistogramName,
                             EnterOverviewFromHomeLauncher::kSuccess);

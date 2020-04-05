@@ -100,8 +100,10 @@ Polymer({
 
     /**
      * @private {?{
+     *   actionScope: string,
      *   index: number,
      *   item: !SiteGroup,
+     *   origin: string,
      *   path: string,
      *   target: !HTMLElement
      * }}
@@ -414,7 +416,7 @@ Polymer({
    * pane when its menu is opened (it is possible to open off-screen items using
    * keyboard shortcuts).
    * @param {!CustomEvent<{
-   *    index: number, item: !SiteGroup,
+   *    actionScope: string, index: number, item: !SiteGroup, origin: string,
    *    path: string, target: !HTMLElement
    *    }>} e
    * @private
@@ -438,6 +440,11 @@ Polymer({
    */
   onConfirmResetSettings_(e) {
     e.preventDefault();
+    const scope =
+        this.actionMenuModel_.actionScope === 'origin' ? 'Origin' : 'SiteGroup';
+    const scopes =
+        [settings.ALL_SITES_DIALOG.RESET_PERMISSIONS, scope, 'DialogOpened'];
+    this.recordUserAction_(scopes);
     this.$.confirmResetSettings.get().showModal();
   },
 
@@ -449,6 +456,19 @@ Polymer({
   onConfirmClearData_(e) {
     e.preventDefault();
     if (this.storagePressureFlagEnabled_) {
+      const {actionScope, index, origin} = this.actionMenuModel_;
+      const {origins, hasInstalledPWA} = this.filteredList_[index];
+
+      const scope = actionScope === 'origin' ? 'Origin' : 'SiteGroup';
+      const appInstalled = actionScope === 'origin' ?
+          (origins.find(o => o.origin === origin) || {}).isInstalled :
+          hasInstalledPWA;
+      const installed = appInstalled ? 'Installed' : '';
+
+      const scopes = [
+        settings.ALL_SITES_DIALOG.CLEAR_DATA, scope, installed, 'DialogOpened'
+      ];
+      this.recordUserAction_(scopes);
       this.$.confirmClearDataNew.get().showModal();
     } else {
       this.$.confirmClearData.get().showModal();
@@ -463,11 +483,16 @@ Polymer({
   onConfirmClearAllData_(e) {
     e.preventDefault();
     this.clearAllData_ = true;
+    const anyAppsInstalled = this.filteredList_.some(g => g.hasInstalledPWA);
+    const scopes = [settings.ALL_SITES_DIALOG.CLEAR_DATA, 'All'];
+    const installed = anyAppsInstalled ? 'Installed' : '';
+    this.recordUserAction_([...scopes, installed, 'DialogOpened']);
     this.$.confirmClearAllData.get().showModal();
   },
 
   /** @private */
   onCloseDialog_(e) {
+    chrome.metricsPrivate.recordUserAction('AllSites_DialogClosed');
     e.target.closest('cr-dialog').close();
     this.actionMenuModel_ = null;
     this.$.menu.get().close();
@@ -497,7 +522,8 @@ Polymer({
         const messageId = isInstalled ?
             'siteSettingsOriginDeleteConfirmationInstalled' :
             'siteSettingsOriginDeleteConfirmation';
-        return loadTimeData.substituteString(this.i18n(messageId), origin);
+        return loadTimeData.substituteString(
+            this.i18n(messageId), this.originRepresentation(origin));
       } else {
         // Clear SiteGroup
         let messageId;
@@ -513,8 +539,10 @@ Polymer({
         } else {
           messageId = 'siteSettingsSiteGroupDeleteConfirmationNew';
         }
-        return loadTimeData.substituteString(
-            this.i18n(messageId), this.actionMenuModel_.item.etldPlus1);
+        const displayName = this.actionMenuModel_.item.etldPlus1 ||
+            this.originRepresentation(
+                this.actionMenuModel_.item.origins[0].origin);
+        return loadTimeData.substituteString(this.i18n(messageId), displayName);
       }
     } else {
       // Storage Pressure UI disabled
@@ -539,11 +567,13 @@ Polymer({
     if (this.actionMenuModel_.actionScope === 'origin') {
       return loadTimeData.substituteString(
           this.i18n('siteSettingsSiteResetConfirmation'),
-          this.actionMenuModel_.origin);
+          this.originRepresentation(this.actionMenuModel_.origin));
     }
     return loadTimeData.substituteString(
         this.i18n('siteSettingsSiteGroupResetConfirmation'),
-        this.actionMenuModel_.item.etldPlus1);
+        this.actionMenuModel_.item.etldPlus1 ||
+            this.originRepresentation(
+                this.actionMenuModel_.item.origins[0].origin));
   },
   /**
    * Get the appropriate label for the clear all data confirmation
@@ -558,6 +588,15 @@ Polymer({
         'siteSettingsClearAllStorageConfirmation';
     return loadTimeData.substituteString(
         this.i18n(messageId), this.totalUsage_);
+  },
+
+  /**
+   * @param {!Array<string>} scopes
+   * @private
+   */
+  recordUserAction_: function(scopes) {
+    chrome.metricsPrivate.recordUserAction(
+        ['AllSites', ...scopes].filter(Boolean).join('_'));
   },
 
   /**
@@ -591,6 +630,11 @@ Polymer({
     };
 
     if (actionScope === 'origin') {
+      this.browserProxy.recordAction(
+          settings.AllSitesAction2.RESET_ORIGIN_PERMISSIONS);
+      this.recordUserAction_(
+          [settings.ALL_SITES_DIALOG.RESET_PERMISSIONS, 'Origin', 'Confirm']);
+
       this.resetPermissionsForOrigin_(origin);
       updatedSiteGroup.origins = siteGroupToUpdate.origins;
       const updatedOrigin =
@@ -602,7 +646,12 @@ Polymer({
       }
     } else {
       // Reset permissions for entire site group
-      this.browserProxy.recordAction(settings.AllSitesAction.RESET_PERMISSIONS);
+      this.browserProxy.recordAction(
+          settings.AllSitesAction2.RESET_SITE_GROUP_PERMISSIONS);
+      this.recordUserAction_([
+        settings.ALL_SITES_DIALOG.RESET_PERMISSIONS, 'SiteGroup', 'Confirm'
+      ]);
+
       if (this.actionMenuModel_.item.etldPlus1 !==
           siteGroupToUpdate.etldPlus1) {
         return;
@@ -725,9 +774,31 @@ Polymer({
    */
   onClearData_: function(e) {
     const {index, actionScope, origin} = this.actionMenuModel_;
+    const scopes = [settings.ALL_SITES_DIALOG.CLEAR_DATA];
+
     if (actionScope === 'origin') {
+      this.browserProxy.recordAction(
+          settings.AllSitesAction2.CLEAR_ORIGIN_DATA);
+
+      const {origins} = this.filteredList_[index];
+
+      scopes.push('Origin');
+      const installed =
+          (origins.find(o => o.origin === origin) || {}).isInstalled ?
+          'Installed' :
+          '';
+      this.recordUserAction_([...scopes, installed, 'Confirm']);
+
       this.clearDataForOrigin_(index, origin);
     } else {
+      this.browserProxy.recordAction(
+          settings.AllSitesAction2.CLEAR_SITE_GROUP_DATA);
+
+      scopes.push('SiteGroup');
+      const {hasInstalledPWA} = this.filteredList_[index];
+      const installed = hasInstalledPWA ? 'Installed' : '';
+      this.recordUserAction_([...scopes, installed, 'Confirm']);
+
       this.clearDataForSiteGroupIndex_(index);
     }
 
@@ -742,6 +813,13 @@ Polymer({
    * @private
    */
   onClearAllData_(e) {
+    this.browserProxy.recordAction(settings.AllSitesAction2.CLEAR_ALL_DATA);
+
+    const scopes = [settings.ALL_SITES_DIALOG.CLEAR_DATA, 'All'];
+    const anyAppsInstalled = this.filteredList_.some(g => g.hasInstalledPWA);
+    const installed = anyAppsInstalled ? 'Installed' : '';
+    this.recordUserAction_([...scopes, installed, 'Confirm']);
+
     for (let index = this.filteredList_.length - 1; index >= 0; index--) {
       this.clearDataForSiteGroupIndex_(index);
     }

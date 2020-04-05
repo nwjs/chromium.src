@@ -5,6 +5,11 @@
 #ifndef UI_VIEWS_WIDGET_DESKTOP_AURA_DESKTOP_WINDOW_TREE_HOST_LINUX_H_
 #define UI_VIEWS_WIDGET_DESKTOP_AURA_DESKTOP_WINDOW_TREE_HOST_LINUX_H_
 
+#include <list>
+#include <memory>
+#include <string>
+#include <vector>
+
 #include "base/macros.h"
 #include "base/memory/weak_ptr.h"
 #include "ui/aura/scoped_window_targeter.h"
@@ -84,7 +89,11 @@ class VIEWS_EXPORT DesktopWindowTreeHostLinux
   void OnAcceleratedWidgetAvailable(gfx::AcceleratedWidget widget) override;
   void OnActivationChanged(bool active) override;
 
+  ui::X11Extension* GetX11Extension();
+  const ui::X11Extension* GetX11Extension() const;
+
  private:
+  friend class DesktopWindowTreeHostX11Test;
   FRIEND_TEST_ALL_PREFIXES(DesktopWindowTreeHostLinuxTest, HitTest);
 
   // Overridden from display::DisplayObserver via aura::WindowTreeHost:
@@ -108,12 +117,10 @@ class VIEWS_EXPORT DesktopWindowTreeHostLinux
 #if BUILDFLAG(USE_ATK)
   bool OnAtkKeyEvent(AtkKeyEventStruct* atk_key_event) override;
 #endif
+  bool IsOverrideRedirect() const override;
 
   // Enables event listening after closing |dialog|.
   void EnableEventListening();
-
-  ui::X11Extension* GetX11Extension();
-  const ui::X11Extension* GetX11Extension() const;
 
   // See comment for variable open_windows_.
   static std::list<gfx::AcceleratedWidget>& open_windows();

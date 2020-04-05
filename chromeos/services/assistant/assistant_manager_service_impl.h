@@ -109,11 +109,11 @@ class COMPONENT_EXPORT(ASSISTANT_SERVICE) AssistantManagerServiceImpl
   ~AssistantManagerServiceImpl() override;
 
   // assistant::AssistantManagerService overrides:
-  void Start(const base::Optional<std::string>& access_token,
+  void Start(const base::Optional<UserInfo>& user,
              bool enable_hotword) override;
   void Stop() override;
   State GetState() const override;
-  void SetAccessToken(const base::Optional<std::string>& access_token) override;
+  void SetUser(const base::Optional<UserInfo>& user) override;
   void EnableAmbientMode(bool enabled) override;
   void EnableListening(bool enable) override;
   void EnableHotword(bool enable) override;
@@ -126,11 +126,14 @@ class COMPONENT_EXPORT(ASSISTANT_SERVICE) AssistantManagerServiceImpl
   void AddAndFireStateObserver(StateObserver* observer) override;
   void RemoveStateObserver(const StateObserver* observer) override;
   void SyncDeviceAppsStatus() override;
+  void UpdateInternalMediaPlayerStatus(
+      media_session::mojom::MediaSessionAction action) override;
 
   // mojom::Assistant overrides:
-  void StartCachedScreenContextInteraction() override;
   void StartEditReminderInteraction(const std::string& client_id) override;
-  void StartMetalayerInteraction(const gfx::Rect& region) override;
+  void StartScreenContextInteraction(
+      ax::mojom::AssistantStructurePtr assistant_structure,
+      const std::vector<uint8_t>& assistant_screenshot) override;
   void StartTextInteraction(const std::string& query,
                             mojom::AssistantQuerySource source,
                             bool allow_tts) override;
@@ -145,15 +148,13 @@ class COMPONENT_EXPORT(ASSISTANT_SERVICE) AssistantManagerServiceImpl
                             int action_index) override;
   void DismissNotification(
       mojom::AssistantNotificationPtr notification) override;
-  void CacheScreenContext(CacheScreenContextCallback callback) override;
-  void ClearScreenContextCache() override;
   void OnAccessibilityStatusChanged(bool spoken_feedback_enabled) override;
   void SendAssistantFeedback(
       mojom::AssistantFeedbackPtr assistant_feedback) override;
   void NotifyEntryIntoAssistantUi(
       mojom::AssistantEntryPoint entry_point) override;
+  void AddTimeToTimer(const std::string& id, base::TimeDelta duration) override;
   void StopAlarmTimerRinging() override;
-  void CreateTimer(base::TimeDelta duration) override;
 
   // AssistantActionObserver overrides:
   void OnScheduleWait(int id, int time_ms) override;
@@ -163,9 +164,8 @@ class COMPONENT_EXPORT(ASSISTANT_SERVICE) AssistantManagerServiceImpl
   void OnShowSuggestions(
       const std::vector<action::Suggestion>& suggestions) override;
   void OnShowText(const std::string& text) override;
+  void OnShowTimers(const std::vector<std::string>& timer_ids) override;
   void OnOpenUrl(const std::string& url, bool in_background) override;
-  void OnPlaybackStateChange(
-      const assistant_client::MediaStatus& status) override;
   void OnShowNotification(const action::Notification& notification) override;
   void OnOpenAndroidApp(const action::AndroidAppInfo& app_info,
                         const action::InteractionInfo& interaction) override;
@@ -215,6 +215,10 @@ class COMPONENT_EXPORT(ASSISTANT_SERVICE) AssistantManagerServiceImpl
   }
   CrosPlatformApi* platform_api() { return platform_api_.get(); }
 
+  // assistant_client::MediaManager::Listener overrides:
+  void OnPlaybackStateChange(
+      const assistant_client::MediaStatus& status) override;
+
   // media_session::mojom::MediaControllerObserver overrides:
   void MediaSessionInfoChanged(
       media_session::mojom::MediaSessionInfoPtr info) override;
@@ -228,15 +232,17 @@ class COMPONENT_EXPORT(ASSISTANT_SERVICE) AssistantManagerServiceImpl
   void MediaSessionPositionChanged(
       const base::Optional<media_session::MediaPosition>& position) override {}
 
-  void UpdateInternalMediaPlayerStatus(
-      media_session::mojom::MediaSessionAction action);
-
   // The start runs in the background. This will wait until the background
   // thread is finished.
   void WaitUntilStartIsFinishedForTesting();
 
+  // Get the action module for testing.
+  action::CrosActionModule* action_module_for_testing() {
+    return action_module_.get();
+  }
+
  private:
-  void StartAssistantInternal(const base::Optional<std::string>& access_token);
+  void StartAssistantInternal(const base::Optional<UserInfo>& user);
   void PostInitAssistant();
 
   // Update device id, type and locale
@@ -266,20 +272,6 @@ class COMPONENT_EXPORT(ASSISTANT_SERVICE) AssistantManagerServiceImpl
   void RegisterFallbackMediaHandler();
   void AddMediaControllerObserver();
   void RegisterAlarmsTimersListener();
-
-  void CacheAssistantStructure(
-      base::OnceClosure on_done,
-      ax::mojom::AssistantExtraPtr assistant_extra,
-      std::unique_ptr<ui::AssistantTree> assistant_tree);
-
-  void CacheAssistantScreenshot(
-      base::OnceClosure on_done,
-      const std::vector<uint8_t>& assistant_screenshot);
-
-  void SendScreenContextRequest(
-      ax::mojom::AssistantExtra* assistant_extra,
-      ui::AssistantTree* assistant_tree,
-      const std::vector<uint8_t>& assistant_screenshot);
 
   void FillServerExperimentIds(std::vector<std::string>* server_experiment_ids);
 
@@ -348,9 +340,6 @@ class COMPONENT_EXPORT(ASSISTANT_SERVICE) AssistantManagerServiceImpl
 
   bool spoken_feedback_enabled_ = false;
 
-  ax::mojom::AssistantExtraPtr assistant_extra_;
-  std::unique_ptr<ui::AssistantTree> assistant_tree_;
-  std::vector<uint8_t> assistant_screenshot_;
   std::string last_trigger_source_;
   base::Lock last_trigger_source_lock_;
   base::TimeTicks started_time_;
@@ -364,8 +353,6 @@ class COMPONENT_EXPORT(ASSISTANT_SERVICE) AssistantManagerServiceImpl
   bool receive_modify_settings_proto_response_ = false;
   bool receive_inline_response_ = false;
   std::string receive_url_response_;
-
-  bool is_first_client_discourse_context_query_ = true;
 
   mojo::Receiver<media_session::mojom::MediaControllerObserver>
       media_controller_observer_receiver_{this};

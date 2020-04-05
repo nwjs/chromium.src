@@ -170,7 +170,7 @@ WindowPerformance::~WindowPerformance() = default;
 ExecutionContext* WindowPerformance::GetExecutionContext() const {
   if (!GetFrame())
     return nullptr;
-  return GetFrame()->GetDocument();
+  return GetFrame()->GetDocument()->ToExecutionContext();
 }
 
 PerformanceTiming* WindowPerformance::timing() const {
@@ -224,7 +224,7 @@ void WindowPerformance::BuildJSONValue(V8ObjectBuilder& builder) const {
   builder.Add("navigation", navigation());
 }
 
-void WindowPerformance::Trace(blink::Visitor* visitor) {
+void WindowPerformance::Trace(Visitor* visitor) {
   visitor->Trace(event_timings_);
   visitor->Trace(first_pointer_down_event_timing_);
   visitor->Trace(navigation_);
@@ -259,7 +259,7 @@ std::pair<AtomicString, DOMWindow*> WindowPerformance::SanitizedAttribution(
     return std::make_pair(kAmbiguousAttribution, nullptr);
   }
 
-  Document* document = DynamicTo<Document>(task_context);
+  Document* document = Document::DynamicFrom(task_context);
   if (!document || !document->GetFrame()) {
     // Unable to attribute as no script was involved.
     DEFINE_STATIC_LOCAL(const AtomicString, kUnknownAttribution, ("unknown"));
@@ -358,7 +358,7 @@ void WindowPerformance::RegisterEventTiming(const AtomicString& event_type,
   }
 }
 
-void WindowPerformance::ReportEventTimings(WebWidgetClient::SwapResult result,
+void WindowPerformance::ReportEventTimings(WebSwapResult result,
                                            base::TimeTicks timestamp) {
   DOMHighResTimeStamp end_time = MonotonicTimeToDOMHighResTimeStamp(timestamp);
   bool event_timing_enabled =

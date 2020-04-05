@@ -8,12 +8,15 @@
 #include <vector>
 
 #include "base/location.h"
+#include "base/memory/weak_ptr.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/threading/thread_task_runner_handle.h"
+#include "base/time/time.h"
 #include "third_party/skia/include/core/SkRegion.h"
 #include "ui/base/hit_test_x11.h"
 #include "ui/base/wm_role_names_linux.h"
+#include "ui/base/x/x11_menu_registrar.h"
 #include "ui/base/x/x11_pointer_grab.h"
 #include "ui/base/x/x11_util.h"
 #include "ui/base/x/x11_util_internal.h"
@@ -142,9 +145,17 @@ XWindow::XWindow()
   DCHECK_NE(x_root_window_, x11::None);
 }
 
-XWindow::~XWindow() = default;
+XWindow::~XWindow() {
+  CHECK(!resize_weak_factory_.HasWeakPtrs());
+  DCHECK_EQ(xwindow_, x11::None) << "XWindow destructed without calling "
+                                    "Close() to release allocated resources.";
+}
 
 void XWindow::Init(const Configuration& config) {
+  // Ensure that the X11MenuRegistrar exists. The X11MenuRegistrar is
+  // necessary to properly track menu windows.
+  X11MenuRegistrar::Get();
+
   activatable_ = config.activatable;
 
   unsigned long attribute_mask = CWBackPixel | CWBitGravity;
@@ -179,7 +190,7 @@ void XWindow::Init(const Configuration& config) {
       break;
   }
   // An in-activatable window should not interact with the system wm.
-  if (!activatable_)
+  if (!activatable_ || config.override_redirect)
     swa.override_redirect = x11::True;
 
 #if !defined(USE_X11)
@@ -1083,8 +1094,6 @@ void XWindow::WmMoveResize(int hittest, const gfx::Point& location) const {
 // by PlatformWindow, which is supposed to use XWindow in Ozone builds. So
 // handling these events is disabled for Ozone.
 void XWindow::ProcessEvent(XEvent* xev) {
-  UpdateWMUserTime(xev);
-
   // We can lose track of the window's position when the window is reparented.
   // When the parent window is moved, we won't get an event, so the window's
   // position relative to the root window will get out-of-sync.  We can re-sync
@@ -1107,20 +1116,8 @@ void XWindow::ProcessEvent(XEvent* xev) {
   switch (xev->type) {
     case EnterNotify:
     case LeaveNotify: {
-#if defined(USE_X11)
-      // Ignore EventNotify and LeaveNotify events from children of |xwindow_|.
-      // NativeViewGLSurfaceGLX adds a child to |xwindow_|.
-      if (xev->xcrossing.detail != NotifyInferior) {
-        DCHECK(xev);
-        ui::MouseEvent mouse_event(xev);
-        OnXWindowEvent(&mouse_event);
-      } else
-#endif
-      {
-        bool is_enter = xev->type == EnterNotify;
-        OnCrossingEvent(is_enter, xev->xcrossing.focus, xev->xcrossing.mode,
-                        xev->xcrossing.detail);
-      }
+      OnCrossingEvent(xev->type == EnterNotify, xev->xcrossing.focus,
+                      xev->xcrossing.mode, xev->xcrossing.detail);
       break;
     }
     case Expose: {
@@ -1129,37 +1126,6 @@ void XWindow::ProcessEvent(XEvent* xev) {
       OnXWindowDamageEvent(damage_rect_in_pixels);
       break;
     }
-#if !defined(USE_OZONE)
-    case KeyPress:
-    case KeyRelease: {
-      ui::KeyEvent key_event(xev);
-      OnXWindowEvent(&key_event);
-      break;
-    }
-    case ButtonPress:
-    case ButtonRelease: {
-      ui::EventType event_type = ui::EventTypeFromNative(xev);
-      switch (event_type) {
-        case ui::ET_MOUSEWHEEL: {
-          ui::MouseWheelEvent mouseev(xev);
-          OnXWindowEvent(&mouseev);
-          break;
-        }
-        case ui::ET_MOUSE_PRESSED:
-        case ui::ET_MOUSE_RELEASED: {
-          ui::MouseEvent mouseev(xev);
-          OnXWindowEvent(&mouseev);
-          break;
-        }
-        case ui::ET_UNKNOWN:
-          // No event is created for X11-release events for mouse-wheel buttons.
-          break;
-        default:
-          NOTREACHED() << event_type;
-      }
-      break;
-    }
-#endif
     case x11::FocusIn:
     case x11::FocusOut:
       OnFocusEvent(xev->type == x11::FocusIn, xev->xfocus.mode,
@@ -1177,8 +1143,7 @@ void XWindow::ProcessEvent(XEvent* xev) {
       switch (static_cast<XIEvent*>(xev->xcookie.data)->evtype) {
         case XI_Enter:
         case XI_Leave: {
-          bool is_enter = enter_event->evtype == XI_Enter;
-          OnCrossingEvent(is_enter, enter_event->focus,
+          OnCrossingEvent(enter_event->evtype == XI_Enter, enter_event->focus,
                           XI2ModeToXMode(enter_event->mode),
                           enter_event->detail);
           return;
@@ -1192,82 +1157,6 @@ void XWindow::ProcessEvent(XEvent* xev) {
         default:
           break;
       }
-#if !defined(USE_OZONE)
-      int num_coalesced = 0;
-      ui::EventType type = ui::EventTypeFromNative(xev);
-      XEvent last_event;
-
-      switch (type) {
-        case ui::ET_TOUCH_MOVED:
-          num_coalesced = ui::CoalescePendingMotionEvents(xev, &last_event);
-          if (num_coalesced > 0)
-            xev = &last_event;
-          FALLTHROUGH;
-        case ui::ET_TOUCH_PRESSED:
-        case ui::ET_TOUCH_RELEASED: {
-          ui::TouchEvent touchev(xev);
-          OnXWindowEvent(&touchev);
-          break;
-        }
-        case ui::ET_MOUSE_MOVED:
-        case ui::ET_MOUSE_DRAGGED:
-        case ui::ET_MOUSE_PRESSED:
-        case ui::ET_MOUSE_RELEASED:
-        case ui::ET_MOUSE_ENTERED:
-        case ui::ET_MOUSE_EXITED: {
-          if (type == ui::ET_MOUSE_MOVED || type == ui::ET_MOUSE_DRAGGED) {
-            // If this is a motion event, we want to coalesce all pending motion
-            // events that are at the top of the queue.
-            num_coalesced = ui::CoalescePendingMotionEvents(xev, &last_event);
-            if (num_coalesced > 0)
-              xev = &last_event;
-          }
-          ui::MouseEvent mouseev(xev);
-          // If after CoalescePendingMotionEvents the type of xev is resolved to
-          // UNKNOWN, don't dispatch the event.
-          // TODO(804418): investigate why ColescePendingMotionEvents can
-          // include mouse wheel events as well. Investigation showed that
-          // events on Linux are checked with cmt-device path, and can include
-          // DT_CMT_SCROLL_ data. See more discussion in
-          // https://crrev.com/c/853953
-          if (mouseev.type() != ui::ET_UNKNOWN)
-            OnXWindowEvent(&mouseev);
-          break;
-        }
-        case ui::ET_MOUSEWHEEL: {
-          ui::MouseWheelEvent mouseev(xev);
-          OnXWindowEvent(&mouseev);
-          break;
-        }
-        case ui::ET_SCROLL_FLING_START:
-        case ui::ET_SCROLL_FLING_CANCEL:
-        case ui::ET_SCROLL: {
-          ui::ScrollEvent scrollev(xev);
-          // We need to filter zero scroll offset here. Because
-          // MouseWheelEventQueue assumes we'll never get a zero scroll offset
-          // event and we need delta to determine which element to scroll on
-          // phaseBegan.
-          if (scrollev.x_offset() != 0.0 || scrollev.y_offset() != 0.0)
-            OnXWindowEvent(&scrollev);
-          break;
-        }
-        case ui::ET_KEY_PRESSED:
-        case ui::ET_KEY_RELEASED: {
-          ui::KeyEvent key_event(xev);
-          OnXWindowEvent(&key_event);
-          break;
-        }
-        case ui::ET_UNKNOWN:
-          break;
-        default:
-          NOTREACHED();
-      }
-
-      // If we coalesced an event we need to free its cookie.
-      if (num_coalesced > 0)
-        XFreeEventData(xev->xgeneric.display, &last_event.xcookie);
-#endif
-
       break;
     }
     case MapNotify: {
@@ -1322,30 +1211,6 @@ void XWindow::ProcessEvent(XEvent* xev) {
       }
       break;
     }
-#if !defined(USE_OZONE)
-    case MotionNotify: {
-      // Discard all but the most recent motion event that targets the same
-      // window with unchanged state.
-      XEvent last_event;
-      while (XPending(xev->xany.display)) {
-        XEvent next_event;
-        XPeekEvent(xev->xany.display, &next_event);
-        if (next_event.type == MotionNotify &&
-            next_event.xmotion.window == xev->xmotion.window &&
-            next_event.xmotion.subwindow == xev->xmotion.subwindow &&
-            next_event.xmotion.state == xev->xmotion.state) {
-          XNextEvent(xev->xany.display, &last_event);
-          xev = &last_event;
-        } else {
-          break;
-        }
-      }
-
-      ui::MouseEvent mouseev(xev);
-      OnXWindowEvent(&mouseev);
-      break;
-    }
-#endif
     case PropertyNotify: {
       XAtom changed_atom = xev->xproperty.atom;
       if (changed_atom == gfx::GetAtom("_NET_WM_STATE")) {
@@ -1364,15 +1229,15 @@ void XWindow::ProcessEvent(XEvent* xev) {
   }
 }
 
-void XWindow::UpdateWMUserTime(XEvent* xev) {
+void XWindow::UpdateWMUserTime(ui::Event* event) {
   if (!IsActive())
     return;
-
-  ui::EventType type = ui::EventTypeFromXEvent(*xev);
+  DCHECK(event);
+  ui::EventType type = event->type();
   if (type == ui::ET_MOUSE_PRESSED || type == ui::ET_KEY_PRESSED ||
       type == ui::ET_TOUCH_PRESSED) {
-    unsigned long wm_user_time_ms = static_cast<unsigned long>(
-        (ui::EventTimeFromXEvent(*xev) - base::TimeTicks()).InMilliseconds());
+    unsigned long wm_user_time_ms =
+        (event->time_stamp() - base::TimeTicks()).InMilliseconds();
     XChangeProperty(xdisplay_, xwindow_, gfx::GetAtom("_NET_WM_USER_TIME"),
                     XA_CARDINAL, 32, PropModeReplace,
                     reinterpret_cast<const unsigned char*>(&wm_user_time_ms),
@@ -1512,9 +1377,8 @@ void XWindow::DispatchResize() {
     // WM doesn't support _NET_WM_SYNC_REQUEST.
     // Or we are too slow, so _NET_WM_SYNC_REQUEST is disabled by the
     // compositor.
-    delayed_resize_task_.Reset(base::BindOnce(&XWindow::DelayedResize,
-                                              weak_factory_.GetWeakPtr(),
-                                              bounds_in_pixels_));
+    delayed_resize_task_.Reset(base::BindOnce(
+        &XWindow::DelayedResize, base::Unretained(this), bounds_in_pixels_));
     base::ThreadTaskRunnerHandle::Get()->PostTask(
         FROM_HERE, delayed_resize_task_.callback());
     return;
@@ -1535,6 +1399,8 @@ void XWindow::DispatchResize() {
 }
 
 void XWindow::DelayedResize(const gfx::Rect& bounds_in_pixels) {
+  base::WeakPtr<XWindow> alive(resize_weak_factory_.GetWeakPtr());
+
   if (configure_counter_value_is_extended_ &&
       (current_counter_value_ % 2) == 0) {
     // Increase the |extended_update_counter_|, so the compositor will know we
@@ -1545,6 +1411,13 @@ void XWindow::DelayedResize(const gfx::Rect& bounds_in_pixels) {
                    ++current_counter_value_);
   }
   NotifyBoundsChanged(bounds_in_pixels);
+
+  // TODO(crbug.com/1021490): Crashes during window re-attaching while dragging
+  // a tab points out to the XWindow instance being destroyed in the middle of
+  // DelayedResize closure execution. This + CHECK'ing weak references in dtor
+  // helps better identify such unexpected scenario.
+  if (!alive)
+    return;
   CancelResize();
 }
 
@@ -1582,6 +1455,20 @@ void XWindow::ConfineCursorTo(const gfx::Rect& bounds) {
 
 void XWindow::LowerWindow() {
   XLowerWindow(xdisplay_, xwindow_);
+}
+
+void XWindow::SetOverrideRedirect(bool override_redirect) {
+  bool remap = window_mapped_in_client_;
+  if (remap)
+    Hide();
+  XSetWindowAttributes swa;
+  swa.override_redirect = override_redirect;
+  XChangeWindowAttributes(xdisplay_, xwindow_, CWOverrideRedirect, &swa);
+  if (remap) {
+    Map();
+    if (has_pointer_grab_)
+      ui::ChangeActivePointerGrabCursor(x11::None);
+  }
 }
 
 bool XWindow::ContainsPointInRegion(const gfx::Point& point) const {

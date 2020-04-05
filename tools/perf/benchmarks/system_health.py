@@ -5,6 +5,7 @@
 from benchmarks import loading_metrics_category
 
 from core import perf_benchmark
+from core import platforms
 
 from telemetry import benchmark
 from telemetry import story
@@ -64,6 +65,10 @@ class _CommonSystemHealthBenchmark(perf_benchmark.PerfBenchmark):
 class DesktopCommonSystemHealth(_CommonSystemHealthBenchmark):
   """Desktop Chrome Energy System Health Benchmark."""
   PLATFORM = 'desktop'
+  # TODO(rmhasan): Remove the SUPPORTED_PLATFORMS lists.
+  # SUPPORTED_PLATFORMS is deprecated, please put system specifier tags
+  # from expectations.config in SUPPORTED_PLATFORM_TAGS.
+  SUPPORTED_PLATFORM_TAGS = [platforms.DESKTOP]
   SUPPORTED_PLATFORMS = [story.expectations.ALL_DESKTOP]
 
   @classmethod
@@ -85,6 +90,10 @@ class DesktopCommonSystemHealth(_CommonSystemHealthBenchmark):
 class MobileCommonSystemHealth(_CommonSystemHealthBenchmark):
   """Mobile Chrome Energy System Health Benchmark."""
   PLATFORM = 'mobile'
+  # TODO(rmhasan): Remove the SUPPORTED_PLATFORMS lists.
+  # SUPPORTED_PLATFORMS is deprecated, please put system specifier tags
+  # from expectations.config in SUPPORTED_PLATFORM_TAGS.
+  SUPPORTED_PLATFORM_TAGS = [platforms.MOBILE]
   SUPPORTED_PLATFORMS = [story.expectations.ALL_MOBILE]
 
   @classmethod
@@ -123,12 +132,16 @@ class _MemorySystemHealthBenchmark(perf_benchmark.PerfBenchmark):
                                           take_memory_measurement=True)
 
 
-@benchmark.Info(emails=['pasko@chromium.org', 'crouleau@chromium.org',
-                        'chrome-android-perf-status@chromium.org'],
-                documentation_url='https://bit.ly/system-health-benchmarks')
+@benchmark.Info(
+    emails=['pasko@chromium.org', 'chrome-android-perf-status@chromium.org'],
+    documentation_url='https://bit.ly/system-health-benchmarks')
 class DesktopMemorySystemHealth(_MemorySystemHealthBenchmark):
   """Desktop Chrome Memory System Health Benchmark."""
   PLATFORM = 'desktop'
+  # TODO(rmhasan): Remove the SUPPORTED_PLATFORMS lists.
+  # SUPPORTED_PLATFORMS is deprecated, please put system specifier tags
+  # from expectations.config in SUPPORTED_PLATFORM_TAGS.
+  SUPPORTED_PLATFORM_TAGS = [platforms.DESKTOP]
   SUPPORTED_PLATFORMS = [story.expectations.ALL_DESKTOP]
 
   @classmethod
@@ -136,12 +149,16 @@ class DesktopMemorySystemHealth(_MemorySystemHealthBenchmark):
     return 'system_health.memory_desktop'
 
 
-@benchmark.Info(emails=['pasko@chromium.org', 'crouleau@chromium.org',
-                        'chrome-android-perf-status@chromium.org'],
-                documentation_url='https://bit.ly/system-health-benchmarks')
+@benchmark.Info(
+    emails=['pasko@chromium.org', 'chrome-android-perf-status@chromium.org'],
+    documentation_url='https://bit.ly/system-health-benchmarks')
 class MobileMemorySystemHealth(_MemorySystemHealthBenchmark):
   """Mobile Chrome Memory System Health Benchmark."""
   PLATFORM = 'mobile'
+  # TODO(rmhasan): Remove the SUPPORTED_PLATFORMS lists.
+  # SUPPORTED_PLATFORMS is deprecated, please put system specifier tags
+  # from expectations.config in SUPPORTED_PLATFORM_TAGS.
+  SUPPORTED_PLATFORM_TAGS = [platforms.MOBILE]
   SUPPORTED_PLATFORMS = [story.expectations.ALL_MOBILE]
 
   def SetExtraBrowserOptions(self, options):
@@ -168,6 +185,10 @@ class WebviewStartupSystemHealthBenchmark(perf_benchmark.PerfBenchmark):
   and load a blank page.
   """
   options = {'pageset_repeat': 20}
+  # TODO(rmhasan): Remove the SUPPORTED_PLATFORMS lists.
+  # SUPPORTED_PLATFORMS is deprecated, please put system specifier tags
+  # from expectations.config in SUPPORTED_PLATFORM_TAGS.
+  SUPPORTED_PLATFORM_TAGS = [platforms.ANDROID_WEBVIEW]
   SUPPORTED_PLATFORMS = [story.expectations.ANDROID_WEBVIEW]
 
   def CreateStorySet(self, options):

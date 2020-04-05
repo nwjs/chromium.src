@@ -33,9 +33,9 @@ import org.chromium.base.test.util.RetryOnFailure;
 import org.chromium.base.test.util.UrlUtils;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeActivity;
-import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.omnibox.UrlBar;
 import org.chromium.chrome.browser.prerender.PrerenderTestHelper;
 import org.chromium.chrome.browser.tab.Tab;
@@ -290,8 +290,6 @@ public class FullscreenManagerTest {
                     public void onControlsOffsetChanged(int topOffset,
                             int topControlsMinHeightOffset, int bottomOffset,
                             int bottomControlsMinHeightOffset, boolean needsAnimate) {}
-                    @Override
-                    public void onToggleOverlayVideoMode(boolean enabled) {}
                     @Override
                     public void onBottomControlsHeightChanged(
                             int bottomControlsHeight, int bottomControlsMinHeight) {}

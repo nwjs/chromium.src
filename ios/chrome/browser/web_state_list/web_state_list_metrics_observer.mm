@@ -63,11 +63,11 @@ void WebStateListMetricsObserver::WebStateActivatedAt(
     web::WebState* old_web_state,
     web::WebState* new_web_state,
     int active_index,
-    int reason) {
+    ActiveWebStateChangeReason reason) {
   if (metric_collection_paused_)
     return;
   ++activated_web_state_counter_;
-  if (!(reason & WebStateListObserver::CHANGE_REASON_USER_ACTION))
+  if (reason == ActiveWebStateChangeReason::Replaced)
     return;
 
   base::RecordAction(base::UserMetricsAction("MobileTabSwitched"));

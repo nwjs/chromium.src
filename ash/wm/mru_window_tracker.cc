@@ -6,6 +6,7 @@
 
 #include <algorithm>
 
+#include "ash/public/cpp/app_types.h"
 #include "ash/public/cpp/shell_window_ids.h"
 #include "ash/public/cpp/window_properties.h"
 #include "ash/session/session_controller_impl.h"
@@ -51,7 +52,9 @@ class ScopedWindowClosingObserver : public aura::WindowObserver {
 };
 
 bool IsNonSysModalWindowConsideredActivatable(aura::Window* window) {
-  DCHECK(window);
+  if (window->GetProperty(ash::kExcludeInMruKey))
+    return false;
+
   ScopedWindowClosingObserver observer(window);
   AshFocusRules* focus_rules = Shell::Get()->focus_rules();
 
@@ -189,7 +192,8 @@ MruWindowTracker::WindowList BuildWindowListInternal(
 }  // namespace
 
 bool CanIncludeWindowInMruList(aura::Window* window) {
-  return wm::CanActivateWindow(window) && !WindowState::Get(window)->IsPip();
+  return wm::CanActivateWindow(window) &&
+         !window->GetProperty(ash::kExcludeInMruKey);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -203,6 +207,15 @@ MruWindowTracker::~MruWindowTracker() {
   Shell::Get()->activation_client()->RemoveObserver(this);
   for (auto* window : mru_windows_)
     window->RemoveObserver(this);
+}
+
+MruWindowTracker::WindowList MruWindowTracker::BuildAppWindowList(
+    DesksMruType desks_mru_type) const {
+  return BuildWindowListInternal(
+      &mru_windows_, desks_mru_type, [](aura::Window* w) {
+        return w->GetProperty(aura::client::kAppType) !=
+               static_cast<int>(ash::AppType::NON_APP);
+      });
 }
 
 MruWindowTracker::WindowList MruWindowTracker::BuildMruWindowList(
@@ -236,6 +249,15 @@ void MruWindowTracker::SetIgnoreActivations(bool ignore) {
   // to front.
   if (!ignore)
     SetActiveWindow(window_util::GetActiveWindow());
+}
+
+void MruWindowTracker::OnWindowMovedOutFromRemovingDesk(aura::Window* window) {
+  DCHECK(window);
+
+  auto iter = std::find(mru_windows_.begin(), mru_windows_.end(), window);
+  DCHECK(iter != mru_windows_.end());
+  mru_windows_.erase(iter);
+  mru_windows_.insert(mru_windows_.begin(), window);
 }
 
 void MruWindowTracker::AddObserver(Observer* observer) {

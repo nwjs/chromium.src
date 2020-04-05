@@ -12,6 +12,8 @@
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/base/class_property.h"
 
+class SkRegion;
+
 namespace aura {
 class Window;
 template <typename T>
@@ -60,6 +62,10 @@ ASH_PUBLIC_EXPORT extern const aura::WindowProperty<bool>* const
 // If true, will send system keys to the window for dispatch.
 ASH_PUBLIC_EXPORT extern const aura::WindowProperty<bool>* const
     kCanConsumeSystemKeysKey;
+
+// A property key to exclude the window in MruTracker.
+ASH_PUBLIC_EXPORT extern const aura::WindowProperty<bool>* const
+    kExcludeInMruKey;
 
 // A property key to indicate whether we should hide this window in overview
 // mode and Alt + Tab.
@@ -115,6 +121,16 @@ ASH_PUBLIC_EXPORT extern const aura::WindowProperty<bool>* const
 // source.
 ASH_PUBLIC_EXPORT extern const aura::WindowProperty<bool>* const
     kForceVisibleInMiniViewKey;
+
+// A property key to tell if the window's opacity should be managed by WM.
+ASH_PUBLIC_EXPORT extern const aura::WindowProperty<bool>* const
+    kWindowManagerManagesOpacityKey;
+
+// A property key to store whether we should minimize a window when a system
+// synthesized back event (back gesture, back button) is processed by this
+// window and when this window is at the bottom of its navigation stack.
+ASH_PUBLIC_EXPORT extern const aura::WindowProperty<bool*>* const
+    kMinimizeOnBackKey;
 
 // A property key to store the window state the window had before entering PIP.
 ASH_PUBLIC_EXPORT extern const aura::WindowProperty<WindowStateType>* const
@@ -177,6 +193,11 @@ ASH_PUBLIC_EXPORT extern const aura::WindowProperty<std::string*>* const
 // A property key to store the type of a window's shelf item.
 ASH_PUBLIC_EXPORT extern const aura::WindowProperty<int32_t>* const
     kShelfItemTypeKey;
+
+// A property key to store the system gesture exclusion region. From a point
+// inside the region, system gesture e.g. back gesture shouldn't be triggered.
+ASH_PUBLIC_EXPORT extern const aura::WindowProperty<SkRegion*>* const
+    kSystemGestureExclusionKey;
 
 // A property key to store the address of the source window that the drag
 // originated from if the window is currently in tab-dragging process.

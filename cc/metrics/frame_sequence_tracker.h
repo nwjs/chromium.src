@@ -36,7 +36,7 @@ class CompositorFrameReportingController;
 class ThroughputUkmReporter;
 class UkmManager;
 
-enum FrameSequenceTrackerType {
+enum class FrameSequenceTrackerType {
   // Used as an enum for metrics. DO NOT reorder or delete values. Rather,
   // add them at the end and increment kMaxType.
   kCompositorAnimation = 0,
@@ -47,24 +47,24 @@ enum FrameSequenceTrackerType {
   kUniversal = 5,
   kVideo = 6,
   kWheelScroll = 7,
+  kScrollbarScroll = 8,
+  kCustom = 9,  // Note that the metrics for kCustom are not reported on UMA,
+                // and instead are dispatched back to the LayerTreeHostClient.
   kMaxType
 };
+
+typedef uint16_t ActiveFrameSequenceTrackers;
 
 class CC_EXPORT FrameSequenceMetrics {
  public:
   FrameSequenceMetrics(FrameSequenceTrackerType type,
-                       UkmManager* ukm_manager,
                        ThroughputUkmReporter* ukm_reporter);
   ~FrameSequenceMetrics();
 
   FrameSequenceMetrics(const FrameSequenceMetrics&) = delete;
   FrameSequenceMetrics& operator=(const FrameSequenceMetrics&) = delete;
 
-  enum class ThreadType {
-    kMain,
-    kCompositor,
-    kSlower,
-  };
+  enum class ThreadType { kMain, kCompositor, kSlower, kUnknown };
 
   struct ThroughputData {
     static std::unique_ptr<base::trace_event::TracedValue> ToTracedValue(
@@ -73,11 +73,10 @@ class CC_EXPORT FrameSequenceMetrics {
 
     // Returns the throughput in percent, a return value of base::nullopt
     // indicates that no throughput metric is reported.
-    static base::Optional<int> ReportHistogram(
-        FrameSequenceTrackerType sequence_type,
-        ThreadType thread_type,
-        int metric_index,
-        const ThroughputData& data);
+    static base::Optional<int> ReportHistogram(FrameSequenceMetrics* metrics,
+                                               ThreadType thread_type,
+                                               int metric_index,
+                                               const ThroughputData& data);
 
     void Merge(const ThroughputData& data) {
       frames_expected += data.frames_expected;
@@ -106,36 +105,56 @@ class CC_EXPORT FrameSequenceMetrics {
 #endif
   };
 
+  void SetScrollingThread(ThreadType thread);
+
+  // Returns the 'effective thread' for the metrics (i.e. the thread most
+  // relevant for this metric).
+  ThreadType GetEffectiveThread() const;
+
   void Merge(std::unique_ptr<FrameSequenceMetrics> metrics);
   bool HasEnoughDataForReporting() const;
   bool HasDataLeftForReporting() const;
   // Report related metrics: throughput, checkboarding...
   void ReportMetrics();
+  void ComputeAggregatedThroughputForTesting() {
+    ComputeAggregatedThroughput();
+  }
 
   ThroughputData& impl_throughput() { return impl_throughput_; }
   ThroughputData& main_throughput() { return main_throughput_; }
+  ThroughputData& aggregated_throughput() { return aggregated_throughput_; }
   void add_checkerboarded_frames(int64_t frames) {
     frames_checkerboarded_ += frames;
   }
   uint32_t frames_checkerboarded() const { return frames_checkerboarded_; }
 
- private:
-  const FrameSequenceTrackerType type_;
+  FrameSequenceTrackerType type() const { return type_; }
+  ThroughputUkmReporter* ukm_reporter() const {
+    return throughput_ukm_reporter_;
+  }
 
-  // Please refer to the comments in FrameSequenceTrackerCollection's
-  // ukm_manager_.
-  UkmManager* const ukm_manager_;
+ private:
+  void ComputeAggregatedThroughput();
+  const FrameSequenceTrackerType type_;
 
   // Pointer to the reporter owned by the FrameSequenceTrackerCollection.
   ThroughputUkmReporter* const throughput_ukm_reporter_;
 
   ThroughputData impl_throughput_;
   ThroughputData main_throughput_;
+  // The aggregated throughput for the main/compositor thread.
+  ThroughputData aggregated_throughput_;
+
+  ThreadType scrolling_thread_ = ThreadType::kUnknown;
 
   // Tracks the number of produced frames that had some amount of
   // checkerboarding, and how many frames showed such checkerboarded frames.
   uint32_t frames_checkerboarded_ = 0;
 };
+
+// Map of kCustom tracker results keyed by a sequence id.
+using CustomTrackerResults =
+    base::flat_map<int, FrameSequenceMetrics::ThroughputData>;
 
 // Used for notifying attached FrameSequenceTracker's of begin-frames and
 // submitted frames.
@@ -152,13 +171,23 @@ class CC_EXPORT FrameSequenceTrackerCollection {
       const FrameSequenceTrackerCollection&) = delete;
 
   // Creates a tracker for the specified sequence-type.
-  void StartSequence(FrameSequenceTrackerType type);
+  FrameSequenceMetrics* StartSequence(FrameSequenceTrackerType type);
 
   // Schedules |tracker| for destruction. This is preferred instead of outright
   // desrtruction of the tracker, since this ensures that the actual tracker
   // instance is destroyed *after* the presentation-feedbacks have been received
   // for all submitted frames.
   void StopSequence(FrameSequenceTrackerType type);
+
+  // Creates a kCustom tracker for the given sequence id. It is an error and
+  // DCHECKs if there is already a tracker associated with the sequence id.
+  void StartCustomSequence(int sequence_id);
+
+  // Schedules the kCustom tracker representing |sequence_id| for destruction.
+  // It is a no-op if there is no tracker associated with the sequence id.
+  // Similar to StopSequence above, the tracker instance is destroyed *after*
+  // the presentation feedbacks have been received for all submitted frames.
+  void StopCustomSequence(int sequence_id);
 
   // Removes all trackers. This also immediately destroys all trackers that had
   // been scheduled for destruction, even if there are pending
@@ -178,15 +207,28 @@ class CC_EXPORT FrameSequenceTrackerCollection {
                          bool has_missing_content,
                          const viz::BeginFrameAck& ack,
                          const viz::BeginFrameArgs& origin_args);
-  void NotifyFrameEnd(const viz::BeginFrameArgs& args);
+  void NotifyFrameEnd(const viz::BeginFrameArgs& args,
+                      const viz::BeginFrameArgs& main_args);
 
   // Note that this notifies the trackers of the presentation-feedbacks, and
   // destroys any tracker that had been scheduled for destruction (using
-  // |ScheduleRemoval()|) if it has no more pending frames.
+  // |ScheduleRemoval()|) if it has no more pending frames. Data from non
+  // kCustom typed trackers are reported to UMA. Data from kCustom typed
+  // trackers are added to |custom_tracker_results_| for caller to pick up.
   void NotifyFramePresented(uint32_t frame_token,
                             const gfx::PresentationFeedback& feedback);
 
+  // Return the type of each active frame tracker, encoded into a 16 bit
+  // integer with the bit at each position corresponding to the enum value of
+  // each type.
+  ActiveFrameSequenceTrackers FrameSequenceTrackerActiveTypes();
+
+  // Reports the accumulated kCustom tracker results and clears it.
+  CustomTrackerResults TakeCustomTrackerResults();
+
   FrameSequenceTracker* GetTrackerForTesting(FrameSequenceTrackerType type);
+  FrameSequenceTracker* GetRemovalTrackerForTesting(
+      FrameSequenceTrackerType type);
 
   void SetUkmManager(UkmManager* manager);
 
@@ -194,12 +236,20 @@ class CC_EXPORT FrameSequenceTrackerCollection {
   friend class FrameSequenceTrackerTest;
 
   void RecreateTrackers(const viz::BeginFrameArgs& args);
+  // Destroy the trackers that are ready to be terminated.
+  void DestroyTrackers();
 
   const bool is_single_threaded_;
   // The callsite can use the type to manipulate the tracker.
   base::flat_map<FrameSequenceTrackerType,
                  std::unique_ptr<FrameSequenceTracker>>
       frame_trackers_;
+
+  // Custom trackers are keyed by a custom sequence id.
+  base::flat_map<int, std::unique_ptr<FrameSequenceTracker>>
+      custom_frame_trackers_;
+  CustomTrackerResults custom_tracker_results_;
+
   std::vector<std::unique_ptr<FrameSequenceTracker>> removal_trackers_;
   CompositorFrameReportingController* const
       compositor_frame_reporting_controller_;
@@ -207,15 +257,9 @@ class CC_EXPORT FrameSequenceTrackerCollection {
   // The reporter takes throughput data and connect to UkmManager to report it.
   std::unique_ptr<ThroughputUkmReporter> throughput_ukm_reporter_;
 
-  // This is pointing to the LayerTreeHostImpl::ukm_manager_, which is
-  // initialized right after the LayerTreeHostImpl is created. So when this
-  // pointer is initialized, there should be no trackers yet. Moreover, the
-  // LayerTreeHostImpl::ukm_manager_ lives as long as the LayerTreeHostImpl, so
-  // this pointer should never be null as long as LayerTreeHostImpl is alive.
-  UkmManager* ukm_manager_ = nullptr;
-
-  base::flat_map<FrameSequenceTrackerType,
-                 std::unique_ptr<FrameSequenceMetrics>>
+  base::flat_map<
+      std::pair<FrameSequenceTrackerType, FrameSequenceMetrics::ThreadType>,
+      std::unique_ptr<FrameSequenceMetrics>>
       accumulated_metrics_;
 };
 
@@ -260,7 +304,8 @@ class CC_EXPORT FrameSequenceTracker {
                          const viz::BeginFrameAck& ack,
                          const viz::BeginFrameArgs& origin_args);
 
-  void ReportFrameEnd(const viz::BeginFrameArgs& args);
+  void ReportFrameEnd(const viz::BeginFrameArgs& args,
+                      const viz::BeginFrameArgs& main_args);
 
   // Notifies the tracker of the presentation-feedback of a previously submitted
   // CompositorFrame with |frame_token|.
@@ -290,6 +335,7 @@ class CC_EXPORT FrameSequenceTracker {
 
   FrameSequenceMetrics* metrics() { return metrics_.get(); }
   FrameSequenceTrackerType type() const { return type_; }
+  int custom_sequence_id() const { return custom_sequence_id_; }
 
   std::unique_ptr<FrameSequenceMetrics> TakeMetrics();
 
@@ -298,14 +344,17 @@ class CC_EXPORT FrameSequenceTracker {
   friend class FrameSequenceTrackerTest;
 
   FrameSequenceTracker(FrameSequenceTrackerType type,
-                       UkmManager* manager,
-                       ThroughputUkmReporter* throughput_ukm_reporter);
+                       ThroughputUkmReporter* throughput_ukm_reporter,
+                       int custom_sequence_id = -1);
 
   FrameSequenceMetrics::ThroughputData& impl_throughput() {
     return metrics_->impl_throughput();
   }
   FrameSequenceMetrics::ThroughputData& main_throughput() {
     return metrics_->main_throughput();
+  }
+  FrameSequenceMetrics::ThroughputData& aggregated_throughput() {
+    return metrics_->aggregated_throughput();
   }
 
   void ScheduleTerminate();
@@ -344,9 +393,8 @@ class CC_EXPORT FrameSequenceTracker {
 
   bool ShouldIgnoreSequence(uint64_t sequence_number) const;
 
-  void ReportMetricsForTesting();
-
   const FrameSequenceTrackerType type_;
+  const int custom_sequence_id_;
 
   TerminationStatus termination_status_ = TerminationStatus::kActive;
 
@@ -418,6 +466,14 @@ class CC_EXPORT FrameSequenceTracker {
   uint64_t last_processed_main_sequence_ = 0;
   uint64_t last_processed_main_sequence_latency_ = 0;
 
+  // Used to compute aggregated throughput.
+  // When expecting a main frame, we accumulate the number of impl frames
+  // presented because if that main frame ends up with no-damage, then we should
+  // count the impl frames that were produced in the meantime.
+  uint32_t impl_frames_produced_while_expecting_main_ = 0;
+  // Each entry is a frame token, inserted at ReportSubmitFrame.
+  base::circular_deque<uint32_t> expecting_main_when_submit_impl_;
+
   // Handle off-screen main damage case. In this case, the sequence is typically
   // like: b(1)B(0,1)E(1)n(1)e(1)b(2)n(2)e(2)...b(10)E(2)B(10,10)n(10)e(10).
   // Note that between two 'E's, all the impl frames caused no damage, and
@@ -427,9 +483,21 @@ class CC_EXPORT FrameSequenceTracker {
   // TODO(xidachen): remove this one.
   uint64_t current_begin_main_sequence_ = 0;
 
-#if DCHECK_IS_ON()
+  // Tracks some data to generate useful trace events.
+  struct TraceData {
+    explicit TraceData(const void* trace_id);
+    const void* trace_id;
+    base::TimeTicks last_timestamp = base::TimeTicks::Now();
+    int frame_count = 0;
+
+    void Advance(base::TimeTicks new_timestamp);
+  } trace_data_;
+
+  // True when an impl-impl is not ended. A tracker is ready for termination
+  // only when the last impl-frame is ended (ReportFrameEnd).
   bool is_inside_frame_ = false;
 
+#if DCHECK_IS_ON()
   // This stringstream represents a sequence of frame reporting activities on
   // the current tracker. Each letter can be one of the following:
   // {'B', 'N', 'b', 'n', 'S', 'P'}, where

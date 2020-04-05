@@ -1,6 +1,7 @@
 from __future__ import print_function
 import array
 import os
+import sys
 from collections import defaultdict, namedtuple
 
 from mozlog import structuredlog
@@ -128,7 +129,7 @@ def unexpected_changes(manifests, change_data, files_changed):
     files_changed = set(files_changed)
 
     root_manifest = None
-    for manifest, paths in manifests.iteritems():
+    for manifest, paths in iteritems(manifests):
         if paths["url_base"] == "/":
             root_manifest = manifest
             break
@@ -258,7 +259,7 @@ def load_test_data(test_paths):
     manifests = manifest_loader.load()
 
     id_test_map = {}
-    for test_manifest, paths in manifests.iteritems():
+    for test_manifest, paths in iteritems(manifests):
         id_test_map.update(create_test_tree(paths["metadata_path"],
                                             test_manifest))
     return id_test_map
@@ -325,8 +326,11 @@ def write_new_expected(metadata_path, expected):
         tmp_path = path + ".tmp"
         try:
             with open(tmp_path, "wb") as f:
-                f.write(manifest_str)
-            os.rename(tmp_path, path)
+                f.write(manifest_str.encode("utf8"))
+            if sys.version_info >= (3, 3):
+                os.replace(tmp_path, path)
+            else:
+                os.rename(tmp_path, path)
         except (Exception, KeyboardInterrupt):
             try:
                 os.unlink(tmp_path)
@@ -497,6 +501,9 @@ class ExpectedUpdater(object):
         return dir_id, self.id_test_map[dir_id]
 
     def lsan_leak(self, data):
+        if data["scope"] == "/":
+            logger.warning("Not updating lsan annotations for root scope")
+            return
         dir_id, test_data = self.test_for_scope(data)
         test_data.set(dir_id, None, "lsan",
                       self.run_info, (data["frames"], data.get("allowed_match")))
@@ -504,6 +511,9 @@ class ExpectedUpdater(object):
             test_data.set_requires_update()
 
     def mozleak_object(self, data):
+        if data["scope"] == "/":
+            logger.warning("Not updating mozleak annotations for root scope")
+            return
         dir_id, test_data = self.test_for_scope(data)
         test_data.set(dir_id, None, "leak-object",
                       self.run_info, ("%s:%s", (data["process"], data["name"]),
@@ -512,6 +522,9 @@ class ExpectedUpdater(object):
             test_data.set_requires_update()
 
     def mozleak_total(self, data):
+        if data["scope"] == "/":
+            logger.warning("Not updating mozleak annotations for root scope")
+            return
         if data["bytes"]:
             dir_id, test_data = self.test_for_scope(data)
             test_data.set(dir_id, None, "leak-threshold",
@@ -538,23 +551,22 @@ def create_test_tree(metadata_path, test_manifest):
         for test in tests:
             id_test_map[intern(ensure_str(test.id))] = test_file_data
 
-        dir_path = os.path.split(test_path)[0].replace(os.path.sep, "/")
+        dir_path = os.path.dirname(test_path)
         while True:
-            if dir_path:
-                dir_id = dir_path + "/__dir__"
-            else:
-                dir_id = "__dir__"
-            dir_id = intern(ensure_str((test_manifest.url_base + dir_id).lstrip("/")))
-            if dir_id not in id_test_map:
-                test_file_data = TestFileData(intern(ensure_str(test_manifest.url_base)),
-                                              None,
-                                              metadata_path,
-                                              dir_id,
-                                              [])
-                id_test_map[dir_id] = test_file_data
-            if not dir_path or dir_path in id_test_map:
+            dir_meta_path = os.path.join(dir_path, "__dir__")
+            dir_id = (test_manifest.url_base + dir_meta_path.replace(os.path.sep, "/")).lstrip("/")
+            if dir_id in id_test_map:
                 break
-            dir_path = dir_path.rsplit("/", 1)[0] if "/" in dir_path else ""
+
+            test_file_data = TestFileData(intern(ensure_str(test_manifest.url_base)),
+                                          None,
+                                          metadata_path,
+                                          dir_meta_path,
+                                          [])
+            id_test_map[dir_id] = test_file_data
+            dir_path = os.path.dirname(dir_path)
+            if not dir_path:
+                break
 
     return id_test_map
 

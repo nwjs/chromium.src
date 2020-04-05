@@ -14,6 +14,7 @@ import static org.chromium.chrome.test.util.ToolbarTestUtils.BOTTOM_TOOLBAR;
 import static org.chromium.chrome.test.util.ToolbarTestUtils.TAB_SWITCHER_TOOLBAR;
 import static org.chromium.chrome.test.util.ToolbarTestUtils.TAB_SWITCHER_TOOLBAR_MENU;
 import static org.chromium.chrome.test.util.ToolbarTestUtils.TAB_SWITCHER_TOOLBAR_NEW_TAB;
+import static org.chromium.chrome.test.util.ToolbarTestUtils.TAB_SWITCHER_TOOLBAR_NEW_TAB_VARIATION;
 import static org.chromium.chrome.test.util.ToolbarTestUtils.TAB_SWITCHER_TOOLBAR_TAB_SWITCHER_BUTTON;
 import static org.chromium.chrome.test.util.ToolbarTestUtils.TOP_TOOLBAR;
 import static org.chromium.chrome.test.util.ToolbarTestUtils.TOP_TOOLBAR_HOME;
@@ -24,25 +25,22 @@ import static org.chromium.chrome.test.util.ToolbarTestUtils.checkToolbarVisibil
 
 import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
-import android.os.Build;
 import android.support.test.filters.MediumTest;
 
 import org.junit.After;
-import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestRule;
 import org.junit.runner.RunWith;
 
 import org.chromium.base.test.util.CommandLineFlags;
-import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Restriction;
-import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.compositor.layouts.Layout;
+import org.chromium.chrome.browser.flags.CachedFeatureFlags;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
-import org.chromium.chrome.browser.flags.FeatureUtilities;
+import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.toolbar.bottom.BottomToolbarVariationManager;
 import org.chromium.chrome.browser.toolbar.bottom.BottomToolbarVariationManager.Variations;
@@ -58,10 +56,14 @@ import org.chromium.ui.test.util.UiRestriction;
 // clang-format off
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 @Restriction(UiRestriction.RESTRICTION_TYPE_PHONE)
+@Features.DisableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID})
 public class AdaptiveToolbarTest {
     // Params to turn off new tab variation in GTS.
     private static final String NO_NEW_TAB_VARIATION_PARAMS = "force-fieldtrial-params=" +
             "Study.Group:tab_grid_layout_android_new_tab/false";
+    // Params to turn on new tab variation in GTS.
+    private static final String NEW_TAB_VARIATION_PARAMS = "force-fieldtrial-params=" +
+            "Study.Group:tab_grid_layout_android_new_tab/NewTabVariation";
     // clang-format on
     @Rule
     public ChromeTabbedActivityTestRule mActivityTestRule = new ChromeTabbedActivityTestRule();
@@ -69,24 +71,20 @@ public class AdaptiveToolbarTest {
     @Rule
     public TestRule mProcessor = new Features.InstrumentationProcessor();
 
-    @Before
-    public void setUp() {
-        FeatureUtilities.setTabGroupsAndroidEnabledForTesting(false);
-    }
-
     @After
     public void tearDown() {
-        FeatureUtilities.setGridTabSwitcherEnabledForTesting(null);
-        FeatureUtilities.setIsBottomToolbarEnabledForTesting(null);
+        CachedFeatureFlags.setForTesting(ChromeFeatureList.TAB_GRID_LAYOUT_ANDROID, null);
+        CachedFeatureFlags.setForTesting(ChromeFeatureList.CHROME_DUET, null);
         mActivityTestRule.getActivity().setRequestedOrientation(
                 ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
     }
 
     private void setupFlagsAndLaunchActivity(
             boolean isBottomToolbarEnabled, boolean isGridTabSwitcherEnabled) {
-        FeatureUtilities.setGridTabSwitcherEnabledForTesting(isGridTabSwitcherEnabled);
-        FeatureUtilities.setIsBottomToolbarEnabledForTesting(isBottomToolbarEnabled);
-        mActivityTestRule.startMainActivityFromLauncher();
+        CachedFeatureFlags.setForTesting(
+                ChromeFeatureList.TAB_GRID_LAYOUT_ANDROID, isGridTabSwitcherEnabled);
+        CachedFeatureFlags.setForTesting(ChromeFeatureList.CHROME_DUET, isBottomToolbarEnabled);
+        mActivityTestRule.startMainActivityOnBlankPage();
         CriteriaHelper.pollUiThread(mActivityTestRule.getActivity()
                                             .getTabModelSelector()
                                             .getTabModelFilterProvider()
@@ -130,11 +128,8 @@ public class AdaptiveToolbarTest {
     @Test
     @MediumTest
     // clang-format off
-    @DisableIf.Build(message = "Flaky on KitKat: crbug.com/1046317",
-            sdk_is_less_than = Build.VERSION_CODES.LOLLIPOP)
     @CommandLineFlags.Add({"enable-features=" + ChromeFeatureList.TAB_GRID_LAYOUT_ANDROID +
             "<Study", "force-fieldtrials=Study/Group", NO_NEW_TAB_VARIATION_PARAMS})
-    @DisabledTest(message = "crbug.com/1046748")
     public void testTopToolbar_WithGTS_WithBottomToolbar_Home_Search_Tab_Switcher_IncognitoDisabled() {
         // clang-format on
         IncognitoUtils.setEnabledForTesting(false);
@@ -172,8 +167,6 @@ public class AdaptiveToolbarTest {
     @Test
     @MediumTest
     // clang-format off
-    @DisableIf.Build(message = "Flaky on KitKat: crbug.com/1046316",
-            sdk_is_less_than = Build.VERSION_CODES.LOLLIPOP)
     @CommandLineFlags.Add({"enable-features=" + ChromeFeatureList.TAB_GRID_LAYOUT_ANDROID +
             "<Study", "force-fieldtrials=Study/Group", NO_NEW_TAB_VARIATION_PARAMS})
     public void testTopToolbar_WithGTS_WithBottomToolbar_Home_Search_Share() {
@@ -206,6 +199,7 @@ public class AdaptiveToolbarTest {
 
     @Test
     @MediumTest
+    @DisabledTest(message = "Failed on android-arm-stable-tests. crbug.com/1062634")
     // clang-format off
     @CommandLineFlags.Add({"enable-features=" + ChromeFeatureList.TAB_GRID_LAYOUT_ANDROID +
             "<Study", "force-fieldtrials=Study/Group", NO_NEW_TAB_VARIATION_PARAMS})
@@ -263,7 +257,6 @@ public class AdaptiveToolbarTest {
 
     @Test
     @MediumTest
-    @DisableIf.Build(message = "Flaky test: https://crbug.com/1045415")
     public void testTopToolbar_WithoutGTS_WithBottomToolbar_Home_Search_Tab_Switcher() {
         BottomToolbarVariationManager.setVariation(Variations.HOME_SEARCH_TAB_SWITCHER);
         setupFlagsAndLaunchActivity(true, false);
@@ -294,11 +287,7 @@ public class AdaptiveToolbarTest {
 
     @Test
     @MediumTest
-    // clang-format off
-    @DisableIf.Build(message = "Flaky on KitKat: crbug.com/1045729",
-            sdk_is_less_than = Build.VERSION_CODES.LOLLIPOP)
     public void testTopToolbar_WithoutGTS_WithBottomToolbar_Home_Search_Share() {
-        // clang-format on
         BottomToolbarVariationManager.setVariation(Variations.HOME_SEARCH_SHARE);
         setupFlagsAndLaunchActivity(true, false);
         final ChromeTabbedActivity cta = mActivityTestRule.getActivity();
@@ -352,5 +341,60 @@ public class AdaptiveToolbarTest {
         checkToolbarButtonVisibility(
                 TAB_SWITCHER_TOOLBAR, TAB_SWITCHER_TOOLBAR_TAB_SWITCHER_BUTTON, true);
         checkToolbarVisibility(BOTTOM_TOOLBAR, false);
+    }
+
+    @Test
+    @MediumTest
+    // clang-format off
+    @CommandLineFlags.Add({"enable-features=" + ChromeFeatureList.TAB_GRID_LAYOUT_ANDROID +
+            "<Study", "force-fieldtrials=Study/Group", NEW_TAB_VARIATION_PARAMS})
+    public void testTopToolbar_NewTabVariation() {
+        // clang-format on
+        setupFlagsAndLaunchActivity(false, true);
+        final ChromeTabbedActivity cta = mActivityTestRule.getActivity();
+        Layout layout = cta.getLayoutManager().getOverviewLayout();
+        assertTrue(layout instanceof StartSurfaceLayout);
+        enterTabSwitcher(cta);
+        verifyTabSwitcherCardCount(cta, 1);
+
+        checkToolbarButtonVisibility(TAB_SWITCHER_TOOLBAR, TAB_SWITCHER_TOOLBAR_MENU, true);
+        checkToolbarButtonVisibility(
+                TAB_SWITCHER_TOOLBAR, TAB_SWITCHER_TOOLBAR_NEW_TAB_VARIATION, true);
+        checkToolbarButtonVisibility(TAB_SWITCHER_TOOLBAR, TAB_SWITCHER_TOOLBAR_NEW_TAB, false);
+
+        rotateDeviceToOrientation(cta, Configuration.ORIENTATION_LANDSCAPE);
+
+        checkToolbarButtonVisibility(TAB_SWITCHER_TOOLBAR, TAB_SWITCHER_TOOLBAR_MENU, true);
+        checkToolbarButtonVisibility(
+                TAB_SWITCHER_TOOLBAR, TAB_SWITCHER_TOOLBAR_NEW_TAB_VARIATION, true);
+        checkToolbarButtonVisibility(TAB_SWITCHER_TOOLBAR, TAB_SWITCHER_TOOLBAR_NEW_TAB, false);
+    }
+
+    @Test
+    @MediumTest
+    // clang-format off
+    @CommandLineFlags.Add({"enable-features=" + ChromeFeatureList.TAB_GRID_LAYOUT_ANDROID +
+            "<Study", "force-fieldtrials=Study/Group", NEW_TAB_VARIATION_PARAMS})
+    public void testTopToolbar_NewTabVariation_IncognitoDisabled() {
+        // clang-format on
+        IncognitoUtils.setEnabledForTesting(false);
+        setupFlagsAndLaunchActivity(false, true);
+        final ChromeTabbedActivity cta = mActivityTestRule.getActivity();
+        Layout layout = cta.getLayoutManager().getOverviewLayout();
+        assertTrue(layout instanceof StartSurfaceLayout);
+        enterTabSwitcher(cta);
+        verifyTabSwitcherCardCount(cta, 1);
+
+        checkToolbarButtonVisibility(TAB_SWITCHER_TOOLBAR, TAB_SWITCHER_TOOLBAR_MENU, true);
+        checkToolbarButtonVisibility(
+                TAB_SWITCHER_TOOLBAR, TAB_SWITCHER_TOOLBAR_NEW_TAB_VARIATION, false);
+        checkToolbarButtonVisibility(TAB_SWITCHER_TOOLBAR, TAB_SWITCHER_TOOLBAR_NEW_TAB, true);
+
+        rotateDeviceToOrientation(cta, Configuration.ORIENTATION_LANDSCAPE);
+
+        checkToolbarButtonVisibility(TAB_SWITCHER_TOOLBAR, TAB_SWITCHER_TOOLBAR_MENU, true);
+        checkToolbarButtonVisibility(
+                TAB_SWITCHER_TOOLBAR, TAB_SWITCHER_TOOLBAR_NEW_TAB_VARIATION, false);
+        checkToolbarButtonVisibility(TAB_SWITCHER_TOOLBAR, TAB_SWITCHER_TOOLBAR_NEW_TAB, true);
     }
 }

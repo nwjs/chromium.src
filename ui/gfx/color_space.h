@@ -16,6 +16,7 @@
 #include "build/build_config.h"
 #include "third_party/skia/include/core/SkColorSpace.h"
 #include "third_party/skia/include/core/SkImageInfo.h"
+#include "third_party/skia/include/core/SkMatrix44.h"
 #include "ui/gfx/color_space_export.h"
 
 // These forward declarations are used to give IPC code friend access to private
@@ -35,6 +36,8 @@ struct StructTraits;
 struct _GLcolorSpace;
 
 namespace gfx {
+
+enum class ContentColorUsage : uint8_t;
 
 namespace mojom {
 class ColorSpaceDataView;
@@ -220,10 +223,6 @@ class COLOR_SPACE_EXPORT ColorSpace {
                       RangeID::LIMITED);
   }
 
-  // Generates a process global unique ID that can be used to key a color space.
-  static int GetNextId();
-  static constexpr int kInvalidId = -1;
-
   // On macOS and on ChromeOS, sRGB's (1,1,1) always coincides with PQ's 100
   // nits (which may not be 100 physical nits). Life is more complicated on
   // Windows.
@@ -235,11 +234,16 @@ class COLOR_SPACE_EXPORT ColorSpace {
   size_t GetHash() const;
   std::string ToString() const;
 
+  bool IsWide() const;
+
   // Returns true if the transfer function is an HDR one (SMPTE 2084, HLG, etc).
   bool IsHDR() const;
 
   // Returns true if the encoded values can be outside of the 0.0-1.0 range.
   bool FullRangeEncodedValues() const;
+
+  // Returns the color space's content color usage category (sRGB, WCG, or HDR).
+  ContentColorUsage GetContentColorUsage() const;
 
   // Return this color space with any YUV to RGB conversion stripped off.
   ColorSpace GetAsRGB() const;
@@ -257,9 +261,10 @@ class COLOR_SPACE_EXPORT ColorSpace {
   // would be appropriate for rasterization.
   ColorSpace GetRasterColorSpace() const;
 
-  // If |this| is the final output color space, return the color space that
-  // would be appropriate for blending.
-  ColorSpace GetBlendingColorSpace() const;
+  // Return true if blending in |this| is close enough to blending in sRGB to
+  // be considered acceptable (only PQ and nearly-linear transfer functions
+  // return false).
+  bool IsSuitableForBlending() const;
 
   // Return a combined color space with has the same primary and transfer than
   // the caller but replacing the matrix and range with the given values.
@@ -324,6 +329,8 @@ class COLOR_SPACE_EXPORT ColorSpace {
   static void GetPrimaryMatrix(PrimaryID, skcms_Matrix3x3* to_XYZD50);
   static bool GetTransferFunction(TransferID, skcms_TransferFunction* fn);
   static size_t TransferParamCount(TransferID);
+
+  void GetPQTransferFunction(skcms_TransferFunction* fn) const;
 
   void SetCustomTransferFunction(const skcms_TransferFunction& fn);
   void SetCustomPrimaries(const skcms_Matrix3x3& to_XYZD50);

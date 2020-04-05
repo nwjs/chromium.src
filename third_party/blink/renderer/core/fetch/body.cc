@@ -64,7 +64,7 @@ class BodyConsumerBase : public GarbageCollected<BodyConsumerBase>,
                                      WrapPersistent(this), object));
   }
 
-  void Trace(blink::Visitor* visitor) override {
+  void Trace(Visitor* visitor) override {
     visitor->Trace(resolver_);
     FetchDataLoader::Client::Trace(visitor);
   }
@@ -400,7 +400,7 @@ bool Body::IsBodyUsedForDCheck(ExceptionState& exception_state) {
          BodyBuffer()->IsStreamDisturbedForDCheck(exception_state);
 }
 
-Body::Body(ExecutionContext* context) : ContextClient(context) {}
+Body::Body(ExecutionContext* context) : ExecutionContextClient(context) {}
 
 void Body::RejectInvalidConsumption(ScriptState* script_state,
                                     ExceptionState& exception_state) {

@@ -7,6 +7,7 @@
 
 #include "base/macros.h"
 #include "base/time/time.h"
+#include "base/util/type_safety/strong_alias.h"
 #include "url/gurl.h"
 
 namespace sql {
@@ -14,6 +15,8 @@ class Database;
 }
 
 namespace password_manager {
+
+using BulkCheckDone = util::StrongAlias<class BulkCheckDoneTag, bool>;
 
 enum class CompromiseType {
   // If the credentials was leaked by a data breach.
@@ -33,15 +36,6 @@ enum class RemoveCompromisedCredentialsReason {
 
 // Represents information about the particular compromised credentials.
 struct CompromisedCredentials {
-  CompromisedCredentials(std::string signon_realm,
-                         base::string16 username,
-                         base::Time create_time,
-                         CompromiseType compromise_type)
-      : signon_realm(std::move(signon_realm)),
-        username(std::move(username)),
-        create_time(create_time),
-        compromise_type(compromise_type) {}
-
   // The signon_realm of the website where the credentials were compromised.
   std::string signon_realm;
   // The value of the compromised username.
@@ -49,7 +43,7 @@ struct CompromisedCredentials {
   // The date when the record was created.
   base::Time create_time;
   // The type of the credentials that was compromised.
-  CompromiseType compromise_type;
+  CompromiseType compromise_type = CompromiseType::kLeaked;
 };
 
 bool operator==(const CompromisedCredentials& lhs,
@@ -104,6 +98,10 @@ class CompromisedCredentialsTable {
 
   // Returns all compromised credentials from the database.
   std::vector<CompromisedCredentials> GetAllRows();
+
+  // Reports UMA metrics about the table. |bulk_check_done| means that the
+  // password bulk leak check was executed in the past.
+  void ReportMetrics(BulkCheckDone bulk_check_done);
 
  private:
   sql::Database* db_ = nullptr;

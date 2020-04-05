@@ -104,6 +104,7 @@ Polymer({
 
   listeners: {
     'refresh-pref': 'onRefreshPref_',
+    'user-action-setting-change': 'onSettingChange_',
   },
 
   /**
@@ -209,22 +210,48 @@ Polymer({
       scrollToTop(e.detail.bottom - this.$.container.clientHeight)
           .then(e.detail.callback);
     });
+
+    // Window event listeners will not fire when settings first starts.
+    // Blur events before the first focus event do not matter.
+    if (document.hasFocus()) {
+      settings.recordPageFocus();
+    }
+
+    window.addEventListener('focus', settings.recordPageFocus);
+    window.addEventListener('blur', settings.recordPageBlur);
   },
 
   /** @override */
   detached() {
+    window.removeEventListener('focus', settings.recordPageFocus);
+    window.removeEventListener('blur', settings.recordPageBlur);
     settings.Router.getInstance().resetRouteForTesting();
   },
 
-  /** @param {!settings.Route} route */
-  currentRouteChanged(route) {
-    if (route.depth <= 1) {
+  /**
+   * @param {!settings.Route} newRoute
+   * @param {!settings.Route} oldRoute
+   */
+  currentRouteChanged(newRoute, oldRoute) {
+    if (oldRoute && newRoute != oldRoute) {
+      // Search triggers route changes and currentRouteChanged() is called
+      // in attached() state which is extraneous for this metric.
+      settings.recordNavigation();
+    }
+
+    if (newRoute.depth <= 1) {
       // Main page uses scroll visibility to determine shadow.
       this.enableShadowBehavior(true);
     } else {
       // Sub-pages always show the top-container shadow.
       this.enableShadowBehavior(false);
       this.showDropShadows();
+    }
+
+    if (loadTimeData.getBoolean('newOsSettingsSearch')) {
+      // TODO(crbug/1056909): Remove when new os settings search complete. This
+      // block prevents the old settings search code from being executed.
+      return;
     }
 
     const urlSearchQuery =
@@ -237,7 +264,16 @@ Polymer({
 
     const toolbar = /** @type {!OsToolbarElement} */ (this.$$('os-toolbar'));
     const searchField =
-        /** @type {CrToolbarSearchFieldElement} */ (toolbar.getSearchField());
+        /** @type {?CrToolbarSearchFieldElement} */ (toolbar.getSearchField());
+
+    if (!searchField) {
+      // TODO(crbug/1056909): Remove this and surrounding code when new os
+      // settings search complete. If the search field has not been rendered
+      // yet, do not continue. crbug/1056909 changes the toolbar search field to
+      // an optional value, so the element is not attached to the DOM the first
+      // time this runs when the new OS Settings search flag is not flipped on.
+      return;
+    }
 
     // If the search was initiated by directly entering a search URL, need to
     // sync the URL parameter to the textbox.
@@ -247,6 +283,7 @@ Polymer({
       searchField.setValue(urlSearchQuery, true /* noEvent */);
     }
 
+    settings.recordSearch();
     this.$.main.searchContents(urlSearchQuery);
   },
 
@@ -273,11 +310,22 @@ Polymer({
   },
 
   /**
+   * @private
+   */
+  onSettingChange_() {
+    settings.recordSettingChange();
+  },
+
+  /**
    * Handles the 'search-changed' event fired from the toolbar.
+   * TODO(crbug/1056909): Remove when new settings search complete.
    * @param {!Event} e
    * @private
    */
   onSearchChanged_(e) {
+    if (loadTimeData.getBoolean('newOsSettingsSearch')) {
+      return;
+    }
     const query = e.detail;
     settings.Router.getInstance().navigateTo(
         settings.routes.BASIC,

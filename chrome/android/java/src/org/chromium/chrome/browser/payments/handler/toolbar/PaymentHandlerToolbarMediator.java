@@ -5,26 +5,33 @@
 package org.chromium.chrome.browser.payments.handler.toolbar;
 
 import android.os.Handler;
-import android.support.annotation.DrawableRes;
+import android.view.View;
+
+import androidx.annotation.DrawableRes;
 
 import org.chromium.base.Log;
-import org.chromium.chrome.R;
+import org.chromium.chrome.browser.ChromeActivity;
+import org.chromium.chrome.browser.offlinepages.OfflinePageUtils;
+import org.chromium.chrome.browser.page_info.PageInfoController;
 import org.chromium.chrome.browser.payments.handler.toolbar.PaymentHandlerToolbarCoordinator.PaymentHandlerToolbarObserver;
-import org.chromium.chrome.browser.ssl.SecurityStateModel;
+import org.chromium.chrome.browser.ssl.ChromeSecurityStateModelDelegate;
+import org.chromium.components.omnibox.SecurityStatusIcon;
 import org.chromium.components.security_state.ConnectionSecurityLevel;
+import org.chromium.components.security_state.SecurityStateModel;
 import org.chromium.content_public.browser.NavigationHandle;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.WebContentsObserver;
 import org.chromium.ui.modelutil.PropertyModel;
+import org.chromium.url.URI;
 
-import java.net.URI;
 import java.net.URISyntaxException;
 
 /**
  * PaymentHandlerToolbar mediator, which is responsible for receiving events from the view and
  * notifies the backend (the coordinator).
  */
-/* package */ class PaymentHandlerToolbarMediator extends WebContentsObserver {
+/* package */ class PaymentHandlerToolbarMediator
+        extends WebContentsObserver implements View.OnClickListener {
     // Abbreviated for the length limit.
     private static final String TAG = "PaymentHandlerTb";
     /** The delay (four video frames - for 60Hz) after which the hide progress will be hidden. */
@@ -36,24 +43,33 @@ import java.net.URISyntaxException;
     /* package */ static final float MINIMUM_LOAD_PROGRESS = 0.05f;
 
     private final PropertyModel mModel;
-    private final PaymentHandlerToolbarObserver mObserver;
+    private PaymentHandlerToolbarObserver mObserver;
     /** The handler to delay hiding the progress bar. */
     private Handler mHideProgressBarHandler;
     /** Postfixed with "Ref" to distinguish from mWebContent in WebContentsObserver. */
     private final WebContents mWebContentsRef;
+    private final boolean mIsSmallDevice;
+    private final ChromeActivity mChromeActivity;
 
     /**
      * Build a new mediator that handle events from outside the payment handler toolbar component.
      * @param model The {@link PaymentHandlerToolbarProperties} that holds all the view state for
      *         the payment handler toolbar component.
+     * @param chromeActivity The {@link ChromeActivity}.
      * @param webContents The web-contents that loads the payment app.
-     * @param observer The observer of this toolbar.
+     * @param isSmallDevice Whether the device screen is considered small.
      */
-    /* package */ PaymentHandlerToolbarMediator(
-            PropertyModel model, WebContents webContents, PaymentHandlerToolbarObserver observer) {
+    /* package */ PaymentHandlerToolbarMediator(PropertyModel model, ChromeActivity chromeActivity,
+            WebContents webContents, boolean isSmallDevice) {
         super(webContents);
+        mIsSmallDevice = isSmallDevice;
         mWebContentsRef = webContents;
         mModel = model;
+        mChromeActivity = chromeActivity;
+    }
+
+    /** Set an observer for this class. */
+    /* package */ void setObserver(PaymentHandlerToolbarObserver observer) {
         mObserver = observer;
     }
 
@@ -78,15 +94,22 @@ import java.net.URISyntaxException;
     @Override
     public void didFinishNavigation(NavigationHandle navigation) {
         if (!navigation.hasCommitted() || !navigation.isInMainFrame()) return;
-        mModel.set(PaymentHandlerToolbarProperties.PROGRESS_VISIBLE, false);
-
-        String url = navigation.getUrl();
+        String url = mWebContentsRef.getVisibleUrl().getSpec();
         try {
             mModel.set(PaymentHandlerToolbarProperties.URL, new URI(url));
         } catch (URISyntaxException e) {
             Log.e(TAG, "Failed to instantiate a URI with the url \"%s\".", url);
+            assert mObserver != null;
             mObserver.onToolbarError();
         }
+        mModel.set(PaymentHandlerToolbarProperties.PROGRESS_VISIBLE, false);
+    }
+
+    @Override
+    public void didStartNavigation(NavigationHandle navigation) {
+        if (!navigation.isInMainFrame() || navigation.isSameDocument()) return;
+        mModel.set(PaymentHandlerToolbarProperties.SECURITY_ICON,
+                getSecurityIconResource(ConnectionSecurityLevel.NONE));
     }
 
     @Override
@@ -110,27 +133,27 @@ import java.net.URISyntaxException;
     }
 
     @DrawableRes
-    private static int getSecurityIconResource(@ConnectionSecurityLevel int securityLevel) {
-        switch (securityLevel) {
-            case ConnectionSecurityLevel.NONE:
-            case ConnectionSecurityLevel.WARNING:
-                return R.drawable.omnibox_info;
-            case ConnectionSecurityLevel.DANGEROUS:
-                return R.drawable.omnibox_not_secure_warning;
-            case ConnectionSecurityLevel.SECURE_WITH_POLICY_INSTALLED_CERT:
-            case ConnectionSecurityLevel.SECURE:
-            case ConnectionSecurityLevel.EV_SECURE:
-                return R.drawable.omnibox_https_valid;
-            default:
-                assert false;
-        }
-        return 0;
+    private int getSecurityIconResource(@ConnectionSecurityLevel int securityLevel) {
+        return SecurityStatusIcon.getSecurityIconResource(securityLevel,
+                SecurityStateModel.shouldShowDangerTriangleForWarningLevel(), mIsSmallDevice,
+                /*skipIconForNeutralState=*/true);
     }
 
     @Override
     public void didChangeVisibleSecurityState() {
-        int securityLevel = SecurityStateModel.getSecurityLevelForWebContents(mWebContentsRef);
+        int securityLevel = SecurityStateModel.getSecurityLevelForWebContents(
+                mWebContentsRef, ChromeSecurityStateModelDelegate.getInstance());
         mModel.set(PaymentHandlerToolbarProperties.SECURITY_ICON,
                 getSecurityIconResource(securityLevel));
     }
+
+    // (PaymentHandlerToolbarView security icon's) OnClickListener:
+    @Override
+    public void onClick(View view) {
+        if (mChromeActivity == null) return;
+        PageInfoController.show(mChromeActivity, mWebContentsRef, null,
+                PageInfoController.OpenedFromSource.TOOLBAR,
+                /*offlinePageLoadUrlDelegate=*/
+                new OfflinePageUtils.WebContentsOfflinePageLoadUrlDelegate(mWebContentsRef));
+    };
 }

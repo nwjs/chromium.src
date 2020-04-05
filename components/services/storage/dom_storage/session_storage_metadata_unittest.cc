@@ -13,13 +13,14 @@
 #include "base/strings/string16.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "base/test/bind_test_util.h"
 #include "base/test/task_environment.h"
+#include "base/threading/thread_task_runner_handle.h"
 #include "components/services/storage/dom_storage/async_dom_storage_database.h"
 #include "components/services/storage/dom_storage/dom_storage_database.h"
 #include "components/services/storage/dom_storage/legacy_dom_storage_database.h"
 #include "components/services/storage/dom_storage/testing_legacy_session_storage_database.h"
-#include "mojo/public/cpp/bindings/strong_associated_binding.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/leveldatabase/env_chromium.h"
@@ -62,7 +63,7 @@ class SessionStorageMetadataTest : public testing::Test {
     base::RunLoop loop;
     database_ = AsyncDomStorageDatabase::OpenInMemory(
         base::nullopt, "SessionStorageMetadataTest",
-        base::CreateSequencedTaskRunner({base::MayBlock(), base::ThreadPool()}),
+        base::ThreadPool::CreateSequencedTaskRunner({base::MayBlock()}),
         base::BindLambdaForTesting([&](leveldb::Status) { loop.Quit(); }));
     loop.Run();
 

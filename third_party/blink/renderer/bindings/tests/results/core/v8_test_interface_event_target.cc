@@ -13,6 +13,7 @@
 #include <algorithm>
 
 #include "base/memory/scoped_refptr.h"
+#include "third_party/blink/renderer/bindings/core/v8/native_value_traits_impl.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_dom_configuration.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
@@ -102,7 +103,7 @@ static void V8TestInterfaceEventTargetConstructorCallback(const v8::FunctionCall
     return;
   }
 
-  Document& document = *To<Document>(ToExecutionContext(
+  Document& document = *Document::From(ToExecutionContext(
       info.NewTarget().As<v8::Object>()->CreationContext()));
   TestInterfaceEventTarget* impl = TestInterfaceEventTarget::CreateForJSConstructor(document);
   v8::Local<v8::Object> wrapper = info.Holder();

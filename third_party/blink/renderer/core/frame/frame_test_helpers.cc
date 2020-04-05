@@ -34,9 +34,12 @@
 #include <utility>
 
 #include "base/bind.h"
+#include "base/bind_helpers.h"
+#include "cc/test/fake_layer_tree_frame_sink.h"
 #include "cc/test/test_ukm_recorder_factory.h"
 #include "cc/trees/layer_tree_host.h"
 #include "cc/trees/layer_tree_settings.h"
+#include "cc/trees/render_frame_metadata_observer.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "third_party/blink/public/common/frame/frame_policy.h"
@@ -123,9 +126,7 @@ void LoadFrameDontWait(WebLocalFrame* frame, const WebURL& url) {
     params->navigation_timings.fetch_start = base::TimeTicks::Now();
     params->is_browser_initiated = true;
     FillNavigationParamsResponse(params.get());
-    impl->CommitNavigation(
-        std::move(params), nullptr /* extra_data */,
-        base::DoNothing::Once() /* call_before_attaching_new_document */);
+    impl->CommitNavigation(std::move(params), nullptr /* extra_data */);
   }
 }
 
@@ -142,9 +143,8 @@ void LoadHTMLString(WebLocalFrame* frame,
   std::unique_ptr<WebNavigationParams> navigation_params =
       WebNavigationParams::CreateWithHTMLString(html, base_url);
   navigation_params->tick_clock = clock;
-  impl->CommitNavigation(
-      std::move(navigation_params), nullptr /* extra_data */,
-      base::DoNothing::Once() /* call_before_attaching_new_document */);
+  impl->CommitNavigation(std::move(navigation_params),
+                         nullptr /* extra_data */);
   PumpPendingRequestsForFrameToLoad(frame);
 }
 
@@ -160,9 +160,7 @@ void LoadHistoryItem(WebLocalFrame* frame,
   params->navigation_timings.navigation_start = base::TimeTicks::Now();
   params->navigation_timings.fetch_start = base::TimeTicks::Now();
   FillNavigationParamsResponse(params.get());
-  impl->CommitNavigation(
-      std::move(params), nullptr /* extra_data */,
-      base::DoNothing::Once() /* call_before_attaching_new_document */);
+  impl->CommitNavigation(std::move(params), nullptr /* extra_data */);
   PumpPendingRequestsForFrameToLoad(frame);
 }
 
@@ -235,7 +233,8 @@ WebLocalFrameImpl* CreateProvisional(WebRemoteFrame& old_frame,
   std::unique_ptr<TestWebFrameClient> owned_client;
   client = CreateDefaultClientIfNeeded(client, owned_client);
   auto* frame = To<WebLocalFrameImpl>(WebLocalFrame::CreateProvisional(
-      client, nullptr, &old_frame, FramePolicy()));
+      client, nullptr, &old_frame, FramePolicy(),
+      WebFrame::ToCoreFrame(old_frame)->Tree().GetName()));
   client->Bind(frame, std::move(owned_client));
   std::unique_ptr<TestWebWidgetClient> widget_client;
   // Create a local root, if necessary.
@@ -243,14 +242,28 @@ WebLocalFrameImpl* CreateProvisional(WebRemoteFrame& old_frame,
     widget_client = std::make_unique<TestWebWidgetClient>();
     // TODO(dcheng): The main frame widget currently has a special case.
     // Eliminate this once WebView is no longer a WebWidget.
-    WebFrameWidget::CreateForMainFrame(widget_client.get(), frame);
+    WebFrameWidget* frame_widget = WebFrameWidget::CreateForMainFrame(
+        widget_client.get(), frame,
+        CrossVariantMojoAssociatedRemote<mojom::FrameWidgetHostInterfaceBase>(),
+        CrossVariantMojoAssociatedReceiver<mojom::FrameWidgetInterfaceBase>(),
+        CrossVariantMojoAssociatedRemote<mojom::WidgetHostInterfaceBase>(),
+        CrossVariantMojoAssociatedReceiver<mojom::WidgetInterfaceBase>());
+    widget_client->SetFrameWidget(frame_widget);
+    // The WebWidget requires the compositor to be set before it is used.
+    frame_widget->SetCompositorHosts(widget_client->layer_tree_host(),
+                                     widget_client->animation_host());
   } else if (frame->Parent()->IsWebRemoteFrame()) {
     widget_client = std::make_unique<TestWebWidgetClient>();
-    WebFrameWidget* frame_widget =
-        WebFrameWidget::CreateForChildLocalRoot(widget_client.get(), frame);
-    // The WebWidget requires an AnimationHost to be set, either by the
-    // WebWidgetClient itself or by someone else. We do that here.
-    frame_widget->SetAnimationHost(widget_client->animation_host());
+    WebFrameWidget* frame_widget = WebFrameWidget::CreateForChildLocalRoot(
+        widget_client.get(), frame,
+        CrossVariantMojoAssociatedRemote<mojom::FrameWidgetHostInterfaceBase>(),
+        CrossVariantMojoAssociatedReceiver<mojom::FrameWidgetInterfaceBase>(),
+        CrossVariantMojoAssociatedRemote<mojom::WidgetHostInterfaceBase>(),
+        CrossVariantMojoAssociatedReceiver<mojom::WidgetInterfaceBase>());
+    widget_client->SetFrameWidget(frame_widget);
+    // The WebWidget requires the compositor to be set before it is used.
+    frame_widget->SetCompositorHosts(widget_client->layer_tree_host(),
+                                     widget_client->animation_host());
     frame_widget->Resize(WebSize());
   }
   if (widget_client)
@@ -285,11 +298,16 @@ WebLocalFrameImpl* CreateLocalChild(WebRemoteFrame& parent,
   std::unique_ptr<TestWebWidgetClient> owned_widget_client;
   widget_client =
       CreateDefaultClientIfNeeded(widget_client, owned_widget_client);
-  WebFrameWidget* frame_widget =
-      WebFrameWidget::CreateForChildLocalRoot(widget_client, frame);
-  // The WebWidget requires an AnimationHost to be set, either by the
-  // WebWidgetClient itself or by someone else. We do that here.
-  frame_widget->SetAnimationHost(widget_client->animation_host());
+  WebFrameWidget* frame_widget = WebFrameWidget::CreateForChildLocalRoot(
+      widget_client, frame,
+      CrossVariantMojoAssociatedRemote<mojom::FrameWidgetHostInterfaceBase>(),
+      CrossVariantMojoAssociatedReceiver<mojom::FrameWidgetInterfaceBase>(),
+      CrossVariantMojoAssociatedRemote<mojom::WidgetHostInterfaceBase>(),
+      CrossVariantMojoAssociatedReceiver<mojom::WidgetInterfaceBase>());
+  // The WebWidget requires the compositor to be set before it is used.
+  frame_widget->SetCompositorHosts(widget_client->layer_tree_host(),
+                                   widget_client->animation_host());
+  widget_client->SetFrameWidget(frame_widget);
   // Set an initial size for subframes.
   if (frame->Parent())
     frame_widget->Resize(WebSize());
@@ -346,13 +364,18 @@ WebViewImpl* WebViewHelper::InitializeWithOpener(
 
   test_web_widget_client_ = CreateDefaultClientIfNeeded(
       web_widget_client, owned_test_web_widget_client_);
-  // TODO(danakj): Make this part of attaching the main frame's WebFrameWidget.
-  // This happens before CreateForMainFrame as the WebFrameWidget binding to the
-  // WebLocalFrameImpl sets up animations.
-  web_view_->SetAnimationHost(test_web_widget_client_->animation_host());
   // TODO(dcheng): The main frame widget currently has a special case.
   // Eliminate this once WebView is no longer a WebWidget.
-  blink::WebFrameWidget::CreateForMainFrame(test_web_widget_client_, frame);
+  WebFrameWidget* widget = blink::WebFrameWidget::CreateForMainFrame(
+      test_web_widget_client_, frame,
+      CrossVariantMojoAssociatedRemote<mojom::FrameWidgetHostInterfaceBase>(),
+      CrossVariantMojoAssociatedReceiver<mojom::FrameWidgetInterfaceBase>(),
+      CrossVariantMojoAssociatedRemote<mojom::WidgetHostInterfaceBase>(),
+      CrossVariantMojoAssociatedReceiver<mojom::WidgetInterfaceBase>());
+  // The WebWidget requires the compositor to be set before it is used.
+  widget->SetCompositorHosts(test_web_widget_client_->layer_tree_host(),
+                             test_web_widget_client_->animation_host());
+  test_web_widget_client_->SetFrameWidget(widget);
   // We inform the WebView when it has a local main frame attached once the
   // WebFrame it fully set up and the WebWidgetClient is initialized (which is
   // the case by this point).
@@ -431,8 +454,6 @@ WebViewImpl* WebViewHelper::InitializeRemoteWithOpener(
 
   test_web_widget_client_ = CreateDefaultClientIfNeeded(
       web_widget_client, owned_test_web_widget_client_);
-  web_view_->SetAnimationHost(test_web_widget_client_->animation_host());
-
   return web_view_;
 }
 
@@ -477,7 +498,8 @@ void WebViewHelper::InitializeWebView(TestWebViewClient* web_view_client,
   web_view_ = static_cast<WebViewImpl*>(
       WebView::Create(test_web_view_client_,
                       /*is_hidden=*/false,
-                      /*compositing_enabled=*/true, opener));
+                      /*compositing_enabled=*/true, opener,
+                      mojo::ScopedInterfaceEndpointHandle()));
   // This property must be set at initialization time, it is not supported to be
   // changed afterward, and does nothing.
   web_view_->GetSettings()->SetViewportEnabled(viewport_enabled_);
@@ -580,9 +602,7 @@ void TestWebFrameClient::CommitNavigation(
   auto params = WebNavigationParams::CreateFromInfo(*info);
   if (info->archive_status != WebNavigationInfo::ArchiveStatus::Present)
     FillNavigationParamsResponse(params.get());
-  frame_->CommitNavigation(
-      std::move(params), nullptr /* extra_data */,
-      base::DoNothing::Once() /* call_before_attaching_new_document */);
+  frame_->CommitNavigation(std::move(params), nullptr /* extra_data */);
 }
 
 WebEffectiveConnectionType TestWebFrameClient::GetEffectiveConnectionType() {
@@ -629,10 +649,6 @@ void TestWebRemoteFrameClient::FrameDetached(DetachType type) {
   self_owned_.reset();
 }
 
-content::LayerTreeView* LayerTreeViewFactory::Initialize() {
-  return Initialize(/*delegate=*/nullptr);
-}
-
 content::LayerTreeView* LayerTreeViewFactory::Initialize(
     content::LayerTreeViewDelegate* specified_delegate) {
   cc::LayerTreeSettings settings;
@@ -642,27 +658,22 @@ content::LayerTreeView* LayerTreeViewFactory::Initialize(
   settings.use_layer_lists = true;
 
   layer_tree_view_ = std::make_unique<content::LayerTreeView>(
-      specified_delegate ? specified_delegate : &delegate_,
-      Thread::Current()->GetTaskRunner(),
+      specified_delegate, Thread::Current()->GetTaskRunner(),
       /*compositor_thread=*/nullptr, &test_task_graph_runner_,
       &fake_thread_scheduler_);
   layer_tree_view_->Initialize(settings,
                                std::make_unique<cc::TestUkmRecorderFactory>());
+  layer_tree_view_->SetVisible(true);
   return layer_tree_view_.get();
 }
 
-TestWebWidgetClient::TestWebWidgetClient(
-    content::LayerTreeViewDelegate* delegate) {
-  layer_tree_view_ = layer_tree_view_factory_.Initialize(delegate);
+TestWebWidgetClient::TestWebWidgetClient() {
+  layer_tree_view_ = layer_tree_view_factory_.Initialize(this);
   animation_host_ = layer_tree_view_->animation_host();
 }
 
-void TestWebWidgetClient::SetRootLayer(scoped_refptr<cc::Layer> layer) {
-  layer_tree_host()->SetRootLayer(std::move(layer));
-}
-
-void TestWebWidgetClient::SetBackgroundColor(SkColor color) {
-  layer_tree_host()->set_background_color(color);
+void TestWebWidgetClient::SetFrameWidget(WebFrameWidget* widget) {
+  frame_widget_ = widget;
 }
 
 void TestWebWidgetClient::SetPageScaleStateAndLimits(
@@ -685,38 +696,8 @@ void TestWebWidgetClient::InjectGestureScrollEvent(
   injected_scroll_gesture_data_.push_back(data);
 }
 
-void TestWebWidgetClient::SetHaveScrollEventHandlers(bool have_handlers) {
-  have_scroll_event_handlers_ = have_handlers;
-}
-
-void TestWebWidgetClient::SetEventListenerProperties(
-    cc::EventListenerClass event_class,
-    cc::EventListenerProperties properties) {
-  layer_tree_host()->SetEventListenerProperties(event_class, properties);
-}
-
-cc::EventListenerProperties TestWebWidgetClient::EventListenerProperties(
-    cc::EventListenerClass event_class) const {
-  return layer_tree_host()->event_listener_properties(event_class);
-}
-
-std::unique_ptr<cc::ScopedDeferMainFrameUpdate>
-TestWebWidgetClient::DeferMainFrameUpdate() {
-  return layer_tree_host()->DeferMainFrameUpdate();
-}
-
-void TestWebWidgetClient::StartDeferringCommits(base::TimeDelta timeout) {
-  layer_tree_host()->StartDeferringCommits(timeout);
-}
-
-void TestWebWidgetClient::StopDeferringCommits(
-    cc::PaintHoldingCommitTrigger trigger) {
-  layer_tree_host()->StopDeferringCommits(trigger);
-}
-
-void TestWebWidgetClient::RegisterSelection(
-    const cc::LayerSelection& selection) {
-  layer_tree_host()->RegisterSelection(selection);
+bool TestWebWidgetClient::HaveScrollEventHandlers() const {
+  return layer_tree_host()->have_scroll_event_handlers();
 }
 
 void TestWebWidgetClient::DidMeaningfulLayout(
@@ -734,18 +715,32 @@ void TestWebWidgetClient::DidMeaningfulLayout(
   }
 }
 
-void TestWebWidgetClient::SetBrowserControlsShownRatio(float top_ratio,
-                                                       float bottom_ratio) {
-  layer_tree_host()->SetBrowserControlsShownRatio(top_ratio, bottom_ratio);
-}
-
-void TestWebWidgetClient::SetBrowserControlsParams(
-    cc::BrowserControlsParams params) {
-  layer_tree_host()->SetBrowserControlsParams(params);
-}
-
 viz::FrameSinkId TestWebWidgetClient::GetFrameSinkId() {
   return viz::FrameSinkId();
+}
+
+void TestWebWidgetClient::BeginMainFrame(base::TimeTicks frame_time) {
+  frame_widget_->BeginFrame(frame_time);
+}
+
+void TestWebWidgetClient::DidBeginMainFrame() {
+  frame_widget_->DidBeginFrame();
+}
+
+void TestWebWidgetClient::UpdateVisualState() {
+  frame_widget_->UpdateVisualState();
+}
+
+void TestWebWidgetClient::ApplyViewportChanges(
+    const ApplyViewportChangesArgs& args) {
+  frame_widget_->ApplyViewportChanges(args);
+}
+
+void TestWebWidgetClient::RequestNewLayerTreeFrameSink(
+    LayerTreeFrameSinkCallback callback) {
+  // Make a valid LayerTreeFrameSink so the compositor will generate begin main
+  // frames.
+  std::move(callback).Run(cc::FakeLayerTreeFrameSink::Create3d(), nullptr);
 }
 
 void TestWebViewClient::DestroyChildViews() {
@@ -757,7 +752,7 @@ WebView* TestWebViewClient::CreateView(WebLocalFrame* opener,
                                        const WebWindowFeatures&,
                                        const WebString& name,
                                        WebNavigationPolicy,
-                                       WebSandboxFlags,
+                                       mojom::blink::WebSandboxFlags,
                                        const FeaturePolicy::FeatureState&,
                                        const SessionStorageNamespaceId&) {
   auto webview_helper = std::make_unique<WebViewHelper>();

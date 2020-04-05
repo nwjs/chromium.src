@@ -15,6 +15,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestRule;
 import org.junit.runner.RunWith;
+import org.mockito.Mockito;
 import org.robolectric.Robolectric;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
@@ -22,10 +23,11 @@ import org.chromium.blink_public.common.ContextMenuDataMediaType;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.contextmenu.ChromeContextMenuItem.Item;
 import org.chromium.chrome.browser.contextmenu.ChromeContextMenuPopulator.ContextMenuGroup;
-import org.chromium.chrome.browser.contextmenu.ContextMenuParams.PerformanceClass;
 import org.chromium.chrome.browser.contextmenu.RevampedContextMenuCoordinator.ListItemType;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.test.util.browser.Features;
+import org.chromium.components.embedder_support.contextmenu.ContextMenuParams;
 import org.chromium.ui.base.ActivityWindowAndroid;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
@@ -45,6 +47,7 @@ public class RevampedContextMenuCoordinatorTest {
     private RevampedContextMenuCoordinator mCoordinator;
     private Activity mActivity;
     private WindowAndroid mWindow;
+    private final Profile mProfile = Mockito.mock(Profile.class);
 
     @Before
     public void setUpTest() {
@@ -55,8 +58,8 @@ public class RevampedContextMenuCoordinatorTest {
 
     @Test
     public void testGetItemListWithImageLink() {
-        final ContextMenuParams params = new ContextMenuParams(ContextMenuDataMediaType.IMAGE, "",
-                "", "", "", "", "", null, false, 0, 0, 0, PerformanceClass.PERFORMANCE_UNKNOWN);
+        final ContextMenuParams params = new ContextMenuParams(
+                ContextMenuDataMediaType.IMAGE, "", "", "", "", "", "", null, false, 0, 0, 0);
         List<Pair<Integer, List<ContextMenuItem>>> rawItems = new ArrayList<>();
         // Link items
         List<ContextMenuItem> groupOne = new ArrayList<>();
@@ -74,7 +77,7 @@ public class RevampedContextMenuCoordinatorTest {
                 org.chromium.chrome.R.id.contextmenu_share_image, false));
         rawItems.add(new Pair<>(ContextMenuGroup.IMAGE, groupTwo));
 
-        mCoordinator.initializeHeaderCoordinatorForTesting(mActivity, params);
+        mCoordinator.initializeHeaderCoordinatorForTesting(mActivity, params, mProfile);
         ModelList itemList = mCoordinator.getItemList(mWindow, rawItems, params);
 
         assertThat(itemList.get(0).type, equalTo(ListItemType.HEADER));
@@ -95,8 +98,8 @@ public class RevampedContextMenuCoordinatorTest {
         // isn't image or video, the header mediator tries to get a favicon for us and calls
         // Profile.getLastUsedProfile(), which throws an exception because native isn't initialized.
         // mediaType here doesn't have any effect on what we're testing.
-        final ContextMenuParams params = new ContextMenuParams(ContextMenuDataMediaType.IMAGE, "",
-                "", "", "", "", "", null, false, 0, 0, 0, PerformanceClass.PERFORMANCE_UNKNOWN);
+        final ContextMenuParams params = new ContextMenuParams(
+                ContextMenuDataMediaType.IMAGE, "", "", "", "", "", "", null, false, 0, 0, 0);
         List<Pair<Integer, List<ContextMenuItem>>> rawItems = new ArrayList<>();
         // Link items
         List<ContextMenuItem> groupOne = new ArrayList<>();
@@ -107,7 +110,7 @@ public class RevampedContextMenuCoordinatorTest {
                 org.chromium.chrome.R.id.contextmenu_share_link, true));
         rawItems.add(new Pair<>(ContextMenuGroup.LINK, groupOne));
 
-        mCoordinator.initializeHeaderCoordinatorForTesting(mActivity, params);
+        mCoordinator.initializeHeaderCoordinatorForTesting(mActivity, params, mProfile);
         ModelList itemList = mCoordinator.getItemList(mWindow, rawItems, params);
 
         assertThat(itemList.get(0).type, equalTo(ListItemType.HEADER));
@@ -120,15 +123,15 @@ public class RevampedContextMenuCoordinatorTest {
 
     @Test
     public void testGetItemListWithVideo() {
-        final ContextMenuParams params = new ContextMenuParams(ContextMenuDataMediaType.VIDEO, "",
-                "", "", "", "", "", null, false, 0, 0, 0, PerformanceClass.PERFORMANCE_UNKNOWN);
+        final ContextMenuParams params = new ContextMenuParams(
+                ContextMenuDataMediaType.VIDEO, "", "", "", "", "", "", null, false, 0, 0, 0);
         List<Pair<Integer, List<ContextMenuItem>>> rawItems = new ArrayList<>();
         // Video items
         List<ContextMenuItem> groupOne = new ArrayList<>();
         groupOne.add(new ChromeContextMenuItem(Item.SAVE_VIDEO));
         rawItems.add(new Pair<>(ContextMenuGroup.LINK, groupOne));
 
-        mCoordinator.initializeHeaderCoordinatorForTesting(mActivity, params);
+        mCoordinator.initializeHeaderCoordinatorForTesting(mActivity, params, mProfile);
         ModelList itemList = mCoordinator.getItemList(mWindow, rawItems, params);
 
         assertThat(itemList.get(0).type, equalTo(ListItemType.HEADER));

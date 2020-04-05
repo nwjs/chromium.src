@@ -4,18 +4,32 @@
 
 #include "chrome/services/local_search_service/test_utils.h"
 
+#include "base/strings/string16.h"
+#include "base/strings/utf_string_conversions.h"
 #include "chrome/services/local_search_service/public/mojom/local_search_service.mojom-test-utils.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace local_search_service {
 
+namespace {
+
+std::vector<base::string16> MultiUTF8ToUTF16(
+    const std::vector<std::string>& input) {
+  std::vector<base::string16> output;
+  for (const auto& str : input) {
+    output.push_back(base::UTF8ToUTF16(str));
+  }
+  return output;
+}
+
+}  // namespace
+
 std::vector<mojom::DataPtr> CreateTestData(
     const std::map<std::string, std::vector<std::string>>& input) {
   std::vector<mojom::DataPtr> output;
   for (const auto& item : input) {
-    const std::string& id = item.first;
-    const std::vector<std::string>& tags = item.second;
-    mojom::DataPtr data = mojom::Data::New(id, tags);
+    const std::vector<base::string16> tags = MultiUTF8ToUTF16(item.second);
+    mojom::DataPtr data = mojom::Data::New(item.first, tags);
     output.push_back(std::move(data));
   }
   return output;
@@ -54,7 +68,8 @@ void FindAndCheck(mojom::Index* index,
   mojom::IndexAsyncWaiter async_waiter(index);
   mojom::ResponseStatus status = mojom::ResponseStatus::UNKNOWN_ERROR;
   base::Optional<std::vector<::local_search_service::mojom::ResultPtr>> results;
-  async_waiter.Find(query, max_latency_in_ms, max_results, &status, &results);
+  async_waiter.Find(base::UTF8ToUTF16(query), max_latency_in_ms, max_results,
+                    &status, &results);
 
   EXPECT_EQ(status, expected_status);
 

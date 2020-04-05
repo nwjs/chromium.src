@@ -195,7 +195,7 @@ class MemberBase {
     return result;
   }
 
-  static bool IsMemberHashTableDeletedValue(T* t) {
+  static bool IsMemberHashTableDeletedValue(const T* t) {
     return t == reinterpret_cast<T*>(kHashTableDeletedRawValue);
   }
 
@@ -205,6 +205,24 @@ class MemberBase {
 
  protected:
   static constexpr intptr_t kHashTableDeletedRawValue = -1;
+
+  enum class AtomicCtorTag { Atomic };
+
+  // MemberBase ctors that use atomic write to set raw_.
+
+  MemberBase(AtomicCtorTag, T* raw) {
+    SetRaw(raw);
+    SaveCreationThreadState();
+    CheckPointer();
+    // No write barrier for initializing stores.
+  }
+
+  MemberBase(AtomicCtorTag, T& raw) {
+    SetRaw(&raw);
+    SaveCreationThreadState();
+    CheckPointer();
+    // No write barrier for initializing stores.
+  }
 
   void WriteBarrier() const {
     MarkingVisitor::WriteBarrier(const_cast<std::remove_const_t<T>**>(&raw_));
@@ -235,7 +253,7 @@ class MemberBase {
   // Thread safe version of Get() for marking visitors.
   // This is used to prevent data races between concurrent marking visitors
   // and writes on the main thread.
-  T* GetSafe() const {
+  const T* GetSafe() const {
     // TOOD(omerkatz): replace this cast with std::atomic_ref (C++20) once it
     // becomes available
     return WTF::AsAtomicPtr(&raw_)->load(std::memory_order_relaxed);
@@ -314,7 +332,11 @@ class Member : public MemberBase<T, TracenessMemberConfiguration::kTraced> {
     return *this;
   }
 
- protected:
+ private:
+  using typename Parent::AtomicCtorTag;
+  Member(AtomicCtorTag atomic, T* raw) : Parent(atomic, raw) {}
+  Member(AtomicCtorTag atomic, T& raw) : Parent(atomic, raw) {}
+
   template <typename P, typename Traits, typename Allocator>
   friend class WTF::ConstructTraits;
 };
@@ -499,7 +521,12 @@ class ConstructTraits<blink::Member<T>, Traits, Allocator> {
   template <typename... Args>
   static blink::Member<T>* ConstructAndNotifyElement(void* location,
                                                      Args&&... args) {
-    blink::Member<T>* object = Construct(location, std::forward<Args>(args)...);
+    // ConstructAndNotifyElement updates an existing Member which might
+    // also be comncurrently traced while we update it. The regular ctors
+    // for Member don't use an atomic write which can lead to data races.
+    blink::Member<T>* object =
+        Construct(location, blink::Member<T>::AtomicCtorTag::Atomic,
+                  std::forward<Args>(args)...);
     NotifyNewElement(object);
     return object;
   }

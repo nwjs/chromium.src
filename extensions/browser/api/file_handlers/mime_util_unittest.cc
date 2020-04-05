@@ -19,6 +19,8 @@
 #include "extensions/browser/extensions_test.h"
 #include "storage/browser/test/test_file_system_context.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "url/gurl.h"
+#include "url/origin.h"
 
 namespace extensions {
 namespace app_file_handler_util {
@@ -45,20 +47,21 @@ storage::FileSystemURL CreateNativeLocalFileSystemURL(
     storage::FileSystemContext* context,
     const base::FilePath local_path) {
   return context->CreateCrackedFileSystemURL(
-      GURL(kOrigin), storage::kFileSystemTypeNativeLocal, local_path);
+      url::Origin::Create(GURL(kOrigin)), storage::kFileSystemTypeNativeLocal,
+      local_path);
 }
 
 }  // namespace
 
 class FileHandlersMimeUtilTest : public ExtensionsTest {
  protected:
-  FileHandlersMimeUtilTest() {}
-  ~FileHandlersMimeUtilTest() override {}
+  FileHandlersMimeUtilTest() = default;
+  ~FileHandlersMimeUtilTest() override = default;
 
   void SetUp() override {
     ExtensionsTest::SetUp();
-    file_system_context_ = content::CreateFileSystemContextForTesting(
-        NULL, browser_context()->GetPath());
+    file_system_context_ = storage::CreateFileSystemContextForTesting(
+        nullptr, browser_context()->GetPath());
 
     const std::string kSampleContent = "<html><body></body></html>";
     base::FilePath temp_filename = CreateTemporaryFile(kSampleContent);

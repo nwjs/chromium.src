@@ -15,6 +15,7 @@
 #include "content/common/input/input_event_dispatch_type.h"
 #include "content/renderer/input/main_thread_event_queue.h"
 #include "third_party/blink/public/platform/web_coalesced_input_event.h"
+#include "third_party/blink/public/web/web_hit_test_result.h"
 #include "ui/base/ui_base_types.h"
 #include "ui/events/blink/did_overscroll_params.h"
 #include "ui/events/types/scroll_types.h"
@@ -66,7 +67,7 @@ class CONTENT_EXPORT RenderWidgetInputHandler {
 
   void InjectGestureScrollEvent(blink::WebGestureDevice device,
                                 const gfx::Vector2dF& delta,
-                                ui::input_types::ScrollGranularity granularity,
+                                ui::ScrollGranularity granularity,
                                 cc::ElementId scrollable_area_element_id,
                                 blink::WebInputEvent::Type injected_type);
 
@@ -83,12 +84,15 @@ class CONTENT_EXPORT RenderWidgetInputHandler {
   // cursor.
   bool DidChangeCursor(const WebCursor& cursor);
 
+  // Do a hit test for a given point in viewport coordinate.
+  blink::WebHitTestResult GetHitTestResultAtPoint(const gfx::PointF& point);
+
  private:
   class HandlingState;
   struct InjectScrollGestureParams {
     blink::WebGestureDevice device;
     gfx::Vector2dF scroll_delta;
-    ui::input_types::ScrollGranularity granularity;
+    ui::ScrollGranularity granularity;
     cc::ElementId scrollable_area_element_id;
     blink::WebInputEvent::Type type;
   };

@@ -226,10 +226,6 @@ void ServiceWorkerSubresourceLoader::StartRequest(
 }
 
 void ServiceWorkerSubresourceLoader::DispatchFetchEvent() {
-  mojo::PendingRemote<blink::mojom::ServiceWorkerFetchResponseCallback>
-      response_callback;
-  response_callback_receiver_.Bind(
-      response_callback.InitWithNewPipeAndPassReceiver());
   blink::mojom::ControllerServiceWorker* controller =
       controller_connector_->GetControllerServiceWorker(
           blink::mojom::ControllerServiceWorkerPurpose::FETCH_SUB_RESOURCE);
@@ -258,6 +254,38 @@ void ServiceWorkerSubresourceLoader::DispatchFetchEvent() {
     // to return an error as the client must be shutting down.
     DCHECK_EQ(ControllerServiceWorkerConnector::State::kNoContainerHost,
               controller_state);
+    SettleFetchEventDispatch(base::nullopt);
+    return;
+  }
+
+  // Enable the service worker to access the files to be uploaded before
+  // dispatching a fetch event.
+  if (resource_request_.request_body) {
+    const auto& files = resource_request_.request_body->GetReferencedFiles();
+    if (!files.empty()) {
+      controller_connector_->EnsureFileAccess(
+          files,
+          base::BindOnce(
+              &ServiceWorkerSubresourceLoader::DispatchFetchEventForSubresource,
+              weak_factory_.GetWeakPtr()));
+      return;
+    }
+  }
+
+  DispatchFetchEventForSubresource();
+}
+
+void ServiceWorkerSubresourceLoader::DispatchFetchEventForSubresource() {
+  mojo::PendingRemote<blink::mojom::ServiceWorkerFetchResponseCallback>
+      response_callback;
+  response_callback_receiver_.Bind(
+      response_callback.InitWithNewPipeAndPassReceiver());
+
+  blink::mojom::ControllerServiceWorker* controller =
+      controller_connector_->GetControllerServiceWorker(
+          blink::mojom::ControllerServiceWorkerPurpose::FETCH_SUB_RESOURCE);
+
+  if (!controller) {
     SettleFetchEventDispatch(base::nullopt);
     return;
   }
@@ -539,9 +567,9 @@ void ServiceWorkerSubresourceLoader::StartResponse(
   // |side_data_blob| is available to read and the request is destined
   // for a script.
   auto resource_type =
-      static_cast<content::ResourceType>(resource_request_.resource_type);
+      static_cast<blink::mojom::ResourceType>(resource_request_.resource_type);
   if (response->side_data_blob &&
-      resource_type == content::ResourceType::kScript) {
+      resource_type == blink::mojom::ResourceType::kScript) {
     side_data_as_blob_.Bind(std::move(response->side_data_blob->blob));
     side_data_as_blob_->ReadSideData(base::BindOnce(
         &ServiceWorkerSubresourceLoader::OnSideDataReadingComplete,

@@ -28,7 +28,6 @@
       </if>
       <if expr="not is_android">
         <structure name="IDR_INCOGNITO_TAB_HTML" file="resources\empty.html" flattenhtml="true" type="chrome_html" />
-        <structure name="IDR_INCOGNITO_TAB_THEME_CSS" file="resources\ntp4\incognito_tab_theme.css" compress="gzip" flattenhtml="true" type="chrome_html" />
         <structure name="IDR_MD_INCOGNITO_TAB_HTML" file="resources\empty.html" flattenhtml="true" type="chrome_html" />
         <structure name="IDR_GUEST_TAB_HTML" file="resources\empty.html" flattenhtml="true" type="chrome_html" />
       </if>
@@ -77,8 +76,8 @@
       <include name="IDR_NWJS_DEFAPP_MANIFEST" file="resources\nwjs_default_app\manifest.json" type="BINDATA" />
       <include name="IDR_NWJS_DEFAPP_MANIFEST_NEWWIN" file="resources\nwjs_newwin_app\manifest.json" type="BINDATA" />
       <if expr="is_win">
-        <include name="IDR_ABOUT_CONFLICTS_HTML" file="resources\conflicts\about_conflicts.html" compress="gzip" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
-        <include name="IDR_ABOUT_CONFLICTS_JS" file="resources\conflicts\about_conflicts.js" compress="gzip" type="BINDATA" />
+        <include name="IDR_ABOUT_CONFLICTS_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
+        <include name="IDR_ABOUT_CONFLICTS_JS" file="resources\empty.js" type="BINDATA" />
       </if>
       <if expr="enable_plugins">
         <include name="IDR_ABOUT_FLASH_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
@@ -411,6 +410,10 @@
         <include name="IDR_GESTURE_CONFIG_HTML" file="resources\empty.html" type="BINDATA" />
         <include name="IDR_GESTURE_CONFIG_JS" file="resources\empty.js" type="BINDATA" />
       </if>
+      <if expr="is_win">
+        <include name="IDR_SET_AS_DEFAULT_BROWSER_JS" file="resources\empty.js" flattenhtml="true" type="BINDATA" />
+        <include name="IDR_SET_AS_DEFAULT_BROWSER_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
+      </if>
       <if expr="not is_android and not is_ios and not chromeos">
         <include name="IDR_PAGE_NOT_AVAILABLE_FOR_GUEST_APP_HTML" file="resources\page_not_available_for_guest\app.html" type="BINDATA" />
       </if>
@@ -498,6 +501,9 @@
       <include name="IDR_CHROME_CONTENT_PACKAGED_SERVICES_MANIFEST_OVERLAY" file="${root_gen_dir}\chrome\app\chrome_content_packaged_services_manifest_overlay.json" type="BINDATA" use_base_dir="false"/>
       <include name="IDR_CHROME_CONTENT_RENDERER_MANIFEST_OVERLAY" file="${root_gen_dir}\chrome\app\chrome_content_renderer_manifest_overlay.json" type="BINDATA" use_base_dir="false" />
       <include name="IDR_CHROME_CONTENT_UTILITY_MANIFEST_OVERLAY" file="${root_gen_dir}\chrome\app\chrome_content_utility_manifest_overlay.json" type="BINDATA" use_base_dir="false" />
+      <if expr="not is_android and not is_ios">
+        <include name="IDR_SSL_ERROR_ASSISTANT_PB" file="${root_gen_dir}/chrome/browser/resources/ssl/ssl_error_assistant/ssl_error_assistant.pb" use_base_dir="false" type="BINDATA" />
+      </if>
       <if expr="not is_android">
         <include name="IDR_TAB_RANKER_EXAMPLE_PREPROCESSOR_CONFIG_PB" file="resource_coordinator\tab_ranker\example_preprocessor_config.pb" type="BINDATA" />
         <include name="IDR_TAB_RANKER_PAIRWISE_EXAMPLE_PREPROCESSOR_CONFIG_PB" file="resource_coordinator\tab_ranker\pairwise_preprocessor_config.pb" type="BINDATA" />
@@ -505,6 +511,10 @@
       <if expr="is_android or is_linux">
         <include name="IDR_SANDBOX_INTERNALS_HTML" file="resources\sandbox_internals\sandbox_internals.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" compress="gzip" />
         <include name="IDR_SANDBOX_INTERNALS_JS" file="resources\sandbox_internals\sandbox_internals.js" type="BINDATA" compress="gzip" />
+      </if>
+      <if expr="is_win">
+        <include name="IDR_SANDBOX_INTERNALS_HTML" file="resources\sandbox_internals\sandbox_internals.html" preprocess="true" allowexternalscript="true" type="BINDATA" compress="gzip" />
+        <include name="IDR_SANDBOX_INTERNALS_JS" file="resources\sandbox_internals\sandbox_internals_win.js" type="BINDATA" compress="gzip" />
       </if>
       <include name="IDR_MEDIA_ENGAGEMENT_HTML" file="resources\empty.html" flattenhtml="true" type="BINDATA" compress="gzip" allowexternalscript="true" />
       <include name="IDR_MEDIA_ENGAGEMENT_JS" file="resources\empty.js" flattenhtml="true" type="BINDATA" compress="gzip" />

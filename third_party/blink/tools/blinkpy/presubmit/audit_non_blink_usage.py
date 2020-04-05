@@ -36,9 +36,13 @@ _CONFIG = [
             'base::CreateSequencedTaskRunner',
             'base::DefaultTickClock',
             'base::ElapsedTimer',
+            'base::JobDelegate',
+            'base::JobHandle',
+            'base::PostJob',
             'base::File',
             'base::FilePath',
             'base::GetUniqueIdForProcess',
+            "base::i18n::TextDirection",
             'base::Location',
             'base::MakeRefCounted',
             'base::Optional',
@@ -94,6 +98,7 @@ _CONFIG = [
             # //base/callback.h is allowed, but you need to use WTF::Bind or
             # WTF::BindRepeating to create callbacks in Blink.
             'base::BarrierClosure',
+            'base::NullCallback',
             'base::OnceCallback',
             'base::OnceClosure',
             'base::RepeatingCallback',
@@ -118,6 +123,7 @@ _CONFIG = [
             'base::UmaHistogram.+',
 
             # //base/metrics/histogram.h
+            'base::HistogramBase',
             'base::LinearHistogram',
 
             # //base/metrics/field_trial_params.h.
@@ -169,6 +175,9 @@ _CONFIG = [
             'base::ClampSub',
             'base::MakeClampedNum',
 
+            # //base/strings/strcat.h.
+            'base::StrCat',
+
             # //base/template_util.h.
             'base::void_t',
 
@@ -185,6 +194,7 @@ _CONFIG = [
             'base::TaskPriority',
             'base::TaskShutdownBehavior',
             'base::WithBaseSyncPrimitives',
+            'base::ThreadPolicy',
             'base::ThreadPool',
 
             # Byte order
@@ -259,6 +269,8 @@ _CONFIG = [
             # cc::Layers.
             'cc::Layer',
             'cc::LayerClient',
+            'cc::LayerTreeDebugState',
+            'cc::LayerTreeHost',
             'cc::PictureLayer',
             'cc::SurfaceLayer',
 
@@ -312,7 +324,7 @@ _CONFIG = [
             'cc::TargetSnapAreaElementIds',
             'gfx::RectToSkRect',
             'gfx::ScrollOffset',
-            'ui::input_types::ScrollGranularity',
+            'ui::ScrollGranularity',
 
             # base/util/type_safety/strong_alias.h
             'util::StrongAlias',
@@ -333,6 +345,7 @@ _CONFIG = [
             'event_handling_util::.+',
             'event_util::.+',
             'file_error::.+',
+            'geometry_util::.+',
             'inspector_\\w+_event::.+',
             'inspector_async_task::.+',
             'inspector_set_layer_tree_id::.+',
@@ -381,6 +394,12 @@ _CONFIG = [
             # nested in the blink namespace.
             'internal::.+',
 
+            # HTTP structured headers
+            'net::structured_headers::.+',
+
+            # HTTP status codes
+            'net::HTTP_.+',
+
             # Network service.
             'network::.+',
 
@@ -409,6 +428,9 @@ _CONFIG = [
             # STL types such as std::unique_ptr are encouraged.
             'std::.+',
 
+            # UI Cursor
+            'ui::Cursor',
+
             # UI Keyconverter
             'ui::DomCode',
             'ui::DomKey',
@@ -427,13 +449,13 @@ _CONFIG = [
             'base::(scoped_nsobject|ScopedCFTypeRef)',
         ],
         'disallowed': [
-            ('base::Bind(|Once|Repeating)',
-             'Use WTF::Bind or WTF::BindRepeating.'),
+            ('base::Bind(|Once|Repeating)', 'Use WTF::Bind or WTF::BindRepeating.'),
             ('std::(deque|map|multimap|set|vector|unordered_set|unordered_map)',
              'Use WTF containers like WTF::Deque, WTF::HashMap, WTF::HashSet or WTF::Vector instead of the banned std containers. '
              'However, it is fine to use std containers at the boundary layer between Blink and Chromium. '
              'If you are in this case, you can use --bypass-hooks option to avoid the presubmit check when uploading your CL.'),
-            ('([a-zA-Z]*::)?mojom::(?!blink).+',
+            # network::mojom::Foo is allowed to use as non-blink mojom type.
+            ('(|::)(?!network::)(\w+::)?mojom::(?!blink).+',
              'Using non-blink mojom types, consider using "::mojom::blink::Foo" instead of "::mojom::Foo" unless you have clear reasons not to do so',
              'Warning'),
         ],
@@ -517,6 +539,13 @@ _CONFIG = [
         ],
     },
     {
+        'paths': ['third_party/blink/renderer/core/frame/web_frame_widget_base.cc'],
+        'allowed': [
+            'cc::SwapPromise',
+            'viz::CompositorFrameMetadata',
+        ],
+    },
+    {
         'paths': ['third_party/blink/renderer/core/fileapi/file_reader_loader.cc'],
         'allowed': [
             'net::ERR_FILE_NOT_FOUND',
@@ -525,7 +554,7 @@ _CONFIG = [
     {
         'paths': ['third_party/blink/renderer/core/loader/alternate_signed_exchange_resource_info.cc'],
         'allowed': [
-            # Used by SignedExchangeRequestMatcher in //third_party/blink/common.
+            # Used by WebPackageRequestMatcher in //third_party/blink/common.
             'net::HttpRequestHeaders',
         ],
     },
@@ -537,6 +566,7 @@ _CONFIG = [
             'cc::DisplayItemList',
             'cc::DrawRecordOp',
 
+            # blink paint tree debugging namespace
             'paint_property_tree_printer::UpdateDebugNames',
         ],
     },
@@ -577,6 +607,12 @@ _CONFIG = [
             'cc::ContentLayerClient',
             'cc::DisplayItemList',
             'cc::DrawRecordOp',
+        ],
+    },
+    {
+        'paths': ['third_party/blink/renderer/core/inspector/locale_controller.cc'],
+        'allowed': [
+            'base::i18n::SetICUDefaultLocale',
         ],
     },
     {
@@ -697,6 +733,7 @@ _CONFIG = [
             'third_party/blink/renderer/modules/mediacapturefromelement/',
         ],
         'allowed': [
+            'gpu::MailboxHolder',
             'media::.+',
             'libyuv::.+',
         ]
@@ -707,9 +744,8 @@ _CONFIG = [
         ],
         'allowed': [
             'base::data',
-            # TODO(crbug.com/960665): Remove it once it is replaced with a WTF equivalent.
+            # TODO(crbug.com/960665): Remove base::queue once it is replaced with a WTF equivalent.
             'base::queue',
-
             'base::SharedMemory',
             'base::StringPiece',
             'base::ThreadTaskRunnerHandle',
@@ -820,10 +856,7 @@ _CONFIG = [
         # base::RefCounted should still be explicitly blocked, since
         # WTF::RefCounted should be used instead. base::RefCountedThreadSafe is
         # still needed for cross_thread_copier.h though.
-        'allowed': [
-            'base::RefCountedThreadSafe',
-            '(?!base::RefCounted).+'
-        ],
+        'allowed': ['base::RefCountedThreadSafe', '(?!base::RefCounted).+'],
     },
     {
         'paths': [
@@ -870,6 +903,7 @@ _CONFIG = [
     {
         'paths': [
             'third_party/blink/renderer/core/layout/layout_theme.cc',
+            'third_party/blink/renderer/core/layout/layout_theme_mac.mm',
             'third_party/blink/renderer/core/paint/fallback_theme.cc',
             'third_party/blink/renderer/core/paint/fallback_theme.h',
             'third_party/blink/renderer/core/paint/object_painter_base.cc',
@@ -890,7 +924,6 @@ _CONFIG = [
         ],
         'allowed': ['crypto::.+'],
     },
-
     {
         'paths': [
             'third_party/blink/renderer/modules/p2p',
@@ -1113,11 +1146,9 @@ def check(path, contents):
     path = path.replace('\\', '/')
     basename, ext = os.path.splitext(path)
     # Only check code. Ignore tests and fuzzers.
-    # TODO(tkent): Remove 'Test' after the great mv.
     if (ext not in ('.cc', '.cpp', '.h', '.mm')
             or path.find('/testing/') >= 0
             or path.find('/tests/') >= 0
-            or basename.endswith('Test')
             or basename.endswith('_test')
             or basename.endswith('_test_helpers')
             or basename.endswith('_unittest')

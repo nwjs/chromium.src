@@ -27,6 +27,7 @@
 #include "base/synchronization/waitable_event.h"
 #include "base/task/post_task.h"
 #include "base/task/task_traits.h"
+#include "base/task/thread_pool.h"
 #include "base/threading/thread.h"
 #include "base/threading/thread_restrictions.h"
 #include "base/threading/thread_task_runner_handle.h"
@@ -49,6 +50,7 @@
 #include "chrome/browser/icon_manager.h"
 #include "chrome/browser/intranet_redirect_detector.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
+#include "chrome/browser/lifetime/browser_shutdown.h"
 #include "chrome/browser/lifetime/switch_utils.h"
 #include "chrome/browser/media/webrtc/webrtc_event_log_manager.h"
 #include "chrome/browser/media/webrtc/webrtc_log_uploader.h"
@@ -59,6 +61,7 @@
 #include "chrome/browser/net/system_network_context_manager.h"
 #include "chrome/browser/notifications/notification_platform_bridge.h"
 #include "chrome/browser/notifications/system_notification_helper.h"
+#include "chrome/browser/permissions/chrome_permissions_client.h"
 #include "chrome/browser/policy/chrome_browser_policy_connector.h"
 #include "chrome/browser/prefs/browser_prefs.h"
 #include "chrome/browser/prefs/chrome_pref_service_factory.h"
@@ -74,6 +77,7 @@
 #include "chrome/browser/startup_data.h"
 #include "chrome/browser/status_icons/status_tray.h"
 #include "chrome/browser/ui/browser_dialogs.h"
+#include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/update_client/chrome_update_query_params_delegate.h"
 #include "chrome/common/buildflags.h"
 #include "chrome/common/channel_info.h"
@@ -98,6 +102,7 @@
 #include "components/network_time/network_time_tracker.h"
 #include "components/optimization_guide/optimization_guide_features.h"
 #include "components/optimization_guide/optimization_guide_service.h"
+#include "components/permissions/permissions_client.h"
 #include "components/policy/core/common/policy_service.h"
 #include "components/prefs/json_pref_store.h"
 #include "components/prefs/pref_registry_simple.h"
@@ -125,11 +130,13 @@
 #include "content/public/browser/storage_partition.h"
 #include "content/public/common/content_features.h"
 #include "content/public/common/content_switches.h"
+#include "content/public/common/network_service_util.h"
 #include "content/public/common/service_manager_connection.h"
 #include "extensions/buildflags/buildflags.h"
 #include "extensions/common/constants.h"
 #include "media/media_buildflags.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
+#include "net/log/net_log.h"
 #include "ppapi/buildflags/buildflags.h"
 #include "printing/buildflags/buildflags.h"
 #include "services/network/public/cpp/features.h"
@@ -234,8 +241,15 @@ BrowserProcessImpl::BrowserProcessImpl(StartupData* startup_data) {
 }
 
 void BrowserProcessImpl::Init() {
+  if (content::IsOutOfProcessNetworkService()) {
+    // Initialize NetLog source IDs to use an alternate starting value for
+    // the browser process. This needs to be done early in process startup
+    // before any NetLogSource objects might get created.
+    net::NetLog::Get()->InitializeSourceIdPartition();
+  }
+
 #if defined(OS_CHROMEOS)
-  // Forces creation of |metrics_services_manager_client_| if neccessary
+  // Forces creation of |metrics_services_manager_client_| if necessary
   // (typically this call is a no-op as MetricsServicesManager has already been
   // created).
   GetMetricsServicesManager();
@@ -288,6 +302,9 @@ void BrowserProcessImpl::Init() {
 
   update_client::UpdateQueryParams::SetDelegate(
       ChromeUpdateQueryParamsDelegate::GetInstance());
+
+  // Make sure permissions client has been set.
+  ChromePermissionsClient::GetInstance();
 
 #if !defined(OS_ANDROID)
   KeepAliveRegistry::GetInstance()->SetIsShuttingDown(false);
@@ -825,6 +842,10 @@ IntranetRedirectDetector* BrowserProcessImpl::intranet_redirect_detector() {
 }
 
 const std::string& BrowserProcessImpl::GetApplicationLocale() {
+#if !defined(OS_CHROMEOS)
+  // TODO(crbug.com/1033644): Remove #if.
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+#endif
   DCHECK(!locale_.empty());
   return locale_;
 }
@@ -889,6 +910,16 @@ BrowserProcessImpl::resource_coordinator_parts() {
         std::make_unique<resource_coordinator::ResourceCoordinatorParts>();
   }
   return resource_coordinator_parts_.get();
+}
+
+BuildState* BrowserProcessImpl::GetBuildState() {
+#if !defined(OS_ANDROID)
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  return &build_state_;
+#else
+  NOTIMPLEMENTED();
+  return nullptr;
+#endif
 }
 
 // static
@@ -1265,16 +1296,14 @@ void BrowserProcessImpl::CreateSubresourceFilterRulesetService() {
 
   // Runner for tasks critical for user experience.
   scoped_refptr<base::SequencedTaskRunner> blocking_task_runner(
-      base::CreateSequencedTaskRunner(
-          {base::ThreadPool(), base::MayBlock(),
-           base::TaskPriority::USER_BLOCKING,
+      base::ThreadPool::CreateSequencedTaskRunner(
+          {base::MayBlock(), base::TaskPriority::USER_BLOCKING,
            base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN}));
 
   // Runner for tasks that do not influence user experience.
   scoped_refptr<base::SequencedTaskRunner> background_task_runner(
-      base::CreateSequencedTaskRunner(
-          {base::ThreadPool(), base::MayBlock(),
-           base::TaskPriority::BEST_EFFORT,
+      base::ThreadPool::CreateSequencedTaskRunner(
+          {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
            base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN}));
 
   base::FilePath user_data_dir;
@@ -1314,9 +1343,8 @@ void BrowserProcessImpl::CreateGCMDriver() {
   base::FilePath store_path;
   CHECK(base::PathService::Get(chrome::DIR_GLOBAL_GCM_STORE, &store_path));
   scoped_refptr<base::SequencedTaskRunner> blocking_task_runner(
-      base::CreateSequencedTaskRunner(
-          {base::ThreadPool(), base::MayBlock(),
-           base::TaskPriority::BEST_EFFORT,
+      base::ThreadPool::CreateSequencedTaskRunner(
+          {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
            base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN}));
 
   gcm_driver_ = gcm::CreateGCMDriverDesktop(
@@ -1352,7 +1380,7 @@ void BrowserProcessImpl::Pin() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   // CHECK(!IsShuttingDown());
-  if (false && IsShuttingDown()) {
+  if (IsShuttingDown()) {
     // TODO(rsesek): Consider removing this trace, but it has been helpful
     // in debugging several shutdown crashes (https://crbug.com/113031,
     // https://crbug.com/625646, and https://crbug.com/779829).
@@ -1411,6 +1439,9 @@ void BrowserProcessImpl::Unpin() {
   std::move(quit_closure_).Run();
 
   chrome::ShutdownIfNeeded();
+
+  // TODO(crbug.com/967603): remove when root cause is found.
+  CHECK_EQ(BrowserList::GetInstance()->size(), 0u);
 #endif  // !defined(OS_ANDROID)
 }
 
@@ -1465,9 +1496,9 @@ void BrowserProcessImpl::OnAutoupdateTimer() {
   if (IsRunningInBackground()) {
     // upgrade_util::IsUpdatePendingRestart touches the disk, so do it on a
     // suitable thread.
-    base::PostTaskAndReplyWithResult(
+    base::ThreadPool::PostTaskAndReplyWithResult(
         FROM_HERE,
-        {base::ThreadPool(), base::TaskPriority::BEST_EFFORT,
+        {base::TaskPriority::BEST_EFFORT,
          base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN, base::MayBlock()},
         base::BindOnce(&upgrade_util::IsUpdatePendingRestart),
         base::BindOnce(&BrowserProcessImpl::OnPendingRestartResult,

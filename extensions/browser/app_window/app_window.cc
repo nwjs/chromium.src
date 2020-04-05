@@ -588,12 +588,6 @@ bool AppWindow::ShouldShowStaleContentOnEviction(content::WebContents* source) {
 #endif  // defined(OS_CHROMEOS)
 }
 
-BubbleManager* AppWindow::GetBubbleManager() {
-  if (!bubble_manager_)
-    bubble_manager_.reset(new BubbleManager());
-  return bubble_manager_.get();
-}
-
 bool AppWindow::OnMessageReceived(const IPC::Message& message,
                                   content::RenderFrameHost* render_frame_host) {
   bool handled = true;

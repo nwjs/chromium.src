@@ -27,7 +27,8 @@ goog.require('TtsCategory');
 goog.require('ValueSelectionSpan');
 goog.require('ValueSpan');
 goog.require('goog.i18n.MessageFormat');
-goog.require('LanguageSwitching');
+goog.require('LocaleOutputHelper');
+goog.require('UserAnnotationHandler');
 
 goog.scope(function() {
 const AutomationNode = chrome.automation.AutomationNode;
@@ -466,7 +467,7 @@ Output = class {
 
     let encounteredNonWhitespace = false;
     for (let i = 0; i < this.speechBuffer_.length; i++) {
-      var buff = this.speechBuffer_[i];
+      const buff = this.speechBuffer_[i];
       const text = buff.toString();
 
       // Consider empty strings as non-whitespace; they often have earcons
@@ -480,7 +481,7 @@ Output = class {
         continue;
       }
 
-      var speechProps = {};
+      let speechProps = {};
       const speechPropsInstance = /** @type {Output.SpeechProperties} */ (
           buff.getSpanInstanceOf(Output.SpeechProperties));
 
@@ -514,7 +515,13 @@ Output = class {
       }
 
       ChromeVox.tts.speak(buff.toString(), queueMode, speechProps);
-      queueMode = QueueMode.QUEUE;
+
+      // Skip resetting |queueMode| if the |text| is empty. If we don't do this,
+      // and the tts engine doesn't generate a callback, we might not properly
+      // flush.
+      if (text !== '') {
+        queueMode = QueueMode.QUEUE;
+      }
     }
     if (this.speechRulesStr_.str) {
       LogStore.getInstance().writeTextLog(
@@ -523,7 +530,7 @@ Output = class {
 
     // Braille.
     if (this.brailleBuffer_.length) {
-      var buff = this.mergeBraille_(this.brailleBuffer_);
+      const buff = this.mergeBraille_(this.brailleBuffer_);
       const selSpan = buff.getSpanInstanceOf(Output.SelectionSpan);
       let startIndex = -1, endIndex = -1;
       if (selSpan) {
@@ -738,42 +745,15 @@ Output = class {
             options.annotation.push(new Output.SelectionSpan(0, 0));
           }
 
-          // Language Switching. Only execute if feature is enabled.
+          const nameOrAnnotation =
+              UserAnnotationHandler.getAnnotationForNode(node) || node.name;
           if (localStorage['languageSwitching'] === 'true') {
-            /**
-             * Passed as a callback to assignLanguagesForStringAttribute.
-             * Appends outputString to the output buffer in newLanguage.
-             * @param {!Array<Spannable>} buff
-             * @param {{isUnique: (boolean|undefined),
-             *      annotation: !Array<*>}} options
-             * @param {string} newLanguage
-             * @param {string} outputString
-             */
-            const appendStringWithLanguage = function(
-                buff, options, newLanguage, outputString) {
-              const speechProps = new Output.SpeechProperties();
-              // Set output language.
-              speechProps.properties['lang'] = newLanguage;
-              // Append outputString to buff.
-              this.append_(buff, outputString, options);
-              // Attach associated SpeechProperties if the buffer is
-              // non-empty.
-              if (buff.length > 0) {
-                buff[buff.length - 1].setSpan(speechProps, 0, 0);
-              }
-            };
-            // Cut up node name into multiple spans with different languages.
-            LanguageSwitching.assignLanguagesForStringAttribute(
-                node, 'name',
-                appendStringWithLanguage.bind(this, buff, options));
+            this.assignLocalesAndAppend(nameOrAnnotation, node, buff, options);
           } else {
-            // Append entire node name.
-            // TODO(akihiroota): Follow-up with dtseng about why we append
-            // empty string.
-            this.append_(buff, node.name || '', options);
+            this.append_(buff, nameOrAnnotation || '', options);
           }
-          ruleStr.writeTokenWithValue(token, node.name);
 
+          ruleStr.writeTokenWithValue(token, node.name);
         } else if (token == 'description') {
           if (node.name == node.description) {
             return;
@@ -838,7 +818,7 @@ Output = class {
             }
 
             let count = 0;
-            for (var i = 0, child; child = node.parent.children[i]; i++) {
+            for (let i = 0, child; child = node.parent.children[i]; i++) {
               if (roles.has(child.role)) {
                 count++;
               }
@@ -850,7 +830,7 @@ Output = class {
             ruleStr.writeTokenWithValue(token, String(count));
           }
         } else if (token == 'restriction') {
-          var msg = Output.RESTRICTION_STATE_MAP[node.restriction];
+          const msg = Output.RESTRICTION_STATE_MAP[node.restriction];
           if (msg) {
             ruleStr.writeToken(token);
             this.format_({
@@ -861,7 +841,7 @@ Output = class {
             });
           }
         } else if (token == 'checked') {
-          var msg = Output.CHECKED_STATE_MAP[node.checked];
+          const msg = Output.CHECKED_STATE_MAP[node.checked];
           if (msg) {
             ruleStr.writeToken(token);
             this.format_({
@@ -872,7 +852,7 @@ Output = class {
             });
           }
         } else if (token == 'pressed') {
-          var msg = Output.PRESSED_STATE_MAP[node.checked];
+          const msg = Output.PRESSED_STATE_MAP[node.checked];
           if (msg) {
             ruleStr.writeToken(token);
             this.format_({
@@ -975,7 +955,7 @@ Output = class {
             speechProps.properties['relativePitch'] = -0.3;
           }
           options.annotation.push(token);
-          var msg = node.role;
+          let msg = node.role;
           const info = Output.ROLE_INFO_[node.role];
           if (node.roleDescription) {
             msg = node.roleDescription;
@@ -997,7 +977,7 @@ Output = class {
             return;
           }
           options.annotation.push(token);
-          var msgId = Output.INPUT_TYPE_MESSAGE_IDS_[node.inputType] ||
+          let msgId = Output.INPUT_TYPE_MESSAGE_IDS_[node.inputType] ||
               'input_type_text';
           if (this.formatOptions_.braille) {
             msgId = msgId + '_brl';
@@ -1006,7 +986,7 @@ Output = class {
           ruleStr.writeTokenWithValue(token, Msgs.getMsg(msgId));
         } else if (
             token == 'tableCellRowIndex' || token == 'tableCellColumnIndex') {
-          var value = node[token];
+          let value = node[token];
           if (value == undefined) {
             return;
           }
@@ -1016,7 +996,7 @@ Output = class {
           ruleStr.writeTokenWithValue(token, value);
         } else if (token == 'cellIndexText') {
           if (node.htmlAttributes['aria-coltext']) {
-            var value = node.htmlAttributes['aria-coltext'];
+            let value = node.htmlAttributes['aria-coltext'];
             let row = node;
             while (row && row.role != RoleType.ROW) {
               row = row.parent;
@@ -1055,10 +1035,10 @@ Output = class {
               return;
             }
 
-            var headers = node.tableCellColumnHeaders;
+            const headers = node.tableCellColumnHeaders;
             if (headers) {
-              for (var i = 0; i < headers.length; i++) {
-                var header = headers[i].name;
+              for (let i = 0; i < headers.length; i++) {
+                const header = headers[i].name;
                 if (header) {
                   this.append_(buff, header, options);
                   ruleStr.writeTokenWithValue(token, header);
@@ -1066,10 +1046,10 @@ Output = class {
               }
             }
           } else if (relationName == 'tableCellRowHeaders') {
-            var headers = node.tableCellRowHeaders;
+            const headers = node.tableCellRowHeaders;
             if (headers) {
-              for (var i = 0; i < headers.length; i++) {
-                var header = headers[i].name;
+              for (let i = 0; i < headers.length; i++) {
+                const header = headers[i].name;
                 if (header) {
                   this.append_(buff, header, options);
                   ruleStr.writeTokenWithValue(token, header);
@@ -1118,7 +1098,7 @@ Output = class {
           ruleStr.writeTokenWithValue(token, finalOutput);
         } else if (node[token] !== undefined) {
           options.annotation.push(token);
-          var value = node[token];
+          let value = node[token];
           if (typeof value == 'number') {
             value = String(value);
           }
@@ -1137,10 +1117,10 @@ Output = class {
                 new Output.EarconAction(resolvedInfo.earconId),
                 node.location || undefined);
           }
-          var msgId = this.formatOptions_.braille ?
+          const msgId = this.formatOptions_.braille ?
               resolvedInfo.msgId + '_brl' :
               resolvedInfo.msgId;
-          var msg = Msgs.getMsg(msgId);
+          const msg = Msgs.getMsg(msgId);
           this.append_(buff, msg, options);
           ruleStr.writeTokenWithValue(token, msg);
         } else if (token == 'posInSet') {
@@ -1164,8 +1144,8 @@ Output = class {
           // Custom functions.
           if (token == 'if') {
             ruleStr.writeToken(token);
-            var cond = tree.firstChild;
-            var attrib = cond.value.slice(1);
+            const cond = tree.firstChild;
+            const attrib = cond.value.slice(1);
             if (Output.isTruthy(node, attrib)) {
               ruleStr.write(attrib + '==true => ');
               this.format_({
@@ -1185,8 +1165,8 @@ Output = class {
             }
           } else if (token == 'nif') {
             ruleStr.writeToken(token);
-            var cond = tree.firstChild;
-            var attrib = cond.value.slice(1);
+            const cond = tree.firstChild;
+            const attrib = cond.value.slice(1);
             if (Output.isFalsey(node, attrib)) {
               ruleStr.write(attrib + '==false => ');
               this.format_({
@@ -1237,14 +1217,14 @@ Output = class {
           }
           return prev + lookup;
         }.bind(this), '');
-        var msgId = token;
+        const msgId = token;
         let msgArgs = [];
         ruleStr.write(token + '{');
         if (!isPluralized) {
           let curArg = tree.firstChild;
           while (curArg) {
             if (curArg.value[0] != '$') {
-              var errorMsg = 'Unexpected value: ' + curArg.value;
+              const errorMsg = 'Unexpected value: ' + curArg.value;
               ruleStr.writeError(errorMsg);
               console.error(errorMsg);
               return;
@@ -1264,7 +1244,7 @@ Output = class {
             curArg = curArg.nextSibling;
           }
         }
-        var msg = Msgs.getMsg(msgId, msgArgs);
+        let msg = Msgs.getMsg(msgId, msgArgs);
         try {
           if (this.formatOptions_.braille) {
             msg = Msgs.getMsg(msgId + '_brl', msgArgs) || msg;
@@ -1273,7 +1253,7 @@ Output = class {
         }
 
         if (!msg) {
-          var errorMsg = 'Could not get message ' + msgId;
+          const errorMsg = 'Could not get message ' + msgId;
           ruleStr.writeError(errorMsg);
           console.error(errorMsg);
           return;
@@ -1282,13 +1262,13 @@ Output = class {
         if (isPluralized) {
           const arg = tree.firstChild;
           if (!arg || arg.nextSibling) {
-            var errorMsg = 'Pluralized messages take exactly one argument';
+            const errorMsg = 'Pluralized messages take exactly one argument';
             ruleStr.writeError(errorMsg);
             console.error(errorMsg);
             return;
           }
           if (arg.value[0] != '$') {
-            var errorMsg = 'Unexpected value: ' + arg.value;
+            const errorMsg = 'Unexpected value: ' + arg.value;
             ruleStr.writeError(errorMsg);
             console.error(errorMsg);
             return;
@@ -1317,7 +1297,7 @@ Output = class {
             return;
           }
 
-          var value = tree.firstChild.value;
+          let value = tree.firstChild.value;
 
           // Currently, speech params take either attributes or floats.
           let float = 0;
@@ -1448,7 +1428,7 @@ Output = class {
     function byContextFirst(ancestors) {
       let contextFirst = [];
       let rest = [];
-      for (i = 0; i < ancestors.length - 1; i++) {
+      for (let i = 0; i < ancestors.length - 1; i++) {
         const node = ancestors[i];
         // Discard ancestors of deepest window.
         if (node.role == RoleType.WINDOW) {
@@ -1477,12 +1457,12 @@ Output = class {
 
     // Hash the roles we've entered.
     const enteredRoleSet = {};
-    for (var j = uniqueAncestors.length - 1, hashNode;
+    for (let j = uniqueAncestors.length - 1, hashNode;
          (hashNode = uniqueAncestors[j]); j--) {
       enteredRoleSet[hashNode.role] = true;
     }
 
-    for (var i = 0, formatPrevNode; (formatPrevNode = prevUniqueAncestors[i]);
+    for (let i = 0, formatPrevNode; (formatPrevNode = prevUniqueAncestors[i]);
          i++) {
       // This prevents very repetitive announcements.
       if (enteredRoleSet[formatPrevNode.role] ||
@@ -1491,7 +1471,8 @@ Output = class {
         continue;
       }
 
-      var parentRole = (Output.ROLE_INFO_[formatPrevNode.role] || {}).inherits;
+      const parentRole =
+          (Output.ROLE_INFO_[formatPrevNode.role] || {}).inherits;
       rule.role = (eventBlock[formatPrevNode.role] || {}).leave !== undefined ?
           formatPrevNode.role :
           (eventBlock[parentRole] || {}).leave !== undefined ? parentRole :
@@ -1513,9 +1494,9 @@ Output = class {
     // Customize for braille node annotations.
     const originalBuff = buff;
     const enterRole = {};
-    for (var j = uniqueAncestors.length - 1, formatNode;
+    for (let j = uniqueAncestors.length - 1, formatNode;
          (formatNode = uniqueAncestors[j]); j--) {
-      var parentRole = (Output.ROLE_INFO_[formatNode.role] || {}).inherits;
+      const parentRole = (Output.ROLE_INFO_[formatNode.role] || {}).inherits;
       rule.role = (eventBlock[formatNode.role] || {}).enter !== undefined ?
           formatNode.role :
           (eventBlock[parentRole] || {}).enter !== undefined ? parentRole :
@@ -1687,7 +1668,11 @@ Output = class {
       text = range.start.getText().substring(rangeStart, rangeEnd);
     }
 
-    this.append_(buff, text, options);
+    if (localStorage['languageSwitching'] === 'true') {
+      this.assignLocalesAndAppend(text, node, buff, options);
+    } else {
+      this.append_(buff, text, options);
+    }
     ruleStr.write('subNode_: ' + text + '\n');
 
     if (!this.outputContextFirst_) {
@@ -1702,8 +1687,13 @@ Output = class {
   }
 
   /**
-   * Renders the given range using optional context previous range and event
-   * type.
+   * Renders all hints for the given |range|.
+   *
+   * Add new hints to either method computeHints_ or computeDelayedHints_. Hints
+   * are outputted in order, so consider the relative priority of any new
+   * additions. Rendering processes these two methods in order. The only
+   * distinction is a small delay gets introduced before the first hint in
+   * |computeDelayedHints_|.
    * @param {!cursors.Range} range
    * @param {!Array<AutomationNode>} uniqueAncestors
    * @param {EventType|Output.EventType} type
@@ -1727,185 +1717,146 @@ Output = class {
     }
 
     const node = range.start.node;
-
-    if (!node) {
-      this.append_(buff, Msgs.getMsg('warning_no_current_range'));
-      ruleStr.write('hint_: ' + Msgs.getMsg('warning_no_current_range') + '\n');
-      return;
-    }
-
-    // Add hints by priority.
     if (node.restriction == chrome.automation.Restriction.DISABLED) {
-      // No hints here without further context such as form validation.
       return;
     }
 
-    // Undelayed hints.
-    if (node.errorMessage) {
-      this.format_({
-        node,
-        outputFormat: '$node(errorMessage)',
-        outputBuffer: buff,
-        outputRuleString: ruleStr
-      });
+    const msgs = Output.computeHints_(node);
+    const delayedMsgs =
+        Output.computeDelayedHints_(node, uniqueAncestors, type);
+    if (delayedMsgs.length > 0) {
+      delayedMsgs[0].props = new Output.SpeechProperties();
+      delayedMsgs[0].props.properties['delay'] = true;
     }
 
-    // Hints should be delayed.
-    const hintProperties = new Output.SpeechProperties();
-    hintProperties.properties['delay'] = true;
-
-    ruleStr.write('hint_: ');
-    if (EventSourceState.get() == EventSourceType.TOUCH_GESTURE) {
-      if (node.state[StateType.EDITABLE]) {
+    const allMsgs = msgs.concat(delayedMsgs);
+    for (const msg of allMsgs) {
+      if (msg.msgId) {
+        const text = Msgs.getMsg(msg.msgId);
+        this.append_(buff, text, {annotation: [msg.props]});
+        ruleStr.write('hint_: ' + text + '\n');
+      } else if (msg.text) {
+        this.append_(buff, msg.text, {annotation: [msg.props]});
+        ruleStr.write('hint_: ' + msg.text + '\n');
+      } else if (msg.outputFormat) {
+        ruleStr.write('hint_: ...');
         this.format_({
           node,
-          outputFormat: node.state[StateType.FOCUSED] ?
-              '@hint_is_editing' :
-              '@hint_double_tap_to_edit',
+          outputFormat: msg.outputFormat,
           outputBuffer: buff,
           outputRuleString: ruleStr,
-          opt_speechProps: hintProperties
+          opt_speechProps: msg.props
         });
-        return;
+      } else {
+        throw new Error('Unexpected hint: ' + msg);
+      }
+    }
+  }
+
+  /**
+   * Internal helper to |hint_|. Returns a list of message hints.
+   * @param {!AutomationNode} node
+   * @return {!Array<{text: (string|undefined),
+   *           msgId: (string|undefined),
+   *           outputFormat: (string|undefined)}>} Note that the above caller
+   * expects one and only one key be set.
+   * @private
+   */
+  static computeHints_(node) {
+    const ret = [];
+    if (node.errorMessage) {
+      ret.push({outputFormat: '$node(errorMessage)'});
+    }
+    return ret;
+  }
+
+  /**
+   * Internal helper to |hint_|. Returns a list of message hints.
+   * @param {!AutomationNode} node
+   * @param {!Array<AutomationNode>} uniqueAncestors
+   * @param {EventType|Output.EventType} type
+   * @return {!Array<{text: (string|undefined),
+   *           msgId: (string|undefined),
+   *           outputFormat: (string|undefined)}>} Note that the above caller
+   * expects one and only one key be set.
+   * @private
+   */
+  static computeDelayedHints_(node, uniqueAncestors, type) {
+    const ret = [];
+    if (EventSourceState.get() == EventSourceType.TOUCH_GESTURE) {
+      if (node.state[StateType.EDITABLE]) {
+        ret.push({
+          msgId: node.state[StateType.FOCUSED] ? 'hint_is_editing' :
+                                                 'hint_double_tap_to_edit'
+        });
+        return ret;
       }
 
       const isWithinVirtualKeyboard = AutomationUtil.getAncestors(node).find(
           (n) => n.role == RoleType.KEYBOARD);
       if (node.defaultActionVerb != 'none' && !isWithinVirtualKeyboard) {
-        this.format_({
-          node,
-          outputFormat: '@hint_double_tap',
-          outputBuffer: buff,
-          outputRuleString: ruleStr,
-          opt_speechProps: hintProperties
-        });
+        ret.push({msgId: 'hint_double_tap'});
       }
 
       const enteredVirtualKeyboard =
           uniqueAncestors.find((n) => n.role == RoleType.KEYBOARD);
       if (enteredVirtualKeyboard) {
-        this.format_({
-          node,
-          outputFormat: '@hint_touch_type',
-          outputBuffer: buff,
-          outputRuleString: ruleStr,
-          opt_speechProps: hintProperties
-        });
+        ret.push({msgId: 'hint_touch_type'});
       }
-
-      return;
-    }
-
-    if (node.state[StateType.EDITABLE] && ChromeVox.isStickyPrefOn) {
-      this.format_({
-        node,
-        outputFormat: '@sticky_mode_enabled',
-        outputBuffer: buff,
-        outputRuleString: ruleStr,
-        opt_speechProps: hintProperties
-      });
+      return ret;
     }
 
     if (node.state[StateType.EDITABLE] && node.state[StateType.FOCUSED] &&
-        !this.formatOptions_.braille) {
-      if (node.state[StateType.MULTILINE] ||
-          node.state[StateType.RICHLY_EDITABLE]) {
-        this.format_({
-          node,
-          outputFormat: '@hint_search_within_text_field',
-          outputBuffer: buff,
-          outputRuleString: ruleStr,
-          opt_speechProps: hintProperties
-        });
-      }
+        (node.state[StateType.MULTILINE] ||
+         node.state[StateType.RICHLY_EDITABLE])) {
+      ret.push({msgId: 'hint_search_within_text_field'});
     }
 
     if (node.placeholder) {
-      this.append_(buff, node.placeholder);
+      ret.push({text: node.placeholder});
     }
 
     // Only include tooltip as a hint as a last alternative. It may have been
     // included as the name or description previously. As a rule of thumb,
     // only include it if there's no name and no description.
     if (node.tooltip && !node.name && !node.description) {
-      this.append_(buff, node.tooltip);
+      ret.push({text: node.tooltip});
     }
 
     if (AutomationPredicate.checkable(node)) {
-      this.format_({
-        node,
-        outputFormat: '@hint_checkable',
-        outputBuffer: buff,
-        outputRuleString: ruleStr,
-        opt_speechProps: hintProperties
-      });
+      ret.push({msgId: 'hint_checkable'});
     } else if (AutomationPredicate.clickable(node)) {
-      this.format_({
-        node,
-        outputFormat: '@hint_clickable',
-        outputBuffer: buff,
-        outputRuleString: ruleStr,
-        opt_speechProps: hintProperties
-      });
+      ret.push({msgId: 'hint_clickable'});
     }
 
     if (node.autoComplete == 'list' || node.autoComplete == 'both' ||
         node.state[StateType.AUTOFILL_AVAILABLE]) {
-      this.format_({
-        node,
-        outputFormat: '@hint_autocomplete_list',
-        outputBuffer: buff,
-        outputRuleString: ruleStr,
-        opt_speechProps: hintProperties
-      });
+      ret.push({msgId: 'hint_autocomplete_list'});
     }
     if (node.autoComplete == 'inline' || node.autoComplete == 'both') {
-      this.format_({
-        node,
-        outputFormat: '@hint_autocomplete_inline',
-        outputBuffer: buff,
-        outputRuleString: ruleStr,
-        opt_speechProps: hintProperties
-      });
+      ret.push({msgId: 'hint_autocomplete_inline'});
     }
     if (node.accessKey) {
-      this.append_(buff, Msgs.getMsg('access_key', [node.accessKey]));
-      ruleStr.write(Msgs.getMsg('access_key', [node.accessKey]));
+      ret.push({text: Msgs.getMsg('access_key', [node.accessKey])});
     }
 
     // Ancestry based hints.
     if (uniqueAncestors.find(
             /** @type {function(?) : boolean} */ (AutomationPredicate.table))) {
-      this.format_({
-        node,
-        outputFormat: '@hint_table',
-        outputBuffer: buff,
-        outputRuleString: ruleStr,
-        opt_speechProps: hintProperties
-      });
+      ret.push({msgId: 'hint_table'});
     }
     if (uniqueAncestors.find(/** @type {function(?) : boolean} */ (
             AutomationPredicate.roles([RoleType.MENU, RoleType.MENU_BAR])))) {
-      this.format_({
-        node,
-        outputFormat: '@hint_menu',
-        outputBuffer: buff,
-        outputRuleString: ruleStr,
-        opt_speechProps: hintProperties
-      });
+      ret.push({msgId: 'hint_menu'});
     }
     if (uniqueAncestors.find(
             /** @type {function(?) : boolean} */ (function(n) {
               return !!n.details;
             }))) {
-      this.format_({
-        node,
-        outputFormat: '@hint_details',
-        outputBuffer: buff,
-        outputRuleString: ruleStr,
-        opt_speechProps: hintProperties
-      });
+      ret.push({msgId: 'hint_details'});
     }
+
+    return ret;
   }
 
   /**
@@ -2140,6 +2091,36 @@ Output = class {
    */
   get brailleOutputForTest() {
     return this.mergeBraille_(this.brailleBuffer_);
+  }
+
+  /**
+   * @param {string} text
+   * @param {!AutomationNode} contextNode
+   * @param {!Array<Spannable>} buff
+   * @param {{isUnique: (boolean|undefined), annotation: !Array<*>}} options
+   */
+  assignLocalesAndAppend(text, contextNode, buff, options) {
+    /**
+     * A callback that appends |outputString| to |buff| with |newLocale|.
+     * @param {!Array<Spannable>} buff
+     * @param {{isUnique: (boolean|undefined),
+     *      annotation: !Array<*>}} options
+     * @param {string} outputString
+     * @param {string} newLocale
+     */
+    const appendStringWithLocale = function(
+        buff, options, outputString, newLocale) {
+      const speechProps = new Output.SpeechProperties();
+      speechProps.properties['lang'] = newLocale;
+      this.append_(buff, outputString, options);
+      // Attach associated SpeechProperties if the buffer is
+      // non-empty.
+      if (buff.length > 0) {
+        buff[buff.length - 1].setSpan(speechProps, 0, 0);
+      }
+    };
+    LocaleOutputHelper.instance.assignLocalesAndAppend(
+        text, contextNode, appendStringWithLocale.bind(this, buff, options));
   }
 };
 

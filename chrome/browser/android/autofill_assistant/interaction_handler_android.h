@@ -19,6 +19,8 @@
 #include "components/autofill_assistant/browser/service.pb.h"
 
 namespace autofill_assistant {
+class BasicInteractions;
+class UserModel;
 
 // Receives incoming events and runs the corresponding set of callbacks.
 //
@@ -28,43 +30,67 @@ namespace autofill_assistant {
 // UI.
 class InteractionHandlerAndroid : public EventHandler::Observer {
  public:
-  // Each interaction callback has exactly one free |ValueProto| parameter.
-  using InteractionCallback = base::RepeatingCallback<void(const ValueProto&)>;
+  using InteractionCallback = base::RepeatingCallback<void()>;
 
-  // Constructor. |event_handler| and |jcontext| must outlive this instance.
+  // Constructor. |event_handler|, |user_model|, |basic_interactions|,
+  // |views|, |jcontext| and |jdelegate| must outlive this instance.
   InteractionHandlerAndroid(
       EventHandler* event_handler,
-      base::android::ScopedJavaLocalRef<jobject> jcontext);
+      UserModel* user_model,
+      BasicInteractions* basic_interactions,
+      std::map<std::string, base::android::ScopedJavaGlobalRef<jobject>>* views,
+      base::android::ScopedJavaGlobalRef<jobject> jcontext,
+      base::android::ScopedJavaGlobalRef<jobject> jdelegate);
   ~InteractionHandlerAndroid() override;
+
+  base::WeakPtr<InteractionHandlerAndroid> GetWeakPtr();
 
   void StartListening();
   void StopListening();
 
-  // Creates callbacks for each interaction in |proto| as well as the
-  // corresponding view events in |views|. Returns false if |proto| is invalid.
-  bool AddInteractionsFromProto(
-      const InteractionsProto& proto,
-      JNIEnv* env,
-      const std::map<std::string, base::android::ScopedJavaGlobalRef<jobject>>&
-          views,
-      base::android::ScopedJavaGlobalRef<jobject> jdelegate,
-      UserModel* user_model);
+  // Access to the user model that this interaction handler is bound to.
+  UserModel* GetUserModel() const;
 
-  // Overrides autofill_assistant::EventHandler::Observer:
-  void OnEvent(const EventHandler::EventKey& key,
-               const ValueProto& value) override;
+  // Access to the basic interactions that this interaction handler is bound to.
+  BasicInteractions* GetBasicInteractions() const;
 
- private:
+  // Creates interaction callbacks as specified by |proto|. Returns false if
+  // |proto| is invalid.
+  bool AddInteractionsFromProto(const InteractionProto& proto);
+
+  // Adds a single interaction. This can be used to add internal interactions
+  // which are not exposed in the proto interface.
   void AddInteraction(const EventHandler::EventKey& key,
                       const InteractionCallback& callback);
 
+  // Overrides autofill_assistant::EventHandler::Observer.
+  void OnEvent(const EventHandler::EventKey& key) override;
+
+  // Adds |model_identifier| to the list of model identifiers belonging to
+  // |radio_group|.
+  void AddRadioButtonToGroup(const std::string& radio_group,
+                             const std::string& model_identifier);
+
+  // Ensures that only |selected_model_identifier| is set to true in
+  // |radio_group|.
+  void UpdateRadioButtonGroup(const std::string& radio_group,
+                              const std::string& selected_model_identifier);
+
+ private:
   // Maps event keys to the corresponding list of callbacks to execute.
   std::map<EventHandler::EventKey, std::vector<InteractionCallback>>
       interactions_;
 
   EventHandler* event_handler_ = nullptr;
+  UserModel* user_model_ = nullptr;
+  BasicInteractions* basic_interactions_ = nullptr;
+  std::map<std::string, base::android::ScopedJavaGlobalRef<jobject>>* views_;
   base::android::ScopedJavaGlobalRef<jobject> jcontext_ = nullptr;
+  base::android::ScopedJavaGlobalRef<jobject> jdelegate_ = nullptr;
   bool is_listening_ = false;
+  // Maps radiogroup identifiers to the list of corresponding model identifiers.
+  std::map<std::string, std::vector<std::string>> radio_groups_;
+  base::WeakPtrFactory<InteractionHandlerAndroid> weak_ptr_factory_{this};
   DISALLOW_COPY_AND_ASSIGN(InteractionHandlerAndroid);
 };
 

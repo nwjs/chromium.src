@@ -179,7 +179,7 @@ WebViewImpl::WebViewImpl(const std::string& id,
       heap_snapshot_taker_(new HeapSnapshotTaker(client_.get())),
       debugger_(new DebuggerTracker(client_.get())) {
   // Downloading in headless mode requires the setting of
-  // Page.setDownloadBehavior. This is handled by the
+  // Browser.setDownloadBehavior. This is handled by the
   // DownloadDirectoryOverrideManager, which is only instantiated
   // in headless chrome.
   if (browser_info->is_headless)
@@ -775,9 +775,9 @@ Status WebViewImpl::WaitForPendingNavigations(const std::string& frame_id,
     return Status(kUnsupportedOperation,
                   "Call WaitForPendingNavigations only on the parent WebView");
   VLOG(0) << "Waiting for pending navigations...";
-  const auto not_pending_navigation =
-      base::Bind(&WebViewImpl::IsNotPendingNavigation, base::Unretained(this),
-                 frame_id, base::Unretained(&timeout));
+  const auto not_pending_navigation = base::BindRepeating(
+      &WebViewImpl::IsNotPendingNavigation, base::Unretained(this), frame_id,
+      base::Unretained(&timeout));
   Status status = client_->HandleEventsUntil(not_pending_navigation, timeout);
   if (status.code() == kTimeout && stop_load_on_timeout) {
     VLOG(0) << "Timed out. Stopping navigation...";
@@ -1125,6 +1125,11 @@ void WebViewImpl::ClearNavigationState(const std::string& new_frame_id) {
 Status WebViewImpl::IsNotPendingNavigation(const std::string& frame_id,
                                            const Timeout* timeout,
                                            bool* is_not_pending) {
+  if (!frame_id.empty() && !frame_tracker_->IsKnownFrame(frame_id)) {
+    // Frame has already been destroyed.
+    *is_not_pending = true;
+    return Status(kOk);
+  }
   bool is_pending;
   Status status =
       navigation_tracker_->IsPendingNavigation(frame_id, timeout, &is_pending);
@@ -1251,14 +1256,7 @@ Status EvaluateScript(DevToolsClient* client,
   if (status.IsError())
     return status;
 
-  bool was_thrown;
-  if (!cmd_result->GetBoolean("wasThrown", &was_thrown)) {
-    // As of crrev.com/411814, Runtime.evaluate no longer returns a 'wasThrown'
-    // property in the response, so check 'exceptionDetails' instead.
-    // TODO(samuong): Ignore 'wasThrown' when we stop supporting Chrome 54.
-    was_thrown = cmd_result->HasKey("exceptionDetails");
-  }
-  if (was_thrown) {
+  if (cmd_result->HasKey("exceptionDetails")) {
     std::string description = "unknown";
     cmd_result->GetString("result.description", &description);
     return Status(kUnknownError,

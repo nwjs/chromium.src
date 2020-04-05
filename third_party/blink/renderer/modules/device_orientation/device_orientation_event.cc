@@ -47,6 +47,24 @@ DeviceOrientationEvent::DeviceOrientationEvent(
     : Event(event_type, Bubbles::kNo, Cancelable::kNo),
       orientation_(orientation) {}
 
+base::Optional<double> DeviceOrientationEvent::alpha() const {
+  if (orientation_->CanProvideAlpha())
+    return orientation_->Alpha();
+  return base::nullopt;
+}
+
+base::Optional<double> DeviceOrientationEvent::beta() const {
+  if (orientation_->CanProvideBeta())
+    return orientation_->Beta();
+  return base::nullopt;
+}
+
+base::Optional<double> DeviceOrientationEvent::gamma() const {
+  if (orientation_->CanProvideGamma())
+    return orientation_->Gamma();
+  return base::nullopt;
+}
+
 double DeviceOrientationEvent::alpha(bool& is_null) const {
   if (orientation_->CanProvideAlpha())
     return orientation_->Alpha();
@@ -79,7 +97,7 @@ const AtomicString& DeviceOrientationEvent::InterfaceName() const {
   return event_interface_names::kDeviceOrientationEvent;
 }
 
-void DeviceOrientationEvent::Trace(blink::Visitor* visitor) {
+void DeviceOrientationEvent::Trace(Visitor* visitor) {
   visitor->Trace(orientation_);
   Event::Trace(visitor);
 }

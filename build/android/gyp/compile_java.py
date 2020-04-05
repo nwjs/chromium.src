@@ -9,9 +9,10 @@ import logging
 import multiprocessing
 import optparse
 import os
-import shutil
 import re
+import shutil
 import sys
+import time
 import zipfile
 
 from util import build_utils
@@ -23,8 +24,9 @@ sys.path.insert(
     os.path.join(build_utils.DIR_SOURCE_ROOT, 'third_party', 'colorama', 'src'))
 import colorama
 
-_JAVAC_WRAPPER = os.path.join(build_utils.DIR_SOURCE_ROOT, 'build', 'android',
-                              'gyp', 'javac')
+_JAVAC_EXTRACTOR = os.path.join(build_utils.DIR_SOURCE_ROOT, 'third_party',
+                                'android_prebuilts', 'build_tools', 'common',
+                                'framework', 'javac_extractor.jar')
 
 # Full list of checks: https://errorprone.info/bugpatterns
 ERRORPRONE_WARNINGS_TO_TURN_OFF = [
@@ -132,6 +134,9 @@ ERRORPRONE_WARNINGS_TO_TURN_OFF = [
     'UnnecessaryAnonymousClass',
     # Nice to have.
     'LiteProtoToString',
+    # Must be off since we are now passing in annotation processor generated
+    # code as a source jar (deduplicating work with turbine).
+    'RefersToDaggerCodegen',
 ]
 
 # Full list of checks: https://errorprone.info/bugpatterns
@@ -200,7 +205,6 @@ def ProcessJavacOutput(output):
 
 def _ExtractClassFiles(jar_path, dest_dir, java_files):
   """Extracts all .class files not corresponding to |java_files|."""
-
   # Two challenges exist here:
   # 1. |java_files| have prefixes that are not represented in the the jar paths.
   # 2. A single .java file results in multiple .class files when it contains
@@ -270,7 +274,7 @@ class _InfoFileContext(object):
       self._srcjar_files[path] = '{}/{}'.format(
           srcjar_path, os.path.relpath(path, parent_dir))
 
-  def SubmitFiles(self, java_files, close=False):
+  def SubmitFiles(self, java_files):
     if self._pool is None:
       # Restrict to just one process to not slow down compiling. Compiling
       # is always slower.
@@ -278,9 +282,7 @@ class _InfoFileContext(object):
     logging.info('Submitting %d files for info', len(java_files))
     self._results.append(
         self._pool.imap_unordered(
-            _ProcessJavaFileForInfo, java_files, chunksize=10))
-    if close:
-      self._pool.close()
+            _ProcessJavaFileForInfo, java_files, chunksize=1000))
 
   def _CheckPathMatchesClassName(self, java_file, package_name, class_name):
     parts = package_name.split('.') + [class_name + '.java']
@@ -344,25 +346,65 @@ class _InfoFileContext(object):
     logging.info('Completed info file: %s', output_path)
 
 
-def _AddExtraJarFiles(jar_path, provider_configurations=None, file_tuples=None):
-  with zipfile.ZipFile(jar_path, 'a') as z:
-    for config in provider_configurations or []:
-      zip_path = 'META-INF/services/' + os.path.basename(config)
-      build_utils.AddToZipHermetic(z, zip_path, src_path=config)
+def _CreateJarFile(jar_path, provider_configurations, additional_jar_files,
+                   classes_dir):
+  logging.info('Start creating jar file: %s', jar_path)
+  with build_utils.AtomicOutput(jar_path) as f:
+    with zipfile.ZipFile(f.name, 'w') as z:
+      build_utils.ZipDir(z, classes_dir)
+      if provider_configurations:
+        for config in provider_configurations:
+          zip_path = 'META-INF/services/' + os.path.basename(config)
+          build_utils.AddToZipHermetic(z, zip_path, src_path=config)
 
-    for src_path, zip_path in file_tuples or []:
-      build_utils.AddToZipHermetic(z, zip_path, src_path=src_path)
+      if additional_jar_files:
+        for src_path, zip_path in additional_jar_files:
+          build_utils.AddToZipHermetic(z, zip_path, src_path=src_path)
+  logging.info('Completed jar file: %s', jar_path)
 
 
-def _OnStaleMd5(options, javac_cmd, java_files, classpath):
+def _OnStaleMd5(options, javac_cmd, javac_args, java_files):
   logging.info('Starting _OnStaleMd5')
+  if options.enable_kythe_annotations:
+    # Kythe requires those env variables to be set and compile_java.py does the
+    # same
+    if not os.environ.get('KYTHE_ROOT_DIRECTORY') or \
+        not os.environ.get('KYTHE_OUTPUT_DIRECTORY'):
+      raise Exception('--enable-kythe-annotations requires '
+                      'KYTHE_ROOT_DIRECTORY and KYTHE_OUTPUT_DIRECTORY '
+                      'environment variables to be set.')
+    javac_extractor_cmd = [
+        build_utils.JAVA_PATH,
+        '-jar',
+        _JAVAC_EXTRACTOR,
+    ]
+    try:
+      _RunCompiler(options, javac_extractor_cmd + javac_args, java_files,
+                   options.classpath, options.jar_path + '.javac_extractor',
+                   save_outputs=False),
+    except build_utils.CalledProcessError as e:
+      # Having no index for particular target is better than failing entire
+      # codesearch. Log and error and move on.
+      logging.error('Could not generate kzip: %s', e)
+
+  # Compiles with Error Prone take twice as long to run as pure javac. Thus GN
+  # rules run both in parallel, with Error Prone only used for checks.
+  _RunCompiler(options, javac_cmd + javac_args, java_files,
+               options.classpath, options.jar_path,
+               save_outputs=not options.enable_errorprone)
+  logging.info('Completed all steps in _OnStaleMd5')
+
+
+def _RunCompiler(options, javac_cmd, java_files, classpath, jar_path,
+                 save_outputs=True):
+  logging.info('Starting _RunCompiler')
 
   # Compiles with Error Prone take twice as long to run as pure javac. Thus GN
   # rules run both in parallel, with Error Prone only used for checks.
   save_outputs = not options.enable_errorprone
 
   # Use jar_path's directory to ensure paths are relative (needed for goma).
-  temp_dir = options.jar_path + '.staging'
+  temp_dir = jar_path + '.staging'
   shutil.rmtree(temp_dir, True)
   os.makedirs(temp_dir)
   try:
@@ -400,8 +442,7 @@ def _OnStaleMd5(options, javac_cmd, java_files, classpath):
     if java_files:
       # Don't include the output directory in the initial set of args since it
       # being in a temp dir makes it unstable (breaks md5 stamping).
-      cmd = [_JAVAC_WRAPPER]
-      cmd += javac_cmd
+      cmd = list(javac_cmd)
       cmd += ['-d', classes_dir]
       cmd += ['-s', annotation_processor_outputs_dir]
 
@@ -418,39 +459,29 @@ def _OnStaleMd5(options, javac_cmd, java_files, classpath):
       logging.debug('Build command %s', cmd)
       os.makedirs(classes_dir)
       os.makedirs(annotation_processor_outputs_dir)
+      start = time.time()
       build_utils.CheckOutput(
           cmd,
           print_stdout=options.chromium_code,
+          stdout_filter=ProcessJavacOutput,
           stderr_filter=ProcessJavacOutput)
-      logging.info('Finished build command')
+      end = time.time() - start
+      logging.info('Java compilation took %ss', end)
 
     if save_outputs:
-      annotation_processor_srcjar = os.path.join(
-          annotation_processor_outputs_dir, 'output.srcjar')
-      if os.path.exists(annotation_processor_srcjar):
-        annotation_processor_java_files = build_utils.ExtractAll(
-            annotation_processor_srcjar,
-            no_clobber=True,
-            path=annotation_processor_outputs_dir)
-        os.unlink(annotation_processor_srcjar)
-        if annotation_processor_java_files:
-          info_file_context.SubmitFiles(
-              annotation_processor_java_files, close=True)
+      annotation_processor_java_files = build_utils.FindInDirectory(
+          annotation_processor_outputs_dir)
+      if annotation_processor_java_files:
+        info_file_context.SubmitFiles(annotation_processor_java_files)
 
-      with build_utils.AtomicOutput(options.jar_path) as f:
-        if java_files:
-          shutil.move(os.path.join(classes_dir, 'classes.jar'), f.name)
-        else:
-          zipfile.ZipFile(f.name, 'w').close()
-        if options.provider_configurations or options.additional_jar_files:
-          _AddExtraJarFiles(f.name, options.provider_configurations,
-                            options.additional_jar_files)
+      _CreateJarFile(jar_path, options.provider_configurations,
+                     options.additional_jar_files, classes_dir)
 
-      info_file_context.Commit(options.jar_path + '.info')
+      info_file_context.Commit(jar_path + '.info')
     else:
-      build_utils.Touch(options.jar_path)
+      build_utils.Touch(jar_path)
 
-    logging.info('Completed all steps in _OnStaleMd5')
+    logging.info('Completed all steps in _RunCompiler')
   finally:
     shutil.rmtree(temp_dir)
 
@@ -531,6 +562,11 @@ def _ParseOptions(argv):
       action='append',
       default=[],
       help='Additional arguments to pass to javac.')
+  parser.add_option(
+      '--enable-kythe-annotations',
+      action='store_true',
+      help='Enable generation of Kythe kzip, used for codesearch. Ensure '
+      'proper environment variables are set before using this flag.')
 
   options, args = parser.parse_args(argv)
   build_utils.CheckOptions(options, parser, required=('jar_path', ))
@@ -566,14 +602,13 @@ def main(argv):
 
   argv = build_utils.ExpandFileArgs(argv)
   options, java_files = _ParseOptions(argv)
-  javac_path = build_utils.JAVAC_PATH
 
   javac_cmd = []
   if options.gomacc_path:
     javac_cmd.append(options.gomacc_path)
+  javac_cmd.append(build_utils.JAVAC_PATH)
 
-  javac_cmd += [
-      javac_path,
+  javac_args = [
       '-g',
       # Chromium only allows UTF8 source files.  Being explicit avoids
       # javac pulling a default encoding from the user's environment.
@@ -594,10 +629,14 @@ def main(argv):
       errorprone_flags.append('-Xep:{}:ERROR'.format(warning))
     if not options.warnings_as_errors:
       errorprone_flags.append('-XepAllErrorsAsWarnings')
-    javac_cmd += ['-XDcompilePolicy=simple', ' '.join(errorprone_flags)]
+    javac_args += ['-XDcompilePolicy=simple', ' '.join(errorprone_flags)]
+    # This flag quits errorprone after checks and before code generation, since
+    # we do not need errorprone outputs, this speeds up errorprone by 4 seconds
+    # for chrome_java.
+    javac_args += ['-XDshould-stop.ifNoError=FLOW']
 
   if options.java_version:
-    javac_cmd.extend([
+    javac_args.extend([
         '-source',
         options.java_version,
         '-target',
@@ -608,26 +647,32 @@ def main(argv):
     options.bootclasspath.append(build_utils.RT_JAR_PATH)
 
   if options.warnings_as_errors:
-    javac_cmd.extend(['-Werror'])
+    javac_args.extend(['-Werror'])
   else:
     # XDignore.symbol.file makes javac compile against rt.jar instead of
     # ct.sym. This means that using a java internal package/class will not
     # trigger a compile warning or error.
-    javac_cmd.extend(['-XDignore.symbol.file'])
+    javac_args.extend(['-XDignore.symbol.file'])
 
   if options.processors:
-    javac_cmd.extend(['-processor', ','.join(options.processors)])
+    javac_args.extend(['-processor', ','.join(options.processors)])
+  else:
+    # This effectively disables all annotation processors, even including
+    # annotation processors in service provider configuration files named
+    # META-INF/. See the following link for reference:
+    #     https://docs.oracle.com/en/java/javase/11/tools/javac.html
+    javac_args.extend(['-proc:none'])
 
   if options.bootclasspath:
-    javac_cmd.extend(['-bootclasspath', ':'.join(options.bootclasspath)])
+    javac_args.extend(['-bootclasspath', ':'.join(options.bootclasspath)])
 
   if options.processorpath:
-    javac_cmd.extend(['-processorpath', ':'.join(options.processorpath)])
+    javac_args.extend(['-processorpath', ':'.join(options.processorpath)])
   if options.processor_args:
     for arg in options.processor_args:
-      javac_cmd.extend(['-A%s' % arg])
+      javac_args.extend(['-A%s' % arg])
 
-  javac_cmd.extend(options.javac_arg)
+  javac_args.extend(options.javac_arg)
 
   classpath_inputs = (
       options.bootclasspath + options.classpath + options.processorpath)
@@ -643,11 +688,12 @@ def main(argv):
       options.jar_path + '.info',
   ]
 
-  input_strings = javac_cmd + options.classpath + java_files
+  input_strings = javac_cmd + javac_args + options.classpath + java_files
   if options.jar_info_exclude_globs:
     input_strings.append(options.jar_info_exclude_globs)
+
   md5_check.CallAndWriteDepfileIfStale(
-      lambda: _OnStaleMd5(options, javac_cmd, java_files, options.classpath),
+      lambda: _OnStaleMd5(options, javac_cmd, javac_args, java_files),
       options,
       depfile_deps=depfile_deps,
       input_paths=input_paths,

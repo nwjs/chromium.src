@@ -4,6 +4,7 @@
 <translation id="1018939186200882850">menyu bandi</translation>
 <translation id="10623998915015855">almashtirgich tugmasi</translation>
 <translation id="1088086359088493902">Soniyalar</translation>
+<translation id="1142001580032786438">Hafta tanlash oynasini chiqarish</translation>
 <translation id="1171774979989969504">Iltimos, e-pochta manzilini kiriting.</translation>
 <translation id="1178581264944972037">Pauza</translation>
 <translation id="1188858454923323853">qo‘shimcha</translation>
@@ -22,6 +23,7 @@
 <translation id="1727886345390570319">taglavha menyusini yopish</translation>
 <translation id="1729654308190250600">Bo‘sh bo‘lmagan e-pochta manzilini kiriting.</translation>
 <translation id="1758486001363313524">Boshqa...</translation>
+<translation id="1787192514241997742">umimiy vaqt: <ph name="REMAINING_TIME" /></translation>
 <translation id="1806710327868736751">ogohlantirish muloqot oynasi</translation>
 <translation id="1821985195704844674">daraxtsimon jadval</translation>
 <translation id="1822429046913737220">AM/PM</translation>
@@ -100,7 +102,6 @@
 <translation id="4444765639179266822">Bunday yozilgan shekilli: <ph name="OCR_TEXT" /></translation>
 <translation id="4446524499724042288">lug‘at havolasi</translation>
 <translation id="4522570452068850558">Tafsilotlar</translation>
-<translation id="4542388879936266156">qolgan vaqt: <ph name="REMAINING_TIME" /></translation>
 <translation id="4597532268155981612">shakl</translation>
 <translation id="4661075872484491155">daraxt</translation>
 <translation id="4664250907885839816">Manzillar qatorining “<ph name="ATSIGN" />” qismida “<ph name="INVALIDCHARACTER" />” belgisi bo‘lmasligi kerak.</translation>
@@ -114,7 +115,9 @@
 <translation id="479989351350248267">qidiruv</translation>
 <translation id="4812940957355064477">Raqam kiriting.</translation>
 <translation id="4912536737030637138">bibliografiya yozuvi</translation>
+<translation id="4915360478455618802">Vaqt tanlash oynasini chiqarish</translation>
 <translation id="492244087561876220">fikr</translation>
+<translation id="4950364064308314478">Mahalliy sana va vaqt tanlash oynasini chiqarish</translation>
 <translation id="4971739861736909480"><ph name="ACCNAME" /> tanlandi</translation>
 <translation id="4975562563186953947"><ph name="SELECTED_COUNT" /> ta element tanlandi</translation>
 <translation id="4992066212339426712">Ovozni yoqish</translation>
@@ -233,6 +236,7 @@
 <translation id="8284326494547611709">Taglavhalar</translation>
 <translation id="8346634859695247203">qism</translation>
 <translation id="835897206747267392">Qiymat yaroqsiz.</translation>
+<translation id="839593075537728968">Qiymati <ph name="MINIMUM_TIME" /> va <ph name="MAXIMUM_TIME" /> orasida boʻlsin.</translation>
 <translation id="8403857369060869934">oʻtgan vaqt: <ph name="ELAPSED_TIME" /></translation>
 <translation id="8415319359811155763">qism</translation>
 <translation id="8433900881053900389">asboblar paneli</translation>
@@ -249,6 +253,7 @@
 <translation id="860475260694818407">mundarija</translation>
 <translation id="8613126697340063924">ijroni masofadan turib boshqarish</translation>
 <translation id="862370744433916922">taglavha</translation>
+<translation id="8634971699417195529">Oy tanlash oynasini chiqarish</translation>
 <translation id="8711688047404765493">chiqish</translation>
 <translation id="8750798805984357768">Bu parametrlardan birini tanlang.</translation>
 <translation id="8808573423886751634">bob</translation>

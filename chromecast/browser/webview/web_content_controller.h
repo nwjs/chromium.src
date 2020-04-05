@@ -64,6 +64,10 @@ class WebContentController
   void AttachTo(aura::Window* window, int window_id);
 
  protected:
+  static void RegisterRenderWidgetInputObserverFromRenderFrameHost(
+      WebContentController* web_content_controller,
+      content::RenderFrameHost* render_frame_host);
+
   // Subclasses are expected to add/remove this as a WebContentsObserver on
   // whatever WebContents this manages.
   virtual content::WebContents* GetWebContents() = 0;
@@ -73,7 +77,10 @@ class WebContentController
 
  private:
   void ProcessInputEvent(const webview::InputEvent& ev);
-  void ObserveRenderWidget(content::RenderWidgetHost* render_widget_host);
+  void RegisterRenderWidgetInputObserver(
+      content::RenderWidgetHost* render_widget_host);
+  void UnregisterRenderWidgetInputObserver(
+      content::RenderWidgetHost* render_widget_host);
   void AckTouchEvent(content::RenderWidgetHostView* rhwv,
                      uint32_t unique_event_id,
                      ui::EventResult result);
@@ -93,6 +100,7 @@ class WebContentController
   void HandleUpdateSettings(const webview::UpdateSettingsRequest& request);
   void HandleSetAutoMediaPlaybackPolicy(
       const webview::SetAutoMediaPlaybackPolicyRequest& request);
+  void HandleResize(const gfx::Size& size);
   viz::SurfaceId GetSurfaceId();
   void ChannelModified(content::RenderFrameHost* frame,
                        const std::string& channel,
@@ -108,6 +116,7 @@ class WebContentController
   void RenderFrameDeleted(content::RenderFrameHost* render_frame_host) override;
   void RenderFrameHostChanged(content::RenderFrameHost* old_host,
                               content::RenderFrameHost* new_host) override;
+  void MainFrameWasResized(bool width_changed) override;
   void FrameSizeChanged(content::RenderFrameHost* render_frame_host,
                         const gfx::Size& frame_size) override;
   void RenderViewCreated(content::RenderViewHost* render_view_host) override;

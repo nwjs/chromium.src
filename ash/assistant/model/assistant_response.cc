@@ -6,12 +6,29 @@
 
 #include <utility>
 
+#include "ash/assistant/model/assistant_response_observer.h"
 #include "ash/assistant/model/ui/assistant_ui_element.h"
 #include "base/bind.h"
 #include "base/memory/weak_ptr.h"
+#include "base/unguessable_token.h"
+#include "chromeos/services/assistant/public/features.h"
 #include "chromeos/services/assistant/public/mojom/assistant.mojom.h"
 
 namespace ash {
+
+// AssistantResponse::PendingUiElement -----------------------------------------
+
+struct AssistantResponse::PendingUiElement {
+ public:
+  PendingUiElement() = default;
+  ~PendingUiElement() = default;
+
+  PendingUiElement(const PendingUiElement&) = delete;
+  PendingUiElement& operator=(const PendingUiElement&) = delete;
+
+  std::unique_ptr<AssistantUiElement> ui_element;
+  bool is_processing = false;
+};
 
 // AssistantResponse::Processor ------------------------------------------------
 
@@ -94,9 +111,55 @@ AssistantResponse::~AssistantResponse() {
   processor_.reset();
 }
 
+void AssistantResponse::AddObserver(AssistantResponseObserver* observer) const {
+  const_cast<AssistantResponse*>(this)->observers_.AddObserver(observer);
+}
+
+void AssistantResponse::RemoveObserver(
+    AssistantResponseObserver* observer) const {
+  const_cast<AssistantResponse*>(this)->observers_.RemoveObserver(observer);
+}
+
 void AssistantResponse::AddUiElement(
     std::unique_ptr<AssistantUiElement> ui_element) {
-  ui_elements_.push_back(std::move(ui_element));
+  // In processing v1, UI elements are immediately added to the response.
+  if (!chromeos::assistant::features::IsResponseProcessingV2Enabled()) {
+    ui_elements_.push_back(std::move(ui_element));
+    NotifyUiElementAdded(ui_elements_.back().get());
+    return;
+  }
+
+  // In processing v2, UI elements are first cached in a pending state...
+  auto pending_ui_element = std::make_unique<PendingUiElement>();
+  pending_ui_element->ui_element = std::move(ui_element);
+  pending_ui_element->is_processing = true;
+  pending_ui_elements_.push_back(std::move(pending_ui_element));
+
+  // ...while we perform any pre-processing necessary prior to rendering.
+  pending_ui_elements_.back()->ui_element->Process(base::BindOnce(
+      [](const base::WeakPtr<AssistantResponse>& self,
+         PendingUiElement* pending_ui_element) {
+        if (!self)
+          return;
+
+        // Indicate that |pending_ui_element| has finished processing.
+        pending_ui_element->is_processing = false;
+
+        // Add any UI elements that are ready for rendering to the response.
+        // Note that this may or may not include the |pending_ui_element| which
+        // just finished processing as we are required to add renderable UI
+        // elements to the response in the same order that they were initially
+        // pended to avoid inadvertently shuffling the response.
+        while (!self->pending_ui_elements_.empty() &&
+               !self->pending_ui_elements_.front()->is_processing) {
+          self->ui_elements_.push_back(
+              std::move(self->pending_ui_elements_.front()->ui_element));
+          self->pending_ui_elements_.pop_front();
+          self->NotifyUiElementAdded(self->ui_elements_.back().get());
+        }
+      },
+      weak_factory_.GetWeakPtr(),
+      base::Unretained(pending_ui_elements_.back().get())));
 }
 
 const std::vector<std::unique_ptr<AssistantUiElement>>&
@@ -106,28 +169,31 @@ AssistantResponse::GetUiElements() const {
 
 void AssistantResponse::AddSuggestions(
     std::vector<AssistantSuggestionPtr> suggestions) {
-  for (AssistantSuggestionPtr& suggestion : suggestions)
+  std::vector<const AssistantSuggestion*> ptrs;
+
+  for (AssistantSuggestionPtr& suggestion : suggestions) {
     suggestions_.push_back(std::move(suggestion));
+    ptrs.push_back(suggestions_.back().get());
+  }
+
+  NotifySuggestionsAdded(ptrs);
 }
 
 const chromeos::assistant::mojom::AssistantSuggestion*
-AssistantResponse::GetSuggestionById(int id) const {
-  // We consider the index of a suggestion within our backing vector to be its
-  // unique identifier.
-  DCHECK_GE(id, 0);
-  DCHECK_LT(id, static_cast<int>(suggestions_.size()));
-  return suggestions_.at(id).get();
+AssistantResponse::GetSuggestionById(const base::UnguessableToken& id) const {
+  for (auto& suggestion : suggestions_) {
+    if (suggestion->id == id)
+      return suggestion.get();
+  }
+  return nullptr;
 }
 
-std::map<int, const chromeos::assistant::mojom::AssistantSuggestion*>
+std::vector<const chromeos::assistant::mojom::AssistantSuggestion*>
 AssistantResponse::GetSuggestions() const {
-  std::map<int, const AssistantSuggestion*> suggestions;
+  std::vector<const AssistantSuggestion*> suggestions;
 
-  // We use index within our backing vector to represent the unique identifier
-  // for a suggestion.
-  int id = 0;
-  for (const AssistantSuggestionPtr& suggestion : suggestions_)
-    suggestions[id++] = suggestion.get();
+  for (auto& suggestion : suggestions_)
+    suggestions.push_back(suggestion.get());
 
   return suggestions;
 }
@@ -135,6 +201,18 @@ AssistantResponse::GetSuggestions() const {
 void AssistantResponse::Process(ProcessingCallback callback) {
   processor_ = std::make_unique<Processor>(this, std::move(callback));
   processor_->Process();
+}
+
+void AssistantResponse::NotifyUiElementAdded(
+    const AssistantUiElement* ui_element) {
+  for (auto& observer : observers_)
+    observer.OnUiElementAdded(ui_element);
+}
+
+void AssistantResponse::NotifySuggestionsAdded(
+    const std::vector<const AssistantSuggestion*>& suggestions) {
+  for (auto& observer : observers_)
+    observer.OnSuggestionsAdded(suggestions);
 }
 
 }  // namespace ash

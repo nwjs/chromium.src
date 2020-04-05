@@ -61,14 +61,16 @@ class IDBVersionChangeEvent final : public Event {
                         const IDBVersionChangeEventInit*);
 
   uint64_t oldVersion() const { return old_version_; }
-  uint64_t newVersion(bool& is_null) const;
+  base::Optional<uint64_t> newVersion() const { return new_version_; }
+  // TODO(crbug.com/1060971): Remove |is_null| version.
+  uint64_t newVersion(bool& is_null) const;  // DEPRECATED
 
   const AtomicString& dataLoss() const;
   const String& dataLossMessage() const { return data_loss_message_; }
 
   const AtomicString& InterfaceName() const override;
 
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
 
  private:
   uint64_t old_version_;

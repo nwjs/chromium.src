@@ -7,12 +7,13 @@ package org.chromium.chrome.browser.share.qrcode.scan_tab;
 import android.Manifest.permission;
 import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.ImageFormat;
 import android.hardware.Camera;
-import android.os.Handler;
-import android.os.Looper;
+import android.net.Uri;
 import android.os.Process;
+import android.provider.Browser;
 import android.util.SparseArray;
 import android.webkit.URLUtil;
 
@@ -20,6 +21,12 @@ import com.google.android.gms.vision.Frame;
 import com.google.android.gms.vision.barcode.Barcode;
 import com.google.android.gms.vision.barcode.BarcodeDetector;
 
+import org.chromium.base.metrics.RecordUserAction;
+import org.chromium.base.task.AsyncTask;
+import org.chromium.chrome.R;
+import org.chromium.chrome.browser.IntentHandler;
+import org.chromium.chrome.browser.ShortcutHelper;
+import org.chromium.chrome.browser.document.ChromeLauncherActivity;
 import org.chromium.ui.base.ActivityAndroidPermissionDelegate;
 import org.chromium.ui.base.AndroidPermissionDelegate;
 import org.chromium.ui.base.PermissionCallback;
@@ -36,16 +43,12 @@ public class QrCodeScanMediator implements Camera.PreviewCallback {
     /** Interface used for notifying in the event of navigation to a URL. */
     public interface NavigationObserver { void onNavigation(); }
 
-    /** Interface for creating and navigation to a new tab for a given URL. */
-    public interface TabCreator { void createNewTab(String url); }
-
     private final Context mContext;
     private final PropertyModel mPropertyModel;
-    private final BarcodeDetector mDetector;
     private final NavigationObserver mNavigationObserver;
-    private final TabCreator mTabCreator;
-    private final Handler mMainThreadHandler;
     private final AndroidPermissionDelegate mPermissionDelegate;
+
+    private BarcodeDetector mDetector;
 
     /**
      * The QrCodeScanMediator constructor.
@@ -54,19 +57,17 @@ public class QrCodeScanMediator implements Camera.PreviewCallback {
      * @param propertyModel The property modelto use to communicate with views.
      * @param observer The observer for navigation event.
      */
-    QrCodeScanMediator(Context context, PropertyModel propertyModel, NavigationObserver observer,
-            TabCreator tabCreator) {
+    QrCodeScanMediator(Context context, PropertyModel propertyModel, NavigationObserver observer) {
         mContext = context;
         mPropertyModel = propertyModel;
         mPermissionDelegate = new ActivityAndroidPermissionDelegate(
                 new WeakReference<Activity>((Activity) mContext));
-        mPropertyModel.set(QrCodeScanViewProperties.HAS_CAMERA_PERMISSION, hasCameraPermission());
-        mPropertyModel.set(
-                QrCodeScanViewProperties.CAN_PROMPT_FOR_PERMISSION, canPromptForPermission());
-        mDetector = new BarcodeDetector.Builder(context).build();
+        updatePermissionSettings();
         mNavigationObserver = observer;
-        mTabCreator = tabCreator;
-        mMainThreadHandler = new Handler(Looper.getMainLooper());
+
+        // Set detector to null until it gets initialized asynchronously.
+        mDetector = null;
+        initBarcodeDetectorAsync();
     }
 
     /** Returns whether the user has granted camera permissions. */
@@ -75,9 +76,16 @@ public class QrCodeScanMediator implements Camera.PreviewCallback {
                 == PackageManager.PERMISSION_GRANTED;
     }
 
-    /** Returns whether the user has granted camera permissions. */
+    /** Returns whether the user can be prompted for camera permissions. */
     private Boolean canPromptForPermission() {
         return mPermissionDelegate.canRequestPermission(permission.CAMERA);
+    }
+
+    /** Updates the permission settings with the latest values. */
+    private void updatePermissionSettings() {
+        mPropertyModel.set(
+                QrCodeScanViewProperties.CAN_PROMPT_FOR_PERMISSION, canPromptForPermission());
+        mPropertyModel.set(QrCodeScanViewProperties.HAS_CAMERA_PERMISSION, hasCameraPermission());
     }
 
     /**
@@ -86,6 +94,13 @@ public class QrCodeScanMediator implements Camera.PreviewCallback {
      * @param isOnForeground Indicates whether this component UI is current on foreground.
      */
     public void setIsOnForeground(boolean isOnForeground) {
+        // If the app is in the foreground, the permissions need to be checked again to ensure
+        // the user is seeing the right thing.
+        if (isOnForeground) {
+            updatePermissionSettings();
+        }
+        // This is intentionally done last so that the view is updated according to the latest
+        // permissions.
         mPropertyModel.set(QrCodeScanViewProperties.IS_ON_FOREGROUND, isOnForeground);
     }
 
@@ -104,11 +119,14 @@ public class QrCodeScanMediator implements Camera.PreviewCallback {
                 if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                     mPropertyModel.set(QrCodeScanViewProperties.HAS_CAMERA_PERMISSION, true);
                 } else {
-                    mPropertyModel.set(QrCodeScanViewProperties.HAS_CAMERA_PERMISSION, false);
+                    // The order in which these fields are important because it causes updates to
+                    // the view. CanPromptForPermission must be updated first so that it doesn't
+                    // cause the view to be updated twice creating a flicker effect.
                     if (!mPermissionDelegate.canRequestPermission(permission.CAMERA)) {
                         mPropertyModel.set(
                                 QrCodeScanViewProperties.CAN_PROMPT_FOR_PERMISSION, false);
                     }
+                    mPropertyModel.set(QrCodeScanViewProperties.HAS_CAMERA_PERMISSION, false);
                 }
             }
         };
@@ -123,6 +141,10 @@ public class QrCodeScanMediator implements Camera.PreviewCallback {
      */
     @Override
     public void onPreviewFrame(byte[] data, Camera camera) {
+        if (mDetector == null) {
+            return;
+        }
+
         ByteBuffer buffer = ByteBuffer.allocate(data.length);
         buffer.put(data);
         Frame frame =
@@ -137,16 +159,44 @@ public class QrCodeScanMediator implements Camera.PreviewCallback {
         }
 
         Barcode firstCode = barcodes.valueAt(0);
-        Toast.makeText(mContext, firstCode.rawValue, Toast.LENGTH_LONG).show();
         if (!URLUtil.isValidUrl(firstCode.rawValue)) {
+            String toastMessage =
+                    mContext.getString(R.string.qr_code_not_a_url_label, firstCode.rawValue);
+            Toast.makeText(mContext, toastMessage, Toast.LENGTH_LONG).show();
+            RecordUserAction.record("SharingQRCode.ScannedNonURL");
             camera.setOneShotPreviewCallback(this);
             return;
         }
 
-        /** Tab creation should happen on the main thread. */
-        mMainThreadHandler.post(() -> {
-            mTabCreator.createNewTab(firstCode.rawValue);
-            mNavigationObserver.onNavigation();
-        });
+        openUrl(firstCode.rawValue);
+        mNavigationObserver.onNavigation();
+        RecordUserAction.record("SharingQRCode.ScannedURL");
+    }
+
+    private void openUrl(String url) {
+        Intent intent =
+                new Intent()
+                        .setAction(Intent.ACTION_VIEW)
+                        .setData(Uri.parse(url))
+                        .setClass(mContext, ChromeLauncherActivity.class)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_NEW_DOCUMENT)
+                        .putExtra(Browser.EXTRA_APPLICATION_ID, mContext.getPackageName())
+                        .putExtra(ShortcutHelper.REUSE_URL_MATCHING_TAB_ELSE_NEW_TAB, true);
+        IntentHandler.addTrustedIntentExtras(intent);
+        mContext.startActivity(intent);
+    }
+
+    private void initBarcodeDetectorAsync() {
+        new AsyncTask<BarcodeDetector>() {
+            @Override
+            protected BarcodeDetector doInBackground() {
+                return new BarcodeDetector.Builder(mContext).build();
+            }
+
+            @Override
+            protected void onPostExecute(BarcodeDetector detector) {
+                mDetector = detector;
+            }
+        }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
     }
 }

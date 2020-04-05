@@ -15,6 +15,7 @@
 #include "base/sequenced_task_runner.h"
 #include "base/strings/stringprintf.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "base/time/default_clock.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/engagement/site_engagement_service.h"
@@ -170,9 +171,8 @@ PredictionManager::PredictionManager(
               profile_path.AddExtensionASCII(
                   optimization_guide::
                       kOptimizationGuidePredictionModelAndFeaturesStore),
-              base::CreateSequencedTaskRunner(
-                  {base::ThreadPool(), base::MayBlock(),
-                   base::TaskPriority::BEST_EFFORT})),
+              base::ThreadPool::CreateSequencedTaskRunner(
+                  {base::MayBlock(), base::TaskPriority::BEST_EFFORT})),
           top_host_provider,
           url_loader_factory,
           pref_service,
@@ -488,10 +488,8 @@ void PredictionManager::SetPredictionModelFetcherForTesting(
 
 void PredictionManager::FetchModelsAndHostModelFeatures() {
   SEQUENCE_CHECKER(sequence_checker_);
-  if (!top_host_provider_ ||
-      !IsUserPermittedToFetchFromRemoteOptimizationGuide(profile_)) {
+  if (!IsUserPermittedToFetchFromRemoteOptimizationGuide(profile_))
     return;
-  }
 
   // TODO(crbug/1027596): Update the prediction model fetcher to run the
   // callback even in failure so that the fetch can be rescheduled on failure
@@ -503,19 +501,25 @@ void PredictionManager::FetchModelsAndHostModelFeatures() {
   if (registered_optimization_targets_.size() == 0)
     return;
 
-  std::vector<std::string> top_hosts = top_host_provider_->GetTopHosts();
+  std::vector<std::string> top_hosts;
+  // If the top host provider is not available, the user has likely not seen the
+  // Lite mode infobar, so top hosts cannot be provided. However, prediction
+  // models are allowed to be fetched.
+  if (top_host_provider_) {
+    top_hosts = top_host_provider_->GetTopHosts();
 
-  // Remove hosts that are already available in the host model features cache.
-  // The request should still be made in case there is a new model or a model
-  // that does not rely on host model features to be fetched.
-  auto it = top_hosts.begin();
-  while (it != top_hosts.end()) {
-    if (host_model_features_cache_.Peek(*it) !=
-        host_model_features_cache_.end()) {
-      it = top_hosts.erase(it);
-      continue;
+    // Remove hosts that are already available in the host model features cache.
+    // The request should still be made in case there is a new model or a model
+    // that does not rely on host model features to be fetched.
+    auto it = top_hosts.begin();
+    while (it != top_hosts.end()) {
+      if (host_model_features_cache_.Peek(*it) !=
+          host_model_features_cache_.end()) {
+        it = top_hosts.erase(it);
+        continue;
+      }
+      ++it;
     }
-    ++it;
   }
 
   if (!prediction_model_fetcher_) {
@@ -743,6 +747,8 @@ bool PredictionManager::ProcessAndStorePredictionModel(
     const proto::PredictionModel& model) {
   SEQUENCE_CHECKER(sequence_checker_);
   if (!model.model_info().has_optimization_target())
+    return false;
+  if (!model.has_model())
     return false;
   if (!registered_optimization_targets_.contains(
           model.model_info().optimization_target())) {

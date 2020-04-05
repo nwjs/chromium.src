@@ -13,13 +13,13 @@ import org.chromium.base.ThreadUtils;
 import org.chromium.base.annotations.CalledByNative;
 import org.chromium.base.annotations.NativeMethods;
 import org.chromium.chrome.browser.datareduction.DataReductionPromoUtils;
+import org.chromium.chrome.browser.datareduction.settings.DataReductionDataUseItem;
+import org.chromium.chrome.browser.datareduction.settings.DataReductionStatsPreference;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.SharedPreferencesManager;
-import org.chromium.chrome.browser.settings.datareduction.DataReductionDataUseItem;
 import org.chromium.chrome.browser.settings.datareduction.DataReductionProxySavingsClearedReason;
-import org.chromium.chrome.browser.settings.datareduction.DataReductionStatsPreference;
 import org.chromium.chrome.browser.util.ConversionUtils;
-import org.chromium.chrome.browser.util.UrlConstants;
+import org.chromium.components.embedder_support.util.UrlConstants;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -293,20 +293,6 @@ public class DataReductionProxySettings {
     }
 
     /**
-     * If the given URL is a WebLite URL and should be overridden because the Data
-     * Reduction Proxy is on, the user is in the Lo-Fi previews experiment, and the scheme of the
-     * lite_url param is HTTP, returns the URL contained in the lite_url param. Otherwise returns
-     * the given URL.
-     *
-     * @param url The URL to evaluate.
-     * @return The URL to be used. Returns null if the URL param is null.
-     */
-    public String maybeRewriteWebliteUrl(String url) {
-        return DataReductionProxySettingsJni.get().maybeRewriteWebliteUrl(
-                mNativeDataReductionProxySettings, DataReductionProxySettings.this, url);
-    }
-
-    /**
      * Queries native Data Reduction Proxy to get data use statistics. On query completion provides
      * a list of DataReductionDataUseItem to the callback.
      *
@@ -365,8 +351,6 @@ public class DataReductionProxySettings {
                 long nativeDataReductionProxySettingsAndroid, DataReductionProxySettings caller);
         boolean isDataReductionProxyUnreachable(
                 long nativeDataReductionProxySettingsAndroid, DataReductionProxySettings caller);
-        String maybeRewriteWebliteUrl(long nativeDataReductionProxySettingsAndroid,
-                DataReductionProxySettings caller, String url);
         void queryDataUsage(long nativeDataReductionProxySettingsAndroid,
                 DataReductionProxySettings caller, List<DataReductionDataUseItem> items,
                 int numDays);

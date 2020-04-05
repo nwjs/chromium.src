@@ -94,6 +94,8 @@ class ViewEventTestBase : public views::WidgetDelegate, public testing::Test {
   // views::WidgetDelegate:
   bool CanResize() const override;
   views::View* GetContentsView() override;
+  const views::Widget* GetWidget() const override;
+  views::Widget* GetWidget() override;
 
  protected:
   ~ViewEventTestBase() override;
@@ -128,9 +130,6 @@ class ViewEventTestBase : public views::WidgetDelegate, public testing::Test {
   // failures invokes Done.
   void RunTestMethod(base::OnceClosure task);
 
-  // views::WidgetDelegate:
-  const views::Widget* GetWidgetImpl() const override;
-
   // The content of the Window.
   views::View* content_view_ = nullptr;
 
@@ -147,7 +146,7 @@ class ViewEventTestBase : public views::WidgetDelegate, public testing::Test {
 
   std::unique_ptr<ViewEventTestPlatformPart> platform_part_;
 
-  ChromeTestViewsDelegate views_delegate_;
+  ChromeTestViewsDelegate<> views_delegate_;
 
   base::RunLoop run_loop_;
 

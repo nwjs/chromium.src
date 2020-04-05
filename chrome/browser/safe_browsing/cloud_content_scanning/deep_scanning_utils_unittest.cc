@@ -24,6 +24,7 @@ constexpr BinaryUploadService::Result kAllBinaryUploadServiceResults[]{
     BinaryUploadService::Result::FAILED_TO_GET_TOKEN,
     BinaryUploadService::Result::UNAUTHORIZED,
     BinaryUploadService::Result::FILE_ENCRYPTED,
+    BinaryUploadService::Result::UNSUPPORTED_FILE_TYPE,
 };
 
 constexpr int64_t kTotalBytes = 1000;
@@ -31,40 +32,6 @@ constexpr int64_t kTotalBytes = 1000;
 constexpr base::TimeDelta kDuration = base::TimeDelta::FromSeconds(10);
 
 constexpr base::TimeDelta kInvalidDuration = base::TimeDelta::FromSeconds(0);
-
-std::string ResultToString(const BinaryUploadService::Result& result,
-                           bool success) {
-  std::string result_value;
-  switch (result) {
-    case BinaryUploadService::Result::SUCCESS:
-      if (success)
-        result_value = "Success";
-      else
-        result_value = "FailedToGetVerdict";
-      break;
-    case BinaryUploadService::Result::UPLOAD_FAILURE:
-      result_value = "UploadFailure";
-      break;
-    case BinaryUploadService::Result::TIMEOUT:
-      result_value = "Timeout";
-      break;
-    case BinaryUploadService::Result::FILE_TOO_LARGE:
-      result_value = "FileTooLarge";
-      break;
-    case BinaryUploadService::Result::FAILED_TO_GET_TOKEN:
-      result_value = "FailedToGetToken";
-      break;
-    case BinaryUploadService::Result::UNKNOWN:
-      result_value = "Unknown";
-      break;
-    case BinaryUploadService::Result::UNAUTHORIZED:
-      return "";
-    case BinaryUploadService::Result::FILE_ENCRYPTED:
-      result_value = "FileEncrypted";
-      break;
-  }
-  return result_value;
-}
 
 }  // namespace
 
@@ -87,7 +54,7 @@ class DeepScanningUtilsUMATest
   }
 
   std::string result_value(bool success) const {
-    return ResultToString(result(), success);
+    return BinaryUploadServiceResultToString(result(), success);
   }
 
   const base::HistogramTester& histograms() const { return histograms_; }

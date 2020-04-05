@@ -20,10 +20,10 @@ jumbo_static_library("safe_browsing") {
     "//chrome/app:generated_resources",
     "//chrome/common",
     "//chrome/common:constants",
-    "//chrome/common/safe_browsing:file_type_policies",
     "//components/browser_sync",
     "//components/keyed_service/content",
     "//components/language/core/browser",
+    "//components/page_info",
     "//components/password_manager/core/browser",
     "//components/password_manager/core/browser:hash_password_manager",
     "//components/pref_registry",
@@ -97,24 +97,23 @@ jumbo_static_library("safe_browsing") {
       "trigger_creator.h",
       "ui_manager.cc",
       "ui_manager.h",
+      "user_interaction_observer.cc",
+      "user_interaction_observer.h",
     ]
     deps += [
+      ":url_lookup_service_factory",
+      ":verdict_cache_manager_factory",
       "//chrome/browser/engagement:mojo_bindings",
       "//chrome/common/safe_browsing:proto",
       "//components/safe_browsing/content",
-      "//components/safe_browsing/core:csd_proto",
-
-      # TODO(crbug/996380): This is needed because the DownloadProtectionService
-      # is being built on Android. Since we don't actually use any
-      # DownloadProtectionService features on Android, we should fix that
-      # dependency and move this to the 'safe_browsing_mode == 1' section.
       "//components/safe_browsing/content/browser",
       "//components/safe_browsing/content/password_protection",
       "//components/safe_browsing/content/triggers:ad_popup_trigger",
       "//components/safe_browsing/content/triggers:ad_redirect_trigger",
       "//components/safe_browsing/content/triggers:ad_sampler_trigger",
       "//components/safe_browsing/content/triggers:suspicious_site_trigger",
-      "//components/safe_browsing/core:webprotect_proto",
+      "//components/safe_browsing/core:csd_proto",
+      "//components/safe_browsing/core:file_type_policies",
       "//components/safe_browsing/core/browser",
       "//components/safe_browsing/core/common",
       "//components/safe_browsing/core/common:safe_browsing_prefs",
@@ -143,12 +142,16 @@ jumbo_static_library("safe_browsing") {
         "cloud_content_scanning/binary_fcm_service.h",
         "cloud_content_scanning/binary_upload_service.cc",
         "cloud_content_scanning/binary_upload_service.h",
+        "cloud_content_scanning/binary_upload_service_factory.cc",
+        "cloud_content_scanning/binary_upload_service_factory.h",
         "cloud_content_scanning/deep_scanning_dialog_delegate.cc",
         "cloud_content_scanning/deep_scanning_dialog_delegate.h",
         "cloud_content_scanning/deep_scanning_dialog_views.cc",
         "cloud_content_scanning/deep_scanning_dialog_views.h",
         "cloud_content_scanning/deep_scanning_utils.cc",
         "cloud_content_scanning/deep_scanning_utils.h",
+        "cloud_content_scanning/file_source_request.cc",
+        "cloud_content_scanning/file_source_request.h",
         "cloud_content_scanning/multipart_uploader.cc",
         "cloud_content_scanning/multipart_uploader.h",
         "dm_token_utils.cc",
@@ -245,6 +248,7 @@ jumbo_static_library("safe_browsing") {
         "//components/content_settings/core/browser",
         "//components/language/core/common",
         "//components/prefs",
+        "//components/safe_browsing/core:webprotect_proto",
         "//components/safe_browsing/core/db",
         "//components/security_interstitials/content:security_interstitial_page",
         "//components/security_interstitials/core:unsafe_resource",
@@ -269,6 +273,38 @@ jumbo_static_library("safe_browsing") {
       ]
     }
   }
+}
+
+source_set("url_lookup_service_factory") {
+  sources = [
+    "url_lookup_service_factory.cc",
+    "url_lookup_service_factory.h",
+  ]
+
+  deps = [
+    ":verdict_cache_manager_factory",
+    "//chrome/common",
+    "//components/keyed_service/content",
+    "//components/safe_browsing/core/realtime:url_lookup_service",
+    "//components/signin/public/identity_manager",
+    "//content/public/browser",
+  ]
+}
+
+source_set("verdict_cache_manager_factory") {
+  sources = [
+    "verdict_cache_manager_factory.cc",
+    "verdict_cache_manager_factory.h",
+  ]
+
+  deps = [
+    "//components/content_settings/core/browser",
+    "//components/history/core/browser",
+    "//components/keyed_service/content",
+    "//components/prefs",
+    "//components/safe_browsing/core:verdict_cache_manager",
+    "//content/public/browser",
+  ]
 }
 
 static_library("advanced_protection") {

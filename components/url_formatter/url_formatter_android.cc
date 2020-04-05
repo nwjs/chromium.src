@@ -10,6 +10,7 @@
 #include "components/url_formatter/elide_url.h"
 #include "components/url_formatter/url_fixer.h"
 #include "components/url_formatter/url_formatter.h"
+#include "url/android/gurl_android.h"
 #include "url/gurl.h"
 
 using base::android::JavaParamRef;
@@ -27,16 +28,14 @@ namespace url_formatter {
 
 namespace android {
 
-static ScopedJavaLocalRef<jstring> JNI_UrlFormatter_FixupUrl(
+static ScopedJavaLocalRef<jobject> JNI_UrlFormatter_FixupUrl(
     JNIEnv* env,
     const JavaParamRef<jstring>& url) {
   DCHECK(url);
   GURL fixed_url = url_formatter::FixupURL(
       base::android::ConvertJavaStringToUTF8(env, url), std::string());
 
-  return fixed_url.is_valid()
-             ? base::android::ConvertUTF8ToJavaString(env, fixed_url.spec())
-             : ScopedJavaLocalRef<jstring>();
+  return url::GURLAndroid::FromNativeGURL(env, fixed_url);
 }
 
 static ScopedJavaLocalRef<jstring>
@@ -72,7 +71,8 @@ static ScopedJavaLocalRef<jstring> JNI_UrlFormatter_FormatUrlForCopy(
                nullptr, nullptr, nullptr));
 }
 
-static ScopedJavaLocalRef<jstring> JNI_UrlFormatter_FormatUrlForSecurityDisplay(
+static ScopedJavaLocalRef<jstring>
+JNI_UrlFormatter_FormatStringUrlForSecurityDisplay(
     JNIEnv* env,
     const JavaParamRef<jstring>& url,
     jint scheme_display) {
@@ -80,6 +80,17 @@ static ScopedJavaLocalRef<jstring> JNI_UrlFormatter_FormatUrlForSecurityDisplay(
       env, url_formatter::FormatUrlForSecurityDisplay(
                JNI_UrlFormatter_ConvertJavaStringToGURL(env, url),
                static_cast<SchemeDisplay>(scheme_display)));
+}
+
+static ScopedJavaLocalRef<jstring> JNI_UrlFormatter_FormatUrlForSecurityDisplay(
+    JNIEnv* env,
+    const JavaParamRef<jobject>& j_gurl,
+    jint scheme_display) {
+  DCHECK(j_gurl);
+  std::unique_ptr<GURL> gurl = url::GURLAndroid::ToNativeGURL(env, j_gurl);
+  return base::android::ConvertUTF16ToJavaString(
+      env, url_formatter::FormatUrlForSecurityDisplay(
+               *gurl, static_cast<SchemeDisplay>(scheme_display)));
 }
 
 static ScopedJavaLocalRef<jstring>

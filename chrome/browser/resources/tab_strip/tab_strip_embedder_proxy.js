@@ -26,13 +26,21 @@ export class TabStripEmbedderProxy {
     return sendWithPromise('getLayout');
   }
 
-  /** @return {!Promise<number>} */
-  getWindowId() {
-    return sendWithPromise('getWindowId');
-  }
-
   observeThemeChanges() {
     chrome.send('observeThemeChanges');
+  }
+
+  /**
+   * @param {string} groupId
+   * @param {number} locationX
+   * @param {number} locationY
+   * @param {number} width
+   * @param {number} height
+   */
+  showEditDialogForGroup(groupId, locationX, locationY, width, height) {
+    chrome.send(
+        'showEditDialogForGroup',
+        [groupId, locationX, locationY, width, height]);
   }
 
   /**

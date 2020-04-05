@@ -9,13 +9,15 @@
 #include <memory>
 #include <set>
 
+#include "base/callback.h"
 #include "base/containers/unique_ptr_adapters.h"
 #include "base/macros.h"
 #include "base/memory/weak_ptr.h"
+#include "chrome/browser/apps/app_service/browser_app_launcher.h"
 #include "chrome/services/app_service/public/cpp/app_registry_cache.h"
 #include "chrome/services/app_service/public/cpp/icon_cache.h"
 #include "chrome/services/app_service/public/cpp/icon_coalescer.h"
-#include "chrome/services/app_service/public/cpp/preferred_apps.h"
+#include "chrome/services/app_service/public/cpp/preferred_apps_list.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/receiver_set.h"
@@ -39,11 +41,13 @@ namespace apps {
 class AppServiceImpl;
 class UninstallDialog;
 
+#if defined(OS_CHROMEOS)
 struct PauseData {
-  int hours;
-  int minutes;
-  bool should_show_pause_dialog;
+  int hours = 0;
+  int minutes = 0;
+  bool should_show_pause_dialog = false;
 };
+#endif
 
 // Singleton (per Profile) proxy and cache of an App Service's apps.
 //
@@ -57,7 +61,9 @@ class AppServiceProxy : public KeyedService,
                         public apps::mojom::Subscriber,
                         public apps::AppRegistryCache::Observer {
  public:
+#if defined(OS_CHROMEOS)
   using OnPauseDialogClosedCallback = base::OnceCallback<void()>;
+#endif
 
   explicit AppServiceProxy(Profile* profile);
   ~AppServiceProxy() override;
@@ -68,11 +74,14 @@ class AppServiceProxy : public KeyedService,
 
   mojo::Remote<apps::mojom::AppService>& AppService();
   apps::AppRegistryCache& AppRegistryCache();
-  apps::PreferredApps& PreferredApps();
 
 #if defined(OS_CHROMEOS)
   apps::InstanceRegistry& InstanceRegistry();
 #endif
+
+  BrowserAppLauncher& BrowserAppLauncher();
+
+  apps::PreferredAppsList& PreferredApps();
 
   // apps::IconLoader overrides.
   apps::mojom::IconKeyPtr GetIconKey(const std::string& app_id) override;
@@ -96,6 +105,17 @@ class AppServiceProxy : public KeyedService,
               int32_t event_flags,
               apps::mojom::LaunchSource launch_source,
               int64_t display_id);
+
+  // Launches the app for the given |app_id| with files from |file_paths|.
+  // |event_flags| provides additional context about the action which launches
+  // the app (e.g. a middle click indicating opening a background tab).
+  // |launch_source| is the possible app launch sources, e.g. from Shelf, from
+  // the search box, etc.
+  void LaunchAppWithFiles(const std::string& app_id,
+                          apps::mojom::LaunchContainer container,
+                          int32_t event_flags,
+                          apps::mojom::LaunchSource launch_source,
+                          apps::mojom::FilePathsPtr file_paths);
 
   // Launches an app for the given |app_id|, passing |intent| to the app.
   // |launch_source| is the possible app launch sources. |display_id| is the id
@@ -122,6 +142,7 @@ class AppServiceProxy : public KeyedService,
   // |parent_window|. Otherwise, the browser window will be used as the anchor.
   void Uninstall(const std::string& app_id, gfx::NativeWindow parent_window);
 
+#if defined(OS_CHROMEOS)
   // Pauses apps. |pause_data|'s key is the app_id. |pause_data|'s PauseData
   // is the time limit setting for the app, which is shown in the pause app
   // dialog. AppService sets the paused status directly. If the app is running,
@@ -132,6 +153,7 @@ class AppServiceProxy : public KeyedService,
   // Unpauses the apps from the paused status. AppService sets the paused status
   // as false directly and removes the paused app icon effect.
   void UnpauseApps(const std::set<std::string>& app_ids);
+#endif
 
   // Returns the menu items for the given |app_id|. |display_id| is the id of
   // the display from which the app is launched.
@@ -147,6 +169,10 @@ class AppServiceProxy : public KeyedService,
   apps::IconLoader* OverrideInnerIconLoaderForTesting(
       apps::IconLoader* icon_loader);
   void ReInitializeCrostiniForTesting(Profile* profile);
+  void SetDialogCreatedCallbackForTesting(base::OnceClosure callback);
+  void UninstallForTesting(const std::string& app_id,
+                           gfx::NativeWindow parent_window,
+                           base::OnceClosure callback);
 
   // Returns a list of apps (represented by their ids) which can handle |url|.
   std::vector<std::string> GetAppIdsForUrl(const GURL& url);
@@ -228,10 +254,17 @@ class AppServiceProxy : public KeyedService,
     apps::IconLoader* overriding_icon_loader_for_testing_;
   };
 
-  static void CreatePauseDialog(const std::string& app_name,
-                                gfx::ImageSkia image,
+#if defined(OS_CHROMEOS)
+  static void CreateBlockDialog(const std::string& app_name,
+                                const gfx::ImageSkia& image,
+                                Profile* profile);
+
+  static void CreatePauseDialog(apps::mojom::AppType app_type,
+                                const std::string& app_name,
+                                const gfx::ImageSkia& image,
                                 const PauseData& pause_data,
                                 OnPauseDialogClosedCallback pause_callback);
+#endif
 
   void Initialize();
 
@@ -248,7 +281,12 @@ class AppServiceProxy : public KeyedService,
   void OnPreferredAppRemoved(
       const std::string& app_id,
       apps::mojom::IntentFilterPtr intent_filter) override;
-  void InitializePreferredApps(base::Value preferred_apps) override;
+  void InitializePreferredApps(
+      PreferredAppsList::PreferredApps preferred_apps) override;
+
+  void UninstallImpl(const std::string& app_id,
+                     gfx::NativeWindow parent_window,
+                     base::OnceClosure callback);
 
   // Invoked when the uninstall dialog is closed. The app for the given
   // |app_type| and |app_id| will be uninstalled directly if |uninstall| is
@@ -264,24 +302,32 @@ class AppServiceProxy : public KeyedService,
                                bool report_abuse,
                                UninstallDialog* uninstall_dialog);
 
-  void LoadIconForPauseDialog(const apps::AppUpdate& update,
-                              const PauseData& pause_data);
+#if defined(OS_CHROMEOS)
+  // Returns true if the app cannot be launched and a launch prevention dialog
+  // is shown to the user (e.g. the app is paused or blocked). Returns false
+  // otherwise (and the app can be launched).
+  bool MaybeShowLaunchPreventionDialog(const apps::AppUpdate& update);
 
-  // Callback invoked when the icon is loaded.
+  // Loads the icon for the app block dialog or the app pause dialog.
+  void LoadIconForDialog(const apps::AppUpdate& update,
+                         apps::mojom::Publisher::LoadIconCallback callback);
+
+  // Callback invoked when the icon is loaded for the block app dialog.
+  void OnLoadIconForBlockDialog(const std::string& app_name,
+                                apps::mojom::IconValuePtr icon_value);
+
+  // Callback invoked when the icon is loaded for the pause app dialog.
   void OnLoadIconForPauseDialog(apps::mojom::AppType app_type,
                                 const std::string& app_id,
                                 const std::string& app_name,
                                 const PauseData& pause_data,
                                 apps::mojom::IconValuePtr icon_value);
 
-  void UpdatePausedStatus(apps::mojom::AppType app_type,
-                          const std::string& app_id,
-                          bool paused);
-
   // Invoked when the user clicks the 'OK' button of the pause app dialog.
   // AppService stops the running app and applies the paused app icon effect.
   void OnPauseDialogClosed(apps::mojom::AppType app_type,
                            const std::string& app_id);
+#endif
 
   // apps::AppRegistryCache::Observer overrides:
   void OnAppUpdate(const apps::AppUpdate& update) override;
@@ -309,7 +355,7 @@ class AppServiceProxy : public KeyedService,
   IconCoalescer icon_coalescer_;
   IconCache outer_icon_loader_;
 
-  apps::PreferredApps preferred_apps_;
+  apps::PreferredAppsList preferred_apps_;
 
 #if defined(OS_CHROMEOS)
   std::unique_ptr<BuiltInChromeOsApps> built_in_chrome_os_apps_;
@@ -323,13 +369,28 @@ class AppServiceProxy : public KeyedService,
   bool arc_is_registered_ = false;
 
   apps::InstanceRegistry instance_registry_;
+
+  // When PauseApps is called, the app is added to |pending_pause_requests|.
+  // When the user clicks the OK from the pause app dialog, the pause status is
+  // updated in AppRegistryCache by the publisher, then the app is removed from
+  // |pending_pause_requests|. If the app status is paused in AppRegistryCache
+  // or pending_pause_requests, the app can't be launched.
+  PausedApps pending_pause_requests_;
 #endif  // OS_CHROMEOS
 
   Profile* profile_;
 
+  // TODO(crbug.com/1061843): Remove BrowserAppLauncher and merge the interfaces
+  // to AppServiceProxy when publishers(ExtensionApps and WebApps) can run on
+  // Chrome.
+  std::unique_ptr<apps::BrowserAppLauncher> browser_app_launcher_;
+
   using UninstallDialogs = std::set<std::unique_ptr<apps::UninstallDialog>,
                                     base::UniquePtrComparator>;
   UninstallDialogs uninstall_dialogs_;
+
+  bool is_using_testing_profile_ = false;
+  base::OnceClosure dialog_created_callback_;
 
   base::WeakPtrFactory<AppServiceProxy> weak_ptr_factory_{this};
 

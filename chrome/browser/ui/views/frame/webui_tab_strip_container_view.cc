@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/views/frame/webui_tab_strip_container_view.h"
 
+#include <string>
 #include <utility>
 
 #include "base/command_line.h"
@@ -12,6 +13,7 @@
 #include "base/i18n/number_formatting.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/numerics/ranges.h"
 #include "base/scoped_observer.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/app/chrome_command_ids.h"
@@ -35,6 +37,7 @@
 #include "chrome/browser/ui/views/feature_promos/feature_promo_bubble_view.h"
 #include "chrome/browser/ui/views/feature_promos/feature_promo_colors.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/tabs/tab_group_editor_bubble_view.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_button.h"
 #include "chrome/browser/ui/views/toolbar/webui_tab_counter_button.h"
 #include "chrome/browser/ui/webui/tab_strip/tab_strip_ui.h"
@@ -47,10 +50,16 @@
 #include "components/feature_engagement/public/event_constants.h"
 #include "components/feature_engagement/public/feature_constants.h"
 #include "components/feature_engagement/public/tracker.h"
+#include "content/public/browser/web_ui.h"
 #include "content/public/common/drop_data.h"
 #include "ui/aura/window.h"
+#include "ui/base/clipboard/clipboard_format_type.h"
+#include "ui/base/clipboard/custom_data_helper.h"
+#include "ui/base/dragdrop/os_exchange_data.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/theme_provider.h"
+#include "ui/events/event_handler.h"
+#include "ui/events/event_target.h"
 #include "ui/gfx/animation/tween.h"
 #include "ui/gfx/color_palette.h"
 #include "ui/gfx/paint_vector_icon.h"
@@ -147,9 +156,95 @@ class WebUITabStripContainerView::AutoCloser : public ui::EventHandler {
   bool enabled_ = false;
 };
 
+class WebUITabStripContainerView::DragToOpenHandler : public ui::EventHandler {
+ public:
+  DragToOpenHandler(WebUITabStripContainerView* container,
+                    views::View* drag_handle)
+      : container_(container), drag_handle_(drag_handle) {
+    DCHECK(container_);
+    drag_handle_->AddPreTargetHandler(this);
+  }
+
+  ~DragToOpenHandler() override { drag_handle_->RemovePreTargetHandler(this); }
+
+  void OnGestureEvent(ui::GestureEvent* event) override {
+    switch (event->type()) {
+      case ui::ET_GESTURE_SCROLL_BEGIN:
+        // Only treat this scroll as drag-to-open if the y component is
+        // larger. Otherwise, leave the event unhandled. Horizontal
+        // scrolls are used in the toolbar, e.g. for text scrolling in
+        // the Omnibox.
+        if (event->details().scroll_y_hint() >
+            event->details().scroll_x_hint()) {
+          drag_in_progress_ = true;
+          container_->UpdateHeightForDragToOpen(
+              event->details().scroll_y_hint());
+          event->SetHandled();
+        }
+        break;
+      case ui::ET_GESTURE_SCROLL_UPDATE:
+        if (drag_in_progress_) {
+          container_->UpdateHeightForDragToOpen(event->details().scroll_y());
+          event->SetHandled();
+        }
+        break;
+      case ui::ET_GESTURE_SCROLL_END:
+        if (drag_in_progress_) {
+          container_->EndDragToOpen();
+          event->SetHandled();
+          drag_in_progress_ = false;
+        }
+        break;
+      case ui::ET_GESTURE_SWIPE:
+        // If a touch is released at high velocity, the scroll gesture
+        // is "converted" to a swipe gesture. ET_GESTURE_END is still
+        // sent after. From logging, it seems like ET_GESTURE_SCROLL_END
+        // is sometimes also sent after this. It will be ignored here
+        // since |drag_in_progress_| is set to false.
+        if (!drag_in_progress_) {
+          // If a swipe happens quickly enough, scroll events might not
+          // have been sent. Tell the container a drag began.
+          container_->UpdateHeightForDragToOpen(0.0f);
+        }
+
+        if (event->details().swipe_down() || event->details().swipe_up()) {
+          container_->EndDragToOpen(event->details().swipe_down()
+                                        ? FlingDirection::kDown
+                                        : FlingDirection::kUp);
+        } else {
+          // Treat a sideways swipe as a normal drag end.
+          container_->EndDragToOpen();
+        }
+
+        event->SetHandled();
+        drag_in_progress_ = false;
+        break;
+      case ui::ET_GESTURE_END:
+        if (drag_in_progress_) {
+          // If an unsupported gesture is sent, ensure that we still
+          // finish the drag on gesture end. Otherwise, the container
+          // will be stuck partially open.
+          container_->EndDragToOpen();
+          event->SetHandled();
+          drag_in_progress_ = false;
+        }
+        break;
+      default:
+        break;
+    }
+  }
+
+ private:
+  WebUITabStripContainerView* const container_;
+  views::View* const drag_handle_;
+
+  bool drag_in_progress_ = false;
+};
+
 WebUITabStripContainerView::WebUITabStripContainerView(
     Browser* browser,
-    views::View* tab_contents_container)
+    views::View* tab_contents_container,
+    views::View* drag_handle)
     : browser_(browser),
       web_view_(AddChildView(
           std::make_unique<WebUITabStripWebView>(browser->profile()))),
@@ -160,7 +255,9 @@ WebUITabStripContainerView::WebUITabStripContainerView(
           base::Bind(&WebUITabStripContainerView::EventShouldPropagate,
                      base::Unretained(this)),
           base::Bind(&WebUITabStripContainerView::CloseForEventOutsideTabStrip,
-                     base::Unretained(this)))) {
+                     base::Unretained(this)))),
+      drag_to_open_handler_(
+          std::make_unique<DragToOpenHandler>(this, drag_handle)) {
   DCHECK(UseTouchableTabStrip());
   animation_.SetTweenType(gfx::Tween::Type::FAST_OUT_SLOW_IN);
 
@@ -208,9 +305,46 @@ WebUITabStripContainerView::~WebUITabStripContainerView() {
   delete tab_counter_;
 }
 
+// static
 bool WebUITabStripContainerView::UseTouchableTabStrip() {
   return base::FeatureList::IsEnabled(features::kWebUITabStrip) &&
-         ui::MaterialDesignController::touch_ui();
+         ui::TouchUiController::Get()->touch_ui();
+}
+
+// static
+void WebUITabStripContainerView::GetDropFormatsForView(
+    int* formats,
+    std::set<ui::ClipboardFormatType>* format_types) {
+  *formats |= ui::OSExchangeData::PICKLED_DATA;
+  format_types->insert(ui::ClipboardFormatType::GetWebCustomDataType());
+}
+
+// static
+bool WebUITabStripContainerView::IsDraggedTab(const ui::OSExchangeData& data) {
+  base::Pickle pickle;
+  if (data.GetPickledData(ui::ClipboardFormatType::GetWebCustomDataType(),
+                          &pickle)) {
+    base::string16 result;
+    ui::ReadCustomDataForType(pickle.data(), pickle.size(),
+                              base::ASCIIToUTF16(kWebUITabIdDataType), &result);
+    if (result.size())
+      return true;
+    ui::ReadCustomDataForType(pickle.data(), pickle.size(),
+                              base::ASCIIToUTF16(kWebUITabGroupIdDataType),
+                              &result);
+    if (result.size())
+      return true;
+  }
+
+  return false;
+}
+
+void WebUITabStripContainerView::OpenForTabDrag() {
+  if (GetVisible() && !animation_.IsClosing())
+    return;
+
+  RecordTabStripUIOpenHistogram(TabStripUIOpenAction::kTabDraggedIntoWindow);
+  SetContainerTargetVisibility(true);
 }
 
 views::NativeViewHost* WebUITabStripContainerView::GetNativeViewHost() {
@@ -280,12 +414,62 @@ void WebUITabStripContainerView::CloseContainer() {
   iph_tracker_->NotifyEvent(feature_engagement::events::kWebUITabStripClosed);
 }
 
+void WebUITabStripContainerView::UpdateHeightForDragToOpen(float height_delta) {
+  if (!current_drag_height_) {
+    // If we are visible and aren't already dragging, ignore; either we are
+    // animating open, or the touch would've triggered autoclose.
+    if (GetVisible())
+      return;
+
+    SetVisible(true);
+    current_drag_height_ = 0;
+    animation_.Reset();
+  }
+
+  current_drag_height_ =
+      base::ClampToRange(*current_drag_height_ + height_delta, 0.0f,
+                         static_cast<float>(desired_height_));
+  PreferredSizeChanged();
+}
+
+void WebUITabStripContainerView::EndDragToOpen(
+    base::Optional<FlingDirection> fling_direction) {
+  if (!current_drag_height_)
+    return;
+
+  const int final_drag_height = *current_drag_height_;
+  current_drag_height_ = base::nullopt;
+
+  // If this wasn't a fling, determine whether to open or close based on
+  // final height.
+  const double open_proportion =
+      static_cast<double>(final_drag_height) / desired_height_;
+  bool opening = open_proportion >= 0.5;
+  if (fling_direction) {
+    // If this was a fling, ignore the final height and use the fling
+    // direction.
+    opening = fling_direction == FlingDirection::kDown;
+  }
+
+  if (opening) {
+    iph_tracker_->NotifyEvent(feature_engagement::events::kWebUITabStripOpened);
+    RecordTabStripUIOpenHistogram(TabStripUIOpenAction::kToolbarDrag);
+  }
+
+  animation_.Reset(open_proportion);
+  SetContainerTargetVisibility(opening);
+}
+
 void WebUITabStripContainerView::SetContainerTargetVisibility(
     bool target_visible) {
   if (target_visible) {
     SetVisible(true);
-    animation_.SetSlideDuration(base::TimeDelta::FromMilliseconds(250));
-    animation_.Show();
+    PreferredSizeChanged();
+    if (animation_.GetCurrentValue() < 1.0) {
+      animation_.SetSlideDuration(base::TimeDelta::FromMilliseconds(250));
+      animation_.Show();
+    }
+
     web_view_->SetFocusBehavior(FocusBehavior::ACCESSIBLE_ONLY);
     time_at_open_ = base::TimeTicks::Now();
 
@@ -305,8 +489,14 @@ void WebUITabStripContainerView::SetContainerTargetVisibility(
       time_at_open_ = base::nullopt;
     }
 
-    animation_.SetSlideDuration(base::TimeDelta::FromMilliseconds(200));
-    animation_.Hide();
+    if (animation_.GetCurrentValue() > 0.0) {
+      animation_.SetSlideDuration(base::TimeDelta::FromMilliseconds(200));
+      animation_.Hide();
+    } else {
+      PreferredSizeChanged();
+      SetVisible(false);
+    }
+
     web_view_->SetFocusBehavior(FocusBehavior::NEVER);
 
     // Tapping in the WebUI tab strip gives keyboard focus to the
@@ -388,14 +578,23 @@ void WebUITabStripContainerView::ShowContextMenuAtPoint(
       views::MenuAnchorPosition::kTopLeft, ui::MENU_SOURCE_MOUSE);
 }
 
+void WebUITabStripContainerView::ShowEditDialogForGroupAtPoint(
+    gfx::Point point,
+    gfx::Rect rect,
+    tab_groups::TabGroupId group) {
+  ConvertPointToScreen(this, &point);
+  rect.set_origin(point);
+  TabGroupEditorBubbleView::Show(browser_, group, nullptr, rect, this);
+}
+
 TabStripUILayout WebUITabStripContainerView::GetLayout() {
   DCHECK(tab_contents_container_);
   return TabStripUILayout::CalculateForWebViewportSize(
       tab_contents_container_->size());
 }
 
-const ui::ThemeProvider* WebUITabStripContainerView::GetThemeProvider() {
-  return View::GetThemeProvider();
+SkColor WebUITabStripContainerView::GetColor(int id) const {
+  return GetThemeProvider()->GetColor(id);
 }
 
 void WebUITabStripContainerView::AddedToWidget() {
@@ -409,13 +608,15 @@ void WebUITabStripContainerView::RemovedFromWidget() {
 }
 
 int WebUITabStripContainerView::GetHeightForWidth(int w) const {
-  if (!GetVisible())
-    return 0;
-  if (!animation_.is_animating())
-    return desired_height_;
+  DCHECK(!(animation_.is_animating() && current_drag_height_));
+  if (animation_.is_animating()) {
+    return gfx::Tween::LinearIntValueBetween(animation_.GetCurrentValue(), 0,
+                                             desired_height_);
+  }
+  if (current_drag_height_)
+    return std::round(*current_drag_height_);
 
-  return gfx::Tween::LinearIntValueBetween(animation_.GetCurrentValue(), 0,
-                                           desired_height_);
+  return GetVisible() ? desired_height_ : 0;
 }
 
 void WebUITabStripContainerView::ButtonPressed(views::Button* sender,

@@ -320,7 +320,7 @@ TEST_F(ChildProcessSecurityPolicyTest, StandardSchemesTest) {
       "data:text/html,<b>Hi</b>",
       "filesystem:http://localhost/temporary/a.gif",
   });
-  for (const auto url_string : kCommitURLs) {
+  for (const auto& url_string : kCommitURLs) {
     const GURL commit_url(url_string);
     if (AreAllSitesIsolatedForTesting() && IsCitadelProtectionEnabled()) {
       // A non-locked process cannot access URL (because with
@@ -347,7 +347,7 @@ TEST_F(ChildProcessSecurityPolicyTest, StandardSchemesTest) {
   const std::vector<std::string> kFailedCommitURLs(
       {"file:///etc/passwd", "view-source:http://www.google.com/",
        kUnreachableWebDataURL, GetWebUIURL("foo/bar").spec()});
-  for (const auto url_string : kFailedCommitURLs) {
+  for (const auto& url_string : kFailedCommitURLs) {
     const GURL commit_url(url_string);
     EXPECT_FALSE(p->CanCommitURL(kRendererID, commit_url)) << commit_url;
     EXPECT_FALSE(handle.CanCommitURL(commit_url)) << commit_url;
@@ -991,11 +991,11 @@ TEST_F(ChildProcessSecurityPolicyTest, CanServiceWebUIBindings) {
 
     EXPECT_TRUE(p->HasWebUIBindings(kRendererID));
 
-    EXPECT_TRUE(p->CanRequestURL(kRendererID, url));
+    EXPECT_FALSE(p->CanRequestURL(kRendererID, url));
     EXPECT_FALSE(p->CanCommitURL(kRendererID, url));
     EXPECT_TRUE(p->CanRedirectToURL(url));
 
-    EXPECT_TRUE(p->CanRequestURL(kRendererID, other_url));
+    EXPECT_FALSE(p->CanRequestURL(kRendererID, other_url));
     EXPECT_FALSE(p->CanCommitURL(kRendererID, other_url));
     EXPECT_TRUE(p->CanRedirectToURL(other_url));
 
@@ -1005,7 +1005,7 @@ TEST_F(ChildProcessSecurityPolicyTest, CanServiceWebUIBindings) {
     EXPECT_TRUE(p->CanCommitURL(kRendererID, url));
     EXPECT_TRUE(p->CanRedirectToURL(url));
 
-    EXPECT_TRUE(p->CanRequestURL(kRendererID, other_url));
+    EXPECT_FALSE(p->CanRequestURL(kRendererID, other_url));
     EXPECT_FALSE(p->CanCommitURL(kRendererID, other_url));
     EXPECT_TRUE(p->CanRedirectToURL(other_url));
 
@@ -1030,11 +1030,11 @@ TEST_F(ChildProcessSecurityPolicyTest, CanServiceWebUIBindings) {
 
     EXPECT_TRUE(p->HasWebUIBindings(kRendererID));
 
-    EXPECT_TRUE(p->CanRequestURL(kRendererID, url));
+    EXPECT_FALSE(p->CanRequestURL(kRendererID, url));
     EXPECT_FALSE(p->CanCommitURL(kRendererID, url));
     EXPECT_TRUE(p->CanRedirectToURL(url));
 
-    EXPECT_TRUE(p->CanRequestURL(kRendererID, other_url));
+    EXPECT_FALSE(p->CanRequestURL(kRendererID, other_url));
     EXPECT_FALSE(p->CanCommitURL(kRendererID, other_url));
     EXPECT_TRUE(p->CanRedirectToURL(other_url));
 
@@ -1044,7 +1044,7 @@ TEST_F(ChildProcessSecurityPolicyTest, CanServiceWebUIBindings) {
     EXPECT_TRUE(p->CanCommitURL(kRendererID, url));
     EXPECT_TRUE(p->CanRedirectToURL(url));
 
-    EXPECT_TRUE(p->CanRequestURL(kRendererID, other_url));
+    EXPECT_FALSE(p->CanRequestURL(kRendererID, other_url));
     EXPECT_FALSE(p->CanCommitURL(kRendererID, other_url));
     EXPECT_TRUE(p->CanRedirectToURL(other_url));
 
@@ -1070,11 +1070,11 @@ TEST_F(ChildProcessSecurityPolicyTest, CanServiceWebUIBindings) {
 
     EXPECT_TRUE(p->HasWebUIBindings(kRendererID));
 
-    EXPECT_TRUE(p->CanRequestURL(kRendererID, url));
+    EXPECT_FALSE(p->CanRequestURL(kRendererID, url));
     EXPECT_FALSE(p->CanCommitURL(kRendererID, url));
     EXPECT_TRUE(p->CanRedirectToURL(url));
 
-    EXPECT_TRUE(p->CanRequestURL(kRendererID, other_url));
+    EXPECT_FALSE(p->CanRequestURL(kRendererID, other_url));
     EXPECT_FALSE(p->CanCommitURL(kRendererID, other_url));
     EXPECT_TRUE(p->CanRedirectToURL(other_url));
 
@@ -1084,7 +1084,7 @@ TEST_F(ChildProcessSecurityPolicyTest, CanServiceWebUIBindings) {
     EXPECT_TRUE(p->CanCommitURL(kRendererID, url));
     EXPECT_TRUE(p->CanRedirectToURL(url));
 
-    EXPECT_TRUE(p->CanRequestURL(kRendererID, other_url));
+    EXPECT_FALSE(p->CanRequestURL(kRendererID, other_url));
     EXPECT_FALSE(p->CanCommitURL(kRendererID, other_url));
     EXPECT_TRUE(p->CanRedirectToURL(other_url));
 
@@ -2252,121 +2252,6 @@ TEST_F(ChildProcessSecurityPolicyTest,
   context2.reset();
   LOCKED_EXPECT_THAT(p->isolated_origins_lock_, p->isolated_origins_,
                      testing::IsEmpty());
-}
-
-// Tests behavior of HasSecurityState() during race conditions that
-// can occur during Remove(). It verifies that SecurityState for a child ID is
-// preserved after a Remove() call until the task, that Remove() has posted to
-// the IO thread, has run.
-//
-// We use a combination of waitable events and extra tasks posted to the
-// threads to capture permission state from the UI & IO threads during the
-// removal process. It is intended to simulate pending tasks that could be
-// run on each thread during removal.
-TEST_F(ChildProcessSecurityPolicyTest, HasSecurityState) {
-  ChildProcessSecurityPolicyImpl* p =
-      ChildProcessSecurityPolicyImpl::GetInstance();
-
-  GURL url("file:///etc/passwd");
-
-  EXPECT_FALSE(p->HasSecurityState(kRendererID));
-
-  p->Add(kRendererID, browser_context());
-
-  base::WaitableEvent ready_for_remove_event;
-  base::WaitableEvent remove_called_event;
-  base::WaitableEvent pending_remove_complete_event;
-
-  // Keep track of the return value for HasSecurityState() at various
-  // points in time during the test.
-  bool io_before_remove = false;
-  bool io_while_io_task_pending = false;
-  bool io_after_io_task_completed = false;
-  bool ui_before_remove = false;
-  bool ui_while_io_task_pending = false;
-  bool ui_after_io_task_completed = false;
-
-  // Post a task that will run on the IO thread before the task that
-  // Remove() will post to the IO thread.
-  base::PostTask(FROM_HERE, {BrowserThread::IO},
-                 base::BindLambdaForTesting([&]() {
-                   // Capture state on the IO thread before Remove() is called.
-                   io_before_remove = p->HasSecurityState(kRendererID);
-
-                   // Tell the UI thread we are ready for Remove() to be called.
-                   ready_for_remove_event.Signal();
-
-                   // Wait for Remove() to be called on the UI thread.
-                   remove_called_event.Wait();
-
-                   // Capture state after Remove() is called, but before its
-                   // task on the IO thread runs.
-                   io_while_io_task_pending = p->HasSecurityState(kRendererID);
-                 }));
-
-  ready_for_remove_event.Wait();
-
-  ui_before_remove = p->HasSecurityState(kRendererID);
-
-  p->Remove(kRendererID);
-
-  // Post a task to run after the task Remove() posted on the IO thread.
-  base::PostTask(
-      FROM_HERE, {BrowserThread::IO}, base::BindLambdaForTesting([&]() {
-        io_after_io_task_completed = p->HasSecurityState(kRendererID);
-
-        // Tell the UI thread that the task from Remove()
-        // has completed on the IO thread.
-        pending_remove_complete_event.Signal();
-      }));
-
-  // Capture state after Remove() has been called, but before its IO thread
-  // task has run. We know the IO thread task hasn't run yet because the
-  // task we posted before the Remove() call is waiting for us to signal
-  // |remove_called_event|.
-  ui_while_io_task_pending = p->HasSecurityState(kRendererID);
-
-  // Unblock the IO thread so the pending remove events can run.
-  remove_called_event.Signal();
-
-  pending_remove_complete_event.Wait();
-
-  // Capture state after IO thread task has run.
-  ui_after_io_task_completed = p->HasSecurityState(kRendererID);
-
-  // Run pending UI thread tasks.
-  base::RunLoop run_loop;
-  run_loop.RunUntilIdle();
-
-  bool ui_after_remove_complete = p->HasSecurityState(kRendererID);
-  bool io_after_remove_complete = false;
-  base::WaitableEvent after_remove_complete_event;
-
-  base::PostTask(FROM_HERE, {BrowserThread::IO},
-                 base::BindLambdaForTesting([&]() {
-                   io_after_remove_complete = p->HasSecurityState(kRendererID);
-
-                   // Tell the UI thread that this task has
-                   // has completed on the IO thread.
-                   after_remove_complete_event.Signal();
-                 }));
-
-  // Wait for the task we just posted to the IO thread to complete.
-  after_remove_complete_event.Wait();
-
-  // Verify expected states at various parts of the removal.
-  // Note: IO thread is expected to keep pre-Remove() permissions until
-  // the task Remove() posted runs on the IO thread.
-  EXPECT_TRUE(io_before_remove);
-  EXPECT_TRUE(io_while_io_task_pending);
-  EXPECT_FALSE(io_after_io_task_completed);
-
-  EXPECT_TRUE(ui_before_remove);
-  EXPECT_FALSE(ui_while_io_task_pending);
-  EXPECT_FALSE(ui_after_io_task_completed);
-
-  EXPECT_FALSE(ui_after_remove_complete);
-  EXPECT_FALSE(io_after_remove_complete);
 }
 
 TEST_F(ChildProcessSecurityPolicyTest, IsolatedOriginPattern) {

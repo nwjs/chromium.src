@@ -399,6 +399,7 @@ class CORE_EXPORT LayoutBlock : public LayoutBox {
   virtual void PaintChildren(const PaintInfo&,
                              const PhysicalOffset& paint_offset) const;
   void UpdateAfterLayout() override;
+  MinMaxSizes PreferredLogicalWidths() const override;
 
  protected:
   virtual void AdjustInlineDirectionLineBounds(
@@ -406,10 +407,7 @@ class CORE_EXPORT LayoutBlock : public LayoutBox {
       LayoutUnit& /* logicalLeft */,
       LayoutUnit& /* logicalWidth */) const {}
 
-  void ComputeIntrinsicLogicalWidths(
-      LayoutUnit& min_logical_width,
-      LayoutUnit& max_logical_width) const override;
-  void ComputePreferredLogicalWidths() override;
+  MinMaxSizes ComputeIntrinsicLogicalWidths() const override;
   void ComputeChildPreferredLogicalWidths(
       LayoutObject& child,
       LayoutUnit& min_preferred_logical_width,
@@ -418,17 +416,10 @@ class CORE_EXPORT LayoutBlock : public LayoutBox {
   LayoutUnit FirstLineBoxBaseline() const override;
   LayoutUnit InlineBlockBaseline(LineDirectionMode) const override;
 
-  // This function disables the 'overflow' check in inlineBlockBaseline.
-  // For 'inline-block', CSS says that the baseline is the bottom margin edge
-  // if 'overflow' is not visible. But some descendant classes want to ignore
-  // this condition.
-  virtual bool ShouldIgnoreOverflowPropertyForInlineBlockBaseline() const {
-    return false;
-  }
-
-  bool HitTestOverflowControl(HitTestResult&,
-                              const HitTestLocation&,
-                              const PhysicalOffset& adjusted_location) override;
+  bool HitTestOverflowControl(
+      HitTestResult&,
+      const HitTestLocation&,
+      const PhysicalOffset& adjusted_location) const override;
   bool HitTestChildren(HitTestResult&,
                        const HitTestLocation&,
                        const PhysicalOffset& accumulated_offset,

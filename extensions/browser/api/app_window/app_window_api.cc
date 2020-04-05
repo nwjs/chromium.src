@@ -491,10 +491,10 @@ ExtensionFunction::ResponseAction AppWindowCreateFunction::Run() {
     if (!command_line->HasSwitch("skip-reopen-app-devtools")) {
       AppWindowClient::Get()->OpenDevToolsWindow(
         app_window->web_contents(),
-        base::Bind(&AppWindowCreateFunction::Respond, this,
-          base::Passed(&result_arg)));
-      // OpenDevToolsWindow might have already responded.
-      return did_respond() ? AlreadyResponded() : RespondLater();
+        base::BindOnce(&AppWindowCreateFunction::Respond, this,
+                       std::move(result_arg)));
+    // OpenDevToolsWindow might have already responded.
+    return did_respond() ? AlreadyResponded() : RespondLater();
     }
   }
 

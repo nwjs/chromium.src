@@ -54,12 +54,17 @@ LayerTreePixelTest::CreateLayerTreeFrameSink(
   scoped_refptr<viz::TestInProcessContextProvider> compositor_context_provider;
   scoped_refptr<viz::TestInProcessContextProvider> worker_context_provider;
   if (!use_software_renderer()) {
+    // Use gpu rasterization when using vulkan.
+    if (use_vulkan())
+      DCHECK(gpu_rasterization_);
     compositor_context_provider =
         base::MakeRefCounted<viz::TestInProcessContextProvider>(
+            /*enable_gpu_rasterization=*/gpu_rasterization_,
             /*enable_oop_rasterization=*/false, /*support_locking=*/false);
     // With vulkan, OOPR has to be enabled.
     worker_context_provider =
         base::MakeRefCounted<viz::TestInProcessContextProvider>(
+            /*enable_gpu_rasterization=*/gpu_rasterization_,
             /*enable_oop_rasterization=*/use_vulkan(),
             /*support_locking=*/true);
     // Bind worker context to main thread like it is in production. This is
@@ -85,6 +90,23 @@ LayerTreePixelTest::CreateLayerTreeFrameSink(
   return delegating_output_surface;
 }
 
+void LayerTreePixelTest::DrawLayersOnThread(LayerTreeHostImpl* host_impl) {
+  // Verify that we're using Gpu rasterization or not as requested.
+  if (!use_software_renderer()) {
+    viz::ContextProvider* context_provider =
+        host_impl->layer_tree_frame_sink()->context_provider();
+    viz::RasterContextProvider* worker_context_provider =
+        host_impl->layer_tree_frame_sink()->worker_context_provider();
+    EXPECT_EQ(gpu_rasterization_,
+              context_provider->ContextCapabilities().gpu_rasterization);
+    EXPECT_EQ(gpu_rasterization_,
+              worker_context_provider->ContextCapabilities().gpu_rasterization);
+  } else {
+    EXPECT_FALSE(gpu_rasterization_);
+  }
+  LayerTreeTest::DrawLayersOnThread(host_impl);
+}
+
 std::unique_ptr<viz::SkiaOutputSurface>
 LayerTreePixelTest::CreateDisplaySkiaOutputSurfaceOnThread() {
   // Set up the SkiaOutputSurfaceImpl.
@@ -106,13 +128,14 @@ LayerTreePixelTest::CreateDisplayOutputSurfaceOnThread(
     // compositor.
     auto display_context_provider =
         base::MakeRefCounted<viz::TestInProcessContextProvider>(
+            /*enable_gpu_rasterization=*/false,
             /*enable_oop_rasterization=*/false, /*support_locking=*/false);
     gpu::ContextResult result = display_context_provider->BindToCurrentThread();
     DCHECK_EQ(result, gpu::ContextResult::kSuccess);
 
-    bool flipped_output_surface = false;
+    gfx::SurfaceOrigin surface_origin = gfx::SurfaceOrigin::kBottomLeft;
     display_output_surface = std::make_unique<PixelTestOutputSurface>(
-        std::move(display_context_provider), flipped_output_surface);
+        std::move(display_context_provider), surface_origin);
   } else {
     EXPECT_EQ(RENDERER_SOFTWARE, renderer_type_);
     display_output_surface = std::make_unique<PixelTestOutputSurface>(
@@ -197,10 +220,6 @@ void LayerTreePixelTest::EndTest() {
   }
 
   TryEndTest();
-}
-
-void LayerTreePixelTest::InitializeSettings(LayerTreeSettings* settings) {
-  settings->gpu_rasterization_forced = use_vulkan();
 }
 
 void LayerTreePixelTest::TryEndTest() {

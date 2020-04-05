@@ -15,7 +15,6 @@
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
-#include "content/common/accessibility_messages.h"
 #include "content/public/common/content_features.h"
 #include "content/renderer/accessibility/ax_image_annotator.h"
 #include "content/renderer/accessibility/blink_ax_enum_conversion.h"
@@ -30,6 +29,7 @@
 #include "third_party/blink/public/platform/web_vector.h"
 #include "third_party/blink/public/web/web_ax_enums.h"
 #include "third_party/blink/public/web/web_ax_object.h"
+#include "third_party/blink/public/web/web_disallow_transition_scope.h"
 #include "third_party/blink/public/web/web_document.h"
 #include "third_party/blink/public/web/web_element.h"
 #include "third_party/blink/public/web/web_form_control_element.h"
@@ -510,7 +510,6 @@ void BlinkAXTreeSource::GetChildren(
     // Skip table headers and columns, they're only needed on Mac
     // and soon we'll get rid of this code entirely.
     if (child.Role() == ax::mojom::Role::kColumn ||
-        child.Role() == ax::mojom::Role::kLayoutTableColumn ||
         child.Role() == ax::mojom::Role::kTableHeaderContainer)
       continue;
 
@@ -551,6 +550,13 @@ WebAXObject BlinkAXTreeSource::GetNull() const {
 
 void BlinkAXTreeSource::SerializeNode(WebAXObject src,
                                       AXContentNodeData* dst) const {
+#if DCHECK_IS_ON()
+  // Never causes a document lifecycle change during serialization,
+  // because the assumption is that layout is in a safe, stable state.
+  WebDocument document = GetMainDocument();
+  blink::WebDisallowTransitionScope disallow(&document);
+#endif
+
   dst->role = src.Role();
   AXStateFromBlink(src, dst);
   dst->id = src.AxID();
@@ -830,9 +836,10 @@ void BlinkAXTreeSource::SerializeNode(WebAXObject src,
       dst->SetDefaultActionVerb(src.Action());
     }
 
-    if (src.HasComputedStyle()) {
+    blink::WebString display_style = src.ComputedStyleDisplay();
+    if (!display_style.IsEmpty()) {
       TruncateAndAddStringAttribute(dst, ax::mojom::StringAttribute::kDisplay,
-                                    src.ComputedStyleDisplay().Utf8());
+                                    display_style.Utf8());
     }
 
     if (src.Language().length()) {
@@ -871,10 +878,7 @@ void BlinkAXTreeSource::SerializeNode(WebAXObject src,
     if (ui::IsHeading(dst->role) && src.HeadingLevel()) {
       dst->AddIntAttribute(ax::mojom::IntAttribute::kHierarchicalLevel,
                            src.HeadingLevel());
-    } else if ((dst->role == ax::mojom::Role::kTreeItem ||
-                dst->role == ax::mojom::Role::kComment ||
-                dst->role == ax::mojom::Role::kListItem ||
-                dst->role == ax::mojom::Role::kRow) &&
+    } else if (ui::SupportsHierarchicalLevel(dst->role) &&
                src.HierarchicalLevel()) {
       dst->AddIntAttribute(ax::mojom::IntAttribute::kHierarchicalLevel,
                            src.HierarchicalLevel());
@@ -1083,6 +1087,10 @@ void BlinkAXTreeSource::SerializeNode(WebAXObject src,
     WebElement element = node.To<WebElement>();
     is_iframe = element.HasHTMLTagName("iframe");
 
+    if (element.HasAttribute("class")) {
+      TruncateAndAddStringAttribute(dst, ax::mojom::StringAttribute::kClassName,
+                                    element.GetAttribute("class").Utf8());
+    }
     if (accessibility_mode_.has_mode(ui::AXMode::kHTML)) {
       // TODO(ctguil): The tagName in WebKit is lower cased but
       // HTMLElement::nodeName calls localNameUpper. Consider adding
@@ -1093,8 +1101,10 @@ void BlinkAXTreeSource::SerializeNode(WebAXObject src,
       for (unsigned i = 0; i < element.AttributeCount(); ++i) {
         std::string name =
             base::ToLowerASCII(element.AttributeLocalName(i).Utf8());
-        std::string value = element.AttributeValue(i).Utf8();
-        dst->html_attributes.push_back(std::make_pair(name, value));
+        if (name != "class") {  // class already in kClassName.
+          std::string value = element.AttributeValue(i).Utf8();
+          dst->html_attributes.push_back(std::make_pair(name, value));
+        }
       }
 
 // TODO(nektar): Turn off kHTMLAccessibilityMode for automation and Mac
@@ -1136,14 +1146,10 @@ void BlinkAXTreeSource::SerializeNode(WebAXObject src,
     if (src.HasAriaAttribute())
       dst->AddBoolAttribute(ax::mojom::BoolAttribute::kHasAriaAttribute, true);
 
-    // Frames and iframes. We don't add a child routing id for Portals (even
-    // though they are a frame owner and have a subframe) as they can't be
-    // interacted with and we want to omit their contents from the AxTree.
+    // Frames and iframes.
     WebFrame* frame = WebFrame::FromFrameOwnerElement(element);
-    if (frame && dst->role != ax::mojom::Role::kPortal) {
-      dst->AddContentIntAttribute(AX_CONTENT_ATTR_CHILD_ROUTING_ID,
-                                  RenderFrame::GetRoutingIdForWebFrame(frame));
-    }
+    if (frame)
+      dst->child_routing_id = RenderFrame::GetRoutingIdForWebFrame(frame);
   }
 
   // Add the ids of *indirect* children - those who are children of this node,
@@ -1164,7 +1170,11 @@ void BlinkAXTreeSource::SerializeNode(WebAXObject src,
   }
 
   if (src.IsScrollableContainer()) {
-    dst->AddBoolAttribute(ax::mojom::BoolAttribute::kScrollable, true);
+    // Only mark as scrollable if user has actual scrollbars to use.
+    dst->AddBoolAttribute(ax::mojom::BoolAttribute::kScrollable,
+                          src.IsUserScrollable());
+    // Provide x,y scroll info if scrollable in any way (programmatically or via
+    // user).
     const gfx::Point& scroll_offset = src.GetScrollOffset();
     dst->AddIntAttribute(ax::mojom::IntAttribute::kScrollX, scroll_offset.x());
     dst->AddIntAttribute(ax::mojom::IntAttribute::kScrollY, scroll_offset.y());

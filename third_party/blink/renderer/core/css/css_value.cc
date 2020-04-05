@@ -60,7 +60,6 @@
 #include "third_party/blink/renderer/core/css/css_numeric_literal_value.h"
 #include "third_party/blink/renderer/core/css/css_paint_value.h"
 #include "third_party/blink/renderer/core/css/css_path_value.h"
-#include "third_party/blink/renderer/core/css/css_pending_interpolation_value.h"
 #include "third_party/blink/renderer/core/css/css_pending_substitution_value.h"
 #include "third_party/blink/renderer/core/css/css_primitive_value.h"
 #include "third_party/blink/renderer/core/css/css_quad_value.h"
@@ -81,7 +80,7 @@
 namespace blink {
 
 struct SameSizeAsCSSValue final : public GarbageCollected<SameSizeAsCSSValue> {
-  uint32_t bitfields;
+  char bitfields[sizeof(uint16_t) + sizeof(uint8_t)];
 };
 ASSERT_SIZE(CSSValue, SameSizeAsCSSValue);
 
@@ -262,9 +261,6 @@ bool CSSValue::operator==(const CSSValue& other) const {
       case kCSSContentDistributionClass:
         return CompareCSSValues<cssvalue::CSSContentDistributionValue>(*this,
                                                                        other);
-      case kPendingInterpolationClass:
-        return CompareCSSValues<cssvalue::CSSPendingInterpolationValue>(*this,
-                                                                        other);
       case kCustomPropertyDeclarationClass:
         return CompareCSSValues<CSSCustomPropertyDeclaration>(*this, other);
       case kVariableReferenceClass:
@@ -382,8 +378,6 @@ String CSSValue::CssText() const {
       return To<CSSImageSetValue>(this)->CustomCSSText();
     case kCSSContentDistributionClass:
       return To<cssvalue::CSSContentDistributionValue>(this)->CustomCSSText();
-    case kPendingInterpolationClass:
-      return To<cssvalue::CSSPendingInterpolationValue>(this)->CustomCSSText();
     case kVariableReferenceClass:
       return To<CSSVariableReferenceValue>(this)->CustomCSSText();
     case kCustomPropertyDeclarationClass:
@@ -552,10 +546,6 @@ void CSSValue::FinalizeGarbageCollectedObject() {
       To<cssvalue::CSSContentDistributionValue>(this)
           ->~CSSContentDistributionValue();
       return;
-    case kPendingInterpolationClass:
-      To<cssvalue::CSSPendingInterpolationValue>(this)
-          ->~CSSPendingInterpolationValue();
-      return;
     case kVariableReferenceClass:
       To<CSSVariableReferenceValue>(this)->~CSSVariableReferenceValue();
       return;
@@ -576,7 +566,7 @@ void CSSValue::FinalizeGarbageCollectedObject() {
   NOTREACHED();
 }
 
-void CSSValue::Trace(blink::Visitor* visitor) {
+void CSSValue::Trace(Visitor* visitor) {
   switch (GetClassType()) {
     case kAxisClass:
       To<cssvalue::CSSAxisValue>(this)->TraceAfterDispatch(visitor);
@@ -727,10 +717,6 @@ void CSSValue::Trace(blink::Visitor* visitor) {
       return;
     case kCSSContentDistributionClass:
       To<cssvalue::CSSContentDistributionValue>(this)->TraceAfterDispatch(
-          visitor);
-      return;
-    case kPendingInterpolationClass:
-      To<cssvalue::CSSPendingInterpolationValue>(this)->TraceAfterDispatch(
           visitor);
       return;
     case kVariableReferenceClass:

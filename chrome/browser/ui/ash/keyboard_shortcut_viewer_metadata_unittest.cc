@@ -2,16 +2,16 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "ash/components/shortcut_viewer/keyboard_shortcut_viewer_metadata.h"
+#include "ash/shortcut_viewer/keyboard_shortcut_viewer_metadata.h"
 
 #include <set>
 #include <string>
 #include <tuple>
 #include <vector>
 
-#include "ash/components/shortcut_viewer/keyboard_shortcut_item.h"
-#include "ash/components/strings/grit/ash_components_strings.h"
 #include "ash/public/cpp/accelerators.h"
+#include "ash/shortcut_viewer/keyboard_shortcut_item.h"
+#include "ash/shortcut_viewer/strings/grit/ash_components_strings.h"
 #include "base/hash/md5.h"
 #include "base/macros.h"
 #include "base/strings/string_util.h"
@@ -23,9 +23,9 @@
 namespace {
 
 // The total number of Ash accelerators.
-constexpr int kAshAcceleratorsTotalNum = 110;
+constexpr int kAshAcceleratorsTotalNum = 116;
 // The hash of Ash accelerators.
-constexpr char kAshAcceleratorsHash[] = "1287cacd678f63ab151fbf25383ac19c";
+constexpr char kAshAcceleratorsHash[] = "d436645d30ab3a3b90bfbce57e59191f";
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
 // Internal builds add an extra accelerator for the Feedback app.
 // The total number of Chrome accelerators (available on Chrome OS).

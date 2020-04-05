@@ -29,6 +29,7 @@
 <translation id="1243314992276662751">Hlaða inn</translation>
 <translation id="1249250836236328755">Stefna</translation>
 <translation id="1278813325885878377">Ungverskt QWERTY-lyklaborð</translation>
+<translation id="1293556467332435079">Skrár</translation>
 <translation id="1297922636971898492">Google Drive er ekki í boði núna. Flutningur verður sjálfkrafa hafinn að nýju þegar Google Drive verður aftur tiltækt.</translation>
 <translation id="1307931752636661898">Ekki er hægt að skoða Linux-skrár</translation>
 <translation id="1310751437842832374">Umritun (mausam → ନମସ୍ତେ)</translation>
@@ -507,6 +508,7 @@
 <translation id="6878261347041253038">Devanagari-lyklaborð (hljóðritun)</translation>
 <translation id="6885780034956018177">Snigill</translation>
 <translation id="6896758677409633944">Afrita</translation>
+<translation id="6898028766943174120">Fleiri undirmöppur...</translation>
 <translation id="691516599546977041">Ekki tókst að vista í <ph name="FOLDER_NAME" />. Breyttar myndir verða vistaðar í möppunni Niðurhal.</translation>
 <translation id="6915678159055240887">Chromebox</translation>
 <translation id="6918340160281024199">Bandarískt Workman</translation>
@@ -519,6 +521,7 @@
 <translation id="696203921837389374">Virkja samstillingu með farsímagögnum</translation>
 <translation id="6965382102122355670">Í lagi</translation>
 <translation id="6970230597523682626">Búlgarskt</translation>
+<translation id="6973630695168034713">Möppur</translation>
 <translation id="6978611942794658017">Þessi skrá er hönnuð fyrir tölvu með Windows-hugbúnaði. Hún er ekki samhæf tækinu þínu sem keyrir Chrome OS. Leitaðu að hentugu forriti í stað þessa í vefverslun Chrome.</translation>
 <translation id="6979158407327259162">Google Drive</translation>
 <translation id="6990081529015358884">Plássið er uppurið</translation>

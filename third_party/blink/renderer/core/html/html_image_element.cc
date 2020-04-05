@@ -39,13 +39,13 @@
 #include "third_party/blink/renderer/core/frame/deprecation.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/html/canvas/html_canvas_element.h"
+#include "third_party/blink/renderer/core/html/cross_origin_attribute.h"
 #include "third_party/blink/renderer/core/html/forms/form_associated.h"
 #include "third_party/blink/renderer/core/html/forms/html_form_element.h"
 #include "third_party/blink/renderer/core/html/html_dimension.h"
 #include "third_party/blink/renderer/core/html/html_image_fallback_helper.h"
 #include "third_party/blink/renderer/core/html/html_picture_element.h"
 #include "third_party/blink/renderer/core/html/html_source_element.h"
-#include "third_party/blink/renderer/core/html/media/media_element_parser_helpers.h"
 #include "third_party/blink/renderer/core/html/parser/html_parser_idioms.h"
 #include "third_party/blink/renderer/core/html/parser/html_srcset_parser.h"
 #include "third_party/blink/renderer/core/html_names.h"
@@ -102,16 +102,13 @@ HTMLImageElement::HTMLImageElement(Document& document, bool created_by_parser)
       form_was_set_by_parser_(false),
       element_created_by_parser_(created_by_parser),
       is_fallback_image_(false),
+      is_default_overridden_intrinsic_size_(
+          !document.IsImageDocument() &&
+          !document.IsFeatureEnabled(
+              mojom::blink::DocumentPolicyFeature::kUnsizedMedia)),
       is_legacy_format_or_unoptimized_image_(false),
       referrer_policy_(network::mojom::ReferrerPolicy::kDefault) {
   SetHasCustomStyleCallbacks();
-  if (media_element_parser_helpers::IsMediaElement(this) &&
-      !document.IsFeatureEnabled(
-          mojom::blink::FeaturePolicyFeature::kUnsizedMedia)) {
-    is_default_overridden_intrinsic_size_ = true;
-    overridden_intrinsic_size_ =
-        IntSize(LayoutReplaced::kDefaultWidth, LayoutReplaced::kDefaultHeight);
-  }
 }
 
 HTMLImageElement::~HTMLImageElement() = default;
@@ -292,6 +289,24 @@ void HTMLImageElement::ParseAttribute(
     // |importance| attribute to the loading pipeline takes place in
     // ImageLoader.
     UseCounter::Count(GetDocument(), WebFeature::kPriorityHints);
+  } else if (name == html_names::kCrossoriginAttr) {
+    // As per an image's relevant mutations [1], we must queue a new loading
+    // microtask when the `crossorigin` attribute state has changed. Note that
+    // the attribute value can change without the attribute state changing [2].
+    //
+    // [1]:
+    // https://html.spec.whatwg.org/multipage/images.html#relevant-mutations
+    // [2]: https://github.com/whatwg/html/issues/4533#issuecomment-483417499
+    CrossOriginAttributeValue new_crossorigin_state =
+        GetCrossOriginAttributeValue(params.new_value);
+    CrossOriginAttributeValue old_crossorigin_state =
+        GetCrossOriginAttributeValue(params.old_value);
+
+    if (new_crossorigin_state != old_crossorigin_state) {
+      // Update the current state so we can detect future state changes.
+      GetImageLoader().UpdateFromElement(
+          ImageLoader::kUpdateIgnorePreviousError, referrer_policy_);
+    }
   } else {
     HTMLElement::ParseAttribute(params);
   }
@@ -446,8 +461,9 @@ void HTMLImageElement::RemovedFrom(ContainerNode& insertion_point) {
 }
 
 unsigned HTMLImageElement::width() {
-  if (InActiveDocument())
-    GetDocument().UpdateStyleAndLayout();
+  if (InActiveDocument()) {
+    GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kJavaScript);
+  }
 
   if (!GetLayoutObject()) {
     // check the attribute first for an explicit pixel value
@@ -469,8 +485,9 @@ unsigned HTMLImageElement::width() {
 }
 
 unsigned HTMLImageElement::height() {
-  if (InActiveDocument())
-    GetDocument().UpdateStyleAndLayout();
+  if (InActiveDocument()) {
+    GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kJavaScript);
+  }
 
   if (!GetLayoutObject()) {
     // check the attribute first for an explicit pixel value
@@ -492,9 +509,10 @@ unsigned HTMLImageElement::height() {
 }
 
 LayoutSize HTMLImageElement::DensityCorrectedIntrinsicDimensions() const {
-  IntSize overridden_intrinsic_size = GetOverriddenIntrinsicSize();
-  if (!overridden_intrinsic_size.IsEmpty())
-    return LayoutSize(overridden_intrinsic_size);
+  if (IsDefaultIntrinsicSize()) {
+    return LayoutSize(LayoutReplaced::kDefaultWidth,
+                      LayoutReplaced::kDefaultHeight);
+  }
   ImageResourceContent* image_resource = GetImageLoader().GetContent();
   if (!image_resource || !image_resource->HasImage())
     return LayoutSize();
@@ -574,16 +592,12 @@ const QualifiedName& HTMLImageElement::SubResourceAttributeName() const {
 
 bool HTMLImageElement::draggable() const {
   // Image elements are draggable by default.
-  return !DeprecatedEqualIgnoringCase(
-      FastGetAttribute(html_names::kDraggableAttr), "false");
+  return !EqualIgnoringASCIICase(FastGetAttribute(html_names::kDraggableAttr),
+                                 "false");
 }
 
 void HTMLImageElement::setHeight(unsigned value) {
   SetUnsignedIntegralAttribute(html_names::kHeightAttr, value);
-}
-
-IntSize HTMLImageElement::GetOverriddenIntrinsicSize() const {
-  return overridden_intrinsic_size_;
 }
 
 void HTMLImageElement::setWidth(unsigned value) {
@@ -591,7 +605,7 @@ void HTMLImageElement::setWidth(unsigned value) {
 }
 
 int HTMLImageElement::x() const {
-  GetDocument().UpdateStyleAndLayout();
+  GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kJavaScript);
   LayoutObject* r = GetLayoutObject();
   if (!r)
     return 0;
@@ -603,7 +617,7 @@ int HTMLImageElement::x() const {
 }
 
 int HTMLImageElement::y() const {
-  GetDocument().UpdateStyleAndLayout();
+  GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kJavaScript);
   LayoutObject* r = GetLayoutObject();
   if (!r)
     return 0;
@@ -664,8 +678,8 @@ FloatSize HTMLImageElement::DefaultDestinationSize(
     return FloatSize();
 
   Image* image = image_content->GetImage();
-  if (image->IsSVGImage())
-    return ToSVGImage(image)->ConcreteObjectSize(default_object_size);
+  if (auto* svg_image = DynamicTo<SVGImage>(image))
+    return svg_image->ConcreteObjectSize(default_object_size);
 
   LayoutSize size(image->Size(respect_orientation));
   if (GetLayoutObject() && GetLayoutObject()->IsLayoutImage() &&
@@ -682,7 +696,8 @@ static bool SourceSizeValue(const Element* element,
   if (exists)
     UseCounter::Count(current_document, WebFeature::kSizes);
   source_size =
-      SizesAttributeParser(MediaValuesDynamic::Create(current_document), sizes)
+      SizesAttributeParser(MediaValuesDynamic::Create(current_document), sizes,
+                           current_document.GetExecutionContext())
           .length();
   return exists;
 }
@@ -810,9 +825,11 @@ scoped_refptr<ComputedStyle> HTMLImageElement::CustomStyleForLayoutObject() {
     case LayoutDisposition::kPrimaryContent:  // Fall through.
     case LayoutDisposition::kCollapsed:
       return OriginalStyleForLayoutObject();
-    case LayoutDisposition::kFallbackContent:
-      return HTMLImageFallbackHelper::CustomStyleForAltText(
-          *this, ComputedStyle::Clone(*OriginalStyleForLayoutObject()));
+    case LayoutDisposition::kFallbackContent: {
+      scoped_refptr<ComputedStyle> style = OriginalStyleForLayoutObject();
+      HTMLImageFallbackHelper::CustomStyleForAltText(*this, *style);
+      return style;
+    }
     default:
       NOTREACHED();
       return nullptr;

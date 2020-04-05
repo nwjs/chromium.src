@@ -22,7 +22,6 @@ nw.dll: %(ChromeDir)s\
 nw_100_percent.pak: %(ChromeDir)s\
 nw_child.dll: %(ChromeDir)s\
 nw_elf.dll: %(ChromeDir)s\
-nw_watcher.dll: %(ChromeDir)s\
 d3dcompiler_47.dll: %(ChromeDir)s\
 eventlog_provider.dll: %(ChromeDir)s\
 icudtl.dat: %(ChromeDir)s\

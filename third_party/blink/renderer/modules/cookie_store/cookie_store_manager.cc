@@ -9,6 +9,7 @@
 #include "base/optional.h"
 #include "services/network/public/mojom/restricted_cookie_manager.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_throw_dom_exception.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_cookie_list_item.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_cookie_store_get_options.h"
 #include "third_party/blink/renderer/core/dom/document.h"
@@ -17,6 +18,7 @@
 #include "third_party/blink/renderer/modules/cookie_store/cookie_change_event.h"
 #include "third_party/blink/renderer/modules/service_worker/service_worker_global_scope.h"
 #include "third_party/blink/renderer/modules/service_worker/service_worker_registration.h"
+#include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/bindings/script_state.h"
 #include "third_party/blink/renderer/platform/heap/handle.h"
 #include "third_party/blink/renderer/platform/heap/heap.h"
@@ -36,7 +38,7 @@ mojom::blink::CookieChangeSubscriptionPtr ToBackendSubscription(
     ExceptionState& exception_state) {
   auto backend_subscription = mojom::blink::CookieChangeSubscription::New();
 
-  if (subscription->hasURL()) {
+  if (subscription->hasUrl()) {
     KURL subscription_url(default_cookie_url, subscription->url());
     if (!subscription_url.GetString().StartsWith(
             default_cookie_url.GetString())) {
@@ -73,7 +75,7 @@ mojom::blink::CookieChangeSubscriptionPtr ToBackendSubscription(
 CookieStoreGetOptions* ToCookieChangeSubscription(
     const mojom::blink::CookieChangeSubscription& backend_subscription) {
   CookieStoreGetOptions* subscription = CookieStoreGetOptions::Create();
-  subscription->setURL(backend_subscription.url);
+  subscription->setUrl(backend_subscription.url);
 
   if (backend_subscription.match_type !=
           network::mojom::blink::CookieMatchType::STARTS_WITH ||
@@ -179,16 +181,21 @@ ScriptPromise CookieStoreManager::getSubscriptions(
   return resolver->Promise();
 }
 
-void CookieStoreManager::Trace(blink::Visitor* visitor) {
+void CookieStoreManager::Trace(Visitor* visitor) {
   visitor->Trace(registration_);
   ScriptWrappable::Trace(visitor);
 }
 
 void CookieStoreManager::OnSubscribeResult(ScriptPromiseResolver* resolver,
                                            bool backend_success) {
+  ScriptState* script_state = resolver->GetScriptState();
+  if (!script_state->ContextIsValid())
+    return;
+  ScriptState::Scope scope(script_state);
+
   if (!backend_success) {
-    resolver->Reject(MakeGarbageCollected<DOMException>(
-        DOMExceptionCode::kUnknownError,
+    resolver->Reject(V8ThrowDOMException::CreateOrEmpty(
+        script_state->GetIsolate(), DOMExceptionCode::kUnknownError,
         "An unknown error occured while subscribing to cookie changes."));
     return;
   }
@@ -199,10 +206,15 @@ void CookieStoreManager::OnGetSubscriptionsResult(
     ScriptPromiseResolver* resolver,
     Vector<mojom::blink::CookieChangeSubscriptionPtr> backend_result,
     bool backend_success) {
+  ScriptState* script_state = resolver->GetScriptState();
+  if (!script_state->ContextIsValid())
+    return;
+  ScriptState::Scope scope(script_state);
+
   if (!backend_success) {
-    resolver->Reject(MakeGarbageCollected<DOMException>(
-        DOMExceptionCode::kUnknownError,
-        "An unknown error occured while reading cookie change subscriptions."));
+    resolver->Reject(V8ThrowDOMException::CreateOrEmpty(
+        script_state->GetIsolate(), DOMExceptionCode::kUnknownError,
+        "An unknown error occured while subscribing to cookie changes."));
     return;
   }
 

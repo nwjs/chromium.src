@@ -26,16 +26,17 @@ class MockFrame : public fuchsia::web::testing::Frame_TestBase {
     LOG(FATAL) << "No mock defined for " << name;
   }
 
-  MOCK_METHOD1(SetEnableInput, void(bool));
+  MOCK_METHOD2(ConfigureInputTypes,
+               void(fuchsia::web::InputTypes types,
+                    fuchsia::web::AllowInputState allow));
 };
 
-class ApplicationControllerImplTest
-    : public chromium::cast::ApplicationControllerReceiver,
-      public testing::Test {
+class ApplicationControllerImplTest : public chromium::cast::ApplicationContext,
+                                      public testing::Test {
  public:
   ApplicationControllerImplTest()
-      : application_receiver_binding_(this),
-        application_(&frame_, application_receiver_binding_.NewBinding()) {
+      : application_context_(this),
+        application_(&frame_, application_context_.NewBinding()) {
     base::RunLoop run_loop;
     wait_for_controller_callback_ = run_loop.QuitClosure();
     run_loop.Run();
@@ -45,6 +46,9 @@ class ApplicationControllerImplTest
 
  protected:
   // chromium::cast::ApplicationReceiver implementation.
+  void GetMediaSessionId(GetMediaSessionIdCallback callback) final {
+    NOTREACHED();
+  }
   void SetApplicationController(
       fidl::InterfaceHandle<chromium::cast::ApplicationController> application)
       final {
@@ -58,8 +62,7 @@ class ApplicationControllerImplTest
       base::test::SingleThreadTaskEnvironment::MainThreadType::IO};
 
   MockFrame frame_;
-  fidl::Binding<chromium::cast::ApplicationControllerReceiver>
-      application_receiver_binding_;
+  fidl::Binding<chromium::cast::ApplicationContext> application_context_;
 
   chromium::cast::ApplicationControllerPtr application_ptr_;
   ApplicationControllerImpl application_;
@@ -70,11 +73,18 @@ class ApplicationControllerImplTest
 };
 
 // Verifies that SetTouchInputEnabled() calls the Frame API correctly.
-TEST_F(ApplicationControllerImplTest, SetEnableInput) {
+TEST_F(ApplicationControllerImplTest, ConfigureInputTypes) {
   base::RunLoop run_loop;
 
-  EXPECT_CALL(frame_, SetEnableInput(true)).Times(2);
-  EXPECT_CALL(frame_, SetEnableInput(false))
+  EXPECT_CALL(frame_,
+              ConfigureInputTypes(fuchsia::web::InputTypes::GESTURE_TAP |
+                                      fuchsia::web::InputTypes::GESTURE_DRAG,
+                                  fuchsia::web::AllowInputState::ALLOW))
+      .Times(2);
+  EXPECT_CALL(frame_,
+              ConfigureInputTypes(fuchsia::web::InputTypes::GESTURE_TAP |
+                                      fuchsia::web::InputTypes::GESTURE_DRAG,
+                                  fuchsia::web::AllowInputState::DENY))
       .WillOnce(InvokeWithoutArgs([&run_loop]() { run_loop.Quit(); }));
 
   application_ptr_->SetTouchInputEnabled(true);

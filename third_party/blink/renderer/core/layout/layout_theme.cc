@@ -163,9 +163,6 @@ ControlPart LayoutTheme::AdjustAppearanceWithElementType(
     const ComputedStyle& style,
     const Element* element) {
   ControlPart part = style.EffectiveAppearance();
-  if (!RuntimeEnabledFeatures::RestrictedWebkitAppearanceEnabled())
-    return part;
-
   if (!element)
     return kNoControlPart;
 
@@ -185,6 +182,7 @@ ControlPart LayoutTheme::AdjustAppearanceWithElementType(
 
     // Aliases of 'auto'.
     // https://drafts.csswg.org/css-ui-4/#typedef-appearance-compat-auto
+    case kAutoPart:
     case kCheckboxPart:
     case kRadioPart:
     case kPushButtonPart:
@@ -261,6 +259,7 @@ void LayoutTheme::AdjustStyle(ComputedStyle& style, Element* e) {
   ControlPart part = AdjustAppearanceWithAuthorStyle(
       AdjustAppearanceWithElementType(style, e), style);
   style.SetEffectiveAppearance(part);
+  DCHECK_NE(part, kAutoPart);
   if (part == kNoControlPart)
     return;
 
@@ -296,6 +295,19 @@ void LayoutTheme::AdjustStyle(ComputedStyle& style, Element* e) {
 }
 
 String LayoutTheme::ExtraDefaultStyleSheet() {
+  if (RuntimeEnabledFeatures::LayoutNGForControlsEnabled()) {
+    return String(R"CSS(
+input[type="file" i] {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: pre;
+}
+
+input[type="file" i]::-webkit-file-upload-button {
+    margin-inline-end: 4px;
+}
+)CSS");
+  }
   return g_empty_string;
 }
 
@@ -611,7 +623,12 @@ void LayoutTheme::AdjustButtonStyle(ComputedStyle& style) const {}
 
 void LayoutTheme::AdjustInnerSpinButtonStyle(ComputedStyle&) const {}
 
-void LayoutTheme::AdjustMenuListStyle(ComputedStyle&, Element*) const {}
+void LayoutTheme::AdjustMenuListStyle(ComputedStyle& style, Element*) const {
+  // Menulists should have visible overflow
+  // https://bugs.webkit.org/show_bug.cgi?id=21287
+  style.SetOverflowX(EOverflow::kVisible);
+  style.SetOverflowY(EOverflow::kVisible);
+}
 
 base::TimeDelta LayoutTheme::AnimationRepeatIntervalForProgressBar() const {
   return base::TimeDelta();
@@ -635,9 +652,13 @@ void LayoutTheme::AdjustSliderContainerStyle(ComputedStyle& style,
     if (style.EffectiveAppearance() == kSliderVerticalPart) {
       style.SetTouchAction(TouchAction::kPanX);
       style.SetEffectiveAppearance(kNoControlPart);
+      style.SetWritingMode(WritingMode::kVerticalRl);
+      // It's always in RTL because the slider value increases up even in LTR.
+      style.SetDirection(TextDirection::kRtl);
     } else {
       style.SetTouchAction(TouchAction::kPanY);
       style.SetEffectiveAppearance(kNoControlPart);
+      style.SetWritingMode(WritingMode::kHorizontalTb);
     }
   }
 }
@@ -748,7 +769,7 @@ Color LayoutTheme::SystemColor(CSSValueID css_value_id,
     case CSSValueID::kButtonshadow:
       return 0xFF888888;
     case CSSValueID::kButtontext:
-      return color_scheme == WebColorScheme::kDark ? 0xFFFFFFFF : 0xFF000000;
+      return color_scheme == WebColorScheme::kDark ? 0xFFAAAAAA : 0xFF000000;
     case CSSValueID::kCaptiontext:
       return color_scheme == WebColorScheme::kDark ? 0xFFFFFFFF : 0xFF000000;
     case CSSValueID::kField:
@@ -852,6 +873,14 @@ bool LayoutTheme::IsFocusRingOutset() const {
 Color LayoutTheme::FocusRingColor() const {
   return has_custom_focus_ring_color_ ? custom_focus_ring_color_
                                       : GetTheme().PlatformFocusRingColor();
+}
+
+bool LayoutTheme::DelegatesMenuListRendering() const {
+  return delegates_menu_list_rendering_;
+}
+
+void LayoutTheme::SetDelegatesMenuListRenderingForTesting(bool flag) {
+  delegates_menu_list_rendering_ = flag;
 }
 
 String LayoutTheme::DisplayNameForFile(const File& file) const {
@@ -1025,6 +1054,14 @@ void LayoutTheme::AdjustControlPartStyle(ComputedStyle& style) {
     default:
       break;
   }
+}
+
+bool LayoutTheme::HasCustomFocusRingColor() const {
+  return has_custom_focus_ring_color_;
+}
+
+Color LayoutTheme::GetCustomFocusRingColor() const {
+  return custom_focus_ring_color_;
 }
 
 }  // namespace blink

@@ -17,6 +17,7 @@ class ChromeBrowserState;
 @protocol ApplicationCommands;
 @protocol InfobarBadgeUIDelegate;
 @protocol InfobarContainer;
+@protocol InfobarBannerContained;
 
 @class InfobarBannerTransitionDriver;
 @class InfobarBannerViewController;
@@ -76,7 +77,8 @@ enum class InfobarBannerPresentationState;
 @property(nonatomic, assign) BOOL started;
 
 // BannerViewController owned by this Coordinator. Can be nil.
-@property(nonatomic, strong, readonly) UIViewController* bannerViewController;
+@property(nonatomic, strong, readonly)
+    UIViewController<InfobarBannerContained>* bannerViewController;
 
 // ModalViewController owned by this Coordinator. Can be nil.
 @property(nonatomic, strong, readonly) UIViewController* modalViewController;
@@ -85,10 +87,10 @@ enum class InfobarBannerPresentationState;
 // Coordinator doesn't support a badge.
 @property(nonatomic, weak) id<InfobarBadgeUIDelegate> badgeDelegate;
 
-// The ChromeBrowserState owned by the Coordinator.
+// The Browser owned by the Coordinator.
 // TODO(crbug.com/927064): Once we create the coordinators in the UI Hierarchy
-// browserState will be set on init.
-@property(nonatomic, assign) ChromeBrowserState* browserState;
+// browser will be set on init.
+@property(nonatomic, assign, readwrite) Browser* browser;
 
 // The WebState that the InfobarCoordinator is associated with. Can be nil.
 @property(nonatomic, assign) web::WebState* webState;

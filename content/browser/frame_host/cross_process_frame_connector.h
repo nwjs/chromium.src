@@ -96,7 +96,8 @@ class CONTENT_EXPORT CrossProcessFrameConnector
   bool BubbleScrollEvent(const blink::WebGestureEvent& event) override;
   bool HasFocus() override;
   void FocusRootView() override;
-  bool LockMouse(bool request_unadjusted_movement) override;
+  blink::mojom::PointerLockResult LockMouse(
+      bool request_unadjusted_movement) override;
   void UnlockMouse() override;
   void EnableAutoResize(const gfx::Size& min_size,
                         const gfx::Size& max_size) override;
@@ -108,12 +109,16 @@ class CONTENT_EXPORT CrossProcessFrameConnector
   bool IsSubtreeThrottled() const override;
   void DidUpdateVisualProperties(
       const cc::RenderFrameMetadata& metadata) override;
+  void DidAckGestureEvent(const blink::WebGestureEvent& event,
+                          InputEventAckState ack_result) override;
 
   // Set the visibility of immediate child views, i.e. views whose parent view
   // is |view_|.
   void SetVisibilityForChildViews(bool visible) const override;
 
   void SetScreenSpaceRect(const gfx::Rect& screen_space_rect) override;
+
+  void SetIsInert(bool inert);
 
   // Handlers for messages received from the parent frame called
   // from RenderFrameProxyHost to be sent to |view_|.
@@ -124,6 +129,8 @@ class CONTENT_EXPORT CrossProcessFrameConnector
   RenderWidgetHostViewBase* GetRootRenderWidgetHostViewForTesting() {
     return GetRootRenderWidgetHostView();
   }
+
+  void UpdateRenderThrottlingStatus(bool is_throttled, bool subtree_throttled);
 
   // These enums back crashed frame histograms - see MaybeLogCrash() and
   // MaybeLogShownCrash() below.  Please do not modify or remove existing enum
@@ -178,9 +185,6 @@ class CONTENT_EXPORT CrossProcessFrameConnector
       const FrameVisualProperties& visual_properties);
   void OnUpdateViewportIntersection(
       const blink::ViewportIntersectionState& viewport_intersection);
-  void OnSetIsInert(bool);
-  void OnUpdateRenderThrottlingStatus(bool is_throttled,
-                                      bool subtree_throttled);
 
   // Gets the current RenderFrameHost for the
   // |frame_proxy_in_parent_renderer_|'s (i.e., the child frame's)

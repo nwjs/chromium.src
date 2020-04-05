@@ -23,6 +23,7 @@
 #include "chrome/browser/web_applications/web_app_registry_update.h"
 #include "chrome/browser/web_applications/web_app_sync_bridge.h"
 #include "chrome/common/web_application_info.h"
+#include "components/services/app_service/public/cpp/file_handler.h"
 #include "content/public/browser/browser_thread.h"
 #include "third_party/skia/include/core/SkColor.h"
 
@@ -90,31 +91,27 @@ std::vector<SquareSizePx> GetSquareSizePxs(
     const std::map<SquareSizePx, SkBitmap>& icon_bitmaps) {
   std::vector<SquareSizePx> sizes;
   sizes.reserve(icon_bitmaps.size());
-  for (const std::pair<SquareSizePx, SkBitmap>& item : icon_bitmaps)
+  for (const std::pair<const SquareSizePx, SkBitmap>& item : icon_bitmaps)
     sizes.push_back(item.first);
   return sizes;
 }
 
 void SetWebAppFileHandlers(
-    const std::vector<blink::Manifest::FileHandler>& file_handlers,
+    const std::vector<blink::Manifest::FileHandler>& manifest_file_handlers,
     WebApp* web_app) {
-  WebApp::FileHandlers web_app_file_handlers;
-  for (const auto& file_handler : file_handlers) {
-    WebApp::FileHandler web_app_file_handler;
-    web_app_file_handler.action = file_handler.action;
+  apps::FileHandlers web_app_file_handlers;
 
-    // Convert from string16 to string in the accept map.
-    for (const auto& pair : file_handler.accept) {
-      WebApp::FileHandlerAccept accept_entry;
-      accept_entry.mimetype = base::UTF16ToUTF8(pair.first);
-      for (const auto& file_extension : pair.second) {
-        // Remove leading ".".
-        const auto utf8_file_extension = base::UTF16ToUTF8(file_extension);
-        DCHECK(base::StartsWith(utf8_file_extension, ".",
-                                base::CompareCase::SENSITIVE));
-        accept_entry.file_extensions.insert(utf8_file_extension.substr(1));
-      }
-      web_app_file_handler.accept.push_back(std::move(accept_entry));
+  for (const auto& manifest_file_handler : manifest_file_handlers) {
+    apps::FileHandler web_app_file_handler;
+    web_app_file_handler.action = manifest_file_handler.action;
+
+    for (const auto& it : manifest_file_handler.accept) {
+      apps::FileHandler::AcceptEntry web_app_accept_entry;
+      web_app_accept_entry.mime_type = base::UTF16ToUTF8(it.first);
+      for (const auto& manifest_file_extension : it.second)
+        web_app_accept_entry.file_extensions.insert(
+            base::UTF16ToUTF8(manifest_file_extension));
+      web_app_file_handler.accept.push_back(std::move(web_app_accept_entry));
     }
 
     web_app_file_handlers.push_back(std::move(web_app_file_handler));
@@ -147,28 +144,14 @@ void WebAppInstallFinalizer::FinalizeInstall(
   const AppId app_id = GenerateAppIdFromURL(web_app_info.app_url);
   const WebApp* existing_web_app = GetWebAppRegistrar().GetAppById(app_id);
 
-  if (existing_web_app && !existing_web_app->is_in_sync_install()) {
-    // There is an existing app from other source(s). Preserve
-    // is_locally_installed flag value, do not modify it.
-    ScopedRegistryUpdate update(sync_bridge_);
-    WebApp* local_web_app = update->UpdateApp(app_id);
-    local_web_app->AddSource(source);
-
-    base::ThreadTaskRunnerHandle::Get()->PostTask(
-        FROM_HERE, base::BindOnce(std::move(callback), app_id,
-                                  InstallResultCode::kSuccessAlreadyInstalled));
-    return;
-  }
-
   std::unique_ptr<WebApp> web_app;
 
-  if (existing_web_app && existing_web_app->is_in_sync_install()) {
-    // There is an existing app awaiting for any online install completion, not
-    // only from kSync source. Prepare copy-on-write:
+  if (existing_web_app) {
+    // There is an existing app from other source(s). Preserve
+    // |is_locally_installed| and |user_display_mode| fields here, do not modify
+    // them. Prepare copy-on-write:
     DCHECK_EQ(web_app_info.app_url, existing_web_app->launch_url());
     web_app = std::make_unique<WebApp>(*existing_web_app);
-    // options.locally_installed is ignored here.
-    // |user_display_mode| is preserved here: we get it from sync.
   } else {
     // New app.
     web_app = std::make_unique<WebApp>(app_id);
@@ -179,10 +162,12 @@ void WebAppInstallFinalizer::FinalizeInstall(
                                     : DisplayMode::kBrowser);
   }
 
+  web_app->SetAdditionalSearchTerms(web_app_info.additional_search_terms);
   web_app->AddSource(source);
   web_app->SetIsInSyncInstall(false);
 
   SetWebAppManifestFieldsAndWriteData(web_app_info, std::move(web_app),
+                                      /*is_new_install=*/true,
                                       std::move(callback));
 }
 
@@ -220,7 +205,8 @@ void WebAppInstallFinalizer::FinalizeFallbackInstallAfterSync(
       std::move(app_id), std::move(icon_bitmaps),
       base::BindOnce(&WebAppInstallFinalizer::OnIconsDataWritten,
                      weak_ptr_factory_.GetWeakPtr(),
-                     std::move(fallback_install_callback), std::move(web_app)));
+                     std::move(fallback_install_callback), std::move(web_app),
+                     /*is_new_install=*/true));
 }
 
 void WebAppInstallFinalizer::FinalizeUninstallAfterSync(
@@ -312,6 +298,7 @@ void WebAppInstallFinalizer::FinalizeUpdate(
   auto web_app = std::make_unique<WebApp>(*existing_web_app);
 
   SetWebAppManifestFieldsAndWriteData(web_app_info, std::move(web_app),
+                                      /*is_new_install=*/false,
                                       std::move(callback));
 }
 
@@ -355,6 +342,7 @@ void WebAppInstallFinalizer::UninstallWebAppOrRemoveSource(
 void WebAppInstallFinalizer::SetWebAppManifestFieldsAndWriteData(
     const WebApplicationInfo& web_app_info,
     std::unique_ptr<WebApp> web_app,
+    bool is_new_install,
     InstallFinalizedCallback callback) {
   web_app->SetName(base::UTF16ToUTF8(web_app_info.title));
   web_app->SetDisplayMode(web_app_info.display_mode);
@@ -381,12 +369,13 @@ void WebAppInstallFinalizer::SetWebAppManifestFieldsAndWriteData(
       std::move(app_id), web_app_info.icon_bitmaps,
       base::BindOnce(&WebAppInstallFinalizer::OnIconsDataWritten,
                      weak_ptr_factory_.GetWeakPtr(), std::move(callback),
-                     std::move(web_app)));
+                     std::move(web_app), is_new_install));
 }
 
 void WebAppInstallFinalizer::OnIconsDataWritten(
     InstallFinalizedCallback callback,
     std::unique_ptr<WebApp> web_app,
+    bool is_new_install,
     bool success) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   if (!success) {
@@ -408,7 +397,7 @@ void WebAppInstallFinalizer::OnIconsDataWritten(
       std::move(update),
       base::BindOnce(&WebAppInstallFinalizer::OnDatabaseCommitCompleted,
                      weak_ptr_factory_.GetWeakPtr(), std::move(callback),
-                     std::move(app_id), /*new_app_created=*/!app_to_override));
+                     std::move(app_id), is_new_install));
 }
 
 void WebAppInstallFinalizer::OnIconsDataDeleted(
@@ -422,7 +411,7 @@ void WebAppInstallFinalizer::OnIconsDataDeleted(
 void WebAppInstallFinalizer::OnDatabaseCommitCompleted(
     InstallFinalizedCallback callback,
     const AppId& app_id,
-    bool new_app_created,
+    bool is_new_install,
     bool success) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   if (!success) {
@@ -432,8 +421,8 @@ void WebAppInstallFinalizer::OnDatabaseCommitCompleted(
 
   registrar().NotifyWebAppInstalled(app_id);
   std::move(callback).Run(
-      app_id, new_app_created ? InstallResultCode::kSuccessNewInstall
-                              : InstallResultCode::kSuccessAlreadyInstalled);
+      app_id, is_new_install ? InstallResultCode::kSuccessNewInstall
+                             : InstallResultCode::kSuccessAlreadyInstalled);
 }
 
 void WebAppInstallFinalizer::OnFallbackInstallFinalized(

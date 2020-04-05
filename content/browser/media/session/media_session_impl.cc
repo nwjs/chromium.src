@@ -26,12 +26,12 @@
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_client.h"
-#include "content/public/common/favicon_url.h"
 #include "media/base/media_content_type.h"
 #include "media/base/media_switches.h"
 #include "mojo/public/cpp/bindings/callback_helpers.h"
 #include "services/media_session/public/cpp/media_image_manager.h"
 #include "services/media_session/public/mojom/audio_focus.mojom.h"
+#include "third_party/blink/public/mojom/favicon/favicon_url.mojom.h"
 #include "third_party/blink/public/strings/grit/blink_strings.h"
 #include "ui/gfx/favicon_size.h"
 
@@ -43,6 +43,7 @@ namespace content {
 
 using blink::mojom::MediaSessionPlaybackState;
 using MediaSessionUserAction = MediaSessionUmaHelper::MediaSessionUserAction;
+using media_session::mojom::MediaAudioVideoState;
 using media_session::mojom::MediaPlaybackState;
 using media_session::mojom::MediaSessionImageType;
 using media_session::mojom::MediaSessionInfo;
@@ -279,30 +280,31 @@ void MediaSessionImpl::TitleWasSet(NavigationEntry* entry) {
 }
 
 void MediaSessionImpl::DidUpdateFaviconURL(
-    const std::vector<FaviconURL>& candidates) {
+    const std::vector<blink::mojom::FaviconURLPtr>& candidates) {
   std::vector<media_session::MediaImage> icons;
 
   for (auto& icon : candidates) {
     // We only want either favicons or the touch icons. There is another type of
     // touch icon which is "precomposed". This means it might have rounded
     // corners, etc. but it is not predictable so we cannot show them in the UI.
-    if (icon.icon_type != FaviconURL::IconType::kFavicon &&
-        icon.icon_type != FaviconURL::IconType::kTouchIcon) {
+    if (icon->icon_type != blink::mojom::FaviconIconType::kFavicon &&
+        icon->icon_type != blink::mojom::FaviconIconType::kTouchIcon) {
       continue;
     }
 
-    std::vector<gfx::Size> sizes = icon.icon_sizes;
+    std::vector<gfx::Size> sizes = icon->icon_sizes;
 
     // If we are a favicon and we do not have a size then we should assume the
     // default size for favicons.
-    if (icon.icon_type == FaviconURL::IconType::kFavicon && sizes.empty())
+    if (icon->icon_type == blink::mojom::FaviconIconType::kFavicon &&
+        sizes.empty())
       sizes.push_back(gfx::Size(gfx::kFaviconSize, gfx::kFaviconSize));
 
-    if (sizes.empty() || !icon.icon_url.is_valid())
+    if (sizes.empty() || !icon->icon_url.is_valid())
       continue;
 
     media_session::MediaImage image;
-    image.src = icon.icon_url;
+    image.src = icon->icon_url;
     image.sizes = sizes;
     icons.push_back(image);
   }
@@ -924,6 +926,7 @@ MediaSessionImpl::GetMediaSessionInfoSync() {
     info->playback_state = MediaPlaybackState::kPlaying;
   }
 
+  info->audio_video_state = GetMediaAudioVideoState();
   info->is_controllable = IsControllable();
 
   // If the browser context is off the record then it should be sensitive.
@@ -1447,6 +1450,42 @@ bool MediaSessionImpl::IsPictureInPictureAvailable() const {
 
   auto& first = normal_players_.begin()->first;
   return first.observer->IsPictureInPictureAvailable(first.player_id);
+}
+
+MediaAudioVideoState MediaSessionImpl::GetMediaAudioVideoState() {
+  RenderFrameHost* routed_rfh =
+      routed_service_ ? routed_service_->GetRenderFrameHost() : nullptr;
+  MediaAudioVideoState state = MediaAudioVideoState::kUnknown;
+
+  ForAllPlayers(base::BindRepeating(
+      [](RenderFrameHost* routed_rfh, MediaAudioVideoState* state,
+         const PlayerIdentifier& player) {
+        // If we have a routed frame then we should limit the players to the
+        // frame so it is aligned with the media metadata.
+        if (routed_rfh && player.observer->render_frame_host() != routed_rfh)
+          return;
+
+        if (player.observer->HasVideo(player.player_id))
+          *state = MediaAudioVideoState::kAudioVideo;
+
+        if (*state != MediaAudioVideoState::kAudioVideo)
+          *state = MediaAudioVideoState::kAudioOnly;
+      },
+      routed_rfh, &state));
+
+  return state;
+}
+
+void MediaSessionImpl::ForAllPlayers(
+    base::RepeatingCallback<void(const PlayerIdentifier&)> callback) {
+  for (const auto& player : normal_players_)
+    callback.Run(player.first);
+
+  for (const auto& player : one_shot_players_)
+    callback.Run(player);
+
+  for (const auto& player : pepper_players_)
+    callback.Run(player);
 }
 
 WEB_CONTENTS_USER_DATA_KEY_IMPL(MediaSessionImpl)

@@ -40,7 +40,6 @@ class WebContents;
 namespace autofill {
 
 class AutofillPopupControllerImpl;
-class SmsClient;
 
 // Chrome implementation of AutofillClient.
 class ChromeAutofillClient
@@ -64,17 +63,19 @@ class ChromeAutofillClient
   signin::IdentityManager* GetIdentityManager() override;
   FormDataImporter* GetFormDataImporter() override;
   payments::PaymentsClient* GetPaymentsClient() override;
-  SmsClient* GetSmsClient() override;
   StrikeDatabase* GetStrikeDatabase() override;
   ukm::UkmRecorder* GetUkmRecorder() override;
   ukm::SourceId GetUkmSourceId() override;
   AddressNormalizer* GetAddressNormalizer() override;
   security_state::SecurityLevel GetSecurityLevelForUmaHistograms() override;
   std::string GetPageLanguage() const override;
+  std::string GetVariationConfigCountryCode() const override;
 #if !defined(OS_ANDROID)
   std::vector<std::string> GetMerchantWhitelistForVirtualCards() override;
   std::vector<std::string> GetBinRangeWhitelistForVirtualCards() override;
 #endif
+  std::unique_ptr<InternalAuthenticator> CreateCreditCardInternalAuthenticator(
+      content::RenderFrameHost* rfh) override;
 
   void ShowAutofillSettings(bool show_credit_card_settings) override;
   void ShowUnmaskPrompt(const CreditCard& card,
@@ -142,7 +143,7 @@ class ChromeAutofillClient
       const std::vector<base::string16>& values,
       const std::vector<base::string16>& labels) override;
   base::span<const Suggestion> GetPopupSuggestions() const override;
-  void PinPopupViewUntilUpdate() override;
+  void PinPopupView() override;
   void UpdatePopup(const std::vector<autofill::Suggestion>& suggestions,
                    PopupType popup_type) override;
   void HideAutofillPopup(PopupHidingReason reason) override;
@@ -187,7 +188,6 @@ class ChromeAutofillClient
   base::string16 GetAccountHolderName();
 
   std::unique_ptr<payments::PaymentsClient> payments_client_;
-  std::unique_ptr<SmsClient> sms_client_;
   std::unique_ptr<FormDataImporter> form_data_importer_;
   base::WeakPtr<AutofillPopupControllerImpl> popup_controller_;
   CardUnmaskPromptControllerImpl unmask_controller_;

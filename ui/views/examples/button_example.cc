@@ -4,6 +4,9 @@
 
 #include "ui/views/examples/button_example.h"
 
+#include <memory>
+#include <utility>
+
 #include "base/strings/utf_string_conversions.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/geometry/insets.h"
@@ -21,9 +24,10 @@ using base::ASCIIToUTF16;
 
 namespace {
 const char kLabelButton[] = "Label Button";
-const char kLongText[] = "Start of Really Really Really Really Really Really "
-                         "Really Really Really Really Really Really Really "
-                         "Really Really Really Really Really Long Button Text";
+const char kLongText[] =
+    "Start of Really Really Really Really Really Really "
+    "Really Really Really Really Really Really Really "
+    "Really Really Really Really Really Long Button Text";
 }  // namespace
 
 namespace views {

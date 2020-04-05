@@ -21,6 +21,19 @@ CrSettingsInteractiveUITest.prototype = {
   get browsePreload() {
     throw 'this is abstract and should be overriden by subclasses';
   },
+
+  /** @override */
+  extraLibraries: [
+    ...PolymerInteractiveUITest.prototype.extraLibraries,
+    'ensure_lazy_loaded.js',
+  ],
+
+  /** @override */
+  setUp: function() {
+    PolymerInteractiveUITest.prototype.setUp.call(this);
+
+    settings.ensureLazyLoaded();
+  },
 };
 
 
@@ -64,6 +77,7 @@ CrSettingsAnimatedPagesTest.prototype = {
   browsePreload: 'chrome://settings/settings_page/settings_animated_pages.html',
 
   extraLibraries: CrSettingsInteractiveUITest.prototype.extraLibraries.concat([
+    '../test_util.js',
     'test_util.js',
     'settings_animated_pages_test.js',
   ]),
@@ -72,3 +86,55 @@ CrSettingsAnimatedPagesTest.prototype = {
 TEST_F('CrSettingsAnimatedPagesTest', 'All', function() {
   mocha.run();
 });
+
+
+/**
+ * @constructor
+ * @extends {CrSettingsBrowserTest}
+ */
+function CrSettingsSecureDnsTest() {}
+
+CrSettingsSecureDnsTest.prototype = {
+  __proto__: CrSettingsInteractiveUITest.prototype,
+
+  /** @override */
+  browsePreload: 'chrome://settings/privacy_page/secure_dns.html',
+
+  /** @override */
+  extraLibraries: CrSettingsInteractiveUITest.prototype.extraLibraries.concat([
+    '../test_util.js',
+    '../test_browser_proxy.js',
+    'test_privacy_page_browser_proxy.js',
+    'secure_dns_interactive_test.js',
+  ]),
+};
+
+TEST_F('CrSettingsSecureDnsTest', 'All', function() {
+  mocha.run();
+});
+
+/**
+ * @constructor
+ * @extends {CrSettingsInteractiveUITest}
+ */
+function SettingsUIInteractiveTest() {}
+
+SettingsUIInteractiveTest.prototype = {
+  __proto__: CrSettingsInteractiveUITest.prototype,
+
+  /** @override */
+  browsePreload: 'chrome://settings/settings_ui/settings_ui.html',
+
+  /** @override */
+  extraLibraries: CrSettingsInteractiveUITest.prototype.extraLibraries.concat([
+    '../test_util.js',
+    'settings_ui_tests.js',
+  ]),
+};
+
+// Flaky on Mac (see https://crbug.com/1065154).
+GEN('#if !defined(OS_MACOSX)');
+TEST_F('SettingsUIInteractiveTest', 'All', function() {
+  mocha.run();
+});
+GEN('#endif');

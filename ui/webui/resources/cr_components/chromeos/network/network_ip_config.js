@@ -235,19 +235,20 @@ Polymer({
     if (!ipconfig) {
       return undefined;
     }
-    const result = {};
-    for (const key in ipconfig) {
-      const value = ipconfig[key];
-      if (key === 'routingPrefix') {
-        const netmask = getRoutingPrefixAsNetmask(value);
-        if (netmask !== undefined) {
-          result.routingPrefix = netmask;
-        }
-      } else {
-        result[key] = value;
+
+    // Copy |ipconfig| into a new object, |newIpconfig|.
+    const newIpconfig = {};
+    Object.assign(newIpconfig, ipconfig);
+
+    if (ipconfig.routingPrefix !==
+        chromeos.networkConfig.mojom.NO_ROUTING_PREFIX) {
+      const netmask = getRoutingPrefixAsNetmask(ipconfig.routingPrefix);
+      if (netmask !== undefined) {
+        newIpconfig.routingPrefix = netmask;
       }
     }
-    return result;
+
+    return newIpconfig;
   },
 
   /**

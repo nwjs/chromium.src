@@ -16,6 +16,11 @@ const base::Feature kInstantTetheringBackgroundAdvertisementSupport{
 
 }  // namespace
 
+// Shows settings for adjusting scroll acceleration/sensitivity for
+// mouse/touchpad.
+const base::Feature kAllowScrollSettings{"AllowScrollSettings",
+                                         base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Controls whether to enable Ambient mode feature.
 const base::Feature kAmbientModeFeature{"ChromeOSAmbientMode",
                                         base::FEATURE_DISABLED_BY_DEFAULT};
@@ -24,14 +29,28 @@ const base::Feature kAmbientModeFeature{"ChromeOSAmbientMode",
 const base::Feature kArcAdbSideloadingFeature{
     "ArcAdbSideloading", base::FEATURE_DISABLED_BY_DEFAULT};
 
+// Controls whether to enable support for ARC ADB sideloading for managed
+// accounts and/or devices.
+const base::Feature kArcManagedAdbSideloadingSupport{
+    "ArcManagedAdbSideloadingSupport", base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Enables or disables auto screen-brightness adjustment when ambient light
 // changes.
 const base::Feature kAutoScreenBrightness{"AutoScreenBrightness",
                                           base::FEATURE_ENABLED_BY_DEFAULT};
 
+// Controls whether to enable assistive autocorrect.
+const base::Feature kAssistAutoCorrect{"AssistAutoCorrect",
+                                       base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Controls whether to enable assist personal information.
 const base::Feature kAssistPersonalInfo{"AssistPersonalInfo",
                                         base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Displays the avatar toolbar button and the profile menu.
+// https://crbug.com/1041472
+extern const base::Feature kAvatarToolbarButton{
+    "AvatarToolbarButton", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Enables or disables more aggressive filtering out of Bluetooth devices with
 // "appearances" that are less likely to be pairable or useful.
@@ -42,10 +61,14 @@ const base::Feature kBluetoothAggressiveAppearanceFilter{
 const base::Feature kBluetoothPhoneFilter{"BluetoothPhoneFilter",
                                           base::FEATURE_ENABLED_BY_DEFAULT};
 
-// Feature containing param to block provided long term keys.
-const base::Feature kBlueZLongTermKeyBlocklist{
-    "BlueZLongTermKeyBlocklist", base::FEATURE_DISABLED_BY_DEFAULT};
-const char kBlueZLongTermKeyBlocklistParamName[] = "ltk_blocklist";
+// Enables or disables using the kernel suspend notifier instead of powerd.
+const base::Feature kBluetoothKernelSuspendNotifier{
+    "BluetoothKernelSuspendNotifier", base::FEATURE_ENABLED_BY_DEFAULT};
+
+// If enabled, browser will notify Chrome OS audio server to register HFP 1.7
+// to BlueZ, which includes wideband speech feature.
+const base::Feature kBluetoothNextHandsfreeProfile{
+    "BluetoothNextHandsfreeProfile", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Enable or disables running the Camera App as a System Web App.
 const base::Feature kCameraSystemWebApp{"CameraSystemWebApp",
@@ -65,7 +88,11 @@ const base::Feature kCrostiniUseBusterImage{"CrostiniUseBusterImage",
 
 // Enables or disables Crostini Username picking.
 const base::Feature kCrostiniUsername{"CrostiniUsername",
-                                      base::FEATURE_DISABLED_BY_DEFAULT};
+                                      base::FEATURE_ENABLED_BY_DEFAULT};
+
+// Enables the option to share the mic with Crostini or not
+const base::Feature kCrostiniShowMicSetting{"CrostiniShowMicSetting",
+                                            base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Enables or disables Crostini GPU support.
 const base::Feature kCrostiniGpuSupport{"CrostiniGpuSupport",
@@ -121,6 +148,10 @@ const base::Feature kDriveFsMirroring{"DriveFsMirroring",
 // If enabled, allows Unicorn users to add secondary EDU accounts.
 const base::Feature kEduCoexistence{"EduCoexistence",
                                     base::FEATURE_DISABLED_BY_DEFAULT};
+
+// If enabled, emoji suggestion will be shown when user type "space".
+const base::Feature kEmojiSuggestAddition{"EmojiSuggestAddition",
+                                          base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Enables Device End Of Lifetime warning notifications.
 const base::Feature kEolWarningNotifications{"EolWarningNotifications",
@@ -194,13 +225,42 @@ const base::Feature kMediaApp{"MediaApp", base::FEATURE_DISABLED_BY_DEFAULT};
 const base::Feature kNativeRuleBasedTyping{"NativeRuleBasedTyping",
                                            base::FEATURE_ENABLED_BY_DEFAULT};
 
+// Controls whether to enable OS Settings fuzzy search, and disable search using
+// exact string matching.
+const base::Feature kNewOsSettingsSearch{"NewOsSettingsSearch",
+                                         base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Controls whether to enable the Parental Controls section of settings.
 const base::Feature kParentalControlsSettings{
     "ChromeOSParentalControlsSettings", base::FEATURE_ENABLED_BY_DEFAULT};
 
+// Enables the option to share the camera with PluginVm or not
+const base::Feature kPluginVmShowCameraSetting{
+    "PluginVmShowCameraSetting", base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Controls whether to show printer statuses.
+const base::Feature kPrinterStatus{"PrinterStatus",
+                                   base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Controls whether to enable the Print Job Management App.
+const base::Feature kPrintJobManagementApp{"PrintJobManagementApp",
+                                           base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Controls whether to enable quick answers.
 const base::Feature kQuickAnswers{"QuickAnswers",
                                   base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Controls whether to enable quick answers rich ui.
+const base::Feature kQuickAnswersRichUi{"QuickAnswersRichUi",
+                                        base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Controls whether dogfood version of quick answers.
+const base::Feature kQuickAnswersDogfood{"QuickAnswersDogfood",
+                                         base::FEATURE_DISABLED_BY_DEFAULT};
+
+// ChromeOS Files App mounts RAR archives via rar2fs instead of avfs.
+// https://crbug.com/996549
+const base::Feature kRar2Fs{"Rar2Fs", base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Enables or disables Release Notes on Chrome OS.
 const base::Feature kReleaseNotes{"ReleaseNotes",
@@ -210,16 +270,16 @@ const base::Feature kReleaseNotes{"ReleaseNotes",
 const base::Feature kReleaseNotesNotification{"ReleaseNotesNotification",
                                               base::FEATURE_ENABLED_BY_DEFAULT};
 
+// Enables or disables an experimental scanning UI on Chrome OS.
+const base::Feature kScanningUI{"ScanningUI",
+                                base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Enables or disables long kill timeout for session manager daemon. When
 // enabled, session manager daemon waits for a longer time (e.g. 12s) for chrome
 // to exit before sending SIGABRT. Otherwise, it uses the default time out
 // (currently 3s).
 const base::Feature kSessionManagerLongKillTimeout{
     "SessionManagerLongKillTimeout", base::FEATURE_DISABLED_BY_DEFAULT};
-
-// Enables or disables the scrollable shelf.
-const base::Feature kShelfScrollable{"ShelfScrollable",
-                                     base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Enables or disables the shelf hotseat.
 const base::Feature kShelfHotseat{"ShelfHotseat",
@@ -236,6 +296,19 @@ const base::Feature kShowBluetoothDeviceBattery{
 
 // Shows the Play Store icon in Demo Mode.
 const base::Feature kShowPlayInDemoMode{"ShowPlayInDemoMode",
+                                        base::FEATURE_ENABLED_BY_DEFAULT};
+
+// Shows the progress bar during Demo Mode setup.
+const base::Feature kShowProgressBarInDemoModeSetup{
+    "ShowProgressBarInDemoModeSetup", base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Uses experimental component version for smart dim.
+const base::Feature kSmartDimExperimentalComponent{
+    "SmartDimExperimentalComponent", base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Uses the smart dim component updater to provide smart dim model and
+// preprocessor configuration.
+const base::Feature kSmartDimNewMlAgent{"SmartDimNewMlAgent",
                                         base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Uses the V3 (~2019-05 era) Smart Dim model instead of the default V2
@@ -248,6 +321,19 @@ const base::Feature kSmartDimModelV3{"SmartDimModelV3",
 // settings.
 const base::Feature kSplitSettingsSync{"SplitSettingsSync",
                                        base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Introduces a new OOBE dialog for the OS sync feature. Uses the same browser
+// sync consent dialog as Windows/Mac/Linux. Allows the user to fully opt-out of
+// browser sync, including marking the signin primary account as unconsented.
+// Requires SplitSettingsSync.
+// NOTE: Use IsSplitSyncConsentEnabled() to test the flag, see implementation.
+const base::Feature kSplitSyncConsent{"SplitSyncConsent",
+                                      base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Enables unified media view in Files app to browse recently-modified media
+// files from local local, Google Drive, and Android.
+const base::Feature kUnifiedMediaView{"UnifiedMediaView",
+                                      base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Enables the updated cellular activation UI; see go/cros-cellular-design.
 const base::Feature kUpdatedCellularActivationUi{
@@ -282,6 +368,10 @@ const base::Feature kVirtualKeyboardBorderedKey{
 const base::Feature kVirtualKeyboardFloatingResizable{
     "VirtualKeyboardFloatingResizable", base::FEATURE_DISABLED_BY_DEFAULT};
 
+// Enable or disable MOZC IME to use protobuf as interactive message format.
+const base::Feature kImeMozcProto{"ImeMozcProto",
+                                  base::FEATURE_DISABLED_BY_DEFAULT};
+
 ////////////////////////////////////////////////////////////////////////////////
 
 bool IsAmbientModeEnabled() {
@@ -305,12 +395,26 @@ bool IsParentalControlsSettingsEnabled() {
   return base::FeatureList::IsEnabled(kParentalControlsSettings);
 }
 
+bool IsQuickAnswersDogfood() {
+  return base::FeatureList::IsEnabled(kQuickAnswersDogfood);
+}
+
 bool IsQuickAnswersEnabled() {
   return base::FeatureList::IsEnabled(kQuickAnswers);
 }
 
+bool IsQuickAnswersRichUiEnabled() {
+  return base::FeatureList::IsEnabled(kQuickAnswersRichUi);
+}
+
 bool IsSplitSettingsSyncEnabled() {
   return base::FeatureList::IsEnabled(kSplitSettingsSync);
+}
+
+bool IsSplitSyncConsentEnabled() {
+  // SplitSyncConsent requires SplitSettingsSync.
+  return base::FeatureList::IsEnabled(kSplitSettingsSync) &&
+         base::FeatureList::IsEnabled(kSplitSyncConsent);
 }
 
 bool ShouldShowPlayStoreInDemoMode() {

@@ -34,6 +34,7 @@
 #include <bitset>
 
 #include "third_party/blink/public/platform/platform.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_computed_effect_timing.h"
 #include "third_party/blink/renderer/core/animation/animation.h"
 #include "third_party/blink/renderer/core/animation/compositor_animations.h"
 #include "third_party/blink/renderer/core/animation/css/compositor_keyframe_value_factory.h"
@@ -222,6 +223,37 @@ AnimationTimeDelta StartTimeFromDelay(double start_delay) {
   return AnimationTimeDelta::FromSecondsD(start_delay < 0 ? -start_delay : 0);
 }
 
+// Timing functions for computing elapsed time of an event.
+
+AnimationTimeDelta IntervalStart(const AnimationEffect& effect) {
+  const double start_delay = effect.SpecifiedTiming().start_delay;
+  const double active_duration = effect.SpecifiedTiming().ActiveDuration();
+  return AnimationTimeDelta::FromSecondsD(
+      std::fmax(std::fmin(-start_delay, active_duration), 0.0));
+}
+
+AnimationTimeDelta IntervalEnd(const AnimationEffect& effect) {
+  const double start_delay = effect.SpecifiedTiming().start_delay;
+  const double end_delay = effect.SpecifiedTiming().end_delay;
+  const double active_duration = effect.SpecifiedTiming().ActiveDuration();
+  const double target_effect_end =
+      std::max(start_delay + active_duration + end_delay, 0.0);
+  return AnimationTimeDelta::FromSecondsD(std::max(
+      std::min(target_effect_end - start_delay, active_duration), 0.0));
+}
+
+AnimationTimeDelta IterationElapsedTime(const AnimationEffect& effect,
+                                        double previous_iteration) {
+  const double current_iteration = effect.CurrentIteration().value();
+  const double iteration_boundary = (previous_iteration > current_iteration)
+                                        ? current_iteration + 1
+                                        : current_iteration;
+  const double iteration_start = effect.SpecifiedTiming().iteration_start;
+  const AnimationTimeDelta iteration_duration =
+      effect.SpecifiedTiming().iteration_duration.value();
+  return iteration_duration * (iteration_boundary - iteration_start);
+}
+
 }  // namespace
 
 CSSAnimations::CSSAnimations() = default;
@@ -388,11 +420,24 @@ void CSSAnimations::CalculateAnimationUpdate(CSSAnimationUpdate& update,
       if (existing_animation) {
         cancel_running_animation_flags[existing_animation_index] = false;
 
-        Animation* animation = existing_animation->animation.Get();
+        CSSAnimation* animation =
+            DynamicTo<CSSAnimation>(existing_animation->animation.Get());
 
         const bool was_paused =
             CSSTimingData::GetRepeated(existing_animation->play_state_list,
                                        i) == EAnimPlayState::kPaused;
+
+        // Explicit calls to web-animation play controls override changes to
+        // play state via the animation-play-state style. Ensure that the new
+        // play state based on animation-play-state differs from the current
+        // play state and that the change is not blocked by a sticky state.
+        bool toggle_pause_state = false;
+        if (is_paused != was_paused && !animation->getIgnoreCSSPlayState()) {
+          if (animation->Paused() && !is_paused)
+            toggle_pause_state = true;
+          else if (animation->Playing() && is_paused)
+            toggle_pause_state = true;
+        }
 
         if (keyframes_rule != existing_animation->style_rule ||
             keyframes_rule->Version() !=
@@ -409,7 +454,7 @@ void CSSAnimations::CalculateAnimationUpdate(CSSAnimationUpdate& update,
                   timing, is_paused, animation->UnlimitedCurrentTime()),
               specified_timing, keyframes_rule,
               animation_data->PlayStateList());
-          if (is_paused != was_paused)
+          if (toggle_pause_state)
             update.ToggleAnimationIndexPaused(existing_animation_index);
         }
       } else {
@@ -435,6 +480,35 @@ void CSSAnimations::CalculateAnimationUpdate(CSSAnimationUpdate& update,
   }
 
   CalculateAnimationActiveInterpolations(update, animating_element);
+}
+
+AnimationEffect::EventDelegate* CSSAnimations::CreateEventDelegate(
+    Element* element,
+    const PropertyHandle& property_handle,
+    const AnimationEffect::EventDelegate* old_event_delegate) {
+  const CSSAnimations::TransitionEventDelegate* old_transition_delegate =
+      DynamicTo<CSSAnimations::TransitionEventDelegate>(old_event_delegate);
+  Timing::Phase previous_phase =
+      old_transition_delegate ? old_transition_delegate->getPreviousPhase()
+                              : Timing::kPhaseNone;
+  return MakeGarbageCollected<TransitionEventDelegate>(element, property_handle,
+                                                       previous_phase);
+}
+
+AnimationEffect::EventDelegate* CSSAnimations::CreateEventDelegate(
+    Element* element,
+    const AtomicString& animation_name,
+    const AnimationEffect::EventDelegate* old_event_delegate) {
+  const CSSAnimations::AnimationEventDelegate* old_animation_delegate =
+      DynamicTo<CSSAnimations::AnimationEventDelegate>(old_event_delegate);
+  Timing::Phase previous_phase =
+      old_animation_delegate ? old_animation_delegate->getPreviousPhase()
+                             : Timing::kPhaseNone;
+  base::Optional<double> previous_iteration =
+      old_animation_delegate ? old_animation_delegate->getPreviousIteration()
+                             : base::nullopt;
+  return MakeGarbageCollected<AnimationEventDelegate>(
+      element, animation_name, previous_phase, previous_iteration);
 }
 
 void CSSAnimations::SnapshotCompositorKeyframes(
@@ -481,13 +555,18 @@ void CSSAnimations::MaybeApplyPendingUpdate(Element* element) {
 
   for (wtf_size_t paused_index :
        pending_update_.AnimationIndicesWithPauseToggled()) {
-    Animation& animation = *running_animations_[paused_index]->animation;
-    if (animation.Paused())
-      animation.Unpause();
-    else
-      animation.pause();
-    if (animation.Outdated())
-      animation.Update(kTimingUpdateOnDemand);
+    CSSAnimation* animation = DynamicTo<CSSAnimation>(
+        running_animations_[paused_index]->animation.Get());
+
+    if (animation->Paused()) {
+      animation->Unpause();
+      animation->resetIgnoreCSSPlayState();
+    } else {
+      animation->pause();
+      animation->resetIgnoreCSSPlayState();
+    }
+    if (animation->Outdated())
+      animation->Update(kTimingUpdateOnDemand);
   }
 
   for (const auto& animation : pending_update_.UpdatedCompositorKeyframes())
@@ -496,7 +575,8 @@ void CSSAnimations::MaybeApplyPendingUpdate(Element* element) {
   for (const auto& entry : pending_update_.AnimationsWithUpdates()) {
     if (entry.animation->effect()) {
       auto* effect = To<KeyframeEffect>(entry.animation->effect());
-      effect->SetModel(entry.effect->Model());
+      if (!effect->GetIgnoreCSSKeyframes())
+        effect->SetModel(entry.effect->Model());
       effect->UpdateSpecifiedTiming(entry.effect->SpecifiedTiming());
     }
 
@@ -510,7 +590,10 @@ void CSSAnimations::MaybeApplyPendingUpdate(Element* element) {
            cancelled_indices[i] < cancelled_indices[i + 1]);
     Animation& animation =
         *running_animations_[cancelled_indices[i]]->animation;
-    animation.cancel();
+    animation.ClearOwningElement();
+    if (animation.IsCSSAnimation() &&
+        !DynamicTo<CSSAnimation>(animation)->getIgnoreCSSPlayState())
+      animation.cancel();
     animation.Update(kTimingUpdateOnDemand);
     running_animations_.EraseAt(cancelled_indices[i]);
   }
@@ -524,11 +607,12 @@ void CSSAnimations::MaybeApplyPendingUpdate(Element* element) {
         KeyframeEffect::kDefaultPriority, event_delegate);
 
     auto* animation = MakeGarbageCollected<CSSAnimation>(
-        element->GetDocument().ContextDocument(),
-        &(element->GetDocument().Timeline()), effect, entry.name);
+        element->GetExecutionContext(), &(element->GetDocument().Timeline()),
+        effect, entry.name);
     animation->play();
     if (inert_animation->Paused())
       animation->pause();
+    animation->resetIgnoreCSSPlayState();
     animation->Update(kTimingUpdateOnDemand);
 
     running_animations_.push_back(
@@ -553,6 +637,7 @@ void CSSAnimations::MaybeApplyPendingUpdate(Element* element) {
         !animation->Limited()) {
       retargeted_compositor_transitions.insert(property);
     }
+    animation->ClearOwningElement();
     animation->cancel();
     // after cancelation, transitions must be downgraded or they'll fail
     // to be considered when retriggering themselves. This can happen if
@@ -594,8 +679,8 @@ void CSSAnimations::MaybeApplyPendingUpdate(Element* element) {
         element, model, inert_animation->SpecifiedTiming(),
         KeyframeEffect::kTransitionPriority, event_delegate);
     auto* animation = MakeGarbageCollected<CSSTransition>(
-        element->GetDocument().ContextDocument(),
-        &(element->GetDocument().Timeline()), transition_effect, property);
+        element->GetExecutionContext(), &(element->GetDocument().Timeline()),
+        transition_effect, property);
 
     animation->play();
 
@@ -1131,46 +1216,71 @@ void CSSAnimations::AnimationEventDelegate::OnEventCondition(
   const base::Optional<double> current_iteration =
       animation_node.CurrentIteration();
 
-  if (previous_phase_ != current_phase &&
-      (current_phase == Timing::kPhaseActive ||
-       current_phase == Timing::kPhaseAfter) &&
-      (previous_phase_ == Timing::kPhaseNone ||
-       previous_phase_ == Timing::kPhaseBefore)) {
-    const double start_delay = animation_node.SpecifiedTiming().start_delay;
-    const auto& elapsed_time =
-        AnimationTimeDelta::FromSecondsD(start_delay < 0 ? -start_delay : 0);
+  // See http://drafts.csswg.org/css-animations-2/#event-dispatch
+  // When multiple events are dispatched for a single phase transition,
+  // the animationstart event is to be dispatched before the animationend
+  // event.
+
+  // The following phase transitions trigger an animationstart event:
+  //   idle or before --> active or after
+  //   after --> active or before
+  const bool phase_change = previous_phase_ != current_phase;
+  const bool was_idle_or_before = (previous_phase_ == Timing::kPhaseNone ||
+                                   previous_phase_ == Timing::kPhaseBefore);
+  const bool is_active_or_after = (current_phase == Timing::kPhaseActive ||
+                                   current_phase == Timing::kPhaseAfter);
+  const bool is_active_or_before = (current_phase == Timing::kPhaseActive ||
+                                    current_phase == Timing::kPhaseBefore);
+  const bool was_after = (previous_phase_ == Timing::kPhaseAfter);
+  if (phase_change && ((was_idle_or_before && is_active_or_after) ||
+                       (was_after && is_active_or_before))) {
+    AnimationTimeDelta elapsed_time =
+        was_after ? IntervalEnd(animation_node) : IntervalStart(animation_node);
     MaybeDispatch(Document::kAnimationStartListener,
                   event_type_names::kAnimationstart, elapsed_time);
   }
 
-  if (current_phase == Timing::kPhaseActive &&
-      previous_phase_ == current_phase &&
+  // The following phase transitions trigger an animationend event:
+  //   idle, before or active--> after
+  //   active or after--> before
+  const bool was_active_or_after = (previous_phase_ == Timing::kPhaseActive ||
+                                    previous_phase_ == Timing::kPhaseAfter);
+  const bool is_after = (current_phase == Timing::kPhaseAfter);
+  const bool is_before = (current_phase == Timing::kPhaseBefore);
+  if (phase_change && (is_after || (was_active_or_after && is_before))) {
+    AnimationTimeDelta elapsed_time =
+        is_after ? IntervalEnd(animation_node) : IntervalStart(animation_node);
+    MaybeDispatch(Document::kAnimationEndListener,
+                  event_type_names::kAnimationend, elapsed_time);
+  }
+
+  if (phase_change && current_phase == Timing::kPhaseNone) {
+    // TODO(crbug.com/1059968): Determine if animation direction or playback
+    // rate factor into the calculation of the elapsed time.
+    double cancel_time = animation_node.GetCancelTime();
+    MaybeDispatch(Document::kAnimationCancelListener,
+                  event_type_names::kAnimationcancel,
+                  AnimationTimeDelta::FromSecondsD(cancel_time));
+  }
+
+  if (!phase_change && current_phase == Timing::kPhaseActive &&
       previous_iteration_ != current_iteration) {
     // We fire only a single event for all iterations that terminate
     // between a single pair of samples. See http://crbug.com/275263. For
     // compatibility with the existing implementation, this event uses
     // the elapsedTime for the first iteration in question.
-    DCHECK(previous_iteration_);
+    DCHECK(previous_iteration_ && current_iteration);
     const AnimationTimeDelta elapsed_time =
-        animation_node.SpecifiedTiming().iteration_duration.value() *
-        (previous_iteration_.value() + 1);
+        IterationElapsedTime(animation_node, previous_iteration_.value());
     MaybeDispatch(Document::kAnimationIterationListener,
                   event_type_names::kAnimationiteration, elapsed_time);
   }
 
-  if (current_phase == Timing::kPhaseAfter &&
-      previous_phase_ != Timing::kPhaseAfter) {
-    MaybeDispatch(Document::kAnimationEndListener,
-                  event_type_names::kAnimationend,
-                  AnimationTimeDelta::FromSecondsD(
-                      animation_node.SpecifiedTiming().ActiveDuration()));
-  }
-
-  previous_phase_ = current_phase;
   previous_iteration_ = current_iteration;
+  previous_phase_ = current_phase;
 }
 
-void CSSAnimations::AnimationEventDelegate::Trace(blink::Visitor* visitor) {
+void CSSAnimations::AnimationEventDelegate::Trace(Visitor* visitor) {
   visitor->Trace(animation_target_);
   AnimationEffect::EventDelegate::Trace(visitor);
 }
@@ -1269,7 +1379,7 @@ void CSSAnimations::TransitionEventDelegate::EnqueueEvent(
   GetDocument().EnqueueAnimationFrameEvent(event);
 }
 
-void CSSAnimations::TransitionEventDelegate::Trace(blink::Visitor* visitor) {
+void CSSAnimations::TransitionEventDelegate::Trace(Visitor* visitor) {
   visitor->Trace(transition_target_);
   AnimationEffect::EventDelegate::Trace(visitor);
 }
@@ -1349,7 +1459,7 @@ bool CSSAnimations::IsAnimatingCustomProperties(
              IsCustomPropertyHandle);
 }
 
-void CSSAnimations::Trace(blink::Visitor* visitor) {
+void CSSAnimations::Trace(Visitor* visitor) {
   visitor->Trace(transitions_);
   visitor->Trace(pending_update_);
   visitor->Trace(running_animations_);

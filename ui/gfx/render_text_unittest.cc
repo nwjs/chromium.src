@@ -1185,6 +1185,20 @@ TEST_F(RenderTextTest, ObscuredTextMultiline) {
   EXPECT_EQ(display_text[4], '\n');
 }
 
+TEST_F(RenderTextTest, ObscuredTextMultilineNewline) {
+  const base::string16 test = UTF8ToUTF16("\r\r\n");
+  RenderText* render_text = GetRenderText();
+  render_text->SetText(test);
+  render_text->SetObscured(true);
+  render_text->SetMultiline(true);
+
+  // Newlines should be kept in multiline mode.
+  base::string16 display_text = render_text->GetDisplayText();
+  EXPECT_EQ(display_text[0], '\r');
+  EXPECT_EQ(display_text[1], '\r');
+  EXPECT_EQ(display_text[2], '\n');
+}
+
 TEST_F(RenderTextTest, RevealObscuredText) {
   const base::string16 seuss = UTF8ToUTF16("hop on pop");
   const base::string16 no_seuss = GetObscuredString(seuss.length());
@@ -1421,6 +1435,7 @@ struct RunListCase {
   const char* test_name;
   const wchar_t* text;
   const char* expected;
+  const bool multiline = false;
 };
 
 class RenderTextTestWithRunListCase
@@ -1436,6 +1451,7 @@ class RenderTextTestWithRunListCase
 TEST_P(RenderTextTestWithRunListCase, ItemizeTextToRuns) {
   RunListCase param = GetParam();
   RenderTextHarfBuzz* render_text = GetRenderText();
+  render_text->SetMultiline(param.multiline);
   render_text->SetText(WideToUTF16(param.text));
   EXPECT_EQ(param.expected, GetRunListStructureString());
 }
@@ -1448,7 +1464,8 @@ const RunListCase kBasicsRunListCases[] = {
     {"phone", L"1-(800)-xxx-xxxx", "[0][1][2][3->5][6][7][8->10][11][12->15]"},
     {"dev_ZWS", L"क\u200Bख", "[0][1][2]"},
     {"numeric", L"1 2 3 4", "[0][1][2][3][4][5][6]"},
-    {"joiners", L"1\u200C2\u200C3\u200C4", "[0->6]"},
+    {"joiners1", L"1\u200C2\u200C3\u200C4", "[0->6]"},
+    {"joiners2", L"\u060F\u200C\u060F", "[0->2]"},
     {"combining_accents1", L"a\u0300e\u0301", "[0->3]"},
     {"combining_accents2", L"\u0065\u0308\u0435\u0308", "[0->1][2->3]"},
     {"picto_title", L"☞☛test☚☜", "[0->1][2->5][6->7]"},
@@ -1463,6 +1480,12 @@ const RunListCase kBasicsRunListCases[] = {
      "[0][1][2][3][4]"},  // http://crbug.com/396776
     {"jap_paren2", L"國哲(c)1",
      "[0->1][2][3][4][5]"},  // http://crbug.com/125792
+    {"newline1", L"\n\n", "[0->1]"},
+    {"newline2", L"\r\n\r\n", "[0->3]"},
+    {"newline3", L"\r\r\n", "[0->2]"},
+    {"multiline_newline1", L"\n\n", "[0][1]", true},
+    {"multiline_newline2", L"\r\n\r\n", "[0->1][2->3]", true},
+    {"multiline_newline3", L"\r\r\n", "[0][1->2]", true},
 };
 
 INSTANTIATE_TEST_SUITE_P(ItemizeTextToRunsBasics,
@@ -1640,6 +1663,28 @@ const RunListCase kScriptsRunListCases[] = {
     // Control Pictures.
     {"control_pictures", L"␑␒␓␔␕␖␗␘␙␚␛", "[0->10]"},
     {"control_pictures_rewrite", L"␑\t␛", "[0->2]"},
+
+    // Unicode art.
+    {"unicode_emoticon1", L"(▀̿ĺ̯▀̿ ̿)", "[0][1->2][3->4][5->6][7->8][9]"},
+    {"unicode_emoticon2", L"▀̿̿Ĺ̯̿▀̿ ", "[0->2][3->5][6->7][8]"},
+    {"unicode_emoticon3", L"( ͡° ͜ʖ ͡°)", "[0][1->2][3][4->5][6][7->8][9][10]"},
+    {"unicode_emoticon4", L"✩·͙*̩̩͙˚̩̥̩̥( ͡ᵔ ͜ʖ ͡ᵔ )*̩̩͙✩·͙˚̩̥̩̥.",
+     "[0][1->2][3->6][7->11][12][13->14][15][16->17][18][19->20][21][22][23]["
+     "24->27][28][29->30][31->35][36]"},
+    {"unicode_emoticon5", L"ヽ(͡◕ ͜ʖ ͡◕)ﾉ",
+     "[0][1->2][3][4->5][6][7->8][9][10][11]"},
+    {"unicode_art1", L"꧁༒✧ Great ✧༒꧂", "[0][1][2][3][4->8][9][10][11][12]"},
+    {"unicode_art2", L"t͎e͎s͎t͎", "[0->7]"},
+
+    // Combining diacritical sequences.
+    {"unicode_diac1", L"\u2123\u0336", "[0->1]"},
+    {"unicode_diac2", L"\u273c\u0325", "[0->1]"},
+    {"unicode_diac3", L"\u2580\u033f", "[0->1]"},
+    {"unicode_diac4", L"\u2022\u0325\u0329", "[0->2]"},
+    {"unicode_diac5", L"\u2022\u0325", "[0->1]"},
+    {"unicode_diac6", L"\u00b7\u0359\u0325", "[0->2]"},
+    {"unicode_diac7", L"\u2027\u0329\u0325", "[0->2]"},
+    {"unicode_diac8", L"\u0332\u0305\u03c1", "[0->1][2]"},
 };
 
 INSTANTIATE_TEST_SUITE_P(ItemizeTextToRunsScripts,
@@ -5403,7 +5448,7 @@ TEST_F(RenderTextTest, ControlCharacterReplacement) {
 
   // Setting multiline, the newline character will be back to the original text.
   render_text->SetMultiline(true);
-  EXPECT_EQ(WideToUTF16(L"␈␍␇␉\n␋␌"), render_text->GetDisplayText());
+  EXPECT_EQ(WideToUTF16(L"␈\r␇␉\n␋␌"), render_text->GetDisplayText());
 
   // The generic control characters should have been replaced by the replacement
   // codepoints.
@@ -5749,11 +5794,8 @@ TEST_F(RenderTextTest, HarfBuzz_BreakRunsByEmojiVariationSelectors) {
     return;
 #endif
 
-#if defined(OS_ANDROID)
   // TODO(865709): make this work on Android.
-  return;
-#endif
-
+#if !defined(OS_ANDROID)
   // Jump over the telephone: two codepoints, but a single glyph.
   render_text->MoveCursor(CHARACTER_BREAK, CURSOR_RIGHT, SELECTION_NONE);
   EXPECT_EQ(gfx::Range(3, 3), render_text->selection());
@@ -5767,6 +5809,7 @@ TEST_F(RenderTextTest, HarfBuzz_BreakRunsByEmojiVariationSelectors) {
   render_text->MoveCursor(CHARACTER_BREAK, CURSOR_RIGHT, SELECTION_NONE);
   EXPECT_EQ(gfx::Range(4, 4), render_text->selection());
   EXPECT_EQ(3 * kGlyphWidth, render_text->GetUpdatedCursorBounds().x());
+#endif
 }
 
 TEST_F(RenderTextTest, HarfBuzz_OrphanedVariationSelector) {
@@ -6343,6 +6386,24 @@ TEST_F(RenderTextTest, CJKFontWithLocale) {
   }
 }
 #endif  // defined(OS_WIN)
+
+TEST_F(RenderTextTest, SameFontAccrossIgnorableCodepoints) {
+  RenderText* render_text = GetRenderText();
+
+  render_text->SetText(WideToUTF16(L"\u060F"));
+  const std::vector<FontSpan> spans1 = GetFontSpans();
+  ASSERT_EQ(1u, spans1.size());
+  Font font1 = spans1[0].first;
+
+  render_text->SetText(WideToUTF16(L"\u060F\u200C\u060F"));
+  const std::vector<FontSpan> spans2 = GetFontSpans();
+  ASSERT_EQ(1u, spans2.size());
+  Font font2 = spans2[0].first;
+
+  // Ensures the same font is used with or without the joiners
+  // (see http://crbug.com/1036652).
+  EXPECT_EQ(font1.GetFontName(), font2.GetFontName());
+}
 
 TEST_F(RenderTextTest, ZeroWidthCharacters) {
   static const wchar_t* kEmptyText[] = {

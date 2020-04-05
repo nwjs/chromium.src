@@ -63,6 +63,65 @@ void FakeCrosHealthdService::RunSmartctlCheckRoutine(
   std::move(callback).Run(run_routine_response_.Clone());
 }
 
+void FakeCrosHealthdService::RunAcPowerRoutine(
+    mojom::AcPowerStatusEnum expected_status,
+    const base::Optional<std::string>& expected_power_type,
+    RunAcPowerRoutineCallback callback) {
+  std::move(callback).Run(run_routine_response_.Clone());
+}
+
+void FakeCrosHealthdService::RunCpuCacheRoutine(
+    uint32_t length_seconds,
+    RunCpuCacheRoutineCallback callback) {
+  std::move(callback).Run(run_routine_response_.Clone());
+}
+
+void FakeCrosHealthdService::RunCpuStressRoutine(
+    uint32_t length_seconds,
+    RunCpuStressRoutineCallback callback) {
+  std::move(callback).Run(run_routine_response_.Clone());
+}
+
+void FakeCrosHealthdService::RunFloatingPointAccuracyRoutine(
+    uint32_t length_seconds,
+    RunFloatingPointAccuracyRoutineCallback callback) {
+  std::move(callback).Run(run_routine_response_.Clone());
+}
+
+void FakeCrosHealthdService::RunNvmeWearLevelRoutine(
+    uint32_t wear_level_threshold,
+    RunNvmeWearLevelRoutineCallback callback) {
+  std::move(callback).Run(run_routine_response_.Clone());
+}
+
+void FakeCrosHealthdService::RunNvmeSelfTestRoutine(
+    mojom::NvmeSelfTestTypeEnum nvme_self_test_type,
+    RunNvmeSelfTestRoutineCallback callback) {
+  std::move(callback).Run(run_routine_response_.Clone());
+}
+
+void FakeCrosHealthdService::RunDiskReadRoutine(
+    mojom::DiskReadRoutineTypeEnum type,
+    uint32_t length_seconds,
+    uint32_t file_size_mb,
+    RunDiskReadRoutineCallback callback) {
+  std::move(callback).Run(run_routine_response_.Clone());
+}
+
+void FakeCrosHealthdService::RunPrimeSearchRoutine(
+    uint32_t length_seconds,
+    uint64_t max_num,
+    RunPrimeSearchRoutineCallback callback) {
+  std::move(callback).Run(run_routine_response_.Clone());
+}
+
+void FakeCrosHealthdService::RunBatteryDischargeRoutine(
+    uint32_t length_seconds,
+    uint32_t maximum_discharge_percent_allowed,
+    RunBatteryDischargeRoutineCallback callback) {
+  std::move(callback).Run(run_routine_response_.Clone());
+}
+
 void FakeCrosHealthdService::ProbeTelemetryInfo(
     const std::vector<mojom::ProbeCategoryEnum>& categories,
     ProbeTelemetryInfoCallback callback) {

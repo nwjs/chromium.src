@@ -26,6 +26,7 @@
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "base/threading/scoped_blocking_call.h"
 #include "base/trace_event/trace_event.h"
 #include "base/value_conversions.h"
@@ -86,6 +87,7 @@
 #include "components/signin/public/base/signin_buildflags.h"
 #include "components/signin/public/base/signin_metrics.h"
 #include "components/signin/public/base/signin_pref_names.h"
+#include "components/signin/public/identity_manager/consent_level.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/signin/public/identity_manager/primary_account_mutator.h"
 #include "components/sync/base/stop_source.h"
@@ -549,8 +551,16 @@ void ProfileManager::CreateProfileAsync(const base::FilePath& profile_path,
                "profile_path",
                profile_path.AsUTF8Unsafe());
 
-  // Make sure that this profile is not pending deletion.
-  if (IsProfileDirectoryMarkedForDeletion(profile_path)) {
+  bool is_allowed_path = IsAllowedProfilePath(profile_path) ||
+                         base::CommandLine::ForCurrentProcess()->HasSwitch(
+                             switches::kAllowProfilesOutsideUserDir);
+
+  // Make sure the path is correct and this profile is not pending deletion.
+  if (!is_allowed_path || IsProfileDirectoryMarkedForDeletion(profile_path)) {
+    if (!is_allowed_path) {
+      LOG(ERROR) << "Cannot create profile at path "
+                 << profile_path.AsUTF8Unsafe();
+    }
     if (!callback.is_null())
       callback.Run(nullptr, Profile::CREATE_STATUS_LOCAL_FAIL);
     return;
@@ -724,6 +734,10 @@ Profile* ProfileManager::GetProfileByPathInternal(
   TRACE_EVENT0("browser", "ProfileManager::GetProfileByPathInternal");
   ProfileInfo* profile_info = GetProfileInfoByPath(path);
   return profile_info ? profile_info->profile.get() : nullptr;
+}
+
+bool ProfileManager::IsAllowedProfilePath(const base::FilePath& path) const {
+  return path.DirName() == user_data_dir();
 }
 
 Profile* ProfileManager::GetProfileByPath(const base::FilePath& path) const {
@@ -901,9 +915,9 @@ void ProfileManager::CleanUpEphemeralProfiles() {
   // This uses a separate loop, because deleting the profile from the
   // ProfileInfoCache will modify indices.
   for (const base::FilePath& profile_path : profiles_to_delete) {
-    base::PostTask(
+    base::ThreadPool::PostTask(
         FROM_HERE,
-        {base::ThreadPool(), base::MayBlock(), base::TaskPriority::BEST_EFFORT,
+        {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
          base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN},
         base::BindOnce(&NukeProfileFromDisk, profile_path));
 
@@ -922,17 +936,16 @@ void ProfileManager::CleanUpDeletedProfiles() {
     base::FilePath profile_path;
     bool is_valid_profile_path =
         base::GetValueAsFilePath(value, &profile_path) &&
-        profile_path.DirName() == user_data_dir();
+        IsAllowedProfilePath(profile_path);
     // Although it should never happen, make sure this is a valid path in the
     // user_data_dir, so we don't accidentially delete something else.
     if (is_valid_profile_path) {
       if (base::PathExists(profile_path)) {
         LOG(WARNING) << "Files of a deleted profile still exist after restart. "
                         "Cleaning up now.";
-        base::PostTaskAndReply(
+        base::ThreadPool::PostTaskAndReply(
             FROM_HERE,
-            {base::ThreadPool(), base::MayBlock(),
-             base::TaskPriority::BEST_EFFORT,
+            {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
              base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN},
             base::BindOnce(&NukeProfileFromDisk, profile_path),
             base::BindOnce(&ProfileCleanedUp, &value));
@@ -953,7 +966,7 @@ void ProfileManager::InitProfileUserPrefs(Profile* profile) {
   TRACE_EVENT0("browser", "ProfileManager::InitProfileUserPrefs");
   ProfileAttributesStorage& storage = GetProfileAttributesStorage();
 
-  if (profile->GetPath().DirName() != user_data_dir()) {
+  if (!IsAllowedProfilePath(profile->GetPath())) {
     UMA_HISTOGRAM_BOOLEAN("Profile.InitProfileUserPrefs.OutsideUserDir", true);
     return;
   }
@@ -1327,9 +1340,9 @@ void ProfileManager::DoFinalInitLogging(Profile* profile) {
 #endif
 
   // Log the profile size after a reasonable startup delay.
-  base::PostDelayedTask(
+  base::ThreadPool::PostDelayedTask(
       FROM_HERE,
-      {base::ThreadPool(), base::MayBlock(), base::TaskPriority::BEST_EFFORT,
+      {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
        base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
       base::BindOnce(&ProfileSizeTask, profile->GetPath(), enabled_app_count),
       base::TimeDelta::FromSeconds(112));
@@ -1403,6 +1416,14 @@ bool ProfileManager::AddProfile(std::unique_ptr<Profile> profile) {
 Profile* ProfileManager::CreateAndInitializeProfile(
     const base::FilePath& profile_dir) {
   TRACE_EVENT0("browser", "ProfileManager::CreateAndInitializeProfile");
+
+  if (!IsAllowedProfilePath(profile_dir) &&
+      !base::CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kAllowProfilesOutsideUserDir)) {
+    LOG(ERROR) << "Cannot create profile at path "
+               << profile_dir.AsUTF8Unsafe();
+    return nullptr;
+  }
 
   // CHECK that we are not trying to load the same profile twice, to prevent
   // profile corruption. Note that this check also covers the case when we have
@@ -1538,9 +1559,9 @@ void ProfileManager::OnLoadProfileForProfileDeletion(
   } else {
     // We failed to load the profile, but it's safe to delete a not yet loaded
     // Profile from disk.
-    base::PostTask(
+    base::ThreadPool::PostTask(
         FROM_HERE,
-        {base::ThreadPool(), base::MayBlock(), base::TaskPriority::BEST_EFFORT,
+        {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
          base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN},
         base::BindOnce(&NukeProfileFromDisk, profile_dir));
   }
@@ -1589,7 +1610,7 @@ void ProfileManager::AddProfileToStorage(Profile* profile) {
   TRACE_EVENT0("browser", "ProfileManager::AddProfileToCache");
   if (profile->IsGuestSession() || profile->IsSystemProfile())
     return;
-  if (profile->GetPath().DirName() != user_data_dir()) {
+  if (!IsAllowedProfilePath(profile->GetPath())) {
     UMA_HISTOGRAM_BOOLEAN("Profile.GetProfileInfoPath.OutsideUserDir", true);
     return;
   }
@@ -1597,8 +1618,8 @@ void ProfileManager::AddProfileToStorage(Profile* profile) {
   signin::IdentityManager* identity_manager =
       IdentityManagerFactory::GetForProfile(profile);
   bool is_consented_primary_account = identity_manager->HasPrimaryAccount();
-  CoreAccountInfo account_info =
-      identity_manager->GetUnconsentedPrimaryAccountInfo();
+  CoreAccountInfo account_info = identity_manager->GetPrimaryAccountInfo(
+      signin::ConsentLevel::kNotRequired);
 
   base::string16 username = base::UTF8ToUTF16(account_info.email);
 

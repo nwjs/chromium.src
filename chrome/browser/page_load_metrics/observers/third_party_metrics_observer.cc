@@ -6,11 +6,13 @@
 
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/strcat.h"
+#include "components/page_load_metrics/browser/metrics_web_contents_observer.h"
+#include "components/page_load_metrics/browser/page_load_metrics_observer.h"
 #include "components/page_load_metrics/browser/page_load_metrics_util.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
-#include "content/public/common/resource_type.h"
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
+#include "third_party/blink/public/mojom/loader/resource_load_info.mojom-shared.h"
 
 namespace {
 
@@ -49,6 +51,15 @@ ThirdPartyMetricsObserver::AccessedTypes::AccessedTypes(
     case AccessType::kSessionStorage:
       session_storage = true;
       break;
+    // No extra metadata required for the following types as they only record
+    // use counters.
+    case AccessType::kFileSystem:
+    case AccessType::kIndexedDb:
+    case AccessType::kCacheStorage:
+      break;
+    case AccessType::kUnknown:
+      NOTREACHED();
+      break;
   }
 }
 
@@ -72,8 +83,9 @@ void ThirdPartyMetricsObserver::OnComplete(
 void ThirdPartyMetricsObserver::OnLoadedResource(
     const page_load_metrics::ExtraRequestCompleteInfo&
         extra_request_complete_info) {
-  if (third_party_font_loaded_ || extra_request_complete_info.resource_type !=
-                                      content::ResourceType::kFontResource) {
+  if (third_party_font_loaded_ ||
+      extra_request_complete_info.request_destination !=
+          network::mojom::RequestDestination::kFont) {
     return;
   }
 
@@ -100,14 +112,48 @@ void ThirdPartyMetricsObserver::OnCookieChange(
                           AccessType::kCookieWrite);
 }
 
-void ThirdPartyMetricsObserver::OnDomStorageAccessed(
+void ThirdPartyMetricsObserver::RecordStorageUseCounter(
+    AccessType access_type) {
+  page_load_metrics::mojom::PageLoadFeatures third_party_storage_features;
+
+  switch (access_type) {
+    case AccessType::kLocalStorage:
+      third_party_storage_features.features.push_back(
+          blink::mojom::WebFeature::kThirdPartyLocalStorage);
+      break;
+    case AccessType::kSessionStorage:
+      third_party_storage_features.features.push_back(
+          blink::mojom::WebFeature::kThirdPartySessionStorage);
+      break;
+    case AccessType::kFileSystem:
+      third_party_storage_features.features.push_back(
+          blink::mojom::WebFeature::kThirdPartyFileSystem);
+      break;
+    case AccessType::kIndexedDb:
+      third_party_storage_features.features.push_back(
+          blink::mojom::WebFeature::kThirdPartyIndexedDb);
+      break;
+    case AccessType::kCacheStorage:
+      third_party_storage_features.features.push_back(
+          blink::mojom::WebFeature::kThirdPartyCacheStorage);
+      break;
+    default
+        :  // No feature usage recorded for storage types without a use counter.
+      return;
+  }
+
+  page_load_metrics::MetricsWebContentsObserver::RecordFeatureUsage(
+      GetDelegate().GetWebContents()->GetMainFrame(),
+      third_party_storage_features);
+}
+
+void ThirdPartyMetricsObserver::OnStorageAccessed(
     const GURL& url,
     const GURL& first_party_url,
-    bool local,
-    bool blocked_by_policy) {
-  OnCookieOrStorageAccess(
-      url, first_party_url, blocked_by_policy,
-      local ? AccessType::kLocalStorage : AccessType::kSessionStorage);
+    bool blocked_by_policy,
+    page_load_metrics::StorageType storage_type) {
+  OnCookieOrStorageAccess(url, first_party_url, blocked_by_policy,
+                          StorageTypeToAccessType(storage_type));
 }
 
 void ThirdPartyMetricsObserver::OnDidFinishSubFrameNavigation(
@@ -208,6 +254,8 @@ void ThirdPartyMetricsObserver::OnCookieOrStorageAccess(
     }
   }
 
+  RecordStorageUseCounter(access_type);
+
   GURL representative_url(
       base::StrCat({url.scheme(), "://", registrable_domain, "/"}));
 
@@ -226,6 +274,15 @@ void ThirdPartyMetricsObserver::OnCookieOrStorageAccess(
         break;
       case AccessType::kSessionStorage:
         it->second.session_storage = true;
+        break;
+      // No metadata is tracked for the following types as they only record use
+      // counters.
+      case AccessType::kFileSystem:
+      case AccessType::kIndexedDb:
+      case AccessType::kCacheStorage:
+        break;
+      case AccessType::kUnknown:
+        NOTREACHED();
         break;
     }
     return;
@@ -278,5 +335,24 @@ void ThirdPartyMetricsObserver::RecordMetrics(
         "PageLoad.Clients.ThirdParty.PaintTiming."
         "NavigationToLargestContentfulPaint.HasThirdPartyFont",
         all_frames_largest_contentful_paint.Time().value());
+  }
+}
+
+ThirdPartyMetricsObserver::AccessType
+ThirdPartyMetricsObserver::StorageTypeToAccessType(
+    page_load_metrics::StorageType storage_type) {
+  switch (storage_type) {
+    case page_load_metrics::StorageType::kLocalStorage:
+      return AccessType::kLocalStorage;
+    case page_load_metrics::StorageType::kSessionStorage:
+      return AccessType::kSessionStorage;
+    case page_load_metrics::StorageType::kFileSystem:
+      return AccessType::kFileSystem;
+    case page_load_metrics::StorageType::kIndexedDb:
+      return AccessType::kIndexedDb;
+    case page_load_metrics::StorageType::kCacheStorage:
+      return AccessType::kCacheStorage;
+    default:
+      return AccessType::kUnknown;
   }
 }

@@ -31,7 +31,6 @@
 #if defined(OS_CHROMEOS)
 #include "ash/public/cpp/app_list/app_list_config.h"
 #include "third_party/skia/include/core/SkPaint.h"
-#include "ui/native_theme/native_theme.h"
 #include "ui/views/background.h"
 #endif
 
@@ -81,7 +80,7 @@ class BaseDialogContainer : public views::DialogDelegateView {
                       const base::Closure& close_callback)
       : dialog_body_(AddChildView(std::move(dialog_body))),
         close_callback_(close_callback) {
-    DialogDelegate::set_buttons(ui::DIALOG_BUTTON_NONE);
+    DialogDelegate::SetButtons(ui::DIALOG_BUTTON_NONE);
   }
   ~BaseDialogContainer() override {}
 
@@ -112,8 +111,8 @@ class AppListDialogContainer : public BaseDialogContainer,
   explicit AppListDialogContainer(std::unique_ptr<views::View> dialog_body)
       : BaseDialogContainer(std::move(dialog_body), base::RepeatingClosure()) {
     SetBackground(std::make_unique<AppListOverlayBackground>());
-    close_button_ = AddChildView(views::BubbleFrameView::CreateCloseButton(
-        this, GetNativeTheme()->ShouldUseDarkColors()));
+    close_button_ =
+        AddChildView(views::BubbleFrameView::CreateCloseButton(this));
   }
   ~AppListDialogContainer() override {}
 

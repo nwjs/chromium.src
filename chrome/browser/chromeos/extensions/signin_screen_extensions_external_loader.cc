@@ -13,6 +13,7 @@
 #include "base/memory/scoped_refptr.h"
 #include "base/path_service.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "base/values.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chromeos/profiles/profile_helper.h"
@@ -37,13 +38,8 @@ base::Value GetForceInstalledExtensionsFromPrefs(const PrefService* prefs) {
   const PrefService::Preference* const login_screen_extensions_pref =
       prefs->FindPreference(extensions::pref_names::kLoginScreenExtensions);
   CHECK(login_screen_extensions_pref);
-  const base::Value* login_screen_extensions_pref_value =
-      login_screen_extensions_pref->GetValue();
-  if (!login_screen_extensions_pref_value) {
-    // No sign-in screen extensions currently configured.
-    return base::Value(base::Value::Type::DICTIONARY);
-  }
-  if (!login_screen_extensions_pref->IsManaged()) {
+  if (!login_screen_extensions_pref->IsManaged() &&
+      !login_screen_extensions_pref->IsDefaultValue()) {
     // Ignore untrusted values - only the policy-specified setting is respected.
     // (This branch could be triggered if, for example, an attacker modified the
     // Local State file trying to inject some extensions into the Login Screen.)
@@ -51,6 +47,8 @@ base::Value GetForceInstalledExtensionsFromPrefs(const PrefService* prefs) {
                  << extensions::pref_names::kLoginScreenExtensions << " pref";
     return base::Value(base::Value::Type::DICTIONARY);
   }
+  const base::Value* login_screen_extensions_pref_value =
+      login_screen_extensions_pref->GetValue();
   DCHECK(login_screen_extensions_pref_value->is_dict());
   return login_screen_extensions_pref_value->Clone();
 }
@@ -62,9 +60,8 @@ SigninScreenExtensionsExternalLoader::SigninScreenExtensionsExternalLoader(
     : profile_(profile),
       external_cache_(GetExtensionsCachePath(),
                       g_browser_process->shared_url_loader_factory(),
-                      base::CreateSequencedTaskRunner(
-                          {base::ThreadPool(), base::MayBlock(),
-                           base::TaskPriority::USER_VISIBLE,
+                      base::ThreadPool::CreateSequencedTaskRunner(
+                          {base::MayBlock(), base::TaskPriority::USER_VISIBLE,
                            base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN}),
                       this,
                       /*always_check_updates=*/true,

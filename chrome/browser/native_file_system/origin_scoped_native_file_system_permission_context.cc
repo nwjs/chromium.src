@@ -5,11 +5,12 @@
 #include "chrome/browser/native_file_system/origin_scoped_native_file_system_permission_context.h"
 
 #include "base/bind.h"
+#include "base/callback_helpers.h"
 #include "base/metrics/histogram_functions.h"
 #include "build/build_config.h"
 #include "chrome/browser/native_file_system/native_file_system_permission_request_manager.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser_dialogs.h"
+#include "chrome/browser/ui/native_file_system_dialogs.h"
 
 #if !defined(OS_ANDROID)
 #include "chrome/browser/ui/browser.h"
@@ -21,6 +22,13 @@ namespace {
 using permissions::PermissionAction;
 
 enum class GrantType { kRead, kWrite };
+
+// This long after the last top-level tab or window for an origin is closed (or
+// is navigated to another origin), all the permissions for that origin will be
+// revoked.
+constexpr base::TimeDelta kPermissionRevocationTimeout =
+    base::TimeDelta::FromSeconds(5);
+
 }  // namespace
 
 class OriginScopedNativeFileSystemPermissionContext::PermissionGrantImpl
@@ -61,16 +69,30 @@ class OriginScopedNativeFileSystemPermissionContext::PermissionGrantImpl
       return;
     }
 
-    // Check if prompting for write access is blocked by the user and update
-    // the status if it is.
-    if (type_ == GrantType::kWrite &&
-        !context_->CanRequestWritePermission(origin_)) {
-      SetStatus(PermissionStatus::DENIED);
-      RunCallbackAndRecordPermissionRequestOutcome(
-          std::move(callback),
-          PermissionRequestOutcome::kBlockedByContentSetting);
-      return;
+    if (type_ == GrantType::kWrite) {
+      ContentSetting content_setting =
+          context_->GetWriteGuardContentSetting(origin_);
+
+      // Content setting grants write permission without asking.
+      if (content_setting == CONTENT_SETTING_ALLOW) {
+        SetStatus(PermissionStatus::GRANTED);
+        RunCallbackAndRecordPermissionRequestOutcome(
+            std::move(callback),
+            PermissionRequestOutcome::kGrantedByContentSetting);
+        return;
+      }
+
+      // Content setting blocks write permission.
+      if (content_setting == CONTENT_SETTING_BLOCK) {
+        SetStatus(PermissionStatus::DENIED);
+        RunCallbackAndRecordPermissionRequestOutcome(
+            std::move(callback),
+            PermissionRequestOutcome::kBlockedByContentSetting);
+        return;
+      }
     }
+
+    // Otherwise, perform checks and ask the user for permission.
 
     content::RenderFrameHost* rfh =
         content::RenderFrameHost::FromID(process_id, frame_id);
@@ -115,30 +137,24 @@ class OriginScopedNativeFileSystemPermissionContext::PermissionGrantImpl
     }
 
     // Drop fullscreen mode so that the user sees the URL bar.
-    web_contents->ForSecurityDropFullscreen();
+    base::ScopedClosureRunner fullscreen_block =
+        web_contents->ForSecurityDropFullscreen();
 
-    if (type_ == GrantType::kRead) {
-      if (!is_directory_) {
-        // TODO(mek): Implement requesting read permissions for files.
-        RunCallbackAndRecordPermissionRequestOutcome(
-            std::move(callback), PermissionRequestOutcome::kRequestAborted);
-        return;
-      }
+    NativeFileSystemPermissionRequestManager::Access access =
+        type_ == GrantType::kRead
+            ? NativeFileSystemPermissionRequestManager::Access::kRead
+            : NativeFileSystemPermissionRequestManager::Access::kWrite;
 
-      // TODO(mek): Handle directory read access prompting in RequestManager.
-      ShowNativeFileSystemDirectoryAccessConfirmationDialog(
-          origin_, path_,
-          base::BindOnce(&PermissionGrantImpl::OnPermissionRequestResult, this,
-                         std::move(callback)),
-          web_contents);
-
-      return;
-    }
+    // If a website wants both read and write access, code in content will
+    // request those as two separate requests. The |request_manager| will then
+    // detect this and combine the two requests into one prompt. As such this
+    // code does not have to have any way to request Access::kReadWrite.
 
     request_manager->AddRequest(
-        {origin_, path_, is_directory_},
+        {origin_, path_, is_directory_, access},
         base::BindOnce(&PermissionGrantImpl::OnPermissionRequestResult, this,
-                       std::move(callback)));
+                       std::move(callback)),
+        std::move(fullscreen_block));
   }
 
   const url::Origin& origin() const {
@@ -270,6 +286,11 @@ struct OriginScopedNativeFileSystemPermissionContext::OriginState {
   // closed.
   std::map<base::FilePath, PermissionGrantImpl*> read_grants;
   std::map<base::FilePath, PermissionGrantImpl*> write_grants;
+
+  // Timer that is triggered whenever the user navigates away from this origin.
+  // This is used to give a website a little bit of time for background work
+  // before revoking all permissions for the origin.
+  std::unique_ptr<base::RetainingOneShotTimer> cleanup_timer;
 };
 
 OriginScopedNativeFileSystemPermissionContext::
@@ -296,18 +317,46 @@ OriginScopedNativeFileSystemPermissionContext::GetReadPermissionGrant(
   // readable this newly returned grant should also be readable.
   auto*& existing_grant = origin_state.read_grants[path];
   scoped_refptr<PermissionGrantImpl> new_grant;
-  if (!existing_grant || existing_grant->is_directory() != is_directory) {
+
+  if (existing_grant && existing_grant->is_directory() != is_directory) {
+    // |path| changed from being a directory to being a file or vice versa,
+    // don't just re-use the existing grant but revoke the old grant before
+    // creating a new grant.
+    existing_grant->SetStatus(PermissionStatus::DENIED);
+    existing_grant = nullptr;
+  }
+
+  if (!existing_grant) {
     new_grant = base::MakeRefCounted<PermissionGrantImpl>(
         weak_factory_.GetWeakPtr(), origin, path, is_directory,
         GrantType::kRead);
     existing_grant = new_grant.get();
   }
 
-  // Files automatically get read access when picked by the user, directories
-  // need to first be confirmed.
-  if (user_action != UserAction::kLoadFromStorage && !is_directory) {
-    existing_grant->SetStatus(PermissionStatus::GRANTED);
-    ScheduleUsageIconUpdate();
+  const ContentSetting content_setting = GetReadGuardContentSetting(origin);
+  switch (content_setting) {
+    case CONTENT_SETTING_ALLOW:
+      existing_grant->SetStatus(PermissionStatus::GRANTED);
+      break;
+    case CONTENT_SETTING_ASK:
+      // Files automatically get read access when picked by the user,
+      // directories need to first be confirmed.
+      if (user_action != UserAction::kLoadFromStorage && !is_directory) {
+        existing_grant->SetStatus(PermissionStatus::GRANTED);
+        ScheduleUsageIconUpdate();
+      }
+      break;
+    case CONTENT_SETTING_BLOCK:
+      if (new_grant) {
+        existing_grant->SetStatus(PermissionStatus::DENIED);
+      } else {
+        // We won't revoke permission to an existing grant.
+        // TODO(crbug.com/1053363): Better integrate with content settings.
+      }
+      break;
+    default:
+      NOTREACHED();
+      break;
   }
 
   return existing_grant;
@@ -329,20 +378,43 @@ OriginScopedNativeFileSystemPermissionContext::GetWritePermissionGrant(
   // writable this newly returned grant should also be writable.
   auto*& existing_grant = origin_state.write_grants[path];
   scoped_refptr<PermissionGrantImpl> new_grant;
-  if (!existing_grant || existing_grant->is_directory() != is_directory) {
+
+  if (existing_grant && existing_grant->is_directory() != is_directory) {
+    // |path| changed from being a directory to being a file or vice versa,
+    // don't just re-use the existing grant but revoke the old grant before
+    // creating a new grant.
+    existing_grant->SetStatus(PermissionStatus::DENIED);
+    existing_grant = nullptr;
+  }
+
+  if (!existing_grant) {
     new_grant = base::MakeRefCounted<PermissionGrantImpl>(
         weak_factory_.GetWeakPtr(), origin, path, is_directory,
         GrantType::kWrite);
     existing_grant = new_grant.get();
   }
 
-  if (CanRequestWritePermission(origin)) {
-    if (user_action == UserAction::kSave) {
+  const ContentSetting content_setting = GetWriteGuardContentSetting(origin);
+  switch (content_setting) {
+    case CONTENT_SETTING_ALLOW:
       existing_grant->SetStatus(PermissionStatus::GRANTED);
-      ScheduleUsageIconUpdate();
-    }
-  } else if (new_grant) {
-    existing_grant->SetStatus(PermissionStatus::DENIED);
+      break;
+    case CONTENT_SETTING_ASK:
+      if (user_action == UserAction::kSave) {
+        existing_grant->SetStatus(PermissionStatus::GRANTED);
+        ScheduleUsageIconUpdate();
+      }
+      break;
+    case CONTENT_SETTING_BLOCK:
+      if (new_grant) {
+        existing_grant->SetStatus(PermissionStatus::DENIED);
+      } else {
+        // We won't revoke permission to an existing grant.
+      }
+      break;
+    default:
+      NOTREACHED();
+      break;
   }
 
   return existing_grant;
@@ -437,6 +509,68 @@ bool OriginScopedNativeFileSystemPermissionContext::OriginHasWriteAccess(
   return false;
 }
 
+void OriginScopedNativeFileSystemPermissionContext::NavigatedAwayFromOrigin(
+    const url::Origin& origin) {
+  auto it = origins_.find(origin);
+  // If we have no permissions for the origin, there is nothing to do.
+  if (it == origins_.end())
+    return;
+
+  // Start a timer to possibly clean up permissions for this origin.
+  if (!it->second.cleanup_timer) {
+    it->second.cleanup_timer = std::make_unique<base::RetainingOneShotTimer>(
+        FROM_HERE, kPermissionRevocationTimeout,
+        base::BindRepeating(&OriginScopedNativeFileSystemPermissionContext::
+                                MaybeCleanupPermissions,
+                            base::Unretained(this), origin));
+  }
+  it->second.cleanup_timer->Reset();
+}
+
+void OriginScopedNativeFileSystemPermissionContext::TriggerTimersForTesting() {
+  for (const auto& it : origins_) {
+    if (it.second.cleanup_timer) {
+      auto task = it.second.cleanup_timer->user_task();
+      it.second.cleanup_timer->Stop();
+      task.Run();
+    }
+  }
+}
+
+void OriginScopedNativeFileSystemPermissionContext::MaybeCleanupPermissions(
+    const url::Origin& origin) {
+  auto it = origins_.find(origin);
+  // If we have no permissions for the origin, there is nothing to do.
+  if (it == origins_.end())
+    return;
+
+#if !defined(OS_ANDROID)
+  // Iterate over all top-level frames by iterating over all browsers, and all
+  // tabs within those browsers. This also counts PWAs in windows without
+  // tab strips, as those are still implemented as a Browser with a single tab.
+  for (Browser* browser : *BrowserList::GetInstance()) {
+    if (browser->profile() != profile())
+      continue;
+    TabStripModel* tabs = browser->tab_strip_model();
+    for (int i = 0; i < tabs->count(); ++i) {
+      content::WebContents* web_contents = tabs->GetWebContentsAt(i);
+      url::Origin tab_origin =
+          url::Origin::Create(web_contents->GetLastCommittedURL());
+      // Found a tab for this origin, so early exit and don't revoke grants.
+      if (tab_origin == origin)
+        return;
+    }
+  }
+
+  // No tabs found with the same origin, so revoke all permissions for the
+  // origin.
+  // TODO(mek): process_id and frame_id are meaningless in the below call for
+  // this permissions context implementation, remove them once this is the only
+  // implementation.
+  RevokeGrants(origin, /*process_id=*/0, /*frame_id=*/0);
+#endif
+}
+
 void OriginScopedNativeFileSystemPermissionContext::PermissionGrantDestroyed(
     PermissionGrantImpl* grant) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -446,8 +580,21 @@ void OriginScopedNativeFileSystemPermissionContext::PermissionGrantDestroyed(
 
   auto& grants = grant->type() == GrantType::kRead ? it->second.read_grants
                                                    : it->second.write_grants;
-  size_t result = grants.erase(grant->path());
-  DCHECK_EQ(result, 1u);
+  auto grant_it = grants.find(grant->path());
+  // Any non-denied permission grants should have still been in our grants list.
+  // If this invariant is voilated we would have permissions that might be
+  // granted but won't be visible in any UI because the permission context isn't
+  // tracking them anymore.
+  if (grant_it == grants.end()) {
+    DCHECK_EQ(PermissionStatus::DENIED, grant->GetStatus());
+    return;
+  }
+
+  // The grant in |grants| for this path might have been replaced with a
+  // different grant. Only erase if it actually matches the grant that was
+  // destroyed.
+  if (grant_it->second == grant)
+    grants.erase(grant_it);
 
   ScheduleUsageIconUpdate();
 }

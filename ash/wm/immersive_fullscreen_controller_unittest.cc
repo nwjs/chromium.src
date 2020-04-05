@@ -179,7 +179,7 @@ class ImmersiveFullscreenControllerTest : public AshTestBase {
     widget_ = new views::Widget();
     views::Widget::InitParams params;
     params.delegate = new TestWidgetDelegate();
-    params.context = CurrentContext();
+    params.context = GetContext();
     widget_->Init(std::move(params));
     widget_->Show();
 
@@ -484,8 +484,8 @@ TEST_F(ImmersiveFullscreenControllerTest, OnMouseEvent) {
 // top container's widget is inactive.
 TEST_F(ImmersiveFullscreenControllerTest, Inactive) {
   // Set up initial state.
-  views::Widget* popup_widget = views::Widget::CreateWindowWithContextAndBounds(
-      nullptr, CurrentContext(), gfx::Rect(0, 0, 200, 200));
+  views::Widget* popup_widget = views::Widget::CreateWindowWithContext(
+      nullptr, GetContext(), gfx::Rect(0, 0, 200, 200));
   popup_widget->Show();
   ASSERT_FALSE(top_container()->GetWidget()->IsActive());
 
@@ -608,8 +608,8 @@ TEST_F(ImmersiveFullscreenControllerTest, MouseEventsVerticalDisplayLayout) {
 
   // Test that it is possible to reveal the top-of-window views by overshooting
   // the top edge slightly when the top container's widget is not active.
-  views::Widget* popup_widget = views::Widget::CreateWindowWithContextAndBounds(
-      nullptr, CurrentContext(), gfx::Rect(0, 200, 100, 100));
+  views::Widget* popup_widget = views::Widget::CreateWindowWithContext(
+      nullptr, GetContext(), gfx::Rect(0, 200, 100, 100));
   popup_widget->Show();
   ASSERT_FALSE(top_container()->GetWidget()->IsActive());
   ASSERT_FALSE(top_container()->GetBoundsInScreen().Intersects(
@@ -953,7 +953,7 @@ TEST_F(ImmersiveFullscreenControllerTest, Transient) {
       views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET;
   non_transient_params.bounds = gfx::Rect(0, 100, 100, 100);
   std::unique_ptr<views::Widget> non_transient_widget(new views::Widget());
-  non_transient_params.context = CurrentContext();
+  non_transient_params.context = GetContext();
   non_transient_widget->Init(std::move(non_transient_params));
 
   EXPECT_FALSE(controller()->IsRevealed());

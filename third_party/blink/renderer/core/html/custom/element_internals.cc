@@ -47,7 +47,6 @@ class CustomStatesTokenList : public DOMTokenList {
 };
 
 ElementInternals::ElementInternals(HTMLElement& target) : target_(target) {
-  value_.SetUSVString(String());
 }
 
 void ElementInternals::Trace(Visitor* visitor) {
@@ -299,6 +298,27 @@ Element* ElementInternals::GetElementAttribute(const QualifiedName& name) {
     return nullptr;
   DCHECK_EQ(element_vector->size(), 1u);
   return element_vector->at(0);
+}
+
+base::Optional<HeapVector<Member<Element>>>
+ElementInternals::GetElementArrayAttribute(const QualifiedName& name) const {
+  const auto& iter = explicitly_set_attr_elements_map_.find(name);
+  if (iter != explicitly_set_attr_elements_map_.end()) {
+    return *(iter->value);
+  }
+  return base::nullopt;
+}
+
+void ElementInternals::SetElementArrayAttribute(
+    const QualifiedName& name,
+    const base::Optional<HeapVector<Member<Element>>>& elements) {
+  if (elements) {
+    explicitly_set_attr_elements_map_.Set(
+        name,
+        MakeGarbageCollected<HeapVector<Member<Element>>>(elements.value()));
+  } else {
+    explicitly_set_attr_elements_map_.erase(name);
+  }
 }
 
 HeapVector<Member<Element>> ElementInternals::GetElementArrayAttribute(

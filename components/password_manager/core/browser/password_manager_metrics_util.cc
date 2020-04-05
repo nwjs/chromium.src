@@ -140,16 +140,6 @@ void LogAccountChooserUserActionManyAccounts(AccountChooserUserAction action) {
       ACCOUNT_CHOOSER_ACTION_COUNT);
 }
 
-void LogCountHttpMigratedPasswords(int count) {
-  base::UmaHistogramCounts100("PasswordManager.HttpPasswordMigrationCount",
-                              count);
-}
-
-void LogHttpPasswordMigrationMode(HttpPasswordMigrationMode mode) {
-  base::UmaHistogramEnumeration("PasswordManager.HttpPasswordMigrationMode",
-                                mode, HTTP_PASSWORD_MIGRATION_MODE_COUNT);
-}
-
 void LogCredentialManagerGetResult(CredentialManagerGetResult result,
                                    CredentialMediationRequirement mediation) {
   switch (mediation) {
@@ -296,7 +286,8 @@ void LogIsSyncPasswordHashSaved(IsSyncPasswordHashSaved state,
 
 void LogProtectedPasswordHashCounts(size_t gaia_hash_count,
                                     size_t enterprise_hash_count,
-                                    bool does_primary_account_exists) {
+                                    bool does_primary_account_exists,
+                                    bool is_signed_in) {
   base::UmaHistogramCounts100("PasswordManager.SavedGaiaPasswordHashCount",
                               static_cast<int>(gaia_hash_count));
   base::UmaHistogramCounts100(
@@ -306,11 +297,15 @@ void LogProtectedPasswordHashCounts(size_t gaia_hash_count,
   // Log parallel metrics for sync and signed-in non-sync accounts in addition
   // to above to be able to tell what fraction of signed-in non-sync users we
   // are protecting compared to syncing users.
-  base::UmaHistogramCounts100(
-      does_primary_account_exists
-          ? "PasswordManager.SavedGaiaPasswordHashCount.Sync"
-          : "PasswordManager.SavedGaiaPasswordHashCount.SignedInNonSync",
-      static_cast<int>(gaia_hash_count));
+  if (does_primary_account_exists) {
+    base::UmaHistogramCounts100(
+        "PasswordManager.SavedGaiaPasswordHashCount.Sync",
+        static_cast<int>(gaia_hash_count));
+  } else if (is_signed_in) {
+    base::UmaHistogramCounts100(
+        "PasswordManager.SavedGaiaPasswordHashCount.SignedInNonSync",
+        static_cast<int>(gaia_hash_count));
+  }
 }
 
 void LogProtectedPasswordReuse(PasswordType reused_password_type) {}

@@ -9,10 +9,12 @@
 #include "chrome/test/base/testing_profile.h"
 #include "components/media_message_center/media_notification_controller.h"
 #include "components/media_message_center/media_notification_view.h"
+#include "components/vector_icons/vector_icons.h"
 #include "content/public/test/browser_task_environment.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/skia/include/core/SkBitmap.h"
+#include "ui/gfx/vector_icon_types.h"
 
 using media_router::mojom::MediaStatus;
 using media_session::mojom::MediaPlaybackState;
@@ -58,7 +60,8 @@ class MockMediaNotificationController
   MOCK_METHOD1(HideNotification, void(const std::string&));
   MOCK_METHOD1(RemoveItem, void(const std::string&));
   MOCK_CONST_METHOD0(GetTaskRunner, scoped_refptr<base::SequencedTaskRunner>());
-  MOCK_METHOD1(LogMediaSessionActionButtonPressed, void(const std::string&));
+  MOCK_METHOD2(LogMediaSessionActionButtonPressed,
+               void(const std::string&, MediaSessionAction));
 };
 
 class MockMediaNotificationView
@@ -74,6 +77,7 @@ class MockMediaNotificationView
                void(const base::flat_set<MediaSessionAction>&));
   MOCK_METHOD1(UpdateWithMediaArtwork, void(const gfx::ImageSkia&));
   MOCK_METHOD1(UpdateWithFavicon, void(const gfx::ImageSkia&));
+  MOCK_METHOD1(UpdateWithVectorIcon, void(const gfx::VectorIcon& vector_icon));
 };
 
 class MockSessionController : public CastMediaSessionController {
@@ -104,6 +108,10 @@ class CastMediaNotificationItemTest : public testing::Test {
   }
 
   void SetView() {
+    EXPECT_CALL(view_, UpdateWithVectorIcon(_))
+        .WillOnce([](const gfx::VectorIcon& vector_icon) {
+          EXPECT_EQ(vector_icons::kMediaRouterIdleIcon.reps, vector_icon.reps);
+        });
     EXPECT_CALL(view_, UpdateWithMediaSessionInfo(_))
         .WillOnce([&](const MediaSessionInfoPtr& session_info) {
           EXPECT_EQ(MediaSessionInfo::SessionState::kSuspended,

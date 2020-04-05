@@ -10,24 +10,22 @@
 #include "base/base_export.h"
 #include "base/optional.h"
 #include "base/profiler/arm_cfi_table.h"
+#include "base/profiler/module_cache.h"
 #include "base/profiler/register_context.h"
-#include "base/sampling_heap_profiler/module_cache.h"
 
 namespace base {
 
 // Chrome unwinder implementation for Android, using ArmCfiTable.
 class BASE_EXPORT ChromeUnwinderAndroid : public Unwinder {
  public:
-  ChromeUnwinderAndroid(const ArmCFITable* cfi_table);
+  ChromeUnwinderAndroid(const ArmCFITable* cfi_table,
+                        const ModuleCache::Module* chrome_module);
   ~ChromeUnwinderAndroid() override;
   ChromeUnwinderAndroid(const ChromeUnwinderAndroid&) = delete;
   ChromeUnwinderAndroid& operator=(const ChromeUnwinderAndroid&) = delete;
 
-  void SetExpectedChromeModuleIdForTesting(const std::string& chrome_module_id);
-
   // Unwinder:
-  void AddNonNativeModules(ModuleCache* module_cache) override;
-  bool CanUnwindFrom(const Frame* current_frame) const override;
+  bool CanUnwindFrom(const Frame& current_frame) const override;
   UnwindResult TryUnwind(RegisterContext* thread_context,
                          uintptr_t stack_top,
                          ModuleCache* module_cache,
@@ -45,7 +43,7 @@ class BASE_EXPORT ChromeUnwinderAndroid : public Unwinder {
                    const ArmCFITable::FrameEntry& entry);
 
   const ArmCFITable* cfi_table_;
-  std::string chrome_module_id_;
+  const ModuleCache::Module* const chrome_module_;
 };
 
 }  // namespace base

@@ -8,8 +8,11 @@
 #include "cc/layers/picture_layer.h"
 #include "cc/trees/layer_tree_host.h"
 #include "cc/trees/property_tree.h"
+#include "cc/trees/scroll_node.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/renderer/core/dom/dom_node_ids.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
+#include "third_party/blink/renderer/core/html/html_frame_owner_element.h"
 #include "third_party/blink/renderer/core/layout/layout_box_model_object.h"
 #include "third_party/blink/renderer/core/layout/layout_image.h"
 #include "third_party/blink/renderer/core/layout/layout_view.h"
@@ -66,7 +69,8 @@ TEST_F(CompositedLayerMappingTest, SubpixelAccumulationChange) {
   Element* target = GetDocument().getElementById("target");
   target->SetInlineStyleProperty(CSSPropertyID::kLeft, "0.6px");
 
-  GetDocument().View()->UpdateAllLifecyclePhasesExceptPaint();
+  GetDocument().View()->UpdateAllLifecyclePhasesExceptPaint(
+      DocumentUpdateReason::kTest);
 
   PaintLayer* paint_layer =
       ToLayoutBoxModelObject(target->GetLayoutObject())->Layer();
@@ -88,7 +92,8 @@ TEST_F(CompositedLayerMappingTest,
   Element* target = GetDocument().getElementById("target");
   target->SetInlineStyleProperty(CSSPropertyID::kLeft, "0.6px");
 
-  GetDocument().View()->UpdateAllLifecyclePhasesExceptPaint();
+  GetDocument().View()->UpdateAllLifecyclePhasesExceptPaint(
+      DocumentUpdateReason::kTest);
 
   PaintLayer* paint_layer =
       ToLayoutBoxModelObject(target->GetLayoutObject())->Layer();
@@ -131,7 +136,8 @@ TEST_F(CompositedLayerMappingTest,
   Element* target = GetDocument().getElementById("target");
   target->SetInlineStyleProperty(CSSPropertyID::kLeft, "0.6px");
 
-  GetDocument().View()->UpdateAllLifecyclePhasesExceptPaint();
+  GetDocument().View()->UpdateAllLifecyclePhasesExceptPaint(
+      DocumentUpdateReason::kTest);
 
   PaintLayer* paint_layer =
       ToLayoutBoxModelObject(target->GetLayoutObject())->Layer();
@@ -184,8 +190,7 @@ TEST_F(CompositedLayerMappingTest, TallCompositedScrolledLayerInterestRect) {
 
   UpdateAllLifecyclePhasesForTest();
   GetDocument().View()->LayoutViewport()->SetScrollOffset(
-      ScrollOffset(0, 8000),
-      mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
+      ScrollOffset(0, 8000), mojom::blink::ScrollType::kProgrammatic);
   UpdateAllLifecyclePhasesForTest();
 
   Element* element = GetDocument().getElementById("target");
@@ -203,8 +208,7 @@ TEST_F(CompositedLayerMappingTest, TallNonCompositedScrolledLayerInterestRect) {
 
   UpdateAllLifecyclePhasesForTest();
   GetDocument().View()->LayoutViewport()->SetScrollOffset(
-      ScrollOffset(0, 8000),
-      mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
+      ScrollOffset(0, 8000), mojom::blink::ScrollType::kProgrammatic);
   UpdateAllLifecyclePhasesForTest();
 
   PaintLayer* paint_layer = GetDocument().GetLayoutView()->Layer();
@@ -243,8 +247,7 @@ TEST_F(CompositedLayerMappingTest, VerticalRightLeftWritingModeDocument) {
 
   UpdateAllLifecyclePhasesForTest();
   GetDocument().View()->LayoutViewport()->SetScrollOffset(
-      ScrollOffset(-5000, 0),
-      mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
+      ScrollOffset(-5000, 0), mojom::blink::ScrollType::kProgrammatic);
   UpdateAllLifecyclePhasesForTest();
 
   PaintLayer* paint_layer = GetDocument().GetLayoutView()->Layer();
@@ -415,7 +418,7 @@ TEST_F(CompositedLayerMappingTest, 3D45DegRotatedTallInterestRect) {
   PaintLayer* paint_layer =
       ToLayoutBoxModelObject(element->GetLayoutObject())->Layer();
   ASSERT_TRUE(!!paint_layer->GraphicsLayerBacking());
-  EXPECT_EQ(IntRect(0, 0, 200, 6249),
+  EXPECT_EQ(IntRect(0, 0, 200, 6226),
             RecomputeInterestRect(paint_layer->GraphicsLayerBacking()));
 }
 
@@ -624,8 +627,7 @@ TEST_F(CompositedLayerMappingTest, InterestRectChangeOnViewportScroll) {
             PreviousInterestRect(root_scrolling_layer));
 
   GetDocument().View()->LayoutViewport()->SetScrollOffset(
-      ScrollOffset(0, 300),
-      mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
+      ScrollOffset(0, 300), mojom::blink::ScrollType::kProgrammatic);
   UpdateAllLifecyclePhasesForTest();
   // Still use the previous interest rect because the recomputed rect hasn't
   // changed enough.
@@ -635,8 +637,7 @@ TEST_F(CompositedLayerMappingTest, InterestRectChangeOnViewportScroll) {
             PreviousInterestRect(root_scrolling_layer));
 
   GetDocument().View()->LayoutViewport()->SetScrollOffset(
-      ScrollOffset(0, 600),
-      mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
+      ScrollOffset(0, 600), mojom::blink::ScrollType::kProgrammatic);
   UpdateAllLifecyclePhasesForTest();
   // Use recomputed interest rect because it changed enough.
   EXPECT_EQ(IntRect(0, 0, 800, 5200),
@@ -645,8 +646,7 @@ TEST_F(CompositedLayerMappingTest, InterestRectChangeOnViewportScroll) {
             PreviousInterestRect(root_scrolling_layer));
 
   GetDocument().View()->LayoutViewport()->SetScrollOffset(
-      ScrollOffset(0, 5400),
-      mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
+      ScrollOffset(0, 5400), mojom::blink::ScrollType::kProgrammatic);
   UpdateAllLifecyclePhasesForTest();
   EXPECT_EQ(IntRect(0, 1400, 800, 8600),
             RecomputeInterestRect(root_scrolling_layer));
@@ -654,8 +654,7 @@ TEST_F(CompositedLayerMappingTest, InterestRectChangeOnViewportScroll) {
             PreviousInterestRect(root_scrolling_layer));
 
   GetDocument().View()->LayoutViewport()->SetScrollOffset(
-      ScrollOffset(0, 9000),
-      mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
+      ScrollOffset(0, 9000), mojom::blink::ScrollType::kProgrammatic);
   UpdateAllLifecyclePhasesForTest();
   // Still use the previous interest rect because it contains the recomputed
   // interest rect.
@@ -665,8 +664,7 @@ TEST_F(CompositedLayerMappingTest, InterestRectChangeOnViewportScroll) {
             PreviousInterestRect(root_scrolling_layer));
 
   GetDocument().View()->LayoutViewport()->SetScrollOffset(
-      ScrollOffset(0, 2000),
-      mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
+      ScrollOffset(0, 2000), mojom::blink::ScrollType::kProgrammatic);
   // Use recomputed interest rect because it changed enough.
   UpdateAllLifecyclePhasesForTest();
   EXPECT_EQ(IntRect(0, 0, 800, 6600),
@@ -866,8 +864,7 @@ TEST_F(CompositedLayerMappingTest, InterestRectOfIframeInScrolledDiv) {
 
   // Scroll 8000 pixels down to move the iframe into view.
   GetDocument().View()->LayoutViewport()->SetScrollOffset(
-      ScrollOffset(0.0, 8000.0),
-      mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
+      ScrollOffset(0.0, 8000.0), mojom::blink::ScrollType::kProgrammatic);
   UpdateAllLifecyclePhasesForTest();
 
   Element* target = ChildDocument().getElementById("target");
@@ -898,8 +895,7 @@ TEST_F(CompositedLayerMappingTest, InterestRectOfScrolledIframe) {
 
   // Scroll 7500 pixels down to bring the scrollable area to the bottom.
   ChildDocument().View()->LayoutViewport()->SetScrollOffset(
-      ScrollOffset(0.0, 7500.0),
-      mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
+      ScrollOffset(0.0, 7500.0), mojom::blink::ScrollType::kProgrammatic);
   UpdateAllLifecyclePhasesForTest();
 
   ASSERT_TRUE(ChildDocument().View()->GetLayoutView()->HasLayer());
@@ -933,8 +929,7 @@ TEST_F(CompositedLayerMappingTest, InterestRectOfIframeWithContentBoxOffset) {
   // Scroll 3000 pixels down to bring the scrollable area to somewhere in the
   // middle.
   ChildDocument().View()->LayoutViewport()->SetScrollOffset(
-      ScrollOffset(0.0, 3000.0),
-      mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
+      ScrollOffset(0.0, 3000.0), mojom::blink::ScrollType::kProgrammatic);
   UpdateAllLifecyclePhasesForTest();
 
   ASSERT_TRUE(ChildDocument().View()->GetLayoutView()->HasLayer());
@@ -976,8 +971,7 @@ TEST_F(CompositedLayerMappingTest, InterestRectOfIframeWithFixedContents) {
   EXPECT_EQ(IntRect(1000, 0, 4400, 300), RecomputeInterestRect(graphics_layer));
 
   ChildDocument().View()->LayoutViewport()->SetScrollOffset(
-      ScrollOffset(0.0, 3000.0),
-      mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
+      ScrollOffset(0.0, 3000.0), mojom::blink::ScrollType::kProgrammatic);
   UpdateAllLifecyclePhasesForTest();
 
   // Because the fixed element does not scroll, the interest rect is unchanged.
@@ -1003,8 +997,7 @@ TEST_F(CompositedLayerMappingTest, ScrolledFixedPositionInterestRect) {
   EXPECT_EQ(IntRect(0, 500, 100, 4030), RecomputeInterestRect(graphics_layer));
 
   GetDocument().View()->LayoutViewport()->SetScrollOffset(
-      ScrollOffset(0.0, 200.0),
-      mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
+      ScrollOffset(0.0, 200.0), mojom::blink::ScrollType::kProgrammatic);
   UpdateAllLifecyclePhasesForTest();
 
   // Because the fixed element does not scroll, the interest rect is unchanged.
@@ -1157,7 +1150,7 @@ TEST_F(CompositedLayerMappingTest,
 
   const auto* container = ToLayoutBox(GetLayoutObjectByElementId("container"));
   EXPECT_EQ(kBackgroundPaintInScrollingContents,
-            container->GetBackgroundPaintLocation());
+            container->ComputeBackgroundPaintLocationIfComposited());
 
   // We currently don't use composited scrolling when the container has a
   // border-radius so even though we can paint the background onto the scrolling
@@ -1165,7 +1158,8 @@ TEST_F(CompositedLayerMappingTest,
   // this case.
   const auto* mapping = container->Layer()->GetCompositedLayerMapping();
   EXPECT_FALSE(mapping->HasScrollingLayer());
-  EXPECT_FALSE(mapping->BackgroundPaintsOntoScrollingContentsLayer());
+  EXPECT_EQ(kBackgroundPaintInGraphicsLayer,
+            container->GetBackgroundPaintLocation());
 }
 
 TEST_F(CompositedLayerMappingTest, StickyPositionMainThreadOffset) {
@@ -1199,7 +1193,8 @@ TEST_F(CompositedLayerMappingTest, StickyPositionMainThreadOffset) {
 
   sticky_layer->SetNeedsCompositingInputsUpdate();
   EXPECT_TRUE(sticky_layer->NeedsCompositingInputsUpdate());
-  GetDocument().View()->UpdateLifecycleToCompositingCleanPlusScrolling();
+  GetDocument().View()->UpdateLifecycleToCompositingCleanPlusScrolling(
+      DocumentUpdateReason::kTest);
   EXPECT_FALSE(sticky_layer->NeedsCompositingInputsUpdate());
 }
 
@@ -1432,20 +1427,23 @@ TEST_F(CompositedLayerMappingTest, ScrollingContainerBoundsChange) {
       scrolling_layer->layer_tree_host()->property_trees()->scroll_tree;
   EXPECT_EQ(0, scroll_tree.current_scroll_offset(element_id).y());
   EXPECT_EQ(150, scrolling_layer->bounds().height());
-  EXPECT_EQ(100, scrolling_layer->scroll_container_bounds().height());
+  auto* scroll_node = scroll_tree.FindNodeFromElementId(element_id);
+  EXPECT_EQ(100, scroll_node->container_bounds.height());
 
   scrollerElement->setScrollTop(300);
   scrollerElement->setAttribute(html_names::kStyleAttr, "max-height: 25px;");
   UpdateAllLifecyclePhasesForTest();
   EXPECT_EQ(50, scroll_tree.current_scroll_offset(element_id).y());
   EXPECT_EQ(150, scrolling_layer->bounds().height());
-  EXPECT_EQ(25, scrolling_layer->scroll_container_bounds().height());
+  scroll_node = scroll_tree.FindNodeFromElementId(element_id);
+  EXPECT_EQ(25, scroll_node->container_bounds.height());
 
   scrollerElement->setAttribute(html_names::kStyleAttr, "max-height: 300px;");
   UpdateAllLifecyclePhasesForTest();
   EXPECT_EQ(50, scroll_tree.current_scroll_offset(element_id).y());
   EXPECT_EQ(150, scrolling_layer->bounds().height());
-  EXPECT_EQ(100, scrolling_layer->scroll_container_bounds().height());
+  scroll_node = scroll_tree.FindNodeFromElementId(element_id);
+  EXPECT_EQ(100, scroll_node->container_bounds.height());
 }
 
 TEST_F(CompositedLayerMappingTest, MainFrameLayerBackgroundColor) {
@@ -1533,27 +1531,6 @@ TEST_F(CompositedLayerMappingTest, ScrollLayerSizingSubpixelAccumulation) {
             mapping->ScrollingContentsLayer()->Size().height());
 }
 
-TEST_F(CompositedLayerMappingTest, SquashingScroll) {
-  SetHtmlInnerHTML(R"HTML(
-    <style>
-      * { margin: 0 }
-    </style>
-    <div id=target
-        style='width: 200px; height: 200px; position: relative; will-change: transform'></div>
-    <div id=squashed
-        style='width: 200px; height: 200px; top: -200px; position: relative;'></div>
-    <div style='width: 10px; height: 3000px'></div>
-  )HTML");
-
-  auto* squashed =
-      ToLayoutBoxModelObject(GetLayoutObjectByElementId("squashed"))->Layer();
-  EXPECT_EQ(kPaintsIntoGroupedBacking, squashed->GetCompositingState());
-
-  GetDocument().View()->LayoutViewport()->ScrollBy(
-      ScrollOffset(0, 25), mojom::blink::ScrollIntoViewParams::Type::kUser);
-  UpdateAllLifecyclePhasesForTest();
-}
-
 TEST_F(CompositedLayerMappingTest, SquashingScrollInterestRect) {
   SetHtmlInnerHTML(R"HTML(
     <style>
@@ -1570,7 +1547,7 @@ TEST_F(CompositedLayerMappingTest, SquashingScrollInterestRect) {
   EXPECT_EQ(kPaintsIntoGroupedBacking, squashed->GetCompositingState());
 
   GetDocument().View()->LayoutViewport()->ScrollBy(
-      ScrollOffset(0, 5000), mojom::blink::ScrollIntoViewParams::Type::kUser);
+      ScrollOffset(0, 5000), mojom::blink::ScrollType::kUser);
   UpdateAllLifecyclePhasesForTest();
 
   EXPECT_EQ(IntRect(0, 1000, 200, 5000),
@@ -1794,12 +1771,14 @@ TEST_F(CompositedLayerMappingTest,
   GetDocument()
       .getElementById("uncorrelated")
       ->setAttribute(html_names::kStyleAttr, "width: 200px");
-  GetDocument().View()->UpdateAllLifecyclePhasesExceptPaint();
+  GetDocument().View()->UpdateAllLifecyclePhasesExceptPaint(
+      DocumentUpdateReason::kTest);
   EXPECT_FALSE(mapping->NeedsRepaint(*vertical_scrollbar_layer));
 
   GetDocument().getElementById("child")->setAttribute(html_names::kStyleAttr,
-                                                      "height: 300px");
-  GetDocument().View()->UpdateAllLifecyclePhasesExceptPaint();
+                                                      "height: 50px");
+  GetDocument().View()->UpdateAllLifecyclePhasesExceptPaint(
+      DocumentUpdateReason::kTest);
   EXPECT_TRUE(mapping->NeedsRepaint(*vertical_scrollbar_layer));
 }
 
@@ -1849,6 +1828,44 @@ TEST_F(CompositedLayerMappingTest, IsolationClippingContainer) {
   PaintLayer* squash_container_a_layer =
       ToLayoutBoxModelObject(squash_container_a->GetLayoutObject())->Layer();
   EXPECT_EQ(squash_container_a_layer->ClippingContainer(), isolation_a_object);
+}
+
+TEST_F(CompositedLayerMappingTest, FrameAttribution) {
+  SetBodyInnerHTML(R"HTML(
+    <div id='child' style='will-change: transform;'></div>
+    <iframe id='subframe' style='will-change: transform;'></iframe>
+  )HTML");
+
+  UpdateAllLifecyclePhasesForTest();
+
+  // Ensure that we correctly attribute child layers in the main frame to their
+  // containing document.
+  Element* child = GetDocument().getElementById("child");
+  PaintLayer* child_paint_layer =
+      ToLayoutBoxModelObject(child->GetLayoutObject())->Layer();
+  auto* child_layer = child_paint_layer->GraphicsLayerBacking()->CcLayer();
+  EXPECT_TRUE(child_layer->frame_element_id());
+
+  EXPECT_EQ(child_layer->frame_element_id(),
+            CompositorElementIdFromUniqueObjectId(
+                DOMNodeIds::IdForNode(&GetDocument()),
+                CompositorElementIdNamespace::kDOMNodeId));
+
+  // Test that a layerized subframe's element ID is that of its containing
+  // document.
+  auto* subframe =
+      To<HTMLFrameOwnerElement>(GetDocument().getElementById("subframe"));
+  EXPECT_TRUE(subframe);
+  PaintLayer* subframe_paint_layer =
+      ToLayoutBoxModelObject(subframe->GetLayoutObject())->Layer();
+  auto* subframe_layer =
+      subframe_paint_layer->GraphicsLayerBacking()->CcLayer();
+  EXPECT_TRUE(subframe_layer->frame_element_id());
+
+  EXPECT_EQ(subframe_layer->frame_element_id(),
+            CompositorElementIdFromUniqueObjectId(
+                DOMNodeIds::IdForNode(subframe->contentDocument()),
+                CompositorElementIdNamespace::kDOMNodeId));
 }
 
 }  // namespace blink

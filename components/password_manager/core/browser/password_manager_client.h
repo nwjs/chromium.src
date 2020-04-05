@@ -12,6 +12,8 @@
 #include "base/callback.h"
 #include "base/macros.h"
 #include "base/memory/scoped_refptr.h"
+#include "base/util/type_safety/strong_alias.h"
+#include "build/build_config.h"
 #include "components/autofill/core/common/mojom/autofill_types.mojom.h"
 #include "components/autofill/core/common/password_form.h"
 #include "components/password_manager/core/browser/credentials_filter.h"
@@ -20,6 +22,7 @@
 #include "components/password_manager/core/browser/leak_detection_dialog_utils.h"
 #include "components/password_manager/core/browser/manage_passwords_referrer.h"
 #include "components/password_manager/core/browser/password_manager_metrics_util.h"
+#include "components/password_manager/core/browser/password_reuse_detector.h"
 #include "components/password_manager/core/browser/password_store.h"
 #include "components/safe_browsing/buildflags.h"
 #include "net/cert/cert_status_flags.h"
@@ -44,6 +47,7 @@ namespace signin {
 class IdentityManager;
 }  // namespace signin
 
+struct CoreAccountId;
 class GURL;
 
 #if defined(ON_FOCUS_PING_ENABLED)
@@ -78,6 +82,7 @@ class PasswordManagerClient {
  public:
   using CredentialsCallback =
       base::Callback<void(const autofill::PasswordForm*)>;
+  using ReauthSucceeded = util::StrongAlias<class ReauthSucceededTag, bool>;
 
   PasswordManagerClient() {}
   virtual ~PasswordManagerClient() {}
@@ -202,7 +207,8 @@ class PasswordManagerClient {
   // Currently only implemented on Android.
   virtual void UpdateCredentialCache(
       const GURL& origin,
-      const std::vector<const autofill::PasswordForm*>& best_matches);
+      const std::vector<const autofill::PasswordForm*>& best_matches,
+      bool is_blacklisted);
 
   // Called when a password is saved in an automated fashion. Embedder may
   // inform the user that this save has occurred.
@@ -228,7 +234,14 @@ class PasswordManagerClient {
 
   // Informs the embedder that user credentials were leaked.
   virtual void NotifyUserCredentialsWereLeaked(CredentialLeakType leak_type,
-                                               const GURL& origin);
+                                               const GURL& origin,
+                                               const base::string16& username);
+
+  // Requests a reauth for the given |account_id| and triggers the
+  // |reauth_callback| with ReauthSucceeded(true) if reauthentication succeeded.
+  virtual void TriggerReauthForAccount(
+      const CoreAccountId& account_id,
+      base::OnceCallback<void(ReauthSucceeded)> reauth_callback);
 
   // Gets prefs associated with this embedder.
   virtual PrefService* GetPrefs() const = 0;
@@ -246,6 +259,11 @@ class PasswordManagerClient {
   // Returns true if last navigation page had HTTP error i.e 5XX or 4XX
   virtual bool WasLastNavigationHTTPError() const;
 
+  // Returns true if a credential leak dialog was shown. Used by Autofill
+  // Assistance to verify a password change intent. TODO(b/151391231): Remove
+  // when proper intent signing is implemented.
+  virtual bool WasCredentialLeakDialogShown() const;
+
   // Obtains the cert status for the main frame.
   virtual net::CertStatus GetMainFrameCertStatus() const;
 
@@ -261,8 +279,10 @@ class PasswordManagerClient {
   PasswordManager* GetPasswordManager();
   virtual const PasswordManager* GetPasswordManager() const;
 
+  // Returns the PasswordFeatureManager associated with this client. The
+  // non-const version calls the const one.
   PasswordFeatureManager* GetPasswordFeatureManager();
-  virtual const PasswordFeatureManager* GetPasswordFeatureManager() const = 0;
+  virtual const PasswordFeatureManager* GetPasswordFeatureManager() const;
 
   // Returns the HttpAuthManager associated with this client.
   virtual HttpAuthManager* GetHttpAuthManager();
@@ -313,7 +333,7 @@ class PasswordManagerClient {
   virtual void CheckProtectedPasswordEntry(
       metrics_util::PasswordType reused_password_type,
       const std::string& username,
-      const std::vector<std::string>& matching_domains,
+      const std::vector<MatchingReusedCredential>& matching_reused_credentials,
       bool password_field_exists) = 0;
 #endif
 

@@ -42,7 +42,7 @@
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/broadcastchannel/broadcast_channel.mojom-test-utils.h"
 #include "third_party/blink/public/mojom/broadcastchannel/broadcast_channel.mojom.h"
-#include "third_party/blink/public/mojom/dom_storage/storage_partition_service.mojom-test-utils.h"
+#include "third_party/blink/public/mojom/dom_storage/dom_storage.mojom-test-utils.h"
 #include "url/gurl.h"
 
 namespace content {
@@ -100,9 +100,11 @@ class IsolatedOriginTest : public IsolatedOriginTestBase {
   void InjectAndClickLinkTo(GURL url) {
     EXPECT_TRUE(ExecuteScript(web_contents(),
                               "var link = document.createElement('a');"
-                              "link.href = '" + url.spec() + "';"
-                              "document.body.appendChild(link);"
-                              "link.click();"));
+                              "link.href = '" +
+                                  url.spec() +
+                                  "';"
+                                  "document.body.appendChild(link);"
+                                  "link.click();"));
   }
 
  private:
@@ -160,16 +162,15 @@ class OriginIsolationOptInTest : public IsolatedOriginTestBase {
     if (request.relative_url == "/isolate_me") {
       response->set_code(net::HTTP_OK);
       response->set_content_type("text/html");
-      response->AddCustomHeader(net::HttpRequestHeaders::kSecOriginPolicy,
-                                "policy=isolate");
+      response->AddCustomHeader("Origin-Policy", "allowed=(latest)");
       response->set_content("isolate me!");
       return std::move(response);
     }
 
     // Intercepts the request to get the origin policy, and injects the policy.
     // Note: this will only be activated for requests that load "isolate_me"
-    // above, since only it sets the kSecOriginPolicy header.
-    if (request.relative_url == "/.well-known/origin-policy/isolate") {
+    // above, since only it sets the Origin-Policy header.
+    if (request.relative_url == "/.well-known/origin-policy") {
       response->set_code(net::HTTP_OK);
       response->set_content(origin_policy_manifest_);
       return std::move(response);
@@ -190,7 +191,7 @@ class OriginIsolationOptInTest : public IsolatedOriginTestBase {
 // In this test the sub-origin is isolated because the origin policy requests
 // "isolation". It will have a different site instance than the main frame.
 IN_PROC_BROWSER_TEST_F(OriginIsolationOptInTest, SimpleSubOriginIsolationTest) {
-  SetOriginPolicyManifest(R"({ "isolation": true })");
+  SetOriginPolicyManifest(R"({ "ids": ["my-policy"], "isolation": true })");
   // Start off with an a(a) page, then navigate the subframe to an isolated sub
   // origin.
   GURL test_url(https_server()->GetURL("foo.com",
@@ -223,7 +224,7 @@ IN_PROC_BROWSER_TEST_F(OriginIsolationOptInTest, SimpleSubOriginIsolationTest) {
 // request "isolation". It will have the same site instance as the main frame.
 IN_PROC_BROWSER_TEST_F(OriginIsolationOptInTest,
                        SimpleSubOriginNonIsolationTest) {
-  SetOriginPolicyManifest(R"({ })");
+  SetOriginPolicyManifest(R"({ "ids": ["my-policy"] })");
   // Start off with an a(a) page, then navigate the subframe to an isolated sub
   // origin.
   GURL test_url(https_server()->GetURL("foo.com",
@@ -244,7 +245,7 @@ IN_PROC_BROWSER_TEST_F(OriginIsolationOptInTest,
 // This test verifies that renderer-initiated navigations to/from isolated
 // sub-origins works as expected.
 IN_PROC_BROWSER_TEST_F(OriginIsolationOptInTest, RendererInitiatedNavigations) {
-  SetOriginPolicyManifest(R"({ "isolation": true })");
+  SetOriginPolicyManifest(R"({ "ids": ["my-policy"], "isolation": true })");
   GURL test_url(https_server()->GetURL("foo.com",
                                        "/cross_site_iframe_factory.html?"
                                        "foo.com(foo.com)"));
@@ -286,7 +287,7 @@ IN_PROC_BROWSER_TEST_F(OriginIsolationOptInTest, RendererInitiatedNavigations) {
 // Note: this test is essentially identical to
 // IsolatedOriginTest.MainFrameNavigation.
 IN_PROC_BROWSER_TEST_F(OriginIsolationOptInTest, MainFrameNavigation) {
-  SetOriginPolicyManifest(R"({ "isolation": true })");
+  SetOriginPolicyManifest(R"({ "ids": ["my-policy"], "isolation": true })");
   GURL unisolated_url(https_server()->GetURL("www.foo.com", "/title1.html"));
   GURL isolated_url(https_server()->GetURL("isolated.foo.com", "/isolate_me"));
 
@@ -360,7 +361,7 @@ IN_PROC_BROWSER_TEST_F(OriginIsolationOptInTest, MainFrameNavigation) {
 // if a new policy is received that removes the opt-in request.
 IN_PROC_BROWSER_TEST_F(OriginIsolationOptInTest,
                        OriginIsolationStateRetainedForBrowsingInstance) {
-  SetOriginPolicyManifest(R"({ "isolation": true })");
+  SetOriginPolicyManifest(R"({ "ids": ["my-policy"], "isolation": true })");
   // Start off with an a(a,a) page, then navigate the subframe to an isolated
   // sub origin.
   GURL test_url(https_server()->GetURL("foo.com",
@@ -405,7 +406,7 @@ IN_PROC_BROWSER_TEST_F(OriginIsolationOptInTest,
 IN_PROC_BROWSER_TEST_F(
     OriginIsolationOptInTest,
     DISABLED_OriginNonIsolationStateRetainedForBrowsingInstance) {
-  SetOriginPolicyManifest(R"({ })");
+  SetOriginPolicyManifest(R"({ "ids": ["my-policy"] })");
   // Start off with an a(a,a) page, then navigate the subframe to an isolated
   // sub origin.
   GURL test_url(https_server()->GetURL("foo.com",
@@ -426,7 +427,7 @@ IN_PROC_BROWSER_TEST_F(
 
   // Change OriginPolicy manifest to start isolating the sub-origin. It should
   // still be isolated, to remain consistent with the other frame.
-  SetOriginPolicyManifest(R"({ "isolation": true })");
+  SetOriginPolicyManifest(R"({ "ids": ["my-policy"], "isolation": true })");
   NavigateFrameToURL(child_frame_node1, isolated_sub_origin);
   EXPECT_EQ(root->current_frame_host()->GetSiteInstance(),
             child_frame_node1->current_frame_host()->GetSiteInstance());
@@ -445,7 +446,7 @@ IN_PROC_BROWSER_TEST_F(
 // site-keyed SiteInstance corresponding to the base-origin, and not the
 // origin-keyed SiteInstance the base origin is assigned to.
 IN_PROC_BROWSER_TEST_F(OriginIsolationOptInTest, IsolatedBaseOrigin) {
-  SetOriginPolicyManifest(R"({ "isolation": true })");
+  SetOriginPolicyManifest(R"({ "ids": ["my-policy"], "isolation": true })");
   // Start off with an isolated base-origin in an a(a) configuration, then
   // navigate the subframe to a sub-origin no requesting isolation.
   GURL test_url(https_server()->GetURL(
@@ -1534,26 +1535,27 @@ IN_PROC_BROWSER_TEST_F(IsolatedOriginTest, IsolatedOriginWithSubdomain) {
 // This class allows intercepting the OpenLocalStorage method and changing
 // the parameters to the real implementation of it.
 class StoragePartitonInterceptor
-    : public blink::mojom::StoragePartitionServiceInterceptorForTesting,
+    : public blink::mojom::DomStorageInterceptorForTesting,
       public RenderProcessHostObserver {
  public:
   StoragePartitonInterceptor(
       RenderProcessHostImpl* rph,
-      mojo::PendingReceiver<blink::mojom::StoragePartitionService> receiver,
+      mojo::PendingReceiver<blink::mojom::DomStorage> receiver,
       const url::Origin& origin_to_inject)
       : origin_to_inject_(origin_to_inject) {
     StoragePartitionImpl* storage_partition =
         static_cast<StoragePartitionImpl*>(rph->GetStoragePartition());
 
-    // Bind the real StoragePartitionService implementation.
-    mojo::ReceiverId receiver_id =
-        storage_partition->Bind(rph->GetID(), std::move(receiver));
+    // Bind the real DomStorage implementation.
+    mojo::PendingRemote<blink::mojom::DomStorageClient> unused_client;
+    ignore_result(unused_client.InitWithNewPipeAndPassReceiver());
+    mojo::ReceiverId receiver_id = storage_partition->BindDomStorage(
+        rph->GetID(), std::move(receiver), std::move(unused_client));
 
     // Now replace it with this object and keep a pointer to the real
     // implementation.
-    storage_partition_service_ =
-        storage_partition->receivers_for_testing().SwapImplForTesting(
-            receiver_id, this);
+    dom_storage_ = storage_partition->dom_storage_receivers_for_testing()
+                       .SwapImplForTesting(receiver_id, this);
 
     // Register the |this| as a RenderProcessHostObserver, so it can be
     // correctly cleaned up when the process exits.
@@ -1570,8 +1572,8 @@ class StoragePartitonInterceptor
 
   // Allow all methods that aren't explicitly overridden to pass through
   // unmodified.
-  blink::mojom::StoragePartitionService* GetForwardingInterface() override {
-    return storage_partition_service_;
+  blink::mojom::DomStorage* GetForwardingInterface() override {
+    return dom_storage_;
   }
 
   // Override this method to allow changing the origin. It simulates a
@@ -1587,17 +1589,17 @@ class StoragePartitonInterceptor
  private:
   // Keep a pointer to the original implementation of the service, so all
   // calls can be forwarded to it.
-  blink::mojom::StoragePartitionService* storage_partition_service_;
+  blink::mojom::DomStorage* dom_storage_;
 
   url::Origin origin_to_inject_;
 
   DISALLOW_COPY_AND_ASSIGN(StoragePartitonInterceptor);
 };
 
-void CreateTestStoragePartitionService(
+void CreateTestDomStorageBackend(
     const url::Origin& origin_to_inject,
     RenderProcessHostImpl* rph,
-    mojo::PendingReceiver<blink::mojom::StoragePartitionService> receiver) {
+    mojo::PendingReceiver<blink::mojom::DomStorage> receiver) {
   // This object will register as RenderProcessHostObserver, so it will
   // clean itself automatically on process exit.
   new StoragePartitonInterceptor(rph, std::move(receiver), origin_to_inject);
@@ -1610,9 +1612,8 @@ IN_PROC_BROWSER_TEST_F(
     LocalStorageOriginEnforcement_IsolatedAccessingNonIsolated) {
   auto mismatched_origin = url::Origin::Create(GURL("http://abc.foo.com"));
   EXPECT_FALSE(IsIsolatedOrigin(mismatched_origin));
-  RenderProcessHostImpl::SetStoragePartitionServiceRequestHandlerForTesting(
-      base::BindRepeating(&CreateTestStoragePartitionService,
-                          mismatched_origin));
+  RenderProcessHostImpl::SetDomStorageBinderForTesting(
+      base::BindRepeating(&CreateTestDomStorageBackend, mismatched_origin));
 
   GURL isolated_url(
       embedded_test_server()->GetURL("isolated.foo.com", "/title1.html"));
@@ -1620,7 +1621,7 @@ IN_PROC_BROWSER_TEST_F(
 
   EXPECT_TRUE(NavigateToURL(shell(), isolated_url));
 
-  content::RenderProcessHostKillWaiter kill_waiter(
+  content::RenderProcessHostBadIpcMessageWaiter kill_waiter(
       shell()->web_contents()->GetMainFrame()->GetProcess());
   // Use ignore_result here, since on Android the renderer process is
   // terminated, but ExecuteScript still returns true. It properly returns
@@ -1655,11 +1656,11 @@ IN_PROC_BROWSER_TEST_F(
       embedded_test_server()->GetURL("non-isolated.com", "/title1.html"));
   EXPECT_FALSE(IsIsolatedOrigin(url::Origin::Create(nonisolated_url)));
 
-  RenderProcessHostImpl::SetStoragePartitionServiceRequestHandlerForTesting(
-      base::BindRepeating(&CreateTestStoragePartitionService, isolated_origin));
+  RenderProcessHostImpl::SetDomStorageBinderForTesting(
+      base::BindRepeating(&CreateTestDomStorageBackend, isolated_origin));
   EXPECT_TRUE(NavigateToURL(shell(), nonisolated_url));
 
-  content::RenderProcessHostKillWaiter kill_waiter(
+  content::RenderProcessHostBadIpcMessageWaiter kill_waiter(
       shell()->web_contents()->GetMainFrame()->GetProcess());
   // Use ignore_result here, since on Android the renderer process is
   // terminated, but ExecuteScript still returns true. It properly returns
@@ -1676,15 +1677,15 @@ IN_PROC_BROWSER_TEST_F(IsolatedOriginTest,
   url::Origin precursor_origin =
       url::Origin::Create(GURL("https://non-isolated.com"));
   url::Origin opaque_origin = precursor_origin.DeriveNewOpaqueOrigin();
-  RenderProcessHostImpl::SetStoragePartitionServiceRequestHandlerForTesting(
-      base::BindRepeating(&CreateTestStoragePartitionService, opaque_origin));
+  RenderProcessHostImpl::SetDomStorageBinderForTesting(
+      base::BindRepeating(&CreateTestDomStorageBackend, opaque_origin));
 
   GURL isolated_url(
       embedded_test_server()->GetURL("isolated.foo.com", "/title1.html"));
   EXPECT_TRUE(IsIsolatedOrigin(url::Origin::Create(isolated_url)));
   EXPECT_TRUE(NavigateToURL(shell(), isolated_url));
 
-  content::RenderProcessHostKillWaiter kill_waiter(
+  content::RenderProcessHostBadIpcMessageWaiter kill_waiter(
       shell()->web_contents()->GetMainFrame()->GetProcess());
   // Use ignore_result here, since on Android the renderer process is
   // terminated, but ExecuteScript still returns true. It properly returns
@@ -2883,7 +2884,9 @@ class BroadcastChannelProviderInterceptor
     // Bind the real BroadcastChannelProvider implementation.
     mojo::ReceiverId receiver_id =
         storage_partition->GetBroadcastChannelProvider()->Connect(
-            rph->GetID(), std::move(receiver));
+            ChildProcessSecurityPolicyImpl::GetInstance()->CreateHandle(
+                rph->GetID()),
+            std::move(receiver));
 
     // Now replace it with this object and keep a pointer to the real
     // implementation.
@@ -2959,7 +2962,7 @@ IN_PROC_BROWSER_TEST_F(IsolatedOriginTest, BroadcastChannelOriginEnforcement) {
   EXPECT_TRUE(IsIsolatedOrigin(url::Origin::Create(isolated_url)));
   EXPECT_TRUE(NavigateToURL(shell(), isolated_url));
 
-  content::RenderProcessHostKillWaiter kill_waiter(
+  content::RenderProcessHostBadIpcMessageWaiter kill_waiter(
       shell()->web_contents()->GetMainFrame()->GetProcess());
   ExecuteScriptAsync(
       shell()->web_contents()->GetMainFrame(),

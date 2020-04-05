@@ -15,7 +15,7 @@ import "extension_install.proto";
 
 // Stores information about the user's brower and system configuration.
 // The system configuration fields are recorded once per client session.
-// Next tag: 33
+// Next tag: 35
 message SystemProfileProto {
   // The time when the client was compiled/linked, in seconds since the epoch.
   optional int64 build_timestamp = 1;
@@ -661,11 +661,12 @@ message SystemProfileProto {
     // client session.
     //
 
-    // The number of times the program was launched.
-    // This will typically be equal to 1.  However, it is possible that Chrome
-    // was unable to upload stability metrics for previous launches (e.g. due to
-    // crashing early during startup), and hence this value might be greater
-    // than 1.
+    // The number of times the program was launched since the last time metrics
+    // was uploaded. For the initial metrics upload (right after startup), this
+    // will often be equal to 1.  However, it is possible that Chrome was unable
+    // to upload stability metrics for previous launches (e.g. due to crashing
+    // early during startup), making this value greater than 1.  For subsequent
+    // metrics uploads, this value will be 0.
     optional int32 launch_count = 15;
     // The number of times that it didn't exit cleanly (which we assume to be
     // mostly crashes). On Android M71+ this does not include times when the Gms
@@ -750,6 +751,16 @@ message SystemProfileProto {
   // Seed version from variations_seed.proto used to instantiate FieldTrials
   // for this session.
   optional string variations_seed_version = 28;
+
+  // TODO(b/148689907): Deprecate this field once the analysis has been done.
+  // Whether the client_id in the log matches the client_id we used to assign
+  // field trials.
+  optional bool client_id_was_used_for_trial_assignment = 33;
+
+  // The unhashed client_id for this report. This is a uuid in its canonical
+  // textual represetnation in the form 8-4-4-4-12 for a total of 36 characters.
+  // Used to simulate field trial assignments for the client.
+  optional string client_uuid = 34;
 
   // Information about the A/V output device(s) (typically just a TV).
   // However, a configuration may have one or more intermediate A/V devices

@@ -80,8 +80,7 @@ Polymer({
     if (this.prefs === undefined) {
       return false;
     }
-    return !!this.getPref('profile.password_manager_leak_detection').value &&
-        !!this.getPref('safebrowsing.enabled').value;
+    return !!this.getPref('profile.password_manager_leak_detection').value;
   },
 
   /**
@@ -89,10 +88,20 @@ Polymer({
    * @private
    */
   getPasswordsLeakDetectionSubLabel_() {
+    let subLabel = this.i18n('passwordsLeakDetectionGeneralDescription');
     if (!this.userSignedIn_ && this.passwordsLeakDetectionAvailable_) {
-      return this.i18n('passwordsLeakDetectionSignedOutEnabledDescription');
+      subLabel +=
+          ' ' +  // Whitespace is a valid sentence separator w.r.t. i18n.
+          this.i18n('passwordsLeakDetectionSignedOutEnabledDescription') +
+          // The string appended on the previous line was added as a standalone
+          // sentence that did not end with a period. Since here we're appending
+          // it to a two-sentence string, with both of those sentences ending
+          // with periods, we must add a period at the end.
+          // TODO(crbug.com/1032584): After the privacy settings redesign, this
+          // string will never appear standalone. Include the period in it.
+          this.i18n('sentenceEnd');
     }
-    return '';
+    return subLabel;
   },
 
   /**
@@ -103,13 +112,14 @@ Polymer({
     if (this.prefs === undefined) {
       return false;
     }
-    return !this.userSignedIn_ || !this.getPref('safebrowsing.enabled').value;
+    return !this.userSignedIn_ || !this.getPref('safebrowsing.enabled').value ||
+        !!this.getPref('safebrowsing.enhanced').value;
   },
 
   /** @private */
   onPasswordsLeakDetectionChange_() {
     this.metricsBrowserProxy_.recordSettingsPageHistogram(
-        settings.SettingsPageInteractions.PRIVACY_PASSWORD_CHECK);
+        settings.PrivacyElementInteractions.PASSWORD_CHECK);
     this.setPrefValue(
         'profile.password_manager_leak_detection',
         this.$.passwordsLeakDetectionCheckbox.checked);

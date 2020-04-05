@@ -37,7 +37,7 @@ class MODULES_EXPORT PaintRenderingContext2D : public ScriptWrappable,
                           float zoom,
                           float device_scale_factor);
 
-  void Trace(blink::Visitor* visitor) override {
+  void Trace(Visitor* visitor) override {
     visitor->Trace(context_settings_);
     ScriptWrappable::Trace(visitor);
     BaseRenderingContext2D::Trace(visitor);
@@ -54,8 +54,8 @@ class MODULES_EXPORT PaintRenderingContext2D : public ScriptWrappable,
 
   bool ParseColorOrCurrentColor(Color&, const String& color_string) const final;
 
-  cc::PaintCanvas* DrawingCanvas() const final;
-  cc::PaintCanvas* ExistingDrawingCanvas() const final;
+  cc::PaintCanvas* GetOrCreatePaintCanvas() final { return GetPaintCanvas(); }
+  cc::PaintCanvas* GetPaintCanvas() const final;
 
   void DidDraw(const SkIRect&) final;
 
@@ -100,7 +100,6 @@ class MODULES_EXPORT PaintRenderingContext2D : public ScriptWrappable,
 
  private:
   void InitializePaintRecorder();
-  cc::PaintCanvas* Canvas() const;
 
   std::unique_ptr<PaintRecorder> paint_recorder_;
   sk_sp<PaintRecord> previous_frame_;

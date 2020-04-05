@@ -8,25 +8,26 @@ import android.content.Context;
 import android.content.res.ColorStateList;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
-import android.support.v7.content.res.AppCompatResources;
 import android.util.AttributeSet;
 import android.view.View;
+import android.view.ViewPropertyAnimator;
 import android.widget.ImageButton;
 import android.widget.RelativeLayout;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
+import androidx.appcompat.content.res.AppCompatResources;
 
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.chrome.R;
+import org.chromium.chrome.browser.device.DeviceClassManager;
+import org.chromium.chrome.browser.tasks.tab_management.TabUiFeatureUtilities;
 import org.chromium.chrome.browser.toolbar.IncognitoStateProvider;
 import org.chromium.chrome.browser.toolbar.MenuButton;
 import org.chromium.chrome.browser.toolbar.NewTabButton;
-import org.chromium.chrome.browser.toolbar.top.StartSurfaceToolbarProperties.IPHContainer;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuButtonHelper;
-import org.chromium.chrome.browser.util.AccessibilityUtil;
 import org.chromium.components.browser_ui.styles.ChromeColors;
-import org.chromium.components.browser_ui.widget.textbubble.TextBubble;
+import org.chromium.components.browser_ui.widget.animation.Interpolators;
 import org.chromium.ui.util.ColorUtils;
 
 /** View of the StartSurfaceToolbar */
@@ -40,9 +41,14 @@ class StartSurfaceToolbarView extends RelativeLayout {
     private int mPrimaryColor;
     private ColorStateList mLightIconTint;
     private ColorStateList mDarkIconTint;
+    private ViewPropertyAnimator mVisibilityAnimator;
 
     private Rect mLogoRect = new Rect();
     private Rect mViewRect = new Rect();
+
+    private boolean mShouldShow;
+    private boolean mInStartSurfaceMode;
+    private boolean mIsShowing;
 
     public StartSurfaceToolbarView(Context context, AttributeSet attrs) {
         super(context, attrs);
@@ -51,7 +57,6 @@ class StartSurfaceToolbarView extends RelativeLayout {
     @Override
     protected void onFinishInflate() {
         super.onFinishInflate();
-
         mNewTabButton = findViewById(R.id.new_tab_button);
         mIncognitoSwitch = findViewById(R.id.incognito_switch);
         mMenuButton = findViewById(R.id.menu_button_wrapper);
@@ -177,6 +182,11 @@ class StartSurfaceToolbarView extends RelativeLayout {
         mNewTabButton.onAccessibilityStatusChanged();
     }
 
+    /** @return The View for the identity disc. */
+    View getIdentityDiscView() {
+        return mIdentityDiscButton;
+    }
+
     /**
      * @param isVisible Whether the identity disc is visible.
      */
@@ -211,17 +221,66 @@ class StartSurfaceToolbarView extends RelativeLayout {
     }
 
     /**
-     * Show the IPH for the identity disc button.
+     * Show or hide toolbar from tab.
+     * @param inStartSurfaceMode Whether or not toolbar should be shown or hidden.
+     * */
+    void setStartSurfaceMode(boolean inStartSurfaceMode) {
+        mInStartSurfaceMode = inStartSurfaceMode;
+        showStartSurfaceToolbar(mInStartSurfaceMode && mShouldShow, true);
+    }
+
+    /**
+     * Show or hide toolbar.
+     * @param shouldShowStartSurfaceToolbar Whether or not toolbar should be shown or hidden.
+     * */
+    void setToolbarVisibility(boolean shouldShowStartSurfaceToolbar) {
+        mShouldShow = shouldShowStartSurfaceToolbar;
+        showStartSurfaceToolbar(mInStartSurfaceMode && mShouldShow, false);
+    }
+
+    /**
+     * Start animation to show or hide toolbar.
+     * @param showStartSurfaceToolbar Whether or not toolbar should be shown or hidden.
+     * @param animateToTab Whether or not animation is from or to tab.
      */
-    void showIPHOnIdentityDisc(IPHContainer iphContainer) {
-        TextBubble textBubble = new TextBubble(getContext(), mIdentityDiscButton,
-                iphContainer.stringId, iphContainer.accessibilityStringId, mIdentityDiscButton,
-                AccessibilityUtil.isAccessibilityEnabled());
-        textBubble.setDismissOnTouchInteraction(true);
-        if (iphContainer.dismissedCallback != null) {
-            textBubble.addOnDismissListener(() -> { iphContainer.dismissedCallback.run(); });
+    private void showStartSurfaceToolbar(boolean showStartSurfaceToolbar, boolean animateToTab) {
+        if (showStartSurfaceToolbar == mIsShowing) return;
+
+        if (mVisibilityAnimator != null) {
+            mVisibilityAnimator.cancel();
+            mVisibilityAnimator = null;
         }
-        textBubble.show();
+
+        mIsShowing = showStartSurfaceToolbar;
+
+        if (DeviceClassManager.enableAccessibilityLayout()) {
+            finishAnimation(showStartSurfaceToolbar);
+            return;
+        }
+
+        setAlpha(showStartSurfaceToolbar ? 0.0f : 1.0f);
+        setVisibility(View.VISIBLE);
+
+        boolean showZoomingAnimation =
+                animateToTab && TabUiFeatureUtilities.isTabToGtsAnimationEnabled();
+        final long duration = showZoomingAnimation
+                ? TopToolbarCoordinator.TAB_SWITCHER_MODE_GTS_ANIMATION_DURATION_MS
+                : TopToolbarCoordinator.TAB_SWITCHER_MODE_NORMAL_ANIMATION_DURATION_MS;
+
+        mVisibilityAnimator =
+                animate()
+                        .alpha(showStartSurfaceToolbar ? 1.0f : 0.0f)
+                        .setDuration(duration)
+                        .setStartDelay(
+                                showZoomingAnimation && showStartSurfaceToolbar ? duration : 0)
+                        .setInterpolator(Interpolators.LINEAR_INTERPOLATOR)
+                        .withEndAction(() -> { finishAnimation(showStartSurfaceToolbar); });
+    }
+
+    private void finishAnimation(boolean showStartSurfaceToolbar) {
+        setAlpha(1.0f);
+        setVisibility(showStartSurfaceToolbar ? View.VISIBLE : View.GONE);
+        mVisibilityAnimator = null;
     }
 
     private void updatePrimaryColorAndTint(boolean isIncognito) {
@@ -229,10 +288,10 @@ class StartSurfaceToolbarView extends RelativeLayout {
         setBackgroundColor(primaryColor);
 
         if (mLightIconTint == null) {
-            mLightIconTint =
-                    AppCompatResources.getColorStateList(getContext(), R.color.tint_on_dark_bg);
-            mDarkIconTint =
-                    AppCompatResources.getColorStateList(getContext(), R.color.standard_mode_tint);
+            mLightIconTint = AppCompatResources.getColorStateList(
+                    getContext(), R.color.default_icon_color_light_tint_list);
+            mDarkIconTint = AppCompatResources.getColorStateList(
+                    getContext(), R.color.default_icon_color_tint_list);
         }
 
         boolean useLightIcons = ColorUtils.shouldUseLightForegroundOnBackground(primaryColor);

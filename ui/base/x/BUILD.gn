@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 import("//build/config/jumbo.gni")
+import("//build/config/linux/gtk/gtk.gni")
 import("//build/config/ui.gni")
 import("//ui/ozone/ozone.gni")
 
@@ -20,10 +21,12 @@ jumbo_component("x") {
     "x11_display_util.h",
     "x11_menu_list.cc",
     "x11_menu_list.h",
+    "x11_menu_registrar.cc",
+    "x11_menu_registrar.h",
     "x11_pointer_grab.cc",
     "x11_pointer_grab.h",
-    "x11_shm_image_pool_base.cc",
-    "x11_shm_image_pool_base.h",
+    "x11_shm_image_pool.cc",
+    "x11_shm_image_pool.h",
     "x11_software_bitmap_presenter.cc",
     "x11_software_bitmap_presenter.h",
     "x11_topmost_window_finder.cc",
@@ -33,19 +36,9 @@ jumbo_component("x") {
     "x11_util_internal.h",
     "x11_window.cc",
     "x11_window.h",
+    "x11_workspace_handler.cc",
+    "x11_workspace_handler.h",
   ]
-
-  if (use_x11) {
-    sources += [
-      "x11_shm_image_pool.cc",
-      "x11_shm_image_pool.h",
-    ]
-  } else {
-    sources += [
-      "x11_shm_image_pool_ozone.cc",
-      "x11_shm_image_pool_ozone.h",
-    ]
-  }
 
   if (is_desktop_linux) {
     sources += [

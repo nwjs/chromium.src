@@ -6,6 +6,7 @@
   "xcode build version": "11c29",
   "gn_args": [
     "goma_dir=\"$(goma_dir)\"",
+    "ios_use_goma_rbe=true",
     "is_component_build=false",
     "is_debug=true",
     "symbol_level=1",
@@ -51,6 +52,13 @@
       "host os": "Mac-10.14.6"
     },
     {
+      "app": "crashpad_tests",
+      "device type": "iPhone X",
+      "os": "13.3",
+      "pool":"chromium.tests.template",
+      "host os": "Mac-10.14.6"
+    },
+    {
       "xcode parallelization": true,
       "include": "eg2_tests.json",
       "device type": "iPhone X",
@@ -78,6 +86,13 @@
       "xcode parallelization": true,
       "include": "eg2_tests.json",
       "device type": "iPad Air 2",
+      "os": "12.4",
+      "pool":"chromium.tests.template",
+      "host os": "Mac-10.14.6"
+    },
+    {
+      "app": "crashpad_tests",
+      "device type": "iPhone X",
       "os": "12.4",
       "pool":"chromium.tests.template",
       "host os": "Mac-10.14.6"

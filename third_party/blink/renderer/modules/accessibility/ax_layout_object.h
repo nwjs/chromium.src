@@ -37,7 +37,6 @@
 namespace blink {
 
 class AXObjectCacheImpl;
-class AXSVGRoot;
 class Element;
 class HTMLAreaElement;
 class IntPoint;
@@ -51,7 +50,6 @@ class MODULES_EXPORT AXLayoutObject : public AXNodeObject {
 
   // Public, overridden from AXObject.
   LayoutObject* GetLayoutObject() const final { return layout_object_; }
-  LayoutBoxModelObject* GetLayoutBoxModelObject() const;
   ScrollableArea* GetScrollableAreaIfScrollable() const final;
   ax::mojom::Role DetermineAccessibilityRole() override;
   ax::mojom::Role NativeRoleIgnoringAria() const override;
@@ -63,6 +61,8 @@ class MODULES_EXPORT AXLayoutObject : public AXNodeObject {
  protected:
   LayoutObject* layout_object_;
 
+  LayoutBoxModelObject* GetLayoutBoxModelObject() const override;
+
   LayoutObject* LayoutObjectForRelativeBounds() const override {
     return layout_object_;
   }
@@ -73,8 +73,8 @@ class MODULES_EXPORT AXLayoutObject : public AXNodeObject {
 
   void Init() override;
   void Detach() override;
-  bool IsDetached() const override { return !layout_object_; }
-  bool IsAXLayoutObject() const override { return true; }
+  bool IsDetached() const override;
+  bool IsAXLayoutObject() const final;
 
   // Check object role or purpose.
   bool IsAutofillAvailable() const override;
@@ -120,7 +120,6 @@ class MODULES_EXPORT AXLayoutObject : public AXNodeObject {
       ax::mojom::TextDecorationStyle* text_underline_style) const final;
 
   // Inline text boxes.
-  void LoadInlineTextBoxes() override;
   AXObject* NextOnLine() const override;
   AXObject* PreviousOnLine() const override;
 
@@ -164,12 +163,6 @@ class MODULES_EXPORT AXLayoutObject : public AXNodeObject {
   // accessibility module.
   AXObject* RawFirstChild() const override;
   AXObject* RawNextSibling() const override;
-  void AddChildren() override;
-  void AddListMarker() override;
-  void AddInlineTextBoxChildren(bool force) override;
-  void AddImageMapChildren() override;
-  void AddHiddenChildren() override;
-  void AddPopupChildren() override;
   bool CanHaveChildren() const override;
 
   // Properties of the object's owning document or page.
@@ -215,14 +208,9 @@ class MODULES_EXPORT AXLayoutObject : public AXNodeObject {
   bool IsTabItemSelected() const;
   AXObject* AccessibilityImageMapHitTest(HTMLAreaElement*,
                                          const IntPoint&) const;
-  bool IsSVGImage() const;
   void DetachRemoteSVGRoot();
-  AXSVGRoot* RemoteSVGRootElement() const;
   AXObject* RemoteSVGElementHitTest(const IntPoint&) const;
   void OffsetBoundingBoxForRemoteSVGElement(LayoutRect&) const;
-  void AddRemoteSVGChildren();
-  void AddTableChildren();
-  void AddValidationMessageChild();
   bool FindAllTableCellsWithRole(ax::mojom::Role, AXObjectVector&) const;
 
   LayoutRect ComputeElementRect() const;
@@ -240,7 +228,12 @@ class MODULES_EXPORT AXLayoutObject : public AXNodeObject {
   DISALLOW_COPY_AND_ASSIGN(AXLayoutObject);
 };
 
-DEFINE_AX_OBJECT_TYPE_CASTS(AXLayoutObject, IsAXLayoutObject());
+template <>
+struct DowncastTraits<AXLayoutObject> {
+  static bool AllowFrom(const AXObject& object) {
+    return object.IsAXLayoutObject();
+  }
+};
 
 }  // namespace blink
 

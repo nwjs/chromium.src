@@ -81,6 +81,32 @@ TEST(JsonEncoder, NotAContinuationByte) {
   EXPECT_EQ("\"Hello\"", out);  // "Hello" shows we restarted at 'H'.
 }
 
+TEST(JsonEncoder, EscapesLoneHighSurrogates) {
+  // This tests that the JSON encoder escapes lone high surrogates, i.e.
+  // invalid code points in the range from 0xD800 to 0xDBFF. In
+  // unescaped form, these cannot be represented in well-formed UTF-8 or
+  // UTF-16.
+  std::vector<uint16_t> chars = {'a', 0xd800, 'b', 0xdada, 'c', 0xdbff, 'd'};
+  std::string out;
+  Status status;
+  std::unique_ptr<ParserHandler> writer = NewJSONEncoder(&out, &status);
+  writer->HandleString16(span<uint16_t>(chars.data(), chars.size()));
+  EXPECT_EQ("\"a\\ud800b\\udadac\\udbffd\"", out);
+}
+
+TEST(JsonEncoder, EscapesLoneLowSurrogates) {
+  // This tests that the JSON encoder escapes lone low surrogates, i.e.
+  // invalid code points in the range from 0xDC00 to 0xDFFF. In
+  // unescaped form, these cannot be represented in well-formed UTF-8 or
+  // UTF-16.
+  std::vector<uint16_t> chars = {'a', 0xdc00, 'b', 0xdede, 'c', 0xdfff, 'd'};
+  std::string out;
+  Status status;
+  std::unique_ptr<ParserHandler> writer = NewJSONEncoder(&out, &status);
+  writer->HandleString16(span<uint16_t>(chars.data(), chars.size()));
+  EXPECT_EQ("\"a\\udc00b\\udedec\\udfffd\"", out);
+}
+
 TEST(JsonEncoder, EscapesFFFF) {
   // This tests that the JSON encoder will escape the UTF16 input 0xffff as
   // \uffff; useful to check this since it's an edge case.
@@ -155,6 +181,32 @@ TEST(JsonStdStringWriterTest, HelloWorld) {
       "\"msg2\":\"\\\\\\b\\r\\n\\t\\f\\\"\","
       "\"nested\":{\"double\":3.1415,\"int\":-42,"
       "\"bool\":false,\"null\":null},\"array\":[1,2,3]}",
+      out);
+}
+
+TEST(JsonStdStringWriterTest, ScalarsAreRenderedAsInt) {
+  // Test that Number.MIN_SAFE_INTEGER / Number.MAX_SAFE_INTEGER from Javascript
+  // are rendered as integers (no decimal point / rounding), even when we
+  // encode them from double. Javascript's Number is an IEE754 double, so
+  // it has 53 bits to represent integers.
+  std::string out;
+  Status status;
+  std::unique_ptr<ParserHandler> writer = NewJSONEncoder(&out, &status);
+  writer->HandleMapBegin();
+
+  writer->HandleString8(SpanFrom("Number.MIN_SAFE_INTEGER"));
+  EXPECT_EQ(-0x1fffffffffffff, -9007199254740991);  // 53 bits for integers.
+  writer->HandleDouble(-9007199254740991);          // Note HandleDouble here.
+
+  writer->HandleString8(SpanFrom("Number.MAX_SAFE_INTEGER"));
+  EXPECT_EQ(0x1fffffffffffff, 9007199254740991);  // 53 bits for integers.
+  writer->HandleDouble(9007199254740991);         // Note HandleDouble here.
+
+  writer->HandleMapEnd();
+  EXPECT_TRUE(status.ok());
+  EXPECT_EQ(
+      "{\"Number.MIN_SAFE_INTEGER\":-9007199254740991,"
+      "\"Number.MAX_SAFE_INTEGER\":9007199254740991}",
       out);
 }
 

@@ -31,6 +31,7 @@
 #include "content/public/common/navigation_policy.h"
 #include "third_party/blink/public/common/frame/sandbox_flags.h"
 #include "third_party/blink/public/mojom/frame/user_activation_update_types.mojom.h"
+#include "third_party/blink/public/mojom/security_context/insecure_request_policy.mojom.h"
 
 namespace content {
 
@@ -94,16 +95,17 @@ FrameTreeNode* FrameTreeNode::GloballyFindByID(int frame_tree_node_id) {
   return it == nodes->end() ? nullptr : it->second;
 }
 
-FrameTreeNode::FrameTreeNode(FrameTree* frame_tree,
-                             Navigator* navigator,
-                             FrameTreeNode* parent,
-                             blink::WebTreeScopeType scope,
-                             const std::string& name,
-                             const std::string& unique_name,
-                             bool is_created_by_script,
-                             const base::UnguessableToken& devtools_frame_token,
-                             const FrameOwnerProperties& frame_owner_properties,
-                             blink::FrameOwnerElementType owner_type)
+FrameTreeNode::FrameTreeNode(
+    FrameTree* frame_tree,
+    Navigator* navigator,
+    FrameTreeNode* parent,
+    blink::WebTreeScopeType scope,
+    const std::string& name,
+    const std::string& unique_name,
+    bool is_created_by_script,
+    const base::UnguessableToken& devtools_frame_token,
+    const blink::mojom::FrameOwnerProperties& frame_owner_properties,
+    blink::FrameOwnerElementType owner_type)
     : frame_tree_(frame_tree),
       navigator_(navigator),
       render_manager_(this, frame_tree->manager_delegate()),
@@ -118,7 +120,10 @@ FrameTreeNode::FrameTreeNode(FrameTree* frame_tree,
           scope,
           name,
           unique_name,
-          false /* should enforce strict mixed content checking */,
+          blink::mojom::InsecureRequestPolicy::
+              kLeaveInsecureRequestsAlone /* should enforce strict mixed content
+                                             checking */
+          ,
           std::vector<uint32_t>()
           /* hashes of hosts for insecure request upgrades */,
           false /* is a potentially trustworthy unique origin */,
@@ -226,7 +231,7 @@ void FrameTreeNode::ResetForNavigation() {
 
   // Clear any CSP-set sandbox flags, and the declared feature policy for the
   // frame.
-  UpdateFramePolicyHeaders(blink::WebSandboxFlags::kNone, {});
+  UpdateFramePolicyHeaders(blink::mojom::WebSandboxFlags::kNone, {});
 
   // This frame has had its user activation bits cleared in the renderer
   // before arriving here. We just need to clear them here and in the other
@@ -342,7 +347,7 @@ void FrameTreeNode::AddContentSecurityPolicies(
 }
 
 void FrameTreeNode::SetInsecureRequestPolicy(
-    blink::WebInsecureRequestPolicy policy) {
+    blink::mojom::InsecureRequestPolicy policy) {
   if (policy == replication_state_.insecure_request_policy)
     return;
   render_manager_.OnEnforceInsecureRequestPolicy(policy);
@@ -361,6 +366,8 @@ void FrameTreeNode::SetInsecureNavigationsSet(
 
 void FrameTreeNode::SetPendingFramePolicy(blink::FramePolicy frame_policy) {
   pending_frame_policy_.sandbox_flags = frame_policy.sandbox_flags;
+  pending_frame_policy_.disallow_document_access =
+      frame_policy.disallow_document_access;
 
   if (parent()) {
     // Subframes should always inherit their parent's sandbox flags.
@@ -407,6 +414,9 @@ bool FrameTreeNode::CommitFramePolicy(
   bool did_change_required_document_policy =
       pending_frame_policy_.required_document_policy !=
       replication_state_.frame_policy.required_document_policy;
+  bool did_change_document_access =
+      new_frame_policy.disallow_document_access !=
+      replication_state_.frame_policy.disallow_document_access;
   if (did_change_flags)
     replication_state_.frame_policy.sandbox_flags =
         new_frame_policy.sandbox_flags;
@@ -416,11 +426,14 @@ bool FrameTreeNode::CommitFramePolicy(
   if (did_change_required_document_policy)
     replication_state_.frame_policy.required_document_policy =
         new_frame_policy.required_document_policy;
+  if (did_change_document_access)
+    replication_state_.frame_policy.disallow_document_access =
+        new_frame_policy.disallow_document_access;
 
   UpdateFramePolicyHeaders(new_frame_policy.sandbox_flags,
                            replication_state_.feature_policy_header);
   return did_change_flags || did_change_container_policy ||
-         did_change_required_document_policy;
+         did_change_required_document_policy || did_change_document_access;
 }
 
 void FrameTreeNode::TransferNavigationRequestOwnership(
@@ -560,7 +573,7 @@ void FrameTreeNode::BeforeUnloadCanceled() {
     speculative_frame_host->ResetLoadingState();
   // Note: there is no need to set an error code on the NavigationHandle here
   // as it has not been created yet. It is only created when the
-  // BeforeUnloadACK is received.
+  // BeforeUnloadCompleted callback is invoked.
   if (navigation_request_)
     ResetNavigationRequest(false);
 }
@@ -674,7 +687,7 @@ FrameTreeNode* FrameTreeNode::GetSibling(int relative_offset) const {
 }
 
 void FrameTreeNode::UpdateFramePolicyHeaders(
-    blink::WebSandboxFlags sandbox_flags,
+    blink::mojom::WebSandboxFlags sandbox_flags,
     const blink::ParsedFeaturePolicy& parsed_header) {
   bool changed = false;
   if (replication_state_.feature_policy_header != parsed_header) {
@@ -683,7 +696,7 @@ void FrameTreeNode::UpdateFramePolicyHeaders(
   }
   // TODO(iclelland): Kill the renderer if sandbox flags is not a subset of the
   // currently effective sandbox flags from the frame. https://crbug.com/740556
-  blink::WebSandboxFlags updated_flags =
+  blink::mojom::WebSandboxFlags updated_flags =
       sandbox_flags | effective_frame_policy().sandbox_flags;
   if (replication_state_.active_sandbox_flags != updated_flags) {
     replication_state_.active_sandbox_flags = updated_flags;

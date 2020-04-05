@@ -102,20 +102,35 @@ class CrostiniExportImport : public KeyedService,
   // Import the crostini container showing FileDialog.
   void ImportContainer(content::WebContents* web_contents);
 
-  // Export |container| to |path| and invoke |callback| when complete.
+  // Export |container_id| to |path| and invoke |callback| when complete.
   void ExportContainer(ContainerId container_id,
                        base::FilePath path,
                        CrostiniManager::CrostiniResultCallback callback);
-  // Import |container| to |path| and invoke |callback| when complete.
+  // Import |container_id| from |path| and invoke |callback| when complete.
   void ImportContainer(ContainerId container_id,
                        base::FilePath path,
                        CrostiniManager::CrostiniResultCallback callback);
 
-  void ExportContainer(content::WebContents* web_contents,
-                       ContainerId container_id,
+  // Export |container_id| showing FileDialog, and using |tracker_factory| for
+  // status tracking.
+  void ExportContainer(ContainerId container_id,
+                       content::WebContents* web_contents,
                        OnceTrackerFactory tracker_factory);
-  void ImportContainer(content::WebContents* web_contents,
-                       ContainerId container_id,
+  // Import |container_id| showing FileDialog, and using |tracker_factory| for
+  // status tracking.
+  void ImportContainer(ContainerId container_id,
+                       content::WebContents* web_contents,
+                       OnceTrackerFactory tracker_factory);
+
+  // Export |container| to |path| and invoke |tracker_factory| to create a
+  // tracker for this operation.
+  void ExportContainer(ContainerId container_id,
+                       base::FilePath path,
+                       OnceTrackerFactory tracker_factory);
+  // Import |container| from |path| and invoke |tracker_factory| to create a
+  // tracker for this operation.
+  void ImportContainer(ContainerId container_id,
+                       base::FilePath path,
                        OnceTrackerFactory tracker_factory);
 
   // Cancel currently running export/import.
@@ -123,6 +138,9 @@ class CrostiniExportImport : public KeyedService,
 
   // Whether an export or import is currently in progress.
   bool GetExportImportOperationStatus() const;
+
+  // Returns the default location to export the container to.
+  base::FilePath GetDefaultBackupPath() const;
 
   base::WeakPtr<CrostiniExportImportNotificationController>
   GetNotificationControllerForTesting(ContainerId container_id);

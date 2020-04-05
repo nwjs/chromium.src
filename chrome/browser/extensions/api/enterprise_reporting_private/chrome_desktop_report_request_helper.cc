@@ -23,10 +23,11 @@
 #include "chrome/browser/extensions/api/enterprise_reporting_private/prefs.h"
 #include "chrome/browser/policy/browser_dm_token_storage.h"
 #include "chrome/browser/policy/chrome_browser_policy_connector.h"
-#include "chrome/browser/policy/policy_conversions.h"
+#include "chrome/browser/policy/chrome_policy_conversions_client.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/channel_info.h"
 #include "chrome/common/pref_names.h"
+#include "components/policy/core/browser/policy_conversions.h"
 #include "components/policy/core/common/cloud/cloud_policy_client.h"
 #include "components/policy/core/common/cloud/cloud_policy_util.h"
 #include "components/policy/core/common/cloud/machine_level_user_cloud_policy_manager.h"
@@ -130,10 +131,11 @@ void AppendAdditionalBrowserInformation(em::ChromeDesktopReportRequest* request,
   if (prefs->GetBoolean(enterprise_reporting::kReportPolicyData)) {
     // Set policy data of the first profile. Extension will report this data in
     // the future.
+    auto client =
+        std::make_unique<policy::ChromePolicyConversionsClient>(profile);
     request->mutable_browser_report()
         ->mutable_chrome_user_profile_reports(0)
-        ->set_policy_data(policy::DictionaryPolicyConversions()
-                              .WithBrowserContext(profile)
+        ->set_policy_data(policy::DictionaryPolicyConversions(std::move(client))
                               .EnablePrettyPrint(false)
                               .ToJSON());
 

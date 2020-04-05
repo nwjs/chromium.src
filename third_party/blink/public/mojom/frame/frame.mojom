@@ -7,23 +7,33 @@ module blink.mojom;
 import "cc/mojom/touch_action.mojom";
 import "mojo/public/mojom/base/string16.mojom";
 import "mojo/public/mojom/base/unguessable_token.mojom";
+import "mojo/public/mojom/base/text_direction.mojom";
 import "mojo/public/mojom/base/time.mojom";
+import "services/data_decoder/public/mojom/resource_snapshot_for_web_bundle.mojom";
 import "services/network/public/mojom/content_security_policy.mojom";
+import "services/network/public/mojom/fetch_api.mojom";
 import "skia/public/mojom/skcolor.mojom";
 import "third_party/blink/public/mojom/ad_tagging/ad_frame.mojom";
 import "third_party/blink/public/mojom/devtools/console_message.mojom";
+import "third_party/blink/public/mojom/devtools/inspector_issue.mojom";
+import "third_party/blink/public/mojom/feature_policy/feature_policy.mojom";
+import "third_party/blink/public/mojom/favicon/favicon_url.mojom";
 import "third_party/blink/public/mojom/frame/blocked_navigation_types.mojom";
+import "third_party/blink/public/mojom/frame/frame_policy.mojom";
 import "third_party/blink/public/mojom/frame/fullscreen.mojom";
 import "third_party/blink/public/mojom/frame/intrinsic_sizing_info.mojom";
 import "third_party/blink/public/mojom/frame/lifecycle.mojom";
 import "third_party/blink/public/mojom/frame/media_player_action.mojom";
 import "third_party/blink/public/mojom/frame/sudden_termination_disabler_type.mojom";
 import "third_party/blink/public/mojom/frame/user_activation_update_types.mojom";
+import "third_party/blink/public/mojom/frame/frame_owner_properties.mojom";
 import "third_party/blink/public/mojom/input/focus_type.mojom";
 import "third_party/blink/public/mojom/input/scroll_direction.mojom";
-import "third_party/blink/public/mojom/timing/resource_timing.mojom";
-import "third_party/blink/public/mojom/web_feature/web_feature.mojom";
 import "third_party/blink/public/mojom/scroll/scroll_into_view_params.mojom";
+import "third_party/blink/public/mojom/referrer.mojom";
+import "third_party/blink/public/mojom/timing/resource_timing.mojom";
+import "third_party/blink/public/mojom/security_context/insecure_request_policy.mojom";
+import "third_party/blink/public/mojom/web_feature/web_feature.mojom";
 import "ui/events/mojom/scroll_granularity.mojom";
 import "ui/gfx/geometry/mojom/geometry.mojom";
 import "url/mojom/origin.mojom";
@@ -49,6 +59,32 @@ struct FindInPageResultAXParams {
   int32 end_offset;
 };
 
+// This struct holds parameters sent by the renderer to the browser, that are
+// needed to download an URL.
+struct DownloadURLParams {
+  url.mojom.Url url;
+  blink.mojom.Referrer? referrer;
+  url.mojom.Origin? initiator_origin;
+  mojo_base.mojom.String16? suggested_name;
+  network.mojom.RedirectMode cross_origin_redirects;
+
+  // Non-null when |url| is for "blob:".
+  handle<message_pipe>? blob_url_token;
+
+  // Non-null when |url| is for "data:", eg. when saving an image.
+  handle<message_pipe>? data_url_blob;
+};
+
+// Actions browser can ask renderer to perform on a Plugin.
+enum PluginActionType {
+  kRotate90Clockwise,
+  kRotate90Counterclockwise,
+};
+
+// The maximum number of characters of the document's title that we're willing
+// to accept in the browser process.
+const uint16 kMaxTitleChars = 4096; // 4 * 1024;
+
 // Implemented in Browser, this interface defines frame-specific methods that
 // will be invoked from the render process (e.g. content::RenderFrameHostImpl).
 //
@@ -59,7 +95,11 @@ struct FindInPageResultAXParams {
 // content/common/frame.mojom if enough code is moved to Blink.
 interface LocalFrameHost {
   // Request to the browser that the frame wishes to enter fullscreen mode.
-  EnterFullscreen(FullscreenOptions options);
+  // Returns either true if fullscreen is allowed to be entered, or false if the
+  // request to enter fullscreen was denied. Note that the actual transition to
+  // fullscreen will occur on the next visual update, when the next
+  // WidgetMsg_UpdateVisualProperties is sent.
+  EnterFullscreen(FullscreenOptions options) => (bool granted);
 
   // Request to the browser to exit fullscreen mode.
   ExitFullscreen();
@@ -122,17 +162,28 @@ interface LocalFrameHost {
   // of a theme color meta tag  will generate a null value.
   DidChangeThemeColor(skia.mojom.SkColor? theme_color);
 
+  // Sent when the renderer fails to load with |error_code| which means a net
+  // error code.
+  DidFailLoadWithError(url.mojom.Url url, int32 error_code);
+
   // Sent by the renderer when the associated frame becomes focused.
   DidFocusFrame();
+
+  // Notifies the browser process about a new Content Security Policy that needs
+  // to be applies to the frame. This message is sent when a frame commits
+  // navigation to a new location (reporting accumulated policies from HTTP
+  // headers and/or policies that might have been inherited from the parent
+  // frame) or when a new policy has been discovered afterwards (i.e. found in a
+  // dynamically added or a static <meta> element).
+  DidAddContentSecurityPolicies(
+      array<network.mojom.ContentSecurityPolicy> policies);
 
   // Sent when the frame starts enforcing an insecure request policy. Sending
   // this information in DidCommitProvisionalLoad isn't sufficient; this
   // message is needed because, for example, a document can dynamically insert
   // a <meta> tag that causes strict mixed content checking to be enforced.
-  //
-  // Argument |policy_bitmap| represents blink::WebInsecureRequestPolicy uint8
-  // bitfield.
-  EnforceInsecureRequestPolicy(uint8 policy_bitmap);
+  // |policy_bitmap| is a bitfield for InsecureRequestPolicy.
+  EnforceInsecureRequestPolicy(blink.mojom.InsecureRequestPolicy policy_bitmap);
 
   // Elements of |set| are hashes of hosts to upgrade.
   EnforceInsecureNavigationsSet(array<uint32> set);
@@ -177,6 +228,9 @@ interface LocalFrameHost {
   // Sent when the renderer changed the progress of a load.
   DidChangeLoadProgress(double load_progress);
 
+  // Notifies the browser that a frame finished loading.
+  DidFinishLoad(url.mojom.Url validated_url);
+
   // Dispatch a load event for this frame in the iframe element of an
   // out-of-process parent frame. Once handled, the browser process should
   // call RemoteFrame::DispatchLoadEventForFrameOwner() in the renderer.
@@ -191,6 +245,17 @@ interface LocalFrameHost {
   // Asks the frame host to notify the owner element in parent process that it
   // should render fallback content.
   RenderFallbackContentInParentProcess();
+
+  // Changes the title for the page in the UI when the page is navigated or the
+  // title changes. Sent for top-level frames. This can be null when loading an
+  // initial empty document (and in some tests).
+  UpdateTitle(mojo_base.mojom.String16? title,
+              mojo_base.mojom.TextDirection title_direction);
+
+  // Indicates that the user activation state in the current frame has been
+  // updated, so the replicated states need to be synced (in the browser process
+  // as well as in all other renderer processes).
+  UpdateUserActivationState(UserActivationUpdateType update_type);
 
   // Provides accessibility information about a find in page result.
   HandleAccessibilityFindInPageResult(FindInPageResultAXParams params);
@@ -236,6 +301,25 @@ interface LocalFrameHost {
   // |success| contains whether the page should be unloaded or not.
   [Sync]
   RunBeforeUnloadConfirm(bool is_reload) => (bool success);
+
+  // A request to check whether WebGL is explicitly blocked.
+  [Sync]
+  Are3DAPIsBlocked() => (bool blocked);
+
+  // Notifies that the urls for the favicon of a site has been determined.
+  UpdateFaviconURL(array<FaviconURL> favicon_urls);
+
+  // Initiates a download based on user actions like 'ALT+click'.
+  DownloadURL(DownloadURLParams params);
+
+  // Sent to the browser when focus changes inside the frame. The first
+  // parameter says whether the newly focused element needs keyboard input
+  // (true for textfields, text areas and content editable divs).
+  // The second parameter is the newly focused element's bounds relative to
+  // local root's view, and it will be an empty bounds if there is no focused
+  // element.
+  FocusedElementChanged(bool is_editable_element,
+                        gfx.mojom.Rect bounds_in_frame_widget);
 };
 
 // Implemented in Blink, this interface defines frame-specific methods that will
@@ -259,6 +343,13 @@ interface LocalFrame {
   // can provide additional context to the cause of the intervention.
   SendInterventionReport(string id, string message);
 
+  // Updates this frame's FrameOwner properties, such as scrolling, margin,
+  // or allowfullscreen.  This is used when this frame's parent is in
+  // another process and it dynamically updates these properties.
+  // TODO(dcheng): Currently, the update only takes effect on next frame
+  // navigation.  This matches the in-process frame behavior.
+  SetFrameOwnerProperties(FrameOwnerProperties properties);
+
   // Notifies the RenderFrame about a user activation detected in the browser
   // side (e.g. during Android voice search).
   NotifyUserActivation();
@@ -266,6 +357,11 @@ interface LocalFrame {
   // Add message to the frame console.
   AddMessageToConsole(ConsoleMessageLevel level, string message,
                     bool discard_duplicates);
+
+  // Add devtools issue to the frames issue storage.
+  // Issues offer a more structured way to surface problems in DevTools than
+  // doing so via console messages.
+  AddInspectorIssue(InspectorIssueInfo info);
 
   // Sent to a frame when one of its remote children finishes loading, so that
   // the frame can update its loading state.
@@ -287,6 +383,13 @@ interface LocalFrame {
 
   // Notifies this frame to clear the focused element (if any).
   ClearFocusedElement();
+
+  // Gets the resource snapshot of the frame for creating Web Bundle.
+  // The instance of ResourceSnapshotForWebBundle in the renderer process will
+  // be kept alive as far as the Mojo endpoint is held and the renderer process
+  // is alive.
+  GetResourceSnapshotForWebBundle(
+      pending_receiver<data_decoder.mojom.ResourceSnapshotForWebBundle> receiver);
 
   // Copies the image at |window_point| to the clipboard (if there indeed is an
   // image at that |window_point|).
@@ -324,6 +427,14 @@ interface LocalFrame {
   // moving in specified direction if the currently focused node is a Text node
   // (textfield, text area or content editable nodes).
   AdvanceFocusInForm(blink.mojom.FocusType focus_type);
+
+  // Notifies the document navigation was blocked because a content security
+  // policy was violated.
+  ReportContentSecurityPolicyViolation(network.mojom.CSPViolation violation);
+
+  // Notifies the frame that its parent has changed the frame's sandbox flags or
+  // container policy.
+  DidUpdateFramePolicy(blink.mojom.FramePolicy frame_policy);
 };
 
 // Implemented in Browser, this interface defines frame-specific methods that
@@ -340,6 +451,12 @@ interface RemoteFrameHost {
   // the associated LocalFrame in the other render process.
   SetInheritedEffectiveTouchAction(cc.mojom.TouchAction touch_action);
 
+  // Toggles render throttling on a remote frame. |is_throttled| indicates
+  // whether the current frame should be throttled based on its viewport
+  // visibility, and |subtree_throttled| indicates that an ancestor frame has
+  // been throttled, so all descendant frames also should be throttled.
+  UpdateRenderThrottlingStatus(bool is_throttled, bool subtree_throttled);
+
   // Notifies the browser that the associated frame has changed its visibility
   // status. Visibility status changes occur when the frame moves in/out
   // of the viewport, or the need for a layout object changes, e.g. if the
@@ -353,6 +470,21 @@ interface RemoteFrameHost {
   // loading. This will be forwarded to the renderer hosting the parent's local
   // frame to see if the parent can be marked as completed loading.
   CheckCompleted();
+
+  // Sent by the renderer to request a paint preview of a subframe. |clip_rect|
+  // is the size of the frame in it's parent. |guid| is an an identifier for
+  // all the capture work (regardless of the process captures are happening in)
+  // that allows the results to be grouped together, even if there are multiple
+  // requests in-flight.
+  CapturePaintPreviewOfCrossProcessSubframe(
+    gfx.mojom.Rect clip_rect, mojo_base.mojom.UnguessableToken guid);
+
+  // Sent by a parent frame to notify its child that the renderer has determined
+  // the DOM subtree it represents is inert and should no longer process input
+  // events.
+  //
+  // https://html.spec.whatwg.org/multipage/interaction.html#inert
+  SetIsInert(bool inert);
 };
 
 // Implemented in Blink, this interface defines frame-specific methods that will
@@ -384,6 +516,18 @@ interface RemoteFrame {
   // is a hashed set of host/port pairs. See
   // SecurityContext::SetInsecureNavigationsSet.
   EnforceInsecureNavigationsSet(array<uint32> set);
+
+  // Updates this frame's FrameOwner properties, such as scrolling, margin,
+  // or allowfullscreen.  This is used when this frame's parent is in
+  // another process and it dynamically updates these properties.
+  // TODO(dcheng): Currently, the update only takes effect on next frame
+  // navigation.  This matches the in-process frame behavior.
+  SetFrameOwnerProperties(FrameOwnerProperties properties);
+
+  // Updates the remote frame's replicated enforcement of insecure request
+  // policy. Used when the frame's policy is changed in another renderer
+  // process. Argument |policy| is a bitfield for InsecureRequestPolicy.
+  EnforceInsecureRequestPolicy(blink.mojom.InsecureRequestPolicy policy);
 
   // Update the replicated origin. Used when the frame is navigated to a
   // new origin.
@@ -460,4 +604,58 @@ interface RemoteFrame {
   // intrinsic sizing parameters of the content frame have changed. Generated
   // when the browser receives a WidgetHostMsg_IntrinsicSizingInfoChanged.
   IntrinsicSizingInfoOfChildChanged(IntrinsicSizingInfo sizing_info);
+
+  // Used to replicate the updated sandbox flags and feature policy headers to
+  // all corresponding remote frames of a local frame when a navigation commits.
+  DidSetFramePolicyHeaders(blink.mojom.WebSandboxFlags sandbox_flags,
+      array<blink.mojom.ParsedFeaturePolicyDeclaration> parsed_feature_policy);
+
+  // Notifies the frame that its parent has changed the frame's sandbox flags or
+  // container policy.
+  DidUpdateFramePolicy(blink.mojom.FramePolicy frame_policy);
+};
+
+// Implemented in Blink, this interface defines main-frame-specific methods that
+// will be invoked from the browser process (e.g. content::WebContentsImpl).
+//
+// There is only ever one local main frame for a given tab in all renderer
+// processes.
+//
+// This interface will only be provided when the LocalFrame is a main frame.
+interface LocalMainFrame {
+  // Requests performing a page scale animation based on the point/rect provided.
+  AnimateDoubleTapZoom(gfx.mojom.Point point, gfx.mojom.Rect rect);
+
+  // Scales the view without affecting layout by using the visual viewport.
+  SetScaleFactor(float scale);
+
+  // Instructs the renderer to close the current page, including running the
+  // onunload event handler.
+  ClosePage() => ();
+
+  // Instructs the renderer to perform the given action on the plugin located at
+  // the given point.
+  PluginActionAt(gfx.mojom.Point location,
+                 blink.mojom.PluginActionType action);
+
+  // Tells the renderer to focus the first (last if reverse is true) focusable
+  // node.
+  SetInitialFocus(bool reverse);
+
+  // Instructs the renderer to send back updates to the preferred size.
+  EnablePreferredSizeChangedMode();
+
+  // Sent to the main-frame to request performing a zoom-to-find-in-page
+  // based on the rect provided.
+  ZoomToFindInPageRect(gfx.mojom.Rect rect_in_root_frame);
+};
+
+// Implemented in Browser, this interface defines main-frame-specific methods
+// that will be invoked from the renderer process (e.g. WebViewImpl).
+interface LocalMainFrameHost {
+  // Indicates the scale of the view has changed.
+  ScaleFactorChanged(float scale);
+
+  // Notifies that the preferred size of the view has changed.
+  ContentsPreferredSizeChanged(gfx.mojom.Size pref_size);
 };

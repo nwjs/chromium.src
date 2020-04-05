@@ -7,6 +7,7 @@
 #include <utility>
 
 #include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/callback.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
@@ -188,13 +189,13 @@ void DownloadOfflineContentProvider::OnDownloadsInitialized(
 }
 
 // TODO(shaktisahu) : Pass DownloadOpenSource.
-void DownloadOfflineContentProvider::OpenItem(LaunchLocation location,
+void DownloadOfflineContentProvider::OpenItem(const OpenParams& open_params,
                                               const ContentId& id) {
   EnsureDownloadCoreServiceStarted();
   if (state_ != State::HISTORY_LOADED) {
     pending_actions_for_full_browser_.push_back(
         base::BindOnce(&DownloadOfflineContentProvider::OpenItem,
-                       weak_ptr_factory_.GetWeakPtr(), location, id));
+                       weak_ptr_factory_.GetWeakPtr(), open_params, id));
     return;
   }
 

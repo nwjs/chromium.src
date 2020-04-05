@@ -56,7 +56,7 @@ RTCDTMFSender* RTCDTMFSender::Create(
 
 RTCDTMFSender::RTCDTMFSender(ExecutionContext* context,
                              std::unique_ptr<RtcDtmfSenderHandler> handler)
-    : ContextLifecycleObserver(context),
+    : ExecutionContextLifecycleObserver(context),
       handler_(std::move(handler)),
       stopped_(false) {
   handler_->SetClient(this);
@@ -174,18 +174,18 @@ const AtomicString& RTCDTMFSender::InterfaceName() const {
 }
 
 ExecutionContext* RTCDTMFSender::GetExecutionContext() const {
-  return ContextLifecycleObserver::GetExecutionContext();
+  return ExecutionContextLifecycleObserver::GetExecutionContext();
 }
 
-void RTCDTMFSender::ContextDestroyed(ExecutionContext*) {
+void RTCDTMFSender::ContextDestroyed() {
   stopped_ = true;
   handler_->SetClient(nullptr);
 }
 
-void RTCDTMFSender::Trace(blink::Visitor* visitor) {
+void RTCDTMFSender::Trace(Visitor* visitor) {
   EventTargetWithInlineData::Trace(visitor);
   RtcDtmfSenderHandler::Client::Trace(visitor);
-  ContextLifecycleObserver::Trace(visitor);
+  ExecutionContextLifecycleObserver::Trace(visitor);
 }
 
 }  // namespace blink

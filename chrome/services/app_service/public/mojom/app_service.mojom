@@ -5,7 +5,7 @@
 module apps.mojom;
 
 import "chrome/services/app_service/public/mojom/types.mojom";
-import "mojo/public/mojom/base/values.mojom";
+import "components/services/app_service/public/mojom/types.mojom";
 
 // An intermediary between M app consumers (e.g. app launcher UI, intent
 // pickers) and N app providers (also known as app platforms, e.g. Android
@@ -40,6 +40,15 @@ interface AppService {
       LaunchSource launch_source,
       int64 display_id);
 
+  // Launches an app with |app_id| and |file_path|
+  LaunchAppWithFiles(
+      AppType app_type,
+      string app_id,
+      LaunchContainer container,
+      int32 event_flags,
+      LaunchSource launch_source,
+      FilePaths file_paths);
+
   // Launches an app with |app_id| and Chrome OS generic |intent| irrespective
   // of app platform.
   LaunchAppWithIntent(
@@ -53,12 +62,6 @@ interface AppService {
       AppType app_type,
       string app_id,
       Permission permission);
-
-  // Uninstall which invokes a specific dialog per app type. When the unified
-  // uninstall dialog is done, this interface will be removed.
-  PromptUninstall(
-      AppType app_type,
-      string app_id);
 
   // Directly uninstalls |app_id| without prompting the user.
   // |clear_site_data| is available for bookmark apps only. If true, any site
@@ -133,6 +136,14 @@ interface Publisher {
       LaunchSource launch_source,
       int64 display_id);
 
+  // Launches an app with |app_id| and |file_path|
+  LaunchAppWithFiles(
+      string app_id,
+      LaunchContainer container,
+      int32 event_flags,
+      LaunchSource launch_source,
+      FilePaths file_paths);
+
   // Launches an app with |app_id| and Chrome OS generic |intent| irrespective
   // of app platform.
   LaunchAppWithIntent(
@@ -144,11 +155,6 @@ interface Publisher {
   SetPermission(
       string app_id,
       Permission permission);
-
-  // Uninstall which invokes a specific dialog per app type. When the unified
-  // uninstall dialog is done, this interface will be removed.
-  PromptUninstall(
-      string app_id);
 
   // Directly uninstalls |app_id| without prompting the user.
   // |clear_site_data| is available for bookmark apps only. If true, any site
@@ -179,13 +185,15 @@ interface Publisher {
       string app_id);
 
   // Indicates that the app identified by |app_id| has been set as a preferred
-  // app for |intent_fitler|. This method is used by the App Service to sync
-  // the change to publishers. |intent| is needed to set the preferred app
-  // in ARC.
+  // app for |intent_filter|, and the |replaced_app_preferences| is the apps
+  // that are no longer preferred apps for their corresponding |intent_filters|.
+  // This method is used by the App Service to sync the change to publishers.
+  // |intent| is needed to set the preferred app in ARC.
   OnPreferredAppSet(
       string app_id,
       IntentFilter intent_filter,
-      Intent intent);
+      Intent intent,
+      ReplacedAppPreferences replaced_app_preferences);
 };
 
 interface Subscriber {
@@ -208,7 +216,8 @@ interface Subscriber {
   // the change to all subscribers.
   OnPreferredAppRemoved(string app_id, IntentFilter intent_filter);
 
-  InitializePreferredApps(mojo_base.mojom.Value preferred_apps);
+  // Initialize the |preferred_apps| in the subscribers from the app service.
+  InitializePreferredApps(array<PreferredApp> preferred_apps);
 };
 
 struct ConnectOptions {

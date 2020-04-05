@@ -23,8 +23,8 @@
 #include "components/performance_manager/graph/worker_node_impl.h"
 #include "components/performance_manager/performance_manager_impl.h"
 #include "components/performance_manager/process_node_source.h"
-#include "content/public/browser/shared_worker_instance.h"
 #include "content/public/browser/shared_worker_service.h"
+#include "content/public/test/fake_service_worker_context.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace performance_manager {
@@ -51,6 +51,93 @@ bool IsWorkerClient(WorkerNodeImpl* worker_node,
          base::Contains(client_frame_node->child_worker_nodes(), worker_node);
 }
 
+// TestDedicatedWorkerService --------------------------------------------------
+
+// A test TestDedicatedWorkerService that allows to simulate starting and
+// stopping a dedicated worker.
+class TestDedicatedWorkerService : public content::DedicatedWorkerService {
+ public:
+  TestDedicatedWorkerService();
+  ~TestDedicatedWorkerService() override;
+
+  // content::DedicatedWorkerService
+  void AddObserver(Observer* observer) override;
+  void RemoveObserver(Observer* observer) override;
+  void EnumerateDedicatedWorkers(Observer* observer) override;
+
+  // Starts a new dedicated worker and returns its ID.
+  content::DedicatedWorkerId StartDedicatedWorker(
+      int worker_process_id,
+      content::GlobalFrameRoutingId client_render_frame_host_id);
+
+  // Stops a running shared worker.
+  void StopDedicatedWorker(content::DedicatedWorkerId dedicated_worker_id);
+
+ private:
+  base::ObserverList<Observer> observer_list_;
+
+  // Generates IDs for new dedicated workers.
+  content::DedicatedWorkerId::Generator dedicated_worker_id_generator_;
+
+  // Maps each running worker to its client RenderFrameHost ID.
+  base::flat_map<content::DedicatedWorkerId, content::GlobalFrameRoutingId>
+      dedicated_worker_client_frame_;
+
+  DISALLOW_COPY_AND_ASSIGN(TestDedicatedWorkerService);
+};
+
+TestDedicatedWorkerService::TestDedicatedWorkerService() = default;
+
+TestDedicatedWorkerService::~TestDedicatedWorkerService() = default;
+
+void TestDedicatedWorkerService::AddObserver(Observer* observer) {
+  observer_list_.AddObserver(observer);
+}
+
+void TestDedicatedWorkerService::RemoveObserver(Observer* observer) {
+  observer_list_.RemoveObserver(observer);
+}
+
+void TestDedicatedWorkerService::EnumerateDedicatedWorkers(Observer* observer) {
+  // Not implemented.
+  ADD_FAILURE();
+}
+
+content::DedicatedWorkerId TestDedicatedWorkerService::StartDedicatedWorker(
+    int worker_process_id,
+    content::GlobalFrameRoutingId client_render_frame_host_id) {
+  // Create a new DedicatedWorkerId for the worker and add it to the map, along
+  // with its client ID.
+  content::DedicatedWorkerId dedicated_worker_id =
+      dedicated_worker_id_generator_.GenerateNextId();
+
+  bool inserted = dedicated_worker_client_frame_
+                      .emplace(dedicated_worker_id, client_render_frame_host_id)
+                      .second;
+  DCHECK(inserted);
+
+  // Notify observers.
+  for (auto& observer : observer_list_) {
+    observer.OnWorkerStarted(dedicated_worker_id, worker_process_id,
+                             client_render_frame_host_id);
+  }
+
+  return dedicated_worker_id;
+}
+
+void TestDedicatedWorkerService::StopDedicatedWorker(
+    content::DedicatedWorkerId dedicated_worker_id) {
+  auto it = dedicated_worker_client_frame_.find(dedicated_worker_id);
+  DCHECK(it != dedicated_worker_client_frame_.end());
+
+  // Notify observers that the worker is terminating.
+  for (auto& observer : observer_list_)
+    observer.OnBeforeWorkerTerminated(dedicated_worker_id, it->second);
+
+  // Remove the worker ID from the map.
+  dedicated_worker_client_frame_.erase(it);
+}
+
 // TestSharedWorkerService -----------------------------------------------------
 
 // A test SharedWorkerService that allows to simulate a worker starting and
@@ -63,34 +150,35 @@ class TestSharedWorkerService : public content::SharedWorkerService {
   // content::SharedWorkerService
   void AddObserver(Observer* observer) override;
   void RemoveObserver(Observer* observer) override;
+  void EnumerateSharedWorkers(Observer* observer) override;
   bool TerminateWorker(const GURL& url,
                        const std::string& name,
                        const url::Origin& constructor_origin) override;
 
-  // Starts a new shared worker and returns its instance.
-  content::SharedWorkerInstance StartSharedWorker(int worker_process_id);
+  // Starts a new shared worker and returns its ID.
+  content::SharedWorkerId StartSharedWorker(int worker_process_id);
 
   // Stops a running shared worker.
-  void StopSharedWorker(const content::SharedWorkerInstance& instance);
+  void StopSharedWorker(content::SharedWorkerId shared_worker_id);
 
   // Adds a new frame client to an existing worker.
-  void AddWorkerClient(
-      const content::SharedWorkerInstance& instance,
+  void AddFrameClientToWorker(
+      content::SharedWorkerId shared_worker_id,
       content::GlobalFrameRoutingId client_render_frame_host_id);
 
   // Removes an existing frame client from a worker.
-  void RemoveWorkerClient(
-      const content::SharedWorkerInstance& instance,
+  void RemoveFrameClientFromWorker(
+      content::SharedWorkerId shared_worker_id,
       content::GlobalFrameRoutingId client_render_frame_host_id);
 
  private:
   base::ObserverList<Observer> observer_list_;
 
-  // The ID that the next SharedWorkerInstance will be assigned.
-  int64_t next_shared_worker_instance_id_ = 0;
+  // Generates IDs for new shared workers.
+  content::SharedWorkerId::Generator shared_worker_id_generator_;
 
   // Contains the set of clients for each running workers.
-  base::flat_map<content::SharedWorkerInstance,
+  base::flat_map<content::SharedWorkerId,
                  base::flat_set<content::GlobalFrameRoutingId>>
       shared_worker_client_frames_;
 
@@ -109,41 +197,43 @@ void TestSharedWorkerService::RemoveObserver(Observer* observer) {
   observer_list_.RemoveObserver(observer);
 }
 
+void TestSharedWorkerService::EnumerateSharedWorkers(Observer* observer) {
+  // Not implemented.
+  ADD_FAILURE();
+}
+
 bool TestSharedWorkerService::TerminateWorker(
     const GURL& url,
     const std::string& name,
     const url::Origin& constructor_origin) {
-  return true;
+  // Not implemented.
+  ADD_FAILURE();
+  return false;
 }
 
-content::SharedWorkerInstance TestSharedWorkerService::StartSharedWorker(
+content::SharedWorkerId TestSharedWorkerService::StartSharedWorker(
     int worker_process_id) {
-  // Create a new SharedWorkerInstance and add it to the map.
+  // Create a new DedicatedWorkerId for the worker and add it to the map.
+  content::SharedWorkerId shared_worker_id =
+      shared_worker_id_generator_.GenerateNextId();
   GURL worker_url = GenerateWorkerUrl();
-  content::SharedWorkerInstance instance(
-      next_shared_worker_instance_id_++, worker_url,
-      blink::mojom::ScriptType::kClassic,
-      network::mojom::CredentialsMode::kSameOrigin, "SharedWorker",
-      url::Origin::Create(worker_url), "",
-      network::mojom::ContentSecurityPolicyType::kReport,
-      network::mojom::IPAddressSpace::kPublic,
-      blink::mojom::SharedWorkerCreationContextType::kSecure);
 
-  bool inserted = shared_worker_client_frames_.insert({instance, {}}).second;
+  bool inserted =
+      shared_worker_client_frames_.insert({shared_worker_id, {}}).second;
   DCHECK(inserted);
 
   // Notify observers.
   for (auto& observer : observer_list_) {
-    observer.OnWorkerStarted(instance, worker_process_id,
+    observer.OnWorkerStarted(shared_worker_id, worker_process_id,
                              base::UnguessableToken::Create());
   }
 
-  return instance;
+  return shared_worker_id;
 }
 
 void TestSharedWorkerService::StopSharedWorker(
-    const content::SharedWorkerInstance& instance) {
-  auto it = shared_worker_client_frames_.find(instance);
+    content::SharedWorkerId shared_worker_id) {
+  auto it = shared_worker_client_frames_.find(shared_worker_id);
   DCHECK(it != shared_worker_client_frames_.end());
 
   // A stopping worker should have no clients.
@@ -151,17 +241,17 @@ void TestSharedWorkerService::StopSharedWorker(
 
   // Notify observers that the worker is terminating.
   for (auto& observer : observer_list_)
-    observer.OnBeforeWorkerTerminated(instance);
+    observer.OnBeforeWorkerTerminated(shared_worker_id);
 
-  // Remove the worker instance from the map.
+  // Remove the worker ID from the map.
   shared_worker_client_frames_.erase(it);
 }
 
-void TestSharedWorkerService::AddWorkerClient(
-    const content::SharedWorkerInstance& instance,
+void TestSharedWorkerService::AddFrameClientToWorker(
+    content::SharedWorkerId shared_worker_id,
     content::GlobalFrameRoutingId client_render_frame_host_id) {
   // Add the frame to the set of clients for this worker.
-  auto it = shared_worker_client_frames_.find(instance);
+  auto it = shared_worker_client_frames_.find(shared_worker_id);
   DCHECK(it != shared_worker_client_frames_.end());
 
   base::flat_set<content::GlobalFrameRoutingId>& client_frames = it->second;
@@ -170,19 +260,143 @@ void TestSharedWorkerService::AddWorkerClient(
 
   // Then notify observers.
   for (auto& observer : observer_list_)
-    observer.OnClientAdded(instance, client_render_frame_host_id);
+    observer.OnClientAdded(shared_worker_id, client_render_frame_host_id);
 }
 
-void TestSharedWorkerService::RemoveWorkerClient(
-    const content::SharedWorkerInstance& instance,
+void TestSharedWorkerService::RemoveFrameClientFromWorker(
+    content::SharedWorkerId shared_worker_id,
     content::GlobalFrameRoutingId client_render_frame_host_id) {
   // Notify observers.
   for (auto& observer : observer_list_)
-    observer.OnClientRemoved(instance, client_render_frame_host_id);
+    observer.OnClientRemoved(shared_worker_id, client_render_frame_host_id);
 
   // Then remove the frame from the set of clients of this worker.
-  auto it = shared_worker_client_frames_.find(instance);
+  auto it = shared_worker_client_frames_.find(shared_worker_id);
   DCHECK(it != shared_worker_client_frames_.end());
+
+  base::flat_set<content::GlobalFrameRoutingId>& client_frames = it->second;
+  size_t removed = client_frames.erase(client_render_frame_host_id);
+  DCHECK_EQ(removed, 1u);
+}
+
+// TestServiceWorkerContext ----------------------------------------------------
+
+// A test ServiceWorkerContext that allows to simulate a worker starting and
+// stopping and adding clients to running workers.
+//
+// Extends content::FakeServiceWorkerContext to avoid reimplementing all the
+// unused virtual functions.
+class TestServiceWorkerContext : public content::FakeServiceWorkerContext {
+ public:
+  TestServiceWorkerContext();
+  ~TestServiceWorkerContext() override;
+
+  TestServiceWorkerContext(const TestServiceWorkerContext&) = delete;
+  TestServiceWorkerContext& operator=(const TestServiceWorkerContext&) = delete;
+
+  // content::FakeServiceWorkerContext:
+  void AddObserver(content::ServiceWorkerContextObserver* observer) override;
+  void RemoveObserver(content::ServiceWorkerContextObserver* observer) override;
+
+  // Starts a new service worker and returns its version ID.
+  int64_t StartServiceWorker(int worker_process_id);
+
+  // Stops a service shared worker.
+  void StopServiceWorker(int64_t version_id);
+
+  // Adds a new frame client to an existing worker.
+  void AddFrameClientToWorker(
+      int64_t version_id,
+      content::GlobalFrameRoutingId client_render_frame_host_id);
+
+  // Removes an existing frame client from a worker.
+  void RemoveFrameClientFromWorker(
+      int64_t version_id,
+      content::GlobalFrameRoutingId client_render_frame_host_id);
+
+ private:
+  base::ObserverList<content::ServiceWorkerContextObserver>::Unchecked
+      observer_list_;
+
+  // The ID that the next service worker will be assigned.
+  int64_t next_service_worker_instance_id_ = 0;
+
+  // Contains the set of clients for each running workers.
+  base::flat_map<int64_t /*version_id*/,
+                 base::flat_set<content::GlobalFrameRoutingId>>
+      service_worker_client_frames_;
+};
+
+TestServiceWorkerContext::TestServiceWorkerContext() = default;
+
+TestServiceWorkerContext::~TestServiceWorkerContext() = default;
+
+void TestServiceWorkerContext::AddObserver(
+    content::ServiceWorkerContextObserver* observer) {
+  observer_list_.AddObserver(observer);
+}
+
+void TestServiceWorkerContext::RemoveObserver(
+    content::ServiceWorkerContextObserver* observer) {
+  observer_list_.RemoveObserver(observer);
+}
+
+int64_t TestServiceWorkerContext::StartServiceWorker(int worker_process_id) {
+  // Create a new version ID and add it to the map.
+  GURL worker_url = GenerateWorkerUrl();
+  int64_t version_id = next_service_worker_instance_id_++;
+
+  bool inserted = service_worker_client_frames_.insert({version_id, {}}).second;
+  DCHECK(inserted);
+
+  // Notify observers.
+  for (auto& observer : observer_list_) {
+    observer.OnVersionStartedRunning(version_id,
+                                     {worker_url, GURL(), worker_process_id});
+  }
+
+  return version_id;
+}
+
+void TestServiceWorkerContext::StopServiceWorker(int64_t version_id) {
+  auto it = service_worker_client_frames_.find(version_id);
+  DCHECK(it != service_worker_client_frames_.end());
+
+  // A stopping worker should have no clients.
+  DCHECK(it->second.empty());
+
+  // Notify observers that the worker is terminating.
+  for (auto& observer : observer_list_)
+    observer.OnVersionStoppedRunning(version_id);
+
+  // Remove the worker instance from the map.
+  service_worker_client_frames_.erase(it);
+}
+
+void TestServiceWorkerContext::AddFrameClientToWorker(
+    int64_t version_id,
+    content::GlobalFrameRoutingId client_render_frame_host_id) {
+  // Add the frame to the set of clients for this worker.
+  auto it = service_worker_client_frames_.find(version_id);
+  DCHECK(it != service_worker_client_frames_.end());
+
+  base::flat_set<content::GlobalFrameRoutingId>& client_frames = it->second;
+  bool inserted = client_frames.insert(client_render_frame_host_id).second;
+  DCHECK(inserted);
+
+  // TODO(pmonette): Notify observers when the ServiceWorkerContextObserver
+  //                 interface supports it.
+}
+
+void TestServiceWorkerContext::RemoveFrameClientFromWorker(
+    int64_t version_id,
+    content::GlobalFrameRoutingId client_render_frame_host_id) {
+  // TODO(pmonette): Notify observers when the ServiceWorkerContextObserver
+  //                 interface supports it.
+
+  // Then remove the frame from the set of clients of this worker.
+  auto it = service_worker_client_frames_.find(version_id);
+  DCHECK(it != service_worker_client_frames_.end());
 
   base::flat_set<content::GlobalFrameRoutingId>& client_frames = it->second;
   size_t removed = client_frames.erase(client_render_frame_host_id);
@@ -220,7 +434,7 @@ TestProcessNodeSource::~TestProcessNodeSource() {
     std::unique_ptr<ProcessNodeImpl> process_node = std::move(kv.second);
     nodes.push_back(std::move(process_node));
   }
-  PerformanceManagerImpl::GetInstance()->BatchDeleteNodes(std::move(nodes));
+  PerformanceManagerImpl::BatchDeleteNodes(std::move(nodes));
   process_node_map_.clear();
 }
 
@@ -235,8 +449,8 @@ int TestProcessNodeSource::CreateProcessNode() {
   int render_process_id = GenerateNextId();
 
   // Create the process node and insert it into the map.
-  auto process_node = PerformanceManagerImpl::GetInstance()->CreateProcessNode(
-      RenderProcessHostProxy());
+  auto process_node =
+      PerformanceManagerImpl::CreateProcessNode(RenderProcessHostProxy());
   bool inserted =
       process_node_map_.insert({render_process_id, std::move(process_node)})
           .second;
@@ -288,12 +502,13 @@ class TestFrameNodeSource : public FrameNodeSource {
 };
 
 TestFrameNodeSource::TestFrameNodeSource()
-    : page_node_(PerformanceManagerImpl::GetInstance()->CreatePageNode(
-          WebContentsProxy(),
-          "page_node_context_id",
-          GURL(),
-          false,
-          false)) {}
+    : page_node_(
+          PerformanceManagerImpl::CreatePageNode(WebContentsProxy(),
+                                                 "page_node_context_id",
+                                                 GURL(),
+                                                 false,
+                                                 false,
+                                                 base::TimeTicks::Now())) {}
 
 TestFrameNodeSource::~TestFrameNodeSource() {
   std::vector<std::unique_ptr<NodeBase>> nodes;
@@ -301,7 +516,7 @@ TestFrameNodeSource::~TestFrameNodeSource() {
   nodes.reserve(frame_node_map_.size());
   for (auto& kv : frame_node_map_)
     nodes.push_back(std::move(kv.second));
-  PerformanceManagerImpl::GetInstance()->BatchDeleteNodes(std::move(nodes));
+  PerformanceManagerImpl::BatchDeleteNodes(std::move(nodes));
   frame_node_map_.clear();
 }
 
@@ -310,6 +525,7 @@ FrameNodeImpl* TestFrameNodeSource::GetFrameNode(
   auto it = frame_node_map_.find(render_frame_host_id);
   return it != frame_node_map_.end() ? it->second.get() : nullptr;
 }
+
 void TestFrameNodeSource::SubscribeToFrameNode(
     content::GlobalFrameRoutingId render_frame_host_id,
     OnbeforeFrameNodeRemovedCallback on_before_frame_node_removed_callback) {
@@ -339,7 +555,7 @@ content::GlobalFrameRoutingId TestFrameNodeSource::CreateFrameNode(
   int frame_id = GenerateNextId();
   content::GlobalFrameRoutingId render_frame_host_id(render_process_id,
                                                      frame_id);
-  auto frame_node = PerformanceManagerImpl::GetInstance()->CreateFrameNode(
+  auto frame_node = PerformanceManagerImpl::CreateFrameNode(
       process_node, page_node_.get(), nullptr, 0, frame_id,
       base::UnguessableToken::Null(), 0, 0);
 
@@ -360,7 +576,7 @@ void TestFrameNodeSource::DeleteFrameNode(
 
   // Notify the subscriber then delete the node.
   InvokeAndRemoveCallback(frame_node);
-  PerformanceManagerImpl::GetInstance()->DeleteNode(std::move(it->second));
+  PerformanceManagerImpl::DeleteNode(std::move(it->second));
 
   frame_node_map_.erase(it);
 }
@@ -389,16 +605,22 @@ class WorkerWatcherTest : public testing::Test {
   void CallOnGraphAndWait(
       PerformanceManagerImpl::GraphImplCallback graph_callback);
 
-  // Retrieves the worker node associated with |instance|.
-  WorkerNodeImpl* GetSharedWorkerNode(
-      const content::SharedWorkerInstance& instance);
+  // Retrieves an existing worker node.
+  WorkerNodeImpl* GetDedicatedWorkerNode(
+      content::DedicatedWorkerId dedicated_worker_id);
+  WorkerNodeImpl* GetSharedWorkerNode(content::SharedWorkerId shared_worker_id);
+  WorkerNodeImpl* GetServiceWorkerNode(int64_t version_id);
 
-  PerformanceManagerImpl* performance_manager() {
-    return performance_manager_.get();
+  TestDedicatedWorkerService* dedicated_worker_service() {
+    return &dedicated_worker_service_;
   }
 
   TestSharedWorkerService* shared_worker_service() {
     return &shared_worker_service_;
+  }
+
+  TestServiceWorkerContext* service_worker_context() {
+    return &service_worker_context_;
   }
 
   TestProcessNodeSource* process_node_source() {
@@ -410,7 +632,9 @@ class WorkerWatcherTest : public testing::Test {
  private:
   base::test::TaskEnvironment task_environment_;
 
+  TestDedicatedWorkerService dedicated_worker_service_;
   TestSharedWorkerService shared_worker_service_;
+  TestServiceWorkerContext service_worker_context_;
 
   std::unique_ptr<PerformanceManagerImpl> performance_manager_;
   std::unique_ptr<TestProcessNodeSource> process_node_source_;
@@ -433,7 +657,8 @@ void WorkerWatcherTest::SetUp() {
   frame_node_source_ = std::make_unique<TestFrameNodeSource>();
 
   worker_watcher_ = std::make_unique<WorkerWatcher>(
-      "browser_context_id", &shared_worker_service_, process_node_source_.get(),
+      "browser_context_id", &dedicated_worker_service_, &shared_worker_service_,
+      &service_worker_context_, process_node_source_.get(),
       frame_node_source_.get());
 }
 
@@ -452,7 +677,7 @@ void WorkerWatcherTest::TearDown() {
 void WorkerWatcherTest::CallOnGraphAndWait(
     PerformanceManagerImpl::GraphImplCallback graph_callback) {
   base::RunLoop run_loop;
-  performance_manager_->CallOnGraphImpl(
+  PerformanceManagerImpl::CallOnGraphImpl(
       FROM_HERE,
       base::BindLambdaForTesting(
           [graph_callback = std::move(graph_callback),
@@ -460,15 +685,25 @@ void WorkerWatcherTest::CallOnGraphAndWait(
             std::move(graph_callback).Run(graph);
             quit_closure.Run();
           }));
+  run_loop.Run();
+}
+
+WorkerNodeImpl* WorkerWatcherTest::GetDedicatedWorkerNode(
+    content::DedicatedWorkerId dedicated_worker_id) {
+  return worker_watcher_->GetDedicatedWorkerNode(dedicated_worker_id);
 }
 
 WorkerNodeImpl* WorkerWatcherTest::GetSharedWorkerNode(
-    const content::SharedWorkerInstance& instance) {
-  return worker_watcher_->GetSharedWorkerNode(instance);
+    content::SharedWorkerId shared_worker_id) {
+  return worker_watcher_->GetSharedWorkerNode(shared_worker_id);
 }
 
-// This test creates one worker with one client frame.
-TEST_F(WorkerWatcherTest, SimpleWorker) {
+WorkerNodeImpl* WorkerWatcherTest::GetServiceWorkerNode(int64_t version_id) {
+  return worker_watcher_->GetServiceWorkerNode(version_id);
+}
+
+// This test creates one dedicated worker.
+TEST_F(WorkerWatcherTest, SimpleDedicatedWorker) {
   int render_process_id = process_node_source()->CreateProcessNode();
 
   // Create the frame node.
@@ -478,17 +713,51 @@ TEST_F(WorkerWatcherTest, SimpleWorker) {
           process_node_source()->GetProcessNode(render_process_id));
 
   // Create the worker.
-  content::SharedWorkerInstance shared_worker_instance =
-      shared_worker_service()->StartSharedWorker(render_process_id);
-
-  // Connect the frame to the worker.
-  shared_worker_service()->AddWorkerClient(shared_worker_instance,
-                                           render_frame_host_id);
+  content::DedicatedWorkerId dedicated_worker_id =
+      dedicated_worker_service()->StartDedicatedWorker(render_process_id,
+                                                       render_frame_host_id);
 
   // Check expectations on the graph.
   CallOnGraphAndWait(base::BindLambdaForTesting(
       [process_node = process_node_source()->GetProcessNode(render_process_id),
-       worker_node = GetSharedWorkerNode(shared_worker_instance),
+       worker_node = GetDedicatedWorkerNode(dedicated_worker_id),
+       client_frame_node = frame_node_source()->GetFrameNode(
+           render_frame_host_id)](GraphImpl* graph) {
+        EXPECT_TRUE(graph->NodeInGraph(worker_node));
+        EXPECT_EQ(worker_node->worker_type(),
+                  WorkerNode::WorkerType::kDedicated);
+        EXPECT_EQ(worker_node->process_node(), process_node);
+        // TODO(pmonette): Change the following to EXPECT_TRUE when the
+        //                 dedicated worker node gets hooked up correctly.
+        EXPECT_FALSE(IsWorkerClient(worker_node, client_frame_node));
+      }));
+
+  // Disconnect and clean up the worker.
+  dedicated_worker_service()->StopDedicatedWorker(dedicated_worker_id);
+}
+
+// This test creates one shared worker with one client frame.
+TEST_F(WorkerWatcherTest, SimpleSharedWorker) {
+  int render_process_id = process_node_source()->CreateProcessNode();
+
+  // Create the frame node.
+  content::GlobalFrameRoutingId render_frame_host_id =
+      frame_node_source()->CreateFrameNode(
+          render_process_id,
+          process_node_source()->GetProcessNode(render_process_id));
+
+  // Create the worker.
+  content::SharedWorkerId shared_worker_id =
+      shared_worker_service()->StartSharedWorker(render_process_id);
+
+  // Connect the frame to the worker.
+  shared_worker_service()->AddFrameClientToWorker(shared_worker_id,
+                                                  render_frame_host_id);
+
+  // Check expectations on the graph.
+  CallOnGraphAndWait(base::BindLambdaForTesting(
+      [process_node = process_node_source()->GetProcessNode(render_process_id),
+       worker_node = GetSharedWorkerNode(shared_worker_id),
        client_frame_node = frame_node_source()->GetFrameNode(
            render_frame_host_id)](GraphImpl* graph) {
         EXPECT_TRUE(graph->NodeInGraph(worker_node));
@@ -498,12 +767,50 @@ TEST_F(WorkerWatcherTest, SimpleWorker) {
       }));
 
   // Disconnect and clean up the worker.
-  shared_worker_service()->RemoveWorkerClient(shared_worker_instance,
-                                              render_frame_host_id);
-  shared_worker_service()->StopSharedWorker(shared_worker_instance);
+  shared_worker_service()->RemoveFrameClientFromWorker(shared_worker_id,
+                                                       render_frame_host_id);
+  shared_worker_service()->StopSharedWorker(shared_worker_id);
 }
 
-TEST_F(WorkerWatcherTest, CrossProcess) {
+// This test creates one service worker with one client frame.
+TEST_F(WorkerWatcherTest, SimpleServiceWorker) {
+  int render_process_id = process_node_source()->CreateProcessNode();
+
+  // Create the frame node.
+  content::GlobalFrameRoutingId render_frame_host_id =
+      frame_node_source()->CreateFrameNode(
+          render_process_id,
+          process_node_source()->GetProcessNode(render_process_id));
+
+  // Create the worker.
+  int64_t service_worker_version_id =
+      service_worker_context()->StartServiceWorker(render_process_id);
+
+  // Connect the frame to the worker.
+  service_worker_context()->AddFrameClientToWorker(service_worker_version_id,
+                                                   render_frame_host_id);
+
+  // Check expectations on the graph.
+  CallOnGraphAndWait(base::BindLambdaForTesting(
+      [process_node = process_node_source()->GetProcessNode(render_process_id),
+       worker_node = GetServiceWorkerNode(service_worker_version_id),
+       client_frame_node = frame_node_source()->GetFrameNode(
+           render_frame_host_id)](GraphImpl* graph) {
+        EXPECT_TRUE(graph->NodeInGraph(worker_node));
+        EXPECT_EQ(worker_node->worker_type(), WorkerNode::WorkerType::kService);
+        EXPECT_EQ(worker_node->process_node(), process_node);
+        // TODO(pmonette): Change the following to EXPECT_TRUE when the
+        //                 service worker node gets hooked up correctly.
+        EXPECT_FALSE(IsWorkerClient(worker_node, client_frame_node));
+      }));
+
+  // Disconnect and clean up the worker.
+  service_worker_context()->RemoveFrameClientFromWorker(
+      service_worker_version_id, render_frame_host_id);
+  service_worker_context()->StopServiceWorker(service_worker_version_id);
+}
+
+TEST_F(WorkerWatcherTest, SharedWorkerCrossProcessClient) {
   // Create the frame node.
   int frame_process_id = process_node_source()->CreateProcessNode();
   content::GlobalFrameRoutingId render_frame_host_id =
@@ -513,18 +820,18 @@ TEST_F(WorkerWatcherTest, CrossProcess) {
 
   // Create the worker in a different process.
   int worker_process_id = process_node_source()->CreateProcessNode();
-  content::SharedWorkerInstance shared_worker_instance =
+  content::SharedWorkerId shared_worker_id =
       shared_worker_service()->StartSharedWorker(worker_process_id);
 
   // Connect the frame to the worker.
-  shared_worker_service()->AddWorkerClient(shared_worker_instance,
-                                           render_frame_host_id);
+  shared_worker_service()->AddFrameClientToWorker(shared_worker_id,
+                                                  render_frame_host_id);
 
   // Check expectations on the graph.
   CallOnGraphAndWait(base::BindLambdaForTesting(
       [worker_process_node =
            process_node_source()->GetProcessNode(worker_process_id),
-       worker_node = GetSharedWorkerNode(shared_worker_instance),
+       worker_node = GetSharedWorkerNode(shared_worker_id),
        client_process_node =
            process_node_source()->GetProcessNode(frame_process_id),
        client_frame_node = frame_node_source()->GetFrameNode(
@@ -536,16 +843,16 @@ TEST_F(WorkerWatcherTest, CrossProcess) {
       }));
 
   // Disconnect and clean up the worker.
-  shared_worker_service()->RemoveWorkerClient(shared_worker_instance,
-                                              render_frame_host_id);
-  shared_worker_service()->StopSharedWorker(shared_worker_instance);
+  shared_worker_service()->RemoveFrameClientFromWorker(shared_worker_id,
+                                                       render_frame_host_id);
+  shared_worker_service()->StopSharedWorker(shared_worker_id);
 }
 
-TEST_F(WorkerWatcherTest, OneWorkerTwoClients) {
+TEST_F(WorkerWatcherTest, OneSharedWorkerTwoClients) {
   int render_process_id = process_node_source()->CreateProcessNode();
 
   // Create the worker.
-  content::SharedWorkerInstance shared_worker_instance =
+  content::SharedWorkerId shared_worker_id =
       shared_worker_service()->StartSharedWorker(render_process_id);
 
   // Create 2 client frame nodes and connect them to the worker.
@@ -553,19 +860,19 @@ TEST_F(WorkerWatcherTest, OneWorkerTwoClients) {
       frame_node_source()->CreateFrameNode(
           render_process_id,
           process_node_source()->GetProcessNode(render_process_id));
-  shared_worker_service()->AddWorkerClient(shared_worker_instance,
-                                           render_frame_host_id_1);
+  shared_worker_service()->AddFrameClientToWorker(shared_worker_id,
+                                                  render_frame_host_id_1);
 
   content::GlobalFrameRoutingId render_frame_host_id_2 =
       frame_node_source()->CreateFrameNode(
           render_process_id,
           process_node_source()->GetProcessNode(render_process_id));
-  shared_worker_service()->AddWorkerClient(shared_worker_instance,
-                                           render_frame_host_id_2);
+  shared_worker_service()->AddFrameClientToWorker(shared_worker_id,
+                                                  render_frame_host_id_2);
 
   // Check expectations on the graph.
   CallOnGraphAndWait(base::BindLambdaForTesting(
-      [worker_node = GetSharedWorkerNode(shared_worker_instance),
+      [worker_node = GetSharedWorkerNode(shared_worker_id),
        client_frame_node_1 =
            frame_node_source()->GetFrameNode(render_frame_host_id_1),
        client_frame_node_2 = frame_node_source()->GetFrameNode(
@@ -581,14 +888,14 @@ TEST_F(WorkerWatcherTest, OneWorkerTwoClients) {
       }));
 
   // Disconnect and clean up the worker.
-  shared_worker_service()->RemoveWorkerClient(shared_worker_instance,
-                                              render_frame_host_id_1);
-  shared_worker_service()->RemoveWorkerClient(shared_worker_instance,
-                                              render_frame_host_id_2);
-  shared_worker_service()->StopSharedWorker(shared_worker_instance);
+  shared_worker_service()->RemoveFrameClientFromWorker(shared_worker_id,
+                                                       render_frame_host_id_1);
+  shared_worker_service()->RemoveFrameClientFromWorker(shared_worker_id,
+                                                       render_frame_host_id_2);
+  shared_worker_service()->StopSharedWorker(shared_worker_id);
 }
 
-TEST_F(WorkerWatcherTest, OneClientTwoWorkers) {
+TEST_F(WorkerWatcherTest, OneClientTwoSharedWorkers) {
   int render_process_id = process_node_source()->CreateProcessNode();
 
   // Create the frame node.
@@ -598,20 +905,20 @@ TEST_F(WorkerWatcherTest, OneClientTwoWorkers) {
           process_node_source()->GetProcessNode(render_process_id));
 
   // Create the 2 workers and connect them to the frame.
-  content::SharedWorkerInstance shared_worker_instance_1 =
+  content::SharedWorkerId shared_worker_id_1 =
       shared_worker_service()->StartSharedWorker(render_process_id);
-  shared_worker_service()->AddWorkerClient(shared_worker_instance_1,
-                                           render_frame_host_id);
+  shared_worker_service()->AddFrameClientToWorker(shared_worker_id_1,
+                                                  render_frame_host_id);
 
-  content::SharedWorkerInstance shared_worker_instance_2 =
+  content::SharedWorkerId shared_worker_id_2 =
       shared_worker_service()->StartSharedWorker(render_process_id);
-  shared_worker_service()->AddWorkerClient(shared_worker_instance_2,
-                                           render_frame_host_id);
+  shared_worker_service()->AddFrameClientToWorker(shared_worker_id_2,
+                                                  render_frame_host_id);
 
   // Check expectations on the graph.
   CallOnGraphAndWait(base::BindLambdaForTesting(
-      [worker_node_1 = GetSharedWorkerNode(shared_worker_instance_1),
-       worker_node_2 = GetSharedWorkerNode(shared_worker_instance_2),
+      [worker_node_1 = GetSharedWorkerNode(shared_worker_id_1),
+       worker_node_2 = GetSharedWorkerNode(shared_worker_id_2),
        client_frame_node = frame_node_source()->GetFrameNode(
            render_frame_host_id)](GraphImpl* graph) {
         // Check worker 1.
@@ -628,13 +935,13 @@ TEST_F(WorkerWatcherTest, OneClientTwoWorkers) {
       }));
 
   // Disconnect and clean up the workers.
-  shared_worker_service()->RemoveWorkerClient(shared_worker_instance_1,
-                                              render_frame_host_id);
-  shared_worker_service()->StopSharedWorker(shared_worker_instance_1);
+  shared_worker_service()->RemoveFrameClientFromWorker(shared_worker_id_1,
+                                                       render_frame_host_id);
+  shared_worker_service()->StopSharedWorker(shared_worker_id_1);
 
-  shared_worker_service()->RemoveWorkerClient(shared_worker_instance_2,
-                                              render_frame_host_id);
-  shared_worker_service()->StopSharedWorker(shared_worker_instance_2);
+  shared_worker_service()->RemoveFrameClientFromWorker(shared_worker_id_2,
+                                                       render_frame_host_id);
+  shared_worker_service()->StopSharedWorker(shared_worker_id_2);
 }
 
 TEST_F(WorkerWatcherTest, FrameDestroyed) {
@@ -646,37 +953,64 @@ TEST_F(WorkerWatcherTest, FrameDestroyed) {
           render_process_id,
           process_node_source()->GetProcessNode(render_process_id));
 
-  // Create a shared worker.
-  content::SharedWorkerInstance shared_worker_instance =
+  // Create a worker of each type.
+  content::DedicatedWorkerId dedicated_worker_id =
+      dedicated_worker_service()->StartDedicatedWorker(render_process_id,
+                                                       render_frame_host_id);
+  content::SharedWorkerId shared_worker_id =
       shared_worker_service()->StartSharedWorker(render_process_id);
+  int64_t service_worker_version_id =
+      service_worker_context()->StartServiceWorker(render_process_id);
 
-  // Connect the frame to the worker.
-  shared_worker_service()->AddWorkerClient(shared_worker_instance,
-                                           render_frame_host_id);
+  // Connect the frame to the shared worker.
+  shared_worker_service()->AddFrameClientToWorker(shared_worker_id,
+                                                  render_frame_host_id);
+  service_worker_context()->AddFrameClientToWorker(service_worker_version_id,
+                                                   render_frame_host_id);
 
   // Check that everything is wired up correctly.
   CallOnGraphAndWait(base::BindLambdaForTesting(
-      [shared_worker_node = GetSharedWorkerNode(shared_worker_instance),
+      [dedicated_worker_node = GetDedicatedWorkerNode(dedicated_worker_id),
+       shared_worker_node = GetSharedWorkerNode(shared_worker_id),
+       service_worker_node = GetServiceWorkerNode(service_worker_version_id),
        client_frame_node = frame_node_source()->GetFrameNode(
            render_frame_host_id)](GraphImpl* graph) {
+        EXPECT_TRUE(graph->NodeInGraph(dedicated_worker_node));
         EXPECT_TRUE(graph->NodeInGraph(shared_worker_node));
+        EXPECT_TRUE(graph->NodeInGraph(service_worker_node));
+        // TODO(pmonette): Change the following to EXPECT_TRUE when the
+        //                 dedicated worker node gets hooked up correctly.
+        EXPECT_FALSE(IsWorkerClient(dedicated_worker_node, client_frame_node));
         EXPECT_TRUE(IsWorkerClient(shared_worker_node, client_frame_node));
+        // TODO(pmonette): Change the following to EXPECT_TRUE when the
+        //                 service worker node gets hooked up correctly.
+        EXPECT_FALSE(IsWorkerClient(service_worker_node, client_frame_node));
       }));
 
   frame_node_source()->DeleteFrameNode(render_frame_host_id);
 
   // Check that the worker is no longer connected to the deleted frame.
   CallOnGraphAndWait(base::BindLambdaForTesting(
-      [shared_worker_node =
-           GetSharedWorkerNode(shared_worker_instance)](GraphImpl* graph) {
+      [dedicated_worker_node = GetDedicatedWorkerNode(dedicated_worker_id),
+       shared_worker_node = GetSharedWorkerNode(shared_worker_id),
+       service_worker_node =
+           GetServiceWorkerNode(service_worker_version_id)](GraphImpl* graph) {
+        EXPECT_TRUE(graph->NodeInGraph(dedicated_worker_node));
         EXPECT_TRUE(graph->NodeInGraph(shared_worker_node));
+        EXPECT_TRUE(graph->NodeInGraph(service_worker_node));
+        EXPECT_TRUE(dedicated_worker_node->client_frames().empty());
         EXPECT_TRUE(shared_worker_node->client_frames().empty());
+        EXPECT_TRUE(service_worker_node->client_frames().empty());
       }));
 
   // The watcher is still expecting a worker removed notification.
-  shared_worker_service()->RemoveWorkerClient(shared_worker_instance,
-                                              render_frame_host_id);
-  shared_worker_service()->StopSharedWorker(shared_worker_instance);
+  service_worker_context()->RemoveFrameClientFromWorker(
+      service_worker_version_id, render_frame_host_id);
+  service_worker_context()->StopServiceWorker(service_worker_version_id);
+  shared_worker_service()->RemoveFrameClientFromWorker(shared_worker_id,
+                                                       render_frame_host_id);
+  shared_worker_service()->StopSharedWorker(shared_worker_id);
+  dedicated_worker_service()->StopDedicatedWorker(dedicated_worker_id);
 }
 
 }  // namespace performance_manager

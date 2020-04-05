@@ -121,11 +121,9 @@ ACTION_P(QuitLoop, run_loop) {
   base::PostTask(FROM_HERE, run_loop->QuitClosure());
 }
 
-// Tests MediaService built into a standalone mojo service binary (see
-// ServiceMain() in main.cc) where MediaService uses TestMojoMediaClient.
-// TestMojoMediaClient supports CDM creation using DefaultCdmFactory (only
-// supports Clear Key key system), and Renderer creation using
-// DefaultRendererFactory that always create media::RendererImpl.
+// Tests MediaService using TestMojoMediaClient, which supports CDM creation
+// using DefaultCdmFactory (only supports Clear Key key system), and Renderer
+// creation using DefaultRendererFactory that always create media::RendererImpl.
 class MediaServiceTest : public testing::Test {
  public:
   MediaServiceTest()
@@ -166,7 +164,7 @@ class MediaServiceTest : public testing::Test {
     base::RunLoop run_loop;
     interface_factory_->CreateCdm(key_system,
                                   cdm_.BindNewPipeAndPassReceiver());
-    cdm_.set_disconnect_handler(base::BindRepeating(
+    cdm_.set_disconnect_handler(base::BindOnce(
         &MediaServiceTest::OnCdmConnectionError, base::Unretained(this)));
 
     int cdm_id = CdmContext::kInvalidCdmId;
@@ -230,9 +228,9 @@ class MediaServiceTest : public testing::Test {
 
     EXPECT_CALL(*this, OnDecrypted(expected_status, _))
         .WillOnce(QuitLoop(&run_loop));
-    mojo_decryptor.Decrypt(Decryptor::kVideo, CreateEncryptedBuffer(),
-                           base::BindRepeating(&MediaServiceTest::OnDecrypted,
-                                               base::Unretained(this)));
+    mojo_decryptor.Decrypt(
+        Decryptor::kVideo, CreateEncryptedBuffer(),
+        base::BindOnce(&MediaServiceTest::OnDecrypted, base::Unretained(this)));
     run_loop.Run();
   }
 

@@ -139,10 +139,10 @@ void SVGElement::ReportAttributeParsingError(SVGParsingError error,
   // Don't report any errors on attribute removal.
   if (value.IsNull())
     return;
-  GetDocument().AddConsoleMessage(
-      ConsoleMessage::Create(mojom::ConsoleMessageSource::kRendering,
-                             mojom::ConsoleMessageLevel::kError,
-                             "Error: " + error.Format(tagName(), name, value)));
+  GetDocument().AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
+      mojom::ConsoleMessageSource::kRendering,
+      mojom::ConsoleMessageLevel::kError,
+      "Error: " + error.Format(tagName(), name, value)));
 }
 
 String SVGElement::title() const {
@@ -180,7 +180,7 @@ void SVGElement::SetInstanceUpdatesBlocked(bool value) {
 void SVGElement::SetWebAnimationsPending() {
   GetDocument().AccessSVGExtensions().AddWebAnimationsPendingSVGElement(*this);
   EnsureSVGRareData()->SetWebAnimatedAttributesDirty(true);
-  EnsureUniqueElementData().animated_svg_attributes_are_dirty_ = true;
+  EnsureUniqueElementData().SetAnimatedSvgAttributesAreDirty(true);
 }
 
 static bool IsSVGAttributeHandle(const PropertyHandle& property_handle) {
@@ -296,16 +296,8 @@ AffineTransform SVGElement::CalculateTransform(
 Node::InsertionNotificationRequest SVGElement::InsertedInto(
     ContainerNode& root_parent) {
   Element::InsertedInto(root_parent);
+  HideNonce();
   UpdateRelativeLengthsInformation();
-
-  const AtomicString& nonce_value = FastGetAttribute(html_names::kNonceAttr);
-  if (!nonce_value.IsEmpty()) {
-    setNonce(nonce_value);
-    if (InActiveDocument() &&
-        GetDocument().GetContentSecurityPolicy()->HasHeaderDeliveredPolicy()) {
-      setAttribute(html_names::kNonceAttr, g_empty_atom);
-    }
-  }
   return kInsertionDone;
 }
 
@@ -620,6 +612,12 @@ void SVGElement::ParseAttribute(const AttributeModificationParams& params) {
     return;
   }
 
+  // SVGElement and HTMLElement are handling "nonce" the same way.
+  if (params.name == html_names::kNonceAttr) {
+    if (params.new_value != g_empty_atom)
+      setNonce(params.new_value);
+  }
+
   const AtomicString& event_name =
       HTMLElement::EventNameForAttributeName(params.name);
   if (!event_name.IsNull()) {
@@ -737,16 +735,16 @@ bool SVGElement::IsAnimatableCSSProperty(const QualifiedName& attr_name) {
 bool SVGElement::IsPresentationAttribute(const QualifiedName& name) const {
   if (const SVGAnimatedPropertyBase* property = PropertyFromAttribute(name))
     return property->HasPresentationAttributeMapping();
-  return CssPropertyIdForSVGAttributeName(&GetDocument(), name) >
-         CSSPropertyID::kInvalid;
+  return CssPropertyIdForSVGAttributeName(GetDocument().ToExecutionContext(),
+                                          name) > CSSPropertyID::kInvalid;
 }
 
 void SVGElement::CollectStyleForPresentationAttribute(
     const QualifiedName& name,
     const AtomicString& value,
     MutableCSSPropertyValueSet* style) {
-  CSSPropertyID property_id =
-      CssPropertyIdForSVGAttributeName(&GetDocument(), name);
+  CSSPropertyID property_id = CssPropertyIdForSVGAttributeName(
+      GetDocument().ToExecutionContext(), name);
   if (property_id > CSSPropertyID::kInvalid)
     AddPropertyToPresentationAttributeStyle(style, property_id, value);
 }
@@ -879,8 +877,8 @@ void SVGElement::AttributeChanged(const AttributeModificationParams& params) {
 }
 
 void SVGElement::SvgAttributeChanged(const QualifiedName& attr_name) {
-  CSSPropertyID prop_id =
-      SVGElement::CssPropertyIdForSVGAttributeName(&GetDocument(), attr_name);
+  CSSPropertyID prop_id = SVGElement::CssPropertyIdForSVGAttributeName(
+      GetDocument().ToExecutionContext(), attr_name);
   if (prop_id > CSSPropertyID::kInvalid) {
     InvalidateInstances();
     return;
@@ -902,7 +900,7 @@ void SVGElement::SvgAttributeBaseValChanged(const QualifiedName& attribute) {
   // TODO(alancutter): Only mark attributes as dirty if their animation depends
   // on the underlying value.
   SvgRareData()->SetWebAnimatedAttributesDirty(true);
-  GetElementData()->animated_svg_attributes_are_dirty_ = true;
+  GetElementData()->SetAnimatedSvgAttributesAreDirty(true);
 }
 
 void SVGElement::EnsureAttributeAnimValUpdated() {
@@ -920,7 +918,7 @@ void SVGElement::EnsureAttributeAnimValUpdated() {
 void SVGElement::SynchronizeAnimatedSVGAttribute(
     const QualifiedName& name) const {
   if (!GetElementData() ||
-      !GetElementData()->animated_svg_attributes_are_dirty_)
+      !GetElementData()->animated_svg_attributes_are_dirty())
     return;
 
   // We const_cast here because we have deferred baseVal mutation animation
@@ -937,7 +935,7 @@ void SVGElement::SynchronizeAnimatedSVGAttribute(
         (*it)->SynchronizeAttribute();
     }
 
-    GetElementData()->animated_svg_attributes_are_dirty_ = false;
+    GetElementData()->SetAnimatedSvgAttributesAreDirty(false);
   } else {
     SVGAnimatedPropertyBase* property = attribute_to_property_map_.at(name);
     if (property && property->NeedsSynchronizeAttribute())
@@ -1222,17 +1220,17 @@ void SVGElement::RemoveAllOutgoingReferences() {
   outgoing_references.clear();
 }
 
-SVGResourceClient* SVGElement::GetSVGResourceClient() {
+SVGElementResourceClient* SVGElement::GetSVGResourceClient() {
   if (!HasSVGRareData())
     return nullptr;
   return SvgRareData()->GetSVGResourceClient();
 }
 
-SVGResourceClient& SVGElement::EnsureSVGResourceClient() {
+SVGElementResourceClient& SVGElement::EnsureSVGResourceClient() {
   return EnsureSVGRareData()->EnsureSVGResourceClient(this);
 }
 
-void SVGElement::Trace(blink::Visitor* visitor) {
+void SVGElement::Trace(Visitor* visitor) {
   visitor->Trace(elements_with_relative_lengths_);
   visitor->Trace(attribute_to_property_map_);
   visitor->Trace(svg_rare_data_);

@@ -30,8 +30,8 @@ const base::FilePath::CharType kVerifiedContentsFilename[] =
     FILE_PATH_LITERAL("verified_contents.json");
 const base::FilePath::CharType kComputedHashesFilename[] =
     FILE_PATH_LITERAL("computed_hashes.json");
-const base::FilePath::CharType kIndexedRulesetFilename[] =
-    FILE_PATH_LITERAL("generated_indexed_ruleset");
+const base::FilePath::CharType kIndexedRulesetDirectory[] =
+    FILE_PATH_LITERAL("generated_indexed_rulesets");
 
 const char kInstallDirectoryName[] = "Extensions";
 
@@ -137,7 +137,7 @@ const char kHighlightsAltAppId[] = "gjeelkjnolfmhphfhhjokaijbicopfln";
 const char kScreensaverAppId[] = "mnoijifedipmbjaoekhadjcijipaijjc";
 const char kScreensaverEveAppId[] = "gdobaoeekhiklaljmhladjfdfkigampc";
 const char kScreensaverNocturneAppId[] = "lminefdanffajachfahfpmphfkhahcnj";
-const char kScreensaverAltAppId[] = "bnabjkecnachpogjlfilfcnlpcmacglh";
+const char kScreensaverAtlasAppId[] = "bnabjkecnachpogjlfilfcnlpcmacglh";
 const char kScreensaverKukuiAppId[] = "fafhbhdboeiciklpkminlncemohljlkj";
 
 bool IsSystemUIApp(base::StringPiece extension_id) {
@@ -153,7 +153,7 @@ bool IsSystemUIApp(base::StringPiece extension_id) {
       kHighlightsAppId,
       kScreensaverEveAppId,
       kScreensaverNocturneAppId,
-      kScreensaverAltAppId,
+      kScreensaverAtlasAppId,
       kScreensaverAppId,
       // clang-format on
   };

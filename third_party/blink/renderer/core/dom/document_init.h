@@ -32,7 +32,8 @@
 
 #include "services/network/public/mojom/ip_address_space.mojom-shared.h"
 #include "third_party/blink/public/common/frame/frame_policy.h"
-#include "third_party/blink/public/platform/web_insecure_request_policy.h"
+#include "third_party/blink/public/mojom/feature_policy/feature_policy.mojom-blink.h"
+#include "third_party/blink/public/mojom/security_context/insecure_request_policy.mojom-blink-forward.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/execution_context/security_context.h"
 #include "third_party/blink/renderer/core/frame/sandbox_flags.h"
@@ -93,8 +94,8 @@ class CORE_EXPORT DocumentInit final {
   bool HasSecurityContext() const { return MasterDocumentLoader(); }
   bool IsSrcdocDocument() const;
   bool ShouldSetURL() const;
-  WebSandboxFlags GetSandboxFlags() const;
-  WebInsecureRequestPolicy GetInsecureRequestPolicy() const;
+  mojom::blink::WebSandboxFlags GetSandboxFlags() const;
+  mojom::blink::InsecureRequestPolicy GetInsecureRequestPolicy() const;
   const SecurityContext::InsecureNavigationsSet* InsecureNavigationsToUpgrade()
       const;
   bool GrantLoadLocalResources() const { return grant_load_local_resources_; }
@@ -153,10 +154,15 @@ class CORE_EXPORT DocumentInit final {
   DocumentInit& WithFeaturePolicyHeader(const String& header);
   const String& FeaturePolicyHeader() const { return feature_policy_header_; }
 
+  DocumentInit& WithReportOnlyFeaturePolicyHeader(const String& header);
+  const String& ReportOnlyFeaturePolicyHeader() const {
+    return report_only_feature_policy_header_;
+  }
+
   DocumentInit& WithOriginTrialsHeader(const String& header);
   const String& OriginTrialsHeader() const { return origin_trials_header_; }
 
-  DocumentInit& WithSandboxFlags(WebSandboxFlags flags);
+  DocumentInit& WithSandboxFlags(mojom::blink::WebSandboxFlags flags);
 
   DocumentInit& WithContentSecurityPolicy(ContentSecurityPolicy* policy);
   DocumentInit& WithContentSecurityPolicyFromContextDoc();
@@ -169,10 +175,18 @@ class CORE_EXPORT DocumentInit final {
   }
 
   DocumentInit& WithDocumentPolicy(
-      const DocumentPolicy::FeatureState& document_policy);
-  const DocumentPolicy::FeatureState& GetDocumentPolicy() const {
+      const DocumentPolicy::ParsedDocumentPolicy& document_policy);
+  const DocumentPolicy::ParsedDocumentPolicy& GetDocumentPolicy() const {
     return document_policy_;
   }
+
+  DocumentInit& WithReportOnlyDocumentPolicyHeader(const String& header);
+  const String& ReportOnlyDocumentPolicyHeader() const {
+    return report_only_document_policy_header_;
+  }
+
+  DocumentInit& WithWebBundleClaimedUrl(const KURL& web_bundle_claimed_url);
+  const KURL& GetWebBundleClaimedUrl() const { return web_bundle_claimed_url_; }
 
   WindowAgentFactory* GetWindowAgentFactory() const;
   Settings* GetSettingsForWindowAgentFactory() const;
@@ -234,12 +248,14 @@ class CORE_EXPORT DocumentInit final {
 
   // The feature policy set via response header.
   String feature_policy_header_;
+  String report_only_feature_policy_header_;
 
   // The origin trial set via response header.
   String origin_trials_header_;
 
   // Additional sandbox flags
-  WebSandboxFlags sandbox_flags_ = WebSandboxFlags::kNone;
+  mojom::blink::WebSandboxFlags sandbox_flags_ =
+      mojom::blink::WebSandboxFlags::kNone;
 
   // Loader's CSP
   ContentSecurityPolicy* content_security_policy_ = nullptr;
@@ -251,7 +267,14 @@ class CORE_EXPORT DocumentInit final {
   // The frame policy snapshot from the beginning of navigation.
   base::Optional<FramePolicy> frame_policy_ = base::nullopt;
 
-  DocumentPolicy::FeatureState document_policy_;
+  // The document policy set via response header.
+  DocumentPolicy::ParsedDocumentPolicy document_policy_;
+  String report_only_document_policy_header_;
+
+  // The claimed URL inside Web Bundle file from which the document is loaded.
+  // This URL is used for window.location and document.URL and relative path
+  // computation in the document.
+  KURL web_bundle_claimed_url_;
 
   bool is_for_external_handler_ = false;
   Color plugin_background_color_;

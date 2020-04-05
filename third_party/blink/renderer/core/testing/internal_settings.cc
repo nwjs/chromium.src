@@ -170,7 +170,7 @@ void InternalSettings::setViewportStyle(const String& style,
     GetSettings()->SetViewportStyle(WebViewportStyle::kDefault);
   else if (EqualIgnoringASCIICase(style, "mobile"))
     GetSettings()->SetViewportStyle(WebViewportStyle::kMobile);
-  else if (DeprecatedEqualIgnoringCase(style, "television"))
+  else if (EqualIgnoringASCIICase(style, "television"))
     GetSettings()->SetViewportStyle(WebViewportStyle::kTelevision);
   else
     exception_state.ThrowDOMException(
@@ -345,7 +345,7 @@ void InternalSettings::setDefaultVideoPosterURL(
   GetSettings()->SetDefaultVideoPosterURL(url);
 }
 
-void InternalSettings::Trace(blink::Visitor* visitor) {
+void InternalSettings::Trace(Visitor* visitor) {
   InternalSettingsGenerated::Trace(visitor);
   Supplement<Page>::Trace(visitor);
 }

@@ -11,7 +11,7 @@
 #include "components/sync/driver/profile_sync_service.h"
 #include "components/sync/driver/sync_driver_switches.h"
 #include "components/sync/engine/sync_engine_switches.h"
-#include "components/sync/nigori/cryptographer.h"
+#include "components/sync/nigori/cryptographer_impl.h"
 #include "content/public/test/test_launcher.h"
 #include "crypto/ec_private_key.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -26,6 +26,7 @@ using encryption_helper::CreateCustomPassphraseNigori;
 using encryption_helper::GetEncryptedBookmarkEntitySpecifics;
 using encryption_helper::GetServerNigori;
 using encryption_helper::InitCustomPassphraseCryptographerFromNigori;
+using encryption_helper::KeyParams;
 using encryption_helper::SetNigoriInFakeServer;
 using fake_server::FakeServer;
 using sync_pb::EncryptedData;
@@ -33,7 +34,6 @@ using sync_pb::NigoriSpecifics;
 using sync_pb::SyncEntity;
 using syncer::Cryptographer;
 using syncer::KeyDerivationParams;
-using syncer::KeyParams;
 using syncer::LoopbackServerEntity;
 using syncer::ModelType;
 using syncer::ModelTypeSet;
@@ -107,7 +107,8 @@ class SingleClientCustomPassphraseSyncTest : public SyncTest {
       const std::vector<ServerBookmarksEqualityChecker::ExpectedBookmark>&
           expected_bookmarks,
       const KeyParams& key_params) {
-    auto cryptographer = CreateCryptographerWithKeyParams(key_params);
+    auto cryptographer = syncer::CryptographerImpl::FromSingleKeyForTesting(
+        key_params.password, key_params.derivation_params);
     return ServerBookmarksEqualityChecker(GetSyncService(), GetFakeServer(),
                                           expected_bookmarks,
                                           cryptographer.get())
@@ -160,16 +161,6 @@ class SingleClientCustomPassphraseSyncTest : public SyncTest {
     return InitCustomPassphraseCryptographerFromNigori(nigori, passphrase);
   }
 
-  // A cryptographer initialized with the given KeyParams has not "seen" the
-  // server-side Nigori, and so any data decryptable by such a cryptographer
-  // does not depend on external info.
-  std::unique_ptr<Cryptographer> CreateCryptographerWithKeyParams(
-      const KeyParams& key_params) {
-    auto cryptographer = std::make_unique<syncer::DirectoryCryptographer>();
-    cryptographer->AddKey(key_params);
-    return cryptographer;
-  }
-
   void InjectEncryptedServerBookmark(const std::string& title,
                                      const GURL& url,
                                      const KeyParams& key_params) {
@@ -189,18 +180,8 @@ class SingleClientCustomPassphraseSyncTestWithUssTests
       public testing::WithParamInterface<bool> {
  public:
   SingleClientCustomPassphraseSyncTestWithUssTests() {
-    if (GetParam()) {
-      // USS Nigori requires USS implementations to be enabled for all
-      // datatypes.
-      override_features_.InitWithFeatures(
-          /*enabled_features=*/{switches::kSyncUSSPasswords,
-                                switches::kSyncUSSNigori},
-          /*disabled_features=*/{});
-    } else {
-      // We test Directory Nigori with default values of USS feature flags of
-      // other datatypes.
-      override_features_.InitAndDisableFeature(switches::kSyncUSSNigori);
-    }
+    override_features_.InitWithFeatureState(switches::kSyncUSSNigori,
+                                            GetParam());
   }
   ~SingleClientCustomPassphraseSyncTestWithUssTests() override = default;
 
@@ -458,8 +439,7 @@ class SingleClientCustomPassphraseSyncTestInDirectoryMode
       // key derivation method in ShouldLoadUSSCustomPassphraseInDirectoryMode,
       // once USS implementation support it for new passphrases.
       feature_list_.InitWithFeatures(
-          /*enabled_features=*/{switches::kSyncUSSPasswords,
-                                switches::kSyncUSSNigori},
+          /*enabled_features=*/{switches::kSyncUSSNigori},
           /*disabled_features=*/{
               switches::kSyncUseScryptForNewCustomPassphrases});
     } else {
@@ -508,8 +488,7 @@ class SingleClientCustomPassphraseSyncTestInUSSMode
       // when kSyncUSSNigori was disabled, without providing it again once
       // kSyncUSSNigori is enabled.
       feature_list_.InitWithFeatures(
-          /*enabled_features=*/{switches::kSyncUSSPasswords,
-                                switches::kSyncUSSNigori},
+          /*enabled_features=*/{switches::kSyncUSSNigori},
           /*disabled_features=*/{});
     }
   }

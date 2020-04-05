@@ -32,7 +32,6 @@
 #include "third_party/blink/renderer/core/css/style_engine.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/element.h"
-#include "third_party/blink/renderer/core/dom/shadow_root.h"
 #include "third_party/blink/renderer/core/editing/drag_caret.h"
 #include "third_party/blink/renderer/core/editing/editing_utilities.h"
 #include "third_party/blink/renderer/core/editing/frame_selection.h"
@@ -548,7 +547,7 @@ void LayoutBlock::AddLayoutOverflowFromPositionedObjects() {
     // Fixed positioned elements whose containing block is the LayoutView
     // don't contribute to layout overflow, since they don't scroll with the
     // content.
-    if (!IsLayoutView() ||
+    if (!IsA<LayoutView>(this) ||
         positioned_object->StyleRef().GetPosition() != EPosition::kFixed) {
       AddLayoutOverflowFromChild(*positioned_object,
                                  ToLayoutSize(positioned_object->Location()));
@@ -593,7 +592,8 @@ void LayoutBlock::UpdateBlockChildDirtyBitsBeforeLayout(bool relayout_children,
       child.HasRelativeLogicalHeight() ||
       (child.IsAnonymous() && HasRelativeLogicalHeight()) ||
       child.StretchesToViewport();
-  if (relayout_children || (has_relative_logical_height && !IsLayoutView()) ||
+  if (relayout_children ||
+      (has_relative_logical_height && !IsA<LayoutView>(this)) ||
       (height_available_to_children_changed_ &&
        ChangeInAvailableLogicalHeightAffectsChild(this, child)) ||
       (child.IsListMarker() && IsListItem() &&
@@ -719,11 +719,11 @@ void LayoutBlock::MarkFixedPositionObjectForLayoutIfNeeded(
     return;
 
   LayoutObject* o = child->Parent();
-  while (!o->IsLayoutView() &&
-         o->StyleRef().GetPosition() != EPosition::kAbsolute)
+  bool is_layout_view = IsA<LayoutView>(o);
+  while (!is_layout_view && o->StyleRef().GetPosition() != EPosition::kAbsolute)
     o = o->Parent();
   // The LayoutView is absolute-positioned, but does not move.
-  if (o->IsLayoutView())
+  if (is_layout_view)
     return;
 
   // We must compute child's width and height, but not update them now.
@@ -1176,7 +1176,7 @@ bool LayoutBlock::IsPointInOverflowControl(
 bool LayoutBlock::HitTestOverflowControl(
     HitTestResult& result,
     const HitTestLocation& hit_test_location,
-    const PhysicalOffset& adjusted_location) {
+    const PhysicalOffset& adjusted_location) const {
   if (VisibleToHitTestRequest(result.GetHitTestRequest()) &&
       IsPointInOverflowControl(result, hit_test_location.Point(),
                                adjusted_location)) {
@@ -1262,7 +1262,7 @@ static inline bool IsEditingBoundary(const LayoutObject* ancestor,
   DCHECK(child);
   DCHECK(child.NonPseudoNode());
   return !ancestor || !ancestor->Parent() ||
-         (ancestor->HasLayer() && ancestor->Parent()->IsLayoutView()) ||
+         (ancestor->HasLayer() && IsA<LayoutView>(ancestor->Parent())) ||
          HasEditableStyle(*ancestor->NonPseudoNode()) ==
              HasEditableStyle(*child.NonPseudoNode());
 }
@@ -1399,10 +1399,9 @@ void LayoutBlock::ScrollbarsChanged(bool horizontal_scrollbar_changed,
   height_available_to_children_changed_ |= horizontal_scrollbar_changed;
 }
 
-void LayoutBlock::ComputeIntrinsicLogicalWidths(
-    LayoutUnit& min_logical_width,
-    LayoutUnit& max_logical_width) const {
-  int scrollbar_width = ScrollbarLogicalWidth();
+MinMaxSizes LayoutBlock::ComputeIntrinsicLogicalWidths() const {
+  MinMaxSizes sizes;
+  sizes += BorderAndPaddingLogicalWidth() + ScrollbarLogicalWidth();
 
   // See if we can early out sooner if the logical width is overridden or we're
   // size contained. Note that for multicol containers we need the column gaps.
@@ -1410,50 +1409,56 @@ void LayoutBlock::ComputeIntrinsicLogicalWidths(
   const auto* block_flow = DynamicTo<LayoutBlockFlow>(this);
   if (!block_flow || !block_flow->MultiColumnFlowThread()) {
     if (HasOverrideIntrinsicContentLogicalWidth()) {
-      max_logical_width = min_logical_width =
-          OverrideIntrinsicContentLogicalWidth() + LayoutUnit(scrollbar_width);
-      return;
+      sizes += OverrideIntrinsicContentLogicalWidth();
+      return sizes;
     }
-    if (ShouldApplySizeContainment()) {
-      max_logical_width = min_logical_width = LayoutUnit(scrollbar_width);
-      return;
+    LayoutUnit default_inline_size = DefaultIntrinsicContentInlineSize();
+    if (default_inline_size != kIndefiniteSize) {
+      sizes.max_size += default_inline_size;
+      if (!StyleRef().LogicalWidth().IsPercentOrCalc())
+        sizes.min_size = sizes.max_size;
+      return sizes;
     }
+    if (ShouldApplySizeContainment())
+      return sizes;
   }
 
+  MinMaxSizes child_sizes;
   if (ChildrenInline()) {
     // FIXME: Remove this const_cast.
     To<LayoutBlockFlow>(const_cast<LayoutBlock*>(this))
-        ->ComputeInlinePreferredLogicalWidths(min_logical_width,
-                                              max_logical_width);
+        ->ComputeInlinePreferredLogicalWidths(child_sizes.min_size,
+                                              child_sizes.max_size);
   } else {
-    ComputeBlockPreferredLogicalWidths(min_logical_width, max_logical_width);
+    ComputeBlockPreferredLogicalWidths(child_sizes.min_size,
+                                       child_sizes.max_size);
   }
 
-  max_logical_width = std::max(min_logical_width, max_logical_width);
+  child_sizes.max_size = std::max(child_sizes.min_size, child_sizes.max_size);
 
   auto* html_marquee_element = DynamicTo<HTMLMarqueeElement>(GetNode());
   if (html_marquee_element && html_marquee_element->IsHorizontal())
-    min_logical_width = LayoutUnit();
+    child_sizes.min_size = LayoutUnit();
+  if (UNLIKELY(IsListBox(this) && StyleRef().LogicalWidth().IsPercentOrCalc()))
+    child_sizes.min_size = LayoutUnit();
 
   if (IsTableCell()) {
     Length table_cell_width =
         ToInterface<LayoutNGTableCellInterface>(this)->StyleOrColLogicalWidth();
-    if (table_cell_width.IsFixed() && table_cell_width.Value() > 0)
-      max_logical_width = std::max(min_logical_width,
-                                   AdjustContentBoxLogicalWidthForBoxSizing(
-                                       LayoutUnit(table_cell_width.Value())));
+    if (table_cell_width.IsFixed() && table_cell_width.Value() > 0) {
+      child_sizes.max_size = std::max(
+          child_sizes.min_size, AdjustContentBoxLogicalWidthForBoxSizing(
+                                    LayoutUnit(table_cell_width.Value())));
+    }
   }
 
-  max_logical_width += scrollbar_width;
-  min_logical_width += scrollbar_width;
+  sizes += child_sizes;
+  return sizes;
 }
 
 DISABLE_CFI_PERF
-void LayoutBlock::ComputePreferredLogicalWidths() {
-  DCHECK(PreferredLogicalWidthsDirty());
-
-  min_preferred_logical_width_ = LayoutUnit();
-  max_preferred_logical_width_ = LayoutUnit();
+MinMaxSizes LayoutBlock::PreferredLogicalWidths() const {
+  MinMaxSizes sizes;
 
   // FIXME: The isFixed() calls here should probably be checking for isSpecified
   // since you should be able to use percentage, calc or viewport relative
@@ -1462,52 +1467,32 @@ void LayoutBlock::ComputePreferredLogicalWidths() {
   if (!IsTableCell() && style_to_use.LogicalWidth().IsFixed() &&
       style_to_use.LogicalWidth().Value() >= 0 &&
       !(IsFlexItemCommon() && Parent()->StyleRef().IsDeprecatedWebkitBox() &&
-        !style_to_use.LogicalWidth().IntValue()))
-    min_preferred_logical_width_ = max_preferred_logical_width_ =
-        AdjustContentBoxLogicalWidthForBoxSizing(
-            LayoutUnit(style_to_use.LogicalWidth().Value()));
-  else
-    ComputeIntrinsicLogicalWidths(min_preferred_logical_width_,
-                                  max_preferred_logical_width_);
+        !style_to_use.LogicalWidth().IntValue())) {
+    sizes = AdjustBorderBoxLogicalWidthForBoxSizing(
+        LayoutUnit(style_to_use.LogicalWidth().Value()));
+  } else {
+    sizes = IntrinsicLogicalWidths();
+  }
 
   if (style_to_use.LogicalMaxWidth().IsFixed()) {
-    max_preferred_logical_width_ =
-        std::min(max_preferred_logical_width_,
-                 AdjustContentBoxLogicalWidthForBoxSizing(
-                     LayoutUnit(style_to_use.LogicalMaxWidth().Value())));
-    min_preferred_logical_width_ =
-        std::min(min_preferred_logical_width_,
-                 AdjustContentBoxLogicalWidthForBoxSizing(
-                     LayoutUnit(style_to_use.LogicalMaxWidth().Value())));
+    sizes.Constrain(AdjustBorderBoxLogicalWidthForBoxSizing(
+        LayoutUnit(style_to_use.LogicalMaxWidth().Value())));
   }
 
   if (style_to_use.LogicalMinWidth().IsFixed() &&
       style_to_use.LogicalMinWidth().Value() > 0) {
-    max_preferred_logical_width_ =
-        std::max(max_preferred_logical_width_,
-                 AdjustContentBoxLogicalWidthForBoxSizing(
-                     LayoutUnit(style_to_use.LogicalMinWidth().Value())));
-    min_preferred_logical_width_ =
-        std::max(min_preferred_logical_width_,
-                 AdjustContentBoxLogicalWidthForBoxSizing(
-                     LayoutUnit(style_to_use.LogicalMinWidth().Value())));
+    sizes.Encompass(AdjustBorderBoxLogicalWidthForBoxSizing(
+        LayoutUnit(style_to_use.LogicalMinWidth().Value())));
   }
-
-  LayoutUnit border_and_padding = BorderAndPaddingLogicalWidth();
-  DCHECK_GE(border_and_padding, LayoutUnit());
-  min_preferred_logical_width_ += border_and_padding;
-  max_preferred_logical_width_ += border_and_padding;
 
   // Table layout uses integers, ceil the preferred widths to ensure that they
   // can contain the contents.
   if (IsTableCell()) {
-    min_preferred_logical_width_ =
-        LayoutUnit(min_preferred_logical_width_.Ceil());
-    max_preferred_logical_width_ =
-        LayoutUnit(max_preferred_logical_width_.Ceil());
+    sizes.min_size = LayoutUnit(sizes.min_size.Ceil());
+    sizes.max_size = LayoutUnit(sizes.max_size.Ceil());
   }
 
-  ClearPreferredLogicalWidthsDirty();
+  return sizes;
 }
 
 void LayoutBlock::ComputeBlockPreferredLogicalWidths(
@@ -1535,7 +1520,7 @@ void LayoutBlock::ComputeBlockPreferredLogicalWidths(
       // This is also an important hook for flow threads; if the container of a
       // flow thread needs its preferred logical widths recalculated, so does
       // the flow thread, potentially.
-      child->SetPreferredLogicalWidthsDirty();
+      child->SetIntrinsicLogicalWidthsDirty();
     }
 
     scoped_refptr<const ComputedStyle> child_style = child->Style();
@@ -1651,8 +1636,10 @@ void LayoutBlock::ComputeChildPreferredLogicalWidths(
         ToLayoutBox(child).ComputeLogicalHeightWithoutLayout();
     return;
   }
-  min_preferred_logical_width = child.MinPreferredLogicalWidth();
-  max_preferred_logical_width = child.MaxPreferredLogicalWidth();
+
+  MinMaxSizes child_preferred_logical_widths = child.PreferredLogicalWidths();
+  min_preferred_logical_width = child_preferred_logical_widths.min_size;
+  max_preferred_logical_width = child_preferred_logical_widths.max_size;
 
   // For non-replaced blocks if the inline size is min|max-content or a definite
   // size the min|max-content contribution is that size plus border, padding and
@@ -1670,11 +1657,6 @@ bool LayoutBlock::HasLineIfEmpty() const {
   if (GetNode()) {
     if (IsRootEditableElement(*GetNode()))
       return true;
-
-    if (auto* shadow_root = DynamicTo<ShadowRoot>(GetNode())) {
-      if (IsA<HTMLInputElement>(shadow_root->host()))
-        return true;
-    }
   }
   return FirstLineStyleRef().HasLineIfEmpty();
 }
@@ -1835,7 +1817,7 @@ bool LayoutBlock::UseLogicalBottomMarginEdgeForInlineBlockBaseline() const {
   // where the block's contents shouldn't be considered when laying out its
   // ancestors or siblings.
   return (!StyleRef().IsOverflowVisible() &&
-          !ShouldIgnoreOverflowPropertyForInlineBlockBaseline()) ||
+          !StyleRef().ShouldIgnoreOverflowPropertyForInlineBlockBaseline()) ||
          ShouldApplyLayoutContainment();
 }
 
@@ -2329,7 +2311,7 @@ LayoutUnit LayoutBlock::AvailableLogicalHeightForPercentageComputation() const {
     available_height = computed_values.extent_ -
                        BorderAndPaddingLogicalHeight() -
                        ScrollbarLogicalHeight();
-  } else if (IsLayoutView()) {
+  } else if (IsA<LayoutView>(this)) {
     available_height = View()->ViewLogicalHeightForPercentages();
   }
 

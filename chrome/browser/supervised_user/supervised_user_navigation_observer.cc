@@ -8,6 +8,7 @@
 
 #include "base/bind.h"
 #include "base/callback.h"
+#include "base/memory/ptr_util.h"
 #include "base/metrics/histogram_macros.h"
 #include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
@@ -37,22 +38,6 @@ bool IsMainFrame(content::RenderFrameHost* render_frame_host) {
 }  // namespace
 
 using content::NavigationEntry;
-
-// static
-void SupervisedUserNavigationObserver::MaybeCreateForWebContents(
-    content::WebContents* web_contents) {
-  DCHECK(web_contents);
-  Profile* user_profile =
-      Profile::FromBrowserContext(web_contents->GetBrowserContext());
-  if (!user_profile->IsSupervised())
-    return;
-
-  if (!FromWebContents(web_contents)) {
-    web_contents->SetUserData(
-        UserDataKey(),
-        base::WrapUnique(new SupervisedUserNavigationObserver(web_contents)));
-  }
-}
 
 SupervisedUserNavigationObserver::~SupervisedUserNavigationObserver() {
   supervised_user_service_->RemoveObserver(this);

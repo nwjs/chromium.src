@@ -42,12 +42,7 @@ class ModulatorImplBase : public Modulator {
   bool IsScriptingDisabled() const override;
 
   bool ImportMapsEnabled() const override;
-  bool BuiltInModuleInfraEnabled() const override;
-  bool BuiltInModuleEnabled(layered_api::Module) const override;
-  void BuiltInModuleUseCount(layered_api::Module) const override;
   void AddToMap(const KURL& url, ModuleScript* script) override;
-
-  static bool BuiltInModuleRequireSecureContext(layered_api::Module);
 
   ModuleRecordResolver* GetModuleRecordResolver() override {
     return module_record_resolver_.Get();

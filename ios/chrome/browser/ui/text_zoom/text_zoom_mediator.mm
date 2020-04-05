@@ -5,7 +5,7 @@
 #import "ios/chrome/browser/ui/text_zoom/text_zoom_mediator.h"
 
 #import "ios/chrome/browser/main/browser.h"
-#import "ios/chrome/browser/ui/commands/browser_commands.h"
+#import "ios/chrome/browser/ui/commands/text_zoom_commands.h"
 #import "ios/chrome/browser/ui/text_zoom/text_zoom_consumer.h"
 #import "ios/chrome/browser/web/font_size_tab_helper.h"
 #import "ios/chrome/browser/web_state_list/active_web_state_observation_forwarder.h"
@@ -31,15 +31,15 @@
 // The active WebState's font size tab helper.
 @property(nonatomic, readonly) FontSizeTabHelper* fontSizeTabHelper;
 
-// Handler for any BrowserCommands.
-@property(nonatomic, weak) id<BrowserCommands> commandHandler;
+// Handler for any TextZoomCommands.
+@property(nonatomic, weak) id<TextZoomCommands> commandHandler;
 
 @end
 
 @implementation TextZoomMediator
 
 - (instancetype)initWithWebStateList:(WebStateList*)webStateList
-                      commandHandler:(id<BrowserCommands>)commandHandler {
+                      commandHandler:(id<TextZoomCommands>)commandHandler {
   self = [super init];
   if (self) {
     _commandHandler = commandHandler;
@@ -97,7 +97,7 @@
                atIndex:(int)atIndex {
   DCHECK_EQ(self.webStateList, webStateList);
   if (atIndex == webStateList->active_index()) {
-    [self.commandHandler hideTextZoom];
+    [self.commandHandler closeTextZoom];
   }
 }
 
@@ -105,8 +105,8 @@
     didChangeActiveWebState:(web::WebState*)newWebState
                 oldWebState:(web::WebState*)oldWebState
                     atIndex:(int)atIndex
-                     reason:(int)reason {
-  [self.commandHandler hideTextZoom];
+                     reason:(ActiveWebStateChangeReason)reason {
+  [self.commandHandler closeTextZoom];
 }
 
 #pragma mark - TextZoomHandler
@@ -129,13 +129,15 @@
 - (void)updateConsumerState {
   [self.consumer setZoomInEnabled:self.fontSizeTabHelper->CanUserZoomIn()];
   [self.consumer setZoomOutEnabled:self.fontSizeTabHelper->CanUserZoomOut()];
+  [self.consumer
+      setResetZoomEnabled:self.fontSizeTabHelper->CanUserResetZoom()];
 }
 
 #pragma mark - CRWWebStateObserver
 
 - (void)webState:(web::WebState*)webState
     didFinishNavigation:(web::NavigationContext*)navigation {
-  [self.commandHandler hideTextZoom];
+  [self.commandHandler closeTextZoom];
 }
 
 @end

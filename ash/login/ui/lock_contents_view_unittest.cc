@@ -12,6 +12,7 @@
 #include "ash/detachable_base/detachable_base_pairing_status.h"
 #include "ash/login/login_screen_controller.h"
 #include "ash/login/mock_login_screen_client.h"
+#include "ash/login/parent_access_controller.h"
 #include "ash/login/ui/arrow_button_view.h"
 #include "ash/login/ui/fake_login_detachable_base_model.h"
 #include "ash/login/ui/lock_screen.h"
@@ -26,8 +27,6 @@
 #include "ash/login/ui/login_test_base.h"
 #include "ash/login/ui/login_test_utils.h"
 #include "ash/login/ui/login_user_view.h"
-#include "ash/login/ui/parent_access_view.h"
-#include "ash/login/ui/parent_access_widget.h"
 #include "ash/login/ui/scrollable_users_list_view.h"
 #include "ash/login/ui/views_utils.h"
 #include "ash/public/cpp/ash_features.h"
@@ -1066,7 +1065,7 @@ TEST_F(LockContentsViewUnitTest, GaiaNeverShownOnLockAfterFailedAuth) {
   };
 
   // ShowGaiaSignin is never triggered.
-  EXPECT_CALL(*client, ShowGaiaSignin(_, _)).Times(0);
+  EXPECT_CALL(*client, ShowGaiaSignin(_)).Times(0);
   for (int i = 0; i < LockContentsView::kLoginAttemptsBeforeGaiaDialog + 1; ++i)
     submit_password();
 }
@@ -1092,14 +1091,13 @@ TEST_F(LockContentsViewUnitTest, ShowGaiaAuthAfterManyFailedLoginAttempts) {
   };
 
   // The first n-1 attempts do not trigger ShowGaiaSignin.
-  EXPECT_CALL(*client, ShowGaiaSignin(_, _)).Times(0);
+  EXPECT_CALL(*client, ShowGaiaSignin(_)).Times(0);
   for (int i = 0; i < LockContentsView::kLoginAttemptsBeforeGaiaDialog - 1; ++i)
     submit_password();
   Mock::VerifyAndClearExpectations(client.get());
 
   // The final attempt triggers ShowGaiaSignin.
-  EXPECT_CALL(*client, ShowGaiaSignin(true /*can_close*/,
-                                      users()[0].basic_user_info.account_id))
+  EXPECT_CALL(*client, ShowGaiaSignin(users()[0].basic_user_info.account_id))
       .Times(1);
   submit_password();
   Mock::VerifyAndClearExpectations(client.get());
@@ -1799,6 +1797,9 @@ TEST_F(LockContentsViewUnitTest, TapOnAuthUserFocusesPassword) {
     // Move focus off of |auth_target|'s password.
     ASSERT_TRUE(HasFocusInAnyChildView(password));
     GetEventGenerator()->PressKey(ui::KeyboardCode::VKEY_TAB, 0);
+    // Focus on the display password
+    EXPECT_TRUE(HasFocusInAnyChildView(password));
+    GetEventGenerator()->PressKey(ui::KeyboardCode::VKEY_TAB, 0);
     EXPECT_FALSE(HasFocusInAnyChildView(password));
 
     // Click the user view, verify the password was focused.
@@ -2150,7 +2151,7 @@ TEST_F(LockContentsViewUnitTest, ParentAccessDialog) {
       LoginAuthUserView::TestApi(primary_view->auth_user());
 
   EXPECT_TRUE(primary_view->auth_user());
-  EXPECT_FALSE(ParentAccessWidget::Get());
+  EXPECT_FALSE(PinRequestWidget::Get());
   EXPECT_TRUE(LoginPasswordView::TestApi(auth_user.password_view())
                   .textfield()
                   ->HasFocus());
@@ -2158,21 +2159,13 @@ TEST_F(LockContentsViewUnitTest, ParentAccessDialog) {
   contents->ShowParentAccessDialog();
 
   EXPECT_TRUE(primary_view->auth_user());
-  ASSERT_TRUE(ParentAccessWidget::Get());
-  ParentAccessWidget::TestApi widget =
-      ParentAccessWidget::TestApi(ParentAccessWidget::Get());
   EXPECT_FALSE(LoginPasswordView::TestApi(auth_user.password_view())
                    .textfield()
                    ->HasFocus());
-  EXPECT_TRUE(HasFocusInAnyChildView(
-      ParentAccessView::TestApi(widget.parent_access_view())
-          .access_code_view()));
 
-  ParentAccessWidget::TestApi(ParentAccessWidget::Get())
-      .SimulateValidationFinished(false);
+  PinRequestWidget::Get()->Close(false /* validation success */);
 
   EXPECT_TRUE(primary_view->auth_user());
-  EXPECT_FALSE(ParentAccessWidget::Get());
   EXPECT_TRUE(LoginPasswordView::TestApi(auth_user.password_view())
                   .textfield()
                   ->HasFocus());
@@ -2199,15 +2192,13 @@ TEST_F(LockContentsViewUnitTest, ParentAccessButton) {
   // Validation failed - show the button.
   contents->ShowParentAccessDialog();
   EXPECT_FALSE(LoginScreenTestApi::IsParentAccessButtonShown());
-  ParentAccessWidget::TestApi(ParentAccessWidget::Get())
-      .SimulateValidationFinished(false);
+  PinRequestWidget::Get()->Close(false /* validation success */);
   EXPECT_TRUE(LoginScreenTestApi::IsParentAccessButtonShown());
 
   // Validation succeeded - hide the button.
   contents->ShowParentAccessDialog();
   EXPECT_FALSE(LoginScreenTestApi::IsParentAccessButtonShown());
-  ParentAccessWidget::TestApi(ParentAccessWidget::Get())
-      .SimulateValidationFinished(true);
+  PinRequestWidget::Get()->Close(true /* validation success */);
   EXPECT_FALSE(LoginScreenTestApi::IsParentAccessButtonShown());
 
   // Validation failed but user auth got enabled - hide button.
@@ -2215,8 +2206,7 @@ TEST_F(LockContentsViewUnitTest, ParentAccessButton) {
   contents->ShowParentAccessDialog();
   EXPECT_FALSE(LoginScreenTestApi::IsParentAccessButtonShown());
   DataDispatcher()->EnableAuthForUser(child_id);
-  ParentAccessWidget::TestApi(ParentAccessWidget::Get())
-      .SimulateValidationFinished(false);
+  PinRequestWidget::Get()->Close(false /* validation success */);
   EXPECT_FALSE(LoginScreenTestApi::IsParentAccessButtonShown());
 }
 
@@ -2457,6 +2447,10 @@ TEST_F(LockContentsViewUnitTest, RemoveUserFocusMovesBackToPrimaryUser) {
   users()[1].can_remove = true;
   DataDispatcher()->SetUserList(users());
   SetWidget(CreateWidgetWithContent(lock));
+  auto client = std::make_unique<MockLoginScreenClient>();
+  EXPECT_CALL(*client, RemoveUser(users()[1].basic_user_info.account_id))
+      .Times(1)
+      .WillOnce(Invoke(this, &LoginTestBase::RemoveUser));
 
   LockContentsView::TestApi test_api(lock);
   LoginAuthUserView::TestApi secondary_test_api(
@@ -2894,11 +2888,30 @@ TEST_F(LockContentsViewUnitTest, NoUsersToShow) {
       std::make_unique<FakeLoginDetachableBaseModel>(DataDispatcher()));
   std::unique_ptr<views::Widget> widget = CreateWidgetWithContent(contents);
   LockContentsView::TestApi test_api(contents);
+  DataDispatcher()->SetUserList(users());
 
   // Verify that primary big view is null.
   EXPECT_THAT(test_api.primary_big_view(), IsNull());
   // Verify that the main view has no children.
   EXPECT_TRUE(test_api.main_view()->children().empty());
+}
+
+TEST_F(LockContentsViewUnitTest, ToggleGaiaOnUsersChanged) {
+  auto* contents = new LockContentsView(
+      mojom::TrayActionState::kNotAvailable, LockScreen::ScreenType::kLogin,
+      DataDispatcher(),
+      std::make_unique<FakeLoginDetachableBaseModel>(DataDispatcher()));
+  std::unique_ptr<views::Widget> widget = CreateWidgetWithContent(contents);
+  LockContentsView::TestApi test_api(contents);
+  auto client = std::make_unique<MockLoginScreenClient>();
+  // Expect Gaia to show when there is no users.
+  EXPECT_CALL(*client, ShowGaiaSignin(_)).Times(1);
+  AddUsers(0);
+  Mock::VerifyAndClearExpectations(client.get());
+
+  // Hide Gaia when users added.
+  EXPECT_CALL(*client, HideGaiaSignin()).Times(1);
+  AddPublicAccountUsers(1);
 }
 
 }  // namespace ash

@@ -75,7 +75,7 @@ StyleImage* CSSImageValue::CacheImage(
     options.initiator_info.name = initiator_name_.IsEmpty()
                                       ? fetch_initiator_type_names::kCSS
                                       : initiator_name_;
-    FetchParameters params(resource_request, options);
+    FetchParameters params(std::move(resource_request), options);
 
     if (cross_origin != kCrossOriginAttributeNotSet) {
       params.SetCrossOriginAccessControl(document.GetSecurityOrigin(),
@@ -150,7 +150,7 @@ bool CSSImageValue::KnownToBeOpaque(const Document& document,
                        : false;
 }
 
-void CSSImageValue::TraceAfterDispatch(blink::Visitor* visitor) {
+void CSSImageValue::TraceAfterDispatch(blink::Visitor* visitor) const {
   visitor->Trace(cached_image_);
   CSSValue::TraceAfterDispatch(visitor);
 }

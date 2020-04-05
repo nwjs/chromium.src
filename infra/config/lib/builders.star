@@ -61,6 +61,7 @@ os = struct(
     MAC_10_12 = os_enum('Mac-10.12', os_category.MAC),
     MAC_10_13 = os_enum('Mac-10.13', os_category.MAC),
     MAC_10_14 = os_enum('Mac-10.14', os_category.MAC),
+    MAC_10_15 = os_enum('Mac-10.15', os_category.MAC),
     MAC_DEFAULT = os_enum('Mac-10.13', os_category.MAC),
     MAC_ANY = os_enum('Mac', os_category.MAC),
 
@@ -117,6 +118,20 @@ goma = struct(
         LOAD_TESTING_J1000 = 1000,
         LOAD_TESTING_J2000 = 2000,
     ),
+)
+
+
+def xcode_enum(cache_name, cache_path):
+  return swarming.cache(name=cache_name, path=cache_path)
+
+
+# Keep this in-sync with the versions of bots in //ios/build/bots/.
+xcode_cache = struct(
+   x10e1001 = xcode_enum('xcode_ios_10e1001', 'xcode_ios_10e1001.app'),
+   x11a1027 = xcode_enum('xcode_ios_11a1027', 'xcode_ios_11a1027.app'),
+   x11c505wk = xcode_enum('xcode_ios_11c505wk', 'xcode_ios_11c505wk.app'),
+   x11c29 = xcode_enum('xcode_ios_11c29', 'xcode_ios_11c29.app'),
+   x11m382q = xcode_enum('xcode_ios_11m382q', 'xcode_ios_11m382q.app'),
 )
 
 
@@ -432,10 +447,19 @@ def builder(
   )
 
 
+def builder_name(builder, bucket=args.DEFAULT):
+  bucket = defaults.get_value('bucket', bucket)
+  if bucket == args.COMPUTE:
+    fail('Either a default for bucket must be set or bucket must be passed in')
+  return '{}/{}'.format(bucket, builder)
+
+
 builders = struct(
     builder = builder,
+    builder_name = builder_name,
     cpu = cpu,
     defaults = defaults,
     goma = goma,
     os = os,
+    xcode_cache = xcode_cache,
 )

@@ -53,6 +53,47 @@ class ServiceConnectionImpl : public ServiceConnection {
   void RunSmartctlCheckRoutine(
       mojom::CrosHealthdDiagnosticsService::RunSmartctlCheckRoutineCallback
           callback) override;
+  void RunAcPowerRoutine(
+      mojom::AcPowerStatusEnum expected_status,
+      const base::Optional<std::string>& expected_power_type,
+      mojom::CrosHealthdDiagnosticsService::RunAcPowerRoutineCallback callback)
+      override;
+  void RunCpuCacheRoutine(
+      const base::TimeDelta& exec_duration,
+      mojom::CrosHealthdDiagnosticsService::RunCpuCacheRoutineCallback callback)
+      override;
+  void RunCpuStressRoutine(
+      const base::TimeDelta& exec_duration,
+      mojom::CrosHealthdDiagnosticsService::RunCpuStressRoutineCallback
+          callback) override;
+  void RunFloatingPointAccuracyRoutine(
+      const base::TimeDelta& exec_duration,
+      mojom::CrosHealthdDiagnosticsService::
+          RunFloatingPointAccuracyRoutineCallback callback) override;
+  void RunNvmeWearLevelRoutine(
+      uint32_t wear_level_threshold,
+      mojom::CrosHealthdDiagnosticsService::RunNvmeWearLevelRoutineCallback
+          callback) override;
+  void RunNvmeSelfTestRoutine(
+      mojom::NvmeSelfTestTypeEnum nvme_self_test_type,
+      mojom::CrosHealthdDiagnosticsService::RunNvmeSelfTestRoutineCallback
+          callback) override;
+  void RunDiskReadRoutine(
+      mojom::DiskReadRoutineTypeEnum type,
+      base::TimeDelta& exec_duration,
+      uint32_t file_size_mb,
+      mojom::CrosHealthdDiagnosticsService::RunDiskReadRoutineCallback callback)
+      override;
+  void RunPrimeSearchRoutine(
+      base::TimeDelta& exec_duration,
+      uint64_t max_num,
+      mojom::CrosHealthdDiagnosticsService::RunPrimeSearchRoutineCallback
+          callback) override;
+  void RunBatteryDischargeRoutine(
+      base::TimeDelta exec_duration,
+      uint32_t maximum_discharge_percent_allowed,
+      mojom::CrosHealthdDiagnosticsService::RunBatteryDischargeRoutineCallback
+          callback) override;
   void ProbeTelemetryInfo(
       const std::vector<mojom::ProbeCategoryEnum>& categories_to_test,
       mojom::CrosHealthdProbeService::ProbeTelemetryInfoCallback callback)
@@ -147,6 +188,99 @@ void ServiceConnectionImpl::RunSmartctlCheckRoutine(
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   BindCrosHealthdDiagnosticsServiceIfNeeded();
   cros_healthd_diagnostics_service_->RunSmartctlCheckRoutine(
+      std::move(callback));
+}
+
+void ServiceConnectionImpl::RunAcPowerRoutine(
+    mojom::AcPowerStatusEnum expected_status,
+    const base::Optional<std::string>& expected_power_type,
+    mojom::CrosHealthdDiagnosticsService::RunAcPowerRoutineCallback callback) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  BindCrosHealthdDiagnosticsServiceIfNeeded();
+  cros_healthd_diagnostics_service_->RunAcPowerRoutine(
+      expected_status, expected_power_type, std::move(callback));
+}
+
+void ServiceConnectionImpl::RunCpuCacheRoutine(
+    const base::TimeDelta& exec_duration,
+    mojom::CrosHealthdDiagnosticsService::RunCpuCacheRoutineCallback callback) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  BindCrosHealthdDiagnosticsServiceIfNeeded();
+  cros_healthd_diagnostics_service_->RunCpuCacheRoutine(
+      exec_duration.InSeconds(), std::move(callback));
+}
+
+void ServiceConnectionImpl::RunCpuStressRoutine(
+    const base::TimeDelta& exec_duration,
+    mojom::CrosHealthdDiagnosticsService::RunCpuStressRoutineCallback
+        callback) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  BindCrosHealthdDiagnosticsServiceIfNeeded();
+  cros_healthd_diagnostics_service_->RunCpuStressRoutine(
+      exec_duration.InSeconds(), std::move(callback));
+}
+
+void ServiceConnectionImpl::RunFloatingPointAccuracyRoutine(
+    const base::TimeDelta& exec_duration,
+    mojom::CrosHealthdDiagnosticsService::
+        RunFloatingPointAccuracyRoutineCallback callback) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  BindCrosHealthdDiagnosticsServiceIfNeeded();
+  cros_healthd_diagnostics_service_->RunFloatingPointAccuracyRoutine(
+      exec_duration.InSeconds(), std::move(callback));
+}
+
+void ServiceConnectionImpl::RunNvmeWearLevelRoutine(
+    uint32_t wear_level_threshold,
+    mojom::CrosHealthdDiagnosticsService::RunNvmeWearLevelRoutineCallback
+        callback) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  BindCrosHealthdDiagnosticsServiceIfNeeded();
+  cros_healthd_diagnostics_service_->RunNvmeWearLevelRoutine(
+      wear_level_threshold, std::move(callback));
+}
+
+void ServiceConnectionImpl::RunNvmeSelfTestRoutine(
+    mojom::NvmeSelfTestTypeEnum self_test_type,
+    mojom::CrosHealthdDiagnosticsService::RunNvmeSelfTestRoutineCallback
+        callback) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  BindCrosHealthdDiagnosticsServiceIfNeeded();
+  cros_healthd_diagnostics_service_->RunNvmeSelfTestRoutine(
+      self_test_type, std::move(callback));
+}
+
+void ServiceConnectionImpl::RunDiskReadRoutine(
+    mojom::DiskReadRoutineTypeEnum type,
+    base::TimeDelta& exec_duration,
+    uint32_t file_size_mb,
+    mojom::CrosHealthdDiagnosticsService::RunDiskReadRoutineCallback callback) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  BindCrosHealthdDiagnosticsServiceIfNeeded();
+  cros_healthd_diagnostics_service_->RunDiskReadRoutine(
+      type, exec_duration.InSeconds(), file_size_mb, std::move(callback));
+}
+
+void ServiceConnectionImpl::RunPrimeSearchRoutine(
+    base::TimeDelta& exec_duration,
+    uint64_t max_num,
+    mojom::CrosHealthdDiagnosticsService::RunPrimeSearchRoutineCallback
+        callback) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  BindCrosHealthdDiagnosticsServiceIfNeeded();
+  cros_healthd_diagnostics_service_->RunPrimeSearchRoutine(
+      exec_duration.InSeconds(), max_num, std::move(callback));
+}
+
+void ServiceConnectionImpl::RunBatteryDischargeRoutine(
+    base::TimeDelta exec_duration,
+    uint32_t maximum_discharge_percent_allowed,
+    mojom::CrosHealthdDiagnosticsService::RunBatteryDischargeRoutineCallback
+        callback) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  BindCrosHealthdDiagnosticsServiceIfNeeded();
+  cros_healthd_diagnostics_service_->RunBatteryDischargeRoutine(
+      exec_duration.InSeconds(), maximum_discharge_percent_allowed,
       std::move(callback));
 }
 

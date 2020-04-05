@@ -29,6 +29,7 @@
 #include "net/url_request/url_request.h"
 #include "services/network/public/cpp/cors/cors.h"
 #include "services/network/public/cpp/resource_request_body.h"
+#include "services/network/public/mojom/network_context.mojom.h"
 #include "third_party/blink/public/platform/resource_request_blocked_reason.h"
 
 namespace content {
@@ -113,7 +114,7 @@ DevToolsURLLoaderInterceptor::Pattern::Pattern(const Pattern& other) = default;
 
 DevToolsURLLoaderInterceptor::Pattern::Pattern(
     const std::string& url_pattern,
-    base::flat_set<ResourceType> resource_types,
+    base::flat_set<blink::mojom::ResourceType> resource_types,
     InterceptionStage interception_stage)
     : url_pattern(url_pattern),
       resource_types(std::move(resource_types)),
@@ -121,7 +122,7 @@ DevToolsURLLoaderInterceptor::Pattern::Pattern(
 
 bool DevToolsURLLoaderInterceptor::Pattern::Matches(
     const std::string& url,
-    ResourceType resource_type) const {
+    blink::mojom::ResourceType resource_type) const {
   if (!resource_types.empty() &&
       resource_types.find(resource_type) == resource_types.end()) {
     return false;
@@ -192,7 +193,7 @@ class BodyReader : public mojo::DataPipeDrainer::Client {
 
   void CancelWithError(std::string error) {
     for (auto& cb : callbacks_)
-      cb->sendFailure(Response::Error(error));
+      cb->sendFailure(Response::ServerError(error));
     callbacks_.clear();
   }
 
@@ -441,7 +442,7 @@ void DevToolsURLLoaderInterceptor::CreateJob(
 
 InterceptionStage DevToolsURLLoaderInterceptor::GetInterceptionStage(
     const GURL& url,
-    ResourceType resource_type) const {
+    blink::mojom::ResourceType resource_type) const {
   InterceptionStage stage = InterceptionStage::DONT_INTERCEPT;
   std::string unused;
   std::string url_str = protocol::NetworkHandler::ExtractFragment(url, &unused);
@@ -637,22 +638,33 @@ bool DevToolsURLLoaderInterceptor::CreateProxyForInterception(
     const base::UnguessableToken& frame_token,
     bool is_navigation,
     bool is_download,
-    mojo::PendingReceiver<network::mojom::URLLoaderFactory>* receiver) {
+    network::mojom::URLLoaderFactoryOverride* intercepting_factory) {
   if (patterns_.empty())
     return false;
 
-  mojo::PendingReceiver<network::mojom::URLLoaderFactory> original_receiver =
-      std::move(*receiver);
+  // If we're the first interceptor to install an override, make a
+  // remote/receiver pair, then handle this similarly to appending
+  // a proxy to existing override.
+  if (!intercepting_factory->overriding_factory) {
+    DCHECK(!intercepting_factory->overridden_factory_receiver);
+    intercepting_factory->overridden_factory_receiver =
+        intercepting_factory->overriding_factory
+            .InitWithNewPipeAndPassReceiver();
+  }
   mojo::PendingRemote<network::mojom::URLLoaderFactory> target_remote;
-  *receiver = target_remote.InitWithNewPipeAndPassReceiver();
+  auto overridden_factory_receiver =
+      target_remote.InitWithNewPipeAndPassReceiver();
   mojo::PendingRemote<network::mojom::CookieManager> cookie_manager;
   int process_id = is_navigation ? 0 : rph->GetID();
   rph->GetStoragePartition()->GetNetworkContext()->GetCookieManager(
       cookie_manager.InitWithNewPipeAndPassReceiver());
   new DevToolsURLLoaderFactoryProxy(
-      frame_token, process_id, is_download, std::move(original_receiver),
+      frame_token, process_id, is_download,
+      std::move(intercepting_factory->overridden_factory_receiver),
       std::move(target_remote), std::move(cookie_manager),
       weak_factory_.GetWeakPtr());
+  intercepting_factory->overridden_factory_receiver =
+      std::move(overridden_factory_receiver);
   return true;
 }
 
@@ -711,7 +723,8 @@ bool InterceptionJob::StartJobAndMaybeNotify() {
 
   const network::ResourceRequest& request = create_loader_params_->request;
   stage_ = interceptor_->GetInterceptionStage(
-      request.url, static_cast<ResourceType>(request.resource_type));
+      request.url,
+      static_cast<blink::mojom::ResourceType>(request.resource_type));
 
   if (!(stage_ & InterceptionStage::REQUEST))
     return false;
@@ -780,7 +793,7 @@ void InterceptionJob::GetResponseBody(
     std::unique_ptr<GetResponseBodyCallback> callback) {
   std::string error_reason;
   if (!CanGetResponseBody(&error_reason)) {
-    callback->sendFailure(Response::Error(std::move(error_reason)));
+    callback->sendFailure(Response::ServerError(std::move(error_reason)));
     return;
   }
   if (!body_reader_) {
@@ -796,7 +809,7 @@ void InterceptionJob::TakeResponseBodyPipe(
     TakeResponseBodyPipeCallback callback) {
   std::string error_reason;
   if (!CanGetResponseBody(&error_reason)) {
-    std::move(callback).Run(Response::Error(std::move(error_reason)),
+    std::move(callback).Run(Response::ServerError(std::move(error_reason)),
                             mojo::ScopedDataPipeConsumerHandle(),
                             base::EmptyString());
     return;
@@ -814,7 +827,7 @@ void InterceptionJob::ContinueInterceptedRequest(
     std::unique_ptr<ContinueInterceptedRequestCallback> callback) {
   Response response = InnerContinueRequest(std::move(modifications));
   // |this| may be destroyed at this point.
-  if (response.isSuccess())
+  if (response.IsSuccess())
     callback->sendSuccess();
   else
     callback->sendFailure(std::move(response));
@@ -837,14 +850,15 @@ void InterceptionJob::Detach() {
 Response InterceptionJob::InnerContinueRequest(
     std::unique_ptr<Modifications> modifications) {
   if (!waiting_for_resolution_)
-    return Response::Error("Invalid state for continueInterceptedRequest");
+    return Response::ServerError(
+        "Invalid state for continueInterceptedRequest");
   waiting_for_resolution_ = false;
 
   if (state_ == State::kAuthRequired) {
     if (!modifications->auth_challenge_response)
       return Response::InvalidParams("authChallengeResponse required.");
     ProcessAuthResponse(*modifications->auth_challenge_response);
-    return Response::OK();
+    return Response::Success();
   }
   if (modifications->auth_challenge_response)
     return Response::InvalidParams("authChallengeResponse not expected.");
@@ -863,7 +877,7 @@ Response InterceptionJob::InnerContinueRequest(
     }
     client_->OnComplete(status);
     Shutdown();
-    return Response::OK();
+    return Response::Success();
   }
 
   if (modifications->response_headers || modifications->response_body)
@@ -880,7 +894,7 @@ Response InterceptionJob::InnerContinueRequest(
       // TODO(caseq): report error if other modifications are present.
       state_ = State::kRequestSent;
       loader_->FollowRedirect({}, {}, base::nullopt);
-      return Response::OK();
+      return Response::Success();
     }
   }
   if (state_ == State::kRedirectReceived) {
@@ -893,13 +907,13 @@ Response InterceptionJob::InnerContinueRequest(
       headers->AddHeader("location: " + location);
       GURL redirect_url = create_loader_params_->request.url.Resolve(location);
       if (!redirect_url.is_valid())
-        return Response::Error("Invalid modified URL");
+        return Response::ServerError("Invalid modified URL");
       ProcessRedirectByClient(redirect_url);
-      return Response::OK();
+      return Response::Success();
     }
     client_->OnReceiveRedirect(*response_metadata_->redirect_info,
                                std::move(response_metadata_->head));
-    return Response::OK();
+    return Response::Success();
   }
 
   if (body_reader_) {
@@ -908,7 +922,7 @@ Response InterceptionJob::InnerContinueRequest(
 
     // There are read callbacks pending, so let the reader do its job and come
     // back when it's done.
-    return Response::OK();
+    return Response::Success();
   }
 
   if (response_metadata_) {
@@ -923,13 +937,13 @@ Response InterceptionJob::InnerContinueRequest(
     response_metadata_.reset();
     loader_->ResumeReadingBodyFromNet();
     client_receiver_.Resume();
-    return Response::OK();
+    return Response::Success();
   }
 
   DCHECK_EQ(State::kNotStarted, state_);
   ApplyModificationsToRequest(std::move(modifications));
   StartRequest();
-  return Response::OK();
+  return Response::Success();
 }
 
 void InterceptionJob::ApplyModificationsToRequest(
@@ -966,6 +980,7 @@ void InterceptionJob::ApplyModificationsToRequest(
 
 void InterceptionJob::ProcessAuthResponse(
     const DevToolsURLLoaderInterceptor::AuthChallengeResponse& response) {
+  DCHECK_EQ(kAuthRequired, state_);
   switch (response.response_type) {
     case DevToolsURLLoaderInterceptor::AuthChallengeResponse::kDefault:
       std::move(pending_auth_callback_).Run(true, base::nullopt);
@@ -978,6 +993,7 @@ void InterceptionJob::ProcessAuthResponse(
       std::move(pending_auth_callback_).Run(false, response.credentials);
       break;
   }
+  state_ = kRequestSent;
 }
 
 Response InterceptionJob::ProcessResponseOverride(
@@ -1051,7 +1067,7 @@ Response InterceptionJob::ProcessResponseOverride(
   }
   ProcessSetCookies(*head->headers, std::move(continue_after_cookies_set));
 
-  return Response::OK();
+  return Response::Success();
 }
 
 void InterceptionJob::ProcessSetCookies(const net::HttpResponseHeaders& headers,
@@ -1205,11 +1221,13 @@ std::unique_ptr<InterceptedRequestInfo> InterceptionJob::BuildRequestInfo(
   if (renderer_request_id_.has_value())
     result->renderer_request_id = renderer_request_id_.value();
   result->frame_id = frame_token_;
-  ResourceType resource_type =
-      static_cast<ResourceType>(create_loader_params_->request.resource_type);
+  blink::mojom::ResourceType resource_type =
+      static_cast<blink::mojom::ResourceType>(
+          create_loader_params_->request.resource_type);
   result->resource_type = resource_type;
-  result->is_navigation = resource_type == ResourceType::kMainFrame ||
-                          resource_type == ResourceType::kSubFrame;
+  result->is_navigation =
+      resource_type == blink::mojom::ResourceType::kMainFrame ||
+      resource_type == blink::mojom::ResourceType::kSubFrame;
 
   if (head && head->headers)
     result->response_headers = head->headers;
@@ -1421,7 +1439,7 @@ void InterceptionJob::OnStartLoadingResponseBody(
     DCHECK_EQ(State::kResponseTaken, state_);
     DCHECK(!body_reader_);
     std::move(pending_response_body_pipe_callback_)
-        .Run(Response::OK(), std::move(body),
+        .Run(Response::Success(), std::move(body),
              response_metadata_->head->mime_type);
     return;
   }

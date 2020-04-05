@@ -4,6 +4,7 @@
 
 #include "ios/chrome/browser/sessions/session_restoration_browser_agent.h"
 
+#include "base/memory/ptr_util.h"
 #include "base/strings/sys_string_conversions.h"
 #include "components/favicon/ios/web_favicon_driver.h"
 #include "ios/chrome/browser/browser_state/chrome_browser_state.h"
@@ -16,8 +17,7 @@
 #import "ios/chrome/browser/web/page_placeholder_tab_helper.h"
 #import "ios/chrome/browser/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/web_state_list/web_state_list_serialization.h"
-#import "ios/chrome/browser/web_state_list/web_usage_enabler/web_state_list_web_usage_enabler.h"
-#import "ios/chrome/browser/web_state_list/web_usage_enabler/web_state_list_web_usage_enabler_factory.h"
+#import "ios/chrome/browser/web_state_list/web_usage_enabler/web_usage_enabler_browser_agent.h"
 #include "ios/web/public/navigation/navigation_item.h"
 #import "ios/web/public/navigation/navigation_manager.h"
 #include "ios/web/public/security/certificate_policy_cache.h"
@@ -48,6 +48,7 @@ SessionRestorationBrowserAgent::SessionRestorationBrowserAgent(
     SessionServiceIOS* session_service)
     : session_service_(session_service),
       web_state_list_(browser->GetWebStateList()),
+      web_enabler_(WebUsageEnablerBrowserAgent::FromBrowser(browser)),
       browser_state_(browser->GetBrowserState()),
       session_ios_factory_(
           [[SessionIOSFactory alloc] initWithWebStateList:web_state_list_]) {
@@ -88,18 +89,15 @@ bool SessionRestorationBrowserAgent::RestoreSessionWindow(
       WebStateList* web_state_list) {
     // Don't trigger the initial load for these restored WebStates since the
     // number of WKWebViews is unbounded and may lead to an OOM crash.
-    WebStateListWebUsageEnabler* webUsageEnabler =
-        WebStateListWebUsageEnablerFactory::GetInstance()->GetForBrowserState(
-            browser_state_);
-    const bool wasTriggersInitialLoadSet =
-        webUsageEnabler->TriggersInitialLoad();
-    webUsageEnabler->SetTriggersInitialLoad(false);
+    const bool saved_triggers_initial_load =
+        web_enabler_->TriggersInitialLoad();
+    web_enabler_->SetTriggersInitialLoad(false);
     web::WebState::CreateParams createParams(browser_state_);
     DeserializeWebStateList(
         web_state_list, window,
         base::BindRepeating(&web::WebState::CreateWithStorageSession,
                             createParams));
-    webUsageEnabler->SetTriggersInitialLoad(wasTriggersInitialLoadSet);
+    web_enabler_->SetTriggersInitialLoad(saved_triggers_initial_load);
   }));
 
   DCHECK_GT(web_state_list_->count(), old_count);
@@ -197,7 +195,7 @@ void SessionRestorationBrowserAgent::WebStateActivatedAt(
     web::WebState* old_web_state,
     web::WebState* new_web_state,
     int active_index,
-    int reason) {
+    ActiveWebStateChangeReason reason) {
   if (new_web_state && new_web_state->IsLoading())
     return;
 

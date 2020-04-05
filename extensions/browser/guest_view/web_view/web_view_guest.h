@@ -180,6 +180,10 @@ class WebViewGuest : public guest_view::GuestView<WebViewGuest> {
   bool GuestMadeEmbedderFullscreen() const;
   void SetFullscreenState(bool is_fullscreen);
 
+  void RequestPointerLockPermission(bool user_gesture,
+                                    bool last_unlocked_by_target,
+                                    base::OnceCallback<void(bool)> callback);
+
   // GuestViewBase implementation.
   void CreateWebContents(const base::DictionaryValue& create_params,
                          WebContentsCreatedCallback callback) final;
@@ -226,10 +230,6 @@ class WebViewGuest : public guest_view::GuestView<WebViewGuest> {
       content::WebContents* source,
       const content::MediaStreamRequest& request,
       content::MediaResponseCallback callback) final;
-  void RequestPointerLockPermission(
-      bool user_gesture,
-      bool last_unlocked_by_target,
-      base::OnceCallback<void(bool)> callback) final;
   bool CheckMediaAccessPermission(content::RenderFrameHost* render_frame_host,
                                   const GURL& security_origin,
                                   blink::mojom::MediaStreamType type) final;
@@ -274,7 +274,7 @@ class WebViewGuest : public guest_view::GuestView<WebViewGuest> {
   void LoadProgressChanged(double progress) final;
   void DocumentOnLoadCompletedInMainFrame() final;
   void RenderProcessGone(base::TerminationStatus status) final;
-  void UserAgentOverrideSet(const std::string& user_agent) final;
+  void UserAgentOverrideSet(const blink::UserAgentOverride& ua_override) final;
   void FrameNameChanged(content::RenderFrameHost* render_frame_host,
                         const std::string& name) final;
   void OnAudioStateChanged(bool audible) final;

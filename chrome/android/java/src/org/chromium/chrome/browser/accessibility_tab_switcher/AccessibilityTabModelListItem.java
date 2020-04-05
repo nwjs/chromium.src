@@ -13,7 +13,6 @@ import android.content.Context;
 import android.content.res.ColorStateList;
 import android.graphics.Bitmap;
 import android.os.Handler;
-import android.support.v7.content.res.AppCompatResources;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.view.GestureDetector;
@@ -31,6 +30,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.annotation.VisibleForTesting;
+import androidx.appcompat.content.res.AppCompatResources;
 
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.base.annotations.UsedByReflection;
@@ -217,7 +217,7 @@ public class AccessibilityTabModelListItem extends FrameLayout implements OnClic
 
         mDefaultHeight =
                 context.getResources().getDimensionPixelOffset(R.dimen.accessibility_tab_height);
-        mDefaultIconColor = ChromeColors.getIconTint(context, false);
+        mDefaultIconColor = ChromeColors.getPrimaryIconTint(context, false);
         mIncognitoIconColor =
                 AppCompatResources.getColorStateList(context, R.color.default_icon_color_dark);
         mDefaultCloseIconColor =
@@ -306,7 +306,7 @@ public class AccessibilityTabModelListItem extends FrameLayout implements OnClic
         String url = null;
         if (mTab != null) {
             title = mTab.getTitle();
-            url = mTab.getUrl();
+            url = mTab.getUrlString();
             if (TextUtils.isEmpty(title)) title = url;
         }
         if (TextUtils.isEmpty(title)) {
@@ -325,14 +325,15 @@ public class AccessibilityTabModelListItem extends FrameLayout implements OnClic
         }
 
         if (mTab.isIncognito()) {
-            setBackgroundResource(R.color.dark_primary_color);
+            setBackgroundResource(R.color.default_bg_color_dark);
             mFaviconView.getBackground().setLevel(mIncognitoLevel);
-            ApiCompatibilityUtils.setTextAppearance(mTitleView, R.style.TextAppearance_WhiteTitle1);
             ApiCompatibilityUtils.setTextAppearance(
-                    mDescriptionView, R.style.TextAppearance_WhiteBody);
+                    mTitleView, R.style.TextAppearance_TextLarge_Primary_Light);
+            ApiCompatibilityUtils.setTextAppearance(
+                    mDescriptionView, R.style.TextAppearance_TextMedium_Primary_Light);
             ApiCompatibilityUtils.setImageTintList(mCloseButton, mIncognitoCloseIconColor);
         } else {
-            setBackgroundResource(R.color.modern_primary_color);
+            setBackgroundResource(R.color.default_bg_color);
             mFaviconView.getBackground().setLevel(mDefaultLevel);
             ApiCompatibilityUtils.setTextAppearance(
                     mTitleView, R.style.TextAppearance_TextLarge_Primary);

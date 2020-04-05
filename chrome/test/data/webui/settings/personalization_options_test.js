@@ -2,15 +2,17 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+// clang-format off
+// #import {PrivacyPageBrowserProxyImpl, StatusAction, SyncBrowserProxyImpl} from 'chrome://settings/settings.js';
+// #import 'chrome://settings/lazy_load.js';
+// #import {TestSyncBrowserProxy} from 'chrome://test/settings/test_sync_browser_proxy.m.js';
+// #import {TestPrivacyPageBrowserProxy} from 'chrome://test/settings/test_privacy_page_browser_proxy.m.js';
+// #import {isChromeOS} from 'chrome://resources/js/cr.m.js';
+// #import {flush} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
+// #import {isVisible, isChildVisible, eventToPromise} from 'chrome://test/test_util.m.js';
+// clang-format on
+
 cr.define('settings_personalization_options', function() {
-  /**
-   * @param {!Element} element
-   * @param {boolean} displayed
-   */
-  function assertVisible(element, displayed) {
-    assertEquals(
-        displayed, window.getComputedStyle(element)['display'] != 'none');
-  }
 
   suite('PersonalizationOptionsTests_AllBuilds', function() {
     /** @type {settings.TestPrivacyPageBrowserProxy} */
@@ -83,7 +85,7 @@ cr.define('settings_personalization_options', function() {
     if (!cr.isChromeOS) {
       test('signinAllowedToggle', function() {
         const toggle = testElement.$.signinAllowedToggle;
-        assertVisible(toggle, true);
+        assertTrue(test_util.isVisible(toggle));
 
         testElement.syncStatus = {signedIn: false};
         // Check initial setup.
@@ -108,6 +110,12 @@ cr.define('settings_personalization_options', function() {
         // Reset toast.
         testElement.showRestartToast_ = false;
         assertFalse(testElement.$.toast.open);
+
+        // When the user is part way through sync setup, the toggle should be
+        // disabled in an on state.
+        testElement.syncStatus = {firstSetupInProgress: true};
+        assertTrue(toggle.disabled);
+        assertTrue(toggle.checked);
 
         testElement.syncStatus = {signedIn: true};
         // When the user is signed in, clicking the toggle should open the
@@ -257,7 +265,8 @@ cr.define('settings_personalization_options', function() {
     test('LinkDoctor', function() {
       // The Link Doctor setting exists if the |privacySettingsRedesignEnabled|
       // has not been turned on.
-      assertVisible(testElement.$$('#linkDoctor'), true);
+      assertTrue(test_util.isChildVisible(testElement, '#linkDoctor'));
     });
   });
+  // #cr_define_end
 });

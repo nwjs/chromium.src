@@ -19,7 +19,6 @@
 #include "chrome/browser/media/webrtc/media_stream_capture_indicator.h"
 #include "chrome/browser/metrics/desktop_session_duration/desktop_session_duration_tracker.h"
 #include "chrome/browser/notifications/notification_permission_context.h"
-#include "chrome/browser/permissions/permission_request_manager.h"
 #include "chrome/browser/resource_coordinator/intervention_policy_database.h"
 #include "chrome/browser/resource_coordinator/lifecycle_unit_observer.h"
 #include "chrome/browser/resource_coordinator/local_site_characteristics_data_unittest_utils.h"
@@ -486,7 +485,7 @@ TEST_F(TabLifecycleUnitTest, CannotFreezeOrDiscardWebUsbConnectionsOpen) {
   EXPECT_TRUE(decision_details.IsPositive());
 
   // Open a USB connection. Shouldn't be freezable/discardable anymore.
-  usb_tab_helper->IncrementConnectionCount(web_contents_->GetMainFrame());
+  usb_tab_helper->IncrementConnectionCount();
   ExpectCanDiscardFalseAllReasons(
       &tab_lifecycle_unit, DecisionFailureReason::LIVE_STATE_USING_WEB_USB);
   decision_details = DecisionDetails();
@@ -496,7 +495,7 @@ TEST_F(TabLifecycleUnitTest, CannotFreezeOrDiscardWebUsbConnectionsOpen) {
             decision_details.FailureReason());
 
   // Close the USB connection. Should be freezable/discardable again.
-  usb_tab_helper->DecrementConnectionCount(web_contents_->GetMainFrame());
+  usb_tab_helper->DecrementConnectionCount();
   ExpectCanDiscardTrueAllReasons(&tab_lifecycle_unit);
   decision_details = DecisionDetails();
   EXPECT_TRUE(tab_lifecycle_unit.CanFreeze(&decision_details));

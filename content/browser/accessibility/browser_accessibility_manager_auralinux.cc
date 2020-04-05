@@ -10,7 +10,6 @@
 #include <vector>
 
 #include "content/browser/accessibility/browser_accessibility_auralinux.h"
-#include "content/common/accessibility_messages.h"
 #include "ui/accessibility/platform/ax_platform_node_auralinux.h"
 
 namespace content {
@@ -163,18 +162,6 @@ void BrowserAccessibilityManagerAuraLinux::FireGeneratedEvent(
     case ui::AXEventGenerator::Event::EXPANDED:
       FireExpandedEvent(node, true);
       break;
-    case ui::AXEventGenerator::Event::IGNORED_CHANGED:
-      // Since AuraLinux needs to send the children-changed::add event with the
-      // index in parent, the event must be fired after the node is unignored.
-      // children-changed:remove is handled in |OnStateChanged|
-      if (!node->IsIgnored()) {
-        if (node->IsNative() && node->GetParent()) {
-          g_signal_emit_by_name(node->GetParent(), "children-changed::add",
-                                node->GetIndexInParent(),
-                                node->GetNativeViewAccessible());
-        }
-      }
-      break;
     case ui::AXEventGenerator::Event::LOAD_COMPLETE:
       FireLoadingEvent(node, false);
       FireEvent(node, ax::mojom::Event::kLoadComplete);
@@ -219,11 +206,10 @@ void BrowserAccessibilityManagerAuraLinux::OnNodeDataWillChange(
   // Since AuraLinux needs to send the children-changed::remove event with the
   // index in parent, the event must be fired before the node becomes ignored.
   // children-changed:add is handled with the generated Event::IGNORED_CHANGED.
-  if (!old_node_data.HasState(ax::mojom::State::kIgnored) &&
-      new_node_data.HasState(ax::mojom::State::kIgnored)) {
+  if (!old_node_data.IsIgnored() && new_node_data.IsIgnored()) {
     BrowserAccessibility* obj = GetFromID(old_node_data.id);
     if (obj && obj->IsNative() && obj->GetParent()) {
-      DCHECK(!obj->HasState(ax::mojom::State::kIgnored));
+      DCHECK(!obj->IsIgnored());
       g_signal_emit_by_name(obj->GetParent(), "children-changed::remove",
                             obj->GetIndexInParent(),
                             obj->GetNativeViewAccessible());

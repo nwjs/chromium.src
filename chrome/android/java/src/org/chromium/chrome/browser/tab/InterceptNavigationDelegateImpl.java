@@ -14,10 +14,10 @@ import org.chromium.base.task.PostTask;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.AppHooks;
 import org.chromium.chrome.browser.ChromeActivity;
-import org.chromium.chrome.browser.externalnav.ExternalNavigationHandler;
-import org.chromium.chrome.browser.externalnav.ExternalNavigationHandler.OverrideUrlLoadingResult;
-import org.chromium.chrome.browser.externalnav.ExternalNavigationParams;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
+import org.chromium.components.external_intents.ExternalNavigationHandler;
+import org.chromium.components.external_intents.ExternalNavigationHandler.OverrideUrlLoadingResult;
+import org.chromium.components.external_intents.ExternalNavigationParams;
 import org.chromium.components.navigation_interception.InterceptNavigationDelegate;
 import org.chromium.components.navigation_interception.NavigationParams;
 import org.chromium.content_public.browser.NavigationController;
@@ -126,7 +126,6 @@ public class InterceptNavigationDelegateImpl implements InterceptNavigationDeleg
         }
 
         ExternalNavigationParams params = new ExternalNavigationParams.Builder(url, incognito)
-                .setTab(mTab)
                 .setOpenInNewTab(true)
                 .build();
         mLastOverrideUrlLoadingResult = mExternalNavHandler.shouldOverrideUrlLoading(params);
@@ -187,14 +186,16 @@ public class InterceptNavigationDelegateImpl implements InterceptNavigationDeleg
         switch (result) {
             case OverrideUrlLoadingResult.OVERRIDE_WITH_EXTERNAL_INTENT:
                 assert mExternalNavHandler.canExternalAppHandleUrl(url);
-                if (navigationParams.isMainFrame) onOverrideUrlLoadingAndLaunchIntent();
+                if (navigationParams.isMainFrame) {
+                    onOverrideUrlLoadingAndLaunchIntent(shouldCloseTab);
+                }
                 return true;
             case OverrideUrlLoadingResult.OVERRIDE_WITH_CLOBBERING_TAB:
                 mShouldClearRedirectHistoryForTabClobbering = true;
                 return true;
             case OverrideUrlLoadingResult.OVERRIDE_WITH_ASYNC_ACTION:
                 if (!shouldCloseTab && navigationParams.isMainFrame) {
-                    onOverrideUrlLoadingAndLaunchIntent();
+                    onOverrideUrlLoadingAndLaunchIntent(shouldCloseTab);
                 }
                 return true;
             case OverrideUrlLoadingResult.NO_OVERRIDE:
@@ -221,7 +222,6 @@ public class InterceptNavigationDelegateImpl implements InterceptNavigationDeleg
         return new ExternalNavigationParams
                 .Builder(navigationParams.url, mTab.isIncognito(), navigationParams.referrer,
                         navigationParams.pageTransitionType, navigationParams.isRedirect)
-                .setTab(mTab)
                 .setApplicationMustBeInForeground(true)
                 .setRedirectHandler(tabRedirectHandler)
                 .setOpenInNewTab(shouldCloseTab)
@@ -289,15 +289,16 @@ public class InterceptNavigationDelegateImpl implements InterceptNavigationDeleg
     /**
      * Called when Chrome decides to override URL loading and launch an intent or an asynchronous
      * action.
+     * @param shouldCloseTab
      */
-    private void onOverrideUrlLoadingAndLaunchIntent() {
+    private void onOverrideUrlLoadingAndLaunchIntent(boolean shouldCloseTab) {
         if (mTab.getWebContents() == null) return;
 
         // Before leaving Chrome, close the empty child tab.
         // If a new tab is created through JavaScript open to load this
         // url, we would like to close it as we will load this url in a
         // different Activity.
-        if (shouldCloseContentsOnOverrideUrlLoadingAndLaunchIntent()) {
+        if (shouldCloseTab) {
             if (mTab.getLaunchType() == TabLaunchType.FROM_EXTERNAL_APP) {
                 // Moving task back before closing the tab allows back button to function better
                 // when Chrome was an intermediate link redirector between two apps.

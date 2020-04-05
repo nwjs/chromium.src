@@ -25,6 +25,7 @@
 #include "chrome/browser/profiles/profile_attributes_storage.h"
 #include "chrome/browser/profiles/profile_info_cache_observer.h"
 #include "chrome/browser/profiles/profile_info_interface.h"
+#include "components/signin/public/base/persistent_repeating_timer.h"
 
 namespace gfx {
 class Image;
@@ -91,7 +92,6 @@ class ProfileInfoCache : public ProfileInfoInterface,
 
   // Will be removed SOON with ProfileInfoCache tests. Do not use!
   void SetAvatarIconOfProfileAtIndex(size_t index, size_t icon_index);
-  void SetSupervisedUserIdOfProfileAtIndex(size_t index, const std::string& id);
   void SetGAIAPictureOfProfileAtIndex(size_t index,
                                       const std::string& image_url_with_size,
                                       gfx::Image image);
@@ -121,6 +121,7 @@ class ProfileInfoCache : public ProfileInfoInterface,
 
   bool GetProfileAttributesWithPath(const base::FilePath& path,
                                     ProfileAttributesEntry** entry) override;
+  void DisableProfileMetricsForTesting() override;
 
   void NotifyProfileAuthInfoChanged(const base::FilePath& profile_path);
   void NotifyIfProfileNamesHaveChanged();
@@ -169,15 +170,19 @@ class ProfileInfoCache : public ProfileInfoInterface,
       const std::string& key,
       const std::string& image_url_with_size,
       bool image_is_empty) const;
+#if !defined(OS_ANDROID)
+  void LoadGAIAPictureIfNeeded();
+#endif
 
 #if !defined(OS_ANDROID) && !defined(OS_CHROMEOS)
-  void LoadGAIAPictureIfNeeded();
   // Migrate any legacy profile names ("First user", "Default Profile") to
   // new style default names ("Person 1"). Rename any duplicates of "Person n"
   // i.e. Two or more profiles with the profile name "Person 1" would be
   // recomputed to "Person 1" and "Person 2".
   void MigrateLegacyProfileNamesAndRecomputeIfNeeded();
   static void SetLegacyProfileMigrationForTesting(bool value);
+
+  std::unique_ptr<signin::PersistentRepeatingTimer> repeating_timer_;
 #endif  // !defined(OS_ANDROID) && !defined(OS_CHROMEOS)
 
   std::vector<std::string> keys_;

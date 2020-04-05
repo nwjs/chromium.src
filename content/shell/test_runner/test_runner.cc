@@ -21,13 +21,13 @@
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
 #include "cc/paint/paint_canvas.h"
-#include "content/shell/common/web_test/web_test_switches.h"
+#include "content/shell/common/web_test/web_test_constants.h"
+#include "content/shell/common/web_test/web_test_string_util.h"
 #include "content/shell/test_runner/layout_dump.h"
 #include "content/shell/test_runner/mock_content_settings_client.h"
 #include "content/shell/test_runner/mock_web_document_subresource_filter.h"
 #include "content/shell/test_runner/pixel_dump.h"
 #include "content/shell/test_runner/spell_check_client.h"
-#include "content/shell/test_runner/test_common.h"
 #include "content/shell/test_runner/test_interfaces.h"
 #include "content/shell/test_runner/test_preferences.h"
 #include "content/shell/test_runner/test_runner_for_specific_view.h"
@@ -115,7 +115,8 @@ void ConvertAndSet(gin::Arguments* args, blink::WebString* set_param) {
     return;
   }
 
-  *set_param = V8StringToWebString(args->isolate(), result.ToLocalChecked());
+  *set_param = web_test_string_util::V8StringToWebString(
+      args->isolate(), result.ToLocalChecked());
 }
 
 }  // namespace
@@ -181,6 +182,7 @@ class TestRunnerBindings : public gin::Wrappable<TestRunnerBindings> {
   void EnableUseZoomForDSF(v8::Local<v8::Function> callback);
   void EvaluateScriptInIsolatedWorld(int world_id, const std::string& script);
   void ExecCommand(gin::Arguments* args);
+  void TriggerTestInspectorIssue(gin::Arguments* args);
   void ForceNextDrawingBufferCreationToFail();
   void ForceNextWebGLContextCreationToFail();
   void ForceRedSelectionColors();
@@ -285,7 +287,6 @@ class TestRunnerBindings : public gin::Wrappable<TestRunnerBindings> {
       const std::string& script);
   bool FindString(const std::string& search_text,
                   const std::vector<std::string>& options_array);
-  bool HasCustomPageSizeStyle(int page_index);
   bool IsChooserShown();
 
   bool IsCommandEnabled(const std::string& command);
@@ -451,6 +452,8 @@ gin::ObjectTemplateBuilder TestRunnerBindings::GetObjectTemplateBuilder(
           "evaluateScriptInIsolatedWorldAndReturnValue",
           &TestRunnerBindings::EvaluateScriptInIsolatedWorldAndReturnValue)
       .SetMethod("execCommand", &TestRunnerBindings::ExecCommand)
+      .SetMethod("triggerTestInspectorIssue",
+                 &TestRunnerBindings::TriggerTestInspectorIssue)
       .SetMethod("findString", &TestRunnerBindings::FindString)
       .SetMethod("forceNextDrawingBufferCreationToFail",
                  &TestRunnerBindings::ForceNextDrawingBufferCreationToFail)
@@ -466,8 +469,6 @@ gin::ObjectTemplateBuilder TestRunnerBindings::GetObjectTemplateBuilder(
       .SetMethod("getManifestThen", &TestRunnerBindings::GetManifestThen)
       .SetMethod("getWritableDirectory",
                  &TestRunnerBindings::GetWritableDirectory)
-      .SetMethod("hasCustomPageSizeStyle",
-                 &TestRunnerBindings::HasCustomPageSizeStyle)
       .SetMethod("insertStyleSheet", &TestRunnerBindings::InsertStyleSheet)
       .SetMethod("isChooserShown", &TestRunnerBindings::IsChooserShown)
       .SetMethod("isCommandEnabled", &TestRunnerBindings::IsCommandEnabled)
@@ -715,6 +716,11 @@ void TestRunnerBindings::ExecCommand(gin::Arguments* args) {
     view_runner_->ExecCommand(args);
 }
 
+void TestRunnerBindings::TriggerTestInspectorIssue(gin::Arguments* args) {
+  if (view_runner_)
+    view_runner_->TriggerTestInspectorIssue();
+}
+
 bool TestRunnerBindings::IsCommandEnabled(const std::string& command) {
   if (view_runner_)
     return view_runner_->IsCommandEnabled(command);
@@ -833,12 +839,6 @@ void TestRunnerBindings::AddOriginAccessAllowListEntry(
                                            destination_host,
                                            allow_destination_subdomains);
   }
-}
-
-bool TestRunnerBindings::HasCustomPageSizeStyle(int page_index) {
-  if (view_runner_)
-    return view_runner_->HasCustomPageSizeStyle(page_index);
-  return false;
 }
 
 void TestRunnerBindings::ForceRedSelectionColors() {
@@ -1538,7 +1538,7 @@ void TestRunner::Reset() {
 
   if (delegate_) {
     // Reset the default quota for each origin.
-    delegate_->SetDatabaseQuota(kDefaultDatabaseQuota);
+    delegate_->SetDatabaseQuota(content::kDefaultDatabaseQuota);
     delegate_->SetDeviceColorSpace("reset");
     delegate_->SetDeviceScaleFactor(GetDefaultDeviceScaleFactor());
     delegate_->SetBlockThirdPartyCookies(false);
@@ -1698,7 +1698,7 @@ void TestRunner::ReplicateWebTestRuntimeFlagsChanges(
 
     bool allowed = web_test_runtime_flags_.plugins_allowed();
     for (WebViewTestProxy* window : test_interfaces_->GetWindowList())
-      window->webview()->GetSettings()->SetPluginsEnabled(allowed);
+      window->GetWebView()->GetSettings()->SetPluginsEnabled(allowed);
   }
 }
 
@@ -1809,9 +1809,10 @@ void TestRunner::AddLoadingFrame(blink::WebFrame* frame) {
 }
 
 void TestRunner::RemoveLoadingFrame(blink::WebFrame* frame) {
-  if (!IsFramePartOfMainTestWindow(frame))
-    return;
-
+  // Note that unlike AddLoadingFrame, we don't check if |frame| is part of the
+  // current main test window or not, because in some cases we might have
+  // marked the new page as the current main test window before we removed all
+  // the loading frames of the old main test window from |loading_frames_|.
   if (!base::Contains(loading_frames_, frame))
     return;
 
@@ -2159,11 +2160,14 @@ void TestRunner::SetMockScreenOrientation(const std::string& orientation_str) {
   }
 
   for (WebViewTestProxy* window : test_interfaces_->GetWindowList()) {
-    blink::WebFrame* main_frame = window->webview()->MainFrame();
+    blink::WebFrame* main_frame = window->GetWebView()->MainFrame();
     // TODO(lukasza): Need to make this work for remote frames.
     if (main_frame->IsWebLocalFrame()) {
-      mock_screen_orientation_client_.UpdateDeviceOrientation(
-          main_frame->ToWebLocalFrame(), orientation);
+      bool screen_orientation_changed =
+          mock_screen_orientation_client_.UpdateDeviceOrientation(
+              main_frame->ToWebLocalFrame(), orientation);
+      if (screen_orientation_changed)
+        delegate_->SetScreenOrientationChanged();
     }
   }
 }
@@ -2253,7 +2257,7 @@ void TestRunner::SetAcceptLanguages(const std::string& accept_languages) {
   OnWebTestRuntimeFlagsChanged();
 
   for (WebViewTestProxy* window : test_interfaces_->GetWindowList())
-    window->webview()->AcceptLanguagesChanged();
+    window->GetWebView()->AcceptLanguagesChanged();
 }
 
 void TestRunner::SetPluginsEnabled(bool enabled) {
@@ -2362,7 +2366,7 @@ void TestRunner::SetPluginsAllowed(bool allowed) {
   web_test_runtime_flags_.set_plugins_allowed(allowed);
 
   for (WebViewTestProxy* window : test_interfaces_->GetWindowList())
-    window->webview()->GetSettings()->SetPluginsEnabled(allowed);
+    window->GetWebView()->GetSettings()->SetPluginsEnabled(allowed);
 
   OnWebTestRuntimeFlagsChanged();
 }

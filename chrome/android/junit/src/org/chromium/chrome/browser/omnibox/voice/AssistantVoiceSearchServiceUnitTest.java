@@ -107,6 +107,14 @@ public class AssistantVoiceSearchServiceUnitTest {
 
     @Test
     @Feature("OmniboxAssistantVoiceSearch")
+    public void testStartVoiceRecognition_StartsAssistantVoiceSearch_ChromeNotSigned() {
+        doReturn(false).when(mExternalAuthUtils).isChromeGoogleSigned();
+
+        Assert.assertFalse(mAssistantVoiceSearchService.shouldRequestAssistantVoiceSearch());
+    }
+
+    @Test
+    @Feature("OmniboxAssistantVoiceSearch")
     public void testStartVoiceRecognition_StartsAssistantVoiceSearch_AGSANotSigned() {
         doReturn(false).when(mExternalAuthUtils).isGoogleSigned(IntentHandler.PACKAGE_GSA);
 

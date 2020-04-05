@@ -3,7 +3,6 @@
 // found in the LICENSE file.
 
 import {assertInstanceof} from '../chrome_util.js';
-import * as toast from '../toast.js';
 
 /**
  * @enum {string}
@@ -16,6 +15,7 @@ export const ViewName = {
   PHOTO_RESOLUTION_SETTINGS: 'view-photo-resolution-settings',
   RESOLUTION_SETTINGS: 'view-resolution-settings',
   SETTINGS: 'view-settings',
+  SPLASH: 'view-splash',
   TIMER_SETTINGS: 'view-timer-settings',
   VIDEO_RESOLUTION_SETTINGS: 'view-video-resolution-settings',
   WARNING: 'view-warning',
@@ -114,10 +114,6 @@ export class View {
    */
   onKeyPressed(key) {
     if (this.handlingKey(key)) {
-      return true;
-    } else if (key === 'Ctrl-V') {
-      const {version, version_name: versionName} = chrome.runtime.getManifest();
-      toast.show(versionName || version);
       return true;
     } else if (this.dismissByEsc_ && key === 'Escape') {
       this.leave();

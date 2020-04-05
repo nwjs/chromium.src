@@ -103,11 +103,11 @@ void GetDevToolsRouteInfoOnCoreThread(
 }
 
 Response CreateDomainNotEnabledErrorResponse() {
-  return Response::Error("ServiceWorker domain not enabled");
+  return Response::ServerError("ServiceWorker domain not enabled");
 }
 
 Response CreateContextErrorResponse() {
-  return Response::Error("Could not connect to the context");
+  return Response::ServerError("Could not connect to the context");
 }
 
 Response CreateInvalidVersionIdErrorResponse() {
@@ -179,8 +179,9 @@ void DispatchPeriodicSyncEventOnCoreThread(
 
 }  // namespace
 
-ServiceWorkerHandler::ServiceWorkerHandler()
+ServiceWorkerHandler::ServiceWorkerHandler(bool allow_inspect_worker)
     : DevToolsDomainHandler(ServiceWorker::Metainfo::domainName),
+      allow_inspect_worker_(allow_inspect_worker),
       enabled_(false),
       browser_context_(nullptr),
       storage_partition_(nullptr) {}
@@ -213,7 +214,7 @@ void ServiceWorkerHandler::SetRenderer(int process_host_id,
 
 Response ServiceWorkerHandler::Enable() {
   if (enabled_)
-    return Response::OK();
+    return Response::Success();
   if (!context_)
     return CreateContextErrorResponse();
   enabled_ = true;
@@ -228,19 +229,19 @@ Response ServiceWorkerHandler::Enable() {
                           weak_factory_.GetWeakPtr()));
   context_watcher_->Start();
 
-  return Response::OK();
+  return Response::Success();
 }
 
 Response ServiceWorkerHandler::Disable() {
   if (!enabled_)
-    return Response::OK();
+    return Response::Success();
   enabled_ = false;
 
   ClearForceUpdate();
   DCHECK(context_watcher_);
   context_watcher_->Stop();
   context_watcher_ = nullptr;
-  return Response::OK();
+  return Response::Success();
 }
 
 Response ServiceWorkerHandler::Unregister(const std::string& scope_url) {
@@ -249,7 +250,7 @@ Response ServiceWorkerHandler::Unregister(const std::string& scope_url) {
   if (!context_)
     return CreateContextErrorResponse();
   context_->UnregisterServiceWorker(GURL(scope_url), base::DoNothing());
-  return Response::OK();
+  return Response::Success();
 }
 
 Response ServiceWorkerHandler::StartWorker(const std::string& scope_url) {
@@ -258,7 +259,7 @@ Response ServiceWorkerHandler::StartWorker(const std::string& scope_url) {
   if (!context_)
     return CreateContextErrorResponse();
   context_->StartServiceWorker(GURL(scope_url), base::DoNothing());
-  return Response::OK();
+  return Response::Success();
 }
 
 Response ServiceWorkerHandler::SkipWaiting(const std::string& scope_url) {
@@ -267,7 +268,7 @@ Response ServiceWorkerHandler::SkipWaiting(const std::string& scope_url) {
   if (!context_)
     return CreateContextErrorResponse();
   context_->SkipWaitingWorker(GURL(scope_url));
-  return Response::OK();
+  return Response::Success();
 }
 
 Response ServiceWorkerHandler::StopWorker(const std::string& version_id) {
@@ -281,7 +282,7 @@ Response ServiceWorkerHandler::StopWorker(const std::string& version_id) {
   RunOrPostTaskOnThread(
       FROM_HERE, ServiceWorkerContext::GetCoreThreadId(),
       base::BindOnce(&StopServiceWorkerOnCoreThread, context_, id));
-  return Response::OK();
+  return Response::Success();
 }
 
 void ServiceWorkerHandler::StopAllWorkers(
@@ -305,7 +306,7 @@ Response ServiceWorkerHandler::UpdateRegistration(
   if (!context_)
     return CreateContextErrorResponse();
   context_->UpdateRegistration(GURL(scope_url));
-  return Response::OK();
+  return Response::Success();
 }
 
 Response ServiceWorkerHandler::InspectWorker(const std::string& version_id) {
@@ -313,7 +314,8 @@ Response ServiceWorkerHandler::InspectWorker(const std::string& version_id) {
     return CreateDomainNotEnabledErrorResponse();
   if (!context_)
     return CreateContextErrorResponse();
-
+  if (!allow_inspect_worker_)
+    return Response::ServerError("Permission denied");
   int64_t id = blink::mojom::kInvalidServiceWorkerVersionId;
   if (!base::StringToInt64(version_id, &id))
     return CreateInvalidVersionIdErrorResponse();
@@ -323,7 +325,7 @@ Response ServiceWorkerHandler::InspectWorker(const std::string& version_id) {
           &GetDevToolsRouteInfoOnCoreThread, context_, id,
           base::BindOnce(&ServiceWorkerHandler::OpenNewDevToolsWindow,
                          weak_factory_.GetWeakPtr())));
-  return Response::OK();
+  return Response::Success();
 }
 
 Response ServiceWorkerHandler::SetForceUpdateOnPageLoad(
@@ -331,7 +333,7 @@ Response ServiceWorkerHandler::SetForceUpdateOnPageLoad(
   if (!context_)
     return CreateContextErrorResponse();
   context_->SetForceUpdateOnPageLoad(force_update_on_page_load);
-  return Response::OK();
+  return Response::Success();
 }
 
 Response ServiceWorkerHandler::DeliverPushMessage(
@@ -353,7 +355,7 @@ Response ServiceWorkerHandler::DeliverPushMessage(
       std::move(payload),
       base::BindOnce([](blink::mojom::PushDeliveryStatus status) {}));
 
-  return Response::OK();
+  return Response::Success();
 }
 
 Response ServiceWorkerHandler::DispatchSyncEvent(
@@ -376,7 +378,7 @@ Response ServiceWorkerHandler::DispatchSyncEvent(
                         base::BindOnce(&DispatchSyncEventOnCoreThread, context_,
                                        base::WrapRefCounted(sync_context),
                                        GURL(origin), id, tag, last_chance));
-  return Response::OK();
+  return Response::Success();
 }
 
 Response ServiceWorkerHandler::DispatchPeriodicSyncEvent(
@@ -399,7 +401,7 @@ Response ServiceWorkerHandler::DispatchPeriodicSyncEvent(
       base::BindOnce(&DispatchPeriodicSyncEventOnCoreThread, context_,
                      base::WrapRefCounted(sync_context), GURL(origin), id,
                      tag));
-  return Response::OK();
+  return Response::Success();
 }
 
 void ServiceWorkerHandler::OpenNewDevToolsWindow(int process_id,

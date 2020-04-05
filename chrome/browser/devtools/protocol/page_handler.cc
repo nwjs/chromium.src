@@ -45,9 +45,9 @@ protocol::Response PageHandler::Disable() {
 
 protocol::Response PageHandler::SetAdBlockingEnabled(bool enabled) {
   if (!enabled_)
-    return protocol::Response::Error("Page domain is disabled.");
+    return protocol::Response::ServerError("Page domain is disabled.");
   ToggleAdBlocking(enabled);
-  return protocol::Response::OK();
+  return protocol::Response::Success();
 }
 
 void PageHandler::GetInstallabilityErrors(
@@ -58,7 +58,7 @@ void PageHandler::GetInstallabilityErrors(
                      : nullptr;
   if (!manager) {
     callback->sendFailure(
-        protocol::Response::Error("Unable to fetch errors for target"));
+        protocol::Response::ServerError("Unable to fetch errors for target"));
     return;
   }
   manager->GetAllErrors(base::BindOnce(&PageHandler::GotInstallabilityErrors,
@@ -68,7 +68,6 @@ void PageHandler::GetInstallabilityErrors(
 // static
 void PageHandler::GotInstallabilityErrors(
     std::unique_ptr<GetInstallabilityErrorsCallback> callback,
-    std::vector<std::string> errors,
     std::vector<content::InstallabilityError> installability_errors) {
   auto result_installability_errors =
       std::make_unique<protocol::Array<protocol::Page::InstallabilityError>>();
@@ -90,7 +89,6 @@ void PageHandler::GotInstallabilityErrors(
             .Build());
   }
   callback->sendSuccess(
-      std::make_unique<protocol::Array<std::string>>(std::move(errors)),
       std::move(result_installability_errors));
 }
 
@@ -102,7 +100,7 @@ void PageHandler::GetManifestIcons(
 
   if (!manager) {
     callback->sendFailure(
-        protocol::Response::Error("Unable to fetch icons for target"));
+        protocol::Response::ServerError("Unable to fetch icons for target"));
     return;
   }
 

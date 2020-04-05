@@ -40,6 +40,7 @@
 #include "third_party/blink/public/platform/web_url_response.h"
 #include "third_party/blink/renderer/core/loader/empty_clients.h"
 #include "third_party/blink/renderer/core/loader/resource/mock_image_resource_observer.h"
+#include "third_party/blink/renderer/core/svg/graphics/svg_image.h"
 #include "third_party/blink/renderer/core/testing/dummy_page_holder.h"
 #include "third_party/blink/renderer/platform/exported/wrapped_resource_response.h"
 #include "third_party/blink/renderer/platform/graphics/bitmap_image.h"
@@ -66,6 +67,7 @@
 #include "third_party/blink/renderer/platform/testing/scoped_mocked_url.h"
 #include "third_party/blink/renderer/platform/testing/testing_platform_support_with_mock_scheduler.h"
 #include "third_party/blink/renderer/platform/testing/unit_test_helpers.h"
+#include "third_party/blink/renderer/platform/weborigin/security_policy.h"
 #include "third_party/blink/renderer/platform/wtf/shared_buffer.h"
 #include "third_party/blink/renderer/platform/wtf/text/base64.h"
 
@@ -121,7 +123,7 @@ TEST(ImageResourceTest, DimensionsDecodableFromPartialTestImage) {
       image->SetData(SharedBuffer::Create(
                          kJpegImage, kJpegImageSubrangeWithDimensionsLength),
                      true));
-  EXPECT_TRUE(image->IsBitmapImage());
+  EXPECT_TRUE(IsA<BitmapImage>(image.get()));
   EXPECT_EQ(1, image->width());
   EXPECT_EQ(1, image->height());
 }
@@ -308,8 +310,8 @@ void TestThatIsPlaceholderRequestAndServeResponse(
 
   // A placeholder image.
   EXPECT_TRUE(image_resource->ShouldShowPlaceholder());
-  EXPECT_FALSE(image_resource->GetContent()->GetImage()->IsBitmapImage());
-  EXPECT_FALSE(image_resource->GetContent()->GetImage()->IsSVGImage());
+  EXPECT_FALSE(IsA<BitmapImage>(image_resource->GetContent()->GetImage()));
+  EXPECT_FALSE(IsA<SVGImage>(image_resource->GetContent()->GetImage()));
 }
 
 void TestThatIsNotPlaceholderRequestAndServeResponse(
@@ -350,8 +352,8 @@ void TestThatIsNotPlaceholderRequestAndServeResponse(
 
   // A non-placeholder bitmap image.
   EXPECT_FALSE(image_resource->ShouldShowPlaceholder());
-  EXPECT_TRUE(image_resource->GetContent()->GetImage()->IsBitmapImage());
-  EXPECT_FALSE(image_resource->GetContent()->GetImage()->IsSVGImage());
+  EXPECT_TRUE(IsA<BitmapImage>(image_resource->GetContent()->GetImage()));
+  EXPECT_FALSE(IsA<SVGImage>(image_resource->GetContent()->GetImage()));
 }
 
 ResourceFetcher* CreateFetcher() {
@@ -437,7 +439,7 @@ TEST(ImageResourceTest, MultipartImage) {
   EXPECT_EQ(kJpegImageWidth, image_resource->GetContent()->GetImage()->width());
   EXPECT_EQ(kJpegImageHeight,
             image_resource->GetContent()->GetImage()->height());
-  EXPECT_TRUE(image_resource->GetContent()->GetImage()->IsSVGImage());
+  EXPECT_TRUE(IsA<SVGImage>(image_resource->GetContent()->GetImage()));
   EXPECT_TRUE(image_resource->GetContent()
                   ->GetImage()
                   ->PaintImageForCurrentFrame()
@@ -455,6 +457,10 @@ TEST(ImageResourceTest, BitmapMultipartImage) {
   ScopedMockedURLLoad scoped_mocked_url_load(test_url, GetTestFilePath());
   ResourceRequest resource_request(test_url);
   resource_request.SetInspectorId(CreateUniqueIdentifier());
+  resource_request.SetRequestorOrigin(SecurityOrigin::CreateUniqueOpaque());
+  resource_request.SetReferrerPolicy(
+      ReferrerPolicyResolveDefault(resource_request.GetReferrerPolicy()));
+  resource_request.SetPriority(WebURLRequest::Priority::kLow);
   ImageResource* image_resource = ImageResource::Create(resource_request);
   fetcher->StartLoad(image_resource);
 
@@ -475,7 +481,7 @@ TEST(ImageResourceTest, BitmapMultipartImage) {
   image_resource->AppendData(kBoundary, strlen(kBoundary));
   image_resource->Loader()->DidFinishLoading(base::TimeTicks(), 0, 0, 0, false);
   EXPECT_TRUE(image_resource->GetContent()->HasImage());
-  EXPECT_TRUE(image_resource->GetContent()->GetImage()->IsBitmapImage());
+  EXPECT_TRUE(IsA<BitmapImage>(image_resource->GetContent()->GetImage()));
   EXPECT_TRUE(image_resource->GetContent()
                   ->GetImage()
                   ->PaintImageForCurrentFrame()
@@ -514,20 +520,15 @@ TEST(ImageResourceTest, CancelOnRemoveObserver) {
   EXPECT_FALSE(GetMemoryCache()->ResourceForURL(test_url));
 }
 
-class MockFinishObserver : public GarbageCollected<MockFinishObserver>,
-                           public ResourceFinishObserver {
-  USING_GARBAGE_COLLECTED_MIXIN(MockFinishObserver);
-
+class MockFinishObserver : public ResourceFinishObserver {
  public:
   static MockFinishObserver* Create() {
-    return
-
-        MakeGarbageCollected<testing::StrictMock<MockFinishObserver>>();
+    return MakeGarbageCollected<testing::StrictMock<MockFinishObserver>>();
   }
   MOCK_METHOD0(NotifyFinished, void());
   String DebugName() const override { return "MockFinishObserver"; }
 
-  void Trace(blink::Visitor* visitor) override {
+  void Trace(Visitor* visitor) override {
     blink::ResourceFinishObserver::Trace(visitor);
   }
 
@@ -635,7 +636,7 @@ TEST(ImageResourceTest, UpdateBitmapImages) {
   EXPECT_FALSE(image_resource->GetContent()->GetImage()->IsNull());
   EXPECT_EQ(2, observer->ImageChangedCount());
   EXPECT_TRUE(observer->ImageNotifyFinishedCalled());
-  EXPECT_TRUE(image_resource->GetContent()->GetImage()->IsBitmapImage());
+  EXPECT_TRUE(IsA<BitmapImage>(image_resource->GetContent()->GetImage()));
 }
 
 TEST(ImageResourceReloadTest, ReloadIfLoFiOrPlaceholderForPlaceholder) {
@@ -676,7 +677,7 @@ TEST(ImageResourceTest, SVGImage) {
   EXPECT_FALSE(image_resource->GetContent()->GetImage()->IsNull());
   EXPECT_EQ(1, observer->ImageChangedCount());
   EXPECT_TRUE(observer->ImageNotifyFinishedCalled());
-  EXPECT_FALSE(image_resource->GetContent()->GetImage()->IsBitmapImage());
+  EXPECT_FALSE(IsA<BitmapImage>(image_resource->GetContent()->GetImage()));
 }
 
 TEST(ImageResourceTest, SVGImageWithSubresource) {
@@ -691,7 +692,7 @@ TEST(ImageResourceTest, SVGImageWithSubresource) {
   EXPECT_FALSE(image_resource->ErrorOccurred());
   ASSERT_TRUE(image_resource->GetContent()->HasImage());
   EXPECT_FALSE(image_resource->GetContent()->GetImage()->IsNull());
-  EXPECT_FALSE(image_resource->GetContent()->GetImage()->IsBitmapImage());
+  EXPECT_FALSE(IsA<BitmapImage>(image_resource->GetContent()->GetImage()));
 
   // At this point, image is (mostly) available but the loading is not yet
   // finished because of SVG's subresources, and thus ImageChanged() or
@@ -739,7 +740,7 @@ TEST(ImageResourceTest, SuccessfulRevalidationJpeg) {
   EXPECT_FALSE(image_resource->GetContent()->GetImage()->IsNull());
   EXPECT_EQ(2, observer->ImageChangedCount());
   EXPECT_TRUE(observer->ImageNotifyFinishedCalled());
-  EXPECT_TRUE(image_resource->GetContent()->GetImage()->IsBitmapImage());
+  EXPECT_TRUE(IsA<BitmapImage>(image_resource->GetContent()->GetImage()));
   EXPECT_EQ(kJpegImageWidth, image_resource->GetContent()->GetImage()->width());
   EXPECT_EQ(kJpegImageHeight,
             image_resource->GetContent()->GetImage()->height());
@@ -755,7 +756,7 @@ TEST(ImageResourceTest, SuccessfulRevalidationJpeg) {
   EXPECT_FALSE(image_resource->GetContent()->GetImage()->IsNull());
   EXPECT_EQ(2, observer->ImageChangedCount());
   EXPECT_TRUE(observer->ImageNotifyFinishedCalled());
-  EXPECT_TRUE(image_resource->GetContent()->GetImage()->IsBitmapImage());
+  EXPECT_TRUE(IsA<BitmapImage>(image_resource->GetContent()->GetImage()));
   EXPECT_EQ(kJpegImageWidth, image_resource->GetContent()->GetImage()->width());
   EXPECT_EQ(kJpegImageHeight,
             image_resource->GetContent()->GetImage()->height());
@@ -775,7 +776,7 @@ TEST(ImageResourceTest, SuccessfulRevalidationSvg) {
   EXPECT_FALSE(image_resource->GetContent()->GetImage()->IsNull());
   EXPECT_EQ(1, observer->ImageChangedCount());
   EXPECT_TRUE(observer->ImageNotifyFinishedCalled());
-  EXPECT_FALSE(image_resource->GetContent()->GetImage()->IsBitmapImage());
+  EXPECT_FALSE(IsA<BitmapImage>(image_resource->GetContent()->GetImage()));
   EXPECT_EQ(200, image_resource->GetContent()->GetImage()->width());
   EXPECT_EQ(200, image_resource->GetContent()->GetImage()->height());
 
@@ -789,7 +790,7 @@ TEST(ImageResourceTest, SuccessfulRevalidationSvg) {
   EXPECT_FALSE(image_resource->GetContent()->GetImage()->IsNull());
   EXPECT_EQ(1, observer->ImageChangedCount());
   EXPECT_TRUE(observer->ImageNotifyFinishedCalled());
-  EXPECT_FALSE(image_resource->GetContent()->GetImage()->IsBitmapImage());
+  EXPECT_FALSE(IsA<BitmapImage>(image_resource->GetContent()->GetImage()));
   EXPECT_EQ(200, image_resource->GetContent()->GetImage()->width());
   EXPECT_EQ(200, image_resource->GetContent()->GetImage()->height());
 }
@@ -809,7 +810,7 @@ TEST(ImageResourceTest, FailedRevalidationJpegToJpeg) {
   EXPECT_FALSE(image_resource->GetContent()->GetImage()->IsNull());
   EXPECT_EQ(2, observer->ImageChangedCount());
   EXPECT_TRUE(observer->ImageNotifyFinishedCalled());
-  EXPECT_TRUE(image_resource->GetContent()->GetImage()->IsBitmapImage());
+  EXPECT_TRUE(IsA<BitmapImage>(image_resource->GetContent()->GetImage()));
   EXPECT_EQ(kJpegImageWidth, image_resource->GetContent()->GetImage()->width());
   EXPECT_EQ(kJpegImageHeight,
             image_resource->GetContent()->GetImage()->height());
@@ -824,7 +825,7 @@ TEST(ImageResourceTest, FailedRevalidationJpegToJpeg) {
   EXPECT_FALSE(image_resource->GetContent()->GetImage()->IsNull());
   EXPECT_EQ(4, observer->ImageChangedCount());
   EXPECT_TRUE(observer->ImageNotifyFinishedCalled());
-  EXPECT_TRUE(image_resource->GetContent()->GetImage()->IsBitmapImage());
+  EXPECT_TRUE(IsA<BitmapImage>(image_resource->GetContent()->GetImage()));
   EXPECT_EQ(50, image_resource->GetContent()->GetImage()->width());
   EXPECT_EQ(50, image_resource->GetContent()->GetImage()->height());
 }
@@ -844,7 +845,7 @@ TEST(ImageResourceTest, FailedRevalidationJpegToSvg) {
   EXPECT_FALSE(image_resource->GetContent()->GetImage()->IsNull());
   EXPECT_EQ(2, observer->ImageChangedCount());
   EXPECT_TRUE(observer->ImageNotifyFinishedCalled());
-  EXPECT_TRUE(image_resource->GetContent()->GetImage()->IsBitmapImage());
+  EXPECT_TRUE(IsA<BitmapImage>(image_resource->GetContent()->GetImage()));
   EXPECT_EQ(kJpegImageWidth, image_resource->GetContent()->GetImage()->width());
   EXPECT_EQ(kJpegImageHeight,
             image_resource->GetContent()->GetImage()->height());
@@ -858,7 +859,7 @@ TEST(ImageResourceTest, FailedRevalidationJpegToSvg) {
   EXPECT_FALSE(image_resource->GetContent()->GetImage()->IsNull());
   EXPECT_EQ(3, observer->ImageChangedCount());
   EXPECT_TRUE(observer->ImageNotifyFinishedCalled());
-  EXPECT_FALSE(image_resource->GetContent()->GetImage()->IsBitmapImage());
+  EXPECT_FALSE(IsA<BitmapImage>(image_resource->GetContent()->GetImage()));
   EXPECT_EQ(200, image_resource->GetContent()->GetImage()->width());
   EXPECT_EQ(200, image_resource->GetContent()->GetImage()->height());
 }
@@ -877,7 +878,7 @@ TEST(ImageResourceTest, FailedRevalidationSvgToJpeg) {
   EXPECT_FALSE(image_resource->GetContent()->GetImage()->IsNull());
   EXPECT_EQ(1, observer->ImageChangedCount());
   EXPECT_TRUE(observer->ImageNotifyFinishedCalled());
-  EXPECT_FALSE(image_resource->GetContent()->GetImage()->IsBitmapImage());
+  EXPECT_FALSE(IsA<BitmapImage>(image_resource->GetContent()->GetImage()));
   EXPECT_EQ(200, image_resource->GetContent()->GetImage()->width());
   EXPECT_EQ(200, image_resource->GetContent()->GetImage()->height());
 
@@ -891,7 +892,7 @@ TEST(ImageResourceTest, FailedRevalidationSvgToJpeg) {
   EXPECT_FALSE(image_resource->GetContent()->GetImage()->IsNull());
   EXPECT_EQ(3, observer->ImageChangedCount());
   EXPECT_TRUE(observer->ImageNotifyFinishedCalled());
-  EXPECT_TRUE(image_resource->GetContent()->GetImage()->IsBitmapImage());
+  EXPECT_TRUE(IsA<BitmapImage>(image_resource->GetContent()->GetImage()));
   EXPECT_EQ(kJpegImageWidth, image_resource->GetContent()->GetImage()->width());
   EXPECT_EQ(kJpegImageHeight,
             image_resource->GetContent()->GetImage()->height());
@@ -911,7 +912,7 @@ TEST(ImageResourceTest, FailedRevalidationSvgToSvg) {
   EXPECT_FALSE(image_resource->GetContent()->GetImage()->IsNull());
   EXPECT_EQ(1, observer->ImageChangedCount());
   EXPECT_TRUE(observer->ImageNotifyFinishedCalled());
-  EXPECT_FALSE(image_resource->GetContent()->GetImage()->IsBitmapImage());
+  EXPECT_FALSE(IsA<BitmapImage>(image_resource->GetContent()->GetImage()));
   EXPECT_EQ(200, image_resource->GetContent()->GetImage()->width());
   EXPECT_EQ(200, image_resource->GetContent()->GetImage()->height());
 
@@ -924,7 +925,7 @@ TEST(ImageResourceTest, FailedRevalidationSvgToSvg) {
   EXPECT_FALSE(image_resource->GetContent()->GetImage()->IsNull());
   EXPECT_EQ(2, observer->ImageChangedCount());
   EXPECT_TRUE(observer->ImageNotifyFinishedCalled());
-  EXPECT_FALSE(image_resource->GetContent()->GetImage()->IsBitmapImage());
+  EXPECT_FALSE(IsA<BitmapImage>(image_resource->GetContent()->GetImage()));
   EXPECT_EQ(300, image_resource->GetContent()->GetImage()->width());
   EXPECT_EQ(300, image_resource->GetContent()->GetImage()->height());
 }
@@ -1025,7 +1026,7 @@ TEST(ImageResourceTest, PartialContentWithoutDimensions) {
 
   ResourceRequest resource_request(test_url);
   resource_request.SetHttpHeaderField("range", "bytes=0-2");
-  FetchParameters params(resource_request);
+  FetchParameters params(std::move(resource_request));
   ResourceFetcher* fetcher = CreateFetcher();
   ImageResource* image_resource = ImageResource::Fetch(params, fetcher);
   auto observer =
@@ -1094,7 +1095,7 @@ TEST(ImageResourceTest, FetchAllowPlaceholderPostRequest) {
   ScopedMockedURLLoad scoped_mocked_url_load(test_url, GetTestFilePath());
   ResourceRequest resource_request(test_url);
   resource_request.SetHttpMethod(http_names::kPOST);
-  FetchParameters params(resource_request);
+  FetchParameters params(std::move(resource_request));
   params.SetAllowImagePlaceholder();
   ImageResource* image_resource = ImageResource::Fetch(params, CreateFetcher());
   EXPECT_EQ(FetchParameters::kNone, params.GetImageRequestOptimization());
@@ -1110,7 +1111,7 @@ TEST(ImageResourceTest, FetchAllowPlaceholderExistingRangeHeader) {
   ScopedMockedURLLoad scoped_mocked_url_load(test_url, GetTestFilePath());
   ResourceRequest resource_request(test_url);
   resource_request.SetHttpHeaderField("range", "bytes=128-255");
-  FetchParameters params(resource_request);
+  FetchParameters params(std::move(resource_request));
   params.SetAllowImagePlaceholder();
   ImageResource* image_resource = ImageResource::Fetch(params, CreateFetcher());
   EXPECT_EQ(FetchParameters::kNone, params.GetImageRequestOptimization());
@@ -1196,7 +1197,7 @@ TEST(ImageResourceTest, FetchAllowPlaceholderPartialContentWithoutDimensions) {
 
     ResourceRequest resource_request(test_url);
     resource_request.SetPreviewsState(test.initial_previews_state);
-    FetchParameters params(resource_request);
+    FetchParameters params(std::move(resource_request));
 
     params.SetAllowImagePlaceholder();
     ImageResource* image_resource =
@@ -1293,7 +1294,7 @@ TEST(ImageResourceTest, FetchAllowPlaceholderThenDisallowPlaceholder) {
 
   // |imageResource2| is still a non-placeholder image.
   EXPECT_FALSE(image_resource2->ShouldShowPlaceholder());
-  EXPECT_TRUE(image_resource2->GetContent()->GetImage()->IsBitmapImage());
+  EXPECT_TRUE(IsA<BitmapImage>(image_resource2->GetContent()->GetImage()));
 }
 
 TEST(ImageResourceTest,
@@ -1388,7 +1389,7 @@ TEST(ImageResourceTest, FetchAllowPlaceholderFullResponseDecodeSuccess) {
               image_resource->GetContent()->GetImage()->width());
     EXPECT_EQ(kJpegImageHeight,
               image_resource->GetContent()->GetImage()->height());
-    EXPECT_TRUE(image_resource->GetContent()->GetImage()->IsBitmapImage());
+    EXPECT_TRUE(IsA<BitmapImage>(image_resource->GetContent()->GetImage()));
   }
 }
 
@@ -1583,7 +1584,7 @@ TEST(ImageResourceTest, PeriodicFlushTest) {
   EXPECT_FALSE(image_resource->GetContent()->GetImage()->IsNull());
   EXPECT_EQ(5, observer->ImageChangedCount());
   EXPECT_TRUE(observer->ImageNotifyFinishedCalled());
-  EXPECT_TRUE(image_resource->GetContent()->GetImage()->IsBitmapImage());
+  EXPECT_TRUE(IsA<BitmapImage>(image_resource->GetContent()->GetImage()));
   EXPECT_EQ(50, image_resource->GetContent()->GetImage()->width());
   EXPECT_EQ(50, image_resource->GetContent()->GetImage()->height());
 }
@@ -1674,7 +1675,7 @@ class ImageResourceCounterTest : public testing::Test {
     ResourceFetcher* fetcher = CreateFetcher();
     KURL test_url(url);
     ResourceRequest request = ResourceRequest(test_url);
-    FetchParameters fetch_params(request);
+    FetchParameters fetch_params(std::move(request));
     scheduler::FakeTaskRunner* task_runner =
         static_cast<scheduler::FakeTaskRunner*>(fetcher->GetTaskRunner().get());
     task_runner->SetTime(1);

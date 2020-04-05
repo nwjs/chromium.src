@@ -11,9 +11,6 @@
 #include "base/metrics/field_trial_params.h"
 #include "build/build_config.h"
 
-// Feature to allow devices to receive the shared clipboard message.
-extern const base::Feature kSharedClipboardReceiver;
-
 // Feature to allow shared clipboard gets processed.
 extern const base::Feature kSharedClipboardUI;
 
@@ -24,6 +21,12 @@ extern const base::Feature kRemoteCopyReceiver;
 
 // List of allowed origins to fetch images from, comma separated.
 extern const base::FeatureParam<std::string> kRemoteCopyAllowedOrigins;
+
+// Feature to enable image notifications for remote copy messages.
+extern const base::Feature kRemoteCopyImageNotification;
+
+// Feature to enable progress notifications for remote copy messages.
+extern const base::Feature kRemoteCopyProgressNotification;
 #endif  // defined(OS_WIN) || defined(OS_MACOSX) || defined(OS_LINUX) ||
         // defined(OS_CHROMEOS)
 

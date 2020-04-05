@@ -6,8 +6,8 @@ import 'chrome://new-tab-page/voice_search_overlay.js';
 
 import {BrowserProxy} from 'chrome://new-tab-page/browser_proxy.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.m.js';
-import {flushTasks} from 'chrome://test/test_util.m.js';
-import {isVisible, TestProxy} from './test_support.js';
+import {flushTasks, isVisible} from 'chrome://test/test_util.m.js';
+import {assertStyle, createTestProxy} from './test_support.js';
 
 class MockSpeechRecognition {
   constructor() {
@@ -32,7 +32,10 @@ suite('NewTabPageVoiceSearchOverlayTest', () => {
   /** @type {!VoiceSearchOverlayElement} */
   let voiceSearchOverlay;
 
-  /** @type {TestProxy} */
+  /**
+   * @implements {BrowserProxy}
+   * @extends {TestBrowserProxy}
+   */
   let testProxy;
 
   setup(async () => {
@@ -40,7 +43,8 @@ suite('NewTabPageVoiceSearchOverlayTest', () => {
 
     window.webkitSpeechRecognition = MockSpeechRecognition;
 
-    testProxy = new TestProxy();
+    testProxy = createTestProxy();
+    testProxy.setResultFor('setTimeout', 0);
     BrowserProxy.instance_ = testProxy;
 
     voiceSearchOverlay = document.createElement('ntp-voice-search-overlay');
@@ -62,6 +66,11 @@ suite('NewTabPageVoiceSearchOverlayTest', () => {
     // Assert.
     assertTrue(isVisible(
         voiceSearchOverlay.shadowRoot.querySelector('#texts *[text=waiting]')));
+    assertFalse(
+        voiceSearchOverlay.$.micContainer.classList.contains('listening'));
+    assertFalse(
+        voiceSearchOverlay.$.micContainer.classList.contains('receiving'));
+    assertStyle(voiceSearchOverlay.$.micVolume, '--mic-volume-level', '0');
   });
 
   test('on audio received shows speak text', () => {
@@ -71,9 +80,28 @@ suite('NewTabPageVoiceSearchOverlayTest', () => {
     // Assert.
     assertTrue(isVisible(
         voiceSearchOverlay.shadowRoot.querySelector('#texts *[text=speak]')));
+    assertTrue(
+        voiceSearchOverlay.$.micContainer.classList.contains('listening'));
+    assertStyle(voiceSearchOverlay.$.micVolume, '--mic-volume-level', '0');
+  });
+
+  test('on speech received starts volume animation', () => {
+    // Arrange.
+    testProxy.setResultFor('random', 0.5);
+
+    // Act.
+    mockSpeechRecognition.onspeechstart();
+
+    // Assert.
+    assertTrue(
+        voiceSearchOverlay.$.micContainer.classList.contains('receiving'));
+    assertStyle(voiceSearchOverlay.$.micVolume, '--mic-volume-level', '0.5');
   });
 
   test('on result received shows recognized text', () => {
+    // Arrange.
+    testProxy.setResultFor('random', 0.5);
+
     // Act.
     mockSpeechRecognition.onresult({
       results: [
@@ -103,12 +131,16 @@ suite('NewTabPageVoiceSearchOverlayTest', () => {
     assertTrue(isVisible(finalResult));
     assertEquals(intermediateResult.innerText, 'hello');
     assertEquals(finalResult.innerText, 'world');
+    assertTrue(
+        voiceSearchOverlay.$.micContainer.classList.contains('receiving'));
+    assertStyle(voiceSearchOverlay.$.micVolume, '--mic-volume-level', '0.5');
   });
 
   test('on final result received queries google', async () => {
     // Arrange.
     const googleBaseUrl = 'https://google.com';
     loadTimeData.data = {googleBaseUrl: googleBaseUrl};
+    testProxy.setResultFor('random', 0);
 
     // Act.
     mockSpeechRecognition.onresult({
@@ -125,8 +157,13 @@ suite('NewTabPageVoiceSearchOverlayTest', () => {
     });
 
     // Assert.
-    const [href] = await testProxy.whenCalled('navigate');
+    const href = await testProxy.whenCalled('navigate');
     assertEquals(href, `${googleBaseUrl}/search?q=hello+world&gs_ivs=1`);
+    assertFalse(
+        voiceSearchOverlay.$.micContainer.classList.contains('listening'));
+    assertFalse(
+        voiceSearchOverlay.$.micContainer.classList.contains('receiving'));
+    assertStyle(voiceSearchOverlay.$.micVolume, '--mic-volume-level', '0');
   });
 
   test('on error received shows error text', () => {
@@ -138,6 +175,11 @@ suite('NewTabPageVoiceSearchOverlayTest', () => {
         voiceSearchOverlay.shadowRoot.querySelector('#texts *[text=error]')));
     assertTrue(isVisible(
         voiceSearchOverlay.shadowRoot.querySelector('#errors *[error="2"]')));
+    assertFalse(
+        voiceSearchOverlay.$.micContainer.classList.contains('listening'));
+    assertFalse(
+        voiceSearchOverlay.$.micContainer.classList.contains('receiving'));
+    assertStyle(voiceSearchOverlay.$.micVolume, '--mic-volume-level', '0');
   });
 
   test('on end received shows error text if no final result', () => {
@@ -246,5 +288,41 @@ suite('NewTabPageVoiceSearchOverlayTest', () => {
 
     // Assert.
     assertFalse(voiceSearchOverlay.$.dialog.open);
+  });
+
+  test('on idle timeout stops voice search', async () => {
+    // Arrange.
+    const [callback, _] = await testProxy.whenCalled('setTimeout');
+
+    // Act.
+    callback();
+
+    // Assert.
+    assertTrue(mockSpeechRecognition.abortCalled);
+  });
+
+  const retryTestParams = [
+    {
+      name: 'retry link',
+      element: 'retryLink',
+    },
+    {
+      name: 'mic button',
+      element: 'micButton',
+    }
+  ];
+
+  retryTestParams.forEach(param => {
+    test(`${param.name} click starts voice search if in retry state`, () => {
+      // Arrange.
+      mockSpeechRecognition.onnomatch();
+      mockSpeechRecognition.startCalled = false;
+
+      // Act.
+      voiceSearchOverlay.shadowRoot.querySelector(`#${param.element}`).click();
+
+      // Assert.
+      assertTrue(mockSpeechRecognition.startCalled);
+    });
   });
 });

@@ -38,10 +38,10 @@ import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeActivity;
-import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.firstrun.FirstRunStatus;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.offlinepages.ClientId;
 import org.chromium.chrome.browser.offlinepages.OfflinePageBridge;
 import org.chromium.chrome.browser.omnibox.UrlBar;
@@ -321,9 +321,10 @@ public class TrustedCdnPublisherUrlTest {
         runTrustedCdnPublisherUrlTest(
                 publisherUrl, "com.example.test", "example.com", R.drawable.omnibox_https_valid);
 
+        // TODO (https://crbug.com/1063807):  Add incognito mode tests.
         OfflinePageBridge offlinePageBridge =
                 TestThreadUtils.runOnUiThreadBlockingNoException(() -> {
-                    Profile profile = Profile.getLastUsedProfile();
+                    Profile profile = Profile.getLastUsedRegularProfile();
                     return OfflinePageBridge.getForProfile(profile);
                 });
 
@@ -348,7 +349,7 @@ public class TrustedCdnPublisherUrlTest {
         PostTask.runOrPostTask(UiThreadTaskTraits.DEFAULT, () -> {
             CustomTabActivity customTabActivity = mCustomTabActivityTestRule.getActivity();
             Tab tab = customTabActivity.getActivityTab();
-            String pageUrl = tab.getUrl();
+            String pageUrl = tab.getUrlString();
             offlinePageBridge.savePage(tab.getWebContents(),
                     new ClientId(OfflinePageBridge.DOWNLOAD_NAMESPACE, "1234"),
                     (savePageResult, url, offlineId) -> {

@@ -22,10 +22,10 @@
 #include "ui/views/animation/flood_fill_ink_drop_ripple.h"
 #include "ui/views/animation/ink_drop_highlight.h"
 #include "ui/views/animation/ink_drop_impl.h"
-#include "ui/views/animation/ink_drop_mask.h"
 #include "ui/views/border.h"
 #include "ui/views/context_menu_controller.h"
 #include "ui/views/controls/button/image_button.h"
+#include "ui/views/controls/highlight_path_generator.h"
 #include "ui/views/controls/image_view.h"
 #include "ui/views/controls/textfield/textfield.h"
 #include "ui/views/layout/box_layout.h"
@@ -102,6 +102,8 @@ class SearchBoxImageButton : public views::ImageButton {
     SetPreferredSize({kButtonSizeDip, kButtonSizeDip});
     SetImageHorizontalAlignment(ALIGN_CENTER);
     SetImageVerticalAlignment(ALIGN_MIDDLE);
+
+    views::InstallCircleHighlightPathGenerator(this);
   }
   ~SearchBoxImageButton() override {}
 
@@ -121,11 +123,7 @@ class SearchBoxImageButton : public views::ImageButton {
 
   void OnBlur() override { SchedulePaint(); }
 
-  // views::InkDropHost overrides:
-  std::unique_ptr<views::InkDrop> CreateInkDrop() override {
-    return CreateDefaultFloodFillInkDropImpl();
-  }
-
+  // views::InkDropHostView:
   std::unique_ptr<views::InkDropRipple> CreateInkDropRipple() const override {
     const gfx::Point center = GetLocalBounds().CenterPoint();
     const int ripple_radius = GetInkDropRadius();
@@ -138,18 +136,13 @@ class SearchBoxImageButton : public views::ImageButton {
         GetInkDropCenterBasedOnLastEvent(), ripple_color, 1.0f);
   }
 
-  std::unique_ptr<views::InkDropMask> CreateInkDropMask() const override {
-    return std::make_unique<views::CircleInkDropMask>(
-        size(), GetLocalBounds().CenterPoint(), GetInkDropRadius());
-  }
-
   std::unique_ptr<views::InkDropHighlight> CreateInkDropHighlight()
       const override {
     constexpr SkColor ripple_color = SkColorSetA(gfx::kGoogleGrey900, 0x12);
-    return std::make_unique<views::InkDropHighlight>(
-        gfx::PointF(GetLocalBounds().CenterPoint()),
-        std::make_unique<views::CircleLayerDelegate>(ripple_color,
-                                                     GetInkDropRadius()));
+    auto highlight = std::make_unique<views::InkDropHighlight>(
+        gfx::SizeF(size()), ripple_color);
+    highlight->set_visible_opacity(1.f);
+    return highlight;
   }
 
  private:
@@ -286,6 +279,7 @@ SearchBoxViewBase::SearchBoxViewBase(SearchBoxViewDelegate* delegate)
   content_container_->AddChildView(search_box_right_space_);
 
   assistant_button_ = new SearchBoxImageButton(this);
+  assistant_button_->EnableCanvasFlippingForRTLUI(false);
   // Default hidden, child class should decide if it should shown.
   assistant_button_->SetVisible(false);
   content_container_->AddChildView(assistant_button_);
@@ -294,13 +288,7 @@ SearchBoxViewBase::SearchBoxViewBase(SearchBoxViewDelegate* delegate)
   content_container_->AddChildView(close_button_);
 }
 
-SearchBoxViewBase::~SearchBoxViewBase() {
-  // |search_box_| tries to call methods on us, and so must be destroyed before
-  // we are.  Remove it from the tree first, which will blur it; it must be
-  // blurred before being deleted.
-  content_container_->RemoveChildView(search_box_);
-  delete search_box_;
-}
+SearchBoxViewBase::~SearchBoxViewBase() = default;
 
 void SearchBoxViewBase::Init() {
   SetPaintToLayer();

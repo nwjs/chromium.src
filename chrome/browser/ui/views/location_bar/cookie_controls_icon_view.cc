@@ -41,7 +41,8 @@ void CookieControlsIconView::UpdateImpl() {
 }
 
 void CookieControlsIconView::OnStatusChanged(
-    CookieControlsController::Status status,
+    CookieControlsStatus status,
+    CookieControlsEnforcement enforcement,
     int blocked_cookies) {
   if (status_ != status) {
     status_ = status;
@@ -71,12 +72,12 @@ bool CookieControlsIconView::ShouldBeVisible() const {
     return false;
 
   switch (status_) {
-    case CookieControlsController::Status::kDisabledForSite:
+    case CookieControlsStatus::kDisabledForSite:
       return true;
-    case CookieControlsController::Status::kEnabled:
+    case CookieControlsStatus::kEnabled:
       return has_blocked_cookies_;
-    case CookieControlsController::Status::kDisabled:
-    case CookieControlsController::Status::kUninitialized:
+    case CookieControlsStatus::kDisabled:
+    case CookieControlsStatus::kUninitialized:
       return false;
   }
 }
@@ -104,7 +105,7 @@ views::BubbleDialogDelegateView* CookieControlsIconView::GetBubble() const {
 }
 
 const gfx::VectorIcon& CookieControlsIconView::GetVectorIcon() const {
-  if (status_ == CookieControlsController::Status::kDisabledForSite)
+  if (status_ == CookieControlsStatus::kDisabledForSite)
     return kEyeIcon;
   return kEyeCrossedIcon;
 }

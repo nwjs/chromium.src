@@ -4,6 +4,7 @@
 
 #include "components/sessions/content/session_tab_helper.h"
 
+#include "base/memory/ptr_util.h"
 #include "components/sessions/content/content_serialized_navigation_builder.h"
 #include "components/sessions/content/session_tab_helper_delegate.h"
 #include "components/sessions/core/serialized_navigation_entry.h"
@@ -63,10 +64,13 @@ SessionID SessionTabHelper::IdForWindowContainingTab(
                             : SessionID::InvalidValue();
 }
 
-void SessionTabHelper::UserAgentOverrideSet(const std::string& user_agent) {
+void SessionTabHelper::UserAgentOverrideSet(
+    const blink::UserAgentOverride& ua_override) {
+  // TODO(https://crbug.com/1061917): handle |ua_override.ua_metadata_override|.
   SessionTabHelperDelegate* delegate = GetDelegate();
   if (delegate) {
-    delegate->SetTabUserAgentOverride(window_id(), session_id(), user_agent);
+    delegate->SetTabUserAgentOverride(window_id(), session_id(),
+                                      ua_override.ua_string_override);
   }
 }
 

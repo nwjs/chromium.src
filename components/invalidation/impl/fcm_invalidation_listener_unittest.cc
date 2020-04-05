@@ -7,15 +7,14 @@
 #include <string>
 #include <vector>
 
+#include "base/memory/ptr_util.h"
 #include "base/stl_util.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/test/task_environment.h"
 #include "components/invalidation/impl/fcm_invalidation_listener.h"
 #include "components/invalidation/impl/per_user_topic_subscription_manager.h"
-#include "components/invalidation/impl/unacked_invalidation_set_test_util.h"
 #include "components/invalidation/public/invalidation_util.h"
 #include "components/invalidation/public/invalidator_state.h"
-#include "components/invalidation/public/object_id_invalidation_map.h"
 #include "components/invalidation/public/topic_invalidation_map.h"
 #include "services/data_decoder/public/cpp/test_support/in_process_data_decoder.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -338,9 +337,8 @@ TEST_F(FCMInvalidationListenerTest, ManyInvalidations_NoDrop) {
   EXPECT_EQ(initial_version + kRepeatCount - 1, GetVersion(topic));
 }
 
-// Fire an invalidation for an unregistered object topic with a payload.  It
-// should still be processed, and both the payload and the version should be
-// updated.
+// Fire an invalidation for an unregistered topic with a payload. It should
+// still be processed, and both the payload and the version should be updated.
 TEST_F(FCMInvalidationListenerTest, InvalidateBeforeRegistration_Simple) {
   const Topic kUnregisteredId = "unregistered";
   const Topic& topic = kUnregisteredId;
@@ -362,7 +360,7 @@ TEST_F(FCMInvalidationListenerTest, InvalidateBeforeRegistration_Simple) {
   EXPECT_EQ(kPayload1, GetPayload(topic));
 }
 
-// Fire ten invalidations before an object registers.  Some invalidations will
+// Fire ten invalidations before an topics registers.  Some invalidations will
 // be dropped an replaced with an unknown version invalidation.
 TEST_F(FCMInvalidationListenerTest, InvalidateBeforeRegistration_Drop) {
   const int kRepeatCount =

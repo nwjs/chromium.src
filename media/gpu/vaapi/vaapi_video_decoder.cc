@@ -15,6 +15,7 @@
 #include "media/base/video_frame.h"
 #include "media/base/video_util.h"
 #include "media/gpu/chromeos/dmabuf_video_frame_pool.h"
+#include "media/gpu/chromeos/platform_video_frame_utils.h"
 #include "media/gpu/gpu_video_decode_accelerator_helpers.h"
 #include "media/gpu/macros.h"
 #include "media/gpu/vaapi/h264_vaapi_video_decoder_delegate.h"
@@ -110,7 +111,7 @@ void VaapiVideoDecoder::Initialize(const VideoDecoderConfig& config,
   if (current_decode_task_ || !decode_task_queue_.empty()) {
     LOG(ERROR)
         << "Don't call Initialize() while there are pending decode tasks";
-    std::move(init_cb).Run(false);
+    std::move(init_cb).Run(StatusCode::kVaapiReinitializedDuringDecode);
     return;
   }
 
@@ -135,14 +136,14 @@ void VaapiVideoDecoder::Initialize(const VideoDecoderConfig& config,
   if (!vaapi_wrapper_.get()) {
     VLOGF(1) << "Failed initializing VAAPI for profile "
              << GetProfileName(profile);
-    std::move(init_cb).Run(false);
+    std::move(init_cb).Run(StatusCode::kDecoderUnsupportedProfile);
     return;
   }
 
   profile_ = profile;
   color_space_ = config.color_space_info();
   if (!CreateAcceleratedVideoDecoder()) {
-    std::move(init_cb).Run(false);
+    std::move(init_cb).Run(StatusCode::kVaapiFailedAcceleratorCreation);
     return;
   }
 
@@ -156,7 +157,7 @@ void VaapiVideoDecoder::Initialize(const VideoDecoderConfig& config,
   SetState(State::kWaitingForInput);
 
   // Notify client initialization was successful.
-  std::move(init_cb).Run(true);
+  std::move(init_cb).Run(OkStatus());
 }
 
 void VaapiVideoDecoder::Decode(scoped_refptr<DecoderBuffer> buffer,
@@ -296,9 +297,18 @@ scoped_refptr<VASurface> VaapiVideoDecoder::CreateSurface() {
     return nullptr;
   }
 
+  scoped_refptr<gfx::NativePixmap> pixmap =
+      CreateNativePixmapDmaBuf(frame.get());
+  if (!pixmap) {
+    LOG(ERROR) << "Failed to create NativePixmap from VideoFrame";
+    SetState(State::kError);
+    return nullptr;
+  }
+
   // Create VASurface from the native pixmap.
   scoped_refptr<VASurface> va_surface =
-      vaapi_wrapper_->CreateVASurfaceForVideoFrame(frame.get());
+      vaapi_wrapper_->CreateVASurfaceForPixmap(std::move(pixmap));
+
   if (!va_surface || va_surface->id() == VA_INVALID_ID) {
     LOG(ERROR) << "Failed to create VASurface from VideoFrame";
     SetState(State::kError);

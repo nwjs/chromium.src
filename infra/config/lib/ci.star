@@ -90,24 +90,6 @@ def clang_builder(*, name, cores=32, properties=None, **kwargs):
   )
 
 
-XCODE_IOS_11_CACHE = swarming.cache(
-    name = 'xcode_ios_11a1027',
-    path = 'xcode_ios_11a1027.app',
-)
-
-
-def clang_ios_builder(*, name, **kwargs):
-  return clang_builder(
-      name = name,
-      caches = [XCODE_IOS_11_CACHE],
-      cores = None,
-      executable = 'recipe:ios/unified_builder_tester',
-      os = builders.os.MAC_10_14,
-      ssd = True,
-      **kwargs
-  )
-
-
 def clang_mac_builder(*, name, cores=24, **kwargs):
   return clang_builder(
       name = name,
@@ -189,14 +171,12 @@ def fyi_coverage_builder(
     cores=32,
     ssd=True,
     execution_timeout=20 * time.hour,
-    goma_backend=builders.goma.backend.RBE_PROD,
     **kwargs):
   return fyi_builder(
       name = name,
       cores = cores,
       ssd=ssd,
       execution_timeout = execution_timeout,
-      goma_backend = goma_backend,
       **kwargs
   )
 
@@ -204,14 +184,19 @@ def fyi_coverage_builder(
 def fyi_ios_builder(
     *,
     name,
+    caches = None,
     executable='recipe:ios/unified_builder_tester',
+    goma_backend=builders.goma.backend.RBE_PROD,
     **kwargs):
+
+  if not caches:
+    caches = [builders.xcode_cache.x11c29]
+
   return fyi_builder(
       name = name,
-      caches = [XCODE_IOS_11_CACHE],
+      caches = caches,
       cores = None,
       executable = executable,
-      goma_backend = None,
       os = builders.os.MAC_ANY,
       **kwargs
   )
@@ -359,13 +344,27 @@ def mac_builder(
   )
 
 
-def mac_ios_builder(*, name, **kwargs):
+def mac_ios_builder(*,
+                    name,
+                    caches=None,
+                    executable='recipe:ios/unified_builder_tester',
+                    goma_backend=builders.goma.backend.RBE_PROD,
+                    properties=None,
+                    **kwargs):
+  if not caches:
+    caches = [builders.xcode_cache.x11c29]
+  if not properties:
+    properties = {
+      'xcode_build_version': '11c29'
+    }
+
   return mac_builder(
       name = name,
-      caches = [XCODE_IOS_11_CACHE],
-      executable = 'recipe:ios/unified_builder_tester',
-      goma_backend = None,
+      caches = caches,
+      goma_backend = goma_backend,
+      executable = executable,
       os = builders.os.MAC_ANY,
+      properties = properties,
       **kwargs
   )
 
@@ -435,7 +434,6 @@ ci = struct(
     chromium_builder = chromium_builder,
     chromiumos_builder = chromiumos_builder,
     clang_builder = clang_builder,
-    clang_ios_builder = clang_ios_builder,
     clang_mac_builder = clang_mac_builder,
     dawn_builder = dawn_builder,
     fuzz_builder = fuzz_builder,

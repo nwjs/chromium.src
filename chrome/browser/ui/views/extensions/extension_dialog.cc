@@ -30,40 +30,42 @@
 
 #if defined(OS_CHROMEOS)
 #include "ash/public/cpp/tablet_mode.h"
+#include "ash/public/cpp/window_properties.h"
+#include "ui/aura/window.h"
 #endif
 
 using content::BrowserContext;
 using content::WebContents;
+
+ExtensionDialog::InitParams::InitParams(int width, int height)
+    : width(width), height(height) {}
+ExtensionDialog::InitParams::InitParams(const InitParams& other) = default;
+ExtensionDialog::InitParams::~InitParams() = default;
 
 // static
 ExtensionDialog* ExtensionDialog::Show(const GURL& url,
                                        gfx::NativeWindow parent_window,
                                        Profile* profile,
                                        WebContents* web_contents,
-                                       bool is_modal,
-                                       int width,
-                                       int height,
-                                       int min_width,
-                                       int min_height,
-                                       const base::string16& title,
-                                       ExtensionDialogObserver* observer) {
+                                       ExtensionDialogObserver* observer,
+                                       const InitParams& init_params) {
   std::unique_ptr<extensions::ExtensionViewHost> host =
       extensions::ExtensionViewHostFactory::CreateDialogHost(url, profile);
   if (!host)
-    return NULL;
-  // Preferred size must be set before views::Widget::CreateWindowWithParent
-  // is called because CreateWindowWithParent refers the result of CanResize().
+    return nullptr;
+  // Preferred size must be set before views::Widget::CreateWindowWithParent()
+  // is called because CreateWindowWithParent() references CanResize().
   ExtensionViewViews* view = GetExtensionView(host.get());
-  view->SetPreferredSize(gfx::Size(width, height));
-  view->set_minimum_size(gfx::Size(min_width, min_height));
+  view->SetPreferredSize(gfx::Size(init_params.width, init_params.height));
+  view->set_minimum_size(
+      gfx::Size(init_params.min_width, init_params.min_height));
   host->SetAssociatedWebContents(web_contents);
 
   DCHECK(parent_window);
   extensions::ExtensionViewHost* host_ptr = host.get();
   ExtensionDialog* dialog = new ExtensionDialog(std::move(host), observer);
-  dialog->set_title(title);
-  dialog->InitWindow(parent_window, is_modal, width, height, min_width,
-                     min_height);
+  dialog->set_title(init_params.title);
+  dialog->InitWindow(parent_window, init_params);
 
   // Show a white background while the extension loads.  This is prettier than
   // flashing a black unfilled window frame.
@@ -131,13 +133,21 @@ void ExtensionDialog::DeleteDelegate() {
   Release();
 }
 
+views::Widget* ExtensionDialog::GetWidget() {
+  return GetExtensionView()->GetWidget();
+}
+
+const views::Widget* ExtensionDialog::GetWidget() const {
+  return GetExtensionView()->GetWidget();
+}
+
 views::View* ExtensionDialog::GetContentsView() {
   return GetExtensionView();
 }
 
 void ExtensionDialog::Observe(int type,
-                             const content::NotificationSource& source,
-                             const content::NotificationDetails& details) {
+                              const content::NotificationSource& source,
+                              const content::NotificationDetails& details) {
   switch (type) {
     case extensions::NOTIFICATION_EXTENSION_HOST_DID_STOP_FIRST_LOAD:
       // Avoid potential overdraw by removing the temporary background after
@@ -172,7 +182,7 @@ ExtensionDialog::ExtensionDialog(
     std::unique_ptr<extensions::ExtensionViewHost> host,
     ExtensionDialogObserver* observer)
     : host_(std::move(host)), observer_(observer) {
-  DialogDelegate::set_buttons(ui::DIALOG_BUTTON_NONE);
+  DialogDelegate::SetButtons(ui::DIALOG_BUTTON_NONE);
   DialogDelegate::set_use_custom_frame(false);
 
   AddRef();  // Balanced in DeleteDelegate();
@@ -191,15 +201,12 @@ ExtensionDialog::ExtensionDialog(
 }
 
 void ExtensionDialog::InitWindow(gfx::NativeWindow parent,
-                                 bool is_modal,
-                                 int width,
-                                 int height,
-                                 int min_width,
-                                 int min_height) {
+                                 const InitParams& init_params) {
   views::Widget* window =
-      is_modal ? constrained_window::CreateBrowserModalDialogViews(this, parent)
-               : views::DialogDelegate::CreateDialogWidget(
-                     this, nullptr /* context */, nullptr /* parent */);
+      init_params.is_modal
+          ? constrained_window::CreateBrowserModalDialogViews(this, parent)
+          : views::DialogDelegate::CreateDialogWidget(
+                this, nullptr /* context */, nullptr /* parent */);
 
   // Center the window over the parent browser window or the screen.
   gfx::Rect screen_rect =
@@ -207,21 +214,30 @@ void ExtensionDialog::InitWindow(gfx::NativeWindow parent,
   gfx::Rect bounds = parent ? views::Widget::GetWidgetForNativeWindow(parent)
                                   ->GetWindowBoundsInScreen()
                             : screen_rect;
-  bounds.ClampToCenteredSize({width, height});
+  bounds.ClampToCenteredSize({init_params.width, init_params.height});
 
   // Make sure bounds is larger than {min_width, min_height}.
-  if (bounds.width() < min_width) {
-    bounds.set_x(bounds.x() + (bounds.width() - min_width) / 2);
-    bounds.set_width(min_width);
+  if (bounds.width() < init_params.min_width) {
+    bounds.set_x(bounds.x() + (bounds.width() - init_params.min_width) / 2);
+    bounds.set_width(init_params.min_width);
   }
-  if (bounds.height() < min_height) {
-    bounds.set_y(bounds.y() + (bounds.height() - min_height) / 2);
-    bounds.set_height(min_height);
+  if (bounds.height() < init_params.min_height) {
+    bounds.set_y(bounds.y() + (bounds.height() - init_params.min_height) / 2);
+    bounds.set_height(init_params.min_height);
   }
 
   // Make sure bounds is still on screen.
   bounds.AdjustToFit(screen_rect);
   window->SetBounds(bounds);
+
+#if defined(OS_CHROMEOS)
+  if (init_params.title_color) {
+    aura::Window* native_view = window->GetNativeWindow();
+    // Frame active color changes the title color when dialog is active.
+    native_view->SetProperty(ash::kFrameActiveColorKey,
+                             init_params.title_color.value());
+  }
+#endif
 
   window->Show();
   // TODO(jamescook): Remove redundant call to Activate()?
@@ -235,8 +251,4 @@ ExtensionViewViews* ExtensionDialog::GetExtensionView() const {
 ExtensionViewViews* ExtensionDialog::GetExtensionView(
     extensions::ExtensionViewHost* host) {
   return static_cast<ExtensionViewViews*>(host->view());
-}
-
-const views::Widget* ExtensionDialog::GetWidgetImpl() const {
-  return GetExtensionView()->GetWidget();
 }

@@ -24,7 +24,8 @@ NGFragmentItem::NGFragmentItem(const NGPhysicalTextFragment& text)
       is_generated_text_(text.IsGeneratedText()),
       is_hidden_for_paint_(text.IsHiddenForPaint()),
       text_direction_(static_cast<unsigned>(text.ResolvedDirection())),
-      ink_overflow_computed_(false) {
+      ink_overflow_computed_(false),
+      is_first_for_node_(text.IsFirstForNode()) {
 #if DCHECK_IS_ON()
   if (text_.shape_result) {
     DCHECK_EQ(text_.shape_result->StartIndex(), StartOffset());
@@ -38,6 +39,7 @@ NGFragmentItem::NGFragmentItem(const NGPhysicalTextFragment& text)
     // |generated_text_.text_| instead copying, |generated_text_.text = ...|.
     new (&generated_text_.text) String(text.Text().ToString());
   }
+  DCHECK(!IsFormattingContextRoot());
 }
 
 NGFragmentItem::NGFragmentItem(const NGPhysicalLineBoxFragment& line,
@@ -50,7 +52,10 @@ NGFragmentItem::NGFragmentItem(const NGPhysicalLineBoxFragment& line,
       style_variant_(static_cast<unsigned>(line.StyleVariant())),
       is_hidden_for_paint_(false),
       text_direction_(static_cast<unsigned>(line.BaseDirection())),
-      ink_overflow_computed_(false) {}
+      ink_overflow_computed_(false),
+      is_first_for_node_(true) {
+  DCHECK(!IsFormattingContextRoot());
+}
 
 NGFragmentItem::NGFragmentItem(const NGPhysicalBoxFragment& box,
                                TextDirection resolved_direction)
@@ -61,7 +66,10 @@ NGFragmentItem::NGFragmentItem(const NGPhysicalBoxFragment& box,
       style_variant_(static_cast<unsigned>(box.StyleVariant())),
       is_hidden_for_paint_(box.IsHiddenForPaint()),
       text_direction_(static_cast<unsigned>(resolved_direction)),
-      ink_overflow_computed_(false) {}
+      ink_overflow_computed_(false),
+      is_first_for_node_(box.IsFirstForNode()) {
+  DCHECK_EQ(IsFormattingContextRoot(), box.IsFormattingContextRoot());
+}
 
 NGFragmentItem::NGFragmentItem(const NGInlineItem& inline_item,
                                const PhysicalSize& size)
@@ -72,10 +80,12 @@ NGFragmentItem::NGFragmentItem(const NGInlineItem& inline_item,
       style_variant_(static_cast<unsigned>(inline_item.StyleVariant())),
       is_hidden_for_paint_(false),
       text_direction_(static_cast<unsigned>(TextDirection::kLtr)),
-      ink_overflow_computed_(false) {
+      ink_overflow_computed_(false),
+      is_first_for_node_(true) {
   DCHECK_EQ(inline_item.Type(), NGInlineItem::kOpenTag);
   DCHECK(layout_object_);
   DCHECK(layout_object_->IsLayoutInline());
+  DCHECK(!IsFormattingContextRoot());
 }
 
 NGFragmentItem::~NGFragmentItem() {
@@ -95,12 +105,22 @@ NGFragmentItem::~NGFragmentItem() {
   }
 }
 
-bool NGFragmentItem::HasSameParent(const NGFragmentItem& other) const {
+bool NGFragmentItem::IsSiblingOf(const NGFragmentItem& other) const {
   if (!GetLayoutObject())
     return !other.GetLayoutObject();
   if (!other.GetLayoutObject())
     return false;
-  return GetLayoutObject()->Parent() == other.GetLayoutObject()->Parent();
+  if (GetLayoutObject()->Parent() == other.GetLayoutObject()->Parent())
+    return true;
+  // To traverse list marker and line box of <li> with |MoveToNextSibling()|,
+  // we think list marker and <li> are sibling.
+  // See hittesting/culled-inline-crash.html (skip list marker)
+  // See fast/events/onclick-list-marker.html (hit on list marker)
+  if (IsListMarker())
+    return GetLayoutObject()->Parent() == other.GetLayoutObject();
+  if (other.IsListMarker())
+    return other.GetLayoutObject()->Parent() == GetLayoutObject();
+  return false;
 }
 
 bool NGFragmentItem::IsInlineBox() const {
@@ -121,6 +141,12 @@ bool NGFragmentItem::IsAtomicInline() const {
   return false;
 }
 
+bool NGFragmentItem::IsFloating() const {
+  if (const NGPhysicalBoxFragment* box = BoxFragment())
+    return box->IsFloating();
+  return false;
+}
+
 bool NGFragmentItem::IsEmptyLineBox() const {
   return LineBoxType() == NGLineBoxType::kEmptyLineBox;
 }
@@ -133,8 +159,7 @@ bool NGFragmentItem::IsGeneratedText() const {
 }
 
 bool NGFragmentItem::IsListMarker() const {
-  // TODO(yosin): Implement |NGFragmentItem::IsListMarker()|.
-  return false;
+  return layout_object_ && layout_object_->IsLayoutNGOutsideListMarker();
 }
 
 bool NGFragmentItem::HasOverflowClip() const {

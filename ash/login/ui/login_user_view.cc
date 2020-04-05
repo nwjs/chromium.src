@@ -23,6 +23,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/strings/utf_string_conversions.h"
 #include "components/user_manager/user_type.h"
+#include "ui/accessibility/ax_node_data.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/compositor/layer_animation_sequence.h"
 #include "ui/compositor/layer_animator.h"
@@ -64,6 +65,8 @@ constexpr int kExtraSmallUserImageSizeDp = 60;
 constexpr float kOpaqueUserViewOpacity = 1.f;
 constexpr float kTransparentUserViewOpacity = 0.63f;
 constexpr float kUserFadeAnimationDurationMs = 180;
+
+constexpr char kAccountNameFontFamily[] = "Google Sans";
 
 constexpr char kUserViewClassName[] = "UserView";
 constexpr char kLoginUserImageClassName[] = "LoginUserImage";
@@ -174,22 +177,24 @@ class LoginUserView::UserLabel : public NonAccessibleView {
     user_name_->SetSubpixelRenderingEnabled(false);
     user_name_->SetAutoColorReadabilityEnabled(false);
 
-    // TODO(jdufault): Figure out the correct font.
     const gfx::FontList& base_font_list = views::Label::GetDefaultFontList();
+    const gfx::FontList font_list(
+        {kAccountNameFontFamily}, base_font_list.GetFontStyle(),
+        base_font_list.GetFontSize(), base_font_list.GetFontWeight());
 
     switch (style) {
       case LoginDisplayStyle::kLarge:
-        user_name_->SetFontList(base_font_list.Derive(
-            11, gfx::Font::FontStyle::NORMAL, gfx::Font::Weight::LIGHT));
+        user_name_->SetFontList(font_list.Derive(
+            12, gfx::Font::FontStyle::NORMAL, gfx::Font::Weight::NORMAL));
         break;
       case LoginDisplayStyle::kSmall:
-        user_name_->SetFontList(base_font_list.Derive(
-            8, gfx::Font::FontStyle::NORMAL, gfx::Font::Weight::LIGHT));
+        user_name_->SetFontList(font_list.Derive(
+            8, gfx::Font::FontStyle::NORMAL, gfx::Font::Weight::NORMAL));
         break;
       case LoginDisplayStyle::kExtraSmall:
         // TODO(jdufault): match font against spec.
-        user_name_->SetFontList(base_font_list.Derive(
-            6, gfx::Font::FontStyle::NORMAL, gfx::Font::Weight::LIGHT));
+        user_name_->SetFontList(font_list.Derive(
+            6, gfx::Font::FontStyle::NORMAL, gfx::Font::Weight::NORMAL));
         break;
     }
 
@@ -236,6 +241,11 @@ class LoginUserView::TapButton : public views::Button {
     views::Button::OnBlur();
     parent_->UpdateOpacity();
   }
+  void GetAccessibleNodeData(ui::AXNodeData* node_data) override {
+    // TODO(https://crbug.com/1065516): Define the button name.
+    node_data->SetNameExplicitlyEmpty();
+    Button::GetAccessibleNodeData(node_data);
+  }
 
  private:
   LoginUserView* const parent_;
@@ -272,6 +282,10 @@ views::View* LoginUserView::TestApi::dropdown() const {
 
 LoginBaseBubbleView* LoginUserView::TestApi::menu() const {
   return view_->menu_;
+}
+
+void LoginUserView::TestApi::OnTap() const {
+  view_->on_tap_.Run();
 }
 
 bool LoginUserView::TestApi::is_opaque() const {
@@ -329,7 +343,7 @@ LoginUserView::LoginUserView(
         gfx::Size(kDropdownIconSizeDp, kDropdownIconSizeDp));
     dropdown_->SetImage(
         views::Button::STATE_NORMAL,
-        gfx::CreateVectorIcon(kLockScreenDropdownIcon, SK_ColorWHITE));
+        gfx::CreateVectorIcon(kLockScreenDropdownIcon, gfx::kGoogleGrey200));
     dropdown_->SetFocusBehavior(FocusBehavior::ALWAYS);
   }
   tap_button_ = new TapButton(this);

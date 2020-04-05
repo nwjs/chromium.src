@@ -111,35 +111,30 @@ void IdentityManager::RemoveObserver(Observer* observer) {
 }
 
 // TODO(862619) change return type to base::Optional<CoreAccountInfo>
-CoreAccountInfo IdentityManager::GetPrimaryAccountInfo() const {
+CoreAccountInfo IdentityManager::GetPrimaryAccountInfo(
+    ConsentLevel consent) const {
+  if (consent == ConsentLevel::kNotRequired) {
+    return primary_account_manager_->GetUnconsentedPrimaryAccountInfo();
+  }
   return primary_account_manager_->GetAuthenticatedAccountInfo();
 }
 
-CoreAccountId IdentityManager::GetPrimaryAccountId() const {
-  return GetPrimaryAccountInfo().account_id;
+CoreAccountId IdentityManager::GetPrimaryAccountId(ConsentLevel consent) const {
+  return GetPrimaryAccountInfo(consent).account_id;
 }
 
-bool IdentityManager::HasPrimaryAccount() const {
+bool IdentityManager::HasPrimaryAccount(ConsentLevel consent) const {
+  if (consent == ConsentLevel::kNotRequired) {
+    return primary_account_manager_->HasUnconsentedPrimaryAccount();
+  }
   return primary_account_manager_->IsAuthenticated();
-}
-
-CoreAccountId IdentityManager::GetUnconsentedPrimaryAccountId() const {
-  return GetUnconsentedPrimaryAccountInfo().account_id;
-}
-
-CoreAccountInfo IdentityManager::GetUnconsentedPrimaryAccountInfo() const {
-  return primary_account_manager_->GetUnconsentedPrimaryAccountInfo();
-}
-
-bool IdentityManager::HasUnconsentedPrimaryAccount() const {
-  return primary_account_manager_->HasUnconsentedPrimaryAccount();
 }
 
 std::unique_ptr<AccessTokenFetcher>
 IdentityManager::CreateAccessTokenFetcherForAccount(
     const CoreAccountId& account_id,
     const std::string& oauth_consumer_name,
-    const identity::ScopeSet& scopes,
+    const ScopeSet& scopes,
     AccessTokenFetcher::TokenCallback callback,
     AccessTokenFetcher::Mode mode) {
   return std::make_unique<AccessTokenFetcher>(account_id, oauth_consumer_name,
@@ -152,7 +147,7 @@ IdentityManager::CreateAccessTokenFetcherForAccount(
     const CoreAccountId& account_id,
     const std::string& oauth_consumer_name,
     scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
-    const identity::ScopeSet& scopes,
+    const ScopeSet& scopes,
     AccessTokenFetcher::TokenCallback callback,
     AccessTokenFetcher::Mode mode) {
   return std::make_unique<AccessTokenFetcher>(
@@ -166,7 +161,7 @@ IdentityManager::CreateAccessTokenFetcherForClient(
     const std::string& client_id,
     const std::string& client_secret,
     const std::string& oauth_consumer_name,
-    const identity::ScopeSet& scopes,
+    const ScopeSet& scopes,
     AccessTokenFetcher::TokenCallback callback,
     AccessTokenFetcher::Mode mode) {
   return std::make_unique<AccessTokenFetcher>(
@@ -176,7 +171,7 @@ IdentityManager::CreateAccessTokenFetcherForClient(
 
 void IdentityManager::RemoveAccessTokenFromCache(
     const CoreAccountId& account_id,
-    const identity::ScopeSet& scopes,
+    const ScopeSet& scopes,
     const std::string& access_token) {
   token_service_->InvalidateAccessToken(account_id, scopes, access_token);
 }
@@ -514,7 +509,8 @@ IdentityManager::ComputeUnconsentedPrimaryAccountInfo() const {
     // If cookies or tokens are not loaded, it is not possible to fully compute
     // the unconsented primary account. However, if the current unconsented
     // primary account is no longer valid, it has to be removed.
-    CoreAccountId current_account = GetUnconsentedPrimaryAccountId();
+    CoreAccountId current_account =
+        GetPrimaryAccountId(ConsentLevel::kNotRequired);
     if (!current_account.empty()) {
       if (AreRefreshTokensLoaded() &&
           !HasAccountWithRefreshToken(current_account)) {
@@ -543,7 +539,6 @@ IdentityManager::ComputeUnconsentedPrimaryAccountInfo() const {
 
 void IdentityManager::GoogleSigninSucceeded(
     const CoreAccountInfo& account_info) {
-  UpdateUnconsentedPrimaryAccount();
   for (auto& observer : observer_list_) {
     observer.OnPrimaryAccountSet(account_info);
   }
@@ -563,10 +558,15 @@ void IdentityManager::UnconsentedPrimaryAccountChanged(
     observer.OnUnconsentedPrimaryAccountChanged(account_info);
 }
 
-#if !defined(OS_CHROMEOS)
 void IdentityManager::GoogleSignedOut(const CoreAccountInfo& account_info) {
   DCHECK(!HasPrimaryAccount());
   DCHECK(!account_info.IsEmpty());
+  // This is needed for the case where the user chooses to start syncing
+  // with an account that is different then the unconsented primary account
+  // (not the first in cookies) but then cancel. In that case, the tokens stay
+  // the same. In all the other cases, either the token will be revoked which
+  // will trigger an update for the unconsented primary account or the
+  // primary account stays the same but the sync consent is revoked.
   UpdateUnconsentedPrimaryAccount();
   for (auto& observer : observer_list_) {
     observer.OnPrimaryAccountCleared(account_info);
@@ -580,7 +580,6 @@ void IdentityManager::GoogleSignedOut(const CoreAccountInfo& account_info) {
   }
 #endif
 }
-#endif  // !defined(OS_CHROMEOS)
 
 void IdentityManager::OnRefreshTokenAvailable(const CoreAccountId& account_id) {
   UpdateUnconsentedPrimaryAccount();
@@ -593,8 +592,9 @@ void IdentityManager::OnRefreshTokenAvailable(const CoreAccountId& account_id) {
 }
 
 void IdentityManager::OnRefreshTokenRevoked(const CoreAccountId& account_id) {
-  if (!AreRefreshTokensLoaded() && HasUnconsentedPrimaryAccount() &&
-      account_id == GetUnconsentedPrimaryAccountId()) {
+  if (!AreRefreshTokensLoaded() &&
+      HasPrimaryAccount(ConsentLevel::kNotRequired) &&
+      account_id == GetPrimaryAccountId(ConsentLevel::kNotRequired)) {
     unconsented_primary_account_revoked_during_load_ = true;
   }
 
@@ -649,7 +649,7 @@ void IdentityManager::OnGaiaCookieDeletedByUserAction() {
 
 void IdentityManager::OnAccessTokenRequested(const CoreAccountId& account_id,
                                              const std::string& consumer_id,
-                                             const identity::ScopeSet& scopes) {
+                                             const ScopeSet& scopes) {
   for (auto& observer : diagnostics_observer_list_) {
     observer.OnAccessTokenRequested(account_id, consumer_id, scopes);
   }
@@ -658,7 +658,7 @@ void IdentityManager::OnAccessTokenRequested(const CoreAccountId& account_id,
 void IdentityManager::OnFetchAccessTokenComplete(
     const CoreAccountId& account_id,
     const std::string& consumer_id,
-    const identity::ScopeSet& scopes,
+    const ScopeSet& scopes,
     GoogleServiceAuthError error,
     base::Time expiration_time) {
   for (auto& observer : diagnostics_observer_list_)
@@ -667,7 +667,7 @@ void IdentityManager::OnFetchAccessTokenComplete(
 }
 
 void IdentityManager::OnAccessTokenRemoved(const CoreAccountId& account_id,
-                                           const identity::ScopeSet& scopes) {
+                                           const ScopeSet& scopes) {
   for (auto& observer : diagnostics_observer_list_)
     observer.OnAccessTokenRemovedFromCache(account_id, scopes);
 }
@@ -693,7 +693,6 @@ void IdentityManager::OnAccountUpdated(const AccountInfo& info) {
     const CoreAccountId primary_account_id = GetPrimaryAccountId();
     if (primary_account_id == info.account_id) {
       primary_account_manager_->UpdateAuthenticatedAccountInfo();
-      UpdateUnconsentedPrimaryAccount();
     }
   }
 
@@ -703,7 +702,6 @@ void IdentityManager::OnAccountUpdated(const AccountInfo& info) {
 }
 
 void IdentityManager::OnAccountRemoved(const AccountInfo& info) {
-  UpdateUnconsentedPrimaryAccount();
   for (auto& observer : observer_list_)
     observer.OnExtendedAccountInfoRemoved(info);
 }

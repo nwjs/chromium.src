@@ -61,7 +61,7 @@ bool CheckForOversizedImagesPolicy(const LayoutImage& layout_image,
       cached_image ? cached_image->Url().GetString() : g_empty_string;
 
   return !layout_image.GetDocument().IsFeatureEnabled(
-      mojom::blink::FeaturePolicyFeature::kOversizedImages,
+      mojom::blink::DocumentPolicyFeature::kOversizedImages,
       blink::PolicyValue(
           std::max(downscale_ratio_width, downscale_ratio_height),
           blink::mojom::PolicyValueType::kDecDouble),
@@ -142,7 +142,7 @@ void ImagePainter::PaintReplaced(const PaintInfo& paint_info,
     if (content_size.IsEmpty())
       return;
   } else {
-    if (paint_info.phase == PaintPhase::kSelection)
+    if (paint_info.phase == PaintPhase::kSelectionDragImage)
       return;
     if (content_size.Width() <= 2 || content_size.Height() <= 2)
       return;
@@ -201,7 +201,10 @@ void ImagePainter::PaintIntoRect(GraphicsContext& context,
   if (!image || image->IsNull())
     return;
 
-  FloatRect src_rect(FloatPoint(), image->SizeAsFloat());
+  // Do not respect the image orientation when computing the source rect. It is
+  // in the un-orientated dimensions.
+  FloatRect src_rect(FloatPoint(),
+                     image->SizeAsFloat(kDoNotRespectImageOrientation));
   // If the content rect requires clipping, adjust |srcRect| and
   // |pixelSnappedDestRect| over using a clip.
   if (!content_rect.Contains(dest_rect)) {
@@ -252,8 +255,7 @@ void ImagePainter::PaintIntoRect(GraphicsContext& context,
 
   ImageResourceContent* image_content = image_resource.CachedImage();
   if ((IsA<HTMLImageElement>(node) || IsA<HTMLVideoElement>(node)) &&
-      !context.ContextDisabled() && image_content &&
-      image_content->IsLoaded()) {
+      image_content && image_content->IsLoaded()) {
     LocalDOMWindow* window = layout_image_.GetDocument().domWindow();
     DCHECK(window);
     ImageElementTiming::From(*window).NotifyImagePainted(

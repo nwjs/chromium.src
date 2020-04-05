@@ -85,10 +85,14 @@ class COMPONENT_EXPORT(DEVICE_FIDO) FidoAuthenticator {
   virtual void GetNextAssertion(GetAssertionCallback callback);
   // GetTouch causes an (external) authenticator to flash and wait for a touch.
   virtual void GetTouch(base::OnceCallback<void()> callback);
-  // GetRetries gets the number of PIN attempts remaining before an
+  // GetPinRetries gets the number of PIN attempts remaining before an
   // authenticator locks. It is only valid to call this method if |Options|
   // indicates that the authenticator supports PINs.
-  virtual void GetRetries(GetRetriesCallback callback);
+  virtual void GetPinRetries(GetRetriesCallback callback);
+  // GetUvRetries gets the number of internal user verification attempts before
+  // internal user verification locks. It is only valid to call this method if
+  // |Options| indicates that the authenticator supports user verification.
+  virtual void GetUvRetries(GetRetriesCallback callback);
   // GetPINToken uses the given PIN to request a PinUvAuthToken from an
   // authenticator. It is only valid to call this method if |Options| indicates
   // that the authenticator supports PINs.
@@ -119,6 +123,9 @@ class COMPONENT_EXPORT(DEVICE_FIDO) FidoAuthenticator {
     // kUsePIN means that a PIN must be gathered and used to make this
     // credential.
     kUsePIN,
+    // kUsePINForFallback means that a PIN may be used for fallback if internal
+    // user verification fails.
+    kUsePINForFallback,
     // kSetPIN means that the operation should set and then use a PIN to
     // make this credential.
     kSetPIN,
@@ -140,6 +147,9 @@ class COMPONENT_EXPORT(DEVICE_FIDO) FidoAuthenticator {
     kNoPIN,
     // kUsePIN means that a PIN must be gathered and used for this assertion.
     kUsePIN,
+    // kUsePINForFallback means that a PIN may be used for fallback if internal
+    // user verification fails.
+    kUsePINForFallback,
     // kUnsatisfiable means that the request cannot be satisfied by this
     // authenticator.
     kUnsatisfiable,

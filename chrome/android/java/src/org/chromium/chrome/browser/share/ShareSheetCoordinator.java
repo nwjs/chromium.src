@@ -8,10 +8,12 @@ import android.app.Activity;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
-import android.support.v7.content.res.AppCompatResources;
 
 import androidx.annotation.VisibleForTesting;
+import androidx.appcompat.content.res.AppCompatResources;
 
+import org.chromium.base.metrics.RecordHistogram;
+import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ActivityTabProvider;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
@@ -19,10 +21,10 @@ import org.chromium.chrome.browser.send_tab_to_self.SendTabToSelfShareActivity;
 import org.chromium.chrome.browser.share.qrcode.QrCodeCoordinator;
 import org.chromium.chrome.browser.share.screenshot.ScreenshotCoordinator;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tab.TabLaunchType;
-import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.widget.bottomsheet.BottomSheetController;
-import org.chromium.content_public.browser.LoadUrlParams;
+import org.chromium.chrome.browser.widget.bottomsheet.BottomSheetController.SheetState;
+import org.chromium.chrome.browser.widget.bottomsheet.BottomSheetObserver;
+import org.chromium.chrome.browser.widget.bottomsheet.EmptyBottomSheetObserver;
 import org.chromium.content_public.browser.NavigationEntry;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.widget.Toast;
@@ -35,29 +37,45 @@ import java.util.ArrayList;
 public class ShareSheetCoordinator {
     private final BottomSheetController mBottomSheetController;
     private final ActivityTabProvider mActivityTabProvider;
-    private final TabCreatorManager.TabCreator mTabCreator;
     private final ShareSheetPropertyModelBuilder mPropertyModelBuilder;
+    private ScreenshotCoordinator mScreenshotCoordinator;
+    private static long sShareStartTime;
+
+    /**
+     * Used to initiate the screenshot flow once the bottom sheet is fully hidden. Removes itself
+     * from {@link BottomSheetController} afterwards.
+     */
+    private final BottomSheetObserver mSheetObserver = new EmptyBottomSheetObserver() {
+        @Override
+        public void onSheetStateChanged(int newState) {
+            if (newState == SheetState.HIDDEN) {
+                assert mScreenshotCoordinator != null;
+                mScreenshotCoordinator.captureScreenshot();
+                // Clean up the observer since the coordinator is discarded when sheet is hidden.
+                mBottomSheetController.removeObserver(mSheetObserver);
+            }
+        }
+    };
 
     /**
      * Constructs a new ShareSheetCoordinator.
      * @param controller The BottomSheetController for the current activity.
      * @param provider The ActivityTabProvider for the current visible tab.
-     * @param tabCreator The TabCreator for the current selected {@link TabModel}.
      */
     public ShareSheetCoordinator(BottomSheetController controller, ActivityTabProvider provider,
-            TabCreatorManager.TabCreator tabCreator, ShareSheetPropertyModelBuilder modelBuilder) {
+            ShareSheetPropertyModelBuilder modelBuilder) {
         mBottomSheetController = controller;
         mActivityTabProvider = provider;
-        mTabCreator = tabCreator;
         mPropertyModelBuilder = modelBuilder;
     }
 
-    protected void showShareSheet(ShareParams params) {
+    protected void showShareSheet(ShareParams params, long shareStartTime) {
         Activity activity = params.getWindow().getActivity().get();
         if (activity == null) {
             return;
         }
 
+        sShareStartTime = shareStartTime;
         ShareSheetBottomSheetContent bottomSheet = new ShareSheetBottomSheetContent(activity);
 
         ArrayList<PropertyModel> chromeFeatures = createTopRowPropertyModels(bottomSheet, activity);
@@ -66,51 +84,45 @@ public class ShareSheetCoordinator {
 
         bottomSheet.createRecyclerViews(chromeFeatures, thirdPartyApps);
 
-        mBottomSheetController.requestShowContent(bottomSheet, true);
+        boolean shown = mBottomSheetController.requestShowContent(bottomSheet, true);
+        if (shown) {
+            long delta = System.currentTimeMillis() - shareStartTime;
+            RecordHistogram.recordMediumTimesHistogram(
+                    "Sharing.SharingHubAndroid.TimeToShowShareSheet", delta);
+        }
     }
 
     @VisibleForTesting
     ArrayList<PropertyModel> createTopRowPropertyModels(
             ShareSheetBottomSheetContent bottomSheet, Activity activity) {
         ArrayList<PropertyModel> models = new ArrayList<>();
-        // QR Codes
-        PropertyModel qrcodePropertyModel = mPropertyModelBuilder.createPropertyModel(
-                AppCompatResources.getDrawable(activity, R.drawable.qr_code),
-                activity.getResources().getString(R.string.qr_code_share_icon_label),
-                (currentActivity)
-                        -> {
-                    mBottomSheetController.hideContent(bottomSheet, true);
-                    QrCodeCoordinator qrCodeCoordinator =
-                            new QrCodeCoordinator(activity, this::createNewTab);
-                    qrCodeCoordinator.show();
-                },
-                /*isFirstParty=*/true);
-        models.add(qrcodePropertyModel);
-
-        // Send Tab To Self
-        PropertyModel sttsPropertyModel =
-                mPropertyModelBuilder
-                        .createPropertyModel(
-                                AppCompatResources.getDrawable(activity, R.drawable.send_tab),
-                                activity.getResources().getString(
-                                        R.string.send_tab_to_self_share_activity_title),
-                                (shareParams)
-                                        -> {
-                                    mBottomSheetController.hideContent(bottomSheet, true);
-                                    SendTabToSelfShareActivity.actionHandler(activity,
-                                            mActivityTabProvider.get()
-                                                    .getWebContents()
-                                                    .getNavigationController()
-                                                    .getVisibleEntry(),
-                                            mBottomSheetController);
-                                },
-                                /*isFirstParty=*/true);
-        models.add(sttsPropertyModel);
+        // ScreenShot
+        PropertyModel screenshotPropertyModel = null;
+        if (ChromeFeatureList.isEnabled(ChromeFeatureList.CHROME_SHARE_SCREENSHOT)) {
+            screenshotPropertyModel = mPropertyModelBuilder.createPropertyModel(
+                    AppCompatResources.getDrawable(activity, R.drawable.screenshot),
+                    activity.getResources().getString(R.string.sharing_screenshot),
+                    (shareParams)
+                            -> {
+                        RecordUserAction.record("SharingHubAndroid.ScreenshotSelected");
+                        recordTimeToShare();
+                        mScreenshotCoordinator =
+                                new ScreenshotCoordinator(activity, mActivityTabProvider.get());
+                        // Capture a screenshot once the bottom sheet is fully hidden. The observer
+                        // will then remove itself.
+                        mBottomSheetController.addObserver(mSheetObserver);
+                        mBottomSheetController.hideContent(bottomSheet, true);
+                    },
+                    /*isFirstParty=*/true);
+            models.add(screenshotPropertyModel);
+        }
 
         // Copy URL
         PropertyModel copyPropertyModel = mPropertyModelBuilder.createPropertyModel(
                 AppCompatResources.getDrawable(activity, R.drawable.ic_content_copy_black),
                 activity.getResources().getString(R.string.sharing_copy_url), (params) -> {
+                    RecordUserAction.record("SharingHubAndroid.CopyURLSelected");
+                    recordTimeToShare();
                     mBottomSheetController.hideContent(bottomSheet, true);
                     Tab tab = mActivityTabProvider.get();
                     NavigationEntry entry =
@@ -125,22 +137,44 @@ public class ShareSheetCoordinator {
                 }, /*isFirstParty=*/true);
         models.add(copyPropertyModel);
 
-         // ScreenShot
-        PropertyModel screenshotPropertyModel = null;
-        if (ChromeFeatureList.isEnabled(ChromeFeatureList.CHROME_SHARE_SCREENSHOT)) {
-            screenshotPropertyModel = mPropertyModelBuilder.createPropertyModel(
-                    AppCompatResources.getDrawable(activity, R.drawable.screenshot),
-                    activity.getResources().getString(R.string.sharing_screenshot),
-                    (shareParams)
-                            -> {
-                        mBottomSheetController.hideContent(bottomSheet, true);
-                        ScreenshotCoordinator screenshotCoordinator =
-                                new ScreenshotCoordinator(activity);
-                        screenshotCoordinator.takeScreenshot();
-                    },
-                    /*isFirstParty=*/true);
-            models.add(screenshotPropertyModel);
-        }
+        // Send Tab To Self
+        PropertyModel sttsPropertyModel =
+                mPropertyModelBuilder
+                        .createPropertyModel(
+                                AppCompatResources.getDrawable(activity, R.drawable.send_tab),
+                                activity.getResources().getString(
+                                        R.string.send_tab_to_self_share_activity_title),
+                                (shareParams)
+                                        -> {
+                                    RecordUserAction.record(
+                                            "SharingHubAndroid.SendTabToSelfSelected");
+                                    recordTimeToShare();
+                                    mBottomSheetController.hideContent(bottomSheet, true);
+                                    SendTabToSelfShareActivity.actionHandler(activity,
+                                            mActivityTabProvider.get()
+                                                    .getWebContents()
+                                                    .getNavigationController()
+                                                    .getVisibleEntry(),
+                                            mBottomSheetController,
+                                            mActivityTabProvider.get().getWebContents());
+                                },
+                                /*isFirstParty=*/true);
+        models.add(sttsPropertyModel);
+
+        // QR Codes
+        PropertyModel qrcodePropertyModel = mPropertyModelBuilder.createPropertyModel(
+                AppCompatResources.getDrawable(activity, R.drawable.qr_code),
+                activity.getResources().getString(R.string.qr_code_share_icon_label),
+                (currentActivity)
+                        -> {
+                    RecordUserAction.record("SharingHubAndroid.QRCodeSelected");
+                    recordTimeToShare();
+                    mBottomSheetController.hideContent(bottomSheet, true);
+                    QrCodeCoordinator qrCodeCoordinator = new QrCodeCoordinator(activity);
+                    qrCodeCoordinator.show();
+                },
+                /*isFirstParty=*/true);
+        models.add(qrcodePropertyModel);
 
         return models;
     }
@@ -149,13 +183,14 @@ public class ShareSheetCoordinator {
     ArrayList<PropertyModel> createBottomRowPropertyModels(
             ShareSheetBottomSheetContent bottomSheet, Activity activity, ShareParams params) {
         ArrayList<PropertyModel> models =
-                mPropertyModelBuilder.selectThirdPartyApps(activity, bottomSheet, params);
+                mPropertyModelBuilder.selectThirdPartyApps(bottomSheet, params);
         // More...
         PropertyModel morePropertyModel = mPropertyModelBuilder.createPropertyModel(
                 AppCompatResources.getDrawable(activity, R.drawable.sharing_more),
                 activity.getResources().getString(R.string.sharing_more_icon_label),
                 (shareParams)
                         -> {
+                    RecordUserAction.record("SharingHubAndroid.MoreSelected");
                     mBottomSheetController.hideContent(bottomSheet, true);
                     ShareHelper.showDefaultShareUi(params);
                 },
@@ -165,8 +200,8 @@ public class ShareSheetCoordinator {
         return models;
     }
 
-    private void createNewTab(String url) {
-        mTabCreator.createNewTab(
-                new LoadUrlParams(url), TabLaunchType.FROM_LINK, mActivityTabProvider.get());
+    protected static void recordTimeToShare() {
+        long delta = System.currentTimeMillis() - sShareStartTime;
+        RecordHistogram.recordMediumTimesHistogram("Sharing.SharingHubAndroid.TimeToShare", delta);
     }
 }

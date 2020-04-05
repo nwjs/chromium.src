@@ -43,6 +43,7 @@ constexpr wchar_t kPackageSid[] =
 constexpr wchar_t kChromeInstallFiles[] = L"chromeInstallFiles";
 constexpr wchar_t kLpacChromeInstallFiles[] = L"lpacChromeInstallFiles";
 constexpr wchar_t kRegistryRead[] = L"registryRead";
+constexpr wchar_t klpacPnpNotifications[] = L"lpacPnpNotifications";
 
 class TestTargetPolicy : public sandbox::TargetPolicy {
  public:
@@ -131,6 +132,7 @@ class TestTargetPolicy : public sandbox::TargetPolicy {
   }
   void AddHandleToShare(HANDLE handle) override {}
   void SetLockdownDefaultDacl() override {}
+  void AddRestrictingRandomSid() override {}
   void SetEnableOPMRedirection() override {}
   bool GetEnableOPMRedirection() override { return false; }
 
@@ -158,6 +160,7 @@ class TestTargetPolicy : public sandbox::TargetPolicy {
   }
 
   void SetEffectiveToken(HANDLE token) override {}
+  size_t GetPolicyGlobalSize() const override { return 0; }
 
   const std::vector<std::wstring>& blocklisted_dlls() const {
     return blocklisted_dlls_;
@@ -207,34 +210,34 @@ bool DropTempFileWithSecurity(
   return !!result;
 }
 
-bool EqualSidList(const std::vector<sandbox::Sid>& left,
+void EqualSidList(const std::vector<sandbox::Sid>& left,
                   const std::vector<sandbox::Sid>& right) {
-  if (left.size() != right.size())
-    return false;
+  EXPECT_EQ(left.size(), right.size());
   auto result = std::mismatch(left.cbegin(), left.cend(), right.cbegin(),
                               [](const auto& left_sid, const auto& right_sid) {
                                 return !!::EqualSid(left_sid.GetPSID(),
                                                     right_sid.GetPSID());
                               });
-  return result.first == left.cend();
+  EXPECT_EQ(result.first, left.cend());
 }
 
-bool CheckCapabilities(
+void CheckCapabilities(
     sandbox::AppContainerProfileBase* profile,
     const std::initializer_list<base::string16>& additional_capabilities) {
   auto additional_caps = GetCapabilitySids(additional_capabilities);
-  auto impersonation_caps = GetCapabilitySids(
-      {kChromeInstallFiles, kLpacChromeInstallFiles, kRegistryRead});
-  auto base_caps = GetCapabilitySids({kLpacChromeInstallFiles, kRegistryRead});
+  auto impersonation_caps =
+      GetCapabilitySids({kChromeInstallFiles, klpacPnpNotifications,
+                         kLpacChromeInstallFiles, kRegistryRead});
+  auto base_caps = GetCapabilitySids(
+      {klpacPnpNotifications, kLpacChromeInstallFiles, kRegistryRead});
 
   impersonation_caps.insert(impersonation_caps.end(), additional_caps.begin(),
                             additional_caps.end());
   base_caps.insert(base_caps.end(), additional_caps.begin(),
                    additional_caps.end());
 
-  return EqualSidList(impersonation_caps,
-                      profile->GetImpersonationCapabilities()) &&
-         EqualSidList(base_caps, profile->GetCapabilities());
+  EqualSidList(impersonation_caps, profile->GetImpersonationCapabilities());
+  EqualSidList(base_caps, profile->GetCapabilities());
 }
 
 class SandboxWinTest : public ::testing::Test {
@@ -322,7 +325,7 @@ TEST_F(SandboxWinTest, AppContainerCheckProfile) {
   EXPECT_TRUE(
       ::EqualSid(package_sid.GetPSID(), profile->GetPackageSid().GetPSID()));
   EXPECT_TRUE(profile->GetEnableLowPrivilegeAppContainer());
-  EXPECT_TRUE(CheckCapabilities(profile.get(), {}));
+  CheckCapabilities(profile.get(), {});
 }
 
 TEST_F(SandboxWinTest, AppContainerCheckProfileDisableLpac) {
@@ -350,7 +353,7 @@ TEST_F(SandboxWinTest, AppContainerCheckProfileAddCapabilities) {
       command_line, false, SandboxType::kGpu, &profile);
   ASSERT_EQ(sandbox::SBOX_ALL_OK, result);
   ASSERT_NE(nullptr, profile);
-  EXPECT_TRUE(CheckCapabilities(profile.get(), {L"cap1", L"cap2"}));
+  CheckCapabilities(profile.get(), {L"cap1", L"cap2"});
 }
 
 TEST_F(SandboxWinTest, BlocklistAddOneDllCheckInBrowser) {

@@ -30,8 +30,11 @@ class AssistantTestApiImpl : public AssistantTestApi {
   bool IsVisible() override;
   void SendTextQuery(const std::string& query) override;
   void SetAssistantEnabled(bool enable) override;
+  void SetScreenContextEnabled(bool enabled) override;
   void SetTabletMode(bool enable) override;
+  void SetConsentStatus(chromeos::assistant::prefs::ConsentStatus) override;
   void SetPreferVoice(bool value) override;
+  void StartOverview() override;
   AssistantState* GetAssistantState() override;
   void WaitUntilIdle() override;
   views::View* page_view() override;
@@ -42,6 +45,8 @@ class AssistantTestApiImpl : public AssistantTestApi {
   views::View* greeting_label() override;
   views::View* voice_input_toggle() override;
   views::View* keyboard_input_toggle() override;
+  views::View* suggestion_chip_container() override;
+  views::View* opt_in_view() override;
   aura::Window* window() override;
   views::View* app_list_view() override;
   aura::Window* root_window() override;

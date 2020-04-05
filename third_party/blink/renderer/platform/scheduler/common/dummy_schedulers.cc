@@ -37,8 +37,8 @@ class DummyFrameScheduler : public FrameScheduler {
   bool IsPageVisible() const override { return true; }
   void SetPaused(bool) override {}
   void SetShouldReportPostedTasksWhenDisabled(bool) override {}
-  void SetCrossOrigin(bool) override {}
-  bool IsCrossOrigin() const override { return false; }
+  void SetCrossOriginToMainFrame(bool) override {}
+  bool IsCrossOriginToMainFrame() const override { return false; }
   void SetIsAdFrame() override {}
   bool IsAdFrame() const override { return false; }
   void TraceUrlChange(const String&) override {}
@@ -172,6 +172,10 @@ class DummyThreadScheduler : public ThreadScheduler {
   }
 
   scoped_refptr<base::SingleThreadTaskRunner> IPCTaskRunner() override {
+    return base::ThreadTaskRunnerHandle::Get();
+  }
+
+  scoped_refptr<base::SingleThreadTaskRunner> NonWakingTaskRunner() override {
     return base::ThreadTaskRunnerHandle::Get();
   }
 

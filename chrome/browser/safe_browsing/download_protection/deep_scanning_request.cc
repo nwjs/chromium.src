@@ -25,6 +25,7 @@
 #include "components/prefs/pref_service.h"
 #include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #include "components/safe_browsing/core/features.h"
+#include "components/safe_browsing/core/proto/webprotect.pb.h"
 #include "components/url_matcher/url_matcher.h"
 #include "content/public/browser/download_item_utils.h"
 
@@ -35,21 +36,22 @@ namespace {
 void DeepScanningClientResponseToDownloadCheckResult(
     const DeepScanningClientResponse& response,
     DownloadCheckResult* download_result) {
-  if (response.has_malware_scan_verdict() &&
-      response.malware_scan_verdict().verdict() ==
-          MalwareDeepScanningVerdict::MALWARE) {
-    *download_result = DownloadCheckResult::DANGEROUS;
-    return;
+  if (response.has_malware_scan_verdict()) {
+    if (response.malware_scan_verdict().verdict() ==
+        MalwareDeepScanningVerdict::MALWARE) {
+      *download_result = DownloadCheckResult::DANGEROUS;
+      return;
+    }
+
+    if (response.malware_scan_verdict().verdict() ==
+        MalwareDeepScanningVerdict::UWS) {
+      *download_result = DownloadCheckResult::POTENTIALLY_UNWANTED;
+      return;
+    }
   }
 
-  if (response.has_malware_scan_verdict() &&
-      response.malware_scan_verdict().verdict() ==
-          MalwareDeepScanningVerdict::UWS) {
-    *download_result = DownloadCheckResult::POTENTIALLY_UNWANTED;
-    return;
-  }
-
-  if (response.has_dlp_scan_verdict()) {
+  if (response.has_dlp_scan_verdict() &&
+      response.dlp_scan_verdict().status() == DlpDeepScanningVerdict::SUCCESS) {
     bool should_dlp_block = std::any_of(
         response.dlp_scan_verdict().triggered_rules().begin(),
         response.dlp_scan_verdict().triggered_rules().end(),
@@ -87,9 +89,6 @@ bool ShouldUploadForDlpScanByPolicy(download::DownloadItem* item) {
       check_content_compliance !=
           CheckContentComplianceValues::CHECK_UPLOADS_AND_DOWNLOADS)
     return false;
-
-  // TODO(crbug/1013584): Call FileTypeSupported from DeepScanningUtils around
-  // here and handle both supported and unsupported types appropriately.
 
   const base::ListValue* domains = g_browser_process->local_state()->GetList(
       prefs::kURLsToCheckComplianceOfDownloadedContent);
@@ -182,6 +181,10 @@ void DeepScanningRequest::Start() {
                      weak_ptr_factory_.GetWeakPtr()));
   request->set_filename(item_->GetTargetFilePath().BaseName().AsUTF8Unsafe());
 
+  std::string raw_digest_sha256 = item_->GetHash();
+  request->set_digest(
+      base::HexEncode(raw_digest_sha256.data(), raw_digest_sha256.size()));
+
   Profile* profile = Profile::FromBrowserContext(
       content::DownloadItemUtils::GetBrowserContext(item_));
 
@@ -189,8 +192,6 @@ void DeepScanningRequest::Start() {
     MalwareDeepScanningClientRequest malware_request;
     malware_request.set_population(
         MalwareDeepScanningClientRequest::POPULATION_TITANIUM);
-    malware_request.set_download_token(
-        DownloadProtectionService::GetDownloadPingToken(item_));
     request->set_request_malware_scan(std::move(malware_request));
   } else if (trigger_ == DeepScanTrigger::TRIGGER_POLICY) {
     policy::DMToken dm_token = GetDMToken(profile);
@@ -212,8 +213,6 @@ void DeepScanningRequest::Start() {
       MalwareDeepScanningClientRequest malware_request;
       malware_request.set_population(
           MalwareDeepScanningClientRequest::POPULATION_ENTERPRISE);
-      malware_request.set_download_token(
-          DownloadProtectionService::GetDownloadPingToken(item_));
       request->set_request_malware_scan(std::move(malware_request));
     }
   }
@@ -280,6 +279,16 @@ void DeepScanningRequest::OnScanComplete(BinaryUploadService::Result result,
         password_protected_allowed_policy ==
             AllowPasswordProtectedFilesValues::ALLOW_UPLOADS) {
       download_result = DownloadCheckResult::BLOCKED_PASSWORD_PROTECTED;
+    }
+  } else if (result == BinaryUploadService::Result::UNSUPPORTED_FILE_TYPE) {
+    int block_unsupported_policy = g_browser_process->local_state()->GetInteger(
+        prefs::kBlockUnsupportedFiletypes);
+    if (block_unsupported_policy == BlockUnsupportedFiletypesValues::
+                                        BLOCK_UNSUPPORTED_FILETYPES_DOWNLOADS ||
+        block_unsupported_policy ==
+            BlockUnsupportedFiletypesValues::
+                BLOCK_UNSUPPORTED_FILETYPES_UPLOADS_AND_DOWNLOADS) {
+      download_result = DownloadCheckResult::BLOCKED_UNSUPPORTED_FILE_TYPE;
     }
   }
 

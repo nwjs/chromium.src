@@ -5,6 +5,7 @@
 #include "content/browser/service_worker/service_worker_registration_object_host.h"
 
 #include "base/bind.h"
+#include "base/callback_helpers.h"
 #include "base/task/post_task.h"
 #include "base/time/time.h"
 #include "content/browser/service_worker/service_worker_consts.h"
@@ -261,7 +262,7 @@ void ServiceWorkerRegistrationObjectHost::Unregister(
   }
 
   context_->UnregisterServiceWorker(
-      registration_->scope(),
+      registration_->scope(), /*is_immediate=*/false,
       base::AdaptCallbackForRepeating(base::BindOnce(
           &ServiceWorkerRegistrationObjectHost::UnregistrationComplete,
           weak_ptr_factory_.GetWeakPtr(), std::move(callback))));
@@ -285,7 +286,7 @@ void ServiceWorkerRegistrationObjectHost::EnableNavigationPreload(
     return;
   }
 
-  context_->storage()->UpdateNavigationPreloadEnabled(
+  context_->registry()->UpdateNavigationPreloadEnabled(
       registration_->id(), registration_->scope().GetOrigin(), enable,
       base::AdaptCallbackForRepeating(base::BindOnce(
           &ServiceWorkerRegistrationObjectHost::
@@ -335,7 +336,7 @@ void ServiceWorkerRegistrationObjectHost::SetNavigationPreloadHeader(
     return;
   }
 
-  context_->storage()->UpdateNavigationPreloadHeader(
+  context_->registry()->UpdateNavigationPreloadHeader(
       registration_->id(), registration_->scope().GetOrigin(), value,
       base::AdaptCallbackForRepeating(base::BindOnce(
           &ServiceWorkerRegistrationObjectHost::

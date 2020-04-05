@@ -4,6 +4,10 @@
 
 #include "ui/views/widget/desktop_aura/desktop_window_tree_host_platform.h"
 
+#include <memory>
+#include <string>
+#include <utility>
+
 #include "base/bind.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/time/time.h"
@@ -211,7 +215,7 @@ void DesktopWindowTreeHostPlatform::Close() {
   base::ThreadTaskRunnerHandle::Get()->PostTask(
       FROM_HERE, base::BindOnce(&DesktopWindowTreeHostPlatform::CloseNow,
                                 close_widget_factory_.GetWeakPtr()));
-}  // namespace views
+}
 
 void DesktopWindowTreeHostPlatform::CloseNow() {
   if (!platform_window())
@@ -500,13 +504,13 @@ Widget::MoveLoopResult DesktopWindowTreeHostPlatform::RunMoveLoop(
     const gfx::Vector2d& drag_offset,
     Widget::MoveLoopSource source,
     Widget::MoveLoopEscapeBehavior escape_behavior) {
-  // TODO: needs PlatformWindow support.
+  // TODO(crbug.com/896640): needs PlatformWindow support.
   NOTIMPLEMENTED_LOG_ONCE();
   return Widget::MOVE_LOOP_CANCELED;
 }
 
 void DesktopWindowTreeHostPlatform::EndMoveLoop() {
-  // TODO: needs PlatformWindow support.
+  // TODO(crbug.com/896640): needs PlatformWindow support.
   NOTIMPLEMENTED_LOG_ONCE();
 }
 
@@ -556,7 +560,7 @@ void DesktopWindowTreeHostPlatform::SetFullscreen(bool fullscreen) {
   DCHECK_EQ(fullscreen, IsFullscreen());
 
   if (IsFullscreen() == fullscreen)
-    Relayout();
+    ScheduleRelayout();
   // Else: the widget will be relaid out either when the window bounds change
   // or when |platform_window|'s fullscreen state changes.
 }
@@ -669,7 +673,7 @@ void DesktopWindowTreeHostPlatform::OnWindowStateChanged(
   // Now that we have different window properties, we may need to relayout the
   // window. (The windows code doesn't need this because their window change is
   // synchronous.)
-  Relayout();
+  ScheduleRelayout();
 }
 
 void DesktopWindowTreeHostPlatform::OnCloseRequest() {
@@ -677,9 +681,12 @@ void DesktopWindowTreeHostPlatform::OnCloseRequest() {
 }
 
 void DesktopWindowTreeHostPlatform::OnActivationChanged(bool active) {
+  if (is_active_ == active)
+    return;
   is_active_ = active;
   aura::WindowTreeHostPlatform::OnActivationChanged(active);
   desktop_native_widget_aura_->HandleActivationChanged(active);
+  ScheduleRelayout();
 }
 
 base::Optional<gfx::Size>
@@ -712,7 +719,7 @@ gfx::Rect DesktopWindowTreeHostPlatform::ToPixelRect(
   return gfx::ToEnclosingRect(rect_in_pixels);
 }
 
-void DesktopWindowTreeHostPlatform::Relayout() {
+void DesktopWindowTreeHostPlatform::ScheduleRelayout() {
   Widget* widget = native_widget_delegate_->AsWidget();
   NonClientView* non_client_view = widget->non_client_view();
   // non_client_view may be NULL, especially during creation.

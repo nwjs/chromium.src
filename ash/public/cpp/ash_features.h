@@ -21,6 +21,12 @@ ASH_PUBLIC_EXPORT extern const base::Feature kAllowAmbientEQ;
 // certain devices.
 ASH_PUBLIC_EXPORT extern const base::Feature kAutoNightLight;
 
+// Enables contextual nudges for gesture education.
+ASH_PUBLIC_EXPORT extern const base::Feature kContextualNudges;
+
+// Enables shortcuts on corners of the display.
+ASH_PUBLIC_EXPORT extern const base::Feature kCornerShortcuts;
+
 // Enables a modal dialog when resolution or refresh rate change.
 ASH_PUBLIC_EXPORT extern const base::Feature kDisplayChangeModal;
 
@@ -37,6 +43,10 @@ ASH_PUBLIC_EXPORT extern const base::Feature kDragToSnapInClamshellMode;
 // TODO(crbug.com/903486): Remove this when new rounded corners implementation
 // has landed.
 ASH_PUBLIC_EXPORT extern const base::Feature kEnableOverviewRoundedCorners;
+
+// Limits the windows listed in Alt-Tab to the ones in the currently active
+// desk.
+ASH_PUBLIC_EXPORT extern const base::Feature kLimitAltTabToActiveDesk;
 
 // Enables notifications on the lock screen.
 ASH_PUBLIC_EXPORT extern const base::Feature kLockScreenNotifications;
@@ -72,15 +82,15 @@ ASH_PUBLIC_EXPORT extern const base::Feature kMediaSessionNotification;
 // TODO(crbug.com/952461): Remove this when the feature is fully launched.
 ASH_PUBLIC_EXPORT extern const base::Feature kMultiDisplayOverviewAndSplitView;
 
-// Enables new layout for overview mode.
-// TODO(sammiequon): Cleanup this flag when feature is fully launched.
-ASH_PUBLIC_EXPORT extern const base::Feature kNewOverviewLayout;
-
 // Enables the Night Light feature.
 ASH_PUBLIC_EXPORT extern const base::Feature kNightLight;
 
 // Enabled notification expansion animation.
 ASH_PUBLIC_EXPORT extern const base::Feature kNotificationExpansionAnimation;
+
+// Shorten notification timeouts to 6 seconds.
+ASH_PUBLIC_EXPORT extern const base::Feature
+    kNotificationExperimentalShortTimeouts;
 
 // Enables notification scroll bar in UnifiedSystemTray.
 ASH_PUBLIC_EXPORT extern const base::Feature kNotificationScrollBar;
@@ -140,7 +150,13 @@ ASH_PUBLIC_EXPORT extern const base::Feature kDragFromShelfToHomeOrOverview;
 // preferences, or policy).
 ASH_PUBLIC_EXPORT extern const base::Feature kHideShelfControlsInTabletMode;
 
+// Enables sliders for setting mic gain levels in the more audio settings
+// section in the system tray.
+ASH_PUBLIC_EXPORT extern const base::Feature kSystemTrayMicGainSetting;
+
 ASH_PUBLIC_EXPORT bool IsAllowAmbientEQEnabled();
+
+ASH_PUBLIC_EXPORT bool IsAltTabLimitedToActiveDesk();
 
 ASH_PUBLIC_EXPORT bool IsAutoNightLightEnabled();
 
@@ -157,6 +173,8 @@ ASH_PUBLIC_EXPORT bool IsLockScreenInlineReplyEnabled();
 ASH_PUBLIC_EXPORT bool IsLockScreenHideSensitiveNotificationsSupported();
 
 ASH_PUBLIC_EXPORT bool IsNotificationExpansionAnimationEnabled();
+
+ASH_PUBLIC_EXPORT bool IsNotificationExperimentalShortTimeoutsEnabled();
 
 ASH_PUBLIC_EXPORT bool IsNotificationScrollBarEnabled();
 
@@ -185,6 +203,12 @@ ASH_PUBLIC_EXPORT bool IsReduceDisplayNotificationsEnabled();
 ASH_PUBLIC_EXPORT bool IsHideShelfControlsInTabletModeEnabled();
 
 ASH_PUBLIC_EXPORT bool IsDisplayChangeModalEnabled();
+
+ASH_PUBLIC_EXPORT bool AreContextualNudgesEnabled();
+
+ASH_PUBLIC_EXPORT bool IsCornerShortcutsEnabled();
+
+ASH_PUBLIC_EXPORT bool IsSystemTrayMicGainSettingEnabled();
 
 // These two functions are supposed to be temporary functions to set or get
 // whether "WebUITabStrip" feature is enabled from Chrome.

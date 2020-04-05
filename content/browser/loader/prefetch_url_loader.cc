@@ -14,7 +14,7 @@
 #include "content/browser/web_package/signed_exchange_utils.h"
 #include "content/public/common/content_features.h"
 #include "net/base/load_flags.h"
-#include "services/network/loader_util.h"
+#include "net/http/http_request_headers.h"
 #include "services/network/public/cpp/features.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "third_party/blink/public/common/features.h"
@@ -66,7 +66,8 @@ PrefetchURLLoader::PrefetchURLLoader(
     // Set the SignedExchange accept header.
     // (https://wicg.github.io/webpackage/draft-yasskin-http-origin-signed-responses.html#internet-media-type-applicationsigned-exchange).
     resource_request_.headers.SetHeader(
-        network::kAcceptHeader, kSignedExchangeEnabledAcceptHeaderForPrefetch);
+        net::HttpRequestHeaders::kAccept,
+        kSignedExchangeEnabledAcceptHeaderForPrefetch);
     if (prefetched_signed_exchange_cache &&
         resource_request.is_signed_exchange_prefetch_cache_enabled) {
       prefetched_signed_exchange_cache_adapter_ =

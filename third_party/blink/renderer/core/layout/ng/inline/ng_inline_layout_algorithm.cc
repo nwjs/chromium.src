@@ -6,7 +6,9 @@
 
 #include <memory>
 
+#include "base/compiler_specific.h"
 #include "base/containers/adapters.h"
+#include "third_party/blink/renderer/core/html/forms/html_input_element.h"
 #include "third_party/blink/renderer/core/layout/ng/inline/ng_bidi_paragraph.h"
 #include "third_party/blink/renderer/core/layout/ng/inline/ng_inline_box_state.h"
 #include "third_party/blink/renderer/core/layout/ng/inline/ng_inline_break_token.h"
@@ -18,12 +20,13 @@
 #include "third_party/blink/renderer/core/layout/ng/inline/ng_line_truncator.h"
 #include "third_party/blink/renderer/core/layout/ng/inline/ng_physical_text_fragment.h"
 #include "third_party/blink/renderer/core/layout/ng/inline/ng_text_fragment_builder.h"
-#include "third_party/blink/renderer/core/layout/ng/list/layout_ng_list_marker.h"
+#include "third_party/blink/renderer/core/layout/ng/list/layout_ng_outside_list_marker.h"
 #include "third_party/blink/renderer/core/layout/ng/list/ng_unpositioned_list_marker.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_block_break_token.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_box_fragment.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_constraint_space.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_floats_utils.h"
+#include "third_party/blink/renderer/core/layout/ng/ng_fragmentation_utils.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_layout_result.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_length_utils.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_positioned_float.h"
@@ -64,7 +67,9 @@ NGInlineLayoutAlgorithm::NGInlineLayoutAlgorithm(
       context_(context),
       baseline_type_(container_builder_.Style().GetFontBaseline()),
       is_horizontal_writing_mode_(
-          blink::IsHorizontalWritingMode(space.GetWritingMode())) {
+          blink::IsHorizontalWritingMode(space.GetWritingMode())),
+      truncate_type_(
+          static_cast<unsigned>(TruncateTypeFromConstraintSpace(space))) {
   DCHECK(context);
   quirks_mode_ = inline_node.InLineHeightQuirksMode();
 }
@@ -233,6 +238,8 @@ void NGInlineLayoutAlgorithm::CreateLine(
              item.GetLayoutObject()->IsLayoutNGListItem());
       DCHECK(item_result.shape_result);
 
+      text_builder.SetIsFirstForNode(IsFirstForNode(item, BreakToken()));
+
       if (UNLIKELY(quirks_mode_))
         box->EnsureTextMetrics(*item.Style(), baseline_type_);
 
@@ -316,12 +323,21 @@ void NGInlineLayoutAlgorithm::CreateLine(
     }
   }
 
-  // Truncate the line if 'text-overflow: ellipsis' is set.
-  if (UNLIKELY(inline_size >
-                   line_info->AvailableWidth() - line_info->TextIndent() &&
-               node_.GetLayoutBlockFlow()->ShouldTruncateOverflowingText())) {
-    inline_size = NGLineTruncator(*line_info)
-                      .TruncateLine(inline_size, &line_box_, box_states_);
+  // Truncate the line if 'text-overflow: ellipsis' is set, or for line-clamp.
+  if (UNLIKELY((inline_size >
+                    line_info->AvailableWidth() - line_info->TextIndent() &&
+                node_.GetLayoutBlockFlow()->ShouldTruncateOverflowingText()) ||
+               ShouldTruncateForLineClamp(*line_info))) {
+    NGLineTruncator truncator(*line_info);
+    auto* input =
+        DynamicTo<HTMLInputElement>(node_.GetLayoutBlockFlow()->GetNode());
+    if (input && input->ShouldApplyMiddleEllipsis()) {
+      inline_size = truncator.TruncateLineInTheMiddle(inline_size, &line_box_,
+                                                      box_states_);
+    } else {
+      inline_size =
+          truncator.TruncateLine(inline_size, &line_box_, box_states_);
+    }
   }
 
   // Negative margins can make the position negative, but the inline size is
@@ -430,6 +446,7 @@ void NGInlineLayoutAlgorithm::PlaceControlItem(const NGInlineItem& item,
   NGTextFragmentBuilder text_builder(ConstraintSpace().GetWritingMode());
   text_builder.SetItem(type, line_info.ItemsData(), item_result,
                        box->text_height);
+  text_builder.SetIsFirstForNode(IsFirstForNode(item, BreakToken()));
   line_box_.AddChild(text_builder.ToTextFragment(), box->text_top,
                      item_result->inline_size, item.BidiLevel());
 }
@@ -661,8 +678,8 @@ void NGInlineLayoutAlgorithm::PlaceListMarker(const NGInlineItem& item,
                                                   baseline_type_);
   }
 
-  container_builder_.SetUnpositionedListMarker(
-      NGUnpositionedListMarker(ToLayoutNGListMarker(item.GetLayoutObject())));
+  container_builder_.SetUnpositionedListMarker(NGUnpositionedListMarker(
+      ToLayoutNGOutsideListMarker(item.GetLayoutObject())));
 }
 
 // Justify the line. This changes the size of items by adding spacing.
@@ -824,7 +841,7 @@ scoped_refptr<const NGLayoutResult> NGInlineLayoutAlgorithm::Layout() {
 
   // In order to get the correct list of layout opportunities, we need to
   // position any "leading" floats within the exclusion space first.
-  NGPositionedFloatVector leading_floats;
+  STACK_UNINITIALIZED NGPositionedFloatVector leading_floats;
   unsigned handled_leading_floats_index =
       PositionLeadingFloats(&initial_exclusion_space, &leading_floats);
 
@@ -833,7 +850,7 @@ scoped_refptr<const NGLayoutResult> NGInlineLayoutAlgorithm::Layout() {
 
   // We query all the layout opportunities on the initial exclusion space up
   // front, as if the line breaker may add floats and change the opportunities.
-  const LayoutOpportunityVector opportunities =
+  const LayoutOpportunityVector& opportunities =
       initial_exclusion_space.AllLayoutOpportunities(
           {ConstraintSpace().BfcOffset().line_offset,
            is_empty_inline ? ConstraintSpace().ExpectedBfcBlockOffset()
@@ -877,7 +894,7 @@ scoped_refptr<const NGLayoutResult> NGInlineLayoutAlgorithm::Layout() {
         opportunity.ComputeLineLayoutOpportunity(ConstraintSpace(),
                                                  line_block_size, block_delta);
 
-    NGLineInfo line_info;
+    STACK_UNINITIALIZED NGLineInfo line_info;
     NGLineBreaker line_breaker(Node(), NGLineBreakerMode::kContent,
                                ConstraintSpace(), line_opportunity,
                                leading_floats, handled_leading_floats_index,
@@ -1116,6 +1133,24 @@ void NGInlineLayoutAlgorithm::BidiReorder(TextDirection base_direction) {
   }
   DCHECK_EQ(line_box_.size(), visual_items.size());
   line_box_ = std::move(visual_items);
+}
+
+// static
+NGInlineLayoutAlgorithm::TruncateType
+NGInlineLayoutAlgorithm::TruncateTypeFromConstraintSpace(
+    const NGConstraintSpace& space) {
+  if (space.LinesUntilClamp() != 1)
+    return TruncateType::kDefault;
+  return space.ForceTruncateAtLineClamp() ? TruncateType::kAlways
+                                          : TruncateType::kIfNotLastLine;
+}
+
+bool NGInlineLayoutAlgorithm::ShouldTruncateForLineClamp(
+    const NGLineInfo& line_info) const {
+  const TruncateType truncate_type = static_cast<TruncateType>(truncate_type_);
+  return truncate_type == TruncateType::kAlways ||
+         (truncate_type == TruncateType::kIfNotLastLine &&
+          !line_info.IsLastLine());
 }
 
 }  // namespace blink

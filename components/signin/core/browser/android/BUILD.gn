@@ -6,7 +6,7 @@ import("//build/config/android/rules.gni")
 
 generate_jni("jni_headers") {
   sources = [
-    "java/src/org/chromium/components/signin/AccountManagerFacade.java",
+    "java/src/org/chromium/components/signin/AccountManagerFacadeProvider.java",
     "java/src/org/chromium/components/signin/AccountTrackerService.java",
     "java/src/org/chromium/components/signin/ChildAccountInfoFetcher.java",
   ]
@@ -26,12 +26,13 @@ android_library("java") {
   ]
 
   sources = [
-    "java/src/org/chromium/components/signin/AccountIdProvider.java",
     "java/src/org/chromium/components/signin/AccountManagerDelegate.java",
     "java/src/org/chromium/components/signin/AccountManagerDelegateException.java",
     "java/src/org/chromium/components/signin/AccountManagerFacade.java",
+    "java/src/org/chromium/components/signin/AccountManagerFacadeProvider.java",
     "java/src/org/chromium/components/signin/AccountManagerResult.java",
     "java/src/org/chromium/components/signin/AccountTrackerService.java",
+    "java/src/org/chromium/components/signin/AccountUtils.java",
     "java/src/org/chromium/components/signin/AccountsChangeObserver.java",
     "java/src/org/chromium/components/signin/AuthException.java",
     "java/src/org/chromium/components/signin/ChildAccountInfoFetcher.java",
@@ -74,6 +75,7 @@ android_library("signin_javatests") {
     "//base:base_java",
     "//base:base_java_test_support",
     "//third_party/android_deps:androidx_annotation_annotation_java",
+    "//third_party/android_deps:androidx_test_monitor_java",
     "//third_party/android_support_test_runner:rules_java",
     "//third_party/android_support_test_runner:runner_java",
     "//third_party/jsr-305:jsr_305_javalib",

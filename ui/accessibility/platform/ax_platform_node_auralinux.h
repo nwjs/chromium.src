@@ -17,6 +17,7 @@
 #include "base/optional.h"
 #include "base/strings/utf_offset_string_conversions.h"
 #include "base/strings/utf_string_conversions.h"
+#include "ui/accessibility/ax_enums.mojom-forward.h"
 #include "ui/accessibility/ax_export.h"
 #include "ui/accessibility/ax_position.h"
 #include "ui/accessibility/ax_range.h"
@@ -43,8 +44,6 @@ using AtkAttributes = std::unique_ptr<AtkAttributeSet, AtkAttributeSetDeleter>;
   }
 
 namespace ui {
-
-enum class AXTextBoundaryDirection;
 
 struct FindInPageResultInfo {
   AtkObject* node;
@@ -216,6 +215,7 @@ class AX_EXPORT AXPlatformNodeAuraLinux : public AXPlatformNodeBase {
   void OnParentChanged();
   void OnWindowVisibilityChanged();
   void OnScrolledToAnchor();
+  void OnAlertShown();
 
   void ResendFocusSignalsForCurrentlyFocusedNode();
   bool SupportsSelectionWithAtkSelection();
@@ -230,8 +230,6 @@ class AX_EXPORT AXPlatformNodeAuraLinux : public AXPlatformNodeBase {
 
   // AXPlatformNodeBase overrides.
   void Init(AXPlatformNodeDelegate* delegate) override;
-  int GetIndexInParent() override;
-  base::string16 GetHypertext() const override;
 
   bool IsNameExposed();
 
@@ -308,6 +306,8 @@ class AX_EXPORT AXPlatformNodeAuraLinux : public AXPlatformNodeBase {
 
   GType GetAccessibilityGType();
   AtkObject* CreateAtkObject();
+  // Get or Create AtkObject. Note that it could return nullptr except
+  // ax::mojom::Role::kApplication when the mode is not enabled.
   gfx::NativeViewAccessible GetOrCreateAtkObject();
   void DestroyAtkObjects();
   void AddRelationToSet(AtkRelationSet*,
@@ -317,7 +317,7 @@ class AX_EXPORT AXPlatformNodeAuraLinux : public AXPlatformNodeBase {
   base::Optional<std::pair<int, int>> GetEmbeddedObjectIndicesForId(int id);
 
   void ComputeStylesIfNeeded();
-  int FindStartOfStyle(int start_offset, ui::AXTextBoundaryDirection direction);
+  int FindStartOfStyle(int start_offset, ax::mojom::MoveDirection direction);
 
   // Reset any find in page operations for the toplevel document of this node.
   void ForgetCurrentFindInPageResult();

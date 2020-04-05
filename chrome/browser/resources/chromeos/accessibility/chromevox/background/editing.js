@@ -56,7 +56,6 @@ editing.TextEditHandler = class {
       // A rich text field is one where selection gets placed on a DOM
       // descendant to a root text field. This is one of:
       // - content editables (detected via richly editable state)
-      // - the node is a textarea
       //
       // The only other editables we expect are all single line (including those
       // from ARC++).
@@ -141,7 +140,7 @@ editing.TextEditHandler = class {
  * A |ChromeVoxEditableTextBase| that implements text editing feedback
  * for automation tree text fields.
  */
-var AutomationEditableText = class extends ChromeVoxEditableTextBase {
+const AutomationEditableText = class extends ChromeVoxEditableTextBase {
   /**
    * @param {!AutomationNode} node
    */
@@ -245,6 +244,14 @@ var AutomationEditableText = class extends ChromeVoxEditableTextBase {
     }
     const startIndex = this.start - lineStart;
     const endIndex = this.end - lineStart;
+
+    // If the line is not the last line, and is empty, insert an explicit line
+    // break so that braille output is correctly cleared and has a position for
+    // a caret to be shown.
+    if (lineText == '' && lineIndex < this.lineBreaks_.length - 1) {
+      lineText = '\n';
+    }
+
     const spannable = new Spannable(lineText, new Output.NodeSpan(this.node_));
     ChromeVox.braille.write(
         new NavBraille({text: spannable, startIndex, endIndex}));
@@ -284,7 +291,7 @@ var AutomationEditableText = class extends ChromeVoxEditableTextBase {
  * A |ChromeVoxEditableTextBase| that implements text editing feedback
  * for automation tree text fields using anchor and focus selection.
  */
-var AutomationRichEditableText = class extends AutomationEditableText {
+const AutomationRichEditableText = class extends AutomationEditableText {
   /**
    * @param {!AutomationNode} node
    */
@@ -443,7 +450,7 @@ var AutomationRichEditableText = class extends AutomationEditableText {
         }
         // Delegate to EditableTextBase (via |changed|), which handles plain
         // text state output.
-        var text = cur.text;
+        let text = cur.text;
         if (text == '\n') {
           text = '';
         }
@@ -518,7 +525,7 @@ var AutomationRichEditableText = class extends AutomationEditableText {
 
       // Speech requires many more states than braille.
       const curExtent = baseLineOnStart ? startLine : endLine;
-      var text = '';
+      let text = '';
       let suffixMsg = '';
       if (curBase.isBeforeLine(curExtent)) {
         // Forward selection.
@@ -574,7 +581,7 @@ var AutomationRichEditableText = class extends AutomationEditableText {
     } else if (!cur.hasCollapsedSelection()) {
       // Without any other information, try describing the selection. This state
       // catches things like select all.
-      var text = this.getTextSelection_(
+      const text = this.getTextSelection_(
           cur.startContainer_, cur.localStartOffset, cur.endContainer_,
           cur.localEndOffset);
       ChromeVox.tts.speak(text, QueueMode.CATEGORY_FLUSH);
@@ -756,7 +763,7 @@ var AutomationRichEditableText = class extends AutomationEditableText {
             this.line_.value_.getSpansInstanceOf(
                 /** @type {function()} */ (this.node_.constructor)));
     let queueMode = QueueMode.CATEGORY_FLUSH;
-    for (var i = 0, cur; cur = lineNodes[i]; i++) {
+    for (let i = 0, cur; cur = lineNodes[i]; i++) {
       if (cur.children.length) {
         continue;
       }

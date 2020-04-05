@@ -12,7 +12,7 @@
 #include "components/url_formatter/elide_url.h"
 #include "url/origin.h"
 #else
-#include "chrome/app/vector_icons/vector_icons.h"
+#include "components/vector_icons/vector_icons.h"
 #endif
 
 DownloadPermissionRequest::DownloadPermissionRequest(
@@ -27,15 +27,11 @@ permissions::PermissionRequest::IconId DownloadPermissionRequest::GetIconId()
 #if defined(OS_ANDROID)
   return IDR_ANDROID_INFOBAR_MULTIPLE_DOWNLOADS;
 #else
-  return kFileDownloadIcon;
+  return vector_icons::kFileDownloadIcon;
 #endif
 }
 
 #if defined(OS_ANDROID)
-base::string16 DownloadPermissionRequest::GetTitleText() const {
-  return l10n_util::GetStringUTF16(IDS_MULTI_DOWNLOAD_WARNING_TITLE);
-}
-
 base::string16 DownloadPermissionRequest::GetMessageText() const {
   return l10n_util::GetStringFUTF16(
       IDS_MULTI_DOWNLOAD_WARNING, url_formatter::FormatOriginForSecurityDisplay(

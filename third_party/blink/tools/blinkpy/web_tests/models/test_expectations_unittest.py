@@ -34,7 +34,7 @@ from blinkpy.common.host_mock import MockHost
 from blinkpy.common.system.output_capture import OutputCapture
 from blinkpy.web_tests.models.test_configuration import TestConfiguration, TestConfigurationConverter
 from blinkpy.web_tests.models.test_expectations import TestExpectations, SystemConfigurationRemover, ParseError
-from blinkpy.web_tests.models.typ_types import ResultType
+from blinkpy.web_tests.models.typ_types import ResultType, Expectation
 
 
 class Base(unittest.TestCase):
@@ -61,7 +61,7 @@ class Base(unittest.TestCase):
         return """
 # results: [ Failure Crash ]
 failures/expected/text.html [ Failure ]
-failures/expected/crash.html [ Crash ]
+failures/expected/crash.html [ Crash ] # foo and bar
 failures/expected/image_checksum.html [ Crash ]
 failures/expected/image.html [ Crash ]
 """
@@ -85,6 +85,9 @@ failures/expected/image.html [ Crash ]
         with self.assertRaises(ParseError):
             self.parse_exp(expectations, is_lint_mode=True, overrides=overrides)
 
+    def assert_trailing_comments(self, test, comments):
+        self.assertEqual(self._exp.get_expectations(test).trailing_comments, comments)
+
 
 class BasicTests(Base):
 
@@ -94,7 +97,34 @@ class BasicTests(Base):
         self.assert_exp_list('failures/expected/image_checksum.html', [ResultType.Crash])
         self.assert_exp('passes/text.html', ResultType.Pass)
         self.assert_exp('failures/expected/image.html', ResultType.Crash)
+        self.assert_trailing_comments('failures/expected/crash.html', ' # foo and bar\n')
 
+
+class FlagExpectationsTests(Base):
+
+    def setup_using_raw_expectations(self, base_exps='', flag_exps='', flag_name=''):
+        self._general_exp_filename = 'TestExpectations'
+        self._port.host.filesystem.write_text_file(self._general_exp_filename, base_exps)
+        expectations_dict = {self._general_exp_filename: base_exps}
+
+        # set up flag specific expectations
+        if flag_name:
+            self._flag_exp_filename = self._port.host.filesystem.join('FlagExpectations', flag_name)
+            self._port.host.filesystem.write_text_file(self._flag_exp_filename, flag_exps)
+            expectations_dict[self._flag_exp_filename] = flag_exps
+
+        self._test_expectations = TestExpectations(self._port, expectations_dict)
+
+    def test_add_flag_test_expectations(self):
+        raw_flag_exps = """
+        # tags: [ Win ]
+        # results: [ Failure ]
+        [ Win ] failures/expected/text.html [ Failure ]
+        """
+        self.setup_using_raw_expectations(flag_exps=raw_flag_exps, flag_name='composite-after-paint')
+        flag_exp = self._test_expectations.get_flag_expectations('failures/expected/text.html')
+        self.assertEqual(flag_exp.results, set([ResultType.Failure]))
+        self.assertEqual(self._test_expectations.flag_name, '/composite-after-paint')
 
 class SystemConfigurationRemoverTests(Base):
 
@@ -107,7 +137,8 @@ class SystemConfigurationRemoverTests(Base):
         }
 
     def set_up_using_raw_expectations(self, content):
-        self._general_exp_filename = 'TestExpectations'
+        self._general_exp_filename = self._port.host.filesystem.join(
+            self._port.web_tests_dir(), 'TestExpectations')
         self._port.host.filesystem.write_text_file(self._general_exp_filename, content)
         expectations_dict = {self._general_exp_filename: content}
         test_expectations = TestExpectations(self._port, expectations_dict)
@@ -339,6 +370,187 @@ class MiscTests(Base):
         self.assertEqual(expectations.get_expectations(test_name2).results, set([ResultType.Crash]))
 
 
+class RemoveExpectationsTest(Base):
+
+    def test_remove_expectation(self):
+        port = MockHost().port_factory.get('test-win-win7')
+        raw_expectations = (
+             '# tags: [ Mac Win ]\n'
+             '# results: [ Failure ]\n'
+             '\n'
+             '# This comment will be deleted\n'
+             '[ mac ] test1 [ Failure ]\n')
+        expectations_dict = OrderedDict()
+        expectations_dict['/tmp/TestExpectations'] = ''
+        expectations_dict['/tmp/TestExpectations2'] = raw_expectations
+        test_expectations = TestExpectations(port, expectations_dict)
+        test_to_exps = test_expectations.expectations[1].individual_exps
+        test_expectations.remove_expectations(
+            '/tmp/TestExpectations2', [test_to_exps['test1'][0]])
+        test_expectations.commit_changes()
+        content = port.host.filesystem.read_text_file('/tmp/TestExpectations2')
+        self.assertEqual(content, (
+            '# tags: [ Mac Win ]\n'
+            '# results: [ Failure ]\n'))
+
+    def test_remove_added_expectations(self):
+        port = MockHost().port_factory.get('test-win-win7')
+        raw_expectations = (
+             '# tags: [ Mac Win ]\n'
+             '# results: [ Failure ]\n'
+             '\n'
+             '# This comment will be deleted\n'
+             '[ mac ] test1 [ Failure ]\n')
+        expectations_dict = OrderedDict()
+        expectations_dict['/tmp/TestExpectations'] = ''
+        expectations_dict['/tmp/TestExpectations2'] = raw_expectations
+        test_expectations = TestExpectations(port, expectations_dict)
+        test_expectations.add_expectations(
+            '/tmp/TestExpectations2',
+            [Expectation(test='test2', results=set([ResultType.Failure])),
+             Expectation(test='test3', results=set([ResultType.Crash]), tags=set(['win']))], 5)
+        test_expectations.remove_expectations(
+            '/tmp/TestExpectations2',
+            [Expectation(test='test2', results=set([ResultType.Failure]), lineno=5)])
+        test_expectations.commit_changes()
+        content = port.host.filesystem.read_text_file('/tmp/TestExpectations2')
+        self.assertEqual(content, (
+            '# tags: [ Mac Win ]\n'
+            '# results: [ Failure ]\n'
+             '\n'
+             '# This comment will be deleted\n'
+             '[ mac ] test1 [ Failure ]\n'
+             '[ Win ] test3 [ Crash ]\n'))
+
+    def test_remove_after_add(self):
+        port = MockHost().port_factory.get('test-win-win7')
+        raw_expectations = (
+             '# tags: [ Mac Win ]\n'
+             '# results: [ Failure Crash ]\n'
+             '\n'
+             '# This comment will not be deleted\n'
+             '[ mac ] test1 [ Failure ]\n')
+        expectations_dict = OrderedDict()
+        expectations_dict['/tmp/TestExpectations'] = ''
+        expectations_dict['/tmp/TestExpectations2'] = raw_expectations
+        test_expectations = TestExpectations(port, expectations_dict)
+        test_to_exps = test_expectations.expectations[1].individual_exps
+        test_expectations.add_expectations(
+            '/tmp/TestExpectations2',
+            [Expectation(test='test2', results=set([ResultType.Failure])),
+             Expectation(test='test3', results=set([ResultType.Crash]), tags=set(['mac']))], 5)
+        test_expectations.remove_expectations(
+            '/tmp/TestExpectations2', [test_to_exps['test1'][0]])
+        test_expectations.commit_changes()
+        content = port.host.filesystem.read_text_file('/tmp/TestExpectations2')
+        self.assertEqual(content, (
+            '# tags: [ Mac Win ]\n'
+            '# results: [ Failure Crash ]\n'
+            '\n'
+            '# This comment will not be deleted\n'
+            '[ Mac ] test3 [ Crash ]\n'
+            'test2 [ Failure ]\n'))
+
+
+class AddExpectationsTest(Base):
+
+    def test_add_expectation(self):
+        port = MockHost().port_factory.get('test-win-win7')
+        raw_expectations = (
+             '# tags: [ Mac Win ]\n'
+             '# results: [ Failure ]\n')
+        expectations_dict = OrderedDict()
+        expectations_dict['/tmp/TestExpectations'] = ''
+        expectations_dict['/tmp/TestExpectations2'] = raw_expectations
+        test_expectations = TestExpectations(port, expectations_dict)
+        test_expectations.add_expectations(
+            '/tmp/TestExpectations2',
+            [Expectation(test='test1', results=set([ResultType.Failure]))])
+        test_expectations.commit_changes()
+        content = port.host.filesystem.read_text_file('/tmp/TestExpectations2')
+        self.assertEqual(content, (
+            '# tags: [ Mac Win ]\n'
+            '# results: [ Failure ]\n'
+            '\n'
+            'test1 [ Failure ]\n'))
+
+    def test_add_after_remove(self):
+        port = MockHost().port_factory.get('test-win-win7')
+        raw_expectations = (
+             '# tags: [ Mac Win ]\n'
+             '# results: [ Failure Crash ]\n'
+             'test1 [ Failure ]\n')
+        expectations_dict = OrderedDict()
+        expectations_dict['/tmp/TestExpectations'] = ''
+        expectations_dict['/tmp/TestExpectations2'] = raw_expectations
+        test_expectations = TestExpectations(port, expectations_dict)
+        test_expectations.remove_expectations(
+            '/tmp/TestExpectations2',
+            [Expectation(test='test1', results=set([ResultType.Failure]), lineno=3)])
+        test_expectations.add_expectations(
+            '/tmp/TestExpectations2',
+            [Expectation(test='test2', results=set([ResultType.Crash]))], 3)
+        test_expectations.commit_changes()
+        content = port.host.filesystem.read_text_file('/tmp/TestExpectations2')
+        self.assertEqual(content, (
+            '# tags: [ Mac Win ]\n'
+            '# results: [ Failure Crash ]\n'
+            'test2 [ Crash ]\n'))
+
+    def test_add_expectation_at_line(self):
+        port = MockHost().port_factory.get('test-win-win7')
+        raw_expectations = (
+             '# tags: [ Mac Win ]\n'
+             '# results: [ Failure Crash ]\n'
+             '\n'
+             '# add expectations after this line\n'
+             'test1 [ Failure ]\n'
+             '\n')
+        expectations_dict = OrderedDict()
+        expectations_dict['/tmp/TestExpectations'] = raw_expectations
+        test_expectations = TestExpectations(port, expectations_dict)
+        test_expectations.add_expectations(
+            '/tmp/TestExpectations',
+            [Expectation(test='test2', results=set([ResultType.Crash]), tags=set(['win']))], 4)
+        test_expectations.remove_expectations(
+            '/tmp/TestExpectations',
+            [Expectation(test='test1', results=set([ResultType.Failure]), lineno=5)])
+        test_expectations.commit_changes()
+        content = port.host.filesystem.read_text_file('/tmp/TestExpectations')
+        self.assertEqual(content, (
+            '# tags: [ Mac Win ]\n'
+            '# results: [ Failure Crash ]\n'
+            '\n'
+            '# add expectations after this line\n'
+            '[ Win ] test2 [ Crash ]\n'
+            '\n'))
+
+
+class CommitChangesTests(Base):
+
+    def test_commit_changes_without_modifications(self):
+        port = MockHost().port_factory.get('test-win-win7')
+        raw_expectations = (
+             '# tags: [ Mac Win ]\n'
+             '# results: [ Failure Crash ]\n'
+             '\n'
+             '# add expectations after this line\n'
+             'test1 [ Failure ]\n'
+             '\n')
+        expectations_dict = OrderedDict()
+        expectations_dict['/tmp/TestExpectations'] = raw_expectations
+        test_expectations = TestExpectations(port, expectations_dict)
+        test_expectations.commit_changes()
+        content = port.host.filesystem.read_text_file('/tmp/TestExpectations')
+        self.assertEqual(content, (
+            '# tags: [ Mac Win ]\n'
+            '# results: [ Failure Crash ]\n'
+            '\n'
+            '# add expectations after this line\n'
+            'test1 [ Failure ]\n'
+            '\n'))
+
+
 class SkippedTests(Base):
 
     def check(self, expectations, overrides, ignore_tests, lint=False, expected_results=None):
@@ -391,4 +603,3 @@ failures/expected/text.html [ Failure ]
         self.parse_exp(exp_str)
         self.assert_exp('failures/expected/text.html', ResultType.Failure)
         self.assert_exp_list('failures/expected/crash.html', [ResultType.Crash])
-

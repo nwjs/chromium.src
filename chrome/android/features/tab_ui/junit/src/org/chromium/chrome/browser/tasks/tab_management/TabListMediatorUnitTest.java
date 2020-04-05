@@ -4,6 +4,8 @@
 
 package org.chromium.chrome.browser.tasks.tab_management;
 
+import static androidx.core.view.accessibility.AccessibilityNodeInfoCompat.ACTION_CLICK;
+
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.not;
@@ -28,7 +30,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import static org.chromium.chrome.browser.flags.ChromeFeatureList.TAB_GROUPS_ANDROID;
-import static org.chromium.chrome.browser.flags.ChromeFeatureList.TAB_GROUPS_UI_IMPROVEMENTS_ANDROID;
+import static org.chromium.chrome.browser.flags.ChromeFeatureList.TAB_GROUPS_CONTINUATION_ANDROID;
 import static org.chromium.chrome.browser.tasks.tab_management.MessageCardViewProperties.MESSAGE_TYPE;
 import static org.chromium.chrome.browser.tasks.tab_management.MessageService.MessageType.FOR_TESTING;
 import static org.chromium.chrome.browser.tasks.tab_management.MessageService.MessageType.TAB_SUGGESTION;
@@ -47,15 +49,15 @@ import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
-import android.support.v7.widget.GridLayoutManager;
-import android.support.v7.widget.RecyclerView;
-import android.support.v7.widget.helper.ItemTouchHelper;
 import android.util.Pair;
 import android.view.View;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction;
 
 import androidx.annotation.IntDef;
+import androidx.recyclerview.widget.GridLayoutManager;
+import androidx.recyclerview.widget.ItemTouchHelper;
+import androidx.recyclerview.widget.RecyclerView;
 
 import org.junit.After;
 import org.junit.Before;
@@ -75,17 +77,17 @@ import org.chromium.base.Callback;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.UserDataHost;
 import org.chromium.base.metrics.RecordHistogram;
-import org.chromium.base.metrics.RecordUserAction;
+import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.JniMocker;
 import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
-import org.chromium.chrome.browser.favicon.FaviconHelper;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
+import org.chromium.chrome.browser.flags.CachedFeatureFlags;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
-import org.chromium.chrome.browser.flags.FeatureUtilities;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tab.TabImpl;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabObserver;
@@ -98,10 +100,10 @@ import org.chromium.chrome.browser.tabmodel.TabModelSelectorImpl;
 import org.chromium.chrome.browser.tasks.pseudotab.TabAttributeCache;
 import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
 import org.chromium.chrome.browser.tasks.tab_management.TabProperties.UiType;
-import org.chromium.chrome.browser.util.UrlUtilities;
-import org.chromium.chrome.browser.util.UrlUtilitiesJni;
 import org.chromium.chrome.tab_ui.R;
 import org.chromium.chrome.test.util.browser.Features;
+import org.chromium.components.embedder_support.util.UrlUtilities;
+import org.chromium.components.embedder_support.util.UrlUtilitiesJni;
 import org.chromium.components.feature_engagement.EventConstants;
 import org.chromium.components.feature_engagement.Tracker;
 import org.chromium.components.search_engines.TemplateUrlService;
@@ -110,7 +112,6 @@ import org.chromium.content_public.browser.NavigationController;
 import org.chromium.content_public.browser.NavigationEntry;
 import org.chromium.content_public.browser.NavigationHistory;
 import org.chromium.content_public.browser.WebContents;
-import org.chromium.testing.local.LocalRobolectricTestRunner;
 import org.chromium.ui.base.PageTransition;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.SimpleRecyclerViewAdapter;
@@ -124,11 +125,13 @@ import java.util.List;
 /**
  * Tests for {@link TabListMediator}.
  */
-@RunWith(LocalRobolectricTestRunner.class)
+@SuppressWarnings(
+        {"ArraysAsListWithZeroOrOneArgument", "ResultOfMethodCallIgnored", "ConstantConditions"})
+@RunWith(BaseRobolectricTestRunner.class)
 @Config(manifest = Config.NONE)
 // clang-format off
 @Features.EnableFeatures(ChromeFeatureList.TAB_TO_GTS_ANIMATION)
-@Features.DisableFeatures(ChromeFeatureList.TAB_GROUPS_CONTINUATION_ANDROID)
+@Features.DisableFeatures({TAB_GROUPS_ANDROID, TAB_GROUPS_CONTINUATION_ANDROID})
 public class TabListMediatorUnitTest {
     // clang-format on
     @Rule
@@ -190,8 +193,6 @@ public class TabListMediatorUnitTest {
     @Mock
     TabListMediator.TabGridDialogHandler mTabGridDialogHandler;
     @Mock
-    TabListMediator.CreateGroupButtonProvider mCreateGroupButtonProvider;
-    @Mock
     TabListMediator.GridCardOnClickListenerProvider mGridCardOnClickListenerProvider;
     @Mock
     Drawable mFaviconDrawable;
@@ -210,14 +211,6 @@ public class TabListMediatorUnitTest {
     @Mock
     TabListMediator.TitleProvider mTitleProvider;
     @Mock
-    SharedPreferences mSharedPreferences;
-    @Mock
-    SharedPreferences.Editor mEditor;
-    @Mock
-    SharedPreferences.Editor mPutStringEditor;
-    @Mock
-    SharedPreferences.Editor mRemoveEditor;
-    @Mock
     UrlUtilities.Natives mUrlUtilitiesJniMock;
     @Mock
     TabListMediator.TabGridAccessibilityHelper mTabGridAccessibilityHelper;
@@ -226,8 +219,6 @@ public class TabListMediatorUnitTest {
 
     @Captor
     ArgumentCaptor<TabModelObserver> mTabModelObserverCaptor;
-    @Captor
-    ArgumentCaptor<FaviconHelper.FaviconImageCallback> mFaviconCallbackCaptor;
     @Captor
     ArgumentCaptor<TabObserver> mTabObserverCaptor;
     @Captor
@@ -254,15 +245,13 @@ public class TabListMediatorUnitTest {
 
     @Before
     public void setUp() {
-        RecordUserAction.setDisabledForTests(true);
         RecordHistogram.setDisabledForTests(true);
 
         MockitoAnnotations.initMocks(this);
         mMocker.mock(UrlUtilitiesJni.TEST_HOOKS, mUrlUtilitiesJniMock);
 
-        FeatureUtilities.setTabGroupsAndroidEnabledForTesting(false);
-        FeatureUtilities.setStartSurfaceEnabledForTesting(false);
-        TabUiFeatureUtilities.setSearchTermChipEnabledForTesting(true);
+        CachedFeatureFlags.setForTesting(ChromeFeatureList.START_SURFACE_ANDROID, false);
+        TabUiFeatureUtilities.ENABLE_SEARCH_CHIP.setForTesting(true);
         mTab1 = prepareTab(TAB1_ID, TAB1_TITLE, TAB1_URL);
         mTab2 = prepareTab(TAB2_ID, TAB2_TITLE, TAB2_URL);
         mViewHolder1 = prepareViewHolder(TAB1_ID, POSITION1);
@@ -314,12 +303,6 @@ public class TabListMediatorUnitTest {
                 .openTabGridDialog(any(Tab.class));
         doNothing().when(mContext).registerComponentCallbacks(mComponentCallbacksCaptor.capture());
         doReturn(mGridLayoutManager).when(mRecyclerView).getLayoutManager();
-        doReturn(mSharedPreferences)
-                .when(mContext)
-                .getSharedPreferences(TAB_GROUP_TITLES_FILE_NAME, Context.MODE_PRIVATE);
-        doReturn(mEditor).when(mSharedPreferences).edit();
-        doReturn(mRemoveEditor).when(mEditor).remove(any(String.class));
-        doReturn(mPutStringEditor).when(mEditor).putString(any(String.class), any(String.class));
         doReturn(TAB1_DOMAIN)
                 .when(mUrlUtilitiesJniMock)
                 .getDomainAndRegistry(eq(TAB1_URL), anyBoolean());
@@ -330,27 +313,30 @@ public class TabListMediatorUnitTest {
                 .when(mUrlUtilitiesJniMock)
                 .getDomainAndRegistry(eq(TAB3_URL), anyBoolean());
         doNothing().when(mTemplateUrlService).addObserver(mTemplateUrlServiceObserver.capture());
+        doReturn(true).when(mTabListFaviconProvider).isInitialized();
 
         mModel = new TabListModel();
         TemplateUrlServiceFactory.setInstanceForTesting(mTemplateUrlService);
-        TabListMediator.SearchTermChipUtils.setIsSearchChipAdaptiveIconEnabledForTesting(false);
         mMediator = new TabListMediator(mContext, mModel, mTabModelSelector,
                 mTabContentManager::getTabThumbnailWithCallback, mTitleProvider,
-                mTabListFaviconProvider, false, null, null, mGridCardOnClickListenerProvider, null,
+                mTabListFaviconProvider, false, null, mGridCardOnClickListenerProvider, null,
                 getClass().getSimpleName(), UiType.CLOSABLE);
+        mMediator.initWithNative(mProfile);
         mMediator.registerOrientationListener(mGridLayoutManager);
         TrackerFactory.setTrackerForTests(mTracker);
-        ContextUtils.initApplicationContextForTests(mContext);
     }
 
     @After
     public void tearDown() {
-        RecordUserAction.setDisabledForTests(false);
         RecordHistogram.setDisabledForTests(false);
-        FeatureUtilities.setTabGroupsAndroidEnabledForTesting(null);
-        FeatureUtilities.setStartSurfaceEnabledForTesting(null);
-        TabUiFeatureUtilities.setSearchTermChipEnabledForTesting(null);
+        CachedFeatureFlags.setForTesting(ChromeFeatureList.START_SURFACE_ANDROID, null);
         TabAttributeCache.clearAllForTesting();
+        getGroupTitleSharedPreferences().edit().clear();
+    }
+
+    private static SharedPreferences getGroupTitleSharedPreferences() {
+        return ContextUtils.getApplicationContext().getSharedPreferences(
+                TAB_GROUP_TITLES_FILE_NAME, Context.MODE_PRIVATE);
     }
 
     @Test
@@ -371,11 +357,8 @@ public class TabListMediatorUnitTest {
     }
 
     @Test
-    @Features.EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_UI_IMPROVEMENTS_ANDROID})
-    // clang-format off
+    @Features.EnableFeatures(TAB_GROUPS_CONTINUATION_ANDROID)
     public void updatesTitle_WithStoredTitle_TabGroup() {
-        // clang-format on
         setUpForTabGroupOperation(TabListMediatorType.TAB_SWITCHER);
 
         // Mock that tab1 and new tab are in the same group with root ID as TAB1_ID.
@@ -384,8 +367,10 @@ public class TabListMediatorUnitTest {
         createTabGroup(tabs, TAB1_ID);
 
         // Mock that we have a stored title stored with reference to root ID of tab1.
-        when(mSharedPreferences.getString(String.valueOf(mTab1.getRootId()), null))
-                .thenReturn(CUSTOMIZED_DIALOG_TITLE1);
+        getGroupTitleSharedPreferences()
+                .edit()
+                .putString(String.valueOf(mTab1.getRootId()), CUSTOMIZED_DIALOG_TITLE1)
+                .apply();
         assertThat(mModel.get(0).model.get(TabProperties.TITLE), equalTo(TAB1_TITLE));
 
         mTabObserverCaptor.getValue().onTitleUpdated(mTab1);
@@ -487,8 +472,6 @@ public class TabListMediatorUnitTest {
     }
 
     @Test
-    @Features.EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_UI_IMPROVEMENTS_ANDROID})
     public void sendsMoveTabSignalCorrectlyWithGroup() {
         setUpForTabGroupOperation(TabListMediatorType.TAB_SWITCHER);
 
@@ -503,8 +486,6 @@ public class TabListMediatorUnitTest {
     }
 
     @Test
-    @Features.EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_UI_IMPROVEMENTS_ANDROID})
     public void sendsMoveTabSignalCorrectlyWithinGroup() {
         setUpForTabGroupOperation(TabListMediatorType.TAB_GRID_DIALOG);
 
@@ -514,8 +495,6 @@ public class TabListMediatorUnitTest {
     }
 
     @Test
-    @Features.EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_UI_IMPROVEMENTS_ANDROID})
     public void sendsMergeTabSignalCorrectly() {
         setUpForTabGroupOperation(TabListMediatorType.TAB_SWITCHER);
 
@@ -537,7 +516,6 @@ public class TabListMediatorUnitTest {
     }
 
     @Test
-    @Features.DisableFeatures({TAB_GROUPS_ANDROID, TAB_GROUPS_UI_IMPROVEMENTS_ANDROID})
     public void neverSendsMergeTabSignal_Without_Group() {
         initAndAssertAllProperties();
 
@@ -558,34 +536,7 @@ public class TabListMediatorUnitTest {
     }
 
     @Test
-    @Features.EnableFeatures({TAB_GROUPS_ANDROID})
-    @Features.DisableFeatures({TAB_GROUPS_UI_IMPROVEMENTS_ANDROID})
-    public void neverSendsMergeTabSignal_With_Group_Without_Group_Improvement() {
-        setUpForTabGroupOperation(TabListMediatorType.TAB_SWITCHER);
-
-        TabGridItemTouchHelperCallback itemTouchHelperCallback = getItemTouchHelperCallback();
-        itemTouchHelperCallback.setActionsOnAllRelatedTabsForTesting(true);
-        itemTouchHelperCallback.setHoveredTabIndexForTesting(POSITION1);
-        itemTouchHelperCallback.setSelectedTabIndexForTesting(POSITION2);
-        itemTouchHelperCallback.getMovementFlags(mRecyclerView, mDummyViewHolder1);
-
-        doReturn(mTabGroupModelFilter).when(mTabModelFilterProvider).getCurrentTabModelFilter();
-        doReturn(mAdapter).when(mRecyclerView).getAdapter();
-
-        // Simulate the drop action.
-        itemTouchHelperCallback.onSelectedChanged(
-                mDummyViewHolder1, ItemTouchHelper.ACTION_STATE_IDLE);
-
-        verify(mTabGroupModelFilter, never()).mergeTabsToGroup(anyInt(), anyInt());
-        verify(mGridLayoutManager, never()).removeView(any(View.class));
-    }
-
-    @Test
-    @Features.EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_UI_IMPROVEMENTS_ANDROID})
-    // clang-format off
     public void sendsUngroupSignalCorrectly() {
-        // clang-format on
         setUpForTabGroupOperation(TabListMediatorType.TAB_GRID_DIALOG);
 
         TabGridItemTouchHelperCallback itemTouchHelperCallback = getItemTouchHelperCallback();
@@ -640,7 +591,8 @@ public class TabListMediatorUnitTest {
         doReturn(Arrays.asList(newTab)).when(mTabModelFilter).getRelatedTabList(eq(TAB3_ID));
         assertThat(mModel.size(), equalTo(2));
 
-        mTabModelObserverCaptor.getValue().didAddTab(newTab, TabLaunchType.FROM_RESTORE);
+        mTabModelObserverCaptor.getValue().didAddTab(
+                newTab, TabLaunchType.FROM_RESTORE, TabCreationState.LIVE_IN_FOREGROUND);
 
         // When tab restoring stage is not yet finished, this tab info should not be added to
         // property model.
@@ -667,7 +619,8 @@ public class TabListMediatorUnitTest {
         doReturn(tabs).when(mTabModelFilter).getRelatedTabList(eq(TAB2_ID));
         assertThat(mModel.size(), equalTo(2));
 
-        mTabModelObserverCaptor.getValue().didAddTab(newTab, TabLaunchType.FROM_RESTORE);
+        mTabModelObserverCaptor.getValue().didAddTab(
+                newTab, TabLaunchType.FROM_RESTORE, TabCreationState.LIVE_IN_FOREGROUND);
 
         TabListMediator.TabActionListener actionListenerAfterUpdate =
                 mModel.get(1).model.get(TabProperties.TAB_SELECTED_LISTENER);
@@ -678,11 +631,7 @@ public class TabListMediatorUnitTest {
     }
 
     @Test
-    @Features.EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_UI_IMPROVEMENTS_ANDROID})
-    // clang-format off
     public void tabAddition_Restore_SyncingTabListModelWithTabModel() {
-        // clang-format on
         setUpForTabGroupOperation(TabListMediatorType.TAB_SWITCHER);
         // Mock that tab restoring stage is over.
         doReturn(true).when(mTabGroupModelFilter).isTabModelRestored();
@@ -697,10 +646,12 @@ public class TabListMediatorUnitTest {
         doReturn(1).when(mTabGroupModelFilter).getCount();
         mModel.clear();
 
-        mMediatorTabModelObserver.didAddTab(mTab2, TabLaunchType.FROM_RESTORE);
+        mMediatorTabModelObserver.didAddTab(
+                mTab2, TabLaunchType.FROM_RESTORE, TabCreationState.LIVE_IN_FOREGROUND);
         assertThat(mModel.size(), equalTo(0));
 
-        mMediatorTabModelObserver.didAddTab(mTab1, TabLaunchType.FROM_RESTORE);
+        mMediatorTabModelObserver.didAddTab(
+                mTab1, TabLaunchType.FROM_RESTORE, TabCreationState.LIVE_IN_FOREGROUND);
         assertThat(mModel.size(), equalTo(1));
     }
 
@@ -720,7 +671,8 @@ public class TabListMediatorUnitTest {
                 .getRelatedTabList(eq(TAB3_ID));
         assertThat(mModel.size(), equalTo(2));
 
-        mTabModelObserverCaptor.getValue().didAddTab(newTab, TabLaunchType.FROM_CHROME_UI);
+        mTabModelObserverCaptor.getValue().didAddTab(
+                newTab, TabLaunchType.FROM_CHROME_UI, TabCreationState.LIVE_IN_FOREGROUND);
 
         assertThat(mModel.size(), equalTo(3));
         assertThat(mModel.get(2).model.get(TabProperties.TAB_ID), equalTo(TAB3_ID));
@@ -743,7 +695,8 @@ public class TabListMediatorUnitTest {
                 .getRelatedTabList(eq(TAB3_ID));
         assertThat(mModel.size(), equalTo(2));
 
-        mTabModelObserverCaptor.getValue().didAddTab(newTab, TabLaunchType.FROM_CHROME_UI);
+        mTabModelObserverCaptor.getValue().didAddTab(
+                newTab, TabLaunchType.FROM_CHROME_UI, TabCreationState.LIVE_IN_FOREGROUND);
 
         assertThat(mModel.size(), equalTo(2));
     }
@@ -764,7 +717,8 @@ public class TabListMediatorUnitTest {
                 .getRelatedTabList(eq(TAB3_ID));
         assertThat(mModel.size(), equalTo(2));
 
-        mTabModelObserverCaptor.getValue().didAddTab(newTab, TabLaunchType.FROM_CHROME_UI);
+        mTabModelObserverCaptor.getValue().didAddTab(
+                newTab, TabLaunchType.FROM_CHROME_UI, TabCreationState.LIVE_IN_FOREGROUND);
 
         assertThat(mModel.size(), equalTo(3));
         assertThat(mModel.get(1).model.get(TabProperties.TAB_ID), equalTo(TAB3_ID));
@@ -783,7 +737,8 @@ public class TabListMediatorUnitTest {
                 .getRelatedTabList(eq(TAB1_ID));
         assertThat(mModel.size(), equalTo(2));
 
-        mTabModelObserverCaptor.getValue().didAddTab(newTab, TabLaunchType.FROM_CHROME_UI);
+        mTabModelObserverCaptor.getValue().didAddTab(
+                newTab, TabLaunchType.FROM_CHROME_UI, TabCreationState.LIVE_IN_FOREGROUND);
 
         assertThat(mModel.size(), equalTo(3));
         assertThat(mModel.get(2).model.get(TabProperties.TAB_ID), equalTo(TAB3_ID));
@@ -802,7 +757,8 @@ public class TabListMediatorUnitTest {
                 .getRelatedTabList(eq(TAB1_ID));
         assertThat(mModel.size(), equalTo(2));
 
-        mTabModelObserverCaptor.getValue().didAddTab(newTab, TabLaunchType.FROM_CHROME_UI);
+        mTabModelObserverCaptor.getValue().didAddTab(
+                newTab, TabLaunchType.FROM_CHROME_UI, TabCreationState.LIVE_IN_FOREGROUND);
 
         assertThat(mModel.size(), equalTo(3));
         assertThat(mModel.get(1).model.get(TabProperties.TAB_ID), equalTo(TAB3_ID));
@@ -819,7 +775,8 @@ public class TabListMediatorUnitTest {
         doReturn(Arrays.asList(mTab1, mTab2)).when(mTabModelFilter).getRelatedTabList(eq(TAB1_ID));
         assertThat(mModel.size(), equalTo(2));
 
-        mTabModelObserverCaptor.getValue().didAddTab(newTab, TabLaunchType.FROM_CHROME_UI);
+        mTabModelObserverCaptor.getValue().didAddTab(
+                newTab, TabLaunchType.FROM_CHROME_UI, TabCreationState.LIVE_IN_FOREGROUND);
 
         assertThat(mModel.size(), equalTo(2));
     }
@@ -854,11 +811,7 @@ public class TabListMediatorUnitTest {
     }
 
     @Test
-    @Features.EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_UI_IMPROVEMENTS_ANDROID})
-    // clang-format off
     public void tabMergeIntoGroup() {
-        // clang-format on
         setUpForTabGroupOperation(TabListMediatorType.TAB_SWITCHER);
 
         // Assume that moveTab in TabModel is finished. Selected tab in the group becomes mTab1.
@@ -888,11 +841,7 @@ public class TabListMediatorUnitTest {
     }
 
     @Test
-    @Features.EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_UI_IMPROVEMENTS_ANDROID})
-    // clang-format off
     public void tabMoveOutOfGroup_GTS_Moved_Tab_Selected() {
-        // clang-format on
         setUpForTabGroupOperation(TabListMediatorType.TAB_SWITCHER);
 
         // Assume that two tabs are in the same group before ungroup.
@@ -920,11 +869,7 @@ public class TabListMediatorUnitTest {
     }
 
     @Test
-    @Features.EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_UI_IMPROVEMENTS_ANDROID})
-    // clang-format off
     public void tabMoveOutOfGroup_GTS_Origin_Tab_Selected() {
-        // clang-format on
         setUpForTabGroupOperation(TabListMediatorType.TAB_SWITCHER);
 
         // Assume that two tabs are in the same group before ungroup.
@@ -952,11 +897,7 @@ public class TabListMediatorUnitTest {
     }
 
     @Test
-    @Features.EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_UI_IMPROVEMENTS_ANDROID})
-    // clang-format off
     public void tabMoveOutOfGroup_GTS_LastTab() {
-        // clang-format on
         setUpForTabGroupOperation(TabListMediatorType.TAB_SWITCHER);
 
         // Assume that tab1 is a single tab.
@@ -975,11 +916,7 @@ public class TabListMediatorUnitTest {
     }
 
     @Test
-    @Features.EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_UI_IMPROVEMENTS_ANDROID})
-    // clang-format off
     public void tabMoveOutOfGroup_Dialog() {
-        // clang-format on
         setUpForTabGroupOperation(TabListMediatorType.TAB_GRID_DIALOG);
 
         // Assume that filter is already updated.
@@ -1000,11 +937,7 @@ public class TabListMediatorUnitTest {
     }
 
     @Test
-    @Features.EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_UI_IMPROVEMENTS_ANDROID})
-    // clang-format off
     public void tabMoveOutOfGroup_Dialog_LastTab() {
-        // clang-format on
         setUpForTabGroupOperation(TabListMediatorType.TAB_GRID_DIALOG);
 
         // Assume that tab1 is a single tab.
@@ -1021,11 +954,7 @@ public class TabListMediatorUnitTest {
     }
 
     @Test
-    @Features.EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_UI_IMPROVEMENTS_ANDROID})
-    // clang-format off
     public void tabMoveOutOfGroup_Strip() {
-        // clang-format on
         setUpForTabGroupOperation(TabListMediatorType.TAB_STRIP);
 
         // Assume that filter is already updated.
@@ -1080,11 +1009,7 @@ public class TabListMediatorUnitTest {
     }
 
     @Test
-    @Features.EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_UI_IMPROVEMENTS_ANDROID})
-    // clang-format off
     public void tabMovementWithGroup_Forward() {
-        // clang-format on
         setUpForTabGroupOperation(TabListMediatorType.TAB_SWITCHER);
 
         // Assume that moveTab in TabModel is finished.
@@ -1104,11 +1029,7 @@ public class TabListMediatorUnitTest {
     }
 
     @Test
-    @Features.EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_UI_IMPROVEMENTS_ANDROID})
-    // clang-format off
     public void tabMovementWithGroup_Backward() {
-        // clang-format on
         setUpForTabGroupOperation(TabListMediatorType.TAB_SWITCHER);
 
         // Assume that moveTab in TabModel is finished.
@@ -1128,11 +1049,7 @@ public class TabListMediatorUnitTest {
     }
 
     @Test
-    @Features.EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_UI_IMPROVEMENTS_ANDROID})
-    // clang-format off
     public void tabMovementWithinGroup_Forward() {
-        // clang-format on
         setUpForTabGroupOperation(TabListMediatorType.TAB_GRID_DIALOG);
 
         // Assume that moveTab in TabModel is finished.
@@ -1154,11 +1071,7 @@ public class TabListMediatorUnitTest {
     }
 
     @Test
-    @Features.EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_UI_IMPROVEMENTS_ANDROID})
-    // clang-format off
     public void tabMovementWithinGroup_Backward() {
-        // clang-format on
         setUpForTabGroupOperation(TabListMediatorType.TAB_GRID_DIALOG);
 
         // Assume that moveTab in TabModel is finished.
@@ -1180,11 +1093,7 @@ public class TabListMediatorUnitTest {
     }
 
     @Test
-    @Features.EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_UI_IMPROVEMENTS_ANDROID})
-    // clang-format off
     public void undoGrouped_One_Adjacent_Tab() {
-        // clang-format on
         setUpForTabGroupOperation(TabListMediatorType.TAB_SWITCHER);
 
         // Assume there are 3 tabs in TabModel, mTab2 just grouped with mTab1;
@@ -1208,11 +1117,7 @@ public class TabListMediatorUnitTest {
     }
 
     @Test
-    @Features.EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_UI_IMPROVEMENTS_ANDROID})
-    // clang-format off
     public void undoForwardGrouped_One_Tab() {
-        // clang-format on
         setUpForTabGroupOperation(TabListMediatorType.TAB_SWITCHER);
 
         // Assume there are 3 tabs in TabModel, tab3 just grouped with mTab1;
@@ -1236,11 +1141,7 @@ public class TabListMediatorUnitTest {
     }
 
     @Test
-    @Features.EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_UI_IMPROVEMENTS_ANDROID})
-    // clang-format off
     public void undoBackwardGrouped_One_Tab() {
-        // clang-format on
         setUpForTabGroupOperation(TabListMediatorType.TAB_SWITCHER);
 
         // Assume there are 3 tabs in TabModel, mTab1 just grouped with mTab2;
@@ -1343,15 +1244,14 @@ public class TabListMediatorUnitTest {
     }
 
     @Test
-    @Features.EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_UI_IMPROVEMENTS_ANDROID})
-    // clang-format off
+    @Features.EnableFeatures({TAB_GROUPS_CONTINUATION_ANDROID})
     public void getLatestTitle_NotGTS() {
-        // clang-format on
         setUpForTabGroupOperation(TabListMediatorType.TAB_GRID_DIALOG);
         // Mock that we have a stored title stored with reference to root ID of tab1.
-        when(mSharedPreferences.getString(String.valueOf(mTab1.getRootId()), null))
-                .thenReturn(CUSTOMIZED_DIALOG_TITLE1);
+        getGroupTitleSharedPreferences()
+                .edit()
+                .putString(String.valueOf(mTab1.getRootId()), CUSTOMIZED_DIALOG_TITLE1)
+                .apply();
         assertThat(mMediator.getTabGroupTitleEditor().getTabGroupTitle(mTab1.getRootId()),
                 equalTo(CUSTOMIZED_DIALOG_TITLE1));
 
@@ -1364,15 +1264,14 @@ public class TabListMediatorUnitTest {
     }
 
     @Test
-    @Features.EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_UI_IMPROVEMENTS_ANDROID})
-    // clang-format off
+    @Features.EnableFeatures({TAB_GROUPS_CONTINUATION_ANDROID})
     public void getLatestTitle_SingleTab_GTS() {
-        // clang-format on
         setUpForTabGroupOperation(TabListMediatorType.TAB_SWITCHER);
         // Mock that we have a stored title stored with reference to root ID of tab1.
-        when(mSharedPreferences.getString(String.valueOf(mTab1.getRootId()), null))
-                .thenReturn(CUSTOMIZED_DIALOG_TITLE1);
+        getGroupTitleSharedPreferences()
+                .edit()
+                .putString(String.valueOf(mTab1.getRootId()), CUSTOMIZED_DIALOG_TITLE1)
+                .apply();
         assertThat(mMediator.getTabGroupTitleEditor().getTabGroupTitle(mTab1.getRootId()),
                 equalTo(CUSTOMIZED_DIALOG_TITLE1));
 
@@ -1385,15 +1284,14 @@ public class TabListMediatorUnitTest {
     }
 
     @Test
-    @Features.EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_UI_IMPROVEMENTS_ANDROID})
-    // clang-format off
+    @Features.EnableFeatures({TAB_GROUPS_CONTINUATION_ANDROID})
     public void getLatestTitle_Stored_GTS() {
-        // clang-format on
         setUpForTabGroupOperation(TabListMediatorType.TAB_SWITCHER);
         // Mock that we have a stored title stored with reference to root ID of tab1.
-        when(mSharedPreferences.getString(String.valueOf(mTab1.getRootId()), null))
-                .thenReturn(CUSTOMIZED_DIALOG_TITLE1);
+        getGroupTitleSharedPreferences()
+                .edit()
+                .putString(String.valueOf(mTab1.getRootId()), CUSTOMIZED_DIALOG_TITLE1)
+                .apply();
         assertThat(mMediator.getTabGroupTitleEditor().getTabGroupTitle(mTab1.getRootId()),
                 equalTo(CUSTOMIZED_DIALOG_TITLE1));
 
@@ -1405,11 +1303,8 @@ public class TabListMediatorUnitTest {
     }
 
     @Test
-    @Features.EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_UI_IMPROVEMENTS_ANDROID})
-    // clang-format off
+    @Features.EnableFeatures({TAB_GROUPS_CONTINUATION_ANDROID})
     public void updateTabGroupTitle_GTS() {
-        // clang-format on
         setUpForTabGroupOperation(TabListMediatorType.TAB_SWITCHER);
         assertThat(mModel.get(POSITION1).model.get(TabProperties.TITLE), equalTo(TAB1_TITLE));
 
@@ -1427,34 +1322,37 @@ public class TabListMediatorUnitTest {
     }
 
     @Test
-    @Features.EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_UI_IMPROVEMENTS_ANDROID})
-    // clang-format off
+    @Features.EnableFeatures({TAB_GROUPS_CONTINUATION_ANDROID})
     public void tabGroupTitleEditor_storeTitle() {
-        // clang-format on
         setUpForTabGroupOperation(TabListMediatorType.TAB_SWITCHER);
         TabGroupTitleEditor tabGroupTitleEditor = mMediator.getTabGroupTitleEditor();
 
-        tabGroupTitleEditor.storeTabGroupTitle(mTab1.getRootId(), CUSTOMIZED_DIALOG_TITLE1);
+        assertNull(getGroupTitleSharedPreferences().getString(
+                String.valueOf(mTab1.getRootId()), null));
 
-        verify(mEditor).putString(
-                eq(String.valueOf(mTab1.getRootId())), eq(CUSTOMIZED_DIALOG_TITLE1));
-        verify(mPutStringEditor).apply();
+        tabGroupTitleEditor.storeTabGroupTitle(mTab1.getRootId(), CUSTOMIZED_DIALOG_TITLE1);
+        assertEquals(CUSTOMIZED_DIALOG_TITLE1,
+                getGroupTitleSharedPreferences().getString(
+                        String.valueOf(mTab1.getRootId()), null));
     }
 
     @Test
-    @Features.EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_UI_IMPROVEMENTS_ANDROID})
-    // clang-format off
+    @Features.EnableFeatures({TAB_GROUPS_CONTINUATION_ANDROID})
     public void tabGroupTitleEditor_deleteTitle() {
-        // clang-format on
         setUpForTabGroupOperation(TabListMediatorType.TAB_SWITCHER);
         TabGroupTitleEditor tabGroupTitleEditor = mMediator.getTabGroupTitleEditor();
 
-        tabGroupTitleEditor.deleteTabGroupTitle(mTab1.getRootId());
+        getGroupTitleSharedPreferences()
+                .edit()
+                .putString(String.valueOf(mTab1.getRootId()), CUSTOMIZED_DIALOG_TITLE1)
+                .apply();
+        assertEquals(CUSTOMIZED_DIALOG_TITLE1,
+                getGroupTitleSharedPreferences().getString(
+                        String.valueOf(mTab1.getRootId()), null));
 
-        verify(mEditor).remove(eq(String.valueOf(mTab1.getRootId())));
-        verify(mRemoveEditor).apply();
+        tabGroupTitleEditor.deleteTabGroupTitle(mTab1.getRootId());
+        assertNull(getGroupTitleSharedPreferences().getString(
+                String.valueOf(mTab1.getRootId()), null));
     }
 
     @Test
@@ -1508,12 +1406,12 @@ public class TabListMediatorUnitTest {
     }
 
     @Test
-    @Features.DisableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID})
+    @Features.DisableFeatures({TAB_GROUPS_ANDROID})
     public void testUrlUpdated_forSingleTab_GTS_GroupNotEnabled() {
         initAndAssertAllProperties();
         assertNotEquals(NEW_URL, mModel.get(POSITION1).model.get(TabProperties.URL));
 
-        doReturn(NEW_URL).when(mTab1).getUrl();
+        doReturn(NEW_URL).when(mTab1).getUrlString();
         mTabObserverCaptor.getValue().onUrlUpdated(mTab1);
 
         // TabProperties.URL is empty string if TabGroupsAndroidContinuationEnabled is false.
@@ -1522,15 +1420,12 @@ public class TabListMediatorUnitTest {
     }
 
     @Test
-    @Features.EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_UI_IMPROVEMENTS_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_CONTINUATION_ANDROID})
-    public void
-    testUrlUpdated_forSingleTab_GTS() {
+    @Features.EnableFeatures({TAB_GROUPS_CONTINUATION_ANDROID})
+    public void testUrlUpdated_forSingleTab_GTS() {
         setUpForTabGroupOperation(TabListMediatorType.TAB_SWITCHER);
         assertNotEquals(NEW_URL, mModel.get(POSITION1).model.get(TabProperties.URL));
 
-        doReturn(NEW_URL).when(mTab1).getUrl();
+        doReturn(NEW_URL).when(mTab1).getUrlString();
         mTabObserverCaptor.getValue().onUrlUpdated(mTab1);
 
         assertEquals(NEW_URL, mModel.get(POSITION1).model.get(TabProperties.URL));
@@ -1538,11 +1433,8 @@ public class TabListMediatorUnitTest {
     }
 
     @Test
-    @Features.EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_UI_IMPROVEMENTS_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_CONTINUATION_ANDROID})
-    public void
-    testUrlUpdated_forGroup_GTS() {
+    @Features.EnableFeatures({TAB_GROUPS_CONTINUATION_ANDROID})
+    public void testUrlUpdated_forGroup_GTS() {
         setUpForTabGroupOperation(TabListMediatorType.TAB_SWITCHER);
         List<Tab> tabs = new ArrayList<>(Arrays.asList(mTab1, mTab2));
         createTabGroup(tabs, TAB1_ID);
@@ -1558,14 +1450,14 @@ public class TabListMediatorUnitTest {
                 .getDomainAndRegistry(eq(NEW_URL), anyBoolean());
 
         // Update URL for mTab1.
-        doReturn(NEW_URL).when(mTab1).getUrl();
+        doReturn(NEW_URL).when(mTab1).getUrlString();
         mTabObserverCaptor.getValue().onUrlUpdated(mTab1);
 
         assertEquals(NEW_DOMAIN + ", " + TAB2_DOMAIN,
                 mModel.get(POSITION1).model.get(TabProperties.URL));
 
         // Update URL for mTab2.
-        doReturn(NEW_URL).when(mTab2).getUrl();
+        doReturn(NEW_URL).when(mTab2).getUrlString();
         mTabObserverCaptor.getValue().onUrlUpdated(mTab2);
 
         assertEquals(
@@ -1573,11 +1465,8 @@ public class TabListMediatorUnitTest {
     }
 
     @Test
-    @Features.EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_UI_IMPROVEMENTS_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_CONTINUATION_ANDROID})
-    public void
-    testUrlUpdated_forGroup_Dialog() {
+    @Features.EnableFeatures({TAB_GROUPS_CONTINUATION_ANDROID})
+    public void testUrlUpdated_forGroup_Dialog() {
         setUpForTabGroupOperation(TabListMediatorType.TAB_GRID_DIALOG);
         List<Tab> tabs = new ArrayList<>(Arrays.asList(mTab1, mTab2));
         createTabGroup(tabs, TAB1_ID);
@@ -1593,14 +1482,14 @@ public class TabListMediatorUnitTest {
                 .getDomainAndRegistry(eq(NEW_URL), anyBoolean());
 
         // Update URL for mTab1.
-        doReturn(NEW_URL).when(mTab1).getUrl();
+        doReturn(NEW_URL).when(mTab1).getUrlString();
         mTabObserverCaptor.getValue().onUrlUpdated(mTab1);
 
         assertEquals(NEW_URL, mModel.get(POSITION1).model.get(TabProperties.URL));
         assertEquals(TAB2_URL, mModel.get(POSITION2).model.get(TabProperties.URL));
 
         // Update URL for mTab2.
-        doReturn(NEW_URL).when(mTab2).getUrl();
+        doReturn(NEW_URL).when(mTab2).getUrlString();
         mTabObserverCaptor.getValue().onUrlUpdated(mTab2);
 
         assertEquals(NEW_URL, mModel.get(POSITION1).model.get(TabProperties.URL));
@@ -1608,11 +1497,8 @@ public class TabListMediatorUnitTest {
     }
 
     @Test
-    @Features.EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_UI_IMPROVEMENTS_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_CONTINUATION_ANDROID})
-    public void
-    testUrlUpdated_forUnGroup() {
+    @Features.EnableFeatures({TAB_GROUPS_CONTINUATION_ANDROID})
+    public void testUrlUpdated_forUnGroup() {
         setUpForTabGroupOperation(TabListMediatorType.TAB_SWITCHER);
         List<Tab> tabs = new ArrayList<>(Arrays.asList(mTab1, mTab2));
         createTabGroup(tabs, TAB1_ID);
@@ -1634,13 +1520,8 @@ public class TabListMediatorUnitTest {
     }
 
     @Test
-    // clang-format off
-    @Features.EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_UI_IMPROVEMENTS_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_CONTINUATION_ANDROID})
-    // clang-format off
+    @Features.EnableFeatures({TAB_GROUPS_CONTINUATION_ANDROID})
     public void testOnInitializeAccessibilityNodeInfo() {
-        // clang-format on
         setUpForTabGroupOperation(TabListMediatorType.TAB_SWITCHER);
 
         // Setup related mocks and initialize needed components.
@@ -1665,12 +1546,8 @@ public class TabListMediatorUnitTest {
     }
 
     @Test
-    @Features.EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_UI_IMPROVEMENTS_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_CONTINUATION_ANDROID})
-    // clang-format off
+    @Features.EnableFeatures({TAB_GROUPS_CONTINUATION_ANDROID})
     public void testPerformAccessibilityAction() {
-        // clang-format on
         setUpForTabGroupOperation(TabListMediatorType.TAB_SWITCHER);
         assertThat(mModel.get(0).model.get(TabProperties.TAB_ID), equalTo(TAB1_ID));
         assertThat(mModel.get(1).model.get(TabProperties.TAB_ID), equalTo(TAB2_ID));
@@ -1683,6 +1560,7 @@ public class TabListMediatorUnitTest {
         doReturn(new Pair<>(1, 0))
                 .when(mTabGridAccessibilityHelper)
                 .getPositionsOfReorderAction(mItemView1, action);
+        doReturn(true).when(mTabGridAccessibilityHelper).isReorderAction(action);
         assertNull(mMediator.getAccessibilityDelegateForTesting());
         mMediator.setupAccessibilityDelegate(mTabGridAccessibilityHelper);
         View.AccessibilityDelegate delegate = mMediator.getAccessibilityDelegateForTesting();
@@ -1695,12 +1573,30 @@ public class TabListMediatorUnitTest {
     }
 
     @Test
-    @Features.EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_UI_IMPROVEMENTS_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_CONTINUATION_ANDROID})
-    // clang-format off
+    @Features.EnableFeatures({TAB_GROUPS_CONTINUATION_ANDROID})
+    public void testPerformAccessibilityAction_defaultAccessibilityAction() {
+        setUpForTabGroupOperation(TabListMediatorType.TAB_SWITCHER);
+        assertThat(mModel.get(0).model.get(TabProperties.TAB_ID), equalTo(TAB1_ID));
+        assertThat(mModel.get(1).model.get(TabProperties.TAB_ID), equalTo(TAB2_ID));
+
+        // Setup related mocks and initialize needed components.
+        Bundle args = mock(Bundle.class);
+        int action = ACTION_CLICK;
+        // Mock that the action indicates that tab2 will move to position 2 which is invalid.
+        doReturn(false).when(mTabGridAccessibilityHelper).isReorderAction(action);
+        assertNull(mMediator.getAccessibilityDelegateForTesting());
+        mMediator.setupAccessibilityDelegate(mTabGridAccessibilityHelper);
+        View.AccessibilityDelegate delegate = mMediator.getAccessibilityDelegateForTesting();
+        assertNotNull(delegate);
+
+        delegate.performAccessibilityAction(mItemView1, action, args);
+        verify(mTabGridAccessibilityHelper, never())
+                .getPositionsOfReorderAction(mItemView1, action);
+    }
+
+    @Test
+    @Features.EnableFeatures({TAB_GROUPS_CONTINUATION_ANDROID})
     public void testPerformAccessibilityAction_InvalidIndex() {
-        // clang-format on
         setUpForTabGroupOperation(TabListMediatorType.TAB_SWITCHER);
         assertThat(mModel.get(0).model.get(TabProperties.TAB_ID), equalTo(TAB1_ID));
         assertThat(mModel.get(1).model.get(TabProperties.TAB_ID), equalTo(TAB2_ID));
@@ -1724,13 +1620,7 @@ public class TabListMediatorUnitTest {
     }
 
     @Test
-    // clang-format off
-    @Features.EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_UI_IMPROVEMENTS_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_CONTINUATION_ANDROID})
-    public void
-    testTabObserverRemovedFromClosedTab() {
-        // clang-format on
+    public void testTabObserverRemovedFromClosedTab() {
         initAndAssertAllProperties();
         mMediator.setActionOnAllRelatedTabsForTesting(true);
 
@@ -1742,12 +1632,7 @@ public class TabListMediatorUnitTest {
     }
 
     @Test
-    // clang-format off
-    @Features.EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_UI_IMPROVEMENTS_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_CONTINUATION_ANDROID})
     public void testTabObserverReattachToUndoClosedTab() {
-        // clang-format on
         initAndAssertAllProperties();
         mMediator.setActionOnAllRelatedTabsForTesting(true);
 
@@ -1834,10 +1719,7 @@ public class TabListMediatorUnitTest {
     }
 
     @Test
-    @Features.EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_UI_IMPROVEMENTS_ANDROID})
-    public void
-    testSearchTermProperty_TabGroups_TabSwitcher() {
+    public void testSearchTermProperty_TabGroups_TabSwitcher() {
         setUpForTabGroupOperation(TabListMediatorType.TAB_SWITCHER);
         String searchTerm1 = "hello world";
         TabAttributeCache.setLastSearchTermForTesting(TAB1_ID, searchTerm1);
@@ -1853,10 +1735,7 @@ public class TabListMediatorUnitTest {
     }
 
     @Test
-    @Features.EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_UI_IMPROVEMENTS_ANDROID})
-    public void
-    testSearchTermProperty_TabGroups_Dialog() {
+    public void testSearchTermProperty_TabGroups_Dialog() {
         setUpForTabGroupOperation(TabListMediatorType.TAB_GRID_DIALOG);
         createTabGroup(new ArrayList<>(Arrays.asList(mTab1, mTab2)), TAB1_ID);
         String searchTerm1 = "hello world";
@@ -1868,10 +1747,7 @@ public class TabListMediatorUnitTest {
     }
 
     @Test
-    @Features.EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_UI_IMPROVEMENTS_ANDROID})
-    public void
-    testSearchTermProperty_TabGroups_Strip() {
+    public void testSearchTermProperty_TabGroups_Strip() {
         setUpForTabGroupOperation(TabListMediatorType.TAB_STRIP);
         createTabGroup(new ArrayList<>(Arrays.asList(mTab1, mTab2)), TAB1_ID);
         String searchTerm1 = "hello world";
@@ -2034,14 +1910,14 @@ public class TabListMediatorUnitTest {
     public void testSearchChipAdaptiveIcon_Disabled() {
         // Mock that google is the default search engine, and the search chip adaptive icon field
         // is set as false.
-        TabListMediator.SearchTermChipUtils.setIsSearchChipAdaptiveIconEnabledForTesting(false);
         doReturn(true).when(mTemplateUrlService).isDefaultSearchEngineGoogle();
 
         // Re-initialize the mediator to setup TemplateUrlServiceObserver if needed.
         mMediator = new TabListMediator(mContext, mModel, mTabModelSelector,
                 mTabContentManager::getTabThumbnailWithCallback, mTitleProvider,
-                mTabListFaviconProvider, true, null, null, null, null, getClass().getSimpleName(),
+                mTabListFaviconProvider, true, null, null, null, getClass().getSimpleName(),
                 TabProperties.UiType.CLOSABLE);
+        mMediator.initWithNative(mProfile);
 
         initAndAssertAllProperties();
 
@@ -2057,14 +1933,15 @@ public class TabListMediatorUnitTest {
     public void testSearchChipAdaptiveIcon_ChangeWithSetting() {
         // Mock that google is the default search engine, and the search chip adaptive icon is
         // turned on.
-        TabListMediator.SearchTermChipUtils.setIsSearchChipAdaptiveIconEnabledForTesting(true);
+        TabUiFeatureUtilities.ENABLE_SEARCH_CHIP_ADAPTIVE.setForTesting(true);
         doReturn(true).when(mTemplateUrlService).isDefaultSearchEngineGoogle();
 
         // Re-initialize the mediator to setup TemplateUrlServiceObserver if needed.
         mMediator = new TabListMediator(mContext, mModel, mTabModelSelector,
                 mTabContentManager::getTabThumbnailWithCallback, mTitleProvider,
-                mTabListFaviconProvider, true, null, null, null, null, getClass().getSimpleName(),
+                mTabListFaviconProvider, true, null, null, null, getClass().getSimpleName(),
                 TabProperties.UiType.CLOSABLE);
+        mMediator.initWithNative(mProfile);
 
         initAndAssertAllProperties();
 
@@ -2141,7 +2018,7 @@ public class TabListMediatorUnitTest {
         when(tab.getUserDataHost()).thenReturn(new UserDataHost());
         doReturn(id).when(tab).getId();
         doReturn(id).when(tab).getRootId();
-        doReturn(url).when(tab).getUrl();
+        doReturn(url).when(tab).getUrlString();
         doReturn(title).when(tab).getTitle();
         doReturn(true).when(tab).isIncognito();
         doReturn(title).when(mTitleProvider).getTitle(tab);
@@ -2151,11 +2028,10 @@ public class TabListMediatorUnitTest {
     private SimpleRecyclerViewAdapter.ViewHolder prepareViewHolder(int id, int position) {
         SimpleRecyclerViewAdapter.ViewHolder viewHolder =
                 mock(SimpleRecyclerViewAdapter.ViewHolder.class);
-        PropertyModel model = new PropertyModel.Builder(TabProperties.ALL_KEYS_TAB_GRID)
-                                      .with(TabProperties.TAB_ID, id)
-                                      .with(CARD_TYPE, TAB)
-                                      .build();
-        viewHolder.model = model;
+        viewHolder.model = new PropertyModel.Builder(TabProperties.ALL_KEYS_TAB_GRID)
+                                   .with(TabProperties.TAB_ID, id)
+                                   .with(CARD_TYPE, TAB)
+                                   .build();
         doReturn(position).when(viewHolder).getAdapterPosition();
         return viewHolder;
     }
@@ -2187,18 +2063,19 @@ public class TabListMediatorUnitTest {
         boolean actionOnRelatedTabs = type == TabListMediatorType.TAB_SWITCHER;
         int uiType = 0;
         if (type == TabListMediatorType.TAB_SWITCHER
-            || type == TabListMediatorType.TAB_GRID_DIALOG) {
+                || type == TabListMediatorType.TAB_GRID_DIALOG) {
             uiType = TabProperties.UiType.CLOSABLE;
         } else if (type == TabListMediatorType.TAB_STRIP) {
             uiType = TabProperties.UiType.STRIP;
         }
-        FeatureUtilities.setTabGroupsAndroidEnabledForTesting(true);
+        // TODO(crbug.com/1058196): avoid re-instanciate TabListMediator by using annotation.
+        CachedFeatureFlags.setForTesting(TAB_GROUPS_ANDROID, true);
 
-        TabListMediator.SearchTermChipUtils.setIsSearchChipAdaptiveIconEnabledForTesting(false);
         mMediator = new TabListMediator(mContext, mModel, mTabModelSelector,
                 mTabContentManager::getTabThumbnailWithCallback, mTitleProvider,
-                mTabListFaviconProvider, actionOnRelatedTabs, null, null, null, handler,
+                mTabListFaviconProvider, actionOnRelatedTabs, null, null, handler,
                 getClass().getSimpleName(), uiType);
+        mMediator.initWithNative(mProfile);
 
         // There are two TabModelObserver and two TabGroupModelFilter.Observer added when
         // initializing TabListMediator, one set from TabListMediator and the other from

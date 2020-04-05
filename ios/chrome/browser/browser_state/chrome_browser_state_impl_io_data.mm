@@ -14,6 +14,7 @@
 #include "base/logging.h"
 #include "base/sequenced_task_runner.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "components/cookie_config/cookie_store_util.h"
 #include "components/net_log/chrome_net_log.h"
 #include "components/prefs/json_pref_store.h"
@@ -38,7 +39,6 @@
 #include "net/http/http_cache.h"
 #include "net/http/http_network_session.h"
 #include "net/http/http_server_properties.h"
-#include "net/url_request/url_request_intercepting_job_factory.h"
 #include "net/url_request/url_request_job_factory_impl.h"
 
 #if !defined(__has_feature) || !__has_feature(objc_arc)
@@ -162,9 +162,8 @@ void ChromeBrowserStateImplIOData::InitializeInternal(
       profile_path_.Append(kIOSChromeNetworkPersistentStateFilename));
   network_json_store_ = new JsonPrefStore(
       network_json_store_filepath, std::unique_ptr<PrefFilter>(),
-      base::CreateSequencedTaskRunner(
-          {base::ThreadPool(), base::MayBlock(),
-           base::TaskPriority::BEST_EFFORT,
+      base::ThreadPool::CreateSequencedTaskRunner(
+          {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
            base::TaskShutdownBehavior::BLOCK_SHUTDOWN}));
   network_json_store_->ReadPrefsAsync(nullptr);
 

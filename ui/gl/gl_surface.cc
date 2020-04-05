@@ -180,8 +180,8 @@ bool GLSurface::IsSurfaceless() const {
   return false;
 }
 
-bool GLSurface::FlipsVertically() const {
-  return false;
+gfx::SurfaceOrigin GLSurface::GetOrigin() const {
+  return gfx::SurfaceOrigin::kBottomLeft;
 }
 
 bool GLSurface::BuffersFlipped() const {
@@ -189,10 +189,6 @@ bool GLSurface::BuffersFlipped() const {
 }
 
 bool GLSurface::SupportsDCLayers() const {
-  return false;
-}
-
-bool GLSurface::UseOverlaysForVideo() const {
   return false;
 }
 
@@ -452,8 +448,8 @@ bool GLSurfaceAdapter::IsSurfaceless() const {
   return surface_->IsSurfaceless();
 }
 
-bool GLSurfaceAdapter::FlipsVertically() const {
-  return surface_->FlipsVertically();
+gfx::SurfaceOrigin GLSurfaceAdapter::GetOrigin() const {
+  return surface_->GetOrigin();
 }
 
 bool GLSurfaceAdapter::BuffersFlipped() const {
@@ -462,10 +458,6 @@ bool GLSurfaceAdapter::BuffersFlipped() const {
 
 bool GLSurfaceAdapter::SupportsDCLayers() const {
   return surface_->SupportsDCLayers();
-}
-
-bool GLSurfaceAdapter::UseOverlaysForVideo() const {
-  return surface_->UseOverlaysForVideo();
 }
 
 bool GLSurfaceAdapter::SupportsProtectedVideo() const {

@@ -15,13 +15,13 @@ class CORE_EXPORT NGMathSpaceLayoutAlgorithm
                                NGBoxFragmentBuilder,
                                NGBlockBreakToken> {
  public:
-  NGMathSpaceLayoutAlgorithm(const NGLayoutAlgorithmParams& params);
+  explicit NGMathSpaceLayoutAlgorithm(const NGLayoutAlgorithmParams& params);
 
  private:
   scoped_refptr<const NGLayoutResult> Layout() final;
 
-  base::Optional<MinMaxSize> ComputeMinMaxSize(
-      const MinMaxSizeInput&) const final;
+  base::Optional<MinMaxSizes> ComputeMinMaxSizes(
+      const MinMaxSizesInput&) const final;
 
   const NGBoxStrut border_padding_;
 };

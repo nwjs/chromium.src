@@ -25,7 +25,9 @@ bool IsExtraHeadersMatcherInternal(
 
   // We only support removing a subset of extra headers currently. If that
   // changes, the implementation here should change as well.
-  static_assert(flat::ActionType_count == 6,
+  // TODO(crbug.com/947591): Modify this method for
+  // flat::ActionType_modify_headers.
+  static_assert(flat::ActionType_count == 7,
                 "Modify this method to ensure IsExtraHeadersMatcherInternal is "
                 "updated as new actions are added.");
 
@@ -64,6 +66,7 @@ bool IsBeforeRequestAction(flat::ActionType action_type) {
     case flat::ActionType_allow_all_requests:
       return true;
     case flat::ActionType_remove_headers:
+    case flat::ActionType_modify_headers:
       return false;
     case flat::ActionType_count:
       NOTREACHED();
@@ -185,6 +188,7 @@ RegexRulesMatcher::GetBeforeRequestActionIgnoringAncestors(
     case flat::ActionType_allow_all_requests:
       return CreateAllowAllRequestsAction(params, rule);
     case flat::ActionType_remove_headers:
+    case flat::ActionType_modify_headers:
     case flat::ActionType_count:
       NOTREACHED();
       break;
@@ -194,7 +198,7 @@ RegexRulesMatcher::GetBeforeRequestActionIgnoringAncestors(
 }
 
 void RegexRulesMatcher::InitializeMatcher() {
-  if (regex_list_->Length() == 0)
+  if (IsEmpty())
     return;
 
   for (const auto* regex_rule : *regex_list_) {
@@ -218,6 +222,7 @@ void RegexRulesMatcher::InitializeMatcher() {
     // regular expression while indexing the ruleset. That said, there are cases
     // possible where this may happen, for example, the library's implementation
     // may change etc.
+    // TODO(crbug.com/1050780): Notify the extension about the same.
     if (error_code != re2::RE2::NoError)
       continue;
 
@@ -240,19 +245,20 @@ void RegexRulesMatcher::InitializeMatcher() {
                        });
                      }));
 
-  // Convert |strings_to_match| to |filtered_re2_strings_to_match_| which stores
-  // a vector of url_matcher::StringPattern(s). This is necessary to use
+  // Convert |strings_to_match| to StringPatterns. This is necessary to use
   // url_matcher::SubstringSetMatcher.
-  for (size_t i = 0; i < strings_to_match.size(); ++i) {
-    filtered_re2_strings_to_match_.emplace_back(std::move(strings_to_match[i]),
-                                                i);
-  }
+  std::vector<url_matcher::StringPattern> patterns;
+  patterns.reserve(strings_to_match.size());
 
-  std::vector<const url_matcher::StringPattern*> patterns;
-  for (const auto& pattern : filtered_re2_strings_to_match_)
-    patterns.push_back(&pattern);
+  for (size_t i = 0; i < strings_to_match.size(); ++i)
+    patterns.emplace_back(std::move(strings_to_match[i]), i);
 
-  substring_matcher_.RegisterPatterns(patterns);
+  substring_matcher_ =
+      std::make_unique<url_matcher::SubstringSetMatcher>(patterns);
+}
+
+bool RegexRulesMatcher::IsEmpty() const {
+  return regex_list_->Length() == 0;
 }
 
 const std::vector<RegexRuleInfo>& RegexRulesMatcher::GetPotentialMatches(
@@ -261,16 +267,24 @@ const std::vector<RegexRuleInfo>& RegexRulesMatcher::GetPotentialMatches(
   if (iter != params.potential_regex_matches.end())
     return iter->second;
 
+  // Early out if this is an empty matcher.
+  if (IsEmpty()) {
+    auto result = params.potential_regex_matches.insert(
+        std::make_pair(this, std::vector<RegexRuleInfo>()));
+    return result.first->second;
+  }
+
   // Compute the potential matches. FilteredRE2 requires the text to be lower
   // cased first.
   if (!params.lower_cased_url_spec)
     params.lower_cased_url_spec = base::ToLowerASCII(params.url->spec());
 
   // To pre-filter the set of regexes to match against |params|, we first need
-  // to compute the set of candidate strings in |filtered_re2_strings_to_match_|
+  // to compute the set of candidate strings tracked by |substring_matcher_|
   // within |params.lower_cased_url_spec|.
   std::set<int> candidate_ids_set;
-  substring_matcher_.Match(*params.lower_cased_url_spec, &candidate_ids_set);
+  DCHECK(substring_matcher_);
+  substring_matcher_->Match(*params.lower_cased_url_spec, &candidate_ids_set);
   std::vector<int> candidate_ids_list(candidate_ids_set.begin(),
                                       candidate_ids_set.end());
 

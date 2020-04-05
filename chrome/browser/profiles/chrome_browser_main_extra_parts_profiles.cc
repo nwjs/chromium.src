@@ -35,9 +35,9 @@
 #include "chrome/browser/history/domain_diversity_reporter_factory.h"
 #include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/history/top_sites_factory.h"
-#include "chrome/browser/invalidation/deprecated_profile_invalidation_provider_factory.h"
 #include "chrome/browser/language/language_model_manager_factory.h"
 #include "chrome/browser/language/url_language_histogram_factory.h"
+#include "chrome/browser/media/feeds/media_feeds_service_factory.h"
 #include "chrome/browser/media/history/media_history_keyed_service_factory.h"
 #include "chrome/browser/media/media_engagement_service.h"
 #include "chrome/browser/media/media_engagement_service_factory.h"
@@ -267,7 +267,6 @@ void ChromeBrowserMainExtraPartsProfiles::
   HostContentSettingsMapFactory::GetInstance();
   IdentityManagerFactory::EnsureFactoryAndDependeeFactoriesBuilt();
   InMemoryURLIndexFactory::GetInstance();
-  invalidation::DeprecatedProfileInvalidationProviderFactory::GetInstance();
 #if !defined(OS_ANDROID)
   InstantServiceFactory::GetInstance();
 #endif
@@ -294,6 +293,7 @@ void ChromeBrowserMainExtraPartsProfiles::
 #if !defined(OS_ANDROID)
   MediaGalleriesPreferencesFactory::GetInstance();
 #endif
+  media_feeds::MediaFeedsServiceFactory::GetInstance();
   if (base::FeatureList::IsEnabled(media::kUseMediaHistoryStore))
     media_history::MediaHistoryKeyedServiceFactory::GetInstance();
 #if defined(OS_WIN) || defined(OS_MACOSX) || \
@@ -322,7 +322,6 @@ void ChromeBrowserMainExtraPartsProfiles::
   predictors::LoadingPredictorFactory::GetInstance();
   prerender::PrerenderLinkManagerFactory::GetInstance();
   prerender::PrerenderManagerFactory::GetInstance();
-  prerender::PrerenderMessageFilter::EnsureShutdownNotifierFactoryBuilt();
   ProfileSyncServiceFactory::GetInstance();
   ProtocolHandlerRegistryFactory::GetInstance();
 #if !defined(OS_ANDROID)
@@ -355,6 +354,7 @@ void ChromeBrowserMainExtraPartsProfiles::
   TabRestoreServiceFactory::GetInstance();
   TemplateURLFetcherFactory::GetInstance();
   TemplateURLServiceFactory::GetInstance();
+  TopSitesFactory::GetInstance();
   //translate::TranslateRankerFactory::GetInstance();
 #if defined(OS_WIN)
   TriggeredProfileResetterFactory::GetInstance();

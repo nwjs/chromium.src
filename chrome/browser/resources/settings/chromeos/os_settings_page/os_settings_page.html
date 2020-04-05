@@ -159,11 +159,12 @@
         <template is="dom-if" if="[[!isGuestMode_]]" restamp>
           <settings-section page-title="$i18n{personalizationPageTitle}"
               section="personalization">
-            <settings-personalization-page></settings-personalization-page>
+            <settings-personalization-page prefs="{{prefs}}">
+            </settings-personalization-page>
           </settings-section>
         </template>
         <settings-section page-title="$i18n{osSearchPageTitle}"
-            section="search">
+            section="osSearch">
           <os-settings-search-page prefs="{{prefs}}">
           </os-settings-search-page>
         </settings-section>
@@ -249,7 +250,7 @@
           </settings-section>
           <template is="dom-if" if="[[showReset]]">
             <settings-section page-title="$i18n{resetPageTitle}"
-                section="reset">
+                section="osReset">
               <os-settings-reset-page></os-settings-reset-page>
             </settings-section>
           </template>

@@ -53,6 +53,7 @@ class GL_EXPORT DirectCompositionSurfaceWin : public GLSurfaceEGL,
   // Returns true if hardware video overlays are supported and should be used.
   // Overridden with --enable-direct-composition-video-overlays and
   // --disable-direct-composition-video-overlays.
+  // This function is thread safe.
   static bool AreOverlaysSupported();
 
   // Returns true if zero copy decode swap chain is supported.
@@ -111,11 +112,10 @@ class GL_EXPORT DirectCompositionSurfaceWin : public GLSurfaceEGL,
   gfx::VSyncProvider* GetVSyncProvider() override;
   void SetVSyncEnabled(bool enabled) override;
   bool SetEnableDCLayers(bool enable) override;
-  bool FlipsVertically() const override;
+  gfx::SurfaceOrigin GetOrigin() const override;
   bool SupportsPostSubBuffer() override;
   bool OnMakeCurrent(GLContext* context) override;
   bool SupportsDCLayers() const override;
-  bool UseOverlaysForVideo() const override;
   bool SupportsProtectedVideo() const override;
   bool SetDrawRectangle(const gfx::Rect& rect) override;
   gfx::Vector2d GetDrawOffset() const override;

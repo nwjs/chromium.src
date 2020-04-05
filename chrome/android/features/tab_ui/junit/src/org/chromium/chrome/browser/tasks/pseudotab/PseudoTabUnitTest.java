@@ -20,7 +20,7 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
-import org.chromium.chrome.browser.flags.FeatureUtilities;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabImpl;
 import org.chromium.chrome.browser.tabmodel.TabList;
@@ -35,6 +35,7 @@ import java.util.List;
 /**
  * Unit tests for {@link PseudoTab}.
  */
+@SuppressWarnings({"ResultOfMethodCallIgnored", "deprecation"})
 @RunWith(BaseRobolectricTestRunner.class)
 public class PseudoTabUnitTest {
     @Rule
@@ -132,8 +133,7 @@ public class PseudoTabUnitTest {
 
     @Test
     public void getListOfPseudoTab_listOfTab_null() {
-        List<Tab> tabs = null;
-        List<PseudoTab> list = PseudoTab.getListOfPseudoTab(tabs);
+        List<PseudoTab> list = PseudoTab.getListOfPseudoTab((List<Tab>) null);
         Assert.assertNull(list);
     }
 
@@ -153,8 +153,7 @@ public class PseudoTabUnitTest {
 
     @Test
     public void getListOfPseudoTab_TabList_null() {
-        TabList tabs = null;
-        List<PseudoTab> list = PseudoTab.getListOfPseudoTab(tabs);
+        List<PseudoTab> list = PseudoTab.getListOfPseudoTab((TabList) null);
         Assert.assertNull(list);
     }
 
@@ -178,10 +177,8 @@ public class PseudoTabUnitTest {
 
     @Test
     public void getTitle_nullProvider() {
-        PseudoTab.TitleProvider provider = null;
-
         PseudoTab tab = PseudoTab.fromTabId(TAB1_ID);
-        Assert.assertEquals(tab.getTitle(), tab.getTitle(provider));
+        Assert.assertEquals(tab.getTitle(), tab.getTitle(null));
     }
 
     @Test
@@ -213,7 +210,7 @@ public class PseudoTabUnitTest {
     @Test
     public void getUrl_real() {
         String url = "url 1 real";
-        doReturn(url).when(mTab1).getUrl();
+        doReturn(url).when(mTab1).getUrlString();
 
         PseudoTab tab = PseudoTab.fromTabId(TAB1_ID);
         Assert.assertEquals("", tab.getUrl());
@@ -293,9 +290,9 @@ public class PseudoTabUnitTest {
     }
 
     @Test
+    @Features.DisableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID})
     public void getRelatedTabs_noProvider_groupDisabled_single() {
         doReturn(null).when(mTabModelFilterProvider).getTabModelFilter(anyBoolean());
-        FeatureUtilities.setTabGroupsAndroidEnabledForTesting(false);
 
         PseudoTab tab1 = PseudoTab.fromTabId(TAB1_ID);
         List<PseudoTab> related = PseudoTab.getRelatedTabs(tab1, mTabModelFilterProvider);
@@ -304,9 +301,9 @@ public class PseudoTabUnitTest {
     }
 
     @Test
+    @Features.DisableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID})
     public void getRelatedTabs_noProvider_groupDisabled_group() {
         doReturn(null).when(mTabModelFilterProvider).getTabModelFilter(anyBoolean());
-        FeatureUtilities.setTabGroupsAndroidEnabledForTesting(false);
 
         TabAttributeCache.setRootIdForTesting(TAB1_ID, TAB1_ID);
         TabAttributeCache.setRootIdForTesting(TAB2_ID, TAB1_ID);
@@ -321,9 +318,9 @@ public class PseudoTabUnitTest {
     }
 
     @Test
+    @Features.EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID})
     public void getRelatedTabs_noProvider_single() {
         doReturn(null).when(mTabModelFilterProvider).getTabModelFilter(anyBoolean());
-        FeatureUtilities.setTabGroupsAndroidEnabledForTesting(true);
 
         PseudoTab tab1 = PseudoTab.fromTabId(TAB1_ID);
         List<PseudoTab> related = PseudoTab.getRelatedTabs(tab1, mTabModelFilterProvider);
@@ -332,14 +329,14 @@ public class PseudoTabUnitTest {
     }
 
     @Test
+    @Features.EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID})
     public void getRelatedTabs_noProvider_group() {
         doReturn(null).when(mTabModelFilterProvider).getTabModelFilter(anyBoolean());
-        FeatureUtilities.setTabGroupsAndroidEnabledForTesting(true);
 
         TabAttributeCache.setRootIdForTesting(TAB1_ID, TAB1_ID);
         TabAttributeCache.setRootIdForTesting(TAB2_ID, TAB1_ID);
         PseudoTab tab1 = PseudoTab.fromTabId(TAB1_ID);
-        PseudoTab tab2 = PseudoTab.fromTabId(TAB2_ID);
+        PseudoTab.fromTabId(TAB2_ID);
 
         List<PseudoTab> related = PseudoTab.getRelatedTabs(tab1, mTabModelFilterProvider);
         Assert.assertEquals(2, related.size());
@@ -348,16 +345,16 @@ public class PseudoTabUnitTest {
     }
 
     @Test
+    @Features.EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID})
     public void getRelatedTabs_noProvider_badGroup() {
         doReturn(null).when(mTabModelFilterProvider).getTabModelFilter(anyBoolean());
-        FeatureUtilities.setTabGroupsAndroidEnabledForTesting(true);
 
         TabAttributeCache.setRootIdForTesting(TAB1_ID, TAB1_ID);
         TabAttributeCache.setRootIdForTesting(TAB2_ID, Tab.INVALID_TAB_ID);
         TabAttributeCache.setRootIdForTesting(TAB3_ID, TAB3_ID);
         PseudoTab tab1 = PseudoTab.fromTabId(TAB1_ID);
-        PseudoTab tab2 = PseudoTab.fromTabId(TAB2_ID);
-        PseudoTab tab3 = PseudoTab.fromTabId(TAB3_ID);
+        PseudoTab.fromTabId(TAB2_ID);
+        PseudoTab.fromTabId(TAB3_ID);
 
         List<PseudoTab> related = PseudoTab.getRelatedTabs(tab1, mTabModelFilterProvider);
         Assert.assertEquals(1, related.size());

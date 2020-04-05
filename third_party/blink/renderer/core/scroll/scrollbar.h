@@ -99,7 +99,7 @@ class CORE_EXPORT Scrollbar : public GarbageCollected<Scrollbar>,
   ScrollbarPart HoveredPart() const { return hovered_part_; }
 
   virtual void StyleChanged() {}
-  void SetScrollbarsHiddenIfOverlay(bool);
+  void SetScrollbarsHiddenFromExternalAnimator(bool);
   bool Enabled() const { return enabled_; }
   virtual void SetEnabled(bool);
 
@@ -111,7 +111,7 @@ class CORE_EXPORT Scrollbar : public GarbageCollected<Scrollbar>,
 
   // Called by the ScrollableArea when the scroll offset changes.
   // Will trigger paint invalidation if required.
-  void OffsetDidChange(mojom::blink::ScrollIntoViewParams::Type scroll_type);
+  void OffsetDidChange(mojom::blink::ScrollType scroll_type);
 
   virtual void DisconnectFromScrollableArea();
   ScrollableArea* GetScrollableArea() const { return scrollable_area_; }
@@ -204,7 +204,7 @@ class CORE_EXPORT Scrollbar : public GarbageCollected<Scrollbar>,
 
   WebColorScheme UsedColorScheme() const;
 
-  virtual void Trace(blink::Visitor*);
+  virtual void Trace(Visitor*);
 
  protected:
   void AutoscrollTimerFired(TimerBase*);

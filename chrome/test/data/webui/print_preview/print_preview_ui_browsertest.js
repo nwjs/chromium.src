@@ -89,6 +89,14 @@ TEST_F(
                             .SettingsSectionsVisibilityChange);
     });
 
+TEST_F('PrintPreviewSidebarTest', 'SheetCountWithDuplex', function() {
+  this.runMochaTest(print_preview_sidebar_test.TestNames.SheetCountWithDuplex);
+});
+
+TEST_F('PrintPreviewSidebarTest', 'SheetCountWithCopies', function() {
+  this.runMochaTest(print_preview_sidebar_test.TestNames.SheetCountWithCopies);
+});
+
 // eslint-disable-next-line no-var
 var PrintPreviewPagesSettingsTest = class extends PrintPreviewTest {
   /** @override */
@@ -185,6 +193,12 @@ TEST_F(
     'PrintPreviewNumberSettingsSectionTest', 'BlocksInvalidKeys', function() {
       this.runMochaTest(
           number_settings_section_test.TestNames.BlocksInvalidKeys);
+    });
+
+TEST_F(
+    'PrintPreviewNumberSettingsSectionTest', 'UpdatesErrorMessage', function() {
+      this.runMochaTest(
+          number_settings_section_test.TestNames.UpdatesErrorMessage);
     });
 
 // eslint-disable-next-line no-var
@@ -803,14 +817,6 @@ var PrintPreviewHeaderTest = class extends PrintPreviewTest {
 
 TEST_F('PrintPreviewHeaderTest', 'HeaderPrinterTypes', function() {
   this.runMochaTest(header_test.TestNames.HeaderPrinterTypes);
-});
-
-TEST_F('PrintPreviewHeaderTest', 'HeaderWithDuplex', function() {
-  this.runMochaTest(header_test.TestNames.HeaderWithDuplex);
-});
-
-TEST_F('PrintPreviewHeaderTest', 'HeaderWithCopies', function() {
-  this.runMochaTest(header_test.TestNames.HeaderWithCopies);
 });
 
 TEST_F('PrintPreviewHeaderTest', 'HeaderChangesForState', function() {

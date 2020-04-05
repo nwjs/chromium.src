@@ -84,7 +84,7 @@ class SkiaReadbackPixelTest : public cc::PixelTest,
   bool ScaleByHalf() const { return GetParam(); }
 
   void SetUp() override {
-    SetUpSkiaRenderer(false);
+    SetUpSkiaRenderer(gfx::SurfaceOrigin::kBottomLeft);
 
     ASSERT_TRUE(cc::ReadPNGFile(
         GetTestFilePath(FILE_PATH_LITERAL("16_color_rects.png")),
@@ -197,7 +197,8 @@ TEST_P(SkiaReadbackPixelTest, ExecutesCopyRequest) {
   pass_list.push_back(std::move(pass));
 
   renderer_->DecideRenderPassAllocationsForFrame(pass_list);
-  renderer_->DrawFrame(&pass_list, 1.0f, kSourceSize);
+  renderer_->DrawFrame(&pass_list, 1.0f, kSourceSize,
+                       gfx::DisplayColorSpaces());
 
   loop.Run();
 

@@ -9,6 +9,7 @@
 #include "android_webview/browser/gfx/parent_output_surface.h"
 #include "android_webview/browser/gfx/task_forwarding_sequence.h"
 #include "android_webview/browser/gfx/task_queue_web_view.h"
+#include "base/callback_helpers.h"
 
 namespace android_webview {
 
@@ -31,14 +32,6 @@ std::unique_ptr<gpu::SingleTaskSequence>
 SkiaOutputSurfaceDependencyWebView::CreateSequence() {
   return std::make_unique<TaskForwardingSequence>(
       this->task_queue_, this->gpu_service_->sync_point_manager());
-}
-
-bool SkiaOutputSurfaceDependencyWebView::IsUsingVulkan() {
-  return shared_context_state_ && shared_context_state_->GrContextIsVulkan();
-}
-
-bool SkiaOutputSurfaceDependencyWebView::IsUsingDawn() {
-  return false;
 }
 
 gpu::SharedImageManager*
@@ -77,7 +70,7 @@ SkiaOutputSurfaceDependencyWebView::GetDawnContextProvider() {
 }
 
 const gpu::GpuPreferences&
-SkiaOutputSurfaceDependencyWebView::GetGpuPreferences() {
+SkiaOutputSurfaceDependencyWebView::GetGpuPreferences() const {
   return gpu_service_->gpu_preferences();
 }
 
@@ -135,7 +128,6 @@ void SkiaOutputSurfaceDependencyWebView::UnregisterDisplayContext(
 }
 
 void SkiaOutputSurfaceDependencyWebView::DidLoseContext(
-    bool offscreen,
     gpu::error::ContextLostReason reason,
     const GURL& active_url) {
   // No GpuChannelManagerDelegate here, so leave it no-op for now.

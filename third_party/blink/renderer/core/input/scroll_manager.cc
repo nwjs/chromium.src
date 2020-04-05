@@ -78,7 +78,7 @@ void ScrollManager::Clear() {
   ClearGestureScrollState();
 }
 
-void ScrollManager::Trace(blink::Visitor* visitor) {
+void ScrollManager::Trace(Visitor* visitor) {
   visitor->Trace(frame_);
   visitor->Trace(scroll_gesture_handling_node_);
   visitor->Trace(previous_gesture_scrolled_node_);
@@ -205,7 +205,7 @@ bool ScrollManager::CanScroll(const ScrollState& scroll_state,
   // so ensure it gets added to the scroll chain. See LTHI::ApplyScroll for the
   // equivalent behavior in CC. Node::NativeApplyScroll contains a special
   // handler for this case.
-  if (current_node.GetLayoutBox()->IsLayoutView() &&
+  if (IsA<LayoutView>(current_node.GetLayoutBox()) &&
       current_node.GetDocument().GetFrame()->IsMainFrame()) {
     return true;
   }
@@ -256,7 +256,7 @@ bool ScrollManager::LogicalScroll(mojom::blink::ScrollDirection direction,
 
   Document& document = node->GetDocument();
 
-  document.UpdateStyleAndLayout();
+  document.UpdateStyleAndLayout(DocumentUpdateReason::kScroll);
 
   Deque<DOMNodeId> scroll_chain;
   std::unique_ptr<ScrollStateData> scroll_state_data =
@@ -279,15 +279,20 @@ bool ScrollManager::LogicalScroll(mojom::blink::ScrollDirection direction,
     ScrollableArea* scrollable_area = ScrollableArea::GetForScrolling(box);
     DCHECK(scrollable_area);
 
-    ScrollOffset delta = ToScrollDelta(physical_direction, 1);
+    ScrollOffset delta =
+        ToScrollDelta(physical_direction,
+                      ScrollableArea::DirectionBasedScrollDelta(granularity));
     delta.Scale(scrollable_area->ScrollStep(granularity, kHorizontalScrollbar),
                 scrollable_area->ScrollStep(granularity, kVerticalScrollbar));
     // Pressing the arrow key is considered as a scroll with intended direction
-    // only. Pressing the PgUp/PgDn key is considered as a scroll with intended
-    // direction and end position. Pressing the Home/End key is considered as a
-    // scroll with intended end position only.
+    // only (this results in kScrollByLine or kScrollByPercentage, depending on
+    // REF::PercentBasedScrollingEnabled). Pressing the PgUp/PgDn key is
+    // considered as a scroll with intended direction and end position. Pressing
+    // the Home/End key is considered as a scroll with intended end position
+    // only.
     switch (granularity) {
-      case ScrollGranularity::kScrollByLine: {
+      case ScrollGranularity::kScrollByLine:
+      case ScrollGranularity::kScrollByPercentage: {
         if (scrollable_area->SnapForDirection(delta))
           return true;
         break;
@@ -312,18 +317,17 @@ bool ScrollManager::LogicalScroll(mojom::blink::ScrollDirection direction,
         NOTREACHED();
     }
 
-    ScrollableArea::ScrollCallback callback;
-    if (RuntimeEnabledFeatures::UpdateHoverAtBeginFrameEnabled() ||
-        RuntimeEnabledFeatures::OverscrollCustomizationEnabled()) {
-      callback = ScrollableArea::ScrollCallback(WTF::Bind(
-          [](WeakPersistent<ScrollableArea> area) {
-            if (area)
-              area->OnScrollFinished();
-          },
-          WrapWeakPersistent(scrollable_area)));
-    }
+    ScrollableArea::ScrollCallback callback(WTF::Bind(
+        [](WeakPersistent<ScrollableArea> area) {
+          if (area)
+            area->OnScrollFinished();
+        },
+        WrapWeakPersistent(scrollable_area)));
     ScrollResult result = scrollable_area->UserScroll(
-        granularity, ToScrollDelta(physical_direction, 1), std::move(callback));
+        granularity,
+        ToScrollDelta(physical_direction,
+                      ScrollableArea::DirectionBasedScrollDelta(granularity)),
+        std::move(callback));
 
     if (result.DidScroll())
       return true;
@@ -341,7 +345,7 @@ bool ScrollManager::BubblingScroll(mojom::blink::ScrollDirection direction,
   // The layout needs to be up to date to determine if we can scroll. We may be
   // here because of an onLoad event, in which case the final layout hasn't been
   // performed yet.
-  frame_->GetDocument()->UpdateStyleAndLayout();
+  frame_->GetDocument()->UpdateStyleAndLayout(DocumentUpdateReason::kScroll);
   // FIXME: enable scroll customization in this case. See crbug.com/410974.
   if (LogicalScroll(direction, granularity, starting_node, mouse_press_node))
     return true;
@@ -359,8 +363,9 @@ void ScrollManager::CustomizedScroll(ScrollState& scroll_state) {
   if (scroll_state.FullyConsumed())
     return;
 
-  if (scroll_state.deltaX() || scroll_state.deltaY())
-    frame_->GetDocument()->UpdateStyleAndLayout();
+  if (scroll_state.deltaX() || scroll_state.deltaY()) {
+    frame_->GetDocument()->UpdateStyleAndLayout(DocumentUpdateReason::kScroll);
+  }
 
   DCHECK(!current_scroll_chain_.IsEmpty());
 
@@ -508,7 +513,7 @@ WebInputEventResult ScrollManager::HandleGestureScrollBegin(
 
   if (gesture_event.SourceDevice() == WebGestureDevice::kTouchpad &&
       gesture_event.data.scroll_begin.delta_hint_units ==
-          ui::input_types::ScrollGranularity::kScrollByPrecisePixel) {
+          ui::ScrollGranularity::kScrollByPrecisePixel) {
     UseCounter::Count(document, WebFeature::kScrollByPrecisionTouchPad);
   } else if (gesture_event.SourceDevice() == WebGestureDevice::kTouchscreen) {
     UseCounter::Count(document, WebFeature::kScrollByTouch);
@@ -704,8 +709,7 @@ WebInputEventResult ScrollManager::HandleGestureScrollEnd(
     base::ScopedClosureRunner callback(WTF::Bind(
         [](WeakPersistent<LocalFrame> local_frame,
            WeakPersistent<ScrollManager> scroll_manager) {
-          if (RuntimeEnabledFeatures::UpdateHoverAtBeginFrameEnabled() &&
-              local_frame) {
+          if (local_frame) {
             local_frame->GetEventHandler().MarkHoverStateDirty();
           }
 

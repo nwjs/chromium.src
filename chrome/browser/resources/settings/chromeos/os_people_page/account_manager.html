@@ -101,6 +101,10 @@
         color: var(--cr-secondary-text-color);
       }
 
+      .edu-account-label {
+        margin-inline-start: 12px;
+      }
+
       .tooltip-primary-account {
         margin-inline-end: 12px;
         margin-inline-start: 12px;
@@ -110,13 +114,13 @@
     <div class="settings-box first">
       <settings-localized-link
           class="account-manager-description"
-          localized-string="$i18n{accountManagerDescription}"
+          localized-string="[[getAccountManagerDescription_()]]"
           link-url="$i18nRaw{accountManagerLearnMoreUrl}">
       </settings-localized-link>
     </div>
 
     <div id="settings-box-user-message" class="settings-box first user-message"
-        hidden="[[isSecondaryGoogleAccountSigninAllowed_()]]">
+        hidden="[[isSecondaryGoogleAccountSigninAllowed_]]">
       <cr-policy-pref-indicator class="secondary-accounts-policy-indicator"
           pref=
           "[[prefs.account_manager.secondary_google_account_signin_allowed]]">
@@ -130,16 +134,17 @@
       <div id="account-list-header" class="flex">
         <h2>$i18n{accountListHeader}</h2>
       </div>
-      <cr-button disabled="[[!isSecondaryGoogleAccountSigninAllowed_()]]"
+      <cr-button disabled="[[!isSecondaryGoogleAccountSigninAllowed_]]"
           id="add-account-button" on-tap="addAccount_">
         <div id="add-account-icon"></div>
-        $i18n{addAccountLabel}
+        [[getAddAccountLabel_(isChildUser_,
+            isSecondaryGoogleAccountSigninAllowed_)]]
       </cr-button>
     </div>
 
-    <div id="outer" class="layout vertical nowrap">
+    <div id="outer" class="layout vertical nowrap" role="list">
       <template is="dom-repeat" id="account-list" items="[[accounts_]]">
-        <div class="settings-box account-list-item">
+        <div class="settings-box account-list-item" role="listitem">
 
           <div class="profile-icon"
               style="background-image: [[getIconImageSet_(item.pic)]]">
@@ -152,7 +157,8 @@
             <div class="flex text-elide">
               <!-- If account is signed in, display the full name -->
               <template is="dom-if" if="[[item.isSignedIn]]">
-                <span>[[item.fullName]]</span>
+                <span id="fullName-[[index]]"
+                    aria-hidden="true">[[item.fullName]]</span>
               </template>
               <!-- Else, display a re-authentication message -->
               <template is="dom-if" if="[[!item.isSignedIn]]">
@@ -161,33 +167,50 @@
                 </span>
               </template>
 
-              <div class="secondary">[[item.email]]</div>
+              <div class="secondary" id="email-[[index]]"
+                  aria-hidden="true">[[item.email]]</div>
             </div>
           </div>
 
           <template is="dom-if"
               if="[[shouldShowReauthenticationButton_(item)]]">
             <cr-button title="[[getAccountManagerSignedOutTitle_(item)]]"
-                class="reauth-button" on-click="onReauthenticationTap_">
+                class="reauth-button" on-click="onReauthenticationTap_"
+                aria-labelledby$="fullName-[[index]] email-[[index]]">
               [[getAccountManagerSignedOutLabel_(item.unmigrated)]]
             </cr-button>
           </template>
 
           <!-- If this is the Device Account, display the management status -->
           <template is="dom-if" if="[[item.isDeviceAccount]]">
-            <cr-tooltip-icon icon-class="cr:info-outline"
+            <cr-tooltip-icon id="primaryAccountTooltip" aria-hidden="true"
+                icon-class="cr:info-outline"
                 class="tooltip-primary-account"
                 tooltip-text="$i18n{accountManagerPrimaryAccountTooltip}"
                 icon-aria-label="$i18n{accountManagerPrimaryAccountTooltip}">
             </cr-tooltip-icon>
-            <span class="management-status">
+            <span class="management-status"
+                aria-labelledby$="fullName-[[index]] email-[[index]]"
+                aria-describedby="primaryAccountTooltip">
               [[getManagementLabel_(item)]]
             </span>
           </template>
           <!-- Else, display a hamburger menu for removing the account -->
           <template is="dom-if" if="[[!item.isDeviceAccount]]">
+            <!-- Display EDU account labels on secondary accounts for Child
+              users -->
+            <template is="dom-if" if="[[isChildUser_]]" restamp>
+              <span class="management-status edu-account-label"
+                  id="edu-account-label-[[index]]"
+                  aria-hidden="true">
+                $i18n{accountManagerEducationAccountLabel}
+              </span>
+            </template>
             <cr-icon-button class="icon-more-vert"
                 title="[[getMoreActionsTitle_(item)]]"
+                aria-label="[[getMoreActionsTitle_(item)]]"
+                aria-describedby$="fullName-[[index]]
+                                   edu-account-label-[[index]]"
                 on-click="onAccountActionsMenuButtonTap_">
             </cr-icon-button>
           </template>

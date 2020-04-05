@@ -6,6 +6,16 @@
 
 #include "base/feature_list.h"
 #include "base/strings/utf_string_conversions.h"
+#include "chrome/browser/android/shortcut_helper.h"
+#include "third_party/blink/public/common/manifest/manifest_icon_selector.h"
+
+namespace {
+
+// The maximum number of shortcuts an Android launcher supports.
+// https://developer.android.com/guide/topics/ui/shortcuts#shortcut-limitations
+constexpr size_t kMaxShortcuts = 4;
+
+}  // namespace
 
 ShareTargetParamsFile::ShareTargetParamsFile() {}
 
@@ -107,6 +117,25 @@ void ShortcutInfo::UpdateFromManifest(const blink::Manifest& manifest) {
   }
 
   shortcut_items = manifest.shortcuts;
+  if (shortcut_items.size() > kMaxShortcuts)
+    shortcut_items.resize(kMaxShortcuts);
+
+  for (auto& shortcut_item : shortcut_items) {
+    if (shortcut_item.short_name.string().empty()) {
+      shortcut_item.short_name =
+          base::NullableString16(shortcut_item.name, /* is_null= */ false);
+    }
+  }
+
+  int ideal_shortcut_icons_size_px =
+      ShortcutHelper::GetIdealShortcutIconSizeInPx();
+  for (const auto& manifest_shortcut : shortcut_items) {
+    GURL best_url = blink::ManifestIconSelector::FindBestMatchingSquareIcon(
+        manifest_shortcut.icons, ideal_shortcut_icons_size_px,
+        /* minimum_icon_size_in_px= */ ideal_shortcut_icons_size_px / 2,
+        blink::Manifest::ImageResource::Purpose::ANY);
+    best_shortcut_icon_urls.push_back(std::move(best_url));
+  }
 }
 
 void ShortcutInfo::UpdateSource(const Source new_source) {

@@ -12,7 +12,6 @@
 #include "third_party/blink/renderer/core/html/canvas/canvas_rendering_context.h"
 #include "third_party/blink/renderer/core/html/canvas/canvas_rendering_context_factory.h"
 #include "third_party/blink/renderer/modules/canvas/canvas2d/base_rendering_context_2d.h"
-#include "third_party/blink/renderer/platform/graphics/paint/paint_recorder.h"
 
 namespace blink {
 
@@ -107,10 +106,8 @@ class MODULES_EXPORT OffscreenCanvasRenderingContext2D final
 
   bool ParseColorOrCurrentColor(Color&, const String& color_string) const final;
 
-  cc::PaintCanvas* DrawingCanvas() const final;
-  cc::PaintCanvas* ExistingDrawingCanvas() const final {
-    return DrawingCanvas();
-  }
+  cc::PaintCanvas* GetOrCreatePaintCanvas() final;
+  cc::PaintCanvas* GetPaintCanvas() const final;
 
   void DidDraw() final;
   void DidDraw(const SkIRect& dirty_rect) final;
@@ -126,11 +123,9 @@ class MODULES_EXPORT OffscreenCanvasRenderingContext2D final
 
   ImageBitmap* TransferToImageBitmap(ScriptState*) final;
 
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
 
   bool PushFrame() override;
-
-  bool HasRecordedDrawCommands() { return have_recorded_draw_commands_; }
 
  protected:
   CanvasColorParams ColorParams() const override;
@@ -139,11 +134,9 @@ class MODULES_EXPORT OffscreenCanvasRenderingContext2D final
                    size_t row_bytes,
                    int x,
                    int y) override;
+  void WillOverwriteCanvas() override;
 
  private:
-  void StartRecording();
-  std::unique_ptr<PaintRecorder> recorder_;
-  bool have_recorded_draw_commands_;
   void FinalizeFrame() final;
   void FlushRecording();
 
@@ -167,10 +160,6 @@ class MODULES_EXPORT OffscreenCanvasRenderingContext2D final
 
   std::mt19937 random_generator_;
   std::bernoulli_distribution bernoulli_distribution_;
-
-  void SetNeedsFlush();
-  base::RepeatingClosure set_needs_flush_callback_;
-  bool needs_flush_ = false;
 };
 
 }  // namespace blink

@@ -5,6 +5,7 @@
 package org.chromium.chrome.browser;
 
 import androidx.annotation.CallSuper;
+import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.ObserverList;
 import org.chromium.base.ObserverList.RewindableIterator;
@@ -237,8 +238,12 @@ public class ActivityTabProvider implements Supplier<Tab> {
      * extremely specific cases where the observer would trigger an event from the constructor of
      * the implementing class (see {@link ActivityTabTabObserver}).
      * @param observer The observer to be added.
+     *
+     * TODO(fgorski): Find a different way to mock this in tests for {@link LoadProgressMediator}.
      */
-    private void addObserver(ActivityTabObserver observer) {
+    @VisibleForTesting
+    @Deprecated
+    public void addObserver(ActivityTabObserver observer) {
         mObservers.addObserver(observer);
     }
 

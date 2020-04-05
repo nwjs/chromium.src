@@ -18,6 +18,7 @@
 #include "chromeos/components/account_manager/account_manager_factory.h"
 #include "chromeos/constants/chromeos_features.h"
 #include "chromeos/constants/chromeos_pref_names.h"
+#include "components/signin/public/identity_manager/consent_level.h"
 #include "components/user_manager/scoped_user_manager.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -60,7 +61,8 @@ class AccountManagerPolicyControllerTest
     auto* identity_test_env =
         identity_test_environment_adaptor_->identity_test_env();
     const AccountInfo primary_account_info =
-        identity_test_env->MakePrimaryAccountAvailable(kFakePrimaryUsername);
+        identity_test_env->MakeUnconsentedPrimaryAccountAvailable(
+            kFakePrimaryUsername);
     auto user_manager = std::make_unique<chromeos::FakeChromeUserManager>();
     primary_account_id_ = AccountId::FromUserEmailGaiaId(
         primary_account_info.email, primary_account_info.gaia);
@@ -169,7 +171,9 @@ IN_PROC_BROWSER_TEST_P(
                 ->GetUserByProfile(profile())
                 ->GetAccountId()
                 .GetGaiaId(),
-            identity_manager()->GetPrimaryAccountInfo().gaia);
+            identity_manager()
+                ->GetPrimaryAccountInfo(signin::ConsentLevel::kNotRequired)
+                .gaia);
   EXPECT_EQ(ProfileHelper::Get()
                 ->GetUserByProfile(profile())
                 ->GetAccountId()
@@ -204,7 +208,9 @@ IN_PROC_BROWSER_TEST_P(
                 ->GetUserByProfile(profile())
                 ->GetAccountId()
                 .GetGaiaId(),
-            identity_manager()->GetPrimaryAccountInfo().gaia);
+            identity_manager()
+                ->GetPrimaryAccountInfo(signin::ConsentLevel::kNotRequired)
+                .gaia);
   EXPECT_EQ(ProfileHelper::Get()
                 ->GetUserByProfile(profile())
                 ->GetAccountId()

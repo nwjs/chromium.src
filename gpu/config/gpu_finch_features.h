@@ -17,7 +17,6 @@ namespace features {
 // All features in alphabetical order. The features should be documented
 // alongside the definition of their values in the .cc file.
 #if defined(OS_ANDROID)
-GPU_EXPORT extern const base::Feature kAImageReaderMediaPlayer;
 GPU_EXPORT extern const base::Feature kDisableSurfaceControlForWebview;
 #endif  // defined(OS_ANDROID)
 
@@ -36,6 +35,8 @@ GPU_EXPORT extern const base::Feature kGpuUseDisplayThreadPriority;
 GPU_EXPORT extern const base::Feature kGpuWatchdogV2;
 
 GPU_EXPORT extern const base::Feature kGpuWatchdogV1NewTimeout;
+
+GPU_EXPORT extern const base::Feature kGpuWatchdogV2NewTimeout;
 
 #if defined(OS_MACOSX)
 GPU_EXPORT extern const base::Feature kMetal;

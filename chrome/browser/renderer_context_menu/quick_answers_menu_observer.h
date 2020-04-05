@@ -10,9 +10,10 @@
 
 #include "chromeos/components/quick_answers/quick_answers_client.h"
 #include "components/renderer_context_menu/render_view_context_menu_observer.h"
+#include "ui/gfx/geometry/rect.h"
 
-namespace base {
-class TimeTicks;
+namespace ash {
+class QuickAnswersController;
 }
 
 class RenderViewContextMenuProxy;
@@ -20,7 +21,7 @@ class RenderViewContextMenuProxy;
 // A class that implements the quick answers menu.
 class QuickAnswersMenuObserver
     : public RenderViewContextMenuObserver,
-      public chromeos::quick_answers::QuickAnswersClient::QuickAnswersDelegate {
+      public chromeos::quick_answers::QuickAnswersDelegate {
  public:
   QuickAnswersMenuObserver(const QuickAnswersMenuObserver&) = delete;
   QuickAnswersMenuObserver& operator=(const QuickAnswersMenuObserver&) = delete;
@@ -34,6 +35,11 @@ class QuickAnswersMenuObserver
   bool IsCommandIdChecked(int command_id) override;
   bool IsCommandIdEnabled(int command_id) override;
   void ExecuteCommand(int command_id) override;
+  void OnContextMenuShown(const content::ContextMenuParams& params,
+                          const gfx::Rect& bounds_in_screen) override;
+  void OnContextMenuViewBoundsChanged(
+      const gfx::Rect& bounds_in_screen) override;
+  void OnMenuClosed() override;
 
   // QuickAnswersDelegate implementation.
   void OnQuickAnswerReceived(
@@ -46,6 +52,7 @@ class QuickAnswersMenuObserver
           quick_answers_client);
 
  private:
+  bool IsRichUiEnabled();
   void SendAssistantQuery(const std::string& query);
 
   // The interface to add a context-menu item and update it.
@@ -63,8 +70,7 @@ class QuickAnswersMenuObserver
 
   std::unique_ptr<chromeos::quick_answers::QuickAnswer> quick_answer_;
 
-  // Time when the quick answer is received.
-  base::TimeTicks quick_answer_received_time_;
+  ash::QuickAnswersController* quick_answers_controller_ = nullptr;
 };
 
 #endif  // CHROME_BROWSER_RENDERER_CONTEXT_MENU_QUICK_ANSWERS_MENU_OBSERVER_H_

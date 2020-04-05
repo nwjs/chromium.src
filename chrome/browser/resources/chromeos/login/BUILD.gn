@@ -20,6 +20,7 @@ js_type_check("closure_compile") {
     ":gaia_input",
     ":gaia_input_form",
     ":gaia_password_changed",
+    ":gesture_navigation",
     ":hd-iron-icon",
     ":html-echo",
     ":marketing_opt_in",
@@ -34,11 +35,11 @@ js_type_check("closure_compile") {
     ":oobe_dialog",
     ":oobe_enable_kiosk",
     ":oobe_eula",
+    ":oobe_help_dialog",
     ":oobe_i18n_behavior",
     ":oobe_i18n_dropdown",
     ":oobe_network",
     ":oobe_reset",
-    ":oobe_reset_confirmation_overlay",
     ":oobe_select",
     ":oobe_supervision_transition",
     ":oobe_update",
@@ -49,27 +50,6 @@ js_type_check("closure_compile") {
     ":throbber_notice",
     ":update_required_card",
   ]
-}
-
-js2gtest("login_unitjs_tests") {
-  # These could be unit tests, except they need a browser context in order
-  # to construct a DOMParser object - so they are webui tests.
-  test_type = "webui"
-  sources = [
-    "saml_password_attributes_test.unitjs",
-    "saml_timestamps_test.unitjs",
-  ]
-  gen_include_files = [
-    "saml_password_attributes.js",
-    "saml_timestamps.js",
-    "//ui/webui/resources/js/cr.js",
-  ]
-  defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
-}
-
-source_set("browser_tests") {
-  testonly = true
-  deps = [ ":login_unitjs_tests" ]
 }
 
 ###############################
@@ -202,6 +182,14 @@ js_library("gaia_password_changed") {
   deps = [ ":oobe_i18n_behavior" ]
 }
 
+js_library("gesture_navigation") {
+  deps = [
+    ":login_screen_behavior",
+    ":oobe_dialog_host_behavior",
+    ":oobe_i18n_behavior",
+  ]
+}
+
 js_library("hd-iron-icon") {
 }
 
@@ -260,6 +248,10 @@ js_library("oobe_eula") {
   ]
 }
 
+js_library("oobe_help_dialog") {
+  deps = [ ":oobe_i18n_behavior" ]
+}
+
 js_library("oobe_i18n_dropdown") {
   deps = [ ":oobe_types" ]
 }
@@ -269,10 +261,6 @@ js_library("oobe_network") {
     ":oobe_dialog_host_behavior",
     ":oobe_i18n_behavior",
   ]
-}
-
-js_library("oobe_reset_confirmation_overlay") {
-  deps = [ ":oobe_i18n_behavior" ]
 }
 
 js_library("oobe_reset") {

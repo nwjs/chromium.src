@@ -14,6 +14,7 @@ import org.chromium.chrome.browser.autofill.PersonalDataManager.AutofillProfile;
 import org.chromium.chrome.browser.autofill.PersonalDataManager.CreditCard;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.components.payments.MethodStrings;
+import org.chromium.content_public.browser.RenderFrameHost;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.payments.mojom.PaymentMethodData;
 
@@ -66,7 +67,7 @@ public class AutofillPaymentAppFactory implements PaymentAppFactoryInterface {
             for (int i = 0; i < numberOfCards; i++) {
                 // createPaymentAppForCard(card) returns null if the card network or type does not
                 // match mNetworks.
-                PaymentInstrument app = createPaymentAppForCard(cards.get(i));
+                PaymentApp app = createPaymentAppForCard(cards.get(i));
                 if (app != null) mDelegate.onPaymentAppCreated(app);
             }
 
@@ -77,7 +78,7 @@ public class AutofillPaymentAppFactory implements PaymentAppFactoryInterface {
         // AutofillPaymentAppCreator interface.
         @Override
         @Nullable
-        public PaymentInstrument createPaymentAppForCard(CreditCard card) {
+        public PaymentApp createPaymentAppForCard(CreditCard card) {
             if (!mCanMakePayment) return null;
 
             String methodName = null;
@@ -101,9 +102,8 @@ public class AutofillPaymentAppFactory implements PaymentAppFactoryInterface {
         }
     }
 
-    /** @return True if the merchant methodDataMap supports autofill payment instruments. */
-    public static boolean merchantSupportsAutofillPaymentInstruments(
-            Map<String, PaymentMethodData> methodDataMap) {
+    /** @return True if the merchant methodDataMap supports basic card payment method. */
+    public static boolean merchantSupportsBasicCard(Map<String, PaymentMethodData> methodDataMap) {
         assert methodDataMap != null;
         PaymentMethodData basicCardData = methodDataMap.get(MethodStrings.BASIC_CARD);
         if (basicCardData != null) {
@@ -133,6 +133,12 @@ public class AutofillPaymentAppFactory implements PaymentAppFactoryInterface {
             }
 
             @Override
+            public RenderFrameHost getRenderFrameHost() {
+                // AutofillPaymentAppFactory.Creator doesn't need RenderFrameHost.
+                return null;
+            }
+
+            @Override
             public Map<String, PaymentMethodData> getMethodData() {
                 return methodData;
             }
@@ -146,7 +152,7 @@ public class AutofillPaymentAppFactory implements PaymentAppFactoryInterface {
             }
 
             @Override
-            public void onPaymentAppCreated(PaymentInstrument app) {
+            public void onPaymentAppCreated(PaymentApp app) {
                 app.setHaveRequestedAutofillData(true);
                 assert app instanceof AutofillPaymentInstrument;
                 if (((AutofillPaymentInstrument) app).strictCanMakePayment()) mResult = true;

@@ -194,9 +194,8 @@ bool WebAXObject::UpdateLayoutAndCheckValidity() {
     Document* document = private_->GetDocument();
     if (!document || !document->View())
       return false;
-    if (IsLayoutClean(document))
-      return true;
-    if (!document->View()->UpdateLifecycleToCompositingCleanPlusScrolling())
+    if (!document->View()->UpdateLifecycleToCompositingCleanPlusScrolling(
+            DocumentUpdateReason::kAccessibility))
       return false;
   }
 
@@ -254,7 +253,7 @@ WebAXObject WebAXObject::ParentObject() const {
   if (IsDetached())
     return WebAXObject();
 
-  return WebAXObject(private_->ParentObject());
+  return WebAXObject(private_->ParentObjectIncludedInTree());
 }
 
 void WebAXObject::GetSparseAXAttributes(
@@ -1212,28 +1211,11 @@ WebDocument WebAXObject::GetDocument() const {
   return WebDocument(document);
 }
 
-bool WebAXObject::HasComputedStyle() const {
-  if (IsDetached())
-    return false;
-
-  Document* document = private_->GetDocument();
-  if (document)
-    document->UpdateStyleAndLayoutTree();
-
-  Node* node = private_->GetNode();
-  if (!node || node->IsDocumentNode())
-    return false;
-
-  return node->GetComputedStyle();
-}
-
 WebString WebAXObject::ComputedStyleDisplay() const {
   if (IsDetached())
     return WebString();
 
-  Document* document = private_->GetDocument();
-  if (document)
-    document->UpdateStyleAndLayoutTree();
+  DCHECK(IsLayoutClean(private_->GetDocument()));
 
   Node* node = private_->GetNode();
   if (!node || node->IsDocumentNode())
@@ -1527,6 +1509,12 @@ bool WebAXObject::IsScrollableContainer() const {
   return private_->IsScrollableContainer();
 }
 
+bool WebAXObject::IsUserScrollable() const {
+  if (IsDetached())
+    return false;
+
+  return private_->IsUserScrollable();
+}
 gfx::Point WebAXObject::GetScrollOffset() const {
   if (IsDetached())
     return gfx::Point();
@@ -1577,9 +1565,7 @@ void WebAXObject::GetRelativeBounds(WebAXObject& offset_container,
   if (IsDetached())
     return;
 
-#if DCHECK_IS_ON()
   DCHECK(IsLayoutClean(private_->GetDocument()));
-#endif
 
   AXObject* container = nullptr;
   FloatRect bounds;
@@ -1620,9 +1606,9 @@ bool WebAXObject::ScrollToMakeVisibleWithSubFocus(
           ? vertical_behavior
           : mojom::blink::ScrollAlignment::Behavior::kNoScroll;
 
-  blink::ScrollAlignment blink_horizontal_scroll_alignment = {
+  blink::mojom::blink::ScrollAlignment blink_horizontal_scroll_alignment = {
       visible_horizontal_behavior, horizontal_behavior, horizontal_behavior};
-  blink::ScrollAlignment blink_vertical_scroll_alignment = {
+  blink::mojom::blink::ScrollAlignment blink_vertical_scroll_alignment = {
       visible_vertical_behavior, vertical_behavior, vertical_behavior};
   return private_->RequestScrollToMakeVisibleWithSubFocusAction(
       subfocus, blink_horizontal_scroll_alignment,

@@ -4,9 +4,10 @@
 
 #include "ui/views/controls/webview/web_dialog_view.h"
 
-#include <gtest/gtest.h>
 #include <memory>
+#include <utility>
 
+#include "base/memory/ptr_util.h"
 #include "base/run_loop.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/common/content_client.h"
@@ -15,6 +16,7 @@
 #include "content/public/test/test_browser_context.h"
 #include "content/test/test_content_browser_client.h"
 #include "content/test/test_web_contents.h"
+#include "testing/gtest/include/gtest/gtest.h"
 #include "ui/events/keycodes/keyboard_codes.h"
 #include "ui/views/test/widget_test.h"
 #include "ui/views/window/dialog_delegate.h"
@@ -49,11 +51,9 @@ class TestWebDialogViewWebDialogDelegate
 // Provides functionality to test a WebDialogView.
 class WebDialogViewUnitTest : public views::test::WidgetTest {
  public:
-  template <typename... TaskEnvironmentTraits>
-  NOINLINE explicit WebDialogViewUnitTest(TaskEnvironmentTraits&&... traits)
-      : views::test::WidgetTest(
-            views::test::WidgetTest::SubclassManagesTaskEnvironment()),
-        task_environment_(std::forward<TaskEnvironmentTraits>(traits)...) {}
+  WebDialogViewUnitTest()
+      : views::test::WidgetTest(std::unique_ptr<base::test::TaskEnvironment>(
+            std::make_unique<content::BrowserTaskEnvironment>())) {}
   ~WebDialogViewUnitTest() override = default;
 
   // testing::Test
@@ -126,9 +126,6 @@ class WebDialogViewUnitTest : public views::test::WidgetTest {
       widget_->OnKeyEvent(&event_copy);
   }
 
-  // TaskEnvironment must be created first
-  content::BrowserTaskEnvironment task_environment_;
-
  private:
   content::TestContentBrowserClient test_browser_client_;
   std::unique_ptr<content::TestBrowserContext> browser_context_;
@@ -181,7 +178,7 @@ TEST_F(WebDialogViewUnitTest, ObservableWebViewOnWebDialogViewClosed) {
   content::RenderFrameHost* rfh = web_view()->web_contents()->GetMainFrame();
   ASSERT_TRUE(rfh);
   content::GlobalRequestID request_id;
-  content::mojom::ResourceLoadInfo resource_load_info;
+  blink::mojom::ResourceLoadInfo resource_load_info;
   web_view()->ResourceLoadComplete(rfh, request_id, resource_load_info);
 }
 

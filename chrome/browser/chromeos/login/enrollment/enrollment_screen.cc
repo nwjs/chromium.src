@@ -18,17 +18,18 @@
 #include "chrome/browser/chromeos/login/startup_utils.h"
 #include "chrome/browser/chromeos/login/wizard_controller.h"
 #include "chrome/browser/chromeos/policy/browser_policy_connector_chromeos.h"
-#include "chrome/browser/chromeos/policy/enrollment_status_chromeos.h"
 #include "chrome/browser/chromeos/policy/tpm_auto_update_mode_policy_handler.h"
 #include "chrome/browser/chromeos/profiles/profile_helper.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/lifetime/browser_shutdown.h"
+#include "chrome/browser/policy/enrollment_status.h"
 #include "chromeos/dbus/cryptohome/cryptohome_client.h"
 #include "chromeos/dbus/dbus_method_call_status.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
 #include "components/policy/core/common/cloud/cloud_policy_constants.h"
 #include "components/user_manager/user_manager.h"
 #include "google_apis/gaia/gaia_auth_util.h"
+#include "ui/chromeos/devicetype_utils.h"
 
 using policy::EnrollmentConfig;
 
@@ -90,9 +91,26 @@ bool ShouldAttemptRestart() {
   return false;
 }
 
+// Returns the enterprise display domain after enrollment, or an empty string.
+std::string GetEnterpriseDisplayDomain() {
+  policy::BrowserPolicyConnectorChromeOS* connector =
+      g_browser_process->platform_part()->browser_policy_connector_chromeos();
+  return connector->GetEnterpriseDisplayDomain();
+}
+
 }  // namespace
 
 namespace chromeos {
+
+// static
+std::string EnrollmentScreen::GetResultString(Result result) {
+  switch (result) {
+    case Result::COMPLETED:
+      return "Completed";
+    case Result::BACK:
+      return "Back";
+  }
+}
 
 // static
 EnrollmentScreen* EnrollmentScreen::Get(ScreenManager* manager) {
@@ -102,7 +120,7 @@ EnrollmentScreen* EnrollmentScreen::Get(ScreenManager* manager) {
 
 EnrollmentScreen::EnrollmentScreen(EnrollmentScreenView* view,
                                    const ScreenExitCallback& exit_callback)
-    : BaseScreen(EnrollmentScreenView::kScreenId),
+    : BaseScreen(EnrollmentScreenView::kScreenId, OobeScreenPriority::DEFAULT),
       view_(view),
       exit_callback_(exit_callback) {
   retry_policy_.num_errors_to_ignore = 0;
@@ -127,15 +145,15 @@ void EnrollmentScreen::SetEnrollmentConfig(
   switch (enrollment_config_.auth_mechanism) {
     case EnrollmentConfig::AUTH_MECHANISM_INTERACTIVE:
       current_auth_ = AUTH_OAUTH;
-      last_auth_ = AUTH_OAUTH;
+      next_auth_ = AUTH_OAUTH;
       break;
     case EnrollmentConfig::AUTH_MECHANISM_ATTESTATION:
       current_auth_ = AUTH_ATTESTATION;
-      last_auth_ = AUTH_ATTESTATION;
+      next_auth_ = AUTH_ATTESTATION;
       break;
     case EnrollmentConfig::AUTH_MECHANISM_BEST_AVAILABLE:
       current_auth_ = AUTH_ATTESTATION;
-      last_auth_ = enrollment_config_.should_enroll_interactively()
+      next_auth_ = enrollment_config_.should_enroll_interactively()
                        ? AUTH_OAUTH
                        : AUTH_ATTESTATION;
       break;
@@ -165,10 +183,10 @@ void EnrollmentScreen::SetConfig() {
 }
 
 bool EnrollmentScreen::AdvanceToNextAuth() {
-  if (current_auth_ != last_auth_ && current_auth_ == AUTH_ATTESTATION) {
+  if (current_auth_ != next_auth_ && current_auth_ == AUTH_ATTESTATION) {
     LOG(WARNING) << "User stopped using auth: " << current_auth_
-                 << ", current auth: " << last_auth_ << ".";
-    current_auth_ = last_auth_;
+                 << ", current auth: " << next_auth_ << ".";
+    current_auth_ = next_auth_;
     SetConfig();
     return true;
   }
@@ -197,7 +215,7 @@ void EnrollmentScreen::OnAuthCleared(const base::Closure& callback) {
   callback.Run();
 }
 
-void EnrollmentScreen::Show() {
+void EnrollmentScreen::ShowImpl() {
   VLOG(1) << "Show enrollment screen";
   UMA(policy::kMetricEnrollmentTriggered);
   if (enrollment_config_.mode ==
@@ -223,7 +241,7 @@ void EnrollmentScreen::ShowInteractiveScreen() {
                        weak_ptr_factory_.GetWeakPtr()));
 }
 
-void EnrollmentScreen::Hide() {
+void EnrollmentScreen::HideImpl() {
   view_->Hide();
   weak_ptr_factory_.InvalidateWeakPtrs();
 }
@@ -365,6 +383,10 @@ void EnrollmentScreen::OnOtherError(
 void EnrollmentScreen::OnDeviceEnrolled() {
   VLOG(1) << "Device enrolled.";
   enrollment_succeeded_ = true;
+  // Some info to be shown on the success screen.
+  view_->SetEnterpriseDomainAndDeviceType(GetEnterpriseDisplayDomain(),
+                                          ui::GetChromeOSDeviceName());
+
   enrollment_helper_->GetDeviceAttributeUpdatePermission();
 
   // Evaluates device policy TPMFirmwareUpdateSettings and updates the TPM if
@@ -408,6 +430,10 @@ void EnrollmentScreen::OnDeviceAttributeUpdatePermission(bool granted) {
 }
 
 void EnrollmentScreen::OnRestoreAfterRollbackCompleted() {
+  // Pass the enterprise domain and the device type to be shown.
+  view_->SetEnterpriseDomainAndDeviceType(GetEnterpriseDisplayDomain(),
+                                          ui::GetChromeOSDeviceName());
+  // Show the success screen
   StartupUtils::MarkDeviceRegistered(
       base::BindOnce(&EnrollmentScreen::ShowEnrollmentStatusOnSuccess,
                      weak_ptr_factory_.GetWeakPtr()));
@@ -502,7 +528,7 @@ void EnrollmentScreen::ShowSigninScreen() {
 void EnrollmentScreen::RecordEnrollmentErrorMetrics() {
   enrollment_failed_once_ = true;
   //  TODO(crbug.com/896793): Have other metrics for each auth mechanism.
-  if (elapsed_timer_ && current_auth_ == last_auth_)
+  if (elapsed_timer_ && current_auth_ == next_auth_)
     UMA_ENROLLMENT_TIME(kMetricEnrollmentTimeFailure, elapsed_timer_);
 }
 

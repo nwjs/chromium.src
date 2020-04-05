@@ -45,7 +45,8 @@ void AddUiColorMixers(ColorProvider* provider) {
   mixer[kColorLinkForeground] = {kColorAccent};
   mixer[kColorMenuBackground] = {kColorPrimaryBackground};
   mixer[kColorMenuBorder] = {kColorBorderAndSeparatorForeground};
-  mixer[kColorMenuItemAlertedBackground] = {kColorAccent};
+  mixer[kColorMenuItemBackgroundAlertedInitial] = SetAlpha(kColorAccent, 0x4D);
+  mixer[kColorMenuItemBackgroundAlertedTarget] = SetAlpha(kColorAccent, 0x1A);
   mixer[kColorMenuItemDisabledForeground] = {kColorDisabledForeground};
   mixer[kColorMenuItemForeground] = {kColorPrimaryForeground};
   mixer[kColorMenuItemHighlightedBackground] = {kColorSubtleEmphasisBackground};
@@ -73,6 +74,8 @@ void AddUiColorMixers(ColorProvider* provider) {
       GetColorWithMaxContrast(kColorTextfieldForeground);
   mixer[kColorTextfieldDisabledBackground] = {kColorPrimaryBackground};
   mixer[kColorTextfieldDisabledForeground] = {kColorDisabledForeground};
+  mixer[kColorTextfieldPlaceholderForeground] = {
+      kColorTextfieldDisabledForeground};
   mixer[kColorTextfieldForeground] = {kColorPrimaryForeground};
   mixer[kColorTextfieldSelectionBackground] = {kColorTextSelectionBackground};
   mixer[kColorTextfieldSelectionForeground] = {kColorTextfieldForeground};

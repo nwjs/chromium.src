@@ -80,7 +80,6 @@ source_set("browser") {
     "//components/proxy_config/ios",
     "//components/reading_list/ios",
     "//components/search_engines",
-    "//components/search_provider_logos",
     "//components/security_state/core",
     "//components/send_tab_to_self",
     "//components/strings",
@@ -97,7 +96,6 @@ source_set("browser") {
     "//ios/chrome/app/strings",
     "//ios/chrome/browser/browser_state",
     "//ios/chrome/browser/complex_tasks",
-    "//ios/chrome/browser/crash_report:flags",
     "//ios/chrome/browser/download",
     "//ios/chrome/browser/drag_and_drop",
     "//ios/chrome/browser/find_in_page:feature_flags",
@@ -115,6 +113,7 @@ source_set("browser") {
     "//ios/chrome/browser/web:feature_flags",
     "//ios/chrome/common",
     "//ios/components/io_thread",
+    "//ios/components/webui:url_constants",
     "//ios/net",
     "//ios/public/provider/chrome/browser",
     "//ios/public/provider/chrome/browser/voice",
@@ -167,7 +166,10 @@ source_set("chrome_url_constants") {
     "chrome_url_constants.h",
   ]
 
-  deps = [ "//base" ]
+  deps = [
+    "//base",
+    "//ios/components/webui:url_constants",
+  ]
   libs = [ "UIKit.framework" ]
 }
 
@@ -206,6 +208,7 @@ source_set("browser_impl") {
     "//components/open_from_clipboard",
     "//components/prefs",
     "//components/rappor",
+    "//components/safe_browsing/core:features",
     "//components/sessions",
     "//components/translate/core/browser",
     "//components/ukm",
@@ -215,6 +218,7 @@ source_set("browser_impl") {
     "//components/variations/field_trial_config",
     "//components/variations/service",
     "//components/version_info",
+    "//ios/chrome/app:tests_hook",
     "//ios/chrome/browser/browser_state",
     "//ios/chrome/browser/browser_state:browser_state_impl",
     "//ios/chrome/browser/component_updater",
@@ -229,8 +233,10 @@ source_set("browser_impl") {
     "//ios/chrome/browser/metrics:expired_histograms_array",
     "//ios/chrome/browser/net",
     "//ios/chrome/browser/open_from_clipboard",
+    "//ios/chrome/browser/policy",
     "//ios/chrome/browser/prefs",
     "//ios/chrome/browser/prefs:browser_prefs",
+    "//ios/chrome/browser/safe_browsing",
     "//ios/chrome/browser/send_tab_to_self",
     "//ios/chrome/browser/translate",
     "//ios/chrome/browser/update_client",
@@ -277,6 +283,7 @@ source_set("unit_tests") {
     "//components/prefs:test_support",
     "//components/proxy_config",
     "//components/variations",
+    "//ios/components/webui:url_constants",
     "//ios/public/provider/chrome/browser",
     "//ios/public/provider/chrome/browser/signin",
     "//ios/web/public/test",

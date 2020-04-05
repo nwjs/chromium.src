@@ -20,6 +20,11 @@ import org.gradle.maven.MavenPomArtifact
 class ChromiumDepGraph {
     final def dependencies = new HashMap<String, DependencyDescription>()
 
+    // Override to use the lower version of the library when
+    // resolving which library version to use.
+    final def LOWER_VERSION_OVERRIDE = [
+         'com_google_guava_listenablefuture',
+    ]
     // Some libraries don't properly fill their POM with the appropriate licensing information.
     // It is provided here from manual lookups. Note that licenseUrl must provide textual content
     // rather than be an html page.
@@ -39,6 +44,10 @@ class ChromiumDepGraph {
             licenseName: "Apache 2.0"),
         'com_google_code_findbugs_jFormatString': new PropertyOverride(
             licenseUrl: "https://raw.githubusercontent.com/spotbugs/spotbugs/master/spotbugs/licenses/LICENSE.txt"),
+        'com_google_code_gson_gson': new PropertyOverride(
+            url: "https://github.com/google/gson",
+            licenseUrl: "https://raw.githubusercontent.com/google/gson/master/LICENSE",
+            licenseName: "Apache 2.0"),
         'com_google_errorprone_error_prone_annotation': new PropertyOverride(
             url: "https://errorprone.info/",
             licenseUrl: "https://www.apache.org/licenses/LICENSE-2.0.txt"),
@@ -68,6 +77,10 @@ class ChromiumDepGraph {
             licensePath: "licenses/Codehaus_License-2009.txt",
             licenseName: "MIT"),
         'com_google_protobuf_protobuf_java': new PropertyOverride(
+            url: "https://github.com/protocolbuffers/protobuf/blob/master/java/README.md",
+            licenseUrl: "https://raw.githubusercontent.com/protocolbuffers/protobuf/master/LICENSE",
+            licenseName: "BSD"),
+        'com_google_protobuf_protobuf_javalite': new PropertyOverride(
             url: "https://github.com/protocolbuffers/protobuf/blob/master/java/lite.md",
             licenseUrl: "https://raw.githubusercontent.com/protocolbuffers/protobuf/master/LICENSE",
             licenseName: "BSD"),
@@ -104,6 +117,16 @@ class ChromiumDepGraph {
         'org_checkerframework_javacutil': new PropertyOverride(
             licenseUrl: "https://raw.githubusercontent.com/typetools/checker-framework/master/LICENSE.txt",
             licenseName: "GPL v2 with the classpath exception"),
+        'org_ow2_asm_asm': new PropertyOverride(
+            licenseUrl: "https://gitlab.ow2.org/asm/asm/raw/master/LICENSE.txt"),
+        'org_ow2_asm_asm_analysis': new PropertyOverride(
+            licenseUrl: "https://gitlab.ow2.org/asm/asm/raw/master/LICENSE.txt"),
+        'org_ow2_asm_asm_commons': new PropertyOverride(
+            licenseUrl: "https://gitlab.ow2.org/asm/asm/raw/master/LICENSE.txt"),
+        'org_ow2_asm_asm_tree': new PropertyOverride(
+            licenseUrl: "https://gitlab.ow2.org/asm/asm/raw/master/LICENSE.txt"),
+        'org_ow2_asm_asm_util': new PropertyOverride(
+            licenseUrl: "https://gitlab.ow2.org/asm/asm/raw/master/LICENSE.txt"),
         'org_pcollections_pcollections': new PropertyOverride(
             licenseUrl: "https://raw.githubusercontent.com/hrldcpr/pcollections/master/LICENSE"),
         'org_plumelib_plume_util': new PropertyOverride(
@@ -181,7 +204,13 @@ class ChromiumDepGraph {
     private void collectDependenciesInternal(ResolvedDependency dependency) {
         def id = makeModuleId(dependency.module)
         if (dependencies.containsKey(id)) {
-            if (dependencies.get(id).version <= dependency.module.id.version) return
+            if (id in LOWER_VERSION_OVERRIDE &&
+                   dependencies.get(id).version <= dependency.module.id.version) {
+                return
+            }
+            // Use largest version for version conflict resolution. See crbug.com/1040958
+            // https://docs.gradle.org/current/userguide/dependency_resolution.html#sec:version-conflict
+            if (dependencies.get(id).version >= dependency.module.id.version) return
         }
 
         def childModules = []

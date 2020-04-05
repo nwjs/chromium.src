@@ -31,6 +31,7 @@
 #include "components/signin/public/base/signin_pref_names.h"
 #include "components/signin/public/identity_manager/account_info.h"
 #include "components/signin/public/identity_manager/accounts_in_cookie_jar_info.h"
+#include "components/signin/public/identity_manager/consent_level.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/signin/public/identity_manager/identity_utils.h"
 #include "third_party/re2/src/re2/re2.h"
@@ -236,7 +237,7 @@ void EnableSyncFromPromo(
           account.account_id);
   if (needs_reauth_before_enable_sync) {
     browser->signin_view_controller()->ShowDiceEnableSyncTab(
-        browser, access_point, promo_action, account.email);
+        access_point, promo_action, account.email);
     return;
   }
 
@@ -260,7 +261,7 @@ std::vector<AccountInfo> GetAccountsForDicePromos(Profile* profile) {
 
   // Compute the default account.
   CoreAccountId default_account_id =
-      identity_manager->GetUnconsentedPrimaryAccountId();
+      identity_manager->GetPrimaryAccountId(signin::ConsentLevel::kNotRequired);
 
   // Fetch account information for each id and make sure that the first account
   // in the list matches the unconsented primary account (if available).
@@ -294,8 +295,8 @@ base::string16 GetShortProfileIdentityToDisplay(
   DCHECK(profile);
   signin::IdentityManager* identity_manager =
       IdentityManagerFactory::GetForProfile(profile);
-  CoreAccountInfo core_info =
-      identity_manager->GetUnconsentedPrimaryAccountInfo();
+  CoreAccountInfo core_info = identity_manager->GetPrimaryAccountInfo(
+      signin::ConsentLevel::kNotRequired);
   // If there's no unconsented primary account, simply return the name of the
   // profile according to profile attributes.
   if (core_info.IsEmpty())

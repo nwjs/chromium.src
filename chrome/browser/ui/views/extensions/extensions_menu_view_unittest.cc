@@ -11,6 +11,7 @@
 #include "base/files/file_path.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/test/metrics/user_action_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
 #include "chrome/browser/extensions/chrome_test_extension_loader.h"
@@ -39,6 +40,7 @@
 #include "ui/events/base_event_utils.h"
 #include "ui/events/event.h"
 #include "ui/events/event_constants.h"
+#include "ui/events/types/event_type.h"
 #include "ui/gfx/geometry/point.h"
 #include "ui/views/controls/button/image_button.h"
 #include "ui/views/layout/animating_layout_manager_test_util.h"
@@ -499,6 +501,21 @@ TEST_F(ExtensionsMenuViewUnitTest, ReloadExtensionFailed) {
   for (views::View* child : extensions_container()->children())
     EXPECT_NE(ToolbarActionView::kClassName, child->GetClassName());
   EXPECT_EQ(0u, extensions_menu()->extensions_menu_items_for_testing().size());
+}
+
+TEST_F(ExtensionsMenuViewUnitTest, PinButtonUserAction) {
+  base::UserActionTester user_action_tester;
+  AddSimpleExtension("Test Extension");
+
+  ExtensionsMenuItemView* menu_item = GetOnlyMenuItem();
+  ASSERT_TRUE(menu_item);
+
+  constexpr char kPinButtonUserAction[] = "Extensions.Toolbar.PinButtonPressed";
+  EXPECT_EQ(0, user_action_tester.GetActionCount(kPinButtonUserAction));
+  ClickPinButton(menu_item);
+  EXPECT_EQ(1, user_action_tester.GetActionCount(kPinButtonUserAction));
+  ClickPinButton(menu_item);  // Unpin.
+  EXPECT_EQ(2, user_action_tester.GetActionCount(kPinButtonUserAction));
 }
 
 // TODO(crbug.com/984654): When supported, add a test to verify the

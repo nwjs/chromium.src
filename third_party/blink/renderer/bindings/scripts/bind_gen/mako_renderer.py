@@ -8,7 +8,6 @@ import mako.runtime
 import mako.template
 import mako.util
 
-
 _MAKO_TEMPLATE_PASS_KEY = object()
 
 
@@ -167,7 +166,7 @@ def _guess_caller_name(caller):
     """Returns the best-guessed name of |caller|."""
     try:
         # Outer CodeNode may have a binding to the caller.
-        for name, value in caller.outer.template_vars.iteritems():
+        for name, value in caller.outer.template_vars.items():
             if value is caller:
                 return name
         try:

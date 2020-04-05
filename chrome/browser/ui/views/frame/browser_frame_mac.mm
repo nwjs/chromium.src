@@ -9,10 +9,9 @@
 #import "base/mac/foundation_util.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/apps/app_shim/app_shim_host_mac.h"
-#include "chrome/browser/apps/app_shim/extension_app_shim_handler_mac.h"
+#include "chrome/browser/apps/app_shim/app_shim_manager_mac.h"
 #include "chrome/browser/global_keyboard_shortcuts_mac.h"
 #include "chrome/browser/media/router/media_router_feature.h"
-#include "chrome/browser/ui/bookmarks/bookmark_utils.h"
 #include "chrome/browser/ui/browser_command_controller.h"
 #include "chrome/browser/ui/browser_commands.h"
 #import "chrome/browser/ui/cocoa/browser_window_command_handler.h"
@@ -25,6 +24,7 @@
 #include "chrome/common/pref_names.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/bookmarks/common/bookmark_pref_names.h"
+#include "components/omnibox/browser/omnibox_pref_names.h"
 #import "components/remote_cocoa/app_shim/native_widget_mac_nswindow.h"
 #import "components/remote_cocoa/app_shim/native_widget_ns_window_bridge.h"
 #import "components/remote_cocoa/app_shim/window_touch_bar_delegate.h"
@@ -40,10 +40,10 @@
 namespace {
 
 AppShimHost* GetHostForBrowser(Browser* browser) {
-  auto* shim_handler = apps::ExtensionAppShimHandler::Get();
-  if (!shim_handler)
+  auto* shim_manager = apps::AppShimManager::Get();
+  if (!shim_manager)
     return nullptr;
-  return shim_handler->GetHostForBrowser(browser);
+  return shim_manager->GetHostForRemoteCocoaBrowser(browser);
 }
 
 bool ShouldHandleKeyboardEvent(const content::NativeWebKeyboardEvent& event) {
@@ -121,7 +121,6 @@ BrowserWindowTouchBarController* BrowserFrameMac::GetTouchBarController()
 // BrowserFrameMac, views::NativeWidgetMac implementation:
 
 int32_t BrowserFrameMac::SheetOffsetY() {
-  return 0; //NWJS#7349
   // ModalDialogHost::GetDialogPosition() is relative to the host view. In
   // practice, this ends up being the widget's content view.
   web_modal::WebContentsModalDialogHost* dialog_host =
@@ -177,24 +176,6 @@ void BrowserFrameMac::ValidateUserInterfaceItem(
                                             : IDS_ENTER_FULLSCREEN_MAC));
       break;
     }
-    case IDC_BOOKMARK_THIS_TAB: {
-      // Extensions have the ability to hide the bookmark tab menu item.
-      // This only affects the bookmark tab menu item under the main menu.
-      // The bookmark tab menu item under the app menu has its visibility
-      // controlled by AppMenuModel.
-      result->new_hidden_state =
-          chrome::ShouldRemoveBookmarkThisTabUI(browser->profile());
-      break;
-    }
-    case IDC_BOOKMARK_ALL_TABS: {
-      // Extensions have the ability to hide the bookmark all tabs menu
-      // item.  This only affects the bookmark page menu item under the main
-      // menu.  The bookmark page menu item under the app menu has its
-      // visibility controlled by AppMenuModel.
-      result->new_hidden_state =
-          chrome::ShouldRemoveBookmarkAllTabsUI(browser->profile());
-      break;
-    }
     case IDC_SHOW_AS_TAB: {
       // Hide this menu option if the window is tabbed or is the devtools
       // window.
@@ -232,6 +213,12 @@ void BrowserFrameMac::ValidateUserInterfaceItem(
       PrefService* prefs = browser->profile()->GetPrefs();
       result->new_toggle_state =
           prefs->GetBoolean(prefs::kShowFullscreenToolbar);
+      break;
+    }
+    case IDC_SHOW_FULL_URLS: {
+      PrefService* prefs = browser->profile()->GetPrefs();
+      result->new_toggle_state =
+          prefs->GetBoolean(omnibox::kPreventUrlElisionsInOmnibox);
       break;
     }
     case IDC_TOGGLE_JAVASCRIPT_APPLE_EVENTS: {
@@ -316,12 +303,6 @@ void BrowserFrameMac::PopulateCreateWindowParams(
     // Hosted apps draw their own window title.
     if (browser_view_->IsBrowserTypeWebApp())
       params->window_title_hidden = true;
-  } else if (browser_view_->browser()->is_frameless()) {
-    params->window_class = remote_cocoa::mojom::WindowClass::kFrameless;
-    params->style_mask = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable |
-                         NSWindowStyleMaskMiniaturizable |
-                         NSWindowStyleMaskResizable |
-                         NSWindowStyleMaskFullSizeContentView;
   } else {
     params->window_class = remote_cocoa::mojom::WindowClass::kDefault;
     if (widget_params.remove_standard_frame)

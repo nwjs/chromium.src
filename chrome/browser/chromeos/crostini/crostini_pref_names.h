@@ -12,7 +12,6 @@ namespace prefs {
 
 extern const char kCrostiniEnabled[];
 extern const char kCrostiniMimeTypes[];
-extern const char kCrostiniRegistry[];
 extern const char kCrostiniSharedUsbDevices[];
 extern const char kCrostiniContainers[];
 extern const char kCrostiniTerminalSettings[];
@@ -32,6 +31,9 @@ extern const char kCrostiniLastLaunchTerminaComponentVersion[];
 extern const char kCrostiniLastLaunchTerminaKernelVersion[];
 extern const char kCrostiniLastLaunchTimeWindowStart[];
 extern const char kCrostiniLastDiskSize[];
+extern const char kCrostiniPortForwarding[];
+extern const char kCrostiniMicSharing[];
+extern const char kCrostiniMicSharingAtLastLaunch[];
 
 void RegisterProfilePrefs(PrefRegistrySimple* registry);
 

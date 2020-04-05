@@ -89,6 +89,14 @@ class ProfileNetworkContextServiceBrowsertest : public InProcessBrowserTest {
     return loader_factory_;
   }
 
+ protected:
+  // The HttpCache is only created when a request is issued, thus we perform a
+  // navigation to ensure that the http cache is initialized.
+  void NavigateToCreateHttpCache() {
+    ui_test_utils::NavigateToURL(
+        browser(), embedded_test_server()->GetURL("/createbackend"));
+  }
+
  private:
   network::mojom::URLLoaderFactory* loader_factory_ = nullptr;
 };
@@ -202,6 +210,7 @@ class ProfileNetworkContextServiceCacheSameBrowsertest
 
 IN_PROC_BROWSER_TEST_F(ProfileNetworkContextServiceCacheSameBrowsertest,
                        PRE_TestCacheResetParameter) {
+  NavigateToCreateHttpCache();
   CheckCacheResetStatus(&histograms_, false);
 
   // At this point, we have already called the initialization.
@@ -215,6 +224,7 @@ IN_PROC_BROWSER_TEST_F(ProfileNetworkContextServiceCacheSameBrowsertest,
 
 IN_PROC_BROWSER_TEST_F(ProfileNetworkContextServiceCacheSameBrowsertest,
                        TestCacheResetParameter) {
+  NavigateToCreateHttpCache();
   CheckCacheResetStatus(&histograms_, false);
 
   // At this point, we have already called the initialization.
@@ -248,6 +258,7 @@ class ProfileNetworkContextServiceCacheChangeBrowsertest
 // from the unknown state.
 IN_PROC_BROWSER_TEST_F(ProfileNetworkContextServiceCacheChangeBrowsertest,
                        PRE_TestCacheResetParameter) {
+  NavigateToCreateHttpCache();
   CheckCacheResetStatus(&histograms_, false);
 
   // At this point, we have already called the initialization.
@@ -267,6 +278,7 @@ IN_PROC_BROWSER_TEST_F(ProfileNetworkContextServiceCacheChangeBrowsertest,
 // previous test, so we should see a reset being in an experiment.
 IN_PROC_BROWSER_TEST_F(ProfileNetworkContextServiceCacheChangeBrowsertest,
                        TestCacheResetParameter) {
+  NavigateToCreateHttpCache();
   CheckCacheResetStatus(&histograms_, true);
 
   // At this point, we have already called the initialization once.
@@ -597,7 +609,11 @@ IN_PROC_BROWSER_TEST_P(
   network::mojom::NetworkContextParamsPtr network_context_params_ptr =
       profile_network_context_service->CreateNetworkContextParams(
           /*in_memory=*/false, empty_relative_partition_path);
-  EXPECT_EQ(GetParam(), network_context_params_ptr->use_builtin_cert_verifier);
+  EXPECT_EQ(
+      GetParam()
+          ? network::mojom::NetworkContextParams::CertVerifierImpl::kBuiltin
+          : network::mojom::NetworkContextParams::CertVerifierImpl::kSystem,
+      network_context_params_ptr->use_builtin_cert_verifier);
 
 #if BUILDFLAG(BUILTIN_CERT_VERIFIER_POLICY_SUPPORTED)
   // If the BuiltinCertificateVerifierEnabled policy is set it should override
@@ -610,7 +626,8 @@ IN_PROC_BROWSER_TEST_P(
   network_context_params_ptr =
       profile_network_context_service->CreateNetworkContextParams(
           /*in_memory=*/false, empty_relative_partition_path);
-  EXPECT_TRUE(network_context_params_ptr->use_builtin_cert_verifier);
+  EXPECT_EQ(network::mojom::NetworkContextParams::CertVerifierImpl::kBuiltin,
+            network_context_params_ptr->use_builtin_cert_verifier);
 
   SetPolicy(&policies, policy::key::kBuiltinCertificateVerifierEnabled,
             std::make_unique<base::Value>(false));
@@ -619,7 +636,8 @@ IN_PROC_BROWSER_TEST_P(
   network_context_params_ptr =
       profile_network_context_service->CreateNetworkContextParams(
           /*in_memory=*/false, empty_relative_partition_path);
-  EXPECT_FALSE(network_context_params_ptr->use_builtin_cert_verifier);
+  EXPECT_EQ(network::mojom::NetworkContextParams::CertVerifierImpl::kSystem,
+            network_context_params_ptr->use_builtin_cert_verifier);
 #endif
 }
 
@@ -632,6 +650,7 @@ INSTANTIATE_TEST_SUITE_P(
 enum class CorsTestMode {
   kWithCorsMitigationListPolicy,
   kWithoutCorsMitigationListPolicy,
+  kWithHiddenCorsMitigationListPolicy,
 };
 
 class CorsExtraSafelistedHeaderNamesTest
@@ -640,26 +659,29 @@ class CorsExtraSafelistedHeaderNamesTest
  public:
   CorsExtraSafelistedHeaderNamesTest() {
     switch (GetParam()) {
-      case CorsTestMode::kWithCorsMitigationListPolicy: {
-        auto list = std::make_unique<base::ListValue>();
-        list->AppendString("bar");
-        policy::PolicyMap policies;
-        policies.Set(policy::key::kCorsMitigationList,
-                     policy::POLICY_LEVEL_MANDATORY, policy::POLICY_SCOPE_USER,
-                     policy::POLICY_SOURCE_CLOUD, std::move(list), nullptr);
-        provider_.UpdateChromePolicy(policies);
+      case CorsTestMode::kWithCorsMitigationListPolicy:
+        SetUpPolicy();
         scoped_feature_list_.InitWithFeaturesAndParameters(
             {{network::features::kOutOfBlinkCors, {}},
              {features::kExtraSafelistedRequestHeadersForOutOfBlinkCors,
               {{"extra-safelisted-request-headers-for-enterprise", "foo"}}}},
-            {});
+            {{features::kHideCorsMitigationListPolicySupport}, {}});
         break;
-      }
       case CorsTestMode::kWithoutCorsMitigationListPolicy:
         scoped_feature_list_.InitWithFeaturesAndParameters(
             {{network::features::kOutOfBlinkCors, {}},
              {features::kExtraSafelistedRequestHeadersForOutOfBlinkCors,
               {{"extra-safelisted-request-headers", "foo,bar"}}}},
+            {});
+        break;
+      case CorsTestMode::kWithHiddenCorsMitigationListPolicy:
+        SetUpPolicy();
+        scoped_feature_list_.InitWithFeaturesAndParameters(
+            {{network::features::kOutOfBlinkCors, {}},
+             {features::kHideCorsMitigationListPolicySupport, {}},
+             {features::kExtraSafelistedRequestHeadersForOutOfBlinkCors,
+              {{"extra-safelisted-request-headers-for-enterprise",
+                "foo,bar"}}}},
             {});
         break;
     }
@@ -711,6 +733,16 @@ class CorsExtraSafelistedHeaderNamesTest
       "/cors-extra-safelisted-header-names.html";
 
  private:
+  void SetUpPolicy() {
+    auto list = std::make_unique<base::ListValue>();
+    list->AppendString("bar");
+    policy::PolicyMap policies;
+    policies.Set(policy::key::kCorsMitigationList,
+                 policy::POLICY_LEVEL_MANDATORY, policy::POLICY_SCOPE_USER,
+                 policy::POLICY_SOURCE_CLOUD, std::move(list), nullptr);
+    provider_.UpdateChromePolicy(policies);
+  }
+
   std::unique_ptr<net::test_server::HttpResponse> HandleRequest(
       const net::test_server::HttpRequest& request) {
     std::unique_ptr<net::test_server::BasicHttpResponse> response =
@@ -794,3 +826,8 @@ INSTANTIATE_TEST_SUITE_P(
     WithoutCorsMitigationListPolicy,
     CorsExtraSafelistedHeaderNamesTest,
     testing::Values(CorsTestMode::kWithoutCorsMitigationListPolicy));
+
+INSTANTIATE_TEST_SUITE_P(
+    WithHiddenCorsMitigationListPolicy,
+    CorsExtraSafelistedHeaderNamesTest,
+    testing::Values(CorsTestMode::kWithHiddenCorsMitigationListPolicy));

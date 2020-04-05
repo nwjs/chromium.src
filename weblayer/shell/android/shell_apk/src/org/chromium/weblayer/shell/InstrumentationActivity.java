@@ -8,6 +8,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.StrictMode;
+import android.os.StrictMode.ThreadPolicy;
+import android.os.StrictMode.VmPolicy;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentActivity;
 import android.support.v4.app.FragmentManager;
@@ -21,7 +24,10 @@ import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 
+import org.chromium.base.ContextUtils;
 import org.chromium.weblayer.Browser;
+import org.chromium.weblayer.NewTabCallback;
+import org.chromium.weblayer.NewTabType;
 import org.chromium.weblayer.Profile;
 import org.chromium.weblayer.Tab;
 import org.chromium.weblayer.TabCallback;
@@ -57,6 +63,17 @@ public class InstrumentationActivity extends FragmentActivity {
     private Bundle mSavedInstanceState;
     private TabCallback mTabCallback;
 
+    private static boolean isJaCoCoEnabled() {
+        // Nothing is set at runtime indicating jacoco is being used. This looks for the existence
+        // of a javacoco class to determine if jacoco is enabled.
+        try {
+            Class.forName("org.jacoco.agent.rt.RT");
+            return true;
+        } catch (LinkageError | ClassNotFoundException e) {
+        }
+        return false;
+    }
+
     public Tab getTab() {
         return mTab;
     }
@@ -88,12 +105,43 @@ public class InstrumentationActivity extends FragmentActivity {
         super.startActivityFromFragment(fragment, intent, requestCode, options);
     }
 
+    @Override
+    public void startActivity(Intent intent) {
+        if (mIntentInterceptor != null) {
+            mIntentInterceptor.interceptIntent(null, intent, 0, null);
+            return;
+        }
+        super.startActivity(intent);
+    }
+
+    @Override
+    public boolean startActivityIfNeeded(Intent intent, int requestCode) {
+        if (mIntentInterceptor != null) {
+            mIntentInterceptor.interceptIntent(null, intent, requestCode, null);
+            return true;
+        }
+        return super.startActivityIfNeeded(intent, requestCode);
+    }
+
     public View getTopContentsContainer() {
         return mTopContentsContainer;
     }
 
     @Override
     protected void onCreate(final Bundle savedInstanceState) {
+        // JaCoCo injects code that does file access, which doesn't work well with strict mode.
+        if (!isJaCoCoEnabled()) {
+            StrictMode.setThreadPolicy(
+                    new ThreadPolicy.Builder().detectAll().penaltyLog().penaltyDeath().build());
+            // This doesn't use detectAll() as the untagged sockets policy is encountered in tests
+            // using TestServer.
+            StrictMode.setVmPolicy(new VmPolicy.Builder()
+                                           .detectLeakedSqlLiteObjects()
+                                           .detectLeakedClosableObjects()
+                                           .penaltyLog()
+                                           .penaltyDeath()
+                                           .build());
+        }
         super.onCreate(savedInstanceState);
         mSavedInstanceState = savedInstanceState;
         LinearLayout mainView = new LinearLayout(this);
@@ -149,7 +197,8 @@ public class InstrumentationActivity extends FragmentActivity {
 
     private void createWebLayerAsync() {
         try {
-            WebLayer.loadAsync(getApplicationContext(), webLayer -> onWebLayerReady());
+            // Get the Context from ContextUtils so tests get the wrapped version.
+            WebLayer.loadAsync(ContextUtils.getApplicationContext(), webLayer -> onWebLayerReady());
         } catch (UnsupportedVersionException e) {
             throw new RuntimeException("Failed to initialize WebLayer", e);
         }
@@ -201,6 +250,26 @@ public class InstrumentationActivity extends FragmentActivity {
             }
         };
         mTab.registerTabCallback(mTabCallback);
+
+        mTab.setNewTabCallback(new NewTabCallback() {
+            @Override
+            public void onNewTab(Tab newTab, @NewTabType int type) {
+                // NOTE: At this time there isn't a need to hang on to the previous tab as this
+                // activity doesn't support closing tabs. If needed that could be added following
+                // the implementation in WebLayerShellActivity.java.
+                mTab.unregisterTabCallback(mTabCallback);
+                mTabCallback = null;
+                mTab = null;
+
+                setTab(newTab);
+                mBrowser.setActiveTab(newTab);
+            }
+
+            @Override
+            public void onCloseTab() {
+                assert false;
+            }
+        });
     }
 
     private Fragment getOrCreateBrowserFragment() {
@@ -235,6 +304,10 @@ public class InstrumentationActivity extends FragmentActivity {
         // have to wait until the commit is executed.
         transaction.commitNow();
         return fragment;
+    }
+
+    public String getCurrentDisplayUrl() {
+        return mUrlView.getText().toString();
     }
 
     public void loadUrl(String url) {

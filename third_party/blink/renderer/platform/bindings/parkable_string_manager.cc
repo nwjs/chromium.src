@@ -62,17 +62,20 @@ class OnPurgeMemoryListener : public GarbageCollected<OnPurgeMemoryListener>,
 
 }  // namespace
 
+const char* ParkableStringManager::kAllocatorDumpName = "parkable_strings";
+
 // Compares not the pointers, but the arrays. Uses pointers to save space.
 struct ParkableStringManager::SecureDigestHash {
   STATIC_ONLY(SecureDigestHash);
 
-  static unsigned GetHash(ParkableStringImpl::SecureDigest* const digest) {
+  static unsigned GetHash(
+      const ParkableStringImpl::SecureDigest* const digest) {
     // The first bytes of the hash are as good as anything else.
     return *reinterpret_cast<const unsigned*>(digest->data());
   }
 
-  static inline bool Equal(ParkableStringImpl::SecureDigest* const a,
-                           ParkableStringImpl::SecureDigest* const b) {
+  static inline bool Equal(const ParkableStringImpl::SecureDigest* const a,
+                           const ParkableStringImpl::SecureDigest* const b) {
     return a == b ||
            std::equal(a->data(), a->data() + ParkableStringImpl::kDigestSize,
                       b->data());
@@ -121,7 +124,7 @@ bool ParkableStringManager::OnMemoryDump(
     base::trace_event::ProcessMemoryDump* pmd) {
   DCHECK(IsMainThread());
   base::trace_event::MemoryAllocatorDump* dump =
-      pmd->CreateAllocatorDump("parkable_strings");
+      pmd->CreateAllocatorDump(kAllocatorDumpName);
 
   Statistics stats = ComputeStatistics();
 
@@ -375,7 +378,7 @@ ParkableStringManager::Statistics ParkableStringManager::ComputeStatistics()
   // The digest has an inline capacity set to the digest size, hence sizeof() is
   // accurate.
   constexpr size_t kParkableStringImplActualSize =
-      sizeof(ParkableStringImpl) + sizeof(ParkableStringImpl::SecureDigest);
+      sizeof(ParkableStringImpl) + sizeof(ParkableStringImpl::ParkableMetadata);
 
   for (const auto& kv : unparked_strings_) {
     ParkableStringImpl* str = kv.value;
@@ -386,6 +389,15 @@ ParkableStringManager::Statistics ParkableStringManager::ComputeStatistics()
 
     if (str->has_compressed_data())
       stats.overhead_size += str->compressed_size();
+
+    // Since ParkableStringManager wants to have a finer breakdown of memory
+    // footprint, this doesn't directly use
+    // |ParkableStringImpl::MemoryFootprintForDump()|. However we want the two
+    // computations to be consistent, hence the DCHECK().
+    size_t memory_footprint =
+        (str->has_compressed_data() ? str->compressed_size() : 0) + size +
+        kParkableStringImplActualSize;
+    DCHECK_EQ(memory_footprint, str->MemoryFootprintForDump());
   }
 
   for (const auto& kv : parked_strings_) {
@@ -395,6 +407,11 @@ ParkableStringManager::Statistics ParkableStringManager::ComputeStatistics()
     stats.original_size += size;
     stats.compressed_size += str->compressed_size();
     stats.metadata_size += kParkableStringImplActualSize;
+
+    // See comment above.
+    size_t memory_footprint =
+        str->compressed_size() + kParkableStringImplActualSize;
+    DCHECK_EQ(memory_footprint, str->MemoryFootprintForDump());
   }
 
   stats.total_size = stats.uncompressed_size + stats.compressed_size +

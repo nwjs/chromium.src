@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/feature_list.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
@@ -27,7 +28,9 @@
 #include "base/system/sys_info.h"
 #include "base/task/post_task.h"
 #include "base/task/task_traits.h"
+#include "base/task/thread_pool.h"
 #include "base/time/time.h"
+#include "chromeos/constants/chromeos_switches.h"
 #include "chromeos/dbus/concierge_client.h"
 #include "chromeos/dbus/dbus_method_call_status.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
@@ -44,6 +47,9 @@ namespace arc {
 namespace {
 
 constexpr const char kArcVmServerProxyJobName[] = "arcvm_2dserver_2dproxy";
+constexpr const char kArcVmPerBoardFeaturesJobName[] =
+    "arcvm_2dper_2dboard_2dfeatures";
+
 constexpr const char kCrosSystemPath[] = "/usr/bin/crossystem";
 constexpr const char kHomeDirectory[] = "/home";
 
@@ -51,6 +57,21 @@ constexpr int64_t kInvalidCid = -1;
 
 chromeos::ConciergeClient* GetConciergeClient() {
   return chromeos::DBusThreadManager::Get()->GetConciergeClient();
+}
+
+std::string GetChromeOsChannelFromLsbRelease() {
+  constexpr const char kChromeOsReleaseTrack[] = "CHROMEOS_RELEASE_TRACK";
+  constexpr const char kUnknown[] = "unknown";
+  const std::string kChannelSuffix = "-channel";
+
+  std::string value;
+  base::SysInfo::GetLsbReleaseValue(kChromeOsReleaseTrack, &value);
+
+  if (!base::EndsWith(value, kChannelSuffix, base::CompareCase::SENSITIVE)) {
+    LOG(ERROR) << "Unknown ChromeOS channel: \"" << value << "\"";
+    return kUnknown;
+  }
+  return value.erase(value.find(kChannelSuffix), kChannelSuffix.size());
 }
 
 // TODO(pliard): Export host-side /data to the VM, and remove the function.
@@ -82,6 +103,27 @@ std::string MonotonicTimestamp() {
   return base::NumberToString(time);
 }
 
+ArcBinaryTranslationType IdentifyBinaryTranslationType(
+    const StartParams& start_params) {
+  const auto* command_line = base::CommandLine::ForCurrentProcess();
+  bool is_houdini_available =
+      command_line->HasSwitch(chromeos::switches::kEnableHoudini) ||
+      command_line->HasSwitch(chromeos::switches::kEnableHoudini64);
+  bool is_ndk_translation_available =
+      command_line->HasSwitch(chromeos::switches::kEnableNdkTranslation);
+
+  if (!is_houdini_available && !is_ndk_translation_available)
+    return ArcBinaryTranslationType::NONE;
+
+  const bool prefer_ndk_translation =
+      !is_houdini_available || start_params.native_bridge_experiment;
+
+  if (is_ndk_translation_available && prefer_ndk_translation)
+    return ArcBinaryTranslationType::NDK_TRANSLATION;
+
+  return ArcBinaryTranslationType::HOUDINI;
+}
+
 std::vector<std::string> GenerateKernelCmdline(
     const StartParams& start_params,
     const UpgradeParams& upgrade_params,
@@ -91,12 +133,24 @@ std::vector<std::string> GenerateKernelCmdline(
     const std::string& channel,
     const std::string& serial_number) {
   DCHECK(!serial_number.empty());
+
+  std::string native_bridge;
+  switch (IdentifyBinaryTranslationType(start_params)) {
+    case ArcBinaryTranslationType::NONE:
+      native_bridge = "0";
+      break;
+    case ArcBinaryTranslationType::HOUDINI:
+      native_bridge = "libhoudini.so";
+      break;
+    case ArcBinaryTranslationType::NDK_TRANSLATION:
+      native_bridge = "libndk_translation.so";
+      break;
+  }
+
   std::vector<std::string> result = {
       "androidboot.hardware=bertha",
       "androidboot.container=1",
-      // TODO(b/139480143): when |start_params.native_bridge_experiment| is
-      // enabled, switch to ndk_translation.
-      "androidboot.native_bridge=libhoudini.so",
+      base::StringPrintf("androidboot.native_bridge=%s", native_bridge.c_str()),
       base::StringPrintf("androidboot.dev_mode=%d", is_dev_mode),
       base::StringPrintf("androidboot.disable_runas=%d", !is_dev_mode),
       base::StringPrintf("androidboot.vm=%d", is_host_on_vm),
@@ -110,6 +164,8 @@ std::vector<std::string> GenerateKernelCmdline(
                          start_params.arc_custom_tabs_experiment),
       base::StringPrintf("androidboot.arc_print_spooler=%d",
                          start_params.arc_print_spooler_experiment),
+      base::StringPrintf("androidboot.disable_system_default_app=%d",
+                         start_params.arc_disable_system_default_app),
       "androidboot.chromeos_channel=" + channel,
       "androidboot.boottime_offset=" + MonotonicTimestamp(),
       // TODO(yusukes): remove this once arcvm supports SELinux.
@@ -155,7 +211,8 @@ std::vector<std::string> GenerateKernelCmdline(
     }
   }
 
-  // TODO(yusukes): Handle |is_managed_account| in |upgrade_params|.
+  // TODO(yusukes): Handle |is_account_managed| in |upgrade_params| when we
+  // implement apk sideloading for ARCVM.
   return result;
 }
 
@@ -248,14 +305,11 @@ class ArcVmClientAdapter : public ArcClientAdapter,
   // Initializing |is_host_on_vm_| and |is_dev_mode_| is not always very fast.
   // Try to initialize them in the constructor and in StartMiniArc respectively.
   // They usually run when the system is not busy.
-  explicit ArcVmClientAdapter(version_info::Channel channel)
-      : ArcVmClientAdapter(channel, {}) {}
+  explicit ArcVmClientAdapter() : ArcVmClientAdapter({}) {}
 
   // For testing purposes and the internal use (by the other ctor) only.
-  ArcVmClientAdapter(version_info::Channel channel,
-                     const FileSystemStatusRewriter& rewriter)
-      : channel_(channel),
-        is_host_on_vm_(chromeos::system::StatisticsProvider::GetInstance()
+  ArcVmClientAdapter(const FileSystemStatusRewriter& rewriter)
+      : is_host_on_vm_(chromeos::system::StatisticsProvider::GetInstance()
                            ->IsRunningOnVm()),
         file_system_status_rewriter_for_testing_(rewriter) {
     auto* client = GetConciergeClient();
@@ -300,10 +354,8 @@ class ArcVmClientAdapter : public ArcClientAdapter,
     // Save the parameters for the later call to UpgradeArc.
     start_params_ = std::move(params);
 
-    base::PostTaskAndReplyWithResult(
-        FROM_HERE,
-        {base::ThreadPool(), base::MayBlock(),
-         base::TaskPriority::USER_VISIBLE},
+    base::ThreadPool::PostTaskAndReplyWithResult(
+        FROM_HERE, {base::MayBlock(), base::TaskPriority::USER_VISIBLE},
         base::BindOnce(
             []() { return GetSystemPropertyInt("cros_debug") == 1; }),
         base::BindOnce(&ArcVmClientAdapter::OnIsDevMode,
@@ -364,12 +416,30 @@ class ArcVmClientAdapter : public ArcClientAdapter,
  private:
   void OnIsDevMode(chromeos::VoidDBusMethodCallback callback,
                    bool is_dev_mode) {
+    VLOG(1) << "Starting arcvm-per-board-features";
+    // Note: the Upstart job is a task, and the callback for the start request
+    // won't be called until the task finishes. When the callback is called with
+    // true, it is ensured that the per-board features files exist.
+    chromeos::UpstartClient::Get()->StartJob(
+        kArcVmPerBoardFeaturesJobName, /*environment=*/{},
+        base::BindOnce(&ArcVmClientAdapter::OnArcVmPerBoardFeaturesStarted,
+                       weak_factory_.GetWeakPtr(), std::move(callback)));
+    is_dev_mode_ = is_dev_mode;
+  }
+
+  void OnArcVmPerBoardFeaturesStarted(chromeos::VoidDBusMethodCallback callback,
+                                      bool result) {
+    if (!result) {
+      LOG(ERROR) << "Failed to start arcvm-per-board-features";
+      // TODO(yusukes): Record UMA for this case.
+      std::move(callback).Run(result);
+      return;
+    }
     // Make sure to kill a stale arcvm-server-proxy job (if any).
     chromeos::UpstartClient::Get()->StopJob(
         kArcVmServerProxyJobName, /*environment=*/{},
         base::BindOnce(&ArcVmClientAdapter::OnArcVmServerProxyJobStopped,
                        weak_factory_.GetWeakPtr(), std::move(callback)));
-    is_dev_mode_ = is_dev_mode;
   }
 
   void OnArcVmServerProxyJobStopped(chromeos::VoidDBusMethodCallback callback,
@@ -410,10 +480,8 @@ class ArcVmClientAdapter : public ArcClientAdapter,
     }
     // TODO(pliard): Export host-side /data to the VM, and remove the call. Note
     // that ArcSessionImpl checks low disk conditions before calling UpgradeArc.
-    base::PostTaskAndReplyWithResult(
-        FROM_HERE,
-        {base::ThreadPool(), base::MayBlock(),
-         base::TaskPriority::USER_VISIBLE},
+    base::ThreadPool::PostTaskAndReplyWithResult(
+        FROM_HERE, {base::MayBlock(), base::TaskPriority::USER_VISIBLE},
         base::BindOnce(&base::SysInfo::AmountOfFreeDiskSpace,
                        base::FilePath(kHomeDirectory)),
         base::BindOnce(&ArcVmClientAdapter::CreateDiskImageAfterSizeCheck,
@@ -462,10 +530,8 @@ class ArcVmClientAdapter : public ArcClientAdapter,
     VLOG(1) << "Disk image for arcvm ready. status=" << response.status()
             << ", disk=" << response.disk_path();
 
-    base::PostTaskAndReplyWithResult(
-        FROM_HERE,
-        {base::ThreadPool(), base::MayBlock(),
-         base::TaskPriority::USER_VISIBLE},
+    base::ThreadPool::PostTaskAndReplyWithResult(
+        FROM_HERE, {base::MayBlock(), base::TaskPriority::USER_VISIBLE},
         base::BindOnce(&FileSystemStatus::GetFileSystemStatusBlocking),
         base::BindOnce(&ArcVmClientAdapter::OnFileSystemStatus,
                        weak_factory_.GetWeakPtr(), std::move(params),
@@ -481,12 +547,6 @@ class ArcVmClientAdapter : public ArcClientAdapter,
     if (file_system_status_rewriter_for_testing_)
       file_system_status_rewriter_for_testing_.Run(&file_system_status);
 
-    if (!file_system_status.property_files_expanded()) {
-      LOG(ERROR) << "Failed to expand property files";
-      std::move(callback).Run(false);
-      return;
-    }
-
     if (serial_number_.empty()) {
       LOG(ERROR) << "Serial number is not set";
       std::move(callback).Run(false);
@@ -500,8 +560,7 @@ class ArcVmClientAdapter : public ArcClientAdapter,
     DCHECK(is_dev_mode_);
     std::vector<std::string> kernel_cmdline = GenerateKernelCmdline(
         start_params_, params, file_system_status, *is_dev_mode_,
-        is_host_on_vm_, version_info::GetChannelString(channel_),
-        serial_number_);
+        is_host_on_vm_, GetChromeOsChannelFromLsbRelease(), serial_number_);
     auto start_request = CreateStartArcVmRequest(
         user_id_hash_, cpus, data_disk_path, params.demo_session_apps_path,
         file_system_status, std::move(kernel_cmdline));
@@ -540,8 +599,7 @@ class ArcVmClientAdapter : public ArcClientAdapter,
     // TODO(yusukes): Consider removing this stop call once b/142140355 is
     // implemented.
     chromeos::UpstartClient::Get()->StopJob(
-        kArcVmServerProxyJobName, /*environment=*/{},
-        chromeos::EmptyVoidDBusMethodCallback());
+        kArcVmServerProxyJobName, /*environment=*/{}, base::DoNothing());
 
     // If this method is called before even mini VM is started (e.g. very early
     // vm_concierge crash), or this method is called twice (e.g. crosvm crash
@@ -567,8 +625,6 @@ class ArcVmClientAdapter : public ArcClientAdapter,
     OnArcInstanceStopped();
   }
 
-  const version_info::Channel channel_;
-
   base::Optional<bool> is_dev_mode_;
   // True when the *host* is running on a VM.
   const bool is_host_on_vm_;
@@ -590,15 +646,13 @@ class ArcVmClientAdapter : public ArcClientAdapter,
   DISALLOW_COPY_AND_ASSIGN(ArcVmClientAdapter);
 };
 
-std::unique_ptr<ArcClientAdapter> CreateArcVmClientAdapter(
-    version_info::Channel channel) {
-  return std::make_unique<ArcVmClientAdapter>(channel);
+std::unique_ptr<ArcClientAdapter> CreateArcVmClientAdapter() {
+  return std::make_unique<ArcVmClientAdapter>();
 }
 
 std::unique_ptr<ArcClientAdapter> CreateArcVmClientAdapterForTesting(
-    version_info::Channel channel,
     const FileSystemStatusRewriter& rewriter) {
-  return std::make_unique<ArcVmClientAdapter>(channel, rewriter);
+  return std::make_unique<ArcVmClientAdapter>(rewriter);
 }
 
 }  // namespace arc

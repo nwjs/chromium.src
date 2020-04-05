@@ -13,9 +13,6 @@ import android.graphics.Point;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.os.SystemClock;
-import android.support.v4.app.Fragment;
-import android.support.v4.app.FragmentTransaction;
-import android.support.v7.app.AlertDialog;
 import android.text.TextUtils;
 import android.text.method.LinkMovementMethod;
 import android.view.LayoutInflater;
@@ -26,6 +23,9 @@ import android.widget.TextView;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
+import androidx.appcompat.app.AlertDialog;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentTransaction;
 
 import org.chromium.base.Log;
 import org.chromium.base.metrics.RecordHistogram;
@@ -37,9 +37,8 @@ import org.chromium.chrome.browser.externalauth.UserRecoverableErrorHandler;
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.preferences.PrefServiceBridge;
 import org.chromium.chrome.browser.sync.SyncUserDataWiper;
-import org.chromium.components.signin.AccountIdProvider;
 import org.chromium.components.signin.AccountManagerDelegateException;
-import org.chromium.components.signin.AccountManagerFacade;
+import org.chromium.components.signin.AccountManagerFacadeProvider;
 import org.chromium.components.signin.AccountManagerResult;
 import org.chromium.components.signin.AccountTrackerService;
 import org.chromium.components.signin.AccountsChangeObserver;
@@ -471,11 +470,11 @@ public abstract class SigninFragmentBase
      */
     private void recordConsent(TextView confirmationView) {
         // TODO(crbug.com/831257): Provide the account id synchronously from AccountManagerFacade.
-        final AccountIdProvider accountIdProvider = AccountIdProvider.getInstance();
         new AsyncTask<String>() {
             @Override
             public String doInBackground() {
-                return accountIdProvider.getAccountId(mSelectedAccountName);
+                return AccountManagerFacadeProvider.getInstance().getAccountGaiaId(
+                        mSelectedAccountName);
             }
 
             @Override
@@ -513,16 +512,17 @@ public abstract class SigninFragmentBase
     public void addAccount() {
         RecordUserAction.record("Signin_AddAccountToDevice");
         // TODO(https://crbug.com/842860): Revise createAddAccountIntent and AccountAdder.
-        AccountManagerFacade.get().createAddAccountIntent((@Nullable Intent intent) -> {
-            if (intent != null) {
-                startActivityForResult(intent, ADD_ACCOUNT_REQUEST_CODE);
-                return;
-            }
+        AccountManagerFacadeProvider.getInstance().createAddAccountIntent(
+                (@Nullable Intent intent) -> {
+                    if (intent != null) {
+                        startActivityForResult(intent, ADD_ACCOUNT_REQUEST_CODE);
+                        return;
+                    }
 
-            // AccountManagerFacade couldn't create intent, use SigninUtils to open settings
-            // instead.
-            SigninUtils.openSettingsForAllAccounts(getContext());
-        });
+                    // AccountManagerFacade couldn't create intent, use SigninUtils to open settings
+                    // instead.
+                    SigninUtils.openSettingsForAllAccounts(getContext());
+                });
     }
 
     @Override
@@ -539,7 +539,7 @@ public abstract class SigninFragmentBase
             }
 
             // Wait for the account cache to be updated and select newly-added account.
-            AccountManagerFacade.get().waitForPendingUpdates(() -> {
+            AccountManagerFacadeProvider.getInstance().waitForPendingUpdates(() -> {
                 mAccountSelectionPending = true;
                 mRequestedAccountName = addedAccountName;
                 triggerUpdateAccounts();
@@ -551,7 +551,7 @@ public abstract class SigninFragmentBase
     public void onResume() {
         super.onResume();
         mResumed = true;
-        AccountManagerFacade.get().addObserver(mAccountsChangedObserver);
+        AccountManagerFacadeProvider.getInstance().addObserver(mAccountsChangedObserver);
         mProfileDataCache.addObserver(mProfileDataCacheObserver);
         triggerUpdateAccounts();
 
@@ -563,7 +563,7 @@ public abstract class SigninFragmentBase
         super.onPause();
         mResumed = false;
         mProfileDataCache.removeObserver(mProfileDataCacheObserver);
-        AccountManagerFacade.get().removeObserver(mAccountsChangedObserver);
+        AccountManagerFacadeProvider.getInstance().removeObserver(mAccountsChangedObserver);
 
         mView.stopAnimations();
     }
@@ -581,7 +581,7 @@ public abstract class SigninFragmentBase
     }
 
     private void triggerUpdateAccounts() {
-        AccountManagerFacade.get().getGoogleAccountNames(this::updateAccounts);
+        AccountManagerFacadeProvider.getInstance().getGoogleAccountNames(this::updateAccounts);
     }
 
     private void updateAccounts(AccountManagerResult<List<String>> maybeAccountNames) {

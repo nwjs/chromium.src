@@ -24,6 +24,8 @@
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/threading/thread_task_runner_handle.h"
+#include "chrome/browser/apps/app_service/app_service_proxy.h"
+#include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
 #include "chrome/browser/chromeos/arc/arc_util.h"
 #include "chrome/browser/chromeos/crostini/crostini_features.h"
 #include "chrome/browser/chromeos/crostini/crostini_util.h"
@@ -35,10 +37,7 @@
 #include "chrome/browser/ui/app_list/app_list_client_impl.h"
 #include "chrome/browser/ui/app_list/app_list_syncable_service_factory.h"
 #include "chrome/browser/ui/app_list/app_service/app_service_app_icon_loader.h"
-#include "chrome/browser/ui/app_list/arc/arc_app_icon_loader.h"
 #include "chrome/browser/ui/app_list/arc/arc_app_utils.h"
-#include "chrome/browser/ui/app_list/crostini/crostini_app_icon_loader.h"
-#include "chrome/browser/ui/app_list/internal_app/internal_app_icon_loader.h"
 #include "chrome/browser/ui/app_list/md_icon_normalizer.h"
 #include "chrome/browser/ui/apps/app_info_dialog.h"
 #include "chrome/browser/ui/ash/chrome_launcher_prefs.h"
@@ -55,9 +54,7 @@
 #include "chrome/browser/ui/ash/launcher/chrome_launcher_controller_util.h"
 #include "chrome/browser/ui/ash/launcher/crostini_app_window_shelf_controller.h"
 #include "chrome/browser/ui/ash/launcher/internal_app_window_shelf_controller.h"
-#include "chrome/browser/ui/ash/launcher/launcher_arc_app_updater.h"
 #include "chrome/browser/ui/ash/launcher/launcher_controller_helper.h"
-#include "chrome/browser/ui/ash/launcher/launcher_crostini_app_updater.h"
 #include "chrome/browser/ui/ash/launcher/launcher_extension_app_updater.h"
 #include "chrome/browser/ui/ash/launcher/multi_profile_app_window_launcher_controller.h"
 #include "chrome/browser/ui/ash/launcher/multi_profile_browser_status_monitor.h"
@@ -72,8 +69,10 @@
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/webui/settings/chromeos/app_management/app_management_uma.h"
+#include "chrome/browser/web_applications/components/app_registrar.h"
 #include "chrome/browser/web_applications/components/web_app_helpers.h"
 #include "chrome/browser/web_applications/system_web_app_manager.h"
+#include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/extensions/manifest_handlers/app_launch_info.h"
 #include "chrome/common/pref_names.h"
@@ -81,6 +80,7 @@
 #include "chrome/grit/chromium_strings.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/grit/theme_resources.h"
+#include "chrome/services/app_service/public/mojom/types.mojom.h"
 #include "chromeos/strings/grit/chromeos_strings.h"
 #include "components/account_id/account_id.h"
 #include "components/arc/arc_prefs.h"
@@ -139,6 +139,19 @@ const extensions::Extension* GetExtension(Profile* profile,
   const extensions::ExtensionRegistry* registry =
       extensions::ExtensionRegistry::Get(profile);
   return registry->GetInstalledExtension(extension_id);
+}
+
+apps::mojom::LaunchSource ConvertLaunchSource(ash::ShelfLaunchSource source) {
+  switch (source) {
+    case ash::LAUNCH_FROM_UNKNOWN:
+      return apps::mojom::LaunchSource::kUnknown;
+    case ash::LAUNCH_FROM_APP_LIST:
+      return apps::mojom::LaunchSource::kFromAppListGrid;
+    case ash::LAUNCH_FROM_APP_LIST_SEARCH:
+      return apps::mojom::LaunchSource::kFromAppListQuery;
+    case ash::LAUNCH_FROM_SHELF:
+      return apps::mojom::LaunchSource::kFromShelf;
+  }
 }
 
 }  // namespace
@@ -252,7 +265,7 @@ ChromeLauncherController::ChromeLauncherController(Profile* profile,
   MultiUserWindowManagerHelper::CreateInstance();
 
   // On Chrome OS using multi profile we want to switch the content of the shelf
-  // with a user change. Note that for unit tests the instance can be NULL.
+  // with a user change. Note that for unit tests the instance can be nullptr.
   if (SessionControllerClientImpl::IsMultiProfileAvailable()) {
     user_switch_observer_.reset(
         new ChromeLauncherControllerUserSwitchObserver(this));
@@ -473,7 +486,17 @@ void ChromeLauncherController::LaunchApp(const ash::ShelfID& id,
                                          ash::ShelfLaunchSource source,
                                          int event_flags,
                                          int64_t display_id) {
-  launcher_controller_helper_->LaunchApp(id, source, event_flags, display_id);
+  // Handle recording app launch source from the Shelf in Demo Mode.
+  if (source == ash::ShelfLaunchSource::LAUNCH_FROM_SHELF) {
+    chromeos::DemoSession::RecordAppLaunchSourceIfInDemoMode(
+        chromeos::DemoSession::AppLaunchSource::kShelf);
+  }
+
+  const std::string& app_id = id.app_id;
+  apps::AppServiceProxy* proxy =
+      apps::AppServiceProxyFactory::GetForProfile(profile_);
+  DCHECK(proxy);
+  proxy->Launch(app_id, event_flags, ConvertLaunchSource(source), display_id);
 }
 
 void ChromeLauncherController::ActivateApp(const std::string& app_id,
@@ -882,19 +905,23 @@ bool ChromeLauncherController::CanDoShowAppInfoFlow(
   return CanShowAppInfoDialog(profile, extension_id);
 }
 
-void ChromeLauncherController::DoShowAppInfoFlow(
-    Profile* profile,
-    const std::string& extension_id) {
+void ChromeLauncherController::DoShowAppInfoFlow(Profile* profile,
+                                                 const std::string& app_id) {
   DCHECK(CanPlatformShowAppInfoDialog());
 
-  const extensions::Extension* extension = GetExtension(profile, extension_id);
-  if (!extension)
-    return;
-
   if (base::FeatureList::IsEnabled(features::kAppManagement)) {
-    chrome::ShowAppManagementPage(profile, extension_id);
+    apps::AppServiceProxy* proxy =
+        apps::AppServiceProxyFactory::GetForProfile(profile);
+    if (proxy && proxy->AppRegistryCache().GetAppType(app_id) ==
+                     apps::mojom::AppType::kUnknown) {
+      return;
+    }
 
-    if (extension->is_hosted_app() && extension->from_bookmark()) {
+    chrome::ShowAppManagementPage(profile, app_id);
+
+    web_app::WebAppProvider* web_app_provider =
+        web_app::WebAppProvider::Get(profile);
+    if (web_app_provider && web_app_provider->registrar().IsInstalled(app_id)) {
       base::UmaHistogramEnumeration(
           kAppManagementEntryPointsHistogramName,
           AppManagementEntryPoint::kShelfContextMenuAppInfoWebApp);
@@ -905,6 +932,11 @@ void ChromeLauncherController::DoShowAppInfoFlow(
     }
     return;
   }
+
+  // TODO(crbug.com/1065766): Remove below code.
+  const extensions::Extension* extension = GetExtension(profile, app_id);
+  if (!extension)
+    return;
 
   if (extension->is_hosted_app() && extension->from_bookmark()) {
     chrome::ShowSiteSettings(
@@ -1295,56 +1327,21 @@ void ChromeLauncherController::AttachProfile(Profile* profile_to_attach) {
     launcher_controller_helper_->set_profile(profile_);
   }
 
-  bool app_service_enabled =
-      base::FeatureList::IsEnabled(features::kAppServiceShelf);
+  std::unique_ptr<AppIconLoader> app_service_app_icon_loader =
+      std::make_unique<AppServiceAppIconLoader>(
+          profile_, extension_misc::EXTENSION_ICON_MEDIUM, this);
+  app_icon_loaders_.push_back(std::move(app_service_app_icon_loader));
 
-  if (app_service_enabled) {
-    std::unique_ptr<AppIconLoader> app_service_app_icon_loader =
-        std::make_unique<AppServiceAppIconLoader>(
-            profile_, extension_misc::EXTENSION_ICON_MEDIUM, this);
-    app_icon_loaders_.push_back(std::move(app_service_app_icon_loader));
-
-    // Some special extensions open new windows, and on Chrome OS, those windows
-    // should show the extension icon in the shelf. Extensions are not present
-    // in the App Service, so try loading extensions icon using
-    // ChromeAppIconLoader.
-    std::unique_ptr<extensions::ChromeAppIconLoader> chrome_app_icon_loader =
-        std::make_unique<extensions::ChromeAppIconLoader>(
-            profile_, extension_misc::EXTENSION_ICON_MEDIUM,
-            base::BindRepeating(&app_list::MaybeResizeAndPadIconForMd), this);
-    chrome_app_icon_loader->SetExtensionsOnly();
-    app_icon_loaders_.push_back(std::move(chrome_app_icon_loader));
-  } else {
-    // TODO(skuhne): The AppIconLoaderImpl has the same problem. Each loaded
-    // image is associated with a profile (its loader requires the profile).
-    // Since icon size changes are possible, the icon could be requested to be
-    // reloaded. However - having it not multi profile aware would cause
-    // problems if the icon cache gets deleted upon user switch.
-    std::unique_ptr<AppIconLoader> chrome_app_icon_loader =
-        std::make_unique<extensions::ChromeAppIconLoader>(
-            profile_, extension_misc::EXTENSION_ICON_MEDIUM,
-            base::BindRepeating(&app_list::MaybeResizeAndPadIconForMd), this);
-    app_icon_loaders_.push_back(std::move(chrome_app_icon_loader));
-
-    if (arc::IsArcAllowedForProfile(profile_)) {
-      std::unique_ptr<AppIconLoader> arc_app_icon_loader =
-          std::make_unique<ArcAppIconLoader>(
-              profile_, extension_misc::EXTENSION_ICON_MEDIUM, this);
-      app_icon_loaders_.push_back(std::move(arc_app_icon_loader));
-    }
-
-    std::unique_ptr<AppIconLoader> internal_app_icon_loader =
-        std::make_unique<InternalAppIconLoader>(
-            profile_, extension_misc::EXTENSION_ICON_MEDIUM, this);
-    app_icon_loaders_.push_back(std::move(internal_app_icon_loader));
-
-    if (crostini::CrostiniFeatures::Get()->IsUIAllowed(profile_)) {
-      std::unique_ptr<AppIconLoader> crostini_app_icon_loader =
-          std::make_unique<CrostiniAppIconLoader>(
-              profile_, extension_misc::EXTENSION_ICON_MEDIUM, this);
-      app_icon_loaders_.push_back(std::move(crostini_app_icon_loader));
-    }
-  }
+  // Some special extensions open new windows, and on Chrome OS, those windows
+  // should show the extension icon in the shelf. Extensions are not present
+  // in the App Service, so try loading extensions icon using
+  // ChromeAppIconLoader.
+  std::unique_ptr<extensions::ChromeAppIconLoader> chrome_app_icon_loader =
+      std::make_unique<extensions::ChromeAppIconLoader>(
+          profile_, extension_misc::EXTENSION_ICON_MEDIUM,
+          base::BindRepeating(&app_list::MaybeResizeAndPadIconForMd), this);
+  chrome_app_icon_loader->SetExtensionsOnly();
+  app_icon_loaders_.push_back(std::move(chrome_app_icon_loader));
 
   pref_change_registrar_.Init(profile()->GetPrefs());
   pref_change_registrar_.Add(
@@ -1359,37 +1356,18 @@ void ChromeLauncherController::AttachProfile(Profile* profile_to_attach) {
       base::Bind(&ChromeLauncherController::ScheduleUpdateAppLaunchersFromSync,
                  base::Unretained(this)));
 
-  if (app_service_enabled) {
-    std::unique_ptr<LauncherAppUpdater> app_service_app_updater(
-        new LauncherAppServiceAppUpdater(this, profile()));
-    app_updaters_.push_back(std::move(app_service_app_updater));
+  std::unique_ptr<LauncherAppUpdater> app_service_app_updater(
+      new LauncherAppServiceAppUpdater(this, profile()));
+  app_updaters_.push_back(std::move(app_service_app_updater));
 
-    // Some special extensions open new windows, and on Chrome OS, those windows
-    // should show the extension icon in the shelf. Extensions are not present
-    // in the App Service, so use LauncherExtensionAppUpdater to handle
-    // extensions life-cycle events.
-    std::unique_ptr<LauncherExtensionAppUpdater> extension_app_updater(
-        new LauncherExtensionAppUpdater(this, profile(),
-                                        true /* extensions_only */));
-    app_updaters_.push_back(std::move(extension_app_updater));
-  } else {
-    std::unique_ptr<LauncherAppUpdater> extension_app_updater(
-        new LauncherExtensionAppUpdater(this, profile(),
-                                        false /* extensions_only */));
-    app_updaters_.push_back(std::move(extension_app_updater));
-
-    if (arc::IsArcAllowedForProfile(profile())) {
-      std::unique_ptr<LauncherAppUpdater> arc_app_updater(
-          new LauncherArcAppUpdater(this, profile()));
-      app_updaters_.push_back(std::move(arc_app_updater));
-    }
-
-    if (crostini::CrostiniFeatures::Get()->IsUIAllowed(profile())) {
-      std::unique_ptr<LauncherAppUpdater> crostini_app_updater(
-          new LauncherCrostiniAppUpdater(this, profile()));
-      app_updaters_.push_back(std::move(crostini_app_updater));
-    }
-  }
+  // Some special extensions open new windows, and on Chrome OS, those windows
+  // should show the extension icon in the shelf. Extensions are not present
+  // in the App Service, so use LauncherExtensionAppUpdater to handle
+  // extensions life-cycle events.
+  std::unique_ptr<LauncherExtensionAppUpdater> extension_app_updater(
+      new LauncherExtensionAppUpdater(this, profile(),
+                                      true /* extensions_only */));
+  app_updaters_.push_back(std::move(extension_app_updater));
 
   app_list::AppListSyncableService* app_list_syncable_service =
       app_list::AppListSyncableServiceFactory::GetForProfile(profile());

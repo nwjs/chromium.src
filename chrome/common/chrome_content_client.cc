@@ -4,7 +4,7 @@
 
 #include "chrome/common/chrome_content_client.h"
 
-#include "components/crash/content/app/crash_reporter_client.h"
+#include "components/crash/core/app/crash_reporter_client.h"
 #include <stdint.h>
 
 #include <map>

@@ -45,6 +45,7 @@
 #import "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #import "third_party/blink/renderer/platform/web_test_support.h"
 #include "ui/base/ui_base_features.h"
+#include "ui/native_theme/native_theme.h"
 
 // This is a view whose sole purpose is to tell AppKit that it's flipped.
 @interface BlinkFlippedControl : NSControl
@@ -154,11 +155,17 @@ class LayoutThemeMacRefresh final : public LayoutThemeDefault {
       WebColorScheme color_scheme) const override;
   Color PlatformSpellingMarkerUnderlineColor() const override;
   Color PlatformGrammarMarkerUnderlineColor() const override;
+  Color FocusRingColor() const override;
   String DisplayNameForFile(const File& file) const override {
     if (file.GetUserVisibility() == File::kIsUserVisible)
       return [[NSFileManager defaultManager] displayNameAtPath:file.GetPath()];
     return file.name();
   }
+
+ protected:
+  // Controls color values returned from FocusRingColor().
+  bool UsesTestModeFocusRingColor() const;
+  bool IsAccentColorCustomized(WebColorScheme color_scheme) const;
 };
 
 // Inflate an IntRect to account for specific padding around margins.
@@ -175,13 +182,13 @@ bool FontSizeMatchesToControlSize(const ComputedStyle& style) {
   return false;
 }
 
-Color GetSystemColor(MacSystemColorID color_id) {
+Color GetSystemColor(MacSystemColorID color_id, WebColorScheme color_scheme) {
   // In tests, a WebSandboxSupport may not be set up. Just return a dummy
   // color, in this case, black.
   auto* sandbox_support = Platform::Current()->GetSandboxSupport();
   if (!sandbox_support)
     return Color();
-  return sandbox_support->GetSystemColor(color_id);
+  return sandbox_support->GetSystemColor(color_id, color_scheme);
 }
 
 // Helper functions used by a bunch of different control parts.
@@ -238,12 +245,14 @@ LayoutThemeMac::~LayoutThemeMac() {
 
 Color LayoutThemeMac::PlatformActiveSelectionBackgroundColor(
     WebColorScheme color_scheme) const {
-  return GetSystemColor(MacSystemColorID::kSelectedTextBackground);
+  return GetSystemColor(MacSystemColorID::kSelectedTextBackground,
+                        color_scheme);
 }
 
 Color LayoutThemeMac::PlatformInactiveSelectionBackgroundColor(
     WebColorScheme color_scheme) const {
-  return GetSystemColor(MacSystemColorID::kSecondarySelectedControl);
+  return GetSystemColor(MacSystemColorID::kSecondarySelectedControl,
+                        color_scheme);
 }
 
 Color LayoutThemeMac::PlatformActiveSelectionForegroundColor(
@@ -253,7 +262,8 @@ Color LayoutThemeMac::PlatformActiveSelectionForegroundColor(
 
 Color LayoutThemeMac::PlatformActiveListBoxSelectionBackgroundColor(
     WebColorScheme color_scheme) const {
-  return GetSystemColor(MacSystemColorID::kAlternateSelectedControl);
+  return GetSystemColor(MacSystemColorID::kAlternateSelectedControl,
+                        color_scheme);
 }
 
 Color LayoutThemeMac::PlatformActiveListBoxSelectionForegroundColor(
@@ -291,12 +301,14 @@ Color LayoutThemeMac::PlatformInactiveListBoxSelectionBackgroundColor(
 
 Color LayoutThemeMacRefresh::PlatformActiveSelectionBackgroundColor(
     WebColorScheme color_scheme) const {
-  return GetSystemColor(MacSystemColorID::kSelectedTextBackground);
+  return GetSystemColor(MacSystemColorID::kSelectedTextBackground,
+                        color_scheme);
 }
 
 Color LayoutThemeMacRefresh::PlatformInactiveSelectionBackgroundColor(
     WebColorScheme color_scheme) const {
-  return GetSystemColor(MacSystemColorID::kSecondarySelectedControl);
+  return GetSystemColor(MacSystemColorID::kSecondarySelectedControl,
+                        color_scheme);
 }
 
 Color LayoutThemeMacRefresh::PlatformActiveSelectionForegroundColor(
@@ -310,6 +322,59 @@ Color LayoutThemeMacRefresh::PlatformSpellingMarkerUnderlineColor() const {
 
 Color LayoutThemeMacRefresh::PlatformGrammarMarkerUnderlineColor() const {
   return Color(107, 107, 107);
+}
+
+bool LayoutThemeMacRefresh::IsAccentColorCustomized(
+    WebColorScheme color_scheme) const {
+  if (@available(macOS 10.14, *)) {
+    static const Color kControlBlueAccentColor =
+        GetSystemColor(MacSystemColorID::kControlAccentBlueColor, color_scheme);
+    if (kControlBlueAccentColor ==
+        GetSystemColor(MacSystemColorID::kControlAccentColor, color_scheme)) {
+      return false;
+    }
+  } else {
+    if (NSBlueControlTint == [[NSUserDefaults standardUserDefaults]
+                                 integerForKey:@"AppleAquaColorVariant"]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+Color LayoutThemeMacRefresh::FocusRingColor() const {
+  static const RGBA32 kDefaultFocusRingColor = 0xFF101010;
+  if (UsesTestModeFocusRingColor()) {
+    return HasCustomFocusRingColor() ? GetCustomFocusRingColor()
+                                     : kDefaultFocusRingColor;
+  }
+
+  if (ui::NativeTheme::GetInstanceForWeb()->UsesHighContrastColors()) {
+    // When high contrast is enabled, #101010 should be used.
+    return Color(0xFF101010);
+  }
+
+  // TODO(crbug.com/929098) Need to pass an appropriate color scheme here.
+  WebColorScheme color_scheme = ComputedStyle::InitialStyle().UsedColorScheme();
+
+  Color keyboard_focus_indicator =
+      GetSystemColor(MacSystemColorID::kKeyboardFocusIndicator, color_scheme);
+  // Take the RGB values from the keyboard_focus_indicator color, but use a
+  // different alpha value to avoid having a color too light.
+  Color focus_ring =
+      Color(keyboard_focus_indicator.Red(), keyboard_focus_indicator.Green(),
+            keyboard_focus_indicator.Blue(), /*alpha=*/166);
+  if (!HasCustomFocusRingColor())
+    return focus_ring;
+  // Use the custom focus ring color when the system accent color wasn't
+  // changed.
+  if (!IsAccentColorCustomized(color_scheme))
+    return GetCustomFocusRingColor();
+  return focus_ring;
+}
+
+bool LayoutThemeMacRefresh::UsesTestModeFocusRingColor() const {
+  return WebTestSupport::IsRunningWebTest();
 }
 
 static FontSelectionValue ToFontWeight(NSInteger app_kit_font_weight) {
@@ -372,79 +437,89 @@ void LayoutThemeMac::SystemFont(CSSValueID system_font_id,
 
 Color LayoutThemeMac::SystemColor(CSSValueID css_value_id,
                                   WebColorScheme color_scheme) const {
+  if (!Platform::Current()->GetSandboxSupport())
+    return LayoutTheme::SystemColor(css_value_id, color_scheme);
+
   switch (css_value_id) {
     case CSSValueID::kActiveborder:
-      return GetSystemColor(MacSystemColorID::kKeyboardFocusIndicator);
+      return GetSystemColor(MacSystemColorID::kKeyboardFocusIndicator,
+                            color_scheme);
     case CSSValueID::kActivecaption:
-      return GetSystemColor(MacSystemColorID::kWindowFrameText);
+      return GetSystemColor(MacSystemColorID::kWindowFrameText, color_scheme);
     case CSSValueID::kAppworkspace:
-      return GetSystemColor(MacSystemColorID::kHeader);
+      return GetSystemColor(MacSystemColorID::kHeader, color_scheme);
     case CSSValueID::kBackground:
       // Use theme independent default.
       break;
     case CSSValueID::kButtonface:
-      return GetSystemColor(MacSystemColorID::kControlBackground);
+      return GetSystemColor(MacSystemColorID::kControlBackground, color_scheme);
     case CSSValueID::kButtonhighlight:
-      return GetSystemColor(MacSystemColorID::kControlHighlight);
+      return GetSystemColor(MacSystemColorID::kControlHighlight, color_scheme);
     case CSSValueID::kButtonshadow:
-      return GetSystemColor(MacSystemColorID::kControlShadow);
+      return GetSystemColor(MacSystemColorID::kControlShadow, color_scheme);
     case CSSValueID::kButtontext:
-      return GetSystemColor(MacSystemColorID::kControlText);
+      return GetSystemColor(MacSystemColorID::kControlText, color_scheme);
     case CSSValueID::kCaptiontext:
-      return GetSystemColor(MacSystemColorID::kText);
+      return GetSystemColor(MacSystemColorID::kText, color_scheme);
     case CSSValueID::kField:
-      return GetSystemColor(MacSystemColorID::kControlBackground);
+      return GetSystemColor(MacSystemColorID::kControlBackground, color_scheme);
     case CSSValueID::kFieldtext:
-      return GetSystemColor(MacSystemColorID::kText);
+      return GetSystemColor(MacSystemColorID::kText, color_scheme);
     case CSSValueID::kGraytext:
-      return GetSystemColor(MacSystemColorID::kDisabledControlText);
+      return GetSystemColor(MacSystemColorID::kDisabledControlText,
+                            color_scheme);
     case CSSValueID::kHighlight:
-      return GetSystemColor(MacSystemColorID::kSelectedTextBackground);
+      return GetSystemColor(MacSystemColorID::kSelectedTextBackground,
+                            color_scheme);
     case CSSValueID::kHighlighttext:
-      return GetSystemColor(MacSystemColorID::kSelectedText);
+      return GetSystemColor(MacSystemColorID::kSelectedText, color_scheme);
     case CSSValueID::kInactiveborder:
-      return GetSystemColor(MacSystemColorID::kControlBackground);
+      return GetSystemColor(MacSystemColorID::kControlBackground, color_scheme);
     case CSSValueID::kInactivecaption:
-      return GetSystemColor(MacSystemColorID::kControlBackground);
+      return GetSystemColor(MacSystemColorID::kControlBackground, color_scheme);
     case CSSValueID::kInactivecaptiontext:
-      return GetSystemColor(MacSystemColorID::kText);
+      return GetSystemColor(MacSystemColorID::kText, color_scheme);
     case CSSValueID::kInfobackground:
       // There is no corresponding NSColor for this so we use a hard coded
       // value.
       return 0xFFFBFCC5;
     case CSSValueID::kInfotext:
-      return GetSystemColor(MacSystemColorID::kText);
+      return GetSystemColor(MacSystemColorID::kText, color_scheme);
     case CSSValueID::kMenu:
-      return GetSystemColor(MacSystemColorID::kMenuBackground);
+      return GetSystemColor(MacSystemColorID::kMenuBackground, color_scheme);
     case CSSValueID::kMenutext:
-      return GetSystemColor(MacSystemColorID::kSelectedMenuItemText);
+      return GetSystemColor(MacSystemColorID::kSelectedMenuItemText,
+                            color_scheme);
     case CSSValueID::kScrollbar:
-      return GetSystemColor(MacSystemColorID::kScrollBar);
+      return GetSystemColor(MacSystemColorID::kScrollBar, color_scheme);
     case CSSValueID::kText:
-      return GetSystemColor(MacSystemColorID::kText);
+      return GetSystemColor(MacSystemColorID::kText, color_scheme);
     case CSSValueID::kThreeddarkshadow:
-      return GetSystemColor(MacSystemColorID::kControlDarkShadow);
+      return GetSystemColor(MacSystemColorID::kControlDarkShadow, color_scheme);
     case CSSValueID::kThreedshadow:
-      return GetSystemColor(MacSystemColorID::kShadow);
+      return GetSystemColor(MacSystemColorID::kShadow, color_scheme);
     case CSSValueID::kThreedface:
       // We use this value instead of NSColor's controlColor to avoid website
       // incompatibilities. We may want to change this to use the NSColor in
       // future.
       return 0xFFC0C0C0;
     case CSSValueID::kThreedhighlight:
-      return GetSystemColor(MacSystemColorID::kHighlight);
+      return GetSystemColor(MacSystemColorID::kHighlight, color_scheme);
     case CSSValueID::kThreedlightshadow:
-      return GetSystemColor(MacSystemColorID::kControlLightHighlight);
+      return GetSystemColor(MacSystemColorID::kControlLightHighlight,
+                            color_scheme);
     case CSSValueID::kWebkitFocusRingColor:
-      return GetSystemColor(MacSystemColorID::kKeyboardFocusIndicator);
+      return GetSystemColor(MacSystemColorID::kKeyboardFocusIndicator,
+                            color_scheme);
     case CSSValueID::kWindow:
     case CSSValueID::kCanvas:
-      return GetSystemColor(MacSystemColorID::kWindowBackground);
+      return GetSystemColor(MacSystemColorID::kWindowBackground, color_scheme);
     case CSSValueID::kWindowframe:
-      return GetSystemColor(MacSystemColorID::kWindowFrame);
+      return GetSystemColor(MacSystemColorID::kWindowFrame, color_scheme);
     case CSSValueID::kWindowtext:
+      return GetSystemColor(MacSystemColorID::kWindowFrameText, color_scheme);
     case CSSValueID::kCanvastext:
-      return GetSystemColor(MacSystemColorID::kWindowFrameText);
+      return GetSystemColor(MacSystemColorID::kText, color_scheme);
     default:
       break;
   }
@@ -640,10 +715,7 @@ void LayoutThemeMac::SetFontFromControlSize(ComputedStyle& style,
   // Reset line height.
   style.SetLineHeight(ComputedStyleInitialValues::InitialLineHeight());
 
-  // TODO(esprehn): The fontSelector manual management is buggy and error prone.
-  FontSelector* font_selector = style.GetFont().GetFontSelector();
-  if (style.SetFontDescription(font_description))
-    style.GetFont().Update(font_selector);
+  style.SetFontDescription(font_description);
 }
 
 NSControlSize LayoutThemeMac::ControlSizeForSystemFont(
@@ -699,6 +771,7 @@ static const IntSize* MenuListButtonSizes() {
 
 void LayoutThemeMac::AdjustMenuListStyle(ComputedStyle& style,
                                          Element* e) const {
+  LayoutTheme::AdjustMenuListStyle(style, e);
   NSControlSize control_size = ControlSizeForFont(style);
 
   style.ResetBorder();
@@ -1014,7 +1087,8 @@ scoped_refptr<LayoutTheme> LayoutThemeMac::Create() {
 }
 
 bool LayoutThemeMac::UsesTestModeFocusRingColor() const {
-  return WebTestSupport::IsRunningWebTest();
+  return WebTestSupport::IsRunningWebTest() ||
+         !Platform::Current()->GetSandboxSupport();
 }
 
 NSView* LayoutThemeMac::DocumentView() const {
@@ -1437,8 +1511,7 @@ void LayoutThemeMac::AdjustControlPartStyle(ComputedStyle& style) {
         style.SetLineHeight(ComputedStyleInitialValues::InitialLineHeight());
 
         // Now update our font.
-        if (style.SetFontDescription(control_font))
-          style.GetFont().Update(nullptr);
+        style.SetFontDescription(control_font);
       }
       break;
     }

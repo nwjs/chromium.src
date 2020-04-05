@@ -14,6 +14,7 @@
 #include "ash/ash_export.h"
 #include "ash/public/cpp/shelf_types.h"
 #include "ash/shell_observer.h"
+#include "ash/wm/overview/overview_types.h"
 #include "ash/wm/overview/scoped_overview_hide_windows.h"
 #include "ash/wm/splitview/split_view_controller.h"
 #include "ash/wm/splitview/split_view_drag_indicators.h"
@@ -55,54 +56,6 @@ class ASH_EXPORT OverviewSession : public display::DisplayObserver,
                                    public ShellObserver,
                                    public SplitViewObserver {
  public:
-  enum class OverviewTransition {
-    kEnter,       // Entering overview.
-    kInOverview,  // Already in overview.
-    kExit         // Exiting overview.
-  };
-
-  // Enum describing the different ways overview can be entered or exited.
-  enum class EnterExitOverviewType {
-    // The default way, window(s) animate from their initial bounds to the grid
-    // bounds. Window(s) that are not visible to the user do not get animated.
-    // This should always be the type when in clamshell mode.
-    kNormal,
-    // Slide all windows in to enter overview. This can happen when going from
-    // a state which all window(s) are minimized.
-    kSlideInEnter,
-    // Slide all windows out to exit overview. This can happen when going to
-    // a state which all window(s) are minimized. This will minimize windows on
-    // exit if needed, so that we do not need to add a delayed observer to
-    // handle minimizing the windows after overview exit animations are
-    // finished.
-    kSlideOutExit,
-    // Overview can be closed by swiping up from the shelf. In this mode, the
-    // call site will handle shifting the bounds of the windows, so overview
-    // code does not need to handle any animations. This is an exit only type.
-    kSwipeFromShelf,
-    // Used only when it's desired to enter overview mode immediately without
-    // animations. It's used when entering overview by dragging a window from
-    // the top of the screen or from the shelf. It's also used when entering
-    // overview to avoid the blatantly broken behaviors shown in the videos
-    // linked in https://crbug.com/1027179. This should not be used for exiting
-    // overview mode.
-    kImmediateEnter,
-    // Used only when it's desired to exit overview mode immediately without
-    // animations. This is used when performing the desk switch animation when
-    // the source desk is in overview mode, while the target desk is not.
-    // This should not be used for entering overview mode.
-    kImmediateExit,
-    // Fades all windows in to enter overview. This can happen when
-    // transitioning to overview from home screen (in a state where all windows
-    // are minimized).
-    kFadeInEnter,
-    // Fades all windows out to exit overview (when going to a state where all
-    // windows are minimized). This will minimize windows on exit if needed, so
-    // that we do not need to add a delayed observer to handle minimizing the
-    // windows after overview exit animations are finished.
-    kFadeOutExit
-  };
-
   // Callback which fills out the passed settings object. Used by several
   // functions so different callers can do similar animations with different
   // settings.
@@ -170,20 +123,23 @@ class ASH_EXPORT OverviewSession : public display::DisplayObserver,
   void AddItem(aura::Window* window,
                bool reposition,
                bool animate,
-               const base::flat_set<OverviewItem*>& ignored_items = {},
-               size_t index = 0);
+               const base::flat_set<OverviewItem*>& ignored_items,
+               size_t index);
 
   // Similar to the above function, but adds the window at the end of the grid.
   // This will use the spawn-item animation.
   // TODO(afakhry): Expose |use_spawn_animation| if needed.
   void AppendItem(aura::Window* window, bool reposition, bool animate);
 
-  // Similar to |AddItem| with reposition=true, but adds the window at the
-  // correct position according to MRU order. If |animate| and |restack| are
-  // both true, the stacking order will be adjusted after the animation. If
-  // |animate| is false and |restack| is true, the stacking order will be
-  // adjusted immediately.
-  void AddItemInMruOrder(aura::Window* window, bool animate, bool restack);
+  // Like |AddItem|, but adds |window| at the correct position according to MRU
+  // order. If |reposition|, |animate|, and |restack| are all true, the stacking
+  // order will be adjusted after the animation. If |restack| is true but at
+  // least one of |reposition| and |animate| is false, the stacking order will
+  // be adjusted immediately.
+  void AddItemInMruOrder(aura::Window* window,
+                         bool reposition,
+                         bool animate,
+                         bool restack);
 
   // Removes |overview_item| from the corresponding grid. No items are
   // repositioned.
@@ -300,13 +256,30 @@ class ASH_EXPORT OverviewSession : public display::DisplayObserver,
   // |OverviewController::CanEndOverview| and https://crbug.com/1024325).
   void OnRootWindowClosing(aura::Window* root);
 
+  // Returns the current dragged overview item if any. Note that windows that
+  // are dragged into overview from the shelf don't have an OverviewItem while
+  // dragging.
+  OverviewItem* GetCurrentDraggedOverviewItem() const;
+
+  // Overview objects which handle events (OverviewItemView,
+  // OverviewGridEventHandler) should call this function to check if they can
+  // process an event. Returns false if an overview item other than |sender|
+  // (which may be nullptr in the case of events on the wallpaper) is already
+  // being dragged, or if a window is currently being dragged from the bottom.
+  // This is so we can allow switching finger while dragging, but not allow
+  // dragging two or more items. The first |CanProcessEvent()| calls the second
+  // with |sender| as nullptr (i.e. event processed by
+  // OverviewGridEventHandler). When |sender| is nullptr, |from_touch_gesture|
+  // does not matter.
+  bool CanProcessEvent() const;
+  bool CanProcessEvent(OverviewItem* sender, bool from_touch_gesture) const;
+
   // display::DisplayObserver:
   void OnDisplayAdded(const display::Display& display) override;
   void OnDisplayMetricsChanged(const display::Display& display,
                                uint32_t metrics) override;
 
   // aura::WindowObserver:
-  void OnWindowHierarchyChanged(const HierarchyChangeParams& params) override;
   void OnWindowDestroying(aura::Window* window) override;
 
   // ShelObserver:
@@ -324,11 +297,6 @@ class ASH_EXPORT OverviewSession : public display::DisplayObserver,
 
   OverviewDelegate* delegate() { return delegate_; }
 
-  void set_ignore_window_hierarchy_changes(
-      bool ignore_window_hierarchy_changes) {
-    ignore_window_hierarchy_changes_ = ignore_window_hierarchy_changes;
-  }
-
   bool is_shutting_down() const { return is_shutting_down_; }
   void set_is_shutting_down(bool is_shutting_down) {
     is_shutting_down_ = is_shutting_down;
@@ -340,10 +308,10 @@ class ASH_EXPORT OverviewSession : public display::DisplayObserver,
 
   size_t num_items() const { return num_items_; }
 
-  EnterExitOverviewType enter_exit_overview_type() const {
+  OverviewEnterExitType enter_exit_overview_type() const {
     return enter_exit_overview_type_;
   }
-  void set_enter_exit_overview_type(EnterExitOverviewType val) {
+  void set_enter_exit_overview_type(OverviewEnterExitType val) {
     enter_exit_overview_type_ = val;
   }
 
@@ -411,10 +379,6 @@ class ASH_EXPORT OverviewSession : public display::DisplayObserver,
   // initially true until this is initialized.
   bool ignore_activations_ = true;
 
-  // True when performing operations that may cause window hierarchy changes.
-  // Used to prevent handling the resulting expected window hierarchy change.
-  bool ignore_window_hierarchy_changes_ = false;
-
   // True when overview mode is exiting.
   bool is_shutting_down_ = false;
 
@@ -438,8 +402,8 @@ class ASH_EXPORT OverviewSession : public display::DisplayObserver,
 
   // Stores the overview enter/exit type. See the enum declaration for
   // information on how these types affect overview mode.
-  EnterExitOverviewType enter_exit_overview_type_ =
-      EnterExitOverviewType::kNormal;
+  OverviewEnterExitType enter_exit_overview_type_ =
+      OverviewEnterExitType::kNormal;
 
   // The selected item when exiting overview mode. nullptr if no window
   // selected.

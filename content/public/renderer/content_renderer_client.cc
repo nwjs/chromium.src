@@ -108,14 +108,6 @@ bool ContentRendererClient::HandleNavigation(
 }
 #endif
 
-bool ContentRendererClient::ShouldFork(blink::WebLocalFrame* frame,
-                                       const GURL& url,
-                                       const std::string& http_method,
-                                       bool is_initial_navigation,
-                                       bool is_server_redirect) {
-  return false;
-}
-
 void ContentRendererClient::WillSendRequest(
     blink::WebLocalFrame* frame,
     ui::PageTransition transition_type,
@@ -184,6 +176,12 @@ bool ContentRendererClient::ShouldReportDetailedMessageForSource(
 
 std::unique_ptr<blink::WebContentSettingsClient>
 ContentRendererClient::CreateWorkerContentSettingsClient(
+    RenderFrame* render_frame) {
+  return nullptr;
+}
+
+std::unique_ptr<media::SpeechRecognitionClient>
+ContentRendererClient::CreateSpeechRecognitionClient(
     RenderFrame* render_frame) {
   return nullptr;
 }

@@ -5,6 +5,7 @@
 #include "chrome/browser/ui/android/autofill/autofill_popup_view_android.h"
 
 #include <memory>
+#include <utility>
 
 #include "base/android/jni_android.h"
 #include "base/android/jni_string.h"
@@ -15,7 +16,7 @@
 #include "chrome/browser/ui/android/autofill/autofill_keyboard_accessory_view.h"
 #include "chrome/browser/ui/android/view_android_helper.h"
 #include "chrome/browser/ui/autofill/autofill_popup_controller.h"
-#include "chrome/browser/ui/autofill/autofill_popup_layout_model.h"
+#include "chrome/browser/ui/autofill/autofill_popup_controller_utils.h"
 #include "components/autofill/core/browser/ui/popup_item_ids.h"
 #include "components/autofill/core/browser/ui/suggestion.h"
 #include "components/autofill/core/common/autofill_util.h"
@@ -76,16 +77,15 @@ void AutofillPopupViewAndroid::OnSuggestionsChanged() {
 
   for (size_t i = 0; i < count; ++i) {
     ScopedJavaLocalRef<jstring> value = base::android::ConvertUTF16ToJavaString(
-        env, controller_->GetElidedValueAt(i));
-    ScopedJavaLocalRef<jstring> label =
-        base::android::ConvertUTF16ToJavaString(
-            env, controller_->GetElidedLabelAt(i));
+        env, controller_->GetSuggestionValueAt(i));
+    ScopedJavaLocalRef<jstring> label = base::android::ConvertUTF16ToJavaString(
+        env, controller_->GetSuggestionLabelAt(i));
     int android_icon_id = 0;
 
     const Suggestion& suggestion = controller_->GetSuggestionAt(i);
     if (!suggestion.icon.empty()) {
-      android_icon_id = ResourceMapper::MapFromChromiumId(
-          controller_->layout_model().GetIconResourceID(suggestion.icon));
+      android_icon_id = ResourceMapper::MapToJavaDrawableId(
+          GetIconResourceID(suggestion.icon));
     }
 
     bool is_deletable =

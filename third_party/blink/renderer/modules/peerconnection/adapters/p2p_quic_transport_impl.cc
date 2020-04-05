@@ -171,7 +171,7 @@ std::unique_ptr<quic::QuicConnection> CreateQuicConnection(
 // A dummy helper for a server crypto stream that accepts all client hellos
 // and generates a random connection ID.
 class DummyCryptoServerStreamHelper
-    : public quic::QuicCryptoServerStream::Helper {
+    : public quic::QuicCryptoServerStreamBase::Helper {
  public:
   explicit DummyCryptoServerStreamHelper(quic::QuicRandom* random) {}
 
@@ -527,25 +527,6 @@ void P2PQuicTransportImpl::InitializeCryptoStream() {
   }
 }
 
-void P2PQuicTransportImpl::OnCryptoHandshakeEvent(CryptoHandshakeEvent event) {
-  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
-  QuicSession::OnCryptoHandshakeEvent(event);
-  if (event == EVENT_HANDSHAKE_CONFIRMED) {
-    DCHECK(IsEncryptionEstablished());
-    DCHECK(OneRttKeysAvailable());
-    P2PQuicNegotiatedParams negotiated_params;
-    // The guaranteed largest message payload will not change throughout the
-    // connection.
-    uint16_t max_datagram_length =
-        quic::QuicSession::GetGuaranteedLargestMessagePayload();
-    if (max_datagram_length > 0) {
-      // Datagrams are supported in this case.
-      negotiated_params.set_max_datagram_length(max_datagram_length);
-    }
-    delegate_->OnConnected(negotiated_params);
-  }
-}
-
 void P2PQuicTransportImpl::SetDefaultEncryptionLevel(
     quic::EncryptionLevel level) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
@@ -564,6 +545,23 @@ void P2PQuicTransportImpl::SetDefaultEncryptionLevel(
     }
     delegate_->OnConnected(negotiated_params);
   }
+}
+
+void P2PQuicTransportImpl::OnOneRttKeysAvailable() {
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  QuicSession::OnOneRttKeysAvailable();
+  DCHECK(IsEncryptionEstablished());
+  DCHECK(OneRttKeysAvailable());
+  P2PQuicNegotiatedParams negotiated_params;
+  // The guaranteed largest message payload will not change throughout the
+  // connection.
+  uint16_t max_datagram_length =
+      quic::QuicSession::GetGuaranteedLargestMessagePayload();
+  if (max_datagram_length > 0) {
+    // Datagrams are supported in this case.
+    negotiated_params.set_max_datagram_length(max_datagram_length);
+  }
+  delegate_->OnConnected(negotiated_params);
 }
 
 void P2PQuicTransportImpl::OnCanWrite() {

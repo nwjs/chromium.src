@@ -24,6 +24,7 @@
 
 class BackgroundModeManager;
 class BrowserProcessPlatformPart;
+class BuildState;
 class DownloadRequestLimiter;
 class DownloadStatusUpdater;
 class GpuModeManager;
@@ -264,6 +265,8 @@ class BrowserProcess {
 
   virtual resource_coordinator::ResourceCoordinatorParts*
   resource_coordinator_parts() = 0;
+
+  virtual BuildState* GetBuildState() = 0;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(BrowserProcess);

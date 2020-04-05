@@ -27,7 +27,7 @@ import org.junit.runner.RunWith;
 import org.robolectric.annotation.Config;
 
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.util.test.ShadowUrlUtilities;
+import org.chromium.components.embedder_support.util.ShadowUrlUtilities;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.testing.local.LocalRobolectricTestRunner;
 
@@ -105,13 +105,13 @@ public class CustomTabActivityTabControllerTest {
     public void addsEarlyCreatedTab_ToTabModel() {
         env.warmUp();
         env.reachNativeInit(mTabController);
-        verify(env.tabModel).addTab(eq(env.tabFromFactory), anyInt(), anyInt());
+        verify(env.tabModel).addTab(eq(env.tabFromFactory), anyInt(), anyInt(), anyInt());
     }
 
     @Test
     public void addsTabCreatedOnNativeInit_ToTabModel() {
         env.reachNativeInit(mTabController);
-        verify(env.tabModel).addTab(eq(env.tabFromFactory), anyInt(), anyInt());
+        verify(env.tabModel).addTab(eq(env.tabFromFactory), anyInt(), anyInt(), anyInt());
     }
 
     @Test

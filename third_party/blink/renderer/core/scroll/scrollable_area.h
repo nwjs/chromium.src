@@ -84,6 +84,10 @@ class CORE_EXPORT ScrollableArea : public GarbageCollectedMixin {
   static float MinFractionToStepWhenPaging();
   int MaxOverlapBetweenPages() const;
 
+  // Returns the amount of delta, in |granularity| units, for a direction-based
+  // (i.e. keyboard or scrollbar arrow) scroll.
+  static float DirectionBasedScrollDelta(ScrollGranularity granularity);
+
   // Convert a non-finite scroll value (Infinity, -Infinity, NaN) to 0 as
   // per https://drafts.csswg.org/cssom-view/#normalize-non-finite-values.
   static float NormalizeNonFiniteScroll(float value) {
@@ -101,18 +105,17 @@ class CORE_EXPORT ScrollableArea : public GarbageCollectedMixin {
                                   ScrollCallback on_finish);
 
   virtual void SetScrollOffset(const ScrollOffset&,
-                               mojom::blink::ScrollIntoViewParams::Type,
-                               mojom::blink::ScrollIntoViewParams::Behavior,
+                               mojom::blink::ScrollType,
+                               mojom::blink::ScrollBehavior,
                                ScrollCallback on_finish);
   virtual void SetScrollOffset(
       const ScrollOffset&,
-      mojom::blink::ScrollIntoViewParams::Type,
-      mojom::blink::ScrollIntoViewParams::Behavior =
-          mojom::blink::ScrollIntoViewParams::Behavior::kInstant);
-  void ScrollBy(const ScrollOffset&,
-                mojom::blink::ScrollIntoViewParams::Type,
-                mojom::blink::ScrollIntoViewParams::Behavior =
-                    mojom::blink::ScrollIntoViewParams::Behavior::kInstant);
+      mojom::blink::ScrollType,
+      mojom::blink::ScrollBehavior = mojom::blink::ScrollBehavior::kInstant);
+  void ScrollBy(
+      const ScrollOffset&,
+      mojom::blink::ScrollType,
+      mojom::blink::ScrollBehavior = mojom::blink::ScrollBehavior::kInstant);
 
   virtual void SetPendingHistoryRestoreScrollOffset(
       const HistoryItem::ViewState& view_state,
@@ -128,9 +131,8 @@ class CORE_EXPORT ScrollableArea : public GarbageCollectedMixin {
       const PhysicalRect&,
       const mojom::blink::ScrollIntoViewParamsPtr&);
 
-  static bool ScrollBehaviorFromString(
-      const String&,
-      mojom::blink::ScrollIntoViewParams::Behavior&);
+  static bool ScrollBehaviorFromString(const String&,
+                                       mojom::blink::ScrollBehavior&);
 
   // Register a callback that will be invoked when the next scroll completes -
   // this includes the scroll animation time.
@@ -373,9 +375,18 @@ class CORE_EXPORT ScrollableArea : public GarbageCollectedMixin {
   }
   virtual bool ShouldScrollOnMainThread() const { return false; }
 
-  // Overlay scrollbars can "fade-out" when inactive.
+  // Overlay scrollbars can "fade-out" when inactive. This value should only be
+  // updated if BlinkControlsOverlayVisibility is true in the
+  // ScrollbarTheme. On Mac, where it is false, this can only be updated from
+  // the ScrollbarAnimatorMac painting code which will do so via
+  // SetScrollbarsHiddenFromExternalAnimator.
   virtual bool ScrollbarsHiddenIfOverlay() const;
-  virtual void SetScrollbarsHiddenIfOverlay(bool);
+  void SetScrollbarsHiddenIfOverlay(bool);
+
+  // This should only be called from Mac's painting code.
+  void SetScrollbarsHiddenFromExternalAnimator(bool);
+
+  void SetScrollbarsHiddenForTesting(bool);
 
   virtual bool UserInputScrollable(ScrollbarOrientation) const = 0;
   virtual bool ShouldPlaceVerticalScrollbarOnLeft() const = 0;
@@ -433,9 +444,8 @@ class CORE_EXPORT ScrollableArea : public GarbageCollectedMixin {
   // Returns the default scroll style this area should scroll with when not
   // explicitly specified. E.g. The scrolling behavior of an element can be
   // specified in CSS.
-  virtual mojom::blink::ScrollIntoViewParams::Behavior ScrollBehaviorStyle()
-      const {
-    return mojom::blink::ScrollIntoViewParams::Behavior::kInstant;
+  virtual mojom::blink::ScrollBehavior ScrollBehaviorStyle() const {
+    return mojom::blink::ScrollBehavior::kInstant;
   }
 
   virtual WebColorScheme UsedColorScheme() const = 0;
@@ -468,7 +478,7 @@ class CORE_EXPORT ScrollableArea : public GarbageCollectedMixin {
   // for layout movements (bit.ly/scroll-anchoring).
   virtual bool ShouldPerformScrollAnchoring() const { return false; }
 
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
 
   virtual void ClearScrollableArea();
 
@@ -501,19 +511,19 @@ class CORE_EXPORT ScrollableArea : public GarbageCollectedMixin {
                                 ScrollOffset delta,
                                 ScrollGranularity granularity,
                                 WebInputEvent::Type gesture_type) const;
-
+  void InvalidateScrollTimeline();
   // If the layout box is a global root scroller then the root frame view's
   // ScrollableArea is returned. Otherwise, the layout box's
   // PaintLayerScrollableArea (which can be null) is returned.
   static ScrollableArea* GetForScrolling(const LayoutBox* layout_box);
 
  protected:
-  // Deduces the mojom::blink::ScrollIntoViewParams::Behavior based on the
+  // Deduces the mojom::blink::ScrollBehavior based on the
   // element style and the parameter set by programmatic scroll into either
   // instant or smooth scroll.
-  static mojom::blink::ScrollIntoViewParams::Behavior DetermineScrollBehavior(
-      mojom::blink::ScrollIntoViewParams::Behavior behavior_from_style,
-      mojom::blink::ScrollIntoViewParams::Behavior behavior_from_param);
+  static mojom::blink::ScrollBehavior DetermineScrollBehavior(
+      mojom::blink::ScrollBehavior behavior_from_style,
+      mojom::blink::ScrollBehavior behavior_from_param);
 
   ScrollableArea();
 
@@ -522,15 +532,14 @@ class CORE_EXPORT ScrollableArea : public GarbageCollectedMixin {
 
   // Needed to let the animators call scrollOffsetChanged.
   friend class ScrollAnimatorCompositorCoordinator;
-  void ScrollOffsetChanged(const ScrollOffset&,
-                           mojom::blink::ScrollIntoViewParams::Type);
+  void ScrollOffsetChanged(const ScrollOffset&, mojom::blink::ScrollType);
 
   void ClearNeedsPaintInvalidationForScrollControls() {
     horizontal_scrollbar_needs_paint_invalidation_ = false;
     vertical_scrollbar_needs_paint_invalidation_ = false;
     scroll_corner_needs_paint_invalidation_ = false;
   }
-  void ShowOverlayScrollbars();
+  void ShowNonMacOverlayScrollbars();
 
   // Called when scrollbar hides/shows for overlay scrollbars. This callback
   // shouldn't do any significant work as it can be called unexpectadly often
@@ -546,19 +555,20 @@ class CORE_EXPORT ScrollableArea : public GarbageCollectedMixin {
   FRIEND_TEST_ALL_PREFIXES(ScrollableAreaTest,
                            PopupOverlayScrollbarShouldNotFadeOut);
 
+  void SetScrollbarsHiddenIfOverlayInternal(bool);
+
   void ProgrammaticScrollHelper(const ScrollOffset&,
-                                mojom::blink::ScrollIntoViewParams::Behavior,
+                                mojom::blink::ScrollBehavior,
                                 bool,
                                 ScrollCallback on_finish);
-  void UserScrollHelper(const ScrollOffset&,
-                        mojom::blink::ScrollIntoViewParams::Behavior);
+  void UserScrollHelper(const ScrollOffset&, mojom::blink::ScrollBehavior);
 
   void FadeOverlayScrollbarsTimerFired(TimerBase*);
 
   // This function should be overridden by subclasses to perform the actual
   // scroll of the content.
   virtual void UpdateScrollOffset(const ScrollOffset&,
-                                  mojom::blink::ScrollIntoViewParams::Type) = 0;
+                                  mojom::blink::ScrollType) = 0;
 
   virtual int LineStep(ScrollbarOrientation) const;
   virtual int PageStep(ScrollbarOrientation) const;
@@ -574,8 +584,8 @@ class CORE_EXPORT ScrollableArea : public GarbageCollectedMixin {
   // Returns true if a snap point was found.
   bool PerformSnapping(
       const cc::SnapSelectionStrategy& strategy,
-      mojom::blink::ScrollIntoViewParams::Behavior behavior =
-          mojom::blink::ScrollIntoViewParams::Behavior::kSmooth,
+      mojom::blink::ScrollBehavior behavior =
+          mojom::blink::ScrollBehavior::kSmooth,
       base::ScopedClosureRunner on_finish = base::ScopedClosureRunner());
 
   mutable Member<ScrollAnimatorBase> scroll_animator_;

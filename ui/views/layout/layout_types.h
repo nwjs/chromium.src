@@ -8,6 +8,7 @@
 #include <ostream>
 #include <string>
 #include <tuple>
+#include <utility>
 
 #include "base/optional.h"
 #include "ui/gfx/geometry/size.h"
@@ -45,14 +46,12 @@ class VIEWS_EXPORT SizeBounds {
   ~SizeBounds() = default;
 
   constexpr const base::Optional<int>& width() const { return width_; }
-  constexpr void set_width(base::Optional<int> width) {
-    width_ = std::move(width);
-  }
+  void set_width(base::Optional<int> width) { width_ = std::move(width); }
 
   constexpr const base::Optional<int>& height() const { return height_; }
-  constexpr void set_height(base::Optional<int> height) {
-    height_ = std::move(height);
-  }
+  void set_height(base::Optional<int> height) { height_ = std::move(height); }
+
+  constexpr bool is_fully_bounded() const { return width_ && height_; }
 
   // Enlarges (or shrinks, if negative) each upper bound that is present by the
   // specified amounts.
@@ -83,6 +82,11 @@ constexpr bool operator<(const SizeBounds& lhs, const SizeBounds& rhs) {
   return std::tie(lhs.height(), lhs.width()) <
          std::tie(rhs.height(), rhs.width());
 }
+
+// Returns true if the specified |size| can fit in the specified |bounds|.
+// Returns false if either the width or height of |bounds| is specified and is
+// smaller than the corresponding element of |size|.
+bool CanFitInBounds(const gfx::Size& size, const SizeBounds& bounds);
 
 // These are declared here for use in gtest-based unit tests but is defined in
 // the views_test_support target. Depend on that to use this in your unit test.

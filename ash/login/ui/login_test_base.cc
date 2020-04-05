@@ -29,13 +29,12 @@ class LoginTestBase::WidgetDelegate : public views::WidgetDelegate {
   // views::WidgetDelegate:
   void DeleteDelegate() override { delete this; }
   views::View* GetInitiallyFocusedView() override { return content_; }
-
- private:
-  // views::WidgetDelegate:
-  const views::Widget* GetWidgetImpl() const override {
+  views::Widget* GetWidget() override { return content_->GetWidget(); }
+  const views::Widget* GetWidget() const override {
     return content_->GetWidget();
   }
 
+ private:
   views::View* content_;
 
   DISALLOW_COPY_AND_ASSIGN(WidgetDelegate);
@@ -138,6 +137,16 @@ void LoginTestBase::AddChildUsers(size_t num_users) {
 
   // Notify any listeners that the user count has changed.
   DataDispatcher()->SetUserList(users_);
+}
+
+void LoginTestBase::RemoveUser(const AccountId& account_id) {
+  for (auto it = users().cbegin(); it != users().cend(); ++it)
+    if (it->basic_user_info.account_id == account_id) {
+      users().erase(it);
+      DataDispatcher()->SetUserList(users());
+      return;
+    }
+  ADD_FAILURE() << "User not found: " << account_id.Serialize();
 }
 
 LoginDataDispatcher* LoginTestBase::DataDispatcher() {

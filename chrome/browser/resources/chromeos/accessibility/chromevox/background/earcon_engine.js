@@ -118,6 +118,9 @@ EarconEngine = class {
      */
     this.progressIntervalID_ = null;
 
+    /** @private {boolean} */
+    this.persistProgressTicks_ = false;
+
     // Initialization: load the base sound data files asynchronously.
     const allSoundFilesToLoad =
         EarconEngine.SOUNDS.concat(EarconEngine.REVERBS);
@@ -378,6 +381,34 @@ EarconEngine = class {
     this.play('selection_reverse');
   }
 
+  onTouchEnterAnchor() {
+    this.play('static', {gain: this.clickVolume});
+    const freq1 = 220 * Math.pow(EarconEngine.HALF_STEP, 6);
+    this.generateSinusoidal({
+      attack: 0.0,
+      decay: 0.01,
+      dur: 0.03,
+      gain: 0.5,
+      freq: freq1,
+      overtones: 1,
+      overtoneFactor: 0.8
+    });
+  }
+
+  onTouchExitAnchor() {
+    this.play('static', {gain: this.clickVolume});
+    const freq1 = 220 * Math.pow(EarconEngine.HALF_STEP, 13);
+    this.generateSinusoidal({
+      attack: 0.00001,
+      decay: 0.01,
+      dur: 0.1,
+      gain: 0.3,
+      freq: freq1,
+      overtones: 1,
+      overtoneFactor: 0.1
+    });
+  }
+
   /**
    * Generate a synthesized musical note based on a sum of sinusoidals shaped
    * by an envelope, controlled by a number of properties.
@@ -498,7 +529,7 @@ EarconEngine = class {
         gainNode.connect(envelopeNode);
 
         for (let j = 0; j < pitches.length; j++) {
-          var freqDecay;
+          let freqDecay;
           if (reverse) {
             freqDecay = Math.pow(0.75, pitches.length - j);
           } else {
@@ -644,6 +675,10 @@ EarconEngine = class {
    * explicitly canceled.
    */
   startProgress() {
+    if (this.persistProgressTicks_) {
+      return;
+    }
+
     if (this.progressIntervalID_) {
       this.cancelProgress();
     }
@@ -660,6 +695,9 @@ EarconEngine = class {
    * Stop playing any tick / tock progress sounds.
    */
   cancelProgress() {
+    if (this.persistProgressTicks_) {
+      return;
+    }
     if (!this.progressIntervalID_) {
       return;
     }
@@ -671,6 +709,30 @@ EarconEngine = class {
 
     window.clearInterval(this.progressIntervalID_);
     this.progressIntervalID_ = null;
+  }
+
+  /**
+   * Similar to the non-persistent variant above, but does not allow for
+   * cancellation by other calls to startProgress*.
+   */
+  startProgressPersistent() {
+    if (this.persistProgressTicks_) {
+      return;
+    }
+    this.startProgress();
+    this.persistProgressTicks_ = true;
+  }
+
+  /**
+   * Similar to the non-persistent variant above, but does not allow for
+   * cancellation by other calls to cancelProgress*.
+   */
+  cancelProgressPersistent() {
+    if (!this.persistProgressTicks_) {
+      return;
+    }
+    this.persistProgressTicks_ = false;
+    this.cancelProgress();
   }
 
   /**
@@ -723,7 +785,8 @@ EarconEngine.HALF_STEP = Math.pow(2.0, 1.0 / 12.0);
  * @type {string} The base url for earcon sound resources.
  * @const
  */
-EarconEngine.BASE_URL = chrome.extension.getURL('background/earcons/');
+EarconEngine.BASE_URL =
+    chrome.extension.getURL('chromevox/background/earcons/');
 
 /**
  * The maximum value to pass to PannerNode.setPosition.

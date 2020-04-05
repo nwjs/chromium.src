@@ -21,6 +21,7 @@
 <translation id="1398853756734560583">Максимизирај</translation>
 <translation id="1414271762428216854"><ph name="APP_NAME" />, инсталирана апликација</translation>
 <translation id="1450753235335490080">Не може да се сподели <ph name="CONTENT_TYPE" /></translation>
+<translation id="1487931858675166540"><ph name="FIRST_ITEM_TITLE" /> се замени со <ph name="SECOND_ITEM_TITLE" /></translation>
 <translation id="1498028757988366001">Го пребарувавте ова порано. Ако го избришете „<ph name="QUERY" />“ од историјата, трајно ќе се отстрани од вашата сметка на сите уреди.</translation>
 <translation id="1591184457164800433">{MINUTES,plural, =1{1 минута и }one{# минута и }other{# минути и }}</translation>
 <translation id="1643823602425662293">Известување</translation>
@@ -39,7 +40,6 @@
 <translation id="1871244248791675517">Ins</translation>
 <translation id="1884435127456172652"><ph name="NUMBER" /> %</translation>
 <translation id="1901303067676059328">Избери ги &amp;сите</translation>
-<translation id="1938451708255335766">За да ја приспособите густината на приказот на прозорците, рестартирајте ја апликацијата.</translation>
 <translation id="2006524834898217237">Проверете дали уредов е поврзан на интернет.</translation>
 <translation id="208586643495776849">Обидете се повторно</translation>
 <translation id="2090963878406559571">За да испратите број од <ph name="ORIGIN" /> во телефонот со Android, <ph name="TROUBLESHOOT_LINK" /> за двата уреди во „Поставки“.</translation>
@@ -85,9 +85,9 @@
 <translation id="3234408098842461169">Стрелка надолу</translation>
 <translation id="3291688615589870984">{DAYS,plural, =1{1 ден}one{# ден}other{# дена}}</translation>
 <translation id="3295886253693811851">Јавете се од</translation>
+<translation id="3306688585798492231">Вграден екран</translation>
 <translation id="335581015389089642">Говор</translation>
 <translation id="3389286852084373014">Премногу е долго</translation>
-<translation id="3479552764303398839">Не сега</translation>
 <translation id="348799646910989694">Полицата е автоматски сокриена</translation>
 <translation id="3554637740840164787"><ph name="ITEM_TITLE" /> е прикачена</translation>
 <translation id="3600566671520689681">{DAYS,plural, =1{Преостана 1 ден}one{Преостана # ден}other{Преостанаа # дена}}</translation>
@@ -102,7 +102,6 @@
 <translation id="3842239759367498783">Продолжете со читање од мобилниот уред <ph name="TITLE" /></translation>
 <translation id="385051799172605136">Назад</translation>
 <translation id="3889424535448813030">Стрелка надесно</translation>
-<translation id="3892641579809465218">Внатрешен приказ</translation>
 <translation id="3897092660631435901">Мени</translation>
 <translation id="3909791450649380159">Ис&amp;ечи</translation>
 <translation id="3990502903496589789">Десен раб</translation>
@@ -143,8 +142,8 @@
 <translation id="5754277640426581776">{MINUTES,plural, =1{1 мин.}one{# мин.}other{# мин.}}</translation>
 <translation id="5763338081255973061">{DAYS,plural, =0{Активен денес}=1{Активен пред 1 ден}one{Активен пред # ден}other{Активен пред # дена}}</translation>
 <translation id="5768079895599174203">{DAYS,plural, =1{1 ден и }one{# ден и }other{# дена и }}</translation>
+<translation id="5789643057113097023">.</translation>
 <translation id="5866104238061687188">{YEARS,plural, =1{за 1 г.}one{за # г.}other{за # г.}}</translation>
-<translation id="5895138241574237353">Рестартирај</translation>
 <translation id="5906667377645263094">{SECONDS,plural, =1{Преостана 1 секунда}one{Преостана # секунда}other{Преостанаа # секунди}}</translation>
 <translation id="5941711191222866238">Минимизирај</translation>
 <translation id="5943826764092288734">{HOURS,plural, =1{1 час}one{# час}other{# часа}}</translation>
@@ -189,6 +188,7 @@
 <translation id="6974053822202609517">Десно на лево</translation>
 <translation id="7052633198403197513">F1</translation>
 <translation id="7130207228079676353">ВЕРОЈАТНО ЌЕ ГИ КЛИКНЕТЕ</translation>
+<translation id="7170202025028120564">Поставките за екран на апликацијата ќе се применат при следното рестартирање.</translation>
 <translation id="7222373446505536781">F11</translation>
 <translation id="7238427729722629793">{MINUTES,plural, =1{Преостана 1 мин.}one{Преостана # мин.}other{Преостанаа # мин.}}</translation>
 <translation id="7319740667687257810">Стартер, делумен приказ</translation>

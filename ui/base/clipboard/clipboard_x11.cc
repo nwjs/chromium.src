@@ -28,9 +28,7 @@
 #include "ui/base/x/selection_requestor.h"
 #include "ui/base/x/selection_utils.h"
 #include "ui/base/x/x11_util.h"
-#include "ui/events/platform/platform_event_dispatcher.h"
-#include "ui/events/platform/platform_event_observer.h"
-#include "ui/events/platform/platform_event_source.h"
+#include "ui/events/platform/x11/x11_event_source.h"
 #include "ui/events/x/x11_window_event_manager.h"
 #include "ui/gfx/codec/png_codec.h"
 #include "ui/gfx/geometry/size.h"
@@ -47,7 +45,7 @@ const char kClipboardManager[] = "CLIPBOARD_MANAGER";
 ///////////////////////////////////////////////////////////////////////////////
 
 // Uses the XFixes API to provide sequence numbers for GetSequenceNumber().
-class SelectionChangeObserver : public PlatformEventObserver {
+class SelectionChangeObserver : public XEventObserver {
  public:
   static SelectionChangeObserver* GetInstance();
 
@@ -62,9 +60,9 @@ class SelectionChangeObserver : public PlatformEventObserver {
   SelectionChangeObserver();
   ~SelectionChangeObserver() override;
 
-  // PlatformEventObserver:
-  void WillProcessEvent(const PlatformEvent& event) override;
-  void DidProcessEvent(const PlatformEvent& event) override {}
+  // XEventObserver:
+  void WillProcessXEvent(XEvent* xev) override;
+  void DidProcessXEvent(XEvent* xev) override {}
 
   int event_base_;
   Atom clipboard_atom_;
@@ -96,7 +94,7 @@ SelectionChangeObserver::SelectionChangeObserver()
                                    XFixesSelectionWindowDestroyNotifyMask |
                                    XFixesSelectionClientCloseNotifyMask);
 
-    PlatformEventSource::GetInstance()->AddPlatformEventObserver(this);
+    X11EventSource::GetInstance()->AddXEventObserver(this);
   }
 }
 
@@ -108,10 +106,10 @@ SelectionChangeObserver* SelectionChangeObserver::GetInstance() {
   return base::Singleton<SelectionChangeObserver>::get();
 }
 
-void SelectionChangeObserver::WillProcessEvent(const PlatformEvent& event) {
-  if (event->type == event_base_ + XFixesSelectionNotify) {
+void SelectionChangeObserver::WillProcessXEvent(XEvent* xev) {
+  if (xev->type == event_base_ + XFixesSelectionNotify) {
     XFixesSelectionNotifyEvent* ev =
-        reinterpret_cast<XFixesSelectionNotifyEvent*>(event);
+        reinterpret_cast<XFixesSelectionNotifyEvent*>(xev);
     if (ev->selection == clipboard_atom_) {
       clipboard_sequence_number_++;
       ClipboardMonitor::GetInstance()->NotifyClipboardDataChanged();
@@ -171,7 +169,7 @@ bool TargetList::ContainsAtom(::Atom atom) const {
 
 // Private implementation of our X11 integration. Keeps X11 headers out of the
 // majority of chrome, which break badly.
-class ClipboardX11::X11Details : public PlatformEventDispatcher {
+class ClipboardX11::X11Details : public XEventDispatcher {
  public:
   X11Details();
   ~X11Details() override;
@@ -209,8 +207,8 @@ class ClipboardX11::X11Details : public PlatformEventDispatcher {
   // selection holder is some other window, we spin up a nested run loop
   // and do the asynchronous dance with whatever application is holding the
   // selection.
-  ui::SelectionData RequestAndWaitForTypes(ClipboardBuffer buffer,
-                                           const std::vector<::Atom>& types);
+  SelectionData RequestAndWaitForTypes(ClipboardBuffer buffer,
+                                       const std::vector<::Atom>& types);
 
   // Retrieves the list of possible data types the current clipboard owner has.
   //
@@ -232,9 +230,10 @@ class ClipboardX11::X11Details : public PlatformEventDispatcher {
   void StoreCopyPasteDataAndWait();
 
  private:
-  // PlatformEventDispatcher:
-  bool CanDispatchEvent(const PlatformEvent& event) override;
-  uint32_t DispatchEvent(const PlatformEvent& event) override;
+  // XEventDispatcher:
+  bool DispatchXEvent(XEvent* xev) override;
+
+  bool CanDispatchXEvent(XEvent* xev);
 
   // Our X11 state.
   Display* x_display_;
@@ -281,13 +280,13 @@ ClipboardX11::X11Details::X11Details()
   x_window_events_.reset(
       new XScopedEventSelector(x_window_, PropertyChangeMask));
 
-  if (PlatformEventSource::GetInstance())
-    PlatformEventSource::GetInstance()->AddPlatformEventDispatcher(this);
+  if (X11EventSource::GetInstance())
+    X11EventSource::GetInstance()->AddXEventDispatcher(this);
 }
 
 ClipboardX11::X11Details::~X11Details() {
-  if (PlatformEventSource::GetInstance())
-    PlatformEventSource::GetInstance()->RemovePlatformEventDispatcher(this);
+  if (X11EventSource::GetInstance())
+    X11EventSource::GetInstance()->RemoveXEventDispatcher(this);
 
   XDestroyWindow(x_display_, x_window_);
 }
@@ -443,19 +442,22 @@ void ClipboardX11::X11Details::StoreCopyPasteDataAndWait() {
                       base::TimeTicks::Now() - start);
 }
 
-bool ClipboardX11::X11Details::CanDispatchEvent(const PlatformEvent& event) {
-  if (event->xany.window == x_window_)
+bool ClipboardX11::X11Details::CanDispatchXEvent(XEvent* xev) {
+  if (xev->xany.window == x_window_)
     return true;
 
-  if (event->type == PropertyNotify) {
-    return primary_owner_.CanDispatchPropertyEvent(*event) ||
-           clipboard_owner_.CanDispatchPropertyEvent(*event) ||
-           selection_requestor_.CanDispatchPropertyEvent(*event);
+  if (xev->type == PropertyNotify) {
+    return primary_owner_.CanDispatchPropertyEvent(*xev) ||
+           clipboard_owner_.CanDispatchPropertyEvent(*xev) ||
+           selection_requestor_.CanDispatchPropertyEvent(*xev);
   }
   return false;
 }
 
-uint32_t ClipboardX11::X11Details::DispatchEvent(const PlatformEvent& xev) {
+bool ClipboardX11::X11Details::DispatchXEvent(XEvent* xev) {
+  if (!CanDispatchXEvent(xev))
+    return false;
+
   switch (xev->type) {
     case SelectionRequest: {
       if (xev->xselectionrequest.selection == XA_PRIMARY) {
@@ -495,8 +497,7 @@ uint32_t ClipboardX11::X11Details::DispatchEvent(const PlatformEvent& xev) {
     default:
       break;
   }
-
-  return POST_DISPATCH_NONE;
+  return false;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -663,19 +664,10 @@ void ClipboardX11::ReadRTF(ClipboardBuffer buffer, std::string* result) const {
     data.AssignTo(result);
 }
 
-SkBitmap ClipboardX11::ReadImage(ClipboardBuffer buffer) const {
-  DCHECK(CalledOnValidThread());
-
-  SelectionData data(x11_details_->RequestAndWaitForTypes(
-      buffer,
-      x11_details_->GetAtomsForFormat(ClipboardFormatType::GetBitmapType())));
-  if (data.IsValid()) {
-    SkBitmap bitmap;
-    if (gfx::PNGCodec::Decode(data.GetData(), data.GetSize(), &bitmap))
-      return SkBitmap(bitmap);
-  }
-
-  return SkBitmap();
+void ClipboardX11::ReadImage(ClipboardBuffer buffer,
+                             ReadImageCallback callback) const {
+  DCHECK(IsSupportedClipboardBuffer(buffer));
+  std::move(callback).Run(ReadImageInternal(buffer));
 }
 
 void ClipboardX11::ReadCustomData(ClipboardBuffer buffer,
@@ -785,8 +777,8 @@ void ClipboardX11::WriteBookmark(const char* title_data,
       base::UTF8ToUTF16(base::StringPiece(title_data, title_len));
 
   std::vector<unsigned char> data;
-  ui::AddString16ToVector(url, &data);
-  ui::AddString16ToVector(title, &data);
+  AddString16ToVector(url, &data);
+  AddString16ToVector(title, &data);
   scoped_refptr<base::RefCountedMemory> mem(
       base::RefCountedBytes::TakeVector(&data));
 
@@ -818,6 +810,24 @@ void ClipboardX11::WriteData(const ClipboardFormatType& format,
   scoped_refptr<base::RefCountedMemory> mem(
       base::RefCountedBytes::TakeVector(&bytes));
   x11_details_->InsertMapping(format.GetName(), mem);
+}
+
+SkBitmap ClipboardX11::ReadImageInternal(ClipboardBuffer buffer) const {
+  DCHECK(CalledOnValidThread());
+
+  // TODO(https://crbug.com/443355): Since now that ReadImage() is async,
+  // refactor the code to keep a callback with the request, and invoke the
+  // callback when the request is satisfied.
+  SelectionData data(x11_details_->RequestAndWaitForTypes(
+      buffer,
+      x11_details_->GetAtomsForFormat(ClipboardFormatType::GetBitmapType())));
+  if (data.IsValid()) {
+    SkBitmap bitmap;
+    if (gfx::PNGCodec::Decode(data.GetData(), data.GetSize(), &bitmap))
+      return SkBitmap(bitmap);
+  }
+
+  return SkBitmap();
 }
 
 }  // namespace ui

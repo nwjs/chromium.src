@@ -43,7 +43,6 @@ if (enable_vr) {
     deps = [
       "//base",
       "//components/ukm:ukm",
-      "//content/public/common",
       "//device/base",
       "//device/vr/buildflags",
       "//device/vr/public/mojom",
@@ -246,7 +245,7 @@ if (enable_vr) {
     }
   }
 
-  static_library("fakes") {
+  component("vr_fakes") {
     testonly = true
 
     defines = [ "DEVICE_VR_IMPLEMENTATION" ]

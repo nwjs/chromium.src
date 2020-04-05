@@ -9,6 +9,7 @@
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/macros.h"
+#include "base/memory/ptr_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/post_task.h"
@@ -52,7 +53,7 @@
 #include "content/public/test/test_navigation_observer.h"
 #include "content/public/test/test_navigation_throttle.h"
 #include "content/public/test/test_navigation_throttle_inserter.h"
-#include "content/public/test/url_loader_interceptor.h"
+#include "content/public/test/url_loader_monitor.h"
 #include "content/shell/browser/shell.h"
 #include "content/shell/browser/shell_content_browser_client.h"
 #include "content/shell/browser/shell_download_manager_delegate.h"
@@ -72,6 +73,7 @@
 #include "services/network/public/cpp/features.h"
 #include "services/network/public/mojom/url_loader.mojom.h"
 #include "url/gurl.h"
+#include "url/url_util.h"
 
 namespace content {
 
@@ -165,12 +167,10 @@ class RenderFrameHostFactoryForHistoryBackInterceptor
       FrameTree* frame_tree,
       FrameTreeNode* frame_tree_node,
       int32_t routing_id,
-      int32_t widget_routing_id,
       bool renderer_initiated_creation) override {
     return base::WrapUnique(new RenderFrameHostImplForHistoryBackInterceptor(
         site_instance, std::move(render_view_host), delegate, frame_tree,
-        frame_tree_node, routing_id, widget_routing_id,
-        renderer_initiated_creation));
+        frame_tree_node, routing_id, renderer_initiated_creation));
   }
 };
 
@@ -265,49 +265,6 @@ class NetworkIsolationNavigationBrowserTest
     ContentBrowserTest::SetUpOnMainThread();
   }
 
-  // Navigate to |url| and for each ResourceRequest record its
-  // trusted_network_isolation_key. Stop listening after |final_resource| has
-  // been detected. The output is recorded in |network_isolation_keys|.
-  void NavigateAndRecordNetworkIsolationKeys(
-      const GURL& url,
-      const GURL& final_resource,
-      bool from_renderer,
-      std::map<GURL, net::NetworkIsolationKey>* network_isolation_keys,
-      std::map<GURL, network::mojom::UpdateNetworkIsolationKeyOnRedirect>*
-          update_network_isolation_key_on_redirects) {
-    if (from_renderer)
-      EXPECT_TRUE(NavigateToURL(shell(), GURL("about:blank")));
-
-    base::RunLoop run_loop;
-    base::Lock lock;
-
-    // Intercept network requests and record them.
-    URLLoaderInterceptor interceptor(base::BindLambdaForTesting(
-        [&](URLLoaderInterceptor::RequestParams* params) -> bool {
-          base::AutoLock top_frame_origins_lock(lock);
-          if (params->url_request.trusted_params) {
-            (*network_isolation_keys)[params->url_request.url] =
-                params->url_request.trusted_params->network_isolation_key;
-            (*update_network_isolation_key_on_redirects)[params->url_request
-                                                             .url] =
-                params->url_request.trusted_params
-                    ->update_network_isolation_key_on_redirect;
-          }
-
-          if (params->url_request.url == final_resource)
-            run_loop.Quit();
-          return false;
-        }));
-
-    if (from_renderer)
-      EXPECT_TRUE(NavigateToURLFromRenderer(shell(), url));
-    else
-      EXPECT_TRUE(NavigateToURL(shell(), url));
-
-    // Wait until the last resource we care about has been requested.
-    run_loop.Run();
-  }
-
   base::test::ScopedFeatureList feature_list_;
 };
 
@@ -332,16 +289,16 @@ class NavigationBrowserTestReferrerPolicy
 INSTANTIATE_TEST_SUITE_P(
     All,
     NavigationBrowserTestReferrerPolicy,
-    ::testing::Values(network::mojom::ReferrerPolicy::kAlways,
-                      network::mojom::ReferrerPolicy::kDefault,
-                      network::mojom::ReferrerPolicy::kNoReferrerWhenDowngrade,
-                      network::mojom::ReferrerPolicy::kNever,
-                      network::mojom::ReferrerPolicy::kOrigin,
-                      network::mojom::ReferrerPolicy::kOriginWhenCrossOrigin,
-                      network::mojom::ReferrerPolicy::
-                          kNoReferrerWhenDowngradeOriginWhenCrossOrigin,
-                      network::mojom::ReferrerPolicy::kSameOrigin,
-                      network::mojom::ReferrerPolicy::kStrictOrigin));
+    ::testing::Values(
+        network::mojom::ReferrerPolicy::kAlways,
+        network::mojom::ReferrerPolicy::kDefault,
+        network::mojom::ReferrerPolicy::kNoReferrerWhenDowngrade,
+        network::mojom::ReferrerPolicy::kNever,
+        network::mojom::ReferrerPolicy::kOrigin,
+        network::mojom::ReferrerPolicy::kOriginWhenCrossOrigin,
+        network::mojom::ReferrerPolicy::kStrictOriginWhenCrossOrigin,
+        network::mojom::ReferrerPolicy::kSameOrigin,
+        network::mojom::ReferrerPolicy::kStrictOrigin));
 
 // Ensure that browser initiated basic navigations work.
 IN_PROC_BROWSER_TEST_F(NavigationBrowserTest, BrowserInitiatedNavigations) {
@@ -656,8 +613,7 @@ IN_PROC_BROWSER_TEST_P(NavigationBrowserTestReferrerPolicy, ReferrerPolicy) {
     case network::mojom::ReferrerPolicy::kDefault:
     case network::mojom::ReferrerPolicy::kNoReferrerWhenDowngrade:
     case network::mojom::ReferrerPolicy::kOriginWhenCrossOrigin:
-    case network::mojom::ReferrerPolicy::
-        kNoReferrerWhenDowngradeOriginWhenCrossOrigin:
+    case network::mojom::ReferrerPolicy::kStrictOriginWhenCrossOrigin:
     case network::mojom::ReferrerPolicy::kSameOrigin:
       EXPECT_EQ(kReferrerURL, root->navigation_request()->GetReferrer().url);
       break;
@@ -713,7 +669,7 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest, PostUploadIllegalFilePath) {
 
   // Revoke the access to the file and submit the form. The renderer process
   // should be terminated.
-  RenderProcessHostKillWaiter process_kill_waiter(rfh->GetProcess());
+  RenderProcessHostBadIpcMessageWaiter process_kill_waiter(rfh->GetProcess());
   ChildProcessSecurityPolicyImpl* security_policy =
       ChildProcessSecurityPolicyImpl::GetInstance();
   security_policy->RevokeAllPermissionsForFile(rfh->GetProcess()->GetID(),
@@ -837,118 +793,86 @@ IN_PROC_BROWSER_TEST_F(NavigationBaseBrowserTest,
 
 IN_PROC_BROWSER_TEST_P(NetworkIsolationNavigationBrowserTest,
                        BrowserNavigationNetworkIsolationKey) {
-  std::map<GURL, net::NetworkIsolationKey> network_isolation_keys;
-  std::map<GURL, network::mojom::UpdateNetworkIsolationKeyOnRedirect>
-      update_network_isolation_key_on_redirects;
   GURL url(embedded_test_server()->GetURL("/title1.html"));
   url::Origin origin = url::Origin::Create(url);
+  URLLoaderMonitor monitor({url});
+  EXPECT_TRUE(NavigateToURL(shell(), url));
+  monitor.WaitForUrls();
 
-  NavigateAndRecordNetworkIsolationKeys(
-      url, url /* final_resource */, false /* from_renderer */,
-      &network_isolation_keys, &update_network_isolation_key_on_redirects);
+  base::Optional<network::ResourceRequest> request =
+      monitor.GetRequestInfo(url);
+  ASSERT_TRUE(request->trusted_params);
   EXPECT_EQ(net::NetworkIsolationKey(origin, origin),
-            network_isolation_keys[url]);
+            request->trusted_params->network_isolation_key);
   EXPECT_EQ(network::mojom::UpdateNetworkIsolationKeyOnRedirect::
                 kUpdateTopFrameAndFrameOrigin,
-            update_network_isolation_key_on_redirects[url]);
+            request->trusted_params->update_network_isolation_key_on_redirect);
 }
 
 IN_PROC_BROWSER_TEST_P(NetworkIsolationNavigationBrowserTest,
                        RenderNavigationNetworkIsolationKey) {
-  std::map<GURL, net::NetworkIsolationKey> network_isolation_keys;
-  std::map<GURL, network::mojom::UpdateNetworkIsolationKeyOnRedirect>
-      update_network_isolation_key_on_redirects;
   GURL url(embedded_test_server()->GetURL("/title2.html"));
   url::Origin origin = url::Origin::Create(url);
+  EXPECT_TRUE(NavigateToURL(shell(), GURL("about:blank")));
+  URLLoaderMonitor monitor({url});
+  EXPECT_TRUE(NavigateToURLFromRenderer(shell(), url));
+  monitor.WaitForUrls();
 
-  NavigateAndRecordNetworkIsolationKeys(
-      url, url /* final_resource */, true /* from_renderer */,
-      &network_isolation_keys, &update_network_isolation_key_on_redirects);
+  base::Optional<network::ResourceRequest> request =
+      monitor.GetRequestInfo(url);
+  ASSERT_TRUE(request->trusted_params);
   EXPECT_EQ(net::NetworkIsolationKey(origin, origin),
-            network_isolation_keys[url]);
+            request->trusted_params->network_isolation_key);
   EXPECT_EQ(network::mojom::UpdateNetworkIsolationKeyOnRedirect::
                 kUpdateTopFrameAndFrameOrigin,
-            update_network_isolation_key_on_redirects[url]);
+            request->trusted_params->update_network_isolation_key_on_redirect);
 }
 
 IN_PROC_BROWSER_TEST_P(NetworkIsolationNavigationBrowserTest,
                        SubframeNetworkIsolationKey) {
-  std::map<GURL, net::NetworkIsolationKey> network_isolation_keys;
-  std::map<GURL, network::mojom::UpdateNetworkIsolationKeyOnRedirect>
-      update_network_isolation_key_on_redirects;
   GURL url(embedded_test_server()->GetURL("/page_with_iframe.html"));
   GURL iframe_document = embedded_test_server()->GetURL("/title1.html");
   url::Origin origin = url::Origin::Create(url);
   url::Origin iframe_origin = url::Origin::Create(iframe_document);
+  URLLoaderMonitor monitor({iframe_document});
+  EXPECT_TRUE(NavigateToURL(shell(), url));
+  monitor.WaitForUrls();
 
-  NavigateAndRecordNetworkIsolationKeys(
-      url, iframe_document /* final_resource */, false /* from_renderer */,
-      &network_isolation_keys, &update_network_isolation_key_on_redirects);
+  base::Optional<network::ResourceRequest> main_frame_request =
+      monitor.GetRequestInfo(url);
+  ASSERT_TRUE(main_frame_request.has_value());
+  ASSERT_TRUE(main_frame_request->trusted_params);
   EXPECT_EQ(net::NetworkIsolationKey(origin, origin),
-            network_isolation_keys[url]);
+            main_frame_request->trusted_params->network_isolation_key);
   EXPECT_EQ(network::mojom::UpdateNetworkIsolationKeyOnRedirect::
                 kUpdateTopFrameAndFrameOrigin,
-            update_network_isolation_key_on_redirects[url]);
+            main_frame_request->trusted_params
+                ->update_network_isolation_key_on_redirect);
+
+  base::Optional<network::ResourceRequest> iframe_request =
+      monitor.GetRequestInfo(iframe_document);
+  ASSERT_TRUE(iframe_request->trusted_params);
   EXPECT_EQ(net::NetworkIsolationKey(origin, iframe_origin),
-            network_isolation_keys[iframe_document]);
+            iframe_request->trusted_params->network_isolation_key);
   EXPECT_EQ(
       network::mojom::UpdateNetworkIsolationKeyOnRedirect::kUpdateFrameOrigin,
-      update_network_isolation_key_on_redirects[iframe_document]);
+      iframe_request->trusted_params->update_network_isolation_key_on_redirect);
 }
-
-// Helper class to extract the initiator values from URLLoaderFactory calls
-class InitiatorInterceptor {
- public:
-  explicit InitiatorInterceptor(const GURL& final_url) {
-    // Intercept network requests and record them.
-    interceptor_ =
-        std::make_unique<URLLoaderInterceptor>(base::BindLambdaForTesting(
-            [&final_url,
-             this](URLLoaderInterceptor::RequestParams* params) -> bool {
-              base::AutoLock initiators_lock(lock_);
-              (initiators_)[params->url_request.url] =
-                  params->url_request.request_initiator;
-
-              if (params->url_request.url == final_url)
-                run_loop_.Quit();
-              return false;
-            }));
-  }
-
-  void Run() {
-    // Wait until the last resource we care about has been requested.
-    run_loop_.Run();
-  }
-
-  // This method should be used only if the key already exists in the map.
-  const base::Optional<url::Origin>& GetInitiatorForURL(const GURL& url) const {
-    auto initiator_iterator = initiators_.find(url);
-    DCHECK(initiator_iterator != initiators_.end());
-
-    return initiator_iterator->second;
-  }
-
- private:
-  std::map<GURL, base::Optional<url::Origin>> initiators_;
-  std::unique_ptr<URLLoaderInterceptor> interceptor_;
-  base::Lock lock_;
-  base::RunLoop run_loop_;
-
-  DISALLOW_COPY_AND_ASSIGN(InitiatorInterceptor);
-};
 
 // Tests that the initiator is not set for a browser initiated top frame
 // navigation.
 IN_PROC_BROWSER_TEST_F(NavigationBrowserTest, BrowserNavigationInitiator) {
   GURL url(embedded_test_server()->GetURL("/title1.html"));
 
-  InitiatorInterceptor test_interceptor(url);
+  URLLoaderMonitor monitor;
 
   // Perform the actual navigation.
   EXPECT_TRUE(NavigateToURL(shell(), url));
-  test_interceptor.Run();
 
-  ASSERT_FALSE(test_interceptor.GetInitiatorForURL(url).has_value());
+  base::Optional<network::ResourceRequest> request =
+      monitor.GetRequestInfo(url);
+  ASSERT_TRUE(request.has_value());
+  ASSERT_FALSE(request->request_initiator.has_value());
 }
 
 // Test that the initiator is set to the starting page when a renderer initiated
@@ -962,13 +886,15 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest, RendererNavigationInitiator) {
 
   GURL url(embedded_test_server()->GetURL("/title2.html"));
 
-  InitiatorInterceptor test_interceptor(url);
+  URLLoaderMonitor monitor;
 
   // Perform the actual navigation.
   EXPECT_TRUE(NavigateToURLFromRenderer(shell(), url));
-  test_interceptor.Run();
 
-  EXPECT_EQ(starting_page_origin, test_interceptor.GetInitiatorForURL(url));
+  base::Optional<network::ResourceRequest> request =
+      monitor.GetRequestInfo(url);
+  ASSERT_TRUE(request.has_value());
+  EXPECT_EQ(starting_page_origin, request->request_initiator);
 }
 
 // Test that the initiator is set to the starting page when a sub frame is
@@ -990,12 +916,11 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest, SubFrameJsNavigationInitiator) {
 
   GURL url(embedded_test_server()->GetURL("a.com", "/title1.html"));
 
-  InitiatorInterceptor test_interceptor(url);
+  URLLoaderMonitor monitor({url});
   std::string script = "location.href='" + url.spec() + "'";
 
   // Perform the actual navigation.
   EXPECT_TRUE(ExecJs(root->child_at(0)->current_frame_host(), script));
-  test_interceptor.Run();
 
   EXPECT_TRUE(
       root->current_frame_host()->render_view_host()->IsRenderViewLive());
@@ -1005,7 +930,10 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest, SubFrameJsNavigationInitiator) {
   url::Origin starting_page_origin;
   starting_page_origin = starting_page_origin.Create(starting_page);
 
-  EXPECT_EQ(starting_page_origin, test_interceptor.GetInitiatorForURL(url));
+  monitor.WaitForUrls();
+  base::Optional<network::ResourceRequest> request =
+      monitor.GetRequestInfo(url);
+  EXPECT_EQ(starting_page_origin, request->request_initiator);
 }
 
 // Test that the initiator is set to the starting page when a sub frame,
@@ -1031,11 +959,10 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest,
 
   GURL url(embedded_test_server()->GetURL("c.com", "/title1.html"));
 
-  InitiatorInterceptor test_interceptor(url);
+  URLLoaderMonitor monitor;
 
   // Perform the actual navigation.
   NavigateIframeToURL(shell()->web_contents(), "child-0", url);
-  test_interceptor.Run();
 
   EXPECT_TRUE(
       root->current_frame_host()->render_view_host()->IsRenderViewLive());
@@ -1045,7 +972,10 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest,
   url::Origin starting_page_origin;
   starting_page_origin = starting_page_origin.Create(starting_page);
 
-  EXPECT_EQ(starting_page_origin, test_interceptor.GetInitiatorForURL(url));
+  base::Optional<network::ResourceRequest> request =
+      monitor.GetRequestInfo(url);
+  ASSERT_TRUE(request.has_value());
+  EXPECT_EQ(starting_page_origin, request->request_initiator);
 }
 
 // Data URLs can have a reference fragment like any other URLs. This test makes
@@ -2021,10 +1951,15 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest, AboutSrcDocUsesBeginNavigation) {
   interceptor.Wait(1);  // DidCommitNavigation is called.
 }
 
-class TextFragmentAnchorBrowserTest : public NavigationBrowserTest {
+class TextFragmentAnchorBrowserTest : public NavigationBaseBrowserTest {
+ public:
+  TextFragmentAnchorBrowserTest() {
+    feature_list_.InitAndEnableFeature(features::kDocumentPolicy);
+  }
+
  protected:
   void SetUpCommandLine(base::CommandLine* command_line) override {
-    NavigationBrowserTest::SetUpCommandLine(command_line);
+    NavigationBaseBrowserTest::SetUpCommandLine(command_line);
 
     command_line->AppendSwitchASCII(switches::kEnableBlinkFeatures,
                                     "TextFragmentIdentifiers");
@@ -2056,9 +1991,17 @@ class TextFragmentAnchorBrowserTest : public NavigationBrowserTest {
     EXPECT_TRUE(WaitForLoadStop(contents));
     EXPECT_TRUE(WaitForRenderFrameReady(contents->GetMainFrame()));
   }
+
+  RenderWidgetHostImpl* GetWidgetHost() {
+    return RenderWidgetHostImpl::From(
+        shell()->web_contents()->GetRenderViewHost()->GetWidget());
+  }
+
+  base::test::ScopedFeatureList feature_list_;
 };
 
 IN_PROC_BROWSER_TEST_F(TextFragmentAnchorBrowserTest, EnabledOnUserNavigation) {
+  ASSERT_TRUE(embedded_test_server()->Start());
   GURL url(embedded_test_server()->GetURL("/target_text_link.html"));
   GURL target_text_url(embedded_test_server()->GetURL(
       "/scrollable_page_with_content.html#:~:text=text"));
@@ -2069,11 +2012,8 @@ IN_PROC_BROWSER_TEST_F(TextFragmentAnchorBrowserTest, EnabledOnUserNavigation) {
   TestNavigationObserver observer(main_contents);
   RenderFrameSubmissionObserver frame_observer(main_contents);
 
-  RenderWidgetHostImpl* host = RenderWidgetHostImpl::From(
-      main_contents->GetRenderViewHost()->GetWidget());
-
   // We need to wait until hit test data is available.
-  HitTestRegionObserver hittest_observer(host->GetFrameSinkId());
+  HitTestRegionObserver hittest_observer(GetWidgetHost()->GetFrameSinkId());
   hittest_observer.WaitForHitTestData();
 
   ClickElementWithId(main_contents, "link");
@@ -2081,12 +2021,14 @@ IN_PROC_BROWSER_TEST_F(TextFragmentAnchorBrowserTest, EnabledOnUserNavigation) {
   EXPECT_EQ(target_text_url, main_contents->GetLastCommittedURL());
 
   WaitForPageLoad(main_contents);
-  frame_observer.WaitForScrollOffsetAtTop(false);
+  frame_observer.WaitForScrollOffsetAtTop(
+      /*expected_scroll_offset_at_top=*/false);
   EXPECT_FALSE(main_contents->GetMainFrame()->GetView()->IsScrollOffsetAtTop());
 }
 
 IN_PROC_BROWSER_TEST_F(TextFragmentAnchorBrowserTest,
                        EnabledOnBrowserNavigation) {
+  ASSERT_TRUE(embedded_test_server()->Start());
   GURL url(embedded_test_server()->GetURL(
       "/scrollable_page_with_content.html#:~:text=text"));
   WebContents* main_contents = shell()->web_contents();
@@ -2095,12 +2037,14 @@ IN_PROC_BROWSER_TEST_F(TextFragmentAnchorBrowserTest,
   EXPECT_TRUE(NavigateToURL(shell(), url));
 
   WaitForPageLoad(main_contents);
-  frame_observer.WaitForScrollOffsetAtTop(false);
+  frame_observer.WaitForScrollOffsetAtTop(
+      /*expected_scroll_offset_at_top=*/false);
   EXPECT_FALSE(main_contents->GetMainFrame()->GetView()->IsScrollOffsetAtTop());
 }
 
 IN_PROC_BROWSER_TEST_F(TextFragmentAnchorBrowserTest,
                        EnabledOnUserGestureScriptNavigation) {
+  ASSERT_TRUE(embedded_test_server()->Start());
   GURL url(embedded_test_server()->GetURL("/empty.html"));
   GURL target_text_url(embedded_test_server()->GetURL(
       "/scrollable_page_with_content.html#:~:text=text"));
@@ -2118,12 +2062,14 @@ IN_PROC_BROWSER_TEST_F(TextFragmentAnchorBrowserTest,
   EXPECT_EQ(target_text_url, main_contents->GetLastCommittedURL());
 
   WaitForPageLoad(main_contents);
-  frame_observer.WaitForScrollOffsetAtTop(false);
+  frame_observer.WaitForScrollOffsetAtTop(
+      /*expected_scroll_offset_at_top=*/false);
   EXPECT_FALSE(main_contents->GetMainFrame()->GetView()->IsScrollOffsetAtTop());
 }
 
 IN_PROC_BROWSER_TEST_F(TextFragmentAnchorBrowserTest,
                        DisabledOnScriptNavigation) {
+  ASSERT_TRUE(embedded_test_server()->Start());
   GURL url(embedded_test_server()->GetURL("/empty.html"));
   GURL target_text_url(embedded_test_server()->GetURL(
       "/scrollable_page_with_content.html#:~:text=text"));
@@ -2144,11 +2090,13 @@ IN_PROC_BROWSER_TEST_F(TextFragmentAnchorBrowserTest,
   base::ThreadTaskRunnerHandle::Get()->PostDelayedTask(
       FROM_HERE, run_loop.QuitClosure(), TestTimeouts::tiny_timeout());
   run_loop.Run();
+  RunUntilInputProcessed(GetWidgetHost());
   EXPECT_TRUE(main_contents->GetMainFrame()->GetView()->IsScrollOffsetAtTop());
 }
 
 IN_PROC_BROWSER_TEST_F(TextFragmentAnchorBrowserTest,
                        DisabledOnScriptHistoryNavigation) {
+  ASSERT_TRUE(embedded_test_server()->Start());
   GURL target_text_url(embedded_test_server()->GetURL(
       "/scrollable_page_with_content.html#:~:text=text"));
   GURL url(embedded_test_server()->GetURL("/empty.html"));
@@ -2178,11 +2126,13 @@ IN_PROC_BROWSER_TEST_F(TextFragmentAnchorBrowserTest,
   base::ThreadTaskRunnerHandle::Get()->PostDelayedTask(
       FROM_HERE, run_loop.QuitClosure(), TestTimeouts::tiny_timeout());
   run_loop.Run();
+  RunUntilInputProcessed(GetWidgetHost());
   EXPECT_TRUE(main_contents->GetMainFrame()->GetView()->IsScrollOffsetAtTop());
 }
 
 IN_PROC_BROWSER_TEST_F(TextFragmentAnchorBrowserTest,
                        EnabledOnSameDocumentBrowserNavigation) {
+  ASSERT_TRUE(embedded_test_server()->Start());
   GURL url(embedded_test_server()->GetURL(
       "/scrollable_page_with_content.html#:~:text=text"));
   WebContents* main_contents = shell()->web_contents();
@@ -2204,12 +2154,14 @@ IN_PROC_BROWSER_TEST_F(TextFragmentAnchorBrowserTest,
   EXPECT_TRUE(NavigateToURL(shell(), same_doc_url));
 
   WaitForPageLoad(main_contents);
-  frame_observer.WaitForScrollOffsetAtTop(false);
+  frame_observer.WaitForScrollOffsetAtTop(
+      /*expected_scroll_offset_at_top=*/false);
   EXPECT_FALSE(main_contents->GetMainFrame()->GetView()->IsScrollOffsetAtTop());
 }
 
 IN_PROC_BROWSER_TEST_F(TextFragmentAnchorBrowserTest,
                        DisabledOnSameDocumentScriptNavigation) {
+  ASSERT_TRUE(embedded_test_server()->Start());
   GURL url(
       embedded_test_server()->GetURL("/scrollable_page_with_content.html"));
   GURL target_text_url(embedded_test_server()->GetURL(
@@ -2231,6 +2183,85 @@ IN_PROC_BROWSER_TEST_F(TextFragmentAnchorBrowserTest,
   base::ThreadTaskRunnerHandle::Get()->PostDelayedTask(
       FROM_HERE, run_loop.QuitClosure(), TestTimeouts::tiny_timeout());
   run_loop.Run();
+  RunUntilInputProcessed(GetWidgetHost());
+  EXPECT_TRUE(main_contents->GetMainFrame()->GetView()->IsScrollOffsetAtTop());
+}
+
+IN_PROC_BROWSER_TEST_F(TextFragmentAnchorBrowserTest, EnabledByDocumentPolicy) {
+  net::test_server::ControllableHttpResponse response(embedded_test_server(),
+                                                      "/target.html");
+
+  ASSERT_TRUE(embedded_test_server()->Start());
+  GURL url(embedded_test_server()->GetURL("/target.html#:~:text=text"));
+  WebContents* main_contents = shell()->web_contents();
+  RenderFrameSubmissionObserver frame_observer(main_contents);
+
+  // Load the target document
+  TestNavigationManager navigation_manager(main_contents, url);
+  shell()->LoadURL(url);
+
+  // Start navigation
+  EXPECT_TRUE(navigation_manager.WaitForRequestStart());
+  navigation_manager.ResumeNavigation();
+
+  // Send Document-Policy header
+  response.WaitForRequest();
+  response.Send(
+      "HTTP/1.1 200 OK\r\n"
+      "Content-Type: text/html; charset=utf-8\r\n"
+      "Document-Policy: no-force-load-at-top\r\n"
+      "\r\n"
+      "<p style='position: absolute; top: 10000px;'>Some text</p>");
+  response.Done();
+
+  EXPECT_TRUE(navigation_manager.WaitForResponse());
+  navigation_manager.ResumeNavigation();
+  navigation_manager.WaitForNavigationFinished();
+
+  WaitForPageLoad(main_contents);
+  frame_observer.WaitForScrollOffsetAtTop(
+      /*expected_scroll_offset_at_top=*/false);
+  EXPECT_FALSE(main_contents->GetMainFrame()->GetView()->IsScrollOffsetAtTop());
+}
+
+IN_PROC_BROWSER_TEST_F(TextFragmentAnchorBrowserTest,
+                       DisabledByDocumentPolicy) {
+  net::test_server::ControllableHttpResponse response(embedded_test_server(),
+                                                      "/target.html");
+
+  ASSERT_TRUE(embedded_test_server()->Start());
+  GURL url(embedded_test_server()->GetURL("/target.html#:~:text=text"));
+  WebContents* main_contents = shell()->web_contents();
+
+  // Load the target document
+  TestNavigationManager navigation_manager(main_contents, url);
+  shell()->LoadURL(url);
+
+  // Start navigation
+  EXPECT_TRUE(navigation_manager.WaitForRequestStart());
+  navigation_manager.ResumeNavigation();
+
+  // Send Document-Policy header
+  response.WaitForRequest();
+  response.Send(
+      "HTTP/1.1 200 OK\r\n"
+      "Content-Type: text/html; charset=utf-8\r\n"
+      "Document-Policy: force-load-at-top\r\n"
+      "\r\n"
+      "<p style='position: absolute; top: 10000px;'>Some text</p>");
+  response.Done();
+
+  EXPECT_TRUE(navigation_manager.WaitForResponse());
+  navigation_manager.ResumeNavigation();
+  navigation_manager.WaitForNavigationFinished();
+
+  WaitForPageLoad(main_contents);
+  // Wait a short amount of time to ensure the page does not scroll.
+  base::RunLoop run_loop;
+  base::ThreadTaskRunnerHandle::Get()->PostDelayedTask(
+      FROM_HERE, run_loop.QuitClosure(), TestTimeouts::tiny_timeout());
+  run_loop.Run();
+  RunUntilInputProcessed(GetWidgetHost());
   EXPECT_TRUE(main_contents->GetMainFrame()->GetView()->IsScrollOffsetAtTop());
 }
 
@@ -3135,11 +3166,9 @@ class NavigationUrlRewriteBrowserTest : public NavigationBaseBrowserTest {
     }
   };
 
-  void SetUp() override {
+  NavigationUrlRewriteBrowserTest() {
     url::AddStandardScheme(kNoAccessScheme, url::SCHEME_WITH_HOST);
     url::AddNoAccessScheme(kNoAccessScheme);
-
-    NavigationBaseBrowserTest::SetUp();
   }
 
   void SetUpOnMainThread() override {
@@ -3163,6 +3192,7 @@ class NavigationUrlRewriteBrowserTest : public NavigationBaseBrowserTest {
  private:
   std::unique_ptr<BrowserClient> browser_client_;
   ContentBrowserClient* old_browser_client_;
+  url::ScopedSchemeRegistryForTests scoped_registry_;
 };
 
 // TODO(1021779): Figure out why this fails on the kitkat-dbg builder
@@ -3257,6 +3287,207 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest,
       shell(), GURL(embedded_test_server()->GetURL("/virtual-url.html"))));
   EXPECT_EQ("/title2.html", observer.last_navigation_url().path());
   EXPECT_EQ(2, rewrite_count);
+}
+
+class DocumentPolicyBrowserTest : public NavigationBaseBrowserTest {
+ public:
+  DocumentPolicyBrowserTest() {
+    feature_list_.InitAndEnableFeature(features::kDocumentPolicy);
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+// Test that scroll restoration can be disabled with
+// Document-Policy: force-load-at-top
+IN_PROC_BROWSER_TEST_F(DocumentPolicyBrowserTest,
+                       ScrollRestorationDisabledByDocumentPolicy) {
+  net::test_server::ControllableHttpResponse response(embedded_test_server(),
+                                                      "/target.html");
+  ASSERT_TRUE(embedded_test_server()->Start());
+  GURL url(embedded_test_server()->GetURL("/target.html"));
+  WebContents* main_contents = shell()->web_contents();
+  RenderFrameSubmissionObserver frame_observer(main_contents);
+  TestNavigationManager navigation_manager(main_contents, url);
+
+  // Load the document with document policy force-load-at-top
+  shell()->LoadURL(url);
+  EXPECT_TRUE(navigation_manager.WaitForRequestStart());
+  navigation_manager.ResumeNavigation();
+  response.WaitForRequest();
+  response.Send(
+      "HTTP/1.1 200 OK\r\n"
+      "Content-Type: text/html; charset=utf-8\r\n"
+      "Document-Policy: force-load-at-top\r\n"
+      "\r\n"
+      "<p style='position: absolute; top: 10000px;'>Some text</p>");
+  response.Done();
+
+  EXPECT_TRUE(navigation_manager.WaitForResponse());
+  navigation_manager.ResumeNavigation();
+  navigation_manager.WaitForNavigationFinished();
+  EXPECT_TRUE(WaitForLoadStop(main_contents));
+  EXPECT_TRUE(WaitForRenderFrameReady(main_contents->GetMainFrame()));
+
+  // Scroll down the page a bit
+  EXPECT_TRUE(ExecuteScript(main_contents, "window.scrollTo(0, 1000)"));
+  frame_observer.WaitForScrollOffsetAtTop(false);
+
+  // Navigate away
+  EXPECT_TRUE(ExecuteScript(main_contents, "window.location = 'about:blank'"));
+  EXPECT_TRUE(WaitForLoadStop(main_contents));
+  EXPECT_TRUE(WaitForRenderFrameReady(main_contents->GetMainFrame()));
+
+  // Navigate back
+  EXPECT_TRUE(ExecuteScript(main_contents, "history.back()"));
+  EXPECT_TRUE(WaitForLoadStop(main_contents));
+  EXPECT_TRUE(WaitForRenderFrameReady(main_contents->GetMainFrame()));
+
+  // Wait a short amount of time to ensure the page does not scroll.
+  base::RunLoop run_loop;
+  base::ThreadTaskRunnerHandle::Get()->PostDelayedTask(
+      FROM_HERE, run_loop.QuitClosure(), TestTimeouts::tiny_timeout());
+  run_loop.Run();
+  RunUntilInputProcessed(RenderWidgetHostImpl::From(
+      main_contents->GetRenderViewHost()->GetWidget()));
+  EXPECT_TRUE(main_contents->GetMainFrame()->GetView()->IsScrollOffsetAtTop());
+}
+
+// Test that scroll restoration works as expected with
+// Document-Policy: no-force-load-at-top
+IN_PROC_BROWSER_TEST_F(DocumentPolicyBrowserTest,
+                       ScrollRestorationEnabledByDocumentPolicy) {
+  net::test_server::ControllableHttpResponse response(embedded_test_server(),
+                                                      "/target.html");
+  ASSERT_TRUE(embedded_test_server()->Start());
+  GURL url(embedded_test_server()->GetURL("/target.html"));
+  WebContents* main_contents = shell()->web_contents();
+  RenderFrameSubmissionObserver frame_observer(main_contents);
+  TestNavigationManager navigation_manager(main_contents, url);
+
+  // Load the document with document policy no-force-load-at-top
+  shell()->LoadURL(url);
+  EXPECT_TRUE(navigation_manager.WaitForRequestStart());
+  navigation_manager.ResumeNavigation();
+  response.WaitForRequest();
+  response.Send(
+      "HTTP/1.1 200 OK\r\n"
+      "Content-Type: text/html; charset=utf-8\r\n"
+      "Document-Policy: no-force-load-at-top\r\n"
+      "\r\n"
+      "<p style='position: absolute; top: 10000px;'>Some text</p>");
+  response.Done();
+
+  EXPECT_TRUE(navigation_manager.WaitForResponse());
+  navigation_manager.ResumeNavigation();
+  navigation_manager.WaitForNavigationFinished();
+  EXPECT_TRUE(WaitForLoadStop(main_contents));
+  EXPECT_TRUE(WaitForRenderFrameReady(main_contents->GetMainFrame()));
+
+  // Scroll down the page a bit
+  EXPECT_TRUE(ExecuteScript(main_contents, "window.scrollTo(0, 1000)"));
+  frame_observer.WaitForScrollOffsetAtTop(false);
+
+  // Navigate away
+  EXPECT_TRUE(ExecuteScript(main_contents, "window.location = 'about:blank'"));
+  EXPECT_TRUE(WaitForLoadStop(main_contents));
+  EXPECT_TRUE(WaitForRenderFrameReady(main_contents->GetMainFrame()));
+
+  // Navigate back
+  EXPECT_TRUE(ExecuteScript(main_contents, "history.back()"));
+  EXPECT_TRUE(WaitForLoadStop(main_contents));
+  EXPECT_TRUE(WaitForRenderFrameReady(main_contents->GetMainFrame()));
+
+  // Ensure scroll restoration activated
+  frame_observer.WaitForScrollOffsetAtTop(false);
+  EXPECT_FALSE(main_contents->GetMainFrame()->GetView()->IsScrollOffsetAtTop());
+}
+
+// Test that element fragment anchor scrolling can be disabled with
+// Document-Policy: force-load-at-top
+IN_PROC_BROWSER_TEST_F(DocumentPolicyBrowserTest,
+                       FragmentAnchorDisabledByDocumentPolicy) {
+  net::test_server::ControllableHttpResponse response(embedded_test_server(),
+                                                      "/target.html");
+
+  ASSERT_TRUE(embedded_test_server()->Start());
+  GURL url(embedded_test_server()->GetURL("/target.html#text"));
+  WebContents* main_contents = shell()->web_contents();
+
+  // Load the target document
+  TestNavigationManager navigation_manager(main_contents, url);
+  shell()->LoadURL(url);
+
+  // Start navigation
+  EXPECT_TRUE(navigation_manager.WaitForRequestStart());
+  navigation_manager.ResumeNavigation();
+
+  // Send Document-Policy header
+  response.WaitForRequest();
+  response.Send(
+      "HTTP/1.1 200 OK\r\n"
+      "Content-Type: text/html; charset=utf-8\r\n"
+      "Document-Policy: force-load-at-top\r\n"
+      "\r\n"
+      "<p id='text' style='position: absolute; top: 10000px;'>Some text</p>");
+  response.Done();
+
+  EXPECT_TRUE(navigation_manager.WaitForResponse());
+  navigation_manager.ResumeNavigation();
+  navigation_manager.WaitForNavigationFinished();
+
+  EXPECT_TRUE(WaitForLoadStop(main_contents));
+  EXPECT_TRUE(WaitForRenderFrameReady(main_contents->GetMainFrame()));
+  // Wait a short amount of time to ensure the page does not scroll.
+  base::RunLoop run_loop;
+  base::ThreadTaskRunnerHandle::Get()->PostDelayedTask(
+      FROM_HERE, run_loop.QuitClosure(), TestTimeouts::tiny_timeout());
+  run_loop.Run();
+  RunUntilInputProcessed(RenderWidgetHostImpl::From(
+      main_contents->GetRenderViewHost()->GetWidget()));
+  EXPECT_TRUE(main_contents->GetMainFrame()->GetView()->IsScrollOffsetAtTop());
+}
+
+// Test that element fragment anchor scrolling works as expected with
+// Document-Policy: no-force-load-at-top
+IN_PROC_BROWSER_TEST_F(DocumentPolicyBrowserTest,
+                       FragmentAnchorEnabledByDocumentPolicy) {
+  net::test_server::ControllableHttpResponse response(embedded_test_server(),
+                                                      "/target.html");
+
+  ASSERT_TRUE(embedded_test_server()->Start());
+  GURL url(embedded_test_server()->GetURL("/target.html#text"));
+  WebContents* main_contents = shell()->web_contents();
+  RenderFrameSubmissionObserver frame_observer(main_contents);
+
+  // Load the target document
+  TestNavigationManager navigation_manager(main_contents, url);
+  shell()->LoadURL(url);
+
+  // Start navigation
+  EXPECT_TRUE(navigation_manager.WaitForRequestStart());
+  navigation_manager.ResumeNavigation();
+
+  // Send Document-Policy header
+  response.WaitForRequest();
+  response.Send(
+      "HTTP/1.1 200 OK\r\n"
+      "Content-Type: text/html; charset=utf-8\r\n"
+      "Document-Policy: no-force-load-at-top\r\n"
+      "\r\n"
+      "<p id='text' style='position: absolute; top: 10000px;'>Some text</p>");
+  response.Done();
+
+  EXPECT_TRUE(navigation_manager.WaitForResponse());
+  navigation_manager.ResumeNavigation();
+  navigation_manager.WaitForNavigationFinished();
+
+  EXPECT_TRUE(WaitForLoadStop(main_contents));
+  EXPECT_TRUE(WaitForRenderFrameReady(main_contents->GetMainFrame()));
+  frame_observer.WaitForScrollOffsetAtTop(
+      /*expected_scroll_offset_at_top=*/false);
+  EXPECT_FALSE(main_contents->GetMainFrame()->GetView()->IsScrollOffsetAtTop());
 }
 
 }  // namespace content

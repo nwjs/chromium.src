@@ -4,6 +4,7 @@
 ciopfs
 /android/bin
 /android/binary_size/apks/**/*.apk
+/args/chromeos/*.gni
 /config/gclient_args.gni
 /cros_cache/
 /Debug
@@ -21,6 +22,5 @@ ciopfs
 /linux/ubuntu_*-sysroot/
 /ios_files
 /mac_files
-/xcode_links
 
 !/util/LASTCHANGE.dummy

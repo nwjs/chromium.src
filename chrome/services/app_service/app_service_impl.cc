@@ -11,7 +11,6 @@
 #include "chrome/services/app_service/public/mojom/types.mojom.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
-#include "components/prefs/scoped_user_pref_update.h"
 
 namespace {
 
@@ -121,6 +120,19 @@ void AppServiceImpl::Launch(apps::mojom::AppType app_type,
   }
   iter->second->Launch(app_id, event_flags, launch_source, display_id);
 }
+void AppServiceImpl::LaunchAppWithFiles(apps::mojom::AppType app_type,
+                                        const std::string& app_id,
+                                        apps::mojom::LaunchContainer container,
+                                        int32_t event_flags,
+                                        apps::mojom::LaunchSource launch_source,
+                                        apps::mojom::FilePathsPtr file_paths) {
+  auto iter = publishers_.find(app_type);
+  if (iter == publishers_.end()) {
+    return;
+  }
+  iter->second->LaunchAppWithFiles(app_id, container, event_flags,
+                                   launch_source, std::move(file_paths));
+}
 
 void AppServiceImpl::LaunchAppWithIntent(
     apps::mojom::AppType app_type,
@@ -144,15 +156,6 @@ void AppServiceImpl::SetPermission(apps::mojom::AppType app_type,
     return;
   }
   iter->second->SetPermission(app_id, std::move(permission));
-}
-
-void AppServiceImpl::PromptUninstall(apps::mojom::AppType app_type,
-                                     const std::string& app_id) {
-  auto iter = publishers_.find(app_type);
-  if (iter == publishers_.end()) {
-    return;
-  }
-  iter->second->PromptUninstall(app_id);
 }
 
 void AppServiceImpl::Uninstall(apps::mojom::AppType app_type,
@@ -215,11 +218,10 @@ void AppServiceImpl::AddPreferredApp(apps::mojom::AppType app_type,
                                      bool from_publisher) {
   DCHECK(preferred_apps_.IsInitialized());
 
-  preferred_apps_.AddPreferredApp(app_id, intent_filter);
+  apps::mojom::ReplacedAppPreferencesPtr replaced_app_preferences =
+      preferred_apps_.AddPreferredApp(app_id, intent_filter);
 
-  DictionaryPrefUpdate update(pref_service_, kAppServicePreferredApps);
-  DCHECK(PreferredApps::VerifyPreferredApps(update.Get()));
-  PreferredApps::AddPreferredApp(app_id, intent_filter, update.Get());
+  // TODO(crbug.com/853604): Write the data to the disk.
 
   for (auto& subscriber : subscribers_) {
     subscriber->OnPreferredAppSet(app_id, intent_filter->Clone());
@@ -228,12 +230,18 @@ void AppServiceImpl::AddPreferredApp(apps::mojom::AppType app_type,
   if (from_publisher || !intent) {
     return;
   }
-  auto iter = publishers_.find(app_type);
-  if (iter == publishers_.end()) {
-    return;
+
+  // Sync the change to publishers. Because |replaced_app_preference| can
+  // be any app type, we should run this for all publishers. Currently
+  // only implemented in ARC publisher.
+  // TODO(crbug.com/853604): The |replaced_app_preference| can be really big,
+  // update this logic to only call the relevant publisher for each app after
+  // updating the storage structure.
+  for (const auto& iter : publishers_) {
+    iter.second->OnPreferredAppSet(app_id, std::move(intent_filter),
+                                   std::move(intent),
+                                   replaced_app_preferences->Clone());
   }
-  iter->second->OnPreferredAppSet(app_id, std::move(intent_filter),
-                                  std::move(intent));
 }
 
 void AppServiceImpl::RemovePreferredApp(apps::mojom::AppType app_type,
@@ -242,9 +250,7 @@ void AppServiceImpl::RemovePreferredApp(apps::mojom::AppType app_type,
 
   preferred_apps_.DeleteAppId(app_id);
 
-  DictionaryPrefUpdate update(pref_service_, kAppServicePreferredApps);
-  DCHECK(PreferredApps::VerifyPreferredApps(update.Get()));
-  PreferredApps::DeleteAppId(app_id, update.Get());
+  // TODO(crbug.com/853604): Write the data to the disk.
 }
 
 void AppServiceImpl::RemovePreferredAppForFilter(
@@ -255,16 +261,14 @@ void AppServiceImpl::RemovePreferredAppForFilter(
 
   preferred_apps_.DeletePreferredApp(app_id, intent_filter);
 
-  DictionaryPrefUpdate update(pref_service_, kAppServicePreferredApps);
-  DCHECK(PreferredApps::VerifyPreferredApps(update.Get()));
-  PreferredApps::DeletePreferredApp(app_id, intent_filter, update.Get());
+  // TODO(crbug.com/853604): Write the data to the disk.
 
   for (auto& subscriber : subscribers_) {
     subscriber->OnPreferredAppRemoved(app_id, intent_filter->Clone());
   }
 }
 
-PreferredApps& AppServiceImpl::GetPreferredAppsForTesting() {
+PreferredAppsList& AppServiceImpl::GetPreferredAppsForTesting() {
   return preferred_apps_;
 }
 
@@ -273,9 +277,8 @@ void AppServiceImpl::OnPublisherDisconnected(apps::mojom::AppType app_type) {
 }
 
 void AppServiceImpl::InitializePreferredApps() {
-  DCHECK(pref_service_);
-  preferred_apps_.Init(
-      pref_service_->GetDictionary(kAppServicePreferredApps)->CreateDeepCopy());
+  // TODO(crbug.com/853604): Read the data from the disk.
+  preferred_apps_.Init();
   for (auto& subscriber : subscribers_) {
     subscriber->InitializePreferredApps(preferred_apps_.GetValue());
   }

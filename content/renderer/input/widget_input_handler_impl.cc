@@ -10,7 +10,6 @@
 #include "base/logging.h"
 #include "content/common/input/ime_text_span_conversions.h"
 #include "content/common/input_messages.h"
-#include "content/renderer/compositor/layer_tree_view.h"
 #include "content/renderer/ime_event_guard.h"
 #include "content/renderer/input/widget_input_handler_manager.h"
 #include "content/renderer/render_thread_impl.h"
@@ -84,6 +83,11 @@ void WidgetInputHandlerImpl::SetFocus(bool focused) {
 void WidgetInputHandlerImpl::MouseCaptureLost() {
   RunOnMainThread(
       base::BindOnce(&RenderWidget::OnMouseCaptureLost, render_widget_));
+}
+
+void WidgetInputHandlerImpl::MouseLockLost() {
+  RunOnMainThread(
+      base::BindOnce(&RenderWidget::PointerLockLost, render_widget_));
 }
 
 void WidgetInputHandlerImpl::SetEditCommandsForNextKeyEvent(

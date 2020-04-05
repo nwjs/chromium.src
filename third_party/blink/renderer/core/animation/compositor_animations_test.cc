@@ -55,6 +55,7 @@
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/node_computed_style.h"
 #include "third_party/blink/renderer/core/frame/frame_test_helpers.h"
+#include "third_party/blink/renderer/core/frame/web_frame_widget_base.h"
 #include "third_party/blink/renderer/core/frame/web_local_frame_impl.h"
 #include "third_party/blink/renderer/core/layout/layout_object.h"
 #include "third_party/blink/renderer/core/paint/compositing/composited_layer_mapping.h"
@@ -300,8 +301,8 @@ class AnimationCompositorAnimationsTest : public PaintTestConfigurations,
 
   void SetCustomProperty(const String& name, const String& value) {
     DummyExceptionStateForTesting exception_state;
-    element_->style()->setProperty(&GetDocument(), name, value, g_empty_string,
-                                   exception_state);
+    element_->style()->setProperty(GetDocument().GetExecutionContext(), name,
+                                   value, g_empty_string, exception_state);
     EXPECT_FALSE(exception_state.HadException());
     EXPECT_TRUE(element_->style()->getPropertyValue(name));
   }
@@ -486,8 +487,9 @@ class AnimationCompositorAnimationsTest : public PaintTestConfigurations,
   LocalFrame* GetFrame() const { return helper_.LocalMainFrame()->GetFrame(); }
 
   void BeginFrame() {
-    helper_.GetWebView()->MainFrameWidget()->BeginFrame(
-        base::TimeTicks::Now(), false /* record_main_frame_metrics */);
+    helper_.GetWebView()
+        ->MainFrameWidgetBase()
+        ->SynchronouslyCompositeForTesting(base::TimeTicks::Now());
   }
 
   void ForceFullCompositingUpdate() {
@@ -725,14 +727,16 @@ TEST_P(AnimationCompositorAnimationsTest,
 
   timing_.iteration_count = std::numeric_limits<double>::infinity();
   EXPECT_TRUE(ConvertTimingForCompositor(timing_, compositor_timing_));
-  EXPECT_EQ(-1, compositor_timing_.adjusted_iteration_count);
+  EXPECT_EQ(std::numeric_limits<double>::infinity(),
+            compositor_timing_.adjusted_iteration_count);
 
   timing_.iteration_count = std::numeric_limits<double>::infinity();
   timing_.iteration_duration = AnimationTimeDelta::FromSecondsD(5);
   timing_.start_delay = -6.0;
   EXPECT_TRUE(ConvertTimingForCompositor(timing_, compositor_timing_));
   EXPECT_DOUBLE_EQ(6.0, compositor_timing_.scaled_time_offset.InSecondsF());
-  EXPECT_EQ(-1, compositor_timing_.adjusted_iteration_count);
+  EXPECT_EQ(std::numeric_limits<double>::infinity(),
+            compositor_timing_.adjusted_iteration_count);
 }
 
 TEST_P(AnimationCompositorAnimationsTest,
@@ -1758,7 +1762,9 @@ namespace {
 
 void UpdateDummyTransformNode(ObjectPaintProperties& properties,
                               CompositingReasons reasons) {
-  TransformPaintPropertyNode::State state;
+  // Initialize with TransformationMatrix() to avoid 2d translation optimization
+  // in case of transform animation.
+  TransformPaintPropertyNode::State state{TransformationMatrix()};
   state.direct_compositing_reasons = reasons;
   properties.UpdateTransform(TransformPaintPropertyNode::Root(),
                              std::move(state));
@@ -1847,7 +1853,6 @@ TEST_P(AnimationCompositorAnimationsTest, TrackRafAnimation) {
   // iterations and the other that ends after 10.
   for (int i = 0; i < 9; i++) {
     BeginFrame();
-    ForceFullCompositingUpdate();
     EXPECT_TRUE(host->CurrentFrameHadRAF());
     EXPECT_TRUE(host->NextFrameHasPendingRAF());
   }
@@ -1855,13 +1860,11 @@ TEST_P(AnimationCompositorAnimationsTest, TrackRafAnimation) {
   // On the 10th iteration, there should be a current rAF, but no more pending
   // rAFs.
   BeginFrame();
-  ForceFullCompositingUpdate();
   EXPECT_TRUE(host->CurrentFrameHadRAF());
   EXPECT_FALSE(host->NextFrameHasPendingRAF());
 
   // On the 11th iteration, there should be no more rAFs firing.
   BeginFrame();
-  ForceFullCompositingUpdate();
   EXPECT_FALSE(host->CurrentFrameHadRAF());
   EXPECT_FALSE(host->NextFrameHasPendingRAF());
 }
@@ -1875,7 +1878,6 @@ TEST_P(AnimationCompositorAnimationsTest, TrackRafAnimationTimeout) {
   // The test file executes a rAF, which fires a setTimeout for the next rAF.
   // Even with setTimeout(func, 0), the next rAF is not considered pending.
   BeginFrame();
-  ForceFullCompositingUpdate();
   EXPECT_TRUE(host->CurrentFrameHadRAF());
   EXPECT_FALSE(host->NextFrameHasPendingRAF());
 }
@@ -1886,7 +1888,6 @@ TEST_P(AnimationCompositorAnimationsTest, TrackRafAnimationNoneRegistered) {
   // Run a full frame after loading the test data so that scripted animations
   // are serviced and data propagated.
   BeginFrame();
-  ForceFullCompositingUpdate();
 
   // The HTML does not have any rAFs.
   cc::AnimationHost* host =
@@ -1896,7 +1897,6 @@ TEST_P(AnimationCompositorAnimationsTest, TrackRafAnimationNoneRegistered) {
 
   // And still shouldn't after another frame.
   BeginFrame();
-  ForceFullCompositingUpdate();
   EXPECT_FALSE(host->CurrentFrameHadRAF());
   EXPECT_FALSE(host->NextFrameHasPendingRAF());
 }

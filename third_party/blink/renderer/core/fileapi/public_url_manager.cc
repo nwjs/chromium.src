@@ -30,6 +30,7 @@
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "third_party/blink/public/common/blob/blob_utils.h"
 #include "third_party/blink/public/mojom/blob/blob_registry.mojom-blink.h"
+#include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/fileapi/url_registry.h"
 #include "third_party/blink/renderer/platform/blob/blob_data.h"
 #include "third_party/blink/renderer/platform/blob/blob_url.h"
@@ -52,7 +53,7 @@ static void RemoveFromNullOriginMapIfNecessary(const KURL& blob_url) {
 }  // namespace
 
 PublicURLManager::PublicURLManager(ExecutionContext* context)
-    : ContextLifecycleObserver(context), is_stopped_(false) {}
+    : ExecutionContextLifecycleObserver(context), is_stopped_(false) {}
 
 String PublicURLManager::RegisterURL(URLRegistrable* registrable) {
   if (is_stopped_)
@@ -146,7 +147,7 @@ void PublicURLManager::Resolve(
   url_store_->ResolveForNavigation(url, std::move(token_receiver));
 }
 
-void PublicURLManager::ContextDestroyed(ExecutionContext*) {
+void PublicURLManager::ContextDestroyed() {
   if (is_stopped_)
     return;
 
@@ -164,8 +165,8 @@ void PublicURLManager::ContextDestroyed(ExecutionContext*) {
   url_store_.reset();
 }
 
-void PublicURLManager::Trace(blink::Visitor* visitor) {
-  ContextLifecycleObserver::Trace(visitor);
+void PublicURLManager::Trace(Visitor* visitor) {
+  ExecutionContextLifecycleObserver::Trace(visitor);
 }
 
 }  // namespace blink

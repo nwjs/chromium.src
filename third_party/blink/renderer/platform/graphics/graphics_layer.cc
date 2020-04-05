@@ -78,7 +78,10 @@ GraphicsLayer::GraphicsLayer(GraphicsLayerClient& client)
       painted_(false),
       painting_phase_(kGraphicsLayerPaintAllWithOverflowClip),
       parent_(nullptr),
-      mask_layer_(nullptr) {
+      mask_layer_(nullptr),
+      raster_invalidation_function_(
+          base::BindRepeating(&GraphicsLayer::SetNeedsDisplayInRect,
+                              base::Unretained(this))) {
   // TODO(crbug.com/1033240): Debugging information for the referenced bug.
   // Remove when it is fixed.
   CHECK(&client_);
@@ -126,10 +129,12 @@ void GraphicsLayer::AppendAdditionalInfoAsJSON(LayerTreeFlags flags,
   if (&layer != layer_.get())
     return;
 
-  if ((flags & kLayerTreeIncludesPaintInvalidations) &&
+  if ((flags & (kLayerTreeIncludesInvalidations |
+                kLayerTreeIncludesDetailedInvalidations)) &&
       Client().IsTrackingRasterInvalidations() &&
       GetRasterInvalidationTracking()) {
-    GetRasterInvalidationTracking()->AsJSON(&json);
+    GetRasterInvalidationTracking()->AsJSON(
+        &json, flags & kLayerTreeIncludesDetailedInvalidations);
   }
 
   GraphicsLayerPaintingPhase painting_phase = PaintingPhase();
@@ -207,9 +212,8 @@ bool GraphicsLayer::SetChildren(const GraphicsLayerVector& new_children) {
 
   RemoveAllChildren();
 
-  size_t list_size = new_children.size();
-  for (size_t i = 0; i < list_size; ++i)
-    AddChildInternal(new_children[i]);
+  for (auto* new_child : new_children)
+    AddChildInternal(new_child);
 
   NotifyChildListChange();
 
@@ -306,7 +310,7 @@ void GraphicsLayer::PaintRecursivelyInternal(
     child->PaintRecursivelyInternal(repainted_layers);
 }
 
-bool GraphicsLayer::Paint(GraphicsContext::DisabledMode disabled_mode) {
+bool GraphicsLayer::Paint() {
 #if !DCHECK_IS_ON()
   // TODO(crbug.com/853096): Investigate why we can ever reach here without
   // a valid layer state. Seems to only happen on Android builds.
@@ -314,7 +318,7 @@ bool GraphicsLayer::Paint(GraphicsContext::DisabledMode disabled_mode) {
     return false;
 #endif
 
-  if (PaintWithoutCommit(disabled_mode)) {
+  if (PaintWithoutCommit()) {
     GetPaintController().CommitNewDisplayItems();
     UpdateSafeOpaqueBackgroundColor();
   } else if (!needs_check_raster_invalidation_) {
@@ -332,6 +336,7 @@ bool GraphicsLayer::Paint(GraphicsContext::DisabledMode disabled_mode) {
   // Generate raster invalidations for SPv1.
   IntRect layer_bounds(layer_state_->offset, IntSize(Size()));
   EnsureRasterInvalidator().Generate(
+      raster_invalidation_function_,
       GetPaintController().GetPaintArtifactShared(), layer_bounds,
       layer_state_->state, VisualRectSubpixelOffset(), this);
 
@@ -356,21 +361,17 @@ bool GraphicsLayer::Paint(GraphicsContext::DisabledMode disabled_mode) {
 void GraphicsLayer::UpdateSafeOpaqueBackgroundColor() {
   if (!DrawsContent())
     return;
-  // Copy the first chunk's safe opaque background color over to the cc::Layer.
-  const auto& chunks = GetPaintController().GetPaintArtifact().PaintChunks();
   CcLayer()->SetSafeOpaqueBackgroundColor(
-      chunks.size() ? chunks[0].safe_opaque_background_color : SK_ColorWHITE);
+      GetPaintController().GetPaintArtifact().SafeOpaqueBackgroundColor(
+          GetPaintController().GetPaintArtifact().PaintChunks()));
 }
 
 bool GraphicsLayer::PaintWithoutCommitForTesting(
     const base::Optional<IntRect>& interest_rect) {
-  return PaintWithoutCommit(GraphicsContext::kNothingDisabled,
-                            base::OptionalOrNullptr(interest_rect));
+  return PaintWithoutCommit(base::OptionalOrNullptr(interest_rect));
 }
 
-bool GraphicsLayer::PaintWithoutCommit(
-    GraphicsContext::DisabledMode disabled_mode,
-    const IntRect* interest_rect) {
+bool GraphicsLayer::PaintWithoutCommit(const IntRect* interest_rect) {
   DCHECK(PaintsContentOrHitTest());
 
   if (client_.ShouldThrottleRendering() || client_.IsUnderSVGHiddenContainer())
@@ -383,7 +384,7 @@ bool GraphicsLayer::PaintWithoutCommit(
     interest_rect = &new_interest_rect;
   }
 
-  if (!GetPaintController().SubsequenceCachingIsDisabled() &&
+  if (!GetPaintController().ShouldForcePaintForBenchmark() &&
       !client_.NeedsRepaint(*this) &&
       !GetPaintController().CacheIsAllInvalid() &&
       previous_interest_rect_ == *interest_rect) {
@@ -391,9 +392,9 @@ bool GraphicsLayer::PaintWithoutCommit(
     return false;
   }
 
-  GraphicsContext context(GetPaintController(), disabled_mode, nullptr);
+  GraphicsContext context(GetPaintController());
   DCHECK(layer_state_) << "No layer state for GraphicsLayer: " << DebugName();
-  GetPaintController().UpdateCurrentPaintChunkProperties(base::nullopt,
+  GetPaintController().UpdateCurrentPaintChunkProperties(nullptr,
                                                          layer_state_->state);
 
   previous_interest_rect_ = *interest_rect;
@@ -446,7 +447,6 @@ void GraphicsLayer::SetContentsTo(scoped_refptr<cc::Layer> layer,
   if (layer) {
     if (contents_layer_ != layer) {
       contents_layer_ = std::move(layer);
-      contents_layer_->SetUseParentBackfaceVisibility(true);
       // It is necessary to call SetDrawsContent() as soon as we receive the new
       // contents_layer, for the correctness of early exit conditions in
       // SetDrawsContent() and SetContentsVisible().
@@ -464,9 +464,7 @@ void GraphicsLayer::SetContentsTo(scoped_refptr<cc::Layer> layer,
 
 RasterInvalidator& GraphicsLayer::EnsureRasterInvalidator() {
   if (!raster_invalidator_) {
-    raster_invalidator_ =
-        std::make_unique<RasterInvalidator>(base::BindRepeating(
-            &GraphicsLayer::SetNeedsDisplayInRect, base::Unretained(this)));
+    raster_invalidator_ = std::make_unique<RasterInvalidator>();
     raster_invalidator_->SetTracksRasterInvalidations(
         client_.IsTrackingRasterInvalidations());
   }
@@ -650,9 +648,10 @@ void GraphicsLayer::SetContentsToImage(
 
   ImageOrientation image_orientation = kOriginTopLeft;
   SkMatrix matrix;
-  if (paint_image && image->IsBitmapImage() &&
+  auto* bitmap_image = DynamicTo<BitmapImage>(image);
+  if (paint_image && bitmap_image &&
       respect_image_orientation == kRespectImageOrientation) {
-    image_orientation = ToBitmapImage(image)->CurrentFrameOrientation();
+    image_orientation = bitmap_image->CurrentFrameOrientation();
     image_size_ = IntSize(paint_image.width(), paint_image.height());
     if (image_orientation.UsesWidthAsHeight())
       image_size_ = image_size_.TransposedSize();
@@ -786,35 +785,24 @@ scoped_refptr<cc::DisplayItemList> GraphicsLayer::PaintContentsToDisplayList(
     PaintingControlSetting painting_control) {
   TRACE_EVENT0("blink,benchmark", "GraphicsLayer::PaintContents");
 
+  if (painting_control == SUBSEQUENCE_CACHING_DISABLED)
+    PaintController::SetSubsequenceCachingDisabledForBenchmark();
+  else if (painting_control == PARTIAL_INVALIDATION)
+    PaintController::SetPartialInvalidationForBenchmark();
+
   PaintController& paint_controller = GetPaintController();
-  paint_controller.SetDisplayItemConstructionIsDisabled(
-      painting_control == DISPLAY_LIST_CONSTRUCTION_DISABLED);
-  paint_controller.SetSubsequenceCachingIsDisabled(
-      painting_control == SUBSEQUENCE_CACHING_DISABLED);
-
-  if (painting_control == PARTIAL_INVALIDATION)
-    client_.InvalidateTargetElementForTesting();
-
   // We also disable caching when Painting or Construction are disabled. In both
   // cases we would like to compare assuming the full cost of recording, not the
   // cost of re-using cached content.
-  if (painting_control == DISPLAY_LIST_CACHING_DISABLED ||
-      painting_control == DISPLAY_LIST_PAINTING_DISABLED ||
-      painting_control == DISPLAY_LIST_CONSTRUCTION_DISABLED)
+  if (painting_control == DISPLAY_LIST_CACHING_DISABLED)
     paint_controller.InvalidateAll();
-
-  GraphicsContext::DisabledMode disabled_mode =
-      GraphicsContext::kNothingDisabled;
-  if (painting_control == DISPLAY_LIST_PAINTING_DISABLED ||
-      painting_control == DISPLAY_LIST_CONSTRUCTION_DISABLED)
-    disabled_mode = GraphicsContext::kFullyDisabled;
 
   // Anything other than PAINTING_BEHAVIOR_NORMAL is for testing. In non-testing
   // scenarios, it is an error to call GraphicsLayer::Paint. Actual painting
   // occurs in LocalFrameView::PaintTree() which calls GraphicsLayer::Paint();
   // this method merely copies the painted output to the cc::DisplayItemList.
   if (painting_control != PAINTING_BEHAVIOR_NORMAL)
-    Paint(disabled_mode);
+    Paint();
 
   auto display_list = base::MakeRefCounted<cc::DisplayItemList>();
 
@@ -825,8 +813,7 @@ scoped_refptr<cc::DisplayItemList> GraphicsLayer::PaintContentsToDisplayList(
       VisualRectSubpixelOffset(),
       paint_controller.GetPaintArtifact().GetDisplayItemList(), *display_list);
 
-  paint_controller.SetDisplayItemConstructionIsDisabled(false);
-  paint_controller.SetSubsequenceCachingIsDisabled(false);
+  PaintController::ClearFlagsForBenchmark();
 
   display_list->Finalize();
   return display_list;

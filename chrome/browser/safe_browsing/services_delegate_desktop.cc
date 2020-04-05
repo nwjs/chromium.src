@@ -12,7 +12,6 @@
 #include "base/strings/string_util.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/history/history_service_factory.h"
-#include "chrome/browser/safe_browsing/cloud_content_scanning/binary_upload_service.h"
 #include "chrome/browser/safe_browsing/safe_browsing_service.h"
 #include "chrome/browser/safe_browsing/telemetry/telemetry_service.h"
 #include "chrome/common/chrome_switches.h"
@@ -109,6 +108,9 @@ void ServicesDelegateDesktop::SetDatabaseManagerForTest(
 
 void ServicesDelegateDesktop::ShutdownServices() {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+
+  download_service_.reset();
+
   // The IO thread is going away, so make sure the ClientSideDetectionService
   // dtor executes now since it may call the dtor of URLFetcher which relies
   // on it.
@@ -117,17 +119,7 @@ void ServicesDelegateDesktop::ShutdownServices() {
   resource_request_detector_.reset();
   incident_service_.reset();
 
-  // Delete the VerdictCacheManager instances
-  cache_manager_map_.clear();
-
-  // Delete the ChromePasswordProtectionService instances.
-  password_protection_service_map_.clear();
-
-  // Delete the BinaryUploadService instances.
-  binary_upload_service_map_.clear();
-
-  // Must shut down last.
-  download_service_.reset();
+  ServicesDelegate::ShutdownServices();
 }
 
 void ServicesDelegateDesktop::RefreshState(bool enable) {
@@ -206,41 +198,6 @@ void ServicesDelegateDesktop::StartOnIOThread(
 
 void ServicesDelegateDesktop::StopOnIOThread(bool shutdown) {
   database_manager_->StopOnIOThread(shutdown);
-}
-
-void ServicesDelegateDesktop::OnProfileWillBeDestroyedOnIOThread(
-    scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory) {
-  database_manager_->OnProfileWillBeDestroyedOnIOThread(url_loader_factory);
-}
-
-void ServicesDelegateDesktop::CreateBinaryUploadService(Profile* profile) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  DCHECK(profile);
-  auto it = binary_upload_service_map_.find(profile);
-  DCHECK(it == binary_upload_service_map_.end());
-  std::unique_ptr<BinaryUploadService> service;
-  if (services_creator_ && services_creator_->CanCreateBinaryUploadService())
-    service = base::WrapUnique(services_creator_->CreateBinaryUploadService());
-  else
-    service = std::make_unique<BinaryUploadService>(
-        safe_browsing_service_->GetURLLoaderFactory(), profile);
-  binary_upload_service_map_[profile] = std::move(service);
-}
-
-void ServicesDelegateDesktop::RemoveBinaryUploadService(Profile* profile) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  DCHECK(profile);
-  auto it = binary_upload_service_map_.find(profile);
-  if (it != binary_upload_service_map_.end())
-    binary_upload_service_map_.erase(it);
-}
-
-BinaryUploadService* ServicesDelegateDesktop::GetBinaryUploadService(
-    Profile* profile) const {
-  DCHECK(profile);
-  auto it = binary_upload_service_map_.find(profile);
-  DCHECK(it != binary_upload_service_map_.end());
-  return it->second.get();
 }
 
 std::string ServicesDelegateDesktop::GetSafetyNetId() const {

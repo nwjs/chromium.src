@@ -30,6 +30,8 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/post_task.h"
 #include "base/task/task_traits.h"
+#include "base/task/thread_pool.h"
+#include "base/threading/scoped_thread_priority.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/win/core_winrt_util.h"
 #include "base/win/post_async_results.h"
@@ -664,9 +666,8 @@ void BluetoothAdapterWinrt::Init(InitCallback init_cb) {
 
   // Some of the initialization work requires loading libraries and should not
   // be run on the browser main thread.
-  base::PostTaskAndReplyWithResult(
-      FROM_HERE,
-      {base::ThreadPool(), base::MayBlock(), base::TaskPriority::BEST_EFFORT},
+  base::ThreadPool::PostTaskAndReplyWithResult(
+      FROM_HERE, {base::MayBlock(), base::TaskPriority::BEST_EFFORT},
       base::BindOnce(&BluetoothAdapterWinrt::PerformSlowInitTasks),
       base::BindOnce(&BluetoothAdapterWinrt::CompleteInitAgile,
                      weak_ptr_factory_.GetWeakPtr(), std::move(init_cb)));
@@ -706,6 +707,10 @@ void BluetoothAdapterWinrt::InitForTests(
 // static
 BluetoothAdapterWinrt::StaticsInterfaces
 BluetoothAdapterWinrt::PerformSlowInitTasks() {
+  // Mitigate the issues caused by loading DLLs on a background thread
+  // (http://crbug/973868).
+  SCOPED_MAY_LOAD_LIBRARY_AT_BACKGROUND_PRIORITY();
+
   if (!ResolveCoreWinRT())
     return BluetoothAdapterWinrt::StaticsInterfaces();
 
@@ -1276,13 +1281,13 @@ void BluetoothAdapterWinrt::OnPoweredRadioRemoved(
 
 void BluetoothAdapterWinrt::OnPoweredRadiosEnumerated(IDeviceWatcher* watcher,
                                                       IInspectable* object) {
-  // Destroy the ScopedClosureRunner, triggering the contained Closure to be
-  // run.
-  DCHECK(on_init_);
-  on_init_.reset();
   BLUETOOTH_LOG(ERROR)
       << "OnPoweredRadiosEnumerated(), Number of Powered Radios: "
       << num_powered_radios_;
+  // Destroy the ScopedClosureRunner, triggering the contained Closure to be
+  // run. Note this may destroy |this|.
+  DCHECK(on_init_);
+  on_init_.reset();
 }
 
 void BluetoothAdapterWinrt::OnAdvertisementReceived(

@@ -96,7 +96,8 @@ void NGMathRowLayoutAlgorithm::LayoutRowItems(
 scoped_refptr<const NGLayoutResult> NGMathRowLayoutAlgorithm::Layout() {
   DCHECK(!BreakToken());
 
-  bool is_display_math = Node().IsMathRoot() && !Style().IsDisplayInlineType();
+  bool is_display_math =
+      Node().IsMathRoot() && Style().Display() == EDisplay::kMath;
 
   LogicalSize max_row_size;
   LayoutUnit max_row_block_baseline;
@@ -111,7 +112,7 @@ scoped_refptr<const NGLayoutResult> NGMathRowLayoutAlgorithm::Layout() {
   // Add children taking into account centering, baseline and
   // border/scrollbar/padding.
   LayoutUnit center_offset = InlineOffsetForDisplayMathCentering(
-      is_display_math, ConstraintSpace().AvailableSize().inline_size,
+      is_display_math, container_builder_.InlineSize(),
       max_row_size.inline_size);
   LogicalOffset adjust_offset(
       border_scrollbar_padding_.inline_start + center_offset,
@@ -139,10 +140,10 @@ scoped_refptr<const NGLayoutResult> NGMathRowLayoutAlgorithm::Layout() {
   return container_builder_.ToBoxFragment();
 }
 
-base::Optional<MinMaxSize> NGMathRowLayoutAlgorithm::ComputeMinMaxSize(
-    const MinMaxSizeInput& input) const {
-  base::Optional<MinMaxSize> sizes = CalculateMinMaxSizesIgnoringChildren(
-      Node(), border_scrollbar_padding_, input.size_type);
+base::Optional<MinMaxSizes> NGMathRowLayoutAlgorithm::ComputeMinMaxSizes(
+    const MinMaxSizesInput& input) const {
+  base::Optional<MinMaxSizes> sizes =
+      CalculateMinMaxSizesIgnoringChildren(Node(), border_scrollbar_padding_);
   if (sizes)
     return sizes;
 
@@ -152,13 +153,13 @@ base::Optional<MinMaxSize> NGMathRowLayoutAlgorithm::ComputeMinMaxSize(
           ConstraintSpace(), Node(), border_padding_,
           input.percentage_resolution_block_size);
 
-  MinMaxSizeInput child_input(child_percentage_resolution_block_size);
+  MinMaxSizesInput child_input(child_percentage_resolution_block_size);
 
   for (NGLayoutInputNode child = Node().FirstChild(); child;
        child = child.NextSibling()) {
     if (child.IsOutOfFlowPositioned())
       continue;
-    MinMaxSize child_min_max_sizes =
+    MinMaxSizes child_min_max_sizes =
         ComputeMinAndMaxContentContribution(Style(), child, child_input);
     NGBoxStrut child_margins = ComputeMinMaxMargins(Style(), child);
     child_min_max_sizes += child_margins.InlineSum();
@@ -172,10 +173,7 @@ base::Optional<MinMaxSize> NGMathRowLayoutAlgorithm::ComputeMinMaxSize(
   // Due to negative margins, it is possible that we calculated a negative
   // intrinsic width. Make sure that we never return a negative width.
   sizes->Encompass(LayoutUnit());
-
-  if (input.size_type == NGMinMaxSizeType::kBorderBoxSize)
-    *sizes += border_scrollbar_padding_.InlineSum();
-
+  *sizes += border_scrollbar_padding_.InlineSum();
   return sizes;
 }
 

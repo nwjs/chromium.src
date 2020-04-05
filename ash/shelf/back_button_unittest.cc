@@ -55,6 +55,14 @@ class BackButtonTest : public AshTestBase,
     }
 
     AshTestBase::SetUp();
+    // Set a11y setting to show back button in tablet mode, if the feature to
+    // hide it is enabled.
+    if (features::IsHideShelfControlsInTabletModeEnabled()) {
+      Shell::Get()
+          ->accessibility_controller()
+          ->SetTabletModeShelfNavigationButtonsEnabled(true);
+    }
+
     test_api_ = std::make_unique<ShelfViewTestAPI>(
         GetPrimaryShelf()->GetShelfViewForTesting());
 
@@ -81,6 +89,7 @@ class BackButtonTest : public AshTestBase,
 };
 
 enum class TestAccessibilityFeature {
+  kTabletModeShelfNavigationButtons,
   kSpokenFeedback,
   kAutoclick,
   kSwitchAccess
@@ -102,6 +111,11 @@ class BackButtonVisibilityWithAccessibilityFeaturesTest
 
   void SetTestA11yFeatureEnabled(bool enabled) {
     switch (GetParam()) {
+      case TestAccessibilityFeature::kTabletModeShelfNavigationButtons:
+        Shell::Get()
+            ->accessibility_controller()
+            ->SetTabletModeShelfNavigationButtonsEnabled(enabled);
+        break;
       case TestAccessibilityFeature::kSpokenFeedback:
         Shell::Get()->accessibility_controller()->SetSpokenFeedbackEnabled(
             enabled, A11Y_NOTIFICATION_NONE);
@@ -112,6 +126,9 @@ class BackButtonVisibilityWithAccessibilityFeaturesTest
       case TestAccessibilityFeature::kSwitchAccess:
         Shell::Get()->accessibility_controller()->SetSwitchAccessEnabled(
             enabled);
+        Shell::Get()
+            ->accessibility_controller()
+            ->no_switch_access_disable_confirmation_dialog_for_testing(true);
         break;
     }
   }
@@ -183,7 +200,7 @@ TEST_P(BackButtonTest, BackKeySequenceGenerated) {
     std::unique_ptr<views::Widget> widget = CreateTestWidget();
 
   ShelfNavigationWidget::TestApi navigation_widget_test_api(
-      GetPrimaryShelf()->shelf_widget()->navigation_widget());
+      GetPrimaryShelf()->navigation_widget());
   // Wait for the navigation widget's animation.
   test_api()->RunMessageLoopUntilAnimationsDone(
       navigation_widget_test_api.GetBoundsAnimator());
@@ -239,7 +256,7 @@ TEST_P(BackButtonTest, NoContextMenuOnBackButton) {
 
   // Wait for the navigation widget's animation.
   ShelfNavigationWidget::TestApi navigation_widget_test_api(
-      GetPrimaryShelf()->shelf_widget()->navigation_widget());
+      GetPrimaryShelf()->navigation_widget());
   test_api()->RunMessageLoopUntilAnimationsDone(
       navigation_widget_test_api.GetBoundsAnimator());
 
@@ -252,9 +269,11 @@ TEST_P(BackButtonTest, NoContextMenuOnBackButton) {
 INSTANTIATE_TEST_SUITE_P(
     All,
     BackButtonVisibilityWithAccessibilityFeaturesTest,
-    ::testing::Values(TestAccessibilityFeature::kSpokenFeedback,
-                      TestAccessibilityFeature::kAutoclick,
-                      TestAccessibilityFeature::kSwitchAccess));
+    ::testing::Values(
+        TestAccessibilityFeature::kTabletModeShelfNavigationButtons,
+        TestAccessibilityFeature::kSpokenFeedback,
+        TestAccessibilityFeature::kAutoclick,
+        TestAccessibilityFeature::kSwitchAccess));
 
 TEST_P(BackButtonVisibilityWithAccessibilityFeaturesTest,
        TabletModeSwitchWithA11yFeatureEnabled) {
@@ -263,7 +282,7 @@ TEST_P(BackButtonVisibilityWithAccessibilityFeaturesTest,
   SetTestA11yFeatureEnabled(true /*enabled*/);
 
   ShelfNavigationWidget::TestApi test_api(
-      GetPrimaryShelf()->shelf_widget()->navigation_widget());
+      GetPrimaryShelf()->navigation_widget());
   // Back button is not shown in clamshell.
   EXPECT_FALSE(test_api.IsBackButtonVisible());
 
@@ -281,7 +300,7 @@ TEST_P(BackButtonVisibilityWithAccessibilityFeaturesTest,
   std::unique_ptr<views::Widget> widget = CreateTestWidget();
 
   ShelfNavigationWidget::TestApi test_api(
-      GetPrimaryShelf()->shelf_widget()->navigation_widget());
+      GetPrimaryShelf()->navigation_widget());
   // Back button is not shown in clamshell.
   EXPECT_FALSE(test_api.IsBackButtonVisible());
 

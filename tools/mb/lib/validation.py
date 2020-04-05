@@ -3,7 +3,10 @@
 # found in the LICENSE file.
 """Validation functions for the Meta-Build config file"""
 
+import ast
 import collections
+import json
+import re
 
 
 def GetAllConfigsMaster(masters):
@@ -132,6 +135,84 @@ def EnsureNoProprietaryMixinsMaster(errs, default_config, config_file, masters,
                   'responsible for public build artifacts.')
 
 
+def _GetConfigsByBuilder(masters):
+  """Builds a mapping from buildername -> [config]
+
+    Args
+      masters: the master's dict from mb_config.pyl
+    """
+
+  result = collections.defaultdict(list)
+  for master in masters.values():
+    for buildername, builder in master.items():
+      result[buildername].append(builder)
+
+  return result
+
+
+def CheckMasterBucketConsistency(errs, masters_file, buckets_file):
+  """Checks that mb_config_buckets.pyl is consistent with mb_config.pyl
+
+    mb_config_buckets.pyl is a subset of mb_config.pyl.
+    Make sure all configs that do exist are consistent.
+    Populates errs with any errors
+
+    Args:
+      errs: an accumulator for errors
+      masters_file: string form of mb_config.pyl
+      bucket_file: string form of mb_config_buckets.pyl
+    """
+  master_contents = ast.literal_eval(masters_file)
+  bucket_contents = ast.literal_eval(buckets_file)
+
+  def check_missing(bucket_dict, master_dict):
+    return [name for name in bucket_dict.keys() if name not in master_dict]
+
+  # Cross check builders
+  configs_by_builder = _GetConfigsByBuilder(master_contents['masters'])
+  for bucketname, builders in bucket_contents['buckets'].items():
+    missing = check_missing(builders, configs_by_builder)
+    errs.extend('Builder "%s" in bucket "%s" from mb_config_buckets.pyl '
+                'not found in mb_config.pyl' % (builder, bucketname)
+                for builder in missing)
+
+    for buildername, config in builders.items():
+      if config not in configs_by_builder[buildername]:
+        errs.append('Builder "%s" in bucket "%s" from mb_config_buckets.pyl '
+                    'doesn\'t match mb_config.pyl' % (buildername, bucketname))
+
+  def check_mismatch(bucket_dict, master_dict):
+    mismatched = []
+    for configname, config in bucket_dict.items():
+      if configname in master_dict and config != master_dict[configname]:
+        mismatched.append(configname)
+
+    return mismatched
+
+  # Cross check configs
+  missing = check_missing(bucket_contents['configs'],
+                          master_contents['configs'])
+  errs.extend('Config "%s" from mb_config_buckets.pyl '
+              'not found in mb_config.pyl' % config for config in missing)
+
+  mismatched = check_mismatch(bucket_contents['configs'],
+                              master_contents['configs'])
+  errs.extend(
+      'Config "%s" from mb_config_buckets.pyl doesn\'t match mb_config.pyl' %
+      config for config in mismatched)
+
+  # Cross check mixins
+  missing = check_missing(bucket_contents['mixins'], master_contents['mixins'])
+  errs.extend('Mixin "%s" from mb_config_buckets.pyl '
+              'not found in mb_config.pyl' % mixin for mixin in missing)
+
+  mismatched = check_mismatch(bucket_contents['mixins'],
+                              master_contents['mixins'])
+  errs.extend(
+      'Mixin "%s" from mb_config_buckets.pyl doesn\'t match mb_config.pyl' %
+      mixin for mixin in mismatched)
+
+
 def CheckDuplicateConfigs(errs, config_pool, mixin_pool, grouping,
                           flatten_config):
   """Check for duplicate configs.
@@ -152,9 +233,15 @@ def CheckDuplicateConfigs(errs, config_pool, mixin_pool, grouping,
       elif config.startswith('//'):
         args = config
       else:
-        args = flatten_config(config_pool, mixin_pool, config)['gn_args']
+        flattened_config = flatten_config(config_pool, mixin_pool, config)
+        args = flattened_config['gn_args']
         if 'error' in args:
           continue
+        # Force the args_file into consideration when testing for duplicate
+        # configs.
+        args_file = flattened_config['args_file']
+        if args_file:
+          args += ' args_file=%s' % args_file
 
       evaled_to_source[args].add(config)
 

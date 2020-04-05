@@ -15,9 +15,9 @@
 #include "base/threading/thread_task_runner_handle.h"
 #include "chrome/browser/extensions/extension_install_prompt_show_params.h"
 #include "chrome/browser/extensions/extension_util.h"
-#include "chrome/browser/extensions/permissions_updater.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/extensions/extension_install_ui_factory.h"
+#include "chrome/common/buildflags.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/grit/theme_resources.h"
 #include "components/strings/grit/components_strings.h"
@@ -32,15 +32,10 @@
 #include "extensions/common/extension_features.h"
 #include "extensions/common/extension_icon_set.h"
 #include "extensions/common/extension_resource.h"
-#include "extensions/common/feature_switch.h"
 #include "extensions/common/manifest.h"
 #include "extensions/common/manifest_constants.h"
 #include "extensions/common/manifest_handlers/icons_handler.h"
-#include "extensions/common/manifest_handlers/permissions_parser.h"
-#include "extensions/common/permissions/permission_message.h"
-#include "extensions/common/permissions/permission_message_provider.h"
 #include "extensions/common/permissions/permission_set.h"
-#include "extensions/common/permissions/permissions_data.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/ui_base_types.h"
@@ -79,8 +74,6 @@ ExtensionInstallPrompt::g_last_prompt_type_for_tests =
 ExtensionInstallPrompt::Prompt::Prompt(PromptType type)
     : type_(type),
       is_requesting_host_permissions_(false),
-      is_showing_details_for_retained_files_(false),
-      is_showing_details_for_retained_devices_(false),
       extension_(nullptr),
       average_rating_(0.0),
       rating_count_(0),
@@ -106,23 +99,6 @@ void ExtensionInstallPrompt::Prompt::AddPermissionSet(
 void ExtensionInstallPrompt::Prompt::AddPermissionMessages(
     const PermissionMessages& permissions) {
   prompt_permissions_.AddPermissionMessages(permissions);
-}
-
-void ExtensionInstallPrompt::Prompt::SetIsShowingDetails(
-    DetailsType type,
-    size_t index,
-    bool is_showing_details) {
-  switch (type) {
-    case PERMISSIONS_DETAILS:
-      prompt_permissions_.is_showing_details[index] = is_showing_details;
-      break;
-    case RETAINED_FILES_DETAILS:
-      is_showing_details_for_retained_files_ = is_showing_details;
-      break;
-    case RETAINED_DEVICES_DETAILS:
-      is_showing_details_for_retained_devices_ = is_showing_details;
-      break;
-  }
 }
 
 void ExtensionInstallPrompt::Prompt::SetWebstoreData(
@@ -174,6 +150,12 @@ base::string16 ExtensionInstallPrompt::Prompt::GetDialogTitle() const {
           IDS_EXTENSION_DELEGATED_INSTALL_PROMPT_TITLE,
           base::UTF8ToUTF16(extension_->name()),
           base::UTF8ToUTF16(delegated_username_));
+    case EXTENSION_REQUEST_PROMPT:
+      id = IDS_EXTENSION_REQUEST_PROMPT_TITLE;
+      break;
+    case EXTENSION_PENDING_REQUEST_PROMPT:
+      id = IDS_EXTENSION_PENDING_REQUEST_PROMPT_TITLE;
+      break;
     case UNSET_PROMPT_TYPE:
     case NUM_PROMPT_TYPES:
       NOTREACHED();
@@ -190,6 +172,12 @@ int ExtensionInstallPrompt::Prompt::GetDialogButtons() const {
       !ShouldDisplayRevokeButton()) {
     return ui::DIALOG_BUTTON_CANCEL;
   }
+
+  // Extension pending request dialog doesn't have confirm button because there
+  // is no user action required.
+  if (type_ == EXTENSION_PENDING_REQUEST_PROMPT)
+    return ui::DIALOG_BUTTON_CANCEL;
+
   return ui::DIALOG_BUTTON_OK | ui::DIALOG_BUTTON_CANCEL;
 }
 
@@ -198,12 +186,20 @@ base::string16 ExtensionInstallPrompt::Prompt::GetAcceptButtonLabel() const {
   switch (type_) {
     case INSTALL_PROMPT:
     case WEBSTORE_WIDGET_PROMPT:
-      if (extension_->is_app())
-        id = IDS_EXTENSION_INSTALL_PROMPT_ACCEPT_BUTTON_APP;
-      else if (extension_->is_theme())
-        id = IDS_EXTENSION_INSTALL_PROMPT_ACCEPT_BUTTON_THEME;
+#if BUILDFLAG(ENABLE_SUPERVISED_USERS)
+      if (requires_parent_permission())
+        id = IDS_EXTENSION_INSTALL_PROMPT_ASK_A_PARENT_BUTTON;
       else
+#endif
+          // NOTE: strange indentation formatting is due to intervening
+          // BUILDFLAG above.
+          if (extension_->is_app()) {
+        id = IDS_EXTENSION_INSTALL_PROMPT_ACCEPT_BUTTON_APP;
+      } else if (extension_->is_theme()) {
+        id = IDS_EXTENSION_INSTALL_PROMPT_ACCEPT_BUTTON_THEME;
+      } else {
         id = IDS_EXTENSION_INSTALL_PROMPT_ACCEPT_BUTTON_EXTENSION;
+      }
       break;
     case RE_ENABLE_PROMPT:
       id = IDS_EXTENSION_PROMPT_RE_ENABLE_BUTTON;
@@ -246,6 +242,12 @@ base::string16 ExtensionInstallPrompt::Prompt::GetAcceptButtonLabel() const {
     case DELEGATED_PERMISSIONS_PROMPT:
       id = IDS_EXTENSION_PROMPT_INSTALL_BUTTON;
       break;
+    case EXTENSION_REQUEST_PROMPT:
+      id = IDS_EXTENSION_INSTALL_PROMPT_REQUEST_BUTTON;
+      break;
+    case EXTENSION_PENDING_REQUEST_PROMPT:
+      // Pending request prompt doesn't have accept button.
+      break;
     case UNSET_PROMPT_TYPE:
     case NUM_PROMPT_TYPES:
       NOTREACHED();
@@ -272,6 +274,8 @@ base::string16 ExtensionInstallPrompt::Prompt::GetAbortButtonLabel() const {
       id = IDS_EXTENSION_EXTERNAL_INSTALL_PROMPT_ABORT_BUTTON;
       break;
     case POST_INSTALL_PERMISSIONS_PROMPT:
+    case EXTENSION_REQUEST_PROMPT:
+    case EXTENSION_PENDING_REQUEST_PROMPT:
       id = IDS_CLOSE;
       break;
     case UNSET_PROMPT_TYPE:
@@ -290,6 +294,8 @@ base::string16 ExtensionInstallPrompt::Prompt::GetPermissionsHeading() const {
     case EXTERNAL_INSTALL_PROMPT:
     case REMOTE_INSTALL_PROMPT:
     case DELEGATED_PERMISSIONS_PROMPT:
+    case EXTENSION_REQUEST_PROMPT:
+    case EXTENSION_PENDING_REQUEST_PROMPT:
       id = IDS_EXTENSION_PROMPT_WILL_HAVE_ACCESS_TO;
       break;
     case RE_ENABLE_PROMPT:
@@ -373,10 +379,6 @@ size_t ExtensionInstallPrompt::Prompt::GetPermissionCount() const {
   return prompt_permissions_.permissions.size();
 }
 
-size_t ExtensionInstallPrompt::Prompt::GetPermissionsDetailsCount() const {
-  return prompt_permissions_.details.size();
-}
-
 base::string16 ExtensionInstallPrompt::Prompt::GetPermission(
     size_t index) const {
   CHECK_LT(index, prompt_permissions_.permissions.size());
@@ -387,20 +389,6 @@ base::string16 ExtensionInstallPrompt::Prompt::GetPermissionsDetails(
     size_t index) const {
   CHECK_LT(index, prompt_permissions_.details.size());
   return prompt_permissions_.details[index];
-}
-
-bool ExtensionInstallPrompt::Prompt::GetIsShowingDetails(
-    DetailsType type, size_t index) const {
-  switch (type) {
-    case PERMISSIONS_DETAILS:
-      CHECK_LT(index, prompt_permissions_.is_showing_details.size());
-      return prompt_permissions_.is_showing_details[index];
-    case RETAINED_FILES_DETAILS:
-      return is_showing_details_for_retained_files_;
-    case RETAINED_DEVICES_DETAILS:
-      return is_showing_details_for_retained_devices_;
-  }
-  return false;
 }
 
 size_t ExtensionInstallPrompt::Prompt::GetRetainedFileCount() const {
@@ -425,10 +413,6 @@ base::string16 ExtensionInstallPrompt::Prompt::GetRetainedDeviceMessageString(
 
 bool ExtensionInstallPrompt::Prompt::ShouldDisplayRevokeButton() const {
   return !retained_files_.empty() || !retained_device_messages_.empty();
-}
-
-bool ExtensionInstallPrompt::Prompt::ShouldDisplayRevokeFilesButton() const {
-  return !retained_files_.empty();
 }
 
 bool ExtensionInstallPrompt::Prompt::ShouldDisplayWithholdingUI() const {

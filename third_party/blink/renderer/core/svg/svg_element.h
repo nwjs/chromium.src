@@ -44,8 +44,8 @@ class SubtreeLayoutScope;
 class SVGAnimatedString;
 class SVGElement;
 class SVGElementRareData;
+class SVGElementResourceClient;
 class SVGPropertyBase;
-class SVGResourceClient;
 class SVGSVGElement;
 class SVGUseElement;
 
@@ -132,10 +132,10 @@ class CORE_EXPORT SVGElement : public Element {
   virtual AffineTransform* AnimateMotionTransform() { return nullptr; }
 
   void InvalidateSVGAttributes() {
-    EnsureUniqueElementData().animated_svg_attributes_are_dirty_ = true;
+    EnsureUniqueElementData().SetAnimatedSvgAttributesAreDirty(true);
   }
   void InvalidateSVGPresentationAttributeStyle() {
-    EnsureUniqueElementData().presentation_attribute_style_is_dirty_ = true;
+    EnsureUniqueElementData().SetPresentationAttributeStyleIsDirty(true);
   }
 
   const HeapHashSet<WeakMember<SVGElement>>& InstancesForElement() const;
@@ -176,8 +176,8 @@ class CORE_EXPORT SVGElement : public Element {
   void RemoveAllIncomingReferences();
   void RemoveAllOutgoingReferences();
 
-  SVGResourceClient* GetSVGResourceClient();
-  SVGResourceClient& EnsureSVGResourceClient();
+  SVGElementResourceClient* GetSVGResourceClient();
+  SVGElementResourceClient& EnsureSVGResourceClient();
 
   class InvalidationGuard {
     STACK_ALLOCATED();
@@ -207,7 +207,7 @@ class CORE_EXPORT SVGElement : public Element {
   void SetNeedsStyleRecalcForInstances(StyleChangeType,
                                        const StyleChangeReasonForTracing&);
 
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
 
   static const AtomicString& EventParameterName();
 

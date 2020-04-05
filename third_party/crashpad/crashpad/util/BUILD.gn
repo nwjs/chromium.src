@@ -75,6 +75,17 @@ if (crashpad_is_mac) {
       rebase_path("../compat/mac", root_build_dir),
     ]
   }
+
+  source_set("mig_output") {
+    deps = [ ":mig" ]
+    sources = get_target_outputs(":mig")
+    if (crashpad_is_in_chromium) {
+      # mig output contains unreachable code, which irks -Wunreachable-code.
+      configs -= [ "//build/config/compiler:chromium_code" ]
+      configs += [ "//build/config/compiler:no_chromium_code" ]
+    }
+    public_configs = [ "..:crashpad_config" ]
+  }
 }
 
 static_library("util") {
@@ -91,6 +102,8 @@ static_library("util") {
     "file/file_writer.cc",
     "file/file_writer.h",
     "file/filesystem.h",
+    "file/output_stream_file_writer.cc",
+    "file/output_stream_file_writer.h",
     "file/scoped_remove_file.cc",
     "file/scoped_remove_file.h",
     "file/string_file.cc",
@@ -279,7 +292,6 @@ static_library("util") {
       "process/process_memory_mac.h",
       "synchronization/semaphore_mac.cc",
     ]
-    sources += get_target_outputs(":mig")
   }
 
   deps = []
@@ -466,12 +478,12 @@ static_library("util") {
     include_dirs = [ "$root_gen_dir/third_party/crashpad/crashpad" ]
   }
 
-  public_deps = [ "../compat" ]
-
-  deps += [
-    "../third_party/mini_chromium:base",
+  public_deps = [
+    "../compat",
     "../third_party/zlib",
   ]
+
+  deps += [ "../third_party/mini_chromium:base" ]
 
   if (crashpad_is_mac) {
     libs = [
@@ -481,7 +493,7 @@ static_library("util") {
       "IOKit.framework",
     ]
     deps += [
-      ":mig",
+      ":mig_output",
       "../third_party/apple_cf:apple_cf",
     ]
     include_dirs += [ "$root_build_dir/gen" ]
@@ -512,6 +524,8 @@ static_library("util") {
   if (crashpad_is_android || crashpad_is_linux) {
     deps += [ "../third_party/lss" ]
   }
+
+  configs += [ "..:disable_ubsan" ]
 }
 
 if (!crashpad_is_android) {

@@ -46,6 +46,7 @@
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/inspector/console_message.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
+#include "third_party/blink/renderer/platform/heap/heap.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 
@@ -66,7 +67,7 @@ static Node* SelectionShadowAncestor(LocalFrame* frame) {
 }
 
 DOMSelection::DOMSelection(const TreeScope* tree_scope)
-    : ContextClient(tree_scope->RootNode().GetDocument().GetFrame()),
+    : ExecutionContextClient(tree_scope->RootNode().GetDocument().GetFrame()),
       tree_scope_(tree_scope) {}
 
 void DOMSelection::ClearTreeScope() {
@@ -421,7 +422,7 @@ void DOMSelection::modify(const String& alter_string,
   SelectionModifyDirection direction;
   if (EqualIgnoringASCIICase(direction_string, "forward"))
     direction = SelectionModifyDirection::kForward;
-  else if (DeprecatedEqualIgnoringCase(direction_string, "backward"))
+  else if (EqualIgnoringASCIICase(direction_string, "backward"))
     direction = SelectionModifyDirection::kBackward;
   else if (EqualIgnoringASCIICase(direction_string, "left"))
     direction = SelectionModifyDirection::kLeft;
@@ -435,7 +436,7 @@ void DOMSelection::modify(const String& alter_string,
     granularity = TextGranularity::kCharacter;
   else if (EqualIgnoringASCIICase(granularity_string, "word"))
     granularity = TextGranularity::kWord;
-  else if (DeprecatedEqualIgnoringCase(granularity_string, "sentence"))
+  else if (EqualIgnoringASCIICase(granularity_string, "sentence"))
     granularity = TextGranularity::kSentence;
   else if (EqualIgnoringASCIICase(granularity_string, "line"))
     granularity = TextGranularity::kLine;
@@ -443,7 +444,7 @@ void DOMSelection::modify(const String& alter_string,
     granularity = TextGranularity::kParagraph;
   else if (EqualIgnoringASCIICase(granularity_string, "lineboundary"))
     granularity = TextGranularity::kLineBoundary;
-  else if (DeprecatedEqualIgnoringCase(granularity_string, "sentenceboundary"))
+  else if (EqualIgnoringASCIICase(granularity_string, "sentenceboundary"))
     granularity = TextGranularity::kSentenceBoundary;
   else if (EqualIgnoringASCIICase(granularity_string, "paragraphboundary"))
     granularity = TextGranularity::kParagraphBoundary;
@@ -454,7 +455,8 @@ void DOMSelection::modify(const String& alter_string,
 
   // TODO(editing-dev): The use of UpdateStyleAndLayout
   // needs to be audited.  See http://crbug.com/590369 for more details.
-  GetFrame()->GetDocument()->UpdateStyleAndLayout();
+  GetFrame()->GetDocument()->UpdateStyleAndLayout(
+      DocumentUpdateReason::kSelection);
 
   Element* focused_element = GetFrame()->GetDocument()->FocusedElement();
   GetFrame()->Selection().Modify(alter, direction, granularity,
@@ -688,7 +690,8 @@ void DOMSelection::deleteFromDocument() {
 
   // TODO(editing-dev): The use of UpdateStyleAndLayout
   // needs to be audited.  See http://crbug.com/590369 for more details.
-  GetFrame()->GetDocument()->UpdateStyleAndLayout();
+  GetFrame()->GetDocument()->UpdateStyleAndLayout(
+      DocumentUpdateReason::kSelection);
 
   // The following code is necessary for
   // editing/selection/deleteFromDocument-crash.html, which assumes
@@ -724,7 +727,8 @@ bool DOMSelection::containsNode(const Node* n, bool allow_partial) const {
   // TODO(editing-dev): The use of UpdateStyleAndLayout
   // needs to be audited.  See http://crbug.com/590369 for more details.
   // |VisibleSelection::toNormalizedEphemeralRange| requires clean layout.
-  GetFrame()->GetDocument()->UpdateStyleAndLayout();
+  GetFrame()->GetDocument()->UpdateStyleAndLayout(
+      DocumentUpdateReason::kSelection);
 
   FrameSelection& selection = GetFrame()->Selection();
   const EphemeralRange selected_range =
@@ -784,7 +788,8 @@ String DOMSelection::toString() {
 
   // TODO(editing-dev): The use of UpdateStyleAndLayout
   // needs to be audited.  See http://crbug.com/590369 for more details.
-  GetFrame()->GetDocument()->UpdateStyleAndLayout();
+  GetFrame()->GetDocument()->UpdateStyleAndLayout(
+      DocumentUpdateReason::kSelection);
 
   DocumentLifecycle::DisallowTransitionScope disallow_transition(
       GetFrame()->GetDocument()->Lifecycle());
@@ -842,15 +847,16 @@ bool DOMSelection::IsValidForPosition(Node* node) const {
 void DOMSelection::AddConsoleWarning(const String& message) {
   if (tree_scope_) {
     tree_scope_->GetDocument().AddConsoleMessage(
-        ConsoleMessage::Create(mojom::ConsoleMessageSource::kJavaScript,
-                               mojom::ConsoleMessageLevel::kWarning, message));
+        MakeGarbageCollected<ConsoleMessage>(
+            mojom::ConsoleMessageSource::kJavaScript,
+            mojom::ConsoleMessageLevel::kWarning, message));
   }
 }
 
 void DOMSelection::Trace(Visitor* visitor) {
   visitor->Trace(tree_scope_);
   ScriptWrappable::Trace(visitor);
-  ContextClient::Trace(visitor);
+  ExecutionContextClient::Trace(visitor);
 }
 
 }  // namespace blink

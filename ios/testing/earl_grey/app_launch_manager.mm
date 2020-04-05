@@ -9,6 +9,7 @@
 #include "base/feature_list.h"
 #import "base/ios/crb_protocol_observers.h"
 #include "base/strings/sys_string_conversions.h"
+#import "ios/testing/earl_grey/coverage_utils.h"
 #import "ios/testing/earl_grey/earl_grey_test.h"
 
 #if !defined(__has_feature) || !__has_feature(objc_arc)
@@ -76,27 +77,40 @@ bool LaunchArgumentsAreEqual(NSArray<NSString*>* args1,
   BOOL gracefullyKill = (relaunchPolicy == ForceRelaunchByCleanShutdown);
   BOOL runResets = (relaunchPolicy == NoForceRelaunchAndResetState);
 
-  bool appNeedsLaunching =
-      forceRestart || !self.runningApplication ||
-      !LaunchArgumentsAreEqual(arguments, self.currentLaunchArgs);
+  // If app has crashed, |self.runningApplication| will be at
+  // |XCUIApplicationStateNotRunning| state and it should be relaunched with
+  // proper resets. The app also needs a relaunch if it's at
+  // |XCUIApplicationStateUnknown| state.
+  BOOL appIsRunning =
+      (self.runningApplication != nil) &&
+      (self.runningApplication.state != XCUIApplicationStateNotRunning) &&
+      (self.runningApplication.state != XCUIApplicationStateUnknown);
 
+  bool appNeedsLaunching =
+      forceRestart || !appIsRunning ||
+      !LaunchArgumentsAreEqual(arguments, self.currentLaunchArgs);
   if (!appNeedsLaunching) {
     [self.runningApplication activate];
     return;
   }
 
-  if (self.runningApplication) {
+  if (appIsRunning) {
     if (gracefullyKill) {
       GREYAssertTrue([EarlGrey backgroundApplication],
                      @"Failed to background application.");
     }
+
+    [CoverageUtils writeClangCoverageProfile];
+
     [self.runningApplication terminate];
   }
 
   XCUIApplication* application = [[XCUIApplication alloc] init];
   application.launchArguments = arguments;
-
   [application launch];
+
+  [CoverageUtils configureCoverageReportPath];
+
   if (self.runningApplication) {
     [self.observers appLaunchManagerDidRelaunchApp:self runResets:runResets];
   }
@@ -148,8 +162,12 @@ bool LaunchArgumentsAreEqual(NSArray<NSString*>* args1,
                                    [variations componentsJoinedByString:@","]];
   }
 
-  NSArray<NSString*>* arguments =
-      @[ enabledString, disabledString, variationString ];
+  NSMutableArray<NSString*>* arguments = [NSMutableArray
+      arrayWithObjects:enabledString, disabledString, variationString, nil];
+
+  for (const std::string& arg : configuration.additional_args) {
+    [arguments addObject:base::SysUTF8ToNSString(arg)];
+  }
 
   [self ensureAppLaunchedWithArgs:arguments
                    relaunchPolicy:configuration.relaunch_policy];

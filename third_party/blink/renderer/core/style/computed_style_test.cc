@@ -9,6 +9,8 @@
 #include "third_party/blink/renderer/core/css/css_font_selector.h"
 #include "third_party/blink/renderer/core/css/css_gradient_value.h"
 #include "third_party/blink/renderer/core/css/css_identifier_value.h"
+#include "third_party/blink/renderer/core/css/css_math_expression_node.h"
+#include "third_party/blink/renderer/core/css/css_math_function_value.h"
 #include "third_party/blink/renderer/core/css/css_numeric_literal_value.h"
 #include "third_party/blink/renderer/core/css/css_test_helpers.h"
 #include "third_party/blink/renderer/core/css/css_value_list.h"
@@ -464,9 +466,9 @@ TEST(ComputedStyleTest, AnimationFlags) {
 }
 
 TEST(ComputedStyleTest, CustomPropertiesEqual_Values) {
-  auto* document = MakeGarbageCollected<Document>();
-  css_test_helpers::RegisterProperty(*document, "--x", "<length>", "0px",
-                                     false);
+  auto dummy = std::make_unique<DummyPageHolder>(IntSize(0, 0));
+  css_test_helpers::RegisterProperty(dummy->GetDocument(), "--x", "<length>",
+                                     "0px", false);
 
   scoped_refptr<ComputedStyle> style1 = ComputedStyle::Create();
   scoped_refptr<ComputedStyle> style2 = ComputedStyle::Create();
@@ -494,9 +496,9 @@ TEST(ComputedStyleTest, CustomPropertiesEqual_Values) {
 }
 
 TEST(ComputedStyleTest, CustomPropertiesEqual_Data) {
-  auto* document = MakeGarbageCollected<Document>();
-  css_test_helpers::RegisterProperty(*document, "--x", "<length>", "0px",
-                                     false);
+  auto dummy = std::make_unique<DummyPageHolder>(IntSize(0, 0));
+  css_test_helpers::RegisterProperty(dummy->GetDocument(), "--x", "<length>",
+                                     "0px", false);
 
   scoped_refptr<ComputedStyle> style1 = ComputedStyle::Create();
   scoped_refptr<ComputedStyle> style2 = ComputedStyle::Create();
@@ -529,9 +531,8 @@ TEST(ComputedStyleTest, ApplyColorSchemeLightOnDark) {
       std::make_unique<DummyPageHolder>(IntSize(0, 0), nullptr);
   const ComputedStyle* initial = &ComputedStyle::InitialStyle();
 
-  ColorSchemeHelper color_scheme_helper;
-  color_scheme_helper.SetPreferredColorScheme(dummy_page_holder_->GetDocument(),
-                                              PreferredColorScheme::kDark);
+  ColorSchemeHelper color_scheme_helper(dummy_page_holder_->GetDocument());
+  color_scheme_helper.SetPreferredColorScheme(PreferredColorScheme::kDark);
   StyleResolverState state(dummy_page_holder_->GetDocument(),
                            *dummy_page_holder_->GetDocument().documentElement(),
                            initial, initial);
@@ -555,6 +556,8 @@ TEST(ComputedStyleTest, ApplyColorSchemeLightOnDark) {
 }
 
 TEST(ComputedStyleTest, ApplyInternalLightDarkColor) {
+  using css_test_helpers::ParseDeclarationBlock;
+
   ScopedCSSColorSchemeForTest scoped_property_enabled(true);
   ScopedCSSColorSchemeUARenderingForTest scoped_ua_enabled(true);
 
@@ -568,9 +571,8 @@ TEST(ComputedStyleTest, ApplyInternalLightDarkColor) {
       CSSPropertyID::kColor, "-internal-light-dark-color(black, white)",
       ua_context);
 
-  ColorSchemeHelper color_scheme_helper;
-  color_scheme_helper.SetPreferredColorScheme(dummy_page_holder_->GetDocument(),
-                                              PreferredColorScheme::kDark);
+  ColorSchemeHelper color_scheme_helper(dummy_page_holder_->GetDocument());
+  color_scheme_helper.SetPreferredColorScheme(PreferredColorScheme::kDark);
   StyleResolverState state(dummy_page_holder_->GetDocument(),
                            *dummy_page_holder_->GetDocument().documentElement(),
                            initial, initial);
@@ -586,8 +588,6 @@ TEST(ComputedStyleTest, ApplyInternalLightDarkColor) {
 
   CSSValueList* light_value = CSSValueList::CreateSpaceSeparated();
   light_value->Append(*CSSIdentifierValue::Create(CSSValueID::kLight));
-
-  auto origin = StyleCascade::Origin::kUserAgent;
 
   {
     ScopedCSSCascadeForTest scoped_cascade_enabled(false);
@@ -608,24 +608,58 @@ TEST(ComputedStyleTest, ApplyInternalLightDarkColor) {
   {
     ScopedCSSCascadeForTest scoped_cascade_enabled(true);
 
+    auto* color_declaration =
+        ParseDeclarationBlock("color:-internal-light-dark-color(black, white)");
+    auto* dark_declaration = ParseDeclarationBlock("color-scheme:dark");
+    auto* light_declaration = ParseDeclarationBlock("color-scheme:light");
+
     StyleCascade cascade1(state);
-    cascade1.Add(*CSSPropertyName::From(&state.GetDocument(), "color"),
-                 internal_light_dark, origin);
-    cascade1.Add(*CSSPropertyName::From(&state.GetDocument(), "color-scheme"),
-                 dark_value, origin);
+    cascade1.MutableMatchResult().AddMatchedProperties(color_declaration);
+    cascade1.MutableMatchResult().AddMatchedProperties(dark_declaration);
     cascade1.Apply();
     EXPECT_EQ(Color::kWhite,
               style->VisitedDependentColor(GetCSSPropertyColor()));
 
     StyleCascade cascade2(state);
-    cascade2.Add(*CSSPropertyName::From(&state.GetDocument(), "color"),
-                 internal_light_dark, origin);
-    cascade2.Add(*CSSPropertyName::From(&state.GetDocument(), "color-scheme"),
-                 light_value, origin);
+    cascade2.MutableMatchResult().AddMatchedProperties(color_declaration);
+    cascade2.MutableMatchResult().AddMatchedProperties(light_declaration);
     cascade2.Apply();
     EXPECT_EQ(Color::kBlack,
               style->VisitedDependentColor(GetCSSPropertyColor()));
   }
+}
+
+TEST(ComputedStyleTest, StrokeWidthZoomAndCalc) {
+  std::unique_ptr<DummyPageHolder> dummy_page_holder_ =
+      std::make_unique<DummyPageHolder>(IntSize(0, 0), nullptr);
+
+  const ComputedStyle* initial = &ComputedStyle::InitialStyle();
+
+  StyleResolverState state(dummy_page_holder_->GetDocument(),
+                           *dummy_page_holder_->GetDocument().documentElement(),
+                           initial, initial);
+
+  scoped_refptr<ComputedStyle> style = ComputedStyle::Create();
+  style->SetEffectiveZoom(1.5);
+  state.SetStyle(style);
+
+  auto* calc_value =
+      CSSMathFunctionValue::Create(CSSMathExpressionNumericLiteral::Create(
+          CSSNumericLiteralValue::Create(10,
+                                         CSSPrimitiveValue::UnitType::kNumber),
+          true));
+
+  To<Longhand>(GetCSSPropertyStrokeWidth()).ApplyValue(state, *calc_value);
+  auto* computed_value =
+      To<Longhand>(GetCSSPropertyStrokeWidth())
+          .CSSValueFromComputedStyleInternal(*style, style->SvgStyle(),
+                                             nullptr /* layout_object */,
+                                             false /* allow_visited_style */);
+  ASSERT_TRUE(computed_value);
+  auto* numeric_value = DynamicTo<CSSNumericLiteralValue>(computed_value);
+  ASSERT_TRUE(numeric_value);
+  EXPECT_TRUE(numeric_value->IsPx());
+  EXPECT_EQ(10, numeric_value->DoubleValue());
 }
 
 }  // namespace blink

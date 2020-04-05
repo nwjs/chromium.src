@@ -37,6 +37,11 @@
         "UpdateApplicationCacheStatus",
       ]
     },
+    InspectorAuditsAgent: {
+      probes: [
+        "InspectorIssueAdded"
+      ]
+    },
     InspectorCSSAgent: {
       probes: [
         "ActiveStyleSheetsUpdated",
@@ -208,6 +213,8 @@
         "RecalculateStyle",
         "UpdateLayout",
         "V8Compile",
+        "WillStartDebuggerTask",
+        "DidFinishDebuggerTask",
       ]
     },
     InspectorTraceEvents: {
@@ -231,6 +238,8 @@
         "DidStartProvisionalLoad",
         "DidFailProvisionalLoad",
         "DidCommitLoad",
+        "PaintTiming",
+        "DomContentLoadedEventFired",
       ]
     },
   }

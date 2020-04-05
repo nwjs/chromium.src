@@ -6,6 +6,7 @@
 
 #include "base/bind.h"
 #include "base/callback.h"
+#include "base/callback_helpers.h"
 #include "base/containers/circular_deque.h"
 #include "base/location.h"
 #include "base/rand_util.h"
@@ -178,14 +179,15 @@ void VisibilityTimerTabHelper::RunTask(base::OnceClosure task) {
 }  // namespace
 
 // static
-void NotificationPermissionContext::UpdatePermission(Profile* profile,
-                                                     const GURL& origin,
-                                                     ContentSetting setting) {
+void NotificationPermissionContext::UpdatePermission(
+    content::BrowserContext* browser_context,
+    const GURL& origin,
+    ContentSetting setting) {
   switch (setting) {
     case CONTENT_SETTING_ALLOW:
     case CONTENT_SETTING_BLOCK:
     case CONTENT_SETTING_DEFAULT:
-      HostContentSettingsMapFactory::GetForProfile(profile)
+      HostContentSettingsMapFactory::GetForProfile(browser_context)
           ->SetContentSettingDefaultScope(
               origin, GURL(), ContentSettingsType::NOTIFICATIONS,
               content_settings::ResourceIdentifier(), setting);
@@ -196,8 +198,9 @@ void NotificationPermissionContext::UpdatePermission(Profile* profile,
   }
 }
 
-NotificationPermissionContext::NotificationPermissionContext(Profile* profile)
-    : PermissionContextBase(profile,
+NotificationPermissionContext::NotificationPermissionContext(
+    content::BrowserContext* browser_context)
+    : PermissionContextBase(browser_context,
                             ContentSettingsType::NOTIFICATIONS,
                             blink::mojom::FeaturePolicyFeature::kNotFound) {}
 
@@ -216,8 +219,9 @@ ContentSetting NotificationPermissionContext::GetPermissionStatusInternal(
     return extension_status;
 #endif
 
-  ContentSetting setting = PermissionContextBase::GetPermissionStatusInternal(
-      render_frame_host, requesting_origin, embedding_origin);
+  ContentSetting setting =
+      permissions::PermissionContextBase::GetPermissionStatusInternal(
+          render_frame_host, requesting_origin, embedding_origin);
 
   if (requesting_origin != embedding_origin && setting == CONTENT_SETTING_ASK)
     return CONTENT_SETTING_BLOCK;
@@ -233,7 +237,8 @@ ContentSetting NotificationPermissionContext::GetPermissionStatusForExtension(
     return kDefaultSetting;
 
   const extensions::Extension* extension =
-      extensions::ExtensionRegistry::Get(profile())
+      extensions::ExtensionRegistry::Get(
+          Profile::FromBrowserContext(browser_context()))
           ->enabled_extensions()
           .GetByID(origin.host());
 
@@ -245,7 +250,8 @@ ContentSetting NotificationPermissionContext::GetPermissionStatusForExtension(
   }
 
   NotifierStateTracker* notifier_state_tracker =
-      NotifierStateTrackerFactory::GetForProfile(profile());
+      NotifierStateTrackerFactory::GetForProfile(
+          Profile::FromBrowserContext(browser_context()));
   DCHECK(notifier_state_tracker);
 
   message_center::NotifierId notifier_id(
@@ -259,7 +265,8 @@ ContentSetting NotificationPermissionContext::GetPermissionStatusForExtension(
 void NotificationPermissionContext::ResetPermission(
     const GURL& requesting_origin,
     const GURL& embedder_origin) {
-  UpdatePermission(profile(), requesting_origin, CONTENT_SETTING_DEFAULT);
+  UpdatePermission(browser_context(), requesting_origin,
+                   CONTENT_SETTING_DEFAULT);
 }
 
 void NotificationPermissionContext::DecidePermission(
@@ -268,7 +275,7 @@ void NotificationPermissionContext::DecidePermission(
     const GURL& requesting_origin,
     const GURL& embedding_origin,
     bool user_gesture,
-    BrowserPermissionCallback callback) {
+    permissions::BrowserPermissionCallback callback) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
   // Permission requests for either Web Notifications and Push Notifications may
@@ -288,7 +295,7 @@ void NotificationPermissionContext::DecidePermission(
   // INHERIT_IF_LESS_PERMISSIVE, and
   // PermissionMenuModel::PermissionMenuModel which prevents users from manually
   // allowing the permission.
-  if (profile()->IsOffTheRecord()) {
+  if (browser_context()->IsOffTheRecord()) {
     // Random number of seconds in the range [1.0, 2.0).
     double delay_seconds = 1.0 + 1.0 * base::RandDouble();
     VisibilityTimerTabHelper::CreateForWebContents(web_contents);
@@ -304,9 +311,9 @@ void NotificationPermissionContext::DecidePermission(
     return;
   }
 
-  PermissionContextBase::DecidePermission(web_contents, id, requesting_origin,
-                                          embedding_origin, user_gesture,
-                                          std::move(callback));
+  permissions::PermissionContextBase::DecidePermission(
+      web_contents, id, requesting_origin, embedding_origin, user_gesture,
+      std::move(callback));
 }
 
 // Unlike other permission types, granting a notification for a given origin
@@ -320,7 +327,7 @@ void NotificationPermissionContext::UpdateContentSetting(
     ContentSetting content_setting) {
   DCHECK(content_setting == CONTENT_SETTING_ALLOW ||
          content_setting == CONTENT_SETTING_BLOCK);
-  UpdatePermission(profile(), requesting_origin, content_setting);
+  UpdatePermission(browser_context(), requesting_origin, content_setting);
 }
 
 bool NotificationPermissionContext::IsRestrictedToSecureOrigins() const {

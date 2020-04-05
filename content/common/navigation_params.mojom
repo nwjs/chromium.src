@@ -10,13 +10,16 @@ import "mojo/public/mojom/base/time.mojom";
 import "mojo/public/mojom/base/unguessable_token.mojom";
 import "mojo/public/mojom/base/values.mojom";
 import "services/network/public/mojom/content_security_policy.mojom";
+import "services/network/public/mojom/fetch_api.mojom";
 import "services/network/public/mojom/ip_address_space.mojom";
+import "services/network/public/mojom/source_location.mojom";
+import "services/network/public/mojom/trust_tokens.mojom";
 import "services/network/public/mojom/url_loader.mojom";
 import "services/network/public/mojom/url_response_head.mojom";
-import "third_party/blink/public/mojom/fetch/fetch_api_request.mojom";
-import "third_party/blink/public/mojom/referrer.mojom";
 import "third_party/blink/public/mojom/feature_policy/feature_policy.mojom";
+import "third_party/blink/public/mojom/fetch/fetch_api_request.mojom";
 import "third_party/blink/public/mojom/frame/frame_policy.mojom";
+import "third_party/blink/public/mojom/referrer.mojom";
 import "url/mojom/origin.mojom";
 import "url/mojom/url.mojom";
 
@@ -31,9 +34,6 @@ struct PageState;
 
 [Native]
 enum PageTransition;
-
-[Native]
-struct SourceLocation;
 
 // Represents the Content Security Policy of the initator of the navigation.
 struct InitiatorCSPInfo {
@@ -103,6 +103,9 @@ struct BeginNavigationParams {
   // Indicates the request context type.
   blink.mojom.RequestContextType request_context_type;
 
+  // Indicates the request destination.
+  network.mojom.RequestDestination request_destination;
+
   // The mixed content context type for potential mixed content checks.
   MixedContentContextType mixed_content_context_type;
 
@@ -136,6 +139,11 @@ struct BeginNavigationParams {
   // they were cross-site due to the site_for_cookies and request URL differing.
   // See the field of the same name in network::ResourceRequest.
   bool attach_same_site_cookies = false;
+
+  // Specifies whether, and how, the navigation should execute a Trust Tokens
+  // operation (https://github.com/wicg/trust-token-api) and attach headers
+  // conveying the result of the operation. Set on some child frame navigations.
+  network.mojom.TrustTokenParams? trust_token_params;
 };
 
 // Provided by the browser or the renderer -------------------------------------
@@ -198,9 +206,9 @@ struct CommonNavigationParams {
 
   // Information about the Javascript source for this navigation. Used for
   // providing information in console error messages triggered by the
-  // navigation. If the navigation was not caused by Javascript, this should
-  // not be set.
-  SourceLocation? source_location;
+  // navigation. If the navigation is not caused by Javascript, the
+  // SourceLocation's URL is empty.
+  network.mojom.SourceLocation source_location;
 
   // Whether or not this navigation was started from a context menu.
   bool started_from_context_menu = false;
@@ -375,9 +383,8 @@ struct CommitNavigationParams {
   // Used as an additional identifier for MemoryCache.
   url.mojom.Url web_bundle_physical_url;
 
-  // The base URL which will be set for the document to support relative path
-  // subresource loading in unsigned Web Bundle file.
-  url.mojom.Url base_url_override_for_web_bundle;
+  // The claimed URL inside Web Bundle from which the document is loaded.
+  url.mojom.Url web_bundle_claimed_url;
 
   // A snapshot value of frame policy(both sandbox flags and container policy)
   // of the frame that is being navigated. The snapshot value is captured at the
@@ -397,4 +404,7 @@ struct CommitNavigationParams {
   // - For remote frame navigation, the value is set at
   // NavigationControllerImpl::CreateNavigationRequestFromLoadParams.
   blink.mojom.FramePolicy? frame_policy;
+
+  // The names of origin trials to be force enabled for this navigation.
+  array<string> force_enabled_origin_trials;
 };

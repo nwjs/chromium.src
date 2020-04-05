@@ -30,15 +30,17 @@ namespace {
 // https://crbug.com/979703
 std::vector<PixelResourceTestCase> const kTestCases = {
     {LayerTreeTest::RENDERER_SOFTWARE, SOFTWARE},
+#if !defined(GL_NOT_ON_PLATFORM)
     {LayerTreeTest::RENDERER_GL, GPU},
     {LayerTreeTest::RENDERER_GL, ONE_COPY},
     {LayerTreeTest::RENDERER_GL, ZERO_COPY},
     {LayerTreeTest::RENDERER_SKIA_GL, GPU},
     {LayerTreeTest::RENDERER_SKIA_GL, ONE_COPY},
     {LayerTreeTest::RENDERER_SKIA_GL, ZERO_COPY},
+#endif  // !defined(GL_NOT_ON_PLATFORM)
 #if defined(ENABLE_CC_VULKAN_TESTS)
     {LayerTreeTest::RENDERER_SKIA_VK, GPU},
-#endif
+#endif  // defined(ENABLE_CC_VULKAN_TESTS)
 };
 
 using LayerTreeHostMasksPixelTest = ParameterizedPixelResourceTest;
@@ -762,10 +764,10 @@ class LayerTreeHostMaskAsBlendingPixelTest
       small_error_allowed = 1;
     } else {
 #if defined(ARCH_CPU_ARM64)
-#if defined(OS_WIN)
-      // Windows ARM64 has some pixels difference
+#if defined(OS_WIN) || defined(OS_FUCHSIA)
+      // Windows and Fuchsia ARM64 has some pixels difference
       // Affected tests: RotatedClippedCircle, RotatedClippedCircleUnderflow
-      // crbug.com/1030244
+      // crbug.com/1030244, crbug.com/1048249
       percentage_pixels_error = 6.1f;
       average_error_allowed_in_bad_pixels = 5.f;
       large_error_allowed = 20;
@@ -872,6 +874,7 @@ class LayerTreeHostMaskAsBlendingPixelTest
 
 MaskTestConfig const kTestConfigs[] = {
     MaskTestConfig{{LayerTreeTest::RENDERER_SOFTWARE, SOFTWARE}, 0},
+#if !defined(GL_NOT_ON_PLATFORM)
     MaskTestConfig{{LayerTreeTest::RENDERER_GL, ZERO_COPY}, 0},
     MaskTestConfig{{LayerTreeTest::RENDERER_GL, ZERO_COPY}, kUseAntialiasing},
     MaskTestConfig{{LayerTreeTest::RENDERER_GL, ZERO_COPY}, kForceShaders},
@@ -880,11 +883,12 @@ MaskTestConfig const kTestConfigs[] = {
     MaskTestConfig{{LayerTreeTest::RENDERER_SKIA_GL, ZERO_COPY}, 0},
     MaskTestConfig{{LayerTreeTest::RENDERER_SKIA_GL, ZERO_COPY},
                    kUseAntialiasing},
+#endif  // !defined(GL_NOT_ON_PLATFORM)
 #if defined(ENABLE_CC_VULKAN_TESTS)
     MaskTestConfig{{LayerTreeTest::RENDERER_SKIA_VK, ZERO_COPY}, 0},
     MaskTestConfig{{LayerTreeTest::RENDERER_SKIA_VK, ZERO_COPY},
                    kUseAntialiasing},
-#endif
+#endif  // defined(ENABLE_CC_VULKAN_TESTS)
 };
 
 INSTANTIATE_TEST_SUITE_P(All,

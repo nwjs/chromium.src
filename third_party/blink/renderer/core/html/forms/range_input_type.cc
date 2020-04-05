@@ -144,8 +144,8 @@ StepRange RangeInputType::CreateStepRange(
   // minimum/maximum.
   // https://html.spec.whatwg.org/C/#range-state-(type=range):concept-input-min-default
   const bool kHasRangeLimitations = true;
-  return StepRange(step_base, minimum, maximum, kHasRangeLimitations, step,
-                   step_description);
+  return StepRange(step_base, minimum, maximum, kHasRangeLimitations,
+                   /*has_reversed_range=*/false, step, step_description);
 }
 
 bool RangeInputType::IsSteppable() const {
@@ -185,7 +185,7 @@ void RangeInputType::HandleKeydownEvent(KeyboardEvent& event) {
   // FIXME: We can't use stepUp() for the step value "any". So, we increase
   // or decrease the value by 1/100 of the value range. Is it reasonable?
   const Decimal step =
-      DeprecatedEqualIgnoringCase(
+      EqualIgnoringASCIICase(
           GetElement().FastGetAttribute(html_names::kStepAttr), "any")
           ? (step_range.Maximum() - step_range.Minimum()) / 100
           : step_range.Step();
@@ -251,6 +251,10 @@ void RangeInputType::CreateShadowSubtree() {
   auto* container = MakeGarbageCollected<SliderContainerElement>(document);
   container->AppendChild(track);
   GetElement().UserAgentShadowRoot()->AppendChild(container);
+}
+
+bool RangeInputType::TypeShouldForceLegacyLayout() const {
+  return true;
 }
 
 LayoutObject* RangeInputType::CreateLayoutObject(const ComputedStyle&,

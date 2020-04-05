@@ -22,6 +22,7 @@
 #include "gpu/command_buffer/client/gpu_memory_buffer_manager.h"
 #include "gpu/command_buffer/common/activity_flags.h"
 #include "gpu/command_buffer/service/sequence_id.h"
+#include "gpu/config/device_perf_info.h"
 #include "gpu/config/gpu_extra_info.h"
 #include "gpu/config/gpu_info.h"
 #include "gpu/config/gpu_preferences.h"
@@ -87,6 +88,7 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl : public gpu::GpuChannelManagerDelegate,
                  const base::Optional<gpu::GpuFeatureInfo>&
                      gpu_feature_info_for_hardware_gpu,
                  const gpu::GpuExtraInfo& gpu_extra_info,
+                 const base::Optional<gpu::DevicePerfInfo>& device_perf_info,
                  gpu::VulkanImplementation* vulkan_implementation,
                  base::OnceCallback<void(bool /*immediately*/)> exit_callback);
 
@@ -160,8 +162,8 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl : public gpu::GpuChannelManagerDelegate,
 
 #if defined(OS_WIN)
   void RequestCompleteGpuInfo(RequestCompleteGpuInfoCallback callback) override;
-  void GetGpuSupportedRuntimeVersion(
-      GetGpuSupportedRuntimeVersionCallback callback) override;
+  void GetGpuSupportedRuntimeVersionAndDevicePerfInfo(
+      GetGpuSupportedRuntimeVersionAndDevicePerfInfoCallback callback) override;
 #endif
   void RequestHDRStatus(RequestHDRStatusCallback callback) override;
   void LoadedShader(int32_t client_id,
@@ -195,10 +197,14 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl : public gpu::GpuChannelManagerDelegate,
   void DidCreateContextSuccessfully() override;
   void DidCreateOffscreenContext(const GURL& active_url) override;
   void DidDestroyChannel(int client_id) override;
+  void DidDestroyAllChannels() override;
   void DidDestroyOffscreenContext(const GURL& active_url) override;
   void DidLoseContext(bool offscreen,
                       gpu::error::ContextLostReason reason,
                       const GURL& active_url) override;
+#if defined(OS_WIN)
+  void DidUpdateOverlayInfo(const gpu::OverlayInfo& overlay_info) override;
+#endif
   void StoreShaderToDisk(int client_id,
                          const std::string& key,
                          const std::string& shader) override;
@@ -210,6 +216,16 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl : public gpu::GpuChannelManagerDelegate,
   void SendCreatedChildWindow(gpu::SurfaceHandle parent_window,
                               gpu::SurfaceHandle child_window) override;
 #endif
+
+  // Installs a base::LogMessageHandlerFunction which ensures messages are sent
+  // to the mojom::GpuHost once InitializeWithHost() completes.
+  //
+  // In the event of aborted initialization, FlushPreInitializeLogMessages() may
+  // be called to flush the accumulated logs to the remote host.
+  //
+  // Note: ~GpuServiceImpl() will clear installed log handlers.
+  static void InstallPreInitializeLogHandler();
+  static void FlushPreInitializeLogMessages(mojom::GpuHost* gpu_host);
 
   bool is_initialized() const { return !!gpu_host_; }
 
@@ -290,7 +306,7 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl : public gpu::GpuChannelManagerDelegate,
 
  private:
   void RecordLogMessage(int severity,
-                        size_t message_start,
+                        const std::string& header,
                         const std::string& message);
 
   void UpdateGpuInfoPlatform(base::OnceClosure on_gpu_info_updated);
@@ -322,6 +338,12 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl : public gpu::GpuChannelManagerDelegate,
   // process. If |for_context_loss| is true an error message will be logged.
   void MaybeExit(bool for_context_loss);
 
+  // Update overlay info on the GPU process and send the updated info back
+  // to the browser process if there is a change.
+#if defined(OS_WIN)
+  void UpdateOverlayInfo();
+#endif
+
   scoped_refptr<base::SingleThreadTaskRunner> main_runner_;
   scoped_refptr<base::SingleThreadTaskRunner> io_runner_;
 
@@ -344,6 +366,10 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl : public gpu::GpuChannelManagerDelegate,
 
   // Information about the GPU process populated on creation.
   gpu::GpuExtraInfo gpu_extra_info_;
+
+  // Information related to device perf category, only collected on the second
+  // unsandboxed GPU process.
+  base::Optional<gpu::DevicePerfInfo> device_perf_info_;
 
   mojo::SharedRemote<mojom::GpuHost> gpu_host_;
   std::unique_ptr<gpu::GpuChannelManager> gpu_channel_manager_;
@@ -392,7 +418,7 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl : public gpu::GpuChannelManagerDelegate,
 #if defined(OS_WIN)
   // Used to track if the Dx Diag task on a different thread is still running.
   // The status is checked before exiting the unsandboxed GPU process.
-  bool long_dx_task_different_thread_in_progress_ = false;
+  int number_of_long_dx_tasks_in_progress_ = 0;
 #endif
 
 #if defined(OS_CHROMEOS)

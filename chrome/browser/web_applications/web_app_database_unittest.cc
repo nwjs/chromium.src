@@ -20,6 +20,7 @@
 #include "chrome/browser/web_applications/web_app_registrar.h"
 #include "chrome/browser/web_applications/web_app_registry_update.h"
 #include "chrome/browser/web_applications/web_app_sync_bridge.h"
+#include "components/services/app_service/public/cpp/file_handler.h"
 #include "components/sync/model/model_type_store.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/gurl.h"
@@ -36,27 +37,27 @@ class WebAppDatabaseTest : public WebAppTest {
     test_registry_controller_->SetUp(profile());
   }
 
-  static WebApp::FileHandlers CreateFileHandlers(int suffix) {
-    WebApp::FileHandlers file_handlers;
+  static apps::FileHandlers CreateFileHandlers(int suffix) {
+    apps::FileHandlers file_handlers;
 
     for (unsigned int i = 0; i < 5; ++i) {
       std::string suffix_str =
           base::NumberToString(suffix) + base::NumberToString(i);
 
-      WebApp::FileHandlerAccept file_handler_accept1;
-      file_handler_accept1.mimetype = "application/" + suffix_str + "+foo";
-      file_handler_accept1.file_extensions.insert("." + suffix_str + "a");
-      file_handler_accept1.file_extensions.insert("." + suffix_str + "b");
+      apps::FileHandler::AcceptEntry accept_entry1;
+      accept_entry1.mime_type = "application/" + suffix_str + "+foo";
+      accept_entry1.file_extensions.insert("." + suffix_str + "a");
+      accept_entry1.file_extensions.insert("." + suffix_str + "b");
 
-      WebApp::FileHandlerAccept file_handler_accept2;
-      file_handler_accept2.mimetype = "application/" + suffix_str + "+bar";
-      file_handler_accept2.file_extensions.insert("." + suffix_str + "a");
-      file_handler_accept2.file_extensions.insert("." + suffix_str + "b");
+      apps::FileHandler::AcceptEntry accept_entry2;
+      accept_entry2.mime_type = "application/" + suffix_str + "+bar";
+      accept_entry2.file_extensions.insert("." + suffix_str + "a");
+      accept_entry2.file_extensions.insert("." + suffix_str + "b");
 
-      WebApp::FileHandler file_handler;
+      apps::FileHandler file_handler;
       file_handler.action = GURL("https://example.com/open-" + suffix_str);
-      file_handler.accept.push_back(std::move(file_handler_accept1));
-      file_handler.accept.push_back(std::move(file_handler_accept2));
+      file_handler.accept.push_back(std::move(accept_entry1));
+      file_handler.accept.push_back(std::move(accept_entry2));
 
       file_handlers.push_back(std::move(file_handler));
     }
@@ -115,6 +116,15 @@ class WebAppDatabaseTest : public WebAppTest {
     app->SetDownloadedIconSizes({size});
 
     app->SetFileHandlers(CreateFileHandlers(suffix));
+
+    const int num_additional_search_terms = suffix & 7;
+    std::vector<std::string> additional_search_terms(
+        num_additional_search_terms);
+    for (int i = 0; i < num_additional_search_terms; ++i) {
+      additional_search_terms[i] =
+          "Foo_" + base::NumberToString(suffix) + "_" + base::NumberToString(i);
+    }
+    app->SetAdditionalSearchTerms(std::move(additional_search_terms));
 
     WebApp::SyncData sync_data;
     sync_data.name = "Sync" + name;
@@ -309,6 +319,7 @@ TEST_F(WebAppDatabaseTest, WebAppWithoutOptionalFields) {
   EXPECT_TRUE(app->sync_data().name.empty());
   EXPECT_FALSE(app->sync_data().theme_color.has_value());
   EXPECT_TRUE(app->file_handlers().empty());
+  EXPECT_TRUE(app->additional_search_terms().empty());
   controller().RegisterApp(std::move(app));
 
   Registry registry = database_factory().ReadRegistry();
@@ -340,6 +351,7 @@ TEST_F(WebAppDatabaseTest, WebAppWithoutOptionalFields) {
   EXPECT_TRUE(app_copy->sync_data().name.empty());
   EXPECT_FALSE(app_copy->sync_data().theme_color.has_value());
   EXPECT_TRUE(app_copy->file_handlers().empty());
+  EXPECT_TRUE(app_copy->additional_search_terms().empty());
 }
 
 TEST_F(WebAppDatabaseTest, WebAppWithManyIcons) {
@@ -384,25 +396,25 @@ TEST_F(WebAppDatabaseTest, WebAppWithFileHandlersRoundTrip) {
   auto app = CreateWebApp(base_url, 0);
   auto app_id = app->app_id();
 
-  WebApp::FileHandlers file_handlers;
+  apps::FileHandlers file_handlers;
 
-  WebApp::FileHandler file_handler1;
+  apps::FileHandler file_handler1;
   file_handler1.action = GURL("https://example.com/path/csv");
-  WebApp::FileHandlerAccept accept_csv;
-  accept_csv.mimetype = "text/csv";
+  apps::FileHandler::AcceptEntry accept_csv;
+  accept_csv.mime_type = "text/csv";
   accept_csv.file_extensions.insert(".csv");
   accept_csv.file_extensions.insert(".txt");
   file_handler1.accept.push_back(std::move(accept_csv));
   file_handlers.push_back(std::move(file_handler1));
 
-  WebApp::FileHandler file_handler2;
+  apps::FileHandler file_handler2;
   file_handler2.action = GURL("https://example.com/path/svg");
-  WebApp::FileHandlerAccept accept_xml;
-  accept_xml.mimetype = "text/xml";
+  apps::FileHandler::AcceptEntry accept_xml;
+  accept_xml.mime_type = "text/xml";
   accept_xml.file_extensions.insert(".xml");
   file_handler2.accept.push_back(std::move(accept_xml));
-  WebApp::FileHandlerAccept accept_svg;
-  accept_svg.mimetype = "text/xml+svg";
+  apps::FileHandler::AcceptEntry accept_svg;
+  accept_svg.mime_type = "text/xml+svg";
   accept_svg.file_extensions.insert(".svg");
   file_handler2.accept.push_back(std::move(accept_svg));
   file_handlers.push_back(std::move(file_handler2));

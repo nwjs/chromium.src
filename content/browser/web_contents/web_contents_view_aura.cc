@@ -19,6 +19,7 @@
 #include "base/message_loop/message_loop_current.h"
 #include "base/no_destructor.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/task/thread_pool.h"
 #include "build/build_config.h"
 #include "components/viz/common/features.h"
 #include "content/browser/browser_plugin/browser_plugin_guest.h"
@@ -71,7 +72,6 @@
 #include "ui/base/dragdrop/os_exchange_data.h"
 #include "ui/base/dragdrop/os_exchange_data_provider_factory.h"
 #include "ui/base/hit_test.h"
-#include "ui/base/ui_base_switches_util.h"
 #include "ui/compositor/layer.h"
 #include "ui/display/screen.h"
 #include "ui/events/blink/web_input_event.h"
@@ -520,9 +520,9 @@ void WebContentsViewAura::AsyncDropTempFileDeleter::DeleteAllFilesAsync()
 
 void WebContentsViewAura::AsyncDropTempFileDeleter::DeleteFileAsync(
     const base::FilePath& path) const {
-  base::PostTask(
+  base::ThreadPool::PostTask(
       FROM_HERE,
-      {base::ThreadPool(), base::MayBlock(), base::TaskPriority::BEST_EFFORT,
+      {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
        base::TaskShutdownBehavior::BLOCK_SHUTDOWN},
       base::BindOnce(base::IgnoreResult(&base::DeleteFile), std::move(path),
                      false));
@@ -1010,9 +1010,6 @@ void WebContentsViewAura::SetPageTitle(const base::string16& title) {
     child_window->SetTitle(title);
 }
 
-void WebContentsViewAura::RenderViewCreated(RenderViewHost* host) {
-}
-
 void WebContentsViewAura::RenderViewReady() {}
 
 void WebContentsViewAura::RenderViewHostChanged(RenderViewHost* old_host,
@@ -1299,6 +1296,9 @@ void WebContentsViewAura::DragEnteredCallback(
 }
 
 void WebContentsViewAura::OnDragEntered(const ui::DropTargetEvent& event) {
+  if (web_contents_->ShouldIgnoreInputEvents())
+    return;
+
 #if defined(OS_WIN)
   async_drop_navigation_observer_.reset();
 #endif
@@ -1378,6 +1378,9 @@ void WebContentsViewAura::DragUpdatedCallback(
 }
 
 int WebContentsViewAura::OnDragUpdated(const ui::DropTargetEvent& event) {
+  if (web_contents_->ShouldIgnoreInputEvents())
+    return ui::DragDropTypes::DRAG_NONE;
+
   std::unique_ptr<DropData> drop_data = std::make_unique<DropData>();
   // Calling this here as event.data might become invalid inside the callback.
   PrepareDropData(drop_data.get(), event.data());
@@ -1393,6 +1396,12 @@ int WebContentsViewAura::OnDragUpdated(const ui::DropTargetEvent& event) {
 }
 
 void WebContentsViewAura::OnDragExited() {
+  if (web_contents_->ShouldIgnoreInputEvents())
+    return;
+  CompleteDragExit();
+}
+
+void WebContentsViewAura::CompleteDragExit() {
   drag_in_progress_ = false;
 
   if (current_rvh_for_drag_ !=
@@ -1477,7 +1486,7 @@ void WebContentsViewAura::FinishOnPerformDropCallback(
     }
 
     // The drop not being continued requires this to cleanup the drag data.
-    OnDragExited();
+    CompleteDragExit();
 
     return;
   }
@@ -1521,6 +1530,9 @@ void WebContentsViewAura::FinishOnPerformDropCallback(
 int WebContentsViewAura::OnPerformDrop(
     const ui::DropTargetEvent& event,
     std::unique_ptr<ui::OSExchangeData> data) {
+  if (web_contents_->ShouldIgnoreInputEvents())
+    return ui::DragDropTypes::DRAG_NONE;
+
   web_contents_->GetInputEventRouter()
       ->GetRenderWidgetHostAtPointAsynchronously(
           web_contents_->GetRenderViewHost()->GetWidget()->GetView(),

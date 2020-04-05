@@ -1,7 +1,7 @@
 // Copyright 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-
+#pragma clang diagnostic ignored "-Wunreachable-code"
 #include "components/omnibox/browser/search_provider.h"
 
 #include <stddef.h>
@@ -1618,8 +1618,8 @@ void SearchProvider::PrefetchImages(SearchSuggestionParser::Results* results) {
     prefetch_limit--;
 
     const auto& image_url = suggestion.image_url();
-    if (!image_url.empty())
-      prefetch_image_urls.push_back(GURL(image_url));
+    if (!image_url.is_empty())
+      prefetch_image_urls.push_back(image_url);
 
     if (suggestion.answer())
       suggestion.answer()->AddImageURLsTo(&prefetch_image_urls);

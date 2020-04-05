@@ -5,20 +5,21 @@
 package org.chromium.chrome.browser.toolbar.bottom;
 
 import android.graphics.Color;
-import android.support.v7.app.AppCompatActivity;
 import android.view.View;
 
 import androidx.annotation.ColorInt;
 import androidx.annotation.StringRes;
+import androidx.appcompat.app.AppCompatActivity;
 
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.chrome.R;
+import org.chromium.chrome.browser.AppHooks;
 import org.chromium.chrome.browser.ChromeActivity;
 import org.chromium.chrome.browser.ThemeColorProvider;
 import org.chromium.chrome.browser.ThemeColorProvider.ThemeColorObserver;
 import org.chromium.chrome.browser.compositor.layouts.OverviewModeBehavior;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
-import org.chromium.chrome.browser.widget.FeatureHighlightProvider;
+import org.chromium.components.browser_ui.widget.FeatureHighlightProvider;
 import org.chromium.components.feature_engagement.FeatureConstants;
 import org.chromium.components.feature_engagement.Tracker;
 
@@ -46,6 +47,8 @@ class BrowsingModeBottomToolbarMediator implements ThemeColorObserver {
     /** A provider that notifies components when the theme color changes.*/
     private ThemeColorProvider mThemeColorProvider;
 
+    private FeatureHighlightProvider mFeatureHighlightProvider;
+
     /**
      * Build a new mediator that handles events from outside the bottom toolbar.
      * @param model The {@link BrowsingModeBottomToolbarModel} that holds all the state for the
@@ -53,6 +56,7 @@ class BrowsingModeBottomToolbarMediator implements ThemeColorObserver {
      */
     BrowsingModeBottomToolbarMediator(BrowsingModeBottomToolbarModel model) {
         mModel = model;
+        mFeatureHighlightProvider = AppHooks.get().createFeatureHighlightProvider();
     }
 
     void setThemeColorProvider(ThemeColorProvider themeColorProvider) {
@@ -74,7 +78,7 @@ class BrowsingModeBottomToolbarMediator implements ThemeColorObserver {
             return;
         }
         int innerBackgroundColor =
-                ApiCompatibilityUtils.getColor(anchor.getResources(), R.color.modern_primary_color);
+                ApiCompatibilityUtils.getColor(anchor.getResources(), R.color.default_bg_color);
         int baseBubbleColor =
                 ApiCompatibilityUtils.getColor(anchor.getResources(), R.color.modern_blue_600);
 
@@ -117,11 +121,12 @@ class BrowsingModeBottomToolbarMediator implements ThemeColorObserver {
             finalScrimColor = Color.TRANSPARENT;
         }
 
-        FeatureHighlightProvider.getInstance().buildForView(activity, anchor, titleId,
-                FeatureHighlightProvider.TextAlignment.CENTER, R.style.TextAppearance_WhiteTitle1,
-                descId, FeatureHighlightProvider.TextAlignment.CENTER,
-                R.style.TextAppearance_WhiteBody, innerBackgroundColor, finalOuterColor,
-                finalScrimColor, FeatureHighlightProvider.NO_TIMEOUT, tapToDismiss,
+        mFeatureHighlightProvider.buildForView(activity, anchor, titleId,
+                FeatureHighlightProvider.TextAlignment.CENTER,
+                R.style.TextAppearance_TextLarge_Primary_Light, descId,
+                FeatureHighlightProvider.TextAlignment.CENTER,
+                R.style.TextAppearance_TextMedium_Primary_Light, innerBackgroundColor,
+                finalOuterColor, finalScrimColor, FeatureHighlightProvider.NO_TIMEOUT, tapToDismiss,
                 completeRunnable);
     }
 
@@ -130,7 +135,7 @@ class BrowsingModeBottomToolbarMediator implements ThemeColorObserver {
      * @param activity An activity to attach the IPH to.
      */
     void dismissIPH(AppCompatActivity activity) {
-        FeatureHighlightProvider.getInstance().dismiss(activity);
+        mFeatureHighlightProvider.dismiss(activity);
     }
 
     /**

@@ -12,7 +12,6 @@ include_rules = [
   "+components/autofill/core/browser",
   "+components/autofill/core/common",
   "+components/cdm/browser",
-  "+components/crash/content/app",
   "+components/crash/content/browser",
   "+components/crash/core",
   "+components/download/public/common",
@@ -77,13 +76,13 @@ include_rules = [
   "+storage/browser/quota",
   "+storage/common/quota",
 
+  "+third_party/blink/public/mojom/loader/resource_load_info.mojom-shared.h",
   "+third_party/crashpad/crashpad/client",
   "+third_party/crashpad/crashpad/util",
 
   "+ui/display",
   "+ui/gfx",
   "+ui/gl",
-  "+ui/native_theme",
   "+ui/touch_selection/touch_handle.h",
 
   # Temporary until we bundle our own favicon. See
@@ -101,6 +100,8 @@ include_rules = [
   "+third_party/blink/public/mojom/mediastream/media_stream.mojom-shared.h",
   # Interface required for in-process input event handling.
   "+third_party/blink/public/web/WebCompositorInputHandler.h",
+  # For favicon url
+  "+third_party/blink/public/mojom/favicon",
   # For find-in-page
   "+third_party/blink/public/mojom/frame",
   # Required for the Web Speech API.

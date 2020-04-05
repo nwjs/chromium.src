@@ -97,6 +97,7 @@
 <translation id="2149973817440762519">ویرایش نشانک</translation>
 <translation id="2179182049312275900">هرزمان خواستید می‌توانید همگام‌سازی را در تنظیمات روشن کنید.</translation>
 <translation id="2198757192731523470">‏Google ممکن است از سابقه مرور شما برای شخصی کردن جستجو، آگهی‌ها، و سایر سرویس‌های Google استفاده کند.</translation>
+<translation id="2218443599109088993">کوچک کردن</translation>
 <translation id="2230173723195178503">صفحه وب بار شد</translation>
 <translation id="2239626343334228536">درحال پاک کردن داده‌های محصول مرور…</translation>
 <translation id="2257567812274161158">همگام‌سازی کار نمی‌کند.</translation>
@@ -159,6 +160,7 @@
 <translation id="2923448633003185837">جای‌گذاری و رفتن</translation>
 <translation id="292639812446257861">علامت‌گذاری به‌‌عنوان خوانده‌نشده</translation>
 <translation id="2958718410589002129">گذرواژه‌ها</translation>
+<translation id="2964349545761222050">مسدود کردن کوکی‌های شخص ثالث</translation>
 <translation id="2969979262385602596">ورود به سیستم انجام نشد. بعداً دوباره امتحان کنید.</translation>
 <translation id="298306318844797842">افزودن روش پرداخت…</translation>
 <translation id="2989805286512600854">باز کردن در برگهٔ جدید</translation>
@@ -178,6 +180,7 @@
 <translation id="3290875554372353449">انتخاب حساب</translation>
 <translation id="3311748811247479259">خاموش</translation>
 <translation id="3324193307694657476">آدرس ۲</translation>
+<translation id="3328801116991980348">اطلاعات سایت</translation>
 <translation id="3329904751041170572">اتصال به سرور امکان‌پذیر نیست.</translation>
 <translation id="3335947283844343239">باز کردن مجدد برگه بسته شده</translation>
 <translation id="3371831930909698441">«مترجم» دردسترس است. گزینه‌ها در نزدیک پایین صفحه نمایش در دسترس هستند.</translation>
@@ -300,6 +303,7 @@
 <translation id="4979397965658815378">‏برای دریافت نشانک‌ها، گذرواژه‌ها، سابقه و تنظیمات دیگر در همه دستگاه‌هایتان، به سیستم حساب Google خود وارد شوید</translation>
 <translation id="5005498671520578047">کپی گذرواژه</translation>
 <translation id="5010803260590204777">برای مرور وب به صورت خصوصی برگه ناشناس باز کنید.</translation>
+<translation id="5039020240289137291">مسدود کردن کوکی‌های شخص ثالث</translation>
 <translation id="5039804452771397117">اجازه دادن</translation>
 <translation id="5059136629401106827">خوب</translation>
 <translation id="5062321486222145940">‏نصب Google Drive</translation>
@@ -414,9 +418,11 @@ Handoff باید در بخش عمومی تنظیمات نیز فعال شود و
 <translation id="6434591244308415567">خطایی روی داد. بعداً دوباره امتحان کنید.</translation>
 <translation id="6445051938772793705">کشور</translation>
 <translation id="6445981559479772097">پیام ارسال شد.</translation>
+<translation id="6447842834002726250">کوکی‌ها</translation>
 <translation id="6464071786529933911">در برگه ناشناس جدید</translation>
 <translation id="6476800141292307438">ترجمه صفحه به <ph name="LANGUAGE" />. گزینه‌ها در نزدیک پایین صفحه نمایش در دسترس هستند.</translation>
 <translation id="6482629121755362506"><ph name="NUMBER_OF_SELECTED_BOOKMARKS" /> مورد حذف شد</translation>
+<translation id="6561262006871132942">بزرگ کردن</translation>
 <translation id="6610002944194042868">گزینه‌های ترجمه</translation>
 <translation id="6628106477656132239">تاریخ انقضا نامعتبر است</translation>
 <translation id="6638511529934826365">بزرگ‌نمایی نوشتار…</translation>
@@ -479,7 +485,6 @@ Handoff باید در بخش عمومی تنظیمات نیز فعال شود و
 <translation id="734758817008927353">گزینه‌های ذخیره کارت</translation>
 <translation id="7348502496356775519">نشانک</translation>
 <translation id="7383797227493018512">فهرست خواندن</translation>
-<translation id="7392048574806661116">خارج شدن از سیستم و پاک کردن داده‌های همگام‌سازی‌شده</translation>
 <translation id="7400418766976504921">نشانی وب</translation>
 <translation id="7409985198648820906"><ph name="UNREAD_COUNT" /> مقاله خوانده‌نشده.</translation>
 <translation id="7425346204213733349">‏تغییرات در نشانک‌ها، سابقه، گذرواژه و سایر تنظیمات دیگر با حساب Google شما همگام‌سازی نخواهند شد. با این حال، داده‌های موجودتان در حساب Google شما باقی خواهند ماند.</translation>
@@ -598,6 +603,7 @@ Handoff باید در بخش عمومی تنظیمات نیز فعال شود و
 <translation id="9223358826628549784">گزارش خرابی ارسال شد.</translation>
 <translation id="952704832371081537">لغو</translation>
 <translation id="988141524645182168">دستگاه‌های دیگر</translation>
+<translation id="989697783705943787">امنیت سایت</translation>
 <translation id="989988560359834682">ویرایش آدرس</translation>
 <translation id="994757059139821576">مقالات پیشنهادی</translation>
 </translationbundle>

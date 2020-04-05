@@ -89,6 +89,9 @@ AbstractTts = class {
   addCapturingEventListener(listener) {}
 
   /** @override */
+  removeCapturingEventListener(listener) {}
+
+  /** @override */
   increaseOrDecreaseProperty(propertyName, increase) {
     const min = this.propertyMin[propertyName];
     const max = this.propertyMax[propertyName];
@@ -297,7 +300,7 @@ AbstractTts.PAUSE = 'pause';
 /**
  * TTS personality for annotations - text spoken by ChromeVox that
  * elaborates on a user interface element but isn't displayed on-screen.
- * @type {Object}
+ * @type {!Object}
  */
 AbstractTts.PERSONALITY_ANNOTATION = {
   'relativePitch': -0.25,
@@ -516,4 +519,4 @@ AbstractTts.substitutionDictionaryRegexp_;
  * @private
  */
 AbstractTts.repetitionRegexp_ =
-    /([-\/\\|!@#$%^&*\(\)=_+\[\]\{\}.?;'":<>\u2022])\1{1,}/g;
+    /([-\/\\|!@#$%^&*\(\)=_+\[\]\{\}.?;'":<>\u2022])\1{2,}/g;

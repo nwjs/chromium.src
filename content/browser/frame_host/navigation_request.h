@@ -40,6 +40,7 @@
 #include "mojo/public/cpp/system/data_pipe.h"
 #include "net/base/proxy_server.h"
 #include "net/dns/public/resolve_error_info.h"
+#include "services/network/public/cpp/blocked_by_response_reason.h"
 #include "services/network/public/cpp/origin_policy.h"
 
 #if defined(OS_ANDROID)
@@ -57,6 +58,7 @@ struct FrameHostMsg_DidCommitProvisionalLoad_Params;
 namespace content {
 
 class AppCacheNavigationHandle;
+class CrossOriginEmbedderPolicyReporter;
 class WebBundleHandleTracker;
 class WebBundleNavigationInfo;
 class FrameNavigationEntry;
@@ -506,6 +508,10 @@ class CONTENT_EXPORT NavigationRequest
     return begin_params_->request_context_type;
   }
 
+  network::mojom::RequestDestination request_destination() const {
+    return begin_params_->request_destination;
+  }
+
   blink::WebMixedContentContextType mixed_content_context_type() const {
     return begin_params_->mixed_content_context_type;
   }
@@ -536,6 +542,24 @@ class CONTENT_EXPORT NavigationRequest
     DCHECK_GE(state_, WILL_PROCESS_RESPONSE);
     return response_should_be_rendered_;
   }
+
+  const network::mojom::ClientSecurityStatePtr& client_security_state() const {
+    return client_security_state_;
+  }
+  network::mojom::ClientSecurityStatePtr TakeClientSecurityState();
+
+  bool require_coop_browsing_instance_swap() const {
+    return require_coop_browsing_instance_swap_;
+  }
+
+  void set_require_coop_browsing_instance_swap() {
+    require_coop_browsing_instance_swap_ = true;
+  }
+  CrossOriginEmbedderPolicyReporter* coep_reporter() {
+    return coep_reporter_.get();
+  }
+
+  std::unique_ptr<CrossOriginEmbedderPolicyReporter> TakeCoepReporter();
 
  private:
   friend class NavigationRequestTest;
@@ -616,22 +640,24 @@ class CONTENT_EXPORT NavigationRequest
   // Checks if the specified CSP context's relevant CSP directive
   // allows the navigation. This is called to perform the frame-src
   // and navigate-to checks.
-  bool IsAllowedByCSPDirective(CSPContext* context,
-                               network::mojom::CSPDirectiveName directive,
-                               bool has_followed_redirect,
-                               bool url_upgraded_after_redirect,
-                               bool is_response_check,
-                               CSPContext::CheckCSPDisposition disposition);
+  bool IsAllowedByCSPDirective(
+      network::CSPContext* context,
+      network::mojom::CSPDirectiveName directive,
+      bool has_followed_redirect,
+      bool url_upgraded_after_redirect,
+      bool is_response_check,
+      network::CSPContext::CheckCSPDisposition disposition);
 
   // Checks if CSP allows the navigation. This will check the frame-src and
   // navigate-to directives.
   // Returns net::OK if the checks pass, and net::ERR_ABORTED or
   // net::ERR_BLOCKED_BY_CLIENT depending on which checks fail.
-  net::Error CheckCSPDirectives(RenderFrameHostImpl* parent,
-                                bool has_followed_redirect,
-                                bool url_upgraded_after_redirect,
-                                bool is_response_check,
-                                CSPContext::CheckCSPDisposition disposition);
+  net::Error CheckCSPDirectives(
+      RenderFrameHostImpl* parent,
+      bool has_followed_redirect,
+      bool url_upgraded_after_redirect,
+      bool is_response_check,
+      network::CSPContext::CheckCSPDisposition disposition);
 
   // Check whether a request should be allowed to continue or should be blocked
   // because it violates a CSP. This method can have two side effects:
@@ -837,10 +863,6 @@ class CONTENT_EXPORT NavigationRequest
     return std::move(modified_request_headers_);
   }
 
-  // Helper functions to trace the start and end of |navigation_handle_|.
-  void TraceNavigationStart();
-  void TraceNavigationEnd();
-
   // Returns true if the contents of |common_params_| requires
   // |source_site_instance_| to be set. This is used to ensure that data:
   // URLs with valid initiator origins always have |source_site_instance_| set
@@ -856,6 +878,12 @@ class CONTENT_EXPORT NavigationRequest
 
   // See RestartBackForwardCachedNavigation.
   void RestartBackForwardCachedNavigationImpl();
+
+  void ForceEnableOriginTrials(const std::vector<std::string>& trials) override;
+
+  void CreateCoepReporter(StoragePartition* storage_partition);
+
+  base::Optional<network::BlockedByResponseReason> IsBlockedByCorp();
 
   FrameTreeNode* frame_tree_node_;
 
@@ -907,6 +935,7 @@ class CONTENT_EXPORT NavigationRequest
   bool is_view_source_;
   int bindings_;
   int nav_entry_id_ = 0;
+  bool entry_overrides_ua_ = false;
 
   scoped_refptr<SiteInstanceImpl> starting_site_instance_;
 
@@ -1147,7 +1176,27 @@ class CONTENT_EXPORT NavigationRequest
   // evicted.
   bool restarting_back_forward_cached_navigation_ = false;
 
+  // Holds a set of values needed to enforce several WebPlatform security APIs
+  // at the network request level.
+  network::mojom::ClientSecurityStatePtr client_security_state_;
+
+  std::unique_ptr<CrossOriginEmbedderPolicyReporter> coep_reporter_;
+
   std::unique_ptr<PeakGpuMemoryTracker> loading_mem_tracker_ = nullptr;
+
+  // Set to true whenever we the Cross-Origin-Opener-Policy spec requires us to
+  // do a "BrowsingContext group" swap:
+  // https://gist.github.com/annevk/6f2dd8c79c77123f39797f6bdac43f3e
+  // This forces a new BrowsingInstance to be used for the RenderFrameHost the
+  // navigation will commit in. If other pages had JavaScript references to the
+  // Window object for the frame (via window.opener, window.open(), et cetera),
+  // those references will be broken; window.name will also be reset to an empty
+  // string.
+  // TODO(ahemery): COOP requires that any page during the redirect chain
+  // having an incompatible COOP triggers a BrowsingInstance swap. Even if the
+  // end document could be put in the same BrowsingInstance as the starting
+  // one. Implement the behavior.
+  bool require_coop_browsing_instance_swap_ = false;
 
   base::WeakPtrFactory<NavigationRequest> weak_factory_{this};
 

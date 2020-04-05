@@ -188,7 +188,7 @@ void PictureInPictureControllerImpl::OnEnteredPictureInPicture(
     HTMLVideoElement* element,
     ScriptPromiseResolver* resolver,
     mojo::PendingRemote<mojom::blink::PictureInPictureSession> session_remote,
-    const WebSize& picture_in_picture_window_size) {
+    const gfx::Size& picture_in_picture_window_size) {
   // If |session_ptr| is null then Picture-in-Picture is not supported by the
   // browser. We should rarely see this because we should have already rejected
   // with |kDisabledBySystem|.
@@ -223,7 +223,8 @@ void PictureInPictureControllerImpl::OnEnteredPictureInPicture(
   picture_in_picture_element_->OnEnteredPictureInPicture();
 
   picture_in_picture_window_ = MakeGarbageCollected<PictureInPictureWindow>(
-      GetSupplementable(), picture_in_picture_window_size);
+      GetSupplementable()->ToExecutionContext(),
+      picture_in_picture_window_size);
 
   picture_in_picture_element_->DispatchEvent(
       *EnterPictureInPictureEvent::Create(
@@ -374,7 +375,7 @@ void PictureInPictureControllerImpl::PageVisibilityChanged() {
   }
 }
 
-void PictureInPictureControllerImpl::ContextDestroyed(Document*) {
+void PictureInPictureControllerImpl::ContextDestroyed() {
   picture_in_picture_service_.reset();
   session_observer_receiver_.reset();
 }
@@ -391,7 +392,7 @@ void PictureInPictureControllerImpl::OnPictureInPictureStateChange() {
 }
 
 void PictureInPictureControllerImpl::OnWindowSizeChanged(
-    const blink::WebSize& size) {
+    const gfx::Size& size) {
   if (picture_in_picture_window_)
     picture_in_picture_window_->OnResize(size);
 }
@@ -400,19 +401,20 @@ void PictureInPictureControllerImpl::OnStopped() {
   OnExitedPictureInPicture(nullptr);
 }
 
-void PictureInPictureControllerImpl::Trace(blink::Visitor* visitor) {
+void PictureInPictureControllerImpl::Trace(Visitor* visitor) {
   visitor->Trace(picture_in_picture_element_);
   visitor->Trace(auto_picture_in_picture_elements_);
   visitor->Trace(picture_in_picture_window_);
   PictureInPictureController::Trace(visitor);
   PageVisibilityObserver::Trace(visitor);
-  DocumentShutdownObserver::Trace(visitor);
+  ExecutionContextLifecycleObserver::Trace(visitor);
 }
 
 PictureInPictureControllerImpl::PictureInPictureControllerImpl(
     Document& document)
     : PictureInPictureController(document),
       PageVisibilityObserver(document.GetPage()),
+      ExecutionContextLifecycleObserver(&document),
       session_observer_receiver_(this) {}
 
 bool PictureInPictureControllerImpl::EnsureService() {

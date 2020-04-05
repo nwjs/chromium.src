@@ -41,8 +41,9 @@ class ServiceWorkerScriptLoaderFactoryTest : public testing::Test {
     options.scope = scope_;
     registration_ = base::MakeRefCounted<ServiceWorkerRegistration>(
         options, 1L /* registration_id */, context->AsWeakPtr());
-    version_ = context->registry()->CreateNewVersion(
-        registration_.get(), script_url_, blink::mojom::ScriptType::kClassic);
+    version_ = CreateNewServiceWorkerVersion(
+        context->registry(), registration_.get(), script_url_,
+        blink::mojom::ScriptType::kClassic);
 
     provider_host_ = CreateProviderHostForServiceWorkerContext(
         helper_->mock_render_process_id(), true /* is_parent_frame_secure */,
@@ -60,7 +61,7 @@ class ServiceWorkerScriptLoaderFactoryTest : public testing::Test {
     network::ResourceRequest resource_request;
     resource_request.url = script_url_;
     resource_request.resource_type =
-        static_cast<int>(ResourceType::kServiceWorker);
+        static_cast<int>(blink::mojom::ResourceType::kServiceWorker);
     factory_->CreateLoaderAndStart(
         loader.InitWithNewPipeAndPassReceiver(), 0 /* routing_id */,
         0 /* request_id */, network::mojom::kURLLoadOptionNone,
@@ -132,8 +133,9 @@ class ServiceWorkerScriptLoaderFactoryCopyResumeTest
 
   void SetUp() override {
     ServiceWorkerScriptLoaderFactoryTest::SetUp();
-    WriteToDiskCacheSync(helper_->context()->storage(), script_url_,
-                         kOldResourceId, kOldHeaders, kOldData, std::string());
+    WriteToDiskCacheWithIdSync(helper_->context()->storage(), script_url_,
+                               kOldResourceId, kOldHeaders, kOldData,
+                               std::string());
   }
 
   void CheckResponse(const std::string& expected_body) {

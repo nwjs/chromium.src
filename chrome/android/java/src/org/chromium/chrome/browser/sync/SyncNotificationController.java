@@ -25,9 +25,9 @@ import org.chromium.chrome.browser.notifications.NotificationUmaTracker;
 import org.chromium.chrome.browser.notifications.PendingIntentProvider;
 import org.chromium.chrome.browser.notifications.channels.ChannelDefinitions;
 import org.chromium.chrome.browser.settings.SettingsLauncher;
-import org.chromium.chrome.browser.settings.sync.SyncAndServicesSettings;
 import org.chromium.chrome.browser.signin.IdentityServicesProvider;
 import org.chromium.chrome.browser.sync.GoogleServiceAuthError.State;
+import org.chromium.chrome.browser.sync.settings.SyncAndServicesSettings;
 import org.chromium.chrome.browser.sync.ui.PassphraseActivity;
 import org.chromium.components.signin.base.CoreAccountInfo;
 import org.chromium.components.sync.AndroidSyncSettings;
@@ -92,6 +92,7 @@ public class SyncNotificationController implements ProfileSyncService.SyncStateC
                     IdentityServicesProvider.get().getIdentityManager().getPrimaryAccountInfo();
             if (primaryAccountInfo != null) {
                 int flags = Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP;
+                // TODO(crbug.com/1012659): Upon intent completion, the new keys should be fetched.
                 TrustedVaultClient.get()
                         .createKeyRetrievalIntent(primaryAccountInfo)
                         .then(

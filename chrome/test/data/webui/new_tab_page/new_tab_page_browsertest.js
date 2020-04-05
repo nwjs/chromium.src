@@ -59,7 +59,8 @@ var NewTabPageCustomizeDialogTest = class extends NewTabPageBrowserTest {
   }
 };
 
-TEST_F('NewTabPageCustomizeDialogTest', 'All', function() {
+// Disabled for flakiness, see https://crbug.com/1066459
+TEST_F('NewTabPageCustomizeDialogTest', 'DISABLED_All', function() {
   mocha.run();
 });
 
@@ -112,6 +113,18 @@ TEST_F('NewTabPageCustomizeShortcutsTest', 'All', function() {
 });
 
 // eslint-disable-next-line no-var
+var NewTabPageCustomizeBackgroundsTest = class extends NewTabPageBrowserTest {
+  /** @override */
+  get browsePreload() {
+    return 'chrome://new-tab-page/test_loader.html?module=new_tab_page/customize_backgrounds_test.js';
+  }
+};
+
+TEST_F('NewTabPageCustomizeBackgroundsTest', 'All', function() {
+  mocha.run();
+});
+
+// eslint-disable-next-line no-var
 var NewTabPageVoiceSearchOverlayTest = class extends NewTabPageBrowserTest {
   /** @override */
   get browsePreload() {
@@ -120,5 +133,30 @@ var NewTabPageVoiceSearchOverlayTest = class extends NewTabPageBrowserTest {
 };
 
 TEST_F('NewTabPageVoiceSearchOverlayTest', 'All', function() {
+  mocha.run();
+});
+
+// eslint-disable-next-line no-var
+var NewTabPageFakeboxTest = class extends NewTabPageBrowserTest {
+  /** @override */
+  get browsePreload() {
+    return 'chrome://new-tab-page/test_loader.html?module=new_tab_page/fakebox_test.js';
+  }
+};
+
+TEST_F('NewTabPageFakeboxTest', 'All', function() {
+  mocha.run();
+});
+
+// eslint-disable-next-line no-var
+var NewTabPageLogoTest = class extends NewTabPageBrowserTest {
+  /** @override */
+  get browsePreload() {
+    return 'chrome://new-tab-page/test_loader.html?module=new_tab_page/logo_test.js';
+  }
+};
+
+// Disabled for flakiness, see https://crbug.com/1065812
+TEST_F('NewTabPageLogoTest', 'DISABLED_All', function() {
   mocha.run();
 });

@@ -34,6 +34,26 @@ Polymer({
      * @private {?settings.Account}
      */
     actionMenuAccount_: Object,
+
+    /** @private {boolean} */
+    isChildUser_: {
+      type: Boolean,
+      value() {
+        return loadTimeData.getBoolean('isChild');
+      },
+    },
+
+    /**
+     * @return {boolean} True if secondary account sign-ins are allowed, false
+     *    otherwise.
+     * @private
+     */
+    isSecondaryGoogleAccountSigninAllowed_: {
+      type: Boolean,
+      value() {
+        return loadTimeData.getBoolean('secondaryGoogleAccountSigninAllowed');
+      },
+    }
   },
 
   /** @private {?settings.AccountManagerBrowserProxy} */
@@ -61,12 +81,27 @@ Polymer({
   },
 
   /**
-   * @return {boolean} True if secondary account sign-ins are allowed, false
-   *    otherwise.
+   * @return {string} account manager description text.
    * @private
    */
-  isSecondaryGoogleAccountSigninAllowed_() {
-    return loadTimeData.getBoolean('secondaryGoogleAccountSigninAllowed');
+  getAccountManagerDescription_() {
+    if (this.isChildUser_ && this.isSecondaryGoogleAccountSigninAllowed_ &&
+        loadTimeData.getBoolean('isEduCoexistenceEnabled')) {
+      return loadTimeData.getString('accountManagerChildDescription');
+    }
+    return loadTimeData.getString('accountManagerDescription');
+  },
+
+  /**
+   * @return {string} account manager 'add account' label.
+   * @private
+   */
+  getAddAccountLabel_() {
+    if (this.isChildUser_ && this.isSecondaryGoogleAccountSigninAllowed_ &&
+        loadTimeData.getBoolean('isEduCoexistenceEnabled')) {
+      return loadTimeData.getString('addSchoolAccountLabel');
+    }
+    return loadTimeData.getString('addAccountLabel');
   },
 
   /**
@@ -75,7 +110,7 @@ Polymer({
    * @private
    */
   getSecondaryAccountsDisabledUserMessage_() {
-    return loadTimeData.getBoolean('isChild')
+    return this.isChildUser_
       ? this.i18n('accountManagerSecondaryAccountsDisabledChildText')
       : this.i18n('accountManagerSecondaryAccountsDisabledText');
   },

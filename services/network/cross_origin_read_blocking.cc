@@ -25,10 +25,12 @@
 #include "net/base/mime_sniffer.h"
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
 #include "net/http/http_response_headers.h"
+#include "services/network/public/cpp/cross_origin_embedder_policy.h"
 #include "services/network/public/cpp/cross_origin_resource_policy.h"
 #include "services/network/public/cpp/features.h"
 #include "services/network/public/cpp/initiator_lock_compatibility.h"
 #include "services/network/public/mojom/network_context.mojom.h"
+#include "services/network/public/mojom/network_service.mojom.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
 
 using base::StringPiece;
@@ -658,8 +660,10 @@ CrossOriginReadBlocking::ResponseAnalyzer::ResponseAnalyzer(
     const GURL& request_url,
     const base::Optional<url::Origin>& request_initiator,
     const network::mojom::URLResponseHead& response,
-    base::Optional<url::Origin> request_initiator_site_lock,
-    mojom::RequestMode request_mode)
+    const base::Optional<url::Origin>& request_initiator_site_lock,
+    mojom::RequestMode request_mode,
+    const base::Optional<url::Origin>& isolated_world_origin,
+    mojom::NetworkServiceClient* network_service_client)
     : seems_sensitive_from_cors_heuristic_(
           SeemsSensitiveFromCORSHeuristic(response)),
       seems_sensitive_from_cache_heuristic_(
@@ -668,7 +672,9 @@ CrossOriginReadBlocking::ResponseAnalyzer::ResponseAnalyzer(
       has_nosniff_header_(HasNoSniff(response)),
       content_length_(response.content_length),
       http_response_code_(response.headers ? response.headers->response_code()
-                                           : 0) {
+                                           : 0),
+      isolated_world_origin_(isolated_world_origin),
+      network_service_client_(network_service_client) {
   // CORB should look directly at the Content-Type header if one has been
   // received from the network. Ignoring |response.mime_type| helps avoid
   // breaking legitimate websites (which might happen more often when blocking
@@ -691,7 +697,8 @@ CrossOriginReadBlocking::ResponseAnalyzer::ResponseAnalyzer(
 
   should_block_based_on_headers_ = ShouldBlockBasedOnHeaders(
       request_mode, request_url, request_initiator, response,
-      request_initiator_site_lock, canonical_mime_type_);
+      request_initiator_site_lock, canonical_mime_type_,
+      &is_cors_blocking_expected_);
 
   // Check if the response seems sensitive and if so include in our CORB
   // protection logging. We have not sniffed yet, so the answer might be
@@ -703,7 +710,8 @@ CrossOriginReadBlocking::ResponseAnalyzer::ResponseAnalyzer(
     url::Origin cross_origin_request_initiator = url::Origin();
     BlockingDecision would_protect_based_on_headers = ShouldBlockBasedOnHeaders(
         request_mode, request_url, cross_origin_request_initiator, response,
-        cross_origin_request_initiator, canonical_mime_type_);
+        cross_origin_request_initiator, canonical_mime_type_,
+        nullptr /* is_cors_blocking_expected */);
     corb_protection_logging_needs_sniffing_ =
         (would_protect_based_on_headers ==
          BlockingDecision::kNeedToSniffMore) &&
@@ -738,7 +746,11 @@ CrossOriginReadBlocking::ResponseAnalyzer::ShouldBlockBasedOnHeaders(
     const base::Optional<url::Origin>& request_initiator,
     const network::mojom::URLResponseHead& response,
     const base::Optional<url::Origin>& request_initiator_site_lock,
-    MimeType canonical_mime_type) {
+    MimeType canonical_mime_type,
+    bool* is_cors_blocking_expected) {
+  if (is_cors_blocking_expected)
+    *is_cors_blocking_expected = false;
+
   // The checks in this method are ordered to rule out blocking in most cases as
   // quickly as possible.  Checks that are likely to lead to returning false or
   // that are inexpensive should be near the top.
@@ -776,6 +788,11 @@ CrossOriginReadBlocking::ResponseAnalyzer::ShouldBlockBasedOnHeaders(
                                             &cors_header);
       if (IsValidCorsHeaderSet(initiator, cors_header))
         return kAllow;
+
+      // At this point we know that the response is 1) cross-origin from the
+      // initiator, 2) in CORS mode, 3) without valid ACAO header.
+      if (is_cors_blocking_expected)
+        *is_cors_blocking_expected = true;
       break;
   }
 
@@ -818,9 +835,9 @@ CrossOriginReadBlocking::ResponseAnalyzer::ShouldBlockBasedOnHeaders(
   // fail in the renderer), then we can let CORB filter the response without
   // caring about MIME type or sniffing.
   //
-  // To make CrossOriginResourcePolicy::Verify apply to all fetch modes in this
-  // case and not just "no-cors", we pass kNoCors as a hard-coded value.  This
-  // does not affect the usual enforcement of CORP headers.
+  // To make CrossOriginResourcePolicy::IsBlocked apply to all fetch modes in
+  // this case and not just "no-cors", we pass kNoCors as a hard-coded value.
+  // This does not affect the usual enforcement of CORP headers.
   //
   // TODO(lukasza): Once OOR-CORS launches (https://crbug.com/736308), this code
   // block will no longer be necessary since all failed CORS requests will be
@@ -830,11 +847,10 @@ CrossOriginReadBlocking::ResponseAnalyzer::ShouldBlockBasedOnHeaders(
   constexpr mojom::RequestMode kOverreachingRequestMode =
       mojom::RequestMode::kNoCors;
   // COEP is not supported when OOR-CORS is disabled.
-  if (CrossOriginResourcePolicy::kBlock ==
-      CrossOriginResourcePolicy::Verify(
-          request_url, request_initiator, response, kOverreachingRequestMode,
-          request_initiator_site_lock,
-          mojom::CrossOriginEmbedderPolicy::kNone)) {
+  if (CrossOriginResourcePolicy::IsBlocked(
+          request_url, request_url, request_initiator, response,
+          kOverreachingRequestMode, request_initiator_site_lock,
+          CrossOriginEmbedderPolicy())) {
     // Ignore mime types and/or sniffing and have CORB block all responses with
     // COR*P* header.
     return kBlock;
@@ -1142,6 +1158,40 @@ bool CrossOriginReadBlocking::ResponseAnalyzer::ShouldReportBlockedResponse()
 }
 
 void CrossOriginReadBlocking::ResponseAnalyzer::LogAllowedResponse() {
+  // Only log the ContentScript UMA when the request really came from a content
+  // script.
+  //
+  // Note that we will never get here in the following cases:
+  // 1) When CORB is disabled (e.g. for allowlisted content scripts OR for
+  //    extension background pages).
+  // 2) When CorbAllowlistAlsoAppliesToOorCors and OOR-CORS features are both
+  //    enabled, because:
+  //    2a) The former feature forces |ignore_isolated_world_origin| for
+  //        non-allowlisted content scripts and OOR-CORS in this case resets
+  //        |isolated_world_origin| to base::nullopt.
+  //    2b) Even if we could preserve |isolated_world_origin_| just for UMA,
+  //        CORS would block the response before LogAllowedResponse gets a
+  //        chance to run.
+  bool is_for_non_http_isolated_world =
+      isolated_world_origin_.has_value() &&
+      isolated_world_origin_->scheme() != url::kHttpScheme &&
+      isolated_world_origin_->scheme() != url::kHttpsScheme;
+  if (is_for_non_http_isolated_world) {
+    // We log whether CORS would block this response if it were enabled for
+    // content scripts.  Caveat: This will be true even in cases where the
+    // server would have sent an ACAO response header if Chrome had sent an
+    // Origin request header.
+    UMA_HISTOGRAM_BOOLEAN(
+        "SiteIsolation.XSD.Browser.AllowedByCorbButNotCors.ContentScript",
+        is_cors_blocking_expected_);
+
+    // Ask the browser process to log Rappor and UKM metrics.
+    if (network_service_client_ && is_cors_blocking_expected_) {
+      network_service_client_->LogCrossOriginFetchFromContentScript3(
+          isolated_world_origin_->host());
+    }
+  }
+
   if (corb_protection_logging_needs_sniffing_) {
     LogSensitiveResponseProtection(
         SniffingDecisionToProtectionDecision(found_blockable_content_));
@@ -1304,8 +1354,7 @@ bool CrossOriginReadBlocking::ShouldAllowForPlugin(int process_id) {
 // static
 void CrossOriginReadBlocking::RemoveExceptionForPlugin(int process_id) {
   std::set<int>& plugin_proxies = GetPluginProxyingProcesses();
-  size_t number_of_elements_removed = plugin_proxies.erase(process_id);
-  DCHECK_EQ(1u, number_of_elements_removed);
+  plugin_proxies.erase(process_id);
 }
 
 }  // namespace network

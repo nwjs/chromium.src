@@ -13,10 +13,6 @@
 namespace features {
 
 #if defined(OS_ANDROID)
-// Use android AImageReader when playing videos with MediaPlayer.
-const base::Feature kAImageReaderMediaPlayer{"AImageReaderMediaPlayer",
-                                             base::FEATURE_ENABLED_BY_DEFAULT};
-
 // Used only by webview to disable SurfaceControl.
 const base::Feature kDisableSurfaceControlForWebview{
     "DisableSurfaceControlForWebview", base::FEATURE_DISABLED_BY_DEFAULT};
@@ -68,11 +64,15 @@ const base::Feature kGpuUseDisplayThreadPriority{
 
 // Gpu watchdog V2 to simplify the logic and reduce GPU hangs
 const base::Feature kGpuWatchdogV2{"GpuWatchdogV2",
-                                   base::FEATURE_DISABLED_BY_DEFAULT};
+                                   base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Use a different set of watchdog timeouts on V1
 const base::Feature kGpuWatchdogV1NewTimeout{"GpuWatchdogV1NewTimeout",
                                              base::FEATURE_ENABLED_BY_DEFAULT};
+
+// Use a different set of watchdog timeouts on V2
+const base::Feature kGpuWatchdogV2NewTimeout{"GpuWatchdogV2NewTimeout",
+                                             base::FEATURE_DISABLED_BY_DEFAULT};
 
 #if defined(OS_MACOSX)
 // Enable use of Metal for OOP rasterization.

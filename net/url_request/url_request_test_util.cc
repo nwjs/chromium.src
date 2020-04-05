@@ -23,6 +23,7 @@
 #include "net/http/http_response_headers.h"
 #include "net/http/http_server_properties.h"
 #include "net/http/transport_security_state.h"
+#include "net/proxy_resolution/configured_proxy_resolution_service.h"
 #include "net/proxy_resolution/proxy_retry_info.h"
 #include "net/quic/quic_context.h"
 #include "net/url_request/static_http_user_agent_settings.h"
@@ -85,7 +86,8 @@ void TestURLRequestContext::Init() {
     context_storage_.set_host_resolver(
         std::unique_ptr<HostResolver>(new MockCachingHostResolver()));
   if (!proxy_resolution_service())
-    context_storage_.set_proxy_resolution_service(ProxyResolutionService::CreateDirect());
+    context_storage_.set_proxy_resolution_service(
+        ConfiguredProxyResolutionService::CreateDirect());
   if (!cert_verifier()) {
     context_storage_.set_cert_verifier(
         CertVerifier::CreateDefault(/*cert_net_fetcher=*/nullptr));
@@ -387,7 +389,6 @@ TestNetworkDelegate::TestNetworkDelegate()
       blocked_get_cookies_count_(0),
       blocked_set_cookie_count_(0),
       set_cookie_count_(0),
-      before_send_headers_with_proxy_count_(0),
       before_start_transaction_count_(0),
       headers_received_count_(0),
       has_load_timing_info_before_redirect_(false),
@@ -453,21 +454,6 @@ int TestNetworkDelegate::OnBeforeStartTransaction(
   next_states_[req_id] = kStageHeadersReceived | kStageCompletedError;
   before_start_transaction_count_++;
   return OK;
-}
-
-void TestNetworkDelegate::OnBeforeSendHeaders(
-    URLRequest* request,
-    const ProxyInfo& proxy_info,
-    const ProxyRetryInfoMap& proxy_retry_info,
-    HttpRequestHeaders* headers) {
-  if (!proxy_info.is_http() && !proxy_info.is_https() && !proxy_info.is_quic())
-    return;
-  if (!request || request->url().SchemeIs("https") ||
-      request->url().SchemeIsWSOrWSS()) {
-    return;
-  }
-  ++before_send_headers_with_proxy_count_;
-  last_observed_proxy_ = proxy_info.proxy_server().host_port_pair();
 }
 
 int TestNetworkDelegate::OnHeadersReceived(

@@ -533,7 +533,7 @@ struct AutocompleteMatch {
   // Optional image information. Used for entity suggestions. The dominant color
   // can be used to paint the image placeholder while fetching the image.
   std::string image_dominant_color;
-  std::string image_url;
+  GURL image_url;
 
   // Optional override to use for types that specify an icon sub-type.
   DocumentType document_type = DocumentType::NONE;
@@ -548,6 +548,17 @@ struct AutocompleteMatch {
   // Additional helper text for each entry, such as a title or description.
   base::string16 description;
   ACMatchClassifications description_class;
+  // In the case of the document provider, the description includes a last
+  // updated date that may become stale. To avoid showing stale descriptions,
+  // when |description_for_shortcut| is not empty, it will be stored instead of
+  // |description| in the shortcuts provider.
+  base::string16 description_for_shortcuts;
+  ACMatchClassifications description_class_for_shortcuts;
+
+  // The optional suggestion group Id based on the SuggestionGroupIds enum in
+  // suggestion_config.proto. Used to look up the header text this match must
+  // appear under from ACResult.
+  base::Optional<int> suggestion_group_id;
 
   // If true, UI-level code should swap the contents and description fields
   // before displaying.

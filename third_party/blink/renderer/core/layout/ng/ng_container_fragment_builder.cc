@@ -101,7 +101,7 @@ void NGContainerFragmentBuilder::PropagateChildData(
   //    have a child positioned above our block-start edge.
   if ((child_offset.block_offset < LayoutUnit() &&
        !child.IsOutOfFlowPositioned()) ||
-      (!child.IsBlockFormattingContextRoot() && !child.IsLineBox() &&
+      (!child.IsFormattingContextRoot() && !child.IsLineBox() &&
        child.MayHaveDescendantAboveBlockStart()))
     may_have_descendant_above_block_start_ = true;
 
@@ -120,7 +120,7 @@ void NGContainerFragmentBuilder::PropagateChildData(
   // If a fragment doesn't have any adjoining object descendants, and is
   // self-collapsing, it can be "shifted" anywhere.
   if (!has_adjoining_object_descendants_) {
-    if (!child.IsBlockFormattingContextRoot() &&
+    if (!child.IsFormattingContextRoot() &&
         child.HasAdjoiningObjectDescendants())
       has_adjoining_object_descendants_ = true;
   }
@@ -132,7 +132,6 @@ void NGContainerFragmentBuilder::PropagateChildData(
     if (const NGBreakToken* child_break_token = child.BreakToken()) {
       switch (child.Type()) {
         case NGPhysicalFragment::kFragmentBox:
-        case NGPhysicalFragment::kFragmentRenderedLegend:
           child_break_tokens_.push_back(child_break_token);
           break;
         case NGPhysicalFragment::kFragmentLineBox:
@@ -161,33 +160,6 @@ void NGContainerFragmentBuilder::AddChildInternal(
   }
 
   children_.emplace_back(child_offset, std::move(child));
-}
-
-LogicalOffset NGContainerFragmentBuilder::GetChildOffset(
-    const LayoutObject* object) const {
-  for (const auto& child : children_) {
-    if (child.fragment->GetLayoutObject() == object)
-      return child.offset;
-
-    // TODO(layout-dev): ikilpatrick thinks we may need to traverse
-    // further than the initial line-box children for a nested inline
-    // container. We could not come up with a testcase, it would be
-    // something with split inlines, and nested oof/fixed descendants maybe.
-    if (child.fragment->IsLineBox()) {
-      const auto& line_box_fragment =
-          To<NGPhysicalLineBoxFragment>(*child.fragment);
-      for (const auto& line_box_child : line_box_fragment.Children()) {
-        if (line_box_child->GetLayoutObject() == object) {
-          return child.offset + line_box_child.Offset().ConvertToLogical(
-                                    GetWritingMode(), Direction(),
-                                    line_box_fragment.Size(),
-                                    line_box_child->Size());
-        }
-      }
-    }
-  }
-  NOTREACHED();
-  return LogicalOffset();
 }
 
 void NGContainerFragmentBuilder::AddOutOfFlowChildCandidate(

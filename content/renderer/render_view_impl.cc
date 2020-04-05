@@ -63,7 +63,6 @@
 #include "content/public/renderer/render_view_observer.h"
 #include "content/public/renderer/render_view_visitor.h"
 #include "content/public/renderer/window_features_converter.h"
-#include "content/renderer/compositor/layer_tree_view.h"
 #include "content/renderer/drop_data_builder.h"
 #include "content/renderer/history_serialization.h"
 #include "content/renderer/ime_event_guard.h"
@@ -97,7 +96,6 @@
 #include "third_party/blink/public/common/dom_storage/session_storage_namespace_id.h"
 #include "third_party/blink/public/common/frame/user_activation_update_source.h"
 #include "third_party/blink/public/common/input/web_input_event.h"
-#include "third_party/blink/public/common/plugin/plugin_action.h"
 #include "third_party/blink/public/platform/file_path_conversion.h"
 #include "third_party/blink/public/platform/modules/video_capture/web_video_capture_impl_manager.h"
 #include "third_party/blink/public/platform/url_conversion.h"
@@ -176,7 +174,6 @@
 #include "content/renderer/pepper/pepper_plugin_registry.h"
 #endif
 
-using blink::PluginAction;
 using blink::WebAXObject;
 using blink::WebConsoleMessage;
 using blink::WebData;
@@ -200,7 +197,6 @@ using blink::WebNavigationType;
 using blink::WebNode;
 using blink::WebRect;
 using blink::WebRuntimeFeatures;
-using blink::WebSandboxFlags;
 using blink::WebScriptSource;
 using blink::WebSearchableFormData;
 using blink::WebSecurityOrigin;
@@ -208,7 +204,6 @@ using blink::WebSecurityPolicy;
 using blink::WebSettings;
 using blink::WebSize;
 using blink::WebString;
-using blink::WebTextDirection;
 using blink::WebTouchEvent;
 using blink::WebURL;
 using blink::WebURLError;
@@ -446,24 +441,25 @@ void RenderViewImpl::Initialize(
 #endif
 
   WebFrame* opener_frame =
-      RenderFrameImpl::ResolveOpener(params->opener_frame_route_id);
+      RenderFrameImpl::ResolveWebFrame(params->opener_frame_route_id);
 
   // The newly created webview_ is owned by this instance.
   webview_ = WebView::Create(this, params->hidden,
                              /*compositing_enabled=*/true,
-                             opener_frame ? opener_frame->View() : nullptr);
+                             opener_frame ? opener_frame->View() : nullptr,
+                             params->blink_page_broadcast.PassHandle());
 
-  g_view_map.Get().insert(std::make_pair(webview(), this));
+  g_view_map.Get().insert(std::make_pair(GetWebView(), this));
   g_routing_id_view_map.Get().insert(std::make_pair(GetRoutingID(), this));
 
   bool local_main_frame = params->main_frame_routing_id != MSG_ROUTING_NONE;
 
   // TODO(danakj): Put this in with making the RenderFrame? Does order matter?
   if (local_main_frame)
-    webview()->SetDisplayMode(params->visual_properties.display_mode);
+    GetWebView()->SetDisplayMode(params->visual_properties.display_mode);
 
-  ApplyWebPreferences(webkit_preferences_, webview());
-  ApplyCommandLineToSettings(webview()->GetSettings());
+  ApplyWebPreferences(webkit_preferences_, GetWebView());
+  ApplyCommandLineToSettings(GetWebView()->GetSettings());
 
   if (local_main_frame) {
     main_render_frame_ = RenderFrameImpl::CreateMainFrame(
@@ -480,7 +476,7 @@ void RenderViewImpl::Initialize(
 
   // TODO(davidben): Move this state from Blink into content.
   if (params->window_was_created_with_opener)
-    webview()->SetOpenedByDOM();
+    GetWebView()->SetOpenedByDOM();
 
   OnSetRendererPrefs(*params->renderer_preferences);
 
@@ -491,7 +487,7 @@ void RenderViewImpl::Initialize(
   // We pass this state to Page, but it's only used by the main frame in the
   // page.
   if (params->inside_portal)
-    webview()->SetInsidePortal(true);
+    GetWebView()->SetInsidePortal(true);
 
 #if defined(OS_ANDROID)
   // TODO(sgurun): crbug.com/325351 Needed only for android webview's deprecated
@@ -723,6 +719,13 @@ void RenderView::ApplyWebPreferences(const WebPreferences& prefs,
   settings->SetPresentationRequiresUserGesture(
       prefs.user_gesture_required_for_presentation);
 
+  if (prefs.text_tracks_enabled) {
+    settings->SetTextTrackKindUserPreference(
+        WebSettings::TextTrackKindUserPreference::kCaptions);
+  } else {
+    settings->SetTextTrackKindUserPreference(
+        WebSettings::TextTrackKindUserPreference::kDefault);
+  }
   settings->SetTextTrackBackgroundColor(
       WebString::FromASCII(prefs.text_track_background_color));
   settings->SetTextTrackTextColor(
@@ -733,6 +736,8 @@ void RenderView::ApplyWebPreferences(const WebPreferences& prefs,
       WebString::FromASCII(prefs.text_track_text_shadow));
   settings->SetTextTrackFontFamily(
       WebString::FromASCII(prefs.text_track_font_family));
+  settings->SetTextTrackFontStyle(
+      WebString::FromASCII(prefs.text_track_font_style));
   settings->SetTextTrackFontVariant(
       WebString::FromASCII(prefs.text_track_font_variant));
   settings->SetTextTrackMarginPercentage(prefs.text_track_margin_percentage);
@@ -799,8 +804,6 @@ void RenderView::ApplyWebPreferences(const WebPreferences& prefs,
       prefs.video_fullscreen_orientation_lock_enabled);
   WebRuntimeFeatures::EnableVideoRotateToFullscreen(
       prefs.video_rotate_to_fullscreen_enabled);
-  WebRuntimeFeatures::EnableVideoFullscreenDetection(
-      prefs.video_fullscreen_detection_enabled);
   settings->SetEmbeddedMediaExperienceEnabled(
       prefs.embedded_media_experience_enabled);
   settings->SetImmersiveModeEnabled(prefs.immersive_mode_enabled);
@@ -819,7 +822,6 @@ void RenderView::ApplyWebPreferences(const WebPreferences& prefs,
     WebRuntimeFeatures::EnableHTMLImports(true);
   }
 #endif  // defined(OS_ANDROID)
-
   settings->SetForceDarkModeEnabled(prefs.force_dark_mode_enabled);
 
   switch (prefs.autoplay_policy) {
@@ -870,6 +872,7 @@ void RenderView::ApplyWebPreferences(const WebPreferences& prefs,
       prefs.data_saver_holdback_web_api_enabled);
 
   settings->SetLazyLoadEnabled(prefs.lazy_load_enabled);
+  settings->SetPreferredColorScheme(prefs.preferred_color_scheme);
 
   for (const auto& ect_distance_pair :
        prefs.lazy_frame_loading_distance_thresholds_px) {
@@ -1028,19 +1031,11 @@ void RenderViewImpl::RemoveObserver(RenderViewObserver* observer) {
   observers_.RemoveObserver(observer);
 }
 
-blink::WebView* RenderViewImpl::webview() {
-  return webview_;
-}
-
-const blink::WebView* RenderViewImpl::webview() const {
-  return webview_;
-}
-
 // RenderWidgetOwnerDelegate -----------------------------------------
 
 void RenderViewImpl::SetActiveForWidget(bool active) {
-  if (webview())
-    webview()->SetIsActive(active);
+  if (GetWebView())
+    GetWebView()->SetIsActive(active);
 }
 
 bool RenderViewImpl::SupportsMultipleWindowsForWidget() {
@@ -1058,16 +1053,16 @@ bool RenderViewImpl::ShouldAckSyntheticInputImmediately() {
 
 void RenderViewImpl::ApplyNewDisplayModeForWidget(
     blink::mojom::DisplayMode new_display_mode) {
-  webview()->SetDisplayMode(new_display_mode);
+  GetWebView()->SetDisplayMode(new_display_mode);
 }
 
 void RenderViewImpl::ApplyAutoResizeLimitsForWidget(const gfx::Size& min_size,
                                                     const gfx::Size& max_size) {
-  webview()->EnableAutoResizeMode(min_size, max_size);
+  GetWebView()->EnableAutoResizeMode(min_size, max_size);
 }
 
 void RenderViewImpl::DisableAutoResizeForWidget() {
-  webview()->DisableAutoResizeMode();
+  GetWebView()->DisableAutoResizeMode();
 }
 
 void RenderViewImpl::ScrollFocusedNodeIntoViewForWidget() {
@@ -1083,13 +1078,15 @@ void RenderViewImpl::DidReceiveSetFocusEventForWidget() {
   // WebLocalFrame.
   // TODO(ajwong): Can this be removed and just check |delegate_| in
   // RenderWidget instead?
-  CHECK(webview()->MainFrame()->IsWebLocalFrame());
+  CHECK(GetWebView()->MainFrame()->IsWebLocalFrame());
 }
 
 void RenderViewImpl::DidCommitCompositorFrameForWidget() {
   for (auto& observer : observers_)
     observer.DidCommitCompositorFrame();
-  UpdatePreferredSize();
+
+  if (GetWebView())
+    GetWebView()->UpdatePreferredSize();
 }
 
 void RenderViewImpl::DidCompletePageScaleAnimationForWidget() {
@@ -1101,17 +1098,19 @@ void RenderViewImpl::DidCompletePageScaleAnimationForWidget() {
 
 void RenderViewImpl::ResizeWebWidgetForWidget(
     const gfx::Size& widget_size,
+    const gfx::Size& visible_viewport_size,
     cc::BrowserControlsParams browser_controls_params) {
-  webview()->ResizeWithBrowserControls(widget_size, browser_controls_params);
+  GetWebView()->ResizeWithBrowserControls(widget_size, visible_viewport_size,
+                                          browser_controls_params);
 }
 
 void RenderViewImpl::SetScreenMetricsEmulationParametersForWidget(
     bool enabled,
     const blink::WebDeviceEmulationParams& params) {
   if (enabled)
-    webview()->EnableDeviceEmulation(params);
+    GetWebView()->EnableDeviceEmulation(params);
   else
-    webview()->DisableDeviceEmulation();
+    GetWebView()->DisableDeviceEmulation();
 }
 
 // IPC message handlers -----------------------------------------
@@ -1135,14 +1134,8 @@ void RenderViewImpl::OnSetHistoryOffsetAndLength(int history_offset,
   history_list_length_ = history_length;
 }
 
-void RenderViewImpl::OnSetInitialFocus(bool reverse) {
-  if (!webview())
-    return;
-  webview()->SetInitialFocus(reverse);
-}
-
 void RenderViewImpl::OnAudioStateChanged(bool is_audio_playing) {
-  webview()->AudioStateChanged(is_audio_playing);
+  GetWebView()->AudioStateChanged(is_audio_playing);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1176,7 +1169,7 @@ void RenderViewImpl::SendFrameStateUpdates() {
 // IPC::Listener -------------------------------------------------------------
 
 bool RenderViewImpl::OnMessageReceived(const IPC::Message& message) {
-  WebFrame* main_frame = webview() ? webview()->MainFrame() : nullptr;
+  WebFrame* main_frame = GetWebView() ? GetWebView()->MainFrame() : nullptr;
   if (main_frame) {
     GURL active_url;
     if (main_frame->IsWebLocalFrame())
@@ -1192,27 +1185,15 @@ bool RenderViewImpl::OnMessageReceived(const IPC::Message& message) {
 
   bool handled = true;
   IPC_BEGIN_MESSAGE_MAP(RenderViewImpl, message)
-    IPC_MESSAGE_HANDLER(ViewMsg_SetPageScale, OnSetPageScale)
-    IPC_MESSAGE_HANDLER(ViewMsg_SetInitialFocus, OnSetInitialFocus)
     IPC_MESSAGE_HANDLER(ViewMsg_UpdateTargetURL_ACK, OnUpdateTargetURLAck)
     IPC_MESSAGE_HANDLER(ViewMsg_UpdateWebPreferences, OnUpdateWebPreferences)
-    IPC_MESSAGE_HANDLER(ViewMsg_ClosePage, OnClosePage)
     IPC_MESSAGE_HANDLER(ViewMsg_MoveOrResizeStarted, OnMoveOrResizeStarted)
-    IPC_MESSAGE_HANDLER(ViewMsg_EnablePreferredSizeChangedMode,
-                        OnEnablePreferredSizeChangedMode)
-    IPC_MESSAGE_HANDLER(ViewMsg_PluginActionAt, OnPluginActionAt)
-    IPC_MESSAGE_HANDLER(ViewMsg_AnimateDoubleTapZoom,
-                        OnAnimateDoubleTapZoomInMainFrame)
-    IPC_MESSAGE_HANDLER(ViewMsg_ZoomToFindInPageRect, OnZoomToFindInPageRect)
-    IPC_MESSAGE_HANDLER(ViewMsg_SetBackgroundOpaque, OnSetBackgroundOpaque)
 
     // Page messages.
     IPC_MESSAGE_HANDLER(PageMsg_VisibilityChanged, OnPageVisibilityChanged)
     IPC_MESSAGE_HANDLER(PageMsg_SetHistoryOffsetAndLength,
                         OnSetHistoryOffsetAndLength)
     IPC_MESSAGE_HANDLER(PageMsg_AudioStateChanged, OnAudioStateChanged)
-    IPC_MESSAGE_HANDLER(PageMsg_UpdatePageVisualProperties,
-                        OnUpdatePageVisualProperties)
     IPC_MESSAGE_HANDLER(PageMsg_SetPageFrozen, SetPageFrozen)
     IPC_MESSAGE_HANDLER(PageMsg_PutPageIntoBackForwardCache,
                         PutPageIntoBackForwardCache)
@@ -1241,7 +1222,7 @@ WebView* RenderViewImpl::CreateView(
     const WebWindowFeatures& features,
     const WebString& frame_name,
     WebNavigationPolicy policy,
-    WebSandboxFlags sandbox_flags,
+    blink::mojom::WebSandboxFlags sandbox_flags,
     const blink::FeaturePolicy::FeatureState& opener_feature_state,
     const blink::SessionStorageNamespaceId& session_storage_namespace_id,
     WebString* manifest) {
@@ -1251,14 +1232,9 @@ WebView* RenderViewImpl::CreateView(
   // The user activation check is done at the browser process through
   // |frame_host->CreateNewWindow()| call below.  But the extensions case
   // handled through the following |if| is an exception.
-  //
-  // TODO(mustaq): Investigate if mimic_user_gesture can wrongly expose presence
-  // of user activation w/o any user interaction, e.g. through
-  // |WebChromeClient#onCreateWindow|. One case to deep-dive: disabling popup
-  // blocker then calling window.open at onload event. crbug.com/929729
-  params->mimic_user_gesture = false;
+  params->allow_popup = false;
   if (GetContentClient()->renderer()->AllowPopup())
-    params->mimic_user_gesture = true;
+    params->allow_popup = true;
 
   params->window_container_type = WindowFeaturesToContainerType(features);
 
@@ -1305,7 +1281,7 @@ WebView* RenderViewImpl::CreateView(
   // used much in Blink, except to enable web testing... perhaps this should
   // be checked directly in the browser side.
   if (status == mojom::CreateNewWindowStatus::kReuse)
-    return webview();
+    return GetWebView();
 
   DCHECK(reply);
   DCHECK_NE(MSG_ROUTING_NONE, reply->route_id);
@@ -1339,10 +1315,15 @@ WebView* RenderViewImpl::CreateView(
   view_params->web_preferences = webkit_preferences_;
   view_params->view_id = reply->route_id;
   view_params->main_frame_routing_id = reply->main_frame_route_id;
-  view_params
-      ->main_frame_interface_bundle = mojom::DocumentScopedInterfaceBundle::New(
-      std::move(reply->main_frame_interface_bundle->interface_provider),
-      std::move(reply->main_frame_interface_bundle->browser_interface_broker));
+  view_params->frame_widget_host = std::move(reply->frame_widget_host);
+  view_params->frame_widget = std::move(reply->frame_widget);
+  view_params->widget_host = std::move(reply->widget_host);
+  view_params->widget = std::move(reply->widget),
+  view_params->main_frame_interface_bundle =
+      mojom::DocumentScopedInterfaceBundle::New(
+          std::move(reply->main_frame_interface_bundle->interface_provider),
+          std::move(
+              reply->main_frame_interface_bundle->browser_interface_broker));
   view_params->main_frame_widget_routing_id = reply->main_frame_widget_route_id;
   view_params->session_storage_namespace_id =
       reply->cloned_session_storage_namespace_id;
@@ -1368,7 +1349,13 @@ WebView* RenderViewImpl::CreateView(
       compositor_deps_, std::move(view_params), std::move(show_callback),
       creator->GetTaskRunner(blink::TaskType::kInternalDefault));
 
-  return view->webview();
+  if (reply->wait_for_debugger) {
+    blink::WebLocalFrame* main_frame =
+        view->GetWebView()->MainFrame()->ToWebLocalFrame();
+    main_frame->WaitForDebuggerWhenShown();
+  }
+
+  return view->GetWebView();
 }
 
 blink::WebPagePopup* RenderViewImpl::CreatePopup(
@@ -1377,11 +1364,21 @@ blink::WebPagePopup* RenderViewImpl::CreatePopup(
   mojo::PendingReceiver<mojom::Widget> widget_channel_receiver =
       widget_channel.InitWithNewPipeAndPassReceiver();
 
+  mojo::PendingAssociatedRemote<blink::mojom::Widget> blink_widget;
+  mojo::PendingAssociatedReceiver<blink::mojom::Widget> blink_widget_receiver =
+      blink_widget.InitWithNewEndpointAndPassReceiver();
+
+  mojo::PendingAssociatedRemote<blink::mojom::WidgetHost> blink_widget_host;
+  mojo::PendingAssociatedReceiver<blink::mojom::WidgetHost>
+      blink_widget_host_receiver =
+          blink_widget_host.InitWithNewEndpointAndPassReceiver();
+
   // Do a synchronous IPC to obtain a routing ID.
   int32_t widget_routing_id = MSG_ROUTING_NONE;
   bool success =
-      RenderThreadImpl::current_render_message_filter()->CreateNewWidget(
-          GetRoutingID(), std::move(widget_channel), &widget_routing_id);
+      RenderFrameImpl::FromWebFrame(creator)->GetFrameHost()->CreateNewWidget(
+          std::move(widget_channel), std::move(blink_widget_host_receiver),
+          std::move(blink_widget), &widget_routing_id);
   if (!success) {
     // When the renderer is being killed the mojo message will fail.
     return nullptr;
@@ -1402,7 +1399,8 @@ blink::WebPagePopup* RenderViewImpl::CreatePopup(
   // The returned WebPagePopup is self-referencing, so the pointer here is not
   // an owning pointer. It is de-referenced by calling Close().
   blink::WebPagePopup* popup_web_widget =
-      blink::WebPagePopup::Create(popup_widget);
+      blink::WebPagePopup::Create(popup_widget, std::move(blink_widget_host),
+                                  std::move(blink_widget_receiver));
 
   // Adds a self-reference on the |popup_widget| so it will not be destroyed
   // when leaving scope. The WebPagePopup takes responsibility for Close()ing
@@ -1461,51 +1459,68 @@ bool RenderViewImpl::SetZoomLevel(double zoom_level) {
   // If we change the zoom level for the view, make sure any subsequent subframe
   // loads reflect the current zoom level.
   page_zoom_level_ = zoom_level;
-  webview()->SetZoomLevel(zoom_level);
+  GetWebView()->SetZoomLevel(zoom_level);
   for (auto& observer : observers_)
     observer.OnZoomLevelChanged();
   return true;
 }
 
 void RenderViewImpl::SetPreferCompositingToLCDTextEnabled(bool prefer) {
-  webview()->GetSettings()->SetPreferCompositingToLCDTextEnabled(prefer);
+  GetWebView()->GetSettings()->SetPreferCompositingToLCDTextEnabled(prefer);
 }
 
 void RenderViewImpl::SetDeviceScaleFactor(bool use_zoom_for_dsf,
                                           float device_scale_factor) {
   if (use_zoom_for_dsf)
-    webview()->SetZoomFactorForDeviceScaleFactor(device_scale_factor);
+    GetWebView()->SetZoomFactorForDeviceScaleFactor(device_scale_factor);
   else
-    webview()->SetDeviceScaleFactor(device_scale_factor);
+    GetWebView()->SetDeviceScaleFactor(device_scale_factor);
+}
+
+void RenderViewImpl::SetVisibleViewportSizeForChildLocalRoot(
+    const gfx::Size& visible_viewport_size) {
+  // The main frame is updated on a different path. If we're in the same frame
+  // tree as it, there's nothing to do for child local roots.
+  if (main_render_frame_)
+    return;
+
+  // RenderWidgets in a RenderView's frame tree without a local main frame
+  // set the size of the WebView to be the |visible_viewport_size|, in order
+  // to limit compositing in (out of process) child frames to what is visible.
+  //
+  // Note that child frames in the same process/RenderView frame tree as the
+  // main frame do not do this in order to not clobber the source of truth in
+  // the main frame.
+  GetWebView()->Resize(visible_viewport_size);
 }
 
 void RenderViewImpl::PropagatePageZoomToNewlyAttachedFrame(
     bool use_zoom_for_dsf,
     float device_scale_factor) {
   if (use_zoom_for_dsf)
-    webview()->SetZoomFactorForDeviceScaleFactor(device_scale_factor);
+    GetWebView()->SetZoomFactorForDeviceScaleFactor(device_scale_factor);
   else
-    webview()->SetZoomLevel(page_zoom_level_);
+    GetWebView()->SetZoomLevel(page_zoom_level_);
 }
 
 void RenderViewImpl::SetValidationMessageDirection(
     base::string16* wrapped_main_text,
-    blink::WebTextDirection main_text_hint,
+    base::i18n::TextDirection main_text_hint,
     base::string16* wrapped_sub_text,
-    blink::WebTextDirection sub_text_hint) {
-  if (main_text_hint == blink::kWebTextDirectionLeftToRight) {
+    base::i18n::TextDirection sub_text_hint) {
+  if (main_text_hint == base::i18n::LEFT_TO_RIGHT) {
     *wrapped_main_text =
         base::i18n::GetDisplayStringInLTRDirectionality(*wrapped_main_text);
-  } else if (main_text_hint == blink::kWebTextDirectionRightToLeft &&
+  } else if (main_text_hint == base::i18n::RIGHT_TO_LEFT &&
              !base::i18n::IsRTL()) {
     base::i18n::WrapStringWithRTLFormatting(wrapped_main_text);
   }
 
   if (!wrapped_sub_text->empty()) {
-    if (sub_text_hint == blink::kWebTextDirectionLeftToRight) {
+    if (sub_text_hint == base::i18n::RIGHT_TO_LEFT) {
       *wrapped_sub_text =
           base::i18n::GetDisplayStringInLTRDirectionality(*wrapped_sub_text);
-    } else if (sub_text_hint == blink::kWebTextDirectionRightToLeft) {
+    } else if (sub_text_hint == base::i18n::LEFT_TO_RIGHT) {
       base::i18n::WrapStringWithRTLFormatting(wrapped_sub_text);
     }
   }
@@ -1584,29 +1599,9 @@ void RenderViewImpl::FocusPrevious() {
   Send(new ViewHostMsg_TakeFocus(GetRoutingID(), true));
 }
 
-void RenderViewImpl::FocusedElementChanged(const WebElement& from_element,
-                                           const WebElement& to_element) {
-  RenderFrameImpl* previous_frame = nullptr;
-  if (!from_element.IsNull())
-    previous_frame =
-        RenderFrameImpl::FromWebFrame(from_element.GetDocument().GetFrame());
-  RenderFrameImpl* new_frame = nullptr;
-  if (!to_element.IsNull())
-    new_frame =
-        RenderFrameImpl::FromWebFrame(to_element.GetDocument().GetFrame());
-
-  if (previous_frame && previous_frame != new_frame)
-    previous_frame->FocusedElementChanged(WebElement());
-  if (new_frame)
-    new_frame->FocusedElementChanged(to_element);
-}
-
 void RenderViewImpl::DidUpdateMainFrameLayout() {
   for (auto& observer : observers_)
     observer.DidUpdateMainFrameLayout();
-
-  // The main frame may have changed size.
-  needs_preferred_size_update_ = true;
 }
 
 void RenderViewImpl::RegisterRendererPreferenceWatcher(
@@ -1665,29 +1660,6 @@ const std::string& RenderViewImpl::GetAcceptLanguages() {
   return renderer_preferences_.accept_languages;
 }
 
-void RenderViewImpl::UpdatePreferredSize() {
-  // We don't always want to send the change messages over IPC, only if we've
-  // been put in that mode by getting a |ViewMsg_EnablePreferredSizeChangedMode|
-  // message.
-  if (!send_preferred_size_changes_ || !webview() || !main_render_frame_)
-    return;
-
-  if (!needs_preferred_size_update_)
-    return;
-  needs_preferred_size_update_ = false;
-
-  blink::WebSize web_size = webview()->ContentsPreferredMinimumSize();
-  blink::WebRect web_rect(0, 0, web_size.width, web_size.height);
-  main_render_frame_->GetLocalRootRenderWidget()->ConvertViewportToWindow(
-      &web_rect);
-  gfx::Size size(web_rect.width, web_rect.height);
-
-  if (size != preferred_size_) {
-    preferred_size_ = size;
-    Send(new ViewHostMsg_DidContentsPreferredSizeChange(GetRoutingID(), size));
-  }
-}
-
 blink::WebString RenderViewImpl::AcceptLanguages() {
   return WebString::FromUTF8(renderer_preferences_.accept_languages);
 }
@@ -1722,23 +1694,17 @@ void RenderViewImpl::SetWebkitPreferences(const WebPreferences& preferences) {
 }
 
 blink::WebView* RenderViewImpl::GetWebView() {
-  return webview();
+  return webview_;
 }
 
 bool RenderViewImpl::GetContentStateImmediately() {
   return send_content_state_immediately_;
 }
 
-void RenderViewImpl::OnSetPageScale(float page_scale_factor) {
-  if (!webview())
-    return;
-  webview()->SetPageScaleFactor(page_scale_factor);
-}
-
 void RenderViewImpl::ApplyPageVisibilityState(
     PageVisibilityState visibility_state,
     bool initial_setting) {
-  webview()->SetVisibilityState(visibility_state, initial_setting);
+  GetWebView()->SetVisibilityState(visibility_state, initial_setting);
   for (auto& observer : observers_)
     observer.OnPageVisibilityChanged(visibility_state);
   // Note: RenderWidget visibility is separately set from the IPC handlers, and
@@ -1747,31 +1713,8 @@ void RenderViewImpl::ApplyPageVisibilityState(
 
 void RenderViewImpl::OnUpdateWebPreferences(const WebPreferences& prefs) {
   webkit_preferences_ = prefs;
-  ApplyWebPreferences(webkit_preferences_, webview());
-}
-
-void RenderViewImpl::OnEnablePreferredSizeChangedMode() {
-  if (send_preferred_size_changes_)
-    return;
-  send_preferred_size_changes_ = true;
-
-  if (!webview())
-    return;
-
-  needs_preferred_size_update_ = true;
-
-  // We need to ensure |UpdatePreferredSize| gets called. If a layout is needed,
-  // force an update here which will call |DidUpdateMainFrameLayout|.
-  if (webview()->MainFrameWidget()) {
-    webview()->MainFrameWidget()->UpdateLifecycle(
-        WebWidget::LifecycleUpdate::kLayout,
-        blink::DocumentUpdateReason::kOther);
-  }
-
-  // If a layout was not needed, |DidUpdateMainFrameLayout| will not be called.
-  // We explicitly update the preferred size here to ensure the preferred size
-  // notification is sent.
-  UpdatePreferredSize();
+  ApplyWebPreferences(webkit_preferences_, GetWebView());
+  ApplyCommandLineToSettings(GetWebView()->GetSettings());
 }
 
 void RenderViewImpl::OnSetRendererPrefs(
@@ -1798,8 +1741,8 @@ void RenderViewImpl::OnSetRendererPrefs(
                               renderer_prefs.active_selection_fg_color,
                               renderer_prefs.inactive_selection_bg_color,
                               renderer_prefs.inactive_selection_fg_color);
-    if (webview() && webview()->MainFrameWidget())
-      webview()->MainFrameWidget()->ThemeChanged();
+    if (GetWebView() && GetWebView()->MainFrameWidget())
+      GetWebView()->MainFrameWidget()->ThemeChanged();
   }
 #endif
 
@@ -1808,37 +1751,15 @@ void RenderViewImpl::OnSetRendererPrefs(
     blink::SetFocusRingColor(renderer_prefs.focus_ring_color);
   }
 
-  if (webview() &&
+  if (GetWebView() &&
       old_accept_languages != renderer_preferences_.accept_languages) {
-    webview()->AcceptLanguagesChanged();
+    GetWebView()->AcceptLanguagesChanged();
   }
 }
 
-void RenderViewImpl::OnPluginActionAt(const gfx::Point& location,
-                                      const PluginAction& action) {
-  if (webview())
-    webview()->PerformPluginAction(action, location);
-}
-
-void RenderViewImpl::OnClosePage() {
-  // ViewMsg_ClosePage should only be sent to active, non-swapped-out views.
-  DCHECK(webview()->MainFrame()->IsWebLocalFrame());
-
-  // TODO(creis): We'd rather use webview()->Close() here, but that currently
-  // sets the WebView's delegate_ to NULL, preventing any JavaScript dialogs
-  // in the onunload handler from appearing.  For now, we're bypassing that and
-  // calling the FrameLoader's CloseURL method directly.  This should be
-  // revisited to avoid having two ways to close a page.  Having a single way
-  // to close that can run onunload is also useful for fixing
-  // http://b/issue?id=753080.
-  webview()->MainFrame()->ToWebLocalFrame()->DispatchUnloadEvent();
-
-  Send(new ViewHostMsg_ClosePage_ACK(GetRoutingID()));
-}
-
 void RenderViewImpl::OnMoveOrResizeStarted() {
-  if (webview())
-    webview()->CancelPagePopup();
+  if (GetWebView())
+    GetWebView()->CancelPagePopup();
 }
 
 void RenderViewImpl::OnPageVisibilityChanged(
@@ -1851,43 +1772,20 @@ void RenderViewImpl::OnPageVisibilityChanged(
                            /*initial_setting=*/false);
 }
 
-void RenderViewImpl::OnUpdatePageVisualProperties(
-    const gfx::Size& viewport_size_for_blink) {
-  // TODO(https://crbug.com/998273): Handle visual_properties appropriately.
-  // Using this pathway to update the visual viewport should only happen for
-  // remote main frames. Local main frames will update the viewport size by
-  // RenderWidget calling RenderViewImpl::ResizeVisualViewport() directly.
-  // TODO(danakj): This should be part of VisualProperties and walk down the
-  // RenderWidget tree like other VisualProperties do, in order to set the
-  // value in each WebView holds a part of the local frame tree.
-  if (!main_render_frame_)
-    webview()->Resize(viewport_size_for_blink);
-}
-
-void RenderViewImpl::ResizeVisualViewportForWidget(
-    const gfx::Size& scaled_viewport_size) {
-  // This function is currently only called for local main frames. Once remote
-  // main frames no longer have a RenderWidget, they may also route through
-  // here via RenderViewImpl::OnUpdateLocalMainFramePageVisualProperties(). In
-  // that case, WebViewImpl will need to implement its Size() function based on
-  // something other than the widget size.
-  webview()->ResizeVisualViewport(scaled_viewport_size);
-}
-
 void RenderViewImpl::SetPageFrozen(bool frozen) {
-  if (webview())
-    webview()->SetPageFrozen(frozen);
+  if (GetWebView())
+    GetWebView()->SetPageFrozen(frozen);
 }
 
 void RenderViewImpl::PutPageIntoBackForwardCache() {
-  if (webview())
-    webview()->PutPageIntoBackForwardCache();
+  if (GetWebView())
+    GetWebView()->PutPageIntoBackForwardCache();
 }
 
 void RenderViewImpl::RestorePageFromBackForwardCache(
     base::TimeTicks navigation_start) {
-  if (webview())
-    webview()->RestorePageFromBackForwardCache(navigation_start);
+  if (GetWebView())
+    GetWebView()->RestorePageFromBackForwardCache(navigation_start);
 }
 
 // This function receives TextAutosizerPageInfo from the main frame's renderer
@@ -1900,25 +1798,17 @@ void RenderViewImpl::OnTextAutosizerPageInfoChanged(
   // corresponds to a local main frame. Since a local main frame will generate
   // these values for itself, we shouldn't override them with values from
   // another renderer.
-  if (!webview()->MainFrame()->IsWebLocalFrame())
-    webview()->SetTextAutosizePageInfo(page_info);
+  if (!GetWebView()->MainFrame()->IsWebLocalFrame())
+    GetWebView()->SetTextAutosizerPageInfo(page_info);
 }
 
 void RenderViewImpl::OnSetInsidePortal(bool inside_portal) {
-  webview()->SetInsidePortal(inside_portal);
-}
-
-void RenderViewImpl::PageScaleFactorChanged(float page_scale_factor) {
-  if (!webview())
-    return;
-
-  Send(new ViewHostMsg_PageScaleFactorChanged(GetRoutingID(),
-                                              page_scale_factor));
+  GetWebView()->SetInsidePortal(inside_portal);
 }
 
 void RenderViewImpl::DidUpdateTextAutosizerPageInfo(
     const blink::WebTextAutosizerPageInfo& page_info) {
-  DCHECK(webview()->MainFrame()->IsWebLocalFrame());
+  DCHECK(GetWebView()->MainFrame()->IsWebLocalFrame());
   Send(new ViewHostMsg_NotifyTextAutosizerPageInfoChangedInLocalMainFrame(
       GetRoutingID(), page_info));
 }
@@ -1986,30 +1876,6 @@ void RenderViewImpl::SetFocusAndActivateForTesting(bool enable) {
     // Fake an IPC message so go through the IPC handler.
     render_widget->OnSetFocus(false);
     SetActiveForWidget(false);
-  }
-}
-
-void RenderViewImpl::OnAnimateDoubleTapZoomInMainFrame(
-    const gfx::Point& point,
-    const blink::WebRect& bound) {
-  webview()->AnimateDoubleTapZoom(point, bound);
-}
-
-void RenderViewImpl::OnZoomToFindInPageRect(
-    const blink::WebRect& rect_to_zoom) {
-  webview()->ZoomToFindInPageRect(rect_to_zoom);
-}
-
-void RenderViewImpl::OnSetBackgroundOpaque(bool opaque) {
-  if (!webview())
-    return;
-
-  if (opaque) {
-    webview()->ClearBaseBackgroundColorOverride();
-    webview()->ClearBackgroundColorOverride();
-  } else {
-    webview()->SetBaseBackgroundColorOverride(SK_ColorTRANSPARENT);
-    webview()->SetBackgroundColorOverride(SK_ColorTRANSPARENT);
   }
 }
 

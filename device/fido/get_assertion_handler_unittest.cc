@@ -801,6 +801,8 @@ class TestObserver : public FidoRequestHandlerBase::Observer {
     NOTREACHED();
   }
   void FinishCollectToken() override { NOTREACHED(); }
+  void OnRetryUserVerification(int attempts) override {}
+  void OnInternalUserVerificationLocked() override {}
   void SetMightCreateResidentCredential(bool v) override {}
 
   bool controls_dispatch_ = false;
@@ -843,7 +845,7 @@ TEST(GetAssertionRequestHandlerWinTest, TestWinUsbDiscovery) {
     EXPECT_EQ(handler->AuthenticatorsForTesting().size(), 1u);
     EXPECT_EQ(handler->AuthenticatorsForTesting()
                   .begin()
-                  ->second->IsWinNativeApiAuthenticator(),
+                  ->second->authenticator->IsWinNativeApiAuthenticator(),
               enable_api);
   }
 }

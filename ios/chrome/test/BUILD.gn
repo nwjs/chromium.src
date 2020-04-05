@@ -6,7 +6,6 @@ import("//ios/build/config.gni")
 import("//ios/chrome/features.gni")
 import("//ios/public/provider/chrome/browser/build_config.gni")
 import("//ios/third_party/features.gni")
-import("//ios/third_party/firebase/firebase.gni")
 import("//testing/test.gni")
 
 # All tests needs to be listed in that target to be built as part of
@@ -53,6 +52,7 @@ source_set("test_support") {
     "//ios/chrome/browser/browser_state:browser_state_impl",
     "//ios/chrome/browser/content_settings",
     "//ios/chrome/browser/prefs:browser_prefs",
+    "//ios/components/webui:url_constants",
     "//ios/public/provider/chrome/browser",
     "//ios/public/provider/chrome/browser:test_support",
     "//ios/web",
@@ -178,11 +178,13 @@ test("ios_chrome_unittests") {
     "//ios/chrome/browser/complex_tasks:unit_tests",
     "//ios/chrome/browser/crash_report:unit_tests",
     "//ios/chrome/browser/crash_report/breadcrumbs:unit_tests",
+    "//ios/chrome/browser/credential_provider:unit_tests",
     "//ios/chrome/browser/device_sharing:unit_tests",
     "//ios/chrome/browser/download:unit_tests",
     "//ios/chrome/browser/drag_and_drop:unit_tests",
     "//ios/chrome/browser/favicon:unit_tests",
     "//ios/chrome/browser/find_in_page:unit_tests",
+    "//ios/chrome/browser/flags:unit_tests",
     "//ios/chrome/browser/geolocation:unit_tests",
     "//ios/chrome/browser/history:unit_tests",
     "//ios/chrome/browser/infobars:unit_tests",
@@ -190,6 +192,7 @@ test("ios_chrome_unittests") {
     "//ios/chrome/browser/infobars/overlays/browser_agent:unit_tests",
     "//ios/chrome/browser/infobars/overlays/browser_agent/interaction_handlers/common:unit_tests",
     "//ios/chrome/browser/infobars/overlays/browser_agent/interaction_handlers/passwords:unit_tests",
+    "//ios/chrome/browser/interstitials:unit_tests",
     "//ios/chrome/browser/itunes_urls:unit_tests",
     "//ios/chrome/browser/json_parser:unit_tests",
     "//ios/chrome/browser/language:unit_tests",
@@ -204,8 +207,10 @@ test("ios_chrome_unittests") {
     "//ios/chrome/browser/overlays:unit_tests",
     "//ios/chrome/browser/overscroll_actions:unit_tests",
     "//ios/chrome/browser/passwords:unit_tests",
+    "//ios/chrome/browser/policy:unit_tests",
     "//ios/chrome/browser/prerender:unit_tests",
     "//ios/chrome/browser/reading_list:unit_tests",
+    "//ios/chrome/browser/safe_browsing:unit_tests",
     "//ios/chrome/browser/safe_mode:unit_tests",
     "//ios/chrome/browser/search_engines:unit_tests",
     "//ios/chrome/browser/send_tab_to_self:unit_tests",
@@ -224,6 +229,10 @@ test("ios_chrome_unittests") {
     "//ios/chrome/browser/ui/app_launcher:unit_tests",
     "//ios/chrome/browser/ui/authentication:unit_tests",
     "//ios/chrome/browser/ui/authentication/cells:unit_tests",
+    "//ios/chrome/browser/ui/authentication/signin:unit_tests",
+    "//ios/chrome/browser/ui/authentication/signin/add_account_signin:unit_tests",
+    "//ios/chrome/browser/ui/authentication/signin/advanced_settings_signin:unit_tests",
+    "//ios/chrome/browser/ui/authentication/signin/user_signin:unit_tests",
     "//ios/chrome/browser/ui/autofill/cells:unit_tests",
     "//ios/chrome/browser/ui/autofill/manual_fill:unit_tests",
     "//ios/chrome/browser/ui/badges:unit_tests",
@@ -242,7 +251,6 @@ test("ios_chrome_unittests") {
     "//ios/chrome/browser/ui/context_menu:unit_tests",
     "//ios/chrome/browser/ui/dialogs:unit_tests",
     "//ios/chrome/browser/ui/dialogs:unit_tests_internal",
-    "//ios/chrome/browser/ui/dialogs/non_modal:unit_tests",
     "//ios/chrome/browser/ui/download:unit_tests",
     "//ios/chrome/browser/ui/elements:unit_tests",
     "//ios/chrome/browser/ui/fancy_ui:unit_tests",
@@ -268,12 +276,12 @@ test("ios_chrome_unittests") {
     "//ios/chrome/browser/ui/overlays/infobar_banner/passwords:unit_tests",
     "//ios/chrome/browser/ui/overlays/infobar_modal:unit_tests",
     "//ios/chrome/browser/ui/overlays/infobar_modal/passwords:unit_tests",
+    "//ios/chrome/browser/ui/overlays/test_modality:unit_tests",
     "//ios/chrome/browser/ui/overlays/web_content_area/app_launcher:unit_tests",
     "//ios/chrome/browser/ui/overlays/web_content_area/http_auth_dialogs:unit_tests",
     "//ios/chrome/browser/ui/overlays/web_content_area/java_script_dialogs:unit_tests",
     "//ios/chrome/browser/ui/popup_menu:unit_tests",
     "//ios/chrome/browser/ui/presenters:unit_tests",
-    "//ios/chrome/browser/ui/promos:unit_tests",
     "//ios/chrome/browser/ui/reading_list:unit_tests",
     "//ios/chrome/browser/ui/recent_tabs:unit_tests",
     "//ios/chrome/browser/ui/sad_tab:unit_tests",
@@ -285,6 +293,7 @@ test("ios_chrome_unittests") {
     "//ios/chrome/browser/ui/settings/credit_card_scanner:unit_tests",
     "//ios/chrome/browser/ui/settings/language:unit_tests",
     "//ios/chrome/browser/ui/settings/password:unit_tests",
+    "//ios/chrome/browser/ui/settings/privacy:unit_tests",
     "//ios/chrome/browser/ui/settings/sync:unit_tests",
     "//ios/chrome/browser/ui/side_swipe:unit_tests",
     "//ios/chrome/browser/ui/tab_grid:unit_tests",
@@ -309,14 +318,13 @@ test("ios_chrome_unittests") {
     "//ios/chrome/browser/web_state_list/web_usage_enabler:unit_tests",
     "//ios/chrome/browser/webui:unit_tests",
     "//ios/chrome/common:unit_tests",
+    "//ios/chrome/common/credential_provider:unit_tests",
+    "//ios/chrome/common/ui/reauthentication:unit_tests",
+    "//ios/chrome/common/ui/util:unit_tests",
     "//ios/chrome/content_widget_extension:unit_tests",
     "//ios/chrome/search_widget_extension:unit_tests",
     "//ios/testing:http_server_bundle_data",
   ]
-  if (ios_enable_firebase_sdk) {
-    # This is required here so Firebase SDK can supply ldflags to app bundle.
-    deps += [ "//ios/third_party/firebase" ]
-  }
 
   assert_no_deps = ios_assert_no_deps
 }

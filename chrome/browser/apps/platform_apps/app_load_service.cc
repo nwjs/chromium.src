@@ -141,7 +141,7 @@ void AppLoadService::OnExtensionUnloaded(
   extensions::ExtensionPrefs* extension_prefs =
       extensions::ExtensionPrefs::Get(browser_context);
   if (WasUnloadedForReload(extension->id(), reason) &&
-      (extension->is_nwjs_app() || extension_prefs->IsActive(extension->id())) &&
+      extension_prefs->IsActive(extension->id()) &&
       !HasPostReloadAction(extension->id())) {
     post_reload_actions_[extension->id()].action_type = LAUNCH_FOR_RELOAD;
   }

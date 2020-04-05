@@ -7,6 +7,7 @@
 #include "ash/focus_cycler.h"
 #include "ash/root_window_controller.h"
 #include "ash/shelf/shelf.h"
+#include "ash/shelf/shelf_layout_manager.h"
 #include "ash/shelf/shelf_widget.h"
 #include "ash/shell.h"
 #include "ash/system/status_area_widget.h"
@@ -27,21 +28,16 @@ namespace ash {
 
 namespace {
 
-constexpr int kAnimationDurationMs = 250;
-
-constexpr int kPaddingBetweenWidgetsNewUi = 8;
-
-constexpr int kPaddingBetweenWidgetAndRightScreenEdge = 6;
+constexpr int kPaddingBetweenItems = 8;
 
 class StatusAreaWidgetDelegateAnimationSettings
     : public ui::ScopedLayerAnimationSettings {
  public:
   explicit StatusAreaWidgetDelegateAnimationSettings(ui::Layer* layer)
       : ui::ScopedLayerAnimationSettings(layer->GetAnimator()) {
-    SetTransitionDuration(
-        base::TimeDelta::FromMilliseconds(kAnimationDurationMs));
+    SetTransitionDuration(ShelfConfig::Get()->shelf_animation_duration());
     SetPreemptionStrategy(ui::LayerAnimator::IMMEDIATELY_ANIMATE_TO_NEW_TARGET);
-    SetTweenType(gfx::Tween::EASE_IN_OUT);
+    SetTweenType(gfx::Tween::EASE_OUT);
   }
 
   ~StatusAreaWidgetDelegateAnimationSettings() override = default;
@@ -85,8 +81,6 @@ StatusAreaWidgetDelegate::StatusAreaWidgetDelegate(Shelf* shelf)
   DCHECK(shelf_);
   set_owned_by_client();  // Deleted by DeleteDelegate().
 
-  ShelfConfig::Get()->AddObserver(this);
-
   // Allow the launcher to surrender the focus to another window upon
   // navigation completion by the user.
   set_allow_deactivate_on_esc(true);
@@ -94,9 +88,7 @@ StatusAreaWidgetDelegate::StatusAreaWidgetDelegate(Shelf* shelf)
   layer()->SetFillsBoundsOpaquely(false);
 }
 
-StatusAreaWidgetDelegate::~StatusAreaWidgetDelegate() {
-  ShelfConfig::Get()->RemoveObserver(this);
-}
+StatusAreaWidgetDelegate::~StatusAreaWidgetDelegate() = default;
 
 void StatusAreaWidgetDelegate::SetFocusCyclerForTesting(
     const FocusCycler* focus_cycler) {
@@ -135,6 +127,14 @@ const char* StatusAreaWidgetDelegate::GetClassName() const {
   return "ash/StatusAreaWidgetDelegate";
 }
 
+views::Widget* StatusAreaWidgetDelegate::GetWidget() {
+  return View::GetWidget();
+}
+
+const views::Widget* StatusAreaWidgetDelegate::GetWidget() const {
+  return View::GetWidget();
+}
+
 void StatusAreaWidgetDelegate::OnGestureEvent(ui::GestureEvent* event) {
   views::Widget* target_widget =
       static_cast<views::View*>(event->target())->GetWidget();
@@ -166,11 +166,7 @@ void StatusAreaWidgetDelegate::DeleteDelegate() {
   delete this;
 }
 
-void StatusAreaWidgetDelegate::OnShelfConfigUpdated() {
-  UpdateLayout();
-}
-
-void StatusAreaWidgetDelegate::UpdateLayout() {
+void StatusAreaWidgetDelegate::CalculateTargetBounds() {
   // Use a grid layout so that the trays can be centered in each cell, and
   // so that the widget gets laid out correctly when tray sizes change.
   views::GridLayout* layout =
@@ -213,27 +209,33 @@ void StatusAreaWidgetDelegate::UpdateLayout() {
       layout->AddExistingView(child);
     }
   }
+  target_bounds_.set_size(GetPreferredSize());
+}
 
-  layer()->GetAnimator()->StopAnimating();
-  StatusAreaWidgetDelegateAnimationSettings settings(layer());
+gfx::Rect StatusAreaWidgetDelegate::GetTargetBounds() const {
+  return target_bounds_;
+}
+
+void StatusAreaWidgetDelegate::UpdateLayout(bool animate) {
+  if (animate)
+    StatusAreaWidgetDelegateAnimationSettings settings(layer());
 
   Layout();
-  UpdateWidgetSize();
 }
 
 void StatusAreaWidgetDelegate::ChildPreferredSizeChanged(View* child) {
-  // Need to resize the window when trays or items are added/removed.
+  const gfx::Size current_size = size();
+  const gfx::Size new_size = GetPreferredSize();
+  if (new_size == current_size)
+    return;
+  // Need to re-layout the shelf when trays or items are added/removed.
   StatusAreaWidgetDelegateAnimationSettings settings(layer());
-  UpdateWidgetSize();
+
+  shelf_->shelf_layout_manager()->LayoutShelf(/*animate=*/false);
 }
 
 void StatusAreaWidgetDelegate::ChildVisibilityChanged(View* child) {
-  UpdateLayout();
-}
-
-void StatusAreaWidgetDelegate::UpdateWidgetSize() {
-  if (GetWidget())
-    GetWidget()->SetSize(GetPreferredSize());
+  shelf_->shelf_layout_manager()->LayoutShelf(/*animate=*/true);
 }
 
 void StatusAreaWidgetDelegate::SetBorderOnChild(views::View* child,
@@ -246,17 +248,13 @@ void StatusAreaWidgetDelegate::SetBorderOnChild(views::View* child,
   int left_edge = 0;
   int bottom_edge = vertical_padding;
   // Add some extra space so that borders don't overlap. This padding between
-  // items also takes care of padding at the edge of the shelf.
-  int right_edge = kPaddingBetweenWidgetsNewUi;
+  // items also takes care of padding at the edge of the shelf (unless hotseat
+  // is enabled).
+  int right_edge = kPaddingBetweenItems;
 
-  const bool tablet_mode =
-      Shell::Get()->tablet_mode_controller() &&
-      Shell::Get()->tablet_mode_controller()->InTabletMode();
-
-  if (is_child_on_edge && chromeos::switches::ShouldShowShelfHotseat() &&
-      !tablet_mode) {
-    right_edge = kPaddingBetweenWidgetAndRightScreenEdge;
-  }
+  if (is_child_on_edge && chromeos::switches::ShouldShowShelfHotseat())
+    right_edge = ShelfConfig::Get()->control_button_edge_spacing(
+        true /* is_primary_axis_edge */);
 
   // Swap edges if alignment is not horizontal (bottom-to-top).
   if (!shelf_->IsHorizontalAlignment()) {

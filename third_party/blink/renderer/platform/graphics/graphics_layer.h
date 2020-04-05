@@ -47,6 +47,7 @@
 #include "third_party/blink/renderer/platform/graphics/image_orientation.h"
 #include "third_party/blink/renderer/platform/graphics/paint/display_item_client.h"
 #include "third_party/blink/renderer/platform/graphics/paint/paint_controller.h"
+#include "third_party/blink/renderer/platform/graphics/paint/raster_invalidator.h"
 #include "third_party/blink/renderer/platform/graphics/paint_invalidation_reason.h"
 #include "third_party/blink/renderer/platform/graphics/squashing_disallowed_reasons.h"
 #include "third_party/blink/renderer/platform/heap/handle.h"
@@ -129,9 +130,9 @@ class PLATFORM_EXPORT GraphicsLayer : public DisplayItemClient,
   bool DrawsContent() const { return draws_content_; }
   void SetDrawsContent(bool);
 
-  // False if no hit test display items will be painted onto this GraphicsLayer.
-  // This is different from |DrawsContent| because hit test display items are
-  // internal to blink and are not copied to the cc::Layer's display list.
+  // False if no hit test data will be recorded onto this GraphicsLayer.
+  // This is different from |DrawsContent| because hit test data are internal
+  // to blink and are not copied to the cc::Layer's display list.
   bool PaintsHitTest() const { return paints_hit_test_; }
   void SetPaintsHitTest(bool paints) { paints_hit_test_ = paints; }
 
@@ -199,7 +200,7 @@ class PLATFORM_EXPORT GraphicsLayer : public DisplayItemClient,
   IntRect InterestRect();
   bool PaintRecursively();
   // Returns true if this layer is repainted.
-  bool Paint(GraphicsContext::DisabledMode = GraphicsContext::kNothingDisabled);
+  bool Paint();
 
   PaintController& GetPaintController() const;
 
@@ -264,9 +265,7 @@ class PLATFORM_EXPORT GraphicsLayer : public DisplayItemClient,
   void UpdateSafeOpaqueBackgroundColor();
 
   // Returns true if PaintController::PaintArtifact() changed and needs commit.
-  bool PaintWithoutCommit(
-      GraphicsContext::DisabledMode = GraphicsContext::kNothingDisabled,
-      const IntRect* interest_rect = nullptr);
+  bool PaintWithoutCommit(const IntRect* interest_rect = nullptr);
 
   // Adds a child without calling NotifyChildListChange(), so that adding
   // children can be batched before updating.
@@ -335,6 +334,7 @@ class PLATFORM_EXPORT GraphicsLayer : public DisplayItemClient,
   std::unique_ptr<LayerState> contents_layer_state_;
 
   std::unique_ptr<RasterInvalidator> raster_invalidator_;
+  RasterInvalidator::RasterInvalidationFunction raster_invalidation_function_;
 
   DOMNodeId owner_node_id_ = kInvalidDOMNodeId;
   CompositingReasons compositing_reasons_ = CompositingReason::kNone;

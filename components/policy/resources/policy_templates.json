@@ -737,6 +737,7 @@
         'SafeBrowsingEnabled',
         'SafeBrowsingExtendedReportingEnabled',
         'SafeBrowsingExtendedReportingOptInAllowed',
+        'SafeBrowsingProtectionLevel',
         'SafeBrowsingWhitelistDomains',
         'PasswordProtectionWarningTrigger',
         'PasswordProtectionLoginURLs',
@@ -769,6 +770,7 @@
         'ReportUserIDData',
         'ReportExtensionsAndPluginsData',
         'ReportSafeBrowsingData',
+        'CloudExtensionRequestEnabled',
         'CloudReportingEnabled',
       ],
     },
@@ -853,6 +855,9 @@
         'ReportDeviceOsUpdateStatus',
         'ReportDeviceBoardStatus',
         'ReportDeviceCpuInfo',
+        'ReportDeviceTimezoneInfo',
+        'ReportDeviceMemoryInfo',
+        'ReportDeviceBacklightInfo',
         'ReportDevicePowerStatus',
         'ReportDeviceStorageStatus',
         'ReportUploadFrequency',
@@ -899,6 +904,7 @@
         'DeviceRollbackToTargetVersion',
         'DeviceRollbackAllowedMilestones',
         'DeviceQuickFixBuildToken',
+        'MinimumChromeVersionEnforced',
       ],
     },
     {
@@ -1081,6 +1087,26 @@
         'PerAppTimeLimits',
         'PerAppTimeLimitsWhitelist',
         'UsageTimeLimit',
+      ],
+    },
+    {
+      'name': 'PrivacyScreen',
+      'type': 'group',
+      'caption': '''Privacy screen settings''',
+      'desc': '''Controls user and device policies for the privacy screen feature.''',
+      'policies': [
+        'DeviceLoginScreenPrivacyScreenEnabled',
+        'PrivacyScreenEnabled',
+      ],
+    },
+    {
+      'name': 'CertificateManagement',
+      'type': 'group',
+      'caption': '''Certificate management settings''',
+      'desc': '''Controls user and device policies for certificate management.''',
+      'policies': [
+        'RequiredClientCertificateForDevice',
+        'RequiredClientCertificateForUser',
       ],
     },
     {
@@ -1271,6 +1297,31 @@
       If you enable or disable this setting, users cannot change or override this setting in <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph>.
 
       If this policy is left not set, this will be enabled but the user will be able to change it.''',
+    },
+    {
+      'name': 'NativeWindowOcclusionEnabled',
+      'owners': ['file://components/policy/resources/OWNERS'],
+      'type': 'main',
+      'schema': { 'type': 'boolean' },
+      'supported_on': [
+        'chrome.win:82-',
+      ],
+      'features': {
+        'can_be_recommended': False,
+        'dynamic_refresh': True,
+        'per_profile': False,
+      },
+      'example_value': True,
+      'id': 675,
+      'caption': '''Enable Native Window Occlusion''',
+      'tags': [],
+      'desc': '''Enables native window occlusion in <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph>.
+
+      If you enable this setting, to reduce CPU and power consumption <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> will detect when a window is covered by other windows, and will suspend work painting pixels.
+
+      If you disable this setting <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> will not detect when a window is covered by other windows.
+
+      If this policy is left not set, occlusion detection will be enabled.''',
     },
     {
       'name': 'DnsPrefetchingEnabled',
@@ -1722,9 +1773,9 @@
       'tags': [],
       'desc': '''Configures the required client domain names that will be imposed on remote access clients and prevents users from changing it.
 
-          If this setting is enabled, then only clients from one of the specified domains can connect to the host.
+          If this setting is enabled and set to one or more domains, then only clients from one of the specified domains can connect to the host.
 
-          If this setting is disabled or not set, then the default policy for the connection type is applied. For remote assistance, this allows clients from any domain to connect to the host; for anytime remote access, only the host owner can connect.
+          If this setting is disabled, not set, or set to an empty list, then the default policy for the connection type is applied. For remote assistance, this allows clients from any domain to connect to the host; for anytime remote access, only the host owner can connect.
 
           This setting will override RemoteAccessHostClientDomain, if present.
 
@@ -1788,9 +1839,9 @@
       'tags': [],
       'desc': '''Configures the required host domain names that will be imposed on remote access hosts and prevents users from changing it.
 
-          If this setting is enabled, then hosts can be shared only using accounts registered on one of the specified domain names.
+          If this setting is enabled and set to one or more domains, then hosts can be shared only using accounts registered on one of the specified domain names.
 
-          If this setting is disabled or not set, then hosts can be shared using any account.
+          If this setting is disabled, not set, or set to an empty list, then hosts can be shared using any account.
 
           This setting will override RemoteAccessHostDomain, if present.
 
@@ -2228,7 +2279,7 @@
       'id': 525,
       'caption': '''Restrict PIN printing mode''',
       'tags': [],
-      'desc': '''Restricts PIN printing mode. Unset policy is treated as no restriction. If the mode is unavailable this policy is ignored. Note that PIN printing feature is enabled only for printers that use one of IPPS, USB or IPP-over-USB protocols ''',
+      'desc': '''Restricts PIN printing mode. Unset policy is treated as no restriction. If the mode is unavailable this policy is ignored. Note that PIN printing feature is enabled only for printers that use one of IPPS, HTTPS, USB or IPP-over-USB protocols.''',
     },
     {
       'name': 'PrintingAllowedBackgroundGraphicsModes',
@@ -2672,11 +2723,14 @@
         'dynamic_refresh': True,
         'per_profile': True,
       },
+      'deprecated': True,
       'example_value': True,
       'id': 14,
       'caption': '''Enable Safe Browsing''',
       'tags': ['system-security'],
-      'desc': '''Enables <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph>'s Safe Browsing feature and prevents users from changing this setting.
+      'desc': '''This policy is deprecated in M83, please use SafeBrowsingProtectionLevel instead.
+
+      Enables <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph>'s Safe Browsing feature and prevents users from changing this setting.
 
       If you enable this setting, Safe Browsing is always active.
 
@@ -2688,7 +2742,59 @@
 
       See https://developers.google.com/safe-browsing for more info on Safe Browsing.
 
-      This policy is available only on Windows instances that are joined to a <ph name="MS_AD_NAME">Microsoft® Active Directory®</ph> domain. or Windows 10 Pro or Enterprise instances that enrolled for device management.''',
+      This policy is available only on Windows instances that are joined to a <ph name="MS_AD_NAME">Microsoft® Active Directory®</ph> domain. or Windows 10 Pro or Enterprise instances that enrolled for device management.
+
+      If the policy SafeBrowsingProtectionLevel is set, the value of the policy SafeBrowsingEnabled is ignored.''',
+    },
+    {
+      'name': 'SafeBrowsingProtectionLevel',
+      'owners': ['vakh@chromium.org', 'file://components/safe_browsing/OWNERS'],
+      'type': 'int-enum',
+      'schema': {
+        'type': 'integer',
+        'enum': [ 0, 1, 2 ],
+      },
+      'items': [
+        {
+          'name': 'NoProtection',
+          'value': 0,
+          'caption': '''Safe Browsing is never active.''',
+        },
+        {
+          'name': 'StandardProtection',
+          'value': 1,
+          'caption': '''Safe Browsing is active in the standard mode.''',
+        },
+        {
+          'name': 'EnhancedProtection',
+          'value': 2,
+          'caption': '''Safe Browsing is active in the enhanced mode. This mode provides better security, but requires sharing more browsing information with Google.''',
+        },
+      ],
+      'supported_on': ['chrome.*:83-', 'chrome_os:83-'],
+      'future': True,
+      'features': {
+        'can_be_recommended': True,
+        'dynamic_refresh': True,
+        'per_profile': True,
+      },
+      'example_value': 2,
+      'id': 684,
+      'caption': '''Safe Browsing Protection Level''',
+      'tags': ['system-security'],
+      'desc': '''Allows you to control whether <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph>'s Safe Browsing feature is enabled and the mode it operates in.
+
+      If this policy is set to 'NoProtection' (value 0), Safe Browsing is never active.
+
+      If this policy is set to 'StandardProtection' (value 1, which is the default), Safe Browsing is always active in the standard mode.
+
+      If this policy is set to 'EnhancedProtection' (value 2), Safe Browsing is always active in the enhanced mode, which provides better security, but requires sharing more browsing information with Google.
+
+      If you set this policy as mandatory, users cannot change or override the Safe Browsing setting in <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph>.
+
+      If this policy is left not set, Safe Browsing will operate in Standard Protection mode but users can change this setting.
+
+      See https://developers.google.com/safe-browsing for more info on Safe Browsing.''',
     },
     {
       'name': 'MetricsReportingEnabled',
@@ -3044,7 +3150,7 @@
       'id': 649,
       'caption': '''List of types that should be excluded from synchronization''',
       'tags': ['system-security'],
-      'desc': '''If this policy is set all specified data types will be excluded from syncronzation both for Google Sync as well as for roaming profile synchronization. This can be beneficial to reduce the size of the roaming profile or limit the type of data uploaded to the Google Sync Servers.
+      'desc': '''If this policy is set all specified data types will be excluded from synchronization both for Google Sync as well as for roaming profile synchronization. This can be beneficial to reduce the size of the roaming profile or limit the type of data uploaded to the Google Sync Servers.
 
       The current data types for this policy are: "bookmarks", "preferences", "passwords", "autofill", "themes", "typedUrls", "extensions", "apps", "tabs", "wifiConfiguration". Those names are case sensitive!''',
     },
@@ -4422,7 +4528,7 @@
       'owners': ['file://components/policy/resources/OWNERS'],
       'type': 'main',
       'schema': { 'type': 'boolean' },
-      'supported_on': ['chrome.*:10-', 'chrome_os:11-'],
+      'supported_on': ['chrome.*:10-', 'chrome_os:11-', 'android:83-'],
       'features': {
         'can_be_recommended': True,
         'dynamic_refresh': True,
@@ -4947,7 +5053,7 @@
 
           Automatic playback is only allowed for domains explictly listed in the <ph name="PLUGINS_ALLOWED_FOR_URLS_POLICY_NAME">PluginsAllowedForUrls</ph> policy. If you want to enabled automatic playback for all sites consider adding http://* and https://* to this list.
 
-          If this policy is left not set, the user will be able to change this setting manually.''',
+          If this policy is left not set, 'BlockPlugins' will be used and the user will be able to change this setting manually.''',
     },
     {
       'name': 'DefaultPopupsSetting',
@@ -5313,7 +5419,9 @@
 
           If this policy is left not set the global default value will be used for all sites either from the 'DefaultWebUsbGuardSetting' policy if it is set, or the user's personal configuration otherwise.
 
-          URL patterns in this policy should not clash with ones configured via WebUsbBlockedForUrls. It is unspecified which of the two policies takes precedence if a URL matches with both.''',
+          URL patterns in this policy should not clash with ones configured via WebUsbBlockedForUrls. It is unspecified which of the two policies takes precedence if a URL matches with both.
+
+          For detailed information on valid url patterns, please see https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns.''',
     },
     {
       'name': 'WebUsbBlockedForUrls',
@@ -5336,7 +5444,9 @@
 
           If this policy is left not set the global default value will be used for all sites either from the 'DefaultWebUsbGuardSetting' policy if it is set, or the user's personal configuration otherwise.
 
-          URL patterns in this policy should not clash with ones configured via WebUsbAskForUrls. It is unspecified which of the two policies takes precedence if a URL matches with both.''',
+          URL patterns in this policy should not clash with ones configured via WebUsbAskForUrls. It is unspecified which of the two policies takes precedence if a URL matches with both.
+
+          For detailed information on valid url patterns, please see https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns.''',
     },
     {
       'name': 'AutoSelectCertificateForUrls',
@@ -5429,7 +5539,9 @@
 
       The value must be an array of stringified JSON dictionaries. Each dictionary must have the form <ph name="DEVICE_LOGIN_SCREEN_AUTO_SELECT_CERTIFICATE_FOR_URLS_EXAMPLE">'{ "pattern": "$URL_PATTERN", "filter" : $FILTER }'</ph>, where <ph name="URL_PATTERN_PLACEHOLDER">$URL_PATTERN</ph> is a content setting pattern. <ph name="FILTER_PLACEHOLDER">$FILTER</ph> restricts from which client certificates the browser will automatically select. Independent of the filter, only certificates will be selected that match the server's certificate request. If <ph name="FILTER_PLACEHOLDER">$FILTER</ph> has the form <ph name="JSON_DICTIONARY_EXAMPLE">'{ "ISSUER": { "CN": "$ISSUER_CN" } }'</ph>, additionally only client certificates are selected that are issued by a certificate with the CommonName <ph name="ISSUER_CN_PLACEHOLDER">$ISSUER_CN</ph>. If <ph name="FILTER_PLACEHOLDER">$FILTER</ph> is the empty dictionary {}, the selection of client certificates is not additionally restricted.
 
-      If this policy is left not set, no auto-selection will be done for any site.''',
+      If this policy is left not set, no auto-selection will be done for any site.
+
+      For detailed information on valid url patterns, please see https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns.''',
     },
     {
       'name': 'CookiesAllowedForUrls',
@@ -5456,7 +5568,9 @@
 
           If this policy is left not set the global default value will be used for all sites either from the 'DefaultCookiesSetting' policy if it is set, or the user's personal configuration otherwise.
 
-          See also policies 'CookiesBlockedForUrls' and 'CookiesSessionOnlyForUrls'. Note that there must be no conflicting URL patterns between these three policies - it is unspecified which policy takes precedence.''',
+          See also policies 'CookiesBlockedForUrls' and 'CookiesSessionOnlyForUrls'. Note that there must be no conflicting URL patterns between these three policies - it is unspecified which policy takes precedence.
+
+          For detailed information on valid url patterns, please see https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns.''',
     },
     {
       'name': 'CookiesBlockedForUrls',
@@ -5483,7 +5597,9 @@
 
           If this policy is left not set the global default value will be used for all sites either from the 'DefaultCookiesSetting' policy if it is set, or the user's personal configuration otherwise.
 
-          See also policies 'CookiesAllowedForUrls' and 'CookiesSessionOnlyForUrls'. Note that there must be no conflicting URL patterns between these three policies - it is unspecified which policy takes precedence.''',
+          See also policies 'CookiesAllowedForUrls' and 'CookiesSessionOnlyForUrls'. Note that there must be no conflicting URL patterns between these three policies - it is unspecified which policy takes precedence.
+
+          For detailed information on valid url patterns, please see https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns.''',
     },
     {
       'name': 'CookiesSessionOnlyForUrls',
@@ -5514,7 +5630,9 @@
 
           See also policies 'CookiesAllowedForUrls' and 'CookiesBlockedForUrls'. Note that there must be no conflicting URL patterns between these three policies - it is unspecified which policy takes precedence.
 
-          If the "RestoreOnStartup" policy is set to restore URLs from previous sessions this policy will not be respected and cookies will be stored permanently for those sites.''',
+          If the "RestoreOnStartup" policy is set to restore URLs from previous sessions this policy will not be respected and cookies will be stored permanently for those sites.
+
+          For detailed information on valid url patterns, please see https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns.''',
     },
     {
       'name': 'ImagesAllowedForUrls',
@@ -5537,7 +5655,9 @@
 
           If this policy is left not set the global default value will be used for all sites either from the 'DefaultImagesSetting' policy if it is set, or the user's personal configuration otherwise.
 
-          Note that previously this policy was erroneously enabled on Android, but this functionality has never been fully supported on Android.''',
+          Note that previously this policy was erroneously enabled on Android, but this functionality has never been fully supported on Android.
+
+          For detailed information on valid url patterns, please see https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns.''',
     },
     {
       'name': 'ImagesBlockedForUrls',
@@ -5560,7 +5680,9 @@
 
           If this policy is left not set the global default value will be used for all sites either from the 'DefaultImagesSetting' policy if it is set, or the user's personal configuration otherwise.
 
-          Note that previously this policy was erroneously enabled on Android, but this functionality has never been fully supported on Android.''',
+          Note that previously this policy was erroneously enabled on Android, but this functionality has never been fully supported on Android.
+
+          For detailed information on valid url patterns, please see https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns.''',
     },
     {
       'name': 'JavaScriptAllowedForUrls',
@@ -5581,7 +5703,9 @@
       'tags': [],
       'desc': '''Allows you to set a list of url patterns that specify sites which are allowed to run JavaScript.
 
-          If this policy is left not set the global default value will be used for all sites either from the 'DefaultJavaScriptSetting' policy if it is set, or the user's personal configuration otherwise.''',
+          If this policy is left not set the global default value will be used for all sites either from the 'DefaultJavaScriptSetting' policy if it is set, or the user's personal configuration otherwise.
+
+          For detailed information on valid url patterns, please see https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns.''',
     },
     {
       'name': 'JavaScriptBlockedForUrls',
@@ -5602,7 +5726,9 @@
       'tags': [],
       'desc': '''Allows you to set a list of url patterns that specify sites which are not allowed to run JavaScript.
 
-          If this policy is left not set the global default value will be used for all sites either from the 'DefaultJavaScriptSetting' policy if it is set, or the user's personal configuration otherwise.''',
+          If this policy is left not set the global default value will be used for all sites either from the 'DefaultJavaScriptSetting' policy if it is set, or the user's personal configuration otherwise.
+
+          For detailed information on valid url patterns, please see https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns.''',
     },
     {
       'name': 'KeygenAllowedForUrls',
@@ -5623,7 +5749,9 @@
       'tags': ['system-security', 'website-sharing', 'local-data-access'],
       'desc': '''Allows you to set a list of url patterns that specify sites which are allowed to use key generation. If a url pattern is in 'KeygenBlockedForUrls', that overrides these exceptions.
 
-          If this policy is left not set the global default value will be used for all sites either from the 'DefaultKeygenSetting' policy if it is set, or the user's personal configuration otherwise.''',
+          If this policy is left not set the global default value will be used for all sites either from the 'DefaultKeygenSetting' policy if it is set, or the user's personal configuration otherwise.
+
+          For detailed information on valid url patterns, please see https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns.''',
     },
     {
       'name': 'KeygenBlockedForUrls',
@@ -5644,7 +5772,9 @@
       'tags': ['system-security', 'website-sharing', 'local-data-access'],
       'desc': '''Allows you to set a list of url patterns that specify sites which are not allowed to use key generation. If a url pattern is in 'KeygenAllowedForUrls', this policy overrides these exceptions.
 
-          If this policy is left not set the global default value will be used for all sites either from the 'DefaultKeygenSetting' policy if it is set, or the user's personal configuration otherwise.''',
+          If this policy is left not set the global default value will be used for all sites either from the 'DefaultKeygenSetting' policy if it is set, or the user's personal configuration otherwise.
+
+          For detailed information on valid url patterns, please see https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns.''',
     },
     {
       'name': 'LegacySameSiteCookieBehaviorEnabled',
@@ -5729,7 +5859,9 @@
       'tags': [],
       'desc': '''Allows you to set a list of url patterns that specify sites which are allowed to run the <ph name="FLASH_PLUGIN_NAME">Flash</ph> plugin.
 
-          If this policy is left not set the global default value will be used for all sites either from the 'DefaultPluginsSetting' policy if it is set, or the user's personal configuration otherwise.''',
+          If this policy is left not set the global default value will be used for all sites either from the 'DefaultPluginsSetting' policy if it is set, or the user's personal configuration otherwise.
+
+          For detailed information on valid url patterns, please see https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns.''',
     },
     {
       'name': 'PluginsBlockedForUrls',
@@ -5750,7 +5882,9 @@
       'tags': [],
       'desc': '''Allows you to set a list of url patterns that specify sites which are not allowed to run the <ph name="FLASH_PLUGIN_NAME">Flash</ph> plugin.
 
-          If this policy is left not set the global default value will be used for all sites either from the 'DefaultPluginsSetting' policy if it is set, or the user's personal configuration otherwise.''',
+          If this policy is left not set the global default value will be used for all sites either from the 'DefaultPluginsSetting' policy if it is set, or the user's personal configuration otherwise.
+
+          For detailed information on valid url patterns, please see https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns.''',
     },
     {
       'name': 'PopupsAllowedForUrls',
@@ -5775,7 +5909,9 @@
       'tags': [],
       'desc': '''Allows you to set a list of url patterns that specify sites which are allowed to open popups.
 
-          If this policy is left not set the global default value will be used for all sites either from the 'DefaultPopupsSetting' policy if it is set, or the user's personal configuration otherwise.''',
+          If this policy is left not set the global default value will be used for all sites either from the 'DefaultPopupsSetting' policy if it is set, or the user's personal configuration otherwise.
+
+          For detailed information on valid url patterns, please see https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns.''',
     },
     {
       'name': 'RegisteredProtocolHandlers',
@@ -5841,7 +5977,9 @@
       'tags': [],
       'desc': '''Allows you to set a list of url patterns that specify sites which are not allowed to open popups.
 
-          If this policy is left not set the global default value will be used for all sites either from the 'DefaultPopupsSetting' policy if it is set, or the user's personal configuration otherwise.''',
+          If this policy is left not set the global default value will be used for all sites either from the 'DefaultPopupsSetting' policy if it is set, or the user's personal configuration otherwise.
+
+          For detailed information on valid url patterns, please see https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns.''',
     },
     {
       'name': 'NotificationsAllowedForUrls',
@@ -5862,7 +6000,9 @@
       'tags': [],
       'desc': '''Allows you to set a list of url patterns that specify sites which are allowed to display notifications.
 
-          If this policy is left not set the global default value will be used for all sites either from the 'DefaultNotificationsSetting' policy if it is set, or the user's personal configuration otherwise.''',
+          If this policy is left not set the global default value will be used for all sites either from the 'DefaultNotificationsSetting' policy if it is set, or the user's personal configuration otherwise.
+
+          For detailed information on valid url patterns, please see https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns.''',
     },
     {
       'name': 'NotificationsBlockedForUrls',
@@ -5883,7 +6023,9 @@
       'tags': [],
       'desc': '''Allows you to set a list of url patterns that specify sites which are not allowed to display notifications.
 
-          If this policy is left not set the global default value will be used for all sites either from the 'DefaultNotificationsSetting' policy if it is set, or the user's personal configuration otherwise.''',
+          If this policy is left not set the global default value will be used for all sites either from the 'DefaultNotificationsSetting' policy if it is set, or the user's personal configuration otherwise.
+
+          For detailed information on valid url patterns, please see https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns.''',
     },
     {
       'name': 'NativeMessagingBlacklist',
@@ -6019,9 +6161,9 @@
       'tags': [],
       'desc': '''Specifies the maximum delay in milliseconds between receiving a policy invalidation and fetching the new policy from the device management service.
 
-      Setting this policy overrides the default value of 5000 milliseconds. Valid values for this policy are in the range from 1000 (1 second) to 300000 (5 minutes). Any values not in this range will be clamped to the respective boundary.
+      Setting this policy overrides the default value of 10000 milliseconds. Valid values for this policy are in the range from 1000 (1 second) to 300000 (5 minutes). Any values not in this range will be clamped to the respective boundary.
 
-      Leaving this policy not set will make <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> use the default value of 5000 milliseconds.''',
+      Leaving this policy not set will make <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> use the default value of 10000 milliseconds.''',
     },
     {
       'name': 'ChromeFrameRendererSettings',
@@ -6259,6 +6401,26 @@
       In case signing in to a different account shouldn't be allowed via the Incognito mode, consider blocking that mode using the IncognitoModeAvailability policy.
 
       Note that users will be able to access Google services in an unauthenticated state by blocking their cookies.''',
+    },
+    {
+      'name': 'ForceLogoutUnauthenticatedUserEnabled',
+      'owners': ['solovey@google.com', 'sinhak@chromium.org'],
+      'type': 'main',
+      'schema': { 'type': 'boolean' },
+      'supported_on': ['chrome_os:81-'],
+      'supported_chrome_os_management': ['google_cloud'],
+      'features': {
+        'dynamic_refresh': False,
+        'per_profile': True,
+      },
+      'example_value': False,
+      'id': 679,
+      'caption': '''Force logout the user when their account becomes unauthenticated''',
+      'tags': [],
+      'desc': '''Force logout the user when their primary account's authentication token becomes invalid.
+        This policy can protect the user from access to restricted content on Google web properties.
+        If this policy is set to True, the user will be logged out as soon as their authentication token becomes invalid and attempts to restore this token fail.
+        If this policy is set to False or unset, the user can continue working in an unauthenticated state.'''
     },
     {
       'name': 'InstantEnabled',
@@ -7412,7 +7574,7 @@
       'owners': ['file://components/policy/resources/OWNERS'],
       'type': 'main',
       'schema': { 'type': 'boolean' },
-      'supported_on': ['chrome_os:77-', 'chrome.linux:79-'],
+      'supported_on': ['chrome_os:77-', 'chrome.linux:79-', 'chrome.mac:83-'],
       'features': {
         'dynamic_refresh': False,
         'per_profile': False,
@@ -7428,6 +7590,8 @@
       This policy is planned to be removed in <ph name="PRODUCT_OS_NAME">$2<ex>Google Chrome OS</ex></ph> version 81, when support for the legacy certificate verifier on <ph name="PRODUCT_OS_NAME">$2<ex>Google Chrome OS</ex></ph> is planned to be removed.
 
       This policy is planned to be removed in <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> for Linux version 83, when support for the legacy certificate verifier on Linux is planned to be removed.
+
+      This policy is planned to be removed in <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> for Mac OS X version 87, when support for the legacy certificate verifier on Mac OS X is planned to be removed.
       ''',
     },
     {
@@ -7832,6 +7996,69 @@
       If the policy is set to false or left unset, the information will not be reported.
       If set to true, the CPU model name, architecture, and maximum clock speed will be
       reported for each CPU.''',
+      'arc_support': 'This policy has no effect on the logging done by Android.',
+    },
+    {
+      'name': 'ReportDeviceTimezoneInfo',
+      'owners': ['file://components/policy/resources/OWNERS'],
+      'type': 'main',
+      'schema': { 'type': 'boolean' },
+      'supported_on': ['chrome_os:82-'],
+      'supported_chrome_os_management': ['google_cloud'],
+      'device_only': True,
+      'features': {
+        'dynamic_refresh': True,
+      },
+      'example_value': False,
+      'id': 671,
+      'caption': '''Report Timezone info''',
+      'tags': ['admin-sharing'],
+      'desc': '''Report information for a device's timezone.
+
+      If the policy is set to false or left unset, the information will not be reported.
+      If set to true, the device's currently set timezone will be reported.''',
+      'arc_support': 'This policy has no effect on the logging done by Android.',
+    },
+    {
+      'name': 'ReportDeviceMemoryInfo',
+      'owners': ['file://components/policy/resources/OWNERS'],
+      'type': 'main',
+      'schema': { 'type': 'boolean' },
+      'supported_on': ['chrome_os:82-'],
+      'supported_chrome_os_management': ['google_cloud'],
+      'device_only': True,
+      'features': {
+        'dynamic_refresh': True,
+      },
+      'example_value': False,
+      'id': 682,
+      'caption': '''Report memory info''',
+      'tags': ['admin-sharing'],
+      'desc': '''Report information about a device's memory.
+
+      If the policy is set to false or left unset, the information will not be reported.
+      If set to true, the device's memory information will be reported.''',
+      'arc_support': 'This policy has no effect on the logging done by Android.',
+    },
+    {
+      'name': 'ReportDeviceBacklightInfo',
+      'owners': ['file://components/policy/resources/OWNERS'],
+      'type': 'main',
+      'schema': { 'type': 'boolean' },
+      'supported_on': ['chrome_os:82-'],
+      'supported_chrome_os_management': ['google_cloud'],
+      'device_only': True,
+      'features': {
+        'dynamic_refresh': True,
+      },
+      'example_value': False,
+      'id': 686,
+      'caption': '''Report backlight info''',
+      'tags': ['admin-sharing'],
+      'desc': '''Report information about a device's backlights.
+
+      If the policy is set to false or left unset, the information will not be reported.
+      If set to true, the device's backlight information will be reported.''',
       'arc_support': 'This policy has no effect on the logging done by Android.',
     },
     {
@@ -8615,6 +8842,26 @@
 
       If this policy is unset or set to False, developer mode will remain available for the device.''',
       'arc_support': 'This policy controls <ph name="PRODUCT_OS_NAME">$2<ex>Google Chrome OS</ex></ph> developer mode only. If you want to prevent access to Android Developer Options, you need to set the <ph name="DEVELOPER_TOOLS_DISABLED_POLICY_NAME">DeveloperToolsDisabled</ph> policy.',
+    }, {
+      'name': 'ManagedGuestSessionAutoLaunchNotificationReduced',
+      'owners': ['file://components/policy/resources/OWNERS'],
+      'type': 'main',
+      'schema': { 'type': 'boolean' },
+      'supported_on': ['chrome_os:82-'],
+      'features': {
+        'can_be_recommended': False,
+        'dynamic_refresh': True,
+        'per_profile': False,
+      },
+      'example_value': True,
+      'id': 688,
+      'caption': '''Reduce Managed-guest session auto-launch notifications''',
+      'tags': [],
+      'desc': ''' Control the auto launch notification of the managed guest session on <ph name="PRODUCT_OS_NAME">$2<ex>Google Chrome OS</ex></ph>.
+
+      If this policy is set to True, the privacy warning notification will be closed after some seconds.
+
+      If the policy is set to False or not set, the privacy warning notification will be pinned until the user dismisses it.''',
     },
     {
       'name': 'BackgroundModeEnabled',
@@ -8751,17 +8998,19 @@
       'owners': ['estark@chromium.org', 'meacer@chromium.org'],
       'type': 'main',
       'schema': { 'type': 'boolean' },
+      # TODO(https://crbug.com/813107): Remove this policy in M85.
       'supported_on': ['chrome.*:44-', 'chrome_os:44-'],
       'features': {
         'dynamic_refresh': True,
         'per_profile': True,
       },
+      'deprecated': True,
       'example_value': True,
       'id': 299,
       'caption': '''Allow users to opt in to Safe Browsing extended reporting''',
       'tags': [],
       'deprecated': True,
-      'desc': '''This setting is deprecated, use SafeBrowsingExtendedReportingEnabled instead. Enabling or disabling SafeBrowsingExtendedReportingEnabled is equivalent to setting SafeBrowsingExtendedReportingOptInAllowed to False.
+      'desc': '''This policy is deprecated and will be removed after version 84, use <ph name="SAFE_BROWSING_EXTENDED_REPORTING_ENABLED_POLICY_NAME">SafeBrowsingExtendedReportingEnabled</ph> instead. Disabling <ph name="SAFE_BROWSING_EXTENDED_REPORTING_OPT_IN_ALLOWED_POLICY_NAME">SafeBrowsingExtendedReportingOptInAllowed</ph> is equivalent to disabling <ph name="SAFE_BROWSING_EXTENDED_REPORTING_ENABLED_POLICY_NAME">SafeBrowsingExtendedReportingEnabled</ph>. Enabling <ph name="SAFE_BROWSING_EXTENDED_REPORTING_OPT_IN_ALLOWED_POLICY_NAME">SafeBrowsingExtendedReportingOptInAllowed</ph> or leaving this setting unset is equivalent to leaving <ph name="SAFE_BROWSING_EXTENDED_REPORTING_ENABLED_POLICY_NAME">SafeBrowsingExtendedReportingEnabled</ph> unset.
 
       Setting this policy to false stops users from choosing to send some system information and page content to Google servers. If this setting is true or not configured, then users will be allowed to send some system information and page content to Safe Browsing to help detect dangerous apps and sites.
 
@@ -8895,6 +9144,8 @@
       origin of the requesting URL.  If a match is found, access to audio
       capture devices will be granted without prompt.
 
+      For detailed information on valid url patterns, please see https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns.
+
       NOTE: Until version 45, this policy was only supported in Kiosk mode.''',
     },
     {
@@ -8940,6 +9191,8 @@
       'desc': '''Patterns in this list will be matched against the security
       origin of the requesting URL.  If a match is found, access to video
       capture devices will be granted without prompt.
+
+      For detailed information on valid url patterns, please see https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns.
 
       NOTE: Until version 45, this policy was only supported in Kiosk mode.''',
     },
@@ -9107,7 +9360,6 @@
         'dynamic_refresh': True,
         'per_profile': False,
       },
-      'future': True,
       'example_value': 'off',
       'id': 582,
       'default_for_enterprise_users': 'off',
@@ -9135,7 +9387,6 @@
         'dynamic_refresh': True,
         'per_profile': False,
       },
-      'future': True,
       'example_value': 'https://dns.example.net/dns-query{?dns}',
       'id': 642,
       'caption': '''Specify URI template of desired DNS-over-HTTPS resolver''',
@@ -9247,6 +9498,49 @@
       If you set this policy as mandatory, users cannot change or override it.
 
       If the policy is left not set, the shelf will be be positioned at the bottom of the screen by default and the user can change the shelf's position.''',
+    },
+    {
+      'name': 'SystemFeaturesDisableList',
+      'owners': ['file://components/policy/resources/OWNERS', 'ayaelattar@chromium.org'],
+      'type': 'string-enum-list',
+      'schema': {
+        'type': 'array',
+        'items' : {
+          'type': 'string',
+          'enum': [
+            'settings',
+            'camera',
+          ],
+        },
+      },
+      'items': [
+        {
+          'name': 'settings',
+          'value': 'settings',
+          'caption': '''Settings feature''',
+        },
+        {
+          'name': 'camera',
+          'value': 'camera',
+          'caption': '''Camera''',
+        },
+      ],
+      'supported_on': ['chrome_os:83-'],
+      'future': True,
+      'features': {
+        'can_be_recommended': False,
+        'dynamic_refresh': True,
+        'per_profile': False,
+      },
+      'example_value': ['camera', 'settings'],
+      'id': 689,
+      'caption': '''Configure the camera and the settings feature to be disabled''',
+      'tags': [],
+      'desc': '''Allows you to set a list of <ph name="PRODUCT_OS_NAME">$2<ex>Google Chrome OS</ex></ph> features to be disabled.
+
+      Disabling any of these features means that the user can't access it from the UI and will see it as "disabled by admin".
+
+      If the policy is left not set, all <ph name="PRODUCT_OS_NAME">$2<ex>Google Chrome OS</ex></ph> features will be enabled by default and the user can use any of them.''',
     },
     {
       'name': 'UserDisplayName',
@@ -11458,12 +11752,11 @@
           'caption': '''Disable all variations''',
         },
       ],
-      'supported_on': ['chrome.*:81-', 'chrome_os:81-'],
+      'supported_on': ['chrome.*:82-'],
       'features': {
         'dynamic_refresh': True,
         'per_profile': False,
       },
-      'future': True,
       'example_value': 1,
       'id': 663,
       'caption': '''Determine the availability of variations''',
@@ -11477,6 +11770,51 @@
       Setting the <ph name="CRITICAL_VARIATIONS_ONLY_OPTION_NAME">CriticalFixesOnly</ph> (value 1), allows only variations considered critical security or stability fixes to be applied to <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph>.
 
       Setting the <ph name="VARIATIONS_DISABLED_OPTION_NAME">VariationsDisabled</ph> (value 2), prevent all variations from being applied to the browser. Please note that this mode can potentially prevent the <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> developers from providing criticial security fixes in a timely manner and is thus not recommended.'''
+    },
+    {
+      'name': 'DeviceChromeVariations',
+      'owners': ['pastarmovj@chromium.org', 'asvitkine@chromium.org', 'amraboelkher@chromium.org'],
+      'type': 'int-enum',
+      'schema': {
+        'type': 'integer',
+        'enum': [0,1,2],
+      },
+      'device_only': True,
+      'items': [
+        {
+          'name': 'VariationsEnabled',
+          'value': 0,
+          'caption': '''Enable all variations''',
+        },
+        {
+          'name': 'CriticalFixesOnly',
+          'value': 1,
+          'caption': '''Enable variations concerning criticial fixes only''',
+        },
+        {
+          'name': 'VariationsDisabled',
+          'value': 2,
+          'caption': '''Disable all variations''',
+        },
+      ],
+      'supported_on': ['chrome_os:82-'],
+      'features': {
+        'dynamic_refresh': True,
+        'per_profile': False,
+      },
+      'example_value': 1,
+      'id': 674,
+      'caption': '''Determine the availability of variations on <ph name="PRODUCT_OS_NAME">$2<ex>Google Chrome OS</ex></ph>''',
+      'tags': [],
+      'desc': '''Configuring this policy allows to specify which variations are allowed to be applied on an enterprise-managed <ph name="PRODUCT_OS_NAME">$2<ex>Google Chrome OS</ex></ph> device.
+
+      Variations provide a mean for offering modifications to <ph name="PRODUCT_OS_NAME">$2<ex>Google Chrome OS</ex></ph> without shipping a new version  by selectively enabling or disabling already existing features.
+
+      Setting the <ph name="VARIATIONS_ENABLED_OPTION_NAME">VariationsEnabled</ph> (value 0), or leaving the policy not set allows all variations to be applied to <ph name="PRODUCT_OS_NAME">$2<ex>Google Chrome OS</ex></ph>.
+
+      Setting the <ph name="CRITICAL_VARIATIONS_ONLY_OPTION_NAME">CriticalFixesOnly</ph> (value 1), allows only variations considered critical security or stability fixes to be applied to <ph name="PRODUCT_OS_NAME">$2<ex>Google Chrome OS</ex></ph>.
+
+      Setting the <ph name="VARIATIONS_DISABLED_OPTION_NAME">VariationsDisabled</ph> (value 2), will prevent all variations from being applied to the browser on the login screen. Please note that this mode can potentially prevent the <ph name="PRODUCT_OS_NAME">$2<ex>Google Chrome OS</ex></ph> developers from providing criticial security fixes in a timely manner and is thus not recommended.'''
     },
     {
       'name': 'AttestationEnabledForDevice',
@@ -11755,6 +12093,7 @@
         'android:30-',
         'chrome.*:37-',
         'chrome_os:37-',
+        'ios:83-',
       ],
       'features': {
         'dynamic_refresh': True,
@@ -12106,6 +12445,7 @@
           'name': 'Force',
           'value': 2,
           'caption': '''Force users to sign-in to use the browser''',
+          'supported_on': ['chrome.win:70-', 'chrome.mac:70-'],
         },
       ],
       'supported_on': ['chrome.*:70-', 'android:70-'],
@@ -12123,7 +12463,7 @@
 
       If the policy is set to "Enable browser sign-in," then the user is allowed to sign in to the browser and is automatically signed in to the browser when signed in to Google web services like Gmail. Being signed in to the browser means the user's account information will be kept by the browser. However, it does not mean that Chrome sync will be turned on per default; the user must separately opt-in to use this feature. Enabling this policy will prevent the user from turning off the setting that allows browser sign-in. To control the availability of Chrome sync, use the "SyncDisabled" policy.
 
-      If the policy is set to "Force browser sign-in" the user is presented with an account selection dialog and has to choose and sign in to an account to use the browser. This ensures that for managed accounts the policies associated with the account are applied and enforced. By default this turns on Chrome sync for the account, except for the case when sync was disabled by the domain admin or via the "SyncDisabled" policy. The default value of BrowserGuestModeEnabled will be set to false. Note that existing unsigned profiles will be locked and inaccessible after enabling this policy. For more information, see help center article: https://support.google.com/chrome/a/answer/7572556. This option does not support Linux and will fallback to "Enable browser sign-in" if used.
+      If the policy is set to "Force browser sign-in" the user is presented with an account selection dialog and has to choose and sign in to an account to use the browser. This ensures that for managed accounts the policies associated with the account are applied and enforced. By default this turns on Chrome sync for the account, except for the case when sync was disabled by the domain admin or via the "SyncDisabled" policy. The default value of BrowserGuestModeEnabled will be set to false. Note that existing unsigned profiles will be locked and inaccessible after enabling this policy. For more information, see help center article: https://support.google.com/chrome/a/answer/7572556. This option does not support Linux and Android, it will fallback to "Enable browser sign-in" if used.
 
       If this policy is not set then the user can decide if they want to enable the browser sign in option and use it as they see fit.''',
     },
@@ -13183,24 +13523,22 @@
       'features': {
         'dynamic_refresh': True,
       },
-      'example_value': ['gbchcmhmhahfdphkhkmpfmihenigjmpp;https://clients2.google.com/service/update2/crx'],
+      'example_value': ['khpfeaanjngmcnplbdlpegiifgpfgdco;https://clients2.google.com/service/update2/crx'],
       'id': 336,
-      'caption': '''Configure the list of installed apps on the login screen''',
+      'caption': '''Configure the list of installed apps and extensions on the login screen''',
       'tags': ['full-admin-access'],
       'desc': '''
-      Specifies a list of apps that are installed silently on the login screen,
-      without user interaction, and which cannot be uninstalled.
-      All permissions requested by the apps are granted
-      implicitly, without user interaction, including any additional
-      permissions requested by future versions of the app.
+      Specifies a list of apps and extensions that are installed silently on the login screen, without user interaction, and which cannot be uninstalled or disabled by the user.
 
-      Note that, for security and privacy reasons, extensions are not allowed to be installed using this policy. Moreover, the devices on the Stable channel will only install the apps that belong to the whitelist bundled into <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph>. Any items that don't conform to these conditions will be ignored.
+      Permissions requested by the apps/extensions are granted implicitly, without user interaction, including any additional permissions requested by future versions of the app/extension. <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> restricts the set of permissions that the extensions can request.
 
-      If an app that previously had been force-installed is removed from this list, it is automatically uninstalled by <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph>.
+      Note that, for security and privacy reasons, only apps and extensions that belong to the allow list bundled into <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> can be installed. All other items will be ignored.
 
-      Each list item of the policy is a string that contains an extension ID and an "update" URL separated by a semicolon (<ph name="SEMICOLON">;</ph>). The extension ID is the 32-letter string found e.g. on <ph name="CHROME_EXTENSIONS_LINK">chrome://extensions</ph> when in developer mode. The "update" URL should point to an Update Manifest XML document as described at <ph name="LINK_TO_EXTENSION_DOC1">https://developer.chrome.com/extensions/autoupdate</ph>. Note that the "update" URL set in this policy is only used for the initial installation; subsequent updates of the extension employ the update URL indicated in the extension's manifest.
+      If an app or extension that previously had been force-installed is removed from this list, it is automatically uninstalled by <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph>.
 
-      For example, <ph name="EXTENSION_POLICY_EXAMPLE">gbchcmhmhahfdphkhkmpfmihenigjmpp;https://clients2.google.com/service/update2/crx</ph> installs the <ph name="EXTENSION_POLICY_EXAMPLE_EXTENSION_NAME">Chrome Remote Desktop</ph> app from the standard Chrome Web Store "update" URL. For more information about hosting extensions, see: <ph name="LINK_TO_EXTENSION_DOC2">https://developer.chrome.com/extensions/hosting</ph>.''',
+      Each list item of the policy is a string that contains an extension ID and, optionally, an "update" URL separated by a semicolon (<ph name="SEMICOLON">;</ph>). The extension ID is the 32-letter string found e.g. on <ph name="CHROME_EXTENSIONS_LINK">chrome://extensions</ph> when in developer mode. The "update" URL, if specified, should point to an update manifest XML document as described at <ph name="LINK_TO_EXTENSION_DOC1">https://developer.chrome.com/extensions/autoupdate</ph>. By default, the Chrome Web Store's update URL is used (which currently is "https://clients2.google.com/service/update2/crx"). Note that the "update" URL set in this policy is only used for the initial installation; subsequent updates of the extension employ the update URL indicated in the extension's manifest.
+
+      For example, <ph name="LOGIN_SCREEN_EXTENSION_POLICY_EXAMPLE">khpfeaanjngmcnplbdlpegiifgpfgdco;https://clients2.google.com/service/update2/crx</ph> installs the <ph name="SMART_CARD_CONNECTOR_APP_NAME">Smart Card Connector</ph> app from the standard Chrome Web Store "update" URL. For more information about hosting extensions, see: <ph name="LINK_TO_EXTENSION_DOC2">https://developer.chrome.com/extensions/hosting</ph>.''',
     },
     {
       'name': 'AllowScreenLock',
@@ -13922,7 +14260,7 @@
     {
       'name': 'MinimumRequiredChromeVersion',
       'owners': ['antrim@chromium.org'],
-      'supported_on': ['chrome_os:64-'],
+      'supported_on': ['chrome_os:64-81'],
       'device_only': True,
       'type': 'string',
       'schema': { 'type': 'string' },
@@ -13930,16 +14268,87 @@
         'dynamic_refresh': True,
         'per_profile': False,
       },
+      'deprecated': True,
       'example_value': '61.0.3163.120',
       'id': 394,
       'caption': '''Configure minimum allowed Chrome version for the device.''',
       'tags': [],
-      'desc': '''Configures the requirement of the minimum allowed version of <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph>. Versions below given are treated as obsolete and device would not allow user sign in before OS is updated.
+      'desc': '''This policy is removed in M82, please use MinimumChromeVersionEnforced instead.
+
+      Configures the requirement of the minimum allowed version of <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph>. Versions below given are treated as obsolete and device would not allow user sign in before OS is updated.
+
       If current version becomes obsolete during user session, user will be forcefully signed out.
 
       If this policy is not set, no restrictions are applied, and user can sign regardless of <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> version.
 
       Here "Version" can be either an exact version like '61.0.3163.120' or a version prefix, like '61.0'  ''',
+    },
+    {
+      'name': 'MinimumChromeVersionEnforced',
+      'owners': ['snijhara@google.com'],
+      'supported_on': ['chrome_os:82-'],
+      'device_only': True,
+      'type': 'dict',
+      'schema': {
+        'type': 'array',
+        'items': {
+          'type': 'object',
+          'properties': {
+            'chrome_version': {
+              'description': '''Minimum allowed chrome OS version''',
+              'type': 'string',
+            },
+            'warning_period': {
+              'description': '''Time in days after which the user will be logged off if chrome OS version is less than the "version"''',
+              'type': 'integer',
+              'minimum': 0,
+            },
+            'eol_warning_period': {
+              'description': '''Time in days after end of life post which the user will be logged off''',
+              'type': 'integer',
+              'minimum': 0,
+            },
+          },
+          'required': ['chrome_version'],
+        },
+      },
+      'features': {
+        'dynamic_refresh': True,
+        'per_profile': False,
+      },
+      'example_value': [
+        {
+          "chrome_version" : "78",
+          "warning_period" : 0,
+          "eol_warning_period" : 14
+        }, {
+          "chrome_version" : "82",
+          "warning_period" : 10,
+          "eol_warning_period" : 21
+        }
+      ],
+      'id': 670,
+      'caption': '''Configure minimum allowed Chrome version for the device.''',
+      'tags': [],
+      'desc': '''Configures the requirement of the minimum allowed version of <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph>.
+
+      When this policy is set to a non-empty list :
+      If none of the entries has a "chrome_version" greater than the current version in the device, then no restrictions are applied and the already existing restrictions are revoked.
+      If at least one of the entries has a "chrome_version" greater than the current version, the strongest entry is chosen whose version is closest to the current version.
+      In case of conflict, preference is given to the one with lesser "warning_period" or "eol_warning_period" and the policy is applied using that entry.
+
+      If current version becomes obsolete during user session, an on-screen notification is shown to update the device within the "warning_period" shown in the notification.
+      The "warning_period" starts from the time the policy is applied.
+      If the device is not updated till the expiry of the "warning_period", the user is logged out of the system.
+      If the current version is found to be obsolete at the time of login with expired "warning_period", the user is required to update the device before signing in.
+
+      If the end-of-life is reached during user session, an on-screen notification is shown to log out the user after the "eol_warning_period" has expired.
+      If the device is found to have reached the end-of-life at the time of login with expired "eol_warning_period", the device is blocked for any user to sign in.
+
+      If this policy is not set or set to empty, no restrictions are applied, already existing restrictions are revoked and user can sign in regardless of <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> version.
+
+      Here "chrome_version" can be either an exact version like '61.0.3163.120' or a version prefix, like '61.0'.
+      The "warning_period" and "eol_warning_period" are optional values specified in number of days. Default value for them is 0 days, which means that there is no waiting period. ''',
     },
     {
       'name': 'QuickUnlockModeWhitelist',
@@ -15590,27 +15999,13 @@
 
       If autoplay is enabled then videos can play automatically (without user consent) with audio content in <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph>.
 
-      A valid URL patterns specifications are:
-
-      - [*.]domain.tld (matches domain.tld and all sub-domains)
-
-      - host (matches an exact hostname)
-
-      - scheme://host:port (supported schemes: http,https)
-
-      - scheme://[*.]domain.tld:port (supported schemes: http,https)
-
-      - file://path (The path has to be an absolute path and start with a '/')
-
-      - a.b.c.d (matches an exact IPv4 ip)
-
-      - [a:b:c:d:e:f:g:h] (matches an exact IPv6 ip)
-
       If the AutoplayAllowed policy is set to True then this policy will have no effect.
 
       If the AutoplayAllowed policy is set to False then any URL patterns set in this policy will still be allowed to play.
 
-      Note that if <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> is running and this policy changes, it will be applied only to new opened tabs. Therefore some tabs might still observe the previous behavior.''',
+      Note that if <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> is running and this policy changes, it will be applied only to new opened tabs. Therefore some tabs might still observe the previous behavior.
+
+      For detailed information on valid url patterns, please see https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns.''',
     },
     {
       'name': 'TabUnderAllowed',
@@ -15675,13 +16070,14 @@
           'caption': '''Authentication based on client certificates''',
         },
       ],
-      'supported_on': ['chrome_os:68-'],
+      'supported_on': [],
       'device_only': True,
       'features': {
         'dynamic_refresh': True,
       },
       'example_value': 0,
       'id': 438,
+      'future': True,
       'caption': '''SAML login authentication type''',
       'tags': ['system-security'],
       'desc': '''Configures the type of authentication for SAML logins.
@@ -16663,12 +17059,13 @@
         'dynamic_refresh': True,
         'per_profile': True,
       },
-      'supported_on': ['chrome.*:79-', 'chrome_os:79-'],
+      'supported_on': ['chrome.*:82-', 'chrome_os:82-'],
       'future': True,
       'caption': '''Enables <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> extension installation requests''',
       'example_value': True,
       'desc': '''This policy controls <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> extension installation requests which allows users to send the requests to the Google Admin console for approval.
 
+      When policy CloudReportingEnabled is left unset or set to disabled, this policy will be ignored, extension installation requests are not created or uploaded.
       When this policy is left unset or set to disabled, extension installation requests are not created or uploaded.
       When this policy is set to enabled, extension installation requests are created and uploaded to Google Admin console.
 
@@ -18392,7 +18789,6 @@
       'type': 'main',
       'schema': { 'type': 'boolean' },
       'supported_on': ['chrome_os:77-'],
-      'future': True,
       'features': {
         'dynamic_refresh': True,
         'per_profile': True,
@@ -19051,6 +19447,7 @@
         'dynamic_refresh': True,
         'per_profile': True,
       },
+      'deprecated': True,
       'example_value': ['x-googapps-allowed-domains', 'youtube-restrict'],
       'id': 629,
       'caption': '''Enable <ph name="CORS">CORS</ph> check mitigations in the new <ph name="CORS">CORS</ph> implementation''',
@@ -19077,6 +19474,7 @@
         'dynamic_refresh': False,
         'per_profile': True,
       },
+      'deprecated': True,
       'example_value': False,
       'id': 630,
       'caption': '''Use the legacy <ph name="CORS">CORS</ph> implementation rather than new <ph name="CORS">CORS</ph>''',
@@ -19194,7 +19592,9 @@
       'tags': [],
       'desc': '''Allows you to set a list of url patterns that specify sites which are allowed to display blockable (i.e. active) mixed content (i.e. HTTP content on HTTPS sites) and for which optionally blockable mixed content upgrades will be disabled.
 
-          If this policy is left not set blockable mixed content will be blocked and optionally blockable mixed content will be upgraded, and users will be allowed to set exceptions to allow it for specific sites.''',
+          If this policy is left not set blockable mixed content will be blocked and optionally blockable mixed content will be upgraded, and users will be allowed to set exceptions to allow it for specific sites.
+
+          For detailed information on valid url patterns, please see https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns.''',
     },
     {
       'name': 'InsecureContentBlockedForUrls',
@@ -19215,7 +19615,9 @@
       'tags': [],
       'desc': '''Allows you to set a list of url patterns that specify sites which are not allowed to display blockable (i.e. active) mixed content (i.e. HTTP content on HTTPS sites), and for which optionally blockable (i.e. passive) mixed content will be upgraded.
 
-          If this policy is left not set blockable mixed content will be blocked and optionally blockable mixed content will be upgraded, but users will be allowed to set exceptions to allow it for specific sites.''',
+          If this policy is left not set blockable mixed content will be blocked and optionally blockable mixed content will be upgraded, but users will be allowed to set exceptions to allow it for specific sites.
+
+          For detailed information on valid url patterns, please see https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns.''',
     },
     {
       'name': 'DeviceWebBasedAttestationAllowedUrls',
@@ -19241,7 +19643,9 @@
 
       If this policy is not set or is set to an empty list, no URL is allowed to use remote attestation on the sign-in screen.
 
-      URLs must have HTTPS scheme, e.g. "https://example.com".'''
+      URLs must have HTTPS scheme, e.g. "https://example.com".
+
+      For detailed information on valid url patterns, please see https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns.'''
     },
     {
       'name': 'DeviceShowNumericKeyboardForPassword',
@@ -19312,7 +19716,7 @@
           },
           'reset_at': {
             'type': 'object',
-            'description' : '''The time of the day in UTC timezone when usage quota is renewed.''',
+            'description' : '''The time of the day in local time when usage quota is renewed.''',
             'properties': {
               'hour': {
                 'type': 'integer',
@@ -19325,7 +19729,11 @@
                 'maximum': 59
               }
             }
-          }
+          },
+          'activity_reporting_enabled' : {
+            'type': 'boolean',
+            'description': '''The value of app activity collection toggle. If set to true user app activity will be reported to the server with purpose of being displayed in child and parent <ph name="PRODUCT_NAME">$1<ex>Family Link</ex></ph> app. If set to false Per-app time limits feature will still work, but no data will be reported to the server and therefore displayed in <ph name="PRODUCT_NAME">$1<ex>Family Link</ex></ph>.'''
+          },
         }
       },
       'supported_on': ['chrome_os: 80-'],
@@ -19365,7 +19773,8 @@
         'reset_at': {
           'hour': 6,
           'minute': 0
-        }
+        },
+        'activity_reporting_enabled': False
       },
       'id': 641,
       'caption': '''Per-App Time Limits''',
@@ -19406,6 +19815,28 @@
       This policy will be removed after Chrome 84.'''
     },
     {
+      'name': 'UseLegacyFormControls',
+      'owners': ['masonfreed@chromium.org', 'chrishtr@chromium.org', 'hwi@chromium.org', 'nsull@google.com'],
+      'type': 'main',
+      'schema': { 'type': 'boolean' },
+      'example_value': True,
+      'id': 683,
+      'supported_on': ['chrome.*:81-84', 'chrome_os:81-84', 'android:81-84', 'webview_android:81-84'],
+      'features': {
+        'dynamic_refresh': False,
+        'per_profile': True,
+      },
+      'caption': '''Use Legacy Form Controls until M84.''',
+      'tags': [],
+      'desc': ''' Starting in M81, the standard form control elements (e.g. &lt;select&gt;, &lt;button&gt;, &lt;input type=date&gt;) were given a refreshed look and feel, with improved accessibility and better platform uniformity. This policy restores the old "legacy" form control elements until M84.
+
+      If this policy is set to True, the "legacy" form control elements will be used for all sites.
+
+      If this policy is set to False or not set, the form control elements will be enabled as they are launched in M81, M82, and M83.
+
+      This policy will be removed after Chrome 84.'''
+    },
+    {
       'name': 'ClickToCallEnabled',
       'owners': ['knollr@chromium.org', 'mvanouwerkerk@chromium.org'],
       'type': 'main',
@@ -19428,6 +19859,26 @@
       If you set this policy, users cannot change or override it.
 
       If this policy is left unset, the Click to Call feature is enabled by default.''',
+    },
+    {
+      'name': 'UserDataSnapshotRentionLimit',
+      'owners': ['ydago@chromium.org', 'grt@chromium.org'],
+      'type': 'int',
+      'schema': { 'type': 'integer', 'minimum': 0 },
+      'supported_on': ['chrome.*:82-'],
+      'features': {
+        'dynamic_refresh': False,
+        'per_profile': False,
+      },
+      'example_value': 3,
+      'id': 673,
+      'caption': '''Limits the number of user data snapshots retained for use in case of emergency rollback.''',
+      'tags': [],
+      'desc': '''Following each major version update, Chrome will create a snapshot of certain portions of the user's browsing data for use in case of a later emergency version rollback. If an emergency rollback is performed to a version for which a user has a corresponding snapshot, the data in the snapshot is restored. This allows users to retain such settings as bookmarks and autofill data.
+
+      If this policy is not set, the default value of 3 is used
+
+      If the policy is set, old snapshots are deleted as needed to respect the limit. If the policy is set to 0, no snapshots will be taken'''
     },
     {
       'name': 'PrinterTypeDenyList',
@@ -19529,11 +19980,11 @@
         'dynamic_refresh': True,
         'per_profile': False,
       },
-      'example_value': True,
+      'example_value': 0,
       'id': 650,
       'caption': '''Enable Ambient Authentication for profile types.''',
       'tags': [],
-      'desc': '''Configuring this policy will allow/disallow ambient authenticaiton for Incognito and Guest profiles in <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph>.
+      'desc': '''Configuring this policy will allow/disallow ambient authentication for Incognito and Guest profiles in <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph>.
 
       Ambient Authentication is http authentication with default credentials if explicit credentials are not provided via NTLM/Kerberos/Negotiate challenge/response schemes.
 
@@ -19547,7 +19998,7 @@
 
       Note that, ambient authentication is always allowed on regular profiles.
 
-      If the policy is left not set, then the Incognito and Guest sessions will not be able to ambiently authenticate in the future releases of <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph>, as they will be disallowed.'''
+      In <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> version 81 and later, if the policy is left not set, ambient authentication will be enabled in regular sessions only.'''
     },
     {
       'name': 'PaymentMethodQueryEnabled',
@@ -19702,7 +20153,8 @@
       'owners': ['file://chrome/browser/safe_browsing/OWNERS'],
       'type': 'main',
       'schema': { 'type': 'boolean' },
-      'supported_on': ['chrome.*:81-'],
+      'supported_on': ['chrome.*:81-81'],
+      'deprecated': True,
       'features': {
         'dynamic_refresh': True,
         'per_profile': True,
@@ -19711,7 +20163,254 @@
       'id': 667,
       'caption': '''Enable sending downloads to Google for deep scanning for users enrolled in the Advanced Protection program''',
       'tags': [],
-      'desc': '''This policy controls whether users enrolled in the Advanced Protection program are allowed to send their downloads to Google for malware scanning. If set to True or not set, enrolled users will be be prompted to send their files to Google for deep scanning. If the user selects 'Scan', their download will be sent to Google. If set to False, users will not be prompted and their downloads will not be sent to Google.''',
+      'desc': '''This policy is deprecated, and has been replaced with AdvancedProtectionAllowed.
+
+      This policy controls whether users enrolled in the Advanced Protection program are allowed to send their downloads to Google for malware scanning. If set to True or not set, enrolled users will be be prompted to send their files to Google for deep scanning. If the user selects 'Scan', their download will be sent to Google. If set to False, users will not be prompted and their downloads will not be sent to Google.''',
+    },
+    {
+      'name': 'SystemProxySettings',
+      'owners': ['acostinas@google.com', 'pmarko@chromium.org'],
+      'supported_on': ['chrome_os:81-'],
+      'future': True,
+      'device_only': True,
+      'id': 672,
+      'type': 'dict',
+      'schema': {
+        'type': 'object',
+        'properties': {
+          'system_proxy_enabled': {
+            'type': 'boolean',
+          },
+          'system_services_username': {
+            'description': '''The username for authenticating system services to the remote web proxy.''',
+            'type': 'string',
+            'sensitiveValue': True,
+          },
+          'system_services_password': {
+            'description': '''The password for authenticating system services to the remote web proxy.''',
+            'type': 'string',
+            'sensitiveValue': True,
+          },
+        },
+      },
+      'features': {
+        'dynamic_refresh': True,
+        'per_profile': False,
+      },
+      'example_value': {
+        'system_proxy_enabled': True,
+        'system_services_username': 'test_user',
+        'system_services_password': '0000'
+      },
+      'caption': '''Configures System-proxy service for <ph name="PRODUCT_OS_NAME">$2<ex>Google Chrome OS</ex></ph>.''',
+      'tags': [],
+      'desc': '''Configures the availability of System-proxy service and the proxy credentials for system services.
+      If the policy is not set, System-proxy service will not be available.''',
+    },
+    {
+      'name': 'DeviceLoginScreenPrivacyScreenEnabled',
+      'owners': ['lamzin@google.com', 'gildekel@chromium.org'],
+      'device_only': True,
+      'type': 'main',
+      'schema': { 'type': 'boolean' },
+      'supported_on': ['chrome_os:82-'],
+      'features': {
+        'can_be_mandatory' : True,
+        'can_be_recommended': False,
+        'dynamic_refresh': True,
+        'per_profile': False,
+      },
+      'example_value': True,
+      'id': 676,
+      'caption': '''Set the state of privacy screen on the login screen''',
+      'tags': [],
+      'desc': '''Set the state of the privacy screen feature on the login screen.
+
+If this policy is set to True, privacy screen will be enabled when the login screen is shown.
+
+If this policy is set to False, privacy screen will be disabled when the login screen is shown.
+
+When this policy is set, the user cannot override the value when the login screen is shown.
+
+If this policy is left unset, the privacy screen is disabled initially, but remains controllable by the user when the login screen is shown.''',
+    },
+    {
+      'name': 'PrivacyScreenEnabled',
+      'owners': ['lamzin@google.com', 'gildekel@chromium.org'],
+      'type': 'main',
+      'schema': { 'type': 'boolean' },
+      'supported_on': ['chrome_os:82-'],
+      'features': {
+        'can_be_mandatory' : True,
+        'can_be_recommended': False,
+        'dynamic_refresh': True,
+        'per_profile': False,
+      },
+      'example_value': True,
+      'id': 677,
+      'caption': '''Enable privacy screen''',
+      'tags': [],
+      'desc': '''Enable/disable the privacy screen feature.
+
+If this policy is set to True, privacy screen will always be enabled.
+
+If this policy is set to False, privacy screen will always be disabled.
+
+When this policy is set, the user cannot override the value.
+
+If this policy is left unset, privacy screen is disabled initially but can be controlled by the user.''',
+    },
+    {
+      'name': 'AllowNativeNotifications',
+      'owners': ['file://chrome/browser/notifications/OWNERS'],
+      'type': 'main',
+      'schema': { 'type': 'boolean' },
+      'supported_on': ['chrome.linux:82-'],
+      'features': {
+        'dynamic_refresh': True,
+        'per_profile': True,
+      },
+      'example_value': True,
+      'id': 678,
+      'caption': '''Allows native notifcations''',
+      'tags': [],
+      'desc': '''Configures whether <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> on Linux will use native notifications.
+
+If set to True or not set, <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> is allowed to use native notifications.
+
+If set to False, <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> will not use native notifications. <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph>'s Message Center will be used as a fallback.''',
+    },
+    {
+      'name': 'RequiredClientCertificateForUser',
+      'owners': ['file://components/policy/resources/OWNERS'],
+      'type': 'dict',
+      'schema': {
+        'type': 'array',
+        'items': {
+          'type': 'object',
+          'properties': {
+            'name' : {
+              'description': 'The name of the certificate profile.',
+              'type': 'string'
+            },
+            'cert_profile_id': {
+              'description': 'The identifier for this client certificate.',
+              'type': 'string'
+            },
+            'key_algorithm': {
+              'description': 'The algorithm for key pair generation.',
+              'type': 'string',
+              'enum': [ 'rsa' ]
+            },
+            'renewal_period_seconds': {
+              'description': 'Number of days before expiration of a certificate when renewal should be triggered',
+              'type': 'integer'
+            },
+            'policy_version': {
+              'description': 'The client should not interpret this data and should forward it verbatim. The DMServer uses policy_version to verify that the policy view of DMServer matches the view of Chrome OS device.',
+              'type': 'string'
+            }
+          },
+          'required': ['cert_profile_id', 'key_algorithm']
+        }
+      },
+      'supported_on': ['chrome_os:82-'],
+      'device_only': False,
+      'features': {
+        'dynamic_refresh': True,
+        'per_profile': True,
+        'can_be_recommended': False,
+        'can_be_mandatory' : True,
+      },
+      'example_value': [{'name': 'Certificate Profile 1', 'cert_profile_id':'cert_profile_id_1', 'key_algorithm':'rsa', 'renewal_period_seconds': 2592000, 'policy_version': 'some_hash'}],
+      'id': 680,
+      'caption': '''Required Client Certificates''',
+      'tags': [],
+      'desc': '''Specifies client certificates that should be enrolled using the device management protocol.''',
+    },
+    {
+      'name': 'RequiredClientCertificateForDevice',
+      'owners': ['file://components/policy/resources/OWNERS'],
+      'type': 'dict',
+      'schema': {
+        'type': 'array',
+        'items': {
+          'type': 'object',
+          'properties': {
+            'name' : {
+              'description': 'The name of the certificate profile.',
+              'type': 'string'
+            },
+            'cert_profile_id': {
+              'description': 'An identifier for this client certificate.',
+              'type': 'string'
+            },
+            'key_algorithm': {
+              'description': 'The algorithm for key pair generation.',
+              'type': 'string',
+              'enum': [ 'rsa' ]
+            },
+            'renewal_period_seconds': {
+              'description': 'Number of days before expiration of a certificate when renewal should be triggered',
+              'type': 'integer'
+            },
+            'policy_version': {
+              'description': 'The client should not interpret this data and should forward it verbatim. The DMServer uses policy_version to verify that the policy view of DMServer matches the view of Chrome OS device.',
+              'type': 'string'
+            }
+          },
+          'required': ['cert_profile_id', 'key_algorithm']
+        }
+      },
+      'supported_on': ['chrome_os:82-'],
+      'device_only': True,
+      'features': {
+        'dynamic_refresh': True,
+        'per_profile': False,
+        'can_be_recommended': False,
+        'can_be_mandatory' : True,
+      },
+      'example_value': [{'name': 'Certificate Profile 1', 'cert_profile_id':'cert_profile_id_1', 'key_algorithm':'rsa', 'renewal_period_seconds': 2592000, 'policy_version': 'some_hash'}],
+      'id': 681,
+      'caption': '''Required device-wide Client Certificates''',
+      'tags': [],
+      'desc': '''Specifies device-wide client certificates that should be enrolled using the device management protocol.''',
+    },
+    {
+      'name': 'AdvancedProtectionAllowed',
+      'owners': ['file://chrome/browser/safe_browsing/OWNERS'],
+      'type': 'main',
+      'schema': { 'type': 'boolean' },
+      'supported_on': ['chrome.*:82-', 'chrome_os:82-'],
+      'features': {
+        'dynamic_refresh': True,
+        'per_profile': True,
+      },
+      'example_value': True,
+      'id': 685,
+      'caption': '''Enable additional protections for users enrolled in the Advanced Protection program''',
+      'tags': [],
+      'desc': '''This policy controls whether users enrolled in the Advanced Protection program receive extra protections. Some of these features may involve the sharing of data with Google (for example, Advanced Protection users will be able to send their downloads to Google for malware scanning). If set to True or not set, enrolled users will receive extra protections. If set to False, Advanced Protection users will receive only the standard consumer features.''',
+    },
+    {
+      'name': 'ScrollToTextFragmentEnabled',
+      'owners': ['dlibby@microsoft.com', 'bokan@chromium.org'],
+      'type': 'main',
+      'schema': { 'type': 'boolean' },
+      'supported_on': ['chrome.*:82-', 'chrome_os:82-', 'android:82-'],
+      'features': {
+        'dynamic_refresh': False,
+        'per_profile': True,
+      },
+      'example_value': False,
+      'id': 687,
+      'caption': '''Enable scrolling to text specified in URL fragments''',
+      'tags': [],
+      'desc': '''This feature allows for hyperlinks and address bar URL navigations to target specific text within a web page, which will be scrolled to once the loading of the web page is complete.
+
+If you enable or don't configure this policy, web page scrolling to specific text fragments via URL will be enabled.
+
+If you disable this policy, web page scrolling to specific text fragments via URL will be disabled.''',
     },
   ],
 
@@ -20049,6 +20748,7 @@ The recommended way to configure policy on Windows is via GPO, although provisio
     'NetworkThrottlingEnabled': 'network_throttling.upload_rate_kbits',
     'NetworkThrottlingEnabled': 'network_throttling.download_rate_kbits',
     'DeviceLoginScreenPowerManagement': 'login_screen_power_management.login_screen_power_management',
+    'DeviceChromeVariations': 'device_chrome_variations_type.value',
     'DeviceDisplayResolution': 'device_display_resolution.device_display_resolution',
     'DeviceWallpaperImage': 'device_wallpaper_image.device_wallpaper_image',
     'DeviceNativePrinters': 'native_device_printers.external_policy',
@@ -20076,6 +20776,9 @@ The recommended way to configure policy on Windows is via GPO, although provisio
     'DeviceStartUpFlags': 'start_up_flags.flags',
     'ReportDeviceBoardStatus': 'device_reporting.report_board_status',
     'ReportDeviceCpuInfo': 'device_reporting.report_cpu_info',
+    'ReportDeviceTimezoneInfo': 'device_reporting.report_timezone_info',
+    'ReportDeviceMemoryInfo': 'device_reporting.report_memory_info',
+    'ReportDeviceBacklightInfo': 'device_reporting.report_backlight_info',
     'ReportDeviceStorageStatus': 'device_reporting.report_storage_status',
     'ReportDevicePowerStatus': 'device_reporting.report_power_status',
     'DeviceOpenNetworkConfiguration': 'open_network_configuration.open_network_configuration',
@@ -20092,6 +20795,10 @@ The recommended way to configure policy on Windows is via GPO, although provisio
     'DevicePowerwashAllowed': 'device_powerwash_allowed.device_powerwash_allowed',
     'DeviceLoginScreenWebUsbAllowDevicesForUrls': 'device_login_screen_webusb_allow_devices_for_urls.device_login_screen_webusb_allow_devices_for_urls',
     'DeviceWebBasedAttestationAllowedUrls': 'device_web_based_attestation_allowed_urls.value',
+    'MinimumChromeVersionEnforced' : 'minimum_chrome_version_enforced.value',
+    'SystemProxySettings': 'system_proxy_settings.system_proxy_settings',
+    'DeviceLoginScreenPrivacyScreenEnabled': 'device_login_screen_privacy_screen_enabled.enabled',
+    'RequiredClientCertificateForDevice': 'required_client_certificate_for_device.required_client_certificate_for_device',
   },
   'policy_atomic_group_definitions': [
     {
@@ -20370,6 +21077,7 @@ The recommended way to configure policy on Windows is via GPO, although provisio
         'SafeBrowsingEnabled',
         'SafeBrowsingExtendedReportingEnabled',
         'SafeBrowsingExtendedReportingOptInAllowed',
+        'SafeBrowsingProtectionLevel',
         'SafeBrowsingWhitelistDomains',
       ],
     },
@@ -20472,6 +21180,9 @@ The recommended way to configure policy on Windows is via GPO, although provisio
         'ReportDeviceOsUpdateStatus',
         'ReportDeviceBoardStatus',
         'ReportDeviceCpuInfo',
+        'ReportDeviceTimezoneInfo',
+        'ReportDeviceMemoryInfo',
+        'ReportDeviceBacklightInfo',
         'ReportDevicePowerStatus',
         'ReportDeviceStorageStatus',
         'ReportUploadFrequency',
@@ -20545,6 +21256,6 @@ The recommended way to configure policy on Windows is via GPO, although provisio
   ],
   'placeholders': [],
   'deleted_policy_ids': [412, 546, 562, 569, 578],
-  'highest_id_currently_used': 669,
+  'highest_id_currently_used': 689,
   'highest_atomic_group_id_currently_used': 38
 }

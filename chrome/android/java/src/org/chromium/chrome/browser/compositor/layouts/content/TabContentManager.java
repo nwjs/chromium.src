@@ -28,15 +28,15 @@ import org.chromium.base.TraceEvent;
 import org.chromium.base.annotations.CalledByNative;
 import org.chromium.base.annotations.JNINamespace;
 import org.chromium.base.annotations.NativeMethods;
-import org.chromium.base.metrics.CachedMetrics;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.task.AsyncTask;
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.ChromeSwitches;
+import org.chromium.chrome.browser.flags.BooleanCachedFieldTrialParameter;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
-import org.chromium.chrome.browser.flags.FeatureUtilities;
+import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.tab.SadTab;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tasks.tab_management.TabUiFeatureUtilities;
 import org.chromium.chrome.browser.ui.native_page.FrozenNativePage;
 import org.chromium.chrome.browser.ui.native_page.NativePage;
 import org.chromium.chrome.browser.usage_stats.SuspendedTab;
@@ -70,6 +70,11 @@ public class TabContentManager {
         int NUM_ENTRIES = 4;
     }
     public static final double ASPECT_RATIO_PRECISION = 0.01;
+
+    // Whether to allow to refetch tab thumbnail if the aspect ratio is not matching.
+    public static final BooleanCachedFieldTrialParameter ALLOW_TO_REFETCH_TAB_THUMBNAIL_VARIATION =
+            new BooleanCachedFieldTrialParameter(
+                    ChromeFeatureList.TAB_GRID_LAYOUT_ANDROID, "allow_to_refetch", false);
 
     @VisibleForTesting
     public static final String UMA_THUMBNAIL_FETCHING_RESULT =
@@ -127,7 +132,7 @@ public class TabContentManager {
             String commandLineSwitch) {
         int val = -1;
         // TODO(crbug/959054): Convert this to Finch config.
-        if (FeatureUtilities.isGridTabSwitcherEnabled()) {
+        if (TabUiFeatureUtilities.isGridTabSwitcherEnabled()) {
             // With Grid Tab Switcher, we can greatly reduce the capacity of thumbnail cache.
             // See crbug.com/959054 for more details.
             if (resourceId == R.integer.default_thumbnail_cache_size) val = 2;
@@ -180,7 +185,7 @@ public class TabContentManager {
 
         float thumbnailScale = 1.f;
         boolean useApproximationThumbnails;
-        boolean saveJpegThumbnails = FeatureUtilities.isGridTabSwitcherEnabled();
+        boolean saveJpegThumbnails = TabUiFeatureUtilities.isGridTabSwitcherEnabled();
         DisplayAndroid display = DisplayAndroid.getNonMultiDisplay(mContext);
         float deviceDensity = display.getDipScale();
         if (DeviceFormFactor.isNonMultiDisplayContextOnTablet(mContext)) {
@@ -199,8 +204,8 @@ public class TabContentManager {
 
         mPriorityTabIds = new int[mFullResThumbnailsMaxSize];
 
-        if (FeatureUtilities.isTabThumbnailAspectRatioNotOne()
-                || FeatureUtilities.isAllowToRefetchTabThumbnail()) {
+        if (TabUiFeatureUtilities.isTabThumbnailAspectRatioNotOne()
+                || ALLOW_TO_REFETCH_TAB_THUMBNAIL_VARIATION.getValue()) {
             mRefectchedTabIds = new HashSet<>();
             mExpectedThumbnailAspectRatio =
                     (float) ChromeFeatureList.getFieldTrialParamByFeatureAsDouble(
@@ -451,11 +456,7 @@ public class TabContentManager {
                     notifyOnLastThumbnail();
                 }
                 if (jpeg != null) {
-                    CachedMetrics.EnumeratedHistogramSample histogram =
-                            new CachedMetrics.EnumeratedHistogramSample(
-                                    UMA_THUMBNAIL_FETCHING_RESULT,
-                                    ThumbnailFetchingResult.NUM_ENTRIES);
-                    if (FeatureUtilities.isAllowToRefetchTabThumbnail()) {
+                    if (ALLOW_TO_REFETCH_TAB_THUMBNAIL_VARIATION.getValue()) {
                         double jpegAspectRatio = jpeg.getHeight() == 0
                                 ? 0
                                 : 1.0 * jpeg.getWidth() / jpeg.getHeight();
@@ -464,7 +465,7 @@ public class TabContentManager {
                         if (!mRefectchedTabIds.contains(tabId)
                                 && Math.abs(jpegAspectRatio - mExpectedThumbnailAspectRatio)
                                         >= ASPECT_RATIO_PRECISION) {
-                            histogram.record(
+                            recordThumbnailFetchingResult(
                                     ThumbnailFetchingResult.GOT_DIFFERENT_ASPECT_RATIO_JPEG);
                             mRefectchedTabIds.add(tabId);
                             if (mNativeTabContentManager == 0 || !mSnapshotsEnabled) return;
@@ -474,7 +475,7 @@ public class TabContentManager {
                             return;
                         }
                     }
-                    histogram.record(ThumbnailFetchingResult.GOT_JPEG);
+                    recordThumbnailFetchingResult(ThumbnailFetchingResult.GOT_JPEG);
 
                     callback.onResult(jpeg);
                     return;
@@ -483,20 +484,19 @@ public class TabContentManager {
                 TabContentManagerJni.get().getEtc1TabThumbnail(
                         mNativeTabContentManager, TabContentManager.this, tabId, (etc1) -> {
                             if (etc1 != null) {
-                                RecordHistogram.recordEnumeratedHistogram(
-                                        UMA_THUMBNAIL_FETCHING_RESULT,
-                                        ThumbnailFetchingResult.GOT_ETC1,
-                                        ThumbnailFetchingResult.NUM_ENTRIES);
+                                recordThumbnailFetchingResult(ThumbnailFetchingResult.GOT_ETC1);
                             } else {
-                                RecordHistogram.recordEnumeratedHistogram(
-                                        UMA_THUMBNAIL_FETCHING_RESULT,
-                                        ThumbnailFetchingResult.GOT_NOTHING,
-                                        ThumbnailFetchingResult.NUM_ENTRIES);
+                                recordThumbnailFetchingResult(ThumbnailFetchingResult.GOT_NOTHING);
                             }
                             callback.onResult(etc1);
                         });
             }
         }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+    }
+
+    private static void recordThumbnailFetchingResult(@ThumbnailFetchingResult int result) {
+        RecordHistogram.recordEnumeratedHistogram(
+                UMA_THUMBNAIL_FETCHING_RESULT, result, ThumbnailFetchingResult.NUM_ENTRIES);
     }
 
     /**
@@ -551,7 +551,7 @@ public class TabContentManager {
             Matrix matrix = new Matrix();
             matrix.setScale(downsamplingScale, downsamplingScale);
             Bitmap resized = Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(),
-                    FeatureUtilities.isTabThumbnailAspectRatioNotOne()
+                    TabUiFeatureUtilities.isTabThumbnailAspectRatioNotOne()
                             ? Math.min(bitmap.getHeight(),
                                     (int) (bitmap.getWidth() * 1.0 / mExpectedThumbnailAspectRatio))
                             : min(bitmap.getWidth(), bitmap.getHeight()),

@@ -15,6 +15,7 @@ import org.chromium.chrome.browser.ChromeActivity;
 import org.chromium.chrome.browser.keyboard_accessory.data.KeyboardAccessoryData.AccessorySheetData;
 import org.chromium.chrome.browser.keyboard_accessory.data.KeyboardAccessoryData.Action;
 import org.chromium.chrome.browser.keyboard_accessory.data.KeyboardAccessoryData.FooterCommand;
+import org.chromium.chrome.browser.keyboard_accessory.data.KeyboardAccessoryData.OptionToggle;
 import org.chromium.chrome.browser.keyboard_accessory.data.KeyboardAccessoryData.UserInfo;
 import org.chromium.chrome.browser.keyboard_accessory.data.PropertyProvider;
 import org.chromium.chrome.browser.keyboard_accessory.data.UserInfoField;
@@ -121,6 +122,17 @@ class ManualFillingComponentBridge {
     }
 
     @CalledByNative
+    private void addOptionToggleToAccessorySheetData(Object objAccessorySheetData,
+            String displayText, boolean enabled, @AccessoryAction int accessoryAction) {
+        ((AccessorySheetData) objAccessorySheetData)
+                .setOptionToggle(new OptionToggle(displayText, enabled, on -> {
+                    assert mNativeView != 0 : "Controller was destroyed but the bridge wasn't!";
+                    ManualFillingComponentBridgeJni.get().onToggleChanged(
+                            mNativeView, ManualFillingComponentBridge.this, accessoryAction, on);
+                }));
+    }
+
+    @CalledByNative
     private Object addUserInfoToAccessorySheetData(
             Object objAccessorySheetData, String origin, boolean isPslMatch) {
         UserInfo userInfo = new UserInfo(origin, isPslMatch);
@@ -160,10 +172,10 @@ class ManualFillingComponentBridge {
     }
 
     @VisibleForTesting
-    public static void cachePasswordSheetData(
-            WebContents webContents, String[] userNames, String[] passwords) {
+    public static void cachePasswordSheetData(WebContents webContents, String[] userNames,
+            String[] passwords, boolean originBlacklisted) {
         ManualFillingComponentBridgeJni.get().cachePasswordSheetDataForTesting(
-                webContents, userNames, passwords);
+                webContents, userNames, passwords, originBlacklisted);
     }
 
     @VisibleForTesting
@@ -189,8 +201,10 @@ class ManualFillingComponentBridge {
                 ManualFillingComponentBridge caller, int tabType, UserInfoField userInfoField);
         void onOptionSelected(long nativeManualFillingViewAndroid,
                 ManualFillingComponentBridge caller, int accessoryAction);
-        void cachePasswordSheetDataForTesting(
-                WebContents webContents, String[] userNames, String[] passwords);
+        void onToggleChanged(long nativeManualFillingViewAndroid,
+                ManualFillingComponentBridge caller, int accessoryAction, boolean enabled);
+        void cachePasswordSheetDataForTesting(WebContents webContents, String[] userNames,
+                String[] passwords, boolean originBlacklisted);
         void notifyFocusedFieldTypeForTesting(WebContents webContents, int focusedFieldType);
         void signalAutoGenerationStatusForTesting(WebContents webContents, boolean available);
         void disableServerPredictionsForTesting();

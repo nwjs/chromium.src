@@ -39,6 +39,7 @@
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
+#include "third_party/blink/renderer/core/html/canvas/html_canvas_element.h"
 #include "third_party/blink/renderer/core/html/custom/element_internals.h"
 #include "third_party/blink/renderer/core/html/forms/html_input_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_select_element.h"
@@ -54,7 +55,9 @@
 #include "third_party/blink/renderer/core/page/chrome_client.h"
 #include "third_party/blink/renderer/core/page/focus_controller.h"
 #include "third_party/blink/renderer/core/page/page.h"
-#include "third_party/blink/renderer/core/scroll/scroll_into_view_params_type_converters.h"
+#include "third_party/blink/renderer/modules/accessibility/ax_menu_list.h"
+#include "third_party/blink/renderer/modules/accessibility/ax_menu_list_option.h"
+#include "third_party/blink/renderer/modules/accessibility/ax_menu_list_popup.h"
 #include "third_party/blink/renderer/modules/accessibility/ax_object_cache_impl.h"
 #include "third_party/blink/renderer/modules/accessibility/ax_range.h"
 #include "third_party/blink/renderer/modules/accessibility/ax_sparse_attribute_setter.h"
@@ -352,7 +355,6 @@ const InternalRoleEntry kInternalRoles[] = {
     {ax::mojom::Role::kLabelText, "Label"},
     {ax::mojom::Role::kLayoutTable, "LayoutTable"},
     {ax::mojom::Role::kLayoutTableCell, "LayoutCellTable"},
-    {ax::mojom::Role::kLayoutTableColumn, "LayoutColumnTable"},
     {ax::mojom::Role::kLayoutTableRow, "LayoutRowTable"},
     {ax::mojom::Role::kLegend, "Legend"},
     {ax::mojom::Role::kLink, "Link"},
@@ -985,7 +987,7 @@ bool AXObject::AccessibilityIsIgnoredByDefault(
 }
 
 AXObjectInclusion AXObject::AccessibilityPlatformIncludesObject() const {
-  if (IsMenuListPopup() || IsMenuListOption())
+  if (IsA<AXMenuListPopup>(this) || IsA<AXMenuListOption>(this))
     return kIncludeObject;
 
   return kDefaultBehavior;
@@ -1064,7 +1066,7 @@ bool AXObject::ComputeIsInertOrAriaHidden(
 }
 
 bool AXObject::IsVisible() const {
-  return !IsInertOrAriaHidden() && !IsHiddenForTextAlternativeCalculation();
+  return !IsInertOrAriaHidden() && !IsHiddenViaStyle();
 }
 
 bool AXObject::IsDescendantOfLeafNode() const {
@@ -1219,6 +1221,13 @@ bool AXObject::ComputeAccessibilityIsIgnoredButIncludedInTree() const {
   if (!GetNode())
     return false;
 
+  // Use a flag to control whether or not the <html> element is included
+  // in the accessibility tree. Either way it's always marked as "ignored",
+  // but eventually we want to always include it in the tree to simplify
+  // some logic.
+  if (GetNode() && IsA<HTMLHtmlElement>(GetNode()))
+    return RuntimeEnabledFeatures::AccessibilityExposeHTMLElementEnabled();
+
   // If the node is part of the user agent shadow dom, or has the explicit
   // internal Role::kIgnored, they aren't interesting for paragraph navigation
   // or LabelledBy/DescribedBy relationships.
@@ -1240,7 +1249,7 @@ bool AXObject::ComputeAccessibilityIsIgnoredButIncludedInTree() const {
   if (RuntimeEnabledFeatures::AccessibilityExposeDisplayNoneEnabled()) {
     if (Element* element = GetElement()) {
       if (element->FastHasAttribute(html_names::kIdAttr) &&
-          IsHiddenForTextAlternativeCalculation()) {
+          IsHiddenViaStyle()) {
         return true;
       }
     }
@@ -1312,20 +1321,6 @@ bool AXObject::HasInheritedPresentationalRole() const {
   return cached_has_inherited_presentational_role_;
 }
 
-bool AXObject::CanReceiveAccessibilityFocus() const {
-  const Element* elem = GetElement();
-  if (!elem)
-    return false;
-
-  // Focusable, and not forwarding the focus somewhere else
-  if (elem->IsFocusable() &&
-      !GetAOMPropertyOrARIAAttribute(AOMRelationProperty::kActiveDescendant))
-    return true;
-
-  // aria-activedescendant focus
-  return elem->FastHasAttribute(html_names::kIdAttr) && CanBeActiveDescendant();
-}
-
 bool AXObject::CanSetValueAttribute() const {
   switch (RoleValue()) {
     case ax::mojom::Role::kColorWell:
@@ -1337,7 +1332,6 @@ bool AXObject::CanSetValueAttribute() const {
     case ax::mojom::Role::kSplitter:
     case ax::mojom::Role::kTextField:
     case ax::mojom::Role::kTextFieldWithComboBox:
-    case ax::mojom::Role::kTime:
     case ax::mojom::Role::kSearchBox:
       return Restriction() == kRestrictionNone;
     default:
@@ -1346,37 +1340,95 @@ bool AXObject::CanSetValueAttribute() const {
   return false;
 }
 
+// This does not use Element::IsFocusable(), as that can sometimes recalculate
+// styles because of IsFocusableStyle() check, resetting the document lifecycle.
 bool AXObject::CanSetFocusAttribute() const {
-  Node* node = GetNode();
-  if (!node)
+  if (IsDetached())
     return false;
 
+  // NOT focusable: anything inside a <portal> (the portal element itself is).
+  if (GetDocument() && GetDocument()->GetPage() &&
+      GetDocument()->GetPage()->InsidePortal()) {
+    return false;
+  }
+
+  // Focusable: web area -- this is the only focusable non-element.
   if (IsWebArea())
     return true;
 
-  // Children of elements with an aria-activedescendant attribute should be
-  // focusable if they have a (non-presentational) ARIA role.
-  if (!IsPresentational() && AriaRoleAttribute() != ax::mojom::Role::kUnknown &&
-      CanBeActiveDescendant()) {
-    return true;
-  }
-
-  // NOTE: It would be more accurate to ask the document whether
-  // setFocusedNode() would do anything. For example, setFocusedNode() will do
-  // nothing if the current focused node will not relinquish the focus.
-  if (IsDisabledFormControl(node))
+  // NOT focusable: objects with no DOM node, e.g. extra layout blocks inserted
+  // as filler, or objects where the node is not an element, such as a text
+  // node or an HTML comment.
+  Element* elem = GetElement();
+  if (!elem)
     return false;
 
-  // Check for options here because AXListBoxOption and AXMenuListOption
-  // don't help when the <option> is canvas fallback, and because
-  // a common case for aria-owns from a textbox that points to a list
-  // does not change the hierarchy (textboxes don't support children)
-  if (RoleValue() == ax::mojom::Role::kListBoxOption ||
-      RoleValue() == ax::mojom::Role::kMenuListOption)
+  // NOT focusable: inert elements.
+  if (elem->IsInert())
+    return false;
+
+  // NOT focusable: disabled form controls.
+  if (IsDisabledFormControl(elem))
+    return false;
+
+  // Focusable: options in a combobox or listbox.
+  // Even though they are not treated as supporting focus by Blink (the parent
+  // widget is), they are considered focusable in the accessibility sense,
+  // behaving like potential active descendants, and handling focus actions.
+  // Menu list options are handled before visibility check, because they
+  // are considered focusable even when part of collapsed drop down.
+  if (RoleValue() == ax::mojom::Role::kMenuListOption)
     return true;
 
-  auto* element = DynamicTo<Element>(node);
-  return element && element->SupportsFocus();
+  // NOT focusable: hidden elements.
+  // This is imperfect, because the only way to really know whether something
+  // is hidden via style is to EnsureComputedStyle(). The method
+  // AXObject::IsHiddenViaStyle() does this, but it relies on
+  // EnsureComputedStyle() which could cause instability in callers.
+  // This code assumes that a canvas descendant has the same visibility as
+  // the canvas itself.
+  // TODO(aleventhal) Consider caching visibility when it's safe to compute.
+  if (!IsA<HTMLAreaElement>(elem)) {
+    if (!GetLayoutObject()) {
+      if (!elem->IsInCanvasSubtree())
+        return false;
+      const HTMLCanvasElement* canvas =
+          Traversal<HTMLCanvasElement>::FirstAncestorOrSelf(*elem);
+      if (!canvas->GetLayoutObject() ||
+          canvas->GetLayoutObject()->Style()->Visibility() !=
+              EVisibility::kVisible) {
+        return false;
+      }
+    } else if (GetLayoutObject()->Style()->Visibility() !=
+               EVisibility::kVisible) {
+      return false;
+    }
+  }
+
+  // Focusable: options in a combobox or listbox.
+  // Similar to menu list option treatment above, but not focusable if hidden.
+  if (RoleValue() == ax::mojom::Role::kListBoxOption)
+    return true;
+
+  // Focusable: element supports focus.
+  if (elem->SupportsFocus())
+    return true;
+
+  // TODO(accessibility) Focusable: scrollable with the keyboard.
+  // Keyboard-focusable scroll containers feature:
+  // https://www.chromestatus.com/feature/5231964663578624
+  // When adding here, remove similar check from ::NameFromContents().
+  // if (RuntimeEnabledFeatures::KeyboardFocusableScrollersEnabled() &&
+  //     IsUserScrollable()) {
+  //   return true;
+  // }
+
+  // Focusable: can be an active descendant.
+  if (CanBeActiveDescendant())
+    return true;
+
+  // NOT focusable: everything else.
+  return false;
 }
 
 // From ARIA 1.1.
@@ -1389,6 +1441,25 @@ bool AXObject::CanSetFocusAttribute() const {
 // textbox or is a logical descendant of that controlled element as indicated by
 // the aria-owns attribute.
 bool AXObject::CanBeActiveDescendant() const {
+  // Require an element with an id attribute.
+  // TODO(accessibility): this code currently requires both an id and role
+  // attribute, as well as an ancestor or controlling aria-activedescendant.
+  // However, with element reflection it may be possible to set an active
+  // descendant without an id, so at some point we may need to remove the
+  // requirement for an id attribute.
+  if (!GetElement() || !GetElement()->FastHasAttribute(html_names::kIdAttr))
+    return false;
+
+  // Does not make sense to use aria-activedescendant to point to a
+  // presentational object.
+  if (IsPresentational())
+    return false;
+
+  // Does not make sense to use aria-activedescendant to point to an HTML
+  // element that requires real focus, therefore an ARIA role is necessary.
+  if (AriaRoleAttribute() == ax::mojom::Role::kUnknown)
+    return false;
+
   return IsARIAControlledByTextboxWithActiveDescendant() ||
          AncestorExposesActiveDescendant();
 }
@@ -1415,6 +1486,9 @@ void AXObject::UpdateDistributionForFlatTreeTraversal() const {
 }
 
 bool AXObject::IsARIAControlledByTextboxWithActiveDescendant() const {
+  if (IsDetached())
+    return false;
+
   // This situation should mostly arise when using an active descendant on a
   // textbox inside an ARIA 1.1 combo box widget, which points to the selected
   // option in a list. In such situations, the active descendant is useful only
@@ -1625,6 +1699,33 @@ String AXObject::RecursiveTextAlternative(const AXObject& ax_obj,
 
   return ax_obj.TextAlternative(true, in_aria_labelled_by_traversal, visited,
                                 name_from, nullptr, nullptr);
+}
+
+bool AXObject::IsHiddenViaStyle() const {
+  if (GetLayoutObject())
+    return GetLayoutObject()->Style()->Visibility() != EVisibility::kVisible;
+  if (Node* node = GetNode()) {
+    if (node->isConnected()) {
+      bool is_first_loop = true;
+      auto* element = DynamicTo<Element>(node);
+      while (element && !element->GetLayoutObject()) {
+        const ComputedStyle* style = element->EnsureComputedStyle();
+        if (is_first_loop && style->Visibility() != EVisibility::kVisible)
+          return true;
+        // CSS Display:
+        // - does not inherit
+        // - display: none affects entire subtrees regardless of descendants
+        //   attempting to override it
+        // - causes elements to have no associated layout object
+        // Therefore, check each consecutive parent without a layout object.
+        if (style->Display() == EDisplay::kNone)
+          return true;
+        element = element->parentElement();
+        is_first_loop = false;
+      }
+    }
+  }
+  return false;
 }
 
 bool AXObject::IsHiddenForTextAlternativeCalculation() const {
@@ -1890,10 +1991,8 @@ ax::mojom::DefaultActionVerb AXObject::Action() const {
   // a click action means the user should trigger the action via a simulated
   // click. If this object cannot receive focus, it's impossible to trigger it
   // with a key press.
-  if (RoleValue() == ax::mojom::Role::kButton &&
-      !CanReceiveAccessibilityFocus()) {
+  if (RoleValue() == ax::mojom::Role::kButton && !CanSetFocusAttribute())
     return ax::mojom::DefaultActionVerb::kClick;
-  }
 
   switch (RoleValue()) {
     case ax::mojom::Role::kButton:
@@ -2072,7 +2171,7 @@ AXRestriction AXObject::Restriction() const {
     if (is_disabled)
       return kRestrictionDisabled;
   } else if (CanSetFocusAttribute() && IsDescendantOfDisabledNode()) {
-    // No aria-disabled, but other markup says it's disabled.
+    // aria-disabled on an ancestor propagates to focusable descendants.
     return kRestrictionDisabled;
   }
 
@@ -2748,6 +2847,25 @@ bool AXObject::IsScrollableContainer() const {
   return !!GetScrollableAreaIfScrollable();
 }
 
+bool AXObject::IsUserScrollable() const {
+  // TODO(accessibility) Actually expose correct info on whether a doc is
+  // is scrollable or not. Unfortunately IsScrollableContainer() always returns
+  // true anyway. For now, just expose as scrollable unless overflow is hidden.
+  if (IsWebArea()) {
+    if (!GetScrollableAreaIfScrollable() || !GetLayoutObject())
+      return false;
+
+    const ComputedStyle* style = GetLayoutObject()->Style();
+    if (!style)
+      return false;
+
+    return style->ScrollsOverflowY() || style->ScrollsOverflowX();
+  }
+
+  return GetLayoutObject() && GetLayoutObject()->IsBox() &&
+         ToLayoutBox(GetLayoutObject())->CanBeScrolledAndHasScrollableArea();
+}
+
 IntPoint AXObject::GetScrollOffset() const {
   ScrollableArea* area = GetScrollableAreaIfScrollable();
   if (!area)
@@ -2781,9 +2899,8 @@ void AXObject::SetScrollOffset(const IntPoint& offset) const {
     return;
 
   // TODO(bokan): This should potentially be a UserScroll.
-  area->SetScrollOffset(
-      ScrollOffset(offset.X(), offset.Y()),
-      mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
+  area->SetScrollOffset(ScrollOffset(offset.X(), offset.Y()),
+                        mojom::blink::ScrollType::kProgrammatic);
 }
 
 bool AXObject::IsTableLikeRole() const {
@@ -3247,8 +3364,8 @@ bool AXObject::RequestScrollToMakeVisibleAction() {
 
 bool AXObject::RequestScrollToMakeVisibleWithSubFocusAction(
     const IntRect& subfocus,
-    blink::ScrollAlignment horizontal_scroll_alignment,
-    blink::ScrollAlignment vertical_scroll_alignment) {
+    blink::mojom::blink::ScrollAlignment horizontal_scroll_alignment,
+    blink::mojom::blink::ScrollAlignment vertical_scroll_alignment) {
   return OnNativeScrollToMakeVisibleWithSubFocusAction(
       subfocus, horizontal_scroll_alignment, vertical_scroll_alignment);
 }
@@ -3284,24 +3401,25 @@ bool AXObject::InternalSetAccessibilityFocusAction() {
 
 bool AXObject::OnNativeScrollToMakeVisibleAction() const {
   Node* node = GetNode();
-  if (!node)
+  if (!node || !node->isConnected())
     return false;
-  if (Element* locked_ancestor =
-          DisplayLockUtilities::NearestLockedInclusiveAncestor(*node)) {
-    locked_ancestor->ActivateDisplayLockIfNeeded(
-        DisplayLockActivationReason::kAccessibility);
-  }
+
+  // Node might not have a LayoutObject due to the fact that it is in a locked
+  // subtree. Force the update to create the LayoutObject (and update position
+  // information) for this node.
+  DisplayLockUtilities::ScopedChainForcedUpdate scoped_force_update(node);
+  GetDocument()->UpdateStyleAndLayout(DocumentUpdateReason::kDisplayLock);
+
   LayoutObject* layout_object = node->GetLayoutObject();
-  if (!layout_object || !node->isConnected())
+  if (!layout_object)
     return false;
   PhysicalRect target_rect(layout_object->AbsoluteBoundingBoxRect());
   layout_object->ScrollRectToVisible(
       target_rect,
-      CreateScrollIntoViewParams(
-          ScrollAlignment::kAlignCenterIfNeeded,
-          ScrollAlignment::kAlignCenterIfNeeded,
-          mojom::blink::ScrollIntoViewParams::Type::kProgrammatic, false,
-          mojom::blink::ScrollIntoViewParams::Behavior::kAuto));
+      ScrollAlignment::CreateScrollIntoViewParams(
+          ScrollAlignment::CenterIfNeeded(), ScrollAlignment::CenterIfNeeded(),
+          mojom::blink::ScrollType::kProgrammatic, false,
+          mojom::blink::ScrollBehavior::kAuto));
   AXObjectCache().PostNotification(
       AXObjectCache().GetOrCreate(GetDocument()->GetLayoutView()),
       ax::mojom::Event::kLocationChanged);
@@ -3310,8 +3428,8 @@ bool AXObject::OnNativeScrollToMakeVisibleAction() const {
 
 bool AXObject::OnNativeScrollToMakeVisibleWithSubFocusAction(
     const IntRect& rect,
-    blink::ScrollAlignment horizontal_scroll_alignment,
-    blink::ScrollAlignment vertical_scroll_alignment) const {
+    blink::mojom::blink::ScrollAlignment horizontal_scroll_alignment,
+    blink::mojom::blink::ScrollAlignment vertical_scroll_alignment) const {
   Node* node = GetNode();
   LayoutObject* layout_object = node ? node->GetLayoutObject() : nullptr;
   if (!layout_object || !node->isConnected())
@@ -3319,11 +3437,11 @@ bool AXObject::OnNativeScrollToMakeVisibleWithSubFocusAction(
   PhysicalRect target_rect =
       layout_object->LocalToAbsoluteRect(PhysicalRect(rect));
   layout_object->ScrollRectToVisible(
-      target_rect, CreateScrollIntoViewParams(
+      target_rect, ScrollAlignment::CreateScrollIntoViewParams(
                        horizontal_scroll_alignment, vertical_scroll_alignment,
-                       mojom::blink::ScrollIntoViewParams::Type::kProgrammatic,
+                       mojom::blink::ScrollType::kProgrammatic,
                        false /* make_visible_in_visual_viewport */,
-                       mojom::blink::ScrollIntoViewParams::Behavior::kAuto));
+                       mojom::blink::ScrollBehavior::kAuto));
   AXObjectCache().PostNotification(
       AXObjectCache().GetOrCreate(GetDocument()->GetLayoutView()),
       ax::mojom::Event::kLocationChanged);
@@ -3340,10 +3458,10 @@ bool AXObject::OnNativeScrollToGlobalPointAction(
   target_rect.Move(-PhysicalOffset(global_point));
   layout_object->ScrollRectToVisible(
       target_rect,
-      CreateScrollIntoViewParams(
-          ScrollAlignment::kAlignLeftAlways, ScrollAlignment::kAlignTopAlways,
-          mojom::blink::ScrollIntoViewParams::Type::kProgrammatic, false,
-          mojom::blink::ScrollIntoViewParams::Behavior::kAuto));
+      ScrollAlignment::CreateScrollIntoViewParams(
+          ScrollAlignment::LeftAlways(), ScrollAlignment::TopAlways(),
+          mojom::blink::ScrollType::kProgrammatic, false,
+          mojom::blink::ScrollBehavior::kAuto));
   AXObjectCache().PostNotification(
       AXObjectCache().GetOrCreate(GetDocument()->GetLayoutView()),
       ax::mojom::Event::kLocationChanged);
@@ -3503,7 +3621,6 @@ bool AXObject::NameFromContents(bool recursive) const {
     case ax::mojom::Role::kBanner:
     case ax::mojom::Role::kBlockquote:
     case ax::mojom::Role::kCaret:
-    case ax::mojom::Role::kCode:
     case ax::mojom::Role::kClient:
     case ax::mojom::Role::kColorWell:
     case ax::mojom::Role::kColumn:
@@ -3513,7 +3630,6 @@ bool AXObject::NameFromContents(bool recursive) const {
     case ax::mojom::Role::kContentInfo:
     case ax::mojom::Role::kDate:
     case ax::mojom::Role::kDateTime:
-    case ax::mojom::Role::kDefinition:
     case ax::mojom::Role::kDesktop:
     case ax::mojom::Role::kDialog:
     case ax::mojom::Role::kDirectory:
@@ -3554,7 +3670,6 @@ bool AXObject::NameFromContents(bool recursive) const {
     case ax::mojom::Role::kDocToc:
     case ax::mojom::Role::kDocument:
     case ax::mojom::Role::kEmbeddedObject:
-    case ax::mojom::Role::kEmphasis:
     case ax::mojom::Role::kFeed:
     case ax::mojom::Role::kFigure:
     case ax::mojom::Role::kForm:
@@ -3585,7 +3700,6 @@ bool AXObject::NameFromContents(bool recursive) const {
     case ax::mojom::Role::kPluginObject:
     case ax::mojom::Role::kProgressIndicator:
     case ax::mojom::Role::kRadioGroup:
-    case ax::mojom::Role::kRootWebArea:
     case ax::mojom::Role::kRowGroup:
     case ax::mojom::Role::kScrollBar:
     case ax::mojom::Role::kScrollView:
@@ -3596,7 +3710,6 @@ bool AXObject::NameFromContents(bool recursive) const {
     case ax::mojom::Role::kSpinButton:
     case ax::mojom::Role::kStatus:
     case ax::mojom::Role::kSliderThumb:
-    case ax::mojom::Role::kStrong:
     case ax::mojom::Role::kSuggestion:
     case ax::mojom::Role::kSvgRoot:
     case ax::mojom::Role::kTable:
@@ -3607,7 +3720,6 @@ bool AXObject::NameFromContents(bool recursive) const {
     case ax::mojom::Role::kTextField:
     case ax::mojom::Role::kTextFieldWithComboBox:
     case ax::mojom::Role::kTitleBar:
-    case ax::mojom::Role::kTime:
     case ax::mojom::Role::kTimer:
     case ax::mojom::Role::kToolbar:
     case ax::mojom::Role::kTree:
@@ -3624,12 +3736,15 @@ bool AXObject::NameFromContents(bool recursive) const {
     case ax::mojom::Role::kAbbr:
     case ax::mojom::Role::kCanvas:
     case ax::mojom::Role::kCaption:
+    case ax::mojom::Role::kCode:
     case ax::mojom::Role::kContentDeletion:
     case ax::mojom::Role::kContentInsertion:
+    case ax::mojom::Role::kDefinition:
     case ax::mojom::Role::kDescriptionListDetail:
     case ax::mojom::Role::kDescriptionList:
     case ax::mojom::Role::kDescriptionListTerm:
     case ax::mojom::Role::kDetails:
+    case ax::mojom::Role::kEmphasis:
     case ax::mojom::Role::kFigcaption:
     case ax::mojom::Role::kFooter:
     case ax::mojom::Role::kFooterAsNonLandmark:
@@ -3640,7 +3755,6 @@ bool AXObject::NameFromContents(bool recursive) const {
     case ax::mojom::Role::kInlineTextBox:
     case ax::mojom::Role::kLabelText:
     case ax::mojom::Role::kLayoutTable:
-    case ax::mojom::Role::kLayoutTableColumn:
     case ax::mojom::Role::kLayoutTableRow:
     case ax::mojom::Role::kLegend:
     case ax::mojom::Role::kList:
@@ -3659,7 +3773,32 @@ bool AXObject::NameFromContents(bool recursive) const {
     case ax::mojom::Role::kRuby:
     case ax::mojom::Role::kRubyAnnotation:
     case ax::mojom::Role::kSection:
-      result = recursive || (CanReceiveAccessibilityFocus() && !IsEditable());
+    case ax::mojom::Role::kStrong:
+    case ax::mojom::Role::kTime:
+      if (recursive) {
+        // Use contents if part of a recursive name computation.
+        result = true;
+      } else {
+        // Use contents if focusable, so that there is a name in the case
+        // where the author mistakenly forgot to provide one.
+        // Exceptions:
+        // 1.Elements with contenteditable, where using the contents as a name
+        //   would cause them to be double-announced.
+        // 2.Containers with aria-activedescendant, where the focus is being
+        //   forwarded somewhere else.
+        // TODO(accessibility) Scrollables are currently whitelisted here in
+        // order to keep the current behavior. In the future, this can be
+        // removed because this code will be handled in IsFocusable(), once
+        // KeyboardFocusableScrollersEnabled is permanently enabled.
+        // Note: this uses the same scrollable check that element.cc uses.
+        bool is_focusable_scrollable =
+            RuntimeEnabledFeatures::KeyboardFocusableScrollersEnabled() &&
+            IsUserScrollable();
+        bool is_focusable = is_focusable_scrollable || CanSetFocusAttribute();
+        result = is_focusable && !IsEditable() &&
+                 !GetAOMPropertyOrARIAAttribute(
+                     AOMRelationProperty::kActiveDescendant);
+      }
       break;
 
     case ax::mojom::Role::kPdfActionableHighlight:
@@ -3667,6 +3806,20 @@ bool AXObject::NameFromContents(bool recursive) const {
                     "this role type";
       NOTREACHED();
       break;
+
+    // A root web area normally only computes its name from the document title,
+    // but a root web area inside a portal's main frame should compute its name
+    // from its contents. This name is used by the portal element that hosts
+    // this portal.
+    case ax::mojom::Role::kRootWebArea: {
+      DCHECK(GetNode());
+      const Document& document = GetNode()->GetDocument();
+      bool is_main_frame =
+          document.GetFrame() && document.GetFrame()->IsMainFrame();
+      bool is_inside_portal =
+          document.GetPage() && document.GetPage()->InsidePortal();
+      return is_inside_portal && is_main_frame;
+    }
 
     case ax::mojom::Role::kUnknown:
     case ax::mojom::Role::kMaxValue:
@@ -3843,7 +3996,7 @@ std::ostream& operator<<(std::ostream& stream, const AXObject& obj) {
   return stream << obj.ToString().Utf8();
 }
 
-void AXObject::Trace(blink::Visitor* visitor) {
+void AXObject::Trace(Visitor* visitor) {
   visitor->Trace(children_);
   visitor->Trace(parent_);
   visitor->Trace(cached_live_region_root_);

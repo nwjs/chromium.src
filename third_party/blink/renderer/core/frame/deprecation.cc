@@ -22,6 +22,7 @@
 #include "third_party/blink/renderer/core/loader/document_loader.h"
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/workers/worker_or_worklet_global_scope.h"
+#include "third_party/blink/renderer/platform/heap/heap.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/wtf/date_math.h"
 
@@ -60,6 +61,8 @@ enum Milestone {
   kM80 = 80,
   kM81 = 81,
   kM82 = 82,
+  kM83 = 83,
+  kM84 = 84,
 };
 
 // Returns estimated milestone dates as milliseconds since January 1, 1970.
@@ -97,9 +100,17 @@ base::Time::Exploded MilestoneDate(Milestone milestone) {
     case kM80:
       return {2020, 2, 0, 4, 4};
     case kM81:
-      return {2020, 3, 0, 17, 4};
+      return {2020, 4, 0, 7, 4};
     case kM82:
-      return {2020, 4, 0, 28, 4};
+      // This release was cancelled, so this is the (new) M83 date.
+      // https://groups.google.com/a/chromium.org/d/msg/chromium-dev/N1NxbSVOZas/ySlEKDKkBgAJ
+      return {2020, 5, 0, 18, 4};
+    case kM83:
+      return {2020, 5, 0, 18, 4};
+    case kM84:
+      // This release is not yet scheduled, so this date is a guess.
+      // https://groups.google.com/a/chromium.org/d/msg/chromium-dev/N1NxbSVOZas/ySlEKDKkBgAJ
+      return {2020, 6, 0, 29, 4};
   }
 
   NOTREACHED();
@@ -491,161 +502,12 @@ DeprecationInfo GetDeprecationInfo(WebFeature feature) {
               ReplacedWillBeRemoved("Atomics.wake", "Atomics.notify", kM76,
                                     "6228189936353280")};
 
-    case WebFeature::kCSSValueAppearanceCheckboxForOthersRendered:
-      return {"CSSValueAppearanceCheckboxForOthersRendered", kM79,
-              WillBeRemoved("'-webkit-appearance: checkbox' for elements other "
-                            "than input[type=checkbox]",
-                            kM79, "5070237827334144")};
-    case WebFeature::kCSSValueAppearanceRadioForOthersRendered:
-      return {"CSSValueAppearanceRadioForOthersRendered", kM79,
-              WillBeRemoved("'-webkit-appearance: radio' for elements other "
-                            "than input[type=radio]",
-                            kM79, "5070237827334144")};
-    case WebFeature::kCSSValueAppearancePushButtonForOthersRendered:
-      return {
-          "CSSValueAppearancePushButtonForOthersRendered", kM79,
-          WillBeRemoved(
-              "'-webkit-appearance: push-button' for elements other than "
-              "input[type=button], input[type=reset], and input[type=submit]",
-              kM79, "5070237827334144")};
-    case WebFeature::kCSSValueAppearanceSquareButtonForOthersRendered:
-      return {"CSSValueAppearanceSquareButtonForOthersRendered", kM79,
-              WillBeRemoved("'-webkit-appearance: square-button' for elements "
-                            "other than input[type=color]",
-                            kM79, "5070237827334144")};
-    case WebFeature::kCSSValueAppearanceButtonForAnchor:
-      return {"CSSValueAppearanceSquareButtonForAnchor", kM79,
-              WillBeRemoved("'-webkit-appearance: button' for a", kM79,
-                            "5070237827334144")};
-    case WebFeature::kCSSValueAppearanceButtonForSelectRendered:
-      return {
-          "CSSValueAppearanceButtonForSelectRendered", kM79,
-          WillBeRemoved("'-webkit-appearance: button' for drop-down box select",
-                        kM79, "5070237827334144")};
-    case WebFeature::kCSSValueAppearanceInnerSpinButtonForOthersRendered:
-      return {"CSSValueAppearanceInnerSpinButtonForOthersRendered", kM79,
-              WillBeRemoved("'-webkit-appearance: inner-spin-button' for "
-                            "elements other than :-webkit-inner-spin-button",
-                            kM79, "5070237827334144")};
-    case WebFeature::kCSSValueAppearanceListboxForOthersRendered:
-      return {"CSSValueAppearanceListboxForOthersRendered", kM79,
-              WillBeRemoved("'-webkit-appearance: listbox' for "
-                            "elements other than listbox select",
-                            kM79, "5070237827334144")};
-    case WebFeature::kCSSValueAppearanceMenuListForOthersRendered:
-      return {
-        "CSSValueAppearanceMenuListForOthersRendered", kM79,
-            WillBeRemoved(
-#if defined(OS_ANDROID)
-                "'-webkit-appearance: menulist' for elements other "
-                "than drop-down box select, input[type=color][list], "
-                "input[type=date], "
-                "input[type=datetime-local], input[type=month], "
-                "input[type=time], and input[type=week]",
-#else
-                "'-webkit-appearance: menulist' for elements other "
-                "than select and input[type=color][list]",
-#endif
-                kM79, "5070237827334144")
-      };
-    case WebFeature::kCSSValueAppearanceMenuListButtonForOthersRendered:
-      return {
-        "CSSValueAppearanceMenuListButtonForOthersRendered", kM79,
-            WillBeRemoved(
-#if defined(OS_ANDROID)
-                "'-webkit-appearance: menulist-button' for elements other "
-                "than drop-down box select, input[type=color][list], "
-                "input[type=date], "
-                "input[type=datetime-local], input[type=month], "
-                "input[type=time], and input[type=week]",
-#else
-                "'-webkit-appearance: menulist-button' for elements other "
-                "than select and input[type=color][list]",
-#endif
-                kM79, "5070237827334144")
-      };
-    case WebFeature::kCSSValueAppearanceMeterForOthersRendered:
-      return {"CSSValueAppearanceMeterForOthersRendered", kM79,
-              WillBeRemoved("'-webkit-appearance: meter' for "
-                            "elements other than meter",
-                            kM79, "5070237827334144")};
-    case WebFeature::kCSSValueAppearanceProgressBarForOthersRendered:
-      return {"CSSValueAppearanceProgressBarForOthersRendered", kM79,
-              WillBeRemoved("'-webkit-appearance: progress-bar' for "
-                            "elements other than progress",
-                            kM79, "5070237827334144")};
-    case WebFeature::kCSSValueAppearanceSliderHorizontalForOthersRendered:
-      return {"CSSValueAppearanceSliderHorizontalForOthersRendered", kM79,
-              WillBeRemoved("'-webkit-appearance: slider-horizontal' for "
-                            "elements other than input[type=range]",
-                            kM79, "5070237827334144")};
-    case WebFeature::kCSSValueAppearanceSliderVerticalForOthersRendered:
-      return {"CSSValueAppearanceSliderVerticalForOthersRendered", kM79,
-              WillBeRemoved("'-webkit-appearance: slider-vertical' for "
-                            "elements other than input[type=range]",
-                            kM79, "5070237827334144")};
-    case WebFeature::kCSSValueAppearanceSliderThumbHorizontalForOthersRendered:
-      return {"CSSValueAppearanceSliderThumbHorizontalForOthersRendered", kM79,
-              WillBeRemoved("'-webkit-appearance: sliderthumb-horizontal' for "
-                            "elements other than ::-webkit-slider-thumb and "
-                            "::-webkit-media-slider-thumb",
-                            kM79, "5070237827334144")};
-    case WebFeature::kCSSValueAppearanceSliderThumbVerticalForOthersRendered:
-      return {"CSSValueAppearanceSliderThumbVerticalForOthersRendered", kM79,
-              WillBeRemoved("'-webkit-appearance: sliderthumb-vertical' for "
-                            "elements other than ::-webkit-slider-thumb and "
-                            "::-webkit-media-slider-thumb",
-                            kM79, "5070237827334144")};
-    case WebFeature::kCSSValueAppearanceSearchFieldForOthersRendered:
-      return {"CSSValueAppearanceSearchFieldForOthersRendered", kM79,
-              WillBeRemoved("'-webkit-appearance: searchfield' for "
-                            "elements other than input[type=search]",
-                            kM79, "5070237827334144")};
-    case WebFeature::kCSSValueAppearanceSearchCancelForOthers2Rendered:
-      return {
-          "CSSValueAppearanceSearchCancelForOthers2Rendered", kM79,
-          WillBeRemoved("'-webkit-appearance: searchfield-cancel-button' for "
-                        "elements other than ::-webkit-clear-button and "
-                        "::-webkit-search-cancel-button",
-                        kM79, "5070237827334144")};
-    case WebFeature::kCSSValueAppearanceTextFieldForOthersRendered:
-      return {
-        "CSSValueAppearanceTextFieldForOthersRendered", kM79,
-            WillBeRemoved(
-                "'-webkit-appearance: textfield' for "
-#if defined(OS_ANDROID)
-                "elements other than input[type=email], input[type=number], "
-                "input[type=password], input[type=search], input[type=tel], "
-                "input[type=text], input[type=url]",
-#else
-                "elements other than input[type=email], input[type=number], "
-                "input[type=password], input[type=search], input[type=tel], "
-                "input[type=text], input[type=url], input[type=date], "
-                "input[type=datetime-local], input[type=month], "
-                "input[type=time], and input[type=week]",
-#endif
-                kM79, "5070237827334144")
-      };
-    case WebFeature::kCSSValueAppearanceTextAreaForOthersRendered:
-      return {"CSSValueAppearanceTextAreaForOthersRendered", kM79,
-              WillBeRemoved("'-webkit-appearance: textarea' for "
-                            "elements other than textarea",
-                            kM79, "5070237827334144")};
     case WebFeature::kXRSupportsSession:
       return {"XRSupportsSession", kM80,
               ReplacedBy(
                   "supportsSession()",
                   "isSessionSupported() and check the resolved boolean value")};
 
-    case WebFeature::kCSSValueAppearanceButtonForBootstrapLooseSelectorRendered:
-    case WebFeature::kCSSValueAppearanceButtonForOthers2Rendered:
-      // The below DeprecationInfo::id doesn't match to WebFeature enums
-      // intentionally.
-      return {"CSSValueAppearanceButtonForOthersRendered", kM80,
-              WillBeRemoved("'-webkit-appearance: button' for "
-                            "elements other than <button> and <input "
-                            "type=button/color/reset/submit>",
-                            kM80, "4867142128238592")};
     case WebFeature::kObsoleteWebrtcTlsVersion:
       return {"ObsoleteWebRtcCipherSuite", kM81,
               String::Format(
@@ -653,6 +515,17 @@ DeprecationInfo GetDeprecationInfo(WebFeature feature) {
                   "Support for this will be removed in %s. "
                   "Please check with your partner to have this fixed.",
                   MilestoneString(kM81).Ascii().c_str())};
+
+    case WebFeature::kCssStyleSheetReplaceWithImport:
+      return {
+          "CssStyleSheetReplaceWithImport", kM84,
+          String::Format(
+              "Support for calls to CSSStyleSheet.replace() with stylesheet "
+              "text that includes @import has been deprecated, and will be "
+              "removed in %s. See "
+              "https://chromestatus.com/feature/4735925877735424 for more "
+              "details.",
+              MilestoneString(kM84).Ascii().c_str())};
 
     // Features that aren't deprecated don't have a deprecation message.
     default:
@@ -710,9 +583,9 @@ void Deprecation::WarnOnDeprecatedProperties(
   String message = DeprecationMessage(unresolved_property);
   if (!message.IsEmpty()) {
     page->GetDeprecation().Suppress(unresolved_property);
-    ConsoleMessage* console_message =
-        ConsoleMessage::Create(mojom::ConsoleMessageSource::kDeprecation,
-                               mojom::ConsoleMessageLevel::kWarning, message);
+    auto* console_message = MakeGarbageCollected<ConsoleMessage>(
+        mojom::ConsoleMessageSource::kDeprecation,
+        mojom::ConsoleMessageLevel::kWarning, message);
     frame->Console().AddMessage(console_message);
   }
 }
@@ -737,7 +610,25 @@ void Deprecation::CountDeprecation(const Document& document,
   Deprecation::CountDeprecation(document.Loader(), feature);
 }
 
+void Deprecation::CountDeprecation(Document* document, WebFeature feature) {
+  if (!document)
+    return;
+
+  Deprecation::CountDeprecation(document->ToExecutionContext(), feature);
+}
+
 void Deprecation::CountDeprecation(DocumentLoader* loader, WebFeature feature) {
+  Deprecation::CountDeprecation(loader, feature, /*count_usage=*/true);
+}
+
+void Deprecation::DeprecationWarningOnly(DocumentLoader* loader,
+                                         WebFeature feature) {
+  Deprecation::CountDeprecation(loader, feature, /*count_usage=*/false);
+}
+
+void Deprecation::CountDeprecation(DocumentLoader* loader,
+                                   WebFeature feature,
+                                   bool count_usage) {
   if (!loader)
     return;
   LocalFrame* frame = loader->GetFrame();
@@ -749,7 +640,8 @@ void Deprecation::CountDeprecation(DocumentLoader* loader, WebFeature feature) {
     return;
 
   page->GetDeprecation().SetReported(feature);
-  UseCounter::Count(loader, feature);
+  if (count_usage)
+    UseCounter::Count(loader, feature);
   GenerateReport(frame, feature);
 }
 
@@ -773,7 +665,7 @@ void Deprecation::GenerateReport(const LocalFrame* frame, WebFeature feature) {
 
   // Send the deprecation message to the console as a warning.
   DCHECK(!info.message.IsEmpty());
-  ConsoleMessage* console_message = ConsoleMessage::Create(
+  auto* console_message = MakeGarbageCollected<ConsoleMessage>(
       mojom::ConsoleMessageSource::kDeprecation,
       mojom::ConsoleMessageLevel::kWarning, info.message);
   frame->Console().AddMessage(console_message);
@@ -799,7 +691,7 @@ void Deprecation::GenerateReport(const LocalFrame* frame, WebFeature feature) {
 
   // Send the deprecation report to the Reporting API and any
   // ReportingObservers.
-  ReportingContext::From(document)->QueueReport(report);
+  ReportingContext::From(document->ToExecutionContext())->QueueReport(report);
 }
 
 // static

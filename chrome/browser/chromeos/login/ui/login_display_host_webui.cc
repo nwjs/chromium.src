@@ -9,6 +9,9 @@
 
 #include "ash/accessibility/focus_ring_controller.h"
 #include "ash/public/cpp/ash_features.h"
+#include "ash/public/cpp/locale_update_controller.h"
+#include "ash/public/cpp/login_screen.h"
+#include "ash/public/cpp/login_screen_model.h"
 #include "ash/public/cpp/multi_user_window_manager.h"
 #include "ash/public/cpp/shell_window_ids.h"
 #include "ash/shell.h"
@@ -208,7 +211,7 @@ void ShowLoginWizardFinish(
   }
 
   if (ShouldShowSigninScreen(first_screen)) {
-    display_host->StartSignInScreen(chromeos::LoginScreenContext());
+    display_host->StartSignInScreen();
   } else {
     display_host->StartWizard(first_screen);
 
@@ -245,6 +248,17 @@ struct ShowLoginWizardSwitchLanguageCallbackData {
   chromeos::InputEventsBlocker events_blocker;
 };
 
+// Trigger OnLocaleChanged via ash::LocaleUpdateController.
+void NotifyLocaleChange() {
+  // The first three arguments of OnLocaleChanged are cur_locale, from_locale
+  // and to_locale which are used to notify the user about the locale change.
+  // We pass empty strings to OnLocaleChanged because when it is called in OOBE
+  // the locales are ignored since no notification is displayed.
+  ash::LocaleUpdateController::Get()->OnLocaleChanged(
+      std::string(), std::string(), std::string(),
+      base::DoNothing::Once<ash::LocaleNotificationResult>());
+}
+
 void OnLanguageSwitchedCallback(
     std::unique_ptr<ShowLoginWizardSwitchLanguageCallbackData> self,
     const chromeos::locale_util::LanguageSwitchResult& result) {
@@ -252,6 +266,8 @@ void OnLanguageSwitchedCallback(
     LOG(WARNING) << "Locale could not be found for '" << result.requested_locale
                  << "'";
 
+  // Notify the locale change.
+  NotifyLocaleChange();
   ShowLoginWizardFinish(self->first_screen, self->startup_manifest);
 }
 
@@ -355,7 +371,8 @@ bool CanPlayStartupSound() {
 }  // namespace
 
 // static
-const int LoginDisplayHostWebUI::kShowLoginWebUIid = 0x1111;
+const trace_event_internal::TraceID LoginDisplayHostWebUI::kShowLoginWebUIid =
+    TRACE_ID_WITH_SCOPE("ShowLoginWebUI", TRACE_ID_GLOBAL(1));
 bool LoginDisplayHostWebUI::disable_restrictive_proxy_check_for_test_ = false;
 
 // A class to handle special menu key for keyboard driven OOBE.
@@ -578,8 +595,7 @@ void LoginDisplayHostWebUI::OnStartUserAdding() {
   existing_user_controller_->Init(
       user_manager::UserManager::Get()->GetUsersAllowedForMultiProfile());
   CHECK(login_display_);
-  GetOobeUI()->ShowSigninScreen(LoginScreenContext(), login_display_.get(),
-                                login_display_.get());
+  GetOobeUI()->ShowSigninScreen(login_display_.get(), login_display_.get());
 }
 
 void LoginDisplayHostWebUI::CancelUserAdding() {
@@ -591,8 +607,7 @@ void LoginDisplayHostWebUI::CancelUserAdding() {
   Finalize(base::OnceClosure());
 }
 
-void LoginDisplayHostWebUI::OnStartSignInScreen(
-    const LoginScreenContext& context) {
+void LoginDisplayHostWebUI::OnStartSignInScreen() {
   DisableKeyboardOverscroll();
 
   restore_path_ = RESTORE_SIGN_IN;
@@ -603,9 +618,10 @@ void LoginDisplayHostWebUI::OnStartSignInScreen(
 
   // TODO(crbug.com/784495): Make sure this is ported to views.
   if (!login_window_) {
-    TRACE_EVENT_ASYNC_BEGIN0("ui", "ShowLoginWebUI", kShowLoginWebUIid);
-    TRACE_EVENT_ASYNC_STEP_INTO0("ui", "ShowLoginWebUI", kShowLoginWebUIid,
-                                 "StartSignInScreen");
+    TRACE_EVENT_NESTABLE_ASYNC_BEGIN0("ui", "ShowLoginWebUI",
+                                      kShowLoginWebUIid);
+    TRACE_EVENT_NESTABLE_ASYNC_INSTANT0(
+        "ui", "StartSignInScreen", LoginDisplayHostWebUI::kShowLoginWebUIid);
     BootTimesRecorder::Get()->RecordCurrentStats("login-start-signin-screen");
     LoadURL(GURL(kLoginURL));
   }
@@ -624,13 +640,12 @@ void LoginDisplayHostWebUI::OnStartSignInScreen(
   existing_user_controller_->Init(user_manager::UserManager::Get()->GetUsers());
 
   CHECK(login_display_);
-  GetOobeUI()->ShowSigninScreen(context, login_display_.get(),
-                                login_display_.get());
+  GetOobeUI()->ShowSigninScreen(login_display_.get(), login_display_.get());
 
   OnStartSignInScreenCommon();
 
-  TRACE_EVENT_ASYNC_STEP_INTO0("ui", "ShowLoginWebUI", kShowLoginWebUIid,
-                               "WaitForScreenStateInitialize");
+  TRACE_EVENT_NESTABLE_ASYNC_INSTANT0("ui", "WaitForScreenStateInitialize",
+                                      LoginDisplayHostWebUI::kShowLoginWebUIid);
 
   // TODO(crbug.com/784495): Make sure this is ported to views.
   BootTimesRecorder::Get()->RecordCurrentStats(
@@ -883,6 +898,11 @@ void LoginDisplayHostWebUI::InitLoginWindowAndView() {
 }
 
 void LoginDisplayHostWebUI::ResetLoginWindowAndView() {
+  // Notify any oobe dialog state observers (e.g. login shelf) that the UI is
+  // hidden (so they can reset any cached OOBE dialog state.)
+  ash::LoginScreen::Get()->GetModel()->NotifyOobeDialogState(
+      ash::OobeDialogState::HIDDEN);
+
   // Make sure to reset the |login_view_| pointer first; it is owned by
   // |login_window_|. Closing |login_window_| could immediately invalidate the
   // |login_view_| pointer.
@@ -940,8 +960,7 @@ void LoginDisplayHostWebUI::DisableRestrictiveProxyCheckForTest() {
   }
 }
 
-void LoginDisplayHostWebUI::ShowGaiaDialog(bool can_close,
-                                           const AccountId& prefilled_account) {
+void LoginDisplayHostWebUI::ShowGaiaDialog(const AccountId& prefilled_account) {
   // This is a special case, when WebUI sign-in screen shown with Views-based
   // launch bar. Then "Add user" button will be Views-based, and user click
   // will result in this call.
@@ -953,7 +972,7 @@ void LoginDisplayHostWebUI::HideOobeDialog() {
 }
 
 void LoginDisplayHostWebUI::UpdateOobeDialogState(ash::OobeDialogState state) {
-  NOTREACHED();
+  ash::LoginScreen::Get()->GetModel()->NotifyOobeDialogState(state);
 }
 
 const user_manager::UserList LoginDisplayHostWebUI::GetUsers() {

@@ -102,18 +102,36 @@ void RecordUnexpectedNotGoingAway(Location location) {
                             NUM_LOCATIONS);
 }
 
-void RecordConnectionCloseErrorCode(quic::QuicErrorCode error,
+void RecordConnectionCloseErrorCode(const quic::QuicConnectionCloseFrame& frame,
                                     quic::ConnectionCloseSource source,
                                     const std::string& hostname,
                                     bool handshake_confirmed) {
   bool is_google_host = HasGoogleHost(GURL("https://" + hostname));
   std::string histogram = "Net.QuicSession.ConnectionCloseErrorCode";
 
+  uint64_t error = 0;
   if (source == quic::ConnectionCloseSource::FROM_PEER) {
     histogram += "Server";
+    // When receiving a CONNECTION_CLOSE frame, record error code received on
+    // the wire.
+    switch (frame.close_type) {
+      case quic::GOOGLE_QUIC_CONNECTION_CLOSE:
+        error = frame.quic_error_code;
+        break;
+      case quic::IETF_QUIC_TRANSPORT_CONNECTION_CLOSE:
+        error = frame.transport_error_code;
+        histogram += "IetfTransport";
+        break;
+      case quic::IETF_QUIC_APPLICATION_CONNECTION_CLOSE:
+        error = frame.application_error_code;
+        histogram += "IetfApplication";
+    }
   } else {
+    // When sending a CONNECTION_CLOSE frame, record QuicErrorCode.
     histogram += "Client";
+    error = frame.extracted_error_code;
   }
+
   base::UmaHistogramSparse(histogram, error);
 
   if (handshake_confirmed) {
@@ -950,7 +968,9 @@ QuicChromiumClientSession::~QuicChromiumClientSession() {
 }
 
 void QuicChromiumClientSession::Initialize() {
-  quic::QuicSpdyClientSessionBase::SetMaxAllowedPushId(max_allowed_push_id_);
+  if (VersionUsesHttp3(transport_version())) {
+    quic::QuicSpdyClientSessionBase::SetMaxPushId(max_allowed_push_id_);
+  }
   set_max_inbound_header_list_size(kQuicMaxHeaderListSize);
   quic::QuicSpdyClientSessionBase::Initialize();
   SetHpackEncoderDebugVisitor(std::make_unique<HpackEncoderDebugVisitor>());
@@ -1339,7 +1359,7 @@ bool QuicChromiumClientSession::ShouldCreateIncomingStream(
   }
   if (quic::QuicUtils::IsClientInitiatedStreamId(
           connection()->transport_version(), id) ||
-      (connection()->transport_version() == quic::QUIC_VERSION_99 &&
+      (connection()->version().HasIetfQuicFrames() &&
        quic::QuicUtils::IsBidirectionalStreamId(id))) {
     LOG(WARNING) << "Received invalid push stream id " << id;
     connection()->CloseConnection(
@@ -1518,23 +1538,6 @@ void QuicChromiumClientSession::OnConfigNegotiated() {
           /*close_session_on_error=*/true, net_log_);
 }
 
-void QuicChromiumClientSession::OnCryptoHandshakeEvent(
-    CryptoHandshakeEvent event) {
-  if (!callback_.is_null() &&
-      (!require_confirmation_ || event == EVENT_HANDSHAKE_CONFIRMED ||
-       event == ENCRYPTION_ESTABLISHED)) {
-    // TODO(rtenneti): Currently for all CryptoHandshakeEvent events, callback_
-    // could be called because there are no error events in CryptoHandshakeEvent
-    // enum. If error events are added to CryptoHandshakeEvent, then the
-    // following code needs to changed.
-    std::move(callback_).Run(OK);
-  }
-  if (event == EVENT_HANDSHAKE_CONFIRMED) {
-    OnCryptoHandshakeComplete();
-  }
-  quic::QuicSpdySession::OnCryptoHandshakeEvent(event);
-}
-
 void QuicChromiumClientSession::SetDefaultEncryptionLevel(
     quic::EncryptionLevel level) {
   if (!callback_.is_null() &&
@@ -1550,6 +1553,18 @@ void QuicChromiumClientSession::SetDefaultEncryptionLevel(
     OnCryptoHandshakeComplete();
   }
   quic::QuicSpdySession::SetDefaultEncryptionLevel(level);
+}
+
+void QuicChromiumClientSession::OnOneRttKeysAvailable() {
+  if (!callback_.is_null()) {
+    // TODO(rtenneti): Currently for all CryptoHandshakeEvent events, callback_
+    // could be called because there are no error events in CryptoHandshakeEvent
+    // enum. If error events are added to CryptoHandshakeEvent, then the
+    // following code needs to changed.
+    std::move(callback_).Run(OK);
+  }
+  OnCryptoHandshakeComplete();
+  quic::QuicSpdySession::OnOneRttKeysAvailable();
 }
 
 void QuicChromiumClientSession::OnCryptoHandshakeMessageSent(
@@ -1589,11 +1604,12 @@ void QuicChromiumClientSession::OnConnectionClosed(
 
   logger_->OnConnectionClosed(frame, source);
 
-  const quic::QuicErrorCode error = frame.quic_error_code;
+  RecordConnectionCloseErrorCode(frame, source, session_key_.host(),
+                                 OneRttKeysAvailable());
+
+  const quic::QuicErrorCode error = frame.extracted_error_code;
   const std::string& error_details = frame.error_details;
 
-  RecordConnectionCloseErrorCode(error, source, session_key_.host(),
-                                 OneRttKeysAvailable());
   if (source == quic::ConnectionCloseSource::FROM_PEER) {
     if (error == quic::QUIC_PUBLIC_RESET) {
       // is_from_google_server will be true if the received EPID is

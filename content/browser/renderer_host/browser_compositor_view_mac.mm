@@ -143,7 +143,7 @@ bool BrowserCompositorMac::UpdateSurfaceFromNSView(
   if (recyclable_compositor_) {
     recyclable_compositor_->UpdateSurface(dfh_size_pixels_,
                                           dfh_display_.device_scale_factor(),
-                                          dfh_display_.color_space());
+                                          dfh_display_.color_spaces());
   }
 
   return true;
@@ -165,7 +165,7 @@ void BrowserCompositorMac::UpdateSurfaceFromChild(
       if (recyclable_compositor_) {
         recyclable_compositor_->UpdateSurface(
             dfh_size_pixels_, dfh_display_.device_scale_factor(),
-            dfh_display_.color_space());
+            dfh_display_.color_spaces());
       }
     }
     delegated_frame_host_->EmbedSurface(
@@ -268,10 +268,10 @@ void BrowserCompositorMac::TransitionToState(State new_state) {
   if (new_state == HasOwnCompositor) {
     recyclable_compositor_ =
         ui::RecyclableCompositorMacFactory::Get()->CreateCompositor(
-            content::GetContextFactory(), content::GetContextFactoryPrivate());
+            content::GetContextFactory());
     recyclable_compositor_->UpdateSurface(dfh_size_pixels_,
                                           dfh_display_.device_scale_factor(),
-                                          dfh_display_.color_space());
+                                          dfh_display_.color_spaces());
     recyclable_compositor_->compositor()->SetRootLayer(root_layer_.get());
     recyclable_compositor_->compositor()->SetBackgroundColor(background_color_);
     recyclable_compositor_->widget()->SetNSView(

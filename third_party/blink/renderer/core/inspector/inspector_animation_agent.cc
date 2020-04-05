@@ -75,7 +75,7 @@ void InspectorAnimationAgent::Restore() {
 Response InspectorAnimationAgent::enable() {
   enabled_.Set(true);
   instrumenting_agents_->AddInspectorAnimationAgent(this);
-  return Response::OK();
+  return Response::Success();
 }
 
 Response InspectorAnimationAgent::disable() {
@@ -87,7 +87,7 @@ Response InspectorAnimationAgent::disable() {
   id_to_animation_.clear();
   id_to_animation_clone_.clear();
   cleared_animations_.clear();
-  return Response::OK();
+  return Response::Success();
 }
 
 void InspectorAnimationAgent::DidCommitLoadForLocalFrame(LocalFrame* frame) {
@@ -190,7 +190,7 @@ InspectorAnimationAgent::BuildObjectForAnimation(blink::Animation& animation) {
           .setId(id)
           .setName(AnimationDisplayName(animation))
           .setPausedState(animation.Paused())
-          .setPlayState(animation.playState())
+          .setPlayState(animation.PlayStateString())
           .setPlaybackRate(animation.playbackRate())
           .setStartTime(NormalizedStartTime(animation))
           .setCurrentTime(animation.currentTime())
@@ -205,21 +205,21 @@ InspectorAnimationAgent::BuildObjectForAnimation(blink::Animation& animation) {
 
 Response InspectorAnimationAgent::getPlaybackRate(double* playback_rate) {
   *playback_rate = ReferenceTimeline().PlaybackRate();
-  return Response::OK();
+  return Response::Success();
 }
 
 Response InspectorAnimationAgent::setPlaybackRate(double playback_rate) {
   for (LocalFrame* frame : *inspected_frames_)
     frame->GetDocument()->Timeline().SetPlaybackRate(playback_rate);
   playback_rate_.Set(playback_rate);
-  return Response::OK();
+  return Response::Success();
 }
 
 Response InspectorAnimationAgent::getCurrentTime(const String& id,
                                                  double* current_time) {
   blink::Animation* animation = nullptr;
   Response response = AssertAnimation(id, animation);
-  if (!response.isSuccess())
+  if (!response.IsSuccess())
     return response;
   if (id_to_animation_clone_.at(id))
     animation = id_to_animation_clone_.at(id);
@@ -230,12 +230,12 @@ Response InspectorAnimationAgent::getCurrentTime(const String& id,
     // Use startTime where possible since currentTime is limited.
     base::Optional<double> timeline_time = animation->timeline()->CurrentTime();
     // TODO(crbug.com/916117): Handle NaN values for scroll linked animations.
-    *current_time = timeline_time
-                        ? timeline_time.value() -
-                              animation->startTime().value_or(NullValue())
-                        : NullValue();
+    *current_time =
+        timeline_time ? timeline_time.value() -
+                            animation->startTime().value_or(Timing::NullValue())
+                      : Timing::NullValue();
   }
-  return Response::OK();
+  return Response::Success();
 }
 
 Response InspectorAnimationAgent::setPaused(
@@ -244,11 +244,11 @@ Response InspectorAnimationAgent::setPaused(
   for (const String& animation_id : *animation_ids) {
     blink::Animation* animation = nullptr;
     Response response = AssertAnimation(animation_id, animation);
-    if (!response.isSuccess())
+    if (!response.IsSuccess())
       return response;
     blink::Animation* clone = AnimationClone(animation);
     if (!clone)
-      return Response::Error("Failed to clone detached animation");
+      return Response::ServerError("Failed to clone detached animation");
     if (paused && !clone->Paused()) {
       // Ensure we restore a current time if the animation is limited.
       double current_time = 0;
@@ -257,10 +257,10 @@ Response InspectorAnimationAgent::setPaused(
       } else {
         base::Optional<double> timeline_time = clone->timeline()->CurrentTime();
         // TODO(crbug.com/916117): Handle NaN values.
-        current_time = timeline_time
-                           ? timeline_time.value() -
-                                 clone->startTime().value_or(NullValue())
-                           : NullValue();
+        current_time =
+            timeline_time ? timeline_time.value() -
+                                clone->startTime().value_or(Timing::NullValue())
+                          : Timing::NullValue();
       }
       clone->pause();
       clone->setCurrentTime(current_time, false);
@@ -268,7 +268,7 @@ Response InspectorAnimationAgent::setPaused(
       clone->Unpause();
     }
   }
-  return Response::OK();
+  return Response::Success();
 }
 
 blink::Animation* InspectorAnimationAgent::AnimationClone(
@@ -310,7 +310,8 @@ blink::Animation* InspectorAnimationAgent::AnimationClone(
     id_to_animation_clone_.Set(id, clone);
     id_to_animation_.Set(String::Number(clone->SequenceNumber()), clone);
     clone->play();
-    clone->setStartTime(animation->startTime().value_or(NullValue()), false);
+    clone->setStartTime(animation->startTime().value_or(Timing::NullValue()),
+                        false);
 
     animation->SetEffectSuppressed(true);
   }
@@ -323,16 +324,16 @@ Response InspectorAnimationAgent::seekAnimations(
   for (const String& animation_id : *animation_ids) {
     blink::Animation* animation = nullptr;
     Response response = AssertAnimation(animation_id, animation);
-    if (!response.isSuccess())
+    if (!response.IsSuccess())
       return response;
     blink::Animation* clone = AnimationClone(animation);
     if (!clone)
-      return Response::Error("Failed to clone a detached animation.");
+      return Response::ServerError("Failed to clone a detached animation.");
     if (!clone->Paused())
       clone->play();
     clone->setCurrentTime(current_time, false);
   }
-  return Response::OK();
+  return Response::Success();
 }
 
 Response InspectorAnimationAgent::releaseAnimations(
@@ -348,7 +349,7 @@ Response InspectorAnimationAgent::releaseAnimations(
     id_to_animation_.erase(animation_id);
     cleared_animations_.insert(animation_id);
   }
-  return Response::OK();
+  return Response::Success();
 }
 
 Response InspectorAnimationAgent::setTiming(const String& animation_id,
@@ -356,7 +357,7 @@ Response InspectorAnimationAgent::setTiming(const String& animation_id,
                                             double delay) {
   blink::Animation* animation = nullptr;
   Response response = AssertAnimation(animation_id, animation);
-  if (!response.isSuccess())
+  if (!response.IsSuccess())
     return response;
 
   animation = AnimationClone(animation);
@@ -368,7 +369,7 @@ Response InspectorAnimationAgent::setTiming(const String& animation_id,
   timing->setDuration(unrestricted_duration);
   timing->setDelay(delay);
   animation->effect()->updateTiming(timing, exception_state);
-  return Response::OK();
+  return Response::Success();
 }
 
 Response InspectorAnimationAgent::resolveAnimation(
@@ -377,7 +378,7 @@ Response InspectorAnimationAgent::resolveAnimation(
         result) {
   blink::Animation* animation = nullptr;
   Response response = AssertAnimation(animation_id, animation);
-  if (!response.isSuccess())
+  if (!response.IsSuccess())
     return response;
   if (id_to_animation_clone_.at(animation_id))
     animation = id_to_animation_clone_.at(animation_id);
@@ -388,7 +389,7 @@ Response InspectorAnimationAgent::resolveAnimation(
   ScriptState* script_state =
       frame ? ToScriptStateForMainWorld(frame) : nullptr;
   if (!script_state)
-    return Response::Error("Element not associated with a document.");
+    return Response::ServerError("Element not associated with a document.");
 
   ScriptState::Scope scope(script_state);
   static const char kAnimationObjectGroup[] = "animation";
@@ -401,8 +402,8 @@ Response InspectorAnimationAgent::resolveAnimation(
       ToV8InspectorStringView(kAnimationObjectGroup),
       false /* generatePreview */);
   if (!*result)
-    return Response::Error("Element not associated with a document.");
-  return Response::OK();
+    return Response::ServerError("Element not associated with a document.");
+  return Response::Success();
 }
 
 String InspectorAnimationAgent::CreateCSSId(blink::Animation& animation) {
@@ -499,8 +500,8 @@ Response InspectorAnimationAgent::AssertAnimation(const String& id,
                                                   blink::Animation*& result) {
   result = id_to_animation_.at(id);
   if (!result)
-    return Response::Error("Could not find animation with given id");
-  return Response::OK();
+    return Response::ServerError("Could not find animation with given id");
+  return Response::Success();
 }
 
 DocumentTimeline& InspectorAnimationAgent::ReferenceTimeline() {
@@ -509,7 +510,7 @@ DocumentTimeline& InspectorAnimationAgent::ReferenceTimeline() {
 
 double InspectorAnimationAgent::NormalizedStartTime(
     blink::Animation& animation) {
-  double time_ms = animation.startTime().value_or(NullValue());
+  double time_ms = animation.startTime().value_or(Timing::NullValue());
   auto* document_timeline = DynamicTo<DocumentTimeline>(animation.timeline());
   if (document_timeline) {
     if (ReferenceTimeline().PlaybackRate() == 0) {
@@ -526,7 +527,7 @@ double InspectorAnimationAgent::NormalizedStartTime(
   return std::round(time_ms * 1000) / 1000;
 }
 
-void InspectorAnimationAgent::Trace(blink::Visitor* visitor) {
+void InspectorAnimationAgent::Trace(Visitor* visitor) {
   visitor->Trace(inspected_frames_);
   visitor->Trace(css_agent_);
   visitor->Trace(id_to_animation_);

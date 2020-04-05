@@ -243,13 +243,9 @@ void DoSplitviewTransformAnimation(
     return;
 
   switch (type) {
-    case SPLITVIEW_ANIMATION_OTHER_HIGHLIGHT_SLIDE_IN:
-    case SPLITVIEW_ANIMATION_OTHER_HIGHLIGHT_SLIDE_OUT:
     case SPLITVIEW_ANIMATION_OTHER_HIGHLIGHT_TEXT_SLIDE_IN:
     case SPLITVIEW_ANIMATION_OTHER_HIGHLIGHT_TEXT_SLIDE_OUT:
     case SPLITVIEW_ANIMATION_PREVIEW_AREA_NIX_INSET:
-    case SPLITVIEW_ANIMATION_PREVIEW_AREA_SLIDE_IN:
-    case SPLITVIEW_ANIMATION_PREVIEW_AREA_SLIDE_OUT:
     case SPLITVIEW_ANIMATION_PREVIEW_AREA_TEXT_SLIDE_IN:
     case SPLITVIEW_ANIMATION_PREVIEW_AREA_TEXT_SLIDE_OUT:
     case SPLITVIEW_ANIMATION_SET_WINDOW_TRANSFORM:
@@ -274,6 +270,42 @@ void DoSplitviewTransformAnimation(
                          ui::LayerAnimationElement::TRANSFORM, duration, tween,
                          preemption_strategy, delay);
   layer->SetTransform(target_transform);
+}
+
+void DoSplitviewClipRectAnimation(
+    ui::Layer* layer,
+    SplitviewAnimationType type,
+    const gfx::Rect& target_clip_rect,
+    std::unique_ptr<ui::ImplicitAnimationObserver> animation_observer) {
+  ui::LayerAnimator* animator = layer->GetAnimator();
+  if (animator->GetTargetClipRect() == target_clip_rect)
+    return;
+
+  switch (type) {
+    case SPLITVIEW_ANIMATION_OTHER_HIGHLIGHT_SLIDE_IN:
+    case SPLITVIEW_ANIMATION_OTHER_HIGHLIGHT_SLIDE_OUT:
+    case SPLITVIEW_ANIMATION_PREVIEW_AREA_NIX_INSET:
+    case SPLITVIEW_ANIMATION_PREVIEW_AREA_SLIDE_IN:
+    case SPLITVIEW_ANIMATION_PREVIEW_AREA_SLIDE_OUT:
+      break;
+    default:
+      NOTREACHED() << "Not a valid split view clip rect type.";
+      return;
+  }
+
+  base::TimeDelta duration;
+  gfx::Tween::Type tween;
+  ui::LayerAnimator::PreemptionStrategy preemption_strategy;
+  base::TimeDelta delay;
+  GetAnimationValuesForType(type, &duration, &tween, &preemption_strategy,
+                            &delay);
+
+  ui::ScopedLayerAnimationSettings settings(animator);
+  if (animation_observer.get())
+    settings.AddObserver(animation_observer.release());
+  ApplyAnimationSettings(&settings, animator, ui::LayerAnimationElement::CLIP,
+                         duration, tween, preemption_strategy, delay);
+  layer->SetClipRect(target_clip_rect);
 }
 
 void MaybeRestoreSplitView(bool refresh_snapped_windows) {
@@ -384,6 +416,9 @@ SplitViewController::SnapPosition GetSnapPosition(
     aura::Window* root_window,
     aura::Window* window,
     const gfx::Point& location_in_screen,
+    const gfx::Point& initial_location_in_screen,
+    int snap_distance_from_edge,
+    int minimum_drag_distance,
     int horizontal_edge_inset,
     int vertical_edge_inset) {
   if (!ShouldAllowSplitView() ||
@@ -394,32 +429,66 @@ SplitViewController::SnapPosition GetSnapPosition(
   const bool horizontal = SplitViewController::IsLayoutHorizontal();
   const bool right_side_up = SplitViewController::IsLayoutRightSideUp();
 
-  // Check to see if the current event location |location_in_screen|is within
+  // Check to see if the current event location |location_in_screen| is within
   // the drag indicators bounds.
-  gfx::Rect area(
+  const gfx::Rect work_area(
       screen_util::GetDisplayWorkAreaBoundsInScreenForActiveDeskContainer(
           root_window));
+  SplitViewController::SnapPosition snap_position = SplitViewController::NONE;
   if (horizontal) {
+    gfx::Rect area(work_area);
     area.Inset(horizontal_edge_inset, 0);
     if (location_in_screen.x() <= area.x()) {
-      return right_side_up ? SplitViewController::LEFT
-                           : SplitViewController::RIGHT;
+      snap_position = right_side_up ? SplitViewController::LEFT
+                                    : SplitViewController::RIGHT;
+    } else if (location_in_screen.x() >= area.right() - 1) {
+      snap_position = right_side_up ? SplitViewController::RIGHT
+                                    : SplitViewController::LEFT;
     }
-    if (location_in_screen.x() >= area.right() - 1) {
-      return right_side_up ? SplitViewController::RIGHT
-                           : SplitViewController::LEFT;
+  } else {
+    gfx::Rect area(work_area);
+    area.Inset(0, vertical_edge_inset);
+    if (location_in_screen.y() <= area.y()) {
+      snap_position = right_side_up ? SplitViewController::LEFT
+                                    : SplitViewController::RIGHT;
+    } else if (location_in_screen.y() >= area.bottom() - 1) {
+      snap_position = right_side_up ? SplitViewController::RIGHT
+                                    : SplitViewController::LEFT;
     }
-    return SplitViewController::NONE;
   }
 
-  area.Inset(0, vertical_edge_inset);
-  if (location_in_screen.y() <= area.y())
-    return right_side_up ? SplitViewController::LEFT
-                         : SplitViewController::RIGHT;
-  if (location_in_screen.y() >= area.bottom() - 1)
-    return right_side_up ? SplitViewController::RIGHT
-                         : SplitViewController::LEFT;
-  return SplitViewController::NONE;
+  if (snap_position == SplitViewController::NONE)
+    return snap_position;
+
+  // To avoid accidental snap, the window needs to be dragged inside
+  // |snap_distance_from_edge| from edge or dragged toward the edge for at least
+  // |minimum_drag_distance| until it's dragged into |horizontal_edge_inset| or
+  // |vertical_edge_inset| region.
+  // The window should always be snapped if inside |snap_distance_from_edge|
+  // from edge.
+  bool drag_end_near_edge = false;
+  gfx::Rect area(work_area);
+  area.Inset(snap_distance_from_edge, snap_distance_from_edge);
+  if (horizontal ? location_in_screen.x() < area.x() ||
+                       location_in_screen.x() > area.right()
+                 : location_in_screen.y() < area.y() ||
+                       location_in_screen.y() > area.bottom()) {
+    drag_end_near_edge = true;
+  }
+
+  if (!drag_end_near_edge && window->GetRootWindow() == root_window) {
+    // Check how far the window has been dragged.
+    const auto distance = location_in_screen - initial_location_in_screen;
+    const int primary_axis_distance = horizontal ? distance.x() : distance.y();
+    const bool is_left_or_top =
+        SplitViewController::IsPhysicalLeftOrTop(snap_position);
+    if ((is_left_or_top && primary_axis_distance > -minimum_drag_distance) ||
+        (!is_left_or_top && primary_axis_distance < minimum_drag_distance)) {
+      snap_position = SplitViewController::NONE;
+    }
+  }
+
+  return snap_position;
 }
 
 }  // namespace ash

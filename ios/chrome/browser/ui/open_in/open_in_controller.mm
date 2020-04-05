@@ -13,13 +13,14 @@
 #include "base/sequenced_task_runner.h"
 #include "base/strings/sys_string_conversions.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "base/threading/scoped_blocking_call.h"
 #include "components/strings/grit/components_strings.h"
 #import "ios/chrome/browser/ui/alert_coordinator/alert_coordinator.h"
 #import "ios/chrome/browser/ui/open_in/open_in_controller_testing.h"
 #include "ios/chrome/browser/ui/util/ui_util.h"
 #import "ios/chrome/browser/ui/util/uikit_ui_util.h"
-#import "ios/chrome/common/ui_util/constraints_ui_util.h"
+#import "ios/chrome/common/ui/util/constraints_ui_util.h"
 #include "ios/chrome/grit/ios_strings.h"
 #include "ios/web/public/thread/web_thread.h"
 #import "ios/web/public/ui/crw_web_view_proxy.h"
@@ -234,9 +235,8 @@ class OpenInControllerBridge
         initWithTarget:self
                 action:@selector(handleTapFrom:)];
     [_tapRecognizer setDelegate:self];
-    _sequencedTaskRunner =
-        base::CreateSequencedTaskRunner({base::ThreadPool(), base::MayBlock(),
-                                         base::TaskPriority::BEST_EFFORT});
+    _sequencedTaskRunner = base::ThreadPool::CreateSequencedTaskRunner(
+        {base::MayBlock(), base::TaskPriority::BEST_EFFORT});
     _isOpenInMenuDisplayed = NO;
     _previousScrollViewOffset = 0;
   }
@@ -438,12 +438,8 @@ class OpenInControllerBridge
   if (!_webState)
     return;
 
-  if (!_documentController) {
-    // If this is called from a unit test, |documentController_| was set
-    // already.
-    _documentController =
-        [UIDocumentInteractionController interactionControllerWithURL:fileURL];
-  }
+  _documentController =
+      [UIDocumentInteractionController interactionControllerWithURL:fileURL];
 
   // TODO(cgrigoruta): The UTI is hardcoded for now, change this when we add
   // support for other file types as well.
@@ -698,11 +694,6 @@ class OpenInControllerBridge
 }
 
 #pragma mark - TestingAditions
-
-- (void)setDocumentInteractionController:
-    (UIDocumentInteractionController*)controller {
-  _documentController = controller;
-}
 
 - (NSString*)suggestedFilename {
   return _suggestedFilename;

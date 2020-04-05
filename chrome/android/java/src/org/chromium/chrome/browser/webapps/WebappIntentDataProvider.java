@@ -4,11 +4,14 @@
 
 package org.chromium.chrome.browser.webapps;
 
+import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.drawable.Drawable;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.browser.customtabs.CustomTabsIntent;
+import androidx.browser.trusted.sharing.ShareData;
 
 import org.chromium.base.ContextUtils;
 import org.chromium.chrome.R;
@@ -19,11 +22,13 @@ import org.chromium.components.browser_ui.widget.TintedDrawable;
  * Stores info about a web app.
  */
 public class WebappIntentDataProvider extends BrowserServicesIntentDataProvider {
-    private int mToolbarColor;
-    private boolean mHasCustomToolbarColor;
-    private Drawable mCloseButtonIcon;
-    private WebappExtras mWebappExtras;
-    private WebApkExtras mWebApkExtras;
+    private final int mToolbarColor;
+    private final boolean mHasCustomToolbarColor;
+    private final Drawable mCloseButtonIcon;
+    private final ShareData mShareData;
+    private final @NonNull WebappExtras mWebappExtras;
+    private final @Nullable WebApkExtras mWebApkExtras;
+    private final Intent mIntent;
 
     /**
      * Returns the toolbar color to use if a custom color is not specified by the webapp.
@@ -32,14 +37,28 @@ public class WebappIntentDataProvider extends BrowserServicesIntentDataProvider 
         return Color.WHITE;
     }
 
-    WebappIntentDataProvider(int toolbarColor, boolean hasCustomToolbarColor,
-            WebappExtras webappExtras, WebApkExtras webApkExtras) {
+    WebappIntentDataProvider(int toolbarColor, boolean hasCustomToolbarColor, ShareData shareData,
+            @NonNull WebappExtras webappExtras, @Nullable WebApkExtras webApkExtras) {
         mToolbarColor = toolbarColor;
         mHasCustomToolbarColor = hasCustomToolbarColor;
         mCloseButtonIcon = TintedDrawable.constructTintedDrawable(
                 ContextUtils.getApplicationContext(), R.drawable.btn_close);
+        mShareData = shareData;
         mWebappExtras = webappExtras;
         mWebApkExtras = webApkExtras;
+        mIntent = new Intent();
+    }
+
+    @Override
+    @Nullable
+    public Intent getIntent() {
+        return mIntent;
+    }
+
+    @Override
+    @Nullable
+    public String getUrlToLoad() {
+        return mWebappExtras.url;
     }
 
     @Override
@@ -65,6 +84,17 @@ public class WebappIntentDataProvider extends BrowserServicesIntentDataProvider 
     @Override
     public boolean isWebappOrWebApkActivity() {
         return true;
+    }
+
+    @Override
+    public boolean isWebApkActivity() {
+        return mWebApkExtras != null;
+    }
+
+    @Override
+    @Nullable
+    public ShareData getShareData() {
+        return mShareData;
     }
 
     @Override

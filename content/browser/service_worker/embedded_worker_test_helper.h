@@ -17,7 +17,6 @@
 #include "content/browser/service_worker/service_worker_test_utils.h"
 #include "content/browser/url_loader_factory_getter.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
-#include "net/http/http_response_info.h"
 #include "third_party/blink/public/mojom/service_worker/embedded_worker.mojom.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker.mojom.h"
 
@@ -74,6 +73,9 @@ class EmbeddedWorkerTestHelper {
   // If |user_data_directory| is empty, the context makes storage stuff in
   // memory.
   explicit EmbeddedWorkerTestHelper(const base::FilePath& user_data_directory);
+  EmbeddedWorkerTestHelper(
+      const base::FilePath& user_data_directory,
+      storage::SpecialStoragePolicy* special_storage_policy);
   virtual ~EmbeddedWorkerTestHelper();
 
   ServiceWorkerContextCore* context();
@@ -92,7 +94,8 @@ class EmbeddedWorkerTestHelper {
 
   TestBrowserContext* browser_context() { return browser_context_.get(); }
 
-  static net::HttpResponseInfo CreateHttpResponseInfo();
+  static std::unique_ptr<ServiceWorkerVersion::MainScriptResponse>
+  CreateMainScriptResponse();
 
   URLLoaderFactoryGetter* url_loader_factory_getter() {
     return url_loader_factory_getter_.get();

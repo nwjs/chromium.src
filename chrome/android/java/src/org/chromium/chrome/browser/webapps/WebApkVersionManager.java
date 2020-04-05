@@ -13,7 +13,7 @@ import org.chromium.base.ContextUtils;
 import org.chromium.base.FileUtils;
 import org.chromium.base.StrictModeContext;
 import org.chromium.base.ThreadUtils;
-import org.chromium.chrome.browser.ChromeSwitches;
+import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.SharedPreferencesManager;
 import org.chromium.webapk.lib.client.DexOptimizer;
@@ -53,7 +53,7 @@ public class WebApkVersionManager {
 
         Context context = ContextUtils.getApplicationContext();
         File dexDir = context.getDir("dex", Context.MODE_PRIVATE);
-        FileUtils.recursivelyDeleteFile(dexDir);
+        FileUtils.recursivelyDeleteFile(dexDir, FileUtils.DELETE_ALL);
 
         // Recreate world-executable directory using {@link Context#getDir}.
         dexDir = context.getDir("dex", Context.MODE_PRIVATE);

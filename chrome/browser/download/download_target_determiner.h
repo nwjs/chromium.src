@@ -16,10 +16,10 @@
 #include "build/build_config.h"
 #include "chrome/browser/download/download_target_determiner_delegate.h"
 #include "chrome/browser/download/download_target_info.h"
-#include "chrome/common/safe_browsing/download_file_types.pb.h"
 #include "components/download/public/common/download_danger_type.h"
 #include "components/download/public/common/download_item.h"
 #include "components/download/public/common/download_path_reservation_tracker.h"
+#include "components/safe_browsing/core/proto/download_file_types.pb.h"
 #include "content/public/browser/download_manager_delegate.h"
 #include "ppapi/buildflags/buildflags.h"
 
@@ -323,6 +323,10 @@ class DownloadTargetDeterminer : public download::DownloadItem::Observer {
   // to true if the download requires explicit user consent.
   safe_browsing::DownloadFileType::DangerLevel GetDangerLevel(
       PriorVisitsToReferrer visits) const;
+
+  // Generates the download file name based on information from URL, response
+  // headers and sniffed mime type.
+  base::FilePath GenerateFileName() const;
 
   // download::DownloadItem::Observer
   void OnDownloadDestroyed(download::DownloadItem* download) override;

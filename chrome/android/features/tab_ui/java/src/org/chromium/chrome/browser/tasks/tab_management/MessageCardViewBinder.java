@@ -32,7 +32,8 @@ class MessageCardViewBinder {
 
                 MessageCardView.DismissActionProvider uiDismissProvider =
                         model.get(MessageCardViewProperties.UI_DISMISS_ACTION_PROVIDER);
-                if (uiDismissProvider != null) {
+                if (uiDismissProvider != null
+                        && !model.get(MessageCardViewProperties.SHOULD_KEEP_AFTER_REVIEW)) {
                     uiDismissProvider.dismiss(model.get(MessageCardViewProperties.MESSAGE_TYPE));
                 }
             });
@@ -58,6 +59,8 @@ class MessageCardViewBinder {
             });
         } else if (CARD_ALPHA == propertyKey) {
             itemView.setAlpha(model.get(CARD_ALPHA));
+        } else if (MessageCardViewProperties.IS_ICON_VISIBLE == propertyKey) {
+            itemView.setIconVisibility(model.get(MessageCardViewProperties.IS_ICON_VISIBLE));
         }
     }
 }

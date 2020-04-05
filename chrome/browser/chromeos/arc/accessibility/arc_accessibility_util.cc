@@ -112,45 +112,41 @@ base::Optional<mojom::AccessibilityActionType> ConvertToAndroidAction(
       return arc::mojom::AccessibilityActionType::SHOW_TOOLTIP;
     case ax::mojom::Action::kHideTooltip:
       return arc::mojom::AccessibilityActionType::HIDE_TOOLTIP;
+    case ax::mojom::Action::kCollapse:
+      return arc::mojom::AccessibilityActionType::COLLAPSE;
+    case ax::mojom::Action::kExpand:
+      return arc::mojom::AccessibilityActionType::EXPAND;
     default:
       return base::nullopt;
   }
+}
+
+std::string ToLiveStatusString(mojom::AccessibilityLiveRegionType type) {
+  switch (type) {
+    case mojom::AccessibilityLiveRegionType::NONE:
+      return "none";
+    case mojom::AccessibilityLiveRegionType::POLITE:
+      return "polite";
+    case mojom::AccessibilityLiveRegionType::ASSERTIVE:
+      return "assertive";
+    default:
+      NOTREACHED();
+  }
+  return std::string();  // Dummy.
 }
 
 bool IsImportantInAndroid(AXNodeInfoData* node) {
   if (!node)
     return false;
 
-  if (GetBooleanProperty(node, AXBooleanProperty::IMPORTANCE))
-    return true;
-
-  // WebView and its child nodes do not have accessibility importance set.
-  // This logic can be removed once the change in crrev/c/1890402 landed
-  // in all ARC containers.
-  std::vector<int32_t> standard_action_ids;
-  if (GetProperty(node->int_list_properties,
-                  AXIntListProperty::STANDARD_ACTION_IDS,
-                  &standard_action_ids)) {
-    for (const int32_t id : standard_action_ids) {
-      switch (static_cast<AXActionType>(id)) {
-        case AXActionType::NEXT_HTML_ELEMENT:
-        case AXActionType::PREVIOUS_HTML_ELEMENT:
-          return true;
-        default:
-          // unused.
-          break;
-      }
-    }
-  }
-
-  return false;
+  return node->is_virtual_node ||
+         GetBooleanProperty(node, AXBooleanProperty::IMPORTANCE);
 }
 
 bool HasImportantProperty(AXNodeInfoData* node) {
   if (!node)
     return false;
 
-  std::string prop;
   if (HasNonEmptyStringProperty(node, AXStringProperty::CONTENT_DESCRIPTION) ||
       HasNonEmptyStringProperty(node, AXStringProperty::TEXT) ||
       HasNonEmptyStringProperty(node, AXStringProperty::PANE_TITLE) ||
@@ -162,36 +158,28 @@ bool HasImportantProperty(AXNodeInfoData* node) {
       GetBooleanProperty(node, AXBooleanProperty::SELECTED))
     return true;
 
-  std::vector<int32_t> standard_action_ids;
-  if (GetProperty(node->int_list_properties,
-                  AXIntListProperty::STANDARD_ACTION_IDS,
-                  &standard_action_ids)) {
-    for (const int32_t id : standard_action_ids) {
-      switch (static_cast<AXActionType>(id)) {
-        case AXActionType::CLICK:
-        case AXActionType::FOCUS:
-          return true;
-        default:
-          // unused.
-          break;
-      }
-    }
-  }
+  if (HasStandardAction(node, AXActionType::CLICK) ||
+      HasStandardAction(node, AXActionType::FOCUS))
+    return true;
 
   // TODO(hirokisato) Also check LABELED_BY and ui::IsControl(role)
   return false;
 }
 
-bool GetBooleanProperty(mojom::AccessibilityNodeInfoData* node,
-                        mojom::AccessibilityBooleanProperty prop) {
-  if (!node || !node->boolean_properties)
+bool HasStandardAction(AXNodeInfoData* node, AXActionType action) {
+  if (!node || !node->int_list_properties)
     return false;
 
-  auto it = node->boolean_properties->find(prop);
-  if (it == node->boolean_properties->end())
+  auto itr =
+      node->int_list_properties->find(AXIntListProperty::STANDARD_ACTION_IDS);
+  if (itr == node->int_list_properties->end())
     return false;
 
-  return it->second;
+  for (const auto supported_action : itr->second) {
+    if (static_cast<AXActionType>(supported_action) == action)
+      return true;
+  }
+  return false;
 }
 
 }  // namespace arc

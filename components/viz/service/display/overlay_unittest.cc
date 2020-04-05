@@ -191,7 +191,7 @@ class OverlayOutputSurface : public OutputSurface {
   void Reshape(const gfx::Size& size,
                float device_scale_factor,
                const gfx::ColorSpace& color_space,
-               bool has_alpha,
+               gfx::BufferFormat format,
                bool use_stencil) override {}
   void SwapBuffers(OutputSurfaceFrame frame) override {}
   uint32_t GetFramebufferCopyTextureFormat() override {
@@ -204,9 +204,6 @@ class OverlayOutputSurface : public OutputSurface {
     return is_displayed_as_overlay_plane_;
   }
   unsigned GetOverlayTextureId() const override { return 10000; }
-  gfx::BufferFormat GetOverlayBufferFormat() const override {
-    return gfx::BufferFormat::RGBX_8888;
-  }
   unsigned UpdateGpuFence() override { return 0; }
   void SetUpdateVSyncParametersCallback(
       UpdateVSyncParametersCallback callback) override {}
@@ -218,6 +215,7 @@ class OverlayOutputSurface : public OutputSurface {
       override {
     return nullptr;
   }
+  gpu::MemoryTracker* GetMemoryTracker() override { return nullptr; }
 
   void set_is_displayed_as_overlay_plane(bool value) {
     is_displayed_as_overlay_plane_ = value;
@@ -1856,7 +1854,7 @@ TEST_F(UnderlayTest, PrimaryPlaneOverlayIsTransparentWithUnderlay) {
 
   auto output_surface_plane = overlay_processor_->ProcessOutputSurfaceAsOverlay(
       kDisplaySize, kDefaultBufferFormat, gfx::ColorSpace(),
-      false /* has_alpha */);
+      false /* has_alpha */, gpu::Mailbox());
   OverlayProcessorInterface::OutputSurfaceOverlayPlane* primary_plane =
       &output_surface_plane;
 
@@ -2203,7 +2201,7 @@ TEST_F(UnderlayCastTest, PrimaryPlaneOverlayIsAlwaysTransparent) {
   RenderPassList pass_list;
   pass_list.push_back(std::move(pass));
   auto output_surface_plane = overlay_processor_->ProcessOutputSurfaceAsOverlay(
-      kDisplaySize, kDefaultBufferFormat, gfx::ColorSpace());
+      kDisplaySize, kDefaultBufferFormat, gfx::ColorSpace(), gpu::Mailbox());
 
   overlay_processor_->ProcessForOverlays(
       resource_provider_.get(), &pass_list, GetIdentityColorMatrix(),
@@ -2310,7 +2308,8 @@ class GLRendererWithOverlaysTest : public testing::Test {
   }
 
   void DrawFrame(RenderPassList* pass_list, const gfx::Size& viewport_size) {
-    renderer_->DrawFrame(pass_list, 1.f, viewport_size);
+    renderer_->DrawFrame(pass_list, 1.f, viewport_size,
+                         gfx::DisplayColorSpaces());
   }
   void SwapBuffers() {
     renderer_->SwapBuffers({});

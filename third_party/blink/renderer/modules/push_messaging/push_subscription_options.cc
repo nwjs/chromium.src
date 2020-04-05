@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/modules/push_messaging/push_subscription_options.h"
 
+#include "third_party/blink/renderer/bindings/modules/v8/array_buffer_or_array_buffer_view_or_string.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_push_subscription_options_init.h"
 #include "third_party/blink/renderer/core/typed_arrays/dom_array_buffer.h"
 #include "third_party/blink/renderer/platform/bindings/exception_code.h"
@@ -98,7 +99,7 @@ PushSubscriptionOptions::PushSubscriptionOptions(
           application_server_key.data(),
           SafeCast<unsigned>(application_server_key.size()))) {}
 
-void PushSubscriptionOptions::Trace(blink::Visitor* visitor) {
+void PushSubscriptionOptions::Trace(Visitor* visitor) {
   visitor->Trace(application_server_key_);
   ScriptWrappable::Trace(visitor);
 }

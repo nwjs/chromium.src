@@ -20,11 +20,12 @@ import android.content.Intent;
 import android.provider.Browser;
 import android.support.test.espresso.intent.rule.IntentsTestRule;
 import android.support.test.filters.SmallTest;
-import android.support.v7.widget.RecyclerView;
-import android.support.v7.widget.RecyclerView.ViewHolder;
 import android.text.TextUtils;
 import android.view.MenuItem;
 import android.view.View;
+
+import androidx.recyclerview.widget.RecyclerView;
+import androidx.recyclerview.widget.RecyclerView.ViewHolder;
 
 import org.junit.After;
 import org.junit.Assert;
@@ -34,12 +35,13 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import org.chromium.base.task.PostTask;
+import org.chromium.base.test.util.CloseableOnMainThread;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.base.test.util.RetryOnFailure;
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.IntentHandler;
+import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.history.HistoryTestUtils.TestObserver;
 import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.preferences.Pref;
@@ -484,39 +486,45 @@ public class HistoryActivityTest {
     @Test
     @SmallTest
     public void testCopyLink() throws Exception {
-        final ClipboardManager clipboardManager = TestThreadUtils.runOnUiThreadBlocking(() -> {
-            ClipboardManager manager =
-                    (ClipboardManager) mActivityTestRule.getActivity().getSystemService(
-                            Context.CLIPBOARD_SERVICE);
-            Assert.assertNotNull(manager);
-            manager.setPrimaryClip(ClipData.newPlainText(null, ""));
-            return manager;
-        });
-        // Clear the clipboard to make sure we start with a clean state.
+        // Allow DiskWrites temporarily in main thread to avoid
+        // violation during copying under emulator environment.
+        try (CloseableOnMainThread ignored = CloseableOnMainThread.StrictMode.allowDiskWrites()) {
+            final ClipboardManager clipboardManager = TestThreadUtils.runOnUiThreadBlocking(() -> {
+                ClipboardManager manager =
+                        (ClipboardManager) mActivityTestRule.getActivity().getSystemService(
+                                Context.CLIPBOARD_SERVICE);
+                Assert.assertNotNull(manager);
+                manager.setPrimaryClip(ClipData.newPlainText(null, ""));
+                return manager;
+            });
+            // Clear the clipboard to make sure we start with a clean state.
 
-        final HistoryManagerToolbar toolbar = mHistoryManager.getToolbarForTests();
+            final HistoryManagerToolbar toolbar = mHistoryManager.getToolbarForTests();
 
-        // Check that the copy link item is visible when one item is selected.
-        toggleItemSelection(2);
-        Assert.assertTrue(toolbar.getItemById(R.id.selection_mode_copy_link).isVisible());
+            // Check that the copy link item is visible when one item is selected.
+            toggleItemSelection(2);
+            Assert.assertTrue(toolbar.getItemById(R.id.selection_mode_copy_link).isVisible());
 
-        // Check that link is copied to the clipboard.
-        TestThreadUtils.runOnUiThreadBlocking(
-                () -> Assert.assertTrue(mHistoryManager.getToolbarForTests()
-                                                     .getMenu()
-                                                     .performIdentifierAction(
-                                                             R.id.selection_mode_copy_link, 0)));
-        CriteriaHelper.pollUiThread(new Criteria() {
-            @Override
-            public boolean isSatisfied() {
-                return TextUtils.equals(mItem1.getUrl(), clipboardManager.getText());
-            }
-        });
+            // Check that link is copied to the clipboard.
+            TestThreadUtils.runOnUiThreadBlocking(
+                    ()
+                            -> Assert.assertTrue(
+                                    mHistoryManager.getToolbarForTests()
+                                            .getMenu()
+                                            .performIdentifierAction(
+                                                    R.id.selection_mode_copy_link, 0)));
+            CriteriaHelper.pollUiThread(new Criteria() {
+                @Override
+                public boolean isSatisfied() {
+                    return TextUtils.equals(mItem1.getUrl(), clipboardManager.getText());
+                }
+            });
 
-        // Check that the copy link item is not visible when more than one item is selected.
-        toggleItemSelection(2);
-        toggleItemSelection(3);
-        Assert.assertFalse(toolbar.getItemById(R.id.selection_mode_copy_link).isVisible());
+            // Check that the copy link item is not visible when more than one item is selected.
+            toggleItemSelection(2);
+            toggleItemSelection(3);
+            Assert.assertFalse(toolbar.getItemById(R.id.selection_mode_copy_link).isVisible());
+        }
     }
 
     // TODO(yolandyan): rewrite this with espresso
@@ -579,7 +587,7 @@ public class HistoryActivityTest {
         int onPreferenceChangeCallCount = mTestObserver.onPreferenceChangeCallback.getCallCount();
         Assert.assertTrue(TestThreadUtils.runOnUiThreadBlocking(() -> {
             PrefServiceBridge.getInstance().setString(Pref.SUPERVISED_USER_ID, "ChildAccountSUID");
-            return Profile.getLastUsedProfile().isChild()
+            return Profile.getLastUsedRegularProfile().isChild()
                     && !PrefServiceBridge.getInstance().getBoolean(
                             Pref.ALLOW_DELETING_BROWSER_HISTORY)
                     && !IncognitoUtils.isIncognitoModeEnabled();

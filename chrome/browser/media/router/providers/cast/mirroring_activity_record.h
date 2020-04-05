@@ -9,6 +9,8 @@
 
 #include "base/callback.h"
 #include "base/memory/weak_ptr.h"
+#include "base/optional.h"
+#include "base/time/time.h"
 #include "chrome/browser/media/router/providers/cast/activity_record.h"
 #include "chrome/browser/media/router/providers/cast/cast_session_tracker.h"
 #include "chrome/common/media_router/media_route.h"
@@ -32,6 +34,14 @@ class MirroringActivityRecord : public ActivityRecord,
                                 public mirroring::mojom::CastMessageChannel {
  public:
   using OnStopCallback = base::OnceClosure;
+
+  enum class MirroringType {
+    kTab,           // Mirror a single tab.
+    kDesktop,       // Mirror the whole desktop.
+    kOffscreenTab,  // Used for Presentation API 1UA mode.
+    kNonLocal,      // Activity started by other sender devices.
+    kMaxValue = kNonLocal,
+  };
 
   MirroringActivityRecord(const MediaRoute& route,
                           const std::string& app_id,
@@ -61,16 +71,12 @@ class MirroringActivityRecord : public ActivityRecord,
       mojo::PendingRemote<mojom::MediaStatusObserver> observer) override;
 
  private:
-  enum class MirroringType {
-    kTab,           // Mirror a single tab.
-    kDesktop,       // Mirror the whole desktop.
-    kOffscreenTab,  // Used for Presentation API 1UA mode.
-    kMaxValue = kOffscreenTab,
-  };
-
   void HandleParseJsonResult(const std::string& route_id,
                              data_decoder::DataDecoder::ValueOrError result);
 
+  void StartMirroring(
+      mirroring::mojom::SessionParametersPtr session_params,
+      mojo::PendingReceiver<CastMessageChannel> channel_to_service);
   void StopMirroring();
 
   mojo::Remote<mirroring::mojom::MirroringServiceHost> host_;
@@ -83,6 +89,10 @@ class MirroringActivityRecord : public ActivityRecord,
   // To handle Cast messages from the mirroring service to the mirroring
   // receiver.
   mojo::Receiver<mirroring::mojom::CastMessageChannel> channel_receiver_{this};
+
+  // Set before and after a mirroring session is established, for metrics.
+  base::Optional<base::Time> will_start_mirroring_timestamp_;
+  base::Optional<base::Time> did_start_mirroring_timestamp_;
 
   const int channel_id_;
   const MirroringType mirroring_type_;

@@ -4,6 +4,9 @@
 
 #include "ui/views/examples/widget_example.h"
 
+#include <memory>
+#include <utility>
+
 #include "base/macros.h"
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
@@ -59,8 +62,7 @@ base::string16 WidgetDialogExample::GetWindowTitle() const {
 
 }  // namespace
 
-WidgetExample::WidgetExample() : ExampleBase("Widget") {
-}
+WidgetExample::WidgetExample() : ExampleBase("Widget") {}
 
 WidgetExample::~WidgetExample() = default;
 
@@ -87,10 +89,10 @@ void WidgetExample::BuildButton(View* container,
 }
 
 void WidgetExample::ShowWidget(View* sender, Widget::InitParams params) {
-  // Setup shared Widget heirarchy and bounds parameters.
+  // Setup shared Widget hierarchy and bounds parameters.
   params.parent = sender->GetWidget()->GetNativeView();
-  params.bounds = gfx::Rect(sender->GetBoundsInScreen().CenterPoint(),
-                            gfx::Size(300, 200));
+  params.bounds =
+      gfx::Rect(sender->GetBoundsInScreen().CenterPoint(), gfx::Size(300, 200));
 
   Widget* widget = new Widget();
   widget->Init(std::move(params));

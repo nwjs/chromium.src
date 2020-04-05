@@ -11,6 +11,7 @@
 #include "base/barrier_closure.h"
 #include "base/bind.h"
 #include "base/bind_helpers.h"
+#include "base/callback_helpers.h"
 #include "base/files/file_path.h"
 #include "base/location.h"
 #include "base/macros.h"
@@ -211,7 +212,7 @@ class ClearAllServiceWorkersHelper
     }
     for (const auto& registration_info : registrations) {
       context->UnregisterServiceWorker(
-          registration_info.scope,
+          registration_info.scope, /*is_immediate=*/false,
           base::BindOnce(&ClearAllServiceWorkersHelper::OnResult, this));
     }
   }
@@ -228,10 +229,6 @@ class ClearAllServiceWorkersHelper
 };
 
 }  // namespace
-
-const base::FilePath::CharType
-    ServiceWorkerContextCore::kServiceWorkerDirectory[] =
-        FILE_PATH_LITERAL("Service Worker");
 
 ServiceWorkerContextCore::ContainerHostIterator::~ContainerHostIterator() =
     default;
@@ -470,11 +467,13 @@ void ServiceWorkerContextCore::UpdateServiceWorker(
 
 void ServiceWorkerContextCore::UnregisterServiceWorker(
     const GURL& scope,
+    bool is_immediate,
     UnregistrationCallback callback) {
   DCHECK_CURRENTLY_ON(ServiceWorkerContext::GetCoreThreadId());
   job_coordinator_->Unregister(
-      scope, base::BindOnce(&ServiceWorkerContextCore::UnregistrationComplete,
-                            AsWeakPtr(), scope, std::move(callback)));
+      scope, is_immediate,
+      base::BindOnce(&ServiceWorkerContextCore::UnregistrationComplete,
+                     AsWeakPtr(), scope, std::move(callback)));
 }
 
 void ServiceWorkerContextCore::DeleteForOrigin(const GURL& origin,
@@ -484,7 +483,7 @@ void ServiceWorkerContextCore::DeleteForOrigin(const GURL& origin,
       origin,
       base::BindOnce(
           &ServiceWorkerContextCore::DidGetRegistrationsForDeleteForOrigin,
-          AsWeakPtr(), std::move(callback)));
+          AsWeakPtr(), origin, std::move(callback)));
 }
 
 void ServiceWorkerContextCore::PerformStorageCleanup(
@@ -494,6 +493,7 @@ void ServiceWorkerContextCore::PerformStorageCleanup(
 }
 
 void ServiceWorkerContextCore::DidGetRegistrationsForDeleteForOrigin(
+    const GURL& origin,
     base::OnceCallback<void(blink::ServiceWorkerStatusCode)> callback,
     blink::ServiceWorkerStatusCode status,
     const std::vector<scoped_refptr<ServiceWorkerRegistration>>&
@@ -502,6 +502,17 @@ void ServiceWorkerContextCore::DidGetRegistrationsForDeleteForOrigin(
     std::move(callback).Run(status);
     return;
   }
+
+  // Clear all unregistered registrations that are waiting for controllees to
+  // unload.
+  std::vector<scoped_refptr<ServiceWorkerRegistration>>
+      uninstalling_registrations =
+          registry()->GetUninstallingRegistrationsForOrigin(origin);
+  for (const auto& uninstalling_registration : uninstalling_registrations) {
+    job_coordinator_->Abort(uninstalling_registration->scope());
+    uninstalling_registration->DeleteAndClearImmediately();
+  }
+
   if (registrations.empty()) {
     std::move(callback).Run(blink::ServiceWorkerStatusCode::kOk);
     return;
@@ -530,7 +541,8 @@ void ServiceWorkerContextCore::DidGetRegistrationsForDeleteForOrigin(
       }
     }
     job_coordinator_->Abort(registration->scope());
-    UnregisterServiceWorker(registration->scope(), barrier);
+    UnregisterServiceWorker(registration->scope(), /*is_immediate=*/true,
+                            barrier);
   }
 }
 
@@ -695,7 +707,7 @@ void ServiceWorkerContextCore::UnprotectVersion(int64_t version_id) {
 }
 
 void ServiceWorkerContextCore::ScheduleDeleteAndStartOver() const {
-  storage()->Disable();
+  registry()->PrepareForDeleteAndStarOver();
   base::ThreadTaskRunnerHandle::Get()->PostTask(
       FROM_HERE,
       base::BindOnce(&ServiceWorkerContextWrapper::DeleteAndStartOver,
@@ -708,7 +720,7 @@ void ServiceWorkerContextCore::DeleteAndStartOver(StatusCallback callback) {
   observer_list_->Notify(
       FROM_HERE, &ServiceWorkerContextCoreObserver::OnDeleteAndStartOver);
 
-  storage()->DeleteAndStartOver(std::move(callback));
+  registry()->DeleteAndStartOver(std::move(callback));
 }
 
 void ServiceWorkerContextCore::ClearAllServiceWorkersForTest(
@@ -805,11 +817,17 @@ void ServiceWorkerContextCore::OnStorageWiped() {
                          &ServiceWorkerContextCoreObserver::OnStorageWiped);
 }
 
+void ServiceWorkerContextCore::OnMainScriptResponseSet(
+    int64_t version_id,
+    const ServiceWorkerVersion::MainScriptResponse& response) {
+  observer_list_->Notify(
+      FROM_HERE, &ServiceWorkerContextCoreObserver::OnMainScriptResponseSet,
+      version_id, response.response_time, response.last_modified);
+}
+
 void ServiceWorkerContextCore::OnRunningStateChanged(
     ServiceWorkerVersion* version) {
-  if (!version->context())
-    return;
-
+  DCHECK_EQ(this, version->context().get());
   switch (version->running_status()) {
     case EmbeddedWorkerStatus::STOPPED:
       observer_list_->Notify(FROM_HERE,
@@ -837,6 +855,7 @@ void ServiceWorkerContextCore::OnRunningStateChanged(
 
 void ServiceWorkerContextCore::OnVersionStateChanged(
     ServiceWorkerVersion* version) {
+  DCHECK_EQ(this, version->context().get());
   observer_list_->Notify(
       FROM_HERE, &ServiceWorkerContextCoreObserver::OnVersionStateChanged,
       version->version_id(), version->scope(), version->status());
@@ -844,6 +863,7 @@ void ServiceWorkerContextCore::OnVersionStateChanged(
 
 void ServiceWorkerContextCore::OnDevToolsRoutingIdChanged(
     ServiceWorkerVersion* version) {
+  DCHECK_EQ(this, version->context().get());
   if (!version->embedded_worker())
     return;
   observer_list_->Notify(
@@ -853,25 +873,13 @@ void ServiceWorkerContextCore::OnDevToolsRoutingIdChanged(
       version->embedded_worker()->worker_devtools_agent_route_id());
 }
 
-void ServiceWorkerContextCore::OnMainScriptHttpResponseInfoSet(
-    ServiceWorkerVersion* version) {
-  const net::HttpResponseInfo* info = version->GetMainScriptHttpResponseInfo();
-  DCHECK(info);
-  base::Time lastModified;
-  if (info->headers)
-    info->headers->GetLastModifiedValue(&lastModified);
-  observer_list_->Notify(
-      FROM_HERE,
-      &ServiceWorkerContextCoreObserver::OnMainScriptHttpResponseInfoSet,
-      version->version_id(), info->response_time, lastModified);
-}
-
 void ServiceWorkerContextCore::OnErrorReported(
     ServiceWorkerVersion* version,
     const base::string16& error_message,
     int line_number,
     int column_number,
     const GURL& source_url) {
+  DCHECK_EQ(this, version->context().get());
   observer_list_->Notify(
       FROM_HERE, &ServiceWorkerContextCoreObserver::OnErrorReported,
       version->version_id(),
@@ -887,6 +895,7 @@ void ServiceWorkerContextCore::OnReportConsoleMessage(
     int line_number,
     const GURL& source_url) {
   DCHECK_CURRENTLY_ON(ServiceWorkerContext::GetCoreThreadId());
+  DCHECK_EQ(this, version->context().get());
   // NOTE: This differs slightly from
   // RenderFrameHostImpl::DidAddMessageToConsole, which also asks the
   // content embedder whether to classify the message as a builtin component.
@@ -908,6 +917,7 @@ void ServiceWorkerContextCore::OnControlleeAdded(
     ServiceWorkerVersion* version,
     const std::string& client_uuid,
     const ServiceWorkerClientInfo& client_info) {
+  DCHECK_EQ(this, version->context().get());
   observer_list_->Notify(
       FROM_HERE, &ServiceWorkerContextCoreObserver::OnControlleeAdded,
       version->version_id(), version->scope(), client_uuid, client_info);
@@ -916,12 +926,14 @@ void ServiceWorkerContextCore::OnControlleeAdded(
 void ServiceWorkerContextCore::OnControlleeRemoved(
     ServiceWorkerVersion* version,
     const std::string& client_uuid) {
+  DCHECK_EQ(this, version->context().get());
   observer_list_->Notify(FROM_HERE,
                          &ServiceWorkerContextCoreObserver::OnControlleeRemoved,
                          version->version_id(), version->scope(), client_uuid);
 }
 
 void ServiceWorkerContextCore::OnNoControllees(ServiceWorkerVersion* version) {
+  DCHECK_EQ(this, version->context().get());
   observer_list_->Notify(FROM_HERE,
                          &ServiceWorkerContextCoreObserver::OnNoControllees,
                          version->version_id(), version->scope());

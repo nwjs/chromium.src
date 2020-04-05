@@ -14,9 +14,6 @@ import android.graphics.PorterDuff;
 import android.graphics.drawable.AnimationDrawable;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
-import android.support.graphics.drawable.VectorDrawableCompat;
-import android.support.v4.widget.ImageViewCompat;
-import android.support.v7.content.res.AppCompatResources;
 import android.util.AttributeSet;
 import android.view.View;
 import android.view.ViewGroup;
@@ -29,6 +26,9 @@ import android.widget.TextView;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
+import androidx.appcompat.content.res.AppCompatResources;
+import androidx.core.widget.ImageViewCompat;
+import androidx.vectordrawable.graphics.drawable.VectorDrawableCompat;
 
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.chrome.R;
@@ -391,7 +391,7 @@ public class PickerBitmapView extends SelectableItemViewBase<PickerBitmap> {
         mSpecialTileIcon.setImageDrawable(image);
         ApiCompatibilityUtils.setImageTintList(mSpecialTileIcon,
                 AppCompatResources.getColorStateList(
-                        mContext, R.color.default_icon_color_secondary_list));
+                        mContext, R.color.default_icon_color_secondary_tint_list));
         ImageViewCompat.setImageTintMode(mSpecialTileIcon, PorterDuff.Mode.SRC_IN);
         mSpecialTileLabel.setText(labelStringId);
 

@@ -98,7 +98,7 @@ class CORE_EXPORT TouchEvent final : public UIEventWithKeyState {
 
   DispatchEventResult DispatchEvent(EventDispatcher&) override;
 
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
 
  private:
   bool IsTouchStartOrFirstTouchMove() const;
@@ -114,7 +114,10 @@ class CORE_EXPORT TouchEvent final : public UIEventWithKeyState {
   std::unique_ptr<WebCoalescedInputEvent> native_event_;
 };
 
-DEFINE_EVENT_TYPE_CASTS(TouchEvent);
+template <>
+struct DowncastTraits<TouchEvent> {
+  static bool AllowFrom(const Event& event) { return event.IsTouchEvent(); }
+};
 
 }  // namespace blink
 

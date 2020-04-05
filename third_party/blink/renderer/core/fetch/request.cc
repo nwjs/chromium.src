@@ -8,7 +8,9 @@
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "services/network/public/cpp/request_destination.h"
 #include "services/network/public/cpp/request_mode.h"
+#include "services/network/public/mojom/trust_tokens.mojom-blink.h"
 #include "third_party/blink/public/common/blob/blob_utils.h"
+#include "third_party/blink/public/mojom/feature_policy/feature_policy_feature.mojom-blink.h"
 #include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom-blink.h"
 #include "third_party/blink/public/platform/web_url_request.h"
 #include "third_party/blink/renderer/bindings/core/v8/dictionary.h"
@@ -21,6 +23,7 @@
 #include "third_party/blink/renderer/bindings/core/v8/v8_form_data.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_readable_stream.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_request_init.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_trust_token.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_url_search_params.h"
 #include "third_party/blink/renderer/core/dom/abort_signal.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
@@ -28,6 +31,8 @@
 #include "third_party/blink/renderer/core/fetch/body_stream_buffer.h"
 #include "third_party/blink/renderer/core/fetch/fetch_manager.h"
 #include "third_party/blink/renderer/core/fetch/form_data_bytes_consumer.h"
+#include "third_party/blink/renderer/core/fetch/trust_token.h"
+#include "third_party/blink/renderer/core/fetch/trust_token_to_mojom.h"
 #include "third_party/blink/renderer/core/fileapi/blob.h"
 #include "third_party/blink/renderer/core/fileapi/public_url_manager.h"
 #include "third_party/blink/renderer/core/frame/web_feature.h"
@@ -51,6 +56,12 @@
 #include "third_party/blink/renderer/platform/weborigin/security_policy.h"
 
 namespace blink {
+
+namespace {
+
+using network::mojom::blink::TrustTokenOperationType;
+
+}  // namespace
 
 FetchRequestData* CreateCopyOfFetchRequestDataForFetch(
     ScriptState* script_state,
@@ -83,6 +94,7 @@ FetchRequestData* CreateCopyOfFetchRequestDataForFetch(
     request->SetURLLoaderFactory(std::move(factory_clone));
   }
   request->SetWindowId(original->WindowId());
+  request->SetTrustTokenParams(original->TrustTokenParams());
   return request;
 }
 
@@ -91,7 +103,7 @@ static bool AreAnyMembersPresent(const RequestInit* init) {
          init->hasReferrer() || init->hasReferrerPolicy() || init->hasMode() ||
          init->hasCredentials() || init->hasCache() || init->hasRedirect() ||
          init->hasIntegrity() || init->hasKeepalive() ||
-         init->hasImportance() || init->hasSignal();
+         init->hasImportance() || init->hasSignal() || init->hasTrustToken();
 }
 
 static BodyStreamBuffer* ExtractBody(ScriptState* script_state,
@@ -495,6 +507,30 @@ Request* Request::CreateRequestWithRequestOrString(
     signal = init->signal();
   }
 
+  if (init->hasTrustToken()) {
+    network::mojom::blink::TrustTokenParams params;
+    if (!ConvertTrustTokenToMojom(*init->trustToken(), &exception_state,
+                                  &params)) {
+      // Whenever parsing the trustToken argument fails, we expect a suitable
+      // exception to be thrown.
+      DCHECK(exception_state.HadException());
+      return nullptr;
+    }
+
+    if ((params.type == TrustTokenOperationType::kRedemption ||
+         params.type == TrustTokenOperationType::kSigning) &&
+        !execution_context->IsFeatureEnabled(
+            mojom::blink::FeaturePolicyFeature::kTrustTokenRedemption)) {
+      exception_state.ThrowTypeError(
+          "trustToken: Redemption ('srr-token-redemption') and signing "
+          "('send-srr') operations require that the trust-token-redemption "
+          "Feature Policy feature be enabled.");
+      return nullptr;
+    }
+
+    request->SetTrustTokenParams(std::move(params));
+  }
+
   // "Let |r| be a new Request object associated with |request| and a new
   // Headers object whose guard is "request"."
   Request* r = Request::Create(script_state, request);
@@ -734,8 +770,7 @@ String Request::getReferrerPolicy() const {
       return "same-origin";
     case network::mojom::ReferrerPolicy::kStrictOrigin:
       return "strict-origin";
-    case network::mojom::ReferrerPolicy::
-        kNoReferrerWhenDowngradeOriginWhenCrossOrigin:
+    case network::mojom::ReferrerPolicy::kStrictOriginWhenCrossOrigin:
       return "strict-origin-when-cross-origin";
   }
   NOTREACHED();
@@ -934,7 +969,7 @@ network::mojom::RequestDestination Request::GetRequestDestination() const {
   return request_->Destination();
 }
 
-void Request::Trace(blink::Visitor* visitor) {
+void Request::Trace(Visitor* visitor) {
   Body::Trace(visitor);
   visitor->Trace(request_);
   visitor->Trace(headers_);

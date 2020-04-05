@@ -324,9 +324,11 @@ message PolicyFetchRequest {
   optional int64 timestamp = 2;
 
   // Tell server what kind of security signature is required.
+  // TODO(b/147782972): Move to toplevel in sync with Chrome OS client code.
   enum SignatureType {
     NONE = 0;
     SHA1_RSA = 1;
+    SHA256_RSA = 2;
   }
   optional SignatureType signature_type = 3 [default = NONE];
 
@@ -413,7 +415,7 @@ message CustomerLogo {
 // This message is included in serialized form in PolicyFetchResponse below. It
 // may also be signed, with the signature being created for the serialized form.
 message PolicyData {
-  reserved 10;
+  reserved 10, 13, 14, 18, 19;
 
   // See PolicyFetchRequest.policy_type.
   optional string policy_type = 1;
@@ -484,16 +486,6 @@ message PolicyData {
   // This is only sent as part of device policy fetch.
   optional string service_account_identity = 12;
 
-  // The object source which hosts policy objects within the invalidation
-  // service. This value is combined with invalidation_name to form the object
-  // id used to register for invalidations to this policy.
-  optional int32 invalidation_source = 13;
-
-  // The name which uniquely identifies this policy within the invalidation
-  // service object source. This value is combined with invalidation_source to
-  // form the object id used to register for invalidations to this policy.
-  optional bytes invalidation_name = 14;
-
   // Server-provided identifier of the fetched policy. This is to be used
   // by the client when requesting Policy Posture assertion through an API
   // call or SAML flow. For details, see http://go/chrome-nac-server-design.
@@ -517,18 +509,6 @@ message PolicyData {
 
   // Indicates the state that the device should be in.
   optional DeviceState device_state = 17;
-
-  // The object source which hosts command queue objects within the
-  // invalidation service. This value is combined with
-  // command_invalidation_name to form the object ID used to
-  // register for invalidations to the command queue.
-  optional int32 command_invalidation_source = 18;
-
-  // The name which uniquely identifies this device’s queue within
-  // the invalidation service object source. This value is combined
-  // with command_invalidation_source to form the object ID used to
-  // register for invalidations to the command queue.
-  optional bytes command_invalidation_name = 19;
 
   // The free-text location info the admin enters to associate the device
   // with a location.
@@ -682,6 +662,9 @@ message PolicyFetchResponse {
   // DEPRECATED! Client-side should verify and rely on the policy_type inside
   // the signed policy_data.
   optional string policy_type = 10 [deprecated = true];
+
+  // The type of signature used to generate policy_data_signature.
+  optional PolicyFetchRequest.SignatureType policy_data_signature_type = 11;
 }
 
 // DEPRECATED: Protobuf used to generate the deprecated
@@ -900,6 +883,10 @@ message BatterySample {
   optional int32 discharge_rate = 5;
   // Battery charge percentage
   optional int32 charge_rate = 6;
+  // Battery current (mA)
+  optional int64 current = 7;
+  // Battery status read from sysfs
+  optional string status = 8;
 }
 
 // Status of the single battery
@@ -918,6 +905,8 @@ message BatteryInfo {
   optional int32 design_min_voltage = 9;
   // The date the battery was manufactured in yyyy-mm-dd format.
   optional string manufacture_date = 10;
+  // Technology of the battery.
+  optional string technology = 11;
 }
 
 // Status of the power subsystem
@@ -1032,6 +1021,15 @@ message GraphicsStatus {
 
 // Status of a crash report.
 message CrashReportInfo {
+  // The status options should align with crash_reporter::ReportUploadState.
+  enum CrashReportUploadStatus {
+    UPLOAD_STATUS_UNKNOWN = 0;
+    UPLOAD_STATUS_NOT_UPLOADED = 1;
+    UPLOAD_STATUS_PENDING = 2;
+    UPLOAD_STATUS_PENDING_USER_REQUESTED = 3;
+    UPLOAD_STATUS_UPLOADED = 4;
+  }
+
   // ID as provided by chrome://crashes.
   optional string remote_id = 1;
 
@@ -1041,6 +1039,41 @@ message CrashReportInfo {
 
   // Human readable string that identifies what caused the crash.
   optional string cause = 3;
+
+  // The upload status of crash report.
+  optional CrashReportUploadStatus upload_status = 4;
+}
+
+// Timezone information for the device. This reflects what set timezone of the
+// device, not necessarily the actual location of the device.
+message TimezoneInfo {
+  // The timezone of the device in POSIX standard. (MST7MDT,M3.2.0,M11.1.0)
+  optional string posix = 1;
+  // The timezone region of the device in the Olsen format (America/Denver).
+  optional string region = 2;
+}
+
+// Memory information for the device.
+message MemoryInfo {
+  // Total memory, in KiB.
+  optional uint32 total_memory_kib = 1;
+  // Free memory, in KiB.
+  optional uint32 free_memory_kib = 2;
+  // Available memory, in KiB.
+  optional uint32 available_memory_kib = 3;
+  // Number of page faults since the last boot.
+  optional uint32 page_faults_since_last_boot = 4;
+}
+
+// Information about the device's backlights.
+message BacklightInfo {
+  // Path to this backlight on the system. Useful if the caller needs to
+  // correlate with other information.
+  optional string path = 1;
+  // Maximum brightness for the backlight.
+  optional uint32 max_brightness = 2;
+  // Current brightness of the backlight, between 0 and max_brightness.
+  optional uint32 brightness = 3;
 }
 
 // Report device level status.
@@ -1143,6 +1176,15 @@ message DeviceStatusReportRequest {
 
   // Information about the crash report(s) generated from the local device.
   repeated CrashReportInfo crash_report_infos = 34;
+
+  // Information of the device's current timezone.
+  optional TimezoneInfo timezone_info = 35;
+
+  // Information about the device's memory.
+  optional MemoryInfo memory_info = 36;
+
+  // Information about the device's backlights.
+  repeated BacklightInfo backlight_info = 37;
 }
 
 message OsUpdateStatus {
@@ -1193,6 +1235,44 @@ message AppStatus {
   // App required Chrome version, specified in app’s manifest file.
   // Empty for ARC kiosk app.
   optional string required_platform_version = 5;
+}
+
+// Provides all application types information.
+message AppInfo {
+  enum AppType {
+    TYPE_UNKNOWN = 0;
+    TYPE_ARC = 1;        // Android app.
+    TYPE_BUILTIN = 2;    // Built-in app.
+    TYPE_CROSTINI = 3;   // Linux (via Crostini) app.
+    TYPE_EXTENSION = 4;  // Extension-backed app.
+    TYPE_WEB = 5;        // Web app.
+  }
+
+  enum Status {
+    STATUS_UNKNOWN = 0;
+    STATUS_INSTALLED = 1;    // Installed and launachable.
+    STATUS_DISABLED = 2;     // Disabled or terminated.
+    STATUS_UNINSTALLED = 3;  // Uninstalled by user.
+  }
+
+  // ID of the application as defined by the OS, except for web apps, where it
+  // is the start url.
+  optional string app_id = 1;
+
+  // Type of application (Chrome native, extension, Crostini, web app).
+  optional AppType app_type = 2;
+
+  // Name of the application as defined by the OS.
+  optional string app_name = 3;
+
+  // Identify if the app is installed, disabled, or uninstalled.
+  optional Status status = 4;
+
+  // The time the app was installed, if available.
+  optional int64 install_time = 5;
+
+  // Version of the application, if applicable.
+  optional string version = 7;
 }
 
 // Provides Android application permission.
@@ -1527,6 +1607,12 @@ message BrowserReport {
 
   // A list of plugins installed in the browser.
   repeated Plugin plugins = 7;
+
+  // The installed version of the browser if it differs from |browser_version|,
+  // or absent otherwise. When present, it indicates that an update (of a higher
+  // or lower version) has been installed and will be the active version
+  // following a browser restart.
+  optional string installed_browser_version = 8;
 }
 
 // Report Operating system related information.
@@ -1758,8 +1844,7 @@ message SessionStatusReportRequest {
   // If this is a kiosk session, this is the device local account ID.
   optional string device_local_account_id = 4;
 
-  // Information about installed apps for this user on this device,
-  // including information about ARC kiosk app for ARC kiosk session.
+  // Information about kiosk app for kiosk session.
   repeated AppStatus installed_apps = 5;
 
   // Information about ARC status.
@@ -1775,6 +1860,10 @@ message SessionStatusReportRequest {
 
   // Information about Crostini status.
   optional CrostiniStatus crostini_status = 10;
+
+  // Information about all applications for this user on this device, including
+  // uninstalled and disabled apps.
+  repeated AppInfo app_infos = 11;
 }
 
 // Response from DMServer to update devices' status.
@@ -2046,6 +2135,11 @@ message CheckDevicePairingResponse {
 // This protobuf defines a single remote command from server to client for
 // execution.
 message RemoteCommand {
+  // The names are used as part of metric names. If enumeration is updated
+  // the names should also be updated:
+  // - components/policy/core/common/cloud/enterprise_metrics.cc;
+  // - components/policy/core/common/remote_commands/remote_commands_service.cc;
+  // - Enterprise.RemoteCommandType in tools/metrics/histograms/histograms.xml;
   enum Type {
     // Simple echo command for testing, will be ignored in production code.
     COMMAND_ECHO_TEST = -1;
@@ -2077,6 +2171,17 @@ message RemoteCommand {
 
     // Refresh the device machine certificate and re-upload it.
     DEVICE_REFRESH_ENTERPRISE_MACHINE_CERTIFICATE = 8;
+
+    // Retrieve a list of available diagnostics routines.
+    DEVICE_GET_AVAILABLE_DIAGNOSTIC_ROUTINES = 9;
+
+    // Run a given diagnostics routine on the platform.
+    DEVICE_RUN_DIAGNOSTIC_ROUTINE = 10;
+
+    // Send a command or get an update from an existing diagnostics routine.
+    DEVICE_GET_DIAGNOSTIC_ROUTINE_UPDATE = 11;
+
+    // Please update metrics after adding a new item - see the comment above.
   }
 
   // The command type.
@@ -2096,6 +2201,11 @@ message RemoteCommand {
   // |DEVICE_SCREENSHOT|: {"fileUploadUrl" : url_string}.
   // |DEVICE_SET_VOLUME|: {"volume": volume_value}, where volume_value must be
   // an integer between 0 and 100.
+  // |DEVICE_RUN_DIAGNOSTIC_ROUTINE|: {"routine" : routine_enum, "params" :
+  // params_dict}, where params_dict varies by routine.
+  // |DEVICE_GET_DIAGNOSTIC_ROUTINE_UPDATE|: {"id" : id_integer, "command" :
+  // command, "includeOutput" : include_output_bool}, where command must be a
+  // valid chromeos::cros_healthd::mojom::DiagnosticRoutineCommandEnum.
   optional string payload = 4;
 
   // An identifier for the target this command is for. This is the same as
@@ -2144,6 +2254,10 @@ message DeviceRemoteCommandRequest {
 
   // Whether the server should send secure commands or not.
   optional bool send_secure_commands = 3;
+
+  // What type of signature to use. Only valid if send_secure_commmands is true.
+  // If NONE is passed, SHA1_RSA will be used instead for compatibility.
+  optional PolicyFetchRequest.SignatureType signature_type = 4;
 }
 
 message DeviceRemoteCommandResponse {
@@ -2681,6 +2795,125 @@ message ChildStatusReportResponse {
   optional string error_message = 2;
 }
 
+// Hashing Algorithm for Client Certificate Provisioning Flow.
+enum HashingAlgorithm {
+  // DO NOT USE
+  HASHING_ALGORITHM_UNSPECIFIED = 0;
+
+  SHA1 = 1;
+  SHA256 = 2;
+}
+
+// Signing Algorithm for Client Certificate Provisioning Flow.
+enum SigningAlgorithm {
+  // DO NOT USE
+  SIGNING_ALGORITHM_UNSPECIFIED = 0;
+
+  RSA_PKCS1_V1_5 = 1;
+}
+
+// Client Certificate Provisioning Flow, Stage 1: Start a CSR request.
+// No additional fields because cert_profile_id and public_key are passed in the
+// outer message.
+message StartCsrRequest {}
+
+message StartCsrResponse {
+  // The client should register for FCM messages using this topic in order to
+  // receive notifications for the certificate provisioning process.
+  optional string invalidation_topic = 1;
+
+  // The verified access challenge.
+  optional bytes va_challenge = 2;
+
+  // Algorithm to hash data with before signing.
+  optional HashingAlgorithm hashing_algorithm = 5;
+
+  // Algorithm to sign data with for CSR creation.
+  optional SigningAlgorithm signing_algorithm = 3;
+
+  // Data to sign for CSR creation.
+  optional bytes data_to_sign = 4;
+}
+
+// Client Certificate Provisioning Flow, Stage 2: Finish the CSR request.
+message FinishCsrRequest {
+  // Verified access challenge response.
+  optional bytes va_challenge_response = 1;
+
+  // The signature generated using the private key.
+  optional bytes signature = 2;
+}
+
+message FinishCsrResponse {}
+
+// Client Certificate Provisioning Flow, Stage 3: Download the issued
+// certificate.
+message DownloadCertRequest {}
+
+message DownloadCertResponse {
+  // PEM-encoded issued certificate.
+  optional string pem_encoded_certificate = 1;
+}
+
+// Start / continue client certificate provisioning process for the profile
+// |cert_profile_id|.
+message ClientCertificateProvisioningRequest {
+  // The scope of the certificate. Similar to policy_type in PolicyFetchRequest.
+  //   google/chromeos/device => a certificate for a device is being requested.
+  //   google/chromeos/user => a certificate for a user is being requested.
+  optional string certificate_scope = 1;
+
+  // The id of the client certificate profile, specified in the policy.
+  optional string cert_profile_id = 2;
+
+  // The public key for which the certificate should be issued. It's a
+  // DER-serialized X.509 SubjectPublicKeyInfo.
+  optional bytes public_key = 3;
+
+  // Only filled if this is a request for a certificate for a user
+  optional string device_dm_token = 4;
+
+  oneof request {
+    StartCsrRequest start_csr_request = 5;
+    FinishCsrRequest finish_csr_request = 6;
+    DownloadCertRequest download_cert_request = 7;
+  }
+
+  // Received as part of policy for client certificate profiles. The client
+  // should not interpret this data and should forward it verbatim. DMServer
+  // uses |policy_version| as a hint to verify that the policy view of DMServer
+  // matches the view of Chrome OS device.
+  optional bytes policy_version = 8;
+}
+
+// Response for ClientCertificateProvisioningRequest.
+message ClientCertificateProvisioningResponse {
+  enum Error {
+    UNDEFINED = 0;
+    // The backend has not received a certificate within the time limit.
+    TIMED_OUT = 1;
+    // The identity of the client could not be verified.
+    IDENTITY_VERIFICATION_ERROR = 2;
+    // The CA encountered an error when processing the certification request.
+    CA_ERROR = 3;
+    // The client has sent inconsistent data.
+    INCONSISTENT_DATA = 4;
+  }
+
+  // If filled, the request can currently not be processed and the client
+  // is supposed to try again later using the same data.
+  // The value is the number of milliseconds when the client should
+  // automatically retry.
+  optional int64 try_again_later = 1;
+
+  oneof response {
+    Error error = 2;
+    StartCsrResponse start_csr_response = 3;
+    FinishCsrResponse finish_csr_response = 4;
+    DownloadCertResponse download_cert_response = 5;
+  }
+}
+
 // Request from the DMAgent on the device to the DMServer.  This is
 // container for all requests from device to server.  The overall HTTP
 // request MUST be in the following format:
@@ -2716,6 +2949,7 @@ message ChildStatusReportResponse {
 //     * policy_validation_report
 //     * device_initial_enrollment_state
 //     * refresh_account
+//     * client_cert_provisioning
 //   * devicetype: MUST BE "1" for Android, "2" for Chrome OS or "3" for Chrome
 //     browser.
 //   * apptype: MUST BE Android or Chrome.
@@ -2733,7 +2967,7 @@ message ChildStatusReportResponse {
 //     gcm_id_update, active_directory_enroll_play_user,
 //     active_directory_play_activity, active_directory_user_signin,
 //     policy_validation_report, chrome_desktop_report,
-//     chrome_os_user_report and refresh_account requests
+//     chrome_os_user_report, refresh_account, client_cert_provisioning requests
 //     Authorization: GoogleDMToken token=<dm token from register>
 //
 //   * The Authorization header isn't used for enterprise_check,
@@ -2772,6 +3006,7 @@ message ChildStatusReportResponse {
 //   policy_validation_report: policy_validation_report_request
 //   device_initial_enrollment_state: device_initial_enrollment_state_request
 //   refresh_account: refresh_account_request
+//   client_cert_provisioning: client_certificate_provisioning_request
 message DeviceManagementRequest {
   reserved 24;  // unused previous version of chrome_desktop_report_request.
 
@@ -2875,7 +3110,11 @@ message DeviceManagementRequest {
   // A ChromeOS user report request.
   optional ChromeOsUserReportRequest chrome_os_user_report_request = 33;
 
-  // Next id: 34.
+  // Request to start / continue client certificate provisioning process.
+  optional ClientCertificateProvisioningRequest
+      client_certificate_provisioning_request = 34;
+
+  // Next id: 35.
 }
 
 // Response from server to device.
@@ -3001,5 +3240,9 @@ message DeviceManagementResponse {
   // Response to a ChromeOS user report request.
   optional ChromeOsUserReportResponse chrome_os_user_report_response = 32;
 
-  // Next id: 33.
+  // Response to a client certificate provisioning request.
+  optional ClientCertificateProvisioningResponse
+      client_certificate_provisioning_response = 33;
+
+  // Next id: 34.
 }

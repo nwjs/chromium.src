@@ -4,6 +4,7 @@
 
 #include "chrome/browser/extensions/extension_browser_window_helper.h"
 
+#include "chrome/browser/apps/app_service/launch_utils.h"
 #include "chrome/browser/extensions/tab_helper.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
@@ -30,9 +31,9 @@ bool ShouldCloseTabOnExtensionUnload(const Extension* extension,
   // Bookmark app extensions are handled by WebAppBrowserController, if enabled.
   // TODO(crbug.com/877898): Remove app_controller() part of the condition after
   // unified browser controller launch.
-  if (browser->app_controller() &&
-      browser->app_controller()->AsWebAppBrowserController() &&
-      extension->from_bookmark()) {
+  if (extension->from_bookmark() &&
+      (!browser->app_controller() ||
+       browser->app_controller()->AsWebAppBrowserController())) {
     return false;
   }
 
@@ -57,7 +58,7 @@ bool ShouldCloseTabOnExtensionUnload(const Extension* extension,
   // Case 2: Check if the page is a page associated with a hosted app, which
   // can have non-extension schemes. For example, the Gmail hosted app would
   // have a URL of https://mail.google.com.
-  if (TabHelper::FromWebContents(web_contents)->GetAppId() == extension->id()) {
+  if (apps::GetAppIdForWebContents(web_contents) == extension->id()) {
     return true;
   }
 
@@ -104,10 +105,6 @@ void ExtensionBrowserWindowHelper::OnExtensionUnloaded(
   if (reason != extensions::UnloadedExtensionReason::TERMINATE)
     CleanUpTabsOnUnload(extension);
 
-  if (extension->is_nwjs_app()) {
-    browser_->window()->Close();
-    return;
-  }
   // If an extension page was active, the toolbar may need to be updated to hide
   // the extension name in the location icon.
   browser_->window()->UpdateToolbar(nullptr);

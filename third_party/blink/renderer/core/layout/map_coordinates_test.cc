@@ -363,7 +363,7 @@ TEST_F(MapCoordinatesTest, FixedPos) {
   LayoutBox* body = container->ParentBox();
   LayoutBox* html = body->ParentBox();
   LayoutBox* view = html->ParentBox();
-  ASSERT_TRUE(view->IsLayoutView());
+  ASSERT_TRUE(IsA<LayoutView>(view));
 
   PhysicalOffset mapped_point =
       MapLocalToAncestor(target, view, PhysicalOffset());
@@ -423,7 +423,7 @@ TEST_F(MapCoordinatesTest, FixedPosAuto) {
   LayoutBox* body = container->ParentBox();
   LayoutBox* html = body->ParentBox();
   LayoutBox* view = html->ParentBox();
-  ASSERT_TRUE(view->IsLayoutView());
+  ASSERT_TRUE(IsA<LayoutView>(view));
 
   PhysicalOffset mapped_point =
       MapLocalToAncestor(target, target->ContainingBlock(), PhysicalOffset());
@@ -489,7 +489,7 @@ TEST_F(MapCoordinatesTest, FixedPosInFixedPos) {
   LayoutBox* body = container->ParentBox();
   LayoutBox* html = body->ParentBox();
   LayoutBox* view = html->ParentBox();
-  ASSERT_TRUE(view->IsLayoutView());
+  ASSERT_TRUE(IsA<LayoutView>(view));
 
   PhysicalOffset mapped_point =
       MapLocalToAncestor(target, view, PhysicalOffset());
@@ -549,11 +549,10 @@ TEST_F(MapCoordinatesTest, FixedPosInFixedPosScrollView) {
   LayoutBox* body = container->ParentBox();
   LayoutBox* html = body->ParentBox();
   LayoutBox* view = html->ParentBox();
-  ASSERT_TRUE(view->IsLayoutView());
+  ASSERT_TRUE(IsA<LayoutView>(view));
 
   GetDocument().View()->LayoutViewport()->SetScrollOffset(
-      ScrollOffset(0.0, 50),
-      mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
+      ScrollOffset(0.0, 50), mojom::blink::ScrollType::kProgrammatic);
   UpdateAllLifecyclePhasesForTest();
   EXPECT_EQ(50,
             GetDocument().View()->LayoutViewport()->ScrollOffsetInt().Height());
@@ -585,11 +584,10 @@ TEST_F(MapCoordinatesTest, FixedPosInAbsolutePosScrollView) {
   LayoutBox* body = container->ParentBox();
   LayoutBox* html = body->ParentBox();
   LayoutBox* view = html->ParentBox();
-  ASSERT_TRUE(view->IsLayoutView());
+  ASSERT_TRUE(IsA<LayoutView>(view));
 
   GetDocument().View()->LayoutViewport()->SetScrollOffset(
-      ScrollOffset(0.0, 50),
-      mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
+      ScrollOffset(0.0, 50), mojom::blink::ScrollType::kProgrammatic);
   UpdateAllLifecyclePhasesForTest();
   EXPECT_EQ(50,
             GetDocument().View()->LayoutViewport()->ScrollOffsetInt().Height());
@@ -618,8 +616,7 @@ TEST_F(MapCoordinatesTest, FixedPosInTransform) {
   )HTML");
 
   GetDocument().View()->LayoutViewport()->SetScrollOffset(
-      ScrollOffset(0.0, 50),
-      mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
+      ScrollOffset(0.0, 50), mojom::blink::ScrollType::kProgrammatic);
   UpdateAllLifecyclePhasesForTest();
   EXPECT_EQ(50,
             GetDocument().View()->LayoutViewport()->ScrollOffsetInt().Height());
@@ -629,7 +626,7 @@ TEST_F(MapCoordinatesTest, FixedPosInTransform) {
   LayoutBox* body = container->ParentBox();
   LayoutBox* html = body->ParentBox();
   LayoutBox* view = html->ParentBox();
-  ASSERT_TRUE(view->IsLayoutView());
+  ASSERT_TRUE(IsA<LayoutView>(view));
 
   PhysicalOffset mapped_point =
       MapLocalToAncestor(target, view, PhysicalOffset());
@@ -659,8 +656,7 @@ TEST_F(MapCoordinatesTest, FixedPosInContainPaint) {
   )HTML");
 
   GetDocument().View()->LayoutViewport()->SetScrollOffset(
-      ScrollOffset(0.0, 50),
-      mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
+      ScrollOffset(0.0, 50), mojom::blink::ScrollType::kProgrammatic);
   UpdateAllLifecyclePhasesForTest();
   EXPECT_EQ(50,
             GetDocument().View()->LayoutViewport()->ScrollOffsetInt().Height());
@@ -670,7 +666,7 @@ TEST_F(MapCoordinatesTest, FixedPosInContainPaint) {
   LayoutBox* body = container->ParentBox();
   LayoutBox* html = body->ParentBox();
   LayoutBox* view = html->ParentBox();
-  ASSERT_TRUE(view->IsLayoutView());
+  ASSERT_TRUE(IsA<LayoutView>(view));
 
   PhysicalOffset mapped_point =
       MapLocalToAncestor(target, view, PhysicalOffset());
@@ -704,8 +700,7 @@ TEST_F(MapCoordinatesTest, FixedPosInIFrameWhenMainFrameScrolled) {
       "position:fixed}</style><div id=target></div>");
 
   GetDocument().View()->LayoutViewport()->SetScrollOffset(
-      ScrollOffset(0.0, 1000),
-      mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
+      ScrollOffset(0.0, 1000), mojom::blink::ScrollType::kProgrammatic);
   UpdateAllLifecyclePhasesForTest();
 
   Element* target = ChildDocument().getElementById("target");
@@ -736,8 +731,7 @@ TEST_F(MapCoordinatesTest, IFrameTransformed) {
   UpdateAllLifecyclePhasesForTest();
 
   ChildDocument().View()->LayoutViewport()->SetScrollOffset(
-      ScrollOffset(0.0, 1000),
-      mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
+      ScrollOffset(0.0, 1000), mojom::blink::ScrollType::kProgrammatic);
   ChildDocument().View()->UpdateAllLifecyclePhases(DocumentUpdateReason::kTest);
 
   Element* target = ChildDocument().getElementById("target");
@@ -773,8 +767,7 @@ TEST_F(MapCoordinatesTest, FixedPosInScrolledIFrameWithTransform) {
 
   UpdateAllLifecyclePhasesForTest();
   ChildDocument().View()->LayoutViewport()->SetScrollOffset(
-      ScrollOffset(0.0, 1000),
-      mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
+      ScrollOffset(0.0, 1000), mojom::blink::ScrollType::kProgrammatic);
   UpdateAllLifecyclePhasesForTest();
 
   Element* target = ChildDocument().getElementById("target");

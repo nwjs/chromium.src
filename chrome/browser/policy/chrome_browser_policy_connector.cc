@@ -13,6 +13,7 @@
 #include "base/command_line.h"
 #include "base/path_service.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "build/branding_buildflags.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/policy/configuration_policy_handler_list_factory.h"
@@ -57,20 +58,6 @@
 #endif
 
 namespace policy {
-
-namespace {
-
-bool ProviderHasPolicies(const ConfigurationPolicyProvider* provider) {
-  if (!provider)
-    return false;
-  for (const auto& pair : provider->policies()) {
-    if (!pair.second->empty())
-      return true;
-  }
-  return false;
-}
-
-}  // namespace
 
 ChromeBrowserPolicyConnector::ChromeBrowserPolicyConnector()
     : BrowserPolicyConnector(base::Bind(&BuildHandlerList)) {
@@ -135,14 +122,6 @@ ChromeBrowserPolicyConnector::GetPlatformProvider() {
 
 std::vector<std::unique_ptr<policy::ConfigurationPolicyProvider>>
 ChromeBrowserPolicyConnector::CreatePolicyProviders() {
-  // Assign ExtensionPolicyMigrators before any policy providers are created.
-#if defined(OS_WIN)
-  std::vector<std::unique_ptr<ExtensionPolicyMigrator>> migrators;
-  migrators.push_back(
-      std::make_unique<browser_switcher::BrowserSwitcherPolicyMigrator>());
-  ConfigurationPolicyProvider::SetMigrators(std::move(migrators));
-#endif
-
   auto providers = BrowserPolicyConnector::CreatePolicyProviders();
   std::unique_ptr<ConfigurationPolicyProvider> platform_provider =
       CreatePlatformProvider();
@@ -171,8 +150,8 @@ std::unique_ptr<ConfigurationPolicyProvider>
 ChromeBrowserPolicyConnector::CreatePlatformProvider() {
 #if defined(OS_WIN)
   std::unique_ptr<AsyncPolicyLoader> loader(PolicyLoaderWin::Create(
-      base::CreateSequencedTaskRunner({base::ThreadPool(), base::MayBlock(),
-                                       base::TaskPriority::BEST_EFFORT}),
+      base::ThreadPool::CreateSequencedTaskRunner(
+          {base::MayBlock(), base::TaskPriority::BEST_EFFORT}),
       kRegistryChromePolicyKey));
   return std::make_unique<AsyncPolicyProvider>(GetSchemaRegistry(),
                                                std::move(loader));
@@ -187,8 +166,8 @@ ChromeBrowserPolicyConnector::CreatePlatformProvider() {
       base::SysUTF8ToCFStringRef(base::mac::BaseBundleID()));
 #endif
   auto loader = std::make_unique<PolicyLoaderMac>(
-      base::CreateSequencedTaskRunner({base::ThreadPool(), base::MayBlock(),
-                                       base::TaskPriority::BEST_EFFORT}),
+      base::ThreadPool::CreateSequencedTaskRunner(
+          {base::MayBlock(), base::TaskPriority::BEST_EFFORT}),
       policy::PolicyLoaderMac::GetManagedPolicyPath(bundle_id),
       new MacPreferences(), bundle_id);
   return std::make_unique<AsyncPolicyProvider>(GetSchemaRegistry(),
@@ -197,8 +176,8 @@ ChromeBrowserPolicyConnector::CreatePlatformProvider() {
   base::FilePath config_dir_path;
   if (base::PathService::Get(chrome::DIR_POLICY_FILES, &config_dir_path)) {
     std::unique_ptr<AsyncPolicyLoader> loader(new ConfigDirPolicyLoader(
-        base::CreateSequencedTaskRunner({base::ThreadPool(), base::MayBlock(),
-                                         base::TaskPriority::BEST_EFFORT}),
+        base::ThreadPool::CreateSequencedTaskRunner(
+            {base::MayBlock(), base::TaskPriority::BEST_EFFORT}),
         config_dir_path, POLICY_SCOPE_MACHINE));
     return std::make_unique<AsyncPolicyProvider>(GetSchemaRegistry(),
                                                  std::move(loader));

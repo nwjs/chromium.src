@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/modules/badging/navigator_badge.h"
 
+#include "build/build_config.h"
 #include "third_party/blink/public/common/browser_interface_broker_proxy.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
@@ -27,11 +28,7 @@ NavigatorBadge& NavigatorBadge::From(ScriptState* script_state) {
   return *supplement;
 }
 
-NavigatorBadge::NavigatorBadge(ExecutionContext* context) {
-  context->GetBrowserInterfaceBroker().GetInterface(
-      badge_service_.BindNewPipeAndPassReceiver());
-  DCHECK(badge_service_);
-}
+NavigatorBadge::NavigatorBadge(ExecutionContext* context) : context_(context) {}
 
 // static
 ScriptPromise NavigatorBadge::setAppBadge(ScriptState* script_state,
@@ -73,8 +70,10 @@ ScriptPromise NavigatorBadge::clearAppBadge(ScriptState* script_state,
   return ClearAppBadgeHelper(script_state);
 }
 
-void NavigatorBadge::Trace(blink::Visitor* visitor) {
+void NavigatorBadge::Trace(Visitor* visitor) {
   Supplement<ExecutionContext>::Trace(visitor);
+
+  visitor->Trace(context_);
 }
 
 // static
@@ -84,14 +83,27 @@ ScriptPromise NavigatorBadge::SetAppBadgeHelper(
   if (badge_value->is_number() && badge_value->get_number() == 0)
     return ClearAppBadgeHelper(script_state);
 
-  From(script_state).badge_service_->SetBadge(std::move(badge_value));
+#if !defined(OS_ANDROID)
+  From(script_state).badge_service()->SetBadge(std::move(badge_value));
+#endif
   return ScriptPromise::CastUndefined(script_state);
 }
 
 // static
 ScriptPromise NavigatorBadge::ClearAppBadgeHelper(ScriptState* script_state) {
-  From(script_state).badge_service_->ClearBadge();
+#if !defined(OS_ANDROID)
+  From(script_state).badge_service()->ClearBadge();
+#endif
   return ScriptPromise::CastUndefined(script_state);
+}
+
+mojo::Remote<mojom::blink::BadgeService> NavigatorBadge::badge_service() {
+  mojo::Remote<mojom::blink::BadgeService> badge_service;
+  context_->GetBrowserInterfaceBroker().GetInterface(
+      badge_service.BindNewPipeAndPassReceiver());
+  DCHECK(badge_service);
+
+  return badge_service;
 }
 
 }  // namespace blink

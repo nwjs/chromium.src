@@ -7,11 +7,14 @@
 
 #include <map>
 #include <string>
+#include <vector>
 
 #include "base/macros.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
-#include "components/autofill_assistant/browser/service.pb.h"
+#include "base/optional.h"
+#include "components/autofill_assistant/browser/model.pb.h"
+#include "components/autofill_assistant/browser/value_util.h"
 
 namespace autofill_assistant {
 
@@ -43,6 +46,29 @@ class UserModel {
                 const ValueProto& value,
                 bool force_notification = false);
 
+  // Returns the value for |identifier| or nullopt if there is no such value.
+  base::Optional<ValueProto> GetValue(const std::string& identifier) const;
+
+  // Returns the value for |reference| or nullopt if there is no such value.
+  base::Optional<ValueProto> GetValue(
+      const ValueReferenceProto& reference) const;
+
+  // Returns all specified values in a new std::vector. Returns nullopt if any
+  // of the requested values was not found.
+  template <class T>
+  base::Optional<std::vector<ValueProto>> GetValues(
+      const T& value_references) const {
+    std::vector<ValueProto> values;
+    for (const auto& reference : value_references) {
+      auto value = GetValue(reference);
+      if (!value.has_value()) {
+        return base::nullopt;
+      }
+      values.emplace_back(*value);
+    }
+    return values;
+  }
+
   void AddObserver(Observer* observer);
   void RemoveObserver(Observer* observer);
 
@@ -64,17 +90,6 @@ class UserModel {
   base::WeakPtrFactory<UserModel> weak_ptr_factory_{this};
   DISALLOW_COPY_AND_ASSIGN(UserModel);
 };
-
-// Custom comparison operator for |ValueProto|, because we can't use
-// |MessageDifferencer| for protobuf lite and can't rely on serialization.
-bool operator==(const ValueProto& value_a, const ValueProto& value_b);
-
-// Custom comparison operator for |ModelValue|.
-bool operator==(const ModelProto::ModelValue& value_a,
-                const ModelProto::ModelValue& value_b);
-
-// Intended for debugging.
-std::ostream& operator<<(std::ostream& out, const ValueProto& value);
 
 }  //  namespace autofill_assistant
 

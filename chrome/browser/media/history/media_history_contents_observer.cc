@@ -4,7 +4,9 @@
 
 #include "chrome/browser/media/history/media_history_contents_observer.h"
 
+#include "base/stl_util.h"
 #include "chrome/browser/media/history/media_history_keyed_service_factory.h"
+#include "chrome/browser/profiles/profile.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/media_player_watch_time.h"
 #include "content/public/browser/media_session.h"
@@ -45,6 +47,7 @@ void MediaHistoryContentsObserver::DidFinishNavigation(
 
   cached_position_.reset();
   cached_metadata_.reset();
+  cached_artwork_.clear();
   has_been_active_ = false;
   frozen_ = false;
   current_url_ = navigation_handle->GetURL();
@@ -56,17 +59,21 @@ void MediaHistoryContentsObserver::WebContentsDestroyed() {
   MaybeCommitMediaSession();
 }
 
-void MediaHistoryContentsObserver::MediaWatchTimeChanged(
-    const content::MediaPlayerWatchTime& watch_time) {
-  if (service_)
-    service_->GetMediaHistoryStore()->SavePlayback(watch_time);
-}
-
 void MediaHistoryContentsObserver::MediaSessionInfoChanged(
     media_session::mojom::MediaSessionInfoPtr session_info) {
+  if (frozen_)
+    return;
+
   if (session_info->state ==
       media_session::mojom::MediaSessionInfo::SessionState::kActive) {
     has_been_active_ = true;
+  }
+
+  if (session_info->audio_video_state ==
+      media_session::mojom::MediaAudioVideoState::kAudioVideo) {
+    has_video_ = true;
+  } else {
+    has_video_ = false;
   }
 }
 
@@ -78,6 +85,21 @@ void MediaHistoryContentsObserver::MediaSessionMetadataChanged(
   cached_metadata_ = metadata;
 }
 
+void MediaHistoryContentsObserver::MediaSessionImagesChanged(
+    const base::flat_map<media_session::mojom::MediaSessionImageType,
+                         std::vector<media_session::MediaImage>>& images) {
+  if (frozen_)
+    return;
+
+  if (base::Contains(images,
+                     media_session::mojom::MediaSessionImageType::kArtwork)) {
+    cached_artwork_ =
+        images.at(media_session::mojom::MediaSessionImageType::kArtwork);
+  } else {
+    cached_artwork_.clear();
+  }
+}
+
 void MediaHistoryContentsObserver::MediaSessionPositionChanged(
     const base::Optional<media_session::MediaPosition>& position) {
   if (!position.has_value() || frozen_)
@@ -87,15 +109,15 @@ void MediaHistoryContentsObserver::MediaSessionPositionChanged(
 }
 
 void MediaHistoryContentsObserver::MaybeCommitMediaSession() {
-  // If the media session has never played anything or does not have any
-  // metadata then we should not commit the media session.
+  // If the media session has never played anything, does not have any metadata
+  // or does not have video then we should not commit the media session.
   if (!has_been_active_ || !cached_metadata_ || cached_metadata_->IsEmpty() ||
-      !service_) {
+      !service_ || !has_video_) {
     return;
   }
 
-  service_->GetMediaHistoryStore()->SavePlaybackSession(
-      current_url_, *cached_metadata_, cached_position_);
+  service_->SavePlaybackSession(current_url_, *cached_metadata_,
+                                cached_position_, cached_artwork_);
 }
 
 WEB_CONTENTS_USER_DATA_KEY_IMPL(MediaHistoryContentsObserver)

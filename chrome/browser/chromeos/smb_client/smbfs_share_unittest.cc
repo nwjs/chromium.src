@@ -7,10 +7,12 @@
 #include "base/run_loop.h"
 #include "base/test/bind_test_util.h"
 #include "base/test/gmock_callback_support.h"
+#include "base/test/task_environment.h"
 #include "chrome/browser/chromeos/file_manager/fake_disk_mount_manager.h"
 #include "chrome/browser/chromeos/file_manager/volume_manager.h"
 #include "chrome/browser/chromeos/file_manager/volume_manager_factory.h"
 #include "chrome/browser/chromeos/file_manager/volume_manager_observer.h"
+#include "chrome/browser/chromeos/smb_client/smb_url.h"
 #include "chrome/test/base/testing_profile.h"
 #include "chromeos/components/smbfs/smbfs_host.h"
 #include "chromeos/components/smbfs/smbfs_mounter.h"
@@ -110,7 +112,8 @@ class SmbFsShareTest : public testing::Test {
   }
 
   content::BrowserTaskEnvironment task_environment_{
-      content::BrowserTaskEnvironment::REAL_IO_THREAD};
+      content::BrowserTaskEnvironment::REAL_IO_THREAD,
+      base::test::TaskEnvironment::TimeSource::MOCK_TIME};
   file_manager::FakeDiskMountManager* disk_mount_manager_ =
       new file_manager::FakeDiskMountManager;
   TestingProfile profile_;
@@ -127,7 +130,7 @@ TEST_F(SmbFsShareTest, Mount) {
   mojo::Receiver<smbfs::mojom::SmbFs> smbfs_receiver(&smbfs);
   mojo::Remote<smbfs::mojom::SmbFsDelegate> delegate;
 
-  SmbFsShare share(&profile_, kSharePath, kDisplayName, {});
+  SmbFsShare share(&profile_, SmbUrl(kSharePath), kDisplayName, {});
   share.SetMounterCreationCallbackForTest(mounter_creation_callback_);
 
   EXPECT_CALL(*raw_mounter_, Mount(_))
@@ -157,13 +160,13 @@ TEST_F(SmbFsShareTest, Mount) {
 
   base::RunLoop run_loop;
   share.Mount(base::BindLambdaForTesting([&run_loop](SmbMountResult result) {
-    EXPECT_EQ(result, SmbMountResult::SUCCESS);
+    EXPECT_EQ(result, SmbMountResult::kSuccess);
     run_loop.Quit();
   }));
   run_loop.Run();
 
   EXPECT_TRUE(share.IsMounted());
-  EXPECT_EQ(share.share_path(), kSharePath);
+  EXPECT_EQ(share.share_url().ToString(), kSharePath);
   EXPECT_EQ(share.mount_path(), base::FilePath(kMountPath));
 
   storage::ExternalMountPoints* const mount_points =
@@ -183,18 +186,18 @@ TEST_F(SmbFsShareTest, MountFailure) {
   EXPECT_CALL(observer_, OnVolumeUnmounted(chromeos::MOUNT_ERROR_NONE, _))
       .Times(0);
 
-  SmbFsShare share(&profile_, kSharePath, kDisplayName, {});
+  SmbFsShare share(&profile_, SmbUrl(kSharePath), kDisplayName, {});
   share.SetMounterCreationCallbackForTest(mounter_creation_callback_);
 
   base::RunLoop run_loop;
   share.Mount(base::BindLambdaForTesting([&run_loop](SmbMountResult result) {
-    EXPECT_EQ(result, SmbMountResult::ABORTED);
+    EXPECT_EQ(result, SmbMountResult::kAborted);
     run_loop.Quit();
   }));
   run_loop.Run();
 
   EXPECT_FALSE(share.IsMounted());
-  EXPECT_EQ(share.share_path(), kSharePath);
+  EXPECT_EQ(share.share_url().ToString(), kSharePath);
   EXPECT_EQ(share.mount_path(), base::FilePath());
 }
 
@@ -203,7 +206,7 @@ TEST_F(SmbFsShareTest, UnmountOnDisconnect) {
   mojo::Receiver<smbfs::mojom::SmbFs> smbfs_receiver(&smbfs);
   mojo::Remote<smbfs::mojom::SmbFsDelegate> delegate;
 
-  SmbFsShare share(&profile_, kSharePath, kDisplayName, {});
+  SmbFsShare share(&profile_, SmbUrl(kSharePath), kDisplayName, {});
   share.SetMounterCreationCallbackForTest(mounter_creation_callback_);
 
   EXPECT_CALL(*raw_mounter_, Mount(_))
@@ -235,10 +238,91 @@ TEST_F(SmbFsShareTest, UnmountOnDisconnect) {
 
   share.Mount(
       base::BindLambdaForTesting([&smbfs_receiver](SmbMountResult result) {
-        EXPECT_EQ(result, SmbMountResult::SUCCESS);
+        EXPECT_EQ(result, SmbMountResult::kSuccess);
 
         // Disconnect the Mojo service which should trigger the unmount.
         smbfs_receiver.reset();
+      }));
+  run_loop.Run();
+}
+
+TEST_F(SmbFsShareTest, DisallowCredentialsDialogByDefault) {
+  TestSmbFsImpl smbfs;
+  mojo::Receiver<smbfs::mojom::SmbFs> smbfs_receiver(&smbfs);
+  mojo::Remote<smbfs::mojom::SmbFsDelegate> delegate;
+
+  SmbFsShare share(&profile_, SmbUrl(kSharePath), kDisplayName, {});
+  share.SetMounterCreationCallbackForTest(mounter_creation_callback_);
+
+  EXPECT_CALL(*raw_mounter_, Mount(_))
+      .WillOnce([this, &share, &smbfs_receiver,
+                 &delegate](smbfs::SmbFsMounter::DoneCallback callback) {
+        std::move(callback).Run(
+            smbfs::mojom::MountError::kOk,
+            CreateSmbFsHost(&share, &smbfs_receiver, &delegate));
+      });
+  EXPECT_CALL(observer_, OnVolumeMounted(chromeos::MOUNT_ERROR_NONE, _))
+      .Times(1);
+  EXPECT_CALL(observer_, OnVolumeUnmounted(chromeos::MOUNT_ERROR_NONE, _))
+      .Times(1);
+
+  {
+    base::RunLoop run_loop;
+    share.Mount(base::BindLambdaForTesting([&run_loop](SmbMountResult result) {
+      EXPECT_EQ(result, SmbMountResult::kSuccess);
+      run_loop.Quit();
+    }));
+    run_loop.Run();
+  }
+
+  base::RunLoop run_loop;
+  delegate->RequestCredentials(base::BindLambdaForTesting(
+      [&run_loop](smbfs::mojom::CredentialsPtr creds) {
+        EXPECT_FALSE(creds);
+        run_loop.Quit();
+      }));
+  run_loop.Run();
+}
+
+TEST_F(SmbFsShareTest, DisallowCredentialsDialogAfterTimeout) {
+  TestSmbFsImpl smbfs;
+  mojo::Receiver<smbfs::mojom::SmbFs> smbfs_receiver(&smbfs);
+  mojo::Remote<smbfs::mojom::SmbFsDelegate> delegate;
+
+  SmbFsShare share(&profile_, SmbUrl(kSharePath), kDisplayName, {});
+  share.SetMounterCreationCallbackForTest(mounter_creation_callback_);
+
+  EXPECT_CALL(*raw_mounter_, Mount(_))
+      .WillOnce([this, &share, &smbfs_receiver,
+                 &delegate](smbfs::SmbFsMounter::DoneCallback callback) {
+        std::move(callback).Run(
+            smbfs::mojom::MountError::kOk,
+            CreateSmbFsHost(&share, &smbfs_receiver, &delegate));
+      });
+  EXPECT_CALL(observer_, OnVolumeMounted(chromeos::MOUNT_ERROR_NONE, _))
+      .Times(1);
+  EXPECT_CALL(observer_, OnVolumeUnmounted(chromeos::MOUNT_ERROR_NONE, _))
+      .Times(1);
+
+  {
+    base::RunLoop run_loop;
+    share.Mount(base::BindLambdaForTesting([&run_loop](SmbMountResult result) {
+      EXPECT_EQ(result, SmbMountResult::kSuccess);
+      run_loop.Quit();
+    }));
+    run_loop.Run();
+  }
+
+  share.AllowCredentialsRequest();
+  // Fast-forward time for the allow state to timeout. The timeout is 5 seconds,
+  // so moving forward by 6 will ensure the timeout runs.
+  task_environment_.FastForwardBy(base::TimeDelta::FromSeconds(6));
+
+  base::RunLoop run_loop;
+  delegate->RequestCredentials(base::BindLambdaForTesting(
+      [&run_loop](smbfs::mojom::CredentialsPtr creds) {
+        EXPECT_FALSE(creds);
+        run_loop.Quit();
       }));
   run_loop.Run();
 }

@@ -33,6 +33,7 @@
 #include "components/autofill_assistant/browser/website_login_fetcher_impl.h"
 #include "components/password_manager/content/browser/content_password_manager_driver.h"
 #include "components/password_manager/content/browser/content_password_manager_driver_factory.h"
+#include "components/password_manager/core/browser/password_manager_client.h"
 #include "components/signin/public/identity_manager/account_info.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/version_info/channel.h"
@@ -131,6 +132,7 @@ bool ClientAndroid::Start(JNIEnv* env,
                           const JavaParamRef<jobject>& jcaller,
                           const JavaParamRef<jstring>& jinitial_url,
                           const JavaParamRef<jstring>& jexperiment_ids,
+                          const JavaParamRef<jstring>& jcaller_account,
                           const JavaParamRef<jobjectArray>& jparameter_names,
                           const JavaParamRef<jobjectArray>& jparameter_values,
                           const JavaParamRef<jobject>& jonboarding_coordinator,
@@ -157,6 +159,10 @@ bool ClientAndroid::Start(JNIEnv* env,
       env, jexperiment_ids, jparameter_names, jparameter_values);
   trigger_context->SetCCT(true);
   trigger_context->SetOnboardingShown(jonboarding_shown);
+  if (jcaller_account) {
+    trigger_context->SetCallerAccountHash(
+        base::android::ConvertJavaStringToUTF8(env, jcaller_account));
+  }
 
   if (VLOG_IS_ON(2)) {
     std::string experiment_ids =
@@ -192,6 +198,11 @@ void ClientAndroid::TransferUITo(
   auto ui_ptr = std::move(ui_controller_android_);
   // From this point on, the UIController, in ui_ptr, is either transferred or
   // deleted.
+
+  GetPasswordManagerClient()
+      ->GetPasswordManager()
+      ->set_autofill_assistance_mode(
+          password_manager::AutofillAssistantMode::kNotRunning);
 
   if (!jother_web_contents)
     return;
@@ -427,13 +438,18 @@ void ClientAndroid::AttachUI(
 
     ui_controller_android_->Attach(web_contents_, this, controller_.get());
   }
+
+  GetPasswordManagerClient()
+      ->GetPasswordManager()
+      ->set_autofill_assistance_mode(
+          password_manager::AutofillAssistantMode::kManuallyCuratedScript);
 }
 
 void ClientAndroid::DestroyUI() {
   ui_controller_android_.reset();
 }
 
-std::string ClientAndroid::GetApiKey() {
+std::string ClientAndroid::GetApiKey() const {
   std::string api_key;
   if (google_apis::IsGoogleChromeAPIKeyUsed()) {
     api_key = chrome::GetChannel() == version_info::Channel::STABLE
@@ -448,7 +464,7 @@ std::string ClientAndroid::GetApiKey() {
   return api_key;
 }
 
-std::string ClientAndroid::GetAccountEmailAddress() {
+std::string ClientAndroid::GetAccountEmailAddress() const {
   JNIEnv* env = AttachCurrentThread();
   return base::android::ConvertJavaStringToUTF8(
       Java_AutofillAssistantClient_getAccountEmailAddress(env, java_object_));
@@ -458,14 +474,23 @@ AccessTokenFetcher* ClientAndroid::GetAccessTokenFetcher() {
   return this;
 }
 
-autofill::PersonalDataManager* ClientAndroid::GetPersonalDataManager() {
+autofill::PersonalDataManager* ClientAndroid::GetPersonalDataManager() const {
   return autofill::PersonalDataManagerFactory::GetForProfile(
       ProfileManager::GetLastUsedProfile());
 }
 
-WebsiteLoginFetcher* ClientAndroid::GetWebsiteLoginFetcher() {
+password_manager::PasswordManagerClient*
+ClientAndroid::GetPasswordManagerClient() const {
+  if (!password_manager_client_) {
+    password_manager_client_ =
+        ChromePasswordManagerClient::FromWebContents(web_contents_);
+  }
+  return password_manager_client_;
+}
+
+WebsiteLoginFetcher* ClientAndroid::GetWebsiteLoginFetcher() const {
   if (!website_login_fetcher_) {
-    auto* client = ChromePasswordManagerClient::FromWebContents(web_contents_);
+    auto* client = GetPasswordManagerClient();
     auto* factory =
         password_manager::ContentPasswordManagerDriverFactory::FromWebContents(
             web_contents_);
@@ -479,21 +504,21 @@ WebsiteLoginFetcher* ClientAndroid::GetWebsiteLoginFetcher() {
   return website_login_fetcher_.get();
 }
 
-std::string ClientAndroid::GetServerUrl() {
+std::string ClientAndroid::GetServerUrl() const {
   return server_url_;
 }
 
-std::string ClientAndroid::GetLocale() {
+std::string ClientAndroid::GetLocale() const {
   return base::android::GetDefaultLocaleString();
 }
 
-std::string ClientAndroid::GetCountryCode() {
+std::string ClientAndroid::GetCountryCode() const {
   return base::android::ConvertJavaStringToUTF8(
       Java_AutofillAssistantClient_getCountryCode(AttachCurrentThread(),
                                                   java_object_));
 }
 
-DeviceContext ClientAndroid::GetDeviceContext() {
+DeviceContext ClientAndroid::GetDeviceContext() const {
   DeviceContext context;
   Version version;
   version.sdk_int = Java_AutofillAssistantClient_getSdkInt(
@@ -509,13 +534,18 @@ DeviceContext ClientAndroid::GetDeviceContext() {
   return context;
 }
 
-content::WebContents* ClientAndroid::GetWebContents() {
+content::WebContents* ClientAndroid::GetWebContents() const {
   return web_contents_;
 }
 
 void ClientAndroid::Shutdown(Metrics::DropOutReason reason) {
   if (!controller_)
     return;
+
+  GetPasswordManagerClient()
+      ->GetPasswordManager()
+      ->set_autofill_assistance_mode(
+          password_manager::AutofillAssistantMode::kNotRunning);
 
   if (ui_controller_android_ && ui_controller_android_->IsAttached())
     DestroyUI();

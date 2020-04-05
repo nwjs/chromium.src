@@ -28,16 +28,17 @@
 #include "chrome/browser/ui/bookmarks/bookmark_tab_helper_observer.h"
 #include "chrome/browser/ui/browser_navigator.h"
 #include "chrome/browser/ui/browser_navigator_params.h"
-#include "chrome/browser/ui/chrome_bubble_manager.h"
 #include "chrome/browser/ui/chrome_web_modal_dialog_manager_delegate.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_manager.h"
 #include "chrome/browser/ui/profile_chooser_constants.h"
 #include "chrome/browser/ui/signin_view_controller.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "chrome/browser/ui/unload_controller.h"
+#include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "components/content_settings/core/common/content_settings.h"
 #include "components/content_settings/core/common/content_settings_types.h"
 #include "components/omnibox/browser/location_bar_model.h"
+#include "components/paint_preview/buildflags/buildflags.h"
 #include "components/prefs/pref_change_registrar.h"
 #include "components/sessions/core/session_id.h"
 #include "components/translate/content/browser/content_translate_driver.h"
@@ -144,6 +145,14 @@ class Browser : public TabStripModelObserver,
     // AppBrowserController) but looks like a popup (e.g. it never has a tab
     // strip).
     TYPE_APP_POPUP,
+#if defined(OS_CHROMEOS)
+    // Browser for ARC++ Chrome custom tabs.
+    // It's an enhanced version of TYPE_POPUP, and is used to show the Chrome
+    // Custom Tab toolbar for ARC++ apps. It has UI customizations like using
+    // the Android app's theme color, and the three dot menu in
+    // CustomTabToolbarview.
+    TYPE_CUSTOM_TAB,
+#endif
     // If you add a new type, consider updating the test
     // BrowserTest.StartMaximized.
   };
@@ -222,7 +231,6 @@ class Browser : public TabStripModelObserver,
     bool resizable = true;
     bool show_in_taskbar = true;
     std::string title;
-    std::string position;
     gfx::Image icon;
     // The browser type.
     Type type;
@@ -322,7 +330,6 @@ class Browser : public TabStripModelObserver,
   bool initial_allvisible() const { return initial_allvisible_; }
   bool initial_resizable() const { return initial_resizable_; }
   bool initial_showintaskbar() const { return initial_showintaskbar_; }
-  const std::string& initial_position() const { return initial_position_; }
   gfx::Image icon_override() const { return icon_override_; }
 
   // Return true if the initial window bounds have been overridden.
@@ -394,9 +401,6 @@ class Browser : public TabStripModelObserver,
     return &signin_view_controller_;
   }
 
-  // Will lazy create the bubble manager.
-  ChromeBubbleManager* GetBubbleManager();
-
   // Get the FindBarController for this browser, creating it if it does not
   // yet exist.
   FindBarController* GetFindBarController();
@@ -423,6 +427,9 @@ class Browser : public TabStripModelObserver,
   // Disables additional formatting when |include_app_name| is false or if the
   // window is an app window.
   base::string16 GetWindowTitleForTab(bool include_app_name, int index) const;
+
+  // Gets a list of window titles for the "Move to another window" menu.
+  std::vector<base::string16> GetExistingWindowsForMoveMenu();
 
   // Gets the window title from the provided WebContents.
   // Disables additional formatting when |include_app_name| is false or if the
@@ -549,6 +556,18 @@ class Browser : public TabStripModelObserver,
   // Saving can be disabled e.g. for the DevTools window.
   bool CanSaveContents(content::WebContents* web_contents) const;
 
+  std::unique_ptr<content::WebContents> SwapWebContents(
+      content::WebContents* old_contents,
+      std::unique_ptr<content::WebContents> new_contents);
+
+  // Move tabs to the browser at an index in the list previously returned by
+  // GetExistingWindowsForMoveMenu.
+  void MoveTabsToExistingWindow(const std::vector<int> tab_indices,
+                                int browser_index);
+
+  // Returns whether favicon should be shown.
+  bool ShouldDisplayFavicon(content::WebContents* web_contents) const;
+
   /////////////////////////////////////////////////////////////////////////////
 
   // Called by Navigate() when a navigation has occurred in a tab in
@@ -633,21 +652,25 @@ class Browser : public TabStripModelObserver,
       const viz::SurfaceId&,
       const gfx::Size&) override;
   void ExitPictureInPicture() override;
-  std::unique_ptr<content::WebContents> SwapWebContents(
-      content::WebContents* old_contents,
-      std::unique_ptr<content::WebContents> new_contents,
-      bool did_start_load,
-      bool did_finish_load) override;
+  std::unique_ptr<content::WebContents> ActivatePortalWebContents(
+      content::WebContents* predecessor_contents,
+      std::unique_ptr<content::WebContents> portal_contents) override;
   bool ShouldShowStaleContentOnEviction(content::WebContents* source) override;
   bool IsFrameLowPriority(
       const content::WebContents* web_contents,
       const content::RenderFrameHost* render_frame_host) override;
+  void MediaWatchTimeChanged(
+      const content::MediaPlayerWatchTime& watch_time) override;
+  base::WeakPtr<content::WebContentsDelegate> GetDelegateWeakPtr() override;
 
   bool is_type_normal() const { return type_ == TYPE_NORMAL; }
   bool is_type_popup() const { return type_ == TYPE_POPUP; }
   bool is_type_app() const { return type_ == TYPE_APP; }
   bool is_type_app_popup() const { return type_ == TYPE_APP_POPUP; }
   bool is_type_devtools() const { return type_ == TYPE_DEVTOOLS; }
+#if defined(OS_CHROMEOS)
+  bool is_type_custom_tab() const { return type_ == TYPE_CUSTOM_TAB; }
+#endif
   // TODO(crbug.com/990158): |deprecated_is_app()| is added for backwards
   // compatibility for previous callers to |is_app()| which returned true when
   // |app_name_| is non-empty.  This includes TYPE_APP, TYPE_DEVTOOLS and
@@ -878,6 +901,14 @@ class Browser : public TabStripModelObserver,
       content::RenderFrameHost* subframe_host) const override;
 #endif
 
+#if BUILDFLAG(ENABLE_PAINT_PREVIEW)
+  void CapturePaintPreviewOfCrossProcessSubframe(
+      content::WebContents* web_contents,
+      const gfx::Rect& rect,
+      const base::UnguessableToken& guid,
+      content::RenderFrameHost* render_frame_host) override;
+#endif
+
   // Overridden from WebContentsModalDialogManagerDelegate:
   void SetWebContentsBlocked(content::WebContents* web_contents,
                              bool blocked) override;
@@ -1030,6 +1061,10 @@ class Browser : public TabStripModelObserver,
   bool WebAppBrowserSupportsWindowFeature(WindowFeature feature,
                                           bool check_can_support) const;
 
+#if defined(OS_CHROMEOS)
+  bool CustomTabBrowserSupportsWindowFeature(WindowFeature feature) const;
+#endif
+
   // Implementation of SupportsWindowFeature and CanSupportWindowFeature. If
   // |check_fullscreen| is true, the set of features reflect the actual state of
   // the browser, otherwise the set of features reflect the possible state of
@@ -1071,6 +1106,13 @@ class Browser : public TabStripModelObserver,
       const GURL& target_url,
       const std::string& partition_id,
       content::SessionStorageNamespace* session_storage_namespace);
+
+  // Gets the window title for the current tab, to display in a menu. If the
+  // title is too long to fit in the required space,
+  // the tab title will be elided. The result title might still be a larger
+  // width than specified, as at least a few characters of the title are always
+  // shown.
+  base::string16 GetWindowTitleForMenu() const;
 
   // Data members /////////////////////////////////////////////////////////////
 
@@ -1161,7 +1203,6 @@ class Browser : public TabStripModelObserver,
   bool initial_allvisible_;
   bool initial_resizable_;
   bool initial_showintaskbar_;
-  std::string initial_position_;
   std::string title_override_;
   gfx::Image icon_override_;
 
@@ -1171,8 +1212,6 @@ class Browser : public TabStripModelObserver,
   base::TimeTicks focus_mode_start_time_;
 
   UnloadController unload_controller_;
-
-  std::unique_ptr<ChromeBubbleManager> bubble_manager_;
 
   // The Find Bar. This may be NULL if there is no Find Bar, and if it is
   // non-NULL, it may or may not be visible.
@@ -1226,6 +1265,9 @@ class Browser : public TabStripModelObserver,
 #endif
 
   const base::ElapsedTimer creation_timer_;
+
+  // Stores the list of browser windows showing via a menu.
+  std::vector<base::WeakPtr<Browser>> existing_browsers_for_menu_list_;
 
   // The following factory is used for chrome update coalescing.
   base::WeakPtrFactory<Browser> chrome_updater_factory_{this};

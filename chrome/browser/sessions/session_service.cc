@@ -24,10 +24,10 @@
 #include "base/stl_util.h"
 #include "base/threading/thread.h"
 #include "build/build_config.h"
+#include "chrome/browser/apps/app_service/launch_utils.h"
 #include "chrome/browser/background/background_mode_manager.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/defaults.h"
-#include "chrome/browser/extensions/tab_helper.h"
 #include "chrome/browser/prefs/session_startup_pref.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_attributes_entry.h"
@@ -45,6 +45,7 @@
 #include "chrome/browser/ui/tabs/tab_group.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/browser/web_applications/components/web_app_helpers.h"
 #include "components/sessions/content/content_serialized_navigation_builder.h"
 #include "components/sessions/content/session_tab_helper.h"
 #include "components/sessions/core/session_command.h"
@@ -359,12 +360,10 @@ void SessionService::TabInserted(WebContents* contents) {
     return;
   SetTabWindow(session_tab_helper->window_id(),
                session_tab_helper->session_id());
-  extensions::TabHelper* extensions_tab_helper =
-      extensions::TabHelper::FromWebContents(contents);
-  if (extensions_tab_helper && extensions_tab_helper->is_app()) {
+  std::string app_id = apps::GetAppIdForWebContents(contents);
+  if (!app_id.empty()) {
     SetTabExtensionAppID(session_tab_helper->window_id(),
-                         session_tab_helper->session_id(),
-                         extensions_tab_helper->GetAppId());
+                         session_tab_helper->session_id(), app_id);
   }
 
   // Record the association between the SessionStorageNamespace and the
@@ -699,15 +698,15 @@ void SessionService::BuildCommandsForTab(
       sessions::CreateLastActiveTimeCommand(session_id,
                                             tab->GetLastActiveTime()));
 
-  extensions::TabHelper* extensions_tab_helper =
-      extensions::TabHelper::FromWebContents(tab);
-  if (extensions_tab_helper->is_app()) {
+  std::string app_id = apps::GetAppIdForWebContents(tab);
+  if (!app_id.empty()) {
     command_storage_manager_->AppendRebuildCommand(
-        sessions::CreateSetTabExtensionAppIDCommand(
-            session_id, extensions_tab_helper->GetAppId()));
+        sessions::CreateSetTabExtensionAppIDCommand(session_id, app_id));
   }
 
-  const std::string& ua_override = tab->GetUserAgentOverride();
+  // TODO(https://crbug.com/1061917: handle ua_metadata_override as well.
+  const std::string& ua_override =
+      tab->GetUserAgentOverride().ua_string_override;
   if (!ua_override.empty()) {
     command_storage_manager_->AppendRebuildCommand(
         sessions::CreateSetTabUserAgentOverrideCommand(session_id,
@@ -915,11 +914,17 @@ bool SessionService::ShouldTrackBrowser(Browser* browser) const {
   if (browser->profile() != profile())
     return false;
 #if defined(OS_CHROMEOS)
-  // Do not track Crostini apps because they will be dead upon restoring the
-  // browser session since VMs do not automatically restart on session restore.
-  if (crostini::CrostiniAppIdFromAppName(browser->app_name())) {
+  // Do not track Crostini apps or terminal.  Apps will fail since VMs are not
+  // restarted on restore, and we don't want terminal to force the VM to start.
+  if (crostini::CrostiniAppIdFromAppName(browser->app_name()) ||
+      web_app::GetAppIdFromApplicationName(browser->app_name()) ==
+          crostini::GetTerminalId()) {
     return false;
   }
+
+  // Don't track custom_tab browser. It doesn't need to be restored.
+  if (browser->is_type_custom_tab())
+    return false;
 #endif
   // Never track app popup windows that do not have a trusted source (i.e.
   // popup windows spawned by an app). If this logic changes, be sure to also
@@ -927,6 +932,7 @@ bool SessionService::ShouldTrackBrowser(Browser* browser) const {
   if (browser->deprecated_is_app() && !browser->is_trusted_source()) {
     return false;
   }
+
   return ShouldRestoreWindowOfType(WindowTypeForBrowserType(browser->type()));
 }
 

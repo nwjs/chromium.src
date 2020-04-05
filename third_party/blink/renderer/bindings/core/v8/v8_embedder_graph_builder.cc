@@ -177,29 +177,31 @@ class GC_PLUGIN_IGNORE(
   void VisitTracedGlobalHandle(const v8::TracedGlobal<v8::Value>&) override;
 
   // Visitor overrides.
-  void VisitRoot(void*, TraceDescriptor, const base::Location&) final;
+  void VisitRoot(const void*, TraceDescriptor, const base::Location&) final;
   void Visit(const TraceWrapperV8Reference<v8::Value>&) final;
-  void Visit(void*, TraceDescriptor) final;
-  void VisitBackingStoreStrongly(void*, void**, TraceDescriptor) final;
-  void VisitBackingStoreWeakly(void*,
-                               void**,
+  void Visit(const void*, TraceDescriptor) final;
+  void VisitBackingStoreStrongly(const void*,
+                                 const void* const*,
+                                 TraceDescriptor) final;
+  void VisitBackingStoreWeakly(const void*,
+                               const void* const*,
                                TraceDescriptor,
                                TraceDescriptor,
                                WeakCallback,
-                               void*) final;
-  bool VisitEphemeronKeyValuePair(void*,
-                                  void*,
+                               const void*) final;
+  bool VisitEphemeronKeyValuePair(const void*,
+                                  const void*,
                                   EphemeronTracingCallback,
                                   EphemeronTracingCallback) final;
 
   // Unused Visitor overrides.
-  void VisitWeak(void* object,
-                 void* object_weak_ref,
+  void VisitWeak(const void* object,
+                 const void* object_weak_ref,
                  TraceDescriptor desc,
                  WeakCallback callback) final {}
-  void VisitBackingStoreOnly(void*, void**) final {}
-  void RegisterBackingStoreCallback(void*, MovingObjectCallback) final {}
-  void RegisterWeakCallback(WeakCallback, void*) final {}
+  void VisitBackingStoreOnly(const void*, const void* const*) final {}
+  void RegisterBackingStoreCallback(const void*, MovingObjectCallback) final {}
+  void RegisterWeakCallback(WeakCallback, const void*) final {}
 
  private:
   class ParentScope {
@@ -256,6 +258,12 @@ class GC_PLUGIN_IGNORE(
     void AddEdge(State* destination, std::string edge_name) {
       auto result = named_edges_.insert(destination, std::move(edge_name));
       DCHECK(result.is_new_entry);
+    }
+
+    void AddRootEdge(State* destination, std::string edge_name) {
+      // State may represent root groups in which case there may exist multiple
+      // references to the same |destination|.
+      named_edges_.insert(destination, std::move(edge_name));
     }
 
     std::string EdgeName(State* destination) {
@@ -575,7 +583,7 @@ void V8EmbedderGraphBuilder::BuildEmbedderGraph() {
 void V8EmbedderGraphBuilder::VisitPersistentHandleInternal(
     v8::Local<v8::Object> v8_value,
     uint16_t class_id) {
-  ScriptWrappable* traceable = ToScriptWrappable(v8_value);
+  const ScriptWrappable* traceable = ToScriptWrappable(v8_value);
   if (!traceable)
     return;
   Graph::Node* wrapper = node_builder_->GraphNode(v8_value);
@@ -640,7 +648,7 @@ void V8EmbedderGraphBuilder::Visit(
   }
 }
 
-void V8EmbedderGraphBuilder::VisitRoot(void* object,
+void V8EmbedderGraphBuilder::VisitRoot(const void* object,
                                        TraceDescriptor wrapper_descriptor,
                                        const base::Location& location) {
   // Extract edge name if |location| is set.
@@ -650,21 +658,21 @@ void V8EmbedderGraphBuilder::VisitRoot(void* object,
     State* const current = GetOrCreateState(
         traceable, HeapObjectHeader::FromPayload(traceable)->Name(),
         parent->GetDomTreeState());
-    parent->AddEdge(current, location.ToString());
+    parent->AddRootEdge(current, location.ToString());
   }
   Visit(object, wrapper_descriptor);
 }
 
-void V8EmbedderGraphBuilder::Visit(void* object,
+void V8EmbedderGraphBuilder::Visit(const void* object,
                                    TraceDescriptor wrapper_descriptor) {
   if (trace_keys_scope_) {
     trace_keys_scope_->SetKey(object);
     return;
   }
   const void* traceable = wrapper_descriptor.base_object_payload;
-  const GCInfo* info = GCInfoTable::Get().GCInfoFromIndex(
-      HeapObjectHeader::FromPayload(traceable)->GcInfoIndex());
-  HeapObjectName name = info->name(traceable);
+  const GCInfo& info =
+      GCInfo::From(HeapObjectHeader::FromPayload(traceable)->GcInfoIndex());
+  HeapObjectName name = info.name(traceable);
 
   State* const parent = GetStateNotNull(current_parent_);
   State* const current =
@@ -686,7 +694,7 @@ void V8EmbedderGraphBuilder::Visit(void* object,
   current->UpdateDomTreeState(parent->GetDomTreeState());
 
   if (!current->IsVisited()) {
-    CreateAndPushVisitationItem(parent, current, traceable, info->trace);
+    CreateAndPushVisitationItem(parent, current, traceable, info.trace);
   } else {
     // Edge into an already processed subgraph.
     if (current->HasNode()) {
@@ -718,21 +726,22 @@ void V8EmbedderGraphBuilder::AddEdge(State* parent, State* current) {
   graph_->AddEdge(parent_node, current_node);
 }
 
-void V8EmbedderGraphBuilder::VisitBackingStoreStrongly(void* object,
-                                                       void** object_slot,
-                                                       TraceDescriptor desc) {
+void V8EmbedderGraphBuilder::VisitBackingStoreStrongly(
+    const void* object,
+    const void* const* object_slot,
+    TraceDescriptor desc) {
   if (!object)
     return;
   desc.callback(this, desc.base_object_payload);
 }
 
 void V8EmbedderGraphBuilder::VisitBackingStoreWeakly(
-    void* object,
-    void** object_slot,
+    const void* object,
+    const void* const* object_slot,
     TraceDescriptor strong_desc,
     TraceDescriptor weak_desc,
     WeakCallback,
-    void*) {
+    const void*) {
   // Only ephemerons have weak callbacks.
   if (weak_desc.callback) {
     // Heap snapshot is always run after a GC so we know there are no dead
@@ -742,8 +751,8 @@ void V8EmbedderGraphBuilder::VisitBackingStoreWeakly(
 }
 
 bool V8EmbedderGraphBuilder::VisitEphemeronKeyValuePair(
-    void* key,
-    void* value,
+    const void* key,
+    const void* value,
     EphemeronTracingCallback key_trace_callback,
     EphemeronTracingCallback value_trace_callback) {
   ephemeron_worklist_.push_back(std::unique_ptr<EphemeronItem>{

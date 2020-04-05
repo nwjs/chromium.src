@@ -11,13 +11,13 @@
 #include "base/memory/scoped_refptr.h"
 #include "base/run_loop.h"
 #include "base/test/metrics/histogram_tester.h"
-#include "base/test/task_environment.h"
 #include "base/test/test_simple_task_runner.h"
 #include "components/metrics/metrics_pref_names.h"
 #include "components/metrics/metrics_service.h"
 #include "components/metrics/metrics_switches.h"
 #include "components/prefs/testing_pref_service.h"
-#include "content/public/browser/notification_service.h"
+#include "content/public/test/browser_task_environment.h"
+#include "content/public/test/test_content_client_initializer.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace android_webview {
@@ -29,11 +29,7 @@ const char kTestClientId[] = "01234567-89ab-40cd-80ef-0123456789ab";
 
 class TestClient : public AwMetricsServiceClient {
  public:
-  TestClient()
-      : sampled_in_rate_(1.00),
-        in_sample_(true),
-        record_package_name_for_app_type_(true),
-        in_package_name_sample_(true) {}
+  TestClient() {}
   ~TestClient() override {}
 
   bool IsRecordingActive() {
@@ -42,31 +38,15 @@ class TestClient : public AwMetricsServiceClient {
       return service->recording_active();
     return false;
   }
-  void SetSampleRate(double value) { sampled_in_rate_ = value; }
-  void SetInSample(bool value) { in_sample_ = value; }
-  void SetRecordPackageNameForAppType(bool value) {
-    record_package_name_for_app_type_ = value;
-  }
-  void SetInPackageNameSample(bool value) { in_package_name_sample_ = value; }
 
   // Expose the super class implementation for testing.
   using AwMetricsServiceClient::GetAppPackageNameInternal;
-  using AwMetricsServiceClient::IsInPackageNameSample;
-  using AwMetricsServiceClient::IsInSample;
 
  protected:
-  double GetSampleRate() override { return sampled_in_rate_; }
-  bool IsInSample() override { return in_sample_; }
-  bool CanRecordPackageNameForAppType() override {
-    return record_package_name_for_app_type_;
-  }
-  bool IsInPackageNameSample() override { return in_package_name_sample_; }
+  int GetSampleRatePerMille() override { return 1000; }
+  int GetPackageNameLimitRatePerMille() override { return 1000; }
 
  private:
-  double sampled_in_rate_;
-  bool in_sample_;
-  bool record_package_name_for_app_type_;
-  bool in_package_name_sample_;
   DISALLOW_COPY_AND_ASSIGN(TestClient);
 };
 
@@ -86,9 +66,7 @@ std::unique_ptr<TestClient> CreateAndInitTestClient(PrefService* prefs) {
 
 class AwMetricsServiceClientTest : public testing::Test {
  public:
-  AwMetricsServiceClientTest()
-      : task_runner_(new base::TestSimpleTaskRunner),
-        notification_service_(content::NotificationService::Create()) {
+  AwMetricsServiceClientTest() : task_runner_(new base::TestSimpleTaskRunner) {
     // Required by MetricsService.
     base::SetRecordActionTaskRunner(task_runner_);
   }
@@ -96,14 +74,22 @@ class AwMetricsServiceClientTest : public testing::Test {
  protected:
   ~AwMetricsServiceClientTest() override {}
 
- private:
-  base::test::TaskEnvironment task_environment_;
-  scoped_refptr<base::TestSimpleTaskRunner> task_runner_;
+  void SetUp() override {
+    test_content_client_initializer_ =
+        std::make_unique<content::TestContentClientInitializer>();
+  }
 
-  // AwMetricsServiceClient::RegisterForNotifications() requires the
-  // NotificationService to be up and running. Initialize it here, throw away
-  // the value because we don't need it directly.
-  std::unique_ptr<content::NotificationService> notification_service_;
+  void TearDown() override {
+    base::RunLoop().RunUntilIdle();
+    test_content_client_initializer_.reset();
+  }
+
+  content::BrowserTaskEnvironment task_environment_;
+  std::unique_ptr<content::TestContentClientInitializer>
+      test_content_client_initializer_;
+
+ private:
+  scoped_refptr<base::TestSimpleTaskRunner> task_runner_;
 
   DISALLOW_COPY_AND_ASSIGN(AwMetricsServiceClientTest);
 };
@@ -120,14 +106,6 @@ TEST_F(AwMetricsServiceClientTest, TestBackfillEnabledDateIfMissing) {
   EXPECT_TRUE(prefs->HasPrefPath(metrics::prefs::kMetricsClientID));
   EXPECT_TRUE(
       prefs->HasPrefPath(metrics::prefs::kMetricsReportingEnabledTimestamp));
-}
-
-TEST_F(AwMetricsServiceClientTest, TestGetPackageNameInternal) {
-  auto prefs = CreateTestPrefs();
-  prefs->SetString(metrics::prefs::kMetricsClientID, kTestClientId);
-  auto client = CreateAndInitTestClient(prefs.get());
-  // Make sure GetPackageNameInternal returns a non-empty string.
-  EXPECT_FALSE(client->GetAppPackageNameInternal().empty());
 }
 
 // TODO(https://crbug.com/1012025): remove this when the kInstallDate pref has

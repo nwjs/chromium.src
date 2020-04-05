@@ -16,11 +16,11 @@ import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Feature;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeActivity;
-import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.autofill.AutofillTestHelper;
 import org.chromium.chrome.browser.autofill.PersonalDataManager.AutofillProfile;
 import org.chromium.chrome.browser.autofill.PersonalDataManager.CreditCard;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.test.ChromeActivityTestRule;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.components.payments.MethodStrings;
@@ -80,7 +80,7 @@ public final class SkipToGPayHelperTest {
 
     /**
      * Verifies that when PAYMENT_REQUEST_SKIP_TO_GPAY_IF_NO_CARD is enabled, experiment is not
-     * activiated if user has a complete autofill instrument.
+     * activiated if user has a complete autofill card.
      */
     @Test
     @SmallTest
@@ -96,7 +96,7 @@ public final class SkipToGPayHelperTest {
 
     /**
      * Verifies that when PAYMENT_REQUEST_SKIP_TO_GPAY_IF_NO_CARD is enabled, experiment is
-     * activated if user doesn't have a complete autofill instrument.
+     * activated if user doesn't have a complete autofill card.
      */
     @Test
     @SmallTest
@@ -111,7 +111,7 @@ public final class SkipToGPayHelperTest {
 
     /**
      * Verifies that when PAYMENT_REQUEST_SKIP_TO_GPAY_IF_NO_CARD is enabled, experiment is
-     * activated if user doesn't have any autofill instrument.
+     * activated if user doesn't have any autofill card.
      */
     @Test
     @SmallTest
@@ -125,7 +125,7 @@ public final class SkipToGPayHelperTest {
 
     /**
      * Verifies that when PAYMENT_REQUEST_SKIP_TO_GPAY is enabled, experiment is activated
-     * regardless whether user has a complete autofill instrument or not.
+     * regardless whether user has a complete autofill card or not.
      */
     @Test
     @SmallTest
@@ -143,7 +143,7 @@ public final class SkipToGPayHelperTest {
 
     /**
      * Verifies that when both experiment flags are disabled, experiment is not activated when user
-     * doesn't have any autofill instrument.
+     * doesn't have any autofill card.
      */
     @Test
     @SmallTest
@@ -157,7 +157,7 @@ public final class SkipToGPayHelperTest {
 
     /**
      * Verifies that when both experiment flags are disabled, experiment is not activated when user
-     * has a complete autofill instrument.
+     * has a complete autofill card.
      */
     @Test
     @SmallTest

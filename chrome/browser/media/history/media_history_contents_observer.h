@@ -25,8 +25,6 @@ class MediaHistoryContentsObserver
       content::NavigationHandle* navigation_handle) override;
   void DidFinishNavigation(
       content::NavigationHandle* navigation_handle) override;
-  void MediaWatchTimeChanged(
-      const content::MediaPlayerWatchTime& watch_time) override;
   void WebContentsDestroyed() override;
 
   // media_session::mojom::MediaSessionObserver:
@@ -40,7 +38,7 @@ class MediaHistoryContentsObserver
   void MediaSessionImagesChanged(
       const base::flat_map<media_session::mojom::MediaSessionImageType,
                            std::vector<media_session::MediaImage>>& images)
-      override {}
+      override;
   void MediaSessionPositionChanged(
       const base::Optional<media_session::MediaPosition>& position) override;
 
@@ -51,14 +49,18 @@ class MediaHistoryContentsObserver
 
   void MaybeCommitMediaSession();
 
-  // Stores the current media session metadata, position and URL that might be
-  // committed to media history.
+  // Stores the current media session metadata, position, artwork urls and URL
+  // that might be committed to media history.
   base::Optional<media_session::MediaMetadata> cached_metadata_;
   base::Optional<media_session::MediaPosition> cached_position_;
+  std::vector<media_session::MediaImage> cached_artwork_;
   GURL current_url_;
 
   // Stores whether the media session on this web contents have ever played.
   bool has_been_active_ = false;
+
+  // Stores whether the media session on this web contents has video.
+  bool has_video_ = false;
 
   // If the web contents is currently navigating then we freeze any updates to
   // the media session metadata and position. This is because it is cleared

@@ -29,10 +29,11 @@
 #include "content/public/common/page_visibility_state.h"
 #include "content/public/common/previews_state.h"
 #include "content/public/common/window_container_type.mojom-forward.h"
+#include "device/vr/buildflags/buildflags.h"
 #include "media/base/video_codecs.h"
 #include "media/cdm/cdm_proxy.h"
-#include "media/mojo/mojom/media_service.mojom.h"
-#include "media/mojo/mojom/remoting.mojom.h"
+#include "media/mojo/mojom/media_service.mojom-forward.h"
+#include "media/mojo/mojom/remoting.mojom-forward.h"
 #include "mojo/public/cpp/bindings/generic_pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
@@ -44,9 +45,6 @@
 #include "services/network/public/mojom/websocket.mojom-forward.h"
 #include "storage/browser/file_system/file_system_context.h"
 #include "third_party/blink/public/common/user_agent/user_agent_metadata.h"
-#include "third_party/blink/public/mojom/badging/badging.mojom-forward.h"
-#include "third_party/blink/public/mojom/credentialmanager/credential_manager.mojom-forward.h"
-#include "third_party/blink/public/mojom/web_feature/web_feature.mojom-forward.h"
 #include "ui/accessibility/ax_mode.h"
 #include "ui/base/page_transition_types.h"
 #include "ui/base/window_open_disposition.h"
@@ -60,10 +58,6 @@
 
 #if defined(OS_POSIX) || defined(OS_FUCHSIA)
 #include "content/public/browser/posix_file_descriptor_info.h"
-#endif
-
-#if BUILDFLAG(ENABLE_PLUGINS)
-#include "content/public/common/pepper_plugin_info.h"
 #endif
 
 namespace net {
@@ -83,10 +77,13 @@ class SequencedTaskRunner;
 
 namespace blink {
 namespace mojom {
+class BadgeService;
+class CredentialManager;
 class RendererPreferences;
 class RendererPreferenceWatcher;
 class WebUsbService;
 class WindowFeatures;
+enum class WebFeature : int32_t;
 }  // namespace mojom
 class AssociatedInterfaceRegistry;
 class URLLoaderThrottle;
@@ -172,6 +169,7 @@ class FileSystemBackend;
 namespace content {
 enum class PermissionType;
 class AuthenticatorRequestClientDelegate;
+class BluetoothDelegate;
 class BrowserChildProcessHost;
 class BrowserContext;
 class BrowserMainParts;
@@ -180,8 +178,8 @@ class BrowserURLHandler;
 class ClientCertificateDelegate;
 class ControllerPresentationServiceDelegate;
 class DevToolsManagerDelegate;
+class FeatureObserverClient;
 class HidDelegate;
-class LockObserver;
 class LoginDelegate;
 class MediaObserver;
 class NavigationHandle;
@@ -207,11 +205,13 @@ class URLLoaderRequestInterceptor;
 class VpnServiceProxy;
 class WebContents;
 class WebContentsViewDelegate;
+class XrIntegrationClient;
 struct GlobalFrameRoutingId;
 struct GlobalRequestID;
 struct MainFunctionParams;
 struct NavigationDownloadPolicy;
 struct OpenURLParams;
+struct PepperPluginInfo;
 struct Referrer;
 struct SocketPermissionRequest;
 struct WebPreferences;
@@ -273,6 +273,15 @@ class CONTENT_EXPORT ContentBrowserClient {
 
   // Allow embedder control GPU process launch retry on failure behavior.
   virtual bool AllowGpuLaunchRetryOnIOThread();
+
+  // Called when GPU process is not used for compositing. Allow embedder to
+  // control whether to shut down the GPU process to save memory, at the cost
+  // of slower start up the next time GPU process is needed.
+  // Note this only ensures the GPU process is not used for compositing. It is
+  // the embedder's responsibility to ensure there are no other services hosted
+  // by the GPU process being used; examples include accelerated media decoders
+  // and encoders.
+  virtual bool CanShutdownGpuProcessNowOnIOThread();
 
   // Notifies that a render process will be created. This is called before
   // the content layer adds its own BrowserMessageFilters, so that the
@@ -434,12 +443,6 @@ class CONTENT_EXPORT ContentBrowserClient {
   // This is called on the UI thread.
   virtual bool CanCommitURL(RenderProcessHost* process_host, const GURL& url);
 
-  // Returns whether a URL can be displayed within a WebUI for a given
-  // BrowserContext. Temporary workaround while crbug.com/768526 is resolved.
-  // Note: This is used by an internal Cast implementation of this class.
-  virtual bool IsURLAcceptableForWebUI(BrowserContext* browser_context,
-                                       const GURL& url);
-
   // Allows the embedder to override parameters when navigating. Called for both
   // opening new URLs and when transferring URLs across processes.
   virtual void OverrideNavigationParams(
@@ -468,7 +471,8 @@ class CONTENT_EXPORT ContentBrowserClient {
   // be reused based on the URL we want to load. This should return false,
   // unless there is a good reason otherwise.
   virtual bool ShouldTryToUseExistingProcessHost(
-      BrowserContext* browser_context, const GURL& url);
+      BrowserContext* browser_context,
+      const GURL& url);
 
   // Returns whether or not subframes of |main_frame| should try to
   // aggressively reuse existing processes, even when below process limit.
@@ -758,13 +762,12 @@ class CONTENT_EXPORT ContentBrowserClient {
   // can be uniquely identified by the combination of |partition_name| and
   // |in_memory| values. When a partition is not to be persisted, the
   // |in_memory| value must be set to true.
-  virtual void GetStoragePartitionConfigForSite(
-      BrowserContext* browser_context,
-      const GURL& site,
-      bool can_be_default,
-      std::string* partition_domain,
-      std::string* partition_name,
-      bool* in_memory);
+  virtual void GetStoragePartitionConfigForSite(BrowserContext* browser_context,
+                                                const GURL& site,
+                                                bool can_be_default,
+                                                std::string* partition_domain,
+                                                std::string* partition_name,
+                                                bool* in_memory);
 
   // Create and return a new quota permission context.
   virtual scoped_refptr<QuotaPermissionContext> CreateQuotaPermissionContext();
@@ -805,12 +808,12 @@ class CONTENT_EXPORT ContentBrowserClient {
   // return nullptr if they're not interested.
   virtual MediaObserver* GetMediaObserver();
 
-  // Returns a class to observe usage of locks. The embedder can return nullptr
-  // if they're not interested. The returned LockObserver may be used on any
-  // sequence until threads are destroyed. The impl should therefore be
-  // thread-safe and remain alive until at least
-  // BrowserMainParts::PostDestroyThreads().
-  virtual LockObserver* GetLockObserver();
+  // Returns a class to observe usage of features. The embedder can return
+  // nullptr if they're not interested. The returned FeatureObserverClient must
+  // stay alive until BrowserMainParts::PostDestroyThreads() is called and
+  // threads are destroyed.  Its interface will always be called from the same
+  // sequence.
+  virtual FeatureObserverClient* GetFeatureObserverClient();
 
   // Returns the platform notification service, capable of displaying Web
   // Notifications to the user. The embedder can return a nullptr if they don't
@@ -841,7 +844,7 @@ class CONTENT_EXPORT ContentBrowserClient {
   // Allows the embedder to return a delegate for the SpeechRecognitionManager.
   // The delegate will be owned by the manager. It's valid to return nullptr.
   virtual SpeechRecognitionManagerDelegate*
-      CreateSpeechRecognitionManagerDelegate();
+  CreateSpeechRecognitionManagerDelegate();
 
   // Allows the embedder to return a delegate for the TtsController.
   virtual TtsControllerDelegate* GetTtsControllerDelegate();
@@ -885,8 +888,7 @@ class CONTENT_EXPORT ContentBrowserClient {
   virtual void DidCreatePpapiPlugin(BrowserPpapiHost* browser_host) {}
 
   // Gets the host for an external out-of-process plugin.
-  virtual BrowserPpapiHost* GetExternalBrowserPpapiHost(
-      int plugin_child_id);
+  virtual BrowserPpapiHost* GetExternalBrowserPpapiHost(int plugin_child_id);
 
   // Returns true if the socket operation specified by |params| is allowed from
   // the given |browser_context| and |url|. If |params| is nullptr, this method
@@ -1536,6 +1538,9 @@ class CONTENT_EXPORT ContentBrowserClient {
   // Allows the embedder to provide an implementation of the WebHID API.
   virtual HidDelegate* GetHidDelegate();
 
+  // Allows the embedder to provide an implementation of the Web Bluetooth API.
+  virtual BluetoothDelegate* GetBluetoothDelegate();
+
   // Attempt to open the Payment Handler window inside its corresponding
   // PaymentRequest UI surface. Returns true if the ContentBrowserClient
   // implementation supports this operation (desktop Chrome) or false otherwise.
@@ -1660,6 +1665,11 @@ class CONTENT_EXPORT ContentBrowserClient {
       int32_t network_traffic_annotation_id_hash,
       int64_t recv_bytes,
       int64_t sent_bytes);
+
+  // Returns the path to a root directory to which sandboxed out-of-process
+  // Storage Service instances should be confined. By default this is empty,
+  // and the browser cannot create sandboxed Storage Service instances.
+  virtual base::FilePath GetSandboxedStorageServiceDataDirectory();
 
   // Asks the embedder for the PreviewsState which says which previews should
   // be enabled for the given navigation. The PreviewsState is a bitmask of
@@ -1797,12 +1807,35 @@ class CONTENT_EXPORT ContentBrowserClient {
       const std::string& data,
       IsClipboardPasteAllowedCallback callback);
 
+  // Allows the embedder to override normal user activation checks done when
+  // entering fullscreen. For example, it is used in layout tests to allow
+  // fullscreen when mock screen orientation changes.
+  virtual bool CanEnterFullscreenWithoutUserActivation();
+
+  // Called to log a UKM event for the
+  // Extensions.CrossOriginFetchFromContentScript3 metric.  See the metric
+  // definition in //tools/metrics/ukm/ukm.xml for more details, including when
+  // this metric should be logged.
+  //
+  // |isolated_world_host| is the hostname of the isolated world origin that has
+  // initiated the network request.  See the doc comment for
+  // network.mojom.URLRequest.isolated_world_origin for more details.  In
+  // practice, |isolated_world_host| is the Chrome Extension ID.
+  virtual void LogUkmEventForCrossOriginFetchFromContentScript3(
+      const std::string& isolated_world_host);
+
 #if BUILDFLAG(ENABLE_PLUGINS)
   // Returns true if |embedder_origin| is allowed to embed a plugin described by
   // |plugin_info|.  This method allows restricting some internal plugins (like
   // Chrome's PDF plugin) to specific origins.
   virtual bool ShouldAllowPluginCreation(const url::Origin& embedder_origin,
                                          const PepperPluginInfo& plugin_info);
+#endif
+
+#if BUILDFLAG(ENABLE_VR)
+  // Allows the embedder to provide mechanisms to integrate with WebXR
+  // functionality.
+  virtual XrIntegrationClient* GetXrIntegrationClient();
 #endif
 };
 

@@ -21,6 +21,7 @@
 #include "ash/shell.h"
 #include "ash/sticky_keys/sticky_keys_controller.h"
 #include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/callback.h"
 #include "base/callback_helpers.h"
 #include "base/command_line.h"
@@ -148,14 +149,14 @@ void EnableSwitchAccessAfterChromeVoxMetric(bool val) {
 // brltty.
 void RestartBrltty(const std::string& address) {
   chromeos::UpstartClient* client = chromeos::UpstartClient::Get();
-  client->StopJob(kBrlttyUpstartJobName, {}, EmptyVoidDBusMethodCallback());
+  client->StopJob(kBrlttyUpstartJobName, {}, base::DoNothing());
 
   std::vector<std::string> args;
   if (address.empty())
     return;
 
   args.push_back(base::StringPrintf("ADDRESS=%s", address.c_str()));
-  client->StartJob(kBrlttyUpstartJobName, args, EmptyVoidDBusMethodCallback());
+  client->StartJob(kBrlttyUpstartJobName, args, base::DoNothing());
 }
 
 bool VolumeAdjustSoundEnabled() {
@@ -294,16 +295,22 @@ AccessibilityManager::AccessibilityManager() {
   chromevox_loader_ = base::WrapUnique(new AccessibilityExtensionLoader(
       extension_misc::kChromeVoxExtensionId,
       resources_path.Append(extension_misc::kChromeVoxExtensionPath),
+      extension_misc::kChromeVoxManifestFilename,
+      extension_misc::kChromeVoxGuestManifestFilename,
       base::BindRepeating(&AccessibilityManager::PostUnloadChromeVox,
                           weak_ptr_factory_.GetWeakPtr())));
   select_to_speak_loader_ = base::WrapUnique(new AccessibilityExtensionLoader(
       extension_misc::kSelectToSpeakExtensionId,
       resources_path.Append(extension_misc::kSelectToSpeakExtensionPath),
+      extension_misc::kSelectToSpeakManifestFilename,
+      extension_misc::kSelectToSpeakGuestManifestFilename,
       base::BindRepeating(&AccessibilityManager::PostUnloadSelectToSpeak,
                           weak_ptr_factory_.GetWeakPtr())));
   switch_access_loader_ = base::WrapUnique(new AccessibilityExtensionLoader(
       extension_misc::kSwitchAccessExtensionId,
       resources_path.Append(extension_misc::kSwitchAccessExtensionPath),
+      extension_misc::kSwitchAccessManifestFilename,
+      extension_misc::kSwitchAccessGuestManifestFilename,
       base::BindRepeating(&AccessibilityManager::PostUnloadSwitchAccess,
                           weak_ptr_factory_.GetWeakPtr())));
 
@@ -908,18 +915,6 @@ void AccessibilityManager::OnSwitchAccessChanged() {
   const bool enabled = profile_->GetPrefs()->GetBoolean(
       ash::prefs::kAccessibilitySwitchAccessEnabled);
 
-  // The Switch Access setting is behind a flag. Don't enable the feature
-  // even if the preference is enabled, if the flag isn't also set.
-  base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
-  if (!command_line->HasSwitch(
-          ::switches::kEnableExperimentalAccessibilitySwitchAccess)) {
-    if (enabled) {
-      LOG(WARNING) << "Switch Access enabled but experimental accessibility "
-                   << "Switch Access flag is not set.";
-    }
-    return;
-  }
-
   if (enabled) {
     if (IsSpokenFeedbackEnabled()) {
       LOG(ERROR) << "Enabling Switch Access with ChromeVox is not supported.";
@@ -1348,7 +1343,7 @@ void AccessibilityManager::PostLoadChromeVox() {
     // ChromeVox is toggled off then back on all while a usb braille display is
     // connected.
     chromeos::UpstartClient::Get()->StartJob(kBrlttyUpstartJobName, {},
-                                             EmptyVoidDBusMethodCallback());
+                                             base::DoNothing());
   }
 
   PlayEarcon(SOUND_SPOKEN_FEEDBACK_ENABLED, PlaySoundOption::ALWAYS);
@@ -1384,7 +1379,7 @@ void AccessibilityManager::PostUnloadChromeVox() {
   // Do any teardown work needed immediately after ChromeVox actually unloads.
   // Stop brltty.
   chromeos::UpstartClient::Get()->StopJob(kBrlttyUpstartJobName, {},
-                                          EmptyVoidDBusMethodCallback());
+                                          base::DoNothing());
 
   PlayEarcon(SOUND_SPOKEN_FEEDBACK_DISABLED, PlaySoundOption::ALWAYS);
 

@@ -56,6 +56,8 @@ class CORE_EXPORT CSSProperty : public CSSUnresolvedProperty {
   bool IsValidForFirstLetter() const { return flags_ & kValidForFirstLetter; }
   bool IsValidForCue() const { return flags_ & kValidForCue; }
   bool IsValidForMarker() const { return flags_ & kValidForMarker; }
+  bool IsSurrogate() const { return flags_ & kSurrogate; }
+  bool AffectsFont() const { return flags_ & kAffectsFont; }
 
   bool IsRepeated() const { return repetition_separator_ != '\0'; }
   char RepetitionSeparator() const { return repetition_separator_; }
@@ -90,7 +92,9 @@ class CORE_EXPORT CSSProperty : public CSSUnresolvedProperty {
   virtual const CSSProperty* GetVisitedProperty() const { return nullptr; }
   virtual const CSSProperty* GetUnvisitedProperty() const { return nullptr; }
 
-  virtual const CSSProperty* GetUAProperty() const { return nullptr; }
+  virtual const CSSProperty* SurrogateFor(TextDirection, WritingMode) const {
+    return nullptr;
+  }
 
   static void FilterWebExposedCSSPropertiesIntoVector(
       const ExecutionContext*,
@@ -113,20 +117,20 @@ class CORE_EXPORT CSSProperty : public CSSUnresolvedProperty {
     kVisited = 1 << 7,
     kInternal = 1 << 8,
     kIsAffectedByForcedColors = 1 << 9,
-    // A UA property represents a property as styled by the user-agent.
-    // For example, -internal-ua-background-color contains the value
-    // 'background-color' would have had without any user or author
-    // declarations.
-    kUA = 1 << 10,
     // Animation properties have this flag set. (I.e. longhands of the
     // 'animation' and 'transition' shorthands).
-    kAnimation = 1 << 11,
+    kAnimation = 1 << 10,
     // https://drafts.csswg.org/css-pseudo-4/#first-letter-styling
-    kValidForFirstLetter = 1 << 12,
+    kValidForFirstLetter = 1 << 11,
     // https://w3c.github.io/webvtt/#the-cue-pseudo-element
-    kValidForCue = 1 << 13,
+    kValidForCue = 1 << 12,
     // https://drafts.csswg.org/css-pseudo-4/#marker-pseudo
-    kValidForMarker = 1 << 14,
+    kValidForMarker = 1 << 13,
+    // A surrogate is a (non-alias) property which acts like another property,
+    // for example -webkit-writing-mode is a surrogate for writing-mode, and
+    // inline-size is a surrogate for either width or height.
+    kSurrogate = 1 << 14,
+    kAffectsFont = 1 << 15,
   };
 
   constexpr CSSProperty(CSSPropertyID property_id,

@@ -9,17 +9,16 @@ import static org.chromium.chrome.browser.tasks.tab_management.TabListModel.Card
 import static org.chromium.chrome.browser.tasks.tab_management.TabListModel.CardProperties.ModelType.TAB;
 
 import android.graphics.Canvas;
-import android.support.annotation.NonNull;
-import android.support.v7.widget.RecyclerView;
-import android.support.v7.widget.helper.ItemTouchHelper;
 import android.view.HapticFeedbackConstants;
 import android.view.View;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.VisibleForTesting;
+import androidx.recyclerview.widget.ItemTouchHelper;
+import androidx.recyclerview.widget.RecyclerView;
 
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
-import org.chromium.chrome.browser.flags.FeatureUtilities;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.EmptyTabModelFilter;
@@ -87,17 +86,12 @@ public class TabGridItemTouchHelperCallback extends ItemTouchHelper.SimpleCallba
         mMergeThreshold = mergeThreshold;
         mUngroupThreshold = ungroupThreshold;
         mProfile = profile;
-        boolean isTabGroupEnabled = FeatureUtilities.isTabGroupsAndroidEnabled();
-        boolean isTabGroupUiImprovementEnabled =
-                FeatureUtilities.isTabGroupsAndroidUiImprovementsEnabled();
         boolean isMRUEnabledInTabSwitcher =
                 TabSwitcherMediator.isShowingTabsInMRUOrder() && mActionsOnAllRelatedTabs;
-        // Only enable drag for users with group disabled, or with group and group ui improvement
-        // enabled at the same time. Also, disable drag for MRU-order tab switcher in start surface.
+        // Disable drag for MRU-order tab switcher in start surface.
         // TODO(crbug.com/1005931): Figure out how drag-to-reorder lives in StartSurface MRU
         // ordering scenario.
-        boolean isDragEnabled = !isMRUEnabledInTabSwitcher
-                && (!isTabGroupEnabled || isTabGroupUiImprovementEnabled);
+        boolean isDragEnabled = !isMRUEnabledInTabSwitcher;
         mDragFlags = isDragEnabled ? ItemTouchHelper.START | ItemTouchHelper.END
                         | ItemTouchHelper.UP | ItemTouchHelper.DOWN
                                    : 0;
@@ -190,7 +184,7 @@ public class TabGridItemTouchHelperCallback extends ItemTouchHelper.SimpleCallba
             RecordUserAction.record("TabGrid.Drag.Start." + mComponentName);
         } else if (actionState == ItemTouchHelper.ACTION_STATE_IDLE) {
             mIsSwipingToDismiss = false;
-            if (!FeatureUtilities.isTabGroupsAndroidUiImprovementsEnabled()) {
+            if (!TabUiFeatureUtilities.isTabGroupsAndroidEnabled()) {
                 mHoveredTabIndex = TabModel.INVALID_TAB_INDEX;
             }
 
@@ -298,7 +292,7 @@ public class TabGridItemTouchHelperCallback extends ItemTouchHelper.SimpleCallba
         }
         mCurrentActionState = actionState;
         if (actionState == ItemTouchHelper.ACTION_STATE_DRAG && mActionsOnAllRelatedTabs) {
-            if (!FeatureUtilities.isTabGroupsAndroidUiImprovementsEnabled()) return;
+            if (!TabUiFeatureUtilities.isTabGroupsAndroidEnabled()) return;
             int prev_hovered = mHoveredTabIndex;
             mHoveredTabIndex = TabListRecyclerView.getHoveredTabIndex(
                     recyclerView, viewHolder.itemView, dX, dY, mMergeThreshold);

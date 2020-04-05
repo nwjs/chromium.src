@@ -57,8 +57,8 @@
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/accessibility/ax_node_data.h"
 #include "ui/base/l10n/l10n_util.h"
-#include "ui/base/material_design/material_design_controller.h"
 #include "ui/base/models/list_selection_model.h"
+#include "ui/base/pointer/touch_ui_controller.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/theme_provider.h"
 #include "ui/compositor/clip_recorder.h"
@@ -89,8 +89,6 @@
 #endif
 
 using base::UserMetricsAction;
-using MD = ui::MaterialDesignController;
-
 namespace {
 
 // When a non-pinned tab becomes a pinned tab the width of the tab animates. If
@@ -99,6 +97,8 @@ namespace {
 // tab. This is done to avoid having the title immediately disappear when
 // transitioning a tab from normal to pinned tab.
 constexpr int kPinnedTabExtraWidthToRenderAsNormal = 30;
+
+bool g_show_hover_card_on_mouse_hover = true;
 
 // Helper functions ------------------------------------------------------------
 
@@ -175,6 +175,11 @@ class Tab::TabCloseButtonObserver : public views::ViewObserver {
 
 // static
 const char Tab::kViewClassName[] = "Tab";
+
+// static
+void Tab::SetShowHoverCardOnMouseHoverForTesting(bool value) {
+  g_show_hover_card_on_mouse_hover = value;
+}
 
 Tab::Tab(TabController* controller)
     : controller_(controller),
@@ -253,7 +258,8 @@ void Tab::AnimationProgressed(const gfx::Animation* animation) {
 void Tab::ButtonPressed(views::Button* sender, const ui::Event& event) {
   if (!alert_indicator_ || !alert_indicator_->GetVisible())
     base::RecordAction(UserMetricsAction("CloseTab_NoAlertIndicator"));
-  else if (data_.alert_state == TabAlertState::AUDIO_PLAYING)
+  else if (GetAlertStateToShow(data_.alert_state) ==
+           TabAlertState::AUDIO_PLAYING)
     base::RecordAction(UserMetricsAction("CloseTab_AudioIndicator"));
   else
     base::RecordAction(UserMetricsAction("CloseTab_RecordingIndicator"));
@@ -354,7 +360,7 @@ void Tab::Layout() {
     if (showing_close_button_) {
       right = close_x;
       if (extra_alert_indicator_padding_)
-        right -= MD::touch_ui() ? 8 : 6;
+        right -= ui::TouchUiController::Get()->touch_ui() ? 8 : 6;
     }
     const gfx::Size image_size = alert_indicator_->GetPreferredSize();
     gfx::Rect bounds(
@@ -423,9 +429,7 @@ const char* Tab::GetClassName() const {
 }
 
 bool Tab::OnKeyPressed(const ui::KeyEvent& event) {
-  if ((event.key_code() == ui::VKEY_SPACE ||
-       event.key_code() == ui::VKEY_RETURN) &&
-      !IsSelected()) {
+  if (event.key_code() == ui::VKEY_RETURN && !IsSelected()) {
     controller_->SelectTab(this, event);
     return true;
   }
@@ -459,6 +463,14 @@ bool Tab::OnKeyPressed(const ui::KeyEvent& event) {
     }
   }
 
+  return false;
+}
+
+bool Tab::OnKeyReleased(const ui::KeyEvent& event) {
+  if (event.key_code() == ui::VKEY_SPACE && !IsSelected()) {
+    controller_->SelectTab(this, event);
+    return true;
+  }
   return false;
 }
 
@@ -598,7 +610,8 @@ void Tab::MaybeUpdateHoverStatus(const ui::MouseEvent& event) {
   tab_style_->ShowHover(TabStyle::ShowHoverStyle::kSubtle);
   UpdateForegroundColors();
   Layout();
-  controller_->UpdateHoverCard(this);
+  if (g_show_hover_card_on_mouse_hover)
+    controller_->UpdateHoverCard(this);
 }
 
 void Tab::OnMouseExited(const ui::MouseEvent& event) {
@@ -650,7 +663,7 @@ base::string16 Tab::GetTooltipText(const gfx::Point& p) const {
 
   // Note: Anything that affects the tooltip text should be accounted for when
   // calling TooltipTextChanged() from Tab::SetData().
-  return GetTooltipText(data_.title, data_.alert_state);
+  return GetTooltipText(data_.title, GetAlertStateToShow(data_.alert_state));
 }
 
 void Tab::GetAccessibleNodeData(ui::AXNodeData* node_data) {
@@ -706,6 +719,7 @@ void Tab::OnBlur() {
 }
 
 void Tab::OnThemeChanged() {
+  TabSlotView::OnThemeChanged();
   UpdateForegroundColors();
 }
 
@@ -824,12 +838,14 @@ void Tab::SetData(TabRendererData data) {
   }
   title_->SetText(title);
 
-  if (data_.alert_state != old.alert_state)
-    alert_indicator_->TransitionToAlertState(data_.alert_state);
+  const auto new_alert_state = GetAlertStateToShow(data_.alert_state);
+  const auto old_alert_state = GetAlertStateToShow(old.alert_state);
+  if (new_alert_state != old_alert_state)
+    alert_indicator_->TransitionToAlertState(new_alert_state);
   if (old.pinned != data_.pinned)
     showing_alert_indicator_ = false;
 
-  if (data_.alert_state != old.alert_state || data_.title != old.title)
+  if (new_alert_state != old_alert_state || data_.title != old.title)
     TooltipTextChanged();
 
   Layout();
@@ -867,6 +883,15 @@ base::string16 Tab::GetTooltipText(const base::string16& title,
     result.append(1, '\n');
   result.append(chrome::GetTabAlertStateText(alert_state.value()));
   return result;
+}
+
+// static
+base::Optional<TabAlertState> Tab::GetAlertStateToShow(
+    const std::vector<TabAlertState>& alert_states) {
+  if (alert_states.empty())
+    return base::nullopt;
+
+  return alert_states[0];
 }
 
 void Tab::MaybeAdjustLeftForPinnedTab(gfx::Rect* bounds,
@@ -908,7 +933,7 @@ void Tab::UpdateIconVisibility() {
   const bool has_favicon = data().show_icon;
   const bool has_alert_icon =
       (alert_indicator_ ? alert_indicator_->showing_alert_state()
-                        : data().alert_state)
+                        : GetAlertStateToShow(data().alert_state))
           .has_value();
 
   if (data().pinned) {
@@ -922,7 +947,7 @@ void Tab::UpdateIconVisibility() {
 
   int available_width = GetContentsBounds().width();
 
-  const bool touch_ui = MD::touch_ui();
+  const bool touch_ui = ui::TouchUiController::Get()->touch_ui();
   const int favicon_width = gfx::kFaviconSize;
   const int alert_icon_width = alert_indicator_->GetPreferredSize().width();
   // In case of touch optimized UI, the close button has an extra padding on the

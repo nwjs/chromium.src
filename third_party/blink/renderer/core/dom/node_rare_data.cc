@@ -78,8 +78,8 @@ void NodeMutationObserverData::RemoveRegistration(
 }
 
 void NodeData::Trace(Visitor* visitor) {
-  if (is_rare_data_) {
-    if (is_element_rare_data_)
+  if (bit_field_.get_concurrently<IsRareData>()) {
+    if (bit_field_.get_concurrently<IsElementRareData>())
       static_cast<ElementRareData*>(this)->TraceAfterDispatch(visitor);
     else
       static_cast<NodeRareData*>(this)->TraceAfterDispatch(visitor);
@@ -91,7 +91,7 @@ void NodeData::Trace(Visitor* visitor) {
 NodeRenderingData::NodeRenderingData(
     LayoutObject* layout_object,
     scoped_refptr<const ComputedStyle> computed_style)
-    : NodeData(false),
+    : NodeData(false, false),
       layout_object_(layout_object),
       computed_style_(computed_style) {}
 
@@ -108,20 +108,16 @@ NodeRenderingData& NodeRenderingData::SharedEmptyData() {
   return *shared_empty_data;
 }
 
-void NodeRareData::TraceAfterDispatch(blink::Visitor* visitor) {
+void NodeRareData::TraceAfterDispatch(blink::Visitor* visitor) const {
   visitor->Trace(mutation_observer_data_);
   visitor->Trace(flat_tree_node_data_);
   visitor->Trace(node_layout_data_);
-  // Do not keep empty NodeListsNodeData objects around.
-  if (node_lists_ && node_lists_->IsEmpty())
-    node_lists_.Clear();
-  else
-    visitor->Trace(node_lists_);
+  visitor->Trace(node_lists_);
   NodeData::TraceAfterDispatch(visitor);
 }
 
 void NodeRareData::FinalizeGarbageCollectedObject() {
-  if (is_element_rare_data_)
+  if (bit_field_.get<IsElementRareData>())
     static_cast<ElementRareData*>(this)->~ElementRareData();
   else
     this->~NodeRareData();

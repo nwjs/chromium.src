@@ -259,7 +259,8 @@ void URLRequestHttpJob::Start() {
   request_info_.url = request_->url();
   request_info_.method = request_->method();
 
-  request_info_.network_isolation_key = request_->network_isolation_key();
+  request_info_.network_isolation_key =
+      request_->isolation_info().network_isolation_key();
   request_info_.load_flags = request_->load_flags();
   request_info_.disable_secure_dns = request_->disable_secure_dns();
   request_info_.traffic_annotation =
@@ -315,24 +316,6 @@ void URLRequestHttpJob::GetConnectionAttempts(ConnectionAttempts* out) const {
     transaction_->GetConnectionAttempts(out);
   else
     out->clear();
-}
-
-void URLRequestHttpJob::NotifyBeforeSendHeadersCallback(
-    const ProxyInfo& proxy_info,
-    HttpRequestHeaders* request_headers) {
-  DCHECK(request_headers);
-  DCHECK_NE(URLRequestStatus::CANCELED, GetStatus().status());
-  if (proxy_info.is_empty()) {
-    SetProxyServer(ProxyServer::Direct());
-  } else {
-    SetProxyServer(proxy_info.proxy_server());
-  }
-  if (network_delegate()) {
-    network_delegate()->NotifyBeforeSendHeaders(
-        request_, proxy_info,
-        request_->context()->proxy_resolution_service()->proxy_retry_info(),
-        request_headers);
-  }
 }
 
 void URLRequestHttpJob::NotifyHeadersComplete() {
@@ -468,9 +451,6 @@ void URLRequestHttpJob::StartTransactionInternal() {
     }
 
     if (rv == OK) {
-      transaction_->SetBeforeHeadersSentCallback(
-          base::Bind(&URLRequestHttpJob::NotifyBeforeSendHeadersCallback,
-                     base::Unretained(this)));
       transaction_->SetRequestHeadersCallback(request_headers_callback_);
       transaction_->SetResponseHeadersCallback(response_headers_callback_);
 

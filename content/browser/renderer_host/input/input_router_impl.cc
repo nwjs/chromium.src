@@ -26,6 +26,7 @@
 #include "content/public/common/content_switches.h"
 #include "content/public/common/input_event_ack_state.h"
 #include "ipc/ipc_sender.h"
+#include "services/tracing/public/cpp/perfetto/flow_event_utils.h"
 #include "ui/events/blink/blink_event_util.h"
 #include "ui/events/blink/blink_features.h"
 #include "ui/events/blink/web_input_event_traits.h"
@@ -40,6 +41,8 @@ using blink::WebKeyboardEvent;
 using blink::WebMouseEvent;
 using blink::WebMouseWheelEvent;
 using blink::WebTouchEvent;
+using perfetto::protos::pbzero::ChromeLatencyInfo;
+using perfetto::protos::pbzero::TrackEvent;
 using ui::WebInputEventTraits;
 
 namespace {
@@ -136,11 +139,13 @@ void InputRouterImpl::SendKeyboardEvent(
 
 void InputRouterImpl::SendGestureEvent(
     const GestureEventWithLatencyInfo& original_gesture_event) {
+  TRACE_EVENT0("input", "InputRouterImpl::SendGestureEvent");
   input_stream_validator_.Validate(original_gesture_event.event);
 
   GestureEventWithLatencyInfo gesture_event(original_gesture_event);
 
   if (gesture_event_queue_.PassToFlingController(gesture_event)) {
+    TRACE_EVENT_INSTANT0("input", "FilteredForFling", TRACE_EVENT_SCOPE_THREAD);
     disposition_handler_->OnGestureEventAck(gesture_event,
                                             InputEventAckSource::BROWSER,
                                             INPUT_EVENT_ACK_STATE_CONSUMED);
@@ -151,6 +156,8 @@ void InputRouterImpl::SendGestureEvent(
       touch_action_filter_.FilterGestureEvent(&gesture_event.event);
   if (compositor_touch_action_enabled_ &&
       result == FilterGestureEventResult::kFilterGestureEventDelayed) {
+    TRACE_EVENT_INSTANT0("input", "DeferredForTouchAction",
+                         TRACE_EVENT_SCOPE_THREAD);
     gesture_event_queue_.QueueDeferredEvents(gesture_event);
     return;
   }
@@ -160,10 +167,13 @@ void InputRouterImpl::SendGestureEvent(
 void InputRouterImpl::SendGestureEventWithoutQueueing(
     GestureEventWithLatencyInfo& gesture_event,
     const FilterGestureEventResult& existing_result) {
+  TRACE_EVENT0("input", "InputRouterImpl::SendGestureEventWithoutQueueing");
   DCHECK_NE(existing_result,
             FilterGestureEventResult::kFilterGestureEventDelayed);
   if (existing_result ==
       FilterGestureEventResult::kFilterGestureEventFiltered) {
+    TRACE_EVENT_INSTANT0("input", "FilteredForTouchAction",
+                         TRACE_EVENT_SCOPE_THREAD);
     disposition_handler_->OnGestureEventAck(gesture_event,
                                             InputEventAckSource::BROWSER,
                                             INPUT_EVENT_ACK_STATE_CONSUMED);
@@ -197,6 +207,8 @@ void InputRouterImpl::SendGestureEventWithoutQueueing(
   }
 
   if (!gesture_event_queue_.DebounceOrForwardEvent(gesture_event)) {
+    TRACE_EVENT_INSTANT0("input", "FilteredForDebounce",
+                         TRACE_EVENT_SCOPE_THREAD);
     disposition_handler_->OnGestureEventAck(gesture_event,
                                             InputEventAckSource::BROWSER,
                                             INPUT_EVENT_ACK_STATE_CONSUMED);
@@ -258,6 +270,7 @@ void InputRouterImpl::StopFling() {
 }
 
 void InputRouterImpl::ProcessDeferredGestureEventQueue() {
+  TRACE_EVENT0("input", "InputRouterImpl::ProcessDeferredGestureEventQueue");
   GestureEventQueue::GestureQueue deferred_gesture_events =
       gesture_event_queue_.TakeDeferredEvents();
   for (auto& it : deferred_gesture_events) {
@@ -281,6 +294,8 @@ void InputRouterImpl::FallbackCursorModeSetCursorVisibility(bool visible) {
 #endif
 
 void InputRouterImpl::SetTouchActionFromMain(cc::TouchAction touch_action) {
+  TRACE_EVENT1("input", "InputRouterImpl::SetTouchActionFromMain",
+               "touch_action", TouchActionToString(touch_action));
   if (compositor_touch_action_enabled_) {
     touch_action_filter_.OnSetTouchAction(touch_action);
     touch_event_queue_.StopTimeoutMonitor();
@@ -331,6 +346,24 @@ void InputRouterImpl::ImeCompositionRangeChanged(
 
 void InputRouterImpl::SetMouseCapture(bool capture) {
   client_->SetMouseCapture(capture);
+}
+
+void InputRouterImpl::RequestMouseLock(bool from_user_gesture,
+                                       bool privileged,
+                                       bool unadjusted_movement,
+                                       RequestMouseLockCallback response) {
+  client_->RequestMouseLock(from_user_gesture, privileged, unadjusted_movement,
+                            std::move(response));
+}
+
+void InputRouterImpl::RequestMouseLockChange(
+    bool unadjusted_movement,
+    RequestMouseLockCallback response) {
+  client_->RequestMouseLockChange(unadjusted_movement, std::move(response));
+}
+
+void InputRouterImpl::UnlockMouse() {
+  client_->UnlockMouse();
 }
 
 void InputRouterImpl::SetMovementXYForTouchPoints(blink::WebTouchEvent* event) {
@@ -514,11 +547,20 @@ void InputRouterImpl::FilterAndSendWebInputEvent(
     mojom::WidgetInputHandler::DispatchEventCallback callback) {
   TRACE_EVENT1("input", "InputRouterImpl::FilterAndSendWebInputEvent", "type",
                WebInputEvent::GetName(input_event.GetType()));
-  TRACE_EVENT_WITH_FLOW2(
-      "input,benchmark,devtools.timeline", "LatencyInfo.Flow",
-      TRACE_ID_GLOBAL(latency_info.trace_id()),
-      TRACE_EVENT_FLAG_FLOW_IN | TRACE_EVENT_FLAG_FLOW_OUT, "step",
-      "SendInputEventUI", "frameTreeNodeId", frame_tree_node_id_);
+  TRACE_EVENT("input,benchmark,devtools.timeline", "LatencyInfo.Flow",
+              [&latency_info, this](perfetto::EventContext ctx) {
+                ChromeLatencyInfo* info =
+                    ctx.event()->set_chrome_latency_info();
+                info->set_trace_id(latency_info.trace_id());
+                info->set_step(ChromeLatencyInfo::STEP_SEND_INPUT_EVENT_UI);
+                info->set_frame_tree_node_id(frame_tree_node_id_);
+
+                tracing::FillFlowEvent(
+                    ctx,
+                    perfetto::protos::pbzero::
+                        TrackEvent_LegacyEvent_FlowDirection_FLOW_INOUT,
+                    latency_info.trace_id());
+              });
 
   output_stream_validator_.Validate(input_event);
   InputEventAckState filtered_state =

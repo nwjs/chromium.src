@@ -4,8 +4,7 @@
 
 package org.chromium.chrome.browser.autofill_assistant;
 
-import android.support.annotation.Nullable;
-import android.support.annotation.VisibleForTesting;
+import android.app.Activity;
 import android.transition.ChangeBounds;
 import android.transition.Fade;
 import android.transition.TransitionManager;
@@ -16,34 +15,32 @@ import android.view.ViewGroup;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 
-import org.chromium.base.ObserverList;
+import androidx.annotation.Nullable;
+
+import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.chrome.autofill_assistant.R;
-import org.chromium.chrome.browser.ChromeActivity;
 import org.chromium.chrome.browser.autofill_assistant.carousel.AssistantActionsCarouselCoordinator;
-import org.chromium.chrome.browser.autofill_assistant.carousel.AssistantCarouselCoordinator;
-import org.chromium.chrome.browser.autofill_assistant.carousel.AssistantChip;
-import org.chromium.chrome.browser.autofill_assistant.carousel.AssistantSuggestionsCarouselCoordinator;
+import org.chromium.chrome.browser.autofill_assistant.carousel.AssistantCarouselModel;
 import org.chromium.chrome.browser.autofill_assistant.details.AssistantDetailsCoordinator;
 import org.chromium.chrome.browser.autofill_assistant.form.AssistantFormCoordinator;
 import org.chromium.chrome.browser.autofill_assistant.form.AssistantFormModel;
+import org.chromium.chrome.browser.autofill_assistant.generic_ui.AssistantGenericUiCoordinator;
 import org.chromium.chrome.browser.autofill_assistant.header.AssistantHeaderCoordinator;
 import org.chromium.chrome.browser.autofill_assistant.header.AssistantHeaderModel;
 import org.chromium.chrome.browser.autofill_assistant.infobox.AssistantInfoBoxCoordinator;
 import org.chromium.chrome.browser.autofill_assistant.user_data.AssistantCollectUserDataCoordinator;
 import org.chromium.chrome.browser.autofill_assistant.user_data.AssistantCollectUserDataModel;
-import org.chromium.chrome.browser.compositor.CompositorViewResizer;
-import org.chromium.chrome.browser.tab.TabViewAndroidDelegate;
+import org.chromium.chrome.browser.ui.TabObscuringHandler;
 import org.chromium.chrome.browser.widget.bottomsheet.BottomSheetContent;
 import org.chromium.chrome.browser.widget.bottomsheet.BottomSheetController;
 import org.chromium.chrome.browser.widget.bottomsheet.EmptyBottomSheetObserver;
 import org.chromium.content_public.browser.WebContents;
-import org.chromium.ui.modelutil.ListModel;
+import org.chromium.ui.base.ApplicationViewportInsetSupplier;
 
 /**
  * Coordinator responsible for the Autofill Assistant bottom bar.
  */
-class AssistantBottomBarCoordinator
-        implements CompositorViewResizer, AssistantPeekHeightCoordinator.Delegate {
+class AssistantBottomBarCoordinator implements AssistantPeekHeightCoordinator.Delegate {
     private static final int FADE_OUT_TRANSITION_TIME_MS = 150;
     private static final int FADE_IN_TRANSITION_TIME_MS = 150;
     private static final int CHANGE_BOUNDS_TRANSITION_TIME_MS = 250;
@@ -55,16 +52,18 @@ class AssistantBottomBarCoordinator
     private final AssistantRootViewContainer mRootViewContainer;
     @Nullable
     private WebContents mWebContents;
+    private ApplicationViewportInsetSupplier mWindowApplicationInsetSupplier;
 
     // Child coordinators.
     private final AssistantHeaderCoordinator mHeaderCoordinator;
     private final AssistantDetailsCoordinator mDetailsCoordinator;
     private final AssistantFormCoordinator mFormCoordinator;
-    private final AssistantCarouselCoordinator mSuggestionsCoordinator;
-    private final AssistantCarouselCoordinator mActionsCoordinator;
+    private final AssistantActionsCarouselCoordinator mActionsCoordinator;
     private final AssistantPeekHeightCoordinator mPeekHeightCoordinator;
+    private final ObservableSupplierImpl<Integer> mInsetSupplier = new ObservableSupplierImpl<>();
     private AssistantInfoBoxCoordinator mInfoBoxCoordinator;
     private AssistantCollectUserDataCoordinator mPaymentRequestCoordinator;
+    private final AssistantGenericUiCoordinator mGenericUiCoordinator;
 
     // The transition triggered whenever the layout of the BottomSheet content changes.
     private final TransitionSet mLayoutTransition =
@@ -74,17 +73,18 @@ class AssistantBottomBarCoordinator
                     .addTransition(new ChangeBounds().setDuration(CHANGE_BOUNDS_TRANSITION_TIME_MS))
                     .addTransition(new Fade(Fade.IN).setDuration(FADE_IN_TRANSITION_TIME_MS));
 
-    private final ObserverList<CompositorViewResizer.Observer> mLayoutViewportSizeObservers =
-            new ObserverList<>();
     @AssistantViewportMode
     private int mViewportMode = AssistantViewportMode.NO_RESIZE;
-    private int mLastLayoutViewportResizing;
-    private int mLastVisualViewportResizing;
 
-    AssistantBottomBarCoordinator(
-            ChromeActivity activity, AssistantModel model, BottomSheetController controller) {
+    AssistantBottomBarCoordinator(Activity activity, AssistantModel model,
+            BottomSheetController controller,
+            ApplicationViewportInsetSupplier applicationViewportInsetSupplier,
+            TabObscuringHandler tabObscuringHandler) {
         mModel = model;
         mBottomSheetController = controller;
+
+        mWindowApplicationInsetSupplier = applicationViewportInsetSupplier;
+        mWindowApplicationInsetSupplier.addSupplier(mInsetSupplier);
 
         BottomSheetContent currentSheetContent = controller.getCurrentSheetContent();
         if (currentSheetContent instanceof AssistantBottomSheetContent) {
@@ -116,18 +116,16 @@ class AssistantBottomBarCoordinator
         mPaymentRequestCoordinator =
                 new AssistantCollectUserDataCoordinator(activity, model.getCollectUserDataModel());
         mFormCoordinator = new AssistantFormCoordinator(activity, model.getFormModel());
-        mSuggestionsCoordinator =
-                new AssistantSuggestionsCarouselCoordinator(activity, model.getSuggestionsModel());
         mActionsCoordinator =
                 new AssistantActionsCarouselCoordinator(activity, model.getActionsModel());
         mPeekHeightCoordinator = new AssistantPeekHeightCoordinator(activity, this, controller,
                 mContent.getToolbarView(), mHeaderCoordinator.getView(),
-                mSuggestionsCoordinator.getView(), mActionsCoordinator.getView(),
-                AssistantPeekHeightCoordinator.PeekMode.HANDLE);
+                mActionsCoordinator.getView(), AssistantPeekHeightCoordinator.PeekMode.HANDLE);
+        mGenericUiCoordinator =
+                new AssistantGenericUiCoordinator(activity, model.getGenericUiModel());
 
         // We don't want to animate the carousels children views as they are already animated by the
         // recyclers ItemAnimator, so we exclude them to avoid a clash between the animations.
-        mLayoutTransition.excludeChildren(mSuggestionsCoordinator.getView(), /* exclude= */ true);
         mLayoutTransition.excludeChildren(mActionsCoordinator.getView(), /* exclude= */ true);
 
         // do not animate the contents of the payment method section inside the section choice list,
@@ -140,30 +138,25 @@ class AssistantBottomBarCoordinator
                 /* exclude= */ true);
 
         // Add child views to bottom bar container. We put all child views in the scrollable
-        // container, except the actions and suggestions.
+        // container, except the actions.
         mRootViewContainer.addView(mHeaderCoordinator.getView(), 0);
         scrollableContentContainer.addView(mInfoBoxCoordinator.getView());
         scrollableContentContainer.addView(mDetailsCoordinator.getView());
         scrollableContentContainer.addView(mPaymentRequestCoordinator.getView());
         scrollableContentContainer.addView(mFormCoordinator.getView());
-        mRootViewContainer.addView(mSuggestionsCoordinator.getView());
+        scrollableContentContainer.addView(mGenericUiCoordinator.getView());
         mRootViewContainer.addView(mActionsCoordinator.getView());
 
         // Set children top margins to have a spacing between them.
         int childSpacing = activity.getResources().getDimensionPixelSize(
                 R.dimen.autofill_assistant_bottombar_vertical_spacing);
-        int suggestionsVerticalInset =
-                activity.getResources().getDimensionPixelSize(R.dimen.chip_bg_vertical_inset);
         setChildMarginTop(mDetailsCoordinator.getView(), childSpacing);
         setChildMarginTop(mPaymentRequestCoordinator.getView(), childSpacing);
         setChildMarginTop(mFormCoordinator.getView(), childSpacing);
-        setChildMargin(mSuggestionsCoordinator.getView(), childSpacing - suggestionsVerticalInset,
-                -suggestionsVerticalInset);
+        setChildMarginTop(mGenericUiCoordinator.getView(), childSpacing);
 
         // Hide the carousels when they are empty.
-        hideWhenEmpty(
-                mSuggestionsCoordinator.getView(), model.getSuggestionsModel().getChipsModel());
-        hideWhenEmpty(mActionsCoordinator.getView(), model.getActionsModel().getChipsModel());
+        hideWhenEmpty(mActionsCoordinator.getView(), model.getActionsModel());
 
         // Set the horizontal margins of children. We don't set them on the payment request, the
         // carousels or the form to allow them to take the full width of the sheet.
@@ -180,7 +173,6 @@ class AssistantBottomBarCoordinator
             public void onSheetContentChanged(@Nullable BottomSheetContent newContent) {
                 // TODO(crbug.com/806868): Make sure this works and does not interfere with Duet
                 // once we are in ChromeTabbedActivity.
-                updateLayoutViewportHeight();
                 updateVisualViewportHeight();
             }
 
@@ -199,8 +191,12 @@ class AssistantBottomBarCoordinator
                     hide();
                 }
             } else if (AssistantModel.ALLOW_TALKBACK_ON_WEBSITE == propertyKey) {
-                controller.setIsObscuringAllTabs(
-                        activity, !model.get(AssistantModel.ALLOW_TALKBACK_ON_WEBSITE));
+                // Calling |setIsObscuringAllTabs| with the state it's already in triggers an
+                // assertion in |BottomSheetController|.
+                boolean shouldBeObscuring = !model.get(AssistantModel.ALLOW_TALKBACK_ON_WEBSITE);
+                if (shouldBeObscuring != tabObscuringHandler.areAllTabsObscured()) {
+                    controller.setIsObscuringAllTabs(tabObscuringHandler, shouldBeObscuring);
+                }
             } else if (AssistantModel.WEB_CONTENTS == propertyKey) {
                 mWebContents = model.get(AssistantModel.WEB_CONTENTS);
             }
@@ -218,6 +214,10 @@ class AssistantBottomBarCoordinator
                     mScrollableContent.setClipChildren(canScroll);
                     mRootViewContainer.setClipChildren(canScroll);
                 });
+    }
+
+    AssistantActionsCarouselCoordinator getActionsCarouselCoordinator() {
+        return mActionsCoordinator;
     }
 
     private void setupAnimations(AssistantModel model, ViewGroup rootView) {
@@ -267,6 +267,7 @@ class AssistantBottomBarCoordinator
      */
     public void destroy() {
         resetVisualViewportHeight();
+        mWindowApplicationInsetSupplier.removeSupplier(mInsetSupplier);
 
         mInfoBoxCoordinator.destroy();
         mInfoBoxCoordinator = null;
@@ -292,7 +293,6 @@ class AssistantBottomBarCoordinator
 
         mViewportMode = mode;
         updateVisualViewportHeight();
-        updateLayoutViewportHeight();
     }
 
     /** Set the peek mode. */
@@ -318,7 +318,7 @@ class AssistantBottomBarCoordinator
 
     @Override
     public void onPeekHeightChanged() {
-        updateLayoutViewportHeight();
+        updateVisualViewportHeight();
     }
 
     private void setChildMarginTop(View child, int marginTop) {
@@ -335,23 +335,16 @@ class AssistantBottomBarCoordinator
     /**
      * Observe {@code model} such that the associated view is made invisible when it is empty.
      */
-    private void hideWhenEmpty(View carouselView, ListModel<AssistantChip> chipsModel) {
-        setCarouselVisibility(carouselView, chipsModel);
-        chipsModel.addObserver(new AbstractListObserver<Void>() {
-            @Override
-            public void onDataSetChanged() {
-                setCarouselVisibility(carouselView, chipsModel);
-            }
-        });
+    private void hideWhenEmpty(View carouselView, AssistantCarouselModel carouselModel) {
+        setCarouselVisibility(carouselView, carouselModel);
+        carouselModel.addObserver(
+                (source, propertyKey) -> setCarouselVisibility(carouselView, carouselModel));
     }
 
-    private void setCarouselVisibility(View carouselView, ListModel<AssistantChip> chipsModel) {
-        carouselView.setVisibility(chipsModel.size() > 0 ? View.VISIBLE : View.GONE);
-    }
-
-    @VisibleForTesting
-    public AssistantCarouselCoordinator getSuggestionsCoordinator() {
-        return mSuggestionsCoordinator;
+    private void setCarouselVisibility(View carouselView, AssistantCarouselModel carouselModel) {
+        carouselView.setVisibility(carouselModel.get(AssistantCarouselModel.CHIPS).size() > 0
+                        ? View.VISIBLE
+                        : View.GONE);
     }
 
     private void setHorizontalMargins(View view) {
@@ -364,25 +357,8 @@ class AssistantBottomBarCoordinator
         view.setLayoutParams(layoutParams);
     }
 
-    private void updateLayoutViewportHeight() {
-        setLayoutViewportResizing(getHeight());
-    }
-
-    /**
-     * Shrink the layout viewport by {@code resizing} pixels. This is an expensive operation that
-     * should be used with care.
-     */
-    private void setLayoutViewportResizing(int resizing) {
-        if (resizing == mLastLayoutViewportResizing) return;
-        mLastLayoutViewportResizing = resizing;
-
-        for (Observer observer : mLayoutViewportSizeObservers) {
-            observer.onHeightChanged(resizing);
-        }
-    }
-
     private void updateVisualViewportHeight() {
-        if (mViewportMode != AssistantViewportMode.RESIZE_VISUAL_VIEWPORT
+        if (mViewportMode == AssistantViewportMode.NO_RESIZE
                 || mBottomSheetController.getCurrentSheetContent() != mContent) {
             resetVisualViewportHeight();
             return;
@@ -397,42 +373,24 @@ class AssistantBottomBarCoordinator
     }
 
     /**
-     * Shrink the visual viewport by {@code resizing} pixels. This operation is cheaper than calling
-     * {@link #setLayoutViewportResizing} and can therefore be often called (e.g. during
-     * animations).
+     * Shrink the visual viewport by {@code resizing} pixels.
      */
     private void setVisualViewportResizing(int resizing) {
-        if (resizing == mLastVisualViewportResizing || mWebContents == null
+        int currentInset = mInsetSupplier.get() != null ? mInsetSupplier.get() : 0;
+        if (resizing == currentInset || mWebContents == null
                 || mWebContents.getRenderWidgetHostView() == null) {
             return;
         }
 
-        mLastVisualViewportResizing = resizing;
-        TabViewAndroidDelegate chromeDelegate =
-                (TabViewAndroidDelegate) mWebContents.getViewAndroidDelegate();
-        assert chromeDelegate != null;
-        chromeDelegate.insetViewportBottom(resizing);
+        mInsetSupplier.set(resizing);
     }
 
-    // Implementation of methods from AutofillAssistantSizeManager.
-
-    @Override
-    public int getHeight() {
-        if (mViewportMode == AssistantViewportMode.RESIZE_LAYOUT_VIEWPORT
-                && mBottomSheetController.getCurrentSheetContent() == mContent) {
+    /** @return The peeking height of the bottom sheet if our content is showing, otherwise 0. */
+    private int getHeight() {
+        if (mBottomSheetController.getCurrentSheetContent() == mContent) {
             return mPeekHeightCoordinator.getPeekHeight();
         }
 
         return 0;
-    }
-
-    @Override
-    public void addObserver(Observer observer) {
-        mLayoutViewportSizeObservers.addObserver(observer);
-    }
-
-    @Override
-    public void removeObserver(Observer observer) {
-        mLayoutViewportSizeObservers.removeObserver(observer);
     }
 }

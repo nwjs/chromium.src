@@ -1370,8 +1370,8 @@ void NGLineBreaker::HandleAtomicInline(
   } else {
     DCHECK(mode_ == NGLineBreakerMode::kMinContent || !max_size_cache_);
     NGBlockNode child(ToLayoutBox(item.GetLayoutObject()));
-    MinMaxSizeInput input(percentage_resolution_block_size_for_min_max);
-    MinMaxSize sizes =
+    MinMaxSizesInput input(percentage_resolution_block_size_for_min_max);
+    MinMaxSizes sizes =
         ComputeMinAndMaxContentContribution(node_.Style(), child, input);
     if (mode_ == NGLineBreakerMode::kMinContent) {
       item_result->inline_size = sizes.min_size + inline_margins;
@@ -1437,6 +1437,10 @@ void NGLineBreaker::HandleFloat(const NGInlineItem& item,
       !leading_floats_.IsEmpty()) {
     DCHECK_LT(leading_floats_index_, leading_floats_.size());
     item_result->positioned_float = leading_floats_[leading_floats_index_++];
+
+    // Don't break after leading floats if indented.
+    if (position_ != 0)
+      item_result->can_break_after = false;
     return;
   }
 

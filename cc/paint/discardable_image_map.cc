@@ -70,8 +70,8 @@ class DiscardableImageGenerator {
     }
   }
 
-  bool contains_non_srgb_images() const {
-    return color_stats_srgb_image_count_ != color_stats_total_image_count_;
+  bool contains_only_srgb_images() const {
+    return color_stats_srgb_image_count_ == color_stats_total_image_count_;
   }
 
  private:
@@ -262,10 +262,9 @@ class DiscardableImageGenerator {
       // Make a note if any image was originally specified in a non-sRGB color
       // space. PaintWorklets do not have the concept of a color space, so
       // should not be used to accumulate either counter.
-      SkColorSpace* source_color_space = paint_image.color_space();
       color_stats_total_pixel_count_ += image_rect.size().GetCheckedArea();
       color_stats_total_image_count_++;
-      if (!source_color_space || source_color_space->isSRGB()) {
+      if (paint_image.isSRGB()) {
         color_stats_srgb_pixel_count_ += image_rect.size().GetCheckedArea();
         color_stats_srgb_image_count_++;
       }
@@ -355,7 +354,7 @@ void DiscardableImageMap::Generate(const PaintOpBuffer* paint_op_buffer,
   animated_images_metadata_ = generator.TakeAnimatedImagesMetadata();
   paint_worklet_inputs_ = generator.TakePaintWorkletInputs();
   decoding_mode_map_ = generator.TakeDecodingModeMap();
-  contains_non_srgb_images_ = generator.contains_non_srgb_images();
+  contains_only_srgb_images_ = generator.contains_only_srgb_images();
   auto images = generator.TakeImages();
   images_rtree_.Build(
       images,

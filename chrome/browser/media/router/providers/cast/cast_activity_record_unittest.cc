@@ -288,6 +288,20 @@ TEST_F(CastActivityRecordTest, SendSetVolumeRequestToReceiver) {
   record_->SendSetVolumeRequestToReceiver(*message, callback.Get());
 }
 
+TEST_F(CastActivityRecordTest, StopSessionOnReceiver) {
+  const base::Optional<std::string> client_id("theClientId");
+  base::MockCallback<cast_channel::ResultCallback> callback;
+
+  SetUpSession();
+  EXPECT_CALL(message_handler_,
+              StopSession(kChannelId, "theSessionId", client_id, _))
+      .WillOnce(WithArg<3>([](cast_channel::ResultCallback callback) {
+        std::move(callback).Run(cast_channel::Result::kOk);
+      }));
+  EXPECT_CALL(callback, Run(cast_channel::Result::kOk));
+  record_->StopSessionOnReceiver(client_id.value(), callback.Get());
+}
+
 TEST_F(CastActivityRecordTest, SendStopSessionMessageToClients) {
   SetUpSession();
   auto* client = AddMockClient("theClientId");
@@ -439,6 +453,15 @@ TEST_F(CastActivityRecordTest, OnAppMessageAllClients) {
                   CreateAppMessage("theSessionId", "theClientId2", message)
                       ->get_message())));
   record_->OnAppMessage(message);
+}
+
+TEST_F(CastActivityRecordTest, CloseConnectionOnReceiver) {
+  SetUpSession();
+  AddMockClient("theClientId1");
+
+  EXPECT_CALL(message_handler_, CloseConnection(kChannelId, "theClientId1",
+                                                session_->transport_id()));
+  record_->CloseConnectionOnReceiver("theClientId1");
 }
 
 }  // namespace media_router

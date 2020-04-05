@@ -6,14 +6,19 @@
 
 #include "third_party/blink/public/common/browser_interface_broker_proxy.h"
 #include "third_party/blink/renderer/core/dom/document.h"
-#include "third_party/blink/renderer/platform/instrumentation/histogram.h"
 #include "third_party/blink/renderer/platform/weborigin/kurl.h"
 
 namespace blink {
 
-CookieJar::CookieJar(blink::Document* document) : document_(document) {}
+CookieJar::CookieJar(blink::Document* document)
+    : backend_(document->ToExecutionContext()), document_(document) {}
 
 CookieJar::~CookieJar() = default;
+
+void CookieJar::Trace(Visitor* visitor) {
+  visitor->Trace(backend_);
+  visitor->Trace(document_);
+}
 
 void CookieJar::SetCookie(const String& value) {
   KURL cookie_url = document_->CookieURL();
@@ -53,7 +58,8 @@ void CookieJar::RequestRestrictedCookieManagerIfNeeded() {
   if (!backend_.is_bound() || !backend_.is_connected()) {
     backend_.reset();
     document_->GetBrowserInterfaceBroker().GetInterface(
-        backend_.BindNewPipeAndPassReceiver());
+        backend_.BindNewPipeAndPassReceiver(
+            document_->GetTaskRunner(TaskType::kInternalDefault)));
   }
 }
 

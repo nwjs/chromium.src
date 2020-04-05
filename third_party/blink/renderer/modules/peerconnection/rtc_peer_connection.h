@@ -37,7 +37,7 @@
 #include "third_party/blink/renderer/bindings/core/v8/active_script_wrappable.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
-#include "third_party/blink/renderer/core/execution_context/context_lifecycle_observer.h"
+#include "third_party/blink/renderer/core/execution_context/execution_context_lifecycle_observer.h"
 #include "third_party/blink/renderer/modules/crypto/normalize_algorithm.h"
 #include "third_party/blink/renderer/modules/event_target_modules.h"
 #include "third_party/blink/renderer/modules/mediastream/media_stream.h"
@@ -112,7 +112,7 @@ class MODULES_EXPORT RTCPeerConnection final
     : public EventTargetWithInlineData,
       public RTCPeerConnectionHandlerClient,
       public ActiveScriptWrappable<RTCPeerConnection>,
-      public ContextLifecycleObserver,
+      public ExecutionContextLifecycleObserver,
       public MediaStreamObserver {
   DEFINE_WRAPPERTYPEINFO();
   USING_GARBAGE_COLLECTED_MIXIN(RTCPeerConnection);
@@ -123,10 +123,19 @@ class MODULES_EXPORT RTCPeerConnection final
                                    const RTCConfiguration*,
                                    const Dictionary&,
                                    ExceptionState&);
+  static RTCPeerConnection* Create(ExecutionContext*,
+                                   const RTCConfiguration*,
+                                   const ScriptValue&,
+                                   ExceptionState&);
+  static RTCPeerConnection* Create(ExecutionContext*,
+                                   const RTCConfiguration*,
+                                   ExceptionState&);
 
   RTCPeerConnection(ExecutionContext*,
                     webrtc::PeerConnectionInterface::RTCConfiguration,
                     bool sdp_semantics_specified,
+                    bool force_encoded_audio_insertable_streams,
+                    bool force_encoded_video_insertable_streams,
                     MediaConstraints,
                     ExceptionState&);
   ~RTCPeerConnection() override;
@@ -137,6 +146,15 @@ class MODULES_EXPORT RTCPeerConnection final
   ScriptPromise createOffer(ScriptState*,
                             V8RTCSessionDescriptionCallback*,
                             V8RTCPeerConnectionErrorCallback*,
+                            const ScriptValue&,
+                            ExceptionState&);
+  ScriptPromise createOffer(ScriptState*,
+                            V8RTCSessionDescriptionCallback*,
+                            V8RTCPeerConnectionErrorCallback*,
+                            ExceptionState&);
+  ScriptPromise CreateOffer(ScriptState*,
+                            V8RTCSessionDescriptionCallback*,
+                            V8RTCPeerConnectionErrorCallback*,
                             const Dictionary&,
                             ExceptionState&);
 
@@ -144,6 +162,15 @@ class MODULES_EXPORT RTCPeerConnection final
                              const RTCAnswerOptions*,
                              ExceptionState&);
   ScriptPromise createAnswer(ScriptState*,
+                             V8RTCSessionDescriptionCallback*,
+                             V8RTCPeerConnectionErrorCallback*,
+                             const ScriptValue&,
+                             ExceptionState&);
+  ScriptPromise createAnswer(ScriptState*,
+                             V8RTCSessionDescriptionCallback*,
+                             V8RTCPeerConnectionErrorCallback*,
+                             ExceptionState&);
+  ScriptPromise CreateAnswer(ScriptState*,
                              V8RTCSessionDescriptionCallback*,
                              V8RTCPeerConnectionErrorCallback*,
                              const Dictionary&);
@@ -200,6 +227,10 @@ class MODULES_EXPORT RTCPeerConnection final
 
   String connectionState() const;
 
+  base::Optional<bool> canTrickleIceCandidates() const;
+  // TODO(crbug.com/1060971): Remove |is_null| version.
+  bool canTrickleIceCandidates(bool&) const;  // DEPRECATED
+
   void restartIce();
 
   // A local stream is any stream associated with a sender.
@@ -210,6 +241,11 @@ class MODULES_EXPORT RTCPeerConnection final
   bool IsRemoteStream(MediaStream* stream) const;
 
   void addStream(ScriptState*,
+                 MediaStream*,
+                 const ScriptValue& media_constraints,
+                 ExceptionState&);
+  void addStream(ScriptState*, MediaStream*, ExceptionState&);
+  void AddStream(ScriptState*,
                  MediaStream*,
                  const Dictionary& media_constraints,
                  ExceptionState&);
@@ -326,8 +362,8 @@ class MODULES_EXPORT RTCPeerConnection final
   const AtomicString& InterfaceName() const override;
   ExecutionContext* GetExecutionContext() const override;
 
-  // ContextLifecycleObserver
-  void ContextDestroyed(ExecutionContext*) override;
+  // ExecutionContextLifecycleObserver
+  void ContextDestroyed() override;
 
   // ScriptWrappable
   // We keep the this object alive until either stopped or closed.
@@ -369,7 +405,15 @@ class MODULES_EXPORT RTCPeerConnection final
 
   webrtc::SdpSemantics sdp_semantics() { return sdp_semantics_; }
 
-  void Trace(blink::Visitor*) override;
+  bool force_encoded_audio_insertable_streams() {
+    return force_encoded_audio_insertable_streams_;
+  }
+
+  bool force_encoded_video_insertable_streams() {
+    return force_encoded_video_insertable_streams_;
+  }
+
+  void Trace(Visitor*) override;
 
   base::TimeTicks WebRtcTimestampToBlinkTimestamp(
       base::TimeTicks webrtc_monotonic_time) const;
@@ -397,7 +441,7 @@ class MODULES_EXPORT RTCPeerConnection final
     // |m_event| will only be fired if setup() returns true;
     bool Setup();
 
-    void Trace(blink::Visitor*);
+    void Trace(Visitor*);
 
     Member<Event> event_;
 
@@ -593,6 +637,10 @@ class MODULES_EXPORT RTCPeerConnection final
 
   // Blink and WebRTC timestamp diff.
   const base::TimeDelta blink_webrtc_time_diff_;
+
+  // Insertable streams.
+  bool force_encoded_audio_insertable_streams_;
+  bool force_encoded_video_insertable_streams_;
 };
 
 }  // namespace blink

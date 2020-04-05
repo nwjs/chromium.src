@@ -13,9 +13,9 @@
 #import "ios/chrome/browser/ui/util/layout_guide_names.h"
 #import "ios/chrome/browser/ui/util/named_guide.h"
 #import "ios/chrome/browser/ui/util/uikit_ui_util.h"
-#import "ios/chrome/common/colors/dynamic_color_util.h"
-#import "ios/chrome/common/colors/semantic_color_names.h"
-#import "ios/chrome/common/ui_util/constraints_ui_util.h"
+#import "ios/chrome/common/ui/colors/dynamic_color_util.h"
+#import "ios/chrome/common/ui/colors/semantic_color_names.h"
+#import "ios/chrome/common/ui/util/constraints_ui_util.h"
 
 #if !defined(__has_feature) || !__has_feature(objc_arc)
 #error "This file requires ARC support."
@@ -43,6 +43,10 @@ const CGFloat kAnimationDuration = 0.15;
 // readwrite. This is especially important on iPhone, as this view that holds
 // everything around the safe area.
 @property(nonatomic, strong, readwrite) UIView* backgroundView;
+
+// Layout guide to center the presented view below the safe area layout guide on
+// iPhone.
+@property(nonatomic, strong) UILayoutGuide* centeringGuide;
 
 // A constraint that constrains any views to their pre-animation positions.
 // It should be deactiviated during the presentation animation and replaced with
@@ -122,13 +126,12 @@ const CGFloat kAnimationDuration = 0.15;
     [weakSelf.presentedViewController.view removeFromSuperview];
     [weakSelf.presentedViewController removeFromParentViewController];
     [weakSelf.backgroundView removeFromSuperview];
+    weakSelf.backgroundView = nil;
+    weakSelf.presenting = NO;
     if ([weakSelf.delegate
             respondsToSelector:@selector(containedPresenterDidDismiss:)]) {
       [weakSelf.delegate containedPresenterDidDismiss:weakSelf];
     }
-    weakSelf.backgroundView = nil;
-    weakSelf.presenting = NO;
-    [weakSelf.delegate containedPresenterDidDismiss:weakSelf];
   };
   if (animated) {
     void (^animation)();
@@ -164,15 +167,23 @@ const CGFloat kAnimationDuration = 0.15;
   self.animationConstraint = [self.backgroundView.bottomAnchor
       constraintEqualToAnchor:self.baseViewController.view.topAnchor];
 
+  // Use this constraint to force the greater than or equal constraint below to
+  // be as small as possible.
+  NSLayoutConstraint* centeringGuideTopConstraint =
+      [self.centeringGuide.topAnchor
+          constraintEqualToAnchor:self.backgroundView.topAnchor];
+  centeringGuideTopConstraint.priority = UILayoutPriorityDefaultLow;
+
   [NSLayoutConstraint activateConstraints:@[
     [self.backgroundView.leadingAnchor
         constraintEqualToAnchor:self.baseViewController.view.leadingAnchor],
     [self.backgroundView.trailingAnchor
         constraintEqualToAnchor:self.baseViewController.view.trailingAnchor],
-    [self.presentedViewController.view.topAnchor
+    [self.centeringGuide.topAnchor
         constraintGreaterThanOrEqualToAnchor:self.backgroundView
                                                  .safeAreaLayoutGuide
                                                  .topAnchor],
+    centeringGuideTopConstraint,
     self.animationConstraint,
   ]];
 }
@@ -216,7 +227,7 @@ const CGFloat kAnimationDuration = 0.15;
                                               .widthAnchor
                                  constant:-2 * kRegularRegularHorizontalMargin],
     [self.backgroundView.heightAnchor
-        constraintEqualToConstant:kAdaptiveToolbarHeight],
+        constraintEqualToConstant:kPrimaryToolbarHeight],
   ]];
   // Layouts |shadow| around |self.backgroundView|.
   AddSameConstraintsToSidesWithInsets(
@@ -232,6 +243,15 @@ const CGFloat kAnimationDuration = 0.15;
   self.animationConstraint.active = NO;
   [self.backgroundView.topAnchor
       constraintEqualToAnchor:self.baseViewController.view.topAnchor]
+      .active = YES;
+
+  // Make sure the background doesn't shrink when the toolbar goes to fullscreen
+  // mode.
+  UILayoutGuide* toolbarLayoutGuide =
+      [NamedGuide guideWithName:kPrimaryToolbarGuide
+                           view:self.baseViewController.view];
+  [self.backgroundView.bottomAnchor
+      constraintGreaterThanOrEqualToAnchor:toolbarLayoutGuide.bottomAnchor]
       .active = YES;
 }
 
@@ -265,15 +285,27 @@ const CGFloat kAnimationDuration = 0.15;
 
   [backgroundView addSubview:self.presentedViewController.view];
 
+  self.centeringGuide = [[UILayoutGuide alloc] init];
+  [backgroundView addLayoutGuide:self.centeringGuide];
+
   [NSLayoutConstraint activateConstraints:@[
-    [self.presentedViewController.view.trailingAnchor
+    [self.centeringGuide.trailingAnchor
         constraintEqualToAnchor:backgroundView.trailingAnchor],
-    [self.presentedViewController.view.leadingAnchor
+    [self.centeringGuide.leadingAnchor
         constraintEqualToAnchor:backgroundView.leadingAnchor],
-    [self.presentedViewController.view.heightAnchor
-        constraintEqualToConstant:kAdaptiveToolbarHeight],
-    [self.presentedViewController.view.bottomAnchor
+    [self.centeringGuide.bottomAnchor
         constraintEqualToAnchor:backgroundView.bottomAnchor],
+    [self.centeringGuide.heightAnchor
+        constraintGreaterThanOrEqualToAnchor:self.presentedViewController.view
+                                                 .heightAnchor],
+    [self.presentedViewController.view.heightAnchor
+        constraintEqualToConstant:kPrimaryToolbarHeight],
+    [self.presentedViewController.view.leadingAnchor
+        constraintEqualToAnchor:self.centeringGuide.leadingAnchor],
+    [self.presentedViewController.view.trailingAnchor
+        constraintEqualToAnchor:self.centeringGuide.trailingAnchor],
+    [self.presentedViewController.view.centerYAnchor
+        constraintEqualToAnchor:self.centeringGuide.centerYAnchor],
   ]];
 
   return backgroundView;

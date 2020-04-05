@@ -10,12 +10,12 @@
 #include "content/browser/blob_storage/chrome_blob_storage_context.h"
 #include "content/browser/frame_host/render_frame_host_impl.h"
 #include "content/browser/loader/prefetch_url_loader.h"
+#include "content/browser/loader/url_loader_throttles.h"
 #include "content/browser/url_loader_factory_getter.h"
 #include "content/browser/web_package/prefetched_signed_exchange_cache.h"
 #include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_client.h"
-#include "content/public/common/resource_type.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #include "net/base/load_flags.h"
@@ -25,6 +25,7 @@
 #include "storage/browser/blob/blob_storage_context.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/loader/url_loader_throttle.h"
+#include "third_party/blink/public/mojom/loader/resource_load_info.mojom-shared.h"
 #include "third_party/blink/public/mojom/renderer_preferences.mojom.h"
 
 namespace content {
@@ -119,7 +120,7 @@ void PrefetchURLLoaderService::CreateLoaderAndStart(
   // request.
   network::ResourceRequest resource_request = resource_request_in;
 
-  DCHECK_EQ(static_cast<int>(ResourceType::kPrefetch),
+  DCHECK_EQ(static_cast<int>(blink::mojom::ResourceType::kPrefetch),
             resource_request.resource_type);
   auto& current_context = *loader_factory_receivers_.current_context();
 
@@ -316,7 +317,7 @@ std::vector<std::unique_ptr<blink::URLLoaderThrottle>>
 PrefetchURLLoaderService::CreateURLLoaderThrottles(
     const network::ResourceRequest& request,
     int frame_tree_node_id) {
-  return GetContentClient()->browser()->CreateURLLoaderThrottles(
+  return CreateContentBrowserURLLoaderThrottles(
       request, browser_context_,
       base::BindRepeating(&WebContents::FromFrameTreeNodeId,
                           frame_tree_node_id),

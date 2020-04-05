@@ -14,6 +14,11 @@ login.createScreen('AppLaunchSplashScreen', 'app-launch-splash', function() {
       'updateMessage',
     ],
 
+    /** Initial UI State for screen */
+    getOobeUIInitialState() {
+      return OOBE_UI_STATE.KIOSK;
+    },
+
     /** @override */
     decorate() {
       $('splash-config-network').addEventListener('click', function(e) {
@@ -87,7 +92,8 @@ login.createScreen('AppLaunchSplashScreen', 'app-launch-splash', function() {
      */
     updateApp(app) {
       $('splash-header').textContent = app.name;
-      $('splash-header').style.backgroundImage = 'url(' + app.iconURL + ')';
+      $('splash-subheader').textContent = app.url;
+      $('splash-title').style.backgroundImage = 'url(' + app.iconURL + ')';
     },
 
     /**

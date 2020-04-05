@@ -41,6 +41,7 @@ cr.define('policy', function() {
    *    source: string,
    *    error: string,
    *    value: any,
+   *    deprecated: ?boolean,
    *    allSourcesMerged: ?boolean,
    *    conflicts: ?Array<!Conflict>,
    * }}
@@ -50,6 +51,7 @@ cr.define('policy', function() {
   /**
    * @typedef {{
    *     id: ?string,
+   *     isExtension?: boolean,
    *     name: string,
    *     policies: !Array<!Policy>
    * }}
@@ -244,6 +246,9 @@ cr.define('policy', function() {
       /** @private {boolean} */
       this.isMergedValue_ = !!policy.allSourcesMerged;
 
+      /** @private {boolean} */
+      this.deprecated_ = !!policy.deprecated;
+
       // Populate the name column.
       const nameDisplay = this.querySelector('.name .link span');
       nameDisplay.textContent = policy.name;
@@ -291,6 +296,8 @@ cr.define('policy', function() {
         const messagesDisplay = this.querySelector('.messages');
         const errorsNotice =
             this.hasErrors_ ? loadTimeData.getString('error') : '';
+        const deprecationNotice =
+            this.deprecated_ ? loadTimeData.getString('deprecated') : '';
         const warningsNotice =
             this.hasWarnings_ ? loadTimeData.getString('warning') : '';
         const conflictsNotice = this.hasConflicts_ && !this.isMergedValue_ ?
@@ -299,8 +306,10 @@ cr.define('policy', function() {
         const ignoredNotice =
             this.policy.ignored ? loadTimeData.getString('ignored') : '';
         const notice =
-            [errorsNotice, warningsNotice, ignoredNotice, conflictsNotice]
-                .filter(x => !!x)
+            [
+              errorsNotice, deprecationNotice, warningsNotice, ignoredNotice,
+              conflictsNotice
+            ].filter(x => !!x)
                 .join(', ') ||
             loadTimeData.getString('ok');
         messagesDisplay.textContent = notice;
@@ -497,7 +506,7 @@ cr.define('policy', function() {
       /** @type {Array<!PolicyTableModel>} */
       const policyGroups = policyValues.map(value => {
         const knownPolicyNames =
-            (policyNames[value.id] || policyNames.chrome).policyNames;
+            policyNames[value.id] ? policyNames[value.id].policyNames : [];
         const knownPolicyNamesSet = new Set(knownPolicyNames);
         const receivedPolicyNames = Object.keys(value.policies);
         const allPolicyNames =
@@ -518,7 +527,7 @@ cr.define('policy', function() {
           name: value.forSigninScreen ?
               `${value.name} [${loadTimeData.getString('signinProfile')}]` :
               value.name,
-          id: value.id,
+          id: value.isExtension ? value.id : null,
           policies
         };
       });

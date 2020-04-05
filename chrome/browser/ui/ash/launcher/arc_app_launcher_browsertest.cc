@@ -40,6 +40,7 @@
 #include "ui/display/types/display_constants.h"
 #include "ui/events/event_constants.h"
 #include "ui/events/test/event_generator.h"
+#include "ui/events/types/event_type.h"
 #include "ui/views/animation/ink_drop.h"
 
 namespace mojo {
@@ -176,6 +177,11 @@ class ArcAppLauncherBrowserTest : public extensions::ExtensionBrowserTest {
 
   void SetUpOnMainThread() override {
     arc::SetArcPlayStoreEnabledForProfile(profile(), true);
+
+    // This ensures app_prefs()->GetApp() below never returns nullptr.
+    base::RunLoop run_loop;
+    app_prefs()->SetDefaultAppsReadyCallback(run_loop.QuitClosure());
+    run_loop.Run();
   }
 
   void InstallTestApps(const std::string& package_name, bool multi_app) {
@@ -412,9 +418,10 @@ IN_PROC_BROWSER_TEST_P(ArcAppDeferredLauncherWithParamsBrowserTest,
 
   // Launching non-ready ARC app creates item on shelf and spinning animation.
   if (is_pinned()) {
-    EXPECT_EQ(ash::SHELF_ACTION_NEW_WINDOW_CREATED,
-              SelectShelfItem(shelf_id, ui::ET_MOUSE_PRESSED,
-                              display::kInvalidDisplayId));
+    EXPECT_EQ(
+        ash::SHELF_ACTION_NEW_WINDOW_CREATED,
+        SelectShelfItem(shelf_id, ui::ET_MOUSE_PRESSED,
+                        display::kInvalidDisplayId, ash::LAUNCH_FROM_SHELF));
   } else {
     arc::LaunchApp(profile(), app_id, ui::EF_LEFT_MOUSE_BUTTON,
                    arc::UserInteractionType::NOT_USER_INITIATED);

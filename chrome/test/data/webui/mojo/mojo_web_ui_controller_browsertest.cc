@@ -208,7 +208,7 @@ IN_PROC_BROWSER_TEST_F(MojoWebUIControllerBrowserTest, BindingsAccess) {
   EXPECT_EQ("foobarfoo",
             content::EvalJs(web_contents,
                             "(async () => {"
-                            "  let fooRemote = test.mojom.Foo.getRemote(true);"
+                            "  let fooRemote = test.mojom.Foo.getRemote();"
                             "  let resp = await fooRemote.getFoo();"
                             "  return resp.value;"
                             "})()"));
@@ -216,7 +216,7 @@ IN_PROC_BROWSER_TEST_F(MojoWebUIControllerBrowserTest, BindingsAccess) {
   EXPECT_EQ("foobarbar",
             content::EvalJs(web_contents,
                             "(async () => {"
-                            "  let barRemote = test.mojom.Bar.getRemote(true);"
+                            "  let barRemote = test.mojom.Bar.getRemote();"
                             "  let resp = await barRemote.getBar();"
                             "  return resp.value;"
                             "})()"));
@@ -233,7 +233,7 @@ IN_PROC_BROWSER_TEST_F(MojoWebUIControllerBrowserTest,
   EXPECT_EQ("foofoo",
             content::EvalJs(web_contents,
                             "(async () => {"
-                            "  let fooRemote = test.mojom.Foo.getRemote(true);"
+                            "  let fooRemote = test.mojom.Foo.getRemote();"
                             "  let resp = await fooRemote.getFoo();"
                             "  return resp.value;"
                             "})()"));
@@ -241,13 +241,40 @@ IN_PROC_BROWSER_TEST_F(MojoWebUIControllerBrowserTest,
   content::ScopedAllowRendererCrashes allow;
 
   // Attempt to get a remote for a disallowed interface.
-  EXPECT_FALSE(
-      content::EvalJs(web_contents,
-                      "(async () => {"
-                      "  let barRemote = test.mojom.Bar.getRemote(true);"
-                      "  let resp = await barRemote.getBar();"
-                      "  return resp.value;"
-                      "})()")
-          .error.empty());
+  EXPECT_FALSE(content::EvalJs(web_contents,
+                               "(async () => {"
+                               "  let barRemote = test.mojom.Bar.getRemote();"
+                               "  let resp = await barRemote.getBar();"
+                               "  return resp.value;"
+                               "})()")
+                   .error.empty());
+  EXPECT_TRUE(web_contents->IsCrashed());
+}
+
+// Attempting to access bindings crashes the renderer when access not allowed.
+IN_PROC_BROWSER_TEST_F(MojoWebUIControllerBrowserTest, CrashForNoBinder) {
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+
+  ASSERT_TRUE(NavigateToURL(web_contents, content::GetWebUIURL("foo")));
+
+  content::ScopedAllowRendererCrashes allow;
+  content::RenderProcessHostBadMojoMessageWaiter watcher(
+      web_contents->GetMainFrame()->GetProcess());
+
+  // Attempt to bind an interface with no browser binders registered.
+  EXPECT_FALSE(content::EvalJs(web_contents,
+                               "(async () => {"
+                               "  let bazRemote = test.mojom.Baz.getRemote();"
+                               "  let resp = await bazRemote.getBaz();"
+                               "  return resp.value;"
+                               "})()")
+                   .error.empty());
+
+  const char kExpectedMojoError[] =
+      "Received bad user message: "
+      "No binder found for interface test.mojom.Baz "
+      "for the frame/document scope";
+  EXPECT_EQ(kExpectedMojoError, watcher.Wait());
   EXPECT_TRUE(web_contents->IsCrashed());
 }

@@ -9,6 +9,7 @@
 #include "ash/shelf/shelf_button.h"
 #include "base/macros.h"
 #include "base/timer/timer.h"
+#include "ui/compositor/layer_animation_observer.h"
 #include "ui/gfx/shadow_value.h"
 #include "ui/views/animation/ink_drop_observer.h"
 #include "ui/views/animation/ink_drop_state.h"
@@ -23,7 +24,8 @@ class ShelfView;
 
 // Button used for app shortcuts on the shelf..
 class ASH_EXPORT ShelfAppButton : public ShelfButton,
-                                  public views::InkDropObserver {
+                                  public views::InkDropObserver,
+                                  public ui::ImplicitAnimationObserver {
  public:
   static const char kViewClassName[];
 
@@ -92,10 +94,6 @@ class ASH_EXPORT ShelfAppButton : public ShelfButton,
   void Layout() override;
   void ChildPreferredSizeChanged(views::View* child) override;
 
-  // views::InkDropListener:
-  void InkDropAnimationStarted() override;
-  void InkDropRippleAnimationEnded(views::InkDropState state) override;
-
   // Update button state from ShelfItem.
   void ReflectItemStatus(const ShelfItem& item);
 
@@ -105,13 +103,18 @@ class ASH_EXPORT ShelfAppButton : public ShelfButton,
   bool FireDragTimerForTest();
   void FireRippleActivationTimerForTest();
 
+  // Return the bounds in the local coordinates enclosing the small ripple area.
+  gfx::Rect CalculateSmallRippleArea() const;
+
  protected:
-  // ui::EventHandler overrides:
+  // ui::EventHandler:
   void OnGestureEvent(ui::GestureEvent* event) override;
 
-  // views::Button overrides:
+  // views::Button:
   std::unique_ptr<views::InkDropRipple> CreateInkDropRipple() const override;
-  std::unique_ptr<views::InkDropMask> CreateInkDropMask() const override;
+
+  // ui::ImplicitAnimationObserver:
+  void OnImplicitAnimationsCompleted() override;
 
   // Sets the icon image with a shadow.
   void SetShadowedImage(const gfx::ImageSkia& bitmap);
@@ -122,6 +125,10 @@ class ASH_EXPORT ShelfAppButton : public ShelfButton,
 
   // views::View:
   bool HandleAccessibleAction(const ui::AXActionData& action_data) override;
+
+  // views::InkDropObserver:
+  void InkDropAnimationStarted() override;
+  void InkDropRippleAnimationEnded(views::InkDropState state) override;
 
   // Updates the parts of the button to reflect the current |state_| and
   // alignment. This may add or remove views, layout and paint.
@@ -136,6 +143,16 @@ class ASH_EXPORT ShelfAppButton : public ShelfButton,
   // Scales up app icon if |scale_up| is true, otherwise scales it back to
   // normal size.
   void ScaleAppIcon(bool scale_up);
+
+  // Calculates the icon bounds for an icon scaled by |icon_scale|.
+  gfx::Rect GetIconViewBounds(float icon_scale);
+
+  // Calculates the transform between the icon scaled by |icon_scale| and the
+  // normal size icon.
+  gfx::Transform GetScaleTransform(float icon_scale);
+
+  // Marks whether the ink drop animation has started or not.
+  void SetInkDropAnimationStarted(bool started);
 
   // The icon part of a button can be animated independently of the rest.
   views::ImageView* icon_view_;
@@ -162,6 +179,15 @@ class ASH_EXPORT ShelfAppButton : public ShelfButton,
 
   // Whether the notification indicator is enabled.
   const bool is_notification_indicator_enabled_;
+
+  // The bitmap image for this app button.
+  gfx::ImageSkia icon_image_;
+
+  // The scaling factor for displaying the app icon.
+  float icon_scale_ = 1.0f;
+
+  // Indicates whether the ink drop animation starts.
+  bool ink_drop_animation_started_ = false;
 
   // A timer to defer showing drag UI when the shelf button is pressed.
   base::OneShotTimer drag_timer_;

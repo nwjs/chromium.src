@@ -24,6 +24,7 @@ import org.chromium.base.task.PostTask;
 import org.chromium.base.task.TaskTraits;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.RetryOnFailure;
+import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.share.ShareDelegate;
 import org.chromium.chrome.browser.share.ShareDelegateImpl;
 import org.chromium.chrome.browser.share.ShareHelper;
@@ -122,11 +123,6 @@ public class ShareIntentTest {
         }
 
         @Override
-        public ChromeApplication getChromeApplication() {
-            return mActivity.getChromeApplication();
-        }
-
-        @Override
         public PackageManager getPackageManager() {
             return mActivity.getPackageManager();
         }
@@ -170,8 +166,8 @@ public class ShareIntentTest {
             return new MockChromeActivity(mActivityTestRule.getActivity());
         });
         RootUiCoordinator rootUiCoordinator = TestThreadUtils.runOnUiThreadBlocking(() -> {
-            return new RootUiCoordinator(
-                    mockActivity, null, mockActivity.getShareDelegateSupplier());
+            return new RootUiCoordinator(mockActivity, null,
+                    mockActivity.getShareDelegateSupplier(), mockActivity.getActivityTabProvider());
         });
         ShareHelper.setLastShareComponentName(
                 new ComponentName("test.package", "test.activity"), null);

@@ -25,7 +25,6 @@
 #include "build/build_config.h"
 #include "content/browser/frame_host/render_frame_host_delegate.h"
 #include "content/browser/frame_host/render_frame_host_impl.h"
-#include "content/common/url_schemes.h"
 #include "content/public/browser/browser_child_process_host_iterator.h"
 #include "content/public/browser/browser_plugin_guest_delegate.h"
 #include "content/public/browser/browser_task_traits.h"
@@ -211,11 +210,6 @@ void IsolateAllSitesForTesting(base::CommandLine* command_line) {
   command_line->AppendSwitch(switches::kSitePerProcess);
 }
 
-void ResetSchemesAndOriginsWhitelist() {
-  url::ResetForTests();
-  ReRegisterContentSchemesForTests();
-}
-
 GURL GetWebUIURL(const std::string& host) {
   return GURL(GetWebUIURLString(host));
 }
@@ -242,6 +236,39 @@ WebContents* CreateAndAttachInnerContents(RenderFrameHost* rfh) {
                                          false /* is_full_page */);
 
   return inner_contents;
+}
+
+void AwaitDocumentOnLoadCompleted(WebContents* web_contents) {
+  class Awaiter : public WebContentsObserver {
+   public:
+    explicit Awaiter(content::WebContents* web_contents)
+        : content::WebContentsObserver(web_contents),
+          observed_(web_contents->IsDocumentOnLoadCompletedInMainFrame()) {}
+
+    Awaiter(const Awaiter&) = delete;
+    Awaiter& operator=(const Awaiter&) = delete;
+
+    ~Awaiter() override = default;
+
+    void Await() {
+      if (!observed_)
+        run_loop_.Run();
+      DCHECK(web_contents()->IsDocumentOnLoadCompletedInMainFrame());
+    }
+
+    // WebContentsObserver:
+    void DocumentOnLoadCompletedInMainFrame() override {
+      observed_ = true;
+      if (run_loop_.running())
+        run_loop_.Quit();
+    }
+
+   private:
+    bool observed_ = false;
+    base::RunLoop run_loop_;
+  };
+
+  Awaiter(web_contents).Await();
 }
 
 MessageLoopRunner::MessageLoopRunner(QuitMode quit_mode)
@@ -345,30 +372,29 @@ InProcessUtilityThreadHelper::~InProcessUtilityThreadHelper() {
 }
 
 void InProcessUtilityThreadHelper::JoinAllUtilityThreads() {
-  base::RunLoop run_loop;
-  quit_closure_ = run_loop.QuitClosure();
-
+  ASSERT_FALSE(run_loop_);
+  run_loop_.emplace();
   BrowserChildProcessObserver::Add(this);
   CheckHasRunningChildProcess();
-  run_loop.Run();
+  run_loop_->Run();
+  run_loop_.reset();
   BrowserChildProcessObserver::Remove(this);
 }
 
 void InProcessUtilityThreadHelper::CheckHasRunningChildProcess() {
+  ASSERT_TRUE(run_loop_);
+
   auto check_has_running_child_process_on_io =
-      [](base::WeakPtr<InProcessUtilityThreadHelper> weak_ptr,
-         base::OnceClosure* quit_closure) {
+      [](base::OnceClosure quit_closure) {
         BrowserChildProcessHostIterator it;
         // If not Done(), we have some running child processes and need to wait.
-        // The |quit_closure| is valid while |weak_ptr| is alive.
-        if (it.Done() && weak_ptr)
-          std::move(*quit_closure).Run();
+        if (it.Done())
+          std::move(quit_closure).Run();
       };
 
-  base::PostTask(
-      FROM_HERE, {BrowserThread::IO},
-      base::BindOnce(check_has_running_child_process_on_io,
-                     weak_ptr_factory_.GetWeakPtr(), &quit_closure_));
+  base::PostTask(FROM_HERE, {BrowserThread::IO},
+                 base::BindOnce(check_has_running_child_process_on_io,
+                                run_loop_->QuitClosure()));
 }
 
 void InProcessUtilityThreadHelper::BrowserChildProcessHostDisconnected(

@@ -94,6 +94,12 @@ void FindInPage::Find(int request_id,
   bool result = false;
   bool active_now = false;
 
+  if (!options->find_next) {
+    // If this is an initial find request, cancel any pending scoping effort
+    // done by the previous find request.
+    EnsureTextFinder().CancelPendingScopingEffort();
+  }
+
   // Search for an active match only if this frame is focused or if this is a
   // find next
   if (frame_->IsFocused() || options->find_next) {
@@ -170,9 +176,13 @@ bool FindInPage::FindInternal(int identifier,
   // Unlikely, but just in case we try to find-in-page on a detached frame.
   DCHECK(frame_->GetFrame()->GetPage());
 
+  auto forced_activatable_locks =
+      frame_->GetFrame()->GetDocument()->GetScopedForceActivatableLocks();
+
   // Up-to-date, clean tree is required for finding text in page, since it
   // relies on TextIterator to look over the text.
-  frame_->GetFrame()->GetDocument()->UpdateStyleAndLayout();
+  frame_->GetFrame()->GetDocument()->UpdateStyleAndLayout(
+      DocumentUpdateReason::kFindInPage);
 
   return EnsureTextFinder().Find(identifier, search_text, options,
                                  wrap_within_frame, active_now);
@@ -213,15 +223,15 @@ int FindInPage::FindMatchMarkersVersion() const {
   return 0;
 }
 
-WebFloatRect FindInPage::ActiveFindMatchRect() {
+gfx::RectF FindInPage::ActiveFindMatchRect() {
   if (GetTextFinder())
     return GetTextFinder()->ActiveFindMatchRect();
-  return WebFloatRect();
+  return gfx::RectF();
 }
 
 void FindInPage::ActivateNearestFindResult(int request_id,
                                            const gfx::PointF& point) {
-  WebRect active_match_rect;
+  gfx::Rect active_match_rect;
   const int ordinal =
       EnsureTextFinder().SelectNearestFindMatch(point, &active_match_rect);
   if (ordinal == -1) {
@@ -253,7 +263,7 @@ void FindInPage::GetNearestFindResult(const gfx::PointF& point,
 void FindInPage::FindMatchRects(int current_version,
                                 FindMatchRectsCallback callback) {
   int rects_version = FindMatchMarkersVersion();
-  Vector<WebFloatRect> rects;
+  Vector<gfx::RectF> rects;
   if (current_version != rects_version)
     rects = EnsureTextFinder().FindMatchRects();
   std::move(callback).Run(rects_version, rects, ActiveFindMatchRect());
@@ -337,7 +347,7 @@ void FindInPage::ReportFindInPageMatchCount(int request_id,
 
 void FindInPage::ReportFindInPageSelection(int request_id,
                                            int active_match_ordinal,
-                                           const blink::WebRect& selection_rect,
+                                           const gfx::Rect& selection_rect,
                                            bool final_update) {
   // In tests, |client_| might not be set.
   if (!client_)

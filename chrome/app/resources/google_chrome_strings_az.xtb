@@ -50,6 +50,7 @@ Bəzi funksiyalar əlçatmaz ola bilər ki, nəticədə tərcihlərə edilən d�
 <translation id="2309047409763057870">Bu Chromium'un ikinci quraşdırmasıdır və defolt brauzer kimi ayarlana bilmir.</translation>
 <translation id="2341767445688917208">Chrome OS parollarınızı sinxronizasiya edə bilmədi. İndi düzəliş edin.</translation>
 <translation id="2348335408836342058">Chrome bu sayt üçün kamera və mikrofona giriş tələb edir</translation>
+<translation id="234869673307233423">Chrome parollarınızı yoxlaya bilmir. Sonra yenidən cəhd edin.</translation>
 <translation id="2429317896000329049">Google Chrome datanızı sinxronizasiya edə bilmədi, çünki sinxronizasiya domeniniz üçün əlçatan deyil.</translation>
 <translation id="2467438592969358367">Google Chrome parolları eksport etmək istəyir. Buna icazə vermək üçün Windows parolunuzu yazın.</translation>
 <translation id="2485422356828889247">Sistemdən silin</translation>
@@ -57,17 +58,21 @@ Bəzi funksiyalar əlçatmaz ola bilər ki, nəticədə tərcihlərə edilən d�
 <translation id="2580411288591421699">Hazırda istifadə olunan Google Chrome versiyasını quraşdıra bilməzsiniz. Lütfən, Google Chrome'u qapadın və yenidən cəhd edin.</translation>
 <translation id="2586406160782125153">Brauzinq datanız bu cihazdan silinəcək. Datanı sonradan bərpa etmək üçün Chrome'a <ph name="USER_EMAIL" /> kimi daxil olun.</translation>
 <translation id="2588322182880276190">Chrome logosu</translation>
+<translation id="2622559029861875898">Chrome güncəlləmələri yoxlaya bilmir. İnternet bağlantınızı yoxlamağa cəhd edin.</translation>
 <translation id="2644798301485385923">Chrome OS Sistemi</translation>
 <translation id="2652691236519827073">Linki Yeni Chrome tabında açın</translation>
 <translation id="2665296953892887393">Qəza raportlarını və <ph name="UMA_LINK" /> linkini Google'a göndərməklə Google Chrome'un daha keyfiyyətli olmasına kömək edin</translation>
 <translation id="2689103672227170538">Bu artırma Chrome'u başlatdığınız zaman hansı səhifənin göstərildiyini dəyişdi.</translation>
 <translation id="2765403129283291972">Chrome bu sayt üçün mikrofona giriş tələb edir</translation>
 <translation id="2770231113462710648">Defolt brauzeri dəyişin:</translation>
+<translation id="2775140325783767197">Chrome parollarınızı yoxlaya bilmir. İnternet bağlantınızı yoxlamağa cəhd edin.</translation>
 <translation id="2799223571221894425">Yenidən başladın</translation>
 <translation id="2847461019998147611">Google Chrome məhsulunu bu dildə görüntüləyin</translation>
 <translation id="2857540653560290388">Chrome başlayır...</translation>
 <translation id="2871893339301912279">Chrome'a daxil olmusunuz!</translation>
 <translation id="2888126860611144412">Chrome haqqında</translation>
+<translation id="2929907241665500097">Chrome güncəllənmədi, xəta baş verdi. <ph name="BEGIN_LINK" />Chrome'un güncəllənmə problemlərini və alınmayan güncəllənmələri həll edin.<ph name="END_LINK" /></translation>
+<translation id="2969728957078202736"><ph name="PAGE_TITLE" /> - Şəbəkəyə Giriş - Chrome</translation>
 <translation id="3037838751736561277">Google Chrome arxa fon rejimindədir.</translation>
 <translation id="3065168410429928842">Chrome Paneli</translation>
 <translation id="3080151273017101988">Google Chrome bağlı olduqda arxa fon tətbiqləri davam etdirilsin</translation>
@@ -104,8 +109,11 @@ Bəzi funksiyalar əlçatmaz ola bilər ki, nəticədə tərcihlərə edilən d�
 <translation id="4293420128516039005">Chrome'u cihazlarda sinxronizasiya etmək və fərdiləşdirmək üçün daxil olun</translation>
 <translation id="4328355335528187361">Google Chrome Dev (mDNS-In)</translation>
 <translation id="4331809312908958774">Chrome OS</translation>
+<translation id="4335235004908507846">Chrome Sizi data pozuntuları, xətalı artırmalar və digər güvənlik məsələlərinə qarşı qoruya bilər</translation>
 <translation id="4343195214584226067"><ph name="EXTENSION_NAME" /> Chrome'a əlavə edildi</translation>
+<translation id="4384570495110188418">Hesaba daxil olmadığınız üçün Chrome parollarınızı yoxlaya bilmir</translation>
 <translation id="4407807842708586359">Google Chrome OS</translation>
+<translation id="4450664632294415862">Chrome - Şəbəkəyə Giriş - <ph name="PAGE_TITLE" /></translation>
 <translation id="4458462641685292929">Google Chrome'da digər əməliyyat davam edir. Daha sonra yenidən cəhd edin.</translation>
 <translation id="4480040274068703980">Hesaba giriş xətası üzündən Chrome OS datanızı sinxronlaşdıra bilmədi.</translation>
 <translation id="4561051373932531560">Google Chrome Sizə imkan verir ki, telefon nömrənizə vebdə klikləyərək Skype'da zəng edəsiniz!</translation>
@@ -115,6 +123,7 @@ Bəzi funksiyalar əlçatmaz ola bilər ki, nəticədə tərcihlərə edilən d�
 <translation id="4600710005438004015">Chromium ən son versiyaya güncəllənə bilmədi. Yeni funksiyaları və təhlükəsizlik həllərini əldən veririsiniz.</translation>
 <translation id="4631713731678262610">Chrome menyusunda gizlədin</translation>
 <translation id="4633000520311261472">Güvənliyiniz üçün <ph name="IDS_EXTENSION_WEB_STORE_TITLE" /> siyahısında olamayan artırmaları deaktiv etdik.</translation>
+<translation id="4653397506175047429">Chrome bütün parollarınızı yoxlaya bilmir. 24 saat sonra yenidən cəhd edin.</translation>
 <translation id="4728575227883772061">Naməlum xəta üzündən quraşdırmaq alınmadı. Əgər Google Chrome hazırda işləyirsə, Lütfən, qapadın və yenidən cəhd edin.</translation>
 <translation id="4750550185319565338"><ph name="PLUGIN_NAME" /> plaqinini aktiv etmək üçün Chrome'u yenidən başladın</translation>
 <translation id="4754614261631455953">Google Chrome Canary (mDNS-In)</translation>
@@ -149,7 +158,9 @@ Bəzi funksiyalar əlçatmaz ola bilər. Xüsusi profil direktoriyası göstəri
 <translation id="573759479754913123">Chrome OS haqqında</translation>
 <translation id="5795887333006832406"><ph name="PAGE_TITLE" /> - Google Chrome Canary</translation>
 <translation id="5804318322022881572">Chrome başlamadı. Yenidən sınayın.</translation>
+<translation id="5867197326698922595">Google Chrome parolları redaktə etməyə çalışır.</translation>
 <translation id="5895138241574237353">Yenidən başladın</translation>
+<translation id="5903106910045431592"><ph name="PAGE_TITLE" /> - Şəbəkəyə Giriş</translation>
 <translation id="5940385492829620908">Veb, əlfəcinlər və Chrome'a aid hər şeyiniz buradadır.</translation>
 <translation id="5941830788786076944">Google Chrome'u defolt brauzer edin</translation>
 <translation id="6070348360322141662">Əlavə təhlükəsizlik üçün Google Chrome datanı şifrələyəcək</translation>
@@ -199,12 +210,15 @@ Bəzi funksiyalar əlçatmaz ola bilər. Xüsusi profil direktoriyası göstəri
 <translation id="7777080907402804672">Şəklin təsviri faydalı deyilsə, Chrome Sizin üçün təsviri təmin etməyə çalışacaq. Təsvir yaratmaq üçün şəkillər Google'a göndərilir. Bunu istənilən vaxt ayarlardan deaktiv edə bilərsiniz.</translation>
 <translation id="7781002470561365167">Bu, Google Chrome'un yeni versiyasıdır.</translation>
 <translation id="7787950393032327779">Bu profil digər Google Chrome prosesi (<ph name="PROCESS_ID" />) və ya digər kompüter tərəfindən (<ph name="HOST_NAME" />) istifadə olunana oxşayır.</translation>
+<translation id="7801699035218095297">Google Chrome parolları kopyalamağa çalışır. Buna icazə vermək üçün Windows parolunuzu yazın.</translation>
 <translation id="7808348361785373670">Chrome'dan silin...</translation>
 <translation id="7825851276765848807">Naməlum xəta üzündən quraşdırmaq alınmadı. Google Chrome'u yenidən endirin.</translation>
 <translation id="7855730255114109580">Google Chrome güncəldir</translation>
 <translation id="7890208801193284374">Kompüteri paylaşsanız dostlarınız və ailəniz ayrıca brauzer ilə Chrome'u istədikləri kimi ayarlaya bilər.</translation>
 <translation id="7896673875602241923">Kimsə bu kompüterdə <ph name="ACCOUNT_EMAIL_LAST" /> olaraq Chrome'a daxil olub. Məlumatınızı ayrı saxlamaq üçün yeni Chrome istifadəçisi yaradın.</translation>
+<translation id="7905891027772979035">Chrome artırmalarınızı yoxlaya bilmir. Sonra yenidən cəhd edin.</translation>
 <translation id="7916016681687251387">Chrome OS datanızı sinxronizasiya edə bilmədi. İndi düzəliş edin.</translation>
+<translation id="7930071585467473040">Google Chrome parolları kopyalamağa çalışır.</translation>
 <translation id="7962410387636238736">Windows XP və Windows Vista artıq dəstəklənmədiyi üçün bu kompüter Google Chrome güncəlləmələrini qəbul etməyəcək</translation>
 <translation id="8008534537613507642">Chrome'u yenidən quraşdırın</translation>
 <translation id="8013993649590906847">Şəklin təsviri faydalı deyilsə, Chrome Sizin üçün təsviri təmin etməyə çalışacaq. Təsvir yaratmaq üçün şəkillər Google'a göndərilir.</translation>
@@ -227,10 +241,12 @@ Bəzi funksiyalar əlçatmaz ola bilər. Xüsusi profil direktoriyası göstəri
 <translation id="870251953148363156">Google Chrome'u güncəlləşdirin</translation>
 <translation id="873133009373065397">Google Chrome defolt brauzeri müəyyən edə və ya ayarlaya bilmir</translation>
 <translation id="8823341990149967727">Chrome'un vaxtı keçib</translation>
+<translation id="8834965163890861871">Google Chrome parolları redaktə etməyə çalışır. Buna icazə vermək üçün Windows parolunuzu yazın.</translation>
 <translation id="884296878221830158">Həmçinin, Chrome'a başlayanda və ya Əsas səhifə düyməsinə klikləyəndə göstəriləsi səhifəyə nəzarət edir.</translation>
 <translation id="8862326446509486874">Sistem səviyyəli quraşdırma üçün uyğun hüquqlarınız yoxdur. Quraşdırıcını yenidən Administrator olaraq işə salmağa cəhd edin.</translation>
 <translation id="8914504000324227558">Chrome'u yenidən başladın</translation>
 <translation id="8999208279178790196">{0,plural, =0{Chrome güncəlləməsi əlçatandır}=1{Chrome güncəlləməsi əlçatandır}other{Chrome güncəlləməsi # gün əlçatan olub}}</translation>
+<translation id="9025321516765676895">Parollarınız həddindən çox olduğu üçün Chrome onları yoxlaya bilmir</translation>
 <translation id="9026991721384951619">Chrome OS datanızı sinxronizasiya edə bilmir, çünki hesaba giriş məlumatlarınız köhnədir.</translation>
 <translation id="9067395829937117663">Google Chrome  Windows 7 və ya daha yeni versiya tələb edir.</translation>
 <translation id="911206726377975832">Brauzinq datanız da silinsin?</translation>

@@ -51,6 +51,7 @@
 #include "components/captive_portal/content/captive_portal_service.h"
 #include "components/captive_portal/content/captive_portal_tab_helper.h"
 #include "components/captive_portal/content/captive_portal_tab_reloader.h"
+#include "components/captive_portal/core/captive_portal_types.h"
 #include "components/embedder_support/pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "components/security_interstitials/content/captive_portal_blocking_page.h"
@@ -120,17 +121,17 @@ const char* const kMockHttpsBadCertPath = "/bad_cert.html";
 // of a captive portal or not.  They use different domains so that HSTS can be
 // applied to them independently.
 
-// A mock URL for the CaptivePortalService's |test_url|.  When behind a captive
-// portal, this URL returns a mock login page.  When connected to the Internet,
-// it returns a 204 response.  Uses the name of the login file so that reloading
-// it will not request a different URL.
+// A mock URL for the captive_portal::CaptivePortalService's |test_url|.  When
+// behind a captive portal, this URL returns a mock login page.  When connected
+// to the Internet, it returns a 204 response.  Uses the name of the login file
+// so that reloading it will not request a different URL.
 const char* const kMockCaptivePortalTestUrl =
     "http://mock.captive.portal.test/login.html";
 
-// Another mock URL for the CaptivePortalService's |test_url|.  When behind a
-// captive portal, this URL returns a 511 status code and an HTML page that
-// redirect to the above URL.  When connected to the Internet, it returns a 204
-// response.
+// Another mock URL for the captive_portal::CaptivePortalService's |test_url|.
+// When behind a captive portal, this URL returns a 511 status code and an HTML
+// page that redirect to the above URL.  When connected to the Internet, it
+// returns a 204 response.
 const char* const kMockCaptivePortal511Url =
     "http://mock.captive.portal.511/page511.html";
 
@@ -159,10 +160,18 @@ const char* const kMockHttpsConnectionUnexpectedErr =
     "https://mock.captive.portal.quick.error/unexpected";
 const char* const kMockHttpConnectionConnectionClosedErr =
     "http://mock.captive.portal.quick.error/connection_closed";
+const char* const kMockHttpConnectionSecureDnsErr =
+    "http://mock.captive.portal.quick.error/secure_dns";
+const char* const kMockHttpsConnectionSecureDnsErr =
+    "https://mock.captive.portal.quick.error/secure_dns";
 
 // Expected title of a tab once an HTTPS load completes, when not behind a
 // captive portal.
 const char* const kInternetConnectedTitle = "Title Of Awesomeness";
+
+// Expected title of a login page that was created in secure mode.
+const char* const kLoginSecureDnsDisabledTitle =
+    "Fake Login Page Secure Dns Disabled";
 
 // Creates a server-side redirect for use with the TestServer.
 std::string CreateServerRedirect(const std::string& dest_url) {
@@ -185,7 +194,8 @@ int NumLoadingTabs() {
 }
 
 bool IsLoginTab(WebContents* web_contents) {
-  return CaptivePortalTabHelper::FromWebContents(web_contents)->IsLoginTab();
+  return captive_portal::CaptivePortalTabHelper::FromWebContents(web_contents)
+      ->IsLoginTab();
 }
 
 // Tracks how many times each tab has been navigated since the Observer was
@@ -381,8 +391,8 @@ void FailLoadsAfterLoginObserver::Observe(
   }
 }
 
-// An observer for watching the CaptivePortalService.  It tracks the last
-// received result and the total number of received results.
+// An observer for watching the captive_portal::CaptivePortalService.  It tracks
+// the last received result and the total number of received results.
 class CaptivePortalObserver {
  public:
   explicit CaptivePortalObserver(Profile* profile);
@@ -400,7 +410,7 @@ class CaptivePortalObserver {
 
  private:
   // Records results and exits the message loop, if needed.
-  void Observe(const CaptivePortalService::Results& results);
+  void Observe(const captive_portal::CaptivePortalService::Results& results);
 
   // Number of times OnPortalResult has been called since construction.
   int num_results_received_;
@@ -412,9 +422,10 @@ class CaptivePortalObserver {
   bool waiting_for_result_;
   std::unique_ptr<base::RunLoop> run_loop_;
 
-  CaptivePortalService* captive_portal_service_;
+  captive_portal::CaptivePortalService* captive_portal_service_;
 
-  std::unique_ptr<CaptivePortalService::Subscription> subscription_;
+  std::unique_ptr<captive_portal::CaptivePortalService::Subscription>
+      subscription_;
 
   // Last result received.
   CaptivePortalResult captive_portal_result_;
@@ -448,7 +459,7 @@ void CaptivePortalObserver::WaitForResults(int num_results_to_wait_for) {
 }
 
 void CaptivePortalObserver::Observe(
-    const CaptivePortalService::Results& results) {
+    const captive_portal::CaptivePortalService::Results& results) {
   EXPECT_EQ(captive_portal_result_, results.previous_result);
   EXPECT_EQ(captive_portal_service_->last_detection_result(), results.result);
 
@@ -597,16 +608,20 @@ class CaptivePortalBrowserTest : public InProcessBrowserTest {
   // ready.
   void WaitForInterstitial(content::WebContents* contents);
 
-  // Returns the CaptivePortalTabReloader::State of |web_contents|.
-  CaptivePortalTabReloader::State GetStateOfTabReloader(
+  // Returns the captive_portal::CaptivePortalTabReloader::State of
+  // |web_contents|.
+  captive_portal::CaptivePortalTabReloader::State GetStateOfTabReloader(
       WebContents* web_contents) const;
 
-  // Returns the CaptivePortalTabReloader::State of the indicated tab.
-  CaptivePortalTabReloader::State GetStateOfTabReloaderAt(Browser* browser,
-                                                          int index) const;
+  // Returns the captive_portal::CaptivePortalTabReloader::State of the
+  // indicated tab.
+  captive_portal::CaptivePortalTabReloader::State GetStateOfTabReloaderAt(
+      Browser* browser,
+      int index) const;
 
   // Returns the number of tabs with the given state, across all profiles.
-  int NumTabsWithState(CaptivePortalTabReloader::State state) const;
+  int NumTabsWithState(
+      captive_portal::CaptivePortalTabReloader::State state) const;
 
   // Returns the number of tabs broken by captive portals, across all profiles.
   int NumBrokenTabs() const;
@@ -684,6 +699,7 @@ class CaptivePortalBrowserTest : public InProcessBrowserTest {
   // result in an error rather than hanging.
   void FastErrorBehindCaptivePortal(Browser* browser,
                                     bool expect_open_login_tab,
+                                    bool expect_new_login_browser,
                                     const GURL& error_url);
 
   // Navigates the active tab to an SSL error page which triggers an
@@ -706,9 +722,11 @@ class CaptivePortalBrowserTest : public InProcessBrowserTest {
   // |captive-portal_browser| is the browser containing the login page.
   // |num_loading_tabs| and |num_timed_out_tabs| are used as extra checks
   // that nothing has gone wrong prior to the function call.
+  // |expected_portal_checks| allows client-side redirects to be tested.
   void Login(Browser* captive_portal_browser,
              int num_loading_tabs,
-             int num_timed_out_tabs);
+             int num_timed_out_tabs,
+             int expected_portal_checks);
 
   // Simulates a login when the broken tab shows an SSL or captive portal
   // interstitial. Can't use Login() in those cases because the interstitial
@@ -744,12 +762,14 @@ class CaptivePortalBrowserTest : public InProcessBrowserTest {
                                           const GURL& interrupted_url,
                                           const GURL& timeout_url);
 
-  // Sets the timeout used by a CaptivePortalTabReloader on slow SSL loads
-  // before a captive portal check.
-  void SetSlowSSLLoadTime(CaptivePortalTabReloader* tab_reloader,
-                          base::TimeDelta slow_ssl_load_time);
+  // Sets the timeout used by a captive_portal::CaptivePortalTabReloader on slow
+  // SSL loads before a captive portal check.
+  void SetSlowSSLLoadTime(
+      captive_portal::CaptivePortalTabReloader* tab_reloader,
+      base::TimeDelta slow_ssl_load_time);
 
-  CaptivePortalTabReloader* GetTabReloader(WebContents* web_contents) const;
+  captive_portal::CaptivePortalTabReloader* GetTabReloader(
+      WebContents* web_contents) const;
 
   // Sets whether or not there is a captive portal. Outstanding requests are
   // not affected.
@@ -791,22 +811,27 @@ class CaptivePortalBrowserTest : public InProcessBrowserTest {
     num_jobs_to_wait_for_ = num_jobs;
   }
 
-  // Fails all active kMockHttps* requests with connection timeouts.
+  // Fails all active kMockHttps* requests with error code |error| and
+  // hostname resolution error info |resolve_error_info|.
   // There are expected to be exactly |expected_num_jobs| waiting for
   // failure.  The only way to guarantee this is with an earlier call to
   // WaitForJobs, so makes sure there has been a matching WaitForJobs call.
-  void FailJobs(int expected_num_jobs) {
+  void FailJobs(int expected_num_jobs,
+                int error,
+                net::ResolveErrorInfo resolve_error_info) {
     if (!BrowserThread::CurrentlyOn(BrowserThread::UI)) {
       base::PostTask(FROM_HERE, {BrowserThread::UI},
                      base::BindOnce(&CaptivePortalBrowserTest::FailJobs,
-                                    base::Unretained(this), expected_num_jobs));
+                                    base::Unretained(this), expected_num_jobs,
+                                    error, resolve_error_info));
       return;
     }
 
     EXPECT_EQ(expected_num_jobs,
               static_cast<int>(ongoing_mock_requests_.size()));
     network::URLLoaderCompletionStatus status;
-    status.error_code = net::ERR_CONNECTION_TIMED_OUT;
+    status.error_code = error;
+    status.resolve_error_info = resolve_error_info;
     for (auto& job : ongoing_mock_requests_)
       job.client->OnComplete(status);
     ongoing_mock_requests_.clear();
@@ -928,11 +953,11 @@ void CaptivePortalBrowserTest::SetUpOnMainThread() {
 
   // Double-check that the captive portal service isn't enabled by default for
   // browser tests.
-  EXPECT_EQ(CaptivePortalService::DISABLED_FOR_TESTING,
-            CaptivePortalService::get_state_for_testing());
+  EXPECT_EQ(captive_portal::CaptivePortalService::DISABLED_FOR_TESTING,
+            captive_portal::CaptivePortalService::get_state_for_testing());
 
-  CaptivePortalService::set_state_for_testing(
-      CaptivePortalService::SKIP_OS_CHECK_FOR_TESTING);
+  captive_portal::CaptivePortalService::set_state_for_testing(
+      captive_portal::CaptivePortalService::NOT_TESTING);
   EnableCaptivePortalDetection(browser()->profile(), true);
 
   // Set the captive portal service to use URLRequestMockCaptivePortalJob's
@@ -957,17 +982,23 @@ bool CaptivePortalBrowserTest::OnIntercept(
   }
 
   auto url_string = params->url_request.url.spec();
-  net::Error error = net::OK;
+  network::URLLoaderCompletionStatus status;
+  status.error_code = net::OK;
   if (url_string == kMockHttpConnectionTimeoutErr ||
       url_string == kMockHttpsConnectionTimeoutErr) {
-    error = net::ERR_CONNECTION_TIMED_OUT;
+    status.error_code = net::ERR_CONNECTION_TIMED_OUT;
   } else if (url_string == kMockHttpsConnectionUnexpectedErr) {
-    error = net::ERR_UNEXPECTED;
+    status.error_code = net::ERR_UNEXPECTED;
   } else if (url_string == kMockHttpConnectionConnectionClosedErr) {
-    error = net::ERR_CONNECTION_CLOSED;
+    status.error_code = net::ERR_CONNECTION_CLOSED;
+  } else if (url_string == kMockHttpConnectionSecureDnsErr ||
+             url_string == kMockHttpsConnectionSecureDnsErr) {
+    status.error_code = net::ERR_NAME_NOT_RESOLVED;
+    status.resolve_error_info = net::ResolveErrorInfo(
+        net::ERR_CERT_COMMON_NAME_INVALID, true /* is_secure_network_error */);
   }
-  if (error != net::OK) {
-    params->client->OnComplete(network::URLLoaderCompletionStatus(error));
+  if (status.error_code != net::OK) {
+    params->client->OnComplete(status);
     return true;
   }
 
@@ -1032,7 +1063,12 @@ bool CaptivePortalBrowserTest::OnIntercept(
         contents = GetContents("captive_portal/page511.html");
         headers = "HTTP/1.1 511 Network Authentication Required\n";
       } else {
-        contents = GetContents("captive_portal/login.html");
+        // These URLs should only be requested for navigations, which will have
+        // trusted_params.
+        contents =
+            params->url_request.trusted_params->disable_secure_dns
+                ? GetContents("captive_portal/login_secure_dns_disabled.html")
+                : GetContents("captive_portal/login.html");
         headers = "HTTP/1.0 200 Just Peachy\n";
       }
     } else {
@@ -1070,26 +1106,26 @@ void CaptivePortalBrowserTest::EnableCaptivePortalDetection(
 
 void CaptivePortalBrowserTest::RespondToProbeRequests(bool enabled) {
   if (enabled) {
-    EXPECT_EQ(CaptivePortalService::IGNORE_REQUESTS_FOR_TESTING,
-              CaptivePortalService::get_state_for_testing());
-    CaptivePortalService::set_state_for_testing(
-        CaptivePortalService::SKIP_OS_CHECK_FOR_TESTING);
+    EXPECT_EQ(captive_portal::CaptivePortalService::IGNORE_REQUESTS_FOR_TESTING,
+              captive_portal::CaptivePortalService::get_state_for_testing());
+    captive_portal::CaptivePortalService::set_state_for_testing(
+        captive_portal::CaptivePortalService::NOT_TESTING);
   } else {
-    EXPECT_EQ(CaptivePortalService::SKIP_OS_CHECK_FOR_TESTING,
-              CaptivePortalService::get_state_for_testing());
-    CaptivePortalService::set_state_for_testing(
-        CaptivePortalService::IGNORE_REQUESTS_FOR_TESTING);
+    EXPECT_EQ(captive_portal::CaptivePortalService::NOT_TESTING,
+              captive_portal::CaptivePortalService::get_state_for_testing());
+    captive_portal::CaptivePortalService::set_state_for_testing(
+        captive_portal::CaptivePortalService::IGNORE_REQUESTS_FOR_TESTING);
   }
 }
 
 void CaptivePortalBrowserTest::SetUpCaptivePortalService(Profile* profile,
                                                          const GURL& test_url) {
-  CaptivePortalService* captive_portal_service =
+  captive_portal::CaptivePortalService* captive_portal_service =
       CaptivePortalServiceFactory::GetForProfile(profile);
   captive_portal_service->set_test_url(test_url);
 
   // Don't use any non-zero timers.  Timers are checked in unit tests.
-  CaptivePortalService::RecheckPolicy* recheck_policy =
+  captive_portal::CaptivePortalService::RecheckPolicy* recheck_policy =
       &captive_portal_service->recheck_policy();
   recheck_policy->initial_backoff_no_portal_ms = 0;
   recheck_policy->initial_backoff_portal_ms = 0;
@@ -1097,7 +1133,7 @@ void CaptivePortalBrowserTest::SetUpCaptivePortalService(Profile* profile,
 }
 
 bool CaptivePortalBrowserTest::CheckPending(Browser* browser) {
-  CaptivePortalService* captive_portal_service =
+  captive_portal::CaptivePortalService* captive_portal_service =
       CaptivePortalServiceFactory::GetForProfile(browser->profile());
 
   return captive_portal_service->DetectionInProgress() ||
@@ -1128,12 +1164,13 @@ void CaptivePortalBrowserTest::WaitForInterstitial(
   ASSERT_TRUE(WaitForRenderFrameReady(contents->GetMainFrame()));
 }
 
-CaptivePortalTabReloader::State CaptivePortalBrowserTest::GetStateOfTabReloader(
+captive_portal::CaptivePortalTabReloader::State
+CaptivePortalBrowserTest::GetStateOfTabReloader(
     WebContents* web_contents) const {
   return GetTabReloader(web_contents)->state();
 }
 
-CaptivePortalTabReloader::State
+captive_portal::CaptivePortalTabReloader::State
 CaptivePortalBrowserTest::GetStateOfTabReloaderAt(Browser* browser,
                                                   int index) const {
   return GetStateOfTabReloader(
@@ -1141,7 +1178,7 @@ CaptivePortalBrowserTest::GetStateOfTabReloaderAt(Browser* browser,
 }
 
 int CaptivePortalBrowserTest::NumTabsWithState(
-    CaptivePortalTabReloader::State state) const {
+    captive_portal::CaptivePortalTabReloader::State state) const {
   return std::count_if(AllTabContentses().begin(), AllTabContentses().end(),
                        [this, state](content::WebContents* web_contents) {
                          return GetStateOfTabReloader(web_contents) == state;
@@ -1149,11 +1186,13 @@ int CaptivePortalBrowserTest::NumTabsWithState(
 }
 
 int CaptivePortalBrowserTest::NumBrokenTabs() const {
-  return NumTabsWithState(CaptivePortalTabReloader::STATE_BROKEN_BY_PORTAL);
+  return NumTabsWithState(
+      captive_portal::CaptivePortalTabReloader::STATE_BROKEN_BY_PORTAL);
 }
 
 int CaptivePortalBrowserTest::NumNeedReloadTabs() const {
-  return NumTabsWithState(CaptivePortalTabReloader::STATE_NEEDS_RELOAD);
+  return NumTabsWithState(
+      captive_portal::CaptivePortalTabReloader::STATE_NEEDS_RELOAD);
 }
 
 void CaptivePortalBrowserTest::NavigateToPageExpectNoTest(
@@ -1173,14 +1212,14 @@ void CaptivePortalBrowserTest::NavigateToPageExpectNoTest(
   EXPECT_EQ(1, browser->tab_strip_model()->count());
   EXPECT_EQ(expected_navigations, navigation_observer.num_navigations());
   EXPECT_EQ(0, NumLoadingTabs());
-  EXPECT_EQ(CaptivePortalTabReloader::STATE_NONE,
+  EXPECT_EQ(captive_portal::CaptivePortalTabReloader::STATE_NONE,
             GetStateOfTabReloaderAt(browser, 0));
 }
 
 void CaptivePortalBrowserTest::SlowLoadNoCaptivePortal(
     Browser* browser,
     CaptivePortalResult expected_result) {
-  CaptivePortalTabReloader* tab_reloader =
+  captive_portal::CaptivePortalTabReloader* tab_reloader =
       GetTabReloader(browser->tab_strip_model()->GetActiveWebContents());
   ASSERT_TRUE(tab_reloader);
   SetSlowSSLLoadTime(tab_reloader, base::TimeDelta());
@@ -1204,7 +1243,7 @@ void CaptivePortalBrowserTest::SlowLoadNoCaptivePortal(
 
   // Wait for the request to be issued, then time it out.
   WaitForJobs(1);
-  FailJobs(1);
+  FailJobs(1, net::ERR_CONNECTION_TIMED_OUT, net::ResolveErrorInfo(net::OK));
   navigation_observer.WaitForNavigations(1);
 
   ASSERT_EQ(1, browser->tab_strip_model()->count());
@@ -1223,7 +1262,7 @@ void CaptivePortalBrowserTest::FastTimeoutNoCaptivePortal(
 
   // Set the load time to be large, so the timer won't trigger.  The value is
   // not restored at the end of the function.
-  CaptivePortalTabReloader* tab_reloader =
+  captive_portal::CaptivePortalTabReloader* tab_reloader =
       GetTabReloader(browser->tab_strip_model()->GetActiveWebContents());
   ASSERT_TRUE(tab_reloader);
   SetSlowSSLLoadTime(tab_reloader, base::TimeDelta::FromHours(1));
@@ -1256,7 +1295,7 @@ void CaptivePortalBrowserTest::FastTimeoutNoCaptivePortal(
   EXPECT_EQ(0, NumLoadingTabs());
 
   // Check the tab's state, and verify no captive portal check is pending.
-  EXPECT_EQ(CaptivePortalTabReloader::STATE_NONE,
+  EXPECT_EQ(captive_portal::CaptivePortalTabReloader::STATE_NONE,
             GetStateOfTabReloaderAt(browser, 0));
   EXPECT_FALSE(CheckPending(browser));
 
@@ -1287,7 +1326,7 @@ void CaptivePortalBrowserTest::SlowLoadBehindCaptivePortal(
   ASSERT_FALSE(tab_strip_model->GetActiveWebContents()->IsLoading());
 
   // Trigger a captive portal check quickly.
-  CaptivePortalTabReloader* tab_reloader =
+  captive_portal::CaptivePortalTabReloader* tab_reloader =
       GetTabReloader(tab_strip_model->GetActiveWebContents());
   ASSERT_TRUE(tab_reloader);
   SetSlowSSLLoadTime(tab_reloader, base::TimeDelta());
@@ -1299,8 +1338,8 @@ void CaptivePortalBrowserTest::SlowLoadBehindCaptivePortal(
   int initial_loading_tabs = NumLoadingTabs();
   int expected_broken_tabs = NumBrokenTabs();
   size_t initial_browser_count = browser_list_->size();
-  if (CaptivePortalTabReloader::STATE_BROKEN_BY_PORTAL !=
-          GetStateOfTabReloader(tab_strip_model->GetActiveWebContents())) {
+  if (captive_portal::CaptivePortalTabReloader::STATE_BROKEN_BY_PORTAL !=
+      GetStateOfTabReloader(tab_strip_model->GetActiveWebContents())) {
     ++expected_broken_tabs;
   }
 
@@ -1330,8 +1369,11 @@ void CaptivePortalBrowserTest::SlowLoadBehindCaptivePortal(
       EXPECT_EQ(popup_browser, browser_list_->GetLastActive());
       EXPECT_EQ(Browser::TYPE_POPUP, popup_browser->type());
       login_tab = popup_browser->tab_strip_model()->GetWebContentsAt(0);
-      EXPECT_TRUE(CaptivePortalTabHelper::FromWebContents(login_tab)
-                      ->is_captive_portal_window());
+      EXPECT_TRUE(
+          captive_portal::CaptivePortalTabHelper::FromWebContents(login_tab)
+              ->is_captive_portal_window());
+      EXPECT_EQ(base::ASCIIToUTF16(kLoginSecureDnsDisabledTitle),
+                login_tab->GetTitle());
     } else {
       ASSERT_EQ(initial_browser_count, browser_list_->size());
       ASSERT_EQ(initial_tab_count + 1, tab_strip_model->count());
@@ -1341,7 +1383,7 @@ void CaptivePortalBrowserTest::SlowLoadBehindCaptivePortal(
 
     EXPECT_EQ(expected_login_tab_navigations,
               navigation_observer.NumNavigationsForTab(login_tab));
-    EXPECT_EQ(CaptivePortalTabReloader::STATE_NONE,
+    EXPECT_EQ(captive_portal::CaptivePortalTabReloader::STATE_NONE,
               GetStateOfTabReloader(login_tab));
     EXPECT_TRUE(IsLoginTab(login_tab));
   } else {
@@ -1363,7 +1405,7 @@ void CaptivePortalBrowserTest::SlowLoadBehindCaptivePortal(
   EXPECT_EQ(expected_portal_checks, portal_observer.num_results_received());
   EXPECT_FALSE(CheckPending(browser));
 
-  EXPECT_EQ(CaptivePortalTabReloader::STATE_BROKEN_BY_PORTAL,
+  EXPECT_EQ(captive_portal::CaptivePortalTabReloader::STATE_BROKEN_BY_PORTAL,
             GetStateOfTabReloaderAt(browser, initial_active_index));
 
   // Reset the load time to be large, so the timer won't trigger on a reload.
@@ -1374,12 +1416,14 @@ void CaptivePortalBrowserTest::FastTimeoutBehindCaptivePortal(
     Browser* browser,
     bool expect_open_login_tab) {
   FastErrorBehindCaptivePortal(browser, expect_open_login_tab,
+                               false /* expect_new_login_browser */,
                                GURL(kMockHttpsQuickTimeoutUrl));
 }
 
 void CaptivePortalBrowserTest::FastErrorBehindCaptivePortal(
     Browser* browser,
     bool expect_open_login_tab,
+    bool expect_new_login_browser,
     const GURL& error_url) {
   TabStripModel* tab_strip_model = browser->tab_strip_model();
   // Calling this on a tab that's waiting for a load to manually be timed out
@@ -1388,7 +1432,7 @@ void CaptivePortalBrowserTest::FastErrorBehindCaptivePortal(
 
   // Set the load time to be large, so the timer won't trigger.  The value is
   // not restored at the end of the function.
-  CaptivePortalTabReloader* tab_reloader =
+  captive_portal::CaptivePortalTabReloader* tab_reloader =
       GetTabReloader(tab_strip_model->GetActiveWebContents());
   ASSERT_TRUE(tab_reloader);
   SetSlowSSLLoadTime(tab_reloader, base::TimeDelta::FromHours(1));
@@ -1399,8 +1443,9 @@ void CaptivePortalBrowserTest::FastErrorBehindCaptivePortal(
   int initial_active_index = tab_strip_model->active_index();
   int initial_loading_tabs = NumLoadingTabs();
   int expected_broken_tabs = NumBrokenTabs();
-  if (CaptivePortalTabReloader::STATE_BROKEN_BY_PORTAL !=
-          GetStateOfTabReloader(tab_strip_model->GetActiveWebContents())) {
+  size_t initial_browser_count = browser_list_->size();
+  if (captive_portal::CaptivePortalTabReloader::STATE_BROKEN_BY_PORTAL !=
+      GetStateOfTabReloader(tab_strip_model->GetActiveWebContents())) {
     ++expected_broken_tabs;
   }
 
@@ -1414,19 +1459,43 @@ void CaptivePortalBrowserTest::FastErrorBehindCaptivePortal(
 
   if (expect_open_login_tab) {
     navigation_observer.WaitForNavigations(2);
-    ASSERT_EQ(initial_tab_count + 1, tab_strip_model->count());
-    EXPECT_EQ(initial_tab_count, tab_strip_model->active_index());
-    // Make sure that the originally active tab and the captive portal tab have
-    // each loaded once.
+    WebContents* login_tab;
+
+    if (expect_new_login_browser) {
+      ASSERT_EQ(initial_browser_count + 1, browser_list_->size());
+
+      // Check the original browser
+      ASSERT_EQ(initial_tab_count, tab_strip_model->count());
+      EXPECT_EQ(initial_tab_count - 1, tab_strip_model->active_index());
+      EXPECT_NE(browser_list_->get(initial_browser_count - 1),
+                browser_list_->GetLastActive());
+
+      // Check the new popup browser
+      Browser* popup_browser = browser_list_->get(initial_browser_count);
+      EXPECT_EQ(popup_browser, browser_list_->GetLastActive());
+      EXPECT_EQ(Browser::TYPE_POPUP, popup_browser->type());
+      login_tab = popup_browser->tab_strip_model()->GetWebContentsAt(0);
+      EXPECT_TRUE(
+          captive_portal::CaptivePortalTabHelper::FromWebContents(login_tab)
+              ->is_captive_portal_window());
+      EXPECT_EQ(base::ASCIIToUTF16(kLoginSecureDnsDisabledTitle),
+                login_tab->GetTitle());
+    } else {
+      ASSERT_EQ(initial_browser_count, browser_list_->size());
+      ASSERT_EQ(initial_tab_count + 1, tab_strip_model->count());
+      EXPECT_EQ(initial_tab_count, tab_strip_model->active_index());
+      login_tab = tab_strip_model->GetWebContentsAt(initial_tab_count);
+    }
+
     EXPECT_EQ(1, navigation_observer.NumNavigationsForTab(
                      tab_strip_model->GetWebContentsAt(initial_active_index)));
-    EXPECT_EQ(1, navigation_observer.NumNavigationsForTab(
-                     tab_strip_model->GetWebContentsAt(initial_tab_count)));
-    EXPECT_EQ(CaptivePortalTabReloader::STATE_NONE,
-              GetStateOfTabReloaderAt(browser, 1));
-    EXPECT_TRUE(IsLoginTab(tab_strip_model->GetWebContentsAt(1)));
+    EXPECT_EQ(1, navigation_observer.NumNavigationsForTab(login_tab));
+    EXPECT_EQ(captive_portal::CaptivePortalTabReloader::STATE_NONE,
+              GetStateOfTabReloader(login_tab));
+    EXPECT_TRUE(IsLoginTab(login_tab));
   } else {
     navigation_observer.WaitForNavigations(1);
+    ASSERT_EQ(initial_browser_count, browser_list_->size());
     EXPECT_EQ(initial_active_index, tab_strip_model->active_index());
     EXPECT_EQ(1, navigation_observer.NumNavigationsForTab(
                      tab_strip_model->GetWebContentsAt(initial_active_index)));
@@ -1441,7 +1510,7 @@ void CaptivePortalBrowserTest::FastErrorBehindCaptivePortal(
   EXPECT_EQ(1, portal_observer.num_results_received());
   EXPECT_FALSE(CheckPending(browser));
 
-  EXPECT_EQ(CaptivePortalTabReloader::STATE_BROKEN_BY_PORTAL,
+  EXPECT_EQ(captive_portal::CaptivePortalTabReloader::STATE_BROKEN_BY_PORTAL,
             GetStateOfTabReloaderAt(browser, initial_active_index));
 }
 
@@ -1480,7 +1549,7 @@ void CaptivePortalBrowserTest::NavigateLoginTab(Browser* browser,
   EXPECT_EQ(num_timed_out_tabs, NumBrokenTabs() - NumLoadingTabs());
 
   int login_tab_index = tab_strip_model->active_index();
-  EXPECT_EQ(CaptivePortalTabReloader::STATE_NONE,
+  EXPECT_EQ(captive_portal::CaptivePortalTabReloader::STATE_NONE,
             GetStateOfTabReloader(tab_strip_model->GetActiveWebContents()));
   ASSERT_TRUE(IsLoginTab(browser->tab_strip_model()->GetActiveWebContents()));
 
@@ -1501,7 +1570,7 @@ void CaptivePortalBrowserTest::NavigateLoginTab(Browser* browser,
   EXPECT_EQ(initial_tab_count, tab_strip_model->count());
   EXPECT_EQ(num_loading_tabs, NumLoadingTabs());
   EXPECT_EQ(num_loading_tabs + num_timed_out_tabs, NumBrokenTabs());
-  EXPECT_EQ(CaptivePortalTabReloader::STATE_NONE,
+  EXPECT_EQ(captive_portal::CaptivePortalTabReloader::STATE_NONE,
             GetStateOfTabReloaderAt(browser, login_tab_index));
   EXPECT_TRUE(IsLoginTab(tab_strip_model->GetWebContentsAt(login_tab_index)));
 
@@ -1512,7 +1581,8 @@ void CaptivePortalBrowserTest::NavigateLoginTab(Browser* browser,
 
 void CaptivePortalBrowserTest::Login(Browser* captive_portal_browser,
                                      int num_loading_tabs,
-                                     int num_timed_out_tabs) {
+                                     int num_timed_out_tabs,
+                                     int expected_portal_checks) {
   // Simulate logging in.
   SetBehindCaptivePortal(false);
 
@@ -1527,7 +1597,7 @@ void CaptivePortalBrowserTest::Login(Browser* captive_portal_browser,
 
   // Verify that the login page is on top.
   int login_tab_index = tab_strip_model->active_index();
-  EXPECT_EQ(CaptivePortalTabReloader::STATE_NONE,
+  EXPECT_EQ(captive_portal::CaptivePortalTabReloader::STATE_NONE,
             GetStateOfTabReloaderAt(captive_portal_browser, login_tab_index));
   ASSERT_TRUE(IsLoginTab(tab_strip_model->GetWebContentsAt(login_tab_index)));
 
@@ -1536,9 +1606,11 @@ void CaptivePortalBrowserTest::Login(Browser* captive_portal_browser,
                               "submitForm()");
   portal_observer.WaitForResults(1);
 
-  // Wait for all the timed out tabs to reload.
+  // Wait for all the timed out tabs to reload and any new portal checks
+  // triggered by the reloads.
   navigation_observer.WaitForNavigations(1 + num_timed_out_tabs);
-  EXPECT_EQ(1, portal_observer.num_results_received());
+  portal_observer.WaitForResults(expected_portal_checks);
+  EXPECT_EQ(expected_portal_checks, portal_observer.num_results_received());
 
   // The tabs that were loading before should still be loading, and now be in
   // STATE_NEEDS_RELOAD.
@@ -1550,7 +1622,7 @@ void CaptivePortalBrowserTest::Login(Browser* captive_portal_browser,
   // captive portal tab.
   EXPECT_EQ(initial_browser_count, browser_list_->size());
   EXPECT_EQ(initial_tab_count, NumTabs());
-  EXPECT_EQ(CaptivePortalTabReloader::STATE_NONE,
+  EXPECT_EQ(captive_portal::CaptivePortalTabReloader::STATE_NONE,
             GetStateOfTabReloaderAt(captive_portal_browser, login_tab_index));
   EXPECT_FALSE(IsLoginTab(tab_strip_model->GetWebContentsAt(login_tab_index)));
 
@@ -1569,7 +1641,7 @@ void CaptivePortalBrowserTest::LoginCertError(Browser* browser) {
 
   // Verify that the login page is on top.
   int login_tab_index = tab_strip_model->active_index();
-  EXPECT_EQ(CaptivePortalTabReloader::STATE_NONE,
+  EXPECT_EQ(captive_portal::CaptivePortalTabReloader::STATE_NONE,
             GetStateOfTabReloaderAt(browser, login_tab_index));
   ASSERT_TRUE(IsLoginTab(tab_strip_model->GetWebContentsAt(login_tab_index)));
 
@@ -1593,9 +1665,9 @@ void CaptivePortalBrowserTest::LoginCertError(Browser* browser) {
   // interstitial page, since no portal was found, it should be in STATE_NONE,
   // as should the login tab.
   ASSERT_EQ(2, tab_strip_model->count());
-  EXPECT_EQ(CaptivePortalTabReloader::STATE_NONE,
+  EXPECT_EQ(captive_portal::CaptivePortalTabReloader::STATE_NONE,
             GetStateOfTabReloaderAt(browser, 0));
-  EXPECT_EQ(CaptivePortalTabReloader::STATE_NONE,
+  EXPECT_EQ(captive_portal::CaptivePortalTabReloader::STATE_NONE,
             GetStateOfTabReloaderAt(browser, login_tab_index));
   EXPECT_FALSE(IsLoginTab(tab_strip_model->GetWebContentsAt(login_tab_index)));
 
@@ -1619,7 +1691,8 @@ void CaptivePortalBrowserTest::FailLoadsAfterLogin(Browser* browser,
   // Connection(s) finally time out.  There should have already been a call
   // to wait for the requests to be issued before logging on.
   WaitForJobs(num_loading_tabs);
-  FailJobs(num_loading_tabs);
+  FailJobs(num_loading_tabs, net::ERR_CONNECTION_TIMED_OUT,
+           net::ResolveErrorInfo(net::OK));
 
   fail_loads_observer.WaitForNavigations();
 
@@ -1645,7 +1718,7 @@ void CaptivePortalBrowserTest::FailLoadsWithoutLogin(Browser* browser,
   TabStripModel* tab_strip_model = captive_portal_browser->tab_strip_model();
   int initial_num_tabs = NumTabs();
   int login_tab = tab_strip_model->active_index();
-  EXPECT_EQ(CaptivePortalTabReloader::STATE_NONE,
+  EXPECT_EQ(captive_portal::CaptivePortalTabReloader::STATE_NONE,
             GetStateOfTabReloader(tab_strip_model->GetActiveWebContents()));
   ASSERT_TRUE(IsLoginTab(tab_strip_model->GetActiveWebContents()));
 
@@ -1653,7 +1726,8 @@ void CaptivePortalBrowserTest::FailLoadsWithoutLogin(Browser* browser,
   MultiNavigationObserver navigation_observer;
   // Connection(s) finally time out.  There should have already been a call
   // to wait for the requests to be issued.
-  FailJobs(num_loading_tabs);
+  FailJobs(num_loading_tabs, net::ERR_CONNECTION_TIMED_OUT,
+           net::ResolveErrorInfo(net::OK));
 
   navigation_observer.WaitForNavigations(num_loading_tabs);
 
@@ -1666,7 +1740,7 @@ void CaptivePortalBrowserTest::FailLoadsWithoutLogin(Browser* browser,
   EXPECT_EQ(0, NumNeedReloadTabs());
   EXPECT_EQ(0, NumLoadingTabs());
   EXPECT_EQ(num_loading_tabs, NumBrokenTabs());
-  EXPECT_EQ(CaptivePortalTabReloader::STATE_NONE,
+  EXPECT_EQ(captive_portal::CaptivePortalTabReloader::STATE_NONE,
             GetStateOfTabReloader(tab_strip_model->GetActiveWebContents()));
   EXPECT_TRUE(IsLoginTab(tab_strip_model->GetActiveWebContents()));
   EXPECT_EQ(login_tab, tab_strip_model->active_index());
@@ -1696,12 +1770,13 @@ void CaptivePortalBrowserTest::RunNavigateLoadingTabToTimeoutTest(
   AbandonJobs(1);
 
   TabStripModel* tab_strip_model = browser->tab_strip_model();
-  CaptivePortalTabReloader* tab_reloader =
+  captive_portal::CaptivePortalTabReloader* tab_reloader =
       GetTabReloader(tab_strip_model->GetWebContentsAt(0));
   ASSERT_TRUE(tab_reloader);
 
-  // A non-zero delay makes it more likely that CaptivePortalTabHelper will
-  // be confused by events relating to canceling the old navigation.
+  // A non-zero delay makes it more likely that
+  // captive_portal::CaptivePortalTabHelper will be confused by events relating
+  // to canceling the old navigation.
   SetSlowSSLLoadTime(tab_reloader, base::TimeDelta::FromSeconds(2));
   CaptivePortalObserver portal_observer(browser->profile());
 
@@ -1710,9 +1785,9 @@ void CaptivePortalBrowserTest::RunNavigateLoadingTabToTimeoutTest(
   // stop loading before navigating.
   //
   // This may result in either 0 or 1 DidStopLoading events.  If there is one,
-  // it must happen before the CaptivePortalService sends out its test request,
-  // so waiting for PortalObserver to see that request prevents it from
-  // confusing the MultiNavigationObservers used later.
+  // it must happen before the captive_portal::CaptivePortalService sends out
+  // its test request, so waiting for PortalObserver to see that request
+  // prevents it from confusing the MultiNavigationObservers used later.
   tab_strip_model->ActivateTabAt(0, {TabStripModel::GestureType::kOther});
   browser->OpenURL(content::OpenURLParams(timeout_url, content::Referrer(),
                                           WindowOpenDisposition::CURRENT_TAB,
@@ -1720,9 +1795,9 @@ void CaptivePortalBrowserTest::RunNavigateLoadingTabToTimeoutTest(
   portal_observer.WaitForResults(1);
   EXPECT_FALSE(CheckPending(browser));
   EXPECT_EQ(1, NumLoadingTabs());
-  EXPECT_EQ(CaptivePortalTabReloader::STATE_BROKEN_BY_PORTAL,
+  EXPECT_EQ(captive_portal::CaptivePortalTabReloader::STATE_BROKEN_BY_PORTAL,
             GetStateOfTabReloaderAt(browser, 0));
-  EXPECT_EQ(CaptivePortalTabReloader::STATE_NONE,
+  EXPECT_EQ(captive_portal::CaptivePortalTabReloader::STATE_NONE,
             GetStateOfTabReloaderAt(browser, 1));
   ASSERT_TRUE(IsLoginTab(tab_strip_model->GetWebContentsAt(1)));
 
@@ -1732,22 +1807,23 @@ void CaptivePortalBrowserTest::RunNavigateLoadingTabToTimeoutTest(
   // Simulate logging in.
   tab_strip_model->ActivateTabAt(1, {TabStripModel::GestureType::kOther});
   SetSlowSSLLoadTime(tab_reloader, base::TimeDelta::FromDays(1));
-  Login(browser, 1, 0);
+  Login(browser, 1 /* num_loading_tabs */, 0 /* num_timed_out_tabs */,
+        1 /* expected_portal_checks */);
 
   // Timeout occurs, and page is automatically reloaded.
   FailLoadsAfterLogin(browser, 1);
 }
 
 void CaptivePortalBrowserTest::SetSlowSSLLoadTime(
-    CaptivePortalTabReloader* tab_reloader,
+    captive_portal::CaptivePortalTabReloader* tab_reloader,
     base::TimeDelta slow_ssl_load_time) {
   tab_reloader->set_slow_ssl_load_time(slow_ssl_load_time);
 }
 
-CaptivePortalTabReloader* CaptivePortalBrowserTest::GetTabReloader(
-    WebContents* web_contents) const {
-  return CaptivePortalTabHelper::FromWebContents(web_contents)->
-      GetTabReloaderForTest();
+captive_portal::CaptivePortalTabReloader*
+CaptivePortalBrowserTest::GetTabReloader(WebContents* web_contents) const {
+  return captive_portal::CaptivePortalTabHelper::FromWebContents(web_contents)
+      ->GetTabReloaderForTest();
 }
 
 // Make sure there's no test for a captive portal on HTTP timeouts.  This will
@@ -1823,7 +1899,7 @@ IN_PROC_BROWSER_TEST_F(CaptivePortalBrowserTest, RedirectSSLCertError) {
 
   GURL ssl_login_url = https_server.GetURL(kTestServerLoginPath);
 
-  CaptivePortalService* captive_portal_service =
+  captive_portal::CaptivePortalService* captive_portal_service =
       CaptivePortalServiceFactory::GetForProfile(browser()->profile());
   ASSERT_TRUE(captive_portal_service);
   SetUpCaptivePortalService(browser()->profile(),
@@ -1839,8 +1915,9 @@ IN_PROC_BROWSER_TEST_F(CaptivePortalBrowserTest, Login) {
   // Load starts, detect captive portal and open up a login tab.
   SlowLoadBehindCaptivePortal(browser(), true);
 
-  // Log in.  One loading tab, no timed out ones.
-  Login(browser(), 1, 0);
+  // Log in.
+  Login(browser(), 1 /* num_loading_tabs */, 0 /* num_timed_out_tabs */,
+        1 /* expected_portal_checks */);
 
   // Timeout occurs, and page is automatically reloaded.
   FailLoadsAfterLogin(browser(), 1);
@@ -1865,14 +1942,15 @@ IN_PROC_BROWSER_TEST_F(CaptivePortalBrowserTest, LoginIncognito) {
 
   TabStripModel* tab_strip_model = browser()->tab_strip_model();
   EXPECT_EQ(1, tab_strip_model->count());
-  EXPECT_EQ(CaptivePortalTabReloader::STATE_NONE,
+  EXPECT_EQ(captive_portal::CaptivePortalTabReloader::STATE_NONE,
             GetStateOfTabReloaderAt(browser(), 0));
 
-  Login(incognito_browser, 1, 0);
+  Login(incognito_browser, 1 /* num_loading_tabs */, 0 /* num_timed_out_tabs */,
+        1 /* expected_portal_checks */);
   FailLoadsAfterLogin(incognito_browser, 1);
 
   EXPECT_EQ(1, tab_strip_model->count());
-  EXPECT_EQ(CaptivePortalTabReloader::STATE_NONE,
+  EXPECT_EQ(captive_portal::CaptivePortalTabReloader::STATE_NONE,
             GetStateOfTabReloaderAt(browser(), 0));
 
   EXPECT_EQ(0, navigation_observer.NumNavigationsForTab(
@@ -1885,53 +1963,16 @@ IN_PROC_BROWSER_TEST_F(CaptivePortalBrowserTest, LoginIncognito) {
 IN_PROC_BROWSER_TEST_F(CaptivePortalBrowserTest, LoginSlow) {
   SlowLoadBehindCaptivePortal(browser(), true);
   FailLoadsWithoutLogin(browser(), 1);
-  Login(browser(), 0, 1);
+  Login(browser(), 0 /* num_loading_tabs */, 1 /* num_timed_out_tabs */,
+        1 /* expected_portal_checks */);
 }
 
 // Checks the unlikely case that the tab times out before the timer triggers.
 // This most likely won't happen, but should still work:
 IN_PROC_BROWSER_TEST_F(CaptivePortalBrowserTest, LoginFastTimeout) {
   FastTimeoutBehindCaptivePortal(browser(), true);
-  Login(browser(), 0, 1);
-}
-
-// Test that a navigation in a tab that is part of a captive portal windoow
-// has secure DNS disabled.
-IN_PROC_BROWSER_TEST_F(CaptivePortalBrowserTest,
-                       CaptivePortalWindowNavigationDisableSecureDns) {
-  content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
-  CaptivePortalTabHelper::FromWebContents(web_contents)
-      ->set_is_captive_portal_window();
-
-  ASSERT_TRUE(embedded_test_server()->Start());
-  GURL url(embedded_test_server()->GetURL("/title1.html"));
-  url::Origin origin = url::Origin::Create(url);
-
-  // Disable the interceptor that was set up during construction of the test.
-  // This is necessary since only one interceptor is allowed.
-  url_loader_interceptor_.reset();
-
-  std::unique_ptr<content::URLLoaderInterceptor> url_loader_interceptor;
-  bool invoked_interceptor = false;
-  url_loader_interceptor = std::make_unique<content::URLLoaderInterceptor>(
-      base::BindLambdaForTesting(
-          [&](content::URLLoaderInterceptor::RequestParams* params) {
-            if (params->url_request.url.spec().find("title1.html") !=
-                std::string::npos) {
-              invoked_interceptor = true;
-              EXPECT_TRUE(params->url_request.trusted_params);
-              EXPECT_TRUE(
-                  params->url_request.trusted_params->disable_secure_dns);
-              EXPECT_EQ(
-                  net::NetworkIsolationKey(origin, origin),
-                  params->url_request.trusted_params->network_isolation_key);
-            }
-            return false;
-          }));
-
-  ui_test_utils::NavigateToURL(browser(), url);
-  EXPECT_TRUE(invoked_interceptor);
+  Login(browser(), 0 /* num_loading_tabs */, 1 /* num_timed_out_tabs */,
+        1 /* expected_portal_checks */);
 }
 
 // A cert error triggers a captive portal check and results in opening a login
@@ -1951,7 +1992,9 @@ IN_PROC_BROWSER_TEST_F(CaptivePortalBrowserTest,
   int cert_error_tab_index = tab_strip_model->active_index();
   // The interstitial should trigger a captive portal check when it opens, just
   // like navigating to kMockHttpsQuickTimeoutUrl.
-  FastErrorBehindCaptivePortal(browser(), true, cert_error_url);
+  FastErrorBehindCaptivePortal(browser(), true /* expect_open_login_tab */,
+                               false /* expect_new_login_browser */,
+                               cert_error_url);
   EXPECT_EQ(CaptivePortalBlockingPage::kTypeForTesting,
             GetInterstitialType(broken_tab_contents));
 
@@ -1999,9 +2042,10 @@ IN_PROC_BROWSER_TEST_F(CaptivePortalBrowserTest,
   // At this point the user is logged in to the captive portal, so the captive
   // portal interstitial shouldn't get recreated.
   CaptivePortalObserver portal_observer(browser()->profile());
-  CaptivePortalService* captive_portal_service =
+  captive_portal::CaptivePortalService* captive_portal_service =
       CaptivePortalServiceFactory::GetForProfile(browser()->profile());
-  captive_portal_service->DetectCaptivePortal();
+  captive_portal_service->DetectCaptivePortal(
+      captive_portal::CaptivePortalProbeReason::kCertificateError);
   portal_observer.WaitForResults(1);
   EXPECT_EQ(SSLBlockingPage::kTypeForTesting,
             GetInterstitialType(broken_tab_contents));
@@ -2010,7 +2054,8 @@ IN_PROC_BROWSER_TEST_F(CaptivePortalBrowserTest,
   // captive portal interstitial should still not get recreated.
   SetBehindCaptivePortal(true);
   CaptivePortalObserver final_portal_observer(browser()->profile());
-  captive_portal_service->DetectCaptivePortal();
+  captive_portal_service->DetectCaptivePortal(
+      captive_portal::CaptivePortalProbeReason::kCertificateError);
   final_portal_observer.WaitForResults(1);
   EXPECT_EQ(SSLBlockingPage::kTypeForTesting,
             GetInterstitialType(broken_tab_contents));
@@ -2052,15 +2097,16 @@ IN_PROC_BROWSER_TEST_F(CaptivePortalBrowserTest,
   EXPECT_EQ(0, NumLoadingTabs());
   EXPECT_FALSE(CheckPending(browser()));
   EXPECT_EQ(1, browser()->tab_strip_model()->count());
-  EXPECT_EQ(CaptivePortalTabReloader::STATE_NONE,
+  EXPECT_EQ(captive_portal::CaptivePortalTabReloader::STATE_NONE,
             GetStateOfTabReloaderAt(browser(), 0));
 
   // Re-enable captive portal checks and fire one. The result should be ignored.
   RespondToProbeRequests(true);
   CaptivePortalObserver portal_observer2(browser()->profile());
-  CaptivePortalService* captive_portal_service =
+  captive_portal::CaptivePortalService* captive_portal_service =
       CaptivePortalServiceFactory::GetForProfile(browser()->profile());
-  captive_portal_service->DetectCaptivePortal();
+  captive_portal_service->DetectCaptivePortal(
+      captive_portal::CaptivePortalProbeReason::kCertificateError);
   portal_observer2.WaitForResults(1);
 
   EXPECT_FALSE(IsShowingInterstitial(broken_tab_contents));
@@ -2071,7 +2117,7 @@ IN_PROC_BROWSER_TEST_F(CaptivePortalBrowserTest,
   EXPECT_EQ(0, NumLoadingTabs());
   EXPECT_FALSE(CheckPending(browser()));
   EXPECT_EQ(1, browser()->tab_strip_model()->count());
-  EXPECT_EQ(CaptivePortalTabReloader::STATE_NONE,
+  EXPECT_EQ(captive_portal::CaptivePortalTabReloader::STATE_NONE,
             GetStateOfTabReloaderAt(browser(), 0));
 }
 
@@ -2107,15 +2153,16 @@ IN_PROC_BROWSER_TEST_F(CaptivePortalBrowserTest,
   EXPECT_EQ(0, NumLoadingTabs());
   EXPECT_FALSE(CheckPending(browser()));
   EXPECT_EQ(1, browser()->tab_strip_model()->count());
-  EXPECT_EQ(CaptivePortalTabReloader::STATE_NONE,
+  EXPECT_EQ(captive_portal::CaptivePortalTabReloader::STATE_NONE,
             GetStateOfTabReloaderAt(browser(), 0));
 
   // Re-enable captive portal checks and fire one. The result should be ignored.
   RespondToProbeRequests(true);
   CaptivePortalObserver portal_observer2(browser()->profile());
-  CaptivePortalService* captive_portal_service =
+  captive_portal::CaptivePortalService* captive_portal_service =
       CaptivePortalServiceFactory::GetForProfile(browser()->profile());
-  captive_portal_service->DetectCaptivePortal();
+  captive_portal_service->DetectCaptivePortal(
+      captive_portal::CaptivePortalProbeReason::kCertificateError);
   portal_observer2.WaitForResults(1);
 
   EXPECT_FALSE(IsShowingInterstitial(broken_tab_contents));
@@ -2126,7 +2173,7 @@ IN_PROC_BROWSER_TEST_F(CaptivePortalBrowserTest,
   EXPECT_EQ(0, NumLoadingTabs());
   EXPECT_FALSE(CheckPending(browser()));
   EXPECT_EQ(1, browser()->tab_strip_model()->count());
-  EXPECT_EQ(CaptivePortalTabReloader::STATE_NONE,
+  EXPECT_EQ(captive_portal::CaptivePortalTabReloader::STATE_NONE,
             GetStateOfTabReloaderAt(browser(), 0));
 }
 
@@ -2167,15 +2214,16 @@ IN_PROC_BROWSER_TEST_F(CaptivePortalBrowserTest,
   EXPECT_EQ(0, NumLoadingTabs());
   EXPECT_FALSE(CheckPending(browser()));
   EXPECT_EQ(1, browser()->tab_strip_model()->count());
-  EXPECT_EQ(CaptivePortalTabReloader::STATE_NONE,
+  EXPECT_EQ(captive_portal::CaptivePortalTabReloader::STATE_NONE,
             GetStateOfTabReloaderAt(browser(), 0));
 
   // Re-enable captive portal checks and fire one. The result should be ignored.
   RespondToProbeRequests(true);
   CaptivePortalObserver portal_observer2(browser()->profile());
-  CaptivePortalService* captive_portal_service =
+  captive_portal::CaptivePortalService* captive_portal_service =
       CaptivePortalServiceFactory::GetForProfile(browser()->profile());
-  captive_portal_service->DetectCaptivePortal();
+  captive_portal_service->DetectCaptivePortal(
+      captive_portal::CaptivePortalProbeReason::kCertificateError);
   portal_observer2.WaitForResults(1);
 
   EXPECT_FALSE(IsShowingInterstitial(broken_tab_contents));
@@ -2186,7 +2234,7 @@ IN_PROC_BROWSER_TEST_F(CaptivePortalBrowserTest,
   EXPECT_EQ(0, NumLoadingTabs());
   EXPECT_FALSE(CheckPending(browser()));
   EXPECT_EQ(1, browser()->tab_strip_model()->count());
-  EXPECT_EQ(CaptivePortalTabReloader::STATE_NONE,
+  EXPECT_EQ(captive_portal::CaptivePortalTabReloader::STATE_NONE,
             GetStateOfTabReloaderAt(browser(), 0));
 }
 
@@ -2234,7 +2282,7 @@ IN_PROC_BROWSER_TEST_F(
   EXPECT_EQ(0, NumLoadingTabs());
   EXPECT_FALSE(CheckPending(browser()));
   EXPECT_EQ(1, browser()->tab_strip_model()->count());
-  EXPECT_EQ(CaptivePortalTabReloader::STATE_NONE,
+  EXPECT_EQ(captive_portal::CaptivePortalTabReloader::STATE_NONE,
             GetStateOfTabReloaderAt(browser(), 0));
 }
 
@@ -2283,9 +2331,9 @@ IN_PROC_BROWSER_TEST_F(
             portal_observer.captive_portal_result());
   EXPECT_EQ(0, NumLoadingTabs());
   EXPECT_FALSE(CheckPending(browser()));
-  EXPECT_EQ(CaptivePortalTabReloader::STATE_BROKEN_BY_PORTAL,
+  EXPECT_EQ(captive_portal::CaptivePortalTabReloader::STATE_BROKEN_BY_PORTAL,
             GetStateOfTabReloaderAt(browser(), 0));
-  EXPECT_EQ(CaptivePortalTabReloader::STATE_NONE,
+  EXPECT_EQ(captive_portal::CaptivePortalTabReloader::STATE_NONE,
             GetStateOfTabReloaderAt(browser(), 1));
   EXPECT_TRUE(IsLoginTab(tab_strip_model->GetWebContentsAt(1)));
 }
@@ -2311,7 +2359,9 @@ IN_PROC_BROWSER_TEST_F(CaptivePortalBrowserTest, SSLCertErrorLogin) {
   // The path does not matter.
   GURL cert_error_url = https_server.GetURL(kTestServerLoginPath);
   // A captive portal check is triggered in FastErrorBehindCaptivePortal.
-  FastErrorBehindCaptivePortal(browser(), true, cert_error_url);
+  FastErrorBehindCaptivePortal(browser(), true /* expect_open_login_tab */,
+                               false /* expect_new_login_browser */,
+                               cert_error_url);
 
   EXPECT_EQ(SSLBlockingPage::kTypeForTesting,
             GetInterstitialType(broken_tab_contents));
@@ -2335,7 +2385,8 @@ IN_PROC_BROWSER_TEST_F(CaptivePortalBrowserTest, LoginExtraNavigations) {
   NavigateLoginTab(browser(), 0, 1);
 
   // Simulate logging in.
-  Login(browser(), 0, 1);
+  Login(browser(), 0 /* num_loading_tabs */, 1 /* num_timed_out_tabs */,
+        1 /* expected_portal_checks */);
 }
 
 // After the first SSL timeout, closes the login tab and makes sure it's opened
@@ -2350,7 +2401,8 @@ IN_PROC_BROWSER_TEST_F(CaptivePortalBrowserTest, CloseLoginTab) {
 
   // Go through the standard slow load login, and make sure it still works.
   SlowLoadBehindCaptivePortal(browser(), true);
-  Login(browser(), 1, 0);
+  Login(browser(), 1 /* num_loading_tabs */, 0 /* num_timed_out_tabs */,
+        1 /* expected_portal_checks */);
   FailLoadsAfterLogin(browser(), 1);
 }
 
@@ -2378,19 +2430,20 @@ IN_PROC_BROWSER_TEST_F(CaptivePortalBrowserTest, TwoBrokenTabs) {
   EXPECT_EQ(1, navigation_observer.num_navigations());
   EXPECT_EQ(1, navigation_observer.NumNavigationsForTab(
                    tab_strip_model->GetWebContentsAt(2)));
-  ASSERT_EQ(CaptivePortalTabReloader::STATE_BROKEN_BY_PORTAL,
+  ASSERT_EQ(captive_portal::CaptivePortalTabReloader::STATE_BROKEN_BY_PORTAL,
             GetStateOfTabReloaderAt(browser(), 0));
-  EXPECT_EQ(CaptivePortalTabReloader::STATE_NONE,
+  EXPECT_EQ(captive_portal::CaptivePortalTabReloader::STATE_NONE,
             GetStateOfTabReloaderAt(browser(), 1));
   ASSERT_TRUE(IsLoginTab(tab_strip_model->GetWebContentsAt(1)));
-  ASSERT_EQ(CaptivePortalTabReloader::STATE_NONE,
+  ASSERT_EQ(captive_portal::CaptivePortalTabReloader::STATE_NONE,
             GetStateOfTabReloaderAt(browser(), 2));
   ASSERT_EQ(2, tab_strip_model->active_index());
 
   SlowLoadBehindCaptivePortal(browser(), false);
 
   tab_strip_model->ActivateTabAt(1, {TabStripModel::GestureType::kOther});
-  Login(browser(), 2, 0);
+  Login(browser(), 2 /* num_loading_tabs */, 0 /* num_timed_out_tabs */,
+        1 /* expected_portal_checks */);
   FailLoadsAfterLogin(browser(), 2);
 }
 
@@ -2413,11 +2466,12 @@ IN_PROC_BROWSER_TEST_F(CaptivePortalBrowserTest, AbortLoad) {
   EXPECT_EQ(0, NumBrokenTabs());
   EXPECT_EQ(0, portal_observer.num_results_received());
   EXPECT_FALSE(CheckPending(browser()));
-  EXPECT_EQ(CaptivePortalTabReloader::STATE_NONE,
+  EXPECT_EQ(captive_portal::CaptivePortalTabReloader::STATE_NONE,
             GetStateOfTabReloaderAt(browser(), 0));
 
   tab_strip_model->ActivateTabAt(1, {TabStripModel::GestureType::kOther});
-  Login(browser(), 0, 0);
+  Login(browser(), 0 /* num_loading_tabs */, 0 /* num_timed_out_tabs */,
+        1 /* expected_portal_checks */);
 }
 
 // Checks the case where the timed out tab is successfully navigated before
@@ -2433,12 +2487,13 @@ IN_PROC_BROWSER_TEST_F(CaptivePortalBrowserTest, NavigateBrokenTab) {
   tab_strip_model->ActivateTabAt(0, {TabStripModel::GestureType::kOther});
   ui_test_utils::NavigateToURL(browser(),
                                embedded_test_server()->GetURL("/title2.html"));
-  EXPECT_EQ(CaptivePortalTabReloader::STATE_NONE,
+  EXPECT_EQ(captive_portal::CaptivePortalTabReloader::STATE_NONE,
             GetStateOfTabReloaderAt(browser(), 0));
 
   // Simulate logging in.
   tab_strip_model->ActivateTabAt(1, {TabStripModel::GestureType::kOther});
-  Login(browser(), 0, 0);
+  Login(browser(), 0 /* num_loading_tabs */, 0 /* num_timed_out_tabs */,
+        1 /* expected_portal_checks */);
 }
 
 // Checks that captive portal detection triggers correctly when a same-site
@@ -2504,7 +2559,7 @@ IN_PROC_BROWSER_TEST_F(CaptivePortalBrowserTest, GoBack) {
 
   EXPECT_EQ(1, navigation_observer.NumNavigationsForTab(
                    tab_strip_model->GetWebContentsAt(0)));
-  EXPECT_EQ(CaptivePortalTabReloader::STATE_NONE,
+  EXPECT_EQ(captive_portal::CaptivePortalTabReloader::STATE_NONE,
             GetStateOfTabReloaderAt(browser(), 0));
   EXPECT_EQ(0, portal_observer.num_results_received());
 }
@@ -2521,13 +2576,13 @@ IN_PROC_BROWSER_TEST_F(CaptivePortalBrowserTest, GoBackToTimeout) {
   // Navigate to a working page.
   ui_test_utils::NavigateToURL(browser(),
                                embedded_test_server()->GetURL("/title2.html"));
-  ASSERT_EQ(CaptivePortalTabReloader::STATE_NONE,
+  ASSERT_EQ(captive_portal::CaptivePortalTabReloader::STATE_NONE,
             GetStateOfTabReloaderAt(browser(), 0));
 
   EnableCaptivePortalDetection(browser()->profile(), true);
 
   TabStripModel* tab_strip_model = browser()->tab_strip_model();
-  CaptivePortalTabReloader* tab_reloader =
+  captive_portal::CaptivePortalTabReloader* tab_reloader =
       GetTabReloader(tab_strip_model->GetActiveWebContents());
   ASSERT_TRUE(tab_reloader);
   SetSlowSSLLoadTime(tab_reloader, base::TimeDelta());
@@ -2549,9 +2604,9 @@ IN_PROC_BROWSER_TEST_F(CaptivePortalBrowserTest, GoBackToTimeout) {
   ASSERT_EQ(captive_portal::RESULT_BEHIND_CAPTIVE_PORTAL,
             portal_observer.captive_portal_result());
 
-  ASSERT_EQ(CaptivePortalTabReloader::STATE_BROKEN_BY_PORTAL,
+  ASSERT_EQ(captive_portal::CaptivePortalTabReloader::STATE_BROKEN_BY_PORTAL,
             GetStateOfTabReloaderAt(browser(), 0));
-  EXPECT_EQ(CaptivePortalTabReloader::STATE_NONE,
+  EXPECT_EQ(captive_portal::CaptivePortalTabReloader::STATE_NONE,
             GetStateOfTabReloaderAt(browser(), 1));
   ASSERT_TRUE(IsLoginTab(browser()->tab_strip_model()->GetWebContentsAt(1)));
 
@@ -2562,7 +2617,8 @@ IN_PROC_BROWSER_TEST_F(CaptivePortalBrowserTest, GoBackToTimeout) {
   EXPECT_EQ(1, NumLoadingTabs());
 
   SetSlowSSLLoadTime(tab_reloader, base::TimeDelta::FromDays(1));
-  Login(browser(), 1, 0);
+  Login(browser(), 1 /* num_loading_tabs */, 0 /* num_timed_out_tabs */,
+        1 /* expected_portal_checks */);
   FailLoadsAfterLogin(browser(), 1);
 }
 
@@ -2582,7 +2638,7 @@ IN_PROC_BROWSER_TEST_F(CaptivePortalBrowserTest, ReloadTimeout) {
   // A captive portal spontaneously appears.
   SetBehindCaptivePortal(true);
 
-  CaptivePortalTabReloader* tab_reloader =
+  captive_portal::CaptivePortalTabReloader* tab_reloader =
       GetTabReloader(tab_strip_model->GetActiveWebContents());
   ASSERT_TRUE(tab_reloader);
   SetSlowSSLLoadTime(tab_reloader, base::TimeDelta());
@@ -2603,9 +2659,9 @@ IN_PROC_BROWSER_TEST_F(CaptivePortalBrowserTest, ReloadTimeout) {
   ASSERT_EQ(captive_portal::RESULT_BEHIND_CAPTIVE_PORTAL,
             portal_observer.captive_portal_result());
 
-  ASSERT_EQ(CaptivePortalTabReloader::STATE_BROKEN_BY_PORTAL,
+  ASSERT_EQ(captive_portal::CaptivePortalTabReloader::STATE_BROKEN_BY_PORTAL,
             GetStateOfTabReloaderAt(browser(), 0));
-  EXPECT_EQ(CaptivePortalTabReloader::STATE_NONE,
+  EXPECT_EQ(captive_portal::CaptivePortalTabReloader::STATE_NONE,
             GetStateOfTabReloaderAt(browser(), 1));
   ASSERT_TRUE(IsLoginTab(tab_strip_model->GetWebContentsAt(1)));
 
@@ -2616,7 +2672,8 @@ IN_PROC_BROWSER_TEST_F(CaptivePortalBrowserTest, ReloadTimeout) {
   EXPECT_EQ(1, NumLoadingTabs());
 
   SetSlowSSLLoadTime(tab_reloader, base::TimeDelta::FromDays(1));
-  Login(browser(), 1, 0);
+  Login(browser(), 1 /* num_loading_tabs */, 0 /* num_timed_out_tabs */,
+        1 /* expected_portal_checks */);
   FailLoadsAfterLogin(browser(), 1);
 }
 
@@ -2681,22 +2738,23 @@ IN_PROC_BROWSER_TEST_F(CaptivePortalBrowserTest, DISABLED_TwoWindows) {
 
   // Check the inactive browser.
   EXPECT_EQ(2, inactive_browser->tab_strip_model()->count());
-  EXPECT_EQ(CaptivePortalTabReloader::STATE_NONE,
+  EXPECT_EQ(captive_portal::CaptivePortalTabReloader::STATE_NONE,
             GetStateOfTabReloaderAt(inactive_browser, 0));
-  EXPECT_EQ(CaptivePortalTabReloader::STATE_BROKEN_BY_PORTAL,
+  EXPECT_EQ(captive_portal::CaptivePortalTabReloader::STATE_BROKEN_BY_PORTAL,
             GetStateOfTabReloaderAt(inactive_browser, 1));
 
   // Check the active browser.
   ASSERT_EQ(2, active_browser->tab_strip_model()->count());
-  EXPECT_EQ(CaptivePortalTabReloader::STATE_NONE,
+  EXPECT_EQ(captive_portal::CaptivePortalTabReloader::STATE_NONE,
             GetStateOfTabReloaderAt(active_browser, 0));
-  EXPECT_EQ(CaptivePortalTabReloader::STATE_NONE,
+  EXPECT_EQ(captive_portal::CaptivePortalTabReloader::STATE_NONE,
             GetStateOfTabReloaderAt(active_browser, 1));
   EXPECT_TRUE(
       IsLoginTab(active_browser->tab_strip_model()->GetWebContentsAt(1)));
 
   // Simulate logging in.
-  Login(active_browser, 0, 1);
+  Login(active_browser, 0 /* num_loading_tabs */, 1 /* num_timed_out_tabs */,
+        1 /* expected_portal_checks */);
 }
 
 // An HTTP page redirects to an HTTPS page loads slowly before timing out.  A
@@ -2708,7 +2766,8 @@ IN_PROC_BROWSER_TEST_F(CaptivePortalBrowserTest, HttpToHttpsRedirectLogin) {
       browser(), true /* expect_open_login_tab */,
       false /* expect_new_login_browser */,
       embedded_test_server()->GetURL(kRedirectToMockHttpsPath), 1, 1);
-  Login(browser(), 1, 0);
+  Login(browser(), 1 /* num_loading_tabs */, 0 /* num_timed_out_tabs */,
+        1 /* expected_portal_checks */);
   FailLoadsAfterLogin(browser(), 1);
 }
 
@@ -2737,7 +2796,8 @@ IN_PROC_BROWSER_TEST_F(CaptivePortalBrowserTest, Status511) {
   SlowLoadBehindCaptivePortal(browser(), true /* expect_open_login_tab */,
                               false /* expect_new_login_browser */,
                               GURL(kMockHttpsUrl), 2, 2);
-  Login(browser(), 1, 0);
+  Login(browser(), 1 /* num_loading_tabs */, 0 /* num_timed_out_tabs */,
+        1 /* expected_portal_checks */);
   FailLoadsAfterLogin(browser(), 1);
 }
 
@@ -2784,7 +2844,7 @@ IN_PROC_BROWSER_TEST_F(CaptivePortalBrowserTest,
   // The SSL interstitial navigation will result in the captive portal check
   // firing (and returning no captive portal), so the state will get reset to
   // none.
-  EXPECT_EQ(CaptivePortalTabReloader::STATE_NONE,
+  EXPECT_EQ(captive_portal::CaptivePortalTabReloader::STATE_NONE,
             GetStateOfTabReloaderAt(browser(), broken_tab_index));
   WaitForInterstitial(broken_tab_contents);
   portal_observer.WaitForResults(2);
@@ -2821,5 +2881,105 @@ IN_PROC_BROWSER_TEST_F(CaptivePortalBrowserTest, SecureDnsCaptivePortal) {
   EXPECT_TRUE(browser_list_->get(1)->window()->IsVisible());
 
   // Login to the captive portal.
-  Login(browser_list_->get(1), 2, 0);
+  Login(browser_list_->get(1), 2 /* num_loading_tabs */,
+        0 /* num_timed_out_tabs */, 1 /* expected_portal_checks */);
+}
+
+// An HTTP load results in a secure DNS error, which triggers a captive portal
+// probe that fails. After logging in, the secure DNS error happens again,
+// triggering a captive portal probe that now succeeds.
+IN_PROC_BROWSER_TEST_F(CaptivePortalBrowserTest, SecureDnsErrorTriggersCheck) {
+  PrefService* local_state = g_browser_process->local_state();
+  local_state->SetString(prefs::kDnsOverHttpsTemplates,
+                         "https://bar.test/dns-query{?dns}");
+  local_state->SetString(prefs::kDnsOverHttpsMode,
+                         chrome_browser_net::kDnsOverHttpsModeSecure);
+
+  TabStripModel* tab_strip_model = browser()->tab_strip_model();
+  WebContents* broken_tab_contents = tab_strip_model->GetActiveWebContents();
+
+  FastErrorBehindCaptivePortal(browser(), true /* expect_open_login_tab */,
+                               true /* expect_new_login_browser */,
+                               GURL(kMockHttpConnectionSecureDnsErr));
+
+  // The navigated tab should be displaying an error page.
+  EXPECT_TRUE(broken_tab_contents->GetController()
+                  .GetLastCommittedEntry()
+                  ->GetPageType() == content::PAGE_TYPE_ERROR);
+
+  // Login to the captive portal. The captive portal tab navigation will trigger
+  // a captive portal check, and reloading the original tab will produce the
+  // same secure DNS error, triggering a second captive portal check.
+  Login(browser_list_->get(1), 0 /* num_loading_tabs */,
+        1 /* num_timed_out_tabs */, 2 /* expected_portal_checks */);
+
+  // The reload of the original page should have produced another DNS error
+  // page.
+  EXPECT_TRUE(broken_tab_contents->GetController()
+                  .GetLastCommittedEntry()
+                  ->GetPageType() == content::PAGE_TYPE_ERROR);
+}
+
+// An HTTPS load happens slowly. The reloader triggers a captive portal check,
+// which finds a captive portal. The HTTPS load finally completes with a secure
+// DNS error, which does not trigger another captive portal check. Only one
+// login tab should exist.
+IN_PROC_BROWSER_TEST_F(CaptivePortalBrowserTest,
+                       SlowLoadSecureDnsErrorWithCaptivePortal) {
+  PrefService* local_state = g_browser_process->local_state();
+  local_state->SetString(prefs::kDnsOverHttpsTemplates,
+                         "https://bar.test/dns-query{?dns}");
+  local_state->SetString(prefs::kDnsOverHttpsMode,
+                         chrome_browser_net::kDnsOverHttpsModeSecure);
+
+  SlowLoadBehindCaptivePortal(browser(), true /* expect_open_login_tab */,
+                              true /* expect_new_login_browser */);
+
+  // Connection finally hits a secure DNS error. No new captive portal check is
+  // triggered.
+  MultiNavigationObserver navigation_observer;
+  FailJobs(1, net::ERR_NAME_NOT_RESOLVED,
+           net::ResolveErrorInfo(net::ERR_CERT_COMMON_NAME_INVALID, true));
+  navigation_observer.WaitForNavigations(1);
+  WebContents* tab =
+      browser_list_->get(0)->tab_strip_model()->GetWebContentsAt(0);
+  EXPECT_EQ(1, navigation_observer.NumNavigationsForTab(tab));
+  EXPECT_TRUE(tab->GetController().GetLastCommittedEntry()->GetPageType() ==
+              content::PAGE_TYPE_ERROR);
+  EXPECT_EQ(2u, browser_list_->size());
+  EXPECT_EQ(2, NumTabs());
+}
+
+// An HTTPS load happens slowly. The reloader triggers a captive portal check,
+// which finds a captive portal. After logging in, the HTTPS load finally
+// completes with a secure DNS error, which triggers another captive portal
+// check that should succeed.
+IN_PROC_BROWSER_TEST_F(CaptivePortalBrowserTest,
+                       SlowLoadSecureDnsErrorAfterLogin) {
+  PrefService* local_state = g_browser_process->local_state();
+  local_state->SetString(prefs::kDnsOverHttpsTemplates,
+                         "https://bar.test/dns-query{?dns}");
+  local_state->SetString(prefs::kDnsOverHttpsMode,
+                         chrome_browser_net::kDnsOverHttpsModeSecure);
+
+  SlowLoadBehindCaptivePortal(browser(), true /* expect_open_login_tab */,
+                              true /* expect_new_login_browser */);
+
+  // Login to the captive portal.
+  Login(browser_list_->get(1), 1 /* num_loading_tabs */,
+        0 /* num_timed_out_tabs */, 1 /* expected_portal_checks */);
+
+  // Connection finally hits a secure DNS error. It should reload without
+  // sending a new captive portal check.
+  MultiNavigationObserver navigation_observer;
+  FailJobs(1, net::ERR_NAME_NOT_RESOLVED,
+           net::ResolveErrorInfo(net::ERR_CERT_COMMON_NAME_INVALID, true));
+  navigation_observer.WaitForNavigations(1);
+  WebContents* tab =
+      browser_list_->get(0)->tab_strip_model()->GetWebContentsAt(0);
+  EXPECT_EQ(1, navigation_observer.NumNavigationsForTab(tab));
+  EXPECT_TRUE(tab->GetController().GetLastCommittedEntry()->GetPageType() ==
+              content::PAGE_TYPE_NORMAL);
+  EXPECT_EQ(2u, browser_list_->size());
+  EXPECT_EQ(2, NumTabs());
 }

@@ -155,6 +155,8 @@ class CORE_EXPORT HTMLInputElement
   bool IsValidValue(const String&) const;
   bool HasDirtyValue() const;
 
+  String rawValue() const;
+
   String SanitizeValue(const String&) const;
 
   String LocalizeValue(const String&) const;
@@ -181,11 +183,22 @@ class CORE_EXPORT HTMLInputElement
   // delay the 'input' event with EventQueueScope.
   void SetValueFromRenderer(const String&);
 
-  unsigned selectionStartForBinding(bool&, ExceptionState&) const;
-  unsigned selectionEndForBinding(bool&, ExceptionState&) const;
+  base::Optional<uint32_t> selectionStartForBinding(ExceptionState&) const;
+  base::Optional<uint32_t> selectionEndForBinding(ExceptionState&) const;
+  // TODO(crbug.com/1060971): Remove |is_null| version.
+  unsigned selectionStartForBinding(bool&,
+                                    ExceptionState&) const;       // DEPRECATED
+  unsigned selectionEndForBinding(bool&, ExceptionState&) const;  // DEPRECATED
   String selectionDirectionForBinding(ExceptionState&) const;
-  void setSelectionStartForBinding(unsigned, bool is_null, ExceptionState&);
-  void setSelectionEndForBinding(unsigned, bool is_null, ExceptionState&);
+  void setSelectionStartForBinding(base::Optional<uint32_t>, ExceptionState&);
+  void setSelectionEndForBinding(base::Optional<uint32_t>, ExceptionState&);
+  // TODO(crbug.com/1060971): Remove |is_null| version.
+  void setSelectionStartForBinding(unsigned,
+                                   bool is_null,
+                                   ExceptionState&);  // DEPRECATED
+  void setSelectionEndForBinding(unsigned,
+                                 bool is_null,
+                                 ExceptionState&);  // DEPRECATED
   void setSelectionDirectionForBinding(const String&, ExceptionState&);
   void setSelectionRangeForBinding(unsigned start,
                                    unsigned end,
@@ -270,6 +283,9 @@ class CORE_EXPORT HTMLInputElement
   // is not truncated by ellipsis.
   // Return a null string for other types.
   String FileStatusText() const;
+  // Returns true if an ellipsis should be injected at the middle of the text.
+  // This function is called only if text-overflow:ellipsis is specified.
+  bool ShouldApplyMiddleEllipsis() const;
 
   unsigned height() const;
   unsigned width() const;
@@ -391,11 +407,6 @@ class CORE_EXPORT HTMLInputElement
 
   EventDispatchHandlingState* PreDispatchEventHandler(Event&) final;
   void PostDispatchEventHandler(Event&, EventDispatchHandlingState*) final;
-  // TODO(crbug.com/1013385): Remove DidPreventDefault and
-  //   DefaultEventHandlerInternal. They are here as a temporary fix for form
-  //   double-submit.
-  void DidPreventDefault(const Event&) final;
-  void DefaultEventHandlerInternal(Event& evt);
 
   bool IsURLAttribute(const Attribute&) const final;
   bool HasLegalLinkAttribute(const QualifiedName&) const final;

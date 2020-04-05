@@ -18,7 +18,6 @@
 #include "base/time/time.h"
 #include "chrome/android/chrome_jni_headers/DownloadItem_jni.h"
 #include "chrome/android/chrome_jni_headers/DownloadManagerService_jni.h"
-#include "chrome/browser/android/feature_utilities.h"
 #include "chrome/browser/android/profile_key_startup_accessor.h"
 #include "chrome/browser/download/android/download_controller.h"
 #include "chrome/browser/download/android/download_startup_utils.h"
@@ -27,12 +26,14 @@
 #include "chrome/browser/download/android/service/download_task_scheduler.h"
 #include "chrome/browser/download/offline_item_utils.h"
 #include "chrome/browser/download/simple_download_manager_coordinator_factory.h"
+#include "chrome/browser/flags/android/cached_feature_flags.h"
 #include "chrome/browser/flags/android/chrome_feature_list.h"
 #include "chrome/browser/profiles/profile_key.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/common/chrome_constants.h"
 #include "components/download/network/android/network_status_listener_android.h"
 #include "components/download/public/common/auto_resumption_handler.h"
+#include "components/download/public/common/download_features.h"
 #include "components/download/public/common/download_item.h"
 #include "components/download/public/common/download_item_impl.h"
 #include "components/download/public/common/download_stats.h"
@@ -96,7 +97,8 @@ void DownloadManagerService::CreateAutoResumptionHandler() {
   config->auto_resumption_size_limit =
       DownloadUtils::GetAutoResumptionSizeLimit();
   config->is_auto_resumption_enabled_in_native =
-      chrome::android::IsDownloadAutoResumptionEnabledInNative();
+      chrome::android::IsJavaDrivenFeatureEnabled(
+          download::features::kDownloadAutoResumptionNative);
   download::AutoResumptionHandler::Create(
       std::move(network_listener), std::move(task_manager), std::move(config));
 }
@@ -514,7 +516,7 @@ void DownloadManagerService::RetryDownloadInternal(
           }
         })");
   auto download_url_params = std::make_unique<download::DownloadUrlParameters>(
-      item->GetURL(), traffic_annotation, item->GetNetworkIsolationKey());
+      item->GetURL(), traffic_annotation);
 
   // Retry allows redirect.
   download_url_params->set_cross_origin_redirects(
@@ -622,19 +624,6 @@ download::DownloadItem* DownloadManagerService::GetDownload(
   download::SimpleDownloadManagerCoordinator* coordinator =
       GetCoordinator(is_off_the_record);
   return coordinator ? coordinator->GetDownloadByGuid(download_guid) : nullptr;
-}
-
-void DownloadManagerService::RecordFirstBackgroundInterruptReason(
-    JNIEnv* env,
-    const JavaParamRef<jobject>& obj,
-    const JavaParamRef<jstring>& jdownload_guid,
-    jboolean download_started) {
-  std::string download_guid = ConvertJavaStringToUTF8(env, jdownload_guid);
-  download::DownloadItem* download = GetDownload(download_guid, false);
-  if (download) {
-    download::RecordFirstBackgroundDownloadInterruptReason(
-        download->GetLastReason(), download_started);
-  }
 }
 
 void DownloadManagerService::OnPendingDownloadsLoaded() {

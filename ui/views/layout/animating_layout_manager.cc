@@ -22,14 +22,6 @@ namespace views {
 
 namespace {
 
-// Returns true if the specified |size| can fit in the specified |bounds|.
-// Returns false if either the width or height of |bounds| is specified and is
-// smaller than the corresponding element of |size|.
-bool CanFitInBounds(const gfx::Size& size, const SizeBounds& bounds) {
-  return (!bounds.width() || (*bounds.width() >= size.width())) &&
-         (!bounds.height() || (*bounds.height() >= size.height()));
-}
-
 // Returns the ChildLayout data for the child view in the proposed layout, or
 // nullptr if not found.
 const ChildLayout* FindChildViewInLayout(const ProposedLayout& layout,
@@ -46,8 +38,12 @@ const ChildLayout* FindChildViewInLayout(const ProposedLayout& layout,
   return nullptr;
 }
 
+ChildLayout* FindChildViewInLayout(ProposedLayout* layout, const View* view) {
+  return const_cast<ChildLayout*>(FindChildViewInLayout(*layout, view));
+}
+
 // Describes the type of fade, used by LayoutFadeInfo (see below).
-enum LayoutFadeType {
+enum class LayoutFadeType {
   // This view is fading in as part of the current animation.
   kFadingIn,
   // This view is fading out as part of the current animation.
@@ -57,14 +53,6 @@ enum LayoutFadeType {
   // position off of it.
   kContinuingFade
 };
-
-// Non-const version of above.
-ChildLayout* FindChildViewInLayout(ProposedLayout& layout, const View* view) {
-  // This const_cast is safe because we know we were passed in a non-const
-  // layout (also we don't want to duplicate the logic).
-  return const_cast<ChildLayout*>(
-      FindChildViewInLayout(const_cast<const ProposedLayout&>(layout), view));
-}
 
 }  // namespace
 
@@ -468,7 +456,6 @@ void AnimatingLayoutManager::LayoutImpl() {
         GetMainAxis(orientation(), current_layout_.host_size);
     if (current_main > host_main ||
         (bounds_main && current_main > *bounds_main)) {
-      DCHECK(!bounds_main || *bounds_main >= host_main);
       last_available_host_size_ = available_size;
       ResetLayoutToSize(host_size);
     } else if (available_size != last_available_host_size_) {
@@ -693,7 +680,7 @@ void AnimatingLayoutManager::UpdateCurrentLayout(double percent) {
     }
 
     ChildLayout* const to_overwrite =
-        FindChildViewInLayout(current_layout_, fade_info.child_view);
+        FindChildViewInLayout(&current_layout_, fade_info.child_view);
     if (to_overwrite)
       *to_overwrite = child_layout;
     else
@@ -993,12 +980,6 @@ ChildLayout AnimatingLayoutManager::CalculateSlideFade(
   return child_layout;
 }
 
-SizeBounds AnimatingLayoutManager::GetAvailableHostSize() const {
-  DCHECK(host_view());
-  const auto* const parent = host_view()->parent();
-  return parent ? parent->GetAvailableSize(host_view()) : SizeBounds();
-}
-
 // Returns the space in which to calculate the target layout.
 gfx::Size AnimatingLayoutManager::GetAvailableTargetLayoutSize() {
   if (!should_animate_bounds_)
@@ -1038,12 +1019,11 @@ gfx::Size AnimatingLayoutManager::DefaultFlexRuleImpl(
   if (CanFitInBounds(preferred_size, size_bounds))
     return preferred_size;
 
-  const base::Optional<int> bounds_main =
-      GetMainAxis(animating_layout->orientation(), size_bounds);
-
   // Special case - if we're being asked for a zero-size layout we'll return the
   // minimum size of the layout. This is because we're being probed for how
   // small we can get, not being asked for an actual size.
+  const base::Optional<int> bounds_main =
+      GetMainAxis(animating_layout->orientation(), size_bounds);
   if (bounds_main && *bounds_main <= 0)
     return animating_layout->GetMinimumSize(view);
 
@@ -1075,10 +1055,11 @@ gfx::Size AnimatingLayoutManager::DefaultFlexRuleImpl(
     // TODO(dfried): This should be rare, but it is also inefficient. See if we
     // can't add an alternative to GetPreferredHeightForWidth() that actually
     // calculates the layout in this space so we don't have to do it twice.
-    const int height =
-        target_layout->GetPreferredHeightForWidth(view, *size_bounds.width());
-    size = gfx::Size(*size_bounds.width(), height);
+    const int width = *size_bounds.width();
+    size = gfx::Size(width,
+                     target_layout->GetPreferredHeightForWidth(view, width));
   } else {
+    DCHECK(size_bounds.height());
     // The height is specified and too small.  Fortunately the height of a
     // layout can't (shouldn't?) affect its width.
     size = gfx::Size(target_preferred.width(), *size_bounds.height());

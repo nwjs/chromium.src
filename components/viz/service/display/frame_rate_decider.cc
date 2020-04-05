@@ -20,10 +20,12 @@ FrameRateDecider::ScopedAggregate::~ScopedAggregate() {
 }
 
 FrameRateDecider::FrameRateDecider(SurfaceManager* surface_manager,
-                                   Client* client)
+                                   Client* client,
+                                   bool using_synthetic_bfs)
     : supported_intervals_{BeginFrameArgs::DefaultInterval()},
       surface_manager_(surface_manager),
-      client_(client) {
+      client_(client),
+      using_synthetic_bfs_(using_synthetic_bfs) {
   surface_manager_->AddObserver(this);
 }
 
@@ -70,6 +72,7 @@ void FrameRateDecider::OnSurfaceWillBeDrawn(Surface* surface) {
       it->second != active_index) {
     frame_sinks_updated_in_previous_frame_.insert(surface_id.frame_sink_id());
   }
+  frame_sinks_drawn_in_previous_frame_.insert(surface_id.frame_sink_id());
 }
 
 void FrameRateDecider::StartAggregation() {
@@ -77,6 +80,7 @@ void FrameRateDecider::StartAggregation() {
 
   inside_surface_aggregation_ = true;
   frame_sinks_updated_in_previous_frame_.clear();
+  frame_sinks_drawn_in_previous_frame_.clear();
 }
 
 void FrameRateDecider::EndAggregation() {
@@ -92,6 +96,30 @@ void FrameRateDecider::EndAggregation() {
 void FrameRateDecider::UpdatePreferredFrameIntervalIfNeeded() {
   if (!multiple_refresh_rates_supported())
     return;
+
+  // If lowering the refresh rate is supported by the platform then we do this
+  // in all cases where the content drawing onscreen animates at a fixed rate.
+  // This allows the platform to refresh the screen at a lower rate which is
+  // power efficient.
+  //
+  // But if we're using a synthetic begin frame source, then there is no benefit
+  // in ticking at a lower rate unless there are multiple frame sinks animating
+  // at a fixed rate. Ticking at a lower rate in this case ensures that updates
+  // from the frame sinks are aligned to the same vsync, allowing the compositor
+  // to draw at a lower rate.
+  if (using_synthetic_bfs_) {
+    int num_of_frame_sinks_with_fixed_interval = 0;
+    for (const auto& frame_sink_id : frame_sinks_drawn_in_previous_frame_) {
+      if (client_->GetPreferredFrameIntervalForFrameSinkId(frame_sink_id) !=
+          BeginFrameArgs::MinInterval())
+        num_of_frame_sinks_with_fixed_interval++;
+    }
+
+    if (num_of_frame_sinks_with_fixed_interval < 2) {
+      SetPreferredInterval(UnspecifiedFrameInterval());
+      return;
+    }
+  }
 
   // The code below picks the optimal frame interval for the display based on
   // the frame sinks which were updated in this frame. This is because we want
@@ -114,20 +142,29 @@ void FrameRateDecider::UpdatePreferredFrameIntervalIfNeeded() {
   // ideal refresh rate.
   base::TimeDelta new_preferred_interval = UnspecifiedFrameInterval();
   if (min_frame_sink_interval != BeginFrameArgs::MinInterval()) {
+    constexpr float kMaxIntervalDelta = 0.05;
     for (auto supported_interval : supported_intervals_) {
-      // Pick the display interval which is closest to the preferred interval.
-      // TODO(khushalsagar): This should suffice for the current use-case (based
-      // on supported refresh rates we expect), but we should be picking a frame
-      // rate with the correct tradeoff between running the display at a lower
-      // interval to save power and getting an ideal cadence for the video's
-      // frame rate.
-      if ((min_frame_sink_interval - supported_interval).magnitude() <
-          (min_frame_sink_interval - new_preferred_interval).magnitude()) {
+      // We only use a supported interval if it is in perfect cadence with the
+      // desired interval.
+      float delta_int = 0;
+      float delta = std::modf(min_frame_sink_interval.InMicrosecondsF() /
+                                  supported_interval.InMicrosecondsF(),
+                              &delta_int);
+      bool in_perfect_cadence =
+          delta < kMaxIntervalDelta || delta > (1 - kMaxIntervalDelta);
+      if (in_perfect_cadence && supported_interval > new_preferred_interval) {
+        // Make sure that we select the largest one in the
+        // |supported_intervals_| that meets the requirements
         new_preferred_interval = supported_interval;
       }
     }
   }
 
+  SetPreferredInterval(new_preferred_interval);
+}
+
+void FrameRateDecider::SetPreferredInterval(
+    base::TimeDelta new_preferred_interval) {
   if (new_preferred_interval == last_computed_preferred_frame_interval_) {
     num_of_frames_since_preferred_interval_changed_++;
   } else {
@@ -135,11 +172,18 @@ void FrameRateDecider::UpdatePreferredFrameIntervalIfNeeded() {
   }
   last_computed_preferred_frame_interval_ = new_preferred_interval;
 
+  if (current_preferred_frame_interval_ == new_preferred_interval)
+    return;
+
   // The min num of frames heuristic is to ensure we see a constant pattern
-  // before toggling the global setting to avoid unnecessary switches.
-  if (num_of_frames_since_preferred_interval_changed_ >=
-          min_num_of_frames_to_toggle_interval_ &&
-      current_preferred_frame_interval_ != new_preferred_interval) {
+  // before toggling the global setting to avoid unnecessary switches when
+  // lowering the refresh rate. For increasing the refresh rate we toggle
+  // immediately to prioritize smoothness.
+  bool should_toggle =
+      current_preferred_frame_interval_ > new_preferred_interval ||
+      num_of_frames_since_preferred_interval_changed_ >=
+          min_num_of_frames_to_toggle_interval_;
+  if (should_toggle) {
     current_preferred_frame_interval_ = new_preferred_interval;
     client_->SetPreferredFrameInterval(new_preferred_interval);
   }

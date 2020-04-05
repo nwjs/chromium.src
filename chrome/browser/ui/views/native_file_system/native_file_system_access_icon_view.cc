@@ -43,7 +43,7 @@ void NativeFileSystemAccessIconView::UpdateImpl() {
       has_write_access_ = false;
     } else {
       url::Origin origin =
-          url::Origin::Create(GetWebContents()->GetLastCommittedURL());
+          GetWebContents()->GetMainFrame()->GetLastCommittedOrigin();
       auto* context =
           NativeFileSystemPermissionContextFactory::GetForProfileIfExists(
               GetWebContents()->GetBrowserContext());
@@ -80,10 +80,9 @@ NativeFileSystemAccessIconView::GetTextForTooltipAndAccessibleName() const {
 }
 
 void NativeFileSystemAccessIconView::OnExecuting(ExecuteSource execute_source) {
-  url::Origin origin =
-      url::Origin::Create(GetWebContents()->GetLastCommittedURL());
-
   auto* web_contents = GetWebContents();
+  url::Origin origin = web_contents->GetMainFrame()->GetLastCommittedOrigin();
+
   auto* context =
       NativeFileSystemPermissionContextFactory::GetForProfileIfExists(
           web_contents->GetBrowserContext());
@@ -112,7 +111,7 @@ void NativeFileSystemAccessIconView::OnExecuting(ExecuteSource execute_source) {
 }
 
 const gfx::VectorIcon& NativeFileSystemAccessIconView::GetVectorIcon() const {
-  return has_write_access_ ? kSaveOriginalFileIcon
+  return has_write_access_ ? vector_icons::kSaveOriginalFileIcon
                            : vector_icons::kInsertDriveFileOutlineIcon;
 }
 

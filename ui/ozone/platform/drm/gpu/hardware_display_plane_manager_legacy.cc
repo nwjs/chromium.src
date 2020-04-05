@@ -12,6 +12,7 @@
 #include "base/bind.h"
 #include "base/posix/eintr_wrapper.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "ui/gfx/gpu_fence.h"
 #include "ui/gfx/presentation_feedback.h"
 #include "ui/ozone/platform/drm/gpu/crtc_controller.h"
@@ -45,10 +46,28 @@ HardwareDisplayPlaneManagerLegacy::HardwareDisplayPlaneManagerLegacy(
 HardwareDisplayPlaneManagerLegacy::~HardwareDisplayPlaneManagerLegacy() =
     default;
 
+bool HardwareDisplayPlaneManagerLegacy::Modeset(
+    uint32_t crtc_id,
+    uint32_t framebuffer_id,
+    uint32_t connector_id,
+    const drmModeModeInfo& mode,
+    const HardwareDisplayPlaneList&) {
+  return drm_->SetCrtc(crtc_id, framebuffer_id,
+                       std::vector<uint32_t>(1, connector_id), mode);
+}
+
+bool HardwareDisplayPlaneManagerLegacy::DisableModeset(uint32_t crtc_id,
+                                                       uint32_t connector) {
+  return drm_->DisableCrtc(crtc_id);
+}
+
 bool HardwareDisplayPlaneManagerLegacy::Commit(
     HardwareDisplayPlaneList* plane_list,
+    bool should_modeset,
     scoped_refptr<PageFlipRequest> page_flip_request,
     std::unique_ptr<gfx::GpuFence>* out_fence) {
+  DCHECK(!should_modeset);
+
   bool test_only = !page_flip_request;
   if (test_only) {
     for (HardwareDisplayPlane* plane : plane_list->plane_list) {
@@ -121,10 +140,9 @@ bool HardwareDisplayPlaneManagerLegacy::ValidatePrimarySize(
 void HardwareDisplayPlaneManagerLegacy::RequestPlanesReadyCallback(
     DrmOverlayPlaneList planes,
     base::OnceCallback<void(DrmOverlayPlaneList planes)> callback) {
-  base::PostTaskAndReplyWithResult(
+  base::ThreadPool::PostTaskAndReplyWithResult(
       FROM_HERE,
-      {base::ThreadPool(), base::MayBlock(),
-       base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
+      {base::MayBlock(), base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
       base::BindOnce(&WaitForPlaneFences, std::move(planes)),
       std::move(callback));
 }

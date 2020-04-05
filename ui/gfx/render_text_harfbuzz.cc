@@ -19,6 +19,7 @@
 #include "base/macros.h"
 #include "base/memory/ptr_util.h"
 #include "base/message_loop/message_loop_current.h"
+#include "base/metrics/field_trial_params.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/no_destructor.h"
 #include "base/stl_util.h"
@@ -64,6 +65,13 @@
 namespace gfx {
 
 namespace {
+
+// Experiment to determine best cache size (see https://crbug.com/1050793).
+const base::Feature kShapeRunCacheSize = {"ShapeRunCacheSize",
+                                          base::FEATURE_DISABLED_BY_DEFAULT};
+
+const base::FeatureParam<int> kShapeRunCacheSizeParam = {&kShapeRunCacheSize,
+                                                         "CacheSize", 10000};
 
 // Text length limit. Longer strings are slow and not fully tested.
 const size_t kMaxTextLength = 10000;
@@ -333,10 +341,24 @@ inline hb_script_t ICUScriptToHBScript(UScriptCode script) {
   return hb_script_from_string(uscript_getShortName(script), -1);
 }
 
+bool FontWasAlreadyTried(sk_sp<SkTypeface> typeface,
+                         std::set<SkFontID>* fallback_fonts) {
+  return fallback_fonts->count(typeface->uniqueID()) != 0;
+}
+
+void MarkFontAsTried(sk_sp<SkTypeface> typeface,
+                     std::set<SkFontID>* fallback_fonts) {
+  fallback_fonts->insert(typeface->uniqueID());
+}
+
 // Whether |segment| corresponds to the newline character.
 bool IsNewlineSegment(const base::string16& text,
                       const internal::LineSegment& segment) {
-  return text[segment.char_range.start()] == '\n';
+  const size_t offset = segment.char_range.start();
+  const size_t length = segment.char_range.length();
+  DCHECK_LT(segment.char_range.start() + length - 1, text.length());
+  return (length == 1 && (text[offset] == '\r' || text[offset] == '\n')) ||
+         (length == 2 && text[offset] == '\r' && text[offset + 1] == '\n');
 }
 
 // Returns the line index considering the newline character. Line index is
@@ -731,14 +753,6 @@ class HarfBuzzLineBreaker {
   DISALLOW_COPY_AND_ASSIGN(HarfBuzzLineBreaker);
 };
 
-// Function object for case insensitive string comparison.
-struct CaseInsensitiveCompare {
-  bool operator() (const Font& a, const Font& b) const {
-    return base::CompareCaseInsensitiveASCII(a.GetFontName(), b.GetFontName()) <
-           0;
-  }
-};
-
 // Applies a forced text rendering direction if specified by a command-line
 // switch.
 void ApplyForcedDirection(UBiDiLevel* level) {
@@ -894,8 +908,7 @@ bool TextRunHarfBuzz::FontParams::SetRenderParamsOverrideSkiaFaceFromFont(
     const Font& fallback_font,
     const FontRenderParams& new_render_params) {
   PlatformFont* platform_font = fallback_font.platform_font();
-  sk_sp<SkTypeface> new_skia_face =
-      platform_font->GetNativeSkTypefaceIfAvailable();
+  sk_sp<SkTypeface> new_skia_face = platform_font->GetNativeSkTypeface();
 
   // If pass-through of the Skia native handle fails for PlatformFonts other
   // than PlatformFontSkia, perform rematching.
@@ -1238,13 +1251,12 @@ struct ShapeRunWithFontInput {
 
 // An MRU cache of the results from calling ShapeRunWithFont. Use the same
 // maximum cache size as is used in blink::ShapeCache.
-constexpr int kShapeRunCacheSize = 10000;
 using ShapeRunCacheBase = base::HashingMRUCache<ShapeRunWithFontInput,
                                                 TextRunHarfBuzz::ShapeOutput,
                                                 ShapeRunWithFontInput::Hash>;
 class ShapeRunCache : public ShapeRunCacheBase {
  public:
-  ShapeRunCache() : ShapeRunCacheBase(kShapeRunCacheSize) {}
+  ShapeRunCache() : ShapeRunCacheBase(kShapeRunCacheSizeParam.Get()) {}
 };
 
 void ShapeRunWithFont(const ShapeRunWithFontInput& in,
@@ -1285,15 +1297,12 @@ void ShapeRunWithFont(const ShapeRunWithFontInput& in,
   out->positions.resize(out->glyph_count);
   out->width = 0.0f;
 
-#if defined(OS_MACOSX)
-  // Mac 10.9 and 10.10 give a quirky offset for whitespace glyphs in RTL,
-  // which requires tests relying on the behavior of |glyph_width_for_test_|
-  // to also be given a zero x_offset, otherwise expectations get thrown off.
-  const bool force_zero_offset =
-      in.glyph_width_for_test > 0 && base::mac::IsAtMostOS10_10();
-#else
-  constexpr bool force_zero_offset = false;
-#endif
+  // Font on MAC like ".SF NS Text" may have a negative x_offset. Positive
+  // x_offset are also found on Windows (e.g. "Segoe UI"). It requires tests
+  // relying on the behavior of |glyph_width_for_test_| to also be given a zero
+  // x_offset, otherwise expectations get thrown off
+  // (see: http://crbug.com/1056220).
+  const bool force_zero_offset = in.glyph_width_for_test > 0;
   constexpr uint16_t kMissingGlyphId = 0;
 
   out->missing_glyph_count = 0;
@@ -1943,7 +1952,10 @@ void RenderTextHarfBuzz::ShapeRuns(
   // font fallbacks before reporting a missing glyph (see http://crbug/972090).
   std::vector<internal::TextRunHarfBuzz*> need_shaping_runs;
   for (internal::TextRunHarfBuzz*& run : runs) {
-    if (run->range.length() == 1 && text[run->range.start()] == '\n') {
+    if ((run->range.length() == 1 && (text[run->range.start()] == '\r' ||
+                                      text[run->range.start()] == '\n')) ||
+        (run->range.length() == 2 && text[run->range.start()] == '\r' &&
+         text[run->range.start() + 1] == '\n')) {
       // Newline runs can't be shaped. Shape this run as if the glyph is
       // missing.
       run->font_params = font_params;
@@ -1964,14 +1976,21 @@ void RenderTextHarfBuzz::ShapeRuns(
     return;
   }
 
-  const Font& primary_font = font_list().GetPrimaryFont();
+  // Keep a set of fonts already tried for shaping runs.
+  std::set<SkFontID> fallback_fonts_already_tried;
+  std::vector<Font> fallback_font_candidates;
 
   // Shaping with primary configured fonts from font_list().
   for (const Font& font : font_list().GetFonts()) {
     internal::TextRunHarfBuzz::FontParams test_font_params = font_params;
     if (test_font_params.SetRenderParamsRematchFont(
-            font, font.GetFontRenderParams())) {
+            font, font.GetFontRenderParams()) &&
+        !FontWasAlreadyTried(test_font_params.skia_face,
+                             &fallback_fonts_already_tried)) {
       ShapeRunsWithFont(text, test_font_params, &runs);
+      MarkFontAsTried(test_font_params.skia_face,
+                      &fallback_fonts_already_tried);
+      fallback_font_candidates.push_back(font);
     }
     if (runs.empty()) {
       RecordShapeRunsFallback(ShapeRunFallback::NO_FALLBACK);
@@ -1979,9 +1998,7 @@ void RenderTextHarfBuzz::ShapeRuns(
     }
   }
 
-  // Keep a set of fonts already tried for shaping runs.
-  std::set<Font, CaseInsensitiveCompare> fallback_fonts_already_tried;
-  fallback_fonts_already_tried.insert(primary_font);
+  const Font& primary_font = font_list().GetPrimaryFont();
 
   // Find fallback fonts for the remaining runs using a worklist algorithm. Try
   // to shape the first run by using GetFallbackFont(...) and then try shaping
@@ -2005,14 +2022,14 @@ void RenderTextHarfBuzz::ShapeRuns(
     }
 
     if (fallback_found) {
-      const bool fallback_font_is_untried =
-          fallback_fonts_already_tried.insert(fallback_font).second;
-      if (fallback_font_is_untried) {
-        internal::TextRunHarfBuzz::FontParams test_font_params = font_params;
-        if (test_font_params.SetRenderParamsOverrideSkiaFaceFromFont(
-                fallback_font, fallback_font.GetFontRenderParams())) {
-          ShapeRunsWithFont(text, test_font_params, &runs);
-        }
+      internal::TextRunHarfBuzz::FontParams test_font_params = font_params;
+      if (test_font_params.SetRenderParamsOverrideSkiaFaceFromFont(
+              fallback_font, fallback_font.GetFontRenderParams()) &&
+          !FontWasAlreadyTried(test_font_params.skia_face,
+                               &fallback_fonts_already_tried)) {
+        ShapeRunsWithFont(text, test_font_params, &runs);
+        MarkFontAsTried(test_font_params.skia_face,
+                        &fallback_fonts_already_tried);
       }
     }
 
@@ -2040,7 +2057,7 @@ void RenderTextHarfBuzz::ShapeRuns(
     // Append fonts in the fallback list of the fallback fonts.
     // TODO(tapted): Investigate whether there's a case that benefits from this
     // on Mac.
-    for (const auto& fallback_font : fallback_fonts_already_tried) {
+    for (const auto& fallback_font : fallback_font_candidates) {
       std::vector<Font> fallback_fonts = GetFallbackFonts(fallback_font);
       fallback_font_list.insert(fallback_font_list.end(),
                                 fallback_fonts.begin(), fallback_fonts.end());
@@ -2052,7 +2069,8 @@ void RenderTextHarfBuzz::ShapeRuns(
     // could be a raster font like System, which would not give us a reasonable
     // fallback font list.
     Font segoe("Segoe UI", 13);
-    if (!fallback_fonts_already_tried.count(segoe)) {
+    if (!FontWasAlreadyTried(segoe.platform_font()->GetNativeSkTypeface(),
+                             &fallback_fonts_already_tried)) {
       std::vector<Font> default_fallback_families = GetFallbackFonts(segoe);
       fallback_font_list.insert(fallback_font_list.end(),
                                 default_fallback_families.begin(),
@@ -2071,11 +2089,6 @@ void RenderTextHarfBuzz::ShapeRuns(
   for (const auto& font : fallback_font_list) {
     std::string font_name = font.GetFontName();
 
-    const bool fallback_font_is_untried =
-        fallback_fonts_already_tried.insert(font).second;
-    if (!fallback_font_is_untried)
-      continue;
-
     FontRenderParamsQuery query;
     query.families.push_back(font_name);
     query.pixel_size = font_params.font_size;
@@ -2083,8 +2096,12 @@ void RenderTextHarfBuzz::ShapeRuns(
     FontRenderParams fallback_render_params = GetFontRenderParams(query, NULL);
     internal::TextRunHarfBuzz::FontParams test_font_params = font_params;
     if (test_font_params.SetRenderParamsOverrideSkiaFaceFromFont(
-            font, fallback_render_params)) {
+            font, fallback_render_params) &&
+        !FontWasAlreadyTried(test_font_params.skia_face,
+                             &fallback_fonts_already_tried)) {
       ShapeRunsWithFont(text, test_font_params, &runs);
+      MarkFontAsTried(test_font_params.skia_face,
+                      &fallback_fonts_already_tried);
     }
     if (runs.empty()) {
       TRACE_EVENT_INSTANT2("ui", "RenderTextHarfBuzz::FallbackFont",

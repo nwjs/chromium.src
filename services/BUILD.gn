@@ -22,7 +22,6 @@ test("services_unittests") {
   # section below. If you are unsure, contact blundell@chromium.org.
   deps = [
     "//services/content:tests",
-    "//services/identity:tests",
     "//services/metrics/public/cpp:tests",
     "//services/network:tests",
     "//services/network/public/cpp:tests",
@@ -55,7 +54,6 @@ test("services_unittests") {
       "//components/signin/public/android:java",
       "//services/data_decoder/public/cpp/android:safe_json_java",
       "//services/device:java",
-      "//services/identity:java",
       "//services/media_session/public/cpp/android:media_session_java",
       "//services/tracing:tracing_test_helper_java",
 
@@ -100,6 +98,7 @@ if (is_android) {
       "device/generic_sensor/android/junit/src/org/chromium/device/sensors/PlatformSensorAndProviderTest.java",
       "device/geolocation/android/junit/src/org/chromium/device/geolocation/LocationProviderTest.java",
       "device/nfc/android/junit/src/org/chromium/device/nfc/NFCTest.java",
+      "device/nfc/android/junit/src/org/chromium/device/nfc/NfcBlocklistTest.java",
       "shape_detection/android/junit/src/org/chromium/shape_detection/BitmapUtilsTest.java",
     ]
     deps = [

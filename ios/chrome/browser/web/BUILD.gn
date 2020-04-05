@@ -38,6 +38,7 @@ source_set("web") {
     "//components/resources:dev_ui_components_resources_grit",
     "//components/search_engines",
     "//components/strings",
+    "//components/ukm/ios:ukm_url_recorder",
     "//ios/chrome/app/strings:ios_strings_grit",
     "//ios/chrome/browser",
     "//ios/chrome/browser/browser_state",
@@ -50,10 +51,14 @@ source_set("web") {
     "//ios/chrome/browser/ui/elements",
     "//ios/chrome/browser/ui/fullscreen",
     "//ios/chrome/browser/ui/util",
-    "//ios/chrome/common/ui_util",
+    "//ios/chrome/common/ui/util",
+    "//ios/components/ui_util",
+    "//ios/components/webui:url_constants",
     "//ios/net",
     "//ios/web",
     "//ios/web/common",
+    "//ios/web/public/js_messaging",
+    "//services/metrics/public/cpp:ukm_builders",
     "//ui/base",
     "//url",
   ]
@@ -71,7 +76,7 @@ source_set("page_placeholder") {
     "//ios/chrome/browser/snapshots",
     "//ios/chrome/browser/ui/elements",
     "//ios/chrome/browser/ui/util",
-    "//ios/chrome/common/ui_util",
+    "//ios/chrome/common/ui/util",
     "//ios/net",
     "//ios/web",
   ]
@@ -255,6 +260,7 @@ source_set("web_internal") {
     "//ios/chrome/browser/ui/elements",
     "//ios/chrome/browser/ui/util",
     "//ios/chrome/browser/web:feature_flags",
+    "//ios/components/webui:url_constants",
     "//ios/public/provider/chrome/browser",
     "//ios/public/provider/chrome/browser/voice",
     "//ios/web",
@@ -300,6 +306,7 @@ source_set("unit_tests_internal") {
     "java_script_console/java_script_console_tab_helper_unittest.mm",
   ]
   deps = [
+    ":feature_flags",
     ":test_support",
     ":web_internal",
     "//base",

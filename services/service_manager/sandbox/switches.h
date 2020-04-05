@@ -27,9 +27,12 @@ SERVICE_MANAGER_SANDBOX_EXPORT extern const char kUtilitySandbox[];
 SERVICE_MANAGER_SANDBOX_EXPORT extern const char kCdmSandbox[];
 SERVICE_MANAGER_SANDBOX_EXPORT extern const char kPrintCompositorSandbox[];
 SERVICE_MANAGER_SANDBOX_EXPORT extern const char kAudioSandbox[];
+SERVICE_MANAGER_SANDBOX_EXPORT extern const char kSharingServiceSandbox[];
 SERVICE_MANAGER_SANDBOX_EXPORT extern const char kSodaSandbox[];
 
 #if defined(OS_WIN)
+SERVICE_MANAGER_SANDBOX_EXPORT extern const char kPdfConversionSandbox[];
+SERVICE_MANAGER_SANDBOX_EXPORT extern const char kProxyResolverSandbox[];
 SERVICE_MANAGER_SANDBOX_EXPORT extern const char kXrCompositingSandbox[];
 #endif  // OS_WIN
 
@@ -49,6 +52,9 @@ SERVICE_MANAGER_SANDBOX_EXPORT extern const char kEnableAudioServiceSandbox[];
 SERVICE_MANAGER_SANDBOX_EXPORT extern const char kGpuSandboxAllowSysVShm[];
 SERVICE_MANAGER_SANDBOX_EXPORT extern const char kGpuSandboxFailuresFatal[];
 SERVICE_MANAGER_SANDBOX_EXPORT extern const char kNoSandbox[];
+#if defined(OS_LINUX)
+SERVICE_MANAGER_SANDBOX_EXPORT extern const char kNoZygoteSandbox[];
+#endif
 #if defined(OS_WIN)
 SERVICE_MANAGER_SANDBOX_EXPORT extern const char kAllowThirdPartyModules[];
 SERVICE_MANAGER_SANDBOX_EXPORT extern const char kAddGpuAppContainerCaps[];

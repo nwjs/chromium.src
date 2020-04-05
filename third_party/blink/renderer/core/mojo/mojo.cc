@@ -8,7 +8,6 @@
 #include <utility>
 
 #include "mojo/public/cpp/system/message_pipe.h"
-#include "services/service_manager/public/cpp/interface_provider.h"
 #include "third_party/blink/public/common/thread_safe_browser_interface_broker_proxy.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_mojo_create_data_pipe_options.h"
@@ -98,8 +97,7 @@ MojoCreateSharedBufferResult* Mojo::createSharedBuffer(unsigned num_bytes) {
 void Mojo::bindInterface(ScriptState* script_state,
                          const String& interface_name,
                          MojoHandle* request_handle,
-                         const String& scope,
-                         bool use_browser_interface_broker) {
+                         const String& scope) {
   std::string name = interface_name.Utf8();
   auto handle =
       mojo::ScopedMessagePipeHandle::From(request_handle->TakeHandle());
@@ -110,21 +108,9 @@ void Mojo::bindInterface(ScriptState* script_state,
     return;
   }
 
-  // This should replace InterfaceProvider usage below when all
-  // InterfaceProvider clients are converted to use BrowserInterfaceBroker. See
-  // crbug.com/936482.
-  if (use_browser_interface_broker) {
-    ExecutionContext::From(script_state)
-        ->GetBrowserInterfaceBroker()
-        .GetInterface(name, std::move(handle));
-    return;
-  }
-
-  // TODO(crbug.com/995556): remove when no longer used.
-  if (auto* interface_provider =
-          ExecutionContext::From(script_state)->GetInterfaceProvider()) {
-    interface_provider->GetInterfaceByName(name, std::move(handle));
-  }
+  ExecutionContext::From(script_state)
+      ->GetBrowserInterfaceBroker()
+      .GetInterface(name, std::move(handle));
 }
 
 }  // namespace blink

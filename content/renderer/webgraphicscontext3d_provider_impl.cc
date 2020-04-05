@@ -9,9 +9,9 @@
 #include "build/build_config.h"
 #include "cc/paint/paint_image.h"
 #include "cc/tiles/gpu_image_decode_cache.h"
-#include "components/viz/common/gl_helper.h"
 #include "content/public/common/content_switches.h"
 #include "gpu/command_buffer/client/context_support.h"
+#include "gpu/command_buffer/client/gl_helper.h"
 #include "gpu/config/gpu_feature_info.h"
 #include "media/renderers/paint_canvas_video_renderer.h"
 #include "services/viz/public/cpp/gpu/context_provider_command_buffer.h"
@@ -110,8 +110,6 @@ WebGraphicsContext3DProviderImpl::GetWebglPreferences() const {
       } else {
         prefs.anti_aliasing_mode = blink::kAntialiasingModeUnspecified;
       }
-    } else if (gpu_feature_info.IsWorkaroundEnabled(WEBGL_MSAA_IS_BROKEN)) {
-      prefs.anti_aliasing_mode = blink::kAntialiasingModeNone;
     }
 
     // Set default context limits for WebGL.
@@ -138,9 +136,9 @@ WebGraphicsContext3DProviderImpl::GetWebglPreferences() const {
   return prefs;
 }
 
-viz::GLHelper* WebGraphicsContext3DProviderImpl::GetGLHelper() {
+gpu::GLHelper* WebGraphicsContext3DProviderImpl::GetGLHelper() {
   if (!gl_helper_) {
-    gl_helper_ = std::make_unique<viz::GLHelper>(provider_->ContextGL(),
+    gl_helper_ = std::make_unique<gpu::GLHelper>(provider_->ContextGL(),
                                                  provider_->ContextSupport());
   }
   return gl_helper_.get();
@@ -163,7 +161,8 @@ void WebGraphicsContext3DProviderImpl::OnContextLost() {
 
 cc::ImageDecodeCache* WebGraphicsContext3DProviderImpl::ImageDecodeCache(
     SkColorType color_type) {
-  DCHECK(GetGrContext()->colorTypeSupportedAsImage(color_type));
+  DCHECK(GetCapabilities().supports_oop_raster ||
+         GetGrContext()->colorTypeSupportedAsImage(color_type));
   auto cache_iterator = image_decode_cache_map_.find(color_type);
   if (cache_iterator != image_decode_cache_map_.end())
     return cache_iterator->second.get();
@@ -174,7 +173,7 @@ cc::ImageDecodeCache* WebGraphicsContext3DProviderImpl::ImageDecodeCache(
   static const size_t kMaxWorkingSetBytes = 64 * 1024 * 1024;
 
   // TransferCache is used only with OOP raster.
-  const bool use_transfer_cache = false;
+  const bool use_transfer_cache = GetCapabilities().supports_oop_raster;
 
   auto insertion_result = image_decode_cache_map_.emplace(
       color_type,

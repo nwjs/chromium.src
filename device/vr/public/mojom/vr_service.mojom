@@ -17,6 +17,9 @@ import "ui/gfx/mojom/transform.mojom";
 // WebXR interfaces
 //
 
+// Note on terminology: unless otherwise noted, all poses passed across mojo are
+// expressed in device space, aka mojo space.
+
 // TODO(https://crbug.com/966099): Use EnableIf to only define values on
 // platforms that have implementations.
 // XRDeviceId is used in metrics, so don't reorder.
@@ -154,6 +157,11 @@ struct XRInputSourceDescription {
 };
 
 struct XRInputSourceState {
+  // Uniquely identifies input source. The IDs are *not* guaranteed to be unique
+  // within a session - they can potentially be reused by the device. The IDs
+  // will be unique per frame data delivered, and the device must not reuse an
+  // ID for at least one frame after the corresponding source is no longer
+  // present.
   uint32 source_id;
 
   // Description of this input source's behavior. Should be mostly static, only
@@ -168,6 +176,16 @@ struct XRInputSourceState {
   // False when position is based on sensors tracking a 6DoF pose.
   bool emulated_position;
 
+  // True if the input source should be considered auxiliary, as opposed to
+  // primary. See https://immersive-web.github.io/webxr/#auxiliary-input-source.
+  // Auxiliary input sources do not cause the select events to fire.
+  // Note: some of subsequent fields are named "primary_*" - this does not imply
+  // that the input source needs to have is_auxiliary set to false for those
+  // fields to be present / valid. Input sources (even auxiliary) can have
+  // multiple buttons - those fields are used to signify the state of those of
+  // them that are considered primary for the specified input source.
+  bool is_auxiliary;
+
   // Describes the current state of the primary input.
   bool primary_input_pressed;
 
@@ -176,6 +194,15 @@ struct XRInputSourceState {
   // the space of a single frame, so it may not have been preceeded by a
   // primary_input_pressed = true;
   bool primary_input_clicked;
+
+  // Describes the current state of the primary squeeze.
+  bool primary_squeeze_pressed;
+
+  // Indicates if the input's primary sequeeze has been released (clicked) since
+  // the last report. May indicate that the button was pressed and released in
+  // the space of a single frame, so it may not have been preceeded by a
+  // primary_squeeze_pressed = true;
+  bool primary_squeeze_clicked;
 
   // Contains information about advanced input state such as additional buttons,
   // triggers, touch sensors, joysticks, touchpads, and vibration actuators. If
@@ -234,6 +261,10 @@ struct XRRay {
 
 struct XRHitResult {
   gfx.mojom.Transform hit_matrix;
+  uint64 plane_id;  // If the hit test result was computed based off of a plane,
+                    // the plane ID will be stored here. 0 signifies no plane.
+                    // TODO(https://crbug.com/657632) - make it optional once
+                    // mojo supports optional numeric types.
 };
 
 // Information about the optical properties for an eye in a VRDisplay.
@@ -580,6 +611,7 @@ enum RequestSessionError {
   NO_RUNTIME_FOUND = 5,
   UNKNOWN_RUNTIME_ERROR = 6,
   RUNTIME_INSTALL_FAILURE = 7,
+  UNKNOWN_FAILURE = 8,
 };
 
 struct RequestSessionSuccess {
@@ -661,14 +693,6 @@ enum EntityTypeForHitTest {
 // all outstanding JavaScript promises at that time. The XRsession might end for
 // example due to a call to XRSession::end() method (exposed to JavaScript).
 interface XREnvironmentIntegrationProvider {
-  // Performs a raycast into the scene and returns a list of XRHitResults sorted
-  // from closest to furthest hit from the ray. Each hit result contains a
-  // hit_matrix containing the transform of the hit where the rotation
-  // represents the normal of the surface hit.
-  // An empty result list means there were no hits. If a nullopt is returned,
-  // there was an error.
-  RequestHitTest(XRRay ray) => (array<XRHitResult>? results);
-
   // Establishes a hit test subscription on the device. The subscription results
   // will be computed taking into account latest state of the native origin
   // identified by passed in |native_origin_information|. I.e., in each frame,
@@ -799,7 +823,7 @@ interface XRPresentationProvider {
   // XRPresentationTransportMethod SUBMIT_AS_TEXTURE_HANDLE
   // TODO(https://crbug.com/676224): Support preprocessing of mojom files, since
   // this is Windows only.
-  SubmitFrameWithTextureHandle(int16 frameId, handle texture);
+  SubmitFrameWithTextureHandle(int16 frameId, handle<platform> texture);
 
   // XRPresentationTransportMethod DRAW_INTO_TEXTURE_MAILBOX
   SubmitFrameDrawnIntoTexture(int16 frameId, gpu.mojom.SyncToken sync_token,

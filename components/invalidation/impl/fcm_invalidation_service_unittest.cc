@@ -91,11 +91,12 @@ class MockInstanceID : public InstanceID {
   MockInstanceID() : InstanceID("app_id", /*gcm_driver=*/nullptr) {}
   ~MockInstanceID() override = default;
 
-  MOCK_METHOD1(GetID, void(const GetIDCallback& callback));
-  MOCK_METHOD1(GetCreationTime, void(const GetCreationTimeCallback& callback));
-  MOCK_METHOD5(GetToken,
+  MOCK_METHOD1(GetID, void(GetIDCallback callback));
+  MOCK_METHOD1(GetCreationTime, void(GetCreationTimeCallback callback));
+  MOCK_METHOD6(GetToken,
                void(const std::string& authorized_entity,
                     const std::string& scope,
+                    base::TimeDelta time_to_live,
                     const std::map<std::string, std::string>& options,
                     std::set<Flags> flags,
                     GetTokenCallback callback));
@@ -160,8 +161,8 @@ class FCMInvalidationServiceTestDelegate {
         .WillByDefault(testing::Return(mock_instance_id_.get()));
     ON_CALL(*mock_instance_id_, GetID(_))
         .WillByDefault(testing::WithArg<0>(
-            testing::Invoke([](const InstanceID::GetIDCallback& callback) {
-              callback.Run("FakeIID");
+            testing::Invoke([](InstanceID::GetIDCallback callback) {
+              std::move(callback).Run("FakeIID");
             })));
 
     invalidation_service_ = std::make_unique<FCMInvalidationService>(
@@ -191,9 +192,8 @@ class FCMInvalidationServiceTestDelegate {
   }
 
   void TriggerOnIncomingInvalidation(
-      const syncer::ObjectIdInvalidationMap& invalidation_map) {
-    fake_listener_->EmitSavedInvalidationsForTest(
-        ConvertObjectIdInvalidationMapToTopicInvalidationMap(invalidation_map));
+      const syncer::TopicInvalidationMap& invalidation_map) {
+    fake_listener_->EmitSavedInvalidationsForTest(invalidation_map);
   }
 
   base::test::TaskEnvironment task_environment_;

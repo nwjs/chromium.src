@@ -62,12 +62,14 @@ bool DialogDelegate::CanSupportCustomFrame(gfx::NativeView parent) {
 #if defined(OS_LINUX) && BUILDFLAG(ENABLE_DESKTOP_AURA)
   // The new style doesn't support unparented dialogs on Linux desktop.
   return parent != nullptr;
-#elif defined(OS_WIN)
+#else
+#if defined(OS_WIN)
   // The new style doesn't support unparented dialogs on Windows Classic themes.
   if (!ui::win::IsAeroGlassEnabled())
     return parent != nullptr;
 #endif
   return true;
+#endif
 }
 
 // static
@@ -106,10 +108,6 @@ Widget::InitParams DialogDelegate::GetDialogWidgetInitParams(
   return params;
 }
 
-int DialogDelegate::GetDialogButtons() const {
-  return params_.buttons;
-}
-
 int DialogDelegate::GetDefaultDialogButton() const {
   if (GetParams().default_button.has_value())
     return *GetParams().default_button;
@@ -141,37 +139,23 @@ bool DialogDelegate::IsDialogButtonEnabled(ui::DialogButton button) const {
 }
 
 bool DialogDelegate::Cancel() {
+  DCHECK(!already_started_close_);
   if (cancel_callback_)
-    std::move(cancel_callback_).Run();
+    RunCloseCallback(std::move(cancel_callback_));
   return true;
 }
 
 bool DialogDelegate::Accept() {
+  DCHECK(!already_started_close_);
   if (accept_callback_)
-    std::move(accept_callback_).Run();
+    RunCloseCallback(std::move(accept_callback_));
   return true;
 }
 
-bool DialogDelegate::Close() {
-  if (close_callback_ || cancel_callback_ || accept_callback_) {
-    if (close_callback_)
-      std::move(close_callback_).Run();
-    return true;
-  } else {
-    return DefaultClose();
-  }
-}
-
-bool DialogDelegate::DefaultClose() {
-  DCHECK(!close_callback_);
-  DCHECK(!cancel_callback_);
-  DCHECK(!accept_callback_);
-  int buttons = GetDialogButtons();
-  if ((buttons & ui::DIALOG_BUTTON_CANCEL) ||
-      (buttons == ui::DIALOG_BUTTON_NONE)) {
-    return Cancel();
-  }
-  return Accept();
+void DialogDelegate::RunCloseCallback(base::OnceClosure callback) {
+  DCHECK(!already_started_close_);
+  already_started_close_ = true;
+  std::move(callback).Run();
 }
 
 View* DialogDelegate::GetInitiallyFocusedView() {
@@ -209,6 +193,36 @@ NonClientFrameView* DialogDelegate::CreateNonClientFrameView(Widget* widget) {
     return CreateDialogFrameView(widget);
 
   return WidgetDelegate::CreateNonClientFrameView(widget);
+}
+
+void DialogDelegate::WindowWillClose() {
+  if (already_started_close_)
+    return;
+
+  bool new_callback_present =
+      close_callback_ || cancel_callback_ || accept_callback_;
+
+  if (close_callback_)
+    RunCloseCallback(std::move(close_callback_));
+
+  if (new_callback_present)
+    return;
+
+  // Old-style close behavior: if the only button was Ok, call Accept();
+  // otherwise call Cancel(). Note that in this case the window is already going
+  // to close, so the return values of Accept()/Cancel(), which normally say
+  // whether the window should close, are ignored.
+  int buttons = GetDialogButtons();
+  if (buttons == ui::DIALOG_BUTTON_OK)
+    Accept();
+  else
+    Cancel();
+
+  // This is set here instead of before the invocations of Accept()/Cancel() so
+  // that those methods can DCHECK that !already_started_close_. Otherwise,
+  // client code could (eg) call Accept() from inside the cancel callback, which
+  // could lead to multiple callbacks being delivered from this class.
+  already_started_close_ = true;
 }
 
 // static
@@ -309,16 +323,38 @@ void DialogDelegate::DialogModelChanged() {
     observer.OnDialogChanged();
 }
 
+void DialogDelegate::SetDefaultButton(int button) {
+  params_.default_button = button;
+}
+
+void DialogDelegate::SetButtons(int buttons) {
+  params_.buttons = buttons;
+}
+
+void DialogDelegate::SetButtonLabel(ui::DialogButton button,
+    base::string16 label) {
+  params_.button_labels[button] = label;
+}
+
+void DialogDelegate::SetAcceptCallback(base::OnceClosure callback) {
+  accept_callback_ = std::move(callback);
+}
+
+void DialogDelegate::SetCancelCallback(base::OnceClosure callback) {
+  cancel_callback_ = std::move(callback);
+}
+
+void DialogDelegate::SetCloseCallback(base::OnceClosure callback) {
+  close_callback_ = std::move(callback);
+}
+
 std::unique_ptr<View> DialogDelegate::DisownExtraView() {
   return std::move(extra_view_);
 }
 
-void DialogDelegate::CancelDialog() {
-  GetDialogClientView()->CancelWindow();
-}
-
-void DialogDelegate::AcceptDialog() {
-  GetDialogClientView()->AcceptWindow();
+bool DialogDelegate::Close() {
+  WindowWillClose();
+  return true;
 }
 
 void DialogDelegate::ResetViewShownTimeStampForTesting() {
@@ -327,6 +363,24 @@ void DialogDelegate::ResetViewShownTimeStampForTesting() {
 
 void DialogDelegate::SetButtonRowInsets(const gfx::Insets& insets) {
   GetDialogClientView()->SetButtonRowInsets(insets);
+}
+
+void DialogDelegate::AcceptDialog() {
+  if (already_started_close_ || !Accept())
+    return;
+
+  already_started_close_ = true;
+  GetWidget()->CloseWithReason(
+      views::Widget::ClosedReason::kAcceptButtonClicked);
+}
+
+void DialogDelegate::CancelDialog() {
+  if (already_started_close_ || !Cancel())
+    return;
+
+  already_started_close_ = true;
+  GetWidget()->CloseWithReason(
+      views::Widget::ClosedReason::kCancelButtonClicked);
 }
 
 DialogDelegate::~DialogDelegate() {
@@ -359,6 +413,14 @@ DialogDelegateView::~DialogDelegateView() = default;
 
 void DialogDelegateView::DeleteDelegate() {
   delete this;
+}
+
+Widget* DialogDelegateView::GetWidget() {
+  return View::GetWidget();
+}
+
+const Widget* DialogDelegateView::GetWidget() const {
+  return View::GetWidget();
 }
 
 View* DialogDelegateView::GetContentsView() {

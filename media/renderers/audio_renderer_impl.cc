@@ -47,7 +47,8 @@ AudioRendererImpl::AudioRendererImpl(
     const scoped_refptr<base::SingleThreadTaskRunner>& task_runner,
     media::AudioRendererSink* sink,
     const CreateAudioDecodersCB& create_audio_decoders_cb,
-    MediaLog* media_log)
+    MediaLog* media_log,
+    const TranscribeAudioCallback& transcribe_audio_callback)
     : task_runner_(task_runner),
       expecting_config_changes_(false),
       sink_(sink),
@@ -69,7 +70,8 @@ AudioRendererImpl::AudioRendererImpl(
       received_end_of_stream_(false),
       rendered_end_of_stream_(false),
       is_suspending_(false),
-      is_passthrough_(false) {
+      is_passthrough_(false),
+      transcribe_audio_callback_(transcribe_audio_callback) {
   DCHECK(create_audio_decoders_cb_);
 
   // PowerObserver's must be added and removed from the same thread, but we
@@ -721,7 +723,7 @@ void AudioRendererImpl::SetPlayDelayCBForTesting(PlayDelayCBForTesting cb) {
   play_delay_cb_for_testing_ = std::move(cb);
 }
 
-void AudioRendererImpl::DecodedAudioReady(AudioDecoderStream::Status status,
+void AudioRendererImpl::DecodedAudioReady(AudioDecoderStream::ReadStatus status,
                                           scoped_refptr<AudioBuffer> buffer) {
   DVLOG(2) << __func__ << "(" << status << ")";
   DCHECK(task_runner_->BelongsToCurrentThread());
@@ -822,9 +824,14 @@ void AudioRendererImpl::DecodedAudioReady(AudioDecoderStream::Status status,
 bool AudioRendererImpl::HandleDecodedBuffer_Locked(
     scoped_refptr<AudioBuffer> buffer) {
   lock_.AssertAcquired();
+  bool should_render_end_of_stream = false;
   if (buffer->end_of_stream()) {
     received_end_of_stream_ = true;
     algorithm_->MarkEndOfStream();
+
+    // We received no audio to play before EOS, so enter the ended state.
+    if (first_packet_timestamp_ == kNoTimestamp)
+      should_render_end_of_stream = true;
   } else {
     if (buffer->IsBitstreamFormat() && state_ == kPlaying) {
       if (IsBeforeStartTime(*buffer))
@@ -864,6 +871,9 @@ bool AudioRendererImpl::HandleDecodedBuffer_Locked(
     if (first_packet_timestamp_ == kNoTimestamp)
       first_packet_timestamp_ = buffer->timestamp();
 
+    if (!transcribe_audio_callback_.is_null())
+      transcribe_audio_callback_.Run(buffer);
+
     if (state_ != kUninitialized)
       algorithm_->EnqueueBuffer(std::move(buffer));
   }
@@ -891,6 +901,13 @@ bool AudioRendererImpl::HandleDecodedBuffer_Locked(
       if (received_end_of_stream_ || algorithm_->IsQueueAdequateForPlayback()) {
         if (buffering_state_ == BUFFERING_HAVE_NOTHING)
           SetBufferingState_Locked(BUFFERING_HAVE_ENOUGH);
+        // This must be done after SetBufferingState_Locked() to ensure the
+        // proper state transitions for higher levels.
+        if (should_render_end_of_stream) {
+          task_runner_->PostTask(
+              FROM_HERE, base::BindOnce(&AudioRendererImpl::OnPlaybackEnded,
+                                        weak_factory_.GetWeakPtr()));
+        }
         return false;
       }
       return true;
@@ -1028,7 +1045,7 @@ int AudioRendererImpl::Render(base::TimeDelta delay,
       return 0;
     }
 
-    if (is_passthrough_ && algorithm_->frames_buffered() > 0) {
+    if (is_passthrough_ && algorithm_->BufferedFrames() > 0) {
       // TODO(tsunghung): For compressed bitstream formats, play zeroed buffer
       // won't generate delay. It could be discarded immediately. Need another
       // way to generate audio delay.
@@ -1047,7 +1064,7 @@ int AudioRendererImpl::Render(base::TimeDelta delay,
       // bitstream cases. Fix |frames_requested| to avoid incorrent time
       // calculation of |audio_clock_| below.
       frames_requested = frames_written;
-    } else if (algorithm_->frames_buffered() > 0) {
+    } else if (algorithm_->BufferedFrames() > 0) {
       // Delay playback by writing silence if we haven't reached the first
       // timestamp yet; this can occur if the video starts before the audio.
       CHECK_NE(first_packet_timestamp_, kNoTimestamp);

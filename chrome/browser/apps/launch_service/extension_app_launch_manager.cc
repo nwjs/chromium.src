@@ -5,6 +5,7 @@
 #include "chrome/browser/apps/launch_service/extension_app_launch_manager.h"
 
 #include "base/feature_list.h"
+#include "chrome/browser/apps/app_service/launch_utils.h"
 #include "chrome/browser/apps/platform_apps/platform_app_launch.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
@@ -40,28 +41,6 @@ content::WebContents* ExtensionAppLaunchManager::OpenApplication(
   if (params.container == apps::mojom::LaunchContainer::kLaunchContainerWindow)
     RecordBookmarkLaunch(profile(), params.app_id);
   return ::OpenApplication(profile(), params);
-}
-
-void ExtensionAppLaunchManager::LaunchApplication(
-    const std::string& app_id,
-    const base::CommandLine& command_line,
-    const base::FilePath& current_directory,
-    base::OnceCallback<void(Browser* browser,
-                            apps::mojom::LaunchContainer container)> callback) {
-  apps::mojom::LaunchContainer container;
-  if (OpenExtensionApplicationWindow(profile(), app_id, command_line,
-                                     current_directory)) {
-    RecordBookmarkLaunch(profile(), app_id);
-    container = apps::mojom::LaunchContainer::kLaunchContainerWindow;
-  } else if (OpenExtensionApplicationTab(profile(), app_id)) {
-    container = apps::mojom::LaunchContainer::kLaunchContainerTab;
-  } else {
-    // Open an empty browser window as the app_id is invalid.
-    CreateNewTabBrowser();
-    container = apps::mojom::LaunchContainer::kLaunchContainerNone;
-  }
-  std::move(callback).Run(BrowserList::GetInstance()->GetLastActive(),
-                          container);
 }
 
 }  // namespace apps

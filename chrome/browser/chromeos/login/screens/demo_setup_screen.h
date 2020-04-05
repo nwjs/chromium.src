@@ -23,25 +23,30 @@ class DemoSetupScreen : public BaseScreen {
  public:
   enum class Result { COMPLETED, CANCELED };
 
+  static std::string GetResultString(Result result);
+
   using ScreenExitCallback = base::RepeatingCallback<void(Result result)>;
   DemoSetupScreen(DemoSetupScreenView* view,
                   const ScreenExitCallback& exit_callback);
   ~DemoSetupScreen() override;
-
-  // BaseScreen:
-  void Show() override;
-  void Hide() override;
-  void OnUserAction(const std::string& action_id) override;
 
   // Called when view is being destroyed. If Screen is destroyed earlier
   // then it has to call Bind(nullptr).
   void OnViewDestroyed(DemoSetupScreenView* view);
 
  protected:
+  // BaseScreen:
+  void ShowImpl() override;
+  void HideImpl() override;
+  void OnUserAction(const std::string& action_id) override;
+
   ScreenExitCallback* exit_callback() { return &exit_callback_; }
 
  private:
   void StartEnrollment();
+
+  // Increments setup progress percentage for UI.
+  void IncrementSetupProgress(bool complete);
 
   // Called when the setup flow finished with error.
   void OnSetupError(const DemoSetupController::DemoSetupError& error);

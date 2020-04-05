@@ -4,6 +4,7 @@
 <translation id="1018939186200882850">ລາຍການເມນູ</translation>
 <translation id="10623998915015855">ປຸ່ມ​ສະ​ຫຼັບ</translation>
 <translation id="1088086359088493902">ວິ​ນາ​ທີ</translation>
+<translation id="1142001580032786438">ສະແດງຕົວເລືອກອາທິດ</translation>
 <translation id="1171774979989969504">ກະ​ລຸ​ນາ​ໃສ່​ທີ່​ຢູ່​ອີ​ເມວ.</translation>
 <translation id="1178581264944972037">ຢຸດຊົ່ວຄາວ</translation>
 <translation id="1188858454923323853">ເສີມ​ເຕີມ</translation>
@@ -22,6 +23,7 @@
 <translation id="1727886345390570319">ເຊື່ອງເມນູຄໍາອະທິບາຍພາບ</translation>
 <translation id="1729654308190250600">ກະ​ລຸ​ນາ​ໃສ່​ທີ່​ຢູ່​ອີ​ເມວທີ່​ບໍ່​ວ່າງ​ເປົ່າ​.</translation>
 <translation id="1758486001363313524">ອື່ນ...</translation>
+<translation id="1787192514241997742">ເວລາທັງໝົດ: <ph name="REMAINING_TIME" /></translation>
 <translation id="1806710327868736751">ກ່ອງໂຕ້ຕອບການເຕືອນ</translation>
 <translation id="1821985195704844674">ຕາໜ່າງຕົ້ນໄມ້</translation>
 <translation id="1822429046913737220">ໂມງເຊົ້າ/ໂມງແລງ</translation>
@@ -100,7 +102,6 @@
 <translation id="4444765639179266822">ປາກົດວ່າຈະເວົ້າ: <ph name="OCR_TEXT" /></translation>
 <translation id="4446524499724042288">ການອ້າງອີງປະມວນຄຳສັບ</translation>
 <translation id="4522570452068850558">ລາຍ​ລະ​ອຽດ</translation>
-<translation id="4542388879936266156">ເວລາທີ່ເຫຼືອ: <ph name="REMAINING_TIME" /></translation>
 <translation id="4597532268155981612">ແບບຟອມ</translation>
 <translation id="4661075872484491155">ຕົ້ນໄມ້</translation>
 <translation id="4664250907885839816">ສ່ວນ​ຫນຶ່ງ​ຕໍ່​ໄປ​ນີ້  '<ph name="ATSIGN" />' ບໍ່​ຄວນ​ໃຫ້​ມີ​ສັນ​ຍາ​ລັກ '<ph name="INVALIDCHARACTER" />'.</translation>
@@ -114,7 +115,9 @@
 <translation id="479989351350248267">ຄົ້ນ​ຫາ</translation>
 <translation id="4812940957355064477">ກະ​ລຸ​ນາ​ປ້ອນຕົວເລກ​.</translation>
 <translation id="4912536737030637138">ລາຍການບັນນານຸກົມ</translation>
+<translation id="4915360478455618802">ສະແດງຕົວເລືອກເວລາ</translation>
 <translation id="492244087561876220">ຄຳເຫັນ</translation>
+<translation id="4950364064308314478">ສະແດງຕົວເລືອກວັນທີ ແລະ ເວລາທ້ອງຖິ່ນ</translation>
 <translation id="4971739861736909480">ເລືອກ <ph name="ACCNAME" /> ແລ້ວ</translation>
 <translation id="4975562563186953947">ເລືອກ <ph name="SELECTED_COUNT" /> ແລ້ວ</translation>
 <translation id="4992066212339426712">ເປີດສຽງ</translation>
@@ -233,6 +236,7 @@
 <translation id="8284326494547611709">ຄໍາບັນຍາຍພາບ</translation>
 <translation id="8346634859695247203">ສ່ວນ</translation>
 <translation id="835897206747267392">ຄ່າບໍ່ຖືກຕ້ອງ</translation>
+<translation id="839593075537728968">ຄ່າຕ້ອງຢູ່ລະຫວ່າງ <ph name="MINIMUM_TIME" /> ຫາ <ph name="MAXIMUM_TIME" />.</translation>
 <translation id="8403857369060869934">ເວລາຜ່ານໄປ: <ph name="ELAPSED_TIME" /></translation>
 <translation id="8415319359811155763">ສ່ວນ</translation>
 <translation id="8433900881053900389">ແຖບເຄື່ອງມື</translation>
@@ -249,6 +253,7 @@
 <translation id="860475260694818407">ສາລະບານ</translation>
 <translation id="8613126697340063924">ຄວບ​ຄຸມ​ການ​ຫຼິ້ນ​ທາງໄກ</translation>
 <translation id="862370744433916922">ຄຳແປ</translation>
+<translation id="8634971699417195529">ສະແດງຕົວເລືອກເດືອນ</translation>
 <translation id="8711688047404765493">ຜົນອອກ</translation>
 <translation id="8750798805984357768">ກະລຸນາເລືອກໜຶ່ງໃນທາງເລືອກເຫຼົ່ານີ້.</translation>
 <translation id="8808573423886751634">ພາກ</translation>

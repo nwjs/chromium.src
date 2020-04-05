@@ -712,17 +712,18 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest, ResourceLoadComplete) {
   base::TimeTicks after = base::TimeTicks::Now();
   ASSERT_EQ(3U, observer.resource_load_infos().size());
   SCOPE_TRACED(observer.CheckResourceLoaded(
-      page_url, /*referrer=*/GURL(), "GET", content::ResourceType::kMainFrame,
+      page_url, /*referrer=*/GURL(), "GET",
+      network::mojom::RequestDestination::kDocument,
       FILE_PATH_LITERAL("page_with_iframe.html"), "text/html", "127.0.0.1",
       /*was_cached=*/false, /*first_network_request=*/true, before, after));
   SCOPE_TRACED(observer.CheckResourceLoaded(
       embedded_test_server()->GetURL("/image.jpg"),
-      /*referrer=*/page_url, "GET", content::ResourceType::kImage,
+      /*referrer=*/page_url, "GET", network::mojom::RequestDestination::kImage,
       FILE_PATH_LITERAL("image.jpg"), "image/jpeg", "127.0.0.1",
       /*was_cached=*/false, /*first_network_request=*/false, before, after));
   SCOPE_TRACED(observer.CheckResourceLoaded(
       embedded_test_server()->GetURL("/title1.html"),
-      /*referrer=*/page_url, "GET", content::ResourceType::kSubFrame,
+      /*referrer=*/page_url, "GET", network::mojom::RequestDestination::kIframe,
       FILE_PATH_LITERAL("title1.html"), "text/html", "127.0.0.1",
       /*was_cached=*/false, /*first_network_request=*/false, before, after));
 }
@@ -742,14 +743,15 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
   GURL resource_url = embedded_test_server()->GetURL("/cachetime");
   ASSERT_EQ(2U, observer.resource_load_infos().size());
   SCOPE_TRACED(observer.CheckResourceLoaded(
-      page_url, /*referrer=*/GURL(), "GET", content::ResourceType::kMainFrame,
+      page_url, /*referrer=*/GURL(), "GET",
+      network::mojom::RequestDestination::kDocument,
       /*served_file_name=*/FILE_PATH_LITERAL(""), "text/html", "127.0.0.1",
       /*was_cached=*/false,
       /*first_network_request=*/true, before, after));
 
   SCOPE_TRACED(observer.CheckResourceLoaded(
       resource_url, /*referrer=*/page_url, "GET",
-      content::ResourceType::kScript,
+      network::mojom::RequestDestination::kScript,
       /*served_file_name=*/FILE_PATH_LITERAL(""), "text/html", "127.0.0.1",
       /*was_cached=*/false, /*first_network_request=*/false, before, after));
   EXPECT_TRUE(
@@ -763,7 +765,8 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
   after = base::TimeTicks::Now();
   ASSERT_EQ(1U, observer.resource_load_infos().size());
   SCOPE_TRACED(observer.CheckResourceLoaded(
-      page_url, /*referrer=*/GURL(), "GET", content::ResourceType::kMainFrame,
+      page_url, /*referrer=*/GURL(), "GET",
+      network::mojom::RequestDestination::kDocument,
       /*served_file_name=*/FILE_PATH_LITERAL(""), "text/html", "127.0.0.1",
       /*was_cached=*/false, /*first_network_request=*/false, before, after));
   ASSERT_EQ(1U, observer.memory_cached_loaded_urls().size());
@@ -781,12 +784,13 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
   after = base::TimeTicks::Now();
   ASSERT_EQ(2U, observer.resource_load_infos().size());
   SCOPE_TRACED(observer.CheckResourceLoaded(
-      page_url, /*referrer=*/GURL(), "GET", content::ResourceType::kMainFrame,
+      page_url, /*referrer=*/GURL(), "GET",
+      network::mojom::RequestDestination::kDocument,
       /*served_file_name=*/FILE_PATH_LITERAL(""), "text/html", "127.0.0.1",
       /*was_cached=*/false, /*first_network_request=*/true, before, after));
   SCOPE_TRACED(observer.CheckResourceLoaded(
       resource_url, /*referrer=*/page_url, "GET",
-      content::ResourceType::kScript,
+      network::mojom::RequestDestination::kScript,
       /*served_file_name=*/FILE_PATH_LITERAL(""), "text/html", "127.0.0.1",
       /*was_cached=*/true, /*first_network_request=*/false, before, after));
   EXPECT_TRUE(observer.memory_cached_loaded_urls().empty());
@@ -809,7 +813,7 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
 
   EXPECT_TRUE(NavigateToURL(shell(), GetWebUIURL("gpu")));
   ASSERT_LE(1U, observer.resource_load_infos().size());
-  for (const mojom::ResourceLoadInfoPtr& resource_load_info :
+  for (const blink::mojom::ResourceLoadInfoPtr& resource_load_info :
        observer.resource_load_infos()) {
     EXPECT_FALSE(resource_load_info->network_info->network_accessed);
   }
@@ -828,7 +832,7 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
                             page_destination_url /* expected_commit_url */));
 
   ASSERT_EQ(2U, observer.resource_load_infos().size());
-  const mojom::ResourceLoadInfoPtr& page_load_info =
+  const blink::mojom::ResourceLoadInfoPtr& page_load_info =
       observer.resource_load_infos()[0];
   EXPECT_EQ(page_destination_url, page_load_info->final_url);
   EXPECT_EQ(page_original_url, page_load_info->original_url);
@@ -836,7 +840,7 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
   GURL image_destination_url(embedded_test_server()->GetURL("/blank.jpg"));
   GURL image_original_url(
       embedded_test_server()->GetURL("/server-redirect?blank.jpg"));
-  const mojom::ResourceLoadInfoPtr& image_load_info =
+  const blink::mojom::ResourceLoadInfoPtr& image_load_info =
       observer.resource_load_infos()[1];
   EXPECT_EQ(image_destination_url, image_load_info->final_url);
   EXPECT_EQ(image_original_url, image_load_info->original_url);
@@ -1619,9 +1623,11 @@ class TestWCDelegateForDialogsAndFullscreen : public JavaScriptDialogManager,
   DISALLOW_COPY_AND_ASSIGN(TestWCDelegateForDialogsAndFullscreen);
 };
 
-class MockFileSelectListener : public FileSelectListener {
+class MockFileSelectListener : public FileChooserImpl::FileSelectListenerImpl {
  public:
-  MockFileSelectListener() {}
+  MockFileSelectListener() : FileChooserImpl::FileSelectListenerImpl(nullptr) {
+    SetListenerFunctionCalledTrueForTesting();
+  }
   void FileSelected(std::vector<blink::mojom::FileChooserFileInfoPtr> files,
                     const base::FilePath& base_dir,
                     blink::mojom::FileChooserParams::Mode mode) override {}
@@ -2163,7 +2169,8 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest, UserAgentOverride) {
       &header_value));
   EXPECT_NE(kUserAgentOverride, header_value);
 
-  shell()->web_contents()->SetUserAgentOverride("foo", false);
+  shell()->web_contents()->SetUserAgentOverride(
+      blink::UserAgentOverride::UserAgentOnly("foo"), false);
   EXPECT_TRUE(NavigateToURL(shell(), kUrl));
   EXPECT_TRUE(ExecuteScriptAndExtractString(
       shell()->web_contents(),
@@ -2948,6 +2955,39 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest, NotifyFullscreenAcquired) {
     EXPECT_EQ(fullscreen_frames, web_contents->fullscreen_frames_);
     EXPECT_EQ(main_frame, web_contents->current_fullscreen_frame_);
   }
+}
+
+IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest, RejectFullscreenIfBlocked) {
+  WebContentsImpl* web_contents =
+      static_cast<WebContentsImpl*>(shell()->web_contents());
+  TestWCDelegateForDialogsAndFullscreen test_delegate(web_contents);
+
+  GURL url("about:blank");
+  EXPECT_TRUE(NavigateToURL(shell(), url));
+  RenderFrameHostImpl* main_frame = web_contents->GetMainFrame();
+
+  EXPECT_TRUE(ExecuteScript(
+      main_frame,
+      "document.body.onfullscreenchange = "
+      "function (event) { document.title = 'onfullscreenchange' };"));
+  EXPECT_TRUE(ExecuteScript(
+      main_frame,
+      "document.body.onfullscreenerror = "
+      "function (event) { document.title = 'onfullscreenerror' };"));
+
+  TitleWatcher title_watcher(web_contents,
+                             base::ASCIIToUTF16("onfullscreenchange"));
+  title_watcher.AlsoWaitForTitle(base::ASCIIToUTF16("onfullscreenerror"));
+
+  // While the |fullscreen_block| is in scope, fullscreen should fail with an
+  // error.
+  base::ScopedClosureRunner fullscreen_block =
+      web_contents->ForSecurityDropFullscreen();
+
+  EXPECT_TRUE(ExecuteScript(main_frame, "document.body.requestFullscreen();"));
+
+  base::string16 title = title_watcher.WaitAndGetTitle();
+  ASSERT_EQ(title, base::ASCIIToUTF16("onfullscreenerror"));
 }
 
 // Regression test for https://crbug.com/855018.

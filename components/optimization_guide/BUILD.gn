@@ -4,6 +4,10 @@
 
 assert(!is_ios, "Optimization Guide is not available on iOS.")
 
+if (is_android) {
+  import("//build/config/android/rules.gni")
+}
+
 static_library("optimization_guide") {
   sources = [
     "bloom_filter.cc",
@@ -40,6 +44,8 @@ static_library("optimization_guide") {
     "optimization_guide_store.h",
     "optimization_guide_switches.cc",
     "optimization_guide_switches.h",
+    "optimization_metadata.cc",
+    "optimization_metadata.h",
     "store_update_data.cc",
     "store_update_data.h",
     "top_host_provider.h",
@@ -113,4 +119,11 @@ source_set("unit_tests") {
     "//testing/gtest",
     "//url:url",
   ]
+}
+
+if (is_android) {
+  java_cpp_enum("optimization_guide_generated_enums") {
+    sources = [ "optimization_guide_decider.h" ]
+    visibility = [ "//chrome/browser/optimization_guide/android:*" ]
+  }
 }

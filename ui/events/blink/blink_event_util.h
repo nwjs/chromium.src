@@ -7,12 +7,15 @@
 
 #include <memory>
 
+#include "base/optional.h"
 #include "build/build_config.h"
+#include "cc/input/scroll_input_type.h"
 #include "third_party/blink/public/common/input/web_gesture_event.h"
 #include "third_party/blink/public/common/input/web_input_event.h"
 #include "third_party/blink/public/common/input/web_touch_event.h"
 #include "ui/events/event_constants.h"
 #include "ui/events/gesture_detection/motion_event.h"
+#include "ui/events/types/event_type.h"
 #include "ui/events/types/scroll_types.h"
 
 namespace gfx {
@@ -79,6 +82,11 @@ blink::WebInputEvent::Type ToWebMouseEventType(MotionEvent::Action action);
 
 EventType WebEventTypeToEventType(blink::WebInputEvent::Type type);
 
+// Returns the scroll input type if |event| is a scroll event; otherwise,
+// returns base::nullopt.
+base::Optional<cc::ScrollInputType> GetScrollInputTypeForEvent(
+    const blink::WebInputEvent& event);
+
 void SetWebPointerPropertiesFromMotionEventData(
     blink::WebPointerProperties& webPointerProperties,
     int pointer_id,
@@ -123,7 +131,7 @@ std::unique_ptr<blink::WebGestureEvent> GenerateInjectedScrollGesture(
     blink::WebGestureDevice device,
     gfx::PointF position_in_widget,
     gfx::Vector2dF scroll_delta,
-    input_types::ScrollGranularity granularity);
+    ScrollGranularity granularity);
 
 // Returns the position in the widget if it exists for the passed in event type
 gfx::PointF PositionInWidgetFromInputEvent(const blink::WebInputEvent& event);

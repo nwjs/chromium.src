@@ -5,12 +5,14 @@
 <link rel="import" href="chrome://resources/html/assert.html">
 <link rel="import" href="chrome://resources/html/cr/ui/focus_without_ink.html">
 <link rel="import" href="chrome://resources/html/i18n_behavior.html">
+<link rel="import" href="chrome://resources/html/web_ui_listener_behavior.html">
 <link rel="import" href="chrome://resources/cr_elements/cr_dialog/cr_dialog.html">
 <link rel="import" href="chrome://resources/cr_elements/cr_button/cr_button.html">
 <link rel="import" href="chrome://resources/cr_elements/cr_icon_button/cr_icon_button.html">
 <link rel="import" href="chrome://resources/cr_elements/cr_link_row/cr_link_row.html">
 <link rel="import" href="chrome://resources/cr_elements/icons.html">
 <link rel="import" href="chrome://resources/cr_elements/shared_vars_css.html">
+<link rel="import" href="../i18n_setup.html">
 <link rel="import" href="../icons.html">
 <link rel="import" href="../route.html">
 <link rel="import" href="../router.html">
@@ -20,7 +22,7 @@
 <link rel="import" href="constants.html">
 <link rel="import" href="site_details_permission.html">
 <link rel="import" href="site_settings_behavior.html">
-<link rel="import" href="website_usage_private_api.html">
+<link rel="import" href="website_usage_browser_proxy.html">
 
 <dom-module id="site-details">
   <template>
@@ -211,6 +213,13 @@
           icon="settings:serial-port" id="serialPorts"
           label="$i18n{siteSettingsSerialPorts}">
       </site-details-permission>
+      <template is="dom-if" if="[[enableWebBluetoothNewPermissionsBackend_]]">
+        <site-details-permission
+            category="{{ContentSettingsTypes.BLUETOOTH_DEVICES}}"
+            icon="settings:bluetooth" id="bluetoothDevices"
+            label="$i18n{siteSettingsBluetoothDevices}">
+        </site-details-permission>
+      </template>
       <template is="dom-if" if="[[enableNativeFileSystemWriteContentSetting_]]">
         <site-details-permission
             category="{{ContentSettingsTypes.NATIVE_FILE_SYSTEM_WRITE}}"
@@ -274,11 +283,6 @@
         </site-details-permission>
       </template>
     </div>
-
-    <website-usage-private-api id="usageApi"
-        website-data-usage="{{storedData_}}"
-        website-cookie-usage="{{numCookies_}}">
-    </website-usage-private-api>
   </template>
   <script src="site_details.js"></script>
 </dom-module>

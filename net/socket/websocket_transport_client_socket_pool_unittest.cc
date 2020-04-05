@@ -58,9 +58,9 @@ const RequestPriority kDefaultPriority = LOW;
 // RunLoop doesn't support this natively but it is easy to emulate.
 void RunLoopForTimePeriod(base::TimeDelta period) {
   base::RunLoop run_loop;
-  base::Closure quit_closure(run_loop.QuitClosure());
-  base::ThreadTaskRunnerHandle::Get()->PostDelayedTask(FROM_HERE, quit_closure,
-                                                       period);
+  base::OnceClosure quit_closure(run_loop.QuitClosure());
+  base::ThreadTaskRunnerHandle::Get()->PostDelayedTask(
+      FROM_HERE, std::move(quit_closure), period);
   run_loop.Run();
 }
 
@@ -795,13 +795,13 @@ TEST_F(WebSocketTransportClientSocketPoolTest, FirstSuccessWins) {
   EXPECT_THAT(rv, IsError(ERR_IO_PENDING));
   ASSERT_FALSE(handle.socket());
 
-  base::Closure ipv6_connect_trigger =
+  base::OnceClosure ipv6_connect_trigger =
       client_socket_factory_.WaitForTriggerableSocketCreation();
-  base::Closure ipv4_connect_trigger =
+  base::OnceClosure ipv4_connect_trigger =
       client_socket_factory_.WaitForTriggerableSocketCreation();
 
-  ipv4_connect_trigger.Run();
-  ipv6_connect_trigger.Run();
+  std::move(ipv4_connect_trigger).Run();
+  std::move(ipv6_connect_trigger).Run();
 
   EXPECT_THAT(callback.WaitForResult(), IsOk());
   ASSERT_TRUE(handle.socket());
@@ -967,7 +967,7 @@ TEST_F(WebSocketTransportClientSocketPoolTest,
 TEST_F(WebSocketTransportClientSocketPoolTest,
        FlushWithErrorFlushesPendingConnections) {
   EXPECT_THAT(StartRequest(kDefaultPriority), IsError(ERR_IO_PENDING));
-  pool_.FlushWithError(ERR_FAILED);
+  pool_.FlushWithError(ERR_FAILED, "Very good reason");
   EXPECT_THAT(request(0)->WaitForResult(), IsError(ERR_FAILED));
 }
 
@@ -976,7 +976,7 @@ TEST_F(WebSocketTransportClientSocketPoolTest,
   for (int i = 0; i < kMaxSockets + 1; ++i) {
     EXPECT_THAT(StartRequest(kDefaultPriority), IsError(ERR_IO_PENDING));
   }
-  pool_.FlushWithError(ERR_FAILED);
+  pool_.FlushWithError(ERR_FAILED, "Very good reason");
   EXPECT_THAT(request(kMaxSockets)->WaitForResult(), IsError(ERR_FAILED));
 }
 
@@ -985,7 +985,7 @@ TEST_F(WebSocketTransportClientSocketPoolTest,
   for (int i = 0; i < kMaxSockets + 1; ++i) {
     EXPECT_THAT(StartRequest(kDefaultPriority), IsError(ERR_IO_PENDING));
   }
-  pool_.FlushWithError(ERR_FAILED);
+  pool_.FlushWithError(ERR_FAILED, "Very good reason");
   host_resolver_->set_synchronous_mode(true);
   EXPECT_THAT(StartRequest(kDefaultPriority), IsOk());
 }
@@ -1011,7 +1011,7 @@ TEST_F(WebSocketTransportClientSocketPoolTest,
   // Now we have one socket in STATE_TRANSPORT_CONNECT and the rest in
   // STATE_OBTAIN_LOCK. If any of the sockets in STATE_OBTAIN_LOCK is given the
   // lock, they will synchronously connect.
-  pool_.FlushWithError(ERR_FAILED);
+  pool_.FlushWithError(ERR_FAILED, "Very good reason");
   for (int i = 0; i < kMaxSockets; ++i) {
     EXPECT_THAT(request(i)->WaitForResult(), IsError(ERR_FAILED));
   }
@@ -1053,7 +1053,7 @@ TEST_F(WebSocketTransportClientSocketPoolTest,
       TransportConnectJob::kIPv6FallbackTimerInMs));
   // Now we have |kMaxSockets| IPv6 sockets and one IPv4 socket stalled in
   // connect, and |kMaxSockets - 1| IPv4 sockets waiting for the endpoint lock.
-  pool_.FlushWithError(ERR_FAILED);
+  pool_.FlushWithError(ERR_FAILED, "Very good reason");
   for (int i = 0; i < kMaxSockets; ++i) {
     EXPECT_THAT(request(i)->WaitForResult(), IsError(ERR_FAILED));
   }
@@ -1075,7 +1075,7 @@ TEST_F(WebSocketTransportClientSocketPoolTest,
 
   EXPECT_THAT(StartRequest(kDefaultPriority), IsError(ERR_IO_PENDING));
   // Now we have one socket handed out, and one pending.
-  pool_.FlushWithError(ERR_FAILED);
+  pool_.FlushWithError(ERR_FAILED, "Very good reason");
   EXPECT_THAT(request(1)->WaitForResult(), IsError(ERR_FAILED));
   // Socket owned by ClientSocketHandle is unaffected:
   EXPECT_TRUE(request(0)->handle()->socket());
@@ -1096,10 +1096,10 @@ TEST_F(WebSocketTransportClientSocketPoolTest, CancelRequestReclaimsSockets) {
 
   EXPECT_THAT(StartRequest(kDefaultPriority), IsError(ERR_IO_PENDING));
 
-  base::Closure connect_trigger =
+  base::OnceClosure connect_trigger =
       client_socket_factory_.WaitForTriggerableSocketCreation();
 
-  connect_trigger.Run();  // Calls InvokeUserCallbackLater()
+  std::move(connect_trigger).Run();  // Calls InvokeUserCallbackLater()
 
   request(0)->handle()->Reset();  // calls CancelRequest()
 

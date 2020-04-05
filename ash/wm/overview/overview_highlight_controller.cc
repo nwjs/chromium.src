@@ -8,6 +8,7 @@
 #include "ash/magnifier/magnification_controller.h"
 #include "ash/shell.h"
 #include "ash/wm/desks/desk_mini_view.h"
+#include "ash/wm/desks/desk_name_view.h"
 #include "ash/wm/desks/desks_bar_view.h"
 #include "ash/wm/desks/desks_util.h"
 #include "ash/wm/desks/new_desk_button.h"
@@ -98,17 +99,31 @@ void OverviewHighlightController::MoveHighlight(bool reverse) {
 void OverviewHighlightController::OnViewDestroyingOrDisabling(
     OverviewHighlightableView* view) {
   DCHECK(view);
-  if (view != highlighted_view_)
-    return;
 
+  // TODO(afakhry): Refactor this code.
   const std::vector<OverviewHighlightableView*> traversable_views =
       GetTraversableViews();
-  const auto it = std::find(traversable_views.begin(), traversable_views.end(),
-                            highlighted_view_);
-  DCHECK(it != traversable_views.end());
-  const int current_index = std::distance(traversable_views.begin(), it);
-  DCHECK_GE(current_index, 0);
-  deleted_index_ = base::make_optional(current_index);
+  const auto it =
+      std::find(traversable_views.begin(), traversable_views.end(), view);
+  if (it == traversable_views.end())
+    return;
+
+  const int view_index = std::distance(traversable_views.begin(), it);
+  DCHECK_GE(view_index, 0);
+
+  if (view != highlighted_view_) {
+    if (!deleted_index_)
+      return;
+
+    // We need to update the |deleted_index_| in case the destroying view
+    // resides before a previously removed highlighted view in the highlight
+    // order.
+    if (view_index < *deleted_index_)
+      deleted_index_ = std::max(0, --(*deleted_index_));
+    return;
+  }
+
+  deleted_index_ = view_index;
   highlighted_view_->SetHighlightVisibility(false);
   highlighted_view_ = nullptr;
 }
@@ -181,8 +196,10 @@ OverviewHighlightController::GetTraversableViews() const {
     if (bar_view) {
       // The desk items are always traversable from left to right, even in RTL
       // languages.
-      for (const auto& mini_view : bar_view->mini_views())
+      for (const auto& mini_view : bar_view->mini_views()) {
         traversable_views.push_back(mini_view.get());
+        traversable_views.push_back(mini_view->desk_name_view());
+      }
 
       if (bar_view->new_desk_button()->GetEnabled())
         traversable_views.push_back(bar_view->new_desk_button());

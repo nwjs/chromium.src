@@ -15,7 +15,37 @@ namespace blink {
 // platform and to help identify the cause of performance regressions or
 // improvements.
 
-enum class DocumentUpdateReason { kBeginMainFrame, kTest, kOther };
+enum class DocumentUpdateReason {
+  kAccessibility,
+  kBaseColor,
+  kBeginMainFrame,
+  kCanvas,
+  kContextMenu,
+  kDisplayLock,
+  kDragImage,
+  kEditing,
+  kFindInPage,
+  kFocus,
+  kForm,
+  kHitTest,
+  kInput,
+  kInspector,
+  kIntersectionObservation,
+  kJavaScript,
+  kOverlay,
+  kPagePopup,
+  kPlugin,
+  kPrinting,
+  kScroll,
+  kSelection,
+  kSizeChange,
+  kSpatialNavigation,
+  kSpellCheck,
+  kSVGImage,
+  kTapHighlight,
+  kTest,
+  kUnknown
+};
 
 }  // namespace blink
 

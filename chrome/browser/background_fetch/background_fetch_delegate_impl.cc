@@ -7,6 +7,7 @@
 #include <utility>
 
 #include "base/bind.h"
+#include "base/callback_helpers.h"
 #include "base/feature_list.h"
 #include "base/guid.h"
 #include "base/logging.h"
@@ -347,8 +348,9 @@ void BackgroundFetchDelegateImpl::DownloadUrl(
   params.request_params.method = method;
   params.request_params.url = url;
   params.request_params.request_headers = headers;
-  params.callback = base::Bind(&BackgroundFetchDelegateImpl::OnDownloadReceived,
-                               weak_ptr_factory_.GetWeakPtr());
+  params.callback =
+      base::BindRepeating(&BackgroundFetchDelegateImpl::OnDownloadReceived,
+                          weak_ptr_factory_.GetWeakPtr());
   params.traffic_annotation =
       net::MutableNetworkTrafficAnnotationTag(traffic_annotation);
 
@@ -658,7 +660,7 @@ void BackgroundFetchDelegateImpl::UpdateOfflineItemAndUpdateObservers(
 }
 
 void BackgroundFetchDelegateImpl::OpenItem(
-    offline_items_collection::LaunchLocation location,
+    const offline_items_collection::OpenParams& open_params,
     const offline_items_collection::ContentId& id) {
   auto job_details_iter = job_details_map_.find(id.id);
   if (job_details_iter == job_details_map_.end())

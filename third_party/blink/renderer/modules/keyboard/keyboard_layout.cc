@@ -31,7 +31,7 @@ constexpr char kKeyboardMapRequestFailedErrorMsg[] =
 }  // namespace
 
 KeyboardLayout::KeyboardLayout(ExecutionContext* context)
-    : ContextLifecycleObserver(context) {}
+    : ExecutionContextClient(context) {}
 
 ScriptPromise KeyboardLayout::GetKeyboardLayoutMap(
     ScriptState* script_state,
@@ -114,9 +114,9 @@ void KeyboardLayout::GotKeyboardLayoutMap(
   script_promise_resolver_ = nullptr;
 }
 
-void KeyboardLayout::Trace(blink::Visitor* visitor) {
+void KeyboardLayout::Trace(Visitor* visitor) {
   visitor->Trace(script_promise_resolver_);
-  ContextLifecycleObserver::Trace(visitor);
+  ExecutionContextClient::Trace(visitor);
 }
 
 }  // namespace blink

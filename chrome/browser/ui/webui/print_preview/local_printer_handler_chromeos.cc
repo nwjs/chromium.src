@@ -14,6 +14,7 @@
 #include "base/memory/ptr_util.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "base/values.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chromeos/printing/cups_print_job_manager.h"
@@ -55,8 +56,6 @@ PrinterBasicInfo ToBasicInfo(const chromeos::Printer& printer) {
   basic_info.options[kCUPSEnterprisePrinter] =
       (printer.source() == chromeos::Printer::SRC_POLICY) ? kValueTrue
                                                           : kValueFalse;
-  // TODO(1023589): Get the printer's EULA url from the printer object.
-  basic_info.options[kPrinterEulaURL] = "";
   basic_info.printer_name = printer.id();
   basic_info.display_name = printer.display_name();
   basic_info.printer_description = printer.description();
@@ -95,9 +94,8 @@ void FetchCapabilities(const chromeos::Printer& printer,
   PrinterBasicInfo basic_info = ToBasicInfo(printer);
 
   // USER_VISIBLE because the result is displayed in the print preview dialog.
-  base::PostTaskAndReplyWithResult(
-      FROM_HERE,
-      {base::ThreadPool(), base::MayBlock(), base::TaskPriority::USER_VISIBLE},
+  base::ThreadPool::PostTaskAndReplyWithResult(
+      FROM_HERE, {base::MayBlock(), base::TaskPriority::USER_VISIBLE},
       base::BindOnce(&FetchCapabilitiesAsync, printer.id(), basic_info,
                      printer.HasSecureProtocol(),
                      g_browser_process->GetApplicationLocale()),

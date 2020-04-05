@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/callback.h"
 #include "base/containers/circular_deque.h"
 #include "base/containers/queue.h"
@@ -2384,7 +2385,7 @@ class DownloadItemDestinationUpdateRaceTest
   void ScheduleObservations(
       const ObservationList& observations,
       base::WeakPtr<DownloadDestinationObserver> observer) {
-    for (const auto action : observations)
+    for (const auto& action : observations)
       base::ThreadTaskRunnerHandle::Get()->PostTask(
           FROM_HERE, base::BindOnce(action, observer));
   }

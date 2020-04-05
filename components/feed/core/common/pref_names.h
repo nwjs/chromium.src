@@ -11,14 +11,6 @@ namespace feed {
 
 namespace prefs {
 
-// The pref name for whether suggested articles is allowed at all. When false,
-// all Feed Java objects will be destroyed/nulled. Typically set by policy.
-extern const char kEnableSnippets[];
-
-// The pref name for whether the suggested articles section is expanded or
-// collapsed. Only when it is expanded are the articles themselves visible.
-extern const char kArticlesListVisible[];
-
 // The pref name for the period of time between background refreshes.
 extern const char kBackgroundRefreshPeriod[];
 
@@ -49,6 +41,13 @@ extern const char kUserClassifierLastTimeToUseSuggestions[];
 extern const char kHostOverrideHost[];
 // The pref name for the feed host override auth token.
 extern const char kHostOverrideBlessNonce[];
+
+// The following prefs are used only by v2.
+
+// The pref name for the request throttler counts.
+extern const char kThrottlerRequestCountListPrefName[];
+// The pref name for the request throttler's last request time.
+extern const char kThrottlerLastRequestTime[];
 
 }  // namespace prefs
 

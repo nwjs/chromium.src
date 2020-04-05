@@ -65,6 +65,7 @@ source_set("chrome_public_test_apk_filters") {
   data = [
     "//testing/buildbot/filters/bfcache.chrome_public_test_apk.filter",
     "//testing/buildbot/filters/android.pie_arm64_rel.chrome_public_test_apk.filter",
+    "//testing/buildbot/filters/android.emulator.chrome_public_test_apk.filter",
   ]
 }
 
@@ -83,6 +84,7 @@ source_set("content_browsertests_filters") {
 
   data = [
     "//testing/buildbot/filters/android.asan.content_browsertests.filter",
+    "//testing/buildbot/filters/android.emulator.content_browsertests.filter",
     "//testing/buildbot/filters/bfcache.content_browsertests.filter",
     "//testing/buildbot/filters/cast-linux.content_browsertests.filter",
     "//testing/buildbot/filters/gpu.skiarenderer_vulkan_content_browsertests.filter",
@@ -123,6 +125,7 @@ source_set("fuchsia_filters") {
   data = [
     "//testing/buildbot/filters/fuchsia.base_perftests.filter",
     "//testing/buildbot/filters/fuchsia.components_unittests.filter",
+    "//testing/buildbot/filters/fuchsia.cc_unittests.filter",
     "//testing/buildbot/filters/fuchsia.content_unittests.filter",
     "//testing/buildbot/filters/fuchsia.mojo_unittests.filter",
     "//testing/buildbot/filters/fuchsia.net_perftests.filter",
@@ -148,7 +151,10 @@ source_set("interactive_ui_tests_filters") {
 }
 
 source_set("linux_ozone_views_unittests_filters") {
-  data = [ "//testing/buildbot/filters/ozone-linux.x11_views_unittests.filter" ]
+  data = [
+    "//testing/buildbot/filters/ozone-linux.x11_views_unittests.filter",
+    "//testing/buildbot/filters/ozone-linux.wayland_views_unittests.filter",
+  ]
 }
 
 source_set("linux_trusty_rel_browser_tests_filters") {
@@ -184,7 +190,10 @@ source_set("unit_tests_filters") {
 source_set("viz_unittests_filters") {
   testonly = true
 
-  data = [ "//testing/buildbot/filters/android.emulator.viz_unittests.filter" ]
+  data = [
+    "//testing/buildbot/filters/android.emulator.viz_unittests.filter",
+    "//testing/buildbot/filters/gpu.skiarenderer_dawn_viz_unittests.filter",
+  ]
 }
 
 source_set("webview_cts_tests_filters") {
@@ -197,5 +206,8 @@ source_set("webview_cts_tests_filters") {
 source_set("webview_instrumentation_test_apk_filters") {
   testonly = true
 
-  data = [ "//testing/buildbot/filters/mojo.fyi.network_webview_instrumentation_test_apk.filter" ]
+  data = [
+    "//testing/buildbot/filters/android.emulator.webview_instrumentation_test_apk.filter",
+    "//testing/buildbot/filters/mojo.fyi.network_webview_instrumentation_test_apk.filter",
+  ]
 }

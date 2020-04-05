@@ -49,7 +49,7 @@ class VIZ_SERVICE_EXPORT GLOutputSurfaceBufferQueue
   void Reshape(const gfx::Size& size,
                float device_scale_factor,
                const gfx::ColorSpace& color_space,
-               bool has_alpha,
+               gfx::BufferFormat format,
                bool use_stencil) override;
 
  private:
@@ -62,7 +62,7 @@ class VIZ_SERVICE_EXPORT GLOutputSurfaceBufferQueue
   uint32_t GetFramebufferCopyTextureFormat() override;
   bool IsDisplayedAsOverlayPlane() const override;
   unsigned GetOverlayTextureId() const override;
-  gfx::BufferFormat GetOverlayBufferFormat() const override;
+  gpu::Mailbox GetOverlayMailbox() const override;
 
   // GLOutputSurface:
   void DidReceiveSwapBuffersAck(const gfx::SwapResponse& response) override;
@@ -80,12 +80,15 @@ class VIZ_SERVICE_EXPORT GLOutputSurfaceBufferQueue
   // |last_bound_texture_| is the texture that was last bound to |fbo_|. It's
   // also one of |buffer_queue_textures_| or 0 if no texture has been bound to
   // |fbo_| or all the buffers in the buffer queue have been freed.
+  // |last_bound_mailbox_| is the mailbox corresponding to
+  // |last_bound_texture_|.
   //
   // TODO(andrescj): use an RAII pattern to scope access to |current_texture_|
   // because it requires Begin/EndSharedImageAccessDirectCHROMIUM().
   unsigned current_texture_ = 0u;
   unsigned last_bound_texture_ = 0u;
-  const unsigned texture_target_;
+  gpu::Mailbox last_bound_mailbox_;
+  unsigned texture_target_ = 0u;
 
   unsigned fbo_ = 0u;
 

@@ -31,6 +31,7 @@ class FakeArCore : public ArCore {
       const base::span<const float> uvs) override;
   gfx::Transform GetProjectionMatrix(float near, float far) override;
   mojom::VRPosePtr Update(bool* camera_updated) override;
+  base::TimeDelta GetFrameTimestamp() override;
 
   void Pause() override;
   void Resume() override;
@@ -61,8 +62,8 @@ class FakeArCore : public ArCore {
   mojom::XRLightEstimationDataPtr GetLightEstimationData() override;
 
   base::Optional<uint64_t> CreateAnchor(
-      const device::mojom::PosePtr& pose) override;
-  base::Optional<uint64_t> CreateAnchor(const device::mojom::PosePtr& pose,
+      const device::mojom::Pose& pose) override;
+  base::Optional<uint64_t> CreateAnchor(const device::mojom::Pose& pose,
                                         uint64_t plane_id) override;
   void DetachAnchor(uint64_t anchor_id) override;
 

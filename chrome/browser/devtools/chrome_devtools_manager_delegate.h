@@ -20,6 +20,7 @@
 #include "net/base/host_port_pair.h"
 
 class ChromeDevToolsSession;
+class ScopedKeepAlive;
 using RemoteLocations = std::set<net::HostPortPair>;
 
 namespace extensions {
@@ -53,13 +54,14 @@ class ChromeDevToolsManagerDelegate : public content::DevToolsManagerDelegate {
   std::vector<content::BrowserContext*> GetBrowserContexts() override;
   content::BrowserContext* GetDefaultBrowserContext() override;
 
+  void BrowserCloseRequested();
+
  private:
   friend class DevToolsManagerDelegateTest;
 
   // content::DevToolsManagerDelegate implementation.
   void Inspect(content::DevToolsAgentHost* agent_host) override;
   void HandleCommand(content::DevToolsAgentHostClientChannel* channel,
-                     const std::string& method,
                      base::span<const uint8_t> message,
                      NotHandledCallback callback) override;
   std::string GetTargetType(content::WebContents* web_contents) override;
@@ -90,6 +92,7 @@ class ChromeDevToolsManagerDelegate : public content::DevToolsManagerDelegate {
   std::unique_ptr<DevToolsDeviceDiscovery> device_discovery_;
   content::DevToolsAgentHost::List remote_agent_hosts_;
   RemoteLocations remote_locations_;
+  std::unique_ptr<ScopedKeepAlive> keep_alive_;
 
   DISALLOW_COPY_AND_ASSIGN(ChromeDevToolsManagerDelegate);
 };

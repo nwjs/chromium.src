@@ -9,6 +9,7 @@
 #include "base/optional.h"
 #include "chrome/browser/ui/cookie_controls/cookie_controls_controller.h"
 #include "chrome/browser/ui/cookie_controls/cookie_controls_view.h"
+#include "components/page_info/android/cookie_controls_status.h"
 
 // Communicates between CookieControlsController (C++ backend) and PageInfoView
 // (Java UI).
@@ -26,15 +27,22 @@ class CookieControlsBridge : public CookieControlsView {
   // Called by the Java counterpart when it is getting garbage collected.
   void Destroy(JNIEnv* env, const base::android::JavaParamRef<jobject>& obj);
 
+  void SetThirdPartyCookieBlockingEnabledForSite(JNIEnv* env,
+                                                 bool block_cookies);
+
+  void OnUiClosing(JNIEnv* env);
+
   // CookieControlsView:
-  void OnStatusChanged(CookieControlsController::Status status,
+  void OnStatusChanged(CookieControlsStatus status,
+                       CookieControlsEnforcement enforcement,
                        int blocked_cookies) override;
   void OnBlockedCookiesCountChanged(int blocked_cookies) override;
 
  private:
   base::android::ScopedJavaGlobalRef<jobject> jobject_;
-  CookieControlsController::Status status_ =
-      CookieControlsController::Status::kUninitialized;
+  CookieControlsStatus status_ = CookieControlsStatus::kUninitialized;
+  CookieControlsEnforcement enforcement_ =
+      CookieControlsEnforcement::kNoEnforcement;
   base::Optional<int> blocked_cookies_;
   std::unique_ptr<CookieControlsController> controller_;
   ScopedObserver<CookieControlsController, CookieControlsView> observer_{this};

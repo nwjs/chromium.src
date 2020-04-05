@@ -7,7 +7,6 @@ package org.chromium.chrome.browser.explore_sites;
 import android.content.Context;
 import android.os.Parcel;
 import android.os.Parcelable;
-import android.support.v7.widget.RecyclerView;
 import android.text.TextUtils;
 import android.text.format.DateUtils;
 import android.util.Base64;
@@ -16,33 +15,33 @@ import android.view.ViewGroup;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
+import androidx.recyclerview.widget.RecyclerView;
 
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeActivity;
-import org.chromium.chrome.browser.favicon.RoundedIconGenerator;
 import org.chromium.chrome.browser.native_page.ContextMenuManager;
 import org.chromium.chrome.browser.native_page.NativePageNavigationDelegate;
 import org.chromium.chrome.browser.native_page.NativePageNavigationDelegateImpl;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tab.TabImpl;
 import org.chromium.chrome.browser.tab.TabObserver;
+import org.chromium.chrome.browser.ui.favicon.RoundedIconGenerator;
 import org.chromium.chrome.browser.ui.native_page.BasicNativePage;
 import org.chromium.chrome.browser.ui.native_page.NativePageHost;
-import org.chromium.chrome.browser.util.UrlConstants;
+import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.content_public.browser.NavigationController;
 import org.chromium.content_public.browser.NavigationEntry;
 import org.chromium.ui.modelutil.ListModel;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.RecyclerViewAdapter;
+import org.chromium.url.URI;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
-import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
 
@@ -170,7 +169,7 @@ public class ExploreSitesPage extends BasicNativePage {
     /**
      * Create a new instance of the explore sites page.
      */
-    public ExploreSitesPage(ChromeActivity activity, NativePageHost host, TabImpl tab) {
+    public ExploreSitesPage(ChromeActivity activity, NativePageHost host, Tab tab) {
         super(host);
 
         mHost = host;
@@ -179,7 +178,7 @@ public class ExploreSitesPage extends BasicNativePage {
         mTitle = activity.getString(R.string.explore_sites_title);
         mView = (ViewGroup) activity.getLayoutInflater().inflate(
                 R.layout.explore_sites_page_layout, null);
-        mProfile = ((TabImpl) mTab).getProfile();
+        mProfile = Profile.fromWebContents(mTab.getWebContents());
 
         mDenseVariation = ExploreSitesBridge.getDenseVariation();
         int maxRows;
@@ -235,8 +234,8 @@ public class ExploreSitesPage extends BasicNativePage {
         NativePageNavigationDelegateImpl navDelegate = new NativePageNavigationDelegateImpl(
                 activity, mProfile, host, activity.getTabModelSelector(), mTab);
 
-        // Don't direct reference activity because it might change if tab is reparented.
-        Runnable closeContextMenuCallback = () -> ((TabImpl) mTab).getActivity().closeContextMenu();
+        // ExploreSitePage is recreated upon reparenting. Safe to use |activity|.
+        Runnable closeContextMenuCallback = activity::closeContextMenu;
 
         mContextMenuManager = createContextMenuManager(
                 navDelegate, closeContextMenuCallback, CONTEXT_MENU_USER_ACTION_PREFIX);

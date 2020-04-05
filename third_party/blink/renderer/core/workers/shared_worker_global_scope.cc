@@ -95,9 +95,21 @@ void SharedWorkerGlobalScope::Initialize(
 
   // Step 12.6. "Execute the Initialize a global object's CSP list algorithm
   // on worker global scope and response. [CSP]"
+  // SharedWorkerGlobalScope inherits the outside's CSP instead of the response
+  // CSP headers when the response's url's scheme is a local scheme. Otherwise,
+  // use the response CSP headers. Here a local scheme is defined as follows:
+  // "A local scheme is a scheme that is "about", "blob", or "data"."
+  // https://fetch.spec.whatwg.org/#local-scheme
+  //
+  // https://w3c.github.io/webappsec-csp/#initialize-global-object-csp
   // These should be called after SetAddressSpace() to correctly override the
   // address space by the "treat-as-public-address" CSP directive.
-  InitContentSecurityPolicyFromVector(response_csp_headers);
+  Vector<CSPHeaderAndType> csp_headers =
+      response_url.ProtocolIsAbout() || response_url.ProtocolIsData() ||
+              response_url.ProtocolIs("blob")
+          ? OutsideContentSecurityPolicyHeaders()
+          : response_csp_headers;
+  InitContentSecurityPolicyFromVector(csp_headers);
   BindContentSecurityPolicyToExecutionContext();
 
   OriginTrialContext::AddTokens(this, response_origin_trial_tokens);
@@ -153,7 +165,9 @@ void SharedWorkerGlobalScope::FetchAndRunModuleScript(
     const KURL& module_url_record,
     const FetchClientSettingsObjectSnapshot& outside_settings_object,
     WorkerResourceTimingNotifier& outside_resource_timing_notifier,
-    network::mojom::CredentialsMode credentials_mode) {
+    network::mojom::CredentialsMode credentials_mode,
+    RejectCoepUnsafeNone reject_coep_unsafe_none) {
+  DCHECK(!reject_coep_unsafe_none);
   // Step 12: "Let destination be "sharedworker" if is shared is true, and
   // "worker" otherwise."
   auto context_type = mojom::RequestContextType::SHARED_WORKER;
@@ -202,7 +216,15 @@ void SharedWorkerGlobalScope::DidFetchClassicScript(
     const v8_inspector::V8StackTraceId& stack_id) {
   DCHECK(IsContextThread());
 
-  // Step 12. "If the algorithm asynchronously completes with null, then:"
+  // Step 12. "If the algorithm asynchronously completes with null or with
+  // script whose error to rethrow is non-null, then:"
+  //
+  // The case |error to rethrow| is non-null indicates the parse error.
+  // Parsing the script should be done during fetching according to the spec
+  // but it is done in EvaluateClassicScript() for classic scripts.
+  // Therefore, we cannot catch parse error events here.
+  // TODO(https://crbug.com/1058259) Catch parse error events for classic
+  // shared workers.
   if (classic_script_loader->Failed()) {
     // Step 12.1. "Queue a task to fire an event named error at worker."
     // Step 12.2. "Run the environment discarding steps for inside settings."
@@ -244,7 +266,7 @@ void SharedWorkerGlobalScope::ExceptionThrown(ErrorEvent* event) {
     debugger->ExceptionThrown(GetThread(), event);
 }
 
-void SharedWorkerGlobalScope::Trace(blink::Visitor* visitor) {
+void SharedWorkerGlobalScope::Trace(Visitor* visitor) {
   visitor->Trace(appcache_host_);
   WorkerGlobalScope::Trace(visitor);
 }

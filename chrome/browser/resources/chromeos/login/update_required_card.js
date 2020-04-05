@@ -11,7 +11,7 @@ Polymer({
     /**
      * Is device connected to network?
      */
-    isConnected: {type: Boolean, value: false},
+    isNetworkConnected: {type: Boolean, value: false},
 
     updateProgressUnavailable: {type: Boolean, value: true},
 
@@ -21,11 +21,16 @@ Polymer({
 
     estimatedTimeLeftVisible: {type: Boolean, value: false},
 
+    enterpriseDomain: {type: String, value: ''},
+
+    deviceName: {type: String, value: ''},
+
     /**
-     * Message "3 minutes left".
+     * Estimated time left in seconds.
      */
     estimatedTimeLeft: {
-      type: String,
+      type: Number,
+      value: 0,
     },
 
     ui_state: {type: String},

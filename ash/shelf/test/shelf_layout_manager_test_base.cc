@@ -6,13 +6,17 @@
 
 #include "ash/home_screen/home_launcher_gesture_handler.h"
 #include "ash/home_screen/home_screen_controller.h"
+#include "ash/public/cpp/ash_pref_names.h"
+#include "ash/session/session_controller_impl.h"
 #include "ash/shelf/shelf_layout_manager.h"
 #include "ash/shelf/shelf_view.h"
+#include "ash/shell.h"
 #include "ash/window_factory.h"
 #include "ash/wm/tablet_mode/tablet_mode_controller_test_api.h"
 #include "ash/wm/window_state.h"
 #include "ash/wm/workspace_controller.h"
 #include "chromeos/constants/chromeos_switches.h"
+#include "components/prefs/pref_service.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/aura/client/window_parenting_client.h"
 #include "ui/aura/window.h"
@@ -194,7 +198,7 @@ aura::Window* ShelfLayoutManagerTestBase::CreateTestWindowInParent(
 views::Widget* ShelfLayoutManagerTestBase::CreateTestWidget() {
   views::Widget::InitParams params(views::Widget::InitParams::TYPE_WINDOW);
   params.bounds = gfx::Rect(0, 0, 200, 200);
-  params.context = CurrentContext();
+  params.context = GetContext();
   views::Widget* widget = new views::Widget;
   widget->Init(std::move(params));
   widget->Show();
@@ -356,7 +360,12 @@ void ShelfLayoutManagerTestBase::MouseMouseToShowAutoHiddenShelf() {
 // Move mouse to |location| and do a two-finger vertical scroll.
 void ShelfLayoutManagerTestBase::DoTwoFingerVerticalScrollAtLocation(
     gfx::Point location,
-    int y_offset) {
+    int y_offset,
+    bool reverse_scroll) {
+  PrefService* prefs =
+      Shell::Get()->session_controller()->GetLastActiveUserPrefService();
+  prefs->SetBoolean(prefs::kNaturalScroll, reverse_scroll);
+  y_offset = reverse_scroll ? -y_offset : y_offset;
   GetEventGenerator()->ScrollSequence(location, base::TimeDelta(),
                                       /*x_offset=*/0, y_offset, /*steps=*/1,
                                       /*num_fingers=*/2);
@@ -365,7 +374,12 @@ void ShelfLayoutManagerTestBase::DoTwoFingerVerticalScrollAtLocation(
 // Move mouse to |location| and do a mousewheel scroll.
 void ShelfLayoutManagerTestBase::DoMouseWheelScrollAtLocation(
     gfx::Point location,
-    int delta_y) {
+    int delta_y,
+    bool reverse_scroll) {
+  PrefService* prefs =
+      Shell::Get()->session_controller()->GetLastActiveUserPrefService();
+  prefs->SetBoolean(prefs::kMouseReverseScroll, reverse_scroll);
+  delta_y = reverse_scroll ? -delta_y : delta_y;
   GetEventGenerator()->MoveMouseTo(location);
   GetEventGenerator()->MoveMouseWheel(/*delta_x=*/0, delta_y);
 }

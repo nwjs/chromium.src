@@ -352,7 +352,7 @@ KeyUtil = class {
 
     for (let index = 0; index < numKeys; index++) {
       if (str != '' && !opt_modifiers) {
-        str += '>';
+        str += ', then ';
       } else if (str != '') {
         str += '+';
       }
@@ -375,7 +375,7 @@ KeyUtil = class {
             modifier = 'Ctrl';
             break;
           case 'searchKeyHeld':
-            var searchKey = KeyUtil.getReadableNameForKeyCode(91);
+            const searchKey = KeyUtil.getReadableNameForKeyCode(91);
             modifier = searchKey;
             break;
           case 'altKey':
@@ -388,11 +388,11 @@ KeyUtil = class {
             modifier = 'Shift';
             break;
           case 'metaKey':
-            var metaKey = KeyUtil.getReadableNameForKeyCode(91);
+            const metaKey = KeyUtil.getReadableNameForKeyCode(91);
             modifier = metaKey;
             break;
           case 'keyCode':
-            var keyCode = keySequence.keys[keyPressed][index];
+            const keyCode = keySequence.keys[keyPressed][index];
             // We make sure the keyCode isn't for a modifier key. If it is, then
             // we've already added that into the string above.
             if (!keySequence.isModifierKey(keyCode) && !opt_modifiers) {
@@ -417,13 +417,15 @@ KeyUtil = class {
 
     if (keySequence.cvoxModifier || keySequence.prefixKey) {
       if (str != '') {
-        str = 'ChromeVox+' + str;
+        str = 'Search+' + str;
       } else {
-        str = 'Cvox';
+        str = 'Search+Search';
       }
     } else if (keySequence.stickyMode) {
-      if (str[str.length - 1] == '>') {
-        str = str.slice(0, -1);
+      // Strip trailing ', then '.
+      const cut = str.slice(str.length - ', then '.length);
+      if (cut === ', then ') {
+        str = str.slice(0, str.length - cut.length);
       }
       str = str + '+' + str;
     }
@@ -439,7 +441,7 @@ KeyUtil = class {
     let isSet = false;
     const originalState = key.doubleTap;
     key.doubleTap = true;
-    for (var i = 0, keySeq; keySeq = KeySequence.doubleTapCache[i]; i++) {
+    for (let i = 0, keySeq; keySeq = KeySequence.doubleTapCache[i]; i++) {
       if (keySeq.equals(key)) {
         isSet = true;
         break;

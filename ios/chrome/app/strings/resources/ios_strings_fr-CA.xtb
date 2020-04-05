@@ -97,6 +97,7 @@
 <translation id="2149973817440762519">Modifier le favori</translation>
 <translation id="2179182049312275900">Vous pouvez activer la synchronisation à tout moment dans les paramètres.</translation>
 <translation id="2198757192731523470">Google peut utiliser votre historique pour personnaliser la recherche, les annonces et d'autres services Google.</translation>
+<translation id="2218443599109088993">Zoom arrière</translation>
 <translation id="2230173723195178503">Page Web chargée</translation>
 <translation id="2239626343334228536">Effacement des données de navigation en cours…</translation>
 <translation id="2257567812274161158">La synchronisation ne fonctionne pas.</translation>
@@ -159,6 +160,7 @@
 <translation id="2923448633003185837">Coller et rechercher</translation>
 <translation id="292639812446257861">Marquer comme non lu</translation>
 <translation id="2958718410589002129">Mots de passe</translation>
+<translation id="2964349545761222050">Bloquer les témoins tiers</translation>
 <translation id="2969979262385602596">Échec de connexion. Veuillez réessayer plus tard.</translation>
 <translation id="298306318844797842">Ajouter un mode de paiement…</translation>
 <translation id="2989805286512600854">Ouvrir dans un nouvel onglet</translation>
@@ -178,6 +180,7 @@
 <translation id="3290875554372353449">Choisir un compte</translation>
 <translation id="3311748811247479259">Désactivé</translation>
 <translation id="3324193307694657476">Ligne adresse 2</translation>
+<translation id="3328801116991980348">Information sur le site</translation>
 <translation id="3329904751041170572">Impossible de se connecter au serveur.</translation>
 <translation id="3335947283844343239">Rouvrir l'onglet fermé</translation>
 <translation id="3371831930909698441">La traduction est disponible. Vous trouverez les options vers le bas de l'écran.</translation>
@@ -300,6 +303,7 @@ Pour modifier ce paramètre, <ph name="BEGIN_LINK" />réinitialisez la synchroni
 <translation id="4979397965658815378">Connectez-vous à votre compte Google pour synchroniser vos favoris, vos mots de passe, votre historique et vos autres paramètres sur tous vos appareils</translation>
 <translation id="5005498671520578047">Copier mot de passe</translation>
 <translation id="5010803260590204777">Ouvrez un onglet de navigation privée pour naviguer sur le Web en secret.</translation>
+<translation id="5039020240289137291">Bloquer les témoins tiers</translation>
 <translation id="5039804452771397117">Autoriser</translation>
 <translation id="5059136629401106827">OK</translation>
 <translation id="5062321486222145940">Installer Google Disque</translation>
@@ -414,9 +418,11 @@ Vos données ont été chiffrées avec votre phrase de passe le <ph name="TIME" 
 <translation id="6434591244308415567">Une erreur s'est produite. Réessayez plus tard.</translation>
 <translation id="6445051938772793705">Pays</translation>
 <translation id="6445981559479772097">Message envoyé</translation>
+<translation id="6447842834002726250">Témoins</translation>
 <translation id="6464071786529933911">Ouvrir ds nv ong nav priv</translation>
 <translation id="6476800141292307438">Traduction de la page en <ph name="LANGUAGE" /> en cours… Les options sont affichées dans le bas de l'écran.</translation>
 <translation id="6482629121755362506"><ph name="NUMBER_OF_SELECTED_BOOKMARKS" /> éléments supprimés</translation>
+<translation id="6561262006871132942">Zoom avant</translation>
 <translation id="6610002944194042868">Options de traduction</translation>
 <translation id="6628106477656132239">Date d'expiration incorrecte</translation>
 <translation id="6638511529934826365">Zoomer sur le texte…</translation>
@@ -479,7 +485,6 @@ Vos données ont été chiffrées avec votre phrase de passe le <ph name="TIME" 
 <translation id="734758817008927353">Options pour enregistrer la carte</translation>
 <translation id="7348502496356775519">Ajouter aux favoris</translation>
 <translation id="7383797227493018512">Liste de lecture</translation>
-<translation id="7392048574806661116">Se déconnecter et effacer les données synchronisées</translation>
 <translation id="7400418766976504921">URL</translation>
 <translation id="7409985198648820906"><ph name="UNREAD_COUNT" /> articles non lus.</translation>
 <translation id="7425346204213733349">Les modifications apportées à vos favoris, à votre historique, à vos mots de passe et aux autres paramètres ne seront plus synchronisées avec votre compte Google. Cependant, vos données actuelles resteront stockées dans votre compte Google.</translation>
@@ -598,6 +603,7 @@ Vos données ont été chiffrées avec votre phrase de passe le <ph name="TIME" 
 <translation id="9223358826628549784">Rapport de plantage envoyé.</translation>
 <translation id="952704832371081537">Annuler</translation>
 <translation id="988141524645182168">Autr appar</translation>
+<translation id="989697783705943787">Sécurité du site</translation>
 <translation id="989988560359834682">Modifier l'adresse</translation>
 <translation id="994757059139821576">Articles suggérés</translation>
 </translationbundle>

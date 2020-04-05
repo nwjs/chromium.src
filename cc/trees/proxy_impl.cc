@@ -280,12 +280,13 @@ void ProxyImpl::NotifyReadyToCommitOnImpl(
   DCHECK(!blocked_main_commit().layer_tree_host);
   blocked_main_commit().layer_tree_host = layer_tree_host;
 
+  // Inform the layer tree host that the commit has started, so that metrics
+  // can determine how long we waited for thread synchronization.
+  layer_tree_host->SetImplCommitStartTime(base::TimeTicks::Now());
+
   // Extract metrics data from the layer tree host and send them to the
   // scheduler to pass them to the compositor_timing_history object.
-  std::unique_ptr<BeginMainFrameMetrics> main_frame_metrics =
-      layer_tree_host->begin_main_frame_metrics();
-
-  scheduler_->NotifyReadyToCommit(std::move(main_frame_metrics));
+  scheduler_->NotifyReadyToCommit(layer_tree_host->begin_main_frame_metrics());
 }
 
 void ProxyImpl::DidLoseLayerTreeFrameSinkOnImplThread() {
@@ -406,7 +407,7 @@ void ProxyImpl::RenewTreePriority() {
   const bool user_interaction_in_progress =
       host_impl_->pinch_gesture_active() ||
       host_impl_->page_scale_animation_active() ||
-      host_impl_->IsActivelyScrolling();
+      host_impl_->IsActivelyPrecisionScrolling();
 
   if (host_impl_->ukm_manager()) {
     host_impl_->ukm_manager()->SetUserInteractionInProgress(
@@ -541,7 +542,7 @@ bool ProxyImpl::WillBeginImplFrame(const viz::BeginFrameArgs& args) {
 
 void ProxyImpl::DidFinishImplFrame() {
   DCHECK(IsImplThread());
-  host_impl_->DidFinishImplFrame();
+  host_impl_->DidFinishImplFrame(scheduler_->last_activate_origin_frame_args());
 }
 
 void ProxyImpl::DidNotProduceFrame(const viz::BeginFrameAck& ack,
@@ -566,11 +567,13 @@ void ProxyImpl::ScheduledActionSendBeginMainFrame(
   begin_main_frame_state->begin_frame_id = begin_frame_id;
   begin_main_frame_state->begin_frame_args = args;
   begin_main_frame_state->scroll_info = host_impl_->ProcessScrollDeltas();
-  begin_main_frame_state->evicted_ui_resources =
-      host_impl_->EvictedUIResourcesExist();
   begin_main_frame_state->completed_image_decode_requests =
       host_impl_->TakeCompletedImageDecodeRequests();
   begin_main_frame_state->mutator_events = host_impl_->TakeMutatorEvents();
+  begin_main_frame_state->active_sequence_trackers =
+      host_impl_->FrameSequenceTrackerActiveTypes();
+  begin_main_frame_state->evicted_ui_resources =
+      host_impl_->EvictedUIResourcesExist();
   host_impl_->WillSendBeginMainFrame();
   MainThreadTaskRunner()->PostTask(
       FROM_HERE,
@@ -725,7 +728,8 @@ DrawResult ProxyImpl::DrawInternal(bool forced_draw) {
     if (host_impl_->DrawLayers(&frame)) {
       DCHECK_NE(frame.frame_token, 0u);
       // Drawing implies we submitted a frame to the LayerTreeFrameSink.
-      scheduler_->DidSubmitCompositorFrame(frame.frame_token);
+      scheduler_->DidSubmitCompositorFrame(frame.frame_token,
+                                           host_impl_->TakeEventsMetrics());
     }
     result = DRAW_SUCCESS;
   } else {

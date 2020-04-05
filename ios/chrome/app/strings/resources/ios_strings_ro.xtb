@@ -97,6 +97,7 @@
 <translation id="2149973817440762519">Editați marcajul</translation>
 <translation id="2179182049312275900">Poți să activezi sincronizarea oricând în setări.</translation>
 <translation id="2198757192731523470">Google poate folosi istoricul pentru a personaliza Căutarea, anunțurile și alte servicii Google.</translation>
+<translation id="2218443599109088993">Micșorează</translation>
 <translation id="2230173723195178503">Pagina web s-a încărcat</translation>
 <translation id="2239626343334228536">Se șterg datele de navigare...</translation>
 <translation id="2257567812274161158">Sincronizarea nu funcționează.</translation>
@@ -159,6 +160,7 @@
 <translation id="2923448633003185837">Inserează și accesează</translation>
 <translation id="292639812446257861">Marchează ca necitite</translation>
 <translation id="2958718410589002129">Parole</translation>
+<translation id="2964349545761222050">Blochează cookie-urile terță parte</translation>
 <translation id="2969979262385602596">Nu te-ai conectat. Încearcă din nou mai târziu.</translation>
 <translation id="298306318844797842">Adaugă o metodă de plată...</translation>
 <translation id="2989805286512600854">Deschideți într-o filă nouă</translation>
@@ -178,6 +180,7 @@
 <translation id="3290875554372353449">Alege un cont</translation>
 <translation id="3311748811247479259">Dezactivat</translation>
 <translation id="3324193307694657476">Adresă 2</translation>
+<translation id="3328801116991980348">Informații despre site</translation>
 <translation id="3329904751041170572">Nu s-a putut realiza conexiunea la server.</translation>
 <translation id="3335947283844343239">Redeschide fila închisă</translation>
 <translation id="3371831930909698441">Traducerea este disponibilă. Sunt disponibile opțiuni în partea de jos a ecranului.</translation>
@@ -300,6 +303,7 @@ Pentru a modifica această setare, <ph name="BEGIN_LINK" />resetează sincroniza
 <translation id="4979397965658815378">Conectează-te folosind Contul Google pentru a accesa marcajele, parolele, istoricul și alte setări pe toate dispozitivele</translation>
 <translation id="5005498671520578047">Copiază parola</translation>
 <translation id="5010803260590204777">Deschide o filă incognito pentru a naviga privat pe web.</translation>
+<translation id="5039020240289137291">Blocarea cookie-urilor terță parte</translation>
 <translation id="5039804452771397117">Permite</translation>
 <translation id="5059136629401106827">OK</translation>
 <translation id="5062321486222145940">Instalează Google Drive</translation>
@@ -414,9 +418,11 @@ Datele au fost criptate cu expresia de acces pentru sincronizare la <ph name="TI
 <translation id="6434591244308415567">A apărut o eroare, încearcă mai târziu.</translation>
 <translation id="6445051938772793705">Țară</translation>
 <translation id="6445981559479772097">Mesaj trimis.</translation>
+<translation id="6447842834002726250">Cookie-uri</translation>
 <translation id="6464071786529933911">Deschide în Filă incognito nouă</translation>
 <translation id="6476800141292307438">Se traduce această pagină în <ph name="LANGUAGE" />. Sunt disponibile opțiuni în partea de jos a ecranului.</translation>
 <translation id="6482629121755362506">Elemente șterse: <ph name="NUMBER_OF_SELECTED_BOOKMARKS" /></translation>
+<translation id="6561262006871132942">Mărește</translation>
 <translation id="6610002944194042868">Opțiuni de traducere</translation>
 <translation id="6628106477656132239">Dată de expirare nevalidă</translation>
 <translation id="6638511529934826365">Fă zoom pe text…</translation>
@@ -479,7 +485,6 @@ Datele au fost criptate cu expresia de acces pentru sincronizare la <ph name="TI
 <translation id="734758817008927353">Opțiuni pentru a salva cardul</translation>
 <translation id="7348502496356775519">Marchează</translation>
 <translation id="7383797227493018512">Listă de lectură</translation>
-<translation id="7392048574806661116">Deconectează-te și șterge datele sincronizate</translation>
 <translation id="7400418766976504921">Adresă URL</translation>
 <translation id="7409985198648820906"><ph name="UNREAD_COUNT" /> articole necitite.</translation>
 <translation id="7425346204213733349">Modificările marcajelor, istoricului, parolelor sau ale altor setări nu vor mai fi sincronizate cu Contul Google. Totuși, datele existente vor rămâne stocate în Contul Google.</translation>
@@ -598,6 +603,7 @@ Datele au fost criptate cu expresia de acces pentru sincronizare la <ph name="TI
 <translation id="9223358826628549784">Raportul de blocare a fost trimis.</translation>
 <translation id="952704832371081537">Anulează</translation>
 <translation id="988141524645182168">Alte dispozitive</translation>
+<translation id="989697783705943787">Securitatea site-ului</translation>
 <translation id="989988560359834682">Editați adresa</translation>
 <translation id="994757059139821576">Sugestii de articole</translation>
 </translationbundle>

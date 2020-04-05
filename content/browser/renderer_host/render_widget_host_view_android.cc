@@ -24,6 +24,7 @@
 #include "base/single_thread_task_runner.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/system/sys_info.h"
+#include "base/task/thread_pool.h"
 #include "base/threading/scoped_blocking_call.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "cc/base/math_util.h"
@@ -83,6 +84,8 @@
 #include "ui/android/view_android_observer.h"
 #include "ui/android/window_android.h"
 #include "ui/android/window_android_compositor.h"
+#include "ui/base/cursor/cursor.h"
+#include "ui/base/cursor/cursor_lookup.h"
 #include "ui/base/layout.h"
 #include "ui/base/ui_base_types.h"
 #include "ui/events/android/gesture_event_android.h"
@@ -438,10 +441,6 @@ void RenderWidgetHostViewAndroid::OnRenderFrameMetadataChangedBeforeActivation(
                                           top_shown_pix);
   }
 
-  auto* wcax = GetWebContentsAccessibilityAndroid();
-  if (wcax)
-    wcax->UpdateFrameInfo(metadata.page_scale_factor);
-
   if (!gesture_listener_manager_)
     return;
 
@@ -479,6 +478,11 @@ void RenderWidgetHostViewAndroid::OnRenderFrameMetadataChangedBeforeActivation(
       metadata.min_page_scale_factor, metadata.max_page_scale_factor,
       root_layer_size_dip, scrollable_viewport_size_dip, top_content_offset_dip,
       top_shown_pix, controls_changed);
+  // This needs to be called after GestureListenerManager::UpdateScrollInfo, as
+  // it depends on frame info being updated during the UpdateScrollInfo call.
+  auto* wcax = GetWebContentsAccessibilityAndroid();
+  if (wcax)
+    wcax->UpdateFrameInfo(metadata.page_scale_factor);
 
   page_scale_ = metadata.page_scale_factor;
   min_page_scale_ = metadata.min_page_scale_factor;
@@ -680,10 +684,10 @@ int RenderWidgetHostViewAndroid::GetMouseWheelMinimumGranularity() const {
   return window->mouse_wheel_scroll_factor() / view_.GetDipScale();
 }
 
-void RenderWidgetHostViewAndroid::UpdateCursor(const WebCursor& cursor) {
-  const CursorInfo& info = cursor.info();
-  view_.OnCursorChanged(static_cast<int>(info.type), info.custom_image,
-                        info.hotspot);
+void RenderWidgetHostViewAndroid::UpdateCursor(const WebCursor& webcursor) {
+  const ui::Cursor& cursor = webcursor.cursor();
+  view_.OnCursorChanged(static_cast<int>(cursor.type()),
+                        GetCursorBitmap(cursor), GetCursorHotspot(cursor));
 }
 
 void RenderWidgetHostViewAndroid::SetIsLoading(bool is_loading) {
@@ -1264,8 +1268,7 @@ void RenderWidgetHostViewAndroid::SynchronousCopyContents(
 
 WebContentsAccessibilityAndroid*
 RenderWidgetHostViewAndroid::GetWebContentsAccessibilityAndroid() const {
-  return static_cast<WebContentsAccessibilityAndroid*>(
-      web_contents_accessibility_);
+  return web_contents_accessibility_;
 }
 
 void RenderWidgetHostViewAndroid::UpdateTouchSelectionController(
@@ -1361,9 +1364,8 @@ void RenderWidgetHostViewAndroid::OnFinishGetContentBitmap(
     const SkBitmap& bitmap) {
   JNIEnv* env = base::android::AttachCurrentThread();
   if (!bitmap.drawsNothing()) {
-    auto task_runner = base::CreateSequencedTaskRunner(
-        {base::ThreadPool(), base::MayBlock(),
-         base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN});
+    auto task_runner = base::ThreadPool::CreateSequencedTaskRunner(
+        {base::MayBlock(), base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN});
     base::PostTaskAndReplyWithResult(
         task_runner.get(), FROM_HERE,
         base::BindOnce(&CompressAndSaveBitmap, path, bitmap),
@@ -1411,7 +1413,17 @@ void RenderWidgetHostViewAndroid::ShowInternal() {
     }
   }
 
-  host()->WasShown(base::nullopt /* record_tab_switch_time_request */);
+  auto content_to_visible_start_state = TakeRecordContentToVisibleTimeRequest();
+
+  // Only when page is restored from back-forward cache, record content to
+  // visible time and for this case no need to check for saved frames to
+  // record ContentToVisibleTime.
+  bool show_reason_bfcache_restore =
+      content_to_visible_start_state
+          ? content_to_visible_start_state->show_reason_bfcache_restore
+          : false;
+  host()->WasShown(show_reason_bfcache_restore ? content_to_visible_start_state
+                                               : base::nullopt);
 
   if (delegated_frame_host_) {
     delegated_frame_host_->WasShown(
@@ -1566,9 +1578,15 @@ void RenderWidgetHostViewAndroid::GestureEventAck(
   // but not consumed.
   StopFlingingIfNecessary(event, ack_result);
 
-  if (!gesture_listener_manager_)
-    return;
-  gesture_listener_manager_->GestureEventAck(event, ack_result);
+  if (gesture_listener_manager_)
+    gesture_listener_manager_->GestureEventAck(event, ack_result);
+}
+
+void RenderWidgetHostViewAndroid::ChildDidAckGestureEvent(
+    const blink::WebGestureEvent& event,
+    InputEventAckState ack_result) {
+  if (gesture_listener_manager_)
+    gesture_listener_manager_->GestureEventAck(event, ack_result);
 }
 
 bool RenderWidgetHostViewAndroid::OnUnconsumedKeyboardEventAck(
@@ -1636,15 +1654,23 @@ BrowserAccessibilityManager*
 RenderWidgetHostViewAndroid::CreateBrowserAccessibilityManager(
     BrowserAccessibilityDelegate* delegate,
     bool for_root_frame) {
+  auto* wcax = GetWebContentsAccessibilityAndroid();
   return new BrowserAccessibilityManagerAndroid(
       BrowserAccessibilityManagerAndroid::GetEmptyDocument(),
-      for_root_frame && host() ? GetWebContentsAccessibilityAndroid() : nullptr,
+      for_root_frame && host() && wcax ? wcax->GetWeakPtr() : nullptr,
       delegate);
 }
 
-bool RenderWidgetHostViewAndroid::LockMouse(bool request_unadjusted_movement) {
+blink::mojom::PointerLockResult RenderWidgetHostViewAndroid::LockMouse(
+    bool request_unadjusted_movement) {
   NOTIMPLEMENTED();
-  return false;
+  return blink::mojom::PointerLockResult::kUnsupportedOptions;
+}
+
+blink::mojom::PointerLockResult RenderWidgetHostViewAndroid::ChangeMouseLock(
+    bool request_unadjusted_movement) {
+  NOTIMPLEMENTED();
+  return blink::mojom::PointerLockResult::kUnsupportedOptions;
 }
 
 void RenderWidgetHostViewAndroid::UnlockMouse() {

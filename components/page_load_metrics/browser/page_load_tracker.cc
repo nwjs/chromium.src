@@ -14,6 +14,7 @@
 #include "base/time/default_tick_clock.h"
 #include "base/trace_event/trace_event.h"
 #include "components/page_load_metrics/browser/page_load_metrics_embedder_interface.h"
+#include "components/page_load_metrics/browser/page_load_metrics_observer.h"
 #include "components/page_load_metrics/browser/page_load_metrics_util.h"
 #include "components/page_load_metrics/common/page_load_timing.h"
 #include "content/public/browser/navigation_details.h"
@@ -146,9 +147,6 @@ void DispatchObserverTimingCallbacks(PageLoadMetricsObserver* observer,
   if (new_timing.paint_timing->first_meaningful_paint &&
       !last_timing.paint_timing->first_meaningful_paint)
     observer->OnFirstMeaningfulPaintInMainFrameDocument(new_timing);
-  if (new_timing.interactive_timing->interactive &&
-      !last_timing.interactive_timing->interactive)
-    observer->OnPageInteractive(new_timing);
   if (new_timing.parse_timing->parse_start &&
       !last_timing.parse_timing->parse_start)
     observer->OnParseStart(new_timing);
@@ -417,15 +415,15 @@ void PageLoadTracker::FlushMetricsOnAppEnterBackground() {
 }
 
 void PageLoadTracker::NotifyClientRedirectTo(
-    const PageLoadTracker& destination) {
+    content::NavigationHandle* destination) {
   if (metrics_update_dispatcher_.timing().paint_timing->first_paint) {
     base::TimeTicks first_paint_time =
         navigation_start() +
         metrics_update_dispatcher_.timing().paint_timing->first_paint.value();
     base::TimeDelta first_paint_to_navigation;
-    if (destination.navigation_start() > first_paint_time)
+    if (destination->NavigationStart() > first_paint_time)
       first_paint_to_navigation =
-          destination.navigation_start() - first_paint_time;
+          destination->NavigationStart() - first_paint_time;
     PAGE_LOAD_HISTOGRAM(internal::kClientRedirectFirstPaintToNavigation,
                         first_paint_to_navigation);
   } else {
@@ -482,13 +480,13 @@ void PageLoadTracker::OnCookieChange(const GURL& url,
   }
 }
 
-void PageLoadTracker::OnDomStorageAccessed(const GURL& url,
-                                           const GURL& first_party_url,
-                                           bool local,
-                                           bool blocked_by_policy) {
+void PageLoadTracker::OnStorageAccessed(const GURL& url,
+                                        const GURL& first_party_url,
+                                        bool blocked_by_policy,
+                                        StorageType access_type) {
   for (const auto& observer : observers_) {
-    observer->OnDomStorageAccessed(url, first_party_url, local,
-                                   blocked_by_policy);
+    observer->OnStorageAccessed(url, first_party_url, blocked_by_policy,
+                                access_type);
   }
 }
 
@@ -669,7 +667,7 @@ void PageLoadTracker::OnMainFrameMetadataChanged() {
 
 void PageLoadTracker::OnSubframeMetadataChanged(
     content::RenderFrameHost* rfh,
-    const mojom::PageLoadMetadata& metadata) {
+    const mojom::FrameMetadata& metadata) {
   for (const auto& observer : observers_) {
     observer->OnLoadingBehaviorObserved(rfh, metadata.behavior_flags);
   }
@@ -710,6 +708,14 @@ void PageLoadTracker::UpdateFrameCpuTiming(content::RenderFrameHost* rfh,
                                            const mojom::CpuTiming& timing) {
   for (const auto& observer : observers_) {
     observer->OnCpuTimingUpdate(rfh, timing);
+  }
+}
+
+void PageLoadTracker::OnFrameIntersectionUpdate(
+    content::RenderFrameHost* rfh,
+    const mojom::FrameIntersectionUpdate& frame_intersection_update) {
+  for (const auto& observer : observers_) {
+    observer->OnFrameIntersectionUpdate(rfh, frame_intersection_update);
   }
 }
 
@@ -772,16 +778,20 @@ base::Optional<base::TimeDelta> PageLoadTracker::GetPageEndTime() const {
   return page_end_time;
 }
 
-const mojom::PageLoadMetadata& PageLoadTracker::GetMainFrameMetadata() const {
+const mojom::FrameMetadata& PageLoadTracker::GetMainFrameMetadata() const {
   return metrics_update_dispatcher_.main_frame_metadata();
 }
 
-const mojom::PageLoadMetadata& PageLoadTracker::GetSubframeMetadata() const {
+const mojom::FrameMetadata& PageLoadTracker::GetSubframeMetadata() const {
   return metrics_update_dispatcher_.subframe_metadata();
 }
 
 const PageRenderData& PageLoadTracker::GetPageRenderData() const {
   return metrics_update_dispatcher_.page_render_data();
+}
+
+const mojom::InputTiming& PageLoadTracker::GetPageInputTiming() const {
+  return metrics_update_dispatcher_.page_input_timing();
 }
 
 const PageRenderData& PageLoadTracker::GetMainFrameRenderData() const {

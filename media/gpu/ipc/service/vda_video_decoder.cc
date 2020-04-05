@@ -222,8 +222,10 @@ void VdaVideoDecoder::Initialize(const VideoDecoderConfig& config,
   DCHECK(decode_cbs_.empty());
 
   if (has_error_) {
-    parent_task_runner_->PostTask(FROM_HERE,
-                                  base::BindOnce(std::move(init_cb), false));
+    // TODO(tmathmeyer) generic error, please remove.
+    parent_task_runner_->PostTask(
+        FROM_HERE, base::BindOnce(std::move(init_cb),
+                                  StatusCode::kGenericErrorPleaseRemove));
     return;
   }
 
@@ -295,7 +297,7 @@ void VdaVideoDecoder::Initialize(const VideoDecoderConfig& config,
     } else {
       parent_task_runner_->PostTask(
           FROM_HERE, base::BindOnce(&VdaVideoDecoder::InitializeDone,
-                                    parent_weak_this_, true));
+                                    parent_weak_this_, OkStatus()));
     }
     return;
   }
@@ -330,8 +332,9 @@ void VdaVideoDecoder::InitializeOnGpuThread() {
     command_buffer_helper_ = std::move(create_command_buffer_helper_cb_).Run();
     if (!command_buffer_helper_) {
       parent_task_runner_->PostTask(
-          FROM_HERE, base::BindOnce(&VdaVideoDecoder::InitializeDone,
-                                    parent_weak_this_, false));
+          FROM_HERE,
+          base::BindOnce(&VdaVideoDecoder::InitializeDone, parent_weak_this_,
+                         StatusCode::kDecoderInitializeNeverCompleted));
       return;
     }
 
@@ -360,8 +363,9 @@ void VdaVideoDecoder::InitializeOnGpuThread() {
                                            media_log_.get(), vda_config);
   if (!vda_) {
     parent_task_runner_->PostTask(
-        FROM_HERE, base::BindOnce(&VdaVideoDecoder::InitializeDone,
-                                  parent_weak_this_, false));
+        FROM_HERE,
+        base::BindOnce(&VdaVideoDecoder::InitializeDone, parent_weak_this_,
+                       StatusCode::kDecoderInitializeNeverCompleted));
     return;
   }
 
@@ -375,24 +379,24 @@ void VdaVideoDecoder::InitializeOnGpuThread() {
 
   parent_task_runner_->PostTask(FROM_HERE,
                                 base::BindOnce(&VdaVideoDecoder::InitializeDone,
-                                               parent_weak_this_, true));
+                                               parent_weak_this_, OkStatus()));
 }
 
-void VdaVideoDecoder::InitializeDone(bool status) {
-  DVLOG(1) << __func__ << "(" << status << ")";
+void VdaVideoDecoder::InitializeDone(Status status) {
+  DVLOG(1) << __func__ << " success = (" << status.code() << ")";
   DCHECK(parent_task_runner_->BelongsToCurrentThread());
 
   if (has_error_)
     return;
 
-  if (!status) {
+  if (!status.is_ok()) {
     // TODO(sandersd): This adds an unnecessary PostTask().
     EnterErrorState();
     return;
   }
 
   reinitializing_ = false;
-  std::move(init_cb_).Run(true);
+  std::move(init_cb_).Run(std::move(status));
 }
 
 void VdaVideoDecoder::Decode(scoped_refptr<DecoderBuffer> buffer,
@@ -488,8 +492,8 @@ int VdaVideoDecoder::GetMaxDecodeRequests() const {
   return 4;
 }
 
-void VdaVideoDecoder::NotifyInitializationComplete(bool success) {
-  DVLOG(2) << __func__ << "(" << success << ")";
+void VdaVideoDecoder::NotifyInitializationComplete(Status status) {
+  DVLOG(2) << __func__ << "(" << status.code() << ")";
   DCHECK(gpu_task_runner_->BelongsToCurrentThread());
   DCHECK(vda_initialized_);
 
@@ -512,6 +516,34 @@ void VdaVideoDecoder::ProvidePictureBuffers(uint32_t requested_num_of_buffers,
       base::BindOnce(&VdaVideoDecoder::ProvidePictureBuffersAsync,
                      gpu_weak_this_, requested_num_of_buffers, format,
                      textures_per_buffer, dimensions, texture_target));
+}
+
+void VdaVideoDecoder::ProvidePictureBuffersWithVisibleRect(
+    uint32_t requested_num_of_buffers,
+    VideoPixelFormat format,
+    uint32_t textures_per_buffer,
+    const gfx::Size& dimensions,
+    const gfx::Rect& visible_rect,
+    uint32_t texture_target) {
+  // In ALLOCATE mode, |vda_| is responsible for allocating storage for the
+  // result of the decode. However, we are responsible for creating the GL
+  // texture to which we'll attach the decoded image. The decoder needs the
+  // buffer to be of size = coded size, but for the purposes of working with a
+  // graphics API (e.g., GL), the client does not need to know about the
+  // non-visible area. For example, for a 360p H.264 video with a visible
+  // rectangle of 0,0,640x360, the coded size is 640x368, but the GL texture
+  // that the client uses should be only 640x360. Therefore, we pass
+  // |visible_rect|.size() here as the requested size of the picture buffers.
+  //
+  // Note that we use GetRectSizeFromOrigin() to handle the unusual case in
+  // which the visible rectangle does not start at (0, 0). For example, for an
+  // H.264 video with a visible rectangle of 2,2,635x360, the coded size is
+  // 640x360, but the GL texture that the client uses should be 637x362. This is
+  // because we want the texture to include the non-visible area to the left and
+  // on the top of the visible rectangle so that the compositor can calculate
+  // the UV coordinates to omit the non-visible area.
+  ProvidePictureBuffers(requested_num_of_buffers, format, textures_per_buffer,
+                        GetRectSizeFromOrigin(visible_rect), texture_target);
 }
 
 void VdaVideoDecoder::ProvidePictureBuffersAsync(uint32_t count,
@@ -816,7 +848,7 @@ void VdaVideoDecoder::DestroyCallbacks() {
     std::move(reset_cb_).Run();
 
   if (weak_this && init_cb_)
-    std::move(init_cb_).Run(false);
+    std::move(init_cb_).Run(StatusCode::kDecoderInitializeNeverCompleted);
 }
 
 }  // namespace media

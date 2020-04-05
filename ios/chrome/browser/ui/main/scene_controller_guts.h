@@ -7,27 +7,18 @@
 
 #import <UIKit/UIKit.h>
 
-#include "ios/chrome/app/application_delegate/startup_information.h"
 #import "ios/chrome/app/application_delegate/tab_opening.h"
 #import "ios/chrome/browser/procedural_block_types.h"
+#import "ios/chrome/browser/ui/tab_grid/tab_switcher.h"
 #import "ios/chrome/browser/url_loading/url_loading_params.h"
 #import "ios/chrome/browser/web_state_list/web_state_list_observer_bridge.h"
 
-class ChromeBrowserState;
-@class TabModel;
+@class BrowserViewWrangler;
 
 @protocol SceneControllerGuts <WebStateListObserving>
 
-- (void)dismissModalDialogsWithCompletion:(ProceduralBlock)completion
-                           dismissOmnibox:(BOOL)dismissOmnibox;
-
-- (void)openSelectedTabInMode:(ApplicationModeForTabOpening)tabOpeningTargetMode
-            withUrlLoadParams:(const UrlLoadParams&)urlLoadParams
-                   completion:(ProceduralBlock)completion;
-
-- (void)openTabFromLaunchOptions:(NSDictionary*)launchOptions
-              startupInformation:(id<StartupInformation>)startupInformation
-                        appState:(AppState*)appState;
+- (void)startUpChromeUIPostCrash:(BOOL)isPostCrashLaunch
+                 needRestoration:(BOOL)needsRestoration;
 
 - (void)dismissModalsAndOpenSelectedTabInMode:
             (ApplicationModeForTabOpening)targetMode
@@ -36,32 +27,14 @@ class ChromeBrowserState;
                                dismissOmnibox:(BOOL)dismissOmnibox
                                    completion:(ProceduralBlock)completion;
 
-- (BOOL)shouldOpenNTPTabOnActivationOfTabModel:(TabModel*)tabModel;
+// Testing only.
+- (void)showFirstRunUI;
+- (void)setTabSwitcher:(id<TabSwitcher>)switcher;
+- (id<TabSwitcher>)tabSwitcher;
+- (BOOL)isTabSwitcherActive;
 
-// TabSwitcherDelegate helpers
-
-// Begins the process of dismissing the tab switcher with the given current
-// model, switching which BVC is suspended if necessary, but not updating the
-// UI.  The omnibox will be focused after the tab switcher dismissal is
-// completed if |focusOmnibox| is YES.
-- (void)beginDismissingTabSwitcherWithCurrentModel:(TabModel*)tabModel
-                                      focusOmnibox:(BOOL)focusOmnibox;
-// Completes the process of dismissing the tab switcher, removing it from the
-// screen and showing the appropriate BVC.
-- (void)finishDismissingTabSwitcher;
-
-#pragma mark - AppNavigation helpers
-
-// Presents a SignedInAccountsViewController for |browserState| on the top view
-// controller.
-- (void)presentSignedInAccountsViewControllerForBrowserState:
-    (ChromeBrowserState*)browserState;
-
-// Clears incognito data that is specific to iOS and won't be cleared by
-// deleting the browser state.
-- (void)clearIOSSpecificIncognitoData;
-
-- (void)activateBVCAndMakeCurrentBVCPrimary;
+- (void)dismissModalDialogsWithCompletion:(ProceduralBlock)completion
+                           dismissOmnibox:(BOOL)dismissOmnibox;
 
 #pragma mark - iOS 12 compat
 

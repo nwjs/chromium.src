@@ -46,7 +46,6 @@
 #include "chrome/browser/ui/passwords/manage_passwords_ui_controller.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/autofill/payments/local_card_migration_icon_view.h"
-#include "chrome/browser/ui/views/autofill/payments/save_card_icon_view.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/chrome_typography.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
@@ -98,7 +97,6 @@
 #include "ui/base/ime/input_method.h"
 #include "ui/base/ime/input_method_keyboard_controller.h"
 #include "ui/base/l10n/l10n_util.h"
-#include "ui/base/material_design/material_design_controller.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/theme_provider.h"
 #include "ui/base/ui_base_features.h"
@@ -165,7 +163,6 @@ LocationBarView::LocationBarView(Browser* browser,
     focus_ring_->SetPathGenerator(
         std::make_unique<views::PillHighlightPathGenerator>());
   }
-  md_observer_.Add(ui::MaterialDesignController::GetInstance());
 }
 
 LocationBarView::~LocationBarView() {}
@@ -213,8 +210,8 @@ void LocationBarView::Init() {
   ime_inline_autocomplete_view_ =
       AddChildView(std::move(ime_inline_autocomplete_view));
 
-  selected_keyword_view_ = AddChildView(
-      std::make_unique<SelectedKeywordView>(this, font_list, profile_));
+  selected_keyword_view_ =
+      AddChildView(std::make_unique<SelectedKeywordView>(this, font_list));
 
   keyword_hint_view_ =
       AddChildView(std::make_unique<KeywordHintView>(this, profile_));
@@ -273,7 +270,6 @@ void LocationBarView::Init() {
   if (browser_ && !is_popup_mode_)
     params.types_enabled.push_back(PageActionIconType::kBookmarkStar);
 
-  params.icon_size = GetLayoutConstant(LOCATION_BAR_ICON_SIZE);
   params.icon_color = icon_color;
   params.between_icon_spacing = 0;
   params.font_list = &font_list;
@@ -509,7 +505,7 @@ void LocationBarView::Layout() {
                                       kLeadingDecorationMaxFraction,
                                       edge_padding, selected_keyword_view_);
     if (selected_keyword_view_->keyword() != keyword) {
-      selected_keyword_view_->SetKeyword(keyword);
+      selected_keyword_view_->SetKeyword(keyword, profile_);
       const TemplateURL* template_url =
           TemplateURLServiceFactory::GetForProfile(profile_)
               ->GetTemplateURLForKeyword(keyword);
@@ -611,6 +607,7 @@ void LocationBarView::Layout() {
 }
 
 void LocationBarView::OnThemeChanged() {
+  views::View::OnThemeChanged();
   // ToolbarView::Init() adds |this| to the view hierarchy before initializing,
   // which will trigger an early theme change.
   if (!IsInitialized())
@@ -829,9 +826,9 @@ void LocationBarView::ButtonPressed(views::Button* sender,
 }
 
 void LocationBarView::RefreshClearAllButtonIcon() {
-  const gfx::VectorIcon& icon = ui::MaterialDesignController::touch_ui()
-                                    ? omnibox::kClearIcon
-                                    : kTabCloseNormalIcon;
+  const bool touch_ui = ui::TouchUiController::Get()->touch_ui();
+  const gfx::VectorIcon& icon =
+      touch_ui ? omnibox::kClearIcon : kTabCloseNormalIcon;
   SetImageFromVectorIcon(clear_all_button_, icon,
                          GetColor(OmniboxPart::LOCATION_BAR_CLEAR_ALL));
   clear_all_button_->SetBorder(views::CreateEmptyBorder(
@@ -930,7 +927,9 @@ bool LocationBarView::TestContentSettingImagePressed(size_t index) {
     return false;
 
   views::View* image_view = content_setting_views_[index];
-  image_view->SetSize(gfx::Size(24, 24));
+  if (!image_view->GetVisible())
+    return false;
+
   image_view->OnKeyPressed(
       ui::KeyEvent(ui::ET_KEY_PRESSED, ui::VKEY_SPACE, ui::EF_NONE));
   image_view->OnKeyReleased(
@@ -1146,16 +1145,11 @@ bool LocationBarView::ShowPageInfoDialog() {
   if (!entry)
     return false;
 
-  SecurityStateTabHelper* helper =
-      SecurityStateTabHelper::FromWebContents(contents);
-  DCHECK(helper);
-
   DCHECK(GetWidget());
   views::BubbleDialogDelegateView* bubble =
       PageInfoBubbleView::CreatePageInfoBubble(
           this, gfx::Rect(), GetWidget()->GetNativeWindow(), profile_, contents,
-          entry->GetVirtualURL(), helper->GetSecurityLevel(),
-          *helper->GetVisibleSecurityState(),
+          entry->GetVirtualURL(),
           base::BindOnce(&LocationBarView::OnPageInfoBubbleClosed,
                          weak_factory_.GetWeakPtr()));
   bubble->SetHighlightedButton(location_icon_view_);

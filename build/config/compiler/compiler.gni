@@ -66,23 +66,20 @@ declare_args() {
 
   # Enables support for ThinLTO, which links 3x-10x faster than full LTO. See
   # also http://blog.llvm.org/2016/06/thinlto-scalable-and-incremental-lto.html
-  # Use it by default on official-optimized android builds, but not ARC since
-  # it's been seen to not play nicely with Chrome's clang.
+  # Use it by default on official-optimized android and Chrome OS builds, but
+  # not ARC or linux-chromeos since it's been seen to not play nicely with
+  # Chrome's clang. crbug.com/1033839
   use_thin_lto =
-      is_cfi || (is_android && target_os != "chromeos" && is_official_build)
+      is_cfi || (is_official_build && (target_os == "android" ||
+                                       (target_os == "chromeos" &&
+                                        is_chromeos_device && !is_android)))
+
+  # Performs ThinLTO code generation on Goma.
+  use_goma_thin_lto = false
 
   # Limit the number of jobs (threads/processes) the linker is allowed
   # to use (for linkers that support this).
   max_jobs_per_link = 8
-
-  # Tell VS to create a PDB that references information in .obj files rather
-  # than copying it all. This should improve linker performance. mspdbcmf.exe
-  # can be used to convert a fastlink pdb to a normal one.
-  is_win_fastlink = false
-
-  # Whether or not we should turn on incremental WPO. Only affects the VS
-  # Windows build.
-  use_incremental_wpo = false
 
   # Whether we're using a sample profile collected on an architecture different
   # than the one we're compiling for.
@@ -107,6 +104,9 @@ declare_args() {
 }
 
 assert(!is_cfi || use_thin_lto, "CFI requires ThinLTO")
+assert(
+    !use_goma_thin_lto || (use_goma && use_thin_lto),
+    "use_goma_thin_lto requires both use_goma and use_thin_lto to be enabled")
 
 # If true, optimize for size. Does not affect windows builds.
 # Linux & Mac favor speed over size.
@@ -183,16 +183,6 @@ can_unwind_with_cfi_table = is_android && !is_component_build &&
                             !enable_frame_pointers && current_cpu == "arm"
 
 declare_args() {
-  # Whether or not the official builds should be built with full WPO. Enabled by
-  # default for the PGO and the x64 builds.
-  if (chrome_pgo_phase > 0) {
-    full_wpo_on_official = true
-  } else {
-    full_wpo_on_official = false
-  }
-}
-
-declare_args() {
   # Set to true to use lld, the LLVM linker.
   use_lld = is_clang && (!is_ios && !is_mac)
 }
@@ -235,7 +225,7 @@ if (strip_absolute_paths_from_debug_symbols_default) {
 # If it wasn't manually set, set to an appropriate default.
 assert(symbol_level >= -1 && symbol_level <= 2, "Invalid symbol_level")
 if (symbol_level == -1) {
-  if (is_android && !is_component_build && !use_thin_lto) {
+  if (is_android && !is_component_build) {
     # Reduce symbol level when it will cause invalid elf files to be created
     # (due to file size). https://crbug.com/648948.
     symbol_level = 1
@@ -265,13 +255,6 @@ if (symbol_level == -1) {
   } else {
     symbol_level = 0
   }
-} else if (symbol_level == 2) {
-  if (is_win) {
-    # See crbug.com/630074
-    assert(is_win_fastlink || use_lld || !use_goma || is_clang,
-           "VC++ goma builds that use symbol_level 2 must use " +
-               "is_win_fastlink or use_lld.")
-  }
 }
 
 # Non-component debug builds with symbol_level = 2 are an undesirable (very slow
@@ -288,11 +271,9 @@ if (forbid_non_component_debug_builds) {
 
 # Assert that the configuration isn't going to hit https://crbug.com/648948.
 # An exception is made when target_os == "chromeos" as we only use the Android
-# toolchain there to build relatively small binaries. There is a workaround in
-# place for builds using ThinLTO (through '-generate-type-units' flag), so
-# these are exempt from limitation.
+# toolchain there to build relatively small binaries.
 assert(ignore_elf32_limitations || !is_android || target_os == "chromeos" ||
-           is_component_build || use_thin_lto || symbol_level < 2,
+           is_component_build || symbol_level < 2,
        "Android 32-bit non-component builds cannot have symbol_level=2 " +
            "due to 4GiB file size limit, see https://crbug.com/648948. " +
            "If you really want to try this out, " +

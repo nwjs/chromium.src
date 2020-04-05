@@ -54,9 +54,9 @@ const char InstalledAppController::kSupplementName[] = "InstalledAppController";
 
 InstalledAppController::InstalledAppController(LocalFrame& frame)
     : Supplement<LocalFrame>(frame),
-      ContextLifecycleObserver(frame.GetDocument()) {}
+      ExecutionContextLifecycleObserver(frame.GetDocument()) {}
 
-void InstalledAppController::ContextDestroyed(ExecutionContext*) {
+void InstalledAppController::ContextDestroyed() {
   provider_.reset();
 }
 
@@ -98,7 +98,7 @@ void InstalledAppController::OnFilterInstalledApps(
   for (const auto& res : result) {
     auto* app = MakeGarbageCollected<RelatedApplication>();
     app->setPlatform(res->platform);
-    app->setURL(res->url);
+    app->setUrl(res->url);
     app->setId(res->id);
     app->setVersion(res->version);
     applications.push_back(app);
@@ -108,7 +108,7 @@ void InstalledAppController::OnFilterInstalledApps(
 
 void InstalledAppController::Trace(Visitor* visitor) {
   Supplement<LocalFrame>::Trace(visitor);
-  ContextLifecycleObserver::Trace(visitor);
+  ExecutionContextLifecycleObserver::Trace(visitor);
 }
 
 }  // namespace blink

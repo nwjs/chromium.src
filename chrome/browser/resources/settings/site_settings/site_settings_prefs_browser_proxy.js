@@ -7,13 +7,19 @@
  * interact with the content settings prefs.
  */
 
+// clang-format off
+// #import {addSingletonGetter, sendWithPromise} from 'chrome://resources/js/cr.m.js';
+// #import {ChooserType,ContentSetting,ContentSettingsTypes,SiteSettingSource} from './constants.m.js';
+// #import {CrPolicyIndicatorType} from 'chrome://resources/cr_elements/policy/cr_policy_indicator_behavior.m.js';
+// clang-format on
+
 /**
  * The handler will send a policy source that is similar, but not exactly the
  * same as a ControlledBy value. If the ContentSettingProvider is omitted it
  * should be treated as 'default'.
  * @enum {string}
  */
-const ContentSettingProvider = {
+/* #export */ const ContentSettingProvider = {
   POLICY: 'policy',
   SUPERVISED_USER: 'supervised_user',
   EXTENSION: 'extension',
@@ -34,6 +40,26 @@ const ContentSettingProvider = {
 let IsValid;
 
 /**
+ * Stores information about the management state of a control, i.e. whether
+ * it is disabled and what indicator should be shown (including
+ * CrPolicyIndicatorType::NONE)
+ * @typedef {{disabled: boolean,
+ *            indicator: !CrPolicyIndicatorType}}
+ */
+/* #export */ let ManagedState;
+
+/**
+ * Stores information about whether individual cookies controls are managed,
+ * and if so what the source of that management is.
+ * @typedef {{allowAll: !ManagedState,
+ *            blockThirdPartyIncognito: !ManagedState,
+ *            blockThirdParty: !ManagedState,
+ *            blockAll: !ManagedState,
+              sessionOnly: !ManagedState}}
+ */
+/* #export */ let CookieControlsManagedState;
+
+/**
  * Stores origin information. The |hasPermissionSettings| will be set to true
  * when this origin has permissions or when there is a pattern permission
  * affecting this origin.
@@ -44,7 +70,7 @@ let IsValid;
               hasPermissionSettings: boolean,
               isInstalled: boolean}}
  */
-let OriginInfo;
+/* #export */ let OriginInfo;
 
 /**
  * Represents a list of sites, grouped under the same eTLD+1. For example, an
@@ -56,7 +82,7 @@ let OriginInfo;
  *            origins: Array<OriginInfo>,
  *            hasInstalledPWA: boolean}}
  */
-let SiteGroup;
+/* #export */ let SiteGroup;
 
 /**
  * The site exception information passed from the C++ handler.
@@ -65,10 +91,11 @@ let SiteGroup;
  *            incognito: boolean,
  *            origin: string,
  *            displayName: string,
+ *            type: string,
  *            setting: !settings.ContentSetting,
  *            source: !settings.SiteSettingSource}}
  */
-let RawSiteException;
+/* #export */ let RawSiteException;
 
 /**
  * The site exception after it has been converted/filtered for UI use.
@@ -83,7 +110,17 @@ let RawSiteException;
  *            controlledBy: !chrome.settingsPrivate.ControlledBy,
  *            showAndroidSmsNote: (boolean|undefined)}}
  */
-let SiteException;
+/* #export */ let SiteException;
+
+/**
+ * Represents a list of exceptions recently configured for a site, where recent
+ * is defined by the maximum number of sources parameter passed to
+ * GetRecentSitePermissions.
+ * @typedef {{origin: !string,
+ *            incognito: boolean,
+ *            recentPermissions: !Array<!RawSiteException>}}
+ */
+/* #export */ let RecentSitePermissions;
 
 /**
  * The chooser exception information passed from the C++ handler.
@@ -93,7 +130,7 @@ let SiteException;
  *            object: Object,
  *            sites: Array<!RawSiteException>}}
  */
-let RawChooserException;
+/* #export */ let RawChooserException;
 
 /**
  * The chooser exception after it has been converted/filtered for UI use.
@@ -103,19 +140,19 @@ let RawChooserException;
  *            object: Object,
  *            sites: Array<!SiteException>}}
  */
-let ChooserException;
+/* #export */ let ChooserException;
 
 /**
  * @typedef {{setting: !settings.ContentSetting,
  *            source: !ContentSettingProvider}}
  */
-let DefaultContentSetting;
+/* #export */ let DefaultContentSetting;
 
 /**
  * @typedef {{name: string,
  *            id: string}}
  */
-let MediaPickerEntry;
+/* #export */ let MediaPickerEntry;
 
 /**
  * @typedef {{protocol: string,
@@ -129,11 +166,11 @@ let ProtocolHandlerEntry;
  *            source: string,
  *            zoom: string}}
  */
-let ZoomLevelEntry;
+/* #export */ let ZoomLevelEntry;
 
 cr.define('settings', function() {
   /** @interface */
-  class SiteSettingsPrefsBrowserProxy {
+  /* #export */ class SiteSettingsPrefsBrowserProxy {
     /**
      * Sets the default value for a site settings category.
      * @param {string} contentType The name of the category to change.
@@ -143,7 +180,8 @@ cr.define('settings', function() {
 
     /**
      * Gets the default value for a site settings category.
-     * @param {string} contentType The name of the category to query.
+     * @param {!settings.ContentSettingsTypes} contentType The name of the
+     *   category to query.
      * @return {!Promise<!DefaultContentSetting>}
      */
     getDefaultValueForContentType(contentType) {}
@@ -156,6 +194,31 @@ cr.define('settings', function() {
      * @return {!Promise<!Array<!SiteGroup>>}
      */
     getAllSites(contentTypes) {}
+
+    /**
+     * Get whether each of the cookie controls are managed or not, and what
+     * the source of that management is.
+     * @return {!Promise<!CookieControlsManagedState>}
+     */
+    getCookieControlsManagedState() {}
+
+    /**
+     * Get the string which describes the current effective cookie setting.
+     * @return {!Promise<string>}
+     */
+    getCookieSettingDescription() {}
+
+    /**
+     * Gets most recently changed permissions grouped by host and limited to
+     * numSources different origin/profile (inconigto/regular) pairings.
+     * This includes permissions adjusted by embargo, but excludes any set
+     * via policy.
+     * @param {!Array<!settings.ContentSettingsTypes>} contentTypes A list of
+     *     the content types to retrieve sites with recently changed settings.
+     * @param {!number} numSources Maximum number of different sources to return
+     * @return {!Promise<!Array<!RecentSitePermissions>>}
+     */
+    getRecentSitePermissions(contentTypes, numSources) {}
 
     /**
      * Gets the chooser exceptions for a particular chooser type.
@@ -376,7 +439,7 @@ cr.define('settings', function() {
   /**
    * @implements {settings.SiteSettingsPrefsBrowserProxy}
    */
-  class SiteSettingsPrefsBrowserProxyImpl {
+  /* #export */ class SiteSettingsPrefsBrowserProxyImpl {
     /** @override */
     setDefaultValueForContentType(contentType, defaultValue) {
       chrome.send('setDefaultValueForContentType', [contentType, defaultValue]);
@@ -390,6 +453,22 @@ cr.define('settings', function() {
     /** @override */
     getAllSites(contentTypes) {
       return cr.sendWithPromise('getAllSites', contentTypes);
+    }
+
+    /** @override */
+    getCookieControlsManagedState() {
+      return cr.sendWithPromise('getCookieControlsManagedState');
+    }
+
+    /** @override */
+    getCookieSettingDescription() {
+      return cr.sendWithPromise('getCookieSettingDescription');
+    }
+
+    /** @override */
+    getRecentSitePermissions(contentTypes, numSources) {
+      return cr.sendWithPromise(
+          'getRecentSitePermissions', contentTypes, numSources);
     }
 
     /** @override */

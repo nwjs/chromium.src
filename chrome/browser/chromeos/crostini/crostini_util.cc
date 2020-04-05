@@ -7,6 +7,7 @@
 #include <utility>
 
 #include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/callback.h"
 #include "base/feature_list.h"
 #include "base/files/file_path.h"
@@ -21,10 +22,10 @@
 #include "chrome/browser/chromeos/crostini/crostini_mime_types_service.h"
 #include "chrome/browser/chromeos/crostini/crostini_mime_types_service_factory.h"
 #include "chrome/browser/chromeos/crostini/crostini_pref_names.h"
-#include "chrome/browser/chromeos/crostini/crostini_registry_service.h"
-#include "chrome/browser/chromeos/crostini/crostini_registry_service_factory.h"
 #include "chrome/browser/chromeos/crostini/crostini_terminal.h"
 #include "chrome/browser/chromeos/file_manager/path_util.h"
+#include "chrome/browser/chromeos/guest_os/guest_os_registry_service.h"
+#include "chrome/browser/chromeos/guest_os/guest_os_registry_service_factory.h"
 #include "chrome/browser/chromeos/guest_os/guest_os_share_path.h"
 #include "chrome/browser/chromeos/profiles/profile_helper.h"
 #include "chrome/browser/chromeos/virtual_machines/virtual_machines_util.h"
@@ -53,6 +54,7 @@
 namespace {
 
 constexpr char kCrostiniAppLaunchHistogram[] = "Crostini.AppLaunch";
+constexpr char kCrostiniAppLaunchResultHistogram[] = "Crostini.AppLaunchResult";
 constexpr char kCrostiniAppNamePrefix[] = "_crostini_";
 constexpr int64_t kDelayBeforeSpinnerMs = 400;
 
@@ -76,13 +78,19 @@ void RecordAppLaunchHistogram(CrostiniAppLaunchAppType app_type) {
                                 CrostiniAppLaunchAppType::kCount);
 }
 
-void OnLaunchFailed(const std::string& app_id) {
+void RecordAppLaunchResultHistogram(crostini::CrostiniResult reason) {
+  base::UmaHistogramEnumeration(kCrostiniAppLaunchResultHistogram, reason);
+}
+
+void OnLaunchFailed(const std::string& app_id,
+                    crostini::CrostiniResult reason) {
   // Remove the spinner so it doesn't stay around forever.
   // TODO(timloh): Consider also displaying a notification of some sort.
   ChromeLauncherController* chrome_controller =
       ChromeLauncherController::instance();
   DCHECK(chrome_controller);
   chrome_controller->GetShelfSpinnerController()->CloseSpinner(app_id);
+  RecordAppLaunchResultHistogram(reason);
 }
 
 void OnCrostiniRestarted(Profile* profile,
@@ -91,20 +99,15 @@ void OnCrostiniRestarted(Profile* profile,
                          Browser* browser,
                          base::OnceClosure callback,
                          crostini::CrostiniResult result) {
-  if (crostini::CrostiniManager::GetForProfile(profile)
-          ->ShouldPromptContainerUpgrade(container_id)) {
-    chromeos::CrostiniUpgraderDialog::Show(std::move(callback));
+  if (crostini::MaybeShowCrostiniDialogBeforeLaunch(profile, result)) {
+    VLOG(1) << "Crostini restart blocked by dialog";
     return;
   }
+
   if (result != crostini::CrostiniResult::SUCCESS) {
-    OnLaunchFailed(app_id);
+    OnLaunchFailed(app_id, result);
     if (browser && browser->window())
       browser->window()->Close();
-    if (result == crostini::CrostiniResult::OFFLINE_WHEN_UPGRADE_REQUIRED ||
-        result == crostini::CrostiniResult::LOAD_COMPONENT_FAILED) {
-      ShowCrostiniUpdateComponentView(profile,
-                                      crostini::CrostiniUISurface::kAppList);
-    }
     return;
   }
   std::move(callback).Run();
@@ -113,22 +116,25 @@ void OnCrostiniRestarted(Profile* profile,
 void OnApplicationLaunched(crostini::LaunchCrostiniAppCallback callback,
                            const std::string& app_id,
                            bool success) {
-  if (!success)
-    OnLaunchFailed(app_id);
+  if (!success) {
+    OnLaunchFailed(app_id, crostini::CrostiniResult::UNKNOWN_ERROR);
+  } else {
+    RecordAppLaunchResultHistogram(crostini::CrostiniResult::SUCCESS);
+  }
   std::move(callback).Run(success, success ? "" : "Failed to launch " + app_id);
 }
 
 void OnSharePathForLaunchApplication(
     Profile* profile,
     const std::string& app_id,
-    crostini::CrostiniRegistryService::Registration registration,
+    guest_os::GuestOsRegistryService::Registration registration,
     const std::vector<std::string>& files,
     bool display_scaled,
     crostini::LaunchCrostiniAppCallback callback,
     bool success,
     const std::string& failure_reason) {
   if (!success) {
-    OnLaunchFailed(app_id);
+    OnLaunchFailed(app_id, crostini::CrostiniResult::UNKNOWN_ERROR);
     return std::move(callback).Run(
         success, success ? ""
                          : "Failed to share paths to launch " + app_id + ":" +
@@ -147,13 +153,14 @@ void LaunchTerminal(Profile* profile,
                     crostini::LaunchCrostiniAppCallback callback) {
   crostini::ShowContainerTerminal(profile, launch_params, vsh_in_crosh_url,
                                   browser);
+  RecordAppLaunchResultHistogram(crostini::CrostiniResult::SUCCESS);
   std::move(callback).Run(true, "");
 }
 
 void LaunchApplication(
     Profile* profile,
     const std::string& app_id,
-    crostini::CrostiniRegistryService::Registration registration,
+    guest_os::GuestOsRegistryService::Registration registration,
     int64_t display_id,
     const std::vector<storage::FileSystemURL>& files,
     bool display_scaled,
@@ -317,9 +324,9 @@ bool IsUninstallable(Profile* profile, const std::string& app_id) {
       app_id == GetTerminalId()) {
     return false;
   }
-  CrostiniRegistryService* registry_service =
-      CrostiniRegistryServiceFactory::GetForProfile(profile);
-  base::Optional<CrostiniRegistryService::Registration> registration =
+  auto* registry_service =
+      guest_os::GuestOsRegistryServiceFactory::GetForProfile(profile);
+  base::Optional<guest_os::GuestOsRegistryService::Registration> registration =
       registry_service->GetRegistration(app_id);
   if (registration)
     return registration->CanUninstall();
@@ -341,9 +348,11 @@ bool ShouldConfigureDefaultContainer(Profile* profile) {
          !default_container_configured && !ansible_playbook_file_path.empty();
 }
 
-// TODO(davidmunro): Answer based on flag and current container version.
-bool ShouldAllowContainerUpgrade() {
-  return false;
+bool ShouldAllowContainerUpgrade(Profile* profile) {
+  return CrostiniFeatures::Get()->IsContainerUpgradeUIAllowed(profile) &&
+         crostini::CrostiniManager::GetForProfile(profile)
+             ->IsContainerUpgradeable(ContainerId(
+                 kCrostiniDefaultVmName, kCrostiniDefaultContainerName));
 }
 
 void LaunchCrostiniApp(Profile* profile,
@@ -367,26 +376,27 @@ void AddSpinner(crostini::CrostiniManager::RestartId restart_id,
   }
 }
 
-void LaunchCrostiniApp(Profile* profile,
-                       const std::string& app_id,
-                       int64_t display_id,
-                       const std::vector<storage::FileSystemURL>& files,
-                       LaunchCrostiniAppCallback callback) {
-  // Policies can change under us, and crostini may now be forbidden.
-  if (!CrostiniFeatures::Get()->IsUIAllowed(profile)) {
-    return std::move(callback).Run(false, "Crostini UI not allowed");
+bool MaybeShowCrostiniDialogBeforeLaunch(Profile* profile,
+                                         CrostiniResult result) {
+  if (result == CrostiniResult::OFFLINE_WHEN_UPGRADE_REQUIRED ||
+      result == CrostiniResult::LOAD_COMPONENT_FAILED) {
+    ShowCrostiniUpdateComponentView(profile, CrostiniUISurface::kAppList);
+    VLOG(1) << "Update Component dialog";
+    return true;
   }
-  auto* crostini_manager = crostini::CrostiniManager::GetForProfile(profile);
-  crostini::CrostiniRegistryService* registry_service =
-      crostini::CrostiniRegistryServiceFactory::GetForProfile(profile);
-  base::Optional<crostini::CrostiniRegistryService::Registration> registration =
-      registry_service->GetRegistration(app_id);
-  if (!registration) {
-    RecordAppLaunchHistogram(CrostiniAppLaunchAppType::kUnknownApp);
-    return std::move(callback).Run(
-        false, "LaunchCrostiniApp called with an unknown app_id: " + app_id);
-  }
+  return false;
+}
 
+void LaunchCrostiniAppImpl(
+    Profile* profile,
+    const std::string& app_id,
+    int64_t display_id,
+    const std::vector<storage::FileSystemURL>& files,
+    base::Optional<guest_os::GuestOsRegistryService::Registration> registration,
+    LaunchCrostiniAppCallback callback) {
+  auto* crostini_manager = crostini::CrostiniManager::GetForProfile(profile);
+  auto* registry_service =
+      guest_os::GuestOsRegistryServiceFactory::GetForProfile(profile);
   // Store these as we move |registration| into LaunchContainerApplication().
   const std::string vm_name = registration->VmName();
   const std::string container_name = registration->ContainerName();
@@ -397,20 +407,17 @@ void LaunchCrostiniApp(Profile* profile,
     DCHECK(files.empty());
     RecordAppLaunchHistogram(CrostiniAppLaunchAppType::kTerminal);
 
-    // At this point, we know that Crostini UI is allowed.
-    if (!crostini_manager->IsCrosTerminaInstalled() ||
-        !CrostiniFeatures::Get()->IsEnabled(profile)) {
-      crostini::CrostiniInstaller::GetForProfile(profile)->ShowDialog(
-          CrostiniUISurface::kAppList);
-      return std::move(callback).Run(false, "Crostini not installed");
-    }
-
     GURL vsh_in_crosh_url = GenerateVshInCroshUrl(
         profile, vm_name, container_name, std::vector<std::string>());
 
     if (base::FeatureList::IsEnabled(features::kTerminalSystemApp)) {
-      web_app::LaunchSystemWebApp(profile, web_app::SystemAppType::TERMINAL,
-                                  vsh_in_crosh_url);
+      auto* browser = web_app::LaunchSystemWebApp(
+          profile, web_app::SystemAppType::TERMINAL, vsh_in_crosh_url);
+      if (browser == nullptr) {
+        RecordAppLaunchResultHistogram(crostini::CrostiniResult::UNKNOWN_ERROR);
+      } else {
+        RecordAppLaunchResultHistogram(crostini::CrostiniResult::SUCCESS);
+      }
       return;
     }
 
@@ -446,6 +453,58 @@ void LaunchCrostiniApp(Profile* profile,
       base::BindOnce(&AddSpinner, restart_id, app_id, profile, vm_name,
                      container_name),
       base::TimeDelta::FromMilliseconds(kDelayBeforeSpinnerMs));
+}
+
+void LaunchCrostiniApp(Profile* profile,
+                       const std::string& app_id,
+                       int64_t display_id,
+                       const std::vector<storage::FileSystemURL>& files,
+                       LaunchCrostiniAppCallback callback) {
+  // Policies can change under us, and crostini may now be forbidden.
+  if (!CrostiniFeatures::Get()->IsUIAllowed(profile)) {
+    return std::move(callback).Run(false, "Crostini UI not allowed");
+  }
+  auto* crostini_manager = crostini::CrostiniManager::GetForProfile(profile);
+
+  // At this point, we know that Crostini UI is allowed.
+  if (app_id == GetTerminalId() &&
+      (!crostini_manager->IsCrosTerminaInstalled() ||
+       !CrostiniFeatures::Get()->IsEnabled(profile))) {
+    crostini::CrostiniInstaller::GetForProfile(profile)->ShowDialog(
+        CrostiniUISurface::kAppList);
+    return std::move(callback).Run(false, "Crostini not installed");
+  }
+
+  auto* registry_service =
+      guest_os::GuestOsRegistryServiceFactory::GetForProfile(profile);
+  base::Optional<guest_os::GuestOsRegistryService::Registration> registration =
+      registry_service->GetRegistration(app_id);
+  if (!registration) {
+    RecordAppLaunchHistogram(CrostiniAppLaunchAppType::kUnknownApp);
+    return std::move(callback).Run(
+        false, "LaunchCrostiniApp called with an unknown app_id: " + app_id);
+  }
+
+  if (crostini_manager->IsUncleanStartup()) {
+    // Prompt for user-restart.
+    if (!ShowCrostiniRecoveryView(profile,
+                                  crostini::CrostiniUISurface::kAppList, app_id,
+                                  display_id, std::move(callback))) {
+      return;
+    }
+  }
+
+  if (crostini_manager->ShouldPromptContainerUpgrade(
+          ContainerId(registration->VmName(), registration->ContainerName())) ||
+      crostini_manager->GetCrostiniDialogStatus(DialogType::UPGRADER)) {
+    chromeos::CrostiniUpgraderDialog::Show(
+        base::BindOnce(&LaunchCrostiniAppImpl, profile, app_id, display_id,
+                       files, std::move(registration), std::move(callback)));
+    VLOG(1) << "Upgrade dialog";
+    return;
+  }
+  LaunchCrostiniAppImpl(profile, app_id, display_id, files,
+                        std::move(registration), std::move(callback));
 }
 
 void LoadIcons(Profile* profile,
@@ -531,8 +590,8 @@ void RemoveLxdContainerFromPrefs(Profile* profile,
                      return MatchContainerDict(dict, container_id);
                    }));
 
-  CrostiniRegistryServiceFactory::GetForProfile(profile)->ClearApplicationList(
-      vm_name, container_name);
+  guest_os::GuestOsRegistryServiceFactory::GetForProfile(profile)
+      ->ClearApplicationList(vm_name, container_name);
   CrostiniMimeTypesServiceFactory::GetForProfile(profile)->ClearMimeTypes(
       vm_name, container_name);
 }
@@ -621,4 +680,9 @@ std::vector<int64_t> GetTicksForDiskSize(int64_t min_size,
   return ticks;
 }
 
+const ContainerId& DefaultContainerId() {
+  static const base::NoDestructor<ContainerId> container_id(
+      kCrostiniDefaultVmName, kCrostiniDefaultContainerName);
+  return *container_id;
+}
 }  // namespace crostini

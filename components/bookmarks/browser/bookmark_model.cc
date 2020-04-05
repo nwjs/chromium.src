@@ -47,11 +47,6 @@ BookmarkNode* AsMutable(const BookmarkNode* node) {
   return const_cast<BookmarkNode*>(node);
 }
 
-// Helper to get a mutable permanent bookmark node.
-BookmarkPermanentNode* AsMutable(const BookmarkPermanentNode* node) {
-  return const_cast<BookmarkPermanentNode*>(node);
-}
-
 // Comparator used when sorting permanent nodes. Nodes that are initially
 // visible are sorted before nodes that are initially hidden.
 class VisibilityComparator {
@@ -63,10 +58,8 @@ class VisibilityComparator {
                   const std::unique_ptr<BookmarkNode>& n2) {
     DCHECK(n1->is_permanent_node());
     DCHECK(n2->is_permanent_node());
-    bool n1_visible = client_->IsPermanentNodeVisible(
-        static_cast<BookmarkPermanentNode*>(n1.get()));
-    bool n2_visible = client_->IsPermanentNodeVisible(
-        static_cast<BookmarkPermanentNode*>(n2.get()));
+    bool n1_visible = client_->IsPermanentNodeVisibleWhenEmpty(n1->type());
+    bool n2_visible = client_->IsPermanentNodeVisibleWhenEmpty(n2->type());
     return n1_visible != n2_visible && n1_visible;
   }
 
@@ -114,6 +107,18 @@ class EmptyUndoDelegate : public BookmarkUndoDelegate {
 
   DISALLOW_COPY_AND_ASSIGN(EmptyUndoDelegate);
 };
+
+#if DCHECK_IS_ON()
+void AddGuidsToIndexRecursive(const BookmarkNode* node,
+                              std::set<std::string>* guid_index) {
+  bool success = guid_index->insert(node->guid()).second;
+  DCHECK(success);
+
+  // Recurse through children.
+  for (size_t i = node->children().size(); i > 0; --i)
+    AddGuidsToIndexRecursive(node->children()[i - 1].get(), guid_index);
+}
+#endif  // DCHECK_IS_ON()
 
 }  // namespace
 
@@ -388,7 +393,7 @@ void BookmarkModel::SetTitle(const BookmarkNode* node,
   // title changed but should be excluded from the index.
   if (node->is_url())
     titled_url_index_->Remove(node);
-  AsMutable(node)->SetTitle(title);
+  url_index_->SetTitle(AsMutable(node), title);
   if (node->is_url())
     titled_url_index_->Add(node);
 
@@ -414,9 +419,11 @@ void BookmarkModel::SetURL(const BookmarkNode* node, const GURL& url) {
   for (BookmarkModelObserver& observer : observers_)
     observer.OnWillChangeBookmarkNode(this, node);
 
+  // The title index doesn't support changing the URL, instead we remove then
+  // add it back.
   titled_url_index_->Remove(mutable_node);
   url_index_->SetUrl(mutable_node, url);
-  AddNodeToIndexRecursive(mutable_node);
+  titled_url_index_->Add(mutable_node);
 
   if (store_)
     store_->ScheduleSave();
@@ -486,20 +493,6 @@ void BookmarkModel::DeleteNodeMetaInfo(const BookmarkNode* node,
 void BookmarkModel::AddNonClonedKey(const std::string& key) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   non_cloned_keys_.insert(key);
-}
-
-void BookmarkModel::SetNodeSyncTransactionVersion(
-    const BookmarkNode* node,
-    int64_t sync_transaction_version) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  DCHECK(client_->CanSyncNode(node));
-
-  if (sync_transaction_version == node->sync_transaction_version())
-    return;
-
-  AsMutable(node)->set_sync_transaction_version(sync_transaction_version);
-  if (store_)
-    store_->ScheduleSave();
 }
 
 void BookmarkModel::OnFaviconsChanged(const std::set<GURL>& page_urls,
@@ -610,6 +603,8 @@ const BookmarkNode* BookmarkModel::AddFolder(
     base::Optional<std::string> guid) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(loaded_);
+  DCHECK(parent);
+  DCHECK(parent->is_folder());
   DCHECK(!is_root_node(parent));
   DCHECK(IsValidIndex(parent, index, true));
 
@@ -640,6 +635,8 @@ const BookmarkNode* BookmarkModel::AddURL(
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(loaded_);
   DCHECK(url.is_valid());
+  DCHECK(parent);
+  DCHECK(parent->is_folder());
   DCHECK(!is_root_node(parent));
   DCHECK(IsValidIndex(parent, index, true));
 
@@ -770,31 +767,6 @@ void BookmarkModel::ClearStore() {
   store_.reset();
 }
 
-void BookmarkModel::SetPermanentNodeVisible(BookmarkNode::Type type,
-                                            bool value) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  BookmarkPermanentNode* node = AsMutable(PermanentNode(type));
-  node->set_visible(value || client_->IsPermanentNodeVisible(node));
-}
-
-const BookmarkPermanentNode* BookmarkModel::PermanentNode(
-    BookmarkNode::Type type) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  DCHECK(loaded_);
-
-  switch (type) {
-    case BookmarkNode::BOOKMARK_BAR:
-      return bookmark_bar_node_;
-    case BookmarkNode::OTHER_NODE:
-      return other_node_;
-    case BookmarkNode::MOBILE:
-      return mobile_node_;
-    default:
-      NOTREACHED();
-      return nullptr;
-  }
-}
-
 void BookmarkModel::RestoreRemovedNode(const BookmarkNode* parent,
                                        size_t index,
                                        std::unique_ptr<BookmarkNode> node) {
@@ -825,6 +797,12 @@ void BookmarkModel::RemoveNodeFromIndexRecursive(BookmarkNode* node) {
 
   if (node->is_url())
     titled_url_index_->Remove(node);
+
+  // Note that |guid_index_| is used for DCHECK-enabled builds only.
+#if DCHECK_IS_ON()
+  DCHECK(guid_index_.erase(node->guid()))
+      << "Bookmark GUID missing in index: " << node->guid();
+#endif  // DCHECK_IS_ON()
 
   CancelPendingFaviconLoadRequests(node);
 
@@ -859,6 +837,10 @@ void BookmarkModel::DoneLoading(std::unique_ptr<BookmarkLoadDetails> details) {
   other_node_ = details->other_folder_node();
   mobile_node_ = details->mobile_folder_node();
 
+#if DCHECK_IS_ON()
+  AddGuidsToIndexRecursive(root_, &guid_index_);
+#endif  // DCHECK_IS_ON()
+
   titled_url_index_->SetNodeSorter(
       std::make_unique<TypedCountSorter>(client_.get()));
   // Sorting the permanent nodes has to happen on the main thread, so we do it
@@ -867,8 +849,6 @@ void BookmarkModel::DoneLoading(std::unique_ptr<BookmarkLoadDetails> details) {
                    VisibilityComparator(client_.get()));
 
   root_->SetMetaInfoMap(details->model_meta_info_map());
-  root_->set_sync_transaction_version(
-      details->model_sync_transaction_version());
 
   loaded_ = true;
   client_->DecodeBookmarkSyncMetadata(
@@ -906,6 +886,14 @@ void BookmarkModel::AddNodeToIndexRecursive(BookmarkNode* node) {
 
   if (node->is_url())
     titled_url_index_->Add(node);
+
+  // The node's GUID must be unique. Note that |guid_index_| is used for
+  // DCHECK-enabled builds only.
+#if DCHECK_IS_ON()
+  DCHECK(guid_index_.insert(node->guid()).second)
+      << "Duplicate bookmark GUID: " << node->guid();
+#endif  // DCHECK_IS_ON()
+
   for (const auto& child : node->children())
     AddNodeToIndexRecursive(child.get());
 }

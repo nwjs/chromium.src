@@ -17,13 +17,14 @@
 #include "content/public/browser/reload_type.h"
 #include "content/public/browser/visibility.h"
 #include "content/public/common/frame_navigate_params.h"
-#include "content/public/common/resource_load_info.mojom-forward.h"
-#include "content/public/common/resource_type.h"
 #include "ipc/ipc_listener.h"
 #include "mojo/public/cpp/system/message_pipe.h"
+#include "services/network/public/mojom/fetch_api.mojom-forward.h"
 #include "services/service_manager/public/cpp/bind_source_info.h"
 #include "third_party/blink/public/common/input/web_input_event.h"
+#include "third_party/blink/public/common/user_agent/user_agent_metadata.h"
 #include "third_party/blink/public/mojom/devtools/console_message.mojom.h"
+#include "third_party/blink/public/mojom/loader/resource_load_info.mojom-forward.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/base/page_transition_types.h"
 #include "ui/base/window_open_disposition.h"
@@ -51,11 +52,9 @@ class WebContentsImpl;
 struct AXEventNotificationDetails;
 struct AXLocationChangeNotificationDetails;
 struct EntryChangedDetails;
-struct FaviconURL;
 struct FocusedNodeDetails;
 struct LoadCommittedDetails;
 struct MediaPlayerId;
-struct MediaPlayerWatchTime;
 struct PrunedDetails;
 struct Referrer;
 
@@ -271,7 +270,7 @@ class CONTENT_EXPORT WebContentsObserver : public IPC::Listener {
   virtual void DidLoadResourceFromMemoryCache(
       const GURL& url,
       const std::string& mime_type,
-      ResourceType resource_type) {}
+      network::mojom::RequestDestination request_destination) {}
 
   // This method is invoked when a resource associate with the frame
   // |render_frame_host| has been loaded, successfully or not. |request_id| will
@@ -279,7 +278,7 @@ class CONTENT_EXPORT WebContentsObserver : public IPC::Listener {
   virtual void ResourceLoadComplete(
       RenderFrameHost* render_frame_host,
       const GlobalRequestID& request_id,
-      const mojom::ResourceLoadInfo& resource_load_info) {}
+      const blink::mojom::ResourceLoadInfo& resource_load_info) {}
 
   // This method is invoked when a document or resource reads a cookie. Note
   // that this isn't tied to any particular navigation (e.g., it may be called
@@ -439,13 +438,15 @@ class CONTENT_EXPORT WebContentsObserver : public IPC::Listener {
   virtual void WebContentsDestroyed() {}
 
   // Called when the user agent override for a WebContents has been changed.
-  virtual void UserAgentOverrideSet(const std::string& user_agent) {}
+  virtual void UserAgentOverrideSet(
+      const blink::UserAgentOverride& ua_override) {}
 
-  // Invoked when new FaviconURL candidates are received from the renderer
-  // process. If the instance is created after the page is loaded, it is
-  // recommended to call WebContents::GetFaviconURLs() to get the current list
-  // as this callback will not be executed unless there is an update.
-  virtual void DidUpdateFaviconURL(const std::vector<FaviconURL>& candidates) {}
+  // Invoked when new blink::mojom::FaviconURLPtr candidates are received from
+  // the renderer process. If the instance is created after the page is loaded,
+  // it is recommended to call WebContents::GetFaviconURLs() to get the current
+  // list as this callback will not be executed unless there is an update.
+  virtual void DidUpdateFaviconURL(
+      const std::vector<blink::mojom::FaviconURLPtr>& candidates) {}
 
   // Called when an audio change occurs.
   virtual void OnAudioStateChanged(bool audible) {}
@@ -533,10 +534,6 @@ class CONTENT_EXPORT WebContentsObserver : public IPC::Listener {
     bool has_audio;
   };
 
-  // Invoked when media playback is interrupted or completed.
-  virtual void MediaWatchTimeChanged(
-      const content::MediaPlayerWatchTime& watch_time) {}
-
   virtual void MediaStartedPlaying(const MediaPlayerInfo& video_type,
                                    const MediaPlayerId& id) {}
   enum class MediaStoppedReason {
@@ -594,6 +591,8 @@ class CONTENT_EXPORT WebContentsObserver : public IPC::Listener {
   virtual void DidUpdateWebManifestURL(
       const base::Optional<GURL>& manifest_url) {}
 
+  // DEPRECATED. Please register interface binders with BrowserInterfaceBroker
+  // instead (see 'Interface-Brokers' section in //docs/mojo_and_services.md).
   // Called to give the embedder an opportunity to bind an interface request
   // from a frame. If the request can be bound, |interface_pipe| will be taken.
   virtual void OnInterfaceRequestFromFrame(

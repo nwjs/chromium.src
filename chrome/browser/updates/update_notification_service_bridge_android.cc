@@ -9,9 +9,9 @@
 #include "base/android/jni_string.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/android/chrome_jni_headers/UpdateNotificationServiceBridge_jni.h"
+#include "chrome/browser/android/profile_key_util.h"
 #include "chrome/browser/notifications/scheduler/public/notification_params.h"
-#include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/profiles/profile_android.h"
+#include "chrome/browser/profiles/profile_key.h"
 #include "chrome/browser/updates/update_notification_info.h"
 #include "chrome/browser/updates/update_notification_service.h"
 #include "chrome/browser/updates/update_notification_service_factory.h"
@@ -26,15 +26,18 @@ namespace updates {
 //
 void JNI_UpdateNotificationServiceBridge_Schedule(
     JNIEnv* env,
-    const JavaParamRef<jobject>& j_profile,
     const JavaParamRef<jstring>& j_title,
-    const JavaParamRef<jstring>& j_message) {
-  Profile* profile = ProfileAndroid::FromProfileAndroid(j_profile);
+    const JavaParamRef<jstring>& j_message,
+    const jint j_state,
+    const jboolean j_show_immediately) {
+  ProfileKey* profile_key = ::android::GetLastUsedProfileKey();
   auto* update_notification_service =
-      UpdateNotificationServiceFactory::GetForBrowserContext(profile);
+      UpdateNotificationServiceFactory::GetForKey(profile_key);
   UpdateNotificationInfo data;
   data.title = ConvertJavaStringToUTF16(env, j_title);
   data.message = ConvertJavaStringToUTF16(env, j_message);
+  data.state = static_cast<int>(j_state);
+  data.should_show_immediately = static_cast<bool>(j_show_immediately);
   update_notification_service->Schedule(std::move(data));
 }
 
@@ -74,18 +77,20 @@ UpdateNotificationServiceBridgeAndroid::GetThrottleInterval() {
                              base::TimeDelta::FromMilliseconds(interval)));
 }
 
-void UpdateNotificationServiceBridgeAndroid::UpdateUserDismissCount(int count) {
+void UpdateNotificationServiceBridgeAndroid::UpdateNegativeActionCount(
+    int count) {
   JNIEnv* env = base::android::AttachCurrentThread();
-  Java_UpdateNotificationServiceBridge_updateUserDismissCount(env, count);
+  Java_UpdateNotificationServiceBridge_updateNegativeActionCount(env, count);
 }
 
-int UpdateNotificationServiceBridgeAndroid::GetUserDismissCount() {
+int UpdateNotificationServiceBridgeAndroid::GetNegativeActionCount() {
   JNIEnv* env = base::android::AttachCurrentThread();
-  return Java_UpdateNotificationServiceBridge_getUserDismissCount(env);
+  return Java_UpdateNotificationServiceBridge_getNegativeActionCount(env);
 }
 
-void UpdateNotificationServiceBridgeAndroid::LaunchChromeActivity() {
+void UpdateNotificationServiceBridgeAndroid::LaunchChromeActivity(int state) {
   JNIEnv* env = base::android::AttachCurrentThread();
-  Java_UpdateNotificationServiceBridge_launchChromeActivity(env);
+  Java_UpdateNotificationServiceBridge_launchChromeActivity(
+      env, static_cast<jint>(state));
 }
 }  // namespace updates

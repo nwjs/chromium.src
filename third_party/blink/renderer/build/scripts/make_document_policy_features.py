@@ -4,20 +4,29 @@
 
 import json5_generator
 import template_expander
+from make_document_policy_features_util import parse_default_value
 
 
 class DocumentPolicyFeatureWriter(json5_generator.Writer):
     file_basename = 'document_policy_features'
 
     def __init__(self, json5_file_path, output_dir):
-        super(DocumentPolicyFeatureWriter, self).__init__(json5_file_path, output_dir)
+        super(DocumentPolicyFeatureWriter, self).__init__(
+            json5_file_path, output_dir)
 
-        @template_expander.use_jinja('templates/' + self.file_basename + '.cc.tmpl')
+        @template_expander.use_jinja(
+            'templates/' + self.file_basename + '.cc.tmpl')
         def generate_implementation():
             return {
-                'header_guard': self.make_header_guard(self._relative_output_dir + self.file_basename + '.h'),
-                'input_files': self._input_files,
-                'features': self.json5_file.name_dictionaries
+                'header_guard':
+                self.make_header_guard(self._relative_output_dir +
+                                       self.file_basename + '.h'),
+                'input_files':
+                self._input_files,
+                'features':
+                self.json5_file.name_dictionaries,
+                'parse_default_value':
+                parse_default_value
             }
 
         self._outputs = {

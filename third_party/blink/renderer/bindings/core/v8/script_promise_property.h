@@ -11,7 +11,7 @@
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
 #include "third_party/blink/renderer/bindings/core/v8/to_v8_for_core.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_binding_for_core.h"
-#include "third_party/blink/renderer/core/execution_context/context_lifecycle_observer.h"
+#include "third_party/blink/renderer/core/execution_context/execution_context_lifecycle_observer.h"
 #include "third_party/blink/renderer/platform/bindings/script_forbidden_scope.h"
 
 namespace blink {
@@ -29,7 +29,7 @@ template <typename ResolvedType, typename RejectedType>
 class ScriptPromiseProperty final
     : public GarbageCollected<
           ScriptPromiseProperty<ResolvedType, RejectedType>>,
-      public ContextClient {
+      public ExecutionContextClient {
   USING_GARBAGE_COLLECTED_MIXIN(ScriptPromiseProperty);
 
  public:
@@ -44,7 +44,7 @@ class ScriptPromiseProperty final
   // (typically ScriptPromiseProperty should be a member of the
   // property holder).
   ScriptPromiseProperty(ExecutionContext* execution_context)
-      : ContextClient(execution_context) {}
+      : ExecutionContextClient(execution_context) {}
 
   ScriptPromise Promise(DOMWrapperWorld& world) {
     if (!GetExecutionContext()) {
@@ -72,6 +72,8 @@ class ScriptPromiseProperty final
     // suppress the check forcibly.
     resolver->SuppressDetachCheck();
     ScriptPromise promise = resolver->Promise();
+    if (mark_as_handled_)
+      promise.MarkAsHandled();
     switch (state_) {
       case kPending:
         resolvers_.push_back(resolver);
@@ -147,12 +149,20 @@ class ScriptPromiseProperty final
     resolved_with_undefined_ = false;
   }
 
-  void Trace(blink::Visitor* visitor) override {
+  // Mark generated promises as handled to avoid reporting unhandled rejections.
+  void MarkAsHandled() {
+    mark_as_handled_ = true;
+    for (auto& promise : promises_) {
+      promise.MarkAsHandled();
+    }
+  }
+
+  void Trace(Visitor* visitor) override {
     TraceIfNeeded<ResolvedType>::Trace(visitor, resolved_);
     TraceIfNeeded<RejectedType>::Trace(visitor, rejected_);
     visitor->Trace(resolvers_);
     visitor->Trace(promises_);
-    ContextClient::Trace(visitor);
+    ExecutionContextClient::Trace(visitor);
   }
 
   State GetState() const { return state_; }
@@ -164,6 +174,7 @@ class ScriptPromiseProperty final
   HeapVector<Member<ScriptPromiseResolver>> resolvers_;
   HeapVector<ScriptPromise> promises_;
   bool resolved_with_undefined_ = false;
+  bool mark_as_handled_ = false;
 
   DISALLOW_COPY_AND_ASSIGN(ScriptPromiseProperty);
 };

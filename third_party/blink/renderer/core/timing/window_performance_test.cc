@@ -10,6 +10,7 @@
 #include "third_party/blink/renderer/bindings/core/v8/v8_binding_for_core.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_binding_for_testing.h"
 #include "third_party/blink/renderer/core/dom/document_init.h"
+#include "third_party/blink/renderer/core/execution_context/security_context_init.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/performance_monitor.h"
 #include "third_party/blink/renderer/core/loader/document_load_timing.h"
@@ -54,15 +55,14 @@ class WindowPerformanceTest : public testing::Test {
 
   void SimulateDidProcessLongTask() {
     auto* monitor = GetFrame()->GetPerformanceMonitor();
-    monitor->WillExecuteScript(GetDocument());
+    monitor->WillExecuteScript(GetDocument()->ToExecutionContext());
     monitor->DidExecuteScript();
     monitor->DidProcessTask(
         base::TimeTicks(), base::TimeTicks() + base::TimeDelta::FromSeconds(1));
   }
 
   void SimulateSwapPromise(base::TimeTicks timestamp) {
-    performance_->ReportEventTimings(WebWidgetClient::SwapResult::kDidSwap,
-                                     timestamp);
+    performance_->ReportEventTimings(WebSwapResult::kDidSwap, timestamp);
   }
 
   LocalFrame* GetFrame() const { return &page_holder_->GetFrame(); }
@@ -119,11 +119,13 @@ TEST_F(WindowPerformanceTest, SanitizedLongTaskName) {
   EXPECT_EQ("unknown", SanitizedAttribution(nullptr, false, GetFrame()));
 
   // Attribute for same context (and same origin).
-  EXPECT_EQ("self", SanitizedAttribution(GetDocument(), false, GetFrame()));
+  EXPECT_EQ("self", SanitizedAttribution(GetDocument()->ToExecutionContext(),
+                                         false, GetFrame()));
 
   // Unable to attribute, when multiple script execution contents are involved.
   EXPECT_EQ("multiple-contexts",
-            SanitizedAttribution(GetDocument(), true, GetFrame()));
+            SanitizedAttribution(GetDocument()->ToExecutionContext(), true,
+                                 GetFrame()));
 }
 
 TEST_F(WindowPerformanceTest, SanitizedLongTaskName_CrossOrigin) {
@@ -137,7 +139,8 @@ TEST_F(WindowPerformanceTest, SanitizedLongTaskName_CrossOrigin) {
   // Attribute for same context (and same origin).
   EXPECT_EQ(
       "cross-origin-unreachable",
-      SanitizedAttribution(&another_page.GetDocument(), false, GetFrame()));
+      SanitizedAttribution(another_page.GetDocument().ToExecutionContext(),
+                           false, GetFrame()));
 }
 
 // https://crbug.com/706798: Checks that after navigation that have replaced the
@@ -148,13 +151,7 @@ TEST_F(WindowPerformanceTest, NavigateAway) {
   EXPECT_TRUE(ObservingLongTasks());
 
   // Simulate navigation commit.
-  DocumentInit init =
-      DocumentInit::Create()
-          .WithDocumentLoader(GetFrame()->Loader().GetDocumentLoader())
-          .WithTypeFrom("text/html");
-  GetDocument()->Shutdown();
-  GetFrame()->SetDOMWindow(MakeGarbageCollected<LocalDOMWindow>(*GetFrame()));
-  GetFrame()->DomWindow()->InstallNewDocument(init, false);
+  GetFrame()->DomWindow()->FrameDestroyed();
 
   // m_performance is still alive, and should not crash when notified.
   SimulateDidProcessLongTask();

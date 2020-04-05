@@ -15,10 +15,13 @@
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
 #include "chrome/app/chrome_command_ids.h"
+#include "chrome/browser/apps/app_service/app_launch_params.h"
+#include "chrome/browser/apps/launch_service/launch_service.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browsing_data/browsing_data_helper.h"
 #include "chrome/browser/browsing_data/chrome_browsing_data_remover_delegate.h"
+#include "chrome/browser/chrome_content_browser_client.h"
 #include "chrome/browser/devtools/devtools_window.h"
 #include "chrome/browser/dom_distiller/tab_utils.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
@@ -57,8 +60,15 @@
 #include "chrome/browser/ui/status_bubble.h"
 #include "chrome/browser/ui/tab_contents/core_tab_helper.h"
 #include "chrome/browser/ui/tab_dialogs.h"
+#include "chrome/browser/ui/tabs/tab_group.h"
+#include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/translate/translate_bubble_view_state_transition.h"
+#include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/browser/upgrade_detector/upgrade_detector.h"
+#include "chrome/browser/web_applications/components/app_registrar.h"
+#include "chrome/browser/web_applications/components/web_app_constants.h"
+#include "chrome/browser/web_applications/components/web_app_id.h"
+#include "chrome/browser/web_applications/components/web_app_provider_base.h"
 #include "chrome/common/buildflags.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/content_restriction.h"
@@ -73,9 +83,13 @@
 #include "components/find_in_page/find_tab_helper.h"
 #include "components/find_in_page/find_types.h"
 #include "components/google/core/common/google_util.h"
+#include "components/omnibox/browser/omnibox_pref_names.h"
 #include "components/prefs/pref_service.h"
+#include "components/services/app_service/public/mojom/types.mojom.h"
 #include "components/sessions/core/live_tab_context.h"
 #include "components/sessions/core/tab_restore_service.h"
+#include "components/tab_groups/tab_group_id.h"
+#include "components/tab_groups/tab_group_visual_data.h"
 #include "components/translate/core/browser/language_state.h"
 #include "components/version_info/version_info.h"
 #include "components/web_modal/web_contents_modal_dialog_manager.h"
@@ -99,13 +113,12 @@
 #include "rlz/buildflags/buildflags.h"
 #include "ui/base/clipboard/clipboard_buffer.h"
 #include "ui/base/clipboard/scoped_clipboard_writer.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/events/keycodes/keyboard_codes.h"
 #include "url/gurl.h"
 #include "url/url_constants.h"
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
-#include "chrome/browser/extensions/api/commands/command_service.h"
-#include "chrome/browser/extensions/api/extension_action/extension_action_api.h"
 #include "chrome/browser/ui/extensions/app_launch_params.h"
 #include "chrome/browser/ui/extensions/application_launch.h"
 #include "chrome/browser/ui/extensions/settings_api_bubble_helpers.h"
@@ -138,6 +151,7 @@
 namespace {
 
 const char kOsOverrideForTabletSite[] = "Linux; Android 9; Chrome tablet";
+const char kChPlatformOverrideForTabletSite[] = "Android";
 
 #if 0
 translate::TranslateBubbleUiEvent TranslateBubbleResultToUiEvent(
@@ -211,52 +225,12 @@ using content::WebContents;
 namespace chrome {
 namespace {
 
-bool CanBookmarkCurrentTabInternal(const Browser* browser,
-                                   bool check_remove_bookmark_ui) {
-  BookmarkModel* model =
-      BookmarkModelFactory::GetForBrowserContext(browser->profile());
-  return browser_defaults::bookmarks_enabled &&
-         browser->profile()->GetPrefs()->GetBoolean(
-             bookmarks::prefs::kEditBookmarksEnabled) &&
-         model && model->loaded() && browser->is_type_normal() &&
-         (!check_remove_bookmark_ui ||
-          !chrome::ShouldRemoveBookmarkThisTabUI(browser->profile()));
-}
-
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 const extensions::Extension* GetExtensionForBrowser(Browser* browser) {
   return extensions::ExtensionRegistry::Get(browser->profile())
       ->GetExtensionById(
           web_app::GetAppIdFromApplicationName(browser->app_name()),
           extensions::ExtensionRegistry::EVERYTHING);
-}
-
-bool GetBookmarkOverrideCommand(Profile* profile,
-                                const extensions::Extension** extension,
-                                extensions::Command* command) {
-  DCHECK(extension);
-  DCHECK(command);
-
-  ui::Accelerator bookmark_tab_accelerator =
-      chrome::GetPrimaryChromeAcceleratorForBookmarkTab();
-  if (bookmark_tab_accelerator.key_code() == ui::VKEY_UNKNOWN)
-    return false;
-
-  extensions::CommandService* command_service =
-      extensions::CommandService::Get(profile);
-  const extensions::ExtensionSet& extension_set =
-      extensions::ExtensionRegistry::Get(profile)->enabled_extensions();
-  for (extensions::ExtensionSet::const_iterator i = extension_set.begin();
-       i != extension_set.end(); ++i) {
-    extensions::Command prospective_command;
-    if (command_service->GetSuggestedExtensionCommand(
-            (*i)->id(), bookmark_tab_accelerator, &prospective_command)) {
-      *extension = i->get();
-      *command = prospective_command;
-      return true;
-    }
-  }
-  return false;
 }
 #endif
 
@@ -626,21 +600,41 @@ void Stop(Browser* browser) {
 }
 
 void NewWindow(Browser* browser) {
+  Profile* const profile = browser->profile();
 #if BUILDFLAG(ENABLE_EXTENSIONS) && defined(OS_MACOSX)
-  // With bookmark apps enabled, hosted apps should open a window to their
-  // launch page.
+  // Web apps should open a window to their launch page.
+  if (browser->app_controller() && browser->app_controller()->HasAppId()) {
+    const web_app::AppId app_id = browser->app_controller()->GetAppId();
+
+    auto launch_container =
+        apps::mojom::LaunchContainer::kLaunchContainerWindow;
+    if (web_app::WebAppProviderBase::GetProviderBase(profile)
+            ->registrar()
+            .GetAppEffectiveDisplayMode(app_id) ==
+        blink::mojom::DisplayMode::kBrowser) {
+      launch_container = apps::mojom::LaunchContainer::kLaunchContainerTab;
+    }
+    const apps::AppLaunchParams params = apps::AppLaunchParams(
+        app_id, launch_container, WindowOpenDisposition::NEW_WINDOW,
+        apps::mojom::AppLaunchSource::kSourceKeyboard);
+    apps::LaunchService::Get(profile)->OpenApplication(params);
+    return;
+  }
+
+  // Hosted apps should open a window to their launch page.
   const extensions::Extension* extension = GetExtensionForBrowser(browser);
   if (extension && extension->is_hosted_app()) {
+    DCHECK(!extension->from_bookmark());
     const auto app_launch_params = CreateAppLaunchParamsUserContainer(
-        browser->profile(), extension, WindowOpenDisposition::NEW_WINDOW,
+        profile, extension, WindowOpenDisposition::NEW_WINDOW,
         extensions::AppLaunchSource::kSourceKeyboard);
     OpenApplicationWindow(
-        browser->profile(), app_launch_params,
+        profile, app_launch_params,
         extensions::AppLaunchInfo::GetLaunchWebURL(extension));
     return;
   }
 #endif
-  NewEmptyWindow(browser->profile()->GetOriginalProfile());
+  NewEmptyWindow(profile->GetOriginalProfile());
 }
 
 void NewIncognitoWindow(Profile* profile) {
@@ -775,12 +769,24 @@ bool CanMoveTabsToNewWindow(Browser* browser,
 }
 
 void MoveTabsToNewWindow(Browser* browser,
-                         const std::vector<int>& tab_indices) {
+                         const std::vector<int>& tab_indices,
+                         base::Optional<tab_groups::TabGroupId> group) {
   if (tab_indices.empty())
     return;
 
   Browser* new_browser =
       new Browser(Browser::CreateParams(browser->profile(), true));
+
+  base::Optional<tab_groups::TabGroupId> new_group = base::nullopt;
+  if (group.has_value()) {
+    new_group = tab_groups::TabGroupId::GenerateNew();
+    new_browser->tab_strip_model()->group_model()->AddTabGroup(
+        new_group.value(), *browser->tab_strip_model()
+                                ->group_model()
+                                ->GetTabGroup(group.value())
+                                ->visual_data());
+  }
+
   int indices_size = tab_indices.size();
   for (int i = 0; i < indices_size; i++) {
     // Adjust tab index to account for tabs already moved.
@@ -791,8 +797,9 @@ void MoveTabsToNewWindow(Browser* browser,
     int add_types = TabStripModel::ADD_ACTIVE |
                     TabStripModel::ADD_INHERIT_OPENER |
                     (pinned ? TabStripModel::ADD_PINNED : 0);
-    new_browser->tab_strip_model()->AddWebContents(
-        std::move(contents_move), -1, ui::PAGE_TRANSITION_LINK, add_types);
+    new_browser->tab_strip_model()->AddWebContents(std::move(contents_move), -1,
+                                                   ui::PAGE_TRANSITION_LINK,
+                                                   add_types, new_group);
   }
   new_browser->window()->Show();
 }
@@ -846,6 +853,28 @@ bool CanDuplicateTabAt(const Browser* browser, int index) {
   // what the user expects to duplicate.
   return contents && !contents->ShowingInterstitialPage() &&
          contents->GetController().GetLastCommittedEntry();
+}
+
+void MoveToExistingWindow(Browser* source,
+                          Browser* target,
+                          const std::vector<int>& tab_indices) {
+  if (tab_indices.empty())
+    return;
+
+  int indices_size = tab_indices.size();
+  for (int i = 0; i < indices_size; i++) {
+    // Adjust tab index to account for tabs already moved.
+    int adjusted_index = tab_indices[i] - i;
+    bool pinned = source->tab_strip_model()->IsTabPinned(adjusted_index);
+    std::unique_ptr<WebContents> contents_move =
+        source->tab_strip_model()->DetachWebContentsAt(adjusted_index);
+    int add_types = TabStripModel::ADD_ACTIVE |
+                    TabStripModel::ADD_INHERIT_OPENER |
+                    (pinned ? TabStripModel::ADD_PINNED : 0);
+    target->tab_strip_model()->AddWebContents(
+        std::move(contents_move), -1, ui::PAGE_TRANSITION_LINK, add_types);
+  }
+  target->window()->Show();
 }
 
 void PinTab(Browser* browser) {
@@ -927,7 +956,7 @@ void Exit() {
   chrome::AttemptUserExit();
 }
 
-void BookmarkCurrentTabIgnoringExtensionOverrides(Browser* browser) {
+void BookmarkCurrentTab(Browser* browser) {
   base::RecordAction(UserMetricsAction("Star"));
 
   BookmarkModel* model =
@@ -967,33 +996,13 @@ void BookmarkCurrentTabIgnoringExtensionOverrides(Browser* browser) {
     RecordBookmarksAdded(browser->profile());
 }
 
-void BookmarkCurrentTabAllowingExtensionOverrides(Browser* browser) {
-  DCHECK(!chrome::ShouldRemoveBookmarkThisTabUI(browser->profile()));
-
-#if BUILDFLAG(ENABLE_EXTENSIONS)
-  const extensions::Extension* extension = nullptr;
-  extensions::Command command;
-  if (GetBookmarkOverrideCommand(browser->profile(), &extension, &command)) {
-    switch (command.type()) {
-      case extensions::Command::Type::kNamed:
-        browser->window()->ExecuteExtensionCommand(extension, command);
-        break;
-      case extensions::Command::Type::kBrowserAction:
-      case extensions::Command::Type::kPageAction:
-        // BookmarkCurrentTab is called through a user gesture, so it is safe
-        // to grant the active tab permission.
-        extensions::ExtensionActionAPI::Get(browser->profile())
-            ->ShowExtensionActionPopup(extension, browser, true);
-        break;
-    }
-    return;
-  }
-#endif
-  BookmarkCurrentTabIgnoringExtensionOverrides(browser);
-}
-
 bool CanBookmarkCurrentTab(const Browser* browser) {
-  return CanBookmarkCurrentTabInternal(browser, true);
+  BookmarkModel* model =
+      BookmarkModelFactory::GetForBrowserContext(browser->profile());
+  return browser_defaults::bookmarks_enabled &&
+         browser->profile()->GetPrefs()->GetBoolean(
+             bookmarks::prefs::kEditBookmarksEnabled) &&
+         model && model->loaded() && browser->is_type_normal();
 }
 
 void BookmarkAllTabs(Browser* browser) {
@@ -1007,8 +1016,7 @@ void BookmarkAllTabs(Browser* browser) {
 
 bool CanBookmarkAllTabs(const Browser* browser) {
   return browser->tab_strip_model()->count() > 1 &&
-         !chrome::ShouldRemoveBookmarkAllTabsUI(browser->profile()) &&
-         CanBookmarkCurrentTabInternal(browser, false);
+         CanBookmarkCurrentTab(browser);
 }
 
 void SaveCreditCard(Browser* browser) {
@@ -1332,6 +1340,13 @@ void ToggleBookmarkBar(Browser* browser) {
   ToggleBookmarkBarWhenVisible(browser->profile());
 }
 
+void ToggleShowFullURLs(Browser* browser) {
+  bool pref_enabled = browser->profile()->GetPrefs()->GetBoolean(
+      omnibox::kPreventUrlElisionsInOmnibox);
+  browser->profile()->GetPrefs()->SetBoolean(
+      omnibox::kPreventUrlElisionsInOmnibox, !pref_enabled);
+}
+
 void ShowAppMenu(Browser* browser) {
   // We record the user metric for this event in AppMenu::RunMenu.
   browser->window()->ShowAppMenu();
@@ -1403,9 +1418,15 @@ void SetAndroidOsForTabletSite(content::WebContents* current_tab) {
     entry->SetIsOverridingUserAgent(true);
     std::string product =
         version_info::GetProductNameAndVersionForUserAgent() + " Mobile";
-    current_tab->SetUserAgentOverride(content::BuildUserAgentFromOSAndProduct(
-                                          kOsOverrideForTabletSite, product),
-                                      false);
+    blink::UserAgentOverride ua_override;
+    ua_override.ua_string_override = content::BuildUserAgentFromOSAndProduct(
+        kOsOverrideForTabletSite, product);
+    ua_override.ua_metadata_override = GetUserAgentMetadata();
+    ua_override.ua_metadata_override->mobile = true;
+    ua_override.ua_metadata_override->platform =
+        kChPlatformOverrideForTabletSite;
+    ua_override.ua_metadata_override->platform_version = std::string();
+    current_tab->SetUserAgentOverride(ua_override, false);
   }
 }
 

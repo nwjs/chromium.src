@@ -362,7 +362,10 @@ void RenderWidgetHostViewMac::InitAsPopup(
   popup_parent_host_view_->popup_child_host_view_ = this;
 
   // This path is used by the time/date picker.
-  ns_view_->InitAsPopup(pos);
+  // When FormControlsRefresh is enabled the popup window should use
+  // the native shadow.
+  bool has_shadow = features::IsFormControlsRefreshEnabled();
+  ns_view_->InitAsPopup(pos, has_shadow);
 }
 
 void RenderWidgetHostViewMac::InitAsFullscreen(
@@ -1082,14 +1085,15 @@ gfx::Rect RenderWidgetHostViewMac::GetBoundsInRootWindow() {
   return window_frame_in_screen_dip_;
 }
 
-bool RenderWidgetHostViewMac::LockMouse(bool request_unadjusted_movement) {
+blink::mojom::PointerLockResult RenderWidgetHostViewMac::LockMouse(
+    bool request_unadjusted_movement) {
   if (mouse_locked_)
-    return true;
+    return blink::mojom::PointerLockResult::kSuccess;
 
   if (request_unadjusted_movement) {
     // TODO(crbug/998688): implement pointerlock unadjusted movement on mac.
     NOTIMPLEMENTED();
-    return false;
+    return blink::mojom::PointerLockResult::kUnsupportedOptions;
   }
 
   mouse_locked_ = true;
@@ -1100,7 +1104,17 @@ bool RenderWidgetHostViewMac::LockMouse(bool request_unadjusted_movement) {
   // Clear the tooltip window.
   ns_view_->SetTooltipText(base::string16());
 
-  return true;
+  return blink::mojom::PointerLockResult::kSuccess;
+}
+
+blink::mojom::PointerLockResult RenderWidgetHostViewMac::ChangeMouseLock(
+    bool request_unadjusted_movement) {
+  // Unadjusted movement is not supported on Mac. Which means that
+  // |mouse_locked_unadjusted_movement_| must not be set. Therefore,
+  // |request_unadjusted_movement| must be true so this request will always
+  // fail with kUnsupportedOptions.
+  NOTIMPLEMENTED();
+  return blink::mojom::PointerLockResult::kUnsupportedOptions;
 }
 
 void RenderWidgetHostViewMac::UnlockMouse() {
@@ -1703,6 +1717,10 @@ void RenderWidgetHostViewMac::LookUpDictionaryOverlayAtPoint(
       host()->delegate()->GetInputEventRouter()->GetRenderWidgetHostAtPoint(
           this, root_point, &transformed_point);
   if (!widget_host)
+    return;
+
+  // For popups, do not support QuickLook.
+  if (popup_parent_host_view_)
     return;
 
   int32_t target_widget_process_id = widget_host->GetProcess()->GetID();

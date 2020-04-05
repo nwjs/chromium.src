@@ -15,7 +15,9 @@
 #include "ui/aura/test/test_window_delegate.h"
 #include "ui/aura/test/test_windows.h"
 #include "ui/base/cursor/cursor.h"
+#include "ui/base/cursor/cursor_size.h"
 #include "ui/base/hit_test.h"
+#include "ui/base/mojom/cursor_type.mojom-shared.h"
 #include "ui/display/screen.h"
 #include "ui/events/event.h"
 #include "ui/events/event_sink.h"
@@ -502,7 +504,7 @@ TEST_F(WindowManagerTest, MouseEventCursors) {
   ui::EventSink* sink = host->event_sink();
 
   // Cursor starts as a pointer (set during Shell::Init()).
-  EXPECT_EQ(ui::CursorType::kPointer, host->last_cursor().native_type());
+  EXPECT_EQ(ui::mojom::CursorType::kPointer, host->last_cursor().type());
 
   {
     // Resize edges and corners show proper cursors.
@@ -511,7 +513,7 @@ TEST_F(WindowManagerTest, MouseEventCursors) {
                          ui::EventTimeForNow(), 0, 0);
     ui::EventDispatchDetails details = sink->OnEventFromSource(&move1);
     ASSERT_FALSE(details.dispatcher_destroyed);
-    EXPECT_EQ(ui::CursorType::kSouthResize, host->last_cursor().native_type());
+    EXPECT_EQ(ui::mojom::CursorType::kSouthResize, host->last_cursor().type());
   }
 
   {
@@ -520,8 +522,8 @@ TEST_F(WindowManagerTest, MouseEventCursors) {
                          ui::EventTimeForNow(), 0, 0);
     ui::EventDispatchDetails details = sink->OnEventFromSource(&move2);
     ASSERT_FALSE(details.dispatcher_destroyed);
-    EXPECT_EQ(ui::CursorType::kSouthWestResize,
-              host->last_cursor().native_type());
+    EXPECT_EQ(ui::mojom::CursorType::kSouthWestResize,
+              host->last_cursor().type());
   }
 
   {
@@ -530,8 +532,8 @@ TEST_F(WindowManagerTest, MouseEventCursors) {
                          ui::EventTimeForNow(), 0, 0);
     ui::EventDispatchDetails details = sink->OnEventFromSource(&move1);
     ASSERT_FALSE(details.dispatcher_destroyed);
-    EXPECT_EQ(ui::CursorType::kSouthEastResize,
-              host->last_cursor().native_type());
+    EXPECT_EQ(ui::mojom::CursorType::kSouthEastResize,
+              host->last_cursor().type());
   }
 
   {
@@ -540,7 +542,7 @@ TEST_F(WindowManagerTest, MouseEventCursors) {
                          ui::EventTimeForNow(), 0, 0);
     ui::EventDispatchDetails details = sink->OnEventFromSource(&move2);
     ASSERT_FALSE(details.dispatcher_destroyed);
-    EXPECT_EQ(ui::CursorType::kWestResize, host->last_cursor().native_type());
+    EXPECT_EQ(ui::mojom::CursorType::kWestResize, host->last_cursor().type());
   }
 
   {
@@ -549,7 +551,7 @@ TEST_F(WindowManagerTest, MouseEventCursors) {
                          ui::EventTimeForNow(), 0, 0);
     ui::EventDispatchDetails details = sink->OnEventFromSource(&move1);
     ASSERT_FALSE(details.dispatcher_destroyed);
-    EXPECT_EQ(ui::CursorType::kEastResize, host->last_cursor().native_type());
+    EXPECT_EQ(ui::mojom::CursorType::kEastResize, host->last_cursor().type());
   }
 
   {
@@ -558,7 +560,7 @@ TEST_F(WindowManagerTest, MouseEventCursors) {
                          ui::EventTimeForNow(), 0, 0);
     ui::EventDispatchDetails details = sink->OnEventFromSource(&move2);
     ASSERT_FALSE(details.dispatcher_destroyed);
-    EXPECT_EQ(ui::CursorType::kNorthResize, host->last_cursor().native_type());
+    EXPECT_EQ(ui::mojom::CursorType::kNorthResize, host->last_cursor().type());
   }
 
   {
@@ -567,8 +569,8 @@ TEST_F(WindowManagerTest, MouseEventCursors) {
                          ui::EventTimeForNow(), 0, 0);
     ui::EventDispatchDetails details = sink->OnEventFromSource(&move1);
     ASSERT_FALSE(details.dispatcher_destroyed);
-    EXPECT_EQ(ui::CursorType::kNorthWestResize,
-              host->last_cursor().native_type());
+    EXPECT_EQ(ui::mojom::CursorType::kNorthWestResize,
+              host->last_cursor().type());
   }
 
   {
@@ -577,8 +579,8 @@ TEST_F(WindowManagerTest, MouseEventCursors) {
                          ui::EventTimeForNow(), 0, 0);
     ui::EventDispatchDetails details = sink->OnEventFromSource(&move2);
     ASSERT_FALSE(details.dispatcher_destroyed);
-    EXPECT_EQ(ui::CursorType::kNorthEastResize,
-              host->last_cursor().native_type());
+    EXPECT_EQ(ui::mojom::CursorType::kNorthEastResize,
+              host->last_cursor().type());
   }
 
   {
@@ -588,7 +590,7 @@ TEST_F(WindowManagerTest, MouseEventCursors) {
                          ui::EventTimeForNow(), 0, 0);
     ui::EventDispatchDetails details = sink->OnEventFromSource(&move1);
     ASSERT_FALSE(details.dispatcher_destroyed);
-    EXPECT_EQ(ui::CursorType::kNull, host->last_cursor().native_type());
+    EXPECT_EQ(ui::mojom::CursorType::kNull, host->last_cursor().type());
   }
 }
 

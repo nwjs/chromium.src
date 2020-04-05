@@ -6,11 +6,12 @@ package org.chromium.chrome.browser.omnibox.suggestions.base;
 
 import android.content.res.ColorStateList;
 import android.content.res.Resources;
-import android.support.annotation.ColorRes;
-import android.support.v4.view.ViewCompat;
-import android.support.v7.content.res.AppCompatResources;
 import android.view.View;
 import android.widget.ImageView;
+
+import androidx.annotation.ColorRes;
+import androidx.appcompat.content.res.AppCompatResources;
+import androidx.core.view.ViewCompat;
 
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.chrome.R;
@@ -49,6 +50,8 @@ public final class BaseSuggestionViewBinder<T extends View>
             updateContentViewPadding(model, view.getDecoratedSuggestionView());
         } else if (BaseSuggestionViewProperties.ACTION_ICON == propertyKey) {
             updateActionIcon(model, view);
+        } else if (BaseSuggestionViewProperties.IS_COMPACT == propertyKey) {
+            updateContentViewPadding(model, view.getDecoratedSuggestionView());
         } else if (SuggestionCommonProperties.LAYOUT_DIRECTION == propertyKey) {
             ViewCompat.setLayoutDirection(
                     view, model.get(SuggestionCommonProperties.LAYOUT_DIRECTION));
@@ -93,11 +96,7 @@ public final class BaseSuggestionViewBinder<T extends View>
             rciv.setRoundedCorners(radius, radius, radius, radius);
         }
 
-        @ColorRes
-        int tint = isDarkMode(model) ? R.color.default_icon_color_secondary_list
-                                     : R.color.white_mode_tint;
-
-        updateIcon(rciv, sds, tint);
+        updateIcon(rciv, sds, ChromeColors.getSecondaryIconTintRes(!isDarkMode(model)));
     }
 
     /** Update attributes of decorated suggestion icon. */
@@ -105,7 +104,7 @@ public final class BaseSuggestionViewBinder<T extends View>
             PropertyModel model, BaseSuggestionView<T> baseView) {
         final ImageView view = baseView.getActionImageView();
         final SuggestionDrawableState sds = model.get(BaseSuggestionViewProperties.ACTION_ICON);
-        updateIcon(view, sds, ChromeColors.getIconTintRes(!isDarkMode(model)));
+        updateIcon(view, sds, ChromeColors.getPrimaryIconTintRes(!isDarkMode(model)));
     }
 
     /**
@@ -124,8 +123,19 @@ public final class BaseSuggestionViewBinder<T extends View>
         // centered with the omnibox "Clear" button.
         final int endSpace = view.getResources().getDimensionPixelSize(
                 R.dimen.omnibox_suggestion_refine_view_modern_end_padding);
-
         view.setPaddingRelative(startSpace, 0, endSpace, 0);
+
+        // Compact suggestion handling: apply additional padding to the suggestion content.
+        final boolean isCompact = model.get(BaseSuggestionViewProperties.IS_COMPACT);
+        final int verticalPad = view.getResources().getDimensionPixelSize(isCompact
+                        ? R.dimen.omnibox_suggestion_compact_padding
+                        : R.dimen.omnibox_suggestion_comfortable_padding);
+        view.getContentView().setPaddingRelative(0, verticalPad, 0, verticalPad);
+
+        final int minimumHeight = view.getResources().getDimensionPixelSize(isCompact
+                        ? R.dimen.omnibox_suggestion_compact_height
+                        : R.dimen.omnibox_suggestion_comfortable_height);
+        view.getContentView().setMinimumHeight(minimumHeight);
     }
 
     /** Update image view using supplied drawable state object. */

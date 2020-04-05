@@ -40,7 +40,8 @@ SkColorType ResourceFormatToClosestSkColorType(bool gpu_compositing,
     case ETC1:
       return kRGB_888x_SkColorType;
     case RGBA_1010102:
-    case BGRX_1010102:
+      return kBGRA_1010102_SkColorType;
+    case BGRA_1010102:
       return kRGBA_1010102_SkColorType;
 
     // YUV images are sampled as RGB.
@@ -75,7 +76,7 @@ int BitsPerPixel(ResourceFormat format) {
     case RGBX_8888:
     case BGRX_8888:
     case RGBA_1010102:
-    case BGRX_1010102:
+    case BGRA_1010102:
     case P010:
       return 32;
     case RGBA_4444:
@@ -118,7 +119,7 @@ bool HasAlpha(ResourceFormat format) {
     case RGBX_8888:
     case BGRX_8888:
     case RGBA_1010102:
-    case BGRX_1010102:
+    case BGRA_1010102:
     case YVU_420:
     case YUV_420_BIPLANAR:
     case P010:
@@ -147,7 +148,7 @@ unsigned int GLDataType(ResourceFormat format) {
       GL_UNSIGNED_BYTE,                    // RGBX_8888
       GL_ZERO,                             // BGRX_8888
       GL_UNSIGNED_INT_2_10_10_10_REV_EXT,  // RGBA_1010102
-      GL_ZERO,                             // BGRX_1010102
+      GL_UNSIGNED_INT_2_10_10_10_REV_EXT,  // BGRA_1010102
       GL_ZERO,                             // YVU_420
       GL_ZERO,                             // YUV_420_BIPLANAR
       GL_ZERO,                             // P010
@@ -177,7 +178,7 @@ unsigned int GLDataFormat(ResourceFormat format) {
       GL_RGB,        // RGBX_8888
       GL_ZERO,       // BGRX_8888
       GL_RGBA,       // RGBA_1010102
-      GL_ZERO,       // BGRX_1010102
+      GL_RGBA,       // BGRA_1010102
       GL_ZERO,       // YVU_420
       GL_ZERO,       // YUV_420_BIPLANAR
       GL_ZERO,       // P010
@@ -228,7 +229,7 @@ unsigned int GLCopyTextureInternalFormat(ResourceFormat format) {
       GL_RGB,        // RGBX_8888
       GL_RGB,        // BGRX_8888
       GL_ZERO,       // RGBA_1010102
-      GL_ZERO,       // BGRX_1010102
+      GL_ZERO,       // BGRA_1010102
       GL_ZERO,       // YVU_420
       GL_ZERO,       // YUV_420_BIPLANAR
       GL_ZERO,       // P010
@@ -264,8 +265,8 @@ gfx::BufferFormat BufferFormat(ResourceFormat format) {
       return gfx::BufferFormat::BGRX_8888;
     case RGBA_1010102:
       return gfx::BufferFormat::RGBA_1010102;
-    case BGRX_1010102:
-      return gfx::BufferFormat::BGRX_1010102;
+    case BGRA_1010102:
+      return gfx::BufferFormat::BGRA_1010102;
     case YVU_420:
       return gfx::BufferFormat::YVU_420;
     case YUV_420_BIPLANAR:
@@ -316,7 +317,7 @@ unsigned int TextureStorageFormat(ResourceFormat format) {
     case ETC1:
       return GL_RGB8_OES;
     case RGBA_1010102:
-    case BGRX_1010102:
+    case BGRA_1010102:
       return GL_RGB10_A2_EXT;
     case BGR_565:
     case BGRX_8888:
@@ -350,7 +351,7 @@ bool IsGpuMemoryBufferFormatSupported(ResourceFormat format) {
     case RGBX_8888:
     case BGRX_8888:
     case RGBA_1010102:
-    case BGRX_1010102:
+    case BGRA_1010102:
     case YVU_420:
     case YUV_420_BIPLANAR:
     case P010:
@@ -379,7 +380,7 @@ bool IsBitmapFormatSupported(ResourceFormat format) {
     case RGBX_8888:
     case BGRX_8888:
     case RGBA_1010102:
-    case BGRX_1010102:
+    case BGRA_1010102:
     case YVU_420:
     case YUV_420_BIPLANAR:
     case P010:
@@ -413,8 +414,8 @@ ResourceFormat GetResourceFormat(gfx::BufferFormat format) {
       return BGRX_8888;
     case gfx::BufferFormat::RGBA_1010102:
       return RGBA_1010102;
-    case gfx::BufferFormat::BGRX_1010102:
-      return BGRX_1010102;
+    case gfx::BufferFormat::BGRA_1010102:
+      return BGRA_1010102;
     case gfx::BufferFormat::YVU_420:
       return YVU_420;
     case gfx::BufferFormat::YUV_420_BIPLANAR:
@@ -430,7 +431,7 @@ bool GLSupportsFormat(ResourceFormat format) {
   switch (format) {
     case BGR_565:
     case BGRX_8888:
-    case BGRX_1010102:
+    case BGRA_1010102:
     case YVU_420:
     case YUV_420_BIPLANAR:
     case P010:
@@ -441,6 +442,32 @@ bool GLSupportsFormat(ResourceFormat format) {
 }
 
 #if BUILDFLAG(ENABLE_VULKAN)
+bool HasVkFormat(ResourceFormat format) {
+  switch (format) {
+    case RGBA_8888:
+    case RGBA_4444:
+    case BGRA_8888:
+    case RED_8:
+    case RGB_565:
+    case BGR_565:
+    case RG_88:
+    case RGBA_F16:
+    case R16_EXT:
+    case RGBX_8888:
+    case BGRX_8888:
+    case RGBA_1010102:
+    case BGRA_1010102:
+    case ALPHA_8:
+    case LUMINANCE_8:
+    case YVU_420:
+    case YUV_420_BIPLANAR:
+    case ETC1:
+      return true;
+    default:
+      return false;
+  }
+}
+
 VkFormat ToVkFormat(ResourceFormat format) {
   switch (format) {
     case RGBA_8888:
@@ -467,7 +494,7 @@ VkFormat ToVkFormat(ResourceFormat format) {
       return VK_FORMAT_B8G8R8A8_UNORM;
     case RGBA_1010102:
       return VK_FORMAT_A2B10G10R10_UNORM_PACK32;
-    case BGRX_1010102:
+    case BGRA_1010102:
       return VK_FORMAT_A2R10G10B10_UNORM_PACK32;
     case ALPHA_8:
       return VK_FORMAT_R8_UNORM;
@@ -510,7 +537,7 @@ wgpu::TextureFormat ToDawnFormat(ResourceFormat format) {
     case RGB_565:
     case BGR_565:
     case R16_EXT:
-    case BGRX_1010102:
+    case BGRA_1010102:
     case YVU_420:
     case YUV_420_BIPLANAR:
     case ETC1:

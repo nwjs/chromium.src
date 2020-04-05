@@ -4,19 +4,24 @@
 
 #include "chrome/browser/ui/views/safe_browsing/password_reuse_modal_warning_dialog.h"
 
+#include "base/bind_helpers.h"
 #include "base/i18n/rtl.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/ui/views/accessibility/non_accessible_image_view.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/chrome_typography.h"
+#include "chrome/grit/theme_resources.h"
 #include "components/constrained_window/constrained_window_views.h"
 #include "components/password_manager/core/browser/password_manager_metrics_util.h"
+#include "components/password_manager/core/common/password_manager_features.h"
+#include "components/safe_browsing/buildflags.h"
 #include "components/safe_browsing/content/password_protection/metrics_util.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/vector_icons/vector_icons.h"
 #include "content/public/browser/web_contents.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/color_palette.h"
 #include "ui/gfx/image/image.h"
 #include "ui/gfx/image/image_skia.h"
@@ -30,40 +35,19 @@ using views::BoxLayout;
 
 namespace {
 
-// Fixed height of the illustration shown on the top of the dialog.
-constexpr int kSafeBrowsingIllustrationHeight = 148;
-
-// Fixed background color of the illustration shown on the top of the dialog in
-// normal mode.
-constexpr SkColor kSafeBrowsingPictureBackgroundColor =
-    SkColorSetARGB(0x0A, 0, 0, 0);
-
-// Fixed background color of the illustration shown on the top of the dialog in
-// dark mode.
-constexpr SkColor kSafeBrowsingPictureBackgroundColorDarkMode =
-    SkColorSetARGB(0x1A, 0x00, 0x00, 0x00);
-
 // Updates the image displayed on the illustration based on the current theme.
 void SafeBrowsingUpdateImageView(NonAccessibleImageView* image_view,
                                  bool dark_mode_enabled) {
-  image_view->SetImage(gfx::CreateVectorIcon(
-      dark_mode_enabled ? kPasswordCheckWarningDarkIcon
-                        : kPasswordCheckWarningIcon,
-      dark_mode_enabled ? kSafeBrowsingPictureBackgroundColorDarkMode
-                        : kSafeBrowsingPictureBackgroundColor));
+  image_view->SetImage(
+      *ui::ResourceBundle::GetSharedInstance().GetImageSkiaNamed(
+          dark_mode_enabled ? IDR_PASSWORD_CHECK_DARK : IDR_PASSWORD_CHECK));
 }
 
 // Creates the illustration which is rendered on top of the dialog.
 std::unique_ptr<NonAccessibleImageView> SafeBrowsingCreateIllustration(
     bool dark_mode_enabled) {
-  const gfx::Size illustration_size(
-      ChromeLayoutProvider::Get()->GetDistanceMetric(
-          DISTANCE_MODAL_DIALOG_PREFERRED_WIDTH),
-      kSafeBrowsingIllustrationHeight);
   auto image_view = std::make_unique<NonAccessibleImageView>();
-  image_view->SetPreferredSize(illustration_size);
   SafeBrowsingUpdateImageView(image_view.get(), dark_mode_enabled);
-  image_view->SetSize(illustration_size);
   image_view->SetVerticalAlignment(views::ImageView::Alignment::kLeading);
   return image_view;
 }
@@ -104,6 +88,10 @@ base::string16 GetOkButtonLabel(
     case safe_browsing::ReusedPasswordAccountType::NON_GAIA_ENTERPRISE:
       return l10n_util::GetStringUTF16(IDS_PAGE_INFO_CHANGE_PASSWORD_BUTTON);
     case safe_browsing::ReusedPasswordAccountType::SAVED_PASSWORD:
+      if (base::FeatureList::IsEnabled(
+              password_manager::features::kPasswordCheck)) {
+        return l10n_util::GetStringUTF16(IDS_PAGE_INFO_CHECK_PASSWORDS_BUTTON);
+      }
       return l10n_util::GetStringUTF16(IDS_CLOSE);
     default:
       return l10n_util::GetStringUTF16(IDS_PAGE_INFO_PROTECT_ACCOUNT_BUTTON);
@@ -138,13 +126,24 @@ PasswordReuseModalWarningDialog::PasswordReuseModalWarningDialog(
       service_(service),
       url_(web_contents->GetLastCommittedURL()),
       password_type_(password_type) {
-  DialogDelegate::set_buttons(
-      password_type_.account_type() == ReusedPasswordAccountType::SAVED_PASSWORD
-          ? ui::DIALOG_BUTTON_OK
-          : ui::DIALOG_BUTTON_OK | ui::DIALOG_BUTTON_CANCEL);
-  DialogDelegate::set_button_label(ui::DIALOG_BUTTON_OK,
-                                   GetOkButtonLabel(password_type_));
-  DialogDelegate::set_button_label(
+  bool show_check_passwords = false;
+#if BUILDFLAG(FULL_SAFE_BROWSING)
+  show_check_passwords = base::FeatureList::IsEnabled(
+                             password_manager::features::kPasswordCheck) &&
+                         password_type_.account_type() ==
+                             ReusedPasswordAccountType::SAVED_PASSWORD;
+#endif
+  if (password_type.account_type() !=
+          ReusedPasswordAccountType::SAVED_PASSWORD ||
+      show_check_passwords) {
+    DialogDelegate::SetButtons(ui::DIALOG_BUTTON_OK |
+                               ui::DIALOG_BUTTON_CANCEL);
+  } else {
+    DialogDelegate::SetButtons(ui::DIALOG_BUTTON_OK);
+  }
+  DialogDelegate::SetButtonLabel(ui::DIALOG_BUTTON_OK,
+                                 GetOkButtonLabel(password_type_));
+  DialogDelegate::SetButtonLabel(
       ui::DIALOG_BUTTON_CANCEL,
       l10n_util::GetStringUTF16(IDS_PAGE_INFO_IGNORE_PASSWORD_WARNING_BUTTON));
 
@@ -159,13 +158,15 @@ PasswordReuseModalWarningDialog::PasswordReuseModalWarningDialog(
         },
         base::Unretained(&done_callback_), value);
   };
-  DialogDelegate::set_accept_callback(
-      password_type_.account_type() != ReusedPasswordAccountType::SAVED_PASSWORD
+  DialogDelegate::SetAcceptCallback(
+      (password_type_.account_type() !=
+           ReusedPasswordAccountType::SAVED_PASSWORD ||
+       show_check_passwords)
           ? make_done_callback(WarningAction::CHANGE_PASSWORD)
           : base::DoNothing());
-  DialogDelegate::set_cancel_callback(
+  DialogDelegate::SetCancelCallback(
       make_done_callback(WarningAction::IGNORE_WARNING));
-  DialogDelegate::set_close_callback(make_done_callback(WarningAction::CLOSE));
+  DialogDelegate::SetCloseCallback(make_done_callback(WarningAction::CLOSE));
 
   // |service| maybe NULL in tests.
   if (service_)

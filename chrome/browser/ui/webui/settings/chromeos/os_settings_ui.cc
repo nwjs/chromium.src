@@ -16,7 +16,9 @@
 #include "ash/public/cpp/resources/grit/ash_public_unscaled_resources.h"
 #include "ash/public/cpp/stylus_utils.h"
 #include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/feature_list.h"
+#include "base/memory/ptr_util.h"
 #include "base/metrics/histogram_functions.h"
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
@@ -27,11 +29,11 @@
 #include "chrome/browser/chromeos/login/demo_mode/demo_session.h"
 #include "chrome/browser/chromeos/login/quick_unlock/quick_unlock_utils.h"
 #include "chrome/browser/chromeos/multidevice_setup/multidevice_setup_client_factory.h"
+#include "chrome/browser/chromeos/plugin_vm/plugin_vm_pref_names.h"
 #include "chrome/browser/chromeos/plugin_vm/plugin_vm_util.h"
 #include "chrome/browser/chromeos/profiles/profile_helper.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/ui/ui_features.h"
-#include "chrome/browser/ui/web_applications/system_web_app_ui_utils.h"
 #include "chrome/browser/ui/webui/app_management/app_management.mojom.h"
 #include "chrome/browser/ui/webui/app_management/app_management_page_handler.h"
 #include "chrome/browser/ui/webui/chromeos/smb_shares/smb_handler.h"
@@ -44,6 +46,7 @@
 #include "chrome/browser/ui/webui/settings/browser_lifetime_handler.h"
 #include "chrome/browser/ui/webui/settings/chromeos/accessibility_handler.h"
 #include "chrome/browser/ui/webui/settings/chromeos/account_manager_handler.h"
+#include "chrome/browser/ui/webui/settings/chromeos/ambient_mode_handler.h"
 #include "chrome/browser/ui/webui/settings/chromeos/android_apps_handler.h"
 #include "chrome/browser/ui/webui/settings/chromeos/change_picture_handler.h"
 #include "chrome/browser/ui/webui/settings/chromeos/crostini_handler.h"
@@ -60,9 +63,14 @@
 #include "chrome/browser/ui/webui/settings/chromeos/kerberos_accounts_handler.h"
 #include "chrome/browser/ui/webui/settings/chromeos/multidevice_handler.h"
 #include "chrome/browser/ui/webui/settings/chromeos/os_settings_localized_strings_provider.h"
+#include "chrome/browser/ui/webui/settings/chromeos/os_settings_localized_strings_provider_factory.h"
 #include "chrome/browser/ui/webui/settings/chromeos/parental_controls_handler.h"
 #include "chrome/browser/ui/webui/settings/chromeos/plugin_vm_handler.h"
 #include "chrome/browser/ui/webui/settings/chromeos/pref_names.h"
+#include "chrome/browser/ui/webui/settings/chromeos/quick_unlock_handler.h"
+#include "chrome/browser/ui/webui/settings/chromeos/search/search_handler.h"
+#include "chrome/browser/ui/webui/settings/chromeos/search/search_handler_factory.h"
+#include "chrome/browser/ui/webui/settings/chromeos/search/settings_user_action_tracker.h"
 #include "chrome/browser/ui/webui/settings/chromeos/wallpaper_handler.h"
 #include "chrome/browser/ui/webui/settings/downloads_handler.h"
 #include "chrome/browser/ui/webui/settings/extension_control_handler.h"
@@ -78,6 +86,7 @@
 #include "chrome/browser/ui/webui/settings/settings_media_devices_selection_handler.h"
 #include "chrome/browser/ui/webui/settings/shared_settings_localized_strings_provider.h"
 #include "chrome/browser/ui/webui/settings/tts_handler.h"
+#include "chrome/browser/ui/webui/webui_util.h"
 #include "chrome/browser/web_applications/system_web_app_manager.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/webui_url_constants.h"
@@ -87,6 +96,7 @@
 #include "chrome/grit/os_settings_resources_map.h"
 #include "chromeos/components/account_manager/account_manager.h"
 #include "chromeos/components/account_manager/account_manager_factory.h"
+#include "chromeos/components/web_applications/manifest_request_filter.h"
 #include "chromeos/constants/chromeos_features.h"
 #include "chromeos/constants/chromeos_pref_names.h"
 #include "chromeos/login/auth/password_visibility_utils.h"
@@ -98,6 +108,7 @@
 #include "content/public/browser/web_ui_data_source.h"
 #include "media/base/media_switches.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
+#include "ui/base/webui/web_ui_util.h"
 #include "ui/chromeos/resources/grit/ui_chromeos_resources.h"
 #include "ui/resources/grit/webui_resources.h"
 
@@ -160,19 +171,17 @@ OSSettingsUI::OSSettingsUI(content::WebUI* web_ui)
       std::make_unique<::settings::ProtocolHandlersHandler>());
   AddSettingsPageUIHandler(
       std::make_unique<::settings::SearchEnginesHandler>(profile));
-  AddSettingsPageUIHandler(
-      std::make_unique<chromeos::settings::WallpaperHandler>(web_ui));
 
   html_source->AddBoolean("showAppManagement", base::FeatureList::IsEnabled(
                                                    ::features::kAppManagement));
   html_source->AddBoolean("splitSettingsSyncEnabled",
                           chromeos::features::IsSplitSettingsSyncEnabled());
+  html_source->AddBoolean("splitSyncConsent",
+                          chromeos::features::IsSplitSyncConsentEnabled());
 
-#if defined(OS_CHROMEOS)
   html_source->AddBoolean(
       "isSupportedArcVersion",
       AppManagementPageHandler::IsCurrentArcVersionSupported(profile));
-#endif  // OS_CHROMEOS
 
   AddSettingsPageUIHandler(
       base::WrapUnique(::settings::AboutHandler::Create(html_source, profile)));
@@ -207,26 +216,37 @@ OSSettingsUI::OSSettingsUI(content::WebUI* web_ui)
 #endif
 
   html_source->AddResourcePath("app-management/app_management.mojom-lite.js",
-                               IDR_APP_MANAGEMENT_MOJO_LITE_JS);
-  html_source->AddResourcePath("app-management/types.mojom-lite.js",
-                               IDR_APP_MANAGEMENT_TYPES_MOJO_LITE_JS);
-  html_source->AddResourcePath("app-management/bitmap.mojom-lite.js",
-                               IDR_APP_MANAGEMENT_BITMAP_MOJO_LITE_JS);
-  html_source->AddResourcePath("app-management/image.mojom-lite.js",
-                               IDR_APP_MANAGEMENT_IMAGE_MOJO_LITE_JS);
-  html_source->AddResourcePath("app-management/image_info.mojom-lite.js",
-                               IDR_APP_MANAGEMENT_IMAGE_INFO_MOJO_LITE_JS);
+                               IDR_OS_SETTINGS_APP_MANAGEMENT_MOJO_LITE_JS);
+  html_source->AddResourcePath(
+      "app-management/types.mojom-lite.js",
+      IDR_OS_SETTINGS_APP_MANAGEMENT_TYPES_MOJO_LITE_JS);
+  html_source->AddResourcePath(
+      "app-management/bitmap.mojom-lite.js",
+      IDR_OS_SETTINGS_APP_MANAGEMENT_BITMAP_MOJO_LITE_JS);
+  html_source->AddResourcePath(
+      "app-management/file_path.mojom-lite.js",
+      IDR_OS_SETTINGS_APP_MANAGEMENT_FILE_PATH_MOJO_LITE_JS);
+  html_source->AddResourcePath(
+      "app-management/image.mojom-lite.js",
+      IDR_OS_SETTINGS_APP_MANAGEMENT_IMAGE_MOJO_LITE_JS);
+  html_source->AddResourcePath(
+      "app-management/image_info.mojom-lite.js",
+      IDR_OS_SETTINGS_APP_MANAGEMENT_IMAGE_INFO_MOJO_LITE_JS);
 
-  // TODO(crbug/967888): Remove when all the needed keys have been added
-  // to os_localized_string_provider.
-  ::settings::AddBrowserLocalizedStrings(html_source, profile,
-                                         web_ui->GetWebContents());
+  html_source->AddResourcePath(
+      "search/user_action_recorder.mojom-lite.js",
+      IDR_OS_SETTINGS_USER_ACTION_RECORDER_MOJOM_LITE_JS);
+  html_source->AddResourcePath(
+      "search/search_result_icon.mojom-lite.js",
+      IDR_OS_SETTINGS_SEARCH_RESULT_ICON_MOJOM_LITE_JS);
+  html_source->AddResourcePath("search/search.mojom-lite.js",
+                               IDR_OS_SETTINGS_SEARCH_MOJOM_LITE_JS);
 
   // AddOsLocalizedStrings must be added after AddBrowserLocalizedStrings
   // as repeated keys used by the OS strings should override the same keys
   // that may be used in the Browser string provider.
-  ::chromeos::settings::AddOsLocalizedStrings(html_source, profile,
-                                              web_ui->GetWebContents());
+  OsSettingsLocalizedStringsProviderFactory::GetForProfile(profile)
+      ->AddOsLocalizedStrings(html_source, profile);
 
   auto plural_string_handler = std::make_unique<PluralStringHandler>();
   plural_string_handler->AddLocalizedString("profileLabel",
@@ -267,6 +287,8 @@ void OSSettingsUI::InitOSWebUIHandlers(content::WebUIDataSource* html_source) {
         "secondaryGoogleAccountSigninAllowed",
         profile->GetPrefs()->GetBoolean(
             chromeos::prefs::kSecondaryGoogleAccountSigninAllowed));
+    html_source->AddBoolean("isEduCoexistenceEnabled",
+                            features::IsEduCoexistenceEnabled());
   }
 
   web_ui()->AddMessageHandler(
@@ -302,17 +324,24 @@ void OSSettingsUI::InitOSWebUIHandlers(content::WebUIDataSource* html_source) {
   web_ui()->AddMessageHandler(
       std::make_unique<chromeos::settings::KeyboardHandler>());
 
-  // TODO(crbug/950007): Remove adding WallpaperHandler when
-  // SplitSettings complete.
   web_ui()->AddMessageHandler(
       std::make_unique<chromeos::settings::WallpaperHandler>(web_ui()));
 
-  if (plugin_vm::IsPluginVmAllowedForProfile(profile)) {
+  // If |!allow_plugin_vm| we still want to |show_plugin_vm| if the VM image is
+  // on disk, so that users are still able to delete the image at will.
+  const bool allow_plugin_vm = plugin_vm::IsPluginVmAllowedForProfile(profile);
+  const bool show_plugin_vm =
+      allow_plugin_vm ||
+      profile->GetPrefs()->GetBoolean(plugin_vm::prefs::kPluginVmImageExists);
+
+  if (show_plugin_vm) {
     web_ui()->AddMessageHandler(
         std::make_unique<chromeos::settings::PluginVmHandler>(profile));
   }
   web_ui()->AddMessageHandler(
       std::make_unique<chromeos::settings::PointerHandler>());
+  web_ui()->AddMessageHandler(
+      std::make_unique<chromeos::settings::QuickUnlockHandler>());
   web_ui()->AddMessageHandler(
       std::make_unique<chromeos::settings::StorageHandler>(profile,
                                                            html_source));
@@ -322,7 +351,8 @@ void OSSettingsUI::InitOSWebUIHandlers(content::WebUIDataSource* html_source) {
       std::make_unique<chromeos::settings::InternetHandler>(profile));
   web_ui()->AddMessageHandler(std::make_unique<::settings::TtsHandler>());
   web_ui()->AddMessageHandler(
-      std::make_unique<chromeos::smb_dialog::SmbHandler>(profile));
+      std::make_unique<chromeos::smb_dialog::SmbHandler>(profile,
+                                                         base::DoNothing()));
 
   if (!profile->IsGuestSession()) {
     chromeos::android_sms::AndroidSmsService* android_sms_service =
@@ -342,6 +372,11 @@ void OSSettingsUI::InitOSWebUIHandlers(content::WebUIDataSource* html_source) {
       web_ui()->AddMessageHandler(
           std::make_unique<chromeos::settings::ParentalControlsHandler>(
               profile));
+    }
+
+    if (chromeos::features::IsAmbientModeEnabled()) {
+      web_ui()->AddMessageHandler(
+          std::make_unique<chromeos::settings::AmbientModeHandler>());
     }
   }
 
@@ -401,8 +436,8 @@ void OSSettingsUI::InitOSWebUIHandlers(content::WebUIDataSource* html_source) {
   html_source->AddBoolean(
       "allowCrostini", crostini::CrostiniFeatures::Get()->IsUIAllowed(profile));
 
-  html_source->AddBoolean("showPluginVm",
-                          plugin_vm::IsPluginVmAllowedForProfile(profile));
+  html_source->AddBoolean("allowPluginVm", allow_plugin_vm);
+  html_source->AddBoolean("showPluginVm", show_plugin_vm);
 
   html_source->AddBoolean("isDemoSession",
                           chromeos::DemoSession::IsDeviceInDemoMode());
@@ -436,6 +471,18 @@ void OSSettingsUI::AddSettingsPageUIHandler(
 void OSSettingsUI::BindInterface(
     mojo::PendingReceiver<network_config::mojom::CrosNetworkConfig> receiver) {
   ash::GetNetworkConfigService(std::move(receiver));
+}
+
+void OSSettingsUI::BindInterface(
+    mojo::PendingReceiver<mojom::UserActionRecorder> receiver) {
+  user_action_recorder_ =
+      std::make_unique<SettingsUserActionTracker>(std::move(receiver));
+}
+
+void OSSettingsUI::BindInterface(
+    mojo::PendingReceiver<mojom::SearchHandler> receiver) {
+  SearchHandlerFactory::GetForProfile(Profile::FromWebUI(web_ui()))
+      ->BindInterface(std::move(receiver));
 }
 
 void OSSettingsUI::BindInterface(

@@ -8,12 +8,16 @@
 #include "third_party/blink/renderer/core/dom/dom_implementation.h"
 #include "third_party/blink/renderer/core/inspector/console_message.h"
 #include "third_party/blink/renderer/core/loader/subresource_integrity_helper.h"
+#include "third_party/blink/renderer/platform/heap/heap.h"
 #include "third_party/blink/renderer/platform/loader/cors/cors.h"
 #include "third_party/blink/renderer/platform/network/mime/mime_type_registry.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
 
 namespace blink {
+
+ModuleScriptFetcher::ModuleScriptFetcher(
+    util::PassKey<ModuleScriptLoader> pass_key) {}
 
 void ModuleScriptFetcher::Client::OnFetched(
     const base::Optional<ModuleScriptCreationParams>& params) {
@@ -22,6 +26,10 @@ void ModuleScriptFetcher::Client::OnFetched(
 
 void ModuleScriptFetcher::Client::OnFailed() {
   NotifyFetchFinished(base::nullopt, HeapVector<Member<ConsoleMessage>>());
+}
+
+void ModuleScriptFetcher::Trace(Visitor* visitor) {
+  ResourceClient::Trace(visitor);
 }
 
 // <specdef href="https://html.spec.whatwg.org/C/#fetch-a-single-module-script">
@@ -91,7 +99,7 @@ bool ModuleScriptFetcher::WasModuleLoadSuccessful(
       resource->GetResponse().HttpContentType() +
       "\". Strict MIME type checking is enforced for module scripts per HTML "
       "spec.";
-  error_messages->push_back(ConsoleMessage::CreateForRequest(
+  error_messages->push_back(MakeGarbageCollected<ConsoleMessage>(
       mojom::ConsoleMessageSource::kJavaScript,
       mojom::ConsoleMessageLevel::kError, message,
       response.CurrentRequestUrl().GetString(), /*loader=*/nullptr,

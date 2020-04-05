@@ -29,6 +29,7 @@
 #include "content/common/widget_messages.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
+#include "content/public/browser/context_menu_params.h"
 #include "content/public/common/content_features.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/screen_info.h"
@@ -41,8 +42,9 @@
 #include "content/public/test/test_utils.h"
 #include "content/shell/common/shell_switches.h"
 #include "content/test/mock_overscroll_observer.h"
-#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/frame/user_activation_update_types.mojom.h"
+#include "ui/base/cursor/cursor.h"
+#include "ui/base/mojom/cursor_type.mojom-shared.h"
 #include "ui/display/display_switches.h"
 #include "ui/events/base_event_utils.h"
 #include "ui/events/gesture_detection/gesture_configuration.h"
@@ -1158,8 +1160,7 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessHitTestBrowserTest,
       gfx::ToCeiledInt((bounds.y() - root_view->GetViewBounds().y() + 5) *
                        scale_factor));
   SetWebEventPositions(&scroll_event, position_in_widget, root_view);
-  scroll_event.delta_units =
-      ui::input_types::ScrollGranularity::kScrollByPrecisePixel;
+  scroll_event.delta_units = ui::ScrollGranularity::kScrollByPrecisePixel;
   scroll_event.delta_x = 0.0f;
   scroll_event.delta_y = 5.0f;
   scroll_event.phase = blink::WebMouseWheelEvent::kPhaseBegan;
@@ -1351,7 +1352,7 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessHitTestBrowserTest,
         blink::WebGestureDevice::kTouchscreen);
     gesture_scroll_begin.unique_touch_event_id = 2;
     gesture_scroll_begin.data.scroll_begin.delta_hint_units =
-        ui::input_types::ScrollGranularity::kScrollByPrecisePixel;
+        ui::ScrollGranularity::kScrollByPrecisePixel;
     gesture_scroll_begin.data.scroll_begin.delta_x_hint = 0.f;
     gesture_scroll_begin.data.scroll_begin.delta_y_hint = -5.f * scale_factor;
     gesture_scroll_begin.SetPositionInWidget(touch_start_point);
@@ -1363,7 +1364,7 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessHitTestBrowserTest,
         blink::WebGestureDevice::kTouchscreen);
     gesture_scroll_update.unique_touch_event_id = 2;
     gesture_scroll_update.data.scroll_update.delta_units =
-        ui::input_types::ScrollGranularity::kScrollByPrecisePixel;
+        ui::ScrollGranularity::kScrollByPrecisePixel;
     gesture_scroll_update.data.scroll_update.delta_x = 0.f;
     gesture_scroll_update.data.scroll_update.delta_y = -5.f * scale_factor;
     gesture_scroll_update.SetPositionInWidget(touch_start_point);
@@ -1421,7 +1422,7 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessHitTestBrowserTest,
         blink::WebGestureDevice::kTouchscreen);
     gesture_scroll_end.unique_touch_event_id = 3;
     gesture_scroll_end.data.scroll_end.delta_units =
-        ui::input_types::ScrollGranularity::kScrollByPrecisePixel;
+        ui::ScrollGranularity::kScrollByPrecisePixel;
     gesture_scroll_end.SetPositionInWidget(touch_move_point);
 
     InputEventAckWaiter await_scroll_end_in_child(
@@ -1685,8 +1686,7 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessHitTestBrowserTest,
       blink::WebInputEvent::kMouseWheel, blink::WebInputEvent::kNoModifiers,
       blink::WebInputEvent::GetStaticTimeStampForTests());
   SetWebEventPositions(&scroll_event, position_in_root, root_rwhv);
-  scroll_event.delta_units =
-      ui::input_types::ScrollGranularity::kScrollByPrecisePixel;
+  scroll_event.delta_units = ui::ScrollGranularity::kScrollByPrecisePixel;
   scroll_event.delta_x = 0.0f;
   scroll_event.delta_y = 5.0f;
   scroll_event.phase = blink::WebMouseWheelEvent::kPhaseBegan;
@@ -2252,7 +2252,7 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessHitTestBrowserTest,
       blink::WebGestureDevice::kTouchscreen);
   gesture_scroll_begin.unique_touch_event_id = 1;
   gesture_scroll_begin.data.scroll_begin.delta_hint_units =
-      ui::input_types::ScrollGranularity::kScrollByPrecisePixel;
+      ui::ScrollGranularity::kScrollByPrecisePixel;
   gesture_scroll_begin.data.scroll_begin.delta_x_hint = 0.f;
   gesture_scroll_begin.data.scroll_begin.delta_y_hint = 0.f;
 #if defined(USE_AURA)
@@ -2277,7 +2277,7 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessHitTestBrowserTest,
       blink::WebGestureDevice::kTouchscreen);
   gesture_scroll_update.unique_touch_event_id = 1;
   gesture_scroll_update.data.scroll_update.delta_units =
-      ui::input_types::ScrollGranularity::kScrollByPrecisePixel;
+      ui::ScrollGranularity::kScrollByPrecisePixel;
   gesture_scroll_update.data.scroll_update.delta_x = 0.f;
   gesture_scroll_update.data.scroll_update.delta_y = 0.f;
 #if defined(USE_AURA)
@@ -2318,7 +2318,7 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessHitTestBrowserTest,
       blink::WebGestureDevice::kTouchscreen);
   gesture_scroll_end.unique_touch_event_id = 1;
   gesture_scroll_end.data.scroll_end.delta_units =
-      ui::input_types::ScrollGranularity::kScrollByPrecisePixel;
+      ui::ScrollGranularity::kScrollByPrecisePixel;
   mock_overscroll_observer->Reset();
   router->RouteGestureEvent(rwhv_root, &gesture_scroll_end,
                             ui::LatencyInfo(ui::SourceEventType::TOUCH));
@@ -4240,7 +4240,7 @@ void CursorUpdateReceivedFromCrossSiteIframeHelper(
   EXPECT_TRUE(
       root_view->GetCursorManager()->GetCursorForTesting(child_view, cursor));
   // Since this moused over a text box, this should not be the default cursor.
-  EXPECT_EQ(cursor.info().type, ui::CursorType::kIBeam);
+  EXPECT_EQ(cursor.cursor().type(), ui::mojom::CursorType::kIBeam);
 }
 
 }  // namespace
@@ -4495,11 +4495,17 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessMouseWheelHitTestBrowserTest,
   EXPECT_EQ(nullptr, router->wheel_target_);
 }
 
+#if defined(OS_LINUX)
+#define MAYBE_MouseWheelEventPositionChange \
+  DISABLED_MouseWheelEventPositionChange
+#else
+#define MAYBE_MouseWheelEventPositionChange MouseWheelEventPositionChange
+#endif
 // Ensure that the positions of mouse wheel events sent to cross-process
 // subframes account for any change in the position of the subframe during the
 // scroll sequence.
 IN_PROC_BROWSER_TEST_F(SitePerProcessMouseWheelHitTestBrowserTest,
-                       MouseWheelEventPositionChange) {
+                       MAYBE_MouseWheelEventPositionChange) {
   GURL main_url(embedded_test_server()->GetURL(
       "/frame_tree/page_with_tall_positioned_frame.html"));
   EXPECT_TRUE(NavigateToURL(shell(), main_url));
@@ -4549,8 +4555,7 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessMouseWheelHitTestBrowserTest,
       blink::WebInputEvent::GetStaticTimeStampForTests());
   gfx::Point child_point_in_root(90, 90);
   SetWebEventPositions(&scroll_event, child_point_in_root, rwhv_root);
-  scroll_event.delta_units =
-      ui::input_types::ScrollGranularity::kScrollByPrecisePixel;
+  scroll_event.delta_units = ui::ScrollGranularity::kScrollByPrecisePixel;
   scroll_event.delta_x = 0.0f;
   scroll_event.delta_y = -20.0f;
   scroll_event.phase = blink::WebMouseWheelEvent::kPhaseBegan;
@@ -6693,55 +6698,6 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessUserActivationHitTestBrowserTest,
   EXPECT_FALSE(child->current_frame_host()
                    ->GetRenderWidgetHost()
                    ->RemovePendingUserActivationIfAvailable());
-}
-
-class SitePerProcessHitTestWithOcclusionCheckBrowserTest
-    : public SitePerProcessHitTestBrowserTest {
- public:
-  SitePerProcessHitTestWithOcclusionCheckBrowserTest() {}
-
- protected:
-  void SetUpCommandLine(base::CommandLine* command_line) override {
-    SitePerProcessHitTestBrowserTest::SetUpCommandLine(command_line);
-    feature_list_.InitAndEnableFeature(
-        blink::features::kVizHitTestOcclusionCheck);
-  }
-
- private:
-  base::test::ScopedFeatureList feature_list_;
-};
-
-IN_PROC_BROWSER_TEST_F(SitePerProcessHitTestWithOcclusionCheckBrowserTest,
-                       SquashingTest) {
-  GURL main_url(embedded_test_server()->GetURL(
-      "foo.com", "/frame_tree/iframe_cc_layer_overlap.html"));
-  EXPECT_TRUE(NavigateToURL(shell(), main_url));
-
-  FrameTreeNode* root = web_contents()->GetFrameTree()->root();
-  FrameTreeNode* child = root->child_at(0);
-  ASSERT_EQ(
-      " Site A ------------ proxies for B\n"
-      "   +--Site B ------- proxies for A\n"
-      "Where A = http://foo.com/\n"
-      "      B = http://baz.com/",
-      DepictFrameTree(root));
-
-  RenderWidgetHostViewBase* child_view =
-      child->current_frame_host()->GetRenderWidgetHost()->GetView();
-  HitTestRegionObserver child_observer(child_view->GetFrameSinkId());
-  HitTestRegionObserver root_observer(child_view->GetRootFrameSinkId());
-  child_observer.WaitForHitTestData();
-  root_observer.WaitForHitTestData();
-  bool found = false;
-  for (const auto& region : root_observer.GetHitTestData()) {
-    if (region.frame_sink_id == child_view->GetFrameSinkId()) {
-      found = true;
-      EXPECT_EQ(viz::AsyncHitTestReasons::kNotAsyncHitTest,
-                region.async_hit_test_reasons);
-      break;
-    }
-  }
-  ASSERT_TRUE(found);
 }
 
 class SitePerProcessHitTestDataGenerationBrowserTest

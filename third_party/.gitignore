@@ -14,10 +14,11 @@
 /android_build_tools/art/profman
 /android_build_tools/bundletool/*.jar
 /android_ndk/
+/android_prebuilts/build_tools
+/android_protobuf/src
 /android_sdk/androidx_browser/src
 /android_sdk/public/
 /android_sdk/sources/
-/android_protobuf/src
 /android_support_test_runner/lib/
 /android_system_sdk/*.jar
 /android_tools_internal/
@@ -35,11 +36,9 @@
 /apache-mac/bin/openssl
 /apache-mac/lib/*.dylib
 /apache-mac/libexec/apache2/*.so
-/apk-patch-size-estimator/lib/
 /arcore-android-sdk/src/
 /arcore-android-sdk/test-apks/arcore/*.apk
 /asan
-/auto/src
 /bazel/desugar/*.jar
 /bison
 /boringssl/src
@@ -50,7 +49,6 @@
 /cacheinvalidation/cacheinvalidation_unittests_run.xml
 /cardboard-java/src
 /catapult
-/cct_dynamic_module/src
 /ced/src
 /checkstyle/*.jar
 /chromeos_login_manager
@@ -72,11 +70,9 @@
 /dom_distiller_js/dist
 /elfutils/src
 /emoji-segmenter/src
-/errorprone/lib
 /espresso/lib/
 /expat/src
 /eyesfree/src
-/feed/src
 /ffmpeg
 /flac
 /flatbuffers/src
@@ -85,7 +81,6 @@
 /fuchsia-sdk/images
 /fuchsia-sdk/sdk
 /fuchsia-sdk-arm64
-/gestures/gestures
 /gles2_conform
 /glfw/src
 /glslang/src
@@ -97,7 +92,6 @@
 /google_toolbox_for_mac/src
 /googlemac
 /grpc/src
-/gson/lib/
 /gvr-android-sdk/common_library.aar
 /gvr-android-sdk/test-libraries/controller_test_api.aar
 /gvr-android-sdk/libgvr_shim_static_*.a
@@ -113,7 +107,6 @@
 /hunspell_dictionaries
 /icu
 /icu4j/lib/
-/intellij/lib/
 /instrumented_libraries/scripts/*.tgz
 /instrumented_libraries/scripts/out/*
 /javax_inject/lib/
@@ -130,9 +123,8 @@
 /libc++-static/libc++.a
 /libaddressinput/src
 /libdrm/src
-/libevdev/src
-/libexif/sources
 /libFuzzer/src
+/libgav1/src
 /libgifcodec
 /libprotobuf-mutator/src
 /libipp/libipp
@@ -178,7 +170,6 @@
 /openh264/src
 /openscreen/src
 /openxr/src
-/ow2_asm/lib/
 /pdfsqueeze
 /pdfium
 /pefile
@@ -195,8 +186,7 @@
 /pymox/src
 /python_24
 /python_26
-/pywebsocket/src
-/pywebsocket/src
+/pywebsocket3/src
 /qemu-linux-arm64
 /qemu-linux-x64
 /qemu-mac-x64
@@ -216,12 +206,15 @@
 /spirv-cross/spirv-cross
 /spirv-headers/src
 /SPIRV-Tools/src
+/sqlite/src
 /sqlite4java/lib/
 /subresource-filter-ruleset/data/UnindexedRules
 /swiftshader/
 /syzygy
 /syzygy/binaries
 /tsan/
+/turbine/src
+/turbine/*.jar
 /ub-uiautomator/lib
 /usb_ids
 /usrsctp/usrsctplib
@@ -237,6 +230,7 @@
 /webgpu-cts/src
 /webpagereplay/
 /webrtc
+/weston/src
 /widevine/cdm/chromeos
 /widevine/cdm/linux
 /widevine/cdm/mac

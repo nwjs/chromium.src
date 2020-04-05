@@ -12,6 +12,7 @@ import android.support.test.InstrumentationRegistry;
 import android.support.test.filters.LargeTest;
 
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -21,8 +22,8 @@ import org.chromium.base.ContextUtils;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Feature;
 import org.chromium.chrome.browser.ChromeActivity;
-import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
+import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.tab.TabTestUtils;
 import org.chromium.chrome.browser.tab.TabWebContentsDelegateAndroid;
 import org.chromium.chrome.test.ChromeActivityTestRule;
@@ -30,11 +31,10 @@ import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.util.ApplicationTestUtils;
 import org.chromium.chrome.test.util.ChromeTabUtils;
 import org.chromium.chrome.test.util.browser.webapps.WebApkInfoBuilder;
-import org.chromium.content_public.browser.test.NativeLibraryTestRule;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.webapk.lib.common.WebApkConstants;
 
-/** Tests for WebApkActivity. */
+/** Tests for WebAPK {@link WebappActivity}. */
 @RunWith(ChromeJUnit4ClassRunner.class)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 public final class WebApkActivityTest {
@@ -42,12 +42,11 @@ public final class WebApkActivityTest {
     private static final String TEST_WEBAPK_ID =
             WebApkConstants.WEBAPK_ID_PREFIX + TEST_WEBAPK_PACKAGE_NAME;
 
+    @Rule
     public final WebApkActivityTestRule mActivityTestRule = new WebApkActivityTestRule();
-    public final NativeLibraryTestRule mNativeLibraryTestRule = new NativeLibraryTestRule();
 
     @Before
     public void setUp() {
-        WebApkUpdateManager.setUpdatesEnabledForTesting(false);
         mActivityTestRule.getEmbeddedTestServerRule().setServerUsesHttps(true);
 
         // WebAPK is not installed. Ensure that WebappRegistry#unregisterOldWebapps() does not
@@ -67,11 +66,11 @@ public final class WebApkActivityTest {
     @LargeTest
     @Feature({"WebApk"})
     public void testLaunchAndNavigateOutsideScope() throws Exception {
-        WebApkActivity webApkActivity = mActivityTestRule.startWebApkActivity(createWebApkInfo(
+        WebappActivity webApkActivity = mActivityTestRule.startWebApkActivity(createWebApkInfo(
                 getTestServerUrl("scope_a/page_1.html"), getTestServerUrl("scope_a/")));
         WebappActivityTestRule.assertToolbarShowState(webApkActivity, false);
 
-        // We navigate outside scope and expect CCT toolbar to show on top of WebApkActivity.
+        // We navigate outside scope and expect CCT toolbar to show on top of WebAPK Activity.
         String outOfScopeUrl = getTestServerUrl("manifest_test_page.html");
         mActivityTestRule.runJavaScriptCodeInCurrentTab(
                 "window.top.location = '" + outOfScopeUrl + "'");
@@ -90,7 +89,7 @@ public final class WebApkActivityTest {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) return;
 
         // Launch WebAPK.
-        WebApkActivity webApkActivity = mActivityTestRule.startWebApkActivity(createWebApkInfo(
+        WebappActivity webApkActivity = mActivityTestRule.startWebApkActivity(createWebApkInfo(
                 getTestServerUrl("manifest_test_page.html"), getTestServerUrl("/")));
 
         Class<? extends ChromeActivity> mainClass = ChromeTabbedActivity.class;
@@ -110,8 +109,8 @@ public final class WebApkActivityTest {
             tabDelegate.activateContents();
         });
 
-        // WebApkActivity should have been brought back to the foreground.
-        ChromeActivityTestRule.waitFor(WebApkActivity.class);
+        // WebAPK Activity should have been brought back to the foreground.
+        ChromeActivityTestRule.waitFor(WebappActivity.class);
     }
 
     private WebApkInfo createWebApkInfo(String startUrl, String scopeUrl) {

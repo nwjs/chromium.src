@@ -177,7 +177,7 @@ v8::Local<v8::Value> V8ScriptValueDeserializer::Deserialize() {
 }
 
 void V8ScriptValueDeserializer::Transfer() {
-  if (RuntimeEnabledFeatures::TransferableStreamsEnabled()) {
+  if (TransferableStreamsEnabled()) {
     // TODO(ricea): Make ExtendableMessageEvent store an
     // UnpackedSerializedScriptValue like MessageEvent does, and then this
     // special case won't be necessary.
@@ -220,7 +220,10 @@ bool V8ScriptValueDeserializer::ReadUTF8String(String* string) {
     return false;
   *string =
       String::FromUTF8(reinterpret_cast<const LChar*>(utf8_data), utf8_length);
-  return true;
+
+  // Decoding must have failed; this encoding does not distinguish between null
+  // and empty strings.
+  return !string->IsNull();
 }
 
 ScriptWrappable* V8ScriptValueDeserializer::ReadDOMObject(
@@ -543,7 +546,7 @@ ScriptWrappable* V8ScriptValueDeserializer::ReadDOMObject(
       return canvas;
     }
     case kReadableStreamTransferTag: {
-      if (!RuntimeEnabledFeatures::TransferableStreamsEnabled())
+      if (!TransferableStreamsEnabled())
         return nullptr;
       uint32_t index = 0;
       if (!ReadUint32(&index) || !transferred_stream_ports_ ||
@@ -555,7 +558,7 @@ ScriptWrappable* V8ScriptValueDeserializer::ReadDOMObject(
           exception_state);
     }
     case kWritableStreamTransferTag: {
-      if (!RuntimeEnabledFeatures::TransferableStreamsEnabled())
+      if (!TransferableStreamsEnabled())
         return nullptr;
       uint32_t index = 0;
       if (!ReadUint32(&index) || !transferred_stream_ports_ ||
@@ -567,7 +570,7 @@ ScriptWrappable* V8ScriptValueDeserializer::ReadDOMObject(
           exception_state);
     }
     case kTransformStreamTransferTag: {
-      if (!RuntimeEnabledFeatures::TransferableStreamsEnabled())
+      if (!TransferableStreamsEnabled())
         return nullptr;
       uint32_t index = 0;
       if (!ReadUint32(&index) || !transferred_stream_ports_ ||
@@ -595,7 +598,8 @@ ScriptWrappable* V8ScriptValueDeserializer::ReadDOMObject(
           !ReadUTF8String(&stack_unused)) {
         return nullptr;
       }
-      return DOMException::Create(name, message);
+      // DOMException::Create takes its arguments in the opposite order.
+      return DOMException::Create(message, name);
     }
     default:
       break;
@@ -753,4 +757,10 @@ V8ScriptValueDeserializer::GetSharedArrayBufferFromId(v8::Isolate* isolate,
   CHECK(shared_array_buffers_contents.IsEmpty());
   return v8::MaybeLocal<v8::SharedArrayBuffer>();
 }
+
+bool V8ScriptValueDeserializer::TransferableStreamsEnabled() const {
+  return RuntimeEnabledFeatures::TransferableStreamsEnabled(
+      ExecutionContext::From(script_state_));
+}
+
 }  // namespace blink

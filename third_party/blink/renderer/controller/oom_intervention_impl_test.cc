@@ -263,13 +263,9 @@ TEST_F(OomInterventionImplTest, V1DetectionAdsNavigation) {
   WebViewImpl* web_view = web_view_helper_.InitializeAndLoad("about:blank");
   Page* page = web_view->MainFrameImpl()->GetFrame()->GetPage();
 
-  web_view->MainFrameImpl()
-      ->GetFrame()
-      ->GetDocument()
-      ->body()
-      ->SetInnerHTMLFromString(
-          "<iframe name='ad' src='data:text/html,'></iframe><iframe "
-          "name='non-ad' src='data:text/html,'>");
+  web_view->MainFrameImpl()->GetFrame()->GetDocument()->body()->setInnerHTML(
+      "<iframe name='ad' src='data:text/html,'></iframe><iframe "
+      "name='non-ad' src='data:text/html,'>");
 
   WebFrame* ad_iframe = web_view_helper_.LocalMainFrame()->FindFrameByName(
       WebString::FromUTF8("ad"));
@@ -318,9 +314,9 @@ TEST_F(OomInterventionImplTest, V2DetectionV8PurgeMemory) {
   WebViewImpl* web_view = web_view_helper_.InitializeAndLoad("about:blank");
   Page* page = web_view->MainFrameImpl()->GetFrame()->GetPage();
   auto* frame = To<LocalFrame>(page->MainFrame());
-  EXPECT_FALSE(frame->GetDocument()->ExecutionContext::IsContextDestroyed());
+  EXPECT_FALSE(frame->GetDocument()->IsContextDestroyed());
   RunDetection(true, true, true);
-  EXPECT_TRUE(frame->GetDocument()->ExecutionContext::IsContextDestroyed());
+  EXPECT_TRUE(frame->GetDocument()->IsContextDestroyed());
 }
 
 TEST_F(OomInterventionImplTest, ReducedMemoryMetricReporting) {

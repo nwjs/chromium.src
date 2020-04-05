@@ -52,13 +52,13 @@ ProfileSigninConfirmationDialogViews::ProfileSigninConfirmationDialogViews(
       username_(username),
       delegate_(std::move(delegate)),
       prompt_for_new_profile_(prompt_for_new_profile) {
-  DialogDelegate::set_default_button(ui::DIALOG_BUTTON_NONE);
-  DialogDelegate::set_button_label(
+  DialogDelegate::SetDefaultButton(ui::DIALOG_BUTTON_NONE);
+  DialogDelegate::SetButtonLabel(
       ui::DIALOG_BUTTON_OK,
       l10n_util::GetStringUTF16(prompt_for_new_profile_
                                     ? IDS_ENTERPRISE_SIGNIN_CREATE_NEW_PROFILE
                                     : IDS_ENTERPRISE_SIGNIN_CONTINUE));
-  DialogDelegate::set_button_label(
+  DialogDelegate::SetButtonLabel(
       ui::DIALOG_BUTTON_CANCEL,
       l10n_util::GetStringUTF16(IDS_ENTERPRISE_SIGNIN_CANCEL));
 
@@ -66,6 +66,22 @@ ProfileSigninConfirmationDialogViews::ProfileSigninConfirmationDialogViews(
     DialogDelegate::SetExtraView(views::MdTextButton::CreateSecondaryUiButton(
         this, l10n_util::GetStringUTF16(IDS_ENTERPRISE_SIGNIN_CONTINUE)));
   }
+
+  using Delegate = ui::ProfileSigninConfirmationDelegate;
+  using DelegateNotifyFn = void (Delegate::*)();
+  auto notify_delegate = [](ProfileSigninConfirmationDialogViews* dialog,
+                            DelegateNotifyFn fn) {
+    if (dialog->delegate_) {
+      (dialog->delegate_.get()->*fn)();
+      dialog->delegate_.reset();
+    }
+  };
+  DialogDelegate::SetAcceptCallback(
+      base::BindOnce(notify_delegate, base::Unretained(this),
+                     prompt_for_new_profile_ ? &Delegate::OnSigninWithNewProfile
+                                             : &Delegate::OnContinueSignin));
+  DialogDelegate::SetCancelCallback(base::BindOnce(
+      notify_delegate, base::Unretained(this), &Delegate::OnCancelSignin));
 
   chrome::RecordDialogCreation(
       chrome::DialogIdentifier::PROFILE_SIGNIN_CONFIRMATION);
@@ -112,25 +128,6 @@ void ProfileSigninConfirmationDialogViews::ShowDialog(
 base::string16 ProfileSigninConfirmationDialogViews::GetWindowTitle() const {
   return l10n_util::GetStringUTF16(
       IDS_ENTERPRISE_SIGNIN_TITLE);
-}
-
-bool ProfileSigninConfirmationDialogViews::Accept() {
-  if (delegate_) {
-    if (prompt_for_new_profile_)
-      delegate_->OnSigninWithNewProfile();
-    else
-      delegate_->OnContinueSignin();
-    delegate_ = nullptr;
-  }
-  return true;
-}
-
-bool ProfileSigninConfirmationDialogViews::Cancel() {
-  if (delegate_) {
-    delegate_->OnCancelSignin();
-    delegate_ = nullptr;
-  }
-  return true;
 }
 
 ui::ModalType ProfileSigninConfirmationDialogViews::GetModalType() const {

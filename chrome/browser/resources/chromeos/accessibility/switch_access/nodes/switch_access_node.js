@@ -160,8 +160,8 @@ class SAChildNode {
   /**
    * Performs the specified action on the node, if it is available.
    * @param {SAConstants.MenuAction} action
-   * @return {boolean} Whether to close the menu. True if the menu should close,
-   *     false otherwise.
+   * @return {SAConstants.ActionResponse} What action the menu should perform in
+   *      response.
    * @abstract
    */
   performAction(action) {}
@@ -310,6 +310,9 @@ class SARootNode {
 
   /** Called when a group is explicitly exited. */
   onExit() {}
+
+  /** Called when the group's children may have changed. */
+  refresh() {}
 
   // ================= Debug methods =================
 

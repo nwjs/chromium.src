@@ -17,6 +17,7 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
+#include "base/time/time.h"
 #include "base/values.h"
 #include "printing/backend/print_backend.h"
 #include "printing/backend/print_backend_consts.h"
@@ -30,6 +31,22 @@ namespace printing {
 
 // This section contains helper code for PPD parsing for semantic capabilities.
 namespace {
+
+// Function availability can be tested by checking whether its address is not
+// nullptr. Weak symbols remove the need for platform specific build flags and
+// allow for appropriate CUPS usage on platforms with non-uniform version
+// support, namely Linux.
+#define WEAK_CUPS_FN(x) extern "C" __attribute__((weak)) decltype(x) x
+
+WEAK_CUPS_FN(httpConnect2);
+
+// Timeout for establishing a CUPS connection.  It is expected that cupsd is
+// able to start and respond on all systems within this duration.
+constexpr base::TimeDelta kCupsTimeout = base::TimeDelta::FromSeconds(5);
+
+// CUPS default max copies value (taken from default cupsMaxCopies parsing in
+// cups/ppd-cache.c).
+constexpr int32_t kDefaultMaxCopies = 9999;
 
 constexpr char kColorDevice[] = "ColorDevice";
 constexpr char kColorModel[] = "ColorModel";
@@ -59,6 +76,16 @@ constexpr char kHpGrayscalePrint[] = "GrayscalePrint";
 // Samsung printer specific options.
 constexpr char kSamsungColorTrue[] = "True";
 constexpr char kSamsungColorFalse[] = "False";
+
+// Sharp printer specific options.
+constexpr char kSharpARCMode[] = "ARCMode";
+constexpr char kSharpCMColor[] = "CMColor";
+constexpr char kSharpCMBW[] = "CMBW";
+
+// Xerox printer specific options.
+constexpr char kXeroxXRXColor[] = "XRXColor";
+constexpr char kXeroxAutomatic[] = "Automatic";
+constexpr char kXeroxBW[] = "BW";
 
 void ParseLpOptions(const base::FilePath& filepath,
                     base::StringPiece printer_name,
@@ -397,6 +424,62 @@ bool GetEpsonInkSettings(ppd_file_t* ppd,
   return true;
 }
 
+bool GetSharpARCModeSettings(ppd_file_t* ppd,
+                             ColorModel* color_model_for_black,
+                             ColorModel* color_model_for_color,
+                             bool* color_is_default) {
+  // Sharp printers use "ARCMode" attribute in their PPDs.
+  ppd_option_t* color_mode_option = ppdFindOption(ppd, kSharpARCMode);
+  if (!color_mode_option)
+    return false;
+
+  if (ppdFindChoice(color_mode_option, kSharpCMColor))
+    *color_model_for_color = SHARP_ARCMODE_CMCOLOR;
+  if (ppdFindChoice(color_mode_option, kSharpCMBW))
+    *color_model_for_black = SHARP_ARCMODE_CMBW;
+
+  ppd_choice_t* mode_choice = ppdFindMarkedChoice(ppd, kSharpARCMode);
+  if (!mode_choice) {
+    mode_choice =
+        ppdFindChoice(color_mode_option, color_mode_option->defchoice);
+  }
+
+  if (mode_choice) {
+    // Many Sharp printers use "CMAuto" as the default color mode.
+    *color_is_default =
+        !EqualsCaseInsensitiveASCII(mode_choice->choice, kSharpCMBW);
+  }
+  return true;
+}
+
+bool GetXeroxColorSettings(ppd_file_t* ppd,
+                           ColorModel* color_model_for_black,
+                           ColorModel* color_model_for_color,
+                           bool* color_is_default) {
+  // Some Xerox printers use "XRXColor" attribute in their PPDs.
+  ppd_option_t* color_mode_option = ppdFindOption(ppd, kXeroxXRXColor);
+  if (!color_mode_option)
+    return false;
+
+  if (ppdFindChoice(color_mode_option, kXeroxAutomatic))
+    *color_model_for_color = XEROX_XRXCOLOR_AUTOMATIC;
+  if (ppdFindChoice(color_mode_option, kXeroxBW))
+    *color_model_for_black = XEROX_XRXCOLOR_BW;
+
+  ppd_choice_t* mode_choice = ppdFindMarkedChoice(ppd, kXeroxXRXColor);
+  if (!mode_choice) {
+    mode_choice =
+        ppdFindChoice(color_mode_option, color_mode_option->defchoice);
+  }
+
+  if (mode_choice) {
+    // Many Xerox printers use "Automatic" as the default color mode.
+    *color_is_default =
+        !EqualsCaseInsensitiveASCII(mode_choice->choice, kXeroxBW);
+  }
+  return true;
+}
+
 bool GetProcessColorModelSettings(ppd_file_t* ppd,
                                   ColorModel* color_model_for_black,
                                   ColorModel* color_model_for_color,
@@ -445,6 +528,8 @@ bool GetColorModelSettings(ppd_file_t* ppd,
          GetHPColorModeSettings(ppd, cm_black, cm_color, is_color) ||
          GetBrotherColorSettings(ppd, cm_black, cm_color, is_color) ||
          GetEpsonInkSettings(ppd, cm_black, cm_color, is_color) ||
+         GetSharpARCModeSettings(ppd, cm_black, cm_color, is_color) ||
+         GetXeroxColorSettings(ppd, cm_black, cm_color, is_color) ||
          GetProcessColorModelSettings(ppd, cm_black, cm_color, is_color);
 }
 
@@ -456,7 +541,8 @@ const int kDefaultIPPServerPort = 631;
 // Helper wrapper around http_t structure, with connection and cleanup
 // functionality.
 HttpConnectionCUPS::HttpConnectionCUPS(const GURL& print_server_url,
-                                       http_encryption_t encryption)
+                                       http_encryption_t encryption,
+                                       bool blocking)
     : http_(nullptr) {
   // If we have an empty url, use default print server.
   if (print_server_url.is_empty())
@@ -466,20 +552,31 @@ HttpConnectionCUPS::HttpConnectionCUPS(const GURL& print_server_url,
   if (port == url::PORT_UNSPECIFIED)
     port = kDefaultIPPServerPort;
 
-  http_ = httpConnectEncrypt(print_server_url.host().c_str(), port, encryption);
+  if (httpConnect2) {
+    http_ = httpConnect2(print_server_url.host().c_str(), port,
+                         /*addrlist=*/nullptr, AF_UNSPEC, encryption,
+                         blocking ? 1 : 0, kCupsTimeout.InMilliseconds(),
+                         /*cancel=*/nullptr);
+  } else {
+    // Continue to use deprecated CUPS calls because because older Linux
+    // distribution such as RHEL/CentOS 7 are shipped with CUPS 1.6.
+    http_ =
+        httpConnectEncrypt(print_server_url.host().c_str(), port, encryption);
+  }
+
   if (!http_) {
     LOG(ERROR) << "CP_CUPS: Failed connecting to print server: "
                << print_server_url;
+    return;
   }
+
+  if (!httpConnect2)
+    httpBlocking(http_, blocking ? 1 : 0);
 }
 
 HttpConnectionCUPS::~HttpConnectionCUPS() {
   if (http_)
     httpClose(http_);
-}
-
-void HttpConnectionCUPS::SetBlocking(bool blocking) {
-  httpBlocking(http_, blocking ? 1 : 0);
 }
 
 http_t* HttpConnectionCUPS::http() {
@@ -515,7 +612,8 @@ bool ParsePpdCapabilities(base::StringPiece printer_name,
   PrinterSemanticCapsAndDefaults caps;
   caps.collate_capable = true;
   caps.collate_default = true;
-  caps.copies_capable = true;
+  // TODO(crbug.com/1027830): Parse PPD for cupsMaxCopies value.
+  caps.copies_max = kDefaultMaxCopies;
 
   GetDuplexSettings(ppd, &caps.duplex_modes, &caps.duplex_default);
 

@@ -60,6 +60,7 @@ class NavigationURLLoaderTest : public testing::Test {
             std::string() /* headers */, net::LOAD_NORMAL,
             false /* skip_service_worker */,
             blink::mojom::RequestContextType::LOCATION,
+            network::mojom::RequestDestination::kDocument,
             blink::WebMixedContentContextType::kBlockable,
             false /* is_form_submission */,
             false /* was_initiated_by_link_click */,
@@ -67,7 +68,8 @@ class NavigationURLLoaderTest : public testing::Test {
             std::string() /* searchable_form_encoding */,
             GURL() /* client_side_redirect_url */,
             base::nullopt /* devtools_initiator_info */,
-            false /* attach_same_site_cookies */);
+            false /* attach_same_site_cookies */,
+            nullptr /* trust_token_params */);
     auto common_params = CreateCommonNavigationParams();
     common_params->url = url;
     common_params->initiator_origin = url::Origin::Create(url);

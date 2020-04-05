@@ -70,14 +70,16 @@
 #include "third_party/blink/renderer/core/workers/worker_global_scope.h"
 #include "third_party/blink/renderer/core/workers/worklet_global_scope.h"
 #include "third_party/blink/renderer/platform/bindings/dom_wrapper_world.h"
+#include "third_party/blink/renderer/platform/bindings/v8_dom_wrapper.h"
 #include "third_party/blink/renderer/platform/bindings/v8_per_context_data.h"
+#include "third_party/blink/renderer/platform/heap/heap.h"
 #include "third_party/blink/renderer/platform/instrumentation/tracing/trace_event.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/scheduler/public/cooperative_scheduling_manager.h"
 #include "third_party/blink/renderer/platform/scheduler/public/thread.h"
 #include "third_party/blink/renderer/platform/scheduler/public/thread_scheduler.h"
 #include "third_party/blink/renderer/platform/weborigin/kurl.h"
-#include "third_party/blink/renderer/platform/weborigin/security_violation_reporting_policy.h"
+#include "third_party/blink/renderer/platform/weborigin/reporting_disposition.h"
 #include "third_party/blink/renderer/platform/wtf/assertions.h"
 #include "third_party/blink/renderer/platform/wtf/sanitizers.h"
 #include "third_party/blink/renderer/platform/wtf/stack_util.h"
@@ -164,7 +166,7 @@ void V8Initializer::MessageHandlerInMainThread(v8::Local<v8::Message> message,
       SourceLocation::FromMessage(isolate, message, context);
 
   if (message->ErrorLevel() != v8::Isolate::kMessageError) {
-    context->AddConsoleMessage(ConsoleMessage::Create(
+    context->AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
         mojom::ConsoleMessageSource::kJavaScript,
         MessageLevelFromNonFatalErrorLevel(message->ErrorLevel()),
         ToCoreStringWithNullCheck(message->Get()), std::move(location)));
@@ -209,7 +211,7 @@ void V8Initializer::MessageHandlerInWorker(v8::Local<v8::Message> message,
       SourceLocation::FromMessage(isolate, message, context);
 
   if (message->ErrorLevel() != v8::Isolate::kMessageError) {
-    context->AddConsoleMessage(ConsoleMessage::Create(
+    context->AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
         mojom::ConsoleMessageSource::kJavaScript,
         MessageLevelFromNonFatalErrorLevel(message->ErrorLevel()),
         ToCoreStringWithNullCheck(message->Get()), std::move(location)));
@@ -390,7 +392,7 @@ static bool ContentSecurityPolicyCodeGenerationCheck(
                             static_cast<size_t>(source_str.length()));
       memcpy(snippet, *source_str, len * sizeof(UChar));
       snippet[len] = 0;
-      return policy->AllowEval(SecurityViolationReportingPolicy::kReport,
+      return policy->AllowEval(ReportingDisposition::kReport,
                                ContentSecurityPolicy::kWillThrowException,
                                snippet);
     }
@@ -421,7 +423,7 @@ TrustedTypesCodeGenerationCheck(v8::Local<v8::Context> context,
     return {false, v8::MaybeLocal<v8::String>()};
   }
 
-  String stringified_source = GetStringFromTrustedScript(
+  String stringified_source = TrustedTypesCheckForScript(
       string_or_trusted_script, ToExecutionContext(context), exception_state);
   if (exception_state.HadException()) {
     exception_state.ClearException();
@@ -464,7 +466,7 @@ static bool WasmCodeGenerationCheckCallbackInMainThread(
     v8::Local<v8::String> source) {
   if (ExecutionContext* execution_context = ToExecutionContext(context)) {
     if (ContentSecurityPolicy* policy =
-            To<Document>(execution_context)->GetContentSecurityPolicy()) {
+            Document::From(execution_context)->GetContentSecurityPolicy()) {
       v8::String::Value source_str(context->GetIsolate(), source);
       UChar snippet[ContentSecurityPolicy::kMaxSampleLength + 1];
       size_t len = std::min((sizeof(snippet) / sizeof(UChar)) - 1,
@@ -474,10 +476,10 @@ static bool WasmCodeGenerationCheckCallbackInMainThread(
       // Wasm code generation is allowed if we have either the wasm-eval
       // directive or the unsafe-eval directive. However, we only recognize
       // wasm-eval for certain schemes
-      return policy->AllowWasmEval(SecurityViolationReportingPolicy::kReport,
+      return policy->AllowWasmEval(ReportingDisposition::kReport,
                                    ContentSecurityPolicy::kWillThrowException,
                                    snippet) ||
-             policy->AllowEval(SecurityViolationReportingPolicy::kReport,
+             policy->AllowEval(ReportingDisposition::kReport,
                                ContentSecurityPolicy::kWillThrowException,
                                snippet);
     }

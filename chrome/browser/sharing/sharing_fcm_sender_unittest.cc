@@ -8,6 +8,7 @@
 
 #include "base/base64.h"
 #include "base/callback_list.h"
+#include "base/memory/ptr_util.h"
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/sharing/features.h"
 #include "chrome/browser/sharing/proto/sharing_message.pb.h"
@@ -429,7 +430,9 @@ struct CommitErrorCodeTestData {
     {sync_pb::SharingMessageCommitError::SYNC_NETWORK_ERROR,
      SharingSendMessageResult::kNetworkError},
     {sync_pb::SharingMessageCommitError::SYNC_SERVER_ERROR,
-     SharingSendMessageResult::kInternalError}};
+     SharingSendMessageResult::kInternalError},
+    {sync_pb::SharingMessageCommitError::SYNC_TIMEOUT,
+     SharingSendMessageResult::kCommitTimeout}};
 
 class SharingFCMSenderCommitErrorCodeTest
     : public SharingFCMSenderTest,

@@ -32,6 +32,27 @@ content::WebContents* GetPaymentHandlerWebContentsForTest() {
   return web_contents;
 }
 
+bool ClickPaymentHandlerSecurityIconForTest() {
+  JNIEnv* env = base::android::AttachCurrentThread();
+  return Java_PaymentRequestTestBridge_clickPaymentHandlerSecurityIconForTest(
+      env);
+}
+
+bool ConfirmMinimalUIForTest() {
+  return Java_PaymentRequestTestBridge_confirmMinimalUIForTest(
+      base::android::AttachCurrentThread());
+}
+
+bool DismissMinimalUIForTest() {
+  return Java_PaymentRequestTestBridge_dismissMinimalUIForTest(
+      base::android::AttachCurrentThread());
+}
+
+bool IsAndroidMarshmallowOrLollipopForTest() {
+  return Java_PaymentRequestTestBridge_isAndroidMarshmallowOrLollipopForTest(
+      base::android::AttachCurrentThread());
+}
+
 struct NativeObserverCallbacks {
   base::RepeatingClosure on_can_make_payment_called;
   base::RepeatingClosure on_can_make_payment_returned;
@@ -42,6 +63,7 @@ struct NativeObserverCallbacks {
   base::RepeatingClosure on_connection_terminated;
   base::RepeatingClosure on_abort_called;
   base::RepeatingClosure on_complete_called;
+  base::RepeatingClosure on_minimal_ui_ready;
 };
 
 static NativeObserverCallbacks& GetNativeObserverCallbacks() {
@@ -58,7 +80,8 @@ void SetUseNativeObserverOnPaymentRequestForTesting(
     base::RepeatingClosure on_not_supported_error,
     base::RepeatingClosure on_connection_terminated,
     base::RepeatingClosure on_abort_called,
-    base::RepeatingClosure on_complete_called) {
+    base::RepeatingClosure on_complete_called,
+    base::RepeatingClosure on_minimal_ui_ready) {
   JNIEnv* env = base::android::AttachCurrentThread();
 
   // Store ownership of the callbacks so that we can pass a pointer to Java.
@@ -75,6 +98,7 @@ void SetUseNativeObserverOnPaymentRequestForTesting(
   callbacks.on_connection_terminated = std::move(on_connection_terminated);
   callbacks.on_abort_called = std::move(on_abort_called);
   callbacks.on_complete_called = std::move(on_complete_called);
+  callbacks.on_minimal_ui_ready = std::move(on_minimal_ui_ready);
 
   Java_PaymentRequestTestBridge_setUseNativeObserverForTest(
       env, reinterpret_cast<jlong>(&callbacks.on_can_make_payment_called),
@@ -85,7 +109,8 @@ void SetUseNativeObserverOnPaymentRequestForTesting(
       reinterpret_cast<jlong>(&callbacks.on_not_supported_error),
       reinterpret_cast<jlong>(&callbacks.on_connection_terminated),
       reinterpret_cast<jlong>(&callbacks.on_abort_called),
-      reinterpret_cast<jlong>(&callbacks.on_complete_called));
+      reinterpret_cast<jlong>(&callbacks.on_complete_called),
+      reinterpret_cast<jlong>(&callbacks.on_minimal_ui_ready));
 }
 
 // This runs callbacks given to SetUseNativeObserverOnPaymentRequestForTesting()

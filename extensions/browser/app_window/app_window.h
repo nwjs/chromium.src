@@ -12,8 +12,6 @@
 #include <utility>
 #include <vector>
 
-#include "components/bubble/bubble_manager.h"
-
 #include "base/macros.h"
 #include "base/memory/weak_ptr.h"
 #include "components/sessions/core/session_id.h"
@@ -373,8 +371,6 @@ class AppWindow : public content::WebContentsDelegate,
   // first paint, it will be unflagged.
   void Hide();
 
-  BubbleManager* GetBubbleManager();
-
   AppWindowContents* app_window_contents_for_test() {
     return app_window_contents_.get();
   }
@@ -566,7 +562,6 @@ class AppWindow : public content::WebContentsDelegate,
                           const std::vector<SkBitmap>& bitmaps,
                           const std::vector<gfx::Size>& original_bitmap_sizes);
 
-  std::unique_ptr<BubbleManager> bubble_manager_;
   // The browser context with which this window is associated. AppWindow does
   // not own this object.
   content::BrowserContext* browser_context_;

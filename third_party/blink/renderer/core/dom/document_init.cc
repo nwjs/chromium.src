@@ -29,6 +29,7 @@
 
 #include "third_party/blink/renderer/core/dom/document_init.h"
 
+#include "third_party/blink/public/mojom/security_context/insecure_request_policy.mojom-blink.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/dom_implementation.h"
 #include "third_party/blink/renderer/core/frame/csp/content_security_policy.h"
@@ -104,8 +105,8 @@ DocumentLoader* DocumentInit::MasterDocumentLoader() const {
   return nullptr;
 }
 
-WebSandboxFlags DocumentInit::GetSandboxFlags() const {
-  WebSandboxFlags flags = sandbox_flags_;
+mojom::blink::WebSandboxFlags DocumentInit::GetSandboxFlags() const {
+  mojom::blink::WebSandboxFlags flags = sandbox_flags_;
   if (DocumentLoader* loader = MasterDocumentLoader())
     flags |= loader->GetFrame()->Loader().EffectiveSandboxFlags();
   // If the load was blocked by CSP, force the Document's origin to be unique,
@@ -113,15 +114,16 @@ WebSandboxFlags DocumentInit::GetSandboxFlags() const {
   // document's load per CSP spec:
   // https://www.w3.org/TR/CSP3/#directive-frame-ancestors.
   if (blocked_by_csp_)
-    flags |= WebSandboxFlags::kOrigin;
+    flags |= mojom::blink::WebSandboxFlags::kOrigin;
   return flags;
 }
 
-WebInsecureRequestPolicy DocumentInit::GetInsecureRequestPolicy() const {
+mojom::blink::InsecureRequestPolicy DocumentInit::GetInsecureRequestPolicy()
+    const {
   DCHECK(MasterDocumentLoader());
   Frame* parent_frame = MasterDocumentLoader()->GetFrame()->Tree().Parent();
   if (!parent_frame)
-    return kLeaveInsecureRequestsAlone;
+    return mojom::blink::InsecureRequestPolicy::kLeaveInsecureRequestsAlone;
   return parent_frame->GetSecurityContext()->GetInsecureRequestPolicy();
 }
 
@@ -349,13 +351,21 @@ DocumentInit& DocumentInit::WithFeaturePolicyHeader(const String& header) {
   return *this;
 }
 
+DocumentInit& DocumentInit::WithReportOnlyFeaturePolicyHeader(
+    const String& header) {
+  DCHECK(report_only_feature_policy_header_.IsEmpty());
+  report_only_feature_policy_header_ = header;
+  return *this;
+}
+
 DocumentInit& DocumentInit::WithOriginTrialsHeader(const String& header) {
   DCHECK(origin_trials_header_.IsEmpty());
   origin_trials_header_ = header;
   return *this;
 }
 
-DocumentInit& DocumentInit::WithSandboxFlags(WebSandboxFlags flags) {
+DocumentInit& DocumentInit::WithSandboxFlags(
+    mojom::blink::WebSandboxFlags flags) {
   // Only allow adding more sandbox flags.
   sandbox_flags_ |= flags;
   return *this;
@@ -400,8 +410,21 @@ DocumentInit& DocumentInit::WithFramePolicy(
 }
 
 DocumentInit& DocumentInit::WithDocumentPolicy(
-    const DocumentPolicy::FeatureState& document_policy) {
+    const DocumentPolicy::ParsedDocumentPolicy& document_policy) {
   document_policy_ = document_policy;
+  return *this;
+}
+
+DocumentInit& DocumentInit::WithReportOnlyDocumentPolicyHeader(
+    const String& header) {
+  DCHECK(report_only_document_policy_header_.IsEmpty());
+  report_only_document_policy_header_ = header;
+  return *this;
+}
+
+DocumentInit& DocumentInit::WithWebBundleClaimedUrl(
+    const KURL& web_bundle_claimed_url) {
+  web_bundle_claimed_url_ = web_bundle_claimed_url;
   return *this;
 }
 

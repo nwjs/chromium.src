@@ -4,6 +4,9 @@
 
 #include "ui/views/examples/dialog_example.h"
 
+#include <memory>
+#include <utility>
+
 #include "base/macros.h"
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
@@ -37,10 +40,10 @@ template <class DialogType>
 class DialogExample::Delegate : public virtual DialogType {
  public:
   explicit Delegate(DialogExample* parent) : parent_(parent) {
-    DialogDelegate::set_buttons(parent_->GetDialogButtons());
-    DialogDelegate::set_button_label(ui::DIALOG_BUTTON_OK,
+    DialogDelegate::SetButtons(parent_->GetDialogButtons());
+    DialogDelegate::SetButtonLabel(ui::DIALOG_BUTTON_OK,
                                      parent_->ok_button_label_->GetText());
-    DialogDelegate::set_button_label(ui::DIALOG_BUTTON_CANCEL,
+    DialogDelegate::SetButtonLabel(ui::DIALOG_BUTTON_CANCEL,
                                      parent_->cancel_button_label_->GetText());
   }
 
@@ -49,7 +52,6 @@ class DialogExample::Delegate : public virtual DialogType {
     Label* body = new Label(parent_->body_->GetText());
     body->SetMultiLine(true);
     body->SetHorizontalAlignment(gfx::ALIGN_LEFT);
-    body->SetBackground(CreateSolidBackground(SkColorSetRGB(0, 255, 255)));
     this->AddChildView(body);
 
     if (parent_->has_extra_button_->GetChecked()) {
@@ -114,8 +116,10 @@ class DialogExample::Dialog : public Delegate<DialogDelegateView> {
 DialogExample::DialogExample()
     : ExampleBase("Dialog"),
       mode_model_({
-          base::ASCIIToUTF16("Modeless"), base::ASCIIToUTF16("Window Modal"),
-          base::ASCIIToUTF16("Child Modal"), base::ASCIIToUTF16("System Modal"),
+          base::ASCIIToUTF16("Modeless"),
+          base::ASCIIToUTF16("Window Modal"),
+          base::ASCIIToUTF16("Child Modal"),
+          base::ASCIIToUTF16("System Modal"),
           base::ASCIIToUTF16("Fake Modeless (non-bubbles)"),
       }) {}
 

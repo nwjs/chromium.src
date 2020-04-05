@@ -879,68 +879,6 @@ TEST_F(UkmPageLoadMetricsObserverTest,
   }
 }
 
-TEST_F(UkmPageLoadMetricsObserverTest, PageInteractive) {
-  page_load_metrics::mojom::PageLoadTiming timing;
-  page_load_metrics::InitPageLoadTimingForTest(&timing);
-  timing.parse_timing->parse_start = base::TimeDelta::FromMilliseconds(10);
-  timing.navigation_start = base::Time::FromDoubleT(1);
-  timing.interactive_timing->interactive =
-      base::TimeDelta::FromMilliseconds(600);
-  PopulateRequiredTimingFields(&timing);
-
-  NavigateAndCommit(GURL(kTestUrl1));
-  tester()->SimulateTimingUpdate(timing);
-
-  // Simulate closing the tab.
-  DeleteContents();
-
-  std::map<ukm::SourceId, ukm::mojom::UkmEntryPtr> merged_entries =
-      tester()->test_ukm_recorder().GetMergedEntriesByName(
-          PageLoad::kEntryName);
-  EXPECT_EQ(1ul, merged_entries.size());
-
-  for (const auto& kv : merged_entries) {
-    tester()->test_ukm_recorder().ExpectEntrySourceHasUrl(kv.second.get(),
-                                                          GURL(kTestUrl1));
-    tester()->test_ukm_recorder().ExpectEntryMetric(
-        kv.second.get(), PageLoad::kExperimental_NavigationToInteractiveName,
-        600);
-    EXPECT_TRUE(tester()->test_ukm_recorder().EntryHasMetric(
-        kv.second.get(), PageLoad::kPageTiming_ForegroundDurationName));
-  }
-}
-
-TEST_F(UkmPageLoadMetricsObserverTest, PageInteractiveInputInvalidated) {
-  page_load_metrics::mojom::PageLoadTiming timing;
-  page_load_metrics::InitPageLoadTimingForTest(&timing);
-  timing.navigation_start = base::Time::FromDoubleT(1);
-  timing.interactive_timing->interactive =
-      base::TimeDelta::FromMilliseconds(1000);
-  timing.interactive_timing->first_invalidating_input =
-      base::TimeDelta::FromMilliseconds(600);
-  PopulateRequiredTimingFields(&timing);
-
-  NavigateAndCommit(GURL(kTestUrl1));
-  tester()->SimulateTimingUpdate(timing);
-
-  // Simulate closing the tab.
-  DeleteContents();
-
-  std::map<ukm::SourceId, ukm::mojom::UkmEntryPtr> merged_entries =
-      tester()->test_ukm_recorder().GetMergedEntriesByName(
-          PageLoad::kEntryName);
-  EXPECT_EQ(1ul, merged_entries.size());
-
-  for (const auto& kv : merged_entries) {
-    tester()->test_ukm_recorder().ExpectEntrySourceHasUrl(kv.second.get(),
-                                                          GURL(kTestUrl1));
-    EXPECT_FALSE(tester()->test_ukm_recorder().EntryHasMetric(
-        kv.second.get(), PageLoad::kExperimental_NavigationToInteractiveName));
-    EXPECT_TRUE(tester()->test_ukm_recorder().EntryHasMetric(
-        kv.second.get(), PageLoad::kPageTiming_ForegroundDurationName));
-  }
-}
-
 TEST_F(UkmPageLoadMetricsObserverTest, FirstInputDelayAndTimestamp) {
   page_load_metrics::mojom::PageLoadTiming timing;
   page_load_metrics::InitPageLoadTimingForTest(&timing);
@@ -1003,6 +941,36 @@ TEST_F(UkmPageLoadMetricsObserverTest, LongestInputDelayAndTimestamp) {
     tester()->test_ukm_recorder().ExpectEntryMetric(
         kv.second.get(),
         PageLoad::kInteractiveTiming_LongestInputTimestamp4Name, 712);
+  }
+}
+
+TEST_F(UkmPageLoadMetricsObserverTest, InputTiming) {
+  NavigateAndCommit(GURL(kTestUrl1));
+
+  page_load_metrics::mojom::InputTiming input_timing;
+  input_timing.num_input_events = 2;
+  input_timing.total_input_delay = base::TimeDelta::FromMilliseconds(100);
+  input_timing.total_adjusted_input_delay =
+      base::TimeDelta::FromMilliseconds(10);
+  tester()->SimulateInputTimingUpdate(input_timing);
+
+  DeleteContents();
+
+  std::map<ukm::SourceId, ukm::mojom::UkmEntryPtr> merged_entries =
+      tester()->test_ukm_recorder().GetMergedEntriesByName(
+          PageLoad::kEntryName);
+  EXPECT_EQ(1ul, merged_entries.size());
+
+  for (const auto& kv : merged_entries) {
+    tester()->test_ukm_recorder().ExpectEntrySourceHasUrl(kv.second.get(),
+                                                          GURL(kTestUrl1));
+    tester()->test_ukm_recorder().ExpectEntryMetric(
+        kv.second.get(), PageLoad::kInteractiveTiming_NumInputEventsName, 2);
+    tester()->test_ukm_recorder().ExpectEntryMetric(
+        kv.second.get(), PageLoad::kInteractiveTiming_TotalInputDelayName, 100);
+    tester()->test_ukm_recorder().ExpectEntryMetric(
+        kv.second.get(),
+        PageLoad::kInteractiveTiming_TotalAdjustedInputDelayName, 10);
   }
 }
 
@@ -1397,6 +1365,39 @@ TEST_F(UkmPageLoadMetricsObserverTest, LayoutInstability) {
 
   EXPECT_THAT(tester()->histogram_tester().GetAllSamples(
                   "PageLoad.LayoutInstability.CumulativeShiftScore"),
+              testing::ElementsAre(base::Bucket(25, 1)));
+
+  tester()->histogram_tester().ExpectTotalCount(
+      "PageLoad.Clients.FontPreload.LayoutInstability."
+      "CumulativeShiftScore",
+      0);
+}
+
+TEST_F(UkmPageLoadMetricsObserverTest,
+       UpdateAfterHide_RecordsLayoutInstabilityWithFontPreload) {
+  NavigateAndCommit(GURL(kTestUrl1));
+
+  page_load_metrics::mojom::FrameMetadata metadata;
+  metadata.behavior_flags |= blink::LoadingBehaviorFlag::
+      kLoadingBehaviorFontPreloadStartedBeforeRendering;
+  tester()->SimulateMetadataUpdate(metadata, web_contents()->GetMainFrame());
+
+  page_load_metrics::mojom::FrameRenderDataUpdate render_data(1.0, 1.0);
+  tester()->SimulateRenderDataUpdate(render_data);
+
+  // Simulate hiding the tab (the report should include shifts after hide).
+  web_contents()->WasHidden();
+
+  render_data.layout_shift_delta = 1.5;
+  render_data.layout_shift_delta_before_input_or_scroll = 0.0;
+  tester()->SimulateRenderDataUpdate(render_data);
+
+  // Simulate closing the tab.
+  DeleteContents();
+
+  EXPECT_THAT(tester()->histogram_tester().GetAllSamples(
+                  "PageLoad.Clients.FontPreload.LayoutInstability."
+                  "CumulativeShiftScore"),
               testing::ElementsAre(base::Bucket(25, 1)));
 }
 

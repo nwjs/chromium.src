@@ -4,12 +4,14 @@
 
 #include "chromeos/services/cros_healthd/public/cpp/service_connection.h"
 
+#include <utility>
 #include <vector>
 
 #include "base/bind.h"
 #include "base/macros.h"
 #include "base/optional.h"
 #include "base/run_loop.h"
+#include "base/test/bind_test_util.h"
 #include "base/test/task_environment.h"
 #include "chromeos/dbus/cros_healthd/cros_healthd_client.h"
 #include "chromeos/dbus/cros_healthd/fake_cros_healthd_client.h"
@@ -34,6 +36,11 @@ std::vector<mojom::DiagnosticRoutineEnum> MakeAvailableRoutines() {
       mojom::DiagnosticRoutineEnum::kBatteryCapacity,
       mojom::DiagnosticRoutineEnum::kBatteryHealth,
       mojom::DiagnosticRoutineEnum::kSmartctlCheck,
+      mojom::DiagnosticRoutineEnum::kCpuCache,
+      mojom::DiagnosticRoutineEnum::kCpuStress,
+      mojom::DiagnosticRoutineEnum::kFloatingPointAccuracy,
+      mojom::DiagnosticRoutineEnum::kNvmeWearLevel,
+      mojom::DiagnosticRoutineEnum::kNvmeSelfTest,
   };
 }
 
@@ -81,13 +88,16 @@ MakeNonRemovableBlockDeviceInfo() {
 }
 
 mojom::BatteryInfoPtr MakeBatteryInfo() {
+  mojom::SmartBatteryInfoPtr smart_info = mojom::SmartBatteryInfo::New(
+      "2018-08-06" /* manufacture_date */, 981729 /* temperature */);
   return mojom::BatteryInfo::New(
       2 /* cycle_count */, 12.9 /* voltage_now */,
       "battery_vendor" /* vendor */, "serial_number" /* serial_number */,
       5.275 /* charge_full_design */, 5.292 /* charge_full */,
-      11.55 /* voltage_min_design */, 51785890 /* manufacture_date_smart */,
-      /*temperature smart=*/981729, /*model_name=*/"battery_model",
-      /*charge_now=*/5.123);
+      11.55 /* voltage_min_design */, "battery_model" /* model_name */,
+      5.123 /* charge_now */, 98.123 /* current_now */,
+      "battery_technology" /* technology */, "battery_status" /* status */,
+      std::move(smart_info));
 }
 
 mojom::CachedVpdInfoPtr MakeCachedVpdInfo() {
@@ -112,12 +122,37 @@ mojom::TimezoneInfoPtr MakeTimezoneInfo() {
                                   "America/Denver" /* region */);
 }
 
+mojom::MemoryInfoPtr MakeMemoryInfo() {
+  return mojom::MemoryInfo::New(987123 /* total_memory_kib */,
+                                346432 /* free_memory_kib */,
+                                45863 /* available_memory_kib */,
+                                43264 /* page_faults_since_last_boot */);
+}
+
+base::Optional<std::vector<mojom::BacklightInfoPtr>> MakeBacklightInfo() {
+  std::vector<mojom::BacklightInfoPtr> backlight_info;
+  backlight_info.push_back(mojom::BacklightInfo::New(
+      "path_1" /* path */, 6537 /* max_brightness */, 987 /* brightness */));
+  backlight_info.push_back(mojom::BacklightInfo::New(
+      "path_2" /* path */, 3242 /* max_brightness */, 65 /* brightness */));
+  return backlight_info;
+}
+
+base::Optional<std::vector<mojom::FanInfoPtr>> MakeFanInfo() {
+  std::vector<mojom::FanInfoPtr> fan_info;
+  fan_info.push_back(mojom::FanInfo::New(1200 /* speed_rpm */));
+  fan_info.push_back(mojom::FanInfo::New(2650 /* speed_rpm */));
+  return fan_info;
+}
+
 mojom::TelemetryInfoPtr MakeTelemetryInfo() {
   return mojom::TelemetryInfo::New(
       MakeBatteryInfo() /* battery_info */,
       MakeNonRemovableBlockDeviceInfo() /* block_device_info */,
       MakeCachedVpdInfo() /* vpd_info */, MakeCpuInfo() /* cpu_info */,
-      MakeTimezoneInfo() /* timezone_info */
+      MakeTimezoneInfo() /* timezone_info */,
+      MakeMemoryInfo() /* memory_info */,
+      MakeBacklightInfo() /* backlight_info */, MakeFanInfo() /* fan_info */
   );
 }
 
@@ -258,6 +293,135 @@ TEST_F(CrosHealthdServiceConnectionTest, RunSmartctlCheckRoutine) {
   EXPECT_TRUE(callback_done);
 }
 
+TEST_F(CrosHealthdServiceConnectionTest, RunAcPowerRoutine) {
+  // Test that we can run the AC power routine.
+  auto response = MakeRunRoutineResponse();
+  FakeCrosHealthdClient::Get()->SetRunRoutineResponseForTesting(response);
+  base::RunLoop run_loop;
+  ServiceConnection::GetInstance()->RunAcPowerRoutine(
+      mojom::AcPowerStatusEnum::kConnected,
+      /*expected_power_type=*/"power_type",
+      base::BindLambdaForTesting([&](mojom::RunRoutineResponsePtr response) {
+        EXPECT_EQ(response, MakeRunRoutineResponse());
+        run_loop.Quit();
+      }));
+  run_loop.Run();
+}
+
+TEST_F(CrosHealthdServiceConnectionTest, RunCpuCacheRoutine) {
+  auto response = MakeRunRoutineResponse();
+  FakeCrosHealthdClient::Get()->SetRunRoutineResponseForTesting(response);
+  base::RunLoop run_loop;
+  ServiceConnection::GetInstance()->RunCpuCacheRoutine(
+      base::TimeDelta().FromSeconds(10),
+      base::BindLambdaForTesting([&](mojom::RunRoutineResponsePtr response) {
+        EXPECT_EQ(response, MakeRunRoutineResponse());
+        run_loop.Quit();
+      }));
+  run_loop.Run();
+}
+
+TEST_F(CrosHealthdServiceConnectionTest, RunCpuStressRoutine) {
+  auto response = MakeRunRoutineResponse();
+  FakeCrosHealthdClient::Get()->SetRunRoutineResponseForTesting(response);
+  base::RunLoop run_loop;
+  ServiceConnection::GetInstance()->RunCpuStressRoutine(
+      base::TimeDelta().FromSeconds(10),
+      base::BindLambdaForTesting([&](mojom::RunRoutineResponsePtr response) {
+        EXPECT_EQ(response, MakeRunRoutineResponse());
+        run_loop.Quit();
+      }));
+  run_loop.Run();
+}
+
+TEST_F(CrosHealthdServiceConnectionTest, RunFloatingPointAccuracyRoutine) {
+  // Test that we can run the floating point accuracy routine.
+  auto response = MakeRunRoutineResponse();
+  FakeCrosHealthdClient::Get()->SetRunRoutineResponseForTesting(response);
+  base::RunLoop run_loop;
+  ServiceConnection::GetInstance()->RunFloatingPointAccuracyRoutine(
+      /*exec_duration=*/base::TimeDelta::FromSeconds(10),
+      base::BindLambdaForTesting([&](mojom::RunRoutineResponsePtr response) {
+        EXPECT_EQ(response, MakeRunRoutineResponse());
+        run_loop.Quit();
+      }));
+  run_loop.Run();
+}
+
+TEST_F(CrosHealthdServiceConnectionTest, RunNvmeWearLevelRoutine) {
+  // Test that we can run the NVMe wear-level routine.
+  auto response = MakeRunRoutineResponse();
+  FakeCrosHealthdClient::Get()->SetRunRoutineResponseForTesting(response);
+  base::RunLoop run_loop;
+  ServiceConnection::GetInstance()->RunNvmeWearLevelRoutine(
+      /*wear_level_threshold=*/50,
+      base::BindLambdaForTesting([&](mojom::RunRoutineResponsePtr response) {
+        EXPECT_EQ(response, MakeRunRoutineResponse());
+        run_loop.Quit();
+      }));
+  run_loop.Run();
+}
+
+TEST_F(CrosHealthdServiceConnectionTest, RunNvmeSelfTestRoutine) {
+  // Test that we can run the NVMe self-test routine.
+  auto response = MakeRunRoutineResponse();
+  FakeCrosHealthdClient::Get()->SetRunRoutineResponseForTesting(response);
+  base::RunLoop run_loop;
+  ServiceConnection::GetInstance()->RunNvmeSelfTestRoutine(
+      mojom::NvmeSelfTestTypeEnum::kShortSelfTest,
+      base::BindLambdaForTesting([&](mojom::RunRoutineResponsePtr response) {
+        EXPECT_EQ(response, MakeRunRoutineResponse());
+        run_loop.Quit();
+      }));
+  run_loop.Run();
+}
+
+TEST_F(CrosHealthdServiceConnectionTest, RunDiskReadRoutine) {
+  // Test that we can run the disk read routine.
+  auto response = MakeRunRoutineResponse();
+  FakeCrosHealthdClient::Get()->SetRunRoutineResponseForTesting(response);
+  base::RunLoop run_loop;
+  base::TimeDelta exec_duration = base::TimeDelta().FromSeconds(10);
+  ServiceConnection::GetInstance()->RunDiskReadRoutine(
+      mojom::DiskReadRoutineTypeEnum::kLinearRead,
+      /*exec_duration=*/exec_duration, /*file_size_mb=*/1024,
+      base::BindLambdaForTesting([&](mojom::RunRoutineResponsePtr response) {
+        EXPECT_EQ(response, MakeRunRoutineResponse());
+        run_loop.Quit();
+      }));
+  run_loop.Run();
+}
+
+TEST_F(CrosHealthdServiceConnectionTest, RunPrimeSearchRoutine) {
+  // Test that we can run the prime search routine.
+  auto response = MakeRunRoutineResponse();
+  FakeCrosHealthdClient::Get()->SetRunRoutineResponseForTesting(response);
+  base::RunLoop run_loop;
+  base::TimeDelta exec_duration = base::TimeDelta().FromSeconds(10);
+  ServiceConnection::GetInstance()->RunPrimeSearchRoutine(
+      /*exec_duration=*/exec_duration, /*max_num=*/1000000,
+      base::BindLambdaForTesting([&](mojom::RunRoutineResponsePtr response) {
+        EXPECT_EQ(response, MakeRunRoutineResponse());
+        run_loop.Quit();
+      }));
+  run_loop.Run();
+}
+
+TEST_F(CrosHealthdServiceConnectionTest, RunBatteryDischargeRoutine) {
+  // Test that we can run the battery discharge routine.
+  auto response = MakeRunRoutineResponse();
+  FakeCrosHealthdClient::Get()->SetRunRoutineResponseForTesting(response);
+  base::RunLoop run_loop;
+  ServiceConnection::GetInstance()->RunBatteryDischargeRoutine(
+      /*exec_duration=*/base::TimeDelta::FromSeconds(12),
+      /*maximum_discharge_percent_allowed=*/99,
+      base::BindLambdaForTesting([&](mojom::RunRoutineResponsePtr response) {
+        EXPECT_EQ(response, MakeRunRoutineResponse());
+        run_loop.Quit();
+      }));
+  run_loop.Run();
+}
+
 TEST_F(CrosHealthdServiceConnectionTest, ProbeTelemetryInfo) {
   // Test that we can send a request without categories.
   auto empty_info = mojom::TelemetryInfo::New();
@@ -282,7 +446,12 @@ TEST_F(CrosHealthdServiceConnectionTest, ProbeTelemetryInfo) {
   const std::vector<mojom::ProbeCategoryEnum> categories_to_test = {
       mojom::ProbeCategoryEnum::kBattery,
       mojom::ProbeCategoryEnum::kNonRemovableBlockDevices,
-      mojom::ProbeCategoryEnum::kCachedVpdData, mojom::ProbeCategoryEnum::kCpu};
+      mojom::ProbeCategoryEnum::kCachedVpdData,
+      mojom::ProbeCategoryEnum::kCpu,
+      mojom::ProbeCategoryEnum::kTimezone,
+      mojom::ProbeCategoryEnum::kMemory,
+      mojom::ProbeCategoryEnum::kBacklight,
+      mojom::ProbeCategoryEnum::kFan};
   callback_done = false;
   ServiceConnection::GetInstance()->ProbeTelemetryInfo(
       categories_to_test,

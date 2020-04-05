@@ -63,11 +63,11 @@ class AbstractLineBox {
       return GetRootInlineBox().LogicalHeight() &&
              GetRootInlineBox().FirstLeafChild();
     }
-    if (cursor_.IsEmptyLineBox())
+    if (cursor_.Current().IsEmptyLineBox())
       return false;
     const PhysicalSize physical_size = cursor_.Current().Size();
-    const LogicalSize logical_size =
-        physical_size.ConvertToLogical(cursor_.CurrentStyle().GetWritingMode());
+    const LogicalSize logical_size = physical_size.ConvertToLogical(
+        cursor_.Current().Style().GetWritingMode());
     if (!logical_size.block_size)
       return false;
     // Use |ClosestLeafChildForPoint| to check if there's any leaf child.
@@ -139,7 +139,7 @@ class AbstractLineBox {
 
   explicit AbstractLineBox(const NGInlineCursor& cursor)
       : cursor_(cursor), type_(Type::kLayoutNG) {
-    DCHECK(cursor_.IsLineBox());
+    DCHECK(cursor_.Current().IsLineBox());
   }
 
   const LayoutBlockFlow& GetBlock() const {
@@ -159,7 +159,7 @@ class AbstractLineBox {
     }
     const PhysicalOffset physical_offset =
         cursor_.Current().OffsetInContainerBlock();
-    return cursor_.CurrentStyle().IsHorizontalWritingMode()
+    return cursor_.Current().Style().IsHorizontalWritingMode()
                ? physical_offset.top
                : physical_offset.left;
   }
@@ -174,7 +174,8 @@ class AbstractLineBox {
   }
 
   static bool IsEditable(const NGInlineCursor& cursor) {
-    const LayoutObject* const layout_object = cursor.CurrentLayoutObject();
+    const LayoutObject* const layout_object =
+        cursor.Current().GetLayoutObject();
     return layout_object && layout_object->GetNode() &&
            HasEditableStyle(*layout_object->GetNode());
   }
@@ -185,14 +186,14 @@ class AbstractLineBox {
       bool only_editable_leaves) {
     const PhysicalSize unit_square(LayoutUnit(1), LayoutUnit(1));
     const LogicalOffset logical_point = point.ConvertToLogical(
-        line.CurrentStyle().GetWritingMode(), line.CurrentBaseDirection(),
+        line.Current().Style().GetWritingMode(), line.Current().BaseDirection(),
         line.Current().Size(), unit_square);
     const LayoutUnit inline_offset = logical_point.inline_offset;
     const LayoutObject* closest_leaf_child = nullptr;
     LayoutUnit closest_leaf_distance;
     NGInlineCursor cursor(line);
     for (cursor.MoveToNext(); cursor; cursor.MoveToNext()) {
-      if (!cursor.CurrentLayoutObject())
+      if (!cursor.Current().GetLayoutObject())
         continue;
       if (!cursor.IsInlineLeaf())
         continue;
@@ -201,20 +202,21 @@ class AbstractLineBox {
 
       const LogicalRect fragment_logical_rect =
           cursor.Current().RectInContainerBlock().ConvertToLogical(
-              line.CurrentStyle().GetWritingMode(), line.CurrentBaseDirection(),
-              line.Current().Size(), cursor.Current().Size());
+              line.Current().Style().GetWritingMode(),
+              line.Current().BaseDirection(), line.Current().Size(),
+              cursor.Current().Size());
       const LayoutUnit inline_min = fragment_logical_rect.offset.inline_offset;
       const LayoutUnit inline_max = fragment_logical_rect.offset.inline_offset +
                                     fragment_logical_rect.size.inline_size;
       if (inline_offset >= inline_min && inline_offset < inline_max)
-        return cursor.CurrentLayoutObject();
+        return cursor.Current().GetLayoutObject();
 
       const LayoutUnit distance =
           inline_offset < inline_min
               ? inline_min - inline_offset
               : inline_offset - inline_max + LayoutUnit(1);
       if (!closest_leaf_child || distance < closest_leaf_distance) {
-        closest_leaf_child = cursor.CurrentLayoutObject();
+        closest_leaf_child = cursor.Current().GetLayoutObject();
         closest_leaf_distance = distance;
       }
     }

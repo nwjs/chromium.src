@@ -42,6 +42,7 @@ class CORE_EXPORT NGLayoutResult : public RefCounted<NGLayoutResult> {
     kBfcBlockOffsetResolved = 1,
     kNeedsEarlierBreak = 2,
     kOutOfFragmentainerSpace = 3,
+    kNeedsRelayoutWithNoForcedTruncateAtLineClamp = 4,
     // When adding new values, make sure the bit size of |Bitfields::status| is
     // large enough to store.
   };
@@ -61,6 +62,10 @@ class CORE_EXPORT NGLayoutResult : public RefCounted<NGLayoutResult> {
     DCHECK(physical_fragment_);
     DCHECK_EQ(kSuccess, Status());
     return *physical_fragment_;
+  }
+
+  int LinesUntilClamp() const {
+    return HasRareData() ? rare_data_->lines_until_clamp : 0;
   }
 
   LogicalOffset OutOfFlowPositionedOffset() const {
@@ -141,9 +146,7 @@ class CORE_EXPORT NGLayoutResult : public RefCounted<NGLayoutResult> {
   }
 
   const LayoutUnit IntrinsicBlockSize() const {
-    DCHECK(physical_fragment_->Type() == NGPhysicalFragment::kFragmentBox ||
-           physical_fragment_->Type() ==
-               NGPhysicalFragment::kFragmentRenderedLegend);
+    DCHECK(physical_fragment_->IsBox());
     return intrinsic_block_size_;
   }
 
@@ -171,6 +174,14 @@ class CORE_EXPORT NGLayoutResult : public RefCounted<NGLayoutResult> {
     DCHECK(rare_data_->has_tallest_unbreakable_block_size);
 #endif
     return rare_data_->tallest_unbreakable_block_size;
+  }
+
+  // Return whether this result is single-use only (true), or if it is allowed
+  // to be involved in cache hits in future layout passes (false).
+  // For example, this happens when a block is fragmented, since we don't yet
+  // support caching of block-fragmented results.
+  bool IsSingleUse() const {
+    return HasRareData() && rare_data_->is_single_use;
   }
 
   SerializedScriptValue* CustomLayoutData() const {
@@ -365,6 +376,8 @@ class CORE_EXPORT NGLayoutResult : public RefCounted<NGLayoutResult> {
 #if DCHECK_IS_ON()
     bool has_tallest_unbreakable_block_size = false;
 #endif
+    bool is_single_use = false;
+    int lines_until_clamp = 0;
   };
 
   bool HasRareData() const { return bitfields_.has_rare_data; }
@@ -424,7 +437,7 @@ class CORE_EXPORT NGLayoutResult : public RefCounted<NGLayoutResult> {
     unsigned initial_break_before : 4;  // EBreakBetween
     unsigned final_break_after : 4;     // EBreakBetween
 
-    unsigned status : 2;  // EStatus
+    unsigned status : 3;  // EStatus
   };
 
   // The constraint space which generated this layout result, may not be valid

@@ -18,8 +18,9 @@
 #include "ui/aura/client/cursor_client_observer.h"
 #include "ui/aura/client/focus_change_observer.h"
 #include "ui/base/cursor/cursor.h"
-#include "ui/events/event_constants.h"
+#include "ui/base/mojom/cursor_type.mojom-forward.h"
 #include "ui/events/event_handler.h"
+#include "ui/events/types/event_type.h"
 #include "ui/gfx/geometry/point.h"
 #include "ui/gfx/geometry/point_f.h"
 #include "ui/gfx/native_widget_types.h"
@@ -63,8 +64,8 @@ class Pointer : public SurfaceTreeHost,
   void SetCursor(Surface* surface, const gfx::Point& hotspot);
 
   // Set the pointer cursor type. This is similar to SetCursor, but this method
-  // accepts ui::CursorType instead of the surface for the pointer image.
-  void SetCursorType(ui::CursorType cursor_type);
+  // accepts ui::mojom::CursorType instead of the surface for the pointer image.
+  void SetCursorType(ui::mojom::CursorType cursor_type);
 
   // Set delegate for pinch events.
   void SetGesturePinchDelegate(PointerGesturePinchDelegate* delegate);

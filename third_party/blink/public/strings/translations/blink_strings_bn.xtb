@@ -4,6 +4,7 @@
 <translation id="1018939186200882850">মেনু আইটেম</translation>
 <translation id="10623998915015855">টগল বোতাম</translation>
 <translation id="1088086359088493902">সেকেন্ড</translation>
+<translation id="1142001580032786438">সপ্তাহ বাছাইকারী দেখুন</translation>
 <translation id="1171774979989969504">অনুগ্রহ করে কোন ইমেল আইডি লিখুন:</translation>
 <translation id="1178581264944972037">বিরতি</translation>
 <translation id="1188858454923323853">পরিপূরক</translation>
@@ -22,6 +23,7 @@
 <translation id="1727886345390570319">ক্লোজড ক্যাপশনের মেনু লুকান</translation>
 <translation id="1729654308190250600">অনুগ্রহ করে একটি খালি না থাকা ইমেল আইডি লিখুন৷</translation>
 <translation id="1758486001363313524">অন্যান্য...</translation>
+<translation id="1787192514241997742">মোট সময়: <ph name="REMAINING_TIME" /></translation>
 <translation id="1806710327868736751">সতর্কতার_ডায়ালগ</translation>
 <translation id="1821985195704844674">ট্রি গ্রিড</translation>
 <translation id="1822429046913737220">AM/PM</translation>
@@ -100,7 +102,6 @@
 <translation id="4444765639179266822">মনে হচ্ছে বলতে চাইছে: <ph name="OCR_TEXT" /></translation>
 <translation id="4446524499724042288">শব্দকোষের রেফারেন্স</translation>
 <translation id="4522570452068850558">বিশদ বিবরণ</translation>
-<translation id="4542388879936266156">বাকি সময়: <ph name="REMAINING_TIME" /></translation>
 <translation id="4597532268155981612">ফর্ম</translation>
 <translation id="4661075872484491155">tree</translation>
 <translation id="4664250907885839816">'<ph name="ATSIGN" />' অনুসরণ করে এমন একটি অংশে '<ph name="INVALIDCHARACTER" />' চিহ্ন থাকা উচিত নয়৷</translation>
@@ -114,7 +115,9 @@
 <translation id="479989351350248267">search</translation>
 <translation id="4812940957355064477">দয়া করে একটি সংখ্যা লিখুন৷</translation>
 <translation id="4912536737030637138">বিবলিওগ্রাফি এন্ট্রি</translation>
+<translation id="4915360478455618802">সময় বাছাইকারী দেখুন</translation>
 <translation id="492244087561876220">মন্তব্য</translation>
+<translation id="4950364064308314478">স্থানীয় তারিখ ও সময় বাছাইকারী দেখুন</translation>
 <translation id="4971739861736909480"><ph name="ACCNAME" />টি বেছে নেওয়া হয়েছে</translation>
 <translation id="4975562563186953947"><ph name="SELECTED_COUNT" />টি নির্বাচিত</translation>
 <translation id="4992066212339426712">সশব্দ করুন</translation>
@@ -233,6 +236,7 @@
 <translation id="8284326494547611709">পরিচয়লিপিগুলি</translation>
 <translation id="8346634859695247203">বিভাগ</translation>
 <translation id="835897206747267392">ভুল মান৷</translation>
+<translation id="839593075537728968">সময়ের মান অবশ্যই <ph name="MINIMUM_TIME" /> থেকে <ph name="MAXIMUM_TIME" />-এর মধ্যে হতে হবে।</translation>
 <translation id="8403857369060869934">অতিবাহিত সময়: <ph name="ELAPSED_TIME" /></translation>
 <translation id="8415319359811155763">অংশ</translation>
 <translation id="8433900881053900389">টুল দণ্ড</translation>
@@ -249,6 +253,7 @@
 <translation id="860475260694818407">সূচিপত্র</translation>
 <translation id="8613126697340063924">রিমোট প্লেব্যাক নিয়ন্ত্রণ করুন</translation>
 <translation id="862370744433916922">সাবটাইটেল</translation>
+<translation id="8634971699417195529">মাস বাছাইকারী দেখুন</translation>
 <translation id="8711688047404765493">আউটপুট</translation>
 <translation id="8750798805984357768">দয়া করে বিকল্পগুলির একটি নির্বাচন করুন৷</translation>
 <translation id="8808573423886751634">অধ্যায়</translation>

@@ -30,6 +30,7 @@
 #include "content/public/test/mock_render_process_host.h"
 #include "content/public/test/navigation_simulator.h"
 #include "content/test/test_render_view_host.h"
+#include "third_party/blink/public/mojom/security_context/insecure_request_policy.mojom.h"
 #include "ui/base/page_transition_types.h"
 
 namespace content {
@@ -184,7 +185,8 @@ void TestWebContents::TestDidNavigateWithSequenceNumber(
   params.is_overriding_user_agent = false;
   params.history_list_was_cleared = false;
   params.origin = url::Origin::Create(url);
-  params.insecure_request_policy = blink::kLeaveInsecureRequestsAlone;
+  params.insecure_request_policy =
+      blink::mojom::InsecureRequestPolicy::kLeaveInsecureRequestsAlone;
   params.has_potentially_trustworthy_unique_origin = false;
 
   rfh->SendNavigateWithParams(&params, was_within_same_document);
@@ -247,8 +249,7 @@ void TestWebContents::TestDidReceiveInputEvent(
 }
 
 void TestWebContents::TestDidFinishLoad(const GURL& url) {
-  FrameHostMsg_DidFinishLoad msg(0, url);
-  frame_tree_.root()->current_frame_host()->OnMessageReceived(msg);
+  OnDidFinishLoad(frame_tree_.root()->current_frame_host(), url);
 }
 
 void TestWebContents::TestDidFailLoadWithError(const GURL& url,
@@ -384,16 +385,19 @@ RenderFrameHostDelegate* TestWebContents::CreateNewWindow(
   return nullptr;
 }
 
-void TestWebContents::CreateNewWidget(int32_t render_process_id,
-                                      int32_t route_id,
-                                      mojo::PendingRemote<mojom::Widget> widget,
-                                      RenderViewHostImpl* render_view_host) {}
+void TestWebContents::CreateNewWidget(
+    int32_t render_process_id,
+    int32_t route_id,
+    mojo::PendingRemote<mojom::Widget> widget,
+    mojo::PendingAssociatedReceiver<blink::mojom::WidgetHost> blink_widget_host,
+    mojo::PendingAssociatedRemote<blink::mojom::Widget> blink_widget) {}
 
 void TestWebContents::CreateNewFullscreenWidget(
     int32_t render_process_id,
     int32_t route_id,
     mojo::PendingRemote<mojom::Widget> widget,
-    RenderViewHostImpl* render_view_host) {}
+    mojo::PendingAssociatedReceiver<blink::mojom::WidgetHost> blink_widget_host,
+    mojo::PendingAssociatedRemote<blink::mojom::Widget> blink_widget) {}
 
 void TestWebContents::ShowCreatedWindow(int process_id,
                                         int route_id,

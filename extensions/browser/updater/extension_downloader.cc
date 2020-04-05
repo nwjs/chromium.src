@@ -27,6 +27,7 @@
 #include "components/signin/public/identity_manager/access_token_info.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/signin/public/identity_manager/primary_account_access_token_fetcher.h"
+#include "components/signin/public/identity_manager/scope_set.h"
 #include "components/update_client/update_query_params.h"
 #include "content/public/browser/file_url_loader.h"
 #include "content/public/browser/notification_details.h"
@@ -181,12 +182,10 @@ UpdateDetails::UpdateDetails(const std::string& id,
                              const base::Version& version)
     : id(id), version(version) {}
 
-UpdateDetails::~UpdateDetails() {
-}
+UpdateDetails::~UpdateDetails() = default;
 
 ExtensionDownloader::ExtensionFetch::ExtensionFetch()
-    : url(), credentials(CREDENTIALS_NONE) {
-}
+    : credentials(CREDENTIALS_NONE) {}
 
 ExtensionDownloader::ExtensionFetch::ExtensionFetch(
     const std::string& id,
@@ -200,11 +199,9 @@ ExtensionDownloader::ExtensionFetch::ExtensionFetch(
       version(version),
       request_ids(request_ids),
       credentials(CREDENTIALS_NONE),
-      oauth2_attempt_count(0) {
-}
+      oauth2_attempt_count(0) {}
 
-ExtensionDownloader::ExtensionFetch::~ExtensionFetch() {
-}
+ExtensionDownloader::ExtensionFetch::~ExtensionFetch() = default;
 
 ExtensionDownloader::ExtraParams::ExtraParams() : is_corrupt_reinstall(false) {}
 
@@ -231,8 +228,7 @@ ExtensionDownloader::ExtensionDownloader(
   DCHECK(url_loader_factory_);
 }
 
-ExtensionDownloader::~ExtensionDownloader() {
-}
+ExtensionDownloader::~ExtensionDownloader() = default;
 
 bool ExtensionDownloader::AddExtension(
     const Extension& extension,
@@ -400,9 +396,6 @@ bool ExtensionDownloader::AddExtensionData(
   if (extra.is_corrupt_reinstall)
     install_source = kReinstallInstallSource;
 
-  const std::string install_location =
-      ManifestFetchData::GetSimpleLocationString(extension_location);
-
   ManifestFetchData::PingData ping_data;
   ManifestFetchData::PingData* optional_ping_data = NULL;
   if (delegate_->GetPingDataForExtension(id, &ping_data))
@@ -418,7 +411,7 @@ bool ExtensionDownloader::AddExtensionData(
     ManifestFetchData* existing_fetch = existing_iter->second.back().get();
     if (existing_fetch->AddExtension(
             id, version.GetString(), optional_ping_data, extra.update_url_data,
-            install_source, install_location, fetch_priority)) {
+            install_source, extension_location, fetch_priority)) {
       added = true;
     }
   }
@@ -432,7 +425,7 @@ bool ExtensionDownloader::AddExtensionData(
         std::move(fetch));
     added = fetch_ptr->AddExtension(id, version.GetString(), optional_ping_data,
                                     extra.update_url_data, install_source,
-                                    install_location, fetch_priority);
+                                    extension_location, fetch_priority);
     DCHECK(added);
   }
 
@@ -541,7 +534,7 @@ void ExtensionDownloader::CreateManifestLoader() {
           sender: "Extension Downloader"
           description:
             "Fetches information about an extension manifest (using its "
-            "update_url, which is usually Chrome WebStore) in order to update "
+            "update_url, which is usually Chrome Web Store) in order to update "
             "the extension."
           trigger:
             "An update timer indicates that it's time to update extensions, or "
@@ -549,12 +542,14 @@ void ExtensionDownloader::CreateManifestLoader() {
           data:
             "The extension id, version and install source (the cause of the "
             "update flow). The client's OS, architecture, language, Chromium "
-            "version, channel and a flag stating whether the request originated"
-            "in the foreground or the background."
+            "version, channel and a flag stating whether the request "
+            "originated in the foreground or the background. Authentication is "
+            "used only for non-Chrome-Web-Store update_urls."
           destination: WEBSITE
         }
         policy {
-          cookies_allowed: NO
+          cookies_allowed: YES
+          cookies_store: "user"
           setting:
             "This feature cannot be disabled. It is only enabled when the user "
             "has installed extensions."
@@ -570,9 +565,8 @@ void ExtensionDownloader::CreateManifestLoader() {
   auto resource_request = std::make_unique<network::ResourceRequest>();
   resource_request->url = active_request->full_url(),
   resource_request->load_flags = net::LOAD_DISABLE_CACHE;
-  resource_request->credentials_mode = network::mojom::CredentialsMode::kOmit;
 
-  // Send traffic-management headers to the webstore.
+  // Send traffic-management headers to the webstore, and omit credentials.
   // https://bugs.chromium.org/p/chromium/issues/detail?id=647516
   if (extension_urls::IsWebstoreUpdateUrl(active_request->full_url())) {
     resource_request->headers.SetHeader(kUpdateInteractivityHeader,
@@ -585,6 +579,11 @@ void ExtensionDownloader::CreateManifestLoader() {
         base::StringPrintf(
             "%s-%s", UpdateQueryParams::GetProdIdString(UpdateQueryParams::CRX),
             UpdateQueryParams::GetProdVersion().c_str()));
+    resource_request->credentials_mode = network::mojom::CredentialsMode::kOmit;
+  } else {
+    // Non-webstore sources may require HTTP auth.
+    resource_request->credentials_mode =
+        network::mojom::CredentialsMode::kInclude;
   }
 
   manifest_loader_ = network::SimpleURLLoader::Create(
@@ -1017,7 +1016,7 @@ void ExtensionDownloader::CreateExtensionLoader() {
       // ExtensionLoader will be started once the token fetch is complete,
       // in either OnTokenFetchSuccess or OnTokenFetchFailure.
       DCHECK(identity_manager_);
-      identity::ScopeSet webstore_scopes;
+      signin::ScopeSet webstore_scopes;
       webstore_scopes.insert(kWebstoreOAuth2Scope);
       // It is safe to use Unretained(this) here given that the callback
       // will not be invoked if this object is deleted.
@@ -1231,7 +1230,7 @@ bool ExtensionDownloader::IterateFetchCredentialsAfterFailure(
       if (response_code == net::HTTP_UNAUTHORIZED &&
           fetch->oauth2_attempt_count <= kMaxOAuth2Attempts) {
         DCHECK(identity_manager_);
-        identity::ScopeSet webstore_scopes;
+        signin::ScopeSet webstore_scopes;
         webstore_scopes.insert(kWebstoreOAuth2Scope);
         identity_manager_->RemoveAccessTokenFromCache(
             identity_manager_->GetPrimaryAccountId(), webstore_scopes,

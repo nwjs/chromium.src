@@ -55,6 +55,8 @@
 
     --google-red-refresh-300-rgb: 242, 139, 130;  /* #f28b82 */
     --google-red-refresh-300: rgb(var(--google-red-refresh-300-rgb));
+    --google-red-refresh-500-rgb: 234, 67, 53;  /* #ea4335 */
+    --google-red-refresh-500: rgb(var(--google-red-refresh-500-rgb));
 
     --google-yellow-refresh-300-rgb: 253, 214, 51;  /* #fdd633 */
     --google-yellow-refresh-300: rgb(var(--google-yellow-refresh-300-rgb));
@@ -67,12 +69,6 @@
 
     --cr-card-shadow: rgba(var(--cr-card-shadow-color-rgb), .3) 0 1px 2px 0,
                       rgba(var(--cr-card-shadow-color-rgb), .15) 0 1px 3px 1px;
-
-    /* TODO(aee): rename --cr-card-shadow  to --cr-card-elevation-box-shadow and
-     * use directly in place of mixin. */
-    --cr-card-elevation: {
-      box-shadow: var(--cr-card-shadow);
-    }
 
     --cr-checked-color: var(--google-blue-600);
     --cr-focused-item-color: var(--google-grey-300);
@@ -131,11 +127,6 @@
 
     --cr-icon-size: 20px;
 
-    --cr-icon-height-width: {
-      height: var(--cr-icon-size);
-      width: var(--cr-icon-size);
-    }
-
     --cr-icon-button-margin-start: 16px;
 
     --cr-icon-ripple-margin: calc(var(--cr-icon-ripple-padding) * -1);
@@ -164,6 +155,8 @@
     --cr-section-indent-padding: calc(
         var(--cr-section-padding) + var(--cr-section-indent-width));
 
+    /* TODO(crbug.com/973674): Do not use this mixin. Use the class cr-section
+     * from shared_style_css.html instead. */
     --cr-section: {
       align-items: center;
       border-top: var(--cr-separator-line);
@@ -187,23 +180,12 @@
       width: calc(100% * var(--cr-centered-card-width-percentage));
     }
 
-    --cr-text-elide: {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
     --cr-tooltip: {
       font-size: 92.31%;  /* Effectively 12px if the host default is 13px. */
       font-weight: 500;
       max-width: 330px;
       min-width: 200px;
       padding: 10px 8px;
-    }
-
-    --cr-selectable-focus: {
-      background-color: var(--cr-focused-item-color);
-      outline: none;
     }
 
     --cr-hairline: 1px solid rgba(var(--cr-hairline-rgb), .14);

@@ -7,9 +7,7 @@
 
 #include "ash/ash_export.h"
 #include "ash/public/cpp/shelf_config.h"
-#include "ash/public/cpp/tablet_mode_observer.h"
 #include "ash/shelf/shelf_component.h"
-#include "ash/shell_observer.h"
 #include "ui/views/accessible_pane_view.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/widget/widget_delegate.h"
@@ -22,18 +20,21 @@ namespace views {
 class BoundsAnimator;
 }
 
+namespace ui {
+class AnimationMetricsReporter;
+}
+
 namespace ash {
 class BackButton;
 class HomeButton;
+class NavigationButtonAnimationMetricsReporter;
 class Shelf;
 class ShelfView;
 
 // The shelf navigation widget holds the home button and (when in tablet mode)
 // the back button.
-class ASH_EXPORT ShelfNavigationWidget : public TabletModeObserver,
-                                         public ShelfComponent,
+class ASH_EXPORT ShelfNavigationWidget : public ShelfComponent,
                                          public ShelfConfig::Observer,
-                                         public ShellObserver,
                                          public views::Widget {
  public:
   class TestApi {
@@ -65,6 +66,7 @@ class ASH_EXPORT ShelfNavigationWidget : public TabletModeObserver,
 
   // views::Widget:
   void OnMouseEvent(ui::MouseEvent* event) override;
+  void OnScrollEvent(ui::ScrollEvent* event) override;
   bool OnNativeWidgetActivationChanged(bool active) override;
   void OnGestureEvent(ui::GestureEvent* event) override;
 
@@ -80,14 +82,6 @@ class ASH_EXPORT ShelfNavigationWidget : public TabletModeObserver,
   // focused when activating this widget.
   void SetDefaultLastFocusableChild(bool default_last_focusable_child);
 
-  // TabletModeObserver:
-  void OnTabletModeStarted() override;
-  void OnTabletModeEnded() override;
-
-  // ShellObserver:
-  void OnShelfAlignmentChanged(aura::Window* root_window,
-                               ShelfAlignment old_alignment) override;
-
   // ShelfConfig::Observer:
   void OnShelfConfigUpdated() override;
 
@@ -95,15 +89,31 @@ class ASH_EXPORT ShelfNavigationWidget : public TabletModeObserver,
   void CalculateTargetBounds() override;
   gfx::Rect GetTargetBounds() const override;
   void UpdateLayout(bool animate) override;
+  void UpdateTargetBoundsForGesture(int shelf_position) override;
 
  private:
   class Delegate;
 
-  void UpdateButtonVisibility(views::View* button, bool visible, bool animate);
+  void UpdateButtonVisibility(
+      views::View* button,
+      bool visible,
+      bool animate,
+      ui::AnimationMetricsReporter* animation_metrics_reporter);
 
   Shelf* shelf_ = nullptr;
   Delegate* delegate_ = nullptr;
+  gfx::Rect target_bounds_;
   std::unique_ptr<views::BoundsAnimator> bounds_animator_;
+
+  // Animation metrics reporter for back button animations. Owned by the
+  // Widget to ensure it outlives the BackButton view.
+  std::unique_ptr<NavigationButtonAnimationMetricsReporter>
+      back_button_metrics_reporter_;
+
+  // Animation metrics reporter for home button animations. Owned by the
+  // Widget to ensure it outlives the HomeButton view.
+  std::unique_ptr<NavigationButtonAnimationMetricsReporter>
+      home_button_metrics_reporter_;
 
   DISALLOW_COPY_AND_ASSIGN(ShelfNavigationWidget);
 };

@@ -20,6 +20,7 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/metrics/user_metrics.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
 #include "chrome/browser/android/feed/feed_host_service_factory.h"
@@ -38,6 +39,7 @@
 #include "chrome/browser/data_reduction_proxy/data_reduction_proxy_chrome_settings.h"
 #include "chrome/browser/data_reduction_proxy/data_reduction_proxy_chrome_settings_factory.h"
 #include "chrome/browser/domain_reliability/service_factory.h"
+#include "chrome/browser/downgrade/user_data_downgrade.h"
 #include "chrome/browser/download/download_prefs.h"
 #include "chrome/browser/external_protocol/external_protocol_handler.h"
 #include "chrome/browser/heavy_ad_intervention/heavy_ad_blocklist.h"
@@ -79,7 +81,7 @@
 #include "components/content_settings/core/browser/host_content_settings_map.h"
 #include "components/content_settings/core/common/content_settings.h"
 #include "components/content_settings/core/common/content_settings_pattern.h"
-#include "components/crash/content/app/crashpad.h"
+#include "components/crash/core/app/crashpad.h"
 #include "components/data_reduction_proxy/core/browser/data_reduction_proxy_compression_stats.h"
 #include "components/data_reduction_proxy/core/browser/data_reduction_proxy_service.h"
 #include "components/data_reduction_proxy/core/browser/data_reduction_proxy_settings.h"
@@ -120,8 +122,8 @@
 #include "chrome/browser/android/oom_intervention/oom_intervention_decider.h"
 #include "chrome/browser/android/search_permissions/search_permissions_service.h"
 #include "chrome/browser/android/webapps/webapp_registry.h"
-#include "chrome/browser/media/android/cdm/media_drm_license_manager.h"
 #include "chrome/browser/offline_pages/offline_page_model_factory.h"
+#include "components/cdm/browser/media_drm_storage_impl.h"
 #include "components/feed/buildflags.h"
 #include "components/feed/feed_feature_list.h"
 #include "components/offline_pages/core/offline_page_feature.h"
@@ -514,10 +516,8 @@ void ChromeBrowsingDataRemoverDelegate::RemoveEmbedderData(
         data_manager->Refresh();
     }
 
-    base::PostTaskAndReply(
-        FROM_HERE,
-        {base::ThreadPool(), base::TaskPriority::USER_VISIBLE,
-         base::MayBlock()},
+    base::ThreadPool::PostTaskAndReply(
+        FROM_HERE, {base::TaskPriority::USER_VISIBLE, base::MayBlock()},
         base::BindOnce(
             &webrtc_logging::DeleteOldAndRecentWebRtcLogFiles,
             webrtc_logging::TextLogList::
@@ -526,10 +526,8 @@ void ChromeBrowsingDataRemoverDelegate::RemoveEmbedderData(
         CreateTaskCompletionClosure(TracingDataType::kWebrtcLogs));
 
 #if defined(OS_ANDROID)
-    base::PostTaskAndReply(
-        FROM_HERE,
-        {base::ThreadPool(), base::TaskPriority::USER_VISIBLE,
-         base::MayBlock()},
+    base::ThreadPool::PostTaskAndReply(
+        FROM_HERE, {base::TaskPriority::USER_VISIBLE, base::MayBlock()},
         base::BindOnce(&ClearPrecacheInBackground, profile_),
         CreateTaskCompletionClosure(TracingDataType::kPrecache));
 
@@ -826,6 +824,10 @@ void ChromeBrowsingDataRemoverDelegate::RemoveEmbedderData(
           filter, delete_begin_, delete_end_,
           base::AdaptCallbackForRepeating(
               CreateTaskCompletionClosure(TracingDataType::kPasswords)));
+      password_store->RemoveCompromisedCredentialsByUrlAndTime(
+          nullable_filter, delete_begin_, delete_end_,
+          CreateTaskCompletionClosure(
+              TracingDataType::kCompromisedCredentials));
     }
 
     BrowserContext::GetDefaultStoragePartition(profile_)
@@ -865,13 +867,6 @@ void ChromeBrowsingDataRemoverDelegate::RemoveEmbedderData(
           nullable_filter, delete_begin_, delete_end_,
           base::AdaptCallbackForRepeating(CreateTaskCompletionClosure(
               TracingDataType::kPasswordsStatistics)));
-      if (base::FeatureList::IsEnabled(
-              password_manager::features::kLeakHistory)) {
-        password_store->RemoveCompromisedCredentialsByUrlAndTime(
-            nullable_filter, delete_begin_, delete_end_,
-            CreateTaskCompletionClosure(
-                TracingDataType::kCompromisedCredentials));
-      }
       password_store->RemoveFieldInfoByTime(
           delete_begin_, delete_end_,
           CreateTaskCompletionClosure(TracingDataType::kFieldInfo));
@@ -972,25 +967,6 @@ void ChromeBrowsingDataRemoverDelegate::RemoveEmbedderData(
     }
 #endif  // BUILDFLAG(ENABLE_FEED_IN_CHROME)
 #endif  // defined(OS_ANDROID)
-
-    // Notify data reduction component.
-    data_reduction_proxy::DataReductionProxySettings*
-        data_reduction_proxy_settings =
-            DataReductionProxyChromeSettingsFactory::GetForBrowserContext(
-                profile_);
-    // |data_reduction_proxy_settings| is null if |profile_| is off the record.
-    // Skip notification if the user clears cache for only a finite set of
-    // sites.
-    if (data_reduction_proxy_settings &&
-        filter_builder->GetMode() != BrowsingDataFilterBuilder::WHITELIST) {
-      data_reduction_proxy::DataReductionProxyService*
-          data_reduction_proxy_service =
-              data_reduction_proxy_settings->data_reduction_proxy_service();
-      if (data_reduction_proxy_service) {
-        data_reduction_proxy_service->OnCacheCleared(delete_begin_,
-                                                     delete_end_);
-      }
-    }
 
 #if defined(OS_ANDROID)
     // For now we're considering offline pages as cache, so if we're removing
@@ -1110,7 +1086,7 @@ void ChromeBrowsingDataRemoverDelegate::RemoveEmbedderData(
 #endif  // defined(OS_CHROMEOS)
 
 #if defined(OS_ANDROID)
-    ClearMediaDrmLicenses(
+    cdm::MediaDrmStorageImpl::ClearMatchingLicenses(
         prefs, delete_begin_, delete_end, nullable_filter,
         CreateTaskCompletionClosure(TracingDataType::kDrmLicenses));
 #endif  // defined(OS_ANDROID);
@@ -1191,6 +1167,19 @@ void ChromeBrowsingDataRemoverDelegate::RemoveEmbedderData(
   // Remove external protocol data.
   if (remove_mask & DATA_TYPE_EXTERNAL_PROTOCOL_DATA)
     ExternalProtocolHandler::ClearData(profile_);
+
+#if BUILDFLAG(ENABLE_DOWNGRADE_PROCESSING)
+  //////////////////////////////////////////////////////////////////////////////
+  // Remove data for this profile contained in any snapshots.
+  if (remove_mask &&
+      filter_builder->GetMode() == BrowsingDataFilterBuilder::BLACKLIST) {
+    base::ThreadPool::PostTaskAndReply(
+        FROM_HERE, {base::TaskPriority::USER_VISIBLE, base::MayBlock()},
+        base::BindOnce(&downgrade::RemoveDataForProfile, delete_begin_,
+                       profile_->GetPath(), remove_mask),
+        CreateTaskCompletionClosure(TracingDataType::kUserDataSnapshot));
+  }
+#endif  // BUILDFLAG(ENABLE_DOWNGRADE_PROCESSING)
 }
 
 void ChromeBrowsingDataRemoverDelegate::OnTaskStarted(
@@ -1199,9 +1188,11 @@ void ChromeBrowsingDataRemoverDelegate::OnTaskStarted(
   auto result = pending_sub_tasks_.insert(data_type);
   DCHECK(result.second) << "Task already started: "
                         << static_cast<int>(data_type);
-  TRACE_EVENT_ASYNC_BEGIN1("browsing_data", "ChromeBrowsingDataRemoverDelegate",
-                           static_cast<int>(data_type), "data_type",
-                           static_cast<int>(data_type));
+  TRACE_EVENT_NESTABLE_ASYNC_BEGIN1(
+      "browsing_data", "ChromeBrowsingDataRemoverDelegate",
+      TRACE_ID_WITH_SCOPE("ChromeBrowsingDataRemoverDelegate",
+                          static_cast<int>(data_type)),
+      "data_type", static_cast<int>(data_type));
 }
 
 void ChromeBrowsingDataRemoverDelegate::OnTaskComplete(
@@ -1209,9 +1200,11 @@ void ChromeBrowsingDataRemoverDelegate::OnTaskComplete(
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   size_t num_erased = pending_sub_tasks_.erase(data_type);
   DCHECK_EQ(num_erased, 1U);
-  TRACE_EVENT_ASYNC_END1("browsing_data", "ChromeBrowsingDataRemoverDelegate",
-                         static_cast<int>(data_type), "data_type",
-                         static_cast<int>(data_type));
+  TRACE_EVENT_NESTABLE_ASYNC_END1(
+      "browsing_data", "ChromeBrowsingDataRemoverDelegate",
+      TRACE_ID_WITH_SCOPE("ChromeBrowsingDataRemoverDelegate",
+                          static_cast<int>(data_type)),
+      "data_type", static_cast<int>(data_type));
   if (!pending_sub_tasks_.empty())
     return;
 

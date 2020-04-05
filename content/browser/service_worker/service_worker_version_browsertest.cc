@@ -12,6 +12,7 @@
 #include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/callback.h"
+#include "base/callback_helpers.h"
 #include "base/memory/ref_counted.h"
 #include "base/metrics/statistics_recorder.h"
 #include "base/run_loop.h"
@@ -45,7 +46,6 @@
 #include "content/public/browser/storage_partition.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_features.h"
-#include "content/public/common/resource_type.h"
 #include "content/public/common/result_codes.h"
 #include "content/public/common/web_preferences.h"
 #include "content/public/test/browser_test_utils.h"
@@ -56,13 +56,13 @@
 #include "content/shell/browser/shell_content_browser_client.h"
 #include "content/test/test_content_browser_client.h"
 #include "mojo/public/cpp/bindings/remote.h"
-#include "net/http/http_response_info.h"
 #include "net/test/embedded_test_server/http_request.h"
 #include "net/test/embedded_test_server/http_response.h"
 #include "services/network/public/cpp/features.h"
 #include "storage/browser/test/blob_test_utils.h"
 #include "third_party/blink/public/common/service_worker/service_worker_status_code.h"
 #include "third_party/blink/public/common/service_worker/service_worker_type_converters.h"
+#include "third_party/blink/public/mojom/loader/resource_load_info.mojom-shared.h"
 
 using blink::mojom::CacheStorageError;
 
@@ -234,15 +234,17 @@ VerifySaveDataHeaderNotInRequest(const net::test_server::HttpRequest& request) {
   return std::make_unique<net::test_server::BasicHttpResponse>();
 }
 
-net::HttpResponseInfo CreateHttpResponseInfo() {
-  net::HttpResponseInfo info;
+std::unique_ptr<ServiceWorkerVersion::MainScriptResponse>
+CreateMainScriptResponse() {
+  network::mojom::URLResponseHead response_head;
   const char data[] =
       "HTTP/1.1 200 OK\0"
       "Content-Type: application/javascript\0"
       "\0";
-  info.headers =
+  response_head.headers =
       new net::HttpResponseHeaders(std::string(data, base::size(data)));
-  return info;
+  return std::make_unique<ServiceWorkerVersion::MainScriptResponse>(
+      response_head);
 }
 
 // Returns a unique script for each request, to test service worker update.
@@ -279,6 +281,16 @@ RequestHandlerForBigWorkerScript(const net::test_server::HttpRequest& request) {
   http_response->set_content(std::move(script));
   http_response->set_content_type("text/javascript");
   return http_response;
+}
+
+network::CrossOriginEmbedderPolicy CrossOriginEmbedderPolicyNone() {
+  return network::CrossOriginEmbedderPolicy();
+}
+
+network::CrossOriginEmbedderPolicy CrossOriginEmbedderPolicyRequireCorp() {
+  network::CrossOriginEmbedderPolicy out;
+  out.value = network::mojom::CrossOriginEmbedderPolicyValue::kRequireCorp;
+  return out;
 }
 
 }  // namespace
@@ -433,15 +445,16 @@ class ServiceWorkerVersionBrowserTest : public ContentBrowserTest {
     blink::mojom::ServiceWorkerRegistrationOptions options;
     options.scope = scope;
     options.type = script_type;
-    registration_ =
-        wrapper()->context()->registry()->CreateNewRegistration(options);
+    registration_ = CreateNewServiceWorkerRegistration(
+        wrapper()->context()->registry(), options);
     // Set the update check time to avoid triggering updates in the middle of
     // tests.
     registration_->set_last_update_check(base::Time::Now());
 
-    version_ = wrapper()->context()->registry()->CreateNewVersion(
-        registration_.get(), embedded_test_server()->GetURL(worker_url),
-        script_type);
+    version_ = CreateNewServiceWorkerVersion(
+        wrapper()->context()->registry(), registration_.get(),
+        embedded_test_server()->GetURL(worker_url), script_type);
+    version_->set_initialize_global_scope_after_main_script_loaded();
     // Make the registration findable via storage functions.
     wrapper()->context()->registry()->NotifyInstallingRegistration(
         registration_.get());
@@ -473,8 +486,9 @@ class ServiceWorkerVersionBrowserTest : public ContentBrowserTest {
     ASSERT_TRUE(
         BrowserThread::CurrentlyOn(ServiceWorkerContext::GetCoreThreadId()));
     scoped_refptr<ServiceWorkerVersion> waiting_version(
-        wrapper()->context()->registry()->CreateNewVersion(
-            registration_.get(), embedded_test_server()->GetURL(worker_url),
+        CreateNewServiceWorkerVersion(
+            wrapper()->context()->registry(), registration_.get(),
+            embedded_test_server()->GetURL(worker_url),
             blink::mojom::ScriptType::kClassic));
     waiting_version->set_fetch_handler_existence(
         ServiceWorkerVersion::FetchHandlerExistence::EXISTS);
@@ -577,7 +591,7 @@ class ServiceWorkerVersionBrowserTest : public ContentBrowserTest {
       base::Optional<blink::ServiceWorkerStatusCode>* result) {
     ASSERT_TRUE(
         BrowserThread::CurrentlyOn(ServiceWorkerContext::GetCoreThreadId()));
-    version_->SetMainScriptHttpResponseInfo(CreateHttpResponseInfo());
+    version_->SetMainScriptResponse(CreateMainScriptResponse());
     version_->StartWorker(
         ServiceWorkerMetrics::EventType::UNKNOWN,
         CreateReceiver(BrowserThread::UI, std::move(done), result));
@@ -616,15 +630,10 @@ class ServiceWorkerVersionBrowserTest : public ContentBrowserTest {
       base::OnceClosure done,
       base::Optional<blink::ServiceWorkerStatusCode>* out_result,
       int request_id,
-      blink::mojom::ServiceWorkerEventStatus status,
-      bool has_fetch_handler) {
+      blink::mojom::ServiceWorkerEventStatus status) {
     version_->FinishRequest(
         request_id,
         status == blink::mojom::ServiceWorkerEventStatus::COMPLETED);
-    version_->set_fetch_handler_existence(
-        has_fetch_handler
-            ? ServiceWorkerVersion::FetchHandlerExistence::EXISTS
-            : ServiceWorkerVersion::FetchHandlerExistence::DOES_NOT_EXIST);
 
     *out_result = mojo::ConvertTo<blink::ServiceWorkerStatusCode>(status);
     if (!done.is_null())
@@ -707,7 +716,8 @@ class ServiceWorkerVersionBrowserTest : public ContentBrowserTest {
         BrowserThread::CurrentlyOn(ServiceWorkerContext::GetCoreThreadId()));
     version_->SetStatus(ServiceWorkerVersion::ACTIVATED);
     GURL url = embedded_test_server()->GetURL(path);
-    ResourceType resource_type = ResourceType::kMainFrame;
+    blink::mojom::ResourceType resource_type =
+        blink::mojom::ResourceType::kMainFrame;
     base::OnceClosure prepare_callback = CreatePrepareReceiver(prepare_result);
     ServiceWorkerFetchDispatcher::FetchCallback fetch_callback =
         CreateResponseReceiver(std::move(done), result);
@@ -804,9 +814,11 @@ class ServiceWorkerVersionBrowserTest : public ContentBrowserTest {
 
   void SetResourcesOnCoreThread(
       ServiceWorkerVersion* version,
-      const std::vector<ServiceWorkerDatabase::ResourceRecord>& resources) {
+      std::unique_ptr<
+          std::vector<storage::mojom::ServiceWorkerResourceRecordPtr>>
+          resources) {
     version->script_cache_map()->resource_map_.clear();
-    version->script_cache_map()->SetResources(resources);
+    version->script_cache_map()->SetResources(*resources);
   }
 
   // Starts the test server and navigates the renderer to an empty page. Call
@@ -971,11 +983,14 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerVersionBrowserTest, ReadResourceFailure) {
       base::Unretained(version_.get())));
 
   // Add a non-existent resource to the version.
-  std::vector<ServiceWorkerDatabase::ResourceRecord> records = {
-      ServiceWorkerDatabase::ResourceRecord(30, version_->script_url(), 100)};
-  RunOnCoreThread(base::BindOnce(
-      &ServiceWorkerVersionBrowserTest::SetResourcesOnCoreThread,
-      base::Unretained(this), base::Unretained(version_.get()), records));
+  auto records = std::make_unique<
+      std::vector<storage::mojom::ServiceWorkerResourceRecordPtr>>();
+  records->push_back(storage::mojom::ServiceWorkerResourceRecord::New(
+      30, version_->script_url(), 100));
+  RunOnCoreThread(
+      base::BindOnce(&ServiceWorkerVersionBrowserTest::SetResourcesOnCoreThread,
+                     base::Unretained(this), base::Unretained(version_.get()),
+                     std::move(records)));
 
   // Store the registration.
   StoreRegistration(version_->version_id(),
@@ -1005,22 +1020,27 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerVersionBrowserTest,
       base::BindOnce(&self::AddControlleeOnCoreThread, base::Unretained(this)));
 
   // Set a non-existent resource to the version.
-  std::vector<ServiceWorkerDatabase::ResourceRecord> records = {
-      ServiceWorkerDatabase::ResourceRecord(30, version_->script_url(), 100)};
-  RunOnCoreThread(base::BindOnce(
-      &ServiceWorkerVersionBrowserTest::SetResourcesOnCoreThread,
-      base::Unretained(this), base::Unretained(version_.get()), records));
+  auto records1 = std::make_unique<
+      std::vector<storage::mojom::ServiceWorkerResourceRecordPtr>>();
+  records1->push_back(storage::mojom::ServiceWorkerResourceRecord::New(
+      30, version_->script_url(), 100));
+  RunOnCoreThread(
+      base::BindOnce(&ServiceWorkerVersionBrowserTest::SetResourcesOnCoreThread,
+                     base::Unretained(this), base::Unretained(version_.get()),
+                     std::move(records1)));
 
   // Make a waiting version and store it.
   RunOnCoreThread(base::BindOnce(&self::AddWaitingWorkerOnCoreThread,
                                  base::Unretained(this),
                                  "/service_worker/worker.js"));
-  records = {
-      ServiceWorkerDatabase::ResourceRecord(31, version_->script_url(), 100)};
+  auto records2 = std::make_unique<
+      std::vector<storage::mojom::ServiceWorkerResourceRecordPtr>>();
+  records2->push_back(storage::mojom::ServiceWorkerResourceRecord::New(
+      31, version_->script_url(), 100));
   RunOnCoreThread(base::BindOnce(
       &ServiceWorkerVersionBrowserTest::SetResourcesOnCoreThread,
       base::Unretained(this),
-      base::Unretained(registration_->waiting_version()), records));
+      base::Unretained(registration_->waiting_version()), std::move(records2)));
   StoreRegistration(registration_->waiting_version()->version_id(),
                     blink::ServiceWorkerStatusCode::kOk);
 
@@ -1063,6 +1083,17 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerVersionBrowserTest,
                        InstallWithoutFetchHandler) {
   StartServerAndNavigateToSetup();
   InstallTestHelper("/service_worker/worker.js",
+                    blink::ServiceWorkerStatusCode::kOk);
+  EXPECT_EQ(ServiceWorkerVersion::FetchHandlerExistence::DOES_NOT_EXIST,
+            version_->fetch_handler_existence());
+}
+
+// Check that fetch event handler added in the install event should result in a
+// service worker that doesn't count as having a fetch event handler.
+IN_PROC_BROWSER_TEST_F(ServiceWorkerVersionBrowserTest,
+                       FetchHandlerSetInInstallEvent) {
+  StartServerAndNavigateToSetup();
+  InstallTestHelper("/service_worker/fetch_event_set_in_install_event.js",
                     blink::ServiceWorkerStatusCode::kOk);
   EXPECT_EQ(ServiceWorkerVersion::FetchHandlerExistence::DOES_NOT_EXIST,
             version_->fetch_handler_existence());
@@ -1574,10 +1605,10 @@ class ServiceWorkerVersionCoepTest : public ServiceWorkerVersionBrowserTest,
   ServiceWorkerVersionCoepTest() {
     if (IsCrossOriginIsolationEnabled()) {
       feature_list_.InitAndEnableFeature(
-          network::features::kCrossOriginIsolation);
+          network::features::kCrossOriginEmbedderPolicy);
     } else {
       feature_list_.InitAndDisableFeature(
-          network::features::kCrossOriginIsolation);
+          network::features::kCrossOriginEmbedderPolicy);
     }
   }
 
@@ -1587,7 +1618,7 @@ class ServiceWorkerVersionCoepTest : public ServiceWorkerVersionBrowserTest,
   // |coep|.
   static std::unique_ptr<net::test_server::HttpResponse>
   RequestHandlerForWorkerScriptWithCoep(
-      base::Optional<network::mojom::CrossOriginEmbedderPolicy> coep,
+      base::Optional<network::mojom::CrossOriginEmbedderPolicyValue> coep,
       const net::test_server::HttpRequest& request) {
     static int counter = 0;
     if (request.relative_url != "/service_worker/generated")
@@ -1599,7 +1630,7 @@ class ServiceWorkerVersionCoepTest : public ServiceWorkerVersionBrowserTest,
     response->set_content_type("text/javascript");
     if (coep.has_value()) {
       std::string header_value =
-          coep.value() == network::mojom::CrossOriginEmbedderPolicy::kNone
+          coep.value() == network::mojom::CrossOriginEmbedderPolicyValue::kNone
               ? "none"
               : "require-corp";
       response->AddCustomHeader("Cross-Origin-Embedder-Policy", header_value);
@@ -1616,25 +1647,24 @@ INSTANTIATE_TEST_SUITE_P(All, ServiceWorkerVersionCoepTest, testing::Bool());
 // Checks if ServiceWorkerVersion has the correct value of COEP when a new
 // worker is installed.
 IN_PROC_BROWSER_TEST_P(ServiceWorkerVersionCoepTest,
-                       CrossOriginEmbedderPolicy_Install) {
+                       CrossOriginEmbedderPolicyValue_Install) {
   embedded_test_server()->RegisterRequestHandler(base::BindRepeating(
       &ServiceWorkerVersionCoepTest::RequestHandlerForWorkerScriptWithCoep,
-      network::mojom::CrossOriginEmbedderPolicy::kRequireCorp));
+      network::mojom::CrossOriginEmbedderPolicyValue::kRequireCorp));
   StartServerAndNavigateToSetup();
 
   // The version cannot get the proper COEP value until the worker is started.
   RunOnCoreThread(base::BindOnce(
       &ServiceWorkerVersionBrowserTest::SetUpRegistrationOnCoreThread,
       base::Unretained(this), "/service_worker/generated"));
-  EXPECT_EQ(network::mojom::CrossOriginEmbedderPolicy::kNone,
-            version_->cross_origin_embedder_policy());
+  EXPECT_FALSE(version_->cross_origin_embedder_policy());
 
   // Once it's started, the worker script is read from the network and the COEP
   // value is set to the version.
   StartWorker(blink::ServiceWorkerStatusCode::kOk);
   EXPECT_EQ(IsCrossOriginIsolationEnabled()
-                ? network::mojom::CrossOriginEmbedderPolicy::kRequireCorp
-                : network::mojom::CrossOriginEmbedderPolicy::kNone,
+                ? CrossOriginEmbedderPolicyRequireCorp()
+                : CrossOriginEmbedderPolicyNone(),
             version_->cross_origin_embedder_policy());
 }
 

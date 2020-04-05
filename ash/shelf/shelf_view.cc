@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <utility>
 
 #include "ash/app_list/app_list_controller_impl.h"
 #include "ash/drag_drop/drag_image_view.h"
@@ -18,7 +19,6 @@
 #include "ash/public/cpp/window_properties.h"
 #include "ash/scoped_root_window_for_new_windows.h"
 #include "ash/screen_util.h"
-#include "ash/shelf/overflow_button.h"
 #include "ash/shelf/shelf.h"
 #include "ash/shelf/shelf_app_button.h"
 #include "ash/shelf/shelf_application_menu_model.h"
@@ -40,6 +40,7 @@
 #include "base/auto_reset.h"
 #include "base/bind.h"
 #include "base/containers/adapters.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/numerics/ranges.h"
 #include "base/strings/utf_string_conversions.h"
@@ -50,6 +51,7 @@
 #include "ui/base/models/simple_menu_model.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/compositor/layer.h"
+#include "ui/compositor/layer_animation_observer.h"
 #include "ui/compositor/layer_animator.h"
 #include "ui/compositor/scoped_animation_duration_scale_mode.h"
 #include "ui/events/event_utils.h"
@@ -94,21 +96,18 @@ constexpr SkColor kSeparatorColor = SkColorSetARGB(0x32, 0xFF, 0xFF, 0xFF);
 constexpr int kSeparatorSize = 20;
 constexpr int kSeparatorThickness = 1;
 
-// Inset from the bubble bounds to the bounds beyond which dragging triggers
-// scrolling.
-constexpr int kScrollTriggerBoundsInsetDips = 28;
+constexpr char kShelfIconMoveAnimationHistogram[] =
+    "Ash.ShelfIcon.AnimationSmoothness.Move";
+constexpr char kShelfIconFadeInAnimationHistogram[] =
+    "Ash.ShelfIcon.AnimationSmoothness.FadeIn";
+constexpr char kShelfIconFadeOutAnimationHistogram[] =
+    "Ash.ShelfIcon.AnimationSmoothness.FadeOut";
 
-// Time delay after which the scrolling speed will be increased.
-constexpr base::TimeDelta kDragScrollSpeedIncreaseDelay =
-    base::TimeDelta::FromSeconds(1);
-
-// Time interval at which to scroll the overflow bubble for dragging.
-constexpr base::TimeDelta kDragScrollInterval =
-    base::TimeDelta::FromMilliseconds(17);
-
-// How far to scroll the overflow bubble each time.
-constexpr int kDragSlowScrollDeltaDips = 3;
-constexpr int kDragFastScrollDeltaDips = 6;
+enum class IconAnimationType {
+  kMoveAnimation,
+  kFadeInAnimation,
+  kFadeOutAnimation
+};
 
 // Helper to check if tablet mode is enabled.
 bool IsTabletModeEnabled() {
@@ -164,11 +163,6 @@ class ShelfFocusSearch : public views::FocusSearch {
       focusable_views.push_back(shelf_view_->view_model()->view_at(i));
     }
 
-    if (!shelf_view_->is_overflow_mode() &&
-        shelf_view_->GetOverflowButton()->GetVisible()) {
-      focusable_views.push_back(shelf_view_->GetOverflowButton());
-    }
-
     // Where are we starting from?
     int start_index = 0;
     for (size_t i = 0; i < focusable_views.size(); ++i) {
@@ -195,31 +189,31 @@ class ShelfFocusSearch : public views::FocusSearch {
   DISALLOW_COPY_AND_ASSIGN(ShelfFocusSearch);
 };
 
-// AnimationDelegate used when inserting a new item. This steadily increases the
-// opacity of the layer as the animation progress.
-class FadeInAnimationDelegate : public gfx::AnimationDelegate {
+class IconAnimationMetricsReporter : public ui::AnimationMetricsReporter {
  public:
-  explicit FadeInAnimationDelegate(views::View* view) : view_(view) {}
-  ~FadeInAnimationDelegate() override = default;
-
-  // AnimationDelegate overrides:
-  void AnimationProgressed(const Animation* animation) override {
-    view_->layer()->SetOpacity(animation->GetCurrentValue());
-    view_->layer()->ScheduleDraw();
-  }
-  void AnimationEnded(const Animation* animation) override {
-    view_->layer()->SetOpacity(1.0f);
-    view_->layer()->ScheduleDraw();
-  }
-  void AnimationCanceled(const Animation* animation) override {
-    view_->layer()->SetOpacity(1.0f);
-    view_->layer()->ScheduleDraw();
-  }
+  explicit IconAnimationMetricsReporter(IconAnimationType type) : type_(type) {}
+  IconAnimationMetricsReporter(const IconAnimationMetricsReporter&) = delete;
+  IconAnimationMetricsReporter& operator=(const IconAnimationMetricsReporter&) =
+      delete;
+  ~IconAnimationMetricsReporter() override = default;
 
  private:
-  views::View* view_;
+  void Report(int value) override {
+    switch (type_) {
+      case IconAnimationType::kMoveAnimation:
+        base::UmaHistogramPercentage(kShelfIconMoveAnimationHistogram, value);
+        break;
+      case IconAnimationType::kFadeInAnimation:
+        base::UmaHistogramPercentage(kShelfIconFadeInAnimationHistogram, value);
+        break;
+      case IconAnimationType::kFadeOutAnimation:
+        base::UmaHistogramPercentage(kShelfIconFadeOutAnimationHistogram,
+                                     value);
+        break;
+    }
+  }
 
-  DISALLOW_COPY_AND_ASSIGN(FadeInAnimationDelegate);
+  IconAnimationType type_ = IconAnimationType::kMoveAnimation;
 };
 
 // Returns the id of the display on which |view| is shown.
@@ -245,6 +239,23 @@ bool ShelfButtonIsInDrag(const ShelfItemType item_type,
 
 }  // namespace
 
+// ImplicitAnimationObserver used when adding an item.
+class ShelfView::FadeInAnimationDelegate
+    : public ui::ImplicitAnimationObserver {
+ public:
+  explicit FadeInAnimationDelegate(ShelfView* shelf_view)
+      : shelf_view_(shelf_view) {}
+  ~FadeInAnimationDelegate() override { StopObservingImplicitAnimations(); }
+
+ private:
+  // ui::ImplicitAnimationObserver:
+  void OnImplicitAnimationsCompleted() override {
+    shelf_view_->OnFadeInAnimationEnded();
+  }
+
+  ShelfView* shelf_view_ = nullptr;
+};
+
 // AnimationDelegate used when deleting an item. This steadily decreased the
 // opacity of the layer as the animation progress.
 class ShelfView::FadeOutAnimationDelegate : public gfx::AnimationDelegate {
@@ -256,7 +267,6 @@ class ShelfView::FadeOutAnimationDelegate : public gfx::AnimationDelegate {
   // AnimationDelegate overrides:
   void AnimationProgressed(const Animation* animation) override {
     view_->layer()->SetOpacity(1 - animation->GetCurrentValue());
-    view_->layer()->ScheduleDraw();
   }
   void AnimationEnded(const Animation* animation) override {
     // Ensures that |view| is not used after destruction.
@@ -310,7 +320,9 @@ ShelfView::ShelfView(ShelfModel* model,
     : model_(model),
       shelf_(shelf),
       view_model_(std::make_unique<views::ViewModel>()),
-      bounds_animator_(std::make_unique<views::BoundsAnimator>(this)),
+      bounds_animator_(
+          std::make_unique<views::BoundsAnimator>(this,
+                                                  /*use_transforms=*/true)),
       focus_search_(std::make_unique<ShelfFocusSearch>(this)),
       drag_and_drop_host_(drag_and_drop_host),
       shelf_button_delegate_(shelf_button_delegate) {
@@ -333,37 +345,32 @@ ShelfView::~ShelfView() {
   Shell::Get()->RemoveShellObserver(this);
   bounds_animator_->RemoveObserver(this);
   model_->RemoveObserver(this);
-
-  // Resets the shelf tooltip delegate when the main shelf gets destroyed.
-  if (!is_overflow_mode() && !chromeos::switches::ShouldShowScrollableShelf())
-    shelf_->tooltip()->set_shelf_tooltip_delegate(nullptr);
 }
 
-int ShelfView::GetSizeOfAppIcons(int count, bool with_overflow) {
-  const int control_size = ShelfConfig::Get()->control_size();
+int ShelfView::GetSizeOfAppIcons(int count) {
   const int button_spacing = ShelfConfig::Get()->button_spacing();
-  const int overflow_button_margin =
-      ShelfConfig::Get()->overflow_button_margin();
 
   if (count == 0)
-    return with_overflow ? control_size + 2 * overflow_button_margin : 0;
+    return 0;
 
   const int app_size = count * ShelfConfig::Get()->button_size();
-  int overflow_size = 0;
   int total_padding = button_spacing * (count - 1);
-  if (with_overflow) {
-    overflow_size += control_size;
-    total_padding += button_spacing + 2 * overflow_button_margin;
-  }
-  return app_size + total_padding + overflow_size;
+  return app_size + total_padding;
 }
 
 void ShelfView::Init() {
+  move_animation_reporter_ = std::make_unique<IconAnimationMetricsReporter>(
+      IconAnimationType::kMoveAnimation);
+  fade_in_animation_reporter_ = std::make_unique<IconAnimationMetricsReporter>(
+      IconAnimationType::kFadeInAnimation);
+  fade_out_animation_reporter_ = std::make_unique<IconAnimationMetricsReporter>(
+      IconAnimationType::kFadeOutAnimation);
+
   separator_ = new views::Separator();
   separator_->SetColor(kSeparatorColor);
   separator_->SetPreferredHeight(kSeparatorSize);
   separator_->SetVisible(false);
-  ConfigureChildView(separator_);
+  ConfigureChildView(separator_, ui::LAYER_TEXTURED);
   AddChildView(separator_);
 
   model()->AddObserver(this);
@@ -378,29 +385,16 @@ void ShelfView::Init() {
     // Add child view so it has the same ordering as in the |view_model_|.
     AddChildViewAt(child, index);
   }
-  overflow_button_ = new OverflowButton(this);
-  ConfigureChildView(overflow_button_);
-  AddChildView(overflow_button_);
+
+  fade_in_animation_delegate_ = std::make_unique<FadeInAnimationDelegate>(this);
 
   // We'll layout when our bounds change.
-
-  if (chromeos::switches::ShouldShowScrollableShelf()) {
-    overflow_button_->SetVisible(false);
-  } else if (!is_overflow_mode()) {
-    // Add the main shelf view as ShelfTooltipDelegate when scrollable shelf
-    // is not enabled.
-    shelf_->tooltip()->set_shelf_tooltip_delegate(this);
-  }
 }
 
 gfx::Rect ShelfView::GetIdealBoundsOfItemIcon(const ShelfID& id) {
   int index = model_->ItemIndexByID(id);
   if (index < 0 || last_visible_index_ < 0 || index >= view_model_->view_size())
     return gfx::Rect();
-
-  // Map items in the overflow bubble to the overflow button.
-  if (index > last_visible_index_)
-    return GetMirroredRect(overflow_button_->bounds());
 
   const gfx::Rect& ideal_bounds(view_model_->ideal_bounds(index));
   ShelfAppButton* button = GetShelfAppButton(id);
@@ -416,14 +410,6 @@ bool ShelfView::IsShowingMenu() const {
          shelf_menu_model_adapter_->IsShowingMenu();
 }
 
-bool ShelfView::IsShowingOverflowBubble() const {
-  return overflow_bubble_.get() && overflow_bubble_->IsShowing();
-}
-
-OverflowButton* ShelfView::GetOverflowButton() const {
-  return overflow_button_;
-}
-
 void ShelfView::UpdateVisibleShelfItemBoundsUnion() {
   visible_shelf_item_bounds_union_.SetRect(0, 0, 0, 0);
   for (int i = std::max(0, first_visible_index_); i <= last_visible_index_;
@@ -431,11 +417,6 @@ void ShelfView::UpdateVisibleShelfItemBoundsUnion() {
     const views::View* child = view_model_->view_at(i);
     if (ShouldShowTooltipForChildView(child))
       visible_shelf_item_bounds_union_.Union(child->GetMirroredBounds());
-  }
-  // Also include the overflow button if it is visible.
-  if (overflow_button_->GetVisible()) {
-    visible_shelf_item_bounds_union_.Union(
-        overflow_button_->GetMirroredBounds());
   }
 }
 
@@ -446,11 +427,7 @@ bool ShelfView::ShouldShowTooltipForView(const views::View* view) const {
   if (view->parent() == this)
     return ShouldShowTooltipForChildView(view);
 
-  if (view->parent() != overflow_shelf())
-    return false;
-
-  return overflow_shelf() &&
-         overflow_shelf()->ShouldShowTooltipForChildView(view);
+  return false;
 }
 
 ShelfAppButton* ShelfView::GetShelfAppButton(const ShelfID& id) {
@@ -512,9 +489,6 @@ base::string16 ShelfView::GetTitleForView(const views::View* view) const {
   if (view->parent() == this)
     return GetTitleForChildView(view);
 
-  if (view->parent() == overflow_shelf())
-    return overflow_shelf()->GetTitleForChildView(view);
-
   return base::string16();
 }
 
@@ -522,38 +496,7 @@ views::View* ShelfView::GetViewForEvent(const ui::Event& event) {
   if (event.target() == GetWidget()->GetNativeWindow())
     return this;
 
-  ShelfView* overflow_shelf_view = overflow_shelf();
-  if (overflow_shelf_view &&
-      (event.target() == overflow_shelf_view->GetWidget()->GetNativeWindow())) {
-    return overflow_shelf_view;
-  }
-
   return nullptr;
-}
-
-void ShelfView::ToggleOverflowBubble() {
-  if (IsShowingOverflowBubble()) {
-    overflow_bubble_->Hide();
-    return;
-  }
-
-  if (!overflow_bubble_)
-    overflow_bubble_.reset(new OverflowBubble(shelf_));
-
-  ShelfView* overflow_view =
-      new ShelfView(model_, shelf_, /*drag_and_drop_host=*/nullptr,
-                    /*shelf_button_delegate=*/nullptr);
-  overflow_view->overflow_mode_ = true;
-  overflow_view->Init();
-  overflow_view->set_owner_overflow_bubble(overflow_bubble_.get());
-  aura::Window* root_window = GetWidget()->GetNativeWindow()->GetRootWindow();
-  overflow_view->OnShelfAlignmentChanged(root_window, shelf_->alignment());
-  overflow_view->main_shelf_ = this;
-  UpdateOverflowRange(overflow_view);
-
-  overflow_bubble_->Show(overflow_button_, overflow_view);
-
-  shelf_->UpdateVisibilityState();
 }
 
 gfx::Rect ShelfView::GetVisibleItemsBoundsInScreen() {
@@ -572,17 +515,6 @@ gfx::Size ShelfView::CalculatePreferredSize() const {
   }
 
   int last_button_index = last_visible_index_;
-  if (!is_overflow_mode() && overflow_button_ && overflow_button_->GetVisible())
-    ++last_button_index;
-
-  // When an item is dragged off from the overflow bubble, it is moved to last
-  // position and and changed to invisible. Overflow bubble size should be
-  // shrunk to fit only for visible items.
-  // If |dragged_to_another_shelf_| is set, there will be no
-  // invisible items in the shelf.
-  if (is_overflow_mode() && dragged_off_shelf_ && !dragged_to_another_shelf_ &&
-      RemovableByRipOff(view_model_->GetIndexOfView(drag_view_)) == REMOVABLE)
-    last_button_index--;
 
   const gfx::Rect last_button_bounds =
       last_button_index >= first_visible_index_
@@ -608,23 +540,11 @@ void ShelfView::OnBoundsChanged(const gfx::Rect& previous_bounds) {
   // an exception of usage within the scrollable shelf. With scrollable shelf
   // (and hotseat), tablet mode transition causes hotseat bounds changes, so
   // animating shelf items as well would introduce a lag.
-  if (shelf_->is_tablet_mode_animation_running() &&
-      !chromeos::switches::ShouldShowScrollableShelf()) {
-    AnimateToIdealBounds();
-    if (IsShowingOverflowBubble()) {
-      overflow_bubble_->bubble_view()->shelf_view()->OnBoundsChanged(
-          previous_bounds);
-    }
-    return;
-  }
 
   BoundsAnimatorDisabler disabler(bounds_animator_.get());
 
   LayoutToIdealBounds();
   shelf_->NotifyShelfIconPositionsChanged();
-
-  if (IsShowingOverflowBubble())
-    overflow_bubble_->Hide();
 }
 
 bool ShelfView::OnKeyPressed(const ui::KeyEvent& event) {
@@ -644,11 +564,7 @@ void ShelfView::OnMouseEvent(ui::MouseEvent* event) {
 
   switch (event->type()) {
     case ui::ET_MOUSEWHEEL:
-      // The mousewheel event is handled by the ScrollableShelfView, but if the
-      // scrollable shelf is not active, then we delegate the event to the
-      // shelf.
-      if (!chromeos::switches::ShouldShowScrollableShelf())
-        shelf_->ProcessMouseWheelEvent(event->AsMouseWheelEvent());
+      // The mousewheel event is handled by the ScrollableShelfView.
       break;
     case ui::ET_MOUSE_PRESSED:
       if (!event->IsOnlyLeftMouseButton()) {
@@ -678,12 +594,8 @@ void ShelfView::OnMouseEvent(ui::MouseEvent* event) {
 }
 
 views::FocusTraversable* ShelfView::GetPaneFocusTraversable() {
-  // ScrollableShelfView should handles the focus traversal if the flag
-  // is enabled.
-  if (chromeos::switches::ShouldShowScrollableShelf())
-    return nullptr;
-
-  return this;
+  // ScrollableShelfView should handles the focus traversal.
+  return nullptr;
 }
 
 const char* ShelfView::GetClassName() const {
@@ -718,24 +630,13 @@ void ShelfView::OnShelfButtonAboutToRequestFocusFromTabTraversal(
     ShelfButton* button,
     bool reverse) {
   if (ShouldFocusOut(reverse, button)) {
-    shelf_->shelf_focus_cycler()->FocusOut(
-        reverse, is_overflow_mode() ? SourceView::kShelfOverflowView
-                                    : SourceView::kShelfView);
+    shelf_->shelf_focus_cycler()->FocusOut(reverse, SourceView::kShelfView);
   }
 }
 
 void ShelfView::ButtonPressed(views::Button* sender,
                               const ui::Event& event,
                               views::InkDrop* ink_drop) {
-  if (sender == overflow_button_) {
-    ToggleOverflowBubble();
-    shelf_button_pressed_metric_tracker_.ButtonPressed(event, sender,
-                                                       SHELF_ACTION_NONE);
-    return;
-  }
-
-  // None of the checks in ShouldEventActivateButton() affects overflow button.
-  // So, it is safe to be checked after handling overflow button.
   if (!ShouldEventActivateButton(sender, event)) {
     ink_drop->SnapToHidden();
     return;
@@ -786,14 +687,6 @@ void ShelfView::ButtonPressed(views::Button* sender,
       break;
   }
 
-  // Record the current AppListViewState to be used later for metrics. The
-  // AppListViewState will change on app launch, so this will record the
-  // AppListViewState before the app was launched.
-  recorded_app_list_view_state_ =
-      Shell::Get()->app_list_controller()->GetAppListViewState();
-  app_list_visibility_before_app_launch_ =
-      Shell::Get()->app_list_controller()->IsVisible();
-
   // Run AfterItemSelected directly if the item has no delegate (ie. in tests).
   const ShelfItem& item = model_->items()[last_pressed_index_];
   if (!model_->GetShelfItemDelegate(item.id)) {
@@ -807,17 +700,7 @@ void ShelfView::ButtonPressed(views::Button* sender,
   model_->GetShelfItemDelegate(item.id)->ItemSelected(
       ui::Event::Clone(event), GetDisplayIdForView(this), LAUNCH_FROM_SHELF,
       base::BindOnce(&ShelfView::AfterItemSelected, weak_factory_.GetWeakPtr(),
-                     item, sender, base::Passed(ui::Event::Clone(event)),
-                     ink_drop));
-
-  // Close the overflow bubble if an item on either shelf is clicked and no
-  // context menu is showing on the overflow shelf. Press events elsewhere will
-  // close the overflow shelf via OverflowBubble's EventHandler functionality.
-  ShelfView* shelf_view = main_shelf_ ? main_shelf_ : this;
-  if (shelf_view->IsShowingOverflowBubble() &&
-      !overflow_shelf()->IsShowingMenu()) {
-    shelf_view->ToggleOverflowBubble();
-  }
+                     item, sender, ui::Event::Clone(event), ink_drop));
 }
 
 bool ShelfView::IsShowingMenuForView(const views::View* view) const {
@@ -944,12 +827,10 @@ void ShelfView::CreateDragIconProxyByLocationWithNoAnimation(
   drag_image_->GetWidget()->SetVisibilityAnimationTransition(
       views::Widget::ANIMATE_NONE);
   drag_image_->SetWidgetVisible(true);
-  if (chromeos::switches::ShouldShowScrollableShelf()) {
-    // Add a layer in order to ensure the icon properly animates when a drag
-    // starts from AppsGridView and ends in the Shelf.
-    drag_image_->SetPaintToLayer();
-    drag_image_->layer()->SetFillsBoundsOpaquely(false);
-  }
+  // Add a layer in order to ensure the icon properly animates when a drag
+  // starts from AppsGridView and ends in the Shelf.
+  drag_image_->SetPaintToLayer();
+  drag_image_->layer()->SetFillsBoundsOpaquely(false);
 }
 
 void ShelfView::UpdateDragIconProxy(
@@ -981,9 +862,7 @@ views::View* ShelfView::FindFirstFocusableChild() {
 views::View* ShelfView::FindLastFocusableChild() {
   if (view_model_->view_size() == 0)
     return nullptr;
-  return (!is_overflow_mode() && overflow_button_->GetVisible())
-             ? overflow_button_
-             : view_model_->view_at(last_visible_index());
+  return view_model_->view_at(last_visible_index());
 }
 
 views::View* ShelfView::FindFirstOrLastFocusableChild(bool last) {
@@ -1005,14 +884,6 @@ bool ShelfView::HandleGestureEvent(const ui::GestureEvent* event) {
   if (shelf_->ProcessGestureEvent(copy_event))
     return true;
 
-  // If the event hasn't been processed yet and the overflow shelf is showing,
-  // give the bubble a chance to process the event.
-  if (is_overflow_mode() &&
-      main_shelf_->overflow_bubble()->bubble_view()->ProcessGestureEvent(
-          copy_event)) {
-    return true;
-  }
-
   return false;
 }
 
@@ -1020,8 +891,6 @@ bool ShelfView::ShouldShowTooltipForChildView(
     const views::View* child_view) const {
   DCHECK_EQ(this, child_view->parent());
 
-  if (child_view == overflow_button_)
-    return true;
   // Don't show a tooltip for a view that's currently being dragged.
   if (child_view == drag_view_)
     return false;
@@ -1030,8 +899,9 @@ bool ShelfView::ShouldShowTooltipForChildView(
 }
 
 // static
-void ShelfView::ConfigureChildView(views::View* view) {
-  view->SetPaintToLayer();
+void ShelfView::ConfigureChildView(views::View* view,
+                                   ui::LayerType layer_type) {
+  view->SetPaintToLayer(layer_type);
   view->layer()->SetFillsBoundsOpaquely(false);
 }
 
@@ -1040,8 +910,6 @@ void ShelfView::CalculateIdealBounds() {
 
   const int button_spacing = ShelfConfig::Get()->button_spacing();
   const int separator_index = GetSeparatorIndex();
-  const AppCenteringStrategy app_centering_strategy =
-      CalculateAppCenteringStrategy();
 
   // Don't show the separator if it isn't needed, or would appear after all
   // visible items.
@@ -1051,47 +919,9 @@ void ShelfView::CalculateIdealBounds() {
   int x = shelf()->PrimaryAxisValue(app_icons_layout_offset_, 0);
   int y = shelf()->PrimaryAxisValue(0, app_icons_layout_offset_);
 
-  // When scrollable shelf is enabled, the padding is handled in
-  // ScrollableShelfView.
-  if (!is_overflow_mode() && !chromeos::switches::ShouldShowScrollableShelf()) {
-    // Now add the necessary padding to center app icons.
-    const gfx::Rect display_bounds =
-        screen_util::GetDisplayBoundsWithShelf(GetWidget()->GetNativeWindow());
-    const int display_size_primary = shelf()->PrimaryAxisValue(
-        display_bounds.size().width(), display_bounds.size().height());
-
-    const int available_size_for_app_icons = GetAvailableSpaceForAppIcons();
-    const int icons_size = GetSizeOfAppIcons(number_of_visible_apps(),
-                                             app_centering_strategy.overflow);
-    int padding_for_centering = 0;
-
-    if (app_centering_strategy.center_on_screen) {
-      // This is how far the first icon needs to be from the screen edge.
-      padding_for_centering = (display_size_primary - icons_size) / 2;
-
-      // Let's see how far this view is from the edge of this display to
-      // compute how much extra padding is needed.
-      gfx::Point origin = gfx::Point(0, 0);
-      views::View::ConvertPointToScreen(this, &origin);
-      padding_for_centering -= shelf_->IsHorizontalAlignment()
-                                   ? (origin.x() - display_bounds.x())
-                                   : (origin.y() - display_bounds.y());
-    } else {
-      padding_for_centering = (available_size_for_app_icons - icons_size) / 2;
-    }
-
-    if (padding_for_centering > 0) {
-      x = shelf()->PrimaryAxisValue(padding_for_centering, 0);
-      y = shelf()->PrimaryAxisValue(0, padding_for_centering);
-    }
-  }
+  // The padding is handled in ScrollableShelfView.
 
   for (int i = 0; i < view_model()->view_size(); ++i) {
-    if (is_overflow_mode() && i < first_visible_index()) {
-      view_model()->set_ideal_bounds(i, gfx::Rect(x, y, 0, 0));
-      continue;
-    }
-
     const int button_size = ShelfConfig::Get()->button_size();
 
     view_model()->set_ideal_bounds(i,
@@ -1118,10 +948,6 @@ void ShelfView::CalculateIdealBounds() {
     }
   }
 
-  if (is_overflow_mode()) {
-    UpdateAllButtonsVisibilityInOverflowMode();
-    return;
-  }
   // In the main shelf, the first visible index is either the first app, or -1
   // if there are no apps.
   first_visible_index_ = view_model()->view_size() == 0 ? -1 : 0;
@@ -1134,15 +960,6 @@ void ShelfView::CalculateIdealBounds() {
     if (dragged_off_shelf_ && view_model()->view_at(i) == drag_view())
       continue;
     view_model()->view_at(i)->SetVisible(i <= last_visible_index());
-  }
-
-  overflow_button_->SetVisible(app_centering_strategy.overflow);
-  if (app_centering_strategy.overflow) {
-    if (overflow_bubble() && overflow_bubble()->IsShowing())
-      UpdateOverflowRange(overflow_bubble()->bubble_view()->shelf_view());
-  } else {
-    if (overflow_bubble())
-      overflow_bubble()->Hide();
   }
 }
 
@@ -1167,17 +984,8 @@ views::View* ShelfView::CreateViewForItem(const ShelfItem& item) {
 
   view->set_context_menu_controller(this);
 
-  ConfigureChildView(view);
+  ConfigureChildView(view, ui::LAYER_NOT_DRAWN);
   return view;
-}
-
-void ShelfView::UpdateOverflowRange(ShelfView* overflow_view) const {
-  const int first_overflow_index = last_visible_index_ + 1;
-  DCHECK_LE(first_overflow_index, model_->item_count() - 1);
-  DCHECK_LT(model_->item_count() - 1, view_model_->view_size());
-
-  overflow_view->first_visible_index_ = first_overflow_index;
-  overflow_view->last_visible_index_ = model_->item_count() - 1;
 }
 
 int ShelfView::GetAvailableSpaceForAppIcons() const {
@@ -1192,83 +1000,6 @@ int ShelfView::GetSeparatorIndex() const {
     }
   }
   return -1;
-}
-
-ShelfView::AppCenteringStrategy ShelfView::CalculateAppCenteringStrategy() {
-  AppCenteringStrategy strategy;
-
-  // When the scrollable shelf is enabled, overflow mode is disabled. Meanwhile,
-  // centering padding is calculated in ScrollableShelfView, which means that
-  // |center_on_screen| is always false.
-  if (chromeos::switches::ShouldShowScrollableShelf())
-    return strategy;
-
-  // There are two possibilities. Either all the apps fit when centered
-  // on the whole screen width, in which case we do that. Or, when space
-  // becomes a little tight (which happens especially when the status area
-  // is wider because of extra panels), we center apps on the available space.
-  // This is only relevant for the main shelf.
-  if (is_overflow_mode())
-    return strategy;
-
-  const int total_available_size = shelf()->PrimaryAxisValue(width(), height());
-  StatusAreaWidget* status_widget = shelf_widget()->status_area_widget();
-  const int status_widget_size =
-      status_widget ? shelf()->PrimaryAxisValue(
-                          status_widget->GetWindowBoundsInScreen().width(),
-                          status_widget->GetWindowBoundsInScreen().height())
-                    : 0;
-  const int screen_size = total_available_size + status_widget_size;
-
-  // An easy way to check whether the apps fit at the exact center of the
-  // screen is to imagine that we have another status widget on the other
-  // side (the status widget is always bigger than the home button plus
-  // the back button if applicable) and see if the apps can fit in the middle.
-  int available_space_for_screen_centering =
-      screen_size -
-      2 * (status_widget_size + ShelfConfig::Get()->app_icon_group_margin());
-
-  if (GetSizeOfAppIcons(view_model()->view_size(), false) <
-      available_space_for_screen_centering) {
-    // Everything fits in the center of the screen.
-    last_visible_index_ = view_model()->view_size() - 1;
-    strategy.center_on_screen = true;
-    return strategy;
-  }
-
-  const int available_size_for_app_icons = GetAvailableSpaceForAppIcons();
-  last_visible_index_ = -1;
-  // We know that replacing the last app that fits with the overflow button
-  // will not change the outcome, so we ignore that case for now.
-  while (last_visible_index() < view_model()->view_size() - 1) {
-    if (GetSizeOfAppIcons(last_visible_index() + 2, false) <=
-        available_size_for_app_icons) {
-      last_visible_index_++;
-    } else {
-      strategy.overflow = true;
-      // Make space for the overflow button by showing one fewer app icon. If
-      // we already don't have enough space, don't decrement the last visible
-      // index further than -1.
-      last_visible_index_ = std::max(-1, last_visible_index_ - 1);
-      break;
-    }
-  }
-  return strategy;
-}
-
-void ShelfView::UpdateAllButtonsVisibilityInOverflowMode() {
-  // The overflow button is not shown in overflow mode.
-  overflow_button_->SetVisible(false);
-  DCHECK_LT(last_visible_index(), view_model()->view_size());
-  for (int i = 0; i < view_model()->view_size(); ++i) {
-    bool visible = i >= first_visible_index() && i <= last_visible_index();
-    // To track the dragging of |drag_view_| continuously, its visibility
-    // should be always true regardless of its position.
-    if (dragged_to_another_shelf_ && view_model()->view_at(i) == drag_view())
-      view_model()->view_at(i)->SetVisible(true);
-    else
-      view_model()->view_at(i)->SetVisible(visible);
-  }
 }
 
 void ShelfView::DestroyDragIconProxy() {
@@ -1300,9 +1031,7 @@ bool ShelfView::StartDrag(const std::string& app_id,
   // Check if the application is pinned - if not, we have to pin it so
   // that we can re-arrange the shelf order accordingly. Note that items have
   // to be pinned to give them the same (order) possibilities as a shortcut.
-  // When an item is dragged from overflow to shelf, IsShowingOverflowBubble()
-  // returns true. At this time, we don't need to pin the item.
-  if (!IsShowingOverflowBubble() && !model_->IsAppPinned(app_id)) {
+  if (!model_->IsAppPinned(app_id)) {
     ShelfModel::ScopedUserTriggeredMutation user_triggered(model_);
     model_->PinAppWithID(app_id);
     drag_and_drop_item_pinned_ = true;
@@ -1373,13 +1102,11 @@ void ShelfView::EndDrag(bool cancel) {
   } else if (drag_and_drop_view) {
     std::unique_ptr<gfx::AnimationDelegate> animation_delegate;
 
-    if (chromeos::switches::ShouldShowScrollableShelf()) {
-      // Resets the dragged view's opacity at the end of drag. Otherwise, if
-      // the app is already pinned on shelf before drag starts, the dragged view
-      // will be invisible when drag ends.
-      animation_delegate = std::make_unique<StartFadeAnimationDelegate>(
-          this, drag_and_drop_view);
-    }
+    // Resets the dragged view's opacity at the end of drag. Otherwise, if
+    // the app is already pinned on shelf before drag starts, the dragged view
+    // will be invisible when drag ends.
+    animation_delegate =
+        std::make_unique<StartFadeAnimationDelegate>(this, drag_and_drop_view);
 
     if (cancel) {
       // When a hosted drag gets canceled, the item can remain in the same slot
@@ -1410,21 +1137,15 @@ void ShelfView::SwapButtons(views::View* button_to_swap, bool with_next) {
     }
   }
 
-  const int target_index = with_next ? src_index + 1 : src_index - 1;
-  // TODO(manucornet): Remove this restriction once we get rid of overflow
-  // bubbles in favor of a scrollable shelf.
-  const int first_swappable_index = std::max(first_visible_index_, 0);
-  const int last_swappable_index = last_visible_index_;
-  if (target_index > last_swappable_index ||
-      target_index < first_swappable_index) {
-    return;
-  }
-
   // Swapping items in the model is sufficient, everything will then be
   // reflected in the views.
-  if (model_->Swap(src_index, with_next))
+  if (model_->Swap(src_index, with_next)) {
     AnimateToIdealBounds();
-  // TODO(manucornet): Announce the swap to screen readers.
+    const ShelfItem src_item = model_->items()[src_index];
+    const ShelfItem dst_item =
+        model_->items()[src_index + (with_next ? 1 : -1)];
+    AnnounceSwapEvent(src_item, dst_item);
+  }
 }
 
 void ShelfView::PointerPressedOnButton(views::View* view,
@@ -1487,8 +1208,7 @@ void ShelfView::PointerReleasedOnButton(views::View* view,
   if (drag_pointer_ != NONE)
     return;
 
-  if (chromeos::switches::ShouldShowScrollableShelf())
-    drag_and_drop_host_->DestroyDragIconProxy();
+  drag_and_drop_host_->DestroyDragIconProxy();
 
   // If the drag pointer is NONE, no drag operation is going on and the
   // drag_view can be released.
@@ -1503,7 +1223,6 @@ void ShelfView::LayoutToIdealBounds() {
 
   CalculateIdealBounds();
   views::ViewModelUtils::SetViewBoundsToIdealBounds(*view_model_);
-  LayoutOverflowButton();
   UpdateVisibleShelfItemBoundsUnion();
 }
 
@@ -1512,42 +1231,12 @@ bool ShelfView::IsItemPinned(const ShelfItem& item) const {
 }
 
 void ShelfView::OnTabletModeChanged() {
-  // For scrollable shelf, the layout change will happen as part of shelf config
-  // update.
-  if (!chromeos::switches::ShouldShowScrollableShelf())
-    OnBoundsChanged(GetBoundsInScreen());
-}
-
-void ShelfView::LayoutOverflowButton() const {
-  // If we don't have any views, the overflow button can't be visible. No need
-  // to do any work in that case.
-  if (view_model_->view_size() == 0)
-    return;
-
-  int x = 0;
-  int y = 0;
-  if (last_visible_index_ != -1) {
-    const int offset = ShelfConfig::Get()->overflow_button_margin();
-    x = shelf_->PrimaryAxisValue(
-        offset + view_model_->ideal_bounds(last_visible_index_).right(),
-        offset + view_model_->ideal_bounds(last_visible_index_).x());
-    y = shelf_->PrimaryAxisValue(
-        offset + view_model_->ideal_bounds(last_visible_index_).y(),
-        offset + view_model_->ideal_bounds(last_visible_index_).bottom());
-
-    // Add button spacing to correctly position overflow button next to app
-    // buttons.
-    x = shelf_->PrimaryAxisValue(x + ShelfConfig::Get()->button_spacing(), x);
-    y = shelf_->PrimaryAxisValue(y, y + ShelfConfig::Get()->button_spacing());
-  }
-
-  overflow_button_->SetBoundsRect(
-      gfx::Rect(x, y, ShelfConfig::Get()->control_size(),
-                ShelfConfig::Get()->control_size()));
+  // The layout change will happen as part of shelf config update.
 }
 
 void ShelfView::AnimateToIdealBounds() {
   CalculateIdealBounds();
+  bounds_animator_->SetAnimationMetricsReporter(move_animation_reporter_.get());
 
   for (int i = 0; i < view_model_->view_size(); ++i) {
     View* view = view_model_->view_at(i);
@@ -1557,17 +1246,22 @@ void ShelfView::AnimateToIdealBounds() {
     if (view->border())
       view->SetBorder(views::NullBorder());
   }
-  LayoutOverflowButton();
   UpdateVisibleShelfItemBoundsUnion();
 }
 
 void ShelfView::FadeIn(views::View* view) {
   view->SetVisible(true);
   view->layer()->SetOpacity(0);
-  AnimateToIdealBounds();
-  bounds_animator_->SetAnimationDelegate(
-      view, std::unique_ptr<gfx::AnimationDelegate>(
-                new FadeInAnimationDelegate(view)));
+
+  ui::ScopedLayerAnimationSettings fade_in_animation_settings(
+      view->layer()->GetAnimator());
+  fade_in_animation_settings.SetTweenType(gfx::Tween::EASE_OUT);
+  fade_in_animation_settings.SetPreemptionStrategy(
+      ui::LayerAnimator::IMMEDIATELY_SET_NEW_TARGET);
+  fade_in_animation_settings.AddObserver(fade_in_animation_delegate_.get());
+  fade_in_animation_settings.SetAnimationMetricsReporter(
+      fade_in_animation_reporter_.get());
+  view->layer()->SetOpacity(1.f);
 }
 
 void ShelfView::PrepareForDrag(Pointer pointer, const ui::LocatedEvent& event) {
@@ -1596,12 +1290,10 @@ void ShelfView::PrepareForDrag(Pointer pointer, const ui::LocatedEvent& event) {
 
   drag_view_->OnDragStarted(&event);
 
-  if (chromeos::switches::ShouldShowScrollableShelf()) {
-    drag_view_->layer()->SetOpacity(0.0f);
-    drag_and_drop_host_->CreateDragIconProxyByLocationWithNoAnimation(
-        event.root_location(), drag_view_->GetImage(), drag_view_,
-        /*scale_factor=*/1.0f, /*blur_radius=*/0);
-  }
+  drag_view_->layer()->SetOpacity(0.0f);
+  drag_and_drop_host_->CreateDragIconProxyByLocationWithNoAnimation(
+      event.root_location(), drag_view_->GetImage(), drag_view_,
+      /*scale_factor=*/1.0f, /*blur_radius=*/0);
 }
 
 void ShelfView::ContinueDrag(const ui::LocatedEvent& event) {
@@ -1621,46 +1313,6 @@ void ShelfView::ContinueDrag(const ui::LocatedEvent& event) {
     return;
   }
 
-  // Scroll the overflow bubble as the user drags near either end. There could
-  // be nowhere to scroll to in that direction (for that matter, the overflow
-  // bubble may not even span the screen), but for simplicity, ignore that
-  // possibility here and just let ScrollForUserDrag repeatedly do nothing.
-  if (is_overflow_mode()) {
-    const gfx::Rect bubble_bounds =
-        owner_overflow_bubble_->bubble_view()->GetBubbleBounds();
-    gfx::Point screen_location(event.location());
-    ConvertPointToScreen(drag_view_, &screen_location);
-    const int primary_coordinate =
-        shelf_->PrimaryAxisValue(screen_location.x(), screen_location.y());
-
-    int new_drag_scroll_dir = 0;
-    if (primary_coordinate <
-        shelf_->PrimaryAxisValue(bubble_bounds.x(), bubble_bounds.y()) +
-            kScrollTriggerBoundsInsetDips) {
-      new_drag_scroll_dir = -1;
-    } else if (primary_coordinate >
-               shelf_->PrimaryAxisValue(bubble_bounds.right(),
-                                        bubble_bounds.bottom()) -
-                   kScrollTriggerBoundsInsetDips) {
-      new_drag_scroll_dir = 1;
-    }
-
-    if (new_drag_scroll_dir != drag_scroll_dir_) {
-      drag_scroll_dir_ = new_drag_scroll_dir;
-      scrolling_timer_.Stop();
-      speed_up_drag_scrolling_.Stop();
-      if (new_drag_scroll_dir != 0) {
-        scrolling_timer_.Start(
-            FROM_HERE, kDragScrollInterval,
-            base::BindRepeating(
-                &ShelfView::ScrollForUserDrag, base::Unretained(this),
-                new_drag_scroll_dir * kDragSlowScrollDeltaDips));
-        speed_up_drag_scrolling_.Start(FROM_HERE, kDragScrollSpeedIncreaseDelay,
-                                       this, &ShelfView::SpeedUpDragScrolling);
-      }
-    }
-  }
-
   // Calculates the drag point in screen before MoveDragViewTo is called.
   gfx::Point drag_point_in_screen(event.location());
   ConvertPointToScreen(drag_view_, &drag_point_in_screen);
@@ -1669,41 +1321,8 @@ void ShelfView::ContinueDrag(const ui::LocatedEvent& event) {
   ConvertPointToTarget(drag_view_, this, &drag_point);
   MoveDragViewTo(shelf_->PrimaryAxisValue(drag_point.x() - drag_origin_.x(),
                                           drag_point.y() - drag_origin_.y()));
-  if (chromeos::switches::ShouldShowScrollableShelf()) {
-    drag_and_drop_host_->UpdateDragIconProxy(drag_point_in_screen -
-                                             drag_origin_.OffsetFromOrigin());
-  }
-}
-
-void ShelfView::ScrollForUserDrag(int offset) {
-  DCHECK(dragging());
-  DCHECK(drag_view_);
-  DCHECK(is_overflow_mode());
-
-  const gfx::Point position(drag_view_->origin());
-  const int new_primary_coordinate =
-      shelf_->IsHorizontalAlignment()
-          ? position.x() +
-                owner_overflow_bubble_->bubble_view()->ScrollByXOffset(
-                    offset,
-                    /*animate=*/false)
-          : position.y() +
-                owner_overflow_bubble_->bubble_view()->ScrollByYOffset(
-                    offset,
-                    /*animate=*/false);
-  bounds_animator_->StopAnimatingView(drag_view_);
-  MoveDragViewTo(new_primary_coordinate);
-}
-
-void ShelfView::SpeedUpDragScrolling() {
-  DCHECK(dragging());
-  DCHECK(drag_view_);
-  DCHECK(is_overflow_mode());
-
-  scrolling_timer_.Start(
-      FROM_HERE, kDragScrollInterval,
-      base::BindRepeating(&ShelfView::ScrollForUserDrag, base::Unretained(this),
-                          drag_scroll_dir_ * kDragFastScrollDeltaDips));
+  drag_and_drop_host_->UpdateDragIconProxy(drag_point_in_screen -
+                                           drag_origin_.OffsetFromOrigin());
 }
 
 void ShelfView::MoveDragViewTo(int primary_axis_coordinate) {
@@ -1743,15 +1362,6 @@ void ShelfView::MoveDragViewTo(int primary_axis_coordinate) {
   // |view_model_| update.
   model_->Move(current_index, target_index);
   bounds_animator_->StopAnimatingView(drag_view_);
-}
-
-void ShelfView::EndDragOnOtherShelf(bool cancel) {
-  if (is_overflow_mode()) {
-    main_shelf_->EndDrag(cancel);
-  } else {
-    DCHECK(overflow_bubble_->IsShowing());
-    overflow_bubble_->bubble_view()->shelf_view()->EndDrag(cancel);
-  }
 }
 
 void ShelfView::CreateDragIconProxy(
@@ -1797,25 +1407,9 @@ bool ShelfView::HandleRipOffDrag(const ui::LocatedEvent& event) {
     // If the shelf/overflow bubble bounds contains |screen_location| we insert
     // the item back into the shelf.
     if (GetBoundsForDragInsertInScreen().Contains(screen_location)) {
-      if (dragged_to_another_shelf_) {
-        // During the dragging an item from Shelf to Overflow, it can enter here
-        // directly because both are located very closely.
-        EndDragOnOtherShelf(true /* cancel */);
-
-        // Stops the animation of |drag_view_| and sets its bounds explicitly
-        // because ContinueDrag() stops its animation. Without this, unexpected
-        // bounds will be set.
-        bounds_animator_->StopAnimatingView(drag_view_);
-        int drag_view_index = view_model_->GetIndexOfView(drag_view_);
-        drag_view_->SetBoundsRect(view_model_->ideal_bounds(drag_view_index));
-        dragged_to_another_shelf_ = false;
-      }
-
-      if (chromeos::switches::ShouldShowScrollableShelf()) {
-        drag_and_drop_host_->CreateDragIconProxyByLocationWithNoAnimation(
-            event.root_location(), drag_view_->GetImage(), drag_image_.get(),
-            /*scale_factor=*/1.0f, /*blur_radius=*/0);
-      }
+      drag_and_drop_host_->CreateDragIconProxyByLocationWithNoAnimation(
+          event.root_location(), drag_view_->GetImage(), drag_image_.get(),
+          /*scale_factor=*/1.0f, /*blur_radius=*/0);
 
       // Destroy our proxy view item.
       DestroyDragIconProxy();
@@ -1823,57 +1417,7 @@ bool ShelfView::HandleRipOffDrag(const ui::LocatedEvent& event) {
       // the move as in any normal case.
       dragged_off_shelf_ = false;
 
-      if (!chromeos::switches::ShouldShowScrollableShelf())
-        drag_view_->layer()->SetOpacity(1.0f);
-
-      // The size of Overflow bubble should be updated immediately when an item
-      // is re-inserted.
-      if (is_overflow_mode())
-        PreferredSizeChanged();
       return false;
-    } else if (is_overflow_mode() &&
-               main_shelf_->GetBoundsForDragInsertInScreen().Contains(
-                   screen_location)) {
-      // The item was dragged from the overflow shelf to the main shelf.
-      if (!dragged_to_another_shelf_) {
-        dragged_to_another_shelf_ = true;
-        drag_image_->SetOpacity(1.0f);
-        main_shelf_->StartDrag(dragged_app_id, screen_location);
-      } else {
-        main_shelf_->Drag(screen_location);
-      }
-    } else if (!is_overflow_mode() && overflow_bubble_ &&
-               overflow_bubble_->IsShowing() &&
-               overflow_bubble_->bubble_view()
-                   ->shelf_view()
-                   ->GetBoundsForDragInsertInScreen()
-                   .Contains(screen_location)) {
-      // The item was dragged from the main shelf to the overflow shelf.
-      if (!dragged_to_another_shelf_) {
-        dragged_to_another_shelf_ = true;
-        drag_image_->SetOpacity(1.0f);
-        overflow_bubble_->bubble_view()->shelf_view()->StartDrag(
-            dragged_app_id, screen_location);
-      } else {
-        overflow_bubble_->bubble_view()->shelf_view()->Drag(screen_location);
-      }
-    } else if (dragged_to_another_shelf_) {
-      // Makes the |drag_image_| partially disappear again.
-      dragged_to_another_shelf_ = false;
-      drag_image_->SetOpacity(kDraggedImageOpacity);
-
-      EndDragOnOtherShelf(true /* cancel */);
-      if (!is_overflow_mode()) {
-        // During dragging, the position of the dragged item is moved to the
-        // back. If the overflow bubble is showing, a copy of the dragged item
-        // will appear at the end of the overflow shelf. Decrement the last
-        // visible index of the overflow shelf to hide this copy.
-        overflow_bubble_->bubble_view()->shelf_view()->last_visible_index_--;
-      }
-
-      bounds_animator_->StopAnimatingView(drag_view_);
-      int drag_view_index = view_model_->GetIndexOfView(drag_view_);
-      drag_view_->SetBoundsRect(view_model_->ideal_bounds(drag_view_index));
     }
     // Move our proxy view item.
     UpdateDragIconProxy(screen_location);
@@ -1881,41 +1425,25 @@ bool ShelfView::HandleRipOffDrag(const ui::LocatedEvent& event) {
   }
 
   // Mark the item as dragged off the shelf if the drag distance exceeds
-  // |kRipOffDistance|, or if it's dragged between the main and overflow shelf.
+  // |kRipOffDistance|.
   int delta = CalculateShelfDistance(screen_location);
   bool dragged_off_shelf = delta > kRipOffDistance;
-  dragged_off_shelf |=
-      (is_overflow_mode() &&
-       main_shelf_->GetBoundsForDragInsertInScreen().Contains(screen_location));
-  dragged_off_shelf |= (!is_overflow_mode() && overflow_bubble_ &&
-                        overflow_bubble_->IsShowing() &&
-                        overflow_bubble_->bubble_view()
-                            ->shelf_view()
-                            ->GetBoundsForDragInsertInScreen()
-                            .Contains(screen_location));
 
   if (dragged_off_shelf) {
-    // When scrollable shelf is enabled, replaces a proxy icon provided by
-    // drag_and_drop_host_ - keep cursor position consistent with the host
-    // provided icon, and disable visibility animations (to prevent the proxy
-    // icon from lingering on when replaced with the icon provided by host).
-    const bool animate_proxy_visibility =
-        !chromeos::switches::ShouldShowScrollableShelf();
+    // Replaces a proxy icon provided by drag_and_drop_host_ - keep cursor
+    // position consistent with the host provided icon, and disable
+    // visibility animations (to prevent the proxy icon from lingering on
+    // when replaced with the icon provided by the host).
     const gfx::Point center = drag_view_->GetLocalBounds().CenterPoint();
-    const gfx::Vector2d cursor_offset_from_center =
-        chromeos::switches::ShouldShowScrollableShelf() ? drag_origin_ - center
-                                                        : gfx::Vector2d();
+    const gfx::Vector2d cursor_offset_from_center = drag_origin_ - center;
     // Create a proxy view item which can be moved anywhere.
     CreateDragIconProxy(event.root_location(), drag_view_->GetImage(),
                         drag_view_, cursor_offset_from_center,
-                        kDragAndDropProxyScale, animate_proxy_visibility);
+                        kDragAndDropProxyScale, /*animate_visibility=*/false);
 
     dragged_off_shelf_ = true;
 
-    if (chromeos::switches::ShouldShowScrollableShelf())
-      drag_and_drop_host_->DestroyDragIconProxy();
-    else
-      drag_view_->layer()->SetOpacity(0.0f);
+    drag_and_drop_host_->DestroyDragIconProxy();
 
     if (RemovableByRipOff(current_index) == REMOVABLE) {
       // Move the item to the back and hide it. ShelfItemMoved() callback will
@@ -1923,16 +1451,6 @@ bool ShelfView::HandleRipOffDrag(const ui::LocatedEvent& event) {
       if (current_index != model_->item_count() - 1) {
         model_->Move(current_index, model_->item_count() - 1);
         StartFadeInLastVisibleItem();
-
-        // During dragging, the position of the dragged item is moved to the
-        // back. If the overflow bubble is showing, a copy of the dragged item
-        // will appear at the end of the overflow shelf. Decrement the last
-        // visible index of the overflow shelf to hide this copy.
-        if (overflow_bubble_ && overflow_bubble_->IsShowing())
-          overflow_bubble_->bubble_view()->shelf_view()->last_visible_index_--;
-      } else if (is_overflow_mode()) {
-        // Overflow bubble should be shrunk when an item is ripped off.
-        PreferredSizeChanged();
       }
       // Make the item partially disappear to show that it will get removed if
       // dropped.
@@ -1964,11 +1482,7 @@ void ShelfView::FinalizeRipOffDrag(bool cancel) {
   bool snap_back = false;
   // Items which cannot be dragged off will be handled as a cancel.
   if (!cancel) {
-    if (dragged_to_another_shelf_) {
-      dragged_to_another_shelf_ = false;
-      EndDragOnOtherShelf(false /* cancel */);
-      drag_view_->layer()->SetOpacity(1.0f);
-    } else if (RemovableByRipOff(current_index) != REMOVABLE) {
+    if (RemovableByRipOff(current_index) != REMOVABLE) {
       // Make sure we do not try to remove un-removable items like items which
       // were not pinned or have to be always there.
       cancel = true;
@@ -1981,12 +1495,7 @@ void ShelfView::FinalizeRipOffDrag(bool cancel) {
     }
   }
   if (cancel || snap_back) {
-    if (dragged_to_another_shelf_) {
-      dragged_to_another_shelf_ = false;
-      // Other shelf handles revert of dragged item.
-      EndDragOnOtherShelf(false /* true */);
-      drag_view_->layer()->SetOpacity(1.0f);
-    } else if (!cancelling_drag_model_changed_) {
+    if (!cancelling_drag_model_changed_) {
       // Only do something if the change did not come through a model change.
       gfx::Rect drag_bounds = drag_image_->GetBoundsInScreen();
       gfx::Point relative_to = GetBoundsInScreen().origin();
@@ -2060,34 +1569,27 @@ std::pair<int, int> ShelfView::GetDragRange(int index) {
       max_index = i;
     }
   }
-  min_index =
-      std::max(min_index, is_overflow_mode() ? first_visible_index_ : 0);
+  min_index = std::max(min_index, 0);
   max_index = std::min(max_index, last_visible_index_);
   return std::pair<int, int>(min_index, max_index);
+}
+
+void ShelfView::OnFadeInAnimationEnded() {
+  // Call PreferredSizeChanged() to notify container to re-layout at the end
+  // of fade-in animation.
+  PreferredSizeChanged();
 }
 
 void ShelfView::OnFadeOutAnimationEnded() {
   // Call PreferredSizeChanged() to notify container to re-layout at the end
   // of removal animation.
-  if (chromeos::switches::ShouldShowScrollableShelf())
-    PreferredSizeChanged();
+  PreferredSizeChanged();
 
   AnimateToIdealBounds();
   StartFadeInLastVisibleItem();
 }
 
-void ShelfView::StartFadeInLastVisibleItem() {
-  // If overflow button is visible and there is a valid new last item, fading
-  // the new last item in after sliding animation is finished.
-  if (overflow_button_->GetVisible() && last_visible_index_ >= 0) {
-    views::View* last_visible_view = view_model_->view_at(last_visible_index_);
-    last_visible_view->layer()->SetOpacity(0);
-    bounds_animator_->SetAnimationDelegate(
-        last_visible_view,
-        std::unique_ptr<gfx::AnimationDelegate>(
-            new StartFadeAnimationDelegate(this, last_visible_view)));
-  }
-}
+void ShelfView::StartFadeInLastVisibleItem() {}
 
 gfx::Rect ShelfView::GetMenuAnchorRect(const views::View& source,
                                        const gfx::Point& location,
@@ -2096,10 +1598,7 @@ gfx::Rect ShelfView::GetMenuAnchorRect(const views::View& source,
   if (ShelfItemForView(&source) || !context_menu)
     return source.GetBoundsInScreen();
 
-  const gfx::Rect shelf_bounds_in_screen =
-      is_overflow_mode()
-          ? owner_overflow_bubble_->bubble_view()->GetBubbleBounds()
-          : GetBoundsInScreen();
+  const gfx::Rect shelf_bounds_in_screen = GetBoundsInScreen();
   gfx::Point origin;
   switch (shelf_->alignment()) {
     case ShelfAlignment::kBottom:
@@ -2166,41 +1665,38 @@ void ShelfView::AnnouncePinUnpinEvent(const ShelfItem& item, bool pinned) {
                                                /*send_native_event=*/true);
 }
 
+void ShelfView::AnnounceSwapEvent(const ShelfItem& first_item,
+                                  const ShelfItem& second_item) {
+  base::string16 first_item_title =
+      first_item.title.empty()
+          ? l10n_util::GetStringUTF16(IDS_SHELF_ITEM_GENERIC_NAME)
+          : first_item.title;
+  base::string16 second_item_title =
+      second_item.title.empty()
+          ? l10n_util::GetStringUTF16(IDS_SHELF_ITEM_GENERIC_NAME)
+          : second_item.title;
+  base::string16 announcement = l10n_util::GetStringFUTF16(
+      IDS_SHELF_ITEMS_WERE_SWAPPED, first_item_title, second_item_title);
+  announcement_view_->GetViewAccessibility().OverrideName(announcement);
+  announcement_view_->NotifyAccessibilityEvent(ax::mojom::Event::kAlert,
+                                               /*send_native_event=*/true);
+}
+
 gfx::Rect ShelfView::GetBoundsForDragInsertInScreen() {
   gfx::Size preferred_size;
-  if (is_overflow_mode()) {
-    DCHECK(owner_overflow_bubble_);
-    gfx::Rect bubble_bounds =
-        owner_overflow_bubble_->bubble_view()->GetBubbleBounds();
-    preferred_size = bubble_bounds.size();
-  } else {
-    const int last_button_index = view_model_->view_size() - 1;
-    gfx::Rect last_button_bounds =
-        view_model_->view_at(last_button_index)->bounds();
-    if (overflow_button_->GetVisible()) {
-      // When overflow button is visible, last_button_bounds should be
-      // overflow button's bounds.
-      last_button_bounds = overflow_button_->bounds();
-    }
+  const int last_button_index = view_model_->view_size() - 1;
+  gfx::Rect last_button_bounds =
+      view_model_->view_at(last_button_index)->bounds();
 
-    if (shelf_->IsHorizontalAlignment()) {
-      preferred_size = gfx::Size(last_button_bounds.right(),
-                                 ShelfConfig::Get()->hotseat_size());
-    } else {
-      preferred_size = gfx::Size(ShelfConfig::Get()->hotseat_size(),
-                                 last_button_bounds.bottom());
-    }
+  if (shelf_->IsHorizontalAlignment()) {
+    preferred_size = gfx::Size(last_button_bounds.right(),
+                               ShelfConfig::Get()->hotseat_size());
+  } else {
+    preferred_size = gfx::Size(ShelfConfig::Get()->hotseat_size(),
+                               last_button_bounds.bottom());
   }
   gfx::Point origin(GetMirroredXWithWidthInView(0, preferred_size.width()), 0);
-
-  // In overflow mode, we should use OverflowBubbleView as a source for
-  // converting |origin| to screen coordinates. When a scroll operation is
-  // occurred in OverflowBubble, the bounds of ShelfView in OverflowBubble can
-  // be changed.
-  if (is_overflow_mode())
-    ConvertPointToScreen(owner_overflow_bubble_->bubble_view(), &origin);
-  else
-    ConvertPointToScreen(this, &origin);
+  ConvertPointToScreen(this, &origin);
 
   return gfx::Rect(origin, preferred_size);
 }
@@ -2239,7 +1735,7 @@ int ShelfView::CancelDrag(int modified_index) {
 }
 
 void ShelfView::OnGestureEvent(ui::GestureEvent* event) {
-  if (!overflow_mode_ && !ShouldHandleGestures(*event))
+  if (!ShouldHandleGestures(*event))
     return;
 
   if (HandleGestureEvent(event))
@@ -2307,24 +1803,16 @@ void ShelfView::ShelfItemRemoved(int model_index, const ShelfItem& old_item) {
     CancelDrag(-1);
   }
 
-  // When the overflow bubble is visible, the overflow range needs to be set
-  // before CalculateIdealBounds() gets called. Otherwise CalculateIdealBounds()
-  // could trigger a ShelfItemChanged() by hiding the overflow bubble and
-  // since the overflow bubble is not yet synced with the ShelfModel this
-  // could cause a crash.
-  if (overflow_bubble_ && overflow_bubble_->IsShowing()) {
-    UpdateOverflowRange(overflow_bubble_->bubble_view()->shelf_view());
-  }
-
   if (view.get() == shelf_->tooltip()->GetCurrentAnchorView())
     shelf_->tooltip()->Close();
 
   if (view->GetVisible() && view->layer()->opacity() > 0.0f) {
-    if (chromeos::switches::ShouldShowScrollableShelf())
-      UpdateVisibleIndices();
+    UpdateVisibleIndices();
 
     // The first animation fades out the view. When done we'll animate the rest
     // of the views to their target location.
+    bounds_animator_->SetAnimationMetricsReporter(
+        fade_out_animation_reporter_.get());
     bounds_animator_->AnimateViewTo(view.get(), view->bounds());
     bounds_animator_->SetAnimationDelegate(
         view.get(), std::unique_ptr<gfx::AnimationDelegate>(
@@ -2339,8 +1827,7 @@ void ShelfView::ShelfItemRemoved(int model_index, const ShelfItem& old_item) {
 
     // If there is no fade out animation, notify the parent view of the
     // changed size before bounds animations start.
-    if (chromeos::switches::ShouldShowScrollableShelf())
-      PreferredSizeChanged();
+    PreferredSizeChanged();
 
     // We don't need to show a fade out animation for invisible |view|. When an
     // item is ripped out from the shelf, its |view| is already invisible.
@@ -2378,10 +1865,7 @@ void ShelfView::ShelfItemChanged(int model_index, const ShelfItem& old_item) {
     view_model_->set_ideal_bounds(model_index, old_ideal_bounds);
 
     new_view->SetBoundsRect(old_view->bounds());
-    if (overflow_button_ && overflow_button_->GetVisible())
-      AnimateToIdealBounds();
-    else
-      bounds_animator_->AnimateViewTo(new_view, old_ideal_bounds);
+    bounds_animator_->AnimateViewTo(new_view, old_ideal_bounds);
 
     // If an item is being pinned or unpinned, show the new status of the
     // shelf immediately so that the separator gets drawn as needed.
@@ -2453,8 +1937,6 @@ void ShelfView::OnShelfAlignmentChanged(aura::Window* root_window,
     if (i >= first_visible_index_ && i <= last_visible_index_)
       view_model_->view_at(i)->Layout();
   }
-  if (overflow_bubble_)
-    overflow_bubble_->Hide();
 
   AnnounceShelfAlignment();
 }
@@ -2475,8 +1957,7 @@ void ShelfView::AfterItemSelected(const ShelfItem& item,
   // Record AppList metric for any action considered an app launch.
   if (action == SHELF_ACTION_NEW_WINDOW_CREATED ||
       action == SHELF_ACTION_WINDOW_ACTIVATED) {
-    Shell::Get()->app_list_controller()->RecordShelfAppLaunched(
-        recorded_app_list_view_state_, app_list_visibility_before_app_launch_);
+    Shell::Get()->app_list_controller()->RecordShelfAppLaunched();
   }
 
   // The app list handles its own ink drop effect state changes.
@@ -2587,8 +2068,6 @@ void ShelfView::OnBoundsAnimatorProgressed(views::BoundsAnimator* animator) {
 
   // Do not call PreferredSizeChanged() so that container does not re-layout
   // during the bounds animation.
-  if (!chromeos::switches::ShouldShowScrollableShelf())
-    PreferredSizeChanged();
 }
 
 void ShelfView::OnBoundsAnimatorDone(views::BoundsAnimator* animator) {
@@ -2673,16 +2152,11 @@ bool ShelfView::ShouldHandleGestures(const ui::GestureEvent& event) const {
 }
 
 base::string16 ShelfView::GetTitleForChildView(const views::View* view) const {
-  if (view == overflow_button_)
-    return overflow_button_->GetAccessibleName();
-
   const ShelfItem* item = ShelfItemForView(view);
   return item ? item->title : base::string16();
 }
 
 void ShelfView::UpdateVisibleIndices() {
-  DCHECK_EQ(true, chromeos::switches::ShouldShowScrollableShelf());
-
   // When the scrollable shelf is enabled, ShelfView's |last_visible_index_| is
   // always the index to the last shelf item.
   first_visible_index_ = view_model()->view_size() == 0 ? -1 : 0;

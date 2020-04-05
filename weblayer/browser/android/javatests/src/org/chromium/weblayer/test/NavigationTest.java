@@ -7,6 +7,7 @@ package org.chromium.weblayer.test;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import static org.chromium.content_public.browser.test.util.TestThreadUtils.runOnUiThreadBlocking;
@@ -27,13 +28,13 @@ import org.chromium.weblayer.NavigationCallback;
 import org.chromium.weblayer.NavigationController;
 import org.chromium.weblayer.NavigationState;
 import org.chromium.weblayer.Tab;
+import org.chromium.weblayer.TabCallback;
 import org.chromium.weblayer.shell.InstrumentationActivity;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -243,6 +244,22 @@ public class NavigationTest {
 
     @Test
     @SmallTest
+    public void testReplace() throws Exception {
+        InstrumentationActivity activity = mActivityTestRule.launchShellWithUrl(URL1);
+        setNavigationCallback(activity);
+
+        navigateAndWaitForCompletion(
+                URL2, () -> activity.getTab().getNavigationController().replace(Uri.parse(URL2)));
+        runOnUiThreadBlocking(() -> {
+            NavigationController navigationController = activity.getTab().getNavigationController();
+            assertFalse(navigationController.canGoForward());
+            assertFalse(navigationController.canGoBack());
+            assertEquals(1, navigationController.getNavigationListSize());
+        });
+    }
+
+    @Test
+    @SmallTest
     public void testGoBackAndForward() throws Exception {
         InstrumentationActivity activity = mActivityTestRule.launchShellWithUrl(URL1);
         setNavigationCallback(activity);
@@ -309,9 +326,6 @@ public class NavigationTest {
             assertEquals("Page A", navigationController.getNavigationEntryTitle(0));
             assertEquals("Page B", navigationController.getNavigationEntryTitle(1));
             assertEquals("Page C", navigationController.getNavigationEntryTitle(2));
-
-            // An out of bounds index will return an empty string.
-            assertEquals("", navigationController.getNavigationEntryTitle(1234));
         });
     }
 
@@ -417,12 +431,49 @@ public class NavigationTest {
 
         int curCompletedCount = mCallback.onCompletedCallback.getCallCount();
 
-        mActivityTestRule.navigateAndWait(url);
+        // navigateAndWait() expects a success code, so it won't work here.
+        runOnUiThreadBlocking(
+                () -> { activity.getTab().getNavigationController().navigate(Uri.parse(url)); });
 
         mCallback.onCompletedCallback.assertCalledWith(
                 curCompletedCount, url, LoadError.HTTP_CLIENT_ERROR);
         assertEquals(mCallback.onCompletedCallback.getHttpStatusCode(), 404);
         assertEquals(mCallback.onCompletedCallback.getNavigationState(), NavigationState.COMPLETE);
+    }
+
+    @Test
+    @SmallTest
+    public void testRepostConfirmation() throws Exception {
+        // Load a page with a form.
+        InstrumentationActivity activity =
+                mActivityTestRule.launchShellWithUrl(mActivityTestRule.getTestDataURL("form.html"));
+        assertNotNull(activity);
+        setNavigationCallback(activity);
+
+        // Touch the page; this should submit the form.
+        int currentCallCount = mCallback.onCompletedCallback.getCallCount();
+        EventUtils.simulateTouchCenterOfView(activity.getWindow().getDecorView());
+        String targetUrl = mActivityTestRule.getTestDataURL("simple_page.html");
+        mCallback.onCompletedCallback.assertCalledWith(currentCallCount, targetUrl);
+
+        // Make sure a tab modal shows after we attempt a reload.
+        Boolean isTabModalShowingResult[] = new Boolean[1];
+        CallbackHelper callbackHelper = new CallbackHelper();
+        runOnUiThreadBlocking(() -> {
+            Tab tab = activity.getTab();
+            TabCallback callback = new TabCallback() {
+                @Override
+                public void onTabModalStateChanged(boolean isTabModalShowing) {
+                    isTabModalShowingResult[0] = isTabModalShowing;
+                    callbackHelper.notifyCalled();
+                }
+            };
+            tab.registerTabCallback(callback);
+            tab.getNavigationController().reload();
+        });
+
+        callbackHelper.waitForFirst();
+        assertTrue(isTabModalShowingResult[0]);
     }
 
     private void setNavigationCallback(InstrumentationActivity activity) {
@@ -443,7 +494,7 @@ public class NavigationTest {
         NavigationController navigationController =
                 runOnUiThreadBlocking(() -> tab.getNavigationController());
 
-        final CountDownLatch navigationComplete = new CountDownLatch(1);
+        final BoundedCountDownLatch navigationComplete = new BoundedCountDownLatch(1);
         final AtomicReference<String> navigationUrl = new AtomicReference<String>();
         NavigationCallback navigationCallback = new NavigationCallback() {
             @Override
@@ -458,7 +509,7 @@ public class NavigationTest {
             navigationController.goToIndex(index);
         });
 
-        navigationComplete.await();
+        navigationComplete.timedAwait();
 
         runOnUiThreadBlocking(
                 () -> { navigationController.unregisterNavigationCallback(navigationCallback); });

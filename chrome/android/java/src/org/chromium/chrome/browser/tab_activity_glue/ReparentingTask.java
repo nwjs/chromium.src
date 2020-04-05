@@ -104,7 +104,9 @@ public class ReparentingTask implements UserData {
             intent.setClass(ContextUtils.getApplicationContext(), ChromeLauncherActivity.class);
         }
         intent.setAction(Intent.ACTION_VIEW);
-        if (TextUtils.isEmpty(intent.getDataString())) intent.setData(Uri.parse(mTab.getUrl()));
+        if (TextUtils.isEmpty(intent.getDataString())) {
+            intent.setData(Uri.parse(mTab.getUrlString()));
+        }
         if (mTab.isIncognito()) {
             intent.putExtra(Browser.EXTRA_APPLICATION_ID,
                     ContextUtils.getApplicationContext().getPackageName());
@@ -169,7 +171,9 @@ public class ReparentingTask implements UserData {
      * @param tabDelegateFactory  The new delegate factory this tab should be using.
      */
     private void attach(WindowAndroid window, TabDelegateFactory tabDelegateFactory) {
-        assert TabImpl.isDetached(mTab);
+        // Assert that the tab is currently in detached state.
+        assert mTab.getWebContents() == null
+                || mTab.getWebContents().getTopLevelNativeWindow() == null;
         mTab.updateAttachment(window, tabDelegateFactory);
         ReparentingTaskJni.get().attachTab(mTab.getWebContents());
     }

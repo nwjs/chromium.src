@@ -53,7 +53,7 @@ std::unique_ptr<DtlsTransportProxy> CreateProxy(
     ExecutionContext* context,
     webrtc::DtlsTransportInterface* native_transport,
     DtlsTransportProxy::Delegate* delegate) {
-  LocalFrame* frame = To<Document>(context)->GetFrame();
+  LocalFrame* frame = Document::From(context)->GetFrame();
   scoped_refptr<base::SingleThreadTaskRunner> proxy_thread =
       frame->GetTaskRunner(TaskType::kNetworking);
   scoped_refptr<base::SingleThreadTaskRunner> host_thread =
@@ -70,7 +70,7 @@ RTCDtlsTransport::RTCDtlsTransport(
     ExecutionContext* context,
     rtc::scoped_refptr<webrtc::DtlsTransportInterface> native_transport,
     RTCIceTransport* ice_transport)
-    : ContextClient(context),
+    : ExecutionContextClient(context),
       current_state_(webrtc::DtlsTransportState::kNew),
       native_transport_(native_transport),
       proxy_(CreateProxy(context, native_transport, this)),
@@ -179,7 +179,7 @@ const AtomicString& RTCDtlsTransport::InterfaceName() const {
 }
 
 ExecutionContext* RTCDtlsTransport::GetExecutionContext() const {
-  return ContextClient::GetExecutionContext();
+  return ExecutionContextClient::GetExecutionContext();
 }
 
 void RTCDtlsTransport::Trace(Visitor* visitor) {
@@ -187,7 +187,7 @@ void RTCDtlsTransport::Trace(Visitor* visitor) {
   visitor->Trace(ice_transport_);
   DtlsTransportProxy::Delegate::Trace(visitor);
   EventTargetWithInlineData::Trace(visitor);
-  ContextClient::Trace(visitor);
+  ExecutionContextClient::Trace(visitor);
 }
 
 }  // namespace blink

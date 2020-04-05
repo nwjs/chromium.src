@@ -29,8 +29,7 @@
 #include "chrome/test/views/chrome_views_test_base.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "ui/base/material_design/material_design_controller.h"
-#include "ui/base/test/material_design_controller_test_api.h"
+#include "ui/base/pointer/touch_ui_controller.h"
 #include "ui/events/base_event_utils.h"
 #include "ui/gfx/animation/animation_test_api.h"
 #include "ui/gfx/canvas.h"
@@ -128,7 +127,7 @@ class TabStripTest : public ChromeViewsTestBase,
                      public testing::WithParamInterface<bool> {
  public:
   TabStripTest()
-      : test_api_(GetParam()),
+      : touch_ui_scoper_(GetParam()),
         animation_mode_reset_(gfx::AnimationTestApi::SetRichAnimationRenderMode(
             gfx::Animation::RichAnimationRenderMode::FORCE_ENABLED)) {}
 
@@ -144,13 +143,7 @@ class TabStripTest : public ChromeViewsTestBase,
     auto* parent = new views::View;
     parent->AddChildView(tab_strip_);
 
-    widget_ = std::make_unique<views::Widget>();
-    views::Widget::InitParams init_params =
-        CreateParams(views::Widget::InitParams::TYPE_POPUP);
-    init_params.ownership =
-        views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET;
-    init_params.bounds = gfx::Rect(0, 0, 200, 200);
-    widget_->Init(std::move(init_params));
+    widget_ = CreateTestWidget();
     widget_->SetContentsView(parent);
   }
 
@@ -274,7 +267,7 @@ class TabStripTest : public ChromeViewsTestBase,
                                                0);
 
  private:
-  ui::test::MaterialDesignControllerTestAPI test_api_;
+  ui::TouchUiController::TouchUiScoperForTesting touch_ui_scoper_;
   std::unique_ptr<base::AutoReset<gfx::Animation::RichAnimationRenderMode>>
       animation_mode_reset_;
 
@@ -531,7 +524,7 @@ TEST_P(TabStripTest, TabForEventWhenStacked) {
 // the tabstrip is in stacked tab mode.
 TEST_P(TabStripTest, TabCloseButtonVisibilityWhenStacked) {
   // Touch-optimized UI requires a larger width for tabs to show close buttons.
-  const bool touch_ui = ui::MaterialDesignController::touch_ui();
+  const bool touch_ui = ui::TouchUiController::Get()->touch_ui();
   tab_strip_->SetBounds(0, 0, touch_ui ? 442 : 346, 20);
   controller_->AddTab(0, false);
   controller_->AddTab(1, true);
@@ -603,7 +596,7 @@ TEST_P(TabStripTest, TabCloseButtonVisibilityWhenNotStacked) {
   // Set the tab strip width to be wide enough for three tabs to show all
   // three icons, but not enough for five tabs to show all three icons.
   // Touch-optimized UI requires a larger width for tabs to show close buttons.
-  const bool touch_ui = ui::MaterialDesignController::touch_ui();
+  const bool touch_ui = ui::TouchUiController::Get()->touch_ui();
   tab_strip_->SetBounds(0, 0, touch_ui ? 442 : 346, 20);
   controller_->AddTab(0, false);
   controller_->AddTab(1, true);
@@ -1042,13 +1035,13 @@ TEST_P(TabStripTest, AnimationOnTabAdd) {
   const int initial_width = tab_strip_->tab_at(1)->width();
   EXPECT_LT(initial_width, tab_strip_->tab_at(0)->width());
 
-  task_environment_.FastForwardBy(TabAnimation::kAnimationDuration / 2);
+  task_environment()->FastForwardBy(TabAnimation::kAnimationDuration / 2);
 
   EXPECT_GT(tab_strip_->tab_at(1)->width(), initial_width);
   EXPECT_LT(tab_strip_->tab_at(1)->width(), tab_strip_->tab_at(0)->width());
 
   // Fast-forward by more than enough to ensure the animation finishes.
-  task_environment_.FastForwardBy(TabAnimation::kAnimationDuration);
+  task_environment()->FastForwardBy(TabAnimation::kAnimationDuration);
 
   EXPECT_EQ(tab_strip_->tab_at(0)->width(), tab_strip_->tab_at(1)->width());
 }
@@ -1298,7 +1291,7 @@ TEST_P(TabStripTest, ChangingLayoutTypeResizesTabs) {
   Tab* tab = tab_strip_->tab_at(0);
   const int initial_height = tab->height();
 
-  ui::test::MaterialDesignControllerTestAPI other_layout(!GetParam());
+  ui::TouchUiController::TouchUiScoperForTesting other_layout(!GetParam());
 
   CompleteAnimationAndLayout();
   if (GetParam()) {

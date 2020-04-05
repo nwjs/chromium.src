@@ -32,6 +32,7 @@ const AcceleratorData kAcceleratorData[] = {
     {true, ui::VKEY_BROWSER_SEARCH, ui::EF_SHIFT_DOWN,
      TOGGLE_APP_LIST_FULLSCREEN},
     {true, ui::VKEY_WLAN, ui::EF_NONE, TOGGLE_WIFI},
+    {true, ui::VKEY_PRIVACY_SCREEN_TOGGLE, ui::EF_NONE, PRIVACY_SCREEN_TOGGLE},
     {true, ui::VKEY_KBD_BRIGHTNESS_DOWN, ui::EF_NONE, KEYBOARD_BRIGHTNESS_DOWN},
     {true, ui::VKEY_KBD_BRIGHTNESS_UP, ui::EF_NONE, KEYBOARD_BRIGHTNESS_UP},
     // Maximize button.
@@ -175,8 +176,13 @@ const AcceleratorData kAcceleratorData[] = {
 
     // Media Player shortcuts.
     {true, ui::VKEY_MEDIA_NEXT_TRACK, ui::EF_NONE, MEDIA_NEXT_TRACK},
+    {true, ui::VKEY_MEDIA_PAUSE, ui::EF_NONE, MEDIA_PAUSE},
+    {true, ui::VKEY_MEDIA_PLAY, ui::EF_NONE, MEDIA_PLAY},
     {true, ui::VKEY_MEDIA_PLAY_PAUSE, ui::EF_NONE, MEDIA_PLAY_PAUSE},
     {true, ui::VKEY_MEDIA_PREV_TRACK, ui::EF_NONE, MEDIA_PREV_TRACK},
+    {true, ui::VKEY_MEDIA_STOP, ui::EF_NONE, MEDIA_STOP},
+    {true, ui::VKEY_OEM_103, ui::EF_NONE, MEDIA_REWIND},
+    {true, ui::VKEY_OEM_104, ui::EF_NONE, MEDIA_FAST_FORWARD},
 
     // Assistant shortcuts.
     {true, ui::VKEY_A, ui::EF_COMMAND_DOWN, START_ASSISTANT},

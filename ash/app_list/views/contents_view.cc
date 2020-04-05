@@ -127,19 +127,15 @@ void ContentsView::Init(AppListModel* model) {
 
   AddLauncherPage(search_results_page_view_, AppListState::kStateSearchResults);
 
-  if (app_list_features::IsAssistantLauncherUIEnabled()) {
-    assistant_page_view_ =
-        new AssistantPageView(view_delegate->GetAssistantViewDelegate(), this);
-    assistant_page_view_->SetVisible(false);
-    AddLauncherPage(assistant_page_view_,
-                    AppListState::kStateEmbeddedAssistant);
-  }
+  assistant_page_view_ =
+      new AssistantPageView(view_delegate->GetAssistantViewDelegate(), this);
+  assistant_page_view_->SetVisible(false);
+  AddLauncherPage(assistant_page_view_, AppListState::kStateEmbeddedAssistant);
 
   int initial_page_index = GetPageIndexForState(AppListState::kStateApps);
   DCHECK_GE(initial_page_index, 0);
 
   page_before_search_ = initial_page_index;
-  page_before_assistant_ = initial_page_index;
   // Must only call SetTotalPages once all the launcher pages have been added
   // (as it will trigger a SelectedPageChanged call).
   pagination_model_.SetTotalPages(app_list_pages_.size());
@@ -184,7 +180,7 @@ void ContentsView::ResetForShow() {
   // Otherwise the contents animate from 0 to 1 so set the initial opacity to 0.
   if (app_list_view_->is_side_shelf() || app_list_view_->is_tablet_mode()) {
     AnimateToViewState(AppListViewState::kFullscreenAllApps, base::TimeDelta());
-  } else if (last_target_view_state_.has_value() &&
+  } else if (!last_target_view_state_.has_value() ||
              *last_target_view_state_ != AppListViewState::kClosed) {
     AnimateToViewState(AppListViewState::kClosed, base::TimeDelta());
   }
@@ -220,7 +216,7 @@ void ContentsView::OnAppListViewTargetStateChanged(
 }
 
 void ContentsView::SetActiveState(AppListState state) {
-  SetActiveState(state, !AppListView::ShortAnimationsForTesting());
+  SetActiveState(state, true /*animate*/);
 }
 
 void ContentsView::SetActiveState(AppListState state, bool animate) {
@@ -234,7 +230,6 @@ void ContentsView::SetActiveState(AppListState state, bool animate) {
 
   const int page_index = GetPageIndexForState(state);
   page_before_search_ = page_index;
-  page_before_assistant_ = page_index;
   SetActiveStateInternal(page_index, animate);
 }
 
@@ -298,7 +293,10 @@ void ContentsView::SetActiveStateInternal(int page_index, bool animate) {
   app_list_pages_[GetActivePageIndex()]->OnWillBeHidden();
 
   // Start animating to the new page.
-  const bool should_animate = animate && !set_active_state_without_animation_;
+  bool should_animate = animate && !set_active_state_without_animation_;
+  // Disable animating for testing.
+  should_animate = should_animate && !AppListView::ShortAnimationsForTesting();
+
   // There's a chance of selecting page during the transition animation. To
   // reschedule the new animation from the beginning, |pagination_model_| needs
   // to finish the ongoing animation here.
@@ -338,9 +336,8 @@ void ContentsView::ShowSearchResults(bool show) {
   // Hide or Show results
   GetPageView(search_page)->SetVisible(show);
 
-  page_before_assistant_ = show ? search_page : page_before_search_;
   SetActiveStateInternal(show ? search_page : page_before_search_,
-                         !AppListView::ShortAnimationsForTesting());
+                         true /*animate*/);
 }
 
 bool ContentsView::IsShowingSearchResults() const {
@@ -354,40 +351,29 @@ void ContentsView::ShowEmbeddedAssistantUI(bool show) {
       GetPageIndexForState(AppListState::kStateEmbeddedAssistant);
   DCHECK_GE(assistant_page, 0);
 
-  // Hide or Show results.
-  auto* page_view = GetPageView(assistant_page);
-  page_view->SetVisible(show);
-  if (show) {
-    page_view->RequestFocus();
-    // RequestFocus() might cause ResetForShow() method through
-    // AppListView::OnHomeLauncherGainingFocusWithoutAnimation() and it can hide
-    // |page_view|. Thus |page_view|'s visibility should be set again. See
-    // b/140831868.
-    page_view->SetVisible(show);
+  const int current_page = pagination_model_.SelectedTargetPage();
+  // When closing the Assistant UI we return to the last page before the
+  // search box.
+  const int next_page = show ? assistant_page : page_before_search_;
+
+  // Show or hide results.
+  if (current_page != next_page) {
+    GetPageView(current_page)->SetVisible(false);
+    GetPageView(next_page)->SetVisible(true);
   }
 
-  const int search_results_page =
-      GetPageIndexForState(AppListState::kStateSearchResults);
-  DCHECK_GE(search_results_page, 0);
-  GetPageView(page_before_assistant_)->SetVisible(!show);
-
-  // No animation when transiting from/to |search_results_page| and in test.
-  const bool animate = !AppListView::ShortAnimationsForTesting() &&
-                       page_before_assistant_ != search_results_page;
-  const int current_page = pagination_model_.selected_page();
-  SetActiveStateInternal(show ? assistant_page : page_before_assistant_,
-                         animate);
+  SetActiveStateInternal(next_page, true /*animate*/);
   // Sometimes the page stays in |assistant_page|, but the preferred bounds
   // might change meanwhile.
   if (show && current_page == assistant_page) {
-    page_view->UpdatePageBoundsForState(
-        AppListState::kStateEmbeddedAssistant, GetContentsBounds(),
-        GetSearchBoxBounds(AppListState::kStateEmbeddedAssistant));
+    GetPageView(assistant_page)
+        ->UpdatePageBoundsForState(
+            AppListState::kStateEmbeddedAssistant, GetContentsBounds(),
+            GetSearchBoxBounds(AppListState::kStateEmbeddedAssistant));
   }
-  // If |page_before_assistant_| is kStateApps, we need to set app_list_view to
+  // If |next_page| is kStateApps, we need to set app_list_view to
   // kPeeking and layout the suggestion chips.
-  if (!show && page_before_assistant_ ==
-                   GetPageIndexForState(AppListState::kStateApps)) {
+  if (next_page == GetPageIndexForState(AppListState::kStateApps)) {
     GetSearchBoxView()->ClearSearch();
     GetSearchBoxView()->SetSearchBoxActive(false, ui::ET_UNKNOWN);
     GetAppsContainerView()->Layout();
@@ -396,15 +382,6 @@ void ContentsView::ShowEmbeddedAssistantUI(bool show) {
 
 bool ContentsView::IsShowingEmbeddedAssistantUI() const {
   return IsStateActive(AppListState::kStateEmbeddedAssistant);
-}
-
-void ContentsView::FocusEmbeddedAssistantPage() {
-  const int assistant_page =
-      GetPageIndexForState(AppListState::kStateEmbeddedAssistant);
-  DCHECK_GE(assistant_page, 0);
-  auto* page_view = GetPageView(assistant_page);
-  page_view->RequestFocus();
-  page_view->SetVisible(true);
 }
 
 void ContentsView::InitializeSearchBoxAnimation(AppListState current_state,

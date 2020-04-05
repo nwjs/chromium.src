@@ -79,16 +79,13 @@ class RulesetMatcher {
       std::vector<RequestAction>* remove_headers_actions) const;
   bool IsExtraHeadersMatcher() const;
 
+  void OnRenderFrameCreated(content::RenderFrameHost* host);
   void OnRenderFrameDeleted(content::RenderFrameHost* host);
   void OnDidFinishNavigation(content::RenderFrameHost* host);
 
   // ID of the ruleset. Each extension can have multiple rulesets with
   // their own unique ids.
   size_t id() const { return id_; }
-
-  // Priority of the ruleset. Each extension can have multiple rulesets with
-  // their own different priorities.
-  size_t priority() const { return priority_; }
 
   // Returns the tracked highest priority matching allowsAllRequests action, if
   // any, for |host|.
@@ -97,8 +94,7 @@ class RulesetMatcher {
 
  private:
   explicit RulesetMatcher(std::string ruleset_data,
-                          size_t id,
-                          size_t priority,
+                          int id,
                           api::declarative_net_request::SourceType source_type,
                           const ExtensionId& extension_id);
 
@@ -106,8 +102,7 @@ class RulesetMatcher {
 
   const flat::ExtensionIndexedRuleset* const root_;
 
-  const size_t id_;
-  const size_t priority_;
+  const int id_;
 
   // Underlying matcher for filter-list style rules supported using the
   // |url_pattern_index| component.

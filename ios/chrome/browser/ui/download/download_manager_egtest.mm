@@ -12,7 +12,7 @@
 #import "ios/chrome/test/earl_grey/chrome_matchers.h"
 #import "ios/chrome/test/earl_grey/chrome_test_case.h"
 #import "ios/chrome/test/scoped_eg_synchronization_disabler.h"
-#import "ios/testing/earl_grey/app_launch_manager.h"
+#import "ios/testing/earl_grey/app_launch_configuration.h"
 #import "ios/testing/earl_grey/earl_grey_test.h"
 #include "ios/testing/embedded_test_server_handlers.h"
 #include "ios/web/common/features.h"
@@ -51,7 +51,7 @@ std::unique_ptr<net::test_server::HttpResponse> GetResponse(
 bool WaitForOpenInButton() WARN_UNUSED_RESULT;
 bool WaitForOpenInButton() {
   // These downloads usually take longer and need a longer timeout.
-  const NSTimeInterval kLongDownloadTimeout = 35;
+  const NSTimeInterval kLongDownloadTimeout = 60;
   return base::test::ios::WaitUntilConditionOrTimeout(kLongDownloadTimeout, ^{
     NSError* error = nil;
     [[EarlGrey selectElementWithMatcher:chrome_test_util::OpenInButton()]
@@ -96,12 +96,10 @@ bool WaitForOpenInDownloadsButton() {
 
 @implementation DownloadManagerTestCase
 
-- (void)launchAppForTestMethod {
-  [[AppLaunchManager sharedManager]
-      ensureAppLaunchedWithFeaturesEnabled:
-          {web::features::kEnablePersistentDownloads}
-                                  disabled:{}
-                            relaunchPolicy:NoForceRelaunchAndResetState];
+- (AppLaunchConfiguration)appConfigurationForTestCase {
+  AppLaunchConfiguration config;
+  config.features_enabled.push_back(web::features::kEnablePersistentDownloads);
+  return config;
 }
 
 - (void)setUp {
@@ -136,7 +134,15 @@ bool WaitForOpenInDownloadsButton() {
 // Tests sucessfull download up to the point where "Open in..." button is
 // presented. EarlGrey does not allow testing "Open in..." dialog, because it
 // is run in a separate process. Performs download in Incognito.
-- (void)testSucessfullDownloadInIncognito {
+#if !TARGET_IPHONE_SIMULATOR
+// TODO(crbug.com/1059320): Test consistently failing on device.
+#define MAYBE_testSucessfullDownloadInIncognito \
+  DISABLED_testSucessfullDownloadInIncognito
+#else
+#define MAYBE_testSucessfullDownloadInIncognito \
+  testSucessfullDownloadInIncognito
+#endif
+- (void)MAYBE_testSucessfullDownloadInIncognito {
   [ChromeEarlGrey openNewIncognitoTab];
   [ChromeEarlGrey loadURL:self.testServer->GetURL("/")];
   [ChromeEarlGrey waitForWebStateContainingText:"Download"];
@@ -190,7 +196,7 @@ bool WaitForOpenInDownloadsButton() {
 
   // Load a URL in a separate Tab and close that tab.
   [ChromeEarlGrey loadURL:GURL(kChromeUITermsURL)];
-  const char kTermsText[] = "Google Chrome Terms of Service";
+  const char kTermsText[] = "Terms of Service";
   [ChromeEarlGrey waitForWebStateContainingText:kTermsText];
   [ChromeEarlGrey closeCurrentTab];
   GREYAssert(WaitForOpenInButton(), @"Open in... button did not show up");

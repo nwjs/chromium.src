@@ -56,7 +56,13 @@ NativeTheme* NativeTheme::GetInstanceForWeb() {
 #if !defined(OS_WIN)
 // static
 NativeTheme* NativeTheme::GetInstanceForNativeUi() {
-  return NativeThemeAura::instance();
+  static base::NoDestructor<NativeThemeAura> s_native_theme(false, false);
+  return s_native_theme.get();
+}
+
+NativeTheme* NativeTheme::GetInstanceForDarkUI() {
+  static base::NoDestructor<NativeThemeAura> s_native_theme(false, true);
+  return s_native_theme.get();
 }
 #endif  // OS_WIN
 #endif  // !OS_MACOSX
@@ -64,8 +70,10 @@ NativeTheme* NativeTheme::GetInstanceForNativeUi() {
 ////////////////////////////////////////////////////////////////////////////////
 // NativeThemeAura:
 
-NativeThemeAura::NativeThemeAura(bool use_overlay_scrollbars)
-    : use_overlay_scrollbars_(use_overlay_scrollbars) {
+NativeThemeAura::NativeThemeAura(bool use_overlay_scrollbars,
+                                 bool should_only_use_dark_colors)
+    : NativeThemeBase(should_only_use_dark_colors),
+      use_overlay_scrollbars_(use_overlay_scrollbars) {
 // We don't draw scrollbar buttons.
 #if defined(OS_CHROMEOS)
   set_scrollbar_button_length(0);
@@ -86,21 +94,10 @@ NativeThemeAura::NativeThemeAura(bool use_overlay_scrollbars)
 NativeThemeAura::~NativeThemeAura() {}
 
 // static
-NativeThemeAura* NativeThemeAura::instance() {
-  static base::NoDestructor<NativeThemeAura> s_native_theme(false);
-  return s_native_theme.get();
-}
-
-// static
 NativeThemeAura* NativeThemeAura::web_instance() {
   static base::NoDestructor<NativeThemeAura> s_native_theme_for_web(
-      IsOverlayScrollbarEnabled());
+      IsOverlayScrollbarEnabled(), false);
   return s_native_theme_for_web.get();
-}
-
-SkColor NativeThemeAura::GetSystemColor(ColorId color_id,
-                                        ColorScheme color_scheme) const {
-  return GetAuraColor(color_id, this, color_scheme);
 }
 
 void NativeThemeAura::PaintMenuPopupBackground(

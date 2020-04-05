@@ -97,6 +97,7 @@
 <translation id="2149973817440762519">बुकमार्क संपादित करा</translation>
 <translation id="2179182049312275900">तुम्ही सेटिंग्जमध्ये कधीही सिंक करणे सुरू करू शकता.</translation>
 <translation id="2198757192731523470">शोध, जाहिरात आणि इतर Google सेवा पर्सनलाइझ करण्यासाठी Google कदाचित तुमच्या इतिहासाचा वापर करू शकते.</translation>
+<translation id="2218443599109088993">झूम आउट करा</translation>
 <translation id="2230173723195178503">वेबपेज लोड केले</translation>
 <translation id="2239626343334228536">ब्राउझिंग डेटा साफ करत आहे...</translation>
 <translation id="2257567812274161158">सिंक काम करत नाही.</translation>
@@ -159,6 +160,7 @@
 <translation id="2923448633003185837">पेस्ट करा आणि जा</translation>
 <translation id="292639812446257861">न वाचलेले चिन्हांकित करा</translation>
 <translation id="2958718410589002129">पासवर्ड</translation>
+<translation id="2964349545761222050">तृतीय पक्ष कुकी ब्लॉक करा</translation>
 <translation id="2969979262385602596">साइन इन करण्यात अयशस्वी. कृपया नंतर पुन्हा प्रयत्न करा.</translation>
 <translation id="298306318844797842">पेमेंट पद्धत जोडा…</translation>
 <translation id="2989805286512600854">नवीन टॅबमध्ये उघडा</translation>
@@ -178,6 +180,7 @@
 <translation id="3290875554372353449">एक खाते निवडा</translation>
 <translation id="3311748811247479259">बंद</translation>
 <translation id="3324193307694657476">पत्ता 2</translation>
+<translation id="3328801116991980348">साइट माहिती</translation>
 <translation id="3329904751041170572">सर्व्हरशी कनेक्ट करू शकलो नाही.</translation>
 <translation id="3335947283844343239">बंद केलेले टॅब पुन्हा उघडा</translation>
 <translation id="3371831930909698441">भाषांतर उपलब्ध आहे. स्क्रीनच्या खाली पर्याय उपलब्ध आहेत.</translation>
@@ -301,6 +304,7 @@
 <translation id="4979397965658815378">आपल्या सर्व डिव्हाइसेसवर तुमचे बुकमार्क, पासवर्ड, इतिहास आणि अन्य सेटिंग्ज प्राप्त करण्यासाठी आपल्या Google खात्यासह साइन इन करा</translation>
 <translation id="5005498671520578047">पासवर्ड कॉपी करा</translation>
 <translation id="5010803260590204777">वेब खाजगीपणे ब्राउझ करण्‍यासाठी गुप्त टॅब उघडा.</translation>
+<translation id="5039020240289137291">तृतीय पक्ष कुकी ब्लॉक करत आहे</translation>
 <translation id="5039804452771397117">परवानगी द्या</translation>
 <translation id="5059136629401106827">ओके</translation>
 <translation id="5062321486222145940">Google ड्राइव्ह इंस्टॉल करा</translation>
@@ -415,9 +419,11 @@
 <translation id="6434591244308415567">एरर आली. नंतर पुन्हा प्रयत्न करा.</translation>
 <translation id="6445051938772793705">देश</translation>
 <translation id="6445981559479772097">संदेश पाठविला.</translation>
+<translation id="6447842834002726250">कुकीज</translation>
 <translation id="6464071786529933911">नवीन गुप्त टॅबमध्ये उघडा</translation>
 <translation id="6476800141292307438">पेजचे <ph name="LANGUAGE" /> मध्ये भाषांतर करत आहे. पर्याय स्क्रीनच्या खाली उपलब्ध आहेत.</translation>
 <translation id="6482629121755362506"><ph name="NUMBER_OF_SELECTED_BOOKMARKS" /> आयटम हटविले</translation>
+<translation id="6561262006871132942">झूम इन करा</translation>
 <translation id="6610002944194042868">भाषांतराचे पर्याय</translation>
 <translation id="6628106477656132239">एक्स्पायरीची तारीख चुकीची आहे</translation>
 <translation id="6638511529934826365">मजकूर झूम करा…</translation>
@@ -480,7 +486,6 @@
 <translation id="734758817008927353">कार्ड सेव्ह करण्यासाठी पर्याय</translation>
 <translation id="7348502496356775519">बुकमार्क करा</translation>
 <translation id="7383797227493018512">वाचन सूची</translation>
-<translation id="7392048574806661116">साइन आउट करा आणि सिंक केलेला डेटा साफ करा</translation>
 <translation id="7400418766976504921">URL</translation>
 <translation id="7409985198648820906">न वाचलेले <ph name="UNREAD_COUNT" /> लेख.</translation>
 <translation id="7425346204213733349">तुमचे बुकमार्क, इतिहास, पासवर्ड आणि अन्य सेटिंग्ज मधील बदल यापुढे आपल्या Google खात्यावर संकालित केले जाणार नाहीत. तथापि, तुमचा विद्यमान डेटा आपल्या Google खात्यामध्ये संचयित केलेला असेल.</translation>
@@ -599,6 +604,7 @@
 <translation id="9223358826628549784">क्रॅश अहवाल पाठवला.</translation>
 <translation id="952704832371081537">रद्द करा</translation>
 <translation id="988141524645182168">इतर डिव्हायसेस</translation>
+<translation id="989697783705943787">साइट सुरक्षितता</translation>
 <translation id="989988560359834682">पत्ता संपादित करा</translation>
 <translation id="994757059139821576">लेख सूचना</translation>
 </translationbundle>

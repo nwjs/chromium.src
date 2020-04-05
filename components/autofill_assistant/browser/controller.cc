@@ -23,6 +23,7 @@
 #include "components/autofill_assistant/browser/service_impl.h"
 #include "components/autofill_assistant/browser/trigger_context.h"
 #include "components/autofill_assistant/browser/user_data.h"
+#include "components/password_manager/core/browser/password_manager_client.h"
 #include "components/strings/grit/components_strings.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
@@ -42,6 +43,13 @@ static constexpr int kAutostartInitialProgress = 5;
 
 // Parameter that allows setting the color of the overlay.
 static const char* const kOverlayColorParameterName = "OVERLAY_COLORS";
+
+// Parameter that contains the current session username. Should be synced with
+// |SESSION_USERNAME_PARAMETER| from
+// .../password_manager/PasswordChangeLauncher.java
+// TODO(b/151401974): Eliminate duplicate parameter definitions.
+static const char* const kPasswordChangeUsernameParameterName =
+    "PASSWORD_CHANGE_USERNAME";
 
 // Returns true if the state requires a UI to be shown.
 //
@@ -288,6 +296,25 @@ void Controller::RequireUI() {
   client_->AttachUI();
 }
 
+void Controller::SetGenericUi(
+    std::unique_ptr<GenericUserInterfaceProto> generic_ui,
+    base::OnceCallback<void(bool, ProcessedActionStatusProto, const UserModel*)>
+        end_action_callback) {
+  generic_user_interface_ = std::move(generic_ui);
+  basic_interactions_.SetEndActionCallback(std::move(end_action_callback));
+  for (ControllerObserver& observer : observers_) {
+    observer.OnGenericUserInterfaceChanged(generic_user_interface_.get());
+  }
+}
+
+void Controller::ClearGenericUi() {
+  generic_user_interface_.reset();
+  basic_interactions_.ClearEndActionCallback();
+  for (ControllerObserver& observer : observers_) {
+    observer.OnGenericUserInterfaceChanged(nullptr);
+  }
+}
+
 void Controller::AddListener(ScriptExecutorDelegate::Listener* listener) {
   auto found = std::find(listeners_.begin(), listeners_.end(), listener);
   if (found == listeners_.end())
@@ -321,6 +348,8 @@ bool Controller::PerformUserActionWithContext(
   UserAction user_action = std::move((*user_actions_)[index]);
   SetUserActions(nullptr);
   user_action.Call(std::move(context));
+  event_handler_.DispatchEvent(
+      {EventProto::kOnUserActionCalled, user_action.identifier()});
   return true;
 }
 
@@ -366,6 +395,10 @@ const FormProto* Controller::GetForm() const {
   return form_.get();
 }
 
+const FormProto::Result* Controller::GetFormResult() const {
+  return form_result_.get();
+}
+
 bool Controller::SetForm(
     std::unique_ptr<FormProto> form,
     base::RepeatingCallback<void(const FormProto::Result*)> changed_callback,
@@ -377,7 +410,7 @@ bool Controller::SetForm(
 
   if (!form) {
     for (ControllerObserver& observer : observers_) {
-      observer.OnFormChanged(nullptr);
+      observer.OnFormChanged(nullptr, nullptr);
     }
     return true;
   }
@@ -413,7 +446,7 @@ bool Controller::SetForm(
         break;
       }
       case FormInputProto::InputTypeCase::INPUT_TYPE_NOT_SET:
-        DVLOG(1) << "Encountered input with INPUT_TYPE_NOT_SET";
+        VLOG(1) << "Encountered input with INPUT_TYPE_NOT_SET";
         return false;
         // Intentionally no default case to make compilation fail if a new value
         // was added to the enum but not to this list.
@@ -430,7 +463,7 @@ bool Controller::SetForm(
   form_changed_callback_.Run(form_result_.get());
 
   for (ControllerObserver& observer : observers_) {
-    observer.OnFormChanged(form_.get());
+    observer.OnFormChanged(form_.get(), form_result_.get());
   }
   return true;
 }
@@ -489,6 +522,14 @@ bool Controller::ShouldPromptActionExpandSheet() const {
   return expand_sheet_for_prompt_action_;
 }
 
+BasicInteractions* Controller::GetBasicInteractions() {
+  return &basic_interactions_;
+}
+
+const GenericUserInterfaceProto* Controller::GetGenericUiProto() const {
+  return generic_user_interface_.get();
+}
+
 void Controller::AddObserver(ControllerObserver* observer) {
   observers_.AddObserver(observer);
 }
@@ -497,9 +538,8 @@ void Controller::RemoveObserver(const ControllerObserver* observer) {
   observers_.RemoveObserver(observer);
 }
 
-void Controller::DispatchEvent(const EventHandler::EventKey& key,
-                               const ValueProto& value) {
-  event_handler_.DispatchEvent(key, value);
+void Controller::DispatchEvent(const EventHandler::EventKey& key) {
+  event_handler_.DispatchEvent(key);
 }
 
 ViewportMode Controller::GetViewportMode() {
@@ -557,7 +597,7 @@ bool Controller::EnterState(AutofillAssistantState state) {
   if (state_ == state)
     return false;
 
-  DVLOG(2) << __func__ << ": " << state_ << " -> " << state;
+  VLOG(2) << __func__ << ": " << state_ << " -> " << state;
 
   // The only valid way of leaving the STOPPED state is to go back to tracking
   // mode.
@@ -615,7 +655,12 @@ void Controller::GetOrCheckScripts() {
   if (script_domain_ != url.host()) {
     StopPeriodicScriptChecks();
     script_domain_ = url.host();
-    DVLOG(2) << "GetScripts for " << script_domain_;
+#ifdef NDEBUG
+    VLOG(2) << "GetScripts for <redacted>";
+#else
+    VLOG(2) << "GetScripts for " << script_domain_;
+#endif
+
     GetService()->GetScriptsForUrl(
         url, *trigger_context_,
         base::BindOnce(&Controller::OnGetScripts, base::Unretained(this), url));
@@ -655,7 +700,7 @@ void Controller::OnPeriodicScriptCheck() {
 
   if (allow_autostart() && !autostart_timeout_script_path_.empty() &&
       tick_clock_->NowTicks() >= absolute_autostart_timeout_) {
-    DVLOG(1) << __func__ << " giving up waiting on autostart.";
+    VLOG(1) << __func__ << " giving up waiting on autostart.";
     std::string script_path = autostart_timeout_script_path_;
     autostart_timeout_script_path_.clear();
     periodic_script_check_scheduled_ = false;
@@ -683,7 +728,11 @@ void Controller::OnGetScripts(const GURL& url,
     return;
 
   if (!result) {
-    DVLOG(1) << "Failed to get assistant scripts for " << script_domain_;
+#ifdef NDEBUG
+    VLOG(1) << "Failed to get assistant scripts for <redacted>";
+#else
+    VLOG(1) << "Failed to get assistant scripts for " << script_domain_;
+#endif
     OnFatalError(l10n_util::GetStringUTF8(IDS_AUTOFILL_ASSISTANT_DEFAULT_ERROR),
                  Metrics::DropOutReason::GET_SCRIPTS_FAILED);
     return;
@@ -691,8 +740,12 @@ void Controller::OnGetScripts(const GURL& url,
 
   SupportsScriptResponseProto response_proto;
   if (!response_proto.ParseFromString(response)) {
-    DVLOG(2) << __func__ << " from " << script_domain_ << " returned "
-             << "unparseable response";
+#ifdef NDEBUG
+    VLOG(2) << __func__ << " from <redacted> returned unparseable response";
+#else
+    VLOG(2) << __func__ << " from " << script_domain_ << " returned "
+            << "unparseable response";
+#endif
     OnFatalError(l10n_util::GetStringUTF8(IDS_AUTOFILL_ASSISTANT_DEFAULT_ERROR),
                  Metrics::DropOutReason::GET_SCRIPTS_UNPARSABLE);
     return;
@@ -716,8 +769,14 @@ void Controller::OnGetScripts(const GURL& url,
   if (allow_autostart())
     absolute_autostart_timeout_ = tick_clock_->NowTicks() + autostart_timeout_;
 
-  DVLOG(2) << __func__ << " from " << script_domain_ << " returned "
-           << scripts.size() << " scripts";
+#ifdef NDEBUG
+  VLOG(2) << __func__ << " from <redacted> returned " << scripts.size()
+          << " scripts";
+#else
+  VLOG(2) << __func__ << " from " << script_domain_ << " returned "
+          << scripts.size() << " scripts";
+#endif
+
   if (VLOG_IS_ON(3)) {
     for (const auto& script : scripts) {
       // Strip domain from beginning if possible (redundant with log above).
@@ -779,7 +838,12 @@ void Controller::OnScriptExecuted(const std::string& script_path,
                                   AutofillAssistantState end_state,
                                   const ScriptExecutor::Result& result) {
   if (!result.success) {
+#ifdef NDEBUG
+    VLOG(1) << "Failed to execute script";
+#else
     DVLOG(1) << "Failed to execute script " << script_path;
+#endif
+
     OnScriptError(
         l10n_util::GetStringUTF8(IDS_AUTOFILL_ASSISTANT_DEFAULT_ERROR),
         Metrics::DropOutReason::SCRIPT_FAILED);
@@ -823,7 +887,7 @@ void Controller::OnScriptExecuted(const std::string& script_path,
       break;
 
     default:
-      DVLOG(1) << "Unexpected value for at_end: " << result.at_end;
+      VLOG(1) << "Unexpected value for at_end: " << result.at_end;
       break;
   }
   EnterState(end_state);
@@ -887,6 +951,12 @@ void Controller::InitFromParameters() {
 
     SetOverlayColors(std::move(colors));
   }
+  const base::Optional<std::string> password_change_username =
+      trigger_context_->GetParameter(kPasswordChangeUsernameParameterName);
+  if (password_change_username) {
+    user_data_->selected_login_.emplace(web_contents()->GetLastCommittedURL(),
+                                        *password_change_username);
+  }
 }
 
 void Controller::Track(std::unique_ptr<TriggerContext> trigger_context,
@@ -915,8 +985,19 @@ bool Controller::HasRunFirstCheck() const {
 bool Controller::Start(const GURL& deeplink_url,
                        std::unique_ptr<TriggerContext> trigger_context) {
   if (state_ != AutofillAssistantState::INACTIVE &&
-      state_ != AutofillAssistantState::TRACKING)
+      state_ != AutofillAssistantState::TRACKING) {
     return false;
+  }
+  // Verify a password change intent before running.
+  // TODO(b/151391231): Remove when intent signing is implemented.
+  if (trigger_context->GetParameter(kPasswordChangeUsernameParameterName)) {
+    auto* password_manager_client = client_->GetPasswordManagerClient();
+    if (!password_manager_client ||
+        !password_manager_client->WasCredentialLeakDialogShown()) {
+      VLOG(1) << "Failed to start a password change flow.";
+      return false;
+    }
+  }
 
   trigger_context_ = std::move(trigger_context);
   InitFromParameters();
@@ -1287,7 +1368,7 @@ void Controller::UpdateCollectUserDataActions() {
   }
 
   bool confirm_button_enabled = CollectUserDataAction::IsUserDataComplete(
-      *user_data_, *collect_user_data_options_);
+      *user_data_, user_model_, *collect_user_data_options_);
 
   UserAction confirm(collect_user_data_options_->confirm_action);
   confirm.SetEnabled(confirm_button_enabled);
@@ -1304,7 +1385,7 @@ void Controller::UpdateCollectUserDataActions() {
   for (size_t i = 0; i < collect_user_data_options_->additional_actions.size();
        ++i) {
     auto action = collect_user_data_options_->additional_actions[i];
-    user_actions->push_back({action.chip(), action.direct_action()});
+    user_actions->push_back({action});
     user_actions->back().SetCallback(
         base::BindOnce(&Controller::OnCollectUserDataAdditionalActionTriggered,
                        weak_ptr_factory_.GetWeakPtr(), i));
@@ -1560,7 +1641,7 @@ void Controller::DidFinishNavigation(
     if (current_host != script_domain_ &&
         !IsSubdomainOf(current_host, script_domain_)) {
       OnScriptError(l10n_util::GetStringUTF8(IDS_AUTOFILL_ASSISTANT_GIVE_UP),
-                    Metrics::DropOutReason::NAVIGATION);
+                    Metrics::DropOutReason::DOMAIN_CHANGE_DURING_BROWSE_MODE);
     }
   }
 
@@ -1595,8 +1676,15 @@ void Controller::OnWebContentsFocused(
 
 void Controller::OnValueChanged(const std::string& identifier,
                                 const ValueProto& new_value) {
-  event_handler_.DispatchEvent({EventProto::kOnValueChanged, identifier},
-                               new_value);
+  event_handler_.DispatchEvent({EventProto::kOnValueChanged, identifier});
+  // TODO(b/145043394) Remove this once chips are part of generic UI.
+  if (collect_user_data_options_ != nullptr &&
+      collect_user_data_options_->additional_model_identifier_to_check
+          .has_value() &&
+      identifier ==
+          *collect_user_data_options_->additional_model_identifier_to_check) {
+    UpdateCollectUserDataActions();
+  }
 }
 
 void Controller::OnTouchableAreaChanged(

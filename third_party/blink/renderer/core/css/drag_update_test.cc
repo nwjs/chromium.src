@@ -18,7 +18,7 @@ TEST(DragUpdateTest, AffectedByDragUpdate) {
 
   auto dummy_page_holder = std::make_unique<DummyPageHolder>(IntSize(800, 600));
   Document& document = dummy_page_holder->GetDocument();
-  document.documentElement()->SetInnerHTMLFromString(R"HTML(
+  document.documentElement()->setInnerHTML(R"HTML(
     <style>div {width:100px;height:100px} div:-webkit-drag {
     background-color: green }</style>
     <div id='div'>
@@ -47,7 +47,7 @@ TEST(DragUpdateTest, ChildAffectedByDragUpdate) {
 
   auto dummy_page_holder = std::make_unique<DummyPageHolder>(IntSize(800, 600));
   Document& document = dummy_page_holder->GetDocument();
-  document.documentElement()->SetInnerHTMLFromString(R"HTML(
+  document.documentElement()->setInnerHTML(R"HTML(
     <style>div {width:100px;height:100px} div:-webkit-drag .drag {
     background-color: green }</style>
     <div id='div'>
@@ -58,11 +58,11 @@ TEST(DragUpdateTest, ChildAffectedByDragUpdate) {
     </div>
   )HTML");
 
-  document.UpdateStyleAndLayout();
+  document.UpdateStyleAndLayout(DocumentUpdateReason::kTest);
   unsigned start_count = document.GetStyleEngine().StyleForElementCount();
 
   document.getElementById("div")->SetDragged(true);
-  document.UpdateStyleAndLayout();
+  document.UpdateStyleAndLayout(DocumentUpdateReason::kTest);
 
   unsigned element_count =
       document.GetStyleEngine().StyleForElementCount() - start_count;
@@ -76,7 +76,7 @@ TEST(DragUpdateTest, SiblingAffectedByDragUpdate) {
 
   auto dummy_page_holder = std::make_unique<DummyPageHolder>(IntSize(800, 600));
   Document& document = dummy_page_holder->GetDocument();
-  document.documentElement()->SetInnerHTMLFromString(R"HTML(
+  document.documentElement()->setInnerHTML(R"HTML(
     <style>div {width:100px;height:100px} div:-webkit-drag + .drag {
     background-color: green }</style>
     <div id='div'>
@@ -88,11 +88,11 @@ TEST(DragUpdateTest, SiblingAffectedByDragUpdate) {
     <span class='drag'></span>
   )HTML");
 
-  document.UpdateStyleAndLayout();
+  document.UpdateStyleAndLayout(DocumentUpdateReason::kTest);
   unsigned start_count = document.GetStyleEngine().StyleForElementCount();
 
   document.getElementById("div")->SetDragged(true);
-  document.UpdateStyleAndLayout();
+  document.UpdateStyleAndLayout(DocumentUpdateReason::kTest);
 
   unsigned element_count =
       document.GetStyleEngine().StyleForElementCount() - start_count;

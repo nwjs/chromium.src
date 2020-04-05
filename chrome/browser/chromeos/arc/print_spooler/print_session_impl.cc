@@ -20,6 +20,7 @@
 #include "base/optional.h"
 #include "base/task/post_task.h"
 #include "base/task/task_traits.h"
+#include "base/task/thread_pool.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/time/time.h"
 #include "chrome/browser/chromeos/arc/print_spooler/arc_print_spooler_util.h"
@@ -28,7 +29,6 @@
 #include "components/arc/mojom/print_common.mojom.h"
 #include "content/public/browser/web_contents.h"
 #include "mojo/public/c/system/types.h"
-#include "mojo/public/cpp/base/shared_memory_utils.h"
 #include "net/base/filename_util.h"
 #include "printing/page_range.h"
 #include "printing/print_job_constants.h"
@@ -156,7 +156,7 @@ base::ReadOnlySharedMemoryRegion ReadPreviewDocument(
   }
 
   base::MappedReadOnlyRegion region_mapping =
-      mojo::CreateReadOnlySharedMemoryRegion(data_size);
+      base::ReadOnlySharedMemoryRegion::Create(data_size);
   if (!region_mapping.IsValid())
     return std::move(region_mapping.region);
 
@@ -225,10 +225,10 @@ PrintSessionImpl::PrintSessionImpl(
     std::unique_ptr<ash::ArcCustomTab> custom_tab,
     mojom::PrintSessionInstancePtr instance,
     mojo::PendingReceiver<mojom::PrintSessionHost> receiver)
-    : ArcCustomTabModalDialogHost(std::move(custom_tab),
-                                  std::move(web_contents)),
+    : ArcCustomTabModalDialogHost(std::move(custom_tab), web_contents.get()),
       instance_(std::move(instance)),
-      session_receiver_(this, std::move(receiver)) {
+      session_receiver_(this, std::move(receiver)),
+      web_contents_(std::move(web_contents)) {
   session_receiver_.set_disconnect_handler(
       base::BindOnce(&PrintSessionImpl::Close, weak_ptr_factory_.GetWeakPtr()));
   web_contents_->SetUserData(UserDataKey(), base::WrapUnique(this));
@@ -251,8 +251,8 @@ PrintSessionImpl::~PrintSessionImpl() {
     return;
   }
 
-  base::PostTask(FROM_HERE, {base::ThreadPool(), base::MayBlock()},
-                 base::BindOnce(&DeletePrintDocument, file_path));
+  base::ThreadPool::PostTask(FROM_HERE, {base::MayBlock()},
+                             base::BindOnce(&DeletePrintDocument, file_path));
 }
 
 void PrintSessionImpl::CreatePreviewDocument(
@@ -284,8 +284,8 @@ void PrintSessionImpl::OnPreviewDocumentCreated(
     return;
   }
 
-  base::PostTaskAndReplyWithResult(
-      FROM_HERE, {base::ThreadPool(), base::MayBlock()},
+  base::ThreadPool::PostTaskAndReplyWithResult(
+      FROM_HERE, {base::MayBlock()},
       base::BindOnce(&ReadPreviewDocument, std::move(preview_document),
                      static_cast<size_t>(data_size)),
       base::BindOnce(&PrintSessionImpl::OnPreviewDocumentRead,

@@ -4,19 +4,17 @@
 
 package org.chromium.chrome.browser.omnibox.suggestions.basic;
 
-import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.eq;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import android.app.Activity;
 import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
-import android.support.v4.util.ArrayMap;
 
 import androidx.annotation.IntDef;
+import androidx.collection.ArrayMap;
 
 import org.junit.Assert;
 import org.junit.Before;
@@ -30,8 +28,6 @@ import org.mockito.MockitoAnnotations;
 import org.robolectric.Robolectric;
 import org.robolectric.annotation.Config;
 
-import org.chromium.chrome.browser.favicon.LargeIconBridge;
-import org.chromium.chrome.browser.favicon.LargeIconBridge.LargeIconCallback;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.omnibox.OmniboxSuggestionType;
 import org.chromium.chrome.browser.omnibox.UrlBarEditingTextStateProvider;
@@ -39,6 +35,8 @@ import org.chromium.chrome.browser.omnibox.suggestions.OmniboxSuggestion;
 import org.chromium.chrome.browser.omnibox.suggestions.base.BaseSuggestionViewProperties;
 import org.chromium.chrome.browser.omnibox.suggestions.base.SuggestionDrawableState;
 import org.chromium.chrome.browser.omnibox.suggestions.basic.SuggestionViewProperties.SuggestionIcon;
+import org.chromium.chrome.browser.ui.favicon.LargeIconBridge;
+import org.chromium.chrome.browser.ui.favicon.LargeIconBridge.LargeIconCallback;
 import org.chromium.chrome.test.util.browser.Features;
 import org.chromium.testing.local.LocalRobolectricTestRunner;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -93,12 +91,9 @@ public class BasicSuggestionProcessorTest {
                     put(OmniboxSuggestionType.SEARCH_SUGGEST_PROFILE, "SEARCH_SUGGEST_PROFILE");
                     put(OmniboxSuggestionType.SEARCH_OTHER_ENGINE, "SEARCH_OTHER_ENGINE");
                     put(OmniboxSuggestionType.NAVSUGGEST_PERSONALIZED, "NAVSUGGEST_PERSONALIZED");
-                    put(OmniboxSuggestionType.CLIPBOARD_URL, "CLIPBOARD_URL");
                     put(OmniboxSuggestionType.VOICE_SUGGEST, "VOICE_SUGGEST");
                     put(OmniboxSuggestionType.DOCUMENT_SUGGESTION, "DOCUMENT_SUGGESTION");
                     put(OmniboxSuggestionType.PEDAL, "PEDAL");
-                    put(OmniboxSuggestionType.CLIPBOARD_TEXT, "CLIPBOARD_TEXT");
-                    put(OmniboxSuggestionType.CLIPBOARD_IMAGE, "CLIPBOARD_IMAGE");
                     // Note: CALCULATOR suggestions are not handled by basic suggestion processor.
                     // These suggestions are now processed by AnswerSuggestionProcessor instead.
                 }
@@ -172,7 +167,7 @@ public class BasicSuggestionProcessorTest {
     }
 
     @Test
-    @Features.EnableFeatures(ChromeFeatureList.OMNIBOX_SHOW_SUGGESTION_FAVICONS)
+    @Features.DisableFeatures(ChromeFeatureList.OMNIBOX_COMPACT_SUGGESTIONS)
     public void getSuggestionIconTypeForSearch_Default() {
         int[][] testCases = {
                 {OmniboxSuggestionType.URL_WHAT_YOU_TYPED, SuggestionIcon.MAGNIFIER},
@@ -190,12 +185,9 @@ public class BasicSuggestionProcessorTest {
                 {OmniboxSuggestionType.SEARCH_SUGGEST_PROFILE, SuggestionIcon.MAGNIFIER},
                 {OmniboxSuggestionType.SEARCH_OTHER_ENGINE, SuggestionIcon.MAGNIFIER},
                 {OmniboxSuggestionType.NAVSUGGEST_PERSONALIZED, SuggestionIcon.MAGNIFIER},
-                {OmniboxSuggestionType.CLIPBOARD_URL, SuggestionIcon.MAGNIFIER},
                 {OmniboxSuggestionType.VOICE_SUGGEST, SuggestionIcon.VOICE},
                 {OmniboxSuggestionType.DOCUMENT_SUGGESTION, SuggestionIcon.MAGNIFIER},
                 {OmniboxSuggestionType.PEDAL, SuggestionIcon.MAGNIFIER},
-                {OmniboxSuggestionType.CLIPBOARD_TEXT, SuggestionIcon.MAGNIFIER},
-                {OmniboxSuggestionType.CLIPBOARD_IMAGE, SuggestionIcon.MAGNIFIER},
         };
 
         mProcessor.onNativeInitialized();
@@ -207,7 +199,7 @@ public class BasicSuggestionProcessorTest {
     }
 
     @Test
-    @Features.EnableFeatures(ChromeFeatureList.OMNIBOX_SHOW_SUGGESTION_FAVICONS)
+    @Features.DisableFeatures(ChromeFeatureList.OMNIBOX_COMPACT_SUGGESTIONS)
     public void getSuggestionIconTypeForUrl_Default() {
         int[][] testCases = {
                 {OmniboxSuggestionType.URL_WHAT_YOU_TYPED, SuggestionIcon.GLOBE},
@@ -225,7 +217,6 @@ public class BasicSuggestionProcessorTest {
                 {OmniboxSuggestionType.SEARCH_SUGGEST_PROFILE, SuggestionIcon.GLOBE},
                 {OmniboxSuggestionType.SEARCH_OTHER_ENGINE, SuggestionIcon.GLOBE},
                 {OmniboxSuggestionType.NAVSUGGEST_PERSONALIZED, SuggestionIcon.GLOBE},
-                {OmniboxSuggestionType.CLIPBOARD_URL, SuggestionIcon.GLOBE},
                 {OmniboxSuggestionType.VOICE_SUGGEST, SuggestionIcon.GLOBE},
                 {OmniboxSuggestionType.DOCUMENT_SUGGESTION, SuggestionIcon.GLOBE},
                 {OmniboxSuggestionType.PEDAL, SuggestionIcon.GLOBE},
@@ -240,7 +231,7 @@ public class BasicSuggestionProcessorTest {
     }
 
     @Test
-    @Features.EnableFeatures(ChromeFeatureList.OMNIBOX_SHOW_SUGGESTION_FAVICONS)
+    @Features.DisableFeatures(ChromeFeatureList.OMNIBOX_COMPACT_SUGGESTIONS)
     public void getSuggestionIconTypeForBookmarks_Default() {
         int[][] testCases = {
                 {OmniboxSuggestionType.URL_WHAT_YOU_TYPED, SuggestionIcon.BOOKMARK},
@@ -258,7 +249,6 @@ public class BasicSuggestionProcessorTest {
                 {OmniboxSuggestionType.SEARCH_SUGGEST_PROFILE, SuggestionIcon.BOOKMARK},
                 {OmniboxSuggestionType.SEARCH_OTHER_ENGINE, SuggestionIcon.BOOKMARK},
                 {OmniboxSuggestionType.NAVSUGGEST_PERSONALIZED, SuggestionIcon.BOOKMARK},
-                {OmniboxSuggestionType.CLIPBOARD_URL, SuggestionIcon.BOOKMARK},
                 {OmniboxSuggestionType.VOICE_SUGGEST, SuggestionIcon.BOOKMARK},
                 {OmniboxSuggestionType.DOCUMENT_SUGGESTION, SuggestionIcon.BOOKMARK},
                 {OmniboxSuggestionType.PEDAL, SuggestionIcon.BOOKMARK},
@@ -296,7 +286,7 @@ public class BasicSuggestionProcessorTest {
     }
 
     @Test
-    @Features.EnableFeatures(ChromeFeatureList.OMNIBOX_SHOW_SUGGESTION_FAVICONS)
+    @Features.DisableFeatures(ChromeFeatureList.OMNIBOX_COMPACT_SUGGESTIONS)
     public void suggestionFavicons_showFaviconWhenAvailable() {
         final ArgumentCaptor<LargeIconCallback> callback =
                 ArgumentCaptor.forClass(LargeIconCallback.class);
@@ -306,7 +296,7 @@ public class BasicSuggestionProcessorTest {
         SuggestionDrawableState icon1 = mModel.get(BaseSuggestionViewProperties.ICON);
         Assert.assertNotNull(icon1);
 
-        verify(mIconBridge).getLargeIconForUrl(eq(url), anyInt(), callback.capture());
+        verify(mIconBridge).getLargeIconForStringUrl(eq(url), anyInt(), callback.capture());
         callback.getValue().onLargeIconAvailable(mFakeBitmap, 0, false, 0);
         SuggestionDrawableState icon2 = mModel.get(BaseSuggestionViewProperties.ICON);
         Assert.assertNotNull(icon2);
@@ -316,7 +306,7 @@ public class BasicSuggestionProcessorTest {
     }
 
     @Test
-    @Features.EnableFeatures(ChromeFeatureList.OMNIBOX_SHOW_SUGGESTION_FAVICONS)
+    @Features.DisableFeatures(ChromeFeatureList.OMNIBOX_COMPACT_SUGGESTIONS)
     public void suggestionFavicons_doNotReplaceFallbackIconWhenNoFaviconIsAvailable() {
         final ArgumentCaptor<LargeIconCallback> callback =
                 ArgumentCaptor.forClass(LargeIconCallback.class);
@@ -326,24 +316,11 @@ public class BasicSuggestionProcessorTest {
         SuggestionDrawableState icon1 = mModel.get(BaseSuggestionViewProperties.ICON);
         Assert.assertNotNull(icon1);
 
-        verify(mIconBridge).getLargeIconForUrl(eq(url), anyInt(), callback.capture());
+        verify(mIconBridge).getLargeIconForStringUrl(eq(url), anyInt(), callback.capture());
         callback.getValue().onLargeIconAvailable(null, 0, false, 0);
         SuggestionDrawableState icon2 = mModel.get(BaseSuggestionViewProperties.ICON);
         Assert.assertNotNull(icon2);
 
         Assert.assertEquals(icon1, icon2);
-    }
-
-    @Test
-    @Features.DisableFeatures(ChromeFeatureList.OMNIBOX_SHOW_SUGGESTION_FAVICONS)
-    public void suggestionFavicons_showNoIconsAtAllWhenFeatureIsDisabled() {
-        final ArgumentCaptor<LargeIconCallback> callback =
-                ArgumentCaptor.forClass(LargeIconCallback.class);
-        final String url = "http://url";
-        mProcessor.onNativeInitialized();
-        createUrlSuggestion(OmniboxSuggestionType.URL_WHAT_YOU_TYPED, "", "", url);
-        SuggestionDrawableState icon = mModel.get(BaseSuggestionViewProperties.ICON);
-        Assert.assertNull(icon);
-        verify(mIconBridge, never()).getLargeIconForUrl(eq(url), anyInt(), any());
     }
 }

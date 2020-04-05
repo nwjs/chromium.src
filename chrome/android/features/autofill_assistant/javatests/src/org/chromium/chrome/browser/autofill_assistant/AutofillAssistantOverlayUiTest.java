@@ -12,6 +12,7 @@ import static android.support.test.espresso.matcher.ViewMatchers.isRoot;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.notNullValue;
 
 import static org.chromium.chrome.browser.autofill_assistant.AutofillAssistantUiTestUtil.checkElementExists;
 import static org.chromium.chrome.browser.autofill_assistant.AutofillAssistantUiTestUtil.getBoundingRectForElement;
@@ -26,19 +27,22 @@ import android.graphics.RectF;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.filters.MediumTest;
 
+import androidx.annotation.Nullable;
+
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import org.chromium.base.test.util.CommandLineFlags;
-import org.chromium.chrome.browser.ChromeSwitches;
+import org.chromium.chrome.browser.ChromeActivity;
 import org.chromium.chrome.browser.autofill_assistant.overlay.AssistantOverlayCoordinator;
 import org.chromium.chrome.browser.autofill_assistant.overlay.AssistantOverlayImage;
 import org.chromium.chrome.browser.autofill_assistant.overlay.AssistantOverlayModel;
 import org.chromium.chrome.browser.autofill_assistant.overlay.AssistantOverlayState;
 import org.chromium.chrome.browser.customtabs.CustomTabActivityTestRule;
 import org.chromium.chrome.browser.customtabs.CustomTabsTestUtils;
+import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.test.util.TestCallbackHelperContainer;
@@ -71,16 +75,25 @@ public class AutofillAssistantOverlayUiTest {
         return mTestRule.getWebContents();
     }
 
-    /** Creates a coordinator for use in UI tests. */
+    /** Creates a coordinator for use in UI tests with a default, non-null overlay image. */
     private AssistantOverlayCoordinator createCoordinator(AssistantOverlayModel model)
             throws ExecutionException {
-        Bitmap testImage = BitmapFactory.decodeResource(mTestRule.getActivity().getResources(),
-                org.chromium.chrome.autofill_assistant.R.drawable.btn_close);
+        return createCoordinator(model,
+                BitmapFactory.decodeResource(mTestRule.getActivity().getResources(),
+                        org.chromium.chrome.autofill_assistant.R.drawable.btn_close));
+    }
 
+    /** Creates a coordinator for use in UI tests with a custom overlay image. */
+    private AssistantOverlayCoordinator createCoordinator(
+            AssistantOverlayModel model, @Nullable Bitmap overlayImage) throws ExecutionException {
+        ChromeActivity activity = mTestRule.getActivity();
         return runOnUiThreadBlocking(
                 ()
-                        -> new AssistantOverlayCoordinator(mTestRule.getActivity(), model,
-                                new AutofillAssistantUiTestUtil.MockImageFetcher(testImage, null)));
+                        -> new AssistantOverlayCoordinator(activity,
+                                activity.getFullscreenManager(), activity.getCompositorViewHolder(),
+                                activity.getScrim(), model,
+                                new AutofillAssistantUiTestUtil.MockImageFetcher(
+                                        overlayImage, null)));
     }
 
     /** Tests assumptions about the initial state of the infobox. */
@@ -92,7 +105,7 @@ public class AutofillAssistantOverlayUiTest {
 
         assertScrimDisplayed(false);
         tapElement("touch_area_one");
-        assertThat(checkElementExists("touch_area_one", getWebContents()), is(false));
+        assertThat(checkElementExists(getWebContents(), "touch_area_one"), is(false));
     }
 
     /** Tests assumptions about the full overlay. */
@@ -106,13 +119,13 @@ public class AutofillAssistantOverlayUiTest {
                 () -> model.set(AssistantOverlayModel.STATE, AssistantOverlayState.FULL));
         assertScrimDisplayed(true);
         tapElement("touch_area_one");
-        assertThat(checkElementExists("touch_area_one", getWebContents()), is(true));
+        assertThat(checkElementExists(getWebContents(), "touch_area_one"), is(true));
 
         runOnUiThreadBlocking(
                 () -> model.set(AssistantOverlayModel.STATE, AssistantOverlayState.HIDDEN));
         assertScrimDisplayed(false);
         tapElement("touch_area_one");
-        assertThat(checkElementExists("touch_area_one", getWebContents()), is(false));
+        assertThat(checkElementExists(getWebContents(), "touch_area_one"), is(false));
     }
 
     /** Tests assumptions about the full overlay. */
@@ -144,16 +157,16 @@ public class AutofillAssistantOverlayUiTest {
                 () -> model.set(AssistantOverlayModel.STATE, AssistantOverlayState.PARTIAL));
         assertScrimDisplayed(true);
         tapElement("touch_area_one");
-        assertThat(checkElementExists("touch_area_one", getWebContents()), is(true));
+        assertThat(checkElementExists(getWebContents(), "touch_area_one"), is(true));
 
-        Rect rect = getBoundingRectForElement("touch_area_one", getWebContents());
+        Rect rect = getBoundingRectForElement(getWebContents(), "touch_area_one");
         runOnUiThreadBlocking(()
                                       -> model.set(AssistantOverlayModel.TOUCHABLE_AREA,
                                               Collections.singletonList(new RectF(rect))));
 
         // Touchable area set, but no viewport given: equivalent to full overlay.
         tapElement("touch_area_one");
-        assertThat(checkElementExists("touch_area_one", getWebContents()), is(true));
+        assertThat(checkElementExists(getWebContents(), "touch_area_one"), is(true));
 
         // Set viewport.
         Rect viewport = getViewport(getWebContents());
@@ -162,12 +175,12 @@ public class AutofillAssistantOverlayUiTest {
 
         // Now the partial overlay allows tapping the highlighted touch area.
         tapElement("touch_area_one");
-        assertThat(checkElementExists("touch_area_one", getWebContents()), is(false));
+        assertThat(checkElementExists(getWebContents(), "touch_area_one"), is(false));
 
         runOnUiThreadBlocking(
                 () -> model.set(AssistantOverlayModel.TOUCHABLE_AREA, Collections.emptyList()));
         tapElement("touch_area_three");
-        assertThat(checkElementExists("touch_area_three", getWebContents()), is(true));
+        assertThat(checkElementExists(getWebContents(), "touch_area_three"), is(true));
     }
 
     /** Scrolls a touchable area into view and then taps it. */
@@ -177,7 +190,7 @@ public class AutofillAssistantOverlayUiTest {
         AssistantOverlayModel model = new AssistantOverlayModel();
         AssistantOverlayCoordinator coordinator = createCoordinator(model);
 
-        Rect rect = getBoundingRectForElement("touch_area_two", getWebContents());
+        Rect rect = getBoundingRectForElement(getWebContents(), "touch_area_two");
         Rect viewport = getViewport(getWebContents());
         runOnUiThreadBlocking(() -> {
             model.set(AssistantOverlayModel.STATE, AssistantOverlayState.PARTIAL);
@@ -190,7 +203,49 @@ public class AutofillAssistantOverlayUiTest {
         runOnUiThreadBlocking(
                 () -> model.set(AssistantOverlayModel.VISUAL_VIEWPORT, new RectF(newViewport)));
         tapElement("touch_area_two");
-        assertThat(checkElementExists("touch_area_two", getWebContents()), is(false));
+        assertThat(checkElementExists(getWebContents(), "touch_area_two"), is(false));
+    }
+
+    /**
+     * Regular overlay image test. Since there is no easy way to test whether the image is actually
+     * rendered, this is simply checking that nothing crashes.
+     */
+    @Test
+    @MediumTest
+    public void testOverlayImageDoesNotCrashIfValid() throws Exception {
+        AssistantOverlayModel model = new AssistantOverlayModel();
+        Bitmap bitmap = BitmapFactory.decodeResource(mTestRule.getActivity().getResources(),
+                org.chromium.chrome.autofill_assistant.R.drawable.btn_close);
+        assertThat(bitmap, notNullValue());
+        AssistantOverlayCoordinator coordinator =
+                createCoordinator(model, /* overlayImage = */ bitmap);
+
+        runOnUiThreadBlocking(() -> {
+            model.set(AssistantOverlayModel.STATE, AssistantOverlayState.FULL);
+            model.set(AssistantOverlayModel.OVERLAY_IMAGE,
+                    new AssistantOverlayImage("https://www.example.com/example.png", 32, 32, 12,
+                            "Text", Color.RED, 20));
+        });
+
+        assertScrimDisplayed(true);
+    }
+
+    /** Simulates what would happen if the overlay image fetcher returned null. */
+    @Test
+    @MediumTest
+    public void testOverlayDoesNotCrashIfImageFailsToLoad() throws Exception {
+        AssistantOverlayModel model = new AssistantOverlayModel();
+        AssistantOverlayCoordinator coordinator =
+                createCoordinator(model, /* overlayImage = */ null);
+
+        runOnUiThreadBlocking(() -> {
+            model.set(AssistantOverlayModel.STATE, AssistantOverlayState.FULL);
+            model.set(AssistantOverlayModel.OVERLAY_IMAGE,
+                    new AssistantOverlayImage("https://www.example.com/example.png", 32, 32, 12,
+                            "Text", Color.RED, 20));
+        });
+
+        assertScrimDisplayed(true);
     }
 
     private void assertScrimDisplayed(boolean expected) throws Exception {
@@ -214,7 +269,7 @@ public class AutofillAssistantOverlayUiTest {
     }
 
     void tapElement(String elementId) throws Exception {
-        AutofillAssistantUiTestUtil.tapElement(elementId, mTestRule);
+        AutofillAssistantUiTestUtil.tapElement(mTestRule, elementId);
     }
 
     /**

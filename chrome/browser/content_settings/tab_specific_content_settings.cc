@@ -18,7 +18,6 @@
 #include "chrome/browser/browsing_data/browsing_data_database_helper.h"
 #include "chrome/browser/browsing_data/browsing_data_file_system_helper.h"
 #include "chrome/browser/browsing_data/browsing_data_indexed_db_helper.h"
-#include "chrome/browser/browsing_data/browsing_data_local_storage_helper.h"
 #include "chrome/browser/browsing_data/cookies_tree_model.h"
 #include "chrome/browser/content_settings/chrome_content_settings_utils.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
@@ -30,6 +29,7 @@
 #include "chrome/common/pref_names.h"
 #include "chrome/common/render_messages.h"
 #include "chrome/common/renderer_configuration.mojom.h"
+#include "components/browsing_data/content/local_storage_helper.h"
 #include "components/content_settings/core/browser/content_settings_details.h"
 #include "components/content_settings/core/browser/content_settings_info.h"
 #include "components/content_settings/core/browser/content_settings_registry.h"
@@ -348,7 +348,7 @@ void TabSpecificContentSettings::OnDomStorageAccessed(const GURL& url,
   LocalSharedObjectsContainer& container = blocked_by_policy
                                                ? blocked_local_shared_objects_
                                                : allowed_local_shared_objects_;
-  CannedBrowsingDataLocalStorageHelper* helper =
+  browsing_data::CannedLocalStorageHelper* helper =
       local ? container.local_storages() : container.session_storages();
   helper->Add(url::Origin::Create(url));
 
@@ -753,10 +753,6 @@ void TabSpecificContentSettings::DidStartNavigation(
   }
 
   ClearNavigationRelatedContentSettings();
-  ClearGeolocationContentSettings();
-  ClearMidiContentSettings();
-  ClearPendingProtocolHandler();
-  ClearContentSettingsChangedViaPageInfo();
 }
 
 void TabSpecificContentSettings::ReadyToCommitNavigation(
@@ -794,10 +790,11 @@ void TabSpecificContentSettings::DidFinishNavigation(
     return;
   }
 
-  // Clear "blocked" flags.
   ClearContentSettingsExceptForNavigationRelatedSettings();
   GeolocationDidNavigate(navigation_handle);
   MidiDidNavigate(navigation_handle);
+  ClearPendingProtocolHandler();
+  ClearContentSettingsChangedViaPageInfo();
 
   if (web_contents()->GetVisibleURL().SchemeIsHTTPOrHTTPS()) {
     content_settings::RecordPluginsAction(
@@ -833,26 +830,20 @@ void TabSpecificContentSettings::NotifySiteDataObservers() {
     observer.OnSiteDataAccessed();
 }
 
-void TabSpecificContentSettings::ClearGeolocationContentSettings() {
-  geolocation_usages_state_.ClearStateMap();
-}
-
-void TabSpecificContentSettings::ClearMidiContentSettings() {
-  midi_usages_state_.ClearStateMap();
-}
-
 void TabSpecificContentSettings::ClearContentSettingsChangedViaPageInfo() {
   content_settings_changed_via_page_info_.clear();
 }
 
 void TabSpecificContentSettings::GeolocationDidNavigate(
     content::NavigationHandle* navigation_handle) {
+  geolocation_usages_state_.ClearStateMap();
   geolocation_usages_state_.DidNavigate(navigation_handle->GetURL(),
                                         navigation_handle->GetPreviousURL());
 }
 
 void TabSpecificContentSettings::MidiDidNavigate(
     content::NavigationHandle* navigation_handle) {
+  midi_usages_state_.ClearStateMap();
   midi_usages_state_.DidNavigate(navigation_handle->GetURL(),
                                  navigation_handle->GetPreviousURL());
 }

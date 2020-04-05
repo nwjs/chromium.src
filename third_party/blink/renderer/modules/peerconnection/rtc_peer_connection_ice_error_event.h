@@ -39,14 +39,16 @@ class MODULES_EXPORT RTCPeerConnectionIceErrorEvent final : public Event {
       const RTCPeerConnectionIceErrorEventInit*);
 
   String address() const;
-  uint16_t port(bool& is_null) const;
+  base::Optional<uint16_t> port() const;
+  // TODO(crbug.com/1060971): Remove |is_null| version.
+  uint16_t port(bool& is_null) const;  // DEPRECATED
   String hostCandidate() const;
   String url() const;
   uint16_t errorCode() const;
   String errorText() const;
   const AtomicString& InterfaceName() const override;
 
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
 
  private:
   String address_;

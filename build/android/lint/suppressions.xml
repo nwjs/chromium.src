@@ -40,12 +40,6 @@ Still reading?
   <issue id="ButtonStyle" severity="Error">
     <ignore regexp="remoting/android/host/res/layout/main.xml"/>
   </issue>
-  <!-- Can be removed when BOM marks are removed: https://crbug.com/1033305-->
-  <issue id="ByteOrderMark" severity="Error">
-    <ignore regexp="values-pt-rBR/android_chrome_strings.xml"/>
-    <ignore regexp="values-si/android_chrome_strings.xml"/>
-    <ignore regexp="values-zh-rHK/android_chrome_strings.xml"/>
-  </issue>
   <issue id="ClickableViewAccessibility" severity="ignore"/>
   <issue id="CommitPrefEdits">
     <ignore regexp="third_party/cacheinvalidation/src/java/com/google/ipc/invalidation/ticl/android2/channel/AndroidChannelPreferences.java"/>
@@ -260,8 +254,6 @@ Still reading?
     <!--TODO(crbug.com/1044658): This suppression was added blindly, and needs investigated.-->
     <ignore regexp="chrome/android/java/res/drawable/ic_checkmark_24dp.xml"/>
     <!--TODO(crbug.com/1044658): This suppression was added blindly, and needs investigated.-->
-    <ignore regexp="chrome/android/java/res/drawable/ic_infobar_nfc.xml"/>
-    <!--TODO(crbug.com/1044658): This suppression was added blindly, and needs investigated.-->
     <ignore regexp="chrome/android/java/res/drawable/ic_logo_googleg_20dp.xml"/>
     <!--TODO(crbug.com/1044658): This suppression was added blindly, and needs investigated.-->
     <ignore regexp="chrome/android/java/res/drawable/ic_pause_circle_outline_white_24dp.xml"/>
@@ -346,10 +338,6 @@ Still reading?
   <issue id="TypographyDashes" severity="Error">
     <ignore regexp="chrome/app/policy/android/values-v21/restriction_values.xml"/>
   </issue>
-  <!-- If no space is after ... in a translation grit does not automatically change it to … -->
-  <issue id="TypographyEllipsis" severity="Error">
-    <ignore regexp="chrome/browser/ui/android/strings/ui_strings_grd.resources.zip/values-az/android_chrome_strings.xml"/>
-  </issue>
   <!-- Typos check disabled due to lint bug: http://crbug.com/671170 -->
   <issue id="Typos" severity="ignore"/>
   <!-- Our generated enums are allowed to have the same values. -->
@@ -430,12 +418,16 @@ Still reading?
     <ignore regexp="android_webview/test/shell/res/raw/resource_file.html"/>
     <ignore regexp="android_webview/test/shell/res/raw/resource_icon.png"/>
     <ignore regexp="android_webview/tools/automated_ui_tests/java/res/layout/"/>
-    <!-- TODO(crbug.com/1017190): Remove the following 4 suppressions once we lint entire app rather
+    <!-- TODO(crbug.com/1017190): Remove the following 8 suppressions once we lint entire app rather
          than each individual target -->
     <ignore regexp="components/browser_ui/strings/android/browser_ui_strings_grd"/>
     <ignore regexp="chrome/browser/ui/android/strings/ui_strings_grd"/>
     <ignore regexp="The resource `R.drawable.*_expand_.*` appears to be unused"/>
+    <ignore regexp="The resource `R.drawable.btn_close` appears to be unused"/>
     <ignore regexp="The resource `R.drawable.ic_more_vert_24dp_on_dark_bg` appears to be unused"/>
+    <ignore regexp="The resource `R.layout.permission_dialog` appears to be unused"/>
+    <ignore regexp="components/browser_ui/styles/android/java/res"/>
+    <ignore regexp="components/permissions/android/res/drawable"/>
     <!-- 1 resource used by android tv to generate resources.zip file -->
     <ignore regexp="chromecast/internal/shell/browser/android/java/res/drawable-hdpi/ic_settings_cast.png"/>
     <!-- 1 string used by Android's policies system, pulled from app directly -->
@@ -451,6 +443,8 @@ Still reading?
     <ignore regexp="chrome/android/java/res/values/styles.xml"/>
     <!--TODO(crbug.com/1044658): This suppression was added blindly, and needs investigated.-->
     <ignore regexp="chrome/android/java/res/layout/tab_switcher_action_menu_layout.xml"/>
+    <!--TODO(crbug.com/1052375): Remove this suppression once ConnectionInfoPopAndroid moves to components.-->
+    <ignore regexp="components/page_info/android/java/res/drawable-hdpi/pageinfo_*"/>
   </issue>
   <issue id="UseCompoundDrawables">
     <!-- Upscaling 24dp to 48dp doesn't work as expected with a TextView compound drawable. -->

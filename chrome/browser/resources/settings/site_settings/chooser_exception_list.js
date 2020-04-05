@@ -55,12 +55,6 @@ Polymer({
   },
 
   /** @override */
-  created() {
-    this.browserProxy_ =
-        settings.SiteSettingsPrefsBrowserProxyImpl.getInstance();
-  },
-
-  /** @override */
   attached() {
     this.addWebUIListener(
         'contentSettingChooserPermissionChanged',
@@ -116,6 +110,9 @@ Polymer({
       case settings.ChooserType.HID_DEVICES:
         this.emptyListMessage_ = this.i18n('noHidDevicesFound');
         break;
+      case settings.ChooserType.BLUETOOTH_DEVICES:
+        this.emptyListMessage_ = this.i18n('noBluetoothDevicesFound');
+        break;
       default:
         this.emptyListMessage_ = '';
     }
@@ -164,7 +161,7 @@ Polymer({
    * @private
    */
   populateList_() {
-    this.browserProxy_.getChooserExceptionList(this.chooserType)
+    this.browserProxy.getChooserExceptionList(this.chooserType)
         .then(exceptionList => this.processExceptions_(exceptionList));
   },
 
@@ -175,7 +172,8 @@ Polymer({
    */
   processExceptions_(exceptionList) {
     const exceptions = exceptionList.map(exception => {
-      const sites = exception.sites.map(this.expandSiteException);
+      const sites = exception.sites.map(
+          site => this.expandSiteException(site));
       return Object.assign(exception, {sites});
     });
 

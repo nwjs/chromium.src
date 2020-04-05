@@ -48,7 +48,7 @@ const base::Feature kAudioServiceLaunchOnStartup{
     "AudioServiceLaunchOnStartup", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Runs the audio service in a separate process.
-const base::Feature kAudioServiceOutOfProcess{
+const base::Feature kAudioServiceOutOfProcess {
   "AudioServiceOutOfProcess",
 #if defined(OS_WIN) || defined(OS_MACOSX) || \
     (defined(OS_LINUX) && !defined(OS_CHROMEOS))
@@ -116,7 +116,7 @@ const base::Feature kCacheStorageEagerReading{
 // Enables scheduling the operation at high priority when a cache.match() is
 // initiated from a FetchEvent handler with a matching request URL.
 const base::Feature kCacheStorageHighPriorityMatch{
-    "CacheStorageHighPriorityMatch", base::FEATURE_DISABLED_BY_DEFAULT};
+    "CacheStorageHighPriorityMatch", base::FEATURE_ENABLED_BY_DEFAULT};
 
 // If Canvas2D Image Chromium is allowed, this feature controls whether it is
 // enabled.
@@ -128,6 +128,10 @@ const base::Feature kCanvas2DImageChromium {
       base::FEATURE_DISABLED_BY_DEFAULT
 #endif
 };
+
+// Enables the use of out of process rasterization for canvas.
+const base::Feature kCanvasOopRasterization{"CanvasOopRasterization",
+                                            base::FEATURE_DISABLED_BY_DEFAULT};
 
 // When enabled, event.movement is calculated in blink instead of in browser.
 const base::Feature kConsolidatedMovementXY{"ConsolidatedMovementXY",
@@ -207,9 +211,18 @@ const base::Feature kFeaturePolicyForSandbox{"FeaturePolicyForSandbox",
 const base::Feature kFontSrcLocalMatching{"FontSrcLocalMatching",
                                           base::FEATURE_ENABLED_BY_DEFAULT};
 
-// Enables forced colors mode for web content.
-const base::Feature kForcedColors{"ForcedColors",
-                                  base::FEATURE_DISABLED_BY_DEFAULT};
+#if !defined(OS_ANDROID)
+// Feature controlling whether or not memory pressure signals will be forwarded
+// to the GPU process.
+const base::Feature kForwardMemoryPressureEventsToGpuProcess {
+  "ForwardMemoryPressureEventsToGpuProcess",
+#if defined(OS_FUCHSIA) || defined(OS_WIN)
+      base::FEATURE_ENABLED_BY_DEFAULT
+#else
+      base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+};
+#endif
 
 // Enables scrollers inside Blink to store scroll offsets in fractional
 // floating-point numbers rather than truncating to integers.
@@ -263,18 +276,9 @@ const base::Feature kIsolateOrigins{"IsolateOrigins",
                                     base::FEATURE_DISABLED_BY_DEFAULT};
 const char kIsolateOriginsFieldTrialParamName[] = "OriginsList";
 
-const base::Feature kBuiltInModuleKvStorage{"BuiltInModuleKvStorage",
-                                            base::FEATURE_DISABLED_BY_DEFAULT};
-
-const base::Feature kBuiltInModuleAll{"BuiltInModuleAll",
-                                      base::FEATURE_DISABLED_BY_DEFAULT};
-
-const base::Feature kBuiltInModuleInfra{"BuiltInModuleInfra",
-                                        base::FEATURE_DISABLED_BY_DEFAULT};
-
 const base::Feature kLazyFrameLoading{"LazyFrameLoading",
                                       base::FEATURE_ENABLED_BY_DEFAULT};
-const base::Feature kLazyFrameVisibleLoadTimeMetrics{
+const base::Feature kLazyFrameVisibleLoadTimeMetrics {
   "LazyFrameVisibleLoadTimeMetrics",
 #if defined(OS_ANDROID)
       base::FEATURE_ENABLED_BY_DEFAULT
@@ -284,7 +288,7 @@ const base::Feature kLazyFrameVisibleLoadTimeMetrics{
 };
 const base::Feature kLazyImageLoading{"LazyImageLoading",
                                       base::FEATURE_ENABLED_BY_DEFAULT};
-const base::Feature kLazyImageVisibleLoadTimeMetrics{
+const base::Feature kLazyImageVisibleLoadTimeMetrics {
   "LazyImageVisibleLoadTimeMetrics",
 #if defined(OS_ANDROID)
       base::FEATURE_ENABLED_BY_DEFAULT
@@ -301,7 +305,7 @@ const base::Feature kLazyInitializeMediaControls{
 // API font fallback calls to retrieve a fallback font family name as opposed to
 // using a hard-coded font lookup table.
 const base::Feature kLegacyWindowsDWriteFontFallback{
-    "LegacyWindowsDWriteFontFallback", base::FEATURE_ENABLED_BY_DEFAULT};
+    "LegacyWindowsDWriteFontFallback", base::FEATURE_DISABLED_BY_DEFAULT};
 
 const base::Feature kLogJsConsoleMessages{"LogJsConsoleMessages",
                                           base::FEATURE_DISABLED_BY_DEFAULT};
@@ -357,6 +361,12 @@ const base::Feature kNotificationContentImage{"NotificationContentImage",
 // Enables the notification trigger API.
 const base::Feature kNotificationTriggers{"NotificationTriggers",
                                           base::FEATURE_ENABLED_BY_DEFAULT};
+
+// Origin Isolation, via a header. See https://crbug.com/1042415
+// Note that the origin policy-based variant of origin isolation is controlled
+// by kOriginPolicy, instead.
+const base::Feature kOriginIsolationHeader{"OriginIsolationHeader",
+                                           base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Origin Policy. See https://crbug.com/751996
 const base::Feature kOriginPolicy{"OriginPolicy",
@@ -473,14 +483,13 @@ const base::Feature kReloadHiddenTabsWithCrashedSubframes {
 // frame in a given process. A new one is created after a different-process
 // navigation. The goal of RenderDocument is to get a new one for each document
 // instead.
+//
+// Design doc: https://bit.ly/renderdocument
+// Main bug tracker: https://crbug.com/936696
 
-// Enable using the RenderDocument on main frame navigations.
-const base::Feature kRenderDocumentForMainFrame{
-    "RenderDocumentForMainFrame", base::FEATURE_DISABLED_BY_DEFAULT};
-
-// Enable using the RenderDocument on subframe navigations.
-const base::Feature kRenderDocumentForSubframe{
-    "RenderDocumentForSubframe", base::FEATURE_DISABLED_BY_DEFAULT};
+// Enable using the RenderDocument.
+const base::Feature kRenderDocument{"RenderDocument",
+                                    base::FEATURE_DISABLED_BY_DEFAULT};
 
 const base::Feature kRequestUnbufferedDispatch{
     "RequestUnbufferedDispatch", base::FEATURE_ENABLED_BY_DEFAULT};
@@ -584,6 +593,15 @@ const base::Feature kSpareRendererForSitePerProcess{
 const base::Feature kStoragePressureUI{"StoragePressureUI",
                                        base::FEATURE_DISABLED_BY_DEFAULT};
 
+// Enables the out-of-process Storage Service.
+const base::Feature kStorageServiceOutOfProcess{
+    "StorageServiceOutOfProcess", base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Enables the Storage Service sandbox whenever out-of-process Storage Service
+// is enabled.
+const base::Feature kStorageServiceSandbox{"StorageServiceSandbox",
+                                           base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Controls whether site isolation should use origins instead of scheme and
 // eTLD+1.
 const base::Feature kStrictOriginIsolation{"StrictOriginIsolation",
@@ -619,7 +637,7 @@ const base::Feature kTouchpadOverscrollHistoryNavigation {
 
 // Controls whether the Trusted Types API is available.
 const base::Feature kTrustedDOMTypes{"TrustedDOMTypes",
-                                     base::FEATURE_DISABLED_BY_DEFAULT};
+                                     base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Controls whether the RenderProcessHost uses its frames' priorities for
 // determining if it should be backgrounded. When all frames associated with a
@@ -667,10 +685,6 @@ const base::Feature kWebAssemblyBaseline{"WebAssemblyBaseline",
 #endif
 };
 
-// Enable garbage collection of WebAssembly code.
-const base::Feature kWebAssemblyCodeGC{"WebAssemblyCodeGC",
-                                       base::FEATURE_ENABLED_BY_DEFAULT};
-
 // Enable WebAssembly lazy compilation (JIT on first call).
 const base::Feature kWebAssemblyLazyCompilation{
     "WebAssemblyLazyCompilation", base::FEATURE_DISABLED_BY_DEFAULT};
@@ -710,7 +724,7 @@ const base::Feature kWebAssemblyTrapHandler{"WebAssemblyTrapHandler",
 const base::Feature kWebContentsOcclusion {
   "WebContentsOcclusion",
 #if defined(OS_MACOSX) || defined(OS_CHROMEOS) || defined(OS_WIN)
-      base::FEATURE_ENABLED_BY_DEFAULT
+      base::FEATURE_DISABLED_BY_DEFAULT
 #else
       base::FEATURE_DISABLED_BY_DEFAULT
 #endif
@@ -732,6 +746,12 @@ const base::Feature kWebAuthCable {
       base::FEATURE_ENABLED_BY_DEFAULT
 #endif
 };
+
+// Controls whether Web Bluetooth should use the new permissions backend. The
+// new permissions backend uses ChooserContextBase, which is used by other
+// device APIs, such as WebUSB.
+const base::Feature kWebBluetoothNewPermissionsBackend{
+    "WebBluetoothNewPermissionsBackend", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Controls whether Web Bundles (Bundled HTTP Exchanges) is enabled.
 // https://wicg.github.io/webpackage/draft-yasskin-wpack-bundled-exchanges.html
@@ -755,10 +775,19 @@ const base::Feature kWebGLImageChromium{"WebGLImageChromium",
 const base::Feature kExperimentalProductivityFeatures{
     "ExperimentalProductivityFeatures", base::FEATURE_DISABLED_BY_DEFAULT};
 
+// When this feature is enabled, the Web OTP API will use the User Consent
+// API to retrieve SMSes from the Android device.
+const base::Feature kWebOtpBackend{"kWebOtpBackend",
+                                   base::FEATURE_DISABLED_BY_DEFAULT};
+
 // The JavaScript API for payments on the web.
 // TODO(rouslan): Remove this.
 const base::Feature kWebPayments{"WebPayments",
                                  base::FEATURE_ENABLED_BY_DEFAULT};
+
+// Minimal user interface experience for payments on the web.
+const base::Feature kWebPaymentsMinimalUI{"WebPaymentsMinimalUI",
+                                          base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Makes WebRTC use ECDSA certs by default (i.e., when no cert type was
 // specified in JS).

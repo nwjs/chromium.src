@@ -10,14 +10,11 @@
 #include "build/build_config.h"
 #include "chrome/common/pref_names.h"
 #include "components/autofill/core/common/autofill_prefs.h"
-#include "components/dom_distiller/core/pref_names.h"
-#include "components/feed/buildflags.h"
-#if BUILDFLAG(ENABLE_FEED_IN_CHROME)
-#include "components/feed/core/common/pref_names.h"
-#endif  // BUILDFLAG(ENABLE_FEED_IN_CHROME)
 #include "components/content_settings/core/common/pref_names.h"
+#include "components/dom_distiller/core/pref_names.h"
 #include "components/embedder_support/pref_names.h"
-#include "components/ntp_snippets/pref_names.h"
+#include "components/feed/buildflags.h"
+#include "components/feed/core/shared_prefs/pref_names.h"
 #include "components/offline_pages/core/prefetch/prefetch_prefs.h"
 #include "components/password_manager/core/common/password_manager_pref_names.h"
 #include "components/payments/core/payment_prefs.h"
@@ -68,6 +65,8 @@ enum Pref {
   WEBKIT_PASSWORD_ECHO_ENABLED,
   WEBKIT_FORCE_DARK_MODE_ENABLED,
   HOME_PAGE,
+  AUTOFILL_CREDIT_CARD_FIDO_AUTH_ENABLED,
+  ENABLE_QUIET_NOTIFICATION_PERMISSION_UI,
   // PREF_NUM_PREFS must be the last entry.
   PREF_NUM_PREFS
 };
@@ -77,15 +76,8 @@ enum Pref {
 const char* const kPrefsExposedToJava[] = {
     prefs::kAllowDeletingBrowserHistory,
     prefs::kIncognitoModeAvailability,
-
-#if BUILDFLAG(ENABLE_FEED_IN_CHROME)
     feed::prefs::kEnableSnippets,
     feed::prefs::kArticlesListVisible,
-#else   // BUILDFLAG(ENABLE_FEED_IN_CHROME)
-    ntp_snippets::prefs::kEnableSnippets,
-    ntp_snippets::prefs::kArticlesListVisible,
-#endif  // BUILDFLAG(ENABLE_FEED_IN_CHROME)
-
     dom_distiller::prefs::kReaderForAccessibility,
     prefs::kPromptForDownloadAndroid,
     prefs::kShowMissingSdCardErrorAndroid,
@@ -121,6 +113,8 @@ const char* const kPrefsExposedToJava[] = {
     prefs::kWebKitPasswordEchoEnabled,
     prefs::kWebKitForceDarkModeEnabled,
     prefs::kHomePage,
+    autofill::prefs::kAutofillCreditCardFidoAuthEnabled,
+    prefs::kEnableQuietNotificationPermissionUi,
 };
 
 #endif  // CHROME_BROWSER_ANDROID_PREFERENCES_PREFS_H_

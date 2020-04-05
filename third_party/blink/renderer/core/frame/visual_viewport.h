@@ -37,6 +37,7 @@
 #include "third_party/blink/public/mojom/scroll/scroll_into_view_params.mojom-blink-forward.h"
 #include "third_party/blink/public/platform/web_size.h"
 #include "third_party/blink/renderer/core/core_export.h"
+#include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/events/event.h"
 #include "third_party/blink/renderer/core/scroll/scroll_types.h"
 #include "third_party/blink/renderer/core/scroll/scrollable_area.h"
@@ -101,7 +102,7 @@ class CORE_EXPORT VisualViewport : public GarbageCollected<VisualViewport>,
   explicit VisualViewport(Page&);
   ~VisualViewport() override;
 
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
 
   void InitializeScrollbars();
 
@@ -175,14 +176,13 @@ class CORE_EXPORT VisualViewport : public GarbageCollected<VisualViewport>,
   ChromeClient* GetChromeClient() const override;
   SmoothScrollSequencer* GetSmoothScrollSequencer() const override;
   void SetScrollOffset(const ScrollOffset&,
-                       mojom::blink::ScrollIntoViewParams::Type,
-                       mojom::blink::ScrollIntoViewParams::Behavior,
+                       mojom::blink::ScrollType,
+                       mojom::blink::ScrollBehavior,
                        ScrollCallback on_finish) override;
-  void SetScrollOffset(
-      const ScrollOffset&,
-      mojom::blink::ScrollIntoViewParams::Type,
-      mojom::blink::ScrollIntoViewParams::Behavior =
-          mojom::blink::ScrollIntoViewParams::Behavior::kInstant) override;
+  void SetScrollOffset(const ScrollOffset&,
+                       mojom::blink::ScrollType,
+                       mojom::blink::ScrollBehavior =
+                           mojom::blink::ScrollBehavior::kInstant) override;
   PhysicalRect ScrollIntoView(
       const PhysicalRect&,
       const mojom::blink::ScrollIntoViewParamsPtr&) override;
@@ -211,7 +211,7 @@ class CORE_EXPORT VisualViewport : public GarbageCollected<VisualViewport>,
   bool ScrollAnimatorEnabled() const override;
   void ScrollControlWasSetNeedsPaintInvalidation() override {}
   void UpdateScrollOffset(const ScrollOffset&,
-                          mojom::blink::ScrollIntoViewParams::Type) override;
+                          mojom::blink::ScrollType) override;
   cc::Layer* LayerForScrolling() const override;
   cc::Layer* LayerForHorizontalScrollbar() const override;
   cc::Layer* LayerForVerticalScrollbar() const override;
@@ -279,7 +279,7 @@ class CORE_EXPORT VisualViewport : public GarbageCollected<VisualViewport>,
                              const FloatPoint& location);
 
   void CreateLayers();
-  void UpdateStyleAndLayout() const;
+  void UpdateStyleAndLayout(DocumentUpdateReason) const;
 
   void EnqueueScrollEvent();
   void EnqueueResizeEvent();

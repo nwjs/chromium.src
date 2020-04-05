@@ -12,7 +12,6 @@
 
 namespace syncer {
 
-constexpr char FakeSyncEngine::kTestCacheGuid[];
 constexpr char FakeSyncEngine::kTestBirthday[];
 constexpr char FakeSyncEngine::kTestKeystoreKey[];
 
@@ -24,7 +23,7 @@ void FakeSyncEngine::Initialize(InitParams params) {
   initialized_ = success;
   params.host->OnEngineInitialized(
       ModelTypeSet(), WeakHandle<JsBackend>(),
-      WeakHandle<DataTypeDebugInfoListener>(), kTestCacheGuid, kTestBirthday,
+      WeakHandle<DataTypeDebugInfoListener>(), kTestBirthday,
       /*bag_of_chips=*/"", kTestKeystoreKey, success);
 }
 
@@ -81,8 +80,8 @@ UserShare* FakeSyncEngine::GetUserShare() const {
   return nullptr;
 }
 
-SyncStatus FakeSyncEngine::GetDetailedStatus() {
-  return SyncStatus();
+const SyncStatus& FakeSyncEngine::GetDetailedStatus() const {
+  return default_sync_status_;
 }
 
 void FakeSyncEngine::HasUnsyncedItemsForTest(

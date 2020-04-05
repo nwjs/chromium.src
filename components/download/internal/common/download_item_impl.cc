@@ -227,7 +227,6 @@ DownloadItemImpl::RequestInfo::RequestInfo(
     const GURL& tab_url,
     const GURL& tab_referrer_url,
     const base::Optional<url::Origin>& request_initiator,
-    const net::NetworkIsolationKey& network_isolation_key,
     const std::string& suggested_filename,
     const base::FilePath& forced_file_path,
     ui::PageTransition transition_type,
@@ -240,7 +239,6 @@ DownloadItemImpl::RequestInfo::RequestInfo(
       tab_url(tab_url),
       tab_referrer_url(tab_referrer_url),
       request_initiator(request_initiator),
-      network_isolation_key(network_isolation_key),
       suggested_filename(suggested_filename),
       forced_file_path(forced_file_path),
       transition_type(transition_type),
@@ -248,12 +246,8 @@ DownloadItemImpl::RequestInfo::RequestInfo(
       remote_address(remote_address),
       start_time(start_time) {}
 
-DownloadItemImpl::RequestInfo::RequestInfo(
-    const GURL& url,
-    const net::NetworkIsolationKey& network_isolation_key)
-    : url_chain(std::vector<GURL>(1, url)),
-      network_isolation_key(network_isolation_key),
-      start_time(base::Time::Now()) {}
+DownloadItemImpl::RequestInfo::RequestInfo(const GURL& url)
+    : url_chain(std::vector<GURL>(1, url)), start_time(base::Time::Now()) {}
 
 DownloadItemImpl::RequestInfo::RequestInfo() = default;
 
@@ -326,7 +320,6 @@ DownloadItemImpl::DownloadItemImpl(
                     tab_url,
                     tab_refererr_url,
                     request_initiator,
-                    net::NetworkIsolationKey::Todo(),  // crbug/1028901
                     std::string(),
                     base::FilePath(),
                     ui::PAGE_TRANSITION_LINK,
@@ -386,7 +379,6 @@ DownloadItemImpl::DownloadItemImpl(DownloadItemImplDelegate* delegate,
                     info.tab_url,
                     info.tab_referrer_url,
                     info.request_initiator,
-                    info.network_isolation_key,
                     base::UTF16ToUTF8(info.save_info->suggested_name),
                     info.save_info->file_path,
                     info.transition_type ? info.transition_type.value()
@@ -430,10 +422,9 @@ DownloadItemImpl::DownloadItemImpl(
     const base::FilePath& path,
     const GURL& url,
     const std::string& mime_type,
-    const net::NetworkIsolationKey& network_isolation_key,
 
     DownloadJob::CancelRequestCallback cancel_request_callback)
-    : request_info_(url, network_isolation_key),
+    : request_info_(url),
       guid_(base::GenerateGUID()),
       download_id_(download_id),
       mime_type_(mime_type),
@@ -499,6 +490,8 @@ void DownloadItemImpl::ValidateDangerousDownload() {
   if (IsDone() || !IsDangerous())
     return;
 
+  RecordDangerousDownloadAccept(GetDangerType(), GetTargetFilePath());
+
   danger_type_ = DOWNLOAD_DANGER_TYPE_USER_VALIDATED;
 
   TRACE_EVENT_INSTANT1("download", "DownloadItemSaftyStateUpdated",
@@ -530,9 +523,8 @@ void DownloadItemImpl::ValidateMixedContentDownload() {
   MaybeCompleteDownload();
 }
 
-void DownloadItemImpl::StealDangerousDownload(
-    bool delete_file_afterward,
-    const AcquireFileCallback& callback) {
+void DownloadItemImpl::StealDangerousDownload(bool delete_file_afterward,
+                                              AcquireFileCallback callback) {
   DVLOG(20) << __func__ << "() download = " << DebugString(true);
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   DCHECK(IsDangerous());
@@ -542,10 +534,10 @@ void DownloadItemImpl::StealDangerousDownload(
     if (download_file_) {
       base::PostTaskAndReplyWithResult(
           GetDownloadTaskRunner().get(), FROM_HERE,
-          base::BindOnce(&DownloadFileDetach, base::Passed(&download_file_)),
-          base::BindOnce(callback));
+          base::BindOnce(&DownloadFileDetach, std::move(download_file_)),
+          base::BindOnce(std::move(callback)));
     } else {
-      callback.Run(GetFullPath());
+      std::move(callback).Run(GetFullPath());
     }
     destination_info_.current_path.clear();
     Remove();
@@ -554,9 +546,9 @@ void DownloadItemImpl::StealDangerousDownload(
     base::PostTaskAndReplyWithResult(
         GetDownloadTaskRunner().get(), FROM_HERE,
         base::BindOnce(&MakeCopyOfDownloadFile, download_file_.get()),
-        base::BindOnce(callback));
+        base::BindOnce(std::move(callback)));
   } else {
-    callback.Run(GetFullPath());
+    std::move(callback).Run(GetFullPath());
   }
 }
 
@@ -661,7 +653,6 @@ void DownloadItemImpl::Cancel(bool user_cancel) {
 void DownloadItemImpl::Remove() {
   DVLOG(20) << __func__ << "() download = " << DebugString(true);
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
-  RecordDownloadDeletion(GetEndTime(), GetMimeType());
 
   InterruptAndDiscardPartialState(DOWNLOAD_INTERRUPT_REASON_USER_CANCELED);
   UpdateObservers();
@@ -689,7 +680,6 @@ void DownloadItemImpl::OpenDownload() {
   // program that opens the file.  So instead we spawn a check to update
   // the UI if the file has been deleted in parallel with the open.
   delegate_->CheckForFileRemoval(this);
-  RecordOpen(GetEndTime());
   opened_ = true;
   last_access_time_ = base::Time::Now();
   for (auto& observer : observers_)
@@ -857,11 +847,6 @@ const GURL& DownloadItemImpl::GetTabReferrerUrl() const {
 const base::Optional<url::Origin>& DownloadItemImpl::GetRequestInitiator()
     const {
   return request_info_.request_initiator;
-}
-
-const net::NetworkIsolationKey& DownloadItemImpl::GetNetworkIsolationKey()
-    const {
-  return request_info_.network_isolation_key;
 }
 
 std::string DownloadItemImpl::GetSuggestedFilename() const {
@@ -1831,8 +1816,8 @@ void DownloadItemImpl::MaybeCompleteDownload() {
   DCHECK(!IsSavePackageDownload());
 
   if (!IsDownloadReadyForCompletion(
-          base::Bind(&DownloadItemImpl::MaybeCompleteDownload,
-                     weak_ptr_factory_.GetWeakPtr())))
+          base::BindRepeating(&DownloadItemImpl::MaybeCompleteDownload,
+                              weak_ptr_factory_.GetWeakPtr())))
     return;
   // Confirm we're in the proper set of states to be here; have all data, have a
   // history handle, (validated or safe).
@@ -1976,8 +1961,6 @@ void DownloadItemImpl::Completed() {
       response_headers_->GetContentRangeFor206(&first_byte, &last_byte,
                                                &content_length);
     }
-    if (content_length > 0)
-      RecordParallelizableContentLength(content_length);
   }
 
   if (auto_opened_) {
@@ -2220,7 +2203,7 @@ void DownloadItemImpl::DeleteDownloadFile() {
 }
 
 bool DownloadItemImpl::IsDownloadReadyForCompletion(
-    const base::Closure& state_change_notification) {
+    base::OnceClosure state_change_notification) {
   // If the download hasn't progressed to the IN_PROGRESS state, then it's not
   // ready for completion.
   if (state_ != IN_PROGRESS_INTERNAL)
@@ -2251,7 +2234,8 @@ bool DownloadItemImpl::IsDownloadReadyForCompletion(
 
   // Give the delegate a chance to hold up a stop sign.  It'll call
   // use back through the passed callback if it does and that state changes.
-  if (!delegate_->ShouldCompleteDownload(this, state_change_notification))
+  if (!delegate_->ShouldCompleteDownload(this,
+                                         std::move(state_change_notification)))
     return false;
 
   return true;
@@ -2472,8 +2456,7 @@ void DownloadItemImpl::ResumeInterruptedDownload(
   // request will not be dropped if the WebContents (and by extension, the
   // associated renderer) goes away before a response is received.
   std::unique_ptr<DownloadUrlParameters> download_params(
-      new DownloadUrlParameters(GetURL(), traffic_annotation,
-                                request_info_.network_isolation_key));
+      new DownloadUrlParameters(GetURL(), traffic_annotation));
   download_params->set_file_path(GetFullPath());
   if (received_slices_.size() > 0) {
     std::vector<DownloadItem::ReceivedSlice> slices_to_download =

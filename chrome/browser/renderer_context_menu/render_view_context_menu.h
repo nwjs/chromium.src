@@ -20,7 +20,7 @@
 #include "components/renderer_context_menu/render_view_context_menu_base.h"
 #include "components/renderer_context_menu/render_view_context_menu_observer.h"
 #include "components/renderer_context_menu/render_view_context_menu_proxy.h"
-#include "content/public/common/context_menu_params.h"
+#include "content/public/browser/context_menu_params.h"
 #include "extensions/buildflags/buildflags.h"
 #include "ppapi/buildflags/buildflags.h"
 #include "printing/buildflags/buildflags.h"
@@ -57,7 +57,6 @@ class Point;
 }
 
 namespace blink {
-struct PluginAction;
 namespace mojom {
 class MediaPlayerAction;
 }
@@ -241,7 +240,7 @@ class RenderViewContextMenu : public RenderViewContextMenuBase {
   void MediaPlayerActionAt(const gfx::Point& location,
                            const blink::mojom::MediaPlayerAction& action);
   void PluginActionAt(const gfx::Point& location,
-                      const blink::PluginAction& action);
+                      blink::mojom::PluginActionType plugin_action);
 
   // Returns a list of registered ProtocolHandlers that can handle the clicked
   // on URL.

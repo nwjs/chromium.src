@@ -32,6 +32,10 @@ struct BLINK_COMMON_EXPORT StructTraits<blink::mojom::UserAgentMetadataDataView,
   static const std::string& platform(const ::blink::UserAgentMetadata& data) {
     return data.platform;
   }
+  static const std::string& platform_version(
+      const ::blink::UserAgentMetadata& data) {
+    return data.platform_version;
+  }
   static const std::string& architecture(
       const ::blink::UserAgentMetadata& data) {
     return data.architecture;
@@ -46,6 +50,23 @@ struct BLINK_COMMON_EXPORT StructTraits<blink::mojom::UserAgentMetadataDataView,
 
   static bool Read(blink::mojom::UserAgentMetadataDataView data,
                    ::blink::UserAgentMetadata* out);
+};
+
+template <>
+struct BLINK_COMMON_EXPORT StructTraits<blink::mojom::UserAgentOverrideDataView,
+                                        ::blink::UserAgentOverride> {
+  static const std::string& ua_string_override(
+      const ::blink::UserAgentOverride& data) {
+    return data.ua_string_override;
+  }
+
+  static const base::Optional<::blink::UserAgentMetadata> ua_metadata_override(
+      const ::blink::UserAgentOverride& data) {
+    return data.ua_metadata_override;
+  }
+
+  static bool Read(blink::mojom::UserAgentOverrideDataView,
+                   ::blink::UserAgentOverride* out);
 };
 
 }  // namespace mojo

@@ -49,7 +49,7 @@ public class StatusViewCoordinator implements View.OnClickListener, UrlTextChang
 
         PropertyModelChangeProcessor.create(mModel, mStatusView, new StatusViewBinder());
         mMediator = new StatusMediator(mModel, mStatusView.getResources(), mStatusView.getContext(),
-                urlBarEditingTextStateProvider);
+                urlBarEditingTextStateProvider, isTablet);
 
         Resources res = mStatusView.getResources();
         mMediator.setUrlMinWidth(res.getDimensionPixelSize(R.dimen.location_bar_min_url_width)
@@ -137,7 +137,7 @@ public class StatusViewCoordinator implements View.OnClickListener, UrlTextChang
         mMediator.setSecurityIconResource(mToolbarDataProvider.getSecurityIconResource(mIsTablet));
         mMediator.setSecurityIconTint(mToolbarDataProvider.getSecurityIconColorStateList());
         mMediator.setSecurityIconDescription(
-                mToolbarDataProvider.getSecurityIconContentDescription());
+                mToolbarDataProvider.getSecurityIconContentDescriptionResourceId());
 
         // TODO(ender): drop these during final cleanup round.
         updateVerboseStatusVisibility();
@@ -253,6 +253,9 @@ public class StatusViewCoordinator implements View.OnClickListener, UrlTextChang
      * property model.
      **/
     private void reconcileVisualState(boolean showStatusIconWhenFocused) {
+        // No reconciliation is needed on tablet because the status icon is always shown.
+        if (mIsTablet) return;
+
         // State requirements:
         // - The ToolbarDataProvider and views are not null.
         // - The status icon will be shown when focused.

@@ -5,6 +5,7 @@
 #include "weblayer/browser/system_network_context_manager.h"
 
 #include "build/build_config.h"
+#include "components/variations/net/variations_http_headers.h"
 #include "content/public/browser/network_service_instance.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 
@@ -14,14 +15,6 @@ namespace {
 
 // The global instance of the SystemNetworkContextmanager.
 SystemNetworkContextManager* g_system_network_context_manager = nullptr;
-
-network::mojom::NetworkContextParamsPtr CreateDefaultNetworkContextParams(
-    const std::string& user_agent) {
-  network::mojom::NetworkContextParamsPtr network_context_params =
-      network::mojom::NetworkContextParams::New();
-  network_context_params->user_agent = user_agent;
-  return network_context_params;
-}
 
 }  // namespace
 
@@ -41,17 +34,7 @@ bool SystemNetworkContextManager::HasInstance() {
 
 // static
 SystemNetworkContextManager* SystemNetworkContextManager::GetInstance() {
-  if (!g_system_network_context_manager) {
-    // Initialize the network service, which will trigger
-    // ChromeContentBrowserClient::OnNetworkServiceCreated(), which calls
-    // CreateInstance() to initialize |g_system_network_context_manager|.
-    content::GetNetworkService();
-
-    // TODO(crbug.com/981057): There should be a DCHECK() here to make sure
-    // |g_system_network_context_manager| has been created, but that is not
-    // true in many unit tests.
-  }
-
+  DCHECK(g_system_network_context_manager);
   return g_system_network_context_manager;
 }
 
@@ -60,6 +43,20 @@ void SystemNetworkContextManager::DeleteInstance() {
   DCHECK(g_system_network_context_manager);
   delete g_system_network_context_manager;
   g_system_network_context_manager = nullptr;
+}
+
+// static
+network::mojom::NetworkContextParamsPtr
+SystemNetworkContextManager::CreateDefaultNetworkContextParams(
+    const std::string& user_agent) {
+  network::mojom::NetworkContextParamsPtr network_context_params =
+      network::mojom::NetworkContextParams::New();
+  network_context_params->user_agent = user_agent;
+#if defined(OS_LINUX) || defined(OS_WIN)
+  // We're not configuring the cookie encryption on these platforms yet.
+  network_context_params->enable_encrypted_cookies = false;
+#endif
+  return network_context_params;
 }
 
 SystemNetworkContextManager::SystemNetworkContextManager(
@@ -102,10 +99,6 @@ SystemNetworkContextManager::CreateSystemNetworkContextManagerParams() {
 
   network_context_params->context_name = std::string("system");
   network_context_params->primary_network_context = true;
-#if defined(OS_LINUX) || defined(OS_WIN)
-  // We're not configuring the cookie encryption on these platforms yet.
-  network_context_params->enable_encrypted_cookies = false;
-#endif
 
   return network_context_params;
 }

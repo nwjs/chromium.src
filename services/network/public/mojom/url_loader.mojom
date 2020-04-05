@@ -17,6 +17,7 @@ import "services/network/public/mojom/http_request_headers.mojom";
 import "services/network/public/mojom/network_isolation_key.mojom";
 import "services/network/public/mojom/network_param.mojom";
 import "services/network/public/mojom/site_for_cookies.mojom";
+import "services/network/public/mojom/trust_tokens.mojom";
 import "services/network/public/mojom/url_response_head.mojom";
 import "url/mojom/origin.mojom";
 import "url/mojom/url.mojom";
@@ -211,7 +212,7 @@ struct URLRequest {
 
   // What this resource load is for (main frame, sub-frame, sub-resource,
   // object).
-  // Note: this is an enum of type content::ResourceType.
+  // Note: this is an enum of type blink::mojom::ResourceType.
   // TODO(jam): remove this from the struct since network service shouldn't know
   // about this.
   int32 resource_type;
@@ -346,13 +347,6 @@ struct URLRequest {
   // The profile ID of network conditions to throttle the network request.
   mojo_base.mojom.UnguessableToken? throttling_profile_id;
 
-  // Headers that will be added pre and post cache for http:// requests if the
-  // network context uses the custom proxy for this request. The custom proxy
-  // is used for requests that match the custom proxy config, and would
-  // otherwise be made direct.
-  HttpRequestHeaders custom_proxy_pre_cache_headers;
-  HttpRequestHeaders custom_proxy_post_cache_headers;
-
   // See https://fetch.spec.whatwg.org/#concept-request-window
   //
   // This is an opaque id of the original requestor of the resource, which might
@@ -396,6 +390,11 @@ struct URLRequest {
   // response headers. For more information on these requests see
   // https://github.com/w3c/resource-hints/issues/77.
   mojo_base.mojom.UnguessableToken? recursive_prefetch_token;
+
+  // Set when Trust Tokens (https://github.com/wicg/trust-token-api) is enabled
+  // and the request has set the trustToken Fetch parameter, denoting that it
+  // wishes to execute a Trust Tokens protocol operation.
+  TrustTokenParams? trust_token_params;
 };
 
 // URLRequestBody represents body (i.e. upload data) of a HTTP request.

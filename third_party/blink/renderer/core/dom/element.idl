@@ -90,13 +90,19 @@ callback ScrollStateCallback = void (ScrollState scrollState);
     // https://w3c.github.io/DOM-Parsing/#extensions-to-the-element-interface
     //
     // TODO(mkwst): Write a spec for the `TrustedHTML` variants.
-    [Affects=Nothing, CEReactions, CustomElementCallbacks, Custom=Setter, RuntimeCallStatsCounter=ElementInnerHTML] attribute HTMLString innerHTML;
-    [Affects=Nothing, CEReactions, CustomElementCallbacks, Custom=Setter] attribute HTMLString outerHTML;
+    // TODO(lyf): Change the type to `[TreatNullAs=xxx] HTMLString` after
+    // https://crbug.com/1058762 has been fixed.
+    [Affects=Nothing, CEReactions, CustomElementCallbacks, RuntimeCallStatsCounter=ElementInnerHTML, RaisesException=Setter] attribute [TreatNullAs=EmptyString, StringContext=TrustedHTML] DOMString innerHTML;
+    [Affects=Nothing, CEReactions, CustomElementCallbacks, RaisesException=Setter] attribute [TreatNullAs=EmptyString, StringContext=TrustedHTML] DOMString outerHTML;
     [CEReactions, CustomElementCallbacks, RaisesException] void insertAdjacentHTML(DOMString position, HTMLString text);
+
+    // Declarative Shadow DOM getInnerHTML() function.
+    [RuntimeEnabled=DeclarativeShadowDOM, RuntimeCallStatsCounter=ElementGetInnerHTML] HTMLString getInnerHTML(boolean includeShadowRoots);
 
     // Pointer Lock
     // https://w3c.github.io/pointerlock/#extensions-to-the-element-interface
-    [MeasureAs=ElementRequestPointerLock] void requestPointerLock(optional PointerLockOptions options = {});
+    // This function returns void unless the Runtime Enabled Feature |PointerLockOptions| is enabled then it returns Promise<void>.
+    [MeasureAs=ElementRequestPointerLock, CallWith=ScriptState, RaisesException] any requestPointerLock(optional PointerLockOptions options = {});
 
     // CSSOM View Module
     // https://drafts.csswg.org/cssom-view/#extension-to-the-element-interface
@@ -144,13 +150,6 @@ callback ScrollStateCallback = void (ScrollState scrollState);
     attribute EventHandler onbeforecut;
     attribute EventHandler onbeforepaste;
     attribute EventHandler onsearch;
-
-    // Declarative display locking.
-    [RuntimeEnabled=DisplayLocking, CEReactions, CustomElementCallbacks, Reflect] attribute DOMString renderSubtree;
-    [RuntimeEnabled=DisplayLocking, CallWith=ScriptState] Promise<any> updateRendering();
-
-    // CSS version of display locking.
-    [RuntimeEnabled=CSSRenderSubtree] void resetSubtreeRendered();
 
     // Element Timing
     [Affects=Nothing, CEReactions, Reflect=elementtiming] attribute DOMString elementTiming;

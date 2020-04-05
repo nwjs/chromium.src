@@ -47,7 +47,7 @@
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/omnibox/chrome_omnibox_edit_controller.h"
 #include "chrome/browser/ui/omnibox/chrome_omnibox_navigation_observer.h"
-#include "chrome/browser/ui/search/search_tab_helper.h"
+#include "chrome/browser/ui/omnibox/omnibox_tab_helper.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/search/instant_types.h"
 #include "chrome/common/url_constants.h"
@@ -253,8 +253,10 @@ void ChromeOmniboxClient::OnInputStateChanged() {
   if (!controller_->GetWebContents())
     return;
 #if 0
-  SearchTabHelper::FromWebContents(
-      controller_->GetWebContents())->OmniboxInputStateChanged();
+  if (auto* helper =
+          OmniboxTabHelper::FromWebContents(controller_->GetWebContents())) {
+    helper->OnInputStateChanged();
+  }
 #endif
 }
 
@@ -264,8 +266,10 @@ void ChromeOmniboxClient::OnFocusChanged(
   if (!controller_->GetWebContents())
     return;
 #if 0
-  SearchTabHelper::FromWebContents(
-      controller_->GetWebContents())->OmniboxFocusChanged(state, reason);
+  if (auto* helper =
+          OmniboxTabHelper::FromWebContents(controller_->GetWebContents())) {
+    helper->OnFocusChanged(state, reason);
+  }
 #endif
 }
 

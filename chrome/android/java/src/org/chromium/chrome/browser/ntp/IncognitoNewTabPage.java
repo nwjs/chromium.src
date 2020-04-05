@@ -7,25 +7,23 @@ package org.chromium.chrome.browser.ntp;
 import android.app.Activity;
 import android.graphics.Canvas;
 import android.os.Build;
-import android.support.v4.view.ViewCompat;
 import android.view.LayoutInflater;
 import android.widget.TextView;
 
 import androidx.annotation.VisibleForTesting;
+import androidx.core.view.ViewCompat;
 
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.compositor.layouts.content.InvalidationAwareThumbnailProvider;
 import org.chromium.chrome.browser.help.HelpAndFeedback;
 import org.chromium.chrome.browser.ntp.IncognitoNewTabPageView.IncognitoNewTabPageManager;
-import org.chromium.chrome.browser.preferences.Pref;
-import org.chromium.chrome.browser.preferences.PrefServiceBridge;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.ui.native_page.BasicNativePage;
 import org.chromium.chrome.browser.ui.native_page.NativePageHost;
-import org.chromium.chrome.browser.util.UrlConstants;
 import org.chromium.chrome.browser.vr.VrModuleProvider;
-import org.chromium.components.content_settings.CookieControlsMode;
+import org.chromium.components.content_settings.CookieControlsEnforcement;
+import org.chromium.components.embedder_support.util.UrlConstants;
 
 /**
  * Provides functionality when the user interacts with the Incognito NTP.
@@ -40,13 +38,15 @@ public class IncognitoNewTabPage
     private boolean mIsLoaded;
 
     private IncognitoNewTabPageManager mIncognitoNewTabPageManager;
+    private IncognitoCookieControlsManager mCookieControlsManager;
+    private IncognitoCookieControlsManager.Observer mCookieControlsObserver;
 
     private final int mIncognitoNTPBackgroundColor;
 
     private void showIncognitoLearnMore() {
         HelpAndFeedback.getInstance().show(mActivity,
                 mActivity.getString(R.string.help_context_incognito_learn_more),
-                Profile.getLastUsedProfile(), null);
+                Profile.getLastUsedRegularProfile().getOffTheRecordProfile(), null);
     }
 
     /**
@@ -76,19 +76,38 @@ public class IncognitoNewTabPage
             }
 
             @Override
-            public void setThirdPartyCookieBlocking(boolean enable) {
-                @CookieControlsMode
-                int new_mode = enable ? CookieControlsMode.INCOGNITO_ONLY : CookieControlsMode.OFF;
-                PrefServiceBridge.getInstance().setInteger(Pref.COOKIE_CONTROLS_MODE, new_mode);
+            public void initCookieControlsManager() {
+                mCookieControlsManager = new IncognitoCookieControlsManager();
+                mCookieControlsManager.initialize();
+                mIncognitoNewTabPageView.setIncognitoCookieControlsCardVisibility(
+                        mCookieControlsManager.shouldShowCookieControlsCard());
+                mCookieControlsObserver = new IncognitoCookieControlsManager.Observer() {
+                    @Override
+                    public void onUpdate(
+                            boolean checked, @CookieControlsEnforcement int enforcement) {
+                        mIncognitoNewTabPageView.setIncognitoCookieControlsToggleEnforcement(
+                                enforcement);
+                        mIncognitoNewTabPageView.setIncognitoCookieControlsToggleChecked(checked);
+                    }
+                };
+                mCookieControlsManager.addObserver(mCookieControlsObserver);
+                mIncognitoNewTabPageView.setIncognitoCookieControlsToggleCheckedListener(
+                        mCookieControlsManager);
+                mIncognitoNewTabPageView.setIncognitoCookieControlsIconOnclickListener(
+                        mCookieControlsManager);
+                mCookieControlsManager.updateIfNecessary();
             }
 
             @Override
-            public boolean shouldBlockThirdPartyCookies() {
-                // TODO(eokoyomon): add methods to CookieControlsBridge to implement this in order
-                // to be consistent with desktop cookie settings.
-                return PrefServiceBridge.getInstance().getBoolean(Pref.BLOCK_THIRD_PARTY_COOKIES)
-                        || (PrefServiceBridge.getInstance().getInteger(Pref.COOKIE_CONTROLS_MODE)
-                                != CookieControlsMode.OFF);
+            public boolean shouldCaptureThumbnail() {
+                return mCookieControlsManager.shouldCaptureThumbnail();
+            }
+
+            @Override
+            public void destroy() {
+                if (mCookieControlsManager != null) {
+                    mCookieControlsManager.removeObserver(mCookieControlsObserver);
+                }
             }
 
             @Override
@@ -131,6 +150,7 @@ public class IncognitoNewTabPage
     public void destroy() {
         assert !ViewCompat
                 .isAttachedToWindow(getView()) : "Destroy called before removed from window";
+        mIncognitoNewTabPageManager.destroy();
         super.destroy();
     }
 

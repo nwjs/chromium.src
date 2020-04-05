@@ -7,24 +7,26 @@
 #include <memory>
 #include <utility>
 
-#include "cc/layers/layer.h"
+#include "cc/layers/scrollbar_layer_base.h"
 #include "cc/paint/display_item_list.h"
 #include "cc/trees/effect_node.h"
 #include "cc/trees/layer_tree_host.h"
 #include "cc/trees/mutator_host.h"
 #include "third_party/blink/public/platform/platform.h"
+#include "third_party/blink/renderer/platform/geometry/geometry_as_json.h"
 #include "third_party/blink/renderer/platform/graphics/compositing/content_layer_client_impl.h"
 #include "third_party/blink/renderer/platform/graphics/graphics_context.h"
+#include "third_party/blink/renderer/platform/graphics/graphics_layer.h"
 #include "third_party/blink/renderer/platform/graphics/paint/clip_paint_property_node.h"
 #include "third_party/blink/renderer/platform/graphics/paint/display_item.h"
 #include "third_party/blink/renderer/platform/graphics/paint/foreign_layer_display_item.h"
 #include "third_party/blink/renderer/platform/graphics/paint/geometry_mapper.h"
+#include "third_party/blink/renderer/platform/graphics/paint/graphics_layer_display_item.h"
 #include "third_party/blink/renderer/platform/graphics/paint/paint_artifact.h"
 #include "third_party/blink/renderer/platform/graphics/paint/paint_chunk_subset.h"
 #include "third_party/blink/renderer/platform/graphics/paint/paint_flags.h"
 #include "third_party/blink/renderer/platform/graphics/paint/property_tree_state.h"
 #include "third_party/blink/renderer/platform/graphics/paint/raster_invalidation_tracking.h"
-#include "third_party/blink/renderer/platform/graphics/paint/scroll_hit_test_display_item.h"
 #include "third_party/blink/renderer/platform/graphics/paint/scroll_paint_property_node.h"
 #include "third_party/blink/renderer/platform/graphics/paint/scrollbar_display_item.h"
 #include "third_party/blink/renderer/platform/graphics/paint/transform_paint_property_node.h"
@@ -60,6 +62,14 @@ void PaintArtifactCompositor::WillBeRemovedFromFrame() {
   root_layer_->RemoveAllChildren();
 }
 
+std::unique_ptr<JSONArray> PaintArtifactCompositor::GetPendingLayersAsJSON(
+    const PaintArtifact* paint_artifact) const {
+  std::unique_ptr<JSONArray> result = std::make_unique<JSONArray>();
+  for (const PendingLayer& pending_layer : pending_layers_)
+    result->PushObject(pending_layer.ToJSON(paint_artifact));
+  return result;
+}
+
 // Get a JSON representation of what layers exist for this PAC.  Note that
 // |paint_artifact| is only needed for pre-CAP mode.
 std::unique_ptr<JSONObject> PaintArtifactCompositor::GetLayersAsJSON(
@@ -69,8 +79,10 @@ std::unique_ptr<JSONObject> PaintArtifactCompositor::GetLayersAsJSON(
          paint_artifact);
 
   if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled() &&
-      !tracks_raster_invalidations_)
-    flags &= ~kLayerTreeIncludesPaintInvalidations;
+      !tracks_raster_invalidations_) {
+    flags &= ~(kLayerTreeIncludesInvalidations |
+               kLayerTreeIncludesDetailedInvalidations);
+  }
 
   LayersAsJSON layers_as_json(flags);
   if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled()) {
@@ -101,10 +113,20 @@ std::unique_ptr<JSONObject> PaintArtifactCompositor::GetLayersAsJSON(
     for (const auto& paint_chunk : paint_artifact->PaintChunks()) {
       const auto& display_item =
           paint_artifact->GetDisplayItemList()[paint_chunk.begin_index];
-      DCHECK(display_item.IsForeignLayer());
-      const auto& foreign_layer_display_item =
-          static_cast<const ForeignLayerDisplayItem&>(display_item);
-      cc::Layer* layer = foreign_layer_display_item.GetLayer();
+      cc::Layer* layer = nullptr;
+      const LayerAsJSONClient* json_client = nullptr;
+      if (display_item.IsGraphicsLayerWrapper()) {
+        const GraphicsLayerDisplayItem& graphics_layer_display_item =
+            static_cast<const GraphicsLayerDisplayItem&>(display_item);
+        layer = graphics_layer_display_item.GetGraphicsLayer().CcLayer();
+        json_client = &graphics_layer_display_item.GetGraphicsLayer();
+      } else {
+        DCHECK(display_item.IsForeignLayer());
+        const auto& foreign_layer_display_item =
+            static_cast<const ForeignLayerDisplayItem&>(display_item);
+        layer = foreign_layer_display_item.GetLayer();
+        json_client = foreign_layer_display_item.GetLayerAsJSONClient();
+      }
       // Need to retrieve the transform from |pending_layers_| so that
       // any decomposition is not double-reported via |layer|'s
       // offset_from_transform_parent and |paint_chunk|'s transform inside
@@ -119,15 +141,13 @@ std::unique_ptr<JSONObject> PaintArtifactCompositor::GetLayersAsJSON(
         }
       }
       DCHECK(transform);
-      layers_as_json.AddLayer(
-          *layer, *transform,
-          foreign_layer_display_item.GetLayerAsJSONClient());
+      layers_as_json.AddLayer(*layer, *transform, json_client);
     }
   }
   return layers_as_json.Finalize();
 }
 
-static scoped_refptr<cc::Layer> ForeignLayerForPaintChunk(
+static scoped_refptr<cc::Layer> CcLayerForPaintChunk(
     const PaintArtifact& paint_artifact,
     const PaintChunk& paint_chunk,
     const FloatPoint& pending_layer_offset) {
@@ -136,33 +156,44 @@ static scoped_refptr<cc::Layer> ForeignLayerForPaintChunk(
 
   const auto& display_item =
       paint_artifact.GetDisplayItemList()[paint_chunk.begin_index];
-  if (!display_item.IsForeignLayer())
+  if (!display_item.IsForeignLayer() &&
+      !display_item.IsGraphicsLayerWrapper()) {
     return nullptr;
+  }
 
-  // When a foreign layer's offset_to_transform_parent() changes, we don't
-  // call PaintArtifaceCompositor::SetNeedsUpdate() because the update won't
-  // change anything but cause unnecessary commit. Though
-  // UpdateTouchActionRects() depends on offset_to_transform_parent(), a
-  // foreign layer chunk doesn't have hit_test_data.
+  // UpdateTouchActionRects() depends on the layer's offset, but when the
+  // layer's offset changes, we do not call SetNeedsUpdate() (this is an
+  // optimization because the update would only cause an extra commit). This is
+  // only OK if the [Foreign|Graphics]Layer doesn't have hit test data.
   DCHECK(!paint_chunk.hit_test_data);
 
-  const auto& foreign_layer_display_item =
-      static_cast<const ForeignLayerDisplayItem&>(display_item);
-  auto* layer = foreign_layer_display_item.GetLayer();
-  layer->SetOffsetToTransformParent(gfx::Vector2dF(
-      foreign_layer_display_item.Offset() + pending_layer_offset));
+  cc::Layer* layer = nullptr;
+  FloatPoint layer_offset;
+  if (display_item.IsGraphicsLayerWrapper()) {
+    const auto& graphics_layer_display_item =
+        static_cast<const GraphicsLayerDisplayItem&>(display_item);
+    layer = graphics_layer_display_item.GetGraphicsLayer().CcLayer();
+    layer_offset = FloatPoint(graphics_layer_display_item.GetGraphicsLayer()
+                                  .GetOffsetFromTransformNode());
+  } else {
+    const auto& foreign_layer_display_item =
+        static_cast<const ForeignLayerDisplayItem&>(display_item);
+    layer = foreign_layer_display_item.GetLayer();
+    layer_offset = foreign_layer_display_item.Offset();
+  }
+  layer->SetOffsetToTransformParent(
+      gfx::Vector2dF(layer_offset + pending_layer_offset));
   return layer;
 }
 
 const TransformPaintPropertyNode&
-PaintArtifactCompositor::ScrollOffsetTranslationForLayer(
+PaintArtifactCompositor::NearestScrollTranslationForLayer(
     const PaintArtifact& paint_artifact,
     const PendingLayer& pending_layer) {
-  if (const auto* scroll_hit_test =
-          ScrollHitTestForLayer(paint_artifact, pending_layer)) {
-    if (scroll_hit_test->scroll_offset)
-      return *scroll_hit_test->scroll_offset;
-  }
+  if (const auto* scroll_translation =
+          ScrollTranslationForLayer(paint_artifact, pending_layer))
+    return *scroll_translation;
+
   const auto& transform = pending_layer.property_tree_state.Transform();
   // TODO(pdr): This could be a performance issue because it crawls up the
   // transform tree for each pending layer. If this is on profiles, we should
@@ -170,41 +201,33 @@ PaintArtifactCompositor::ScrollOffsetTranslationForLayer(
   return transform.NearestScrollTranslationNode();
 }
 
-const HitTestData::ScrollHitTest*
-PaintArtifactCompositor::ScrollHitTestForLayer(
+const TransformPaintPropertyNode*
+PaintArtifactCompositor::ScrollTranslationForLayer(
     const PaintArtifact& paint_artifact,
     const PendingLayer& pending_layer) {
   if (pending_layer.paint_chunk_indices.size() != 1)
     return nullptr;
 
-  const auto& paint_chunk =
-      paint_artifact.PaintChunks()[pending_layer.paint_chunk_indices[0]];
-  if (paint_chunk.size() != 1)
+  const auto& paint_chunk = pending_layer.FirstPaintChunk(paint_artifact);
+  if (!paint_chunk.hit_test_data)
     return nullptr;
 
-  const HitTestData* hit_test_data = paint_chunk.hit_test_data.get();
-  if (!hit_test_data)
-    return nullptr;
-
-  return base::OptionalOrNullptr(hit_test_data->scroll_hit_test);
+  return paint_chunk.hit_test_data->scroll_translation;
 }
 
 scoped_refptr<cc::Layer>
 PaintArtifactCompositor::ScrollHitTestLayerForPendingLayer(
     const PaintArtifact& paint_artifact,
     const PendingLayer& pending_layer) {
-  const auto* scroll_hit_test =
-      ScrollHitTestForLayer(paint_artifact, pending_layer);
-  if (!scroll_hit_test)
-    return nullptr;
-  const auto* scroll_offset = scroll_hit_test->scroll_offset;
-  if (!scroll_offset)
+  const auto* scroll_translation =
+      ScrollTranslationForLayer(paint_artifact, pending_layer);
+  if (!scroll_translation)
     return nullptr;
 
   // We shouldn't decomposite scroll transform nodes.
   DCHECK_EQ(FloatPoint(), pending_layer.offset_of_decomposited_transforms);
 
-  const auto& scroll_node = *scroll_offset->ScrollNode();
+  const auto& scroll_node = *scroll_translation->ScrollNode();
   auto scroll_element_id = scroll_node.GetCompositorElementId();
 
   scoped_refptr<cc::Layer> scroll_layer;
@@ -225,17 +248,20 @@ PaintArtifactCompositor::ScrollHitTestLayerForPendingLayer(
   // match (see: crbug.com/753124). To do this, use
   // |scroll_hit_test->scroll_container_bounds|.
   auto bounds = scroll_node.ContainerRect().Size();
-  // Mark the layer as scrollable.
-  // TODO(pdr): When CAP launches this parameter for bounds will not be
-  // needed.
-  scroll_layer->SetScrollable(static_cast<gfx::Size>(bounds));
   // Set the layer's bounds equal to the container because the scroll layer
   // does not scroll.
   scroll_layer->SetBounds(static_cast<gfx::Size>(bounds));
+
+  if (scroll_node.NodeChanged() != PaintPropertyChangeType::kUnchanged) {
+    scroll_layer->SetNeedsPushProperties();
+    scroll_layer->SetNeedsCommit();
+  }
+
   return scroll_layer;
 }
 
-scoped_refptr<cc::Layer> PaintArtifactCompositor::ScrollbarLayerForPendingLayer(
+scoped_refptr<cc::ScrollbarLayerBase>
+PaintArtifactCompositor::ScrollbarLayerForPendingLayer(
     const PaintArtifact& paint_artifact,
     const PendingLayer& pending_layer) {
   if (pending_layer.paint_chunk_indices.size() != 1)
@@ -251,29 +277,11 @@ scoped_refptr<cc::Layer> PaintArtifactCompositor::ScrollbarLayerForPendingLayer(
   if (!item.IsScrollbar())
     return nullptr;
 
-  const auto& scrollbar_item = static_cast<const ScrollbarDisplayItem&>(item);
-  scoped_refptr<cc::Layer> scrollbar_layer;
-  for (auto& existing_layer : scrollbar_layers_) {
-    if (existing_layer->element_id() == scrollbar_item.ElementId())
-      scrollbar_layer = existing_layer;
-  }
-  if (scrollbar_layer) {
-    cc::Scrollbar* scrollbar = scrollbar_item.GetScrollbar();
-    if (scrollbar->NeedsRepaintPart(cc::THUMB) ||
-        scrollbar->NeedsRepaintPart(cc::TRACK_BUTTONS_TICKMARKS))
-      scrollbar_layer->SetNeedsDisplay();
-  } else {
-    scrollbar_layer = scrollbar_item.CreateLayer();
-  }
-
   // We should never decomposite scroll translations, so we don't need to adjust
   // the layer's offset for decomposited transforms.
   DCHECK_EQ(FloatPoint(), pending_layer.offset_of_decomposited_transforms);
-  const IntRect& rect = scrollbar_item.GetRect();
-  scrollbar_layer->SetOffsetToTransformParent(
-      gfx::Vector2dF(FloatPoint(rect.Location())));
-  scrollbar_layer->SetBounds(gfx::Size(rect.Size()));
-  return scrollbar_layer;
+
+  return static_cast<const ScrollbarDisplayItem&>(item).GetLayer();
 }
 
 std::unique_ptr<ContentLayerClientImpl>
@@ -297,20 +305,20 @@ PaintArtifactCompositor::CompositedLayerForPendingLayer(
     scoped_refptr<const PaintArtifact> paint_artifact,
     const PendingLayer& pending_layer,
     Vector<std::unique_ptr<ContentLayerClientImpl>>& new_content_layer_clients,
-    Vector<scoped_refptr<cc::Layer>>& new_scroll_hit_test_layers,
-    Vector<scoped_refptr<cc::Layer>>& new_scrollbar_layers) {
+    Vector<scoped_refptr<cc::Layer>>& new_scroll_hit_test_layers) {
   auto paint_chunks =
       paint_artifact->GetPaintChunkSubset(pending_layer.paint_chunk_indices);
   DCHECK(paint_chunks.size());
   const PaintChunk& first_paint_chunk = paint_chunks[0];
-  DCHECK(first_paint_chunk.size());
 
-  // If the paint chunk is a foreign layer, just return that layer.
-  if (scoped_refptr<cc::Layer> foreign_layer = ForeignLayerForPaintChunk(
-          *paint_artifact, first_paint_chunk,
-          pending_layer.offset_of_decomposited_transforms)) {
+  scoped_refptr<cc::Layer> cc_layer;
+  // If the paint chunk is a foreign layer or placeholder for a GraphicsLayer,
+  // just return its cc::Layer.
+  if ((cc_layer = CcLayerForPaintChunk(
+           *paint_artifact, first_paint_chunk,
+           pending_layer.offset_of_decomposited_transforms))) {
     DCHECK_EQ(paint_chunks.size(), 1u);
-    return foreign_layer;
+    return cc_layer;
   }
 
   // If the paint chunk is a scroll hit test layer, lookup/create the layer.
@@ -320,9 +328,8 @@ PaintArtifactCompositor::CompositedLayerForPendingLayer(
     return scroll_layer;
   }
 
-  if (scoped_refptr<cc::Layer> scrollbar_layer =
+  if (auto scrollbar_layer =
           ScrollbarLayerForPendingLayer(*paint_artifact, pending_layer)) {
-    new_scrollbar_layers.push_back(scrollbar_layer);
     return scrollbar_layer;
   }
 
@@ -331,11 +338,9 @@ PaintArtifactCompositor::CompositedLayerForPendingLayer(
       ClientForPaintChunk(first_paint_chunk);
 
   IntRect cc_combined_bounds = EnclosingIntRect(pending_layer.bounds);
-  auto cc_layer = content_layer_client->UpdateCcPictureLayer(
+  cc_layer = content_layer_client->UpdateCcPictureLayer(
       paint_artifact, paint_chunks, cc_combined_bounds,
       pending_layer.property_tree_state);
-  if (cc_combined_bounds.IsEmpty())
-    cc_layer->SetIsDrawable(false);
 
   new_content_layer_clients.push_back(std::move(content_layer_client));
 
@@ -361,8 +366,7 @@ void PaintArtifactCompositor::UpdateTouchActionRects(
 
     const auto& chunk_state = chunk.properties.GetPropertyTreeState();
     for (const auto& touch_action_rect : hit_test_data->touch_action_rects) {
-      auto rect =
-          FloatClipRect(FloatRect(PixelSnappedIntRect(touch_action_rect.rect)));
+      auto rect = FloatClipRect(FloatRect(touch_action_rect.rect));
       if (!GeometryMapper::LocalToAncestorVisualRect(chunk_state, layer_state,
                                                      rect)) {
         continue;
@@ -380,12 +384,13 @@ void PaintArtifactCompositor::UpdateNonFastScrollableRegions(
     cc::Layer* layer,
     const gfx::Vector2dF& layer_offset,
     const PropertyTreeState& layer_state,
-    const PaintChunkSubset& paint_chunks) {
+    const PaintChunkSubset& paint_chunks,
+    PropertyTreeManager* property_tree_manager) {
   cc::Region non_fast_scrollable_regions_in_layer_space;
   for (const auto& chunk : paint_chunks) {
     // Add any non-fast scrollable hit test data from the paint chunk.
     const auto* hit_test_data = chunk.hit_test_data.get();
-    if (!hit_test_data || !hit_test_data->scroll_hit_test)
+    if (!hit_test_data || hit_test_data->scroll_hit_test_rect.IsEmpty())
       continue;
 
     // Skip the scroll hit test rect if it is for scrolling this cc::Layer.
@@ -393,21 +398,21 @@ void PaintArtifactCompositor::UpdateNonFastScrollableRegions(
     // pre-CompositeAfterPaint does not paint scroll hit test data for
     // composited scrollers.
     if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled()) {
-      if (layer->scrollable()) {
-        const auto* scroll_offset =
-            hit_test_data->scroll_hit_test->scroll_offset;
-        if (scroll_offset) {
-          const auto& scroll_node = *scroll_offset->ScrollNode();
-          auto scroll_element_id = scroll_node.GetCompositorElementId();
-          if (layer->element_id() == scroll_element_id)
-            continue;
-        }
+      if (const auto* scroll_translation = hit_test_data->scroll_translation) {
+        const auto& scroll_node = *scroll_translation->ScrollNode();
+        auto scroll_element_id = scroll_node.GetCompositorElementId();
+        if (layer->element_id() == scroll_element_id)
+          continue;
+        // Ensure the cc scroll node to prepare for possible descendant nodes
+        // referenced by later composited layers. This can't be done by ensuring
+        // parent transform node in EnsureCompositorTransformNode() if the
+        // transform tree and the scroll tree have different topologies.
+        DCHECK(property_tree_manager);
+        property_tree_manager->EnsureCompositorScrollNode(*scroll_translation);
       }
     }
 
-    const auto& bounds =
-        hit_test_data->scroll_hit_test->scroll_container_bounds;
-    auto rect = FloatClipRect(FloatRect(bounds));
+    FloatClipRect rect(FloatRect(chunk.hit_test_data->scroll_hit_test_rect));
     const auto& chunk_state = chunk.properties.GetPropertyTreeState();
     if (!GeometryMapper::LocalToAncestorVisualRect(chunk_state, layer_state,
                                                    rect)) {
@@ -415,7 +420,7 @@ void PaintArtifactCompositor::UpdateNonFastScrollableRegions(
     }
     rect.MoveBy(FloatPoint(-layer_offset.x(), -layer_offset.y()));
     non_fast_scrollable_regions_in_layer_space.Union(
-        (gfx::Rect)EnclosingIntRect(rect.Rect()));
+        EnclosingIntRect(rect.Rect()));
   }
   layer->SetNonFastScrollableRegion(non_fast_scrollable_regions_in_layer_space);
 }
@@ -495,6 +500,40 @@ FloatRect PaintArtifactCompositor::PendingLayer::MapRectKnownToBeOpaque(
   GeometryMapper::LocalToAncestorVisualRect(property_tree_state, new_state,
                                             float_clip_rect);
   return float_clip_rect.IsTight() ? float_clip_rect.Rect() : FloatRect();
+}
+
+std::unique_ptr<JSONObject> PaintArtifactCompositor::PendingLayer::ToJSON(
+    const PaintArtifact* paint_artifact) const {
+  std::unique_ptr<JSONObject> result = std::make_unique<JSONObject>();
+  result->SetArray("bounds", RectAsJSONArray(bounds));
+  result->SetArray("rect_known_to_be_opaque",
+                   RectAsJSONArray(rect_known_to_be_opaque));
+  result->SetObject("property_tree_state", property_tree_state.ToJSON());
+  result->SetArray("offset_of_decomposited_transforms",
+                   PointAsJSONArray(offset_of_decomposited_transforms));
+  std::unique_ptr<JSONArray> chunks = std::make_unique<JSONArray>();
+  for (wtf_size_t chunk_index : paint_chunk_indices) {
+    if (paint_artifact) {
+      StringBuilder sb;
+      sb.AppendFormat("index=%i ", chunk_index);
+      sb.Append(paint_artifact->PaintChunks()[chunk_index].ToString());
+      chunks->PushString(sb.ToString());
+    } else {
+      chunks->PushInteger(chunk_index);
+    }
+  }
+  result->SetArray("paint_chunks", std::move(chunks));
+  return result;
+}
+
+FloatRect PaintArtifactCompositor::PendingLayer::VisualRectForOverlapTesting()
+    const {
+  FloatClipRect visual_rect(bounds);
+  GeometryMapper::LocalToAncestorVisualRect(
+      property_tree_state, PropertyTreeState::Root(), visual_rect,
+      kIgnorePlatformOverlayScrollbarSize, kNonInclusiveIntersect,
+      kExpandVisualRectForAnimation);
+  return visual_rect.Rect();
 }
 
 bool PaintArtifactCompositor::PendingLayer::Merge(const PendingLayer& guest) {
@@ -671,21 +710,15 @@ static const EffectPaintPropertyNode* StrictUnaliasedChildOfAlongPath(
 
 bool PaintArtifactCompositor::MightOverlap(const PendingLayer& layer_a,
                                            const PendingLayer& layer_b) {
-  FloatClipRect bounds_a(layer_a.bounds);
-  GeometryMapper::LocalToAncestorVisualRect(
-      layer_a.property_tree_state, PropertyTreeState::Root(), bounds_a);
-  FloatClipRect bounds_b(layer_b.bounds);
-  GeometryMapper::LocalToAncestorVisualRect(
-      layer_b.property_tree_state, PropertyTreeState::Root(), bounds_b);
-
-  return bounds_a.Rect().Intersects(bounds_b.Rect());
+  return layer_a.VisualRectForOverlapTesting().Intersects(
+      layer_b.VisualRectForOverlapTesting());
 }
 
 bool PaintArtifactCompositor::DecompositeEffect(
     const EffectPaintPropertyNode& unaliased_parent_effect,
-    size_t first_layer_in_parent_group_index,
+    wtf_size_t first_layer_in_parent_group_index,
     const EffectPaintPropertyNode& unaliased_effect,
-    size_t layer_index) {
+    wtf_size_t layer_index) {
   // The layer must be the last layer in pending_layers_.
   DCHECK_EQ(layer_index, pending_layers_.size() - 1);
 
@@ -713,14 +746,18 @@ bool PaintArtifactCompositor::DecompositeEffect(
   upcast_state->SetEffect(unaliased_parent_effect);
 
   // Exotic blending layer can be decomposited only if its parent group
-  // (which defines the scope of the blending) has only one layer before it,
+  // (which defines the scope of the blending) has zero or one layer before it,
   // and it can be merged into that layer.
   if (unaliased_effect.BlendMode() != SkBlendMode::kSrcOver) {
-    if (layer_index - 1 != first_layer_in_parent_group_index)
-      return false;
-    if (!pending_layers_[first_layer_in_parent_group_index].CanMerge(
-            layer, *upcast_state))
-      return false;
+    auto num_previous_siblings =
+        layer_index - first_layer_in_parent_group_index;
+    if (num_previous_siblings) {
+      if (num_previous_siblings > 1)
+        return false;
+      if (!pending_layers_[first_layer_in_parent_group_index].CanMerge(
+              layer, *upcast_state))
+        return false;
+    }
   }
 
   layer.Upcast(*upcast_state);
@@ -770,13 +807,12 @@ static bool SkipGroupIfEffectivelyInvisible(
   return true;
 }
 
-static bool IsCompositedScrollHitTest(const DisplayItem& item) {
-  if (!item.IsScrollHitTest())
+static bool IsCompositedScrollHitTest(const PaintChunk& chunk) {
+  if (!chunk.hit_test_data)
     return false;
-  const auto* scroll_offset_node =
-      static_cast<const ScrollHitTestDisplayItem&>(item).scroll_offset_node();
-  return scroll_offset_node &&
-         scroll_offset_node->HasDirectCompositingReasons();
+  const auto* scroll_translation = chunk.hit_test_data->scroll_translation;
+  return scroll_translation &&
+         scroll_translation->HasDirectCompositingReasons();
 }
 
 static bool IsCompositedScrollbar(const DisplayItem& item) {
@@ -827,12 +863,17 @@ void PaintArtifactCompositor::LayerizeGroup(
     const auto& chunk_effect = chunk_it->properties.Effect().Unalias();
     if (&chunk_effect == &unaliased_group) {
       // Case A: The next chunk belongs to the current group but no subgroup.
-      const auto& first_display_item =
-          paint_artifact.GetDisplayItemList()[chunk_it->begin_index];
-      bool requires_own_layer = first_display_item.IsForeignLayer() ||
-                                IsCompositedScrollHitTest(first_display_item) ||
-                                IsCompositedScrollbar(first_display_item);
-      DCHECK(!requires_own_layer || chunk_it->size() == 1u);
+      bool requires_own_layer = false;
+      if (IsCompositedScrollHitTest(*chunk_it)) {
+        requires_own_layer = true;
+      } else if (chunk_it->size()) {
+        const auto& first_display_item =
+            paint_artifact.GetDisplayItemList()[chunk_it->begin_index];
+        requires_own_layer = first_display_item.IsForeignLayer() ||
+                             first_display_item.IsGraphicsLayerWrapper() ||
+                             IsCompositedScrollbar(first_display_item);
+      }
+      DCHECK(!requires_own_layer || chunk_it->size() <= 1u);
 
       pending_layers_.emplace_back(
           *chunk_it, chunk_it - paint_artifact.PaintChunks().begin(),
@@ -912,8 +953,8 @@ void SynthesizedClip::UpdateLayer(bool needs_layer,
   }
 
   const RefCountedPath* path = clip.ClipPath();
-  SkRRect new_rrect = clip.ClipRect();
-  IntRect layer_bounds = EnclosingIntRect(clip.ClipRect().Rect());
+  SkRRect new_rrect = clip.PixelSnappedClipRect();
+  IntRect layer_bounds = EnclosingIntRect(clip.PixelSnappedClipRect().Rect());
   bool needs_display = false;
 
   auto new_translation_2d_or_matrix =
@@ -1120,11 +1161,9 @@ void PaintArtifactCompositor::DecompositeTransforms(
       // The scroll translation node of a scroll hit test layer may not be
       // referenced by any pending layer's property tree state. Disallow
       // decomposition of it (and its ancestors).
-      if (const auto* scroll_hit_test =
-              ScrollHitTestForLayer(paint_artifact, pending_layer)) {
-        if (const auto* scroll_offset = scroll_hit_test->scroll_offset)
-          mark_not_decompositable(scroll_offset);
-      }
+      if (const auto* scroll_translation =
+              ScrollTranslationForLayer(paint_artifact, pending_layer))
+        mark_not_decompositable(scroll_translation);
     }
   }
 
@@ -1178,7 +1217,6 @@ void PaintArtifactCompositor::Update(
   Vector<std::unique_ptr<ContentLayerClientImpl>> new_content_layer_clients;
   new_content_layer_clients.ReserveCapacity(pending_layers_.size());
   Vector<scoped_refptr<cc::Layer>> new_scroll_hit_test_layers;
-  Vector<scoped_refptr<cc::Layer>> new_scrollbar_layers;
 
   // Maps from cc effect id to blink effects. Containing only the effects
   // having composited layers.
@@ -1199,7 +1237,7 @@ void PaintArtifactCompositor::Update(
     if (&clip.LocalTransformSpace() == &transform) {
       // Limit layer bounds to hide the areas that will be never visible
       // because of the clip.
-      pending_layer.bounds.Intersect(clip.ClipRect().Rect());
+      pending_layer.bounds.Intersect(clip.PixelSnappedClipRect().Rect());
     } else if (const auto* scroll = transform.ScrollNode()) {
       // Limit layer bounds to the scroll range to hide the areas that will
       // never be scrolled into the visible area.
@@ -1209,7 +1247,7 @@ void PaintArtifactCompositor::Update(
 
     scoped_refptr<cc::Layer> layer = CompositedLayerForPendingLayer(
         paint_artifact, pending_layer, new_content_layer_clients,
-        new_scroll_hit_test_layers, new_scrollbar_layers);
+        new_scroll_hit_test_layers);
 
     // In Pre-CompositeAfterPaint, touch action rects and non-fast scrollable
     // regions are updated through ScrollingCoordinator.
@@ -1218,9 +1256,9 @@ void PaintArtifactCompositor::Update(
           pending_layer.paint_chunk_indices);
       UpdateTouchActionRects(layer.get(), layer->offset_to_transform_parent(),
                              property_state, paint_chunks);
-      UpdateNonFastScrollableRegions(layer.get(),
-                                     layer->offset_to_transform_parent(),
-                                     property_state, paint_chunks);
+      UpdateNonFastScrollableRegions(
+          layer.get(), layer->offset_to_transform_parent(), property_state,
+          paint_chunks, &property_tree_manager);
     }
 
     layer->SetLayerTreeHost(root_layer_->layer_tree_host());
@@ -1235,7 +1273,7 @@ void PaintArtifactCompositor::Update(
     // The compositor scroll node is not directly stored in the property tree
     // state but can be created via the scroll offset translation node.
     const auto& scroll_translation =
-        ScrollOffsetTranslationForLayer(*paint_artifact, pending_layer);
+        NearestScrollTranslationForLayer(*paint_artifact, pending_layer);
     int scroll_id =
         property_tree_manager.EnsureCompositorScrollNode(scroll_translation);
 
@@ -1292,7 +1330,6 @@ void PaintArtifactCompositor::Update(
   property_tree_manager.Finalize();
   content_layer_clients_.swap(new_content_layer_clients);
   scroll_hit_test_layers_.swap(new_scroll_hit_test_layers);
-  scrollbar_layers_.swap(new_scrollbar_layers);
 
   auto pos = std::remove_if(synthesized_clip_cache_.begin(),
                             synthesized_clip_cache_.end(),
@@ -1335,20 +1372,14 @@ void PaintArtifactCompositor::Update(
 #endif
 }
 
-cc::PropertyTrees* PaintArtifactCompositor::GetPropertyTreesForDirectUpdate() {
+bool PaintArtifactCompositor::CanDirectlyUpdateProperties() const {
   // Don't try to retrieve property trees if we need an update. The full
   // update will update all of the nodes, so a direct update doesn't need to
   // do anything.
   if (needs_update_)
-    return nullptr;
+    return false;
 
-  if (!root_layer_)
-    return nullptr;
-
-  auto* host = root_layer_->layer_tree_host();
-  if (!host)
-    return nullptr;
-  return host->property_trees();
+  return root_layer_ && root_layer_->layer_tree_host();
 }
 
 bool PaintArtifactCompositor::DirectlyUpdateCompositedOpacityValue(
@@ -1356,9 +1387,9 @@ bool PaintArtifactCompositor::DirectlyUpdateCompositedOpacityValue(
   // We can only directly-update compositor values if all content associated
   // with the node is known to be composited.
   DCHECK(effect.HasDirectCompositingReasons());
-  if (auto* property_trees = GetPropertyTreesForDirectUpdate()) {
+  if (CanDirectlyUpdateProperties()) {
     return PropertyTreeManager::DirectlyUpdateCompositedOpacityValue(
-        property_trees, *root_layer_->layer_tree_host(), effect);
+        *root_layer_->layer_tree_host(), effect);
   }
   return false;
 }
@@ -1371,9 +1402,9 @@ bool PaintArtifactCompositor::DirectlyUpdateScrollOffsetTransform(
     // CompositeAfterPaint because we cannot query CompositedLayerMapping here.
     DCHECK(transform.HasDirectCompositingReasons());
   }
-  if (auto* property_trees = GetPropertyTreesForDirectUpdate()) {
+  if (CanDirectlyUpdateProperties()) {
     return PropertyTreeManager::DirectlyUpdateScrollOffsetTransform(
-        property_trees, *root_layer_->layer_tree_host(), transform);
+        *root_layer_->layer_tree_host(), transform);
   }
   return false;
 }
@@ -1383,9 +1414,9 @@ bool PaintArtifactCompositor::DirectlyUpdateTransform(
   // We can only directly-update compositor values if all content associated
   // with the node is known to be composited.
   DCHECK(transform.HasDirectCompositingReasons());
-  if (auto* property_trees = GetPropertyTreesForDirectUpdate()) {
+  if (CanDirectlyUpdateProperties()) {
     return PropertyTreeManager::DirectlyUpdateTransform(
-        property_trees, *root_layer_->layer_tree_host(), transform);
+        *root_layer_->layer_tree_host(), transform);
   }
   return false;
 }
@@ -1395,14 +1426,14 @@ bool PaintArtifactCompositor::DirectlyUpdatePageScaleTransform(
   // We can only directly-update compositor values if all content associated
   // with the node is known to be composited.
   DCHECK(transform.HasDirectCompositingReasons());
-  if (auto* property_trees = GetPropertyTreesForDirectUpdate()) {
+  if (CanDirectlyUpdateProperties()) {
     return PropertyTreeManager::DirectlyUpdatePageScaleTransform(
-        property_trees, *root_layer_->layer_tree_host(), transform);
+        *root_layer_->layer_tree_host(), transform);
   }
   return false;
 }
 
-bool PaintArtifactCompositor::DirectlyUpdateScrollOffset(
+bool PaintArtifactCompositor::DirectlySetScrollOffset(
     CompositorElementId element_id,
     const FloatPoint& scroll_offset) {
   if (!root_layer_ || !root_layer_->layer_tree_host())
@@ -1410,8 +1441,9 @@ bool PaintArtifactCompositor::DirectlyUpdateScrollOffset(
   auto* property_trees = root_layer_->layer_tree_host()->property_trees();
   if (!property_trees->element_id_to_scroll_node_index.contains(element_id))
     return false;
-  property_trees->scroll_tree.SetScrollOffset(element_id,
-                                              gfx::ScrollOffset(scroll_offset));
+  PropertyTreeManager::DirectlySetScrollOffset(
+      *root_layer_->layer_tree_host(), element_id,
+      gfx::ScrollOffset(scroll_offset));
   return true;
 }
 
@@ -1424,7 +1456,7 @@ static cc::RenderSurfaceReason GetRenderSurfaceCandidateReason(
     return cc::RenderSurfaceReason::kBlendModeDstIn;
   if (effect.opacity != 1.f)
     return cc::RenderSurfaceReason::kOpacity;
-  if (static_cast<size_t>(effect.id) < blink_effects.size() &&
+  if (static_cast<wtf_size_t>(effect.id) < blink_effects.size() &&
       blink_effects[effect.id] &&
       blink_effects[effect.id]->HasActiveOpacityAnimation())
     return cc::RenderSurfaceReason::kOpacityAnimation;
@@ -1541,9 +1573,11 @@ CompositingReasons PaintArtifactCompositor::GetCompositingReasons(
     return CompositingReason::kOverlap;
 
   if (layer.compositing_type == PendingLayer::kRequiresOwnLayer) {
+    const auto& first_chunk = layer.FirstPaintChunk(paint_artifact);
+    if (IsCompositedScrollHitTest(first_chunk))
+      return CompositingReason::kOverflowScrolling;
     const auto& display_item =
-        paint_artifact.GetDisplayItemList()
-            [layer.FirstPaintChunk(paint_artifact).begin_index];
+        paint_artifact.GetDisplayItemList()[first_chunk.begin_index];
     switch (display_item.GetType()) {
       case DisplayItem::kForeignLayerCanvas:
         return CompositingReason::kCanvas;
@@ -1551,8 +1585,6 @@ CompositingReasons PaintArtifactCompositor::GetCompositingReasons(
         return CompositingReason::kPlugin;
       case DisplayItem::kForeignLayerVideo:
         return CompositingReason::kVideo;
-      case DisplayItem::kScrollHitTest:
-        return CompositingReason::kOverflowScrolling;
       case DisplayItem::kScrollbarHorizontal:
         return CompositingReason::kLayerForHorizontalScrollbar;
       case DisplayItem::kScrollbarVertical:
@@ -1602,7 +1634,7 @@ cc::LayerList LayerListBuilder::Finalize() {
 #if DCHECK_IS_ON()
 void PaintArtifactCompositor::ShowDebugData() {
   LOG(ERROR) << GetLayersAsJSON(kLayerTreeIncludesDebugInfo |
-                                kLayerTreeIncludesPaintInvalidations)
+                                kLayerTreeIncludesDetailedInvalidations)
                     ->ToPrettyJSONString()
                     .Utf8();
 }

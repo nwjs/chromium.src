@@ -37,8 +37,8 @@ class CORE_EXPORT CSSParserContext final
   // FIXME: This constructor shouldn't exist if we properly piped the UseCounter
   // through the CSS subsystem. Currently the UseCounter life time is too crazy
   // and we need a way to override it.
-  CSSParserContext(const CSSParserContext* other,
-                   const Document* use_counter_document = nullptr);
+  explicit CSSParserContext(const CSSParserContext* other,
+                            const Document* use_counter_document = nullptr);
 
   CSSParserContext(const CSSParserContext* other,
                    const KURL& base_url_override,
@@ -120,6 +120,7 @@ class CORE_EXPORT CSSParserContext final
   bool IsUseCounterRecordingEnabled() const { return document_; }
   bool IsDocumentHandleEqual(const Document* other) const;
   const Document* GetDocument() const;
+  const ExecutionContext* GetExecutionContext() const;
 
   network::mojom::CSPDisposition ShouldCheckContentSecurityPolicy() const {
     return should_check_content_security_policy_;
@@ -152,7 +153,7 @@ class CORE_EXPORT CSSParserContext final
     base::AutoReset<CSSParserMode> mode_reset_;
   };
 
-  void Trace(blink::Visitor*);
+  void Trace(Visitor*);
 
  private:
   friend class ParserModeOverridingScope;

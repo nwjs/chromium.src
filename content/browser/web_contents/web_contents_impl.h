@@ -22,11 +22,13 @@
 #include "base/observer_list.h"
 #include "base/optional.h"
 #include "base/process/process.h"
+#include "base/scoped_observer.h"
 #include "base/time/time.h"
 #include "base/values.h"
 #include "build/build_config.h"
 #include "components/download/public/common/download_url_parameters.h"
 #include "content/browser/accessibility/accessibility_event_recorder.h"
+#include "content/browser/frame_host/file_chooser_impl.h"
 #include "content/browser/frame_host/frame_tree.h"
 #include "content/browser/frame_host/frame_tree_node.h"
 #include "content/browser/frame_host/interstitial_page_impl.h"
@@ -52,7 +54,6 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/browser/web_contents_receiver_set.h"
-#include "content/public/common/resource_type.h"
 #include "content/public/common/three_d_api_types.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
@@ -63,8 +64,10 @@
 #include "ppapi/buildflags/buildflags.h"
 #include "services/device/public/mojom/geolocation_context.mojom.h"
 #include "services/metrics/public/cpp/ukm_recorder.h"
+#include "services/network/public/mojom/fetch_api.mojom-forward.h"
 #include "third_party/blink/public/mojom/choosers/color_chooser.mojom.h"
 #include "third_party/blink/public/mojom/frame/blocked_navigation_types.mojom.h"
+#include "third_party/blink/public/mojom/loader/resource_load_info.mojom-shared.h"
 #include "third_party/blink/public/mojom/page/display_cutout.mojom.h"
 #include "third_party/blink/public/mojom/renderer_preferences.mojom.h"
 #include "third_party/blink/public/platform/web_drag_operation.h"
@@ -74,6 +77,7 @@
 #include "ui/gfx/geometry/rect_f.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/native_theme/native_theme.h"
+#include "ui/native_theme/native_theme_observer.h"
 
 #if defined(OS_ANDROID)
 #include "content/public/browser/android/child_process_importance.h"
@@ -91,6 +95,7 @@ namespace content {
 enum class PictureInPictureResult;
 class BrowserPluginEmbedder;
 class BrowserPluginGuest;
+class ConversionHost;
 class DisplayCutoutHostImpl;
 class FindRequestManager;
 class InterstitialPageImpl;
@@ -120,7 +125,6 @@ class WebContentsImpl;
 class WebContentsView;
 class WebContentsViewDelegate;
 struct AXEventNotificationDetails;
-struct FaviconURL;
 struct LoadNotificationDetails;
 struct MHTMLGenerationParams;
 
@@ -154,7 +158,8 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
                                        public blink::mojom::ColorChooserFactory,
                                        public NotificationObserver,
                                        public NavigationControllerDelegate,
-                                       public NavigatorDelegate {
+                                       public NavigatorDelegate,
+                                       public ui::NativeThemeObserver {
  public:
   class FriendWrapper;
 
@@ -281,6 +286,9 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   // interface.
   WebContentsReceiverSet* GetReceiverSet(const std::string& interface_name);
 
+  // Removes a WebContentsReceiverSet so that it can be overridden for testing.
+  void RemoveReceiverSetForTesting(const std::string& interface_name);
+
   // Returns the focused WebContents.
   // If there are multiple inner/outer WebContents (when embedding <webview>,
   // <guestview>, ...) returns the single one containing the currently focused
@@ -327,9 +335,9 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   base::Optional<SkColor> GetThemeColor() override;
   WebUI* GetWebUI() override;
   WebUI* GetCommittedWebUI() override;
-  void SetUserAgentOverride(const std::string& override,
+  void SetUserAgentOverride(const blink::UserAgentOverride& ua_override,
                             bool override_in_new_tabs) override;
-  const std::string& GetUserAgentOverride() override;
+  const blink::UserAgentOverride& GetUserAgentOverride() override;
   bool ShouldOverrideUserAgentInNewTabs() override;
   void EnableWebContentsOnlyAccessibilityMode() override;
   bool IsWebContentsOnlyAccessibilityModeForTesting() override;
@@ -453,6 +461,10 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   void GenerateMHTMLWithResult(
       const MHTMLGenerationParams& params,
       MHTMLGenerationResult::GenerateMHTMLCallback callback) override;
+  void GenerateWebBundle(
+      const base::FilePath& file_path,
+      base::OnceCallback<void(uint64_t, data_decoder::mojom::WebBundlerError)>
+          callback) override;
   const std::string& GetContentsMimeType() override;
   bool WillNotifyDisconnection() override;
   blink::mojom::RendererPreferences* GetMutableRendererPrefs() override;
@@ -464,7 +476,9 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   int GetMaximumZoomPercent() override;
   void SetPageScale(float page_scale_factor) override;
   gfx::Size GetPreferredSize() override;
-  bool GotResponseToLockMouseRequest(bool allowed) override;
+  bool GotResponseToLockMouseRequest(
+      blink::mojom::PointerLockResult result) override;
+  void GotLockMousePermissionResponse(bool allowed) override;
   bool GotResponseToKeyboardLockRequest(bool allowed) override;
   bool HasOpener() override;
   RenderFrameHostImpl* GetOpener() override;
@@ -478,6 +492,14 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
                     uint32_t max_bitmap_size,
                     bool bypass_cache,
                     ImageDownloadCallback callback) override;
+  int DownloadImageInFrame(
+      const GlobalFrameRoutingId& initiator_frame_routing_id,
+      const GURL& url,
+      bool is_favicon,
+      uint32_t preferred_size,
+      uint32_t max_bitmap_size,
+      bool bypass_cache,
+      WebContents::ImageDownloadCallback callback) override;
   void Find(int request_id,
             const base::string16& search_text,
             blink::mojom::FindOptionsPtr options) override;
@@ -487,7 +509,8 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   bool IsFullscreenForCurrentTab() override;
   bool ShouldShowStaleContentOnEviction() override;
   void ExitFullscreen(bool will_cause_resize) override;
-  void ForSecurityDropFullscreen() override;
+  base::ScopedClosureRunner ForSecurityDropFullscreen() override
+      WARN_UNUSED_RESULT;
   void ResumeLoadingCreatedWebContents() override;
   void SetIsOverlayContent(bool is_overlay_content) override;
   bool IsFocusedElementEditable() override;
@@ -497,7 +520,10 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   base::UnguessableToken GetAudioGroupId() override;
   bool CompletedFirstVisuallyNonEmptyPaint() override;
   ukm::SourceId GetLastCommittedSourceId() override;
-  std::vector<FaviconURL> GetFaviconURLs() override;
+  void UpdateFaviconURL(
+      RenderFrameHost* source,
+      std::vector<blink::mojom::FaviconURLPtr> candidates) override;
+  const std::vector<blink::mojom::FaviconURLPtr>& GetFaviconURLs() override;
 
 #if defined(OS_ANDROID)
   base::android::ScopedJavaLocalRef<jobject> GetJavaWebContents() override;
@@ -529,6 +555,8 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
       const GURL& blocked_url,
       const GURL& initiator_url,
       blink::mojom::NavigationBlockedReason reason) override;
+  void OnDidFinishLoad(RenderFrameHost* render_frame_host,
+                       const GURL& url) override;
   const GURL& GetMainFrameLastCommittedURL() override;
   void RenderFrameCreated(RenderFrameHost* render_frame_host) override;
   void RenderFrameDeleted(RenderFrameHost* render_frame_host) override;
@@ -543,12 +571,14 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
       RenderFrameHost* render_frame_host,
       bool is_reload,
       JavaScriptDialogCallback response_callback) override;
-  void RunFileChooser(RenderFrameHost* render_frame_host,
-                      std::unique_ptr<content::FileSelectListener> listener,
-                      const blink::mojom::FileChooserParams& params) override;
-  void EnumerateDirectory(RenderFrameHost* render_frame_host,
-                          std::unique_ptr<FileSelectListener> listener,
-                          const base::FilePath& directory_path) override;
+  void RunFileChooser(
+      RenderFrameHost* render_frame_host,
+      std::unique_ptr<FileChooserImpl::FileSelectListenerImpl> listener,
+      const blink::mojom::FileChooserParams& params) override;
+  void EnumerateDirectory(
+      RenderFrameHost* render_frame_host,
+      std::unique_ptr<FileChooserImpl::FileSelectListenerImpl> listener,
+      const base::FilePath& directory_path) override;
   void DidCancelLoading() override;
   void DidAccessInitialDocument() override;
   void DidChangeName(RenderFrameHost* render_frame_host,
@@ -590,6 +620,7 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   void GetNFC(RenderFrameHost*,
               mojo::PendingReceiver<device::mojom::NFC>) override;
 #endif
+  bool CanEnterFullscreenMode() override;
   void EnterFullscreenMode(
       const GURL& origin,
       const blink::mojom::FullscreenOptions& options) override;
@@ -637,6 +668,10 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   void PrintCrossProcessSubframe(const gfx::Rect& rect,
                                  int document_cookie,
                                  RenderFrameHost* render_frame_host) override;
+  void CapturePaintPreviewOfCrossProcessSubframe(
+      const gfx::Rect& rect,
+      const base::UnguessableToken& guid,
+      RenderFrameHost* render_frame_host) override;
 #if defined(OS_ANDROID)
   base::android::ScopedJavaLocalRef<jobject> GetJavaRenderFrameHostDelegate()
       override;
@@ -646,7 +681,7 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   void ResourceLoadComplete(
       RenderFrameHost* render_frame_host,
       const GlobalRequestID& request_id,
-      mojom::ResourceLoadInfoPtr resource_load_information) override;
+      blink::mojom::ResourceLoadInfoPtr resource_load_information) override;
 
   // Called when WebAudio starts or stops playing audible audio in an
   // AudioContext.
@@ -654,8 +689,6 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
                                    int context_id) override;
   void AudioContextPlaybackStopped(RenderFrameHost* host,
                                    int context_id) override;
-  void MediaWatchTimeChanged(
-      const content::MediaPlayerWatchTime& watch_time) override;
   media::MediaMetricsProvider::RecordAggregateWatchTimeCallback
   GetRecordAggregateWatchTimeCallback() override;
   RenderFrameHostImpl* GetMainFrameForInnerDelegate(
@@ -678,6 +711,24 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
       const ui::ClipboardFormatType& data_type,
       const std::string& data,
       IsClipboardPasteAllowedCallback callback) override;
+  void OnPageScaleFactorChanged(RenderFrameHostImpl* source,
+                                float page_scale_factor) override;
+  bool HasSeenRecentScreenOrientationChange() override;
+  void CreateNewWidget(int32_t render_process_id,
+                       int32_t route_id,
+                       mojo::PendingRemote<mojom::Widget> widget,
+                       mojo::PendingAssociatedReceiver<blink::mojom::WidgetHost>
+                           blink_widget_host,
+                       mojo::PendingAssociatedRemote<blink::mojom::Widget>
+                           blink_widget) override;
+  void CreateNewFullscreenWidget(
+      int32_t render_process_id,
+      int32_t widget_route_id,
+      mojo::PendingRemote<mojom::Widget> widget,
+      mojo::PendingAssociatedReceiver<blink::mojom::WidgetHost>
+          blink_widget_host,
+      mojo::PendingAssociatedRemote<blink::mojom::Widget> blink_widget)
+      override;
 
   // RenderViewHostDelegate ----------------------------------------------------
   RenderViewHostDelegateView* GetDelegateView() override;
@@ -709,14 +760,6 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   void OnIgnoredUIEvent() override;
   void Activate() override;
   void UpdatePreferredSize(const gfx::Size& pref_size) override;
-  void CreateNewWidget(int32_t render_process_id,
-                       int32_t route_id,
-                       mojo::PendingRemote<mojom::Widget> widget,
-                       RenderViewHostImpl* render_view_host) override;
-  void CreateNewFullscreenWidget(int32_t render_process_id,
-                                 int32_t widget_route_id,
-                                 mojo::PendingRemote<mojom::Widget> widget,
-                                 RenderViewHostImpl* render_view_host) override;
   void ShowCreatedWidget(int process_id,
                          int widget_route_id,
                          const gfx::Rect& initial_rect) override;
@@ -793,10 +836,6 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
                               bool width_changed) override;
   void ResizeDueToAutoResize(RenderWidgetHostImpl* render_widget_host,
                              const gfx::Size& new_size) override;
-  gfx::Size GetAutoResizeSize() override;
-  void ResetAutoResizeSize() override;
-  void NotifyVisibleViewportSizeChanged(
-      const gfx::Size& visible_viewport_size) override;
   RenderFrameHostImpl* GetFocusedFrameFromFocusedDelegate() override;
   void OnVerticalScrollDirectionChanged(
       viz::VerticalScrollDirection scroll_direction) override;
@@ -863,6 +902,7 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   bool IsWidgetForMainFrame(RenderWidgetHostImpl* render_widget_host) override;
   bool AddDomainInfoToRapporSample(rappor::Sample* sample) override;
   bool IsShowingContextMenuOnPage() const override;
+  void DidChangeScreenOrientation() override;
 
   // RenderFrameHostManager::Delegate ------------------------------------------
 
@@ -963,8 +1003,6 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
 
   // Unpause the throbber if it was paused.
   void DidProceedOnInterstitial() override;
-
-  bool HadInnerWebContents() override;
 
   // Forces overscroll to be disabled (used by touch emulation).
   void SetForceDisableOverscrollContent(bool force_disable);
@@ -1338,6 +1376,7 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   void OnDialogClosed(int render_process_id,
                       int render_frame_id,
                       JavaScriptDialogCallback response_callback,
+                      base::ScopedClosureRunner fullscreen_block,
                       bool dialog_was_suppressed,
                       bool success,
                       const base::string16& user_input);
@@ -1348,18 +1387,15 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
       const GURL& url,
       const std::string& http_request,
       const std::string& mime_type,
-      ResourceType resource_type);
+      network::mojom::RequestDestination request_destination);
   void OnDidRunInsecureContent(RenderFrameHostImpl* source,
                                const GURL& security_origin,
                                const GURL& target_url);
   void OnDidDisplayContentWithCertificateErrors(RenderFrameHostImpl* source);
   void OnDidRunContentWithCertificateErrors(RenderFrameHostImpl* source);
-  void OnDidFinishLoad(RenderFrameHostImpl* source, const GURL& url);
   void OnUpdateZoomLimits(RenderViewHostImpl* source,
                           int minimum_percent,
                           int maximum_percent);
-  void OnPageScaleFactorChanged(RenderViewHostImpl* source,
-                                float page_scale_factor);
   void OnTextAutosizerPageInfoChanged(
       RenderViewHostImpl* source,
       const blink::WebTextAutosizerPageInfo& page_info);
@@ -1391,8 +1427,6 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
                                        int ppb_broker_route_id,
                                        bool result);
 #endif  // BUILDFLAG(ENABLE_PLUGINS)
-  void OnUpdateFaviconURL(RenderFrameHostImpl* source,
-                          const std::vector<FaviconURL>& candidates);
   void OnShowValidationMessage(RenderViewHostImpl* source,
                                const gfx::Rect& anchor_in_root_view,
                                const base::string16& main_text,
@@ -1450,11 +1484,14 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   // current navigation entry is in the NavigationController at this point.
 
   // Helper for CreateNewWidget/CreateNewFullscreenWidget.
-  void CreateNewWidget(int32_t render_process_id,
-                       int32_t route_id,
-                       bool is_fullscreen,
-                       mojo::PendingRemote<mojom::Widget> widget,
-                       RenderViewHostImpl* render_view_host);
+  void CreateNewWidget(
+      int32_t render_process_id,
+      int32_t route_id,
+      bool is_fullscreen,
+      mojo::PendingRemote<mojom::Widget> widget,
+      mojo::PendingAssociatedReceiver<blink::mojom::WidgetHost>
+          blink_widget_host,
+      mojo::PendingAssociatedRemote<blink::mojom::Widget> blink_widget);
 
   // Helper for ShowCreatedWidget/ShowCreatedFullscreenWidget.
   void ShowCreatedWidget(int process_id,
@@ -1571,6 +1608,9 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   // Called each time |fullscreen_frames_| is updated. Find the new
   // |current_fullscreen_frame_| and notify observers whenever it changes.
   void FullscreenFrameSetUpdated();
+
+  // ui::NativeThemeObserver:
+  void OnNativeThemeUpdated(ui::NativeTheme* observed_theme) override;
 
   // Sets the visibility to |new_visibility| and propagates this to the
   // renderer side, taking into account the current capture state. This
@@ -1759,6 +1799,9 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   // See description above setter.
   bool closed_by_user_gesture_;
 
+  // The number of active fullscreen blockers.
+  int fullscreen_blocker_count_ = 0;
+
   // Minimum/maximum zoom percent.
   const int minimum_zoom_percent_;
   const int maximum_zoom_percent_;
@@ -1772,10 +1815,6 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   // The preferred size for content screen capture.  When |capturer_count_| > 0,
   // this overrides |preferred_size_|.
   gfx::Size preferred_size_for_capture_;
-
-  // Size set by a top-level frame with auto-resize enabled. This is needed by
-  // out-of-process iframes for their visible viewport size.
-  gfx::Size auto_resize_size_;
 
   // When device emulation is enabled, override the size of current and newly
   // created render views/widgets.
@@ -1878,6 +1917,9 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   // Manages media players, CDMs, and power save blockers for media.
   std::unique_ptr<MediaWebContentsObserver> media_web_contents_observer_;
 
+  // Observes registration of conversions.
+  std::unique_ptr<ConversionHost> conversion_host_;
+
 #if BUILDFLAG(ENABLE_PLUGINS)
   // Observes pepper playback changes, and notifies MediaSession.
   std::unique_ptr<PepperPlaybackObserver> pepper_playback_observer_;
@@ -1959,10 +2001,14 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   // with OOPIF renderers.
   blink::WebTextAutosizerPageInfo text_autosizer_page_info_;
 
-  // TODO(crbug.com/934637): Remove this field when pdf/any inner web contents
-  // user gesture is properly propagated. This is a temporary fix for history
-  // intervention to be disabled for pdfs (crbug.com/965434).
-  bool had_inner_webcontents_;
+  // Observe native theme for changes to dark mode, and preferred color scheme.
+  // Used to notify the renderer of preferred color scheme changes.
+  ScopedObserver<ui::NativeTheme, ui::NativeThemeObserver>
+      native_theme_observer_;
+
+  bool using_dark_colors_ = false;
+  ui::NativeTheme::PreferredColorScheme preferred_color_scheme_ =
+      ui::NativeTheme::PreferredColorScheme::kNoPreference;
 
   // Prevents navigations in this contents while a javascript modal dialog is
   // showing.
@@ -1979,7 +2025,11 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
 
   // Represents the favicon urls candidates from the page.
   // Empty std::vector until the first update from the renderer.
-  std::vector<FaviconURL> favicon_urls_;
+  std::vector<blink::mojom::FaviconURLPtr> favicon_urls_;
+
+  // This time is used to record the last time we saw a screen orientation
+  // change.
+  base::TimeTicks last_screen_orientation_change_time_;
 
   base::WeakPtrFactory<WebContentsImpl> loading_weak_factory_{this};
   base::WeakPtrFactory<WebContentsImpl> weak_factory_{this};

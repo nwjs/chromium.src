@@ -7,8 +7,10 @@
 #include <utility>
 
 #include "base/bind.h"
+#include "base/command_line.h"
 #include "components/viz/common/frame_sinks/begin_frame_source.h"
 #include "components/viz/common/gpu/context_provider.h"
+#include "components/viz/common/switches.h"
 #include "components/viz/service/display/output_surface_client.h"
 #include "components/viz/service/display/output_surface_frame.h"
 #include "gpu/GLES2/gl2extchromium.h"
@@ -26,14 +28,10 @@ GLOutputSurfaceBufferQueue::GLOutputSurfaceBufferQueue(
     gpu::SurfaceHandle surface_handle,
     std::unique_ptr<BufferQueue> buffer_queue)
     : GLOutputSurface(context_provider, surface_handle),
-      buffer_queue_(std::move(buffer_queue)),
-      texture_target_(gpu::GetBufferTextureTarget(
-          gfx::BufferUsage::SCANOUT,
-          buffer_queue_->buffer_format(),
-          context_provider_->ContextCapabilities())) {
+      buffer_queue_(std::move(buffer_queue)) {
   capabilities_.only_invalidates_damage_rect = false;
   capabilities_.uses_default_gl_framebuffer = false;
-  capabilities_.flipped_output_surface = true;
+  capabilities_.output_surface_origin = gfx::SurfaceOrigin::kTopLeft;
   // Set |max_frames_pending| to 2 for buffer_queue, which aligns scheduling
   // more closely with the previous surfaced behavior.
   // With a surface, swap buffer ack used to return early, before actually
@@ -42,6 +40,16 @@ GLOutputSurfaceBufferQueue::GLOutputSurfaceBufferQueue(
   // shifts the start of the new frame forward relative to the old
   // implementation.
   capabilities_.max_frames_pending = 2;
+
+  // Force the number of max pending frames to one when the switch
+  // "double-buffer-compositing" is passed.
+  // This will keep compositing in double buffered mode assuming |buffer_queue_|
+  // allocates at most one additional buffer.
+  base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
+  if (command_line->HasSwitch(switches::kDoubleBufferCompositing)) {
+    capabilities_.max_frames_pending = 1;
+    buffer_queue_->SetMaxBuffers(2);
+  }
 
   // It is safe to pass a raw pointer to *this because |buffer_queue_| is fully
   // owned and it doesn't use the SyncTokenProvider after it's destroyed.
@@ -61,6 +69,7 @@ GLOutputSurfaceBufferQueue::~GLOutputSurfaceBufferQueue() {
   buffer_queue_textures_.clear();
   current_texture_ = 0u;
   last_bound_texture_ = 0u;
+  last_bound_mailbox_.SetZero();
 
   // Freeing the BufferQueue here ensures that *this is fully alive in case the
   // BufferQueue needs the SyncTokenProvider functionality.
@@ -96,6 +105,7 @@ void GLOutputSurfaceBufferQueue::BindFramebuffer() {
   gl->FramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
                            texture_target_, current_texture_, 0);
   last_bound_texture_ = current_texture_;
+  last_bound_mailbox_ = current_buffer;
 
 #if DCHECK_IS_ON() && defined(OS_CHROMEOS)
   const GLenum result = gl->CheckFramebufferStatus(GL_FRAMEBUFFER);
@@ -126,15 +136,16 @@ void GLOutputSurfaceBufferQueue::BindFramebuffer() {
 void GLOutputSurfaceBufferQueue::Reshape(const gfx::Size& size,
                                          float device_scale_factor,
                                          const gfx::ColorSpace& color_space,
-                                         bool has_alpha,
+                                         gfx::BufferFormat format,
                                          bool use_stencil) {
   reshape_size_ = size;
   use_stencil_ = use_stencil;
-  GLOutputSurface::Reshape(size, device_scale_factor, color_space, has_alpha,
+  GLOutputSurface::Reshape(size, device_scale_factor, color_space, format,
                            use_stencil);
   DCHECK(buffer_queue_);
-  const bool freed_buffers = buffer_queue_->Reshape(size, color_space);
-  if (freed_buffers || (stencil_buffer_ && !use_stencil)) {
+  const bool may_have_freed_buffers =
+      buffer_queue_->Reshape(size, color_space, format);
+  if (may_have_freed_buffers || (stencil_buffer_ && !use_stencil)) {
     auto* gl = context_provider_->ContextGL();
     gl->BindFramebuffer(GL_FRAMEBUFFER, fbo_);
     if (stencil_buffer_) {
@@ -143,7 +154,10 @@ void GLOutputSurfaceBufferQueue::Reshape(const gfx::Size& size,
       gl->DeleteRenderbuffers(1, &stencil_buffer_);
       stencil_buffer_ = 0u;
     }
-    if (freed_buffers) {
+
+    // Note that |texture_target_| is initially set to 0, and so if it has not
+    // been set to a valid value, then no buffers have been allocated.
+    if (texture_target_ && may_have_freed_buffers) {
       gl->FramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
                                texture_target_, 0, 0);
       for (const auto& buffer_texture : buffer_queue_textures_)
@@ -151,8 +165,13 @@ void GLOutputSurfaceBufferQueue::Reshape(const gfx::Size& size,
       buffer_queue_textures_.clear();
       current_texture_ = 0u;
       last_bound_texture_ = 0u;
+      last_bound_mailbox_.SetZero();
     }
   }
+
+  texture_target_ =
+      gpu::GetBufferTextureTarget(gfx::BufferUsage::SCANOUT, format,
+                                  context_provider_->ContextCapabilities());
 }
 
 void GLOutputSurfaceBufferQueue::SwapBuffers(OutputSurfaceFrame frame) {
@@ -198,9 +217,8 @@ unsigned GLOutputSurfaceBufferQueue::GetOverlayTextureId() const {
   return last_bound_texture_;
 }
 
-gfx::BufferFormat GLOutputSurfaceBufferQueue::GetOverlayBufferFormat() const {
-  DCHECK(buffer_queue_);
-  return buffer_queue_->buffer_format();
+gpu::Mailbox GLOutputSurfaceBufferQueue::GetOverlayMailbox() const {
+  return last_bound_mailbox_;
 }
 
 void GLOutputSurfaceBufferQueue::DidReceiveSwapBuffersAck(
@@ -221,6 +239,10 @@ void GLOutputSurfaceBufferQueue::DidReceiveSwapBuffersAck(
       gl->DeleteRenderbuffers(1, &stencil_buffer_);
       stencil_buffer_ = 0u;
     }
+
+    // Reshape() must have been called before we got here, so |texture_target_|
+    // should contain a valid value.
+    DCHECK(texture_target_);
     gl->FramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
                              texture_target_, 0, 0);
     for (const auto& buffer_texture : buffer_queue_textures_)
@@ -228,6 +250,7 @@ void GLOutputSurfaceBufferQueue::DidReceiveSwapBuffersAck(
     buffer_queue_textures_.clear();
     current_texture_ = 0u;
     last_bound_texture_ = 0u;
+    last_bound_mailbox_.SetZero();
 
     force_swap = true;
   }

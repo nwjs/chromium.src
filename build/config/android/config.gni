@@ -50,6 +50,12 @@ if (is_android || is_chromeos) {
 
     # Android API level for 64 bits platforms
     android64_ndk_api_level = 21
+
+    # [WIP] Allows devs to achieve much faster edit-build-install cycles.
+    # Currently only works for ChromeModern apks due to incremental install.
+    # This needs to be in a separate declare_args as it determines some of the
+    # args in the main declare_args block below.
+    android_fast_local_dev = false
   }
 
   if (enable_chrome_android_internal) {
@@ -71,33 +77,26 @@ if (is_android || is_chromeos) {
     assert(defined(default_android_ndk_major_version))
   }
 
+  public_android_sdk_root = "//third_party/android_sdk/public"
   if (android_sdk_release == "q") {
-    default_android_sdk_root = "//third_party/android_sdk/public"
+    default_android_sdk_root = public_android_sdk_root
     default_android_sdk_version = 29
     default_android_sdk_build_tools_version = "29.0.2"
-    default_android_sdk_tools_version_suffix = "-26.0.0-dev"
     public_android_sdk = true
   }
 
   if (!defined(default_lint_android_sdk_root)) {
     # Purposefully repeated so that downstream can change
     # default_android_sdk_root without changing lint version.
-    default_lint_android_sdk_root = "//third_party/android_sdk/public"
+    default_lint_android_sdk_root = public_android_sdk_root
     default_lint_android_sdk_version = 26
-  }
-
-  if (!defined(manifest_merger_sdk_root)) {
-    # Purposefully repeated so that downstream can change
-    # default_android_sdk_root without changing manifest merger version.
-    manifest_merger_sdk_root = "//third_party/android_sdk/public"
-    manifest_merger_sdk_version = "-26.0.0-dev"
   }
 
   if (!defined(default_extras_android_sdk_root)) {
     # Purposefully repeated so that downstream can change
     # default_android_sdk_root without changing where we load the SDK extras
     # from. (Google Play services, etc.)
-    default_extras_android_sdk_root = "//third_party/android_sdk/public"
+    default_extras_android_sdk_root = public_android_sdk_root
   }
 
   if (!defined(default_android_keystore_path)) {
@@ -137,7 +136,6 @@ if (is_android || is_chromeos) {
     android_sdk_root = default_android_sdk_root
     android_sdk_version = default_android_sdk_version
     android_sdk_build_tools_version = default_android_sdk_build_tools_version
-    android_sdk_tools_version_suffix = default_android_sdk_tools_version_suffix
 
     lint_android_sdk_root = default_lint_android_sdk_root
     lint_android_sdk_version = default_lint_android_sdk_version
@@ -170,21 +168,18 @@ if (is_android || is_chromeos) {
     # off will enable proguard.
     is_java_debug = is_debug
 
-    # Report Java assert failure on Android. Turning it on will report Java
-    # assert failure without crash.
-    report_java_assert = false
-
     # Mark APKs as android:debuggable="true".
     debuggable_apks = !is_official_build
 
     # Set to false to disable the Errorprone compiler.
     # Defaults to false for official builds to reduce build times.
     # Static analysis failures should have been already caught by normal bots.
-    use_errorprone_java_compiler = !is_official_build
+    # Disabled when fast_local_dev is turned on.
+    use_errorprone_java_compiler = !is_official_build && !android_fast_local_dev
 
     # Build incremental targets whenever possible.
     # See //build/android/incremental_install/README.md for more details.
-    incremental_install = false
+    incremental_install = android_fast_local_dev
 
     # When true, updates all android_aar_prebuilt() .info files during gn gen.
     # Refer to android_aar_prebuilt() for more details.
@@ -193,7 +188,8 @@ if (is_android || is_chromeos) {
     # Turns off android lint. Useful for prototyping or for faster local builds.
     # Defaults to true for official builds to reduce build times.
     # Static analysis failures should have been already caught by normal bots.
-    disable_android_lint = is_official_build
+    # Disabled when fast_local_dev is turned on.
+    disable_android_lint = is_official_build || android_fast_local_dev
 
     # Location of aapt2 used for app bundles. For now, a more recent version
     # than the one distributed with the Android SDK is required.
@@ -208,6 +204,10 @@ if (is_android || is_chromeos) {
 
     # Enable the chrome build for devices without touchscreens.
     notouch_build = false
+
+    # Controls whether proguard obfuscation is enabled for targets
+    # configured to use it.
+    enable_proguard_obfuscation = true
   }
 
   assert(!(check_android_configuration && is_java_debug),
@@ -230,6 +230,9 @@ if (is_android || is_chromeos) {
 
     # For local development, it's nice to not fail builds on warnings.
     java_warnings_as_errors = !is_java_debug
+
+    # Desugar with D8 rather than Desugar tool.
+    desugar_with_d8 = false
   }
 
   # Path to where selected build variables are written to.
@@ -265,7 +268,6 @@ if (is_android || is_chromeos) {
 
   android_sdk =
       "${android_sdk_root}/platforms/android-${android_sdk_platform_version}"
-  android_sdk_tools = "${android_sdk_root}/tools"
   android_sdk_build_tools =
       "${android_sdk_root}/build-tools/$android_sdk_build_tools_version"
 

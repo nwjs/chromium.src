@@ -5,6 +5,7 @@
 #include "components/safe_browsing/core/triggers/trigger_manager.h"
 
 #include "base/bind.h"
+#include "base/memory/ptr_util.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "components/prefs/pref_service.h"
 #include "components/safe_browsing/content/base_ui_manager.h"
@@ -86,6 +87,7 @@ SBErrorOptions TriggerManager::GetSBErrorDisplayOptions(
                         web_contents->GetBrowserContext()->IsOffTheRecord(),
                         IsExtendedReportingEnabled(pref_service),
                         IsExtendedReportingPolicyManaged(pref_service),
+                        IsEnhancedProtectionEnabled(pref_service),
                         /*is_proceed_anyway_disabled=*/false,
                         /*should_open_links_in_new_tab=*/false,
                         /*show_back_to_safety_button=*/true,

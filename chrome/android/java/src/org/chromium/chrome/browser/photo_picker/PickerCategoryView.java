@@ -11,8 +11,6 @@ import android.graphics.Bitmap;
 import android.graphics.Rect;
 import android.net.Uri;
 import android.os.SystemClock;
-import android.support.v7.widget.GridLayoutManager;
-import android.support.v7.widget.RecyclerView;
 import android.transition.ChangeBounds;
 import android.transition.Transition;
 import android.transition.TransitionManager;
@@ -25,6 +23,8 @@ import android.widget.ImageView;
 import android.widget.RelativeLayout;
 
 import androidx.annotation.VisibleForTesting;
+import androidx.recyclerview.widget.GridLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import org.chromium.base.DiscardableReferencePool.DiscardableReference;
 import org.chromium.base.metrics.RecordHistogram;
@@ -51,7 +51,7 @@ import java.util.List;
  */
 public class PickerCategoryView extends RelativeLayout
         implements FileEnumWorkerTask.FilesEnumeratedCallback, RecyclerView.RecyclerListener,
-                   DecoderServiceHost.ServiceReadyCallback, View.OnClickListener,
+                   DecoderServiceHost.DecoderStatusCallback, View.OnClickListener,
                    SelectionDelegate.SelectionObserver<PickerBitmap> {
     // These values are written to logs.  New enum values can be added, but existing
     // enums must never be renumbered or deleted and reused.
@@ -333,13 +333,16 @@ public class PickerCategoryView extends RelativeLayout
         processBitmaps();
     }
 
-    // DecoderServiceHost.ServiceReadyCallback:
+    // DecoderServiceHost.DecoderStatusCallback:
 
     @Override
     public void serviceReady() {
         mServiceReady = true;
         processBitmaps();
     }
+
+    @Override
+    public void decoderIdle() {}
 
     // RecyclerView.RecyclerListener:
 

@@ -35,9 +35,9 @@
 #include "cc/paint/paint_canvas.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/remote.h"
-#include "services/service_manager/public/cpp/interface_provider.h"
 #include "third_party/blink/public/common/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/common/input/web_menu_source_type.h"
+#include "third_party/blink/public/common/user_agent/user_agent_metadata.h"
 #include "third_party/blink/public/mojom/input/focus_type.mojom-blink-forward.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/web_screen_info.h"
@@ -48,6 +48,7 @@
 #include "third_party/blink/renderer/core/frame/remote_frame_client.h"
 #include "third_party/blink/renderer/core/page/chrome_client.h"
 #include "third_party/blink/renderer/core/page/page.h"
+#include "third_party/blink/renderer/platform/cursors.h"
 #include "third_party/blink/renderer/platform/exported/wrapped_resource_request.h"
 #include "third_party/blink/renderer/platform/geometry/float_point.h"
 #include "third_party/blink/renderer/platform/geometry/float_rect.h"
@@ -56,6 +57,7 @@
 #include "third_party/blink/renderer/platform/heap/handle.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_error.h"
 #include "third_party/blink/renderer/platform/wtf/forward.h"
+#include "ui/base/cursor/cursor.h"
 #include "v8/include/v8.h"
 
 /*
@@ -74,6 +76,10 @@
  Brittle, yes. Unfortunate, yes. Hopefully temporary.
 */
 
+namespace ui {
+class Cursor;
+}
+
 namespace blink {
 
 enum class GlobalObjectReusePolicy;
@@ -81,18 +87,15 @@ enum class GlobalObjectReusePolicy;
 class CORE_EXPORT EmptyChromeClient : public ChromeClient {
  public:
   ~EmptyChromeClient() override = default;
-  void ChromeDestroyed() override {}
 
+  // ChromeClient implementation.
   WebViewImpl* GetWebView() const override { return nullptr; }
+  void ChromeDestroyed() override {}
   void SetWindowRect(const IntRect&, LocalFrame&) override {}
   IntRect RootWindowRect(LocalFrame&) override { return IntRect(); }
-
   void Focus(LocalFrame*) override {}
-
   bool CanTakeFocus(mojom::blink::FocusType) override { return false; }
   void TakeFocus(mojom::blink::FocusType) override {}
-
-  void FocusedElementChanged(Element*, Element*) override {}
   void Show(NavigationPolicy, WebString* manifest = nullptr) override {}
 
   void DidOverscroll(const gfx::Vector2dF&,
@@ -101,20 +104,17 @@ class CORE_EXPORT EmptyChromeClient : public ChromeClient {
                      const gfx::Vector2dF&) override {}
   void SetOverscrollBehavior(LocalFrame& frame,
                              const cc::OverscrollBehavior&) override {}
-
   void BeginLifecycleUpdates(LocalFrame& main_frame) override {}
   void StartDeferringCommits(LocalFrame& main_frame,
                              base::TimeDelta timeout) override {}
   void StopDeferringCommits(LocalFrame& main_frame,
                             cc::PaintHoldingCommitTrigger) override {}
-
   void StartDragging(LocalFrame*,
                      const WebDragData&,
                      WebDragOperationsMask,
                      const SkBitmap& drag_image,
                      const gfx::Point& drag_image_offset) override {}
   bool AcceptsLoadDrops() const override { return true; }
-
   bool ShouldReportDetailedMessageForSource(LocalFrame&,
                                             const String&) override {
     return false;
@@ -126,24 +126,20 @@ class CORE_EXPORT EmptyChromeClient : public ChromeClient {
                            unsigned,
                            const String&,
                            const String&) override {}
-
   bool CanOpenBeforeUnloadConfirmPanel() override { return false; }
   bool OpenBeforeUnloadConfirmPanelDelegate(LocalFrame*, bool) override {
     return true;
   }
-
   void CloseWindowSoon() override {}
-
   Page* CreateWindowDelegate(LocalFrame*,
                              const FrameLoadRequest&,
                              const AtomicString&,
                              const WebWindowFeatures&,
-                             WebSandboxFlags,
+                             mojom::blink::WebSandboxFlags,
                              const FeaturePolicy::FeatureState&,
                              const SessionStorageNamespaceId&, WebString*) override {
     return nullptr;
   }
-
   bool OpenJavaScriptAlertDelegate(LocalFrame*, const String&) override {
     return false;
   }
@@ -156,7 +152,6 @@ class CORE_EXPORT EmptyChromeClient : public ChromeClient {
                                     String&) override {
     return false;
   }
-
   bool HasOpenedPopup() const override { return false; }
   PopupMenu* OpenPopupMenu(LocalFrame&, HTMLSelectElement&) override;
   PagePopup* OpenPagePopup(PagePopupClient*) override { return nullptr; }
@@ -168,7 +163,6 @@ class CORE_EXPORT EmptyChromeClient : public ChromeClient {
   void InvalidateRect(const IntRect&) override {}
   void ScheduleAnimation(const LocalFrameView*,
                          base::TimeDelta = base::TimeDelta()) override {}
-
   IntRect ViewportToScreen(const IntRect& r,
                            const LocalFrameView*) const override {
     return r;
@@ -180,13 +174,9 @@ class CORE_EXPORT EmptyChromeClient : public ChromeClient {
     return WebScreenInfo();
   }
   void ContentsSizeChanged(LocalFrame*, const IntSize&) const override {}
-
   void ShowMouseOverURL(const HitTestResult&) override {}
-
   void SetToolTip(LocalFrame&, const String&, TextDirection) override {}
-
   void PrintDelegate(LocalFrame*) override {}
-
   ColorChooser* OpenColorChooser(LocalFrame*,
                                  ColorChooserClient*,
                                  const Color&) override;
@@ -195,16 +185,14 @@ class CORE_EXPORT EmptyChromeClient : public ChromeClient {
       DateTimeChooserClient*,
       const DateTimeChooserParameters&) override;
   void OpenTextDataListChooser(HTMLInputElement&) override;
-
   void OpenFileChooser(LocalFrame*, scoped_refptr<FileChooser>) override;
-
-  void SetCursor(const Cursor&, LocalFrame* local_root) override {}
+  void SetCursor(const ui::Cursor&, LocalFrame* local_root) override {}
   void SetCursorOverridden(bool) override {}
-  Cursor LastSetCursorForTesting() const override { return PointerCursor(); }
-
+  ui::Cursor LastSetCursorForTesting() const override {
+    return PointerCursor();
+  }
   void AttachRootLayer(scoped_refptr<cc::Layer>,
                        LocalFrame* local_root) override;
-
   void SetEventListenerProperties(LocalFrame*,
                                   cc::EventListenerClass,
                                   cc::EventListenerProperties) override {}
@@ -218,32 +206,23 @@ class CORE_EXPORT EmptyChromeClient : public ChromeClient {
   void SetNeedsUnbufferedInputForDebugger(LocalFrame*, bool) override {}
   void RequestUnbufferedInputEvents(LocalFrame*) override {}
   void SetTouchAction(LocalFrame*, TouchAction) override {}
-
   void DidAssociateFormControlsAfterLoad(LocalFrame*) override {}
-
   String AcceptLanguages() override;
-
   void RegisterPopupOpeningObserver(PopupOpeningObserver*) override {}
   void UnregisterPopupOpeningObserver(PopupOpeningObserver*) override {}
   void NotifyPopupOpeningObservers() const override {}
-
   void FallbackCursorModeLockCursor(LocalFrame* frame,
                                     bool left,
                                     bool right,
                                     bool up,
                                     bool down) override {}
-
   void FallbackCursorModeSetCursorVisibility(LocalFrame* frame,
                                              bool visible) override {}
-
   void RequestBeginMainFrameNotExpected(LocalFrame& frame,
                                         bool request) override {}
   int GetLayerTreeId(LocalFrame& frame) override { return 0; }
-
-  void SetCursorForPlugin(const WebCursorInfo&, LocalFrame*) override {}
-
+  void SetCursorForPlugin(const ui::Cursor&, LocalFrame*) override {}
   void InstallSupplements(LocalFrame&) override {}
-
   void MainFrameScrollOffsetChanged(LocalFrame& main_frame) const override {}
 };
 
@@ -272,9 +251,7 @@ class CORE_EXPORT EmptyLocalFrameClient : public LocalFrameClient {
       const ResourceResponse&) override {}
 
   void DispatchDidHandleOnloadEvents() override {}
-  void DispatchDidStartProvisionalLoad(DocumentLoader*) override {}
   void DispatchDidReceiveTitle(const String&) override {}
-  void DispatchDidChangeIcons(IconType) override {}
   void DispatchDidCommitLoad(HistoryItem*,
                              WebHistoryCommitType,
                              GlobalObjectReusePolicy) override {}
@@ -299,7 +276,9 @@ class CORE_EXPORT EmptyLocalFrameClient : public LocalFrameClient {
       mojo::PendingRemote<mojom::blink::BlobURLToken>,
       base::TimeTicks,
       const String&,
-      WebContentSecurityPolicyList,
+      WTF::Vector<network::mojom::blink::ContentSecurityPolicyPtr>
+          initiator_csp,
+      network::mojom::blink::CSPSourcePtr initiator_self_source,
       network::mojom::IPAddressSpace,
       mojo::PendingRemote<mojom::blink::NavigationInitiator>) override;
 
@@ -307,9 +286,6 @@ class CORE_EXPORT EmptyLocalFrameClient : public LocalFrameClient {
 
   void DidStartLoading() override {}
   void DidStopLoading() override {}
-
-  void DownloadURL(const ResourceRequest&,
-                   network::mojom::RedirectMode) override {}
 
   DocumentLoader* CreateDocumentLoader(
       LocalFrame*,
@@ -322,7 +298,7 @@ class CORE_EXPORT EmptyLocalFrameClient : public LocalFrameClient {
       std::unique_ptr<WebDocumentLoader::ExtraData> extra_data) override {}
 
   String UserAgent() override { return ""; }
-  blink::UserAgentMetadata UserAgentMetadata() override {
+  base::Optional<blink::UserAgentMetadata> UserAgentMetadata() override {
     return blink::UserAgentMetadata();
   }
 
@@ -356,7 +332,8 @@ class CORE_EXPORT EmptyLocalFrameClient : public LocalFrameClient {
   WebRemotePlaybackClient* CreateWebRemotePlaybackClient(
       HTMLMediaElement&) override;
 
-  void DidCreateNewDocument() override {}
+  void DidCreateInitialEmptyDocument() override {}
+  void DidCommitJavascriptUrlNavigation(DocumentLoader*) override {}
   void DispatchDidClearWindowObjectInMainWorld() override {}
   void DocumentElementAvailable() override {}
   void RunScriptsAtDocumentElementAvailable() override {}
@@ -368,10 +345,6 @@ class CORE_EXPORT EmptyLocalFrameClient : public LocalFrameClient {
   void WillReleaseScriptContext(v8::Local<v8::Context>,
                                 int32_t world_id) override {}
   bool AllowScriptExtensions() override { return false; }
-
-  service_manager::InterfaceProvider* GetInterfaceProvider() override {
-    return &interface_provider_;
-  }
 
   BrowserInterfaceBrokerProxy& GetBrowserInterfaceBroker() override {
     return GetEmptyBrowserInterfaceBroker();
@@ -417,8 +390,6 @@ class CORE_EXPORT EmptyLocalFrameClient : public LocalFrameClient {
   // Not owned
   WebTextCheckClient* text_check_client_;
 
-  service_manager::InterfaceProvider interface_provider_;
-
   DISALLOW_COPY_AND_ASSIGN(EmptyLocalFrameClient);
 };
 
@@ -447,17 +418,16 @@ class CORE_EXPORT EmptyRemoteFrameClient : public RemoteFrameClient {
                 bool initiator_frame_is_ad,
                 mojo::PendingRemote<mojom::blink::BlobURLToken>) override {}
   unsigned BackForwardLength() override { return 0; }
-  void ForwardPostMessage(MessageEvent*,
-                          scoped_refptr<const SecurityOrigin> target,
-                          LocalFrame* source_frame) const override {}
+  void ForwardPostMessage(
+      MessageEvent*,
+      scoped_refptr<const SecurityOrigin> target,
+      base::Optional<base::UnguessableToken> locked_agent_cluster_id,
+      LocalFrame* source_frame) const override {}
   void FrameRectsChanged(const IntRect& local_frame_rect,
                          const IntRect& transformed_frame_rect) override {}
   void UpdateRemoteViewportIntersection(
       const ViewportIntersectionState& intersection_state) override {}
   void AdvanceFocus(mojom::blink::FocusType, LocalFrame* source) override {}
-  void SetIsInert(bool) override {}
-  void UpdateRenderThrottlingStatus(bool is_throttled,
-                                    bool subtree_throttled) override {}
   uint32_t Print(const IntRect& rect, cc::PaintCanvas* canvas) const override {
     return 0;
   }

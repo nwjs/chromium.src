@@ -16,14 +16,18 @@
 #include "components/viz/common/display/update_vsync_parameters_callback.h"
 #include "components/viz/common/gpu/context_provider.h"
 #include "components/viz/common/gpu/gpu_vsync_callback.h"
+#include "components/viz/common/resources/resource_format.h"
 #include "components/viz/common/resources/returned_resource.h"
 #include "components/viz/service/display/software_output_device.h"
 #include "components/viz/service/viz_service_export.h"
+#include "gpu/command_buffer/common/mailbox.h"
 #include "gpu/command_buffer/common/texture_in_use_response.h"
 #include "gpu/ipc/common/surface_handle.h"
 #include "gpu/ipc/gpu_task_scheduler_helper.h"
+#include "third_party/skia/include/gpu/GrBackendSurface.h"
 #include "ui/gfx/color_space.h"
 #include "ui/gfx/overlay_transform.h"
+#include "ui/gfx/surface_origin.h"
 #include "ui/latency/latency_info.h"
 
 namespace gfx {
@@ -56,8 +60,8 @@ class VIZ_SERVICE_EXPORT OutputSurface {
     // Whether this output surface renders to the default OpenGL zero
     // framebuffer or to an offscreen framebuffer.
     bool uses_default_gl_framebuffer = true;
-    // Whether this OutputSurface is flipped or not.
-    bool flipped_output_surface = false;
+    // Where (0,0) is on this OutputSurface.
+    gfx::SurfaceOrigin output_surface_origin = gfx::SurfaceOrigin::kBottomLeft;
     // Whether this OutputSurface supports stencil operations or not.
     // Note: HasExternalStencilTest() must return false when an output surface
     // has been configured for stencil usage.
@@ -76,8 +80,6 @@ class VIZ_SERVICE_EXPORT OutputSurface {
     bool supports_pre_transform = false;
     // Whether this OutputSurface supports direct composition layers.
     bool supports_dc_layers = false;
-    // Whether this OutputSurface supports direct composition video overlays.
-    bool supports_dc_video_overlays = false;
     // Whether this OutputSurface should skip DrawAndSwap(). This is true for
     // the unified display on Chrome OS. All drawing is handled by the physical
     // displays so the unified display should skip that work.
@@ -92,6 +94,15 @@ class VIZ_SERVICE_EXPORT OutputSurface {
     // This is copied over from gpu feature info since there is no easy way to
     // share that out of skia output surface.
     bool android_surface_control_feature_enabled = false;
+    // True if the buffer content will be preserved after presenting.
+    bool preserve_buffer_content = false;
+    // The SkColorType and GrBackendFormat for non-HDR and HDR.
+    // TODO(penghuang): remove SkColorType and GrBackendFormat when
+    // OutputSurface uses the |format| passed to Reshape().
+    SkColorType sk_color_type = kUnknown_SkColorType;
+    GrBackendFormat gr_backend_format;
+    SkColorType sk_color_type_for_hdr = kUnknown_SkColorType;
+    GrBackendFormat gr_backend_format_for_hdr;
   };
 
   // Constructor for skia-based compositing.
@@ -145,26 +156,14 @@ class VIZ_SERVICE_EXPORT OutputSurface {
   // Get the texture for the main image's overlay.
   virtual unsigned GetOverlayTextureId() const = 0;
 
-  // Get the format for the main image's overlay.
-  virtual gfx::BufferFormat GetOverlayBufferFormat() const = 0;
+  // Returns the |mailbox| corresponding to the main image's overlay.
+  virtual gpu::Mailbox GetOverlayMailbox() const;
 
-  // TODO(vasilyt): Merge two Reshape versions into one.
   virtual void Reshape(const gfx::Size& size,
                        float device_scale_factor,
                        const gfx::ColorSpace& color_space,
-                       bool has_alpha,
+                       gfx::BufferFormat format,
                        bool use_stencil) = 0;
-
-  // This version is used only with SkiaRenderer. |was_forced| flags that
-  // reshape was forced by client and it's necessary to query surface
-  // characterization from Gpu Thread. Default implementation will call the
-  // function above.
-  virtual void Reshape(const gfx::Size& size,
-                       float device_scale_factor,
-                       const gfx::ColorSpace& color_space,
-                       bool has_alpha,
-                       bool use_stencil,
-                       bool was_forced);
 
   virtual bool HasExternalStencilTest() const = 0;
   virtual void ApplyExternalStencil() = 0;
@@ -246,6 +245,7 @@ class VIZ_SERVICE_EXPORT OutputSurface {
   // instead of passing it out here.
   virtual scoped_refptr<gpu::GpuTaskSchedulerHelper>
   GetGpuTaskSchedulerHelper() = 0;
+  virtual gpu::MemoryTracker* GetMemoryTracker() = 0;
 
  protected:
   struct OutputSurface::Capabilities capabilities_;

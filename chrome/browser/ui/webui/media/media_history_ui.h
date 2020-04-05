@@ -7,11 +7,11 @@
 
 #include "chrome/browser/media/history/media_history_store.mojom.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
-#include "mojo/public/cpp/bindings/receiver.h"
+#include "mojo/public/cpp/bindings/receiver_set.h"
 #include "ui/webui/mojo_web_ui_controller.h"
 
 namespace media_history {
-class MediaHistoryStore;
+class MediaHistoryKeyedService;
 }  // namespace media_history
 
 // The UI for chrome://media-history.
@@ -30,11 +30,17 @@ class MediaHistoryUI : public ui::MojoWebUIController,
 
   // media::mojom::MediaHistoryStore:
   void GetMediaHistoryStats(GetMediaHistoryStatsCallback callback) override;
+  void GetMediaHistoryOriginRows(
+      GetMediaHistoryOriginRowsCallback callback) override;
+  void GetMediaHistoryPlaybackRows(
+      GetMediaHistoryPlaybackRowsCallback callback) override;
+  void GetMediaHistoryPlaybackSessionRows(
+      GetMediaHistoryPlaybackSessionRowsCallback callback) override;
 
  private:
-  media_history::MediaHistoryStore* GetMediaHistoryStore();
+  media_history::MediaHistoryKeyedService* GetMediaHistoryService();
 
-  mojo::Receiver<media_history::mojom::MediaHistoryStore> receiver_;
+  mojo::ReceiverSet<media_history::mojom::MediaHistoryStore> receivers_;
 
   WEB_UI_CONTROLLER_TYPE_DECL();
 };

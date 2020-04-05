@@ -26,9 +26,13 @@ class CancelCastingDialog : public views::DialogDelegateView {
     AddChildView(new views::MessageBoxView(views::MessageBoxView::InitParams(
         l10n_util::GetStringUTF16(IDS_DESKTOP_CASTING_ACTIVE_MESSAGE))));
     SetLayoutManager(std::make_unique<views::FillLayout>());
-    DialogDelegate::set_button_label(
+    DialogDelegate::SetButtonLabel(
         ui::DIALOG_BUTTON_OK,
         l10n_util::GetStringUTF16(IDS_DESKTOP_CASTING_ACTIVE_CONTINUE));
+    DialogDelegate::SetAcceptCallback(base::BindOnce(
+        &CancelCastingDialog::OnDialogAccepted, base::Unretained(this)));
+    DialogDelegate::SetCancelCallback(base::BindOnce(
+        &CancelCastingDialog::OnDialogCancelled, base::Unretained(this)));
   }
   ~CancelCastingDialog() override = default;
 
@@ -36,12 +40,9 @@ class CancelCastingDialog : public views::DialogDelegateView {
     return l10n_util::GetStringUTF16(IDS_DESKTOP_CASTING_ACTIVE_TITLE);
   }
 
-  bool Cancel() override {
-    std::move(callback_).Run(false);
-    return true;
-  }
+  void OnDialogCancelled() { std::move(callback_).Run(false); }
 
-  bool Accept() override {
+  void OnDialogAccepted() {
     // Stop screen sharing and capturing. When notified, all capture sessions or
     // all share sessions will be stopped.
     // Currently, the logic is in ScreenSecurityNotificationController.
@@ -49,7 +50,6 @@ class CancelCastingDialog : public views::DialogDelegateView {
     Shell::Get()->system_tray_notifier()->NotifyScreenShareStop();
 
     std::move(callback_).Run(true);
-    return true;
   }
 
   bool ShouldShowCloseButton() const override { return false; }

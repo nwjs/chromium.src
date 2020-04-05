@@ -5,6 +5,7 @@
 #include "ui/views/border.h"
 
 #include <memory>
+#include <utility>
 
 #include "base/logging.h"
 #include "base/macros.h"
@@ -138,11 +139,9 @@ class EmptyBorder : public Border {
   DISALLOW_COPY_AND_ASSIGN(EmptyBorder);
 };
 
-EmptyBorder::EmptyBorder(const gfx::Insets& insets) : insets_(insets) {
-}
+EmptyBorder::EmptyBorder(const gfx::Insets& insets) : insets_(insets) {}
 
-void EmptyBorder::Paint(const View& view, gfx::Canvas* canvas) {
-}
+void EmptyBorder::Paint(const View& view, gfx::Canvas* canvas) {}
 
 gfx::Insets EmptyBorder::GetInsets() const {
   return insets_;
@@ -170,7 +169,9 @@ class ExtraInsetsBorder : public Border {
 
 ExtraInsetsBorder::ExtraInsetsBorder(std::unique_ptr<Border> border,
                                      const gfx::Insets& insets)
-    : border_(std::move(border)), extra_insets_(insets) {}
+    : Border(border->color()),
+      border_(std::move(border)),
+      extra_insets_(insets) {}
 
 void ExtraInsetsBorder::Paint(const View& view, gfx::Canvas* canvas) {
   border_->Paint(view, canvas);

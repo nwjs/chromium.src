@@ -25,7 +25,7 @@ class DXGIDeviceScopedHandleTest : public testing::Test {
     if (!test_supported_)
       return;
 
-    ASSERT_TRUE(InitializeMediaFoundation());
+    ASSERT_NE(nullptr, session_ = InitializeMediaFoundation());
 
     // Get a shared DXGI Device Manager from Media Foundation.
     ASSERT_HRESULT_SUCCEEDED(
@@ -60,6 +60,7 @@ class DXGIDeviceScopedHandleTest : public testing::Test {
     }
   }
 
+  MFSessionLifetime session_;
   Microsoft::WRL::ComPtr<IMFDXGIDeviceManager> dxgi_device_man_ = nullptr;
   UINT device_reset_token_ = 0;
   const bool test_supported_;
@@ -72,17 +73,17 @@ TEST_F(DXGIDeviceScopedHandleTest, UseDXGIDeviceScopedHandle) {
   {
     // Create DXGIDeviceScopedHandle in an inner scope without LockDevice
     // call.
-    mf::DXGIDeviceScopedHandle device_handle_1(dxgi_device_man_.Get());
+    DXGIDeviceScopedHandle device_handle_1(dxgi_device_man_.Get());
   }
   {
     // Create DXGIDeviceScopedHandle in an inner scope with LockDevice call.
-    mf::DXGIDeviceScopedHandle device_handle_2(dxgi_device_man_.Get());
+    DXGIDeviceScopedHandle device_handle_2(dxgi_device_man_.Get());
     ComPtr<ID3D11Device> device2;
     ASSERT_HRESULT_SUCCEEDED(
         device_handle_2.LockDevice(IID_PPV_ARGS(&device2)));
   }
   // Use the device in an outer scope.
-  mf::DXGIDeviceScopedHandle device_handle_3(dxgi_device_man_.Get());
+  DXGIDeviceScopedHandle device_handle_3(dxgi_device_man_.Get());
   ComPtr<ID3D11Device> device3;
   ASSERT_HRESULT_SUCCEEDED(device_handle_3.LockDevice(IID_PPV_ARGS(&device3)));
 }

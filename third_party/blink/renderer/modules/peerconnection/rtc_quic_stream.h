@@ -7,7 +7,7 @@
 
 #include "third_party/blink/renderer/bindings/modules/v8/v8_rtc_quic_stream_read_result.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_rtc_quic_stream_write_parameters.h"
-#include "third_party/blink/renderer/core/execution_context/context_lifecycle_observer.h"
+#include "third_party/blink/renderer/core/execution_context/execution_context_lifecycle_observer.h"
 #include "third_party/blink/renderer/core/typed_arrays/array_buffer_view_helpers.h"
 #include "third_party/blink/renderer/core/typed_arrays/dom_typed_array.h"
 #include "third_party/blink/renderer/modules/event_target_modules.h"
@@ -26,7 +26,7 @@ enum class RTCQuicStreamState { kNew, kOpening, kOpen, kClosing, kClosed };
 // RTCQuicTransport that it is associated with holds a strong reference to it
 // as long as it is not closed.
 class MODULES_EXPORT RTCQuicStream final : public EventTargetWithInlineData,
-                                           public ContextClient,
+                                           public ExecutionContextClient,
                                            public QuicStreamProxy::Delegate {
   DEFINE_WRAPPERTYPEINFO();
   USING_GARBAGE_COLLECTED_MIXIN(RTCQuicStream);

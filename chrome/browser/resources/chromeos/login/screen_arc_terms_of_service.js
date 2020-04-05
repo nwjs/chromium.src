@@ -25,6 +25,10 @@ login.createScreen('ArcTermsOfServiceScreen', 'arc-tos', function() {
       this.termsOfServiceHostName_ = 'https://play.google.com';
     },
 
+    /** Initial UI State for screen */
+    getOobeUIInitialState() {
+      return OOBE_UI_STATE.ONBOARDING;
+    },
 
     /**
      * Returns current language that can be updated in OOBE flow. If OOBE flow
@@ -58,13 +62,9 @@ login.createScreen('ArcTermsOfServiceScreen', 'arc-tos', function() {
 
       this.pageReady_ = true;
       $('arc-tos-root').screen = this;
+      $('arc-tos-root').setupOverlay();
 
-      var closeButtons = document.querySelectorAll('.arc-overlay-close-button');
-      for (var i = 0; i < closeButtons.length; i++) {
-        closeButtons[i].addEventListener('click', this.hideOverlay.bind(this));
-      }
-
-      var termsView = this.getElement_('arc-tos-view');
+      var termsView = this.getElement_('arcTosView');
       var requestFilter = {urls: ['<all_urls>'], types: ['main_frame']};
 
       termsView.request.onErrorOccurred.addListener(
@@ -87,7 +87,7 @@ login.createScreen('ArcTermsOfServiceScreen', 'arc-tos', function() {
         run_at: 'document_end'
       }]);
 
-      this.getElement_('arc-policy-link').onclick = function() {
+      this.getElement_('arcPolicyLink').onclick = function() {
         termsView.executeScript(
             {code: 'getPrivacyPolicyLink();'}, function(results) {
               if (results && results.length == 1 &&
@@ -101,34 +101,13 @@ login.createScreen('ArcTermsOfServiceScreen', 'arc-tos', function() {
             });
       };
 
-      var overlayUrl = $('arc-tos-overlay-webview');
-      var overlayUrlContainer = $('arc-tos-overlay-webview-container');
-      overlayUrl.addEventListener('contentload', function() {
-        overlayUrlContainer.classList.remove('overlay-loading');
-      });
+      var overlayUrl = this.getElement_('arcTosOverlayWebview');
       overlayUrl.addContentScripts([{
         name: 'postProcess',
         matches: ['https://support.google.com/*'],
         css: {files: ['overlay.css']},
         run_at: 'document_end'
       }]);
-
-      var closeOverlayButton = $('arc-tos-overlay-close-bottom');
-      var overlayUrlContainer = $('arc-tos-overlay-webview-container');
-      $('arc-tos-overlay-start').onfocus = function() {
-        closeOverlayButton.focus();
-      };
-      $('arc-tos-overlay-end').onfocus = function() {
-        var style = window.getComputedStyle(overlayUrlContainer);
-        if (style.display == 'none') {
-          closeOverlayButton.focus();
-        } else {
-          overlayUrl.focus();
-        }
-      };
-
-      $('arc-tos-overlay-close-top').title =
-          loadTimeData.getString('arcOverlayClose');
 
       // Update the screen size after setup layout.
       if (Oobe.getInstance().currentScreen === this)
@@ -141,34 +120,8 @@ login.createScreen('ArcTermsOfServiceScreen', 'arc-tos', function() {
      * @param {boolean} visible If metrics text is visible.
      */
     setMetricsMode(text, visible) {
-      var metrics = this.getElement_('arc-text-metrics');
-      metrics.innerHTML = text;
-      // This element is wrapped by div.
-      metrics.parentElement.hidden = !visible;
-
-      if (!visible) {
-        return;
-      }
-
-      var self = this;
-      var leanMoreStatisticsText =
-          loadTimeData.getString('arcLearnMoreStatistics');
-      metrics.querySelector('#learn-more-link-metrics').onclick = function() {
-        self.showLearnMoreOverlay(leanMoreStatisticsText);
-      };
-    },
-
-    /**
-     * Applies current enabled/managed state to checkbox and text.
-     * @param {string} checkBoxId Id of checkbox to set on/off.
-     * @param {boolean} enabled Defines the value of the checkbox.
-     * @param {boolean} managed Defines whether this setting is set by policy.
-     */
-    setPreference(checkBoxId, enabled, managed) {
-      var preference = this.getElement_(checkBoxId);
-      preference.checked = enabled;
-      preference.disabled = managed;
-      preference.parentElement.disabled = managed;
+      $('arc-tos-root').isMetricsHidden = !visible;
+      $('arc-tos-root').metricsText = text;
     },
 
     /**
@@ -178,7 +131,8 @@ login.createScreen('ArcTermsOfServiceScreen', 'arc-tos', function() {
      * @param {boolean} managed Defines whether this setting is set by policy.
      */
     setBackupAndRestoreMode(enabled, managed) {
-      this.setPreference('arc-enable-backup-restore', enabled, managed);
+      $('arc-tos-root').backupRestore = enabled;
+      $('arc-tos-root').backupRestoreManaged = managed;
     },
 
     /**
@@ -187,15 +141,16 @@ login.createScreen('ArcTermsOfServiceScreen', 'arc-tos', function() {
      * @param {boolean} managed Defines whether this setting is set by policy.
      */
     setLocationServicesMode(enabled, managed) {
-      this.setPreference('arc-enable-location-service', enabled, managed);
+      $('arc-tos-root').backupRestore = enabled;
+      $('arc-tos-root').backupRestoreManaged = managed;
     },
 
     /**
      * Hides the "Skip" button in the ToS screen.
+     * TODO(lgcheng@, crbug/1059048) remove this external API and related
+     * skip code.
      */
-    hideSkipButton() {
-      this.addClass_('arc-tos-disable-skip');
-    },
+    hideSkipButton() {},
 
     /**
      * Loads Play Store ToS in case country code has been changed or previous
@@ -227,7 +182,7 @@ login.createScreen('ArcTermsOfServiceScreen', 'arc-tos', function() {
       scriptSetParameters += 'document.language = \'' + language + '\';';
       scriptSetParameters += 'document.viewMode = \'large-view\';';
 
-      var termsView = this.getElement_('arc-tos-view');
+      var termsView = this.getElement_('arcTosView');
 
       termsView.removeContentScripts(['preProcess']);
       termsView.addContentScripts([{
@@ -272,7 +227,7 @@ login.createScreen('ArcTermsOfServiceScreen', 'arc-tos', function() {
 
       // Enable loading content script 'playstore.js' when fetching ToS from
       // the test server.
-      var termsView = this.getElement_('arc-tos-view');
+      var termsView = this.getElement_('arcTosView');
       termsView.removeContentScripts(['postProcess']);
       termsView.addContentScripts([{
         name: 'postProcess',
@@ -287,27 +242,12 @@ login.createScreen('ArcTermsOfServiceScreen', 'arc-tos', function() {
      * Sets if Arc is managed. ToS webview should not be visible if Arc is
      * manged.
      * @param {boolean} managed Defines whether this setting is set by policy.
+     * @param {boolean} whether current account is a child account.
      */
-    setArcManaged(managed) {
+    setArcManaged(managed, child) {
       var visibility = managed ? 'hidden' : 'visible';
-      this.getElement_('arc-tos-view-container').style.visibility = visibility;
-    },
-
-    /**
-     * Handles Next button click.
-     */
-    onNext() {
-      var isDemoModeSetup = this.isDemoModeSetup_();
-      this.getElement_('arc-location-service').hidden = false;
-      this.getElement_('arc-pai-service').hidden = false;
-      this.getElement_('arc-google-service-confirmation').hidden = false;
-      if (!isDemoModeSetup) {
-        this.getElement_('arc-review-settings').hidden = false;
-      }
-      $('arc-tos-root').getElement('arc-tos-dialog').scrollToBottom();
-      this.getElement_('arc-tos-next-button').hidden = true;
-      this.getElement_('arc-tos-accept-button').hidden = false;
-      this.getElement_('arc-tos-accept-button').focus();
+      this.getElement_('arcTosViewContainer').style.visibility = visibility;
+      $('arc-tos-root').isChild = child;
     },
 
     /**
@@ -316,25 +256,13 @@ login.createScreen('ArcTermsOfServiceScreen', 'arc-tos', function() {
     onAccept() {
       this.enableButtons_(false);
 
-      var isBackupRestoreEnabled =
-          this.getElement_('arc-enable-backup-restore').checked;
-      var isLocationServiceEnabled =
-          this.getElement_('arc-enable-location-service').checked;
-      var reviewArcSettings =
-          this.getElement_('arc-review-settings-checkbox').checked;
+      var isBackupRestoreEnabled = $('arc-tos-root').backupRestore;
+      var isLocationServiceEnabled = $('arc-tos-root').locationService;
+      var reviewArcSettings = $('arc-tos-root').reviewSettings;
       chrome.send('arcTermsOfServiceAccept', [
         isBackupRestoreEnabled, isLocationServiceEnabled, reviewArcSettings,
         this.tosContent_
       ]);
-    },
-
-    /**
-     * Handles Skip button click.
-     */
-    onSkip() {
-      this.enableButtons_(false);
-
-      chrome.send('arcTermsOfServiceSkip', [this.tosContent_]);
     },
 
     /**
@@ -348,58 +276,17 @@ login.createScreen('ArcTermsOfServiceScreen', 'arc-tos', function() {
     },
 
     /**
-     * Shows overlay dialog.
-     * @param {string} defines overlay type, text or url.
-     */
-    showOverlay(overlayType) {
-      this.lastFocusedElement = document.activeElement;
-      if (this.lastFocusedElement == $('arc-tos-root')) {
-        this.lastFocusedElement = this.lastFocusedElement.getActiveElement();
-      }
-
-      var overlayRoot = $('arc-tos-overlay');
-      overlayRoot.classList.remove('arc-overlay-text');
-      overlayRoot.classList.remove('arc-overlay-url');
-      overlayRoot.classList.add(overlayType);
-      overlayRoot.hidden = false;
-      $('arc-tos-overlay-close-bottom').focus();
-    },
-
-    /**
-     * Sets learn more content text and shows it as overlay dialog.
-     * @param {string} content HTML formatted text to show.
-     */
-    showLearnMoreOverlay(content) {
-      $('arc-learn-more-content').innerHTML = content;
-      this.showOverlay('arc-overlay-text');
-    },
-
-    /**
      * Opens external URL in popup overlay.
      * @param {string} targetUrl URL to open.
      */
     showUrlOverlay(targetUrl) {
-      var webView = $('arc-tos-overlay-webview');
       if (this.usingOfflineTerms_) {
         const TERMS_URL = 'chrome://terms/arc/privacy_policy';
         WebViewHelper.loadUrlContentToWebView(
-            webView, TERMS_URL, WebViewHelper.ContentType.PDF);
-      } else {
-        webView.src = targetUrl;
+            this.getElement_('arcTosOverlayWebview'), TERMS_URL,
+            WebViewHelper.ContentType.PDF);
       }
-      $('arc-tos-overlay-webview-container').classList.add('overlay-loading');
-      this.showOverlay('arc-overlay-url');
-    },
-
-    /**
-     * Hides overlay dialog.
-     */
-    hideOverlay() {
-      $('arc-tos-overlay').hidden = true;
-      if (this.lastFocusedElement) {
-        this.lastFocusedElement.focus();
-        this.lastFocusedElement = null;
-      }
+      $('arc-tos-root').showUrlOverlay(targetUrl, this.usingOfflineTerms_);
     },
 
     /**
@@ -408,7 +295,7 @@ login.createScreen('ArcTermsOfServiceScreen', 'arc-tos', function() {
     reloadPlayStoreToS() {
       this.termsError = false;
       this.usingOfflineTerms_ = false;
-      var termsView = this.getElement_('arc-tos-view');
+      var termsView = this.getElement_('arcTosView');
       termsView.src = this.termsOfServiceHostName_ + '/about/play-terms.html';
       this.removeClass_('arc-tos-loaded');
       this.removeClass_('error');
@@ -417,17 +304,17 @@ login.createScreen('ArcTermsOfServiceScreen', 'arc-tos', function() {
     },
 
     /**
-     * Sets up the variant of the screen dedicated for demo mode.
+     * Sets up the variant of the screen dedicated falsedemo mode.
      */
     setupForDemoMode() {
-      this.addClass_('arc-tos-for-demo-mode');
+      $('arc-tos-root').demoMode = true;
     },
 
     /**
      * Sets up the variant of the screen dedicated for demo mode.
      */
     clearDemoMode() {
-      this.removeClass_('arc-tos-for-demo-mode');
+      $('arc-tos-root').demoMode = false;
     },
 
     /**
@@ -437,7 +324,7 @@ login.createScreen('ArcTermsOfServiceScreen', 'arc-tos', function() {
      * @private
      */
     addClass_(className) {
-      $('arc-tos-root').getElement('arc-tos-dialog').classList.add(className);
+      $('arc-tos-root').getElement('arcTosDialog').classList.add(className);
     },
 
     /**
@@ -447,9 +334,7 @@ login.createScreen('ArcTermsOfServiceScreen', 'arc-tos', function() {
      * @private
      */
     removeClass_(className) {
-      $('arc-tos-root')
-          .getElement('arc-tos-dialog')
-          .classList.remove(className);
+      $('arc-tos-root').getElement('arcTosDialog').classList.remove(className);
     },
 
     /**
@@ -460,7 +345,7 @@ login.createScreen('ArcTermsOfServiceScreen', 'arc-tos', function() {
      */
     hasClass_(className) {
       return $('arc-tos-root')
-          .getElement('arc-tos-dialog')
+          .getElement('arcTosDialog')
           .classList.contains(className);
     },
 
@@ -483,7 +368,7 @@ login.createScreen('ArcTermsOfServiceScreen', 'arc-tos', function() {
         return;
       }
 
-      var termsView = this.getElement_('arc-tos-view');
+      var termsView = this.getElement_('arcTosView');
       if (this.usingOfflineTerms_) {
         // Process offline ToS. Scripts added to web view by addContentScripts()
         // are not executed when using data url.
@@ -525,13 +410,8 @@ login.createScreen('ArcTermsOfServiceScreen', 'arc-tos', function() {
       this.addClass_('arc-tos-loaded');
 
       this.enableButtons_(true);
-      this.getElement_('arc-location-service').hidden = true;
-      this.getElement_('arc-pai-service').hidden = true;
-      this.getElement_('arc-google-service-confirmation').hidden = true;
-      this.getElement_('arc-review-settings').hidden = true;
-      this.getElement_('arc-tos-accept-button').hidden = true;
-      this.getElement_('arc-tos-next-button').hidden = false;
-      this.getElement_('arc-tos-next-button').focus();
+      $('arc-tos-root').showFullDialog = false;
+      this.getElement_('arcTosNextButton').focus();
     },
 
     /**
@@ -542,7 +422,7 @@ login.createScreen('ArcTermsOfServiceScreen', 'arc-tos', function() {
       if (this.isDemoModeSetup_()) {
         this.usingOfflineTerms_ = true;
         const TERMS_URL = 'chrome://terms/arc/terms';
-        var webView = this.getElement_('arc-tos-view');
+        var webView = this.getElement_('arcTosView');
         WebViewHelper.loadUrlContentToWebView(
             webView, TERMS_URL, WebViewHelper.ContentType.HTML);
         return;
@@ -561,7 +441,7 @@ login.createScreen('ArcTermsOfServiceScreen', 'arc-tos', function() {
       this.addClass_('error');
 
       this.enableButtons_(true);
-      this.getElement_('arc-tos-retry-button').focus();
+      this.getElement_('arcTosRetryButton').focus();
     },
 
     /**
@@ -569,27 +449,20 @@ login.createScreen('ArcTermsOfServiceScreen', 'arc-tos', function() {
      * @param {object} data Screen init payload.
      */
     onBeforeShow(data) {
-      this.setLearnMoreHandlers_();
-
-      this.hideOverlay();
       this.focusButton_();
 
       $('arc-tos-root').onBeforeShow();
 
       var isDemoModeSetup = this.isDemoModeSetup_();
       if (isDemoModeSetup) {
-        this.hideSkipButton();
-        this.setMetricsMode(
-            loadTimeData.getString('arcTextMetricsManagedEnabled'), true);
+        this.setMetricsMode('arcTextMetricsManagedEnabled', true);
       }
-      this.getElement_('arc-tos-accept-button').textKey = isDemoModeSetup ?
+      $('arc-tos-root').accpetTextKey = isDemoModeSetup ?
           'arcTermsOfServiceAcceptAndContinueButton' :
           'arcTermsOfServiceAcceptButton';
-      this.getElement_('google-service-confirmation-text').innerHTML =
-          loadTimeData.getString(
-              isDemoModeSetup ?
-                  'arcAcceptAndContinueGoogleServiceConfirmation' :
-                  'arcTextGoogleServiceConfirmation');
+      $('arc-tos-root').googleServiceConfirmationText = isDemoModeSetup ?
+          'arcAcceptAndContinueGoogleServiceConfirmation' :
+          'arcTextGoogleServiceConfirmation';
     },
 
     /** @override */
@@ -602,15 +475,8 @@ login.createScreen('ArcTermsOfServiceScreen', 'arc-tos', function() {
      * @private
      */
     reset_() {
-      this.getElement_('arc-location-service').hidden = true;
-      this.getElement_('arc-pai-service').hidden = true;
-      this.getElement_('arc-google-service-confirmation').hidden = true;
-      this.getElement_('arc-review-settings').hidden = true;
-      this.getElement_('arc-tos-next-button').hidden = false;
-      this.getElement_('arc-tos-accept-button').hidden = true;
-      this.getElement_('arc-tos-next-button').focus();
-      this.removeClass_('arc-tos-disable-skip');
-      $('arc-tos-root').getElement('arc-tos-dialog').scrollToBottom();
+      $('arc-tos-root').showFullDialog = false;
+      this.getElement_('arcTosNextButton').focus();
     },
 
     /**
@@ -621,9 +487,9 @@ login.createScreen('ArcTermsOfServiceScreen', 'arc-tos', function() {
     focusButton_() {
       var id;
       if (this.hasClass_('arc-tos-loaded')) {
-        id = 'arc-tos-next-button';
+        id = 'arcTosNextButton';
       } else if (this.hasClass_('error')) {
-        id = 'arc-tos-retry-button';
+        id = 'arcTosRetryButton';
       }
 
       if (typeof id === 'undefined')
@@ -649,7 +515,6 @@ login.createScreen('ArcTermsOfServiceScreen', 'arc-tos', function() {
      */
     updateLocalizedContent() {
       this.ensureInitialized_();
-      this.setLearnMoreHandlers_();
 
       // We might need to reload Play Store ToS in case language was changed.
       if (this.countryCode_) {
@@ -658,51 +523,12 @@ login.createScreen('ArcTermsOfServiceScreen', 'arc-tos', function() {
     },
 
     /**
-     * Sets handlers for learn more links for backup and restore and location
-     * service options.
-     *
-     * @private
-     */
-    setLearnMoreHandlers_() {
-      var self = this;
-
-      var learnMoreBackupAndRestoreText =
-          loadTimeData.getString('arcLearnMoreBackupAndRestore');
-      var backupAndRestore = this.getElement_('arc-enable-backup-restore');
-      backupAndRestore.parentElement
-          .querySelector('#learn-more-link-backup-restore')
-          .onclick = function(event) {
-        event.stopPropagation();
-        self.showLearnMoreOverlay(learnMoreBackupAndRestoreText);
-      };
-
-      var learnMoreLocationServiceText =
-          loadTimeData.getString('arcLearnMoreLocationService');
-      var locationService = this.getElement_('arc-enable-location-service');
-      locationService.parentElement
-          .querySelector('#learn-more-link-location-service')
-          .onclick = function(event) {
-        event.stopPropagation();
-        self.showLearnMoreOverlay(learnMoreLocationServiceText);
-      };
-
-      var learnMorePaiServiceText =
-          loadTimeData.getString('arcLearnMorePaiService');
-      var paiService = this.getElement_('arc-pai-service');
-      paiService.querySelector('#learn-more-link-pai').onclick = function(
-          event) {
-        event.stopPropagation();
-        self.showLearnMoreOverlay(learnMorePaiServiceText);
-      };
-    },
-
-    /**
      * Returns whether arc terms are shown as a part of demo mode setup.
      * @return {boolean}
      * @private
      */
     isDemoModeSetup_() {
-      return this.hasClass_('arc-tos-for-demo-mode');
+      return $('arc-tos-root').demoMode;
     }
   };
 });

@@ -8,6 +8,7 @@
 
 #include "ash/animation/animation_change_type.h"
 #include "ash/app_list/app_list_controller_impl.h"
+#include "ash/focus_cycler.h"
 #include "ash/public/cpp/ash_features.h"
 #include "ash/public/cpp/ash_switches.h"
 #include "ash/public/cpp/keyboard/keyboard_controller_observer.h"
@@ -15,10 +16,12 @@
 #include "ash/public/cpp/shelf_model.h"
 #include "ash/public/cpp/shell_window_ids.h"
 #include "ash/root_window_controller.h"
-#include "ash/shelf/scrollable_shelf_view.h"
+#include "ash/shelf/hotseat_widget.h"
 #include "ash/shelf/shelf_controller.h"
 #include "ash/shelf/shelf_focus_cycler.h"
 #include "ash/shelf/shelf_layout_manager.h"
+#include "ash/shelf/shelf_layout_manager_observer.h"
+#include "ash/shelf/shelf_navigation_widget.h"
 #include "ash/shelf/shelf_observer.h"
 #include "ash/shelf/shelf_tooltip_manager.h"
 #include "ash/shelf/shelf_widget.h"
@@ -27,6 +30,7 @@
 #include "ash/wm/work_area_insets.h"
 #include "base/bind_helpers.h"
 #include "base/logging.h"
+#include "ui/compositor/animation_metrics_reporter.h"
 #include "ui/display/types/display_constants.h"
 #include "ui/gfx/geometry/rect.h"
 
@@ -52,6 +56,108 @@ bool IsAppListBackground(ash::ShelfBackgroundType background_type) {
 }  // namespace
 
 namespace ash {
+
+// Records smoothness of bounds animations for the HotseatWidget.
+class HotseatWidgetAnimationMetricsReporter
+    : public ui::AnimationMetricsReporter {
+ public:
+  HotseatWidgetAnimationMetricsReporter() = default;
+  ~HotseatWidgetAnimationMetricsReporter() override = default;
+
+  void SetTargetHotseatState(HotseatState target_state) {
+    target_state_ = target_state;
+  }
+
+  // ui::AnimationMetricsReporter:
+  void Report(int value) override {
+    switch (target_state_) {
+      case HotseatState::kShownClamshell:
+      case HotseatState::kShownHomeLauncher:
+        UMA_HISTOGRAM_PERCENTAGE(
+            "Ash.HotseatWidgetAnimation.AnimationSmoothness."
+            "TransitionToShownHotseat",
+            value);
+        break;
+      case HotseatState::kExtended:
+        UMA_HISTOGRAM_PERCENTAGE(
+            "Ash.HotseatWidgetAnimation.AnimationSmoothness."
+            "TransitionToExtendedHotseat",
+            value);
+        break;
+      case HotseatState::kHidden:
+        UMA_HISTOGRAM_PERCENTAGE(
+            "Ash.HotseatWidgetAnimation.AnimationSmoothness."
+            "TransitionToHiddenHotseat",
+            value);
+        break;
+      default:
+        NOTREACHED();
+    }
+  }
+
+ private:
+  // The state to which the animation is transitioning.
+  HotseatState target_state_ = HotseatState::kHidden;
+};
+
+// An animation metrics reporter for the shelf navigation widget.
+class ASH_EXPORT NavigationWidgetAnimationMetricsReporter
+    : public ui::AnimationMetricsReporter,
+      public ShelfLayoutManagerObserver {
+ public:
+  explicit NavigationWidgetAnimationMetricsReporter(Shelf* shelf)
+      : shelf_(shelf) {
+    shelf_->shelf_layout_manager()->AddObserver(this);
+  }
+
+  ~NavigationWidgetAnimationMetricsReporter() override {
+    shelf_->shelf_layout_manager()->RemoveObserver(this);
+  }
+
+  NavigationWidgetAnimationMetricsReporter(
+      const NavigationWidgetAnimationMetricsReporter&) = delete;
+  NavigationWidgetAnimationMetricsReporter& operator=(
+      const NavigationWidgetAnimationMetricsReporter&) = delete;
+
+  // ui::AnimationMetricsReporter:
+  void Report(int value) override {
+    switch (target_state_) {
+      case HotseatState::kShownClamshell:
+      case HotseatState::kShownHomeLauncher:
+        UMA_HISTOGRAM_PERCENTAGE(
+            "Ash.NavigationWidget.Widget.AnimationSmoothness."
+            "TransitionToShownHotseat",
+            value);
+        break;
+      case HotseatState::kExtended:
+        UMA_HISTOGRAM_PERCENTAGE(
+            "Ash.NavigationWidget.Widget.AnimationSmoothness."
+            "TransitionToExtendedHotseat",
+            value);
+        break;
+      case HotseatState::kHidden:
+        UMA_HISTOGRAM_PERCENTAGE(
+            "Ash.NavigationWidget.Widget.AnimationSmoothness."
+            "TransitionToHiddenHotseat",
+            value);
+        break;
+      default:
+        NOTREACHED();
+        break;
+    }
+  }
+
+  // ShelfLayoutManagerObserver:
+  void OnHotseatStateChanged(HotseatState old_state,
+                             HotseatState new_state) override {
+    target_state_ = new_state;
+  }
+
+ private:
+  Shelf* shelf_;
+  // The state to which the animation is transitioning.
+  HotseatState target_state_ = HotseatState::kShownHomeLauncher;
+};
 
 // Shelf::AutoHideEventHandler -----------------------------------------------
 
@@ -200,6 +306,36 @@ void Shelf::ActivateShelfItemOnDisplay(int item_index, int64_t display_id) {
                               base::DoNothing());
 }
 
+void Shelf::CreateNavigationWidget(aura::Window* container) {
+  DCHECK(container);
+  DCHECK(!navigation_widget_);
+  navigation_widget_ = std::make_unique<ShelfNavigationWidget>(
+      this, hotseat_widget()->GetShelfView());
+  navigation_widget_->Initialize(container);
+  navigation_widget_metrics_reporter_ =
+      std::make_unique<NavigationWidgetAnimationMetricsReporter>(this);
+  Shell::Get()->focus_cycler()->AddWidget(navigation_widget_.get());
+}
+
+void Shelf::CreateHotseatWidget(aura::Window* container) {
+  DCHECK(container);
+  DCHECK(!hotseat_widget_);
+  hotseat_widget_ = std::make_unique<HotseatWidget>();
+  hotseat_widget_->Initialize(container, this);
+  shelf_widget_->RegisterHotseatWidget(hotseat_widget());
+  hotseat_transition_metrics_reporter_ =
+      std::make_unique<HotseatWidgetAnimationMetricsReporter>();
+}
+
+void Shelf::CreateStatusAreaWidget(aura::Window* status_container) {
+  DCHECK(status_container);
+  DCHECK(!status_area_widget_);
+  status_area_widget_ =
+      std::make_unique<StatusAreaWidget>(status_container, this);
+  status_area_widget_->Initialize();
+  Shell::Get()->focus_cycler()->AddWidget(status_area_widget_.get());
+}
+
 void Shelf::CreateShelfWidget(aura::Window* root) {
   DCHECK(!shelf_widget_);
   aura::Window* shelf_container =
@@ -210,27 +346,28 @@ void Shelf::CreateShelfWidget(aura::Window* root) {
   shelf_layout_manager_ = shelf_widget_->shelf_layout_manager();
   shelf_layout_manager_->AddObserver(this);
 
-  DCHECK(!shelf_widget_->hotseat_widget());
-  aura::Window* control_container =
-      root->GetChildById(kShellWindowId_ShelfControlContainer);
-  shelf_widget_->CreateHotseatWidget(control_container);
-
-  DCHECK(!shelf_widget_->navigation_widget());
-  shelf_widget_->CreateNavigationWidget(control_container);
+  // Create the various shelf components.
+  CreateHotseatWidget(shelf_container);
+  CreateNavigationWidget(shelf_container);
 
   // Must occur after |shelf_widget_| is constructed because the system tray
   // constructors call back into Shelf::shelf_widget().
-  DCHECK(!shelf_widget_->status_area_widget());
-  aura::Window* status_container =
-      root->GetChildById(kShellWindowId_ShelfControlContainer);
-  shelf_widget_->CreateStatusAreaWidget(status_container);
+  CreateStatusAreaWidget(shelf_container);
   shelf_widget_->Initialize(shelf_container);
+  shelf_widget_->GetNativeWindow()->parent()->StackChildAtBottom(
+      shelf_widget_->GetNativeWindow());
 
   // The Hotseat should be above everything in the shelf.
-  shelf_widget_->hotseat_widget()->StackAtTop();
+  hotseat_widget()->StackAtTop();
 }
 
 void Shelf::ShutdownShelfWidget() {
+  // The contents view of the hotseat widget may rely on the status area widget.
+  // So do explicit destruction here.
+  hotseat_widget_.reset();
+  status_area_widget_.reset();
+  navigation_widget_.reset();
+
   shelf_widget_->Shutdown();
 }
 
@@ -266,8 +403,6 @@ void Shelf::SetAlignment(ShelfAlignment alignment) {
 
   ShelfAlignment old_alignment = alignment_;
   alignment_ = alignment;
-  // The ShelfWidget notifies the ShelfView of the alignment change.
-  shelf_widget_->OnShelfAlignmentChanged();
   tooltip_->Close();
   shelf_layout_manager_->LayoutShelf();
   Shell::Get()->NotifyShelfAlignmentChanged(GetWindow()->GetRootWindow(),
@@ -330,7 +465,7 @@ ShelfVisibilityState Shelf::GetVisibilityState() const {
 }
 
 gfx::Rect Shelf::GetShelfBoundsInScreen() const {
-  return shelf_layout_manager_->GetShelfBoundsInScreen();
+  return shelf_widget()->GetTargetBounds();
 }
 
 gfx::Rect Shelf::GetIdealBounds() const {
@@ -359,7 +494,16 @@ void Shelf::ProcessMouseEvent(const ui::MouseEvent& event) {
     shelf_layout_manager_->ProcessMouseEventFromShelf(event);
 }
 
-void Shelf::ProcessMouseWheelEvent(ui::MouseWheelEvent* event) {
+void Shelf::ProcessScrollEvent(ui::ScrollEvent* event) {
+  if (event->finger_count() == 2 && event->type() == ui::ET_SCROLL) {
+    ui::MouseWheelEvent wheel(*event);
+    ProcessMouseWheelEvent(&wheel, /*from_touchpad=*/true);
+    event->SetHandled();
+  }
+}
+
+void Shelf::ProcessMouseWheelEvent(ui::MouseWheelEvent* event,
+                                   bool from_touchpad) {
   event->SetHandled();
   if (!IsHorizontalAlignment())
     return;
@@ -367,10 +511,12 @@ void Shelf::ProcessMouseWheelEvent(ui::MouseWheelEvent* event) {
   DCHECK(app_list_controller);
   // If the App List is not visible, send MouseWheel events to the
   // |shelf_layout_manager_| because these events are used to show the App List.
-  if (app_list_controller->IsVisible())
+  if (app_list_controller->IsVisible(shelf_layout_manager_->display_.id())) {
     app_list_controller->ProcessMouseWheelEvent(*event);
-  else
-    shelf_layout_manager_->ProcessMouseWheelEventFromShelf(event);
+  } else {
+    shelf_layout_manager_->ProcessMouseWheelEventFromShelf(event,
+                                                           from_touchpad);
+  }
 }
 
 void Shelf::AddObserver(ShelfObserver* observer) {
@@ -434,15 +580,6 @@ void Shelf::SetVirtualKeyboardBoundsForTesting(const gfx::Rect& bounds) {
   work_area_insets->OnKeyboardAppearanceChanged(state);
 }
 
-void Shelf::SetRoundedCornersForInkDrop(bool show, views::View* ink_drop_host) {
-  if (!shelf_widget_->hotseat_widget() ||
-      !shelf_widget_->hotseat_widget()->scrollable_shelf_view())
-    return;
-  shelf_widget_->hotseat_widget()
-      ->scrollable_shelf_view()
-      ->SetRoundedCornersForShelf(show, ink_drop_host);
-}
-
 ShelfLockingManager* Shelf::GetShelfLockingManagerForTesting() {
   return &shelf_locking_manager_;
 }
@@ -451,10 +588,22 @@ ShelfView* Shelf::GetShelfViewForTesting() {
   return shelf_widget_->shelf_view_for_testing();
 }
 
+ui::AnimationMetricsReporter* Shelf::GetHotseatTransitionMetricsReporter(
+    HotseatState target_state) {
+  hotseat_transition_metrics_reporter_->SetTargetHotseatState(target_state);
+  return hotseat_transition_metrics_reporter_.get();
+}
+
+ui::AnimationMetricsReporter*
+Shelf::GetNavigationWidgetAnimationMetricsReporter() {
+  return navigation_widget_metrics_reporter_.get();
+}
+
 void Shelf::WillDeleteShelfLayoutManager() {
   // Clear event handlers that might forward events to the destroyed instance.
   auto_hide_event_handler_.reset();
   auto_dim_event_handler_.reset();
+  navigation_widget_metrics_reporter_.reset();
 
   DCHECK(shelf_layout_manager_);
   shelf_layout_manager_->RemoveObserver(this);

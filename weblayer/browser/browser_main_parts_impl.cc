@@ -20,9 +20,12 @@
 #include "content/public/common/main_function_params.h"
 #include "content/public/common/url_constants.h"
 #include "services/service_manager/embedder/result_codes.h"
-#include "ui/base/material_design/material_design_controller.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "weblayer/browser/browser_process.h"
+#include "weblayer/browser/feature_list_creator.h"
+#include "weblayer/browser/host_content_settings_map_factory.h"
+#include "weblayer/browser/permissions/weblayer_permissions_client.h"
+#include "weblayer/browser/stateful_ssl_host_state_delegate_factory.h"
 #include "weblayer/browser/webui/web_ui_controller_factory.h"
 #include "weblayer/public/main.h"
 
@@ -30,6 +33,9 @@
 #include "components/crash/content/browser/child_exit_observer_android.h"
 #include "components/crash/content/browser/child_process_crash_observer_android.h"
 #include "components/crash/core/common/crash_key.h"
+#include "components/javascript_dialogs/android/app_modal_dialog_view_android.h"  // nogncheck
+#include "components/javascript_dialogs/app_modal_dialog_manager.h"  // nogncheck
+#include "content/public/browser/web_contents.h"
 #include "net/android/network_change_notifier_factory_android.h"
 #include "net/base/network_change_notifier.h"
 #include "weblayer/browser/android/metrics/uma_utils.h"
@@ -57,6 +63,9 @@ namespace {
 // especially important for services that should be created at profile
 // creation time as compared to lazily on first access.
 static void EnsureBrowserContextKeyedServiceFactoriesBuilt() {
+  StatefulSSLHostStateDelegateFactory::GetInstance();
+  HostContentSettingsMapFactory::GetInstance();
+
 #if BUILDFLAG(ENABLE_CAPTIVE_PORTAL_DETECTION)
   CaptivePortalServiceFactory::GetInstance();
 #endif
@@ -81,6 +90,8 @@ BrowserMainPartsImpl::BrowserMainPartsImpl(
 BrowserMainPartsImpl::~BrowserMainPartsImpl() = default;
 
 int BrowserMainPartsImpl::PreCreateThreads() {
+  // Make sure permissions client has been set.
+  WebLayerPermissionsClient::GetInstance();
 #if defined(OS_ANDROID)
   // The ChildExitObserver needs to be created before any child process is
   // created because it needs to be notified during process creation.
@@ -93,13 +104,14 @@ int BrowserMainPartsImpl::PreCreateThreads() {
 
   return service_manager::RESULT_CODE_NORMAL_EXIT;
 }
+
 void BrowserMainPartsImpl::PreMainMessageLoopStart() {
 #if defined(USE_AURA) && defined(USE_X11)
   ui::TouchFactory::SetTouchDeviceListFromCommandLine();
 #endif
 
 #if defined(OS_ANDROID)
-  startup_metric_utils::RecordMainEntryPointTime(GetMainEntryPointTimeTicks());
+  startup_metric_utils::RecordApplicationStartTime(GetApplicationStartTime());
 #endif
 }
 
@@ -119,14 +131,9 @@ int BrowserMainPartsImpl::PreEarlyInitialization() {
   return service_manager::RESULT_CODE_NORMAL_EXIT;
 }
 
-void BrowserMainPartsImpl::PostEarlyInitialization() {
-#if defined(OS_ANDROID)
-  CreateLocalState();
-#endif
-}
-
 void BrowserMainPartsImpl::PreMainMessageLoopRun() {
-  ui::MaterialDesignController::Initialize();
+  FeatureListCreator::GetInstance()->PerformPreMainMessageLoopStartup();
+
   // It's necessary to have a complete dependency graph of
   // BrowserContextKeyedServices before calling out to the delegate (which
   // will potentially create a profile), so that a profile creation message is
@@ -150,6 +157,16 @@ void BrowserMainPartsImpl::PreMainMessageLoopRun() {
   startup_metric_utils::RecordBrowserMainMessageLoopStart(
       base::TimeTicks::Now(), /* is_first_run */ false);
   memory_metrics_logger_ = std::make_unique<metrics::MemoryMetricsLogger>();
+
+  // Set the global singleton app modal dialog factory.
+  javascript_dialogs::AppModalDialogManager::GetInstance()
+      ->SetNativeDialogFactory(base::BindRepeating(
+          [](javascript_dialogs::AppModalDialogController* controller)
+              -> javascript_dialogs::AppModalDialogView* {
+            return new javascript_dialogs::AppModalDialogViewAndroid(
+                base::android::AttachCurrentThread(), controller,
+                controller->web_contents()->GetTopLevelNativeWindow());
+          }));
 #endif
 }
 
@@ -159,6 +176,7 @@ bool BrowserMainPartsImpl::MainMessageLoopRun(int* result_code) {
 
 void BrowserMainPartsImpl::PostMainMessageLoopRun() {
   params_->delegate->PostMainMessageLoopRun();
+  browser_process_->StartTearDown();
 }
 
 void BrowserMainPartsImpl::PreDefaultMainMessageLoopRun(
@@ -167,14 +185,6 @@ void BrowserMainPartsImpl::PreDefaultMainMessageLoopRun(
   // cleanup inside content.
   params_->delegate->SetMainMessageLoopQuitClosure(
       base::BindOnce(StopMessageLoop, std::move(quit_closure)));
-}
-
-void BrowserMainPartsImpl::CreateLocalState() {
-  DCHECK(!local_state_);
-  feature_list_creator_ = std::make_unique<FeatureListCreator>();
-  feature_list_creator_->CreateLocalState();
-  local_state_ = feature_list_creator_->TakePrefService();
-  CHECK(local_state_);
 }
 
 }  // namespace weblayer

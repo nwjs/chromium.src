@@ -5,7 +5,7 @@
 #ifndef ASH_ASSISTANT_MODEL_ASSISTANT_RESPONSE_H_
 #define ASH_ASSISTANT_MODEL_ASSISTANT_RESPONSE_H_
 
-#include <map>
+#include <deque>
 #include <memory>
 #include <vector>
 
@@ -13,12 +13,19 @@
 #include "base/component_export.h"
 #include "base/macros.h"
 #include "base/memory/ref_counted.h"
+#include "base/observer_list.h"
 #include "chromeos/services/assistant/public/mojom/assistant.mojom-forward.h"
+
+namespace base {
+class UnguessableToken;
+}  // namespace base
 
 namespace ash {
 
+class AssistantResponseObserver;
 class AssistantUiElement;
 
+// TODO(dmblack): Remove ProcessingState after launch of response processing v2.
 // Models a renderable Assistant response.
 // It is refcounted so that views that display the response can safely
 // reference the data inside this response.
@@ -39,6 +46,17 @@ class COMPONENT_EXPORT(ASSISTANT_MODEL) AssistantResponse
 
   AssistantResponse();
 
+  // Adds/removes the specified |observer|.
+  // NOTE: only the AssistantInteractionController is able to obtain non-const
+  // access to an AssistantResponse through its owned model, but there are const
+  // accessors who wish to observe the response for changes in its underlying
+  // data. To accomplish this, we make AddObserver() and RemoveObserver() const,
+  // though these methods do modify the underlying ObserverList. This is safe to
+  // do as AssistantResponseObserver only exposes const access to the underlying
+  // response data and so doesn't expose AssistantResponse for modification.
+  void AddObserver(AssistantResponseObserver* observer) const;
+  void RemoveObserver(AssistantResponseObserver* observer) const;
+
   // Adds the specified |ui_element| that should be rendered for the
   // interaction.
   void AddUiElement(std::unique_ptr<AssistantUiElement> ui_element);
@@ -51,10 +69,11 @@ class COMPONENT_EXPORT(ASSISTANT_MODEL) AssistantResponse
   void AddSuggestions(std::vector<AssistantSuggestionPtr> suggestions);
 
   // Returns the suggestion uniquely identified by |id|.
-  const AssistantSuggestion* GetSuggestionById(int id) const;
+  const AssistantSuggestion* GetSuggestionById(
+      const base::UnguessableToken& id) const;
 
-  // Returns all suggestions belongs to the response, mapped to a unique id.
-  std::map<int, const AssistantSuggestion*> GetSuggestions() const;
+  // Returns all suggestions belongs to the response.
+  std::vector<const AssistantSuggestion*> GetSuggestions() const;
 
   // Gets/sets the processing state for the response.
   ProcessingState processing_state() const { return processing_state_; }
@@ -73,11 +92,16 @@ class COMPONENT_EXPORT(ASSISTANT_MODEL) AssistantResponse
   void Process(ProcessingCallback callback);
 
  private:
+  void NotifyUiElementAdded(const AssistantUiElement* ui_element);
+  void NotifySuggestionsAdded(const std::vector<const AssistantSuggestion*>&);
+
+  struct PendingUiElement;
   class Processor;
 
   friend class base::RefCounted<AssistantResponse>;
   ~AssistantResponse();
 
+  std::deque<std::unique_ptr<PendingUiElement>> pending_ui_elements_;
   std::vector<AssistantSuggestionPtr> suggestions_;
   ProcessingState processing_state_ = ProcessingState::kUnprocessed;
   bool has_tts_ = false;
@@ -89,6 +113,10 @@ class COMPONENT_EXPORT(ASSISTANT_MODEL) AssistantResponse
   // during the destruction to indicate the failure of completion.
   std::vector<std::unique_ptr<AssistantUiElement>> ui_elements_;
   std::unique_ptr<Processor> processor_;
+
+  base::ObserverList<AssistantResponseObserver> observers_;
+
+  base::WeakPtrFactory<AssistantResponse> weak_factory_{this};
 
   DISALLOW_COPY_AND_ASSIGN(AssistantResponse);
 };

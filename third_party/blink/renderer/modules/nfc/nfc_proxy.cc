@@ -7,6 +7,8 @@
 #include <utility>
 
 #include "third_party/blink/public/common/browser_interface_broker_proxy.h"
+#include "third_party/blink/renderer/core/frame/local_dom_window.h"
+#include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/modules/nfc/ndef_reader.h"
 #include "third_party/blink/renderer/modules/nfc/ndef_writer.h"
 #include "third_party/blink/renderer/modules/nfc/nfc_type_converters.h"
@@ -19,24 +21,22 @@ namespace blink {
 const char NFCProxy::kSupplementName[] = "NFCProxy";
 
 // static
-NFCProxy* NFCProxy::From(Document& document) {
+NFCProxy* NFCProxy::From(LocalDOMWindow& window) {
   // https://w3c.github.io/web-nfc/#security-policies
   // WebNFC API must be only accessible from top level browsing context.
-  DCHECK(document.IsInMainFrame());
+  DCHECK(window.GetFrame()->IsMainFrame());
 
-  NFCProxy* nfc_proxy = Supplement<Document>::From<NFCProxy>(document);
+  NFCProxy* nfc_proxy = Supplement<LocalDOMWindow>::From<NFCProxy>(window);
   if (!nfc_proxy) {
-    nfc_proxy = MakeGarbageCollected<NFCProxy>(document);
-    Supplement<Document>::ProvideTo(document, nfc_proxy);
+    nfc_proxy = MakeGarbageCollected<NFCProxy>(window);
+    Supplement<LocalDOMWindow>::ProvideTo(window, nfc_proxy);
   }
   return nfc_proxy;
 }
 
 // NFCProxy
-NFCProxy::NFCProxy(Document& document)
-    : PageVisibilityObserver(document.GetPage()),
-      Supplement<Document>(document),
-      client_receiver_(this) {}
+NFCProxy::NFCProxy(LocalDOMWindow& window)
+    : Supplement<LocalDOMWindow>(window), client_receiver_(this) {}
 
 NFCProxy::~NFCProxy() = default;
 
@@ -44,11 +44,10 @@ void NFCProxy::Dispose() {
   client_receiver_.reset();
 }
 
-void NFCProxy::Trace(blink::Visitor* visitor) {
+void NFCProxy::Trace(Visitor* visitor) {
   visitor->Trace(writers_);
   visitor->Trace(readers_);
-  PageVisibilityObserver::Trace(visitor);
-  Supplement<Document>::Trace(visitor);
+  Supplement<LocalDOMWindow>::Trace(visitor);
 }
 
 void NFCProxy::StartReading(NDEFReader* reader,
@@ -155,33 +154,19 @@ void NFCProxy::OnReaderRegistered(
   // message notifications in OnWatch().
 }
 
-void NFCProxy::PageVisibilityChanged() {
-  // If service is not initialized, there cannot be any pending NFC activities.
-  if (!nfc_remote_)
-    return;
-
-  // NFC operations should be suspended.
-  // https://w3c.github.io/web-nfc/#nfc-suspended
-  // TODO(https://crbug.com/520391): Suspend/Resume NFC in the browser process
-  // instead to prevent a compromised renderer from using NFC in the background.
-  if (!GetPage()->IsPageVisible())
-    nfc_remote_->SuspendNFCOperations();
-  else
-    nfc_remote_->ResumeNFCOperations();
-}
-
 void NFCProxy::EnsureMojoConnection() {
   if (nfc_remote_)
     return;
 
-  GetSupplementable()->GetBrowserInterfaceBroker().GetInterface(
-      nfc_remote_.BindNewPipeAndPassReceiver());
-  nfc_remote_.set_disconnect_handler(
-      WTF::Bind(&NFCProxy::OnMojoConnectionError, WrapWeakPersistent(this)));
-
   // See https://bit.ly/2S0zRAS for task types.
   auto task_runner =
       GetSupplementable()->GetTaskRunner(TaskType::kMiscPlatformAPI);
+
+  GetSupplementable()->GetBrowserInterfaceBroker().GetInterface(
+      nfc_remote_.BindNewPipeAndPassReceiver(task_runner));
+  nfc_remote_.set_disconnect_handler(
+      WTF::Bind(&NFCProxy::OnMojoConnectionError, WrapWeakPersistent(this)));
+
   // Set client for OnWatch event.
   nfc_remote_->SetClient(
       client_receiver_.BindNewPipeAndPassRemote(task_runner));

@@ -139,7 +139,8 @@ static DataTransfer* CreateDraggingDataTransfer(DataTransferAccessPolicy policy,
 }
 
 DragController::DragController(Page* page)
-    : ContextLifecycleObserver(nullptr),
+    : ExecutionContextLifecycleObserver(
+          static_cast<ExecutionContext*>(nullptr)),
       page_(page),
       document_under_mouse_(nullptr),
       drag_initiator_(nullptr),
@@ -486,7 +487,7 @@ static bool SetSelectionToDragCaret(LocalFrame* frame,
   // TODO(editing-dev): The use of
   // UpdateStyleAndLayout
   // needs to be audited.  See http://crbug.com/590369 for more details.
-  frame->GetDocument()->UpdateStyleAndLayout();
+  frame->GetDocument()->UpdateStyleAndLayout(DocumentUpdateReason::kEditing);
   if (!frame->Selection().ComputeVisibleSelectionInDOMTree().IsNone()) {
     return frame->Selection()
         .ComputeVisibleSelectionInDOMTree()
@@ -502,7 +503,7 @@ static bool SetSelectionToDragCaret(LocalFrame* frame,
   // TODO(editing-dev): The use of
   // UpdateStyleAndLayout
   // needs to be audited.  See http://crbug.com/590369 for more details.
-  frame->GetDocument()->UpdateStyleAndLayout();
+  frame->GetDocument()->UpdateStyleAndLayout(DocumentUpdateReason::kEditing);
   const VisibleSelection& visible_selection =
       frame->Selection().ComputeVisibleSelectionInDOMTree();
   range = CreateRange(visible_selection.ToNormalizedEphemeralRange());
@@ -579,7 +580,7 @@ bool DragController::ConcludeEditDrag(DragData* drag_data) {
         .CaretPosition()
         .GetPosition()
         .GetDocument()
-        ->UpdateStyleAndLayout();
+        ->UpdateStyleAndLayout(DocumentUpdateReason::kEditing);
   }
 
   const PositionWithAffinity& caret_position =
@@ -1000,7 +1001,7 @@ bool DragController::PopulateDragDataTransfer(LocalFrame* src,
 
   // Observe context related to source to allow dropping drag_state_ when the
   // Document goes away.
-  SetContext(src->GetDocument());
+  SetExecutionContext(src->GetDocument()->ToExecutionContext());
 
   return true;
 }
@@ -1064,10 +1065,10 @@ static std::unique_ptr<DragImage> DragImageForImage(
   // Substitute an appropriately-sized SVGImageForContainer, to ensure dragged
   // SVG images scale seamlessly.
   scoped_refptr<SVGImageForContainer> svg_image;
-  if (image->IsSVGImage()) {
+  if (auto* svg_img = DynamicTo<SVGImage>(image)) {
     KURL url = element->GetDocument().CompleteURL(element->ImageSourceURL());
     svg_image = SVGImageForContainer::Create(
-        ToSVGImage(image), FloatSize(image_element_size_in_pixels), 1, url);
+        svg_img, FloatSize(image_element_size_in_pixels), 1, url);
     image = svg_image.get();
   }
 
@@ -1146,12 +1147,13 @@ std::unique_ptr<DragImage> DragController::DragImageForSelection(
   if (!frame.Selection().ComputeVisibleSelectionInDOMTreeDeprecated().IsRange())
     return nullptr;
 
-  frame.View()->UpdateAllLifecyclePhasesExceptPaint();
+  frame.View()->UpdateAllLifecyclePhasesExceptPaint(
+      DocumentUpdateReason::kDragImage);
   DCHECK(frame.GetDocument()->IsActive());
 
   FloatRect painting_rect = ClippedSelection(frame);
   GlobalPaintFlags paint_flags =
-      kGlobalPaintSelectionOnly | kGlobalPaintFlattenCompositingLayers;
+      kGlobalPaintSelectionDragImageOnly | kGlobalPaintFlattenCompositingLayers;
 
   PaintRecordBuilder builder;
   frame.View()->PaintContentsOutsideOfLifecycle(
@@ -1304,7 +1306,7 @@ void DragController::DoSystemDrag(DragImage* image,
                                   bool for_link) {
   did_initiate_drag_ = true;
   drag_initiator_ = frame->GetDocument();
-  SetContext(drag_initiator_);
+  SetExecutionContext(drag_initiator_->ToExecutionContext());
 
   // TODO(pdr): |drag_location| and |event_pos| should be passed in as
   // FloatPoints and we should calculate these adjusted values in floating
@@ -1361,17 +1363,17 @@ DragState& DragController::GetDragState() {
   return *drag_state_;
 }
 
-void DragController::ContextDestroyed(ExecutionContext*) {
+void DragController::ContextDestroyed() {
   drag_state_ = nullptr;
 }
 
-void DragController::Trace(blink::Visitor* visitor) {
+void DragController::Trace(Visitor* visitor) {
   visitor->Trace(page_);
   visitor->Trace(document_under_mouse_);
   visitor->Trace(drag_initiator_);
   visitor->Trace(drag_state_);
   visitor->Trace(file_input_element_under_mouse_);
-  ContextLifecycleObserver::Trace(visitor);
+  ExecutionContextLifecycleObserver::Trace(visitor);
 }
 
 }  // namespace blink

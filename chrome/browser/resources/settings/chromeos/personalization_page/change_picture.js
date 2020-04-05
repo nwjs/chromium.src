@@ -12,7 +12,6 @@ Polymer({
 
   behaviors: [
     settings.RouteObserverBehavior,
-    CrPngBehavior,
     I18nBehavior,
     WebUIListenerBehavior,
   ],
@@ -150,8 +149,8 @@ Polymer({
    */
   receiveOldImage_(imageInfo) {
     this.oldImageLabel_ = this.i18n(
-        CrPngBehavior.isEncodedPngDataUrlAnimated(imageInfo.url) ? 'oldVideo' :
-                                                                   'oldPhoto');
+        cr.png.isEncodedPngDataUrlAnimated(imageInfo.url) ? 'oldVideo' :
+                                                            'oldPhoto');
     this.oldImagePending_ = false;
     this.pictureList_.setOldImageUrl(imageInfo.url, imageInfo.index);
   },
@@ -187,9 +186,11 @@ Polymer({
         break;
       case CrPicture.SelectionTypes.FILE:
         this.browserProxy_.chooseFile();
+        settings.recordSettingChange();
         break;
       case CrPicture.SelectionTypes.PROFILE:
         this.browserProxy_.selectProfileImage();
+        settings.recordSettingChange();
         break;
       case CrPicture.SelectionTypes.OLD:
         const imageIndex = image.dataset.imageIndex;
@@ -198,9 +199,11 @@ Polymer({
         } else {
           this.browserProxy_.selectOldImage();
         }
+        settings.recordSettingChange();
         break;
       case CrPicture.SelectionTypes.DEFAULT:
         this.browserProxy_.selectDefaultImage(image.dataset.url);
+        settings.recordSettingChange();
         break;
       default:
         assertNotReached('Selected unknown image type');

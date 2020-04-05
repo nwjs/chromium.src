@@ -83,7 +83,7 @@ using gfx::CocoaScrollbarPainter;
     _saved_knob_alpha = [_scrollbarPainter knobAlpha];
   } else {
     [_scrollbarPainter setKnobAlpha:_saved_knob_alpha];
-    _scrollbar->SetScrollbarsHiddenIfOverlay(_saved_knob_alpha == 0);
+    _scrollbar->SetScrollbarsHiddenFromExternalAnimator(_saved_knob_alpha == 0);
   }
 }
 
@@ -99,7 +99,7 @@ using gfx::CocoaScrollbarPainter;
   if ([keyPath isEqualToString:@"knobAlpha"]) {
     if (!_suppressSetScrollbarsHidden) {
       BOOL visible = [_scrollbarPainter knobAlpha] > 0;
-      _scrollbar->SetScrollbarsHiddenIfOverlay(!visible);
+      _scrollbar->SetScrollbarsHiddenFromExternalAnimator(!visible);
     }
   }
 }
@@ -455,7 +455,7 @@ void ScrollbarThemeMac::UpdateEnabledState(const Scrollbar& scrollbar) {
   [PainterForScrollbar(scrollbar) setEnabled:scrollbar.Enabled()];
 }
 
-float ScrollbarThemeMac::ThumbOpacity(const Scrollbar& scrollbar) const {
+float ScrollbarThemeMac::Opacity(const Scrollbar& scrollbar) const {
   ScrollbarPainter scrollbar_painter = PainterForScrollbar(scrollbar);
   return [scrollbar_painter knobAlpha];
 }

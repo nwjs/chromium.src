@@ -30,12 +30,22 @@ SYNC_TEST_F('ChromeVoxTtsBackgroundTest', 'Preprocess', function() {
   assertEquals('a.', preprocess('a.'));
   assertEquals('.a', preprocess('.a'));
 
+  // Only summarize punctuation if there are three or more occurrences without
+  // a space in between.
   assertEquals('10 equal signs', preprocess('=========='));
+  assertEquals('bullet bullet bullet', preprocess('\u2022 \u2022\u2022'));
+  assertEquals('3 bullets', preprocess('\u2022\u2022\u2022'));
+  assertEquals('C plus plus', preprocess('C++'));
+  assertEquals('C 3 plus signs', preprocess('C+++'));
+  // There are some punctuation marks that we do not verbalize because they
+  // result in an overly verbose experience (periods, commas, dashes, etc.).
+  // This set of punctuation marks is defined in the |some_punctuation| regular
+  // expression in TtsBackground.
+  assertEquals('C--', preprocess('C--'));
+  assertEquals('Hello world.', preprocess('Hello world.'));
 
   assertEquals('new line', preprocess('\n'));
   assertEquals('return', preprocess('\r'));
-
-  assertEquals('bullet 2 bullets', preprocess('\u2022 \u2022\u2022'));
 });
 
 TEST_F('ChromeVoxTtsBackgroundTest', 'UpdateVoice', function() {
@@ -52,7 +62,7 @@ TEST_F('ChromeVoxTtsBackgroundTest', 'UpdateVoice', function() {
   };
 
   // Asks this test to process the next task immediately.
-  var flushNextTask = function() {
+  const flushNextTask = function() {
     const task = tasks.shift();
     if (!task) {
       return;
@@ -69,7 +79,7 @@ TEST_F('ChromeVoxTtsBackgroundTest', 'UpdateVoice', function() {
 
   assertTrue(!tts.currentVoice);
 
-  var tasks = [
+  const tasks = [
     {testVoice: '', expectedVoice: constants.SYSTEM_VOICE},
 
     {
@@ -154,4 +164,87 @@ SYNC_TEST_F('ChromeVoxTtsBackgroundTest', 'AnnounceCapitalLetters', function() {
   // Do not announce capital for the following inputs.
   assertEquals('BB', preprocess('BB'));
   assertEquals('A.', preprocess('A.'));
+});
+
+SYNC_TEST_F('ChromeVoxTtsBackgroundTest', 'NumberReadingStyle', function() {
+  const tts = new TtsBackground();
+  let lastSpokenTextString = '';
+  tts.speakUsingQueue_ = function(utterance, _) {
+    lastSpokenTextString = utterance.textString;
+  };
+
+  // Check the default preference.
+  assertEquals('asWords', localStorage['numberReadingStyle']);
+
+  tts.speak('100');
+  assertEquals('100', lastSpokenTextString);
+
+  tts.speak('An unanswered call lasts for 30 seconds.');
+  assertEquals(
+      'An unanswered call lasts for 30 seconds.', lastSpokenTextString);
+
+  localStorage['numberReadingStyle'] = 'asDigits';
+  tts.speak('100');
+  assertEquals('1 0 0', lastSpokenTextString);
+
+  tts.speak('An unanswered call lasts for 30 seconds.');
+  assertEquals(
+      'An unanswered call lasts for 3 0 seconds.', lastSpokenTextString);
+});
+
+SYNC_TEST_F('ChromeVoxTtsBackgroundTest', 'SplitLongText', function() {
+  const tts = new TtsBackground();
+  const spokenTextStrings = [];
+  tts.speakUsingQueue_ = function(utterance, _) {
+    spokenTextStrings.push(utterance.textString);
+  };
+
+  // There are three new lines, but only the first chunk exceeds the max
+  // character count.
+  const text = 'a'.repeat(constants.OBJECT_MAX_CHARCOUNT) + '\n' +
+      'a'.repeat(10) + '\n' +
+      'a'.repeat(10);
+  tts.speak(text);
+  assertEquals(2, spokenTextStrings.length);
+});
+
+SYNC_TEST_F('ChromeVoxTtsBackgroundTest', 'SplitUntilSmall', function() {
+  const split = TtsBackground.splitUntilSmall;
+
+  // A single delimiter.
+  constants.OBJECT_MAX_CHARCOUNT = 3;
+  assertEqualsJSON(['12', '345', '789'], split('12345a789', 'a'));
+
+  constants.OBJECT_MAX_CHARCOUNT = 4;
+  assertEqualsJSON(['12', '345', '789'], split('12345a789', 'a'));
+
+  constants.OBJECT_MAX_CHARCOUNT = 7;
+  assertEqualsJSON(['12345', '789'], split('12345a789', 'a'));
+
+  constants.OBJECT_MAX_CHARCOUNT = 10;
+  assertEqualsJSON(['12345a789'], split('12345a789', 'a'));
+
+  // Multiple delimiters.
+  constants.OBJECT_MAX_CHARCOUNT = 3;
+  assertEqualsJSON(['12', '34', '57', '89'], split('1234b57a89', 'ab'));
+
+  constants.OBJECT_MAX_CHARCOUNT = 4;
+  assertEqualsJSON(['1234', '57', '89'], split('1234b57a89', 'ab'));
+
+  constants.OBJECT_MAX_CHARCOUNT = 5;
+  assertEqualsJSON(['12345', '789'], split('12345b789a', 'ab'));
+  assertEqualsJSON(['12345', '789a'], split('12345b789a', 'ba'));
+
+  // No delimiters.
+  constants.OBJECT_MAX_CHARCOUNT = 3;
+  assertEqualsJSON(['12', '34', '57', '89'], split('12345789', ''));
+
+  constants.OBJECT_MAX_CHARCOUNT = 4;
+  assertEqualsJSON(['1234', '5789'], split('12345789', ''));
+
+  // Some corner cases.
+  assertEqualsJSON([], split('', ''));
+  assertEqualsJSON(['a'], split('a', ''));
+  assertEqualsJSON(['a'], split('a', 'a'));
+  assertEqualsJSON(['a'], split('a', 'b'));
 });

@@ -34,7 +34,7 @@ namespace dnr_api = api::declarative_net_request;
 
 bool IsMainFrameNavigationRequest(const WebRequestInfo& request_info) {
   return request_info.is_navigation_request &&
-         request_info.type == content::ResourceType::kMainFrame;
+         request_info.type == blink::mojom::ResourceType::kMainFrame;
 }
 
 // Returns whether a TrackedRule should be recorded on a rule match for the
@@ -80,13 +80,6 @@ ActionTracker::ActionTracker(content::BrowserContext* browser_context)
 }
 
 ActionTracker::~ActionTracker() {
-  // Sanity check that only rules corresponding to the unknown tab ID remain.
-  DCHECK(std::all_of(
-      rules_tracked_.begin(), rules_tracked_.end(),
-      [](const std::pair<const ExtensionTabIdKey, TrackedInfo>& key_value) {
-        return key_value.first.secondary_id == extension_misc::kUnknownTabId;
-      }));
-
   DCHECK(pending_navigation_actions_.empty());
 }
 

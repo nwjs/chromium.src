@@ -68,7 +68,7 @@ GamepadHapticActuator::GamepadHapticActuator(
     ExecutionContext* context,
     int pad_index,
     device::GamepadHapticActuatorType type)
-    : ContextClient(context),
+    : ExecutionContextClient(context),
       pad_index_(pad_index),
       // See https://bit.ly/2S0zRAS for task types
       gamepad_dispatcher_(MakeGarbageCollected<GamepadDispatcher>(
@@ -187,10 +187,10 @@ void GamepadHapticActuator::OnResetCompleted(
   resolver->Resolve(ResultToString(result));
 }
 
-void GamepadHapticActuator::Trace(blink::Visitor* visitor) {
+void GamepadHapticActuator::Trace(Visitor* visitor) {
   visitor->Trace(gamepad_dispatcher_);
   ScriptWrappable::Trace(visitor);
-  ContextClient::Trace(visitor);
+  ExecutionContextClient::Trace(visitor);
 }
 
 }  // namespace blink

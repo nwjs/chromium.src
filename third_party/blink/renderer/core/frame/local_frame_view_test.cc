@@ -6,8 +6,8 @@
 
 #include <memory>
 
-#include "base/test/metrics/histogram_tester.h"
 #include "testing/gmock/include/gmock/gmock.h"
+#include "third_party/blink/public/mojom/scroll/scrollbar_mode.mojom-blink.h"
 #include "third_party/blink/renderer/core/html/html_anchor_element.h"
 #include "third_party/blink/renderer/core/html/html_element.h"
 #include "third_party/blink/renderer/core/layout/layout_view.h"
@@ -19,7 +19,6 @@
 #include "third_party/blink/renderer/core/testing/sim/sim_test.h"
 #include "third_party/blink/renderer/platform/geometry/int_size.h"
 #include "third_party/blink/renderer/platform/graphics/paint/paint_artifact.h"
-#include "third_party/blink/renderer/platform/instrumentation/memory_pressure_listener.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/testing/unit_test_helpers.h"
 
@@ -117,7 +116,7 @@ TEST_F(LocalFrameViewTest, HideTooltipWhenScrollPositionChanges) {
   EXPECT_CALL(GetAnimationMockChromeClient(),
               MockSetToolTip(GetDocument().GetFrame(), String(), _));
   GetDocument().View()->LayoutViewport()->SetScrollOffset(
-      ScrollOffset(1, 1), mojom::blink::ScrollIntoViewParams::Type::kUser);
+      ScrollOffset(1, 1), mojom::blink::ScrollType::kUser);
 
   // Programmatic scrolling should not dismiss the tooltip, so setToolTip
   // should not be called for this invocation.
@@ -125,8 +124,7 @@ TEST_F(LocalFrameViewTest, HideTooltipWhenScrollPositionChanges) {
               MockSetToolTip(GetDocument().GetFrame(), String(), _))
       .Times(0);
   GetDocument().View()->LayoutViewport()->SetScrollOffset(
-      ScrollOffset(2, 2),
-      mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
+      ScrollOffset(2, 2), mojom::blink::ScrollType::kProgrammatic);
 }
 
 // NoOverflowInIncrementVisuallyNonEmptyPixelCount tests fail if the number of
@@ -161,8 +159,7 @@ TEST_F(LocalFrameViewTest,
 
   // This call should not crash.
   GetDocument().View()->LayoutViewport()->SetScrollOffset(
-      ScrollOffset(0, 100),
-      mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
+      ScrollOffset(0, 100), mojom::blink::ScrollType::kProgrammatic);
 }
 
 TEST_F(LocalFrameViewTest, UpdateLifecyclePhasesForPrintingDetachedFrame) {
@@ -185,8 +182,8 @@ TEST_F(LocalFrameViewTest, CanHaveScrollbarsIfScrollingAttrEqualsNoChanged) {
   SetBodyInnerHTML("<iframe scrolling='no'></iframe>");
   EXPECT_FALSE(ChildDocument().View()->CanHaveScrollbars());
 
-  ChildDocument().WillChangeFrameOwnerProperties(0, 0, ScrollbarMode::kAlwaysOn,
-                                                 false);
+  ChildDocument().WillChangeFrameOwnerProperties(
+      0, 0, mojom::blink::ScrollbarMode::kAlwaysOn, false);
   EXPECT_TRUE(ChildDocument().View()->CanHaveScrollbars());
 }
 
@@ -304,66 +301,6 @@ TEST_F(LocalFrameViewTest,
       frame_view->RequiresMainThreadScrollingForBackgroundAttachmentFixed());
 }
 
-TEST_F(LocalFrameViewTest, PurgeSignalHistogram) {
-  const char* kHistogramName =
-      "Memory.Experimental.Renderer.LocalFrameRootPurgeSignal";
-  base::HistogramTester histogram_tester;
-
-  SetBodyInnerHTML("");
-  UpdateAllLifecyclePhasesForTest();
-
-  histogram_tester.ExpectTotalCount(kHistogramName, 0);
-
-  MemoryPressureListenerRegistry::Instance().OnPurgeMemory();
-  histogram_tester.ExpectTotalCount(kHistogramName, 1);
-  histogram_tester.ExpectBucketCount(kHistogramName, 0 /* kInitial */, 1);
-
-  MemoryPressureListenerRegistry::Instance().OnPurgeMemory();
-  histogram_tester.ExpectTotalCount(kHistogramName, 2);
-  histogram_tester.ExpectBucketCount(kHistogramName, 1 /* kMultiple */, 1);
-
-  MemoryPressureListenerRegistry::Instance().OnPurgeMemory();
-  histogram_tester.ExpectTotalCount(kHistogramName, 3);
-  histogram_tester.ExpectBucketCount(kHistogramName, 1 /* kMultiple */, 2);
-}
-
-// The inner frame used for SVG images does not support compositing should not
-// receive compositing memory pressure signals.
-TEST_F(LocalFrameViewTest, NoSVGImagePurgeSignalHistogram) {
-  const char* kHistogramName =
-      "Memory.Experimental.Renderer.LocalFrameRootPurgeSignal";
-  base::HistogramTester histogram_tester;
-
-  SetBodyInnerHTML(R"HTML(
-    <style>
-      div {
-        background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"></svg>');
-      }
-    </style>
-    <div></div>
-  )HTML");
-  UpdateAllLifecyclePhasesForTest();
-
-  histogram_tester.ExpectTotalCount(kHistogramName, 0);
-  MemoryPressureListenerRegistry::Instance().OnPurgeMemory();
-  histogram_tester.ExpectTotalCount(kHistogramName, 1);
-}
-
-TEST_F(LocalFrameViewTest, NoPurgeSignalHistogramWhenBackgrounded) {
-  const char* kHistogramName =
-      "Memory.Experimental.Renderer.LocalFrameRootPurgeSignal";
-  base::HistogramTester histogram_tester;
-
-  SetBodyInnerHTML("");
-  UpdateAllLifecyclePhasesForTest();
-
-  histogram_tester.ExpectTotalCount(kHistogramName, 0);
-
-  GetPage().SetVisibilityState(PageVisibilityState::kHidden, false);
-  MemoryPressureListenerRegistry::Instance().OnPurgeMemory();
-  histogram_tester.ExpectTotalCount(kHistogramName, 0);
-}
-
 // Ensure the fragment navigation "scroll into view and focus" behavior doesn't
 // activate synchronously while rendering is blocked waiting on a stylesheet.
 // See https://crbug.com/851338.
@@ -407,9 +344,9 @@ TEST_F(SimTest, FragmentNavChangesFocusWhileRenderingBlocked) {
       << "Scroll offset changed while rendering is blocked";
 
   // Force a layout.
-  anchor->style()->setProperty(&GetDocument(), "display", "block", String(),
-                               ASSERT_NO_EXCEPTION);
-  GetDocument().UpdateStyleAndLayout();
+  anchor->style()->setProperty(GetDocument().ToExecutionContext(), "display",
+                               "block", String(), ASSERT_NO_EXCEPTION);
+  GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kTest);
 
   EXPECT_EQ(GetDocument().body(), GetDocument().ActiveElement())
       << "Active element changed due to layout while rendering is blocked";
@@ -449,7 +386,7 @@ TEST_F(SimTest, ForcedLayoutWithIncompleteSVGChildFrame) {
   // Mark the top-level document for layout and then force layout. This will
   // cause the layout tree in the <object> object to be built.
   GetDocument().View()->SetNeedsLayout();
-  GetDocument().UpdateStyleAndLayout();
+  GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kTest);
 
   svg_resource.Finish();
 }

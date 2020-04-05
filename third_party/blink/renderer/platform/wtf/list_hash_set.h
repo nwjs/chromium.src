@@ -148,14 +148,9 @@ class ListHashSet
    public:
     friend class ListHashSet<ValueArg, inlineCapacity, HashArg, AllocatorArg>;
     AddResult(Node* node, bool is_new_entry)
-        : stored_value(&node->value_),
-          is_new_entry(is_new_entry),
-          node_(node) {}
+        : stored_value(&node->value_), is_new_entry(is_new_entry) {}
     ValueType* stored_value;
     bool is_new_entry;
-
-   private:
-    Node* node_;
   };
 
   ListHashSet();
@@ -212,12 +207,6 @@ class ListHashSet
   template <typename IncomingValueType>
   AddResult insert(IncomingValueType&&);
 
-  // Same as insert() except that the return value is an iterator. Useful in
-  // cases where it's needed to have the same return value as find() and where
-  // it's not possible to use a pointer to the storedValue.
-  template <typename IncomingValueType>
-  iterator AddReturnIterator(IncomingValueType&&);
-
   // Add the value to the end of the collection. If the value was already in
   // the list, it is moved to the end.
   template <typename IncomingValueType>
@@ -247,7 +236,7 @@ class ListHashSet
   ValueType TakeFirst();
 
   template <typename VisitorDispatcher, typename A = AllocatorArg>
-  std::enable_if_t<A::kIsGarbageCollected> Trace(VisitorDispatcher);
+  std::enable_if_t<A::kIsGarbageCollected> Trace(VisitorDispatcher) const;
 
  protected:
   typename ImplType::ValueType** GetBufferSlot() {
@@ -445,7 +434,7 @@ struct ListHashSetAllocator : public PartitionAllocator {
   bool InPool(Node* node) { return node >= Pool() && node < PastPool(); }
 
   template <typename VisitorDispatcher>
-  static void TraceValue(VisitorDispatcher, Node*) {}
+  static void TraceValue(VisitorDispatcher, const Node*) {}
 
  private:
   Node* Pool() { return reinterpret_cast_ptr<Node*>(pool_); }
@@ -515,14 +504,16 @@ class ListHashSetNode : public ListHashSetNodeBase<ValueArg, AllocatorArg> {
   }
 
   template <typename VisitorDispatcher, typename A = NodeAllocator>
-  std::enable_if_t<A::kIsGarbageCollected> Trace(VisitorDispatcher visitor) {
+  std::enable_if_t<A::kIsGarbageCollected> Trace(
+      VisitorDispatcher visitor) const {
     if (visitor->ConcurrentTracingBailOut(
-            {this, [](blink::Visitor* visitor, void* object) {
-               reinterpret_cast<ListHashSetNode<ValueArg, AllocatorArg>*>(
+            {this, [](blink::Visitor* visitor, const void* object) {
+               reinterpret_cast<const ListHashSetNode<ValueArg, AllocatorArg>*>(
                    object)
                    ->Trace(visitor);
              }}))
       return;
+
     // The conservative stack scan can find nodes that have been removed
     // from the set and destructed. We don't need to trace these, and it
     // would be wrong to do so, because the class will not expect the trace
@@ -533,8 +524,10 @@ class ListHashSetNode : public ListHashSetNodeBase<ValueArg, AllocatorArg> {
     if (WasAlreadyDestructedSafe())
       return;
     NodeAllocator::TraceValue(visitor, this);
-    visitor->Trace(reinterpret_cast<ListHashSetNode*>(this->next_.GetSafe()));
-    visitor->Trace(reinterpret_cast<ListHashSetNode*>(this->prev_.GetSafe()));
+    visitor->Trace(
+        reinterpret_cast<const ListHashSetNode*>(this->next_.GetSafe()));
+    visitor->Trace(
+        reinterpret_cast<const ListHashSetNode*>(this->prev_.GetSafe()));
   }
 
   ListHashSetNode* Next() const {
@@ -620,7 +613,7 @@ class ListHashSetIterator {
   operator const_iterator() const { return iterator_; }
 
   template <typename VisitorDispatcher>
-  void Trace(VisitorDispatcher visitor) {
+  void Trace(VisitorDispatcher visitor) const {
     iterator_.Trace(visitor);
   }
 
@@ -682,7 +675,7 @@ class ListHashSetConstIterator {
   }
 
   template <typename VisitorDispatcher>
-  void Trace(VisitorDispatcher visitor) {
+  void Trace(VisitorDispatcher visitor) const {
     visitor->Trace(*set_);
     visitor->Trace(position_);
   }
@@ -742,7 +735,7 @@ class ListHashSetReverseIterator {
   operator const_reverse_iterator() const { return iterator_; }
 
   template <typename VisitorDispatcher>
-  void Trace(VisitorDispatcher visitor) {
+  void Trace(VisitorDispatcher visitor) const {
     iterator_.trace(visitor);
   }
 
@@ -804,7 +797,7 @@ class ListHashSetConstReverseIterator {
   }
 
   template <typename VisitorDispatcher>
-  void Trace(VisitorDispatcher visitor) {
+  void Trace(VisitorDispatcher visitor) const {
     visitor->Trace(*set_);
     visitor->Trace(position_);
   }
@@ -1017,14 +1010,6 @@ ListHashSet<T, inlineCapacity, U, V>::insert(IncomingValueType&& value) {
 
 template <typename T, size_t inlineCapacity, typename U, typename V>
 template <typename IncomingValueType>
-typename ListHashSet<T, inlineCapacity, U, V>::iterator
-ListHashSet<T, inlineCapacity, U, V>::AddReturnIterator(
-    IncomingValueType&& value) {
-  return MakeIterator(insert(std::forward<IncomingValueType>(value)).node_);
-}
-
-template <typename T, size_t inlineCapacity, typename U, typename V>
-template <typename IncomingValueType>
 typename ListHashSet<T, inlineCapacity, U, V>::AddResult
 ListHashSet<T, inlineCapacity, U, V>::AppendOrMoveToLast(
     IncomingValueType&& value) {
@@ -1205,10 +1190,11 @@ void ListHashSet<T, inlineCapacity, U, V>::DeleteAllNodes() {
 template <typename T, size_t inlineCapacity, typename U, typename V>
 template <typename VisitorDispatcher, typename A>
 std::enable_if_t<A::kIsGarbageCollected>
-ListHashSet<T, inlineCapacity, U, V>::Trace(VisitorDispatcher visitor) {
+ListHashSet<T, inlineCapacity, U, V>::Trace(VisitorDispatcher visitor) const {
   if (visitor->ConcurrentTracingBailOut(
-          {this, [](blink::Visitor* visitor, void* object) {
-             reinterpret_cast<ListHashSet<T, inlineCapacity, U, V>*>(object)
+          {this, [](blink::Visitor* visitor, const void* object) {
+             reinterpret_cast<const ListHashSet<T, inlineCapacity, U, V>*>(
+                 object)
                  ->Trace(visitor);
            }}))
     return;

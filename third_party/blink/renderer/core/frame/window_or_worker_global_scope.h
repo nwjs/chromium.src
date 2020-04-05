@@ -46,13 +46,12 @@ class ImageBitmapOptions;
 class ScriptPromise;
 class ScriptState;
 class ScriptValue;
-class StringOrTrustedScript;
 class V8Function;
 
 typedef HTMLImageElementOrSVGImageElementOrHTMLVideoElementOrHTMLCanvasElementOrBlobOrImageDataOrImageBitmapOrOffscreenCanvas
     ImageBitmapSourceUnion;
 
-class WindowOrWorkerGlobalScope {
+class CORE_EXPORT WindowOrWorkerGlobalScope {
   STATIC_ONLY(WindowOrWorkerGlobalScope);
 
  public:
@@ -70,15 +69,9 @@ class WindowOrWorkerGlobalScope {
                         const HeapVector<ScriptValue>& arguments);
   static int setTimeout(ScriptState*,
                         EventTarget&,
-                        const StringOrTrustedScript&,
+                        const String& handler,
                         int timeout,
-                        const HeapVector<ScriptValue>&,
-                        ExceptionState&);
-  static int setTimeoutFromString(ScriptState*,
-                                  EventTarget&,
-                                  const String& handler,
-                                  int timeout,
-                                  const HeapVector<ScriptValue>&);
+                        const HeapVector<ScriptValue>&);
   static int setInterval(ScriptState*,
                          EventTarget&,
                          V8Function* handler,
@@ -86,15 +79,9 @@ class WindowOrWorkerGlobalScope {
                          const HeapVector<ScriptValue>&);
   static int setInterval(ScriptState*,
                          EventTarget&,
-                         const StringOrTrustedScript&,
+                         const String& handler,
                          int timeout,
-                         const HeapVector<ScriptValue>&,
-                         ExceptionState&);
-  static int setIntervalFromString(ScriptState*,
-                                   EventTarget&,
-                                   const String& handler,
-                                   int timeout,
-                                   const HeapVector<ScriptValue>&);
+                         const HeapVector<ScriptValue>&);
   static void clearTimeout(EventTarget&, int timeout_id);
   static void clearInterval(EventTarget&, int timeout_id);
 

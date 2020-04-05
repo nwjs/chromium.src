@@ -5,13 +5,9 @@
 login.createScreen('OAuthEnrollmentScreen', 'oauth-enrollment', function() {
   return {
     EXTERNAL_API: [
-      'showStep',
-      'showError',
-      'doReload',
-      'showAttributePromptStep',
-      'showAttestationBasedEnrollmentSuccess',
-      'setAdJoinParams',
-      'setAdJoinConfiguration',
+      'showStep', 'showError', 'doReload', 'showAttributePromptStep',
+      'setAdJoinParams', 'setAdJoinConfiguration',
+      'setEnterpriseDomainAndDeviceType'
     ],
 
     /**
@@ -19,6 +15,11 @@ login.createScreen('OAuthEnrollmentScreen', 'oauth-enrollment', function() {
      */
     get defaultControl() {
       return $('enterprise-enrollment');
+    },
+
+    /** Initial UI State for screen */
+    getOobeUIInitialState() {
+      return OOBE_UI_STATE.ENROLLMENT;
     },
 
     /**
@@ -44,13 +45,14 @@ login.createScreen('OAuthEnrollmentScreen', 'oauth-enrollment', function() {
     },
 
     /**
-     * Shows a success card for attestation-based enrollment that shows
-     * which domain the device was enrolled into.
+     * Sets the type of the device and the enterprise domain to be shown.
+     *
+     * @param {string} enterprise_domain
+     * @param {string} device_type
      */
-    showAttestationBasedEnrollmentSuccess(device, enterpriseEnrollmentDomain) {
+    setEnterpriseDomainAndDeviceType(enterprise_domain, device_type) {
       $('enterprise-enrollment')
-          .showAttestationBasedEnrollmentSuccess(
-              device, enterpriseEnrollmentDomain);
+          .setEnterpriseDomainAndDeviceType(enterprise_domain, device_type);
     },
 
     /**

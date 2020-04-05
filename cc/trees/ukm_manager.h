@@ -17,6 +17,8 @@ class UkmRecorder;
 
 namespace cc {
 
+enum class AggregationType;
+
 class CC_EXPORT UkmRecorderFactory {
  public:
   virtual ~UkmRecorderFactory() {}
@@ -44,8 +46,10 @@ class CC_EXPORT UkmManager {
   void RecordThroughputUKM(FrameSequenceTrackerType tracker_type,
                            FrameSequenceMetrics::ThreadType thread_type,
                            int64_t throughput) const;
+  void RecordAggregateThroughput(AggregationType aggregation_type,
+                                 int64_t throughput_percent) const;
   void RecordLatencyUKM(
-      CompositorFrameReporter::DroppedFrameReportType report_type,
+      CompositorFrameReporter::FrameReportType report_type,
       const std::vector<CompositorFrameReporter::StageData>& stage_history,
       const base::flat_set<FrameSequenceTrackerType>* active_trackers,
       const viz::FrameTimingDetails& viz_breakdown) const;

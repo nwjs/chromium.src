@@ -15,8 +15,6 @@ function MediaHistoryWebUIBrowserTest() {}
 MediaHistoryWebUIBrowserTest.prototype = {
   __proto__: testing.Test.prototype,
 
-  browsePreload: 'chrome://media-history',
-
   featureList: {enabled: ['media::kUseMediaHistoryStore']},
 
   isAsync: true,
@@ -34,23 +32,135 @@ GEN('#else');
 GEN('#define MAYBE_All All');
 GEN('#endif');
 
-TEST_F('MediaHistoryWebUIBrowserTest', 'MAYBE_All', function() {
+/**
+ * Tests for the stats tab.
+ * @extends {MediaHistoryWebUIBrowserTest}
+ */
+function MediaHistoryStatsWebUIBrowserTest() {}
+
+MediaHistoryStatsWebUIBrowserTest.prototype = {
+  __proto__: MediaHistoryWebUIBrowserTest.prototype,
+
+  /** @override */
+  browsePreload: 'chrome://media-history#tab-stats',
+};
+
+TEST_F('MediaHistoryStatsWebUIBrowserTest', 'MAYBE_All', function() {
   suiteSetup(function() {
     return whenPageIsPopulatedForTest();
   });
 
-  test('check stats table is loaded', function() {
+  test('check stats table is loaded', () => {
     let statsRows =
         Array.from(document.getElementById('stats-table-body').children);
-    assertEquals(5, statsRows.length);
 
     assertDeepEquals(
         [
-          ['mediaEngagement', '0'], ['meta', '3'], ['origin', '0'],
-          ['playback', '0'], ['playbackSession', '0']
+          ['mediaImage', '0'],
+          ['meta', '3'],
+          ['origin', '0'],
+          ['playback', '0'],
+          ['playbackSession', '0'],
+          ['sessionImage', '0'],
         ],
         statsRows.map(
             x => [x.children[0].textContent, x.children[1].textContent]));
+  });
+
+  mocha.run();
+});
+
+/**
+ * Tests for the origins tab.
+ * @extends {MediaHistoryWebUIBrowserTest}
+ */
+function MediaHistoryOriginsWebUIBrowserTest() {}
+
+MediaHistoryOriginsWebUIBrowserTest.prototype = {
+  __proto__: MediaHistoryWebUIBrowserTest.prototype,
+
+  /** @override */
+  browsePreload: 'chrome://media-history#tab-origins',
+};
+
+TEST_F('MediaHistoryOriginsWebUIBrowserTest', 'MAYBE_All', function() {
+  suiteSetup(function() {
+    return whenPageIsPopulatedForTest();
+  });
+
+  test('check data table is loaded', () => {
+    let dataHeaderRows =
+        Array.from(document.querySelector('#origins-table thead tr').children);
+
+    assertDeepEquals(
+        [
+          'Origin', 'Last Updated', 'Audio + Video Watchtime (secs, cached)',
+          'Audio + Video Watchtime (secs, actual)'
+        ],
+        dataHeaderRows.map(x => x.textContent.trim()));
+  });
+
+  mocha.run();
+});
+
+/**
+ * Tests for the playbacks tab.
+ * @extends {MediaHistoryWebUIBrowserTest}
+ */
+function MediaHistoryPlaybacksWebUIBrowserTest() {}
+
+MediaHistoryPlaybacksWebUIBrowserTest.prototype = {
+  __proto__: MediaHistoryWebUIBrowserTest.prototype,
+
+  /** @override */
+  browsePreload: 'chrome://media-history#tab-playbacks',
+};
+
+TEST_F('MediaHistoryPlaybacksWebUIBrowserTest', 'MAYBE_All', function() {
+  suiteSetup(function() {
+    return whenPageIsPopulatedForTest();
+  });
+
+  test('check data table is loaded', () => {
+    let dataHeaderRows = Array.from(
+        document.querySelector('#playbacks-table thead tr').children);
+
+    assertDeepEquals(
+        ['URL', 'Last Updated', 'Has Audio', 'Has Video', 'Watchtime (secs)'],
+        dataHeaderRows.map(x => x.textContent.trim()));
+  });
+
+  mocha.run();
+});
+
+/**
+ * Tests for the sessions tab.
+ * @extends {MediaHistoryWebUIBrowserTest}
+ */
+function MediaHistorySessionsWebUIBrowserTest() {}
+
+MediaHistorySessionsWebUIBrowserTest.prototype = {
+  __proto__: MediaHistoryWebUIBrowserTest.prototype,
+
+  /** @override */
+  browsePreload: 'chrome://media-history#tab-sessions',
+};
+
+TEST_F('MediaHistorySessionsWebUIBrowserTest', 'MAYBE_All', function() {
+  suiteSetup(function() {
+    return whenPageIsPopulatedForTest();
+  });
+
+  test('check data table is loaded', () => {
+    let dataHeaderRows =
+        Array.from(document.querySelector('#sessions-table thead tr').children);
+
+    assertDeepEquals(
+        [
+          'URL', 'Last Updated', 'Position (secs)', 'Duration (secs)', 'Title',
+          'Artist', 'Album', 'Source Title', 'Artwork'
+        ],
+        dataHeaderRows.map(x => x.textContent.trim()));
   });
 
   mocha.run();

@@ -96,7 +96,7 @@ class MediaKeys::PendingAction final
                 const String& string_data)
       : type_(type), result_(result), data_(data), string_data_(string_data) {}
 
-  void Trace(blink::Visitor* visitor) {
+  void Trace(Visitor* visitor) {
     visitor->Trace(result_);
     visitor->Trace(data_);
   }
@@ -154,7 +154,7 @@ class SetCertificateResultPromise
         exception_code, system_code, error_message);
   }
 
-  void Trace(blink::Visitor* visitor) override {
+  void Trace(Visitor* visitor) override {
     visitor->Trace(media_keys_);
     ContentDecryptionModuleResultPromise::Trace(visitor);
   }
@@ -190,7 +190,7 @@ class GetStatusForPolicyResultPromise
     Resolve(EncryptedMediaUtils::ConvertKeyStatusToString(key_status));
   }
 
-  void Trace(blink::Visitor* visitor) override {
+  void Trace(Visitor* visitor) override {
     visitor->Trace(media_keys_);
     ContentDecryptionModuleResultPromise::Trace(visitor);
   }
@@ -205,7 +205,7 @@ MediaKeys::MediaKeys(
     ExecutionContext* context,
     const WebVector<WebEncryptedMediaSessionType>& supported_session_types,
     std::unique_ptr<WebContentDecryptionModule> cdm)
-    : ContextLifecycleObserver(context),
+    : ExecutionContextLifecycleObserver(context),
       supported_session_types_(supported_session_types),
       cdm_(std::move(cdm)),
       media_element_(nullptr),
@@ -423,19 +423,19 @@ WebContentDecryptionModule* MediaKeys::ContentDecryptionModule() {
   return cdm_.get();
 }
 
-void MediaKeys::Trace(blink::Visitor* visitor) {
+void MediaKeys::Trace(Visitor* visitor) {
   visitor->Trace(pending_actions_);
   visitor->Trace(media_element_);
   ScriptWrappable::Trace(visitor);
-  ContextLifecycleObserver::Trace(visitor);
+  ExecutionContextLifecycleObserver::Trace(visitor);
 }
 
-void MediaKeys::ContextDestroyed(ExecutionContext*) {
+void MediaKeys::ContextDestroyed() {
   timer_.Stop();
   pending_actions_.clear();
 
   // We don't need the CDM anymore. Only destroyed after all related
-  // ContextLifecycleObservers have been stopped.
+  // ExecutionContextLifecycleObservers have been stopped.
   cdm_.reset();
 }
 

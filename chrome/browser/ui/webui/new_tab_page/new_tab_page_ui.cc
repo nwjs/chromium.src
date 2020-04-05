@@ -4,12 +4,16 @@
 
 #include "chrome/browser/ui/webui/new_tab_page/new_tab_page_ui.h"
 
+#include <memory>
+#include <utility>
+
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search/instant_service.h"
 #include "chrome/browser/search/instant_service_factory.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/ui/webui/favicon_source.h"
 #include "chrome/browser/ui/webui/new_tab_page/new_tab_page_handler.h"
+#include "chrome/browser/ui/webui/new_tab_page/untrusted_source.h"
 #include "chrome/browser/ui/webui/webui_util.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/grit/generated_resources.h"
@@ -34,6 +38,8 @@ constexpr char kGeneratedPath[] =
 content::WebUIDataSource* CreateNewTabPageUiHtmlSource(Profile* profile) {
   content::WebUIDataSource* source =
       content::WebUIDataSource::Create(chrome::kChromeUINewTabPageHost);
+  source->OverrideContentSecurityPolicyChildSrc(base::StringPrintf(
+      "frame-src %s;", chrome::kChromeUIUntrustedNewTabPageUrl));
 
   ui::Accelerator undo_accelerator(ui::VKEY_Z, ui::EF_PLATFORM_ACCELERATOR);
   source->AddString("undoDescription", l10n_util::GetStringFUTF16(
@@ -67,6 +73,7 @@ content::WebUIDataSource* CreateNewTabPageUiHtmlSource(Profile* profile) {
       {"urlField", IDS_NTP_CUSTOM_LINKS_URL},
 
       // Customize button and dialog.
+      {"backButton", IDS_ACCNAME_BACK},
       {"backgroundsMenuItem", IDS_NTP_CUSTOMIZE_MENU_BACKGROUND_LABEL},
       {"cancelButton", IDS_CANCEL},
       {"colorPickerLabel", IDS_NTP_CUSTOMIZE_COLOR_PICKER_LABEL},
@@ -74,17 +81,17 @@ content::WebUIDataSource* CreateNewTabPageUiHtmlSource(Profile* profile) {
       {"customizeThisPage", IDS_NTP_CUSTOM_BG_CUSTOMIZE_NTP_LABEL},
       {"defaultThemeLabel", IDS_NTP_CUSTOMIZE_DEFAULT_LABEL},
       {"doneButton", IDS_DONE},
-      {"shortcutsMenuItem", IDS_NTP_CUSTOMIZE_MENU_SHORTCUTS_LABEL},
-      {"themesMenuItem", IDS_NTP_CUSTOMIZE_MENU_COLOR_LABEL},
-      {"thirdPartyThemeDescription", IDS_NTP_CUSTOMIZE_3PT_THEME_DESC},
-      {"uninstallThirdPartyThemeButton", IDS_NTP_CUSTOMIZE_3PT_THEME_UNINSTALL},
       {"hideShortcuts", IDS_NTP_CUSTOMIZE_HIDE_SHORTCUTS_LABEL},
       {"hideShortcutsDesc", IDS_NTP_CUSTOMIZE_HIDE_SHORTCUTS_DESC},
       {"mostVisited", IDS_NTP_CUSTOMIZE_MOST_VISITED_LABEL},
       {"myShortcuts", IDS_NTP_CUSTOMIZE_MY_SHORTCUTS_LABEL},
       {"shortcutsCurated", IDS_NTP_CUSTOMIZE_MY_SHORTCUTS_DESC},
+      {"shortcutsMenuItem", IDS_NTP_CUSTOMIZE_MENU_SHORTCUTS_LABEL},
       {"shortcutsOption", IDS_NTP_CUSTOMIZE_MENU_SHORTCUTS_LABEL},
       {"shortcutsSuggested", IDS_NTP_CUSTOMIZE_MOST_VISITED_DESC},
+      {"themesMenuItem", IDS_NTP_CUSTOMIZE_MENU_COLOR_LABEL},
+      {"thirdPartyThemeDescription", IDS_NTP_CUSTOMIZE_3PT_THEME_DESC},
+      {"uninstallThirdPartyThemeButton", IDS_NTP_CUSTOMIZE_3PT_THEME_UNINSTALL},
 
       // Voice search.
       {"audioError", IDS_NEW_TAB_VOICE_AUDIO_ERROR},
@@ -92,6 +99,7 @@ content::WebUIDataSource* CreateNewTabPageUiHtmlSource(Profile* profile) {
       {"details", IDS_NEW_TAB_VOICE_DETAILS},
       {"languageError", IDS_NEW_TAB_VOICE_LANGUAGE_ERROR},
       {"learnMore", IDS_LEARN_MORE},
+      {"listening", IDS_NEW_TAB_VOICE_LISTENING},
       {"networkError", IDS_NEW_TAB_VOICE_NETWORK_ERROR},
       {"noTranslation", IDS_NEW_TAB_VOICE_NO_TRANSLATION},
       {"noVoice", IDS_NEW_TAB_VOICE_NO_VOICE},
@@ -101,6 +109,9 @@ content::WebUIDataSource* CreateNewTabPageUiHtmlSource(Profile* profile) {
       {"tryAgain", IDS_NEW_TAB_VOICE_TRY_AGAIN},
       {"voiceSearchButtonLabel", IDS_TOOLTIP_MIC_SEARCH},
       {"waiting", IDS_NEW_TAB_VOICE_WAITING},
+
+      // Search box.
+      {"searchBoxHint", IDS_GOOGLE_SEARCH_BOX_EMPTY_HINT_MD},
   };
   AddLocalizedStringsBulk(source, kStrings);
 
@@ -121,13 +132,18 @@ NewTabPageUI::NewTabPageUI(content::WebUI* web_ui)
     : ui::MojoWebUIController(web_ui, true),
       page_factory_receiver_(this),
       profile_(Profile::FromWebUI(web_ui)),
-      instant_service_(InstantServiceFactory::GetForProfile(profile_)) {
+      instant_service_(InstantServiceFactory::GetForProfile(profile_)),
+      web_contents_(web_ui->GetWebContents()) {
   content::WebUIDataSource::Add(profile_,
                                 CreateNewTabPageUiHtmlSource(profile_));
 
   content::URLDataSource::Add(
       profile_, std::make_unique<FaviconSource>(
                     profile_, chrome::FaviconUrlFormat::kFavicon2));
+  content::URLDataSource::Add(profile_,
+                              std::make_unique<UntrustedSource>(profile_));
+
+  web_ui->AddRequestableScheme(content::kChromeUIUntrustedScheme);
 
   UpdateBackgroundColor(*instant_service_->GetInitializedNtpTheme());
   instant_service_->AddObserver(this);
@@ -160,7 +176,8 @@ void NewTabPageUI::CreatePageHandler(
         pending_page_handler) {
   DCHECK(pending_page.is_valid());
   page_handler_ = std::make_unique<NewTabPageHandler>(
-      std::move(pending_page_handler), std::move(pending_page), profile_);
+      std::move(pending_page_handler), std::move(pending_page), profile_,
+      web_contents_);
 }
 
 void NewTabPageUI::NtpThemeChanged(const NtpTheme& theme) {

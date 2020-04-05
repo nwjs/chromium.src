@@ -106,8 +106,6 @@ def make_constructors(cg_context):
 def make_assignment_operators(cg_context):
     assert isinstance(cg_context, CodeGenContext)
 
-    class_name = cg_context.class_name
-
     decls = ListNode([
         CxxFuncDeclNode(
             name="operator=",
@@ -120,8 +118,29 @@ def make_assignment_operators(cg_context):
             return_type="${class_name}&",
             default=True),
     ])
-
     defs = ListNode()
+
+    # Migration adapter
+    func_decl = CxxFuncDeclNode(
+        name="operator=",
+        arg_decls=["const String&"],
+        return_type="${class_name}&")
+    func_def = CxxFuncDefNode(
+        name="operator=",
+        arg_decls=["const String& str_value"],
+        return_type="${class_name}&",
+        class_name=cg_context.class_name)
+    decls.append(func_decl)
+    defs.append(func_def)
+
+    func_def.set_base_template_vars(cg_context.template_bindings())
+    func_def.body.append(
+        TextNode("""\
+const auto& index =
+    bindings::FindIndexInEnumStringTable(str_value, string_table_);
+CHECK(index.has_value());
+return operator=(${class_name}(static_cast<Enum>(index.value())));
+"""))
 
     return decls, defs
 
@@ -147,6 +166,25 @@ def make_equality_operators(cg_context):
 
     decls = ListNode([func1_def, EmptyNode(), func2_def])
 
+    # Migration adapter
+    func3_def = CxxFuncDefNode(
+        name="operator==",
+        arg_decls=["const ${class_name}& lhs", "const String& rhs"],
+        return_type="bool",
+        inline=True)
+    func3_def.set_base_template_vars(cg_context.template_bindings())
+    func3_def.body.append(TextNode("return lhs.AsString() == rhs;"))
+
+    func4_def = CxxFuncDefNode(
+        name="operator==",
+        arg_decls=["const String& lhs", "const ${class_name}& rhs"],
+        return_type="bool",
+        inline=True)
+    func4_def.set_base_template_vars(cg_context.template_bindings())
+    func4_def.body.append(TextNode("return lhs == rhs.AsString();"))
+
+    decls.extend([EmptyNode(), func3_def, EmptyNode(), func4_def])
+
     return decls, None
 
 
@@ -163,30 +201,10 @@ def make_as_enum_function(cg_context):
 def make_nested_enum_class_def(cg_context):
     assert isinstance(cg_context, CodeGenContext)
 
-    enum_values = []
-    used_names = set()
-    for value in cg_context.enumeration.values:
-        name = name_style.constant(value)
-        # ChooseFileSystemEntriesType is defined as follows:
-        #
-        #   enum ChooseFileSystemEntriesType {
-        #       "open-file",
-        #       "openFile",
-        #       "save-file",
-        #       "saveFile",
-        #       "open-directory",
-        #       "openDirectory"
-        #   };
-        #
-        # Workaround until the old values get gone.
-        # TODO(https://crbug.com/1020715): Remove the workaround once the issue
-        # gets resolved.
-        if name in used_names:
-            assert (cg_context.enumeration.identifier ==
-                    "ChooseFileSystemEntriesType")
-            name = name + "2"
-        enum_values.append(TextNode(name))
-        used_names.add(name)
+    enum_values = [
+        TextNode(name_style.constant(value))
+        for value in cg_context.enumeration.values
+    ]
 
     return ListNode([
         TextNode("enum class Enum : enum_int_t {"),

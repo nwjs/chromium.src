@@ -7,8 +7,8 @@
 #include "base/logging.h"
 #include "components/page_load_metrics/browser/page_load_metrics_observer.h"
 #include "components/page_load_metrics/common/page_load_metrics.mojom.h"
-#include "content/public/common/resource_type.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/public/mojom/loader/resource_load_info.mojom-shared.h"
 
 namespace page_load_metrics {
 
@@ -33,6 +33,11 @@ void PageLoadMetricsTestWaiter::AddFrameSizeExpectation(const gfx::Size& size) {
   if (observed_frame_sizes_.find(size) != observed_frame_sizes_.end())
     return;
   expected_frame_sizes_.insert(size);
+}
+
+void PageLoadMetricsTestWaiter::AddMainFrameDocumentIntersectionExpectation(
+    const gfx::Rect& rect) {
+  expected_main_frame_intersection_ = rect;
 }
 
 void PageLoadMetricsTestWaiter::AddSubFrameExpectation(TimingField field) {
@@ -97,7 +102,7 @@ void PageLoadMetricsTestWaiter::OnTimingUpdated(
     const page_load_metrics::mojom::PageLoadTiming& timing) {
   if (ExpectationsSatisfied())
     return;
-  const page_load_metrics::mojom::PageLoadMetadata& metadata =
+  const page_load_metrics::mojom::FrameMetadata& metadata =
       subframe_rfh ? GetDelegateForCommittedLoad().GetSubframeMetadata()
                    : GetDelegateForCommittedLoad().GetMainFrameMetadata();
   TimingFieldBitSet matched_bits = GetMatchedBits(timing, metadata);
@@ -127,8 +132,8 @@ void PageLoadMetricsTestWaiter::OnLoadedResource(
   if (ExpectationsSatisfied())
     return;
 
-  if (extra_request_complete_info.resource_type !=
-      content::ResourceType::kMainFrame) {
+  if (extra_request_complete_info.request_destination !=
+      network::mojom::RequestDestination::kDocument) {
     // The waiter confirms loading timing for the main frame only.
     return;
   }
@@ -183,6 +188,19 @@ void PageLoadMetricsTestWaiter::OnFeaturesUsageObserved(
     run_loop_->Quit();
 }
 
+void PageLoadMetricsTestWaiter::OnFrameIntersectionUpdate(
+    content::RenderFrameHost* rfh,
+    const page_load_metrics::mojom::FrameIntersectionUpdate&
+        frame_intersection_update) {
+  if (expected_main_frame_intersection_ &&
+      expected_main_frame_intersection_ ==
+          frame_intersection_update.main_frame_document_intersection_rect) {
+    expected_main_frame_intersection_.reset();
+  }
+  if (ExpectationsSatisfied() && run_loop_)
+    run_loop_->Quit();
+}
+
 void PageLoadMetricsTestWaiter::OnDidFinishSubFrameNavigation(
     content::NavigationHandle* navigation_handle) {
   if (SubframeNavigationExpectationsSatisfied())
@@ -206,7 +224,7 @@ void PageLoadMetricsTestWaiter::FrameSizeChanged(
 PageLoadMetricsTestWaiter::TimingFieldBitSet
 PageLoadMetricsTestWaiter::GetMatchedBits(
     const page_load_metrics::mojom::PageLoadTiming& timing,
-    const page_load_metrics::mojom::PageLoadMetadata& metadata) {
+    const page_load_metrics::mojom::FrameMetadata& metadata) {
   PageLoadMetricsTestWaiter::TimingFieldBitSet matched_bits;
   if (timing.document_timing->load_event_start)
     matched_bits.Set(TimingField::kLoadEvent);
@@ -217,8 +235,17 @@ PageLoadMetricsTestWaiter::GetMatchedBits(
   if (timing.paint_timing->first_meaningful_paint)
     matched_bits.Set(TimingField::kFirstMeaningfulPaint);
   if (metadata.behavior_flags &
-      blink::LoadingBehaviorFlag::kLoadingBehaviorDocumentWriteBlockReload)
+      blink::LoadingBehaviorFlag::kLoadingBehaviorDocumentWriteBlockReload) {
     matched_bits.Set(TimingField::kDocumentWriteBlockReload);
+  }
+  if (timing.paint_timing->largest_image_paint ||
+      timing.paint_timing->largest_text_paint) {
+    matched_bits.Set(TimingField::kLargestContentfulPaint);
+  }
+  if (timing.paint_timing->first_input_or_scroll_notified_timestamp)
+    matched_bits.Set(TimingField::kFirstInputOrScroll);
+  if (timing.interactive_timing->first_input_delay)
+    matched_bits.Set(TimingField::kFirstInputDelay);
 
   return matched_bits;
 }
@@ -283,7 +310,8 @@ bool PageLoadMetricsTestWaiter::ExpectationsSatisfied() const {
          WebFeaturesExpectationsSatisfied() &&
          SubframeNavigationExpectationsSatisfied() &&
          SubframeDataExpectationsSatisfied() && expected_frame_sizes_.empty() &&
-         CpuTimeExpectationsSatisfied();
+         CpuTimeExpectationsSatisfied() &&
+         !expected_main_frame_intersection_.has_value();
 }
 
 PageLoadMetricsTestWaiter::WaiterMetricsObserver::~WaiterMetricsObserver() =
@@ -328,6 +356,15 @@ void PageLoadMetricsTestWaiter::WaiterMetricsObserver::OnFeaturesUsageObserved(
     const mojom::PageLoadFeatures& features) {
   if (waiter_)
     waiter_->OnFeaturesUsageObserved(nullptr, features);
+}
+
+void PageLoadMetricsTestWaiter::WaiterMetricsObserver::
+    OnFrameIntersectionUpdate(
+        content::RenderFrameHost* rfh,
+        const page_load_metrics::mojom::FrameIntersectionUpdate&
+            frame_intersection_update) {
+  if (waiter_)
+    waiter_->OnFrameIntersectionUpdate(rfh, frame_intersection_update);
 }
 
 void PageLoadMetricsTestWaiter::WaiterMetricsObserver::

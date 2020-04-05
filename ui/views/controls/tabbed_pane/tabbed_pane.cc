@@ -4,6 +4,7 @@
 
 #include "ui/views/controls/tabbed_pane/tabbed_pane.h"
 
+#include <algorithm>
 #include <utility>
 
 #include "base/i18n/rtl.h"
@@ -504,10 +505,10 @@ TabbedPane::TabbedPane(TabbedPane::Orientation orientation,
     layout->SetOrientation(views::LayoutOrientation::kVertical);
   tab_strip_ = AddChildView(std::make_unique<TabStrip>(orientation, style));
   contents_ = AddChildView(std::make_unique<View>());
-  contents_->SetProperty(views::kFlexBehaviorKey,
-                         views::FlexSpecification::ForSizeRule(
-                             views::MinimumFlexSizeRule::kScaleToZero,
-                             views::MaximumFlexSizeRule::kUnbounded));
+  contents_->SetProperty(
+      views::kFlexBehaviorKey,
+      views::FlexSpecification(views::MinimumFlexSizeRule::kScaleToZero,
+                               views::MaximumFlexSizeRule::kUnbounded));
   contents_->SetLayoutManager(std::make_unique<views::FillLayout>());
 }
 

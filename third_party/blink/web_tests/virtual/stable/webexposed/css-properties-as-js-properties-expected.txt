@@ -111,6 +111,7 @@ columnSpan
 columnWidth
 columns
 contain
+containIntrinsicSize
 content
 counterIncrement
 counterReset
@@ -255,7 +256,6 @@ paddingInlineStart
 paddingLeft
 paddingRight
 paddingTop
-page
 pageBreakAfter
 pageBreakBefore
 pageBreakInside

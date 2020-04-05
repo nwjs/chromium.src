@@ -11,7 +11,6 @@ Polymer({
 
   behaviors: [
     settings.RouteObserverBehavior,
-    CrPngBehavior,
     I18nBehavior,
     WebUIListenerBehavior,
     LockStateBehavior,
@@ -47,26 +46,36 @@ Polymer({
 
     /**
      * Authentication token provided by settings-lock-screen.
-     * @private
+     * @private {!chrome.quickUnlockPrivate.TokenInfo|undefined}
      */
     authToken_: {
-      type: String,
-      value: '',
+      type: Object,
+      observer: 'onAuthTokenChanged_',
     },
 
     /**
-     * The currently selected profile icon URL. May be a data URL.
+     * The current profile icon URL. Usually a data:image/png URL.
      * @private
      */
     profileIconUrl_: String,
 
     /**
-     * The current profile name.
+     * The current profile name, e.g. "John Cena".
      * @private
      */
     profileName_: String,
 
-    /** @private */
+    /**
+     * The current profile email, e.g. "john.cena@gmail.com".
+     * @private
+     */
+    profileEmail_: String,
+
+    /**
+     * The label may contain additional text, for example:
+     * "john.cena@gmail, + 2 more accounts".
+     * @private
+     */
     profileLabel_: String,
 
     /** @private */
@@ -222,8 +231,7 @@ Polymer({
     // Extract first frame from image by creating a single frame PNG using
     // url as input if base64 encoded and potentially animated.
     if (info.iconUrl.startsWith('data:image/png;base64')) {
-      this.profileIconUrl_ =
-          CrPngBehavior.convertImageSequenceToPng([info.iconUrl]);
+      this.profileIconUrl_ = cr.png.convertImageSequenceToPng([info.iconUrl]);
       return;
     }
     this.profileIconUrl_ = info.iconUrl;
@@ -244,6 +252,7 @@ Polymer({
       return;
     }
     this.profileName_ = accounts[0].fullName;
+    this.profileEmail_ = accounts[0].email;
     this.profileIconUrl_ = accounts[0].pic;
 
     const moreAccounts = accounts.length - 1;
@@ -355,7 +364,7 @@ Polymer({
    * @private
    */
   showSignin_(syncStatus) {
-    return !!syncStatus.signinAllowed && !syncStatus.signedIn;
+    return loadTimeData.getBoolean('signinAllowed') && !syncStatus.signedIn;
   },
 
   /**
@@ -368,5 +377,33 @@ Polymer({
       return this.i18n('lockScreenTitleLoginLock');
     }
     return this.i18n('lockScreenTitleLock');
+  },
+
+  /**
+   * The timeout ID to pass to clearTimeout() to cancel auth token
+   * invalidation.
+   * @private {number|undefined}
+   */
+  clearAccountPasswordTimeoutId_: undefined,
+
+  /** @private */
+  onAuthTokenChanged_() {
+    if (this.clearAuthTokenTimeoutId_) {
+      clearTimeout(this.clearAccountPasswordTimeoutId_);
+    }
+    if (this.authToken_ === undefined) {
+      return;
+    }
+    // Clear |this.authToken_| after
+    // |this.authToken_.tokenInfo.lifetimeSeconds|.
+    // Subtract time from the expiration time to account for IPC delays.
+    // Treat values less than the minimum as 0 for testing.
+    const IPC_SECONDS = 2;
+    const lifetimeMs = this.authToken_.lifetimeSeconds > IPC_SECONDS ?
+        (this.authToken_.lifetimeSeconds - IPC_SECONDS) * 1000 :
+        0;
+    this.clearAccountPasswordTimeoutId_ = setTimeout(() => {
+      this.authToken_ = undefined;
+    }, lifetimeMs);
   },
 });

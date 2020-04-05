@@ -17,7 +17,6 @@
 #include "components/discardable_memory/client/client_discardable_shared_memory_manager.h"
 #include "components/services/print_compositor/public/cpp/print_service_mojo_types.h"
 #include "content/public/utility/utility_thread.h"
-#include "mojo/public/cpp/base/shared_memory_utils.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/system/platform_handle.h"
 #include "printing/common/metafile_utils.h"
@@ -150,6 +149,13 @@ void PrintCompositorImpl::AddSubframeContent(
   UpdateRequestsWithSubframeInfo(frame_guid, pending_subframes);
 }
 
+#if BUILDFLAG(ENABLE_TAGGED_PDF)
+void PrintCompositorImpl::SetAccessibilityTree(
+    const ui::AXTreeUpdate& accessibility_tree) {
+  accessibility_tree_ = accessibility_tree;
+}
+#endif
+
 void PrintCompositorImpl::CompositePageToPdf(
     uint64_t frame_guid,
     base::ReadOnlySharedMemoryRegion serialized_content,
@@ -174,7 +180,7 @@ void PrintCompositorImpl::CompositeDocumentToPdf(
 void PrintCompositorImpl::PrepareForDocumentToPdf(
     mojom::PrintCompositor::PrepareForDocumentToPdfCallback callback) {
   DCHECK(!docinfo_);
-  docinfo_ = std::make_unique<DocumentInfo>(creator_);
+  docinfo_ = std::make_unique<DocumentInfo>();
   std::move(callback).Run(mojom::PrintCompositor::Status::kSuccess);
 }
 
@@ -185,6 +191,12 @@ void PrintCompositorImpl::CompleteDocumentToPdf(
   DCHECK_GT(page_count, 0U);
   docinfo_->page_count = page_count;
   docinfo_->callback = std::move(callback);
+
+  if (!docinfo_->doc) {
+    docinfo_->doc = MakePdfDocument(creator_, accessibility_tree_,
+                                    &docinfo_->compositor_stream);
+  }
+
   HandleDocumentCompletionRequest();
 }
 
@@ -345,7 +357,13 @@ mojom::PrintCompositor::Status PrintCompositorImpl::CompositeToPdf(
     canvas->drawPicture(page.fPicture);
     doc->endPage();
     if (docinfo_) {
-      // Also collect this page into document PDF.
+      // Create document PDF if needed.
+      if (!docinfo_->doc) {
+        docinfo_->doc = MakePdfDocument(creator_, accessibility_tree_,
+                                        &docinfo_->compositor_stream);
+      }
+
+      // Collect this page into document PDF.
       SkCanvas* canvas_doc =
           docinfo_->doc->beginPage(page.fSize.width(), page.fSize.height());
       canvas_doc->drawPicture(page.fPicture);
@@ -356,7 +374,7 @@ mojom::PrintCompositor::Status PrintCompositorImpl::CompositeToPdf(
   doc->close();
 
   base::MappedReadOnlyRegion region_mapping =
-      mojo::CreateReadOnlySharedMemoryRegion(wstream.bytesWritten());
+      base::ReadOnlySharedMemoryRegion::Create(wstream.bytesWritten());
   if (!region_mapping.IsValid()) {
     DLOG(ERROR) << "CompositeToPdf: Cannot create new shared memory region.";
     return mojom::PrintCompositor::Status::kHandleMapError;
@@ -372,7 +390,7 @@ mojom::PrintCompositor::Status PrintCompositorImpl::CompleteDocumentToPdf(
   docinfo_->doc->close();
 
   base::MappedReadOnlyRegion region_mapping =
-      mojo::CreateReadOnlySharedMemoryRegion(
+      base::ReadOnlySharedMemoryRegion::Create(
           docinfo_->compositor_stream.bytesWritten());
   if (!region_mapping.IsValid()) {
     DLOG(ERROR)
@@ -448,8 +466,7 @@ PrintCompositorImpl::FrameInfo::FrameInfo() = default;
 
 PrintCompositorImpl::FrameInfo::~FrameInfo() = default;
 
-PrintCompositorImpl::DocumentInfo::DocumentInfo(const std::string& creator)
-    : doc(MakePdfDocument(creator, ui::AXTreeUpdate(), &compositor_stream)) {}
+PrintCompositorImpl::DocumentInfo::DocumentInfo() = default;
 
 PrintCompositorImpl::DocumentInfo::~DocumentInfo() = default;
 

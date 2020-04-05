@@ -47,7 +47,7 @@ class FakeSkiaOutputSurface : public SkiaOutputSurface {
   void Reshape(const gfx::Size& size,
                float device_scale_factor,
                const gfx::ColorSpace& color_space,
-               bool has_alpha,
+               gfx::BufferFormat format,
                bool use_stencil) override;
   void SwapBuffers(OutputSurfaceFrame frame) override;
   void ScheduleOutputSurfaceAsOverlay(
@@ -56,7 +56,6 @@ class FakeSkiaOutputSurface : public SkiaOutputSurface {
   uint32_t GetFramebufferCopyTextureFormat() override;
   bool IsDisplayedAsOverlayPlane() const override;
   unsigned GetOverlayTextureId() const override;
-  gfx::BufferFormat GetOverlayBufferFormat() const override;
   bool HasExternalStencilTest() const override;
   void ApplyExternalStencil() override;
   unsigned UpdateGpuFence() override;
@@ -71,8 +70,7 @@ class FakeSkiaOutputSurface : public SkiaOutputSurface {
   SkCanvas* BeginPaintCurrentFrame() override;
   sk_sp<SkImage> MakePromiseSkImageFromYUV(
       const std::vector<ImageContext*>& contexts,
-      SkYUVColorSpace yuv_color_space,
-      sk_sp<SkColorSpace> dst_color_space,
+      sk_sp<SkColorSpace> image_color_space,
       bool has_alpha) override;
   void SwapBuffersSkipped() override {}
   SkCanvas* BeginPaintRenderPass(const RenderPassId& id,
@@ -121,6 +119,7 @@ class FakeSkiaOutputSurface : public SkiaOutputSurface {
 
   scoped_refptr<gpu::GpuTaskSchedulerHelper> GetGpuTaskSchedulerHelper()
       override;
+  gpu::MemoryTracker* GetMemoryTracker() override;
 
  private:
   explicit FakeSkiaOutputSurface(

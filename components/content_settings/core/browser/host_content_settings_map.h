@@ -288,6 +288,10 @@ class HostContentSettingsMap : public content_settings::Observer,
   // to convert backwards.
   static ProviderType GetProviderTypeFromSource(const std::string& source);
 
+  // Returns the SettingSource associated with the given |provider_name| string.
+  static content_settings::SettingSource GetSettingSourceFromProviderName(
+      const std::string& provider_name);
+
   // Whether this settings map is for an incognito or guest session.
   bool IsOffTheRecord() const { return is_off_the_record_; }
 
@@ -337,7 +341,7 @@ class HostContentSettingsMap : public content_settings::Observer,
   // provided by |provider|, into |settings|. If |incognito| is true, adds only
   // the content settings which are applicable to the incognito mode and differ
   // from the normal mode. Otherwise, adds the content settings for the normal
-  // mode.
+  // mode (applying inheritance rules if |is_off_the_record_|).
   void AddSettingsForOneType(
       const content_settings::ProviderInterface* provider,
       ProviderType provider_type,

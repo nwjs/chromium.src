@@ -36,9 +36,9 @@ class SourceKeyedCachedMetadataHandler::SingleKeyHandler final
       parent_->SendToPlatform();
   }
 
-  void ClearCachedMetadata(CacheType cache_type) override {
+  void ClearCachedMetadata(ClearCacheType cache_type) override {
     parent_->cached_metadata_map_.erase(key_);
-    if (cache_type == CachedMetadataHandler::kSendToPlatform)
+    if (cache_type == CachedMetadataHandler::kClearPersistentStorage)
       parent_->SendToPlatform();
   }
 
@@ -103,9 +103,9 @@ SingleCachedMetadataHandler* SourceKeyedCachedMetadataHandler::HandlerForSource(
 }
 
 void SourceKeyedCachedMetadataHandler::ClearCachedMetadata(
-    CachedMetadataHandler::CacheType cache_type) {
+    CachedMetadataHandler::ClearCacheType cache_type) {
   cached_metadata_map_.clear();
-  if (cache_type == CachedMetadataHandler::kSendToPlatform)
+  if (cache_type == CachedMetadataHandler::kClearPersistentStorage)
     SendToPlatform();
 }
 

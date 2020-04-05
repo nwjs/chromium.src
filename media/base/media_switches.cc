@@ -184,6 +184,12 @@ const char kOverrideEnabledCdmInterfaceVersion[] =
 const char kOverrideHardwareSecureCodecsForTesting[] =
     "override-hardware-secure-codecs-for-testing";
 
+#if BUILDFLAG(USE_CHROMEOS_MEDIA_ACCELERATION)
+// Force to disable kChromeosVideoDecoder feature, used for unsupported boards.
+const char kForceDisableNewAcceleratedVideoDecoder[] =
+    "force-disable-new-accelerated-video-decoder";
+#endif  // BUILDFLAG(USE_CHROMEOS_MEDIA_ACCELERATION)
+
 namespace autoplay {
 
 // Autoplay policy that requires a document user activation.
@@ -252,6 +258,11 @@ const base::Feature kUseAndroidOverlayAggressively{
 // Let video without audio be paused when it is playing in the background.
 const base::Feature kBackgroundVideoPauseOptimization{
     "BackgroundVideoPauseOptimization", base::FEATURE_ENABLED_BY_DEFAULT};
+
+// CDM host verification is enabled by default. Can be disabled for testing.
+// Has no effect if ENABLE_CDM_HOST_VERIFICATION buildflag is false.
+const base::Feature kCdmHostVerification{"CdmHostVerification",
+                                         base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Make MSE garbage collection algorithm more aggressive when we are under
 // moderate or critical memory pressure. This will relieve memory pressure by
@@ -327,6 +338,10 @@ const base::Feature kD3D11VideoDecoderAllowOverlay{
 const base::Feature kFallbackAfterDecodeError{"FallbackAfterDecodeError",
                                               base::FEATURE_ENABLED_BY_DEFAULT};
 
+// Use Gav1VideoDecoder to decode AV1 streams.
+const base::Feature kGav1VideoDecoder{"Gav1VideoDecoder",
+                                      base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Show toolbar button that opens dialog for controlling media sessions.
 const base::Feature kGlobalMediaControls {
   "GlobalMediaControls",
@@ -375,6 +390,12 @@ const base::Feature kUseNewMediaCache{"use-new-media-cache",
 const base::Feature kUseMediaHistoryStore{"UseMediaHistoryStore",
                                           base::FEATURE_DISABLED_BY_DEFAULT};
 
+// Causes video.requestAniationFrame to use a microtask instead of running with
+// the rendering steps. TODO(crbug.com/1012063): Remove this once we figure out
+// which implementation to use.
+const base::Feature kUseMicrotaskForVideoRAF{"UseMicrotaskForVideoRAF",
+                                             base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Use R16 texture for 9-16 bit channel instead of half-float conversion by CPU.
 const base::Feature kUseR16Texture{"use-r16-texture",
                                    base::FEATURE_DISABLED_BY_DEFAULT};
@@ -386,7 +407,7 @@ const base::Feature kUnifiedAutoplay{"UnifiedAutoplay",
 
 // Enable VA-API hardware encode acceleration for H264 on AMD.
 const base::Feature kVaapiH264AMDEncoder{"VaapiH264AMDEncoder",
-                                         base::FEATURE_DISABLED_BY_DEFAULT};
+                                         base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Enable VA-API hardware low power encoder for all codecs.
 const base::Feature kVaapiLowPowerEncoder{"VaapiLowPowerEncoder",
@@ -502,10 +523,6 @@ const base::Feature kMediaDrmPreprovisioning{"MediaDrmPreprovisioning",
 const base::Feature kMediaDrmPreprovisioningAtStartup{
     "MediaDrmPreprovisioningAtStartup", base::FEATURE_ENABLED_BY_DEFAULT};
 
-// Enables the Android Image Reader path for Video decoding(for AVDA and MCVD)
-const base::Feature kAImageReaderVideoOutput{"AImageReaderVideoOutput",
-                                             base::FEATURE_ENABLED_BY_DEFAULT};
-
 // Prevents using SurfaceLayer for videos. This is meant to be used by embedders
 // that cannot support SurfaceLayer at the moment.
 const base::Feature kDisableSurfaceLayerForVideo{
@@ -523,6 +540,11 @@ const base::Feature kCanPlayHls{"CanPlayHls", base::FEATURE_ENABLED_BY_DEFAULT};
 // Enables the use of MediaPlayerRenderer for HLS playback. When disabled,
 // HLS manifests will fail to load (triggering source fallback or load error).
 const base::Feature kHlsPlayer{"HlsPlayer", base::FEATURE_ENABLED_BY_DEFAULT};
+
+// When enabled, Playing media sessions will request audio focus from the
+// Android system.
+const base::Feature kRequestSystemAudioFocus{"RequestSystemAudioFocus",
+                                             base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Use the (hacky) AudioManager.getOutputLatency() call to get the estimated
 // hardware latency for a stream for OpenSLES playback.  This is normally not
@@ -550,6 +572,10 @@ const base::Feature kMediaFoundationH264Encoding{
 // Enables MediaFoundation based video capture
 const base::Feature kMediaFoundationVideoCapture{
     "MediaFoundationVideoCapture", base::FEATURE_ENABLED_BY_DEFAULT};
+
+// Enables VP8 decode acceleration for Windows.
+const base::Feature MEDIA_EXPORT kMediaFoundationVP8Decoding{
+    "MediaFoundationVP8Decoding", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Enables DirectShow GetPhotoState implementation
 // Created to act as a kill switch by disabling it, in the case of the
@@ -611,6 +637,15 @@ const base::Feature kPreloadMediaEngagementData{
 const base::Feature kMediaEngagementHTTPSOnly{
     "MediaEngagementHTTPSOnly", base::FEATURE_DISABLED_BY_DEFAULT};
 
+// Enables Media Feeds to allow sites to provide specific recommendations for
+// users.
+const base::Feature kMediaFeeds{"MediaFeeds",
+                                base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Enables checking Media Feeds against safe search to prevent adult content.
+const base::Feature kMediaFeedsSafeSearch{"MediaFeedsSafeSearch",
+                                          base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Send events to devtools rather than to chrome://media-internals
 const base::Feature kMediaInspectorLogging{"MediaInspectorLogging",
                                            base::FEATURE_DISABLED_BY_DEFAULT};
@@ -662,6 +697,9 @@ const base::Feature kInternalMediaSession {
       base::FEATURE_DISABLED_BY_DEFAULT
 #endif
 };
+
+const base::Feature kKaleidoscope{"Kaleidoscope",
+                                  base::FEATURE_DISABLED_BY_DEFAULT};
 
 const base::Feature kUseFakeDeviceForMediaStream{
     "use-fake-device-for-media-stream", base::FEATURE_DISABLED_BY_DEFAULT};

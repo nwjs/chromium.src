@@ -117,7 +117,7 @@ enum class CtapDeviceResponseCode : uint8_t {
   kCtap2ErrVendorLast = 0xFF
 };
 
-constexpr std::array<CtapDeviceResponseCode, 51> GetCtapResponseCodeList() {
+constexpr std::array<CtapDeviceResponseCode, 49> GetCtapResponseCodeList() {
   return {CtapDeviceResponseCode::kSuccess,
           CtapDeviceResponseCode::kCtap1ErrInvalidCommand,
           CtapDeviceResponseCode::kCtap1ErrInvalidParameter,
@@ -160,6 +160,7 @@ constexpr std::array<CtapDeviceResponseCode, 51> GetCtapResponseCodeList() {
           CtapDeviceResponseCode::kCtap2ErrPinPolicyViolation,
           CtapDeviceResponseCode::kCtap2ErrPinTokenExpired,
           CtapDeviceResponseCode::kCtap2ErrRequestTooLarge,
+          CtapDeviceResponseCode::kCtap2ErrUvBlocked,
           CtapDeviceResponseCode::kCtap2ErrOther,
           CtapDeviceResponseCode::kCtap2ErrSpecLast,
           CtapDeviceResponseCode::kCtap2ErrExtensionFirst,
@@ -349,6 +350,8 @@ COMPONENT_EXPORT(DEVICE_FIDO) extern const char kU2fVersion[];
 
 COMPONENT_EXPORT(DEVICE_FIDO) extern const char kExtensionHmacSecret[];
 COMPONENT_EXPORT(DEVICE_FIDO) extern const char kExtensionCredProtect[];
+COMPONENT_EXPORT(DEVICE_FIDO)
+extern const char kExtensionAndroidClientData[];
 
 // Maximum number of seconds the browser waits for Bluetooth authenticator to
 // send packets that advertises that the device is in pairing mode before
@@ -365,6 +368,10 @@ enum class CredProtect : uint8_t {
   kUVOrCredIDRequired = 2,
   kUVRequired = 3,
 };
+
+// The map key for inserting the googleAndroidClientDataExtension output into a
+// CTAP2 makeCredential or getAssertion response.
+constexpr int kAndroidClientDataExtOutputKey = 0xf0;
 
 }  // namespace device
 

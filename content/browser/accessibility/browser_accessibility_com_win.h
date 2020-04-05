@@ -24,6 +24,7 @@
 #include "third_party/isimpledom/ISimpleDOMDocument.h"
 #include "third_party/isimpledom/ISimpleDOMNode.h"
 #include "third_party/isimpledom/ISimpleDOMText.h"
+#include "ui/accessibility/ax_enums.mojom-forward.h"
 #include "ui/accessibility/platform/ax_platform_node_delegate.h"
 #include "ui/accessibility/platform/ax_platform_node_win.h"
 
@@ -39,12 +40,6 @@ const GUID GUID_IAccessibleContentDocument = {
     0x3571,
     0x4d8f,
     {0x95, 0x21, 0x07, 0xed, 0x28, 0xfb, 0x07, 0x2e}};
-
-namespace ui {
-
-enum class AXTextBoundaryDirection;
-
-}  // namespace ui
 
 namespace content {
 class BrowserAccessibilityWin;
@@ -66,7 +61,6 @@ class __declspec(uuid("562072fe-3390-43b1-9e2c-dd4118f5ac79"))
                                  public IAccessibleApplication,
                                  public IAccessibleHyperlink,
                                  public IAccessibleImage,
-                                 public IAccessibleValue,
                                  public ISimpleDOMDocument,
                                  public ISimpleDOMNode,
                                  public ISimpleDOMText {
@@ -76,7 +70,6 @@ class __declspec(uuid("562072fe-3390-43b1-9e2c-dd4118f5ac79"))
   COM_INTERFACE_ENTRY(IAccessibleApplication)
   COM_INTERFACE_ENTRY(IAccessibleHyperlink)
   COM_INTERFACE_ENTRY(IAccessibleImage)
-  COM_INTERFACE_ENTRY(IAccessibleValue)
   COM_INTERFACE_ENTRY(ISimpleDOMDocument)
   COM_INTERFACE_ENTRY(ISimpleDOMNode)
   COM_INTERFACE_ENTRY(ISimpleDOMText)
@@ -218,18 +211,6 @@ class __declspec(uuid("562072fe-3390-43b1-9e2c-dd4118f5ac79"))
   get_localizedName(LONG action_index, BSTR* localized_name) override;
 
   //
-  // IAccessibleValue methods.
-  //
-
-  CONTENT_EXPORT IFACEMETHODIMP get_currentValue(VARIANT* value) override;
-
-  CONTENT_EXPORT IFACEMETHODIMP get_minimumValue(VARIANT* value) override;
-
-  CONTENT_EXPORT IFACEMETHODIMP get_maximumValue(VARIANT* value) override;
-
-  CONTENT_EXPORT IFACEMETHODIMP setCurrentValue(VARIANT new_value) override;
-
-  //
   // ISimpleDOMDocument methods.
   //
 
@@ -356,7 +337,6 @@ class __declspec(uuid("562072fe-3390-43b1-9e2c-dd4118f5ac79"))
   CONTENT_EXPORT void ComputeStylesIfNeeded();
 
   // Public accessors (these do not have COM accessible accessors)
-  const base::string16& role_name() const { return win_attributes_->role_name; }
   const ui::TextAttributeMap& offset_to_text_attributes() const {
     return win_attributes_->offset_to_text_attributes;
   }
@@ -406,14 +386,17 @@ class __declspec(uuid("562072fe-3390-43b1-9e2c-dd4118f5ac79"))
   HRESULT GetStringAttributeAsBstr(ax::mojom::StringAttribute attribute,
                                    BSTR* value_bstr);
 
+  // Retrieves the name, allocates a new BSTR if non-empty and returns S_OK. If
+  // name is empty, returns S_FALSE.
+  HRESULT GetNameAsBstr(BSTR* value_bstr);
+
   // Sets the selection given a start and end offset in IA2 Hypertext.
   void SetIA2HypertextSelection(LONG start_offset, LONG end_offset);
 
   // Searches forward from the given offset until the start of the next style
   // is found, or searches backward from the given offset until the start of the
   // current style is found.
-  LONG FindStartOfStyle(LONG start_offset,
-                        ui::AXTextBoundaryDirection direction);
+  LONG FindStartOfStyle(LONG start_offset, ax::mojom::MoveDirection direction);
 
   // ID refers to the node ID in the current tree, not the globally unique ID.
   // TODO(nektar): Could we use globally unique IDs everywhere?
@@ -436,7 +419,6 @@ class __declspec(uuid("562072fe-3390-43b1-9e2c-dd4118f5ac79"))
     // IAccessible role and state.
     int32_t ia_role;
     int32_t ia_state;
-    base::string16 role_name;
 
     // IAccessible name, description, help, value.
     base::string16 name;

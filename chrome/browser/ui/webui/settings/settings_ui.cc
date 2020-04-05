@@ -26,6 +26,7 @@
 #include "chrome/browser/ui/webui/favicon_source.h"
 #include "chrome/browser/ui/webui/managed_ui_handler.h"
 #include "chrome/browser/ui/webui/metrics_handler.h"
+#include "chrome/browser/ui/webui/plural_string_handler.h"
 #include "chrome/browser/ui/webui/settings/about_handler.h"
 #include "chrome/browser/ui/webui/settings/accessibility_main_handler.h"
 #include "chrome/browser/ui/webui/settings/appearance_handler.h"
@@ -34,6 +35,7 @@
 #include "chrome/browser/ui/webui/settings/downloads_handler.h"
 #include "chrome/browser/ui/webui/settings/extension_control_handler.h"
 #include "chrome/browser/ui/webui/settings/font_handler.h"
+#include "chrome/browser/ui/webui/settings/hats_handler.h"
 #include "chrome/browser/ui/webui/settings/import_data_handler.h"
 #include "chrome/browser/ui/webui/settings/metrics_reporting_handler.h"
 #include "chrome/browser/ui/webui/settings/on_startup_handler.h"
@@ -41,12 +43,15 @@
 #include "chrome/browser/ui/webui/settings/profile_info_handler.h"
 #include "chrome/browser/ui/webui/settings/protocol_handlers_handler.h"
 #include "chrome/browser/ui/webui/settings/reset_settings_handler.h"
+#include "chrome/browser/ui/webui/settings/safe_browsing_handler.h"
+#include "chrome/browser/ui/webui/settings/safety_check_handler.h"
 #include "chrome/browser/ui/webui/settings/search_engines_handler.h"
 #include "chrome/browser/ui/webui/settings/settings_clear_browsing_data_handler.h"
 #include "chrome/browser/ui/webui/settings/settings_cookies_view_handler.h"
 #include "chrome/browser/ui/webui/settings/settings_localized_strings_provider.h"
 #include "chrome/browser/ui/webui/settings/settings_media_devices_selection_handler.h"
 #include "chrome/browser/ui/webui/settings/settings_page_ui_handler.h"
+#include "chrome/browser/ui/webui/settings/settings_secure_dns_handler.h"
 #include "chrome/browser/ui/webui/settings/settings_security_key_handler.h"
 #include "chrome/browser/ui/webui/settings/settings_startup_pages_handler.h"
 #include "chrome/browser/ui/webui/settings/shared_settings_localized_strings_provider.h"
@@ -61,9 +66,12 @@
 #include "chrome/grit/generated_resources.h"
 #include "chrome/grit/settings_resources.h"
 #include "chrome/grit/settings_resources_map.h"
+#include "components/content_settings/core/common/features.h"
 #include "components/favicon_base/favicon_url_parser.h"
 #include "components/password_manager/core/common/password_manager_features.h"
 #include "components/pref_registry/pref_registry_syncable.h"
+#include "components/prefs/pref_service.h"
+#include "components/signin/public/base/signin_pref_names.h"
 #include "content/public/browser/url_data_source.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
@@ -131,14 +139,6 @@ constexpr char kGeneratedPath[] =
 #endif
 
 // static
-int SettingsUI::hats_timeout_ms_ = 10000;
-
-// static
-void SettingsUI::SetHatsTimeoutForTesting(int timeout) {
-  hats_timeout_ms_ = timeout;
-}
-
-// static
 void SettingsUI::RegisterProfilePrefs(
     user_prefs::PrefRegistrySyncable* registry) {
   registry->RegisterBooleanPref(prefs::kImportDialogAutofillFormData, true);
@@ -167,6 +167,7 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
   // Currently only used for testing the Polymer 3 version of
   // certificate-manager.
 #if BUILDFLAG(OPTIMIZE_WEBUI)
+  html_source->EnableReplaceI18nInJS();
   html_source->OverrideContentSecurityPolicyScriptSrc(
       "script-src chrome://resources chrome://test 'self';");
   html_source->AddResourcePath("test_loader.js", IDR_WEBUI_JS_TEST_LOADER);
@@ -186,11 +187,13 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
   AddSettingsPageUIHandler(std::make_unique<BrowserLifetimeHandler>());
   AddSettingsPageUIHandler(
       std::make_unique<ClearBrowsingDataHandler>(web_ui, profile));
+  AddSettingsPageUIHandler(std::make_unique<SafetyCheckHandler>());
   AddSettingsPageUIHandler(std::make_unique<CookiesViewHandler>());
   AddSettingsPageUIHandler(std::make_unique<DownloadsHandler>(profile));
   AddSettingsPageUIHandler(std::make_unique<ExtensionControlHandler>());
   AddSettingsPageUIHandler(std::make_unique<FontHandler>(web_ui));
   AddSettingsPageUIHandler(std::make_unique<ImportDataHandler>());
+  AddSettingsPageUIHandler(std::make_unique<HatsHandler>());
 
 #if defined(OS_WIN) || defined(OS_CHROMEOS)
   AddSettingsPageUIHandler(std::make_unique<LanguagesHandler>(web_ui));
@@ -205,7 +208,9 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
   AddSettingsPageUIHandler(std::make_unique<PeopleHandler>(profile));
   AddSettingsPageUIHandler(std::make_unique<ProfileInfoHandler>(profile));
   AddSettingsPageUIHandler(std::make_unique<ProtocolHandlersHandler>());
+  AddSettingsPageUIHandler(std::make_unique<SafeBrowsingHandler>(profile));
   AddSettingsPageUIHandler(std::make_unique<SearchEnginesHandler>(profile));
+  AddSettingsPageUIHandler(std::make_unique<SecureDnsHandler>());
   AddSettingsPageUIHandler(std::make_unique<SiteSettingsHandler>(
       profile, GetRegistrarForProfile(profile)));
   AddSettingsPageUIHandler(std::make_unique<StartupPagesHandler>(web_ui));
@@ -247,11 +252,12 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
         std::make_unique<IncompatibleApplicationsHandler>());
 #endif  // OS_WIN && BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
-#if !defined(OS_CHROMEOS)
+  html_source->AddBoolean("signinAllowed", !profile->IsGuestSession() &&
+                                               profile->GetPrefs()->GetBoolean(
+                                                   prefs::kSigninAllowed));
   html_source->AddBoolean(
-      "diceEnabled",
-      AccountConsistencyModeManager::IsDiceEnabledForProfile(profile));
-#endif  // !defined(OS_CHROMEOS)
+      "improvedCookieControlsEnabled",
+      base::FeatureList::IsEnabled(content_settings::kImprovedCookieControls));
 
   html_source->AddBoolean(
       "privacySettingsRedesignEnabled",
@@ -261,9 +267,18 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
       "navigateToGooglePasswordManager",
       ShouldManagePasswordsinGooglePasswordManager(profile));
 
+  html_source->AddBoolean(
+      "enablePasswordCheck",
+      base::FeatureList::IsEnabled(password_manager::features::kPasswordCheck));
+
   html_source->AddBoolean("showImportPasswords",
                           base::FeatureList::IsEnabled(
                               password_manager::features::kPasswordImport));
+
+  html_source->AddBoolean(
+      "enableAccountStorage",
+      base::FeatureList::IsEnabled(
+          password_manager::features::kEnablePasswordsAccountStorage));
 
   html_source->AddBoolean(
       "syncSetupFriendlySettings",
@@ -272,6 +287,8 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
 #if defined(OS_CHROMEOS)
   html_source->AddBoolean("splitSettingsSyncEnabled",
                           chromeos::features::IsSplitSettingsSyncEnabled());
+  html_source->AddBoolean("splitSyncConsent",
+                          chromeos::features::IsSplitSyncConsentEnabled());
 
   html_source->AddBoolean(
       "userCannotManuallyEnterPassword",
@@ -293,6 +310,12 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
   AddSettingsPageUIHandler(
       base::WrapUnique(ResetSettingsHandler::Create(html_source, profile)));
 
+  // Add a handler to provide pluralized strings.
+  auto plural_string_handler = std::make_unique<PluralStringHandler>();
+  plural_string_handler->AddLocalizedString(
+      "compromisedPasswords", IDS_SETTINGS_COMPROMISED_PASSWORDS_COUNT);
+  web_ui->AddMessageHandler(std::move(plural_string_handler));
+
   // Add the metrics handler to write uma stats.
   web_ui->AddMessageHandler(std::make_unique<MetricsHandler>());
 
@@ -303,6 +326,45 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
   html_source->AddResourcePath("lazy_load.html",
                                IDR_SETTINGS_LAZY_LOAD_VULCANIZED_HTML);
   html_source->SetDefaultResource(IDR_SETTINGS_VULCANIZED_HTML);
+
+  // Register SVG images that are purposefully not inlined in the HTML bundle
+  // above.
+  html_source->AddResourcePath("images/cookies_banner.svg",
+                               IDR_SETTINGS_IMAGES_COOKIES_BANNER_SVG);
+  html_source->AddResourcePath("images/cookies_banner_dark.svg",
+                               IDR_SETTINGS_IMAGES_COOKIES_BANNER_DARK_SVG);
+  html_source->AddResourcePath("images/permissions_banner.svg",
+                               IDR_SETTINGS_IMAGES_PERMISSIONS_BANNER_SVG);
+  html_source->AddResourcePath("images/permissions_banner_dark.svg",
+                               IDR_SETTINGS_IMAGES_PERMISSIONS_BANNER_DARK_SVG);
+  html_source->AddResourcePath("images/safe_browsing_banner.svg",
+                               IDR_SETTINGS_IMAGES_SAFE_BROWSING_BANNER_SVG);
+  html_source->AddResourcePath(
+      "images/safe_browsing_banner_dark.svg",
+      IDR_SETTINGS_IMAGES_SAFE_BROWSING_BANNER_DARK_SVG);
+  html_source->AddResourcePath("images/sync_banner.svg",
+                               IDR_SETTINGS_IMAGES_SYNC_BANNER_SVG);
+  html_source->AddResourcePath("images/sync_banner_dark.svg",
+                               IDR_SETTINGS_IMAGES_SYNC_BANNER_DARK_SVG);
+  html_source->AddResourcePath("images/password_check_neutral.svg",
+                               IDR_SETTINGS_IMAGES_PASSWORD_CHECK_NEUTRAL_SVG);
+  html_source->AddResourcePath(
+      "images/password_check_neutral_dark.svg",
+      IDR_SETTINGS_IMAGES_PASSWORD_CHECK_NEUTRAL_DARK_SVG);
+  html_source->AddResourcePath("images/password_check_positive.svg",
+                               IDR_SETTINGS_IMAGES_PASSWORD_CHECK_POSITIVE_SVG);
+  html_source->AddResourcePath(
+      "images/password_check_positive_dark.svg",
+      IDR_SETTINGS_IMAGES_PASSWORD_CHECK_POSITIVE_DARK_SVG);
+
+  // Only used in Polymer 3, see https://crbug.com/1026426.
+  html_source->AddResourcePath("settings.js", IDR_SETTINGS_SETTINGS_ROLLUP_JS);
+  html_source->AddResourcePath("shared.rollup.js",
+                               IDR_SETTINGS_SHARED_ROLLUP_JS);
+  html_source->AddResourcePath("lazy_load.js",
+                               IDR_SETTINGS_LAZY_LOAD_ROLLUP_JS);
+  html_source->AddResourcePath("settings_v3.html",
+                               IDR_SETTINGS_SETTINGS_V3_HTML);
 #else
   webui::SetupWebUIDataSource(
       html_source, base::make_span(kSettingsResources, kSettingsResourcesSize),
@@ -321,11 +383,7 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
       profile, std::make_unique<FaviconSource>(
                    profile, chrome::FaviconUrlFormat::kFavicon2));
 
-  base::SequencedTaskRunnerHandle::Get()->PostDelayedTask(
-      FROM_HERE,
-      base::BindOnce(&SettingsUI::LaunchSettingsSurveyIfAppropriate,
-                     weak_ptr_factory_.GetWeakPtr()),
-      base::TimeDelta::FromMilliseconds(hats_timeout_ms_));
+  TryShowHatsSurveyWithTimeout();
 }
 
 SettingsUI::~SettingsUI() = default;
@@ -378,14 +436,13 @@ void SettingsUI::AddSettingsPageUIHandler(
   web_ui()->AddMessageHandler(std::move(handler));
 }
 
-void SettingsUI::LaunchSettingsSurveyIfAppropriate() {
+void SettingsUI::TryShowHatsSurveyWithTimeout() {
   HatsService* hats_service =
       HatsServiceFactory::GetForProfile(Profile::FromWebUI(web_ui()),
                                         /* create_if_necessary = */ true);
-  auto* web_contents = web_ui()->GetWebContents();
-  if (web_contents->GetVisibility() == content::Visibility::VISIBLE &&
-      hats_service) {
-    hats_service->LaunchSurvey(kHatsSurveyTriggerSettings);
+  if (hats_service) {
+    hats_service->LaunchDelayedSurveyForWebContents(
+        kHatsSurveyTriggerSettings, web_ui()->GetWebContents(), 20000);
   }
 }
 

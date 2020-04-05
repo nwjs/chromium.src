@@ -21,6 +21,9 @@ declare_args() {
   # Enables checks that ensure the packages are installable on all supported
   # distributions.
   enable_distro_version_check = true
+
+  # Enable building snap packages
+  enable_snap_package = false
 }
 
 assert(is_linux)
@@ -361,11 +364,10 @@ template("linux_package") {
   assert(defined(invoker.channel))
   channel = invoker.channel
 
-  if (current_cpu == "x86") {
-    # The shell scripts use "ia32" instead of "x86".
-    build_script_arch = "ia32"
+  if (is_chrome_branded) {
+    package = "google-chrome"
   } else {
-    build_script_arch = current_cpu
+    package = "chromium-browser"
   }
 
   deb_target_name = "${target_name}_deb"
@@ -378,7 +380,7 @@ template("linux_package") {
     } else if (current_cpu == "x64") {
       deb_arch = "amd64"
     } else if (current_cpu == "arm") {
-      deb_arch = "arm"
+      deb_arch = "armhf"
     } else if (current_cpu == "arm64") {
       deb_arch = "arm64"
     } else if (current_cpu == "mipsel") {
@@ -390,19 +392,12 @@ template("linux_package") {
     }
 
     inputs = packaging_files
-    if (is_chrome_branded) {
-      package = "google-chrome"
-    } else {
-      package = "chromium-browser"
-    }
     outputs = [ "$root_out_dir/${package}-${channel}_${chrome_version_full}-1_${deb_arch}.deb" ]
 
     args = [
       rebase_path("$root_out_dir/installer/debian/build.sh", root_build_dir),
       "-a",
-      build_script_arch,
-      "-b",
-      rebase_path(root_out_dir, root_build_dir),
+      deb_arch,
       "-c",
       invoker.channel,
       "-d",
@@ -434,9 +429,9 @@ template("linux_package") {
       } else if (current_cpu == "x64") {
         rpm_arch = "x86_64"
       } else if (current_cpu == "arm") {
-        rpm_arch = "arm"
+        rpm_arch = "armhf"
       } else if (current_cpu == "arm64") {
-        rpm_arch = "arm64"
+        rpm_arch = "aarch64"
       } else if (current_cpu == "mipsel") {
         rpm_arch = "mipsel"
       } else if (current_cpu == "mips64el") {
@@ -446,19 +441,12 @@ template("linux_package") {
       }
 
       inputs = packaging_files
-      if (is_chrome_branded) {
-        package = "google-chrome"
-      } else {
-        package = "chromium-browser"
-      }
       outputs = [ "$root_out_dir/${package}-${channel}-${chrome_version_full}-1.${rpm_arch}.rpm" ]
 
       args = [
         rebase_path("$root_out_dir/installer/rpm/build.sh", root_build_dir),
         "-a",
-        build_script_arch,
-        "-b",
-        rebase_path(root_out_dir, root_build_dir),
+        rpm_arch,
         "-c",
         invoker.channel,
         "-d",
@@ -476,12 +464,54 @@ template("linux_package") {
         ":merge_rpm_dependencies",
       ]
     }
+
+    if (enable_snap_package) {
+      snap_target_name = "${target_name}_snap"
+      action(snap_target_name) {
+        visibility = [ ":*" ]
+        deps = [
+          ":installer_deps",
+          ":save_build_info",
+        ]
+        script = "//build/gn_run_binary.py"
+        sources = [
+          "snap/chrome.launcher.in",
+          "snap/snapcraft.yaml.in",
+        ]
+        if (!is_chrome_branded) {
+          package = "chromium"
+        }
+        if (current_cpu == "x86") {
+          snap_arch = "i386"
+        } else if (current_cpu == "x64") {
+          snap_arch = "amd64"
+        } else if (current_cpu == "arm") {
+          snap_arch = "armhf"
+        } else if (current_cpu == "arm64") {
+          snap_arch = "arm64"
+        } else {
+          assert(false, "Linux installer not configured for this architecture.")
+        }
+        args = [
+          rebase_path("snap/build.sh", root_build_dir),
+          package,
+          channel,
+          chrome_version_full,
+          snap_arch,
+          target_os,
+        ]
+        outputs = [ "$root_out_dir/${package}-${channel}_${chrome_version_full}_${snap_arch}.snap" ]
+      }
+    }
   }
 
   group(target_name) {
     deps = [ ":$deb_target_name" ]
     if (!is_chromeos) {
       deps += [ ":$rpm_target_name" ]
+      if (enable_snap_package) {
+        deps += [ ":$snap_target_name" ]
+      }
     }
   }
 }

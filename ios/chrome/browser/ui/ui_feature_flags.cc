@@ -4,9 +4,6 @@
 
 #include "ios/chrome/browser/ui/ui_feature_flags.h"
 
-const base::Feature kBrowserContainerKeepsContentView{
-    "BrowserContainerKeepsContentView", base::FEATURE_DISABLED_BY_DEFAULT};
-
 // TODO(crbug.com/945811): Using |-drawViewHierarchyInRect:afterScreenUpdates:|
 // has adverse flickering when taking a snapshot of the NTP while in the app
 // switcher.
@@ -29,10 +26,19 @@ const base::Feature kForceUnstackedTabstrip{"ForceUnstackedTabstrip",
                                             base::FEATURE_DISABLED_BY_DEFAULT};
 
 const base::Feature kContainedBVC{"ContainedBVC",
-                                  base::FEATURE_DISABLED_BY_DEFAULT};
+                                  base::FEATURE_ENABLED_BY_DEFAULT};
 
 const base::Feature kTestFeature{"TestFeature",
                                  base::FEATURE_DISABLED_BY_DEFAULT};
 
 const base::Feature kClearSyncedData{"ClearSyncedData",
                                      base::FEATURE_DISABLED_BY_DEFAULT};
+
+const base::Feature kFirstResponderSendAction{
+    "FirstResponderSendAction", base::FEATURE_DISABLED_BY_DEFAULT};
+
+const base::Feature kNewSigninArchitecture{"NewSigninArchitecture",
+                                           base::FEATURE_DISABLED_BY_DEFAULT};
+
+const base::Feature kQRCodeGeneration{"QRCodeGeneration",
+                                      base::FEATURE_DISABLED_BY_DEFAULT};

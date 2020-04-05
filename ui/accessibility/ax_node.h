@@ -162,7 +162,7 @@ class AX_EXPORT AXNode final {
 
   // Swap the internal children vector with |children|. This instance
   // now owns all of the passed children.
-  void SwapChildren(std::vector<AXNode*>& children);
+  void SwapChildren(std::vector<AXNode*>* children);
 
   // This is called when the AXTree no longer includes this node in the
   // tree. Reference counting is used on some platforms because the
@@ -172,7 +172,7 @@ class AX_EXPORT AXNode final {
   void Destroy();
 
   // Return true if this object is equal to or a descendant of |ancestor|.
-  bool IsDescendantOf(AXNode* ancestor);
+  bool IsDescendantOf(const AXNode* ancestor) const;
 
   // Gets the text offsets where new lines start either from the node's data or
   // by computing them and caching the result.
@@ -264,6 +264,9 @@ class AX_EXPORT AXNode final {
     return data().GetHtmlAttribute(attribute, value);
   }
 
+  // Return the hierarchical level if supported.
+  base::Optional<int> GetHierarchicalLevel() const;
+
   // PosInSet and SetSize public methods.
   bool IsOrderedSetItem() const;
   bool IsOrderedSet() const;
@@ -274,6 +277,10 @@ class AX_EXPORT AXNode final {
   // Returns true if the role of ordered set matches the role of item.
   // Returns false otherwise.
   bool SetRoleMatchesItemRole(const AXNode* ordered_set) const;
+
+  // Container objects that should be ignored for computing PosInSet and SetSize
+  // for ordered sets.
+  bool IsIgnoredContainerForOrderedSet() const;
 
   const std::string& GetInheritedStringAttribute(
       ax::mojom::StringAttribute attribute) const;
@@ -288,7 +295,7 @@ class AX_EXPORT AXNode final {
   // This language code will be BCP 47.
   //
   // Returns empty string if no appropriate language was found.
-  std::string GetLanguage();
+  std::string GetLanguage() const;
 
   //
   // Helper functions for tables, table rows, and table cells.
@@ -381,17 +388,13 @@ class AX_EXPORT AXNode final {
   // of a list marker node. Returns false otherwise.
   bool IsInListMarker() const;
 
-  // Returns true if this object is used only for representing text, including
-  // inline text boxes.
-  bool IsTextOnlyObject() const;
-
  private:
   // Computes the text offset where each line starts by traversing all child
   // leaf nodes.
   void ComputeLineStartOffsets(std::vector<int>* line_offsets,
                                int* start_offset) const;
   AXTableInfo* GetAncestorTableInfo() const;
-  void IdVectorToNodeVector(std::vector<int32_t>& ids,
+  void IdVectorToNodeVector(const std::vector<int32_t>& ids,
                             std::vector<AXNode*>* nodes) const;
 
   int UpdateUnignoredCachedValuesRecursive(int startIndex);
@@ -401,11 +404,11 @@ class AX_EXPORT AXNode final {
   // Finds and returns a pointer to ordered set containing node.
   AXNode* GetOrderedSet() const;
 
-  OwnerTree* tree_;  // Owns this.
+  OwnerTree* const tree_;  // Owns this.
   size_t index_in_parent_;
   size_t unignored_index_in_parent_;
-  size_t unignored_child_count_;
-  AXNode* parent_;
+  size_t unignored_child_count_ = 0;
+  AXNode* const parent_;
   std::vector<AXNode*> children_;
   AXNodeData data_;
 

@@ -21,6 +21,7 @@
 #endif  // defined(OS_CHROMEOS)
 
 namespace net {
+class DhcpPacFileFetcher;
 class HostResolver;
 class NetLog;
 class NetworkDelegate;

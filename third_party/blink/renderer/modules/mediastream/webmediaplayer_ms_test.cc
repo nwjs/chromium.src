@@ -190,9 +190,9 @@ class ReusableMessageLoopEvent {
  public:
   ReusableMessageLoopEvent() : event_(new media::WaitableMessageLoopEvent()) {}
 
-  base::RepeatingClosure GetClosure() const { return event_->GetClosure(); }
+  base::OnceClosure GetClosure() const { return event_->GetClosure(); }
 
-  media::PipelineStatusCB GetPipelineStatusCB() const {
+  media::PipelineStatusCallback GetPipelineStatusCB() const {
     return event_->GetPipelineStatusCB();
   }
 
@@ -590,7 +590,6 @@ class WebMediaPlayerMSTest
   bool HasNativeControls() override { return false; }
   bool IsAudioElement() override { return is_audio_element_; }
   bool IsInAutoPIP() const override { return false; }
-  void ActivateViewportIntersectionMonitoring(bool activate) override {}
   void MediaRemotingStarted(
       const WebString& remote_device_friendly_name) override {}
   void MediaRemotingStopped(int error_code) override {}
@@ -600,25 +599,7 @@ class WebMediaPlayerMSTest
   void RequestEnterPictureInPicture() override {}
   void RequestExitPictureInPicture() override {}
   Features GetFeatures() override { return Features(); }
-  void OnRequestAnimationFrame(
-      base::TimeTicks presentation_time,
-      base::TimeTicks expected_presentation_time,
-      uint32_t presentation_counter,
-      const media::VideoFrame& presented_frame) override {
-    // Check if we should queue another RAF call.
-    if (chained_raf_call_count_) {
-      --chained_raf_call_count_;
-      player_->RequestAnimationFrame();
-    }
 
-    // Verify the frame size here because there is no good way of capturing
-    // a const media::VideoFrame& using mocks.
-    EXPECT_EQ(presented_frame.visible_rect().height(), kStandardHeight);
-    EXPECT_EQ(presented_frame.visible_rect().width(), kStandardWidth);
-
-    DoOnRequestAnimationFrame(presentation_time, expected_presentation_time,
-                              presentation_counter, presented_frame);
-  }
 
   // Implementation of cc::VideoFrameProvider::Client
   void StopUsingProvider() override;
@@ -654,12 +635,7 @@ class WebMediaPlayerMSTest
   MOCK_METHOD1(CheckSizeChanged, void(gfx::Size));
   MOCK_CONST_METHOD0(DisplayType, WebMediaPlayer::DisplayType());
   MOCK_CONST_METHOD0(CouldPlayIfEnoughData, bool());
-
-  MOCK_METHOD4(DoOnRequestAnimationFrame,
-               void(base::TimeTicks,
-                    base::TimeTicks,
-                    uint32_t,
-                    const media::VideoFrame&));
+  MOCK_METHOD0(OnRequestAnimationFrame, void());
 
   std::unique_ptr<WebSurfaceLayerBridge> CreateMockSurfaceLayerBridge(
       WebSurfaceLayerBridgeObserver*,
@@ -681,7 +657,6 @@ class WebMediaPlayerMSTest
   NiceMock<MockSurfaceLayerBridge>* surface_layer_bridge_ptr_ = nullptr;
   NiceMock<MockWebVideoFrameSubmitter>* submitter_ptr_ = nullptr;
   bool enable_surface_layer_for_video_ = false;
-  int chained_raf_call_count_ = 0;
 
  private:
   // Main function trying to ask WebMediaPlayerMS to submit a frame for
@@ -758,8 +733,8 @@ void WebMediaPlayerMSTest::ReadyStateChanged() {
   if (state == WebMediaPlayer::ReadyState::kReadyStateHaveMetadata &&
       !player_->HasAudio()) {
     const auto& size = player_->NaturalSize();
-    EXPECT_GT(size.width, 0);
-    EXPECT_GT(size.height, 0);
+    EXPECT_GT(size.width(), 0);
+    EXPECT_GT(size.height(), 0);
   }
   if (state == WebMediaPlayer::ReadyState::kReadyStateHaveEnoughData)
     player_->Play();
@@ -921,9 +896,9 @@ TEST_P(WebMediaPlayerMSTest, Playing_Normal) {
               CheckSizeChanged(gfx::Size(kStandardWidth, kStandardHeight)));
   message_loop_controller_.RunAndWaitForStatus(
       media::PipelineStatus::PIPELINE_OK);
-  const WebSize& natural_size = player_->NaturalSize();
-  EXPECT_EQ(kStandardWidth, natural_size.width);
-  EXPECT_EQ(kStandardHeight, natural_size.height);
+  const gfx::Size& natural_size = player_->NaturalSize();
+  EXPECT_EQ(kStandardWidth, natural_size.width());
+  EXPECT_EQ(kStandardHeight, natural_size.height());
   testing::Mock::VerifyAndClearExpectations(this);
 
   EXPECT_CALL(*this, DoSetCcLayer(false));
@@ -1083,10 +1058,10 @@ TEST_P(WebMediaPlayerMSTest, RotationChange) {
   // Make sure we run all non-delayed tasks (E.G. CheckForFrameChanges) before
   // testing state.
   base::RunLoop().RunUntilIdle();
-  WebSize natural_size = player_->NaturalSize();
+  gfx::Size natural_size = player_->NaturalSize();
   // Check that height and width are flipped.
-  EXPECT_EQ(kStandardHeight, natural_size.width);
-  EXPECT_EQ(kStandardWidth, natural_size.height);
+  EXPECT_EQ(kStandardHeight, natural_size.width());
+  EXPECT_EQ(kStandardWidth, natural_size.height());
 
   // Change rotation.
   tokens[0] = 33;
@@ -1103,8 +1078,8 @@ TEST_P(WebMediaPlayerMSTest, RotationChange) {
       media::PipelineStatus::PIPELINE_OK);
   base::RunLoop().RunUntilIdle();
   natural_size = player_->NaturalSize();
-  EXPECT_EQ(kStandardHeight, natural_size.height);
-  EXPECT_EQ(kStandardWidth, natural_size.width);
+  EXPECT_EQ(kStandardHeight, natural_size.height());
+  EXPECT_EQ(kStandardWidth, natural_size.width());
 
   // Change rotation again.
   tokens[0] = 66;
@@ -1121,8 +1096,8 @@ TEST_P(WebMediaPlayerMSTest, RotationChange) {
       media::PipelineStatus::PIPELINE_OK);
   base::RunLoop().RunUntilIdle();
   natural_size = player_->NaturalSize();
-  EXPECT_EQ(kStandardHeight, natural_size.width);
-  EXPECT_EQ(kStandardWidth, natural_size.height);
+  EXPECT_EQ(kStandardHeight, natural_size.width());
+  EXPECT_EQ(kStandardWidth, natural_size.height());
 
   testing::Mock::VerifyAndClearExpectations(this);
   EXPECT_CALL(*this, DoSetCcLayer(false));
@@ -1405,25 +1380,20 @@ TEST_P(WebMediaPlayerMSTest, RequestAnimationFrame) {
   MockMediaStreamVideoRenderer* provider = LoadAndGetFrameProvider(true);
 
   const int kTestBrake = static_cast<int>(FrameType::TEST_BRAKE);
-  int tokens[] = {0,          33,  kTestBrake, 66,  100, 133, 166,
-                  kTestBrake, 200, 233,        266, 300, 333};
+  int tokens[] = {0, 33, kTestBrake, 66, 100, 133, 166};
   std::vector<int> timestamps(tokens, tokens + sizeof(tokens) / sizeof(int));
   provider->QueueFrames(timestamps);
 
-  base::TimeTicks presentation_time;
-  base::TimeTicks expected_presentation_time;
-
   // Verify a basic call to RAF.
   player_->RequestAnimationFrame();
-  EXPECT_CALL(*this, DoOnRequestAnimationFrame(_, _, _, _))
-      .Times(1)
-      .WillOnce(DoAll(SaveArg<0>(&presentation_time),
-                      SaveArg<1>(&expected_presentation_time)));
+  EXPECT_CALL(*this, OnRequestAnimationFrame()).Times(1);
   message_loop_controller_.RunAndWaitForStatus(
       media::PipelineStatus::PIPELINE_OK);
 
-  EXPECT_GT(presentation_time, base::TimeTicks());
-  EXPECT_GE(expected_presentation_time, presentation_time);
+  auto metadata = player_->GetVideoFramePresentationMetadata();
+
+  EXPECT_GT(metadata->presentation_time, base::TimeTicks());
+  EXPECT_GE(metadata->expected_display_time, metadata->presentation_time);
   testing::Mock::VerifyAndClearExpectations(this);
 
   // Make sure multiple calls to RAF only result in one call per frame to OnRAF.
@@ -1431,28 +1401,43 @@ TEST_P(WebMediaPlayerMSTest, RequestAnimationFrame) {
   player_->RequestAnimationFrame();
   player_->RequestAnimationFrame();
 
-  EXPECT_CALL(*this, DoOnRequestAnimationFrame(_, _, _, _)).Times(1);
+  EXPECT_CALL(*this, OnRequestAnimationFrame()).Times(1);
   message_loop_controller_.RunAndWaitForStatus(
       media::PipelineStatus::PIPELINE_OK);
   testing::Mock::VerifyAndClearExpectations(this);
+}
 
-  // Make sure we can chain calls to RAF.
+TEST_P(WebMediaPlayerMSTest, GetVideoFramePresentationMetadata) {
+  InitializeWebMediaPlayerMS();
+
+  MockMediaStreamVideoRenderer* provider = LoadAndGetFrameProvider(true);
+
+  const int kTestBrake = static_cast<int>(FrameType::TEST_BRAKE);
+  int tokens[] = {0, kTestBrake, 33, kTestBrake, 66, kTestBrake};
+  std::vector<int> timestamps(tokens, tokens + sizeof(tokens) / sizeof(int));
+  provider->QueueFrames(timestamps);
+
+  // Chain calls to video.rAF.
+  int num_frames = 3;
   player_->RequestAnimationFrame();
-  chained_raf_call_count_ = 3;
 
   // Verify that the presentation frame counter is monotonically increasing.
-  // NOTE: 0 is fine here as a starting value, since the counter should already
-  // be >0, because of the calls above.
-  uint32_t last_frame_counter = 0;
-  EXPECT_CALL(*this, DoOnRequestAnimationFrame(_, _, _, _))
-      .Times(chained_raf_call_count_ + 1)
-      .WillRepeatedly(WithArgs<2>([&](uint32_t frame_counter) {
-        EXPECT_GT(frame_counter, last_frame_counter);
-        last_frame_counter = frame_counter;
-      }));
+  // Queue up a rAF call immediately after each frame.
+  int last_frame_counter = -1;
+  EXPECT_CALL(*this, OnRequestAnimationFrame())
+      .Times(num_frames)
+      .WillRepeatedly([&]() {
+        auto metadata = player_->GetVideoFramePresentationMetadata();
+        EXPECT_GT((int)metadata->presented_frames, last_frame_counter);
+        last_frame_counter = metadata->presented_frames;
+        player_->RequestAnimationFrame();
+      });
 
-  message_loop_controller_.RunAndWaitForStatus(
-      media::PipelineStatus::PIPELINE_OK);
+  // Wait for each of the frame/kTestBreak pairs.
+  while (num_frames--) {
+    message_loop_controller_.RunAndWaitForStatus(
+        media::PipelineStatus::PIPELINE_OK);
+  }
   testing::Mock::VerifyAndClearExpectations(this);
 }
 

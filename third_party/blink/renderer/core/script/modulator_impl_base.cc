@@ -53,82 +53,6 @@ bool ModulatorImplBase::ImportMapsEnabled() const {
   return RuntimeEnabledFeatures::ImportMapsEnabled(GetExecutionContext());
 }
 
-bool ModulatorImplBase::BuiltInModuleInfraEnabled() const {
-  return RuntimeEnabledFeatures::BuiltInModuleInfraEnabled(
-      GetExecutionContext());
-}
-
-bool ModulatorImplBase::BuiltInModuleEnabled(layered_api::Module module) const {
-  DCHECK(BuiltInModuleInfraEnabled());
-
-  // Some built-in APIs are available only on SecureContexts.
-  // https://crbug.com/977470
-  if (BuiltInModuleRequireSecureContext(module) &&
-      !GetExecutionContext()->IsSecureContext()) {
-    return false;
-  }
-
-  if (RuntimeEnabledFeatures::BuiltInModuleAllEnabled())
-    return true;
-  switch (module) {
-    case layered_api::Module::kBlank:
-      return true;
-    case layered_api::Module::kKvStorage:
-      return RuntimeEnabledFeatures::BuiltInModuleKvStorageEnabled(
-          GetExecutionContext());
-    case layered_api::Module::kElementsInternal:
-      // Union of conditions of KElementsSwitch and kElementsToast.
-      return RuntimeEnabledFeatures::BuiltInModuleSwitchElementEnabled();
-    case layered_api::Module::kElementsSwitch:
-      return RuntimeEnabledFeatures::BuiltInModuleSwitchElementEnabled();
-    case layered_api::Module::kElementsToast:
-      return RuntimeEnabledFeatures::BuiltInModuleAllEnabled();
-    case layered_api::Module::kElementsVirtualScroller:
-      return false;
-  }
-}
-
-bool ModulatorImplBase::BuiltInModuleRequireSecureContext(
-    layered_api::Module module) {
-  switch (module) {
-    case layered_api::Module::kBlank:
-    case layered_api::Module::kElementsInternal:
-    case layered_api::Module::kElementsSwitch:
-    case layered_api::Module::kElementsToast:
-    case layered_api::Module::kElementsVirtualScroller:
-      return false;
-    case layered_api::Module::kKvStorage:
-      return true;
-  }
-}
-
-void ModulatorImplBase::BuiltInModuleUseCount(
-    layered_api::Module module) const {
-  DCHECK(BuiltInModuleInfraEnabled());
-  DCHECK(BuiltInModuleEnabled(module));
-  switch (module) {
-    case layered_api::Module::kBlank:
-      break;
-    case layered_api::Module::kElementsInternal:
-      break;
-    case layered_api::Module::kElementsSwitch:
-      UseCounter::Count(GetExecutionContext(),
-                        WebFeature::kBuiltInModuleSwitchImported);
-      break;
-    case layered_api::Module::kElementsToast:
-      UseCounter::Count(GetExecutionContext(), WebFeature::kBuiltInModuleToast);
-      break;
-    case layered_api::Module::kElementsVirtualScroller:
-      UseCounter::Count(GetExecutionContext(),
-                        WebFeature::kBuiltInModuleVirtualScroller);
-      break;
-    case layered_api::Module::kKvStorage:
-      UseCounter::Count(GetExecutionContext(),
-                        WebFeature::kBuiltInModuleKvStorage);
-      break;
-  }
-}
-
 void ModulatorImplBase::AddToMap(const KURL& url, ModuleScript* script) {
   map_->AddToMap(url, script);
 }
@@ -181,7 +105,7 @@ KURL ModulatorImplBase::ResolveModuleSpecifier(const String& specifier,
                                                const KURL& base_url,
                                                String* failure_reason) {
   ParsedSpecifier parsed_specifier =
-      ParsedSpecifier::Create(specifier, base_url, BuiltInModuleInfraEnabled());
+      ParsedSpecifier::Create(specifier, base_url);
 
   if (!parsed_specifier.IsValid()) {
     if (failure_reason) {

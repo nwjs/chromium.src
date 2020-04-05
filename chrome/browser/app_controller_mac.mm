@@ -27,11 +27,12 @@
 #include "base/strings/sys_string_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "base/threading/scoped_blocking_call.h"
 #include "build/branding_buildflags.h"
 #include "chrome/app/chrome_command_ids.h"
+#include "chrome/browser/apps/app_shim/app_shim_manager_mac.h"
 #include "chrome/browser/apps/app_shim/app_shim_termination_manager.h"
-#include "chrome/browser/apps/app_shim/extension_app_shim_handler_mac.h"
 #include "chrome/browser/apps/platform_apps/app_window_registry_util.h"
 #include "chrome/browser/background/background_application_list_model.h"
 #include "chrome/browser/background/background_mode_manager.h"
@@ -114,7 +115,8 @@
 
 #include "content/nw/src/nw_content.h"
 
-using apps::ExtensionAppShimHandler;
+using apps::AppShimManager;
+
 using base::UserMetricsAction;
 using content::BrowserContext;
 using content::DownloadManager;
@@ -204,6 +206,15 @@ bool IsProfileSignedOut(Profile* profile) {
       g_browser_process->profile_manager()->GetProfileAttributesStorage().
           GetProfileAttributesWithPath(profile->GetPath(), &entry);
   return has_entry && entry->IsSigninRequired();
+}
+
+void ConfigureNSAppForKioskMode() {
+  NSApp.presentationOptions =
+      NSApplicationPresentationHideDock | NSApplicationPresentationHideMenuBar |
+      NSApplicationPresentationDisableProcessSwitching |
+      NSApplicationPresentationDisableSessionTermination |
+      NSApplicationPresentationDisableForceQuit |
+      NSApplicationPresentationFullScreen;
 }
 
 }  // namespace
@@ -487,7 +498,7 @@ static base::mac::ScopedObjCClassSwizzler* g_swizzle_imk_input_session;
         chrome::NOTIFICATION_CLOSE_ALL_BROWSERS_REQUEST,
         content::NotificationService::AllSources(),
         content::NotificationService::NoDetails());
-    chrome::CloseAllBrowsersAndQuit(true); //quits directly from dock, align with nw1
+    chrome::CloseAllBrowsersAndQuit();
   }
 
   return num_browsers == 0 ? YES : NO;
@@ -778,9 +789,9 @@ static base::mac::ScopedObjCClassSwizzler* g_swizzle_imk_input_session;
   // Record the path to the (browser) app bundle; this is used by the app mode
   // shim.
   if (base::mac::AmIBundled()) {
-    base::PostTask(
+    base::ThreadPool::PostTask(
         FROM_HERE,
-        {base::ThreadPool(), base::MayBlock(), base::TaskPriority::BEST_EFFORT,
+        {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
          base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
         base::BindOnce(&RecordLastRunAppBundlePath));
   }
@@ -789,6 +800,9 @@ static base::mac::ScopedObjCClassSwizzler* g_swizzle_imk_input_session;
   [self registerServicesMenuTypesTo:[notify object]];
 
   _startupComplete = YES;
+
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch(switches::kKioskMode))
+    ConfigureNSAppForKioskMode();
 
   Browser* browser = chrome::FindLastActive();
   content::WebContents* activeWebContents = nullptr;

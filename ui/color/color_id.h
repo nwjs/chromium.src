@@ -7,15 +7,6 @@
 
 #include "build/build_config.h"
 #include "build/buildflag.h"
-#include "ui/color/color_buildflags.h"
-
-#if !BUILDFLAG(USE_COLOR_PIPELINE)
-#include "ui/native_theme/native_theme.h"  // nogncheck
-
-#if defined(OS_WIN)
-#include <windows.h>
-#endif
-#endif
 
 // clang-format off
 #define CROSS_PLATFORM_COLOR_IDS \
@@ -71,8 +62,10 @@
   E(kColorLinkPressedForeground, NativeTheme::kColorId_LinkPressed) \
   E(kColorMenuBackground, NativeTheme::kColorId_MenuBackgroundColor) \
   E(kColorMenuBorder, NativeTheme::kColorId_MenuBorderColor) \
-  E(kColorMenuItemAlertedBackground, \
-    NativeTheme::kColorId_MenuItemAlertBackgroundColor) \
+  E(kColorMenuItemBackgroundAlertedInitial, \
+    NativeTheme::kColorId_MenuItemInitialAlertBackgroundColor) \
+  E(kColorMenuItemBackgroundAlertedTarget, \
+    NativeTheme::kColorId_MenuItemTargetAlertBackgroundColor) \
   E(kColorMenuItemDisabledForeground, \
     NativeTheme::kColorId_DisabledMenuItemForegroundColor) \
   E(kColorMenuItemForeground, \
@@ -93,6 +86,8 @@
   E(kColorTabSelectedForeground, \
     NativeTheme::kColorId_TabTitleColorActive) \
   E(kColorTableBackground, NativeTheme::kColorId_TableBackground) \
+  E(kColorTableBackgroundAlternate, \
+    NativeTheme::kColorId_TableBackgroundAlternate) \
   E(kColorTableForeground, NativeTheme::kColorId_TableText) \
   E(kColorTableGroupingIndicator, \
     NativeTheme::kColorId_TableGroupingIndicatorColor) \
@@ -113,6 +108,8 @@
     NativeTheme::kColorId_TextfieldReadOnlyBackground) \
   E(kColorTextfieldDisabledForeground, \
     NativeTheme::kColorId_TextfieldReadOnlyColor) \
+  E(kColorTextfieldPlaceholderForeground, \
+    NativeTheme::kColorId_TextfieldPlaceholderColor) \
   E(kColorTextfieldForeground, NativeTheme::kColorId_TextfieldDefaultColor) \
   E(kColorTextfieldSelectionBackground, \
     NativeTheme::kColorId_TextfieldSelectionBackgroundFocused) \
@@ -206,8 +203,6 @@ enum ColorIds : ColorId {
 
 #include "ui/color/color_id_macros.inc"
 
-#if BUILDFLAG(USE_COLOR_PIPELINE)
-
 // ColorSetId contains identifiers for all distinct color sets known to the core
 // UI layer.  As with ColorId, embedders can extend this enum with additional
 // values that are understood by the ColorProvider implementation.  Embedders
@@ -236,8 +231,6 @@ enum ColorSetIds : ColorSetId {
 
 // Verifies that |id| is a color set ID, not a color ID.
 #define DCHECK_COLOR_SET_ID_VALID(id) DCHECK_GE(id, kUiColorSetsStart)
-
-#endif  // BUILDFLAG(USE_COLOR_PIPELINE)
 
 }  // namespace ui
 

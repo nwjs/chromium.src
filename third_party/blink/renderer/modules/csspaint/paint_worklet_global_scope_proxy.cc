@@ -39,16 +39,16 @@ PaintWorkletGlobalScopeProxy::PaintWorkletGlobalScopeProxy(
       StringView("PaintWorklet #") + String::Number(global_scope_number);
 
   auto creation_params = std::make_unique<GlobalScopeCreationParams>(false, std::string(),
-      document->Url(), mojom::ScriptType::kModule,
-      OffMainThreadWorkerScriptFetchOption::kEnabled, global_scope_name,
-      document->UserAgent(), frame->Client()->CreateWorkerFetchContext(),
+      document->Url(), mojom::blink::ScriptType::kModule, global_scope_name,
+      document->UserAgent(), frame->Client()->UserAgentMetadata(),
+      frame->Client()->CreateWorkerFetchContext(),
       document->GetContentSecurityPolicy()->Headers(),
       document->GetReferrerPolicy(), document->GetSecurityOrigin(),
       document->IsSecureContext(), document->GetHttpsState(),
       nullptr /* worker_clients */,
       frame->Client()->CreateWorkerContentSettingsClient(),
       document->GetSecurityContext().AddressSpace(),
-      OriginTrialContext::GetTokens(document).get(),
+      OriginTrialContext::GetTokens(document->ToExecutionContext()).get(),
       base::UnguessableToken::Create(), nullptr /* worker_settings */,
       kV8CacheOptionsDefault, module_responses_map,
       mojo::NullRemote() /* browser_interface_broker */,
@@ -91,7 +91,7 @@ CSSPaintDefinition* PaintWorkletGlobalScopeProxy::FindDefinition(
   return global_scope_->FindDefinition(name);
 }
 
-void PaintWorkletGlobalScopeProxy::Trace(blink::Visitor* visitor) {
+void PaintWorkletGlobalScopeProxy::Trace(Visitor* visitor) {
   visitor->Trace(global_scope_);
 }
 

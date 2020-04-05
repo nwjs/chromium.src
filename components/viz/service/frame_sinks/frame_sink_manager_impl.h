@@ -11,6 +11,7 @@
 #include <string>
 #include <vector>
 
+#include "base/callback_helpers.h"
 #include "base/containers/flat_map.h"
 #include "base/containers/flat_set.h"
 #include "base/containers/unique_ptr_adapters.h"
@@ -101,9 +102,6 @@ class VIZ_SERVICE_EXPORT FrameSinkManagerImpl
   void RegisterFrameSinkId(const FrameSinkId& frame_sink_id,
                            bool report_activation) override;
   void InvalidateFrameSinkId(const FrameSinkId& frame_sink_id) override;
-  void EnableSynchronizationReporting(
-      const FrameSinkId& frame_sink_id,
-      const std::string& reporting_label) override;
   void SetFrameSinkDebugLabel(const FrameSinkId& frame_sink_id,
                               const std::string& debug_label) override;
   void CreateRootCompositorFrameSink(
@@ -139,14 +137,6 @@ class VIZ_SERVICE_EXPORT FrameSinkManagerImpl
 
   // SurfaceObserver implementation.
   void OnFirstSurfaceActivation(const SurfaceInfo& surface_info) override;
-  void OnSurfaceActivated(const SurfaceId& surface_id,
-                          base::Optional<base::TimeDelta> duration) override;
-  bool OnSurfaceDamaged(const SurfaceId& surface_id,
-                        const BeginFrameAck& ack) override;
-  void OnSurfaceDestroyed(const SurfaceId& surface_id) override;
-  void OnSurfaceMarkedForDestruction(const SurfaceId& surface_id) override;
-  void OnSurfaceDamageExpected(const SurfaceId& surface_id,
-                               const BeginFrameArgs& args) override;
 
   // HitTestAggregatorDelegate implementation:
   void OnAggregatedHitTestRegionListUpdated(
@@ -156,6 +146,7 @@ class VIZ_SERVICE_EXPORT FrameSinkManagerImpl
   // SurfaceManagerDelegate implementation:
   base::StringPiece GetFrameSinkDebugLabel(
       const FrameSinkId& frame_sink_id) const override;
+  void AggregatedFrameSinksChanged() override;
 
   // CompositorFrameSinkSupport, hierarchy, and BeginFrameSource can be
   // registered and unregistered in any order with respect to each other.
@@ -244,9 +235,6 @@ class VIZ_SERVICE_EXPORT FrameSinkManagerImpl
 
     // A label to identify frame sink.
     std::string debug_label;
-
-    // Record synchronization events for this FrameSinkId if not empty.
-    std::string synchronization_label;
 
     // Indicates whether the client wishes to receive FirstSurfaceActivation
     // notification.

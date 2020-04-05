@@ -173,7 +173,6 @@ content::WebUIDataSource* CreateMdExtensionsSource(Profile* profile,
     {"stopActivityStream", IDS_EXTENSIONS_STOP_ACTIVITY_STREAM},
     {"emptyStreamStarted", IDS_EXTENSIONS_EMPTY_STREAM_STARTED},
     {"emptyStreamStopped", IDS_EXTENSIONS_EMPTY_STREAM_STOPPED},
-    {"enableButton", IDS_EXTENSIONS_ENABLE_BUTTON},
     {"activityArgumentsHeading", IDS_EXTENSIONS_ACTIVITY_ARGUMENTS_HEADING},
     {"webRequestInfoHeading", IDS_EXTENSIONS_WEB_REQUEST_INFO_HEADING},
     {"activityLogMoreActionsLabel",
@@ -399,8 +398,7 @@ ExtensionsUI::ExtensionsUI(content::WebUI* web_ui)
 }
 
 ExtensionsUI::~ExtensionsUI() {
-  if (timer_.has_value() &&
-      base::FeatureList::IsEnabled(extensions_features::kExtensionsCheckup))
+  if (timer_.has_value())
     UMA_HISTOGRAM_LONG_TIMES("Extensions.Checkup.TimeSpent", timer_->Elapsed());
 }
 

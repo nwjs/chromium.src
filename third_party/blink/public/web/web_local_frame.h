@@ -9,21 +9,26 @@
 #include <set>
 
 #include "base/callback.h"
+#include "base/i18n/rtl.h"
 #include "base/optional.h"
 #include "base/unguessable_token.h"
 #include "services/network/public/mojom/fetch_api.mojom-shared.h"
+#include "third_party/blink/public/common/css/page_size_type.h"
 #include "third_party/blink/public/common/feature_policy/feature_policy.h"
 #include "third_party/blink/public/common/frame/sandbox_flags.h"
 #include "third_party/blink/public/common/frame/user_activation_update_source.h"
 #include "third_party/blink/public/common/messaging/transferable_message.h"
 #include "third_party/blink/public/mojom/ad_tagging/ad_frame.mojom-shared.h"
 #include "third_party/blink/public/mojom/commit_result/commit_result.mojom-shared.h"
+#include "third_party/blink/public/mojom/devtools/inspector_issue.mojom-shared.h"
+#include "third_party/blink/public/mojom/feature_policy/feature_policy.mojom-shared.h"
 #include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom-shared.h"
 #include "third_party/blink/public/mojom/frame/lifecycle.mojom-shared.h"
 #include "third_party/blink/public/mojom/frame/media_player_action.mojom-shared.h"
 #include "third_party/blink/public/mojom/portal/portal.mojom-shared.h"
 #include "third_party/blink/public/mojom/selection_menu/selection_menu_behavior.mojom-shared.h"
 #include "third_party/blink/public/mojom/web_feature/web_feature.mojom-shared.h"
+#include "third_party/blink/public/platform/cross_variant_mojo_util.h"
 #include "third_party/blink/public/platform/task_type.h"
 #include "third_party/blink/public/platform/web_size.h"
 #include "third_party/blink/public/platform/web_url_error.h"
@@ -33,7 +38,6 @@
 #include "third_party/blink/public/web/web_frame_load_type.h"
 #include "third_party/blink/public/web/web_ime_text_span.h"
 #include "third_party/blink/public/web/web_navigation_params.h"
-#include "third_party/blink/public/web/web_text_direction.h"
 #include "v8/include/v8.h"
 
 namespace gfx {
@@ -64,10 +68,10 @@ class WebTextCheckClient;
 class WebURL;
 class WebView;
 enum class WebTreeScopeType;
+struct FramePolicy;
 struct TransferableMessage;
 struct WebAssociatedURLLoaderOptions;
 struct WebConsoleMessage;
-struct WebContentSecurityPolicyViolation;
 struct WebIsolatedWorldInfo;
 struct WebPrintParams;
 struct WebPrintPresetOptions;
@@ -91,7 +95,7 @@ class WebLocalFrame : public WebFrame {
       blink::InterfaceRegistry*,
       WebFrame* opener = nullptr,
       const WebString& name = WebString(),
-      WebSandboxFlags = WebSandboxFlags::kNone,
+      mojom::WebSandboxFlags = mojom::WebSandboxFlags::kNone,
       const FeaturePolicy::FeatureState& opener_feature_state =
           FeaturePolicy::FeatureState());
 
@@ -111,13 +115,18 @@ class WebLocalFrame : public WebFrame {
   // attached to the frame tree by calling Swap(). It swaps with the
   // |previous_web_frame|.
   //
+  // |name| should either match the name of the frame that might be replaced, or
+  // be an empty string (e.g. if the browsing context name needs to be cleared
+  // due to Cross-Origin Opener Policy).
+  //
   // Otherwise, if the load should not commit, call Detach() to discard the
   // frame.
   BLINK_EXPORT static WebLocalFrame* CreateProvisional(
       WebLocalFrameClient*,
       blink::InterfaceRegistry*,
       WebFrame* previous_web_frame,
-      const FramePolicy&);
+      const FramePolicy&,
+      const WebString& name);
 
   // Creates a new local child of this frame. Similar to the other methods that
   // create frames, the returned frame should be freed by calling Close() when
@@ -146,18 +155,7 @@ class WebLocalFrame : public WebFrame {
   virtual void SetContentCaptureClient(WebContentCaptureClient*) = 0;
   virtual WebContentCaptureClient* ContentCaptureClient() const = 0;
 
-  // Closing -------------------------------------------------------------
-
-  // Runs unload handlers for this frame.
-  virtual void DispatchUnloadEvent() = 0;
-
   // Basic properties ---------------------------------------------------
-
-  // The urls of the given combination types of favicon (if any) specified by
-  // the document loaded in this frame. The iconTypesMask is a bit-mask of
-  // WebIconURL::Type values, used to select from the available set of icon
-  // URLs
-  virtual WebVector<WebIconURL> IconURLs(int icon_types_mask) const = 0;
 
   virtual WebDocument GetDocument() const = 0;
 
@@ -221,17 +219,20 @@ class WebLocalFrame : public WebFrame {
   // Returns the document loader that is currently loaded.
   virtual WebDocumentLoader* GetDocumentLoader() const = 0;
 
-  // Called when a navigation is blocked because a Content Security Policy (CSP)
-  // is infringed.
-  virtual void ReportContentSecurityPolicyViolation(
-      const blink::WebContentSecurityPolicyViolation&) = 0;
-
   // Sets the referrer for the given request to be the specified URL or
   // if that is null, then it sets the referrer to the referrer that the
   // frame would use for subresources.  NOTE: This method also filters
   // out invalid referrers (e.g., it is invalid to send a HTTPS URL as
   // the referrer for a HTTP request).
   virtual void SetReferrerForRequest(WebURLRequest&, const WebURL&) = 0;
+
+  // The frame should handle the request as a download.
+  // If the request is for a blob: URL, a BlobURLToken should be provided
+  // as |blob_url_token| to ensure the correct blob gets downloaded.
+  virtual void DownloadURL(
+      const WebURLRequest& request,
+      network::mojom::RedirectMode cross_origin_redirect_behavior,
+      mojo::ScopedMessagePipeHandle blob_url_token) = 0;
 
   // Navigation State -------------------------------------------------------
 
@@ -266,8 +267,8 @@ class WebLocalFrame : public WebFrame {
 
   // CSS3 Paged Media ----------------------------------------------------
 
-  // Returns true if the page style has custom size information.
-  virtual bool HasCustomPageSizeStyle(int page_index) = 0;
+  // Returns the type of @page size styling for the given page.
+  virtual PageSizeType GetPageSizeType(int page_index) = 0;
 
   // Returns the preferred page size and margins in pixels, assuming 96
   // pixels per inch. pageSize, marginTop, marginRight, marginBottom,
@@ -378,6 +379,10 @@ class WebLocalFrame : public WebFrame {
     AddMessageToConsoleImpl(message, discard_duplicates);
   }
 
+  void AddInspectorIssue(mojom::InspectorIssueCode code) {
+    AddInspectorIssueImpl(code);
+  }
+
   // Expose modal dialog methods to avoid having to go through JavaScript.
   virtual void Alert(const WebString& message) = 0;
   virtual bool Confirm(const WebString& message) = 0;
@@ -415,13 +420,13 @@ class WebLocalFrame : public WebFrame {
 
   // Returns the text direction at the start and end bounds of the current
   // selection.  If the selection range is empty, it returns false.
-  virtual bool SelectionTextDirection(WebTextDirection& start,
-                                      WebTextDirection& end) const = 0;
+  virtual bool SelectionTextDirection(base::i18n::TextDirection& start,
+                                      base::i18n::TextDirection& end) const = 0;
   // Returns true if the selection range is nonempty and its anchor is first
   // (i.e its anchor is its start).
   virtual bool IsSelectionAnchorFirst() const = 0;
   // Changes the text direction of the selected input node.
-  virtual void SetTextDirection(WebTextDirection) = 0;
+  virtual void SetTextDirection(base::i18n::TextDirection) = 0;
 
   // Selection -----------------------------------------------------------
 
@@ -522,7 +527,7 @@ class WebLocalFrame : public WebFrame {
   // where the notion of FrameReplicationState is relevant to.
   // Returns the effective sandbox flags which are inherited from their parent
   // frame.
-  virtual WebSandboxFlags EffectiveSandboxFlagsForTesting() const = 0;
+  virtual mojom::WebSandboxFlags EffectiveSandboxFlagsForTesting() const = 0;
 
   // Returns false if this frame, or any parent frame is sandboxed and does not
   // have the flag "allow-downloads" set.
@@ -585,8 +590,9 @@ class WebLocalFrame : public WebFrame {
       base::OnceCallback<void(mojom::PortalActivateResult)>;
   virtual void OnPortalActivated(
       const base::UnguessableToken& portal_token,
-      mojo::ScopedInterfaceEndpointHandle portal_pipe,
-      mojo::ScopedInterfaceEndpointHandle portal_client_pipe,
+      CrossVariantMojoAssociatedRemote<mojom::PortalInterfaceBase> portal,
+      CrossVariantMojoAssociatedReceiver<mojom::PortalClientInterfaceBase>
+          portal_client,
       TransferableMessage data,
       OnPortalActivatedCallback callback) = 0;
 
@@ -721,6 +727,12 @@ class WebLocalFrame : public WebFrame {
       UserActivationUpdateSource update_source =
           UserActivationUpdateSource::kRenderer) = 0;
 
+  // DevTools -----------------------------------------------------------------
+
+  // Instructs devtools to pause loading of the frame as soon as it's shown
+  // until explicit command from the devtools client.
+  virtual void WaitForDebuggerWhenShown() = 0;
+
   // Testing ------------------------------------------------------------------
 
   // Prints the frame into the canvas, with page boundaries drawn as one pixel
@@ -756,6 +768,7 @@ class WebLocalFrame : public WebFrame {
 
   virtual void AddMessageToConsoleImpl(const WebConsoleMessage&,
                                        bool discard_duplicates) = 0;
+  virtual void AddInspectorIssueImpl(blink::mojom::InspectorIssueCode code) = 0;
 };
 
 }  // namespace blink

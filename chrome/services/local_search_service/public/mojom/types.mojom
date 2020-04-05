@@ -5,6 +5,7 @@
 module local_search_service.mojom;
 
 import "mojo/public/mojom/base/values.mojom";
+import "mojo/public/mojom/base/string16.mojom";
 
 // A numeric range used to represent the start and end position.
 struct Range {
@@ -23,7 +24,7 @@ struct Data {
   string id;
 
   // Data item will be matched between its search tags and query term.
-  array<string> search_tags;
+  array<mojo_base.mojom.String16> search_tags;
 };
 
 // Result is one item that matches a given query. It contains the id of the item

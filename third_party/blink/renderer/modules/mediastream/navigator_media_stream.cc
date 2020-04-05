@@ -59,8 +59,8 @@ void NavigatorMediaStream::getUserMedia(
 
   MediaErrorState error_state;
   UserMediaRequest* request = UserMediaRequest::Create(
-      navigator.GetFrame()->GetDocument(), user_media, options,
-      success_callback, error_callback, error_state);
+      navigator.GetFrame()->GetDocument()->ToExecutionContext(), user_media,
+      options, success_callback, error_callback, error_state);
   if (!request) {
     DCHECK(error_state.HadException());
     if (error_state.CanGenerateException()) {
@@ -74,7 +74,7 @@ void NavigatorMediaStream::getUserMedia(
 
   String error_message;
   if (!request->IsSecureContextUse(error_message)) {
-    request->Fail(WebUserMediaRequest::Error::kSecurityError, error_message);
+    request->Fail(UserMediaRequest::Error::kSecurityError, error_message);
     return;
   }
 

@@ -74,8 +74,8 @@ class ScrollingTest : public testing::Test, public PaintTestConfigurations {
  public:
   ScrollingTest() : base_url_("http://www.test.com/") {
     helper_.Initialize(nullptr, nullptr, nullptr, &ConfigureSettings);
-    GetWebView()->MainFrameWidget()->Resize(IntSize(320, 240));
-    GetWebView()->MainFrameWidget()->UpdateAllLifecyclePhases(
+    GetWebView()->MainFrameWidgetBase()->Resize(IntSize(320, 240));
+    GetWebView()->MainFrameWidgetBase()->UpdateAllLifecyclePhases(
         DocumentUpdateReason::kTest);
   }
 
@@ -93,7 +93,7 @@ class ScrollingTest : public testing::Test, public PaintTestConfigurations {
   }
 
   void ForceFullCompositingUpdate() {
-    GetWebView()->MainFrameWidget()->UpdateAllLifecyclePhases(
+    GetWebView()->MainFrameWidgetBase()->UpdateAllLifecyclePhases(
         DocumentUpdateReason::kTest);
   }
 
@@ -152,6 +152,10 @@ class ScrollingTest : public testing::Test, public PaintTestConfigurations {
     return GetFrame()->View()->RootCcLayer();
   }
 
+  cc::LayerTreeHost* LayerTreeHost() const {
+    return helper_.GetLayerTreeHost();
+  }
+
   const cc::Layer* FrameScrollingContentsLayer(const LocalFrame& frame) const {
     return ScrollingContentsCcLayerByScrollElementId(
         RootCcLayer(), frame.View()->LayoutViewport()->GetScrollElementId());
@@ -189,7 +193,7 @@ class ScrollingTest : public testing::Test, public PaintTestConfigurations {
 INSTANTIATE_PAINT_TEST_SUITE_P(ScrollingTest);
 
 TEST_P(ScrollingTest, fastScrollingByDefault) {
-  GetWebView()->MainFrameWidget()->Resize(WebSize(800, 600));
+  GetWebView()->MainFrameWidgetBase()->Resize(WebSize(800, 600));
   LoadHTML("<div id='spacer' style='height: 1000px'></div>");
   ForceFullCompositingUpdate();
 
@@ -210,10 +214,10 @@ TEST_P(ScrollingTest, fastScrollingByDefault) {
   EXPECT_FALSE(outer_scroll_node->main_thread_scrolling_reasons);
 
   ASSERT_EQ(cc::EventListenerProperties::kNone,
-            GetWidgetClient()->EventListenerProperties(
+            LayerTreeHost()->event_listener_properties(
                 cc::EventListenerClass::kTouchStartOrMove));
   ASSERT_EQ(cc::EventListenerProperties::kNone,
-            GetWidgetClient()->EventListenerProperties(
+            LayerTreeHost()->event_listener_properties(
                 cc::EventListenerClass::kMouseWheel));
 
   const auto* inner_scroll_node =
@@ -361,7 +365,7 @@ TEST_P(ScrollingTest, touchEventHandler) {
   ForceFullCompositingUpdate();
 
   ASSERT_EQ(cc::EventListenerProperties::kBlocking,
-            GetWidgetClient()->EventListenerProperties(
+            LayerTreeHost()->event_listener_properties(
                 cc::EventListenerClass::kTouchStartOrMove));
 }
 
@@ -387,7 +391,7 @@ TEST_P(ScrollingTest, touchEventHandlerPassive) {
   ForceFullCompositingUpdate();
 
   ASSERT_EQ(cc::EventListenerProperties::kPassive,
-            GetWidgetClient()->EventListenerProperties(
+            LayerTreeHost()->event_listener_properties(
                 cc::EventListenerClass::kTouchStartOrMove));
 }
 
@@ -427,7 +431,7 @@ TEST_P(ScrollingTest, touchEventHandlerBoth) {
   ForceFullCompositingUpdate();
 
   ASSERT_EQ(cc::EventListenerProperties::kBlockingAndPassive,
-            GetWidgetClient()->EventListenerProperties(
+            LayerTreeHost()->event_listener_properties(
                 cc::EventListenerClass::kTouchStartOrMove));
 }
 
@@ -437,7 +441,7 @@ TEST_P(ScrollingTest, wheelEventHandler) {
   ForceFullCompositingUpdate();
 
   ASSERT_EQ(cc::EventListenerProperties::kBlocking,
-            GetWidgetClient()->EventListenerProperties(
+            LayerTreeHost()->event_listener_properties(
                 cc::EventListenerClass::kMouseWheel));
 }
 
@@ -447,7 +451,7 @@ TEST_P(ScrollingTest, wheelEventHandlerPassive) {
   ForceFullCompositingUpdate();
 
   ASSERT_EQ(cc::EventListenerProperties::kPassive,
-            GetWidgetClient()->EventListenerProperties(
+            LayerTreeHost()->event_listener_properties(
                 cc::EventListenerClass::kMouseWheel));
 }
 
@@ -457,7 +461,7 @@ TEST_P(ScrollingTest, wheelEventHandlerBoth) {
   ForceFullCompositingUpdate();
 
   ASSERT_EQ(cc::EventListenerProperties::kBlockingAndPassive,
-            GetWidgetClient()->EventListenerProperties(
+            LayerTreeHost()->event_listener_properties(
                 cc::EventListenerClass::kMouseWheel));
 }
 
@@ -942,9 +946,7 @@ TEST_P(ScrollingTest, NonFastScrollableRegionsForPlugins) {
 
   // The fixed plugin should create a non-fast scrollable region in a fixed
   // cc::Layer.
-  auto* fixed_layer = LayerByDOMElementId(
-      RuntimeEnabledFeatures::CompositeAfterPaintEnabled() ? "pluginfixed"
-                                                           : "fixed");
+  auto* fixed_layer = LayerByDOMElementId("fixed");
   EXPECT_EQ(fixed_layer->non_fast_scrollable_region().bounds(),
             gfx::Rect(0, 0, 200, 200));
 }
@@ -1164,8 +1166,7 @@ TEST_P(ScrollingTest, NestedIFramesMainThreadScrollingRegion) {
 
   // Scroll the frame to ensure the rect is in the correct coordinate space.
   GetFrame()->GetDocument()->View()->GetScrollableArea()->SetScrollOffset(
-      ScrollOffset(0, 1000),
-      mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
+      ScrollOffset(0, 1000), mojom::blink::ScrollType::kProgrammatic);
 
   ForceFullCompositingUpdate();
 
@@ -1228,8 +1229,7 @@ TEST_P(ScrollingTest, NestedFixedIFramesMainThreadScrollingRegion) {
 
   // Scroll the frame to ensure the rect is in the correct coordinate space.
   GetFrame()->GetDocument()->View()->GetScrollableArea()->SetScrollOffset(
-      ScrollOffset(0, 1000),
-      mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
+      ScrollOffset(0, 1000), mojom::blink::ScrollType::kProgrammatic);
 
   ForceFullCompositingUpdate();
   auto* non_fast_layer = LayerByDOMElementId("iframe");
@@ -1378,9 +1378,8 @@ TEST_P(ScrollingTest, ScrollOffsetClobberedBeforeCompositingUpdate) {
 
   // Before updating the lifecycle, set the scroll offset back to what it was
   // before the commit from the main thread.
-  scrollable_area->SetScrollOffset(
-      ScrollOffset(0, 0),
-      mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
+  scrollable_area->SetScrollOffset(ScrollOffset(0, 0),
+                                   mojom::blink::ScrollType::kProgrammatic);
 
   // Ensure the offset is up-to-date on the cc::Layer even though, as far as
   // the main thread is concerned, it was unchanged since the last time we
@@ -1444,7 +1443,10 @@ TEST_P(ScrollingTest, UpdateUMAMetricUpdated) {
 
   // After an initial compositing update, we should have one scrolling update
   // recorded as PreFCP.
+  GetWebView()->MainFrameWidgetBase()->RecordStartOfFrameMetrics();
   ForceFullCompositingUpdate();
+  GetWebView()->MainFrameWidgetBase()->RecordEndOfFrameMetrics(
+      base::TimeTicks(), 0);
   histogram_tester.ExpectTotalCount("Blink.ScrollingCoordinator.UpdateTime", 1);
   histogram_tester.ExpectTotalCount(
       "Blink.ScrollingCoordinator.UpdateTime.PreFCP", 1);
@@ -1454,7 +1456,10 @@ TEST_P(ScrollingTest, UpdateUMAMetricUpdated) {
       "Blink.ScrollingCoordinator.UpdateTime.AggregatedPreFCP", 0);
 
   // An update with no scrolling changes should not cause a scrolling update.
+  GetWebView()->MainFrameWidgetBase()->RecordStartOfFrameMetrics();
   ForceFullCompositingUpdate();
+  GetWebView()->MainFrameWidgetBase()->RecordEndOfFrameMetrics(
+      base::TimeTicks(), 0);
   histogram_tester.ExpectTotalCount("Blink.ScrollingCoordinator.UpdateTime", 1);
   histogram_tester.ExpectTotalCount(
       "Blink.ScrollingCoordinator.UpdateTime.PreFCP", 1);
@@ -1464,29 +1469,36 @@ TEST_P(ScrollingTest, UpdateUMAMetricUpdated) {
       "Blink.ScrollingCoordinator.UpdateTime.AggregatedPreFCP", 0);
 
   // A change to background color does not need to cause a scrolling update but,
-  // because hit test display items paint, we also cause a scrolling coordinator
+  // because we record hit test data, we also cause a scrolling coordinator
   // update when the background paints. Also render some text to get past FCP.
+  // Note that this frame is still considered pre-FCP.
   auto* background = GetFrame()->GetDocument()->getElementById("bg");
   background->removeAttribute(html_names::kStyleAttr);
-  background->SetInnerHTMLFromString("Some Text");
+  background->setInnerHTML("Some Text");
+  GetWebView()->MainFrameWidgetBase()->RecordStartOfFrameMetrics();
   ForceFullCompositingUpdate();
+  GetWebView()->MainFrameWidgetBase()->RecordEndOfFrameMetrics(
+      base::TimeTicks(), 0);
   histogram_tester.ExpectTotalCount("Blink.ScrollingCoordinator.UpdateTime", 2);
   histogram_tester.ExpectTotalCount(
-      "Blink.ScrollingCoordinator.UpdateTime.PreFCP", 1);
+      "Blink.ScrollingCoordinator.UpdateTime.PreFCP", 2);
   histogram_tester.ExpectTotalCount(
-      "Blink.ScrollingCoordinator.UpdateTime.PostFCP", 1);
+      "Blink.ScrollingCoordinator.UpdateTime.PostFCP", 0);
   histogram_tester.ExpectTotalCount(
       "Blink.ScrollingCoordinator.UpdateTime.AggregatedPreFCP", 1);
 
   // Removing a scrollable area should cause a scrolling update.
   auto* scroller = GetFrame()->GetDocument()->getElementById("scroller");
   scroller->removeAttribute(html_names::kStyleAttr);
+  GetWebView()->MainFrameWidgetBase()->RecordStartOfFrameMetrics();
   ForceFullCompositingUpdate();
+  GetWebView()->MainFrameWidgetBase()->RecordEndOfFrameMetrics(
+      base::TimeTicks(), 0);
   histogram_tester.ExpectTotalCount("Blink.ScrollingCoordinator.UpdateTime", 3);
   histogram_tester.ExpectTotalCount(
-      "Blink.ScrollingCoordinator.UpdateTime.PreFCP", 1);
+      "Blink.ScrollingCoordinator.UpdateTime.PreFCP", 2);
   histogram_tester.ExpectTotalCount(
-      "Blink.ScrollingCoordinator.UpdateTime.PostFCP", 2);
+      "Blink.ScrollingCoordinator.UpdateTime.PostFCP", 1);
   histogram_tester.ExpectTotalCount(
       "Blink.ScrollingCoordinator.UpdateTime.AggregatedPreFCP", 1);
 }
@@ -1615,8 +1627,7 @@ TEST_P(ScrollingTest, TouchActionUpdatesOutsideInterestRect) {
 
   auto* scroller = GetFrame()->GetDocument()->getElementById("scroller");
   scroller->GetScrollableArea()->SetScrollOffset(
-      ScrollOffset(0, 5100),
-      mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
+      ScrollOffset(0, 5100), mojom::blink::ScrollType::kProgrammatic);
 
   ForceFullCompositingUpdate();
 

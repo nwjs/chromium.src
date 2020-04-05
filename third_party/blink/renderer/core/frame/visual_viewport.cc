@@ -32,6 +32,7 @@
 
 #include <memory>
 
+#include "base/metrics/histogram_functions.h"
 #include "cc/input/main_thread_scrolling_reason.h"
 #include "cc/layers/scrollbar_layer_base.h"
 #include "third_party/blink/public/mojom/scroll/scroll_into_view_params.mojom-blink.h"
@@ -57,7 +58,6 @@
 #include "third_party/blink/renderer/core/paint/paint_property_tree_builder.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
 #include "third_party/blink/renderer/core/scroll/scroll_animator_base.h"
-#include "third_party/blink/renderer/core/scroll/scroll_into_view_params_type_converters.h"
 #include "third_party/blink/renderer/core/scroll/scrollbar.h"
 #include "third_party/blink/renderer/core/scroll/scrollbar_theme_overlay_mobile.h"
 #include "third_party/blink/renderer/core/scroll/smooth_scroll_sequencer.h"
@@ -68,7 +68,6 @@
 #include "third_party/blink/renderer/platform/graphics/paint/effect_paint_property_node.h"
 #include "third_party/blink/renderer/platform/graphics/paint/foreign_layer_display_item.h"
 #include "third_party/blink/renderer/platform/graphics/paint/transform_paint_property_node.h"
-#include "third_party/blink/renderer/platform/instrumentation/histogram.h"
 #include "third_party/blink/renderer/platform/instrumentation/tracing/trace_event.h"
 #include "third_party/blink/renderer/platform/instrumentation/tracing/traced_value.h"
 
@@ -175,8 +174,9 @@ PaintPropertyChangeType VisualViewport::UpdatePaintPropertyNodesIfNeeded(
   }
 
   {
-    TransformPaintPropertyNode::State state{
-        TransformationMatrix().Scale(Scale())};
+    TransformPaintPropertyNode::State state;
+    if (scale_ != 1.f)
+      state.transform_and_origin = {TransformationMatrix().Scale(scale_)};
     state.flags.in_subtree_of_page_scale = false;
     state.direct_compositing_reasons = CompositingReason::kWillChangeTransform;
     state.compositor_element_id = page_scale_element_id_;
@@ -335,17 +335,17 @@ VisualViewport::~VisualViewport() {
   SendUMAMetrics();
 }
 
-void VisualViewport::Trace(blink::Visitor* visitor) {
+void VisualViewport::Trace(Visitor* visitor) {
   visitor->Trace(page_);
   ScrollableArea::Trace(visitor);
 }
 
-void VisualViewport::UpdateStyleAndLayout() const {
+void VisualViewport::UpdateStyleAndLayout(DocumentUpdateReason reason) const {
   if (!MainFrame())
     return;
 
   if (Document* document = MainFrame()->GetDocument())
-    document->UpdateStyleAndLayout();
+    document->UpdateStyleAndLayout(reason);
 }
 
 void VisualViewport::EnqueueScrollEvent() {
@@ -436,7 +436,7 @@ double VisualViewport::OffsetLeft() const {
   if (!MainFrame())
     return 0;
 
-  UpdateStyleAndLayout();
+  UpdateStyleAndLayout(DocumentUpdateReason::kJavaScript);
 
   return VisibleRect().X() / MainFrame()->PageZoomFactor();
 }
@@ -445,18 +445,18 @@ double VisualViewport::OffsetTop() const {
   if (!MainFrame())
     return 0;
 
-  UpdateStyleAndLayout();
+  UpdateStyleAndLayout(DocumentUpdateReason::kJavaScript);
 
   return VisibleRect().Y() / MainFrame()->PageZoomFactor();
 }
 
 double VisualViewport::Width() const {
-  UpdateStyleAndLayout();
+  UpdateStyleAndLayout(DocumentUpdateReason::kJavaScript);
   return VisibleWidthCSSPx();
 }
 
 double VisualViewport::Height() const {
-  UpdateStyleAndLayout();
+  UpdateStyleAndLayout(DocumentUpdateReason::kJavaScript);
   return VisibleHeightCSSPx();
 }
 
@@ -550,9 +550,6 @@ bool VisualViewport::DidSetScaleOrLocation(float scale,
 
   if (!values_changed)
     return false;
-
-  MainFrame()->GetEventHandler().MayUpdateHoverWhenContentUnderMouseChanged(
-      MouseEventManager::UpdateHoverReason::kScrollOffsetChanged);
 
   probe::DidChangeViewport(MainFrame());
   MainFrame()->Loader().SaveScrollState();
@@ -686,8 +683,8 @@ SmoothScrollSequencer* VisualViewport::GetSmoothScrollSequencer() const {
 
 void VisualViewport::SetScrollOffset(
     const ScrollOffset& offset,
-    mojom::blink::ScrollIntoViewParams::Type scroll_type,
-    mojom::blink::ScrollIntoViewParams::Behavior scroll_behavior,
+    mojom::blink::ScrollType scroll_type,
+    mojom::blink::ScrollBehavior scroll_behavior,
     ScrollCallback on_finish) {
   // We clamp the offset here, because the ScrollAnimator may otherwise be
   // set to a non-clamped offset by ScrollableArea::setScrollOffset,
@@ -704,8 +701,8 @@ void VisualViewport::SetScrollOffset(
 
 void VisualViewport::SetScrollOffset(
     const ScrollOffset& offset,
-    mojom::blink::ScrollIntoViewParams::Type scroll_type,
-    mojom::blink::ScrollIntoViewParams::Behavior scroll_behavior) {
+    mojom::blink::ScrollType scroll_type,
+    mojom::blink::ScrollBehavior scroll_behavior) {
   SetScrollOffset(offset, scroll_type, scroll_behavior, ScrollCallback());
 }
 
@@ -716,15 +713,13 @@ PhysicalRect VisualViewport::ScrollIntoView(
 
   ScrollOffset new_scroll_offset =
       ClampScrollOffset(ScrollAlignment::GetScrollOffsetToExpose(
-          scroll_snapport_rect, rect_in_absolute,
-          params->align_x.To<ScrollAlignment>(),
-          params->align_y.To<ScrollAlignment>(), GetScrollOffset()));
+          scroll_snapport_rect, rect_in_absolute, *params->align_x.get(),
+          *params->align_y.get(), GetScrollOffset()));
 
   if (new_scroll_offset != GetScrollOffset()) {
     if (params->is_for_scroll_sequence) {
-      DCHECK(params->type ==
-                 mojom::blink::ScrollIntoViewParams::Type::kProgrammatic ||
-             params->type == mojom::blink::ScrollIntoViewParams::Type::kUser);
+      DCHECK(params->type == mojom::blink::ScrollType::kProgrammatic ||
+             params->type == mojom::blink::ScrollType::kUser);
       if (SmoothScrollSequencer* sequencer = GetSmoothScrollSequencer()) {
         sequencer->QueueAnimation(this, new_scroll_offset, params->behavior);
       }
@@ -852,17 +847,15 @@ WebColorScheme VisualViewport::UsedColorScheme() const {
   return ComputedStyle::InitialStyle().UsedColorScheme();
 }
 
-void VisualViewport::UpdateScrollOffset(
-    const ScrollOffset& position,
-    mojom::blink::ScrollIntoViewParams::Type scroll_type) {
+void VisualViewport::UpdateScrollOffset(const ScrollOffset& position,
+                                        mojom::blink::ScrollType scroll_type) {
   if (!DidSetScaleOrLocation(scale_, is_pinch_gesture_active_,
                              FloatPoint(position))) {
     return;
   }
   if (IsExplicitScrollType(scroll_type)) {
     NotifyRootFrameViewport();
-    if (scroll_type != mojom::blink::ScrollIntoViewParams::Type::kCompositor &&
-        scroll_layer_)
+    if (scroll_type != mojom::blink::ScrollType::kCompositor && scroll_layer_)
       scroll_layer_->ShowScrollbars();
   }
 }
@@ -993,20 +986,16 @@ void VisualViewport::SendUMAMetrics() {
   if (track_pinch_zoom_stats_for_page_) {
     bool did_scale = max_page_scale_ > 0;
 
-    DEFINE_STATIC_LOCAL(EnumerationHistogram, did_scale_histogram,
-                        ("Viewport.DidScalePage", 2));
-    did_scale_histogram.Count(did_scale ? 1 : 0);
+    base::UmaHistogramBoolean("Viewport.DidScalePage", did_scale);
 
     if (did_scale) {
       int zoom_percentage = floor(max_page_scale_ * 100);
 
-      // See the PageScaleFactor enumeration in histograms.xml for the bucket
-      // ranges.
+      // Note: while defined as an exact linear histogram with 21 buckets here,
+      // the UMA itself is tagged as an enumeration (PageScaleFactor) in
+      // histograms.xml to make it easy to identify the buckets...
       int bucket = floor(zoom_percentage / 25.f);
-
-      DEFINE_STATIC_LOCAL(EnumerationHistogram, max_scale_histogram,
-                          ("Viewport.MaxPageScale", 21));
-      max_scale_histogram.Count(bucket);
+      base::UmaHistogramExactLinear("Viewport.MaxPageScale", bucket, 21);
     }
   }
 
@@ -1098,7 +1087,7 @@ void VisualViewport::Paint(GraphicsContext& context) const {
                         ("Inner Viewport Scroll Layer"));
     RecordForeignLayer(context, debug_name_client,
                        DisplayItem::kForeignLayerViewportScroll, scroll_layer_,
-                       FloatPoint(), state);
+                       FloatPoint(), &state);
   }
 
   if (scrollbar_layer_horizontal_) {
@@ -1109,7 +1098,7 @@ void VisualViewport::Paint(GraphicsContext& context) const {
     RecordForeignLayer(
         context, debug_name_client, DisplayItem::kForeignLayerViewportScrollbar,
         scrollbar_layer_horizontal_,
-        FloatPoint(0, size_.Height() - ScrollbarThickness()), state);
+        FloatPoint(0, size_.Height() - ScrollbarThickness()), &state);
   }
 
   if (scrollbar_layer_vertical_) {
@@ -1120,7 +1109,7 @@ void VisualViewport::Paint(GraphicsContext& context) const {
     RecordForeignLayer(
         context, debug_name_client, DisplayItem::kForeignLayerViewportScrollbar,
         scrollbar_layer_vertical_,
-        FloatPoint(size_.Width() - ScrollbarThickness(), 0), state);
+        FloatPoint(size_.Width() - ScrollbarThickness(), 0), &state);
   }
 }
 

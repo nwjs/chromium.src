@@ -84,9 +84,9 @@ class GCMDriverDesktop : public GCMDriver,
   GCMClient* GetGCMClientForTesting() const override;
   bool IsStarted() const override;
   bool IsConnected() const override;
-  void GetGCMStatistics(const GetGCMStatisticsCallback& callback,
+  void GetGCMStatistics(GetGCMStatisticsCallback callback,
                         ClearActivityLogs clear_logs) override;
-  void SetGCMRecording(const GetGCMStatisticsCallback& callback,
+  void SetGCMRecording(const GCMStatisticsRecordingCallback& callback,
                        bool recording) override;
   void SetAccountTokens(
       const std::vector<GCMClient::AccountTokenInfo>& account_tokens) override;
@@ -115,6 +115,7 @@ class GCMDriverDesktop : public GCMDriver,
   void GetToken(const std::string& app_id,
                 const std::string& authorized_entity,
                 const std::string& scope,
+                base::TimeDelta time_to_live,
                 const std::map<std::string, std::string>& options,
                 GetTokenCallback callback) override;
   void ValidateToken(const std::string& app_id,
@@ -131,7 +132,7 @@ class GCMDriverDesktop : public GCMDriver,
                          const std::string& extra_data) override;
   void RemoveInstanceIDData(const std::string& app_id) override;
   void GetInstanceIDData(const std::string& app_id,
-                         const GetInstanceIDDataCallback& callback) override;
+                         GetInstanceIDDataCallback callback) override;
 
  private:
   class IOWorker;
@@ -165,6 +166,7 @@ class GCMDriverDesktop : public GCMDriver,
   void DoGetToken(const std::string& app_id,
                   const std::string& authorized_entity,
                   const std::string& scope,
+                  base::TimeDelta time_to_live,
                   const std::map<std::string, std::string>& options);
   void DoDeleteToken(const std::string& app_id,
                      const std::string& authorized_entity,
@@ -183,8 +185,8 @@ class GCMDriverDesktop : public GCMDriver,
   void OnConnected(const net::IPEndPoint& ip_endpoint);
   void OnDisconnected();
   void OnStoreReset();
+  void OnActivityRecorded(const GCMClient::GCMStatistics& stats);
 
-  void GetGCMStatisticsFinished(const GCMClient::GCMStatistics& stats);
   void GetInstanceIDDataFinished(const std::string& app_id,
                                  const std::string& instance_id,
                                  const std::string& extra_data);
@@ -232,8 +234,8 @@ class GCMDriverDesktop : public GCMDriver,
   // thread.
   std::unique_ptr<IOWorker> io_worker_;
 
-  // Callback for GetGCMStatistics.
-  GetGCMStatisticsCallback request_gcm_statistics_callback_;
+  // Callback for SetGCMRecording.
+  GCMStatisticsRecordingCallback gcm_statistics_recording_callback_;
 
   // Callbacks for GetInstanceIDData.
   std::map<std::string, GetInstanceIDDataCallback>

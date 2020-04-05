@@ -91,50 +91,43 @@ TEST_F(ActiveTimeTest, ActiveTimeTimestampComparisions) {
   EXPECT_FALSE(active_time.IsLaterThan(equal_end));
 }
 
-TEST_F(AppActivityTest, RemoveActiveTimes) {
-  base::test::TaskEnvironment task_environment(
-      base::test::TaskEnvironment::TimeSource::MOCK_TIME);
-  AppActivity activity(AppState::kAvailable);
+TEST_F(ActiveTimeTest, MergeActiveTimesTest) {
+  const base::TimeDelta delta =
+      AppActivity::ActiveTime::kActiveTimeMergePrecision / 2;
 
-  // Time interval that will be removed.
-  base::Time start = base::Time::Now();
-  activity.SetAppActive(start);
-  task_environment.FastForwardBy(base::TimeDelta::FromMinutes(10));
-  base::Time end = base::Time::Now();
-  activity.SetAppInactive(end);
-  const AppActivity::ActiveTime to_remove(start, end);
+  base::Time time1 = TimeFromString("11 Jan 2020 10:00:00 PST");
+  base::Time time2 = TimeFromString("11 Jan 2020 10:10:00 PST");
+  base::Time time3 = TimeFromString("11 Jan 2020 10:20:00 PST");
 
-  // Time interval that will be trimmed.
-  start = base::Time::Now();
-  activity.SetAppActive(start);
-  task_environment.FastForwardBy(base::TimeDelta::FromMinutes(5));
-  const base::Time report_time = base::Time::Now();
-  task_environment.FastForwardBy(base::TimeDelta::FromMinutes(5));
-  end = base::Time::Now();
-  activity.SetAppInactive(end);
-  const AppActivity::ActiveTime to_trim(start, end);
+  AppActivity::ActiveTime active_time_1(time1, time2);
+  AppActivity::ActiveTime active_time_2(time2 + delta, time3);
+  AppActivity::ActiveTime active_time_3(time2 + 3 * delta, time3);
 
-  // Time interval that will be kept.
-  start = base::Time::Now();
-  activity.SetAppActive(start);
-  task_environment.FastForwardBy(base::TimeDelta::FromMinutes(10));
-  end = base::Time::Now();
-  activity.SetAppInactive(end);
-  const AppActivity::ActiveTime to_keep(start, end);
+  base::Optional<AppActivity::ActiveTime> merged_time1 =
+      AppActivity::ActiveTime::Merge(active_time_1, active_time_2);
+  EXPECT_TRUE(merged_time1.has_value());
+  EXPECT_EQ(merged_time1->active_from(), time1);
+  EXPECT_EQ(merged_time1->active_to(), time3);
 
-  EXPECT_EQ(3u, activity.active_times().size());
-  EXPECT_TRUE(base::Contains(activity.active_times(), to_remove));
-  EXPECT_TRUE(base::Contains(activity.active_times(), to_trim));
-  EXPECT_TRUE(base::Contains(activity.active_times(), to_keep));
+  base::Optional<AppActivity::ActiveTime> merged_time2 =
+      AppActivity::ActiveTime::Merge(active_time_2, active_time_1);
+  EXPECT_TRUE(merged_time2.has_value());
+  EXPECT_EQ(merged_time2->active_from(), time1);
+  EXPECT_EQ(merged_time2->active_to(), time3);
 
-  activity.RemoveActiveTimeEarlierThan(report_time);
+  base::Optional<AppActivity::ActiveTime> merged_time3 =
+      AppActivity::ActiveTime::Merge(active_time_1, active_time_3);
+  EXPECT_FALSE(merged_time3.has_value());
 
-  EXPECT_EQ(2u, activity.active_times().size());
-  EXPECT_FALSE(base::Contains(activity.active_times(), to_remove));
-  EXPECT_TRUE(base::Contains(activity.active_times(), to_keep));
+  base::Optional<AppActivity::ActiveTime> merged_time4 =
+      AppActivity::ActiveTime::Merge(active_time_3, active_time_1);
+  EXPECT_FALSE(merged_time4.has_value());
 
-  const AppActivity::ActiveTime trimmed(report_time, to_trim.active_to());
-  EXPECT_TRUE(base::Contains(activity.active_times(), trimmed));
+  base::Optional<AppActivity::ActiveTime> merged_time5 =
+      AppActivity::ActiveTime::Merge(active_time_2, active_time_3);
+  EXPECT_TRUE(merged_time5.has_value());
+  EXPECT_EQ(merged_time5->active_from(), time2 + delta);
+  EXPECT_EQ(merged_time5->active_to(), time3);
 }
 
 // TODO(agawronska) : Add more tests for app activity.

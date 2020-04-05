@@ -57,10 +57,8 @@ bool VulkanInstance::Initialize(
   if (!vulkan_function_pointers->BindUnassociatedFunctionPointers())
     return false;
 
-  if (vulkan_function_pointers->vkEnumerateInstanceVersionFn) {
-    vulkan_function_pointers->vkEnumerateInstanceVersionFn(
-        &vulkan_info_.api_version);
-  }
+  if (vkEnumerateInstanceVersion)
+    vkEnumerateInstanceVersion(&vulkan_info_.api_version);
 
 #if defined(OS_ANDROID)
   // Ensure that android works only with vulkan apiVersion >= 1.1. Vulkan will
@@ -205,15 +203,14 @@ bool VulkanInstance::Initialize(
     return false;
   }
 
+  if (!vulkan_function_pointers->BindInstanceFunctionPointers(
+          vk_instance_, vulkan_info_.used_api_version, enabled_extensions)) {
+    return false;
+  }
+
 #if DCHECK_IS_ON()
   // Register our error logging function.
   if (debug_report_enabled_) {
-    PFN_vkCreateDebugReportCallbackEXT vkCreateDebugReportCallbackEXT =
-        reinterpret_cast<PFN_vkCreateDebugReportCallbackEXT>(
-            vkGetInstanceProcAddr(vk_instance_,
-                                  "vkCreateDebugReportCallbackEXT"));
-    DCHECK(vkCreateDebugReportCallbackEXT);
-
     VkDebugReportCallbackCreateInfoEXT cb_create_info = {};
     cb_create_info.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT;
 
@@ -240,20 +237,22 @@ bool VulkanInstance::Initialize(
   }
 #endif
 
-  if (!vulkan_function_pointers->BindInstanceFunctionPointers(
-          vk_instance_, vulkan_info_.used_api_version, enabled_extensions)) {
+  if (!CollectInfo())
     return false;
-  }
-
-  CollectInfo();
   return true;
 }
 
-void VulkanInstance::CollectInfo() {
+bool VulkanInstance::CollectInfo() {
   uint32_t count = 0;
   VkResult result = vkEnumeratePhysicalDevices(vk_instance_, &count, nullptr);
   if (result != VK_SUCCESS) {
     DLOG(ERROR) << "vkEnumeratePhysicalDevices failed: " << result;
+    return false;
+  }
+
+  if (!count) {
+    DLOG(ERROR) << "vkEnumeratePhysicalDevices returns zero device.";
+    return false;
   }
 
   std::vector<VkPhysicalDevice> physical_devices(count);
@@ -261,7 +260,7 @@ void VulkanInstance::CollectInfo() {
       vkEnumeratePhysicalDevices(vk_instance_, &count, physical_devices.data());
   if (VK_SUCCESS != result) {
     DLOG(ERROR) << "vkEnumeratePhysicalDevices() failed: " << result;
-    return;
+    return false;
   }
 
   vulkan_info_.physical_devices.reserve(count);
@@ -283,17 +282,6 @@ void VulkanInstance::CollectInfo() {
         device, nullptr /* pLayerName */, &count, info.extensions.data());
     DLOG_IF(ERROR, result != VK_SUCCESS)
         << "vkEnumerateDeviceExtensionProperties failed: " << result;
-
-    count = 0;
-    result = vkEnumerateDeviceLayerProperties(device, &count, nullptr);
-    DLOG_IF(ERROR, result != VK_SUCCESS)
-        << "vkEnumerateDeviceLayerProperties failed: " << result;
-
-    info.layers.resize(count);
-    result =
-        vkEnumerateDeviceLayerProperties(device, &count, info.layers.data());
-    DLOG_IF(ERROR, result != VK_SUCCESS)
-        << "vkEnumerateDeviceLayerProperties failed: " << result;
 
     // The API version of the VkInstance might be different than the supported
     // API version of the VkPhysicalDevice, so we need to check the GPU's
@@ -326,17 +314,13 @@ void VulkanInstance::CollectInfo() {
                                                info.queue_families.data());
     }
   }
+  return true;
 }
 
 void VulkanInstance::Destroy() {
 #if DCHECK_IS_ON()
   if (debug_report_enabled_ && (error_callback_ != VK_NULL_HANDLE ||
                                 warning_callback_ != VK_NULL_HANDLE)) {
-    PFN_vkDestroyDebugReportCallbackEXT vkDestroyDebugReportCallbackEXT =
-        reinterpret_cast<PFN_vkDestroyDebugReportCallbackEXT>(
-            vkGetInstanceProcAddr(vk_instance_,
-                                  "vkDestroyDebugReportCallbackEXT"));
-    DCHECK(vkDestroyDebugReportCallbackEXT);
     if (error_callback_ != VK_NULL_HANDLE) {
       vkDestroyDebugReportCallbackEXT(vk_instance_, error_callback_, nullptr);
       error_callback_ = VK_NULL_HANDLE;
@@ -353,9 +337,10 @@ void VulkanInstance::Destroy() {
   }
   VulkanFunctionPointers* vulkan_function_pointers =
       gpu::GetVulkanFunctionPointers();
-  if (vulkan_function_pointers->vulkan_loader_library_)
-    base::UnloadNativeLibrary(vulkan_function_pointers->vulkan_loader_library_);
-  vulkan_function_pointers->vulkan_loader_library_ = nullptr;
+  if (vulkan_function_pointers->vulkan_loader_library) {
+    base::UnloadNativeLibrary(vulkan_function_pointers->vulkan_loader_library);
+    vulkan_function_pointers->vulkan_loader_library = nullptr;
+  }
 }
 
 }  // namespace gpu

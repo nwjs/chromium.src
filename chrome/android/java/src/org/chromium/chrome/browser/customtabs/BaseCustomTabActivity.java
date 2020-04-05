@@ -12,6 +12,7 @@ import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.ApiCompatibilityUtils;
+import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeActivity;
 import org.chromium.chrome.browser.KeyboardShortcuts;
@@ -19,16 +20,19 @@ import org.chromium.chrome.browser.browserservices.BrowserServicesIntentDataProv
 import org.chromium.chrome.browser.customtabs.content.CustomTabActivityNavigationController;
 import org.chromium.chrome.browser.customtabs.content.CustomTabActivityTabFactory;
 import org.chromium.chrome.browser.customtabs.content.CustomTabActivityTabProvider;
+import org.chromium.chrome.browser.customtabs.content.CustomTabIntentHandler;
 import org.chromium.chrome.browser.customtabs.content.TabCreationMode;
 import org.chromium.chrome.browser.customtabs.dependency_injection.BaseCustomTabActivityComponent;
 import org.chromium.chrome.browser.customtabs.features.toolbar.CustomTabToolbarColorController;
 import org.chromium.chrome.browser.customtabs.features.toolbar.CustomTabToolbarCoordinator;
+import org.chromium.chrome.browser.flags.ActivityType;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabState;
 import org.chromium.chrome.browser.tabmodel.ChromeTabCreator;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorImpl;
 import org.chromium.chrome.browser.ui.RootUiCoordinator;
+import org.chromium.chrome.browser.webapps.WebappActivityCoordinator;
 
 /**
  * Contains functionality which is shared between {@link WebappActivity} and
@@ -44,6 +48,8 @@ public abstract class BaseCustomTabActivity<C extends BaseCustomTabActivityCompo
     protected CustomTabToolbarColorController mToolbarColorController;
     protected CustomTabStatusBarColorProvider mStatusBarColorProvider;
     protected CustomTabActivityTabFactory mTabFactory;
+    protected CustomTabIntentHandler mCustomTabIntentHandler;
+    protected @Nullable WebappActivityCoordinator mWebappActivityCoordinator;
 
     // This is to give the right package name while using the client's resources during an
     // overridePendingTransition call.
@@ -59,8 +65,8 @@ public abstract class BaseCustomTabActivity<C extends BaseCustomTabActivityCompo
 
     @Override
     protected RootUiCoordinator createRootUiCoordinator() {
-        return new BaseCustomTabRootUiCoordinator(
-                this, getShareDelegateSupplier(), mToolbarCoordinator, mNavigationController);
+        return new BaseCustomTabRootUiCoordinator(this, getShareDelegateSupplier(),
+                mToolbarCoordinator, mNavigationController, getActivityTabProvider());
     }
 
     /**
@@ -73,9 +79,18 @@ public abstract class BaseCustomTabActivity<C extends BaseCustomTabActivityCompo
         mToolbarColorController = component.resolveToolbarColorController();
         mStatusBarColorProvider = component.resolveCustomTabStatusBarColorProvider();
         mTabFactory = component.resolveTabFactory();
+        mCustomTabIntentHandler = component.resolveIntentHandler();
 
         component.resolveCompositorContentInitializer();
         component.resolveTaskDescriptionHelper();
+
+        BrowserServicesIntentDataProvider intentDataProvider = getIntentDataProvider();
+        if (intentDataProvider.isWebappOrWebApkActivity()) {
+            mWebappActivityCoordinator = component.resolveWebappActivityCoordinator();
+        }
+        if (intentDataProvider.isWebApkActivity()) {
+            component.resolveWebApkActivityCoordinator();
+        }
     }
 
     /**
@@ -211,10 +226,36 @@ public abstract class BaseCustomTabActivity<C extends BaseCustomTabActivityCompo
     }
 
     @Override
+    public void initDeferredStartupForActivity() {
+        if (mWebappActivityCoordinator != null) {
+            mWebappActivityCoordinator.initDeferredStartupForActivity();
+        }
+        super.initDeferredStartupForActivity();
+    }
+
+    @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
         Boolean result = KeyboardShortcuts.dispatchKeyEvent(
                 event, this, mToolbarCoordinator.toolbarIsInitialized());
         return result != null ? result : super.dispatchKeyEvent(event);
+    }
+
+    @Override
+    public void recordIntentToCreationTime(long timeMs) {
+        super.recordIntentToCreationTime(timeMs);
+
+        RecordHistogram.recordTimesHistogram(
+                "MobileStartup.IntentToCreationTime.CustomTabs", timeMs);
+        @ActivityType
+        int activityType = getActivityType();
+        if (activityType == ActivityType.WEBAPP || activityType == ActivityType.WEB_APK) {
+            RecordHistogram.recordTimesHistogram(
+                    "MobileStartup.IntentToCreationTime.Webapp", timeMs);
+        }
+        if (activityType == ActivityType.WEB_APK) {
+            RecordHistogram.recordTimesHistogram(
+                    "MobileStartup.IntentToCreationTime.WebApk", timeMs);
+        }
     }
 
     @Override

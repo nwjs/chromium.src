@@ -246,6 +246,7 @@ class QuicHttpStreamTest : public ::testing::TestWithParam<TestParams>,
                       false),
         random_generator_(0),
         printer_(version_) {
+    FLAGS_quic_enable_http3_grease_randomness = false;
     quic::QuicEnableVersion(version_);
     IPAddress ip(192, 0, 2, 33);
     peer_addr_ = IPEndPoint(ip, 443);
@@ -572,7 +573,7 @@ class QuicHttpStreamTest : public ::testing::TestWithParam<TestParams>,
   }
 
   std::string ConstructDataHeader(size_t body_len) {
-    if (version_.transport_version != quic::QUIC_VERSION_99) {
+    if (!version_.HasIetfQuicFrames()) {
       return "";
     }
     std::unique_ptr<char[]> buffer;
@@ -1205,7 +1206,7 @@ TEST_P(QuicHttpStreamTest, SendPostRequest) {
     AddWrite(ConstructInitialSettingsPacket(packet_number++));
 
   std::string header = ConstructDataHeader(strlen(kUploadData));
-  if (version_.transport_version != quic::QUIC_VERSION_99) {
+  if (!version_.HasIetfQuicFrames()) {
     AddWrite(ConstructRequestHeadersAndDataFramesPacket(
         packet_number++, GetNthClientInitiatedBidirectionalStreamId(0),
         kIncludeVersion, kFin, DEFAULT_PRIORITY, 0,
@@ -1287,7 +1288,7 @@ TEST_P(QuicHttpStreamTest, SendPostRequestAndReceiveSoloFin) {
   if (VersionUsesHttp3(version_.transport_version))
     AddWrite(ConstructInitialSettingsPacket(packet_number++));
   std::string header = ConstructDataHeader(strlen(kUploadData));
-  if (version_.transport_version != quic::QUIC_VERSION_99) {
+  if (!version_.HasIetfQuicFrames()) {
     AddWrite(ConstructRequestHeadersAndDataFramesPacket(
         packet_number++, GetNthClientInitiatedBidirectionalStreamId(0),
         kIncludeVersion, kFin, DEFAULT_PRIORITY, 0,
@@ -1371,7 +1372,7 @@ TEST_P(QuicHttpStreamTest, SendChunkedPostRequest) {
   if (VersionUsesHttp3(version_.transport_version))
     AddWrite(ConstructInitialSettingsPacket(packet_number++));
   std::string header = ConstructDataHeader(chunk_size);
-  if (version_.transport_version == quic::QUIC_VERSION_99) {
+  if (version_.HasIetfQuicFrames()) {
     AddWrite(ConstructRequestHeadersAndDataFramesPacket(
         packet_number++, GetNthClientInitiatedBidirectionalStreamId(0),
         kIncludeVersion, !kFin, DEFAULT_PRIORITY, 0,
@@ -1458,7 +1459,7 @@ TEST_P(QuicHttpStreamTest, SendChunkedPostRequestWithFinalEmptyDataPacket) {
     AddWrite(ConstructInitialSettingsPacket(packet_number++));
   std::string header = ConstructDataHeader(chunk_size);
 
-  if (version_.transport_version != quic::QUIC_VERSION_99) {
+  if (!version_.HasIetfQuicFrames()) {
     AddWrite(ConstructRequestHeadersAndDataFramesPacket(
         packet_number++, GetNthClientInitiatedBidirectionalStreamId(0),
         kIncludeVersion, !kFin, DEFAULT_PRIORITY, 0,
@@ -1700,7 +1701,7 @@ TEST_P(QuicHttpStreamTest, SessionClosedDuringDoLoop) {
   if (VersionUsesHttp3(version_.transport_version))
     AddWrite(ConstructInitialSettingsPacket(packet_number++));
   std::string header = ConstructDataHeader(strlen(kUploadData));
-  if (version_.transport_version != quic::QUIC_VERSION_99) {
+  if (!version_.HasIetfQuicFrames()) {
     AddWrite(ConstructRequestHeadersAndDataFramesPacket(
         packet_number++, GetNthClientInitiatedBidirectionalStreamId(0),
         kIncludeVersion, !kFin, DEFAULT_PRIORITY, 0,
@@ -1863,7 +1864,7 @@ TEST_P(QuicHttpStreamTest, SessionClosedBeforeSendBundledBodyComplete) {
   if (VersionUsesHttp3(version_.transport_version))
     AddWrite(ConstructInitialSettingsPacket(packet_number++));
   std::string header = ConstructDataHeader(strlen(kUploadData));
-  if (version_.transport_version != quic::QUIC_VERSION_99) {
+  if (!version_.HasIetfQuicFrames()) {
     AddWrite(ConstructRequestHeadersAndDataFramesPacket(
         packet_number++, GetNthClientInitiatedBidirectionalStreamId(0),
         kIncludeVersion, !kFin, DEFAULT_PRIORITY, 0,

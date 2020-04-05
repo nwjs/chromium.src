@@ -10,6 +10,7 @@
 #include "base/numerics/safe_conversions.h"
 #include "base/task/post_task.h"
 #include "base/task/task_traits.h"
+#include "base/task/thread_pool.h"
 #include "base/task_runner_util.h"
 #include "cc/paint/skia_paint_canvas.h"
 #include "chrome/browser/thumbnail/generator/android/local_media_data_source_factory.h"
@@ -40,10 +41,10 @@ bool IsSupportedMediaMimeType(const std::string& mime_type) {
 }
 
 void OnRequestOverlayInfo(bool decoder_requires_restart_for_overlay,
-                          const media::ProvideOverlayInfoCB& overlay_info_cb) {
+                          media::ProvideOverlayInfoCB overlay_info_cb) {
   // No android overlay associated with video thumbnail.
   if (overlay_info_cb)
-    overlay_info_cb.Run(media::OverlayInfo());
+    std::move(overlay_info_cb).Run(media::OverlayInfo());
 }
 
 int64_t GetFileSize(const base::FilePath& file_path) {
@@ -59,8 +60,8 @@ ThumbnailMediaParser::ThumbnailMediaParser(const std::string& mime_type,
                                            const base::FilePath& file_path)
     : mime_type_(mime_type),
       file_path_(file_path),
-      file_task_runner_(base::CreateSingleThreadTaskRunner(
-          {base::ThreadPool(), base::MayBlock()})),
+      file_task_runner_(
+          base::ThreadPool::CreateSingleThreadTaskRunner({base::MayBlock()})),
       decode_done_(false) {}
 
 ThumbnailMediaParser::~ThumbnailMediaParser() = default;
@@ -246,7 +247,7 @@ void ThumbnailMediaParser::OnVideoFrameDecoded(
 
 void ThumbnailMediaParser::RenderVideoFrame(
     scoped_refptr<media::VideoFrame> video_frame) {
-  auto context_provider =
+  auto* context_provider =
       gpu_factories_ ? gpu_factories_->GetMediaContextProvider() : nullptr;
 
   media::PaintCanvasVideoRenderer renderer;
@@ -256,7 +257,7 @@ void ThumbnailMediaParser::RenderVideoFrame(
 
   // Draw the video frame to |bitmap|.
   cc::SkiaPaintCanvas canvas(bitmap);
-  renderer.Copy(video_frame, &canvas, context_provider.get());
+  renderer.Copy(video_frame, &canvas, context_provider);
 
   RecordVideoThumbnailEvent(VideoThumbnailEvent::kVideoThumbnailComplete);
   NotifyComplete(std::move(bitmap));

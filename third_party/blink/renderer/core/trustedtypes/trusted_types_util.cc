@@ -6,20 +6,21 @@
 
 #include "third_party/blink/public/mojom/reporting/reporting.mojom-blink.h"
 #include "third_party/blink/public/platform/platform.h"
-#include "third_party/blink/renderer/bindings/core/v8/string_or_trusted_html.h"
+#include "third_party/blink/renderer/bindings/core/v8/script_value.h"
 #include "third_party/blink/renderer/bindings/core/v8/string_or_trusted_html_or_trusted_script_or_trusted_script_url.h"
 #include "third_party/blink/renderer/bindings/core/v8/string_or_trusted_script.h"
-#include "third_party/blink/renderer/bindings/core/v8/string_or_trusted_script_url.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_binding_for_core.h"
 #include "third_party/blink/renderer/bindings/core/v8/window_proxy_manager.h"
-#include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/frame/csp/content_security_policy.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
+#include "third_party/blink/renderer/core/script/script_element_base.h"
 #include "third_party/blink/renderer/core/trustedtypes/trusted_html.h"
 #include "third_party/blink/renderer/core/trustedtypes/trusted_script.h"
 #include "third_party/blink/renderer/core/trustedtypes/trusted_script_url.h"
 #include "third_party/blink/renderer/core/trustedtypes/trusted_type_policy.h"
 #include "third_party/blink/renderer/core/trustedtypes/trusted_type_policy_factory.h"
+#include "third_party/blink/renderer/platform/bindings/exception_state.h"
+#include "third_party/blink/renderer/platform/bindings/script_state.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 
@@ -28,7 +29,6 @@ namespace blink {
 namespace {
 
 enum TrustedTypeViolationKind {
-  kAnyTrustedTypeAssignment,
   kTrustedHTMLAssignment,
   kTrustedScriptAssignment,
   kTrustedScriptURLAssignment,
@@ -46,8 +46,6 @@ enum TrustedTypeViolationKind {
 
 const char* GetMessage(TrustedTypeViolationKind kind) {
   switch (kind) {
-    case kAnyTrustedTypeAssignment:
-      return "This document requires any trusted type assignment.";
     case kTrustedHTMLAssignment:
       return "This document requires 'TrustedHTML' assignment.";
     case kTrustedScriptAssignment:
@@ -106,10 +104,33 @@ String GetSamplePrefix(const ExceptionState& exception_state) {
     sample_prefix.Append("eval");
   } else if (interface_name && property_name) {
     sample_prefix.Append(interface_name);
-    sample_prefix.Append(".");
+    sample_prefix.Append(" ");
     sample_prefix.Append(property_name);
   }
   return sample_prefix.ToString();
+}
+
+const char* GetElementName(const ScriptElementBase::Type type) {
+  switch (type) {
+    case ScriptElementBase::Type::kHTMLScriptElement:
+      return "HTMLScriptElement";
+    case ScriptElementBase::Type::kSVGScriptElement:
+      return "SVGScriptElement";
+  }
+  NOTREACHED();
+  return "";
+}
+
+HeapVector<ScriptValue> GetDefaultCallbackArgs(
+    v8::Isolate* isolate,
+    const char* type,
+    const ExceptionState& exception_state) {
+  ScriptState* script_state = ScriptState::Current(isolate);
+  HeapVector<ScriptValue> args;
+  args.push_back(ScriptValue::From(script_state, type));
+  args.push_back(
+      ScriptValue::From(script_state, GetSamplePrefix(exception_state)));
+  return args;
 }
 
 // Handle failure of a Trusted Type assignment.
@@ -150,7 +171,7 @@ TrustedTypePolicy* GetDefaultPolicy(const ExecutionContext* execution_context) {
              : nullptr;
 }
 
-// Functionally identical to GetStringFromTrustedScript(const String&, ..), but
+// Functionally identical to TrustedTypesCheckForScript(const String&, ..), but
 // to be called outside of regular script execution. This is required for both
 // GetStringForScriptExecution & TrustedTypesCheckForJavascriptURLinNavigation,
 // and has a number of additional parameters to enable proper error reporting
@@ -164,7 +185,10 @@ String GetStringFromScriptHelper(
     const char* attribute_name_for_exception,
     TrustedTypeViolationKind violation_kind,
     TrustedTypeViolationKind violation_kind_when_default_policy_failed) {
-  bool require_trusted_type = RequireTrustedTypesCheck(doc);
+  if (!doc)
+    return script;
+  bool require_trusted_type =
+      RequireTrustedTypesCheck(doc->ToExecutionContext());
   if (!require_trusted_type)
     return script;
 
@@ -192,9 +216,11 @@ String GetStringFromScriptHelper(
       doc->GetIsolate(), ExceptionState::kUnknownContext,
       element_name_for_exception, attribute_name_for_exception);
 
-  TrustedTypePolicy* default_policy = GetDefaultPolicy(doc);
+  TrustedTypePolicy* default_policy =
+      GetDefaultPolicy(doc->ToExecutionContext());
   if (!default_policy) {
-    if (TrustedTypeFail(violation_kind, doc, exception_state, script)) {
+    if (TrustedTypeFail(violation_kind, doc->ToExecutionContext(),
+                        exception_state, script)) {
       exception_state.ClearException();
       return String();
     }
@@ -202,15 +228,18 @@ String GetStringFromScriptHelper(
   }
 
   TrustedScript* result = default_policy->CreateScript(
-      doc->GetIsolate(), script, HeapVector<ScriptValue>(), exception_state);
+      doc->GetIsolate(), script,
+      GetDefaultCallbackArgs(doc->GetIsolate(), "TrustedScript",
+                             exception_state),
+      exception_state);
   if (exception_state.HadException()) {
     exception_state.ClearException();
     return String();
   }
 
   if (result->toString().IsNull()) {
-    if (TrustedTypeFail(violation_kind_when_default_policy_failed, doc,
-                        exception_state, script)) {
+    if (TrustedTypeFail(violation_kind_when_default_policy_failed,
+                        doc->ToExecutionContext(), exception_state, script)) {
       exception_state.ClearException();
       return String();
     }
@@ -226,210 +255,90 @@ bool RequireTrustedTypesCheck(const ExecutionContext* execution_context) {
          !ContentSecurityPolicy::ShouldBypassMainWorld(execution_context);
 }
 
-String GetStringFromTrustedType(
-    const StringOrTrustedHTMLOrTrustedScriptOrTrustedScriptURL&
-        string_or_trusted_type,
-    const ExecutionContext* execution_context,
-    ExceptionState& exception_state) {
-  DCHECK(!string_or_trusted_type.IsNull());
-
-  if (string_or_trusted_type.IsString() &&
-      RequireTrustedTypesCheck(execution_context)) {
-    TrustedTypeFail(
-        kAnyTrustedTypeAssignment, execution_context, exception_state,
-        GetStringFromTrustedTypeWithoutCheck(string_or_trusted_type));
-    return g_empty_string;
-  }
-
-  if (string_or_trusted_type.IsTrustedHTML())
-    return string_or_trusted_type.GetAsTrustedHTML()->toString();
-  if (string_or_trusted_type.IsTrustedScript())
-    return string_or_trusted_type.GetAsTrustedScript()->toString();
-  if (string_or_trusted_type.IsTrustedScriptURL())
-    return string_or_trusted_type.GetAsTrustedScriptURL()->toString();
-
-  return string_or_trusted_type.GetAsString();
-}
-
-String GetStringFromTrustedTypeWithoutCheck(
-    const StringOrTrustedHTMLOrTrustedScriptOrTrustedScriptURL&
-        string_or_trusted_type) {
-  if (string_or_trusted_type.IsTrustedHTML())
-    return string_or_trusted_type.GetAsTrustedHTML()->toString();
-  if (string_or_trusted_type.IsTrustedScript())
-    return string_or_trusted_type.GetAsTrustedScript()->toString();
-  if (string_or_trusted_type.IsTrustedScriptURL())
-    return string_or_trusted_type.GetAsTrustedScriptURL()->toString();
-  if (string_or_trusted_type.IsString())
-    return string_or_trusted_type.GetAsString();
-
-  return g_empty_string;
-}
-
-String GetStringFromSpecificTrustedType(
-    const StringOrTrustedHTMLOrTrustedScriptOrTrustedScriptURL&
-        string_or_trusted_type,
-    SpecificTrustedType specific_trusted_type,
-    const ExecutionContext* execution_context,
-    ExceptionState& exception_state) {
-  switch (specific_trusted_type) {
-    case SpecificTrustedType::kNone:
-      return GetStringFromTrustedTypeWithoutCheck(string_or_trusted_type);
-    case SpecificTrustedType::kTrustedHTML: {
-      StringOrTrustedHTML string_or_trusted_html =
-          string_or_trusted_type.IsTrustedHTML()
-              ? StringOrTrustedHTML::FromTrustedHTML(
-                    string_or_trusted_type.GetAsTrustedHTML())
-              : StringOrTrustedHTML::FromString(
-                    GetStringFromTrustedTypeWithoutCheck(
-                        string_or_trusted_type));
-      return GetStringFromTrustedHTML(string_or_trusted_html, execution_context,
-                                      exception_state);
-    }
-    case SpecificTrustedType::kTrustedScript: {
-      StringOrTrustedScript string_or_trusted_script =
-          string_or_trusted_type.IsTrustedScript()
-              ? StringOrTrustedScript::FromTrustedScript(
-                    string_or_trusted_type.GetAsTrustedScript())
-              : StringOrTrustedScript::FromString(
-                    GetStringFromTrustedTypeWithoutCheck(
-                        string_or_trusted_type));
-      return GetStringFromTrustedScript(string_or_trusted_script,
-                                        execution_context, exception_state);
-    }
-    case SpecificTrustedType::kTrustedScriptURL: {
-      StringOrTrustedScriptURL string_or_trusted_script_url =
-          string_or_trusted_type.IsTrustedScriptURL()
-              ? StringOrTrustedScriptURL::FromTrustedScriptURL(
-                    string_or_trusted_type.GetAsTrustedScriptURL())
-              : StringOrTrustedScriptURL::FromString(
-                    GetStringFromTrustedTypeWithoutCheck(
-                        string_or_trusted_type));
-      return GetStringFromTrustedScriptURL(string_or_trusted_script_url,
-                                           execution_context, exception_state);
-    }
-  }
-}
-
-String GetStringFromSpecificTrustedType(
-    const String& string,
-    SpecificTrustedType specific_trusted_type,
-    const ExecutionContext* execution_context,
-    ExceptionState& exception_state) {
-  if (specific_trusted_type == SpecificTrustedType::kNone)
-    return string;
-  return GetStringFromSpecificTrustedType(
-      StringOrTrustedHTMLOrTrustedScriptOrTrustedScriptURL::FromString(string),
-      specific_trusted_type, execution_context, exception_state);
-}
-
-String GetStringFromTrustedHTML(StringOrTrustedHTML string_or_trusted_html,
-                                const ExecutionContext* execution_context,
-                                ExceptionState& exception_state) {
-  DCHECK(!string_or_trusted_html.IsNull());
-
-  if (string_or_trusted_html.IsTrustedHTML()) {
-    return string_or_trusted_html.GetAsTrustedHTML()->toString();
-  }
-
-  return GetStringFromTrustedHTML(string_or_trusted_html.GetAsString(),
-                                  execution_context, exception_state);
-}
-
-String GetStringFromTrustedHTML(const String& string,
+String TrustedTypesCheckForHTML(const String& html,
                                 const ExecutionContext* execution_context,
                                 ExceptionState& exception_state) {
   bool require_trusted_type = RequireTrustedTypesCheck(execution_context);
   if (!require_trusted_type) {
-    return string;
+    return html;
   }
 
   TrustedTypePolicy* default_policy = GetDefaultPolicy(execution_context);
   if (!default_policy) {
     if (TrustedTypeFail(kTrustedHTMLAssignment, execution_context,
-                        exception_state, string)) {
+                        exception_state, html)) {
       return g_empty_string;
     }
-    return string;
+    return html;
   }
 
   if (!default_policy->HasCreateHTML()) {
     if (TrustedTypeFail(kTrustedHTMLAssignmentAndNoDefaultPolicyExisted,
-                        execution_context, exception_state, string)) {
+                        execution_context, exception_state, html)) {
       return g_empty_string;
     } else {
-      return string;
+      return html;
     }
   }
-  TrustedHTML* result =
-      default_policy->CreateHTML(execution_context->GetIsolate(), string,
-                                 HeapVector<ScriptValue>(), exception_state);
+  TrustedHTML* result = default_policy->CreateHTML(
+      execution_context->GetIsolate(), html,
+      GetDefaultCallbackArgs(execution_context->GetIsolate(), "TrustedHTML",
+                             exception_state),
+      exception_state);
   if (exception_state.HadException()) {
     return g_empty_string;
   }
 
   if (result->toString().IsNull()) {
     if (TrustedTypeFail(kTrustedHTMLAssignmentAndDefaultPolicyFailed,
-                        execution_context, exception_state, string)) {
+                        execution_context, exception_state, html)) {
       return g_empty_string;
     } else {
-      return string;
+      return html;
     }
   }
 
   return result->toString();
 }
 
-String GetStringFromTrustedScript(
-    StringOrTrustedScript string_or_trusted_script,
-    const ExecutionContext* execution_context,
-    ExceptionState& exception_state) {
-  // To remain compatible with legacy behaviour, HTMLElement uses extended IDL
-  // attributes to allow for nullable union of (DOMString or TrustedScript).
-  // Thus, this method is required to handle the case where
-  // string_or_trusted_script.IsNull(), unlike the various similar methods in
-  // this file.
-
-  if (string_or_trusted_script.IsTrustedScript()) {
-    return string_or_trusted_script.GetAsTrustedScript()->toString();
-  }
-
-  if (string_or_trusted_script.IsNull()) {
-    string_or_trusted_script =
-        StringOrTrustedScript::FromString(g_empty_string);
-  }
-  return GetStringFromTrustedScript(string_or_trusted_script.GetAsString(),
-                                    execution_context, exception_state);
+String TrustedTypesCheckForHTML(const String& html,
+                                const Document* document,
+                                ExceptionState& exception_state) {
+  return TrustedTypesCheckForHTML(
+      html, document ? document->GetExecutionContext() : nullptr,
+      exception_state);
 }
 
-String GetStringFromTrustedScript(const String& potential_script,
+String TrustedTypesCheckForScript(const String& script,
                                   const ExecutionContext* execution_context,
                                   ExceptionState& exception_state) {
   bool require_trusted_type = RequireTrustedTypesCheck(execution_context);
   if (!require_trusted_type) {
-    return potential_script;
+    return script;
   }
 
   TrustedTypePolicy* default_policy = GetDefaultPolicy(execution_context);
   if (!default_policy) {
     if (TrustedTypeFail(kTrustedScriptAssignment, execution_context,
-                        exception_state, potential_script)) {
+                        exception_state, script)) {
       return g_empty_string;
     }
-    return potential_script;
+    return script;
   }
 
   if (!default_policy->HasCreateScript()) {
     if (TrustedTypeFail(kTrustedScriptAssignmentAndNoDefaultPolicyExisted,
-                        execution_context, exception_state, potential_script)) {
+                        execution_context, exception_state, script)) {
       return g_empty_string;
     } else {
-      return potential_script;
+      return script;
     }
   }
   TrustedScript* result = default_policy->CreateScript(
-      execution_context->GetIsolate(), potential_script,
-      HeapVector<ScriptValue>(), exception_state);
+      execution_context->GetIsolate(), script,
+      GetDefaultCallbackArgs(execution_context->GetIsolate(), "TrustedScript",
+                             exception_state),
+      exception_state);
   DCHECK_EQ(!result, exception_state.HadException());
   if (exception_state.HadException()) {
     return g_empty_string;
@@ -437,54 +346,47 @@ String GetStringFromTrustedScript(const String& potential_script,
 
   if (result->toString().IsNull()) {
     if (TrustedTypeFail(kTrustedScriptAssignmentAndDefaultPolicyFailed,
-                        execution_context, exception_state, potential_script)) {
+                        execution_context, exception_state, script)) {
       return g_empty_string;
     } else {
-      return potential_script;
+      return script;
     }
   }
 
   return result->toString();
 }
 
-String GetStringFromTrustedScriptURL(
-    StringOrTrustedScriptURL string_or_trusted_script_url,
-    const ExecutionContext* execution_context,
-    ExceptionState& exception_state) {
-  DCHECK(!string_or_trusted_script_url.IsNull());
-  if (string_or_trusted_script_url.IsTrustedScriptURL()) {
-    return string_or_trusted_script_url.GetAsTrustedScriptURL()->toString();
-  }
-
-  DCHECK(string_or_trusted_script_url.IsString());
-  String string = string_or_trusted_script_url.GetAsString();
-
+String TrustedTypesCheckForScriptURL(const String& script_url,
+                                     const ExecutionContext* execution_context,
+                                     ExceptionState& exception_state) {
   bool require_trusted_type =
       RequireTrustedTypesCheck(execution_context) &&
       RuntimeEnabledFeatures::TrustedDOMTypesEnabled(execution_context);
   if (!require_trusted_type) {
-    return string;
+    return script_url;
   }
 
   TrustedTypePolicy* default_policy = GetDefaultPolicy(execution_context);
   if (!default_policy) {
     if (TrustedTypeFail(kTrustedScriptURLAssignment, execution_context,
-                        exception_state, string)) {
+                        exception_state, script_url)) {
       return g_empty_string;
     }
-    return string;
+    return script_url;
   }
 
   if (!default_policy->HasCreateScriptURL()) {
     if (TrustedTypeFail(kTrustedScriptURLAssignmentAndNoDefaultPolicyExisted,
-                        execution_context, exception_state, string)) {
+                        execution_context, exception_state, script_url)) {
       return g_empty_string;
     } else {
-      return string;
+      return script_url;
     }
   }
   TrustedScriptURL* result = default_policy->CreateScriptURL(
-      execution_context->GetIsolate(), string, HeapVector<ScriptValue>(),
+      execution_context->GetIsolate(), script_url,
+      GetDefaultCallbackArgs(execution_context->GetIsolate(),
+                             "TrustedScriptURL", exception_state),
       exception_state);
 
   if (exception_state.HadException()) {
@@ -493,19 +395,90 @@ String GetStringFromTrustedScriptURL(
 
   if (result->toString().IsNull()) {
     if (TrustedTypeFail(kTrustedScriptURLAssignmentAndDefaultPolicyFailed,
-                        execution_context, exception_state, string)) {
+                        execution_context, exception_state, script_url)) {
       return g_empty_string;
     } else {
-      return string;
+      return script_url;
     }
   }
 
   return result->toString();
 }
 
-String CORE_EXPORT GetStringForScriptExecution(const String& script,
-                                               Document* doc) {
-  return GetStringFromScriptHelper(script, doc, "script", "text",
+String TrustedTypesCheckFor(
+    SpecificTrustedType type,
+    const StringOrTrustedHTMLOrTrustedScriptOrTrustedScriptURL& trusted,
+    const ExecutionContext* execution_context,
+    ExceptionState& exception_state) {
+  // Whatever happens below, we will need the string value:
+  String value;
+  if (trusted.IsTrustedHTML()) {
+    value = trusted.GetAsTrustedHTML()->toString();
+  } else if (trusted.IsTrustedScript()) {
+    value = trusted.GetAsTrustedScript()->toString();
+  } else if (trusted.IsTrustedScriptURL()) {
+    value = trusted.GetAsTrustedScriptURL()->toString();
+  } else if (trusted.IsString()) {
+    value = trusted.GetAsString();
+  }  // else: trusted.IsNull(). But we don't have anything to do in that case.
+
+  // The check passes if we have the proper trusted type:
+  if (type == SpecificTrustedType::kNone ||
+      (trusted.IsTrustedHTML() && type == SpecificTrustedType::kHTML) ||
+      (trusted.IsTrustedScript() && type == SpecificTrustedType::kScript) ||
+      (trusted.IsTrustedScriptURL() &&
+       type == SpecificTrustedType::kScriptURL)) {
+    return value;
+  }
+
+  // In all other cases: run the full check against the string value.
+  return TrustedTypesCheckFor(type, value, execution_context, exception_state);
+}
+
+String TrustedTypesCheckForScript(StringOrTrustedScript trusted,
+                                  const ExecutionContext* execution_context,
+                                  ExceptionState& exception_state) {
+  // To remain compatible with legacy behaviour, HTMLElement uses extended IDL
+  // attributes to allow for nullable union of (DOMString or TrustedScript).
+  // Thus, this method is required to handle the case where
+  // string_or_trusted_script.IsNull(), unlike the various similar methods in
+  // this file.
+  if (trusted.IsTrustedScript()) {
+    return trusted.GetAsTrustedScript()->toString();
+  }
+  if (trusted.IsNull()) {
+    trusted = StringOrTrustedScript::FromString(g_empty_string);
+  }
+  return TrustedTypesCheckForScript(trusted.GetAsString(), execution_context,
+                                    exception_state);
+}
+
+String TrustedTypesCheckFor(SpecificTrustedType type,
+                            const String& trusted,
+                            const ExecutionContext* execution_context,
+                            ExceptionState& exception_state) {
+  switch (type) {
+    case SpecificTrustedType::kHTML:
+      return TrustedTypesCheckForHTML(trusted, execution_context,
+                                      exception_state);
+    case SpecificTrustedType::kScript:
+      return TrustedTypesCheckForScript(trusted, execution_context,
+                                        exception_state);
+    case SpecificTrustedType::kScriptURL:
+      return TrustedTypesCheckForScriptURL(trusted, execution_context,
+                                           exception_state);
+    case SpecificTrustedType::kNone:
+      return trusted;
+  }
+  NOTREACHED();
+  return "";
+}
+
+String CORE_EXPORT
+GetStringForScriptExecution(const String& script,
+                            const ScriptElementBase::Type type,
+                            Document* doc) {
+  return GetStringFromScriptHelper(script, doc, GetElementName(type), "text",
                                    kScriptExecution,
                                    kScriptExecutionAndDefaultPolicyFailed);
 }

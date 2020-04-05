@@ -79,7 +79,7 @@ SharedWorker* SharedWorker::Create(ExecutionContext* context,
 
   // We don't currently support nested workers, so workers can only be created
   // from documents.
-  Document* document = To<Document>(context);
+  Document* document = Document::From(context);
   DCHECK(document);
 
   RecordSharedWorkerUsage(document);
@@ -163,7 +163,7 @@ bool SharedWorker::HasPendingActivity() const {
 void SharedWorker::ContextLifecycleStateChanged(
     mojom::FrameLifecycleState state) {}
 
-void SharedWorker::Trace(blink::Visitor* visitor) {
+void SharedWorker::Trace(Visitor* visitor) {
   visitor->Trace(port_);
   AbstractWorker::Trace(visitor);
   Supplementable<SharedWorker>::Trace(visitor);

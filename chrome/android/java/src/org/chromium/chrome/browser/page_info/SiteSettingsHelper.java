@@ -11,9 +11,9 @@ import org.chromium.base.StrictModeContext;
 import org.chromium.chrome.browser.offlinepages.OfflinePageUtils;
 import org.chromium.chrome.browser.previews.PreviewsAndroidBridge;
 import org.chromium.chrome.browser.settings.SettingsLauncher;
-import org.chromium.chrome.browser.settings.website.SingleWebsiteSettings;
-import org.chromium.chrome.browser.util.UrlConstants;
+import org.chromium.chrome.browser.site_settings.SingleWebsiteSettings;
 import org.chromium.components.dom_distiller.core.DomDistillerUrlUtils;
+import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.net.GURLUtils;
 
@@ -32,8 +32,8 @@ public class SiteSettingsHelper {
                 PreviewsAndroidBridge.getInstance().shouldShowPreviewUI(webContents);
         // TODO(crbug.com/1033178): dedupe the DomDistillerUrlUtils#getOriginalUrlFromDistillerUrl()
         // calls.
-        String url =
-                DomDistillerUrlUtils.getOriginalUrlFromDistillerUrl(webContents.getVisibleUrl());
+        String url = DomDistillerUrlUtils.getOriginalUrlFromDistillerUrl(
+                webContents.getVisibleUrlString());
         String scheme = GURLUtils.getScheme(url);
         return !isOfflinePage && !isPreviewPage
                 && (UrlConstants.HTTP_SCHEME.equals(scheme)

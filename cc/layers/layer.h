@@ -368,22 +368,23 @@ class CC_EXPORT Layer : public base::RefCounted<Layer> {
                                : gfx::Point3F();
   }
 
-  // TODO(crbug.com/1016229): This should be for layer tree mode only.
+  // For layer tree mode only.
   // Set or get the scroll offset of the layer. The content of the layer, and
   // position of its subtree, as well as other layers for which this layer is
   // their scroll parent, and their subtrees) is moved up by the amount of
   // offset specified here.
   void SetScrollOffset(const gfx::ScrollOffset& scroll_offset);
-  // Accessor named to match LayerImpl for templated code.
-  const gfx::ScrollOffset& CurrentScrollOffset() const {
-    return inputs_.scroll_offset;
+  gfx::ScrollOffset scroll_offset() const {
+    return layer_tree_inputs() ? layer_tree_inputs()->scroll_offset
+                               : gfx::ScrollOffset();
   }
 
+  // For layer tree mode only.
   // Called internally during commit to update the layer with state from the
   // compositor thread. Not to be called externally by users of this class.
   void SetScrollOffsetFromImplSide(const gfx::ScrollOffset& scroll_offset);
 
-  // TODO(crbug.com/1016229): This should be for layer tree mode only.
+  // For layer tree mode only.
   // Marks this layer as being scrollable and needing an associated scroll node,
   // and specifies the total size of the content to be scrolled (ie the max
   // scroll offsets. The size should be a union of the layer and its subtree, as
@@ -392,9 +393,12 @@ class CC_EXPORT Layer : public base::RefCounted<Layer> {
   // transforms of children affect the size of the |scroll_container_bounds|.
   // Once scrollable, a Layer cannot become un-scrollable.
   void SetScrollable(const gfx::Size& scroll_container_bounds);
-  bool scrollable() const { return inputs_.scrollable; }
-  const gfx::Size& scroll_container_bounds() const {
-    return inputs_.scroll_container_bounds;
+  bool scrollable() const {
+    return layer_tree_inputs() && layer_tree_inputs()->scrollable;
+  }
+  gfx::Size scroll_container_bounds() const {
+    return layer_tree_inputs() ? layer_tree_inputs()->scroll_container_bounds
+                               : gfx::Size();
   }
 
   void SetIsScrollbar(bool is_scrollbar);
@@ -487,17 +491,6 @@ class CC_EXPORT Layer : public base::RefCounted<Layer> {
   void SetDoubleSided(bool double_sided);
   bool double_sided() const { return inputs_.double_sided; }
 
-  // Set or get if SetDoubleSided() for this layer should be ignored and
-  // inherited directly from this layer's parent instead. Used to attach this
-  // layer's backface visibility to the value of its parent.
-  //
-  // Note that should_check_backface_visibility() is the final computed value
-  // for back face visibility, which is only for internal use.
-  void SetUseParentBackfaceVisibility(bool use);
-  bool use_parent_backface_visibility() const {
-    return inputs_.use_parent_backface_visibility;
-  }
-
   // When true the layer may contribute to the compositor's output. When false,
   // it does not. This property does not apply to children of the layer, they
   // may contribute while this layer does not. The layer itself will determine
@@ -565,6 +558,9 @@ class CC_EXPORT Layer : public base::RefCounted<Layer> {
   bool has_will_change_transform_hint() const {
     return inputs_.has_will_change_transform_hint;
   }
+
+  void SetFrameElementId(ElementId frame_element_id);
+  ElementId frame_element_id() const { return inputs_.frame_element_id; }
 
   // For layer tree mode only.
   // Sets or gets if trilinear filtering should be used to scaling the contents
@@ -717,7 +713,7 @@ class CC_EXPORT Layer : public base::RefCounted<Layer> {
 
   // Internal to property tree construction. Set if the layer should not be
   // shown when its back face is visible to the user. This is a derived value
-  // from SetDoubleSided() and SetUseParentBackfaceVisibility().
+  // from SetDoubleSided().
   void SetShouldCheckBackfaceVisibility(bool should_check_backface_visibility);
   bool should_check_backface_visibility() const {
     return should_check_backface_visibility_;
@@ -822,11 +818,12 @@ class CC_EXPORT Layer : public base::RefCounted<Layer> {
   // layer should own a property tree node or not.
   void SetPropertyTreesNeedRebuild();
 
+  // For layer tree mode only.
   // Fast-path for |SetScrollOffset| and |SetScrollOffsetFromImplSide| to
   // directly update scroll offset values in the property tree without needing a
   // full property tree update. If property trees do not exist yet, ensures
   // they are marked as needing to be rebuilt.
-  void UpdateScrollOffset(const gfx::ScrollOffset&);
+  void UpdatePropertyTreeScrollOffset();
 
   void SetMirrorCount(int mirror_count);
 
@@ -852,13 +849,6 @@ class CC_EXPORT Layer : public base::RefCounted<Layer> {
     bool is_drawable : 1;
 
     bool double_sided : 1;
-    bool use_parent_backface_visibility : 1;
-
-    // TODO(crbug.com/1016629): Move this into LayerTreeInputs.
-    // Indicates that this layer will need a scroll property node and that this
-    // layer's bounds correspond to the scroll node's bounds (both |bounds| and
-    // |scroll_container_bounds|).
-    bool scrollable : 1;
 
     // Indicates that this layer is a scrollbar.
     bool is_scrollbar : 1;
@@ -867,17 +857,12 @@ class CC_EXPORT Layer : public base::RefCounted<Layer> {
 
     SkColor background_color;
 
-    // TODO(crbug.com/1016629): Move this into LayerTreeInputs.
-    gfx::ScrollOffset scroll_offset;
-
-    // TODO(crbug.com/1016629): Move this into LayerTreeInputs.
-    // Size of the scroll container that this layer scrolls in.
-    gfx::Size scroll_container_bounds;
-
     Region non_fast_scrollable_region;
     TouchActionRegion touch_action_region;
 
     ElementId element_id;
+    // ElementId of the document that this layer was created by.
+    ElementId frame_element_id;
   };
 
   // These inputs are used in layer tree mode (ui compositor) only. Most of them
@@ -911,6 +896,11 @@ class CC_EXPORT Layer : public base::RefCounted<Layer> {
 
     bool hide_layer_and_subtree : 1;
 
+    // Indicates that this layer will need a scroll property node and that this
+    // layer's bounds correspond to the scroll node's bounds (both |bounds| and
+    // |scroll_container_bounds|).
+    bool scrollable : 1;
+
     gfx::PointF position;
     gfx::Transform transform;
     gfx::Point3F transform_origin;
@@ -921,6 +911,10 @@ class CC_EXPORT Layer : public base::RefCounted<Layer> {
     float backdrop_filter_quality;
 
     int mirror_count;
+
+    gfx::ScrollOffset scroll_offset;
+    // Size of the scroll container that this layer scrolls in.
+    gfx::Size scroll_container_bounds;
 
     // Corner clip radius for the 4 corners of the layer in the following order:
     //     top left, top right, bottom right, bottom left

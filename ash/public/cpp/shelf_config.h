@@ -59,6 +59,10 @@ class ASH_EXPORT ShelfConfig : public TabletModeObserver,
   // AppListControllerObserver:
   void OnAppListVisibilityWillChange(bool shown, int64_t display_id) override;
 
+  // Whether the shelf control buttons must be shown for accessibility
+  // reasons.
+  bool ShelfControlsForcedShownForAccessibility() const;
+
   // Size of the shelf when visible (height when the shelf is horizontal and
   // width when the shelf is vertical).
   int shelf_size() const;
@@ -71,6 +75,9 @@ class ASH_EXPORT ShelfConfig : public TabletModeObserver,
 
   // Size of the hotseat, which contains the scrollable shelf in tablet mode.
   int hotseat_size() const;
+
+  // The shelf size within which the drag handle should be centered.
+  int shelf_drag_handle_centering_size() const;
 
   // The size of the gap between the hotseat and shelf when the hotseat is
   // extended.
@@ -91,11 +98,11 @@ class ASH_EXPORT ShelfConfig : public TabletModeObserver,
   // The radius of shelf control buttons.
   int control_border_radius() const;
 
-  // The margin around the overflow button on the shelf.
-  int overflow_button_margin() const;
-
-  // The distance between the edge of the shelf and the home and back button.
-  int home_button_edge_spacing() const;
+  // The spacing between the edge of the shelf and the control buttons. When
+  // shelf is horizontal, the left/right edges of the shelf are considered a
+  // primary axis edge. When shelf is vertical, the top/bottom edges are
+  // considered the primary axis edge.
+  int control_button_edge_spacing(bool is_primary_axis_edge) const;
 
   // The duration of the hotseat background animations in ms.
   base::TimeDelta hotseat_background_animation_duration() const;
@@ -160,6 +167,8 @@ class ASH_EXPORT ShelfConfig : public TabletModeObserver,
 
   bool shelf_controls_shown() const { return shelf_controls_shown_; }
 
+  bool is_virtual_keyboard_shown() const { return is_virtual_keyboard_shown_; }
+
   // Gets the current color for the shelf control buttons.
   SkColor GetShelfControlButtonColor() const;
 
@@ -184,11 +193,21 @@ class ASH_EXPORT ShelfConfig : public TabletModeObserver,
   // The padding between the app icon and the end of the scrollable shelf.
   int GetAppIconEndPadding() const;
 
+  // Return the size of the shelf item's ripple.
+  int GetShelfItemRippleSize() const;
+
+  // Return the drag distance to fully show the hotseat widget from the state
+  // being hidden.
+  int GetHotseatFullDragAmount() const;
+
   // The animation time for dimming shelf icons, widgets, and buttons.
   base::TimeDelta DimAnimationDuration() const;
 
   // The tween type for dimming shelf icons, widgets, and buttons.
   gfx::Tween::Type DimAnimationTween() const;
+
+  // The size of the shelf drag handle.
+  gfx::Size DragHandleSize() const;
 
  private:
   friend class ShelfConfigTest;
@@ -211,6 +230,9 @@ class ASH_EXPORT ShelfConfig : public TabletModeObserver,
 
   // Updates shelf config - called when the accessibility state changes.
   void UpdateConfigForAccessibilityState();
+
+  // Whether shelf config was calculated for tablet mode.
+  bool in_tablet_mode_;
 
   // Whether shelf is currently standard or dense.
   bool is_dense_;
@@ -240,8 +262,7 @@ class ASH_EXPORT ShelfConfig : public TabletModeObserver,
   const int shelf_status_area_hit_region_padding_;
   const int shelf_status_area_hit_region_padding_dense_;
 
-  // The margin on either side of the group of app icons (including the overflow
-  // button).
+  // The margin on either side of the group of app icons.
   const int app_icon_group_margin_;
 
   const SkColor shelf_control_permanent_highlight_background_;

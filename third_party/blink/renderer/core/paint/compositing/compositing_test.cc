@@ -8,6 +8,7 @@
 #include "cc/trees/effect_node.h"
 #include "cc/trees/layer_tree_host.h"
 #include "cc/trees/scroll_and_scale_set.h"
+#include "cc/trees/scroll_node.h"
 #include "cc/trees/transform_node.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/features.h"
@@ -51,7 +52,7 @@ class CompositingTest : public PaintTestConfigurations, public testing::Test {
 
   // Both sets the inner html and runs the document lifecycle.
   void InitializeWithHTML(LocalFrame& frame, const String& html_content) {
-    frame.GetDocument()->body()->SetInnerHTMLFromString(html_content);
+    frame.GetDocument()->body()->setInnerHTML(html_content);
     frame.GetDocument()->View()->UpdateAllLifecyclePhases(
         DocumentUpdateReason::kTest);
   }
@@ -125,9 +126,13 @@ TEST_P(CompositingTest, DidScrollCallbackAfterScrollableAreaChanges) {
   CompositorElementId scroll_element_id = scrollable_area->GetScrollElementId();
   const auto* overflow_scroll_layer =
       CcLayerByCcElementId(RootCcLayer(), scroll_element_id);
-  EXPECT_TRUE(overflow_scroll_layer->scrollable());
-  EXPECT_EQ(overflow_scroll_layer->scroll_container_bounds(),
-            gfx::Size(100, 100));
+  const auto* scroll_node =
+      RootCcLayer()
+          ->layer_tree_host()
+          ->property_trees()
+          ->scroll_tree.FindNodeFromElementId(scroll_element_id);
+  EXPECT_TRUE(scroll_node->scrollable);
+  EXPECT_EQ(scroll_node->container_bounds, gfx::Size(100, 100));
 
   // Ensure a synthetic impl-side scroll offset propagates to the scrollable
   // area using the DidScroll callback.
@@ -155,8 +160,10 @@ TEST_P(CompositingTest, DidScrollCallbackAfterScrollableAreaChanges) {
   // apply impl-side offsets without crashing.
   ASSERT_EQ(overflow_scroll_layer,
             CcLayerByCcElementId(RootCcLayer(), scroll_element_id));
-  const_cast<cc::Layer*>(overflow_scroll_layer)
-      ->SetScrollOffsetFromImplSide(gfx::ScrollOffset(0, 3));
+  scroll_and_scale_set.scrolls[0] = {scroll_element_id, gfx::ScrollOffset(0, 1),
+                                     base::nullopt};
+  overflow_scroll_layer->layer_tree_host()->ApplyScrollAndScale(
+      &scroll_and_scale_set);
 
   UpdateAllLifecyclePhases();
   EXPECT_FALSE(CcLayerByCcElementId(RootCcLayer(), scroll_element_id));
@@ -177,9 +184,13 @@ TEST_P(CompositingTest, FrameViewScroll) {
   auto* scrollable_area = GetLocalFrameView()->LayoutViewport();
   EXPECT_NE(nullptr, scrollable_area);
 
-  const auto* scroll_layer = CcLayerByCcElementId(
-      RootCcLayer(), scrollable_area->GetScrollElementId());
-  EXPECT_TRUE(scroll_layer->scrollable());
+  const auto* scroll_node = RootCcLayer()
+                                ->layer_tree_host()
+                                ->property_trees()
+                                ->scroll_tree.FindNodeFromElementId(
+                                    scrollable_area->GetScrollElementId());
+  ASSERT_TRUE(scroll_node);
+  EXPECT_TRUE(scroll_node->scrollable);
 
   // Ensure a synthetic impl-side scroll offset propagates to the scrollable
   // area using the DidScroll callback.
@@ -188,7 +199,7 @@ TEST_P(CompositingTest, FrameViewScroll) {
   scroll_and_scale_set.scrolls.push_back({scrollable_area->GetScrollElementId(),
                                           gfx::ScrollOffset(0, 1),
                                           base::nullopt});
-  scroll_layer->layer_tree_host()->ApplyScrollAndScale(&scroll_and_scale_set);
+  RootCcLayer()->layer_tree_host()->ApplyScrollAndScale(&scroll_and_scale_set);
   UpdateAllLifecyclePhases();
   EXPECT_EQ(ScrollOffset(0, 1), scrollable_area->GetScrollOffset());
 }
@@ -239,12 +250,12 @@ class CompositingSimTest : public PaintTestConfigurations, public SimTest {
   }
 
   void UpdateAllLifecyclePhasesExceptPaint() {
-    WebView().MainFrameWidget()->UpdateLifecycle(
-        WebWidget::LifecycleUpdate::kPrePaint, DocumentUpdateReason::kTest);
+    WebView().MainFrameWidget()->UpdateLifecycle(WebLifecycleUpdate::kPrePaint,
+                                                 DocumentUpdateReason::kTest);
   }
 
   cc::PropertyTrees* GetPropertyTrees() {
-    return Compositor().layer_tree_host().property_trees();
+    return Compositor().layer_tree_host()->property_trees();
   }
 
   cc::TransformNode* GetTransformNode(const cc::Layer* layer) {
@@ -293,7 +304,7 @@ TEST_P(CompositingSimTest, LayerUpdatesDoNotInvalidateEarlierLayers) {
   auto* b_layer = CcLayerByDOMElementId("b");
 
   // Initially, neither a nor b should have a layer that should push properties.
-  cc::LayerTreeHost& host = Compositor().layer_tree_host();
+  cc::LayerTreeHost& host = *Compositor().layer_tree_host();
   EXPECT_FALSE(host.LayersThatShouldPushProperties().count(a_layer));
   EXPECT_FALSE(host.LayersThatShouldPushProperties().count(b_layer));
 
@@ -335,7 +346,7 @@ TEST_P(CompositingSimTest, LayerUpdatesDoNotInvalidateLaterLayers) {
   auto* c_layer = CcLayerByDOMElementId("c");
 
   // Initially, no layer should need to push properties.
-  cc::LayerTreeHost& host = Compositor().layer_tree_host();
+  cc::LayerTreeHost& host = *Compositor().layer_tree_host();
   EXPECT_FALSE(host.LayersThatShouldPushProperties().count(a_layer));
   EXPECT_FALSE(host.LayersThatShouldPushProperties().count(b_layer));
   EXPECT_FALSE(host.LayersThatShouldPushProperties().count(c_layer));
@@ -373,7 +384,7 @@ TEST_P(CompositingSimTest,
   Compositor().BeginFrame();
 
   // Initially the host should not need to sync.
-  cc::LayerTreeHost& layer_tree_host = Compositor().layer_tree_host();
+  cc::LayerTreeHost& layer_tree_host = *Compositor().layer_tree_host();
   EXPECT_FALSE(layer_tree_host.needs_full_tree_sync());
   int sequence_number = GetPropertyTrees()->sequence_number;
   EXPECT_GT(sequence_number, 0);
@@ -1093,6 +1104,34 @@ TEST_P(CompositingSimTest, PromoteCrossOriginIframeAfterLoading) {
   EXPECT_TRUE(CcLayerByDOMElementId("iframe"));
 }
 
+// An iframe that is cross-origin to the parent should be composited. This test
+// sets up nested frames with domains A -> B -> A. Both the child and grandchild
+// frames should be composited because they are cross-origin to their parent.
+TEST_P(CompositingSimTest, PromoteCrossOriginToParent) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatureState(
+      blink::features::kCompositeCrossOriginIframes, true);
+
+  SimRequest main_resource("https://origin-a.com/a.html", "text/html");
+  SimRequest child_resource("https://origin-b.com/b.html", "text/html");
+  SimRequest grandchild_resource("https://origin-a.com/c.html", "text/html");
+
+  LoadURL("https://origin-a.com/a.html");
+  main_resource.Complete(R"HTML(
+      <!DOCTYPE html>
+      <iframe id="main_iframe" src="https://origin-b.com/b.html"></iframe>
+  )HTML");
+  child_resource.Complete(R"HTML(
+      <!DOCTYPE html>
+      <iframe id="child_iframe" src="https://origin-a.com/c.html"></iframe>
+  )HTML");
+  grandchild_resource.Complete("<!DOCTYPE html>");
+  Compositor().BeginFrame();
+
+  EXPECT_TRUE(CcLayerByDOMElementId("main_iframe"));
+  EXPECT_TRUE(CcLayerByDOMElementId("child_iframe"));
+}
+
 // Initially the iframe is cross-origin and should be composited. After changing
 // to same-origin, the frame should no longer be composited.
 TEST_P(CompositingSimTest, PromoteCrossOriginIframeAfterDomainChange) {
@@ -1124,6 +1163,53 @@ TEST_P(CompositingSimTest, PromoteCrossOriginIframeAfterDomainChange) {
   UpdateAllLifecyclePhases();
 
   EXPECT_FALSE(CcLayerByDOMElementId("iframe"));
+}
+
+// This test sets up nested frames with domains A -> B -> A. Initially, the
+// child frame and grandchild frame should be composited. After changing the
+// child frame to A (same-origin), both child and grandchild frames should no
+// longer be composited.
+TEST_P(CompositingSimTest, PromoteCrossOriginToParentIframeAfterDomainChange) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatureState(
+      blink::features::kCompositeCrossOriginIframes, true);
+
+  SimRequest main_resource("https://origin-a.com/a.html", "text/html");
+  SimRequest child_resource("https://sub.origin-a.com/b.html", "text/html");
+  SimRequest grandchild_resource("https://origin-a.com/c.html", "text/html");
+
+  LoadURL("https://origin-a.com/a.html");
+  main_resource.Complete(R"HTML(
+      <!DOCTYPE html>
+      <iframe id="main_iframe" src="https://sub.origin-a.com/b.html"></iframe>
+  )HTML");
+  child_resource.Complete(R"HTML(
+      <!DOCTYPE html>
+      <iframe id="child_iframe" src="https://origin-a.com/c.html"></iframe>
+  )HTML");
+  grandchild_resource.Complete("<!DOCTYPE html>");
+  Compositor().BeginFrame();
+
+  EXPECT_TRUE(CcLayerByDOMElementId("main_iframe"));
+  EXPECT_TRUE(CcLayerByDOMElementId("child_iframe"));
+
+  auto* main_iframe_element =
+      To<HTMLIFrameElement>(GetDocument().getElementById("main_iframe"));
+  NonThrowableExceptionState exception_state;
+  GetDocument().setDomain(String("origin-a.com"), exception_state);
+  auto* child_iframe_element = To<HTMLIFrameElement>(
+      main_iframe_element->contentDocument()->getElementById("child_iframe"));
+  child_iframe_element->contentDocument()->setDomain(String("origin-a.com"),
+                                                     exception_state);
+  main_iframe_element->contentDocument()->setDomain(String("origin-a.com"),
+                                                    exception_state);
+
+  // We may not have scheduled a visual update so force an update instead of
+  // using BeginFrame.
+  UpdateAllLifecyclePhases();
+
+  EXPECT_FALSE(CcLayerByDOMElementId("main_iframe"));
+  EXPECT_FALSE(CcLayerByDOMElementId("child_iframe"));
 }
 
 }  // namespace blink

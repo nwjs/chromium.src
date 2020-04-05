@@ -8,6 +8,7 @@
 #include <memory>
 
 #include "base/macros.h"
+#include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/css/css_property_names.h"
 #include "third_party/blink/renderer/core/css/css_property_source_data.h"
 #include "third_party/blink/renderer/core/css/css_property_value.h"
@@ -44,7 +45,7 @@ enum class ParseSheetResult {
   kHasUnallowedImportRule,
 };
 
-class CSSParserImpl {
+class CORE_EXPORT CSSParserImpl {
   STACK_ALLOCATED();
 
  public:
@@ -115,6 +116,7 @@ class CSSParserImpl {
   static std::unique_ptr<Vector<double>> ParseKeyframeKeyList(const String&);
 
   bool SupportsDeclaration(CSSParserTokenRange&);
+  const CSSParserContext* GetContext() const { return context_; }
 
   static void ParseDeclarationListForInspector(const String&,
                                                const CSSParserContext*,

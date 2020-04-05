@@ -38,12 +38,10 @@ namespace {
 
 unsigned ConvertDeltaMode(const WebMouseWheelEvent& event) {
   // WebMouseWheelEvent only supports these units for the delta.
-  DCHECK(
-      event.delta_units == ui::input_types::ScrollGranularity::kScrollByPage ||
-      event.delta_units == ui::input_types::ScrollGranularity::kScrollByPixel ||
-      event.delta_units ==
-          ui::input_types::ScrollGranularity::kScrollByPrecisePixel);
-  return event.delta_units == ui::input_types::ScrollGranularity::kScrollByPage
+  DCHECK(event.delta_units == ui::ScrollGranularity::kScrollByPage ||
+         event.delta_units == ui::ScrollGranularity::kScrollByPixel ||
+         event.delta_units == ui::ScrollGranularity::kScrollByPrecisePixel);
+  return event.delta_units == ui::ScrollGranularity::kScrollByPage
              ? WheelEvent::kDomDeltaPage
              : WheelEvent::kDomDeltaPixel;
 }
@@ -184,7 +182,7 @@ DispatchEventResult WheelEvent::DispatchEvent(EventDispatcher& dispatcher) {
   return dispatcher.Dispatch();
 }
 
-void WheelEvent::Trace(blink::Visitor* visitor) {
+void WheelEvent::Trace(Visitor* visitor) {
   MouseEvent::Trace(visitor);
 }
 

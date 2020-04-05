@@ -4,6 +4,7 @@
 
 #include "base/command_line.h"
 #include "base/json/json_reader.h"
+#include "base/memory/ptr_util.h"
 #include "base/task/post_task.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/component_updater/chrome_component_updater_configurator.h"
@@ -70,6 +71,7 @@ class ComponentUpdaterPolicyTest : public PolicyTest {
       bool supports_group_policy_enable_component_updates);
 
   TestCase cur_test_case_;
+  base::RepeatingClosure quit_closure_;
 
   static const char component_id_[];
 
@@ -136,6 +138,7 @@ update_client::CrxComponent ComponentUpdaterPolicyTest::MakeCrxComponent(
 
     void Install(const base::FilePath& unpack_path,
                  const std::string& public_key,
+                 std::unique_ptr<InstallParams> /*install_params*/,
                  Callback callback) override {
       DoInstall(unpack_path, public_key, std::move(callback));
     }
@@ -212,9 +215,7 @@ void ComponentUpdaterPolicyTest::BeginTest() {
 void ComponentUpdaterPolicyTest::EndTest() {
   post_interceptor_.reset();
   cus_ = nullptr;
-  // TODO(crbug.com/1033439): replace QuitCurrentWhenIdleDeprecated with RunLoop
-  // instance instead
-  base::RunLoop::QuitCurrentWhenIdleDeprecated();
+  quit_closure_.Run();
 }
 
 void ComponentUpdaterPolicyTest::VerifyExpectations(bool update_disabled) {
@@ -339,7 +340,9 @@ void ComponentUpdaterPolicyTest::
 
 IN_PROC_BROWSER_TEST_F(ComponentUpdaterPolicyTest, EnabledComponentUpdates) {
   BeginTest();
-  base::RunLoop().Run();
+  base::RunLoop loop;
+  quit_closure_ = loop.QuitWhenIdleClosure();
+  loop.Run();
 }
 
 }  // namespace policy

@@ -9,11 +9,6 @@
 
 namespace switches {
 
-// Shows additional checkboxes in Settings to enable Chrome OS accessibility
-// features that haven't launched yet.
-const char kEnableExperimentalAccessibilityFeatures[] =
-    "enable-experimental-accessibility-features";
-
 // Shows additional automatic click features that haven't launched yet.
 const char kEnableExperimentalAccessibilityAutoclick[] =
     "enable-experimental-accessibility-autoclick";
@@ -52,12 +47,6 @@ const char kEnableExperimentalAccessibilityChromeVoxLanguageSwitching[] =
 // Enables search bar to search the ChromeVox menus.
 const char kEnableExperimentalAccessibilityChromeVoxSearchMenus[] =
     "enable-experimental-accessibility-chromevox-search-menus";
-
-// Enables ChromeVox language switching at the inner node level. This feature
-// hasn't launched yet.
-const char kEnableExperimentalAccessibilityChromeVoxSubNodeLanguageSwitching[] =
-    "enable-experimental-accessibility-chromevox-sub-node-language-"
-    "switching";
 
 bool IsExperimentalAccessibilityLanguageDetectionEnabled() {
   return base::CommandLine::ForCurrentProcess()->HasSwitch(

@@ -2,6 +2,17 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+(function() {
+/**
+ * Enumeration of all safe browsing modes.
+ * @enum {string}
+ */
+const SafeBrowsing = {
+  ENHANCED: 'enhanced',
+  STANDARD: 'standard',
+  DISABLED: 'disabled',
+};
+
 Polymer({
   is: 'settings-security-page',
 
@@ -13,6 +24,44 @@ Polymer({
     /** @type {settings.SyncStatus} */
     syncStatus: Object,
 
+    /**
+     * Preferences state.
+     */
+    prefs: {
+      type: Object,
+      notify: true,
+    },
+
+    /**
+     * Whether the secure DNS setting should be displayed.
+     * @private
+     */
+    showSecureDnsSetting_: {
+      type: Boolean,
+      readOnly: true,
+      value: function() {
+        return loadTimeData.getBoolean('showSecureDnsSetting');
+      },
+    },
+
+    /**
+     * Valid safe browsing states.
+     * @private
+     */
+    safeBrowsingEnum_: {
+      type: Object,
+      value: SafeBrowsing,
+    },
+
+    /** @private */
+    selectSafeBrowsingRadio_: {
+      type: String,
+      computed: 'computeSelectSafeBrowsingRadio_(prefs.safeBrowsing.*)',
+    },
+
+    /** @private {!settings.SafeBrowsingRadioManagedState} */
+    safeBrowsingRadioManagedState_: Object,
+
     /** @private */
     enableSecurityKeysSubpage_: {
       type: Boolean,
@@ -22,25 +71,60 @@ Polymer({
       }
     },
 
-    /** @private {chrome.settingsPrivate.PrefObject} */
-    safeBrowsingReportingPref_: {
+    /** @type {!Map<string, (string|Function)>} */
+    focusConfig: {
       type: Object,
-      value() {
-        return /** @type {chrome.settingsPrivate.PrefObject} */ ({
-          key: '',
-          type: chrome.settingsPrivate.PrefType.BOOLEAN,
-          value: false,
-        });
-      },
+      observer: 'focusConfigChanged_',
     },
   },
 
   observers: [
-    'onSafeBrowsingReportingPrefChange_(prefs.safebrowsing.*)',
+    'onSafeBrowsingPrefChange_(prefs.safebrowsing.*)',
   ],
+
+  /*
+   * @param {!Map<string, string>} newConfig
+   * @param {?Map<string, string>} oldConfig
+   * @private
+   */
+  focusConfigChanged_(newConfig, oldConfig) {
+    assert(!oldConfig);
+    // <if expr="use_nss_certs">
+    if (settings.routes.CERTIFICATES) {
+      this.focusConfig.set(settings.routes.CERTIFICATES.path, () => {
+        cr.ui.focusWithoutInk(assert(this.$$('#manageCertificates')));
+      });
+    }
+    // </if>
+
+    if (settings.routes.SECURITY_KEYS) {
+      this.focusConfig.set(settings.routes.SECURITY_KEYS.path, () => {
+        cr.ui.focusWithoutInk(
+            assert(this.$$('#security-keys-subpage-trigger')));
+      });
+    }
+  },
+
+  /**
+   * @return {string}
+   * @private
+   */
+  computeSelectSafeBrowsingRadio_() {
+    if (this.prefs === undefined) {
+      return SafeBrowsing.STANDARD;
+    }
+    if (!this.getPref('safebrowsing.enabled').value) {
+      return SafeBrowsing.DISABLED;
+    }
+    return this.getPref('safebrowsing.enhanced').value ? SafeBrowsing.ENHANCED :
+                                                         SafeBrowsing.STANDARD;
+  },
 
   /** @private {settings.PrivacyPageBrowserProxy} */
   browserProxy_: null,
+
+  /** @private {settings.MetricsBrowserProxy} */
+  metricsBrowserProxy_: null,
 
   /** @override */
   ready() {
@@ -50,36 +134,39 @@ Polymer({
   },
 
   /**
+   * Updates the various underlying cookie prefs based on the newly selected
+   * radio button.
+   * @param {!CustomEvent<{value: string}>} event
+   * @private
+   */
+  onSafeBrowsingRadioChange_: function(event) {
+    if (event.detail.value == SafeBrowsing.ENHANCED) {
+      this.setPrefValue('safebrowsing.enabled', true);
+      this.setPrefValue('safebrowsing.enhanced', true);
+    } else if (event.detail.value == SafeBrowsing.STANDARD) {
+      this.setPrefValue('safebrowsing.enabled', true);
+      this.setPrefValue('safebrowsing.enhanced', false);
+    } else {  // disabled state
+      this.setPrefValue('safebrowsing.enabled', false);
+      this.setPrefValue('safebrowsing.enhanced', false);
+    }
+  },
+
+  /**
    * @return {boolean}
    * @private
    */
   getDisabledExtendedSafeBrowsing_() {
-    return !this.getPref('safebrowsing.enabled').value;
+    return !this.getPref('safebrowsing.enabled').value ||
+        !!this.getPref('safebrowsing.enhanced').value;
   },
 
   /** @private */
-  onSafeBrowsingReportingToggleChange_() {
-    this.setPrefValue(
-        'safebrowsing.scout_reporting_enabled',
-        this.$$('#safeBrowsingReportingToggle').checked);
-  },
-
-  /** @private */
-  onSafeBrowsingReportingPrefChange_() {
-    if (this.prefs === undefined) {
-      return;
-    }
-    const safeBrowsingScoutPref =
-        this.getPref('safebrowsing.scout_reporting_enabled');
-    const prefValue = !!this.getPref('safebrowsing.enabled').value &&
-        !!safeBrowsingScoutPref.value;
-    this.safeBrowsingReportingPref_ = {
-      key: '',
-      type: chrome.settingsPrivate.PrefType.BOOLEAN,
-      value: prefValue,
-      enforcement: safeBrowsingScoutPref.enforcement,
-      controlledBy: safeBrowsingScoutPref.controlledBy,
-    };
+  async onSafeBrowsingPrefChange_() {
+    // Retrieve and update safe browsing radio managed state.
+    this.safeBrowsingRadioManagedState_ =
+        await settings.SafeBrowsingBrowserProxyImpl.getInstance()
+            .getSafeBrowsingRadioManagedState();
   },
 
   /** @private */
@@ -91,18 +178,17 @@ Polymer({
     this.browserProxy_.showManageSSLCertificates();
     // </if>
     this.metricsBrowserProxy_.recordSettingsPageHistogram(
-        settings.SettingsPageInteractions.PRIVACY_MANAGE_CERTIFICATES);
+        settings.PrivacyElementInteractions.MANAGE_CERTIFICATES);
   },
 
   /** @private */
   onAdvancedProtectionProgramLinkClick_() {
-    window.open('https://landing.google.com/advancedprotection/');
+    window.open(loadTimeData.getString('advancedProtectionURL'));
   },
 
   /** @private */
   onSecurityKeysClick_() {
     settings.Router.getInstance().navigateTo(settings.routes.SECURITY_KEYS);
-    this.metricsBrowserProxy_.recordSettingsPageHistogram(
-        settings.SettingsPageInteractions.PRIVACY_SECURITY_KEYS);
   },
 });
+})();

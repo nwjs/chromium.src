@@ -21,6 +21,7 @@
 #include "base/metrics/field_trial.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/no_destructor.h"
 #include "base/path_service.h"
 #include "base/process/launch.h"
 #include "base/stl_util.h"
@@ -455,7 +456,11 @@ sandbox::ResultCode AddPolicyForSandboxedProcess(
 // This code is test only, and attempts to catch unsafe uses of
 // DuplicateHandle() that copy privileged handles into sandboxed processes.
 #if !defined(OFFICIAL_BUILD) && !defined(COMPONENT_BUILD)
-base::win::IATPatchFunction g_iat_patch_duplicate_handle;
+base::win::IATPatchFunction& GetIATPatchFunctionHandle() {
+  static base::NoDestructor<base::win::IATPatchFunction>
+      iat_patch_duplicate_handle;
+  return *iat_patch_duplicate_handle;
+}
 
 typedef BOOL(WINAPI* DuplicateHandleFunctionPtr)(HANDLE source_process_handle,
                                                  HANDLE source_handle,
@@ -620,13 +625,23 @@ sandbox::ResultCode SetupAppContainerProfile(
 
   if (sandbox_type == SandboxType::kGpu &&
       !profile->AddImpersonationCapability(L"chromeInstallFiles")) {
-    DLOG(ERROR) << "AppContainerProfile::AddImpersonationCapability() failed";
+    DLOG(ERROR) << "AppContainerProfile::AddImpersonationCapability("
+                   "chromeInstallFiles) failed";
+    return sandbox::SBOX_ERROR_CREATE_APPCONTAINER_PROFILE_CAPABILITY;
+  }
+
+  if ((sandbox_type == SandboxType::kXrCompositing ||
+       sandbox_type == SandboxType::kGpu) &&
+      !profile->AddCapability(L"lpacPnpNotifications")) {
+    DLOG(ERROR)
+        << "AppContainerProfile::AddCapability(lpacPnpNotifications) failed";
     return sandbox::SBOX_ERROR_CREATE_APPCONTAINER_PROFILE_CAPABILITY;
   }
 
   if (sandbox_type == SandboxType::kXrCompositing &&
       !profile->AddCapability(L"chromeInstallFiles")) {
-    DLOG(ERROR) << "AppContainerProfile::AddCapability() failed";
+    DLOG(ERROR)
+        << "AppContainerProfile::AddCapability(chromeInstallFiles) failed";
     return sandbox::SBOX_ERROR_CREATE_APPCONTAINER_PROFILE_CAPABILITY;
   }
 
@@ -805,7 +820,7 @@ bool SandboxWin::InitBrokerServices(sandbox::BrokerServices* broker_services) {
 #if !defined(OFFICIAL_BUILD) && !defined(COMPONENT_BUILD)
   BOOL is_in_job = FALSE;
   CHECK(::IsProcessInJob(::GetCurrentProcess(), NULL, &is_in_job));
-  if (!is_in_job && !g_iat_patch_duplicate_handle.is_patched()) {
+  if (!is_in_job && !GetIATPatchFunctionHandle().is_patched()) {
     HMODULE module = NULL;
     wchar_t module_name[MAX_PATH];
     CHECK(::GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
@@ -814,13 +829,13 @@ bool SandboxWin::InitBrokerServices(sandbox::BrokerServices* broker_services) {
     DWORD result = ::GetModuleFileNameW(module, module_name, MAX_PATH);
     if (result && (result != MAX_PATH)) {
       ResolveNTFunctionPtr("NtQueryObject", &g_QueryObject);
-      result = g_iat_patch_duplicate_handle.Patch(
+      result = GetIATPatchFunctionHandle().Patch(
           module_name, "kernel32.dll", "DuplicateHandle",
           reinterpret_cast<void*>(DuplicateHandlePatch));
       CHECK_EQ(0u, result);
       g_iat_orig_duplicate_handle =
           reinterpret_cast<DuplicateHandleFunctionPtr>(
-              g_iat_patch_duplicate_handle.original_function());
+              GetIATPatchFunctionHandle().original_function());
     }
   }
 #endif
@@ -941,6 +956,13 @@ sandbox::ResultCode SandboxWin::StartSandboxedProcess(
       return result;
   }
 
+  if (process_type == service_manager::switches::kGpuProcess &&
+      base::FeatureList::IsEnabled(
+          {"GpuLockdownDefaultDacl", base::FEATURE_ENABLED_BY_DEFAULT})) {
+    policy->SetLockdownDefaultDacl();
+    policy->AddRestrictingRandomSid();
+  }
+
 #if !defined(NACL_WIN64)
   if (process_type == service_manager::switches::kRendererProcess ||
       process_type == service_manager::switches::kPpapiPluginProcess ||
@@ -949,13 +971,6 @@ sandbox::ResultCode SandboxWin::StartSandboxedProcess(
                  sandbox::TargetPolicy::FILES_ALLOW_READONLY, policy.get());
   }
 #endif
-
-  if (process_type != service_manager::switches::kRendererProcess) {
-    // Hack for Google Desktop crash. Trick GD into not injecting its DLL into
-    // this subprocess. See
-    // http://code.google.com/p/chromium/issues/detail?id=25580
-    cmd_line->AppendSwitchASCII("ignored", " --type=renderer ");
-  }
 
   result = AddGenericPolicy(policy.get());
   if (result != sandbox::SBOX_ALL_OK) {
@@ -1006,6 +1021,16 @@ sandbox::ResultCode SandboxWin::StartSandboxedProcess(
       cmd_line->GetProgram().value().c_str(),
       cmd_line->GetCommandLineString().c_str(), policy, &last_warning,
       &last_error, &temp_process_info);
+
+  // TODO(1059129) Remove logging and underlying plumbing on expiry.
+  // This must be logged after spawning the process as the policy
+  // memory is not committed until the target process is attached to
+  // the sandbox policy. Max is kPolMemSize from sandbox_policy_base.cc.
+  if (result == sandbox::SBOX_ALL_OK) {
+    UMA_HISTOGRAM_CUSTOM_COUNTS("Process.Sandbox.PolicyGlobalSizeOnSuccess",
+                                policy->GetPolicyGlobalSize(), 16, 14 * 4096,
+                                50);
+  }
 
   base::win::ScopedProcessInformation target(temp_process_info);
 

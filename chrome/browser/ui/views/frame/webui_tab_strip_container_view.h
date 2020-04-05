@@ -6,6 +6,7 @@
 #define CHROME_BROWSER_UI_VIEWS_FRAME_WEBUI_TAB_STRIP_CONTAINER_VIEW_H_
 
 #include <memory>
+#include <set>
 
 #include "base/optional.h"
 #include "base/scoped_observer.h"
@@ -14,6 +15,7 @@
 #include "chrome/browser/ui/webui/tab_strip/tab_strip_ui.h"
 #include "chrome/browser/ui/webui/tab_strip/tab_strip_ui_embedder.h"
 #include "chrome/common/buildflags.h"
+#include "components/tab_groups/tab_group_id.h"
 #include "ui/events/event_handler.h"
 #include "ui/gfx/animation/slide_animation.h"
 #include "ui/views/accessible_pane_view.h"
@@ -30,7 +32,6 @@ class Tracker;
 
 namespace ui {
 class MenuModel;
-class ThemeProvider;
 }  // namespace ui
 
 namespace views {
@@ -50,10 +51,19 @@ class WebUITabStripContainerView : public TabStripUIEmbedder,
                                    public views::WidgetObserver {
  public:
   WebUITabStripContainerView(Browser* browser,
-                             views::View* tab_contents_container);
+                             views::View* tab_contents_container,
+                             views::View* drag_handle);
   ~WebUITabStripContainerView() override;
 
   static bool UseTouchableTabStrip();
+
+  // For drag-and-drop support:
+  static void GetDropFormatsForView(
+      int* formats,
+      std::set<ui::ClipboardFormatType>* format_types);
+  static bool IsDraggedTab(const ui::OSExchangeData& data);
+
+  void OpenForTabDrag();
 
   views::NativeViewHost* GetNativeViewHost();
 
@@ -78,6 +88,21 @@ class WebUITabStripContainerView : public TabStripUIEmbedder,
 
  private:
   class AutoCloser;
+  class DragToOpenHandler;
+
+  // Called as we are dragged open.
+  void UpdateHeightForDragToOpen(float height_delta);
+
+  enum class FlingDirection {
+    kUp,
+    kDown,
+  };
+
+  // Called when drag-to-open finishes. If |fling_direction| is present,
+  // the user released their touch with a high velocity. We should use
+  // just this direction to animate open or closed.
+  void EndDragToOpen(
+      base::Optional<FlingDirection> fling_direction = base::nullopt);
 
   void SetContainerTargetVisibility(bool target_visible);
 
@@ -95,8 +120,11 @@ class WebUITabStripContainerView : public TabStripUIEmbedder,
   void ShowContextMenuAtPoint(
       gfx::Point point,
       std::unique_ptr<ui::MenuModel> menu_model) override;
+  void ShowEditDialogForGroupAtPoint(gfx::Point point,
+                                     gfx::Rect rect,
+                                     tab_groups::TabGroupId group) override;
   TabStripUILayout GetLayout() override;
-  const ui::ThemeProvider* GetThemeProvider() override;
+  SkColor GetColor(int id) const override;
 
   // views::View:
   void AddedToWidget() override;
@@ -128,6 +156,7 @@ class WebUITabStripContainerView : public TabStripUIEmbedder,
   views::View* tab_counter_ = nullptr;
 
   int desired_height_ = 0;
+  base::Optional<float> current_drag_height_;
 
   // When opened, if currently open. Used to calculate metric for how
   // long the tab strip is kept open.
@@ -139,6 +168,7 @@ class WebUITabStripContainerView : public TabStripUIEmbedder,
   gfx::SlideAnimation animation_{this};
 
   std::unique_ptr<AutoCloser> auto_closer_;
+  std::unique_ptr<DragToOpenHandler> drag_to_open_handler_;
 
   std::unique_ptr<views::MenuRunner> context_menu_runner_;
   std::unique_ptr<ui::MenuModel> context_menu_model_;

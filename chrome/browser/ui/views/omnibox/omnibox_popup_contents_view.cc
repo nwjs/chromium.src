@@ -8,13 +8,17 @@
 #include <numeric>
 
 #include "base/bind.h"
+#include "base/feature_list.h"
 #include "base/optional.h"
 #include "build/build_config.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_result_view.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_view_views.h"
 #include "chrome/browser/ui/views/omnibox/rounded_omnibox_results_frame.h"
+#include "chrome/browser/ui/views/omnibox/webui_omnibox_popup_view.h"
 #include "chrome/browser/ui/views/theme_copying_widget.h"
+#include "chrome/browser/ui/webui/omnibox/omnibox_popup_handler.h"
 #include "components/omnibox/common/omnibox_features.h"
 #include "ui/accessibility/ax_node_data.h"
 #include "ui/compositor/closure_animation_observer.h"
@@ -192,6 +196,17 @@ void OmniboxPopupContentsView::UnselectButton() {
 }
 
 OmniboxResultView* OmniboxPopupContentsView::result_view_at(size_t i) {
+  DCHECK(!base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxPopup))
+      << "With the WebUI omnibox popup enabled, the code should not try to "
+         "fetch the child result view.";
+
+  // TODO(tommycli): https://crbug.com/1063071
+  // Making this method public was a mistake. Outside callers have no idea about
+  // our internal state, and there's now a crash in this area. For now, let's
+  // return nullptr, but the ultimate fix is orinj's OmniboxPopupModel refactor.
+  if (i >= children().size())
+    return nullptr;
+
   return static_cast<OmniboxResultView*>(children()[i]);
 }
 
@@ -204,19 +219,30 @@ bool OmniboxPopupContentsView::IsOpen() const {
 }
 
 void OmniboxPopupContentsView::InvalidateLine(size_t line) {
-  OmniboxResultView* result = result_view_at(line);
-  result->Invalidate();
-
-  if (HasMatchAt(line) && GetMatchAtIndex(line).associated_keyword.get()) {
-    result->ShowKeyword(IsSelectedIndex(line) &&
-                        model_->selected_line_state() ==
-                            OmniboxPopupModel::KEYWORD);
+  if (base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxPopup)) {
+    webui_view_->GetWebUIHandler()->InvalidateLine(line);
+    return;
   }
+
+  OmniboxResultView* result = result_view_at(line);
+  result->ApplyThemeAndRefreshIcons();
+  result->ShowKeyword(IsSelectedIndex(line) && model_->selected_line_state() ==
+                                                   OmniboxPopupModel::KEYWORD);
 }
 
-void OmniboxPopupContentsView::OnSelectionStateChanged(size_t line) {
-  result_view_at(line)->OnSelectionStateChanged();
-  InvalidateLine(line);
+void OmniboxPopupContentsView::OnSelectedLineChanged(size_t old_selected_line,
+                                                     size_t new_selected_line) {
+  if (base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxPopup)) {
+    webui_view_->GetWebUIHandler()->OnSelectedLineChanged(old_selected_line,
+                                                          new_selected_line);
+    return;
+  }
+
+  if (old_selected_line != OmniboxPopupModel::kNoMatch)
+    result_view_at(old_selected_line)->OnSelectionStateChanged();
+
+  if (new_selected_line != OmniboxPopupModel::kNoMatch)
+    result_view_at(new_selected_line)->OnSelectionStateChanged();
 }
 
 void OmniboxPopupContentsView::UpdatePopupAppearance() {
@@ -267,25 +293,33 @@ void OmniboxPopupContentsView::UpdatePopupAppearance() {
   // Update the match cached by each row, in the process of doing so make sure
   // we have enough row views.
   const size_t result_size = model_->result().size();
-  for (size_t i = 0; i < result_size; ++i) {
-    // Create child views lazily.  Since especially the first result view may be
-    // expensive to create due to loading font data, this saves time and memory
-    // during browser startup.
-    if (children().size() == i) {
-      AddChildView(std::make_unique<OmniboxResultView>(this, i));
+  if (base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxPopup)) {
+    if (!webui_view_) {
+      AddChildView(webui_view_ = new WebUIOmniboxPopupView(
+                       location_bar_view_->profile()));
+    }
+  } else {
+    for (size_t i = 0; i < result_size; ++i) {
+      // Create child views lazily.  Since especially the first result view may
+      // be expensive to create due to loading font data, this saves time and
+      // memory during browser startup.
+      if (children().size() == i) {
+        AddChildView(std::make_unique<OmniboxResultView>(this, i));
+      }
+
+      OmniboxResultView* view = result_view_at(i);
+      const AutocompleteMatch& match = GetMatchAtIndex(i);
+      view->SetMatch(match);
+      view->SetVisible(true);
+      const SkBitmap* bitmap = model_->RichSuggestionBitmapAt(i);
+      if (bitmap)
+        view->SetRichSuggestionImage(
+            gfx::ImageSkia::CreateFrom1xBitmap(*bitmap));
     }
 
-    OmniboxResultView* view = result_view_at(i);
-    const AutocompleteMatch& match = GetMatchAtIndex(i);
-    view->SetMatch(match);
-    view->SetVisible(true);
-    const SkBitmap* bitmap = model_->RichSuggestionBitmapAt(i);
-    if (bitmap)
-      view->SetRichSuggestionImage(gfx::ImageSkia::CreateFrom1xBitmap(*bitmap));
+    for (auto i = children().begin() + result_size; i != children().end(); ++i)
+      (*i)->SetVisible(false);
   }
-
-  for (auto i = children().begin() + result_size; i != children().end(); ++i)
-    (*i)->SetVisible(false);
 
   popup_->SetTargetBounds(GetTargetBounds());
 
@@ -294,7 +328,8 @@ void OmniboxPopupContentsView::UpdatePopupAppearance() {
 
     // Popup is now expanded and first item will be selected.
     NotifyAccessibilityEvent(ax::mojom::Event::kExpandedChanged, true);
-    if (result_view_at(0)) {
+    if (!base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxPopup) &&
+        result_view_at(0)) {
       result_view_at(0)->NotifyAccessibilityEvent(ax::mojom::Event::kSelection,
                                                   true);
     }
@@ -303,10 +338,16 @@ void OmniboxPopupContentsView::UpdatePopupAppearance() {
 }
 
 void OmniboxPopupContentsView::ProvideButtonFocusHint(size_t line) {
+  if (base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxPopup))
+    return;  // TODO(tommycli): Not implemented yet for WebUI.
+
   result_view_at(line)->ProvideButtonFocusHint();
 }
 
 void OmniboxPopupContentsView::OnMatchIconUpdated(size_t match_index) {
+  if (base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxPopup))
+    return;  // TODO(tommycli): Not implemented yet for WebUI.
+
   result_view_at(match_index)->OnMatchIconUpdated();
 }
 
@@ -315,6 +356,9 @@ void OmniboxPopupContentsView::OnDragCanceled() {
 }
 
 bool OmniboxPopupContentsView::OnMouseDragged(const ui::MouseEvent& event) {
+  if (base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxPopup))
+    return true;  // TODO(tommycli): Not implemented yet for WebUI.
+
   size_t index = GetIndexForPoint(event.location());
 
   // If the drag event is over the bounds of one of the result views, pass
@@ -362,12 +406,21 @@ void OmniboxPopupContentsView::OnWidgetBoundsChanged(
 }
 
 gfx::Rect OmniboxPopupContentsView::GetTargetBounds() {
-  DCHECK_GE(children().size(), model_->result().size());
-  int popup_height = std::accumulate(
-      children().cbegin(), children().cbegin() + model_->result().size(), 0,
-      [](int height, const auto* v) {
-        return height + v->GetPreferredSize().height();
-      });
+  int popup_height = 0;
+
+  if (base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxPopup)) {
+    if (webui_view_) {
+      popup_height += webui_view_->GetPreferredSize().height();
+    }
+  } else {
+    DCHECK_GE(children().size(), model_->result().size());
+    popup_height = std::accumulate(
+        children().cbegin(), children().cbegin() + model_->result().size(), 0,
+        [](int height, const auto* v) {
+          return height + v->GetPreferredSize().height();
+        });
+  }
+
   // Add enough space on the top and bottom so it looks like there is the same
   // amount of space between the text and the popup border as there is in the
   // interior between each row of text.

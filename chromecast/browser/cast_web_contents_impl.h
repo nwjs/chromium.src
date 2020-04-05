@@ -5,6 +5,7 @@
 #ifndef CHROMECAST_BROWSER_CAST_WEB_CONTENTS_IMPL_H_
 #define CHROMECAST_BROWSER_CAST_WEB_CONTENTS_IMPL_H_
 
+#include <map>
 #include <memory>
 #include <set>
 #include <string>
@@ -22,10 +23,13 @@
 #include "base/time/time.h"
 #include "chromecast/browser/cast_media_blocker.h"
 #include "chromecast/browser/cast_web_contents.h"
+#include "content/public/browser/render_process_host_observer.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
+#include "content/public/common/media_playback_renderer_type.mojom.h"
 #include "services/service_manager/public/cpp/binder_registry.h"
 #include "services/service_manager/public/cpp/interface_provider.h"
+#include "third_party/blink/public/mojom/favicon/favicon_url.mojom-forward.h"
 
 namespace chromecast {
 
@@ -36,6 +40,7 @@ class RemoteDebuggingServer;
 }  // namespace shell
 
 class CastWebContentsImpl : public CastWebContents,
+                            public content::RenderProcessHostObserver,
                             public content::WebContentsObserver {
  public:
   CastWebContentsImpl(content::WebContents* web_contents,
@@ -56,6 +61,7 @@ class CastWebContentsImpl : public CastWebContents,
   void LoadUrl(const GURL& url) override;
   void ClosePage() override;
   void Stop(int error_code) override;
+  void SetWebVisibilityAndPaint(bool visible) override;
   void RegisterInterfaceProvider(
       const InterfaceSet& interface_set,
       service_manager::InterfaceProvider* interface_provider) override;
@@ -76,10 +82,21 @@ class CastWebContentsImpl : public CastWebContents,
       const std::string& target_origin,
       const std::string& data,
       std::vector<blink::WebMessagePort> ports) override;
+  void ExecuteJavaScript(
+      const base::string16& javascript,
+      base::OnceCallback<void(base::Value)> callback) override;
   void AddObserver(Observer* observer) override;
   void RemoveObserver(Observer* observer) override;
   bool is_websql_enabled() override;
   bool is_mixer_audio_enabled() override;
+  bool can_bind_interfaces() override;
+
+  // content::RenderProcessHostObserver implementation:
+  void RenderProcessReady(content::RenderProcessHost* host) override;
+  void RenderProcessExited(
+      content::RenderProcessHost* host,
+      const content::ChildProcessTerminationInfo& info) override;
+  void RenderProcessHostDestroyed(content::RenderProcessHost* host) override;
 
   // content::WebContentsObserver implementation:
   void RenderFrameCreated(content::RenderFrameHost* render_frame_host) override;
@@ -106,14 +123,14 @@ class CastWebContentsImpl : public CastWebContents,
   void ResourceLoadComplete(
       content::RenderFrameHost* render_frame_host,
       const content::GlobalRequestID& request_id,
-      const content::mojom::ResourceLoadInfo& resource_load_info) override;
+      const blink::mojom::ResourceLoadInfo& resource_load_info) override;
   void InnerWebContentsCreated(
       content::WebContents* inner_web_contents) override;
   void TitleWasSet(content::NavigationEntry* entry) override;
   void DidFirstVisuallyNonEmptyPaint() override;
   void WebContentsDestroyed() override;
   void DidUpdateFaviconURL(
-      const std::vector<content::FaviconURL>& candidates) override;
+      const std::vector<blink::mojom::FaviconURLPtr>& candidates) override;
   void MediaStartedPlaying(const MediaPlayerInfo& video_type,
                            const content::MediaPlayerId& id) override;
   void MediaStoppedPlaying(
@@ -146,6 +163,7 @@ class CastWebContentsImpl : public CastWebContents,
   void TracePageLoadEnd(const GURL& url);
   void DisableDebugging();
   void OnClosePageTimeout();
+  void RemoveRenderProcessHostObserver();
   std::vector<chromecast::shell::mojom::FeaturePtr> GetRendererFeatures();
 
   content::WebContents* web_contents_;
@@ -153,11 +171,15 @@ class CastWebContentsImpl : public CastWebContents,
   PageState page_state_;
   PageState last_state_;
   const bool enabled_for_dev_;
-  bool use_cma_renderer_;
+  content::mojom::RendererType renderer_type_;
   const bool handle_inner_contents_;
   BackgroundColor view_background_color_;
   shell::RemoteDebuggingServer* const remote_debugging_server_;
   std::unique_ptr<CastMediaBlocker> media_blocker_;
+  base::Optional<std::vector<std::string>> activity_url_filter_;
+
+  // Retained so that this observer can be removed before being destroyed:
+  content::RenderProcessHost* main_process_host_;
 
   base::flat_set<std::unique_ptr<CastWebContents>> inner_contents_;
   std::vector<RendererFeature> renderer_features_;

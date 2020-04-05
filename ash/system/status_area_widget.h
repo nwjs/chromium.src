@@ -7,7 +7,6 @@
 
 #include "ash/ash_export.h"
 #include "ash/login_status.h"
-#include "ash/public/cpp/shelf_config.h"
 #include "ash/public/cpp/shelf_types.h"
 #include "ash/session/session_observer.h"
 #include "ash/shelf/shelf_component.h"
@@ -38,7 +37,6 @@ class VirtualKeyboardTray;
 // on secondary monitors at the login screen).
 class ASH_EXPORT StatusAreaWidget : public SessionObserver,
                                     public ShelfComponent,
-                                    public ShelfConfig::Observer,
                                     public views::Widget {
  public:
   // Whether the status area is collapsed or expanded. Currently, this is only
@@ -52,9 +50,6 @@ class ASH_EXPORT StatusAreaWidget : public SessionObserver,
   // part of the constructor because some child views call back into this object
   // during construction.
   void Initialize();
-
-  // Update the alignment of the widget and tray views.
-  void UpdateAfterShelfAlignmentChange();
 
   // Called by the client when the login status changes. Caches login_status
   // and calls UpdateAfterLoginStatusChange for the system tray and the web
@@ -70,7 +65,9 @@ class ASH_EXPORT StatusAreaWidget : public SessionObserver,
 
   // ShelfComponent:
   void CalculateTargetBounds() override;
+  gfx::Rect GetTargetBounds() const override;
   void UpdateLayout(bool animate) override;
+  void UpdateTargetBoundsForGesture(int shelf_position) override;
 
   // Sets system tray visibility. Shows or hides widget if needed.
   void SetSystemTrayVisibility(bool visible);
@@ -136,12 +133,32 @@ class ASH_EXPORT StatusAreaWidget : public SessionObserver,
   }
 
  private:
+  struct LayoutInputs {
+    gfx::Rect bounds;
+    CollapseState collapse_state = CollapseState::NOT_COLLAPSIBLE;
+    float opacity = 0.0f;
+    // Each bit keep track of one child's visibility.
+    long child_visibility_bitmask = 0;
+
+    bool operator==(const LayoutInputs& other) const {
+      return bounds == other.bounds && collapse_state == other.collapse_state &&
+             opacity == other.opacity &&
+             child_visibility_bitmask == other.child_visibility_bitmask;
+    }
+  };
+
+  // Collects the inputs for layout.
+  LayoutInputs GetLayoutInputs() const;
+
+  // The set of inputs that impact this widget's layout. The assumption is that
+  // this widget needs a relayout if, and only if, one or more of these has
+  // changed.
+  base::Optional<LayoutInputs> layout_inputs_;
+
   // views::Widget:
   void OnMouseEvent(ui::MouseEvent* event) override;
   void OnGestureEvent(ui::GestureEvent* event) override;
-
-  // ShelfConfig::Observer:
-  void OnShelfConfigUpdated() override;
+  void OnScrollEvent(ui::ScrollEvent* event) override;
 
   // Adds a new tray button to the status area.
   void AddTrayButton(TrayBackgroundView* tray_button);
@@ -152,6 +169,10 @@ class ASH_EXPORT StatusAreaWidget : public SessionObserver,
   // Called when in the collapsed state to calculate and update the visibility
   // of each tray button.
   void CalculateButtonVisibilityForCollapsedState();
+
+  // Calculates and returns the appropriate collapse state depending on
+  // current conditions.
+  CollapseState CalculateCollapseState() const;
 
   StatusAreaWidgetDelegate* status_area_widget_delegate_;
 
@@ -172,6 +193,8 @@ class ASH_EXPORT StatusAreaWidget : public SessionObserver,
   LoginStatus login_status_ = LoginStatus::NOT_LOGGED_IN;
 
   CollapseState collapse_state_ = CollapseState::NOT_COLLAPSIBLE;
+
+  gfx::Rect target_bounds_;
 
   Shelf* shelf_;
 

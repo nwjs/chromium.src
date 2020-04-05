@@ -34,7 +34,7 @@ namespace {
 Settings* GetSettings(ExecutionContext* execution_context) {
   DCHECK(execution_context);
 
-  Document* document = To<Document>(execution_context);
+  Document* document = Document::From(execution_context);
   return document->GetSettings();
 }
 
@@ -59,8 +59,9 @@ PresentationRequest* PresentationRequest::Create(
     ExecutionContext* execution_context,
     const Vector<String>& urls,
     ExceptionState& exception_state) {
-  if (To<Document>(execution_context)
-          ->IsSandboxed(WebSandboxFlags::kPresentationController)) {
+  if (Document::From(execution_context)
+          ->IsSandboxed(
+              mojom::blink::WebSandboxFlags::kPresentationController)) {
     exception_state.ThrowSecurityError(
         "The document is sandboxed and lacks the 'allow-presentation' flag.");
     return nullptr;
@@ -105,7 +106,7 @@ const AtomicString& PresentationRequest::InterfaceName() const {
 }
 
 ExecutionContext* PresentationRequest::GetExecutionContext() const {
-  return ContextClient::GetExecutionContext();
+  return ExecutionContextClient::GetExecutionContext();
 }
 
 void PresentationRequest::AddedEventListener(
@@ -138,7 +139,7 @@ ScriptPromise PresentationRequest::start(ScriptState* script_state,
                                          ExceptionState& exception_state) {
   ExecutionContext* execution_context = GetExecutionContext();
   Settings* context_settings = GetSettings(execution_context);
-  Document* doc = To<Document>(execution_context);
+  Document* doc = Document::From(execution_context);
 
   bool is_user_gesture_required =
       !context_settings ||
@@ -231,14 +232,14 @@ const Vector<KURL>& PresentationRequest::Urls() const {
   return urls_;
 }
 
-void PresentationRequest::Trace(blink::Visitor* visitor) {
+void PresentationRequest::Trace(Visitor* visitor) {
   visitor->Trace(availability_property_);
   EventTargetWithInlineData::Trace(visitor);
-  ContextClient::Trace(visitor);
+  ExecutionContextClient::Trace(visitor);
 }
 
 PresentationRequest::PresentationRequest(ExecutionContext* execution_context,
                                          const Vector<KURL>& urls)
-    : ContextClient(execution_context), urls_(urls) {}
+    : ExecutionContextClient(execution_context), urls_(urls) {}
 
 }  // namespace blink

@@ -24,6 +24,8 @@ class SafeBrowsingPrefsTest : public ::testing::Test {
  protected:
   void SetUp() override {
     task_environment_ = CreateTestTaskEnvironment();
+    prefs_.registry()->RegisterBooleanPref(prefs::kSafeBrowsingEnabled, true);
+    prefs_.registry()->RegisterBooleanPref(prefs::kSafeBrowsingEnhanced, false);
     prefs_.registry()->RegisterBooleanPref(
         prefs::kSafeBrowsingScoutReportingEnabled, false);
     prefs_.registry()->RegisterBooleanPref(
@@ -118,6 +120,21 @@ TEST_F(SafeBrowsingPrefsTest,
                    "https://mydomain.com/change_password.html");
   EXPECT_TRUE(prefs_.HasPrefPath(prefs::kPasswordProtectionChangePasswordURL));
   EXPECT_TRUE(MatchesPasswordProtectionChangePasswordURL(url, prefs_));
+}
+
+TEST_F(SafeBrowsingPrefsTest, EnhancedProtection) {
+  // Confirm default state.
+  EXPECT_FALSE(IsEnhancedProtectionEnabled(prefs_));
+
+  SetEnhancedProtectionPref(&prefs_, true);
+  // If experiment is not on, the pref is not turned on.
+  EXPECT_FALSE(IsEnhancedProtectionEnabled(prefs_));
+  {
+    base::test::ScopedFeatureList scoped_feature_list;
+    scoped_feature_list.InitAndEnableFeature(
+        safe_browsing::kEnhancedProtection);
+    EXPECT_TRUE(IsEnhancedProtectionEnabled(prefs_));
+  }
 }
 
 TEST_F(SafeBrowsingPrefsTest, IsExtendedReportingPolicyManaged) {

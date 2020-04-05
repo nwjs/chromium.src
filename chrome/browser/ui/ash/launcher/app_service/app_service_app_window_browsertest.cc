@@ -7,6 +7,8 @@
 
 #include "ash/public/cpp/shelf_model.h"
 #include "ash/shell.h"
+#include "base/run_loop.h"
+#include "base/test/scoped_feature_list.h"
 #include "chrome/browser/apps/app_service/app_service_proxy.h"
 #include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
 #include "chrome/browser/apps/platform_apps/app_browsertest_util.h"
@@ -16,6 +18,7 @@
 #include "chrome/browser/ui/ash/launcher/chrome_launcher_controller_test_util.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/web_applications/test/web_app_browsertest_util.h"
+#include "chrome/browser/web_applications/test/web_app_test.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/services/app_service/public/cpp/instance.h"
 #include "chrome/services/app_service/public/cpp/instance_registry.h"
@@ -338,8 +341,20 @@ IN_PROC_BROWSER_TEST_F(AppServiceAppWindowBrowserTest,
 }
 
 class AppServiceAppWindowWebAppBrowserTest
-    : public AppServiceAppWindowBrowserTest {
+    : public AppServiceAppWindowBrowserTest,
+      public ::testing::WithParamInterface<web_app::ProviderType> {
  protected:
+  AppServiceAppWindowWebAppBrowserTest() {
+    if (GetParam() == web_app::ProviderType::kWebApps) {
+      scoped_feature_list_.InitAndEnableFeature(
+          features::kDesktopPWAsWithoutExtensions);
+    } else {
+      scoped_feature_list_.InitAndDisableFeature(
+          features::kDesktopPWAsWithoutExtensions);
+    }
+  }
+  ~AppServiceAppWindowWebAppBrowserTest() override = default;
+
   // AppServiceAppWindowBrowserTest:
   void SetUpOnMainThread() override {
     AppServiceAppWindowBrowserTest::SetUpOnMainThread();
@@ -370,12 +385,15 @@ class AppServiceAppWindowWebAppBrowserTest
     return https_server_.GetURL("app.com", "/ssl/google.html");
   }
 
+ private:
   // For mocking a secure site.
   net::EmbeddedTestServer https_server_;
+
+  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 // Test that we have the correct instance for Web apps.
-IN_PROC_BROWSER_TEST_F(AppServiceAppWindowWebAppBrowserTest, WebAppsWindow) {
+IN_PROC_BROWSER_TEST_P(AppServiceAppWindowWebAppBrowserTest, WebAppsWindow) {
   std::string app_id = CreateWebApp();
 
   auto windows = app_service_proxy_->InstanceRegistry().GetWindows(app_id);
@@ -443,6 +461,11 @@ class AppServiceAppWindowArcAppBrowserTest
   void SetUpOnMainThread() override {
     AppServiceAppWindowBrowserTest::SetUpOnMainThread();
     arc::SetArcPlayStoreEnabledForProfile(profile(), true);
+
+    // This ensures app_prefs()->GetApp() below never returns nullptr.
+    base::RunLoop run_loop;
+    app_prefs()->SetDefaultAppsReadyCallback(run_loop.QuitClosure());
+    run_loop.Run();
   }
 
   void InstallTestApps(const std::string& package_name, bool multi_app) {
@@ -604,3 +627,9 @@ IN_PROC_BROWSER_TEST_F(AppServiceAppWindowArcAppBrowserTest, ArcAppsWindow) {
 
   StopInstance();
 }
+
+INSTANTIATE_TEST_SUITE_P(All,
+                         AppServiceAppWindowWebAppBrowserTest,
+                         ::testing::Values(web_app::ProviderType::kBookmarkApps,
+                                           web_app::ProviderType::kWebApps),
+                         web_app::ProviderTypeParamToString);

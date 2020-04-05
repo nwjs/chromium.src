@@ -7,7 +7,6 @@ package org.chromium.chrome.browser.download;
 import androidx.annotation.IntDef;
 
 import org.chromium.base.Log;
-import org.chromium.base.library_loader.LibraryProcessType;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.content_public.browser.BrowserStartupController;
 
@@ -69,33 +68,6 @@ public class DownloadMetrics {
     }
 
     /**
-     * Records how long does the user keep the download file on disk when the user tries to open
-     * the file.
-     * @param mimeType The mime type of the download.
-     * @param startTime The start time of the download.
-     */
-    public static void recordDownloadViewRetentionTime(String mimeType, long startTime) {
-        if (!isNativeLoaded()) {
-            Log.w(TAG, "Native is not loaded, dropping download view retention metrics.");
-            return;
-        }
-
-        @DownloadFilter.Type
-        int type = DownloadFilter.fromMimeType(mimeType);
-        int viewRetentionTimeMinutes = (int) ((System.currentTimeMillis() - startTime) / 60000);
-
-        if (type == DownloadFilter.Type.VIDEO) {
-            RecordHistogram.recordCustomCountHistogram(
-                    "Android.DownloadManager.ViewRetentionTime.Video", viewRetentionTimeMinutes, 1,
-                    MAX_VIEW_RETENTION_MINUTES, 50);
-        } else if (type == DownloadFilter.Type.AUDIO) {
-            RecordHistogram.recordCustomCountHistogram(
-                    "Android.DownloadManager.ViewRetentionTime.Audio", viewRetentionTimeMinutes, 1,
-                    MAX_VIEW_RETENTION_MINUTES, 50);
-        }
-    }
-
-    /**
      * Records various call sites from where the download cancellation has been called.
      * @param cancelFrom Various cancel reasons.
      */
@@ -125,6 +97,6 @@ public class DownloadMetrics {
     }
 
     private static boolean isNativeLoaded() {
-        return BrowserStartupController.get(LibraryProcessType.PROCESS_BROWSER).isNativeStarted();
+        return BrowserStartupController.getInstance().isNativeStarted();
     }
 }

@@ -17,7 +17,6 @@
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/html/parser/html_document_parser.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
-#include "third_party/blink/renderer/platform/instrumentation/histogram.h"
 
 namespace blink {
 
@@ -53,7 +52,7 @@ void PerformanceMonitor::ReportGenericViolation(
 // static
 PerformanceMonitor* PerformanceMonitor::Monitor(
     const ExecutionContext* context) {
-  const auto* document = DynamicTo<Document>(context);
+  const auto* document = Document::DynamicFrom(context);
   if (!document)
     return nullptr;
   LocalFrame* frame = document->GetFrame();
@@ -149,7 +148,7 @@ void PerformanceMonitor::DidExecuteScript() {
 
 void PerformanceMonitor::UpdateTaskAttribution(ExecutionContext* context) {
   // If |context| is not a document, unable to attribute a frame context.
-  auto* document = DynamicTo<Document>(context);
+  auto* document = Document::DynamicFrom(context);
   if (!document)
     return;
 
@@ -264,8 +263,8 @@ void PerformanceMonitor::DocumentWriteFetchScript(Document* document) {
   if (!enabled_)
     return;
   String text = "Parser was blocked due to document.write(<script>)";
-  InnerReportGenericViolation(document, kBlockedParser, text, base::TimeDelta(),
-                              nullptr);
+  InnerReportGenericViolation(document->ToExecutionContext(), kBlockedParser,
+                              text, base::TimeDelta(), nullptr);
 }
 
 void PerformanceMonitor::WillProcessTask(base::TimeTicks start_time) {
@@ -342,7 +341,7 @@ void PerformanceMonitor::InnerReportGenericViolation(
   }
 }
 
-void PerformanceMonitor::Trace(blink::Visitor* visitor) {
+void PerformanceMonitor::Trace(Visitor* visitor) {
   visitor->Trace(local_root_);
   visitor->Trace(task_execution_context_);
   visitor->Trace(subscriptions_);

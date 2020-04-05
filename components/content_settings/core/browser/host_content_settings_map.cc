@@ -42,7 +42,7 @@
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/pref_service.h"
 #include "net/base/net_errors.h"
-#include "net/base/static_cookie_policy.h"
+#include "net/cookies/static_cookie_policy.h"
 #include "url/gurl.h"
 
 using content_settings::WebsiteSettingsInfo;
@@ -819,8 +819,21 @@ void HostContentSettingsMap::AddSettingsForOneType(
 
   while (rule_iterator->HasNext()) {
     content_settings::Rule rule = rule_iterator->Next();
+    base::Value value = std::move(rule.value);
+
+    // Normal rules applied to incognito profiles are subject to inheritance
+    // settings.
+    if (!incognito && is_off_the_record_) {
+      std::unique_ptr<base::Value> inherit_value =
+          ProcessIncognitoInheritanceBehavior(
+              content_type, base::Value::ToUniquePtrValue(std::move(value)));
+      if (inherit_value)
+        value = std::move(*inherit_value);
+      else
+        continue;
+    }
     settings->emplace_back(
-        rule.primary_pattern, rule.secondary_pattern, std::move(rule.value),
+        rule.primary_pattern, rule.secondary_pattern, std::move(value),
         kProviderNamesSourceMap[provider_type].provider_name, incognito);
   }
 }
@@ -867,6 +880,21 @@ std::unique_ptr<base::Value> HostContentSettingsMap::GetWebsiteSetting(
     }
   }
 
+  // Check if the requested setting is in the force allowed list.
+  if (content_settings_info) {
+    url::Origin origin = url::Origin::Create(primary_url);
+    if (content_settings_info->force_allowed_origins().contains(origin)) {
+      DCHECK(content_settings::OriginCanBeForceAllowed(origin));
+      if (info) {
+        info->source = content_settings::SETTING_SOURCE_WHITELIST;
+        info->primary_pattern =
+            ContentSettingsPattern::FromURLNoWildcard(origin.GetURL());
+        info->secondary_pattern = ContentSettingsPattern::Wildcard();
+      }
+      return std::make_unique<base::Value>(CONTENT_SETTING_ALLOW);
+    }
+  }
+
   return GetWebsiteSettingInternal(primary_url, secondary_url, content_type,
                                    resource_identifier, kFirstProvider, info);
 }
@@ -881,6 +909,18 @@ HostContentSettingsMap::GetProviderTypeFromSource(const std::string& source) {
 
   NOTREACHED();
   return DEFAULT_PROVIDER;
+}
+
+// static
+content_settings::SettingSource
+HostContentSettingsMap::GetSettingSourceFromProviderName(
+    const std::string& provider_name) {
+  for (const auto& provider_name_source : kProviderNamesSourceMap) {
+    if (provider_name == provider_name_source.provider_name)
+      return provider_name_source.provider_source;
+  }
+  NOTREACHED();
+  return content_settings::SETTING_SOURCE_NONE;
 }
 
 std::unique_ptr<base::Value> HostContentSettingsMap::GetWebsiteSettingInternal(

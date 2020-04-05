@@ -7,7 +7,6 @@
 #include <utility>
 
 #include "components/password_manager/core/browser/password_manager_util.h"
-#include "components/password_manager/core/common/password_manager_pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "components/sync/base/model_type.h"
 #include "components/sync/driver/sync_client.h"
@@ -22,23 +21,28 @@ PasswordModelTypeController::PasswordModelTypeController(
     std::unique_ptr<syncer::ModelTypeControllerDelegate>
         delegate_for_transport_mode,
     PrefService* pref_service,
+    signin::IdentityManager* identity_manager,
     syncer::SyncService* sync_service,
     const base::RepeatingClosure& state_changed_callback)
     : ModelTypeController(syncer::PASSWORDS,
                           std::move(delegate_for_full_sync_mode),
                           std::move(delegate_for_transport_mode)),
       pref_service_(pref_service),
+      identity_manager_(identity_manager),
       sync_service_(sync_service),
-      state_changed_callback_(state_changed_callback) {
-  pref_registrar_.Init(pref_service_);
-  pref_registrar_.Add(
-      prefs::kAccountStoragePerAccountSettings,
-      base::BindRepeating(
-          &PasswordModelTypeController::OnOptInStateMaybeChanged,
-          base::Unretained(this)));
+      state_changed_callback_(state_changed_callback),
+      account_storage_opt_in_watcher_(
+          identity_manager_,
+          pref_service_,
+          base::BindRepeating(
+              &PasswordModelTypeController::OnOptInStateMaybeChanged,
+              base::Unretained(this))) {
+  identity_manager_->AddObserver(this);
 }
 
-PasswordModelTypeController::~PasswordModelTypeController() = default;
+PasswordModelTypeController::~PasswordModelTypeController() {
+  identity_manager_->RemoveObserver(this);
+}
 
 void PasswordModelTypeController::LoadModels(
     const syncer::ConfigureContext& configure_context,
@@ -87,6 +91,10 @@ void PasswordModelTypeController::OnStateChanged(syncer::SyncService* sync) {
   DCHECK(CalledOnValidThread());
   sync_service_->DataTypePreconditionChanged(syncer::PASSWORDS);
   state_changed_callback_.Run();
+}
+
+void PasswordModelTypeController::OnAccountsCookieDeletedByUserAction() {
+  password_manager_util::ClearAccountStorageSettingsForAllUsers(pref_service_);
 }
 
 void PasswordModelTypeController::OnOptInStateMaybeChanged() {

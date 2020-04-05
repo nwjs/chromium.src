@@ -14,7 +14,6 @@
 #include "base/memory/shared_memory_mapping.h"
 #include "base/path_service.h"
 #include "base/run_loop.h"
-#include "base/test/scoped_feature_list.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "build/build_config.h"
 #include "cc/base/switches.h"
@@ -23,6 +22,7 @@
 #include "cc/test/pixel_test_output_surface.h"
 #include "cc/test/pixel_test_utils.h"
 #include "components/viz/client/client_resource_provider.h"
+#include "components/viz/common/features.h"
 #include "components/viz/common/frame_sinks/begin_frame_source.h"
 #include "components/viz/common/frame_sinks/copy_output_request.h"
 #include "components/viz/common/frame_sinks/copy_output_result.h"
@@ -54,22 +54,37 @@
 
 namespace cc {
 
-PixelTest::PixelTest(bool enable_vulkan)
+PixelTest::PixelTest(GraphicsBackend backend)
     : device_viewport_size_(gfx::Size(200, 200)),
       disable_picture_quad_image_filtering_(false),
       output_surface_client_(std::make_unique<FakeOutputSurfaceClient>()) {
   // Keep texture sizes exactly matching the bounds of the RenderPass to avoid
   // floating point badness in texcoords.
   renderer_settings_.dont_round_texture_sizes_for_pixel_tests = true;
-  if (enable_vulkan) {
+
+  // Check if the graphics backend needs to initialize Vulkan.
+  bool init_vulkan = false;
+  if (backend == kSkiaVulkan) {
+    scoped_feature_list_.InitAndEnableFeature(features::kVulkan);
+    init_vulkan = true;
+  } else if (backend == kSkiaDawn) {
+    scoped_feature_list_.InitAndEnableFeature(features::kSkiaDawn);
+#if defined(OS_LINUX)
+    init_vulkan = true;
+#elif defined(OS_WIN)
+    // TODO(sgilhuly): Initialize D3D12 for Windows.
+#else
+    NOTREACHED();
+#endif
+  }
+
+  if (init_vulkan) {
     auto* command_line = base::CommandLine::ForCurrentProcess();
     bool use_gpu = command_line->HasSwitch(::switches::kUseGpuInTests);
     command_line->AppendSwitchASCII(
         ::switches::kUseVulkan,
         use_gpu ? ::switches::kVulkanImplementationNameNative
                 : ::switches::kVulkanImplementationNameSwiftshader);
-    scoped_feature_list_ = std::make_unique<base::test::ScopedFeatureList>();
-    scoped_feature_list_->InitAndEnableFeature(features::kVulkan);
   }
 }
 
@@ -115,7 +130,8 @@ bool PixelTest::RunPixelTestWithReadbackTargetAndArea(
 
   renderer_->DecideRenderPassAllocationsForFrame(*pass_list);
   float device_scale_factor = 1.f;
-  renderer_->DrawFrame(pass_list, device_scale_factor, device_viewport_size_);
+  renderer_->DrawFrame(pass_list, device_scale_factor, device_viewport_size_,
+                       display_color_spaces_);
 
   // Wait for the readback to complete.
   if (output_surface_->context_provider())
@@ -145,7 +161,8 @@ bool PixelTest::RunPixelTest(viz::RenderPassList* pass_list,
 
   renderer_->DecideRenderPassAllocationsForFrame(*pass_list);
   float device_scale_factor = 1.f;
-  renderer_->DrawFrame(pass_list, device_scale_factor, device_viewport_size_);
+  renderer_->DrawFrame(pass_list, device_scale_factor, device_viewport_size_,
+                       display_color_spaces_);
 
   // Wait for the readback to complete.
   if (output_surface_->context_provider())
@@ -224,16 +241,18 @@ viz::ResourceId PixelTest::AllocateAndFillSoftwareResource(
       viz::SingleReleaseCallback::Create(base::DoNothing()));
 }
 
-void PixelTest::SetUpGLWithoutRenderer(bool flipped_output_surface) {
+void PixelTest::SetUpGLWithoutRenderer(
+    gfx::SurfaceOrigin output_surface_origin) {
   enable_pixel_output_ = std::make_unique<gl::DisableNullDrawGLBindings>();
 
   auto context_provider =
       base::MakeRefCounted<viz::TestInProcessContextProvider>(
+          /*enable_gpu_rasterization=*/false,
           /*enable_oop_rasterization=*/false, /*support_locking=*/false);
   gpu::ContextResult result = context_provider->BindToCurrentThread();
   DCHECK_EQ(result, gpu::ContextResult::kSuccess);
   output_surface_ = std::make_unique<PixelTestOutputSurface>(
-      std::move(context_provider), flipped_output_surface);
+      std::move(context_provider), output_surface_origin);
   output_surface_->BindToClient(output_surface_client_.get());
 
   shared_bitmap_manager_ = std::make_unique<viz::TestSharedBitmapManager>();
@@ -243,14 +262,15 @@ void PixelTest::SetUpGLWithoutRenderer(bool flipped_output_surface) {
 
   child_context_provider_ =
       base::MakeRefCounted<viz::TestInProcessContextProvider>(
+          /*enable_gpu_rasterization=*/false,
           /*enable_oop_rasterization=*/false, /*support_locking=*/false);
   result = child_context_provider_->BindToCurrentThread();
   DCHECK_EQ(result, gpu::ContextResult::kSuccess);
   child_resource_provider_ = std::make_unique<viz::ClientResourceProvider>();
 }
 
-void PixelTest::SetUpGLRenderer(bool flipped_output_surface) {
-  SetUpGLWithoutRenderer(flipped_output_surface);
+void PixelTest::SetUpGLRenderer(gfx::SurfaceOrigin output_surface_origin) {
+  SetUpGLWithoutRenderer(output_surface_origin);
   renderer_ = std::make_unique<viz::GLRenderer>(
       &renderer_settings_, output_surface_.get(), resource_provider_.get(),
       nullptr, base::ThreadTaskRunnerHandle::Get());
@@ -258,7 +278,7 @@ void PixelTest::SetUpGLRenderer(bool flipped_output_surface) {
   renderer_->SetVisible(true);
 }
 
-void PixelTest::SetUpSkiaRenderer(bool flipped_output_surface) {
+void PixelTest::SetUpSkiaRenderer(gfx::SurfaceOrigin output_surface_origin) {
   enable_pixel_output_ = std::make_unique<gl::DisableNullDrawGLBindings>();
   // Set up the GPU service.
   gpu_service_holder_ = viz::TestGpuServiceHolder::GetInstance();
@@ -270,7 +290,7 @@ void PixelTest::SetUpSkiaRenderer(bool flipped_output_surface) {
       renderer_settings_);
   output_surface_->BindToClient(output_surface_client_.get());
   static_cast<viz::SkiaOutputSurfaceImpl*>(output_surface_.get())
-      ->SetCapabilitiesForTesting(flipped_output_surface);
+      ->SetCapabilitiesForTesting(output_surface_origin);
   resource_provider_ = std::make_unique<viz::DisplayResourceProvider>(
       viz::DisplayResourceProvider::kGpu,
       /*compositor_context_provider=*/nullptr,
@@ -285,6 +305,7 @@ void PixelTest::SetUpSkiaRenderer(bool flipped_output_surface) {
   // Set up the client side context provider, etc
   child_context_provider_ =
       base::MakeRefCounted<viz::TestInProcessContextProvider>(
+          /*enable_gpu_rasterization=*/false,
           /*enable_oop_rasterization=*/false, /*support_locking=*/false);
   gpu::ContextResult result = child_context_provider_->BindToCurrentThread();
   DCHECK_EQ(result, gpu::ContextResult::kSuccess);

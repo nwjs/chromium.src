@@ -2,12 +2,18 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+// clang-format off
+// #import {flush} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
+// #import {webUIListenerCallback} from 'chrome://resources/js/cr.m.js';
+// #import {Route,Router,routes} from 'chrome://settings/settings.js';
+// clang-format on
+
 cr.define('sync_test_util', function() {
   /**
    * Returns sync prefs with everything synced and no passphrase required.
    * @return {!settings.SyncPrefs}
    */
-  function getSyncAllPrefs() {
+  /* #export */ function getSyncAllPrefs() {
     return {
       appsRegistered: true,
       appsSynced: true,
@@ -39,7 +45,7 @@ cr.define('sync_test_util', function() {
     };
   }
 
-  function setupRouterWithSyncRoutes() {
+  /* #export */ function setupRouterWithSyncRoutes() {
     const routes = {
       BASIC: new settings.Route('/'),
     };
@@ -51,21 +57,22 @@ cr.define('sync_test_util', function() {
     routes.SIGN_OUT.isNavigableDialog = true;
 
     settings.Router.resetInstanceForTesting(new settings.Router(routes));
-    settings.routes = routes;
+    /* #ignore */ settings.routes = routes;
   }
 
   /** @param {!settings.SyncStatus} */
-  function simulateSyncStatus(status) {
+  /* #export */ function simulateSyncStatus(status) {
     cr.webUIListenerCallback('sync-status-changed', status);
     Polymer.dom.flush();
   }
 
   /** @param {Array<!settings.StoredAccount>} */
-  function simulateStoredAccounts(accounts) {
+  /* #export */ function simulateStoredAccounts(accounts) {
     cr.webUIListenerCallback('stored-accounts-updated', accounts);
     Polymer.dom.flush();
   }
 
+  // #cr_define_end
   return {
     getSyncAllPrefs: getSyncAllPrefs,
     setupRouterWithSyncRoutes: setupRouterWithSyncRoutes,

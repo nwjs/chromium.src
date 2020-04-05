@@ -30,7 +30,7 @@ import {
   MasterSettings,
   ResolutionSettings,
 } from './views/settings.js';
-import {ViewName} from './views/view.js';
+import {View, ViewName} from './views/view.js';
 import {Warning} from './views/warning.js';
 
 /**
@@ -97,7 +97,7 @@ export class App {
 
     document.body.addEventListener('keydown', this.onKeyPressed_.bind(this));
 
-    document.title = chrome.i18n.getMessage('name');
+    document.title = browserProxy.getI18nMessage('name');
     util.setupI18nElements(document.body);
     this.setupToggles_();
 
@@ -116,8 +116,10 @@ export class App {
       new BaseSettings(ViewName.EXPERT_SETTINGS),
       new Warning(),
       new Dialog(ViewName.MESSAGE_DIALOG),
+      new View(ViewName.SPLASH),
     ]);
 
+    nav.open(ViewName.SPLASH);
     this.backgroundOps_.bindForegroundOps(this);
   }
 
@@ -126,8 +128,8 @@ export class App {
    * @private
    */
   setupToggles_() {
-    browserProxy.localStorageGet(
-        {expert: false}, ({expert}) => state.set(state.State.EXPERT, expert));
+    browserProxy.localStorageGet({expert: false})
+        .then(({expert}) => state.set(state.State.EXPERT, expert));
     document.querySelectorAll('input').forEach((element) => {
       element.addEventListener(
           'keypress',
@@ -158,11 +160,11 @@ export class App {
       });
       if (element.dataset.key !== undefined) {
         // Restore the previously saved state on startup.
-        browserProxy.localStorageGet(
-            payload(element),
-            (values) => util.toggleChecked(
-                assertInstanceof(element, HTMLInputElement),
-                values[element.dataset.key]));
+        browserProxy.localStorageGet(payload(element))
+            .then(
+                (values) => util.toggleChecked(
+                    assertInstanceof(element, HTMLInputElement),
+                    values[element.dataset.key]));
       }
     });
   }
@@ -176,7 +178,7 @@ export class App {
     filesystem
         .initialize(() => {
           // Prompt to migrate pictures if needed.
-          const message = chrome.i18n.getMessage('migrate_pictures_msg');
+          const message = browserProxy.getI18nMessage('migrate_pictures_msg');
           return nav
               .open(ViewName.MESSAGE_DIALOG, {message, cancellable: false})
               .then((acked) => {
@@ -190,7 +192,6 @@ export class App {
           const externalDir = filesystem.getExternalDirectory();
           assert(externalDir !== null);
           this.galleryButton_.initialize(externalDir);
-          nav.open(ViewName.CAMERA);
         })
         .catch((error) => {
           console.error(error);
@@ -210,6 +211,8 @@ export class App {
     })();
     const startCamera = (async () => {
       const isSuccess = await this.cameraView_.start();
+      nav.close(ViewName.SPLASH);
+      nav.open(ViewName.CAMERA);
       this.backgroundOps_.getPerfLogger().stopLaunch({hasError: !isSuccess});
     })();
     return Promise.all([showWindow, startCamera]);
@@ -261,6 +264,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   assert(window['backgroundOps'] !== undefined);
   const /** !BackgroundOps */ bgOps = window['backgroundOps'];
+
+  metrics.initMetrics(bgOps.isTesting());
+
   const perfLogger = bgOps.getPerfLogger();
 
   // Setup listener for performance events.
@@ -289,6 +295,18 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
   });
+
+  // Setup for console perf logger.
+  perfLogger.addListener((event, duration, extras) => {
+    if (state.get(state.State.PRINT_PERFORMANCE_LOGS)) {
+      // eslint-disable-next-line no-console
+      console.log(
+          '%c%s %s ms %s', 'color: #4E4F97; font-weight: bold;',
+          event.padEnd(40), duration.toFixed(0).padStart(4),
+          JSON.stringify(extras));
+    }
+  });
+
   instance = new App(
       /** @type {!BackgroundOps} */ (bgOps));
   await instance.start();

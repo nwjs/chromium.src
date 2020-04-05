@@ -5,9 +5,11 @@
 #include "cc/scheduler/scheduler.h"
 
 #include <algorithm>
+#include <vector>
 
 #include "base/auto_reset.h"
 #include "base/bind.h"
+#include "base/location.h"
 #include "base/logging.h"
 #include "base/single_thread_task_runner.h"
 #include "base/trace_event/trace_event.h"
@@ -39,7 +41,7 @@ Scheduler::Scheduler(
       layer_tree_host_id_(layer_tree_host_id),
       task_runner_(task_runner),
       compositor_timing_history_(std::move(compositor_timing_history)),
-      begin_impl_frame_tracker_(BEGINFRAMETRACKER_FROM_HERE),
+      begin_impl_frame_tracker_(FROM_HERE),
       state_machine_(settings) {
   TRACE_EVENT1("cc", "Scheduler::Scheduler", "settings", settings_.AsValue());
   DCHECK(client_);
@@ -144,10 +146,11 @@ void Scheduler::SetNeedsPrepareTiles() {
   ProcessScheduledActions();
 }
 
-void Scheduler::DidSubmitCompositorFrame(uint32_t frame_token) {
+void Scheduler::DidSubmitCompositorFrame(uint32_t frame_token,
+                                         EventMetricsSet events_metrics) {
   compositor_timing_history_->DidSubmitCompositorFrame(
       frame_token, begin_main_frame_args_.frame_id,
-      last_activate_origin_frame_args_.frame_id);
+      last_activate_origin_frame_args_.frame_id, std::move(events_metrics));
   state_machine_.DidSubmitCompositorFrame();
 
   // There is no need to call ProcessScheduledActions here because
@@ -628,10 +631,8 @@ void Scheduler::BeginImplFrame(const viz::BeginFrameArgs& args,
     bool has_damage =
         client_->WillBeginImplFrame(begin_impl_frame_tracker_.Current());
 
-    if (!has_damage) {
+    if (!has_damage)
       state_machine_.AbortDraw();
-      compositor_timing_history_->DrawAborted();
-    }
   }
 
   ProcessScheduledActions();
@@ -743,7 +744,6 @@ void Scheduler::DrawIfPossible() {
   state_machine_.DidDraw(result);
   compositor_timing_history_->DidDraw(
       drawing_with_new_active_tree,
-      begin_impl_frame_tracker_.DangerousMethodCurrentOrLast().frame_time,
       client_->CompositedAnimationsCount(),
       client_->MainThreadAnimationsCount(), client_->CurrentFrameHadRAF(),
       client_->NextFrameHasPendingRAF(),
@@ -762,7 +762,6 @@ void Scheduler::DrawForced() {
   state_machine_.DidDraw(result);
   compositor_timing_history_->DidDraw(
       drawing_with_new_active_tree,
-      begin_impl_frame_tracker_.DangerousMethodCurrentOrLast().frame_time,
       client_->CompositedAnimationsCount(),
       client_->MainThreadAnimationsCount(), client_->CurrentFrameHadRAF(),
       client_->NextFrameHasPendingRAF(),
@@ -852,7 +851,6 @@ void Scheduler::ProcessScheduledActions() {
         // No action is actually performed, but this allows the state machine to
         // drain the pipeline without actually drawing.
         state_machine_.AbortDraw();
-        compositor_timing_history_->DrawAborted();
         break;
       }
       case SchedulerStateMachine::Action::BEGIN_LAYER_TREE_FRAME_SINK_CREATION:

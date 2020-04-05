@@ -97,6 +97,7 @@
 <translation id="2149973817440762519">Редагувати закладку</translation>
 <translation id="2179182049312275900">Ви можете будь-коли ввімкнути синхронізацію в налаштуваннях.</translation>
 <translation id="2198757192731523470">Ваша історія може допомогти нам персоналізувати Пошук, оголошення й інші сервіси Google.</translation>
+<translation id="2218443599109088993">Віддалити</translation>
 <translation id="2230173723195178503">Веб-сторінку завантажено</translation>
 <translation id="2239626343334228536">Очищення даних веб-перегляду…</translation>
 <translation id="2257567812274161158">Синхронізація не працює.</translation>
@@ -159,6 +160,7 @@
 <translation id="2923448633003185837">Вставити й перейти</translation>
 <translation id="292639812446257861">Позначити як непрочитані</translation>
 <translation id="2958718410589002129">Паролі</translation>
+<translation id="2964349545761222050">Блокувати файли cookie третіх сторін</translation>
 <translation id="2969979262385602596">Не вдалося ввійти. Спробуйте пізніше.</translation>
 <translation id="298306318844797842">Додати спосіб оплати…</translation>
 <translation id="2989805286512600854">Відкрити в новій вкладці</translation>
@@ -178,6 +180,7 @@
 <translation id="3290875554372353449">Виберіть обліковий запис</translation>
 <translation id="3311748811247479259">Вимкнено</translation>
 <translation id="3324193307694657476">Адреса 2</translation>
+<translation id="3328801116991980348">Інформація про сайт</translation>
 <translation id="3329904751041170572">Не вдалось під’єднатися до сервера.</translation>
 <translation id="3335947283844343239">Знову відкрити закриту вкладку</translation>
 <translation id="3371831930909698441">Доступний Перекладач. Параметри можна знайти внизу екрана</translation>
@@ -300,6 +303,7 @@
 <translation id="4979397965658815378">Увійдіть в обліковий запис Google, щоб мати доступ до закладок, паролів, історії й інших налаштувань на всіх своїх пристроях</translation>
 <translation id="5005498671520578047">Копіювати пароль</translation>
 <translation id="5010803260590204777">Щоб переглядати веб-сторінки конфіденційно відкрийте анонімну вкладку.</translation>
+<translation id="5039020240289137291">Блокування файлів cookie третіх сторін</translation>
 <translation id="5039804452771397117">Дозволити</translation>
 <translation id="5059136629401106827">OK</translation>
 <translation id="5062321486222145940">Установити Google Диск</translation>
@@ -414,9 +418,11 @@
 <translation id="6434591244308415567">Сталася помилка. Спробуйте пізніше.</translation>
 <translation id="6445051938772793705">Країна</translation>
 <translation id="6445981559479772097">Повідомлення надіслано.</translation>
+<translation id="6447842834002726250">Cookie-файли</translation>
 <translation id="6464071786529933911">Відкрити в анонімній вкладці</translation>
 <translation id="6476800141292307438">Сторінка перекладається такою мовою: <ph name="LANGUAGE" />. Параметри розташовано внизу екрана.</translation>
 <translation id="6482629121755362506">Видалено елементів: <ph name="NUMBER_OF_SELECTED_BOOKMARKS" /></translation>
+<translation id="6561262006871132942">Наблизити</translation>
 <translation id="6610002944194042868">Параметри перекладу</translation>
 <translation id="6628106477656132239">Недійсна дата закінчення терміну дії</translation>
 <translation id="6638511529934826365">Масштабувати текст…</translation>
@@ -479,7 +485,6 @@
 <translation id="734758817008927353">Опції збереження картки</translation>
 <translation id="7348502496356775519">Закладка</translation>
 <translation id="7383797227493018512">Список читання</translation>
-<translation id="7392048574806661116">Вийти й очистити синхронізовані дані</translation>
 <translation id="7400418766976504921">URL-адреса</translation>
 <translation id="7409985198648820906">Непрочитаних статей: <ph name="UNREAD_COUNT" />.</translation>
 <translation id="7425346204213733349">Зміни в закладках, історії, паролях та інших налаштуваннях більше не синхронізуватимуться з вашим обліковим записом Google. Однак наявні дані залишаться у вашому обліковому записі.</translation>
@@ -598,6 +603,7 @@
 <translation id="9223358826628549784">Звіт про аварійне завершення роботи надіслано.</translation>
 <translation id="952704832371081537">Скасувати</translation>
 <translation id="988141524645182168">Інші пристрої</translation>
+<translation id="989697783705943787">Безпека сайту</translation>
 <translation id="989988560359834682">Редагувати адресу</translation>
 <translation id="994757059139821576">Пропозиції статей</translation>
 </translationbundle>

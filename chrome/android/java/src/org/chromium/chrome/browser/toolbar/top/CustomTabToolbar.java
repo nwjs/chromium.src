@@ -17,9 +17,6 @@ import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
-import android.support.v4.text.BidiFormatter;
-import android.support.v4.view.MarginLayoutParamsCompat;
-import android.support.v7.content.res.AppCompatResources;
 import android.text.SpannableString;
 import android.text.TextUtils;
 import android.text.style.ForegroundColorSpan;
@@ -37,6 +34,9 @@ import android.widget.TextView;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
+import androidx.appcompat.content.res.AppCompatResources;
+import androidx.core.text.BidiFormatter;
+import androidx.core.view.MarginLayoutParamsCompat;
 
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.base.ThreadUtils;
@@ -51,15 +51,14 @@ import org.chromium.chrome.browser.native_page.NativePageFactory;
 import org.chromium.chrome.browser.ntp.NewTabPage;
 import org.chromium.chrome.browser.offlinepages.OfflinePageUtils;
 import org.chromium.chrome.browser.omnibox.LocationBar;
-import org.chromium.chrome.browser.omnibox.LocationBarVoiceRecognitionHandler;
 import org.chromium.chrome.browser.omnibox.UrlBar;
 import org.chromium.chrome.browser.omnibox.UrlBarCoordinator;
 import org.chromium.chrome.browser.omnibox.UrlBarCoordinator.SelectionState;
 import org.chromium.chrome.browser.omnibox.UrlBarData;
+import org.chromium.chrome.browser.omnibox.voice.VoiceRecognitionHandler;
 import org.chromium.chrome.browser.page_info.PageInfoController;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tab.TabImpl;
 import org.chromium.chrome.browser.tab.TrustedCdn;
 import org.chromium.chrome.browser.toolbar.ToolbarColors;
 import org.chromium.chrome.browser.toolbar.ToolbarDataProvider;
@@ -207,6 +206,7 @@ public class CustomTabToolbar extends ToolbarLayout implements View.OnLongClickL
     @Override
     void initialize(ToolbarDataProvider toolbarDataProvider, ToolbarTabController tabController) {
         super.initialize(toolbarDataProvider, tabController);
+        mLocationBar.setToolbarDataProvider(toolbarDataProvider);
         mLocationBar.updateVisualsForState();
     }
 
@@ -336,7 +336,7 @@ public class CustomTabToolbar extends ToolbarLayout implements View.OnLongClickL
         if (publisherUrl != null) return extractPublisherFromPublisherUrl(publisherUrl);
 
         // TODO(bauerb): Remove this once trusted CDN publisher URLs have rolled out completely.
-        if (mState == STATE_TITLE_ONLY) return parsePublisherNameFromUrl(tab.getUrl());
+        if (mState == STATE_TITLE_ONLY) return parsePublisherNameFromUrl(tab.getUrlString());
 
         return null;
     }
@@ -347,9 +347,9 @@ public class CustomTabToolbar extends ToolbarLayout implements View.OnLongClickL
         mLocationBar.setTitleToPageTitle();
         if (mState == STATE_TITLE_ONLY) {
             if (TextUtils.isEmpty(mFirstUrl)) {
-                mFirstUrl = getToolbarDataProvider().getTab().getUrl();
+                mFirstUrl = getToolbarDataProvider().getTab().getUrlString();
             } else {
-                if (mFirstUrl.equals(getToolbarDataProvider().getTab().getUrl())) return;
+                if (mFirstUrl.equals(getToolbarDataProvider().getTab().getUrlString())) return;
                 setUrlBarHidden(false);
             }
         }
@@ -535,7 +535,7 @@ public class CustomTabToolbar extends ToolbarLayout implements View.OnLongClickL
         if (v == mTitleUrlContainer) {
             Tab tab = getCurrentTab();
             if (tab == null) return false;
-            Clipboard.getInstance().copyUrlToClipboard(((TabImpl) tab).getOriginalUrl());
+            Clipboard.getInstance().copyUrlToClipboard(tab.getOriginalUrl());
             return true;
         }
         return false;
@@ -665,7 +665,7 @@ public class CustomTabToolbar extends ToolbarLayout implements View.OnLongClickL
             }
 
             String publisherUrl = TrustedCdn.getPublisherUrl(tab);
-            String url = publisherUrl != null ? publisherUrl : tab.getUrl().trim();
+            String url = publisherUrl != null ? publisherUrl : tab.getUrlString().trim();
             if (mState == STATE_TITLE_ONLY) {
                 if (!TextUtils.isEmpty(getToolbarDataProvider().getTitle())) setTitleToPageTitle();
             }
@@ -781,7 +781,8 @@ public class CustomTabToolbar extends ToolbarLayout implements View.OnLongClickL
                 mAnimDelegate.showSecurityButton();
             }
 
-            int contentDescriptionId = getToolbarDataProvider().getSecurityIconContentDescription();
+            int contentDescriptionId =
+                    getToolbarDataProvider().getSecurityIconContentDescriptionResourceId();
             String contentDescription = getContext().getString(contentDescriptionId);
             mSecurityButton.setContentDescription(contentDescription);
 
@@ -861,7 +862,7 @@ public class CustomTabToolbar extends ToolbarLayout implements View.OnLongClickL
         }
 
         @Override
-        public LocationBarVoiceRecognitionHandler getLocationBarVoiceRecognitionHandler() {
+        public VoiceRecognitionHandler getVoiceRecognitionHandler() {
             return null;
         }
     }

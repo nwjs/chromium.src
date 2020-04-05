@@ -45,20 +45,11 @@ namespace quota_internals {
 class QuotaInternalsProxy;
 }  // namespace quota_internals
 
-namespace content {
-class MockQuotaManager;
-class MockStorageClient;
-class QuotaManagerTest;
-}  // namespace content
-
 namespace storage {
 
-class QuotaDatabase;
 class QuotaManagerProxy;
 class QuotaTemporaryStorageEvictor;
 class UsageTracker;
-
-struct QuotaManagerDeleter;
 
 // An interface called by QuotaTemporaryStorageEvictor. This is a grab bag of
 // methods called by QuotaTemporaryStorageEvictor that need to be stubbed for
@@ -181,10 +172,12 @@ class COMPONENT_EXPORT(STORAGE_BROWSER) QuotaManager
                              int64_t delta);
 
   // Called by clients via proxy.
+  // This method is declared as virtual to allow test code to override it.
+  //
   // Client storage must call this method whenever they run into disk
   // write errors. Used as a hint to determine if the storage partition is out
   // of space, and trigger actions if deemed appropriate.
-  void NotifyWriteFailed(const url::Origin& origin);
+  virtual void NotifyWriteFailed(const url::Origin& origin);
 
   // Used to avoid evicting origins with open pages.
   // A call to NotifyOriginInUse must be balanced by a later call
@@ -273,19 +266,20 @@ class COMPONENT_EXPORT(STORAGE_BROWSER) QuotaManager
   // the quota for syncable storage. (http://crbug.com/155488)
   static int64_t kSyncableStorageDefaultHostQuota;
 
+  void DisableDatabaseForTesting() { db_disabled_ = true; }
+
  protected:
   ~QuotaManager() override;
 
  private:
   friend class base::DeleteHelper<QuotaManager>;
   friend class base::RefCountedDeleteOnSequence<QuotaManager>;
-  friend class content::QuotaManagerTest;
-  friend class content::MockQuotaManager;
-  friend class content::MockStorageClient;
   friend class quota_internals::QuotaInternalsProxy;
+  friend class MockQuotaManager;
+  friend class MockStorageClient;
   friend class QuotaManagerProxy;
+  friend class QuotaManagerTest;
   friend class QuotaTemporaryStorageEvictor;
-  friend struct QuotaManagerDeleter;
 
   class EvictionRoundInfoHelper;
   class UsageAndQuotaInfoGatherer;
@@ -346,8 +340,7 @@ class COMPONENT_EXPORT(STORAGE_BROWSER) QuotaManager
 
   // Extract cached origins list from the usage tracker.
   // (Might return empty list if no origin is tracked by the tracker.)
-  void GetCachedOrigins(blink::mojom::StorageType type,
-                        std::set<url::Origin>* origins);
+  std::set<url::Origin> GetCachedOrigins(blink::mojom::StorageType type);
 
   // These internal methods are separately defined mainly for testing.
   void NotifyStorageAccessedInternal(const url::Origin& origin,
@@ -425,6 +418,9 @@ class COMPONENT_EXPORT(STORAGE_BROWSER) QuotaManager
   void MaybeRunStoragePressureCallback(const url::Origin& origin,
                                        int64_t total_space,
                                        int64_t available_space);
+  // Used from quota-internals page to test behavior of the storage pressure
+  // callback.
+  void SimulateStoragePressure(const url::Origin origin);
 
   void PostTaskAndReplyWithResultForDBThread(
       const base::Location& from_here,

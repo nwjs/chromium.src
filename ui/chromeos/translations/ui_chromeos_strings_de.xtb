@@ -29,6 +29,7 @@
 <translation id="1243314992276662751">Hochladen</translation>
 <translation id="1249250836236328755">Genre</translation>
 <translation id="1278813325885878377">Ungarische QWERTY-Tastatur</translation>
+<translation id="1293556467332435079">Dateien</translation>
 <translation id="1297922636971898492">Google Drive ist momentan nicht verfügbar. Das Hochladen Ihrer Dateien wird automatisch fortgesetzt, sobald Google Drive wieder verfügbar ist.</translation>
 <translation id="1307931752636661898">Linux-Dateien können nicht angezeigt werden</translation>
 <translation id="1310751437842832374">Transliteration (mausam → ନମସ୍ତେ)</translation>
@@ -186,7 +187,7 @@
 <translation id="3197563288998582412">UK – Dvorak</translation>
 <translation id="3202131003361292969">Pfad</translation>
 <translation id="3224239078034945833">Kanadisch – mehrsprachig</translation>
-<translation id="3236289833370040187">Die Inhaberschaft wird übertragen an <ph name="DESTINATION_DOMAIN" />.</translation>
+<translation id="3236289833370040187">Die Eigentümerschaft geht auf <ph name="DESTINATION_DOMAIN" /> über.</translation>
 <translation id="3241720467332021590">Irisch</translation>
 <translation id="3245321423178950146">Unbekannter Musiker</translation>
 <translation id="3252266817569339921">Französisch</translation>
@@ -508,6 +509,7 @@
 <translation id="6878261347041253038">Devanagari-Tastatur (phonetisch)</translation>
 <translation id="6885780034956018177">Schnecke</translation>
 <translation id="6896758677409633944">Kopieren</translation>
+<translation id="6898028766943174120">Weitere Unterordner…</translation>
 <translation id="691516599546977041">Fehler beim Speichern unter "<ph name="FOLDER_NAME" />". Bearbeitete Bilder werden im Ordner "Downloads" gespeichert.</translation>
 <translation id="6915678159055240887">Chromebox</translation>
 <translation id="6918340160281024199">US-amerikanische Workman-Tastatur</translation>
@@ -520,6 +522,7 @@
 <translation id="696203921837389374">Synchronisierung über mobile Daten aktivieren</translation>
 <translation id="6965382102122355670">Ok</translation>
 <translation id="6970230597523682626">Bulgarisch</translation>
+<translation id="6973630695168034713">Ordner</translation>
 <translation id="6978611942794658017">Diese Datei wurde für Computer entwickelt, die mit Windows-Software betrieben werden. Die Datei ist nicht kompatibel mit Ihrem Chrome OS-Gerät. Suchen Sie im Chrome Web Store nach einer geeigneten Ersatz-App.</translation>
 <translation id="6979158407327259162">Google Drive</translation>
 <translation id="6990081529015358884">Sie haben keinen freien Speicherplatz mehr.</translation>

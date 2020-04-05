@@ -26,7 +26,7 @@ import androidx.browser.customtabs.CustomTabsIntent;
 import androidx.browser.customtabs.CustomTabsSessionToken;
 
 import org.chromium.base.ApiCompatibilityUtils;
-import org.chromium.base.metrics.RecordHistogram;
+import org.chromium.base.IntentUtils;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeApplication;
@@ -35,13 +35,13 @@ import org.chromium.chrome.browser.LaunchIntentDispatcher;
 import org.chromium.chrome.browser.autofill_assistant.AutofillAssistantFacade;
 import org.chromium.chrome.browser.browserservices.BrowserServicesIntentDataProvider;
 import org.chromium.chrome.browser.browserservices.BrowserServicesIntentDataProvider.CustomTabsUiType;
+import org.chromium.chrome.browser.browserservices.trustedwebactivityui.TrustedWebActivityCoordinator;
 import org.chromium.chrome.browser.customtabs.content.CustomTabActivityTabController;
 import org.chromium.chrome.browser.customtabs.content.CustomTabActivityTabProvider;
-import org.chromium.chrome.browser.customtabs.content.CustomTabIntentHandler;
 import org.chromium.chrome.browser.customtabs.content.CustomTabIntentHandler.IntentIgnoringCriterion;
+import org.chromium.chrome.browser.customtabs.dependency_injection.BaseCustomTabActivityModule;
 import org.chromium.chrome.browser.customtabs.dependency_injection.CustomTabActivityComponent;
 import org.chromium.chrome.browser.customtabs.dependency_injection.CustomTabActivityModule;
-import org.chromium.chrome.browser.customtabs.dynamicmodule.DynamicModuleCoordinator;
 import org.chromium.chrome.browser.customtabs.features.CustomTabNavigationBarController;
 import org.chromium.chrome.browser.dependency_injection.ChromeActivityCommonsModule;
 import org.chromium.chrome.browser.firstrun.FirstRunSignInProcessor;
@@ -58,7 +58,6 @@ import org.chromium.chrome.browser.previews.Previews;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuPropertiesDelegate;
 import org.chromium.chrome.browser.usage_stats.UsageStatsService;
-import org.chromium.chrome.browser.util.IntentUtils;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.WebContents;
 
@@ -69,12 +68,9 @@ public class CustomTabActivity extends BaseCustomTabActivity<CustomTabActivityCo
     private CustomTabIntentDataProvider mIntentDataProvider;
     private CustomTabsSessionToken mSession;
     private CustomTabActivityTabController mTabController;
-    private CustomTabIntentHandler mCustomTabIntentHandler;
+    private TrustedWebActivityCoordinator mTwaCoordinator;
 
     private final CustomTabsConnection mConnection = CustomTabsConnection.getInstance();
-
-    @Nullable
-    private DynamicModuleCoordinator mDynamicModuleCoordinator;
 
     private CustomTabNightModeStateController mNightModeStateController;
 
@@ -111,14 +107,6 @@ public class CustomTabActivity extends BaseCustomTabActivity<CustomTabActivityCo
     public int getActivityType() {
         return mIntentDataProvider.isTrustedWebActivity()
                 ? ActivityType.TRUSTED_WEB_ACTIVITY : ActivityType.CUSTOM_TAB;
-    }
-
-    @Override
-    protected void recordIntentToCreationTime(long timeMs) {
-        super.recordIntentToCreationTime(timeMs);
-
-        RecordHistogram.recordTimesHistogram(
-                "MobileStartup.IntentToCreationTime.CustomTabs", timeMs);
     }
 
     @Override
@@ -190,12 +178,6 @@ public class CustomTabActivity extends BaseCustomTabActivity<CustomTabActivityCo
     public void finishNativeInitialization() {
         if (!mIntentDataProvider.isInfoPage()) FirstRunSignInProcessor.start(this);
 
-        // Try to initialize dynamic module early to enqueue navigation events
-        // @see DynamicModuleNavigationEventObserver
-        if (mIntentDataProvider.isDynamicModuleEnabled()) {
-            mDynamicModuleCoordinator = getComponent().resolveDynamicModuleCoordinator();
-        }
-
         mConnection.showSignInToastIfNecessary(mSession, getIntent());
 
         if (isTaskRoot() && UsageStatsService.isEnabled()) {
@@ -232,10 +214,6 @@ public class CustomTabActivity extends BaseCustomTabActivity<CustomTabActivityCo
         WebContents webContents = tab == null ? null : tab.getWebContents();
         mConnection.resetPostMessageHandlerForSession(
                 mIntentDataProvider.getSession(), webContents);
-
-        if (mDynamicModuleCoordinator != null) {
-            mDynamicModuleCoordinator.resetPostMessageHandlersForCurrentSession(null);
-        }
     }
 
     @Override
@@ -268,7 +246,7 @@ public class CustomTabActivity extends BaseCustomTabActivity<CustomTabActivityCo
                 CustomTabAppMenuPropertiesDelegate.getIndexOfMenuItemFromBundle(menuItemData);
         if (menuIndex >= 0) {
             mIntentDataProvider.clickMenuItemWithUrlAndTitle(
-                    this, menuIndex, getActivityTab().getUrl(), getActivityTab().getTitle());
+                    this, menuIndex, getActivityTab().getUrlString(), getActivityTab().getTitle());
             RecordUserAction.record("CustomTabsMenuCustomMenuItem");
             return true;
         }
@@ -353,7 +331,7 @@ public class CustomTabActivity extends BaseCustomTabActivity<CustomTabActivityCo
     @Override
     protected boolean requiresFirstRunToBeCompleted(Intent intent) {
         // Custom Tabs can be used to open Chrome help pages before the ToS has been accepted.
-        if (IntentHandler.notSecureIsIntentChromeOrFirstParty(intent)
+        if (CustomTabIntentDataProvider.isTrustedCustomTab(intent, mSession)
                 && IntentUtils.safeGetIntExtra(intent, CustomTabIntentDataProvider.EXTRA_UI_TYPE,
                            CustomTabIntentDataProvider.CustomTabsUiType.DEFAULT)
                         == CustomTabIntentDataProvider.CustomTabsUiType.INFO_PAGE) {
@@ -383,11 +361,14 @@ public class CustomTabActivity extends BaseCustomTabActivity<CustomTabActivityCo
         IntentIgnoringCriterion intentIgnoringCriterion =
                 (intent) -> mIntentHandler.shouldIgnoreIntent(intent);
 
-        CustomTabActivityModule customTabsModule = new CustomTabActivityModule(mIntentDataProvider,
-                mNightModeStateController, intentIgnoringCriterion, getStartupTabPreloader());
+        BaseCustomTabActivityModule baseCustomTabsModule =
+                new BaseCustomTabActivityModule(mIntentDataProvider, intentIgnoringCriterion);
+        CustomTabActivityModule customTabsModule =
+                new CustomTabActivityModule(mNightModeStateController, getStartupTabPreloader());
+
         CustomTabActivityComponent component =
                 ChromeApplication.getComponent().createCustomTabActivityComponent(
-                        commonsModule, customTabsModule);
+                        commonsModule, baseCustomTabsModule, customTabsModule);
 
         onComponentCreated(component);
 
@@ -399,18 +380,31 @@ public class CustomTabActivity extends BaseCustomTabActivity<CustomTabActivityCo
             if (reason == USER_NAVIGATION) connectionKeeper.recordClientConnectionStatus();
             handleFinishAndClose();
         });
-        mCustomTabIntentHandler = component.resolveIntentHandler();
         component.resolveSessionHandler();
         component.resolveCustomTabIncognitoManager();
 
         if (mIntentDataProvider.isTrustedWebActivity()) {
-            component.resolveTrustedWebActivityCoordinator();
-        }
-        if (mConnection.shouldHideTopBarOnModuleManagedUrlsForSession(
-                    mIntentDataProvider.getSession())) {
-            component.resolveDynamicModuleToolbarController();
+            mTwaCoordinator = component.resolveTrustedWebActivityCoordinator();
         }
 
         return component;
+    }
+
+    /**
+     * @return The package name of the Trusted Web Activity, if the activity is a TWA; null
+     * otherwise.
+     */
+    @Nullable
+    public String getTwaPackage() {
+        return mTwaCoordinator == null ? null : mTwaCoordinator.getTwaPackage();
+    }
+
+    /**
+     * @return Whether the app is running in the "Trusted Web Activity" mode, where the TWA-specific
+     *         UI is shown.
+     */
+    @Nullable
+    public Boolean isInTwaMode() {
+        return mTwaCoordinator == null ? false : mTwaCoordinator.isInTwaMode();
     }
 }

@@ -44,7 +44,8 @@ bool MediaSessionControllersManager::RequestPlay(
     const MediaPlayerId& id,
     bool has_audio,
     bool is_remote,
-    media::MediaContentType media_content_type) {
+    media::MediaContentType media_content_type,
+    bool has_video) {
   if (!IsMediaSessionEnabled())
     return true;
 
@@ -69,7 +70,7 @@ bool MediaSessionControllersManager::RequestPlay(
   auto it = controllers_map_.find(id);
   if (it != controllers_map_.end()) {
     if (it->second->Initialize(has_audio, is_remote, media_content_type,
-                               position, is_pip_available)) {
+                               position, is_pip_available, has_video)) {
       return true;
     }
 
@@ -80,7 +81,7 @@ bool MediaSessionControllersManager::RequestPlay(
       new MediaSessionController(id, media_web_contents_observer_));
 
   if (!controller->Initialize(has_audio, is_remote, media_content_type,
-                              position, is_pip_available)) {
+                              position, is_pip_available, has_video)) {
     return false;
   }
 
@@ -118,6 +119,15 @@ void MediaSessionControllersManager::OnMediaPositionStateChanged(
     return;
 
   it->second->OnMediaPositionStateChanged(position);
+}
+
+void MediaSessionControllersManager::PictureInPictureStateChanged(
+    bool is_picture_in_picture) {
+  if (!IsMediaSessionEnabled())
+    return;
+
+  for (auto& entry : controllers_map_)
+    entry.second->PictureInPictureStateChanged(is_picture_in_picture);
 }
 
 void MediaSessionControllersManager::WebContentsMutedStateChanged(bool muted) {

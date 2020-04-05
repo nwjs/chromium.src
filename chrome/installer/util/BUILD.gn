@@ -160,6 +160,10 @@ static_library("with_no_strings") {
       "google_update_util.h",
       "helper.cc",
       "helper.h",
+      "install_service_work_item.cc",
+      "install_service_work_item.h",
+      "install_service_work_item_impl.cc",
+      "install_service_work_item_impl.h",
       "install_util.cc",
       "install_util.h",
       "installation_state.cc",
@@ -271,6 +275,20 @@ if (is_win) {
     deps = [
       ":with_no_strings",
       "//base",
+    ]
+  }
+
+  # This source set contains tests that must run serially. These are linked into
+  # setup_unittests, which does so.
+  source_set("serial_unittests") {
+    testonly = true
+    sources = [ "install_service_work_item_unittest.cc" ]
+    deps = [
+      ":with_no_strings",
+      "//base",
+      "//chrome/install_static:install_static_util",
+      "//chrome/install_static/test:test_support",
+      "//testing/gtest",
     ]
   }
 

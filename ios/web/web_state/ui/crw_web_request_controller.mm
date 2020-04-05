@@ -366,7 +366,7 @@ enum class BackForwardNavigationType {
   if (!IsWKInternalUrl(requestURL) &&
       (base::FeatureList::IsEnabled(web::features::kUseJSForErrorPage) ||
        !placeholderNavigation) &&
-      (!web::features::UseWKWebViewLoading() || !rendererInitiated)) {
+      !rendererInitiated) {
     self.webState->SetIsLoading(true);
   }
 
@@ -414,14 +414,6 @@ enum class BackForwardNavigationType {
     // loading placeholder URL.
     return;
   }
-  if (!web::features::UseWKWebViewLoading()) {
-    if (![self.navigationHandler.navigationStates
-                lastNavigationWithPendingItemInNavigationContext]) {
-      self.webState->SetIsLoading(false);
-    } else {
-      // There is another pending navigation, so the state is still loading.
-    }
-  }
 
   self.webState->OnPageLoaded(currentURL, YES);
 
@@ -432,6 +424,18 @@ enum class BackForwardNavigationType {
     } else {
       UMA_HISTOGRAM_TIMES("PLT.iOS.BrowserInitiatedPageLoadTime",
                           context->GetElapsedTimeSinceCreation());
+    }
+    if ([UIDevice currentDevice].batteryLevel <
+        web::features::kLowBatteryLevelThreshold) {
+      if (context->IsRendererInitiated()) {
+        UMA_HISTOGRAM_TIMES(
+            "PLT.iOS.RendererInitiatedPageLoadTimeWithLowBattery",
+            context->GetElapsedTimeSinceCreation());
+      } else {
+        UMA_HISTOGRAM_TIMES(
+            "PLT.iOS.BrowserInitiatedPageLoadTimeWithLowBattery",
+            context->GetElapsedTimeSinceCreation());
+      }
     }
   }
 }
@@ -557,7 +561,8 @@ enum class BackForwardNavigationType {
   if (itemUserAgentType == web::UserAgentType::AUTOMATIC) {
     DCHECK(base::FeatureList::IsEnabled(
         web::features::kUseDefaultUserAgentInWebClient));
-    itemUserAgentType = web::GetWebClient()->GetDefaultUserAgent(self.webView);
+    itemUserAgentType = web::GetWebClient()->GetDefaultUserAgent(
+        self.webView, self.currentNavItem->GetURL());
     self.currentNavItem->SetUserAgentType(
         itemUserAgentType, /*update_inherited_user_agent =*/false);
   } else if (itemUserAgentType == web::UserAgentType::NONE &&
@@ -568,11 +573,18 @@ enum class BackForwardNavigationType {
     itemUserAgentType = web::UserAgentType::MOBILE;
   }
 
-  if (itemUserAgentType != web::UserAgentType::NONE) {
-    NSString* userAgentString = base::SysUTF8ToNSString(
-        web::GetWebClient()->GetUserAgent(itemUserAgentType));
-    if (![self.webView.customUserAgent isEqualToString:userAgentString]) {
-      self.webView.customUserAgent = userAgentString;
+  if (@available(iOS 13, *)) {
+  } else {
+    // On iOS 13, this is done in
+    // webView:decidePolicyForNavigationAction:preferences:decisionHandler:. As
+    // the method only exists for iOS 13, this check still need to be there for
+    // iOS 12.
+    if (itemUserAgentType != web::UserAgentType::NONE) {
+      NSString* userAgentString = base::SysUTF8ToNSString(
+          web::GetWebClient()->GetUserAgent(itemUserAgentType));
+      if (![self.webView.customUserAgent isEqualToString:userAgentString]) {
+        self.webView.customUserAgent = userAgentString;
+      }
     }
   }
 

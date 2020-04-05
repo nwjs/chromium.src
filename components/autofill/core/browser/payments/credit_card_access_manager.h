@@ -32,6 +32,19 @@ namespace autofill {
 class AutofillManager;
 enum class WebauthnDialogCallbackType;
 
+// Flow type denotes which card unmask authentication method was used.
+enum class UnmaskAuthFlowType {
+  kNone = 0,
+  // Only CVC prompt was shown.
+  kCvc = 1,
+  // Only WebAuthn prompt was shown.
+  kFido = 2,
+  // CVC authentication was required in addition to WebAuthn.
+  kCvcThenFido = 3,
+  // WebAuthn prompt failed and fell back to CVC prompt.
+  kCvcFallbackFromFido = 4,
+};
+
 // Manages logic for accessing credit cards either stored locally or stored
 // with Google Payments. Owned by AutofillManager.
 #if defined(OS_IOS)
@@ -133,8 +146,7 @@ class CreditCardAccessManager : public CreditCardCVCAuthenticator::Requester,
       payments::PaymentsClient::UnmaskDetails& unmask_details);
 
   // Determines what form of authentication is required.
-  CreditCardFormEventLogger::UnmaskAuthFlowType GetAuthenticationType(
-      bool get_unmask_details_returned);
+  UnmaskAuthFlowType GetAuthenticationType(bool get_unmask_details_returned);
 
   // If OnDidGetUnmaskDetails() was invoked by PaymentsClient, then
   // |get_unmask_details_returned| should be set to true. Based on the
@@ -147,6 +159,7 @@ class CreditCardAccessManager : public CreditCardCVCAuthenticator::Requester,
   void OnCVCAuthenticationComplete(
       const CreditCardCVCAuthenticator::CVCAuthenticationResponse& response)
       override;
+  bool ShouldOfferFidoAuth() const override;
 
 #if !defined(OS_IOS)
   // CreditCardFIDOAuthenticator::Requester:
@@ -192,9 +205,15 @@ class CreditCardAccessManager : public CreditCardCVCAuthenticator::Requester,
   // after a timeout.
   void SignalCanFetchUnmaskDetails();
 
+  // Additionlly authorizes the card with FIDO. It also delays the form filling.
+  // It should only be called when registering a new card or opting-in from
+  // Android.
+  void AdditionallyPerformFidoAuth(
+      const CreditCardCVCAuthenticator::CVCAuthenticationResponse& response,
+      base::Value request_options);
+
   // The current form of authentication in progress.
-  CreditCardFormEventLogger::UnmaskAuthFlowType unmask_auth_flow_type_ =
-      CreditCardFormEventLogger::UnmaskAuthFlowType::kNone;
+  UnmaskAuthFlowType unmask_auth_flow_type_ = UnmaskAuthFlowType::kNone;
 
   // Is set to true only when waiting for the callback to
   // OnCVCAuthenticationComplete() to be executed.
@@ -236,6 +255,9 @@ class CreditCardAccessManager : public CreditCardCVCAuthenticator::Requester,
   std::unique_ptr<CreditCardCVCAuthenticator> cvc_authenticator_;
 #if !defined(OS_IOS)
   std::unique_ptr<CreditCardFIDOAuthenticator> fido_authenticator_;
+
+  // User opt in/out intention when local pref and payments mismatch.
+  UserOptInIntention opt_in_intention_ = UserOptInIntention::kUnspecified;
 #endif
 
   // Suggested authentication method and other information to facilitate card

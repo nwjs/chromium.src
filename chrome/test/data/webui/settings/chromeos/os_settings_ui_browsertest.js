@@ -22,14 +22,17 @@ var OSSettingsUIBrowserTest = class extends PolymerTest {
 
   /** @override */
   get extraLibraries() {
-    return super.extraLibraries.concat(
-        BROWSER_SETTINGS_PATH + '../test_util.js');
+    return super.extraLibraries.concat([
+      BROWSER_SETTINGS_PATH + '../test_util.js',
+      'fake_user_action_recorder.js',
+    ]);
   }
 };
 
 TEST_F('OSSettingsUIBrowserTest', 'AllJsTests', () => {
   suite('os-settings-ui', () => {
     let ui;
+    let userActionRecorder;
 
     suiteSetup(() => {
       testing.Test.disableAnimationsAndTransitions();
@@ -38,8 +41,14 @@ TEST_F('OSSettingsUIBrowserTest', 'AllJsTests', () => {
     });
 
     setup(() => {
+      userActionRecorder = new settings.FakeUserActionRecorder();
+      settings.setUserActionRecorderForTesting(userActionRecorder);
       ui.$.drawerTemplate.if = false;
       Polymer.dom.flush();
+    });
+
+    teardown(() => {
+      settings.setUserActionRecorderForTesting(null);
     });
 
     test('top container shadow always shows for sub-pages', () => {
@@ -234,6 +243,42 @@ TEST_F('OSSettingsUIBrowserTest', 'AllJsTests', () => {
       settingsMenu.$.people.click();
       assertEquals(
           '', settings.Router.getInstance().getQueryParameters().toString());
+    });
+
+    test('userActionRouteChange', function() {
+      assertEquals(userActionRecorder.navigationCount, 0);
+      settings.Router.getInstance().navigateTo(settings.routes.POWER);
+      assertEquals(userActionRecorder.navigationCount, 1);
+      settings.Router.getInstance().navigateTo(settings.routes.POWER);
+      assertEquals(userActionRecorder.navigationCount, 1);
+    });
+
+    test('userActionBlurEvent', function() {
+      assertEquals(userActionRecorder.pageBlurCount, 0);
+      ui.fire('blur');
+      assertEquals(userActionRecorder.pageBlurCount, 1);
+    });
+
+    test('userActionFocusEvent', function() {
+      assertEquals(userActionRecorder.pageFocusCount, 0);
+      ui.fire('focus');
+      assertEquals(userActionRecorder.pageFocusCount, 1);
+    });
+
+    test('userActionPrefChange', function() {
+      assertEquals(userActionRecorder.settingChangeCount, 0);
+      ui.$$('#prefs').fire('user-action-setting-change');
+      assertEquals(userActionRecorder.settingChangeCount, 1);
+    });
+
+    test('userActionSearchEvent', function() {
+      const searchField =
+          /** @type {CrToolbarSearchFieldElement} */ (
+              ui.$$('os-toolbar').getSearchField());
+
+      assertEquals(userActionRecorder.searchCount, 0);
+      searchField.setValue('GOOGLE');
+      assertEquals(userActionRecorder.searchCount, 1);
     });
   });
 

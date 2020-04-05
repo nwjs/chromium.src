@@ -10,7 +10,7 @@
 namespace autofill {
 
 TestPersonalDataManager::TestPersonalDataManager()
-    : PersonalDataManager("en-US") {}
+    : PersonalDataManager("en-US", "US") {}
 
 TestPersonalDataManager::~TestPersonalDataManager() {}
 
@@ -200,6 +200,17 @@ void TestPersonalDataManager::LoadCreditCardCloudTokenData() {
         AUTOFILL_CLOUDTOKEN_RESULT, std::move(cloud_token_data));
     OnWebDataServiceRequestDone(
         pending_server_creditcard_cloud_token_data_query_, std::move(result));
+  }
+}
+
+void TestPersonalDataManager::LoadUpiIds() {
+  pending_upi_ids_query_ = 128;
+  {
+    std::vector<std::string> upi_ids = {"vpa@indianbank"};
+    std::unique_ptr<WDTypedResult> result =
+        std::make_unique<WDResult<std::vector<std::string>>>(
+            AUTOFILL_UPI_RESULT, std::move(upi_ids));
+    OnWebDataServiceRequestDone(pending_upi_ids_query_, std::move(result));
   }
 }
 

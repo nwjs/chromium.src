@@ -69,7 +69,8 @@ TEST_F(CompositingInputsUpdaterTest,
 
   // Before we update compositing inputs, validate that the current ancestor
   // overflow no longer has a scrollable area.
-  GetDocument().View()->UpdateLifecycleToLayoutClean();
+  GetDocument().View()->UpdateLifecycleToLayoutClean(
+      DocumentUpdateReason::kTest);
   EXPECT_FALSE(sticky->Layer()->AncestorOverflowLayer()->GetScrollableArea());
   EXPECT_EQ(sticky->Layer()->AncestorOverflowLayer(), outer_scroller->Layer());
 
@@ -100,7 +101,7 @@ TEST_F(CompositingInputsUpdaterTest, UnclippedAndClippedRectsUnderScroll) {
       ToLayoutBoxModelObject(GetLayoutObjectByElementId("target"));
 
   GetDocument().View()->LayoutViewport()->ScrollBy(
-      ScrollOffset(0, 25), mojom::blink::ScrollIntoViewParams::Type::kUser);
+      ScrollOffset(0, 25), mojom::blink::ScrollType::kUser);
   GetDocument()
       .View()
       ->GetLayoutView()
@@ -126,7 +127,7 @@ TEST_F(CompositingInputsUpdaterTest,
       ToLayoutBoxModelObject(GetLayoutObjectByElementId("target"));
 
   GetDocument().View()->LayoutViewport()->ScrollBy(
-      ScrollOffset(0, 25), mojom::blink::ScrollIntoViewParams::Type::kUser);
+      ScrollOffset(0, 25), mojom::blink::ScrollType::kUser);
   GetDocument()
       .View()
       ->GetLayoutView()

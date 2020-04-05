@@ -287,13 +287,21 @@ HungRendererDialogView::HungRendererDialogView() {
       hung_pages_table_model_.get(), columns, views::ICON_AND_TEXT, true);
   hung_pages_table_ = hung_pages_table.get();
 
-  DialogDelegate::set_button_label(
+  DialogDelegate::SetButtonLabel(
       ui::DIALOG_BUTTON_CANCEL,
       l10n_util::GetPluralStringFUTF16(IDS_BROWSER_HANGMONITOR_RENDERER_END,
                                        hung_pages_table_model_->RowCount()));
-  DialogDelegate::set_button_label(
+  DialogDelegate::SetButtonLabel(
       ui::DIALOG_BUTTON_OK,
       l10n_util::GetStringUTF16(IDS_BROWSER_HANGMONITOR_RENDERER_WAIT));
+
+  DialogDelegate::SetAcceptCallback(base::BindOnce(
+      &HungRendererDialogView::RestartHangTimer, base::Unretained(this)));
+  DialogDelegate::SetCancelCallback(base::BindOnce(
+      &HungRendererDialogView::ForceCrashHungRenderer, base::Unretained(this)));
+  DialogDelegate::SetCloseCallback(base::BindOnce(
+      &HungRendererDialogView::RestartHangTimer, base::Unretained(this)));
+
   DialogModelChanged();
 
   views::GridLayout* layout =
@@ -407,7 +415,7 @@ void HungRendererDialogView::WindowClosing() {
   g_instance_ = nullptr;
 }
 
-bool HungRendererDialogView::Cancel() {
+void HungRendererDialogView::ForceCrashHungRenderer() {
   auto* render_widget_host = hung_pages_table_model_->GetRenderWidgetHost();
   bool currently_unresponsive =
       render_widget_host && render_widget_host->IsCurrentlyUnresponsive();
@@ -427,16 +435,6 @@ bool HungRendererDialogView::Cancel() {
     rph->Shutdown(content::RESULT_CODE_HUNG);
 #endif
   }
-  return true;
-}
-
-bool HungRendererDialogView::Accept() {
-  RestartHangTimer();
-  return true;
-}
-
-bool HungRendererDialogView::Close() {
-  return Accept();
 }
 
 ///////////////////////////////////////////////////////////////////////////////

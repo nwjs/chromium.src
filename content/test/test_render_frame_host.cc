@@ -16,7 +16,6 @@
 #include "content/browser/frame_host/navigator_impl.h"
 #include "content/browser/frame_host/render_frame_host_delegate.h"
 #include "content/browser/web_contents/web_contents_impl.h"
-#include "content/common/frame_owner_properties.h"
 #include "content/common/navigation_params.h"
 #include "content/common/navigation_params_utils.h"
 #include "content/common/view_messages.h"
@@ -38,6 +37,8 @@
 #include "third_party/blink/public/common/frame/frame_owner_element_type.h"
 #include "third_party/blink/public/common/frame/frame_policy.h"
 #include "third_party/blink/public/mojom/bluetooth/web_bluetooth.mojom.h"
+#include "third_party/blink/public/mojom/frame/frame_owner_properties.mojom.h"
+#include "third_party/blink/public/mojom/security_context/insecure_request_policy.mojom.h"
 #include "third_party/blink/public/platform/web_mixed_content_context_type.h"
 #include "third_party/blink/public/web/web_tree_scope_type.h"
 #include "ui/base/page_transition_types.h"
@@ -62,15 +63,13 @@ TestRenderFrameHost::TestRenderFrameHost(
     RenderFrameHostDelegate* delegate,
     FrameTree* frame_tree,
     FrameTreeNode* frame_tree_node,
-    int32_t routing_id,
-    int32_t widget_routing_id)
+    int32_t routing_id)
     : RenderFrameHostImpl(site_instance,
                           std::move(render_view_host),
                           delegate,
                           frame_tree,
                           frame_tree_node,
                           routing_id,
-                          widget_routing_id,
                           /*renderer_initiated_creation=*/false),
       child_creation_observer_(delegate ? delegate->GetAsWebContents()
                                         : nullptr),
@@ -131,12 +130,13 @@ void TestRenderFrameHost::InitializeRenderFrameIfNeeded() {
 TestRenderFrameHost* TestRenderFrameHost::AppendChild(
     const std::string& frame_name) {
   std::string frame_unique_name = base::GenerateGUID();
-  OnCreateChildFrame(
-      GetProcess()->GetNextRoutingID(), CreateStubInterfaceProviderReceiver(),
-      CreateStubBrowserInterfaceBrokerReceiver(),
-      blink::WebTreeScopeType::kDocument, frame_name, frame_unique_name, false,
-      base::UnguessableToken::Create(), blink::FramePolicy(),
-      FrameOwnerProperties(), blink::FrameOwnerElementType::kIframe);
+  OnCreateChildFrame(GetProcess()->GetNextRoutingID(),
+                     CreateStubInterfaceProviderReceiver(),
+                     CreateStubBrowserInterfaceBrokerReceiver(),
+                     blink::WebTreeScopeType::kDocument, frame_name,
+                     frame_unique_name, false, base::UnguessableToken::Create(),
+                     blink::FramePolicy(), blink::mojom::FrameOwnerProperties(),
+                     blink::FrameOwnerElementType::kIframe);
   return static_cast<TestRenderFrameHost*>(
       child_creation_observer_.last_created_frame());
 }
@@ -207,9 +207,10 @@ void TestRenderFrameHost::SimulateNavigationCommit(const GURL& url) {
   SendNavigateWithParams(&params, was_within_same_document);
 }
 
-void TestRenderFrameHost::SendBeforeUnloadACK(bool proceed) {
+void TestRenderFrameHost::SimulateBeforeUnloadCompleted(bool proceed) {
   base::TimeTicks now = base::TimeTicks::Now();
-  ProcessBeforeUnloadACK(proceed, false /* treat_as_final_ack */, now, now);
+  ProcessBeforeUnloadCompleted(
+      proceed, false /* treat_as_final_completion_callback */, now, now);
 }
 
 void TestRenderFrameHost::SimulateUnloadACK() {
@@ -228,7 +229,7 @@ void TestRenderFrameHost::SimulateFeaturePolicyHeader(
     header[0].values.insert(std::pair<url::Origin, blink::PolicyValue>(
         origin, blink::PolicyValue(true)));
   }
-  DidSetFramePolicyHeaders(blink::WebSandboxFlags::kNone, header,
+  DidSetFramePolicyHeaders(blink::mojom::WebSandboxFlags::kNone, header,
                            {} /* dp_header */);
 }
 
@@ -326,6 +327,7 @@ void TestRenderFrameHost::SendRendererInitiatedNavigationRequest(
           std::string() /* headers */, net::LOAD_NORMAL,
           false /* skip_service_worker */,
           blink::mojom::RequestContextType::HYPERLINK,
+          network::mojom::RequestDestination::kDocument,
           blink::WebMixedContentContextType::kBlockable,
           false /* is_form_submission */,
           false /* was_initiated_by_link_click */,
@@ -333,7 +335,8 @@ void TestRenderFrameHost::SendRendererInitiatedNavigationRequest(
           std::string() /* searchable_form_encoding */,
           GURL() /* client_side_redirect_url */,
           base::nullopt /* devtools_initiator_info */,
-          false /* attach_same_site_cookies */);
+          false /* attach_same_site_cookies */,
+          nullptr /* trust_token_params */);
   auto common_params = CreateCommonNavigationParams();
   common_params->url = url;
   common_params->initiator_origin = GetLastCommittedOrigin();
@@ -357,7 +360,7 @@ void TestRenderFrameHost::DidChangeOpener(int opener_routing_id) {
 }
 
 void TestRenderFrameHost::DidEnforceInsecureRequestPolicy(
-    blink::WebInsecureRequestPolicy policy) {
+    blink::mojom::InsecureRequestPolicy policy) {
   EnforceInsecureRequestPolicy(policy);
 }
 
@@ -393,11 +396,11 @@ void TestRenderFrameHost::PrepareForCommitInternal(
       !NavigationTypeUtils::IsSameDocument(
           request->common_params().navigation_type);
 
-  // Simulate a beforeUnload ACK from the renderer if the browser is waiting for
-  // it. If it runs it will update the request state.
+  // Simulate a beforeUnload completion callback from the renderer if the
+  // browser is waiting for it. If it runs it will update the request state.
   if (request->state() == NavigationRequest::WAITING_FOR_RENDERER_RESPONSE) {
     static_cast<TestRenderFrameHost*>(frame_tree_node()->current_frame_host())
-        ->SendBeforeUnloadACK(true);
+        ->SimulateBeforeUnloadCompleted(true);
   }
 
   if (!have_to_make_network_request)
@@ -487,7 +490,7 @@ TestRenderFrameHost::CreateWebBluetoothServiceForTesting() {
 }
 
 void TestRenderFrameHost::SendFramePolicy(
-    blink::WebSandboxFlags sandbox_flags,
+    blink::mojom::WebSandboxFlags sandbox_flags,
     const blink::ParsedFeaturePolicy& fp_header,
     const blink::DocumentPolicy::FeatureState& dp_header) {
   DidSetFramePolicyHeaders(sandbox_flags, fp_header, dp_header);
@@ -649,8 +652,7 @@ void TestRenderFrameHost::SimulateLoadingCompleted(
 
     DocumentOnLoadCompleted();
 
-    OnMessageReceived(
-        FrameHostMsg_DidFinishLoad(GetRoutingID(), GetLastCommittedURL()));
+    DidFinishLoad(GetLastCommittedURL());
   }
 
   OnDidStopLoading();

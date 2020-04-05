@@ -16,7 +16,6 @@
 #include "base/bind_helpers.h"
 #include "base/callback.h"
 #include "base/command_line.h"
-#include "base/feature_list.h"
 #include "base/files/file_enumerator.h"
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
@@ -41,13 +40,13 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/post_task.h"
 #include "base/task/task_traits.h"
+#include "base/task/thread_pool.h"
 #include "base/threading/scoped_blocking_call.h"
 #include "base/version.h"
 #import "chrome/browser/mac/dock.h"
 #include "chrome/browser/shell_integration.h"
 #include "chrome/common/channel_info.h"
 #include "chrome/common/chrome_constants.h"
-#include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
 #import "chrome/common/mac/app_mode_common.h"
@@ -527,9 +526,9 @@ void GetImageResourcesOnUIThread(
     (*result)[id] = ImageRepForGFXImage(image);
   }
 
-  base::PostTask(
+  base::ThreadPool::PostTask(
       FROM_HERE,
-      {base::ThreadPool(), base::MayBlock(), base::TaskPriority::USER_VISIBLE,
+      {base::MayBlock(), base::TaskPriority::USER_VISIBLE,
        base::TaskShutdownBehavior::BLOCK_SHUTDOWN},
       base::BindOnce(std::move(io_task), std::move(result)));
 }
@@ -1052,9 +1051,17 @@ bool WebAppShortcutCreator::UpdatePlist(const base::FilePath& app_path) const {
               forKey:app_mode::kCFBundleDocumentTypesKey];
   }
 
-  base::FilePath app_name = app_path.BaseName().RemoveFinalExtension();
-  [plist setObject:base::mac::FilePathToNSString(app_name)
-            forKey:base::mac::CFToNSCast(kCFBundleNameKey)];
+  if (IsMultiProfile()) {
+    [plist setObject:base::SysUTF16ToNSString(info_->title)
+              forKey:base::mac::CFToNSCast(kCFBundleNameKey)];
+  } else {
+    // The appropriate bundle name is |info_->title|. Avoiding changing the
+    // behavior of non-multi-profile apps when fixing
+    // https://crbug.com/1021804.
+    base::FilePath app_name = app_path.BaseName().RemoveFinalExtension();
+    [plist setObject:base::mac::FilePathToNSString(app_name)
+              forKey:base::mac::CFToNSCast(kCFBundleNameKey)];
+  }
 
   return [plist writeToFile:plist_path atomically:YES];
 }
@@ -1173,9 +1180,7 @@ std::vector<base::FilePath> WebAppShortcutCreator::GetAppBundlesById() const {
 
 bool WebAppShortcutCreator::IsMultiProfile() const {
   // Only PWAs and bookmark apps are multi-profile capable.
-  if (!info_->url.is_valid())
-    return false;
-  return base::FeatureList::IsEnabled(features::kAppShimMultiProfile);
+  return info_->url.is_valid();
 }
 
 void WebAppShortcutCreator::RevealAppShimInFinder() const {

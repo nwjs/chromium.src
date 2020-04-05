@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 // eslint-disable-next-line no-unused-vars
+import {browserProxy} from '../browser_proxy/browser_proxy.js';
 import {assertInstanceof} from '../chrome_util.js';
 // eslint-disable-next-line no-unused-vars
 import {Camera3DeviceInfo} from '../device/camera3_device_info.js';
@@ -15,6 +16,7 @@ import {DeviceInfoUpdater} from '../device/device_info_updater.js';
 import * as nav from '../nav.js';
 import * as state from '../state.js';
 import {
+  Facing,
   Resolution,      // eslint-disable-line no-unused-vars
   ResolutionList,  // eslint-disable-line no-unused-vars
 } from '../type.js';
@@ -114,13 +116,13 @@ export class MasterSettings extends BaseSettings {
       'feedbackInfo': {
         'description': '',
         'systemInformation': [
-          {key: 'APP ID', value: chrome.runtime.id},
-          {key: 'APP VERSION', value: chrome.runtime.getManifest().version},
+          {key: 'APP ID', value: browserProxy.getAppId()},
+          {key: 'APP VERSION', value: browserProxy.getAppVersion()},
         ],
       },
     };
     const id = 'gfdkimpbcpahaombhbimeihdjnejgicl';  // Feedback extension id.
-    chrome.runtime.sendMessage(id, data);
+    browserProxy.sendMessage(id, data);
   }
 }
 
@@ -314,13 +316,13 @@ export class ResolutionSettings extends BaseSettings {
           },
         };
         switch (facing) {
-          case cros.mojom.CameraFacing.CAMERA_FACING_FRONT:
+          case Facing.USER:
             this.frontSetting_ = deviceSetting;
             break;
-          case cros.mojom.CameraFacing.CAMERA_FACING_BACK:
+          case Facing.ENVIRONMENT:
             this.backSetting_ = deviceSetting;
             break;
-          case cros.mojom.CameraFacing.CAMERA_FACING_EXTERNAL:
+          case Facing.EXTERNAL:
             this.externalSettings_.push(deviceSetting);
             break;
           default:
@@ -334,6 +336,16 @@ export class ResolutionSettings extends BaseSettings {
         this.updateSelectedPhotoResolution_.bind(this));
     this.videoPreferrer_.setPreferredResolutionChangeListener(
         this.updateSelectedVideoResolution_.bind(this));
+
+    // Flips 'disabled' of resolution options.
+    [state.State.CAMERA_CONFIGURING, state.State.TAKING].forEach((s) => {
+      state.addObserver(s, () => {
+        document.querySelectorAll('.resolution-option>input').forEach((e) => {
+          e.disabled = state.get(state.State.CAMERA_CONFIGURING) ||
+              state.get(state.State.TAKING);
+        });
+      });
+    });
   }
 
   /**
@@ -360,11 +372,11 @@ export class ResolutionSettings extends BaseSettings {
     if (resolutions.some(
             (findR) => !findR.equals(r) && r.aspectRatioEquals(findR) &&
                 toMegapixel(r) === toMegapixel(findR))) {
-      return chrome.i18n.getMessage(
+      return browserProxy.getI18nMessage(
           'label_detail_photo_resolution',
           [r.width / d, r.height / d, r.width, r.height, toMegapixel(r)]);
     } else {
-      return chrome.i18n.getMessage(
+      return browserProxy.getI18nMessage(
           'label_photo_resolution',
           [r.width / d, r.height / d, toMegapixel(r)]);
     }
@@ -377,7 +389,7 @@ export class ResolutionSettings extends BaseSettings {
    * @private
    */
   videoOptTextTempl_(r) {
-    return chrome.i18n.getMessage(
+    return browserProxy.getI18nMessage(
         'label_video_resolution', [r.height, r.width].map(String));
   }
 
@@ -638,12 +650,8 @@ export class ResolutionSettings extends BaseSettings {
         captionText.textContent = optTextTempl(r, resolutions);
         inputElement.checked = true;
       }
-      inputElement.addEventListener('click', (event) => {
-        if (!state.get(state.State.STREAMING) ||
-            state.get(state.State.TAKING)) {
-          event.preventDefault();
-        }
-      });
+      inputElement.disabled = state.get(state.State.CAMERA_CONFIGURING) ||
+          state.get(state.State.TAKING);
       inputElement.addEventListener('change', (event) => {
         if (inputElement.checked) {
           captionText.textContent = optTextTempl(r, resolutions);

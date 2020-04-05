@@ -4,6 +4,9 @@
 
 #include "ui/views/corewm/tooltip_aura.h"
 
+#include <algorithm>
+#include <utility>
+
 #include "base/macros.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
@@ -115,9 +118,7 @@ class TooltipAura::TooltipView : public views::View {
     return view_size;
   }
 
-  const char* GetClassName() const override {
-    return "TooltipView";
-  }
+  const char* GetClassName() const override { return "TooltipView"; }
 
   void SetText(const base::string16& text) {
     render_text_->SetHorizontalAlignment(gfx::ALIGN_TO_HEAD);
@@ -131,9 +132,7 @@ class TooltipAura::TooltipView : public views::View {
     SchedulePaint();
   }
 
-  void SetForegroundColor(SkColor color) {
-    render_text_->SetColor(color);
-  }
+  void SetForegroundColor(SkColor color) { render_text_->SetColor(color); }
 
   void SetBackgroundColor(SkColor background_color, SkColor border_color) {
     if (CanUseTranslucentTooltipWidget()) {
@@ -283,9 +282,8 @@ void TooltipAura::Hide() {
     // OnPaint() which happens asynchronously after the Show(). As a result,
     // we can just destroy the widget and create a new one each time which
     // guarantees we never show outdated information.
-    // TODO: Figure out why the old content is displayed despite the size
-    // change.
-    // http://crbug.com/998280
+    // TODO(http://crbug.com/998280): Figure out why the old content is
+    // displayed despite the size change.
     DestroyWidget();
     tooltip_view_->NotifyAccessibilityEvent(ax::mojom::Event::kTooltipClosed,
                                             true);

@@ -10,16 +10,10 @@ from make_origin_trials import OriginTrialsWriter
 from name_utilities import enum_key_for_css_property, id_for_css_property
 from name_utilities import enum_key_for_css_property_alias, id_for_css_property_alias
 
-
 # These values are converted using CSSPrimitiveValue in the setter function,
 # if applicable.
 PRIMITIVE_TYPES = [
-    'short',
-    'unsigned short',
-    'int',
-    'unsigned int',
-    'unsigned',
-    'float',
+    'short', 'unsigned short', 'int', 'unsigned int', 'unsigned', 'float',
     'LineClampValue'
 ]
 
@@ -104,7 +98,8 @@ class CSSProperties(object):
         for feature in origin_trials_writer.origin_trial_features:
             origin_trial_features[str(feature['name'])] = True
 
-        self.add_properties(css_properties_file.name_dictionaries, origin_trial_features)
+        self.add_properties(css_properties_file.name_dictionaries,
+                            origin_trial_features)
 
         assert self._first_enum_value + len(self._properties_by_id) < \
             self._alias_offset, \
@@ -117,8 +112,7 @@ class CSSProperties(object):
         self._extra_fields = []
         for i in range(3, len(file_paths)):
             fields = json5_generator.Json5File.load_from_files(
-                [file_paths[i]],
-                default_parameters=self._default_parameters)
+                [file_paths[i]], default_parameters=self._default_parameters)
             self._extra_fields.extend(fields.name_dictionaries)
         for field in self._extra_fields:
             self.expand_parameters(field)
@@ -131,16 +125,18 @@ class CSSProperties(object):
             self.expand_visited(property_)
             property_['in_origin_trial'] = False
             self.expand_origin_trials(property_, origin_trial_features)
-            self.expand_ua(property_)
-            self.expand_slots(property_)
+            self.expand_surrogate(property_)
 
         self._aliases = [
-            property_ for property_ in properties if property_['alias_for']]
+            property_ for property_ in properties if property_['alias_for']
+        ]
         self._shorthands = [
-            property_ for property_ in properties if property_['longhands']]
+            property_ for property_ in properties if property_['longhands']
+        ]
         self._longhands = [
-            property_ for property_ in properties if (
-                not property_['alias_for'] and not property_['longhands'])]
+            property_ for property_ in properties
+            if (not property_['alias_for'] and not property_['longhands'])
+        ]
 
         # Sort the properties by priority, then alphabetically. Ensure that
         # the resulting order is deterministic.
@@ -201,30 +197,14 @@ class CSSProperties(object):
             'A property may not have multiple visited properties'
         unvisited_property['visited_property'] = property_
 
-    def expand_slots(self, property_):
-        if not property_['slots']:
+    def expand_surrogate(self, property_):
+        if not property_['surrogate_for']:
             return
-        assert not property_['is_slot'], \
-            'A slot (is_slot:true) may not reference slots'
-        # Verify that referenced slots have is_slot==True.
-        for slot in property_['slots']:
-            assert slot in self._properties_by_name, \
-                'Slots must name a property'
-            assert self._properties_by_name[slot]['is_slot'], \
-                'Referenced slot is not marked as a slot'
-        # Upgrade 'slots' to property references.
-        property_['slots'] = [self._properties_by_name[s] for s in property_['slots']]
-
-    def expand_ua(self, ua_property_):
-        if not ua_property_['ua_property_for']:
-            return
-        ua_property_for = ua_property_['ua_property_for']
-        author_property = self._properties_by_name[ua_property_for]
-        ua_property_['ua'] = True
-        ua_property_['author_property'] = author_property
-        assert 'ua_property' not in author_property, \
-            'A property may not have multiple ua properties'
-        author_property['ua_property'] = ua_property_
+        assert property_['surrogate_for'] in self._properties_by_name, \
+            'surrogate_for must name a property'
+        # Upgrade 'surrogate_for' to property reference.
+        property_['surrogate_for'] = self._properties_by_name[
+            property_['surrogate_for']]
 
     def expand_aliases(self):
         for i, alias in enumerate(self._aliases):
@@ -232,12 +212,15 @@ class CSSProperties(object):
                 "Property '{}' is an alias with a runtime_flag, "\
                 "but runtime flags do not currently work for aliases.".format(
                     alias['name'])
-            aliased_property = self._properties_by_id[
-                id_for_css_property(alias['alias_for'])]
+            aliased_property = self._properties_by_id[id_for_css_property(
+                alias['alias_for'])]
+            aliased_property.setdefault('aliases', [])
+            aliased_property['aliases'].append(alias['name'].original)
             updated_alias = aliased_property.copy()
             updated_alias['name'] = alias['name']
             updated_alias['alias_for'] = alias['alias_for']
-            updated_alias['aliased_property'] = aliased_property['name'].to_upper_camel_case()
+            updated_alias['aliased_property'] = aliased_property[
+                'name'].to_upper_camel_case()
             updated_alias['property_id'] = id_for_css_property_alias(
                 alias['name'])
             updated_alias['enum_key'] = enum_key_for_css_property_alias(
@@ -271,24 +254,26 @@ class CSSProperties(object):
         set_if_none(property_, 'name_for_methods', method_name)
         set_if_none(property_, 'type_name', 'E' + method_name)
         set_if_none(
-            property_,
-            'getter',
-            method_name if simple_type_name != method_name else 'Get' + method_name)
+            property_, 'getter', method_name
+            if simple_type_name != method_name else 'Get' + method_name)
         set_if_none(property_, 'setter', 'Set' + method_name)
         if property_['inherited']:
-            property_['is_inherited_setter'] = 'Set' + method_name + 'IsInherited'
-        property_['is_animation_property'] = property_['priority'] == 'Animation'
+            property_['is_inherited_setter'] = (
+                'Set' + method_name + 'IsInherited')
+        property_['is_animation_property'] = (
+            property_['priority'] == 'Animation')
 
         # Figure out whether this property should have style builders at all.
         # E.g. shorthands do not get style builders.
-        property_['style_builder_declare'] = (property_['is_property'] and
-                                              not property_['longhands'])
+        property_['style_builder_declare'] = (property_['is_property']
+                                              and not property_['longhands'])
 
         # Figure out whether we should generate style builder implementations.
         for x in ['initial', 'inherit', 'value']:
             suppressed = x in property_['style_builder_custom_functions']
             declared = property_['style_builder_declare']
-            property_['style_builder_generate_%s' % x] = declared and not suppressed
+            property_['style_builder_generate_%s' % x] = (declared
+                                                          and not suppressed)
 
         # Expand StyleBuilderConverter params where necessary.
         if property_['type_name'] in PRIMITIVE_TYPES:
@@ -296,7 +281,8 @@ class CSSProperties(object):
         else:
             set_if_none(property_, 'converter', 'CSSIdentifierValue')
 
-        assert not property_['alias_for'], 'Use expand_aliases to expand aliases'
+        assert not property_['alias_for'], \
+            'Use expand_aliases to expand aliases'
         if not property_['longhands']:
             property_['superclass'] = 'Longhand'
             property_['namespace_group'] = 'Longhand'
@@ -309,13 +295,13 @@ class CSSProperties(object):
             self._field_alias_expander.expand_field_alias(property_)
 
             type_name = property_['type_name']
-            if (property_['field_template'] == 'keyword' or
-                    property_['field_template'] == 'multi_keyword'):
+            if (property_['field_template'] == 'keyword'
+                    or property_['field_template'] == 'multi_keyword'):
                 default_value = (type_name + '::' + NameStyleConverter(
                     property_['default_value']).to_enum_value())
-            elif (property_['field_template'] == 'external' or
-                  property_['field_template'] == 'primitive' or
-                  property_['field_template'] == 'pointer'):
+            elif (property_['field_template'] == 'external'
+                  or property_['field_template'] == 'primitive'
+                  or property_['field_template'] == 'pointer'):
                 default_value = property_['default_value']
             else:
                 assert property_['field_template'] == 'monotonic_flag', \
@@ -344,7 +330,8 @@ class CSSProperties(object):
             assert 'resolver' in options, 'resolver option is required'
             assert 'physical_group' in options, 'physical_group option is required'
             options['resolver_name'] = NameStyleConverter(options['resolver'])
-            options['physical_group_name'] = NameStyleConverter(options['physical_group'])
+            options['physical_group_name'] = NameStyleConverter(
+                options['physical_group'])
 
     @property
     def default_parameters(self):
@@ -368,7 +355,9 @@ class CSSProperties(object):
 
     @property
     def longhands_including_aliases(self):
-        return self._longhands + [x for x in self._aliases if not x['longhands']]
+        return self._longhands + [
+            x for x in self._aliases if not x['longhands']
+        ]
 
     @property
     def properties_by_id(self):

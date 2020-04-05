@@ -5,7 +5,6 @@
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile_manager.h"
-#include "chrome/browser/ui/views/autofill/payments/save_card_icon_view.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/page_action/page_action_icon_container.h"
 #include "chrome/browser/ui/views/page_action/page_action_icon_controller.h"
@@ -15,7 +14,7 @@
 #include "chrome/test/base/testing_profile.h"
 #include "components/autofill/core/common/autofill_payments_features.h"
 
-// TODO(crbug.com/932818): Clean this and the same code in ukm_browsertest.
+// TODO(crbug.com/1061637): Clean this and the same code in ukm_browsertest.
 // Maybe move them to InProcessBrowserTest.
 namespace {
 
@@ -65,6 +64,7 @@ class ToolbarAccountIconContainerViewBrowserTest : public InProcessBrowserTest {
         container->page_action_icon_controller()->GetIconView(
             PageActionIconType::kSaveCard);
     save_card_icon->SetVisible(true);
+    container->Layout();
 
     EXPECT_EQ(container->uses_highlight(), expect_highlight);
     EXPECT_FALSE(IsHighlighted(container));

@@ -13,6 +13,7 @@
 #import "ios/chrome/browser/ntp/new_tab_page_tab_helper.h"
 #import "ios/chrome/browser/ui/commands/application_commands.h"
 #import "ios/chrome/browser/ui/commands/browser_commands.h"
+#import "ios/chrome/browser/ui/commands/omnibox_commands.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_collection_synchronizing.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_collection_utils.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_commands.h"
@@ -23,12 +24,11 @@
 #import "ios/chrome/browser/ui/ntp/new_tab_page_controller_delegate.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_header_constants.h"
 #import "ios/chrome/browser/ui/toolbar/public/fakebox_focuser.h"
-#import "ios/chrome/browser/ui/toolbar/public/omnibox_focuser.h"
 #import "ios/chrome/browser/ui/toolbar/public/toolbar_utils.h"
 #import "ios/chrome/browser/ui/util/named_guide.h"
 #include "ios/chrome/browser/ui/util/ui_util.h"
 #import "ios/chrome/browser/ui/util/uikit_ui_util.h"
-#import "ios/chrome/common/ui_util/constraints_ui_util.h"
+#import "ios/chrome/common/ui/util/constraints_ui_util.h"
 #include "ios/chrome/grit/ios_strings.h"
 #include "ios/public/provider/chrome/browser/ui/logo_vendor.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -54,7 +54,7 @@ using base::UserMetricsAction;
 @property(nonatomic, assign) BOOL voiceSearchIsEnabled;
 
 // Exposes view and methods to drive the doodle.
-@property(nonatomic, weak) id<LogoVendor> logoVendor;
+@property(nonatomic, weak, readonly) id<LogoVendor> logoVendor;
 
 @property(nonatomic, strong) ContentSuggestionsHeaderView* headerView;
 @property(nonatomic, strong) UIButton* fakeOmnibox;
@@ -73,11 +73,9 @@ using base::UserMetricsAction;
 @implementation ContentSuggestionsHeaderViewController
 
 @synthesize collectionSynchronizer = _collectionSynchronizer;
-@synthesize logoVendor = _logoVendor;
 @synthesize promoCanShow = _promoCanShow;
 @synthesize showing = _showing;
 @synthesize omniboxFocused = _omniboxFocused;
-
 @synthesize headerView = _headerView;
 @synthesize fakeOmnibox = _fakeOmnibox;
 @synthesize accessibilityButton = _accessibilityButton;
@@ -536,6 +534,10 @@ using base::UserMetricsAction;
 - (void)setLogoIsShowing:(BOOL)logoIsShowing {
   _logoIsShowing = logoIsShowing;
   [self updateLogoAndFakeboxDisplay];
+}
+
+- (void)setLogoVendor:(id<LogoVendor>)logoVendor {
+  _logoVendor = logoVendor;
 }
 
 - (void)locationBarBecomesFirstResponder {

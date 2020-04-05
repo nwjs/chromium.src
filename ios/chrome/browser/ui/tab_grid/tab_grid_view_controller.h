@@ -8,7 +8,7 @@
 #import <UIKit/UIKit.h>
 
 #import "ios/chrome/browser/ui/tab_grid/tab_grid_paging.h"
-#import "ios/chrome/browser/ui/tab_grid/transitions/grid_transition_state_providing.h"
+#import "ios/chrome/browser/ui/tab_grid/transitions/grid_transition_animation_layout_providing.h"
 
 @protocol ApplicationCommands;
 @protocol GridConsumer;
@@ -28,9 +28,9 @@
 // View controller representing a tab switcher. The tab switcher has an
 // incognito tab grid, regular tab grid, and remote tabs.
 @interface TabGridViewController
-    : UIViewController<TabGridPaging, GridTransitionStateProviding>
+    : UIViewController <TabGridPaging, GridTransitionAnimationLayoutProviding>
 
-@property(nonatomic, weak) id<ApplicationCommands> dispatcher;
+@property(nonatomic, weak) id<ApplicationCommands> handler;
 
 // Delegate for this view controller to handle presenting tab UI.
 @property(nonatomic, weak) id<TabPresentationDelegate> tabPresentationDelegate;

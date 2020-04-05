@@ -97,10 +97,12 @@ bool IOSChromePasswordManagerClient::PromptUserToSaveOrUpdatePassword(
   if (form_to_save->IsBlacklisted())
     return false;
 
+  [delegate_ removePasswordInfoBarManualFallback:YES];
+
   if (update_password) {
-    [delegate_ showUpdatePasswordInfoBar:std::move(form_to_save)];
+    [delegate_ showUpdatePasswordInfoBar:std::move(form_to_save) manual:NO];
   } else {
-    [delegate_ showSavePasswordInfoBar:std::move(form_to_save)];
+    [delegate_ showSavePasswordInfoBar:std::move(form_to_save) manual:NO];
   }
 
   return true;
@@ -115,11 +117,15 @@ void IOSChromePasswordManagerClient::ShowManualFallbackForSaving(
     std::unique_ptr<password_manager::PasswordFormManagerForUI> form_to_save,
     bool has_generated_password,
     bool is_update) {
-  NOTIMPLEMENTED();
+  if (is_update) {
+    [delegate_ showUpdatePasswordInfoBar:std::move(form_to_save) manual:YES];
+  } else {
+    [delegate_ showSavePasswordInfoBar:std::move(form_to_save) manual:YES];
+  }
 }
 
 void IOSChromePasswordManagerClient::HideManualFallbackForSaving() {
-  NOTIMPLEMENTED();
+  [delegate_ removePasswordInfoBarManualFallback:YES];
 }
 
 void IOSChromePasswordManagerClient::FocusedInputChanged(
@@ -195,7 +201,8 @@ void IOSChromePasswordManagerClient::NotifyStorePasswordCalled() {
 
 void IOSChromePasswordManagerClient::NotifyUserCredentialsWereLeaked(
     password_manager::CredentialLeakType leak_type,
-    const GURL& origin) {
+    const GURL& origin,
+    const base::string16& username) {
   [delegate_ showPasswordBreachForLeakType:leak_type URL:origin];
 }
 

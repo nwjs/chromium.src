@@ -21,11 +21,17 @@
 #include "content/public/browser/web_ui_data_source.h"
 
 MediaHistoryUI::MediaHistoryUI(content::WebUI* web_ui)
-    : ui::MojoWebUIController(web_ui), receiver_(this) {
+    : ui::MojoWebUIController(web_ui) {
   // Setup the data source behind chrome://media-history.
   std::unique_ptr<content::WebUIDataSource> source(
       content::WebUIDataSource::Create(chrome::kChromeUIMediaHistoryHost));
+  source->AddResourcePath("media-data-table.js", IDR_MEDIA_DATA_TABLE_JS);
   source->AddResourcePath("media-history.js", IDR_MEDIA_HISTORY_JS);
+  source->AddResourcePath(
+      "services/media_session/public/mojom/media_session.mojom-lite.js",
+      IDR_MEDIA_SESSION_MOJOM_LITE_JS);
+  source->AddResourcePath("ui/gfx/geometry/mojom/geometry.mojom-lite.js",
+                          IDR_UI_GEOMETRY_MOJOM_LITE_JS);
   source->AddResourcePath(
       "chrome/browser/media/history/media_history_store.mojom-lite.js",
       IDR_MEDIA_HISTORY_STORE_MOJOM_LITE_JS);
@@ -39,21 +45,38 @@ MediaHistoryUI::~MediaHistoryUI() = default;
 
 void MediaHistoryUI::BindInterface(
     mojo::PendingReceiver<media_history::mojom::MediaHistoryStore> pending) {
-  receiver_.Bind(std::move(pending));
+  receivers_.Add(this, std::move(pending));
 }
 
 void MediaHistoryUI::GetMediaHistoryStats(
     GetMediaHistoryStatsCallback callback) {
-  return GetMediaHistoryStore()->GetMediaHistoryStats(std::move(callback));
+  return GetMediaHistoryService()->GetMediaHistoryStats(std::move(callback));
 }
 
-media_history::MediaHistoryStore* MediaHistoryUI::GetMediaHistoryStore() {
+void MediaHistoryUI::GetMediaHistoryOriginRows(
+    GetMediaHistoryOriginRowsCallback callback) {
+  return GetMediaHistoryService()->GetOriginRowsForDebug(std::move(callback));
+}
+
+void MediaHistoryUI::GetMediaHistoryPlaybackRows(
+    GetMediaHistoryPlaybackRowsCallback callback) {
+  return GetMediaHistoryService()->GetMediaHistoryPlaybackRowsForDebug(
+      std::move(callback));
+}
+
+void MediaHistoryUI::GetMediaHistoryPlaybackSessionRows(
+    GetMediaHistoryPlaybackSessionRowsCallback callback) {
+  return GetMediaHistoryService()->GetPlaybackSessions(
+      base::nullopt, base::nullopt, std::move(callback));
+}
+
+media_history::MediaHistoryKeyedService*
+MediaHistoryUI::GetMediaHistoryService() {
   Profile* profile = Profile::FromWebUI(web_ui());
   DCHECK(profile);
 
   media_history::MediaHistoryKeyedService* service =
       media_history::MediaHistoryKeyedServiceFactory::GetForProfile(profile);
   DCHECK(service);
-
-  return service->GetMediaHistoryStore();
+  return service;
 }

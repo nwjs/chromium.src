@@ -6,6 +6,7 @@
 
 #include <utility>
 
+#include "base/metrics/histogram_functions.h"
 #include "base/numerics/safe_conversions.h"
 #include "third_party/blink/public/common/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/mojom/notifications/notification.mojom-blink.h"
@@ -22,7 +23,6 @@
 #include "third_party/blink/renderer/platform/heap/heap_allocator.h"
 #include "third_party/blink/renderer/platform/heap/member.h"
 #include "third_party/blink/renderer/platform/heap/persistent.h"
-#include "third_party/blink/renderer/platform/instrumentation/histogram.h"
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
 
@@ -47,7 +47,9 @@ NotificationManager* NotificationManager::From(ExecutionContext* context) {
 const char NotificationManager::kSupplementName[] = "NotificationManager";
 
 NotificationManager::NotificationManager(ExecutionContext& context)
-    : Supplement<ExecutionContext>(context) {}
+    : Supplement<ExecutionContext>(context),
+      notification_service_(&context),
+      permission_service_(&context) {}
 
 NotificationManager::~NotificationManager() = default;
 
@@ -69,7 +71,7 @@ ScriptPromise NotificationManager::RequestPermission(
     V8NotificationPermissionCallback* deprecated_callback) {
   ExecutionContext* context = ExecutionContext::From(script_state);
 
-  if (!permission_service_) {
+  if (!permission_service_.is_bound()) {
     // See https://bit.ly/2S0zRAS for task types
     scoped_refptr<base::SingleThreadTaskRunner> task_runner =
         context->GetTaskRunner(TaskType::kMiscPlatformAPI);
@@ -84,7 +86,7 @@ ScriptPromise NotificationManager::RequestPermission(
   auto* resolver = MakeGarbageCollected<ScriptPromiseResolver>(script_state);
   ScriptPromise promise = resolver->Promise();
 
-  Document* doc = DynamicTo<Document>(context);
+  Document* doc = Document::DynamicFrom(context);
   permission_service_->RequestPermission(
       CreatePermissionDescriptor(mojom::blink::PermissionName::NOTIFICATIONS),
       LocalFrame::HasTransientUserActivation(doc ? doc->GetFrame() : nullptr),
@@ -157,10 +159,8 @@ void NotificationManager::DisplayPersistentNotification(
   size_t author_data_size =
       notification_data->data.has_value() ? notification_data->data->size() : 0;
 
-  DEFINE_THREAD_SAFE_STATIC_LOCAL(
-      CustomCountHistogram, notification_data_size_histogram,
-      ("Notifications.AuthorDataSize", 1, 1000, 50));
-  notification_data_size_histogram.Count(
+  base::UmaHistogramCounts1000(
+      "Notifications.AuthorDataSize",
       base::saturated_cast<base::HistogramBase::Sample>(author_data_size));
 
   if (author_data_size >
@@ -229,9 +229,9 @@ void NotificationManager::DidGetNotifications(
   resolver->Resolve(notifications);
 }
 
-const mojo::Remote<mojom::blink::NotificationService>&
+mojom::blink::NotificationService*
 NotificationManager::GetNotificationService() {
-  if (!notification_service_) {
+  if (!notification_service_.is_bound()) {
     // See https://bit.ly/2S0zRAS for task types
     scoped_refptr<base::SingleThreadTaskRunner> task_runner =
         GetSupplementable()->GetTaskRunner(TaskType::kMiscPlatformAPI);
@@ -243,10 +243,12 @@ NotificationManager::GetNotificationService() {
                   WrapWeakPersistent(this)));
   }
 
-  return notification_service_;
+  return notification_service_.get();
 }
 
-void NotificationManager::Trace(blink::Visitor* visitor) {
+void NotificationManager::Trace(Visitor* visitor) {
+  visitor->Trace(notification_service_);
+  visitor->Trace(permission_service_);
   Supplement<ExecutionContext>::Trace(visitor);
 }
 

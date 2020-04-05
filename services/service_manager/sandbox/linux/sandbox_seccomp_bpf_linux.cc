@@ -43,6 +43,7 @@
 #include "services/service_manager/sandbox/linux/bpf_ppapi_policy_linux.h"
 #include "services/service_manager/sandbox/linux/bpf_print_compositor_policy_linux.h"
 #include "services/service_manager/sandbox/linux/bpf_renderer_policy_linux.h"
+#include "services/service_manager/sandbox/linux/bpf_sharing_service_policy_linux.h"
 #include "services/service_manager/sandbox/linux/bpf_soda_policy_linux.h"
 #include "services/service_manager/sandbox/linux/bpf_utility_policy_linux.h"
 
@@ -131,16 +132,18 @@ bool SandboxSeccompBPF::IsSeccompBPFDesired() {
       *base::CommandLine::ForCurrentProcess();
   return !command_line.HasSwitch(switches::kNoSandbox) &&
          !command_line.HasSwitch(switches::kDisableSeccompFilterSandbox);
-#endif  // USE_SECCOMP_BPF
+#else
   return false;
+#endif  // USE_SECCOMP_BPF
 }
 
 bool SandboxSeccompBPF::SupportsSandbox() {
 #if BUILDFLAG(USE_SECCOMP_BPF)
   return SandboxBPF::SupportsSeccompSandbox(
       SandboxBPF::SeccompLevel::SINGLE_THREADED);
-#endif
+#else
   return false;
+#endif
 }
 
 #if !defined(OS_NACL_NONSFI)
@@ -149,8 +152,9 @@ bool SandboxSeccompBPF::SupportsSandboxWithTsync() {
 #if BUILDFLAG(USE_SECCOMP_BPF)
   return SandboxBPF::SupportsSeccompSandbox(
       SandboxBPF::SeccompLevel::MULTI_THREADED);
-#endif
+#else
   return false;
+#endif
 }
 
 std::unique_ptr<BPFBasePolicy> SandboxSeccompBPF::PolicyForSandboxType(
@@ -173,6 +177,8 @@ std::unique_ptr<BPFBasePolicy> SandboxSeccompBPF::PolicyForSandboxType(
       return std::make_unique<NetworkProcessPolicy>();
     case SandboxType::kAudio:
       return std::make_unique<AudioProcessPolicy>();
+    case SandboxType::kSharingService:
+      return std::make_unique<SharingServiceProcessPolicy>();
     case SandboxType::kSoda:
       return std::make_unique<SodaProcessPolicy>();
 #if defined(OS_CHROMEOS)
@@ -222,6 +228,7 @@ void SandboxSeccompBPF::RunSandboxSanityChecks(
     case SandboxType::kIme:
 #endif  // defined(OS_CHROMEOS)
     case SandboxType::kAudio:
+    case SandboxType::kSharingService:
     case SandboxType::kSoda:
     case SandboxType::kNetwork:
     case SandboxType::kUtility:

@@ -35,19 +35,19 @@ import org.chromium.base.test.util.MinAndroidSdkLevel;
 import org.chromium.base.test.util.RetryOnFailure;
 import org.chromium.base.test.util.UserActionTester;
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.engagement.SiteEngagementService;
-import org.chromium.chrome.browser.favicon.RoundedIconGenerator;
-import org.chromium.chrome.browser.permissions.PermissionDialogController;
+import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.permissions.PermissionTestRule;
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.preferences.PrefServiceBridge;
 import org.chromium.chrome.browser.profiles.Profile;
-import org.chromium.chrome.browser.settings.website.ContentSettingValues;
+import org.chromium.chrome.browser.site_settings.ContentSettingValues;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.ui.favicon.RoundedIconGenerator;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.util.browser.TabTitleObserver;
 import org.chromium.chrome.test.util.browser.notifications.MockNotificationManagerProxy.NotificationEntry;
+import org.chromium.components.permissions.PermissionDialogController;
 import org.chromium.components.url_formatter.SchemeDisplay;
 import org.chromium.components.url_formatter.UrlFormatter;
 import org.chromium.content_public.browser.test.util.Criteria;
@@ -115,7 +115,8 @@ public class NotificationPlatformBridgeTest {
             return TestThreadUtils.runOnUiThreadBlocking(new Callable<Double>() {
                 @Override
                 public Double call() {
-                    return SiteEngagementService.getForProfile(Profile.getLastUsedProfile())
+                    // TODO (https://crbug.com/1063807):  Add incognito mode tests.
+                    return SiteEngagementService.getForProfile(Profile.getLastUsedRegularProfile())
                             .getScore(mPermissionTestRule.getOrigin());
                 }
             });

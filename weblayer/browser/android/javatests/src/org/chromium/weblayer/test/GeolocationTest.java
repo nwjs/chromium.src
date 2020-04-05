@@ -5,6 +5,7 @@
 package org.chromium.weblayer.test;
 
 import android.net.Uri;
+import android.os.Bundle;
 import android.support.test.filters.MediumTest;
 
 import org.junit.After;
@@ -14,7 +15,6 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.content_public.browser.test.util.CriteriaHelper;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.net.test.util.TestWebServer;
@@ -27,7 +27,6 @@ import org.chromium.weblayer.shell.InstrumentationActivity;
  * Tests that Geolocation Web API works as expected.
  */
 @RunWith(WebLayerJUnit4ClassRunner.class)
-@CommandLineFlags.Add("weblayer-fake-permissions")
 public final class GeolocationTest {
     @Rule
     public InstrumentationActivityTestRule mActivityTestRule =
@@ -68,7 +67,11 @@ public final class GeolocationTest {
 
     @Before
     public void setUp() throws Throwable {
-        mActivity = mActivityTestRule.launchShellWithUrl("about:blank");
+        Bundle extras = new Bundle();
+        // TODO(crbug.com/1064500): If this prevents flakes figure out why preferences are getting
+        // persisted across test runs for non-incognito profiles.
+        extras.putString(InstrumentationActivity.EXTRA_PROFILE_NAME, null);
+        mActivity = mActivityTestRule.launchShellWithUrl("about:blank", extras);
         Assert.assertNotNull(mActivity);
 
         mTestWebLayer = TestWebLayer.getTestWebLayer(mActivity.getApplicationContext());
@@ -94,6 +97,8 @@ public final class GeolocationTest {
     @MediumTest
     public void testGeolocation_getPosition() throws Throwable {
         mActivityTestRule.executeScriptSync("initiate_getCurrentPosition();", false);
+        waitForDialog();
+        mTestWebLayer.clickPermissionDialogButton(true);
         waitForCountEqual("positionCount", 1);
         mActivityTestRule.executeScriptSync("initiate_getCurrentPosition();", false);
         waitForCountEqual("positionCount", 2);
@@ -107,6 +112,8 @@ public final class GeolocationTest {
     @MediumTest
     public void testGeolocation_watchPosition() throws Throwable {
         mActivityTestRule.executeScriptSync("initiate_watchPosition();", false);
+        waitForDialog();
+        mTestWebLayer.clickPermissionDialogButton(true);
         waitForCountGreaterThan("positionCount", 1);
         ensureGeolocationIsRunning(true);
         Assert.assertEquals(0, getCountFromJS("errorCount"));
@@ -119,6 +126,8 @@ public final class GeolocationTest {
     @MediumTest
     public void testGeolocation_destroyTabStopsGeolocation() throws Throwable {
         mActivityTestRule.executeScriptSync("initiate_watchPosition();", false);
+        waitForDialog();
+        mTestWebLayer.clickPermissionDialogButton(true);
         ensureGeolocationIsRunning(true);
         TestThreadUtils.runOnUiThreadBlocking(() -> {
             Browser browser = mActivity.getBrowser();
@@ -143,11 +152,39 @@ public final class GeolocationTest {
         Assert.assertEquals(0, getCountFromJS("positionCount"));
     }
 
+    @Test
+    @MediumTest
+    public void testGeolocation_denyFromPrompt() throws Throwable {
+        mActivityTestRule.executeScriptSync("initiate_watchPosition();", false);
+        waitForDialog();
+        mTestWebLayer.clickPermissionDialogButton(false);
+        waitForCountEqual("errorCount", 1);
+        Assert.assertEquals(0, getCountFromJS("positionCount"));
+    }
+
     // helper methods
 
     private void waitForCountEqual(String variableName, int count) {
         CriteriaHelper.pollInstrumentationThread(
                 () -> { return getCountFromJS(variableName) == count; });
+    }
+
+    private void waitForDialog() throws Exception {
+        // Make sure the current permission state is "prompt" before waiting for the dialog.
+        mActivityTestRule.executeScriptSync("var queryResult;"
+                        + "navigator.permissions.query({name: 'geolocation'}).then("
+                        + "function(result) { queryResult = result.state; })",
+                false);
+        CriteriaHelper.pollInstrumentationThread(() -> {
+            return !mActivityTestRule.executeScriptSync("queryResult || ''", false)
+                            .getString(Tab.SCRIPT_RESULT_KEY)
+                            .equals("");
+        });
+        Assert.assertEquals("prompt",
+                mActivityTestRule.executeScriptSync("queryResult", false)
+                        .getString(Tab.SCRIPT_RESULT_KEY));
+        CriteriaHelper.pollInstrumentationThread(
+                () -> { return mTestWebLayer.isPermissionDialogShown(); });
     }
 
     private void waitForCountGreaterThan(String variableName, int count) {

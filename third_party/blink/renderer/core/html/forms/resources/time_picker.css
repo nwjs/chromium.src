@@ -3,10 +3,6 @@
  * found in the LICENSE file.
  */
 
-body {
-  font-family: sans-serif;
-}
-
 .time-picker {
   background: #FFFFFF;
   border: 1px solid #bfbfbf;
@@ -31,7 +27,7 @@ body {
   outline: none;
   overflow: scroll;
   padding: 0;
-  scroll-snap-type: y mandatory;
+  position: relative;
   width: 52px;
 }
 
@@ -46,7 +42,7 @@ body {
   font-size: 14px;
   height: 32px;
   line-height: 32px;
-  scroll-snap-align: start;
+  position: relative;
   text-align: center;
   width: 48px;
 }

@@ -44,7 +44,6 @@
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
-#include "content/public/common/resource_type.h"
 #include "content/public/common/url_constants.h"
 #include "content/public/test/fake_local_frame.h"
 #include "content/public/test/navigation_simulator.h"
@@ -142,12 +141,13 @@ class ResourceLoadingCancellingThrottle
     page_load_metrics::InitPageLoadTimingForTest(timing.get());
     observer->OnTimingUpdated(
         navigation_handle()->GetRenderFrameHost(), std::move(timing),
-        page_load_metrics::mojom::PageLoadMetadataPtr(base::in_place),
+        page_load_metrics::mojom::FrameMetadataPtr(base::in_place),
         page_load_metrics::mojom::PageLoadFeaturesPtr(base::in_place),
         resources,
         page_load_metrics::mojom::FrameRenderDataUpdatePtr(base::in_place),
         page_load_metrics::mojom::CpuTimingPtr(base::in_place),
-        page_load_metrics::mojom::DeferredResourceCountsPtr(base::in_place));
+        page_load_metrics::mojom::DeferredResourceCountsPtr(base::in_place),
+        page_load_metrics::mojom::InputTimingPtr(base::in_place));
   }
 
   DISALLOW_COPY_AND_ASSIGN(ResourceLoadingCancellingThrottle);
@@ -898,7 +898,7 @@ TEST_F(AdsPageLoadMetricsObserverTest, PageWithAdFrameThatRenavigates) {
   ResourceDataUpdate(ad_frame, ResourceCached::kNotCached, 10);
 
   // Navigate the ad frame again.
-  ad_frame = NavigateFrame(kNonAdUrl, ad_frame);
+  ad_frame = NavigateFrame(kAdUrl, ad_frame);
 
   // In total, 30KB for entire page and 20 in one ad frame.
   ResourceDataUpdate(ad_frame, ResourceCached::kNotCached, 10);
@@ -1018,7 +1018,7 @@ TEST_F(AdsPageLoadMetricsObserverTest, TwoResourceLoadsBeforeCommit) {
   // Renavigate the subframe to a successful commit. But again, the resource
   // loads before the observer sees the finished navigation.
   ResourceDataUpdate(subframe_ad, ResourceCached::kNotCached, 10);
-  NavigateFrame(kNonAdUrl, subframe_ad);
+  NavigateFrame(kAdUrl, subframe_ad);
 
   // Navigate again to trigger histograms.
   NavigateFrame(kNonAdUrl, main_frame);
@@ -1233,7 +1233,7 @@ TEST_F(AdsPageLoadMetricsObserverTest, MemoryCacheAdBytesRecorded) {
 
 // UKM metrics for ad page load are recorded correctly.
 // TODO(crbug.com/1043619) test is flaky on bots.
-TEST_F(AdsPageLoadMetricsObserverTest, DISABLED_AdPageLoadUKM) {
+TEST_F(AdsPageLoadMetricsObserverTest, AdPageLoadUKM) {
   ukm::TestAutoSetUkmRecorder ukm_recorder;
   RenderFrameHost* main_frame = NavigateMainFrame(kNonAdUrl);
   RenderFrameHost* ad_frame = CreateAndNavigateSubFrame(kAdUrl, main_frame);
@@ -1243,8 +1243,6 @@ TEST_F(AdsPageLoadMetricsObserverTest, DISABLED_AdPageLoadUKM) {
   timing.navigation_start = base::Time::Now();
   timing.parse_timing->parse_start = base::TimeDelta::FromMilliseconds(10);
   timing.response_start = base::TimeDelta::FromSeconds(0);
-  timing.interactive_timing->interactive =
-      base::TimeDelta::FromMilliseconds(10);
   PopulateRequiredTimingFields(&timing);
   TimingUpdate(timing);
   ResourceDataUpdate(
@@ -1279,15 +1277,6 @@ TEST_F(AdsPageLoadMetricsObserverTest, DISABLED_AdPageLoadUKM) {
   EXPECT_EQ(*test_ukm_recorder().GetEntryMetric(
                 entries.front(), ukm::builders::AdPageLoad::kAdVideoBytesName),
             10);
-  EXPECT_GT(
-      *test_ukm_recorder().GetEntryMetric(
-          entries.front(), ukm::builders::AdPageLoad::kAdBytesPerSecondName),
-      0);
-  EXPECT_GT(
-      *test_ukm_recorder().GetEntryMetric(
-          entries.front(),
-          ukm::builders::AdPageLoad::kAdBytesPerSecondAfterInteractiveName),
-      0);
   EXPECT_EQ(
       *test_ukm_recorder().GetEntryMetric(
           entries.front(), ukm::builders::AdPageLoad::kMainframeAdBytesName),
@@ -1711,8 +1700,6 @@ TEST_F(AdsPageLoadMetricsObserverTest, AdFrameLoadTiming) {
   subframe_timing.navigation_start = base::Time::FromDoubleT(2);
   subframe_timing.paint_timing->first_contentful_paint =
       base::TimeDelta::FromMilliseconds(0);
-  subframe_timing.interactive_timing->interactive =
-      base::TimeDelta::FromMilliseconds(0);
   PopulateRequiredTimingFields(&subframe_timing);
   tester()->SimulateTimingUpdate(subframe_timing, ad_frame);
 
@@ -1721,8 +1708,6 @@ TEST_F(AdsPageLoadMetricsObserverTest, AdFrameLoadTiming) {
   subframe_timing.navigation_start = base::Time::FromDoubleT(2);
   subframe_timing.paint_timing->first_contentful_paint =
       base::TimeDelta::FromMilliseconds(5);
-  subframe_timing.interactive_timing->interactive =
-      base::TimeDelta::FromMilliseconds(20);
   PopulateRequiredTimingFields(&subframe_timing);
   tester()->SimulateTimingUpdate(subframe_timing, ad_frame);
 
@@ -1734,8 +1719,6 @@ TEST_F(AdsPageLoadMetricsObserverTest, AdFrameLoadTiming) {
   test_ukm_recorder().ExpectEntryMetric(
       entries.front(),
       ukm::builders::AdFrameLoad::kTiming_FirstContentfulPaintName, 5);
-  test_ukm_recorder().ExpectEntryMetric(
-      entries.front(), ukm::builders::AdFrameLoad::kTiming_InteractiveName, 20);
 }
 
 // Tests that creative origin status is computed as intended, i.e. as the origin

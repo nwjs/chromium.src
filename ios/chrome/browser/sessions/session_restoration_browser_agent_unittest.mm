@@ -12,6 +12,8 @@
 #import "ios/chrome/browser/main/browser.h"
 #import "ios/chrome/browser/main/browser_web_state_list_delegate.h"
 #import "ios/chrome/browser/main/test_browser.h"
+#import "ios/chrome/browser/ntp/new_tab_page_tab_helper.h"
+#import "ios/chrome/browser/ntp/new_tab_page_tab_helper_delegate.h"
 #include "ios/chrome/browser/sessions/ios_chrome_session_tab_helper.h"
 #import "ios/chrome/browser/sessions/session_ios.h"
 #import "ios/chrome/browser/sessions/session_restoration_browser_agent.h"
@@ -21,8 +23,7 @@
 #import "ios/chrome/browser/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/web_state_list/web_state_list_delegate.h"
 #import "ios/chrome/browser/web_state_list/web_state_opener.h"
-#import "ios/chrome/browser/web_state_list/web_usage_enabler/web_state_list_web_usage_enabler.h"
-#import "ios/chrome/browser/web_state_list/web_usage_enabler/web_state_list_web_usage_enabler_factory.h"
+#import "ios/chrome/browser/web_state_list/web_usage_enabler/web_usage_enabler_browser_agent.h"
 #import "ios/web/public/navigation/navigation_manager.h"
 #include "ios/web/public/navigation/referrer.h"
 #import "ios/web/public/session/crw_session_storage.h"
@@ -32,6 +33,8 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "testing/gtest_mac.h"
 #include "testing/platform_test.h"
+#import "third_party/ocmock/OCMock/OCMock.h"
+#include "third_party/ocmock/gtest_support.h"
 
 #if !defined(__has_feature) || !__has_feature(objc_arc)
 #error "This file requires ARC support."
@@ -71,16 +74,18 @@ class SessionRestorationBrowserAgentTest : public PlatformTest {
     TestChromeBrowserState::Builder test_cbs_builder;
     chrome_browser_state_ = test_cbs_builder.Build();
 
+    // This test requires that some TabHelpers are attached to the WebStates, so
+    // it needs to use a WebStateList with the full BrowserWebStateListDelegate,
+    // rather than the TestWebStateList delegate used in the default TestBrowser
+    // constructor.
     browser_ = std::make_unique<TestBrowser>(chrome_browser_state_.get(),
                                              web_state_list_.get());
     // Web usage is disabled during these tests.
+    WebUsageEnablerBrowserAgent::CreateForBrowser(browser_.get());
     web_usage_enabler_ =
-        WebStateListWebUsageEnablerFactory::GetInstance()->GetForBrowserState(
-            chrome_browser_state_.get());
-    test_session_service_ = [[TestSessionService alloc] init];
+        WebUsageEnablerBrowserAgent::FromBrowser(browser_.get());
     web_usage_enabler_->SetWebUsageEnabled(false);
 
-    web_usage_enabler_->SetWebStateList(web_state_list_.get());
     SessionRestorationBrowserAgent::CreateForBrowser(browser_.get(),
                                                      test_session_service_);
     session_restoration_agent_ =
@@ -90,7 +95,6 @@ class SessionRestorationBrowserAgentTest : public PlatformTest {
   ~SessionRestorationBrowserAgentTest() override = default;
 
   void TearDown() override {
-    web_usage_enabler_->SetWebStateList(nullptr);
     @autoreleasepool {
       web_state_list_->CloseAllWebStates(WebStateList::CLOSE_NO_FLAGS);
     }
@@ -140,10 +144,11 @@ class SessionRestorationBrowserAgentTest : public PlatformTest {
   std::unique_ptr<WebStateListDelegate> web_state_list_delegate_;
   std::unique_ptr<WebStateList> web_state_list_;
   std::unique_ptr<TestChromeBrowserState> chrome_browser_state_;
-  WebStateListWebUsageEnabler* web_usage_enabler_;
-  TestSessionService* test_session_service_;
-  SessionRestorationBrowserAgent* session_restoration_agent_;
   std::unique_ptr<Browser> browser_;
+
+  TestSessionService* test_session_service_;
+  WebUsageEnablerBrowserAgent* web_usage_enabler_;
+  SessionRestorationBrowserAgent* session_restoration_agent_;
 };
 
 // Tests that restoring a session works correctly on empty WebStateList.
@@ -174,6 +179,30 @@ TEST_F(SessionRestorationBrowserAgentTest,
   EXPECT_NE(web_state, web_state_list_->GetWebStateAt(1));
   EXPECT_NE(web_state, web_state_list_->GetWebStateAt(2));
   EXPECT_NE(web_state, web_state_list_->GetWebStateAt(3));
+}
+
+// TODO(crbug.com/888674): This test requires commiting item to
+// WKBasedNavigationManager which is not possible, migrate this to EG test so
+// it can be tested.
+TEST_F(SessionRestorationBrowserAgentTest, DISABLED_RestoreSessionOnNTPTest) {
+  web::WebState* web_state =
+      InsertNewWebState(GURL(kChromeUINewTabURL), /*parent=*/nullptr,
+                        /*index=*/0, /*background=*/false);
+
+  // Create NTPTabHelper to ensure VisibleURL is set to kChromeUINewTabURL.
+  id delegate = OCMProtocolMock(@protocol(NewTabPageTabHelperDelegate));
+  NewTabPageTabHelper::CreateForWebState(web_state, delegate);
+
+  SessionWindowIOS* window(
+      CreateSessionWindow(/*sessions_count=*/3, /*selected_index=*/2));
+  session_restoration_agent_->RestoreSessionWindow(window);
+
+  ASSERT_EQ(3, web_state_list_->count());
+  EXPECT_EQ(web_state_list_->GetWebStateAt(2),
+            web_state_list_->GetActiveWebState());
+  EXPECT_NE(web_state, web_state_list_->GetWebStateAt(0));
+  EXPECT_NE(web_state, web_state_list_->GetWebStateAt(1));
+  EXPECT_NE(web_state, web_state_list_->GetWebStateAt(2));
 }
 
 // Tests that saving a non-empty session, then saving an empty session, then

@@ -6,6 +6,7 @@ from __future__ import print_function
 
 import collections
 import os
+import re
 
 from core import path_util
 from core import perf_benchmark
@@ -371,6 +372,7 @@ class _BlinkPerfBenchmark(perf_benchmark.PerfBenchmark):
                 documentation_url='https://bit.ly/blink-perf-benchmarks')
 class BlinkPerfAccessibility(_BlinkPerfBenchmark):
   SUBDIR = 'accessibility'
+  TAGS = _BlinkPerfBenchmark.TAGS + ['all']
 
   @classmethod
   def Name(cls):
@@ -389,6 +391,7 @@ class BlinkPerfAccessibility(_BlinkPerfBenchmark):
     documentation_url='https://bit.ly/blink-perf-benchmarks')
 class BlinkPerfBindings(_BlinkPerfBenchmark):
   SUBDIR = 'bindings'
+  TAGS = _BlinkPerfBenchmark.TAGS + ['all']
 
   @classmethod
   def Name(cls):
@@ -399,14 +402,21 @@ class ServiceWorkerRequestHandler(
     memory_cache_http_server.MemoryCacheDynamicHTTPRequestHandler):
   """This handler returns dynamic responses for service worker perf tests.
   """
+  _SIZE_1K = 1024
   _SIZE_10K = 10240
   _SIZE_1M = 1048576
+  _FILE_NAME_PATTERN_1K =\
+      re.compile('.*/service_worker/resources/data/1K_[0-9]+\\.txt')
 
   def ResponseFromHandler(self, path):
-    if path.endswith('/service_worker/resources/data/10K.txt'):
+    # normalize the path by replacing backslashes with slashes.
+    normpath = path.replace('\\', '/')
+    if normpath.endswith('/service_worker/resources/data/10K.txt'):
       return self.MakeResponse('c' * self._SIZE_10K, 'text/plain', False)
-    elif path.endswith('/service_worker/resources/data/1M.txt'):
+    elif normpath.endswith('/service_worker/resources/data/1M.txt'):
       return self.MakeResponse('c' * self._SIZE_1M, 'text/plain', False)
+    elif self._FILE_NAME_PATTERN_1K.match(normpath):
+      return self.MakeResponse('c' * self._SIZE_1K, 'text/plain', False)
     return None
 
 
@@ -434,6 +444,7 @@ class BlinkPerfServiceWorker(_BlinkPerfBenchmark):
                 component='Blink>CSS')
 class BlinkPerfCSS(_BlinkPerfBenchmark):
   SUBDIR = 'css'
+  TAGS = _BlinkPerfBenchmark.TAGS + ['all']
 
   @classmethod
   def Name(cls):
@@ -444,6 +455,7 @@ class BlinkPerfCSS(_BlinkPerfBenchmark):
                 component='Blink>Canvas')
 class BlinkPerfCanvas(_BlinkPerfBenchmark):
   SUBDIR = 'canvas'
+  TAGS = _BlinkPerfBenchmark.TAGS + ['all']
 
   @classmethod
   def Name(cls):
@@ -485,6 +497,7 @@ class BlinkPerfDOM(_BlinkPerfBenchmark):
                 documentation_url='https://bit.ly/blink-perf-benchmarks')
 class BlinkPerfEvents(_BlinkPerfBenchmark):
   SUBDIR = 'events'
+  TAGS = _BlinkPerfBenchmark.TAGS + ['all']
 
   @classmethod
   def Name(cls):
@@ -501,6 +514,7 @@ class BlinkPerfEvents(_BlinkPerfBenchmark):
                 documentation_url='https://bit.ly/blink-perf-benchmarks')
 class BlinkPerfImageDecoder(_BlinkPerfBenchmark):
   SUBDIR = 'image_decoder'
+  TAGS = _BlinkPerfBenchmark.TAGS + ['all']
 
   @classmethod
   def Name(cls):
@@ -530,6 +544,7 @@ class BlinkPerfLayout(_BlinkPerfBenchmark):
                 documentation_url='https://bit.ly/blink-perf-benchmarks')
 class BlinkPerfOWPStorage(_BlinkPerfBenchmark):
   SUBDIR = 'owp_storage'
+  TAGS = _BlinkPerfBenchmark.TAGS + ['all']
 
   @classmethod
   def Name(cls):
@@ -564,6 +579,7 @@ class BlinkPerfPaint(_BlinkPerfBenchmark):
                 documentation_url='https://bit.ly/blink-perf-benchmarks')
 class BlinkPerfParser(_BlinkPerfBenchmark):
   SUBDIR = 'parser'
+  TAGS = _BlinkPerfBenchmark.TAGS + ['all']
 
   @classmethod
   def Name(cls):
@@ -575,6 +591,7 @@ class BlinkPerfParser(_BlinkPerfBenchmark):
                 documentation_url='https://bit.ly/blink-perf-benchmarks')
 class BlinkPerfSVG(_BlinkPerfBenchmark):
   SUBDIR = 'svg'
+  TAGS = _BlinkPerfBenchmark.TAGS + ['all']
 
   @classmethod
   def Name(cls):
@@ -586,6 +603,7 @@ class BlinkPerfSVG(_BlinkPerfBenchmark):
                 documentation_url='https://bit.ly/blink-perf-benchmarks')
 class BlinkPerfShadowDOM(_BlinkPerfBenchmark):
   SUBDIR = 'shadow_dom'
+  TAGS = _BlinkPerfBenchmark.TAGS + ['all']
 
   @classmethod
   def Name(cls):
@@ -601,6 +619,7 @@ class BlinkPerfShadowDOM(_BlinkPerfBenchmark):
                 documentation_url='https://bit.ly/blink-perf-benchmarks')
 class BlinkPerfDisplayLocking(_BlinkPerfBenchmark):
   SUBDIR = 'display_locking'
+  TAGS = _BlinkPerfBenchmark.TAGS + ['all']
 
   @classmethod
   def Name(cls):

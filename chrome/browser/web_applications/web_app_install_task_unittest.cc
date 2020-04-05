@@ -442,21 +442,19 @@ TEST_F(WebAppInstallTaskTest, InstallFromWebContents) {
   EXPECT_EQ(expected_theme_color, web_app->theme_color());
 }
 
-TEST_F(WebAppInstallTaskTest, AlreadyInstalled) {
+TEST_F(WebAppInstallTaskTest, ForceReinstall) {
   const GURL url = GURL("https://example.com/path");
-  const std::string name = "Name";
-  const std::string description = "Description";
 
   const AppId app_id = GenerateAppIdFromURL(url);
 
   CreateDefaultDataToRetrieve(url);
-  CreateRendererAppInfo(url, name, description);
+  CreateRendererAppInfo(url, "Name", "Description");
 
   const AppId installed_web_app = InstallWebAppFromManifestWithFallback();
   EXPECT_EQ(app_id, installed_web_app);
 
-  // Second attempt.
-  CreateRendererAppInfo(url, name, description);
+  // Force reinstall:
+  CreateRendererAppInfo(url, "Name2", "Description2");
 
   base::RunLoop run_loop;
   bool callback_called = false;
@@ -466,9 +464,12 @@ TEST_F(WebAppInstallTaskTest, AlreadyInstalled) {
       web_contents(), force_shortcut_app, WebappInstallSource::MENU_BROWSER_TAB,
       base::BindOnce(TestAcceptDialogCallback),
       base::BindLambdaForTesting(
-          [&](const AppId& already_installed_app_id, InstallResultCode code) {
-            EXPECT_EQ(InstallResultCode::kSuccessAlreadyInstalled, code);
-            EXPECT_EQ(app_id, already_installed_app_id);
+          [&](const AppId& force_installed_app_id, InstallResultCode code) {
+            EXPECT_EQ(InstallResultCode::kSuccessNewInstall, code);
+            EXPECT_EQ(app_id, force_installed_app_id);
+            const WebApp* web_app = registrar().GetAppById(app_id);
+            EXPECT_EQ(web_app->name(), "Name2");
+            EXPECT_EQ(web_app->description(), "Description2");
             callback_called = true;
             run_loop.Quit();
           }));
@@ -642,9 +643,10 @@ TEST_F(WebAppInstallTaskTest, WriteDataToDisk) {
 
   // TestingProfile creates temp directory if TestingProfile::path_ is empty
   // (i.e. if TestingProfile::Builder::SetPath was not called by a test fixture)
-  const base::FilePath profile_dir = profile()->GetPath();
-  const base::FilePath web_apps_dir = profile_dir.AppendASCII("WebApps");
-  EXPECT_FALSE(file_utils_->DirectoryExists(web_apps_dir));
+  const base::FilePath web_apps_dir = GetWebAppsRootDirectory(profile());
+  const base::FilePath manifest_resources_directory =
+      GetManifestResourcesDirectory(web_apps_dir);
+  EXPECT_FALSE(file_utils_->DirectoryExists(manifest_resources_directory));
 
   const SkColor color = SK_ColorGREEN;
   const int original_icon_size_px = icon_size::k512;
@@ -655,13 +657,14 @@ TEST_F(WebAppInstallTaskTest, WriteDataToDisk) {
 
   const AppId app_id = InstallWebAppFromManifestWithFallback();
 
-  EXPECT_TRUE(file_utils_->DirectoryExists(web_apps_dir));
+  EXPECT_TRUE(file_utils_->DirectoryExists(manifest_resources_directory));
 
   const base::FilePath temp_dir = web_apps_dir.AppendASCII("Temp");
   EXPECT_TRUE(file_utils_->DirectoryExists(temp_dir));
   EXPECT_TRUE(file_utils_->IsDirectoryEmpty(temp_dir));
 
-  const base::FilePath app_dir = web_apps_dir.AppendASCII(app_id);
+  const base::FilePath app_dir =
+      manifest_resources_directory.AppendASCII(app_id);
   EXPECT_TRUE(file_utils_->DirectoryExists(app_dir));
 
   const base::FilePath icons_dir = app_dir.AppendASCII("Icons");
@@ -711,10 +714,11 @@ TEST_F(WebAppInstallTaskTest, WriteDataToDiskFailed) {
                     SK_ColorBLUE, &icons_map);
   SetIconsMapToRetrieve(std::move(icons_map));
 
-  const base::FilePath profile_dir = profile()->GetPath();
-  const base::FilePath web_apps_dir = profile_dir.AppendASCII("WebApps");
+  const base::FilePath web_apps_dir = GetWebAppsRootDirectory(profile());
+  const base::FilePath manifest_resources_directory =
+      GetManifestResourcesDirectory(web_apps_dir);
 
-  EXPECT_TRUE(file_utils_->CreateDirectory(web_apps_dir));
+  EXPECT_TRUE(file_utils_->CreateDirectory(manifest_resources_directory));
 
   // Induce an error: Simulate "Disk Full" for writing icon files.
   file_utils_->SetRemainingDiskSpaceSize(1024);
@@ -741,7 +745,8 @@ TEST_F(WebAppInstallTaskTest, WriteDataToDiskFailed) {
   EXPECT_TRUE(file_utils_->IsDirectoryEmpty(temp_dir));
 
   const AppId app_id = GenerateAppIdFromURL(app_url);
-  const base::FilePath app_dir = web_apps_dir.AppendASCII(app_id);
+  const base::FilePath app_dir =
+      manifest_resources_directory.AppendASCII(app_id);
   EXPECT_FALSE(file_utils_->DirectoryExists(app_dir));
 }
 
@@ -889,7 +894,7 @@ TEST_F(WebAppInstallTaskTest, InstallWebAppFromInfo_GenerateIcons) {
             EXPECT_TRUE(ContainsOneIconOfEachSize(*final_web_app_info));
 
             // Make sure they're all derived from the yellow icon.
-            for (const std::pair<SquareSizePx, SkBitmap>& icon :
+            for (const std::pair<const SquareSizePx, SkBitmap>& icon :
                  final_web_app_info->icon_bitmaps) {
               EXPECT_FALSE(icon.second.drawsNothing());
               EXPECT_EQ(SK_ColorYELLOW, icon.second.getColor(0, 0));
@@ -1005,7 +1010,7 @@ TEST_F(WebAppInstallTaskTest, InstallWebAppFromInfoRetrieveIcons_NoIcons) {
             // Make sure that icons have been generated for all sub sizes.
             EXPECT_TRUE(ContainsOneIconOfEachSize(*final_web_app_info));
 
-            for (const std::pair<SquareSizePx, SkBitmap>& icon :
+            for (const std::pair<const SquareSizePx, SkBitmap>& icon :
                  final_web_app_info->icon_bitmaps) {
               EXPECT_FALSE(icon.second.drawsNothing());
             }
@@ -1036,7 +1041,7 @@ TEST_F(WebAppInstallTaskTest, InstallWebAppFromManifestWithFallback_NoIcons) {
                 test_install_finalizer().web_app_info();
             // Make sure that icons have been generated for all sub sizes.
             EXPECT_TRUE(ContainsOneIconOfEachSize(*final_web_app_info));
-            for (const std::pair<SquareSizePx, SkBitmap>& icon :
+            for (const std::pair<const SquareSizePx, SkBitmap>& icon :
                  final_web_app_info->icon_bitmaps) {
               EXPECT_FALSE(icon.second.drawsNothing());
             }
@@ -1236,7 +1241,7 @@ TEST_F(WebAppInstallTaskTest, LoadAndInstallWebAppFromManifestWithFallback) {
     url_loader().SetNextLoadUrlResult(url, WebAppUrlLoader::Result::kUrlLoaded);
 
     InstallResult result = LoadAndInstallWebAppFromManifestWithFallback(url);
-    EXPECT_EQ(InstallResultCode::kSuccessAlreadyInstalled, result.code);
+    EXPECT_EQ(InstallResultCode::kSuccessNewInstall, result.code);
     EXPECT_EQ(app_id, result.app_id);
     EXPECT_TRUE(registrar().GetAppById(app_id));
   }

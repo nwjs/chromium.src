@@ -83,6 +83,9 @@ various important responsibilities:
   * Note: external emails will always come in on security@chromium.org as
     chrome-security@google.com is a Google-only list, but both need to be
     triaged.
+  * When triaging an email to be handled off of the list, make sure to bcc: the
+    list that it arrived on, so that other people including future marshals can
+    see that it has been handled.
 * Change bugs status to **Fixed** for those that the developer forgets to close.
   Make sure to read bug comments where developer might point out that it needs
   more CLs, et c. Wait 24 hours before closing ClusterFuzz bugs, to give
@@ -167,8 +170,36 @@ i like that.")
 
 #### Step 1. Reproduce legitimate-sounding issues.
 
-If you can't reproduce the issue, ask for help on IRC (#chrome-security) or the
-Chrome Security chat, or find an area owner to help.
+Ideally, sheriffs should reproduce each bug before triaging, but being efficient
+is also important. It's fine to delegate reproducing bugs in the following
+cases:
+* A bug comes from an automated infrastructure (such as ClusterFuzz or Vomit).
+* A bug comes from a reporter with a solid track record of vulnerabilities (e.g.
+  prolific external researchers or Google Project Zero team).
+* A bug requires a particular device that you don't have available, or any other
+  environment which you don't have ready but a potential code owner would have.
+
+Mention explicitly in your comment that you didn't reproduce a bug before
+assigning it to someone else.
+
+A few components have their own triage processes or points of contact who can
+help.
+
+* V8 bugs can be assigned to the [V8 ClusterFuzz
+  Sheriff](https://rotation.googleplex.com/status?id=5714662985302016) for
+  triage. Note that V8 CHECK failure crashes can have security implications, so
+  don't triage it yourself and instead assign it to V8 ClusterFuzz Sheriff. They
+  can make an informed decision on whether it is a security vulnerability or not
+  and whether it is safe to strip the security tags (**Type=Bug-Security**,
+  **Restrict-View-SecurityTeam**).
+* Skia bugs can be assigned to hcm@chromium.org. Be careful while triaging
+  these! The place where we're crashing isn't necessarily the place where the
+  bug was introduced, so blame may be misleading. Skia fuzzing bugs can be
+  assigned to kjlubick@chromium.org, as Skia is heavily fuzzed on OSS-Fuzz and
+  some issues reported in Chromium are already known or even fixed upstream.
+* URL spoofing issues, especially related to RTL or IDNs? See
+  [go/url-spoofs](http://go/url-spoofs) for a guide to triaging these.
+
 
 Tips for reproducing bugs:
 
@@ -176,7 +207,12 @@ Tips for reproducing bugs:
   allows you to upload files to reproduce crashes on various platforms and will
   identify revision ranges when the regression was introduced. If a test case
   requires multiple files, they can be uploaded together in a zip or tar
-  archive.
+  archive. Useful fuzzers include:-
+    * repro.html [linux_asan_chrome_mp](https://clusterfuzz.com/upload-testcase?upload=true&job=linux_asan_chrome_mp)
+    or [windows_asan_chrome](https://clusterfuzz.com/upload-testcase?upload=true&job=windows_asan_chrome)
+    * repro.js [linux_asan_d8](https://clusterfuzz.com/upload-testcase?upload=true&job=linux_asan_d8)
+    * repro.pdf [libfuzzer_pdfium_asan / pdfium_fuzzer](https://clusterfuzz.com/upload-testcase?upload=true&job=libfuzzer_pdfium_asan&target=pdfium_fuzzer)
+    or [libfuzzer_pdfium_asan / pdfium_xfa_fuzzer](https://clusterfuzz.com/upload-testcase?upload=true&job=libfuzzer_pdfium_asan&target=pdfium_xfa_fuzzer)
 * When you can't just build from a specific branch locally, check out
   [https://dev.chromium.org/getting-involved/dev-channel](https://dev.chromium.org/getting-involved/dev-channel)
   or
@@ -300,26 +336,7 @@ portions of the codebase.
   and query by when the issues were closed after (i.e. w/ in the last 30 days ==
   `closed>today-30`).
 
-A few components have their own triage processes or points of contact who can
-help.
-
-* V8 bugs? Look for V8 rolls within the regression range, then look within the
-  CLs of those rolls to find possible culprits. If you are unable to find the
-  culprit CL, assign to the [V8 ClusterFuzz
-  Sheriff](https://rotation.googleplex.com/status?id=5714662985302016) for
-  triage. Note that V8 CHECK failure crashes can have security implications, so
-  don't triage it yourself and instead assign it to V8 ClusterFuzz Sheriff. They
-  can make an informed decision on whether it is a security vulnerability or not
-  and whether it is safe to strip the security tags (**Type=Bug-Security**,
-  **Restrict-View-SecurityTeam**).
-* Skia bugs? If you made it this far and still aren't sure, assign them to
-  hcm@chromium.org. Be careful while triaging these! The place where we're
-  crashing isn't necessarily the place where the bug was introduced, so blame
-  may be misleading.
-* URL spoofing issues, especially related to RTL or IDNs? See
-  [go/url-spoofs](go/url-spoofs) for a guide to triaging these.
-
-Still stuck? Ask #chrome-security or someone from
+Got stuck? Ask #chrome-security or someone from
 [go/chrome-security-sheriff-mentors](https://goto.google.com/chrome-security-sheriff-mentors)
 for help! That's why we're here. Don't be afraid to do this!
 

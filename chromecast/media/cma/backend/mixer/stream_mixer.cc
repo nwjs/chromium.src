@@ -30,6 +30,7 @@
 #include "chromecast/media/base/audio_device_ids.h"
 #include "chromecast/media/cma/backend/cast_audio_json.h"
 #include "chromecast/media/cma/backend/mixer/audio_output_redirector.h"
+#include "chromecast/media/cma/backend/mixer/channel_layout.h"
 #include "chromecast/media/cma/backend/mixer/filter_group.h"
 #include "chromecast/media/cma/backend/mixer/loopback_handler.h"
 #include "chromecast/media/cma/backend/mixer/mixer_service_receiver.h"
@@ -151,10 +152,6 @@ class StreamMixer::ExternalMediaVolumeChangeRequestObserver
  private:
   StreamMixer* const mixer_;
 };
-
-float StreamMixer::VolumeInfo::GetEffectiveVolume() {
-  return std::min(volume, limit);
-}
 
 StreamMixer::StreamMixer(
     scoped_refptr<base::SequencedTaskRunner> io_task_runner)
@@ -470,8 +467,10 @@ void StreamMixer::Start() {
   CHECK_GT(frames_per_write_, 0);
 
   output_channel_mixer_ = std::make_unique<InterleavedChannelMixer>(
-      ::media::GuessChannelLayout(mixer_pipeline_->GetOutputChannelCount()),
-      ::media::GuessChannelLayout(num_output_channels_), frames_per_write_);
+      mixer::GuessChannelLayout(mixer_pipeline_->GetOutputChannelCount()),
+      mixer_pipeline_->GetOutputChannelCount(),
+      mixer::GuessChannelLayout(num_output_channels_), num_output_channels_,
+      frames_per_write_);
 
   int num_loopback_channels = mixer_pipeline_->GetLoopbackChannelCount();
   if (!enable_dynamic_channel_count_ && num_output_channels_ == 1) {
@@ -480,8 +479,10 @@ void StreamMixer::Start() {
   LOG(INFO) << "Using " << num_loopback_channels << " loopback "
             << ChannelString(num_loopback_channels);
   loopback_channel_mixer_ = std::make_unique<InterleavedChannelMixer>(
-      ::media::GuessChannelLayout(mixer_pipeline_->GetLoopbackChannelCount()),
-      ::media::GuessChannelLayout(num_loopback_channels), frames_per_write_);
+      mixer::GuessChannelLayout(mixer_pipeline_->GetLoopbackChannelCount()),
+      mixer_pipeline_->GetLoopbackChannelCount(),
+      mixer::GuessChannelLayout(num_loopback_channels), num_loopback_channels,
+      frames_per_write_);
 
   loopback_handler_->SetDataSize(frames_per_write_ *
                                  mixer_pipeline_->GetLoopbackChannelCount() *
@@ -646,13 +647,12 @@ void StreamMixer::AddInput(MixerInput::Source* input_source) {
 
   auto type = input->content_type();
   if (type != AudioContentType::kOther) {
-    if (input->primary()) {
-      input->SetContentTypeVolume(volume_info_[type].GetEffectiveVolume(),
-                                  kUseDefaultFade);
-    } else {
-      input->SetContentTypeVolume(volume_info_[type].volume, kUseDefaultFade);
-    }
+    input->SetContentTypeVolume(volume_info_[type].volume);
     input->SetMuted(volume_info_[type].muted);
+  }
+  if (input->primary() && input->focus_type() != AudioContentType::kOther) {
+    input->SetOutputLimit(volume_info_[input->focus_type()].limit,
+                          kUseDefaultFade);
   }
 
   for (auto& redirector : audio_output_redirectors_) {
@@ -730,12 +730,20 @@ void StreamMixer::UpdateStreamCounts() {
   int primary = 0;
   int sfx = 0;
   for (const auto& it : inputs_) {
-    if (it.second->source()->active()) {
-      (it.second->primary() ? primary : sfx) += 1;
+    MixerInput* input = it.second.get();
+    if (input->source()->active() &&
+        (input->TargetVolume() > 0.0f || input->InstantaneousVolume() > 0.0f)) {
+      (input->primary() ? primary : sfx) += 1;
     }
   }
-  receiver_.Post(FROM_HERE, &MixerServiceReceiver::OnStreamCountChanged,
-                 primary, sfx);
+
+  if (primary != last_sent_primary_stream_count_ ||
+      sfx != last_sent_sfx_stream_count_) {
+    last_sent_primary_stream_count_ = primary;
+    last_sent_sfx_stream_count_ = sfx;
+    receiver_.Post(FROM_HERE, &MixerServiceReceiver::OnStreamCountChanged,
+                   primary, sfx);
+  }
 }
 
 MediaPipelineBackend::AudioDecoder::RenderingDelay
@@ -762,6 +770,7 @@ void StreamMixer::PlaybackLoop() {
   }
 
   WriteOneBuffer();
+  UpdateStreamCounts();
 
   mixer_task_runner_->PostTask(FROM_HERE, playback_loop_task_);
 }
@@ -867,20 +876,16 @@ void StreamMixer::SetVolume(AudioContentType type, float level) {
   DCHECK(type != AudioContentType::kOther);
 
   volume_info_[type].volume = level;
-  float effective_volume = volume_info_[type].GetEffectiveVolume();
   for (const auto& input : inputs_) {
     if (input.second->content_type() == type) {
-      if (input.second->primary()) {
-        input.second->SetContentTypeVolume(effective_volume, kUseDefaultFade);
-      } else {
-        // Volume limits don't apply to effects streams.
-        input.second->SetContentTypeVolume(level, kUseDefaultFade);
-      }
+      input.second->SetContentTypeVolume(level);
     }
   }
   if (external_audio_pipeline_supported_ && type == AudioContentType::kMedia) {
-    ExternalAudioPipelineShlib::SetExternalMediaVolume(effective_volume);
+    ExternalAudioPipelineShlib::SetExternalMediaVolume(
+        std::min(level, volume_info_[type].limit));
   }
+  UpdateStreamCounts();
 }
 
 void StreamMixer::SetMuted(AudioContentType type, bool muted) {
@@ -896,6 +901,7 @@ void StreamMixer::SetMuted(AudioContentType type, bool muted) {
   if (external_audio_pipeline_supported_ && type == AudioContentType::kMedia) {
     ExternalAudioPipelineShlib::SetExternalMediaMuted(muted);
   }
+  UpdateStreamCounts();
 }
 
 void StreamMixer::SetOutputLimit(AudioContentType type, float limit) {
@@ -905,7 +911,6 @@ void StreamMixer::SetOutputLimit(AudioContentType type, float limit) {
   LOG(INFO) << "Set volume limit for " << static_cast<int>(type) << " to "
             << limit;
   volume_info_[type].limit = limit;
-  float effective_volume = volume_info_[type].GetEffectiveVolume();
   int fade_ms = kUseDefaultFade;
   if (type == AudioContentType::kMedia) {
     if (limit >= 1.0f) {  // Unducking.
@@ -916,13 +921,15 @@ void StreamMixer::SetOutputLimit(AudioContentType type, float limit) {
   }
   for (const auto& input : inputs_) {
     // Volume limits don't apply to effects streams.
-    if (input.second->primary() && input.second->content_type() == type) {
-      input.second->SetContentTypeVolume(effective_volume, fade_ms);
+    if (input.second->primary() && input.second->focus_type() == type) {
+      input.second->SetOutputLimit(limit, fade_ms);
     }
   }
   if (external_audio_pipeline_supported_ && type == AudioContentType::kMedia) {
-    ExternalAudioPipelineShlib::SetExternalMediaVolume(effective_volume);
+    ExternalAudioPipelineShlib::SetExternalMediaVolume(
+        std::min(volume_info_[type].volume, limit));
   }
+  UpdateStreamCounts();
 }
 
 void StreamMixer::SetVolumeMultiplier(MixerInput::Source* source,
@@ -933,6 +940,7 @@ void StreamMixer::SetVolumeMultiplier(MixerInput::Source* source,
   if (it != inputs_.end()) {
     it->second->SetVolumeMultiplier(multiplier);
   }
+  UpdateStreamCounts();
 }
 
 void StreamMixer::SetPostProcessorConfig(std::string name, std::string config) {

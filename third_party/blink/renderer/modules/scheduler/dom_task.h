@@ -12,8 +12,8 @@
 #include "third_party/blink/renderer/platform/scheduler/public/post_cancellable_task.h"
 
 namespace blink {
-class AbortSignal;
 class DOMScheduler;
+class DOMTaskSignal;
 class ScriptState;
 class ScriptValue;
 class V8Function;
@@ -27,8 +27,7 @@ class DOMTask final : public GarbageCollected<DOMTask> {
           ScriptPromiseResolver*,
           V8Function*,
           const HeapVector<ScriptValue>& args,
-          base::SingleThreadTaskRunner*,
-          AbortSignal*,
+          DOMTaskSignal*,
           base::TimeDelta delay);
 
   virtual void Trace(Visitor*);
@@ -41,12 +40,16 @@ class DOMTask final : public GarbageCollected<DOMTask> {
   void InvokeInternal(ScriptState*);
   void Abort();
 
+  void RecordTaskStartMetrics();
+
   Member<DOMScheduler> scheduler_;
   TaskHandle task_handle_;
   Member<V8Function> callback_;
   HeapVector<ScriptValue> arguments_;
   Member<ScriptPromiseResolver> resolver_;
   probe::AsyncTaskId async_task_id_;
+  Member<DOMTaskSignal> signal_;
+  const base::TimeTicks queue_time_;
 };
 
 }  // namespace blink

@@ -17,9 +17,11 @@
 
 namespace blink {
 
+class RtcDtmfSenderHandler;
+class RTCEncodedAudioStreamTransformer;
+class RTCEncodedVideoStreamTransformer;
 class RTCVoidRequest;
 class WebMediaStreamTrack;
-class RtcDtmfSenderHandler;
 
 // Implementations of this interface keep the corresponding WebRTC-layer sender
 // alive through reference counting. Multiple |RTCRtpSenderPlatform|s could
@@ -48,11 +50,19 @@ class PLATFORM_EXPORT RTCRtpSenderPlatform {
   virtual std::unique_ptr<RtcDtmfSenderHandler> GetDtmfSender() const = 0;
   virtual std::unique_ptr<webrtc::RtpParameters> GetParameters() const = 0;
   virtual void SetParameters(Vector<webrtc::RtpEncodingParameters>,
-                             webrtc::DegradationPreference,
+                             absl::optional<webrtc::DegradationPreference>,
                              RTCVoidRequest*) = 0;
   virtual void GetStats(RTCStatsReportCallback,
                         const Vector<webrtc::NonStandardGroupId>&) = 0;
   virtual void SetStreams(const Vector<String>& stream_ids) = 0;
+  virtual RTCEncodedAudioStreamTransformer* GetEncodedAudioStreamTransformer()
+      const {
+    return nullptr;
+  }
+  virtual RTCEncodedVideoStreamTransformer* GetEncodedVideoStreamTransformer()
+      const {
+    return nullptr;
+  }
 };
 
 }  // namespace blink

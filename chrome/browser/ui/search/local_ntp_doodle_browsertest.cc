@@ -68,7 +68,9 @@ class MockLogoService : public LogoService {
  public:
   MOCK_METHOD1(GetLogoPtr, void(LogoCallbacks* callbacks));
 
-  void GetLogo(LogoCallbacks callbacks) override { GetLogoPtr(&callbacks); }
+  void GetLogo(LogoCallbacks callbacks, bool for_webui_ntp) override {
+    GetLogoPtr(&callbacks);
+  }
   void GetLogo(LogoObserver* observer) override { NOTREACHED(); }
 };
 
@@ -1413,10 +1415,11 @@ IN_PROC_BROWSER_TEST_F(LocalNTPDoodleTest, ShouldMoveFakeboxWhenIframeResized) {
   ui_test_utils::NavigateToURL(browser(), GURL(chrome::kChromeUINewTabURL));
 
   // Initial dimensions are correct:
-  EXPECT_THAT(GetDimension(active_tab, searchbox(), "top"),
+  EXPECT_THAT(*GetDimension(active_tab, searchbox(), "top"),
               Eq(kSearchboxTopPx));
-  EXPECT_THAT(GetDimension(active_tab, "logo-doodle-iframe", "width"), Eq(400));
-  EXPECT_THAT(GetDimension(active_tab, "logo-doodle-iframe", "height"),
+  EXPECT_THAT(*GetDimension(active_tab, "logo-doodle-iframe", "width"),
+              Eq(400));
+  EXPECT_THAT(*GetDimension(active_tab, "logo-doodle-iframe", "height"),
               Eq(220));
 
   // Trigger resize. The duration parameter is left untested, since that would
@@ -1434,11 +1437,11 @@ IN_PROC_BROWSER_TEST_F(LocalNTPDoodleTest, ShouldMoveFakeboxWhenIframeResized) {
                                      )js"));
 
   // Fakebox is now 180px lower, with the iframe larger, as requested.
-  EXPECT_THAT(GetDimension(active_tab, searchbox(), "top"),
+  EXPECT_THAT(*GetDimension(active_tab, searchbox(), "top"),
               Eq(kSearchboxTopPx + 180));
-  EXPECT_THAT(GetDimension(active_tab, "logo-doodle-iframe", "width"),
-              Eq(GetDimension(active_tab, "logo", "width")));
-  EXPECT_THAT(GetDimension(active_tab, "logo-doodle-iframe", "height"),
+  EXPECT_THAT(*GetDimension(active_tab, "logo-doodle-iframe", "width"),
+              Eq(*GetDimension(active_tab, "logo", "width")));
+  EXPECT_THAT(*GetDimension(active_tab, "logo-doodle-iframe", "height"),
               Eq(400));
 
   ASSERT_TRUE(content::ExecuteScript(active_tab,
@@ -1452,10 +1455,11 @@ IN_PROC_BROWSER_TEST_F(LocalNTPDoodleTest, ShouldMoveFakeboxWhenIframeResized) {
                                      )js"));
 
   // Back to the original dimensions now.
-  EXPECT_THAT(GetDimension(active_tab, searchbox(), "top"),
+  EXPECT_THAT(*GetDimension(active_tab, searchbox(), "top"),
               Eq(kSearchboxTopPx));
-  EXPECT_THAT(GetDimension(active_tab, "logo-doodle-iframe", "width"), Eq(400));
-  EXPECT_THAT(GetDimension(active_tab, "logo-doodle-iframe", "height"),
+  EXPECT_THAT(*GetDimension(active_tab, "logo-doodle-iframe", "width"),
+              Eq(400));
+  EXPECT_THAT(*GetDimension(active_tab, "logo-doodle-iframe", "height"),
               Eq(220));
 }
 

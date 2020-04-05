@@ -46,6 +46,7 @@
 #include "third_party/blink/renderer/core/layout/hit_test_result.h"
 #include "third_party/blink/renderer/core/layout/layout_object_child_list.h"
 #include "third_party/blink/renderer/core/layout/map_coordinates_flags.h"
+#include "third_party/blink/renderer/core/layout/min_max_sizes.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_outline_type.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_style_variant.h"
 #include "third_party/blink/renderer/core/layout/subtree_layout_scope.h"
@@ -65,10 +66,12 @@
 #include "third_party/blink/renderer/platform/transforms/transformation_matrix.h"
 #include "third_party/blink/renderer/platform/wtf/allocator/allocator.h"
 
-namespace blink {
-
-class AffineTransform;
+namespace ui {
 class Cursor;
+}
+
+namespace blink {
+class AffineTransform;
 class HitTestLocation;
 class HitTestRequest;
 class InlineBox;
@@ -212,8 +215,8 @@ const int kShowTreeCharacterOffset = 39;
 // Those widths are used to determine the final layout logical width, which
 // depends on the layout algorithm used and the available logical width.
 //
-// LayoutObject only has getters for the widths (MinPreferredLogicalWidth and
-// MaxPreferredLogicalWidth). However the storage for them is in LayoutBox (see
+// LayoutObject only has a getter for the widths (PreferredLogicalWidths).
+// However the storage for them is in LayoutBox (see
 // min_preferred_logical_width_ and max_preferred_logical_width_). This is
 // because only boxes implementing the full box model have a need for them.
 // Because LayoutBlockFlow's intrinsic widths rely on the underlying text
@@ -222,7 +225,7 @@ const int kShowTreeCharacterOffset = 39;
 // The 2 widths are computed lazily during layout when the getters are called.
 // The computation is done by calling ComputePreferredLogicalWidths() behind the
 // scene. The boolean used to control the lazy recomputation is
-// PreferredLogicalWidthsDirty.
+// IntrinsicLogicalWidthsDirty.
 //
 // See the individual getters below for more details about what each width is.
 class CORE_EXPORT LayoutObject : public ImageResourceObserver,
@@ -442,13 +445,7 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
     }
   }
 
-  void AssertClearedPaintInvalidationFlags() const {
-    if (PaintInvalidationStateIsDirty() &&
-        !PrePaintBlockedByDisplayLock(DisplayLockLifecycleTarget::kChildren)) {
-      ShowLayoutTreeForThis();
-      NOTREACHED();
-    }
-  }
+  void AssertClearedPaintInvalidationFlags() const;
 
   void AssertSubtreeClearedPaintInvalidationFlags() const {
     for (const LayoutObject* layout_object = this; layout_object;
@@ -647,6 +644,9 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
   }
   bool IsFrame() const { return IsOfType(kLayoutObjectFrame); }
   bool IsFrameSet() const { return IsOfType(kLayoutObjectFrameSet); }
+  bool IsInsideListMarker() const {
+    return IsOfType(kLayoutObjectInsideListMarker);
+  }
   bool IsLayoutNGBlockFlow() const {
     return IsOfType(kLayoutObjectNGBlockFlow);
   }
@@ -655,27 +655,27 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
   }
   bool IsLayoutNGMixin() const { return IsOfType(kLayoutObjectNGMixin); }
   bool IsLayoutNGListItem() const { return IsOfType(kLayoutObjectNGListItem); }
-  bool IsLayoutNGListMarker() const {
-    return IsOfType(kLayoutObjectNGListMarker);
-  }
   bool IsLayoutNGInsideListMarker() const {
     return IsOfType(kLayoutObjectNGInsideListMarker);
   }
   bool IsLayoutNGListMarkerImage() const {
     return IsOfType(kLayoutObjectNGListMarkerImage);
   }
+  bool IsLayoutNGOutsideListMarker() const {
+    return IsOfType(kLayoutObjectNGOutsideListMarker);
+  }
   bool IsLayoutNGProgress() const { return IsOfType(kLayoutObjectNGProgress); }
   bool IsLayoutNGText() const { return IsOfType(kLayoutObjectNGText); }
   bool IsLayoutTableCol() const {
     return IsOfType(kLayoutObjectLayoutTableCol);
   }
-  bool IsListBox() const { return IsOfType(kLayoutObjectListBox); }
   bool IsListItem() const { return IsOfType(kLayoutObjectListItem); }
-  bool IsListMarker() const { return IsOfType(kLayoutObjectListMarker); }
   bool IsMathML() const { return IsOfType(kLayoutObjectMathML); }
   bool IsMathMLRoot() const { return IsOfType(kLayoutObjectMathMLRoot); }
   bool IsMedia() const { return IsOfType(kLayoutObjectMedia); }
-  bool IsMenuList() const { return IsOfType(kLayoutObjectMenuList); }
+  bool IsOutsideListMarker() const {
+    return IsOfType(kLayoutObjectOutsideListMarker);
+  }
   bool IsProgress() const { return IsOfType(kLayoutObjectProgress); }
   bool IsQuote() const { return IsOfType(kLayoutObjectQuote); }
   bool IsLayoutButton() const { return IsOfType(kLayoutObjectLayoutButton); }
@@ -837,11 +837,8 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
   bool IsSVGResourceContainer() const {
     return IsOfType(kLayoutObjectSVGResourceContainer);
   }
-  bool IsSVGResourceFilter() const {
-    return IsOfType(kLayoutObjectSVGResourceFilter);
-  }
-  bool IsSVGResourceFilterPrimitive() const {
-    return IsOfType(kLayoutObjectSVGResourceFilterPrimitive);
+  bool IsSVGFilterPrimitive() const {
+    return IsOfType(kLayoutObjectSVGFilterPrimitive);
   }
 
   // FIXME: Those belong into a SVG specific base-class for all layoutObjects
@@ -1077,14 +1074,14 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
   }
   bool NeedsCollectInlines() const { return bitfields_.NeedsCollectInlines(); }
 
-  // Return true if the min/max preferred logical widths aren't up-to-date. Note
-  // that for objects that *don't* need to calculate preferred logical widths
-  // (e.g. if inline-size is a fixed value, and no other inline lengths are
-  // intrinsic, and the object isn't a descendant of something that needs
+  // Return true if the min/max intrinsic logical widths aren't up-to-date.
+  // Note that for objects that *don't* need to calculate intrinsic logical
+  // widths (e.g. if inline-size is a fixed value, and no other inline lengths
+  // are intrinsic, and the object isn't a descendant of something that needs
   // min/max), this flag will never be cleared (since the values will never be
   // calculated).
-  bool PreferredLogicalWidthsDirty() const {
-    return bitfields_.PreferredLogicalWidthsDirty();
+  bool IntrinsicLogicalWidthsDirty() const {
+    return bitfields_.IntrinsicLogicalWidthsDirty();
   }
 
   bool NeedsLayoutOverflowRecalc() const {
@@ -1348,19 +1345,24 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
   void SetChildNeedsLayout(MarkingBehavior = kMarkContainerChain,
                            SubtreeLayoutScope* = nullptr);
   void SetNeedsPositionedMovementLayout();
-  void SetPreferredLogicalWidthsDirty(MarkingBehavior = kMarkContainerChain);
-  void ClearPreferredLogicalWidthsDirty();
+  void SetIntrinsicLogicalWidthsDirty(MarkingBehavior = kMarkContainerChain);
+  void ClearIntrinsicLogicalWidthsDirty();
 
-  void SetNeedsLayoutAndPrefWidthsRecalc(
+  void SetNeedsLayoutAndIntrinsicWidthsRecalc(
       LayoutInvalidationReasonForTracing reason) {
     SetNeedsLayout(reason);
-    SetPreferredLogicalWidthsDirty();
+    SetIntrinsicLogicalWidthsDirty();
   }
-  void SetNeedsLayoutAndPrefWidthsRecalcAndFullPaintInvalidation(
+  void SetNeedsLayoutAndIntrinsicWidthsRecalcAndFullPaintInvalidation(
       LayoutInvalidationReasonForTracing reason) {
     SetNeedsLayoutAndFullPaintInvalidation(reason);
-    SetPreferredLogicalWidthsDirty();
+    SetIntrinsicLogicalWidthsDirty();
   }
+
+  // Traverses subtree, and marks all layout objects as need relayout, repaint
+  // and preferred width recalc. Also invalidates shaping on all text nodes.
+  // TODO(crbug.com/441925): Try to partially invalidate layout on font updates.
+  virtual void InvalidateSubtreeLayoutForFontUpdates();
 
   void InvalidateIntersectionObserverCachedRects();
 
@@ -1375,9 +1377,23 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
   void SetFloating(bool is_floating) { bitfields_.SetFloating(is_floating); }
   void SetInline(bool is_inline) { bitfields_.SetIsInline(is_inline); }
 
+  // Return whether we can directly traverse fragments generated for this layout
+  // object, when it comes to painting, hit-testing and other layout read
+  // operations. If false is returned, we need to traverse the layout object
+  // tree instead.
+  //
+  // It is not allowed to call this method on a non-LayoutBox object, unless its
+  // containing block is an NG object (e.g. not allowed to call it on a
+  // LayoutInline that's contained by a legacy LayoutBlockFlow).
+  inline bool CanTraversePhysicalFragments() const;
+
   // Returns the associated |NGPaintFragment|. When this is not a |nullptr|,
   // this is the root of an inline formatting context, laid out by LayoutNG.
   virtual const NGPaintFragment* PaintFragment() const { return nullptr; }
+
+  // Return true if |this| produces one or more inline fragments, including
+  // whitespace-only text fragments.
+  virtual bool HasInlineFragments() const { return false; }
 
   // Paint/Physical fragments are not in sync with LayoutObject tree until it is
   // laid out. For inline, it needs to check if the containing block is
@@ -1573,6 +1589,11 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
   // See LayoutBlock.h for some extra explanations on containing blocks.
   LayoutBlock* ContainingBlock(AncestorSkipInfo* = nullptr) const;
 
+  // Returns |container|'s containing block.
+  static LayoutBlock* FindNonAnonymousContainingBlock(
+      LayoutObject* container,
+      AncestorSkipInfo* = nullptr);
+
   const LayoutBlock* InclusiveContainingBlock() const;
 
   bool CanContainAbsolutePositionObjects() const {
@@ -1735,8 +1756,6 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
   virtual void AbsoluteQuads(Vector<FloatQuad>&,
                              MapCoordinatesFlags mode = 0) const {}
 
-  static FloatRect AbsoluteBoundingBoxRectForRange(const EphemeralRange&);
-
   // The bounding box (see: absoluteBoundingBoxRect) including all descendant
   // bounding boxes.
   IntRect AbsoluteBoundingBoxRectIncludingDescendants() const;
@@ -1746,28 +1765,20 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
   // to any ancestor using, e.g., localToAncestorTransform.
   virtual FloatRect LocalBoundingBoxRectForAccessibility() const = 0;
 
-  // This function returns the minimal logical width this object can have
-  // without overflowing. This means that all the opportunities for wrapping
-  // have been taken.
+  // This function returns the:
+  //  - Minimal logical width this object can have without overflowing. This
+  //    means that all the opportunities for wrapping have been taken.
+  //  - Maximal logical width.
   //
   // See INTRINSIC SIZES / PREFERRED LOGICAL WIDTHS above.
   //
-  // CSS 2.1 calls this width the "preferred minimum width" (thus this name)
-  // and "minimum content width" (for table).
-  // However CSS 3 calls it the "min-content inline size".
+  // CSS 2.1 calls this width the "preferred minimum width"/"preferred width"
+  // (thus this name) and "minimum content width" (for table).
+  // However CSS 3 calls it the "min/max-content inline size".
   // https://drafts.csswg.org/css-sizing-3/#min-content-inline-size
-  // TODO(jchaffraix): We will probably want to rename it to match CSS 3.
-  virtual LayoutUnit MinPreferredLogicalWidth() const { return LayoutUnit(); }
-
-  // This function returns the maximum logical width this object can have.
-  //
-  // See INTRINSIC SIZES / PREFERRED LOGICAL WIDTHS above.
-  //
-  // CSS 2.1 calls this width the "preferred width". However CSS 3 calls it
-  // the "max-content inline size".
   // https://drafts.csswg.org/css-sizing-3/#max-content-inline-size
   // TODO(jchaffraix): We will probably want to rename it to match CSS 3.
-  virtual LayoutUnit MaxPreferredLogicalWidth() const { return LayoutUnit(); }
+  virtual MinMaxSizes PreferredLogicalWidths() const { return MinMaxSizes(); }
 
   const ComputedStyle* Style() const { return style_.get(); }
 
@@ -1801,7 +1812,7 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
     return StyleRef().VisitedDependentColor(color_property);
   }
 
-  virtual CursorDirective GetCursor(const PhysicalOffset&, Cursor&) const;
+  virtual CursorDirective GetCursor(const PhysicalOffset&, ui::Cursor&) const;
 
   // Return the LayoutBoxModelObject in the container chain which is responsible
   // for painting this object. The function crosses frames boundaries so the
@@ -1902,7 +1913,8 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
   // generating an anonymous block box for the whitespace between the marker
   // and the <ol>.
   bool AffectsWhitespaceSiblings() const {
-    return !IsFloatingOrOutOfFlowPositioned() && !IsLayoutNGListMarker();
+    return !IsFloatingOrOutOfFlowPositioned() &&
+           !IsLayoutNGOutsideListMarker() && !IsOutsideListMarker();
   }
 
   bool HasReflection() const { return bitfields_.HasReflection(); }
@@ -1979,14 +1991,14 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
   // There are 3 types of list marker. LayoutNG creates different types for
   // inside and outside; outside is derived from LayoutBlockFlow, and inside
   // from LayoutInline. Legacy is derived from LayoutBox.
-  bool IsListMarkerIncludingNG() const {
-    return IsListMarker() || IsLayoutNGListMarker();
+  bool IsListMarker() const {
+    return IsOutsideListMarker() || IsInsideListMarker();
   }
-  bool IsLayoutNGListMarkerIncludingInside() const {
-    return IsLayoutNGListMarker() || IsLayoutNGInsideListMarker();
+  bool IsListMarkerIncludingNGOutside() const {
+    return IsListMarker() || IsLayoutNGOutsideListMarker();
   }
-  bool IsListMarkerIncludingNGInside() const {
-    return IsListMarker() || IsLayoutNGListMarkerIncludingInside();
+  bool IsListMarkerIncludingNGOutsideAndInside() const {
+    return IsListMarkerIncludingNGOutside() || IsLayoutNGInsideListMarker();
   }
 
   virtual bool IsCombineText() const { return false; }
@@ -2264,7 +2276,13 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
       }
     }
     void SetShouldCheckForPaintInvalidation() {
-      layout_object_.SetShouldCheckForPaintInvalidation();
+      // This method is only intended to be called when visiting this object
+      // during pre-paint, and as such it should only mark itself, and not the
+      // entire containing block chain.
+      DCHECK_EQ(layout_object_.GetDocument().Lifecycle().GetState(),
+                DocumentLifecycle::kInPrePaint);
+      layout_object_.bitfields_.SetNeedsPaintOffsetAndVisualRectUpdate(true);
+      layout_object_.bitfields_.SetShouldCheckForPaintInvalidation(true);
     }
     void SetShouldDoFullPaintInvalidation(PaintInvalidationReason reason) {
       layout_object_.SetShouldDoFullPaintInvalidation(reason);
@@ -2297,9 +2315,10 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
       layout_object_.fragment_.SetSelectionVisualRect(r);
     }
 
-    void SetPreviousBackgroundPaintLocation(BackgroundPaintLocation location) {
-      layout_object_.bitfields_.SetPreviousBackgroundPaintLocation(location);
+    void SetBackgroundPaintLocation(BackgroundPaintLocation location) {
+      layout_object_.SetBackgroundPaintLocation(location);
     }
+
     void UpdatePreviousOutlineMayBeAffectedByDescendants() {
       layout_object_.SetPreviousOutlineMayBeAffectedByDescendants(
           layout_object_.OutlineMayBeAffectedByDescendants());
@@ -2417,8 +2436,14 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
   bool CompositedScrollsWithRespectTo(
       const LayoutBoxModelObject& paint_invalidation_container) const;
 
-  BackgroundPaintLocation PreviousBackgroundPaintLocation() const {
-    return bitfields_.PreviousBackgroundPaintLocation();
+  BackgroundPaintLocation GetBackgroundPaintLocation() const {
+    return bitfields_.GetBackgroundPaintLocation();
+  }
+  void SetBackgroundPaintLocation(BackgroundPaintLocation location) {
+    if (GetBackgroundPaintLocation() != location) {
+      SetBackgroundNeedsFullPaintInvalidation();
+      bitfields_.SetBackgroundPaintLocation(location);
+    }
   }
 
   bool IsBackgroundAttachmentFixedObject() const {
@@ -2500,7 +2525,7 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
   bool BeingDestroyed() const { return bitfields_.BeingDestroyed(); }
 
   DisplayLockContext* GetDisplayLockContext() const {
-    if (!RuntimeEnabledFeatures::DisplayLockingEnabled(&GetDocument()))
+    if (!RuntimeEnabledFeatures::CSSSubtreeVisibilityEnabled())
       return nullptr;
     auto* element = DynamicTo<Element>(GetNode());
     if (!element)
@@ -2519,24 +2544,23 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
     kLayoutObjectFileUploadControl,
     kLayoutObjectFrame,
     kLayoutObjectFrameSet,
+    kLayoutObjectInsideListMarker,
     kLayoutObjectLayoutTableCol,
-    kLayoutObjectListBox,
     kLayoutObjectListItem,
-    kLayoutObjectListMarker,
     kLayoutObjectMathML,
     kLayoutObjectMathMLRoot,
     kLayoutObjectMedia,
-    kLayoutObjectMenuList,
     kLayoutObjectNGBlockFlow,
     kLayoutObjectNGFieldset,
     kLayoutObjectNGFlexibleBox,
     kLayoutObjectNGMixin,
     kLayoutObjectNGListItem,
-    kLayoutObjectNGListMarker,
     kLayoutObjectNGInsideListMarker,
+    kLayoutObjectNGOutsideListMarker,
     kLayoutObjectNGListMarkerImage,
     kLayoutObjectNGProgress,
     kLayoutObjectNGText,
+    kLayoutObjectOutsideListMarker,
     kLayoutObjectProgress,
     kLayoutObjectQuote,
     kLayoutObjectLayoutButton,
@@ -2583,8 +2607,7 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
     kLayoutObjectSVGImage,
     kLayoutObjectSVGForeignObject,
     kLayoutObjectSVGResourceContainer,
-    kLayoutObjectSVGResourceFilter,
-    kLayoutObjectSVGResourceFilterPrimitive,
+    kLayoutObjectSVGFilterPrimitive,
   };
   virtual bool IsOfType(LayoutObjectType type) const { return false; }
 
@@ -2704,10 +2727,6 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
     bitfields_.SetBackgroundIsKnownToBeObscured(b);
   }
 
-  // Returns |container|'s containing block.
-  static LayoutBlock* FindNonAnonymousContainingBlock(
-      LayoutObject* container,
-      AncestorSkipInfo* = nullptr);
   // Returns ContainerForAbsolutePosition() if it's a LayoutBlock, or the
   // containing LayoutBlock of it.
   LayoutBlock* ContainingBlockForAbsolutePosition(
@@ -2758,7 +2777,7 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
 
   inline void SetNeedsPaintOffsetAndVisualRectUpdate();
 
-  inline void InvalidateContainerPreferredLogicalWidths();
+  inline void InvalidateContainerIntrinsicLogicalWidths();
 
   const LayoutBoxModelObject* EnclosingCompositedContainer() const;
 
@@ -2855,7 +2874,7 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
           needs_simplified_normal_flow_layout_(false),
           self_needs_layout_overflow_recalc_(false),
           child_needs_layout_overflow_recalc_(false),
-          preferred_logical_widths_dirty_(false),
+          intrinsic_logical_widths_dirty_(false),
           needs_collect_inlines_(false),
           should_check_for_paint_invalidation_(true),
           subtree_should_check_for_paint_invalidation_(false),
@@ -2914,7 +2933,7 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
           selection_state_(static_cast<unsigned>(SelectionState::kNone)),
           subtree_paint_property_update_reasons_(
               static_cast<unsigned>(SubtreePaintPropertyUpdateReason::kNone)),
-          previous_background_paint_location_(0) {}
+          background_paint_location_(kBackgroundPaintInGraphicsLayer) {}
 
     // Self needs layout for style means that this layout object is marked for a
     // full layout. This is the default layout but it is expensive as it
@@ -2964,12 +2983,12 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
     ADD_BOOLEAN_BITFIELD(child_needs_layout_overflow_recalc_,
                          ChildNeedsLayoutOverflowRecalc);
 
-    // This boolean marks preferred logical widths for lazy recomputation.
+    // This boolean marks the intrinsic logical widths for lazy recomputation.
     //
     // See INTRINSIC SIZES / PREFERRED LOGICAL WIDTHS above about those
     // widths.
-    ADD_BOOLEAN_BITFIELD(preferred_logical_widths_dirty_,
-                         PreferredLogicalWidthsDirty);
+    ADD_BOOLEAN_BITFIELD(intrinsic_logical_widths_dirty_,
+                         IntrinsicLogicalWidthsDirty);
 
     // This flag is set on inline container boxes that need to run the
     // Pre-layout phase in LayoutNG. See NGInlineNode::CollectInlines().
@@ -3183,8 +3202,9 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
     unsigned subtree_paint_property_update_reasons_
         : kSubtreePaintPropertyUpdateReasonsBitfieldWidth;
 
-    // BackgroundPaintLocation of previous paint invalidation.
-    unsigned previous_background_paint_location_ : 2;
+    // Updated during CompositingUpdate in pre-CompositeAfterPaint, or PrePaint
+    // in CompositeAfterPaint.
+    unsigned background_paint_location_ : 2;  // BackgroundPaintLocation.
 
    public:
     bool IsOutOfFlowPositioned() const {
@@ -3251,15 +3271,13 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
           static_cast<unsigned>(SubtreePaintPropertyUpdateReason::kNone);
     }
 
-    ALWAYS_INLINE BackgroundPaintLocation
-    PreviousBackgroundPaintLocation() const {
-      return static_cast<BackgroundPaintLocation>(
-          previous_background_paint_location_);
+    ALWAYS_INLINE BackgroundPaintLocation GetBackgroundPaintLocation() const {
+      return static_cast<BackgroundPaintLocation>(background_paint_location_);
     }
-    ALWAYS_INLINE void SetPreviousBackgroundPaintLocation(
+    ALWAYS_INLINE void SetBackgroundPaintLocation(
         BackgroundPaintLocation location) {
-      previous_background_paint_location_ = static_cast<unsigned>(location);
-      DCHECK_EQ(location, PreviousBackgroundPaintLocation());
+      background_paint_location_ = static_cast<unsigned>(location);
+      DCHECK_EQ(location, GetBackgroundPaintLocation());
     }
   };
 
@@ -3337,6 +3355,33 @@ inline bool LayoutObject::IsMarkerContent() const {
 
 inline bool LayoutObject::IsBeforeOrAfterContent() const {
   return IsBeforeContent() || IsAfterContent();
+}
+
+inline bool LayoutObject::CanTraversePhysicalFragments() const {
+  if (LIKELY(!RuntimeEnabledFeatures::LayoutNGFragmentTraversalEnabled()))
+    return false;
+  // Non-NG objects should be painted by legacy.
+  if (!IsLayoutNGObject()) {
+    if (IsBox())
+      return false;
+    // Non-LayoutBox objects (such as LayoutInline) don't necessarily create NG
+    // LayoutObjects. If they are laid out by an NG container, though, we may be
+    // allowed to traverse their fragments. Otherwise, bail now.
+    if (!IsInLayoutNGInlineFormattingContext())
+      return false;
+  }
+  // Bail if we have an NGPaintFragment. NGPaintFragment will be removed, and we
+  // will not attempt to add support for them here.
+  if (PaintFragment())
+    return false;
+  // We don't support fragmentation traversal inside block fragmentation just
+  // yet.
+  if (IsInsideFlowThread())
+    return false;
+  // The NG paint system currently doesn't support table-cells.
+  if (IsTableCell())
+    return false;
+  return true;
 }
 
 // setNeedsLayout() won't cause full paint invalidations as
@@ -3476,6 +3521,9 @@ CORE_EXPORT std::ostream& operator<<(std::ostream&, const LayoutObject&);
 #define DEFINE_LAYOUT_OBJECT_TYPE_CASTS(thisType, predicate)           \
   DEFINE_TYPE_CASTS(thisType, LayoutObject, object, object->predicate, \
                     object.predicate)
+
+bool IsMenuList(const LayoutObject* object);
+CORE_EXPORT bool IsListBox(const LayoutObject* object);
 
 }  // namespace blink
 

@@ -22,6 +22,7 @@ js_type_check("closure_compile_module") {
     ":action_model_ui",
     ":actions_submenu",
     ":banners",
+    ":breadcrumb",
     ":closure_compile_externs",
     ":combobutton",
     ":commandbutton",
@@ -121,11 +122,18 @@ js_library("banners") {
   externs_list = [ "//ui/file_manager/externs/chrome_echo_private.js" ]
 }
 
+js_library("breadcrumb") {
+  deps = [
+    "//ui/webui/resources/cr_elements/cr_action_menu:cr_action_menu",
+    "//ui/webui/resources/js:assert",
+  ]
+}
+
 js_library("combobutton") {
   deps = [
     ":files_menu",
+    ":multi_menu",
     "//ui/file_manager/file_manager/foreground/elements:files_toggle_ripple",
-    "//ui/webui/resources/js/cr/ui:menu_button",
   ]
   externs_list = [ "//ui/file_manager/externs/paper_elements.js" ]
 }
@@ -247,6 +255,7 @@ js_library("file_manager_ui") {
     ":action_model_ui",
     ":actions_submenu",
     ":banners",
+    ":breadcrumb",
     ":combobutton",
     ":default_task_dialog",
     ":dialog_footer",
@@ -368,6 +377,10 @@ js_library("files_menu") {
   externs_list = [ "//ui/file_manager/externs/paper_elements.js" ]
 }
 
+js_library("gear_menu") {
+  deps = [ "//ui/file_manager/file_manager/common/js:util" ]
+}
+
 js_library("install_linux_package_dialog") {
   deps = [
     ":file_manager_dialog_base",
@@ -389,10 +402,6 @@ js_library("import_crostini_image_dialog") {
     "//ui/webui/resources/js/cr:ui",
     "//ui/webui/resources/js/cr/ui:dialogs",
   ]
-}
-
-js_library("gear_menu") {
-  deps = [ "//ui/file_manager/file_manager/common/js:util" ]
 }
 
 js_library("list_container") {
@@ -421,6 +430,7 @@ js_library("multi_menu") {
     "//ui/webui/resources/js/cr/ui:menu_item",
     "//ui/webui/resources/js/cr/ui:position_util",
   ]
+  externs_list = [ "$externs_path/pending.js" ]
 }
 
 js_unittest("multi_menu_unittest") {

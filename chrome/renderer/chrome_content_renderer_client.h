@@ -21,7 +21,6 @@
 #include "chrome/common/media/webrtc_logging.mojom.h"
 #include "chrome/renderer/media/chrome_key_systems_provider.h"
 #include "components/nacl/common/buildflags.h"
-#include "components/rappor/public/mojom/rappor_recorder.mojom.h"
 #include "components/spellcheck/spellcheck_buildflags.h"
 #include "content/public/renderer/content_renderer_client.h"
 #include "content/public/renderer/render_thread.h"
@@ -69,10 +68,6 @@ struct WebPluginInfo;
 
 namespace extensions {
 class Extension;
-}
-
-namespace prerender {
-class PrerenderDispatcher;
 }
 
 namespace subresource_filter {
@@ -138,11 +133,6 @@ class ChromeContentRendererClient
       base::SingleThreadTaskRunner* compositor_thread_task_runner) override;
   bool RunIdleHandlerWhenWidgetsHidden() override;
   bool AllowPopup() override;
-  bool ShouldFork(blink::WebLocalFrame* frame,
-                  const GURL& url,
-                  const std::string& http_method,
-                  bool is_initial_navigation,
-                  bool is_server_redirect) override;
   void WillSendRequest(blink::WebLocalFrame* frame,
                        ui::PageTransition transition_type,
                        const blink::WebURL& url,
@@ -165,6 +155,8 @@ class ChromeContentRendererClient
   std::unique_ptr<blink::WebContentSettingsClient>
   CreateWorkerContentSettingsClient(
       content::RenderFrame* render_frame) override;
+  std::unique_ptr<media::SpeechRecognitionClient> CreateSpeechRecognitionClient(
+      content::RenderFrame* render_frame) override;
   void AddSupportedKeySystems(
       std::vector<std::unique_ptr<::media::KeySystemProperties>>* key_systems)
       override;
@@ -176,9 +168,6 @@ class ChromeContentRendererClient
       const content::WebPluginInfo& info,
       const std::string& mime_type,
       const GURL& original_url) override;
-  void RecordRappor(const std::string& metric,
-                    const std::string& sample) override;
-  void RecordRapporURL(const std::string& metric, const GURL& url) override;
   void RunScriptsAtDocumentStart(content::RenderFrame* render_frame) override;
   void RunScriptsAtDocumentEnd(content::RenderFrame* render_frame) override;
   void RunScriptsAtDocumentIdle(content::RenderFrame* render_frame) override;
@@ -236,10 +225,6 @@ class ChromeContentRendererClient
   void InitSpellCheck();
 #endif
 
-  prerender::PrerenderDispatcher* prerender_dispatcher() const {
-    return prerender_dispatcher_.get();
-  }
-
   ChromeRenderThreadObserver* GetChromeObserver() const;
   web_cache::WebCacheImpl* GetWebCache();
   chrome::WebRtcLoggingAgentImpl* GetWebRtcLoggingAgent();
@@ -284,10 +269,6 @@ class ChromeContentRendererClient
   // Used to profile main thread.
   std::unique_ptr<ThreadProfiler> main_thread_profiler_;
 
-#if 0
-  mojo::Remote<rappor::mojom::RapporRecorder> rappor_recorder_;
-#endif
-
   std::unique_ptr<ChromeRenderThreadObserver> chrome_observer_;
   std::unique_ptr<web_cache::WebCacheImpl> web_cache_impl_;
   std::unique_ptr<chrome::WebRtcLoggingAgentImpl> webrtc_logging_agent_impl_;
@@ -299,7 +280,6 @@ class ChromeContentRendererClient
 #endif
   std::unique_ptr<subresource_filter::UnverifiedRulesetDealer>
       subresource_filter_ruleset_dealer_;
-  std::unique_ptr<prerender::PrerenderDispatcher> prerender_dispatcher_;
 #if BUILDFLAG(ENABLE_PRINT_PREVIEW)
   std::unique_ptr<ChromePDFPrintClient> pdf_print_client_;
 #endif

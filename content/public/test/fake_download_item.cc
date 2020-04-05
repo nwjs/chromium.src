@@ -235,11 +235,10 @@ void FakeDownloadItem::ValidateMixedContentDownload() {
   NOTREACHED();
 }
 
-void FakeDownloadItem::StealDangerousDownload(
-    bool delete_file_afterward,
-    const AcquireFileCallback& callback) {
+void FakeDownloadItem::StealDangerousDownload(bool delete_file_afterward,
+                                              AcquireFileCallback callback) {
   NOTREACHED();
-  callback.Run(base::FilePath());
+  std::move(callback).Run(base::FilePath());
 }
 
 void FakeDownloadItem::Pause() {
@@ -329,12 +328,6 @@ const base::Optional<url::Origin>& FakeDownloadItem::GetRequestInitiator()
     const {
   NOTREACHED();
   return dummy_origin;
-}
-
-const net::NetworkIsolationKey& FakeDownloadItem::GetNetworkIsolationKey()
-    const {
-  NOTREACHED();
-  return dummy_network_isolation_key;
 }
 
 std::string FakeDownloadItem::GetSuggestedFilename() const {

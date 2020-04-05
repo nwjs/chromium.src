@@ -64,7 +64,9 @@ namespace safe_browsing {
 class PingManager;
 class VerdictCacheManager;
 class ClientSideDetectionService;
+#if BUILDFLAG(FULL_SAFE_BROWSING)
 class DownloadProtectionService;
+#endif
 class PasswordProtectionService;
 class SafeBrowsingDatabaseManager;
 class SafeBrowsingNavigationObserverManager;
@@ -117,16 +119,26 @@ class SafeBrowsingService : public SafeBrowsingServiceInterface,
     return services_delegate_->GetCsdService();
   }
 
+#if BUILDFLAG(FULL_SAFE_BROWSING)
   // The DownloadProtectionService is not valid after the SafeBrowsingService
   // is destroyed.
   DownloadProtectionService* download_protection_service() const {
     return services_delegate_->GetDownloadService();
   }
+#endif
 
   // NetworkContext and URLLoaderFactory used for safe browsing requests.
   // Called on UI thread.
+  // TODO(crbug/1049833): Transition all callers of these functions to the
+  // per-profile methods below.
   network::mojom::NetworkContext* GetNetworkContext();
   virtual scoped_refptr<network::SharedURLLoaderFactory> GetURLLoaderFactory();
+
+  // Get the NetworkContext or URLLoaderFactory attached to |profile|. Called on
+  // UI thread.
+  network::mojom::NetworkContext* GetNetworkContext(Profile* profile);
+  virtual scoped_refptr<network::SharedURLLoaderFactory> GetURLLoaderFactory(
+      Profile* profile);
 
   // Flushes above two interfaces to avoid races in tests.
   void FlushNetworkInterfaceForTesting();
@@ -180,11 +192,6 @@ class SafeBrowsingService : public SafeBrowsingServiceInterface,
 
   // Get the cache manager by profile.
   VerdictCacheManager* GetVerdictCacheManager(Profile* profile) const;
-  base::WeakPtr<VerdictCacheManager> GetVerdictCacheManagerWeakPtr(
-      Profile* profile) const;
-
-  // Get the binary upload service by profile.
-  BinaryUploadService* GetBinaryUploadService(Profile* profile) const;
 
  protected:
   // Creates the safe browsing service.  Need to initialize before using.
@@ -210,7 +217,6 @@ class SafeBrowsingService : public SafeBrowsingServiceInterface,
   friend class extensions::SafeBrowsingPrivateApiUnitTest;
   friend class SafeBrowsingServerTest;
   friend class SafeBrowsingUIManagerTest;
-  friend class SafeBrowsingURLRequestContextGetter;
   friend class TestSafeBrowsingService;
   friend class TestSafeBrowsingServiceFactory;
   friend class V4SafeBrowsingServiceTest;
@@ -230,11 +236,6 @@ class SafeBrowsingService : public SafeBrowsingServiceInterface,
   // shutdown is true, then the operations on the io thread are shutdown
   // permanently and cannot be restarted.
   void StopOnIOThread(bool shutdown);
-
-  // Called on the IO thread when any active profile is destroyed.
-  void OnProfileWillBeDestroyedOnIOThread(
-      std::unique_ptr<network::PendingSharedURLLoaderFactory>
-          url_loader_factory);
 
   // Start up SafeBrowsing objects. This can be called at browser start, or when
   // the user checks the "Enable SafeBrowsing" option in the Advanced options

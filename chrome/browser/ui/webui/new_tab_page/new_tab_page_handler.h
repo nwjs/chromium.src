@@ -7,9 +7,12 @@
 
 #include "base/macros.h"
 #include "base/memory/weak_ptr.h"
+#include "chrome/browser/search/background/ntp_background_service_observer.h"
 #include "chrome/browser/search/instant_service_observer.h"
+#include "chrome/browser/ui/omnibox/omnibox_tab_helper.h"
 #include "chrome/browser/ui/webui/new_tab_page/new_tab_page.mojom.h"
 #include "chrome/common/search/instant_types.h"
+#include "components/search_provider_logos/logo_common.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
@@ -18,20 +21,31 @@
 
 class GURL;
 class InstantService;
+class NtpBackgroundService;
 class Profile;
 
 namespace chrome_colors {
 class ChromeColorsService;
 }  // namespace chrome_colors
 
-class NewTabPageHandler : public content::WebContentsObserver,
-                          public new_tab_page::mojom::PageHandler,
-                          public InstantServiceObserver {
+namespace content {
+class WebContents;
+}  // namespace content
+
+namespace search_provider_logos {
+class LogoService;
+}  // namespace search_provider_logos
+
+class NewTabPageHandler : public new_tab_page::mojom::PageHandler,
+                          public InstantServiceObserver,
+                          public NtpBackgroundServiceObserver,
+                          public OmniboxTabHelper::Observer {
  public:
   NewTabPageHandler(mojo::PendingReceiver<new_tab_page::mojom::PageHandler>
                         pending_page_handler,
                     mojo::PendingRemote<new_tab_page::mojom::Page> pending_page,
-                    Profile* profile);
+                    Profile* profile,
+                    content::WebContents* web_contents);
   ~NewTabPageHandler() override;
 
   // new_tab_page::mojom::PageHandler:
@@ -54,17 +68,47 @@ class NewTabPageHandler : public content::WebContentsObserver,
   void ConfirmThemeChanges() override;
   void GetChromeThemes(GetChromeThemesCallback callback) override;
   void RevertThemeChanges() override;
+  void GetBackgroundCollections(
+      GetBackgroundCollectionsCallback callback) override;
+  void GetBackgroundImages(const std::string& collection_id,
+                           GetBackgroundImagesCallback callback) override;
+  void FocusOmnibox() override;
+  void PasteIntoOmnibox(const std::string& text) override;
+  void GetDoodle(GetDoodleCallback callback) override;
 
  private:
   // InstantServiceObserver:
   void NtpThemeChanged(const NtpTheme& theme) override;
   void MostVisitedInfoChanged(const InstantMostVisitedInfo& info) override;
 
+  // NtpBackgroundServiceObserver:
+  void OnCollectionInfoAvailable() override;
+  void OnCollectionImagesAvailable() override;
+  void OnNextCollectionImageAvailable() override;
+  void OnNtpBackgroundServiceShuttingDown() override;
+
+  // OmniboxTabHelper::Observer:
+  void OnOmniboxInputStateChanged() override;
+  void OnOmniboxFocusChanged(OmniboxFocusState state,
+                             OmniboxFocusChangeReason reason) override;
+
+  void OnLogoAvailable(
+      GetDoodleCallback callback,
+      search_provider_logos::LogoCallbackReason type,
+      const base::Optional<search_provider_logos::EncodedLogo>& logo);
+
   chrome_colors::ChromeColorsService* chrome_colors_service_;
   InstantService* instant_service_;
+  NtpBackgroundService* ntp_background_service_;
+  search_provider_logos::LogoService* logo_service_;
   GURL last_blacklisted_;
+  GetBackgroundCollectionsCallback background_collections_callback_;
+  std::string images_request_collection_id_;
+  GetBackgroundImagesCallback background_images_callback_;
   mojo::Remote<new_tab_page::mojom::Page> page_;
   mojo::Receiver<new_tab_page::mojom::PageHandler> receiver_;
+  content::WebContents* web_contents_;
+  base::WeakPtrFactory<NewTabPageHandler> weak_ptr_factory_{this};
 
   DISALLOW_COPY_AND_ASSIGN(NewTabPageHandler);
 };

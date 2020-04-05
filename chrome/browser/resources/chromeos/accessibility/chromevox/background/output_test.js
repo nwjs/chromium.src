@@ -116,7 +116,7 @@ TEST_F('ChromeVoxOutputE2ETest', 'Links', function() {
     const o = new Output().withSpeechAndBraille(range, null, 'navigate');
     assertEqualsJSON(
         {
-          string_: 'Click here|Link|Press Search+Space to activate.',
+          string_: 'Click here|Link|Press Search+Space to activate',
           'spans_': [
             // Attributes.
             {value: 'name', start: 0, end: 10},
@@ -125,7 +125,7 @@ TEST_F('ChromeVoxOutputE2ETest', 'Links', function() {
             {value: {earconId: 'LINK'}, start: 0, end: 10},
 
             {value: 'role', start: 11, end: 15},
-            {value: {'delay': true}, start: 16, end: 16}
+            {value: {'delay': true}, start: 16, end: 46}
           ]
         },
         o.speechOutputForTest);
@@ -141,11 +141,11 @@ TEST_F('ChromeVoxOutputE2ETest', 'Checkbox', function() {
     const range = cursors.Range.fromNode(el);
     const o = new Output().withSpeechAndBraille(range, null, 'navigate');
     checkSpeechOutput(
-        '|Check box|Not checked|Press Search+Space to toggle.',
+        '|Check box|Not checked|Press Search+Space to toggle',
         [
           {value: new Output.EarconAction('CHECK_OFF'), start: 0, end: 0},
           {value: 'role', start: 1, end: 10},
-          {value: {'delay': true}, start: 23, end: 23}
+          {value: {'delay': true}, start: 23, end: 51}
         ],
         o);
     checkBrailleOutput(
@@ -197,8 +197,8 @@ TEST_F('ChromeVoxOutputE2ETest', 'Headings', function() {
       function(root) {
         let el = root.firstChild;
         for (let i = 1; i <= 6; ++i) {
-          var range = cursors.Range.fromNode(el);
-          var o = new Output().withSpeechAndBraille(range, null, 'navigate');
+          const range = cursors.Range.fromNode(el);
+          const o = new Output().withSpeechAndBraille(range, null, 'navigate');
           const letter = String.fromCharCode('a'.charCodeAt(0) + i - 1);
           assertEqualsJSON(
               {
@@ -248,7 +248,7 @@ TEST_F('ChromeVoxOutputE2ETest', 'DISABLED_Audio', function() {
       '<audio src="foo.mp3" controls></audio>', function(root) {
         let el = root.find({role: 'button'});
         let range = cursors.Range.fromNode(el);
-        var o = new Output().withoutHints().withSpeechAndBraille(
+        let o = new Output().withoutHints().withSpeechAndBraille(
             range, null, 'navigate');
 
         checkSpeechOutput(
@@ -272,7 +272,7 @@ TEST_F('ChromeVoxOutputE2ETest', 'DISABLED_Audio', function() {
         el = el.nextSibling.nextSibling.nextSibling;
         const prevRange = range;
         range = cursors.Range.fromNode(el);
-        var o = new Output().withoutHints().withSpeechAndBraille(
+        o = new Output().withoutHints().withSpeechAndBraille(
             range, prevRange, 'navigate');
         checkSpeechOutput(
             '|audio time scrubber|Slider|0:00|Min 0|Max 0',
@@ -607,8 +607,8 @@ SYNC_TEST_F('ChromeVoxOutputE2ETest', 'MessageIdAndEarconValidity', function() {
     'graphicsSymbol',
     'suggestion',
   ]);
-  for (var key in Output.ROLE_INFO_) {
-    var value = Output.ROLE_INFO_[key];
+  for (const key in Output.ROLE_INFO_) {
+    const value = Output.ROLE_INFO_[key];
     if (value.msgId) {
       Msgs.getMsg(value.msgId);
       if (!kNoBrailleMessageRequired.has(key)) {
@@ -620,8 +620,8 @@ SYNC_TEST_F('ChromeVoxOutputE2ETest', 'MessageIdAndEarconValidity', function() {
       assertNotNullNorUndefined(Earcon[value.earconId]);
     }
   }
-  for (var key in Output.STATE_INFO_) {
-    var value = Output.STATE_INFO_[key];
+  for (const key in Output.STATE_INFO_) {
+    const value = Output.STATE_INFO_[key];
     for (innerKey in value) {
       const innerValue = value[innerKey];
       if (typeof (innerValue) == 'boolean') {
@@ -636,7 +636,7 @@ SYNC_TEST_F('ChromeVoxOutputE2ETest', 'MessageIdAndEarconValidity', function() {
       }
     }
   }
-  for (var key in Output.INPUT_TYPE_MESSAGE_IDS_) {
+  for (const key in Output.INPUT_TYPE_MESSAGE_IDS_) {
     const msgId = Output.INPUT_TYPE_MESSAGE_IDS_[key];
     assertFalse(/[A-Z]+/.test(msgId));
     Msgs.getMsg(msgId);
@@ -758,12 +758,12 @@ TEST_F('ChromeVoxOutputE2ETest', 'ToggleButton', function() {
         assertEqualsJSON(
             {
               string_:
-                  '|Subscribe|Toggle Button|Pressed|Press Search+Space to toggle.',
+                  '|Subscribe|Toggle Button|Pressed|Press Search+Space to toggle',
               spans_: [
                 {value: {earconId: 'CHECK_ON'}, start: 0, end: 0},
                 {value: 'name', start: 1, end: 10},
                 {value: 'role', start: 11, end: 24},
-                {value: {'delay': true}, start: 33, end: 33}
+                {value: {'delay': true}, start: 33, end: 61}
               ]
             },
             o.speechOutputForTest);
@@ -1112,7 +1112,7 @@ TEST_F('ChromeVoxOutputE2ETest', 'ARCListItem', function() {
         const o = new Output().withRichSpeechAndBraille(
             cursors.Range.fromNode(listitem));
         assertEquals(
-            'storage 128 GB|List item|Press Search+Space to activate.',
+            'storage 128 GB|List item|Press Search+Space to activate',
             o.speechOutputForTest.string_);
         assertEquals('storage 128 GB lstitm', o.brailleOutputForTest.string_);
       });
@@ -1264,7 +1264,11 @@ TEST_F('ChromeVoxOutputE2ETest', 'NoTooltipWithNameTitle', function() {
         o = new Output().withSpeech(
             cursors.Range.fromNode(tooltip), null, 'navigate');
         assertEqualsJSON(
-            {string_: 'tooltip', spans_: []}, o.speechOutputForTest);
+            {
+              string_: 'tooltip',
+              spans_: [{value: {'delay': true}, start: 0, end: 7}]
+            },
+            o.speechOutputForTest);
       });
 });
 
@@ -1313,5 +1317,48 @@ TEST_F('ChromeVoxOutputE2ETest', 'NameOrTextContent', function() {
             chrome.automation.NameFromType.CONTENTS, focusableDiv.nameFrom);
         const o = new Output().withSpeech(cursors.Range.fromNode(focusableDiv));
         assertEquals('hello there world', o.speechOutputForTest.string_);
+      });
+});
+
+TEST_F('ChromeVoxOutputE2ETest', 'DelayHintVariants', function() {
+  this.runWithLoadedTree(
+      `
+    <div aria-errormessage="error" aria-invalid="true">OK</div>
+    <div id="error" aria-label="error"></div>
+  `,
+      function(root) {
+        const div = root.children[0];
+        const range = cursors.Range.fromNode(div);
+
+        let o = new Output().withSpeech(range, null, 'navigate');
+        assertEqualsJSON(
+            {string_: 'OK|error', spans_: [{value: 'name', start: 3, end: 8}]},
+            o.speechOutputForTest);
+
+        // Force a few properties to be set so that hints are triggered.
+        Object.defineProperty(div, 'clickable', {get: () => true});
+
+        o = new Output().withSpeech(range, null, 'navigate');
+        assertEqualsJSON(
+            {
+              string_: 'OK|error|Press Search+Space to activate',
+              spans_: [
+                {value: 'name', start: 3, end: 8},
+                {value: {delay: true}, start: 9, end: 39}
+              ]
+            },
+            o.speechOutputForTest);
+
+        Object.defineProperty(div, 'placeholder', {get: () => 'placeholder'});
+        o = new Output().withSpeech(range, null, 'navigate');
+        assertEqualsJSON(
+            {
+              string_: 'OK|error|placeholder|Press Search+Space to activate',
+              spans_: [
+                {value: 'name', start: 3, end: 8},
+                {value: {delay: true}, start: 9, end: 20}, {start: 21, end: 51}
+              ]
+            },
+            o.speechOutputForTest);
       });
 });

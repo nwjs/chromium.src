@@ -28,7 +28,6 @@
 #include "base/fuchsia/default_job.h"
 #include "base/fuchsia/file_utils.h"
 #include "base/fuchsia/fuchsia_logging.h"
-#include "base/fuchsia/service_directory.h"
 #include "base/path_service.h"
 #include "base/test/bind_test_util.h"
 #include "base/test/multiprocess_test.h"
@@ -373,7 +372,7 @@ TEST(ContextProviderImplConfigTest, WithConfigWithCommandLineArgs) {
 
   base::RunLoop loop;
   ContextProviderImpl context_provider;
-  context_provider.set_config_for_test(std::move(config_dict));
+  context_provider.set_config_override_for_test(std::move(config_dict));
   context_provider.SetLaunchCallbackForTest(
       base::BindLambdaForTesting([&loop](const base::CommandLine& command,
                                          const base::LaunchOptions& options) {
@@ -406,7 +405,7 @@ TEST(ContextProviderImplConfigTest, WithConfigWithDisallowedCommandLineArgs) {
 
   base::RunLoop loop;
   ContextProviderImpl context_provider;
-  context_provider.set_config_for_test(std::move(config_dict));
+  context_provider.set_config_override_for_test(std::move(config_dict));
   context_provider.SetLaunchCallbackForTest(
       base::BindLambdaForTesting([&loop](const base::CommandLine& command,
                                          const base::LaunchOptions& options) {
@@ -439,7 +438,7 @@ TEST(ContextProviderImplConfigTest, WithConfigWithWronglyTypedCommandLineArgs) {
 
   base::RunLoop loop;
   ContextProviderImpl context_provider;
-  context_provider.set_config_for_test(std::move(config_dict));
+  context_provider.set_config_override_for_test(std::move(config_dict));
   context_provider.SetLaunchCallbackForTest(
       base::BindLambdaForTesting([&](const base::CommandLine& command,
                                      const base::LaunchOptions& options) {

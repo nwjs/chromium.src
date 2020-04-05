@@ -68,8 +68,8 @@
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_fetcher.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_fetcher_properties.h"
+#include "third_party/blink/renderer/platform/weborigin/reporting_disposition.h"
 #include "third_party/blink/renderer/platform/weborigin/scheme_registry.h"
-#include "third_party/blink/renderer/platform/weborigin/security_violation_reporting_policy.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
 
 namespace blink {
@@ -80,7 +80,7 @@ void MaybeRecordThirdPartyServiceWorkerUsage(
     ExecutionContext* execution_context) {
   DCHECK(execution_context);
   // ServiceWorkerContainer is only supported on documents.
-  Document* document = To<Document>(execution_context);
+  Document* document = Document::From(execution_context);
   DCHECK(document);
 
   if (document->IsCrossSiteSubframe())
@@ -143,7 +143,7 @@ class ServiceWorkerContainer::DomContentLoadedListener final
   void Invoke(ExecutionContext* execution_context, Event* event) override {
     DCHECK_EQ(event->type(), "DOMContentLoaded");
 
-    Document& document = *To<Document>(execution_context);
+    Document& document = *Document::From(execution_context);
     DCHECK(HasFiredDomContentLoaded(document));
 
     auto* container =
@@ -196,7 +196,7 @@ ServiceWorkerContainer::~ServiceWorkerContainer() {
   DCHECK(!provider_);
 }
 
-void ServiceWorkerContainer::ContextDestroyed(ExecutionContext*) {
+void ServiceWorkerContainer::ContextDestroyed() {
   if (provider_) {
     provider_->SetClient(nullptr);
     provider_ = nullptr;
@@ -204,7 +204,7 @@ void ServiceWorkerContainer::ContextDestroyed(ExecutionContext*) {
   controller_ = nullptr;
 }
 
-void ServiceWorkerContainer::Trace(blink::Visitor* visitor) {
+void ServiceWorkerContainer::Trace(Visitor* visitor) {
   visitor->Trace(controller_);
   visitor->Trace(ready_);
   visitor->Trace(dom_content_loaded_observer_);
@@ -212,7 +212,7 @@ void ServiceWorkerContainer::Trace(blink::Visitor* visitor) {
   visitor->Trace(service_worker_objects_);
   EventTargetWithInlineData::Trace(visitor);
   Supplement<Document>::Trace(visitor);
-  ContextLifecycleObserver::Trace(visitor);
+  ExecutionContextLifecycleObserver::Trace(visitor);
 }
 
 ScriptPromise ServiceWorkerContainer::registerServiceWorker(
@@ -355,11 +355,6 @@ ScriptPromise ServiceWorkerContainer::registerServiceWorker(
       execution_context->Fetcher()
           ->GetProperties()
           .GetFetchClientSettingsObject());
-  // The outgoing referrer is a required parameter. Use |script_url| if the
-  // ResourceFetcher doesn't provide it.
-  if (fetch_client_settings_object.outgoing_referrer.IsEmpty()) {
-    fetch_client_settings_object.outgoing_referrer = script_url;
-  }
 
   provider_->RegisterServiceWorker(
       scope_url, script_url, *script_type, update_via_cache,
@@ -516,7 +511,7 @@ void ServiceWorkerContainer::ReceiveMessage(WebServiceWorkerObjectInfo source,
   if (!context || !context->ExecutingWindow())
     return;
   // ServiceWorkerContainer is only supported on documents.
-  auto* document = DynamicTo<Document>(context);
+  auto* document = Document::DynamicFrom(context);
   DCHECK(document);
 
   if (!is_client_message_queue_enabled_) {
@@ -560,7 +555,7 @@ void ServiceWorkerContainer::CountFeature(mojom::WebFeature feature) {
 }
 
 ExecutionContext* ServiceWorkerContainer::GetExecutionContext() const {
-  return GetSupplementable();
+  return GetSupplementable()->ToExecutionContext();
 }
 
 const AtomicString& ServiceWorkerContainer::InterfaceName() const {
@@ -593,7 +588,7 @@ ServiceWorkerContainer::GetOrCreateServiceWorkerRegistration(
   }
 
   registration = MakeGarbageCollected<ServiceWorkerRegistration>(
-      GetSupplementable(), std::move(info));
+      GetSupplementable()->ToExecutionContext(), std::move(info));
   service_worker_registration_objects_.Set(info.registration_id, registration);
   return registration;
 }
@@ -604,14 +599,16 @@ ServiceWorker* ServiceWorkerContainer::GetOrCreateServiceWorker(
     return nullptr;
   ServiceWorker* worker = service_worker_objects_.at(info.version_id);
   if (!worker) {
-    worker = ServiceWorker::Create(GetSupplementable(), std::move(info));
+    worker = ServiceWorker::Create(GetSupplementable()->ToExecutionContext(),
+                                   std::move(info));
     service_worker_objects_.Set(info.version_id, worker);
   }
   return worker;
 }
 
 ServiceWorkerContainer::ServiceWorkerContainer(Document* document)
-    : Supplement<Document>(*document), ContextLifecycleObserver(document) {}
+    : Supplement<Document>(*document),
+      ExecutionContextLifecycleObserver(document) {}
 
 ServiceWorkerContainer::ReadyProperty*
 ServiceWorkerContainer::CreateReadyProperty() {
@@ -683,7 +680,7 @@ void ServiceWorkerContainer::OnGetRegistrationForReady(
       !ready_->GetExecutionContext()->IsContextDestroyed()) {
     ready_->Resolve(
         ServiceWorkerContainer::From(
-            To<Document>(ready_->GetExecutionContext()))
+            Document::From(ready_->GetExecutionContext()))
             ->GetOrCreateServiceWorkerRegistration(std::move(info)));
   }
 }

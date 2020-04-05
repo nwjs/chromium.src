@@ -15,17 +15,34 @@
 #include "base/callback.h"
 #include "base/files/file_path.h"
 #include "base/optional.h"
+#include "extensions/browser/content_verifier/content_verifier_utils.h"
 
 namespace extensions {
 
 using IsCancelledCallback = base::RepeatingCallback<bool(void)>;
 using ShouldComputeHashesCallback =
     base::RepeatingCallback<bool(const base::FilePath& relative_path)>;
+using CanonicalRelativePath = content_verifier_utils::CanonicalRelativePath;
 
 // A class for storage and serialization of a set of SHA256 block hashes
 // computed over the files inside an extension.
 class ComputedHashes {
  public:
+  // Status of reading computed hashes from file: either success or error type.
+  enum class Status {
+    // Status is undefined.
+    UNKNOWN,
+
+    // Failed to read file.
+    READ_FAILED,
+
+    // File read successfully, but failed to parse the contents.
+    PARSE_FAILED,
+
+    // No error.
+    SUCCESS,
+  };
+
   // Hashes data for relative paths.
   // System specific path canonicalization is taken care of inside this class.
   class Data {
@@ -51,7 +68,7 @@ class ComputedHashes {
       HashInfo(HashInfo&&);
       HashInfo& operator=(HashInfo&&);
     };
-    using Items = std::map<base::FilePath::StringType, HashInfo>;
+    using Items = std::map<CanonicalRelativePath, HashInfo>;
 
     Data();
     ~Data();
@@ -88,10 +105,12 @@ class ComputedHashes {
   ComputedHashes& operator=(ComputedHashes&&);
   ~ComputedHashes();
 
-  // Reads computed hashes from the computed_hashes.json file, returns nullopt
-  // upon any failure.
+  // Reads computed hashes from the computed_hashes.json file, stores read
+  // success/failure status to |status|. Returns nullopt upon any failure (i.e.
+  // |status| != Status::SUCCESS).
   static base::Optional<ComputedHashes> CreateFromFile(
-      const base::FilePath& path);
+      const base::FilePath& path,
+      Status* status);
 
   // Computes hashes for files in |extension_root|. Returns nullopt upon any
   // failure. Callback |should_compute_hashes_for| is used to determine whether

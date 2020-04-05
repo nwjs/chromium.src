@@ -17,6 +17,7 @@
 #include "headless/lib/browser/headless_browser_context_options.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "net/http/http_auth_preferences.h"
+#include "net/proxy_resolution/configured_proxy_resolution_service.h"
 #include "services/network/network_service.h"
 #include "services/network/public/cpp/features.h"
 #include "services/network/public/mojom/network_service.mojom.h"
@@ -93,7 +94,7 @@ class HeadlessProxyConfigMonitor
     // We must create the proxy config service on the UI loop on Linux because
     // it must synchronously run on the glib message loop.
     proxy_config_service_ =
-        net::ProxyResolutionService::CreateSystemProxyConfigService(
+        net::ConfiguredProxyResolutionService::CreateSystemProxyConfigService(
             task_runner_);
     task_runner_->PostTask(
         FROM_HERE, base::BindOnce(&net::ProxyConfigService::AddObserver,
@@ -182,9 +183,16 @@ HeadlessRequestContextManager::CreateSystemContext(
 HeadlessRequestContextManager::HeadlessRequestContextManager(
     const HeadlessBrowserContextOptions* options,
     base::FilePath user_data_path)
-    : cookie_encryption_enabled_(
+    :
+// On Windows, Cookie encryption requires access to local_state prefs, which are
+// unavailable.
+#if defined(OS_WIN)
+      cookie_encryption_enabled_(false),
+#else
+      cookie_encryption_enabled_(
           !base::CommandLine::ForCurrentProcess()->HasSwitch(
               switches::kDisableCookieEncryption)),
+#endif
       user_data_path_(std::move(user_data_path)),
       accept_language_(options->accept_language()),
       user_agent_(options->user_agent()),

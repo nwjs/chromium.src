@@ -40,9 +40,6 @@ public class TailSuggestionProcessor extends BaseSuggestionViewProcessor {
     }
 
     @Override
-    public void onNativeInitialized() {}
-
-    @Override
     public int getViewTypeId() {
         return OmniboxSuggestionUiType.TAIL_SUGGESTION;
     }
@@ -73,15 +70,7 @@ public class TailSuggestionProcessor extends BaseSuggestionViewProcessor {
     }
 
     @Override
-    public void onUrlFocusChange(boolean hasFocus) {}
-
-    @Override
-    public void recordSuggestionPresented(OmniboxSuggestion suggestion, PropertyModel model) {}
-
-    @Override
-    public void recordSuggestionUsed(OmniboxSuggestion suggestion, PropertyModel model) {}
-
-    public void reset() {
+    public void onSuggestionsReceived() {
         mAlignmentManager = new AlignmentManager();
     }
 }

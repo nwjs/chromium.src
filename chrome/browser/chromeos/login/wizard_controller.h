@@ -49,7 +49,6 @@ class DemoSetupController;
 class ErrorScreen;
 struct Geoposition;
 class LoginDisplayHost;
-class LoginScreenContext;
 class SimpleGeolocationProvider;
 class TimeZoneProvider;
 struct TimeZoneResponseData;
@@ -97,7 +96,7 @@ class WizardController {
   void Init(OobeScreenId first_screen);
 
   // Advances to screen defined by |screen| and shows it.
-  void AdvanceToScreen(OobeScreenId screen);
+  void AdvanceToScreen(OobeScreenId screen_id);
 
   // Starts Demo Mode setup flow. The flow starts from network screen and reuses
   // some of regular OOBE screens. It consists of the following screens:
@@ -116,7 +115,7 @@ class WizardController {
       base::Optional<DemoSession::DemoModeConfig> demo_config = base::nullopt);
 
   // Advances to login/update screen. Should be used in for testing only.
-  void SkipToLoginForTesting(const LoginScreenContext& context);
+  void SkipToLoginForTesting();
   void SkipToUpdateForTesting();
 
   // Skip update, go straight to enrollment after EULA is accepted.
@@ -143,11 +142,16 @@ class WizardController {
            !prescribed_enrollment_config_.should_enroll();
   }
 
+  void set_prescribed_enrollment_config_for_testing(
+      policy::EnrollmentConfig config) {
+    prescribed_enrollment_config_ = config;
+  }
+
   // Returns true if a given screen exists.
-  bool HasScreen(OobeScreenId screen);
+  bool HasScreen(OobeScreenId screen_id);
 
   // Returns a given screen. Creates it lazily.
-  BaseScreen* GetScreen(OobeScreenId screen);
+  BaseScreen* GetScreen(OobeScreenId screen_id);
 
   // Returns the current ScreenManager instance.
   ScreenManager* screen_manager() const { return screen_manager_.get(); }
@@ -192,20 +196,21 @@ class WizardController {
   void ShowUpdateRequiredScreen();
   void ShowAssistantOptInFlowScreen();
   void ShowMultiDeviceSetupScreen();
+  void ShowGestureNavigationScreen();
   void ShowDiscoverScreen();
   void ShowMarketingOptInScreen();
   void ShowPackagedLicenseScreen();
 
   // Shows images login screen.
-  void ShowLoginScreen(const LoginScreenContext& context);
+  void ShowLoginScreen();
 
   // Shows default screen depending on device ownership.
   void OnOwnershipStatusCheckDone(
       DeviceSettingsService::OwnershipStatus status);
 
   // Shared actions to be performed on a screen exit.
-  // |exit_code| is the screen specific exit code reported by the screen.
-  void OnScreenExit(OobeScreenId screen, int exit_code);
+  // |exit_reason| is the screen specific exit reason reported by the screen.
+  void OnScreenExit(OobeScreenId screen, const std::string& exit_reason);
 
   // Exit handlers:
   void OnWrongHWIDScreenExit();
@@ -232,7 +237,6 @@ class WizardController {
   void OnSyncConsentFinished();
   void OnFingerprintSetupScreenExit();
   void OnDiscoverScreenExit();
-  void OnMarketingOptInScreenExit();
   void OnArcTermsOfServiceScreenExit(ArcTermsOfServiceScreen::Result result);
   void OnArcTermsOfServiceSkipped();
   void OnArcTermsOfServiceAccepted();
@@ -240,6 +244,8 @@ class WizardController {
   void OnAppDownloadingScreenExit();
   void OnAssistantOptInFlowScreenExit();
   void OnMultiDeviceSetupScreenExit();
+  void OnGestureNavigationScreenExit();
+  void OnMarketingOptInScreenExit();
   void OnResetScreenExit();
   void OnDeviceModificationCanceled();
   void OnSupervisionTransitionScreenExit();
@@ -283,7 +289,7 @@ class WizardController {
   void SetCurrentScreen(BaseScreen* screen);
 
   // Update the status area visibility for |screen|.
-  void UpdateStatusAreaVisibilityForScreen(OobeScreenId screen);
+  void UpdateStatusAreaVisibilityForScreen(OobeScreenId screen_id);
 
   // Launched kiosk app configured for auto-launch.
   void AutoLaunchKioskApp();

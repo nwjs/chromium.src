@@ -34,7 +34,6 @@ namespace cc {
 
 class Animation;
 class AnimationHost;
-class LayerImpl;
 class LayerTreeHost;
 class LayerTreeHostForTesting;
 class LayerTreeTestLayerTreeFrameSinkClient;
@@ -175,6 +174,12 @@ class LayerTreeTest : public testing::Test, public TestHooks {
 
   // By default, output surface recreation is synchronous.
   void RequestNewLayerTreeFrameSink() override;
+  // Override this to modify the TestContextProviders before they are bound
+  // and used. Override CreateLayerTreeFrameSink() instead if the test does not
+  // want to use TestContextProviders.
+  virtual void SetUpUnboundContextProviders(
+      viz::TestContextProvider* context_provider,
+      viz::TestContextProvider* worker_context_provider);
   // Override this and call the base class to change what viz::ContextProviders
   // will be used (such as for pixel tests). Or override it and create your own
   // TestLayerTreeFrameSink to control how it is created.
@@ -192,8 +197,6 @@ class LayerTreeTest : public testing::Test, public TestHooks {
   // pixel tests or a software-compositing OutputSurface.
   std::unique_ptr<viz::OutputSurface> CreateDisplayOutputSurfaceOnThread(
       scoped_refptr<viz::ContextProvider> compositor_context_provider) override;
-
-  gfx::Vector2dF ScrollDelta(LayerImpl* layer_impl);
 
   base::SingleThreadTaskRunner* image_worker_task_runner() const {
     return image_worker_->task_runner().get();

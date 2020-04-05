@@ -5,6 +5,7 @@
 <translation id="1028699632127661925"><ph name="DEVICE_NAME" />에 보내는 중...</translation>
 <translation id="1036727731225946849"><ph name="WEBAPK_NAME" /> 추가 중...</translation>
 <translation id="1041308826830691739">웹사이트 알림</translation>
+<translation id="1044891598689252897">사이트가 정상적으로 작동합니다.</translation>
 <translation id="1049743911850919806">시크릿</translation>
 <translation id="10614374240317010">저장하지 않음</translation>
 <translation id="1067922213147265141">다른 Google 서비스</translation>
@@ -46,8 +47,10 @@
 <translation id="1291207594882862231">방문 기록, 쿠키, 사이트 데이터, 캐시 삭제…</translation>
 <translation id="129382876167171263">웹사이트에서 저장한 파일이 여기에 표시됩니다.</translation>
 <translation id="129553762522093515">최근에 닫은 탭</translation>
+<translation id="1303339473099049190">비밀번호를 찾을 수 없습니다. 철자를 확인하고 다시 시도해 주세요.</translation>
 <translation id="1303507811548703290"><ph name="DOMAIN" /> - <ph name="DEVICE_NAME" />에서 전송</translation>
 <translation id="1310482092992808703">탭 그룹화</translation>
+<translation id="1311657260431405215">이 QR 코드(<ph name="QRCODEVALUE" />)는 URL이 아닙니다.</translation>
 <translation id="1327257854815634930">탐색 기록 열림</translation>
 <translation id="1331212799747679585">Chrome을 업데이트할 수 없습니다. 옵션 더보기</translation>
 <translation id="1332501820983677155">Chrome 기능 단축키</translation>
@@ -68,9 +71,9 @@
 <translation id="1430915738399379752">인쇄</translation>
 <translation id="1446450296470737166">MIDI 기기의 전체 제어 허용</translation>
 <translation id="1450753235335490080"><ph name="CONTENT_TYPE" /> 공유할 수 없음</translation>
-<translation id="145097072038377568">Android 설정에서 사용이 중지됨</translation>
 <translation id="1477626028522505441">서버 문제로 인해 <ph name="FILE_NAME" />을(를) 다운로드할 수 없습니다.</translation>
 <translation id="1506061864768559482">검색엔진</translation>
+<translation id="1509960214886564027">다수의 사이트에서 기능이 작동하지 않을 수 있음</translation>
 <translation id="1513352483775369820">북마크 및 방문 기록</translation>
 <translation id="1513858653616922153">비밀번호 삭제</translation>
 <translation id="1521774566618522728">오늘 사용</translation>
@@ -101,6 +104,7 @@
 <translation id="1782483593938241562">종료일: <ph name="DATE" /></translation>
 <translation id="1791662854739702043">설치됨</translation>
 <translation id="1792959175193046959">언제든지 기본 다운로드 위치 변경 가능</translation>
+<translation id="1795251344124198516">Chrome 및 Chrome OS 추가 서비스 약관</translation>
 <translation id="1807246157184219062">밝게</translation>
 <translation id="1810845389119482123">초기 동기화 설정이 완료되지 않음</translation>
 <translation id="1821253160463689938">페이지를 방문하지 않더라도 쿠키를 사용하여 환경설정 저장</translation>
@@ -110,11 +114,11 @@
 <translation id="1868024384445905608">이제 Chrome에서 파일을 더 빠르게 다운로드합니다.</translation>
 <translation id="1883903952484604915">내 파일</translation>
 <translation id="1887786770086287077">이 기기의 위치 액세스가 사용 중지되었습니다. <ph name="BEGIN_LINK" />Android 설정<ph name="END_LINK" />에서 사용 설정하세요.</translation>
-<translation id="1891331835972267886"><ph name="APP_NAME" />이(가) Chrome에서 열립니다. 계속하면 Chrome의 <ph name="BEGIN_LINK1" />서비스 약관<ph name="END_LINK1" /> 및 <ph name="BEGIN_LINK2" />개인정보처리방침<ph name="END_LINK2" />에 동의하는 것으로 간주됩니다.</translation>
 <translation id="1919345977826869612">광고</translation>
 <translation id="1919950603503897840">연락처 선택</translation>
 <translation id="1922076542920281912">Chrome에서 위치 정보에 액세스하도록 허용하려면 <ph name="BEGIN_LINK" />Android 설정<ph name="END_LINK" />에서도 위치를 사용 설정하세요.</translation>
 <translation id="1923695749281512248"><ph name="BYTES_DOWNLOADED_WITH_UNITS" />/<ph name="FILE_SIZE_WITH_UNITS" /></translation>
+<translation id="1925021887439448749">맞춤 웹 주소 입력</translation>
 <translation id="1928696683969751773">업데이트</translation>
 <translation id="19288952978244135">Chrome을 다시 여세요.</translation>
 <translation id="1933845786846280168">선택된 탭</translation>
@@ -137,6 +141,7 @@
 <translation id="2013642289801508067">{FILE_COUNT,plural, =1{파일 #개}other{파일 #개}}</translation>
 <translation id="2017836877785168846">검색주소창의 검색 기록 및 자동 완성 항목을 삭제합니다.</translation>
 <translation id="2021896219286479412">전체화면 사이트 컨트롤</translation>
+<translation id="2025115093177348061">증강 현실</translation>
 <translation id="2038563949887743358">데스크톱 버전으로 보기 사용 설정</translation>
 <translation id="2041019821020695769">Chrome에서 알림을 전송하도록 허용하려면 <ph name="BEGIN_LINK" />Android 설정<ph name="END_LINK" />에서도 알림을 사용 설정하세요.</translation>
 <translation id="204321170514947529"><ph name="APP_NAME" />도 Chrome에서 데이터를 보유하고 있습니다</translation>
@@ -150,6 +155,9 @@
 <translation id="2100273922101894616">자동 로그인</translation>
 <translation id="2100314319871056947">좀 더 짧은 길이로 텍스트를 줄인 다음 공유해 보세요.</translation>
 <translation id="2107397443965016585">사이트에서 보호된 콘텐츠를 재생하도록 허용하기 전에 확인(권장)</translation>
+<translation id="2109711654079915747">페이지에서 나가지 않고도 웹사이트의 주제에 관해 알아봅니다. 터치하여 검색 기능은 단어와 관련 맥락을 Google 검색으로 전송하여 정의, 사진, 검색결과 등의 세부정보를 제공합니다.
+
+아무 단어나 탭하여 검색해 보세요. 더욱 상세히 검색하려면 길게 터치하여 단어를 더 많이 선택하거나 적게 선택합니다. 검색어를 수정하려면 패널을 열고 아이콘을 탭하여 새 탭에서 연 다음, 검색창 내용을 변경하세요.</translation>
 <translation id="2111511281910874386">페이지로 이동</translation>
 <translation id="2122601567107267586">앱을 열 수 없음</translation>
 <translation id="2126426811489709554">Chrome에서 실행 중</translation>
@@ -162,7 +170,9 @@
 <translation id="2156074688469523661">남은 사이트(<ph name="NUMBER_OF_SITES" />개)</translation>
 <translation id="2157851137955077194">스마트폰에서 다른 기기로 콘텐츠를 공유하려면 두 기기의 Chrome 설정에서 동기화를 사용 설정하세요.</translation>
 <translation id="2175927920773552910">QR 코드</translation>
+<translation id="2182457891543959921">사이트에서 주변 환경의 3D 지도를 생성하거나 카메라 위치를 추적하도록 허용하기 전에 확인(권장)</translation>
 <translation id="218608176142494674">공유</translation>
+<translation id="2212565012507486665">쿠키 허용</translation>
 <translation id="2227444325776770048"><ph name="USER_FULL_NAME" />(으)로 계속</translation>
 <translation id="2234876718134438132">동기화 및 Google 서비스</translation>
 <translation id="2259659629660284697">비밀번호 내보내기...</translation>
@@ -176,6 +186,7 @@
 <translation id="2321958826496381788">편하게 읽을 수 있을 때까지 슬라이더를 드래그하세요. 단락을 두 번 탭하면 텍스트가 이 이상의 크기로 표시됩니다.</translation>
 <translation id="2323763861024343754">사이트 저장공간</translation>
 <translation id="2328985652426384049">로그인할 수 없음</translation>
+<translation id="234265804618409743">카메라를 열 수 없습니다. 문제가 발생했습니다.</translation>
 <translation id="2349710944427398404">계정, 북마크, 저장된 설정 등 Chrome에서 사용한 전체 데이터</translation>
 <translation id="2353636109065292463">인터넷 연결 상태를 확인하세요.</translation>
 <translation id="2359808026110333948">계속</translation>
@@ -186,12 +197,14 @@
 <translation id="2407481962792080328">Google 계정에 로그인하면 이 기능이 사용 설정됩니다.</translation>
 <translation id="2410754283952462441">계정 선택</translation>
 <translation id="2414886740292270097">어둡게</translation>
-<translation id="2416359993254398973">Chrome이 이 사이트에서 카메라에 액세스하려면 권한이 필요합니다.</translation>
 <translation id="2426805022920575512">다른 계정 선택</translation>
 <translation id="2433507940547922241">모양</translation>
 <translation id="2434158240863470628">다운로드 완료: <ph name="SEPARATOR" /> <ph name="BYTES_DOWNLOADED" /></translation>
 <translation id="2440823041667407902">위치 정보 액세스</translation>
 <translation id="2450083983707403292"><ph name="FILE_NAME" />의 다운로드를 다시 시작하시겠습니까?</translation>
+<translation id="2450907520913474542">페이지에서 나가지 않고도 웹사이트의 주제에 관해 알아봅니다. 터치하여 검색 기능은 단어와 관련 맥락을 Google 검색으로 전송하여 정의, 사진, 검색결과 등의 세부정보를 제공합니다.
+
+아무 단어나 길게 터치하여 검색하세요. 더욱 상세히 검색하려면 단어를 더 많이 선택하거나 적게 선택합니다. 검색어를 수정하려면 패널을 열고 아이콘을 탭하여 새 탭에서 연 다음, 검색창 내용을 변경하세요.</translation>
 <translation id="246532703174860178">공유</translation>
 <translation id="2482878487686419369">알림</translation>
 <translation id="2490684707762498678"><ph name="APP_NAME" />에서 관리함</translation>
@@ -212,7 +225,6 @@
 <translation id="2567385386134582609">이미지</translation>
 <translation id="257088987046510401">테마</translation>
 <translation id="2570922361219980984">이 기기의 위치 정보 액세스도 사용 중지되었습니다. <ph name="BEGIN_LINK" />Android 설정<ph name="END_LINK" />에서 사용 설정하세요.</translation>
-<translation id="257931822824936280">펼쳐짐 - 접으려면 클릭</translation>
 <translation id="2581165646603367611">이를 통해 쿠키, 캐시 및 Chrome에서 중요하다고 간주하지 않는 사이트의 기타 데이터가 삭제됩니다.</translation>
 <translation id="2586657967955657006">클립보드</translation>
 <translation id="2587052924345400782">최신 버전 사용 가능</translation>
@@ -224,6 +236,8 @@
 <translation id="2647434099613338025">언어 추가</translation>
 <translation id="2650751991977523696">파일을 다시 다운로드하시겠습니까?</translation>
 <translation id="2651091186440431324">{FILE_COUNT,plural, =1{오디오 파일 #개}other{오디오 파일 #개}}</translation>
+<translation id="2687403674020088961">모든 쿠키 차단(권장되지 않음)</translation>
+<translation id="2689830683995595741">Chrome을 사용하면 <ph name="BEGIN_LINK1" />Google 서비스 약관<ph name="END_LINK1" />과 <ph name="BEGIN_LINK2" />Chrome 및 Chrome OS 추가 서비스 약관<ph name="END_LINK2" />에 동의하는 것으로 간주됩니다. <ph name="BEGIN_LINK3" />Family Link로 관리되는 Google 계정에 관한 개인정보처리방침<ph name="END_LINK3" />도 적용됩니다.</translation>
 <translation id="2707726405694321444">페이지 새로고침</translation>
 <translation id="2709516037105925701">자동 완성</translation>
 <translation id="2717722538473713889">이메일 주소</translation>
@@ -276,11 +290,13 @@
 <translation id="3058498974290601450">언제든지 설정에서 동기화를 사용 설정할 수 있습니다.</translation>
 <translation id="3060635849835183725">{BOOKMARKS_COUNT,plural, =1{북마크 <ph name="BOOKMARKS_COUNT_ONE" />개}other{북마크 <ph name="BOOKMARKS_COUNT_MANY" />개}}</translation>
 <translation id="3089395242580810162">시크릿 탭에서 열기</translation>
+<translation id="3114012059975132928">동영상 플레이어</translation>
 <translation id="3123473560110926937">일부 사이트에서 차단됨</translation>
 <translation id="3123734510202723619">공지사항</translation>
 <translation id="3137521801621304719">시크릿 모드 나가기</translation>
 <translation id="3140134512074889489">카메라에서 QR 코드를 스캔하도록 허용하세요.</translation>
 <translation id="3143515551205905069">동기화 취소</translation>
+<translation id="314939179385989105">Chrome 홈페이지</translation>
 <translation id="3157842584138209013">추가 옵션 버튼에서 저장한 데이터의 양을 확인해보세요.</translation>
 <translation id="3166827708714933426">탭 및 창 단축키</translation>
 <translation id="3181954750937456830">세이프 브라우징(사용자와 사용자의 기기를 위험한 사이트로부터 보호)</translation>
@@ -306,7 +322,6 @@
 <translation id="3298243779924642547">라이트</translation>
 <translation id="3303414029551471755">콘텐츠를 다운로드하시겠습니까?</translation>
 <translation id="3306398118552023113">이 앱은 Chrome에서 실행 중입니다.</translation>
-<translation id="3312292613668865961">사이트에서 가상 현실 기기/데이터에 액세스하도록 허용하기 전에 확인(권장)</translation>
 <translation id="3315103659806849044">현재 동기화 및 Google 서비스 설정을 맞춤설정 중입니다. 동기화 켜기를 마무리하려면 화면 하단 근처에 있는 확인 버튼을 탭하세요. 위로 이동</translation>
 <translation id="3328801116991980348">사이트 정보</translation>
 <translation id="3333961966071413176">모든 연락처</translation>
@@ -315,6 +330,7 @@
 <translation id="3350687908700087792">모든 시크릿 탭 닫기</translation>
 <translation id="3353615205017136254">Google에서 제공하는 라이트 페이지입니다. 원본 페이지를 로드하려면 원본 로드 버튼을 탭하세요.</translation>
 <translation id="3367813778245106622">다시 로그인하여 동기화 시작</translation>
+<translation id="3373979091428520308">이 페이지를 다른 기기로 공유하려면 다른 기기의 Chrome 설정에서 동기화를 사용 설정하세요.</translation>
 <translation id="3374023511497244703">북마크, 방문 기록, 비밀번호 등의 Chrome 데이터가 더 이상 Google 계정과 동기화되지 않습니다.</translation>
 <translation id="3384347053049321195">이미지 공유</translation>
 <translation id="3386292677130313581">사이트에서 내 위치를 파악하도록 허용하기 전에 확인(권장)</translation>
@@ -327,11 +343,13 @@
 <translation id="3478363558367712427">검색엔진을 선택할 수 있습니다.</translation>
 <translation id="3492207499832628349">새 시크릿 탭</translation>
 <translation id="3493531032208478708">추천 콘텐츠 <ph name="BEGIN_LINK" />자세히 알아보기<ph name="END_LINK" /></translation>
+<translation id="3499246418971111862">chrome_qrcode_<ph name="CURRENT_TIMESTAMP_MS" /></translation>
 <translation id="3513704683820682405">증강 현실</translation>
 <translation id="3518985090088779359">동의하고 계속</translation>
 <translation id="3522247891732774234">업데이트할 수 있습니다. 옵션 더보기</translation>
 <translation id="3524138585025253783">개발자 UI</translation>
 <translation id="3527085408025491307">폴더</translation>
+<translation id="3538390592868664640">사이트에서 주변 환경의 3D 지도를 생성하거나 카메라 위치를 추적하지 못하도록 차단</translation>
 <translation id="3542235761944717775"><ph name="KILOBYTES" />KB 사용 가능</translation>
 <translation id="3549657413697417275">방문 기록 검색</translation>
 <translation id="3557336313807607643">주소록에 추가</translation>
@@ -340,6 +358,8 @@
 <translation id="3587482841069643663">전체</translation>
 <translation id="358794129225322306">사이트에서 여러 파일을 자동으로 다운로드하도록 허용합니다.</translation>
 <translation id="3590487821116122040">Chrome에서 중요하다고 간주하지 않는 사이트 저장공간(예: 저장된 설정이 없거나 사용자가 자주 방문하지 않는 사이트)</translation>
+<translation id="3594780231884063836">동영상 음소거</translation>
+<translation id="3596414637720633074">시크릿 모드에서 타사 쿠키 차단</translation>
 <translation id="3599863153486145794">로그인된 모든 기기에서 방문 기록을 지웁니다. Google 계정의 내 활동(<ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" />)에는 인터넷 사용 기록이 다른 형식으로 남아 있을 수도 있습니다.</translation>
 <translation id="3600792891314830896">소리를 재생하는 사이트 음소거</translation>
 <translation id="3616113530831147358">오디오</translation>
@@ -358,6 +378,7 @@
 <translation id="3749259744154402564">지원되지 않음</translation>
 <translation id="3771001275138982843">업데이트를 다운로드할 수 없음</translation>
 <translation id="3771033907050503522">시크릿 탭</translation>
+<translation id="3771694256347217732">Google 서비스 약관</translation>
 <translation id="3773755127849930740"><ph name="BEGIN_LINK" />블루투스를 사용 설정<ph name="END_LINK" />하여 페어링을 허용하세요.</translation>
 <translation id="3775705724665058594">기기로 전송</translation>
 <translation id="3778956594442850293">홈 화면에 추가됨</translation>
@@ -385,6 +406,7 @@
 <translation id="396192773038029076">{NUM_IN_PROGRESS,plural, =1{준비가 완료되면 Chrome에서 페이지를 로드합니다.}other{준비가 완료되면 Chrome에서 페이지를 로드합니다.}}</translation>
 <translation id="3963007978381181125">Google Pay 결제 수단 및 주소는 암호로 암호화되지 않습니다. 암호를 아는 사람만 암호화된 데이터를 읽을 수 있습니다. 암호는 Google로 전송되거나 Google에 저장되지 않습니다. 암호가 기억나지 않거나 이 설정을 변경하려면 동기화를 재설정해야 합니다. <ph name="BEGIN_LINK" />자세히 알아보기<ph name="END_LINK" /></translation>
 <translation id="3967822245660637423">다운로드 완료</translation>
+<translation id="3974987681202239636"><ph name="APP_NAME" /> 앱이 Chrome에서 열립니다. 계속하면 <ph name="BEGIN_LINK1" />Google 서비스 약관<ph name="END_LINK1" />과 <ph name="BEGIN_LINK2" />Chrome 및 Chrome OS 추가 서비스 약관<ph name="END_LINK2" />에 동의하는 것으로 간주됩니다. <ph name="BEGIN_LINK3" />Family Link로 관리되는 Google 계정에 관한 개인정보처리방침<ph name="END_LINK3" />도 적용됩니다.</translation>
 <translation id="397583555483684758">동기화가 중지되었습니다.</translation>
 <translation id="3976396876660209797">이 바로가기 삭제하고 다시 만들기</translation>
 <translation id="3985215325736559418"><ph name="FILE_NAME" /> 파일을 다시 다운로드하시겠습니까?</translation>
@@ -428,6 +450,8 @@
 <translation id="4298388696830689168">연결된 사이트</translation>
 <translation id="4307992518367153382">기본설정</translation>
 <translation id="4314815835985389558">동기화 관리</translation>
+<translation id="4320177379694898372">인터넷에 연결되지 않음</translation>
+<translation id="4321739720395210191">카메라를 열 수 없습니다. 기기를 다시 시작한 후 시도해 보세요.</translation>
 <translation id="4351244548802238354">대화상자 닫기</translation>
 <translation id="4353114845960720315">VR 사용 중 이 사이트가 다음 정보를 학습할 수 있습니다.</translation>
 <translation id="4378154925671717803">전화기</translation>
@@ -455,9 +479,6 @@
 <translation id="4521489764227272523">선택한 데이터가 Chrome 및 동기화된 기기에서 삭제되었습니다.
 
 <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" />에서 검색이나 기타 Google 서비스에서의 활동 등 내 Google 계정에 있는 다른 형식의 탐색 기록을 확인할 수 있습니다.</translation>
-<translation id="4527374721149092498">페이지에서 나가지 않고도 웹사이트에서 주제에 관해 알아봅니다. 터치하여 검색 기능은 단어와 관련 맥락을 Google 검색으로 전송하여 정의, 사진, 검색결과 및 기타 세부정보를 제공합니다.
-
-원하는 단어를 탭하여 검색하세요. 검색어를 조정하려면 길게 눌러 선택합니다. 더욱 상세히 검색하려면 패널을 슬라이드하여 열고 펼치기 아이콘을 탭하여 새 탭을 연 다음 검색창을 탭하세요.</translation>
 <translation id="4532845899244822526">폴더 선택</translation>
 <translation id="4538018662093857852">라이트 모드 켜기</translation>
 <translation id="4550003330909367850">여기에서 비밀번호를 보거나 복사하려면 이 기기에 화면 잠금을 설정하세요.</translation>
@@ -472,11 +493,11 @@
 <translation id="4605958867780575332"><ph name="ITEM_TITLE" /> 삭제됨</translation>
 <translation id="4616150815774728855"><ph name="WEBAPK_NAME" /> 열기</translation>
 <translation id="4634124774493850572">비밀번호 사용</translation>
-<translation id="4645575059429386691">부모님이 관리합니다.</translation>
 <translation id="4650364565596261010">시스템 기본값</translation>
 <translation id="4660838440047236328">방의 구조</translation>
 <translation id="4663756553811254707">북마크 <ph name="NUMBER_OF_BOOKMARKS" />개 삭제됨</translation>
 <translation id="4665282149850138822"><ph name="NAME" />이(가) 홈 화면에 추가됨</translation>
+<translation id="4670064810192446073">가상 현실</translation>
 <translation id="4684427112815847243">모두 동기화</translation>
 <translation id="4695891336199304370">{SHIPPING_OPTIONS,plural, =1{<ph name="SHIPPING_OPTION_PREVIEW" /> 외 <ph name="NUMBER_OF_ADDITIONAL_SHIPPING_OPTIONS" />개}other{<ph name="SHIPPING_OPTION_PREVIEW" /> 외 <ph name="NUMBER_OF_ADDITIONAL_SHIPPING_OPTIONS" />개}}</translation>
 <translation id="4696983787092045100">기기로 SMS 전송</translation>
@@ -510,15 +531,14 @@
 <translation id="4881695831933465202">열기</translation>
 <translation id="488187801263602086">파일 이름 변경</translation>
 <translation id="4882831918239250449">검색, 광고 등을 맞춤설정하는 데 인터넷 방문 기록이 사용되는 방식 관리</translation>
-<translation id="4883854917563148705">관리 설정은 재설정할 수 없습니다.</translation>
 <translation id="4885273946141277891">지원되지 않는 Chrome 인스턴스 수입니다.</translation>
+<translation id="4887024562049524730">사이트에서 내 가상 현실 기기 및 데이터를 사용하도록 허용하기 전에 확인(권장)</translation>
 <translation id="4910889077668685004">결제 앱</translation>
 <translation id="4913161338056004800">통계 재설정</translation>
 <translation id="4913169188695071480">새로고침 중지</translation>
 <translation id="4915549754973153784">기기를 검색할 때 <ph name="BEGIN_LINK" />도움말 보기<ph name="END_LINK" />...</translation>
 <translation id="4921180162323349895">{FILE_COUNT,plural, =1{#페이지}other{#페이지}}</translation>
 <translation id="4932247056774066048"><ph name="DOMAIN_NAME" />이(가) 관리하는 계정에서 로그아웃하면 Chrome 데이터가 이 기기에서 삭제됩니다. Google 계정에서는 데이터가 삭제되지 않습니다.</translation>
-<translation id="4935305910887312910">사이트에서 카메라 위치를 확인하거나 실내를 매핑하도록 허용하기 전에 확인(권장)</translation>
 <translation id="4943703118917034429">가상 현실</translation>
 <translation id="4943872375798546930">검색결과가 없습니다.</translation>
 <translation id="4958708863221495346"><ph name="URL_OF_THE_CURRENT_TAB" />에서 내 화면을 공유하는 중입니다.</translation>
@@ -540,7 +560,6 @@
 <translation id="5048398596102334565">사이트의 움직임 감지 센서 액세스 허용(권장)</translation>
 <translation id="5063480226653192405">사용</translation>
 <translation id="5087580092889165836">카드 추가</translation>
-<translation id="5100237604440890931">접힘 - 펼치려면 클릭</translation>
 <translation id="510275257476243843">1시간 남음</translation>
 <translation id="5123685120097942451">시크릿 탭</translation>
 <translation id="5127805178023152808">동기화 사용 안함</translation>
@@ -576,9 +595,7 @@
 <translation id="534295439873310000">NFC 기기</translation>
 <translation id="5357811892247919462">탭 수신함</translation>
 <translation id="5368958499335451666">{OPEN_TABS,plural, =1{열려 있는 탭 <ph name="OPEN_TABS_ONE" />개, 탭 간에 전환하려면 탭하세요.}other{열려 있는 탭 <ph name="OPEN_TABS_MANY" />개, 탭 간에 전환하려면 탭하세요.}}</translation>
-<translation id="5391532827096253100">이 사이트와의 연결은 안전하지 않습니다. 사이트 정보</translation>
 <translation id="5394307150471348411">{DETAIL_COUNT,plural, =1{(외 1개)}other{(외 #개)}}</translation>
-<translation id="5400569084694353794">이 애플리케이션을 사용하면 Chrome의 <ph name="BEGIN_LINK1" />서비스 약관<ph name="END_LINK1" />과 <ph name="BEGIN_LINK2" />개인정보처리방침<ph name="END_LINK2" />에 동의하게 됩니다.</translation>
 <translation id="5403592356182871684">이름</translation>
 <translation id="5403644198645076998">특정 사이트만 허용</translation>
 <translation id="5414836363063783498">확인 중...</translation>
@@ -594,6 +611,7 @@
 <translation id="5456381639095306749">다운로드 페이지</translation>
 <translation id="548278423535722844">지도 앱에서 열기</translation>
 <translation id="5487521232677179737">인터넷 사용 기록 삭제</translation>
+<translation id="5489227211564503167"><ph name="TOTAL_TIME" /> 중 <ph name="ELAPSED_TIME" /> 경과</translation>
 <translation id="5494752089476963479">방해가 되거나 사용자를 현혹하는 광고를 표시하는 사이트의 광고 차단</translation>
 <translation id="5500777121964041360">현재 지역에서는 지원되지 않을 수도 있습니다.</translation>
 <translation id="5505264765875738116">사이트에서 알림 전송 허용을 요청할 수 없음</translation>
@@ -608,7 +626,6 @@
 <translation id="5530766185686772672">시크릿 탭 닫기</translation>
 <translation id="5534640966246046842">사이트 복사됨</translation>
 <translation id="5561549206367097665">네트워크 대기 중…</translation>
-<translation id="557283862590186398">Chrome이 이 사이트에서 마이크에 액세스하려면 권한이 필요합니다.</translation>
 <translation id="55737423895878184">위치 및 알림이 허용되었습니다</translation>
 <translation id="5578795271662203820"><ph name="SEARCH_ENGINE" />에서 이 이미지 검색</translation>
 <translation id="5581519193887989363">언제든지 <ph name="BEGIN_LINK1" />설정<ph name="END_LINK1" />에서 동기화할 항목을 선택할 수 있습니다.</translation>
@@ -649,12 +666,12 @@
 <translation id="5853623416121554550">일시중지</translation>
 <translation id="5854790677617711513">30일 이상 전</translation>
 <translation id="5858741533101922242">Chrome에서 블루투스 어댑터를 사용 설정할 수 없습니다.</translation>
-<translation id="5860491529813859533">사용</translation>
 <translation id="5862731021271217234">다른 기기에서 탭을 가져오려면 동기화를 사용 설정하세요.</translation>
 <translation id="5864174910718532887">세부정보: 사이트 이름별로 정렬</translation>
 <translation id="5864419784173784555">다른 다운로드 대기 중…</translation>
 <translation id="5865733239029070421">사용 통계 및 비정상 종료 보고서를 Google로 자동 전송</translation>
 <translation id="5869522115854928033">저장된 비밀번호</translation>
+<translation id="5876056640971328065">동영상 일시중지</translation>
 <translation id="5884076754568147479">작업 처리를 돕기 위해 내가 어시스턴트를 통해 제출한 정보뿐만 아니라 어시스턴트를 이용한 사이트의 URL과 콘텐츠가 Google에 전송됩니다.</translation>
 <translation id="5902828464777634901">쿠키를 포함하여 이 웹사이트에 의해 저장된 모든 로컬 데이터가 삭제됩니다.</translation>
 <translation id="5919204609460789179"><ph name="PRODUCT_NAME" />을(를) 업데이트하여 동기화를 시작합니다.</translation>
@@ -665,6 +682,7 @@
 <translation id="5956665950594638604">새 탭에서 Chrome 고객센터 열기</translation>
 <translation id="5958275228015807058">다운로드에서 파일 및 페이지를 찾아보세요.</translation>
 <translation id="5962718611393537961">탭하여 접기</translation>
+<translation id="5964805880140440652">이 페이지를 다른 기기로 공유하려면 Chrome 설정에서 동기화를 사용 설정하세요.</translation>
 <translation id="6000066717592683814">계속 Google 사용</translation>
 <translation id="6005538289190791541">추천 비밀번호</translation>
 <translation id="6036057147555329831">추가 ICU</translation>
@@ -674,8 +692,6 @@
 <translation id="604996488070107836">알 수 없는 오류로 인해 <ph name="FILE_NAME" /> 다운로드에 실패했습니다.</translation>
 <translation id="605721222689873409">YY</translation>
 <translation id="6064125863973209585">다운로드 완료</translation>
-<translation id="6075798973483050474">홈 페이지 수정</translation>
-<translation id="6092062101542170135">계속하려면 Android 설정에서 NFC를 사용 설정하세요.</translation>
 <translation id="60923314841986378"><ph name="HOURS" />시간 남음</translation>
 <translation id="6108923351542677676">설정 진행 중...</translation>
 <translation id="6111020039983847643">데이터 사용됨</translation>
@@ -692,21 +708,19 @@
 <translation id="6194112207524046168">Chrome에서 카메라에 액세스하도록 허용하려면 <ph name="BEGIN_LINK" />Android 설정<ph name="END_LINK" />에서도 카메라를 사용 설정하세요.</translation>
 <translation id="6196640612572343990">타사 쿠키 차단</translation>
 <translation id="6201345951596836663">링크 복사됨</translation>
-<translation id="6206551242102657620">이 사이트와의 연결은 안전합니다. 사이트 정보</translation>
 <translation id="6210748933810148297"><ph name="EMAIL" />이(가) 아닌가요?</translation>
 <translation id="6221633008163990886">비밀번호를 내보내려면 잠금 해제하세요</translation>
 <translation id="6232535412751077445">‘추적 안함’을 사용하도록 설정하면 요청이 사용자의 인터넷 사용 트래픽에 포함됩니다. 웹사이트가 요청에 응답하는지 여부와 요청이 해석되는 방법에 따라 결과가 결정됩니다.
 
 예를 들어 어떤 웹사이트는 사용자가 방문한 다른 웹사이트를 기반으로 하지 않는 광고를 표시하여 이 요청에 응답할 수 있습니다. 그러나 대부분의 웹사이트에서는 보안을 개선하거나 웹사이트에 콘텐츠, 광고, 권장사항 등을 제공하거나 보고서 통계를 생성하기 위해 사용자의 인터넷 사용 기록을 계속 수집하고 사용합니다.</translation>
-<translation id="6238003486329291387">페이지에서 나가지 않고도 웹사이트에서 주제에 관해 알아봅니다. 터치하여 검색 기능은 단어와 관련 맥락을 Google 검색으로 전송하여 정의, 사진, 검색결과 및 기타 세부정보를 제공합니다.
-
-원하는 단어를 길게 눌러 검색하세요. 더욱 상세히 검색하려면 선택 영역을 조정합니다. 패널을 슬라이드하여 열고 펼치기 아이콘을 탭하여 새 탭을 연 다음 검색창을 탭해도 됩니다.</translation>
 <translation id="624789221780392884">업데이트 준비 완료</translation>
 <translation id="6255999984061454636">콘텐츠 추천</translation>
 <translation id="6270391203985052864">사이트에서 알림 전송 허용을 요청할 수 있음</translation>
 <translation id="6277522088822131679">페이지를 인쇄하는 중에 문제가 발생했습니다. 다시 시도해 주세요.</translation>
+<translation id="6292420053234093573">Chrome을 사용하면 <ph name="BEGIN_LINK1" />Google 서비스 약관<ph name="END_LINK1" />과 <ph name="BEGIN_LINK2" />Chrome 및 Chrome OS 추가 서비스 약관<ph name="END_LINK2" />에 동의하는 것으로 간주됩니다.</translation>
 <translation id="6295158916970320988">모든 사이트</translation>
 <translation id="629730747756840877">계정</translation>
+<translation id="6297765934698848803">내 기기를 관리하는 조직에서 카메라를 사용 중지했습니다.</translation>
 <translation id="6303969859164067831">로그아웃하고 동기화 사용 중지</translation>
 <translation id="6316139424528454185">지원되지 않는 Android 버전입니다.</translation>
 <translation id="6320088164292336938">진동</translation>
@@ -718,10 +732,11 @@
 <translation id="6364438453358674297">기록에서 제안을 삭제하시겠습니까?</translation>
 <translation id="6369229450655021117">여기에서 웹을 검색하고, 친구와 공유하고, 열린 페이지를 볼 수 있습니다.</translation>
 <translation id="6378173571450987352">세부정보: 사용된 데이터 양에 따라 정렬</translation>
+<translation id="6379829913050047669"><ph name="APP_NAME" /> 앱이 Chrome에서 열립니다. 계속하면 <ph name="BEGIN_LINK1" />Google 서비스 약관<ph name="END_LINK1" />과 <ph name="BEGIN_LINK2" />Chrome 및 Chrome OS 추가 서비스 약관<ph name="END_LINK2" />에 동의하는 것으로 간주됩니다.</translation>
 <translation id="6381421346744604172">웹사이트 어둡게 보기</translation>
 <translation id="6388207532828177975">삭제 및 재설정</translation>
-<translation id="6393863479814692971">Chrome이 이 사이트에서 카메라와 마이크에 액세스하려면 권한이 필요합니다.</translation>
 <translation id="6395288395575013217">링크</translation>
+<translation id="6397616442223433927">인터넷에 다시 연결됨</translation>
 <translation id="6404511346730675251">북마크 수정</translation>
 <translation id="6406506848690869874">동기화</translation>
 <translation id="6410973561433500075"><ph name="DOMAIN" />에서 AR을 시작하시겠습니까?</translation>
@@ -730,8 +745,10 @@
 <translation id="6427112570124116297">웹 번역</translation>
 <translation id="6433501201775827830">검색엔진 선택</translation>
 <translation id="6437478888915024427">페이지 정보</translation>
+<translation id="6439114592976064011">사이트에서 내 가상 현실 기기 및 데이터를 사용하지 못하도록 차단</translation>
 <translation id="6441734959916820584">이름이 너무 깁니다.</translation>
 <translation id="6444421004082850253">{FILE_COUNT,plural, =1{이미지 #개}other{이미지 #개}}</translation>
+<translation id="6447558397796644647">북마크를 찾을 수 없습니다. 철자를 확인하거나 새로운 북마크를 추가하세요.</translation>
 <translation id="6447842834002726250">쿠키</translation>
 <translation id="6461962085415701688">파일을 열 수 없습니다</translation>
 <translation id="6464977750820128603">Chrome에서 내가 방문한 사이트를 보고 사이트에 타이머를 설정할 수 있습니다.\n\nGoogle에서는 타이머가 설정된 사이트와 사이트 방문 시간 정보를 수집합니다. 이 정보는 디지털 웰빙을 개선하는 데 사용됩니다.</translation>
@@ -771,7 +788,6 @@
 <translation id="6676840375528380067">기기에서 Chrome 데이터를 삭제하시겠습니까?</translation>
 <translation id="6689172468748959065">프로필 사진</translation>
 <translation id="6697492270171225480">페이지를 찾을 수 없을 때 비슷한 페이지 제안 표시</translation>
-<translation id="6697947395630195233">Chrome이 이 사이트와 위치를 공유하려면 내 위치에 액세스하도록 허용해야 합니다.</translation>
 <translation id="6698801883190606802">동기화된 데이터 관리</translation>
 <translation id="6699370405921460408">Google 서버에서 내가 방문하는 페이지를 최적화합니다.</translation>
 <translation id="6710213216561001401">이전</translation>
@@ -789,6 +805,7 @@
 <translation id="6846298663435243399">로드 중...</translation>
 <translation id="6850409657436465440">아직 다운로드 중</translation>
 <translation id="6850830437481525139">탭 <ph name="TAB_COUNT" />개를 닫았습니다.</translation>
+<translation id="6864395892908308021">기기에서 NFC를 읽을 수 없음</translation>
 <translation id="6864459304226931083">이미지 다운로드</translation>
 <translation id="6865313869410766144">양식 데이터 자동 완성</translation>
 <translation id="6884306546558072722">오프라인에서 계속 탐색</translation>
@@ -799,7 +816,6 @@
 <translation id="6914783257214138813">내보낸 파일을 볼 수 있는 모든 사용자에게 비밀번호가 표시됩니다.</translation>
 <translation id="6942665639005891494">언제든지 설정 메뉴 옵션으로 기본 다운로드 위치 변경 가능</translation>
 <translation id="6945221475159498467">선택</translation>
-<translation id="6963642900430330478">이 페이지는 위험합니다. 사이트 정보</translation>
 <translation id="6963766334940102469">북마크 삭제</translation>
 <translation id="6979737339423435258">전체 기간</translation>
 <translation id="6981982820502123353">접근성</translation>
@@ -807,6 +823,7 @@
 <translation id="6990079615885386641">Google Play 스토어에서 앱 다운로드: <ph name="APP_ACTION" /></translation>
 <translation id="6992289844737586249">사이트에서 마이크를 사용하기 전에 확인(권장)</translation>
 <translation id="6995899638241819463">데이터 유출로 인해 비밀번호가 노출된 경우 알림</translation>
+<translation id="7000754031042624318">Android 설정에서 사용 중지됨</translation>
 <translation id="7015203776128479407">초기 동기화 설정이 완료되지 않았습니다. 동기화가 사용 중지되었습니다.</translation>
 <translation id="7016516562562142042">현재 검색엔진에 허용됨</translation>
 <translation id="7022756207310403729">브라우저에서 열기</translation>
@@ -823,6 +840,7 @@
 <translation id="7141896414559753902">사이트에서 팝업 및 리디렉션을 표시하지 못하도록 차단(권장)</translation>
 <translation id="7149158118503947153"><ph name="DOMAIN_NAME" />에서 <ph name="BEGIN_LINK" />원본 페이지 로드<ph name="END_LINK" />하기</translation>
 <translation id="7149893636342594995">지난 24시간</translation>
+<translation id="7173114856073700355">설정 열기</translation>
 <translation id="7176368934862295254"><ph name="KILOBYTES" />KB</translation>
 <translation id="7177466738963138057">나중에 설정에서 변경 가능</translation>
 <translation id="7180611975245234373">새로고침</translation>
@@ -908,6 +926,8 @@
 <translation id="780301667611848630">아니요, 괜찮습니다.</translation>
 <translation id="7810647596859435254">연결 프로그램...</translation>
 <translation id="7821588508402923572">절약한 데이터 양이 여기에 표시됩니다</translation>
+<translation id="7828557259026017104">쿠키는 방문한 웹사이트에서 생성된 파일로, 사이트에서 사용자의 설정을 기억하기 위해 사용합니다. 타사 쿠키는 다른 사이트, 즉 광고나 이미지 등 방문하는 웹페이지에 표시되는 일부 콘텐츠를 소유하는 사이트에 의해 생성됩니다.</translation>
+<translation id="783819812427904514">동영상 음소거 해제</translation>
 <translation id="784934925303690534">기간</translation>
 <translation id="7851858861565204677">다른 기기</translation>
 <translation id="7875915731392087153">이메일 만들기</translation>
@@ -920,12 +940,13 @@
 <translation id="7942131818088350342"><ph name="PRODUCT_NAME" />이(가) 이전 버전입니다.</translation>
 <translation id="7947953824732555851">수락 및 로그인</translation>
 <translation id="7963646190083259054">공급업체:</translation>
+<translation id="7967911570373677897">QR 코드를 스캔하려면 Chrome에서 카메라를 사용할 수 있도록 설정을 변경하세요.</translation>
 <translation id="7971136598759319605">1일 전 동기화됨</translation>
 <translation id="7975379999046275268">페이지 미리보기 표시 <ph name="BEGIN_NEW" />새로운 기능<ph name="END_NEW" /></translation>
 <translation id="7981313251711023384">더 빠른 인터넷 사용과 검색을 위해 페이지 미리 로드</translation>
 <translation id="79859296434321399">증강 현실 콘텐츠를 보려면 ARCore를 설치하세요.</translation>
 <translation id="7986741934819883144">연락처 선택</translation>
-<translation id="7987073022710626672">Chrome 서비스 약관</translation>
+<translation id="7993619969781047893">일부 사이트에서는 기능이 작동하지 않을 수 있음</translation>
 <translation id="7998918019931843664">닫은 탭 다시 열기</translation>
 <translation id="7999064672810608036">쿠키를 포함하여 이 웹사이트의 모든 로컬 데이터를 삭제하고 모든 권한을 재설정하시겠습니까?</translation>
 <translation id="8004582292198964060">브라우저</translation>
@@ -965,6 +986,7 @@
 <translation id="8218622182176210845">계정 관리</translation>
 <translation id="8224471946457685718">Wi-Fi로 추천 기사 다운로드</translation>
 <translation id="8232956427053453090">데이터 보관</translation>
+<translation id="8233540874193135768">QR 코드를 스캔하려면 카메라가 있는 기기를 사용하세요.</translation>
 <translation id="8250920743982581267">문서</translation>
 <translation id="825412236959742607">페이지에서 너무 많은 메모리를 사용하므로 Chrome에서 일부 콘텐츠를 삭제했습니다.</translation>
 <translation id="8260126382462817229">다시 로그인해 주세요.</translation>
@@ -981,7 +1003,6 @@
 <translation id="8364299278605033898">인기 웹사이트 보기</translation>
 <translation id="8368027906805972958">알 수 없거나 지원되지 않는 기기(<ph name="DEVICE_ID" />)</translation>
 <translation id="8372893542064058268">특정 사이트에서 백그라운드 동기화를 허용합니다.</translation>
-<translation id="8378714024927312812">조직에서 관리</translation>
 <translation id="8380167699614421159">이 사이트에서는 방해가 되거나 사용자를 현혹하는 광고를 표시합니다.</translation>
 <translation id="8393700583063109961">메시지 보내기</translation>
 <translation id="8413126021676339697">방문 기록 전체 보기</translation>
@@ -1025,9 +1046,7 @@
 <translation id="8664979001105139458">이미 존재하는 이름입니다.</translation>
 <translation id="8687353297350450808">{N_BARS,plural, =1{신호 강도: 막대 #개}other{신호 강도: 막대 #개}}</translation>
 <translation id="868929229000858085">연락처 검색</translation>
-<translation id="8698438463325761328">사이트에서 가상 현실 기기 및 데이터에 액세스하지 못하도록 차단</translation>
 <translation id="869891660844655955">유효기간</translation>
-<translation id="8728487861892616501">이 애플리케이션을 사용하면 Chrome의 <ph name="BEGIN_LINK1" />서비스 약관<ph name="END_LINK1" />, <ph name="BEGIN_LINK2" />개인정보처리방침<ph name="END_LINK2" />, <ph name="BEGIN_LINK3" />Family Link로 관리되는 Google 계정용 개인정보처리방침<ph name="END_LINK3" />에 동의하게 됩니다.</translation>
 <translation id="8748850008226585750">숨겨진 콘텐츠</translation>
 <translation id="8751914237388039244">이미지 선택</translation>
 <translation id="8758557275681689734">열려 있는 탭 모두 보기</translation>
@@ -1036,17 +1055,14 @@
 <translation id="8801436777607969138">특정 사이트의 자바스크립트를 차단합니다.</translation>
 <translation id="8812260976093120287">일부 웹사이트에서는 위의 결제 앱을 사용하여 내 기기에서 결제할 수 있습니다.</translation>
 <translation id="8816026460808729765">사이트에서 센서에 액세스하지 못하도록 차단</translation>
-<translation id="8816439037877937734"><ph name="APP_NAME" />이(가) Chrome에서 열립니다. 계속하면 Chrome의 <ph name="BEGIN_LINK1" />서비스 약관<ph name="END_LINK1" />, <ph name="BEGIN_LINK2" />개인정보처리방침<ph name="END_LINK2" /> 및 <ph name="BEGIN_LINK3" />Family Link로 관리되는 Google 계정용 개인정보처리방침<ph name="END_LINK3" />에 동의하는 것으로 간주됩니다.</translation>
 <translation id="8820817407110198400">북마크</translation>
 <translation id="8833831881926404480">사이트에서 화면을 공유하는 중입니다.</translation>
 <translation id="883806473910249246">콘텐츠를 다운로드하는 중에 오류가 발생했습니다.</translation>
 <translation id="8840953339110955557">이 페이지는 온라인 버전과 다를 수 있습니다.</translation>
 <translation id="8847988622838149491">USB</translation>
-<translation id="884828189055900810">사이트에서 카메라 위치를 확인하거나 실내를 매핑하지 못하도록 차단</translation>
 <translation id="8853345339104747198"><ph name="TAB_TITLE" />, 탭</translation>
 <translation id="885701979325669005">저장소</translation>
 <translation id="889338405075704026">Chrome 설정으로 이동</translation>
-<translation id="8901170036886848654">북마크가 없습니다.</translation>
 <translation id="8909135823018751308">공유…</translation>
 <translation id="8912362522468806198">Google 계정</translation>
 <translation id="8920114477895755567">부모님의 세부정보를 기다리는 중</translation>
@@ -1062,9 +1078,9 @@
 <translation id="8965591936373831584">보류 중</translation>
 <translation id="8970887620466824814">문제 발생</translation>
 <translation id="8972098258593396643">기본 폴더에 다운로드하시겠습니까?</translation>
+<translation id="8988028529677883095">휴대전화를 보안 키로 사용</translation>
 <translation id="8993760627012879038">시크릿 모드로 새 탭 열기</translation>
 <translation id="8998729206196772491"><ph name="MANAGED_DOMAIN" />에서 관리하는 계정으로 로그인합니다. 계정 관리자가 내 Chrome 데이터를 관리하게 되며 데이터는 이 계정에 영구적으로 연결됩니다. Chrome에서 로그아웃하면 데이터가 이 기기에서 삭제되지만 Google 계정에는 그대로 유지됩니다.</translation>
-<translation id="9019902583201351841">부모님이 관리합니다.</translation>
 <translation id="9028914725102941583">동기화를 사용 설정하여 기기간 공유하기</translation>
 <translation id="9040142327097499898">알림이 허용되었습니다. 이 기기에서 위치가 사용 중지되었습니다.</translation>
 <translation id="9041669420854607037">{FILE_COUNT,plural, =1{동영상 #개}other{동영상 #개}}</translation>
@@ -1073,6 +1089,7 @@
 <translation id="9065203028668620118">수정</translation>
 <translation id="9070377983101773829">음성 검색 시작</translation>
 <translation id="9074336505530349563">Google에서 추천하는 맞춤 콘텐츠를 보려면 로그인하고 동기화를 사용 설정하세요.</translation>
+<translation id="9086302186042011942">동기화 중</translation>
 <translation id="9086455579313502267">네트워크에 액세스할 수 없습니다.</translation>
 <translation id="9100505651305367705">지원되는 경우 간단히 보기로 기사를 표시하는 기능 제공</translation>
 <translation id="9100610230175265781">암호를 입력해야 합니다.</translation>

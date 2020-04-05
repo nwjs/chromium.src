@@ -37,7 +37,6 @@
 #include "media/gpu/v4l2/v4l2_image_processor_backend.h"
 #include "media/gpu/v4l2/v4l2_stateful_workaround.h"
 #include "media/gpu/v4l2/v4l2_vda_helpers.h"
-#include "media/video/h264_parser.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/native_pixmap_handle.h"
 #include "ui/gl/gl_context.h"
@@ -144,14 +143,12 @@ V4L2VideoDecodeAccelerator::V4L2VideoDecodeAccelerator(
       decoder_cmd_supported_(false),
       flush_awaiting_last_output_buffer_(false),
       reset_pending_(false),
-      decoder_partial_frame_pending_(false),
       output_dpb_size_(0),
       picture_clearing_count_(0),
       device_poll_thread_("V4L2DevicePollThread"),
       egl_display_(egl_display),
       get_gl_context_cb_(get_gl_context_cb),
       make_context_current_cb_(make_context_current_cb),
-      video_profile_(VIDEO_CODEC_PROFILE_UNKNOWN),
       input_format_fourcc_(0),
       weak_this_factory_(this) {
   weak_this_ = weak_this_factory_.GetWeakPtr();
@@ -195,8 +192,6 @@ bool V4L2VideoDecodeAccelerator::Initialize(const Config& config,
     DCHECK(!decode_client_);
     decode_client_ = client_;
   }
-
-  video_profile_ = config.profile;
 
   // We need the context to be initialized to query extensions.
   if (make_context_current_cb_) {
@@ -260,8 +255,12 @@ void V4L2VideoDecodeAccelerator::InitializeTask(const Config& config,
   if (!config_result)
     return;
 
-  if (video_profile_ >= H264PROFILE_MIN && video_profile_ <= H264PROFILE_MAX) {
-    decoder_h264_parser_.reset(new H264Parser());
+  frame_splitter_ =
+      v4l2_vda_helpers::InputBufferFragmentSplitter::CreateFromProfile(
+          config.profile);
+  if (!frame_splitter_) {
+    NOTIFY_ERROR(INVALID_ARGUMENT);
+    return;
   }
 
   base::trace_event::MemoryDumpManager::GetInstance()->RegisterDumpProvider(
@@ -288,7 +287,7 @@ bool V4L2VideoDecodeAccelerator::CheckConfig(const Config& config) {
   DCHECK(decoder_thread_.task_runner()->BelongsToCurrentThread());
 
   input_format_fourcc_ =
-      V4L2Device::VideoCodecProfileToV4L2PixFmt(video_profile_, false);
+      V4L2Device::VideoCodecProfileToV4L2PixFmt(config.profile, false);
 
   if (!input_format_fourcc_ ||
       !device_->Open(V4L2Device::Type::kDecoder, input_format_fourcc_)) {
@@ -467,6 +466,7 @@ void V4L2VideoDecodeAccelerator::AssignPictureBuffersTask(
 }
 
 void V4L2VideoDecodeAccelerator::CreateEGLImageFor(
+    scoped_refptr<V4L2Device> egl_device,
     size_t buffer_index,
     int32_t picture_buffer_id,
     gfx::NativePixmapHandle handle,
@@ -492,8 +492,6 @@ void V4L2VideoDecodeAccelerator::CreateEGLImageFor(
 
   gl::ScopedTextureBinder bind_restore(GL_TEXTURE_EXTERNAL_OES, 0);
 
-  V4L2Device* egl_device =
-      image_processor_device_ ? image_processor_device_.get() : device_.get();
   EGLImageKHR egl_image = egl_device->CreateEGLImage(
       egl_display_, gl_context->GetHandle(), texture_id, visible_size,
       buffer_index, fourcc, std::move(handle));
@@ -675,17 +673,9 @@ void V4L2VideoDecodeAccelerator::ImportBufferForPictureTask(
   if (output_mode_ == Config::OutputMode::IMPORT) {
     DCHECK_GT(handle.planes.size(), 0u);
     DCHECK(!iter->output_frame);
-
-    auto layout = VideoFrameLayout::Create(
-        egl_image_format_fourcc_->ToVideoPixelFormat(), egl_image_size_);
-    if (!layout) {
-      LOG(ERROR) << "Cannot create layout!";
-      NOTIFY_ERROR(INVALID_ARGUMENT);
-      return;
-    }
-
     // Duplicate the buffer FDs for the VideoFrame instance.
     std::vector<base::ScopedFD> duped_fds;
+    std::vector<ColorPlaneLayout> color_planes;
     for (const gfx::NativePixmapPlane& plane : handle.planes) {
       duped_fds.emplace_back(HANDLE_EINTR(dup(plane.fd.get())));
       if (!duped_fds.back().is_valid()) {
@@ -693,6 +683,18 @@ void V4L2VideoDecodeAccelerator::ImportBufferForPictureTask(
         NOTIFY_ERROR(PLATFORM_FAILURE);
         return;
       }
+      color_planes.push_back(
+          ColorPlaneLayout(base::checked_cast<int32_t>(plane.stride),
+                           base::checked_cast<size_t>(plane.offset),
+                           base::checked_cast<size_t>(plane.size)));
+    }
+    auto layout = VideoFrameLayout::CreateWithPlanes(
+        egl_image_format_fourcc_->ToVideoPixelFormat(), egl_image_size_,
+        std::move(color_planes));
+    if (!layout) {
+      LOG(ERROR) << "Cannot create layout!";
+      NOTIFY_ERROR(INVALID_ARGUMENT);
+      return;
     }
 
     iter->output_frame = VideoFrame::WrapExternalDmabufs(
@@ -719,7 +721,7 @@ void V4L2VideoDecodeAccelerator::ImportBufferForPictureTask(
       child_task_runner_->PostTask(
           FROM_HERE,
           base::BindOnce(&V4L2VideoDecodeAccelerator::CreateEGLImageFor,
-                         weak_this_, index, picture_buffer_id,
+                         weak_this_, device_, index, picture_buffer_id,
                          std::move(handle), iter->texture_id, visible_size_,
                          *egl_image_format_fourcc_));
 
@@ -921,7 +923,6 @@ void V4L2VideoDecodeAccelerator::DecodeBufferTask() {
 
     if (schedule_task && AppendToInputFrame(NULL, 0) && FlushInputFrame()) {
       VLOGF(2) << "enqueued flush buffer";
-      decoder_partial_frame_pending_ = false;
       schedule_task = true;
     } else {
       // If we failed to enqueue the empty buffer (due to pipeline
@@ -941,7 +942,18 @@ void V4L2VideoDecodeAccelerator::DecodeBufferTask() {
         buffer->data() + decoder_current_bitstream_buffer_->bytes_used;
     const size_t data_size =
         buffer->data_size() - decoder_current_bitstream_buffer_->bytes_used;
-    if (!AdvanceFrameFragment(data, data_size, &decoded_size)) {
+
+    for (auto& workaround : workarounds_) {
+      auto result = workaround->Apply(data, data_size);
+      if (result == V4L2StatefulWorkaround::Result::NotifyError) {
+        LOG(ERROR) << "Failed applying a workaround";
+        NOTIFY_ERROR(PLATFORM_FAILURE);
+        return;
+      }
+    }
+
+    if (!frame_splitter_->AdvanceFrameFragment(data, data_size,
+                                               &decoded_size)) {
       LOG(ERROR) << "Invalid Stream";
       NOTIFY_ERROR(UNREADABLE_INPUT);
       return;
@@ -982,103 +994,6 @@ void V4L2VideoDecodeAccelerator::DecodeBufferTask() {
   }
 }
 
-bool V4L2VideoDecodeAccelerator::AdvanceFrameFragment(const uint8_t* data,
-                                                      size_t size,
-                                                      size_t* endpos) {
-  DCHECK(decoder_thread_.task_runner()->BelongsToCurrentThread());
-
-  for (auto& workaround : workarounds_) {
-    auto result = workaround->Apply(data, size, endpos);
-    if (result == V4L2StatefulWorkaround::Result::NotifyError) {
-      LOG(ERROR) << "Failed doing a workaround";
-      NOTIFY_ERROR(PLATFORM_FAILURE);
-      return false;
-    }
-  }
-
-  if (video_profile_ >= H264PROFILE_MIN && video_profile_ <= H264PROFILE_MAX) {
-    // For H264, we need to feed HW one frame at a time.  This is going to take
-    // some parsing of our input stream.
-    decoder_h264_parser_->SetStream(data, size);
-    H264NALU nalu;
-    H264Parser::Result result;
-    *endpos = 0;
-
-    // Keep on peeking the next NALs while they don't indicate a frame
-    // boundary.
-    for (;;) {
-      bool end_of_frame = false;
-      result = decoder_h264_parser_->AdvanceToNextNALU(&nalu);
-      if (result == H264Parser::kInvalidStream ||
-          result == H264Parser::kUnsupportedStream)
-        return false;
-      if (result == H264Parser::kEOStream) {
-        // We've reached the end of the buffer before finding a frame boundary.
-        decoder_partial_frame_pending_ = true;
-        *endpos = size;
-        return true;
-      }
-      switch (nalu.nal_unit_type) {
-        case H264NALU::kNonIDRSlice:
-        case H264NALU::kIDRSlice:
-          if (nalu.size < 1)
-            return false;
-          // For these two, if the "first_mb_in_slice" field is zero, start a
-          // new frame and return.  This field is Exp-Golomb coded starting on
-          // the eighth data bit of the NAL; a zero value is encoded with a
-          // leading '1' bit in the byte, which we can detect as the byte being
-          // (unsigned) greater than or equal to 0x80.
-          if (nalu.data[1] >= 0x80) {
-            end_of_frame = true;
-            break;
-          }
-          break;
-        case H264NALU::kSEIMessage:
-        case H264NALU::kSPS:
-        case H264NALU::kPPS:
-        case H264NALU::kAUD:
-        case H264NALU::kEOSeq:
-        case H264NALU::kEOStream:
-        case H264NALU::kReserved14:
-        case H264NALU::kReserved15:
-        case H264NALU::kReserved16:
-        case H264NALU::kReserved17:
-        case H264NALU::kReserved18:
-          // These unconditionally signal a frame boundary.
-          end_of_frame = true;
-          break;
-        default:
-          // For all others, keep going.
-          break;
-      }
-      if (end_of_frame) {
-        if (!decoder_partial_frame_pending_ && *endpos == 0) {
-          // The frame was previously restarted, and we haven't filled the
-          // current frame with any contents yet.  Start the new frame here and
-          // continue parsing NALs.
-        } else {
-          // The frame wasn't previously restarted and/or we have contents for
-          // the current frame; signal the start of a new frame here: we don't
-          // have a partial frame anymore.
-          decoder_partial_frame_pending_ = false;
-          return true;
-        }
-      }
-      *endpos = (nalu.data + nalu.size) - data;
-    }
-    NOTREACHED();
-    return false;
-  } else {
-    DCHECK_GE(video_profile_, VP8PROFILE_MIN);
-    DCHECK_LE(video_profile_, VP9PROFILE_MAX);
-    // For VP8/9, we can just dump the entire buffer.  No fragmentation needed,
-    // and we never return a partial frame.
-    *endpos = size;
-    decoder_partial_frame_pending_ = false;
-    return true;
-  }
-}
-
 void V4L2VideoDecodeAccelerator::ScheduleDecodeBufferTaskIfNeeded() {
   DCHECK(decoder_thread_.task_runner()->BelongsToCurrentThread());
 
@@ -1108,7 +1023,7 @@ bool V4L2VideoDecodeAccelerator::DecodeBufferInitial(const void* data,
     return false;
 
   // If we only have a partial frame, don't flush and process yet.
-  if (decoder_partial_frame_pending_)
+  if (frame_splitter_->IsPartialFramePending())
     return true;
 
   if (!FlushInputFrame())
@@ -1143,7 +1058,7 @@ bool V4L2VideoDecodeAccelerator::DecodeBufferContinue(const void* data,
   // Both of these calls will set kError state if they fail.
   // Only flush the frame if it's complete.
   return (AppendToInputFrame(data, size) &&
-          (decoder_partial_frame_pending_ || FlushInputFrame()));
+          (frame_splitter_->IsPartialFramePending() || FlushInputFrame()));
 }
 
 bool V4L2VideoDecodeAccelerator::AppendToInputFrame(const void* data,
@@ -1897,16 +1812,12 @@ void V4L2VideoDecodeAccelerator::ResetDoneTask() {
       return;
   }
 
-  // Reset format-specific bits.
-  if (video_profile_ >= H264PROFILE_MIN && video_profile_ <= H264PROFILE_MAX) {
-    decoder_h264_parser_.reset(new H264Parser());
-  }
+  frame_splitter_->Reset();
 
   // Jobs drained, we're finished resetting.
   DCHECK_EQ(decoder_state_, kResetting);
   decoder_state_ = kInitialized;
 
-  decoder_partial_frame_pending_ = false;
   decoder_delay_bitstream_buffer_id_ = -1;
   child_task_runner_->PostTask(
       FROM_HERE, base::BindOnce(&Client::NotifyResetDone, client_));
@@ -1951,7 +1862,7 @@ void V4L2VideoDecodeAccelerator::DestroyTask() {
   input_queue_ = nullptr;
   output_queue_ = nullptr;
 
-  decoder_h264_parser_ = nullptr;
+  frame_splitter_ = nullptr;
   workarounds_.clear();
 
   // Clear the V4L2 devices in the decoder thread so the V4L2Device's
@@ -2706,7 +2617,8 @@ void V4L2VideoDecodeAccelerator::FrameProcessed(
         FROM_HERE,
         base::BindOnce(
             &V4L2VideoDecodeAccelerator::CreateEGLImageFor, weak_this_,
-            ip_buffer_index, ip_output_record.picture_id,
+            image_processor_device_, ip_buffer_index,
+            ip_output_record.picture_id,
             CreateGpuMemoryBufferHandle(frame.get()).native_pixmap_handle,
             ip_output_record.texture_id, visible_size_,
             *egl_image_format_fourcc_));

@@ -26,7 +26,7 @@
 #include "chrome/renderer/plugins/plugin_uma.h"
 #include "components/strings/grit/components_strings.h"
 #include "content/public/common/content_switches.h"
-#include "content/public/common/context_menu_params.h"
+#include "content/public/common/untrustworthy_context_menu_params.h"
 #include "content/public/renderer/render_frame.h"
 #include "content/public/renderer/render_thread.h"
 #include "gin/object_template_builder.h"
@@ -281,7 +281,7 @@ void ChromePluginPlaceholder::ShowContextMenu(
   if (!render_frame())
     return;
 
-  content::ContextMenuParams params;
+  content::UntrustworthyContextMenuParams params;
 
   if (!title_.empty()) {
     content::MenuItem name_item;

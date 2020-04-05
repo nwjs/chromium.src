@@ -107,6 +107,10 @@ constexpr int kVirtualConnectSdkType = 2;
 // stands for CONNECTION_TYPE_LOCAL, which is the only type used in Chrome.
 constexpr int kVirtualConnectTypeLocal = 1;
 
+// The reason code passed to the virtual connection CLOSE message indicating
+// that the connection has been gracefully closed by the sender.
+constexpr int kVirtualConnectionClosedByPeer = 5;
+
 void FillCommonCastMessageFields(CastMessage* message,
                                  const std::string& source_id,
                                  const std::string& destination_id,
@@ -225,7 +229,7 @@ const char* ToString(CastMessageType message_type) {
 
 // TODO(jrw): Eliminate this function.
 const char* ToString(V2MessageType message_type) {
-  return EnumToString(message_type).value_or(nullptr).data();
+  return EnumToString(message_type).value_or("").data();
 }
 
 // TODO(jrw): Eliminate this function.
@@ -345,6 +349,18 @@ CastMessage CreateVirtualConnectionRequest(
 
   dict.SetKey("senderInfo", std::move(sender_info));
 
+  return CreateCastMessage(kConnectionNamespace, dict, source_id,
+                           destination_id);
+}
+
+CastMessage CreateVirtualConnectionClose(const std::string& source_id,
+                                         const std::string& destination_id) {
+  Value dict(Value::Type::DICTIONARY);
+  dict.SetKey(
+      "type",
+      Value(
+          EnumToString<CastMessageType, CastMessageType::kCloseConnection>()));
+  dict.SetKey("reasonCode", Value(kVirtualConnectionClosedByPeer));
   return CreateCastMessage(kConnectionNamespace, dict, source_id,
                            destination_id);
 }
@@ -497,7 +513,7 @@ bool IsMediaRequestMessageType(V2MessageType type) {
 
 // TODO(jrw): Eliminate this function.
 const char* ToString(GetAppAvailabilityResult result) {
-  return EnumToString(result).value_or(nullptr).data();
+  return EnumToString(result).value_or("").data();
 }
 
 base::Optional<int> GetRequestIdFromResponse(const Value& payload) {

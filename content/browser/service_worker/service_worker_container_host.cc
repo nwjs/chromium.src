@@ -4,7 +4,10 @@
 
 #include "content/browser/service_worker/service_worker_container_host.h"
 
+#include "base/bind_helpers.h"
+#include "base/callback_helpers.h"
 #include "base/guid.h"
+#include "content/browser/child_process_security_policy_impl.h"
 #include "content/browser/service_worker/service_worker_consts.h"
 #include "content/browser/service_worker/service_worker_context_core.h"
 #include "content/browser/service_worker/service_worker_context_wrapper.h"
@@ -386,6 +389,35 @@ void ServiceWorkerContainerHost::HintToUpdateServiceWorker() {
   versions_to_update_.clear();
 }
 
+void ServiceWorkerContainerHost::EnsureFileAccess(
+    const std::vector<base::FilePath>& file_paths,
+    EnsureFileAccessCallback callback) {
+  DCHECK_CURRENTLY_ON(ServiceWorkerContext::GetCoreThreadId());
+  ServiceWorkerVersion* version =
+      controller_registration_ ? controller_registration_->active_version()
+                               : nullptr;
+
+  // The controller might have legitimately been lost due to
+  // NotifyControllerLost(), so don't ReportBadMessage() here.
+  if (version) {
+    int controller_process_id = version->embedded_worker()->process_id();
+
+    ChildProcessSecurityPolicyImpl* policy =
+        ChildProcessSecurityPolicyImpl::GetInstance();
+    for (const auto& file : file_paths) {
+      if (!policy->CanReadFile(process_id_, file))
+        mojo::ReportBadMessage(
+            "The renderer doesn't have access to the file "
+            "but it tried to grant access to the controller.");
+
+      if (!policy->CanReadFile(controller_process_id, file))
+        policy->GrantReadFile(controller_process_id, file);
+    }
+  }
+
+  std::move(callback).Run();
+}
+
 void ServiceWorkerContainerHost::OnExecutionReady() {
   DCHECK_CURRENTLY_ON(ServiceWorkerContext::GetCoreThreadId());
 
@@ -726,7 +758,9 @@ blink::mojom::ServiceWorkerClientType ServiceWorkerContainerHost::client_type()
 void ServiceWorkerContainerHost::OnBeginNavigationCommit(
     int container_process_id,
     int container_frame_id,
-    network::mojom::CrossOriginEmbedderPolicy cross_origin_embedder_policy) {
+    const network::CrossOriginEmbedderPolicy& cross_origin_embedder_policy,
+    mojo::PendingRemote<network::mojom::CrossOriginEmbedderPolicyReporter>
+        coep_reporter) {
   DCHECK_CURRENTLY_ON(ServiceWorkerContext::GetCoreThreadId());
   DCHECK_EQ(blink::mojom::ServiceWorkerContainerType::kForWindow, type());
 
@@ -738,11 +772,19 @@ void ServiceWorkerContainerHost::OnBeginNavigationCommit(
 
   DCHECK(!cross_origin_embedder_policy_.has_value());
   cross_origin_embedder_policy_ = cross_origin_embedder_policy;
+  coep_reporter_.Bind(std::move(coep_reporter));
+
+  mojo::PendingRemote<network::mojom::CrossOriginEmbedderPolicyReporter>
+      coep_reporter_to_be_passed;
+  coep_reporter_->Clone(
+      coep_reporter_to_be_passed.InitWithNewPipeAndPassReceiver());
+
   if (controller_ && controller_->fetch_handler_existence() ==
                          ServiceWorkerVersion::FetchHandlerExistence::EXISTS) {
     DCHECK(pending_controller_receiver_);
     controller_->controller()->Clone(std::move(pending_controller_receiver_),
-                                     cross_origin_embedder_policy_.value());
+                                     cross_origin_embedder_policy_.value(),
+                                     std::move(coep_reporter_to_be_passed));
   }
 
   if (IsBackForwardCacheEnabled()) {
@@ -764,7 +806,7 @@ void ServiceWorkerContainerHost::OnBeginNavigationCommit(
 }
 
 void ServiceWorkerContainerHost::CompleteWebWorkerPreparation(
-    network::mojom::CrossOriginEmbedderPolicy cross_origin_embedder_policy) {
+    const network::CrossOriginEmbedderPolicy& cross_origin_embedder_policy) {
   DCHECK_CURRENTLY_ON(ServiceWorkerContext::GetCoreThreadId());
   using ServiceWorkerContainerType = blink::mojom::ServiceWorkerContainerType;
   DCHECK(type_ == ServiceWorkerContainerType::kForDedicatedWorker ||
@@ -775,8 +817,10 @@ void ServiceWorkerContainerHost::CompleteWebWorkerPreparation(
   if (controller_ && controller_->fetch_handler_existence() ==
                          ServiceWorkerVersion::FetchHandlerExistence::EXISTS) {
     DCHECK(pending_controller_receiver_);
+    // TODO(https://crbug.com/999049): Plumb the COEP reporter.
     controller_->controller()->Clone(std::move(pending_controller_receiver_),
-                                     cross_origin_embedder_policy_.value());
+                                     cross_origin_embedder_policy_.value(),
+                                     mojo::NullRemote());
   }
 
   TransitionToClientPhase(ClientPhase::kResponseCommitted);
@@ -883,9 +927,26 @@ ServiceWorkerContainerHost::GetRemoteControllerServiceWorker() {
     pending_controller_receiver_ =
         remote_controller.BindNewPipeAndPassReceiver();
   } else {
+    using ServiceWorkerContainerType = blink::mojom::ServiceWorkerContainerType;
+    mojo::PendingRemote<network::mojom::CrossOriginEmbedderPolicyReporter>
+        coep_reporter_to_be_passed;
+    if (coep_reporter_) {
+      DCHECK_EQ(ServiceWorkerContainerType::kForWindow, type_);
+      coep_reporter_->Clone(
+          coep_reporter_to_be_passed.InitWithNewPipeAndPassReceiver());
+    } else {
+      // TODO(https://crbug.com/999049): Implement DedicatedWorker and
+      // SharedWorker cases.
+      DCHECK(
+          (base::FeatureList::IsEnabled(blink::features::kPlzDedicatedWorker) &&
+           type_ == ServiceWorkerContainerType::kForDedicatedWorker) ||
+          type_ == ServiceWorkerContainerType::kForSharedWorker);
+    }
+
     controller_->controller()->Clone(
         remote_controller.BindNewPipeAndPassReceiver(),
-        cross_origin_embedder_policy_.value());
+        cross_origin_embedder_policy_.value(),
+        std::move(coep_reporter_to_be_passed));
   }
   return remote_controller;
 }
@@ -1255,8 +1316,26 @@ void ServiceWorkerContainerHost::StartControllerComplete(
   DCHECK_CURRENTLY_ON(ServiceWorkerContext::GetCoreThreadId());
   if (status == blink::ServiceWorkerStatusCode::kOk) {
     DCHECK(is_response_committed());
+
+    using ServiceWorkerContainerType = blink::mojom::ServiceWorkerContainerType;
+    mojo::PendingRemote<network::mojom::CrossOriginEmbedderPolicyReporter>
+        coep_reporter_to_be_passed;
+    if (coep_reporter_) {
+      DCHECK_EQ(ServiceWorkerContainerType::kForWindow, type_);
+      coep_reporter_->Clone(
+          coep_reporter_to_be_passed.InitWithNewPipeAndPassReceiver());
+    } else {
+      // TODO(https://crbug.com/999049): Implement DedicatedWorker and
+      // SharedWorker cases.
+      DCHECK(
+          (base::FeatureList::IsEnabled(blink::features::kPlzDedicatedWorker) &&
+           type_ == ServiceWorkerContainerType::kForDedicatedWorker) ||
+          type_ == ServiceWorkerContainerType::kForSharedWorker);
+    }
+
     controller_->controller()->Clone(std::move(receiver),
-                                     cross_origin_embedder_policy_.value());
+                                     cross_origin_embedder_policy_.value(),
+                                     std::move(coep_reporter_to_be_passed));
   }
 }
 

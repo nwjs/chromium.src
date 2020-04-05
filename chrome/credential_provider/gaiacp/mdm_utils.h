@@ -56,6 +56,9 @@ extern const wchar_t kRegDeviceDetailsUploadStatus[];
 // Specifies custom Chrome path to use for GLS.
 extern const wchar_t kRegGlsPath[];
 
+// Registry key where user device resource ID is stored.
+extern const wchar_t kRegUserDeviceResourceId[];
+
 // Class used in tests to force either a successful on unsuccessful enrollment
 // to google MDM.
 class GoogleMdmEnrollmentStatusForTesting {
@@ -107,6 +110,10 @@ HRESULT EnrollToGoogleMdmIfNeeded(const base::Value& properties);
 
 // Constructs the password lsa store key for the given |sid|.
 base::string16 GetUserPasswordLsaStoreKey(const base::string16& sid);
+
+// Get device resource ID for the user with given |sid|. Returns an empty string
+// if one has not been set for the user.
+base::string16 GetUserDeviceResourceId(const base::string16& sid);
 
 }  // namespace credential_provider
 

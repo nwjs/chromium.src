@@ -26,7 +26,7 @@
 #include "ui/base/models/menu_separator_types.h"
 #include "ui/base/ui_base_types.h"
 #include "ui/events/event.h"
-#include "ui/events/event_constants.h"
+#include "ui/events/types/event_type.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/font_list.h"
 #include "ui/gfx/geometry/insets.h"
@@ -410,6 +410,7 @@ void EditableCombobox::Layout() {
 }
 
 void EditableCombobox::OnThemeChanged() {
+  View::OnThemeChanged();
   textfield_->OnThemeChanged();
 }
 
@@ -418,6 +419,10 @@ void EditableCombobox::GetAccessibleNodeData(ui::AXNodeData* node_data) {
 
   node_data->SetName(textfield_->GetAccessibleName());
   node_data->SetValue(GetText());
+}
+
+void EditableCombobox::RequestFocus() {
+  textfield_->RequestFocus();
 }
 
 ////////////////////////////////////////////////////////////////////////////////

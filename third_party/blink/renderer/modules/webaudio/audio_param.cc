@@ -32,7 +32,7 @@
 #include "third_party/blink/renderer/platform/audio/audio_utilities.h"
 #include "third_party/blink/renderer/platform/audio/vector_math.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
-#include "third_party/blink/renderer/platform/instrumentation/histogram.h"
+#include "third_party/blink/renderer/platform/heap/heap.h"
 #include "third_party/blink/renderer/platform/wtf/math_extras.h"
 
 namespace blink {
@@ -355,7 +355,7 @@ AudioParam::~AudioParam() {
   }
 }
 
-void AudioParam::Trace(blink::Visitor* visitor) {
+void AudioParam::Trace(Visitor* visitor) {
   visitor->Trace(context_);
   InspectorHelperMixin::Trace(visitor);
   ScriptWrappable::Trace(visitor);
@@ -367,13 +367,14 @@ float AudioParam::value() const {
 
 void AudioParam::WarnIfOutsideRange(const String& param_method, float value) {
   if (value < minValue() || value > maxValue()) {
-    Context()->GetExecutionContext()->AddConsoleMessage(ConsoleMessage::Create(
-        mojom::ConsoleMessageSource::kJavaScript,
-        mojom::ConsoleMessageLevel::kWarning,
-        Handler().GetParamName() + "." + param_method + " " +
-            String::Number(value) + " outside nominal range [" +
-            String::Number(minValue()) + ", " + String::Number(maxValue()) +
-            "]; value will be clamped."));
+    Context()->GetExecutionContext()->AddConsoleMessage(
+        MakeGarbageCollected<ConsoleMessage>(
+            mojom::ConsoleMessageSource::kJavaScript,
+            mojom::ConsoleMessageLevel::kWarning,
+            Handler().GetParamName() + "." + param_method + " " +
+                String::Number(value) + " outside nominal range [" +
+                String::Number(minValue()) + ", " + String::Number(maxValue()) +
+                "]; value will be clamped."));
   }
 }
 

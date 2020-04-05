@@ -22,6 +22,7 @@
 namespace blink {
 
 class AnimationEffectOrAnimationEffectSequence;
+class ScriptValue;
 class SerializedScriptValue;
 
 // The main-thread controller for a single AnimationWorklet animator instance.
@@ -60,7 +61,7 @@ class MODULES_EXPORT WorkletAnimation : public WorkletAnimationBase,
       String animator_name,
       const AnimationEffectOrAnimationEffectSequence&,
       DocumentTimelineOrScrollTimeline,
-      scoped_refptr<SerializedScriptValue>,
+      const ScriptValue& options,
       ExceptionState&);
 
   WorkletAnimation(WorkletAnimationId id,
@@ -68,15 +69,18 @@ class MODULES_EXPORT WorkletAnimation : public WorkletAnimationBase,
                    Document&,
                    const HeapVector<Member<KeyframeEffect>>&,
                    AnimationTimeline*,
-                   scoped_refptr<SerializedScriptValue>);
+                   scoped_refptr<SerializedScriptValue> options);
   ~WorkletAnimation() override = default;
 
   String animatorName() { return animator_name_; }
   AnimationEffect* effect() { return GetEffect(); }
   AnimationTimeline* timeline() { return timeline_; }
   String playState();
-  double currentTime(bool& is_null);
-  double startTime(bool& is_null);
+  base::Optional<double> currentTime();
+  base::Optional<double> startTime();
+  // TODO(crbug.com/1060971): Remove |is_null| version.
+  double currentTime(bool& is_null);  // DEPRECATED
+  double startTime(bool& is_null);    // DEPRECATED
 
   double playbackRate(ScriptState* script_state) const;
   void setPlaybackRate(ScriptState* script_state, double playback_rate);
@@ -139,7 +143,7 @@ class MODULES_EXPORT WorkletAnimation : public WorkletAnimationBase,
     running_on_main_thread_ = running_on_main_thread;
   }
 
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
   void Dispose();
 
  private:

@@ -144,7 +144,7 @@ TEST_P(PaintPropertyTreeBuilderTest, FixedPosition) {
   const ObjectPaintProperties* target1_properties =
       target1->GetLayoutObject()->FirstFragment().PaintProperties();
   EXPECT_EQ(FloatRoundedRect(200, 150, 100, 100),
-            target1_properties->OverflowClip()->ClipRect());
+            target1_properties->OverflowClip()->UnsnappedClipRect());
   // Likewise, it inherits clip from the viewport, skipping overflow clip of the
   // scroller.
   EXPECT_EQ(DocContentClip(), target1_properties->OverflowClip()->Parent());
@@ -171,7 +171,7 @@ TEST_P(PaintPropertyTreeBuilderTest, FixedPosition) {
   const ObjectPaintProperties* scroller_properties =
       scroller->GetLayoutObject()->FirstFragment().PaintProperties();
   EXPECT_EQ(FloatRoundedRect(200, 150, 100, 100),
-            target2_properties->OverflowClip()->ClipRect());
+            target2_properties->OverflowClip()->UnsnappedClipRect());
   EXPECT_EQ(scroller_properties->OverflowClip(),
             target2_properties->OverflowClip()->Parent());
   // target2 should not have it's own scroll node and instead should inherit
@@ -217,7 +217,7 @@ TEST_P(PaintPropertyTreeBuilderTest, PositionAndScroll) {
   EXPECT_EQ(FloatSize(120, 340),
             scroller_properties->PaintOffsetTranslation()->Translation2D());
   EXPECT_EQ(FloatRoundedRect(0, 0, 413, 317),
-            scroller_properties->OverflowClip()->ClipRect());
+            scroller_properties->OverflowClip()->UnsnappedClipRect());
   EXPECT_EQ(DocContentClip(), scroller_properties->OverflowClip()->Parent());
   CHECK_EXACT_VISUAL_RECT(PhysicalRect(120, 340, 413, 317),
                           scroller->GetLayoutObject(),
@@ -235,7 +235,7 @@ TEST_P(PaintPropertyTreeBuilderTest, PositionAndScroll) {
   EXPECT_EQ(rel_pos_properties->Transform(),
             &rel_pos_properties->OverflowClip()->LocalTransformSpace());
   EXPECT_EQ(FloatRoundedRect(0, 0, 100, 200),
-            rel_pos_properties->OverflowClip()->ClipRect());
+            rel_pos_properties->OverflowClip()->UnsnappedClipRect());
   EXPECT_EQ(scroller_properties->OverflowClip(),
             rel_pos_properties->OverflowClip()->Parent());
   CHECK_EXACT_VISUAL_RECT(PhysicalRect(), rel_pos->GetLayoutObject(),
@@ -253,7 +253,7 @@ TEST_P(PaintPropertyTreeBuilderTest, PositionAndScroll) {
   EXPECT_EQ(abs_pos_properties->Transform(),
             &abs_pos_properties->OverflowClip()->LocalTransformSpace());
   EXPECT_EQ(FloatRoundedRect(0, 0, 300, 400),
-            abs_pos_properties->OverflowClip()->ClipRect());
+            abs_pos_properties->OverflowClip()->UnsnappedClipRect());
   EXPECT_EQ(DocContentClip(), abs_pos_properties->OverflowClip()->Parent());
   CHECK_EXACT_VISUAL_RECT(PhysicalRect(123, 456, 300, 400),
                           abs_pos->GetLayoutObject(),
@@ -276,7 +276,8 @@ TEST_P(PaintPropertyTreeBuilderTest, OverflowScrollExcludeScrollbars) {
   EXPECT_EQ(DocContentClip(), overflow_clip->Parent());
   EXPECT_EQ(properties->PaintOffsetTranslation(),
             &overflow_clip->LocalTransformSpace());
-  EXPECT_EQ(FloatRoundedRect(10, 10, 100, 100), overflow_clip->ClipRect());
+  EXPECT_EQ(FloatRoundedRect(10, 10, 100, 100),
+            overflow_clip->UnsnappedClipRect());
 
   PaintLayer* paint_layer =
       ToLayoutBoxModelObject(GetLayoutObjectByElementId("scroller"))->Layer();
@@ -285,7 +286,7 @@ TEST_P(PaintPropertyTreeBuilderTest, OverflowScrollExcludeScrollbars) {
                   ->IsOverlayScrollbar());
 
   EXPECT_EQ(FloatClipRect(FloatRect(10, 10, 93, 93)),
-            overflow_clip->ClipRectExcludingOverlayScrollbars());
+            overflow_clip->UnsnappedClipRectExcludingOverlayScrollbars());
 }
 
 TEST_P(PaintPropertyTreeBuilderTest, OverflowScrollExcludeScrollbarsSubpixel) {
@@ -305,15 +306,18 @@ TEST_P(PaintPropertyTreeBuilderTest, OverflowScrollExcludeScrollbarsSubpixel) {
   EXPECT_EQ(DocContentClip(), overflow_clip->Parent());
   EXPECT_EQ(properties->PaintOffsetTranslation(),
             &overflow_clip->LocalTransformSpace());
-  EXPECT_EQ(FloatRoundedRect(10, 10, 101, 100), overflow_clip->ClipRect());
+  EXPECT_EQ(FloatRoundedRect(10, 10, 100.5, 100),
+            overflow_clip->UnsnappedClipRect());
+  EXPECT_EQ(FloatRoundedRect(10, 10, 101, 100),
+            overflow_clip->PixelSnappedClipRect());
 
   EXPECT_TRUE(ToLayoutBox(scroller)
                   ->GetScrollableArea()
                   ->VerticalScrollbar()
                   ->IsOverlayScrollbar());
 
-  EXPECT_EQ(FloatClipRect(FloatRect(10, 10, 94, 93)),
-            overflow_clip->ClipRectExcludingOverlayScrollbars());
+  EXPECT_EQ(FloatClipRect(FloatRect(10, 10, 93.5, 93)),
+            overflow_clip->UnsnappedClipRectExcludingOverlayScrollbars());
 }
 
 TEST_P(PaintPropertyTreeBuilderTest, OverflowScrollExcludeCssOverlayScrollbar) {
@@ -333,7 +337,8 @@ TEST_P(PaintPropertyTreeBuilderTest, OverflowScrollExcludeCssOverlayScrollbar) {
   )HTML");
   // The document content should not be clipped by the overlay scrollbar because
   // the scrollbar can be transparent and the content needs to paint below.
-  EXPECT_EQ(DocContentClip()->ClipRect(), FloatRoundedRect(0, 0, 800, 600));
+  EXPECT_EQ(DocContentClip()->UnsnappedClipRect(),
+            FloatRoundedRect(0, 0, 800, 600));
 }
 
 TEST_P(PaintPropertyTreeBuilderTest, OverflowScrollVerticalRL) {
@@ -366,10 +371,11 @@ TEST_P(PaintPropertyTreeBuilderTest, OverflowScrollVerticalRL) {
   EXPECT_EQ(DocContentClip(), overflow_clip->Parent());
   EXPECT_EQ(properties->PaintOffsetTranslation(),
             &overflow_clip->LocalTransformSpace());
-  EXPECT_EQ(FloatRoundedRect(10, 10, 85, 85), overflow_clip->ClipRect());
+  EXPECT_EQ(FloatRoundedRect(10, 10, 85, 85),
+            overflow_clip->UnsnappedClipRect());
 
-  scroller->GetScrollableArea()->ScrollBy(
-      ScrollOffset(-100, 0), mojom::blink::ScrollIntoViewParams::Type::kUser);
+  scroller->GetScrollableArea()->ScrollBy(ScrollOffset(-100, 0),
+                                          mojom::blink::ScrollType::kUser);
   UpdateAllLifecyclePhasesForTest();
 
   // Only scroll_translation is affected by scrolling.
@@ -385,7 +391,8 @@ TEST_P(PaintPropertyTreeBuilderTest, OverflowScrollVerticalRL) {
   EXPECT_EQ(DocContentClip(), overflow_clip->Parent());
   EXPECT_EQ(properties->PaintOffsetTranslation(),
             &overflow_clip->LocalTransformSpace());
-  EXPECT_EQ(FloatRoundedRect(10, 10, 85, 85), overflow_clip->ClipRect());
+  EXPECT_EQ(FloatRoundedRect(10, 10, 85, 85),
+            overflow_clip->UnsnappedClipRect());
 }
 
 TEST_P(PaintPropertyTreeBuilderTest, OverflowScrollRTL) {
@@ -419,10 +426,11 @@ TEST_P(PaintPropertyTreeBuilderTest, OverflowScrollRTL) {
   EXPECT_EQ(DocContentClip(), overflow_clip->Parent());
   EXPECT_EQ(properties->PaintOffsetTranslation(),
             &overflow_clip->LocalTransformSpace());
-  EXPECT_EQ(FloatRoundedRect(25, 10, 85, 85), overflow_clip->ClipRect());
+  EXPECT_EQ(FloatRoundedRect(25, 10, 85, 85),
+            overflow_clip->UnsnappedClipRect());
 
-  scroller->GetScrollableArea()->ScrollBy(
-      ScrollOffset(-100, 0), mojom::blink::ScrollIntoViewParams::Type::kUser);
+  scroller->GetScrollableArea()->ScrollBy(ScrollOffset(-100, 0),
+                                          mojom::blink::ScrollType::kUser);
   UpdateAllLifecyclePhasesForTest();
 
   // Only scroll_translation is affected by scrolling.
@@ -438,7 +446,8 @@ TEST_P(PaintPropertyTreeBuilderTest, OverflowScrollRTL) {
   EXPECT_EQ(DocContentClip(), overflow_clip->Parent());
   EXPECT_EQ(properties->PaintOffsetTranslation(),
             &overflow_clip->LocalTransformSpace());
-  EXPECT_EQ(FloatRoundedRect(25, 10, 85, 85), overflow_clip->ClipRect());
+  EXPECT_EQ(FloatRoundedRect(25, 10, 85, 85),
+            overflow_clip->UnsnappedClipRect());
 }
 
 TEST_P(PaintPropertyTreeBuilderTest, OverflowScrollVerticalRLMulticol) {
@@ -462,7 +471,7 @@ TEST_P(PaintPropertyTreeBuilderTest, OverflowScrollVerticalRLMulticol) {
     EXPECT_EQ(410, FragmentAt(flow_thread, 0)
                        .PaintProperties()
                        ->FragmentClip()
-                       ->ClipRect()
+                       ->UnsnappedClipRect()
                        .Rect()
                        .X());
     EXPECT_EQ(PhysicalOffset(360, 10),
@@ -470,7 +479,7 @@ TEST_P(PaintPropertyTreeBuilderTest, OverflowScrollVerticalRLMulticol) {
     EXPECT_EQ(460, FragmentAt(flow_thread, 1)
                        .PaintProperties()
                        ->FragmentClip()
-                       ->ClipRect()
+                       ->UnsnappedClipRect()
                        .Rect()
                        .MaxX());
     EXPECT_EQ(PhysicalOffset(410, 210),
@@ -481,8 +490,7 @@ TEST_P(PaintPropertyTreeBuilderTest, OverflowScrollVerticalRLMulticol) {
   // Fragment geometries are not affected by parent scrolling.
   ToLayoutBox(GetLayoutObjectByElementId("scroller"))
       ->GetScrollableArea()
-      ->ScrollBy(ScrollOffset(-100, 200),
-                 mojom::blink::ScrollIntoViewParams::Type::kUser);
+      ->ScrollBy(ScrollOffset(-100, 200), mojom::blink::ScrollType::kUser);
   UpdateAllLifecyclePhasesForTest();
   check_fragments();
 }
@@ -501,7 +509,8 @@ TEST_P(PaintPropertyTreeBuilderTest, DocScrollingTraditional) {
   EXPECT_EQ(FloatSize(0, -100), DocScrollTranslation()->Translation2D());
   EXPECT_EQ(DocPreTranslation(), DocScrollTranslation()->Parent());
   EXPECT_EQ(DocPreTranslation(), &DocContentClip()->LocalTransformSpace());
-  EXPECT_EQ(FloatRoundedRect(0, 0, 800, 600), DocContentClip()->ClipRect());
+  EXPECT_EQ(FloatRoundedRect(0, 0, 800, 600),
+            DocContentClip()->UnsnappedClipRect());
   EXPECT_TRUE(DocContentClip()->Parent()->IsRoot());
 
   CHECK_EXACT_VISUAL_RECT(PhysicalRect(8, 8, 784, 10000),
@@ -1444,7 +1453,7 @@ TEST_P(PaintPropertyTreeBuilderTest, SVGViewportContainer) {
   ASSERT_NE(nullptr, clip);
   EXPECT_EQ(nullptr, transform);
   EXPECT_EQ(parent_clip, clip->Parent());
-  EXPECT_EQ(FloatRect(0, 0, 30, 30), clip->ClipRect().Rect());
+  EXPECT_EQ(FloatRect(0, 0, 30, 30), clip->UnsnappedClipRect().Rect());
   EXPECT_EQ(parent_transform, &clip->LocalTransformSpace());
 
   // overflow: hidden and non-zero offset and viewport scale:
@@ -1456,7 +1465,7 @@ TEST_P(PaintPropertyTreeBuilderTest, SVGViewportContainer) {
   ASSERT_NE(nullptr, clip);
   ASSERT_NE(nullptr, transform);
   EXPECT_EQ(parent_clip, clip->Parent());
-  EXPECT_EQ(FloatRect(0, 0, 60, 60), clip->ClipRect().Rect());
+  EXPECT_EQ(FloatRect(0, 0, 60, 60), clip->UnsnappedClipRect().Rect());
   EXPECT_EQ(transform, &clip->LocalTransformSpace());
   EXPECT_EQ(TransformationMatrix().Translate(40, 50).Scale(0.5),
             transform->Matrix());
@@ -1499,7 +1508,7 @@ TEST_P(PaintPropertyTreeBuilderTest, SVGForeignObjectOverflowClip) {
   const auto* clip = properties1->OverflowClip();
   ASSERT_NE(nullptr, clip);
   EXPECT_EQ(parent_clip, clip->Parent());
-  EXPECT_EQ(FloatRect(10, 20, 30, 40), clip->ClipRect().Rect());
+  EXPECT_EQ(FloatRect(10, 20, 30, 40), clip->UnsnappedClipRect().Rect());
   EXPECT_EQ(parent_transform, &clip->LocalTransformSpace());
 
   const auto* properties2 = PaintPropertiesForElement("object2");
@@ -1523,7 +1532,7 @@ TEST_P(PaintPropertyTreeBuilderTest, OverflowClipWithEmptyVisualOverflow) {
 
   const auto* clip = PaintPropertiesForElement("container")->OverflowClip();
   EXPECT_NE(nullptr, clip);
-  EXPECT_EQ(FloatRect(0, 0, 90, 90), clip->ClipRect().Rect());
+  EXPECT_EQ(FloatRect(0, 0, 90, 90), clip->UnsnappedClipRect().Rect());
 }
 
 TEST_P(PaintPropertyTreeBuilderTest,
@@ -1615,7 +1624,7 @@ TEST_P(PaintPropertyTreeBuilderTest, ControlClip) {
             &button_properties->OverflowClip()->LocalTransformSpace());
 
   EXPECT_EQ(FloatRoundedRect(5, 5, 335, 113),
-            button_properties->OverflowClip()->ClipRect());
+            button_properties->OverflowClip()->UnsnappedClipRect());
   EXPECT_EQ(DocContentClip(), button_properties->OverflowClip()->Parent());
   CHECK_EXACT_VISUAL_RECT(PhysicalRect(0, 0, 345, 123), &button,
                           GetDocument().View()->GetLayoutView());
@@ -1643,7 +1652,7 @@ TEST_P(PaintPropertyTreeBuilderTest, ControlClipInsideForeignObject) {
   // not scroll (not enough content).
   EXPECT_TRUE(DocScrollTranslation());
   EXPECT_EQ(FloatRoundedRect(2, 2, 341, 119),
-            button_properties->OverflowClip()->ClipRect());
+            button_properties->OverflowClip()->UnsnappedClipRect());
   CHECK_EXACT_VISUAL_RECT(PhysicalRect(8, 8, 345, 123), &button,
                           GetDocument().View()->GetLayoutView());
 }
@@ -1682,7 +1691,7 @@ TEST_P(PaintPropertyTreeBuilderTest, BorderRadiusClip) {
   // padding box = border box(500+60+50, 400+45+55) - border outset(60+50,
   // 45+55) - scrollbars(15, 15)
   EXPECT_EQ(FloatRoundedRect(60, 45, 500, 400),
-            div_properties->OverflowClip()->ClipRect());
+            div_properties->OverflowClip()->UnsnappedClipRect());
   const ClipPaintPropertyNode* border_radius_clip =
       div_properties->OverflowClip()->Parent();
   EXPECT_EQ(DocScrollTranslation(), &border_radius_clip->LocalTransformSpace());
@@ -1703,10 +1712,42 @@ TEST_P(PaintPropertyTreeBuilderTest, BorderRadiusClip) {
           FloatSize(),        // (top right) = max((34, 34) - (50, 45), (0, 0))
           FloatSize(18, 23),  // (bot left) = max((78, 78) - (60, 55), (0, 0))
           FloatSize(6, 1)),   // (bot right) = max((56, 56) - (50, 55), (0, 0))
-      border_radius_clip->ClipRect());
+      border_radius_clip->UnsnappedClipRect());
   EXPECT_EQ(DocContentClip(), border_radius_clip->Parent());
   CHECK_EXACT_VISUAL_RECT(PhysicalRect(0, 0, 610, 500), &div,
                           GetDocument().View()->GetLayoutView());
+}
+
+TEST_P(PaintPropertyTreeBuilderTest, SubpixelBorderRadiusClip) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+     body {
+       margin: 0px;
+     }
+     #div {
+       margin-top: 0.5px;
+       width: 100px;
+       height: 100px;
+       overflow: hidden;
+       border-radius: 50%;
+     }
+    </style>
+    <div id='div'></div>
+  )HTML");
+
+  LayoutObject& div = *GetLayoutObjectByElementId("div");
+  const ObjectPaintProperties* div_properties =
+      div.FirstFragment().PaintProperties();
+
+  const ClipPaintPropertyNode* border_radius_clip =
+      div_properties->InnerBorderRadiusClip();
+  FloatSize corner(50, 50);
+  EXPECT_EQ(FloatRoundedRect(FloatRect(0, 0.5, 100, 100), corner, corner,
+                             corner, corner),
+            border_radius_clip->UnsnappedClipRect());
+  EXPECT_EQ(FloatRoundedRect(FloatRect(0, 1, 100, 100), corner, corner, corner,
+                             corner),
+            border_radius_clip->PixelSnappedClipRect());
 }
 
 TEST_P(PaintPropertyTreeBuilderTest, TransformNodesAcrossSubframes) {
@@ -2122,7 +2163,7 @@ TEST_P(PaintPropertyTreeBuilderTest, CSSClipFixedPositionDescendant) {
   EXPECT_EQ(DocScrollTranslation(),
             &clip_properties->CssClip()->LocalTransformSpace());
   EXPECT_EQ(FloatRoundedRect(FloatRect(absolute_clip_rect)),
-            clip_properties->CssClip()->ClipRect());
+            clip_properties->CssClip()->UnsnappedClipRect());
   CHECK_VISUAL_RECT(absolute_clip_rect, &clip,
                     GetDocument().View()->GetLayoutView(),
                     // TODO(crbug.com/599939): mapToVisualRectInAncestorSpace()
@@ -2182,7 +2223,7 @@ TEST_P(PaintPropertyTreeBuilderTest, CSSClipAbsPositionDescendant) {
   EXPECT_EQ(DocScrollTranslation(),
             &clip_properties->CssClip()->LocalTransformSpace());
   EXPECT_EQ(FloatRoundedRect(FloatRect(absolute_clip_rect)),
-            clip_properties->CssClip()->ClipRect());
+            clip_properties->CssClip()->UnsnappedClipRect());
   CHECK_VISUAL_RECT(absolute_clip_rect, clip,
                     GetDocument().View()->GetLayoutView(),
                     // TODO(crbug.com/599939): mapToVisualRectInAncestorSpace()
@@ -2224,7 +2265,8 @@ TEST_P(PaintPropertyTreeBuilderTest, CSSClipSubpixel) {
   PhysicalRect local_clip_rect(40, 10, 40, 60);
   PhysicalRect absolute_clip_rect = local_clip_rect;
   // Moved by 124 pixels due to pixel-snapping.
-  absolute_clip_rect.offset += PhysicalOffset(124, 456);
+  absolute_clip_rect.offset +=
+      PhysicalOffset(LayoutSize(FloatSize(123.5, 456)));
 
   auto* clip = GetLayoutObjectByElementId("clip");
   const ObjectPaintProperties* clip_properties =
@@ -2236,7 +2278,9 @@ TEST_P(PaintPropertyTreeBuilderTest, CSSClipSubpixel) {
   EXPECT_EQ(DocScrollTranslation(),
             &clip_properties->CssClip()->LocalTransformSpace());
   EXPECT_EQ(FloatRoundedRect(FloatRect(absolute_clip_rect)),
-            clip_properties->CssClip()->ClipRect());
+            clip_properties->CssClip()->UnsnappedClipRect());
+  EXPECT_EQ(FloatRoundedRect(PixelSnappedIntRect((absolute_clip_rect))),
+            clip_properties->CssClip()->PixelSnappedClipRect());
 }
 
 TEST_P(PaintPropertyTreeBuilderTest, CSSClipFixedPositionDescendantNonShared) {
@@ -2294,13 +2338,13 @@ TEST_P(PaintPropertyTreeBuilderTest, CSSClipFixedPositionDescendantNonShared) {
   EXPECT_EQ(overflow_properties->ScrollTranslation(),
             &clip_properties->CssClip()->LocalTransformSpace());
   EXPECT_EQ(FloatRoundedRect(FloatRect(absolute_clip_rect)),
-            clip_properties->CssClip()->ClipRect());
+            clip_properties->CssClip()->UnsnappedClipRect());
   EXPECT_EQ(DocContentClip(),
             clip_properties->CssClipFixedPosition()->Parent());
   EXPECT_EQ(overflow_properties->ScrollTranslation(),
             &clip_properties->CssClipFixedPosition()->LocalTransformSpace());
   EXPECT_EQ(FloatRoundedRect(FloatRect(absolute_clip_rect)),
-            clip_properties->CssClipFixedPosition()->ClipRect());
+            clip_properties->CssClipFixedPosition()->UnsnappedClipRect());
   CHECK_EXACT_VISUAL_RECT(PhysicalRect(), clip,
                           GetDocument().View()->GetLayoutView());
 
@@ -3407,9 +3451,10 @@ TEST_P(PaintPropertyTreeBuilderTest, ContainPaintOrStyleLayoutTreeState) {
               &clipper->FirstFragment().LocalBorderBoxProperties().Clip());
     // Clip isolation node should be big enough to encompass all other clips,
     // including DocContentClip.
-    EXPECT_TRUE(
-        clip_properties->ClipIsolationNode()->ClipRect().Rect().Contains(
-            DocContentClip()->ClipRect().Rect()));
+    EXPECT_TRUE(clip_properties->ClipIsolationNode()
+                    ->UnsnappedClipRect()
+                    .Rect()
+                    .Contains(DocContentClip()->UnsnappedClipRect().Rect()));
 
     // Verify contents properties and child properties:
 
@@ -3515,12 +3560,12 @@ TEST_P(PaintPropertyTreeBuilderTest, OverflowScrollWithRoundedRect) {
   EXPECT_EQ(
       FloatRoundedRect(FloatRect(50, 50, 200, 200), FloatSize(50, 50),
                        FloatSize(50, 50), FloatSize(50, 50), FloatSize(50, 50)),
-      rounded_box_properties->InnerBorderRadiusClip()->ClipRect());
+      rounded_box_properties->InnerBorderRadiusClip()->UnsnappedClipRect());
 
   // Unlike the inner border radius clip, the overflow clip is inset by the
   // scrollbars (13px).
   EXPECT_EQ(FloatRoundedRect(50, 50, 187, 187),
-            rounded_box_properties->OverflowClip()->ClipRect());
+            rounded_box_properties->OverflowClip()->UnsnappedClipRect());
   EXPECT_EQ(DocContentClip(),
             rounded_box_properties->InnerBorderRadiusClip()->Parent());
   EXPECT_EQ(rounded_box_properties->InnerBorderRadiusClip(),
@@ -3916,7 +3961,7 @@ TEST_P(PaintPropertyTreeBuilderTest, SVGRootClip) {
                                  .PaintProperties()
                                  ->PaintOffsetTranslation()
                                  ->Translation2D());
-  EXPECT_EQ(FloatRoundedRect(0, 0, 100, 100), clip->ClipRect());
+  EXPECT_EQ(FloatRoundedRect(0, 0, 100, 100), clip->UnsnappedClipRect());
 }
 
 TEST_P(PaintPropertyTreeBuilderTest, SVGRootNoClip) {
@@ -3979,7 +4024,7 @@ TEST_P(PaintPropertyTreeBuilderTest, PaintOffsetsUnderMultiColumnScrolled) {
 
   LayoutObject* scroller = GetLayoutObjectByElementId("scroller");
   ToLayoutBox(scroller)->GetScrollableArea()->ScrollBy(
-      ScrollOffset(0, 300), mojom::blink::ScrollIntoViewParams::Type::kUser);
+      ScrollOffset(0, 300), mojom::blink::ScrollType::kUser);
   UpdateAllLifecyclePhasesForTest();
 
   EXPECT_EQ(FloatSize(8, 8), scroller->FirstFragment()
@@ -4069,7 +4114,7 @@ TEST_P(PaintPropertyTreeBuilderTest,
             multicol_container->FirstFragment().NextFragment()->PaintOffset());
 
   GetDocument().View()->LayoutViewport()->ScrollBy(
-      ScrollOffset(0, 25), mojom::blink::ScrollIntoViewParams::Type::kUser);
+      ScrollOffset(0, 25), mojom::blink::ScrollType::kUser);
   UpdateAllLifecyclePhasesForTest();
 
   ASSERT_TRUE(multicol_container->FirstFragment().NextFragment());
@@ -4109,62 +4154,66 @@ TEST_P(PaintPropertyTreeBuilderTest, FragmentsUnderMultiColumn) {
   EXPECT_EQ(4u, NumFragments(flowthread));
 
   EXPECT_EQ(PhysicalOffset(), FragmentAt(relpos, 0).PaintOffset());
-  EXPECT_EQ(PhysicalOffset(), FragmentAt(relpos, 0).PaginationOffset());
+  EXPECT_EQ(PhysicalOffset(), FragmentAt(relpos, 0).LegacyPaginationOffset());
   EXPECT_EQ(LayoutUnit(), FragmentAt(relpos, 0).LogicalTopInFlowThread());
   EXPECT_EQ(nullptr, FragmentAt(relpos, 0).PaintProperties());
   EXPECT_EQ(PhysicalOffset(), FragmentAt(flowthread, 0).PaintOffset());
-  EXPECT_EQ(PhysicalOffset(), FragmentAt(flowthread, 0).PaginationOffset());
+  EXPECT_EQ(PhysicalOffset(),
+            FragmentAt(flowthread, 0).LegacyPaginationOffset());
   EXPECT_EQ(LayoutUnit(), FragmentAt(flowthread, 0).LogicalTopInFlowThread());
   const auto* fragment_clip =
       FragmentAt(flowthread, 0).PaintProperties()->FragmentClip();
   ASSERT_NE(nullptr, fragment_clip);
   EXPECT_EQ(FloatRect(-1000000, -1000000, 2000000, 1000030),
-            fragment_clip->ClipRect().Rect());
+            fragment_clip->UnsnappedClipRect().Rect());
   EXPECT_EQ(fragment_clip,
             &FragmentAt(relpos, 0).LocalBorderBoxProperties().Clip());
 
   EXPECT_EQ(PhysicalOffset(100, -30), FragmentAt(relpos, 1).PaintOffset());
-  EXPECT_EQ(PhysicalOffset(100, -30), FragmentAt(relpos, 1).PaginationOffset());
+  EXPECT_EQ(PhysicalOffset(100, -30),
+            FragmentAt(relpos, 1).LegacyPaginationOffset());
   EXPECT_EQ(LayoutUnit(30), FragmentAt(relpos, 1).LogicalTopInFlowThread());
   EXPECT_EQ(nullptr, FragmentAt(relpos, 1).PaintProperties());
   EXPECT_EQ(PhysicalOffset(100, -30), FragmentAt(flowthread, 1).PaintOffset());
   EXPECT_EQ(PhysicalOffset(100, -30),
-            FragmentAt(flowthread, 1).PaginationOffset());
+            FragmentAt(flowthread, 1).LegacyPaginationOffset());
   EXPECT_EQ(LayoutUnit(30), FragmentAt(flowthread, 1).LogicalTopInFlowThread());
   fragment_clip = FragmentAt(flowthread, 1).PaintProperties()->FragmentClip();
   ASSERT_NE(nullptr, fragment_clip);
   EXPECT_EQ(FloatRect(-999900, 0, 2000000, 30),
-            fragment_clip->ClipRect().Rect());
+            fragment_clip->UnsnappedClipRect().Rect());
   EXPECT_EQ(fragment_clip,
             &FragmentAt(relpos, 1).LocalBorderBoxProperties().Clip());
 
   EXPECT_EQ(PhysicalOffset(0, 20), FragmentAt(relpos, 2).PaintOffset());
-  EXPECT_EQ(PhysicalOffset(0, 20), FragmentAt(relpos, 2).PaginationOffset());
+  EXPECT_EQ(PhysicalOffset(0, 20),
+            FragmentAt(relpos, 2).LegacyPaginationOffset());
   EXPECT_EQ(LayoutUnit(60), FragmentAt(relpos, 2).LogicalTopInFlowThread());
   EXPECT_EQ(nullptr, FragmentAt(relpos, 2).PaintProperties());
   EXPECT_EQ(PhysicalOffset(0, 20), FragmentAt(flowthread, 2).PaintOffset());
   EXPECT_EQ(PhysicalOffset(0, 20),
-            FragmentAt(flowthread, 2).PaginationOffset());
+            FragmentAt(flowthread, 2).LegacyPaginationOffset());
   EXPECT_EQ(LayoutUnit(60), FragmentAt(flowthread, 2).LogicalTopInFlowThread());
   fragment_clip = FragmentAt(flowthread, 2).PaintProperties()->FragmentClip();
   ASSERT_NE(nullptr, fragment_clip);
   EXPECT_EQ(FloatRect(-1000000, 80, 2000000, 30),
-            fragment_clip->ClipRect().Rect());
+            fragment_clip->UnsnappedClipRect().Rect());
   EXPECT_EQ(fragment_clip,
             &FragmentAt(relpos, 2).LocalBorderBoxProperties().Clip());
 
   EXPECT_EQ(PhysicalOffset(100, -10), FragmentAt(relpos, 3).PaintOffset());
-  EXPECT_EQ(PhysicalOffset(100, -10), FragmentAt(relpos, 3).PaginationOffset());
+  EXPECT_EQ(PhysicalOffset(100, -10),
+            FragmentAt(relpos, 3).LegacyPaginationOffset());
   EXPECT_EQ(LayoutUnit(90), FragmentAt(relpos, 3).LogicalTopInFlowThread());
   EXPECT_EQ(nullptr, FragmentAt(relpos, 3).PaintProperties());
   EXPECT_EQ(PhysicalOffset(100, -10), FragmentAt(flowthread, 3).PaintOffset());
   EXPECT_EQ(PhysicalOffset(100, -10),
-            FragmentAt(flowthread, 3).PaginationOffset());
+            FragmentAt(flowthread, 3).LegacyPaginationOffset());
   EXPECT_EQ(LayoutUnit(90), FragmentAt(flowthread, 3).LogicalTopInFlowThread());
   fragment_clip = FragmentAt(flowthread, 3).PaintProperties()->FragmentClip();
   ASSERT_NE(nullptr, fragment_clip);
   EXPECT_EQ(FloatRect(-999900, 80, 2000000, 999910),
-            fragment_clip->ClipRect().Rect());
+            fragment_clip->UnsnappedClipRect().Rect());
   EXPECT_EQ(fragment_clip,
             &FragmentAt(relpos, 3).LocalBorderBoxProperties().Clip());
 
@@ -4238,20 +4287,21 @@ TEST_P(PaintPropertyTreeBuilderTest,
   EXPECT_TRUE(thread->IsLayoutFlowThread());
   EXPECT_EQ(2u, NumFragments(thread));
   EXPECT_EQ(PhysicalOffset(100, 0), FragmentAt(thread, 0).PaintOffset());
-  EXPECT_EQ(PhysicalOffset(), FragmentAt(thread, 0).PaginationOffset());
+  EXPECT_EQ(PhysicalOffset(), FragmentAt(thread, 0).LegacyPaginationOffset());
   EXPECT_EQ(LayoutUnit(), FragmentAt(thread, 0).LogicalTopInFlowThread());
   EXPECT_EQ(PhysicalOffset(300, 100), FragmentAt(thread, 1).PaintOffset());
-  EXPECT_EQ(PhysicalOffset(200, 100), FragmentAt(thread, 1).PaginationOffset());
+  EXPECT_EQ(PhysicalOffset(200, 100),
+            FragmentAt(thread, 1).LegacyPaginationOffset());
   EXPECT_EQ(LayoutUnit(200), FragmentAt(thread, 1).LogicalTopInFlowThread());
 
   LayoutObject* content = GetLayoutObjectByElementId("content");
   EXPECT_EQ(2u, NumFragments(content));
   EXPECT_EQ(PhysicalOffset(-200, 0), FragmentAt(content, 0).PaintOffset());
-  EXPECT_EQ(PhysicalOffset(), FragmentAt(content, 0).PaginationOffset());
+  EXPECT_EQ(PhysicalOffset(), FragmentAt(content, 0).LegacyPaginationOffset());
   EXPECT_EQ(LayoutUnit(), FragmentAt(content, 0).LogicalTopInFlowThread());
   EXPECT_EQ(PhysicalOffset(0, 100), FragmentAt(content, 1).PaintOffset());
   EXPECT_EQ(PhysicalOffset(200, 100),
-            FragmentAt(content, 1).PaginationOffset());
+            FragmentAt(content, 1).LegacyPaginationOffset());
   EXPECT_EQ(LayoutUnit(200), FragmentAt(content, 1).LogicalTopInFlowThread());
 }
 
@@ -4291,15 +4341,15 @@ TEST_P(PaintPropertyTreeBuilderTest, CompositedUnderMultiColumn) {
   EXPECT_TRUE(thread->IsLayoutFlowThread());
   EXPECT_EQ(3u, NumFragments(thread));
   EXPECT_EQ(PhysicalOffset(), FragmentAt(thread, 0).PaintOffset());
-  EXPECT_EQ(PhysicalOffset(), FragmentAt(thread, 0).PaginationOffset());
+  EXPECT_EQ(PhysicalOffset(), FragmentAt(thread, 0).LegacyPaginationOffset());
   EXPECT_EQ(LayoutUnit(), FragmentAt(thread, 0).LogicalTopInFlowThread());
   EXPECT_EQ(PhysicalOffset(100, -200), FragmentAt(thread, 1).PaintOffset());
   EXPECT_EQ(PhysicalOffset(100, -200),
-            FragmentAt(thread, 1).PaginationOffset());
+            FragmentAt(thread, 1).LegacyPaginationOffset());
   EXPECT_EQ(LayoutUnit(200), FragmentAt(thread, 1).LogicalTopInFlowThread());
   EXPECT_EQ(PhysicalOffset(200, -400), FragmentAt(thread, 2).PaintOffset());
   EXPECT_EQ(PhysicalOffset(200, -400),
-            FragmentAt(thread, 2).PaginationOffset());
+            FragmentAt(thread, 2).LegacyPaginationOffset());
   EXPECT_EQ(LayoutUnit(400), FragmentAt(thread, 2).LogicalTopInFlowThread());
 
   LayoutObject* composited = GetLayoutObjectByElementId("composited");
@@ -4313,33 +4363,33 @@ TEST_P(PaintPropertyTreeBuilderTest, CompositedUnderMultiColumn) {
     EXPECT_EQ(PhysicalOffset(100, 100),
               FragmentAt(composited, 0).PaintOffset());
     EXPECT_EQ(PhysicalOffset(100, -200),
-              FragmentAt(composited, 0).PaginationOffset());
+              FragmentAt(composited, 0).LegacyPaginationOffset());
     EXPECT_EQ(LayoutUnit(200),
               FragmentAt(composited, 0).LogicalTopInFlowThread());
     EXPECT_EQ(PhysicalOffset(200, -100),
               FragmentAt(composited, 1).PaintOffset());
     EXPECT_EQ(PhysicalOffset(200, -400),
-              FragmentAt(composited, 1).PaginationOffset());
+              FragmentAt(composited, 1).LegacyPaginationOffset());
     EXPECT_EQ(LayoutUnit(400),
               FragmentAt(composited, 1).LogicalTopInFlowThread());
     EXPECT_EQ(2u, NumFragments(non_composited_child));
     EXPECT_EQ(PhysicalOffset(100, 100),
               FragmentAt(non_composited_child, 0).PaintOffset());
     EXPECT_EQ(PhysicalOffset(100, -200),
-              FragmentAt(non_composited_child, 0).PaginationOffset());
+              FragmentAt(non_composited_child, 0).LegacyPaginationOffset());
     EXPECT_EQ(LayoutUnit(200),
               FragmentAt(non_composited_child, 0).LogicalTopInFlowThread());
     EXPECT_EQ(PhysicalOffset(200, -100),
               FragmentAt(non_composited_child, 1).PaintOffset());
     EXPECT_EQ(PhysicalOffset(200, -400),
-              FragmentAt(non_composited_child, 1).PaginationOffset());
+              FragmentAt(non_composited_child, 1).LegacyPaginationOffset());
     EXPECT_EQ(LayoutUnit(400),
               FragmentAt(non_composited_child, 1).LogicalTopInFlowThread());
     EXPECT_EQ(1u, NumFragments(composited_child));
     EXPECT_EQ(PhysicalOffset(200, 50),
               FragmentAt(composited_child, 0).PaintOffset());
     EXPECT_EQ(PhysicalOffset(200, -400),
-              FragmentAt(composited_child, 0).PaginationOffset());
+              FragmentAt(composited_child, 0).LegacyPaginationOffset());
     EXPECT_EQ(LayoutUnit(400),
               FragmentAt(composited_child, 0).LogicalTopInFlowThread());
   } else {
@@ -4348,21 +4398,21 @@ TEST_P(PaintPropertyTreeBuilderTest, CompositedUnderMultiColumn) {
     EXPECT_EQ(PhysicalOffset(100, 100),
               FragmentAt(composited, 0).PaintOffset());
     EXPECT_EQ(PhysicalOffset(100, -200),
-              FragmentAt(composited, 0).PaginationOffset());
+              FragmentAt(composited, 0).LegacyPaginationOffset());
     EXPECT_EQ(LayoutUnit(200),
               FragmentAt(composited, 0).LogicalTopInFlowThread());
     EXPECT_EQ(1u, NumFragments(non_composited_child));
     EXPECT_EQ(PhysicalOffset(100, 100),
               FragmentAt(non_composited_child, 0).PaintOffset());
     EXPECT_EQ(PhysicalOffset(100, -200),
-              FragmentAt(non_composited_child, 0).PaginationOffset());
+              FragmentAt(non_composited_child, 0).LegacyPaginationOffset());
     EXPECT_EQ(LayoutUnit(200),
               FragmentAt(non_composited_child, 0).LogicalTopInFlowThread());
     EXPECT_EQ(1u, NumFragments(composited_child));
     EXPECT_EQ(PhysicalOffset(100, 250),
               FragmentAt(composited_child, 0).PaintOffset());
     EXPECT_EQ(PhysicalOffset(100, -200),
-              FragmentAt(composited_child, 0).PaginationOffset());
+              FragmentAt(composited_child, 0).LegacyPaginationOffset());
     EXPECT_EQ(LayoutUnit(200),
               FragmentAt(composited_child, 0).LogicalTopInFlowThread());
   }
@@ -4444,8 +4494,9 @@ TEST_P(PaintPropertyTreeBuilderTest, CompositedMulticolFrameUnderMulticol) {
   // TODO(crbug.com/797779): Add code to verify fragments under the iframe.
 }
 
-TEST_P(PaintPropertyTreeBuilderTest,
-       BecomingUnfragmentedClearsPaginationOffsetAndLogicalTopInFlowThread) {
+TEST_P(
+    PaintPropertyTreeBuilderTest,
+    BecomingUnfragmentedClearsLegacyPaginationOffsetAndLogicalTopInFlowThread) {
   SetBodyInnerHTML(R"HTML(
     <style>
       #target {
@@ -4461,13 +4512,13 @@ TEST_P(PaintPropertyTreeBuilderTest,
 
   LayoutObject* target = GetLayoutObjectByElementId("target");
   EXPECT_EQ(PhysicalOffset(LayoutUnit(392.5f), LayoutUnit(-20)),
-            target->FirstFragment().PaginationOffset());
+            target->FirstFragment().LegacyPaginationOffset());
   EXPECT_EQ(LayoutUnit(20), target->FirstFragment().LogicalTopInFlowThread());
   Element* target_element = GetDocument().getElementById("target");
 
   target_element->setAttribute(html_names::kStyleAttr, "position: absolute");
   UpdateAllLifecyclePhasesForTest();
-  EXPECT_EQ(PhysicalOffset(), target->FirstFragment().PaginationOffset());
+  EXPECT_EQ(PhysicalOffset(), target->FirstFragment().LegacyPaginationOffset());
   EXPECT_EQ(LayoutUnit(), target->FirstFragment().LogicalTopInFlowThread());
 }
 
@@ -4736,8 +4787,10 @@ TEST_P(PaintPropertyTreeBuilderTest, OverflowClipSubpixelPosition) {
   EXPECT_EQ(PhysicalOffset(LayoutUnit(31.5), LayoutUnit(20)),
             clipper->FirstFragment().PaintOffset());
   // Result is pixel-snapped.
+  EXPECT_EQ(FloatRect(31.5, 20, 400, 300),
+            clip_properties->OverflowClip()->UnsnappedClipRect().Rect());
   EXPECT_EQ(FloatRect(32, 20, 400, 300),
-            clip_properties->OverflowClip()->ClipRect().Rect());
+            clip_properties->OverflowClip()->PixelSnappedClipRect().Rect());
 }
 
 TEST_P(PaintPropertyTreeBuilderTest, MaskSimple) {
@@ -4755,7 +4808,7 @@ TEST_P(PaintPropertyTreeBuilderTest, MaskSimple) {
   EXPECT_EQ(output_clip,
             &target->FirstFragment().LocalBorderBoxProperties().Clip());
   EXPECT_EQ(DocContentClip(), output_clip->Parent());
-  EXPECT_EQ(FloatRoundedRect(8, 8, 300, 200), output_clip->ClipRect());
+  EXPECT_EQ(FloatRoundedRect(8, 8, 300, 200), output_clip->UnsnappedClipRect());
 
   EXPECT_EQ(properties->Effect(),
             &target->FirstFragment().LocalBorderBoxProperties().Effect());
@@ -4784,7 +4837,8 @@ TEST_P(PaintPropertyTreeBuilderTest, MaskWithOutset) {
   EXPECT_EQ(output_clip,
             &target->FirstFragment().LocalBorderBoxProperties().Clip());
   EXPECT_EQ(DocContentClip(), output_clip->Parent());
-  EXPECT_EQ(FloatRoundedRect(-12, -2, 340, 220), output_clip->ClipRect());
+  EXPECT_EQ(FloatRoundedRect(-12, -2, 340, 220),
+            output_clip->UnsnappedClipRect());
 
   EXPECT_EQ(properties->Effect(),
             &target->FirstFragment().LocalBorderBoxProperties().Effect());
@@ -4827,18 +4881,20 @@ TEST_P(PaintPropertyTreeBuilderTest, MaskEscapeClip) {
       PaintPropertiesForElement("scroll");
 
   EXPECT_EQ(DocContentClip(), overflow_clip1->Parent());
-  EXPECT_EQ(FloatRoundedRect(0, 0, 300, 200), overflow_clip1->ClipRect());
+  EXPECT_EQ(FloatRoundedRect(0, 0, 300, 200),
+            overflow_clip1->UnsnappedClipRect());
   EXPECT_EQ(scroll_properties->PaintOffsetTranslation(),
             &overflow_clip1->LocalTransformSpace());
 
   EXPECT_EQ(mask_clip,
             &target->FirstFragment().LocalBorderBoxProperties().Clip());
   EXPECT_EQ(overflow_clip1, mask_clip->Parent());
-  EXPECT_EQ(FloatRoundedRect(0, 0, 220, 320), mask_clip->ClipRect());
+  EXPECT_EQ(FloatRoundedRect(0, 0, 220, 320), mask_clip->UnsnappedClipRect());
   EXPECT_EQ(&scroll_translation, &mask_clip->LocalTransformSpace());
 
   EXPECT_EQ(mask_clip, overflow_clip2->Parent());
-  EXPECT_EQ(FloatRoundedRect(10, 10, 200, 300), overflow_clip2->ClipRect());
+  EXPECT_EQ(FloatRoundedRect(10, 10, 200, 300),
+            overflow_clip2->UnsnappedClipRect());
   EXPECT_EQ(&scroll_translation, &overflow_clip2->LocalTransformSpace());
 
   EXPECT_EQ(target_properties->Effect(),
@@ -4890,7 +4946,8 @@ TEST_P(PaintPropertyTreeBuilderTest, MaskInline) {
   EXPECT_EQ(output_clip,
             &target->FirstFragment().LocalBorderBoxProperties().Clip());
   EXPECT_EQ(DocContentClip(), output_clip->Parent());
-  EXPECT_EQ(FloatRoundedRect(104, 21, 432, 16), output_clip->ClipRect());
+  EXPECT_EQ(FloatRoundedRect(104, 21, 432, 16),
+            output_clip->UnsnappedClipRect());
 
   EXPECT_EQ(properties->Effect(),
             &target->FirstFragment().LocalBorderBoxProperties().Effect());
@@ -5093,16 +5150,10 @@ TEST_P(PaintPropertyTreeBuilderTest, BackfaceHidden) {
   ASSERT_NE(nullptr, target_properties);
   const auto* paint_offset_translation =
       target_properties->PaintOffsetTranslation();
-  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled()) {
-    EXPECT_EQ(nullptr, paint_offset_translation);
-    EXPECT_EQ(PhysicalOffset(60, 50), target->FirstFragment().PaintOffset());
-  } else {
-    // For SPv1, |target| is composited so we created PaintOffsetTranslation.
-    ASSERT_NE(nullptr, paint_offset_translation);
-    EXPECT_EQ(FloatSize(60, 50), paint_offset_translation->Translation2D());
-    EXPECT_EQ(TransformPaintPropertyNode::BackfaceVisibility::kInherited,
-              paint_offset_translation->GetBackfaceVisibilityForTesting());
-  }
+  ASSERT_NE(nullptr, paint_offset_translation);
+  EXPECT_EQ(FloatSize(60, 50), paint_offset_translation->Translation2D());
+  EXPECT_EQ(TransformPaintPropertyNode::BackfaceVisibility::kInherited,
+            paint_offset_translation->GetBackfaceVisibilityForTesting());
 
   const auto* transform = target_properties->Transform();
   ASSERT_NE(nullptr, transform);
@@ -5136,7 +5187,7 @@ TEST_P(PaintPropertyTreeBuilderTest, FrameBorderRadius) {
   FloatSize radius(30, 30);
   EXPECT_EQ(FloatRoundedRect(FloatRect(28, 28, 200, 200), radius, radius,
                              radius, radius),
-            border_radius_clip->ClipRect());
+            border_radius_clip->UnsnappedClipRect());
   EXPECT_EQ(DocContentClip(), border_radius_clip->Parent());
   EXPECT_EQ(DocScrollTranslation(), &border_radius_clip->LocalTransformSpace());
   EXPECT_EQ(nullptr, properties->InnerBorderRadiusClip());
@@ -5163,7 +5214,7 @@ TEST_P(PaintPropertyTreeBuilderTest, ImageBorderRadius) {
   FloatSize radius(20, 20);
   EXPECT_EQ(FloatRoundedRect(FloatRect(18, 18, 50, 50), radius, radius, radius,
                              radius),
-            border_radius_clip->ClipRect());
+            border_radius_clip->UnsnappedClipRect());
   EXPECT_EQ(DocContentClip(), border_radius_clip->Parent());
   EXPECT_EQ(DocScrollTranslation(), &border_radius_clip->LocalTransformSpace());
   EXPECT_EQ(nullptr, properties->InnerBorderRadiusClip());
@@ -5179,10 +5230,10 @@ TEST_P(PaintPropertyTreeBuilderTest, FrameClipWhenPrinting) {
   auto* const child_frame_doc = &ChildDocument();
   ASSERT_NE(nullptr, DocContentClip(main_frame_doc));
   EXPECT_NE(FloatRect(LayoutRect::InfiniteIntRect()),
-            DocContentClip(main_frame_doc)->ClipRect().Rect());
+            DocContentClip(main_frame_doc)->UnsnappedClipRect().Rect());
   ASSERT_NE(nullptr, DocContentClip(child_frame_doc));
   EXPECT_NE(FloatRect(LayoutRect::InfiniteIntRect()),
-            DocContentClip(child_frame_doc)->ClipRect().Rect());
+            DocContentClip(child_frame_doc)->UnsnappedClipRect().Rect());
 
   // When the main frame is printing, it should not have content clip.
   FloatSize page_size(100, 100);
@@ -5191,7 +5242,7 @@ TEST_P(PaintPropertyTreeBuilderTest, FrameClipWhenPrinting) {
   EXPECT_EQ(nullptr, DocContentClip(main_frame_doc));
   ASSERT_NE(nullptr, DocContentClip(child_frame_doc));
   EXPECT_NE(FloatRect(LayoutRect::InfiniteIntRect()),
-            DocContentClip(child_frame_doc)->ClipRect().Rect());
+            DocContentClip(child_frame_doc)->UnsnappedClipRect().Rect());
 
   GetFrame().EndPrinting();
   UpdateAllLifecyclePhasesForTest();
@@ -5202,7 +5253,7 @@ TEST_P(PaintPropertyTreeBuilderTest, FrameClipWhenPrinting) {
   GetDocument().View()->UpdateLifecyclePhasesForPrinting();
   ASSERT_NE(nullptr, DocContentClip(main_frame_doc));
   EXPECT_NE(FloatRect(LayoutRect::InfiniteIntRect()),
-            DocContentClip(main_frame_doc)->ClipRect().Rect());
+            DocContentClip(main_frame_doc)->UnsnappedClipRect().Rect());
   EXPECT_EQ(nullptr, DocContentClip(child_frame_doc));
 }
 
@@ -5216,7 +5267,8 @@ TEST_P(PaintPropertyTreeBuilderTest, OverflowControlsClip) {
   const auto* properties1 = PaintPropertiesForElement("div1");
   ASSERT_NE(nullptr, properties1);
   const auto* overflow_controls_clip = properties1->OverflowControlsClip();
-  EXPECT_EQ(FloatRect(0, 0, 5, 50), overflow_controls_clip->ClipRect().Rect());
+  EXPECT_EQ(FloatRect(0, 0, 5, 50),
+            overflow_controls_clip->UnsnappedClipRect().Rect());
 
   const auto* properties2 = PaintPropertiesForElement("div2");
   ASSERT_NE(nullptr, properties2);
@@ -5233,7 +5285,10 @@ TEST_P(PaintPropertyTreeBuilderTest, OverflowControlsClipSubpixel) {
   const auto* properties1 = PaintPropertiesForElement("div1");
   ASSERT_NE(nullptr, properties1);
   const auto* overflow_controls_clip = properties1->OverflowControlsClip();
-  EXPECT_EQ(FloatRect(0, 0, 6, 50), overflow_controls_clip->ClipRect().Rect());
+  EXPECT_EQ(FloatRect(0, 0, 5.5, 50),
+            overflow_controls_clip->UnsnappedClipRect().Rect());
+  EXPECT_EQ(FloatRect(0, 0, 6, 50),
+            overflow_controls_clip->PixelSnappedClipRect().Rect());
 
   const auto* properties2 = PaintPropertiesForElement("div2");
   ASSERT_NE(nullptr, properties2);
@@ -5285,9 +5340,10 @@ TEST_P(PaintPropertyTreeBuilderTest, FragmentClipPixelSnapped) {
       FragmentAt(flow_thread, 1).PaintProperties()->FragmentClip();
 
   EXPECT_EQ(FloatRect(-999992, -999992, 2000000, 1000050),
-            first_clip->ClipRect().Rect());
+            first_clip->PixelSnappedClipRect().Rect());
+
   EXPECT_EQ(FloatRect(-999967, 8, 2000000, 999951),
-            second_clip->ClipRect().Rect());
+            second_clip->PixelSnappedClipRect().Rect());
 }
 
 TEST_P(PaintPropertyTreeBuilderTest,
@@ -5306,18 +5362,11 @@ TEST_P(PaintPropertyTreeBuilderTest,
   EXPECT_FALSE(ToLayoutBoxModelObject(target)->Layer()->SelfNeedsRepaint());
 
   opacity_element->setAttribute(html_names::kStyleAttr, "opacity: 0.5");
-  GetDocument().View()->UpdateAllLifecyclePhasesExceptPaint();
+  GetDocument().View()->UpdateAllLifecyclePhasesExceptPaint(
+      DocumentUpdateReason::kTest);
 
-  if (!RuntimeEnabledFeatures::CompositeAfterPaintEnabled()) {
-    // TODO(crbug.com/900241): Without CompositeAfterPaint, we create effect and
-    // filter nodes when the transform node needs compositing for
-    // will-change:transform, for crbug.com/942681.
-    EXPECT_FALSE(ToLayoutBoxModelObject(target)->Layer()->SelfNeedsRepaint());
-  } else {
-    // All paint chunks contained by the new opacity effect node need to be
-    // re-painted.
-    EXPECT_TRUE(ToLayoutBoxModelObject(target)->Layer()->SelfNeedsRepaint());
-  }
+  EXPECT_TRUE(opacity_element->GetLayoutBox()->Layer()->SelfNeedsRepaint());
+  EXPECT_FALSE(ToLayoutBoxModelObject(target)->Layer()->SelfNeedsRepaint());
 }
 
 TEST_P(PaintPropertyTreeBuilderTest, SVGRootWithMask) {
@@ -5370,7 +5419,8 @@ TEST_P(PaintPropertyTreeBuilderTest, ClearClipPathEffectNode) {
   Element* clip = GetDocument().getElementById("clip");
   ASSERT_TRUE(clip);
   clip->remove();
-  GetDocument().View()->UpdateAllLifecyclePhasesExceptPaint();
+  GetDocument().View()->UpdateAllLifecyclePhasesExceptPaint(
+      DocumentUpdateReason::kTest);
 
   {
     const auto* rect = GetLayoutObjectByElementId("rect");
@@ -5391,7 +5441,8 @@ TEST_P(PaintPropertyTreeBuilderTest, RootHasCompositedScrolling) {
   // Remove scrolling from the root.
   Element* force_scroll_element = GetDocument().getElementById("forceScroll");
   force_scroll_element->setAttribute(html_names::kStyleAttr, "");
-  GetDocument().View()->UpdateAllLifecyclePhasesExceptPaint();
+  GetDocument().View()->UpdateAllLifecyclePhasesExceptPaint(
+      DocumentUpdateReason::kTest);
   // Always create scroll translation for layout view even the document does
   // not scroll (not enough content).
   EXPECT_TRUE(DocScrollTranslation());
@@ -5501,7 +5552,8 @@ TEST_P(PaintPropertyTreeBuilderTest, ClipHitTestChangeDoesNotCauseFullRepaint) {
   EXPECT_FALSE(child_layer->SelfNeedsRepaint());
 
   GetDocument().body()->setAttribute(html_names::kClassAttr, "noscrollbars");
-  GetDocument().View()->UpdateAllLifecyclePhasesExceptPaint();
+  GetDocument().View()->UpdateAllLifecyclePhasesExceptPaint(
+      DocumentUpdateReason::kTest);
   EXPECT_FALSE(child_layer->SelfNeedsRepaint());
 }
 
@@ -5566,7 +5618,7 @@ TEST_P(PaintPropertyTreeBuilderTest, CompositedLayerSkipsFragmentClip) {
                                    .Clip());
 }
 
-TEST_P(PaintPropertyTreeBuilderTest, CompositedLayerUnderClipUnerMulticol) {
+TEST_P(PaintPropertyTreeBuilderTest, CompositedLayerUnderClipUnderMulticol) {
   SetBodyInnerHTML(R"HTML(
     <div id="multicol" style="columns: 2">
       <div id="clip" style="height: 100px; overflow: hidden">
@@ -6074,7 +6126,8 @@ TEST_P(PaintPropertyTreeBuilderTest, WillChangeOpacityInducesAnEffectNode) {
 
   auto* div = GetDocument().getElementById("div");
   div->setAttribute(html_names::kClassAttr, "transluscent");
-  GetDocument().View()->UpdateAllLifecyclePhasesExceptPaint();
+  GetDocument().View()->UpdateAllLifecyclePhasesExceptPaint(
+      DocumentUpdateReason::kTest);
   EXPECT_FALSE(
       ToLayoutBox(div->GetLayoutObject())->Layer()->SelfNeedsRepaint());
 
@@ -6184,39 +6237,49 @@ TEST_P(PaintPropertyTreeBuilderTest, SVGRootCompositedClipPath) {
     const auto* clip_path_clip = properties->ClipPathClip();
     ASSERT_NE(nullptr, clip_path_clip);
     EXPECT_EQ(DocContentClip(), clip_path_clip->Parent());
-    EXPECT_EQ(FloatRect(75, 0, 150, 150), clip_path_clip->ClipRect().Rect());
+    EXPECT_EQ(FloatRect(75, 0, 150, 150),
+              clip_path_clip->UnsnappedClipRect().Rect());
     EXPECT_EQ(transform, &clip_path_clip->LocalTransformSpace());
     EXPECT_NE(nullptr, clip_path_clip->ClipPath());
 
     const auto* overflow_clip = properties->OverflowClip();
     ASSERT_NE(nullptr, overflow_clip);
     EXPECT_EQ(clip_path_clip, overflow_clip->Parent());
-    EXPECT_EQ(FloatRect(0, 0, 300, 150), overflow_clip->ClipRect().Rect());
+    EXPECT_EQ(FloatRect(0, 0, 300, 150),
+              overflow_clip->UnsnappedClipRect().Rect());
     EXPECT_EQ(transform, &overflow_clip->LocalTransformSpace());
 
-    // TODO(wangxianzhu): Are the following correct?
-    EXPECT_EQ(nullptr, properties->Effect());
+    const auto* effect = properties->Effect();
+    ASSERT_NE(nullptr, effect);
+    EXPECT_EQ(&EffectPaintPropertyNode::Root(), effect->Parent());
+    EXPECT_EQ(transform, &effect->LocalTransformSpace());
+    EXPECT_EQ(clip_path_clip, effect->OutputClip());
+    EXPECT_EQ(SkBlendMode::kSrcOver, effect->BlendMode());
+
     EXPECT_EQ(nullptr, properties->Mask());
     EXPECT_EQ(nullptr, properties->ClipPath());
   } else {
     const auto* mask_clip = properties->MaskClip();
     ASSERT_NE(nullptr, mask_clip);
     EXPECT_EQ(DocContentClip(), mask_clip->Parent());
-    EXPECT_EQ(FloatRect(75, 0, 150, 150), mask_clip->ClipRect().Rect());
+    EXPECT_EQ(FloatRect(75, 0, 150, 150),
+              mask_clip->UnsnappedClipRect().Rect());
     EXPECT_EQ(nullptr, mask_clip->ClipPath());
     EXPECT_EQ(transform, &mask_clip->LocalTransformSpace());
 
     const auto* clip_path_clip = properties->ClipPathClip();
     ASSERT_NE(nullptr, clip_path_clip);
     EXPECT_EQ(mask_clip, clip_path_clip->Parent());
-    EXPECT_EQ(FloatRect(75, 0, 150, 150), clip_path_clip->ClipRect().Rect());
+    EXPECT_EQ(FloatRect(75, 0, 150, 150),
+              clip_path_clip->UnsnappedClipRect().Rect());
     EXPECT_EQ(transform, &clip_path_clip->LocalTransformSpace());
     EXPECT_NE(nullptr, clip_path_clip->ClipPath());
 
     const auto* overflow_clip = properties->OverflowClip();
     ASSERT_NE(nullptr, overflow_clip);
     EXPECT_EQ(mask_clip, overflow_clip->Parent());
-    EXPECT_EQ(FloatRect(0, 0, 300, 150), overflow_clip->ClipRect().Rect());
+    EXPECT_EQ(FloatRect(0, 0, 300, 150),
+              overflow_clip->UnsnappedClipRect().Rect());
     EXPECT_EQ(transform, &overflow_clip->LocalTransformSpace());
 
     const auto* effect = properties->Effect();
@@ -6281,7 +6344,8 @@ TEST_P(PaintPropertyTreeBuilderTest, SimpleOpacityChangeDoesNotCausePacUpdate) {
   Element* element = GetDocument().getElementById("element");
   element->setAttribute(html_names::kStyleAttr, "opacity: 0.9");
 
-  GetDocument().View()->UpdateAllLifecyclePhasesExceptPaint();
+  GetDocument().View()->UpdateAllLifecyclePhasesExceptPaint(
+      DocumentUpdateReason::kTest);
   EXPECT_FLOAT_EQ(properties->Effect()->Opacity(), 0.9f);
   EXPECT_FLOAT_EQ(cc_effect->opacity, 0.9f);
   EXPECT_TRUE(cc_effect->effect_changed);
@@ -6345,7 +6409,8 @@ TEST_P(PaintPropertyTreeBuilderTest, SimpleScrollChangeDoesNotCausePacUpdate) {
   EXPECT_FLOAT_EQ(current_scroll_offset.y(), 0);
 
   GetDocument().getElementById("element")->setScrollTop(10.);
-  GetDocument().View()->UpdateAllLifecyclePhasesExceptPaint();
+  GetDocument().View()->UpdateAllLifecyclePhasesExceptPaint(
+      DocumentUpdateReason::kTest);
 
   EXPECT_FLOAT_SIZE_EQ(FloatSize(0, -10),
                        properties->ScrollTranslation()->Translation2D());
@@ -6357,7 +6422,6 @@ TEST_P(PaintPropertyTreeBuilderTest, SimpleScrollChangeDoesNotCausePacUpdate) {
       properties->ScrollTranslation()->ScrollNode()->GetCompositorElementId());
   EXPECT_FLOAT_EQ(current_scroll_offset.x(), 0);
   EXPECT_FLOAT_EQ(current_scroll_offset.y(), 10);
-  EXPECT_TRUE(property_trees->scroll_tree.needs_update());
   EXPECT_TRUE(property_trees->transform_tree.needs_update());
   EXPECT_TRUE(cc_transform_node->transform_changed);
 
@@ -6389,7 +6453,8 @@ TEST_P(PaintPropertyTreeBuilderTest,
 
   Element* outer = GetDocument().getElementById("outer");
   outer->setAttribute(html_names::kStyleAttr, "transform: translateY(10px)");
-  GetDocument().View()->UpdateAllLifecyclePhasesExceptPaint();
+  GetDocument().View()->UpdateAllLifecyclePhasesExceptPaint(
+      DocumentUpdateReason::kTest);
 
   EXPECT_TRUE(
       GetDocument().View()->GetPaintArtifactCompositor()->NeedsUpdate());
@@ -6446,7 +6511,7 @@ TEST_P(PaintPropertyTreeBuilderTest, VideoClipRect) {
   // |video_element| is now sub-pixel positioned, at 0.1,0.1 320.2x240. With or
   // without pixel-snapped clipping, this will get clipped at 0,0 320x240.
   EXPECT_EQ(FloatRoundedRect(0, 0, 320, 240),
-            video_element_properties->OverflowClip()->ClipRect());
+            video_element_properties->OverflowClip()->UnsnappedClipRect());
 
   // Now, move |video_element| to 10.4,10.4. At this point, without pixel
   // snapping that doesn't depend on paint offset, it will be clipped at 10,10
@@ -6455,7 +6520,7 @@ TEST_P(PaintPropertyTreeBuilderTest, VideoClipRect) {
   video_element->SetInlineStyleProperty(CSSPropertyID::kLeft, "10.4px");
   frame_view->UpdateAllLifecyclePhases(DocumentUpdateReason::kTest);
   EXPECT_EQ(FloatRoundedRect(10, 10, 320, 240),
-            video_element_properties->OverflowClip()->ClipRect());
+            video_element_properties->OverflowClip()->UnsnappedClipRect());
 }
 
 // For NoPaintPropertyForXXXText cases. The styles trigger almost all paint

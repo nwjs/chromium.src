@@ -38,13 +38,15 @@ source_set("common") {
     "//base",
     "//fuchsia/base",
     "//fuchsia/base:modular",
-    "//third_party/fuchsia-sdk/sdk:fuchsia-ui-app",
+    "//ui/gfx/geometry",
     "//url",
   ]
   public_deps = [
-    "//third_party/fuchsia-sdk/sdk:fuchsia-sys",
-    "//third_party/fuchsia-sdk/sdk:fuchsia-web",
-    "//third_party/fuchsia-sdk/sdk:sys_cpp",
+    "//third_party/fuchsia-sdk/sdk/fidl/fuchsia.modular",
+    "//third_party/fuchsia-sdk/sdk/fidl/fuchsia.sys",
+    "//third_party/fuchsia-sdk/sdk/fidl/fuchsia.ui.app",
+    "//third_party/fuchsia-sdk/sdk/fidl/fuchsia.web",
+    "//third_party/fuchsia-sdk/sdk/pkg/sys_cpp",
   ]
   visibility = [ ":*" ]
 }
@@ -67,14 +69,14 @@ source_set("cast_runner_core") {
     "//base",
     "//fuchsia/base",
     "//fuchsia/base:modular",
-    "//third_party/fuchsia-sdk/sdk:fuchsia-modular",
-    "//third_party/fuchsia-sdk/sdk:sys_cpp",
+    "//third_party/fuchsia-sdk/sdk/fidl/fuchsia.modular",
+    "//third_party/fuchsia-sdk/sdk/pkg/sys_cpp",
     "//url",
   ]
   public_deps = [
     ":common",
     "//fuchsia:cast_fidl",
-    "//third_party/fuchsia-sdk/sdk:fuchsia-web",
+    "//third_party/fuchsia-sdk/sdk/fidl/fuchsia.web",
   ]
   visibility = [ ":*" ]
 }
@@ -91,10 +93,11 @@ executable("cast_runner_exe") {
   visibility = [ ":*" ]
 }
 
-fuchsia_package("cast_runner_pkg") {
+cr_fuchsia_package("cast_runner_pkg") {
   binary = ":cast_runner_exe"
   package_name_override = _cast_runner_package_name
   archive_name_override = "cast_runner"
+  component_name_override = "cast_runner"
   manifest = "cast/cast_runner.cmx"
 }
 
@@ -104,7 +107,7 @@ fuchsia_package_runner("cast_runner") {
   install_only = true
   package_deps = [ [
         "//fuchsia/engine:web_engine",
-        "web_engine",
+        "web_engine${release_channel_suffix}",
       ] ]
 }
 
@@ -120,7 +123,7 @@ source_set("cast_runner_test_core") {
   public_deps = [
     "//base",
     "//fuchsia:cast_fidl",
-    "//third_party/fuchsia-sdk/sdk:fuchsia-sys",
+    "//third_party/fuchsia-sdk/sdk/fidl/fuchsia.sys",
     "//url",
   ]
   visibility = [ ":*" ]
@@ -138,7 +141,7 @@ test("cast_runner_unittests") {
     "//net:test_support",
     "//testing/gmock",
     "//testing/gtest",
-    "//third_party/fuchsia-sdk/sdk:fuchsia-web",
+    "//third_party/fuchsia-sdk/sdk/fidl/fuchsia.web",
   ]
 }
 
@@ -153,9 +156,9 @@ test("cast_runner_integration_tests") {
     "//fuchsia/base:test_support",
     "//net:test_support",
     "//testing/gtest",
-    "//third_party/fuchsia-sdk/sdk:fuchsia-modular",
-    "//third_party/fuchsia-sdk/sdk:scenic_cpp",
-    "//third_party/fuchsia-sdk/sdk:sys_cpp",
+    "//third_party/fuchsia-sdk/sdk/fidl/fuchsia.modular",
+    "//third_party/fuchsia-sdk/sdk/pkg/scenic_cpp",
+    "//third_party/fuchsia-sdk/sdk/pkg/sys_cpp",
   ]
   package_deps = [ [
         "//fuchsia/engine:web_engine",
@@ -178,7 +181,6 @@ test("cast_runner_browsertests") {
     "//fuchsia/base",
     "//fuchsia/base:test_support",
     "//fuchsia/engine:browsertest_core",
-    "//fuchsia/engine:web_engine_core",
     "//testing/gmock",
     "//testing/gtest",
     "//ui/ozone",
@@ -196,9 +198,10 @@ executable("web_runner_exe") {
   visibility = [ ":*" ]
 }
 
-fuchsia_package("web_runner_pkg") {
+cr_fuchsia_package("web_runner_pkg") {
   binary = ":web_runner_exe"
   package_name_override = _web_runner_package_name
+  component_name_override = "web_runner"
   archive_name_override = "web_runner"
   manifest = "web/web_runner.cmx"
 }
@@ -209,7 +212,7 @@ fuchsia_package_runner("web_runner") {
   install_only = true
   package_deps = [ [
         "//fuchsia/engine:web_engine",
-        "web_engine",
+        "web_engine${release_channel_suffix}",
       ] ]
 }
 
@@ -222,7 +225,7 @@ test("web_runner_integration_tests") {
     "//fuchsia/base:modular",
     "//net:test_support",
     "//testing/gtest",
-    "//third_party/fuchsia-sdk/sdk:fuchsia-sys",
+    "//third_party/fuchsia-sdk/sdk/fidl/fuchsia.sys",
   ]
   package_deps = [
     [

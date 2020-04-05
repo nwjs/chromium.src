@@ -22,6 +22,7 @@ class EmuTarget(target.Target):
     super(EmuTarget, self).__init__(output_dir, target_cpu)
     self._emu_process = None
     self._system_log_file = system_log_file
+    self._amber_repo = None
 
   def __enter__(self):
     return self
@@ -74,8 +75,11 @@ class EmuTarget(target.Target):
                      open(temporary_system_log_file.name, 'r').read())
       raise
 
-  def _GetAmberRepo(self):
-    return amber_repo.ManagedAmberRepo(self)
+  def GetAmberRepo(self):
+    if not self._amber_repo:
+      self._amber_repo = amber_repo.ManagedAmberRepo(self)
+
+    return self._amber_repo
 
   def Shutdown(self):
     if self._IsEmuStillRunning():

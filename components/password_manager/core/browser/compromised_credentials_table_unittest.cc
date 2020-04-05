@@ -9,6 +9,7 @@
 #include "base/callback.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
 #include "components/password_manager/core/common/password_manager_features.h"
@@ -34,7 +35,7 @@ class CompromisedCredentialsTableTest : public testing::Test {
  protected:
   void SetUp() override {
     ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
-    feature_list_.InitWithFeatures({password_manager::features::kLeakHistory},
+    feature_list_.InitWithFeatures({password_manager::features::kPasswordCheck},
                                    {});
     ReloadDatabase();
   }
@@ -87,12 +88,12 @@ TEST_F(CompromisedCredentialsTableTest, DatabaseIsAccessible) {
   feature_list_.Reset();
   feature_list_.InitWithFeatures(
       {safe_browsing::kPasswordProtectionForSignedInUsers},
-      {password_manager::features::kLeakHistory});
+      {password_manager::features::kPasswordCheck});
   CheckDatabaseAccessibility();
 
   feature_list_.Reset();
   feature_list_.InitWithFeatures(
-      {password_manager::features::kLeakHistory},
+      {password_manager::features::kPasswordCheck},
       {safe_browsing::kPasswordProtectionForSignedInUsers});
   CheckDatabaseAccessibility();
 }
@@ -102,7 +103,7 @@ TEST_F(CompromisedCredentialsTableTest, ExperimentOff) {
   // accessible.
   feature_list_.Reset();
   feature_list_.InitWithFeatures({},
-                                 {password_manager::features::kLeakHistory});
+                                 {password_manager::features::kPasswordCheck});
   EXPECT_THAT(db()->GetAllRows(), IsEmpty());
   EXPECT_THAT(db()->GetRows(test_data().signon_realm, test_data().username),
               ElementsAre());
@@ -140,10 +141,8 @@ TEST_F(CompromisedCredentialsTableTest,
   compromised_credentials2.create_time = base::Time::FromTimeT(2);
 
   EXPECT_TRUE(db()->AddRow(compromised_credentials1));
-  // It should return true as the sql statement ran correctly. It ignored
-  // new row though because of unique constraints, hence there is only one
-  // record in the database.
-  EXPECT_TRUE(db()->AddRow(compromised_credentials2));
+  // It should return false because of unique constraints.
+  EXPECT_FALSE(db()->AddRow(compromised_credentials2));
   EXPECT_THAT(db()->GetAllRows(), ElementsAre(compromised_credentials1));
 }
 
@@ -291,6 +290,40 @@ TEST_F(CompromisedCredentialsTableTest, EmptySignonRealm) {
   EXPECT_THAT(db()->GetAllRows(), IsEmpty());
   EXPECT_FALSE(db()->RemoveRow(test_data().signon_realm, test_data().username,
                                RemoveCompromisedCredentialsReason::kRemove));
+}
+
+TEST_F(CompromisedCredentialsTableTest, ReportMetricsBeforeBulkCheck) {
+  EXPECT_TRUE(db()->AddRow(test_data()));
+  test_data().signon_realm = kTestDomain2;
+  test_data().username = base::ASCIIToUTF16(kUsername2);
+  EXPECT_TRUE(db()->AddRow(test_data()));
+  test_data().signon_realm = kTestDomain3;
+  test_data().username = base::ASCIIToUTF16(kUsername3);
+  test_data().compromise_type = CompromiseType::kPhished;
+  EXPECT_TRUE(db()->AddRow(test_data()));
+
+  base::HistogramTester histogram_tester;
+  db()->ReportMetrics(BulkCheckDone(false));
+  histogram_tester.ExpectUniqueSample(
+      "PasswordManager.CompromisedCredentials.CountLeaked", 2, 1);
+  histogram_tester.ExpectUniqueSample(
+      "PasswordManager.CompromisedCredentials.CountPhished", 1, 1);
+  histogram_tester.ExpectTotalCount(
+      "PasswordManager.CompromisedCredentials.CountLeakedAfterBulkCheck", 0);
+}
+
+TEST_F(CompromisedCredentialsTableTest, ReportMetricsAfterBulkCheck) {
+  EXPECT_TRUE(db()->AddRow(test_data()));
+  test_data().signon_realm = kTestDomain2;
+  test_data().username = base::ASCIIToUTF16(kUsername2);
+  EXPECT_TRUE(db()->AddRow(test_data()));
+
+  base::HistogramTester histogram_tester;
+  db()->ReportMetrics(BulkCheckDone(true));
+  histogram_tester.ExpectUniqueSample(
+      "PasswordManager.CompromisedCredentials.CountLeaked", 2, 1);
+  histogram_tester.ExpectUniqueSample(
+      "PasswordManager.CompromisedCredentials.CountLeakedAfterBulkCheck", 2, 1);
 }
 
 }  // namespace

@@ -27,6 +27,8 @@ import android.nfc.FormatException;
 import android.nfc.NfcAdapter;
 import android.nfc.NfcAdapter.ReaderCallback;
 import android.nfc.NfcManager;
+import android.nfc.Tag;
+import android.nfc.tech.TagTechnology;
 import android.os.Bundle;
 
 import org.junit.Before;
@@ -62,13 +64,15 @@ import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 /**
  * Unit tests for NfcImpl and NdefMessageUtils classes.
  */
 @RunWith(LocalRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
+@Config(sdk = 21, manifest = Config.NONE)
 public class NFCTest {
     private TestNfcDelegate mDelegate;
     private int mNextWatchId;
@@ -160,6 +164,7 @@ public class NFCTest {
             doNothing().when(mNfcTagHandler).close();
         } catch (IOException | FormatException e) {
         }
+        NfcBlocklist.overrideNfcBlocklistForTests(null /* serverProvidedValues */);
         ContextUtils.initApplicationContextForTests(mContext);
     }
 
@@ -367,6 +372,96 @@ public class NFCTest {
         assertEquals(NdefMessageUtils.RECORD_TYPE_TEXT, payloadMojoMessage.data[0].recordType);
         assertEquals(null, payloadMojoMessage.data[0].mediaType);
         assertEquals(TEST_TEXT, new String(payloadMojoMessage.data[0].data));
+
+        // Test conversion for smart-poster records.
+        android.nfc.NdefMessage spNdefMessage =
+                new android.nfc.NdefMessage(createSmartPosterNdefRecord());
+        NdefMessage spMojoNdefMessage = NdefMessageUtils.toNdefMessage(spNdefMessage);
+        assertEquals(1, spMojoNdefMessage.data.length);
+        assertEquals(NdefRecordTypeCategory.STANDARDIZED, spMojoNdefMessage.data[0].category);
+        assertEquals(
+                NdefMessageUtils.RECORD_TYPE_SMART_POSTER, spMojoNdefMessage.data[0].recordType);
+        assertEquals(null, spMojoNdefMessage.data[0].mediaType);
+        assertEquals(DUMMY_RECORD_ID, spMojoNdefMessage.data[0].id);
+        // The embedded ndef message should contain records that match the ones created by
+        // createSmartPosterNdefRecord() previously.
+        payloadMojoMessage = spMojoNdefMessage.data[0].payloadMessage;
+        assertEquals(7, payloadMojoMessage.data.length);
+        // The url record.
+        assertEquals(NdefRecordTypeCategory.STANDARDIZED, payloadMojoMessage.data[0].category);
+        assertEquals(NdefMessageUtils.RECORD_TYPE_URL, payloadMojoMessage.data[0].recordType);
+        assertEquals(null, payloadMojoMessage.data[0].mediaType);
+        assertEquals(TEST_URL, new String(payloadMojoMessage.data[0].data));
+        // The size record.
+        assertEquals(NdefRecordTypeCategory.LOCAL, payloadMojoMessage.data[1].category);
+        assertEquals(":s", payloadMojoMessage.data[1].recordType);
+        assertEquals(null, payloadMojoMessage.data[1].mediaType);
+        assertEquals(4, payloadMojoMessage.data[1].data.length);
+        assertEquals(4096, ByteBuffer.allocate(4).put(payloadMojoMessage.data[1].data).getInt(0));
+        // The type record.
+        assertEquals(NdefRecordTypeCategory.LOCAL, payloadMojoMessage.data[2].category);
+        assertEquals(":t", payloadMojoMessage.data[2].recordType);
+        assertEquals(null, payloadMojoMessage.data[2].mediaType);
+        assertEquals(OCTET_STREAM_MIME, new String(payloadMojoMessage.data[2].data));
+        // The action record.
+        assertEquals(NdefRecordTypeCategory.LOCAL, payloadMojoMessage.data[3].category);
+        assertEquals(":act", payloadMojoMessage.data[3].recordType);
+        assertEquals(null, payloadMojoMessage.data[3].mediaType);
+        assertEquals(1, payloadMojoMessage.data[3].data.length);
+        assertEquals(0x01, payloadMojoMessage.data[3].data[0]);
+        // The title record.
+        assertEquals(NdefRecordTypeCategory.STANDARDIZED, payloadMojoMessage.data[4].category);
+        assertEquals(NdefMessageUtils.RECORD_TYPE_TEXT, payloadMojoMessage.data[4].recordType);
+        assertEquals(null, payloadMojoMessage.data[4].mediaType);
+        assertEquals(TEST_TEXT, new String(payloadMojoMessage.data[4].data));
+        // The icon record.
+        assertEquals(NdefRecordTypeCategory.STANDARDIZED, payloadMojoMessage.data[5].category);
+        assertEquals(NdefMessageUtils.RECORD_TYPE_MIME, payloadMojoMessage.data[5].recordType);
+        assertEquals("image/png", payloadMojoMessage.data[5].mediaType);
+        // The application-specific record, e.g. an external type record.
+        assertEquals(NdefRecordTypeCategory.EXTERNAL, payloadMojoMessage.data[6].category);
+        assertEquals(DUMMY_EXTERNAL_TYPE, payloadMojoMessage.data[6].recordType);
+        assertEquals(null, payloadMojoMessage.data[6].mediaType);
+        assertEquals(TEST_TEXT, new String(payloadMojoMessage.data[6].data));
+
+        // Test local record conversion.
+        android.nfc.NdefMessage localNdefMessage = new android.nfc.NdefMessage(
+                NdefMessageUtils.createPlatformLocalRecord("xyz", DUMMY_RECORD_ID,
+                        ApiCompatibilityUtils.getBytesUtf8(TEST_TEXT), null /* payloadMessage */));
+        NdefMessage localMojoNdefMessage = NdefMessageUtils.toNdefMessage(localNdefMessage);
+        assertEquals(1, localMojoNdefMessage.data.length);
+        assertEquals(NdefRecordTypeCategory.LOCAL, localMojoNdefMessage.data[0].category);
+        // Is already prefixed with ':'.
+        assertEquals(":xyz", localMojoNdefMessage.data[0].recordType);
+        assertEquals(null, localMojoNdefMessage.data[0].mediaType);
+        assertEquals(DUMMY_RECORD_ID, localMojoNdefMessage.data[0].id);
+        assertNull(localMojoNdefMessage.data[0].encoding);
+        assertNull(localMojoNdefMessage.data[0].lang);
+        assertEquals(TEST_TEXT, new String(localMojoNdefMessage.data[0].data));
+
+        // Test conversion for local records with the payload being a ndef message.
+        payloadMessage = new android.nfc.NdefMessage(
+                android.nfc.NdefRecord.createTextRecord(LANG_EN_US, TEST_TEXT));
+        payloadBytes = payloadMessage.toByteArray();
+        // Put |payloadBytes| as payload of a local record.
+        android.nfc.NdefMessage localNdefMessage1 =
+                new android.nfc.NdefMessage(NdefMessageUtils.createPlatformLocalRecord(
+                        "xyz", DUMMY_RECORD_ID, payloadBytes, null /* payloadMessage */));
+        NdefMessage localMojoNdefMessage1 = NdefMessageUtils.toNdefMessage(localNdefMessage1);
+        assertEquals(1, localMojoNdefMessage1.data.length);
+        assertEquals(NdefRecordTypeCategory.LOCAL, localMojoNdefMessage1.data[0].category);
+        // Is already prefixed with ':'.
+        assertEquals(":xyz", localMojoNdefMessage1.data[0].recordType);
+        assertEquals(null, localMojoNdefMessage1.data[0].mediaType);
+        assertEquals(DUMMY_RECORD_ID, localMojoNdefMessage1.data[0].id);
+        // The embedded ndef message should have content corresponding with the original
+        // |payloadMessage|.
+        payloadMojoMessage = localMojoNdefMessage1.data[0].payloadMessage;
+        assertEquals(1, payloadMojoMessage.data.length);
+        assertEquals(NdefRecordTypeCategory.STANDARDIZED, payloadMojoMessage.data[0].category);
+        assertEquals(NdefMessageUtils.RECORD_TYPE_TEXT, payloadMojoMessage.data[0].recordType);
+        assertEquals(null, payloadMojoMessage.data[0].mediaType);
+        assertEquals(TEST_TEXT, new String(payloadMojoMessage.data[0].data));
     }
 
     /**
@@ -374,7 +469,8 @@ public class NFCTest {
      */
     @Test
     @Feature({"NFCTest"})
-    public void testMojoToNdefConversion() throws InvalidNdefMessageException, FormatException {
+    public void testMojoToNdefConversion()
+            throws UnsupportedEncodingException, InvalidNdefMessageException, FormatException {
         // Test url record conversion.
         NdefRecord urlMojoNdefRecord = new NdefRecord();
         urlMojoNdefRecord.category = NdefRecordTypeCategory.STANDARDIZED;
@@ -561,6 +657,119 @@ public class NFCTest {
         assertEquals(DUMMY_RECORD_ID, new String(payloadMessage.getRecords()[0].getId()));
         assertEquals(TEST_URL, payloadMessage.getRecords()[0].toUri().toString());
 
+        // Test conversion for smart-poster records.
+        //
+        // Prepare a Mojo NdefMessage |spMojoNdefMessage| by converting an android.nfc.NdefMessage
+        // that contains the smart-poster record . This conversion has already been tested OK by
+        // testNdefToMojoConversion(), i.e. |spMojoNdefMessage|.is valid and its smart-poster record
+        // contains those sub records corresponding to those created by
+        // createSmartPosterNdefRecord().
+        NdefMessage spMojoNdefMessage = NdefMessageUtils.toNdefMessage(
+                new android.nfc.NdefMessage(createSmartPosterNdefRecord()));
+        assertNotNull(spMojoNdefMessage.data[0].payloadMessage);
+        // Do the conversion.
+        android.nfc.NdefMessage spNdefMessage = NdefMessageUtils.toNdefMessage(spMojoNdefMessage);
+        assertEquals(1, spNdefMessage.getRecords().length);
+        assertEquals(android.nfc.NdefRecord.TNF_WELL_KNOWN, spNdefMessage.getRecords()[0].getTnf());
+        assertEquals(new String(android.nfc.NdefRecord.RTD_SMART_POSTER),
+                new String(spNdefMessage.getRecords()[0].getType()));
+        assertEquals(DUMMY_RECORD_ID, new String(spNdefMessage.getRecords()[0].getId()));
+        // The payload raw bytes of the smart-poster record should be able to construct an
+        // NdefMessage which contains records matching those created by
+        // createSmartPosterNdefRecord() in the beginning.
+        payloadMessage = new android.nfc.NdefMessage(spNdefMessage.getRecords()[0].getPayload());
+        assertNotNull(payloadMessage);
+        assertEquals(7, payloadMessage.getRecords().length);
+        // The url record.
+        assertEquals(
+                android.nfc.NdefRecord.TNF_WELL_KNOWN, payloadMessage.getRecords()[0].getTnf());
+        assertEquals(new String(android.nfc.NdefRecord.RTD_URI),
+                new String(payloadMessage.getRecords()[0].getType()));
+        assertEquals(DUMMY_RECORD_ID, new String(payloadMessage.getRecords()[0].getId()));
+        assertEquals(TEST_URL, payloadMessage.getRecords()[0].toUri().toString());
+        // The size record.
+        assertEquals(
+                android.nfc.NdefRecord.TNF_WELL_KNOWN, payloadMessage.getRecords()[1].getTnf());
+        assertEquals("s", new String(payloadMessage.getRecords()[1].getType()));
+        assertEquals(4, payloadMessage.getRecords()[1].getPayload().length);
+        assertEquals(4096,
+                ByteBuffer.allocate(4).put(payloadMessage.getRecords()[1].getPayload()).getInt(0));
+        // The type record.
+        assertEquals(
+                android.nfc.NdefRecord.TNF_WELL_KNOWN, payloadMessage.getRecords()[2].getTnf());
+        assertEquals("t", new String(payloadMessage.getRecords()[2].getType()));
+        assertEquals(OCTET_STREAM_MIME, new String(payloadMessage.getRecords()[2].getPayload()));
+        // The action record.
+        assertEquals(
+                android.nfc.NdefRecord.TNF_WELL_KNOWN, payloadMessage.getRecords()[3].getTnf());
+        assertEquals("act", new String(payloadMessage.getRecords()[3].getType()));
+        assertEquals(1, payloadMessage.getRecords()[3].getPayload().length);
+        assertEquals(0x01, payloadMessage.getRecords()[3].getPayload()[0]);
+        // The title record.
+        assertEquals(
+                android.nfc.NdefRecord.TNF_WELL_KNOWN, payloadMessage.getRecords()[4].getTnf());
+        assertEquals(new String(android.nfc.NdefRecord.RTD_TEXT),
+                new String(payloadMessage.getRecords()[4].getType()));
+        // The icon record.
+        assertEquals(
+                android.nfc.NdefRecord.TNF_MIME_MEDIA, payloadMessage.getRecords()[5].getTnf());
+        assertEquals("image/png", new String(payloadMessage.getRecords()[5].toMimeType()));
+        // The application-specific record, e.g. an external type record.
+        assertEquals(
+                android.nfc.NdefRecord.TNF_EXTERNAL_TYPE, payloadMessage.getRecords()[6].getTnf());
+        assertEquals(DUMMY_EXTERNAL_TYPE, new String(payloadMessage.getRecords()[6].getType()));
+        assertEquals(TEST_TEXT, new String(payloadMessage.getRecords()[6].getPayload()));
+
+        // Test local record conversion.
+        NdefRecord localMojoNdefRecord = new NdefRecord();
+        localMojoNdefRecord.category = NdefRecordTypeCategory.LOCAL;
+        localMojoNdefRecord.recordType = ":xyz";
+        localMojoNdefRecord.id = DUMMY_RECORD_ID;
+        localMojoNdefRecord.data = ApiCompatibilityUtils.getBytesUtf8(TEST_TEXT);
+        NdefMessage localMojoNdefMessage = createMojoNdefMessage(localMojoNdefRecord);
+        android.nfc.NdefMessage localNdefMessage =
+                NdefMessageUtils.toNdefMessage(localMojoNdefMessage);
+        assertEquals(1, localNdefMessage.getRecords().length);
+        assertEquals(
+                android.nfc.NdefRecord.TNF_WELL_KNOWN, localNdefMessage.getRecords()[0].getTnf());
+        // The ':' prefix is already omitted.
+        assertEquals("xyz", new String(localNdefMessage.getRecords()[0].getType()));
+        assertEquals(DUMMY_RECORD_ID, new String(localNdefMessage.getRecords()[0].getId()));
+        assertEquals(TEST_TEXT, new String(localNdefMessage.getRecords()[0].getPayload()));
+
+        // Test conversion for local records with the payload being a ndef message.
+        //
+        // Prepare a local record that embeds |payloadMojoRecord| in its payload.
+        NdefRecord localMojoNdefRecord1 = new NdefRecord();
+        localMojoNdefRecord1.category = NdefRecordTypeCategory.LOCAL;
+        localMojoNdefRecord1.recordType = ":xyz";
+        localMojoNdefRecord1.id = DUMMY_RECORD_ID;
+        // device.mojom.NDEFRecord.data is not allowed to be null, instead, empty byte array is just
+        // what's passed from Blink.
+        localMojoNdefRecord1.data = new byte[0];
+        localMojoNdefRecord1.payloadMessage = createMojoNdefMessage(payloadMojoRecord);
+        // Do the conversion.
+        android.nfc.NdefMessage localNdefMessage1 =
+                NdefMessageUtils.toNdefMessage(createMojoNdefMessage(localMojoNdefRecord1));
+        assertEquals(1, localNdefMessage1.getRecords().length);
+        assertEquals(
+                android.nfc.NdefRecord.TNF_WELL_KNOWN, localNdefMessage1.getRecords()[0].getTnf());
+        // The ':' prefix is already omitted.
+        assertEquals("xyz", new String(localNdefMessage1.getRecords()[0].getType()));
+        assertEquals(DUMMY_RECORD_ID, new String(localNdefMessage1.getRecords()[0].getId()));
+        // The payload raw bytes should be able to construct an ndef message containing an ndef
+        // record that has content corresponding with the original |payloadMojoRecord|.
+        payloadMessage =
+                new android.nfc.NdefMessage(localNdefMessage1.getRecords()[0].getPayload());
+        assertNotNull(payloadMessage);
+        assertEquals(1, payloadMessage.getRecords().length);
+        assertEquals(
+                android.nfc.NdefRecord.TNF_WELL_KNOWN, payloadMessage.getRecords()[0].getTnf());
+        assertEquals(new String(android.nfc.NdefRecord.RTD_URI),
+                new String(payloadMessage.getRecords()[0].getType()));
+        assertEquals(DUMMY_RECORD_ID, new String(payloadMessage.getRecords()[0].getId()));
+        assertEquals(TEST_URL, payloadMessage.getRecords()[0].toUri().toString());
+
         // Test EMPTY record conversion.
         NdefRecord emptyMojoNdefRecord = new NdefRecord();
         emptyMojoNdefRecord.category = NdefRecordTypeCategory.STANDARDIZED;
@@ -575,58 +784,75 @@ public class NFCTest {
     /**
      * Test external record conversion with invalid custom type.
      */
-    @Test(expected = InvalidNdefMessageException.class)
+    @Test
     @Feature({"NFCTest"})
-    public void testInvalidExternalRecordType() throws InvalidNdefMessageException {
+    public void testInvalidExternalRecordType() {
         NdefRecord extMojoNdefRecord = new NdefRecord();
         extMojoNdefRecord.category = NdefRecordTypeCategory.EXTERNAL;
+        extMojoNdefRecord.id = DUMMY_RECORD_ID;
         extMojoNdefRecord.data = ApiCompatibilityUtils.getBytesUtf8(TEST_TEXT);
         {
             // Must have a ':'.
             extMojoNdefRecord.recordType = "abc.com";
             NdefMessage extMojoNdefMessage = createMojoNdefMessage(extMojoNdefRecord);
-            android.nfc.NdefMessage extNdefMessage =
-                    NdefMessageUtils.toNdefMessage(extMojoNdefMessage);
+            android.nfc.NdefMessage extNdefMessage = null;
+            try {
+                extNdefMessage = NdefMessageUtils.toNdefMessage(extMojoNdefMessage);
+            } catch (InvalidNdefMessageException e) {
+            }
             assertNull(extNdefMessage);
         }
         {
-            // '-' is allowed in the domain part.
-            extMojoNdefRecord.recordType = "abc-123.com:xyz";
+            // '~' is allowed in the domain part.
+            extMojoNdefRecord.recordType = "abc~123.com:xyz";
             NdefMessage extMojoNdefMessage = createMojoNdefMessage(extMojoNdefRecord);
-            android.nfc.NdefMessage extNdefMessage =
-                    NdefMessageUtils.toNdefMessage(extMojoNdefMessage);
+            android.nfc.NdefMessage extNdefMessage = null;
+            try {
+                extNdefMessage = NdefMessageUtils.toNdefMessage(extMojoNdefMessage);
+            } catch (InvalidNdefMessageException e) {
+            }
             assertNotNull(extNdefMessage);
             assertEquals(1, extNdefMessage.getRecords().length);
             assertEquals(android.nfc.NdefRecord.TNF_EXTERNAL_TYPE,
                     extNdefMessage.getRecords()[0].getTnf());
-            assertEquals("abc-1.com:xyz", new String(extNdefMessage.getRecords()[0].getType()));
+            assertEquals("abc~123.com:xyz", new String(extNdefMessage.getRecords()[0].getType()));
             assertEquals(DUMMY_RECORD_ID, new String(extNdefMessage.getRecords()[0].getId()));
             assertEquals(TEST_TEXT, new String(extNdefMessage.getRecords()[0].getPayload()));
         }
         {
-            // '-' is not allowed in the type part.
-            extMojoNdefRecord.recordType = "abc.com:xyz-123";
+            // '~' is not allowed in the type part.
+            extMojoNdefRecord.recordType = "abc.com:xyz~123";
             NdefMessage extMojoNdefMessage = createMojoNdefMessage(extMojoNdefRecord);
-            android.nfc.NdefMessage extNdefMessage =
-                    NdefMessageUtils.toNdefMessage(extMojoNdefMessage);
+            android.nfc.NdefMessage extNdefMessage = null;
+            try {
+                extNdefMessage = NdefMessageUtils.toNdefMessage(extMojoNdefMessage);
+            } catch (InvalidNdefMessageException e) {
+            }
             assertNull(extNdefMessage);
         }
         {
-            // As the 2 cases above have proved that '-' is allowed in the domain part but not
+            // As the 2 cases above have proved that '~' is allowed in the domain part but not
             // allowed in the type part, from this case we can say that the first occurrence of
-            // ':' is used to separate the domain part and the type part, i.e. "xyz-123:uvw" is
-            // separated as the type part and is treated as invalid due to the existence of '-'.
-            extMojoNdefRecord.recordType = "abc.com:xyz-123:uvw";
+            // ':' is used to separate the domain part and the type part, i.e. "xyz~123:uvw" is
+            // separated as the type part and is treated as invalid due to the existence of '~'.
+            extMojoNdefRecord.recordType = "abc.com:xyz~123:uvw";
             NdefMessage extMojoNdefMessage = createMojoNdefMessage(extMojoNdefRecord);
-            android.nfc.NdefMessage extNdefMessage =
-                    NdefMessageUtils.toNdefMessage(extMojoNdefMessage);
+            android.nfc.NdefMessage extNdefMessage = null;
+            try {
+                extNdefMessage = NdefMessageUtils.toNdefMessage(extMojoNdefMessage);
+            } catch (InvalidNdefMessageException e) {
+            }
             assertNull(extNdefMessage);
         }
         {
             // |recordType| is a string mixed with ASCII/non-ASCII, FAIL.
             extMojoNdefRecord.recordType = "example.com:hellö";
-            android.nfc.NdefMessage extNdefMessage_nonASCII =
-                    NdefMessageUtils.toNdefMessage(createMojoNdefMessage(extMojoNdefRecord));
+            android.nfc.NdefMessage extNdefMessage_nonASCII = null;
+            try {
+                extNdefMessage_nonASCII =
+                        NdefMessageUtils.toNdefMessage(createMojoNdefMessage(extMojoNdefRecord));
+            } catch (InvalidNdefMessageException e) {
+            }
             assertNull(extNdefMessage_nonASCII);
 
             char[] chars = new char[251];
@@ -635,24 +861,218 @@ public class NFCTest {
 
             // |recordType|'s length is 255, OK.
             extMojoNdefRecord.recordType = domain + ":xyz";
-            android.nfc.NdefMessage extNdefMessage_255 =
-                    NdefMessageUtils.toNdefMessage(createMojoNdefMessage(extMojoNdefRecord));
+            android.nfc.NdefMessage extNdefMessage_255 = null;
+            try {
+                extNdefMessage_255 =
+                        NdefMessageUtils.toNdefMessage(createMojoNdefMessage(extMojoNdefRecord));
+            } catch (InvalidNdefMessageException e) {
+            }
             assertNotNull(extNdefMessage_255);
 
             // Exceeding the maximum length 255, FAIL.
             extMojoNdefRecord.recordType = domain + ":xyze";
-            android.nfc.NdefMessage extNdefMessage_256 =
-                    NdefMessageUtils.toNdefMessage(createMojoNdefMessage(extMojoNdefRecord));
+            android.nfc.NdefMessage extNdefMessage_256 = null;
+            try {
+                extNdefMessage_256 =
+                        NdefMessageUtils.toNdefMessage(createMojoNdefMessage(extMojoNdefRecord));
+            } catch (InvalidNdefMessageException e) {
+            }
             assertNull(extNdefMessage_256);
         }
         {
             // '/' is not allowed in the type part.
             extMojoNdefRecord.recordType = "abc.com:xyz/";
             NdefMessage extMojoNdefMessage = createMojoNdefMessage(extMojoNdefRecord);
-            android.nfc.NdefMessage extNdefMessage =
-                    NdefMessageUtils.toNdefMessage(extMojoNdefMessage);
+            android.nfc.NdefMessage extNdefMessage = null;
+            try {
+                extNdefMessage = NdefMessageUtils.toNdefMessage(extMojoNdefMessage);
+            } catch (InvalidNdefMessageException e) {
+            }
             assertNull(extNdefMessage);
         }
+    }
+
+    /**
+     * Test local type record conversion with invalid local type.
+     */
+    @Test
+    @Feature({"NFCTest"})
+    public void testInvalidLocalRecordType() {
+        NdefRecord localMojoNdefRecord = new NdefRecord();
+        localMojoNdefRecord.category = NdefRecordTypeCategory.LOCAL;
+        localMojoNdefRecord.data = ApiCompatibilityUtils.getBytesUtf8(TEST_TEXT);
+        {
+            // Must start with ':'.
+            localMojoNdefRecord.recordType = "dummyLocalTypeNotStartingwith:";
+            localMojoNdefRecord.data = ApiCompatibilityUtils.getBytesUtf8(TEST_TEXT);
+            NdefMessage localMojoNdefMessage = createMojoNdefMessage(localMojoNdefRecord);
+            android.nfc.NdefMessage localNdefMessage = null;
+            try {
+                localNdefMessage = NdefMessageUtils.toNdefMessage(localMojoNdefMessage);
+            } catch (InvalidNdefMessageException e) {
+            }
+            assertNull(localNdefMessage);
+        }
+        {
+            // |recordType| is a string mixed with ASCII/non-ASCII, FAIL.
+            localMojoNdefRecord.recordType = ":hellö";
+            android.nfc.NdefMessage localNdefMessage_nonASCII = null;
+            try {
+                localNdefMessage_nonASCII =
+                        NdefMessageUtils.toNdefMessage(createMojoNdefMessage(localMojoNdefRecord));
+            } catch (InvalidNdefMessageException e) {
+            }
+            assertNull(localNdefMessage_nonASCII);
+
+            char[] chars = new char[255];
+            Arrays.fill(chars, 'a');
+            String chars_255 = new String(chars);
+
+            // The length of the real local type is 255, OK.
+            localMojoNdefRecord.recordType = ":" + chars_255;
+            android.nfc.NdefMessage localNdefMessage_255 = null;
+            try {
+                localNdefMessage_255 =
+                        NdefMessageUtils.toNdefMessage(createMojoNdefMessage(localMojoNdefRecord));
+            } catch (InvalidNdefMessageException e) {
+            }
+            assertNotNull(localNdefMessage_255);
+
+            // Exceeding the maximum length 255, FAIL.
+            localMojoNdefRecord.recordType = ":a" + chars_255;
+            android.nfc.NdefMessage localNdefMessage_256 = null;
+            try {
+                localNdefMessage_256 =
+                        NdefMessageUtils.toNdefMessage(createMojoNdefMessage(localMojoNdefRecord));
+            } catch (InvalidNdefMessageException e) {
+            }
+            assertNull(localNdefMessage_256);
+        }
+    }
+
+    /**
+     * Test smart-poster record conversion with invalid sub records.
+     */
+    @Test
+    @Feature({"NFCTest"})
+    public void testInvalidSmartPosterRecord() {
+        // Prepare a Mojo NdefMessage |spMojoNdefMessage| that contains the smart-poster record.
+        NdefMessage spMojoNdefMessage = null;
+        try {
+            spMojoNdefMessage = NdefMessageUtils.toNdefMessage(
+                    new android.nfc.NdefMessage(createSmartPosterNdefRecord()));
+        } catch (UnsupportedEncodingException e) {
+        }
+        assertNotNull(spMojoNdefMessage);
+        // The smart-poster record's payload contains the sub records created by
+        // createSmartPosterNdefRecord() previously.
+        assertNotNull(spMojoNdefMessage.data[0].payloadMessage);
+        assertEquals(7, spMojoNdefMessage.data[0].payloadMessage.data.length);
+        NdefRecord[] spEmbeddedRecords = spMojoNdefMessage.data[0].payloadMessage.data;
+        // The url record.
+        assertEquals(NdefRecordTypeCategory.STANDARDIZED, spEmbeddedRecords[0].category);
+        assertEquals(NdefMessageUtils.RECORD_TYPE_URL, spEmbeddedRecords[0].recordType);
+        // The size record.
+        assertEquals(NdefRecordTypeCategory.LOCAL, spEmbeddedRecords[1].category);
+        assertEquals(":s", spEmbeddedRecords[1].recordType);
+        // The type record.
+        assertEquals(NdefRecordTypeCategory.LOCAL, spEmbeddedRecords[2].category);
+        assertEquals(":t", spEmbeddedRecords[2].recordType);
+        // The action record.
+        assertEquals(NdefRecordTypeCategory.LOCAL, spEmbeddedRecords[3].category);
+        assertEquals(":act", spEmbeddedRecords[3].recordType);
+        // The title record.
+        assertEquals(NdefRecordTypeCategory.STANDARDIZED, spEmbeddedRecords[4].category);
+        assertEquals(NdefMessageUtils.RECORD_TYPE_TEXT, spEmbeddedRecords[4].recordType);
+        // The icon record.
+        assertEquals(NdefRecordTypeCategory.STANDARDIZED, spEmbeddedRecords[5].category);
+        assertEquals(NdefMessageUtils.RECORD_TYPE_MIME, spEmbeddedRecords[5].recordType);
+        // The application-specific record, e.g. an external type record.
+        assertEquals(NdefRecordTypeCategory.EXTERNAL, spEmbeddedRecords[6].category);
+        assertEquals(DUMMY_EXTERNAL_TYPE, spEmbeddedRecords[6].recordType);
+
+        // At first, |spMojoNdefMessage| can be converted to an android.nfc.NdefMessage
+        // successfully.
+        android.nfc.NdefMessage convertedMessage = null;
+        try {
+            convertedMessage = NdefMessageUtils.toNdefMessage(spMojoNdefMessage);
+        } catch (InvalidNdefMessageException e) {
+        }
+        assertNotNull(convertedMessage);
+        // Omit all other records than the url record, still OK.
+        spMojoNdefMessage.data[0].payloadMessage.data = new NdefRecord[1];
+        spMojoNdefMessage.data[0].payloadMessage.data[0] = spEmbeddedRecords[0];
+        convertedMessage = null;
+        try {
+            convertedMessage = NdefMessageUtils.toNdefMessage(spMojoNdefMessage);
+        } catch (InvalidNdefMessageException e) {
+        }
+        assertNotNull(convertedMessage);
+        // Omit the mandatory url record, FAIL.
+        spMojoNdefMessage.data[0].payloadMessage.data = new NdefRecord[6];
+        System.arraycopy(spEmbeddedRecords, 1, spMojoNdefMessage.data[0].payloadMessage.data, 0, 6);
+        convertedMessage = null;
+        try {
+            convertedMessage = NdefMessageUtils.toNdefMessage(spMojoNdefMessage);
+        } catch (InvalidNdefMessageException e) {
+        }
+        assertNull(convertedMessage);
+        // Add an extra url record, FAIL because only single url record is allowed.
+        spMojoNdefMessage.data[0].payloadMessage.data = new NdefRecord[8];
+        System.arraycopy(spEmbeddedRecords, 0, spMojoNdefMessage.data[0].payloadMessage.data, 0, 7);
+        NdefRecord urlRecord = new NdefRecord();
+        urlRecord.category = NdefRecordTypeCategory.STANDARDIZED;
+        urlRecord.recordType = NdefMessageUtils.RECORD_TYPE_URL;
+        urlRecord.data = ApiCompatibilityUtils.getBytesUtf8("https://duplicate.url.record");
+        spMojoNdefMessage.data[0].payloadMessage.data[7] = urlRecord;
+        convertedMessage = null;
+        try {
+            convertedMessage = NdefMessageUtils.toNdefMessage(spMojoNdefMessage);
+        } catch (InvalidNdefMessageException e) {
+        }
+        assertNull(convertedMessage);
+        // Add an extra size record, FAIL because at most one size record is allowed.
+        spMojoNdefMessage.data[0].payloadMessage.data = new NdefRecord[8];
+        System.arraycopy(spEmbeddedRecords, 0, spMojoNdefMessage.data[0].payloadMessage.data, 0, 7);
+        NdefRecord sizeRecord = new NdefRecord();
+        sizeRecord.category = NdefRecordTypeCategory.LOCAL;
+        sizeRecord.recordType = ":s";
+        sizeRecord.data = ByteBuffer.allocate(4).putInt(512).array();
+        spMojoNdefMessage.data[0].payloadMessage.data[7] = sizeRecord;
+        convertedMessage = null;
+        try {
+            convertedMessage = NdefMessageUtils.toNdefMessage(spMojoNdefMessage);
+        } catch (InvalidNdefMessageException e) {
+        }
+        assertNull(convertedMessage);
+        // Add an extra type record, FAIL because at most one type record is allowed.
+        spMojoNdefMessage.data[0].payloadMessage.data = new NdefRecord[8];
+        System.arraycopy(spEmbeddedRecords, 0, spMojoNdefMessage.data[0].payloadMessage.data, 0, 7);
+        NdefRecord typeRecord = new NdefRecord();
+        typeRecord.category = NdefRecordTypeCategory.LOCAL;
+        typeRecord.recordType = ":t";
+        typeRecord.data = ApiCompatibilityUtils.getBytesUtf8("duplicate/type");
+        spMojoNdefMessage.data[0].payloadMessage.data[7] = typeRecord;
+        convertedMessage = null;
+        try {
+            convertedMessage = NdefMessageUtils.toNdefMessage(spMojoNdefMessage);
+        } catch (InvalidNdefMessageException e) {
+        }
+        assertNull(convertedMessage);
+        // Add an extra action record, FAIL because at most one action record is allowed.
+        spMojoNdefMessage.data[0].payloadMessage.data = new NdefRecord[8];
+        System.arraycopy(spEmbeddedRecords, 0, spMojoNdefMessage.data[0].payloadMessage.data, 0, 7);
+        NdefRecord actionRecord = new NdefRecord();
+        actionRecord.category = NdefRecordTypeCategory.LOCAL;
+        actionRecord.recordType = ":act";
+        actionRecord.data = ByteBuffer.allocate(4).put((byte) 0x00).array();
+        spMojoNdefMessage.data[0].payloadMessage.data[7] = actionRecord;
+        convertedMessage = null;
+        try {
+            convertedMessage = NdefMessageUtils.toNdefMessage(spMojoNdefMessage);
+        } catch (InvalidNdefMessageException e) {
+        }
+        assertNull(convertedMessage);
     }
 
     /**
@@ -1051,6 +1471,44 @@ public class NFCTest {
     }
 
     /**
+     * Test that when the tag in proximity is found to be blocked, an error event will
+     * be dispatched to the client and the pending push operation will also be ended with an error.
+     */
+    @Test
+    @Feature({"NFCTest"})
+    public void testBlockedTagFound() {
+        TestNfcImpl nfc = new TestNfcImpl(mContext, mDelegate);
+        mDelegate.invokeCallback();
+        nfc.setClient(mNfcClient);
+        // Prepare at least one watcher, otherwise the error won't be notified.
+        WatchResponse mockWatchCallback = mock(WatchResponse.class);
+        nfc.watch(createNdefScanOptions(), mNextWatchId, mockWatchCallback);
+        // Start a push.
+        PushResponse mockCallback = mock(PushResponse.class);
+        nfc.push(createMojoNdefMessage(), createNdefWriteOptions(), mockCallback);
+
+        // Mocks blocked 'NFC tag found' event.
+        NfcBlocklist.getInstance().setIsTagBlockedForTesting(true);
+        Tag tag = Tag.createMockTag(
+                new byte[] {0x00}, new int[] {TagTechnology.NDEF}, new Bundle[] {});
+        NfcTagHandler nfcTagHandler = NfcTagHandler.create(tag);
+        nfc.processPendingOperationsForTesting(nfcTagHandler);
+
+        // An error is notified.
+        verify(mNfcClient, times(1)).onError(mErrorCaptor.capture());
+        assertNotNull(mErrorCaptor.getValue());
+        assertEquals(NdefErrorType.NOT_SUPPORTED, mErrorCaptor.getValue().errorType);
+        // No watch.
+        verify(mNfcClient, times(0))
+                .onWatch(mOnWatchCallbackCaptor.capture(), nullable(String.class),
+                        any(NdefMessage.class));
+
+        // The pending push failed with the correct error.
+        verify(mockCallback).call(mErrorCaptor.capture());
+        assertNotNull(mErrorCaptor.getValue());
+        assertEquals(NdefErrorType.NOT_SUPPORTED, mErrorCaptor.getValue().errorType);
+    }
+    /**
      * Test that when the tag in proximity is found to be not NDEF compatible, an error event will
      * not be dispatched to the client if there is no watcher present.
      */
@@ -1313,5 +1771,40 @@ public class NFCTest {
             throws UnsupportedEncodingException {
         return new android.nfc.NdefMessage(NdefMessageUtils.createPlatformUrlRecord(
                 ApiCompatibilityUtils.getBytesUtf8(TEST_URL), id, false /* isAbsUrl */));
+    }
+
+    private android.nfc.NdefRecord createSmartPosterNdefRecord()
+            throws UnsupportedEncodingException {
+        List<android.nfc.NdefRecord> records = new ArrayList<android.nfc.NdefRecord>();
+        // The single mandatory url record.
+        records.add(NdefMessageUtils.createPlatformUrlRecord(
+                ApiCompatibilityUtils.getBytesUtf8(TEST_URL), DUMMY_RECORD_ID,
+                false /* isAbsUrl */));
+        // Zero or one size record.
+        records.add(NdefMessageUtils.createPlatformLocalRecord("s", null /* id */,
+                ByteBuffer.allocate(4).putInt(4096).array(), null /* payloadMessage */));
+        // Zero or one type record.
+        records.add(NdefMessageUtils.createPlatformLocalRecord("t", null /* id */,
+                ApiCompatibilityUtils.getBytesUtf8(OCTET_STREAM_MIME), null /* payloadMessage */));
+        // Zero or one action record.
+        records.add(NdefMessageUtils.createPlatformLocalRecord("act", null /* id */,
+                ByteBuffer.allocate(1).put((byte) 0x01).array(), null /* payloadMessage */));
+        // Zero or more title record.
+        records.add(NdefMessageUtils.createPlatformTextRecord(null /* id */, LANG_EN_US,
+                ENCODING_UTF8, ApiCompatibilityUtils.getBytesUtf8(TEST_TEXT)));
+        // Zero or more icon record.
+        records.add(NdefMessageUtils.createPlatformMimeRecord(
+                "image/png", null /* id */, new byte[8182]));
+        // Other application-specific records, e.g. an external type record.
+        records.add(
+                NdefMessageUtils.createPlatformExternalRecord(DUMMY_EXTERNAL_TYPE, null /* id */,
+                        ApiCompatibilityUtils.getBytesUtf8(TEST_TEXT), null /* payloadMessage */));
+
+        android.nfc.NdefRecord[] ndefRecords = new android.nfc.NdefRecord[records.size()];
+        records.toArray(ndefRecords);
+        android.nfc.NdefMessage payloadMessage = new android.nfc.NdefMessage(ndefRecords);
+        return new android.nfc.NdefRecord(android.nfc.NdefRecord.TNF_WELL_KNOWN,
+                android.nfc.NdefRecord.RTD_SMART_POSTER,
+                ApiCompatibilityUtils.getBytesUtf8(DUMMY_RECORD_ID), payloadMessage.toByteArray());
     }
 }

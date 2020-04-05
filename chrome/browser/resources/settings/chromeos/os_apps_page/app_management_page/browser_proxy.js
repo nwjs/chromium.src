@@ -109,8 +109,7 @@ cr.define('app_management', function() {
 
       } else {
         this.handler = new appManagement.mojom.PageHandlerRemote();
-        const factory = appManagement.mojom.PageHandlerFactory.getRemote(
-            /*useBrowserInterfaceBroker=*/ true);
+        const factory = appManagement.mojom.PageHandlerFactory.getRemote();
         factory.createPageHandler(
             this.callbackRouter.$.bindNewPipeAndPassRemote(),
             this.handler.$.bindNewPipeAndPassReceiver());
@@ -120,5 +119,6 @@ cr.define('app_management', function() {
 
   cr.addSingletonGetter(BrowserProxy);
 
+  // #cr_define_end
   return {BrowserProxy: BrowserProxy};
 });

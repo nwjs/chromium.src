@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include "base/bind_helpers.h"
 #include "base/metrics/field_trial.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/strings/stringprintf.h"
@@ -167,11 +168,11 @@ TEST_F(PreviewsOfflineHelperTest, TestAddRemovePages) {
     EXPECT_EQ(test_prefs.GetDictionary(kDictKey)->size(),
               test_case.want_pref_size);
 
-    for (const std::string want : test_case.want_pages) {
+    for (const std::string& want : test_case.want_pages) {
       EXPECT_TRUE(helper->ShouldAttemptOfflinePreview(GURL(want)));
     }
 
-    for (const std::string not_want : test_case.not_want_pages) {
+    for (const std::string& not_want : test_case.not_want_pages) {
       EXPECT_FALSE(helper->ShouldAttemptOfflinePreview(GURL(not_want)));
     }
 

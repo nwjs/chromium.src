@@ -10,6 +10,7 @@
 #include "base/files/file_path.h"
 #include "base/sequenced_task_runner.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "base/time/default_clock.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
@@ -20,6 +21,7 @@
 #include "chrome/common/chrome_constants.h"
 #include "components/blacklist/opt_out_blacklist/opt_out_store.h"
 #include "components/blacklist/opt_out_blacklist/sql/opt_out_store_sql.h"
+#include "components/data_reduction_proxy/core/browser/data_reduction_proxy_settings.h"
 #include "components/data_reduction_proxy/core/common/data_reduction_proxy_features.h"
 #include "components/data_reduction_proxy/core/common/data_reduction_proxy_params.h"
 #include "components/previews/content/previews_decider_impl.h"
@@ -55,10 +57,6 @@ std::unique_ptr<previews::RegexpList> GetDenylistRegexpsForDeferAllScript() {
 
 // Returns true if previews can be shown for |type|.
 bool IsPreviewsTypeEnabled(previews::PreviewsType type) {
-  bool server_previews_enabled =
-      previews::params::ArePreviewsAllowed() &&
-      base::FeatureList::IsEnabled(
-          data_reduction_proxy::features::kDataReductionProxyDecidesTransform);
   switch (type) {
     case previews::PreviewsType::OFFLINE:
       return previews::params::IsOfflinePreviewsEnabled();
@@ -67,7 +65,7 @@ bool IsPreviewsTypeEnabled(previews::PreviewsType type) {
     case previews::PreviewsType::LITE_PAGE_REDIRECT:
       return previews::params::IsLitePageServerPreviewsEnabled();
     case previews::PreviewsType::LITE_PAGE:
-      return server_previews_enabled;
+      return false;
     case previews::PreviewsType::NOSCRIPT:
       return previews::params::IsNoScriptPreviewsEnabled();
     case previews::PreviewsType::RESOURCE_LOADING_HINTS:
@@ -188,15 +186,18 @@ void PreviewsService::Initialize(
 
   // Get the background thread to run SQLite on.
   scoped_refptr<base::SequencedTaskRunner> background_task_runner =
-      base::CreateSequencedTaskRunner({base::ThreadPool(), base::MayBlock(),
-                                       base::TaskPriority::BEST_EFFORT});
+      base::ThreadPool::CreateSequencedTaskRunner(
+          {base::MayBlock(), base::TaskPriority::BEST_EFFORT});
 
   Profile* profile = Profile::FromBrowserContext(browser_context_);
 
   std::unique_ptr<previews::PreviewsOptimizationGuide> previews_opt_guide;
   OptimizationGuideKeyedService* optimization_guide_keyed_service =
       OptimizationGuideKeyedServiceFactory::GetForProfile(profile);
-  if (optimization_guide_keyed_service) {
+  if (optimization_guide_keyed_service &&
+      data_reduction_proxy::DataReductionProxySettings::
+          IsDataSaverEnabledByUser(profile->IsOffTheRecord(),
+                                   profile->GetPrefs())) {
     previews_opt_guide = std::make_unique<previews::PreviewsOptimizationGuide>(
         optimization_guide_keyed_service);
   }

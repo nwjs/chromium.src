@@ -31,7 +31,6 @@
 #include "chrome/browser/safe_browsing/download_protection/download_protection_service.h"
 #include "chrome/browser/safe_browsing/download_protection/download_protection_util.h"
 #include "chrome/common/safe_browsing/download_type_util.h"
-#include "chrome/common/safe_browsing/file_type_policies.h"
 #include "components/download/public/common/download_danger_type.h"
 #include "components/policy/core/browser/url_util.h"
 #include "components/policy/core/common/policy_pref_names.h"
@@ -39,6 +38,7 @@
 #include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #include "components/safe_browsing/core/common/utils.h"
 #include "components/safe_browsing/core/features.h"
+#include "components/safe_browsing/core/file_type_policies.h"
 #include "components/safe_browsing/core/proto/csd.pb.h"
 #include "components/safe_browsing/core/proto/webprotect.pb.h"
 #include "components/url_matcher/url_matcher.h"
@@ -66,6 +66,7 @@ void MaybeOverrideDlpScanResult(DownloadCheckResultReason reason,
       case DownloadCheckResult::BLOCKED_PASSWORD_PROTECTED:
       case DownloadCheckResult::BLOCKED_TOO_LARGE:
       case DownloadCheckResult::SENSITIVE_CONTENT_BLOCK:
+      case DownloadCheckResult::BLOCKED_UNSUPPORTED_FILE_TYPE:
         callback.Run(deep_scan_result);
         return;
 
@@ -273,7 +274,8 @@ void CheckClientDownloadRequest::UploadBinary(
         {DeepScanningRequest::DeepScanType::SCAN_DLP});
   } else {
     service()->UploadForDeepScanning(
-        item_, callback_, DeepScanningRequest::DeepScanTrigger::TRIGGER_POLICY);
+        item_, callback_, DeepScanningRequest::DeepScanTrigger::TRIGGER_POLICY,
+        DeepScanningRequest::AllScans());
   }
 }
 
@@ -299,8 +301,6 @@ bool CheckClientDownloadRequest::ShouldPromptForDeepScanning(
 #else
   Profile* profile = Profile::FromBrowserContext(GetBrowserContext());
   return base::FeatureList::IsEnabled(kPromptAppForDeepScanning) &&
-         profile->GetPrefs()->GetBoolean(
-             prefs::kAdvancedProtectionDeepScanningEnabled) &&
          AdvancedProtectionStatusManagerFactory::GetForProfile(profile)
              ->IsUnderAdvancedProtection();
 #endif

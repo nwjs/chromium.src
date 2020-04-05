@@ -20,6 +20,21 @@ enum DiagnosticRoutineEnum {
   kBatteryHealth = 1,
   kUrandom = 2,
   kSmartctlCheck = 3,
+  kAcPower = 4,
+  kCpuCache = 5,
+  kCpuStress = 6,
+  kFloatingPointAccuracy = 7,
+  kNvmeWearLevel = 8,
+  kNvmeSelfTest = 9,
+  kDiskRead = 10,
+  kPrimeSearch = 11,
+  kBatteryDischarge = 12,
+};
+
+// Enumeration of the possible DiskRead routine's command type
+enum DiskReadRoutineTypeEnum {
+  kLinearRead,
+  kRandomRead,
 };
 
 // Enumeration of each of the possible statuses for a diagnostics routine.
@@ -44,6 +59,7 @@ enum DiagnosticRoutineStatusEnum {
 [Extensible]
 enum DiagnosticRoutineUserMessageEnum {
   kUnplugACPower = 0,  // The user needs to unplug the AC power cord.
+  kPlugInACPower = 1,  // The user needs to plug in the AC power cord.
 };
 
 // Enumeration of the possible commands to send a diagnostics routine.
@@ -104,4 +120,19 @@ struct RoutineUpdate {
   // Information specific to the type of response - interactive or
   // noninteractive.
   RoutineUpdateUnion routine_update_union;
+};
+
+// Enumeration of the possible statuses for a power supply in the AC power
+// routine.
+[Extensible]
+enum AcPowerStatusEnum {
+  kConnected = 0,     // Power supply is connected.
+  kDisconnected = 1,  // Power supply is disconnected.
+};
+
+// Enumeration of the self-test type in nvme_self_test routine
+[Extensible]
+enum NvmeSelfTestTypeEnum {
+  kShortSelfTest = 0, // Short time self-test.
+  kLongSelfTest = 1,  // Long time self-test.
 };

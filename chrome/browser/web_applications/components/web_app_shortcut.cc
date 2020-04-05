@@ -10,7 +10,8 @@
 #include "base/callback.h"
 #include "base/i18n/file_util_icu.h"
 #include "base/strings/utf_string_conversions.h"
-#include "base/task/post_task.h"
+#include "base/task/task_traits.h"
+#include "base/task/thread_pool.h"
 #include "build/build_config.h"
 #include "chrome/browser/web_applications/components/web_app_helpers.h"
 #include "chrome/common/chrome_constants.h"
@@ -33,22 +34,23 @@ namespace {
 
 #if defined(OS_MACOSX)
 const int kDesiredIconSizesForShortcut[] = {16, 32, 128, 256, 512};
-const size_t kNumDesiredIconSizesForShortcut =
-    base::size(kDesiredIconSizesForShortcut);
 #elif defined(OS_LINUX)
 // Linux supports icons of any size. FreeDesktop Icon Theme Specification states
 // that "Minimally you should install a 48x48 icon in the hicolor theme."
 const int kDesiredIconSizesForShortcut[] = {16, 32, 48, 128, 256, 512};
-const size_t kNumDesiredIconSizesForShortcut =
-    base::size(kDesiredIconSizesForShortcut);
 #elif defined(OS_WIN)
 const int* kDesiredIconSizesForShortcut = IconUtil::kIconDimensions;
-const size_t kNumDesiredIconSizesForShortcut = IconUtil::kNumIconDimensions;
 #else
 const int kDesiredIconSizesForShortcut[] = {32};
-const size_t kNumDesiredIconSizesForShortcut =
-    base::size(kDesiredIconSizesForShortcut);
 #endif
+
+size_t GetNumDesiredIconSizesForShortcut() {
+#if defined(OS_WIN)
+  return IconUtil::kNumIconDimensions;
+#else
+  return base::size(kDesiredIconSizesForShortcut);
+#endif
+}
 
 void DeleteShortcutInfoOnUIThread(std::unique_ptr<ShortcutInfo> shortcut_info,
                                   base::OnceClosure callback) {
@@ -65,8 +67,8 @@ void CreatePlatformShortcutsAndPostCallback(
     const ShortcutInfo& shortcut_info) {
   bool shortcut_created = internals::CreatePlatformShortcuts(
       shortcut_data_path, creation_locations, creation_reason, shortcut_info);
-  base::PostTask(FROM_HERE, {BrowserThread::UI},
-                 base::BindOnce(std::move(callback), shortcut_created));
+  content::GetUIThreadTaskRunner({})->PostTask(
+      FROM_HERE, base::BindOnce(std::move(callback), shortcut_created));
 }
 
 }  // namespace
@@ -90,16 +92,15 @@ std::string GenerateApplicationNameFromInfo(const ShortcutInfo& shortcut_info) {
   return GenerateApplicationNameFromAppId(shortcut_info.extension_id);
 }
 
-base::FilePath GetWebAppDataDirectory(const base::FilePath& profile_path,
-                                      const std::string& extension_id,
-                                      const GURL& url) {
+base::FilePath GetOsIntegrationResourcesDirectoryForApp(
+    const base::FilePath& profile_path,
+    const std::string& app_id,
+    const GURL& url) {
   DCHECK(!profile_path.empty());
   base::FilePath app_data_dir(profile_path.Append(chrome::kWebAppDirname));
 
-  if (!extension_id.empty()) {
-    return app_data_dir.AppendASCII(
-        GenerateApplicationNameFromAppId(extension_id));
-  }
+  if (!app_id.empty())
+    return app_data_dir.AppendASCII(GenerateApplicationNameFromAppId(app_id));
 
   std::string host(url.host());
   std::string scheme(url.has_scheme() ? url.scheme() : "http");
@@ -119,7 +120,7 @@ base::FilePath GetWebAppDataDirectory(const base::FilePath& profile_path,
 
 base::span<const int> GetDesiredIconSizesForShortcut() {
   return base::span<const int>(kDesiredIconSizesForShortcut,
-                               kNumDesiredIconSizesForShortcut);
+                               GetNumDesiredIconSizesForShortcut());
 }
 
 gfx::ImageSkia CreateDefaultApplicationIcon(int size) {
@@ -181,14 +182,14 @@ void PostShortcutIOTaskAndReply(
 
 scoped_refptr<base::TaskRunner> GetShortcutIOTaskRunner() {
   constexpr base::TaskTraits traits = {
-      base::ThreadPool(), base::MayBlock(), base::TaskPriority::BEST_EFFORT,
+      base::MayBlock(), base::TaskPriority::BEST_EFFORT,
       base::TaskShutdownBehavior::BLOCK_SHUTDOWN};
 
 #if defined(OS_WIN)
-  return base::CreateCOMSTATaskRunner(
+  return base::ThreadPool::CreateCOMSTATaskRunner(
       traits, base::SingleThreadTaskRunnerThreadMode::SHARED);
 #else
-  return base::CreateTaskRunner(traits);
+  return base::ThreadPool::CreateTaskRunner(traits);
 #endif
 }
 
@@ -203,8 +204,9 @@ base::FilePath GetSanitizedFileName(const base::string16& name) {
 }
 
 base::FilePath GetShortcutDataDir(const ShortcutInfo& shortcut_info) {
-  return GetWebAppDataDirectory(shortcut_info.profile_path,
-                                shortcut_info.extension_id, shortcut_info.url);
+  return GetOsIntegrationResourcesDirectoryForApp(shortcut_info.profile_path,
+                                                  shortcut_info.extension_id,
+                                                  shortcut_info.url);
 }
 
 #if !defined(OS_MACOSX)

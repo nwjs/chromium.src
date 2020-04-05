@@ -46,6 +46,14 @@ Polymer({
     },
 
     /** @private {boolean} */
+    showCrostiniPortForwarding_: {
+      type: Boolean,
+      value() {
+        return loadTimeData.getBoolean('showCrostiniPortForwarding');
+      },
+    },
+
+    /** @private {boolean} */
     isAndroidEnabled_: {
       type: Boolean,
     },
@@ -56,6 +64,7 @@ Polymer({
      */
     hideCrostiniUninstall_: {
       type: Boolean,
+      computed: 'or_(installerShowing_, upgraderDialogShowing_)',
     },
 
     /**
@@ -69,6 +78,69 @@ Polymer({
         return loadTimeData.getBoolean('showCrostiniContainerUpgrade');
       },
     },
+
+    /**
+     * Whether the button to show the disk resizing view should be shown.
+     * @private {boolean}
+     */
+    showCrostiniDiskResize_: {
+      type: Boolean,
+      value() {
+        return loadTimeData.getBoolean('showCrostiniDiskResize');
+      },
+    },
+
+    /**
+     * Whether the toggle to share the mic with Crostini should be shown.
+     * @private {boolean}
+     */
+    showCrostiniMic_: {
+      type: Boolean,
+      value() {
+        return loadTimeData.getBoolean('showCrostiniMic');
+      },
+    },
+
+    /*
+     * Whether the installer is showing.
+     * @private {boolean}
+     */
+    installerShowing_: {
+      type: Boolean,
+    },
+
+    /**
+     * Whether the upgrader dialog is showing.
+     * @private {boolean}
+     */
+    upgraderDialogShowing_: {
+      type: Boolean,
+    },
+
+    /**
+     * Whether the button to launch the Crostini container upgrade flow should
+     * be disabled.
+     * @private {boolean}
+     */
+    disableUpgradeButton_: {
+      type: Boolean,
+      computed: 'or_(installerShowing_, upgraderDialogShowing_)',
+    },
+
+    /**
+     * Whether the disk resizing dialog is visible or not
+     * @private {boolean}
+     */
+    showDiskResizeDialog_: {
+      type: Boolean,
+      value: false,
+    },
+
+    /** @private {boolean} */
+    showCrostiniMicSharingDialog_: {
+      type: Boolean,
+      value: false,
+    },
   },
 
   /** settings.RouteOriginBehavior override */
@@ -80,12 +152,22 @@ Polymer({
   ],
 
   attached() {
-    const callback = (status) => {
-      this.hideCrostiniUninstall_ = status;
-    };
-    this.addWebUIListener('crostini-installer-status-changed', callback);
+    this.addWebUIListener('crostini-installer-status-changed', (status) => {
+      this.installerShowing_ = status;
+    });
+    this.addWebUIListener('crostini-upgrader-status-changed', (status) => {
+      this.upgraderDialogShowing_ = status;
+    });
+    this.addWebUIListener(
+        'crostini-container-upgrade-available-changed', (canUpgrade) => {
+          this.showCrostiniContainerUpgrade_ = canUpgrade;
+        });
     settings.CrostiniBrowserProxyImpl.getInstance()
         .requestCrostiniInstallerStatus();
+    settings.CrostiniBrowserProxyImpl.getInstance()
+        .requestCrostiniUpgraderDialogStatus();
+    settings.CrostiniBrowserProxyImpl.getInstance()
+        .requestCrostiniContainerUpgradeAvailable();
   },
 
   ready() {
@@ -95,6 +177,8 @@ Polymer({
         r.CROSTINI_SHARED_USB_DEVICES, '#crostini-shared-usb-devices');
     this.addFocusConfig_(r.CROSTINI_EXPORT_IMPORT, '#crostini-export-import');
     this.addFocusConfig_(r.CROSTINI_ANDROID_ADB, '#crostini-enable-arc-adb');
+    this.addFocusConfig_(
+        r.CROSTINI_PORT_FORWARDING, '#crostini-port-forwarding');
   },
 
   /** @private */
@@ -123,12 +207,23 @@ Polymer({
         settings.routes.CROSTINI_ANDROID_ADB);
   },
 
+  /** @private */
+  onDiskResizeClick_() {
+    this.showDiskResizeDialog_ = true;
+  },
+
+  /** @private */
+  onDiskResizeDialogClose_() {
+    this.showDiskResizeDialog_ = false;
+  },
+
   /**
    * Shows a confirmation dialog when removing crostini.
    * @private
    */
   onRemoveClick_() {
     settings.CrostiniBrowserProxyImpl.getInstance().requestRemoveCrostini();
+    settings.recordSettingChange();
   },
 
   /**
@@ -153,7 +248,50 @@ Polymer({
   },
 
   /** @private */
-  and_(a, b) {
+  onPortForwardingClick_: function() {
+    settings.Router.getInstance().navigateTo(
+        settings.routes.CROSTINI_PORT_FORWARDING);
+  },
+
+  /**
+   * If a change to the mic settings requires Crostini to be restarted, a
+   * dialog is shown.
+   * @private
+   */
+  onMicSharingChange_: function() {
+    const proposedValue = /** @type {!SettingsToggleButtonElement} */
+        (this.$$('#crostini-mic-sharing')).checked;
+    settings.CrostiniBrowserProxyImpl.getInstance()
+        .checkCrostiniMicSharingStatus(proposedValue)
+        .then(requiresRestart => {
+          if (requiresRestart) {
+            this.showCrostiniMicSharingDialog_ = true;
+          }
+        });
+  },
+
+  /** @private */
+  onCrostiniMicSharingDialogClose_: function() {
+    this.showCrostiniMicSharingDialog_ = false;
+  },
+
+  /**
+   * @private
+   * @param {boolean} a
+   * @param {boolean} b
+   * @return {boolean}
+   */
+  and_: function(a, b) {
     return a && b;
+  },
+
+  /**
+   * @private
+   * @param {boolean} a
+   * @param {boolean} b
+   * @return {boolean}
+   */
+  or_: function(a, b) {
+    return a || b;
   },
 });

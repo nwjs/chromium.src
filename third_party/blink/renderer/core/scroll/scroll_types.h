@@ -28,6 +28,7 @@
 
 #include "third_party/blink/public/common/input/web_gesture_event.h"
 #include "third_party/blink/public/mojom/input/scroll_direction.mojom-blink.h"
+#include "third_party/blink/public/mojom/scroll/scroll_enums.mojom-blink.h"
 #include "third_party/blink/public/mojom/scroll/scroll_into_view_params.mojom-blink.h"
 #include "third_party/blink/renderer/platform/geometry/float_point.h"
 #include "third_party/blink/renderer/platform/geometry/float_size.h"
@@ -50,7 +51,7 @@ inline ScrollOffset ToScrollOffset(const gfx::PointF& p) {
   return ScrollOffset(p.x(), p.y());
 }
 
-using ui::input_types::ScrollGranularity;
+using ui::ScrollGranularity;
 
 enum ScrollDirectionPhysical {
   kScrollUp,
@@ -61,13 +62,11 @@ enum ScrollDirectionPhysical {
 
 // An explicit scroll is one that was requested by the user or the webpage.
 // An implicit scroll is a side effect of a layout change.
-inline bool IsExplicitScrollType(
-    mojom::blink::ScrollIntoViewParams::Type scroll_type) {
-  return scroll_type == mojom::blink::ScrollIntoViewParams::Type::kUser ||
-         scroll_type ==
-             mojom::blink::ScrollIntoViewParams::Type::kProgrammatic ||
-         scroll_type == mojom::blink::ScrollIntoViewParams::Type::kCompositor ||
-         scroll_type == mojom::blink::ScrollIntoViewParams::Type::kSequenced;
+inline bool IsExplicitScrollType(mojom::blink::ScrollType scroll_type) {
+  return scroll_type == mojom::blink::ScrollType::kUser ||
+         scroll_type == mojom::blink::ScrollType::kProgrammatic ||
+         scroll_type == mojom::blink::ScrollType::kCompositor ||
+         scroll_type == mojom::blink::ScrollType::kSequenced;
 }
 
 // Convert logical scroll direction to physical. Physical scroll directions are
@@ -160,8 +159,6 @@ enum ScrollInertialPhase {
 enum ScrollbarOrientation { kHorizontalScrollbar, kVerticalScrollbar };
 
 enum ScrollOrientation { kHorizontalScroll, kVerticalScroll };
-
-enum class ScrollbarMode { kAuto, kAlwaysOff, kAlwaysOn };
 
 enum ScrollbarControlSize { kRegularScrollbar, kSmallScrollbar };
 

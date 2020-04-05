@@ -97,6 +97,7 @@
 <translation id="2149973817440762519">تعديل الإشارة</translation>
 <translation id="2179182049312275900">يمكنك تفعيل المزامنة في أي وقت في الإعدادات.</translation>
 <translation id="2198757192731523470">‏قد تستخدم Google السجلّ لتخصيص "بحث Google" والإعلانات وخدمات Google الأخرى.</translation>
+<translation id="2218443599109088993">تصغير</translation>
 <translation id="2230173723195178503">تم تحميل الصفحة المطلوبة</translation>
 <translation id="2239626343334228536">جارٍ محو بيانات التصفُّح...</translation>
 <translation id="2257567812274161158">المزامنة لا تعمل على نحو سليم</translation>
@@ -159,6 +160,7 @@
 <translation id="2923448633003185837">لصق وانتقال</translation>
 <translation id="292639812446257861">وضع علامة كغير مقروءة</translation>
 <translation id="2958718410589002129">كلمات المرور</translation>
+<translation id="2964349545761222050">حظر ملفات تعريف الارتباط التابعة لجهات خارجية</translation>
 <translation id="2969979262385602596">تعذّر تسجيل الدخول. يُرجى إعادة المحاولة لاحقًا.</translation>
 <translation id="298306318844797842">إضافة طريقة الدفع...</translation>
 <translation id="2989805286512600854">فتح في علامة تبويب جديدة</translation>
@@ -178,6 +180,7 @@
 <translation id="3290875554372353449">اختيار حساب</translation>
 <translation id="3311748811247479259">غير مفعَّل</translation>
 <translation id="3324193307694657476">العنوان 2</translation>
+<translation id="3328801116991980348">معلومات موقع الويب</translation>
 <translation id="3329904751041170572">تعذر الاتصال بالخادم.</translation>
 <translation id="3335947283844343239">إعادة فتح علامة التبويب المغلقة</translation>
 <translation id="3371831930909698441">الترجمة متوفّرة. الخيارات المتاحة بالقرب من الجزء السفلي من الشاشة</translation>
@@ -300,6 +303,7 @@
 <translation id="4979397965658815378">‏سجّل الدخول إلى حسابك على Google للحصول على الإشارات المرجعية وكلمات المرور والسجلّ والإعدادات الأخرى واستخدامها على جميع أجهزتك.</translation>
 <translation id="5005498671520578047">نسخ كلمة المرور</translation>
 <translation id="5010803260590204777">افتح علامة تبويب تصفح متخفي لتصفّح الويب بخصوصية تامّة.</translation>
+<translation id="5039020240289137291">حظر ملفات تعريف الارتباط التابعة لجهات خارجية</translation>
 <translation id="5039804452771397117">سماح</translation>
 <translation id="5059136629401106827">حسنًا</translation>
 <translation id="5062321486222145940">‏تثبيت Google Drive</translation>
@@ -414,9 +418,11 @@
 <translation id="6434591244308415567">حدث خطأ. يُرجى إعادة المحاولة لاحقًا.</translation>
 <translation id="6445051938772793705">البلد</translation>
 <translation id="6445981559479772097">تم إرسال الرسالة.</translation>
+<translation id="6447842834002726250">ملفّات تعريف الارتباط</translation>
 <translation id="6464071786529933911">فتح في علامة تبويب جديدة للتصفح المتخفي</translation>
 <translation id="6476800141292307438">ترجمة صفحة إلى <ph name="LANGUAGE" />. وتتوفّر الخيارات بالقرب من أسفل الشاشة.</translation>
 <translation id="6482629121755362506">تم حذف <ph name="NUMBER_OF_SELECTED_BOOKMARKS" /> من العناصر</translation>
+<translation id="6561262006871132942">تكبير</translation>
 <translation id="6610002944194042868">خيارات الترجمة</translation>
 <translation id="6628106477656132239">تاريخ انتهاء الصلاحية غير صحيح</translation>
 <translation id="6638511529934826365">تصغير/تكبير النص…</translation>
@@ -479,7 +485,6 @@
 <translation id="734758817008927353">خيارات حفظ البطاقة</translation>
 <translation id="7348502496356775519">إشارة مرجعية</translation>
 <translation id="7383797227493018512">قائمة القراءة</translation>
-<translation id="7392048574806661116">تسجيل الخروج ومحو البيانات المتزامنة</translation>
 <translation id="7400418766976504921">‏عنوان URL</translation>
 <translation id="7409985198648820906"><ph name="UNREAD_COUNT" /> مقالة غير مقروءة</translation>
 <translation id="7425346204213733349">‏لن تتم بعد الآن مزامنة التغييرات التي تطرأ على الإشارات المرجعية والسجلّ وكلمات المرور وغيرها من الإعدادات مع حسابك على Google، ولكن ستظل بياناتك الحالية مخزّنة في حسابك على Google.</translation>
@@ -598,6 +603,7 @@
 <translation id="9223358826628549784">تم إرسال تقرير الأعطال.</translation>
 <translation id="952704832371081537">إلغاء</translation>
 <translation id="988141524645182168">أجهزة أخرى</translation>
+<translation id="989697783705943787">أمن الموقع الإلكتروني</translation>
 <translation id="989988560359834682">تعديل العنوان</translation>
 <translation id="994757059139821576">اقتراحات المقالات</translation>
 </translationbundle>

@@ -12,6 +12,7 @@
 #include "base/stl_util.h"
 #include "base/strings/strcat.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "base/task/thread_pool/thread_pool_instance.h"
 #include "base/test/bind_test_util.h"
 #include "base/test/task_environment.h"
@@ -65,9 +66,9 @@ class SynchronousCookieManager {
   // Caller must guarantee that |*cookie_service| outlives the
   // SynchronousCookieManager.
   explicit SynchronousCookieManager(mojom::CookieManager* cookie_service)
-      : cookie_service_(cookie_service), flush_callback_counter_(0) {}
+      : cookie_service_(cookie_service), callback_counter_(0) {}
 
-  ~SynchronousCookieManager() {}
+  ~SynchronousCookieManager() = default;
 
   std::vector<net::CanonicalCookie> GetAllCookies() {
     base::RunLoop run_loop;
@@ -142,7 +143,7 @@ class SynchronousCookieManager {
         net::CanonicalCookie::CookieInclusionStatus::EXCLUDE_UNKNOWN_ERROR);
     net::CookieOptions options;
     options.set_same_site_cookie_context(
-        net::CookieOptions::SameSiteCookieContext::SAME_SITE_STRICT);
+        net::CookieOptions::SameSiteCookieContext::MakeInclusive());
     if (modify_http_only)
       options.set_include_httponly();
     cookie_service_->SetCanonicalCookie(
@@ -165,7 +166,7 @@ class SynchronousCookieManager {
     base::RunLoop run_loop;
     net::CookieOptions options;
     options.set_same_site_cookie_context(
-        net::CookieOptions::SameSiteCookieContext::SAME_SITE_STRICT);
+        net::CookieOptions::SameSiteCookieContext::MakeInclusive());
     if (modify_http_only)
       options.set_include_httponly();
     net::CanonicalCookie::CookieInclusionStatus result_out(
@@ -217,20 +218,31 @@ class SynchronousCookieManager {
   void FlushCookieStore() {
     base::RunLoop run_loop;
     cookie_service_->FlushCookieStore(base::BindLambdaForTesting([&]() {
-      ++flush_callback_counter_;
+      ++callback_counter_;
       run_loop.Quit();
     }));
     run_loop.Run();
   }
 
-  uint32_t callback_count() const { return flush_callback_counter_; }
+  void SetStorageAccessGrantSettings() {
+    std::vector<ContentSettingPatternSource> settings;
+    base::RunLoop run_loop;
+    cookie_service_->SetStorageAccessGrantSettings(
+        std::move(settings), base::BindLambdaForTesting([&]() {
+          ++callback_counter_;
+          run_loop.Quit();
+        }));
+    run_loop.Run();
+  }
+
+  uint32_t callback_count() const { return callback_counter_; }
 
   // No need to wrap Add*Listener and CloneInterface, since their use
   // is purely async.
  private:
 
   mojom::CookieManager* cookie_service_;
-  uint32_t flush_callback_counter_;
+  uint32_t callback_counter_;
 
   DISALLOW_COPY_AND_ASSIGN(SynchronousCookieManager);
 };
@@ -252,7 +264,7 @@ class CookieManagerTest : public testing::Test {
         callback;
     net::CookieOptions options;
     options.set_same_site_cookie_context(
-        net::CookieOptions::SameSiteCookieContext::SAME_SITE_STRICT);
+        net::CookieOptions::SameSiteCookieContext::MakeInclusive());
     if (can_modify_httponly)
       options.set_include_httponly();
 
@@ -560,7 +572,7 @@ TEST_F(CookieManagerTest, GetCookieList) {
   // Want the SameSite=lax cookies, but not httponly ones.
   net::CookieOptions options;
   options.set_same_site_cookie_context(
-      net::CookieOptions::SameSiteCookieContext::SAME_SITE_STRICT);
+      net::CookieOptions::SameSiteCookieContext::MakeInclusive());
   std::vector<net::CanonicalCookie> cookies = service_wrapper()->GetCookieList(
       GURL("https://foo_host.com/with/path"), options);
 
@@ -610,7 +622,7 @@ TEST_F(CookieManagerTest, GetCookieListHttpOnly) {
   // Retrieve without httponly cookies (default)
   net::CookieOptions options;
   options.set_same_site_cookie_context(
-      net::CookieOptions::SameSiteCookieContext::SAME_SITE_STRICT);
+      net::CookieOptions::SameSiteCookieContext::MakeInclusive());
 
   EXPECT_TRUE(options.exclude_httponly());
   std::vector<net::CanonicalCookie> cookies = service_wrapper()->GetCookieList(
@@ -665,8 +677,10 @@ TEST_F(CookieManagerTest, GetCookieListSameSite) {
 
   // Retrieve only unrestricted cookies.
   net::CookieOptions options;
-  EXPECT_EQ(net::CookieOptions::SameSiteCookieContext::CROSS_SITE,
-            options.same_site_cookie_context());
+  EXPECT_EQ(
+      net::CookieOptions::SameSiteCookieContext(
+          net::CookieOptions::SameSiteCookieContext::ContextType::CROSS_SITE),
+      options.same_site_cookie_context());
   std::vector<net::CanonicalCookie> cookies = service_wrapper()->GetCookieList(
       GURL("https://foo_host.com/with/path"), options);
   ASSERT_EQ(1u, cookies.size());
@@ -681,7 +695,9 @@ TEST_F(CookieManagerTest, GetCookieListSameSite) {
 
   // Retrieve unrestricted and lax cookies.
   options.set_same_site_cookie_context(
-      net::CookieOptions::SameSiteCookieContext::SAME_SITE_LAX);
+      net::CookieOptions::SameSiteCookieContext(
+          net::CookieOptions::SameSiteCookieContext::ContextType::
+              SAME_SITE_LAX));
   cookies = service_wrapper()->GetCookieList(
       GURL("https://foo_host.com/with/path"), options);
   ASSERT_EQ(2u, cookies.size());
@@ -695,7 +711,7 @@ TEST_F(CookieManagerTest, GetCookieListSameSite) {
 
   // Retrieve everything.
   options.set_same_site_cookie_context(
-      net::CookieOptions::SameSiteCookieContext::SAME_SITE_STRICT);
+      net::CookieOptions::SameSiteCookieContext::MakeInclusive());
   cookies = service_wrapper()->GetCookieList(
       GURL("https://foo_host.com/with/path"), options);
   ASSERT_EQ(3u, cookies.size());
@@ -723,7 +739,7 @@ TEST_F(CookieManagerTest, GetCookieListAccessTime) {
   // the access time is null.
   net::CookieOptions options;
   options.set_same_site_cookie_context(
-      net::CookieOptions::SameSiteCookieContext::SAME_SITE_STRICT);
+      net::CookieOptions::SameSiteCookieContext::MakeInclusive());
 
   options.set_do_not_update_access_time();
   std::vector<net::CanonicalCookie> cookies = service_wrapper()->GetCookieList(
@@ -2237,7 +2253,7 @@ class SessionCleanupCookieManagerTest : public CookieManagerTest {
 
  private:
   const scoped_refptr<base::SequencedTaskRunner> background_task_runner_ =
-      base::CreateSequencedTaskRunner({base::ThreadPool(), base::MayBlock()});
+      base::ThreadPool::CreateSequencedTaskRunner({base::MayBlock()});
 };
 
 TEST_F(SessionCleanupCookieManagerTest, PersistSessionCookies) {
@@ -2332,6 +2348,13 @@ TEST_F(SessionCleanupCookieManagerTest, HttpCookieAllowedOnHttps) {
   InitializeCookieService(store, store);
 
   EXPECT_EQ(1u, service_wrapper()->GetAllCookies().size());
+}
+
+// Each call to SetStorageAccessGrantSettings should run the provided callback
+// when complete.
+TEST_F(CookieManagerTest, SetStorageAccessGrantSettingsRunsCallback) {
+  service_wrapper()->SetStorageAccessGrantSettings();
+  ASSERT_EQ(1U, service_wrapper()->callback_count());
 }
 
 }  // namespace

@@ -5,6 +5,7 @@
 #include "chrome/browser/web_applications/components/web_app_constants.h"
 
 #include "base/compiler_specific.h"
+#include "components/services/app_service/public/mojom/types.mojom.h"
 
 namespace web_app {
 
@@ -19,7 +20,7 @@ DisplayMode ResolveEffectiveDisplayMode(DisplayMode app_display_mode,
                                         DisplayMode user_display_mode) {
   switch (user_display_mode) {
     case DisplayMode::kBrowser:
-      return DisplayMode::kBrowser;
+      return user_display_mode;
     case DisplayMode::kUndefined:
     case DisplayMode::kMinimalUi:
     case DisplayMode::kFullscreen:

@@ -52,6 +52,7 @@
 #include "third_party/blink/renderer/platform/graphics/gpu/drawing_buffer.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/extensions_3d_util.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/webgl_image_conversion.h"
+#include "third_party/blink/renderer/platform/scheduler/public/frame_or_worker_scheduler.h"
 #include "third_party/blink/renderer/platform/timer.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 #include "third_party/khronos/GLES2/gl2.h"
@@ -452,36 +453,36 @@ class MODULES_EXPORT WebGLRenderingContextBase : public CanvasRenderingContext,
                      ExceptionState&);
 
   void uniform1f(const WebGLUniformLocation*, GLfloat x);
-  void uniform1fv(const WebGLUniformLocation*, const FlexibleFloat32ArrayView&);
+  void uniform1fv(const WebGLUniformLocation*, const FlexibleFloat32Array&);
   void uniform1fv(const WebGLUniformLocation*, Vector<GLfloat>&);
   void uniform1i(const WebGLUniformLocation*, GLint x);
-  void uniform1iv(const WebGLUniformLocation*, const FlexibleInt32ArrayView&);
+  void uniform1iv(const WebGLUniformLocation*, const FlexibleInt32Array&);
   void uniform1iv(const WebGLUniformLocation*, Vector<GLint>&);
   void uniform2f(const WebGLUniformLocation*, GLfloat x, GLfloat y);
-  void uniform2fv(const WebGLUniformLocation*, const FlexibleFloat32ArrayView&);
+  void uniform2fv(const WebGLUniformLocation*, const FlexibleFloat32Array&);
   void uniform2fv(const WebGLUniformLocation*, Vector<GLfloat>&);
   void uniform2i(const WebGLUniformLocation*, GLint x, GLint y);
-  void uniform2iv(const WebGLUniformLocation*, const FlexibleInt32ArrayView&);
+  void uniform2iv(const WebGLUniformLocation*, const FlexibleInt32Array&);
   void uniform2iv(const WebGLUniformLocation*, Vector<GLint>&);
   void uniform3f(const WebGLUniformLocation*, GLfloat x, GLfloat y, GLfloat z);
-  void uniform3fv(const WebGLUniformLocation*, const FlexibleFloat32ArrayView&);
+  void uniform3fv(const WebGLUniformLocation*, const FlexibleFloat32Array&);
   void uniform3fv(const WebGLUniformLocation*, Vector<GLfloat>&);
   void uniform3i(const WebGLUniformLocation*, GLint x, GLint y, GLint z);
-  void uniform3iv(const WebGLUniformLocation*, const FlexibleInt32ArrayView&);
+  void uniform3iv(const WebGLUniformLocation*, const FlexibleInt32Array&);
   void uniform3iv(const WebGLUniformLocation*, Vector<GLint>&);
   void uniform4f(const WebGLUniformLocation*,
                  GLfloat x,
                  GLfloat y,
                  GLfloat z,
                  GLfloat w);
-  void uniform4fv(const WebGLUniformLocation*, const FlexibleFloat32ArrayView&);
+  void uniform4fv(const WebGLUniformLocation*, const FlexibleFloat32Array&);
   void uniform4fv(const WebGLUniformLocation*, Vector<GLfloat>&);
   void uniform4i(const WebGLUniformLocation*,
                  GLint x,
                  GLint y,
                  GLint z,
                  GLint w);
-  void uniform4iv(const WebGLUniformLocation*, const FlexibleInt32ArrayView&);
+  void uniform4iv(const WebGLUniformLocation*, const FlexibleInt32Array&);
   void uniform4iv(const WebGLUniformLocation*, Vector<GLint>&);
   void uniformMatrix2fv(const WebGLUniformLocation*,
                         GLboolean transpose,
@@ -571,7 +572,7 @@ class MODULES_EXPORT WebGLRenderingContextBase : public CanvasRenderingContext,
 
   unsigned MaxVertexAttribs() const { return max_vertex_attribs_; }
 
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
 
   // Returns approximate gpu memory allocated per pixel.
   int ExternallyAllocatedBufferCountPerPixel() override;
@@ -591,7 +592,7 @@ class MODULES_EXPORT WebGLRenderingContextBase : public CanvasRenderingContext,
     Member<WebGLTexture> texture2d_array_binding_;
     Member<WebGLTexture> texture_video_image_binding_;
 
-    void Trace(blink::Visitor*);
+    void Trace(Visitor*);
   };
 
   scoped_refptr<StaticBitmapImage> GetImage(
@@ -629,6 +630,8 @@ class MODULES_EXPORT WebGLRenderingContextBase : public CanvasRenderingContext,
   // WebGL extensions.
   friend class EXTDisjointTimerQuery;
   friend class EXTDisjointTimerQueryWebGL2;
+  friend class EXTTextureCompressionBPTC;
+  friend class EXTTextureCompressionRGTC;
   friend class OESVertexArrayObject;
   friend class OVRMultiview2;
   friend class WebGLCompressedTextureASTC;
@@ -883,7 +886,7 @@ class MODULES_EXPORT WebGLRenderingContextBase : public CanvasRenderingContext,
     // This is only used for keeping the JS wrappers of extensions alive.
     virtual WebGLExtension* GetExtensionObjectIfAlreadyEnabled() = 0;
 
-    virtual void Trace(blink::Visitor* visitor) {}
+    virtual void Trace(Visitor* visitor) {}
     const char* NameInHeapSnapshot() const override {
       return "ExtensionTracker";
     }
@@ -929,7 +932,7 @@ class MODULES_EXPORT WebGLRenderingContextBase : public CanvasRenderingContext,
       return extension_;
     }
 
-    void Trace(blink::Visitor* visitor) override {
+    void Trace(Visitor* visitor) override {
       visitor->Trace(extension_);
       ExtensionTracker::Trace(visitor);
     }

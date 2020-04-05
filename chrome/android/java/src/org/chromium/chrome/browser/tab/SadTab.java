@@ -92,7 +92,7 @@ public class SadTab extends EmptyTabObserver implements UserData {
                 assert activity != null;
                 HelpAndFeedback.getInstance().show(activity,
                         activity.getString(R.string.help_context_sad_tab),
-                        Profile.getLastUsedProfile(), null);
+                        Profile.fromWebContents(mTab.getWebContents()), null);
             }
         };
 
@@ -100,8 +100,9 @@ public class SadTab extends EmptyTabObserver implements UserData {
             @Override
             public void run() {
                 if (showSendFeedbackView) {
+                    Profile profile = Profile.fromWebContents(mTab.getWebContents());
                     mTab.getActivity().startHelpAndFeedback(
-                            mTab.getUrl(), "MobileSadTabFeedback", mTab.getProfile());
+                            mTab.getUrlString(), "MobileSadTabFeedback", profile);
                 } else {
                     mTab.reload();
                 }

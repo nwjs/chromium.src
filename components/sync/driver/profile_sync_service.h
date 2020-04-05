@@ -88,9 +88,10 @@ class ProfileSyncService : public SyncService,
     ~InitParams();
 
     std::unique_ptr<SyncClient> sync_client;
+    // TODO(treib): Remove this and instead retrieve it via
+    // SyncClient::GetIdentityManager (but mind LocalSync).
     signin::IdentityManager* identity_manager = nullptr;
-    std::vector<invalidation::IdentityProvider*>
-        invalidations_identity_providers;
+    invalidation::IdentityProvider* invalidations_identity_provider = nullptr;
     StartBehavior start_behavior = MANUAL_START;
     NetworkTimeUpdateCallback network_time_update_callback;
     scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory;
@@ -132,6 +133,7 @@ class ProfileSyncService : public SyncService,
   ModelTypeSet GetRegisteredDataTypes() const override;
   ModelTypeSet GetPreferredDataTypes() const override;
   ModelTypeSet GetActiveDataTypes() const override;
+  ModelTypeSet GetBackedOffDataTypes() const override;
   void StopAndClear() override;
   void OnDataTypeRequestsSyncStartup(ModelType type) override;
   void TriggerRefresh(const ModelTypeSet& types) override;
@@ -169,7 +171,6 @@ class ProfileSyncService : public SyncService,
       ModelTypeSet initial_types,
       const WeakHandle<JsBackend>& js_backend,
       const WeakHandle<DataTypeDebugInfoListener>& debug_info_listener,
-      const std::string& cache_guid,
       const std::string& birthday,
       const std::string& bag_of_chips,
       const std::string& last_keystore_key,
@@ -188,6 +189,7 @@ class ProfileSyncService : public SyncService,
   void OnConnectionStatusChange(ConnectionStatus status) override;
   void OnMigrationNeededForTypes(ModelTypeSet types) override;
   void OnActionableError(const SyncProtocolError& error) override;
+  void OnBackedOffTypesChanged() override;
 
   // DataTypeManagerObserver implementation.
   void OnConfigureDone(const DataTypeManager::ConfigureResult& result) override;
@@ -197,6 +199,7 @@ class ProfileSyncService : public SyncService,
   void OnAccountsInCookieUpdated(
       const signin::AccountsInCookieJarInfo& accounts_in_cookie_jar_info,
       const GoogleServiceAuthError& error) override;
+  void OnAccountsCookieDeletedByUserAction() override;
 
   // Similar to above but with a callback that will be invoked on completion.
   void OnAccountsInCookieUpdatedWithCallback(
@@ -267,6 +270,8 @@ class ProfileSyncService : public SyncService,
   // Combines GAIA ID, sync birthday and keystore key with '|' sepearator to
   // generate a secret. Returns empty string if keystore key is not available.
   std::string GetExperimentalAuthenticationSecretForTest() const;
+
+  static std::string GenerateCacheGUIDForTest();
 
  private:
   // Passed as an argument to StopImpl to control whether or not the sync
@@ -383,6 +388,7 @@ class ProfileSyncService : public SyncService,
 
   // Encapsulates user signin - used to set/get the user's authenticated
   // email address and sign-out upon error.
+  // May be null (if local Sync is enabled).
   signin::IdentityManager* const identity_manager_;
 
   // The user-configurable knobs. Non-null between Initialize() and Shutdown().
@@ -484,11 +490,11 @@ class ProfileSyncService : public SyncService,
   // or must delay loading for some reason).
   DataTypeStatusTable::TypeErrorMap data_type_error_map_;
 
-  // This providers tells the invalidations code which identity to register for.
+  // This provider tells the invalidations code which identity to register for.
   // The account that it registers for should be the same as the currently
   // syncing account, so we'll need to update this whenever the account changes.
-  std::vector<invalidation::IdentityProvider*> const
-      invalidations_identity_providers_;
+  // May be null (if local Sync is enabled).
+  invalidation::IdentityProvider* const invalidations_identity_provider_;
 
   // List of available data type controllers.
   DataTypeController::TypeMap data_type_controllers_;

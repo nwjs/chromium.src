@@ -59,6 +59,7 @@ import org.chromium.content_public.browser.test.util.CriteriaHelper;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.content_public.common.ContentUrlConstants;
 import org.chromium.net.test.EmbeddedTestServer;
+import org.chromium.url.GURL;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -992,9 +993,10 @@ public class SafeBrowsingTest {
         // We'll successfully load IFRAME_HTML_PATH, and will soon call onSafeBrowsingHit
         mContentsClient.getOnPageFinishedHelper().waitForCallback(pageFinishedCount);
 
+        final GURL aboutBlank = new GURL(ContentUrlConstants.ABOUT_BLANK_DISPLAY_URL);
+
         // Wait for the onSafeBrowsingHit to call BACK_TO_SAFETY and navigate back
-        mActivityTestRule.pollUiThread(
-                () -> ContentUrlConstants.ABOUT_BLANK_DISPLAY_URL.equals(mAwContents.getUrl()));
+        mActivityTestRule.pollUiThread(() -> aboutBlank.equals(mAwContents.getUrl()));
 
         // Check onSafeBrowsingHit arguments
         Assert.assertFalse(mContentsClient.getLastRequest().isMainFrame);
@@ -1194,8 +1196,14 @@ public class SafeBrowsingTest {
     @Feature({"AndroidWebView"})
     public void testSafeBrowsingClickReportErrorLink() throws Throwable {
         // Only phishing interstitials have the report-error-link
-        loadInterstitialAndClickLink(PHISHING_HTML_PATH, "report-error-link",
-                appendLocale("https://www.google.com/safebrowsing/report_error/"));
+        final String reportErrorUrl =
+                Uri.parse("https://safebrowsing.google.com/safebrowsing/report_error/")
+                        .buildUpon()
+                        .appendQueryParameter(
+                                "url", mTestServer.getURL(PHISHING_HTML_PATH).toString())
+                        .appendQueryParameter("hl", getSafeBrowsingLocaleOnUiThreadForTesting())
+                        .toString();
+        loadInterstitialAndClickLink(PHISHING_HTML_PATH, "report-error-link", reportErrorUrl);
     }
 
     private String appendLocale(String url) throws Exception {
@@ -1265,7 +1273,7 @@ public class SafeBrowsingTest {
             // Make sure the URL was seen for a main frame navigation.
             Assert.assertTrue(requestsForUrl.isMainFrame);
         } else {
-            Assert.assertEquals(linkUrl, mAwContents.getUrl());
+            Assert.assertEquals(new GURL(linkUrl), mAwContents.getUrl());
         }
     }
 

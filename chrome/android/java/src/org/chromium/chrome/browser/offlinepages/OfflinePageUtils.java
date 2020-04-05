@@ -33,7 +33,7 @@ import org.chromium.chrome.browser.share.ShareParams;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.SadTab;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tab.TabImpl;
+import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorTabModelObserver;
@@ -41,9 +41,9 @@ import org.chromium.chrome.browser.ui.messages.snackbar.Snackbar;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager.SnackbarController;
 import org.chromium.chrome.browser.util.ChromeFileProvider;
-import org.chromium.chrome.browser.util.UrlConstants;
 import org.chromium.components.bookmarks.BookmarkId;
 import org.chromium.components.dom_distiller.core.DomDistillerUrlUtils;
+import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.components.offline_items_collection.LaunchLocation;
 import org.chromium.components.offlinepages.SavePageResult;
 import org.chromium.content_public.browser.LoadUrlParams;
@@ -156,8 +156,8 @@ public class OfflinePageUtils {
             WebContents webContents = tab.getWebContents();
             if (webContents == null) return false;
 
-            OfflinePageBridge offlinePageBridge =
-                    getInstance().getOfflinePageBridge(((TabImpl) tab).getProfile());
+            OfflinePageBridge offlinePageBridge = getInstance().getOfflinePageBridge(
+                    Profile.fromWebContents(tab.getWebContents()));
             if (offlinePageBridge == null) return false;
 
             return offlinePageBridge.isOfflinePage(webContents);
@@ -166,7 +166,7 @@ public class OfflinePageUtils {
         @Override
         public boolean isShowingOfflinePreview(Tab tab) {
             OfflinePageBridge offlinePageBridge =
-                    getOfflinePageBridge(((TabImpl) tab).getProfile());
+                    getOfflinePageBridge(Profile.fromWebContents(tab.getWebContents()));
             if (offlinePageBridge == null) return false;
             return offlinePageBridge.isShowingOfflinePreview(tab.getWebContents());
         }
@@ -266,7 +266,7 @@ public class OfflinePageUtils {
         if (shouldSkipSavingTabOffline(tab)) return;
 
         OfflinePageBridge offlinePageBridge =
-                getInstance().getOfflinePageBridge(((TabImpl) tab).getProfile());
+                getInstance().getOfflinePageBridge(Profile.fromWebContents(tab.getWebContents()));
         if (offlinePageBridge == null) return;
 
         WebContents webContents = tab.getWebContents();
@@ -339,7 +339,7 @@ public class OfflinePageUtils {
      */
     public static boolean saveAndSharePage(Tab tab, final Callback<ShareParams> shareCallback) {
         OfflinePageBridge offlinePageBridge =
-                getInstance().getOfflinePageBridge(((TabImpl) tab).getProfile());
+                getInstance().getOfflinePageBridge(Profile.fromWebContents(tab.getWebContents()));
 
         if (offlinePageBridge == null) {
             Log.e(TAG, "Unable to share current tab as an offline page.");
@@ -417,7 +417,7 @@ public class OfflinePageUtils {
         }
 
         OfflinePageBridge offlinePageBridge =
-                getInstance().getOfflinePageBridge(((TabImpl) tab).getProfile());
+                getInstance().getOfflinePageBridge(Profile.fromWebContents(tab.getWebContents()));
 
         if (offlinePageBridge == null) {
             Log.e(TAG, "Unable to share current tab as an offline page.");
@@ -442,7 +442,7 @@ public class OfflinePageUtils {
         boolean isPageTemporary =
                 offlinePageBridge.isTemporaryNamespace(offlinePage.getClientId().getNamespace());
         String tabTitle = tab.getTitle();
-        getOfflinePageUriForSharing(tab.getUrl(), isPageTemporary, offlinePath,
+        getOfflinePageUriForSharing(tab.getUrlString(), isPageTemporary, offlinePath,
                 (Uri uri)
                         -> maybeShareOfflinePageWithUri(tabTitle, webContents, offlinePageBridge,
                                 offlinePage, isPageTemporary, shareCallback, uri));
@@ -639,8 +639,11 @@ public class OfflinePageUtils {
      */
     public static void getLoadUrlParamsForOpeningOfflineVersion(final String url, long offlineId,
             final @LaunchLocation int location, Callback<LoadUrlParams> callback) {
+        // TODO(https://crbug.com/1041781): Use the current profile (i.e., regular profile or
+        // incognito profile) instead of always using regular profile. It is wrong and need to be
+        // fixed.
         OfflinePageBridge offlinePageBridge =
-                getInstance().getOfflinePageBridge(Profile.getLastUsedProfile());
+                getInstance().getOfflinePageBridge(Profile.getLastUsedRegularProfile());
         if (offlinePageBridge == null) {
             callback.onResult(null);
             return;
@@ -659,8 +662,11 @@ public class OfflinePageUtils {
      */
     public static void getLoadUrlParamsForOpeningMhtmlFileOrContent(
             final String intentUrl, Callback<LoadUrlParams> callback) {
+        // TODO(https://crbug.com/1041781): Use the current profile (i.e., regular profile or
+        // incognito profile) instead of always using regular profile. It is wrong and need to be
+        // fixed.
         OfflinePageBridge offlinePageBridge =
-                getInstance().getOfflinePageBridge(Profile.getLastUsedProfile());
+                getInstance().getOfflinePageBridge(Profile.getLastUsedRegularProfile());
         if (offlinePageBridge == null) {
             callback.onResult(new LoadUrlParams(intentUrl));
             return;
@@ -773,7 +779,7 @@ public class OfflinePageUtils {
             // TODO(crbug.com/1033178): dedupe the
             // DomDistillerUrlUtils#getOriginalUrlFromDistillerUrl() calls.
             String distilledUrl = DomDistillerUrlUtils.getOriginalUrlFromDistillerUrl(
-                    webContents.getVisibleUrl());
+                    webContents.getVisibleUrlString());
             // If current page is an offline page, reload it with custom behavior defined in extra
             // header respected.
             LoadUrlParams params = new LoadUrlParams(distilledUrl, transitionTypeForReload);
@@ -806,7 +812,8 @@ public class OfflinePageUtils {
         }
 
         @Override
-        public void didAddTab(Tab tab, @TabLaunchType int type) {
+        public void didAddTab(
+                Tab tab, @TabLaunchType int type, @TabCreationState int creationState) {
             tab.addObserver(sTabRestoreTracker);
         }
 
@@ -887,7 +894,7 @@ public class OfflinePageUtils {
                 if (page.getClientId().getNamespace().equals(OfflinePageBridge.LAST_N_NAMESPACE)) {
                     tabRestoreContext |= BIT_LAST_N;
                 }
-            } else if (!OfflinePageBridge.canSavePage(tab.getUrl()) || tab.isIncognito()) {
+            } else if (!OfflinePageBridge.canSavePage(tab.getUrlString()) || tab.isIncognito()) {
                 tabRestoreContext |= BIT_CANT_SAVE_OFFLINE;
             }
 
@@ -922,7 +929,7 @@ public class OfflinePageUtils {
                     assert false;
                     return;
             }
-            recordTabRestoreHistogram(tabRestoreType, tab.getUrl());
+            recordTabRestoreHistogram(tabRestoreType, tab.getUrlString());
         }
 
         /**

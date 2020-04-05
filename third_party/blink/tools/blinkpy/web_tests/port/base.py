@@ -1122,7 +1122,7 @@ class Port(object):
         return test_name
 
     def bot_test_times_path(self):
-        # TODO(crbug.com/1030434): For the not_site_per_process_webkit_layout_tests step on linux,
+        # TODO(crbug.com/1030434): For the not_site_per_process_blink_web_tests step on linux,
         # an exception is raised when merging the bot times json files. This happens  whenever they
         # are outputted into the results directory. Temporarily we will return the bot times json
         # file relative to the target directory.
@@ -1276,7 +1276,7 @@ class Port(object):
         """
         assert not self._websocket_server, 'Already running a websocket server.'
         output_dir = output_dir or self.artifacts_directory()
-        server = pywebsocket.PyWebSocket(self, output_dir)
+        server = pywebsocket.PyWebSocket(self, output_dir, python_executable=self._options.python_executable)
         server.start()
         self._websocket_server = server
 
@@ -1428,6 +1428,9 @@ class Port(object):
                 _log.debug("reading additional_expectations from path '%s'", path)
                 expectations[path] = self._filesystem.read_text_file(expanded_path)
             else:
+                # TODO(rmhasan): Fix additional expectation paths for
+                # not_site_per_process_blink_web_tests, then change this back
+                # to raising exceptions for incorrect expectation paths.
                 _log.warning("additional_expectations path '%s' does not exist", path)
         return expectations
 

@@ -5,13 +5,10 @@
 interface DictionaryTest {
     void set(optional InternalDictionary testingDictionary = {});
     InternalDictionary get();
-    [CallWith=ScriptState] object getDictionaryMemberProperties();
 
     void setDerived(InternalDictionaryDerived derived);
     InternalDictionaryDerived getDerived();
 
     void setDerivedDerived(InternalDictionaryDerivedDerived derived);
     InternalDictionaryDerivedDerived getDerivedDerived();
-
-    [CallWith=ScriptState, RaisesException] DOMString stringFromIterable(Dictionary iterableDictionary);
 };

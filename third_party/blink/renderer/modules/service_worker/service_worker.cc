@@ -163,7 +163,7 @@ ServiceWorker* ServiceWorker::From(ExecutionContext* context,
     return scope->GetOrCreateServiceWorker(std::move(info));
   }
 
-  return ServiceWorkerContainer::From(To<Document>(context))
+  return ServiceWorkerContainer::From(Document::From(context))
       ->GetOrCreateServiceWorker(std::move(info));
 }
 
@@ -176,7 +176,7 @@ bool ServiceWorker::HasPendingActivity() const {
 void ServiceWorker::ContextLifecycleStateChanged(
     mojom::FrameLifecycleState state) {}
 
-void ServiceWorker::ContextDestroyed(ExecutionContext*) {
+void ServiceWorker::ContextDestroyed() {
   was_stopped_ = true;
 }
 
@@ -205,7 +205,7 @@ void ServiceWorker::Dispose() {
   receiver_.reset();
 }
 
-void ServiceWorker::Trace(blink::Visitor* visitor) {
+void ServiceWorker::Trace(Visitor* visitor) {
   AbstractWorker::Trace(visitor);
 }
 

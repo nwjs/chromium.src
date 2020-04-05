@@ -87,7 +87,7 @@ void AllocateVideoAndAudioBitrates(ExceptionState& exception_state,
     // Limit audio bitrate values if set explicitly or calculated.
     if (options->hasAudioBitsPerSecond() || options->hasBitsPerSecond()) {
       if (audio_bps > kLargestAutoAllocatedOpusBitRate) {
-        context->AddConsoleMessage(ConsoleMessage::Create(
+        context->AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
             mojom::ConsoleMessageSource::kJavaScript,
             mojom::ConsoleMessageLevel::kWarning,
             "Clamping calculated audio bitrate (" + String::Number(audio_bps) +
@@ -97,7 +97,7 @@ void AllocateVideoAndAudioBitrates(ExceptionState& exception_state,
       }
 
       if (audio_bps < kSmallestPossibleOpusBitRate) {
-        context->AddConsoleMessage(ConsoleMessage::Create(
+        context->AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
             mojom::ConsoleMessageSource::kJavaScript,
             mojom::ConsoleMessageLevel::kWarning,
             "Clamping calculated audio bitrate (" + String::Number(audio_bps) +
@@ -118,7 +118,7 @@ void AllocateVideoAndAudioBitrates(ExceptionState& exception_state,
     // explicitly.
     if (options->hasVideoBitsPerSecond() || options->hasBitsPerSecond()) {
       if (video_bps < kSmallestPossibleVpxBitRate) {
-        context->AddConsoleMessage(ConsoleMessage::Create(
+        context->AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
             mojom::ConsoleMessageSource::kJavaScript,
             mojom::ConsoleMessageLevel::kWarning,
             "Clamping calculated video bitrate (" + String::Number(video_bps) +
@@ -157,7 +157,7 @@ MediaRecorder::MediaRecorder(ExecutionContext* context,
                              MediaStream* stream,
                              const MediaRecorderOptions* options,
                              ExceptionState& exception_state)
-    : ContextLifecycleObserver(context),
+    : ExecutionContextLifecycleObserver(context),
       stream_(stream),
       mime_type_(options->mimeType()),
       stopped_(true),
@@ -334,10 +334,10 @@ const AtomicString& MediaRecorder::InterfaceName() const {
 }
 
 ExecutionContext* MediaRecorder::GetExecutionContext() const {
-  return ContextLifecycleObserver::GetExecutionContext();
+  return ExecutionContextLifecycleObserver::GetExecutionContext();
 }
 
-void MediaRecorder::ContextDestroyed(ExecutionContext*) {
+void MediaRecorder::ContextDestroyed() {
   if (stopped_)
     return;
 
@@ -448,12 +448,12 @@ void MediaRecorder::DispatchScheduledEvent() {
     DispatchEvent(*event);
 }
 
-void MediaRecorder::Trace(blink::Visitor* visitor) {
+void MediaRecorder::Trace(Visitor* visitor) {
   visitor->Trace(stream_);
   visitor->Trace(recorder_handler_);
   visitor->Trace(scheduled_events_);
   EventTargetWithInlineData::Trace(visitor);
-  ContextLifecycleObserver::Trace(visitor);
+  ExecutionContextLifecycleObserver::Trace(visitor);
 }
 
 }  // namespace blink

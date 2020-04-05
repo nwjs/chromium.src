@@ -30,8 +30,8 @@ void NGFragmentItemsBuilder::SetCurrentLine(
 void NGFragmentItemsBuilder::AddLine(const NGPhysicalLineBoxFragment& line,
                                      const LogicalOffset& offset) {
   DCHECK_EQ(items_.size(), offsets_.size());
-#if DCHECK_IS_ON()
   DCHECK(!is_converted_to_physical_);
+#if DCHECK_IS_ON()
   DCHECK_EQ(current_line_fragment_, &line);
 #endif
 
@@ -65,6 +65,7 @@ void NGFragmentItemsBuilder::AddLine(const NGPhysicalLineBoxFragment& line,
 
 void NGFragmentItemsBuilder::AddItems(Child* child_begin, Child* child_end) {
   DCHECK_EQ(items_.size(), offsets_.size());
+  DCHECK(!is_converted_to_physical_);
 
   for (Child* child_iter = child_begin; child_iter != child_end;) {
     Child& child = *child_iter;
@@ -81,8 +82,6 @@ void NGFragmentItemsBuilder::AddItems(Child* child_begin, Child* child_end) {
       if (child.layout_result) {
         const NGPhysicalBoxFragment& box =
             To<NGPhysicalBoxFragment>(child.layout_result->PhysicalFragment());
-        // Floats are in the fragment tree, not in the fragment item list.
-        DCHECK(!box.IsFloating());
         item = std::make_unique<NGFragmentItem>(box, child.ResolvedDirection());
       } else {
         DCHECK(child.inline_item);
@@ -99,6 +98,7 @@ void NGFragmentItemsBuilder::AddItems(Child* child_begin, Child* child_end) {
         ++child_iter;
         continue;
       }
+      DCHECK(!item->IsFloating());
 
       // Children of inline boxes are flattened and added to |items_|, with the
       // count of descendant items to preserve the tree structure.
@@ -135,6 +135,8 @@ void NGFragmentItemsBuilder::AddItems(Child* child_begin, Child* child_end) {
 void NGFragmentItemsBuilder::AddListMarker(
     const NGPhysicalBoxFragment& marker_fragment,
     const LogicalOffset& offset) {
+  DCHECK(!is_converted_to_physical_);
+
   // Resolved direction matters only for inline items, and outside list markers
   // are not inline.
   const TextDirection resolved_direction = TextDirection::kLtr;
@@ -143,15 +145,22 @@ void NGFragmentItemsBuilder::AddListMarker(
   offsets_.push_back(offset);
 }
 
+const Vector<std::unique_ptr<NGFragmentItem>>& NGFragmentItemsBuilder::Items(
+    WritingMode writing_mode,
+    TextDirection direction,
+    const PhysicalSize& outer_size) {
+  ConvertToPhysical(writing_mode, direction, outer_size);
+  return items_;
+}
+
 // Convert internal logical offsets to physical. Items are kept with logical
 // offset until outer box size is determined.
 void NGFragmentItemsBuilder::ConvertToPhysical(WritingMode writing_mode,
                                                TextDirection direction,
                                                const PhysicalSize& outer_size) {
   CHECK_EQ(items_.size(), offsets_.size());
-#if DCHECK_IS_ON()
-  DCHECK(!is_converted_to_physical_);
-#endif
+  if (is_converted_to_physical_)
+    return;
 
   // Children of lines have line-relative offsets. Use line-writing mode to
   // convert their logical offsets.
@@ -190,9 +199,17 @@ void NGFragmentItemsBuilder::ConvertToPhysical(WritingMode writing_mode,
     }
   }
 
-#if DCHECK_IS_ON()
   is_converted_to_physical_ = true;
-#endif
+}
+
+base::Optional<LogicalOffset> NGFragmentItemsBuilder::LogicalOffsetFor(
+    const LayoutObject& layout_object) const {
+  DCHECK_EQ(items_.size(), offsets_.size());
+  for (const std::unique_ptr<NGFragmentItem>& item : items_) {
+    if (item->GetLayoutObject() == &layout_object)
+      return offsets_[&item - items_.begin()];
+  }
+  return base::nullopt;
 }
 
 void NGFragmentItemsBuilder::ToFragmentItems(WritingMode writing_mode,
@@ -200,37 +217,8 @@ void NGFragmentItemsBuilder::ToFragmentItems(WritingMode writing_mode,
                                              const PhysicalSize& outer_size,
                                              void* data) {
   ConvertToPhysical(writing_mode, direction, outer_size);
-  AssociateNextForSameLayoutObject();
+  NGFragmentItems::AssociateWithLayoutObject(&items_);
   new (data) NGFragmentItems(this);
-}
-
-void NGFragmentItemsBuilder::AssociateNextForSameLayoutObject() {
-  // items_[0] can be:
-  //  - kBox  for list marker, e.g. <li>abc</li>
-  //  - kLine for line, e.g. <div>abc</div>
-  // Calling get() is necessary below because operator<< in std::unique_ptr is
-  // a C++20 feature.
-  // TODO(https://crbug.com/980914): Drop .get() once we move to C++20.
-  DCHECK(items_.IsEmpty() || items_[0]->IsContainer()) << items_[0].get();
-  HashMap<const LayoutObject*, wtf_size_t> last_fragment_map;
-  for (wtf_size_t index = 1u; index < items_.size(); ++index) {
-    const NGFragmentItem& item = *items_[index];
-    if (item.Type() == NGFragmentItem::kLine)
-      continue;
-    LayoutObject* const layout_object = item.GetMutableLayoutObject();
-    DCHECK(layout_object->IsInLayoutNGInlineFormattingContext()) << item;
-    auto insert_result = last_fragment_map.insert(layout_object, index);
-    if (insert_result.is_new_entry) {
-      layout_object->SetFirstInlineFragmentItemIndex(index);
-      continue;
-    }
-    const wtf_size_t last_index = insert_result.stored_value->value;
-    insert_result.stored_value->value = index;
-    DCHECK_GT(last_index, 0u) << item;
-    DCHECK_LT(last_index, items_.size());
-    DCHECK_LT(last_index, index);
-    items_[last_index]->SetDeltaToNextForSameLayoutObject(index - last_index);
-  }
 }
 
 }  // namespace blink

@@ -67,6 +67,10 @@ class BlobStorageContext;
 class SpecialStoragePolicy;
 }  // namespace storage
 
+namespace variations {
+class VariationsClient;
+}  // namespace variations
+
 namespace content {
 
 namespace mojom {
@@ -139,6 +143,9 @@ class CONTENT_EXPORT BrowserContext : public base::SupportsUserData {
       base::RepeatingCallback<void(StoragePartition*)>;
   static void ForEachStoragePartition(BrowserContext* browser_context,
                                       StoragePartitionCallback callback);
+  // Returns the number of StoragePartitions that exist for the given
+  // |browser_context|.
+  static size_t GetStoragePartitionCount(BrowserContext* browser_context);
   static void AsyncObliterateStoragePartition(
       BrowserContext* browser_context,
       const std::string& partition_domain,
@@ -384,6 +391,10 @@ class CONTENT_EXPORT BrowserContext : public base::SupportsUserData {
   // API implementation can give some benefits over the in-memory
   // implementation.
   virtual bool CanUseDiskWhenOffTheRecord();
+
+  // Returns the VariationsClient associated with the context if any, or
+  // nullptr if there isn't one.
+  virtual variations::VariationsClient* GetVariationsClient();
 
  private:
   const std::string unique_id_;

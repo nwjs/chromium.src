@@ -260,9 +260,6 @@ class FormatTypeValidator {
         {GL_RG, GL_RG, GL_FLOAT},
         {GL_RED, GL_RED, GL_HALF_FLOAT_OES},
         {GL_RG, GL_RG, GL_HALF_FLOAT_OES},
-
-        // Exposed by GL_EXT_texture_norm16
-        {GL_RED, GL_RED, GL_UNSIGNED_SHORT},
     };
 
     for (size_t ii = 0; ii < base::size(kSupportedFormatTypes); ++ii) {
@@ -370,7 +367,7 @@ bool SizedFormatAvailable(const FeatureInfo* feature_info,
   }
 
   if (internal_format == GL_RGB10_A2_EXT &&
-      (feature_info->feature_flags().chromium_image_xr30 ||
+      (feature_info->feature_flags().chromium_image_ar30 ||
        feature_info->feature_flags().chromium_image_ab30)) {
     return true;
   }
@@ -1370,16 +1367,16 @@ void Texture::SetLevelInfo(GLenum target,
     ScopedMemTrackerChange change(this);
     estimated_size_ -= info.estimated_size;
 
-    if (format != GL_NONE) {
-      // Uncompressed image
-      GLES2Util::ComputeImageDataSizes(width, height, depth, format, type, 4,
-                                       &info.estimated_size, nullptr, nullptr);
-    } else if (internal_format != GL_NONE) {
+    if (::gpu::gles2::IsCompressedTextureFormat(internal_format)) {
       // Compressed image
       GLsizei compressed_size = 0;
       GetCompressedTexSizeInBytes(nullptr, width, height, depth,
                                   internal_format, &compressed_size, nullptr);
       info.estimated_size = compressed_size;
+    } else if (format != GL_NONE) {
+      // Uncompressed image
+      GLES2Util::ComputeImageDataSizes(width, height, depth, format, type, 4,
+                                       &info.estimated_size, nullptr, nullptr);
     } else {
       // No image
       info.estimated_size = 0;
@@ -1836,14 +1833,24 @@ bool Texture::ClearLevel(DecoderContext* decoder, GLenum target, GLint level) {
   }
 
   if (info.target == GL_TEXTURE_3D || info.target == GL_TEXTURE_2D_ARRAY) {
-    // For 3D textures, we always clear the entire texture.
-    DCHECK(info.cleared_rect == gfx::Rect());
-    bool cleared = decoder->ClearLevel3D(
-        this, info.target, info.level,
-        TextureManager::AdjustTexFormat(decoder->GetFeatureInfo(), info.format),
-        info.type, info.width, info.height, info.depth);
-    if (!cleared)
-      return false;
+    if (decoder->IsCompressedTextureFormat(info.internal_format)) {
+      DCHECK(IsImmutable());
+      bool cleared = decoder->ClearCompressedTextureLevel3D(
+          this, info.target, info.level, info.internal_format, info.width,
+          info.height, info.depth);
+      if (!cleared)
+        return false;
+    } else {
+      // For 3D textures, we always clear the entire texture.
+      DCHECK(info.cleared_rect == gfx::Rect());
+      bool cleared =
+          decoder->ClearLevel3D(this, info.target, info.level,
+                                TextureManager::AdjustTexFormat(
+                                    decoder->GetFeatureInfo(), info.format),
+                                info.type, info.width, info.height, info.depth);
+      if (!cleared)
+        return false;
+    }
   } else {
     if (decoder->IsCompressedTextureFormat(info.internal_format)) {
       // An uncleared level of a compressed texture can only occur when
@@ -3829,6 +3836,8 @@ GLenum TextureManager::ExtractFormatFromStorageFormat(GLenum internalformat) {
   switch (internalformat) {
     case GL_COMPRESSED_R11_EAC:
     case GL_COMPRESSED_SIGNED_R11_EAC:
+    case GL_COMPRESSED_RED_RGTC1_EXT:
+    case GL_COMPRESSED_SIGNED_RED_RGTC1_EXT:
     case GL_RED:
     case GL_R8:
     case GL_R8_SNORM:
@@ -3846,6 +3855,8 @@ GLenum TextureManager::ExtractFormatFromStorageFormat(GLenum internalformat) {
       return GL_RED_INTEGER;
     case GL_COMPRESSED_RG11_EAC:
     case GL_COMPRESSED_SIGNED_RG11_EAC:
+    case GL_COMPRESSED_RED_GREEN_RGTC2_EXT:
+    case GL_COMPRESSED_SIGNED_RED_GREEN_RGTC2_EXT:
     case GL_RG:
     case GL_RG8:
     case GL_RG8_SNORM:
@@ -3862,6 +3873,8 @@ GLenum TextureManager::ExtractFormatFromStorageFormat(GLenum internalformat) {
     case GL_RG32I:
       return GL_RG_INTEGER;
     case GL_ATC_RGB_AMD:
+    case GL_COMPRESSED_RGB_BPTC_SIGNED_FLOAT_EXT:
+    case GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT_EXT:
     case GL_COMPRESSED_RGB_PVRTC_2BPPV1_IMG:
     case GL_COMPRESSED_RGB_PVRTC_4BPPV1_IMG:
     case GL_COMPRESSED_RGB_S3TC_DXT1_EXT:
@@ -3902,11 +3915,41 @@ GLenum TextureManager::ExtractFormatFromStorageFormat(GLenum internalformat) {
     case GL_COMPRESSED_RGBA_S3TC_DXT1_EXT:
     case GL_COMPRESSED_RGBA_S3TC_DXT3_EXT:
     case GL_COMPRESSED_RGBA_S3TC_DXT5_EXT:
+    case GL_COMPRESSED_RGBA_BPTC_UNORM_EXT:
     case GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT1_EXT:
     case GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT:
     case GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT:
+    case GL_COMPRESSED_SRGB_ALPHA_BPTC_UNORM_EXT:
     case GL_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC:
     case GL_COMPRESSED_SRGB8_PUNCHTHROUGH_ALPHA1_ETC2:
+    case GL_COMPRESSED_RGBA_ASTC_4x4_KHR:
+    case GL_COMPRESSED_RGBA_ASTC_5x4_KHR:
+    case GL_COMPRESSED_RGBA_ASTC_5x5_KHR:
+    case GL_COMPRESSED_RGBA_ASTC_6x5_KHR:
+    case GL_COMPRESSED_RGBA_ASTC_6x6_KHR:
+    case GL_COMPRESSED_RGBA_ASTC_8x5_KHR:
+    case GL_COMPRESSED_RGBA_ASTC_8x6_KHR:
+    case GL_COMPRESSED_RGBA_ASTC_8x8_KHR:
+    case GL_COMPRESSED_RGBA_ASTC_10x5_KHR:
+    case GL_COMPRESSED_RGBA_ASTC_10x6_KHR:
+    case GL_COMPRESSED_RGBA_ASTC_10x8_KHR:
+    case GL_COMPRESSED_RGBA_ASTC_10x10_KHR:
+    case GL_COMPRESSED_RGBA_ASTC_12x10_KHR:
+    case GL_COMPRESSED_RGBA_ASTC_12x12_KHR:
+    case GL_COMPRESSED_SRGB8_ALPHA8_ASTC_4x4_KHR:
+    case GL_COMPRESSED_SRGB8_ALPHA8_ASTC_5x4_KHR:
+    case GL_COMPRESSED_SRGB8_ALPHA8_ASTC_5x5_KHR:
+    case GL_COMPRESSED_SRGB8_ALPHA8_ASTC_6x5_KHR:
+    case GL_COMPRESSED_SRGB8_ALPHA8_ASTC_6x6_KHR:
+    case GL_COMPRESSED_SRGB8_ALPHA8_ASTC_8x5_KHR:
+    case GL_COMPRESSED_SRGB8_ALPHA8_ASTC_8x6_KHR:
+    case GL_COMPRESSED_SRGB8_ALPHA8_ASTC_8x8_KHR:
+    case GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x5_KHR:
+    case GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x6_KHR:
+    case GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x8_KHR:
+    case GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x10_KHR:
+    case GL_COMPRESSED_SRGB8_ALPHA8_ASTC_12x10_KHR:
+    case GL_COMPRESSED_SRGB8_ALPHA8_ASTC_12x12_KHR:
     case GL_RGBA:
     case GL_RGBA8:
     case GL_RGBA16:
@@ -4120,6 +4163,78 @@ GLenum TextureManager::ExtractTypeFromStorageFormat(GLenum internalformat) {
       return GL_HALF_FLOAT_OES;
     case GL_BGRA8_EXT:
       return GL_UNSIGNED_BYTE;
+    // Compressed Formats
+    // S3TC
+    case GL_COMPRESSED_RGB_S3TC_DXT1_EXT:
+    case GL_COMPRESSED_RGBA_S3TC_DXT1_EXT:
+    case GL_COMPRESSED_SRGB_S3TC_DXT1_EXT:
+    case GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT1_EXT:
+    case GL_COMPRESSED_RGBA_S3TC_DXT3_EXT:
+    case GL_COMPRESSED_RGBA_S3TC_DXT5_EXT:
+    case GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT:
+    case GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT:
+    // ASTC
+    case GL_COMPRESSED_RGBA_ASTC_4x4_KHR:
+    case GL_COMPRESSED_RGBA_ASTC_5x4_KHR:
+    case GL_COMPRESSED_RGBA_ASTC_5x5_KHR:
+    case GL_COMPRESSED_RGBA_ASTC_6x5_KHR:
+    case GL_COMPRESSED_RGBA_ASTC_6x6_KHR:
+    case GL_COMPRESSED_RGBA_ASTC_8x5_KHR:
+    case GL_COMPRESSED_RGBA_ASTC_8x6_KHR:
+    case GL_COMPRESSED_RGBA_ASTC_8x8_KHR:
+    case GL_COMPRESSED_RGBA_ASTC_10x5_KHR:
+    case GL_COMPRESSED_RGBA_ASTC_10x6_KHR:
+    case GL_COMPRESSED_RGBA_ASTC_10x8_KHR:
+    case GL_COMPRESSED_RGBA_ASTC_10x10_KHR:
+    case GL_COMPRESSED_RGBA_ASTC_12x10_KHR:
+    case GL_COMPRESSED_RGBA_ASTC_12x12_KHR:
+    case GL_COMPRESSED_SRGB8_ALPHA8_ASTC_4x4_KHR:
+    case GL_COMPRESSED_SRGB8_ALPHA8_ASTC_5x4_KHR:
+    case GL_COMPRESSED_SRGB8_ALPHA8_ASTC_5x5_KHR:
+    case GL_COMPRESSED_SRGB8_ALPHA8_ASTC_6x5_KHR:
+    case GL_COMPRESSED_SRGB8_ALPHA8_ASTC_6x6_KHR:
+    case GL_COMPRESSED_SRGB8_ALPHA8_ASTC_8x5_KHR:
+    case GL_COMPRESSED_SRGB8_ALPHA8_ASTC_8x6_KHR:
+    case GL_COMPRESSED_SRGB8_ALPHA8_ASTC_8x8_KHR:
+    case GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x5_KHR:
+    case GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x6_KHR:
+    case GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x8_KHR:
+    case GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x10_KHR:
+    case GL_COMPRESSED_SRGB8_ALPHA8_ASTC_12x10_KHR:
+    case GL_COMPRESSED_SRGB8_ALPHA8_ASTC_12x12_KHR:
+    // BPTC
+    case GL_COMPRESSED_SRGB_ALPHA_BPTC_UNORM_EXT:
+    case GL_COMPRESSED_RGBA_BPTC_UNORM_EXT:
+    case GL_COMPRESSED_RGB_BPTC_SIGNED_FLOAT_EXT:
+    case GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT_EXT:
+    // RGTC
+    case GL_COMPRESSED_RED_RGTC1_EXT:
+    case GL_COMPRESSED_SIGNED_RED_RGTC1_EXT:
+    case GL_COMPRESSED_RED_GREEN_RGTC2_EXT:
+    case GL_COMPRESSED_SIGNED_RED_GREEN_RGTC2_EXT:
+    // ETC2/EAC
+    case GL_COMPRESSED_R11_EAC:
+    case GL_COMPRESSED_SIGNED_R11_EAC:
+    case GL_COMPRESSED_RGB8_ETC2:
+    case GL_COMPRESSED_SRGB8_ETC2:
+    case GL_COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2:
+    case GL_COMPRESSED_SRGB8_PUNCHTHROUGH_ALPHA1_ETC2:
+    case GL_COMPRESSED_RG11_EAC:
+    case GL_COMPRESSED_SIGNED_RG11_EAC:
+    case GL_COMPRESSED_RGBA8_ETC2_EAC:
+    case GL_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC:
+    // ETC1
+    case GL_ETC1_RGB8_OES:
+    // PVRTC
+    case GL_COMPRESSED_RGB_PVRTC_4BPPV1_IMG:
+    case GL_COMPRESSED_RGBA_PVRTC_4BPPV1_IMG:
+    case GL_COMPRESSED_RGB_PVRTC_2BPPV1_IMG:
+    case GL_COMPRESSED_RGBA_PVRTC_2BPPV1_IMG:
+    // ATC
+    case GL_ATC_RGB_AMD:
+    case GL_ATC_RGBA_EXPLICIT_ALPHA_AMD:
+    case GL_ATC_RGBA_INTERPOLATED_ALPHA_AMD:
+      return GL_UNSIGNED_BYTE;
     default:
       return GL_NONE;
   }
@@ -4207,10 +4322,11 @@ bool Texture::CompatibleWithSamplerUniformType(
     return category == SAMPLER_SHADOW;
   }
 
-  if (level_info->type == GL_NONE && level_info->format == GL_NONE &&
-      level_info->internal_format != GL_NONE) {
-    // This is probably a compressed texture format. All compressed formats are
-    // sampled as float.
+  DCHECK(memory_tracking_ref_);
+  if (memory_tracking_ref_->manager()
+          ->feature_info_->validators()
+          ->compressed_texture_format.IsValid(level_info->internal_format)) {
+    // Compressed texture format. All compressed formats are sampled as float
     return category == SAMPLER_FLOAT;
   }
 

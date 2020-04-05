@@ -45,9 +45,11 @@ class PageActionIconView : public IconLabelBubbleView {
 
     virtual content::WebContents* GetWebContentsForPageActionIconView() = 0;
 
-    // Returns the border the icon should use. It depends on what kind of
-    // delegate this icon has.
-    virtual std::unique_ptr<views::Border> CreatePageActionIconBorder() const;
+    virtual int GetPageActionIconSize() const;
+
+    // Returns the size of the insets in which the icon should draw its inkdrop.
+    virtual gfx::Insets GetPageActionIconInsets(
+        const PageActionIconView* icon_view) const;
 
     // Delegate should override and return true when the user is editing the
     // location bar contents.
@@ -61,11 +63,10 @@ class PageActionIconView : public IconLabelBubbleView {
   // Updates the color of the icon, this must be set before the icon is drawn.
   void SetIconColor(SkColor icon_color);
 
-  void set_icon_size(int size) { icon_size_ = size; }
-
   // Sets the active state of the icon. An active icon will be displayed in a
   // "call to action" color.
   void SetActive(bool active);
+  bool active() const { return active_; }
 
   // Hide the icon on user input in progress and invokes UpdateImpl().
   void Update();
@@ -153,8 +154,6 @@ class PageActionIconView : public IconLabelBubbleView {
   // Returns the associated web contents from the delegate.
   content::WebContents* GetWebContents() const;
 
-  bool active() const { return active_; }
-
   // Delegate accessor for subclasses.
   Delegate* delegate() const { return delegate_; }
 
@@ -164,9 +163,6 @@ class PageActionIconView : public IconLabelBubbleView {
 
  private:
   void UpdateBorder();
-
-  // The size of the icon image (excluding the ink drop).
-  int icon_size_ = GetLayoutConstant(LOCATION_BAR_ICON_SIZE);
 
   // What color to paint the icon with.
   SkColor icon_color_ = gfx::kPlaceholderColor;

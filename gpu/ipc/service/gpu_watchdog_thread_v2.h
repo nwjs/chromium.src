@@ -5,6 +5,7 @@
 #ifndef GPU_IPC_SERVICE_GPU_WATCHDOG_THREAD_V2_H_
 #define GPU_IPC_SERVICE_GPU_WATCHDOG_THREAD_V2_H_
 
+#include "build/build_config.h"
 #include "gpu/ipc/service/gpu_watchdog_thread.h"
 
 namespace gpu {
@@ -14,7 +15,7 @@ namespace gpu {
 // OnGPUWatchdogTimeout for at most 4 times before the gpu thread is killed.
 constexpr int kMaxCountOfMoreGpuThreadTimeAllowed = 4;
 #endif
-constexpr base::TimeDelta kMaxWaitTime = base::TimeDelta::FromSeconds(60);
+constexpr int kMaxExtraCyclesBeforeKill = 0;
 
 class GPU_IPC_SERVICE_EXPORT GpuWatchdogThreadImplV2
     : public GpuWatchdogThread,
@@ -26,7 +27,7 @@ class GPU_IPC_SERVICE_EXPORT GpuWatchdogThreadImplV2
   static std::unique_ptr<GpuWatchdogThreadImplV2> Create(
       bool start_backgrounded,
       base::TimeDelta timeout,
-      base::TimeDelta max_wait_time,
+      int max_extra_cycles_before_kill,
       bool test_mode);
 
   ~GpuWatchdogThreadImplV2() override;
@@ -39,6 +40,7 @@ class GPU_IPC_SERVICE_EXPORT GpuWatchdogThreadImplV2
   void OnGpuProcessTearDown() override;
   void ResumeWatchdog() override;
   void PauseWatchdog() override;
+  // Records "GPU.WatchdogThread.Event.V2" and "GPU.WatchdogThread.Event".
   void GpuWatchdogHistogram(GpuWatchdogThreadEvent thread_event) override;
   bool IsGpuHangDetectedForTesting() override;
   void WaitForPowerObserverAddedForTesting() override;
@@ -67,7 +69,7 @@ class GPU_IPC_SERVICE_EXPORT GpuWatchdogThreadImplV2
   };
 
   GpuWatchdogThreadImplV2(base::TimeDelta timeout,
-                          base::TimeDelta max_wait_time,
+                          int max_extra_cycles_before_kill,
                           bool test_mode);
   void OnAddPowerObserver();
   void RestartWatchdogTimeoutTask(PauseResumeSource source_of_request);
@@ -77,35 +79,40 @@ class GPU_IPC_SERVICE_EXPORT GpuWatchdogThreadImplV2
   void Disarm();
   void InProgress();
   bool IsArmed();
+  base::subtle::Atomic32 ReadArmDisarmCounter();
   void OnWatchdogTimeout();
-  bool GpuIsAlive();
-  bool WatchedThreadNeedsMoreTime(bool no_gpu_hang_detected);
+  bool WatchedThreadNeedsMoreThreadTime(bool no_gpu_hang_detected);
 #if defined(OS_WIN)
   base::ThreadTicks GetWatchedThreadTime();
 #endif
-  bool GpuRespondsAfterWaiting(base::TimeTicks on_watchdog_timeout_start);
+  bool WatchedThreadGetsExtraTimeout(bool no_gpu_hang);
 
   // Do not change the function name. It is used for [GPU HANG] carsh reports.
   void DeliberatelyTerminateToRecoverFromHang();
 
   // Histogram recorded in OnWatchdogTimeout()
+  // Records "GPU.WatchdogThread.Timeout"
   void GpuWatchdogTimeoutHistogram(GpuWatchdogTimeoutEvent timeout_event);
 
 #if defined(OS_WIN)
-  // The extra timeout the GPU main thread needs to make a progress.
-  void WindowsNumOfExtraTimeoutsHistogram();
+  // The extra thread time the GPU main thread needs to make a progress.
+  // Records "GPU.WatchdogThread.ExtraThreadTime".
+  void RecordExtraThreadTimeHistogram();
   // The number of users per timeout stay in Chrome after giving extra thread
-  // time.
-  void NumOfUsersWaitingWithExtraThreadTimeHistogram(int count);
+  // time. Records "GPU.WatchdogThread.ExtraThreadTime.NumOfUsers" and
+  // "GPU.WatchdogThread.Timeout".
+  void RecordNumOfUsersWaitingWithExtraThreadTimeHistogram(int count);
+
+  // Histograms recorded for WatchedThreadNeedsMoreThreadTime() function.
+  void WatchedThreadNeedsMoreThreadTimeHistogram(
+      bool no_gpu_hang_detected,
+      bool start_of_more_thread_time);
 #endif
 
-  // The wait time in OnWatchdogTimeout() for the GPU main thread to make a
-  // progress.
-  void GpuWatchdogWaitTimeHistogram(base::TimeDelta wait_time);
-
-  // The number of users per second stay in Chrome after entering the 60-second
-  // wait time.
-  void NumOfUsersWaitHistogram(int count, bool gpu_is_active);
+  // The number of users stay in Chrome after the extra timeout wait cycles.
+  // Records "GPU.WatchdogThread.WaitTime.ProgressAfterWait",
+  // "GPU.WatchdogThread.WaitTime.NumOfUsers" and "GPU.WatchdogThread.Timeout".
+  void WatchedThreadGetsExtraTimeoutHistogram(bool no_gpu_hang);
 
   // Used for metrics. It's 1 minute after the event.
   bool WithinOneMinFromPowerResumed();
@@ -118,7 +125,7 @@ class GPU_IPC_SERVICE_EXPORT GpuWatchdogThreadImplV2
   bool ContinueOnNonHostX11ServerTty();
 
   // This counter is only written on the gpu thread, and read on both threads.
-  base::subtle::Atomic32 arm_disarm_counter_ = 0;
+  volatile base::subtle::Atomic32 arm_disarm_counter_ = 0;
   // The counter number read in the last OnWatchdogTimeout() on the watchdog
   // thread.
   int32_t last_arm_disarm_counter_ = 0;
@@ -162,8 +169,14 @@ class GPU_IPC_SERVICE_EXPORT GpuWatchdogThreadImplV2
   // continue due to not enough thread time.
   int count_of_more_gpu_thread_time_allowed_ = 0;
 
-  // The accumulated timeout time the GPU main thread was given.
-  base::TimeDelta time_in_extra_timeouts_;
+  // The total timeout, up to 60 seconds, the watchdog thread waits for the GPU
+  // main thread to get full thread time.
+  base::TimeDelta time_in_wait_for_full_thread_time_;
+
+  // After detecting GPU hang and continuing running through
+  // OnGpuWatchdogTimeout for the max cycles, the GPU main thread still cannot
+  // get the full thread time.
+  bool less_than_full_thread_time_after_capped_ = false;
 #endif
 
 #if defined(USE_X11)
@@ -198,12 +211,21 @@ class GPU_IPC_SERVICE_EXPORT GpuWatchdogThreadImplV2
   // constructor.
   bool in_gpu_initialization_ = false;
 
+  // The number of logical processors/cores on the current machine.
+  unsigned num_of_processors_;
+
+  // Don't kill the GPU process immediately after a gpu hang is detected. Wait
+  // for extra cycles of timeout. Kill it, if the GPU still doesn't respond
+  // after wait.
+  const int max_extra_cycles_before_kill_;
+  // how many cycles of timeout since we detect a hang.
+  int count_of_extra_cycles_ = 0;
+
   // For the experiment and the debugging purpose
   size_t num_of_timeout_after_power_resume_ = 0;
   size_t num_of_timeout_after_foregrounded_ = 0;
   bool foregrounded_event_ = false;
   bool power_resumed_event_ = false;
-  base::TimeDelta max_wait_time_;
 
   // For gpu testing only.
   const bool is_test_mode_;

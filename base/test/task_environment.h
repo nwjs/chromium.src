@@ -11,10 +11,10 @@
 #include "base/macros.h"
 #include "base/memory/ref_counted.h"
 #include "base/observer_list.h"
-#include "base/run_loop.h"
 #include "base/single_thread_task_runner.h"
 #include "base/task/lazy_thread_pool_task_runner.h"
 #include "base/task/sequence_manager/sequence_manager.h"
+#include "base/test/scoped_run_loop_timeout.h"
 #include "base/threading/thread_checker.h"
 #include "base/time/time.h"
 #include "base/traits_bag.h"
@@ -40,7 +40,7 @@ namespace test {
 //  - RunLoop on the main thread
 //
 // TaskEnvironment additionally enables:
-//  - posting to base::ThreadPool() through base/task/post_task.h.
+//  - posting to base::ThreadPool through base/task/thread_pool.h.
 //
 // Hint: For content::BrowserThreads, use content::BrowserTaskEnvironment.
 //
@@ -259,6 +259,15 @@ class TaskEnvironment {
   // by |delta|. Unlike FastForwardBy, this does not run tasks. Prefer
   // FastForwardBy() when possible but this can be useful when testing blocked
   // pending tasks where being idle (required to fast-forward) is not possible.
+  //
+  // Delayed tasks that are ripe as a result of this will be scheduled.
+  // RunUntilIdle() can be used after this call to ensure those tasks have run.
+  // Note: AdvanceClock(delta) + RunUntilIdle() is slightly different from
+  // FastForwardBy(delta) in that time passes instantly before running any task
+  // (whereas FastForwardBy() will advance the clock in the smallest increments
+  // possible at a time). Hence FastForwardBy() is more realistic but
+  // AdvanceClock() can be useful when testing edge case scenarios that
+  // specifically handle more time than expected to have passed.
   void AdvanceClock(TimeDelta delta);
 
   // Only valid for instances using TimeSource::MOCK_TIME. Returns a
@@ -394,7 +403,7 @@ class TaskEnvironment {
       scoped_lazy_task_runner_list_for_testing_;
 
   // Sets RunLoop::Run() to LOG(FATAL) if not Quit() in a timely manner.
-  std::unique_ptr<RunLoop::ScopedRunTimeoutForTest> run_loop_timeout_;
+  std::unique_ptr<ScopedRunLoopTimeout> run_loop_timeout_;
 
   std::unique_ptr<bool> owns_instance_ = std::make_unique<bool>(true);
 

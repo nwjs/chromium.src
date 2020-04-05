@@ -8,7 +8,6 @@
 #include <stdint.h>
 
 #include <memory>
-#include <set>
 #include <string>
 #include <vector>
 
@@ -56,6 +55,8 @@ class VarDictionary;
 }
 
 namespace chrome_pdf {
+
+struct DocumentMetadata;
 
 // Do one time initialization of the SDK.
 // If |enable_v8| is false, then the PDFEngine will not be able to run
@@ -117,22 +118,6 @@ class PDFEngine {
     FormType form_type = FormType::kNone;
   };
 
-  // Features in a page that are relevant to measure.
-  struct PageFeatures {
-    PageFeatures();
-    PageFeatures(const PageFeatures& other);
-    ~PageFeatures();
-
-    // Whether the instance has been initialized and filled.
-    bool IsInitialized() const;
-
-    // 0-based page index in the document. < 0 when uninitialized.
-    int index = -1;
-
-    // Set of annotation types found in page.
-    std::set<int> annotation_types;
-  };
-
   // The interface that's provided to the rendering engine.
   class Client {
    public:
@@ -190,10 +175,6 @@ class PDFEngine {
 
     // Updates the index of the currently selected search item.
     virtual void NotifySelectedFindResultChanged(int current_find_index) {}
-
-    // Notifies a page became visible.
-    virtual void NotifyPageBecameVisible(
-        const PDFEngine::PageFeatures* page_features) {}
 
     // Prompts the user for a password to open this document. The callback is
     // called when the password is retrieved.
@@ -304,6 +285,19 @@ class PDFEngine {
     uint32_t color;
   };
 
+  struct AccessibilityTextFieldInfo {
+    AccessibilityTextFieldInfo();
+    AccessibilityTextFieldInfo(const AccessibilityTextFieldInfo& that);
+    ~AccessibilityTextFieldInfo();
+
+    std::string name;
+    std::string value;
+    bool is_read_only;
+    bool is_required;
+    bool is_password;
+    pp::FloatRect bounds;
+  };
+
   // Factory method to create an instance of the PDF Engine.
   static std::unique_ptr<PDFEngine> Create(Client* client,
                                            bool enable_javascript);
@@ -371,6 +365,8 @@ class PDFEngine {
   // Checks the permissions associated with this document.
   virtual bool HasPermission(DocumentPermission permission) const = 0;
   virtual void SelectAll() = 0;
+  // Gets metadata about the document.
+  virtual const DocumentMetadata& GetDocumentMetadata() const = 0;
   // Gets the number of pages in the document.
   virtual int GetNumberOfPages() = 0;
   // Gets the named destination by name.
@@ -412,6 +408,10 @@ class PDFEngine {
   // ranges and bounding boxes.
   virtual std::vector<AccessibilityHighlightInfo> GetHighlightInfo(
       int page_index) = 0;
+  // For all the text fields in page |page_index|, get their properties like
+  // name, value, bounding boxes etc.
+  virtual std::vector<AccessibilityTextFieldInfo> GetTextFieldInfo(
+      int page_index) = 0;
 
   // Gets the PDF document's print scaling preference. True if the document can
   // be scaled to fit.
@@ -438,7 +438,6 @@ class PDFEngine {
   // document at page |index|.
   virtual void AppendPage(PDFEngine* engine, int index) = 0;
 
-  virtual std::string GetMetadata(const std::string& key) = 0;
   virtual std::vector<uint8_t> GetSaveData() = 0;
 
   virtual void SetCaretPosition(const pp::Point& position) = 0;

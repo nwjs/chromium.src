@@ -5,11 +5,10 @@
 cr.define('settings', function() {
   /**
    * Creates Route objects for each path corresponding to CrOS settings content.
-   * @return {!SettingsRoutes}
+   * @return {!OsSettingsRoutes}
    */
   function createOSSettingsRoutes() {
-    /** @type {!SettingsRoutes} */
-    const r = {};
+    const r = /** @type {!OsSettingsRoutes} */ ({});
 
     // Root pages.
     r.BASIC = new settings.Route('/');
@@ -18,7 +17,7 @@ cr.define('settings', function() {
     r.SIGN_OUT = r.BASIC.createChild('/signOut');
     r.SIGN_OUT.isNavigableDialog = true;
 
-    r.SEARCH = r.BASIC.createSection('/search', 'search');
+    r.OS_SEARCH = r.BASIC.createSection('/osSearch', 'osSearch');
     if (!loadTimeData.getBoolean('isGuest')) {
       r.PEOPLE = r.BASIC.createSection('/people', 'people');
       r.SYNC = r.PEOPLE.createChild('/syncSetup');
@@ -73,10 +72,17 @@ cr.define('settings', function() {
         r.CROSTINI_EXPORT_IMPORT =
             r.CROSTINI_DETAILS.createChild('/crostini/exportImport');
       }
+      r.CROSTINI_PORT_FORWARDING =
+          r.CROSTINI_DETAILS.createChild('/crostini/portForwarding');
       r.CROSTINI_SHARED_PATHS =
           r.CROSTINI_DETAILS.createChild('/crostini/sharedPaths');
       r.CROSTINI_SHARED_USB_DEVICES =
           r.CROSTINI_DETAILS.createChild('/crostini/sharedUsbDevices');
+      if (loadTimeData.valueExists('showCrostiniDiskResize') &&
+          loadTimeData.getBoolean('showCrostiniDiskResize')) {
+        r.CROSTINI_DISK_RESIZE =
+            r.CROSTINI_DETAILS.createChild('/crostini/diskResize');
+      }
     }
 
     if (loadTimeData.valueExists('showPluginVm') &&
@@ -87,7 +93,7 @@ cr.define('settings', function() {
           r.PLUGIN_VM.createChild('/pluginVm/sharedPaths');
     }
 
-    r.GOOGLE_ASSISTANT = r.SEARCH.createChild('/googleAssistant');
+    r.GOOGLE_ASSISTANT = r.OS_SEARCH.createChild('/googleAssistant');
 
     r.ADVANCED = new settings.Route('/advanced');
 
@@ -101,7 +107,7 @@ cr.define('settings', function() {
 
     r.PRINTING = r.ADVANCED.createSection('/printing', 'printing');
 
-    r.ACCESSIBILITY = r.ADVANCED.createSection('/accessibility', 'a11y');
+    r.OS_ACCESSIBILITY = r.ADVANCED.createSection('/osAccessibility', 'a11y');
 
     if (!loadTimeData.getBoolean('isGuest')) {
       if (loadTimeData.getBoolean('splitSettingsSyncEnabled')) {
@@ -111,6 +117,7 @@ cr.define('settings', function() {
       r.PERSONALIZATION =
           r.BASIC.createSection('/personalization', 'personalization');
       r.CHANGE_PICTURE = r.PERSONALIZATION.createChild('/changePicture');
+      r.AMBIENT_MODE = r.PERSONALIZATION.createChild('/ambientMode');
 
       // Files (analogous to Downloads)
       r.FILES = r.ADVANCED.createSection('/files', 'files');
@@ -120,7 +127,7 @@ cr.define('settings', function() {
     // Reset
     if (loadTimeData.valueExists('allowPowerwash') &&
         loadTimeData.getBoolean('allowPowerwash')) {
-      r.RESET = r.ADVANCED.createSection('/reset', 'reset');
+      r.OS_RESET = r.ADVANCED.createSection('/osReset', 'osReset');
     }
 
     const showAppManagement = loadTimeData.valueExists('showAppManagement') &&
@@ -146,7 +153,7 @@ cr.define('settings', function() {
     r.CUPS_PRINTERS = r.PRINTING.createChild('/cupsPrinters');
 
     r.MANAGE_ACCESSIBILITY =
-        r.ACCESSIBILITY.createChild('/manageAccessibility');
+        r.OS_ACCESSIBILITY.createChild('/manageAccessibility');
     if (loadTimeData.getBoolean('showExperimentalAccessibilitySwitchAccess')) {
       r.MANAGE_SWITCH_ACCESS_SETTINGS = r.MANAGE_ACCESSIBILITY.createChild(
           '/manageAccessibility/switchAccess');
@@ -176,17 +183,17 @@ cr.define('settings', function() {
     // On pop state, do not push the state onto the window.history again.
     const routerInstance = settings.Router.getInstance();
     routerInstance.setCurrentRoute(
-        /** @type {!settings.Route} */ (
-            routerInstance.getRouteForPath(window.location.pathname) ||
-            routerInstance.getRoutes().BASIC),
+        routerInstance.getRouteForPath(window.location.pathname) ||
+            routerInstance.getRoutes().BASIC,
         new URLSearchParams(window.location.search), true);
   });
 
   // TODO(dpapad): Change to 'get routes() {}' in export when we fix a bug in
   // ChromePass that limits the syntax of what can be returned from cr.define().
-  const routes = /** @type {!SettingsRoutes} */ (
+  const routes = /** @type {!OsSettingsRoutes} */ (
       settings.Router.getInstance().getRoutes());
 
+  // #cr_define_end
   return {
     buildRouterForTesting: buildRouter,
     routes: routes,

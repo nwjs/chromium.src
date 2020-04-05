@@ -7,6 +7,7 @@
 #include "third_party/blink/renderer/bindings/core/v8/v8_binding_for_core.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_object_builder.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_payment_validation_errors.h"
+#include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/modules/payments/payment_address.h"
 #include "third_party/blink/renderer/modules/payments/payment_state_resolver.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
@@ -21,7 +22,7 @@ PaymentResponse::PaymentResponse(
     PaymentAddress* shipping_address,
     PaymentStateResolver* payment_state_resolver,
     const String& request_id)
-    : ContextLifecycleObserver(ExecutionContext::From(script_state)),
+    : ExecutionContextClient(ExecutionContext::From(script_state)),
       request_id_(request_id),
       method_name_(response->method_name),
       shipping_address_(shipping_address),
@@ -138,15 +139,15 @@ const AtomicString& PaymentResponse::InterfaceName() const {
 }
 
 ExecutionContext* PaymentResponse::GetExecutionContext() const {
-  return ContextLifecycleObserver::GetExecutionContext();
+  return ExecutionContextClient::GetExecutionContext();
 }
 
-void PaymentResponse::Trace(blink::Visitor* visitor) {
+void PaymentResponse::Trace(Visitor* visitor) {
   visitor->Trace(details_);
   visitor->Trace(shipping_address_);
   visitor->Trace(payment_state_resolver_);
   EventTargetWithInlineData::Trace(visitor);
-  ContextLifecycleObserver::Trace(visitor);
+  ExecutionContextClient::Trace(visitor);
 }
 
 }  // namespace blink

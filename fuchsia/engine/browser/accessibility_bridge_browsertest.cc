@@ -11,7 +11,6 @@
 #include "base/auto_reset.h"
 #include "base/fuchsia/default_context.h"
 #include "base/fuchsia/scoped_service_binding.h"
-#include "base/fuchsia/service_directory_client.h"
 #include "base/logging.h"
 #include "base/test/bind_test_util.h"
 #include "content/public/browser/web_contents_observer.h"
@@ -26,6 +25,7 @@
 #include "ui/gfx/switches.h"
 #include "ui/ozone/public/ozone_switches.h"
 
+using fuchsia::accessibility::semantics::Action;
 using fuchsia::accessibility::semantics::Node;
 using fuchsia::accessibility::semantics::SemanticListener;
 using fuchsia::accessibility::semantics::SemanticsManager;
@@ -37,7 +37,9 @@ const char kPage1Path[] = "/ax1.html";
 const char kPage2Path[] = "/batching.html";
 const char kPage1Title[] = "accessibility 1";
 const char kPage2Title[] = "lots of nodes!";
-const char kButtonName[] = "a button";
+const char kButtonName1[] = "a button";
+const char kButtonName2[] = "another button";
+const char kButtonName3[] = "button 3";
 const char kNodeName[] = "last node";
 const char kParagraphName[] = "a third paragraph";
 const size_t kPage1NodeCount = 9;
@@ -51,8 +53,13 @@ class FakeSemanticTree
 
   // fuchsia::accessibility::semantics::SemanticTree implementation.
   void UpdateSemanticNodes(std::vector<Node> nodes) final {
-    for (auto& node : nodes)
+    nodes_.reserve(nodes.size() + nodes_.size());
+    for (auto& node : nodes) {
+      // Delete an existing node that's being updated to avoid having duplicate
+      // nodes.
+      DeleteSemanticNodes({node.node_id()});
       nodes_.push_back(std::move(node));
+    }
   }
 
   void DeleteSemanticNodes(std::vector<uint32_t> node_ids) final {
@@ -68,10 +75,34 @@ class FakeSemanticTree
     callback();
     if (on_commit_updates_)
       on_commit_updates_.Run();
+    if (nodes_.size() > 0) {
+      size_t tree_size = 0;
+      EXPECT_TRUE(IsTreeValid(GetNodeWithId(0), &tree_size));
+      EXPECT_EQ(tree_size, nodes_.size());
+    }
   }
 
   void NotImplemented_(const std::string& name) final {
     NOTIMPLEMENTED() << name;
+  }
+
+  // Checks that the tree is complete and that there are no dangling nodes by
+  // traversing the tree starting at the root. Keeps track of how many nodes are
+  // visited to make sure there aren't dangling nodes in |nodes_|.
+  bool IsTreeValid(Node* node, size_t* tree_size) {
+    (*tree_size)++;
+
+    if (!node->has_child_ids())
+      return true;
+
+    bool is_valid = true;
+    for (auto c : node->child_ids()) {
+      Node* child = GetNodeWithId(c);
+      if (!child)
+        return false;
+      is_valid &= IsTreeValid(child, tree_size);
+    }
+    return is_valid;
   }
 
   void RunUntilNodeCountAtLeast(size_t count) {
@@ -90,24 +121,32 @@ class FakeSemanticTree
     run_loop.Run();
   }
 
-  bool HasNodeWithLabel(base::StringPiece name) {
+  Node* GetNodeWithId(uint32_t id) {
     for (auto& node : nodes_) {
-      if (node.has_attributes() && node.attributes().has_label() &&
-          node.attributes().label() == name) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  Node* GetNodeFromLabel(base::StringPiece name) {
-    for (auto& node : nodes_) {
-      if (node.has_attributes() && node.attributes().has_label() &&
-          node.attributes().label() == name) {
+      if (node.has_node_id() && node.node_id() == id) {
         return &node;
       }
     }
     return nullptr;
+  }
+
+  Node* GetNodeFromLabel(base::StringPiece label) {
+    Node* to_return = nullptr;
+    for (auto& node : nodes_) {
+      if (node.has_attributes() && node.attributes().has_label() &&
+          node.attributes().label() == label) {
+        // There are sometimes multiple semantic nodes with the same label. Hit
+        // testing should return the node with the smallest node ID so behaviour
+        // is consistent with the hit testing API being called.
+        if (!to_return) {
+          to_return = &node;
+        } else if (node.node_id() < to_return->node_id()) {
+          to_return = &node;
+        }
+      }
+    }
+
+    return to_return;
   }
 
  private:
@@ -126,6 +165,8 @@ class FakeSemanticsManager : public fuchsia::accessibility::semantics::testing::
   bool is_view_registered() const { return view_ref_.reference.is_valid(); }
   bool is_listener_valid() const { return static_cast<bool>(listener_); }
   FakeSemanticTree* semantic_tree() { return &semantic_tree_; }
+  int32_t num_actions_handled() { return num_actions_handled_; }
+  int32_t num_actions_unhandled() { return num_actions_unhandled_; }
 
   // Directly call the listener to simulate Fuchsia setting the semantics mode.
   void SetSemanticsModeEnabled(bool is_enabled) {
@@ -158,6 +199,38 @@ class FakeSemanticsManager : public fuchsia::accessibility::semantics::testing::
     return hit_test_result_.value();
   }
 
+  void CheckNumActions() {
+    if (num_actions_handled_ + num_actions_unhandled_ >=
+        expected_num_actions_) {
+      DCHECK(on_expected_num_actions_);
+      on_expected_num_actions_.Run();
+    }
+  }
+
+  void RequestAccessibilityAction(uint32_t node_id, Action action) {
+    listener_->OnAccessibilityActionRequested(node_id, action,
+                                              [this](bool handled) {
+                                                if (handled) {
+                                                  num_actions_handled_++;
+                                                } else {
+                                                  num_actions_unhandled_++;
+                                                }
+                                                CheckNumActions();
+                                              });
+  }
+
+  // Runs until |num_actions| accessibility actions have been handled.
+  void RunUntilNumActionsHandledEquals(int32_t num_actions) {
+    DCHECK(!on_expected_num_actions_);
+    if (num_actions_handled_ + num_actions_unhandled_ >= num_actions)
+      return;
+
+    expected_num_actions_ = num_actions;
+    base::RunLoop run_loop;
+    on_expected_num_actions_ = run_loop.QuitClosure();
+    run_loop.Run();
+  }
+
   // fuchsia::accessibility::semantics::SemanticsManager implementation.
   void RegisterViewForSemantics(
       fuchsia::ui::views::ViewRef view_ref,
@@ -179,6 +252,10 @@ class FakeSemanticsManager : public fuchsia::accessibility::semantics::testing::
   FakeSemanticTree semantic_tree_;
   fidl::Binding<SemanticTree> semantic_tree_binding_;
   base::Optional<uint32_t> hit_test_result_;
+  int32_t num_actions_handled_ = 0;
+  int32_t num_actions_unhandled_ = 0;
+  int32_t expected_num_actions_ = 0;
+  base::RepeatingClosure on_expected_num_actions_;
   base::OnceClosure on_view_registered_;
 
   DISALLOW_COPY_AND_ASSIGN(FakeSemanticsManager);
@@ -269,11 +346,11 @@ IN_PROC_BROWSER_TEST_F(AccessibilityBridgeTest, CorrectDataSent) {
   // available.
   semantics_manager_.semantic_tree()->RunUntilNodeCountAtLeast(kPage1NodeCount);
   EXPECT_TRUE(
-      semantics_manager_.semantic_tree()->HasNodeWithLabel(kPage1Title));
+      semantics_manager_.semantic_tree()->GetNodeFromLabel(kPage1Title));
   EXPECT_TRUE(
-      semantics_manager_.semantic_tree()->HasNodeWithLabel(kButtonName));
+      semantics_manager_.semantic_tree()->GetNodeFromLabel(kButtonName1));
   EXPECT_TRUE(
-      semantics_manager_.semantic_tree()->HasNodeWithLabel(kParagraphName));
+      semantics_manager_.semantic_tree()->GetNodeFromLabel(kParagraphName));
 }
 
 // Batching is performed when the number of nodes to send or delete exceeds the
@@ -292,7 +369,7 @@ IN_PROC_BROWSER_TEST_F(AccessibilityBridgeTest, DataSentWithBatching) {
 
   // Run until we expect more than a batch's worth of nodes to be present.
   semantics_manager_.semantic_tree()->RunUntilNodeCountAtLeast(kPage2NodeCount);
-  EXPECT_TRUE(semantics_manager_.semantic_tree()->HasNodeWithLabel(kNodeName));
+  EXPECT_TRUE(semantics_manager_.semantic_tree()->GetNodeFromLabel(kNodeName));
 }
 
 // Check that semantics information is correctly sent when navigating from page
@@ -310,11 +387,11 @@ IN_PROC_BROWSER_TEST_F(AccessibilityBridgeTest, TestNavigation) {
 
   semantics_manager_.semantic_tree()->RunUntilNodeCountAtLeast(kPage1NodeCount);
   EXPECT_TRUE(
-      semantics_manager_.semantic_tree()->HasNodeWithLabel(kPage1Title));
+      semantics_manager_.semantic_tree()->GetNodeFromLabel(kPage1Title));
   EXPECT_TRUE(
-      semantics_manager_.semantic_tree()->HasNodeWithLabel(kButtonName));
+      semantics_manager_.semantic_tree()->GetNodeFromLabel(kButtonName1));
   EXPECT_TRUE(
-      semantics_manager_.semantic_tree()->HasNodeWithLabel(kParagraphName));
+      semantics_manager_.semantic_tree()->GetNodeFromLabel(kParagraphName));
 
   GURL page_url2(embedded_test_server()->GetURL(kPage2Path));
   ASSERT_TRUE(cr_fuchsia::LoadUrlAndExpectResponse(
@@ -322,18 +399,19 @@ IN_PROC_BROWSER_TEST_F(AccessibilityBridgeTest, TestNavigation) {
 
   semantics_manager_.semantic_tree()->RunUntilNodeCountAtLeast(kPage2NodeCount);
   EXPECT_TRUE(
-      semantics_manager_.semantic_tree()->HasNodeWithLabel(kPage2Title));
-  EXPECT_TRUE(semantics_manager_.semantic_tree()->HasNodeWithLabel(kNodeName));
+      semantics_manager_.semantic_tree()->GetNodeFromLabel(kPage2Title));
+  EXPECT_TRUE(semantics_manager_.semantic_tree()->GetNodeFromLabel(kNodeName));
 
   // Check that data from the first page has been deleted successfully.
   EXPECT_FALSE(
-      semantics_manager_.semantic_tree()->HasNodeWithLabel(kButtonName));
+      semantics_manager_.semantic_tree()->GetNodeFromLabel(kButtonName1));
   EXPECT_FALSE(
-      semantics_manager_.semantic_tree()->HasNodeWithLabel(kParagraphName));
+      semantics_manager_.semantic_tree()->GetNodeFromLabel(kParagraphName));
 }
 
 // Checks that the correct node ID is returned when performing hit testing.
-IN_PROC_BROWSER_TEST_F(AccessibilityBridgeTest, HitTest) {
+// TODO(https://crbug.com/1050049): Re-enable once flake is fixed.
+IN_PROC_BROWSER_TEST_F(AccessibilityBridgeTest, DISABLED_HitTest) {
   fuchsia::web::NavigationControllerPtr controller;
   frame_ptr_->GetNavigationController(controller.NewRequest());
   ASSERT_TRUE(embedded_test_server()->Start());
@@ -344,11 +422,10 @@ IN_PROC_BROWSER_TEST_F(AccessibilityBridgeTest, HitTest) {
       controller.get(), fuchsia::web::LoadUrlParams(), page_url1.spec()));
   navigation_listener_.RunUntilUrlAndTitleEquals(page_url1, kPage1Title);
   semantics_manager_.semantic_tree()->RunUntilNodeCountAtLeast(kPage1NodeCount);
-  EXPECT_TRUE(
-      semantics_manager_.semantic_tree()->HasNodeWithLabel(kParagraphName));
 
   Node* hit_test_node =
       semantics_manager_.semantic_tree()->GetNodeFromLabel(kParagraphName);
+  EXPECT_TRUE(hit_test_node);
 
   fuchsia::math::PointF target_point =
       GetCenterOfBox(hit_test_node->location());
@@ -364,4 +441,44 @@ IN_PROC_BROWSER_TEST_F(AccessibilityBridgeTest, HitTest) {
   target_point.x = 1;
   target_point.y = 1;
   EXPECT_EQ(0u, semantics_manager_.HitTestAtPointSync(std::move(target_point)));
+}
+
+IN_PROC_BROWSER_TEST_F(AccessibilityBridgeTest, PerformDefaultAction) {
+  fuchsia::web::NavigationControllerPtr controller;
+  frame_ptr_->GetNavigationController(controller.NewRequest());
+  ASSERT_TRUE(embedded_test_server()->Start());
+  semantics_manager_.SetSemanticsModeEnabled(true);
+
+  GURL page_url1(embedded_test_server()->GetURL(kPage1Path));
+  ASSERT_TRUE(cr_fuchsia::LoadUrlAndExpectResponse(
+      controller.get(), fuchsia::web::LoadUrlParams(), page_url1.spec()));
+  navigation_listener_.RunUntilUrlAndTitleEquals(page_url1, kPage1Title);
+  semantics_manager_.semantic_tree()->RunUntilNodeCountAtLeast(kPage1NodeCount);
+
+  Node* button1 =
+      semantics_manager_.semantic_tree()->GetNodeFromLabel(kButtonName1);
+  EXPECT_TRUE(button1);
+  Node* button2 =
+      semantics_manager_.semantic_tree()->GetNodeFromLabel(kButtonName2);
+  EXPECT_TRUE(button2);
+  Node* button3 =
+      semantics_manager_.semantic_tree()->GetNodeFromLabel(kButtonName3);
+  EXPECT_TRUE(button3);
+
+  // Perform the default action (click) on multiple buttons.
+  semantics_manager_.RequestAccessibilityAction(button1->node_id(),
+                                                Action::DEFAULT);
+  semantics_manager_.RequestAccessibilityAction(button2->node_id(),
+                                                Action::DEFAULT);
+  semantics_manager_.RunUntilNumActionsHandledEquals(2);
+
+  // Handle the case that actions are still in flight when AccessibilityBridge
+  // gets torn down. The corresponding callbacks should still be run.
+  frame_impl_->set_handle_actions_for_test(false);
+  semantics_manager_.RequestAccessibilityAction(button3->node_id(),
+                                                Action::DEFAULT);
+  frame_ptr_.Unbind();
+  base::RunLoop().RunUntilIdle();
+  EXPECT_EQ(2, semantics_manager_.num_actions_handled());
+  EXPECT_EQ(1, semantics_manager_.num_actions_unhandled());
 }

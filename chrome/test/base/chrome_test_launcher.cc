@@ -21,6 +21,7 @@
 #include "base/strings/string_util.h"
 #include "base/test/test_file_util.h"
 #include "base/test/test_switches.h"
+#include "base/time/time.h"
 #include "chrome/app/chrome_main_delegate.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_switches.h"
@@ -28,7 +29,7 @@
 #include "chrome/install_static/test/scoped_install_details.h"
 #include "chrome/test/base/chrome_test_suite.h"
 #include "chrome/utility/chrome_content_utility_client.h"
-#include "components/crash/content/app/crashpad.h"
+#include "components/crash/core/app/crashpad.h"
 #include "content/public/app/content_main.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/test/network_service_test_helper.h"
@@ -51,6 +52,7 @@
 #endif
 
 #if defined(OS_WIN)
+#include <Shlobj.h>
 #include "base/win/registry.h"
 #include "base/win/scoped_com_initializer.h"
 #include "chrome/app/chrome_crash_reporter_client_win.h"
@@ -61,6 +63,7 @@
 #if defined(OS_WIN) || defined(OS_MACOSX) || \
     (defined(OS_LINUX) && !defined(OS_CHROMEOS))
 #include "chrome/browser/first_run/scoped_relaunch_chrome_browser_override.h"
+#include "chrome/browser/upgrade_detector/installed_version_poller.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #endif
 
@@ -76,6 +79,11 @@ int ChromeTestSuiteRunner::RunTestSuite(int argc, char** argv) {
 #if defined(OS_ANDROID)
   // Android browser tests run child processes as threads instead.
   content::ContentTestSuiteBase::RegisterInProcessThreads();
+#endif
+#if defined(OS_WIN) || defined(OS_MACOSX) || \
+    (defined(OS_LINUX) && !defined(OS_CHROMEOS))
+  InstalledVersionPoller::ScopedDisableForTesting disable_polling(
+      InstalledVersionPoller::MakeScopedDisableForTesting());
 #endif
   return test_suite.Run();
 }
@@ -128,7 +136,7 @@ ChromeTestLauncherDelegate::GetUserDataDirectoryCommandLineSwitch() {
 #if !defined(OS_ANDROID)
 content::ContentMainDelegate*
 ChromeTestLauncherDelegate::CreateContentMainDelegate() {
-  return new ChromeMainDelegate();
+  return new ChromeMainDelegate(base::TimeTicks::Now());
 }
 #endif
 
@@ -154,8 +162,10 @@ void ChromeTestLauncherDelegate::PreSharding() {
       << "Failed to cleanup PreferenceMACs: " << result;
 
   // Add firewall rules for the test binary so that Windows doesn't show a
-  // firewall dialog during the test run.
-  firewall_rules_ = std::make_unique<ScopedFirewallRules>();
+  // firewall dialog during the test run. Silently do nothing if not running as
+  // an admin, to avoid error messages.
+  if (IsUserAnAdmin())
+    firewall_rules_ = std::make_unique<ScopedFirewallRules>();
 #endif
 }
 
@@ -212,7 +222,7 @@ int LaunchChromeTests(size_t parallel_jobs,
       switches::kUtilityProcess) {
     network_service_test_helper =
         std::make_unique<content::NetworkServiceTestHelper>();
-    ChromeContentUtilityClient::SetNetworkBinderCreationCallback(base::Bind(
+    ChromeContentUtilityClient::SetNetworkBinderCreationCallback(base::BindOnce(
         [](content::NetworkServiceTestHelper* helper,
            service_manager::BinderRegistry* registry) {
           helper->RegisterNetworkBinders(registry);

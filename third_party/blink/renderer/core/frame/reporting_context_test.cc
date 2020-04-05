@@ -101,6 +101,18 @@ class MockReportingServiceProxy : public mojom::blink::ReportingServiceProxy {
       std::move(reached_callback_).Run();
   }
 
+  void QueueDocumentPolicyViolationReport(const KURL& url,
+                                          const String& endpoint,
+                                          const String& policy_id,
+                                          const String& disposition,
+                                          const String& message,
+                                          const String& source_file,
+                                          int32_t line_number,
+                                          int32_t column_number) override {
+    if (reached_callback_)
+      std::move(reached_callback_).Run();
+  }
+
   ThreadSafeBrowserInterfaceBrokerProxy& broker_;
   mojo::ReceiverSet<ReportingServiceProxy> receivers_;
   base::OnceClosure reached_callback_;
@@ -122,7 +134,7 @@ TEST_F(ReportingContextTest, CountQueuedReports) {
 
   // Send the deprecation report to the Reporting API and any
   // ReportingObservers.
-  ReportingContext::From(&dummy_page_holder->GetDocument())
+  ReportingContext::From(dummy_page_holder->GetDocument().ToExecutionContext())
       ->QueueReport(report);
   //  tester.ExpectTotalCount("Blink.UseCounter.Features.DeprecationReport", 1);
   // The potential violation for an already recorded violation does not count
@@ -141,7 +153,7 @@ TEST_F(ReportingContextTest, DeprecationReportContent) {
       "FeatureId", base::Time::FromJsTime(1000), "Test report");
   auto* report =
       MakeGarbageCollected<Report>("deprecation", doc.Url().GetString(), body);
-  ReportingContext::From(&doc)->QueueReport(report);
+  ReportingContext::From(doc.ToExecutionContext())->QueueReport(report);
   run_loop.Run();
 
   EXPECT_TRUE(reporting_service.DeprecationReportAnticipatedRemoval());

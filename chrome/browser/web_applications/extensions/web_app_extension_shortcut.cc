@@ -24,6 +24,7 @@
 #include "chrome/common/extensions/manifest_handlers/app_launch_info.h"
 #include "chrome/common/pref_names.h"
 #include "components/prefs/pref_service.h"
+#include "components/services/app_service/public/cpp/file_handler.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "extensions/browser/extension_registry.h"
@@ -162,7 +163,7 @@ void GetShortcutInfoForApp(const extensions::Extension* extension,
   // image and exit immediately.
   extensions::ImageLoader::Get(profile)->LoadImageFamilyAsync(
       extension, info_list,
-      base::BindOnce(&OnImageLoaded, base::Passed(&shortcut_info),
+      base::BindOnce(&OnImageLoaded, std::move(shortcut_info),
                      std::move(callback)));
 }
 
@@ -187,9 +188,9 @@ std::unique_ptr<ShortcutInfo> ShortcutInfoForExtensionAndProfile(
     if (const auto* file_handlers =
             file_handler_manager.GetEnabledFileHandlers(app->id())) {
       shortcut_info->file_handler_extensions =
-          web_app::GetFileExtensionsFromFileHandlers(*file_handlers);
+          apps::GetFileExtensionsFromFileHandlers(*file_handlers);
       shortcut_info->file_handler_mime_types =
-          web_app::GetMimeTypesFromFileHandlers(*file_handlers);
+          apps::GetMimeTypesFromFileHandlers(*file_handlers);
     }
   }
 

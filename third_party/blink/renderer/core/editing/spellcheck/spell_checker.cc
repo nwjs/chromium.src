@@ -221,7 +221,9 @@ void SpellChecker::AdvanceToNextMisspelling(bool start_before_selection) {
         FindFirstMisspelling(spelling_search_start, spelling_search_end);
   }
 
-  if (!misspelled_word.IsEmpty()) {
+  if (misspelled_word.IsEmpty()) {
+    SpellCheckPanelHostClient().UpdateSpellingUIWithMisspelledWord({});
+  } else {
     // We found a misspelling. Select the misspelling, update the spelling
     // panel, and store a marker so we draw the red squiggle later.
 
@@ -303,10 +305,8 @@ void SpellChecker::MarkAndReplaceFor(
 
   // TODO(editing-dev): The use of UpdateStyleAndLayout
   // needs to be audited.  See http://crbug.com/590369 for more details.
-  GetFrame().GetDocument()->UpdateStyleAndLayout();
-
-  DocumentLifecycle::DisallowTransitionScope disallow_transition(
-      GetFrame().GetDocument()->Lifecycle());
+  GetFrame().GetDocument()->UpdateStyleAndLayout(
+      DocumentUpdateReason::kSpellCheck);
 
   EphemeralRange checking_range(request->CheckingRange());
 
@@ -490,7 +490,7 @@ void SpellChecker::ReplaceMisspelledRange(const String& text) {
 
   // TODO(editing-dev): The use of UpdateStyleAndLayout
   // needs to be audited.  See http://crbug.com/590369 for more details.
-  current_document.UpdateStyleAndLayout();
+  current_document.UpdateStyleAndLayout(DocumentUpdateReason::kSpellCheck);
 
   // Dispatch 'beforeinput'.
   Element* const target = FindEventTargetFrom(
@@ -510,7 +510,8 @@ void SpellChecker::ReplaceMisspelledRange(const String& text) {
 
   // TODO(editing-dev): The use of UpdateStyleAndLayout
   // needs to be audited.  See http://crbug.com/590369 for more details.
-  GetFrame().GetDocument()->UpdateStyleAndLayout();
+  GetFrame().GetDocument()->UpdateStyleAndLayout(
+      DocumentUpdateReason::kSpellCheck);
 
   if (cancel)
     return;
@@ -545,9 +546,9 @@ static Node* FindFirstMarkable(Node* node) {
       return nullptr;
     if (node->GetLayoutObject()->IsText())
       return node;
-    if (node->GetLayoutObject()->IsTextControl())
-      node = ToLayoutTextControl(node->GetLayoutObject())
-                 ->GetTextControlElement()
+    if (auto* text_control =
+            DynamicTo<LayoutTextControl>(node->GetLayoutObject()))
+      node = text_control->GetTextControlElement()
                  ->VisiblePositionForIndex(1)
                  .DeepEquivalent()
                  .AnchorNode();

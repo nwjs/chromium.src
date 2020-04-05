@@ -126,7 +126,7 @@ class PaymentInstrumentParameter final
   bool has_name() const { return has_name_; }
   const String& name() const { return name_; }
 
-  void Trace(blink::Visitor* visitor) {
+  void Trace(Visitor* visitor) {
     visitor->Trace(icons_);
     visitor->Trace(capabilities_);
   }
@@ -249,7 +249,7 @@ ScriptPromise PaymentInstruments::set(ScriptState* script_state,
 
   auto* resolver = MakeGarbageCollected<ScriptPromiseResolver>(script_state);
   ExecutionContext* context = ExecutionContext::From(script_state);
-  Document* doc = DynamicTo<Document>(context);
+  Document* doc = Document::DynamicFrom(context);
 
   // Should move this permission check to browser process.
   // Please see http://crbug.com/795929
@@ -416,7 +416,7 @@ void PaymentInstruments::onGetPaymentInstrument(
     image_object->setType(icon->type);
     String sizes = WTF::g_empty_string;
     for (const auto& size : icon->sizes) {
-      sizes = sizes + String::Format("%dx%d ", size.width, size.height);
+      sizes = sizes + String::Format("%dx%d ", size.width(), size.height());
     }
     image_object->setSizes(sizes.StripWhiteSpace());
     icons.push_back(image_object);

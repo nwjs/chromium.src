@@ -23,10 +23,11 @@ import static org.chromium.chrome.browser.tasks.tab_management.TabListModel.Card
 import static org.chromium.chrome.browser.tasks.tab_management.TabListModel.CardProperties.ModelType.TAB;
 
 import android.graphics.Canvas;
-import android.support.v7.widget.GridLayoutManager;
-import android.support.v7.widget.RecyclerView;
-import android.support.v7.widget.helper.ItemTouchHelper;
 import android.view.View;
+
+import androidx.recyclerview.widget.GridLayoutManager;
+import androidx.recyclerview.widget.ItemTouchHelper;
+import androidx.recyclerview.widget.RecyclerView;
 
 import org.junit.After;
 import org.junit.Before;
@@ -39,10 +40,9 @@ import org.mockito.MockitoAnnotations;
 import org.robolectric.annotation.Config;
 
 import org.chromium.base.metrics.RecordHistogram;
-import org.chromium.base.metrics.RecordUserAction;
+import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
-import org.chromium.chrome.browser.flags.FeatureUtilities;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.EmptyTabModelFilter;
@@ -53,7 +53,6 @@ import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
 import org.chromium.chrome.test.util.browser.Features;
 import org.chromium.components.feature_engagement.EventConstants;
 import org.chromium.components.feature_engagement.Tracker;
-import org.chromium.testing.local.LocalRobolectricTestRunner;
 import org.chromium.ui.modelutil.MVCListAdapter;
 import org.chromium.ui.modelutil.PropertyKey;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -65,10 +64,10 @@ import java.util.List;
 /**
  * Tests for {@link TabGridItemTouchHelperCallback}.
  */
-@RunWith(LocalRobolectricTestRunner.class)
-@Features.EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID,
-        ChromeFeatureList.TAB_GROUPS_UI_IMPROVEMENTS_ANDROID})
+@SuppressWarnings("ResultOfMethodCallIgnored")
+@RunWith(BaseRobolectricTestRunner.class)
 @Config(manifest = Config.NONE)
+@Features.EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID})
 public class TabGridItemTouchHelperCallbackUnitTest {
     @Rule
     public TestRule mProcessor = new Features.JUnitProcessor();
@@ -114,10 +113,6 @@ public class TabGridItemTouchHelperCallbackUnitTest {
     @Mock
     GridLayoutManager mGridLayoutManager;
 
-    private Tab mTab1;
-    private Tab mTab2;
-    private Tab mTab3;
-    private Tab mTab4;
     private SimpleRecyclerViewAdapter.ViewHolder mMockViewHolder1;
     private SimpleRecyclerViewAdapter.ViewHolder mMockViewHolder2;
     private RecyclerView.ViewHolder mDummyViewHolder1;
@@ -133,15 +128,14 @@ public class TabGridItemTouchHelperCallbackUnitTest {
 
     @Before
     public void setUp() {
-        RecordUserAction.setDisabledForTests(true);
         RecordHistogram.setDisabledForTests(true);
 
         MockitoAnnotations.initMocks(this);
 
-        mTab1 = prepareTab(TAB1_ID, TAB1_TITLE);
-        mTab2 = prepareTab(TAB2_ID, TAB2_TITLE);
-        mTab3 = prepareTab(TAB3_ID, TAB3_TITLE);
-        mTab4 = prepareTab(TAB4_ID, TAB4_TITLE);
+        Tab tab1 = prepareTab(TAB1_ID, TAB1_TITLE);
+        Tab tab2 = prepareTab(TAB2_ID, TAB2_TITLE);
+        Tab tab3 = prepareTab(TAB3_ID, TAB3_TITLE);
+        Tab tab4 = prepareTab(TAB4_ID, TAB4_TITLE);
         mMockViewHolder1 = prepareMockViewHolder(TAB1_ID, POSITION1);
         mMockViewHolder2 = prepareMockViewHolder(TAB2_ID, POSITION2);
         // Mock four cards in a grid layout. Each card is of width 4 and height 4. Both the side
@@ -161,16 +155,15 @@ public class TabGridItemTouchHelperCallbackUnitTest {
         doReturn(tabModelList).when(mTabModelSelector).getModels();
         doReturn(mTabModelFilterProvider).when(mTabModelSelector).getTabModelFilterProvider();
         doReturn(mTabGroupModelFilter).when(mTabModelFilterProvider).getCurrentTabModelFilter();
-        doReturn(mTab1).when(mTabModel).getTabAt(POSITION1);
-        doReturn(mTab2).when(mTabModel).getTabAt(POSITION2);
-        doReturn(mTab3).when(mTabModel).getTabAt(POSITION3);
-        doReturn(mTab4).when(mTabModel).getTabAt(POSITION4);
+        doReturn(tab1).when(mTabModel).getTabAt(POSITION1);
+        doReturn(tab2).when(mTabModel).getTabAt(POSITION2);
+        doReturn(tab3).when(mTabModel).getTabAt(POSITION3);
+        doReturn(tab4).when(mTabModel).getTabAt(POSITION4);
         doReturn(4).when(mTabModel).getCount();
-        doReturn(mTab1).when(mTabGroupModelFilter).getTabAt(POSITION1);
-        doReturn(mTab2).when(mTabGroupModelFilter).getTabAt(POSITION2);
-        doReturn(mTab3).when(mTabGroupModelFilter).getTabAt(POSITION3);
-        doReturn(mTab4).when(mTabGroupModelFilter).getTabAt(POSITION4);
-        FeatureUtilities.setTabGroupsAndroidEnabledForTesting(true);
+        doReturn(tab1).when(mTabGroupModelFilter).getTabAt(POSITION1);
+        doReturn(tab2).when(mTabGroupModelFilter).getTabAt(POSITION2);
+        doReturn(tab3).when(mTabGroupModelFilter).getTabAt(POSITION3);
+        doReturn(tab4).when(mTabGroupModelFilter).getTabAt(POSITION4);
         setupRecyclerView();
 
         mModel = new TabListModel();
@@ -211,9 +204,7 @@ public class TabGridItemTouchHelperCallbackUnitTest {
 
     @After
     public void tearDown() {
-        RecordUserAction.setDisabledForTests(false);
         RecordHistogram.setDisabledForTests(false);
-        FeatureUtilities.setTabGroupsAndroidEnabledForTesting(null);
     }
 
     @Test
@@ -318,10 +309,8 @@ public class TabGridItemTouchHelperCallbackUnitTest {
     }
 
     @Test
-    @Features.DisableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_UI_IMPROVEMENTS_ANDROID})
-    public void
-    onReleaseTab_MergeBackward_WithoutGroup() {
+    @Features.DisableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID})
+    public void onReleaseTab_MergeBackward_WithoutGroup() {
         initAndAssertAllProperties();
         doReturn(mEmptyTabModelFilter).when(mTabModelFilterProvider).getCurrentTabModelFilter();
 
@@ -346,10 +335,8 @@ public class TabGridItemTouchHelperCallbackUnitTest {
     }
 
     @Test
-    @Features.DisableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_UI_IMPROVEMENTS_ANDROID})
-    public void
-    onReleaseTab_MergeForward_WithoutGroup() {
+    @Features.DisableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID})
+    public void onReleaseTab_MergeForward_WithoutGroup() {
         initAndAssertAllProperties();
         doReturn(mEmptyTabModelFilter).when(mTabModelFilterProvider).getCurrentTabModelFilter();
 
@@ -612,10 +599,8 @@ public class TabGridItemTouchHelperCallbackUnitTest {
     }
 
     @Test
-    @Features.DisableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_UI_IMPROVEMENTS_ANDROID})
-    public void
-    onDragTab_Hovered_GTS_WithoutGroup() {
+    @Features.DisableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID})
+    public void onDragTab_Hovered_GTS_WithoutGroup() {
         initAndAssertAllProperties();
         doReturn(mEmptyTabModelFilter).when(mTabModelFilterProvider).getCurrentTabModelFilter();
 
@@ -868,11 +853,10 @@ public class TabGridItemTouchHelperCallbackUnitTest {
     private SimpleRecyclerViewAdapter.ViewHolder prepareMockViewHolder(int id, int position) {
         SimpleRecyclerViewAdapter.ViewHolder viewHolder =
                 mock(SimpleRecyclerViewAdapter.ViewHolder.class);
-        PropertyModel model = new PropertyModel.Builder(TabProperties.ALL_KEYS_TAB_GRID)
-                                      .with(TabProperties.TAB_ID, id)
-                                      .with(CARD_TYPE, TAB)
-                                      .build();
-        viewHolder.model = model;
+        viewHolder.model = new PropertyModel.Builder(TabProperties.ALL_KEYS_TAB_GRID)
+                                   .with(TabProperties.TAB_ID, id)
+                                   .with(CARD_TYPE, TAB)
+                                   .build();
         doReturn(position).when(viewHolder).getAdapterPosition();
         return viewHolder;
     }

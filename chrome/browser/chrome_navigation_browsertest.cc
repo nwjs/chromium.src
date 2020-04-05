@@ -34,6 +34,7 @@
 #include "components/url_formatter/url_formatter.h"
 #include "components/variations/active_field_trials.h"
 #include "components/variations/hashing.h"
+#include "content/public/browser/context_menu_params.h"
 #include "content/public/browser/download_manager_delegate.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/navigation_handle.h"
@@ -47,13 +48,13 @@
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/common/content_features.h"
 #include "content/public/common/content_switches.h"
-#include "content/public/common/context_menu_params.h"
 #include "content/public/common/url_constants.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/download_test_observer.h"
 #include "content/public/test/navigation_handle_observer.h"
 #include "content/public/test/test_navigation_observer.h"
 #include "content/public/test/url_loader_interceptor.h"
+#include "extensions/test/extension_test_message_listener.h"
 #include "extensions/test/test_extension_dir.h"
 #include "google_apis/gaia/gaia_switches.h"
 #include "net/dns/mock_host_resolver.h"
@@ -92,22 +93,12 @@ class ChromeNavigationBrowserTest : public InProcessBrowserTest {
     test_ukm_recorder_ = std::make_unique<ukm::TestAutoSetUkmRecorder>();
   }
 
-  void StartServerWithExpiredCert() {
-    expired_https_server_.reset(
-        new net::EmbeddedTestServer(net::EmbeddedTestServer::TYPE_HTTPS));
-    expired_https_server_->SetSSLConfig(net::EmbeddedTestServer::CERT_EXPIRED);
-    expired_https_server_->AddDefaultHandlers(GetChromeTestDataDir());
-    ASSERT_TRUE(expired_https_server_->Start());
+  ukm::TestAutoSetUkmRecorder* test_ukm_recorder() {
+    return test_ukm_recorder_.get();
   }
-
-  net::EmbeddedTestServer* expired_https_server() {
-    return expired_https_server_.get();
-  }
-
-  std::unique_ptr<ukm::TestAutoSetUkmRecorder> test_ukm_recorder_;
 
  private:
-  std::unique_ptr<net::EmbeddedTestServer> expired_https_server_;
+  std::unique_ptr<ukm::TestAutoSetUkmRecorder> test_ukm_recorder_;
   base::test::ScopedFeatureList scoped_feature_list_;
 
   DISALLOW_COPY_AND_ASSIGN(ChromeNavigationBrowserTest);
@@ -160,7 +151,7 @@ IN_PROC_BROWSER_TEST_F(ChromeNavigationBrowserTest, TestViewFrameSource) {
   content::WebContents* new_web_contents =
       browser()->tab_strip_model()->GetWebContentsAt(1);
   ASSERT_NE(new_web_contents, web_contents);
-  WaitForLoadStop(new_web_contents);
+  EXPECT_TRUE(WaitForLoadStop(new_web_contents));
 
   GURL view_frame_source_url(content::kViewSourceScheme + std::string(":") +
                              iframe_target_url.spec());
@@ -400,7 +391,7 @@ IN_PROC_BROWSER_TEST_F(ChromeNavigationPortMappedBrowserTest,
   int index_of_new_tab = browser()->tab_strip_model()->count() - 1;
   content::WebContents* new_web_contents =
       browser()->tab_strip_model()->GetWebContentsAt(index_of_new_tab);
-  WaitForLoadStop(new_web_contents);
+  EXPECT_TRUE(WaitForLoadStop(new_web_contents));
 
   // Verify that the final URL after the redirects gets committed.
   EXPECT_EQ(GURL("http://bar.com/title2.html"),
@@ -541,7 +532,7 @@ IN_PROC_BROWSER_TEST_F(ChromeNavigationBrowserTest,
   GURL error_url(content::kUnreachableWebDataURL);
   EXPECT_TRUE(ExecuteScript(web_contents,
                             "location.href = '" + error_url.spec() + "';"));
-  content::WaitForLoadStop(web_contents);
+  EXPECT_TRUE(content::WaitForLoadStop(web_contents));
   EXPECT_EQ(url, web_contents->GetLastCommittedURL());
 
   // Also ensure that a page can't embed an iframe for an error page URL.
@@ -549,7 +540,7 @@ IN_PROC_BROWSER_TEST_F(ChromeNavigationBrowserTest,
                             "var frame = document.createElement('iframe');\n"
                             "frame.src = '" + error_url.spec() + "';\n"
                             "document.body.appendChild(frame);"));
-  content::WaitForLoadStop(web_contents);
+  EXPECT_TRUE(content::WaitForLoadStop(web_contents));
   content::RenderFrameHost* subframe_host =
       ChildFrameAt(web_contents->GetMainFrame(), 0);
   // The new subframe should remain blank without a committed URL.
@@ -614,16 +605,8 @@ IN_PROC_BROWSER_TEST_F(ChromeNavigationBrowserTest,
 
 // Test for https://crbug.com/866549#c2. It verifies that about:blank does not
 // commit in the error page process when it is redirected to.
-// Flaky on Linux. See https://crbug.com/981295.
-#if defined(OS_LINUX)
-#define MAYBE_RedirectErrorPageReloadToAboutBlank \
-  DISABLED_RedirectErrorPageReloadToAboutBlank
-#else
-#define MAYBE_RedirectErrorPageReloadToAboutBlank \
-  RedirectErrorPageReloadToAboutBlank
-#endif
 IN_PROC_BROWSER_TEST_F(ChromeNavigationBrowserTest,
-                       MAYBE_RedirectErrorPageReloadToAboutBlank) {
+                       RedirectErrorPageReloadToAboutBlank) {
   content::WebContents* web_contents =
       browser()->tab_strip_model()->GetActiveWebContents();
   GURL url(embedded_test_server()->GetURL("a.com", "/title1.html"));
@@ -659,9 +642,15 @@ IN_PROC_BROWSER_TEST_F(ChromeNavigationBrowserTest,
           console.log("onBeforeRequest: ", d);
           return {redirectUrl:"about:blank"};
         }, {urls: ["*://a.com/*"]}, ["blocking"]);
+        chrome.test.sendMessage('ready');
       )");
+
+  ExtensionTestMessageListener ready_listener("ready", false /* will_reply */);
   extensions::ChromeTestExtensionLoader extension_loader(browser()->profile());
   extension_loader.LoadExtension(test_extension_dir.UnpackedPath());
+
+  // Wait for the background page to load.
+  ASSERT_TRUE(ready_listener.WaitUntilSatisfied());
 
   // Remove the interceptor to allow a reload to succeed, which the extension
   // will intercept and redirect. The navigation should complete successfully
@@ -704,30 +693,25 @@ IN_PROC_BROWSER_TEST_F(
         "background": {
           "scripts": ["background.js"]
         },
-        "permissions": [
-          "declarativeWebRequest", "<all_urls>"
-        ]
+        "permissions": ["webRequest", "webRequestBlocking", "<all_urls>"]
       }
   )";
   const char kRulesScript[] = R"(
-      var condition = new chrome.declarativeWebRequest.RequestMatcher({
-          url: {
-              hostSuffix: 'redirected.com'
-          }
-      });
-      var action = new chrome.declarativeWebRequest.RedirectRequest({
-          redirectUrl: 'about:blank'
-      });
-      var rule = { conditions: [ condition ], actions: [ action ]}
-      chrome.declarativeWebRequest.onRequest.addRules([rule]);
+      chrome.webRequest.onBeforeRequest.addListener(function(d) {
+          console.log("onBeforeRequest: ", d);
+          return {redirectUrl: "about:blank"};
+        }, {urls: ["*://redirected.com/*"]}, ["blocking"]);
+      chrome.test.sendMessage('ready');
   )";
   extensions::TestExtensionDir ext_dir;
   ext_dir.WriteManifest(kManifest);
   ext_dir.WriteFile(FILE_PATH_LITERAL("background.js"), kRulesScript);
+  ExtensionTestMessageListener ready_listener("ready", false /* will_reply */);
   extensions::ChromeTestExtensionLoader extension_loader(browser()->profile());
   scoped_refptr<const extensions::Extension> extension =
       extension_loader.LoadExtension(ext_dir.UnpackedPath());
   ASSERT_TRUE(extension);
+  ASSERT_TRUE(ready_listener.WaitUntilSatisfied());
   content::BrowserContext::GetDefaultStoragePartition(browser()->profile())
       ->FlushNetworkInterfaceForTesting();
 
@@ -846,32 +830,27 @@ IN_PROC_BROWSER_TEST_F(
         "background": {
           "scripts": ["background.js"]
         },
-        "permissions": [
-          "declarativeWebRequest", "<all_urls>"
-        ]
+        "permissions": ["webRequest", "webRequestBlocking", "<all_urls>"]
       }
   )";
   const char kRulesScriptTemplate[] = R"(
-      var condition = new chrome.declarativeWebRequest.RequestMatcher({
-          url: {
-              hostSuffix: 'redirected.com'
-          }
-      });
-      var action = new chrome.declarativeWebRequest.RedirectRequest({
-          redirectUrl: $1
-      });
-      var rule = { conditions: [ condition ], actions: [ action ]}
-      chrome.declarativeWebRequest.onRequest.addRules([rule]);
+      chrome.webRequest.onBeforeRequest.addListener(function(d) {
+          console.log("onBeforeRequest: ", d);
+          return {redirectUrl: $1};
+        }, {urls: ["*://redirected.com/*"]}, ["blocking"]);
+      chrome.test.sendMessage('ready');
   )";
   extensions::TestExtensionDir ext_dir;
   ext_dir.WriteManifest(kManifest);
   ext_dir.WriteFile(
       FILE_PATH_LITERAL("background.js"),
       content::JsReplace(kRulesScriptTemplate, kRedirectTargetUrl));
+  ExtensionTestMessageListener ready_listener("ready", false /* will_reply */);
   extensions::ChromeTestExtensionLoader extension_loader(browser()->profile());
   scoped_refptr<const extensions::Extension> extension =
       extension_loader.LoadExtension(ext_dir.UnpackedPath());
   ASSERT_TRUE(extension);
+  ASSERT_TRUE(ready_listener.WaitUntilSatisfied());
   content::BrowserContext::GetDefaultStoragePartition(browser()->profile())
       ->FlushNetworkInterfaceForTesting();
 
@@ -1163,7 +1142,7 @@ IN_PROC_BROWSER_TEST_F(ChromeNavigationBrowserTest, BlockLegacySubresources) {
       {main_url_http, iframe_url_http, true},
       {main_url_http, iframe_url_ftp, false},
   };
-  for (const auto test_case : kTestCases) {
+  for (const auto& test_case : kTestCases) {
     // Blocking the request should work, even after a redirect.
     for (bool redirect : {false, true}) {
       GURL iframe_url =
@@ -1292,7 +1271,7 @@ IN_PROC_BROWSER_TEST_F(ChromeNavigationBrowserTest,
   content::WebContents* popup =
       browser()->tab_strip_model()->GetActiveWebContents();
   EXPECT_NE(popup, opener);
-  WaitForLoadStop(popup);
+  EXPECT_TRUE(WaitForLoadStop(popup));
 
   content::ConsoleObserverDelegate console_observer(
       opener,
@@ -1344,7 +1323,7 @@ IN_PROC_BROWSER_TEST_F(ChromeNavigationBrowserTest,
   content::WebContents* popup =
       browser()->tab_strip_model()->GetActiveWebContents();
   EXPECT_NE(popup, opener);
-  WaitForLoadStop(popup);
+  EXPECT_TRUE(WaitForLoadStop(popup));
 
   content::DownloadTestObserverInProgress observer(
       content::BrowserContext::GetDownloadManager(browser()->profile()),
@@ -1436,9 +1415,9 @@ IN_PROC_BROWSER_TEST_F(ChromeNavigationBrowserTest,
   // Verify UKM.
   using Entry = ukm::builders::HistoryManipulationIntervention;
   const auto& ukm_entries =
-      test_ukm_recorder_->GetEntriesByName(Entry::kEntryName);
+      test_ukm_recorder()->GetEntriesByName(Entry::kEntryName);
   EXPECT_EQ(1u, ukm_entries.size());
-  test_ukm_recorder_->ExpectEntrySourceHasUrl(ukm_entries[0], skippable_url);
+  test_ukm_recorder()->ExpectEntrySourceHasUrl(ukm_entries[0], skippable_url);
 
   // Verify the metric where user tries to go specifically to a skippable entry
   // using long press.
@@ -1474,9 +1453,9 @@ IN_PROC_BROWSER_TEST_F(ChromeNavigationBrowserTest,
   // Verify UKM.
   using Entry = ukm::builders::HistoryManipulationIntervention;
   const auto& ukm_entries =
-      test_ukm_recorder_->GetEntriesByName(Entry::kEntryName);
+      test_ukm_recorder()->GetEntriesByName(Entry::kEntryName);
   EXPECT_EQ(1u, ukm_entries.size());
-  test_ukm_recorder_->ExpectEntrySourceHasUrl(ukm_entries[0], skippable_url);
+  test_ukm_recorder()->ExpectEntrySourceHasUrl(ukm_entries[0], skippable_url);
 }
 
 // TODO(csharrison): These tests should become tentative WPT, once the feature
@@ -1656,9 +1635,37 @@ IN_PROC_BROWSER_TEST_F(HistoryManipulationInterventionBrowserTest,
 }
 
 // Tests that a main frame hosting pdf does not get skipped because of history
-// manipulation intervention (crbug.com/965434).
+// manipulation intervention if there was a user gesture.
 IN_PROC_BROWSER_TEST_F(HistoryManipulationInterventionBrowserTest,
-                       PDFDoNotSkipOnBackForward) {
+                       PDFDoNotSkipOnBackForwardDueToUserGesture) {
+  GURL pdf_url(embedded_test_server()->GetURL("/pdf/test.pdf"));
+  ui_test_utils::NavigateToURL(browser(), pdf_url);
+
+  GURL url(embedded_test_server()->GetURL("/title2.html"));
+
+  // Navigate to a new document from the renderer with a user gesture.
+  content::WebContents* main_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  content::TestNavigationObserver observer(main_contents);
+  EXPECT_TRUE(ExecuteScript(main_contents, "location = '" + url.spec() + "';"));
+  observer.Wait();
+  EXPECT_EQ(url, main_contents->GetLastCommittedURL());
+
+  // Since pdf_url initiated a navigation with a user gesture, it will
+  // not be skipped. Going back should be allowed and should navigate to
+  // pdf_url.
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_BACK));
+
+  ASSERT_TRUE(chrome::CanGoBack(browser()));
+  chrome::GoBack(browser(), WindowOpenDisposition::CURRENT_TAB);
+  EXPECT_TRUE(content::WaitForLoadStop(main_contents));
+  ASSERT_EQ(pdf_url, main_contents->GetLastCommittedURL());
+}
+
+// Tests that a main frame hosting pdf gets skipped because of history
+// manipulation intervention if there was no user gesture.
+IN_PROC_BROWSER_TEST_F(HistoryManipulationInterventionBrowserTest,
+                       PDFSkipOnBackForwardNoUserGesture) {
   GURL pdf_url(embedded_test_server()->GetURL("/pdf/test.pdf"));
   ui_test_utils::NavigateToURL(browser(), pdf_url);
 
@@ -1673,15 +1680,15 @@ IN_PROC_BROWSER_TEST_F(HistoryManipulationInterventionBrowserTest,
   observer.Wait();
   EXPECT_EQ(url, main_contents->GetLastCommittedURL());
 
-  // Even though pdf_url initiated a navigation without a user gesture, it will
-  // not be skipped since it is a pdf.
-  // Going back should be allowed and should navigate to pdf_url.
+  // Since pdf_url initiated a navigation without a user gesture, it will
+  // be skipped. Going back should be allowed and should navigate to
+  // about:blank.
   EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_BACK));
 
   ASSERT_TRUE(chrome::CanGoBack(browser()));
   chrome::GoBack(browser(), WindowOpenDisposition::CURRENT_TAB);
-  content::WaitForLoadStop(main_contents);
-  ASSERT_EQ(pdf_url, main_contents->GetLastCommittedURL());
+  EXPECT_TRUE(content::WaitForLoadStop(main_contents));
+  ASSERT_EQ(GURL("about:blank"), main_contents->GetLastCommittedURL());
 }
 
 // This test class turns on the mode where sites where the user enters a

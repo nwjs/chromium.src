@@ -44,20 +44,6 @@ class IndexImplTest : public testing::Test {
     index_impl_.BindReceiver(index_remote_.BindNewPipeAndPassReceiver());
   }
 
-  // Creates test data to be registered to the index. |input| is a map from
-  // id to search-tags.
-  std::vector<mojom::DataPtr> CreateTestData(
-      const std::map<std::string, std::vector<std::string>>& input) {
-    std::vector<mojom::DataPtr> output;
-    for (const auto& item : input) {
-      const std::string& id = item.first;
-      const std::vector<std::string>& tags = item.second;
-      mojom::DataPtr data = mojom::Data::New(id, tags);
-      output.push_back(std::move(data));
-    }
-    return output;
-  }
-
  protected:
   base::test::SingleThreadTaskEnvironment task_environment_;
   IndexImpl index_impl_;
@@ -149,6 +135,23 @@ TEST_F(IndexImplTest, RelevanceThreshold) {
     FindAndCheck(index_remote_.get(), "CC", /*max_latency_in_ms=*/-1,
                  /*max_results=*/-1, mojom::ResponseStatus::SUCCESS, {});
   }
+}
+
+TEST_F(IndexImplTest, MaxResults) {
+  const std::map<std::string, std::vector<std::string>> data_to_register = {
+      {"id1", {"Clash Of Clan"}}, {"id2", {"famous"}}};
+  std::vector<mojom::DataPtr> data = CreateTestData(data_to_register);
+  AddOrUpdateAndCheck(index_remote_.get(), std::move(data));
+  GetSizeAndCheck(index_remote_.get(), 2u);
+  mojom::SearchParamsPtr search_params = mojom::SearchParams::New();
+  search_params->relevance_threshold = 0.0;
+  SetSearchParamsAndCheck(index_remote_.get(), std::move(search_params));
+
+  FindAndCheck(index_remote_.get(), "CC", /*max_latency_in_ms=*/-1,
+               /*max_results=*/-1, mojom::ResponseStatus::SUCCESS,
+               {"id1", "id2"});
+  FindAndCheck(index_remote_.get(), "CC", /*max_latency_in_ms=*/-1,
+               /*max_results=*/1, mojom::ResponseStatus::SUCCESS, {"id1"});
 }
 
 }  // namespace local_search_service

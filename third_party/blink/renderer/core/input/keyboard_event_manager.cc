@@ -77,25 +77,37 @@ bool MapKeyCodeForScroll(int key_code,
     case VKEY_LEFT:
       *scroll_direction =
           mojom::blink::ScrollDirection::kScrollLeftIgnoringWritingMode;
-      *scroll_granularity = ScrollGranularity::kScrollByLine;
+      *scroll_granularity =
+          RuntimeEnabledFeatures::PercentBasedScrollingEnabled()
+              ? ScrollGranularity::kScrollByPercentage
+              : ScrollGranularity::kScrollByLine;
       *scroll_use_uma = WebFeature::kScrollByKeyboardArrowKeys;
       break;
     case VKEY_RIGHT:
       *scroll_direction =
           mojom::blink::ScrollDirection::kScrollRightIgnoringWritingMode;
-      *scroll_granularity = ScrollGranularity::kScrollByLine;
+      *scroll_granularity =
+          RuntimeEnabledFeatures::PercentBasedScrollingEnabled()
+              ? ScrollGranularity::kScrollByPercentage
+              : ScrollGranularity::kScrollByLine;
       *scroll_use_uma = WebFeature::kScrollByKeyboardArrowKeys;
       break;
     case VKEY_UP:
       *scroll_direction =
           mojom::blink::ScrollDirection::kScrollUpIgnoringWritingMode;
-      *scroll_granularity = ScrollGranularity::kScrollByLine;
+      *scroll_granularity =
+          RuntimeEnabledFeatures::PercentBasedScrollingEnabled()
+              ? ScrollGranularity::kScrollByPercentage
+              : ScrollGranularity::kScrollByLine;
       *scroll_use_uma = WebFeature::kScrollByKeyboardArrowKeys;
       break;
     case VKEY_DOWN:
       *scroll_direction =
           mojom::blink::ScrollDirection::kScrollDownIgnoringWritingMode;
-      *scroll_granularity = ScrollGranularity::kScrollByLine;
+      *scroll_granularity =
+          RuntimeEnabledFeatures::PercentBasedScrollingEnabled()
+              ? ScrollGranularity::kScrollByPercentage
+              : ScrollGranularity::kScrollByLine;
       *scroll_use_uma = WebFeature::kScrollByKeyboardArrowKeys;
       break;
     case VKEY_HOME:
@@ -135,7 +147,7 @@ KeyboardEventManager::KeyboardEventManager(LocalFrame& frame,
                                            ScrollManager& scroll_manager)
     : frame_(frame), scroll_manager_(scroll_manager) {}
 
-void KeyboardEventManager::Trace(blink::Visitor* visitor) {
+void KeyboardEventManager::Trace(Visitor* visitor) {
   visitor->Trace(frame_);
   visitor->Trace(scroll_manager_);
 }
@@ -336,8 +348,8 @@ WebInputEventResult KeyboardEventManager::KeyEvent(
 void KeyboardEventManager::CapsLockStateMayHaveChanged() {
   if (Element* element = frame_->GetDocument()->FocusedElement()) {
     if (LayoutObject* r = element->GetLayoutObject()) {
-      if (r->IsTextField())
-        ToLayoutTextControlSingleLine(r)->CapsLockStateMayHaveChanged();
+      if (auto* text_control = DynamicTo<LayoutTextControlSingleLine>(r))
+        text_control->CapsLockStateMayHaveChanged();
     }
   }
 }
@@ -579,8 +591,8 @@ bool KeyboardEventManager::CurrentCapsLockState() {
 }
 
 WebInputEvent::Modifiers KeyboardEventManager::GetCurrentModifierState() {
-  unsigned modifiers = 0;
 #if defined(OS_MACOSX)
+  unsigned modifiers = 0;
   UInt32 current_modifiers = GetCurrentKeyModifiers();
   if (current_modifiers & ::shiftKey)
     modifiers |= WebInputEvent::kShiftKey;
@@ -590,11 +602,11 @@ WebInputEvent::Modifiers KeyboardEventManager::GetCurrentModifierState() {
     modifiers |= WebInputEvent::kAltKey;
   if (current_modifiers & ::cmdKey)
     modifiers |= WebInputEvent::kMetaKey;
+  return static_cast<WebInputEvent::Modifiers>(modifiers);
 #else
   // TODO(crbug.com/538289): Implement on other platforms.
   return static_cast<WebInputEvent::Modifiers>(0);
 #endif
-  return static_cast<WebInputEvent::Modifiers>(modifiers);
 }
 
 }  // namespace blink

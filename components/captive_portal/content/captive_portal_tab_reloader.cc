@@ -15,7 +15,7 @@
 #include "content/public/browser/web_contents.h"
 #include "net/base/net_errors.h"
 
-using captive_portal::CaptivePortalResult;
+namespace captive_portal {
 
 namespace {
 
@@ -23,20 +23,24 @@ namespace {
 // portal check.
 const int kDefaultSlowSSLTimeSeconds = 30;
 
-// Returns true if an SSL request resulting in |error| may indicate a captive
-// portal.
-bool SslNetErrorMayImplyCaptivePortal(int error) {
+// Returns the appropriate CaptivePortalProbeReason if |error| may indicate a
+// captive portal, otherwise returns nullopt.
+base::Optional<CaptivePortalProbeReason> SslNetErrorMayImplyCaptivePortal(
+    int error) {
   // May be returned when a captive portal silently blocks an SSL request.
   if (error == net::ERR_CONNECTION_TIMED_OUT)
-    return true;
+    return CaptivePortalProbeReason::kTimeout;
 
   // May be returned when a captive portal lets SSL requests connect, but
   // disconnects Chrome after Chrome starts SSL negotiation, or sends an
   // HTTP response.
   if (error == net::ERR_SSL_PROTOCOL_ERROR)
-    return true;
+    return CaptivePortalProbeReason::kSslProtocolError;
 
-  return net::IsCertificateError(error);
+  if (net::IsCertificateError(error))
+    return CaptivePortalProbeReason::kCertificateError;
+
+  return base::nullopt;
 }
 
 }  // namespace
@@ -70,16 +74,26 @@ void CaptivePortalTabReloader::OnLoadStart(bool is_ssl) {
     SetState(STATE_TIMER_RUNNING);
 }
 
-void CaptivePortalTabReloader::OnLoadCommitted(int net_error) {
+void CaptivePortalTabReloader::OnLoadCommitted(
+    int net_error,
+    net::ResolveErrorInfo resolve_error_info) {
   provisional_main_frame_load_ = false;
   ssl_url_in_redirect_chain_ = false;
+
+  // There was a secure DNS network error, so maybe check for a captive portal.
+  if (resolve_error_info.is_secure_network_error) {
+    OnSecureDnsNetworkError();
+    return;
+  }
 
   if (state_ == STATE_NONE)
     return;
 
   // If |net_error| is not an error code that could indicate there's a captive
   // portal, reset the state.
-  if (!SslNetErrorMayImplyCaptivePortal(net_error)) {
+  base::Optional<CaptivePortalProbeReason> probe_reason =
+      SslNetErrorMayImplyCaptivePortal(net_error);
+  if (!probe_reason.has_value()) {
     // TODO(mmenke):  If the new URL is the same as the old broken URL, and the
     //                request succeeds, should probably trigger another
     //                captive portal check.
@@ -90,7 +104,7 @@ void CaptivePortalTabReloader::OnLoadCommitted(int net_error) {
   // The page returned an error out before the timer triggered.  Go ahead and
   // try to detect a portal now, rather than waiting for the timer.
   if (state_ == STATE_TIMER_RUNNING) {
-    OnSlowSSLConnect();
+    OnSlowSSLConnect(probe_reason.value());
     return;
   }
 
@@ -125,7 +139,7 @@ void CaptivePortalTabReloader::OnRedirect(bool is_ssl) {
 void CaptivePortalTabReloader::OnCaptivePortalResults(
     CaptivePortalResult previous_result,
     CaptivePortalResult result) {
-  if (result == captive_portal::RESULT_BEHIND_CAPTIVE_PORTAL) {
+  if (result == RESULT_BEHIND_CAPTIVE_PORTAL) {
     if (state_ == STATE_MAYBE_BROKEN_BY_PORTAL) {
       SetState(STATE_BROKEN_BY_PORTAL);
       MaybeOpenCaptivePortalLoginTab();
@@ -142,7 +156,7 @@ void CaptivePortalTabReloader::OnCaptivePortalResults(
       // page, so if the page ends up at an error caused by a captive portal, it
       // will be reloaded.  If not, the state will just be reset.  The helps in
       // the case that a user tries to reload a tab, and then quickly logs in.
-      if (previous_result == captive_portal::RESULT_BEHIND_CAPTIVE_PORTAL) {
+      if (previous_result == RESULT_BEHIND_CAPTIVE_PORTAL) {
         SetState(STATE_NEEDS_RELOAD);
         return;
       }
@@ -174,14 +188,32 @@ void CaptivePortalTabReloader::OnSSLCertError(const net::SSLInfo& ssl_info) {
   // ERR_CERT_COMMON_NAME_INVALID and ERR_CERT_AUTHORITY_INVALID.  It's unclear
   // if captive portals cause any others.
   if (state_ == STATE_TIMER_RUNNING)
-    SetState(STATE_MAYBE_BROKEN_BY_PORTAL);
+    SetState(STATE_MAYBE_BROKEN_BY_PORTAL,
+             CaptivePortalProbeReason::kCertificateError);
 }
 
-void CaptivePortalTabReloader::OnSlowSSLConnect() {
-  SetState(STATE_MAYBE_BROKEN_BY_PORTAL);
+void CaptivePortalTabReloader::OnSlowSSLConnect(
+    CaptivePortalProbeReason probe_reason) {
+  SetState(STATE_MAYBE_BROKEN_BY_PORTAL, probe_reason);
 }
 
-void CaptivePortalTabReloader::SetState(State new_state) {
+void CaptivePortalTabReloader::OnSecureDnsNetworkError() {
+  if (state_ == STATE_NONE || state_ == STATE_TIMER_RUNNING) {
+    SetState(STATE_MAYBE_BROKEN_BY_PORTAL,
+             CaptivePortalProbeReason::kSecureDnsError);
+    return;
+  }
+
+  if (state_ == STATE_NEEDS_RELOAD) {
+    base::ThreadTaskRunnerHandle::Get()->PostTask(
+        FROM_HERE, base::BindOnce(&CaptivePortalTabReloader::ReloadTabIfNeeded,
+                                  weak_factory_.GetWeakPtr()));
+  }
+}
+
+void CaptivePortalTabReloader::SetState(
+    State new_state,
+    base::Optional<CaptivePortalProbeReason> probe_reason) {
   // Stop the timer even when old and new states are the same.
   if (state_ == STATE_TIMER_RUNNING) {
     slow_ssl_load_timer_.Stop();
@@ -192,7 +224,8 @@ void CaptivePortalTabReloader::SetState(State new_state) {
   // Check for unexpected state transitions.
   switch (state_) {
     case STATE_NONE:
-      DCHECK(new_state == STATE_NONE || new_state == STATE_TIMER_RUNNING);
+      DCHECK(new_state == STATE_NONE || new_state == STATE_TIMER_RUNNING ||
+             new_state == STATE_MAYBE_BROKEN_BY_PORTAL);
       break;
     case STATE_TIMER_RUNNING:
       DCHECK(new_state == STATE_NONE ||
@@ -218,12 +251,17 @@ void CaptivePortalTabReloader::SetState(State new_state) {
 
   switch (state_) {
     case STATE_TIMER_RUNNING:
-      slow_ssl_load_timer_.Start(FROM_HERE, slow_ssl_load_time_, this,
-                                 &CaptivePortalTabReloader::OnSlowSSLConnect);
+      slow_ssl_load_timer_.Start(
+          FROM_HERE, slow_ssl_load_time_,
+          base::BindOnce(
+              &CaptivePortalTabReloader::OnSlowSSLConnect,
+              weak_factory_.GetWeakPtr(),
+              CaptivePortalProbeReason::kTimeout /* probe_reason */));
       break;
 
     case STATE_MAYBE_BROKEN_BY_PORTAL:
-      CheckForCaptivePortal();
+      DCHECK(probe_reason.has_value());
+      CheckForCaptivePortal(probe_reason.value());
       break;
 
     case STATE_NEEDS_RELOAD:
@@ -265,7 +303,10 @@ void CaptivePortalTabReloader::MaybeOpenCaptivePortalLoginTab() {
   open_login_tab_callback_.Run();
 }
 
-void CaptivePortalTabReloader::CheckForCaptivePortal() {
+void CaptivePortalTabReloader::CheckForCaptivePortal(
+    CaptivePortalProbeReason probe_reason) {
   if (captive_portal_service_)
-    captive_portal_service_->DetectCaptivePortal();
+    captive_portal_service_->DetectCaptivePortal(probe_reason);
 }
+
+}  // namespace captive_portal

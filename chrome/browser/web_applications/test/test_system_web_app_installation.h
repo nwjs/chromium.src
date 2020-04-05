@@ -6,6 +6,7 @@
 #define CHROME_BROWSER_WEB_APPLICATIONS_TEST_TEST_SYSTEM_WEB_APP_INSTALLATION_H_
 
 #include <memory>
+#include <string>
 
 #include "chrome/browser/web_applications/system_web_app_manager.h"
 #include "chrome/browser/web_applications/test/test_system_web_app_web_ui_controller_factory.h"
@@ -21,12 +22,25 @@ namespace web_app {
 // WaitForAppInstall() to finish the installation.
 class TestSystemWebAppInstallation {
  public:
+  enum IncludeLaunchDirectory { kYes, kNo };
+
   static std::unique_ptr<TestSystemWebAppInstallation>
   SetUpTabbedMultiWindowApp();
   static std::unique_ptr<TestSystemWebAppInstallation>
   SetUpStandaloneSingleWindowApp();
   static std::unique_ptr<TestSystemWebAppInstallation>
-  SetUpAppThatReceivesLaunchDirectory();
+  SetUpAppThatReceivesLaunchFiles(
+      IncludeLaunchDirectory include_launch_directory);
+  static std::unique_ptr<TestSystemWebAppInstallation>
+  SetUpAppWithEnabledOriginTrials(const OriginTrialsMap& origin_to_trials);
+  static std::unique_ptr<TestSystemWebAppInstallation>
+  SetUpAppNotShownInLauncher();
+  static std::unique_ptr<TestSystemWebAppInstallation>
+  SetUpAppNotShownInSearch();
+  static std::unique_ptr<TestSystemWebAppInstallation>
+  SetUpAppWithAdditionalSearchTerms();
+  static std::unique_ptr<TestSystemWebAppInstallation>
+  SetUpChromeUntrustedApp();
 
   ~TestSystemWebAppInstallation();
 
@@ -36,6 +50,9 @@ class TestSystemWebAppInstallation {
   const GURL& GetAppUrl();
   SystemAppType GetType();
 
+  // Override the contents served by chrome://test-system-app/manifest.json.
+  void SetManifest(std::string manifest);
+
  private:
   TestSystemWebAppInstallation(SystemAppType type, SystemAppInfo info);
 
@@ -43,8 +60,9 @@ class TestSystemWebAppInstallation {
   std::unique_ptr<KeyedService> CreateWebAppProvider(SystemAppInfo info,
                                                      Profile* profile);
   std::unique_ptr<TestWebAppProviderCreator> test_web_app_provider_creator_;
-  SystemAppType type_;
-  TestSystemWebAppWebUIControllerFactory web_ui_controller_factory_;
+  const SystemAppType type_;
+  std::unique_ptr<TestSystemWebAppWebUIControllerFactory>
+      web_ui_controller_factory_;
 };
 
 }  // namespace web_app

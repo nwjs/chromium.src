@@ -7,6 +7,8 @@
 
 #include <stdint.h>
 
+#include <vector>
+
 #include "base/strings/string16.h"
 #include "build/build_config.h"
 #include "ui/accessibility/ax_enums.mojom-forward.h"
@@ -41,7 +43,7 @@ class ViewAXPlatformNodeDelegate : public ViewAccessibility,
   ~ViewAXPlatformNodeDelegate() override;
 
   // ViewAccessibility:
-  gfx::NativeViewAccessible GetNativeObject() override;
+  gfx::NativeViewAccessible GetNativeObject() const override;
   void NotifyAccessibilityEvent(ax::mojom::Event event_type) override;
 #if defined(OS_MACOSX)
   void AnnounceText(const base::string16& text) override;
@@ -49,8 +51,12 @@ class ViewAXPlatformNodeDelegate : public ViewAccessibility,
   void FireFocusAfterMenuClose() override;
 
   // ui::AXPlatformNodeDelegate
+  // Note that, for parents of virtual views, GetChildCount() and ChildAtIndex()
+  // present to assistive technologies the unignored accessibility subtree,
+  // which doesn't necessarily reflect the internal descendant tree. (An ignored
+  // node means that the node should not be exposed to the platform.)
   const ui::AXNodeData& GetData() const override;
-  int GetChildCount() override;
+  int GetChildCount() const override;
   gfx::NativeViewAccessible ChildAtIndex(int index) override;
   gfx::NativeViewAccessible GetNSWindow() override;
   gfx::NativeViewAccessible GetNativeViewAccessible() override;
@@ -59,7 +65,9 @@ class ViewAXPlatformNodeDelegate : public ViewAccessibility,
       const ui::AXCoordinateSystem coordinate_system,
       const ui::AXClippingBehavior clipping_behavior,
       ui::AXOffscreenResult* offscreen_result) const override;
-  gfx::NativeViewAccessible HitTestSync(int x, int y) override;
+  gfx::NativeViewAccessible HitTestSync(
+      int screen_physical_pixel_x,
+      int screen_physical_pixel_y) const override;
   gfx::NativeViewAccessible GetFocus() override;
   ui::AXPlatformNode* GetFromNodeID(int32_t id) override;
   ui::AXPlatformNode* GetFromTreeIDAndNodeID(const ui::AXTreeID& ax_tree_id,

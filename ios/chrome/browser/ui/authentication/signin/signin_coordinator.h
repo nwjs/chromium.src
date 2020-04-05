@@ -9,15 +9,11 @@
 
 #import "base/ios/block_types.h"
 #import "components/signin/public/base/signin_metrics.h"
-#import "ios/chrome/browser/ui/authentication/signin/signin_enums.h"
+#import "ios/chrome/browser/ui/authentication/signin/signin_constants.h"
 #import "ios/chrome/browser/ui/coordinators/chrome_coordinator.h"
 
 class Browser;
 @class ChromeIdentity;
-
-@protocol ApplicationCommands;
-@protocol BrowsingDataCommands;
-@protocol SyncPresenter;
 
 // Called when the sign-in dialog is closed.
 // |result| is the sign-in result state.
@@ -30,13 +26,15 @@ typedef void (^SigninCoordinatorCompletionCallback)(
 // directly, this should be done using the class methods.
 @interface SigninCoordinator : ChromeCoordinator
 
-// Dispatcher.
-@property(nonatomic, strong, readonly)
-    id<ApplicationCommands, BrowsingDataCommands>
-        dispatcher;
-
 // Called when the sign-in dialog is interrupted, canceled or successful.
+// This completion needs to be set before calling -[SigninCoordinator start].
 @property(nonatomic, copy) SigninCoordinatorCompletionCallback signinCompletion;
+
+// Returns YES if the Google services settings view is presented.
+// TODO(crbug.com/971989): This property exists for the implementation
+// transition.
+@property(nonatomic, assign, readonly, getter=isSettingsViewPresented)
+    BOOL settingsViewPresented;
 
 // Returns a coordinator for user sign-in workflow.
 // |viewController| presents the sign-in.
@@ -54,12 +52,12 @@ typedef void (^SigninCoordinatorCompletionCallback)(
                                                     promoAction;
 
 // Returns a coordinator for first run sign-in workflow.
-// |viewController| presents the sign-in.
-// |presenter| to present sync-related UI.
-+ (instancetype)
-    firstRunCoordinatorWithBaseViewController:(UIViewController*)viewController
-                                      browser:(Browser*)browser
-                                syncPresenter:(id<SyncPresenter>)presenter;
+// |navigationController| presents the sign-in. Will be responsible for
+// dismissing itself upon sign-in completion.
++ (instancetype)firstRunCoordinatorWithBaseNavigationController:
+                    (UINavigationController*)navigationController
+                                                        browser:
+                                                            (Browser*)browser;
 
 // Returns a coordinator for upgrade sign-in workflow.
 // |viewController| presents the sign-in.
@@ -101,10 +99,16 @@ typedef void (^SigninCoordinatorCompletionCallback)(
                                                   promoAction;
 
 // Interrupts the sign-in flow.
+// |signinCompletion(SigninCoordinatorResultInterrupted, nil)| is guaranteed to
+// be called before |completion()|.
 // |action| action describing how to interrupt the sign-in.
 // |completion| called once the sign-in is fully interrupted.
 - (void)interruptWithAction:(SigninCoordinatorInterruptAction)action
                  completion:(ProceduralBlock)completion;
+
+// ChromeCoordinator.
+- (void)start NS_REQUIRES_SUPER;
+- (void)stop NS_REQUIRES_SUPER;
 
 @end
 

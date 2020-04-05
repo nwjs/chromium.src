@@ -10,10 +10,8 @@
 #include "build/build_config.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/history/history_service_factory.h"
-#include "chrome/browser/permissions/permission_uma_util.h"
 #include "chrome/browser/ssl/security_state_tab_helper.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_manager.h"
-#include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/hover_button.h"
 #include "chrome/browser/ui/views/page_info/chosen_object_view.h"
 #include "chrome/browser/ui/views/page_info/page_info_hover_button.h"
@@ -21,9 +19,11 @@
 #include "chrome/browser/usb/usb_chooser_context.h"
 #include "chrome/browser/usb/usb_chooser_context_factory.h"
 #include "chrome/test/base/testing_profile.h"
+#include "chrome/test/views/chrome_test_views_delegate.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
 #include "components/content_settings/core/common/pref_names.h"
 #include "components/history/core/browser/history_service.h"
+#include "components/permissions/permission_uma_util.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/ukm/test_ukm_recorder.h"
 #include "content/public/browser/ssl_status.h"
@@ -79,7 +79,6 @@ class PageInfoBubbleViewTestApi {
     views::View* anchor_view = nullptr;
     view_ = new PageInfoBubbleView(
         anchor_view, gfx::Rect(), parent_, profile_, web_contents_, GURL(kUrl),
-        security_state::NONE, security_state::VisibleSecurityState(),
         base::BindOnce(&PageInfoBubbleViewTestApi::OnPageInfoBubbleClosed,
                        base::Unretained(this), run_loop_.QuitClosure()));
   }
@@ -195,15 +194,12 @@ class PageInfoBubbleViewTest : public testing::Test {
 
   // testing::Test:
   void SetUp() override {
-    views_helper_.test_views_delegate()->set_layout_provider(
-        ChromeLayoutProvider::CreateLayoutProvider());
     views::Widget::InitParams parent_params;
     parent_params.context = views_helper_.GetContext();
     parent_window_ = new views::Widget();
     parent_window_->Init(std::move(parent_params));
 
     content::WebContents* web_contents = web_contents_helper_.web_contents();
-    TabSpecificContentSettings::CreateForWebContents(web_contents);
     api_ = std::make_unique<test::PageInfoBubbleViewTestApi>(
         parent_window_->GetNativeView(), web_contents_helper_.profile(),
         web_contents);
@@ -215,7 +211,8 @@ class PageInfoBubbleViewTest : public testing::Test {
 
  protected:
   ScopedWebContentsTestHelper web_contents_helper_;
-  views::ScopedViewsTestHelper views_helper_;
+  views::ScopedViewsTestHelper views_helper_{
+      std::make_unique<ChromeTestViewsDelegate<>>()};
 
   views::Widget* parent_window_ = nullptr;  // Weak. Owned by the NativeWidget.
   std::unique_ptr<test::PageInfoBubbleViewTestApi> api_;
@@ -299,7 +296,7 @@ TEST_F(PageInfoBubbleViewTest, NotificationPermissionRevokeUkm) {
 
   ukm_recorder.ExpectEntrySourceHasUrl(entry, origin_url);
   EXPECT_EQ(*ukm_recorder.GetEntryMetric(entry, "Source"),
-            static_cast<int64_t>(PermissionSourceUI::OIB));
+            static_cast<int64_t>(permissions::PermissionSourceUI::OIB));
   EXPECT_EQ(*ukm_recorder.GetEntryMetric(entry, "PermissionType"),
             static_cast<int64_t>(ContentSettingsType::NOTIFICATIONS));
   EXPECT_EQ(*ukm_recorder.GetEntryMetric(entry, "Action"),

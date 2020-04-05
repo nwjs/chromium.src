@@ -177,6 +177,11 @@ ChildProcessSecurityPolicyImpl::Handle::Handle(Handle&& rhs)
   rhs.child_id_ = ChildProcessHost::kInvalidUniqueID;
 }
 
+ChildProcessSecurityPolicyImpl::Handle
+ChildProcessSecurityPolicyImpl::Handle::Duplicate() {
+  return Handle(child_id_);
+}
+
 ChildProcessSecurityPolicyImpl::Handle::~Handle() {
   if (child_id_ != ChildProcessHost::kInvalidUniqueID) {
     auto* policy = ChildProcessSecurityPolicyImpl::GetInstance();
@@ -956,11 +961,6 @@ void ChildProcessSecurityPolicyImpl::GrantWebUIBindings(int child_id,
 
   state->second->GrantBindings(bindings);
 
-  // Web UI bindings need the ability to request chrome: URLs.
-  state->second->GrantRequestScheme(kChromeUIScheme);
-
-  // Web UI pages can contain links to file:// URLs.
-  state->second->GrantRequestScheme(url::kFileScheme);
 }
 
 void ChildProcessSecurityPolicyImpl::GrantReadRawCookies(int child_id) {
@@ -1660,14 +1660,6 @@ void ChildProcessSecurityPolicyImpl::AddIsolatedOrigins(
   // BrowsingInstance IDs.
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
-  if (IsolatedOriginSource::COMMAND_LINE == source) {
-    size_t number_of_origins = std::count_if(
-        patterns.cbegin(), patterns.cend(),
-        [](const IsolatedOriginPattern& p) { return p.is_valid(); });
-    UMA_HISTOGRAM_COUNTS_1000("SiteIsolation.IsolateOrigins.Size",
-                              number_of_origins);
-  }
-
   base::AutoLock isolated_origins_lock(isolated_origins_lock_);
 
   for (const IsolatedOriginPattern& pattern : patterns) {
@@ -2018,11 +2010,6 @@ void ChildProcessSecurityPolicyImpl::RemoveIsolatedOriginForTesting(
                 });
   if (isolated_origins_[key].empty())
     isolated_origins_.erase(key);
-}
-
-bool ChildProcessSecurityPolicyImpl::HasSecurityState(int child_id) {
-  base::AutoLock lock(lock_);
-  return GetSecurityState(child_id) != nullptr;
 }
 
 ChildProcessSecurityPolicyImpl::SecurityState*

@@ -28,8 +28,10 @@
 #include "base/task/post_task.h"
 #include "base/task/thread_pool/thread_pool_instance.h"
 #include "base/test/bind_test_util.h"
+#include "base/test/scoped_run_loop_timeout.h"
 #include "base/test/test_timeouts.h"
 #include "base/threading/thread_restrictions.h"
+#include "base/threading/thread_task_runner_handle.h"
 #include "build/build_config.h"
 #include "content/browser/browser_main_loop.h"
 #include "content/browser/browser_thread_impl.h"
@@ -80,7 +82,6 @@
 #include "components/discardable_memory/service/discardable_shared_memory_manager.h"  // nogncheck
 #include "content/app/mojo/mojo_init.h"
 #include "content/app/service_manager_environment.h"
-#include "content/common/url_schemes.h"
 #include "content/public/app/content_main_delegate.h"
 #include "content/public/common/content_paths.h"
 #include "testing/android/native_test/native_browser_test_support.h"
@@ -266,7 +267,7 @@ void BrowserTestBase::SetUp() {
 
   // The layout of windows on screen is unpredictable during tests, so disable
   // occlusion when running browser tests.
-  base::CommandLine::ForCurrentProcess()->AppendSwitch(
+  command_line->AppendSwitch(
       switches::kDisableBackgroundingOccludedWindowsForTesting);
 
 #if defined(USE_AURA)
@@ -406,13 +407,15 @@ void BrowserTestBase::SetUp() {
 
   InitializeMojo();
 
+  // We can only setup startup tracing after mojo is initialized above.
+  tracing::EnableStartupTracingIfNeeded();
+
   {
     SetBrowserClientForTesting(delegate->CreateContentBrowserClient());
     if (command_line->HasSwitch(switches::kSingleProcess))
       SetRendererClientForTesting(delegate->CreateContentRendererClient());
 
     content::RegisterPathProvider();
-    content::RegisterContentSchemes();
     ui::RegisterPathProvider();
 
     delegate->PreSandboxStartup();
@@ -495,7 +498,7 @@ void BrowserTestBase::SetUp() {
     spawned_test_server_.reset();
   }
 
-  base::PostTaskAndroid::SignalNativeSchedulerShutdown();
+  base::PostTaskAndroid::SignalNativeSchedulerShutdownForTesting();
   BrowserTaskExecutor::Shutdown();
 
   // Normally the BrowserMainLoop does this during shutdown but on Android we
@@ -559,7 +562,7 @@ void BrowserTestBase::WaitUntilJavaIsReady(base::OnceClosure quit_closure) {
     return;
   }
 
-  base::PostDelayedTask(
+  base::ThreadTaskRunnerHandle::Get()->PostDelayedTask(
       FROM_HERE,
       base::BindOnce(&BrowserTestBase::WaitUntilJavaIsReady,
                      base::Unretained(this), std::move(quit_closure)),
@@ -603,16 +606,14 @@ void BrowserTestBase::ProxyRunTestOnMainThreadLoop() {
 #endif
 
   // Install a RunLoop timeout if none is present but do not override tests that
-  // set a ScopedRunTimeoutForTest from their fixture's constructor (which
+  // set a ScopedLoopRunTimeout from their fixture's constructor (which
   // happens as part of setting up the test factory in gtest while
   // ProxyRunTestOnMainThreadLoop() happens later as part of SetUp()).
-  base::Optional<base::RunLoop::ScopedRunTimeoutForTest> scoped_run_timeout;
-  if (!base::RunLoop::ScopedRunTimeoutForTest::Current()) {
+  base::Optional<base::test::ScopedRunLoopTimeout> scoped_run_timeout;
+  if (!base::test::ScopedRunLoopTimeout::ExistsForCurrentThread()) {
     // TODO(https://crbug.com/918724): determine whether the timeout can be
     // reduced from action_max_timeout() to action_timeout().
-    scoped_run_timeout.emplace(TestTimeouts::action_max_timeout(),
-                               base::MakeExpectedNotRunClosure(
-                                   FROM_HERE, "RunLoop::Run() timed out."));
+    scoped_run_timeout.emplace(FROM_HERE, TestTimeouts::action_max_timeout());
   }
 
 #if defined(OS_POSIX)

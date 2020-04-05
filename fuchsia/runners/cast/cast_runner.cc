@@ -10,12 +10,42 @@
 #include <string>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/fuchsia/file_utils.h"
+#include "base/fuchsia/filtered_service_directory.h"
 #include "base/fuchsia/fuchsia_logging.h"
 #include "base/logging.h"
+#include "fuchsia/base/agent_manager.h"
 #include "url/gurl.h"
 
 namespace {
+
+// List of services provided to the WebEngine context.
+// All services must be listed in cast_runner.cmx.
+static constexpr const char* kServices[] = {
+    "fuchsia.accessibility.semantics.SemanticsManager",
+    "fuchsia.device.NameProvider",
+    "fuchsia.fonts.Provider",
+    "fuchsia.intl.PropertyProvider",
+    "fuchsia.logger.LogSink",
+    "fuchsia.media.SessionAudioConsumerFactory",
+    "fuchsia.media.drm.PlayReady",
+    "fuchsia.media.drm.Widevine",
+    "fuchsia.mediacodec.CodecFactory",
+    "fuchsia.memorypressure.Provider",
+    "fuchsia.net.NameLookup",
+    "fuchsia.netstack.Netstack",
+    "fuchsia.posix.socket.Provider",
+    "fuchsia.process.Launcher",
+    "fuchsia.sysmem.Allocator",
+    "fuchsia.ui.input.ImeService",
+    "fuchsia.ui.input.ImeVisibilityService",
+    "fuchsia.ui.scenic.Scenic",
+    "fuchsia.vulkan.loader.Loader",
+
+    // Redirected to the agent.
+    // fuchsia.media.Audio
+};
 
 bool AreCastComponentParamsValid(
     const CastComponent::CastComponentParams& params) {
@@ -32,11 +62,23 @@ fuchsia::web::CreateContextParams BuildCreateContextParamsForIsolatedRunners(
   fuchsia::web::CreateContextParams output;
 
   // Isolated contexts receive only a limited set of features.
-  output.set_features(
-      fuchsia::web::ContextFeatureFlags::AUDIO |
-      fuchsia::web::ContextFeatureFlags::VULKAN |
-      fuchsia::web::ContextFeatureFlags::HARDWARE_VIDEO_DECODER |
-      fuchsia::web::ContextFeatureFlags::HARDWARE_VIDEO_DECODER_ONLY);
+  fuchsia::web::ContextFeatureFlags features =
+      fuchsia::web::ContextFeatureFlags::AUDIO;
+
+  if ((create_context_params.features() &
+       fuchsia::web::ContextFeatureFlags::HEADLESS) ==
+      fuchsia::web::ContextFeatureFlags::HEADLESS) {
+    features |= fuchsia::web::ContextFeatureFlags::HEADLESS;
+  } else {
+    features |= fuchsia::web::ContextFeatureFlags::VULKAN |
+                fuchsia::web::ContextFeatureFlags::HARDWARE_VIDEO_DECODER |
+                fuchsia::web::ContextFeatureFlags::HARDWARE_VIDEO_DECODER_ONLY;
+  }
+
+  // The rest of |create_context_params.features()| is ignored.
+  // TODO(crbug.com/1059497): Respect the flags or don't pass them in tests.
+
+  output.set_features(features);
 
   if (create_context_params.has_user_agent_product()) {
     output.set_user_agent_product(create_context_params.user_agent_product());
@@ -51,13 +93,30 @@ fuchsia::web::CreateContextParams BuildCreateContextParamsForIsolatedRunners(
   return output;
 }
 
+bool IsPermissionGrantedInAppConfig(
+    const chromium::cast::ApplicationConfig& app_config,
+    fuchsia::web::PermissionType permission_type) {
+  if (app_config.has_permissions()) {
+    for (auto& permission : app_config.permissions()) {
+      if (permission.has_type() && permission.type() == permission_type)
+        return true;
+    }
+  }
+  return false;
+}
+
 }  // namespace
+
+const char CastRunner::kAgentComponentUrl[] =
+    "fuchsia-pkg://fuchsia.com/cast_agent#meta/cast_agent.cmx";
 
 CastRunner::CastRunner(fuchsia::web::CreateContextParams create_context_params,
                        sys::OutgoingDirectory* outgoing_directory)
     : WebContentRunner(std::move(create_context_params), outgoing_directory),
       common_create_context_params_(
-          BuildCreateContextParamsForIsolatedRunners(create_params_)) {}
+          BuildCreateContextParamsForIsolatedRunners(create_params_)) {
+  InitializeServiceDirectory();
+}
 
 CastRunner::CastRunner(OnDestructionCallback on_destruction_callback,
                        fuchsia::web::ContextPtr context,
@@ -99,8 +158,8 @@ void CastRunner::StartComponent(
   // Request the configuration for this application from the app_config_manager.
   // This will return the configuration for the application, as well as the
   // agent that should handle this application.
-  pending_component->agent_manager->ConnectToAgentService(
-      kAgentComponentUrl, pending_component->app_config_manager.NewRequest());
+  pending_component->startup_context->svc()->Connect(
+      pending_component->app_config_manager.NewRequest());
   pending_component->app_config_manager.set_error_handler(
       [this, pending_component = pending_component.get()](zx_status_t status) {
         ZX_LOG(ERROR, status) << "ApplicationConfigManager disconnected.";
@@ -137,15 +196,14 @@ void CastRunner::StartComponent(
 void CastRunner::DestroyComponent(WebComponent* component) {
   WebContentRunner::DestroyComponent(component);
 
+  if (component == audio_capturer_component_)
+    audio_capturer_component_ = nullptr;
+
   if (on_destruction_callback_) {
     // |this| may be deleted and should not be used after this line.
     std::move(on_destruction_callback_).Run(this);
-    return;
   }
 }
-
-const char CastRunner::kAgentComponentUrl[] =
-    "fuchsia-pkg://fuchsia.com/cast_agent#meta/cast_agent.cmx";
 
 void CastRunner::GetConfigCallback(
     CastComponent::CastComponentParams* pending_component,
@@ -213,6 +271,30 @@ void CastRunner::GetConfigCallback(
       });
 }
 
+void CastRunner::InitializeServiceDirectory() {
+  service_directory_ =
+      std::make_unique<base::fuchsia::FilteredServiceDirectory>(
+          base::fuchsia::ComponentContextForCurrentProcess()->svc().get());
+
+  for (auto* name : kServices) {
+    service_directory_->AddService(name);
+  }
+
+  // Handle fuchsia.media.Audio requests so we can redirect to the agent if
+  // necessary.
+  service_directory_->outgoing_directory()->AddPublicService(
+      std::make_unique<vfs::Service>([this](zx::channel channel,
+                                            async_dispatcher_t* dispatcher) {
+        this->ConnectAudioProtocol(
+            fidl::InterfaceRequest<fuchsia::media::Audio>(std::move(channel)));
+      }),
+      fuchsia::media::Audio::Name_);
+
+  fidl::InterfaceHandle<fuchsia::io::Directory> client_handle;
+  service_directory_->ConnectClient(client_handle.NewRequest());
+  create_params_.set_service_directory(std::move(client_handle));
+}
+
 void CastRunner::MaybeStartComponent(
     CastComponent::CastComponentParams* pending_component_params) {
   if (!AreCastComponentParamsValid(*pending_component_params))
@@ -250,6 +332,13 @@ void CastRunner::CreateAndRegisterCastComponent(
   cast_component->StartComponent();
   cast_component->LoadUrl(std::move(app_url),
                           std::vector<fuchsia::net::http::Header>());
+
+  if (IsPermissionGrantedInAppConfig(
+          cast_component->application_config(),
+          fuchsia::web::PermissionType::MICROPHONE)) {
+    audio_capturer_component_ = cast_component.get();
+  }
+
   RegisterComponent(std::move(cast_component));
 }
 
@@ -261,13 +350,16 @@ CastRunner* CastRunner::CreateChildRunnerForIsolatedComponent(
   fuchsia::web::CreateContextParams isolated_context_params;
   zx_status_t status =
       common_create_context_params_.Clone(&isolated_context_params);
-  isolated_context_params.set_service_directory(base::fuchsia::OpenDirectory(
-      base::FilePath(base::fuchsia::kServiceDirectoryPath)));
-  CHECK(isolated_context_params.service_directory());
   if (status != ZX_OK) {
     ZX_LOG(ERROR, status) << "clone";
     return nullptr;
   }
+
+  // Service redirection is not necessary for isolated context. Pass default
+  // /svc as is, without overriding any services.
+  isolated_context_params.set_service_directory(base::fuchsia::OpenDirectory(
+      base::FilePath(base::fuchsia::kServiceDirectoryPath)));
+  DCHECK(isolated_context_params.service_directory());
 
   isolated_context_params.set_content_directories(
       std::move(*params->app_config
@@ -299,4 +391,20 @@ void CastRunner::OnChildRunnerDestroyed(CastRunner* runner) {
 
 size_t CastRunner::GetChildCastRunnerCountForTest() {
   return isolated_runners_.size();
+}
+
+void CastRunner::ConnectAudioProtocol(
+    fidl::InterfaceRequest<fuchsia::media::Audio> request) {
+  // If we have a component that allows AudioCapturer access then redirect the
+  // fuchsia.media.Audio requests to the corresponding agent.
+  if (audio_capturer_component_) {
+    audio_capturer_component_->agent_manager()->ConnectToAgentService(
+        audio_capturer_component_->application_config().agent_url(),
+        std::move(request));
+    return;
+  }
+
+  // Otherwise use the default fuchsia.media.Audio implementation.
+  base::fuchsia::ComponentContextForCurrentProcess()->svc()->Connect(
+      std::move(request));
 }

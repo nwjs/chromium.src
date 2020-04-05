@@ -131,6 +131,10 @@ MediaRouterMetrics::~MediaRouterMetrics() = default;
 // static
 const char MediaRouterMetrics::kHistogramCloseLatency[] =
     "MediaRouter.Ui.Action.CloseLatency";
+const char MediaRouterMetrics::kHistogramCloudPrefAtDialogOpen[] =
+    "MediaRouter.Cloud.PrefAtDialogOpen";
+const char MediaRouterMetrics::kHistogramCloudPrefAtInit[] =
+    "MediaRouter.Cloud.PrefAtInit";
 const char MediaRouterMetrics::kHistogramDialParsingError[] =
     "MediaRouter.Dial.ParsingError";
 const char MediaRouterMetrics::kHistogramDialFetchAppInfo[] =
@@ -147,8 +151,6 @@ const char MediaRouterMetrics::kHistogramMediaSinkType[] =
     "MediaRouter.Sink.SelectedType";
 const char MediaRouterMetrics::kHistogramPresentationUrlType[] =
     "MediaRouter.PresentationRequest.AvailabilityUrlType";
-const char MediaRouterMetrics::kHistogramRecordSearchSinkOutcome[] =
-    "MediaRouter.Sink.SearchOutcome";
 const char MediaRouterMetrics::kHistogramRouteCreationOutcome[] =
     "MediaRouter.Route.CreationOutcome";
 const char MediaRouterMetrics::kHistogramStartLocalLatency[] =
@@ -304,11 +306,6 @@ void MediaRouterMetrics::RecordStopRemoteRoute() {
 }
 
 // static
-void MediaRouterMetrics::RecordSearchSinkOutcome(bool success) {
-  UMA_HISTOGRAM_BOOLEAN(kHistogramRecordSearchSinkOutcome, success);
-}
-
-// static
 void MediaRouterMetrics::RecordIconStateAtDialogOpen(bool is_pinned) {
   UMA_HISTOGRAM_BOOLEAN(kHistogramUiDialogIconStateAtOpen, is_pinned);
 }
@@ -318,6 +315,16 @@ void MediaRouterMetrics::RecordIconStateAtInit(bool is_pinned) {
   // Since this gets called only rarely, use base::UmaHistogramBoolean() to
   // avoid instantiating the caching code.
   base::UmaHistogramBoolean(kHistogramUiIconStateAtInit, is_pinned);
+}
+
+// static
+void MediaRouterMetrics::RecordCloudPrefAtDialogOpen(bool enabled) {
+  base::UmaHistogramBoolean(kHistogramCloudPrefAtDialogOpen, enabled);
+}
+
+// static
+void MediaRouterMetrics::RecordCloudPrefAtInit(bool enabled) {
+  base::UmaHistogramBoolean(kHistogramCloudPrefAtInit, enabled);
 }
 
 // static

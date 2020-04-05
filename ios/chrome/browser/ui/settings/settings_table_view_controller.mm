@@ -8,6 +8,8 @@
 
 #include "base/feature_list.h"
 #import "base/mac/foundation_util.h"
+#include "base/metrics/user_metrics.h"
+#include "base/metrics/user_metrics_action.h"
 #include "base/strings/sys_string_conversions.h"
 #include "build/branding_buildflags.h"
 #include "components/autofill/core/common/autofill_prefs.h"
@@ -55,7 +57,8 @@
 #import "ios/chrome/browser/ui/settings/language/language_settings_mediator.h"
 #import "ios/chrome/browser/ui/settings/language/language_settings_table_view_controller.h"
 #import "ios/chrome/browser/ui/settings/password/passwords_table_view_controller.h"
-#import "ios/chrome/browser/ui/settings/privacy_table_view_controller.h"
+#import "ios/chrome/browser/ui/settings/privacy/privacy_coordinator.h"
+#import "ios/chrome/browser/ui/settings/privacy/privacy_table_view_controller.h"
 #import "ios/chrome/browser/ui/settings/search_engine_table_view_controller.h"
 #import "ios/chrome/browser/ui/settings/settings_table_view_controller_constants.h"
 #import "ios/chrome/browser/ui/settings/sync/utils/sync_util.h"
@@ -71,8 +74,8 @@
 #include "ios/chrome/browser/ui/ui_feature_flags.h"
 #import "ios/chrome/browser/ui/util/uikit_ui_util.h"
 #include "ios/chrome/browser/voice/speech_input_locale_config.h"
-#import "ios/chrome/common/colors/UIColor+cr_semantic_colors.h"
-#import "ios/chrome/common/colors/semantic_color_names.h"
+#import "ios/chrome/common/ui/colors/UIColor+cr_semantic_colors.h"
+#import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #include "ios/chrome/grit/ios_chromium_strings.h"
 #include "ios/chrome/grit/ios_strings.h"
 #import "ios/public/provider/chrome/browser/chrome_browser_provider.h"
@@ -158,6 +161,7 @@ NSString* kDevViewSourceKey = @"DevViewSource";
     GoogleServicesSettingsCoordinatorDelegate,
     IdentityManagerObserverBridgeDelegate,
     PrefObserverDelegate,
+    PrivacyCoordinatorDelegate,
     SettingsControllerProtocol,
     SearchEngineObserving,
     SigninPresenter,
@@ -187,6 +191,9 @@ NSString* kDevViewSourceKey = @"DevViewSource";
   // identity update notifications.
   SigninPromoViewMediator* _signinPromoViewMediator;
   GoogleServicesSettingsCoordinator* _googleServicesSettingsCoordinator;
+
+  // Privacy coordinator.
+  PrivacyCoordinator* _privacyCoordinator;
 
   // Cached resized profile image.
   UIImage* _resizedImage;
@@ -823,8 +830,7 @@ NSString* kDevViewSourceKey = @"DevViewSource";
           initWithPrefs:_browserState->GetPrefs()];
       break;
     case ItemTypePrivacy:
-      controller = [[PrivacyTableViewController alloc]
-          initWithBrowserState:_browserState];
+      [self showPrivacy];
       break;
     case ItemTypeLanguageSettings: {
       LanguageSettingsMediator* mediator =
@@ -920,14 +926,21 @@ NSString* kDevViewSourceKey = @"DevViewSource";
   DCHECK(!_googleServicesSettingsCoordinator);
   _googleServicesSettingsCoordinator =
       [[GoogleServicesSettingsCoordinator alloc]
-          initWithBaseViewController:self.navigationController
-                             browser:_browser
-                                mode:GoogleServicesSettingsModeSettings];
-  _googleServicesSettingsCoordinator.dispatcher = self.dispatcher;
-  _googleServicesSettingsCoordinator.navigationController =
-      self.navigationController;
+          initWithBaseNavigationController:self.navigationController
+                                   browser:_browser
+                                      mode:GoogleServicesSettingsModeSettings];
   _googleServicesSettingsCoordinator.delegate = self;
   [_googleServicesSettingsCoordinator start];
+}
+
+// Shows Privacy screen.
+- (void)showPrivacy {
+  DCHECK(!_privacyCoordinator);
+  _privacyCoordinator = [[PrivacyCoordinator alloc]
+      initWithBaseNavigationController:self.navigationController
+                               browser:_browser];
+  _privacyCoordinator.delegate = self;
+  [_privacyCoordinator start];
 }
 
 // Sets the NSUserDefaults BOOL |value| for |key|.
@@ -1056,8 +1069,7 @@ NSString* kDevViewSourceKey = @"DevViewSource";
   DCHECK(![self.signinInteractionCoordinator isActive]);
   if (!self.signinInteractionCoordinator) {
     self.signinInteractionCoordinator =
-        [[SigninInteractionCoordinator alloc] initWithBrowser:_browser
-                                                   dispatcher:self.dispatcher];
+        [[SigninInteractionCoordinator alloc] initWithBrowser:_browser];
   }
 
   __weak SettingsTableViewController* weakSelf = self;
@@ -1083,11 +1095,20 @@ NSString* kDevViewSourceKey = @"DevViewSource";
 
 #pragma mark SettingsControllerProtocol
 
+- (void)reportDismissalUserAction {
+  base::RecordAction(base::UserMetricsAction("MobileSettingsClose"));
+}
+
 - (void)settingsWillBeDismissed {
   DCHECK(!_settingsHasBeenDismissed);
+
   [_googleServicesSettingsCoordinator stop];
   _googleServicesSettingsCoordinator.delegate = nil;
   _googleServicesSettingsCoordinator = nil;
+
+  [_privacyCoordinator stop];
+  _privacyCoordinator = nil;
+
   _settingsHasBeenDismissed = YES;
   [self.signinInteractionCoordinator cancel];
   [_signinPromoViewMediator signinPromoViewIsRemoved];
@@ -1267,6 +1288,15 @@ NSString* kDevViewSourceKey = @"DevViewSource";
   _googleServicesSettingsCoordinator = nil;
 }
 
+#pragma mark - PrivacyCoordinatorDelegate
+
+- (void)privacyCoordinatorViewControllerWasRemoved:
+    (PrivacyCoordinator*)coordinator {
+  DCHECK_EQ(_privacyCoordinator, coordinator);
+  [_privacyCoordinator stop];
+  _privacyCoordinator = nil;
+}
+
 #pragma mark - IdentityManagerObserverBridgeDelegate
 
 // Notifies this controller that the sign in state has changed.
@@ -1289,6 +1319,13 @@ NSString* kDevViewSourceKey = @"DevViewSource";
 - (void)onPrimaryAccountCleared:
     (const CoreAccountInfo&)previousPrimaryAccountInfo {
   [self signinStateDidChange];
+}
+
+#pragma mark - UIAdaptivePresentationControllerDelegate
+
+- (void)presentationControllerDidDismiss:
+    (UIPresentationController*)presentationController {
+  base::RecordAction(base::UserMetricsAction("IOSSettingsCloseWithSwipe"));
 }
 
 @end

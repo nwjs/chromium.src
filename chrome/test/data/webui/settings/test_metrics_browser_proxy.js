@@ -2,16 +2,30 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-/** @implements {settings.PrivacyPageBrowserProxy} */
-class TestMetricsBrowserProxy extends TestBrowserProxy {
+// #import {TestBrowserProxy} from 'chrome://test/test_browser_proxy.m.js';
+
+/** @implements {settings.MetricsBrowserProxy} */
+/* #export */ class TestMetricsBrowserProxy extends TestBrowserProxy {
   constructor() {
     super([
+      'recordAction',
+      'recordSafetyCheckPageHistogram',
       'recordSettingsPageHistogram',
     ]);
   }
 
-  /** @override*/
-  recordSettingsPageHistogram(value) {
-    this.methodCalled('recordSettingsPageHistogram', value);
+  /** @override */
+  recordAction(action) {
+    this.methodCalled('recordAction', action);
+  }
+
+  /** @override */
+  recordSafetyCheckPageHistogram(interaction) {
+    this.methodCalled('recordSafetyCheckPageHistogram', interaction);
+  }
+
+  /** @override */
+  recordSettingsPageHistogram(interaction) {
+    this.methodCalled('recordSettingsPageHistogram', interaction);
   }
 }

@@ -20,8 +20,9 @@ import org.chromium.base.Log;
 import org.chromium.base.task.AsyncTask;
 import org.chromium.chrome.browser.signin.SigninManager.SignInCallback;
 import org.chromium.chrome.browser.sync.ProfileSyncService;
-import org.chromium.components.signin.AccountManagerFacade;
+import org.chromium.components.signin.AccountManagerFacadeProvider;
 import org.chromium.components.signin.AccountTrackerService;
+import org.chromium.components.signin.AccountUtils;
 import org.chromium.components.signin.ChromeSigninController;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
 import org.chromium.components.signin.metrics.SignoutReason;
@@ -111,7 +112,7 @@ public class SigninHelper {
     public void validateAccountSettings(boolean accountsChanged) {
         // validateAccountsInternal accesses account list (to check whether account exists), so
         // postpone the call until account list cache in AccountManagerFacade is ready.
-        AccountManagerFacade.get().runAfterCacheIsPopulated(
+        AccountManagerFacadeProvider.getInstance().runAfterCacheIsPopulated(
                 () -> validateAccountsInternal(accountsChanged));
     }
 
@@ -199,7 +200,7 @@ public class SigninHelper {
 
     private void performResignin(String newName) {
         // This is the correct account now.
-        final Account account = AccountManagerFacade.createAccountFromName(newName);
+        final Account account = AccountUtils.createAccountFromName(newName);
 
         mSigninManager.signIn(SigninAccessPoint.ACCOUNT_RENAMED, account, new SignInCallback() {
             @Override
@@ -213,7 +214,7 @@ public class SigninHelper {
     }
 
     private static boolean accountExists(Account account) {
-        List<Account> accounts = AccountManagerFacade.get().tryGetGoogleAccounts();
+        List<Account> accounts = AccountManagerFacadeProvider.getInstance().tryGetGoogleAccounts();
         for (int i = 0; i < accounts.size(); i++) {
             Account a = accounts.get(i);
             if (a.equals(account)) {
@@ -263,7 +264,7 @@ public class SigninHelper {
                         // We have found a rename event of the current account.
                         // We need to check if that account is further renamed.
                         newName = name;
-                        if (!accountExists(AccountManagerFacade.createAccountFromName(newName))) {
+                        if (!accountExists(AccountUtils.createAccountFromName(newName))) {
                             newIndex = 0; // Start from the beginning of the new account.
                             continue outerLoop;
                         }

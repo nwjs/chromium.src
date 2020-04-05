@@ -1,4 +1,4 @@
-load('//lib/builders.star', 'cpu', 'goma', 'os')
+load('//lib/builders.star', 'cpu', 'goma', 'os', 'xcode_cache')
 load('//lib/ci.star', 'ci')
 
 # Defaults that apply to all branch versions of the bucket
@@ -17,20 +17,14 @@ ci.defaults.swarming_tags.set(['vpython:native-python-wrapper'])
 
 # Execute the versioned files to define all of the per-branch entities
 # (bucket, builders, console, poller, etc.)
-exec('//versioned/branches/beta/buckets/ci.star')
-exec('//versioned/branches/stable/buckets/ci.star')
 exec('//versioned/trunk/buckets/ci.star')
+exec('//versioned/milestones/m80/buckets/ci.star')
+exec('//versioned/milestones/m81/buckets/ci.star')
 
 
 # *** After this point everything is trunk only ***
 ci.defaults.bucket.set('ci')
 ci.defaults.triggered_by.set(['master-gitiles-trigger'])
-
-
-XCODE_IOS_11_CACHE = swarming.cache(
-    name = 'xcode_ios_11a1027',
-    path = 'xcode_ios_11a1027.app',
-)
 
 
 # Builders are sorted first lexicographically by the function used to define
@@ -44,6 +38,7 @@ ci.builder(
         'avd_configs': [
             'tools/android/avd/proto/generic_android23.textpb',
             'tools/android/avd/proto/generic_android28.textpb',
+            'tools/android/avd/proto/generic_playstore_android28.textpb',
         ],
     },
     schedule = '0 7 * * 0 *',
@@ -118,12 +113,16 @@ ci.builder(
                 'cipd_yaml': 'third_party/android_sdk/cipd/system_images/android-28/google_apis/x86.yaml'
             },
             {
+                'sdk_package_name': 'system-images;android-28;google_apis_playstore;x86',
+                'cipd_yaml': 'third_party/android_sdk/cipd/system_images/android-28/google_apis_playstore/x86.yaml'
+            },
+            {
                 'sdk_package_name': 'system-images;android-29;google_apis;x86',
                 'cipd_yaml': 'third_party/android_sdk/cipd/system_images/android-29/google_apis/x86.yaml'
             },
             {
-                'sdk_package_name': 'tools',
-                'cipd_yaml': 'third_party/android_sdk/cipd/tools.yaml'
+                'sdk_package_name': 'system-images;android-29;google_apis_playstore;x86',
+                'cipd_yaml': 'third_party/android_sdk/cipd/system_images/android-29/google_apis_playstore/x86.yaml'
             },
         ],
     },
@@ -136,53 +135,8 @@ ci.android_builder(
 
 ci.android_builder(
     name = 'Android WebView L (dbg)',
-    triggered_by = ['Android arm Builder (dbg)'],
+    triggered_by = ['ci/Android arm Builder (dbg)'],
 )
-
-ci.android_builder(
-    name = 'Android WebView M (dbg)',
-    triggered_by = ['Android arm64 Builder (dbg)'],
-)
-
-ci.android_builder(
-    name = 'Android WebView N (dbg)',
-    triggered_by = ['Android arm64 Builder (dbg)'],
-)
-
-ci.android_builder(
-    name = 'Android WebView O (dbg)',
-    triggered_by = ['Android arm64 Builder (dbg)'],
-)
-
-ci.android_builder(
-    name = 'Android WebView P (dbg)',
-    triggered_by = ['Android arm64 Builder (dbg)'],
-)
-
-ci.android_builder(
-    name = 'Android arm Builder (dbg)',
-    execution_timeout = 4 * time.hour,
-)
-
-ci.android_builder(
-    name = 'Android arm64 Builder (dbg)',
-    goma_jobs = goma.jobs.MANY_JOBS_FOR_CI,
-    execution_timeout = 4 * time.hour,
-)
-
-ci.android_builder(
-    name = 'Android x64 Builder (dbg)',
-    execution_timeout = 4 * time.hour,
-)
-
-ci.android_builder(
-    name = 'Android x86 Builder (dbg)',
-)
-
-ci.android_builder(
-    name = 'Cast Android (dbg)',
-)
-
 
 ci.android_builder(
     name = 'Deterministic Android',
@@ -198,67 +152,45 @@ ci.android_builder(
 
 ci.android_builder(
     name = 'KitKat Phone Tester (dbg)',
-    triggered_by = ['Android arm Builder (dbg)'],
+    triggered_by = ['ci/Android arm Builder (dbg)'],
 )
 
 ci.android_builder(
     name = 'KitKat Tablet Tester',
     # We have limited tablet capacity and thus limited ability to run
     # tests in parallel, hence the high timeout.
-    execution_timeout = 10 * time.hour,
-    triggered_by = ['Android arm Builder (dbg)'],
+    execution_timeout = 20 * time.hour,
+    triggered_by = ['ci/Android arm Builder (dbg)'],
 )
 
 ci.android_builder(
     name = 'Lollipop Phone Tester',
-    triggered_by = ['Android arm Builder (dbg)'],
+    # We have limited phone capacity and thus limited ability to run
+    # tests in parallel, hence the high timeout.
+    execution_timeout = 6 * time.hour,
+    triggered_by = ['ci/Android arm Builder (dbg)'],
 )
 
 ci.android_builder(
     name = 'Lollipop Tablet Tester',
     # We have limited tablet capacity and thus limited ability to run
     # tests in parallel, hence the high timeout.
-    execution_timeout = 10 * time.hour,
-    triggered_by = ['Android arm Builder (dbg)'],
-)
-
-ci.android_builder(
-    name = 'Marshmallow 64 bit Tester',
-    triggered_by = ['Android arm64 Builder (dbg)'],
+    execution_timeout = 20 * time.hour,
+    triggered_by = ['ci/Android arm Builder (dbg)'],
 )
 
 ci.android_builder(
     name = 'Marshmallow Tablet Tester',
     # We have limited tablet capacity and thus limited ability to run
     # tests in parallel, hence the high timeout.
-    execution_timeout = 8 * time.hour,
-    triggered_by = ['Android arm Builder (dbg)'],
-)
-
-ci.android_builder(
-    name = 'Nougat Phone Tester',
-    triggered_by = ['Android arm64 Builder (dbg)'],
-)
-
-ci.android_builder(
-    name = 'Oreo Phone Tester',
-    triggered_by = ['Android arm64 Builder (dbg)'],
+    execution_timeout = 12 * time.hour,
+    triggered_by = ['ci/Android arm Builder (dbg)'],
 )
 
 ci.android_builder(
     name = 'android-arm64-proguard-rel',
     goma_jobs = goma.jobs.MANY_JOBS_FOR_CI,
     execution_timeout = 6 * time.hour,
-)
-
-ci.android_builder(
-    name = 'android-cronet-arm-dbg',
-    notifies = ['cronet'],
-)
-
-ci.android_builder(
-    name = 'android-cronet-arm-rel',
-    notifies = ['cronet'],
 )
 
 ci.android_builder(
@@ -274,18 +206,6 @@ ci.android_builder(
 ci.android_builder(
     name = 'android-cronet-asan-arm-rel',
     notifies = ['cronet'],
-)
-
-ci.android_builder(
-    name = 'android-cronet-kitkat-arm-rel',
-    notifies = ['cronet'],
-    triggered_by = ['android-cronet-arm-rel'],
-)
-
-ci.android_builder(
-    name = 'android-cronet-lollipop-arm-rel',
-    notifies = ['cronet'],
-    triggered_by = ['android-cronet-arm-rel'],
 )
 
 # Runs on a specific machine with an attached phone
@@ -323,12 +243,7 @@ ci.android_builder(
 )
 
 ci.android_builder(
-    name = 'android-pie-arm64-dbg',
-    triggered_by = ['Android arm64 Builder (dbg)'],
-)
-
-ci.android_builder(
-    name = 'android-pie-arm64-rel',
+    name = 'android-pie-x86-rel',
 )
 
 ci.android_builder(
@@ -337,7 +252,11 @@ ci.android_builder(
 
 
 ci.android_fyi_builder(
-    name = 'android-bfcache-debug',
+    name = 'android-bfcache-rel',
+)
+
+ci.android_fyi_builder(
+    name = 'Android WebLayer P FYI (rel)',
 )
 
 ci.android_fyi_builder(
@@ -354,10 +273,11 @@ ci.android_fyi_builder(
     triggered_by = [],
 )
 
+# TODO(hypan): remove this once there is no associated disabled tests
 ci.android_fyi_builder(
     name = 'android-pie-x86-fyi-rel',
-    schedule = '0 7 * * *',
-    triggered_by = [],
+    goma_jobs=goma.jobs.J150,
+    schedule = 'triggered',  # triggered manually via Scheduler UI
 )
 
 
@@ -433,28 +353,13 @@ ci.chromiumos_builder(
 )
 
 ci.chromiumos_builder(
-    name = 'chromeos-amd64-generic-dbg',
-)
-
-ci.chromiumos_builder(
     name = 'chromeos-arm-generic-dbg',
-)
-
-ci.chromiumos_builder(
-    name = 'chromeos-arm-generic-rel',
-)
-
-ci.chromiumos_builder(
-    name = 'chromeos-kevin-rel',
-)
-
-ci.chromiumos_builder(
-    name = 'linux-chromeos-dbg',
 )
 
 
 ci.clang_builder(
     name = 'CFI Linux CF',
+    goma_backend = goma.backend.RBE_PROD,
 )
 
 ci.clang_builder(
@@ -572,11 +477,6 @@ ci.clang_builder(
 )
 
 ci.clang_builder(
-    name = 'ToTWinLibcxx64',
-    os = os.WINDOWS_ANY,
-)
-
-ci.clang_builder(
     name = 'UBSanVptr Linux',
     goma_backend = goma.backend.RBE_PROD,
 )
@@ -585,13 +485,26 @@ ci.clang_builder(
     name = 'linux-win_cross-rel',
 )
 
-
-ci.clang_ios_builder(
+ci.clang_builder(
     name = 'ToTiOS',
+    caches = [xcode_cache.x11c29],
+    cores = None,
+    os = os.MAC_10_14,
+    properties = {
+        'xcode_build_version': '11c29'
+    },
+    ssd=True
 )
 
-ci.clang_ios_builder(
+ci.clang_builder(
     name = 'ToTiOSDevice',
+    caches = [xcode_cache.x11c29],
+    cores = None,
+    os = os.MAC_10_14,
+    properties = {
+        'xcode_build_version': '11c29'
+    },
+    ssd=True
 )
 
 
@@ -618,24 +531,6 @@ ci.dawn_builder(
 )
 
 ci.dawn_builder(
-    name = 'Dawn Linux x64 DEPS Builder',
-)
-
-ci.dawn_builder(
-    name = 'Dawn Linux x64 DEPS Release (Intel HD 630)',
-    cores = 2,
-    os = os.LINUX_DEFAULT,
-    triggered_by = ['Dawn Linux x64 DEPS Builder'],
-)
-
-ci.dawn_builder(
-    name = 'Dawn Linux x64 DEPS Release (NVIDIA)',
-    cores = 2,
-    os = os.LINUX_DEFAULT,
-    triggered_by = ['Dawn Linux x64 DEPS Builder'],
-)
-
-ci.dawn_builder(
     name = 'Dawn Linux x64 Release (Intel HD 630)',
     cores = 2,
     os = os.LINUX_DEFAULT,
@@ -654,29 +549,6 @@ ci.dawn_builder(
     builderless = False,
     cores = None,
     os = os.MAC_ANY,
-)
-
-ci.dawn_builder(
-    name = 'Dawn Mac x64 DEPS Builder',
-    builderless = False,
-    cores = None,
-    os = os.MAC_ANY,
-)
-
-# Note that the Mac testers are all thin Linux VMs, triggering jobs on the
-# physical Mac hardware in the Swarming pool which is why they run on linux
-ci.dawn_builder(
-    name = 'Dawn Mac x64 DEPS Release (AMD)',
-    cores = 2,
-    os = os.LINUX_DEFAULT,
-    triggered_by = ['Dawn Mac x64 DEPS Builder'],
-)
-
-ci.dawn_builder(
-    name = 'Dawn Mac x64 DEPS Release (Intel)',
-    cores = 2,
-    os = os.LINUX_DEFAULT,
-    triggered_by = ['Dawn Mac x64 DEPS Builder'],
 )
 
 ci.dawn_builder(
@@ -731,44 +603,6 @@ ci.dawn_builder(
     cores = 2,
     os = os.LINUX_DEFAULT,
     triggered_by = ['Dawn Win10 x64 Builder'],
-)
-
-ci.dawn_builder(
-    name = 'Dawn Win10 x86 DEPS Builder',
-    os = os.WINDOWS_ANY,
-)
-
-ci.dawn_builder(
-    name = 'Dawn Win10 x64 DEPS Builder',
-    os = os.WINDOWS_ANY,
-)
-
-ci.dawn_builder(
-    name = 'Dawn Win10 x86 DEPS Release (Intel HD 630)',
-    cores = 2,
-    os = os.LINUX_DEFAULT,
-    triggered_by = ['Dawn Win10 x86 DEPS Builder'],
-)
-
-ci.dawn_builder(
-    name = 'Dawn Win10 x64 DEPS Release (Intel HD 630)',
-    cores = 2,
-    os = os.LINUX_DEFAULT,
-    triggered_by = ['Dawn Win10 x64 DEPS Builder'],
-)
-
-ci.dawn_builder(
-    name = 'Dawn Win10 x86 DEPS Release (NVIDIA)',
-    cores = 2,
-    os = os.LINUX_DEFAULT,
-    triggered_by = ['Dawn Win10 x86 DEPS Builder'],
-)
-
-ci.dawn_builder(
-    name = 'Dawn Win10 x64 DEPS Release (NVIDIA)',
-    cores = 2,
-    os = os.LINUX_DEFAULT,
-    triggered_by = ['Dawn Win10 x64 DEPS Builder'],
 )
 
 
@@ -1040,19 +874,11 @@ ci.fyi_builder(
 )
 
 ci.fyi_builder(
-    name = 'VR Linux',
-)
-
-ci.fyi_builder(
     name = 'android-mojo-webview-rel',
 )
 
 ci.fyi_builder(
     name = 'chromeos-amd64-generic-rel-vm-tests',
-)
-
-ci.fyi_builder(
-    name = 'chromeos-kevin-rel-hw-tests',
 )
 
 ci.fyi_builder(
@@ -1075,7 +901,7 @@ ci.fyi_builder(
 )
 
 ci.fyi_builder(
-    name = 'linux-bfcache-debug',
+    name = 'linux-bfcache-rel',
 )
 
 ci.fyi_builder(
@@ -1124,6 +950,26 @@ ci.fyi_builder(
     triggered_by = ['win-pixel-builder-rel'],
 )
 
+ci.fyi_builder(
+    name = 'linux-upload-perfetto',
+    os = os.LINUX_DEFAULT,
+)
+
+ci.fyi_builder(
+    builderless = True,
+    name = 'mac-upload-perfetto',
+    os = os.MAC_DEFAULT,
+    schedule = 'with 3h interval',
+    triggered_by = [],
+)
+
+ci.fyi_builder(
+    builderless = True,
+    name = 'win-upload-perfetto',
+    os = os.WINDOWS_DEFAULT,
+    schedule = 'with 3h interval',
+    triggered_by = [],
+)
 
 ci.fyi_celab_builder(
     name = 'win-celab-builder-rel',
@@ -1151,13 +997,13 @@ ci.fyi_coverage_builder(
 
 ci.fyi_coverage_builder(
     name = 'ios-simulator-code-coverage',
-    caches = [XCODE_IOS_11_CACHE],
+    caches = [xcode_cache.x11c29],
     cores = None,
-    goma_backend = None,  # TODO(crbug.com/950413): Use goma.backend.RBE_PROD
     os = os.MAC_ANY,
     use_clang_coverage = True,
     properties = {
-        'xcode_build_version': '11m382q',
+        'xcode_build_version': '11c29',
+        'coverage_test_types': ['overall', 'unit'],
     },
 )
 
@@ -1200,38 +1046,59 @@ ci.fyi_ios_builder(
 
 ci.fyi_ios_builder(
     name = 'ios-simulator-cronet',
+    executable = 'recipe:chromium',
     notifies = ['cronet'],
+    properties = {
+        'xcode_build_version': '11c29',
+    },
 )
 
 ci.fyi_ios_builder(
     name = 'ios-webkit-tot',
+    caches = [xcode_cache.x11c505wk],
+    executable = 'recipe:chromium',
+    properties = {
+        'xcode_build_version': '11c505wk'
+    },
     schedule = '0 1-23/6 * * *',
     triggered_by = [],
 )
 
 ci.fyi_ios_builder(
     name = 'ios13-beta-simulator',
+    executable = 'recipe:chromium',
+    properties = {
+        'xcode_build_version': '11c29',
+    },
 )
 
 ci.fyi_ios_builder(
     name = 'ios13-sdk-device',
+    executable = 'recipe:chromium',
+    properties = {
+        'xcode_build_version': '11c29',
+    },
 )
 
 ci.fyi_ios_builder(
     name = 'ios13-sdk-simulator',
+    executable = 'recipe:chromium',
+    properties = {
+        'xcode_build_version': '11c29'
+    }
 )
 
 
 ci.fyi_mac_builder(
     name = 'Mac Builder Next',
     cores = None,
-    os = os.MAC_10_14,
+    os = None,
 )
 
 ci.fyi_mac_builder(
-    name = 'Mac10.14 Tests',
+    name = 'Mac10.15 Tests',
     cores = None,
-    os = os.MAC_10_14,
+    os = os.MAC_10_15,
     triggered_by = ['Mac Builder Next'],
 )
 
@@ -1615,6 +1482,11 @@ ci.gpu_fyi_thin_tester(
     triggered_by = ['GPU FYI XR Win x64 Builder'],
 )
 
+# Builder + tester.
+ci.gpu_fyi_windows_builder(
+    name = 'Win10 FYI x64 SkiaRenderer Dawn Release (NVIDIA)',
+)
+
 ci.gpu_fyi_thin_tester(
     name = 'Win10 FYI x64 SkiaRenderer GL (NVIDIA)',
     triggered_by = ['GPU FYI Win x64 Builder'],
@@ -1702,20 +1574,9 @@ ci.gpu_fyi_windows_builder(
     name = 'GPU FYI XR Win x64 Builder',
 )
 
-
-ci.linux_builder(
-    name = 'Fuchsia x64',
-    notifies = ['cr-fuchsia'],
-)
-
 ci.linux_builder(
     name = 'Cast Audio Linux',
     ssd = True,
-)
-
-ci.linux_builder(
-    name = 'Cast Linux',
-    goma_jobs = goma.jobs.J50,
 )
 
 ci.linux_builder(
@@ -1739,16 +1600,7 @@ ci.linux_builder(
 )
 
 ci.linux_builder(
-    name = 'Fuchsia ARM64',
-    notifies = ['cr-fuchsia'],
-)
-
-ci.linux_builder(
     name = 'Leak Detection Linux',
-)
-
-ci.linux_builder(
-    name = 'Linux Builder (dbg)',
 )
 
 ci.linux_builder(
@@ -1756,18 +1608,7 @@ ci.linux_builder(
 )
 
 ci.linux_builder(
-    name = 'Linux Tests (dbg)(1)',
-    triggered_by = ['Linux Builder (dbg)'],
-)
-
-ci.linux_builder(
-    name = 'fuchsia-arm64-cast',
-    notifies = ['cr-fuchsia'],
-)
-
-ci.linux_builder(
-    name = 'fuchsia-x64-cast',
-    notifies = ['cr-fuchsia'],
+    name = 'Network Service Linux',
 )
 
 ci.linux_builder(
@@ -1778,10 +1619,6 @@ ci.linux_builder(
 ci.linux_builder(
     name = 'linux-gcc-rel',
     goma_backend = None,
-)
-
-ci.linux_builder(
-    name = 'linux-ozone-rel',
 )
 
 ci.linux_builder(
@@ -1798,24 +1635,9 @@ ci.linux_builder(
 )
 
 
-ci.mac_builder(
-    name = 'Mac Builder (dbg)',
-    os = os.MAC_ANY,
-)
-
-ci.mac_builder(
-    name = 'Mac10.13 Tests (dbg)',
-    os = os.MAC_ANY,
-    triggered_by = ['Mac Builder (dbg)'],
-)
-
-
 ci.mac_ios_builder(
     name = 'ios-device',
-)
-
-ci.mac_ios_builder(
-    name = 'ios-device-xcode-clang',
+    executable = 'recipe:chromium',
 )
 
 ci.mac_ios_builder(
@@ -1826,10 +1648,6 @@ ci.mac_ios_builder(
     name = 'ios-simulator-noncq',
 )
 
-ci.mac_ios_builder(
-    name = 'ios-simulator-xcode-clang',
-)
-
 
 ci.memory_builder(
     name = 'Android CFI',
@@ -1837,21 +1655,6 @@ ci.memory_builder(
     # TODO(https://crbug.com/919430) Remove the larger timeout once compile
     # times have been brought down to reasonable level
     execution_timeout = time.hour * 9 / 2,  # 4.5 (can't multiply float * duration)
-)
-
-ci.memory_builder(
-    name = 'Linux ASan LSan Builder',
-    ssd = True,
-)
-
-ci.memory_builder(
-    name = 'Linux ASan LSan Tests (1)',
-    triggered_by = ['Linux ASan LSan Builder'],
-)
-
-ci.memory_builder(
-    name = 'Linux ASan Tests (sandboxed)',
-    triggered_by = ['Linux ASan LSan Builder'],
 )
 
 ci.memory_builder(
@@ -1866,7 +1669,7 @@ ci.memory_builder(
     name = 'Linux Chromium OS ASan LSan Builder',
     # TODO(crbug.com/1030593): Builds take more than 3 hours sometimes. Remove
     # once the builds are faster.
-    execution_timeout = 4 * time.hour,
+    execution_timeout = 6 * time.hour,
 )
 
 ci.memory_builder(
@@ -2007,12 +1810,6 @@ ci.win_builder(
 )
 
 ci.win_builder(
-    name = 'Win Builder (dbg)',
-    cores = 32,
-    os = os.WINDOWS_ANY,
-)
-
-ci.win_builder(
     name = 'Win x64 Builder (dbg)',
     cores = 32,
     builderless = True,
@@ -2034,12 +1831,6 @@ ci.win_builder(
     name = 'Win7 Tests (1)',
     os = os.WINDOWS_7,
     triggered_by = ['Win Builder'],
-)
-
-ci.win_builder(
-    name = 'Win7 Tests (dbg)(1)',
-    os = os.WINDOWS_7,
-    triggered_by = ['Win Builder (dbg)'],
 )
 
 ci.win_builder(

@@ -573,7 +573,7 @@ void ExtractUnderlines(NSAttributedString* string,
     //High Sierra 10.13 fix, previously we use [self layer],
     //since we have set the layer to nil in AcceleratedWidgetMac::GotSoftwareFrame,
     //we access the layer "directly" which is the "background_layer()" (see RenderWidgetHostViewMac constructor)
-    [_hostHelper->GetRenderWidgetHostViewMac()->background_layer() renderInContext:ctx];
+    [hostHelper_->GetRenderWidgetHostViewMac()->background_layer() renderInContext:ctx];
   } else {
     [super drawRect:dirty];
   }
@@ -967,8 +967,8 @@ void ExtractUnderlines(NSAttributedString* string,
   // Don't cancel child popups; the key events are probably what's triggering
   // the popup in the first place.
 
-
-  NativeWebKeyboardEvent event(theEvent);
+  NativeWebKeyboardEvent event =
+      NativeWebKeyboardEvent::CreateForRenderer(theEvent);
   ui::LatencyInfo latency_info;
   if (event.GetType() == blink::WebInputEvent::kRawKeyDown ||
       event.GetType() == blink::WebInputEvent::kChar) {
@@ -1333,9 +1333,6 @@ void ExtractUnderlines(NSAttributedString* string,
       return;
   }
 
-  // Compute Event.Latency.OS.MOUSE_WHEEL histogram.
-  ui::ComputeEventLatencyOS(event);
-
   // Use an NSEvent monitor to listen for the wheel-end end. This ensures that
   // the event is received even when the mouse cursor is no longer over the view
   // when the scrolling ends (e.g. if the tab was switched). This is necessary
@@ -1493,7 +1490,7 @@ void ExtractUnderlines(NSAttributedString* string,
   //so we can do drawRect "manually"
   //here, we temporarily assign back the layer during resize, so the background_layer() can be resized properly
   if (content::g_force_cpu_draw)
-    [self setLayer:_hostHelper->GetRenderWidgetHostViewMac()->background_layer()];
+    [self setLayer:hostHelper_->GetRenderWidgetHostViewMac()->background_layer()];
 
   [super setFrameSize:newSize];
   [self sendViewBoundsInWindowToHost];
@@ -2224,9 +2221,7 @@ extern NSString* NSTextInputReplacementRangeAttributeName;
 }
 
 - (NSTouchBar*)makeTouchBar {
-  if (_textInputType != ui::TEXT_INPUT_TYPE_NONE &&
-      !(_textInputFlags & blink::kWebTextInputFlagAutocorrectOff) &&
-      !(_textInputFlags & blink::kWebTextInputFlagSpellcheckOff)) {
+  if (_textInputType != ui::TEXT_INPUT_TYPE_NONE) {
     _candidateListTouchBarItem.reset([[NSCandidateListTouchBarItem alloc]
         initWithIdentifier:NSTouchBarItemIdentifierCandidateList]);
     auto* candidateListItem = _candidateListTouchBarItem.get();

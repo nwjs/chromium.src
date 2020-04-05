@@ -27,6 +27,7 @@ Polymer({
   is: 'os-sync-controls',
 
   behaviors: [
+    I18nBehavior,
     settings.RouteObserverBehavior,
     WebUIListenerBehavior,
   ],
@@ -38,6 +39,30 @@ Polymer({
       computed: 'syncControlsHidden_(osSyncPrefs)',
       reflectToAttribute: true,
     },
+
+    /**
+     * Injected sync system status.
+     * @type {?settings.SyncStatus}
+     */
+    syncStatus: Object,
+
+    /**
+     * Injected profile icon URL, usually a data:image/png URL.
+     * @private
+     */
+    profileIconUrl: String,
+
+    /**
+     * Injected profile name, e.g. "John Cena".
+     * @private
+     */
+    profileName: String,
+
+    /**
+     * Injected profile email address, e.g. "john.cena@gmail.com".
+     * @private
+     */
+    profileEmail: String,
 
     /**
      * Whether the OS sync feature is enabled. This object does not directly
@@ -100,6 +125,25 @@ Polymer({
   },
 
   /**
+   * @return {string} The top label for the account row.
+   * @private
+   */
+  getAccountTitle_() {
+    return this.syncStatus.hasError ? this.i18n('syncNotWorking') :
+                                      this.profileName;
+  },
+
+  /**
+   * @return {string} The bottom label for the account row.
+   * @private
+   */
+  getAccountSubtitle_() {
+    return this.osSyncFeatureEnabled && !this.syncStatus.hasError ?
+        this.i18n('syncingTo', this.profileEmail) :
+        this.profileEmail;
+  },
+
+  /**
    * Handler for when the sync preferences are updated.
    * @private
    */
@@ -125,11 +169,13 @@ Polymer({
   /** @private */
   onTurnOnSyncButtonClick_() {
     this.browserProxy_.setOsSyncFeatureEnabled(true);
+    settings.recordSettingChange();
   },
 
   /** @private */
   onTurnOffSyncButtonClick_() {
     this.browserProxy_.setOsSyncFeatureEnabled(false);
+    settings.recordSettingChange();
   },
 
   /**

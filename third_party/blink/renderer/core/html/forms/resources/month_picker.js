@@ -11,6 +11,9 @@ function initializeMonthPicker(config) {
   global.picker = new MonthPicker(config);
   main.append(global.picker);
   main.style.border = '1px solid #bfbfbf';
+  if (global.params.isBorderTransparent) {
+    main.style.borderColor = 'transparent';
+  }
   main.style.height = (MonthPicker.Height - 2) + 'px';
   main.style.width = (MonthPicker.Width - 2) + 'px';
   resizeWindow(MonthPicker.Width, MonthPicker.Height);
@@ -89,8 +92,7 @@ class MonthPicker extends HTMLElement {
     this.todayButton_.element.classList.add(MonthPicker.ClassNameTodayButton);
     const monthContainingToday = Month.createFromToday();
     this.todayButton_.setDisabled(
-        monthContainingToday < this.minimumMonth_ ||
-        monthContainingToday > this.maximumMonth_);
+        !this.yearListView_.isValid(monthContainingToday));
     this.todayButton_.on(
         CalendarNavigationButton.EventTypeButtonClick,
         this.onTodayButtonClick_);
@@ -103,13 +105,16 @@ class MonthPicker extends HTMLElement {
 
   onKeyDown_ = (event) => {
     switch (event.key) {
-      case 't':
       case 'Enter':
-        if (this.selectedMonth) {
-          window.pagePopupController.setValueAndClosePopup(
-              0, this.selectedMonth.toString());
-        } else {
-          window.pagePopupController.closePopup();
+        // Don't do anything here if user has hit Enter on 'This month'
+        // button.  We'll handle that in this.onTodayButtonClick_.
+        if (!event.target.matches('.calendar-navigation-button')) {
+          if (this.selectedMonth) {
+            window.pagePopupController.setValueAndClosePopup(
+                0, this.selectedMonth.toString());
+          } else {
+            window.pagePopupController.closePopup();
+          }
         }
         break;
       case 'Escape':

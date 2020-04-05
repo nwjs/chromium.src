@@ -5,7 +5,6 @@
 #include "chrome/browser/ui/webui/tab_strip/tab_strip_ui.h"
 
 #include "base/feature_list.h"
-#include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/themes/theme_properties.h"
 #include "chrome/browser/themes/theme_service.h"
@@ -63,7 +62,7 @@ TabStripUI::TabStripUI(content::WebUI* web_ui)
       ThemeService::GetThemeProviderForProfile(profile);
   html_source->AddString("frameColor",
                          color_utils::SkColorToRgbaString(
-                             tp.GetColor(ThemeProperties::COLOR_FRAME)));
+                             tp.GetColor(ThemeProperties::COLOR_FRAME_ACTIVE)));
 
   html_source->AddBoolean(
       "showDemoOptions",
@@ -80,6 +79,7 @@ TabStripUI::TabStripUI(content::WebUI* web_ui)
       {"audioPlaying", IDS_TAB_AX_LABEL_AUDIO_PLAYING_FORMAT},
       {"usbConnected", IDS_TAB_AX_LABEL_USB_CONNECTED_FORMAT},
       {"bluetoothConnected", IDS_TAB_AX_LABEL_BLUETOOTH_CONNECTED_FORMAT},
+      {"hidConnected", IDS_TAB_AX_LABEL_HID_CONNECTED_FORMAT},
       {"serialConnected", IDS_TAB_AX_LABEL_SERIAL_CONNECTED_FORMAT},
       {"mediaRecording", IDS_TAB_AX_LABEL_MEDIA_RECORDING_FORMAT},
       {"audioMuting", IDS_TAB_AX_LABEL_AUDIO_MUTING_FORMAT},
@@ -87,6 +87,8 @@ TabStripUI::TabStripUI(content::WebUI* web_ui)
       {"pipPlaying", IDS_TAB_AX_LABEL_PIP_PLAYING_FORMAT},
       {"desktopCapturing", IDS_TAB_AX_LABEL_DESKTOP_CAPTURING_FORMAT},
       {"vrPresenting", IDS_TAB_AX_LABEL_VR_PRESENTING},
+      {"unnamedGroupLabel", IDS_GROUP_AX_LABEL_UNNAMED_GROUP_FORMAT},
+      {"namedGroupLabel", IDS_GROUP_AX_LABEL_NAMED_GROUP_FORMAT},
   };
   AddLocalizedStringsBulk(html_source, kStrings);
   content::WebUIDataSource::Add(profile, html_source);

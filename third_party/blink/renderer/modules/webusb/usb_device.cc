@@ -5,6 +5,7 @@
 #include "third_party/blink/renderer/modules/webusb/usb_device.h"
 
 #include <algorithm>
+#include <iterator>
 #include <utility>
 
 #include "third_party/blink/public/platform/platform.h"
@@ -51,15 +52,50 @@ const char kInterfaceNotFound[] =
 const char kInterfaceStateChangeInProgress[] =
     "An operation that changes interface state is in progress.";
 const char kOpenRequired[] = "The device must be opened first.";
+
+#if defined(OS_CHROMEOS)
 const char kExtensionProtocol[] = "chrome-extension";
-const char kImprivataLoginScreenProdExtensionId[] =
-    "lpimkpkllnkdlcigdbgmabfplniahkgm";
-const char kImprivataLoginScreenDevExtensionId[] =
-    "cdgickkdpbekbnalbmpgochbninibkko";
-const char kImprivataInSessionProdExtensionId[] =
-    "cokoeepjbmmnhgdhlkpahohdaiedfjgn";
-const char kImprivataInSessionDevExtensionId[] =
-    "omificdfgpipkkpdhbjmefgfgbppehke";
+
+// These whitelisted Imprivata extensions can claim the protected HID interface
+// class (used as badge readers), see crbug.com/1065112 and crbug.com/995294.
+// This list needs to be alphabetically sorted for quick access via binary
+// search.
+const char* kImprivataExtensionIds[] = {
+    "baobpecgllpajfeojepgedjdlnlfffde", "bnfoibgpjolimhppjmligmcgklpboloj",
+    "cdgickkdpbekbnalbmpgochbninibkko", "cjakdianfealdjlapagfagpdpemoppba",
+    "cokoeepjbmmnhgdhlkpahohdaiedfjgn", "dahgfgiifpnaoajmloofonkndaaafacp",
+    "dbknmmkopacopifbkgookcdbhfnggjjh", "ddcjglpbfbibgepfffpklmpihphbcdco",
+    "dhodapiemamlmhlhblgcibabhdkohlen", "dlahpllbhpbkfnoiedkgombmegnnjopi",
+    "egfpnfjeaopimgpiioeedbpmojdapaip", "fnbibocngjnefolmcodjkkghijpdlnfm",
+    "jcnflhjcfjkplgkcinikhbgbhfldkadl", "jkfjfbelolphkjckiolfcakgalloegek",
+    "kmhpgpnbglclbaccjjgoioogjlnfgbne", "lpimkpkllnkdlcigdbgmabfplniahkgm",
+    "odehonhhkcjnbeaomlodfkjaecbmhklm", "olnmflhcfkifkgbiegcoabineoknmbjc",
+    "omificdfgpipkkpdhbjmefgfgbppehke", "phjobickjiififdadeoepbdaciefacfj",
+    "pkeacbojooejnjolgjdecbpnloibpafm", "pllbepacblmgialkkpcceohmjakafnbb",
+    "plpogimmgnkkiflhpidbibfmgpkaofec", "pmhiabnkkchjeaehcodceadhdpfejmmd",
+};
+const char** kExtensionNameMappingsEnd = std::end(kImprivataExtensionIds);
+
+bool IsCStrBefore(const char* first, const char* second) {
+  return strcmp(first, second) < 0;
+}
+
+bool IsClassWhitelistedForExtension(uint8_t class_code, const KURL& url) {
+  if (url.Protocol() != kExtensionProtocol)
+    return false;
+
+  switch (class_code) {
+    case 0x03:  // HID
+      DCHECK(std::is_sorted(kImprivataExtensionIds, kExtensionNameMappingsEnd,
+                            IsCStrBefore));
+      return std::binary_search(kImprivataExtensionIds,
+                                kExtensionNameMappingsEnd,
+                                url.Host().Utf8().c_str(), IsCStrBefore);
+    default:
+      return false;
+  }
+}
+#endif  // defined(OS_CHROMEOS)
 
 DOMException* ConvertFatalTransferStatus(const UsbTransferStatus& status) {
   switch (status) {
@@ -125,20 +161,20 @@ bool ConvertBufferSource(const ArrayBufferOrArrayBufferView& buffer_source,
     vector->Append(static_cast<uint8_t*>(array_buffer->Data()),
                    static_cast<wtf_size_t>(array_buffer->ByteLengthAsSizeT()));
   } else {
-    ArrayBufferView* view = buffer_source.GetAsArrayBufferView().View()->View();
-    if (!view->Buffer() || view->Buffer()->IsDetached()) {
+    DOMArrayBufferView* view = buffer_source.GetAsArrayBufferView().View();
+    if (!view->buffer() || view->buffer()->IsDetached()) {
       resolver->Reject(MakeGarbageCollected<DOMException>(
           DOMExceptionCode::kInvalidStateError, kDetachedBuffer));
       return false;
     }
-    if (view->ByteLengthAsSizeT() > std::numeric_limits<wtf_size_t>::max()) {
+    if (view->byteLengthAsSizeT() > std::numeric_limits<wtf_size_t>::max()) {
       resolver->Reject(MakeGarbageCollected<DOMException>(
           DOMExceptionCode::kDataError, kBufferTooBig));
       return false;
     }
 
     vector->Append(static_cast<uint8_t*>(view->BaseAddress()),
-                   static_cast<wtf_size_t>(view->ByteLengthAsSizeT()));
+                   static_cast<wtf_size_t>(view->byteLengthAsSizeT()));
   }
   return true;
 }
@@ -148,7 +184,7 @@ bool ConvertBufferSource(const ArrayBufferOrArrayBufferView& buffer_source,
 USBDevice::USBDevice(UsbDeviceInfoPtr device_info,
                      mojo::PendingRemote<UsbDevice> device,
                      ExecutionContext* context)
-    : ContextLifecycleObserver(context),
+    : ExecutionContextLifecycleObserver(context),
       device_info_(std::move(device_info)),
       device_(std::move(device)),
       opened_(false),
@@ -278,11 +314,12 @@ ScriptPromise USBDevice::claimInterface(ScriptState* script_state,
       resolver->Resolve();
     } else if (IsProtectedInterfaceClass(interface_index)) {
       GetExecutionContext()->AddConsoleMessage(
-          ConsoleMessage::Create(mojom::ConsoleMessageSource::kJavaScript,
-                                 mojom::ConsoleMessageLevel::kWarning,
-                                 "An attempt to claim a USB device interface "
-                                 "has been blocked because it "
-                                 "implements a protected interface class."));
+          MakeGarbageCollected<ConsoleMessage>(
+              mojom::ConsoleMessageSource::kJavaScript,
+              mojom::ConsoleMessageLevel::kWarning,
+              "An attempt to claim a USB device interface "
+              "has been blocked because it "
+              "implements a protected interface class."));
       resolver->Reject(MakeGarbageCollected<DOMException>(
           DOMExceptionCode::kSecurityError,
           "The requested interface implements a protected class."));
@@ -553,15 +590,15 @@ ScriptPromise USBDevice::reset(ScriptState* script_state) {
   return promise;
 }
 
-void USBDevice::ContextDestroyed(ExecutionContext*) {
+void USBDevice::ContextDestroyed() {
   device_.reset();
   device_requests_.clear();
 }
 
-void USBDevice::Trace(blink::Visitor* visitor) {
+void USBDevice::Trace(Visitor* visitor) {
   visitor->Trace(device_requests_);
   ScriptWrappable::Trace(visitor);
-  ContextLifecycleObserver::Trace(visitor);
+  ExecutionContextLifecycleObserver::Trace(visitor);
 }
 
 wtf_size_t USBDevice::FindConfigurationIndex(
@@ -625,28 +662,16 @@ bool USBDevice::IsProtectedInterfaceClass(wtf_size_t interface_index) const {
     if (std::binary_search(std::begin(kProtectedClasses),
                            std::end(kProtectedClasses),
                            alternate->class_code)) {
-      return !IsClassWhitelistedForExtension(alternate->class_code);
+#if defined(OS_CHROMEOS)
+      return !IsClassWhitelistedForExtension(alternate->class_code,
+                                             GetExecutionContext()->Url());
+#else
+      return true;
+#endif
     }
   }
 
   return false;
-}
-
-bool USBDevice::IsClassWhitelistedForExtension(uint8_t class_code) const {
-  const KURL& url = GetExecutionContext()->Url();
-  if (url.Protocol() != kExtensionProtocol)
-    return false;
-
-  const String host = url.Host();
-  switch (class_code) {
-    case 0x03:  // HID
-      return host == kImprivataLoginScreenProdExtensionId ||
-             host == kImprivataLoginScreenDevExtensionId ||
-             host == kImprivataInSessionProdExtensionId ||
-             host == kImprivataInSessionDevExtensionId;
-    default:
-      return false;
-  }
 }
 
 bool USBDevice::EnsureNoDeviceChangeInProgress(
@@ -1058,7 +1083,8 @@ void USBDevice::AsyncIsochronousTransferIn(
           DOMDataView::Create(buffer, byte_offset, packet->transferred_length);
     }
     packets.push_back(USBIsochronousInTransferPacket::Create(
-        ConvertTransferStatus(packet->status), data_view));
+        ConvertTransferStatus(packet->status),
+        NotShared<DOMDataView>(data_view)));
     byte_offset += packet->length;
   }
   resolver->Resolve(USBIsochronousInTransferResult::Create(buffer, packets));

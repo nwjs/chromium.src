@@ -178,12 +178,12 @@ class MetricsService : public base::HistogramFlattener {
     return &synthetic_trial_registry_;
   }
 
-  // Test hook to close out the current log after adding any last information.
-  void CloseCurrentLogForTest() { CloseCurrentLog(); }
-
   MetricsLogStore* LogStoreForTest() {
     return reporting_service_.metrics_log_store();
   }
+
+  // Test hook to safely stage the current log in the log store.
+  bool StageCurrentLogForTest();
 
  protected:
   // Exposed for testing.
@@ -236,7 +236,7 @@ class MetricsService : public base::HistogramFlattener {
   // state should be INIT_TASK_SCHEDULED.
   void FinishedInitTask();
 
-  void OnUserAction(const std::string& action);
+  void OnUserAction(const std::string& action, base::TimeTicks action_time);
 
   // Get the amount of uptime since this process started and since the last
   // call to this function.  Also updates the cumulative uptime metric (stored

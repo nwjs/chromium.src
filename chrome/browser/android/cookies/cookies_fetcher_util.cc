@@ -7,7 +7,7 @@
 #include "base/bind.h"
 #include "base/command_line.h"
 #include "base/time/time.h"
-#include "chrome/android/public/profiles/jni_headers/CookiesFetcher_jni.h"
+#include "chrome/browser/profiles/android/jni_headers/CookiesFetcher_jni.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
@@ -117,7 +117,7 @@ static void JNI_CookiesFetcher_RestoreCookies(
   net::CookieOptions options;
   options.set_include_httponly();
   options.set_same_site_cookie_context(
-      net::CookieOptions::SameSiteCookieContext::SAME_SITE_STRICT);
+      net::CookieOptions::SameSiteCookieContext::MakeInclusive());
   GetCookieServiceClient()->SetCanonicalCookie(
       *cookie, "https", options,
       network::mojom::CookieManager::SetCanonicalCookieCallback());

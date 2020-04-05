@@ -7,6 +7,7 @@
 #include <utility>
 
 #include "base/compiler_specific.h"
+#include "base/memory/ptr_util.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "build/build_config.h"
 #include "components/viz/common/frame_sinks/begin_frame_source.h"
@@ -118,6 +119,7 @@ RootCompositorFrameSinkImpl::Create(
       output_surface->GetSurfaceHandle(), output_surface->capabilities(),
       params->renderer_settings,
       output_surface_provider->GetSharedImageManager(),
+      output_surface->GetMemoryTracker(),
       output_surface->GetGpuTaskSchedulerHelper(), sii);
 
   auto display = std::make_unique<Display>(
@@ -166,10 +168,12 @@ void RootCompositorFrameSinkImpl::SetDisplayVisible(bool visible) {
   display_->SetVisible(visible);
 }
 
+#if defined(OS_WIN)
 void RootCompositorFrameSinkImpl::DisableSwapUntilResize(
     DisableSwapUntilResizeCallback callback) {
   display_->DisableSwapUntilResize(std::move(callback));
 }
+#endif
 
 void RootCompositorFrameSinkImpl::Resize(const gfx::Size& size) {
   display_->Resize(size);
@@ -223,6 +227,11 @@ void RootCompositorFrameSinkImpl::SetDisplayVSyncParameters(
       constexpr float kMaxTimebaseDelta = 0.05;
       if (timebase_delta > display_frame_interval_ * kMaxTimebaseDelta)
         display_frame_timebase_ = timebase;
+    } else {
+      // |display_frame_timebase_| should be still updated as normal in
+      // preferred interval mode without a meaningful
+      // |preferred_frame_interval_|
+      display_frame_timebase_ = timebase;
     }
   } else {
     display_frame_timebase_ = timebase;
@@ -234,7 +243,8 @@ void RootCompositorFrameSinkImpl::SetDisplayVSyncParameters(
 
 void RootCompositorFrameSinkImpl::UpdateVSyncParameters() {
   base::TimeTicks timebase = display_frame_timebase_;
-  // Overwrite the interval here if |use_preferred_interval_|
+  // Overwrite the interval with a meaningful one here if
+  // |use_preferred_interval_|
   base::TimeDelta interval =
       use_preferred_interval_ &&
               preferred_frame_interval_ !=
@@ -368,11 +378,14 @@ RootCompositorFrameSinkImpl::RootCompositorFrameSinkImpl(
       display_(std::move(display)) {
   DCHECK(display_);
   DCHECK(begin_frame_source());
+  bool using_synthetic_bfs =
+      begin_frame_source() == synthetic_begin_frame_source_.get();
   frame_sink_manager->RegisterBeginFrameSource(begin_frame_source(),
                                                support_->frame_sink_id());
-  display_->Initialize(this, support_->frame_sink_manager()->surface_manager());
+  display_->Initialize(this, support_->frame_sink_manager()->surface_manager(),
+                       Display::kEnableSharedImages, using_synthetic_bfs);
   support_->SetUpHitTest(display_.get());
-  if (use_preferred_interval_for_video && synthetic_begin_frame_source_) {
+  if (use_preferred_interval_for_video && using_synthetic_bfs) {
     display_->SetSupportedFrameIntervals(
         {display_frame_interval_, display_frame_interval_ * 2});
     use_preferred_interval_ = true;

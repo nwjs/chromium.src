@@ -31,10 +31,12 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_PLATFORM_HEAP_THREAD_STATE_H_
 #define THIRD_PARTY_BLINK_RENDERER_PLATFORM_HEAP_THREAD_STATE_H_
 
+#include <atomic>
 #include <memory>
 
 #include "base/macros.h"
 #include "base/synchronization/lock.h"
+#include "base/task/post_job.h"
 #include "third_party/blink/renderer/platform/heap/atomic_entry_flag.h"
 #include "third_party/blink/renderer/platform/heap/blink_gc.h"
 #include "third_party/blink/renderer/platform/heap/threading_traits.h"
@@ -180,11 +182,11 @@ class PLATFORM_EXPORT ThreadState final {
   class AtomicPauseScope;
   class GCForbiddenScope;
   class LsanDisabledScope;
-  class MainThreadGCForbiddenScope;
   class NoAllocationScope;
   class StatisticsCollector;
   struct Statistics;
   class SweepForbiddenScope;
+  class HeapPointersOnStackScope;
 
   using V8TraceRootsCallback = void (*)(v8::Isolate*, Visitor*);
   using V8BuildEmbedderGraphCallback = void (*)(v8::Isolate*,
@@ -251,7 +253,7 @@ class PLATFORM_EXPORT ThreadState final {
   }
 
   void PerformIdleLazySweep(base::TimeTicks deadline);
-  void PerformConcurrentSweep();
+  void PerformConcurrentSweep(base::JobDelegate*);
 
   void SchedulePreciseGC();
   void ScheduleForcedGCForTesting();
@@ -369,6 +371,12 @@ class PLATFORM_EXPORT ThreadState final {
     return &FromObject(object)->Heap() == &Heap();
   }
 
+  ALWAYS_INLINE bool IsOnStack(Address address) const {
+    return reinterpret_cast<Address>(start_of_stack_) >= address &&
+           address >= (reinterpret_cast<Address>(reinterpret_cast<uintptr_t>(
+                          WTF::GetCurrentStackPosition())));
+  }
+
   int GcAge() const { return gc_age_; }
 
   MarkingVisitor* CurrentVisitor() const {
@@ -441,7 +449,8 @@ class PLATFORM_EXPORT ThreadState final {
                             BlinkGC::GCReason);
   void AtomicPauseMarkTransitiveClosure();
   void AtomicPauseMarkEpilogue(BlinkGC::MarkingType);
-  void AtomicPauseSweepAndCompact(BlinkGC::MarkingType marking_type,
+  void AtomicPauseSweepAndCompact(BlinkGC::CollectionType,
+                                  BlinkGC::MarkingType marking_type,
                                   BlinkGC::SweepingType sweeping_type);
   void AtomicPauseEpilogue();
 
@@ -470,7 +479,9 @@ class PLATFORM_EXPORT ThreadState final {
 
   // Visit local thread stack and trace all pointers conservatively. Never call
   // directly but always call through |PushRegistersAndVisitStack|.
+  void VisitStackImpl(MarkingVisitor*, Address*, Address*);
   void VisitStack(MarkingVisitor*, Address*);
+  void VisitUnsafeStack(MarkingVisitor*);
 
   // Visit the asan fake stack frame corresponding to a slot on the real machine
   // stack if there is one. Never call directly but always call through
@@ -540,6 +551,13 @@ class PLATFORM_EXPORT ThreadState final {
            reason == BlinkGC::GCReason::kForcedGCForTesting;
   }
 
+  // Returns whether stack scanning is forced. This is currently only used in
+  // platform tests where non nested tasks can be run with heap pointers on
+  // stack.
+  bool HeapPointersOnStackForced() const {
+    return heap_pointers_on_stack_forced_;
+  }
+
 #if defined(ADDRESS_SANITIZER)
   // Poisons payload of unmarked objects.
   //
@@ -560,6 +578,7 @@ class PLATFORM_EXPORT ThreadState final {
 
   bool in_atomic_pause_ = false;
   bool sweep_forbidden_ = false;
+  bool heap_pointers_on_stack_forced_ = false;
   bool incremental_marking_ = false;
   bool should_optimize_for_load_time_ = false;
   size_t no_allocation_count_ = 0;
@@ -615,7 +634,8 @@ class PLATFORM_EXPORT ThreadState final {
   base::Lock concurrent_marker_bootstrapping_lock_;
   size_t concurrently_marked_bytes_ = 0;
 
-  std::unique_ptr<CancelableTaskScheduler> sweeper_scheduler_;
+  base::JobHandle sweeper_handle_;
+  std::atomic_bool has_unswept_pages_{false};
 
   friend class BlinkGCObserver;
   friend class incremental_marking_test::IncrementalMarkingScope;

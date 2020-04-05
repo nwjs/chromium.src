@@ -19,6 +19,7 @@
 #include "base/timer/timer.h"
 #include "pdf/document_layout.h"
 #include "pdf/document_loader.h"
+#include "pdf/document_metadata.h"
 #include "pdf/pdf_engine.h"
 #include "pdf/pdfium/pdfium_form_filler.h"
 #include "pdf/pdfium/pdfium_page.h"
@@ -30,6 +31,7 @@
 #include "ppapi/cpp/image_data.h"
 #include "ppapi/cpp/input_event.h"
 #include "ppapi/cpp/point.h"
+#include "ppapi/cpp/rect.h"
 #include "ppapi/cpp/var_array.h"
 #include "ppapi/utility/completion_callback_factory.h"
 #include "third_party/pdfium/public/cpp/fpdf_scopers.h"
@@ -54,10 +56,9 @@ class PDFiumEngine : public PDFEngine,
   PDFiumEngine(PDFEngine::Client* client, bool enable_javascript);
   ~PDFiumEngine() override;
 
-  using CreateDocumentLoaderFunction =
-      std::unique_ptr<DocumentLoader> (*)(DocumentLoader::Client* client);
-  static void SetCreateDocumentLoaderFunctionForTesting(
-      CreateDocumentLoaderFunction function);
+  // Replaces the normal DocumentLoader for testing. Must be called before
+  // HandleDocumentLoad().
+  void SetDocumentLoaderForTesting(std::unique_ptr<DocumentLoader> loader);
 
   // PDFEngine implementation.
   bool New(const char* url, const char* headers) override;
@@ -102,6 +103,7 @@ class PDFiumEngine : public PDFEngine,
   std::string GetLinkAtPosition(const pp::Point& point) override;
   bool HasPermission(DocumentPermission permission) const override;
   void SelectAll() override;
+  const DocumentMetadata& GetDocumentMetadata() const override;
   int GetNumberOfPages() override;
   pp::VarArray GetBookmarks() override;
   base::Optional<PDFEngine::NamedDestination> GetNamedDestination(
@@ -122,13 +124,14 @@ class PDFiumEngine : public PDFEngine,
   std::vector<AccessibilityImageInfo> GetImageInfo(int page_index) override;
   std::vector<AccessibilityHighlightInfo> GetHighlightInfo(
       int page_index) override;
+  std::vector<AccessibilityTextFieldInfo> GetTextFieldInfo(
+      int page_index) override;
   bool GetPrintScaling() override;
   int GetCopiesToPrint() override;
   int GetDuplexType() override;
   bool GetPageSizeAndUniformity(pp::Size* size) override;
   void AppendBlankPages(size_t num_pages) override;
   void AppendPage(PDFEngine* engine, int index) override;
-  std::string GetMetadata(const std::string& key) override;
   std::vector<uint8_t> GetSaveData() override;
   void SetCaretPosition(const pp::Point& position) override;
   void MoveRangeSelectionExtent(const pp::Point& extent) override;
@@ -205,6 +208,7 @@ class PDFiumEngine : public PDFEngine,
     DISALLOW_COPY_AND_ASSIGN(MouseDownState);
   };
 
+  friend class FormFillerTest;
   friend class PDFiumFormFiller;
   friend class PDFiumTestBase;
   friend class SelectionChangeInvalidator;
@@ -323,9 +327,9 @@ class PDFiumEngine : public PDFEngine,
       size_t page_index,
       size_t num_of_pages) const;
 
-  void GetAllScreenRectsUnion(const std::vector<PDFiumRange>& rect_range,
-                              const pp::Point& offset_point,
-                              std::vector<pp::Rect>* rect_vector) const;
+  std::vector<pp::Rect> GetAllScreenRectsUnion(
+      const std::vector<PDFiumRange>& rect_range,
+      const pp::Point& offset_point) const;
 
   void UpdateTickMarks();
 
@@ -497,9 +501,6 @@ class PDFiumEngine : public PDFEngine,
   void OnSelectionTextChanged();
   void OnSelectionPositionChanged();
 
-  // Common code shared by RotateClockwise() and RotateCounterclockwise().
-  void RotateInternal();
-
   // Sets text selection status of document. This does not include text
   // within form text fields.
   void SetSelecting(bool selecting);
@@ -564,6 +565,21 @@ class PDFiumEngine : public PDFEngine,
   void SetSelection(const PP_PdfPageCharacterIndex& selection_start_index,
                     const PP_PdfPageCharacterIndex& selection_end_index);
 
+  // Given |rect| in document coordinates, scroll the |rect| into view if not
+  // already in view.
+  void ScrollIntoView(const pp::Rect& rect);
+
+  // Fetches and populates the fields of |doc_metadata_|. To be called after the
+  // document is loaded.
+  void LoadDocumentMetadata();
+
+  // Retrieves the unparsed value of |field| in the document information
+  // dictionary.
+  std::string GetMetadataByField(FPDF_BYTESTRING field) const;
+
+  // Retrieves the version of the PDF (e.g. 1.4 or 2.0) as an enum.
+  PdfVersion GetDocumentVersion() const;
+
   PDFEngine::Client* const client_;
 
   // The current document layout.
@@ -581,6 +597,7 @@ class PDFiumEngine : public PDFEngine,
   double current_zoom_ = 1.0;
 
   std::unique_ptr<DocumentLoader> doc_loader_;  // Main document's loader.
+  bool doc_loader_set_for_testing_ = false;
   std::string url_;
   std::string headers_;
   pp::CompletionCallbackFactory<PDFiumEngine> find_factory_;
@@ -732,6 +749,9 @@ class PDFiumEngine : public PDFEngine,
 
   // Shadow matrix for generating the page shadow bitmap.
   std::unique_ptr<draw_utils::ShadowMatrix> page_shadow_;
+
+  // Stores parsed document metadata.
+  DocumentMetadata doc_metadata_;
 
   // While true, the document try to be opened and parsed after download each
   // part. Else the document will be opened and parsed only on finish of

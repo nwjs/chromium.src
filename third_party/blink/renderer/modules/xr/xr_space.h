@@ -64,6 +64,11 @@ class XRSpace : public EventTargetWithInlineData {
   virtual TransformationMatrix NativeFromOffsetMatrix();
   virtual TransformationMatrix OffsetFromNativeMatrix();
 
+  // Returns transformation from offset space to mojo space. Convenience method,
+  // returns MojoFromNative() * NativeFromOffsetMatrix() or nullptr if computing
+  // a transform is not possible.
+  std::unique_ptr<TransformationMatrix> MojoFromOffsetMatrix();
+
   // Indicates whether or not the position portion of the native origin of this
   // space is emulated.
   virtual bool EmulatedPosition() const;
@@ -80,7 +85,7 @@ class XRSpace : public EventTargetWithInlineData {
 
   virtual base::Optional<XRNativeOriginInformation> NativeOrigin() const = 0;
 
-  void Trace(blink::Visitor* visitor) override;
+  void Trace(Visitor* visitor) override;
 
  protected:
   std::unique_ptr<TransformationMatrix> TryInvert(

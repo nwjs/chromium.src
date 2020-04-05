@@ -8,11 +8,12 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Rect;
-import android.support.annotation.NonNull;
 import android.util.Pair;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.FrameLayout;
+
+import androidx.annotation.NonNull;
 
 import java.util.List;
 
@@ -36,6 +37,7 @@ class PlayerFrameView extends FrameLayout {
     PlayerFrameView(@NonNull Context context, boolean canDetectZoom,
             PlayerFrameViewDelegate playerFrameViewDelegate) {
         super(context);
+        setWillNotDraw(false);
         mDelegate = playerFrameViewDelegate;
         mBitmapPainter = new PlayerFrameBitmapPainter(this::invalidate);
         mGestureDetector =

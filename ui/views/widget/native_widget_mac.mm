@@ -147,6 +147,35 @@ void NativeWidgetMac::WindowDestroyed() {
     delete this;
 }
 
+void NativeWidgetMac::OnWindowKeyStatusChanged(
+    bool is_key,
+    bool is_content_first_responder) {
+  Widget* widget = GetWidget();
+  if (!widget->OnNativeWidgetActivationChanged(is_key))
+    return;
+  // The contentView is the BridgedContentView hosting the views::RootView. The
+  // focus manager will already know if a native subview has focus.
+  if (!is_content_first_responder)
+    return;
+
+  if (is_key) {
+    widget->OnNativeFocus();
+    widget->GetFocusManager()->RestoreFocusedView();
+    if (NativeWidgetMacNSWindowHost* parent_host = ns_window_host_->parent()) {
+      // Unclear under what circumstances this would be null, but speculatively
+      // working around https://crbug/1050430
+      if (Widget* top_widget =
+              parent_host->native_widget_mac()->GetTopLevelWidget()) {
+        parent_key_lock_ = top_widget->LockPaintAsActive();
+      }
+    }
+  } else {
+    widget->OnNativeBlur();
+    widget->GetFocusManager()->StoreFocusedView(true);
+    parent_key_lock_.reset();
+  }
+}
+
 int32_t NativeWidgetMac::SheetOffsetY() {
   return 0;
 }
@@ -252,6 +281,14 @@ void NativeWidgetMac::FrameTypeChanged() {
   // widget.
   GetWidget()->ThemeChanged();
   GetWidget()->GetRootView()->SchedulePaint();
+}
+
+Widget* NativeWidgetMac::GetWidget() {
+  return delegate_->AsWidget();
+}
+
+const Widget* NativeWidgetMac::GetWidget() const {
+  return delegate_->AsWidget();
 }
 
 gfx::NativeView NativeWidgetMac::GetNativeView() const {
@@ -784,6 +821,7 @@ void NativeWidgetMac::OnNativeViewHierarchyWillChange() {
   // listeners.
   if (!GetWidget()->is_top_level())
     SetFocusManager(nullptr);
+  parent_key_lock_.reset();
 }
 
 void NativeWidgetMac::OnNativeViewHierarchyChanged() {
@@ -878,10 +916,6 @@ ui::EventDispatchDetails NativeWidgetMac::DispatchKeyEventPostIME(
   else
     GetWidget()->OnKeyEvent(key);
   return ui::EventDispatchDetails();
-}
-
-const Widget* NativeWidgetMac::GetWidgetImpl() const {
-  return delegate_->AsWidget();
 }
 
 ////////////////////////////////////////////////////////////////////////////////

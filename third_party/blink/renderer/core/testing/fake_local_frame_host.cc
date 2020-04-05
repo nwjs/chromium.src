@@ -18,7 +18,10 @@ void FakeLocalFrameHost::Init(blink::AssociatedInterfaceProvider* provider) {
 }
 
 void FakeLocalFrameHost::EnterFullscreen(
-    mojom::blink::FullscreenOptionsPtr options) {}
+    mojom::blink::FullscreenOptionsPtr options,
+    EnterFullscreenCallback callback) {
+  std::move(callback).Run(true);
+}
 
 void FakeLocalFrameHost::ExitFullscreen() {}
 
@@ -35,6 +38,8 @@ void FakeLocalFrameHost::UnregisterProtocolHandler(const WTF::String& scheme,
 
 void FakeLocalFrameHost::DidDisplayInsecureContent() {}
 
+void FakeLocalFrameHost::DidAddContentSecurityPolicies(
+    WTF::Vector<::network::mojom::blink::ContentSecurityPolicyPtr>) {}
 void FakeLocalFrameHost::DidContainInsecureFormAction() {}
 
 void FakeLocalFrameHost::DocumentAvailableInMainFrame(
@@ -53,9 +58,13 @@ void FakeLocalFrameHost::VisibilityChanged(
 void FakeLocalFrameHost::DidChangeThemeColor(
     const base::Optional<::SkColor>& theme_color) {}
 
+void FakeLocalFrameHost::DidFailLoadWithError(const ::blink::KURL& url,
+                                              int32_t error_code) {}
+
 void FakeLocalFrameHost::DidFocusFrame() {}
 
-void FakeLocalFrameHost::EnforceInsecureRequestPolicy(uint8_t policy_bitmap) {}
+void FakeLocalFrameHost::EnforceInsecureRequestPolicy(
+    mojom::InsecureRequestPolicy policy_bitmap) {}
 
 void FakeLocalFrameHost::EnforceInsecureNavigationsSet(
     const WTF::Vector<uint32_t>& set) {}
@@ -71,12 +80,12 @@ void FakeLocalFrameHost::HadStickyUserActivationBeforeNavigationChanged(
     bool value) {}
 
 void FakeLocalFrameHost::ScrollRectToVisibleInParentFrame(
-    const WebRect& rect_to_scroll,
+    const gfx::Rect& rect_to_scroll,
     blink::mojom::blink::ScrollIntoViewParamsPtr params) {}
 
 void FakeLocalFrameHost::BubbleLogicalScrollInParentFrame(
     blink::mojom::blink::ScrollDirection direction,
-    ui::input_types::ScrollGranularity granularity) {}
+    ui::ScrollGranularity granularity) {}
 
 void FakeLocalFrameHost::DidAccessInitialDocument() {}
 
@@ -87,9 +96,28 @@ void FakeLocalFrameHost::DidBlockNavigation(
 
 void FakeLocalFrameHost::DidChangeLoadProgress(double load_progress) {}
 
+void FakeLocalFrameHost::DidFinishLoad(const KURL& validated_url) {}
+
 void FakeLocalFrameHost::DispatchLoad() {}
 
+void FakeLocalFrameHost::GoToEntryAtOffset(int32_t offset,
+                                           bool has_user_gesture) {}
+
 void FakeLocalFrameHost::RenderFallbackContentInParentProcess() {}
+
+void FakeLocalFrameHost::UpdateTitle(
+    const WTF::String& title,
+    mojo_base::mojom::blink::TextDirection title_direction) {}
+
+void FakeLocalFrameHost::UpdateUserActivationState(
+    mojom::blink::UserActivationUpdateType update_type) {}
+
+void FakeLocalFrameHost::HandleAccessibilityFindInPageResult(
+    mojom::blink::FindInPageResultAXParamsPtr params) {}
+
+void FakeLocalFrameHost::HandleAccessibilityFindInPageTermination() {}
+
+void FakeLocalFrameHost::DocumentOnLoadCompleted() {}
 
 void FakeLocalFrameHost::ForwardResourceTimingToParent(
     mojom::blink::ResourceTimingInfoPtr timing) {}
@@ -121,19 +149,24 @@ void FakeLocalFrameHost::RunBeforeUnloadConfirm(
   std::move(callback).Run(true);
 }
 
+void FakeLocalFrameHost::Are3DAPIsBlocked(Are3DAPIsBlockedCallback callback) {
+  std::move(callback).Run(true);
+}
+
+void FakeLocalFrameHost::UpdateFaviconURL(
+    WTF::Vector<blink::mojom::blink::FaviconURLPtr> favicon_urls) {}
+
+void FakeLocalFrameHost::DownloadURL(
+    mojom::blink::DownloadURLParamsPtr params) {}
+
+void FakeLocalFrameHost::FocusedElementChanged(
+    bool is_editable_element,
+    const gfx::Rect& bounds_in_frame_widget) {}
+
 void FakeLocalFrameHost::BindFrameHostReceiver(
     mojo::ScopedInterfaceEndpointHandle handle) {
   receiver_.Bind(mojo::PendingAssociatedReceiver<mojom::blink::LocalFrameHost>(
       std::move(handle)));
 }
-
-void FakeLocalFrameHost::GoToEntryAtOffset(int32_t offset,
-                                           bool has_user_gesture) {}
-void FakeLocalFrameHost::HandleAccessibilityFindInPageResult(
-    mojom::blink::FindInPageResultAXParamsPtr params) {}
-
-void FakeLocalFrameHost::HandleAccessibilityFindInPageTermination() {}
-
-void FakeLocalFrameHost::DocumentOnLoadCompleted() {}
 
 }  // namespace blink

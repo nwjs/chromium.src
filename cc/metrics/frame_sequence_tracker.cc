@@ -4,6 +4,7 @@
 
 #include "cc/metrics/frame_sequence_tracker.h"
 
+#include "base/memory/ptr_util.h"
 #include "base/metrics/histogram.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/stl_util.h"
@@ -50,7 +51,11 @@ const char* FrameSequenceTracker::GetFrameSequenceTrackerTypeName(
       return "Video";
     case FrameSequenceTrackerType::kWheelScroll:
       return "WheelScroll";
-    default:
+    case FrameSequenceTrackerType::kScrollbarScroll:
+      return "ScrollbarScroll";
+    case FrameSequenceTrackerType::kCustom:
+      return "Custom";
+    case FrameSequenceTrackerType::kMaxType:
       return "";
   }
 }
@@ -61,7 +66,8 @@ namespace {
 // sufficient number of frames.
 constexpr int kMinFramesForThroughputMetric = 100;
 
-constexpr int kBuiltinSequenceNum = FrameSequenceTrackerType::kMaxType + 1;
+constexpr int kBuiltinSequenceNum =
+    static_cast<int>(FrameSequenceTrackerType::kMaxType) + 1;
 constexpr int kMaximumHistogramIndex = 3 * kBuiltinSequenceNum;
 
 int GetIndexForMetric(FrameSequenceMetrics::ThreadType thread_type,
@@ -69,8 +75,8 @@ int GetIndexForMetric(FrameSequenceMetrics::ThreadType thread_type,
   if (thread_type == FrameSequenceMetrics::ThreadType::kMain)
     return static_cast<int>(type);
   if (thread_type == FrameSequenceMetrics::ThreadType::kCompositor)
-    return static_cast<int>(type + kBuiltinSequenceNum);
-  return static_cast<int>(type + 2 * kBuiltinSequenceNum);
+    return static_cast<int>(type) + kBuiltinSequenceNum;
+  return static_cast<int>(type) + 2 * kBuiltinSequenceNum;
 }
 
 std::string GetCheckerboardingHistogramName(FrameSequenceTrackerType type) {
@@ -82,7 +88,7 @@ std::string GetCheckerboardingHistogramName(FrameSequenceTrackerType type) {
 std::string GetThroughputHistogramName(FrameSequenceTrackerType type,
                                        const char* thread_name) {
   return base::StrCat(
-      {"Graphics.Smoothness.Throughput.", thread_name, ".",
+      {"Graphics.Smoothness.PercentDroppedFrames.", thread_name, ".",
        FrameSequenceTracker::GetFrameSequenceTrackerTypeName(type)});
 }
 
@@ -104,18 +110,26 @@ bool ShouldReportForAnimation(FrameSequenceTrackerType sequence_type,
   return false;
 }
 
-bool ShouldReportForInteraction(FrameSequenceTrackerType sequence_type,
+bool ShouldReportForInteraction(FrameSequenceMetrics* metrics,
                                 FrameSequenceMetrics::ThreadType thread_type) {
+  const auto sequence_type = metrics->type();
+
   // For touch/wheel scroll, the slower thread is the one we want to report. For
   // pinch-zoom, it's the compositor-thread.
   if (sequence_type == FrameSequenceTrackerType::kTouchScroll ||
       sequence_type == FrameSequenceTrackerType::kWheelScroll)
-    return thread_type == FrameSequenceMetrics::ThreadType::kSlower;
+    return thread_type == metrics->GetEffectiveThread();
 
   if (sequence_type == FrameSequenceTrackerType::kPinchZoom)
     return thread_type == FrameSequenceMetrics::ThreadType::kCompositor;
 
   return false;
+}
+
+bool IsInteractionType(FrameSequenceTrackerType sequence_type) {
+  return sequence_type == FrameSequenceTrackerType::kTouchScroll ||
+         sequence_type == FrameSequenceTrackerType::kWheelScroll ||
+         sequence_type == FrameSequenceTrackerType::kPinchZoom;
 }
 
 }  // namespace
@@ -124,10 +138,8 @@ bool ShouldReportForInteraction(FrameSequenceTrackerType sequence_type,
 // FrameSequenceMetrics
 
 FrameSequenceMetrics::FrameSequenceMetrics(FrameSequenceTrackerType type,
-                                           UkmManager* ukm_manager,
                                            ThroughputUkmReporter* ukm_reporter)
     : type_(type),
-      ukm_manager_(ukm_manager),
       throughput_ukm_reporter_(ukm_reporter) {
   TRACE_EVENT_NESTABLE_ASYNC_BEGIN1(
       "cc,benchmark", "FrameSequenceTracker", TRACE_ID_LOCAL(this), "name",
@@ -135,21 +147,60 @@ FrameSequenceMetrics::FrameSequenceMetrics(FrameSequenceTrackerType type,
 }
 
 FrameSequenceMetrics::~FrameSequenceMetrics() {
-  if (HasDataLeftForReporting())
+  if (HasDataLeftForReporting()) {
     ReportMetrics();
+  }
+}
+
+void FrameSequenceMetrics::SetScrollingThread(ThreadType scrolling_thread) {
+  DCHECK(type_ == FrameSequenceTrackerType::kTouchScroll ||
+         type_ == FrameSequenceTrackerType::kWheelScroll ||
+         type_ == FrameSequenceTrackerType::kScrollbarScroll);
+  DCHECK_EQ(scrolling_thread_, ThreadType::kUnknown);
+  scrolling_thread_ = scrolling_thread;
+}
+
+FrameSequenceMetrics::ThreadType FrameSequenceMetrics::GetEffectiveThread()
+    const {
+  switch (type_) {
+    case FrameSequenceTrackerType::kCompositorAnimation:
+    case FrameSequenceTrackerType::kPinchZoom:
+      return ThreadType::kCompositor;
+
+    case FrameSequenceTrackerType::kMainThreadAnimation:
+    case FrameSequenceTrackerType::kRAF:
+    case FrameSequenceTrackerType::kVideo:
+      return ThreadType::kMain;
+
+    case FrameSequenceTrackerType::kTouchScroll:
+    case FrameSequenceTrackerType::kScrollbarScroll:
+    case FrameSequenceTrackerType::kWheelScroll:
+      return scrolling_thread_;
+
+    case FrameSequenceTrackerType::kUniversal:
+      return ThreadType::kSlower;
+
+    case FrameSequenceTrackerType::kCustom:
+    case FrameSequenceTrackerType::kMaxType:
+      NOTREACHED();
+  }
+  return ThreadType::kUnknown;
 }
 
 void FrameSequenceMetrics::Merge(
     std::unique_ptr<FrameSequenceMetrics> metrics) {
   DCHECK_EQ(type_, metrics->type_);
+  DCHECK_EQ(GetEffectiveThread(), metrics->GetEffectiveThread());
   impl_throughput_.Merge(metrics->impl_throughput_);
   main_throughput_.Merge(metrics->main_throughput_);
+  aggregated_throughput_.Merge(metrics->aggregated_throughput_);
   frames_checkerboarded_ += metrics->frames_checkerboarded_;
 
   // Reset the state of |metrics| before destroying it, so that it doesn't end
   // up reporting the metrics.
   metrics->impl_throughput_ = {};
   metrics->main_throughput_ = {};
+  metrics->aggregated_throughput_ = {};
   metrics->frames_checkerboarded_ = 0;
 }
 
@@ -163,6 +214,17 @@ bool FrameSequenceMetrics::HasDataLeftForReporting() const {
          main_throughput_.frames_expected > 0;
 }
 
+void FrameSequenceMetrics::ComputeAggregatedThroughput() {
+  // Whenever we are expecting and producing main frames, we are expecting and
+  // producing impl frames as well. As an example, if we expect one main frame
+  // to be produced, and when that main frame is presented, we are expecting 3
+  // impl frames, then the number of expected frames is 3 for the aggregated
+  // throughput.
+  aggregated_throughput_.frames_expected = impl_throughput_.frames_expected;
+  DCHECK_LE(aggregated_throughput_.frames_produced,
+            aggregated_throughput_.frames_produced);
+}
+
 void FrameSequenceMetrics::ReportMetrics() {
   DCHECK_LE(impl_throughput_.frames_produced, impl_throughput_.frames_expected);
   DCHECK_LE(main_throughput_.frames_produced, main_throughput_.frames_expected);
@@ -171,42 +233,76 @@ void FrameSequenceMetrics::ReportMetrics() {
       ThroughputData::ToTracedValue(impl_throughput_, main_throughput_),
       "checkerboard", frames_checkerboarded_);
 
+  // Data for kCustom typed tracker is handled by caller instead being
+  // reported here.
+  if (type_ == FrameSequenceTrackerType::kCustom)
+    return;
+
+  ComputeAggregatedThroughput();
+
   // Report the throughput metrics.
   base::Optional<int> impl_throughput_percent = ThroughputData::ReportHistogram(
-      type_, ThreadType::kCompositor,
+      this, ThreadType::kCompositor,
       GetIndexForMetric(FrameSequenceMetrics::ThreadType::kCompositor, type_),
       impl_throughput_);
   base::Optional<int> main_throughput_percent = ThroughputData::ReportHistogram(
-      type_, ThreadType::kMain,
+      this, ThreadType::kMain,
       GetIndexForMetric(FrameSequenceMetrics::ThreadType::kMain, type_),
       main_throughput_);
 
-  base::Optional<ThroughputData> slower_throughput;
-  base::Optional<int> slower_throughput_percent;
-  if (impl_throughput_percent &&
-      (!main_throughput_percent ||
-       impl_throughput_percent.value() <= main_throughput_percent.value())) {
-    slower_throughput = impl_throughput_;
-  }
-  if (main_throughput_percent &&
-      (!impl_throughput_percent ||
-       main_throughput_percent.value() < impl_throughput_percent.value())) {
-    slower_throughput = main_throughput_;
-  }
-  if (slower_throughput.has_value()) {
-    slower_throughput_percent = ThroughputData::ReportHistogram(
-        type_, ThreadType::kSlower,
+  // Report for the 'slower thread' for the metrics where it makes sense.
+  bool should_report_slower_thread =
+      IsInteractionType(type_) || type_ == FrameSequenceTrackerType::kUniversal;
+  base::Optional<int> aggregated_throughput_percent;
+  if (should_report_slower_thread) {
+    aggregated_throughput_percent = ThroughputData::ReportHistogram(
+        this, ThreadType::kSlower,
         GetIndexForMetric(FrameSequenceMetrics::ThreadType::kSlower, type_),
-        slower_throughput.value());
-    DCHECK(slower_throughput_percent.has_value());
+        aggregated_throughput_);
+    if (aggregated_throughput_percent.has_value() && throughput_ukm_reporter_) {
+      throughput_ukm_reporter_->ReportThroughputUkm(
+          aggregated_throughput_percent, impl_throughput_percent,
+          main_throughput_percent, type_);
+    }
   }
 
-  // slower_throughput has value indicates that we have reported UMA.
-  if (slower_throughput.has_value() && ukm_manager_ &&
-      throughput_ukm_reporter_) {
-    throughput_ukm_reporter_->ReportThroughputUkm(
-        ukm_manager_, slower_throughput_percent, impl_throughput_percent,
-        main_throughput_percent, type_);
+  // Report for the 'scrolling thread' for the scrolling interactions.
+  if (scrolling_thread_ != ThreadType::kUnknown) {
+    base::Optional<int> scrolling_thread_throughput;
+    switch (scrolling_thread_) {
+      case ThreadType::kCompositor:
+        scrolling_thread_throughput = impl_throughput_percent;
+        break;
+      case ThreadType::kMain:
+        scrolling_thread_throughput = main_throughput_percent;
+        break;
+      case ThreadType::kSlower:
+      case ThreadType::kUnknown:
+        NOTREACHED();
+        break;
+    }
+    if (scrolling_thread_throughput.has_value()) {
+      // It's OK to use the UMA histogram in the following code while still
+      // using |GetThroughputHistogramName()| to get the name of the metric,
+      // since the input-params to the function never change at runtime.
+      if (type_ == FrameSequenceTrackerType::kWheelScroll) {
+        UMA_HISTOGRAM_PERCENTAGE(
+            GetThroughputHistogramName(FrameSequenceTrackerType::kWheelScroll,
+                                       "ScrollingThread"),
+            scrolling_thread_throughput.value());
+      } else if (type_ == FrameSequenceTrackerType::kTouchScroll) {
+        UMA_HISTOGRAM_PERCENTAGE(
+            GetThroughputHistogramName(FrameSequenceTrackerType::kTouchScroll,
+                                       "ScrollingThread"),
+            scrolling_thread_throughput.value());
+      } else {
+        DCHECK_EQ(type_, FrameSequenceTrackerType::kScrollbarScroll);
+        UMA_HISTOGRAM_PERCENTAGE(
+            GetThroughputHistogramName(
+                FrameSequenceTrackerType::kScrollbarScroll, "ScrollingThread"),
+            scrolling_thread_throughput.value());
+      }
+    }
   }
 
   // Report the checkerboarding metrics.
@@ -214,19 +310,22 @@ void FrameSequenceMetrics::ReportMetrics() {
     const int checkerboarding_percent = static_cast<int>(
         100 * frames_checkerboarded_ / impl_throughput_.frames_expected);
     STATIC_HISTOGRAM_POINTER_GROUP(
-        GetCheckerboardingHistogramName(type_), type_,
-        FrameSequenceTrackerType::kMaxType, Add(checkerboarding_percent),
+        GetCheckerboardingHistogramName(type_), static_cast<int>(type_),
+        static_cast<int>(FrameSequenceTrackerType::kMaxType),
+        Add(checkerboarding_percent),
         base::LinearHistogram::FactoryGet(
             GetCheckerboardingHistogramName(type_), 1, 100, 101,
             base::HistogramBase::kUmaTargetedHistogramFlag));
     frames_checkerboarded_ = 0;
   }
 
-  // Reset the metrics that have already been reported.
-  if (impl_throughput_percent.has_value())
+  // Reset the metrics that reach reporting threshold.
+  if (impl_throughput_.frames_expected >= kMinFramesForThroughputMetric)
     impl_throughput_ = {};
-  if (main_throughput_percent.has_value())
+  if (main_throughput_.frames_expected >= kMinFramesForThroughputMetric)
     main_throughput_ = {};
+  if (aggregated_throughput_percent.has_value())
+    aggregated_throughput_ = {};
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -237,30 +336,34 @@ FrameSequenceTrackerCollection::FrameSequenceTrackerCollection(
     CompositorFrameReportingController* compositor_frame_reporting_controller)
     : is_single_threaded_(is_single_threaded),
       compositor_frame_reporting_controller_(
-          compositor_frame_reporting_controller),
-      throughput_ukm_reporter_(std::make_unique<ThroughputUkmReporter>()) {}
+          compositor_frame_reporting_controller) {}
 
 FrameSequenceTrackerCollection::~FrameSequenceTrackerCollection() {
   frame_trackers_.clear();
   removal_trackers_.clear();
 }
 
-void FrameSequenceTrackerCollection::StartSequence(
+FrameSequenceMetrics* FrameSequenceTrackerCollection::StartSequence(
     FrameSequenceTrackerType type) {
+  DCHECK_NE(FrameSequenceTrackerType::kCustom, type);
+
   if (is_single_threaded_)
-    return;
+    return nullptr;
   if (frame_trackers_.contains(type))
-    return;
-  auto tracker = base::WrapUnique(new FrameSequenceTracker(
-      type, ukm_manager_, throughput_ukm_reporter_.get()));
+    return frame_trackers_[type]->metrics();
+  auto tracker = base::WrapUnique(
+      new FrameSequenceTracker(type, throughput_ukm_reporter_.get()));
   frame_trackers_[type] = std::move(tracker);
 
   if (compositor_frame_reporting_controller_)
     compositor_frame_reporting_controller_->AddActiveTracker(type);
+  return frame_trackers_[type]->metrics();
 }
 
 void FrameSequenceTrackerCollection::StopSequence(
     FrameSequenceTrackerType type) {
+  DCHECK_NE(FrameSequenceTrackerType::kCustom, type);
+
   if (!frame_trackers_.contains(type))
     return;
 
@@ -273,10 +376,33 @@ void FrameSequenceTrackerCollection::StopSequence(
   frame_trackers_.erase(type);
   tracker->ScheduleTerminate();
   removal_trackers_.push_back(std::move(tracker));
+  DestroyTrackers();
+}
+
+void FrameSequenceTrackerCollection::StartCustomSequence(int sequence_id) {
+  DCHECK(!base::Contains(custom_frame_trackers_, sequence_id));
+
+  custom_frame_trackers_[sequence_id] = base::WrapUnique(
+      new FrameSequenceTracker(FrameSequenceTrackerType::kCustom,
+                               /*throughput_ukm_reporter=*/nullptr,
+                               /*custom_sequence_id=*/sequence_id));
+}
+
+void FrameSequenceTrackerCollection::StopCustomSequence(int sequence_id) {
+  auto it = custom_frame_trackers_.find(sequence_id);
+  // This happens when an animation is aborted before starting.
+  if (it == custom_frame_trackers_.end())
+    return;
+
+  std::unique_ptr<FrameSequenceTracker> tracker = std::move(it->second);
+  custom_frame_trackers_.erase(it);
+  tracker->ScheduleTerminate();
+  removal_trackers_.push_back(std::move(tracker));
 }
 
 void FrameSequenceTrackerCollection::ClearAll() {
   frame_trackers_.clear();
+  custom_frame_trackers_.clear();
   removal_trackers_.clear();
 }
 
@@ -285,11 +411,15 @@ void FrameSequenceTrackerCollection::NotifyBeginImplFrame(
   RecreateTrackers(args);
   for (auto& tracker : frame_trackers_)
     tracker.second->ReportBeginImplFrame(args);
+  for (auto& tracker : custom_frame_trackers_)
+    tracker.second->ReportBeginImplFrame(args);
 }
 
 void FrameSequenceTrackerCollection::NotifyBeginMainFrame(
     const viz::BeginFrameArgs& args) {
   for (auto& tracker : frame_trackers_)
+    tracker.second->ReportBeginMainFrame(args);
+  for (auto& tracker : custom_frame_trackers_)
     tracker.second->ReportBeginMainFrame(args);
 }
 
@@ -297,24 +427,35 @@ void FrameSequenceTrackerCollection::NotifyMainFrameProcessed(
     const viz::BeginFrameArgs& args) {
   for (auto& tracker : frame_trackers_)
     tracker.second->ReportMainFrameProcessed(args);
+  for (auto& tracker : custom_frame_trackers_)
+    tracker.second->ReportMainFrameProcessed(args);
 }
 
 void FrameSequenceTrackerCollection::NotifyImplFrameCausedNoDamage(
     const viz::BeginFrameAck& ack) {
-  for (auto& tracker : frame_trackers_) {
+  for (auto& tracker : frame_trackers_)
     tracker.second->ReportImplFrameCausedNoDamage(ack);
-  }
+  for (auto& tracker : custom_frame_trackers_)
+    tracker.second->ReportImplFrameCausedNoDamage(ack);
+
+  // Removal trackers continue to process any frames which they started
+  // observing.
+  for (auto& tracker : removal_trackers_)
+    tracker->ReportImplFrameCausedNoDamage(ack);
 }
 
 void FrameSequenceTrackerCollection::NotifyMainFrameCausedNoDamage(
     const viz::BeginFrameArgs& args) {
-  for (auto& tracker : frame_trackers_) {
+  for (auto& tracker : frame_trackers_)
     tracker.second->ReportMainFrameCausedNoDamage(args);
-  }
+  for (auto& tracker : custom_frame_trackers_)
+    tracker.second->ReportMainFrameCausedNoDamage(args);
 }
 
 void FrameSequenceTrackerCollection::NotifyPauseFrameProduction() {
   for (auto& tracker : frame_trackers_)
+    tracker.second->PauseFrameProduction();
+  for (auto& tracker : custom_frame_trackers_)
     tracker.second->PauseFrameProduction();
 }
 
@@ -327,19 +468,40 @@ void FrameSequenceTrackerCollection::NotifySubmitFrame(
     tracker.second->ReportSubmitFrame(frame_token, has_missing_content, ack,
                                       origin_args);
   }
+  for (auto& tracker : custom_frame_trackers_) {
+    tracker.second->ReportSubmitFrame(frame_token, has_missing_content, ack,
+                                      origin_args);
+  }
+
+  // Removal trackers continue to process any frames which they started
+  // observing.
+  for (auto& tracker : removal_trackers_) {
+    tracker->ReportSubmitFrame(frame_token, has_missing_content, ack,
+                               origin_args);
+  }
 }
 
 void FrameSequenceTrackerCollection::NotifyFrameEnd(
-    const viz::BeginFrameArgs& args) {
-  for (auto& tracker : frame_trackers_) {
-    tracker.second->ReportFrameEnd(args);
-  }
+    const viz::BeginFrameArgs& args,
+    const viz::BeginFrameArgs& main_args) {
+  for (auto& tracker : frame_trackers_)
+    tracker.second->ReportFrameEnd(args, main_args);
+  for (auto& tracker : custom_frame_trackers_)
+    tracker.second->ReportFrameEnd(args, main_args);
+
+  // Removal trackers continue to process any frames which they started
+  // observing.
+  for (auto& tracker : removal_trackers_)
+    tracker->ReportFrameEnd(args, main_args);
+  DestroyTrackers();
 }
 
 void FrameSequenceTrackerCollection::NotifyFramePresented(
     uint32_t frame_token,
     const gfx::PresentationFeedback& feedback) {
   for (auto& tracker : frame_trackers_)
+    tracker.second->ReportFramePresented(frame_token, feedback);
+  for (auto& tracker : custom_frame_trackers_)
     tracker.second->ReportFramePresented(frame_token, feedback);
 
   for (auto& tracker : removal_trackers_)
@@ -348,43 +510,40 @@ void FrameSequenceTrackerCollection::NotifyFramePresented(
   for (auto& tracker : removal_trackers_) {
     if (tracker->termination_status() ==
         FrameSequenceTracker::TerminationStatus::kReadyForTermination) {
-      // The tracker is ready to be terminated. Take the metrics from the
-      // tracker, merge with any outstanding metrics from previous trackers of
-      // the same type. If there are enough frames to report the metrics, then
-      // report the metrics and destroy it. Otherwise, retain it to be merged
-      // with follow-up sequences.
+      // The tracker is ready to be terminated.
+      // For non kCustom typed trackers, take the metrics from the tracker.
+      // merge with any outstanding metrics from previous trackers of the same
+      // type. If there are enough frames to report the metrics, then report the
+      // metrics and destroy it. Otherwise, retain it to be merged with
+      // follow-up sequences.
+      // For kCustom typed trackers, put its result in |custom_tracker_results_|
+      // to be picked up by caller.
       auto metrics = tracker->TakeMetrics();
-      if (accumulated_metrics_.contains(tracker->type())) {
-        metrics->Merge(std::move(accumulated_metrics_[tracker->type()]));
-        accumulated_metrics_.erase(tracker->type());
+      if (tracker->type() == FrameSequenceTrackerType::kCustom) {
+        custom_tracker_results_[tracker->custom_sequence_id()] =
+            metrics->main_throughput();
+        // |custom_tracker_results_| should be picked up timely.
+        DCHECK_LT(custom_tracker_results_.size(), 500u);
+        continue;
       }
 
-#if DCHECK_IS_ON()
-      // Handling the case like b(100)s(150)e(100)b(200)n(200), and then
-      // StopSequence() is called which put this tracker in removal_trackers_.
-      // Then P(150). In this case, frame 200 isn't processed yet, because this
-      // no damage impl frame is considered 'processed' at e(200).
-      const bool incomplete_frame_had_no_damage =
-          !tracker->compositor_frame_submitted_ &&
-          tracker->frame_had_no_compositor_damage_;
-      if (tracker->is_inside_frame_ && incomplete_frame_had_no_damage)
-        --metrics->impl_throughput().frames_received;
-
-      if (metrics->impl_throughput().frames_received !=
-          metrics->impl_throughput().frames_processed) {
-        std::string output = tracker->frame_sequence_trace_.str().substr(
-            tracker->ignored_trace_char_count_);
-        NOTREACHED() << output;
+      auto key = std::make_pair(tracker->type(), metrics->GetEffectiveThread());
+      if (accumulated_metrics_.contains(key)) {
+        metrics->Merge(std::move(accumulated_metrics_[key]));
+        accumulated_metrics_.erase(key);
       }
-#endif
+
       if (metrics->HasEnoughDataForReporting())
         metrics->ReportMetrics();
       if (metrics->HasDataLeftForReporting())
-        accumulated_metrics_[tracker->type()] = std::move(metrics);
+        accumulated_metrics_[key] = std::move(metrics);
     }
   }
 
-  // Destroy the trackers that are ready to be terminated.
+  DestroyTrackers();
+}
+
+void FrameSequenceTrackerCollection::DestroyTrackers() {
   base::EraseIf(
       removal_trackers_,
       [](const std::unique_ptr<FrameSequenceTracker>& tracker) {
@@ -411,6 +570,21 @@ void FrameSequenceTrackerCollection::RecreateTrackers(
   }
 }
 
+ActiveFrameSequenceTrackers
+FrameSequenceTrackerCollection::FrameSequenceTrackerActiveTypes() {
+  ActiveFrameSequenceTrackers encoded_types = 0;
+  for (const auto& tracker : frame_trackers_) {
+    encoded_types |= static_cast<ActiveFrameSequenceTrackers>(
+        1 << static_cast<unsigned>(tracker.first));
+  }
+  return encoded_types;
+}
+
+CustomTrackerResults
+FrameSequenceTrackerCollection::TakeCustomTrackerResults() {
+  return std::move(custom_tracker_results_);
+}
+
 FrameSequenceTracker* FrameSequenceTrackerCollection::GetTrackerForTesting(
     FrameSequenceTrackerType type) {
   if (!frame_trackers_.contains(type))
@@ -418,9 +592,21 @@ FrameSequenceTracker* FrameSequenceTrackerCollection::GetTrackerForTesting(
   return frame_trackers_[type].get();
 }
 
+FrameSequenceTracker*
+FrameSequenceTrackerCollection::GetRemovalTrackerForTesting(
+    FrameSequenceTrackerType type) {
+  for (const auto& tracker : removal_trackers_)
+    if (tracker->type_ == type)
+      return tracker.get();
+  return nullptr;
+}
+
 void FrameSequenceTrackerCollection::SetUkmManager(UkmManager* manager) {
   DCHECK(frame_trackers_.empty());
-  ukm_manager_ = manager;
+  if (manager)
+    throughput_ukm_reporter_ = std::make_unique<ThroughputUkmReporter>(manager);
+  else
+    throughput_ukm_reporter_ = nullptr;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -428,34 +614,27 @@ void FrameSequenceTrackerCollection::SetUkmManager(UkmManager* manager) {
 
 FrameSequenceTracker::FrameSequenceTracker(
     FrameSequenceTrackerType type,
-    UkmManager* manager,
-    ThroughputUkmReporter* throughput_ukm_reporter)
+    ThroughputUkmReporter* throughput_ukm_reporter,
+    int custom_sequence_id)
     : type_(type),
-      metrics_(
-          std::make_unique<FrameSequenceMetrics>(type,
-                                                 manager,
-                                                 throughput_ukm_reporter)) {
+      custom_sequence_id_(custom_sequence_id),
+      metrics_(std::make_unique<FrameSequenceMetrics>(type,
+                                                      throughput_ukm_reporter)),
+      trace_data_(metrics_.get()) {
   DCHECK_LT(type_, FrameSequenceTrackerType::kMaxType);
+  DCHECK(type_ != FrameSequenceTrackerType::kCustom ||
+         custom_sequence_id_ >= 0);
 }
 
-FrameSequenceTracker::~FrameSequenceTracker() {
-}
+FrameSequenceTracker::~FrameSequenceTracker() = default;
 
 void FrameSequenceTracker::ScheduleTerminate() {
-  termination_status_ = TerminationStatus::kScheduledForTermination;
-  // It could happen that a main/impl frame is generated, but never processed
-  // (didn't report no damage and didn't submit) when this happens.
-  if (last_processed_impl_sequence_ < last_started_impl_sequence_) {
-    impl_throughput().frames_expected -=
-        begin_impl_frame_data_.previous_sequence_delta;
-#if DCHECK_IS_ON()
-    --impl_throughput().frames_received;
-#endif
-  }
-}
-
-void FrameSequenceTracker::ReportMetricsForTesting() {
-  metrics_->ReportMetrics();
+  // If the last frame has ended and there is no frame awaiting presentation,
+  // then it is ready to terminate.
+  if (!is_inside_frame_ && last_submitted_frame_ == 0)
+    termination_status_ = TerminationStatus::kReadyForTermination;
+  else
+    termination_status_ = TerminationStatus::kScheduledForTermination;
 }
 
 void FrameSequenceTracker::ReportBeginImplFrame(
@@ -468,10 +647,9 @@ void FrameSequenceTracker::ReportBeginImplFrame(
 
   TRACKER_TRACE_STREAM << "b(" << args.frame_id.sequence_number << ")";
 
-#if DCHECK_IS_ON()
   DCHECK(!is_inside_frame_) << TRACKER_DCHECK_MSG;
   is_inside_frame_ = true;
-
+#if DCHECK_IS_ON()
   if (args.type == viz::BeginFrameArgs::NORMAL)
     impl_frames_.insert(args.frame_id);
 #endif
@@ -588,8 +766,8 @@ void FrameSequenceTracker::ReportSubmitFrame(
     bool has_missing_content,
     const viz::BeginFrameAck& ack,
     const viz::BeginFrameArgs& origin_args) {
-  if (termination_status_ != TerminationStatus::kActive ||
-      ShouldIgnoreBeginFrameSource(ack.frame_id.source_id) ||
+  DCHECK_NE(termination_status_, TerminationStatus::kReadyForTermination);
+  if (ShouldIgnoreBeginFrameSource(ack.frame_id.source_id) ||
       ShouldIgnoreSequence(ack.frame_id.sequence_number)) {
     ignored_frame_tokens_.insert(frame_token);
     return;
@@ -611,6 +789,7 @@ void FrameSequenceTracker::ReportSubmitFrame(
 
   TRACKER_TRACE_STREAM << "s(" << frame_token << ")";
   had_impl_frame_submitted_between_commits_ = true;
+
   const bool main_changes_after_sequence_started =
       first_received_main_sequence_ &&
       origin_args.frame_id.sequence_number >= first_received_main_sequence_;
@@ -620,17 +799,30 @@ void FrameSequenceTracker::ReportSubmitFrame(
   const bool main_change_had_no_damage =
       last_no_main_damage_sequence_ != 0 &&
       origin_args.frame_id.sequence_number == last_no_main_damage_sequence_;
+  const bool origin_args_is_valid = origin_args.frame_id.sequence_number <=
+                                    begin_main_frame_data_.previous_sequence;
 
   if (!ShouldIgnoreBeginFrameSource(origin_args.frame_id.source_id) &&
-      main_changes_after_sequence_started && main_changes_include_new_changes &&
-      !main_change_had_no_damage) {
-    submitted_frame_had_new_main_content_ = true;
-    TRACKER_TRACE_STREAM << "S(" << origin_args.frame_id.sequence_number << ")";
+      origin_args_is_valid) {
+    if (main_changes_after_sequence_started &&
+        main_changes_include_new_changes && !main_change_had_no_damage) {
+      submitted_frame_had_new_main_content_ = true;
+      TRACKER_TRACE_STREAM << "S(" << origin_args.frame_id.sequence_number
+                           << ")";
 
-    last_submitted_main_sequence_ = origin_args.frame_id.sequence_number;
-    main_frames_.push_back(frame_token);
-    DCHECK_GE(main_throughput().frames_expected, main_frames_.size())
-        << TRACKER_DCHECK_MSG;
+      last_submitted_main_sequence_ = origin_args.frame_id.sequence_number;
+      main_frames_.push_back(frame_token);
+      DCHECK_GE(main_throughput().frames_expected, main_frames_.size())
+          << TRACKER_DCHECK_MSG;
+    } else {
+      // If we have sent a BeginMainFrame which hasn't yet been submitted, or
+      // confirmed that it has no damage (previous_sequence is set to 0), then
+      // we are currently expecting a main frame.
+      const bool expecting_main = begin_main_frame_data_.previous_sequence >
+                                  last_submitted_main_sequence_;
+      if (expecting_main)
+        expecting_main_when_submit_impl_.push_back(frame_token);
+    }
   }
 
   if (has_missing_content) {
@@ -638,14 +830,16 @@ void FrameSequenceTracker::ReportSubmitFrame(
   }
 }
 
-void FrameSequenceTracker::ReportFrameEnd(const viz::BeginFrameArgs& args) {
-  if (termination_status_ != TerminationStatus::kActive)
-    return;
+void FrameSequenceTracker::ReportFrameEnd(
+    const viz::BeginFrameArgs& args,
+    const viz::BeginFrameArgs& main_args) {
+  DCHECK_NE(termination_status_, TerminationStatus::kReadyForTermination);
 
   if (ShouldIgnoreBeginFrameSource(args.frame_id.source_id))
     return;
 
-  TRACKER_TRACE_STREAM << "e(" << args.frame_id.sequence_number << ")";
+  TRACKER_TRACE_STREAM << "e(" << args.frame_id.sequence_number << ","
+                       << main_args.frame_id.sequence_number << ")";
 
   bool should_ignore_sequence =
       ShouldIgnoreSequence(args.frame_id.sequence_number);
@@ -656,9 +850,7 @@ void FrameSequenceTracker::ReportFrameEnd(const viz::BeginFrameArgs& args) {
   }
 
   if (should_ignore_sequence) {
-#if DCHECK_IS_ON()
     is_inside_frame_ = false;
-#endif
     return;
   }
 
@@ -692,15 +884,18 @@ void FrameSequenceTracker::ReportFrameEnd(const viz::BeginFrameArgs& args) {
 #endif
     begin_impl_frame_data_.previous_sequence = 0;
   }
+  // last_submitted_frame_ == 0 means the last impl frame has been presented.
+  if (termination_status_ == TerminationStatus::kScheduledForTermination &&
+      last_submitted_frame_ == 0)
+    termination_status_ = TerminationStatus::kReadyForTermination;
+
   frame_had_no_compositor_damage_ = false;
   compositor_frame_submitted_ = false;
   submitted_frame_had_new_main_content_ = false;
   last_processed_main_sequence_latency_ = 0;
 
-#if DCHECK_IS_ON()
   DCHECK(is_inside_frame_) << TRACKER_DCHECK_MSG;
   is_inside_frame_ = false;
-#endif
 
   DCHECK_EQ(last_started_impl_sequence_, last_processed_impl_sequence_)
       << TRACKER_DCHECK_MSG;
@@ -710,15 +905,18 @@ void FrameSequenceTracker::ReportFrameEnd(const viz::BeginFrameArgs& args) {
 void FrameSequenceTracker::ReportFramePresented(
     uint32_t frame_token,
     const gfx::PresentationFeedback& feedback) {
+  // !viz::FrameTokenGT(a, b) is equivalent to b >= a.
   const bool frame_token_acks_last_frame =
-      frame_token == last_submitted_frame_ ||
-      viz::FrameTokenGT(frame_token, last_submitted_frame_);
+      !viz::FrameTokenGT(last_submitted_frame_, frame_token);
 
   // Update termination status if this is scheduled for termination, and it is
   // not waiting for any frames, or it has received the presentation-feedback
   // for the latest frame it is tracking.
+  //
+  // We should always wait for an impl frame to end, that is, ReportFrameEnd.
   if (termination_status_ == TerminationStatus::kScheduledForTermination &&
-      (last_submitted_frame_ == 0 || frame_token_acks_last_frame)) {
+      (last_submitted_frame_ == 0 || frame_token_acks_last_frame) &&
+      !is_inside_frame_) {
     termination_status_ = TerminationStatus::kReadyForTermination;
   }
 
@@ -733,33 +931,78 @@ void FrameSequenceTracker::ReportFramePresented(
 
   if (ignored_frame_tokens_.contains(frame_token))
     return;
+  base::EraseIf(ignored_frame_tokens_, [frame_token](const uint32_t& token) {
+    return viz::FrameTokenGT(frame_token, token);
+  });
 
-  TRACE_EVENT_NESTABLE_ASYNC_INSTANT_WITH_TIMESTAMP0(
-      "cc,benchmark", "FramePresented", TRACE_ID_LOCAL(metrics_.get()),
-      feedback.timestamp);
+  uint32_t impl_frames_produced = 0;
+  uint32_t main_frames_produced = 0;
+  trace_data_.Advance(feedback.timestamp);
+
   const bool was_presented = !feedback.timestamp.is_null();
   if (was_presented && last_submitted_frame_) {
     DCHECK_LT(impl_throughput().frames_produced,
               impl_throughput().frames_expected)
         << TRACKER_DCHECK_MSG;
     ++impl_throughput().frames_produced;
+    ++impl_frames_produced;
 
     if (frame_token_acks_last_frame)
       last_submitted_frame_ = 0;
   }
 
-  while (!main_frames_.empty() &&
-         !viz::FrameTokenGT(main_frames_.front(), frame_token)) {
-    if (was_presented && main_frames_.front() == frame_token) {
+  if (was_presented) {
+    // This presentation includes the visual update from all main frame tokens
+    // <= |frame_token|.
+    const unsigned size_before_erase = main_frames_.size();
+    while (!main_frames_.empty() &&
+           !viz::FrameTokenGT(main_frames_.front(), frame_token)) {
+      main_frames_.pop_front();
+    }
+    if (main_frames_.size() < size_before_erase) {
       DCHECK_LT(main_throughput().frames_produced,
                 main_throughput().frames_expected)
           << TRACKER_DCHECK_MSG;
       ++main_throughput().frames_produced;
+      ++main_frames_produced;
     }
-    main_frames_.pop_front();
-  }
 
-  if (was_presented) {
+    if (impl_frames_produced > 0) {
+      // If there is no main frame presented, then we need to see whether or not
+      // we are expecting main frames to be presented or not.
+      if (main_frames_produced == 0) {
+        // Only need to check the first element in the deque because the
+        // elements are in order.
+        bool expecting_main_frames =
+            !expecting_main_when_submit_impl_.empty() &&
+            !viz::FrameTokenGT(expecting_main_when_submit_impl_[0],
+                               frame_token);
+        if (expecting_main_frames) {
+          // We are expecting a main frame to be processed, the main frame
+          // should either report no-damage or be submitted to GPU. Since we
+          // don't know which case it would be, we accumulate the number of impl
+          // frames produced so that we can apply that to aggregated throughput
+          // if the main frame reports no-damage later on.
+          impl_frames_produced_while_expecting_main_ += impl_frames_produced;
+        } else {
+          // TODO(https://crbug.com/1066455): Determine why this DCHECK is
+          // causing PageLoadMetricsBrowserTests to flake, and re-enable.
+          // DCHECK_EQ(impl_frames_produced_while_expecting_main_, 0u)
+          //    << TRACKER_DCHECK_MSG;
+          aggregated_throughput().frames_produced += impl_frames_produced;
+          impl_frames_produced_while_expecting_main_ = 0;
+        }
+      } else {
+        aggregated_throughput().frames_produced += main_frames_produced;
+        impl_frames_produced_while_expecting_main_ = 0;
+        while (!expecting_main_when_submit_impl_.empty() &&
+               !viz::FrameTokenGT(expecting_main_when_submit_impl_.front(),
+                                  frame_token)) {
+          expecting_main_when_submit_impl_.pop_front();
+        }
+      }
+    }
+
     if (checkerboarding_.last_frame_had_checkerboarding) {
       DCHECK(!checkerboarding_.last_frame_timestamp.is_null())
           << TRACKER_DCHECK_MSG;
@@ -796,16 +1039,15 @@ void FrameSequenceTracker::ReportFramePresented(
 
 void FrameSequenceTracker::ReportImplFrameCausedNoDamage(
     const viz::BeginFrameAck& ack) {
-  if (termination_status_ != TerminationStatus::kActive)
-    return;
+  DCHECK_NE(termination_status_, TerminationStatus::kReadyForTermination);
 
   if (ShouldIgnoreBeginFrameSource(ack.frame_id.source_id))
     return;
 
   TRACKER_TRACE_STREAM << "n(" << ack.frame_id.sequence_number << ")";
 
-  // It is possible that this is called before a begin-impl-frame has been
-  // dispatched for this frame-sequence. In such cases, ignore this call.
+  // This tracker would be scheduled to terminate, and this frame doesn't belong
+  // to that tracker.
   if (ShouldIgnoreSequence(ack.frame_id.sequence_number))
     return;
 
@@ -859,8 +1101,18 @@ void FrameSequenceTracker::ReportMainFrameCausedNoDamage(
   DCHECK_GE(main_throughput().frames_expected, main_frames_.size())
       << TRACKER_DCHECK_MSG;
 
-  if (begin_main_frame_data_.previous_sequence == args.frame_id.sequence_number)
-    begin_main_frame_data_.previous_sequence = 0;
+  // Could be 0 if there were a pause frame production.
+  if (begin_main_frame_data_.previous_sequence != 0) {
+    DCHECK_EQ(begin_main_frame_data_.previous_sequence,
+              args.frame_id.sequence_number)
+        << TRACKER_DCHECK_MSG;
+  }
+  begin_main_frame_data_.previous_sequence = 0;
+
+  aggregated_throughput().frames_produced +=
+      impl_frames_produced_while_expecting_main_;
+  impl_frames_produced_while_expecting_main_ = 0;
+  expecting_main_when_submit_impl_.clear();
 }
 
 void FrameSequenceTracker::PauseFrameProduction() {
@@ -894,13 +1146,18 @@ bool FrameSequenceTracker::ShouldIgnoreBeginFrameSource(
   return source_id != begin_impl_frame_data_.previous_source;
 }
 
-// This check ensures that when ReportBeginMainFrame, or ReportSubmitFrame, or
-// ReportFramePresented is called for a particular arg, the ReportBeginImplFrame
-// is been called already.
+// This check handles two cases:
+// 1. When there is a call to ReportBeginMainFrame, or ReportSubmitFrame, or
+// ReportFramePresented, there must be a ReportBeginImplFrame for that sequence.
+// Otherwise, the begin_impl_frame_data_.previous_sequence would be 0.
+// 2. A tracker is scheduled to terminate, then any new request to handle a new
+// impl frame whose sequence_number > begin_impl_frame_data_.previous_sequence
+// should be ignored.
+// Note that sequence_number < begin_impl_frame_data_.previous_sequence cannot
+// happen.
 bool FrameSequenceTracker::ShouldIgnoreSequence(
     uint64_t sequence_number) const {
-  return begin_impl_frame_data_.previous_sequence == 0 ||
-         sequence_number < begin_impl_frame_data_.previous_sequence;
+  return sequence_number != begin_impl_frame_data_.previous_sequence;
 }
 
 std::unique_ptr<base::trace_event::TracedValue>
@@ -923,19 +1180,27 @@ bool FrameSequenceTracker::ShouldReportMetricsNow(
 }
 
 std::unique_ptr<FrameSequenceMetrics> FrameSequenceTracker::TakeMetrics() {
+#if DCHECK_IS_ON()
+  DCHECK_EQ(impl_throughput().frames_received,
+            impl_throughput().frames_processed)
+      << frame_sequence_trace_.str().substr(ignored_trace_char_count_);
+#endif
   return std::move(metrics_);
 }
 
 base::Optional<int> FrameSequenceMetrics::ThroughputData::ReportHistogram(
-    FrameSequenceTrackerType sequence_type,
+    FrameSequenceMetrics* metrics,
     ThreadType thread_type,
     int metric_index,
     const ThroughputData& data) {
+  const auto sequence_type = metrics->type();
   DCHECK_LT(sequence_type, FrameSequenceTrackerType::kMaxType);
 
   STATIC_HISTOGRAM_POINTER_GROUP(
-      GetFrameSequenceLengthHistogramName(sequence_type), sequence_type,
-      FrameSequenceTrackerType::kMaxType, Add(data.frames_expected),
+      GetFrameSequenceLengthHistogramName(sequence_type),
+      static_cast<int>(sequence_type),
+      static_cast<int>(FrameSequenceTrackerType::kMaxType),
+      Add(data.frames_expected),
       base::Histogram::FactoryGet(
           GetFrameSequenceLengthHistogramName(sequence_type), 1, 1000, 50,
           base::HistogramBase::kUmaTargetedHistogramFlag));
@@ -943,27 +1208,50 @@ base::Optional<int> FrameSequenceMetrics::ThroughputData::ReportHistogram(
   if (data.frames_expected < kMinFramesForThroughputMetric)
     return base::nullopt;
 
+  // Throughput means the percent of frames that was expected to show on the
+  // screen but didn't. In other words, the lower the throughput is, the
+  // smoother user experience.
   const int percent =
-      static_cast<int>(100 * data.frames_produced / data.frames_expected);
+      std::ceil(100 * (data.frames_expected - data.frames_produced) /
+                static_cast<double>(data.frames_expected));
 
   const bool is_animation =
       ShouldReportForAnimation(sequence_type, thread_type);
-  const bool is_interaction =
-      ShouldReportForInteraction(sequence_type, thread_type);
+  const bool is_interaction = ShouldReportForInteraction(metrics, thread_type);
+
+  ThroughputUkmReporter* const ukm_reporter = metrics->ukm_reporter();
 
   if (is_animation) {
-    UMA_HISTOGRAM_PERCENTAGE("Graphics.Smoothness.Throughput.AllAnimations",
-                             percent);
+    UMA_HISTOGRAM_PERCENTAGE(
+        "Graphics.Smoothness.PercentDroppedFrames.AllAnimations", percent);
+    if (ukm_reporter) {
+      ukm_reporter->ReportAggregateThroughput(AggregationType::kAllAnimations,
+                                              percent);
+    }
   }
 
   if (is_interaction) {
-    UMA_HISTOGRAM_PERCENTAGE("Graphics.Smoothness.Throughput.AllInteractions",
-                             percent);
+    UMA_HISTOGRAM_PERCENTAGE(
+        "Graphics.Smoothness.PercentDroppedFrames.AllInteractions", percent);
+    if (ukm_reporter) {
+      ukm_reporter->ReportAggregateThroughput(AggregationType::kAllInteractions,
+                                              percent);
+    }
   }
 
   if (is_animation || is_interaction) {
-    UMA_HISTOGRAM_PERCENTAGE("Graphics.Smoothness.Throughput.AllSequences",
-                             percent);
+    UMA_HISTOGRAM_PERCENTAGE(
+        "Graphics.Smoothness.PercentDroppedFrames.AllSequences", percent);
+    if (ukm_reporter) {
+      ukm_reporter->ReportAggregateThroughput(AggregationType::kAllSequences,
+                                              percent);
+    }
+  }
+
+  if (!is_animation && !IsInteractionType(sequence_type) &&
+      sequence_type != FrameSequenceTrackerType::kUniversal &&
+      sequence_type != FrameSequenceTrackerType::kVideo) {
+    return base::nullopt;
   }
 
   const char* thread_name =
@@ -981,5 +1269,20 @@ base::Optional<int> FrameSequenceMetrics::ThroughputData::ReportHistogram(
 
 FrameSequenceTracker::CheckerboardingData::CheckerboardingData() = default;
 FrameSequenceTracker::CheckerboardingData::~CheckerboardingData() = default;
+
+FrameSequenceTracker::TraceData::TraceData(const void* id) : trace_id(id) {}
+void FrameSequenceTracker::TraceData::Advance(base::TimeTicks new_timestamp) {
+  // Use different names, because otherwise the trace-viewer shows the slices in
+  // the same color, and that makes it difficult to tell the traces apart from
+  // each other.
+  const char* trace_names[] = {"Frame", "Frame ", "Frame   "};
+  TRACE_EVENT_NESTABLE_ASYNC_BEGIN_WITH_TIMESTAMP0(
+      "cc,benchmark", trace_names[++this->frame_count % 3],
+      TRACE_ID_LOCAL(this->trace_id), this->last_timestamp);
+  TRACE_EVENT_NESTABLE_ASYNC_END_WITH_TIMESTAMP0(
+      "cc,benchmark", trace_names[this->frame_count % 3],
+      TRACE_ID_LOCAL(this->trace_id), new_timestamp);
+  this->last_timestamp = new_timestamp;
+}
 
 }  // namespace cc

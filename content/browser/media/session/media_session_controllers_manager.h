@@ -51,7 +51,8 @@ class CONTENT_EXPORT MediaSessionControllersManager {
   bool RequestPlay(const MediaPlayerId& id,
                    bool has_audio,
                    bool is_remote,
-                   media::MediaContentType media_content_type);
+                   media::MediaContentType media_content_type,
+                   bool has_video);
 
   // Called when the given player |id| has paused.
   void OnPause(const MediaPlayerId& id);
@@ -63,6 +64,10 @@ class CONTENT_EXPORT MediaSessionControllersManager {
   void OnMediaPositionStateChanged(
       const MediaPlayerId& id,
       const media_session::MediaPosition& position);
+
+  // Called when entering/leaving Picture-in-Picture for the associated
+  // WebContents.
+  void PictureInPictureStateChanged(bool is_picture_in_picture);
 
   // Called when the WebContents was muted or unmuted.
   void WebContentsMutedStateChanged(bool muted);

@@ -31,6 +31,7 @@
 #include "third_party/blink/renderer/core/dom/raw_data_document_parser.h"
 #include "third_party/blink/renderer/core/dom/shadow_root.h"
 #include "third_party/blink/renderer/core/events/mouse_event.h"
+#include "third_party/blink/renderer/core/events/touch_event.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame_client.h"
@@ -369,7 +370,7 @@ void ImageDocument::ImageClicked(int x, int y) {
 
     RestoreImageSize();
 
-    UpdateStyleAndLayout();
+    UpdateStyleAndLayout(DocumentUpdateReason::kInput);
 
     double scale = Scale();
     double device_scale_factor =
@@ -383,7 +384,7 @@ void ImageDocument::ImageClicked(int x, int y) {
 
     GetFrame()->View()->LayoutViewport()->SetScrollOffset(
         ScrollOffset(scroll_x, scroll_y),
-        mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
+        mojom::blink::ScrollType::kProgrammatic);
   }
 }
 
@@ -570,15 +571,14 @@ void ImageDocument::Trace(Visitor* visitor) {
 // --------
 
 void ImageEventListener::Invoke(ExecutionContext*, Event* event) {
+  auto* mouse_event = DynamicTo<MouseEvent>(event);
   if (event->type() == event_type_names::kResize) {
     doc_->WindowSizeChanged();
-  } else if (event->type() == event_type_names::kClick &&
-             event->IsMouseEvent()) {
-    MouseEvent* mouse_event = ToMouseEvent(event);
+  } else if (event->type() == event_type_names::kClick && mouse_event) {
     doc_->ImageClicked(mouse_event->x(), mouse_event->y());
   } else if ((event->type() == event_type_names::kTouchend ||
               event->type() == event_type_names::kTouchcancel) &&
-             event->IsTouchEvent()) {
+             IsA<TouchEvent>(event)) {
     doc_->UpdateImageStyle();
   }
 }

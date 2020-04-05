@@ -28,6 +28,8 @@ BreadcrumbManagerBrowserAgent::BreadcrumbManagerBrowserAgent(Browser* browser)
   browser_->GetWebStateList()->AddObserver(this);
 }
 
+BreadcrumbManagerBrowserAgent::~BreadcrumbManagerBrowserAgent() = default;
+
 bool BreadcrumbManagerBrowserAgent::IsLoggingEnabled() {
   return logging_enabled_;
 }
@@ -50,7 +52,7 @@ void BreadcrumbManagerBrowserAgent::LogEvent(const std::string& event) {
       BreadcrumbManagerKeyedServiceFactory::GetInstance()->GetForBrowserState(
           browser_->GetBrowserState());
   breadcrumb_manager->AddEvent(
-      base::StringPrintf("Browser_%d %s", unique_id_, event.c_str()));
+      base::StringPrintf("Browser%d %s", unique_id_, event.c_str()));
 }
 
 void BreadcrumbManagerBrowserAgent::WebStateInsertedAt(
@@ -58,6 +60,11 @@ void BreadcrumbManagerBrowserAgent::WebStateInsertedAt(
     web::WebState* web_state,
     int index,
     bool activating) {
+  if (batch_operation_) {
+    ++batch_operation_->insertion_count;
+    return;
+  }
+
   int web_state_id =
       BreadcrumbManagerTabHelper::FromWebState(web_state)->GetUniqueId();
   const char* activating_string = activating ? "active" : "inactive";
@@ -85,55 +92,62 @@ void BreadcrumbManagerBrowserAgent::WebStateReplacedAt(
   LogEvent(base::StringPrintf("Replaced Tab%d with Tab%d at %d",
                               old_web_state_id, new_web_state_id, index));
 }
-void BreadcrumbManagerBrowserAgent::WebStateDetachedAt(
-    WebStateList* web_state_list,
-    web::WebState* web_state,
-    int index) {
-  int web_state_id =
-      BreadcrumbManagerTabHelper::FromWebState(web_state)->GetUniqueId();
-  LogEvent(base::StringPrintf("Tab%d detached at %d", web_state_id, index));
-}
 void BreadcrumbManagerBrowserAgent::WillCloseWebStateAt(
     WebStateList* web_state_list,
     web::WebState* web_state,
     int index,
     bool user_action) {
+  if (batch_operation_) {
+    ++batch_operation_->close_count;
+    return;
+  }
+
   int web_state_id =
       BreadcrumbManagerTabHelper::FromWebState(web_state)->GetUniqueId();
-  const char* user_action_string = user_action ? " by user action" : "";
-  LogEvent(base::StringPrintf("Tab%d will close at %d%s", web_state_id, index,
-                              user_action_string));
+  LogEvent(base::StringPrintf("Close Tab%d at %d", web_state_id, index));
 }
 void BreadcrumbManagerBrowserAgent::WebStateActivatedAt(
     WebStateList* web_state_list,
     web::WebState* old_web_state,
     web::WebState* new_web_state,
     int active_index,
-    int reason) {
-  int old_web_state_id = -1;
-  if (old_web_state) {
-    old_web_state_id =
-        BreadcrumbManagerTabHelper::FromWebState(old_web_state)->GetUniqueId();
-  }
-  int new_web_state_id = -1;
-  if (new_web_state) {
-    new_web_state_id =
-        BreadcrumbManagerTabHelper::FromWebState(new_web_state)->GetUniqueId();
+    ActiveWebStateChangeReason reason) {
+  if (reason != ActiveWebStateChangeReason::Activated) {
+    return;
   }
 
-  const char* change_reason_string = nullptr;
-  switch (reason) {
-    case WebStateListObserver::ChangeReason::CHANGE_REASON_NONE:
-      change_reason_string = "with";
-      break;
-    case WebStateListObserver::ChangeReason::CHANGE_REASON_REPLACED:
-      change_reason_string = "replaced";
-      break;
-    case WebStateListObserver::ChangeReason::CHANGE_REASON_USER_ACTION:
-      change_reason_string = "for user action";
-      break;
+  std::vector<std::string> event = {"Switch"};
+  if (old_web_state) {
+    event.push_back(base::StringPrintf(
+        "from Tab%d", BreadcrumbManagerTabHelper::FromWebState(old_web_state)
+                          ->GetUniqueId()));
   }
-  LogEvent(base::StringPrintf("Activated Tab%d %s Tab%d at %d",
-                              old_web_state_id, change_reason_string,
-                              new_web_state_id, active_index));
+  if (new_web_state) {
+    event.push_back(base::StringPrintf(
+        "to Tab%d at %d",
+        BreadcrumbManagerTabHelper::FromWebState(new_web_state)->GetUniqueId(),
+        active_index));
+  }
+
+  LogEvent(base::JoinString(event, " "));
+}
+
+void BreadcrumbManagerBrowserAgent::WillBeginBatchOperation(
+    WebStateList* web_state_list) {
+  batch_operation_ = std::make_unique<BatchOperation>();
+}
+
+void BreadcrumbManagerBrowserAgent::BatchOperationEnded(
+    WebStateList* web_state_list) {
+  if (batch_operation_) {
+    if (batch_operation_->insertion_count > 0) {
+      LogEvent(base::StringPrintf("Inserted %d tabs",
+                                  batch_operation_->insertion_count));
+    }
+    if (batch_operation_->close_count > 0) {
+      LogEvent(
+          base::StringPrintf("Closed %d tabs", batch_operation_->close_count));
+    }
+  }
+  batch_operation_.reset();
 }

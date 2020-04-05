@@ -29,7 +29,7 @@ namespace blink {
 
 class BodyStreamBuffer::LoaderClient final
     : public GarbageCollected<LoaderClient>,
-      public ContextLifecycleObserver,
+      public ExecutionContextLifecycleObserver,
       public FetchDataLoader::Client {
   USING_GARBAGE_COLLECTED_MIXIN(LoaderClient);
 
@@ -37,7 +37,7 @@ class BodyStreamBuffer::LoaderClient final
   LoaderClient(ExecutionContext* execution_context,
                BodyStreamBuffer* buffer,
                FetchDataLoader::Client* client)
-      : ContextLifecycleObserver(execution_context),
+      : ExecutionContextLifecycleObserver(execution_context),
         buffer_(buffer),
         client_(client) {}
 
@@ -84,15 +84,15 @@ class BodyStreamBuffer::LoaderClient final
 
   void Abort() override { NOTREACHED(); }
 
-  void Trace(blink::Visitor* visitor) override {
+  void Trace(Visitor* visitor) override {
     visitor->Trace(buffer_);
     visitor->Trace(client_);
-    ContextLifecycleObserver::Trace(visitor);
+    ExecutionContextLifecycleObserver::Trace(visitor);
     FetchDataLoader::Client::Trace(visitor);
   }
 
  private:
-  void ContextDestroyed(ExecutionContext*) override { buffer_->StopLoading(); }
+  void ContextDestroyed() override { buffer_->StopLoading(); }
 
   Member<BodyStreamBuffer> buffer_;
   Member<FetchDataLoader::Client> client_;
@@ -323,9 +323,9 @@ bool BodyStreamBuffer::HasPendingActivity() const {
   return loader_;
 }
 
-void BodyStreamBuffer::ContextDestroyed(ExecutionContext* destroyed_context) {
+void BodyStreamBuffer::ContextDestroyed() {
   CancelConsumer();
-  UnderlyingSourceBase::ContextDestroyed(destroyed_context);
+  UnderlyingSourceBase::ContextDestroyed();
 }
 
 base::Optional<bool> BodyStreamBuffer::IsStreamReadable(
@@ -402,7 +402,7 @@ bool BodyStreamBuffer::IsAborted() {
   return signal_->aborted();
 }
 
-void BodyStreamBuffer::Trace(blink::Visitor* visitor) {
+void BodyStreamBuffer::Trace(Visitor* visitor) {
   visitor->Trace(script_state_);
   visitor->Trace(stream_);
   visitor->Trace(consumer_);

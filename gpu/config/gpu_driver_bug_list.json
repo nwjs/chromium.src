@@ -682,8 +682,8 @@
       },
       "vendor_id": "0x8086",
       "driver_version": {
-        "op": "<=",
-        "value": "9.18.0.0"
+        "op": "<",
+        "value": "0.0.0.3000"
       },
       "features": [
         "disable_d3d11"
@@ -1851,8 +1851,8 @@
           "value": "10.13.2"
         }
       },
-      "gpu_series" : [
-        "intel_skylake"
+      "intel_gpu_series" : [
+        "skylake"
       ],
       "features" : [
         "emulate_isnan_on_float"
@@ -2283,10 +2283,10 @@
       "os": {
         "type": "win"
       },
-      "gpu_series": [
-        "intel_broadwell",
-        "intel_skylake",
-        "intel_cherrytrail"
+      "intel_gpu_series": [
+        "broadwell",
+        "skylake",
+        "cherrytrail"
       ],
       "features": [
         "disable_accelerated_vpx_decode"
@@ -2518,10 +2518,10 @@
       "os": {
         "type": "macosx"
       },
-      "gpu_series": [
-        "intel_skylake",
-        "intel_kabylake",
-        "intel_coffeelake"
+      "intel_gpu_series": [
+        "skylake",
+        "kabylake",
+        "coffeelake"
       ],
       "multi_gpu_category": "any",
       "features": [
@@ -3002,8 +3002,8 @@
         "type": "win"
       },
       "driver_version": {
-        "op": ">=",
-        "value": "24"
+        "op": ">",
+        "value": "0.0.100.0"
       },
       "hardware_overlay": "unsupported",
       "features": [
@@ -3149,9 +3149,9 @@
       "os": {
         "type" : "win"
       },
-      "gpu_series": [
-        "intel_sandybridge",
-        "intel_ivybridge"
+      "intel_gpu_series": [
+        "sandybridge",
+        "ivybridge"
       ],
       "features": [
         "disable_direct_composition"
@@ -3184,7 +3184,7 @@
       "vendor_id": "0x8086",
       "driver_version": {
         "op": "<",
-        "value": "24.0.0.0"
+        "value": "0.0.0.9999"
       },
       "features": [
         "disable_nv12_dynamic_textures"
@@ -3515,32 +3515,45 @@
       ]
     },
     {
-      "id": 330,
-      "cr_bugs": [1038671],
-      "description": "WebGL MSAA for PowerVR.*GX6250 context lost with GL_UNKNOWN_CONTEXT_RESET_KHR",
-      "os": {
-        "type": "chromeos"
-      },
-      "gl_vendor": "Imagination.*",
-      "gl_renderer": "PowerVR.*GX6250",
-      "features": [
-        "webgl_msaa_is_broken"
-      ],
-      "disabled_extensions": [
-        "GL_EXT_multisampled_render_to_texture"
-      ]
-    },
-    {
       "id": 331,
       "cr_bugs": [1046462],
       "description": "GL and Vulkan interop doesn't work with AMD GPU properly",
       "os": {
         "type": "linux"
       },
+      "driver_vendor": "Mesa",
+      "driver_version": {
+        "op": "<",
+        "value": "19.3.5"
+      },
       "vendor_id": "0x1002",
       "disabled_extensions": [
         "GL_EXT_memory_object_fd",
         "GL_EXT_semaphore_fd"
+      ]
+    },
+    {
+      "id": 332,
+      "cr_bugs": [1045586],
+      "description": "Send empty video hdr metadata due to crashes on AMD",
+      "os": {
+        "type": "win"
+      },
+      "vendor_id": "0x1002",
+      "features": [
+        "use_empty_video_hdr_metadata"
+      ]
+    },
+    {
+      "id": 333,
+      "cr_bugs": [1042615],
+      "description": "Disable Qcomm_tiled_rendering extension for webview",
+      "os": {
+        "type": "android"
+      },
+      "gl_vendor": "Qualcomm.*",
+      "features": [
+        "disable_qcomm_tiled_rendering"
       ]
     },
     {
@@ -3556,19 +3569,39 @@
       ]
     },
     {
-      "id":335,
-      "cr_bugs": [1051705],
-      "description": "Disable AImageReader on ARM GPUs",
+      "id": 336,
+      "cr_bugs": [625785],
+      "description": "DXVA video decoder crashes on some AMD GPUs",
       "os": {
-        "type": "android",
-        "version": {
-          "op": "<",
-          "value": "10"
-        }
+        "type": "win"
       },
-      "gl_vendor": "ARM.*",
+      "vendor_id": "0x1002",
+      "device_id": ["0x15d8", "0x15dd"],
+      "exceptions": [
+        {
+          "driver_version": {
+            "op": "between",
+            "value": "26.20.11030.2",
+            "value2": "26.20.11999.99999"
+          },
+          "driver_version": {
+            "op": "between",
+            "value": "26.20.12020.15",
+            "value2": "26.20.12999.99999"
+          },
+          "driver_version": {
+            "op": "between",
+            "value": "26.20.13001.27002",
+            "value2": "26.20.13999.99999"
+          },
+          "driver_version": {
+            "op": ">=",
+            "value": "26.20.14001.7001"
+          }
+        }
+      ],
       "features": [
-        "disable_aimagereader"
+        "disable_dxva_video_decoder"
       ]
     }
   ]

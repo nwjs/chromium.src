@@ -5,6 +5,7 @@
 <link rel="import" href="chrome://resources/cr_elements/cr_icon_button/cr_icon_button.html">
 <link rel="import" href="chrome://resources/cr_elements/icons.html">
 <link rel="import" href="chrome://resources/cr_elements/shared_vars_css.html">
+<link rel="import" href="chrome://resources/html/assert.html">
 <link rel="import" href="chrome://resources/html/web_ui_listener_behavior.html">
 <link rel="import" href="chrome://resources/polymer/v1_0/iron-icon/iron-icon.html">
 <link rel="import" href="profile_info_browser_proxy.html">
@@ -23,11 +24,6 @@
         --shown-avatar-size: 40px;
         --sync-icon-border-size: 2px;
         --sync-icon-size: 16px;
-      }
-
-      setting-box.middle {
-        /* Per spec, middle text is indented 20px in this section. */
-        margin-inline-start: 20px;
       }
 
       .account-icon {
@@ -124,7 +120,7 @@
       }
 
       #banner {
-        background: url(../images/sync_banner.svg) no-repeat;
+        background: url(chrome://settings/images/sync_banner.svg) no-repeat;
         background-size: 100% auto;
         display: none;
         padding-top: calc(120 / 680 * 100%); /* Keep background ratio. */
@@ -132,7 +128,7 @@
 
       @media (prefers-color-scheme: dark) {
         #banner {
-          background-image: url(../images/sync_banner_dark.svg);
+          background-image: url(chrome://settings/images/sync_banner_dark.svg);
         }
       }
 
@@ -210,7 +206,7 @@
         </cr-button>
         <cr-button id="turn-off"
             hidden="[[!shouldShowTurnOffButton_(syncStatus.signedIn,
-                showSetupButtons_)]]"
+                syncStatus.domain, showSetupButtons_)]]"
             on-click="onTurnOffButtonTap_"
             disabled="[[syncStatus.firstSetupInProgress]]">
           $i18n{turnOffSync}

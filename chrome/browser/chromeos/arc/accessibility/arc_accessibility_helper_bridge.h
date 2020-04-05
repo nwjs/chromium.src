@@ -74,6 +74,10 @@ class ArcAccessibilityHelperBridge
       bool enabled,
       bool processed);
 
+  // Request Android to send the entire tree with the tree id. Returns true if
+  // the specified tree exists in ARC and a request was sent.
+  bool RefreshTreeIfInActiveWindow(const ui::AXTreeID& tree_id);
+
   // KeyedService overrides.
   void Shutdown() override;
 
@@ -87,6 +91,7 @@ class ArcAccessibilityHelperBridge
   void OnNotificationStateChanged(
       const std::string& notification_key,
       mojom::AccessibilityNotificationStateType state) override;
+  void OnToggleNativeChromeVoxArcSupport(bool enabled) override;
 
   // AXTreeSourceArc::Delegate overrides.
   void OnAction(const ui::AXActionData& data) const override;
@@ -102,6 +107,11 @@ class ArcAccessibilityHelperBridge
       ash::ArcNotificationSurface* surface) override;
   void OnNotificationSurfaceRemoved(
       ash::ArcNotificationSurface* surface) override {}
+
+  // wm::ActivationChangeObserver overrides.
+  void OnWindowActivated(ActivationReason reason,
+                         aura::Window* gained_active,
+                         aura::Window* lost_active) override;
 
   void InvokeUpdateEnabledFeatureForTesting();
 
@@ -128,11 +138,6 @@ class ArcAccessibilityHelperBridge
   std::unique_ptr<PrefChangeRegistrar> pref_change_registrar_;
   void UpdateCaptionSettings() const;
 
-  // wm::ActivationChangeObserver overrides.
-  void OnWindowActivated(ActivationReason reason,
-                         aura::Window* gained_active,
-                         aura::Window* lost_active) override;
-
   void OnActionResult(const ui::AXActionData& data, bool result) const;
   void OnGetTextLocationDataResult(
       const ui::AXActionData& data,
@@ -151,7 +156,9 @@ class ArcAccessibilityHelperBridge
   void HandleFilterTypeFocusEvent(mojom::AccessibilityEventDataPtr event_data);
   void HandleFilterTypeAllEvent(mojom::AccessibilityEventDataPtr event_data);
 
-  AXTreeSourceArc* CreateFromKey(TreeKey);
+  void DispatchCustomSpokenFeedbackToggled(bool enabled) const;
+
+  AXTreeSourceArc* CreateFromKey(TreeKey, aura::Window* window);
   AXTreeSourceArc* GetFromKey(const TreeKey&);
   AXTreeSourceArc* GetFromTreeId(ui::AXTreeID tree_id) const;
 
@@ -166,6 +173,12 @@ class ArcAccessibilityHelperBridge
 
   arc::mojom::AccessibilityFilterType filter_type_ =
       arc::mojom::AccessibilityFilterType::OFF;
+
+  // Set of task id where TalkBack is enabled. ChromeOS native accessibility
+  // support should be disabled for these tasks.
+  std::set<int32_t> talkback_enabled_task_ids_;
+  // True if native ChromeVox support is enabled.
+  bool native_chromevox_enabled_ = true;
 
   DISALLOW_COPY_AND_ASSIGN(ArcAccessibilityHelperBridge);
 };

@@ -358,6 +358,10 @@
       "location": "component"
     }
   ],
+  "web_app_file_handlers": {
+    "channel": "stable",
+    "extension_types": ["hosted_app"]
+  },
   "webview": {
     "channel": "stable",
     "extension_types": "all",

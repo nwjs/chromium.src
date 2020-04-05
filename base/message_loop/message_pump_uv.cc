@@ -83,15 +83,13 @@ void MessagePumpUV::Run(Delegate* delegate) {
   g_msg_pump_pre_loop_fn(&ctx);
   // Enter Loop
   for (;;) {
-    bool did_work = delegate->DoWork();
+    Delegate::NextWorkInfo next_work_info = delegate->DoWork();
+    bool has_more_immediate_work = next_work_info.is_immediate();
     if (!keep_running_)
       break;
 
-    did_work |= delegate->DoDelayedWork(&delayed_work_time_);
-    if (!keep_running_)
-      break;
-
-    if (did_work) {
+    g_msg_pump_did_work_fn(&ctx);
+    if (has_more_immediate_work) {
       // // call tick callback after done work in V8,
       // // in the same way node upstream handle this in MakeCallBack,
       // // or the tick callback is blocked in some cases
@@ -101,36 +99,29 @@ void MessagePumpUV::Run(Delegate* delegate) {
       //   (*node::g_nw_uv_run)(loop, UV_RUN_NOWAIT);
       //   node::CallNWTickCallback(node::g_env, v8::Undefined(isolate));
       // }
-      g_msg_pump_did_work_fn(&ctx);
       continue;
     }
 
-    did_work = delegate->DoIdleWork();
+    has_more_immediate_work = delegate->DoIdleWork();
     if (!keep_running_)
       break;
 
-    if (did_work) {
+    if (has_more_immediate_work) {
       g_msg_pump_did_work_fn(&ctx);
       continue;
     }
 
-    if (delayed_work_time_.is_null()) {
+    if (next_work_info.delayed_run_time.is_max()) {
       // (*node::g_nw_uv_run)(loop, UV_RUN_ONCE);
       g_msg_pump_need_work_fn(&ctx);
     } else {
-      TimeDelta delay = delayed_work_time_ - TimeTicks::Now();
-      if (delay > TimeDelta()) {
+      TimeDelta delay = next_work_info.remaining_delay();
         // uv_timer_start(&delay_timer, timer_callback,
         //                delay.InMilliseconds(), 0);
         // (*node::g_nw_uv_run)(loop, UV_RUN_ONCE);
         // uv_idle_stop(&idle_handle);
         // uv_timer_stop(&delay_timer);
-        g_msg_pump_delay_work_fn(&ctx, delay.InMilliseconds());
-      } else {
-        // It looks like delayed_work_time_ indicates a time in the past, so we
-        // need to call DoDelayedWork now.
-        delayed_work_time_ = TimeTicks();
-      }
+      g_msg_pump_delay_work_fn(&ctx, delay.InMilliseconds());
     }
     // Since event_ is auto-reset, we don't need to do anything special here
     // other than service each delegate method.

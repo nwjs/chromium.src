@@ -33,34 +33,7 @@ namespace {
 // Preference indicating that the Dice migraton has happened.
 const char kDiceMigrationCompletePref[] = "signin.DiceMigrationComplete";
 
-const char kDiceMigrationStatusHistogram[] = "Signin.DiceMigrationStatus";
-
 const char kAllowBrowserSigninArgument[] = "allow-browser-signin";
-
-// Used for UMA histogram kDiceMigrationStatusHistogram.
-// Do not remove or re-order values.
-enum class DiceMigrationStatus {
-  kEnabled,
-  kDisabledReadyForMigration,
-  kDisabledNotReadyForMigration,
-  kDisabled,
-
-  // This is the last value. New values should be inserted above.
-  kDiceMigrationStatusCount
-};
-
-DiceMigrationStatus GetDiceMigrationStatus(
-    AccountConsistencyMethod account_consistency) {
-  switch (account_consistency) {
-    case AccountConsistencyMethod::kDice:
-      return DiceMigrationStatus::kEnabled;
-    case AccountConsistencyMethod::kDisabled:
-      return DiceMigrationStatus::kDisabled;
-    case AccountConsistencyMethod::kMirror:
-      NOTREACHED();
-      return DiceMigrationStatus::kDisabled;
-  }
-}
 
 bool IsBrowserSigninAllowedByCommandLine() {
   base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
@@ -69,10 +42,8 @@ bool IsBrowserSigninAllowedByCommandLine() {
         command_line->GetSwitchValueASCII(kAllowBrowserSigninArgument);
     return base::ToLowerASCII(allowBrowserSignin) == "true";
   }
-
-  // TODO(crbug.com/1053961): Remove disallow-signin argument now that it was
-  // replaced by kAllowBrowserSigninArgument.
-  return !command_line->HasSwitch("disallow-signin");
+  // If the commandline flag is not provided, the default is true.
+  return true;
 }
 #endif
 
@@ -112,10 +83,6 @@ AccountConsistencyModeManager::AccountConsistencyModeManager(Profile* profile)
   // were created before Dice.
   if (profile_->IsNewProfile())
     SetDiceMigrationCompleted();
-
-  UMA_HISTOGRAM_ENUMERATION(kDiceMigrationStatusHistogram,
-                            GetDiceMigrationStatus(account_consistency_),
-                            DiceMigrationStatus::kDiceMigrationStatusCount);
 #endif
 
   DCHECK_EQ(account_consistency_, ComputeAccountConsistencyMethod(profile_));

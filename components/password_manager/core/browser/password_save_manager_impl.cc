@@ -37,6 +37,27 @@ ValueElementPair PasswordToSave(const PasswordForm& form) {
   return {form.new_password_value, form.new_password_element};
 }
 
+PasswordForm PendingCredentialsForNewCredentials(
+    const PasswordForm& parsed_submitted_form,
+    const FormData& observed_form,
+    const base::string16& password_element,
+    bool is_http_auth,
+    bool is_credential_api_save) {
+  if (is_http_auth || is_credential_api_save)
+    return parsed_submitted_form;
+
+  PasswordForm pending_credentials = parsed_submitted_form;
+  pending_credentials.form_data = observed_form;
+  // The password value will be filled in later, remove any garbage for now.
+  pending_credentials.password_value.clear();
+  // The password element should be determined earlier in |PasswordToSave|.
+  pending_credentials.password_element = password_element;
+  // The new password's value and element name should be empty.
+  pending_credentials.new_password_value.clear();
+  pending_credentials.new_password_element.clear();
+  return pending_credentials;
+}
+
 // Helper to get the platform specific identifier by which autofill and password
 // manager refer to a field. See http://crbug.com/896594
 base::string16 GetPlatformSpecificIdentifier(const FormFieldData& field) {
@@ -138,88 +159,46 @@ void PasswordSaveManagerImpl::CreatePendingCredentials(
     bool is_credential_api_save) {
   DCHECK(votes_uploader_);
 
-  // This function might be called multiple times so set variables that are
-  // changed in this function to initial states.
-  pending_credentials_state_ = PendingCredentialsState::NONE;
-  votes_uploader_->set_password_overridden(false);
+  const PasswordForm* similar_saved_form;
+  std::tie(similar_saved_form, pending_credentials_state_) =
+      FindSimilarSavedFormAndComputeState(parsed_submitted_form);
 
-  ValueElementPair password_to_save(PasswordToSave(parsed_submitted_form));
-  // Look for the actually submitted credentials in the list of previously saved
-  // credentials that were available to autofilling.
-  const PasswordForm* saved_form = password_manager_util::GetMatchForUpdating(
-      parsed_submitted_form, form_fetcher_->GetBestMatches());
-  if (saved_form) {
-    // A similar credential exists in the store already.
-    pending_credentials_ = *saved_form;
-    pending_credentials_state_ = PendingCredentialsState::EQUAL_TO_SAVED_MATCH;
-    if (pending_credentials_.password_value != password_to_save.first) {
-      pending_credentials_state_ = PendingCredentialsState::UPDATE;
-      votes_uploader_->set_password_overridden(true);
-    } else if (pending_credentials_.is_public_suffix_match) {
-      // If the autofilled credentials were a PSL match, store a copy with the
-      // current origin and signon realm. This ensures that on the next visit, a
-      // precise match is found.
-      pending_credentials_state_ = PendingCredentialsState::AUTOMATIC_SAVE;
-      // Update credential to reflect that it has been used for submission.
-      // If this isn't updated, then password generation uploads are off for
-      // sites where PSL matching is required to fill the login form, as two
-      // PASSWORD votes are uploaded per saved password instead of one.
-      password_manager_util::UpdateMetadataForUsage(&pending_credentials_);
-
-      // Update |pending_credentials_| in order to be able correctly save it.
-      pending_credentials_.origin = parsed_submitted_form.origin;
-      pending_credentials_.signon_realm = parsed_submitted_form.signon_realm;
-      pending_credentials_.action = parsed_submitted_form.action;
-    }
-  } else {
-    pending_credentials_state_ = PendingCredentialsState::NEW_LOGIN;
-    // No stored credentials can be matched to the submitted form. Offer to
-    // save new credentials.
-    CreatePendingCredentialsForNewCredentials(
-        parsed_submitted_form, observed_form, password_to_save.second,
-        is_http_auth, is_credential_api_save);
-    // Generate username correction votes.
-    bool username_correction_found =
-        votes_uploader_->FindCorrectedUsernameElement(
-            form_fetcher_->GetAllRelevantMatches(),
-            parsed_submitted_form.username_value,
-            parsed_submitted_form.password_value);
-    UMA_HISTOGRAM_BOOLEAN("PasswordManager.UsernameCorrectionFound",
-                          username_correction_found);
-    if (username_correction_found) {
-      metrics_recorder_->RecordDetailedUserAction(
-          password_manager::PasswordFormMetricsRecorder::DetailedUserAction::
-              kCorrectedUsernameInForm);
-    }
-  }
-  pending_credentials_.password_value =
-      HasGeneratedPassword() ? generation_manager_->generated_password()
-                             : password_to_save.first;
-  pending_credentials_.date_last_used = base::Time::Now();
-  pending_credentials_.form_has_autofilled_value =
-      parsed_submitted_form.form_has_autofilled_value;
-  pending_credentials_.all_possible_passwords =
-      parsed_submitted_form.all_possible_passwords;
-  CopyFieldPropertiesMasks(submitted_form, &pending_credentials_.form_data);
-
-  // If we're dealing with an API-driven provisionally saved form, then take
-  // the server provided values. We don't do this for non-API forms, as
-  // those will never have those members set.
-  if (parsed_submitted_form.type == PasswordForm::Type::kApi) {
-    pending_credentials_.skip_zero_click =
-        parsed_submitted_form.skip_zero_click;
-    pending_credentials_.display_name = parsed_submitted_form.display_name;
-    pending_credentials_.federation_origin =
-        parsed_submitted_form.federation_origin;
-    pending_credentials_.icon_url = parsed_submitted_form.icon_url;
-    // It's important to override |signon_realm| for federated credentials
-    // because it has format "federation://" + origin_host + "/" +
-    // federation_host
-    pending_credentials_.signon_realm = parsed_submitted_form.signon_realm;
-  }
-
+  base::Optional<base::string16> generated_password;
   if (HasGeneratedPassword())
-    pending_credentials_.type = PasswordForm::Type::kGenerated;
+    generated_password = generation_manager_->generated_password();
+
+  pending_credentials_ = BuildPendingCredentials(
+      pending_credentials_state_, parsed_submitted_form, observed_form,
+      submitted_form, generated_password, is_http_auth, is_credential_api_save,
+      similar_saved_form);
+
+  votes_uploader_->set_password_overridden(false);
+  switch (pending_credentials_state_) {
+    case PendingCredentialsState::NEW_LOGIN: {
+      // Generate username correction votes.
+      bool username_correction_found =
+          votes_uploader_->FindCorrectedUsernameElement(
+              form_fetcher_->GetAllRelevantMatches(),
+              parsed_submitted_form.username_value,
+              parsed_submitted_form.password_value);
+      UMA_HISTOGRAM_BOOLEAN("PasswordManager.UsernameCorrectionFound",
+                            username_correction_found);
+      if (username_correction_found) {
+        metrics_recorder_->RecordDetailedUserAction(
+            password_manager::PasswordFormMetricsRecorder::DetailedUserAction::
+                kCorrectedUsernameInForm);
+      }
+      break;
+    }
+    case PendingCredentialsState::UPDATE:
+      votes_uploader_->set_password_overridden(true);
+      break;
+    case PendingCredentialsState::NONE:
+    case PendingCredentialsState::AUTOMATIC_SAVE:
+    case PendingCredentialsState::EQUAL_TO_SAVED_MATCH:
+      // Nothing to be done in these cases.
+      break;
+  }
 }
 
 void PasswordSaveManagerImpl::ResetPendingCrednetials() {
@@ -322,8 +301,9 @@ void PasswordSaveManagerImpl::GeneratedPasswordAccepted(
     PasswordForm parsed_form,
     base::WeakPtr<PasswordManagerDriver> driver) {
   generation_manager_ = std::make_unique<PasswordGenerationManager>(client_);
-  generation_manager_->GeneratedPasswordAccepted(std::move(parsed_form),
-                                                 *form_fetcher_, driver);
+  generation_manager_->GeneratedPasswordAccepted(
+      std::move(parsed_form), form_fetcher_->GetNonFederatedMatches(),
+      form_fetcher_->GetFederatedMatches(), driver);
 }
 
 void PasswordSaveManagerImpl::PasswordNoLongerGenerated() {
@@ -361,39 +341,127 @@ std::unique_ptr<PasswordSaveManager> PasswordSaveManagerImpl::Clone() {
   return result;
 }
 
-void PasswordSaveManagerImpl::CreatePendingCredentialsForNewCredentials(
+// static
+PendingCredentialsState PasswordSaveManagerImpl::ComputePendingCredentialsState(
+    const PasswordForm& parsed_submitted_form,
+    const PasswordForm* similar_saved_form) {
+  ValueElementPair password_to_save(PasswordToSave(parsed_submitted_form));
+  // Check if there are previously saved credentials (that were available to
+  // autofilling) matching the actually submitted credentials.
+  if (!similar_saved_form)
+    return PendingCredentialsState::NEW_LOGIN;
+
+  // A similar credential exists in the store already.
+  if (similar_saved_form->password_value != password_to_save.first)
+    return PendingCredentialsState::UPDATE;
+
+  // If the autofilled credentials were a PSL match, store a copy with the
+  // current origin and signon realm. This ensures that on the next visit, a
+  // precise match is found.
+  if (similar_saved_form->is_public_suffix_match)
+    return PendingCredentialsState::AUTOMATIC_SAVE;
+
+  return PendingCredentialsState::EQUAL_TO_SAVED_MATCH;
+}
+
+// static
+PasswordForm PasswordSaveManagerImpl::BuildPendingCredentials(
+    PendingCredentialsState pending_credentials_state,
     const PasswordForm& parsed_submitted_form,
     const FormData& observed_form,
-    const base::string16& password_element,
+    const FormData& submitted_form,
+    const base::Optional<base::string16>& generated_password,
     bool is_http_auth,
-    bool is_credential_api_save) {
-  if (is_http_auth || is_credential_api_save) {
-    pending_credentials_ = parsed_submitted_form;
-    return;
+    bool is_credential_api_save,
+    const PasswordForm* similar_saved_form) {
+  PasswordForm pending_credentials;
+
+  ValueElementPair password_to_save(PasswordToSave(parsed_submitted_form));
+
+  switch (pending_credentials_state) {
+    case PendingCredentialsState::NEW_LOGIN:
+      // No stored credentials can be matched to the submitted form. Offer to
+      // save new credentials.
+      pending_credentials = PendingCredentialsForNewCredentials(
+          parsed_submitted_form, observed_form, password_to_save.second,
+          is_http_auth, is_credential_api_save);
+      break;
+    case PendingCredentialsState::EQUAL_TO_SAVED_MATCH:
+    case PendingCredentialsState::UPDATE:
+      pending_credentials = *similar_saved_form;
+      break;
+    case PendingCredentialsState::AUTOMATIC_SAVE:
+      pending_credentials = *similar_saved_form;
+
+      // Update credential to reflect that it has been used for submission.
+      // If this isn't updated, then password generation uploads are off for
+      // sites where PSL matching is required to fill the login form, as two
+      // PASSWORD votes are uploaded per saved password instead of one.
+      password_manager_util::UpdateMetadataForUsage(&pending_credentials);
+
+      // Update |pending_credentials| in order to be able correctly save it.
+      pending_credentials.origin = parsed_submitted_form.origin;
+      pending_credentials.signon_realm = parsed_submitted_form.signon_realm;
+      pending_credentials.action = parsed_submitted_form.action;
+      break;
+    case PendingCredentialsState::NONE:
+      NOTREACHED();
+      break;
   }
 
-  pending_credentials_ = parsed_submitted_form;
-  pending_credentials_.form_data = observed_form;
-  // The password value will be filled in later, remove any garbage for now.
-  pending_credentials_.password_value.clear();
-  // The password element should be determined earlier in |PasswordToSave|.
-  pending_credentials_.password_element = password_element;
-  // The new password's value and element name should be empty.
-  pending_credentials_.new_password_value.clear();
-  pending_credentials_.new_password_element.clear();
+  pending_credentials.password_value =
+      generated_password.value_or(password_to_save.first);
+  pending_credentials.date_last_used = base::Time::Now();
+  pending_credentials.form_has_autofilled_value =
+      parsed_submitted_form.form_has_autofilled_value;
+  pending_credentials.all_possible_passwords =
+      parsed_submitted_form.all_possible_passwords;
+  CopyFieldPropertiesMasks(submitted_form, &pending_credentials.form_data);
+
+  // If we're dealing with an API-driven provisionally saved form, then take
+  // the server provided values. We don't do this for non-API forms, as
+  // those will never have those members set.
+  if (parsed_submitted_form.type == PasswordForm::Type::kApi) {
+    pending_credentials.skip_zero_click = parsed_submitted_form.skip_zero_click;
+    pending_credentials.display_name = parsed_submitted_form.display_name;
+    pending_credentials.federation_origin =
+        parsed_submitted_form.federation_origin;
+    pending_credentials.icon_url = parsed_submitted_form.icon_url;
+    // It's important to override |signon_realm| for federated credentials
+    // because it has format "federation://" + origin_host + "/" +
+    // federation_host
+    pending_credentials.signon_realm = parsed_submitted_form.signon_realm;
+  }
+
+  if (generated_password.has_value())
+    pending_credentials.type = PasswordForm::Type::kGenerated;
+
+  return pending_credentials;
+}
+
+std::pair<const autofill::PasswordForm*, PendingCredentialsState>
+PasswordSaveManagerImpl::FindSimilarSavedFormAndComputeState(
+    const PasswordForm& parsed_submitted_form) const {
+  const PasswordForm* similar_saved_form =
+      password_manager_util::GetMatchForUpdating(
+          parsed_submitted_form, form_fetcher_->GetBestMatches());
+  return std::make_pair(similar_saved_form,
+                        ComputePendingCredentialsState(parsed_submitted_form,
+                                                       similar_saved_form));
 }
 
 void PasswordSaveManagerImpl::SavePendingToStore(
     const PasswordForm& parsed_submitted_form,
     bool update) {
-  const PasswordForm* saved_form = password_manager_util::GetMatchForUpdating(
-      parsed_submitted_form, form_fetcher_->GetBestMatches());
+  const PasswordForm* similar_saved_form =
+      FindSimilarSavedFormAndComputeState(parsed_submitted_form).first;
   if ((update || IsPasswordUpdate()) &&
       !pending_credentials_.IsFederatedCredential()) {
-    DCHECK(saved_form);
+    DCHECK(similar_saved_form);
   }
-  base::string16 old_password =
-      saved_form ? saved_form->password_value : base::string16();
+  base::string16 old_password = similar_saved_form
+                                    ? similar_saved_form->password_value
+                                    : base::string16();
   if (HasGeneratedPassword()) {
     generation_manager_->CommitGeneratedPassword(
         pending_credentials_, form_fetcher_->GetAllRelevantMatches(),

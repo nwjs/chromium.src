@@ -60,6 +60,12 @@ cr.define('cr.ui', () => {
       /** @private {?cr.ui.Menu} */
       this.menu_ = null;
 
+      /** @private {?ResizeObserver} */
+      this.observer_ = null;
+
+      /** @private {?Element} */
+      this.observedElement_ = null;
+
       throw new Error('Designed to decorate elements');
     }
 
@@ -69,7 +75,26 @@ cr.define('cr.ui', () => {
      * @return {!cr.ui.MultiMenuButton} Decorated element.
      */
     static decorate(element) {
-      element.__proto__ = MultiMenuButton.prototype;
+      // Add the MultiMenuButton methods to the element we're
+      // decorating, leaving it's prototype chain intact.
+      // Don't copy 'constructor' or property get/setters.
+      Object.getOwnPropertyNames(MultiMenuButton.prototype).forEach(name => {
+        if (name !== 'constructor' &&
+            !Object.getOwnPropertyDescriptor(element, name)) {
+          element[name] = MultiMenuButton.prototype[name];
+        }
+      });
+      // Set up the 'menu' property & setter/getter.
+      Object.defineProperty(element, 'menu', {
+        get() {
+          return this.menu_;
+        },
+        set(menu) {
+          this.setMenu_(menu);
+        },
+        enumerable: true,
+        configurable: true
+      });
       element = /** @type {!cr.ui.MultiMenuButton} */ (element);
       element.decorate();
       return element;
@@ -79,6 +104,8 @@ cr.define('cr.ui', () => {
      * Initializes the menu button.
      */
     decorate() {
+      this.setAttribute('aria-expanded', 'false');
+
       // Listen to the touch events on the document so that we can handle it
       // before cancelled by other UI components.
       this.ownerDocument.addEventListener('touchstart', this, {passive: true});
@@ -100,6 +127,12 @@ cr.define('cr.ui', () => {
         this.menu = menu;
       }
 
+      // Align the menu if the button moves. When the button moves, the parent
+      // container resizes.
+      this.observer_ = new ResizeObserver(() => {
+        this.positionMenu_();
+      });
+
       // An event tracker for events we only connect to while the menu is
       // displayed.
       this.showingEvents_ = new EventTracker();
@@ -115,7 +148,7 @@ cr.define('cr.ui', () => {
     get menu() {
       return this.menu_;
     }
-    set menu(menu) {
+    setMenu_(menu) {
       if (typeof menu == 'string' && menu[0] == '#') {
         menu = assert(this.ownerDocument.body.querySelector(menu));
         cr.ui.decorate(menu, cr.ui.Menu);
@@ -127,6 +160,9 @@ cr.define('cr.ui', () => {
           this.setAttribute('menu', '#' + menu.id);
         }
       }
+    }
+    set menu(menu) {
+      this.setMenu_(menu);
     }
 
     /**
@@ -323,6 +359,7 @@ cr.define('cr.ui', () => {
               // focus is on another button or cr-input element.
               if (!(document.hasFocus() &&
                     (document.activeElement.tagName === 'BUTTON' ||
+                     document.activeElement.tagName === 'CR-BUTTON' ||
                      document.activeElement.tagName === 'CR-INPUT'))) {
                 e.preventDefault();
               }
@@ -467,9 +504,15 @@ cr.define('cr.ui', () => {
         return;
       }
 
+      // Track element for which menu was opened so that command events are
+      // dispatched to the correct element.
+      this.menu.contextElement = this;
       this.menu.show(opt_mousePos);
 
+      // Toggle aria and open state.
+      this.setAttribute('aria-expanded', 'true');
       this.setAttribute('menu-shown', '');
+
       // Handle mouse-over to trigger sub menu opening on hover.
       this.showingEvents_.add(this.menu, 'mouseover', this);
       this.showingEvents_.add(this.menu, 'mouseout', this);
@@ -486,6 +529,8 @@ cr.define('cr.ui', () => {
       this.showingEvents_.add(win, 'resize', this);
       this.showingEvents_.add(this.menu, 'contextmenu', this);
       this.showingEvents_.add(this.menu, 'activate', this);
+      this.observedElement_ = this.parentElement;
+      this.observer_.observe(this.observedElement_);
       this.positionMenu_();
 
       if (shouldSetFocus) {
@@ -549,7 +594,10 @@ cr.define('cr.ui', () => {
       // Hide any visible sub-menus first
       this.hideSubMenu_();
 
+      // Toggle aria and open state.
+      this.setAttribute('aria-expanded', 'false');
       this.removeAttribute('menu-shown');
+
       if (opt_hideType == HideType.DELAYED) {
         this.menu.classList.add('hide-delayed');
       } else {
@@ -561,6 +609,8 @@ cr.define('cr.ui', () => {
       if (shouldTakeFocus) {
         this.focus();
       }
+
+      this.observer_.unobserve(this.observedElement_);
 
       const event = new UIEvent(
           'menuhide', {bubbles: true, cancelable: false, view: window});

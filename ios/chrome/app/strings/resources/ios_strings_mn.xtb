@@ -97,6 +97,7 @@
 <translation id="2149973817440762519">Хадгалагдсан хуудсыг засах</translation>
 <translation id="2179182049312275900">Та синкийг хүссэн үедээ тохиргоонд асааж болно.</translation>
 <translation id="2198757192731523470">Google таны түүхийг хайлт, зар болон Google-н бусад үйлчилгээг хувийн болгохын тулд ашиглаж болзошгүй.</translation>
+<translation id="2218443599109088993">Жижигрүүлэх</translation>
 <translation id="2230173723195178503">Вэб хуудсыг ачаалласан</translation>
 <translation id="2239626343334228536">Хөтчийн өгөгдлийг устгаж байна...</translation>
 <translation id="2257567812274161158">Синк хийх ажиллахгүй байна.</translation>
@@ -159,6 +160,7 @@
 <translation id="2923448633003185837">Буулгаад үргэлжлүүлэх</translation>
 <translation id="292639812446257861">Уншаагүй гэж тэмдэглэх</translation>
 <translation id="2958718410589002129">Нууц үг</translation>
+<translation id="2964349545761222050">Гуравдагч талын күүкиг блоклох</translation>
 <translation id="2969979262385602596">Нэвтэрч чадсангүй. Дараа дахин оролдоно уу.</translation>
 <translation id="298306318844797842">Төлбөрийн хэрэгсэл нэмэх...</translation>
 <translation id="2989805286512600854">Шинэ цонхонд нээ</translation>
@@ -178,6 +180,7 @@
 <translation id="3290875554372353449">Бүртгэл сонгох</translation>
 <translation id="3311748811247479259">Унтраалттай байна</translation>
 <translation id="3324193307694657476">Хаяг 2</translation>
+<translation id="3328801116991980348">Сайтын мэдээлэл</translation>
 <translation id="3329904751041170572">Сервертэй холбогдож чадсангүй.</translation>
 <translation id="3335947283844343239">Хаасан Tab-г дахин нээнэ үү.</translation>
 <translation id="3371831930909698441">Орчуулах боломжтой байна. Дэлгэцийн доод хэсгийн ойролцоо сонголт хийх боломжтой.</translation>
@@ -299,6 +302,7 @@
 <translation id="4979397965658815378">Хавчуурга, нууц үг, түүх болон бусад тохиргоог бүх төхөөрөмждөө авахын тулд Google Бүртгэлээрээ нэвтэрнэ үү</translation>
 <translation id="5005498671520578047">Нууц үг хуулах</translation>
 <translation id="5010803260590204777">Вэбэд нууцлалтайгаар зочилохын тулд мэдээллийн нууцлалтай цонхыг нээнэ үү.</translation>
+<translation id="5039020240289137291">Гуравдагч талын күүкиг блоклож байна</translation>
 <translation id="5039804452771397117">Зөвшөөрөх</translation>
 <translation id="5059136629401106827">OK</translation>
 <translation id="5062321486222145940">Google Drive суулгах</translation>
@@ -323,7 +327,7 @@
 <translation id="5388358297987318779">Зургийг нээх</translation>
 <translation id="5407969256130905701">Өөрчлөлтийг болих</translation>
 <translation id="5409365236829784218">Энэ файлыг нээж чадах ямар ч аппликейшн суулгаагүй байна.</translation>
-<translation id="5416022985862681400">Өнгөрсөн 7 өдөр</translation>
+<translation id="5416022985862681400">Сүүлийн 7 хоног</translation>
 <translation id="5433691172869980887">Хэрэглэгчийн нэрийг хуулсан</translation>
 <translation id="54401264925851789">Хуудасны аюулгүй байдалтай холбоотой мэдээлэл</translation>
 <translation id="5443952882982198570">Кредит картууд</translation>
@@ -413,9 +417,11 @@ Handoff-ыг Тохиргооны ерөнхий хэсэгт идэвхижүү
 <translation id="6434591244308415567">Алдаа гарлаа. Дараа дахин оролдоно уу.</translation>
 <translation id="6445051938772793705">Улс</translation>
 <translation id="6445981559479772097">Зурвас илгээгдсэн.</translation>
+<translation id="6447842834002726250">Cookies</translation>
 <translation id="6464071786529933911">Нууцлалын шинэ чихтэй хуудсанд нээх</translation>
 <translation id="6476800141292307438">Хуудсыг <ph name="LANGUAGE" /> руу орчуулж байна. Дэлгэцийн доод хэсгийн ойролцоо сонголт хийх боломжтой.</translation>
 <translation id="6482629121755362506"><ph name="NUMBER_OF_SELECTED_BOOKMARKS" /> зүйлс сонгогдсон байна</translation>
+<translation id="6561262006871132942">Томруулах</translation>
 <translation id="6610002944194042868">Орчуулах сонголт</translation>
 <translation id="6628106477656132239">Дуусах огноо буруу байна</translation>
 <translation id="6638511529934826365">Текстийг томруулах…</translation>
@@ -478,7 +484,6 @@ Handoff-ыг Тохиргооны ерөнхий хэсэгт идэвхижүү
 <translation id="734758817008927353">Картыг хадгалах сонголтууд</translation>
 <translation id="7348502496356775519">Хавчуурга</translation>
 <translation id="7383797227493018512">Унших жагсаалт</translation>
-<translation id="7392048574806661116">Гараад, синк хийсэн өгөгдлийг устгах</translation>
 <translation id="7400418766976504921">URL</translation>
 <translation id="7409985198648820906">Уншаагүй <ph name="UNREAD_COUNT" /> нийтлэл.</translation>
 <translation id="7425346204213733349">Таны хавчуурга, түүх, нууц үг, бусад тохиргоонд хийсэн өөрчлөлтийг цаашид таны Google Бүртгэлд синк хийхгүй. Харин таны одоо байгаа өгөгдлийг Google бүртгэлд хадгалах болно.</translation>
@@ -597,6 +602,7 @@ Handoff-ыг Тохиргооны ерөнхий хэсэгт идэвхижүү
 <translation id="9223358826628549784">Алдаа ослын тайланг илгээсэн байна.</translation>
 <translation id="952704832371081537">Цуцлах</translation>
 <translation id="988141524645182168">Бусад төхөөрөмжүүд</translation>
+<translation id="989697783705943787">Сайтын аюулгүй байдал</translation>
 <translation id="989988560359834682">Хаягийг засварлах</translation>
 <translation id="994757059139821576">Нийтлэлийн зөвлөмж</translation>
 </translationbundle>

@@ -5,12 +5,19 @@
 package org.chromium.chrome.browser.omnibox;
 
 import static android.support.test.espresso.Espresso.onView;
+import static android.support.test.espresso.action.ViewActions.click;
+import static android.support.test.espresso.assertion.ViewAssertions.matches;
+import static android.support.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static android.support.test.espresso.matcher.ViewMatchers.withId;
 import static android.view.View.GONE;
 import static android.view.View.VISIBLE;
 
+import static org.hamcrest.Matchers.not;
+
+import android.support.test.filters.MediumTest;
 import android.support.test.filters.SmallTest;
 import android.view.View;
+import android.view.WindowManager;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 
@@ -24,18 +31,23 @@ import org.chromium.base.ContextUtils;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Feature;
+import org.chromium.base.test.util.Matchers;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeActivity;
-import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.toolbar.LocationBarModel;
-import org.chromium.chrome.browser.util.UrlConstants;
 import org.chromium.chrome.test.ChromeActivityTestRule;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
+import org.chromium.chrome.test.util.OmniboxTestUtils;
 import org.chromium.chrome.test.util.browser.Features.EnableFeatures;
+import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.components.security_state.ConnectionSecurityLevel;
+import org.chromium.content_public.browser.test.util.ClickUtils;
+import org.chromium.content_public.browser.test.util.Criteria;
+import org.chromium.content_public.browser.test.util.CriteriaHelper;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.ui.test.util.UiRestriction;
 
@@ -164,10 +176,11 @@ public class LocationBarLayoutTest {
     }
 
     private void setUrlBarTextAndFocus(String text) throws ExecutionException {
+        onView(withId(R.id.url_bar)).perform(click());
+
         TestThreadUtils.runOnUiThreadBlocking(new Callable<Void>() {
             @Override
             public Void call() throws InterruptedException {
-                getLocationBar().onUrlFocusChange(true);
                 mActivityTestRule.typeInOmnibox(text, false);
                 return null;
             }
@@ -178,20 +191,33 @@ public class LocationBarLayoutTest {
     @SmallTest
     @Restriction(UiRestriction.RESTRICTION_TYPE_PHONE)
     public void testNotShowingVoiceSearchButtonIfUrlBarContainsText() throws ExecutionException {
+        // When there is text, the delete button should be visible.
         setUrlBarTextAndFocus("testing");
 
-        Assert.assertEquals(getDeleteButton().getVisibility(), VISIBLE);
-        Assert.assertNotEquals(getMicButton().getVisibility(), VISIBLE);
+        onView(withId(R.id.delete_button)).check(matches(isDisplayed()));
+        onView(withId(R.id.mic_button)).check(matches(not(isDisplayed())));
     }
 
     @Test
     @SmallTest
     @Restriction(UiRestriction.RESTRICTION_TYPE_PHONE)
     public void testShowingVoiceSearchButtonIfUrlBarIsEmpty() throws ExecutionException {
+        // When there's no text, the mic button should be visible.
         setUrlBarTextAndFocus("");
 
-        Assert.assertNotEquals(getDeleteButton().getVisibility(), VISIBLE);
-        Assert.assertEquals(getMicButton().getVisibility(), VISIBLE);
+        onView(withId(R.id.mic_button)).check(matches(isDisplayed()));
+        onView(withId(R.id.delete_button)).check(matches(not(isDisplayed())));
+    }
+
+    @Test
+    @SmallTest
+    public void testDeleteButton() throws ExecutionException {
+        setUrlBarTextAndFocus("testing");
+        Assert.assertEquals(getDeleteButton().getVisibility(), VISIBLE);
+        ClickUtils.clickButton(getDeleteButton());
+        CriteriaHelper.pollUiThread(
+                Criteria.checkThat(() -> getDeleteButton().getVisibility(), Matchers.not(VISIBLE)));
+        Assert.assertEquals("", getUrlText(getUrlBar()));
     }
 
     @Test
@@ -478,6 +504,29 @@ public class LocationBarLayoutTest {
         Assert.assertFalse(locationBar.didFocusUrlFromFakebox());
         Assert.assertEquals(
                 2, RecordHistogram.getHistogramTotalCountForTesting("Android.OmniboxFocusReason"));
+    }
+
+    /**
+     * Test for checking whether soft input model switches with focus.
+     */
+    @Test
+    @MediumTest
+    @Feature("Omnibox")
+    public void testFocusChangingSoftInputMode() {
+        final UrlBar urlBar = getUrlBar();
+
+        Callable<Integer> softInputModeCallable = () -> {
+            return mActivityTestRule.getActivity().getWindow().getAttributes().softInputMode;
+        };
+        OmniboxTestUtils.toggleUrlBarFocus(urlBar, true);
+        CriteriaHelper.pollUiThread(Criteria.equals(true, urlBar::hasFocus));
+        CriteriaHelper.pollUiThread(Criteria.equals(
+                WindowManager.LayoutParams.SOFT_INPUT_ADJUST_PAN, softInputModeCallable));
+
+        OmniboxTestUtils.toggleUrlBarFocus(urlBar, false);
+        CriteriaHelper.pollUiThread(Criteria.equals(false, urlBar::hasFocus));
+        CriteriaHelper.pollUiThread(Criteria.equals(
+                WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE, softInputModeCallable));
     }
 
     private void loadUrlInNewTabAndUpdateModels(String url, boolean incognito) {

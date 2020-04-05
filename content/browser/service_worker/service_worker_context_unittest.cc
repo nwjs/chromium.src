@@ -117,8 +117,7 @@ class InstallActivateWorker : public FakeServiceWorker {
     events_.emplace_back(ServiceWorkerMetrics::EventType::INSTALL);
     std::move(callback).Run(
         reject_install_ ? blink::mojom::ServiceWorkerEventStatus::REJECTED
-                        : blink::mojom::ServiceWorkerEventStatus::COMPLETED,
-        true /* has_fetch_handler */);
+                        : blink::mojom::ServiceWorkerEventStatus::COMPLETED);
   }
 
   void DispatchActivateEvent(
@@ -329,7 +328,6 @@ class TestServiceWorkerContextObserver : public ServiceWorkerContextObserver {
   }
 
   void OnVersionStartedRunning(
-      content::ServiceWorkerContext* context,
       int64_t version_id,
       const ServiceWorkerRunningInfo& running_info) override {
     EventLog log;
@@ -338,8 +336,7 @@ class TestServiceWorkerContextObserver : public ServiceWorkerContextObserver {
     events_.push_back(log);
   }
 
-  void OnVersionStoppedRunning(content::ServiceWorkerContext* context,
-                               int64_t version_id) override {
+  void OnVersionStoppedRunning(int64_t version_id) override {
     EventLog log;
     log.type = EventType::VersionStoppedRunning;
     log.version_id = version_id;
@@ -717,7 +714,8 @@ TEST_F(ServiceWorkerContextTest, Unregister) {
   EXPECT_NE(blink::mojom::kInvalidServiceWorkerRegistrationId, registration_id);
 
   called = false;
-  context()->UnregisterServiceWorker(scope, MakeUnregisteredCallback(&called));
+  context()->UnregisterServiceWorker(scope, /*is_immediate=*/false,
+                                     MakeUnregisteredCallback(&called));
 
   ASSERT_FALSE(called);
   base::RunLoop().RunUntilIdle();

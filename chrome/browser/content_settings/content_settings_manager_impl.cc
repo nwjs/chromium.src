@@ -10,6 +10,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "components/content_settings/core/browser/cookie_settings.h"
 #include "components/page_load_metrics/browser/metrics_web_contents_observer.h"
+#include "components/page_load_metrics/browser/page_load_metrics_observer.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
 #include "extensions/buildflags/buildflags.h"
@@ -22,6 +23,28 @@
 
 namespace chrome {
 namespace {
+
+void OnStorageAccessed(int process_id,
+                       int frame_id,
+                       const GURL& origin_url,
+                       const GURL& top_origin_url,
+                       bool blocked_by_policy,
+                       page_load_metrics::StorageType storage_type) {
+  content::RenderFrameHost* frame =
+      content::RenderFrameHost::FromID(process_id, frame_id);
+  content::WebContents* web_contents =
+      content::WebContents::FromRenderFrameHost(frame);
+  if (!web_contents)
+    return;
+
+  page_load_metrics::MetricsWebContentsObserver* metrics_observer =
+      page_load_metrics::MetricsWebContentsObserver::FromWebContents(
+          web_contents);
+  if (metrics_observer) {
+    metrics_observer->OnStorageAccessed(origin_url, top_origin_url,
+                                        blocked_by_policy, storage_type);
+  }
+}
 
 void OnDomStorageAccessed(int process_id,
                           int frame_id,
@@ -40,13 +63,6 @@ void OnDomStorageAccessed(int process_id,
       TabSpecificContentSettings::FromWebContents(web_contents);
   if (tab_settings)
     tab_settings->OnDomStorageAccessed(origin_url, local, blocked_by_policy);
-
-  page_load_metrics::MetricsWebContentsObserver* metrics_observer =
-      page_load_metrics::MetricsWebContentsObserver::FromWebContents(
-          web_contents);
-  if (metrics_observer)
-    metrics_observer->OnDomStorageAccessed(origin_url, top_origin_url, local,
-                                           blocked_by_policy);
 }
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
@@ -121,10 +137,17 @@ void ContentSettingsManagerImpl::AllowStorageAccess(
     case StorageType::LOCAL_STORAGE:
       OnDomStorageAccessed(render_process_id_, render_frame_id, url,
                            top_frame_origin.GetURL(), true, !allowed);
+      OnStorageAccessed(render_process_id_, render_frame_id, url,
+                        top_frame_origin.GetURL(), !allowed,
+                        page_load_metrics::StorageType::kLocalStorage);
       break;
     case StorageType::SESSION_STORAGE:
       OnDomStorageAccessed(render_process_id_, render_frame_id, url,
                            top_frame_origin.GetURL(), false, !allowed);
+      OnStorageAccessed(render_process_id_, render_frame_id, url,
+                        top_frame_origin.GetURL(), !allowed,
+                        page_load_metrics::StorageType::kSessionStorage);
+
       break;
     case StorageType::FILE_SYSTEM:
 #if BUILDFLAG(ENABLE_EXTENSIONS)
@@ -137,14 +160,23 @@ void ContentSettingsManagerImpl::AllowStorageAccess(
 #endif
       TabSpecificContentSettings::FileSystemAccessed(
           render_process_id_, render_frame_id, url, !allowed);
+      OnStorageAccessed(render_process_id_, render_frame_id, url,
+                        top_frame_origin.GetURL(), !allowed,
+                        page_load_metrics::StorageType::kFileSystem);
       break;
     case StorageType::INDEXED_DB:
       TabSpecificContentSettings::IndexedDBAccessed(
           render_process_id_, render_frame_id, url, !allowed);
+      OnStorageAccessed(render_process_id_, render_frame_id, url,
+                        top_frame_origin.GetURL(), !allowed,
+                        page_load_metrics::StorageType::kIndexedDb);
       break;
     case StorageType::CACHE:
       TabSpecificContentSettings::CacheStorageAccessed(
           render_process_id_, render_frame_id, url, !allowed);
+      OnStorageAccessed(render_process_id_, render_frame_id, url,
+                        top_frame_origin.GetURL(), !allowed,
+                        page_load_metrics::StorageType::kCacheStorage);
       break;
     case StorageType::WEB_LOCKS:
       // State not persisted, no need to record anything.

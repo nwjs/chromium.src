@@ -11,7 +11,7 @@
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
-#include "chrome/updater/updater_constants.h"
+#include "chrome/updater/constants.h"
 #include "chrome/updater/util.h"
 #include "chrome/updater/win/ui/constants.h"
 #include "chrome/updater/win/ui/ui_ctls.h"
@@ -22,6 +22,9 @@ namespace updater {
 namespace ui {
 
 namespace {
+
+// TODO(crbug.com/1065588): remove this symbol.
+const char kChromeAppId[] = "{8A69D345-D564-463C-AFF1-A69D9E530F96}";
 
 // The current UI shows to the user only one completion type, even though
 // there could be multiple applications in a bundle, where each application

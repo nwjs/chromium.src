@@ -16,6 +16,8 @@
 
 namespace {
 
+const char kOriginalUrlKey[] = "url";
+
 // Escapes HTML characters in |text|.
 NSString* EscapeHTMLCharacters(NSString* text) {
   return base::SysUTF8ToNSString(
@@ -43,7 +45,7 @@ NSString* InjectedErrorPageFilePath() {
 @interface ErrorPageHelper ()
 @property(nonatomic, strong) NSError* error;
 // The error page HTML to be injected into existing page.
-@property(nonatomic, strong, readonly) NSString* HTMLToInject;
+@property(nonatomic, strong) NSString* automaticReloadJavaScript;
 @property(nonatomic, strong, readonly) NSString* failedNavigationURLString;
 @end
 
@@ -51,8 +53,6 @@ NSString* InjectedErrorPageFilePath() {
 
 @synthesize failedNavigationURL = _failedNavigationURL;
 @synthesize errorPageFileURL = _errorPageFileURL;
-@synthesize HTMLToInject = _HTMLToInject;
-@synthesize scriptToInject = _scriptToInject;
 
 - (instancetype)initWithError:(NSError*)error {
   if (self = [super init]) {
@@ -76,9 +76,9 @@ NSString* InjectedErrorPageFilePath() {
 
 - (NSURL*)errorPageFileURL {
   if (!_errorPageFileURL) {
-    NSURLQueryItem* itemURL =
-        [NSURLQueryItem queryItemWithName:@"url"
-                                    value:self.failedNavigationURLString];
+    NSURLQueryItem* itemURL = [NSURLQueryItem
+        queryItemWithName:base::SysUTF8ToNSString(kOriginalUrlKey)
+                    value:self.failedNavigationURLString];
     NSURLQueryItem* itemError =
         [NSURLQueryItem queryItemWithName:@"error"
                                     value:_error.localizedDescription];
@@ -93,8 +93,8 @@ NSString* InjectedErrorPageFilePath() {
   return _errorPageFileURL;
 }
 
-- (NSString*)HTMLToInject {
-  if (!_HTMLToInject) {
+- (NSString*)automaticReloadJavaScript {
+  if (!_automaticReloadJavaScript) {
     NSString* path = InjectedErrorPageFilePath();
     NSString* HTMLTemplate =
         [NSString stringWithContentsOfFile:path
@@ -102,31 +102,10 @@ NSString* InjectedErrorPageFilePath() {
                                      error:nil];
     NSString* failedNavigationURLString =
         EscapeHTMLCharacters(self.failedNavigationURLString);
-    NSString* errorInfo = EscapeHTMLCharacters(self.error.localizedDescription);
-    _HTMLToInject =
-        [NSString stringWithFormat:HTMLTemplate, failedNavigationURLString,
-                                   failedNavigationURLString, errorInfo];
+    _automaticReloadJavaScript =
+        [NSString stringWithFormat:HTMLTemplate, failedNavigationURLString];
   }
-  return _HTMLToInject;
-}
-
-- (NSString*)scriptToInject {
-  if (!_scriptToInject) {
-    NSString* JSON = [[NSString alloc]
-        initWithData:[NSJSONSerialization
-                         dataWithJSONObject:@[ self.HTMLToInject ]
-                                    options:0
-                                      error:nil]
-            encoding:NSUTF8StringEncoding];
-    NSString* escapedHtml =
-        [JSON substringWithRange:NSMakeRange(1, JSON.length - 2)];
-
-    _scriptToInject =
-        [NSString stringWithFormat:
-                      @"document.open(); document.write(%@); document.close();",
-                      escapedHtml];
-  }
-  return _scriptToInject;
+  return _automaticReloadJavaScript;
 }
 
 #pragma mark - Public
@@ -137,14 +116,36 @@ NSString* InjectedErrorPageFilePath() {
 
   if (URL.SchemeIsFile() &&
       URL.path() == base::SysNSStringToUTF8(LoadedErrorPageFilePath())) {
-    for (net::QueryIterator it(URL); !it.IsAtEnd(); it.Advance()) {
-      if (it.GetKey() == "file") {
-        return GURL(it.GetValue());
-      }
+    std::string value;
+    if (net::GetValueForKeyInQuery(URL, kOriginalUrlKey, &value)) {
+      return GURL(value);
     }
   }
 
   return GURL();
+}
+
+- (NSString*)scriptForInjectingHTML:(NSString*)HTML
+                 addAutomaticReload:(BOOL)addAutomaticReload {
+  NSString* HTMLToInject = HTML;
+  if (addAutomaticReload) {
+    HTMLToInject =
+        [HTMLToInject stringByAppendingString:self.automaticReloadJavaScript];
+  }
+
+  // Serialize as JSON to be able to inject HTML characters.
+  NSString* JSON = [[NSString alloc]
+      initWithData:[NSJSONSerialization dataWithJSONObject:@[ HTMLToInject ]
+                                                   options:0
+                                                     error:nil]
+          encoding:NSUTF8StringEncoding];
+  NSString* escapedHTML =
+      [JSON substringWithRange:NSMakeRange(1, JSON.length - 2)];
+
+  return
+      [NSString stringWithFormat:
+                    @"document.open(); document.write(%@); document.close();",
+                    escapedHTML];
 }
 
 - (BOOL)isErrorPageFileURLForFailedNavigationURL:(NSURL*)URL {
@@ -157,7 +158,7 @@ NSString* InjectedErrorPageFilePath() {
                                               resolvingAgainstBaseURL:NO];
   NSURL* failedNavigationURL = nil;
   for (NSURLQueryItem* item in URLComponents.queryItems) {
-    if ([item.name isEqualToString:@"url"]) {
+    if ([item.name isEqualToString:base::SysUTF8ToNSString(kOriginalUrlKey)]) {
       failedNavigationURL = [NSURL URLWithString:item.value];
       break;
     }

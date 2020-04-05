@@ -190,8 +190,8 @@ class LayerTreeHostImplForTesting : public LayerTreeHostImpl {
     return has_damage;
   }
 
-  void DidFinishImplFrame() override {
-    LayerTreeHostImpl::DidFinishImplFrame();
+  void DidFinishImplFrame(const viz::BeginFrameArgs& main_args) override {
+    LayerTreeHostImpl::DidFinishImplFrame(main_args);
     test_hooks_->DidFinishImplFrameOnThread(this);
   }
 
@@ -407,7 +407,8 @@ class LayerTreeHostClientForTesting : public LayerTreeHostClient,
   void OnDeferCommitsChanged(bool) override {}
 
   void RecordStartOfFrameMetrics() override {}
-  void RecordEndOfFrameMetrics(base::TimeTicks) override {}
+  void RecordEndOfFrameMetrics(base::TimeTicks,
+                               ActiveFrameSequenceTrackers) override {}
   std::unique_ptr<BeginMainFrameMetrics> GetBeginMainFrameMetrics() override {
     return nullptr;
   }
@@ -442,7 +443,7 @@ class LayerTreeHostClientForTesting : public LayerTreeHostClient,
 
   void WillCommit() override { test_hooks_->WillCommit(); }
 
-  void DidCommit() override { test_hooks_->DidCommit(); }
+  void DidCommit(const base::TimeTicks) override { test_hooks_->DidCommit(); }
 
   void DidCommitAndDrawFrame() override {
     test_hooks_->DidCommitAndDrawFrame();
@@ -649,14 +650,6 @@ LayerTreeTest::LayerTreeTest(LayerTreeTest::RendererType renderer_type)
 LayerTreeTest::~LayerTreeTest() {
   if (animation_host_)
     animation_host_->SetMutatorHostClient(nullptr);
-}
-
-gfx::Vector2dF LayerTreeTest::ScrollDelta(LayerImpl* layer_impl) {
-  gfx::ScrollOffset delta = layer_impl->layer_tree_impl()
-                                ->property_trees()
-                                ->scroll_tree.GetScrollOffsetDeltaForTesting(
-                                    layer_impl->element_id());
-  return gfx::Vector2dF(delta.x(), delta.y());
 }
 
 void LayerTreeTest::EndTest() {
@@ -1085,6 +1078,11 @@ void LayerTreeTest::RequestNewLayerTreeFrameSink() {
       use_software_renderer() ? nullptr
                               : viz::TestContextProvider::CreateWorker();
 
+  if (!use_software_renderer()) {
+    SetUpUnboundContextProviders(shared_context_provider.get(),
+                                 worker_context_provider.get());
+  }
+
   viz::RendererSettings renderer_settings;
   // Spend less time waiting for BeginFrame because the output is
   // mocked out.
@@ -1096,6 +1094,10 @@ void LayerTreeTest::RequestNewLayerTreeFrameSink() {
   layer_tree_frame_sink->SetClient(layer_tree_frame_sink_client_.get());
   layer_tree_host_->SetLayerTreeFrameSink(std::move(layer_tree_frame_sink));
 }
+
+void LayerTreeTest::SetUpUnboundContextProviders(
+    viz::TestContextProvider* context_provider,
+    viz::TestContextProvider* worker_context_provider) {}
 
 std::unique_ptr<TestLayerTreeFrameSink> LayerTreeTest::CreateLayerTreeFrameSink(
     const viz::RendererSettings& renderer_settings,

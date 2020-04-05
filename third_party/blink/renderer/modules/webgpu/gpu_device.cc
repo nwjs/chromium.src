@@ -36,10 +36,11 @@ namespace blink {
 GPUDevice::GPUDevice(ExecutionContext* execution_context,
                      scoped_refptr<DawnControlClientHolder> dawn_control_client,
                      GPUAdapter* adapter,
+                     uint64_t client_id,
                      const GPUDeviceDescriptor* descriptor)
-    : ContextClient(execution_context),
+    : ExecutionContextClient(execution_context),
       DawnObject(dawn_control_client,
-                 dawn_control_client->GetInterface()->GetDefaultDevice()),
+                 dawn_control_client->GetInterface()->GetDevice(client_id)),
       adapter_(adapter),
       queue_(MakeGarbageCollected<GPUQueue>(
           this,
@@ -48,7 +49,9 @@ GPUDevice::GPUDevice(ExecutionContext* execution_context,
       error_callback_(
           BindRepeatingDawnCallback(&GPUDevice::OnUncapturedError,
                                     WrapWeakPersistent(this),
-                                    WrapWeakPersistent(execution_context))) {
+                                    WrapWeakPersistent(execution_context))),
+      client_id_(client_id) {
+  DCHECK(dawn_control_client->GetInterface()->GetDevice(client_id));
   GetProcs().deviceSetUncapturedErrorCallback(
       GetHandle(), error_callback_->UnboundRepeatingCallback(),
       error_callback_->AsUserdata());
@@ -58,7 +61,13 @@ GPUDevice::~GPUDevice() {
   if (IsDawnControlClientDestroyed()) {
     return;
   }
+  queue_ = nullptr;
   GetProcs().deviceRelease(GetHandle());
+  GetInterface()->RemoveDevice(client_id_);
+}
+
+uint64_t GPUDevice::GetClientID() const {
+  return client_id_;
 }
 
 void GPUDevice::OnUncapturedError(ExecutionContext* execution_context,
@@ -67,9 +76,9 @@ void GPUDevice::OnUncapturedError(ExecutionContext* execution_context,
   if (execution_context) {
     DCHECK_NE(errorType, WGPUErrorType_NoError);
     LOG(ERROR) << "GPUDevice: " << message;
-    ConsoleMessage* console_message =
-        ConsoleMessage::Create(mojom::ConsoleMessageSource::kRendering,
-                               mojom::ConsoleMessageLevel::kWarning, message);
+    auto* console_message = MakeGarbageCollected<ConsoleMessage>(
+        mojom::ConsoleMessageSource::kRendering,
+        mojom::ConsoleMessageLevel::kWarning, message);
     execution_context->AddConsoleMessage(console_message);
   }
 
@@ -231,18 +240,18 @@ void GPUDevice::OnPopErrorScopeCallback(ScriptPromiseResolver* resolver,
 }
 
 ExecutionContext* GPUDevice::GetExecutionContext() const {
-  return ContextClient::GetExecutionContext();
+  return ExecutionContextClient::GetExecutionContext();
 }
 
 const AtomicString& GPUDevice::InterfaceName() const {
   return event_target_names::kGPUDevice;
 }
 
-void GPUDevice::Trace(blink::Visitor* visitor) {
+void GPUDevice::Trace(Visitor* visitor) {
   visitor->Trace(adapter_);
   visitor->Trace(queue_);
   visitor->Trace(lost_property_);
-  ContextClient::Trace(visitor);
+  ExecutionContextClient::Trace(visitor);
   EventTargetWithInlineData::Trace(visitor);
 }
 

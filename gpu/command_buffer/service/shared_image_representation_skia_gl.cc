@@ -4,6 +4,7 @@
 
 #include "gpu/command_buffer/service/shared_image_representation_skia_gl.h"
 
+#include "base/memory/ptr_util.h"
 #include "components/viz/common/resources/resource_format_utils.h"
 #include "gpu/command_buffer/service/shared_context_state.h"
 #include "gpu/command_buffer/service/skia_utils.h"
@@ -144,6 +145,10 @@ void SharedImageRepresentationSkiaGL::CheckContext() {
 #if DCHECK_IS_ON()
   DCHECK(gl::GLContext::GetCurrent() == context_);
 #endif
+}
+
+bool SharedImageRepresentationSkiaGL::SupportsMultipleConcurrentReadAccess() {
+  return gl_representation_->SupportsMultipleConcurrentReadAccess();
 }
 
 }  // namespace gpu

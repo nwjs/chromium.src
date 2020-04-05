@@ -18,9 +18,9 @@ import org.chromium.chrome.browser.compositor.layouts.Layout;
 import org.chromium.chrome.browser.compositor.layouts.components.LayoutTab;
 import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
-import org.chromium.chrome.browser.flags.FeatureUtilities;
 import org.chromium.chrome.browser.fullscreen.ChromeFullscreenManager;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
+import org.chromium.chrome.browser.tasks.tab_management.TabUiFeatureUtilities;
 import org.chromium.components.browser_ui.styles.ChromeColors;
 import org.chromium.ui.resources.ResourceManager;
 import org.chromium.ui.util.ColorUtils;
@@ -148,14 +148,14 @@ public class TabListSceneLayer extends SceneLayer {
      * @return The background color of the scene layer.
      */
     protected int getTabListBackgroundColor(Context context) {
-        int colorId = R.color.modern_primary_color;
+        int colorId = R.color.default_bg_color;
 
         if (ChromeFeatureList.isEnabled(ChromeFeatureList.HORIZONTAL_TAB_SWITCHER_ANDROID)
-                || FeatureUtilities.isGridTabSwitcherEnabled()) {
+                || TabUiFeatureUtilities.isGridTabSwitcherEnabled()) {
             if (mTabModelSelector != null && mTabModelSelector.isIncognitoSelected()) {
-                colorId = R.color.dark_primary_color;
+                colorId = R.color.default_bg_color_dark;
             } else {
-                colorId = R.color.modern_primary_color;
+                colorId = R.color.default_bg_color;
             }
         }
 

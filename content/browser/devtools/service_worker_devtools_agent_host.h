@@ -14,6 +14,8 @@
 #include "base/unguessable_token.h"
 #include "content/browser/devtools/devtools_agent_host_impl.h"
 #include "content/browser/devtools/service_worker_devtools_manager.h"
+#include "services/network/public/cpp/cross_origin_embedder_policy.h"
+#include "services/network/public/mojom/cross_origin_embedder_policy.mojom.h"
 #include "third_party/blink/public/mojom/devtools/devtools_agent.mojom.h"
 
 namespace content {
@@ -29,12 +31,15 @@ class ServiceWorkerDevToolsAgentHost : public DevToolsAgentHostImpl {
   ServiceWorkerDevToolsAgentHost(
       int worker_process_id,
       int worker_route_id,
-      const ServiceWorkerContextCore* context,
-      base::WeakPtr<ServiceWorkerContextCore> context_weak,
+      scoped_refptr<ServiceWorkerContextWrapper> context_wrapper,
       int64_t version_id,
       const GURL& url,
       const GURL& scope,
       bool is_installed_version,
+      base::Optional<network::CrossOriginEmbedderPolicy>
+          cross_origin_embedder_policy,
+      mojo::PendingRemote<network::mojom::CrossOriginEmbedderPolicyReporter>
+          coep_reporter,
       const base::UnguessableToken& devtools_worker_token);
 
   // DevToolsAgentHost overrides.
@@ -50,7 +55,11 @@ class ServiceWorkerDevToolsAgentHost : public DevToolsAgentHostImpl {
   void WorkerReadyForInspection(
       mojo::PendingRemote<blink::mojom::DevToolsAgent> agent_remote,
       mojo::PendingReceiver<blink::mojom::DevToolsAgentHost> host_receiver);
-  void WorkerDestroyed();
+  void UpdateCrossOriginEmbedderPolicy(
+      network::CrossOriginEmbedderPolicy cross_origin_embedder_policy,
+      mojo::PendingRemote<network::mojom::CrossOriginEmbedderPolicyReporter>
+          coep_reporter);
+  void WorkerStopped();
   void WorkerVersionInstalled();
   void WorkerVersionDoomed();
 
@@ -68,8 +77,9 @@ class ServiceWorkerDevToolsAgentHost : public DevToolsAgentHostImpl {
   base::Time version_doomed_time() const { return version_doomed_time_; }
 
   int64_t version_id() const { return version_id_; }
-
-  bool Matches(const ServiceWorkerContextCore* context, int64_t version_id);
+  const ServiceWorkerContextWrapper* context_wrapper() const {
+    return context_wrapper_.get();
+  }
 
  private:
   ~ServiceWorkerDevToolsAgentHost() override;
@@ -90,13 +100,16 @@ class ServiceWorkerDevToolsAgentHost : public DevToolsAgentHostImpl {
   base::UnguessableToken devtools_worker_token_;
   int worker_process_id_;
   int worker_route_id_;
-  const ServiceWorkerContextCore* context_;
-  base::WeakPtr<ServiceWorkerContextCore> context_weak_;
+  scoped_refptr<ServiceWorkerContextWrapper> context_wrapper_;
   int64_t version_id_;
   GURL url_;
   GURL scope_;
   base::Time version_installed_time_;
   base::Time version_doomed_time_;
+  base::Optional<network::CrossOriginEmbedderPolicy>
+      cross_origin_embedder_policy_;
+  mojo::Remote<network::mojom::CrossOriginEmbedderPolicyReporter>
+      coep_reporter_;
 
   DISALLOW_COPY_AND_ASSIGN(ServiceWorkerDevToolsAgentHost);
 };

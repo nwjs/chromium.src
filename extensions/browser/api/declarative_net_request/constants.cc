@@ -57,21 +57,34 @@ const char kErrorInvalidAllowAllRequestsResourceType[] =
     "Rule with id * is an \"allowAllRequests\" rule and must specify the "
     "\"resourceTypes\" key. It may only include the \"main_frame\" and "
     "\"sub_frame\" resource types.";
+const char kErrorRegexTooLarge[] =
+    "Rule with id * specified a more complex regex than allowed as part of the "
+    "\"*\" key.";
+const char kErrorRegexesTooLarge[] =
+    "Rules with ids [*] specified a more complex regex than allowed as part of "
+    "the \"*\" key.";
+const char kErrorNoHeaderListsSpecified[] =
+    "Rule with id * does not specify a value for \"*\" or \"*\" key. At least "
+    "one of these keys must be specified with a non-empty list.";
+const char kErrorInvalidHeaderName[] =
+    "Rule with id * must specify a valid header name to be modified.";
 const char kErrorListNotPassed[] = "Rules file must contain a list.";
 
 const char kRuleCountExceeded[] =
-    "Declarative Net Request: Rule count exceeded. Some rules were ignored.";
+    "Rule count exceeded. Some rules were ignored.";
+const char kRegexRuleCountExceeded[] =
+    "Regex rule count exceeded. Some rules were ignored.";
 const char kRuleNotParsedWarning[] =
-    "Declarative Net Request: Rule with * couldn't be parsed. Parse error: "
-    "*.";
+    "Rule with * couldn't be parsed. Parse error: *.";
 const char kTooManyParseFailuresWarning[] =
-    "Declarative Net Request: Too many rule parse failures; Reporting the "
-    "first *.";
+    "Too many rule parse failures; Reporting the first *.";
 const char kInternalErrorUpdatingDynamicRules[] =
     "Internal error while updating dynamic rules.";
 const char kInternalErrorGettingDynamicRules[] =
     "Internal error while getting dynamic rules.";
 const char kDynamicRuleCountExceeded[] = "Dynamic rule count exceeded.";
+const char kDynamicRegexRuleCountExceeded[] =
+    "Dynamic rule count for regex rules exceeded.";
 const char kIndexAndPersistRulesTimeHistogram[] =
     "Extensions.DeclarativeNetRequest.IndexAndPersistRulesTime";
 const char kManifestRulesCountHistogram[] =
@@ -80,6 +93,8 @@ const char kUpdateDynamicRulesStatusHistogram[] =
     "Extensions.DeclarativeNetRequest.UpdateDynamicRulesStatus";
 const char kReadDynamicRulesJSONStatusHistogram[] =
     "Extensions.DeclarativeNetRequest.ReadDynamicRulesJSONStatus";
+const char kIsLargeRegexHistogram[] =
+    "Extensions.DeclarativeNetRequest.IsLargeRegexRule";
 
 const char kActionCountPlaceholderBadgeText[] =
     "<<declarativeNetRequestActionCount>>";

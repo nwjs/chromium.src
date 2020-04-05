@@ -8,7 +8,7 @@ import("//chrome/android/modules/buildflags.gni")
 import("//tools/grit/grit_rule.gni")
 
 android_resources("java_resources") {
-  resource_dirs = [ "java/res" ]
+  sources = [ "java/res/raw/dummy_resource" ]
   custom_package = "org.chromium.chrome.features.test_dummy"
 }
 
@@ -51,6 +51,7 @@ android_library("base_module_java") {
     "//chrome/android/modules/test_dummy/provider:java",
     "//chrome/android/modules/test_dummy/public:java",
     "//third_party/android_deps:android_support_v7_appcompat_java",
+    "//third_party/android_deps:androidx_annotation_annotation_java",
   ]
   sources = [
     "java/src/org/chromium/chrome/features/test_dummy/TestDummyActivity.java",

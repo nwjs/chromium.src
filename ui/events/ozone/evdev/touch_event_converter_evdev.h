@@ -25,11 +25,11 @@
 #include "base/macros.h"
 #include "base/message_loop/message_pump_libevent.h"
 #include "base/metrics/field_trial_params.h"
-#include "ui/events/event_constants.h"
 #include "ui/events/ozone/evdev/event_converter_evdev.h"
 #include "ui/events/ozone/evdev/event_device_info.h"
 #include "ui/events/ozone/evdev/touch_evdev_debug_buffer.h"
 #include "ui/events/ozone/evdev/touch_filter/palm_detection_filter.h"
+#include "ui/events/types/event_type.h"
 
 namespace ui {
 
@@ -191,6 +191,9 @@ class COMPONENT_EXPORT(EVDEV) TouchEventConverterEvdev
 
   // Do we mark a touch as palm when touch_major is the max?
   const bool palm_on_touch_major_max_;
+
+  // Do we mark a touch as palm when the tool type is marked as TOOL_TYPE_PALM ?
+  const bool palm_on_tool_type_palm_;
 
   DISALLOW_COPY_AND_ASSIGN(TouchEventConverterEvdev);
 };

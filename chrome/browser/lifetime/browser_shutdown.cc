@@ -18,6 +18,7 @@
 #include "base/path_service.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "base/threading/scoped_blocking_call.h"
 #include "base/threading/thread.h"
 #include "base/time/time.h"
@@ -27,7 +28,6 @@
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/lifetime/switch_utils.h"
 #include "chrome/browser/profiles/profile_manager.h"
-#include "chrome/browser/profiles/profile_metrics.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
@@ -172,9 +172,6 @@ bool ShutdownPreThreadsStop() {
   // time to get here. If you have something that *must* happen on end session,
   // consider putting it in BrowserProcessImpl::EndSession.
   PrefService* prefs = g_browser_process->local_state();
-
-  // Log the amount of times the user switched profiles during this session.
-  ProfileMetrics::LogNumberOfProfileSwitches();
 
   metrics::MetricsService* metrics = g_browser_process->metrics_service();
   if (metrics)
@@ -365,9 +362,9 @@ void ReadLastShutdownInfo() {
 
   base::UmaHistogramEnumeration("Shutdown.ShutdownType", type);
 
-  base::PostTask(
+  base::ThreadPool::PostTask(
       FROM_HERE,
-      {base::ThreadPool(), base::MayBlock(), base::TaskPriority::BEST_EFFORT,
+      {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
        base::TaskShutdownBehavior::BLOCK_SHUTDOWN},
       base::BindOnce(&ReadLastShutdownFile, type, num_procs, num_procs_slow));
 }

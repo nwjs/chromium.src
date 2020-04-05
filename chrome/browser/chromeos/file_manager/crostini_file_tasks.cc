@@ -18,11 +18,11 @@
 #include "chrome/browser/chromeos/crostini/crostini_features.h"
 #include "chrome/browser/chromeos/crostini/crostini_mime_types_service.h"
 #include "chrome/browser/chromeos/crostini/crostini_mime_types_service_factory.h"
-#include "chrome/browser/chromeos/crostini/crostini_registry_service.h"
-#include "chrome/browser/chromeos/crostini/crostini_registry_service_factory.h"
 #include "chrome/browser/chromeos/crostini/crostini_util.h"
 #include "chrome/browser/chromeos/file_manager/app_id.h"
 #include "chrome/browser/chromeos/file_manager/path_util.h"
+#include "chrome/browser/chromeos/guest_os/guest_os_registry_service.h"
+#include "chrome/browser/chromeos/guest_os/guest_os_registry_service_factory.h"
 #include "extensions/browser/entry_info.h"
 #include "storage/browser/file_system/file_system_url.h"
 #include "ui/base/layout.h"
@@ -96,56 +96,71 @@ void OnTaskComplete(FileTaskFinishedCallback done,
       failure_reason);
 }
 
+bool HasSupportedMimeType(
+    const std::set<std::string>& supported_mime_types,
+    const std::string& vm_name,
+    const std::string& container_name,
+    const crostini::CrostiniMimeTypesService& mime_types_service,
+    const extensions::EntryInfo& entry) {
+  if (supported_mime_types.find(entry.mime_type) !=
+      supported_mime_types.end()) {
+    return true;
+  }
+
+  // Allow files with type text/* to be opened with a text/plain application
+  // as per xdg spec.
+  // https://specifications.freedesktop.org/shared-mime-info-spec/shared-mime-info-spec-latest.html.
+  // TODO(crbug.com/1032910): Add xdg mime support for aliases, subclasses.
+  if (base::StartsWith(entry.mime_type, "text/",
+                       base::CompareCase::SENSITIVE) &&
+      supported_mime_types.find(kUnknownTextMimeType) !=
+          supported_mime_types.end()) {
+    return true;
+  }
+
+  // If we see either of these then we use the Linux container MIME type
+  // mappings as alternates for finding an appropriate app since these are
+  // the defaults when Chrome can't figure out the exact MIME type (but they
+  // can also be the actual MIME type, so we don't exclude them above).
+  if (entry.mime_type == kUnknownBinaryMimeType ||
+      entry.mime_type == kUnknownTextMimeType) {
+    const std::string& alternate_mime_type =
+        mime_types_service.GetMimeType(entry.path, vm_name, container_name);
+    if (supported_mime_types.find(alternate_mime_type) !=
+        supported_mime_types.end()) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 }  // namespace
 
 void FindCrostiniApps(Profile* profile,
                       const std::vector<extensions::EntryInfo>& entries,
                       std::vector<std::string>* app_ids,
                       std::vector<std::string>* app_names) {
-  crostini::CrostiniRegistryService* registry_service =
-      crostini::CrostiniRegistryServiceFactory::GetForProfile(profile);
+  auto* registry_service =
+      guest_os::GuestOsRegistryServiceFactory::GetForProfile(profile);
   crostini::CrostiniMimeTypesService* mime_types_service =
       crostini::CrostiniMimeTypesServiceFactory::GetForProfile(profile);
   for (const auto& pair : registry_service->GetRegisteredApps()) {
     const std::string& app_id = pair.first;
     const auto& registration = pair.second;
-    const std::set<std::string>& supported_mime_types =
-        registration.MimeTypes();
-    bool had_unsupported_mime_type = false;
-    for (const extensions::EntryInfo& entry : entries) {
-      if (supported_mime_types.find(entry.mime_type) !=
-          supported_mime_types.end()) {
-        continue;
-      }
 
-      // Allow files with type text/* to be opened with a text/plain application
-      // as per xdg spec.
-      // https://specifications.freedesktop.org/shared-mime-info-spec/shared-mime-info-spec-latest.html.
-      // TODO(crbug.com/1032910): Add xdg mime support for aliases, subclasses.
-      if (base::StartsWith(entry.mime_type, "text/",
-                           base::CompareCase::SENSITIVE) &&
-          supported_mime_types.find(kUnknownTextMimeType) !=
-              supported_mime_types.end()) {
-        continue;
-      }
-      // If we see either of these then we use the Linux container MIME type
-      // mappings as alternates for finding an appropriate app since these are
-      // the defaults when Chrome can't figure out the exact MIME type (but they
-      // can also be the actual MIME type, so we don't exclude them above).
-      if (entry.mime_type == kUnknownBinaryMimeType ||
-          entry.mime_type == kUnknownTextMimeType) {
-        std::string alternate_mime_type = mime_types_service->GetMimeType(
-            entry.path, registration.VmName(), registration.ContainerName());
-        if (supported_mime_types.find(alternate_mime_type) !=
-            supported_mime_types.end()) {
-          continue;
-        }
-      }
-      had_unsupported_mime_type = true;
-      break;
-    }
-    if (had_unsupported_mime_type)
+    if (std::any_of(cbegin(entries), cend(entries),
+                    // Get fields once, as their getters are not cheap.
+                    [supported_mime_types = registration.MimeTypes(),
+                     vm_name = registration.VmName(),
+                     container_name = registration.ContainerName(),
+                     mime_types_service](const auto& entry) {
+                      return !HasSupportedMimeType(supported_mime_types,
+                                                   vm_name, container_name,
+                                                   *mime_types_service, entry);
+                    }))
       continue;
+
     app_ids->push_back(app_id);
     app_names->push_back(registration.Name());
   }

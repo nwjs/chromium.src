@@ -62,6 +62,15 @@ using blink::WebDragOperationsMask;
 
 namespace content {
 
+namespace {
+
+const blink::UserAgentOverride& NoUAOverride() {
+  static const base::NoDestructor<blink::UserAgentOverride> no_ua_override;
+  return *no_ua_override;
+}
+
+}  // namespace
+
 class InterstitialPageImpl::InterstitialPageRVHDelegateView
     : public RenderViewHostDelegateView {
  public:
@@ -537,8 +546,8 @@ WebContents* InterstitialPageImpl::OpenURL(const OpenURLParams& params) {
   return nullptr;
 }
 
-const std::string& InterstitialPageImpl::GetUserAgentOverride() {
-  return base::EmptyString();
+const blink::UserAgentOverride& InterstitialPageImpl::GetUserAgentOverride() {
+  return NoUAOverride();
 }
 
 bool InterstitialPageImpl::ShouldOverrideUserAgentInNewTabs() {
@@ -605,9 +614,9 @@ RenderViewHostImpl* InterstitialPageImpl::CreateRenderViewHost() {
       SessionStorageNamespaceImpl::Create(dom_storage_context);
 
   // Use the RenderViewHost from our FrameTree.
-  frame_tree_->root()->render_manager()->Init(
-      site_instance.get(), MSG_ROUTING_NONE, MSG_ROUTING_NONE, MSG_ROUTING_NONE,
-      false);
+  frame_tree_->root()->render_manager()->InitRoot(
+      site_instance.get(),
+      /*renderer_initiated_creation=*/false);
   return frame_tree_->root()->current_frame_host()->render_view_host();
 }
 
@@ -790,7 +799,8 @@ void InterstitialPageImpl::CreateNewWidget(
     int32_t render_process_id,
     int32_t route_id,
     mojo::PendingRemote<mojom::Widget> widget,
-    RenderViewHostImpl* render_view_host) {
+    mojo::PendingAssociatedReceiver<blink::mojom::WidgetHost> blink_widget_host,
+    mojo::PendingAssociatedRemote<blink::mojom::Widget> blink_widget) {
   NOTREACHED() << "InterstitialPage does not support showing drop-downs.";
 }
 
@@ -798,7 +808,8 @@ void InterstitialPageImpl::CreateNewFullscreenWidget(
     int32_t render_process_id,
     int32_t route_id,
     mojo::PendingRemote<mojom::Widget> widget,
-    RenderViewHostImpl* render_view_host) {
+    mojo::PendingAssociatedReceiver<blink::mojom::WidgetHost> blink_widget_host,
+    mojo::PendingAssociatedRemote<blink::mojom::Widget> blink_widget) {
   NOTREACHED()
       << "InterstitialPage does not support showing full screen popups.";
 }

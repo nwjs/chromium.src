@@ -395,13 +395,37 @@ Polymer({
       return;
     }
 
+    const PolicySource = chromeos.networkConfig.mojom.PolicySource;
+
     let enforcement;
     let controlledBy;
-    if (autoConnect.enforced ||
-        (!!this.globalPolicy &&
-         !!this.globalPolicy.allowOnlyPolicyNetworksToAutoconnect)) {
+
+    if (this.globalPolicy &&
+        this.globalPolicy.allowOnlyPolicyNetworksToAutoconnect) {
       enforcement = chrome.settingsPrivate.Enforcement.ENFORCED;
       controlledBy = chrome.settingsPrivate.ControlledBy.DEVICE_POLICY;
+    } else {
+      switch (autoConnect.policySource) {
+        case PolicySource.kUserPolicyEnforced:
+        case PolicySource.kDevicePolicyEnforced:
+          enforcement = chrome.settingsPrivate.Enforcement.ENFORCED;
+          break;
+        case PolicySource.kUserPolicyRecommended:
+        case PolicySource.kDevicePolicyRecommended:
+          enforcement = chrome.settingsPrivate.Enforcement.RECOMMENDED;
+          break;
+      }
+
+      switch (autoConnect.policySource) {
+        case PolicySource.kDevicePolicyEnforced:
+        case PolicySource.kDevicePolicyRecommended:
+          controlledBy = chrome.settingsPrivate.ControlledBy.DEVICE_POLICY;
+          break;
+        case PolicySource.kUserPolicyEnforced:
+        case PolicySource.kUserPolicyRecommended:
+          controlledBy = chrome.settingsPrivate.ControlledBy.USER_POLICY;
+          break;
+      }
     }
 
     if (this.autoConnectPref_ &&
@@ -570,6 +594,7 @@ Polymer({
         this.getNetworkDetails_();
       }
     });
+    settings.recordSettingChange();
   },
 
   /**
@@ -909,8 +934,7 @@ Polymer({
     if (!managedProperties) {
       return false;
     }
-    for (const key of Object.keys(managedProperties)) {
-      const value = managedProperties[key];
+    for (const value of Object.values(managedProperties)) {
       if (typeof value != 'object' || value === null) {
         continue;
       }
@@ -1072,6 +1096,7 @@ Polymer({
     this.fire(
         'network-connect',
         {networkState: networkState, bypassConnectionDialog: bypassDialog});
+    settings.recordSettingChange();
   },
 
   /** @private */
@@ -1081,6 +1106,7 @@ Polymer({
         console.error('Disconnect failed for: ' + this.guid);
       }
     });
+    settings.recordSettingChange();
   },
 
   /** @private */
@@ -1149,6 +1175,7 @@ Polymer({
       // A forgotten network no longer has a valid GUID, close the subpage.
       this.close();
     });
+    settings.recordSettingChange();
   },
 
   /** @private */
@@ -1162,6 +1189,7 @@ Polymer({
         (this.isThirdPartyVpn_(this.managedProperties_) ||
          this.isArcVpn_(this.managedProperties_))) {
       this.browserProxy_.configureThirdPartyVpn(this.guid);
+      settings.recordSettingChange();
       return;
     }
 
@@ -1227,7 +1255,6 @@ Polymer({
     // configurations are set.
     const vpnConfig = config.typeConfig.vpn;
     if (vpnConfig) {
-      vpnConfig.type = this.managedProperties_.typeProperties.vpn.type;
       if (vpnConfig.openVpn && vpnConfig.openVpn.saveCredentials == undefined) {
         vpnConfig.openVpn.saveCredentials = false;
       }
@@ -1380,6 +1407,7 @@ Polymer({
     }
 
     this.preferNetwork_ = !this.preferNetwork_;
+    settings.recordSettingChange();
   },
 
   /**

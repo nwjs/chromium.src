@@ -19,7 +19,6 @@
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/page/scrolling/text_fragment_selector.h"
 #include "third_party/blink/renderer/core/scroll/scroll_alignment.h"
-#include "third_party/blink/renderer/core/scroll/scroll_into_view_params_type_converters.h"
 #include "third_party/blink/renderer/core/scroll/scrollable_area.h"
 
 namespace blink {
@@ -184,8 +183,7 @@ bool TextFragmentAnchor::Invoke() {
 
 void TextFragmentAnchor::Installed() {}
 
-void TextFragmentAnchor::DidScroll(
-    mojom::blink::ScrollIntoViewParams::Type type) {
+void TextFragmentAnchor::DidScroll(mojom::blink::ScrollType type) {
   if (!IsExplicitScrollType(type))
     return;
 
@@ -201,7 +199,7 @@ void TextFragmentAnchor::PerformPreRafActions() {
   }
 }
 
-void TextFragmentAnchor::Trace(blink::Visitor* visitor) {
+void TextFragmentAnchor::Trace(Visitor* visitor) {
   visitor->Trace(frame_);
   visitor->Trace(element_fragment_anchor_);
   visitor->Trace(metrics_);
@@ -244,8 +242,10 @@ void TextFragmentAnchor::DidFindMatch(const EphemeralRangeInFlatTree& range) {
     // to run.
   }
 
-  if (needs_style_and_layout)
-    frame_->GetDocument()->UpdateStyleAndLayout();
+  if (needs_style_and_layout) {
+    frame_->GetDocument()->UpdateStyleAndLayout(
+        DocumentUpdateReason::kFindInPage);
+  }
 
   metrics_->DidFindMatch(PlainText(range));
   did_find_match_ = true;
@@ -267,11 +267,10 @@ void TextFragmentAnchor::DidFindMatch(const EphemeralRangeInFlatTree& range) {
 
     PhysicalRect scrolled_bounding_box =
         node.GetLayoutObject()->ScrollRectToVisible(
-            bounding_box,
-            CreateScrollIntoViewParams(
-                ScrollAlignment::kAlignCenterAlways,
-                ScrollAlignment::kAlignCenterAlways,
-                mojom::blink::ScrollIntoViewParams::Type::kProgrammatic));
+            bounding_box, ScrollAlignment::CreateScrollIntoViewParams(
+                              ScrollAlignment::CenterAlways(),
+                              ScrollAlignment::CenterAlways(),
+                              mojom::blink::ScrollType::kProgrammatic));
     did_scroll_into_view_ = true;
 
     if (AXObjectCache* cache = frame_->GetDocument()->ExistingAXObjectCache())

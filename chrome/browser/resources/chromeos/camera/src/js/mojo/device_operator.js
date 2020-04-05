@@ -2,7 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import {assertNotReached} from '../chrome_util.js';
 import {
+  Facing,
   FpsRangeList,  // eslint-disable-line no-unused-vars
   Resolution,
   ResolutionList,  // eslint-disable-line no-unused-vars
@@ -89,7 +91,7 @@ export class DeviceOperator {
      * @type {cros.mojom.CameraAppDeviceProviderRemote}
      * @private
      */
-    this.deviceProvider_ = cros.mojom.CameraAppDeviceProvider.getRemote(true);
+    this.deviceProvider_ = cros.mojom.CameraAppDeviceProvider.getRemote();
 
     /**
      * Flag that indicates if the direct communication between camera app and
@@ -114,7 +116,7 @@ export class DeviceOperator {
     const {device, status} =
         await this.deviceProvider_.getCameraAppDevice(deviceId);
     if (status === cros.mojom.GetCameraAppDeviceStatus.ERROR_INVALID_ID) {
-      throw new Error('Invalid device id: ', deviceId);
+      throw new Error(`Invalid device id: ${deviceId}`);
     }
     if (device === null) {
       throw new Error('Unknown error');
@@ -207,13 +209,22 @@ export class DeviceOperator {
    * Gets camera facing for given device.
    * @param {string} deviceId The renderer-facing device id of the target camera
    *     which could be retrieved from MediaDeviceInfo.deviceId.
-   * @return {!Promise<!cros.mojom.CameraFacing>} Promise of device facing.
+   * @return {!Promise<!Facing>} Promise of device facing.
    * @throws {Error} Thrown when the device operation is not supported.
    */
   async getCameraFacing(deviceId) {
     const device = await this.getDevice_(deviceId);
-    const {cameraInfo} = await device.getCameraInfo();
-    return cameraInfo.facing;
+    const {cameraInfo: {facing}} = await device.getCameraInfo();
+    switch (facing) {
+      case cros.mojom.CameraFacing.CAMERA_FACING_BACK:
+        return Facing.ENVIRONMENT;
+      case cros.mojom.CameraFacing.CAMERA_FACING_FRONT:
+        return Facing.USER;
+      case cros.mojom.CameraFacing.CAMERA_FACING_EXTERNAL:
+        return Facing.EXTERNAL;
+      default:
+        assertNotReached(`Unexpected facing value: ${facing}`);
+    }
   }
 
   /**

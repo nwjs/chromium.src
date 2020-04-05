@@ -77,19 +77,19 @@ bool PointerEvent::IsPointerEvent() const {
   return true;
 }
 
-double PointerEvent::offsetX() {
+double PointerEvent::offsetX() const {
   if (!HasPosition())
     return 0;
   if (!has_cached_relative_position_)
-    ComputeRelativePosition();
+    const_cast<PointerEvent*>(this)->ComputeRelativePosition();
   return offset_location_.X();
 }
 
-double PointerEvent::offsetY() {
+double PointerEvent::offsetY() const {
   if (!HasPosition())
     return 0;
   if (!has_cached_relative_position_)
-    ComputeRelativePosition();
+    const_cast<PointerEvent*>(this)->ComputeRelativePosition();
   return offset_location_.Y();
 }
 
@@ -133,7 +133,7 @@ base::TimeTicks PointerEvent::OldestPlatformTimeStamp() const {
   return this->PlatformTimeStamp();
 }
 
-void PointerEvent::Trace(blink::Visitor* visitor) {
+void PointerEvent::Trace(Visitor* visitor) {
   visitor->Trace(coalesced_events_);
   visitor->Trace(predicted_events_);
   MouseEvent::Trace(visitor);

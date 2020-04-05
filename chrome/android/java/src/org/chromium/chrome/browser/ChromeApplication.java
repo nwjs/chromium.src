@@ -28,9 +28,7 @@ import org.chromium.base.library_loader.LibraryProcessType;
 import org.chromium.base.memory.MemoryPressureMonitor;
 import org.chromium.base.multidex.ChromiumMultiDexInstaller;
 import org.chromium.base.task.AsyncTask;
-import org.chromium.build.BuildHooks;
 import org.chromium.build.BuildHooksAndroid;
-import org.chromium.build.BuildHooksConfig;
 import org.chromium.chrome.browser.background_task_scheduler.ChromeBackgroundTaskFactory;
 import org.chromium.chrome.browser.crash.ApplicationStatusTracker;
 import org.chromium.chrome.browser.crash.FirebaseConfig;
@@ -41,14 +39,18 @@ import org.chromium.chrome.browser.dependency_injection.ChromeAppComponent;
 import org.chromium.chrome.browser.dependency_injection.ChromeAppModule;
 import org.chromium.chrome.browser.dependency_injection.DaggerChromeAppComponent;
 import org.chromium.chrome.browser.dependency_injection.ModuleFactoryOverrides;
-import org.chromium.chrome.browser.flags.FeatureUtilities;
+import org.chromium.chrome.browser.flags.CachedFeatureFlags;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.metrics.UmaUtils;
 import org.chromium.chrome.browser.night_mode.SystemNightModeMonitor;
 import org.chromium.chrome.browser.vr.OnExitVrRequestListener;
 import org.chromium.chrome.browser.vr.VrModuleProvider;
 import org.chromium.components.embedder_support.application.FontPreloadingWorkaround;
 import org.chromium.components.module_installer.util.ModuleUtil;
+import org.chromium.components.version_info.Channel;
+import org.chromium.components.version_info.VersionConstants;
 import org.chromium.ui.base.ResourceBundle;
+import org.chromium.url.GURL;
 
 /**
  * Basic application functionality that should be shared among all browser applications that use
@@ -123,6 +125,11 @@ public class ChromeApplication extends Application {
 
             // Set Chrome factory for mapping BackgroundTask classes to TaskIds.
             ChromeBackgroundTaskFactory.setAsDefault();
+
+            if (VersionConstants.CHANNEL == Channel.CANARY) {
+                GURL.setReportDebugThrowableCallback(
+                        PureJavaExceptionReporter::reportJavaException);
+            }
         }
 
         // Write installed modules to crash keys. This needs to be done as early as possible so that
@@ -135,11 +142,8 @@ public class ChromeApplication extends Application {
             // Incremental install disables process isolation, so things in this block will actually
             // be run for incremental apks, but not normal apks.
             PureJavaExceptionHandler.installHandler();
-            if (BuildHooksConfig.REPORT_JAVA_ASSERT) {
-                BuildHooks.setReportAssertionCallback(
-                        PureJavaExceptionReporter::reportJavaException);
-            }
         }
+
         AsyncTask.takeOverAndroidThreadPool();
         JNIUtils.setClassLoader(getClassLoader());
         ResourceBundle.setAvailablePakLocales(
@@ -177,7 +181,7 @@ public class ChromeApplication extends Application {
     }
 
     private static Boolean shouldUseDebugFlags() {
-        return FeatureUtilities.isCommandLineOnNonRootedEnabled();
+        return CachedFeatureFlags.isEnabled(ChromeFeatureList.COMMAND_LINE_ON_NON_ROOTED);
     }
 
     protected static boolean isBrowserProcess() {

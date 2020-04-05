@@ -8,6 +8,7 @@
 <link rel="import" href="chrome://resources/cr_elements/policy/cr_policy_indicator.html">
 <link rel="import" href="chrome://resources/cr_elements/shared_vars_css.html">
 <link rel="import" href="chrome://resources/html/assert.html">
+<link rel="import" href="chrome://resources/html/cr.html">
 <link rel="import" href="chrome://resources/html/cr/ui/focus_without_ink.html">
 <link rel="import" href="chrome://resources/html/i18n_behavior.html">
 <link rel="import" href="chrome://resources/html/icon.html">
@@ -17,34 +18,24 @@
 <link rel="import" href="../controls/settings_toggle_button.html">
 <link rel="import" href="profile_info_browser_proxy.html">
 <link rel="import" href="sync_browser_proxy.html">
-<link rel="import" href="sync_page.html">
+<link rel="import" href="../i18n_setup.html">
 <link rel="import" href="../icons.html">
 <link rel="import" href="../open_window_proxy.html">
+<link rel="import" href="../page_visibility.html">
 <link rel="import" href="../route.html">
 <link rel="import" href="../router.html">
 <link rel="import" href="../settings_page/settings_animated_pages.html">
 <link rel="import" href="../settings_page/settings_subpage.html">
 <link rel="import" href="../settings_shared_css.html">
-<link rel="import" href="signout_dialog.html">
-<link rel="import" href="sync_controls.html">
 
 <if expr="chromeos">
 <link rel="import" href="account_manager_browser_proxy.html">
-<link rel="import" href="chrome://resources/cr_elements/chromeos/cr_picture/cr_png_behavior.html">
-</if>
-<if expr="not chromeos">
-<link rel="import" href="import_data_dialog.html">
-<link rel="import" href="manage_profile.html">
+<link rel="import" href="chrome://resources/cr_elements/chromeos/cr_picture/png.html">
 </if>
 
 <dom-module id="settings-people-page">
   <template>
     <style include="settings-shared iron-flex">
-      setting-box.middle {
-        /* Per spec, middle text is indented 20px in this section. */
-        margin-inline-start: 20px;
-      }
-
       .sync-row {
         align-items: center;
         flex: auto;
@@ -102,7 +93,7 @@
         focus-config="[[focusConfig_]]">
       <div route-path="default">
         <template is="dom-if" if="[[shouldShowSyncAccountControl_(
-            syncStatus.syncSystemEnabled, syncStatus.signinAllowed)]]">
+            syncStatus.syncSystemEnabled)]]">
           <settings-sync-account-control
               sync-status="[[syncStatus]]"
               prefs="{{prefs}}"
@@ -115,7 +106,7 @@
           </settings-sync-account-control>
         </template>
         <template is="dom-if" if="[[!shouldShowSyncAccountControl_(
-            syncStatus.syncSystemEnabled, syncStatus.signinAllowed)]]" restamp>
+            syncStatus.syncSystemEnabled)]]" restamp>
           <div id="picture-subpage-trigger" class="settings-box first two-line">
             <template is="dom-if" if="[[syncStatus]]">
               <div id="profile-icon" on-click="onProfileTap_"
@@ -164,20 +155,22 @@
         </cr-link-row>
 
 <if expr="not chromeos">
-        <cr-link-row id="manage-google-account"
-            label="$i18n{manageGoogleAccount}"
-            hidden="[[!shouldShowGoogleAccount_]]"
-            on-click="openGoogleAccount_" external></cr-link-row>
+        <template is="dom-if" if="[[signinAllowed_]]">
+          <cr-link-row id="manage-google-account"
+              label="$i18n{manageGoogleAccount}"
+              hidden="[[!shouldShowGoogleAccount_]]"
+              on-click="openGoogleAccount_" external></cr-link-row>
 
-        <div class="settings-box" id="edit-profile" on-click="onProfileTap_"
-            actionable>
-          <div class="start settings-box-text">
-            $i18n{profileNameAndPicture}
+          <div class="settings-box" id="edit-profile" on-click="onProfileTap_"
+              actionable>
+            <div class="start settings-box-text">
+              $i18n{profileNameAndPicture}
+            </div>
+            <cr-icon-button class="subpage-arrow" aria-label="$i18n{editPerson}"
+                aria-roledescription="$i18n{subpageArrowRoleDescription}">
+            </cr-icon-button>
           </div>
-          <cr-icon-button class="subpage-arrow" aria-label="$i18n{editPerson}"
-              aria-roledescription="$i18n{subpageArrowRoleDescription}">
-          </cr-icon-button>
-        </div>
+        </template>
 </if>
 
 <if expr="not chromeos">
@@ -194,7 +187,8 @@
             learn-more-url="$i18n{syncAndGoogleServicesLearnMoreURL}">
           <settings-sync-page
               sync-status="[[syncStatus]]" prefs="{{prefs}}"
-              page-visibility="[[pageVisibility.privacy]]">
+              page-visibility="[[pageVisibility.privacy]]"
+              focus-config="[[focusConfig_]]">
           </settings-sync-page>
         </settings-subpage>
       </template>
@@ -211,8 +205,7 @@
 <if expr="not chromeos">
       <template is="dom-if" route-path="/manageProfile">
         <settings-subpage
-            associated-control="[[getEditPersonAssocControl_(
-                syncStatus.signinAllowed)]]"
+            associated-control="[[getEditPersonAssocControl_()]]"
             page-title="$i18n{editPerson}">
           <settings-manage-profile profile-name="[[profileName_]]"
               sync-status="[[syncStatus]]">

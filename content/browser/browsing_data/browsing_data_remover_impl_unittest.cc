@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium Authors. All rights reserved.
+﻿// Copyright 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -24,6 +24,7 @@
 #include "base/memory/ptr_util.h"
 #include "base/run_loop.h"
 #include "base/single_thread_task_runner.h"
+#include "base/strings/strcat.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/cancelable_task_tracker.h"
 #include "base/task/post_task.h"
@@ -90,36 +91,6 @@ using CookieDeletionFilterPtr = network::mojom::CookieDeletionFilterPtr;
 namespace content {
 
 namespace {
-
-const char kTestOrigin1[] = "http://host1.com:1/";
-const char kTestRegisterableDomain1[] = "host1.com";
-const char kTestOrigin2[] = "http://host2.com:1/";
-const char kTestOrigin3[] = "http://host3.com:1/";
-const char kTestRegisterableDomain3[] = "host3.com";
-const char kTestOrigin4[] = "https://host3.com:1/";
-const char kTestOriginExt[] = "chrome-extension://abcdefghijklmnopqrstuvwxyz/";
-const char kTestOriginDevTools[] = "devtools://abcdefghijklmnopqrstuvw/";
-
-// TODO(https://crbug.com/1042727): Fix test GURL scoping and remove this getter
-// function.
-url::Origin Origin1() {
-  return url::Origin::Create(GURL(kTestOrigin1));
-}
-url::Origin Origin2() {
-  return url::Origin::Create(GURL(kTestOrigin2));
-}
-url::Origin Origin3() {
-  return url::Origin::Create(GURL(kTestOrigin3));
-}
-url::Origin Origin4() {
-  return url::Origin::Create(GURL(kTestOrigin4));
-}
-url::Origin OriginExt() {
-  return url::Origin::Create(GURL(kTestOriginExt));
-}
-url::Origin OriginDevTools() {
-  return url::Origin::Create(GURL(kTestOriginDevTools));
-}
 
 struct StoragePartitionRemovalData {
   StoragePartitionRemovalData()
@@ -265,8 +236,8 @@ class ProbablySameFilterMatcher
     if (!filter || !to_match_)
       return false;
 
-    const GURL urls_to_test_[] = {Origin1().GetURL(), Origin2().GetURL(),
-                                  Origin3().GetURL(), GURL("invalid spec")};
+    const GURL urls_to_test_[] = {GURL("a.com"), GURL("b.com"), GURL("c.com"),
+                                  GURL("invalid spec")};
     for (GURL url : urls_to_test_) {
       if (filter.Run(url) != to_match_.Run(url)) {
         if (listener)
@@ -412,12 +383,14 @@ class BrowsingDataRemoverImplTest : public testing::Test {
     return storage_partition_removal_data_;
   }
 
-  MockSpecialStoragePolicy* CreateMockPolicy() {
-    mock_policy_ = new MockSpecialStoragePolicy();
+  storage::MockSpecialStoragePolicy* CreateMockPolicy() {
+    mock_policy_ = base::MakeRefCounted<storage::MockSpecialStoragePolicy>();
     return mock_policy_.get();
   }
 
-  MockSpecialStoragePolicy* mock_policy() { return mock_policy_.get(); }
+  storage::MockSpecialStoragePolicy* mock_policy() {
+    return mock_policy_.get();
+  }
 
   bool Match(const GURL& origin,
              int mask,
@@ -435,7 +408,7 @@ class BrowsingDataRemoverImplTest : public testing::Test {
 
   StoragePartitionRemovalData storage_partition_removal_data_;
 
-  scoped_refptr<MockSpecialStoragePolicy> mock_policy_;
+  scoped_refptr<storage::MockSpecialStoragePolicy> mock_policy_;
 
   DISALLOW_COPY_AND_ASSIGN(BrowsingDataRemoverImplTest);
 };
@@ -481,8 +454,10 @@ TEST_F(BrowsingDataRemoverImplTest, RemoveCookieLastHour) {
 TEST_F(BrowsingDataRemoverImplTest, RemoveCookiesDomainBlacklist) {
   std::unique_ptr<BrowsingDataFilterBuilder> filter(
       BrowsingDataFilterBuilder::Create(BrowsingDataFilterBuilder::BLACKLIST));
-  filter->AddRegisterableDomain(kTestRegisterableDomain1);
-  filter->AddRegisterableDomain(kTestRegisterableDomain3);
+  const GURL kTestUrl1("http://host1.com");
+  const GURL kTestUrl3("http://host3.com");
+  filter->AddRegisterableDomain(kTestUrl1.host());
+  filter->AddRegisterableDomain(kTestUrl3.host());
   BlockUntilOriginDataRemoved(AnHourAgo(), base::Time::Max(),
                               BrowsingDataRemover::DATA_TYPE_COOKIES,
                               std::move(filter));
@@ -500,28 +475,36 @@ TEST_F(BrowsingDataRemoverImplTest, RemoveCookiesDomainBlacklist) {
   EXPECT_EQ(removal_data.quota_storage_remove_mask,
             ~StoragePartition::QUOTA_MANAGED_STORAGE_MASK_PERSISTENT);
   EXPECT_EQ(removal_data.remove_begin, GetBeginTime());
-  EXPECT_FALSE(removal_data.origin_matcher.Run(Origin1(), mock_policy()));
-  EXPECT_TRUE(removal_data.origin_matcher.Run(Origin2(), mock_policy()));
-  EXPECT_FALSE(removal_data.origin_matcher.Run(Origin3(), mock_policy()));
+  const url::Origin kTestOrigin1 = url::Origin::Create(kTestUrl1);
+  const url::Origin kTestOrigin2 =
+      url::Origin::Create(GURL("http://host2.com"));
+  const url::Origin kTestOrigin3 = url::Origin::Create(kTestUrl3);
+  const url::Origin kTestOrigin3Secure =
+      url::Origin::Create(GURL("https://host3.com"));
+  EXPECT_FALSE(removal_data.origin_matcher.Run(kTestOrigin1, mock_policy()));
+  EXPECT_TRUE(removal_data.origin_matcher.Run(kTestOrigin2, mock_policy()));
+  EXPECT_FALSE(removal_data.origin_matcher.Run(kTestOrigin3, mock_policy()));
   // Even though it's a different origin, it's the same domain.
-  EXPECT_FALSE(removal_data.origin_matcher.Run(Origin4(), mock_policy()));
+  EXPECT_FALSE(
+      removal_data.origin_matcher.Run(kTestOrigin3Secure, mock_policy()));
 
   EXPECT_FALSE(FilterMatchesCookie(removal_data.cookie_deletion_filter,
-                                   CreateCookieWithHost(Origin1())));
+                                   CreateCookieWithHost(kTestOrigin1)));
   EXPECT_TRUE(FilterMatchesCookie(removal_data.cookie_deletion_filter,
-                                  CreateCookieWithHost(Origin2())));
+                                  CreateCookieWithHost(kTestOrigin2)));
   EXPECT_FALSE(FilterMatchesCookie(removal_data.cookie_deletion_filter,
-                                   CreateCookieWithHost(Origin3())));
+                                   CreateCookieWithHost(kTestOrigin3)));
   // This is false, because this is the same domain as 3, just with a different
   // scheme.
   EXPECT_FALSE(FilterMatchesCookie(removal_data.cookie_deletion_filter,
-                                   CreateCookieWithHost(Origin4())));
+                                   CreateCookieWithHost(kTestOrigin3Secure)));
 }
 
 TEST_F(BrowsingDataRemoverImplTest, RemoveUnprotectedLocalStorageForever) {
-  MockSpecialStoragePolicy* policy = CreateMockPolicy();
-  // Protect Origin1().
-  policy->AddProtected(Origin1().GetURL());
+  storage::MockSpecialStoragePolicy* policy = CreateMockPolicy();
+  // Protect the test origin.
+  const url::Origin kTestOrigin = url::Origin::Create(GURL("http://host1.com"));
+  policy->AddProtected(kTestOrigin.GetURL());
 
   BlockUntilBrowsingDataRemoved(base::Time(), base::Time::Max(),
                                 BrowsingDataRemover::DATA_TYPE_LOCAL_STORAGE,
@@ -540,16 +523,22 @@ TEST_F(BrowsingDataRemoverImplTest, RemoveUnprotectedLocalStorageForever) {
   EXPECT_EQ(removal_data.remove_begin, GetBeginTime());
 
   // Check origin matcher.
-  EXPECT_FALSE(removal_data.origin_matcher.Run(Origin1(), mock_policy()));
-  EXPECT_TRUE(removal_data.origin_matcher.Run(Origin2(), mock_policy()));
-  EXPECT_TRUE(removal_data.origin_matcher.Run(Origin3(), mock_policy()));
-  EXPECT_FALSE(removal_data.origin_matcher.Run(OriginExt(), mock_policy()));
+  EXPECT_FALSE(removal_data.origin_matcher.Run(kTestOrigin, mock_policy()));
+  EXPECT_TRUE(removal_data.origin_matcher.Run(
+      url::Origin::Create(GURL("http://host2.com")), mock_policy()));
+  EXPECT_TRUE(removal_data.origin_matcher.Run(
+      url::Origin::Create(GURL("http://host3.com")), mock_policy()));
+  EXPECT_FALSE(removal_data.origin_matcher.Run(
+      url::Origin::Create(
+          GURL("chrome-extension://abcdefghijklmnopqrstuvwxyz/")),
+      mock_policy()));
 }
 
 TEST_F(BrowsingDataRemoverImplTest, RemoveProtectedLocalStorageForever) {
-  // Protect Origin1().
-  MockSpecialStoragePolicy* policy = CreateMockPolicy();
-  policy->AddProtected(Origin1().GetURL());
+  // Protect the test origin.
+  storage::MockSpecialStoragePolicy* policy = CreateMockPolicy();
+  const url::Origin kTestOrigin = url::Origin::Create(GURL("http://host1.com"));
+  policy->AddProtected(kTestOrigin.GetURL());
 
   BlockUntilBrowsingDataRemoved(base::Time(), base::Time::Max(),
                                 BrowsingDataRemover::DATA_TYPE_LOCAL_STORAGE,
@@ -570,10 +559,15 @@ TEST_F(BrowsingDataRemoverImplTest, RemoveProtectedLocalStorageForever) {
 
   // Check origin matcher all http origin will match since we specified
   // both protected and unprotected.
-  EXPECT_TRUE(removal_data.origin_matcher.Run(Origin1(), mock_policy()));
-  EXPECT_TRUE(removal_data.origin_matcher.Run(Origin2(), mock_policy()));
-  EXPECT_TRUE(removal_data.origin_matcher.Run(Origin3(), mock_policy()));
-  EXPECT_FALSE(removal_data.origin_matcher.Run(OriginExt(), mock_policy()));
+  EXPECT_TRUE(removal_data.origin_matcher.Run(kTestOrigin, mock_policy()));
+  EXPECT_TRUE(removal_data.origin_matcher.Run(
+      url::Origin::Create(GURL("http://host2.com")), mock_policy()));
+  EXPECT_TRUE(removal_data.origin_matcher.Run(
+      url::Origin::Create(GURL("http://host3.com")), mock_policy()));
+  EXPECT_FALSE(removal_data.origin_matcher.Run(
+      url::Origin::Create(
+          GURL("chrome-extension://abcdefghijklmnopqrstuvwxyz/")),
+      mock_policy()));
 }
 
 TEST_F(BrowsingDataRemoverImplTest, RemoveLocalStorageForLastWeek) {
@@ -597,10 +591,16 @@ TEST_F(BrowsingDataRemoverImplTest, RemoveLocalStorageForLastWeek) {
   EXPECT_EQ(removal_data.remove_begin, GetBeginTime());
 
   // Check origin matcher.
-  EXPECT_TRUE(removal_data.origin_matcher.Run(Origin1(), mock_policy()));
-  EXPECT_TRUE(removal_data.origin_matcher.Run(Origin2(), mock_policy()));
-  EXPECT_TRUE(removal_data.origin_matcher.Run(Origin3(), mock_policy()));
-  EXPECT_FALSE(removal_data.origin_matcher.Run(OriginExt(), mock_policy()));
+  EXPECT_TRUE(removal_data.origin_matcher.Run(
+      url::Origin::Create(GURL("http://host1.com")), mock_policy()));
+  EXPECT_TRUE(removal_data.origin_matcher.Run(
+      url::Origin::Create(GURL("http://host2.com")), mock_policy()));
+  EXPECT_TRUE(removal_data.origin_matcher.Run(
+      url::Origin::Create(GURL("http://host3.com")), mock_policy()));
+  EXPECT_FALSE(removal_data.origin_matcher.Run(
+      url::Origin::Create(
+          GURL("chrome-extension://abcdefghijklmnopqrstuvwxyz/")),
+      mock_policy()));
 }
 
 TEST_F(BrowsingDataRemoverImplTest, RemoveMultipleTypes) {
@@ -702,9 +702,12 @@ TEST_F(BrowsingDataRemoverImplTest,
 
   // Check that all related origin data would be removed, that is, origin
   // matcher would match these origin.
-  EXPECT_TRUE(removal_data.origin_matcher.Run(Origin1(), mock_policy()));
-  EXPECT_TRUE(removal_data.origin_matcher.Run(Origin2(), mock_policy()));
-  EXPECT_TRUE(removal_data.origin_matcher.Run(Origin3(), mock_policy()));
+  EXPECT_TRUE(removal_data.origin_matcher.Run(
+      url::Origin::Create(GURL("http://host1.com")), mock_policy()));
+  EXPECT_TRUE(removal_data.origin_matcher.Run(
+      url::Origin::Create(GURL("http://host2.com")), mock_policy()));
+  EXPECT_TRUE(removal_data.origin_matcher.Run(
+      url::Origin::Create(GURL("http://host3.com")), mock_policy()));
 }
 
 TEST_F(BrowsingDataRemoverImplTest,
@@ -746,9 +749,12 @@ TEST_F(BrowsingDataRemoverImplTest,
 
   // Check that all related origin data would be removed, that is, origin
   // matcher would match these origin.
-  EXPECT_TRUE(removal_data.origin_matcher.Run(Origin1(), mock_policy()));
-  EXPECT_TRUE(removal_data.origin_matcher.Run(Origin2(), mock_policy()));
-  EXPECT_TRUE(removal_data.origin_matcher.Run(Origin3(), mock_policy()));
+  EXPECT_TRUE(removal_data.origin_matcher.Run(
+      url::Origin::Create(GURL("http://host1.com")), mock_policy()));
+  EXPECT_TRUE(removal_data.origin_matcher.Run(
+      url::Origin::Create(GURL("http://host2.com")), mock_policy()));
+  EXPECT_TRUE(removal_data.origin_matcher.Run(
+      url::Origin::Create(GURL("http://host3.com")), mock_policy()));
 }
 
 TEST_F(BrowsingDataRemoverImplTest, RemoveQuotaManagedDataForeverNeither) {
@@ -789,17 +795,21 @@ TEST_F(BrowsingDataRemoverImplTest, RemoveQuotaManagedDataForeverNeither) {
 
   // Check that all related origin data would be removed, that is, origin
   // matcher would match these origin.
-  EXPECT_TRUE(removal_data.origin_matcher.Run(Origin1(), mock_policy()));
-  EXPECT_TRUE(removal_data.origin_matcher.Run(Origin2(), mock_policy()));
-  EXPECT_TRUE(removal_data.origin_matcher.Run(Origin3(), mock_policy()));
+  EXPECT_TRUE(removal_data.origin_matcher.Run(
+      url::Origin::Create(GURL("http://host1.com")), mock_policy()));
+  EXPECT_TRUE(removal_data.origin_matcher.Run(
+      url::Origin::Create(GURL("http://host2.com")), mock_policy()));
+  EXPECT_TRUE(removal_data.origin_matcher.Run(
+      url::Origin::Create(GURL("http://host3.com")), mock_policy()));
 }
 
 TEST_F(BrowsingDataRemoverImplTest,
        RemoveQuotaManagedDataForeverSpecificOrigin) {
   std::unique_ptr<BrowsingDataFilterBuilder> builder(
       BrowsingDataFilterBuilder::Create(BrowsingDataFilterBuilder::WHITELIST));
-  builder->AddRegisterableDomain(kTestRegisterableDomain1);
-  // Remove Origin 1.
+  const GURL kTestUrl("http://host1.com");
+  builder->AddRegisterableDomain(kTestUrl.host());
+  // Remove the test origin.
   BlockUntilOriginDataRemoved(
       base::Time(), base::Time::Max(),
       BrowsingDataRemover::DATA_TYPE_APP_CACHE |
@@ -832,10 +842,14 @@ TEST_F(BrowsingDataRemoverImplTest,
                 StoragePartition::REMOVE_DATA_MASK_INDEXEDDB);
   EXPECT_EQ(removal_data.quota_storage_remove_mask,
             StoragePartition::QUOTA_MANAGED_STORAGE_MASK_ALL);
-  EXPECT_TRUE(removal_data.origin_matcher.Run(Origin1(), mock_policy()));
-  EXPECT_FALSE(removal_data.origin_matcher.Run(Origin2(), mock_policy()));
-  EXPECT_FALSE(removal_data.origin_matcher.Run(Origin3(), mock_policy()));
-  EXPECT_FALSE(removal_data.origin_matcher.Run(Origin4(), mock_policy()));
+  EXPECT_TRUE(removal_data.origin_matcher.Run(url::Origin::Create(kTestUrl),
+                                              mock_policy()));
+  EXPECT_FALSE(removal_data.origin_matcher.Run(
+      url::Origin::Create(GURL("http://host2.com")), mock_policy()));
+  EXPECT_FALSE(removal_data.origin_matcher.Run(
+      url::Origin::Create(GURL("http://host3.com")), mock_policy()));
+  EXPECT_FALSE(removal_data.origin_matcher.Run(
+      url::Origin::Create(GURL("https://host3.com")), mock_policy()));
 }
 
 TEST_F(BrowsingDataRemoverImplTest, RemoveQuotaManagedDataForLastHour) {
@@ -921,9 +935,10 @@ TEST_F(BrowsingDataRemoverImplTest, RemoveQuotaManagedDataForLastWeek) {
 }
 
 TEST_F(BrowsingDataRemoverImplTest, RemoveQuotaManagedUnprotectedOrigins) {
-  MockSpecialStoragePolicy* policy = CreateMockPolicy();
-  // Protect Origin1().
-  policy->AddProtected(Origin1().GetURL());
+  storage::MockSpecialStoragePolicy* policy = CreateMockPolicy();
+  // Protect the test origin.
+  const url::Origin kTestOrigin = url::Origin::Create(GURL("http://host1.com"));
+  policy->AddProtected(kTestOrigin.GetURL());
 
   BlockUntilBrowsingDataRemoved(
       base::Time(), base::Time::Max(),
@@ -959,21 +974,24 @@ TEST_F(BrowsingDataRemoverImplTest, RemoveQuotaManagedUnprotectedOrigins) {
             StoragePartition::QUOTA_MANAGED_STORAGE_MASK_ALL);
 
   // Check OriginMatcherFunction.
-  EXPECT_FALSE(removal_data.origin_matcher.Run(Origin1(), mock_policy()));
-  EXPECT_TRUE(removal_data.origin_matcher.Run(Origin2(), mock_policy()));
-  EXPECT_TRUE(removal_data.origin_matcher.Run(Origin3(), mock_policy()));
+  EXPECT_FALSE(removal_data.origin_matcher.Run(kTestOrigin, mock_policy()));
+  EXPECT_TRUE(removal_data.origin_matcher.Run(
+      url::Origin::Create(GURL("http://host2.com")), mock_policy()));
+  EXPECT_TRUE(removal_data.origin_matcher.Run(
+      url::Origin::Create(GURL("http://host3.com")), mock_policy()));
 }
 
 TEST_F(BrowsingDataRemoverImplTest, RemoveQuotaManagedProtectedSpecificOrigin) {
-  MockSpecialStoragePolicy* policy = CreateMockPolicy();
-  // Protect Origin1().
-  policy->AddProtected(Origin1().GetURL());
+  storage::MockSpecialStoragePolicy* policy = CreateMockPolicy();
+  // Protect the test origin.
+  const GURL kTestUrl("http://host1.com");
+  policy->AddProtected(kTestUrl);
 
   std::unique_ptr<BrowsingDataFilterBuilder> builder(
       BrowsingDataFilterBuilder::Create(BrowsingDataFilterBuilder::WHITELIST));
-  builder->AddRegisterableDomain(kTestRegisterableDomain1);
+  builder->AddRegisterableDomain(kTestUrl.host());
 
-  // Try to remove Origin1(). Expect failure.
+  // Try to remove the test origin. Expect failure.
   BlockUntilOriginDataRemoved(
       base::Time(), base::Time::Max(),
       BrowsingDataRemover::DATA_TYPE_APP_CACHE |
@@ -1008,19 +1026,23 @@ TEST_F(BrowsingDataRemoverImplTest, RemoveQuotaManagedProtectedSpecificOrigin) {
             StoragePartition::QUOTA_MANAGED_STORAGE_MASK_ALL);
 
   // Check OriginMatcherFunction.
-  EXPECT_FALSE(removal_data.origin_matcher.Run(Origin1(), mock_policy()));
+  EXPECT_FALSE(removal_data.origin_matcher.Run(url::Origin::Create(kTestUrl),
+                                               mock_policy()));
   // Since we use the matcher function to validate origins now, this should
   // return false for the origins we're not trying to clear.
-  EXPECT_FALSE(removal_data.origin_matcher.Run(Origin2(), mock_policy()));
-  EXPECT_FALSE(removal_data.origin_matcher.Run(Origin3(), mock_policy()));
+  EXPECT_FALSE(removal_data.origin_matcher.Run(
+      url::Origin::Create(GURL("http://host2.com")), mock_policy()));
+  EXPECT_FALSE(removal_data.origin_matcher.Run(
+      url::Origin::Create(GURL("http://host3.com")), mock_policy()));
 }
 
 TEST_F(BrowsingDataRemoverImplTest, RemoveQuotaManagedProtectedOrigins) {
-  MockSpecialStoragePolicy* policy = CreateMockPolicy();
-  // Protect Origin1().
-  policy->AddProtected(Origin1().GetURL());
+  storage::MockSpecialStoragePolicy* policy = CreateMockPolicy();
+  // Protect the test origin.
+  const url::Origin kTestOrigin = url::Origin::Create(GURL("http://host1.com"));
+  policy->AddProtected(kTestOrigin.GetURL());
 
-  // Try to remove Origin1(). Expect success.
+  // Try to remove the test origin. Expect success.
   BlockUntilBrowsingDataRemoved(
       base::Time(), base::Time::Max(),
       BrowsingDataRemover::DATA_TYPE_APP_CACHE |
@@ -1055,11 +1077,13 @@ TEST_F(BrowsingDataRemoverImplTest, RemoveQuotaManagedProtectedOrigins) {
   EXPECT_EQ(removal_data.quota_storage_remove_mask,
             StoragePartition::QUOTA_MANAGED_STORAGE_MASK_ALL);
 
-  // Check OriginMatcherFunction, |Origin1()| would match mask since we
+  // Check OriginMatcherFunction, |kTestOrigin| would match mask since we
   // would have 'protected' specified in origin_type_mask.
-  EXPECT_TRUE(removal_data.origin_matcher.Run(Origin1(), mock_policy()));
-  EXPECT_TRUE(removal_data.origin_matcher.Run(Origin2(), mock_policy()));
-  EXPECT_TRUE(removal_data.origin_matcher.Run(Origin3(), mock_policy()));
+  EXPECT_TRUE(removal_data.origin_matcher.Run(kTestOrigin, mock_policy()));
+  EXPECT_TRUE(removal_data.origin_matcher.Run(
+      url::Origin::Create(GURL("http://host2.com")), mock_policy()));
+  EXPECT_TRUE(removal_data.origin_matcher.Run(
+      url::Origin::Create(GURL("http://host3.com")), mock_policy()));
 }
 
 TEST_F(BrowsingDataRemoverImplTest,
@@ -1101,9 +1125,13 @@ TEST_F(BrowsingDataRemoverImplTest,
 
   // Check that extension and devtools data wouldn't be removed, that is,
   // origin matcher would not match these origin.
-  EXPECT_FALSE(removal_data.origin_matcher.Run(OriginExt(), mock_policy()));
-  EXPECT_FALSE(
-      removal_data.origin_matcher.Run(OriginDevTools(), mock_policy()));
+  EXPECT_FALSE(removal_data.origin_matcher.Run(
+      url::Origin::Create(
+          GURL("chrome-extension://abcdefghijklmnopqrstuvwxyz/")),
+      mock_policy()));
+  EXPECT_FALSE(removal_data.origin_matcher.Run(
+      url::Origin::Create(GURL("devtools://abcdefghijklmnopqrstuvw/")),
+      mock_policy()));
 }
 
 class InspectableCompletionObserver
@@ -1201,7 +1229,7 @@ TEST_F(BrowsingDataRemoverImplTest, RemoveDownloadsByOrigin) {
   RemoveDownloadsTester tester(GetBrowserContext());
   std::unique_ptr<BrowsingDataFilterBuilder> builder(
       BrowsingDataFilterBuilder::Create(BrowsingDataFilterBuilder::WHITELIST));
-  builder->AddRegisterableDomain(kTestRegisterableDomain1);
+  builder->AddRegisterableDomain("host1.com");
   base::RepeatingCallback<bool(const GURL&)> filter =
       builder->BuildGeneralFilter();
 
@@ -1267,7 +1295,6 @@ class MultipleTasksObserver {
   Target* target_b() { return &target_b_; }
 
  private:
-
   Target target_a_;
   Target target_b_;
   std::vector<BrowsingDataRemover::Observer*> last_called_targets_;

@@ -73,8 +73,8 @@ void RegisterProperty(Document& document,
   property_definition->setSyntax(syntax);
   property_definition->setInitialValue(initial_value);
   property_definition->setInherits(is_inherited);
-  PropertyRegistration::registerProperty(&document, property_definition,
-                                         exception_state);
+  PropertyRegistration::registerProperty(document.GetExecutionContext(),
+                                         property_definition, exception_state);
   ASSERT_FALSE(exception_state.HadException());
 }
 
@@ -105,6 +105,14 @@ const CSSValue* ParseLonghand(Document& document,
   CSSParserTokenRange range(tokens);
 
   return longhand->ParseSingleValue(range, *context, local_context);
+}
+
+const CSSPropertyValueSet* ParseDeclarationBlock(const String& block_text,
+                                                 CSSParserMode mode) {
+  auto* set = MakeGarbageCollected<MutableCSSPropertyValueSet>(mode);
+  set->ParseDeclarationList(block_text, SecureContextMode::kSecureContext,
+                            nullptr);
+  return set;
 }
 
 }  // namespace css_test_helpers

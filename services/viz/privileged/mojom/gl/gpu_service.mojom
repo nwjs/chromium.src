@@ -16,8 +16,10 @@ import "components/arc/mojom/video_protected_buffer_allocator.mojom";
 import "components/chromeos_camera/common/mjpeg_decode_accelerator.mojom";
 [EnableIf=is_chromeos]
 import "components/chromeos_camera/common/jpeg_encode_accelerator.mojom";
+import "gpu/ipc/common/device_perf_info.mojom";
 import "gpu/ipc/common/dx_diag_node.mojom";
 import "gpu/ipc/common/gpu_info.mojom";
+import "gpu/ipc/common/gpu_peak_memory.mojom";
 import "gpu/ipc/common/memory_stats.mojom";
 import "gpu/ipc/common/surface_handle.mojom";
 import "gpu/ipc/common/sync_token.mojom";
@@ -96,13 +98,24 @@ interface GpuService {
 
   // Ends tracking the peak GPU memory for the associated |sequence_num|.
   // Returning the value of the peak seen since StartPeakMemoryMonitorProcess.
-  GetPeakMemoryUsage(uint32 sequence_num) => (uint64 memory_usage);
+  GetPeakMemoryUsage(uint32 sequence_num) => (uint64 memory_usage,
+      map<gpu.mojom.GpuPeakMemoryAllocationSource, uint64>
+          memory_per_allocation_source);
 
   [EnableIf=is_win]
   RequestCompleteGpuInfo() => (gpu.mojom.DxDiagNode dx_diagnostics);
+
+  // Requests Vulkan and DX12 supports and device performance info on Windows.
+  // Returning whether Vulkan and DX12 are supported, and if yes, the
+  // supported version/feature level, together with a few metrics related
+  // to the device's performance for about:gpu and histogram recording
+  // purpose.
+  // TODO(crbug.com/1028263): histograms need to be recorded at browser process
+  // for now.
   [EnableIf=is_win]
-  GetGpuSupportedRuntimeVersion()
-      => (gpu.mojom.Dx12VulkanVersionInfo dx12_vulkan_version_info);
+  GetGpuSupportedRuntimeVersionAndDevicePerfInfo()
+      => (gpu.mojom.Dx12VulkanVersionInfo dx12_vulkan_version_info,
+          gpu.mojom.DevicePerfInfo device_perf_info);
 
   // Requests that the GPU process query system availability of HDR output and
   // return it.

@@ -21,8 +21,6 @@ component("lib") {
     "assistant_settings_manager.h",
     "assistant_state_proxy.cc",
     "assistant_state_proxy.h",
-    "constants.cc",
-    "constants.h",
     "fake_assistant_manager_service_impl.cc",
     "fake_assistant_manager_service_impl.h",
     "fake_assistant_settings_manager_impl.cc",
@@ -44,9 +42,9 @@ component("lib") {
     "//chromeos/services/assistant/public/proto",
     "//components/account_id",
     "//components/prefs",
+    "//components/signin/public/identity_manager",
     "//components/user_manager",
     "//services/device/public/mojom",
-    "//services/identity/public/mojom",
     "//services/network/public/cpp:cpp",
     "//ui/accessibility:ax_assistant",
   ]
@@ -145,9 +143,10 @@ source_set("tests") {
     "//chromeos/services/assistant/public/cpp:prefs",
     "//chromeos/services/assistant/public/mojom",
     "//components/prefs:test_support",
+    "//components/signin/public/identity_manager",
+    "//components/signin/public/identity_manager:test_support",
     "//mojo/public/cpp/bindings:bindings",
     "//services/device/public/mojom",
-    "//services/identity/public/mojom",
     "//services/network:test_support",
     "//services/network/public/cpp:cpp",
     "//testing/gmock",
@@ -165,6 +164,7 @@ source_set("tests") {
   if (enable_cros_libassistant) {
     sources += [
       "assistant_manager_service_impl_unittest.cc",
+      "media_session/assistant_media_session_unittest.cc",
       "platform/audio_input_impl_unittest.cc",
       "platform/audio_output_provider_impl_unittest.cc",
       "platform/network_provider_impl_unittest.cc",
@@ -174,6 +174,8 @@ source_set("tests") {
       "test_support/fake_assistant_manager_service_delegate.h",
       "test_support/fake_platform_api.cc",
       "test_support/fake_platform_api.h",
+      "test_support/mock_assistant_interaction_subscriber.cc",
+      "test_support/mock_assistant_interaction_subscriber.h",
       "test_support/mock_media_manager.cc",
       "test_support/mock_media_manager.h",
     ]
@@ -181,6 +183,7 @@ source_set("tests") {
     deps += [
       "//chromeos/assistant/internal",
       "//chromeos/assistant/internal:test_support",
+      "//chromeos/assistant/internal:tests",
       "//chromeos/assistant/internal/proto/google3",
       "//chromeos/dbus",
       "//chromeos/services/network_config/public/mojom",

@@ -10,6 +10,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/optional.h"
 #include "base/unguessable_token.h"
+#include "components/paint_preview/browser/hit_tester.h"
 #include "components/paint_preview/browser/paint_preview_base_service.h"
 #include "components/paint_preview/public/paint_preview_compositor_client.h"
 #include "components/paint_preview/public/paint_preview_compositor_service.h"
@@ -21,18 +22,25 @@ class Rect;
 }  // namespace gfx
 
 class SkBitmap;
-class GURL;
 
 namespace paint_preview {
+
+class DirectoryKey;
 
 class PlayerCompositorDelegate {
  public:
   PlayerCompositorDelegate(PaintPreviewBaseService* paint_preview_service,
-                           const GURL& url);
+                           const GURL& url,
+                           const DirectoryKey& key,
+                           bool skip_service_launch = false);
+  virtual ~PlayerCompositorDelegate();
+
+  PlayerCompositorDelegate(const PlayerCompositorDelegate&) = delete;
+  PlayerCompositorDelegate& operator=(const PlayerCompositorDelegate&) = delete;
 
   virtual void OnCompositorReady(
       mojom::PaintPreviewCompositor::Status status,
-      mojom::PaintPreviewBeginCompositeResponsePtr composite_response) = 0;
+      mojom::PaintPreviewBeginCompositeResponsePtr composite_response) {}
 
   // Called when there is a request for a new bitmap. When the bitmap
   // is ready, it will be passed to callback.
@@ -44,29 +52,30 @@ class PlayerCompositorDelegate {
                               const SkBitmap&)> callback);
 
   // Called on touch event on a frame.
-  void OnClick(const base::UnguessableToken& frame_guid, int x, int y);
-
- protected:
-  virtual ~PlayerCompositorDelegate();
+  std::vector<const GURL*> OnClick(const base::UnguessableToken& frame_guid,
+                                   const gfx::Rect& rect);
 
  private:
   void OnCompositorServiceDisconnected();
 
-  void OnCompositorClientCreated(const GURL& url);
+  void OnCompositorClientCreated(const GURL& expected_url,
+                                 const DirectoryKey& key);
   void OnCompositorClientDisconnected();
 
-  void OnProtoAvailable(std::unique_ptr<PaintPreviewProto> proto);
+  void OnProtoAvailable(const GURL& expected_url,
+                        std::unique_ptr<PaintPreviewProto> proto);
+  void SendCompositeRequest(
+      mojom::PaintPreviewBeginCompositeRequestPtr begin_composite_request);
 
   PaintPreviewBaseService* paint_preview_service_;
   std::unique_ptr<PaintPreviewCompositorService>
       paint_preview_compositor_service_;
   std::unique_ptr<PaintPreviewCompositorClient>
       paint_preview_compositor_client_;
+  base::flat_map<base::UnguessableToken, std::unique_ptr<HitTester>>
+      hit_testers_;
 
   base::WeakPtrFactory<PlayerCompositorDelegate> weak_factory_{this};
-
-  PlayerCompositorDelegate(const PlayerCompositorDelegate&) = delete;
-  PlayerCompositorDelegate& operator=(const PlayerCompositorDelegate&) = delete;
 };
 
 }  // namespace paint_preview

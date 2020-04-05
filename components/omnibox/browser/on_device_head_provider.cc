@@ -9,10 +9,12 @@
 #include "base/files/file_enumerator.h"
 #include "base/files/file_util.h"
 #include "base/i18n/case_conversion.h"
+#include "base/memory/ptr_util.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/path_service.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/task/thread_pool.h"
 #include "base/task_runner_util.h"
 #include "base/threading/sequenced_task_runner_handle.h"
 #include "base/trace_event/trace_event.h"
@@ -84,11 +86,10 @@ OnDeviceHeadProvider::OnDeviceHeadProvider(
     : AutocompleteProvider(AutocompleteProvider::TYPE_ON_DEVICE_HEAD),
       client_(client),
       listener_(listener),
-      worker_task_runner_(base::CreateSequencedTaskRunner(
-          {base::ThreadPool(), base::TaskPriority::BEST_EFFORT,
+      worker_task_runner_(base::ThreadPool::CreateSequencedTaskRunner(
+          {base::TaskPriority::BEST_EFFORT,
            base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN, base::MayBlock()})),
-      on_device_search_request_id_(0) {
-}
+      on_device_search_request_id_(0) {}
 
 OnDeviceHeadProvider::~OnDeviceHeadProvider() {}
 
@@ -179,8 +180,8 @@ void OnDeviceHeadProvider::Start(const AutocompleteInput& input,
   int delay = 0;
   if (!client()->IsOffTheRecord()) {
     delay = base::GetFieldTrialParamByFeatureAsInt(
-        omnibox::kOnDeviceHeadProvider, "DelayOnDeviceHeadSuggestRequestMs",
-        0);
+        omnibox::kOnDeviceHeadProvider,
+        OmniboxFieldTrial::kOnDeviceHeadSuggestDelaySuggestRequestMs, 0);
   }
   base::SequencedTaskRunnerHandle::Get()->PostDelayedTask(
       FROM_HERE,
@@ -284,12 +285,35 @@ void OnDeviceHeadProvider::SearchDone(
     UMA_HISTOGRAM_CUSTOM_COUNTS("Omnibox.OnDeviceHeadSuggest.ResultCount",
                                 params->suggestions.size(), 1, 5, 6);
     matches_.clear();
-    int relevance =
-        (params->input.type() != metrics::OmniboxInputType::URL)
-            ? base::GetFieldTrialParamByFeatureAsInt(
-                  omnibox::kOnDeviceHeadProvider,
-                  "OnDeviceSuggestMaxScoreForNonUrlInput", kBaseRelevance)
-            : kBaseRelevance;
+
+    int relevance;
+    if (params->input.type() == metrics::OmniboxInputType::URL) {
+      relevance = kBaseRelevance;
+    } else {
+      if (client()->IsOffTheRecord()) {
+        relevance = base::GetFieldTrialParamByFeatureAsInt(
+            omnibox::kOnDeviceHeadProvider,
+            OmniboxFieldTrial::
+                kOnDeviceHeadSuggestMaxScoreForNonUrlInputIncognito,
+            0);
+        if (relevance <= 0) {
+          // TODO(crbug.com/925072): this is a fallback for existing Incognito
+          // experiments which are still using finch flag
+          // kOnDeviceHeadSuggestMaxScoreForNonUrlInput; we will remove this
+          // fallback logic once no Incognito experiment is using the flag.
+          relevance = base::GetFieldTrialParamByFeatureAsInt(
+              omnibox::kOnDeviceHeadProvider,
+              OmniboxFieldTrial::kOnDeviceHeadSuggestMaxScoreForNonUrlInput,
+              kBaseRelevance);
+        }
+      } else {
+        relevance = base::GetFieldTrialParamByFeatureAsInt(
+            omnibox::kOnDeviceHeadProvider,
+            OmniboxFieldTrial::kOnDeviceHeadSuggestMaxScoreForNonUrlInput,
+            kBaseRelevance);
+      }
+    }
+
     for (const auto& item : params->suggestions) {
       matches_.push_back(BaseSearchProvider::CreateOnDeviceSearchSuggestion(
           /*autocomplete_provider=*/this, /*input=*/params->input,

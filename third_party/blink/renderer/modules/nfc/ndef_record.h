@@ -24,17 +24,20 @@ class MODULES_EXPORT NDEFRecord final : public ScriptWrappable {
   DEFINE_WRAPPERTYPEINFO();
 
  public:
+  // |is_embedded| indicates if this record is within the context of a parent
+  // record.
   static NDEFRecord* Create(const ExecutionContext*,
                             const NDEFRecordInit*,
-                            ExceptionState&);
+                            ExceptionState&,
+                            bool is_embedded = false);
 
   explicit NDEFRecord(device::mojom::NDEFRecordTypeCategory,
                       const String& record_type,
                       const String& id,
                       WTF::Vector<uint8_t>);
 
-  // For constructing an external type record or a "smart-poster" record whose
-  // payload is an NDEF message.
+  // For constructing a "smart-poster", an external type or a local type record
+  // whose payload is an NDEF message.
   explicit NDEFRecord(device::mojom::NDEFRecordTypeCategory,
                       const String& record_type,
                       const String& id,
@@ -73,7 +76,7 @@ class MODULES_EXPORT NDEFRecord final : public ScriptWrappable {
   const WTF::Vector<uint8_t>& payloadData() const { return payload_data_; }
   const NDEFMessage* payload_message() const { return payload_message_.Get(); }
 
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
 
  private:
   const device::mojom::NDEFRecordTypeCategory category_;
@@ -86,7 +89,7 @@ class MODULES_EXPORT NDEFRecord final : public ScriptWrappable {
   // https://w3c.github.io/web-nfc/#the-ndefrecord-interface.
   const WTF::Vector<uint8_t> payload_data_;
   // |payload_data_| parsed as an NDEFMessage. This field will be set for some
-  // "smart-poster" and external type records.
+  // "smart-poster", external, and local type records.
   const Member<NDEFMessage> payload_message_;
 };
 

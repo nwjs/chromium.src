@@ -90,7 +90,7 @@ bool IsProtected(
 HIDDevice::HIDDevice(HID* parent,
                      device::mojom::blink::HidDeviceInfoPtr info,
                      ExecutionContext* context)
-    : ContextLifecycleObserver(context),
+    : ExecutionContextLifecycleObserver(context),
       parent_(parent),
       device_info_(std::move(info)) {
   DCHECK(device_info_);
@@ -108,7 +108,7 @@ HIDDevice::~HIDDevice() {
 }
 
 ExecutionContext* HIDDevice::GetExecutionContext() const {
-  return ContextLifecycleObserver::GetExecutionContext();
+  return ExecutionContextLifecycleObserver::GetExecutionContext();
 }
 
 const AtomicString& HIDDevice::InterfaceName() const {
@@ -266,19 +266,19 @@ ScriptPromise HIDDevice::receiveFeatureReport(ScriptState* script_state,
   return promise;
 }
 
-void HIDDevice::ContextDestroyed(ExecutionContext*) {
+void HIDDevice::ContextDestroyed() {
   connection_.reset();
   device_requests_.clear();
   receiver_.reset();
 }
 
-void HIDDevice::Trace(blink::Visitor* visitor) {
+void HIDDevice::Trace(Visitor* visitor) {
   visitor->Trace(parent_);
   visitor->Trace(device_requests_);
   visitor->Trace(collections_);
   EventTargetWithInlineData::Trace(visitor);
   ScriptWrappable::Trace(visitor);
-  ContextLifecycleObserver::Trace(visitor);
+  ExecutionContextLifecycleObserver::Trace(visitor);
 }
 
 void HIDDevice::Dispose() {

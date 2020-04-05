@@ -7,7 +7,6 @@ package org.chromium.chrome.browser.webapps.dependency_injection;
 import androidx.annotation.Nullable;
 
 import org.chromium.chrome.browser.browserservices.BrowserServicesActivityTabController;
-import org.chromium.chrome.browser.browserservices.BrowserServicesIntentDataProvider;
 import org.chromium.chrome.browser.customtabs.CustomTabUmaRecorder;
 import org.chromium.chrome.browser.init.StartupTabPreloader;
 import org.chromium.chrome.browser.webapps.WebappActivityTabController;
@@ -20,17 +19,6 @@ import dagger.Provides;
  */
 @Module
 public final class WebappActivityModule {
-    private final BrowserServicesIntentDataProvider mIntentDataProvider;
-
-    public WebappActivityModule(BrowserServicesIntentDataProvider intentDataProvider) {
-        mIntentDataProvider = intentDataProvider;
-    }
-
-    @Provides
-    public BrowserServicesIntentDataProvider provideIntentDataProvider() {
-        return mIntentDataProvider;
-    }
-
     @Provides
     public BrowserServicesActivityTabController provideTabController(
             WebappActivityTabController webappTabController) {

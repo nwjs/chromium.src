@@ -33,7 +33,7 @@ class FlexBoxIterator;
 // eventually be replaced by LayoutFlexibleBox.
 class LayoutDeprecatedFlexibleBox final : public LayoutBlock {
  public:
-  LayoutDeprecatedFlexibleBox(Element&);
+  LayoutDeprecatedFlexibleBox(Element* element);
   ~LayoutDeprecatedFlexibleBox() override;
 
   const char* GetName() const override { return "LayoutDeprecatedFlexibleBox"; }
@@ -50,9 +50,7 @@ class LayoutDeprecatedFlexibleBox final : public LayoutBlock {
   void PlaceChild(LayoutBox* child, const LayoutPoint& location);
 
  private:
-  void ComputeIntrinsicLogicalWidths(
-      LayoutUnit& min_logical_width,
-      LayoutUnit& max_logical_width) const override;
+  MinMaxSizes ComputeIntrinsicLogicalWidths() const override;
 
   LayoutUnit AllowedChildFlex(LayoutBox* child, bool expanding);
 

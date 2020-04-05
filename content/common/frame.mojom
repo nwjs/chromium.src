@@ -4,14 +4,14 @@
 
 module content.mojom;
 
+import "content/common/ax_content_tree_update.mojom";
 import "content/common/document_scoped_interface_bundle.mojom";
 import "content/common/frame_messages.mojom";
 import "content/common/native_types.mojom";
 import "content/common/navigation_client.mojom";
 import "content/common/navigation_params.mojom";
+import "content/common/widget.mojom";
 import "content/public/common/browser_controls_state.mojom";
-import "content/public/common/resource_type.mojom";
-import "content/public/common/resource_load_info.mojom";
 import "content/public/common/transferrable_url_loader.mojom";
 import "content/public/common/window_container_type.mojom";
 import "mojo/public/mojom/base/string16.mojom";
@@ -27,25 +27,26 @@ import "services/viz/public/mojom/compositing/surface_id.mojom";
 import "third_party/blink/public/mojom/blob/blob_url_store.mojom";
 import "third_party/blink/public/mojom/commit_result/commit_result.mojom";
 import "third_party/blink/public/mojom/devtools/console_message.mojom";
+import "third_party/blink/public/mojom/devtools/devtools_agent.mojom";
+import "third_party/blink/public/mojom/feature_policy/document_policy_feature.mojom";
 import "third_party/blink/public/mojom/feature_policy/feature_policy.mojom";
 import "third_party/blink/public/mojom/feature_policy/feature_policy_feature.mojom";
 import "third_party/blink/public/mojom/feature_policy/policy_value.mojom";
 import "third_party/blink/public/mojom/frame/lifecycle.mojom";
 import "third_party/blink/public/mojom/frame/navigation_initiator.mojom";
-import "third_party/blink/public/mojom/messaging/transferable_message.mojom";
+import "third_party/blink/public/mojom/loader/resource_load_info.mojom";
 import "third_party/blink/public/mojom/loader/url_loader_factory_bundle.mojom";
 import "third_party/blink/public/mojom/messaging/transferable_message.mojom";
+import "third_party/blink/public/mojom/page/widget.mojom";
 import "third_party/blink/public/mojom/portal/portal.mojom";
 import "third_party/blink/public/mojom/referrer.mojom";
 import "third_party/blink/public/mojom/service_worker/controller_service_worker.mojom";
 import "third_party/blink/public/mojom/service_worker/service_worker_provider.mojom";
-import "third_party/blink/public/mojom/devtools/devtools_agent.mojom";
-import "third_party/blink/public/mojom/portal/portal.mojom";
 import "third_party/blink/public/mojom/window_features/window_features.mojom";
 import "ui/base/mojom/window_open_disposition.mojom";
-import "url/mojom/url.mojom";
-import "url/mojom/origin.mojom";
 import "ui/gfx/geometry/mojom/geometry.mojom";
+import "url/mojom/origin.mojom";
+import "url/mojom/url.mojom";
 
 // The name of the InterfaceProviderSpec in service manifests used by the
 // frame tree to expose frame-specific interfaces between renderer and browser.
@@ -85,6 +86,12 @@ interface Frame {
   UpdateBrowserControlsState(BrowserControlsState constraints,
                              BrowserControlsState current,
                              bool animate);
+
+  // Requests a one-time snapshot of the accessibility tree without enabling
+  // accessibility if it wasn't already enabled.
+  // See ui/accessibility/ax_mode.h for valid values of |ax_mode|.
+  SnapshotAccessibilityTree(uint32 ax_mode)
+      => (ax.mojom.AXContentTreeUpdate snapshot);
 };
 
 // Implemented by the frame provider and currently must be associated with the
@@ -237,12 +244,6 @@ interface FrameNavigationControl {
       pending_associated_receiver<blink.mojom.PortalClient> portal_client,
       blink.mojom.TransferableMessage data)
       => (blink.mojom.PortalActivateResult result);
-
-  // Notifies the document navigation was blocked because a content security
-  // policy was violated.
-  // This message is targeting a specific document in the RenderFrame, so the
-  // order with the CommitNavigation must be preserved.
-  ReportContentSecurityPolicyViolation(CSPViolationParams violation_params);
 };
 
 // Implemented by the frame (e.g. renderer processes).
@@ -268,11 +269,9 @@ interface FrameFactory {
 };
 
 struct CreateNewWindowParams {
-  // True if this open request came in the context of a user gesture.
-  //
-  // TODO(mustaq): We have cases where a user gesture is assumed to be
-  // there even when it's not the case.  See https://crbug.com/843233.
-  bool mimic_user_gesture;
+  // True if ContentRendererClient allows popups.  This is the case only for
+  // extensions.
+  bool allow_popup;
 
   // Type of window requested.
   WindowContainerType window_container_type;
@@ -335,6 +334,12 @@ struct CreateNewWindowReply {
   // Initial properties for the main frame RenderWidget.
   VisualProperties visual_properties;
 
+  // The communication interfaces for the WebFrameWidget in blink.
+  pending_associated_remote<blink.mojom.FrameWidgetHost> frame_widget_host;
+  pending_associated_receiver<blink.mojom.FrameWidget> frame_widget;
+  pending_associated_remote<blink.mojom.WidgetHost> widget_host;
+  pending_associated_receiver<blink.mojom.Widget> widget;
+
   DocumentScopedInterfaceBundle main_frame_interface_bundle;
 
   // Duplicated from CreateNewWindowParams because legacy code.
@@ -347,6 +352,11 @@ struct CreateNewWindowReply {
   // |devtools_frame_token| is only defined by the browser and is never
   // sent back from the renderer in the control calls.
   mojo_base.mojom.UnguessableToken devtools_main_frame_token;
+
+  // Used by devtools instrumentation to tell devtools agent in the renderer
+  // that it should pause created window and wait for an explicit resume command
+  // from the client.
+  bool wait_for_debugger;
 };
 
 // An opaque handle that keeps alive the associated render process even after
@@ -386,6 +396,20 @@ interface FrameHost {
           viz.mojom.FrameSinkId frame_sink_id,
           FrameReplicationState replicated_state,
           mojo_base.mojom.UnguessableToken devtools_frame_token);
+
+
+  // Similar to CreateNewWindow, except used for sub-widgets, like <select>
+  // dropdowns.
+  [Sync] CreateNewWidget(pending_remote<Widget> widget,
+         pending_associated_receiver<blink.mojom.WidgetHost> blink_widget_host,
+         pending_associated_remote<blink.mojom.Widget> blink_widget)
+      => (int32 routing_id);
+
+  // Similar to CreateNewWidget except the widget is a full screen window.
+  [Sync] CreateNewFullscreenWidget(pending_remote<Widget> widget,
+         pending_associated_receiver<blink.mojom.WidgetHost> blink_widget_host,
+         pending_associated_remote<blink.mojom.Widget> blink_widget)
+      => (int32 routing_id);
 
   // Creates and returns a KeepAliveHandle.
   IssueKeepAliveHandle(pending_receiver<KeepAliveHandle> keep_alive_handle);
@@ -441,7 +465,7 @@ interface FrameHost {
   SubresourceResponseStarted(url.mojom.Url url, uint32 cert_status);
 
   // Sent when a resource load finished, successfully or not.
-  ResourceLoadComplete(ResourceLoadInfo url_load_info);
+  ResourceLoadComplete(blink.mojom.ResourceLoadInfo url_load_info);
 
   // Sent when the frame changes its window.name.
   DidChangeName(string name, string unique_name);
@@ -456,7 +480,7 @@ interface FrameHost {
   DidSetFramePolicyHeaders(
       blink.mojom.WebSandboxFlags sandbox_flags,
       array<blink.mojom.ParsedFeaturePolicyDeclaration> feature_policy_header,
-      map<blink.mojom.FeaturePolicyFeature, blink.mojom.PolicyValue>
+      map<blink.mojom.DocumentPolicyFeature, blink.mojom.PolicyValue>
         document_policy_header);
 
   // If a cross-process navigation was started for the initial history load in
@@ -487,11 +511,6 @@ interface FrameHost {
       int32 line_number,
       mojo_base.mojom.String16 source_id);
 
-  // Sent when the renderer fails to load with an error.
-  DidFailLoadWithError(
-      url.mojom.Url url,
-      int32 error_code);
-
   // Sent to the browser process to transfer the user activation state from the
   // source frame to the frame sending this IPC. The browser will update the
   // user activation state of the frames in the frame tree in the non-source and
@@ -506,12 +525,6 @@ interface FrameHost {
                     ui.mojom.WindowOpenDisposition disposition,
                     gfx.mojom.Rect rect, bool opened_by_user_gesture, string manifest);
 
-  // Notifies the browser process about a new Content Security Policy that needs
-  // to be applies to the frame. This message is sent when a frame commits
-  // navigation to a new location (reporting accumulated policies from HTTP
-  // headers and/or policies that might have been inherited from the parent
-  // frame) or when a new policy has been discovered afterwards (i.e. found in a
-  // dynamically added or a static <meta> element).
-  DidAddContentSecurityPolicies(
-      array<network.mojom.ContentSecurityPolicy> policies);
+  // Requests an overlay routing token.
+  RequestOverlayRoutingToken() => (mojo_base.mojom.UnguessableToken token);
 };

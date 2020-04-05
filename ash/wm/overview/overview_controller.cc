@@ -22,18 +22,15 @@
 #include "ash/wm/overview/overview_wallpaper_controller.h"
 #include "ash/wm/screen_pinning_controller.h"
 #include "ash/wm/splitview/split_view_controller.h"
-#include "ash/wm/splitview/split_view_utils.h"
 #include "ash/wm/tablet_mode/tablet_mode_controller.h"
 #include "ash/wm/window_state.h"
 #include "ash/wm/window_util.h"
 #include "base/bind.h"
 #include "base/containers/unique_ptr_adapters.h"
 #include "base/metrics/histogram_macros.h"
-#include "base/metrics/user_metrics.h"
 #include "base/stl_util.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "ui/views/widget/widget.h"
-#include "ui/wm/core/window_util.h"
 #include "ui/wm/public/activation_client.h"
 
 namespace ash {
@@ -64,11 +61,11 @@ bool IsSplitViewDividerDraggedOrAnimated() {
 // either slide, or fade to home modes.
 // |enter| - Whether |original_type| is used for entering overview.
 // |windows| - The list of windows that are displayed in the overview UI.
-OverviewSession::EnterExitOverviewType MaybeOverrideEnterExitTypeForHomeScreen(
-    OverviewSession::EnterExitOverviewType original_type,
+OverviewEnterExitType MaybeOverrideEnterExitTypeForHomeScreen(
+    OverviewEnterExitType original_type,
     bool enter,
     const std::vector<aura::Window*>& windows) {
-  if (original_type != OverviewSession::EnterExitOverviewType::kNormal)
+  if (original_type != OverviewEnterExitType::kNormal)
     return original_type;
 
   // Use normal type if home launcher is not available.
@@ -85,8 +82,8 @@ OverviewSession::EnterExitOverviewType MaybeOverrideEnterExitTypeForHomeScreen(
   // If kDragFromShelfToHomeOrOverview is enabled, overview is expected to fade
   // in or out to home screen (when all windows are minimized).
   if (ash::features::IsDragFromShelfToHomeOrOverviewEnabled()) {
-    return enter ? OverviewSession::EnterExitOverviewType::kFadeInEnter
-                 : OverviewSession::EnterExitOverviewType::kFadeOutExit;
+    return enter ? OverviewEnterExitType::kFadeInEnter
+                 : OverviewEnterExitType::kFadeOutExit;
   }
 
   // When kDragFromShelfToHomeOrOverview is enabled, the original type is
@@ -96,8 +93,8 @@ OverviewSession::EnterExitOverviewType MaybeOverrideEnterExitTypeForHomeScreen(
   if (windows.empty())
     return original_type;
 
-  return enter ? OverviewSession::EnterExitOverviewType::kSlideInEnter
-               : OverviewSession::EnterExitOverviewType::kSlideOutExit;
+  return enter ? OverviewEnterExitType::kSlideInEnter
+               : OverviewEnterExitType::kSlideOutExit;
 }
 
 }  // namespace
@@ -127,8 +124,7 @@ OverviewController::~OverviewController() {
   }
 }
 
-bool OverviewController::StartOverview(
-    OverviewSession::EnterExitOverviewType type) {
+bool OverviewController::StartOverview(OverviewEnterExitType type) {
   // No need to start overview if overview is currently active.
   if (InOverviewSession())
     return true;
@@ -140,8 +136,7 @@ bool OverviewController::StartOverview(
   return true;
 }
 
-bool OverviewController::EndOverview(
-    OverviewSession::EnterExitOverviewType type) {
+bool OverviewController::EndOverview(OverviewEnterExitType type) {
   // No need to end overview if overview is already ended.
   if (!InOverviewSession())
     return true;
@@ -211,7 +206,7 @@ void OverviewController::AddExitAnimationObserver(
   // No delayed animations should be created when overview mode is set to exit
   // immediately.
   DCHECK_NE(overview_session_->enter_exit_overview_type(),
-            OverviewSession::EnterExitOverviewType::kImmediateExit);
+            OverviewEnterExitType::kImmediateExit);
 
   animation_observer->SetOwner(this);
   delayed_animations_.push_back(std::move(animation_observer));
@@ -285,8 +280,7 @@ OverviewController::GetItemWindowListInOverviewGridsForTest() {
   return windows;
 }
 
-void OverviewController::ToggleOverview(
-    OverviewSession::EnterExitOverviewType type) {
+void OverviewController::ToggleOverview(OverviewEnterExitType type) {
   // Hide the virtual keyboard as it obstructs the overview mode.
   // Don't need to hide if it's the a11y keyboard, as overview mode
   // can accept text input and it resizes correctly with the a11y keyboard.
@@ -310,14 +304,15 @@ void OverviewController::ToggleOverview(
 
   if (InOverviewSession()) {
     DCHECK(CanEndOverview(type));
-    TRACE_EVENT_ASYNC_BEGIN0("ui", "OverviewController::ExitOverview", this);
+    TRACE_EVENT_NESTABLE_ASYNC_BEGIN0("ui", "OverviewController::ExitOverview",
+                                      this);
 
     // Suspend occlusion tracker until the exit animation is complete.
     PauseOcclusionTracker();
 
     // We may want to slide out the overview grid in some cases, even if not
     // explicitly stated.
-    OverviewSession::EnterExitOverviewType new_type =
+    OverviewEnterExitType new_type =
         MaybeOverrideEnterExitTypeForHomeScreen(type, /*enter=*/false, windows);
     overview_session_->set_enter_exit_overview_type(new_type);
 
@@ -327,9 +322,9 @@ void OverviewController::ToggleOverview(
       OnStartingAnimationComplete(/*canceled=*/true);
     start_animations_.clear();
 
-    if (type == OverviewSession::EnterExitOverviewType::kSlideOutExit ||
-        type == OverviewSession::EnterExitOverviewType::kFadeOutExit ||
-        type == OverviewSession::EnterExitOverviewType::kSwipeFromShelf) {
+    if (type == OverviewEnterExitType::kSlideOutExit ||
+        type == OverviewEnterExitType::kFadeOutExit ||
+        type == OverviewEnterExitType::kSwipeFromShelf) {
       // Minimize the windows without animations. When the home launcher button
       // is pressed, minimized widgets will get created in their place, and
       // those widgets will be slid out of overview. Otherwise,
@@ -355,7 +350,7 @@ void OverviewController::ToggleOverview(
 
     const bool should_end_immediately =
         overview_session_->enter_exit_overview_type() ==
-        OverviewSession::EnterExitOverviewType::kImmediateExit;
+        OverviewEnterExitType::kImmediateExit;
     if (should_end_immediately) {
       for (const auto& animation : delayed_animations_)
         animation->Shutdown();
@@ -373,7 +368,8 @@ void OverviewController::ToggleOverview(
       OnEndingAnimationComplete(/*canceled=*/false);
   } else {
     DCHECK(CanEnterOverview());
-    TRACE_EVENT_ASYNC_BEGIN0("ui", "OverviewController::EnterOverview", this);
+    TRACE_EVENT_NESTABLE_ASYNC_BEGIN0("ui", "OverviewController::EnterOverview",
+                                      this);
 
     // Clear any animations that may be running from last overview end.
     for (const auto& animation : delayed_animations_)
@@ -385,31 +381,34 @@ void OverviewController::ToggleOverview(
     for (auto& observer : observers_)
       observer.OnOverviewModeWillStart();
 
-    // |should_focus_overview_| shall be true except when split view mode starts
-    // on transition between clamshell mode and tablet mode, on transition
-    // between user sessions, or on transition between virtual desks. Those are
-    // the cases where code arranges split view by first snapping a window on
-    // one side and then starting overview to be seen on the other side, meaning
-    // that the split view state here will be
-    // |SplitViewController::State::kLeftSnapped| or
-    // |SplitViewController::State::kRightSnapped|. We have to check the split
-    // view state before |SplitViewController::OnOverviewModeStarting|, because
-    // in case of |SplitViewController::State::kBothSnapped|, that function will
-    // insert one of the two snapped windows to overview.
     should_focus_overview_ = true;
-    for (aura::Window* root_window : Shell::GetAllRootWindows()) {
-      const SplitViewController::State split_view_state =
-          SplitViewController::Get(root_window)->state();
-      if (split_view_state == SplitViewController::State::kLeftSnapped ||
-          split_view_state == SplitViewController::State::kRightSnapped) {
-        should_focus_overview_ = false;
-        break;
-      }
-    }
-    // |should_focus_overview_| should also be false if overview starts when
-    // there is a window being dragged. Do not change the window activation as
-    // it might cause the unnecessary shelf item activition indicator change.
-    if (should_focus_overview_) {
+    const SplitViewController::State split_view_state =
+        SplitViewController::Get(Shell::GetPrimaryRootWindow())->state();
+    // Prevent overview from stealing focus if |split_view_state| is
+    // |SplitViewController::State::kLeftSnapped| or
+    // |SplitViewController::State::kRightSnapped|. Here are all the cases where
+    // |split_view_state| will now have one of those two values:
+    // 1. The active window is maximized in tablet mode. The user presses Alt+[.
+    // 2. The active window is maximized in tablet mode. The user presses Alt+].
+    // 3. The active window is snapped on the right in tablet split view.
+    //    Another window is snapped on the left in tablet split view. The user
+    //    presses Alt+[.
+    // 4. The active window is snapped on the left in tablet split view. Another
+    //    window is snapped on the right in tablet split view. The user presses
+    //    Alt+].
+    // 5. Overview starts because of a snapped window carrying over from
+    //    clamshell mode to tablet mode.
+    // 6. Overview starts on transition between user sessions.
+    //
+    // Note: We have to check the split view state before
+    // |SplitViewController::OnOverviewModeStarting|, because in case of
+    // |SplitViewController::State::kBothSnapped|, that function will insert one
+    // of the two snapped windows to overview.
+    if (split_view_state == SplitViewController::State::kLeftSnapped ||
+        split_view_state == SplitViewController::State::kRightSnapped) {
+      should_focus_overview_ = false;
+    } else {
+      // Avoid stealing activation from a dragged active window.
       aura::Window* active_window = window_util::GetActiveWindow();
       if (active_window && WindowState::Get(active_window)->is_dragged()) {
         DCHECK(window_util::ShouldExcludeForOverview(active_window));
@@ -423,7 +422,7 @@ void OverviewController::ToggleOverview(
     overview_session_ = std::make_unique<OverviewSession>(this);
     // We may want to slide in the overview grid in some cases, even if not
     // explicitly stated.
-    OverviewSession::EnterExitOverviewType new_type =
+    OverviewEnterExitType new_type =
         MaybeOverrideEnterExitTypeForHomeScreen(type, /*enter=*/true, windows);
     overview_session_->set_enter_exit_overview_type(new_type);
     for (auto& observer : observers_)
@@ -435,13 +434,12 @@ void OverviewController::ToggleOverview(
     // the overview immediately, so delaying blur start until start animations
     // finish looks janky.
     overview_wallpaper_controller_->Blur(
-        /*animate_only=*/new_type ==
-        OverviewSession::EnterExitOverviewType::kFadeInEnter);
+        /*animate_only=*/new_type == OverviewEnterExitType::kFadeInEnter);
 
     // For app dragging, there are no start animations so add a delay to delay
     // animations observing when the start animation ends, such as the shelf,
     // shadow and rounded corners.
-    if (new_type == OverviewSession::EnterExitOverviewType::kImmediateEnter &&
+    if (new_type == OverviewEnterExitType::kImmediateEnter &&
         !delayed_animation_task_delay_.is_zero()) {
       auto force_delay_observer =
           std::make_unique<ForceDelayObserver>(delayed_animation_task_delay_);
@@ -475,8 +473,7 @@ bool OverviewController::CanEnterOverview() {
          !session_controller->IsRunningInAppMode();
 }
 
-bool OverviewController::CanEndOverview(
-    OverviewSession::EnterExitOverviewType type) {
+bool OverviewController::CanEndOverview(OverviewEnterExitType type) {
   // Prevent ending overview while the divider is dragged or animated.
   if (IsSplitViewDividerDraggedOrAnimated())
     return false;
@@ -490,8 +487,8 @@ bool OverviewController::CanEndOverview(
       split_view_controller->state() !=
           SplitViewController::State::kBothSnapped &&
       InOverviewSession() && overview_session_->IsEmpty() &&
-      type != OverviewSession::EnterExitOverviewType::kSwipeFromShelf &&
-      type != OverviewSession::EnterExitOverviewType::kImmediateExit) {
+      type != OverviewEnterExitType::kSwipeFromShelf &&
+      type != OverviewEnterExitType::kImmediateExit) {
     return false;
   }
 
@@ -504,7 +501,7 @@ void OverviewController::OnStartingAnimationComplete(bool canceled) {
   // For kFadeInEnter, wallpaper blur is initiated on transition start,
   // so it doesn't have to be requested again on starting animation end.
   if (!canceled && overview_session_->enter_exit_overview_type() !=
-                       OverviewSession::EnterExitOverviewType::kFadeInEnter) {
+                       OverviewEnterExitType::kFadeInEnter) {
     overview_wallpaper_controller_->Blur(/*animate_only=*/true);
   }
 
@@ -513,8 +510,8 @@ void OverviewController::OnStartingAnimationComplete(bool canceled) {
   overview_session_->OnStartingAnimationComplete(canceled,
                                                  should_focus_overview_);
   UnpauseOcclusionTracker(kOcclusionPauseDurationForStart);
-  TRACE_EVENT_ASYNC_END1("ui", "OverviewController::EnterOverview", this,
-                         "canceled", canceled);
+  TRACE_EVENT_NESTABLE_ASYNC_END1("ui", "OverviewController::EnterOverview",
+                                  this, "canceled", canceled);
 }
 
 void OverviewController::OnEndingAnimationComplete(bool canceled) {
@@ -527,8 +524,8 @@ void OverviewController::OnEndingAnimationComplete(bool canceled) {
   for (auto& observer : observers_)
     observer.OnOverviewModeEndingAnimationComplete(canceled);
   UnpauseOcclusionTracker(occlusion_pause_duration_for_end_);
-  TRACE_EVENT_ASYNC_END1("ui", "OverviewController::ExitOverview", this,
-                         "canceled", canceled);
+  TRACE_EVENT_NESTABLE_ASYNC_END1("ui", "OverviewController::ExitOverview",
+                                  this, "canceled", canceled);
 }
 
 void OverviewController::ResetPauser() {

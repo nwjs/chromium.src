@@ -7,9 +7,13 @@
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/dom/node_computed_style.h"
 #include "third_party/blink/renderer/core/layout/layout_block_flow.h"
+#include "third_party/blink/renderer/core/layout/layout_deprecated_flexible_box.h"
 #include "third_party/blink/renderer/core/layout/layout_fieldset.h"
+#include "third_party/blink/renderer/core/layout/layout_file_upload_control.h"
 #include "third_party/blink/renderer/core/layout/layout_flexible_box.h"
+#include "third_party/blink/renderer/core/layout/layout_inside_list_marker.h"
 #include "third_party/blink/renderer/core/layout/layout_list_item.h"
+#include "third_party/blink/renderer/core/layout/layout_outside_list_marker.h"
 #include "third_party/blink/renderer/core/layout/layout_table_caption.h"
 #include "third_party/blink/renderer/core/layout/layout_table_cell.h"
 #include "third_party/blink/renderer/core/layout/layout_text.h"
@@ -25,7 +29,7 @@
 #include "third_party/blink/renderer/core/layout/ng/layout_ng_table_cell.h"
 #include "third_party/blink/renderer/core/layout/ng/list/layout_ng_inside_list_marker.h"
 #include "third_party/blink/renderer/core/layout/ng/list/layout_ng_list_item.h"
-#include "third_party/blink/renderer/core/layout/ng/list/layout_ng_list_marker.h"
+#include "third_party/blink/renderer/core/layout/ng/list/layout_ng_outside_list_marker.h"
 #include "third_party/blink/renderer/core/style/computed_style.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 
@@ -85,6 +89,16 @@ LayoutBlockFlow* LayoutObjectFactory::CreateBlockFlow(
   return CreateObject<LayoutBlockFlow, LayoutNGBlockFlow>(node, style, legacy);
 }
 
+// static
+LayoutBlock* LayoutObjectFactory::CreateBlockForLineClamp(
+    Node& node,
+    const ComputedStyle& style,
+    LegacyLayout legacy) {
+  DCHECK(RuntimeEnabledFeatures::BlockFlowHandlesWebkitLineClampEnabled());
+  return CreateObject<LayoutBlock, LayoutNGBlockFlow,
+                      LayoutDeprecatedFlexibleBox>(node, style, legacy);
+}
+
 LayoutBlock* LayoutObjectFactory::CreateFlexibleBox(Node& node,
                                                     const ComputedStyle& style,
                                                     LegacyLayout legacy) {
@@ -96,10 +110,6 @@ LayoutBlock* LayoutObjectFactory::CreateFlexibleBox(Node& node,
 LayoutObject* LayoutObjectFactory::CreateListMarker(Node& node,
                                                     const ComputedStyle& style,
                                                     LegacyLayout legacy) {
-  // TODO(obrufau): allow ::marker pseudo-elements to generate legacy layout.
-  if (!RuntimeEnabledFeatures::LayoutNGEnabled() ||
-      legacy == LegacyLayout::kForce)
-    return nullptr;
   const Node* parent = node.parentNode();
   const ComputedStyle* parent_style = parent->GetComputedStyle();
   bool is_inside =
@@ -107,10 +117,10 @@ LayoutObject* LayoutObjectFactory::CreateListMarker(Node& node,
       (IsA<HTMLLIElement>(parent) && !parent_style->IsInsideListElement());
   if (is_inside) {
     return CreateObject<LayoutObject, LayoutNGInsideListMarker,
-                        LayoutNGInsideListMarker>(node, style, legacy);
+                        LayoutInsideListMarker>(node, style, legacy);
   }
-  return CreateObject<LayoutObject, LayoutNGListMarker, LayoutNGListMarker>(
-      node, style, legacy);
+  return CreateObject<LayoutObject, LayoutNGOutsideListMarker,
+                      LayoutOutsideListMarker>(node, style, legacy);
 }
 
 LayoutTableCaption* LayoutObjectFactory::CreateTableCaption(
@@ -134,6 +144,14 @@ LayoutBlock* LayoutObjectFactory::CreateFieldset(Node& node,
   bool disable_ng_for_type = !RuntimeEnabledFeatures::LayoutNGFieldsetEnabled();
   return CreateObject<LayoutBlock, LayoutNGFieldset, LayoutFieldset>(
       node, style, legacy, disable_ng_for_type);
+}
+
+LayoutBlockFlow* LayoutObjectFactory::CreateFileUploadControl(
+    Node& node,
+    const ComputedStyle& style,
+    LegacyLayout legacy) {
+  return CreateObject<LayoutBlockFlow, LayoutNGBlockFlow,
+                      LayoutFileUploadControl>(node, style, legacy);
 }
 
 LayoutText* LayoutObjectFactory::CreateText(Node* node,

@@ -62,6 +62,10 @@ String RTCPeerConnectionIceErrorEvent::address() const {
   return address_;
 }
 
+base::Optional<uint16_t> RTCPeerConnectionIceErrorEvent::port() const {
+  return port_;
+}
+
 uint16_t RTCPeerConnectionIceErrorEvent::port(bool& is_null) const {
   is_null = !port_.has_value();
   return is_null ? uint16_t() : port_.value();
@@ -87,7 +91,7 @@ const AtomicString& RTCPeerConnectionIceErrorEvent::InterfaceName() const {
   return event_interface_names::kRTCPeerConnectionIceErrorEvent;
 }
 
-void RTCPeerConnectionIceErrorEvent::Trace(blink::Visitor* visitor) {
+void RTCPeerConnectionIceErrorEvent::Trace(Visitor* visitor) {
   Event::Trace(visitor);
 }
 

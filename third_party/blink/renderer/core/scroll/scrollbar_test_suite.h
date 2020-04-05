@@ -79,7 +79,7 @@ class MockScrollableArea : public GarbageCollected<MockScrollableArea>,
   bool ScrollbarsCanBeActive() const override { return true; }
   bool ShouldPlaceVerticalScrollbarOnLeft() const override { return false; }
   void UpdateScrollOffset(const ScrollOffset& offset,
-                          mojom::blink::ScrollIntoViewParams::Type) override {
+                          mojom::blink::ScrollType) override {
     scroll_offset_ = offset.ShrunkTo(maximum_scroll_offset_);
   }
   IntSize ScrollOffsetInt() const override {
@@ -120,12 +120,12 @@ class MockScrollableArea : public GarbageCollected<MockScrollableArea>,
     return ScrollbarTheme::GetTheme();
   }
 
-  using ScrollableArea::ShowOverlayScrollbars;
-  using ScrollableArea::HorizontalScrollbarNeedsPaintInvalidation;
-  using ScrollableArea::VerticalScrollbarNeedsPaintInvalidation;
   using ScrollableArea::ClearNeedsPaintInvalidationForScrollControls;
+  using ScrollableArea::HorizontalScrollbarNeedsPaintInvalidation;
+  using ScrollableArea::ShowNonMacOverlayScrollbars;
+  using ScrollableArea::VerticalScrollbarNeedsPaintInvalidation;
 
-  void Trace(blink::Visitor* visitor) override {
+  void Trace(Visitor* visitor) override {
     visitor->Trace(chrome_client_);
     ScrollableArea::Trace(visitor);
   }

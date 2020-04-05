@@ -5,8 +5,6 @@
 package org.chromium.components.browser_ui.widget;
 
 import android.content.Context;
-import android.support.graphics.drawable.VectorDrawableCompat;
-import android.support.v4.view.ViewCompat;
 import android.text.method.LinkMovementMethod;
 import android.util.AttributeSet;
 import android.view.View;
@@ -15,6 +13,9 @@ import android.view.ViewStub;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+
+import androidx.core.view.ViewCompat;
+import androidx.vectordrawable.graphics.drawable.VectorDrawableCompat;
 
 import org.chromium.components.browser_ui.widget.PromoDialog.DialogParams;
 

@@ -110,23 +110,18 @@ void LayoutNGBlockFlowMixin<Base>::AddOutlineRects(
     To<NGPhysicalBoxFragment>(PaintFragment()->PhysicalFragment())
         .AddSelfOutlineRects(additional_offset, include_block_overflows,
                              &rects);
-  } else {
-    Base::AddOutlineRects(rects, additional_offset, include_block_overflows);
+    return;
   }
-}
 
-template <typename Base>
-bool LayoutNGBlockFlowMixin<
-    Base>::PaintedOutputOfObjectHasNoEffectRegardlessOfSize() const {
-  // LayoutNGBlockFlowMixin is in charge of paint invalidation of the first
-  // line and painting backplates.
-  if (PaintFragment() || Base::FragmentItems())
-    return false;
+  if (const NGPhysicalBoxFragment* fragment = CurrentFragment()) {
+    if (fragment->HasItems()) {
+      fragment->AddSelfOutlineRects(additional_offset, include_block_overflows,
+                                    &rects);
+      return;
+    }
+  }
 
-  if (Base::StyleRef().HasColumnRule())
-    return false;
-
-  return Base::PaintedOutputOfObjectHasNoEffectRegardlessOfSize();
+  Base::AddOutlineRects(rects, additional_offset, include_block_overflows);
 }
 
 // Retrieve NGBaseline from the current fragment.
@@ -206,11 +201,9 @@ void LayoutNGBlockFlowMixin<Base>::Paint(const PaintInfo& paint_info) const {
     return;
   }
 
-  if (RuntimeEnabledFeatures::LayoutNGFragmentPaintEnabled()) {
-    if (const NGPhysicalBoxFragment* fragment = CurrentFragment()) {
-      NGBoxFragmentPainter(*fragment).Paint(paint_info);
-      return;
-    }
+  if (const NGPhysicalBoxFragment* fragment = CurrentFragment()) {
+    NGBoxFragmentPainter(*fragment).Paint(paint_info);
+    return;
   }
 
   Base::Paint(paint_info);
@@ -244,7 +237,11 @@ bool LayoutNGBlockFlowMixin<Base>::NodeAtPoint(
 
   if (UNLIKELY(RuntimeEnabledFeatures::LayoutNGFragmentItemEnabled())) {
     if (const NGPhysicalBoxFragment* fragment = CurrentFragment()) {
-      if (fragment->HasItems()) {
+      if (fragment->HasItems() ||
+          // Check descendants of this fragment because floats may be in the
+          // |NGFragmentItems| of the descendants.
+          (action == kHitTestFloat &&
+           fragment->HasFloatingDescendantsForPaint())) {
         return NGBoxFragmentPainter(*fragment).NodeAtPoint(
             result, hit_test_location, accumulated_offset, action);
       }

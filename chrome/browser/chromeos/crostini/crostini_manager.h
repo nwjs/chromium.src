@@ -16,8 +16,8 @@
 #include "base/observer_list.h"
 #include "base/optional.h"
 #include "base/unguessable_token.h"
-#include "chrome/browser/chromeos/crostini/crostini_installer_types.mojom-forward.h"
 #include "chrome/browser/chromeos/crostini/crostini_simple_types.h"
+#include "chrome/browser/chromeos/crostini/crostini_types.mojom-forward.h"
 #include "chrome/browser/chromeos/crostini/crostini_util.h"
 #include "chrome/browser/chromeos/vm_starting_observer.h"
 #include "chrome/browser/component_updater/cros_component_installer_chromeos.h"
@@ -104,10 +104,19 @@ class UpgradeContainerProgressObserver {
       const std::vector<std::string>& messages) = 0;
 };
 
-class InstallerViewStatusObserver : public base::CheckedObserver {
+class CrostiniDialogStatusObserver : public base::CheckedObserver {
  public:
-  // Called when the CrostiniInstallerView is opened or closed.
-  virtual void OnCrostiniInstallerViewStatusChanged(bool open) = 0;
+  // Called when a Crostini dialog (installer, upgrader, etc.) opens or
+  // closes.
+  virtual void OnCrostiniDialogStatusChanged(DialogType dialog_type,
+                                             bool open) = 0;
+};
+
+class CrostiniContainerPropertiesObserver : public base::CheckedObserver {
+ public:
+  // Called when a container's OS release version changes.
+  virtual void OnContainerOsReleaseChanged(const ContainerId& container_id,
+                                           bool can_upgrade) = 0;
 };
 
 class VmShutdownObserver : public base::CheckedObserver {
@@ -138,6 +147,9 @@ class CrostiniManager : public KeyedService,
   // Callback indicating success or failure
   using BoolCallback = base::OnceCallback<void(bool success)>;
 
+  using RestartId = int;
+  static const RestartId kUninitializedRestartId = -1;
+
   // Observer class for the Crostini restart flow.
   class RestartObserver {
    public:
@@ -155,6 +167,13 @@ class CrostiniManager : public KeyedService,
     virtual void OnContainerStarted(CrostiniResult result) {}
     virtual void OnSshKeysFetched(bool success) {}
     virtual void OnContainerMounted(bool success) {}
+
+    RestartId restart_id() const { return restart_id_; }
+
+   protected:
+    friend class CrostiniManager;
+    void set_restart_id(RestartId restart_id) { restart_id_ = restart_id; }
+    RestartId restart_id_ = kUninitializedRestartId;
   };
 
   struct RestartOptions {
@@ -174,6 +193,8 @@ class CrostiniManager : public KeyedService,
   explicit CrostiniManager(Profile* profile);
   ~CrostiniManager() override;
 
+  base::WeakPtr<CrostiniManager> GetWeakPtr();
+
   // Returns true if the cros-termina component is installed.
   static bool IsCrosTerminaInstalled();
 
@@ -181,10 +202,10 @@ class CrostiniManager : public KeyedService,
   static bool IsDevKvmPresent();
 
   // Upgrades cros-termina component if the current version is not compatible.
-  void MaybeUpgradeCrostini();
+  void MaybeUpdateCrostini();
 
   // Installs the current version of cros-termina component. Attempts to apply
-  // pending upgrades if a MaybeUpgradeCrostini failed.
+  // pending upgrades if a MaybeUpdateCrostini failed.
   void InstallTerminaComponent(CrostiniResultCallback callback);
 
   // Unloads and removes the cros-termina component. Returns success/failure.
@@ -405,8 +426,6 @@ class CrostiniManager : public KeyedService,
                        uint8_t guest_port,
                        BoolCallback callback);
 
-  using RestartId = int;
-  static const RestartId kUninitializedRestartId = -1;
   // Runs all the steps required to restart the given crostini vm and container.
   // The optional |observer| tracks progress. If provided, it must be alive
   // until the restart completes (i.e. when |callback| is called) or the restart
@@ -550,7 +569,7 @@ class CrostiniManager : public KeyedService,
                              std::string container_name,
                              const vm_tools::cicerone::OsRelease& os_release);
   const vm_tools::cicerone::OsRelease* GetContainerOsRelease(
-      const ContainerId& container_id);
+      const ContainerId& container_id) const;
   // Returns null if VM or container is not running.
   base::Optional<ContainerInfo> GetContainerInfo(std::string vm_name,
                                                  std::string container_name);
@@ -569,16 +588,27 @@ class CrostiniManager : public KeyedService,
     component_manager_load_error_for_testing_ = error;
   }
 
-  void SetInstallerViewStatus(bool open);
-  bool GetInstallerViewStatus() const;
-  void AddInstallerViewStatusObserver(InstallerViewStatusObserver* observer);
-  void RemoveInstallerViewStatusObserver(InstallerViewStatusObserver* observer);
-  bool HasInstallerViewStatusObserver(InstallerViewStatusObserver* observer);
+  void SetCrostiniDialogStatus(DialogType dialog_type, bool open);
+  // Returns true if the dialog is open.
+  bool GetCrostiniDialogStatus(DialogType dialog_type) const;
+  void AddCrostiniDialogStatusObserver(CrostiniDialogStatusObserver* observer);
+  void RemoveCrostiniDialogStatusObserver(
+      CrostiniDialogStatusObserver* observer);
+
+  void AddCrostiniContainerPropertiesObserver(
+      CrostiniContainerPropertiesObserver* observer);
+  void RemoveCrostiniContainerPropertiesObserver(
+      CrostiniContainerPropertiesObserver* observer);
 
   void OnDBusShuttingDownForTesting();
 
-  bool IsContainerUpgradeable(const ContainerId& container_id);
-  bool ShouldPromptContainerUpgrade(const ContainerId& container_id);
+  bool IsContainerUpgradeable(const ContainerId& container_id) const;
+  bool ShouldPromptContainerUpgrade(const ContainerId& container_id) const;
+  void UpgradePromptShown(const ContainerId& container_id);
+  void EnsureVmRunning(const ContainerId& key, CrostiniResultCallback callback);
+  bool IsUncleanStartup() const;
+  void SetUncleanStartupForTesting(bool is_unclean_startup);
+  void RemoveUncleanSshfsMounts();
 
  private:
   class CrostiniRestarter;
@@ -765,13 +795,13 @@ class CrostiniManager : public KeyedService,
   // Callback for AnsibleManagementService::ConfigureDefaultContainer
   void OnDefaultContainerConfigured(bool success);
 
-  // Helper for CrostiniManager::MaybeUpgradeCrostini. Makes blocking calls to
+  // Helper for CrostiniManager::MaybeUpdateCrostini. Makes blocking calls to
   // check for file paths and registered components.
   static void CheckPathsAndComponents();
 
-  // Helper for CrostiniManager::MaybeUpgradeCrostini. Separated because the
+  // Helper for CrostiniManager::MaybeUpdateCrostini. Separated because the
   // checking component registration code may block.
-  void MaybeUpgradeCrostiniAfterChecks();
+  void MaybeUpdateCrostiniAfterChecks();
 
   void FinishRestart(CrostiniRestarter* restarter, CrostiniResult result);
 
@@ -797,6 +827,10 @@ class CrostiniManager : public KeyedService,
   static bool is_cros_termina_registered_;
   bool termina_update_check_needed_ = false;
   static bool is_dev_kvm_present_;
+
+  // |is_unclean_startup_| is true when we detect Concierge still running at
+  // session startup time, and the last session ended in a crash.
+  bool is_unclean_startup_ = false;
 
   // Callbacks that are waiting on a signal
   std::multimap<ContainerId, CrostiniResultCallback> start_container_callbacks_;
@@ -851,12 +885,15 @@ class CrostiniManager : public KeyedService,
   std::map<CrostiniManager::RestartId, std::unique_ptr<CrostiniRestarter>>
       restarters_by_id_;
 
-  // True when the installer dialog is showing. At that point, it is invalid
-  // to allow Crostini uninstallation.
-  bool installer_dialog_showing_ = false;
+  base::ObserverList<CrostiniDialogStatusObserver>
+      crostini_dialog_status_observers_;
+  base::ObserverList<CrostiniContainerPropertiesObserver>
+      crostini_container_properties_observers_;
 
-  base::ObserverList<InstallerViewStatusObserver>
-      installer_view_status_observers_;
+  // Contains the types of crostini dialogs currently open. It is generally
+  // invalid to show more than one. e.g. uninstalling and installing are
+  // mutually exclusive.
+  base::flat_set<DialogType> open_crostini_dialogs_;
 
   bool dbus_observers_removed_ = false;
 

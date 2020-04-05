@@ -69,14 +69,10 @@ GLenum TextureFormat(gfx::BufferFormat format) {
     case gfx::BufferFormat::BGRX_8888:  // See https://crbug.com/595948.
     case gfx::BufferFormat::RGBA_8888:
     case gfx::BufferFormat::RGBA_F16:
+    case gfx::BufferFormat::BGRA_1010102:
       return GL_RGBA;
     case gfx::BufferFormat::YUV_420_BIPLANAR:
       return GL_RGB_YCBCR_420V_CHROMIUM;
-    case gfx::BufferFormat::BGRX_1010102:
-      // Technically we should use GL_RGB but CGLTexImageIOSurface2D() (and
-      // OpenGL ES 3.0, for the case) support only GL_RGBA (the hardware ignores
-      // the alpha channel anyway), see https://crbug.com/797347.
-      return GL_RGBA;
     case gfx::BufferFormat::BGR_565:
     case gfx::BufferFormat::RGBA_4444:
     case gfx::BufferFormat::RGBX_8888:
@@ -102,7 +98,7 @@ GLenum DataFormat(gfx::BufferFormat format) {
     case gfx::BufferFormat::BGRA_8888:
     case gfx::BufferFormat::BGRX_8888:
     case gfx::BufferFormat::RGBA_8888:  // See https://crbug.com/533677#c6.
-    case gfx::BufferFormat::BGRX_1010102:
+    case gfx::BufferFormat::BGRA_1010102:
       return GL_BGRA;
     case gfx::BufferFormat::RGBA_F16:
       return GL_RGBA;
@@ -132,7 +128,7 @@ GLenum DataType(gfx::BufferFormat format) {
     case gfx::BufferFormat::BGRX_8888:
     case gfx::BufferFormat::RGBA_8888:
       return GL_UNSIGNED_INT_8_8_8_8_REV;
-    case gfx::BufferFormat::BGRX_1010102:
+    case gfx::BufferFormat::BGRA_1010102:
       return GL_UNSIGNED_INT_2_10_10_10_REV;
     case gfx::BufferFormat::RGBA_F16:
       return GL_HALF_APPLE;
@@ -267,16 +263,9 @@ bool GLImageIOSurface::BindTexImageWithInternalformat(unsigned target,
   TRACE_EVENT0("gpu", "GLImageIOSurface::BindTexImage");
   base::TimeTicks start_time = base::TimeTicks::Now();
 
-  if (target != GL_TEXTURE_RECTANGLE_ARB) {
-    // This might be supported in the future. For now, perform strict
-    // validation so we know what's going on.
-    LOG(ERROR) << "IOSurface requires TEXTURE_RECTANGLE_ARB target";
-    return false;
-  }
-
   DCHECK(io_surface_);
 
-  if (!BindTexImageImpl(internalformat)) {
+  if (!BindTexImageImpl(target, internalformat)) {
     return false;
   }
 
@@ -285,7 +274,15 @@ bool GLImageIOSurface::BindTexImageWithInternalformat(unsigned target,
   return true;
 }
 
-bool GLImageIOSurface::BindTexImageImpl(unsigned internalformat) {
+bool GLImageIOSurface::BindTexImageImpl(unsigned target,
+                                        unsigned internalformat) {
+  if (target != GL_TEXTURE_RECTANGLE_ARB) {
+    // This might be supported in the future. For now, perform strict
+    // validation so we know what's going on.
+    LOG(ERROR) << "IOSurface requires TEXTURE_RECTANGLE_ARB target";
+    return false;
+  }
+
   CGLContextObj cgl_context =
       static_cast<CGLContextObj>(GLContext::GetCurrent()->GetHandle());
 
@@ -498,7 +495,7 @@ bool GLImageIOSurface::ValidFormat(gfx::BufferFormat format) {
     case gfx::BufferFormat::BGRX_8888:
     case gfx::BufferFormat::RGBA_8888:
     case gfx::BufferFormat::RGBA_F16:
-    case gfx::BufferFormat::BGRX_1010102:
+    case gfx::BufferFormat::BGRA_1010102:
     case gfx::BufferFormat::YUV_420_BIPLANAR:
       return true;
     case gfx::BufferFormat::R_16:

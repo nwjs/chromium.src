@@ -10,6 +10,7 @@
 
 #include "ash/public/cpp/ash_pref_names.h"
 #include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/files/file_util.h"
@@ -45,7 +46,6 @@
 #include "extensions/common/manifest_constants.h"
 #include "pdf/buildflags.h"
 #include "printing/buildflags/buildflags.h"
-#include "ui/accessibility/accessibility_switches.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
 
@@ -687,11 +687,20 @@ void ComponentLoader::AddComponentFromDir(
     const base::FilePath& root_directory,
     const char* extension_id,
     const base::Closure& done_cb) {
+  AddComponentFromDirWithManifestFilename(
+      root_directory, extension_id, extensions::kManifestFilename,
+      extension_misc::kGuestManifestFilename, done_cb);
+}
+
+void ComponentLoader::AddComponentFromDirWithManifestFilename(
+    const base::FilePath& root_directory,
+    const char* extension_id,
+    const base::FilePath::CharType* manifest_file_name,
+    const base::FilePath::CharType* guest_manifest_file_name,
+    const base::Closure& done_cb) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   const base::FilePath::CharType* manifest_filename =
-      IsNormalSession() ? extensions::kManifestFilename
-                        : extension_misc::kGuestManifestFilename;
-
+      IsNormalSession() ? manifest_file_name : guest_manifest_file_name;
   base::PostTaskAndReplyWithResult(
       GetExtensionFileTaskRunner().get(), FROM_HERE,
       base::BindOnce(&LoadManifestOnFileThread, root_directory,

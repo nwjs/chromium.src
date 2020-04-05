@@ -8,12 +8,15 @@ import("//testing/test.gni")
 
 # Reset sources_assignment_filter for the BUILD.gn file to prevent
 # regression during the migration of Chromium away from the feature.
-# See build/no_sources_assignment_filter.md for more information.
+# See docs/no_sources_assignment_filter.md for more information.
 # TODO(crbug.com/1018739): remove this when migration is done.
 set_sources_assignment_filter([])
 
 jumbo_component("compositor") {
   sources = [
+    "animation_metrics_recorder.cc",
+    "animation_metrics_recorder.h",
+    "animation_metrics_reporter.h",
     "callback_layer_animation_observer.cc",
     "callback_layer_animation_observer.h",
     "canvas_painter.cc",

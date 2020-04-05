@@ -75,13 +75,6 @@ AvatarToolbarButton::AvatarToolbarButton(Browser* browser,
   // the left and the (potential) user name on the right.
   SetHorizontalAlignment(gfx::ALIGN_LEFT);
 
-  // Set initial text and tooltip. UpdateIcon() needs to be called from the
-  // outside as GetThemeProvider() is not available until the button is added to
-  // ToolbarView's hierarchy.
-  UpdateText();
-
-  md_observer_.Add(ui::MaterialDesignController::GetInstance());
-
   // TODO(crbug.com/922525): DCHECK(parent_) instead of the if, once we always
   // have a parent.
   if (parent_)
@@ -103,7 +96,8 @@ void AvatarToolbarButton::UpdateIcon() {
     return;
 
   gfx::Image gaia_account_image = delegate_->GetGaiaAccountImage();
-  SetImage(views::Button::STATE_NORMAL, GetAvatarIcon(gaia_account_image));
+  for (auto state : kButtonStates)
+    SetImage(state, GetAvatarIcon(state, gaia_account_image));
   delegate_->ShowIdentityAnimation(gaia_account_image);
 }
 
@@ -208,15 +202,6 @@ void AvatarToolbarButton::OnThemeChanged() {
   UpdateText();
 }
 
-void AvatarToolbarButton::AddedToWidget() {
-  UpdateText();
-}
-
-void AvatarToolbarButton::OnTouchUiChanged() {
-  SetInsets();
-  PreferredSizeChanged();
-}
-
 void AvatarToolbarButton::OnHighlightChanged() {
   DCHECK(parent_);
   delegate_->OnHighlightChanged();
@@ -250,12 +235,12 @@ base::string16 AvatarToolbarButton::GetAvatarTooltipText() const {
 }
 
 gfx::ImageSkia AvatarToolbarButton::GetAvatarIcon(
+    ButtonState state,
     const gfx::Image& gaia_account_image) const {
-  const int icon_size = ui::MaterialDesignController::touch_ui()
+  const int icon_size = ui::TouchUiController::Get()->touch_ui()
                             ? kDefaultTouchableIconSize
                             : kIconSizeForNonTouchUi;
-  SkColor icon_color =
-      GetThemeProvider()->GetColor(ThemeProperties::COLOR_TOOLBAR_BUTTON_ICON);
+  SkColor icon_color = GetForegroundColor(state);
 
   switch (delegate_->GetState()) {
     case State::kIncognitoProfile:
@@ -282,9 +267,8 @@ gfx::ImageSkia AvatarToolbarButton::GetAvatarIcon(
 void AvatarToolbarButton::SetInsets() {
   // In non-touch mode we use a larger-than-normal icon size for avatars so we
   // need to compensate it by smaller insets.
-  gfx::Insets layout_insets(ui::MaterialDesignController::touch_ui()
-                                ? 0
-                                : (kDefaultIconSize - kIconSizeForNonTouchUi) /
-                                      2);
+  const bool touch_ui = ui::TouchUiController::Get()->touch_ui();
+  gfx::Insets layout_insets(
+      touch_ui ? 0 : (kDefaultIconSize - kIconSizeForNonTouchUi) / 2);
   SetLayoutInsetDelta(layout_insets);
 }

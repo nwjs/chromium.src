@@ -122,8 +122,7 @@ const char* const kHeaderPrefixesToIgnoreAfterRevalidation[] = {
 static inline bool ShouldUpdateHeaderAfterRevalidation(
     const AtomicString& header) {
   for (size_t i = 0; i < base::size(kHeadersToIgnoreAfterRevalidation); i++) {
-    if (DeprecatedEqualIgnoringCase(header,
-                                    kHeadersToIgnoreAfterRevalidation[i]))
+    if (EqualIgnoringASCIICase(header, kHeadersToIgnoreAfterRevalidation[i]))
       return false;
   }
   for (size_t i = 0; i < base::size(kHeaderPrefixesToIgnoreAfterRevalidation);
@@ -146,7 +145,7 @@ static inline base::Time Now() {
   return clock->Now();
 }
 
-Resource::Resource(const ResourceRequest& request,
+Resource::Resource(const ResourceRequestHead& request,
                    ResourceType type,
                    const ResourceLoaderOptions& options)
     : type_(type),
@@ -162,8 +161,8 @@ Resource::Resource(const ResourceRequest& request,
       integrity_disposition_(ResourceIntegrityDisposition::kNotChecked),
       options_(options),
       response_timestamp_(Now()),
+      resource_request_(request),
       overhead_size_(CalculateOverheadSize()) {
-  resource_request_.CopyFrom(request);
   InstanceCounters::IncrementCounter(InstanceCounters::kResourceCounter);
 
   if (IsMainThread())
@@ -174,7 +173,7 @@ Resource::~Resource() {
   InstanceCounters::DecrementCounter(InstanceCounters::kResourceCounter);
 }
 
-void Resource::Trace(blink::Visitor* visitor) {
+void Resource::Trace(Visitor* visitor) {
   visitor->Trace(loader_);
   visitor->Trace(cache_handler_);
   visitor->Trace(clients_);
@@ -472,7 +471,7 @@ static bool CanUseResponse(const ResourceResponse& response,
   return CurrentAge(response, response_timestamp) <= max_life;
 }
 
-const ResourceRequest& Resource::LastResourceRequest() const {
+const ResourceRequestHead& Resource::LastResourceRequest() const {
   if (!redirect_chain_.size())
     return GetResourceRequest();
   return redirect_chain_.back().request_;
@@ -484,13 +483,13 @@ const ResourceResponse* Resource::LastResourceResponse() const {
   return &redirect_chain_.back().redirect_response_;
 }
 
-void Resource::SetRevalidatingRequest(const ResourceRequest& request) {
+void Resource::SetRevalidatingRequest(const ResourceRequestHead& request) {
   SECURITY_CHECK(redirect_chain_.IsEmpty());
   SECURITY_CHECK(!is_unused_preload_);
   DCHECK(!request.IsNull());
   CHECK(!is_revalidation_start_forbidden_);
   is_revalidating_ = true;
-  resource_request_.CopyFrom(request);
+  resource_request_ = request;
   status_ = ResourceStatus::kNotStarted;
 }
 
@@ -567,22 +566,23 @@ String Resource::ReasonNotDeletable() const {
   return builder.ToString();
 }
 
-void Resource::DidAddClient(ResourceClient* c) {
+void Resource::DidAddClient(ResourceClient* client) {
   if (scoped_refptr<SharedBuffer> data = Data()) {
     for (const auto& span : *data) {
-      c->DataReceived(this, span.data(), span.size());
+      client->DataReceived(this, span.data(), span.size());
       // Stop pushing data if the client removed itself.
-      if (!HasClient(c))
+      if (!HasClient(client))
         break;
     }
   }
-  if (!HasClient(c))
+  if (!HasClient(client))
     return;
   if (IsFinishedInternal()) {
-    c->NotifyFinished(this);
-    if (clients_.Contains(c)) {
-      finished_clients_.insert(c);
-      clients_.erase(c);
+    client->SetHasFinishedFromMemoryCache();
+    client->NotifyFinished(this);
+    if (clients_.Contains(client)) {
+      finished_clients_.insert(client);
+      clients_.erase(client);
     }
   }
 }
@@ -886,7 +886,7 @@ void Resource::OnPurgeMemory() {
   Prune();
   if (!cache_handler_)
     return;
-  cache_handler_->ClearCachedMetadata(CachedMetadataHandler::kCacheLocally);
+  cache_handler_->ClearCachedMetadata(CachedMetadataHandler::kClearLocally);
 }
 
 void Resource::OnMemoryDump(WebMemoryDumpLevelOfDetail level_of_detail,
@@ -1067,8 +1067,7 @@ bool Resource::MustRevalidateDueToCacheHeaders(bool allow_stale) const {
          GetResourceRequest().CacheControlContainsNoStore();
 }
 
-static bool ShouldRevalidateStaleResponse(const ResourceRequest& request,
-                                          const ResourceResponse& response,
+static bool ShouldRevalidateStaleResponse(const ResourceResponse& response,
                                           base::Time response_timestamp) {
   base::TimeDelta staleness = response.CacheControlStaleWhileRevalidate();
   if (staleness.is_zero())
@@ -1082,15 +1081,14 @@ bool Resource::ShouldRevalidateStaleResponse() const {
   for (auto& redirect : redirect_chain_) {
     // Use |response_timestamp_| since we don't store the timestamp
     // of each redirect response.
-    if (blink::ShouldRevalidateStaleResponse(redirect.request_,
-                                             redirect.redirect_response_,
+    if (blink::ShouldRevalidateStaleResponse(redirect.redirect_response_,
                                              response_timestamp_)) {
       return true;
     }
   }
 
-  return blink::ShouldRevalidateStaleResponse(
-      GetResourceRequest(), GetResponse(), response_timestamp_);
+  return blink::ShouldRevalidateStaleResponse(GetResponse(),
+                                              response_timestamp_);
 }
 
 bool Resource::StaleRevalidationRequested() const {

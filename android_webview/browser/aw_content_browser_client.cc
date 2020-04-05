@@ -42,6 +42,7 @@
 #include "base/base_paths_android.h"
 #include "base/base_switches.h"
 #include "base/bind.h"
+#include "base/callback_helpers.h"
 #include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/files/scoped_file.h"
@@ -103,6 +104,7 @@
 #include "services/service_manager/public/cpp/binder_registry.h"
 #include "services/service_manager/public/cpp/interface_provider.h"
 #include "third_party/blink/public/common/loader/url_loader_throttle.h"
+#include "third_party/blink/public/mojom/loader/resource_load_info.mojom-shared.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/resource/resource_bundle_android.h"
 #include "ui/display/display.h"
@@ -113,7 +115,6 @@
 #endif
 
 using content::BrowserThread;
-using content::ResourceType;
 using content::WebContents;
 
 namespace android_webview {
@@ -766,13 +767,13 @@ AwContentBrowserClient::CreateURLLoaderThrottles(
           },
           base::Unretained(this)),
       wc_getter, frame_tree_node_id,
-      // TODO(crbug.com/1033760): cache manager and identity_manager are used to
-      // perform real time url check, which is gated by UKM opted in. Since AW
-      // currently doesn't support UKM, this feature is not enabled.
-      /* cache_manager */ nullptr, /* identity_manager */ nullptr));
+      // TODO(crbug.com/1033760): rt_lookup_service is
+      // used to perform real time URL check, which is gated by UKM opted-in.
+      // Since AW currently doesn't support UKM, this feature is not enabled.
+      /* rt_lookup_service */ nullptr));
 
   if (request.resource_type ==
-      static_cast<int>(content::ResourceType::kMainFrame)) {
+      static_cast<int>(blink::mojom::ResourceType::kMainFrame)) {
     const bool is_load_url =
         request.transition_type & ui::PAGE_TRANSITION_FROM_API;
     const bool is_go_back_forward =
@@ -982,6 +983,7 @@ bool AwContentBrowserClient::WillCreateURLLoaderFactory(
             ->overriding_factory.InitWithNewPipeAndPassReceiver();
     (*factory_override)->overridden_factory_receiver =
         target_factory_remote.InitWithNewPipeAndPassReceiver();
+    (*factory_override)->skip_cors_enabled_scheme_check = true;
   } else {
     // In this case, |factory_override| is not given. But all callers of
     // ContentBrowserClient::WillCreateURLLoaderFactory guarantee that

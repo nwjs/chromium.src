@@ -258,11 +258,17 @@ class PersonalDatabaseHelper
   DISALLOW_COPY_AND_ASSIGN(PersonalDatabaseHelper);
 };
 
-PersonalDataManager::PersonalDataManager(const std::string& app_locale)
+PersonalDataManager::PersonalDataManager(
+    const std::string& app_locale,
+    const std::string& variations_country_code)
     : app_locale_(app_locale),
+      variations_country_code_(variations_country_code),
       test_data_creator_(kDisusedDataModelDeletionTimeDelta, app_locale_) {
   database_helper_ = std::make_unique<PersonalDatabaseHelper>(this);
 }
+
+PersonalDataManager::PersonalDataManager(const std::string& app_locale)
+    : PersonalDataManager(app_locale, std::string()) {}
 
 void PersonalDataManager::Init(
     scoped_refptr<AutofillWebDataService> profile_database,
@@ -315,10 +321,7 @@ void PersonalDataManager::Init(
       base::BindRepeating(&PersonalDataManager::OnAutofillProfileChanged,
                           weak_factory_.GetWeakPtr()));
 
-  LoadProfiles();
-  LoadCreditCards();
-  LoadCreditCardCloudTokenData();
-  LoadPaymentsCustomerData();
+  Refresh();
 
   // Check if profile cleanup has already been performed this major version.
   is_autofill_profile_cleanup_pending_ =
@@ -333,6 +336,7 @@ void PersonalDataManager::Init(
 PersonalDataManager::~PersonalDataManager() {
   CancelPendingLocalQuery(&pending_profiles_query_);
   CancelPendingLocalQuery(&pending_creditcards_query_);
+  CancelPendingLocalQuery(&pending_upi_ids_query_);
   CancelPendingServerQueries();
 }
 
@@ -399,7 +403,7 @@ void PersonalDataManager::OnWebDataServiceRequestDone(
   DCHECK(pending_profiles_query_ || pending_server_profiles_query_ ||
          pending_creditcards_query_ || pending_server_creditcards_query_ ||
          pending_server_creditcard_cloud_token_data_query_ ||
-         pending_customer_data_query_);
+         pending_customer_data_query_ || pending_upi_ids_query_);
 
   if (!result) {
     // Error from the web database.
@@ -415,6 +419,8 @@ void PersonalDataManager::OnWebDataServiceRequestDone(
       pending_server_creditcard_cloud_token_data_query_ = 0;
     else if (h == pending_customer_data_query_)
       pending_customer_data_query_ = 0;
+    else if (h == pending_upi_ids_query_)
+      pending_upi_ids_query_ = 0;
   } else {
     switch (result->GetType()) {
       case AUTOFILL_PROFILES_RESULT:
@@ -461,6 +467,15 @@ void PersonalDataManager::OnWebDataServiceRequestDone(
         payments_customer_data_ =
             static_cast<WDResult<std::unique_ptr<PaymentsCustomerData>>*>(
                 result.get())
+                ->GetValue();
+        break;
+      case AUTOFILL_UPI_RESULT:
+        DCHECK_EQ(h, pending_upi_ids_query_)
+            << "received UPI IDs from invalid request.";
+        pending_upi_ids_query_ = 0;
+
+        upi_ids_ =
+            static_cast<WDResult<std::vector<std::string>>*>(result.get())
                 ->GetValue();
         break;
       default:
@@ -658,7 +673,19 @@ void PersonalDataManager::AddUpiId(const std::string& upi_id) {
   DCHECK(!upi_id.empty());
   if (is_off_the_record_ || !database_helper_->GetLocalDatabase())
     return;
+
+  // Don't add a duplicate.
+  if (std::find(upi_ids_.begin(), upi_ids_.end(), upi_id) != upi_ids_.end())
+    return;
+
   database_helper_->GetLocalDatabase()->AddUpiId(upi_id);
+
+  // Refresh our local cache and send notifications to observers.
+  Refresh();
+}
+
+std::vector<std::string> PersonalDataManager::GetUpiIds() {
+  return upi_ids_;
 }
 
 void PersonalDataManager::AddProfile(const AutofillProfile& profile) {
@@ -1119,6 +1146,7 @@ void PersonalDataManager::Refresh() {
   LoadCreditCards();
   LoadCreditCardCloudTokenData();
   LoadPaymentsCustomerData();
+  LoadUpiIds();
 }
 
 std::vector<AutofillProfile*> PersonalDataManager::GetProfilesToSuggest()
@@ -1461,6 +1489,13 @@ const std::string& PersonalDataManager::GetDefaultCountryCodeForNewAddress()
   if (default_country_code_.empty())
     default_country_code_ = MostCommonCountryCodeFromProfiles();
 
+  if (base::FeatureList::IsEnabled(
+          features::kAutofillUseVariationCountryCode)) {
+    // Failing that, use the country code from variations service.
+    if (default_country_code_.empty())
+      default_country_code_ = variations_country_code_;
+  }
+
   // Failing that, guess based on system timezone.
   if (default_country_code_.empty())
     default_country_code_ = CountryCodeForCurrentTimezone();
@@ -1502,10 +1537,16 @@ void PersonalDataManager::DedupeCreditCardToSuggest(
 }
 
 void PersonalDataManager::SetProfiles(std::vector<AutofillProfile>* profiles) {
-  if (is_off_the_record_)
+  if (is_off_the_record_) {
+    // TODO(crbug.com/997629): Remove after investigation is over.
+    DLOG(WARNING) << "Cannot SetProfiles because off-the-record";
     return;
-  if (!database_helper_->GetLocalDatabase())
+  }
+  if (!database_helper_->GetLocalDatabase()) {
+    // TODO(crbug.com/997629): Remove after investigation is over.
+    DLOG(WARNING) << "Cannot SetProfiles because no local DB";
     return;
+  }
 
   ClearOnGoingProfileChanges();
 
@@ -1638,6 +1679,16 @@ void PersonalDataManager::LoadCreditCardCloudTokenData() {
       database_helper_->GetServerDatabase()->GetCreditCardCloudTokenData(this);
 }
 
+void PersonalDataManager::LoadUpiIds() {
+  if (!database_helper_->GetServerDatabase())
+    return;
+
+  CancelPendingLocalQuery(&pending_upi_ids_query_);
+
+  pending_upi_ids_query_ =
+      database_helper_->GetLocalDatabase()->GetAllUpiIds(this);
+}
+
 void PersonalDataManager::CancelPendingLocalQuery(
     WebDataServiceBase::Handle* handle) {
   if (*handle) {
@@ -1690,7 +1741,7 @@ std::string PersonalDataManager::SaveImportedProfile(
 
   std::vector<AutofillProfile> profiles;
   std::string guid = AutofillProfileComparator::MergeProfile(
-      imported_profile, &web_profiles_, app_locale_, &profiles);
+      imported_profile, web_profiles_, app_locale_, &profiles);
   SetProfiles(&profiles);
   return guid;
 }
@@ -1859,9 +1910,7 @@ bool PersonalDataManager::ShouldShowCardsFromAccountOption() const {
 #if (!defined(OS_LINUX) && !defined(OS_WIN) && !defined(OS_MACOSX)) || \
     defined(OS_CHROMEOS)
   return false;
-#endif  // (!defined(OS_LINUX) && !defined(OS_WIN) && !defined(OS_MACOSX)) ||
-        // defined(OS_CHROMEOS)
-
+#else
   // This option should only be shown for users that have not enabled the Sync
   // Feature and that have server credit cards available.
   if (!sync_service_ || sync_service_->IsSyncFeatureEnabled() ||
@@ -1882,6 +1931,8 @@ bool PersonalDataManager::ShouldShowCardsFromAccountOption() const {
 
   // The option should only be shown if the user has not already opted-in.
   return !is_opted_in;
+#endif  // (!defined(OS_LINUX) && !defined(OS_WIN) && !defined(OS_MACOSX)) ||
+        // defined(OS_CHROMEOS)
 }
 
 void PersonalDataManager::OnUserAcceptedCardsFromAccountOption() {
@@ -2289,7 +2340,7 @@ bool PersonalDataManager::DeleteDisusedCreditCards() {
 
   size_t num_deleted_cards = guid_to_delete.size();
 
-  for (auto const guid : guid_to_delete) {
+  for (auto const& guid : guid_to_delete) {
     database_helper_->GetLocalDatabase()->RemoveCreditCard(guid);
   }
 
@@ -2328,7 +2379,7 @@ bool PersonalDataManager::DeleteDisusedAddresses() {
 
   size_t num_deleted_addresses = guids_to_delete.size();
 
-  for (auto const guid : guids_to_delete) {
+  for (auto const& guid : guids_to_delete) {
     RemoveAutofillProfileByGUIDAndBlankCreditCardReference(guid);
   }
 
@@ -2521,7 +2572,7 @@ bool PersonalDataManager::HasPendingQueries() {
          pending_server_profiles_query_ != 0 ||
          pending_server_creditcards_query_ != 0 ||
          pending_server_creditcard_cloud_token_data_query_ != 0 ||
-         pending_customer_data_query_ != 0;
+         pending_customer_data_query_ != 0 || pending_upi_ids_query_ != 0;
 }
 
 void PersonalDataManager::MigrateUserOptedInWalletSyncTransportIfNeeded() {

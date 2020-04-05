@@ -7,6 +7,7 @@
 #include <utility>
 
 #include "third_party/blink/public/common/feature_policy/feature_policy.h"
+#include "third_party/blink/public/mojom/security_context/insecure_request_policy.mojom-blink.h"
 #include "third_party/blink/public/platform/web_float_rect.h"
 #include "third_party/blink/public/platform/web_intrinsic_sizing_info.h"
 #include "third_party/blink/public/platform/web_rect.h"
@@ -121,7 +122,7 @@ WebRemoteFrameImpl* WebRemoteFrameImpl::CreateForPortal(
 
 WebRemoteFrameImpl::~WebRemoteFrameImpl() = default;
 
-void WebRemoteFrameImpl::Trace(blink::Visitor* visitor) {
+void WebRemoteFrameImpl::Trace(Visitor* visitor) {
   visitor->Trace(frame_client_);
   visitor->Trace(frame_);
   WebFrame::TraceFrames(visitor, this);
@@ -179,10 +180,16 @@ WebLocalFrame* WebRemoteFrameImpl::CreateLocalChild(
   InsertAfter(child, previous_sibling);
   auto* owner = MakeGarbageCollected<RemoteFrameOwner>(
       frame_policy, frame_owner_properties, frame_owner_element_type);
+
+  WindowAgentFactory* window_agent_factory = nullptr;
+  if (opener) {
+    window_agent_factory = &ToCoreFrame(*opener)->window_agent_factory();
+  } else if (!frame_policy.disallow_document_access) {
+    window_agent_factory = &GetFrame()->window_agent_factory();
+  }
+
   child->InitializeCoreFrame(*GetFrame()->GetPage(), owner, name,
-                             opener
-                                 ? &ToCoreFrame(*opener)->window_agent_factory()
-                                 : &GetFrame()->window_agent_factory());
+                             window_agent_factory);
   DCHECK(child->GetFrame());
   return child;
 }
@@ -214,10 +221,15 @@ WebRemoteFrame* WebRemoteFrameImpl::CreateRemoteChild(
   AppendChild(child);
   auto* owner = MakeGarbageCollected<RemoteFrameOwner>(
       frame_policy, WebFrameOwnerProperties(), frame_owner_element_type);
+  WindowAgentFactory* window_agent_factory = nullptr;
+  if (opener) {
+    window_agent_factory = &ToCoreFrame(*opener)->window_agent_factory();
+  } else if (!frame_policy.disallow_document_access) {
+    window_agent_factory = &GetFrame()->window_agent_factory();
+  }
+
   child->InitializeCoreFrame(*GetFrame()->GetPage(), owner, name,
-                             opener
-                                 ? &ToCoreFrame(*opener)->window_agent_factory()
-                                 : &GetFrame()->window_agent_factory());
+                             window_agent_factory);
   return child;
 }
 
@@ -248,7 +260,8 @@ void WebRemoteFrameImpl::SetReplicatedOrigin(
                                   is_potentially_trustworthy_opaque_origin);
 }
 
-void WebRemoteFrameImpl::SetReplicatedSandboxFlags(WebSandboxFlags flags) {
+void WebRemoteFrameImpl::SetReplicatedSandboxFlags(
+    mojom::blink::WebSandboxFlags flags) {
   DCHECK(GetFrame());
   GetFrame()->SetReplicatedSandboxFlags(flags);
 }
@@ -281,7 +294,7 @@ void WebRemoteFrameImpl::ResetReplicatedContentSecurityPolicy() {
 }
 
 void WebRemoteFrameImpl::SetReplicatedInsecureRequestPolicy(
-    WebInsecureRequestPolicy policy) {
+    mojom::blink::InsecureRequestPolicy policy) {
   DCHECK(GetFrame());
   GetFrame()->SetInsecureRequestPolicy(policy);
 }

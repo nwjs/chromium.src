@@ -117,7 +117,9 @@ ScreenOrientation* ScreenOrientation::Create(LocalFrame* frame) {
 }
 
 ScreenOrientation::ScreenOrientation(LocalFrame* frame)
-    : ContextClient(frame), type_(kWebScreenOrientationUndefined), angle_(0) {}
+    : ExecutionContextClient(frame),
+      type_(kWebScreenOrientationUndefined),
+      angle_(0) {}
 
 ScreenOrientation::~ScreenOrientation() = default;
 
@@ -128,7 +130,7 @@ const WTF::AtomicString& ScreenOrientation::InterfaceName() const {
 ExecutionContext* ScreenOrientation::GetExecutionContext() const {
   if (!GetFrame())
     return nullptr;
-  return GetFrame()->GetDocument();
+  return GetFrame()->GetDocument()->ToExecutionContext();
 }
 
 String ScreenOrientation::type() const {
@@ -159,7 +161,7 @@ ScriptPromise ScreenOrientation::lock(ScriptState* state,
     return ScriptPromise();
   }
 
-  if (document->IsSandboxed(WebSandboxFlags::kOrientationLock)) {
+  if (document->IsSandboxed(mojom::blink::WebSandboxFlags::kOrientationLock)) {
     exception_state.ThrowSecurityError(
         "The document is sandboxed and lacks the "
         "'allow-orientation-lock' flag.");
@@ -187,9 +189,9 @@ ScreenOrientationControllerImpl* ScreenOrientation::Controller() {
   return ScreenOrientationControllerImpl::From(*GetFrame());
 }
 
-void ScreenOrientation::Trace(blink::Visitor* visitor) {
+void ScreenOrientation::Trace(Visitor* visitor) {
   EventTargetWithInlineData::Trace(visitor);
-  ContextClient::Trace(visitor);
+  ExecutionContextClient::Trace(visitor);
 }
 
 }  // namespace blink

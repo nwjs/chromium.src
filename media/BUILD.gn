@@ -30,6 +30,7 @@ buildflag_header("media_buildflags") {
     "ENABLE_FFMPEG_VIDEO_DECODERS=$enable_ffmpeg_video_decoders",
     "ENABLE_PLATFORM_HEVC=$enable_platform_hevc",
     "ENABLE_HLS_SAMPLE_AES=$enable_hls_sample_aes",
+    "ENABLE_LIBGAV1_DECODER=$enable_libgav1_decoder",
     "ENABLE_LIBRARY_CDMS=$enable_library_cdms",
     "ENABLE_LIBVPX=$media_use_libvpx",
     "ENABLE_LOGGING_OVERRIDE=$enable_logging_override",
@@ -38,6 +39,7 @@ buildflag_header("media_buildflags") {
     "ENABLE_MEDIA_REMOTING_RPC=$enable_media_remoting_rpc",
     "ENABLE_PLATFORM_MPEG_H_AUDIO=$enable_platform_mpeg_h_audio",
     "ENABLE_MSE_MPEG2TS_STREAM_PARSER=$enable_mse_mpeg2ts_stream_parser",
+    "USE_CHROMEOS_MEDIA_ACCELERATION=$use_vaapi||$use_v4l2_codec",
     "USE_PROPRIETARY_CODECS=$proprietary_codecs",
   ]
 }
@@ -167,6 +169,10 @@ test("media_unittests") {
       "//media/gpu:android_video_decode_accelerator_unittests",
       "//ui/android:ui_java",
     ]
+  }
+
+  if (is_fuchsia) {
+    deps += [ "//media/fuchsia/audio:unittests" ]
   }
 
   if (enable_media_remoting) {

@@ -9,6 +9,7 @@
 #include "mojo/public/cpp/bindings/pending_associated_receiver.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "third_party/blink/public/mojom/frame/frame.mojom.h"
+#include "third_party/blink/public/mojom/frame/frame_owner_properties.mojom.h"
 #include "third_party/blink/public/mojom/input/focus_type.mojom-forward.h"
 
 namespace gfx {
@@ -34,15 +35,21 @@ class FakeLocalFrame : public blink::mojom::LocalFrame {
       GetTextSurroundingSelectionCallback callback) override;
   void SendInterventionReport(const std::string& id,
                               const std::string& message) override;
+  void SetFrameOwnerProperties(
+      blink::mojom::FrameOwnerPropertiesPtr properties) override;
   void NotifyUserActivation() override;
   void AddMessageToConsole(blink::mojom::ConsoleMessageLevel level,
                            const std::string& message,
                            bool discard_duplicates) override;
+  void AddInspectorIssue(blink::mojom::InspectorIssueInfoPtr info) override;
   void CheckCompleted() override;
   void Collapse(bool collapsed) override;
   void EnableViewSourceMode() override;
   void Focus() override;
   void ClearFocusedElement() override;
+  void GetResourceSnapshotForWebBundle(
+      mojo::PendingReceiver<data_decoder::mojom::ResourceSnapshotForWebBundle>
+          receiver) override;
   void CopyImageAt(const gfx::Point& window_point) override;
   void SaveImageAt(const gfx::Point& window_point) override;
   void ReportBlinkFeatureUsage(
@@ -52,6 +59,9 @@ class FakeLocalFrame : public blink::mojom::LocalFrame {
   void MediaPlayerActionAt(const gfx::Point& location,
                            blink::mojom::MediaPlayerActionPtr action) override;
   void AdvanceFocusInForm(blink::mojom::FocusType focus_type) override;
+  void ReportContentSecurityPolicyViolation(
+      network::mojom::CSPViolationPtr violation) override;
+  void DidUpdateFramePolicy(const blink::FramePolicy& frame_policy) override;
 
  private:
   void BindFrameHostReceiver(mojo::ScopedInterfaceEndpointHandle handle);

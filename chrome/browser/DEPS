@@ -6,10 +6,9 @@ include_rules = [
   "+chrome/android/features/autofill_assistant/jni_headers",
   "+chrome/android/features/dev_ui",
   "+chrome/android/modules",
-  "+chrome/android/public/profiles/jni_headers",
+  "+chrome/browser/profiles/android/jni_headers",
   "+chrome/android/test_support_jni_headers",
   "+chrome/app",
-  "+chrome/chrome_watcher",
   "+chrome/credential_provider/common",
   "+chrome/grit",
   "+chrome/install_static",
@@ -27,7 +26,6 @@ include_rules = [
   "+chromeos",
   "+components/about_ui",
   "+components/account_id",
-  "+components/app_modal",
   "+components/arc",
   "+components/assist_ranker",
   "+components/autofill_assistant/browser",
@@ -35,17 +33,19 @@ include_rules = [
   "+components/autofill/content/common",
   "+components/autofill/core/browser",
   "+components/autofill/core/common",
+  "+components/background_task_scheduler",
   "+components/base32",
   "+components/blacklist/opt_out_blacklist",
   "+components/bookmarks/browser",
   "+components/bookmarks/common",
   "+components/bookmarks/managed",
   "+components/bookmarks/test",
+  "+components/browser_ui/settings",
   "+components/browser_sync",
+  "+components/browser_ui/site_settings",
   "+components/browser_watcher",
   "+components/browsing_data/content",
   "+components/browsing_data/core",
-  "+components/bubble",
   "+components/captive_portal",
   "+components/cast_certificate",
   "+components/cast_channel",
@@ -64,12 +64,14 @@ include_rules = [
   "+components/content_capture/browser",
   "+components/content_settings/core/browser",
   "+components/content_settings/core/test",
+  "+components/contextual_search/buildflags.h",
   "+components/contextual_search/content/browser",
   "+components/contextual_search/content/common",
   "+components/contextual_search/core/browser",
   "+components/cookie_config",
   "+components/crash/content/app",
   "+components/crash/content/browser",
+  "+components/crash/core/app",
   "+components/crash/core/browser",
   "+components/crash/core/common",
   "+components/crx_file",
@@ -98,6 +100,7 @@ include_rules = [
   "+components/embedder_support",
   "+components/encrypted_messages",
   "+components/exo",
+  "+components/external_intents",
   "+components/favicon_base",
   "+components/favicon/content",
   "+components/favicon/core",
@@ -122,6 +125,7 @@ include_rules = [
   "+components/infobars/core",
   "+components/invalidation/impl",
   "+components/invalidation/public",
+  "+components/javascript_dialogs",
   "+components/keep_alive_registry",
   "+components/keyed_service/content",
   "+components/keyed_service/core",
@@ -133,6 +137,7 @@ include_rules = [
   "+components/leveldb_proto/public",
   "+components/leveldb_proto/testing",
   "+components/location/android",
+  "+components/lookalikes",
   "+components/login",
   "+components/media_message_center",
   "+components/metal_util",
@@ -167,11 +172,12 @@ include_rules = [
   "+components/optimization_guide",
   "+components/os_crypt",
   "+components/ownership",
+  "+components/page_info",
   "+components/page_load_metrics/browser",
   "+components/page_load_metrics/common",
-  "+components/paint_preview/buildflags",
   "+components/paint_preview/features",
   "+components/paint_preview/browser",
+  "+components/paint_preview/buildflags",
   "+components/password_manager/content/browser",
   "+components/password_manager/core/browser",
   "+components/password_manager/core/common",
@@ -204,6 +210,7 @@ include_rules = [
   "+components/rlz",
   "+components/safe_browsing",
   "+components/safe_search_api",
+  "+components/schema_org",
   "+components/search",
   "+components/search_engines",
   "+components/search_provider_logos",
@@ -317,7 +324,6 @@ include_rules = [
   "+services/audio/public",
   "+services/data_decoder/public",
   "+services/device/public",
-  "+services/identity/public",
   "+services/image_annotation/public",
   "+services/media_session/public",
   "+services/metrics/metrics_mojo_service.h",
@@ -395,6 +401,10 @@ include_rules = [
   "+chrome/browser/performance_manager/chrome_content_browser_client_performance_manager_part.h",
   "+chrome/browser/performance_manager/graph/policies/policy_features.h",
 
+  # VRService is being moved to content, this forces documentation of new
+  # dependencies that are added to it outside of it's own directory.
+  "-chrome/browser/vr/service",
+
   # Explicitly disallow using SyncMessageFilter to prevent browser from
   # sending synchronous IPC messages on non-UI threads.
   "-ipc/ipc_sync_message_filter.h",
@@ -428,6 +438,10 @@ include_rules = [
 ]
 
 specific_include_rules = {
+  '.*InstrumentationTest\.java': [
+    # Android instrumentation tests depend on the whole app.
+    "+chrome/android",
+  ],
   "platform_util_linux.cc": [
     # The following is used to call the org.freedesktop.FileManager1
     # DBus interface to highlight a file within its parent folder
@@ -465,4 +479,9 @@ specific_include_rules = {
   "chrome_find_request_manager_browsertest\.cc": [
     "+pdf/document_loader_impl.h",
   ],
+  "chrome_browser_main\.cc" : [
+    # TODO(crbug.com/1031622): Until VRService moves, ChromeBrowserMain is
+    # responsible for wiring these up to appropriate factories.
+    "+chrome/browser/vr/service/vr_service_impl.h",
+  ]
 }

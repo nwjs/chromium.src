@@ -97,6 +97,7 @@
 <translation id="2149973817440762519">ブックマークを編集</translation>
 <translation id="2179182049312275900">同期は設定でいつでもオンにできます。</translation>
 <translation id="2198757192731523470">検索、広告、その他の Google サービスをカスタマイズする目的で、Google が履歴を使用することがあります。</translation>
+<translation id="2218443599109088993">縮小</translation>
 <translation id="2230173723195178503">ウェブページを読み込みました</translation>
 <translation id="2239626343334228536">閲覧データを削除しています...</translation>
 <translation id="2257567812274161158">同期が機能していません。</translation>
@@ -159,6 +160,7 @@
 <translation id="2923448633003185837">貼り付けて移動</translation>
 <translation id="292639812446257861">未読にする</translation>
 <translation id="2958718410589002129">パスワード</translation>
+<translation id="2964349545761222050">サードパーティの Cookie をブロックする</translation>
 <translation id="2969979262385602596">ログインできません。後でもう一度お試しください。</translation>
 <translation id="298306318844797842">お支払い方法を追加...</translation>
 <translation id="2989805286512600854">新しいタブで開く</translation>
@@ -178,6 +180,7 @@
 <translation id="3290875554372353449">アカウントの選択</translation>
 <translation id="3311748811247479259">オフ</translation>
 <translation id="3324193307694657476">住所2行目</translation>
+<translation id="3328801116991980348">サイト情報</translation>
 <translation id="3329904751041170572">サーバーに接続できませんでした。</translation>
 <translation id="3335947283844343239">閉じたタブを開く</translation>
 <translation id="3371831930909698441">翻訳が利用可能です。画面の下の方にオプションがあります。</translation>
@@ -300,6 +303,7 @@
 <translation id="4979397965658815378">Google アカウントでログインすると、どのデバイスからでも同じブックマーク、パスワード、履歴などの設定を利用できるようになります。</translation>
 <translation id="5005498671520578047">パスワードのコピー</translation>
 <translation id="5010803260590204777">ウェブをプライベートモードで閲覧するにはシークレットタブを開きます。</translation>
+<translation id="5039020240289137291">サードパーティの Cookie をブロックします</translation>
 <translation id="5039804452771397117">許可</translation>
 <translation id="5059136629401106827">OK</translation>
 <translation id="5062321486222145940">ドライブをインストール</translation>
@@ -414,9 +418,11 @@
 <translation id="6434591244308415567">エラーが発生しました。しばらくしてからもう一度お試しください。</translation>
 <translation id="6445051938772793705">国名</translation>
 <translation id="6445981559479772097">メッセージ送信完了。</translation>
+<translation id="6447842834002726250">Cookie</translation>
 <translation id="6464071786529933911">新しいシークレット タブで開く</translation>
 <translation id="6476800141292307438">ページを<ph name="LANGUAGE" />に翻訳しています。画面の下の方にオプションがあります。</translation>
 <translation id="6482629121755362506"><ph name="NUMBER_OF_SELECTED_BOOKMARKS" />件の項目を削除しました</translation>
+<translation id="6561262006871132942">拡大</translation>
 <translation id="6610002944194042868">翻訳オプション</translation>
 <translation id="6628106477656132239">無効な有効期限</translation>
 <translation id="6638511529934826365">テキストを拡大…</translation>
@@ -479,7 +485,6 @@
 <translation id="734758817008927353">カードの保存オプション</translation>
 <translation id="7348502496356775519">ブックマーク</translation>
 <translation id="7383797227493018512">リーディング リスト</translation>
-<translation id="7392048574806661116">ログアウトして同期データを消去</translation>
 <translation id="7400418766976504921">URL</translation>
 <translation id="7409985198648820906"><ph name="UNREAD_COUNT" /> 件の未読記事があります。</translation>
 <translation id="7425346204213733349">今後、ブックマーク、履歴、パスワード、その他の設定に行った変更は Google アカウントに同期されません。ただし、既存のデータは Google アカウントに保存されたままとなります。</translation>
@@ -598,6 +603,7 @@
 <translation id="9223358826628549784">クラッシュレポートを送信しました。</translation>
 <translation id="952704832371081537">キャンセル</translation>
 <translation id="988141524645182168">他のデバイス</translation>
+<translation id="989697783705943787">サイトのセキュリティ</translation>
 <translation id="989988560359834682">住所の編集</translation>
 <translation id="994757059139821576">記事の候補表示</translation>
 </translationbundle>

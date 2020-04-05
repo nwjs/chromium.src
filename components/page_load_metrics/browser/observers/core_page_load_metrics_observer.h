@@ -28,8 +28,6 @@ extern const char kHistogramDomContentLoaded[];
 extern const char kHistogramLoad[];
 extern const char kHistogramFirstContentfulPaint[];
 extern const char kHistogramFirstMeaningfulPaint[];
-extern const char kHistogramLargestImagePaint[];
-extern const char kHistogramLargestTextPaint[];
 extern const char kHistogramLargestContentfulPaint[];
 extern const char kHistogramLargestContentfulPaintContentType[];
 extern const char kHistogramLargestContentfulPaintMainFrame[];
@@ -100,6 +98,13 @@ extern const char kBackgroundHistogramInputToFirstPaint[];
 extern const char kHistogramInputToFirstContentfulPaint[];
 extern const char kBackgroundHistogramInputToFirstContentfulPaint[];
 
+// Split histograms recorded only when the first rendering cycle has been
+// delayed for web font preloading.
+// See design doc https://bit.ly/36E8UKB for details.
+extern const char kHistogramFontPreloadFirstPaint[];
+extern const char kHistogramFontPreloadFirstContentfulPaint[];
+extern const char kHistogramFontPreloadLargestContentfulPaint[];
+
 enum FirstMeaningfulPaintStatus {
   FIRST_MEANINGFUL_PAINT_RECORDED,
   FIRST_MEANINGFUL_PAINT_BACKGROUNDED,
@@ -165,9 +170,10 @@ class CorePageLoadMetricsObserver
       const page_load_metrics::mojom::CpuTiming& timing) override;
   void OnDidFinishSubFrameNavigation(
       content::NavigationHandle* navigation_handle) override;
+  void OnLoadingBehaviorObserved(content::RenderFrameHost* rfh,
+                                 int behavior_flags) override;
 
  private:
-  void TrackPossibleClickBurst(const blink::WebInputEvent& event);
   void RecordTimingHistograms(
       const page_load_metrics::mojom::PageLoadTiming& main_frame_timing);
   void RecordByteAndResourceHistograms(
@@ -206,6 +212,10 @@ class CorePageLoadMetricsObserver
 
   // True if we've received a scroll input after first paint has happened.
   bool received_scroll_input_after_first_paint_ = false;
+
+  // True if the first rendering cycle has been delayed due to web font
+  // preloading.
+  bool render_delayed_for_web_font_preloading_observed_ = false;
 
   base::TimeTicks first_paint_;
 

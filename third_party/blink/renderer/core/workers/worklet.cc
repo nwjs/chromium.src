@@ -27,7 +27,7 @@
 namespace blink {
 
 Worklet::Worklet(Document* document)
-    : ContextLifecycleObserver(document),
+    : ExecutionContextLifecycleObserver(document),
       module_responses_map_(MakeGarbageCollected<WorkletModuleResponsesMap>()) {
   DCHECK(IsMainThread());
 }
@@ -94,7 +94,7 @@ ScriptPromise Worklet::addModule(ScriptState* script_state,
   return promise;
 }
 
-void Worklet::ContextDestroyed(ExecutionContext* execution_context) {
+void Worklet::ContextDestroyed() {
   DCHECK(IsMainThread());
   module_responses_map_->Dispose();
   for (const auto& proxy : proxies_)
@@ -189,12 +189,12 @@ wtf_size_t Worklet::SelectGlobalScope() {
   return 0u;
 }
 
-void Worklet::Trace(blink::Visitor* visitor) {
+void Worklet::Trace(Visitor* visitor) {
   visitor->Trace(proxies_);
   visitor->Trace(module_responses_map_);
   visitor->Trace(pending_tasks_set_);
   ScriptWrappable::Trace(visitor);
-  ContextLifecycleObserver::Trace(visitor);
+  ExecutionContextLifecycleObserver::Trace(visitor);
 }
 
 }  // namespace blink

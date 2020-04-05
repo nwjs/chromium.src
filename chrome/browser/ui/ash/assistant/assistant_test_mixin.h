@@ -7,9 +7,9 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "base/macros.h"
-#include "base/test/scoped_feature_list.h"
 #include "base/time/time.h"
 #include "chrome/browser/ui/ash/assistant/test/fake_s3_server.h"
 #include "chrome/test/base/mixin_based_in_process_browser_test.h"
@@ -68,6 +68,27 @@ class AssistantTestMixin : public InProcessBrowserTestMixin {
   // displaying the query input text field.
   void SendTextQuery(const std::string& query);
 
+  // Check if the |expected_value| is equal to the result of running
+  // |value_callback|.  This method will block and continuously try the
+  // comparison above until it succeeds, or timeout.
+  //
+  // NOTE: This is a template method. If you need to use it with a new type,
+  // you may see a link error. You will need to manually instantiate for the
+  // new type.  Please see .cc file for examples.
+  template <typename T>
+  void ExpectResult(T expected_value,
+                    base::RepeatingCallback<T()> value_callback);
+
+  // Synchronize an async method call to make testing simpler. |func| is the
+  // async method to be invoked, the inner callback is the result callback. The
+  // result with type |T| will be the return value.
+  //
+  // NOTE: This is a template method. If you need to use it with a new type,
+  // you may see a link error. You will need to manually instantiate for the
+  // new type.  Please see .cc file for examples.
+  template <typename T>
+  T SyncCall(base::OnceCallback<void(base::OnceCallback<void(T)>)> func);
+
   // Waits until a card response is rendered that contains the given text.
   // If |expected_response| is not received in |wait_timeout|, this will fail
   // the test.
@@ -85,6 +106,18 @@ class AssistantTestMixin : public InProcessBrowserTestMixin {
       const std::vector<std::string>& expected_responses,
       base::TimeDelta wait_timeout = kDefaultWaitTimeout);
 
+  // Waits until a timers response is rendered that contains the given timers.
+  // If the expected response is not received in |wait_timeout|, this will fail
+  // the test.
+  void ExpectTimersResponse(const std::vector<base::TimeDelta>& timers,
+                            base::TimeDelta wait_timeout = kDefaultWaitTimeout);
+
+  // Waits until a timers response is rendered and returns the time remaining of
+  // the rendered timers. If a timers response is not received in |wait_timeout|
+  // this will fail the test.
+  std::vector<base::TimeDelta> ExpectAndReturnTimersResponse(
+      base::TimeDelta wait_timeout = kDefaultWaitTimeout);
+
   // Presses the Assistant key, which will toggle the Assistant UI.
   void PressAssistantKey();
 
@@ -97,7 +130,6 @@ class AssistantTestMixin : public InProcessBrowserTestMixin {
   void DisableAssistant();
   void DisableWarmerWelcome();
 
-  base::test::ScopedFeatureList scoped_feature_list_;
   FakeS3Server fake_s3_server_;
   FakeS3Mode mode_;
   std::unique_ptr<ash::AssistantTestApi> test_api_;

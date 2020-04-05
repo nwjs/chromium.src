@@ -22,6 +22,7 @@
 #include "base/i18n/rtl.h"
 #include "base/logging.h"
 #include "base/macros.h"
+#include "base/memory/ptr_util.h"
 #include "build/build_config.h"
 #include "third_party/skia/include/core/SkPath.h"
 #include "ui/accessibility/ax_enums.mojom-forward.h"
@@ -49,7 +50,6 @@
 #include "ui/views/paint_info.h"
 #include "ui/views/view_targeter.h"
 #include "ui/views/views_export.h"
-#include "ui/views/widget/widget_getter.h"
 
 using ui::OSExchangeData;
 
@@ -80,8 +80,9 @@ class DragController;
 class FocusManager;
 class FocusTraversable;
 class LayoutManager;
-class ViewAccessibility;
 class ScrollView;
+class ViewAccessibility;
+class ViewMaskLayer;
 class ViewObserver;
 class Widget;
 class WordLookupClient;
@@ -272,8 +273,7 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
                           public ui::EventTarget,
                           public ui::EventHandler,
                           public ui::PropertyHandler,
-                          public metadata::MetaDataProvider,
-                          public virtual WidgetGetter {
+                          public views::metadata::MetaDataProvider {
  public:
   using Views = std::vector<View*>;
 
@@ -392,7 +392,9 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
 
   // Tree operations -----------------------------------------------------------
 
-  const Widget* GetWidgetImpl() const override;
+  // Get the Widget that hosts this View, if any.
+  virtual const Widget* GetWidget() const;
+  virtual Widget* GetWidget();
 
   // Adds |view| as a child of this view, optionally at |index|.
   // Returns the raw pointer for callers which want to hold a pointer to the
@@ -432,6 +434,21 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
 
   // Removes |view| from this view. The view's parent will change to null.
   void RemoveChildView(View* view);
+
+  // Removes |view| from this view and transfers ownership back to the caller in
+  // the form of a std::unique_ptr<T>.
+  // TODO(kylixrd): Rename back to RemoveChildView() once the code is refactored
+  //                to eliminate the uses of the old RemoveChildView().
+  template <typename T>
+  std::unique_ptr<T> RemoveChildViewT(T* view) {
+    DCHECK(!view->owned_by_client())
+        << "This should only be called if the client doesn't already have "
+           "ownership of |view|.";
+    DCHECK(std::find(children_.cbegin(), children_.cend(), view) !=
+           children_.cend());
+    RemoveChildView(view);
+    return base::WrapUnique(view);
+  }
 
   // Removes all the children from this view. If |delete_children| is true,
   // the views are deleted, unless marked as not parent owned.
@@ -596,7 +613,8 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   gfx::Transform GetTransform() const;
 
   // Clipping is done relative to the view's local bounds.
-  void set_clip_path(const SkPath& path) { clip_path_ = path; }
+  void SetClipPath(const SkPath& path);
+  const SkPath& clip_path() const { return clip_path_; }
 
   // Sets the transform to the supplied transform.
   void SetTransform(const gfx::Transform& transform);
@@ -1037,7 +1055,6 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   // if the view is focused. If the event has not been processed, the parent
   // will be given a chance.
   virtual bool OnMouseWheel(const ui::MouseWheelEvent& event);
-
 
   // See field for description.
   void set_notify_enter_exit_on_child(bool notify) {
@@ -1529,7 +1546,7 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   // allows individual Views to do special cleanup and processing (such as
   // dropping resource caches). To dispatch a theme changed notification, call
   // Widget::ThemeChanged().
-  virtual void OnThemeChanged() {}
+  virtual void OnThemeChanged();
 
   // Tooltips ------------------------------------------------------------------
 
@@ -1787,6 +1804,9 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   void SetLayerBounds(const gfx::Size& size_in_dip,
                       const LayerOffsetData& layer_offset_data);
 
+  // Creates a mask layer for the current view using |clip_path_|.
+  void CreateMaskLayer();
+
   // Input ---------------------------------------------------------------------
 
   bool ProcessMousePressed(const ui::MouseEvent& event);
@@ -1922,8 +1942,7 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
 
   // Transformations -----------------------------------------------------------
 
-  // Painting will be clipped to this path. TODO(estade): this doesn't work for
-  // layers.
+  // Painting will be clipped to this path.
   SkPath clip_path_;
 
   // Layout --------------------------------------------------------------------
@@ -1979,6 +1998,10 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   // beneath.
   std::vector<ui::Layer*> layers_beneath_;
 
+  // If painting to a layer |mask_layer_| will mask the current layer and all
+  // child layers to within the |clip_path_|.
+  std::unique_ptr<views::ViewMaskLayer> mask_layer_;
+
   // Accelerators --------------------------------------------------------------
 
   // Focus manager accelerators registered on.
@@ -2013,6 +2036,12 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   // Input  --------------------------------------------------------------------
 
   std::unique_ptr<ViewTargeter> targeter_;
+
+  // System events -------------------------------------------------------------
+
+#if DCHECK_IS_ON()
+  bool on_theme_changed_called_ = false;
+#endif
 
   // Accessibility -------------------------------------------------------------
 

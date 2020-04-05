@@ -10,7 +10,7 @@
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "third_party/blink/public/mojom/picture_in_picture/picture_in_picture.mojom-blink.h"
-#include "third_party/blink/renderer/core/dom/document_shutdown_observer.h"
+#include "third_party/blink/renderer/core/execution_context/execution_context_lifecycle_observer.h"
 #include "third_party/blink/renderer/core/frame/picture_in_picture_controller.h"
 #include "third_party/blink/renderer/core/page/page_visibility_observer.h"
 #include "third_party/blink/renderer/modules/modules_export.h"
@@ -21,7 +21,6 @@ class HTMLVideoElement;
 class PictureInPictureOptions;
 class PictureInPictureWindow;
 class TreeScope;
-struct WebSize;
 
 // The PictureInPictureControllerImpl is keeping the state and implementing the
 // logic around the Picture-in-Picture feature. It is meant to be used as well
@@ -34,7 +33,7 @@ struct WebSize;
 class MODULES_EXPORT PictureInPictureControllerImpl
     : public PictureInPictureController,
       public PageVisibilityObserver,
-      public DocumentShutdownObserver,
+      public ExecutionContextLifecycleObserver,
       public blink::mojom::blink::PictureInPictureSessionObserver {
   USING_GARBAGE_COLLECTED_MIXIN(PictureInPictureControllerImpl);
 
@@ -85,16 +84,16 @@ class MODULES_EXPORT PictureInPictureControllerImpl
   void OnPictureInPictureStateChange() override;
 
   // Implementation of PictureInPictureSessionObserver.
-  void OnWindowSizeChanged(const blink::WebSize&) override;
+  void OnWindowSizeChanged(const gfx::Size&) override;
   void OnStopped() override;
 
   // Implementation of PageVisibilityObserver.
   void PageVisibilityChanged() override;
 
-  // Implementation of DocumentShutdownObserver.
-  void ContextDestroyed(Document*) override;
+  // Implementation of ExecutionContextLifecycleObserver.
+  void ContextDestroyed() override;
 
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
 
   bool IsSessionObserverReceiverBoundForTesting() {
     return session_observer_receiver_.is_bound();
@@ -105,7 +104,7 @@ class MODULES_EXPORT PictureInPictureControllerImpl
       HTMLVideoElement*,
       ScriptPromiseResolver*,
       mojo::PendingRemote<mojom::blink::PictureInPictureSession>,
-      const WebSize&);
+      const gfx::Size&);
   void OnExitedPictureInPicture(ScriptPromiseResolver*) override;
   Status IsElementAllowed(const HTMLElement&, bool report_failure) const;
 

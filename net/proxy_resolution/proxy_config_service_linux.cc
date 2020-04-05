@@ -614,9 +614,9 @@ class SettingGetterImplKDE : public ProxyConfigServiceLinux::SettingGetter {
       return false;
     }
 
-    constexpr base::TaskTraits kTraits = {
-        base::ThreadPool(), base::TaskPriority::USER_VISIBLE, base::MayBlock()};
-    file_task_runner_ = base::CreateSequencedTaskRunner(kTraits);
+    constexpr base::TaskTraits kTraits = {base::TaskPriority::USER_VISIBLE,
+                                          base::MayBlock()};
+    file_task_runner_ = base::ThreadPool::CreateSequencedTaskRunner(kTraits);
 
     // The initial read is done on the current thread, not
     // |file_task_runner_|, since we will need to have it for
@@ -651,8 +651,9 @@ class SettingGetterImplKDE : public ProxyConfigServiceLinux::SettingGetter {
     }
     notify_delegate_ = delegate;
     inotify_watcher_ = base::FileDescriptorWatcher::WatchReadable(
-        inotify_fd_, base::Bind(&SettingGetterImplKDE::OnChangeNotification,
-                                base::Unretained(this)));
+        inotify_fd_,
+        base::BindRepeating(&SettingGetterImplKDE::OnChangeNotification,
+                            base::Unretained(this)));
     // Simulate a change to avoid possibly losing updates before this point.
     OnChangeNotification();
     return true;
@@ -1244,7 +1245,7 @@ void ProxyConfigServiceLinux::Delegate::SetUpAndFetchInitialConfig(
   // cached_config_, where GetLatestProxyConfig() running on the main TaskRunner
   // will expect to find it. This is safe to do because we return
   // before this ProxyConfigServiceLinux is passed on to
-  // the ProxyResolutionService.
+  // the ConfiguredProxyResolutionService.
 
   // Note: It would be nice to prioritize environment variables
   // and only fall back to gsettings if env vars were unset. But

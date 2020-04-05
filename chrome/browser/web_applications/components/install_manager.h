@@ -99,6 +99,10 @@ class InstallManager {
 
   // These params are a subset of ExternalInstallOptions.
   struct InstallParams {
+    InstallParams();
+    ~InstallParams();
+    InstallParams(const InstallParams&);
+
     DisplayMode user_display_mode = DisplayMode::kUndefined;
 
     // URL to be used as start_url if manifest is unavailable.
@@ -110,6 +114,8 @@ class InstallManager {
 
     bool bypass_service_worker_check = false;
     bool require_manifest = false;
+
+    std::vector<std::string> additional_search_terms;
   };
   // Starts a background web app installation process for a given
   // |web_contents|.
@@ -118,11 +124,11 @@ class InstallManager {
                                        WebappInstallSource install_source,
                                        OnceInstallCallback callback) = 0;
 
-  // For the old ExtensionSyncService-based system only:
-  // Starts background installation or an update of a web app from the sync
+  // For backward compatibility with ExtensionSyncService-based system:
+  // Starts background installation or an update of a bookmark app from the sync
   // system. |web_application_info| contains received sync data. Icons will be
   // downloaded from the icon URLs provided in |web_application_info|.
-  virtual void InstallWebAppFromSync(
+  virtual void InstallBookmarkAppFromSync(
       const AppId& app_id,
       std::unique_ptr<WebApplicationInfo> web_application_info,
       OnceInstallCallback callback) = 0;

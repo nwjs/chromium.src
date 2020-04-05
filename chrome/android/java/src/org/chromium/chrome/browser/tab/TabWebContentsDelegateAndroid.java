@@ -129,7 +129,7 @@ public abstract class TabWebContentsDelegateAndroid extends WebContentsDelegateA
         if ((flags & InvalidateTypes.TAB) != 0) {
             MediaCaptureNotificationService.updateMediaNotificationForTab(
                     ContextUtils.getApplicationContext(), mTab.getId(), mTab.getWebContents(),
-                    mTab.getUrl());
+                    mTab.getUrlString());
         }
         if ((flags & InvalidateTypes.TITLE) != 0) {
             // Update cached title then notify observers.
@@ -224,15 +224,6 @@ public abstract class TabWebContentsDelegateAndroid extends WebContentsDelegateA
     @CalledByNative
     protected abstract void setOverlayMode(boolean useOverlayMode);
 
-    /**
-     *  This is currently called when committing a pre-rendered page or activating a portal.
-     */
-    @CalledByNative
-    private void swapWebContents(
-            WebContents webContents, boolean didStartLoad, boolean didFinishLoad) {
-        mTab.swapWebContents(webContents, didStartLoad, didFinishLoad);
-    }
-
     private float getDipScale() {
         return mTab.getWindowAndroid().getDisplay().getDipScale();
     }
@@ -278,8 +269,8 @@ public abstract class TabWebContentsDelegateAndroid extends WebContentsDelegateA
     }
 
     /**
-     * @return the Webapp manifest scope, which is used to allow frames within the scope to
-     *         autoplay media unmuted.
+     * @return the WebAPK manifest scope. This gives frames within the scope increased privileges
+     * such as autoplaying media unmuted.
      */
     @CalledByNative
     protected String getManifestScope() {

@@ -53,6 +53,8 @@ source_set("dns") {
       "dns_reloader.cc",
       "dns_reloader.h",
       "dns_response.cc",
+      "dns_server_iterator.cc",
+      "dns_server_iterator.h",
       "dns_session.cc",
       "dns_session.h",
       "dns_socket_pool.cc",
@@ -61,8 +63,6 @@ source_set("dns") {
       "esni_content.cc",
       "host_cache.cc",
       "host_resolver.cc",
-      "host_resolver_histograms.cc",
-      "host_resolver_histograms.h",
       "host_resolver_manager.cc",
       "host_resolver_mdns_listener_impl.cc",
       "host_resolver_mdns_listener_impl.h",
@@ -425,6 +425,7 @@ source_set("tests") {
 }
 
 source_set("test_support") {
+  visibility = [ "//net:test_support" ]
   testonly = true
   sources = [
     "address_info_test_util.cc",

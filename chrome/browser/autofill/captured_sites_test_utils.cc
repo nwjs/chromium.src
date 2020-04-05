@@ -23,13 +23,13 @@
 #include "base/time/time.h"
 #include "base/values.h"
 #include "build/build_config.h"
-#include "chrome/browser/permissions/permission_request_manager.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/test/base/interactive_test_utils.h"
 #include "chrome/test/base/ui_test_utils.h"
-#include "components/app_modal/javascript_app_modal_dialog.h"
-#include "components/app_modal/native_app_modal_dialog.h"
+#include "components/javascript_dialogs/app_modal_dialog_controller.h"
+#include "components/javascript_dialogs/app_modal_dialog_view.h"
+#include "components/permissions/permission_request_manager.h"
 #include "content/public/browser/browsing_data_remover.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/render_process_host.h"
@@ -344,8 +344,9 @@ void TestRecipeReplayer::Setup() {
   CleanupSiteData();
 
   // Bypass permission dialogs.
-  PermissionRequestManager::FromWebContents(GetWebContents())
-      ->set_auto_response_for_test(PermissionRequestManager::ACCEPT_ALL);
+  permissions::PermissionRequestManager::FromWebContents(GetWebContents())
+      ->set_auto_response_for_test(
+          permissions::PermissionRequestManager::ACCEPT_ALL);
 }
 
 void TestRecipeReplayer::Cleanup() {
@@ -614,7 +615,7 @@ bool TestRecipeReplayer::RunWebPageReplayCmd(
           web_page_replay_support_file_dir.AppendASCII("wpr_key.pem").value())
           .c_str()));
 
-  for (const auto arg : args)
+  for (const auto& arg : args)
     full_command.AppendArg(arg);
 
   LOG(INFO) << full_command.GetArgumentsString();
@@ -1764,9 +1765,9 @@ void TestRecipeReplayer::NavigateAwayAndDismissBeforeUnloadDialog() {
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), GURL(url::kAboutBlankURL), WindowOpenDisposition::CURRENT_TAB,
       ui_test_utils::BROWSER_TEST_NONE);
-  app_modal::JavaScriptAppModalDialog* alert =
+  javascript_dialogs::AppModalDialogController* alert =
       ui_test_utils::WaitForAppModalDialog();
-  alert->native_dialog()->AcceptAppModalDialog();
+  alert->view()->AcceptAppModalDialog();
 }
 
 bool TestRecipeReplayer::HasChromeStoredCredential(

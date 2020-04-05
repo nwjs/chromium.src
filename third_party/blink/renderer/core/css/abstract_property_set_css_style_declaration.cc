@@ -219,11 +219,6 @@ void AbstractPropertySetCSSStyleDeclaration::SetPropertyInternal(
   if (!did_change)
     return;
 
-  Element* parent = ParentElement();
-  if (parent) {
-    parent->GetDocument().GetStyleEngine().AttributeChangedForElement(
-        html_names::kStyleAttr, *parent);
-  }
   mutation_scope.EnqueueMutationRecord();
 }
 
@@ -240,7 +235,7 @@ bool AbstractPropertySetCSSStyleDeclaration::CssPropertyMatches(
   return PropertySet().PropertyMatches(property_id, property_value);
 }
 
-void AbstractPropertySetCSSStyleDeclaration::Trace(blink::Visitor* visitor) {
+void AbstractPropertySetCSSStyleDeclaration::Trace(Visitor* visitor) {
   CSSStyleDeclaration::Trace(visitor);
 }
 

@@ -33,10 +33,10 @@ class AuthenticationService;
 @protocol LogoVendor;
 @protocol NTPHomeConsumer;
 @class NTPHomeMetrics;
-@protocol OmniboxFocuser;
+@protocol OmniboxCommands;
 class TemplateURLService;
 @protocol SnackbarCommands;
-class UrlLoadingService;
+class UrlLoadingBrowserAgent;
 class VoiceSearchAvailability;
 
 // Mediator for the NTP Home panel, handling the interactions with the
@@ -49,7 +49,7 @@ class VoiceSearchAvailability;
 - (nullable instancetype)
            initWithWebState:(nonnull web::WebState*)webState
          templateURLService:(nonnull TemplateURLService*)templateURLService
-          urlLoadingService:(nonnull UrlLoadingService*)urlLoadingService
+                  URLLoader:(nonnull UrlLoadingBrowserAgent*)URLLoader
                 authService:(nonnull AuthenticationService*)authService
             identityManager:(nonnull signin::IdentityManager*)identityManager
                  logoVendor:(nonnull id<LogoVendor>)logoVendor
@@ -61,7 +61,7 @@ class VoiceSearchAvailability;
 
 // Dispatcher.
 @property(nonatomic, weak, nullable)
-    id<ApplicationCommands, BrowserCommands, OmniboxFocuser, SnackbarCommands>
+    id<ApplicationCommands, BrowserCommands, OmniboxCommands, SnackbarCommands>
         dispatcher;
 // Suggestions service used to get the suggestions.
 @property(nonatomic, assign, nonnull)
@@ -87,6 +87,12 @@ class VoiceSearchAvailability;
 
 // Cleans the mediator.
 - (void)shutdown;
+
+// The location bar has lost focus.
+- (void)locationBarDidResignFirstResponder;
+
+// Tell location bar has taken focus.
+- (void)locationBarDidBecomeFirstResponder;
 
 @end
 

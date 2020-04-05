@@ -46,8 +46,9 @@ base::FilePath InstallExtension(const base::FilePath& unpacked_source_dir,
 void UninstallExtension(const base::FilePath& extensions_dir,
                         const std::string& id);
 
-// Loads and validates an extension from the specified directory. Returns NULL
-// on failure, with a description of the error in |error|.
+// Loads and validates an extension from the specified directory. Uses
+// the default manifest filename. Returns nullptr on failure, with a
+// description of the error in |error|.
 scoped_refptr<Extension> LoadExtension(const base::FilePath& extension_root,
                                        Manifest::Location location,
                                        int flags,
@@ -59,6 +60,17 @@ scoped_refptr<Extension> LoadExtension(const base::FilePath& extension_root,
                                        Manifest::Location location,
                                        int flags,
                                        std::string* error);
+
+// The same as LoadExtension except use the provided |manifest_file| and
+// |extension_id|.  If manifest_file is not specified, uses the default
+// manifest filename.
+scoped_refptr<Extension> LoadExtension(
+    const base::FilePath& extension_root,
+    const base::FilePath::CharType* manifest_file,
+    const std::string& extension_id,
+    Manifest::Location location,
+    int flags,
+    std::string* error);
 
 // Loads an extension manifest from the specified directory. Returns NULL
 // on failure, with a description of the error in |error|.
@@ -120,14 +132,12 @@ base::FilePath ExtensionURLToRelativeFilePath(const GURL& url);
 // an error.
 void SetReportErrorForInvisibleIconForTesting(bool value);
 
-// Returns true if the icons in |icon_set| exist. Otherwise, populates
-// |error| with the |error_message_id| for an invalid file. If an icon
-// is not sufficiently visible, and error checking is enabled, |error|
-// is populated with a different message, rather than one specified
-// by |error_message_id|.
+// Returns true if the icons in |icon_set| exist, and, if enabled, checks that
+// they are sufficiently visible compared to |background_color|. On failure,
+// populates |error|, which will include the given |manifest_key|.
 bool ValidateExtensionIconSet(const ExtensionIconSet& icon_set,
                               const Extension* extension,
-                              int error_message_id,
+                              const char* manifest_key,
                               SkColor background_color,
                               std::string* error);
 
@@ -170,9 +180,15 @@ MessageBundle::SubstitutionMap* LoadMessageBundleSubstitutionMapFromPaths(
 base::FilePath GetVerifiedContentsPath(const base::FilePath& extension_path);
 base::FilePath GetComputedHashesPath(const base::FilePath& extension_path);
 
-// Helper function to get path used for the indexed ruleset by the Declarative
-// Net Request API.
-base::FilePath GetIndexedRulesetPath(const base::FilePath& extension_path);
+// Helper function to get the relative path for the directory containing static
+// indexed rulesets. Path is relative to the extension path. Used by the
+// Declarative Net Request API.
+base::FilePath GetIndexedRulesetDirectoryRelativePath();
+
+// Helper function to get the relative path for a given static indexed ruleset.
+// Path is relative to the extension path. This is used by the Declarative Net
+// Request API.
+base::FilePath GetIndexedRulesetRelativePath(int static_ruleset_id);
 
 // Returns the list of file-paths reserved for use by the Extension system in
 // the kMetadataFolder.

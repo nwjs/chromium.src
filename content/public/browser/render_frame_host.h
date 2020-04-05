@@ -23,6 +23,7 @@
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "services/network/public/mojom/url_loader_factory.mojom-forward.h"
+#include "third_party/blink/public/common/feature_policy/document_policy.h"
 #include "third_party/blink/public/common/feature_policy/feature_policy.h"
 #include "third_party/blink/public/common/frame/frame_owner_element_type.h"
 #include "third_party/blink/public/common/frame/sandbox_flags.h"
@@ -32,6 +33,7 @@
 #include "third_party/blink/public/mojom/frame/frame.mojom.h"
 #include "third_party/blink/public/mojom/frame/sudden_termination_disabler_type.mojom.h"
 #include "third_party/blink/public/mojom/loader/pause_subresource_loading_handle.mojom-forward.h"
+#include "third_party/blink/public/mojom/webauthn/authenticator.mojom.h"
 #include "ui/accessibility/ax_tree_id.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/native_widget_types.h"
@@ -106,6 +108,12 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
   static RenderFrameHost* FromPlaceholderId(int render_process_id,
                                             int placeholder_routing_id);
 
+#if defined(OS_ANDROID)
+  // Returns the RenderFrameHost object associated with a Java native pointer.
+  static RenderFrameHost* FromJavaRenderFrameHost(
+      const base::android::JavaRef<jobject>& jrender_frame_host_android);
+#endif
+
   ~RenderFrameHost() override {}
 
   // Returns the route id for this frame.
@@ -128,10 +136,21 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
   // visibility for this frame.
   virtual RenderWidgetHostView* GetView() = 0;
 
-  // Returns the current RenderFrameHost of the parent frame, or nullptr if
-  // there is no parent. The result may be in a different process than the
+  // Returns the parent of this RenderFrameHost, or nullptr if this
+  // RenderFrameHost is the main one and there is no parent.
+  // The result may be in a different process than the
   // current RenderFrameHost.
   virtual RenderFrameHost* GetParent() = 0;
+
+  // Returns the eldest parent of this RenderFrameHost.
+  // Always non-null, but might be equal to |this|.
+  // The result may be in a different process that the current RenderFrameHost.
+  //
+  // NOTE: The result might be different from
+  // WebContents::FromRenderFrameHost(this)->GetMainFrame().
+  // This function (RenderFrameHost::GetMainFrame) is the preferred API in
+  // almost all of the cases. See RenderFrameHost::IsCurrent for the details.
+  virtual RenderFrameHost* GetMainFrame() = 0;
 
   // Returns a vector of all RenderFrameHosts in the subtree rooted at |this|.
   // The results may be in different processes.
@@ -298,14 +317,21 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
   // and still has a connection.  This is valid for all frames.
   virtual bool IsRenderFrameLive() = 0;
 
-  // Returns true if this is the currently-visible RenderFrameHost for our frame
-  // tree node. During process transfer, a RenderFrameHost may be created that
-  // is not current. After process transfer, the old RenderFrameHost becomes
-  // non-current until it is deleted (which may not happen until its unload
-  // handler runs).
+  // Returns true if this RenderFrameHost is currently in the frame tree for its
+  // page. Specifically, this is when the RenderFrameHost and all of its
+  // ancestors are the current RenderFrameHost in their respective
+  // FrameTreeNodes.
   //
-  // Changes to the IsCurrent() state of a RenderFrameHost may be observed via
-  // WebContentsObserver::RenderFrameHostChanged().
+  // For instance, during a navigation, if a new RenderFrameHost replaces this
+  // RenderFrameHost, IsCurrent() becomes false for this frame and its
+  // children even if the children haven't been replaced.
+  //
+  // After a RenderFrameHost has been replaced in its frame, it will either:
+  //  1) Enter the BackForwardCache.
+  //  2) Start running unload handlers and will be deleted after this ("pending
+  //  deletion").
+  // In both cases, IsCurrent() becomes false for this frame and all its
+  // children.
   virtual bool IsCurrent() = 0;
 
   // Get the number of proxies to this frame, in all processes. Exposed for
@@ -361,11 +387,28 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
   // third_party/blink/public/common/feature_policy/feature_policy.h for how to
   // compare values of different types. Use this in the browser process to
   // determine whether access to a feature is allowed.
+  //
+  // TODO(chenleihu): remove this method when policy with non-boolean value
+  // fully migrated to document policy. After the migration, feature policy
+  // feature will only only hold boolean type value, and this method signature
+  // will no longer be needed.
   virtual bool IsFeatureEnabled(blink::mojom::FeaturePolicyFeature feature,
+                                blink::PolicyValue threshold_value) = 0;
+  // Returns true if the queried FeaturePolicyFeature is allowed by
+  // feature policy.
+  virtual bool IsFeatureEnabled(blink::mojom::FeaturePolicyFeature feature) = 0;
+
+  // Returns true if the given |threshold_value| is below the threshold value
+  // specified in the policy for |feature| for this RenderFrameHost. See
+  // third_party/blink/public/common/feature_policy/document_policy.h for how to
+  // compare values of different types. Use this in the browser process to
+  // determine whether access to a feature is allowed.
+  virtual bool IsFeatureEnabled(blink::mojom::DocumentPolicyFeature feature,
                                 blink::PolicyValue threshold_value) = 0;
   // Same as above, with |threshold_value| set to the max value the given
   // |feature| can have.
-  virtual bool IsFeatureEnabled(blink::mojom::FeaturePolicyFeature feature) = 0;
+  virtual bool IsFeatureEnabled(
+      blink::mojom::DocumentPolicyFeature feature) = 0;
 
   // Opens view-source tab for the document last committed in this
   // RenderFrameHost.
@@ -403,7 +446,7 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
   // The effective flags include those which have been set by a
   // Content-Security-Policy header, in addition to those which are set by the
   // embedding frame.
-  virtual bool IsSandboxed(blink::WebSandboxFlags flags) = 0;
+  virtual bool IsSandboxed(blink::mojom::WebSandboxFlags flags) = 0;
 
   // Calls |FlushForTesting()| on Network Service and FrameNavigationControl
   // related interfaces to make sure all in-flight mojo messages have been
@@ -477,6 +520,21 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
   // simplify this somewhat (maybe //content would be responsible for
   // maintaining the state, with some content client method used to update it).
   virtual void UpdateAdFrameType(blink::mojom::AdFrameType ad_frame_type) = 0;
+
+  // Perform security checks on Web Authentication requests. These can be
+  // called by other |Authenticator| mojo interface implementations in the
+  // browser process so that they don't have to duplicate security policies.
+  virtual blink::mojom::AuthenticatorStatus
+  PerformGetAssertionWebAuthSecurityChecks(
+      const std::string& relying_party_id) = 0;
+  virtual blink::mojom::AuthenticatorStatus
+  PerformMakeCredentialWebAuthSecurityChecks(
+      const std::string& relying_party_id) = 0;
+
+  // Tells the host that this is part of setting up a WebXR DOM Overlay. This
+  // starts a short timer that permits entering fullscreen mode, similar to a
+  // recent orientation change.
+  virtual void SetIsXrOverlaySetup() = 0;
 
  private:
   // This interface should only be implemented inside content.

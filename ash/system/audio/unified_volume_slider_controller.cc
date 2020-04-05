@@ -15,16 +15,6 @@
 using chromeos::CrasAudioHandler;
 
 namespace ash {
-namespace {
-
-void LogUserVolumeEvent(const int previous_level, const int current_level) {
-  auto* logger = ml::UserSettingsEventLogger::Get();
-  if (logger) {
-    logger->LogVolumeUkmEvent(previous_level, current_level);
-  }
-}
-
-}  // namespace
 
 UnifiedVolumeSliderController::UnifiedVolumeSliderController(
     UnifiedVolumeSliderController::Delegate* delegate)
@@ -44,12 +34,9 @@ void UnifiedVolumeSliderController::ButtonPressed(views::Button* sender,
                                                   const ui::Event& event) {
   if (sender == slider_->button()) {
     bool mute_on = !CrasAudioHandler::Get()->IsOutputMuted();
-    const int volume_level = CrasAudioHandler::Get()->GetOutputVolumePercent();
     if (mute_on) {
-      LogUserVolumeEvent(volume_level, 0);
       base::RecordAction(base::UserMetricsAction("StatusArea_Audio_Muted"));
     } else {
-      LogUserVolumeEvent(0, volume_level);
       base::RecordAction(base::UserMetricsAction("StatusArea_Audio_Unmuted"));
     }
     CrasAudioHandler::Get()->SetOutputMute(mute_on);
@@ -63,7 +50,7 @@ void UnifiedVolumeSliderController::SliderValueChanged(
     float value,
     float old_value,
     views::SliderChangeReason reason) {
-  if (reason != views::VALUE_CHANGED_BY_USER)
+  if (reason != views::SliderChangeReason::kByUser)
     return;
 
   const int level = value * 100;
@@ -73,7 +60,6 @@ void UnifiedVolumeSliderController::SliderValueChanged(
         UMA_STATUS_AREA_CHANGED_VOLUME_MENU);
   }
 
-  LogUserVolumeEvent(CrasAudioHandler::Get()->GetOutputVolumePercent(), level);
   CrasAudioHandler::Get()->SetOutputVolumePercent(level);
 
   // If the volume is above certain level and it's muted, it should be unmuted.

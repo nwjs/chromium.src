@@ -4,6 +4,7 @@
 
 import("//build/config/jumbo.gni")
 import("//build/config/ui.gni")
+import("//device/vr/buildflags/buildflags.gni")
 import("//ppapi/buildflags/buildflags.gni")
 import("//third_party/webrtc/webrtc.gni")
 
@@ -69,6 +70,7 @@ jumbo_source_set("browser_sources") {
     "blob_handle.h",
     "bluetooth_chooser.cc",
     "bluetooth_chooser.h",
+    "bluetooth_delegate.h",
     "bluetooth_scanning_prompt.cc",
     "bluetooth_scanning_prompt.h",
     "browser_accessibility_state.h",
@@ -120,6 +122,8 @@ jumbo_source_set("browser_sources") {
     "content_index_context.h",
     "content_index_provider.cc",
     "content_index_provider.h",
+    "context_menu_params.cc",
+    "context_menu_params.h",
     "cookie_store_factory.h",
     "cors_exempt_headers.cc",
     "cors_exempt_headers.h",
@@ -158,6 +162,7 @@ jumbo_source_set("browser_sources") {
     "download_utils.h",
     "favicon_status.cc",
     "favicon_status.h",
+    "feature_observer_client.h",
     "file_select_listener.h",
     "file_url_loader.h",
     "focused_node_details.h",
@@ -179,7 +184,6 @@ jumbo_source_set("browser_sources") {
     "hid_chooser.h",
     "hid_delegate.h",
     "histogram_fetcher.h",
-    "indexed_db_context.h",
     "installability_error.cc",
     "installability_error.h",
     "interstitial_page.h",
@@ -190,7 +194,6 @@ jumbo_source_set("browser_sources") {
     "javascript_dialog_manager.h",
     "keyboard_event_processing_result.h",
     "load_notification_details.h",
-    "lock_observer.h",
     "login_delegate.h",
     "manifest_icon_downloader.h",
     "media_capture_devices.h",
@@ -416,7 +419,9 @@ jumbo_source_set("browser_sources") {
     "//components/download/public/common:public",
     "//components/services/storage/public/mojom",
     "//content/public/common:common_sources",
+    "//device/vr/buildflags",
     "//ipc",
+    "//media/mojo/mojom",
     "//media/mojo/mojom:remoting",
     "//mojo/public/cpp/bindings",
     "//mojo/public/cpp/system",
@@ -501,6 +506,20 @@ jumbo_source_set("browser_sources") {
   if (is_chromeos) {
     sources +=
         [ "chromeos/delegate_to_browser_gpu_service_accelerator_factory.h" ]
+  }
+
+  if (enable_vr) {
+    sources += [
+      "browser_xr_runtime.h",
+      "xr_consent_helper.h",
+      "xr_consent_prompt_level.h",
+      "xr_install_helper.h",
+      "xr_integration_client.cc",
+      "xr_integration_client.h",
+      "xr_runtime_manager.h",
+    ]
+
+    public_deps += [ "//device/vr/public/mojom" ]
   }
 }
 

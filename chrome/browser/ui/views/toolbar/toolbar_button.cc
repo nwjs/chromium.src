@@ -27,6 +27,7 @@
 #include "ui/display/display.h"
 #include "ui/display/screen.h"
 #include "ui/gfx/color_utils.h"
+#include "ui/gfx/paint_vector_icon.h"
 #include "ui/gfx/text_utils.h"
 #include "ui/views/animation/ink_drop.h"
 #include "ui/views/animation/ink_drop_highlight.h"
@@ -50,11 +51,6 @@ SkColor GetDefaultTextColor(const ui::ThemeProvider* theme_provider) {
   // gfx::kGoogleGrey900, if needed.
   return color_utils::GetColorWithMaxContrast(
       theme_provider->GetColor(ThemeProperties::COLOR_TOOLBAR));
-}
-
-SkColor GetDefaultBackgroundColor(const ui::ThemeProvider* theme_provider) {
-  return color_utils::GetColorWithMaxContrast(
-      GetDefaultTextColor(theme_provider));
 }
 
 }  // namespace
@@ -115,11 +111,12 @@ void ToolbarButton::SetHighlight(const base::string16& highlight_text,
   }
 
   highlight_color_animation_.Show(highlight_color);
-  LabelButton::SetText(highlight_text);
+  SetText(highlight_text);
 }
 
 void ToolbarButton::SetText(const base::string16& text) {
-  NOTREACHED() << "Use SetHighlight(text, _) instead of SetText(text)";
+  LabelButton::SetText(text);
+  UpdateColorsAndInsets();
 }
 
 void ToolbarButton::ClearHighlight() {
@@ -132,13 +129,7 @@ void ToolbarButton::UpdateColorsAndInsets() {
       ChromeLayoutProvider::Get()->GetCornerRadiusMetric(
           views::EMPHASIS_MAXIMUM, size());
 
-  base::Optional<SkColor> text_color =
-      highlight_color_animation_.GetTextColor();
-  if (text_color) {
-    SetEnabledTextColors(*text_color);
-  } else {
-    ResetColorsFromNativeTheme();
-  }
+  SetEnabledTextColors(highlight_color_animation_.GetTextColor());
 
   // ToolbarButtons are always the height the location bar.
   const gfx::Insets paint_insets =
@@ -161,7 +152,8 @@ void ToolbarButton::UpdateColorsAndInsets() {
   base::Optional<SkColor> border_color =
       highlight_color_animation_.GetBorderColor();
   if (!border() || target_insets != border()->GetInsets() ||
-      last_border_color_ != border_color) {
+      last_border_color_ != border_color ||
+      last_paint_insets_ != paint_insets) {
     if (border_color) {
       int border_thickness_dp = GetText().empty()
                                     ? kBorderThicknessDpWithoutLabel
@@ -177,11 +169,52 @@ void ToolbarButton::UpdateColorsAndInsets() {
       SetBorder(views::CreateEmptyBorder(target_insets));
     }
     last_border_color_ = border_color;
+    last_paint_insets_ = paint_insets;
   }
 
   // Update spacing on the outer-side of the label to match the current
   // highlight radius.
   SetLabelSideSpacing(highlight_radius / 2);
+}
+
+SkColor ToolbarButton::GetForegroundColor(ButtonState state) const {
+  const ui::ThemeProvider* tp = GetThemeProvider();
+  DCHECK(tp);
+  switch (state) {
+    case ButtonState::STATE_HOVERED:
+      return tp->GetColor(ThemeProperties::COLOR_TOOLBAR_BUTTON_ICON_HOVERED);
+    case ButtonState::STATE_PRESSED:
+      return tp->GetColor(ThemeProperties::COLOR_TOOLBAR_BUTTON_ICON_PRESSED);
+    case ButtonState::STATE_DISABLED:
+      return tp->GetColor(ThemeProperties::COLOR_TOOLBAR_BUTTON_ICON_INACTIVE);
+    case ButtonState::STATE_NORMAL:
+      return tp->GetColor(ThemeProperties::COLOR_TOOLBAR_BUTTON_ICON);
+    default:
+      NOTREACHED();
+      return gfx::kPlaceholderColor;
+  }
+}
+
+void ToolbarButton::UpdateIconsWithColors(const gfx::VectorIcon& icon,
+                                          SkColor normal_color,
+                                          SkColor hovered_color,
+                                          SkColor pressed_color,
+                                          SkColor disabled_color) {
+  SetImage(ButtonState::STATE_NORMAL,
+           gfx::CreateVectorIcon(icon, normal_color));
+  SetImage(ButtonState::STATE_HOVERED,
+           gfx::CreateVectorIcon(icon, hovered_color));
+  SetImage(ButtonState::STATE_PRESSED,
+           gfx::CreateVectorIcon(icon, pressed_color));
+  SetImage(views::Button::STATE_DISABLED,
+           gfx::CreateVectorIcon(icon, disabled_color));
+}
+
+void ToolbarButton::UpdateIconsWithStandardColors(const gfx::VectorIcon& icon) {
+  UpdateIconsWithColors(icon, GetForegroundColor(ButtonState::STATE_NORMAL),
+                        GetForegroundColor(ButtonState::STATE_HOVERED),
+                        GetForegroundColor(ButtonState::STATE_PRESSED),
+                        GetForegroundColor(ButtonState::STATE_DISABLED));
 }
 
 void ToolbarButton::SetLabelSideSpacing(int spacing) {
@@ -233,6 +266,8 @@ bool ToolbarButton::IsMenuShowing() const {
 }
 
 void ToolbarButton::SetLayoutInsets(const gfx::Insets& insets) {
+  if (layout_insets_ == insets)
+    return;
   layout_insets_ = insets;
   UpdateColorsAndInsets();
 }
@@ -381,8 +416,6 @@ SkColor ToolbarButton::AdjustHighlightColorForContrast(
     SkColor desired_light_color,
     SkColor dark_extreme,
     SkColor light_extreme) {
-  if (!theme_provider)
-    return desired_light_color;
   const SkColor background_color = GetDefaultBackgroundColor(theme_provider);
   const SkColor contrasting_color = color_utils::PickContrastingColor(
       desired_dark_color, desired_light_color, background_color);
@@ -401,6 +434,13 @@ SkColor ToolbarButton::AdjustHighlightColorForContrast(
              contrasting_color, base_color, limit,
              color_utils::kMinimumReadableContrastRatio * 1.05)
       .color;
+}
+
+// static
+SkColor ToolbarButton::GetDefaultBackgroundColor(
+    const ui::ThemeProvider* theme_provider) {
+  return color_utils::GetColorWithMaxContrast(
+      GetDefaultTextColor(theme_provider));
 }
 
 // static

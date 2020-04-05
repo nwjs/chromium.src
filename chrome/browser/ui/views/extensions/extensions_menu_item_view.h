@@ -27,7 +27,7 @@ class ImageButton;
 class ExtensionsMenuItemView : public views::View,
                                public views::ButtonListener {
  public:
-  static constexpr int kSecondaryIconSizeDp = 16;
+  static constexpr int kMenuItemHeightDp = 40;
   static constexpr const char kClassName[] = "ExtensionsMenuItemView";
 
   ExtensionsMenuItemView(
@@ -40,6 +40,7 @@ class ExtensionsMenuItemView : public views::View,
 
   // views::View:
   const char* GetClassName() const override;
+  void OnThemeChanged() override;
 
   void UpdatePinButton();
 

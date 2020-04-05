@@ -10,6 +10,7 @@
 #include "base/feature_list.h"
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
+#include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "components/autofill/core/browser/form_data_importer.h"
 #include "components/autofill/core/browser/logging/log_manager.h"
@@ -26,6 +27,7 @@
 #include "components/sync/driver/sync_service.h"
 #include "components/translate/core/browser/translate_manager.h"
 #include "components/ukm/ios/ukm_url_recorder.h"
+#include "components/variations/service/variations_service.h"
 #include "ios/chrome/browser/application_context.h"
 #include "ios/chrome/browser/autofill/address_normalizer_factory.h"
 #include "ios/chrome/browser/autofill/autocomplete_history_manager_factory.h"
@@ -160,10 +162,6 @@ FormDataImporter* ChromeAutofillClientIOS::GetFormDataImporter() {
   return form_data_importer_.get();
 }
 
-SmsClient* ChromeAutofillClientIOS::GetSmsClient() {
-  return nullptr;
-}
-
 payments::PaymentsClient* ChromeAutofillClientIOS::GetPaymentsClient() {
   return payments_client_.get();
 }
@@ -204,6 +202,16 @@ std::string ChromeAutofillClientIOS::GetPageLanguage() const {
   return std::string();
 }
 
+std::string ChromeAutofillClientIOS::GetVariationConfigCountryCode() const {
+  variations::VariationsService* variation_service =
+      GetApplicationContext()->GetVariationsService();
+  // Retrieves the country code from variation service and converts it to upper
+  // case.
+  return variation_service
+             ? base::ToUpperASCII(variation_service->GetLatestCountry())
+             : std::string();
+}
+
 void ChromeAutofillClientIOS::ShowAutofillSettings(
     bool show_credit_card_settings) {
   NOTREACHED();
@@ -213,10 +221,11 @@ void ChromeAutofillClientIOS::ShowUnmaskPrompt(
     const CreditCard& card,
     UnmaskCardReason reason,
     base::WeakPtr<CardUnmaskDelegate> delegate) {
-  unmask_controller_.ShowPrompt(base::Bind(&CreateCardUnmaskPromptViewBridge,
-                                    base::Unretained(&unmask_controller_),
-                                    base::Unretained(base_view_controller_)),
-                                card, reason, delegate);
+  unmask_controller_.ShowPrompt(
+      base::Bind(&CreateCardUnmaskPromptViewBridge,
+                 base::Unretained(&unmask_controller_),
+                 base::Unretained(base_view_controller_)),
+      card, reason, delegate);
 }
 
 void ChromeAutofillClientIOS::OnUnmaskVerificationResult(
@@ -360,7 +369,7 @@ ChromeAutofillClientIOS::GetPopupSuggestions() const {
   return base::span<const autofill::Suggestion>();
 }
 
-void ChromeAutofillClientIOS::PinPopupViewUntilUpdate() {
+void ChromeAutofillClientIOS::PinPopupView() {
   NOTIMPLEMENTED();
 }
 

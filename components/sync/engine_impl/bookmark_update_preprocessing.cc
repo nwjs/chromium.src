@@ -94,13 +94,13 @@ std::string InferGuidForLegacyBookmark(
 
   const std::string unique_tag =
       base::StrCat({originator_cache_guid, originator_client_item_id});
-  const std::array<uint8_t, base::kSHA1Length> hash =
+  const base::SHA1Digest hash =
       base::SHA1HashSpan(base::as_bytes(base::make_span(unique_tag)));
 
   static_assert(base::kSHA1Length >= 16, "16 bytes needed to infer GUID");
 
   const std::string guid = ComputeGuidFromBytes(base::make_span(hash));
-  DCHECK(base::IsValidGUID(guid));
+  DCHECK(base::IsValidGUIDOutputString(guid));
   return guid;
 }
 
@@ -179,8 +179,10 @@ void AdaptTitleForBookmark(const sync_pb::SyncEntity& update_entity,
   }
   // Legacy clients populate the name field in the SyncEntity instead of the
   // title field in the BookmarkSpecifics.
-  if (!specifics->bookmark().has_title() && !update_entity.name().empty()) {
-    specifics->mutable_bookmark()->set_title(update_entity.name());
+  if (!specifics->bookmark().has_legacy_canonicalized_title() &&
+      !update_entity.name().empty()) {
+    specifics->mutable_bookmark()->set_legacy_canonicalized_title(
+        update_entity.name());
   }
 }
 

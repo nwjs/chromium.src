@@ -83,13 +83,8 @@ void OutputSurface::SetGpuVSyncEnabled(bool enabled) {
   NOTREACHED();
 }
 
-void OutputSurface::Reshape(const gfx::Size& size,
-                            float device_scale_factor,
-                            const gfx::ColorSpace& color_space,
-                            bool has_alpha,
-                            bool use_stencil,
-                            bool forced) {
-  DCHECK(!forced);
-  Reshape(size, device_scale_factor, color_space, has_alpha, use_stencil);
+gpu::Mailbox OutputSurface::GetOverlayMailbox() const {
+  return gpu::Mailbox();
 }
+
 }  // namespace viz

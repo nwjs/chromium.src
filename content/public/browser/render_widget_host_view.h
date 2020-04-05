@@ -12,6 +12,7 @@
 #include "build/build_config.h"
 #include "content/common/content_export.h"
 #include "third_party/blink/public/common/input/web_input_event.h"
+#include "third_party/blink/public/mojom/input/pointer_lock_result.mojom.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/gfx/geometry/point_conversions.h"
@@ -158,8 +159,14 @@ class CONTENT_EXPORT RenderWidgetHostView {
   // GetBackgroundColor returns the current background color of the view.
   virtual base::Optional<SkColor> GetBackgroundColor() = 0;
 
-  // Return value indicates whether the mouse is locked successfully or not.
-  virtual bool LockMouse(bool request_unadjusted_movement) = 0;
+  // Return value indicates whether the mouse is locked successfully or a
+  // reason why it failed.
+  virtual blink::mojom::PointerLockResult LockMouse(
+      bool request_unadjusted_movement) = 0;
+  // Return value indicates whether the MouseLock was changed successfully
+  // or a reason why the change failed.
+  virtual blink::mojom::PointerLockResult ChangeMouseLock(
+      bool request_unadjusted_movement) = 0;
   virtual void UnlockMouse() = 0;
   // Returns true if the mouse pointer is currently locked.
   virtual bool IsMouseLocked() = 0;
@@ -251,9 +258,9 @@ class CONTENT_EXPORT RenderWidgetHostView {
   // have anything to show.
   virtual void TakeFallbackContentFrom(RenderWidgetHostView* view) = 0;
 
-  // Set the last time a tab change starts to be processed for this
-  // RenderWidgetHostView. Will merge with the previous value if exists (which
-  // means that several events may happen at the same time and must be
+  // Set the last time a content to visible event starts to be processed for
+  // this RenderWidgetHostView. Will merge with the previous value if exists
+  // (which means that several events may happen at the same time and must be
   // induvidually reported).  |start_time| marks event start time to calculate
   // the duration later.
   //
@@ -267,12 +274,15 @@ class CONTENT_EXPORT RenderWidgetHostView {
   //   reported.
   // |show_reason_unoccluded| is true when "unoccluded" event should be
   //   reported.
+  // |show_reason_bfcache_restore| is true when page restored from bfcache event
+  // should be reported.
   virtual void SetRecordContentToVisibleTimeRequest(
       base::TimeTicks start_time,
       base::Optional<bool> destination_is_loaded,
       base::Optional<bool> destination_is_frozen,
       bool show_reason_tab_switching,
-      bool show_reason_unoccluded) = 0;
+      bool show_reason_unoccluded,
+      bool show_reason_bfcache_restore) = 0;
 };
 
 }  // namespace content

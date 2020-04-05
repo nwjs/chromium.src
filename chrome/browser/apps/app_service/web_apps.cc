@@ -4,22 +4,26 @@
 
 #include "chrome/browser/apps/app_service/web_apps.h"
 
-#include <memory>
 #include <utility>
 #include <vector>
 
 #include "ash/public/cpp/app_list/app_list_metrics.h"
 #include "ash/public/cpp/app_menu_constants.h"
 #include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/callback.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/optional.h"
+#include "base/stl_util.h"
 #include "base/strings/string16.h"
 #include "base/strings/stringprintf.h"
 #include "chrome/browser/apps/app_service/app_icon_factory.h"
+#include "chrome/browser/apps/app_service/app_launch_params.h"
+#include "chrome/browser/apps/app_service/launch_utils.h"
 #include "chrome/browser/apps/app_service/menu_util.h"
 #include "chrome/browser/apps/launch_service/launch_service.h"
 #include "chrome/browser/chromeos/arc/arc_util.h"
+#include "chrome/browser/chromeos/crostini/crostini_util.h"
 #include "chrome/browser/chromeos/extensions/gfx_utils.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/profiles/profile.h"
@@ -28,11 +32,12 @@
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/chrome_pages.h"
-#include "chrome/browser/ui/extensions/app_launch_params.h"
 #include "chrome/browser/ui/web_applications/web_app_dialog_manager.h"
+#include "chrome/browser/ui/web_applications/web_app_launch_manager.h"
 #include "chrome/browser/ui/web_applications/web_app_ui_manager_impl.h"
 #include "chrome/browser/web_applications/components/install_finalizer.h"
 #include "chrome/browser/web_applications/components/web_app_constants.h"
+#include "chrome/browser/web_applications/components/web_app_helpers.h"
 #include "chrome/browser/web_applications/components/web_app_id.h"
 #include "chrome/browser/web_applications/components/web_app_utils.h"
 #include "chrome/browser/web_applications/system_web_app_manager.h"
@@ -61,26 +66,6 @@ const ContentSettingsType kSupportedPermissionTypes[] = {
     ContentSettingsType::NOTIFICATIONS,
 };
 
-apps::AppLaunchParams CreateAppLaunchParamsForIntent(
-    const std::string& app_id,
-    const apps::mojom::IntentPtr& intent) {
-  apps::AppLaunchParams params(
-      app_id, apps::mojom::LaunchContainer::kLaunchContainerWindow,
-      WindowOpenDisposition::NEW_FOREGROUND_TAB,
-      apps::mojom::AppLaunchSource::kSourceNone);
-
-  if (intent->scheme.has_value() && intent->host.has_value() &&
-      intent->path.has_value()) {
-    params.source = apps::mojom::AppLaunchSource::kSourceIntentUrl;
-    params.override_url =
-        GURL(intent->scheme.value() + url::kStandardSchemeSeparator +
-             intent->host.value() + intent->path.value());
-    DCHECK(params.override_url.is_valid());
-  }
-
-  return params;
-}
-
 apps::mojom::InstallSource GetHighestPriorityInstallSource(
     const web_app::WebApp* web_app) {
   switch (web_app->GetHighestPrioritySource()) {
@@ -102,9 +87,12 @@ apps::mojom::InstallSource GetHighestPriorityInstallSource(
 namespace apps {
 
 WebApps::WebApps(const mojo::Remote<apps::mojom::AppService>& app_service,
-                 Profile* profile)
+                 Profile* profile,
+                 apps::InstanceRegistry* instance_registry)
     : profile_(profile),
+      instance_registry_(instance_registry),
       app_service_(nullptr) {
+  DCHECK(instance_registry_);
   Initialize(app_service);
 }
 
@@ -159,6 +147,9 @@ void WebApps::Initialize(
   registrar_observer_.Add(&provider_->registrar());
   content_settings_observer_.Add(
       HostContentSettingsMapFactory::GetForProfile(profile_));
+
+  web_app_launch_manager_ =
+      std::make_unique<web_app::WebAppLaunchManager>(profile_);
 
   app_service->RegisterPublisher(receiver_.BindNewPipeAndPassRemote(),
                                  apps::mojom::AppType::kWeb);
@@ -226,14 +217,30 @@ void WebApps::Launch(const std::string& app_id,
   web_app::DisplayMode display_mode =
       GetRegistrar().GetAppEffectiveDisplayMode(app_id);
 
-  AppLaunchParams params = CreateAppIdLaunchParamsWithEventFlags(
-      web_app->app_id(), event_flags,
-      apps::mojom::AppLaunchSource::kSourceAppLauncher, display_id,
+  AppLaunchParams params = apps::CreateAppIdLaunchParamsWithEventFlags(
+      web_app->app_id(), event_flags, GetAppLaunchSource(launch_source),
+      display_id,
       /*fallback_container=*/
       web_app::ConvertDisplayModeToAppLaunchContainer(display_mode));
 
   // The app will be created for the currently active profile.
-  apps::LaunchService::Get(profile_)->OpenApplication(params);
+  web_app_launch_manager_->OpenApplication(params);
+}
+
+void WebApps::LaunchAppWithFiles(const std::string& app_id,
+                                 apps::mojom::LaunchContainer container,
+                                 int32_t event_flags,
+                                 apps::mojom::LaunchSource launch_source,
+                                 apps::mojom::FilePathsPtr file_paths) {
+  apps::AppLaunchParams params(
+      app_id, container, ui::DispositionFromEventFlags(event_flags),
+      GetAppLaunchSource(launch_source), display::kDefaultDisplayId);
+  for (const auto& file_path : file_paths->file_paths) {
+    params.launch_files.push_back(file_path);
+  }
+
+  // The app will be created for the currently active profile.
+  web_app_launch_manager_->OpenApplication(params);
 }
 
 void WebApps::LaunchAppWithIntent(const std::string& app_id,
@@ -245,8 +252,7 @@ void WebApps::LaunchAppWithIntent(const std::string& app_id,
   }
 
   AppLaunchParams params = CreateAppLaunchParamsForIntent(app_id, intent);
-
-  apps::LaunchService::Get(profile_)->OpenApplication(params);
+  web_app_launch_manager_->OpenApplication(params);
 }
 
 void WebApps::SetPermission(const std::string& app_id,
@@ -294,16 +300,6 @@ void WebApps::SetPermission(const std::string& app_id,
       permission_value);
 }
 
-void WebApps::PromptUninstall(const std::string& app_id) {
-  if (!profile_) {
-    return;
-  }
-
-  web_app::WebAppUiManagerImpl::Get(profile_)->dialog_manager().UninstallWebApp(
-      app_id, web_app::WebAppDialogManager::UninstallSource::kAppMenu,
-      /*parent_window=*/nullptr, base::DoNothing());
-}
-
 void WebApps::Uninstall(const std::string& app_id,
                         bool clear_site_data,
                         bool report_abuse) {
@@ -339,22 +335,28 @@ void WebApps::Uninstall(const std::string& app_id,
 }
 
 void WebApps::PauseApp(const std::string& app_id) {
-  if (paused_apps_.find(app_id) != paused_apps_.end()) {
-    return;
-  }
+  paused_apps_.MaybeAddApp(app_id);
+  constexpr bool kPaused = true;
+  Publish(paused_apps_.GetAppWithPauseStatus(apps::mojom::AppType::kWeb, app_id,
+                                             kPaused));
 
-  paused_apps_.insert(app_id);
   SetIconEffect(app_id);
-
-  // TODO(crbug.com/1011235): If the app is running, Stop the app.
+  for (auto* browser : *BrowserList::GetInstance()) {
+    if (!browser->is_type_app()) {
+      continue;
+    }
+    if (web_app::GetAppIdFromApplicationName(browser->app_name()) == app_id) {
+      browser->tab_strip_model()->CloseAllTabs();
+    }
+  }
 }
 
 void WebApps::UnpauseApps(const std::string& app_id) {
-  if (paused_apps_.find(app_id) == paused_apps_.end()) {
-    return;
-  }
+  paused_apps_.MaybeRemoveApp(app_id);
+  constexpr bool kPaused = false;
+  Publish(paused_apps_.GetAppWithPauseStatus(apps::mojom::AppType::kWeb, app_id,
+                                             kPaused));
 
-  paused_apps_.erase(app_id);
   SetIconEffect(app_id);
 }
 
@@ -378,6 +380,11 @@ void WebApps::GetMenuModel(const std::string& app_id,
             ? IDS_APP_LIST_CONTEXT_MENU_NEW_WINDOW
             : IDS_APP_LIST_CONTEXT_MENU_NEW_TAB,
         &menu_items);
+  }
+
+  if (menu_type == apps::mojom::MenuType::kShelf &&
+      !instance_registry_->GetWindows(app_id).empty()) {
+    AddCommandItem(ash::MENU_CLOSE, IDS_SHELF_CONTEXT_MENU_CLOSE, &menu_items);
   }
 
   if (provider_->install_finalizer().CanUserUninstallExternalApp(app_id)) {
@@ -405,9 +412,11 @@ void WebApps::OpenNativeSettings(const std::string& app_id) {
   chrome::ShowSiteSettings(profile_, web_app->launch_url());
 }
 
-void WebApps::OnPreferredAppSet(const std::string& app_id,
-                                apps::mojom::IntentFilterPtr intent_filter,
-                                apps::mojom::IntentPtr intent) {
+void WebApps::OnPreferredAppSet(
+    const std::string& app_id,
+    apps::mojom::IntentFilterPtr intent_filter,
+    apps::mojom::IntentPtr intent,
+    apps::mojom::ReplacedAppPreferencesPtr replaced_app_preferences) {
   NOTIMPLEMENTED();
 }
 
@@ -430,7 +439,8 @@ void WebApps::OnContentSettingChanged(
       continue;
     }
 
-    if (primary_pattern.Matches(web_app.launch_url())) {
+    if (primary_pattern.Matches(web_app.launch_url()) &&
+        Accepts(web_app.app_id())) {
       apps::mojom::AppPtr app = apps::mojom::App::New();
       app->app_type = apps::mojom::AppType::kWeb;
       app->app_id = web_app.app_id();
@@ -443,18 +453,18 @@ void WebApps::OnContentSettingChanged(
 
 void WebApps::OnWebAppInstalled(const web_app::AppId& app_id) {
   const web_app::WebApp* web_app = GetWebApp(app_id);
-  if (web_app) {
+  if (web_app && Accepts(app_id)) {
     Publish(Convert(web_app, apps::mojom::Readiness::kReady));
   }
 }
 
 void WebApps::OnWebAppWillBeUninstalled(const web_app::AppId& app_id) {
   const web_app::WebApp* web_app = GetWebApp(app_id);
-  if (!web_app) {
+  if (!web_app || !Accepts(app_id)) {
     return;
   }
 
-  paused_apps_.erase(web_app->app_id());
+  paused_apps_.MaybeRemoveApp(app_id);
 
   // Construct an App with only the information required to identify an
   // uninstallation.
@@ -511,6 +521,8 @@ void WebApps::OnArcAppListPrefsDestroyed() {
 
 void WebApps::SetShowInFields(apps::mojom::AppPtr& app,
                               const web_app::WebApp* web_app) {
+  // TODO(crbug.com/1054195): Make web_apps read this from
+  // system_web_app_manager.
   auto show = apps::mojom::OptionalBool::kTrue;
   app->show_in_launcher = show;
   app->show_in_search = show;
@@ -580,7 +592,11 @@ apps::mojom::AppPtr WebApps::Convert(const web_app::WebApp* web_app,
   app->name = web_app->name();
   app->short_name = web_app->name();
   app->description = web_app->description();
-  app->icon_key = icon_key_factory_.MakeIconKey(GetIconEffects(web_app));
+  app->additional_search_terms = web_app->additional_search_terms();
+
+  bool paused = paused_apps_.IsPaused(web_app->app_id());
+  app->icon_key =
+      icon_key_factory_.MakeIconKey(GetIconEffects(web_app, paused));
   // app->version is left empty here.
   // TODO(loyso): Populate app->last_launch_time and app->install_time.
 
@@ -591,7 +607,8 @@ apps::mojom::AppPtr WebApps::Convert(const web_app::WebApp* web_app,
   app->is_platform_app = apps::mojom::OptionalBool::kFalse;
   app->recommendable = apps::mojom::OptionalBool::kTrue;
   app->searchable = apps::mojom::OptionalBool::kTrue;
-  app->paused = apps::mojom::OptionalBool::kFalse;
+  app->paused = paused ? apps::mojom::OptionalBool::kTrue
+                       : apps::mojom::OptionalBool::kFalse;
   SetShowInFields(app, web_app);
 
   // Get the intent filters for PWAs.
@@ -621,7 +638,8 @@ void WebApps::StartPublishingWebApps(
   subscribers_.Add(std::move(subscriber));
 }
 
-IconEffects WebApps::GetIconEffects(const web_app::WebApp* web_app) {
+IconEffects WebApps::GetIconEffects(const web_app::WebApp* web_app,
+                                    bool paused) {
   IconEffects icon_effects = IconEffects::kNone;
 #if defined(OS_CHROMEOS)
   icon_effects =
@@ -638,7 +656,7 @@ IconEffects WebApps::GetIconEffects(const web_app::WebApp* web_app) {
   }
   icon_effects =
       static_cast<IconEffects>(icon_effects | IconEffects::kRoundCorners);
-  if (paused_apps_.find(web_app->app_id()) != paused_apps_.end()) {
+  if (paused) {
     icon_effects =
         static_cast<IconEffects>(icon_effects | IconEffects::kPaused);
   }
@@ -665,8 +683,14 @@ void WebApps::SetIconEffect(const std::string& app_id) {
   apps::mojom::AppPtr app = apps::mojom::App::New();
   app->app_type = apps::mojom::AppType::kWeb;
   app->app_id = app_id;
-  app->icon_key = icon_key_factory_.MakeIconKey(GetIconEffects(web_app));
+  app->icon_key = icon_key_factory_.MakeIconKey(
+      GetIconEffects(web_app, paused_apps_.IsPaused(app_id)));
   Publish(std::move(app));
+}
+
+bool WebApps::Accepts(const std::string& app_id) {
+  // Crostini Terminal System App is handled by Crostini Apps.
+  return app_id != crostini::kCrostiniTerminalSystemAppId;
 }
 
 }  // namespace apps

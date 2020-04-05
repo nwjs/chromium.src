@@ -4,10 +4,18 @@
 
 #include "ash/system/machine_learning/user_settings_event_logger.h"
 
+#include "ash/app_list/app_list_controller_impl.h"
+#include "ash/display/screen_orientation_controller.h"
+#include "ash/public/cpp/app_list/app_list_client.h"
 #include "ash/shell.h"
 #include "ash/system/night_light/night_light_controller_impl.h"
+#include "ash/system/power/power_status.h"
+#include "ash/wm/tablet_mode/tablet_mode_controller.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/time/default_clock.h"
+#include "base/time/time.h"
+#include "chromeos/dbus/power_manager/backlight.pb.h"
 #include "chromeos/services/network_config/public/mojom/cros_network_config.mojom.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
 #include "services/metrics/public/cpp/ukm_recorder.h"
@@ -45,17 +53,27 @@ UserSettingsEventLogger::UserSettingsEventLogger()
       is_recently_presenting_(false),
       is_recently_fullscreen_(false),
       used_cellular_in_session_(false),
-      is_playing_audio_(false) {
+      is_playing_audio_(false),
+      is_playing_video_(false),
+      clock_(base::DefaultClock::GetInstance()) {
+  chromeos::CrasAudioHandler* audio_handler = chromeos::CrasAudioHandler::Get();
+  DCHECK(audio_handler);
+
+  audio_handler->AddAudioObserver(this);
+  chromeos::PowerManagerClient::Get()->AddObserver(this);
   Shell::Get()->AddShellObserver(this);
-  chromeos::CrasAudioHandler::Get()->AddAudioObserver(this);
+  Shell::Get()->video_detector()->AddObserver(this);
+
+  volume_ = audio_handler->GetOutputVolumePercent();
 }
 
 UserSettingsEventLogger::~UserSettingsEventLogger() {
-  Shell::Get()->RemoveShellObserver(this);
   chromeos::CrasAudioHandler::Get()->RemoveAudioObserver(this);
+  chromeos::PowerManagerClient::Get()->RemoveObserver(this);
+  Shell::Get()->RemoveShellObserver(this);
+  Shell::Get()->video_detector()->RemoveObserver(this);
 }
 
-// TODO(crbug/1014839): Write unit tests for the LogUkmEvent methods.
 void UserSettingsEventLogger::LogNetworkUkmEvent(
     const NetworkStateProperties& network) {
   UserSettingsEvent settings_event;
@@ -81,7 +99,7 @@ void UserSettingsEventLogger::LogNetworkUkmEvent(
   event->set_setting_type(UserSettingsEvent::Event::QUICK_SETTINGS);
 
   PopulateSharedFeatures(&settings_event);
-  SendToUkm(settings_event);
+  SendToUkmAndAppList(settings_event);
 }
 
 void UserSettingsEventLogger::LogBluetoothUkmEvent(
@@ -105,7 +123,7 @@ void UserSettingsEventLogger::LogBluetoothUkmEvent(
   }
 
   PopulateSharedFeatures(&settings_event);
-  SendToUkm(settings_event);
+  SendToUkmAndAppList(settings_event);
 }
 
 void UserSettingsEventLogger::LogNightLightUkmEvent(const bool enabled) {
@@ -120,17 +138,18 @@ void UserSettingsEventLogger::LogNightLightUkmEvent(const bool enabled) {
   event->set_previous_value(!enabled ? 1 : 0);
   event->set_current_value(enabled ? 1 : 0);
 
-  const auto& schedule_type =
-      Shell::Get()->night_light_controller()->GetScheduleType();
+  const auto* night_light_controller = Shell::Get()->night_light_controller();
+  const auto schedule_type = night_light_controller->GetScheduleType();
   const bool has_night_light_schedule =
       schedule_type != NightLightController::ScheduleType::kNone;
   UMA_HISTOGRAM_BOOLEAN("Ash.Shelf.UkmLogger.HasNightLightSchedule",
                         has_night_light_schedule);
   features->set_has_night_light_schedule(has_night_light_schedule);
-  // TODO(crbug/1014839): Set the |is_after_sunset| feature field.
+  features->set_is_after_sunset(
+      night_light_controller->IsNowWithinSunsetSunrise());
 
   PopulateSharedFeatures(&settings_event);
-  SendToUkm(settings_event);
+  SendToUkmAndAppList(settings_event);
 }
 
 void UserSettingsEventLogger::LogQuietModeUkmEvent(const bool enabled) {
@@ -148,7 +167,7 @@ void UserSettingsEventLogger::LogQuietModeUkmEvent(const bool enabled) {
       is_recently_presenting_);
 
   PopulateSharedFeatures(&settings_event);
-  SendToUkm(settings_event);
+  SendToUkmAndAppList(settings_event);
 }
 
 void UserSettingsEventLogger::LogAccessibilityUkmEvent(
@@ -166,40 +185,83 @@ void UserSettingsEventLogger::LogAccessibilityUkmEvent(
   event->set_accessibility_id(id);
 
   PopulateSharedFeatures(&settings_event);
-  SendToUkm(settings_event);
+  SendToUkmAndAppList(settings_event);
 }
 
-void UserSettingsEventLogger::LogVolumeUkmEvent(const int previous_level,
-                                                const int current_level) {
+void UserSettingsEventLogger::OnOutputNodeVolumeChanged(uint64_t /*node*/,
+                                                        const int volume) {
+  if (!volume_timer_.IsRunning()) {
+    volume_before_user_change_ = volume_;
+  }
+  volume_ = volume;
+  volume_before_mute_ = volume;
+  volume_timer_.Start(FROM_HERE, kSliderDelay, this,
+                      &UserSettingsEventLogger::OnVolumeTimerEnded);
+}
+
+void UserSettingsEventLogger::OnOutputMuteChanged(const bool mute_on) {
+  if (!volume_timer_.IsRunning()) {
+    volume_before_user_change_ = volume_;
+  }
+  volume_ = mute_on ? 0 : volume_before_mute_;
+  volume_timer_.Start(FROM_HERE, kSliderDelay, this,
+                      &UserSettingsEventLogger::OnVolumeTimerEnded);
+}
+
+void UserSettingsEventLogger::OnVolumeTimerEnded() {
   UserSettingsEvent settings_event;
   auto* const event = settings_event.mutable_event();
 
   event->set_setting_id(UserSettingsEvent::Event::VOLUME);
   event->set_setting_type(UserSettingsEvent::Event::QUICK_SETTINGS);
-  event->set_previous_value(previous_level);
-  event->set_current_value(current_level);
-
-  settings_event.mutable_features()->set_is_playing_audio(is_playing_audio_);
+  event->set_previous_value(volume_before_user_change_);
+  event->set_current_value(volume_);
 
   PopulateSharedFeatures(&settings_event);
-  SendToUkm(settings_event);
+  SendToUkmAndAppList(settings_event);
 }
 
-void UserSettingsEventLogger::LogBrightnessUkmEvent(const int previous_level,
-                                                    const int current_level) {
+void UserSettingsEventLogger::OnOutputStarted() {
+  is_playing_audio_ = true;
+}
+
+void UserSettingsEventLogger::OnOutputStopped() {
+  is_playing_audio_ = false;
+}
+
+void UserSettingsEventLogger::ScreenBrightnessChanged(
+    const power_manager::BacklightBrightnessChange& change) {
+  const int new_brightness = std::floor(change.percent());
+  if (change.cause() ==
+      power_manager::BacklightBrightnessChange_Cause_USER_REQUEST) {
+    if (!brightness_timer_.IsRunning()) {
+      brightness_before_user_change_ = brightness_;
+    }
+    brightness_after_user_change_ = new_brightness;
+    // Keep starting the timer until there is a pause in brightness activity.
+    // Then only one event will be logged to summarise that activity.
+    brightness_timer_.Start(FROM_HERE, kSliderDelay, this,
+                            &UserSettingsEventLogger::OnBrightnessTimerEnded);
+  }
+  brightness_ = new_brightness;
+}
+
+void UserSettingsEventLogger::OnBrightnessTimerEnded() {
   UserSettingsEvent settings_event;
   auto* const event = settings_event.mutable_event();
 
   event->set_setting_id(UserSettingsEvent::Event::BRIGHTNESS);
   event->set_setting_type(UserSettingsEvent::Event::QUICK_SETTINGS);
-  event->set_previous_value(previous_level);
-  event->set_current_value(current_level);
+  if (brightness_before_user_change_.has_value()) {
+    event->set_previous_value(brightness_before_user_change_.value());
+  }
+  event->set_current_value(brightness_after_user_change_);
 
   settings_event.mutable_features()->set_is_recently_fullscreen(
       is_recently_fullscreen_);
 
   PopulateSharedFeatures(&settings_event);
-  SendToUkm(settings_event);
+  SendToUkmAndAppList(settings_event);
 }
 
 void UserSettingsEventLogger::OnCastingSessionStartedOrStopped(
@@ -242,19 +304,54 @@ void UserSettingsEventLogger::OnFullscreenTimerEnded() {
   is_recently_fullscreen_ = false;
 }
 
-void UserSettingsEventLogger::OnOutputStarted() {
-  is_playing_audio_ = true;
+void UserSettingsEventLogger::OnVideoStateChanged(
+    const VideoDetector::State state) {
+  is_playing_video_ = (state != VideoDetector::State::NOT_PLAYING);
 }
 
-void UserSettingsEventLogger::OnOutputStopped() {
-  is_playing_audio_ = false;
+void UserSettingsEventLogger::SetClockForTesting(const base::Clock* clock) {
+  clock_ = clock;
 }
 
-void UserSettingsEventLogger::PopulateSharedFeatures(UserSettingsEvent* event) {
-  // TODO(crbug/1014839): Populate the shared contextual features.
+void UserSettingsEventLogger::PopulateSharedFeatures(
+    UserSettingsEvent* settings_event) {
+  auto* features = settings_event->mutable_features();
+
+  // Set time features.
+  base::Time::Exploded now;
+  clock_->Now().LocalExplode(&now);
+  features->set_hour_of_day(now.hour);
+  features->set_day_of_week(
+      static_cast<UserSettingsEvent::Features::DayOfWeek>(now.day_of_week));
+
+  // Set power features.
+  if (PowerStatus::IsInitialized()) {
+    const auto* power_status = PowerStatus::Get();
+    features->set_battery_percentage(power_status->GetRoundedBatteryPercent());
+    features->set_is_charging(power_status->IsLinePowerConnected() ||
+                              power_status->IsMainsChargerConnected() ||
+                              power_status->IsUsbChargerConnected());
+  }
+
+  // Set activity features.
+  features->set_is_playing_audio(is_playing_audio_);
+  features->set_is_playing_video(is_playing_video_);
+
+  // Set orientation features.
+  features->set_device_mode(
+      Shell::Get()->tablet_mode_controller()->InTabletMode()
+          ? UserSettingsEvent::Features::TABLET_MODE
+          : UserSettingsEvent::Features::CLAMSHELL_MODE);
+  const auto orientation =
+      Shell::Get()->screen_orientation_controller()->GetCurrentOrientation();
+  if (IsLandscapeOrientation(orientation)) {
+    features->set_device_orientation(UserSettingsEvent::Features::LANDSCAPE);
+  } else if (IsPortraitOrientation(orientation)) {
+    features->set_device_orientation(UserSettingsEvent::Features::PORTRAIT);
+  }
 }
 
-void UserSettingsEventLogger::SendToUkm(
+void UserSettingsEventLogger::SendToUkmAndAppList(
     const UserSettingsEvent& settings_event) {
   const ukm::SourceId source_id = ukm::UkmRecorder::GetNewSourceID();
   ukm::builders::UserSettingsEvent ukm_event(source_id);
@@ -275,8 +372,23 @@ void UserSettingsEventLogger::SendToUkm(
   if (event.has_accessibility_id())
     ukm_event.SetAccessibilityId(event.accessibility_id());
 
+  if (features.has_hour_of_day())
+    ukm_event.SetHourOfDay(features.hour_of_day());
+  if (features.has_day_of_week())
+    ukm_event.SetDayOfWeek(features.day_of_week());
+  if (features.has_battery_percentage())
+    ukm_event.SetBatteryPercentage(features.battery_percentage());
+  if (features.has_is_charging())
+    ukm_event.SetIsCharging(features.is_charging());
   if (features.has_is_playing_audio())
     ukm_event.SetIsPlayingAudio(features.is_playing_audio());
+  if (features.has_is_playing_video())
+    ukm_event.SetIsPlayingVideo(features.is_playing_video());
+  if (features.has_device_mode())
+    ukm_event.SetDeviceMode(features.device_mode());
+  if (features.has_device_orientation())
+    ukm_event.SetDeviceOrientation(features.device_orientation());
+
   if (features.has_is_recently_presenting())
     ukm_event.SetIsRecentlyPresenting(features.is_recently_presenting());
   if (features.has_is_recently_fullscreen())
@@ -296,6 +408,18 @@ void UserSettingsEventLogger::SendToUkm(
 
   ukm::UkmRecorder* const ukm_recorder = ukm::UkmRecorder::Get();
   ukm_event.Record(ukm_recorder);
+
+  // Also log in browser side for other usage (CrOSActionRecorder for now).
+  AppListClient* app_list_client =
+      Shell::Get()->app_list_controller()->GetClient();
+  if (app_list_client) {
+    const std::string setting_name =
+        UserSettingsEvent_Event_SettingId_Name(event.setting_id());
+    app_list_client->OnQuickSettingsChanged(
+        setting_name, {{"SettingType", static_cast<int>(event.setting_type())},
+                       {"PreviousValue", event.previous_value()},
+                       {"CurrentValue", event.current_value()}});
+  }
 }
 
 }  // namespace ml

@@ -43,6 +43,18 @@ TransformationMatrix XRSpace::OffsetFromNativeMatrix() {
   return identity;
 }
 
+std::unique_ptr<TransformationMatrix> XRSpace::MojoFromOffsetMatrix() {
+  auto maybe_mojo_from_native = MojoFromNative();
+  if (!maybe_mojo_from_native) {
+    return nullptr;
+  }
+
+  // Modifies maybe_mojo_from_native - it becomes mojo_from_offset_matrix.
+  // Saves a heap allocation since there is no need to create a new unique_ptr.
+  maybe_mojo_from_native->Multiply(NativeFromOffsetMatrix());
+  return maybe_mojo_from_native;
+}
+
 std::unique_ptr<TransformationMatrix> XRSpace::TryInvert(
     std::unique_ptr<TransformationMatrix> matrix) {
   if (!matrix)
@@ -110,7 +122,7 @@ base::Optional<XRNativeOriginInformation> XRSpace::NativeOrigin() const {
   return base::nullopt;
 }
 
-void XRSpace::Trace(blink::Visitor* visitor) {
+void XRSpace::Trace(Visitor* visitor) {
   visitor->Trace(session_);
   ScriptWrappable::Trace(visitor);
   EventTargetWithInlineData::Trace(visitor);

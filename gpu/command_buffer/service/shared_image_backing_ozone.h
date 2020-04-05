@@ -20,6 +20,7 @@
 #include "gpu/command_buffer/service/shared_image_backing.h"
 #include "gpu/command_buffer/service/shared_image_manager.h"
 #include "gpu/command_buffer/service/shared_image_representation.h"
+#include "gpu/ipc/common/surface_handle.h"
 #include "ui/gfx/color_space.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/gfx/gpu_fence.h"
@@ -30,7 +31,7 @@ namespace gpu {
 // Implementation of SharedImageBacking that uses a NativePixmap created via
 // an Ozone surface factory. The memory associated with the pixmap can be
 // aliased by both GL and Vulkan for use in rendering or compositing.
-class SharedImageBackingOzone final : public SharedImageBacking {
+class SharedImageBackingOzone final : public ClearTrackingSharedImageBacking {
  public:
   static std::unique_ptr<SharedImageBackingOzone> Create(
       scoped_refptr<base::RefCountedData<DawnProcTable>> dawn_procs,
@@ -39,12 +40,11 @@ class SharedImageBackingOzone final : public SharedImageBacking {
       viz::ResourceFormat format,
       const gfx::Size& size,
       const gfx::ColorSpace& color_space,
-      uint32_t usage);
+      uint32_t usage,
+      SurfaceHandle surface_handle);
   ~SharedImageBackingOzone() override;
 
   // gpu::SharedImageBacking:
-  gfx::Rect ClearedRect() const override;
-  void SetClearedRect(const gfx::Rect& cleared_rect) override;
   void Update(std::unique_ptr<gfx::GpuFence> in_fence) override;
   bool ProduceLegacyMailbox(MailboxManager* mailbox_manager) override;
 

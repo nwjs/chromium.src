@@ -43,7 +43,7 @@ class ImageSkia;
 class Insets;
 }  // namespace gfx
 
-namespace ui  {
+namespace ui {
 class AXFragmentRootWin;
 class AXSystemCaretWin;
 class TextInputClient;
@@ -281,10 +281,9 @@ class VIEWS_EXPORT HWNDMessageHandler : public gfx::WindowImpl,
 
   // Called after the WM_ACTIVATE message has been processed by the default
   // windows procedure.
-  void PostProcessActivateMessage(
-      int activation_state,
-      bool minimized,
-      HWND window_gaining_or_losing_activation);
+  void PostProcessActivateMessage(int activation_state,
+                                  bool minimized,
+                                  HWND window_gaining_or_losing_activation);
 
   // Enables disabled owner windows that may have been disabled due to this
   // window's modality.
@@ -468,7 +467,7 @@ class VIEWS_EXPORT HWNDMessageHandler : public gfx::WindowImpl,
   void OnActivateApp(BOOL active, DWORD thread_id);
   // TODO(beng): return BOOL is temporary until this object becomes a
   //             WindowImpl.
-  BOOL OnAppCommand(HWND window, short command, WORD device, int keystate);
+  BOOL OnAppCommand(HWND window, int command, WORD device, WORD keystate);
   void OnCancelMode();
   void OnCaptureChanged(HWND window);
   void OnClose();
@@ -717,11 +716,11 @@ class VIEWS_EXPORT HWNDMessageHandler : public gfx::WindowImpl,
   // messages synthesized by Windows for touch which are not flagged by the OS
   // as synthesized mouse messages. For more information please refer to the
   // IsMouseEventFromTouch function.
-  static long last_touch_or_pen_message_time_;
+  static LONG last_touch_or_pen_message_time_;
 
   // Time the last WM_MOUSEHWHEEL message is received. Please refer to the
   // HandleMouseEventInternal function as to why this is needed.
-  long last_mouse_hwheel_time_;
+  LONG last_mouse_hwheel_time_;
 
   // On Windows Vista and beyond, if we are transitioning from custom frame
   // to Aero(glass) we delay setting the DWM related properties in full
@@ -785,6 +784,15 @@ class VIEWS_EXPORT HWNDMessageHandler : public gfx::WindowImpl,
 
   // True if is handling mouse WM_INPUT messages.
   bool using_wm_input_ = false;
+
+  // True if we're displaying the system menu on the title bar. If we are,
+  // then we want to ignore right mouse clicks instead of bringing up a
+  // context menu.
+  bool handling_mouse_menu_ = false;
+
+  // This is set to true when we call ShowWindow(SC_RESTORE), in order to
+  // call HandleWindowMinimizedOrRestored() when we get a WM_ACTIVATE message.
+  bool notify_restore_on_activate_ = false;
 
   // This is a map of the HMONITOR to full screeen window instance. It is safe
   // to keep a raw pointer to the HWNDMessageHandler instance as we track the

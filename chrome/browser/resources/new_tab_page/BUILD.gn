@@ -11,8 +11,11 @@ js_type_check("closure_compile") {
     ":app",
     ":browser_proxy",
     ":customize_dialog",
+    ":fakebox",
     ":grid",
+    ":logo",
     ":theme_icon",
+    ":untrusted_iframe",
     ":utils",
     ":voice_search_overlay",
   ]
@@ -32,6 +35,7 @@ js_library("app") {
     ":browser_proxy",
     ":most_visited",
     "//third_party/polymer/v3_0/components-chromium/polymer:polymer_bundled",
+    "//ui/webui/resources/js:event_tracker.m",
   ]
 }
 
@@ -51,11 +55,19 @@ js_library("most_visited") {
 
 js_library("customize_dialog") {
   deps = [
+    ":customize_backgrounds",
     ":customize_shortcuts",
     ":customize_themes",
+    ":utils",
     "//third_party/polymer/v3_0/components-chromium/polymer:polymer_bundled",
     "//ui/webui/resources/cr_elements/cr_button:cr_button.m",
     "//ui/webui/resources/cr_elements/cr_dialog:cr_dialog.m",
+  ]
+}
+
+js_library("customize_backgrounds") {
+  deps = [
+    "//third_party/polymer/v3_0/components-chromium/polymer:polymer_bundled",
   ]
 }
 
@@ -102,6 +114,24 @@ js_library("voice_search_overlay") {
 js_library("utils") {
 }
 
+js_library("untrusted_iframe") {
+  deps = [
+    "//third_party/polymer/v3_0/components-chromium/polymer:polymer_bundled",
+  ]
+}
+
+js_library("fakebox") {
+  deps = [
+    "//third_party/polymer/v3_0/components-chromium/polymer:polymer_bundled",
+  ]
+}
+
+js_library("logo") {
+  deps = [
+    "//third_party/polymer/v3_0/components-chromium/polymer:polymer_bundled",
+  ]
+}
+
 polymer_modulizer("app") {
   js_file = "app.js"
   html_file = "app.html"
@@ -132,6 +162,12 @@ polymer_modulizer("customize_shortcuts") {
   html_type = "v3-ready"
 }
 
+polymer_modulizer("customize_backgrounds") {
+  js_file = "customize_backgrounds.js"
+  html_file = "customize_backgrounds.html"
+  html_type = "v3-ready"
+}
+
 polymer_modulizer("customize_themes") {
   js_file = "customize_themes.js"
   html_file = "customize_themes.html"
@@ -156,16 +192,38 @@ polymer_modulizer("voice_search_overlay") {
   html_type = "v3-ready"
 }
 
+polymer_modulizer("untrusted_iframe") {
+  js_file = "untrusted_iframe.js"
+  html_file = "untrusted_iframe.html"
+  html_type = "v3-ready"
+}
+
+polymer_modulizer("fakebox") {
+  js_file = "fakebox.js"
+  html_file = "fakebox.html"
+  html_type = "v3-ready"
+}
+
+polymer_modulizer("logo") {
+  js_file = "logo.js"
+  html_file = "logo.html"
+  html_type = "v3-ready"
+}
+
 group("polymer3_elements") {
-  deps = [
+  public_deps = [
     ":app_module",
+    ":customize_backgrounds_module",
     ":customize_dialog_module",
     ":customize_shortcuts_module",
     ":customize_themes_module",
+    ":fakebox_module",
     ":grid_module",
+    ":logo_module",
     ":mini_page_module",
     ":most_visited_module",
     ":theme_icon_module",
+    ":untrusted_iframe_module",
     ":voice_search_overlay_module",
   ]
 }

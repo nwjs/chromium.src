@@ -32,9 +32,10 @@
 #include "base/metrics/field_trial_params.h"
 #include "services/network/public/mojom/ip_address_space.mojom-blink.h"
 #include "third_party/blink/public/common/features.h"
+#include "third_party/blink/public/common/security_context/insecure_request_policy.h"
 #include "third_party/blink/public/mojom/loader/request_context_frame_type.mojom-blink.h"
+#include "third_party/blink/public/mojom/security_context/insecure_request_policy.mojom-blink.h"
 #include "third_party/blink/public/platform/web_content_settings_client.h"
-#include "third_party/blink/public/platform/web_insecure_request_policy.h"
 #include "third_party/blink/public/platform/web_mixed_content.h"
 #include "third_party/blink/public/platform/web_security_origin.h"
 #include "third_party/blink/public/platform/web_worker_fetch_context.h"
@@ -50,6 +51,7 @@
 #include "third_party/blink/renderer/core/workers/worker_global_scope.h"
 #include "third_party/blink/renderer/core/workers/worker_or_worklet_global_scope.h"
 #include "third_party/blink/renderer/core/workers/worker_settings.h"
+#include "third_party/blink/renderer/platform/heap/heap.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_fetcher_properties.h"
 #include "third_party/blink/renderer/platform/network/network_utils.h"
@@ -172,7 +174,9 @@ bool IsWebSocketAllowedInFrame(const BaseFetchContext& fetch_context,
   // intentionally skip the client checks in order to prevent degrading the
   // site's security UI.
   bool strict_mode =
-      security_context->GetInsecureRequestPolicy() & kBlockAllMixedContent ||
+      (security_context->GetInsecureRequestPolicy() &
+       mojom::blink::InsecureRequestPolicy::kBlockAllMixedContent) !=
+          mojom::blink::InsecureRequestPolicy::kLeaveInsecureRequestsAlone ||
       settings->GetStrictMixedContentChecking();
   if (strict_mode)
     return false;
@@ -193,11 +197,13 @@ bool IsWebSocketAllowedInWorker(const BaseFetchContext& fetch_context,
   // If we're in strict mode, we'll automagically fail everything, and
   // intentionally skip the client checks in order to prevent degrading the
   // site's security UI.
-  bool strict_mode = fetch_context.GetResourceFetcherProperties()
-                             .GetFetchClientSettingsObject()
-                             .GetInsecureRequestsPolicy() &
-                         kBlockAllMixedContent ||
-                     settings->GetStrictMixedContentChecking();
+  bool strict_mode =
+      (fetch_context.GetResourceFetcherProperties()
+           .GetFetchClientSettingsObject()
+           .GetInsecureRequestsPolicy() &
+       mojom::blink::InsecureRequestPolicy::kBlockAllMixedContent) !=
+          mojom::blink::InsecureRequestPolicy::kLeaveInsecureRequestsAlone ||
+      settings->GetStrictMixedContentChecking();
   if (strict_mode)
     return false;
   return settings && settings->GetAllowRunningOfInsecureContent();
@@ -308,12 +314,12 @@ ConsoleMessage* MixedContentChecker::CreateConsoleMessageAboutFetch(
       allowed ? mojom::ConsoleMessageLevel::kWarning
               : mojom::ConsoleMessageLevel::kError;
   if (source_location) {
-    return ConsoleMessage::Create(mojom::ConsoleMessageSource::kSecurity,
-                                  message_level, message,
-                                  std::move(source_location));
+    return MakeGarbageCollected<ConsoleMessage>(
+        mojom::ConsoleMessageSource::kSecurity, message_level, message,
+        std::move(source_location));
   }
-  return ConsoleMessage::Create(mojom::ConsoleMessageSource::kSecurity,
-                                message_level, message);
+  return MakeGarbageCollected<ConsoleMessage>(
+      mojom::ConsoleMessageSource::kSecurity, message_level, message);
 }
 
 // static
@@ -375,7 +381,7 @@ bool MixedContentChecker::ShouldBlockFetch(
     mojom::RequestContextType request_context,
     ResourceRequest::RedirectStatus redirect_status,
     const KURL& url,
-    SecurityViolationReportingPolicy reporting_policy) {
+    ReportingDisposition reporting_disposition) {
   Frame* mixed_frame = InWhichFrameIsContentMixed(frame, url);
   if (!mixed_frame)
     return false;
@@ -419,8 +425,9 @@ bool MixedContentChecker::ShouldBlockFetch(
   // intentionally skip the client checks in order to prevent degrading the
   // site's security UI.
   bool strict_mode =
-      mixed_frame->GetSecurityContext()->GetInsecureRequestPolicy() &
-          kBlockAllMixedContent ||
+      (mixed_frame->GetSecurityContext()->GetInsecureRequestPolicy() &
+       mojom::blink::InsecureRequestPolicy::kBlockAllMixedContent) !=
+          mojom::blink::InsecureRequestPolicy::kLeaveInsecureRequestsAlone ||
       settings->GetStrictMixedContentChecking();
 
   WebMixedContentContextType context_type =
@@ -484,7 +491,7 @@ bool MixedContentChecker::ShouldBlockFetch(
       break;
   };
 
-  if (reporting_policy == SecurityViolationReportingPolicy::kReport) {
+  if (reporting_disposition == ReportingDisposition::kReport) {
     frame->GetDocument()->AddConsoleMessage(
         CreateConsoleMessageAboutFetch(MainResourceUrlForFrame(mixed_frame),
                                        url, request_context, allowed, nullptr));
@@ -498,7 +505,7 @@ bool MixedContentChecker::ShouldBlockFetchOnWorker(
     mojom::RequestContextType request_context,
     ResourceRequest::RedirectStatus redirect_status,
     const KURL& url,
-    SecurityViolationReportingPolicy reporting_policy,
+    ReportingDisposition reporting_disposition,
     bool is_worklet_global_scope) {
   const FetchClientSettingsObject& fetch_client_settings_object =
       worker_fetch_context.GetResourceFetcherProperties()
@@ -529,8 +536,9 @@ bool MixedContentChecker::ShouldBlockFetchOnWorker(
     allowed = false;
   } else {
     bool strict_mode =
-        fetch_client_settings_object.GetInsecureRequestsPolicy() &
-            kBlockAllMixedContent ||
+        (fetch_client_settings_object.GetInsecureRequestsPolicy() &
+         mojom::blink::InsecureRequestPolicy::kBlockAllMixedContent) !=
+            mojom::blink::InsecureRequestPolicy::kLeaveInsecureRequestsAlone ||
         settings->GetStrictMixedContentChecking();
     bool should_ask_embedder =
         !strict_mode && (!settings->GetStrictlyBlockBlockableMixedContent() ||
@@ -547,7 +555,7 @@ bool MixedContentChecker::ShouldBlockFetchOnWorker(
     }
   }
 
-  if (reporting_policy == SecurityViolationReportingPolicy::kReport) {
+  if (reporting_disposition == ReportingDisposition::kReport) {
     worker_fetch_context.AddConsoleMessage(CreateConsoleMessageAboutFetch(
         worker_fetch_context.Url(), url, request_context, allowed, nullptr));
   }
@@ -571,8 +579,8 @@ ConsoleMessage* MixedContentChecker::CreateConsoleMessageAboutWebSocket(
   mojom::ConsoleMessageLevel message_level =
       allowed ? mojom::ConsoleMessageLevel::kWarning
               : mojom::ConsoleMessageLevel::kError;
-  return ConsoleMessage::Create(mojom::ConsoleMessageSource::kSecurity,
-                                message_level, message);
+  return MakeGarbageCollected<ConsoleMessage>(
+      mojom::ConsoleMessageSource::kSecurity, message_level, message);
 }
 
 // static
@@ -641,7 +649,7 @@ bool MixedContentChecker::IsWebSocketAllowed(
 bool MixedContentChecker::IsMixedFormAction(
     LocalFrame* frame,
     const KURL& url,
-    SecurityViolationReportingPolicy reporting_policy) {
+    ReportingDisposition reporting_disposition) {
   // For whatever reason, some folks handle forms via JavaScript, and submit to
   // `javascript:void(0)` rather than calling `preventDefault()`. We
   // special-case `javascript:` URLs here, as they don't introduce MixedContent
@@ -659,7 +667,7 @@ bool MixedContentChecker::IsMixedFormAction(
   // mixed content signals from different frames on the same page.
   frame->GetLocalFrameHostRemote().DidContainInsecureFormAction();
 
-  if (reporting_policy == SecurityViolationReportingPolicy::kReport) {
+  if (reporting_disposition == ReportingDisposition::kReport) {
     String message = String::Format(
         "Mixed Content: The page at '%s' was loaded over a secure connection, "
         "but contains a form that targets an insecure endpoint '%s'. This "
@@ -667,8 +675,9 @@ bool MixedContentChecker::IsMixedFormAction(
         MainResourceUrlForFrame(mixed_frame).ElidedString().Utf8().c_str(),
         url.ElidedString().Utf8().c_str());
     frame->GetDocument()->AddConsoleMessage(
-        ConsoleMessage::Create(mojom::ConsoleMessageSource::kSecurity,
-                               mojom::ConsoleMessageLevel::kWarning, message));
+        MakeGarbageCollected<ConsoleMessage>(
+            mojom::ConsoleMessageSource::kSecurity,
+            mojom::ConsoleMessageLevel::kWarning, message));
   }
 
   return true;
@@ -697,12 +706,12 @@ bool MixedContentChecker::ShouldAutoupgrade(
       blink::features::kMixedContentAutoupgradeModeParamName);
 
   if (autoupgrade_mode ==
-      blink::features::kMixedContentAutoupgradeModeNoImages) {
-    return type != mojom::RequestContextType::IMAGE;
+      blink::features::kMixedContentAutoupgradeModeAllPassive) {
+    return true;
   }
 
-  // Otherwise we default to autoupgrading all mixed content.
-  return true;
+  // Otherwise we default to excluding images.
+  return type != mojom::RequestContextType::IMAGE;
 }
 
 void MixedContentChecker::CheckMixedPrivatePublic(
@@ -789,8 +798,9 @@ ConsoleMessage* MixedContentChecker::CreateConsoleMessageAboutFetchAutoupgrade(
       "no-more-mixed-messages-about-https.html",
       main_resource_url.ElidedString().Utf8().c_str(),
       mixed_content_url.ElidedString().Utf8().c_str());
-  return ConsoleMessage::Create(mojom::ConsoleMessageSource::kSecurity,
-                                mojom::ConsoleMessageLevel::kWarning, message);
+  return MakeGarbageCollected<ConsoleMessage>(
+      mojom::ConsoleMessageSource::kSecurity,
+      mojom::ConsoleMessageLevel::kWarning, message);
 }
 
 WebMixedContentContextType MixedContentChecker::ContextTypeForInspector(
@@ -830,8 +840,9 @@ void MixedContentChecker::UpgradeInsecureRequest(
 
   DCHECK(fetch_client_settings_object);
 
-  if (!(fetch_client_settings_object->GetInsecureRequestsPolicy() &
-        kUpgradeInsecureRequests)) {
+  if ((fetch_client_settings_object->GetInsecureRequestsPolicy() &
+       mojom::blink::InsecureRequestPolicy::kUpgradeInsecureRequests) ==
+      mojom::blink::InsecureRequestPolicy::kLeaveInsecureRequestsAlone) {
     mojom::RequestContextType context = resource_request.GetRequestContext();
     if (context == mojom::RequestContextType::UNSPECIFIED ||
         !MixedContentChecker::ShouldAutoupgrade(
@@ -844,8 +855,7 @@ void MixedContentChecker::UpgradeInsecureRequest(
     resource_request.SetUpgradeIfInsecure(true);
     if (resource_request.Url().ProtocolIs("http")) {
       if (execution_context_for_logging->IsDocument()) {
-        Document* document =
-            static_cast<Document*>(execution_context_for_logging);
+        Document* document = Document::From(execution_context_for_logging);
         document->AddConsoleMessage(
             MixedContentChecker::CreateConsoleMessageAboutFetchAutoupgrade(
                 fetch_client_settings_object->GlobalObjectUrl(),

@@ -11,13 +11,13 @@
 #include "base/stl_util.h"
 #include "chrome/android/chrome_jni_headers/PageInfoController_jni.h"
 #include "chrome/browser/infobars/infobar_service.h"
-#include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ssl/security_state_tab_helper.h"
-#include "chrome/browser/ui/page_info/page_info.h"
-#include "chrome/browser/ui/page_info/page_info_ui.h"
+#include "chrome/browser/ui/page_info/chrome_page_info_delegate.h"
 #include "chrome/common/chrome_features.h"
+#include "components/content_settings/core/browser/host_content_settings_map.h"
 #include "components/content_settings/core/common/content_settings.h"
 #include "components/content_settings/core/common/content_settings_types.h"
+#include "components/page_info/page_info.h"
+#include "components/page_info/page_info_ui.h"
 #include "components/security_state/core/security_state.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/navigation_controller.h"
@@ -58,18 +58,10 @@ PageInfoControllerAndroid::PageInfoControllerAndroid(
 
   controller_jobject_.Reset(env, java_page_info_pop);
 
-  SecurityStateTabHelper* helper =
-      SecurityStateTabHelper::FromWebContents(web_contents);
-  DCHECK(helper);
-
-  // When |web_contents| is not from a Tab, |web_contents| does not have a
-  // |TabSpecificContentSettings| and need to create one; otherwise, noop.
-  TabSpecificContentSettings::CreateForWebContents(web_contents);
   presenter_ = std::make_unique<PageInfo>(
-      this, Profile::FromBrowserContext(web_contents->GetBrowserContext()),
-      TabSpecificContentSettings::FromWebContents(web_contents), web_contents,
-      nav_entry->GetURL(), helper->GetSecurityLevel(),
-      *helper->GetVisibleSecurityState());
+      std::make_unique<ChromePageInfoDelegate>(web_contents), web_contents,
+      nav_entry->GetURL());
+  presenter_->InitializeUiState(this);
 }
 
 PageInfoControllerAndroid::~PageInfoControllerAndroid() {}
@@ -168,7 +160,8 @@ void PageInfoControllerAndroid::SetPermissionInfo(
 
   for (const auto& chosen_object : chosen_object_info_list) {
     base::string16 object_title =
-        PageInfoUI::ChosenObjectToUIString(*chosen_object);
+        presenter_->GetChooserContextFromUIInfo(chosen_object->ui_info)
+            ->GetObjectDisplayName(chosen_object->chooser_object->value);
 
     Java_PageInfoController_addPermissionSection(
         env, controller_jobject_, ConvertUTF16ToJavaString(env, object_title),

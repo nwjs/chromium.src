@@ -11,9 +11,10 @@ import android.os.Bundle;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.filters.LargeTest;
 import android.support.test.uiautomator.UiDevice;
-import android.support.v4.app.FragmentTransaction;
-import android.support.v7.preference.Preference;
-import android.support.v7.preference.PreferenceCategory;
+
+import androidx.fragment.app.FragmentTransaction;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceCategory;
 
 import org.junit.After;
 import org.junit.Assert;
@@ -24,19 +25,19 @@ import org.junit.runner.RunWith;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
-import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.SharedPreferencesManager;
-import org.chromium.chrome.browser.settings.ChromeSwitchPreference;
 import org.chromium.chrome.browser.settings.SettingsActivity;
 import org.chromium.chrome.browser.settings.SettingsLauncher;
-import org.chromium.chrome.browser.settings.sync.SyncAndServicesSettings;
+import org.chromium.chrome.browser.sync.settings.SyncAndServicesSettings;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.util.ApplicationTestUtils;
 import org.chromium.chrome.test.util.browser.Features.DisableFeatures;
 import org.chromium.chrome.test.util.browser.Features.EnableFeatures;
 import org.chromium.chrome.test.util.browser.sync.SyncTestUtil;
+import org.chromium.components.browser_ui.settings.ChromeSwitchPreference;
 import org.chromium.components.sync.AndroidSyncSettings;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
 
@@ -244,21 +245,6 @@ public class SyncAndServicesSettingsTest {
         Assert.assertNull("Sync error card should not be shown", getSyncErrorCard(fragment));
     }
 
-    @Test
-    @LargeTest
-    @Feature({"Sync", "Preferences"})
-    public void testTrustedVaultKeyRequiredShowsSyncErrorCard() throws Exception {
-        final FakeProfileSyncService pss = overrideProfileSyncService();
-        mSyncTestRule.setUpTestAccountAndSignIn();
-        SyncTestUtil.waitForSyncActive();
-        pss.setEngineInitialized(true);
-        pss.setTrustedVaultKeyRequiredForPreferredDataTypes(true);
-
-        SyncAndServicesSettings fragment = startSyncAndServicesPreferences();
-
-        Assert.assertNotNull("Sync error card should be shown", getSyncErrorCard(fragment));
-    }
-
     /**
      * Test: if the onboarding was never shown, the AA chrome preference should not exist.
      *
@@ -355,16 +341,6 @@ public class SyncAndServicesSettingsTest {
     private void setAutofillAssistantSwitchValue(boolean newValue) {
         SharedPreferencesManager.getInstance().writeBoolean(
                 ChromePreferenceKeys.AUTOFILL_ASSISTANT_ENABLED, newValue);
-    }
-
-    // TODO(crbug.com/1030725): SyncTestRule should support overriding ProfileSyncService.
-    private FakeProfileSyncService overrideProfileSyncService() {
-        return TestThreadUtils.runOnUiThreadBlockingNoException(() -> {
-            // PSS has to be constructed on the UI thread.
-            FakeProfileSyncService fakeProfileSyncService = new FakeProfileSyncService();
-            ProfileSyncService.overrideForTests(fakeProfileSyncService);
-            return fakeProfileSyncService;
-        });
     }
 
     /**

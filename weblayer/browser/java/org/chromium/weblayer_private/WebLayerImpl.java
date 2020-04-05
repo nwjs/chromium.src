@@ -6,24 +6,29 @@ package org.chromium.weblayer_private;
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.res.AssetManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.support.v4.content.FileProvider;
+import android.os.RemoteException;
+import android.text.TextUtils;
 import android.util.AndroidRuntimeException;
 import android.util.SparseArray;
 import android.webkit.ValueCallback;
 import android.webkit.WebViewDelegate;
 import android.webkit.WebViewFactory;
 
+import androidx.core.content.FileProvider;
+
 import org.chromium.base.BuildInfo;
 import org.chromium.base.BundleUtils;
 import org.chromium.base.CommandLine;
 import org.chromium.base.ContentUriUtils;
 import org.chromium.base.ContextUtils;
+import org.chromium.base.FileUtils;
 import org.chromium.base.Log;
 import org.chromium.base.PathUtils;
 import org.chromium.base.StrictModeContext;
@@ -38,12 +43,14 @@ import org.chromium.content_public.browser.DeviceUtils;
 import org.chromium.content_public.browser.SelectionPopupController;
 import org.chromium.net.NetworkChangeNotifier;
 import org.chromium.ui.base.ResourceBundle;
+import org.chromium.weblayer_private.interfaces.APICallException;
 import org.chromium.weblayer_private.interfaces.IBrowserFragment;
 import org.chromium.weblayer_private.interfaces.ICrashReporterController;
 import org.chromium.weblayer_private.interfaces.IObjectWrapper;
 import org.chromium.weblayer_private.interfaces.IProfile;
 import org.chromium.weblayer_private.interfaces.IRemoteFragmentClient;
 import org.chromium.weblayer_private.interfaces.IWebLayer;
+import org.chromium.weblayer_private.interfaces.IWebLayerClient;
 import org.chromium.weblayer_private.interfaces.ObjectWrapper;
 import org.chromium.weblayer_private.interfaces.StrictModeWorkaround;
 import org.chromium.weblayer_private.metrics.MetricsServiceClient;
@@ -52,6 +59,8 @@ import org.chromium.weblayer_private.metrics.UmaUtils;
 import java.io.File;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Root implementation class for WebLayer.
@@ -74,10 +83,14 @@ public final class WebLayerImpl extends IWebLayer.Stub {
     // signature requirements on the implementation, nor does it use the production code path to
     // load the code. Do not set this in production APKs!
     private static final String PACKAGE_MANIFEST_KEY = "org.chromium.weblayer.WebLayerPackage";
+    // SharedPreferences key storing the versionCode of the most recently loaded WebLayer library.
+    public static final String PREF_LAST_VERSION_CODE =
+            "org.chromium.weblayer.last_version_code_used";
 
     private final ProfileManager mProfileManager = new ProfileManager();
 
     private boolean mInited;
+    private static IWebLayerClient sClient;
     // Whether WebView is running in process. Set in init().
     private boolean mIsWebViewCompatMode;
 
@@ -110,20 +123,20 @@ public final class WebLayerImpl extends IWebLayer.Stub {
 
         final ValueCallback<Boolean> loadedCallback = (ValueCallback<Boolean>) ObjectWrapper.unwrap(
                 loadedCallbackWrapper, ValueCallback.class);
-        BrowserStartupController.get(LibraryProcessType.PROCESS_WEBLAYER)
-                .startBrowserProcessesAsync(/* startGpu */ false,
-                        /* startServiceManagerOnly */ false,
-                        new BrowserStartupController.StartupCallback() {
-                            @Override
-                            public void onSuccess() {
-                                onNativeLoaded(appContextWrapper);
-                                loadedCallback.onReceiveValue(true);
-                            }
-                            @Override
-                            public void onFailure() {
-                                loadedCallback.onReceiveValue(false);
-                            }
-                        });
+        BrowserStartupController.getInstance().startBrowserProcessesAsync(
+                LibraryProcessType.PROCESS_WEBLAYER,
+                /* startGpu */ false, /* startServiceManagerOnly */ false,
+                new BrowserStartupController.StartupCallback() {
+                    @Override
+                    public void onSuccess() {
+                        onNativeLoaded(appContextWrapper);
+                        loadedCallback.onReceiveValue(true);
+                    }
+                    @Override
+                    public void onFailure() {
+                        loadedCallback.onReceiveValue(false);
+                    }
+                });
     }
 
     @Override
@@ -136,9 +149,9 @@ public final class WebLayerImpl extends IWebLayer.Stub {
         StrictModeWorkaround.apply();
         init(appContextWrapper, remoteContextWrapper);
 
-        BrowserStartupController.get(LibraryProcessType.PROCESS_WEBLAYER)
-                .startBrowserProcessesSync(
-                        /* singleProcess*/ false);
+        BrowserStartupController.getInstance().startBrowserProcessesSync(
+                LibraryProcessType.PROCESS_WEBLAYER,
+                /* singleProcess*/ false);
 
         onNativeLoaded(appContextWrapper);
     }
@@ -180,10 +193,13 @@ public final class WebLayerImpl extends IWebLayer.Stub {
         // WebLayer should come from ClassLoaderContextWrapperFactory.
         mIsWebViewCompatMode = remoteContext != null
                 && !remoteContext.getClassLoader().equals(WebLayerImpl.class.getClassLoader());
-        if (mIsWebViewCompatMode && Build.VERSION.SDK_INT <= Build.VERSION_CODES.M) {
-            // We need to change the library name for Android M and below, otherwise the system will
-            // load the version loaded for WebView.
-            LibraryLoader.getInstance().setLibrarySuffix("-weblayer");
+        if (mIsWebViewCompatMode) {
+            if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.M) {
+              // Load the library with the crazy linker.
+              LibraryLoader.getInstance().setLinkerImplementation(true, false);
+              WebViewCompatibilityHelperImpl.setRequiresManualJniRegistration(true);
+            }
+            notifyWebViewRunningInProcess(remoteContext.getClassLoader());
         }
 
         Context appContext = minimalInitForContext(appContextWrapper, remoteContextWrapper);
@@ -198,7 +214,9 @@ public final class WebLayerImpl extends IWebLayer.Stub {
         BuildInfo.setBrowserPackageInfo(packageInfo);
         int resourcesPackageId = getPackageId(appContext, packageInfo.packageName);
         if (resourcesPackageId < 0x7f && resourcesPackageId != 2) {
-            throw new AndroidRuntimeException("WebLayer can't be used with another shared library");
+            throw new AndroidRuntimeException(
+                    "WebLayer can't be used with another shared library. Loaded packages: "
+                    + getLoadedPackageNames(appContext));
         }
         // TODO: The call to onResourcesLoaded() can be slow, we may need to parallelize this with
         // other expensive startup tasks.
@@ -227,11 +245,10 @@ public final class WebLayerImpl extends IWebLayer.Stub {
             }
         }
 
-        // Creating the Android shared preferences object causes I/O. Prewarm during
-        // initialization to avoid this occurring randomly later.
-        // TODO: Do this on a background thread.
+        // Creating the Android shared preferences object causes I/O.
         try (StrictModeContext ignored = StrictModeContext.allowDiskWrites()) {
-            ContextUtils.getAppSharedPreferences();
+            SharedPreferences prefs = ContextUtils.getAppSharedPreferences();
+            deleteDataIfPackageDowngrade(prefs, packageInfo);
         }
 
         DeviceUtils.addDeviceSpecificUserAgentSwitch();
@@ -291,7 +308,21 @@ public final class WebLayerImpl extends IWebLayer.Stub {
     public void onReceivedDownloadNotification(IObjectWrapper appContextWrapper, Intent intent) {
         StrictModeWorkaround.apply();
         Context context = ObjectWrapper.unwrap(appContextWrapper, Context.class);
-        DownloadImpl.forwardIntent(context, intent);
+        DownloadImpl.forwardIntent(context, intent, mProfileManager);
+    }
+
+    @Override
+    public void enumerateAllProfileNames(IObjectWrapper valueCallback) {
+        StrictModeWorkaround.apply();
+        final ValueCallback<String[]> callback =
+                (ValueCallback<String[]>) ObjectWrapper.unwrap(valueCallback, ValueCallback.class);
+        ProfileImpl.enumerateAllProfileNames(callback);
+    }
+
+    @Override
+    public void setClient(IWebLayerClient client) {
+        StrictModeWorkaround.apply();
+        sClient = client;
     }
 
     /**
@@ -305,6 +336,18 @@ public final class WebLayerImpl extends IWebLayer.Stub {
                     Context.CONTEXT_IGNORE_SECURITY | Context.CONTEXT_INCLUDE_CODE);
         } catch (PackageManager.NameNotFoundException e) {
             throw new AndroidRuntimeException(e);
+        }
+    }
+
+    public static Intent createIntent() {
+        if (sClient == null) {
+            throw new IllegalStateException("WebLayer should have been initialized already.");
+        }
+
+        try {
+            return sClient.createIntent();
+        } catch (RemoteException e) {
+            throw new APICallException(e);
         }
     }
 
@@ -360,18 +403,44 @@ public final class WebLayerImpl extends IWebLayer.Stub {
         }
     }
 
+    /** Gets a string with all the loaded package names in this context. */
+    private static String getLoadedPackageNames(Context appContext) {
+        try {
+            Method getAssignedPackageIdentifiers =
+                    AssetManager.class.getMethod("getAssignedPackageIdentifiers");
+            SparseArray packageIdentifiers = (SparseArray) getAssignedPackageIdentifiers.invoke(
+                    appContext.getResources().getAssets());
+            List<String> packageNames = new ArrayList<>();
+            for (int i = 0; i < packageIdentifiers.size(); i++) {
+                String name = (String) packageIdentifiers.valueAt(i);
+                int key = packageIdentifiers.keyAt(i);
+                // This is the android package.
+                if (key == 1) {
+                    continue;
+                }
+                packageNames.add(name + ":" + key);
+            }
+            return TextUtils.join(",", packageNames);
+        } catch (ReflectiveOperationException e) {
+            return "unknown";
+        }
+    }
+
     private void loadNativeLibrary(String packageName) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            WebViewFactory.loadWebViewNativeLibraryFromPackage(
-                    packageName, getClass().getClassLoader());
-        } else {
-            try {
-                Method loadNativeLibrary =
-                        WebViewFactory.class.getDeclaredMethod("loadNativeLibrary");
-                loadNativeLibrary.setAccessible(true);
-                loadNativeLibrary.invoke(null);
-            } catch (ReflectiveOperationException e) {
-                Log.e(TAG, "Failed to load native library.", e);
+        // Loading the library triggers disk access.
+        try (StrictModeContext ignored = StrictModeContext.allowDiskReads()) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                WebViewFactory.loadWebViewNativeLibraryFromPackage(
+                        packageName, getClass().getClassLoader());
+            } else {
+                try {
+                    Method loadNativeLibrary =
+                            WebViewFactory.class.getDeclaredMethod("loadNativeLibrary");
+                    loadNativeLibrary.setAccessible(true);
+                    loadNativeLibrary.invoke(null);
+                } catch (ReflectiveOperationException e) {
+                    Log.e(TAG, "Failed to load native library.", e);
+                }
             }
         }
     }
@@ -417,6 +486,62 @@ public final class WebLayerImpl extends IWebLayer.Stub {
             // This would indicate the client app doesn't exist;
             // just return true as there's nothing sensible to do here.
             return true;
+        }
+    }
+
+    private static void deleteDataIfPackageDowngrade(
+            SharedPreferences prefs, PackageInfo packageInfo) {
+        int previousVersion = prefs.getInt(PREF_LAST_VERSION_CODE, 0);
+        int currentVersion = packageInfo.versionCode;
+        if (getBranchFromVersionCode(currentVersion) < getBranchFromVersionCode(previousVersion)) {
+            // WebLayer was downgraded since the last run. Delete the data and cache directories.
+            File dataDir = new File(PathUtils.getDataDirectory());
+            Log.i(TAG,
+                    "WebLayer package downgraded from " + previousVersion + " to " + currentVersion
+                            + "; deleting contents of " + dataDir);
+            deleteDirectoryContents(dataDir);
+        }
+        if (previousVersion != currentVersion) {
+            prefs.edit().putInt(PREF_LAST_VERSION_CODE, currentVersion).apply();
+        }
+    }
+
+    /**
+     * Chromium versionCodes follow the scheme "BBBBPPPAX":
+     * BBBB: 4 digit branch number. It monotonically increases over time.
+     * PPP:  Patch number in the branch. It is padded with zeroes to the left. These three digits
+     *       may change their meaning in the future.
+     * A:    Architecture digit.
+     * X:    A digit to differentiate APKs for other reasons.
+     *
+     * @return The branch number of versionCode.
+     */
+    private static int getBranchFromVersionCode(int versionCode) {
+        return versionCode / 1_000_00;
+    }
+
+    private static void deleteDirectoryContents(File directory) {
+        File[] files = directory.listFiles();
+        if (files == null) {
+            return;
+        }
+        for (File file : files) {
+            if (!FileUtils.recursivelyDeleteFile(file, FileUtils.DELETE_ALL)) {
+                Log.w(TAG, "Failed to delete " + file);
+            }
+        }
+    }
+
+    private static void notifyWebViewRunningInProcess(ClassLoader webViewClassLoader) {
+        try {
+            Class<?> webViewChromiumFactoryProviderClass =
+                    Class.forName("com.android.webview.chromium.WebViewChromiumFactoryProvider",
+                            true, webViewClassLoader);
+            Method setter = webViewChromiumFactoryProviderClass.getDeclaredMethod(
+                    "setWebLayerRunningInSameProcess");
+            setter.invoke(null);
+        } catch (Exception e) {
+            Log.w(TAG, "Unable to notify WebView running in process", e);
         }
     }
 

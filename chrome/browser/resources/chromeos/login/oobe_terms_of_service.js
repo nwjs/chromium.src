@@ -65,14 +65,6 @@ Polymer({
     this.$.termsOfServiceDialog.show();
   },
 
-  /** Called when dialog is shown */
-  onBeforeShow() {
-    this.behaviors.forEach((behavior) => {
-      if (behavior.onBeforeShow)
-        behavior.onBeforeShow.call(this);
-    });
-  },
-
   /**
    * This is called when strings are updated.
    * @override
@@ -94,7 +86,7 @@ Polymer({
 
     this.backButtonDisabled_ = true;
     this.acceptButtonDisabled_ = true;
-    chrome.send('termsOfServiceAccept');
+    this.userActed('accept');
   },
 
   /**
@@ -110,7 +102,7 @@ Polymer({
 
     this.backButtonDisabled_ = true;
     this.acceptButtonDisabled_ = true;
-    chrome.send('termsOfServiceBack');
+    this.userActed('back');
   },
 
   /**

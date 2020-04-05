@@ -37,7 +37,7 @@ namespace dnr_api = api::declarative_net_request;
 // url_pattern_index.fbs. Whenever an extension with an indexed ruleset format
 // version different from the one currently used by Chrome is loaded, the
 // extension ruleset will be reindexed.
-constexpr int kIndexedRulesetFormatVersion = 15;
+constexpr int kIndexedRulesetFormatVersion = 16;
 
 // This static assert is meant to catch cases where
 // url_pattern_index::kUrlPatternIndexFormatVersion is incremented without
@@ -163,40 +163,42 @@ void LogReadDynamicRulesStatus(ReadJSONRulesResult::Status status) {
   base::UmaHistogramEnumeration(kReadDynamicRulesJSONStatusHistogram, status);
 }
 
-// Maps content::ResourceType to api::declarative_net_request::ResourceType.
-dnr_api::ResourceType GetDNRResourceType(content::ResourceType resource_type) {
+// Maps blink::mojom::ResourceType to
+// api::declarative_net_request::ResourceType.
+dnr_api::ResourceType GetDNRResourceType(
+    blink::mojom::ResourceType resource_type) {
   switch (resource_type) {
-    case content::ResourceType::kPrefetch:
-    case content::ResourceType::kSubResource:
+    case blink::mojom::ResourceType::kPrefetch:
+    case blink::mojom::ResourceType::kSubResource:
       return dnr_api::RESOURCE_TYPE_OTHER;
-    case content::ResourceType::kMainFrame:
-    case content::ResourceType::kNavigationPreloadMainFrame:
+    case blink::mojom::ResourceType::kMainFrame:
+    case blink::mojom::ResourceType::kNavigationPreloadMainFrame:
       return dnr_api::RESOURCE_TYPE_MAIN_FRAME;
-    case content::ResourceType::kCspReport:
+    case blink::mojom::ResourceType::kCspReport:
       return dnr_api::RESOURCE_TYPE_CSP_REPORT;
-    case content::ResourceType::kScript:
-    case content::ResourceType::kWorker:
-    case content::ResourceType::kSharedWorker:
-    case content::ResourceType::kServiceWorker:
+    case blink::mojom::ResourceType::kScript:
+    case blink::mojom::ResourceType::kWorker:
+    case blink::mojom::ResourceType::kSharedWorker:
+    case blink::mojom::ResourceType::kServiceWorker:
       return dnr_api::RESOURCE_TYPE_SCRIPT;
-    case content::ResourceType::kImage:
-    case content::ResourceType::kFavicon:
+    case blink::mojom::ResourceType::kImage:
+    case blink::mojom::ResourceType::kFavicon:
       return dnr_api::RESOURCE_TYPE_IMAGE;
-    case content::ResourceType::kStylesheet:
+    case blink::mojom::ResourceType::kStylesheet:
       return dnr_api::RESOURCE_TYPE_STYLESHEET;
-    case content::ResourceType::kObject:
-    case content::ResourceType::kPluginResource:
+    case blink::mojom::ResourceType::kObject:
+    case blink::mojom::ResourceType::kPluginResource:
       return dnr_api::RESOURCE_TYPE_OBJECT;
-    case content::ResourceType::kXhr:
+    case blink::mojom::ResourceType::kXhr:
       return dnr_api::RESOURCE_TYPE_XMLHTTPREQUEST;
-    case content::ResourceType::kSubFrame:
-    case content::ResourceType::kNavigationPreloadSubFrame:
+    case blink::mojom::ResourceType::kSubFrame:
+    case blink::mojom::ResourceType::kNavigationPreloadSubFrame:
       return dnr_api::RESOURCE_TYPE_SUB_FRAME;
-    case content::ResourceType::kPing:
+    case blink::mojom::ResourceType::kPing:
       return dnr_api::RESOURCE_TYPE_PING;
-    case content::ResourceType::kMedia:
+    case blink::mojom::ResourceType::kMedia:
       return dnr_api::RESOURCE_TYPE_MEDIA;
-    case content::ResourceType::kFontResource:
+    case blink::mojom::ResourceType::kFontResource:
       return dnr_api::RESOURCE_TYPE_FONT;
   }
   NOTREACHED();
@@ -235,6 +237,12 @@ re2::RE2::Options CreateRE2Options(bool is_case_sensitive,
   // Don't capture unless needed, for efficiency.
   options.set_never_capture(!require_capturing);
 
+  options.set_log_errors(false);
+
+  // Limit the maximum memory per regex to 2 Kb. This means given 1024 rules,
+  // the total usage would be 2 Mb.
+  options.set_max_mem(2 << 10);
+
   return options;
 }
 
@@ -248,6 +256,8 @@ flat::ActionType ConvertToFlatActionType(dnr_api::RuleActionType action_type) {
       return flat::ActionType_redirect;
     case dnr_api::RULE_ACTION_TYPE_REMOVEHEADERS:
       return flat::ActionType_remove_headers;
+    case dnr_api::RULE_ACTION_TYPE_MODIFYHEADERS:
+      return flat::ActionType_modify_headers;
     case dnr_api::RULE_ACTION_TYPE_UPGRADESCHEME:
       return flat::ActionType_upgrade_scheme;
     case dnr_api::RULE_ACTION_TYPE_ALLOWALLREQUESTS:

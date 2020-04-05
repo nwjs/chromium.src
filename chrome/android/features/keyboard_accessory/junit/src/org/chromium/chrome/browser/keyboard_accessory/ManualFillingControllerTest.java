@@ -73,6 +73,7 @@ import org.chromium.chrome.browser.keyboard_accessory.data.UserInfoField;
 import org.chromium.chrome.browser.keyboard_accessory.sheet_component.AccessorySheetCoordinator;
 import org.chromium.chrome.browser.keyboard_accessory.sheet_tabs.AccessorySheetTabCoordinator;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tab.TabHidingType;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.widget.bottomsheet.BottomSheetController;
@@ -81,6 +82,7 @@ import org.chromium.chrome.test.util.browser.Features.EnableFeatures;
 import org.chromium.components.embedder_support.view.ContentView;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.ui.KeyboardVisibilityDelegate;
+import org.chromium.ui.base.ApplicationViewportInsetSupplier;
 import org.chromium.ui.display.DisplayAndroid;
 import org.chromium.ui.modelutil.PropertyModel;
 
@@ -118,6 +120,8 @@ public class ManualFillingControllerTest {
     private CompositorViewHolder mMockCompositorViewHolder;
     @Mock
     private BottomSheetController mMockBottomSheetController;
+    @Mock
+    private ApplicationViewportInsetSupplier mApplicationViewportInsetSupplier;
 
     @Rule
     public Features.JUnitProcessor mFeaturesProcessor = new Features.JUnitProcessor();
@@ -284,6 +288,8 @@ public class ManualFillingControllerTest {
         when(mMockActivity.getBottomSheetController()).thenReturn(mMockBottomSheetController);
         when(mMockWindow.getKeyboardDelegate()).thenReturn(mMockKeyboard);
         when(mMockWindow.getActivity()).thenReturn(new WeakReference<>(mMockActivity));
+        when(mMockWindow.getApplicationBottomInsetProvider())
+                .thenReturn(mApplicationViewportInsetSupplier);
         when(mMockKeyboard.calculateKeyboardHeight(any())).thenReturn(0);
         when(mMockActivity.getTabModelSelector()).thenReturn(mMockTabModelSelector);
         when(mMockActivity.getActivityTabProvider()).thenReturn(mActivityTabProvider);
@@ -297,7 +303,7 @@ public class ManualFillingControllerTest {
                 return false;
             }
             @Override
-            protected void rawTopContentOffsetChangedForVr(int topContentOffset) {}
+            protected void rawTopContentOffsetChangedForVr() {}
         };
         when(mMockActivity.getFullscreenManager()).thenReturn(fullscreenManager);
         when(mMockActivity.getCompositorViewHolder()).thenReturn(mMockCompositorViewHolder);
@@ -1069,7 +1075,8 @@ public class ManualFillingControllerTest {
         when(tab.getContentView()).thenReturn(mMockContentView);
         when(mMockTabModelSelector.getCurrentTab()).thenReturn(tab);
         mActivityTabProvider.set(tab);
-        mediator.getTabModelObserverForTesting().didAddTab(tab, FROM_BROWSER_ACTIONS);
+        mediator.getTabModelObserverForTesting().didAddTab(
+                tab, FROM_BROWSER_ACTIONS, TabCreationState.LIVE_IN_FOREGROUND);
         mediator.getTabObserverForTesting().onShown(tab, FROM_NEW);
         mediator.getTabModelObserverForTesting().didSelectTab(tab, FROM_NEW, lastId);
         setContentAreaDimensions(2.f, 300, 128);

@@ -14,6 +14,7 @@
 #include "ash/public/mojom/cros_display_config.mojom.h"
 #include "base/bind.h"
 #include "base/command_line.h"
+#include "base/feature_list.h"
 #include "base/i18n/time_formatting.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
@@ -41,6 +42,7 @@
 #include "chrome/browser/ui/ash/system_tray_client.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/pref_names.h"
+#include "chromeos/constants/chromeos_features.h"
 #include "chromeos/constants/chromeos_switches.h"
 #include "chromeos/settings/cros_settings_names.h"
 #include "chromeos/system/devicemode.h"
@@ -113,6 +115,10 @@ void TryMigrateToResolveTimezoneByGeolocationMethod(PrefService* prefs) {
           : system::TimeZoneResolverManager::TimeZoneResolveMethod::DISABLED);
   prefs->SetInteger(prefs::kResolveTimezoneByGeolocationMethod,
                     static_cast<int>(method));
+}
+
+bool AreScrollSettingsAllowed() {
+  return base::FeatureList::IsEnabled(features::kAllowScrollSettings);
 }
 
 }  // namespace
@@ -196,22 +202,30 @@ void Preferences::RegisterProfilePrefs(
   // and it should not carry over to sessions were neither of these is set.
   registry->RegisterBooleanPref(prefs::kUnifiedDesktopEnabledByDefault, false,
                                 PrefRegistry::NO_REGISTRATION_FLAGS);
+  // TODO(anasalazar): Finish moving this to ash.
   registry->RegisterBooleanPref(
-      prefs::kNaturalScroll,
+      ash::prefs::kNaturalScroll,
       base::CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kNaturalScrollDefault),
       user_prefs::PrefRegistrySyncable::SYNCABLE_OS_PRIORITY_PREF);
   registry->RegisterBooleanPref(
-      prefs::kPrimaryMouseButtonRight, false,
+      ash::prefs::kMouseReverseScroll, false,
       user_prefs::PrefRegistrySyncable::SYNCABLE_OS_PRIORITY_PREF);
+
   registry->RegisterBooleanPref(
-      prefs::kMouseReverseScroll, false,
+      prefs::kPrimaryMouseButtonRight, false,
       user_prefs::PrefRegistrySyncable::SYNCABLE_OS_PRIORITY_PREF);
   registry->RegisterBooleanPref(
       prefs::kMouseAcceleration, true,
       user_prefs::PrefRegistrySyncable::SYNCABLE_OS_PRIORITY_PREF);
   registry->RegisterBooleanPref(
+      prefs::kMouseScrollAcceleration, true,
+      user_prefs::PrefRegistrySyncable::SYNCABLE_OS_PRIORITY_PREF);
+  registry->RegisterBooleanPref(
       prefs::kTouchpadAcceleration, true,
+      user_prefs::PrefRegistrySyncable::SYNCABLE_OS_PRIORITY_PREF);
+  registry->RegisterBooleanPref(
+      prefs::kTouchpadScrollAcceleration, true,
       user_prefs::PrefRegistrySyncable::SYNCABLE_OS_PRIORITY_PREF);
   registry->RegisterBooleanPref(prefs::kLabsMediaplayerEnabled, false);
   registry->RegisterBooleanPref(prefs::kLabsAdvancedFilesystemEnabled, false);
@@ -222,7 +236,13 @@ void Preferences::RegisterProfilePrefs(
       prefs::kMouseSensitivity, 3,
       user_prefs::PrefRegistrySyncable::SYNCABLE_OS_PRIORITY_PREF);
   registry->RegisterIntegerPref(
+      prefs::kMouseScrollSensitivity, 3,
+      user_prefs::PrefRegistrySyncable::SYNCABLE_OS_PRIORITY_PREF);
+  registry->RegisterIntegerPref(
       prefs::kTouchpadSensitivity, 3,
+      user_prefs::PrefRegistrySyncable::SYNCABLE_OS_PRIORITY_PREF);
+  registry->RegisterIntegerPref(
+      prefs::kTouchpadScrollSensitivity, 3,
       user_prefs::PrefRegistrySyncable::SYNCABLE_OS_PRIORITY_PREF);
   registry->RegisterBooleanPref(
       prefs::kUse24HourClock, base::GetHourClockType() == base::k24HourClock,
@@ -360,7 +380,12 @@ void Preferences::RegisterProfilePrefs(
   bool allow_time_zone_resolve_by_default = true;
   // CfM devices default to static timezone unless time zone resolving is
   // explicitly enabled for the signin screen (usually by policy).
-  if (system::InputDeviceSettings::Get()->ForceKeyboardDrivenUINavigation() &&
+  // We need local_state fully initialized, which does not happen in tests.
+  if (!g_browser_process->local_state() ||
+      g_browser_process->local_state()
+              ->GetAllPrefStoresInitializationStatus() ==
+          PrefService::INITIALIZATION_STATUS_WAITING ||
+      system::InputDeviceSettings::Get()->ForceKeyboardDrivenUINavigation() ||
       !system::TimeZoneResolverManager::
           IfServiceShouldBeRunningForSigninScreen()) {
     allow_time_zone_resolve_by_default = false;
@@ -450,14 +475,24 @@ void Preferences::InitUserPrefs(sync_preferences::PrefServiceSyncable* prefs) {
                                    prefs, callback);
   unified_desktop_enabled_by_default_.Init(
       prefs::kUnifiedDesktopEnabledByDefault, prefs, callback);
-  natural_scroll_.Init(prefs::kNaturalScroll, prefs, callback);
+  // TODO(anasalazar): Finish moving this to ash.
+  natural_scroll_.Init(ash::prefs::kNaturalScroll, prefs, callback);
+  mouse_reverse_scroll_.Init(ash::prefs::kMouseReverseScroll, prefs, callback);
+
   mouse_sensitivity_.Init(prefs::kMouseSensitivity, prefs, callback);
+  mouse_scroll_sensitivity_.Init(prefs::kMouseScrollSensitivity, prefs,
+                                 callback);
   touchpad_sensitivity_.Init(prefs::kTouchpadSensitivity, prefs, callback);
+  touchpad_scroll_sensitivity_.Init(prefs::kTouchpadScrollSensitivity, prefs,
+                                    callback);
   primary_mouse_button_right_.Init(prefs::kPrimaryMouseButtonRight,
                                    prefs, callback);
-  mouse_reverse_scroll_.Init(prefs::kMouseReverseScroll, prefs, callback);
   mouse_acceleration_.Init(prefs::kMouseAcceleration, prefs, callback);
+  mouse_scroll_acceleration_.Init(prefs::kMouseScrollAcceleration, prefs,
+                                  callback);
   touchpad_acceleration_.Init(prefs::kTouchpadAcceleration, prefs, callback);
+  touchpad_scroll_acceleration_.Init(prefs::kTouchpadScrollAcceleration, prefs,
+                                     callback);
   download_default_directory_.Init(prefs::kDownloadDefaultDirectory,
                                    prefs, callback);
   preload_engines_.Init(prefs::kLanguagePreloadEngines, prefs, callback);
@@ -627,7 +662,9 @@ void Preferences::ApplyPreferences(ApplyReason reason,
           unified_desktop_enabled_by_default_.GetValue());
     }
   }
-  if (reason != REASON_PREF_CHANGED || pref_name == prefs::kNaturalScroll) {
+  // TODO(anasalazar): Finish moving this to ash.
+  if (reason != REASON_PREF_CHANGED ||
+      pref_name == ash::prefs::kNaturalScroll) {
     // Force natural scroll default if we've sync'd and if the cmd line arg is
     // set.
     ForceNaturalScrollDefault();
@@ -641,33 +678,91 @@ void Preferences::ApplyPreferences(ApplyReason reason,
     else if (reason == REASON_INITIALIZATION)
       UMA_HISTOGRAM_BOOLEAN("Touchpad.NaturalScroll.Started", enabled);
   }
-  if (reason != REASON_PREF_CHANGED || pref_name == prefs::kMouseSensitivity) {
-    const int sensitivity = mouse_sensitivity_.GetValue();
+  if (reason != REASON_PREF_CHANGED ||
+      pref_name == ash::prefs::kMouseReverseScroll) {
+    const bool enabled = mouse_reverse_scroll_.GetValue();
     if (user_is_active)
-      mouse_settings.SetSensitivity(sensitivity);
+      mouse_settings.SetReverseScroll(enabled);
+    if (reason == REASON_PREF_CHANGED)
+      UMA_HISTOGRAM_BOOLEAN("Mouse.ReverseScroll.Changed", enabled);
+    else if (reason == REASON_INITIALIZATION)
+      UMA_HISTOGRAM_BOOLEAN("Mouse.ReverseScroll.Started", enabled);
+  }
+
+  if (reason != REASON_PREF_CHANGED || pref_name == prefs::kMouseSensitivity) {
+    const int sensitivity_int = mouse_sensitivity_.GetValue();
+    if (user_is_active) {
+      mouse_settings.SetSensitivity(sensitivity_int);
+
+      // With the flag off, also set scroll sensitivity (legacy fallback).
+      // TODO(https://crbug.com/836258): Remove check when flag is removed.
+      if (!AreScrollSettingsAllowed())
+        mouse_settings.SetScrollSensitivity(sensitivity_int);
+    }
+    system::PointerSensitivity sensitivity =
+        static_cast<system::PointerSensitivity>(sensitivity_int);
     if (reason == REASON_PREF_CHANGED) {
       UMA_HISTOGRAM_ENUMERATION("Mouse.PointerSensitivity.Changed",
-                                sensitivity,
-                                system::kMaxPointerSensitivity + 1);
+                                sensitivity);
     } else if (reason == REASON_INITIALIZATION) {
       UMA_HISTOGRAM_ENUMERATION("Mouse.PointerSensitivity.Started",
-                                sensitivity,
-                                system::kMaxPointerSensitivity + 1);
+                                sensitivity);
     }
   }
   if (reason != REASON_PREF_CHANGED ||
-      pref_name == prefs::kTouchpadSensitivity) {
-    const int sensitivity = touchpad_sensitivity_.GetValue();
+      pref_name == prefs::kMouseScrollSensitivity) {
+    // With the flag off, use to normal sensitivity (legacy fallback).
+    // TODO(https://crbug.com/836258): Remove check when flag is removed.
+    const int sensitivity_int = AreScrollSettingsAllowed()
+                                    ? mouse_scroll_sensitivity_.GetValue()
+                                    : mouse_sensitivity_.GetValue();
     if (user_is_active)
-      touchpad_settings.SetSensitivity(sensitivity);
+      mouse_settings.SetScrollSensitivity(sensitivity_int);
+    system::PointerSensitivity sensitivity =
+        static_cast<system::PointerSensitivity>(sensitivity_int);
+    if (reason == REASON_PREF_CHANGED)
+      UMA_HISTOGRAM_ENUMERATION("Mouse.ScrollSensitivity.Changed", sensitivity);
+    else if (reason == REASON_INITIALIZATION)
+      UMA_HISTOGRAM_ENUMERATION("Mouse.ScrollSensitivity.Started", sensitivity);
+  }
+  if (reason != REASON_PREF_CHANGED ||
+      pref_name == prefs::kTouchpadSensitivity) {
+    const int sensitivity_int = touchpad_sensitivity_.GetValue();
+    if (user_is_active) {
+      touchpad_settings.SetSensitivity(sensitivity_int);
+
+      // With the flag off, also set scroll sensitivity (legacy fallback).
+      // TODO(https://crbug.com/836258): Remove check when flag is removed.
+      if (!AreScrollSettingsAllowed())
+        touchpad_settings.SetScrollSensitivity(sensitivity_int);
+    }
+    system::PointerSensitivity sensitivity =
+        static_cast<system::PointerSensitivity>(sensitivity_int);
     if (reason == REASON_PREF_CHANGED) {
       UMA_HISTOGRAM_ENUMERATION("Touchpad.PointerSensitivity.Changed",
-                                sensitivity,
-                                system::kMaxPointerSensitivity + 1);
+                                sensitivity);
     } else if (reason == REASON_INITIALIZATION) {
       UMA_HISTOGRAM_ENUMERATION("Touchpad.PointerSensitivity.Started",
-                                sensitivity,
-                                system::kMaxPointerSensitivity + 1);
+                                sensitivity);
+    }
+  }
+  if (reason != REASON_PREF_CHANGED ||
+      pref_name == prefs::kTouchpadScrollSensitivity) {
+    // With the flag off, use normal sensitivity (legacy fallback).
+    // TODO(https://crbug.com/836258): Remove check when flag is removed.
+    const int sensitivity_int = AreScrollSettingsAllowed()
+                                    ? touchpad_scroll_sensitivity_.GetValue()
+                                    : touchpad_sensitivity_.GetValue();
+    if (user_is_active)
+      touchpad_settings.SetScrollSensitivity(sensitivity_int);
+    system::PointerSensitivity sensitivity =
+        static_cast<system::PointerSensitivity>(sensitivity_int);
+    if (reason == REASON_PREF_CHANGED) {
+      UMA_HISTOGRAM_ENUMERATION("Touchpad.ScrollSensitivity.Changed",
+                                sensitivity);
+    } else if (reason == REASON_INITIALIZATION) {
+      UMA_HISTOGRAM_ENUMERATION("Touchpad.ScrollSensitivity.Started",
+                                sensitivity);
     }
   }
   if (reason != REASON_PREF_CHANGED ||
@@ -686,16 +781,6 @@ void Preferences::ApplyPreferences(ApplyReason reason,
         prefs->SetBoolean(prefs::kOwnerPrimaryMouseButtonRight, right);
     }
   }
-  if (reason != REASON_PREF_CHANGED ||
-      pref_name == prefs::kMouseReverseScroll) {
-    const bool enabled = mouse_reverse_scroll_.GetValue();
-    if (user_is_active)
-      mouse_settings.SetReverseScroll(enabled);
-    if (reason == REASON_PREF_CHANGED)
-      UMA_HISTOGRAM_BOOLEAN("Mouse.ReverseScroll.Changed", enabled);
-    else if (reason == REASON_INITIALIZATION)
-      UMA_HISTOGRAM_BOOLEAN("Mouse.ReverseScroll.Started", enabled);
-  }
   if (reason != REASON_PREF_CHANGED || pref_name == prefs::kMouseAcceleration) {
     const bool enabled = mouse_acceleration_.GetValue();
     if (user_is_active)
@@ -706,6 +791,16 @@ void Preferences::ApplyPreferences(ApplyReason reason,
       base::UmaHistogramBoolean("Mouse.Acceleration.Started", enabled);
   }
   if (reason != REASON_PREF_CHANGED ||
+      pref_name == prefs::kMouseScrollAcceleration) {
+    const bool enabled = mouse_scroll_acceleration_.GetValue();
+    if (user_is_active)
+      mouse_settings.SetScrollAcceleration(enabled);
+    if (reason == REASON_PREF_CHANGED)
+      base::UmaHistogramBoolean("Mouse.ScrollAcceleration.Changed", enabled);
+    else if (reason == REASON_INITIALIZATION)
+      base::UmaHistogramBoolean("Mouse.ScrollAcceleration.Started", enabled);
+  }
+  if (reason != REASON_PREF_CHANGED ||
       pref_name == prefs::kTouchpadAcceleration) {
     const bool enabled = touchpad_acceleration_.GetValue();
     if (user_is_active)
@@ -714,6 +809,16 @@ void Preferences::ApplyPreferences(ApplyReason reason,
       base::UmaHistogramBoolean("Touchpad.Acceleration.Changed", enabled);
     else if (reason == REASON_INITIALIZATION)
       base::UmaHistogramBoolean("Touchpad.Acceleration.Started", enabled);
+  }
+  if (reason != REASON_PREF_CHANGED ||
+      pref_name == prefs::kTouchpadScrollAcceleration) {
+    const bool enabled = touchpad_scroll_acceleration_.GetValue();
+    if (user_is_active)
+      touchpad_settings.SetScrollAcceleration(enabled);
+    if (reason == REASON_PREF_CHANGED)
+      base::UmaHistogramBoolean("Touchpad.ScrollAcceleration.Changed", enabled);
+    else if (reason == REASON_INITIALIZATION)
+      base::UmaHistogramBoolean("Touchpad.ScrollAcceleration.Started", enabled);
   }
   if (reason != REASON_PREF_CHANGED ||
       pref_name == prefs::kDownloadDefaultDirectory) {
@@ -901,11 +1006,13 @@ void Preferences::OnIsSyncingChanged() {
   ForceNaturalScrollDefault();
 }
 
+// TODO(anasalazar): Finish moving this to ash::TouchDevicesController.
 void Preferences::ForceNaturalScrollDefault() {
   DVLOG(1) << "ForceNaturalScrollDefault";
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kNaturalScrollDefault) &&
-      prefs_->IsSyncing() && !prefs_->GetUserPrefValue(prefs::kNaturalScroll)) {
+      prefs_->IsSyncing() &&
+      !prefs_->GetUserPrefValue(ash::prefs::kNaturalScroll)) {
     DVLOG(1) << "Natural scroll forced to true";
     natural_scroll_.SetValue(true);
     UMA_HISTOGRAM_BOOLEAN("Touchpad.NaturalScroll.Forced", true);

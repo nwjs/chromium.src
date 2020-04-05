@@ -75,22 +75,13 @@ class CORE_EXPORT LayoutTextControl : public LayoutBlockFlow {
                                            SubtreeLayoutScope&) override;
 
   LayoutUnit FirstLineBoxBaseline() const override;
-  // We need to override this function because we don't want overflow:hidden on
-  // an <input> to affect the baseline calculation. This is necessary because we
-  // are an inline-block element as an implementation detail which would
-  // normally be affected by this.
-  bool ShouldIgnoreOverflowPropertyForInlineBlockBaseline() const override {
-    return true;
-  }
 
   bool IsOfType(LayoutObjectType type) const override {
     return type == kLayoutObjectTextControl || LayoutBlockFlow::IsOfType(type);
   }
 
  private:
-  void ComputeIntrinsicLogicalWidths(LayoutUnit& min_logical_width,
-                                     LayoutUnit& max_logical_width) const final;
-  void ComputePreferredLogicalWidths() final;
+  MinMaxSizes ComputeIntrinsicLogicalWidths() const final;
   void RemoveLeftoverAnonymousBlock(LayoutBlock*) final {}
 
   void AddOutlineRects(Vector<PhysicalRect>&,
@@ -100,7 +91,12 @@ class CORE_EXPORT LayoutTextControl : public LayoutBlockFlow {
   bool CanBeProgramaticallyScrolled() const final { return true; }
 };
 
-DEFINE_LAYOUT_OBJECT_TYPE_CASTS(LayoutTextControl, IsTextControl());
+template <>
+struct DowncastTraits<LayoutTextControl> {
+  static bool AllowFrom(const LayoutObject& object) {
+    return object.IsTextControl();
+  }
+};
 
 }  // namespace blink
 

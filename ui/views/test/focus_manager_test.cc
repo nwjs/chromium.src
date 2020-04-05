@@ -53,13 +53,20 @@ View* FocusManagerTest::GetContentsView() {
   return contents_view_;
 }
 
+Widget* FocusManagerTest::GetWidget() {
+  return contents_view_->GetWidget();
+}
+
+const Widget* FocusManagerTest::GetWidget() const {
+  return contents_view_->GetWidget();
+}
+
 void FocusManagerTest::GetAccessiblePanes(std::vector<View*>* panes) {
   std::copy(accessible_panes_.begin(), accessible_panes_.end(),
             std::back_inserter(*panes));
 }
 
-void FocusManagerTest::InitContentView() {
-}
+void FocusManagerTest::InitContentView() {}
 
 void FocusManagerTest::AddFocusChangeListener(FocusChangeListener* listener) {
   ASSERT_FALSE(focus_change_listener_);
@@ -78,10 +85,6 @@ void FocusManagerTest::SetAccessiblePanes(const std::vector<View*>& panes) {
   accessible_panes_ = panes;
 }
 
-const Widget* FocusManagerTest::GetWidgetImpl() const {
-  return contents_view_->GetWidget();
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 // TestFocusChangeListener
 
@@ -94,8 +97,7 @@ void TestFocusChangeListener::OnWillChangeFocus(View* focused_before,
   focus_changes_.emplace_back(focused_before, focused_now);
 }
 void TestFocusChangeListener::OnDidChangeFocus(View* focused_before,
-                                               View* focused_now) {
-}
+                                               View* focused_now) {}
 
 void TestFocusChangeListener::ClearFocusChanges() {
   focus_changes_.clear();

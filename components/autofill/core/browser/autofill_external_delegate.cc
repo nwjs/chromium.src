@@ -19,7 +19,6 @@
 #include "build/build_config.h"
 #include "components/autofill/core/browser/autocomplete_history_manager.h"
 #include "components/autofill/core/browser/autofill_driver.h"
-#include "components/autofill/core/browser/autofill_experiments.h"
 #include "components/autofill/core/browser/autofill_manager.h"
 #include "components/autofill/core/browser/autofill_metrics.h"
 #include "components/autofill/core/browser/ui/popup_item_ids.h"
@@ -122,11 +121,17 @@ void AutofillExternalDelegate::OnSuggestionsReturned(
     defined(OS_CHROMEOS)
   if (base::FeatureList::IsEnabled(
           features::kAutofillEnableHideSuggestionsUI)) {
-    if (!suggestions.empty() && (GetPopupType() == PopupType::kAddresses ||
-                                 GetPopupType() == PopupType::kUnspecified)) {
-      suggestions.push_back(
-          Suggestion(l10n_util::GetStringUTF16(IDS_AUTOFILL_HIDE_SUGGESTIONS)));
-      suggestions.back().frontend_id = POPUP_ITEM_ID_HIDE_AUTOFILL_SUGGESTIONS;
+    // If the user has selected a suggestion, it indicates the suggestions are
+    // useful to the user and no need  hide them. In this case,
+    // ApplyAutofillOptions() should have added a "Clear form" option instead.
+    if (!query_field_.is_autofilled) {
+      if (!suggestions.empty() && (GetPopupType() == PopupType::kAddresses ||
+                                   GetPopupType() == PopupType::kUnspecified)) {
+        suggestions.push_back(Suggestion(
+            l10n_util::GetStringUTF16(IDS_AUTOFILL_HIDE_SUGGESTIONS)));
+        suggestions.back().frontend_id =
+            POPUP_ITEM_ID_HIDE_AUTOFILL_SUGGESTIONS;
+      }
     }
   }
 #endif
@@ -230,7 +235,9 @@ void AutofillExternalDelegate::DidAcceptSuggestion(const base::string16& value,
     AutofillMetrics::LogAutofillFormCleared();
     driver_->RendererShouldClearFilledSection();
   } else if (identifier == POPUP_ITEM_ID_PASSWORD_ENTRY ||
-             identifier == POPUP_ITEM_ID_USERNAME_ENTRY) {
+             identifier == POPUP_ITEM_ID_USERNAME_ENTRY ||
+             identifier == POPUP_ITEM_ID_ACCOUNT_STORAGE_PASSWORD_ENTRY ||
+             identifier == POPUP_ITEM_ID_ACCOUNT_STORAGE_USERNAME_ENTRY) {
     NOTREACHED();  // Should be handled elsewhere.
   } else if (identifier == POPUP_ITEM_ID_DATALIST_ENTRY) {
     driver_->RendererShouldAcceptDataListSuggestion(value);
@@ -255,12 +262,6 @@ void AutofillExternalDelegate::DidAcceptSuggestion(const base::string16& value,
 #else
     NOTREACHED();
 #endif
-  } else if (identifier == POPUP_ITEM_ID_ONE_TIME_CODE) {
-    if (IsAutofillSmsReceiverEnabled()) {
-      driver_->RendererShouldFillFieldWithValue(value);
-    } else {
-      NOTREACHED();
-    }
   } else {
     if (identifier > 0) {  // Denotes an Autofill suggestion.
       AutofillMetrics::LogAutofillSuggestionAcceptedIndex(

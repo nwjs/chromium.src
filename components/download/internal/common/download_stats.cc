@@ -13,16 +13,23 @@
 #include "base/stl_util.h"
 #include "base/strings/string_util.h"
 #include "build/build_config.h"
+#include "components/download/public/common/download_danger_type.h"
 #include "components/download/public/common/download_interrupt_reasons.h"
+#include "components/safe_browsing/buildflags.h"
 #include "net/http/http_content_disposition.h"
 #include "net/http/http_util.h"
+
+// TODO(crbug/1056278): Launch this on Fuchsia. We should also consider serving
+// an empty FileTypePolicies to platforms without Safe Browsing to remove the
+// BUILDFLAGs and nogncheck here.
+#if (BUILDFLAG(FULL_SAFE_BROWSING) || BUILDFLAG(SAFE_BROWSING_DB_REMOTE)) && \
+    !defined(OS_FUCHSIA)
+#include "components/safe_browsing/core/file_type_policies.h"  // nogncheck
+#endif
 
 namespace download {
 
 namespace {
-
-// The maximium value for download deletion retention time histogram.
-const int kMaxDeletionRetentionHours = 720;
 
 // All possible error codes from the network module. Note that the error codes
 // are all positive (since histograms expect positive sample values).
@@ -63,21 +70,6 @@ enum ContentDispositionCountTypes {
 
   CONTENT_DISPOSITION_LAST_ENTRY
 };
-
-void RecordContentDispositionCount(ContentDispositionCountTypes type,
-                                   bool record) {
-  if (!record)
-    return;
-  UMA_HISTOGRAM_ENUMERATION("Download.ContentDisposition", type,
-                            CONTENT_DISPOSITION_LAST_ENTRY);
-}
-
-void RecordContentDispositionCountFlag(
-    ContentDispositionCountTypes type,
-    int flags_to_test,
-    net::HttpContentDisposition::ParseResultFlags flag) {
-  RecordContentDispositionCount(type, (flags_to_test & flag) == flag);
-}
 
 // The maximum size in KB for the file size metric, file size larger than this
 // will be kept in overflow bucket.
@@ -179,28 +171,6 @@ void RecordDownloadCompleted(int64_t download_len,
   }
 }
 
-void RecordDownloadDeletion(base::Time completion_time,
-                            const std::string& mime_type) {
-  if (completion_time == base::Time())
-    return;
-
-  // Records how long the user keeps media files on disk.
-  base::TimeDelta retention_time = base::Time::Now() - completion_time;
-  int retention_hours = retention_time.InHours();
-
-  DownloadContent type = DownloadContentFromMimeType(mime_type, false);
-  if (type == DownloadContent::VIDEO) {
-    UMA_HISTOGRAM_CUSTOM_COUNTS("Download.DeleteRetentionTime.Video",
-                                retention_hours, 1, kMaxDeletionRetentionHours,
-                                50);
-  }
-  if (type == DownloadContent::AUDIO) {
-    UMA_HISTOGRAM_CUSTOM_COUNTS("Download.DeleteRetentionTime.Audio",
-                                retention_hours, 1, kMaxDeletionRetentionHours,
-                                50);
-  }
-}
-
 void RecordDownloadInterrupted(DownloadInterruptReason reason,
                                int64_t received,
                                int64_t total,
@@ -236,7 +206,6 @@ void RecordDownloadInterrupted(DownloadInterruptReason reason,
   int64_t delta_bytes = total - received;
   bool unknown_size = total <= 0;
   int64_t received_kb = received / 1024;
-  int64_t total_kb = total / 1024;
   if (is_parallel_download_enabled) {
     UMA_HISTOGRAM_CUSTOM_COUNTS(
         "Download.InterruptedReceivedSizeK.ParallelDownload", received_kb, 1,
@@ -244,13 +213,6 @@ void RecordDownloadInterrupted(DownloadInterruptReason reason,
   }
 
   if (!unknown_size) {
-    UMA_HISTOGRAM_CUSTOM_COUNTS("Download.InterruptedTotalSizeK", total_kb, 1,
-                                kMaxKb, kBuckets);
-    if (is_parallel_download_enabled) {
-      UMA_HISTOGRAM_CUSTOM_COUNTS(
-          "Download.InterruptedTotalSizeK.ParallelDownload", total_kb, 1,
-          kMaxKb, kBuckets);
-    }
     if (delta_bytes == 0) {
       RecordDownloadCountWithSource(INTERRUPTED_AT_END_COUNT, download_source);
       if (is_parallelizable) {
@@ -277,6 +239,23 @@ void RecordAutoResumeCountLimitReached(DownloadInterruptReason reason) {
       base::CustomHistogram::ArrayToCustomEnumRanges(kAllInterruptReasonCodes);
   UMA_HISTOGRAM_CUSTOM_ENUMERATION(
       "Download.Resume.AutoResumeLimitReached.LastReason", reason, samples);
+}
+
+void RecordDangerousDownloadAccept(DownloadDangerType danger_type,
+                                   const base::FilePath& file_path) {
+  UMA_HISTOGRAM_ENUMERATION("Download.UserValidatedDangerousDownload",
+                            danger_type, DOWNLOAD_DANGER_TYPE_MAX);
+#if (BUILDFLAG(FULL_SAFE_BROWSING) || BUILDFLAG(SAFE_BROWSING_DB_REMOTE)) && \
+    !defined(OS_FUCHSIA)
+  // This can only be recorded for certain platforms, since the enum used for
+  // file types is provided by safe_browsing::FileTypePolicies.
+  if (danger_type == DOWNLOAD_DANGER_TYPE_DANGEROUS_FILE) {
+    base::UmaHistogramSparse(
+        "Download.DangerousFile.DownloadValidatedByType",
+        safe_browsing::FileTypePolicies::GetInstance()->UmaValueForFile(
+            file_path));
+  }
+#endif
 }
 
 namespace {
@@ -580,50 +559,6 @@ void RecordDownloadMimeTypeForNormalProfile(
       DownloadContent::MAX);
 }
 
-void RecordDownloadContentDisposition(
-    const std::string& content_disposition_string) {
-  if (content_disposition_string.empty())
-    return;
-  net::HttpContentDisposition content_disposition(content_disposition_string,
-                                                  std::string());
-  int result = content_disposition.parse_result_flags();
-
-  bool is_valid = !content_disposition.filename().empty();
-  RecordContentDispositionCount(CONTENT_DISPOSITION_HEADER_PRESENT, true);
-  RecordContentDispositionCount(CONTENT_DISPOSITION_IS_VALID, is_valid);
-  if (!is_valid)
-    return;
-
-  RecordContentDispositionCountFlag(
-      CONTENT_DISPOSITION_HAS_DISPOSITION_TYPE, result,
-      net::HttpContentDisposition::HAS_DISPOSITION_TYPE);
-  RecordContentDispositionCountFlag(
-      CONTENT_DISPOSITION_HAS_UNKNOWN_TYPE, result,
-      net::HttpContentDisposition::HAS_UNKNOWN_DISPOSITION_TYPE);
-  RecordContentDispositionCountFlag(CONTENT_DISPOSITION_HAS_FILENAME, result,
-                                    net::HttpContentDisposition::HAS_FILENAME);
-  RecordContentDispositionCountFlag(
-      CONTENT_DISPOSITION_HAS_EXT_FILENAME, result,
-      net::HttpContentDisposition::HAS_EXT_FILENAME);
-  RecordContentDispositionCountFlag(
-      CONTENT_DISPOSITION_HAS_NON_ASCII_STRINGS, result,
-      net::HttpContentDisposition::HAS_NON_ASCII_STRINGS);
-  RecordContentDispositionCountFlag(
-      CONTENT_DISPOSITION_HAS_PERCENT_ENCODED_STRINGS, result,
-      net::HttpContentDisposition::HAS_PERCENT_ENCODED_STRINGS);
-  RecordContentDispositionCountFlag(
-      CONTENT_DISPOSITION_HAS_RFC2047_ENCODED_STRINGS, result,
-      net::HttpContentDisposition::HAS_RFC2047_ENCODED_STRINGS);
-  RecordContentDispositionCountFlag(
-      CONTENT_DISPOSITION_HAS_SINGLE_QUOTED_FILENAME, result,
-      net::HttpContentDisposition::HAS_SINGLE_QUOTED_FILENAME);
-}
-
-void RecordOpen(const base::Time& end) {
-  if (!end.is_null())
-    UMA_HISTOGRAM_LONG_TIMES("Download.OpenTime", (base::Time::Now() - end));
-}
-
 void RecordOpensOutstanding(int size) {
   UMA_HISTOGRAM_CUSTOM_COUNTS("Download.OpensOutstanding", size, 1 /*min*/,
                               (1 << 10) /*max*/, 64 /*num_buckets*/);
@@ -664,11 +599,6 @@ void RecordParallelDownloadAddStreamSuccess(bool success,
 void RecordParallelRequestCreationFailure(DownloadInterruptReason reason) {
   base::UmaHistogramSparse("Download.ParallelDownload.CreationFailureReason",
                            reason);
-}
-
-void RecordParallelizableContentLength(int64_t content_length) {
-  UMA_HISTOGRAM_CUSTOM_COUNTS("Download.ContentLength.Parallelizable",
-                              content_length / 1024, 1, kMaxFileSizeKb, 50);
 }
 
 void RecordParallelizableDownloadStats(
@@ -895,16 +825,6 @@ void RecordDownloadManagerMemoryUsage(size_t bytes_used) {
 }
 
 #if defined(OS_ANDROID)
-void RecordFirstBackgroundDownloadInterruptReason(
-    DownloadInterruptReason reason,
-    bool download_started) {
-  if (download_started)
-    base::UmaHistogramSparse("MobileDownload.FirstBackground.StartedReason",
-                             reason);
-  else
-    base::UmaHistogramSparse("MobileDownload.FirstBackground.Reason", reason);
-}
-
 void RecordBackgroundTargetDeterminationResult(
     BackgroudTargetDeterminationResultTypes type) {
   base::UmaHistogramEnumeration(

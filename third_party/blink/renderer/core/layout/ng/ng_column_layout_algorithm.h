@@ -26,8 +26,8 @@ class CORE_EXPORT NGColumnLayoutAlgorithm
 
   scoped_refptr<const NGLayoutResult> Layout() override;
 
-  base::Optional<MinMaxSize> ComputeMinMaxSize(
-      const MinMaxSizeInput&) const override;
+  base::Optional<MinMaxSizes> ComputeMinMaxSizes(
+      const MinMaxSizesInput&) const override;
 
  private:
   // Lay out as many children as we can. If |kNeedsEarlierBreak| is returned, it
@@ -91,6 +91,7 @@ class CORE_EXPORT NGColumnLayoutAlgorithm
   NGConstraintSpace CreateConstraintSpaceForBalancing(
       const LogicalSize& column_size) const;
   NGConstraintSpace CreateConstraintSpaceForSpanner(
+      const NGBlockNode& spanner,
       LayoutUnit block_offset) const;
   NGConstraintSpace CreateConstraintSpaceForMinMax() const;
 

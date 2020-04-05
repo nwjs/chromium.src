@@ -17,6 +17,7 @@
 #include "base/compiler_specific.h"
 #include "base/lazy_instance.h"
 #include "base/logging.h"
+#include "base/memory/ptr_util.h"
 #include "base/power_monitor/power_monitor.h"
 #include "base/rand_util.h"
 #include "base/stl_util.h"
@@ -675,13 +676,13 @@ class MediaStreamManager::DeviceRequest {
 
 // static
 void MediaStreamManager::SendMessageToNativeLog(const std::string& message) {
-  DVLOG(1) << message;
   if (!BrowserThread::CurrentlyOn(BrowserThread::IO)) {
     base::PostTask(
         FROM_HERE, {BrowserThread::IO},
         base::BindOnce(&MediaStreamManager::SendMessageToNativeLog, message));
     return;
   }
+  DVLOG(1) << message;
 
   MediaStreamManager* msm = g_media_stream_manager_tls_ptr.Pointer()->Get();
   if (!msm) {

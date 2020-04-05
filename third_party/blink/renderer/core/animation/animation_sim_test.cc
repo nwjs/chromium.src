@@ -35,9 +35,7 @@ TEST_F(AnimationSimTest, CustomPropertyBaseComputedStyle) {
   // animation.
 
   ScopedCSSVariables2ForTest css_variables2(true);
-  ScopedCSSAdditiveAnimationsForTest css_additive_animation(true);
-  ScopedStackedCSSPropertyAnimationsForTest stacked_css_property_animation(
-      true);
+  ScopedWebAnimationsAPIForTest web_animations(true);
 
   SimRequest main_resource("https://example.com/", "text/html");
   LoadURL("https://example.com/");
@@ -56,8 +54,8 @@ TEST_F(AnimationSimTest, CustomPropertyBaseComputedStyle) {
 
   DummyExceptionStateForTesting exception_state;
   // target.style.setProperty('--x', '100%');
-  target->style()->setProperty(&GetDocument(), "--x", "100%", g_empty_string,
-                               exception_state);
+  target->style()->setProperty(GetDocument().GetExecutionContext(), "--x",
+                               "100%", g_empty_string, exception_state);
   EXPECT_FALSE(exception_state.HadException());
 
   // target.animate({'--x': '100%'}, 1000);
@@ -80,8 +78,8 @@ TEST_F(AnimationSimTest, CustomPropertyBaseComputedStyle) {
   Compositor().BeginFrame(1);
 
   // target.style.setProperty('--x', '0%');
-  target->style()->setProperty(&GetDocument(), "--x", "0%", g_empty_string,
-                               exception_state);
+  target->style()->setProperty(GetDocument().GetExecutionContext(), "--x", "0%",
+                               g_empty_string, exception_state);
   EXPECT_FALSE(exception_state.HadException());
 
   // target.animate({'--x': '100%'}, 1000);

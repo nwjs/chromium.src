@@ -36,11 +36,11 @@
     testRunner.logToStderr('didResolveNode');
     TestRunner.addResult('Set up DOM breakpoints.');
     TestRunner.domDebuggerModel.setDOMBreakpoint(
-        node, SDK.DOMDebuggerModel.DOMBreakpoint.Type.SubtreeModified);
+        node, Protocol.DOMDebugger.DOMBreakpointType.SubtreeModified);
     TestRunner.domDebuggerModel.setDOMBreakpoint(
-        node, SDK.DOMDebuggerModel.DOMBreakpoint.Type.AttributeModified);
+        node, Protocol.DOMDebugger.DOMBreakpointType.AttributeModified);
     TestRunner.domDebuggerModel.setDOMBreakpoint(
-        node, SDK.DOMDebuggerModel.DOMBreakpoint.Type.NodeRemoved);
+        node, Protocol.DOMDebugger.DOMBreakpointType.NodeRemoved);
     setUpEventBreakpoints();
   }
 
@@ -57,9 +57,9 @@
     SourcesTestRunner.runTestFunctionAndWaitUntilPaused(didPause);
   }
 
-  function didPause(callFrames) {
+  async function didPause(callFrames) {
     testRunner.logToStderr('didPause');
-    SourcesTestRunner.captureStackTrace(callFrames);
+    await SourcesTestRunner.captureStackTrace(callFrames);
     TestRunner.DebuggerAgent.setSkipAllPauses(true).then(didSetSkipAllPauses);
   }
 
@@ -82,10 +82,10 @@
     completeTest();
   }
 
-  function didPauseAfterReload(callFrames) {
+  async function didPauseAfterReload(callFrames) {
     testRunner.logToStderr('didPauseAfterReload');
     TestRunner.addResult('FAIL: Should not pause while reloading the page!');
-    SourcesTestRunner.captureStackTrace(callFrames);
+    await SourcesTestRunner.captureStackTrace(callFrames);
     SourcesTestRunner.waitUntilPausedNextTime(didPauseAfterReload);
     SourcesTestRunner.resumeExecution();
   }

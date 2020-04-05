@@ -15,6 +15,8 @@
 #include "content/public/renderer/render_frame.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
+#include "third_party/blink/public/common/loader/resource_type_util.h"
+#include "third_party/blink/public/platform/web_rect.h"
 #include "third_party/blink/public/web/web_document.h"
 #include "third_party/blink/public/web/web_document_loader.h"
 #include "third_party/blink/public/web/web_local_frame.h"
@@ -31,6 +33,10 @@ base::TimeDelta ClampDelta(double event, double start) {
   return base::Time::FromDoubleT(event) - base::Time::FromDoubleT(start);
 }
 
+base::TimeTicks ClampToStart(base::TimeTicks event, base::TimeTicks start) {
+  return event < start ? start : event;
+}
+
 class MojoPageTimingSender : public PageTimingSender {
  public:
   explicit MojoPageTimingSender(content::RenderFrame* render_frame) {
@@ -38,20 +44,20 @@ class MojoPageTimingSender : public PageTimingSender {
     render_frame->GetRemoteAssociatedInterfaces()->GetInterface(
         &page_load_metrics_);
   }
-  ~MojoPageTimingSender() override {}
-  void SendTiming(
-      const mojom::PageLoadTimingPtr& timing,
-      const mojom::PageLoadMetadataPtr& metadata,
-      mojom::PageLoadFeaturesPtr new_features,
-      std::vector<mojom::ResourceDataUpdatePtr> resources,
-      const mojom::FrameRenderDataUpdate& render_data,
-      const mojom::CpuTimingPtr& cpu_timing,
-      mojom::DeferredResourceCountsPtr new_deferred_resource_data) override {
+  ~MojoPageTimingSender() override = default;
+  void SendTiming(const mojom::PageLoadTimingPtr& timing,
+                  const mojom::FrameMetadataPtr& metadata,
+                  mojom::PageLoadFeaturesPtr new_features,
+                  std::vector<mojom::ResourceDataUpdatePtr> resources,
+                  const mojom::FrameRenderDataUpdate& render_data,
+                  const mojom::CpuTimingPtr& cpu_timing,
+                  mojom::DeferredResourceCountsPtr new_deferred_resource_data,
+                  mojom::InputTimingPtr input_timing_delta) override {
     DCHECK(page_load_metrics_);
     page_load_metrics_->UpdateTiming(
         timing->Clone(), metadata->Clone(), std::move(new_features),
         std::move(resources), render_data.Clone(), cpu_timing->Clone(),
-        std::move(new_deferred_resource_data));
+        std::move(new_deferred_resource_data), std::move(input_timing_delta));
   }
 
  private:
@@ -74,6 +80,14 @@ MetricsRenderFrameObserver::~MetricsRenderFrameObserver() {
 
 void MetricsRenderFrameObserver::DidChangePerformanceTiming() {
   SendMetrics();
+}
+
+void MetricsRenderFrameObserver::DidObserveInputDelay(
+    base::TimeDelta input_delay) {
+  if (!page_timing_metrics_sender_ || HasNoRenderFrame()) {
+    return;
+  }
+  page_timing_metrics_sender_->DidObserveInputDelay(input_delay);
 }
 
 void MetricsRenderFrameObserver::DidChangeCpuTiming(base::TimeDelta time) {
@@ -123,19 +137,21 @@ void MetricsRenderFrameObserver::DidStartResponse(
     const GURL& response_url,
     int request_id,
     const network::mojom::URLResponseHead& response_head,
-    content::ResourceType resource_type,
+    network::mojom::RequestDestination request_destination,
     content::PreviewsState previews_state) {
   if (provisional_frame_resource_data_use_ &&
-      content::IsResourceTypeFrame(resource_type)) {
+      blink::IsRequestDestinationFrame(request_destination)) {
     // TODO(rajendrant): This frame request might start before the provisional
     // load starts, and data use of the frame request might be missed in that
     // case. There should be a guarantee that DidStartProvisionalLoad be called
     // before DidStartResponse for the frame request.
     provisional_frame_resource_data_use_->DidStartResponse(
-        response_url, request_id, response_head, resource_type, previews_state);
+        response_url, request_id, response_head, request_destination,
+        previews_state);
   } else if (page_timing_metrics_sender_) {
     page_timing_metrics_sender_->DidStartResponse(
-        response_url, request_id, response_head, resource_type, previews_state);
+        response_url, request_id, response_head, request_destination,
+        previews_state);
     UpdateResourceMetadata(request_id);
   }
 }
@@ -249,8 +265,10 @@ void MetricsRenderFrameObserver::DidCommitProvisionalLoad(
   provisional_frame_resource_id_ =
       provisional_frame_resource_data_use_->resource_id();
 
+  Timing timing = GetTiming();
   page_timing_metrics_sender_ = std::make_unique<PageTimingMetricsSender>(
-      CreatePageTimingSender(), CreateTimer(), GetTiming(),
+      CreatePageTimingSender(), CreateTimer(),
+      std::move(timing.relative_timing), timing.monotonic_timing,
       std::move(provisional_frame_resource_data_use_));
 }
 
@@ -267,6 +285,13 @@ void MetricsRenderFrameObserver::OnAdResourceTrackerGoingAway() {
 
 void MetricsRenderFrameObserver::OnAdResourceObserved(int request_id) {
   ad_request_ids_.insert(request_id);
+}
+
+void MetricsRenderFrameObserver::OnMainFrameDocumentIntersectionChanged(
+    const blink::WebRect& main_frame_document_intersection) {
+  if (page_timing_metrics_sender_)
+    page_timing_metrics_sender_->OnMainFrameDocumentIntersectionChanged(
+        main_frame_document_intersection);
 }
 
 void MetricsRenderFrameObserver::MaybeSetCompletedBeforeFCP(int request_id) {
@@ -291,6 +316,18 @@ void MetricsRenderFrameObserver::MaybeSetCompletedBeforeFCP(int request_id) {
   if (perf.FirstContentfulPaint() == 0)
     before_fcp_request_ids_.insert(request_id);
 }
+
+MetricsRenderFrameObserver::Timing::Timing(
+    mojom::PageLoadTimingPtr relative_timing,
+    const PageTimingMetadataRecorder::MonotonicTiming& monotonic_timing)
+    : relative_timing(std::move(relative_timing)),
+      monotonic_timing(monotonic_timing) {}
+
+MetricsRenderFrameObserver::Timing::~Timing() = default;
+
+MetricsRenderFrameObserver::Timing::Timing(Timing&&) = default;
+MetricsRenderFrameObserver::Timing& MetricsRenderFrameObserver::Timing::
+operator=(Timing&&) = default;
 
 void MetricsRenderFrameObserver::UpdateResourceMetadata(int request_id) {
   if (!page_timing_metrics_sender_)
@@ -333,48 +370,38 @@ void MetricsRenderFrameObserver::SendMetrics() {
     return;
   if (HasNoRenderFrame())
     return;
-  page_timing_metrics_sender_->SendSoon(GetTiming());
+  Timing timing = GetTiming();
+  page_timing_metrics_sender_->Update(std::move(timing.relative_timing),
+                                      timing.monotonic_timing);
 }
 
-mojom::PageLoadTimingPtr MetricsRenderFrameObserver::GetTiming() const {
+MetricsRenderFrameObserver::Timing MetricsRenderFrameObserver::GetTiming()
+    const {
   const blink::WebPerformance& perf =
       render_frame()->GetWebFrame()->Performance();
 
   mojom::PageLoadTimingPtr timing(CreatePageLoadTiming());
+  PageTimingMetadataRecorder::MonotonicTiming monotonic_timing;
   double start = perf.NavigationStart();
   timing->navigation_start = base::Time::FromDoubleT(start);
+  monotonic_timing.navigation_start = perf.NavigationStartAsMonotonicTime();
   if (perf.InputForNavigationStart() > 0.0) {
     timing->input_to_navigation_start =
         ClampDelta(start, perf.InputForNavigationStart());
   }
-  if (perf.PageInteractive() > 0.0) {
-    // PageInteractive and PageInteractiveDetection should be available at the
-    // same time. This is a renderer side DCHECK to ensure this.
-    DCHECK(perf.PageInteractiveDetection());
-    timing->interactive_timing->interactive =
-        ClampDelta(perf.PageInteractive(), start);
-    timing->interactive_timing->interactive_detection =
-        ClampDelta(perf.PageInteractiveDetection(), start);
+  if (perf.FirstInputDelay().has_value()) {
+    timing->interactive_timing->first_input_delay = *perf.FirstInputDelay();
   }
-  if (perf.FirstInputInvalidatingInteractive() > 0.0) {
-    timing->interactive_timing->first_invalidating_input =
-        ClampDelta(perf.FirstInputInvalidatingInteractive(), start);
-  }
-  if (perf.FirstInputDelay() > 0.0) {
-    timing->interactive_timing->first_input_delay =
-        base::TimeDelta::FromSecondsD(perf.FirstInputDelay());
-  }
-  if (perf.FirstInputTimestamp() > 0.0) {
+  if (perf.FirstInputTimestamp().has_value()) {
     timing->interactive_timing->first_input_timestamp =
-        ClampDelta(perf.FirstInputTimestamp(), start);
+        ClampDelta((*perf.FirstInputTimestamp()).InSecondsF(), start);
   }
-  if (perf.LongestInputDelay() > 0.0) {
-    timing->interactive_timing->longest_input_delay =
-        base::TimeDelta::FromSecondsD(perf.LongestInputDelay());
+  if (perf.LongestInputDelay().has_value()) {
+    timing->interactive_timing->longest_input_delay = *perf.LongestInputDelay();
   }
-  if (perf.LongestInputTimestamp() > 0.0) {
+  if (perf.LongestInputTimestamp().has_value()) {
     timing->interactive_timing->longest_input_timestamp =
-        ClampDelta(perf.LongestInputTimestamp(), start);
+        ClampDelta((*perf.LongestInputTimestamp()).InSecondsF(), start);
   }
   if (perf.ResponseStart() > 0.0)
     timing->response_start = ClampDelta(perf.ResponseStart(), start);
@@ -395,6 +422,9 @@ mojom::PageLoadTimingPtr MetricsRenderFrameObserver::GetTiming() const {
   if (perf.FirstContentfulPaint() > 0.0) {
     timing->paint_timing->first_contentful_paint =
         ClampDelta(perf.FirstContentfulPaint(), start);
+    monotonic_timing.first_contentful_paint =
+        ClampToStart(perf.FirstContentfulPaintAsMonotonicTime(),
+                     perf.NavigationStartAsMonotonicTime());
   }
   if (perf.FirstMeaningfulPaint() > 0.0) {
     timing->paint_timing->first_meaningful_paint =
@@ -413,14 +443,16 @@ mojom::PageLoadTimingPtr MetricsRenderFrameObserver::GetTiming() const {
             : ClampDelta(perf.LargestImagePaint(), start);
   }
   if (perf.LargestTextPaintSize() > 0) {
-    timing->paint_timing->largest_text_paint =
-        perf.LargestTextPaint() == 0.0
-            ? base::TimeDelta()
-            : ClampDelta(perf.LargestTextPaint(), start);
-    timing->paint_timing->largest_text_paint_size = perf.LargestTextPaintSize();
     // LargestTextPaint and LargestTextPaintSize should be available at the
     // same time. This is a renderer side DCHECK to ensure this.
     DCHECK(perf.LargestTextPaint());
+    timing->paint_timing->largest_text_paint =
+        ClampDelta(perf.LargestTextPaint(), start);
+    timing->paint_timing->largest_text_paint_size = perf.LargestTextPaintSize();
+  }
+  if (perf.FirstInputOrScrollNotifiedTimestamp() > 0) {
+    timing->paint_timing->first_input_or_scroll_notified_timestamp =
+        ClampDelta(perf.FirstInputOrScrollNotifiedTimestamp(), start);
   }
   if (perf.ParseStart() > 0.0)
     timing->parse_timing->parse_start = ClampDelta(perf.ParseStart(), start);
@@ -444,7 +476,7 @@ mojom::PageLoadTimingPtr MetricsRenderFrameObserver::GetTiming() const {
             perf.ParseBlockedOnScriptExecutionFromDocumentWriteDuration());
   }
 
-  return timing;
+  return Timing(std::move(timing), monotonic_timing);
 }
 
 std::unique_ptr<base::OneShotTimer> MetricsRenderFrameObserver::CreateTimer() {

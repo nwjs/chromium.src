@@ -4,6 +4,8 @@
 
 #include "ui/views/accessibility/ax_view_obj_wrapper.h"
 
+#include <vector>
+
 #include "ui/accessibility/ax_action_data.h"
 #include "ui/accessibility/ax_node_data.h"
 #include "ui/accessibility/platform/ax_unique_id.h"
@@ -24,7 +26,7 @@ AXViewObjWrapper::AXViewObjWrapper(AXAuraObjCache* aura_obj_cache, View* view)
 AXViewObjWrapper::~AXViewObjWrapper() = default;
 
 bool AXViewObjWrapper::IsIgnored() {
-  return view_ ? view_->GetViewAccessibility().IsIgnored() : true;
+  return !view_ || view_->GetViewAccessibility().IsIgnored();
 }
 
 AXAuraObjWrapper* AXViewObjWrapper::GetParent() {

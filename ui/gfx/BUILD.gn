@@ -15,7 +15,7 @@ if (is_android) {
 
 # Reset sources_assignment_filter for the BUILD.gn file to prevent
 # regression during the migration of Chromium away from the feature.
-# See build/no_sources_assignment_filter.md for more information.
+# See docs/no_sources_assignment_filter.md for more information.
 # TODO(crbug.com/1018739): remove this when migration is done.
 set_sources_assignment_filter([])
 
@@ -344,7 +344,7 @@ jumbo_component("gfx") {
     ]
   }
 
-  if (is_android || is_fuchsia || is_win) {
+  if (is_android || is_fuchsia || is_win || is_mac) {
     sources += [
       "font_fallback_skia_impl.cc",
       "font_fallback_skia_impl.h",
@@ -433,7 +433,10 @@ jumbo_component("color_space") {
       "color_space_win.h",
     ]
   }
-  deps = [ "//skia:skcms" ]
+  deps = [
+    "//skia:skcms",
+    "//ui/gfx:buffer_types",
+  ]
   public_deps = [
     "//base",
     "//skia",
@@ -543,6 +546,7 @@ jumbo_source_set("memory_buffer_sources") {
     "gpu_fence_handle.h",
     "native_pixmap.h",
     "overlay_transform.h",
+    "surface_origin.h",
   ]
 
   if (!is_ios) {

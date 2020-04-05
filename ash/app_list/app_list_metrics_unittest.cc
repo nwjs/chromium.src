@@ -5,6 +5,7 @@
 #include <memory>
 #include <vector>
 
+#include "ash/accessibility/accessibility_controller_impl.h"
 #include "ash/app_list/app_list_controller_impl.h"
 #include "ash/app_list/app_list_metrics.h"
 #include "ash/app_list/model/search/search_model.h"
@@ -506,7 +507,7 @@ class AppListShowSourceMetricTest : public AshTestBase {
  protected:
   void ClickHomeButton() {
     HomeButton* home_button =
-        GetPrimaryShelf()->shelf_widget()->navigation_widget()->GetHomeButton();
+        GetPrimaryShelf()->navigation_widget()->GetHomeButton();
     gfx::Point center = home_button->GetCenterPoint();
     views::View::ConvertPointToScreen(home_button, &center);
     GetEventGenerator()->MoveMouseTo(center);
@@ -521,6 +522,12 @@ class AppListShowSourceMetricTest : public AshTestBase {
 // when already home should do nothing.
 TEST_F(AppListShowSourceMetricTest, TabletInAppToHome) {
   base::HistogramTester histogram_tester;
+
+  // Enable accessibility feature that forces home button to be shown even with
+  // kHideShelfControlsInTabletMode enabled.
+  // TODO(https://crbug.com/1050544) Use the a11y feature specific to showing
+  // navigation buttons in tablet mode once it lands.
+  Shell::Get()->accessibility_controller()->SetAutoclickEnabled(true);
 
   std::unique_ptr<views::Widget> widget = CreateTestWidget();
   Shell::Get()->tablet_mode_controller()->SetEnabledForTest(true);

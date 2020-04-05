@@ -12,6 +12,7 @@
 #include "base/synchronization/waitable_event.h"
 #include "base/task/post_task.h"
 #include "base/task/task_traits.h"
+#include "base/task/thread_pool.h"
 #include "base/threading/sequenced_task_runner_handle.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/win/scoped_gdi_object.h"
@@ -110,8 +111,8 @@ NativeWindowOcclusionTrackerWin::NativeWindowOcclusionTrackerWin()
        // event hooks will happen on the same thread, as required by Windows,
        // and the task runner will have a message loop to call
        // EventHookCallback.
-      update_occlusion_task_runner_(base::CreateCOMSTATaskRunner(
-          {base::ThreadPool(), base::MayBlock(),
+      update_occlusion_task_runner_(base::ThreadPool::CreateCOMSTATaskRunner(
+          {base::MayBlock(),
            // This may be needed to determine that a window is no longer
            // occluded.
            base::TaskPriority::USER_VISIBLE,
@@ -129,10 +130,19 @@ NativeWindowOcclusionTrackerWin::NativeWindowOcclusionTrackerWin()
 }
 
 NativeWindowOcclusionTrackerWin::~NativeWindowOcclusionTrackerWin() {
-  // |occlusion_calculator_| must be deleted on its sequence because it needs
-  // to unregister event hooks on COMSTA thread.
   // This code is intended to be used in tests and shouldn't be reached in
-  // production code because it blocks the main thread.
+  // production.
+
+  // The occlusion tracker should be destroyed after all windows; window
+  // destructors should call Disable() and thus remove them from the map, so by
+  // the time we reach here the map should be empty.  (Proceeding with a
+  // non-empty map would result in CheckedObserver failure since any remaining
+  // windows still have the tracker as a registered observer.)
+  DCHECK(hwnd_root_window_map_.empty())
+      << "Occlusion tracker torn down while a Window still exists";
+
+  // |occlusion_calculator_| must be deleted on its sequence because it needs
+  // to unregister event hooks on COMSTA thread.  This blocks the main thread.
   base::WaitableEvent done_event;
   update_occlusion_task_runner_->PostTask(
       FROM_HERE,

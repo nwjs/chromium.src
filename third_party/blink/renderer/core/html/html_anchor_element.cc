@@ -78,7 +78,7 @@ bool ShouldInterveneDownloadByFramePolicy(LocalFrame* frame) {
         should_intervene_download = true;
     }
   }
-  if (document.IsSandboxed(WebSandboxFlags::kDownloads)) {
+  if (document.IsSandboxed(mojom::blink::WebSandboxFlags::kDownloads)) {
     UseCounter::Count(document, WebFeature::kDownloadInSandbox);
     if (RuntimeEnabledFeatures::BlockingDownloadsInSandboxEnabled())
       should_intervene_download = true;
@@ -134,7 +134,8 @@ bool HTMLAnchorElement::IsKeyboardFocusable() const {
 }
 
 static void AppendServerMapMousePosition(StringBuilder& url, Event* event) {
-  if (!event->IsMouseEvent())
+  auto* mouse_event = DynamicTo<MouseEvent>(event);
+  if (!mouse_event)
     return;
 
   DCHECK(event->target());
@@ -151,7 +152,7 @@ static void AppendServerMapMousePosition(StringBuilder& url, Event* event) {
   // The coordinates sent in the query string are relative to the height and
   // width of the image element, ignoring CSS transform/zoom.
   FloatPoint map_point = layout_object->AbsoluteToLocalFloatPoint(
-      FloatPoint(ToMouseEvent(event)->AbsoluteLocation()));
+      FloatPoint(mouse_event->AbsoluteLocation()));
 
   // The origin (0,0) is at the upper left of the content area, inside the
   // padding and border.
@@ -279,7 +280,7 @@ bool HTMLAnchorElement::draggable() const {
   const AtomicString& value = FastGetAttribute(html_names::kDraggableAttr);
   if (EqualIgnoringASCIICase(value, "true"))
     return true;
-  if (DeprecatedEqualIgnoringCase(value, "false"))
+  if (EqualIgnoringASCIICase(value, "false"))
     return false;
   return FastHasAttribute(html_names::kHrefAttr);
 }
@@ -412,8 +413,7 @@ void HTMLAnchorElement::HandleClick(Event& event) {
         static_cast<String>(FastGetAttribute(html_names::kDownloadAttr)));
     request.SetRequestContext(mojom::RequestContextType::DOWNLOAD);
     request.SetRequestorOrigin(GetDocument().GetSecurityOrigin());
-    frame->Client()->DownloadURL(request,
-                                 network::mojom::RedirectMode::kManual);
+    frame->DownloadURL(request, network::mojom::blink::RedirectMode::kManual);
     return;
   }
 
@@ -454,24 +454,44 @@ void HTMLAnchorElement::HandleClick(Event& event) {
                       WebFeature::kHTMLAnchorElementHrefTranslateAttribute);
   }
 
-  if (target_frame)
+  if (target_frame) {
+    // If we also have a pending form submission, make sure this anchor
+    // navigation takes precedence over it, except in the case of href being
+    // a fragment, in which case pending form submissions should go through.
+    // In the case of a target RemoteFrame, don't cancel form submissions
+    // because we can't be sure what the remote document's urlForBinding is.
+    // In the case of href="javascript:", don't cancel form submissions because
+    // we have always let form submissions take precedence in this case.
+    // TODO(crbug.com/1053679): Remove this after making anchor navigations
+    //   async like the spec says to do, which will also provide the desired
+    //   behavior.
+    if (LocalFrame* target_local_frame = DynamicTo<LocalFrame>(target_frame)) {
+      KURL document_url = target_local_frame->GetDocument()->urlForBinding();
+      bool equal_ignoring_fragment =
+          completed_url.HasFragmentIdentifier() &&
+          EqualIgnoringFragmentIdentifier(completed_url, document_url);
+      if (!equal_ignoring_fragment && !completed_url.ProtocolIsJavaScript())
+        GetDocument().CancelFormSubmissions();
+    }
+
     target_frame->Navigate(frame_request, WebFrameLoadType::kStandard);
+  }
 }
 
 bool IsEnterKeyKeydownEvent(Event& event) {
-  return event.type() == event_type_names::kKeydown &&
-         event.IsKeyboardEvent() && ToKeyboardEvent(event).key() == "Enter" &&
-         !ToKeyboardEvent(event).repeat();
+  auto* keyboard_event = DynamicTo<KeyboardEvent>(event);
+  return event.type() == event_type_names::kKeydown && keyboard_event &&
+         keyboard_event->key() == "Enter" && !keyboard_event->repeat();
 }
 
 bool IsLinkClick(Event& event) {
+  auto* mouse_event = DynamicTo<MouseEvent>(event);
   if ((event.type() != event_type_names::kClick &&
        event.type() != event_type_names::kAuxclick) ||
-      !event.IsMouseEvent()) {
+      !mouse_event) {
     return false;
   }
-  auto& mouse_event = ToMouseEvent(event);
-  int16_t button = mouse_event.button();
+  int16_t button = mouse_event->button();
   return (button == static_cast<int16_t>(WebPointerProperties::Button::kLeft) ||
           button ==
               static_cast<int16_t>(WebPointerProperties::Button::kMiddle));

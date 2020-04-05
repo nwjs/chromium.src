@@ -14,13 +14,13 @@
 
 namespace chromeos {
 
-// static
-content::WebUIDataSource* MediaAppGuestUI::CreateDataSource() {
+content::WebUIDataSource* CreateMediaAppUntrustedDataSource() {
   content::WebUIDataSource* source =
-      content::WebUIDataSource::Create(kChromeUIMediaAppGuestHost);
+      content::WebUIDataSource::Create(kChromeUIMediaAppGuestURL);
   // Add resources from chromeos_media_app_resources.pak.
   source->AddResourcePath("app.html", IDR_MEDIA_APP_APP_HTML);
-  source->AddResourcePath("receiver.js", IDR_MEDIA_APP_RECEIVER_JS);
+  source->AddResourcePath("media_app_app_scripts.js",
+                          IDR_MEDIA_APP_APP_SCRIPTS_JS);
 
   // Add resources from chromeos_media_app_bundle_resources.pak that are also
   // needed for mocks. If enable_cros_media_app = true, then these calls will
@@ -39,19 +39,11 @@ content::WebUIDataSource* MediaAppGuestUI::CreateDataSource() {
                             kChromeosMediaAppBundleResources[i].value);
   }
 
-  source->DisableDenyXFrameOptions();
+  source->AddFrameAncestor(GURL(kChromeUIMediaAppURL));
   std::string csp =
       std::string("worker-src ") + kChromeUIMediaAppGuestURL + ";";
   source->OverrideContentSecurityPolicyChildSrc(csp);
   return source;
 }
-
-MediaAppGuestUI::MediaAppGuestUI(content::WebUI* web_ui)
-    : MojoWebUIController(web_ui) {
-  content::WebUIDataSource::Add(web_ui->GetWebContents()->GetBrowserContext(),
-                                CreateDataSource());
-}
-
-MediaAppGuestUI::~MediaAppGuestUI() = default;
 
 }  // namespace chromeos

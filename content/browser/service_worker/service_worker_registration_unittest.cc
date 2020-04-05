@@ -345,17 +345,17 @@ TEST_F(ServiceWorkerRegistrationTest, NavigationPreload) {
   blink::mojom::ServiceWorkerRegistrationOptions options;
   options.scope = kScope;
   scoped_refptr<ServiceWorkerRegistration> registration =
-      context()->registry()->CreateNewRegistration(options);
-  scoped_refptr<ServiceWorkerVersion> version_1 =
-      context()->registry()->CreateNewVersion(
-          registration.get(), kScript, blink::mojom::ScriptType::kClassic);
+      CreateNewServiceWorkerRegistration(context()->registry(), options);
+  scoped_refptr<ServiceWorkerVersion> version_1 = CreateNewServiceWorkerVersion(
+      context()->registry(), registration.get(), kScript,
+      blink::mojom::ScriptType::kClassic);
   version_1->set_fetch_handler_existence(
       ServiceWorkerVersion::FetchHandlerExistence::EXISTS);
   registration->SetActiveVersion(version_1);
   version_1->SetStatus(ServiceWorkerVersion::ACTIVATED);
-  scoped_refptr<ServiceWorkerVersion> version_2 =
-      context()->registry()->CreateNewVersion(
-          registration.get(), kScript, blink::mojom::ScriptType::kClassic);
+  scoped_refptr<ServiceWorkerVersion> version_2 = CreateNewServiceWorkerVersion(
+      context()->registry(), registration.get(), kScript,
+      blink::mojom::ScriptType::kClassic);
   version_2->set_fetch_handler_existence(
       ServiceWorkerVersion::FetchHandlerExistence::EXISTS);
   registration->SetWaitingVersion(version_2);
@@ -391,26 +391,27 @@ class ServiceWorkerActivationTest : public ServiceWorkerRegistrationTest,
 
     blink::mojom::ServiceWorkerRegistrationOptions options;
     options.scope = kScope;
-    registration_ = context()->registry()->CreateNewRegistration(options);
+    registration_ =
+        CreateNewServiceWorkerRegistration(context()->registry(), options);
 
     // Create an active version.
     scoped_refptr<ServiceWorkerVersion> version_1 =
-        context()->registry()->CreateNewVersion(
-            registration_.get(), kScript, blink::mojom::ScriptType::kClassic);
+        CreateNewServiceWorkerVersion(context()->registry(),
+                                      registration_.get(), kScript,
+                                      blink::mojom::ScriptType::kClassic);
     version_1->set_fetch_handler_existence(
         ServiceWorkerVersion::FetchHandlerExistence::EXISTS);
     registration_->SetActiveVersion(version_1);
     version_1->SetStatus(ServiceWorkerVersion::ACTIVATED);
 
     // Store the registration.
-    std::vector<ServiceWorkerDatabase::ResourceRecord> records_1;
+    std::vector<storage::mojom::ServiceWorkerResourceRecordPtr> records_1;
     records_1.push_back(WriteToDiskCacheSync(
         helper_->context()->storage(), version_1->script_url(),
-        helper_->context()->storage()->NewResourceId(), {} /* headers */,
-        "I'm the body", "I'm the meta data"));
+        {} /* headers */, "I'm the body", "I'm the meta data"));
     version_1->script_cache_map()->SetResources(records_1);
-    version_1->SetMainScriptHttpResponseInfo(
-        EmbeddedWorkerTestHelper::CreateHttpResponseInfo());
+    version_1->SetMainScriptResponse(
+        EmbeddedWorkerTestHelper::CreateMainScriptResponse());
     base::Optional<blink::ServiceWorkerStatusCode> status;
     base::RunLoop run_loop;
     context()->registry()->StoreRegistration(
@@ -443,16 +444,16 @@ class ServiceWorkerActivationTest : public ServiceWorkerRegistrationTest,
 
     // Create a waiting version.
     scoped_refptr<ServiceWorkerVersion> version_2 =
-        context()->registry()->CreateNewVersion(
-            registration_.get(), kScript, blink::mojom::ScriptType::kClassic);
-    std::vector<ServiceWorkerDatabase::ResourceRecord> records_2;
+        CreateNewServiceWorkerVersion(context()->registry(),
+                                      registration_.get(), kScript,
+                                      blink::mojom::ScriptType::kClassic);
+    std::vector<storage::mojom::ServiceWorkerResourceRecordPtr> records_2;
     records_2.push_back(WriteToDiskCacheSync(
         helper_->context()->storage(), version_2->script_url(),
-        helper_->context()->storage()->NewResourceId(), {} /* headers */,
-        "I'm the body", "I'm the meta data"));
+        {} /* headers */, "I'm the body", "I'm the meta data"));
     version_2->script_cache_map()->SetResources(records_2);
-    version_2->SetMainScriptHttpResponseInfo(
-        EmbeddedWorkerTestHelper::CreateHttpResponseInfo());
+    version_2->SetMainScriptResponse(
+        EmbeddedWorkerTestHelper::CreateMainScriptResponse());
     version_2->set_fetch_handler_existence(
         ServiceWorkerVersion::FetchHandlerExistence::EXISTS);
     registration_->SetWaitingVersion(version_2);
@@ -882,22 +883,22 @@ class ServiceWorkerRegistrationObjectHostTest
       const GURL& scope) {
     blink::mojom::ServiceWorkerRegistrationOptions options;
     options.scope = scope;
-    return context()->registry()->CreateNewRegistration(options);
+    return CreateNewServiceWorkerRegistration(context()->registry(), options);
   }
 
   scoped_refptr<ServiceWorkerVersion> CreateVersion(
       ServiceWorkerRegistration* registration,
       const GURL& script_url) {
-    scoped_refptr<ServiceWorkerVersion> version =
-        context()->registry()->CreateNewVersion(
-            registration, script_url, blink::mojom::ScriptType::kClassic);
-    std::vector<ServiceWorkerDatabase::ResourceRecord> records;
-    records.push_back(WriteToDiskCacheSync(
-        storage(), version->script_url(), storage()->NewResourceId(),
-        {} /* headers */, "I'm the body", "I'm the meta data"));
+    scoped_refptr<ServiceWorkerVersion> version = CreateNewServiceWorkerVersion(
+        context()->registry(), registration, script_url,
+        blink::mojom::ScriptType::kClassic);
+    std::vector<storage::mojom::ServiceWorkerResourceRecordPtr> records;
+    records.push_back(WriteToDiskCacheSync(storage(), version->script_url(),
+                                           {} /* headers */, "I'm the body",
+                                           "I'm the meta data"));
     version->script_cache_map()->SetResources(records);
-    version->SetMainScriptHttpResponseInfo(
-        EmbeddedWorkerTestHelper::CreateHttpResponseInfo());
+    version->SetMainScriptResponse(
+        EmbeddedWorkerTestHelper::CreateMainScriptResponse());
     version->set_fetch_handler_existence(
         ServiceWorkerVersion::FetchHandlerExistence::EXISTS);
     version->SetStatus(ServiceWorkerVersion::INSTALLING);

@@ -7,7 +7,6 @@
  * settings subpage (chrome://settings/captions).
  */
 (function() {
-'use strict';
 
 Polymer({
   is: 'settings-captions',
@@ -22,16 +21,6 @@ Polymer({
     prefs: {
       type: Object,
       notify: true,
-    },
-
-    /**
-     * Returns true if the 'LiveCaption' media switch is enabled.
-     */
-    enableLiveCaption_: {
-      type: Boolean,
-      value: function() {
-        return loadTimeData.getBoolean('enableLiveCaption');
-      },
     },
 
     /**
@@ -198,8 +187,6 @@ Polymer({
 
   /** @override */
   ready() {
-    this.browserProxy_.observeAdvancedFontExtensionAvailable();
-
     this.browserProxy_.fetchFontsData().then(this.setFontsData_.bind(this));
   },
 

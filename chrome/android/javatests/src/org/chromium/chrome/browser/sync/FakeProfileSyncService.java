@@ -4,6 +4,11 @@
 
 package org.chromium.chrome.browser.sync;
 
+import androidx.annotation.AnyThread;
+
+import org.chromium.base.ThreadUtils;
+import org.chromium.content_public.browser.test.util.TestThreadUtils;
+
 import java.util.HashSet;
 import java.util.Set;
 
@@ -18,8 +23,11 @@ public class FakeProfileSyncService extends ProfileSyncService {
     private boolean mPassphraseRequiredForPreferredDataTypes;
     private boolean mTrustedVaultKeyRequired;
     private boolean mTrustedVaultKeyRequiredForPreferredDataTypes;
+    private boolean mEncryptEverythingEnabled;
     private Set<Integer> mChosenTypes = new HashSet<>();
     private boolean mCanSyncFeatureStart;
+    @GoogleServiceAuthError.State
+    private int mAuthError;
 
     public FakeProfileSyncService() {
         super();
@@ -27,11 +35,30 @@ public class FakeProfileSyncService extends ProfileSyncService {
 
     @Override
     public boolean isEngineInitialized() {
+        ThreadUtils.assertOnUiThread();
         return mEngineInitialized;
     }
 
+    @AnyThread
     public void setEngineInitialized(boolean engineInitialized) {
-        mEngineInitialized = engineInitialized;
+        TestThreadUtils.runOnUiThreadBlocking(() -> {
+            mEngineInitialized = engineInitialized;
+            syncStateChanged();
+        });
+    }
+
+    @Override
+    public @GoogleServiceAuthError.State int getAuthError() {
+        ThreadUtils.assertOnUiThread();
+        return mAuthError;
+    }
+
+    @AnyThread
+    public void setAuthError(@GoogleServiceAuthError.State int authError) {
+        TestThreadUtils.runOnUiThreadBlocking(() -> {
+            mAuthError = authError;
+            syncStateChanged();
+        });
     }
 
     @Override
@@ -60,12 +87,17 @@ public class FakeProfileSyncService extends ProfileSyncService {
 
     @Override
     public boolean isPassphraseRequiredForPreferredDataTypes() {
+        ThreadUtils.assertOnUiThread();
         return mPassphraseRequiredForPreferredDataTypes;
     }
 
+    @AnyThread
     public void setPassphraseRequiredForPreferredDataTypes(
             boolean passphraseRequiredForPreferredDataTypes) {
-        mPassphraseRequiredForPreferredDataTypes = passphraseRequiredForPreferredDataTypes;
+        TestThreadUtils.runOnUiThreadBlocking(() -> {
+            mPassphraseRequiredForPreferredDataTypes = passphraseRequiredForPreferredDataTypes;
+            syncStateChanged();
+        });
     }
 
     @Override
@@ -86,6 +118,16 @@ public class FakeProfileSyncService extends ProfileSyncService {
             boolean trustedVaultKeyRequiredForPreferredDataTypes) {
         mTrustedVaultKeyRequiredForPreferredDataTypes =
                 trustedVaultKeyRequiredForPreferredDataTypes;
+    }
+
+    @Override
+    public boolean isEncryptEverythingEnabled() {
+        return mEncryptEverythingEnabled;
+    }
+
+    @Override
+    public void enableEncryptEverything() {
+        mEncryptEverythingEnabled = true;
     }
 
     @Override

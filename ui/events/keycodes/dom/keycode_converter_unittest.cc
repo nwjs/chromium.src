@@ -24,8 +24,8 @@ namespace {
 // These are in the same order as the columns in dom_code_data.inc
 // as reflected in the DOM_CODE() macro below.
 const size_t expected_mapped_key_count[] = {
-  213,  // evdev
-  213,  // xkb
+  214,  // evdev
+  214,  // xkb
   157,  // windows
   119,  // mac
 };
@@ -172,6 +172,10 @@ TEST(KeycodeConverter, DomCode) {
       EXPECT_STREQ(entry->code,
                    ui::KeycodeConverter::DomCodeToCodeString(code));
     }
+    ui::DomCode code =
+        ui::KeycodeConverter::NativeKeycodeToDomCode(entry->native_keycode);
+    EXPECT_EQ(entry->native_keycode,
+              ui::KeycodeConverter::DomCodeToNativeKeycode(code));
   }
 }
 

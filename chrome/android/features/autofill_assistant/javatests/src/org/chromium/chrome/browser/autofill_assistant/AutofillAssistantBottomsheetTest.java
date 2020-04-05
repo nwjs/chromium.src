@@ -26,6 +26,7 @@ import static org.hamcrest.Matchers.not;
 import static org.chromium.chrome.browser.autofill_assistant.AssistantTagsForTesting.RECYCLER_VIEW_TAG;
 import static org.chromium.chrome.browser.autofill_assistant.AutofillAssistantUiTestUtil.getAbsoluteBoundingRect;
 import static org.chromium.chrome.browser.autofill_assistant.AutofillAssistantUiTestUtil.startAutofillAssistant;
+import static org.chromium.chrome.browser.autofill_assistant.AutofillAssistantUiTestUtil.waitUntilKeyboardMatchesCondition;
 import static org.chromium.chrome.browser.autofill_assistant.AutofillAssistantUiTestUtil.waitUntilViewAssertionTrue;
 import static org.chromium.chrome.browser.autofill_assistant.AutofillAssistantUiTestUtil.waitUntilViewMatchesCondition;
 import static org.chromium.chrome.browser.autofill_assistant.proto.ConfigureBottomSheetProto.PeekMode.HANDLE;
@@ -51,8 +52,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import org.chromium.base.test.util.CommandLineFlags;
+import org.chromium.base.test.util.DisabledTest;
 import org.chromium.chrome.autofill_assistant.R;
-import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.autofill_assistant.proto.ActionProto;
 import org.chromium.chrome.browser.autofill_assistant.proto.ChipIcon;
 import org.chromium.chrome.browser.autofill_assistant.proto.ChipProto;
@@ -71,10 +72,12 @@ import org.chromium.chrome.browser.autofill_assistant.proto.ShowDetailsProto;
 import org.chromium.chrome.browser.autofill_assistant.proto.SupportedScriptProto;
 import org.chromium.chrome.browser.autofill_assistant.proto.SupportedScriptProto.PresentationProto;
 import org.chromium.chrome.browser.autofill_assistant.proto.TextInputProto;
+import org.chromium.chrome.browser.autofill_assistant.proto.TextInputProto.InputType;
 import org.chromium.chrome.browser.autofill_assistant.proto.TextInputSectionProto;
 import org.chromium.chrome.browser.autofill_assistant.proto.UserFormSectionProto;
 import org.chromium.chrome.browser.customtabs.CustomTabActivityTestRule;
 import org.chromium.chrome.browser.customtabs.CustomTabsTestUtils;
+import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.content_public.browser.test.util.Criteria;
 import org.chromium.content_public.browser.test.util.CriteriaHelper;
@@ -160,6 +163,7 @@ public class AutofillAssistantBottomsheetTest {
 
     @Test
     @MediumTest
+    @DisabledTest(message = "crbug.com/1059442")
     public void testNoResize() {
         AutofillAssistantTestService testService = new AutofillAssistantTestService(
                 Collections.singletonList(makeScript(NO_RESIZE, HANDLE, false)));
@@ -181,6 +185,7 @@ public class AutofillAssistantBottomsheetTest {
 
     @Test
     @MediumTest
+    @DisabledTest(message = "crbug.com/1059442")
     public void testResizeLayoutViewport() {
         AutofillAssistantTestService testService = new AutofillAssistantTestService(
                 Collections.singletonList(makeScript(RESIZE_LAYOUT_VIEWPORT, HANDLE, false)));
@@ -188,7 +193,9 @@ public class AutofillAssistantBottomsheetTest {
 
         waitUntilViewMatchesCondition(withText("Focus element"), isCompletelyDisplayed());
         onView(withText("Focus element")).perform(click());
-        checkElementIsCoveredByBottomsheet("bottom", true);
+        // The viewport should be resized so that the bottom element is not covered by the bottom
+        // sheet.
+        checkElementIsCoveredByBottomsheet("bottom", false);
         onView(withId(R.id.swipe_indicator)).perform(swipeDownToMinimize());
         // Minimizing the bottomsheet should completely uncover the bottom element.
         waitUntilViewMatchesCondition(withText("Hello world!"), not(isDisplayed()));
@@ -201,6 +208,7 @@ public class AutofillAssistantBottomsheetTest {
 
     @Test
     @MediumTest
+    @DisabledTest(message = "crbug.com/1059442")
     public void testResizeVisualViewport() {
         AutofillAssistantTestService testService = new AutofillAssistantTestService(
                 Collections.singletonList(makeScript(RESIZE_VISUAL_VIEWPORT, HANDLE, false)));
@@ -310,7 +318,8 @@ public class AutofillAssistantBottomsheetTest {
         // Typing text will show the soft keyboard, leading to resize of the Chrome window.
         onView(withContentDescription("Text input 0")).perform(typeText("Hello World!"));
         onView(withId(R.id.control_container)).check(matches(isCompletelyDisplayed()));
-        onView(withText("Continue")).check(matches(isCompletelyDisplayed()));
+        onView(allOf(withContentDescription("Close"), isDisplayed()))
+                .check(matches(isCompletelyDisplayed()));
         // Closing the soft keyboard will restore the window size.
         Espresso.closeSoftKeyboard();
         onView(withContentDescription("Text input 0")).check(matches(isDisplayed()));
@@ -465,6 +474,59 @@ public class AutofillAssistantBottomsheetTest {
                 isCompletelyDisplayed());
     }
 
+    /**
+     * When the keyboard is shown, the continue button becomes invisible.
+     */
+    @Test
+    @DisabledTest(message = "Test is flaky, see crbug.com/1054058")
+    @MediumTest
+    public void testOpeningKeyboardMakesContinueChipInvisible() {
+        ArrayList<ActionProto> list = new ArrayList<>();
+        UserFormSectionProto userFormSectionProto =
+                UserFormSectionProto.newBuilder()
+                        .setTitle("User form")
+                        .setTextInputSection(
+                                TextInputSectionProto.newBuilder()
+                                        .addInputFields(TextInputProto.newBuilder()
+                                                                .setHint("Field 1")
+                                                                .setInputType(InputType.INPUT_TEXT)
+                                                                .setClientMemoryKey("field_1"))
+                                        .addInputFields(TextInputProto.newBuilder()
+                                                                .setHint("Field 2")
+                                                                .setInputType(InputType.INPUT_TEXT)
+                                                                .setClientMemoryKey("field_2")))
+                        .build();
+
+        list.add((ActionProto) ActionProto.newBuilder()
+                         .setCollectUserData(
+                                 CollectUserDataProto.newBuilder()
+                                         .setRequestTermsAndConditions(false)
+                                         .addAdditionalPrependedSections(userFormSectionProto))
+                         .build());
+        AutofillAssistantTestScript script = new AutofillAssistantTestScript(
+                (SupportedScriptProto) SupportedScriptProto.newBuilder()
+                        .setPath("form_target_website.html")
+                        .setPresentation(PresentationProto.newBuilder().setAutostart(true).setChip(
+                                ChipProto.newBuilder().setText("Payment")))
+                        .build(),
+                list);
+
+        AutofillAssistantTestService testService =
+                new AutofillAssistantTestService(Collections.singletonList(script));
+        startAutofillAssistant(mTestRule.getActivity(), testService);
+
+        waitUntilViewMatchesCondition(withText("User form"), isDisplayed());
+        onView(withText("User form")).perform(click());
+        waitUntilViewMatchesCondition(withText("Field 1"), isDisplayed());
+        onView(withContentDescription("Continue")).check(matches(isDisplayed()));
+        onView(withText("Field 1")).perform(click());
+        waitUntilKeyboardMatchesCondition(mTestRule, true);
+        onView(withContentDescription("Continue")).check(matches(not(isDisplayed())));
+        onView(allOf(withContentDescription("Close"), isDisplayed())).perform(click());
+        waitUntilKeyboardMatchesCondition(mTestRule, false);
+        onView(withContentDescription("Continue")).check(matches(isDisplayed()));
+    }
+
     private ViewAction swipeDownToMinimize() {
         return actionWithAssertions(
                 new GeneralSwipeAction(Swipe.FAST, GeneralLocation.CENTER, view -> {
@@ -494,7 +556,7 @@ public class AutofillAssistantBottomsheetTest {
                     float y = GeneralLocation.TOP_CENTER.calculateCoordinates(
                             mTestRule.getActivity().findViewById(
                                     R.id.autofill_assistant_bottom_sheet_toolbar))[1];
-                    Rect el = getAbsoluteBoundingRect(elementId, mTestRule);
+                    Rect el = getAbsoluteBoundingRect(mTestRule, elementId);
                     return el.bottom > y == shouldBeCovered;
                 } catch (Exception e) {
                     throw new RuntimeException(e);

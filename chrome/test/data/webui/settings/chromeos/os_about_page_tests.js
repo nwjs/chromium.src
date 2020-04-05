@@ -23,7 +23,7 @@ cr.define('settings_about_page', function() {
     suite('AboutPageTest', function() {
       let page = null;
 
-      /** @type {?settings.TestAboutPageBrowserProxy} */
+      /** @type {?settings.TestAboutPageBrowserProxyChromeOS} */
       let aboutBrowserProxy = null;
 
       /** @type {?settings.TestLifetimeBrowserProxy} */
@@ -35,7 +35,7 @@ cr.define('settings_about_page', function() {
         lifetimeBrowserProxy = new settings.TestLifetimeBrowserProxy();
         settings.LifetimeBrowserProxyImpl.instance_ = lifetimeBrowserProxy;
 
-        aboutBrowserProxy = new TestAboutPageBrowserProxy();
+        aboutBrowserProxy = new TestAboutPageBrowserProxyChromeOS();
         settings.AboutPageBrowserProxyImpl.instance_ = aboutBrowserProxy;
         return initNewPage();
       });
@@ -492,7 +492,7 @@ cr.define('settings_about_page', function() {
   function registerOfficialBuildTests() {
     suite('AboutPageTest_OfficialBuild', function() {
       test('ReportAnIssue', function() {
-        const browserProxy = new TestAboutPageBrowserProxy();
+        const browserProxy = new TestAboutPageBrowserProxyChromeOS();
         settings.AboutPageBrowserProxyImpl.instance_ = browserProxy;
         PolymerTest.clearBody();
         const page = document.createElement('os-settings-about-page');
@@ -511,7 +511,7 @@ cr.define('settings_about_page', function() {
       let browserProxy = null;
 
       setup(function() {
-        browserProxy = new TestAboutPageBrowserProxy();
+        browserProxy = new TestAboutPageBrowserProxyChromeOS();
         settings.AboutPageBrowserProxyImpl.instance_ = browserProxy;
         PolymerTest.clearBody();
       });
@@ -527,6 +527,7 @@ cr.define('settings_about_page', function() {
 
         await Promise.all([
           browserProxy.whenCalled('pageReady'),
+          browserProxy.whenCalled('canChangeChannel'),
           browserProxy.whenCalled('getChannelInfo'),
           browserProxy.whenCalled('getVersionInfo'),
         ]);
@@ -544,7 +545,7 @@ cr.define('settings_about_page', function() {
         browserProxy.setCanChangeChannel(canChangeChannel);
         page = document.createElement('settings-detailed-build-info');
         document.body.appendChild(page);
-        await browserProxy.whenCalled('getChannelInfo');
+        await browserProxy.whenCalled('canChangeChannel');
         const changeChannelButton = page.$$('cr-button');
         assertTrue(!!changeChannelButton);
         assertEquals(canChangeChannel, !changeChannelButton.disabled);
@@ -558,12 +559,40 @@ cr.define('settings_about_page', function() {
         return checkChangeChannelButton(false);
       });
 
+      /**
+       * Checks whether the "change channel" button state (enabled/disabled)
+       * is correct before getChannelInfo() returns
+       * (see https://crbug.com/848750). Here, getChannelInfo() is blocked
+       * manually until after the button check.
+       */
+      async function checkChangeChannelButtonWithDelayedChannelState(
+          canChangeChannel) {
+        const resolver = new PromiseResolver();
+        browserProxy.getChannelInfo = async function() {
+          await resolver.promise;
+          this.methodCalled('getChannelInfo');
+          return Promise.resolve(this.channelInfo_);
+        };
+        const result = await checkChangeChannelButton(canChangeChannel);
+        resolver.resolve();
+        return result;
+      }
+
+      test('ChangeChannel_EnabledWithDelayedChannelState', function() {
+        return checkChangeChannelButtonWithDelayedChannelState(true);
+      });
+
+      test('ChangeChannel_DisabledWithDelayedChannelState', function() {
+        return checkChangeChannelButtonWithDelayedChannelState(false);
+      });
+
       async function checkCopyBuildDetailsButton() {
         page = document.createElement('settings-detailed-build-info');
         document.body.appendChild(page);
         const copyBuildDetailsButton = page.$$('cr-icon-button');
         await browserProxy.whenCalled('getVersionInfo');
         await browserProxy.whenCalled('getChannelInfo');
+        await browserProxy.whenCalled('canChangeChannel');
 
         const expectedClipBoardText =
             `${loadTimeData.getString('application_label')}: ` +
@@ -599,7 +628,7 @@ cr.define('settings_about_page', function() {
       const currentChannel = BrowserChannel.BETA;
 
       setup(function() {
-        browserProxy = new TestAboutPageBrowserProxy();
+        browserProxy = new TestAboutPageBrowserProxyChromeOS();
         browserProxy.setChannels(currentChannel, currentChannel);
         settings.AboutPageBrowserProxyImpl.instance_ = browserProxy;
         PolymerTest.clearBody();

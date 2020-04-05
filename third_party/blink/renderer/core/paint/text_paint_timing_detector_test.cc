@@ -108,8 +108,7 @@ class TextPaintTimingDetectorTest : public testing::Test {
   }
 
   void SimulateScroll() {
-    GetPaintTimingDetector().NotifyScroll(
-        mojom::blink::ScrollIntoViewParams::Type::kUser);
+    GetPaintTimingDetector().NotifyScroll(mojom::blink::ScrollType::kUser);
   }
 
   void SimulateKeyUp() {
@@ -150,8 +149,7 @@ class TextPaintTimingDetectorTest : public testing::Test {
 
   void SetChildBodyInnerHTML(const String& content) {
     GetChildDocument()->SetBaseURLOverride(KURL("http://test.com"));
-    GetChildDocument()->body()->SetInnerHTMLFromString(content,
-                                                       ASSERT_NO_EXCEPTION);
+    GetChildDocument()->body()->setInnerHTML(content, ASSERT_NO_EXCEPTION);
     child_frame_mock_callback_manager_ =
         MakeGarbageCollected<MockPaintTimingCallbackManager>();
     GetChildFrameTextPaintTimingDetector()->ResetCallbackManager(
@@ -250,7 +248,9 @@ class ParameterizedTextPaintTimingDetectorTest
       : ScopedLayoutNGForTest(GetParam()) {}
 
  protected:
-  bool LayoutNGEnabled() const { return GetParam(); }
+  bool LayoutNGEnabled() const {
+    return RuntimeEnabledFeatures::LayoutNGEnabled();
+  }
 };
 
 INSTANTIATE_TEST_SUITE_P(All,

@@ -62,6 +62,8 @@ class ASH_EXPORT Desk {
     return should_notify_content_changed_;
   }
 
+  bool is_name_set_by_user() const { return is_name_set_by_user_; }
+
   void AddObserver(Observer* observer);
   void RemoveObserver(Observer* observer);
 
@@ -74,7 +76,9 @@ class ASH_EXPORT Desk {
   base::AutoReset<bool> GetScopedNotifyContentChangedDisabler();
 
   // Sets the desk's name to |new_name| and updates the observers.
-  void SetName(base::string16 new_name);
+  // |set_by_user| should be true if this name was given to the desk by the user
+  // from its mini view in overview mode.
+  void SetName(base::string16 new_name, bool set_by_user);
 
   // Prepares for the animation to activate this desk (i.e. this desk is not
   // active yet), by showing its containers on all root windows while setting
@@ -94,31 +98,36 @@ class ASH_EXPORT Desk {
   // on this desk will be deactivated.
   void Deactivate(bool update_window_activation);
 
-  // Moves all the windows on this desk to |target_desk|.
+  // In preparation for removing this desk, moves all the windows on this desk
+  // to |target_desk| such that they become last in MRU order across all desks,
+  // and they will be stacked at the bottom among the children of
+  // |target_desk|'s container.
+  // Note that from a UX stand point, removing a desk is viewed as the user is
+  // now done with this desk, and therefore its windows are demoted and
+  // deprioritized.
   void MoveWindowsToDesk(Desk* target_desk);
 
-  // Moves a single |window| from this desk to |target_desk|. |window| must
+  // Moves a single |window| from this desk to |target_desk|, possibly moving it
+  // to a different display, depending on |target_root|. |window| must
   // belong to this desk.
-  void MoveWindowToDesk(aura::Window* window, Desk* target_desk);
+  void MoveWindowToDesk(aura::Window* window,
+                        Desk* target_desk,
+                        aura::Window* target_root);
 
   aura::Window* GetDeskContainerForRoot(aura::Window* root) const;
 
   // Notifies observers that the desk's contents (list of application windows on
   // the desk) have changed.
-  // If |update_backdrops| is true, the backdrops of all containers associated
-  // with this desk will be updated (even if overview is active).
-  // This is *only* needed if the WorkspaceLayoutManager won't take care of this
-  // for us in desk-modifying operations that happen within overview, such as
-  // removing desks (and move its windows out) or dragging a window and dropping
-  // in another desk.
-  void NotifyContentChanged(bool update_backdrops);
+  void NotifyContentChanged();
 
   // Update (even if overview is active) the backdrop availability and
   // visibility on the containers (on all roots) associated with this desk.
   void UpdateDeskBackdrops();
 
  private:
-  void MoveWindowToDeskInternal(aura::Window* window, Desk* target_desk);
+  void MoveWindowToDeskInternal(aura::Window* window,
+                                Desk* target_desk,
+                                aura::Window* target_root);
 
   // If `PrepareForActivationAnimation()` was called during the animation to
   // activate this desk, this function is called from `Activate()` to reset the
@@ -155,6 +164,13 @@ class ASH_EXPORT Desk {
   // True if the `PrepareForActivationAnimation()` was called, and this desk's
   // containers are shown while their layer opacities are temporarily set to 0.
   bool started_activation_animation_ = false;
+
+  // True if this desk's |name_| was set by the user, false if it's one of the
+  // default automatically assigned names (e.g. "Desk 1", "Desk 2", ... etc.)
+  // based on the desk's position in the list. Those default names change as
+  // desks are added/removed if this desk changes position, whereas names that
+  // are set by the user don't change.
+  bool is_name_set_by_user_ = false;
 
   DISALLOW_COPY_AND_ASSIGN(Desk);
 };

@@ -105,7 +105,7 @@
 
     // Open FilesApp on Downloads and expand the tree view of Downloads.
     const appId = await setupAndWaitUntilReady(RootPath.DOWNLOADS, folders, []);
-    await expandRoot(appId, TREEITEM_DOWNLOADS);
+    await recursiveExpand(appId, '/My files/Downloads');
 
     // Verify the directory tree is not vertically scrolled.
     const directoryTree = '#directory-tree';
@@ -131,7 +131,7 @@
     // Open FilesApp on Downloads and expand the tree view of Downloads.
     const appId = await setupAndWaitUntilReady(
         RootPath.DOWNLOADS, BASIC_LOCAL_ENTRY_SET, []);
-    await expandRoot(appId, TREEITEM_DOWNLOADS);
+    await recursiveExpand(appId, '/My files/Downloads');
 
     // Verify the directory tree is not horizontally scrolled.
     const directoryTree = '#directory-tree';
@@ -153,6 +153,38 @@
         appId, directoryTree, ['scrollLeft']);
     const noScrollLeft = scrolled.scrollLeft === 0;
     chrome.test.assertTrue(noScrollLeft, 'Tree should not scroll left');
+  };
+
+  /**
+   * Tests that clicking a directory tree recent subtype {audio,image,video}
+   * tab does not vertically scroll the tree.
+   */
+  testcase.directoryTreeRecentsSubtypeScroll = async () => {
+    // Open FilesApp on Downloads.
+    const appId = await setupAndWaitUntilReady(
+        RootPath.DOWNLOADS, BASIC_LOCAL_ENTRY_SET, []);
+
+    // Set window height to 400px so the tree has a vertical scroll bar.
+    await remoteCall.callRemoteTestUtil('resizeWindow', appId, [680, 400]);
+    await remoteCall.waitForWindowGeometry(appId, 680, 400);
+
+    // Wait for the recent image tab and save its element properties.
+    const recentQuery =
+        '#directory-tree [root-type-icon="recent"][recent-file-type="image"]';
+    const savedElement =
+        await remoteCall.waitForElementStyles(appId, recentQuery, ['display']);
+    chrome.test.assertTrue(savedElement.renderedTop > 0);
+
+    // Click recent image tab and wait for its file-list content to appear.
+    await remoteCall.waitAndClickElement(appId, recentQuery);
+    const file = TestEntryInfo.getExpectedRows([ENTRIES.desktop]);
+    await remoteCall.waitForFiles(appId, file, {ignoreLastModifiedTime: true});
+
+    // Check: the recent image tab element.renderedTop should not change.
+    const resultElement =
+        await remoteCall.waitForElementStyles(appId, recentQuery, ['display']);
+    const notScrolled = savedElement.renderedTop === resultElement.renderedTop;
+    chrome.test.assertTrue(notScrolled, 'Tree should not vertically scroll');
   };
 
   /**
@@ -280,101 +312,88 @@
     chrome.test.assertTrue(await remoteCall.callRemoteTestUtil(
         'requestAnimationFrame', appId, []));
 
-    // Get the scroll limits: see crbug.com/721759 for RTL |scrollRight|.
     const scrolled = await remoteCall.waitForElementStyles(
         appId, directoryTree, ['scrollLeft']);
-    const scrollRight = scrolled.scrollWidth - scrolled.renderedWidth;
 
     // Check: the directory tree should not be horizontally scrolled.
-    const notScrolled = scrolled.scrollLeft === scrollRight;
+    const notScrolled = scrolled.scrollLeft === 0;
     chrome.test.assertTrue(notScrolled, 'Tree should not scroll right');
   };
 
   /**
-   * Tests that the directory tree element has a clipped attribute when the
-   * tree is narrowed in width due to a window.resize event.
+   * Adds folders with the name prefix /path/to/sub-folders, it appends "-$X"
+   * suffix for each folder.
+   *
+   * NOTE: It assumes the parent folders exist.
+   *
+   * @param {number} number Number of sub-folders to be created.
+   * @param {string} namePrefix Prefix name to be used in the folder.
    */
-  testcase.directoryTreeClippedWindowResize = async () => {
-    // Open FilesApp on Downloads.
-    const appId = await setupAndWaitUntilReady(RootPath.DOWNLOADS);
+  function addSubFolders(number, namePrefix) {
+    const result = new Array(number);
+    const baseName = namePrefix.split('/').pop();
 
-    // Verify the directory tree is not initially clipped.
-    await remoteCall.waitForElement(appId, '#directory-tree:not([clipped])');
+    for (let i = 0; i < number; i++) {
+      const subFolderName = `${baseName}-${i}`;
+      const targetPath = `${namePrefix}-${i}`;
+      result[i] = new TestEntryInfo({
+        targetPath: targetPath,
+        nameText: subFolderName,
+        type: EntryType.DIRECTORY,
+        lastModifiedTime: 'Jan 1, 1980, 11:59 PM',
+        sizeText: '--',
+        typeText: 'Folder',
+      });
+    }
 
-    // Change the directory tree to a narrow width and fire window.resize.
-    const navigationList = '.dialog-navigation-list';
-    await remoteCall.callRemoteTestUtil(
-        'setElementStyles', appId, [navigationList, {width: '100px'}]);
-    await remoteCall.callRemoteTestUtil('fakeResizeEvent', appId, []);
-
-    // Check: the directory tree should report that it is clipped.
-    await remoteCall.waitForElement(appId, '#directory-tree[clipped]');
-
-    // Change the directory tree to a wider width and fire window.resize.
-    await remoteCall.callRemoteTestUtil(
-        'setElementStyles', appId, [navigationList, {width: '300px'}]);
-    await remoteCall.callRemoteTestUtil('fakeResizeEvent', appId, []);
-
-    // Check: the directory tree should report that it is not clipped.
-    await remoteCall.waitForElementLost(appId, '#directory-tree[clipped]');
-  };
+    return result;
+  }
 
   /**
-   * Tests that the directory tree element has a clipped attribute when the
-   * tree is narrowed in width due to the splitter.
+   * Tests that expanding a folder updates the its sub-folders expand icons.
    */
-  testcase.directoryTreeClippedSplitterResize = async () => {
-    const splitter = '#navigation-list-splitter';
+  testcase.directoryTreeExpandFolder = async () => {
+    // Create a large-folder inside Downloads.
+    let entries = addSubFolders(1, 'large-folder');
 
-    /**
-     * Creates a left button mouse event |name| targeted at the splitter,
-     * located at position (x,y) relative to the splitter bounds.
-     * @param {string} name The mouse event name.
-     * @param {number} x The event.clientX location.
-     * @param {number} y The event.clientY location.
-     * @return {!Array<*>} remoteCall fakeEvent arguments array.
-     */
-    function createSplitterMouseEvent(name, x, y) {
-      const fakeEventArguments = [splitter, name];
-
-      fakeEventArguments.push({
-        // Event properties of the fakeEvent.
-        'bubbles': true,
-        'composed': true,
-        'button': 0,  // Main button: left usually.
-        'clientX': x,
-        'clientY': y,
-      });
-
-      return fakeEventArguments;
+    // Create 20 sub-folders with 15 sub-sub-folders.
+    const numberOfSubFolders = 20;
+    const numberOfSubSubFolders = 15;
+    entries = entries.concat(
+        addSubFolders(numberOfSubFolders, `large-folder-0/sub-folder`));
+    for (let i = 0; i < numberOfSubFolders; i++) {
+      entries = entries.concat(addSubFolders(
+          numberOfSubSubFolders,
+          `large-folder-0/sub-folder-${i}/sub-sub-folder`));
     }
 
     // Open FilesApp on Downloads.
-    const appId = await setupAndWaitUntilReady(RootPath.DOWNLOADS);
+    const appId = await setupAndWaitUntilReady(RootPath.DOWNLOADS, entries, []);
 
-    // Verify the directory tree is not initially clipped.
-    await remoteCall.waitForElement(appId, '#directory-tree:not([clipped])');
+    const start = Date.now();
 
-    // Send a mouse down to the splitter element.
-    await remoteCall.waitForElement(appId, splitter);
-    const mouseDown = createSplitterMouseEvent('mousedown', 0, 0);
-    chrome.test.assertTrue(
-        await remoteCall.callRemoteTestUtil('fakeEvent', appId, mouseDown));
+    // Expand the large-folder-0.
+    await recursiveExpand(appId, '/My files/Downloads/large-folder-0');
 
-    // Mouse is down: move it to the left.
-    const moveLeft = createSplitterMouseEvent('mousemove', -200, 0);
-    chrome.test.assertTrue(
-        await remoteCall.callRemoteTestUtil('fakeEvent', appId, moveLeft));
+    // Wait for all sub-folders to have the expand icon.
+    const querySubFolderExpandIcons =
+        ['#directory-tree [entry-label="large-folder-0"] > ' +
+         '.tree-children > .tree-item > .tree-row[has-children="true"]'];
+    await remoteCall.waitForElementsCount(
+        appId, querySubFolderExpandIcons, numberOfSubFolders);
 
-    // Check: the directory tree should report that it is clipped.
-    await remoteCall.waitForElement(appId, '#directory-tree[clipped]');
+    // Expand a sub-folder.
+    await recursiveExpand(
+        appId, '/My files/Downloads/large-folder-0/sub-folder-0');
 
-    // Mouse is down: move it to the right.
-    const moveRight = createSplitterMouseEvent('mousemove', 200, 0);
-    chrome.test.assertTrue(
-        await remoteCall.callRemoteTestUtil('fakeEvent', appId, moveRight));
+    // Wait sub-folder to have its 1k sub-sub-folders.
+    const querySubSubFolderItems =
+        ['#directory-tree [entry-label="sub-folder-0"] > ' +
+         '.tree-children > .tree-item'];
+    await remoteCall.waitForElementsCount(
+        appId, querySubSubFolderItems, numberOfSubSubFolders);
 
-    // Check: the directory tree should report that it is not clipped.
-    await remoteCall.waitForElementLost(appId, '#directory-tree[clipped]');
+    const testTime = Date.now() - start;
+    console.log(`[measurement] Test time: ${testTime}ms`);
   };
 })();

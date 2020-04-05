@@ -65,7 +65,10 @@ public class CurrentPageVerifier implements NativeInitObserver {
     private final CustomTabTabObserver mVerifyOnPageLoadObserver = new CustomTabTabObserver() {
         @Override
         public void onDidFinishNavigation(Tab tab, NavigationHandle navigation) {
-            if (!navigation.hasCommitted() || !navigation.isInMainFrame()) return;
+            if (!navigation.hasCommitted() || !navigation.isInMainFrame()
+                    || navigation.isSameDocument()) {
+                return;
+            }
             verify(navigation.getUrl());
         }
 
@@ -74,7 +77,7 @@ public class CurrentPageVerifier implements NativeInitObserver {
             // When a link with target="_blank" is followed and the user navigates back, we
             // don't get the onDidFinishNavigation event (because the original page wasn't
             // navigated away from, it was only ever hidden). https://crbug.com/942088
-            verify(tab.getUrl());
+            verify(tab.getUrlString());
         }
     };
 
@@ -139,8 +142,8 @@ public class CurrentPageVerifier implements NativeInitObserver {
     private void onVerificationResult(String scope, boolean verified) {
         Tab tab = mTabProvider.getTab();
 
-        boolean resultStillApplies = tab != null
-                && scope.equals(mDelegate.getVerifiedScope(tab.getUrl()));
+        boolean resultStillApplies =
+                tab != null && scope.equals(mDelegate.getVerifiedScope(tab.getUrlString()));
         if (resultStillApplies) {
             updateState(scope, verified ? VerificationStatus.SUCCESS : VerificationStatus.FAILURE);
         }

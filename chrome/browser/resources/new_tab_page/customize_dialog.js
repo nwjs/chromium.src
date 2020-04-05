@@ -6,12 +6,14 @@ import 'chrome://resources/cr_elements/cr_button/cr_button.m.js';
 import 'chrome://resources/cr_elements/cr_dialog/cr_dialog.m.js';
 import 'chrome://resources/polymer/v3_0/iron-pages/iron-pages.js';
 import 'chrome://resources/polymer/v3_0/iron-selector/iron-selector.js';
+import './customize_backgrounds.js';
 import './customize_shortcuts.js';
 import './customize_themes.js';
 
 import {html, PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
 import {BrowserProxy} from './browser_proxy.js';
+import {createScrollBorders} from './utils.js';
 
 /**
  * Dialog that lets the user customize the NTP such as the background color or
@@ -35,6 +37,18 @@ class CustomizeDialogElement extends PolymerElement {
       selectedPage_: {
         type: String,
         value: 'backgrounds',
+        observer: 'onSelectedPageChange_',
+      },
+
+      /** @private {newTabPage.mojom.BackgroundCollection} */
+      selectedCollection_: Object,
+
+      /** @private */
+      showTitleNavigation_: {
+        type: Boolean,
+        computed:
+            'computeShowTitleNavigation_(selectedPage_, selectedCollection_)',
+        value: false,
       },
     };
   }
@@ -43,6 +57,26 @@ class CustomizeDialogElement extends PolymerElement {
     super();
     /** @private {newTabPage.mojom.PageHandlerRemote} */
     this.pageHandler_ = BrowserProxy.getInstance().handler;
+    /** @private {!Array<!IntersectionObserver>} */
+    this.intersectionObservers_ = [];
+  }
+
+  /** @override */
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    this.intersectionObservers_.forEach(observer => {
+      observer.disconnect();
+    });
+    this.intersectionObservers_ = [];
+  }
+
+  /** @override */
+  ready() {
+    super.ready();
+    this.intersectionObservers_ = [
+      this.$.menu,
+      this.$.pages,
+    ].map(createScrollBorders);
   }
 
   /** @private */
@@ -69,6 +103,21 @@ class CustomizeDialogElement extends PolymerElement {
     e.preventDefault();
     e.stopPropagation();
     this.selectedPage_ = e.target.getAttribute('page-name');
+  }
+
+  /** @private */
+  onSelectedPageChange_() {
+    this.$.pages.scrollTop = 0;
+  }
+
+  /** @private */
+  computeShowTitleNavigation_() {
+    return this.selectedPage_ === 'backgrounds' && this.selectedCollection_;
+  }
+
+  /** @private */
+  onBackClick_() {
+    this.selectedCollection_ = null;
   }
 }
 

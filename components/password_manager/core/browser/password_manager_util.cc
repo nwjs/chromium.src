@@ -349,12 +349,14 @@ void FindBestMatches(
   std::sort(non_federated_same_scheme->begin(),
             non_federated_same_scheme->end(), IsBetterMatch);
 
-  std::set<base::string16> usernames;
+  std::set<std::pair<PasswordForm::Store, base::string16>> store_usernames;
   for (const auto* match : *non_federated_same_scheme) {
-    const base::string16& username = match->username_value;
-    // The first match for |username| in the sorted array is best match.
-    if (!base::Contains(usernames, username)) {
-      usernames.insert(username);
+    auto store_username =
+        std::make_pair(match->in_store, match->username_value);
+    // The first match for |store_username| in the sorted array is best
+    // match.
+    if (!base::Contains(store_usernames, store_username)) {
+      store_usernames.insert(store_username);
       best_matches->push_back(match);
     }
   }
@@ -447,9 +449,18 @@ bool IsOptedInForAccountStorage(const PrefService* pref_service,
                                 const syncer::SyncService* sync_service) {
   DCHECK(pref_service);
 
+  // If the account storage can't be enabled (e.g. because the feature flag was
+  // turned off), then don't consider the user opted in, even if the pref is
+  // set.
+  // Note: IsUserEligibleForAccountStorage() is not appropriate here, because
+  // a) Sync-the-feature users are not considered eligible, but might have
+  //    opted in before turning on Sync, and
+  // b) eligibility requires IsEngineInitialized() (i.e. will be false for a
+  //    few seconds after browser startup).
   if (!CanAccountStorageBeEnabled(sync_service))
     return false;
 
+  // The opt-in is per account, so if there's no account then there's no opt-in.
   std::string gaia_id = sync_service->GetAuthenticatedAccountInfo().gaia;
   if (gaia_id.empty())
     return false;
@@ -463,7 +474,8 @@ bool ShouldShowAccountStorageOptIn(const PrefService* pref_service,
 
   // Show the opt-in if the user is eligible, but not yet opted in.
   return IsUserEligibleForAccountStorage(sync_service) &&
-         !IsOptedInForAccountStorage(pref_service, sync_service);
+         !IsOptedInForAccountStorage(pref_service, sync_service) &&
+         !sync_service->IsSyncFeatureEnabled();
 }
 
 void SetAccountStorageOptIn(PrefService* pref_service,
@@ -481,6 +493,13 @@ void SetAccountStorageOptIn(PrefService* pref_service,
     return;
   }
   ScopedAccountStorageSettingsUpdate(pref_service, gaia_id).SetOptedIn(opt_in);
+}
+
+bool ShouldShowPasswordStorePicker(const PrefService* pref_service,
+                                   const syncer::SyncService* sync_service) {
+  return !sync_service->IsSyncFeatureEnabled() &&
+         (IsOptedInForAccountStorage(pref_service, sync_service) ||
+          IsUserEligibleForAccountStorage(sync_service));
 }
 
 PasswordForm::Store GetDefaultPasswordStore(
@@ -521,13 +540,12 @@ void SetDefaultPasswordStore(PrefService* pref_service,
   }
   ScopedAccountStorageSettingsUpdate(pref_service, gaia_id)
       .SetDefaultStore(default_store);
-  if (gaia_id.empty()) {
-    // Maybe the account went away since the UI was shown. This should be rare,
-    // but is ultimately harmless - just do nothing here.
-    return;
-  }
-  ScopedAccountStorageSettingsUpdate(pref_service, gaia_id)
-      .SetDefaultStore(default_store);
+}
+
+void ClearAccountStorageSettingsForAllUsers(PrefService* pref_service) {
+  DCHECK(pref_service);
+  pref_service->ClearPref(
+      password_manager::prefs::kAccountStoragePerAccountSettings);
 }
 
 }  // namespace password_manager_util

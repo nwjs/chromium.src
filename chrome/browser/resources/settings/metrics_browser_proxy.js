@@ -4,6 +4,10 @@
 
 /** @fileoverview Handles metrics for the settings pages. */
 
+// clang-format off
+// #import {addSingletonGetter} from 'chrome://resources/js/cr.m.js';
+// clang-format on
+
 cr.define('settings', function() {
   /**
    * Contains all possible recorded interactions across privacy settings pages.
@@ -11,60 +15,64 @@ cr.define('settings', function() {
    * These values are persisted to logs. Entries should not be renumbered and
    * numeric values should never be reused.
    *
-   * Must be kept in sync with enum of the same name in
+   * Must be kept in sync with the SettingsPrivacyElementInteractions enum in
    * histograms/enums.xml
    * @enum {number}
    */
-  const SettingsPageInteractions = {
-    PRIVACY_SYNC_AND_GOOGLE_SERVICES: 0,
-    PRIVACY_CHROME_SIGN_IN: 1,
-    PRIVACY_DO_NOT_TRACK: 2,
-    PRIVACY_PAYMENT_METHOD: 3,
-    PRIVACY_NETWORK_PREDICTION: 4,
-    PRIVACY_MANAGE_CERTIFICATES: 5,
-    PRIVACY_SECURITY_KEYS: 6,
-    PRIVACY_SITE_SETTINGS: 7,
-    PRIVACY_CLEAR_BROWSING_DATA: 8,
-    PRIVACY_SAFE_BROWSING: 9,
-    PRIVACY_PASSWORD_CHECK: 10,
-    PRIVACY_IMPROVE_SECURITY: 11,
-    PRIVACY_SITE_SETTINGS_COOKIES: 12,
-    PRIVACY_SITE_SETTINGS_LOCATION: 13,
-    PRIVACY_SITE_SETTINGS_CAMERA: 14,
-    PRIVACY_SITE_SETTINGS_MICROPHONE: 15,
-    PRIVACY_SITE_SETTINGS_SENSORS: 16,
-    PRIVACY_SITE_SETTINGS_NOTIFICATIONS: 17,
-    PRIVACY_SITE_SETTINGS_JAVASCRIPT: 18,
-    PRIVACY_SITE_SETTINGS_FLASH: 19,
-    PRIVACY_SITE_SETTINGS_IMAGES: 20,
-    PRIVACY_SITE_SETTINGS_POPUPS: 21,
-    PRIVACY_SITE_SETTINGS_ADS: 22,
-    PRIVACY_SITE_SETTINGS_BACKGROUND_SYNC: 23,
-    PRIVACY_SITE_SETTINGS_SOUND: 24,
-    PRIVACY_SITE_SETTINGS_AUTOMATIC_DOWNLOADS: 25,
-    PRIVACY_SITE_SETTINGS_UNSANDBOXED_PLUGINS: 26,
-    PRIVACY_SITE_SETTINGS_HANDLERS: 27,
-    PRIVACY_SITE_SETTINGS_MIDI_DEVICES: 28,
-    PRIVACY_SITE_SETTINGS_ZOOM_LEVELS: 29,
-    PRIVACY_SITE_SETTINGS_USB_DEVICES: 30,
-    PRIVACY_SITE_SETTINGS_SERIAL_PORTS: 31,
-    PRIVACY_SITE_SETTINGS_NATIVE_FILE_SYSTEM_WRITE: 32,
-    PRIVACY_SITE_SETTINGS_PDF_DOCUMENTS: 33,
-    PRIVACY_SITE_SETTINGS_PROTECTED_CONTENT: 34,
-    PRIVACY_SITE_SETTINGS_CLIPBOARD: 35,
-    PRIVACY_SITE_SETTINGS_PAYMENT_HANDLER: 36,
-    PRIVACY_SITE_SETTINGS_MIXEDSCRIPT: 37,
-    PRIVACY_SITE_SETTINGS_BLUETOOTH_SCANNING: 38,
+  /* #export */ const PrivacyElementInteractions = {
+    SYNC_AND_GOOGLE_SERVICES: 0,
+    CHROME_SIGN_IN: 1,
+    DO_NOT_TRACK: 2,
+    PAYMENT_METHOD: 3,
+    NETWORK_PREDICTION: 4,
+    MANAGE_CERTIFICATES: 5,
+    SAFE_BROWSING: 6,
+    PASSWORD_CHECK: 7,
+    IMPROVE_SECURITY: 8,
     // Leave this at the end.
-    SETTINGS_MAX_VALUE: 38,
+    MAX_VALUE: 8,
+  };
+
+  /**
+   * Contains all safety check interactions.
+   *
+   * These values are persisted to logs. Entries should not be renumbered and
+   * numeric values should never be reused.
+   *
+   * Must be kept in sync with the SafetyCheckElementInteractions enum in
+   * histograms/enums.xml
+   * @enum {number}
+   */
+  /* #export */ const SafetyCheckElementInteractions = {
+    SAFETY_CHECK_STARTED: 0,
+    SAFETY_CHECK_UPDATES_RELAUNCH: 1,
+    SAFETY_CHECK_PASSWORDS_MANAGE: 2,
+    SAFETY_CHECK_SAFE_BROWSING_MANAGE: 3,
+    SAFETY_CHECK_EXTENSIONS_REVIEW: 4,
+    // Leave this at the end.
+    COUNT: 5,
   };
 
   /** @interface */
-  class MetricsBrowserProxy {
+  /* #export */ class MetricsBrowserProxy {
+    /**
+     * Helper function that calls recordAction with one action from
+     * tools/metrics/actions/actions.xml.
+     * @param {!string} action One action to be recorded.
+     */
+    recordAction(action) {}
+
     /**
      * Helper function that calls recordHistogram for the
-     * SettingsPage.SettingsPageInteractions histogram
-     * @param {!settings.SettingsPageInteractions} interaction
+     * SettingsPage.SafetyCheckElementInteractions histogram
+     * @param {!settings.SafetyCheckElementInteractions} interaction
+     */
+    recordSafetyCheckPageHistogram(interaction) {}
+
+    /**
+     * Helper function that calls recordHistogram for the
+     * SettingsPage.PrivacyElementInteractions histogram
+     * @param {!settings.PrivacyElementInteractions} interaction
      */
     recordSettingsPageHistogram(interaction) {}
   }
@@ -72,12 +80,25 @@ cr.define('settings', function() {
   /**
    * @implements {settings.MetricsBrowserProxy}
    */
-  class MetricsBrowserProxyImpl {
+  /* #export */ class MetricsBrowserProxyImpl {
+    /** @override */
+    recordAction(action) {
+      chrome.send('metricsHandler:recordAction', [action]);
+    }
+
+    /** @override*/
+    recordSafetyCheckPageHistogram(interaction) {
+      chrome.send('metricsHandler:recordInHistogram', [
+        'SettingsPage.SafetyCheckElementInteractions', interaction,
+        settings.SafetyCheckElementInteractions.COUNT
+      ]);
+    }
+
     /** @override*/
     recordSettingsPageHistogram(interaction) {
       chrome.send('metricsHandler:recordInHistogram', [
-        'SettingsPage.SettingsPageInteractions', interaction,
-        settings.SettingsPageInteractions.SETTINGS_MAX_VALUE
+        'SettingsPage.PrivacyElementInteractions', interaction,
+        settings.PrivacyElementInteractions.MAX_VALUE
       ]);
     }
   }
@@ -88,6 +109,7 @@ cr.define('settings', function() {
   return {
     MetricsBrowserProxy,
     MetricsBrowserProxyImpl,
-    SettingsPageInteractions
+    PrivacyElementInteractions,
+    SafetyCheckElementInteractions,
   };
 });

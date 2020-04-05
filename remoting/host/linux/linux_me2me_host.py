@@ -425,6 +425,11 @@ class Desktop:
   def _init_child_env(self):
     self.child_env = dict(os.environ)
 
+    # Force GDK to use the X11 backend, as otherwise parts of the host that use
+    # GTK can end up connecting to an active Wayland display instead of the
+    # CRD X11 session.
+    self.child_env["GDK_BACKEND"] = "x11"
+
     # Ensure that the software-rendering GL drivers are loaded by the desktop
     # session, instead of any hardware GL drivers installed on the system.
     library_path = (
@@ -608,8 +613,19 @@ class Desktop:
     # Use a separate profile for any instances of Chrome that are started in
     # the virtual session. Chrome doesn't support sharing a profile between
     # multiple DISPLAYs, but Chrome Sync allows for a reasonable compromise.
+    #
+    # M61 introduced CHROME_CONFIG_HOME, which allows specifying a different
+    # config base path while still using different user data directories for
+    # different channels (Stable, Beta, Dev). For existing users who only have
+    # chrome-profile, continue using CHROME_USER_DATA_DIR so they don't have to
+    # set up their profile again.
     chrome_profile = os.path.join(CONFIG_DIR, "chrome-profile")
-    self.child_env["CHROME_USER_DATA_DIR"] = chrome_profile
+    chrome_config_home = os.path.join(CONFIG_DIR, "chrome-config")
+    if (os.path.exists(chrome_profile)
+        and not os.path.exists(chrome_config_home)):
+      self.child_env["CHROME_USER_DATA_DIR"] = chrome_profile
+    else:
+      self.child_env["CHROME_CONFIG_HOME"] = chrome_config_home
 
     # Set SSH_AUTH_SOCK to the file name to listen on.
     if self.ssh_auth_sockname:
@@ -1702,7 +1718,7 @@ Web Store: https://chrome.google.com/remotedesktop"""
       desktop.host_ready = False
 
       # These exit-codes must match the ones used by the host.
-      # See remoting/host/host_error_codes.h.
+      # See remoting/host/host_exit_codes.h.
       # Delete the host or auth configuration depending on the returned error
       # code, so the next time this script is run, a new configuration
       # will be created and registered.

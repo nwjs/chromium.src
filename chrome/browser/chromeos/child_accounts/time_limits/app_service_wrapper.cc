@@ -4,8 +4,12 @@
 
 #include "chrome/browser/chromeos/child_accounts/time_limits/app_service_wrapper.h"
 
+#include <map>
+#include <set>
 #include <string>
 
+#include "base/bind.h"
+#include "base/callback.h"
 #include "base/optional.h"
 #include "chrome/browser/apps/app_service/app_service_proxy.h"
 #include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
@@ -16,6 +20,7 @@
 #include "chrome/services/app_service/public/cpp/instance_update.h"
 #include "chrome/services/app_service/public/mojom/types.mojom.h"
 #include "extensions/common/constants.h"
+#include "ui/gfx/image/image_skia.h"
 
 namespace chromeos {
 namespace app_time {
@@ -40,12 +45,13 @@ AppId AppIdFromAppUpdate(const apps::AppUpdate& update) {
 // Gets AppId from |update|.
 AppId AppIdFromInstanceUpdate(const apps::InstanceUpdate& update,
                               apps::AppRegistryCache* app_cache) {
-  base::Optional<AppId> app_id;
+  AppId app_id(apps::mojom::AppType::kUnknown, update.AppId());
+
   app_cache->ForOneApp(update.AppId(),
                        [&app_id](const apps::AppUpdate& update) {
                          app_id = AppIdFromAppUpdate(update);
                        });
-  return app_id.value();
+  return app_id;
 }
 
 // Gets app service id from |app_id|.
@@ -53,6 +59,14 @@ std::string AppServiceIdFromAppId(const AppId& app_id, Profile* profile) {
   return app_id.app_type() == apps::mojom::AppType::kArc
              ? arc::ArcPackageNameToAppId(app_id.app_id(), profile)
              : app_id.app_id();
+}
+
+apps::PauseData PauseAppInfoToPauseData(const PauseAppInfo& pause_info) {
+  apps::PauseData details;
+  details.should_show_pause_dialog = pause_info.show_pause_dialog;
+  details.hours = pause_info.daily_limit.InHours();
+  details.minutes = pause_info.daily_limit.InMinutes() % 60;
+  return details;
 }
 
 }  // namespace
@@ -63,6 +77,26 @@ AppServiceWrapper::AppServiceWrapper(Profile* profile) : profile_(profile) {
 }
 
 AppServiceWrapper::~AppServiceWrapper() = default;
+
+void AppServiceWrapper::PauseApp(const PauseAppInfo& pause_app) {
+  const std::map<std::string, apps::PauseData> apps{
+      {GetAppServiceId(pause_app.app_id), PauseAppInfoToPauseData(pause_app)}};
+  GetAppProxy()->PauseApps(apps);
+}
+
+void AppServiceWrapper::PauseApps(
+    const std::vector<PauseAppInfo>& paused_apps) {
+  std::map<std::string, apps::PauseData> apps;
+  for (const auto& entry : paused_apps) {
+    apps[GetAppServiceId(entry.app_id)] = PauseAppInfoToPauseData(entry);
+  }
+  GetAppProxy()->PauseApps(apps);
+}
+
+void AppServiceWrapper::ResumeApp(const AppId& app_id) {
+  const std::set<std::string> apps{GetAppServiceId(app_id)};
+  GetAppProxy()->UnpauseApps(apps);
+}
 
 std::vector<AppId> AppServiceWrapper::GetInstalledApps() const {
   std::vector<AppId> installed_apps;
@@ -90,8 +124,47 @@ std::string AppServiceWrapper::GetAppName(const AppId& app_id) const {
   return app_name;
 }
 
+void AppServiceWrapper::GetAppIcon(
+    const AppId& app_id,
+    int size_hint_in_dp,
+    base::OnceCallback<void(base::Optional<gfx::ImageSkia>)> on_icon_ready)
+    const {
+  apps::AppServiceProxy* proxy =
+      apps::AppServiceProxyFactory::GetForProfile(profile_);
+  DCHECK(proxy);
+
+  proxy->LoadIcon(
+      app_id.app_type(), app_id.app_id(),
+      apps::mojom::IconCompression::kUncompressed, size_hint_in_dp,
+      /* allow_placeholder_icon */ false,
+      base::BindOnce(
+          [](base::OnceCallback<void(base::Optional<gfx::ImageSkia>)> callback,
+             apps::mojom::IconValuePtr icon_value) {
+            if (!icon_value ||
+                icon_value->icon_compression !=
+                    apps::mojom::IconCompression::kUncompressed) {
+              std::move(callback).Run(base::nullopt);
+            } else {
+              std::move(callback).Run(icon_value->uncompressed);
+            }
+          },
+          std::move(on_icon_ready)));
+}
+
 std::string AppServiceWrapper::GetAppServiceId(const AppId& app_id) const {
   return AppServiceIdFromAppId(app_id, profile_);
+}
+
+AppId AppServiceWrapper::AppIdFromAppServiceId(
+    const std::string& app_service_id,
+    apps::mojom::AppType app_type) const {
+  base::Optional<AppId> app_id;
+  GetAppCache().ForOneApp(app_service_id,
+                          [&app_id](const apps::AppUpdate& update) {
+                            app_id = AppIdFromAppUpdate(update);
+                          });
+  DCHECK(app_id);
+  return *app_id;
 }
 
 void AppServiceWrapper::AddObserver(EventListener* listener) {
@@ -153,11 +226,17 @@ void AppServiceWrapper::OnInstanceUpdate(const apps::InstanceUpdate& update) {
     return;
 
   bool is_active = update.State() & apps::InstanceState::kActive;
+  bool is_destroyed = update.State() & apps::InstanceState::kDestroyed;
   for (auto& listener : listeners_) {
     if (is_active) {
       listener.OnAppActive(app_id, update.Window(), update.LastUpdatedTime());
     } else {
       listener.OnAppInactive(app_id, update.Window(), update.LastUpdatedTime());
+    }
+
+    if (is_destroyed) {
+      listener.OnAppDestroyed(app_id, update.Window(),
+                              update.LastUpdatedTime());
     }
   }
 }
@@ -165,6 +244,13 @@ void AppServiceWrapper::OnInstanceUpdate(const apps::InstanceUpdate& update) {
 void AppServiceWrapper::OnInstanceRegistryWillBeDestroyed(
     apps::InstanceRegistry* cache) {
   apps::InstanceRegistry::Observer::Observe(nullptr);
+}
+
+apps::AppServiceProxy* AppServiceWrapper::GetAppProxy() {
+  apps::AppServiceProxy* proxy =
+      apps::AppServiceProxyFactory::GetForProfile(profile_);
+  DCHECK(proxy);
+  return proxy;
 }
 
 apps::AppRegistryCache& AppServiceWrapper::GetAppCache() const {

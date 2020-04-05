@@ -20,6 +20,10 @@ constexpr int kMinValidID = 1;
 // Minimum valid value of a declarative rule priority.
 constexpr int kMinValidPriority = 1;
 
+constexpr int kMinValidStaticRulesetID = 1;
+constexpr int kDynamicRulesetID = 0;
+constexpr int kInvalidRulesetID = -1;
+
 // Default priority used for rules when the priority is not explicity provided
 // by an extension.
 constexpr int kDefaultPriority = 1;
@@ -66,6 +70,8 @@ extern const char kQueryKeyKey[];
 extern const char kQueryValueKey[];
 extern const char kRegexSubstitutionKey[];
 extern const char kRegexSubstitutionPath[];
+extern const char kRequestHeadersPath[];
+extern const char kResponseHeadersPath[];
 
 }  // namespace declarative_net_request
 }  // namespace extensions

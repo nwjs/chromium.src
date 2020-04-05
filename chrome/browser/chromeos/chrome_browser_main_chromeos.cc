@@ -29,6 +29,7 @@
 #include "base/system/sys_info.h"
 #include "base/task/post_task.h"
 #include "base/task/task_traits.h"
+#include "base/task/thread_pool.h"
 #include "base/task/thread_pool/thread_pool_instance.h"
 #include "build/branding_buildflags.h"
 #include "chrome/browser/browser_process.h"
@@ -57,6 +58,7 @@
 #include "chrome/browser/chromeos/dbus/machine_learning_decision_service_provider.h"
 #include "chrome/browser/chromeos/dbus/metrics_event_service_provider.h"
 #include "chrome/browser/chromeos/dbus/plugin_vm_service_provider.h"
+#include "chrome/browser/chromeos/dbus/printers_service_provider.h"
 #include "chrome/browser/chromeos/dbus/proxy_resolution_service_provider.h"
 #include "chrome/browser/chromeos/dbus/screen_lock_service_provider.h"
 #include "chrome/browser/chromeos/dbus/smb_fs_service_provider.h"
@@ -83,6 +85,7 @@
 #include "chrome/browser/chromeos/login/startup_utils.h"
 #include "chrome/browser/chromeos/login/users/chrome_user_manager.h"
 #include "chrome/browser/chromeos/login/wizard_controller.h"
+#include "chrome/browser/chromeos/net/network_health.h"
 #include "chrome/browser/chromeos/net/network_portal_detector_impl.h"
 #include "chrome/browser/chromeos/net/network_pref_state_observer.h"
 #include "chrome/browser/chromeos/net/network_throttling_observer.h"
@@ -106,7 +109,6 @@
 #include "chrome/browser/chromeos/profiles/profile_helper.h"
 #include "chrome/browser/chromeos/resource_reporter/resource_reporter.h"
 #include "chrome/browser/chromeos/scheduler_configuration_manager.h"
-#include "chrome/browser/chromeos/settings/device_oauth2_token_service_factory.h"
 #include "chrome/browser/chromeos/settings/device_settings_service.h"
 #include "chrome/browser/chromeos/settings/shutdown_policy_forwarder.h"
 #include "chrome/browser/chromeos/startup_settings_cache.h"
@@ -119,6 +121,7 @@
 #include "chrome/browser/chromeos/wilco_dtc_supportd/wilco_dtc_supportd_manager.h"
 #include "chrome/browser/component_updater/cros_component_installer_chromeos.h"
 #include "chrome/browser/defaults.h"
+#include "chrome/browser/device_identity/device_oauth2_token_service_factory.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/net/chrome_network_delegate.h"
 #include "chrome/browser/net/system_network_context_manager.h"
@@ -129,7 +132,6 @@
 #include "chrome/browser/ui/ash/assistant/assistant_state_client.h"
 #include "chrome/browser/ui/ash/keyboard/chrome_keyboard_controller_client.h"
 #include "chrome/browser/ui/webui/chromeos/login/discover/discover_manager.h"
-#include "chrome/browser/upgrade_detector/upgrade_detector_chromeos.h"
 #include "chrome/common/channel_info.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_features.h"
@@ -305,6 +307,12 @@ class DBusServices {
         CrosDBusService::CreateServiceProviderList(
             std::make_unique<ChromeFeaturesServiceProvider>()));
 
+    printers_service_ = CrosDBusService::Create(
+        system_bus, kPrintersServiceName,
+        dbus::ObjectPath(kPrintersServicePath),
+        CrosDBusService::CreateServiceProviderList(
+            std::make_unique<PrintersServiceProvider>()));
+
     vm_applications_service_ = CrosDBusService::Create(
         system_bus, vm_tools::apps::kVmApplicationsServiceName,
         dbus::ObjectPath(vm_tools::apps::kVmApplicationsServicePath),
@@ -356,10 +364,6 @@ class DBusServices {
 
     NetworkHandler::Initialize();
 
-    // Likewise, initialize the upgrade detector for Chrome OS. The upgrade
-    // detector starts to monitor changes from the update engine.
-    UpgradeDetectorChromeos::GetInstance()->Init();
-
     DeviceSettingsService::Get()->SetSessionManager(
         SessionManagerClient::Get(),
         OwnerSettingsServiceChromeOSFactory::GetInstance()->GetOwnerKeyUtil());
@@ -389,6 +393,7 @@ class DBusServices {
     kiosk_info_service_.reset();
     metrics_event_service_.reset();
     plugin_vm_service_.reset();
+    printers_service_.reset();
     virtual_file_request_service_.reset();
     component_updater_service_.reset();
     chrome_features_service_.reset();
@@ -412,6 +417,7 @@ class DBusServices {
   std::unique_ptr<CrosDBusService> kiosk_info_service_;
   std::unique_ptr<CrosDBusService> metrics_event_service_;
   std::unique_ptr<CrosDBusService> plugin_vm_service_;
+  std::unique_ptr<CrosDBusService> printers_service_;
   std::unique_ptr<CrosDBusService> screen_lock_service_;
   std::unique_ptr<CrosDBusService> virtual_file_request_service_;
   std::unique_ptr<CrosDBusService> component_updater_service_;
@@ -673,9 +679,8 @@ void ChromeBrowserMainPartsChromeos::PreProfileInit() {
   // after AssistantStateClient.
   assistant_client_ = std::make_unique<AssistantClientImpl>();
 
-  base::PostTaskAndReplyWithResult(
-      FROM_HERE,
-      {base::ThreadPool(), base::MayBlock(), base::TaskPriority::BEST_EFFORT},
+  base::ThreadPool::PostTaskAndReplyWithResult(
+      FROM_HERE, {base::MayBlock(), base::TaskPriority::BEST_EFFORT},
       base::BindOnce(&version_loader::GetVersion, version_loader::VERSION_FULL),
       base::BindOnce(&ChromeOSVersionCallback));
 
@@ -860,6 +865,9 @@ void ChromeBrowserMainPartsChromeos::PostProfileInit() {
   // Initialize an observer to update NetworkHandler's pref based services.
   network_pref_state_observer_ = std::make_unique<NetworkPrefStateObserver>();
 
+  // Initialize the NetworkHealth aggregator.
+  network_health_ = std::make_unique<NetworkHealth>();
+
   // Initialize input methods.
   input_method::InputMethodManager* manager =
       input_method::InputMethodManager::Get();
@@ -1023,11 +1031,6 @@ void ChromeBrowserMainPartsChromeos::PostMainMessageLoopRun() {
   if (pre_profile_init_called_)
     KioskModeIdleAppNameNotification::Shutdown();
 
-  // Shutdown the upgrade detector for Chrome OS. The upgrade detector
-  // stops monitoring changes from the update engine.
-  if (UpgradeDetectorChromeos::GetInstance())
-    UpgradeDetectorChromeos::GetInstance()->Shutdown();
-
   // Tell DeviceSettingsService to stop talking to session_manager. Do not
   // shutdown DeviceSettingsService yet, it might still be accessed by
   // BrowserPolicyConnector (owned by g_browser_process).
@@ -1040,6 +1043,7 @@ void ChromeBrowserMainPartsChromeos::PostMainMessageLoopRun() {
   // We should remove observers attached to D-Bus clients before
   // DBusThreadManager is shut down.
   network_pref_state_observer_.reset();
+  network_health_.reset();
   power_metrics_reporter_.reset();
   renderer_freezer_.reset();
   wake_on_wifi_manager_.reset();

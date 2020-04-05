@@ -49,7 +49,7 @@
 #include "third_party/blink/public/platform/web_url_request.h"
 #include "third_party/blink/public/web/web_associated_url_loader_client.h"
 #include "third_party/blink/renderer/core/dom/document.h"
-#include "third_party/blink/renderer/core/execution_context/context_lifecycle_observer.h"
+#include "third_party/blink/renderer/core/execution_context/execution_context_lifecycle_observer.h"
 #include "third_party/blink/renderer/core/loader/threadable_loader.h"
 #include "third_party/blink/renderer/core/loader/threadable_loader_client.h"
 #include "third_party/blink/renderer/platform/exported/wrapped_resource_request.h"
@@ -316,25 +316,31 @@ void WebAssociatedURLLoaderImpl::ClientAdapter::NotifyError(TimerBase* timer) {
 
 class WebAssociatedURLLoaderImpl::Observer final
     : public GarbageCollected<Observer>,
-      public ContextLifecycleObserver {
+      public ExecutionContextLifecycleObserver {
   USING_GARBAGE_COLLECTED_MIXIN(Observer);
 
  public:
   Observer(WebAssociatedURLLoaderImpl* parent, Document* document)
-      : ContextLifecycleObserver(document), parent_(parent) {}
+      : ExecutionContextLifecycleObserver(document), parent_(parent) {}
 
   void Dispose() {
     parent_ = nullptr;
-    ClearContext();
+    // TODO(keishi): Remove IsIteratingOverObservers() check when
+    // HeapObserverList() supports removal while iterating.
+    if (!GetExecutionContext()
+             ->ContextLifecycleObserverList()
+             .IsIteratingOverObservers()) {
+      SetExecutionContext(nullptr);
+    }
   }
 
-  void ContextDestroyed(ExecutionContext*) override {
+  void ContextDestroyed() override {
     if (parent_)
       parent_->DocumentDestroyed();
   }
 
-  void Trace(blink::Visitor* visitor) override {
-    ContextLifecycleObserver::Trace(visitor);
+  void Trace(Visitor* visitor) override {
+    ExecutionContextLifecycleObserver::Trace(visitor);
   }
 
   WebAssociatedURLLoaderImpl* parent_;
@@ -393,7 +399,7 @@ void WebAssociatedURLLoaderImpl::LoadAsynchronously(
   // ClientAdapterDone gets called between creating the loader and
   // calling LoadAsynchronously.
   if (observer_) {
-    task_runner = To<Document>(observer_->LifecycleContext())
+    task_runner = Document::From(observer_->GetExecutionContext())
                       ->GetTaskRunner(TaskType::kInternalLoading);
   } else {
     task_runner = Thread::Current()->GetTaskRunner();
@@ -438,9 +444,10 @@ void WebAssociatedURLLoaderImpl::LoadAsynchronously(
     }
 
     if (observer_) {
-      Document& document = To<Document>(*observer_->LifecycleContext());
+      Document& document = Document::From(*observer_->GetExecutionContext());
       loader_ = MakeGarbageCollected<ThreadableLoader>(
-          document, client_adapter_, resource_loader_options);
+          *document.ToExecutionContext(), client_adapter_,
+          resource_loader_options);
       loader_->Start(webcore_request);
     }
   }

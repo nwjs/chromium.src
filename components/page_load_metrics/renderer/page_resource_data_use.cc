@@ -8,7 +8,7 @@
 #include "components/data_reduction_proxy/core/common/data_reduction_proxy_headers.h"
 #include "services/network/public/cpp/url_loader_completion_status.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
-#include "third_party/blink/public/platform/web_url.h"
+#include "third_party/blink/public/common/loader/resource_type_util.h"
 #include "url/gurl.h"
 
 namespace page_load_metrics {
@@ -16,17 +16,18 @@ namespace page_load_metrics {
 namespace {
 
 // Returns true when the image is a placeholder for lazy load.
-bool IsPartialImageRequest(content::ResourceType resource_type,
-                           content::PreviewsState previews_state) {
-  if (resource_type != content::ResourceType::kImage)
+bool IsPartialImageRequest(
+    network::mojom::RequestDestination request_destination,
+    content::PreviewsState previews_state) {
+  if (request_destination != network::mojom::RequestDestination::kImage)
     return false;
   return previews_state & content::PreviewsTypes::LAZY_IMAGE_LOAD_DEFERRED;
 }
 
 // Returns true if this resource was previously fetched as a placeholder.
-bool IsImageAutoReload(content::ResourceType resource_type,
+bool IsImageAutoReload(network::mojom::RequestDestination request_destination,
                        content::PreviewsState previews_state) {
-  if (resource_type != content::ResourceType::kImage)
+  if (request_destination != network::mojom::RequestDestination::kImage)
     return false;
   return previews_state & content::PreviewsTypes::LAZY_IMAGE_AUTO_RELOAD;
 }
@@ -90,14 +91,14 @@ void PageResourceDataUse::DidStartResponse(
     const GURL& response_url,
     int resource_id,
     const network::mojom::URLResponseHead& response_head,
-    content::ResourceType resource_type,
+    network::mojom::RequestDestination request_destination,
     content::PreviewsState previews_state) {
   resource_id_ = resource_id;
 
-  if (IsPartialImageRequest(resource_type, previews_state)) {
+  if (IsPartialImageRequest(request_destination, previews_state)) {
     data_reduction_proxy_compression_ratio_estimate_ =
         EstimatePartialImageRequestSavings(response_head);
-  } else if (IsImageAutoReload(resource_type, previews_state)) {
+  } else if (IsImageAutoReload(request_destination, previews_state)) {
     data_reduction_proxy_compression_ratio_estimate_ =
         EstimateAutoReloadImageRequestSavings(response_head);
   } else {
@@ -112,10 +113,8 @@ void PageResourceDataUse::DidStartResponse(
     cache_type_ = mojom::CacheType::kHttp;
   is_secure_scheme_ = response_url.SchemeIsCryptographic();
   is_primary_frame_resource_ =
-      resource_type == content::ResourceType::kMainFrame ||
-      resource_type == content::ResourceType::kSubFrame;
+      blink::IsRequestDestinationFrame(request_destination);
   origin_ = url::Origin::Create(response_url);
-  is_secure_scheme_ = GURL::SchemeIsCryptographic(origin_.scheme());
 }
 
 void PageResourceDataUse::DidReceiveTransferSizeUpdate(

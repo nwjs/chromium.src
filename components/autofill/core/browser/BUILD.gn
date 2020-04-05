@@ -205,7 +205,6 @@ jumbo_static_library("browser") {
     "randomized_encoder.h",
     "rationalization_util.cc",
     "rationalization_util.h",
-    "sms_client.h",
     "sync_utils.h",
     "ui/accessory_sheet_data.cc",
     "ui/accessory_sheet_data.h",
@@ -326,6 +325,7 @@ jumbo_static_library("browser") {
       "payments/credit_card_fido_authenticator.h",
       "payments/fido_authentication_strike_database.cc",
       "payments/fido_authentication_strike_database.h",
+      "payments/internal_authenticator.h",
     ]
   }
 
@@ -361,6 +361,7 @@ jumbo_static_library("browser") {
     "//components/strings",
     "//components/sync",
     "//components/variations/net",
+    "//components/variations/service:service",
     "//components/version_info",
     "//components/webdata/common",
     "//crypto",
@@ -418,8 +419,6 @@ jumbo_static_library("test_support") {
     "logging/stub_log_manager.h",
     "mock_autocomplete_history_manager.cc",
     "mock_autocomplete_history_manager.h",
-    "mock_sms_client.cc",
-    "mock_sms_client.h",
     "payments/test_authentication_requester.cc",
     "payments/test_authentication_requester.h",
     "payments/test_credit_card_save_manager.cc",
@@ -469,6 +468,8 @@ jumbo_static_library("test_support") {
     "webdata/autofill_sync_bridge_test_util.h",
     "webdata/mock_autofill_webdata_backend.cc",
     "webdata/mock_autofill_webdata_backend.h",
+    "webdata/mock_autofill_webdata_service.cc",
+    "webdata/mock_autofill_webdata_service.h",
   ]
 
   public_deps = [ ":browser" ]
@@ -505,6 +506,7 @@ jumbo_static_library("test_support") {
     sources += [
       "payments/test_credit_card_fido_authenticator.cc",
       "payments/test_credit_card_fido_authenticator.h",
+      "payments/test_internal_authenticator.h",
     ]
 
     deps += [ "//third_party/blink/public/common" ]
@@ -651,6 +653,7 @@ source_set("unit_tests") {
     "//base",
     "//base/test:test_support",
     "//components/autofill/core/common",
+    "//components/infobars/core:feature_flags",
     "//components/leveldb_proto",
     "//components/os_crypt",
     "//components/os_crypt:test_support",

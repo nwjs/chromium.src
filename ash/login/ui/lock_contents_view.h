@@ -74,6 +74,7 @@ class ASH_EXPORT LockContentsView
       public chromeos::PowerManagerClient::Observer {
  public:
   class AuthErrorBubble;
+  class UserState;
 
   // TestApi is used for tests to get internal implementation details.
   class ASH_EXPORT TestApi {
@@ -83,6 +84,7 @@ class ASH_EXPORT LockContentsView
 
     LoginBigUserView* primary_big_view() const;
     LoginBigUserView* opt_secondary_big_view() const;
+    AccountId focused_user() const;
     ScrollableUsersListView* users_list() const;
     LockScreenMediaControlsView* media_controls_view() const;
     views::View* note_action() const;
@@ -95,6 +97,13 @@ class ASH_EXPORT LockContentsView
     views::View* bottom_status_indicator() const;
     LoginExpandedPublicAccountView* expanded_view() const;
     views::View* main_view() const;
+    const std::vector<LockContentsView::UserState>& users() const;
+
+    // Finds and focuses User view specified by |account_id|. Returns nullptr if
+    // not found.
+    LoginBigUserView* FindUser(const AccountId& account_id);
+    bool RemoveUser(const AccountId& account_id);
+    bool IsOobeDialogVisible() const;
 
    private:
     LockContentsView* const view_;
@@ -133,8 +142,6 @@ class ASH_EXPORT LockContentsView
   void ShowAdbEnabled();
   void ShowSystemInfo();
   void ShowParentAccessDialog();
-  void RequestSecurityTokenPin(SecurityTokenPinRequest request);
-  void ClearSecurityTokenPinRequest();
 
   // views::View:
   void Layout() override;
@@ -218,7 +225,6 @@ class ASH_EXPORT LockContentsView
   void HideMediaControlsLayout();
   bool AreMediaControlsEnabled() const;
 
- private:
   class UserState {
    public:
     explicit UserState(const LoginUserInfo& user_info);
@@ -239,6 +245,7 @@ class ASH_EXPORT LockContentsView
     DISALLOW_COPY_AND_ASSIGN(UserState);
   };
 
+ private:
   class AutoLoginUserActivityHandler;
 
   using DisplayLayoutAction = base::RepeatingCallback<void(bool landscape)>;

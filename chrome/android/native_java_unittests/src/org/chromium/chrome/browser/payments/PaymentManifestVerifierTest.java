@@ -20,8 +20,9 @@ import org.chromium.components.payments.PaymentManifestDownloader;
 import org.chromium.components.payments.PaymentManifestParser;
 import org.chromium.components.payments.WebAppManifestSection;
 import org.chromium.content_public.browser.WebContents;
+import org.chromium.url.Origin;
+import org.chromium.url.URI;
 
-import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.HashSet;
 import java.util.Set;
@@ -30,6 +31,7 @@ import java.util.Set;
 public class PaymentManifestVerifierTest {
     private static final String ERROR_MESSAGE = "This is an error message.";
 
+    private final Origin mTestOrigin;
     private final URI mMethodName;
     private final ResolveInfo mAlicePay;
     private final ResolveInfo mBobPay;
@@ -51,6 +53,7 @@ public class PaymentManifestVerifierTest {
 
     @CalledByNative
     private PaymentManifestVerifierTest() throws URISyntaxException {
+        mTestOrigin = PaymentManifestDownloader.createOpaqueOriginForTest();
         mMethodName = new URI("https://example.com");
 
         mAlicePay = new ResolveInfo();
@@ -70,12 +73,15 @@ public class PaymentManifestVerifierTest {
             public void initialize(WebContents webContents) {}
 
             @Override
-            public void downloadPaymentMethodManifest(URI uri, ManifestDownloadCallback callback) {
-                callback.onPaymentMethodManifestDownloadSuccess("some content here");
+            public void downloadPaymentMethodManifest(
+                    Origin merchantOrigin, URI uri, ManifestDownloadCallback callback) {
+                callback.onPaymentMethodManifestDownloadSuccess(
+                        uri, mTestOrigin, "some content here");
             }
 
             @Override
-            public void downloadWebAppManifest(URI uri, ManifestDownloadCallback callback) {
+            public void downloadWebAppManifest(Origin paymentMethodManifestOrigin, URI uri,
+                    ManifestDownloadCallback callback) {
                 callback.onWebAppManifestDownloadSuccess("some content here");
             }
 
@@ -90,7 +96,8 @@ public class PaymentManifestVerifierTest {
 
         mParser = new PaymentManifestParser() {
             @Override
-            public void parsePaymentMethodManifest(String content, ManifestParseCallback callback) {
+            public void parsePaymentMethodManifest(
+                    URI paymentMethodManifestUrl, String content, ManifestParseCallback callback) {
                 try {
                     callback.onPaymentMethodManifestParseSuccess(
                             new URI[] {new URI("https://bobpay.com/app.json")}, new URI[0], false);
@@ -130,14 +137,15 @@ public class PaymentManifestVerifierTest {
 
     @CalledByNativeJavaTest
     public void testUnableToDownloadPaymentMethodManifest() {
-        PaymentManifestVerifier verifier = new PaymentManifestVerifier(mMethodName, mMatchingApps,
-                null /* supportedOrigins */, mWebDataService, new PaymentManifestDownloader() {
+        PaymentManifestVerifier verifier = new PaymentManifestVerifier(mTestOrigin, mMethodName,
+                mMatchingApps, null /* supportedOrigins */,
+                mWebDataService, new PaymentManifestDownloader() {
                     @Override
                     public void initialize(WebContents webContents) {}
 
                     @Override
                     public void downloadPaymentMethodManifest(
-                            URI uri, ManifestDownloadCallback callback) {
+                            Origin merchantOrigin, URI uri, ManifestDownloadCallback callback) {
                         callback.onManifestDownloadFailure(ERROR_MESSAGE);
                     }
 
@@ -153,19 +161,22 @@ public class PaymentManifestVerifierTest {
 
     @CalledByNativeJavaTest
     public void testUnableToDownloadWebAppManifest() {
-        PaymentManifestVerifier verifier = new PaymentManifestVerifier(mMethodName, mMatchingApps,
-                null /* supportedOrigins */, mWebDataService, new PaymentManifestDownloader() {
+        PaymentManifestVerifier verifier = new PaymentManifestVerifier(mTestOrigin, mMethodName,
+                mMatchingApps, null /* supportedOrigins */,
+                mWebDataService, new PaymentManifestDownloader() {
                     @Override
                     public void initialize(WebContents webContents) {}
 
                     @Override
                     public void downloadPaymentMethodManifest(
-                            URI uri, ManifestDownloadCallback callback) {
-                        callback.onPaymentMethodManifestDownloadSuccess("some content");
+                            Origin merchantOrigin, URI uri, ManifestDownloadCallback callback) {
+                        callback.onPaymentMethodManifestDownloadSuccess(
+                                uri, mTestOrigin, "some content");
                     }
 
                     @Override
-                    public void downloadWebAppManifest(URI uri, ManifestDownloadCallback callback) {
+                    public void downloadWebAppManifest(Origin paymentMethodManifestOrigin, URI uri,
+                            ManifestDownloadCallback callback) {
                         callback.onManifestDownloadFailure(ERROR_MESSAGE);
                     }
 
@@ -183,15 +194,15 @@ public class PaymentManifestVerifierTest {
 
     @CalledByNativeJavaTest
     public void testUnableToParsePaymentMethodManifest() {
-        PaymentManifestVerifier verifier =
-                new PaymentManifestVerifier(mMethodName, mMatchingApps, null /* supportedOrigins */,
-                        mWebDataService, mDownloader, new PaymentManifestParser() {
-                            @Override
-                            public void parsePaymentMethodManifest(
-                                    String content, ManifestParseCallback callback) {
-                                callback.onManifestParseFailure();
-                            }
-                        }, mPackageManagerDelegate, mCallback);
+        PaymentManifestVerifier verifier = new PaymentManifestVerifier(mTestOrigin, mMethodName,
+                mMatchingApps, null /* supportedOrigins */, mWebDataService,
+                mDownloader, new PaymentManifestParser() {
+                    @Override
+                    public void parsePaymentMethodManifest(URI paymentMethodManifestUrl,
+                            String content, ManifestParseCallback callback) {
+                        callback.onManifestParseFailure();
+                    }
+                }, mPackageManagerDelegate, mCallback);
 
         verifier.verify();
 
@@ -203,27 +214,27 @@ public class PaymentManifestVerifierTest {
 
     @CalledByNativeJavaTest
     public void testUnableToParseWebAppManifest() {
-        PaymentManifestVerifier verifier =
-                new PaymentManifestVerifier(mMethodName, mMatchingApps, null /* supportedOrigins */,
-                        mWebDataService, mDownloader, new PaymentManifestParser() {
-                            @Override
-                            public void parsePaymentMethodManifest(
-                                    String content, ManifestParseCallback callback) {
-                                try {
-                                    callback.onPaymentMethodManifestParseSuccess(
-                                            new URI[] {new URI("https://alicepay.com/app.json")},
-                                            new URI[0], false);
-                                } catch (URISyntaxException e) {
-                                    Assert.assertTrue(false);
-                                }
-                            }
+        PaymentManifestVerifier verifier = new PaymentManifestVerifier(mTestOrigin, mMethodName,
+                mMatchingApps, null /* supportedOrigins */, mWebDataService,
+                mDownloader, new PaymentManifestParser() {
+                    @Override
+                    public void parsePaymentMethodManifest(URI paymentMethodManifestUrl,
+                            String content, ManifestParseCallback callback) {
+                        try {
+                            callback.onPaymentMethodManifestParseSuccess(
+                                    new URI[] {new URI("https://alicepay.com/app.json")},
+                                    new URI[0], false);
+                        } catch (URISyntaxException e) {
+                            Assert.assertTrue(false);
+                        }
+                    }
 
-                            @Override
-                            public void parseWebAppManifest(
-                                    String content, ManifestParseCallback callback) {
-                                callback.onManifestParseFailure();
-                            }
-                        }, mPackageManagerDelegate, mCallback);
+                    @Override
+                    public void parseWebAppManifest(
+                            String content, ManifestParseCallback callback) {
+                        callback.onManifestParseFailure();
+                    }
+                }, mPackageManagerDelegate, mCallback);
 
         verifier.verify();
 
@@ -235,9 +246,9 @@ public class PaymentManifestVerifierTest {
 
     @CalledByNativeJavaTest
     public void testBobPayAllowed() {
-        PaymentManifestVerifier verifier =
-                new PaymentManifestVerifier(mMethodName, mMatchingApps, null /* supportedOrigins */,
-                        mWebDataService, mDownloader, mParser, mPackageManagerDelegate, mCallback);
+        PaymentManifestVerifier verifier = new PaymentManifestVerifier(mTestOrigin, mMethodName,
+                mMatchingApps, null /* supportedOrigins */, mWebDataService, mDownloader, mParser,
+                mPackageManagerDelegate, mCallback);
 
         verifier.verify();
 
@@ -260,7 +271,8 @@ public class PaymentManifestVerifierTest {
     public void testFirstOfTwoManifestsFailsToDownload() {
         CountingParser parser = new CountingParser() {
             @Override
-            public void parsePaymentMethodManifest(String content, ManifestParseCallback callback) {
+            public void parsePaymentMethodManifest(
+                    URI paymentMethodManifestUrl, String content, ManifestParseCallback callback) {
                 try {
                     callback.onPaymentMethodManifestParseSuccess(
                             new URI[] {new URI("https://alicepay.com/app.json"),
@@ -280,12 +292,14 @@ public class PaymentManifestVerifierTest {
 
         CountingDownloader downloader = new CountingDownloader() {
             @Override
-            public void downloadPaymentMethodManifest(URI uri, ManifestDownloadCallback callback) {
-                callback.onPaymentMethodManifestDownloadSuccess("some content");
+            public void downloadPaymentMethodManifest(
+                    Origin merchantOrigin, URI uri, ManifestDownloadCallback callback) {
+                callback.onPaymentMethodManifestDownloadSuccess(uri, mTestOrigin, "some content");
             }
 
             @Override
-            public void downloadWebAppManifest(URI uri, ManifestDownloadCallback callback) {
+            public void downloadWebAppManifest(Origin paymentMethodManifestOrigin, URI uri,
+                    ManifestDownloadCallback callback) {
                 if (mDownloadWebAppManifestCounter++ == 0) {
                     callback.onManifestDownloadFailure(ERROR_MESSAGE);
                 } else {
@@ -294,9 +308,9 @@ public class PaymentManifestVerifierTest {
             }
         };
 
-        PaymentManifestVerifier verifier =
-                new PaymentManifestVerifier(mMethodName, mMatchingApps, null /* supportedOrigins */,
-                        mWebDataService, downloader, parser, mPackageManagerDelegate, mCallback);
+        PaymentManifestVerifier verifier = new PaymentManifestVerifier(mTestOrigin, mMethodName,
+                mMatchingApps, null /* supportedOrigins */, mWebDataService, downloader, parser,
+                mPackageManagerDelegate, mCallback);
 
         verifier.verify();
 
@@ -313,7 +327,8 @@ public class PaymentManifestVerifierTest {
     public void testFirstOfTwoManifestsFailsToParse() {
         CountingParser parser = new CountingParser() {
             @Override
-            public void parsePaymentMethodManifest(String content, ManifestParseCallback callback) {
+            public void parsePaymentMethodManifest(
+                    URI paymentMethodManifestUrl, String content, ManifestParseCallback callback) {
                 try {
                     callback.onPaymentMethodManifestParseSuccess(
                             new URI[] {new URI("https://alicepay.com/app.json"),
@@ -336,20 +351,22 @@ public class PaymentManifestVerifierTest {
 
         CountingDownloader downloader = new CountingDownloader() {
             @Override
-            public void downloadPaymentMethodManifest(URI uri, ManifestDownloadCallback callback) {
-                callback.onPaymentMethodManifestDownloadSuccess("some content");
+            public void downloadPaymentMethodManifest(
+                    Origin merchantOrigin, URI uri, ManifestDownloadCallback callback) {
+                callback.onPaymentMethodManifestDownloadSuccess(uri, mTestOrigin, "some content");
             }
 
             @Override
-            public void downloadWebAppManifest(URI uri, ManifestDownloadCallback callback) {
+            public void downloadWebAppManifest(Origin paymentMethodManifestOrigin, URI uri,
+                    ManifestDownloadCallback callback) {
                 mDownloadWebAppManifestCounter++;
                 callback.onWebAppManifestDownloadSuccess("some content");
             }
         };
 
-        PaymentManifestVerifier verifier =
-                new PaymentManifestVerifier(mMethodName, mMatchingApps, null /* supportedOrigins */,
-                        mWebDataService, downloader, parser, mPackageManagerDelegate, mCallback);
+        PaymentManifestVerifier verifier = new PaymentManifestVerifier(mTestOrigin, mMethodName,
+                mMatchingApps, null /* supportedOrigins */, mWebDataService, downloader, parser,
+                mPackageManagerDelegate, mCallback);
 
         verifier.verify();
 

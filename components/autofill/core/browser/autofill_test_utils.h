@@ -135,6 +135,7 @@ CreditCard GetIncompleteCreditCard();
 // Returns a masked server card full of dummy info.
 CreditCard GetMaskedServerCard();
 CreditCard GetMaskedServerCardAmex();
+CreditCard GetMaskedServerCardWithNickname();
 
 // Returns a full server card full of dummy info.
 CreditCard GetFullServerCard();
@@ -274,6 +275,7 @@ void GenerateTestAutofillPopup(
 
 std::string ObfuscatedCardDigitsAsUTF8(const std::string& str);
 
+// Returns 2-digit month string, like "02", "10".
 std::string NextMonth();
 std::string LastYear();
 std::string NextYear();

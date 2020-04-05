@@ -33,6 +33,7 @@
 #include "third_party/blink/renderer/core/style_property_shorthand.h"
 #include "third_party/blink/renderer/platform/heap/heap.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
+#include "third_party/blink/renderer/platform/wtf/size_assertions.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 
 #ifndef NDEBUG
@@ -169,7 +170,8 @@ template CORE_EXPORT int ImmutableCSSPropertyValueSet::FindPropertyIndex(
 template CORE_EXPORT int ImmutableCSSPropertyValueSet::FindPropertyIndex(
     AtRuleDescriptorID) const;
 
-void ImmutableCSSPropertyValueSet::TraceAfterDispatch(blink::Visitor* visitor) {
+void ImmutableCSSPropertyValueSet::TraceAfterDispatch(
+    blink::Visitor* visitor) const {
   const Member<const CSSValue>* values = ValueArray();
   for (unsigned i = 0; i < array_size_; i++)
     visitor->Trace(values[i]);
@@ -245,7 +247,7 @@ template CORE_EXPORT const CSSValue* CSSPropertyValueSet::GetPropertyCSSValue<
 template CORE_EXPORT const CSSValue*
     CSSPropertyValueSet::GetPropertyCSSValue<AtomicString>(AtomicString) const;
 
-void CSSPropertyValueSet::Trace(blink::Visitor* visitor) {
+void CSSPropertyValueSet::Trace(Visitor* visitor) {
   if (is_mutable_)
     To<MutableCSSPropertyValueSet>(this)->TraceAfterDispatch(visitor);
   else
@@ -637,7 +639,8 @@ template CORE_EXPORT int MutableCSSPropertyValueSet::FindPropertyIndex(
 template CORE_EXPORT int MutableCSSPropertyValueSet::FindPropertyIndex(
     AtomicString) const;
 
-void MutableCSSPropertyValueSet::TraceAfterDispatch(blink::Visitor* visitor) {
+void MutableCSSPropertyValueSet::TraceAfterDispatch(
+    blink::Visitor* visitor) const {
   visitor->Trace(cssom_wrapper_);
   visitor->Trace(property_vector_);
   CSSPropertyValueSet::TraceAfterDispatch(visitor);
@@ -654,11 +657,9 @@ unsigned CSSPropertyValueSet::AverageSizeInBytes() {
 // See the function above if you need to update this.
 struct SameSizeAsCSSPropertyValueSet final
     : public GarbageCollected<SameSizeAsCSSPropertyValueSet> {
-  unsigned bitfield;
+  uint32_t bitfield;
 };
-static_assert(sizeof(CSSPropertyValueSet) ==
-                  sizeof(SameSizeAsCSSPropertyValueSet),
-              "CSSPropertyValueSet should stay small");
+ASSERT_SIZE(CSSPropertyValueSet, SameSizeAsCSSPropertyValueSet);
 
 #ifndef NDEBUG
 void CSSPropertyValueSet::ShowStyle() {
@@ -666,6 +667,6 @@ void CSSPropertyValueSet::ShowStyle() {
 }
 #endif
 
-void CSSLazyPropertyParser::Trace(blink::Visitor* visitor) {}
+void CSSLazyPropertyParser::Trace(Visitor* visitor) {}
 
 }  // namespace blink

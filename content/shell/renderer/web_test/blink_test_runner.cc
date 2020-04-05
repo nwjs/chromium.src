@@ -42,16 +42,15 @@
 #include "content/public/renderer/render_view_visitor.h"
 #include "content/public/test/web_test_support.h"
 #include "content/shell/common/shell_switches.h"
-#include "content/shell/common/web_test/blink_test_messages.h"
-#include "content/shell/common/web_test/web_test_messages.h"
 #include "content/shell/renderer/web_test/blink_test_helpers.h"
 #include "content/shell/renderer/web_test/web_test_render_thread_observer.h"
 #include "content/shell/test_runner/app_banner_service.h"
 #include "content/shell/test_runner/gamepad_controller.h"
 #include "content/shell/test_runner/pixel_dump.h"
-#include "content/shell/test_runner/web_test_interfaces.h"
-#include "content/shell/test_runner/web_test_runner.h"
+#include "content/shell/test_runner/test_interfaces.h"
+#include "content/shell/test_runner/test_runner.h"
 #include "content/shell/test_runner/web_widget_test_proxy.h"
+#include "ipc/ipc_sync_channel.h"
 #include "media/base/audio_capturer_source.h"
 #include "media/base/audio_parameters.h"
 #include "media/capture/video_capturer_source.h"
@@ -60,6 +59,7 @@
 #include "net/base/net_errors.h"
 #include "services/service_manager/public/cpp/binder_registry.h"
 #include "skia/ext/platform_canvas.h"
+#include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "third_party/blink/public/common/input/web_input_event.h"
 #include "third_party/blink/public/common/permissions/permission_utils.h"
 #include "third_party/blink/public/mojom/app_banner/app_banner.mojom.h"
@@ -182,11 +182,12 @@ void BlinkTestRunner::SetEditCommand(const std::string& name,
 }
 
 void BlinkTestRunner::PrintMessageToStderr(const std::string& message) {
-  GetWebTestClientRemote().PrintMessageToStderr(message);
+  GetBlinkTestClientRemote()->PrintMessageToStderr(message);
 }
 
 void BlinkTestRunner::PrintMessage(const std::string& message) {
-  Send(new BlinkTestHostMsg_PrintMessage(routing_id(), message));
+  if (!is_secondary_window_)
+    GetBlinkTestClientRemote()->PrintMessage(message);
 }
 
 void BlinkTestRunner::PostTask(base::OnceClosure task) {
@@ -201,11 +202,10 @@ void BlinkTestRunner::PostDelayedTask(base::OnceClosure task,
 WebString BlinkTestRunner::RegisterIsolatedFileSystem(
     const blink::WebVector<blink::WebString>& absolute_filenames) {
   std::vector<base::FilePath> files;
-  for (size_t i = 0; i < absolute_filenames.size(); ++i)
-    files.push_back(blink::WebStringToFilePath(absolute_filenames[i]));
+  for (auto& filename : absolute_filenames)
+    files.push_back(blink::WebStringToFilePath(filename));
   std::string filesystem_id;
-  Send(new WebTestHostMsg_RegisterIsolatedFileSystem(routing_id(), files,
-                                                     &filesystem_id));
+  GetWebTestClientRemote()->RegisterIsolatedFileSystem(files, &filesystem_id);
   return WebString::FromUTF8(filesystem_id);
 }
 
@@ -227,22 +227,6 @@ WebString BlinkTestRunner::GetAbsoluteWebStringFromUTF8Path(
   return blink::FilePathToWebString(path);
 }
 
-WebURL BlinkTestRunner::LocalFileToDataURL(const WebURL& file_url) {
-  base::FilePath local_path;
-  if (!net::FileURLToFilePath(file_url, &local_path))
-    return WebURL();
-
-  std::string contents;
-  Send(
-      new WebTestHostMsg_ReadFileToString(routing_id(), local_path, &contents));
-
-  std::string contents_base64;
-  base::Base64Encode(contents, &contents_base64);
-
-  const char data_url_prefix[] = "data:text/css:charset=utf-8;base64,";
-  return WebURL(GURL(data_url_prefix + contents_base64));
-}
-
 WebURL BlinkTestRunner::RewriteWebTestsURL(const std::string& utf8_url,
                                            bool is_wpt_mode) {
   return content::RewriteWebTestsURL(utf8_url, is_wpt_mode);
@@ -256,11 +240,11 @@ void BlinkTestRunner::ApplyPreferences() {
   WebPreferences prefs = render_view()->GetWebkitPreferences();
   ExportWebTestSpecificPreferences(prefs_, &prefs);
   render_view()->SetWebkitPreferences(prefs);
-  GetWebTestClientRemote().OverridePreferences(prefs);
+  GetBlinkTestClientRemote()->OverridePreferences(prefs);
 }
 
 void BlinkTestRunner::SetPopupBlockingEnabled(bool block_popups) {
-  GetWebTestClientRemote().SetPopupBlockingEnabled(block_popups);
+  GetBlinkTestClientRemote()->SetPopupBlockingEnabled(block_popups);
 }
 
 void BlinkTestRunner::UseUnfortunateSynchronousResizeMode(bool enable) {
@@ -288,37 +272,36 @@ void BlinkTestRunner::ResetAutoResizeMode() {
 }
 
 void BlinkTestRunner::NavigateSecondaryWindow(const GURL& url) {
-  GetWebTestClientRemote().NavigateSecondaryWindow(url);
+  GetBlinkTestClientRemote()->NavigateSecondaryWindow(url);
 }
 
 void BlinkTestRunner::InspectSecondaryWindow() {
-  Send(new WebTestHostMsg_InspectSecondaryWindow(routing_id()));
+  GetWebTestClientRemote()->InspectSecondaryWindow();
 }
 
 void BlinkTestRunner::ClearAllDatabases() {
-  Send(new WebTestHostMsg_ClearAllDatabases(routing_id()));
+  GetWebTestClientRemote()->ClearAllDatabases();
 }
 
 void BlinkTestRunner::SetDatabaseQuota(int quota) {
-  Send(new WebTestHostMsg_SetDatabaseQuota(routing_id(), quota));
+  GetWebTestClientRemote()->SetDatabaseQuota(quota);
 }
 
 void BlinkTestRunner::SimulateWebNotificationClick(
     const std::string& title,
     const base::Optional<int>& action_index,
     const base::Optional<base::string16>& reply) {
-  Send(new WebTestHostMsg_SimulateWebNotificationClick(routing_id(), title,
-                                                       action_index, reply));
+  GetWebTestClientRemote()->SimulateWebNotificationClick(
+      title, action_index.value_or(std::numeric_limits<int32_t>::min()), reply);
 }
 
 void BlinkTestRunner::SimulateWebNotificationClose(const std::string& title,
                                                    bool by_user) {
-  Send(new WebTestHostMsg_SimulateWebNotificationClose(routing_id(), title,
-                                                       by_user));
+  GetWebTestClientRemote()->SimulateWebNotificationClose(title, by_user);
 }
 
 void BlinkTestRunner::SimulateWebContentIndexDelete(const std::string& id) {
-  Send(new WebTestHostMsg_SimulateWebContentIndexDelete(routing_id(), id));
+  GetWebTestClientRemote()->SimulateWebContentIndexDelete(id);
 }
 
 void BlinkTestRunner::SetDeviceScaleFactor(float factor) {
@@ -357,19 +340,19 @@ void BlinkTestRunner::SetBluetoothFakeAdapter(const std::string& adapter_name,
 }
 
 void BlinkTestRunner::SetBluetoothManualChooser(bool enable) {
-  GetWebTestClientRemote().SetBluetoothManualChooser(enable);
+  GetBlinkTestClientRemote()->SetBluetoothManualChooser(enable);
 }
 
 void BlinkTestRunner::GetBluetoothManualChooserEvents(
     base::OnceCallback<void(const std::vector<std::string>&)> callback) {
   get_bluetooth_events_callbacks_.push_back(std::move(callback));
-  GetWebTestClientRemote().GetBluetoothManualChooserEvents();
+  GetBlinkTestClientRemote()->GetBluetoothManualChooserEvents();
 }
 
 void BlinkTestRunner::SendBluetoothManualChooserEvent(
     const std::string& event,
     const std::string& argument) {
-  GetWebTestClientRemote().SendBluetoothManualChooserEvent(event, argument);
+  GetBlinkTestClientRemote()->SendBluetoothManualChooserEvent(event, argument);
 }
 
 void BlinkTestRunner::SetFocus(blink::WebView* web_view, bool focus) {
@@ -379,7 +362,7 @@ void BlinkTestRunner::SetFocus(blink::WebView* web_view, bool focus) {
 }
 
 void BlinkTestRunner::SetBlockThirdPartyCookies(bool block) {
-  Send(new WebTestHostMsg_BlockThirdPartyCookies(routing_id(), block));
+  GetWebTestClientRemote()->BlockThirdPartyCookies(block);
 }
 
 std::string BlinkTestRunner::PathToLocalResource(const std::string& resource) {
@@ -411,12 +394,12 @@ void BlinkTestRunner::SetLocale(const std::string& locale) {
 
 base::FilePath BlinkTestRunner::GetWritableDirectory() {
   base::FilePath result;
-  Send(new WebTestHostMsg_GetWritableDirectory(routing_id(), &result));
+  GetWebTestClientRemote()->GetWritableDirectory(&result);
   return result;
 }
 
 void BlinkTestRunner::SetFilePathForMockFileDialog(const base::FilePath& path) {
-  Send(new WebTestHostMsg_SetFilePathForMockFileDialog(routing_id(), path));
+  GetWebTestClientRemote()->SetFilePathForMockFileDialog(path);
 }
 
 void BlinkTestRunner::OnWebTestRuntimeFlagsChanged(
@@ -424,17 +407,19 @@ void BlinkTestRunner::OnWebTestRuntimeFlagsChanged(
   // Ignore changes that happen before we got the initial, accumulated
   // web flag changes in either OnReplicateTestConfiguration or
   // OnSetTestConfiguration.
-  test_runner::WebTestInterfaces* interfaces =
+  test_runner::TestInterfaces* interfaces =
       WebTestRenderThreadObserver::GetInstance()->test_interfaces();
   if (!interfaces->TestIsRunning())
     return;
 
-  Send(new WebTestHostMsg_WebTestRuntimeFlagsChanged(changed_values));
+  GetWebTestClientRemote()->WebTestRuntimeFlagsChanged(changed_values.Clone());
 }
 
 void BlinkTestRunner::TestFinished() {
-  test_runner::WebTestInterfaces* interfaces =
+  test_runner::TestInterfaces* interfaces =
       WebTestRenderThreadObserver::GetInstance()->test_interfaces();
+  test_runner::TestRunner* test_runner = interfaces->GetTestRunner();
+
   // We might get multiple TestFinished calls, ensure to only process the dump
   // once.
   if (!interfaces->TestIsRunning())
@@ -444,7 +429,7 @@ void BlinkTestRunner::TestFinished() {
   // If we're not in the main frame, then ask the browser to redirect the call
   // to the main frame instead.
   if (!is_main_window_ || !render_view()->GetMainRenderFrame()) {
-    Send(new WebTestHostMsg_TestFinishedInSecondaryRenderer());
+    GetWebTestClientRemote()->TestFinishedInSecondaryRenderer();
     return;
   }
 
@@ -457,17 +442,17 @@ void BlinkTestRunner::TestFinished() {
 
   // Initialize a new dump results object which we will populate in the calls
   // below.
-  dump_result_ = mojom::WebTestDump::New();
+  dump_result_ = mojom::BlinkTestDump::New();
 
   bool browser_should_dump_back_forward_list =
-      interfaces->TestRunner()->ShouldDumpBackForwardList();
+      test_runner->ShouldDumpBackForwardList();
 
-  if (interfaces->TestRunner()->ShouldDumpAsAudio()) {
+  if (test_runner->ShouldDumpAsAudio()) {
     CaptureLocalAudioDump();
 
-    Send(new WebTestHostMsg_InitiateCaptureDump(
-        routing_id(), browser_should_dump_back_forward_list,
-        /*browser_should_capture_pixels=*/false));
+    GetWebTestClientRemote()->InitiateCaptureDump(
+        browser_should_dump_back_forward_list,
+        /*browser_should_capture_pixels=*/false);
     return;
   }
 
@@ -477,14 +462,14 @@ void BlinkTestRunner::TestFinished() {
   // rebaselined. But for now, just capture a local web first.
   CaptureLocalLayoutDump();
 
-  if (!interfaces->TestRunner()->ShouldGeneratePixelResults()) {
-    Send(new WebTestHostMsg_InitiateCaptureDump(
-        routing_id(), browser_should_dump_back_forward_list,
-        /*browser_should_capture_pixels=*/false));
+  if (!test_runner->ShouldGeneratePixelResults()) {
+    GetWebTestClientRemote()->InitiateCaptureDump(
+        browser_should_dump_back_forward_list,
+        /*browser_should_capture_pixels=*/false);
     return;
   }
 
-  if (interfaces->TestRunner()->CanDumpPixelsFromRenderer()) {
+  if (test_runner->CanDumpPixelsFromRenderer()) {
     // This does the capture in the renderer when possible, otherwise
     // we will ask the browser to initiate it.
     CaptureLocalPixelsDump();
@@ -493,39 +478,40 @@ void BlinkTestRunner::TestFinished() {
     // for layout dump results. Any test can only require the browser to
     // dump one or the other at this time.
     DCHECK(!waiting_for_layout_dump_results_);
-    if (interfaces->TestRunner()->ShouldDumpSelectionRect()) {
+    if (test_runner->ShouldDumpSelectionRect()) {
       dump_result_->selection_rect =
           web_frame->GetSelectionBoundsRectForTesting();
     }
   }
-  Send(new WebTestHostMsg_InitiateCaptureDump(
-      routing_id(), browser_should_dump_back_forward_list,
-      !interfaces->TestRunner()->CanDumpPixelsFromRenderer()));
+  GetWebTestClientRemote()->InitiateCaptureDump(
+      browser_should_dump_back_forward_list,
+      !test_runner->CanDumpPixelsFromRenderer());
 }
 
 void BlinkTestRunner::CaptureLocalAudioDump() {
   TRACE_EVENT0("shell", "BlinkTestRunner::CaptureLocalAudioDump");
-  test_runner::WebTestInterfaces* interfaces =
+  test_runner::TestInterfaces* interfaces =
       WebTestRenderThreadObserver::GetInstance()->test_interfaces();
   dump_result_->audio.emplace();
-  interfaces->TestRunner()->GetAudioData(&*dump_result_->audio);
+  interfaces->GetTestRunner()->GetAudioData(&*dump_result_->audio);
 }
 
 void BlinkTestRunner::CaptureLocalLayoutDump() {
   TRACE_EVENT0("shell", "BlinkTestRunner::CaptureLocalLayoutDump");
-  test_runner::WebTestInterfaces* interfaces =
+  test_runner::TestInterfaces* interfaces =
       WebTestRenderThreadObserver::GetInstance()->test_interfaces();
+  test_runner::TestRunner* test_runner = interfaces->GetTestRunner();
   std::string layout;
-  if (interfaces->TestRunner()->HasCustomTextDump(&layout)) {
+  if (test_runner->HasCustomTextDump(&layout)) {
     dump_result_->layout.emplace(layout + "\n");
-  } else if (!interfaces->TestRunner()->IsRecursiveLayoutDumpRequested()) {
-    dump_result_->layout.emplace(interfaces->TestRunner()->DumpLayout(
+  } else if (!test_runner->IsRecursiveLayoutDumpRequested()) {
+    dump_result_->layout.emplace(test_runner->DumpLayout(
         render_view()->GetMainRenderFrame()->GetWebFrame()));
   } else {
     // TODO(vmpstr): Since CaptureDump is called from the browser, we can be
     // smart and move this logic directly to the browser.
     waiting_for_layout_dump_results_ = true;
-    GetWebTestClientRemote().InitiateLayoutDump();
+    GetBlinkTestClientRemote()->InitiateLayoutDump();
   }
 }
 
@@ -538,9 +524,9 @@ void BlinkTestRunner::CaptureLocalPixelsDump() {
 
   waiting_for_pixels_dump_result_ = true;
 
-  test_runner::WebTestInterfaces* interfaces =
+  test_runner::TestInterfaces* interfaces =
       WebTestRenderThreadObserver::GetInstance()->test_interfaces();
-  interfaces->TestRunner()->DumpPixelsAsync(
+  interfaces->GetTestRunner()->DumpPixelsAsync(
       render_view(), base::BindOnce(&BlinkTestRunner::OnPixelsDumpCompleted,
                                     base::Unretained(this)));
 }
@@ -586,11 +572,11 @@ void BlinkTestRunner::CaptureDumpComplete() {
 }
 
 void BlinkTestRunner::CloseRemainingWindows() {
-  GetWebTestClientRemote().CloseRemainingWindows();
+  GetBlinkTestClientRemote()->CloseRemainingWindows();
 }
 
 void BlinkTestRunner::DeleteAllCookies() {
-  Send(new WebTestHostMsg_DeleteAllCookies(routing_id()));
+  GetWebTestClientRemote()->DeleteAllCookies();
 }
 
 int BlinkTestRunner::NavigationEntryCount() {
@@ -598,16 +584,16 @@ int BlinkTestRunner::NavigationEntryCount() {
 }
 
 void BlinkTestRunner::GoToOffset(int offset) {
-  GetWebTestClientRemote().GoToOffset(offset);
+  GetBlinkTestClientRemote()->GoToOffset(offset);
 }
 
 void BlinkTestRunner::Reload() {
-  GetWebTestClientRemote().Reload();
+  GetBlinkTestClientRemote()->Reload();
 }
 
 void BlinkTestRunner::LoadURLForFrame(const WebURL& url,
                                       const std::string& frame_name) {
-  GetWebTestClientRemote().LoadURLForFrame(url, frame_name);
+  GetBlinkTestClientRemote()->LoadURLForFrame(url, frame_name);
 }
 
 bool BlinkTestRunner::AllowExternalPages() {
@@ -625,13 +611,12 @@ void BlinkTestRunner::SetPermission(const std::string& name,
                                     const std::string& value,
                                     const GURL& origin,
                                     const GURL& embedding_origin) {
-  Send(new WebTestHostMsg_SetPermission(routing_id(), name,
-                                        blink::ToPermissionStatus(value),
-                                        origin, embedding_origin));
+  GetWebTestClientRemote()->SetPermission(
+      name, blink::ToPermissionStatus(value), origin, embedding_origin);
 }
 
 void BlinkTestRunner::ResetPermissions() {
-  Send(new WebTestHostMsg_ResetPermissions(routing_id()));
+  GetWebTestClientRemote()->ResetPermissions();
 }
 
 void BlinkTestRunner::DispatchBeforeInstallPromptEvent(
@@ -673,6 +658,10 @@ void BlinkTestRunner::ForceTextInputStateUpdate(WebLocalFrame* frame) {
   ForceTextInputStateUpdateForRenderFrame(RenderFrame::FromWebFrame(frame));
 }
 
+void BlinkTestRunner::SetScreenOrientationChanged() {
+  GetBlinkTestClientRemote()->SetScreenOrientationChanged();
+}
+
 // RenderViewObserver  --------------------------------------------------------
 
 void BlinkTestRunner::DidClearWindowObject(WebLocalFrame* frame) {
@@ -706,7 +695,7 @@ void BlinkTestRunner::Reset(bool for_new_test) {
 }
 
 void BlinkTestRunner::CaptureDump(
-    mojom::WebTestControl::CaptureDumpCallback callback) {
+    mojom::BlinkTestControl::CaptureDumpCallback callback) {
   // TODO(vmpstr): This is only called on the main frame. One suggestion is to
   // split the interface on which this call lives so that it is only accessible
   // to the main frame (as opposed to all frames).
@@ -723,8 +712,15 @@ void BlinkTestRunner::DidCommitNavigationInMainFrame() {
   GURL url = main_frame->ToWebLocalFrame()->GetDocumentLoader()->GetUrl();
   if (!url.IsAboutBlank())
     return;
+
+  // Avoid a situation where ResetDone is called twice, because
+  // ResetDone should be called once if a secondary renderer exists.
+  if (is_secondary_window_)
+    return;
+
   waiting_for_reset_ = false;
-  Send(new BlinkTestHostMsg_ResetDone(routing_id()));
+
+  GetBlinkTestClientRemote()->ResetDone();
 }
 
 // Private methods  -----------------------------------------------------------
@@ -738,18 +734,47 @@ BlinkTestRunner::GetBluetoothFakeAdapterSetter() {
   return *bluetooth_fake_adapter_setter_;
 }
 
-mojom::WebTestClient& BlinkTestRunner::GetWebTestClientRemote() {
-  if (!web_test_client_remote_) {
-    RenderThread::Get()->BindHostReceiver(
-        web_test_client_remote_.BindNewPipeAndPassReceiver());
+mojo::AssociatedRemote<mojom::BlinkTestClient>&
+BlinkTestRunner::GetBlinkTestClientRemote() {
+  if (!blink_test_client_remote_) {
+    RenderThread::Get()->GetChannel()->GetRemoteAssociatedInterface(
+        &blink_test_client_remote_);
+    blink_test_client_remote_.set_disconnect_handler(
+        base::BindOnce(&BlinkTestRunner::HandleBlinkTestClientDisconnected,
+                       base::Unretained(this)));
   }
-  return *web_test_client_remote_;
+  return blink_test_client_remote_;
+}
+
+void BlinkTestRunner::HandleBlinkTestClientDisconnected() {
+  blink_test_client_remote_.reset();
+}
+
+mojo::AssociatedRemote<mojom::WebTestClient>&
+BlinkTestRunner::GetWebTestClientRemote() {
+  if (!web_test_client_remote_) {
+    RenderThread::Get()->GetChannel()->GetRemoteAssociatedInterface(
+        &web_test_client_remote_);
+    web_test_client_remote_.set_disconnect_handler(
+        base::BindOnce(&BlinkTestRunner::HandleWebTestClientDisconnected,
+                       base::Unretained(this)));
+  }
+  return web_test_client_remote_;
+}
+
+void BlinkTestRunner::HandleWebTestClientDisconnected() {
+  web_test_client_remote_.reset();
 }
 
 void BlinkTestRunner::OnSetupSecondaryRenderer() {
   DCHECK(!is_main_window_);
 
-  test_runner::WebTestInterfaces* interfaces =
+  // TODO(https://crbug.com/1039247): Consider to use |is_main_window_| instead
+  // of |is_secondary_window_|. But, there are many test failures when using
+  // |!is_main_window_|.
+  is_secondary_window_ = true;
+
+  test_runner::TestInterfaces* interfaces =
       WebTestRenderThreadObserver::GetInstance()->test_interfaces();
   interfaces->SetTestIsRunning(true);
   ForceResizeRenderView(render_view(), WebSize(800, 600));
@@ -757,7 +782,7 @@ void BlinkTestRunner::OnSetupSecondaryRenderer() {
 
 void BlinkTestRunner::ApplyTestConfiguration(
     mojom::ShellTestConfigurationPtr params) {
-  test_runner::WebTestInterfaces* interfaces =
+  test_runner::TestInterfaces* interfaces =
       WebTestRenderThreadObserver::GetInstance()->test_interfaces();
 
   test_config_ = params.Clone();
@@ -783,10 +808,10 @@ void BlinkTestRunner::OnSetTestConfiguration(
                         WebSize(local_params->initial_size.width(),
                                 local_params->initial_size.height()));
 
-  WebTestRenderThreadObserver::GetInstance()
-      ->test_interfaces()
-      ->TestRunner()
-      ->SetFocus(render_view()->GetWebView(), true);
+  test_runner::TestInterfaces* interfaces =
+      WebTestRenderThreadObserver::GetInstance()->test_interfaces();
+  test_runner::TestRunner* test_runner = interfaces->GetTestRunner();
+  test_runner->SetFocus(render_view()->GetWebView(), true);
 }
 
 void BlinkTestRunner::OnReset() {
@@ -814,7 +839,7 @@ void BlinkTestRunner::OnTestFinishedInSecondaryRenderer() {
 
   // Avoid a situation where TestFinished is called twice, because
   // of a racey test finish in 2 secondary renderers.
-  test_runner::WebTestInterfaces* interfaces =
+  test_runner::TestInterfaces* interfaces =
       WebTestRenderThreadObserver::GetInstance()->test_interfaces();
   if (!interfaces->TestIsRunning())
     return;

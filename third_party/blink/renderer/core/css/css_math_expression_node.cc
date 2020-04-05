@@ -271,7 +271,7 @@ bool CSSMathExpressionNumericLiteral::IsComputationallyIndependent() const {
   return value_->IsComputationallyIndependent();
 }
 
-void CSSMathExpressionNumericLiteral::Trace(blink::Visitor* visitor) {
+void CSSMathExpressionNumericLiteral::Trace(Visitor* visitor) {
   visitor->Trace(value_);
   CSSMathExpressionNode::Trace(visitor);
 }
@@ -739,7 +739,7 @@ CSSPrimitiveValue::UnitType CSSMathExpressionBinaryOperation::ResolvedUnitType()
   return CSSPrimitiveValue::UnitType::kUnknown;
 }
 
-void CSSMathExpressionBinaryOperation::Trace(blink::Visitor* visitor) {
+void CSSMathExpressionBinaryOperation::Trace(Visitor* visitor) {
   visitor->Trace(left_side_);
   visitor->Trace(right_side_);
   CSSMathExpressionNode::Trace(visitor);
@@ -826,7 +826,7 @@ CSSMathExpressionVariadicOperation::CSSMathExpressionVariadicOperation(
       operands_(std::move(operands)),
       operator_(op) {}
 
-void CSSMathExpressionVariadicOperation::Trace(blink::Visitor* visitor) {
+void CSSMathExpressionVariadicOperation::Trace(Visitor* visitor) {
   visitor->Trace(operands_);
   CSSMathExpressionNode::Trace(visitor);
 }
@@ -932,7 +932,7 @@ CSSMathExpressionVariadicOperation::ToCalculationExpression(
     const CSSToLengthConversionData& data) const {
   Vector<scoped_refptr<const CalculationExpressionNode>> operands;
   operands.ReserveCapacity(operands_.size());
-  for (const auto operand : operands_)
+  for (const auto& operand : operands_)
     operands.push_back(operand->ToCalculationExpression(data));
   auto expression_type = operator_ == CSSMathOperator::kMin
                              ? CalculationExpressionComparisonNode::Type::kMin
@@ -983,6 +983,9 @@ bool CSSMathExpressionVariadicOperation::operator==(
 
 CSSPrimitiveValue::UnitType
 CSSMathExpressionVariadicOperation::ResolvedUnitType() const {
+  if (Category() == kCalcNumber)
+    return CSSPrimitiveValue::UnitType::kNumber;
+
   CSSPrimitiveValue::UnitType result = operands_.front()->ResolvedUnitType();
   if (result == CSSPrimitiveValue::UnitType::kUnknown)
     return CSSPrimitiveValue::UnitType::kUnknown;

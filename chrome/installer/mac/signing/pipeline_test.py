@@ -56,9 +56,9 @@ def _get_adjacent_item(l, o):
                   'copy_dir_overwrite_and_count_changes', 'run_command',
                   'make_dir', 'shutil', 'write_file', 'set_executable')
     })
-@mock.patch.multiple(
-    'signing.signing',
-    **{m: mock.DEFAULT for m in ('sign_part', 'sign_chrome', 'verify_part')})
+@mock.patch.multiple('signing.signing',
+                     **{m: mock.DEFAULT for m in ('sign_part', 'verify_part')})
+@mock.patch.multiple('signing.parts', **{'sign_chrome': mock.DEFAULT})
 @mock.patch('signing.commands.tempfile.mkdtemp', _get_work_dir)
 class TestPipelineHelpers(unittest.TestCase):
 
@@ -204,8 +204,7 @@ class TestPipelineHelpers(unittest.TestCase):
                 '$W/App Product Canary.app/Contents/Frameworks/Product Framework.framework',
                 '$W/modified_unsigned_framework',
                 dry_run=False),
-            mock.call.sign_chrome(
-                paths, channel_dist_config, sign_framework=True),
+            mock.call.sign_chrome(paths, channel_dist_config, sign_framework=True),
             mock.call.copy_dir_overwrite_and_count_changes(
                 '$W/App Product Canary.app/Contents/Frameworks/Product Framework.framework',
                 '$W/modified_unsigned_framework',

@@ -388,7 +388,7 @@ class SparseAttributeAXPropertyAdapter
                                    protocol::Array<AXProperty>& properties)
       : ax_object_(&ax_object), properties_(properties) {}
 
-  void Trace(blink::Visitor* visitor) { visitor->Trace(ax_object_); }
+  void Trace(Visitor* visitor) { visitor->Trace(ax_object_); }
 
  private:
   Member<AXObject> ax_object_;
@@ -523,16 +523,16 @@ Response InspectorAccessibilityAgent::getPartialAXTree(
   Node* dom_node = nullptr;
   Response response =
       dom_agent_->AssertNode(dom_node_id, backend_node_id, object_id, dom_node);
-  if (!response.isSuccess())
+  if (!response.IsSuccess())
     return response;
 
   Document& document = dom_node->GetDocument();
-  document.UpdateStyleAndLayout();
+  document.UpdateStyleAndLayout(DocumentUpdateReason::kInspector);
   DocumentLifecycle::DisallowTransitionScope disallow_transition(
       document.Lifecycle());
   LocalFrame* local_frame = document.GetFrame();
   if (!local_frame)
-    return Response::Error("Frame is detached.");
+    return Response::ServerError("Frame is detached.");
   AXContext ax_context(document);
   auto& cache = To<AXObjectCacheImpl>(ax_context.GetAXObjectCache());
 
@@ -542,7 +542,7 @@ Response InspectorAccessibilityAgent::getPartialAXTree(
     (*nodes)->emplace_back(BuildObjectForIgnoredNode(
         dom_node, inspected_ax_object, fetch_relatives.fromMaybe(true), *nodes,
         cache));
-    return Response::OK();
+    return Response::Success();
   } else {
     (*nodes)->emplace_back(
         BuildProtocolAXObject(*inspected_ax_object, inspected_ax_object,
@@ -550,16 +550,16 @@ Response InspectorAccessibilityAgent::getPartialAXTree(
   }
 
   if (!inspected_ax_object)
-    return Response::OK();
+    return Response::Success();
 
   AXObject* parent = inspected_ax_object->ParentObjectUnignored();
   if (!parent)
-    return Response::OK();
+    return Response::Success();
 
   if (fetch_relatives.fromMaybe(true))
     AddAncestors(*parent, inspected_ax_object, *nodes, cache);
 
-  return Response::OK();
+  return Response::Success();
 }
 
 void InspectorAccessibilityAgent::AddAncestors(
@@ -718,9 +718,9 @@ Response InspectorAccessibilityAgent::getFullAXTree(
     std::unique_ptr<protocol::Array<AXNode>>* nodes) {
   Document* document = inspected_frames_->Root()->GetDocument();
   if (!document)
-    return Response::Error("No document.");
+    return Response::ServerError("No document.");
   if (document->View()->NeedsLayout() || document->NeedsLayoutTreeUpdate())
-    document->UpdateStyleAndLayout();
+    document->UpdateStyleAndLayout(DocumentUpdateReason::kInspector);
   *nodes = std::make_unique<protocol::Array<protocol::Accessibility::AXNode>>();
   AXContext ax_context(*document);
   auto& cache = To<AXObjectCacheImpl>(ax_context.GetAXObjectCache());
@@ -743,7 +743,7 @@ Response InspectorAccessibilityAgent::getFullAXTree(
     node->setChildIds(std::move(child_ids));
     (*nodes)->emplace_back(std::move(node));
   }
-  return Response::OK();
+  return Response::Success();
 }
 
 void InspectorAccessibilityAgent::FillCoreProperties(
@@ -853,12 +853,12 @@ void InspectorAccessibilityAgent::EnableAndReset() {
 protocol::Response InspectorAccessibilityAgent::enable() {
   if (!enabled_.Get())
     EnableAndReset();
-  return Response::OK();
+  return Response::Success();
 }
 
 protocol::Response InspectorAccessibilityAgent::disable() {
   if (!enabled_.Get())
-    return Response::OK();
+    return Response::Success();
   enabled_.Set(false);
   context_ = nullptr;
   LocalFrame* frame = inspected_frames_->Root();
@@ -867,7 +867,7 @@ protocol::Response InspectorAccessibilityAgent::disable() {
   it->value.erase(this);
   if (it->value.IsEmpty())
     EnabledAgents().erase(frame);
-  return Response::OK();
+  return Response::Success();
 }
 
 void InspectorAccessibilityAgent::Restore() {
@@ -888,7 +888,7 @@ void InspectorAccessibilityAgent::CreateAXContext() {
     context_ = std::make_unique<AXContext>(*document);
 }
 
-void InspectorAccessibilityAgent::Trace(blink::Visitor* visitor) {
+void InspectorAccessibilityAgent::Trace(Visitor* visitor) {
   visitor->Trace(inspected_frames_);
   visitor->Trace(dom_agent_);
   InspectorBaseAgent::Trace(visitor);

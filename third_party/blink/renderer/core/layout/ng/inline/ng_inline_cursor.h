@@ -25,7 +25,9 @@ class LayoutObject;
 class LayoutUnit;
 class NGFragmentItem;
 class NGFragmentItems;
+class NGInlineBackwardCursor;
 class NGInlineBreakToken;
+class NGInlineCursor;
 class NGPaintFragment;
 class NGPhysicalBoxFragment;
 class Node;
@@ -59,15 +61,94 @@ class CORE_EXPORT NGInlineCursorPosition {
     return !operator==(other);
   }
 
+  // True if the current position is a text. It is error to call at end.
+  bool IsText() const;
+
+  // True if the current position is a generatd text. It is error to call at
+  // end.
+  bool IsGeneratedText() const;
+
+  // True if fragment is |NGFragmentItem::kGeneratedText| or
+  // |NGPhysicalTextFragment::kGeneratedText|.
+  // TODO(yosin): We should rename |IsGeneratedTextType()| to another name.
+  bool IsGeneratedTextType() const;
+
+  // True if the current position is a line break. It is error to call at end.
+  bool IsLineBreak() const;
+
+  // True if the current position is an ellipsis. It is error to call at end.
+  bool IsEllipsis() const;
+
+  // True if the current position is a line box. It is error to call at end.
+  bool IsLineBox() const;
+
+  // True if the current position is an empty line box. It is error to call
+  // other then line box.
+  bool IsEmptyLineBox() const;
+
+  // True if the current position is an inline box. It is error to call at end.
+  bool IsInlineBox() const;
+
+  // True if the current position is an atomic inline. It is error to call at
+  // end.
+  bool IsAtomicInline() const;
+
+  // True if the current position is a list marker.
+  bool IsListMarker() const;
+
+  // True if the current position is hidden for paint. It is error to call at
+  // end.
+  bool IsHiddenForPaint() const;
+
+  // |ComputedStyle| and related functions.
   NGStyleVariant StyleVariant() const;
   bool UsesFirstLineStyle() const;
+  const ComputedStyle& Style() const;
 
+  // Functions to get corresponding objects for this position.
+  const NGPhysicalBoxFragment* BoxFragment() const;
+  const LayoutObject* GetLayoutObject() const;
+  LayoutObject* GetMutableLayoutObject() const;
+  const Node* GetNode() const;
   const DisplayItemClient* GetDisplayItemClient() const;
+
+  // Returns break token for line box. It is error to call other than line box.
+  const NGInlineBreakToken* InlineBreakToken() const;
 
   // The offset relative to the root of the inline formatting context.
   const PhysicalRect RectInContainerBlock() const;
   const PhysicalOffset OffsetInContainerBlock() const;
   const PhysicalSize Size() const;
+
+  // InkOverflow of itself, including contents if they contribute to the ink
+  // overflow of this object (e.g. when not clipped,) in the local coordinate.
+  const PhysicalRect InkOverflow() const;
+  const PhysicalRect SelfInkOverflow() const;
+
+  // Returns start/end of offset in text content of current text fragment.
+  // It is error when this cursor doesn't point to text fragment.
+  NGTextOffset TextOffset() const;
+  unsigned TextStartOffset() const { return TextOffset().start; }
+  unsigned TextEndOffset() const { return TextOffset().end; }
+
+  // Returns text of the current position. It is error to call other than
+  // text.
+  StringView Text(const NGInlineCursor& cursor) const;
+
+  // Returns |ShapeResultView| of the current position. It is error to call
+  // other than text.
+  const ShapeResultView* TextShapeResult() const;
+
+  // Returns bidi level of current position. It is error to call other than
+  // text and atomic inline. It is also error to call |IsGeneratedTextType()|.
+  UBiDiLevel BidiLevel() const;
+  // Returns text direction of current text or atomic inline. It is error to
+  // call at other than text or atomic inline. Note: <span> doesn't have
+  // reserved direction.
+  TextDirection ResolvedDirection() const;
+  // Returns text direction of current line. It is error to call at other than
+  // line.
+  TextDirection BaseDirection() const;
 
  private:
   const NGPaintFragment* paint_fragment_ = nullptr;
@@ -97,6 +178,7 @@ class CORE_EXPORT NGInlineCursor {
                           ItemsSpan items);
   explicit NGInlineCursor(const NGPaintFragment& root_paint_fragment);
   NGInlineCursor(const NGInlineCursor& other) = default;
+  NGInlineCursor(const NGInlineBackwardCursor& backward_cursor);
 
   // Creates an |NGInlineCursor| without the root. Even when callers don't know
   // the root of the inline formatting context, this cursor can |MoveTo()|
@@ -155,39 +237,9 @@ class CORE_EXPORT NGInlineCursor {
   // other than line.
   bool HasSoftWrapToNextLine() const;
 
-  // True if the current position is an inline box. It is error to call at end.
-  bool IsInlineBox() const;
-
-  // True if the current position is an atomic inline. It is error to call at
-  // end.
-  bool IsAtomicInline() const;
-
   // True if the current position is before soft line break. It is error to call
   // at end.
   bool IsBeforeSoftLineBreak() const;
-
-  // True if the current position is an ellipsis. It is error to call at end.
-  bool IsEllipsis() const;
-
-  // True if the current position is an empty line box. It is error to call
-  // other then line box.
-  bool IsEmptyLineBox() const;
-
-  // True if the current position is a generatd text. It is error to call at
-  // end.
-  bool IsGeneratedText() const;
-
-  // True if fragment is |NGFragmentItem::kGeneratedText| or
-  // |NGPhysicalTextFragment::kGeneratedText|.
-  // TODO(yosin): We should rename |IsGeneratedTextType()| to another name.
-  bool IsGeneratedTextType() const;
-
-  // True if the current position is hidden for paint. It is error to call at
-  // end.
-  bool IsHiddenForPaint() const;
-
-  // True if the current position's writing mode in style is horizontal.
-  bool IsHorizontal() const;
 
   // True if the current position is text or atomic inline box.
   // Note: Because of this function is used for caret rect, hit testing, etc,
@@ -195,61 +247,18 @@ class CORE_EXPORT NGInlineCursor {
   // and line break hyphen.
   bool IsInlineLeaf() const;
 
-  // True if the current position is a line box. It is error to call at end.
-  bool IsLineBox() const;
-
-  // True if the current position is a line break. It is error to call at end.
-  bool IsLineBreak() const;
-
-  // True if the current position is a list marker.
-  bool IsListMarker() const;
-
-  // True if the current position is a text. It is error to call at end.
-  bool IsText() const;
-
   // |Current*| functions return an object for the current position.
   const NGFragmentItem* CurrentItem() const { return Current().Item(); }
   const NGPaintFragment* CurrentPaintFragment() const {
     return Current().PaintFragment();
   }
-  // Returns text direction of current line. It is error to call at other than
-  // line.
-  TextDirection CurrentBaseDirection() const;
-  const NGPhysicalBoxFragment* CurrentBoxFragment() const;
-  const LayoutObject* CurrentLayoutObject() const;
-  LayoutObject* CurrentMutableLayoutObject() const;
-  Node* CurrentNode() const;
-
-  // Returns bidi level of current position. It is error to call other than
-  // text and atomic inline. It is also error to call |IsGeneratedTextType()|.
-  UBiDiLevel CurrentBidiLevel() const;
-
-  // Returns break token for line box. It is error to call other than line box.
-  const NGInlineBreakToken& CurrentInlineBreakToken() const;
-
-  // Returns text direction of current text or atomic inline. It is error to
-  // call at other than text or atomic inline. Note: <span> doesn't have
-  // reserved direction.
-  TextDirection CurrentResolvedDirection() const;
-  const ComputedStyle& CurrentStyle() const;
-
-  // InkOverflow of itself, including contents if they contribute to the ink
-  // overflow of this object (e.g. when not clipped,) in the local coordinate.
-  const PhysicalRect CurrentInkOverflow() const;
-
-  // Returns start/end of offset in text content of current text fragment.
-  // It is error when this cursor doesn't point to text fragment.
-  NGTextOffset CurrentTextOffset() const;
-  unsigned CurrentTextStartOffset() const { return CurrentTextOffset().start; }
-  unsigned CurrentTextEndOffset() const { return CurrentTextOffset().end; }
+  LayoutObject* CurrentMutableLayoutObject() const {
+    return Current().GetMutableLayoutObject();
+  }
 
   // Returns text of the current position. It is error to call other than
   // text.
-  StringView CurrentText() const;
-
-  // Returns |ShapeResultView| of the current position. It is error to call
-  // other than text.
-  const ShapeResultView* CurrentTextShapeResult() const;
+  StringView CurrentText() const { return Current().Text(*this); }
 
   // The layout box of text in (start, end) range in local coordinate.
   // Start and end offsets must be between |CurrentTextStartOffset()| and
@@ -339,6 +348,7 @@ class CORE_EXPORT NGInlineCursor {
   void MoveToNextLine();
 
   // Move the current position to next sibling fragment.
+  // |MoveToNextSibling()| is deprecated. New code should not be used.
   void MoveToNextSibling();
 
   // Same as |MoveToNext| except that this skips children even if they exist.
@@ -373,6 +383,12 @@ class CORE_EXPORT NGInlineCursor {
 
   // TODO(kojii): Add more variations as needed, NextSibling,
   // NextSkippingChildren, Previous, etc.
+
+#if DCHECK_IS_ON()
+  void CheckValid(const NGInlineCursorPosition& position) const;
+#else
+  void CheckValid(const NGInlineCursorPosition&) const {}
+#endif
 
  private:
   // True if current position is part of culled inline box |layout_inline|.
@@ -437,31 +453,25 @@ class CORE_EXPORT NGInlineBackwardCursor {
   STACK_ALLOCATED();
 
  public:
+  // |cursor| should be the first child of root or descendants, e.g. the first
+  // item in |NGInlineCursor::items_|.
   NGInlineBackwardCursor(const NGInlineCursor& cursor);
 
+  const NGInlineCursorPosition& Current() const { return current_; }
+  operator bool() const { return Current(); }
+
   NGInlineCursor CursorForDescendants() const;
-
-  explicit operator bool() const {
-    return current_paint_fragment_ || current_item_;
-  }
-
-  const NGFragmentItem* CurrentItem() const { return current_item_; }
-  const NGPaintFragment* CurrentPaintFragment() const {
-    return current_paint_fragment_;
-  }
-
-  const PhysicalOffset CurrentOffset() const;
-  const PhysicalRect CurrentSelfInkOverflow() const;
 
   void MoveToPreviousSibling();
 
  private:
+  NGInlineCursorPosition current_;
   const NGInlineCursor& cursor_;
   Vector<const NGPaintFragment*, 16> sibling_paint_fragments_;
   Vector<NGInlineCursor::ItemsSpan::iterator, 16> sibling_item_iterators_;
-  const NGPaintFragment* current_paint_fragment_ = nullptr;
-  const NGFragmentItem* current_item_ = nullptr;
   wtf_size_t current_index_;
+
+  friend class NGInlineCursor;
 };
 
 CORE_EXPORT std::ostream& operator<<(std::ostream&, const NGInlineCursor&);

@@ -10,9 +10,9 @@
 #include "base/bind.h"
 #include "base/containers/circular_deque.h"
 #include "base/location.h"
+#include "chromecast/media/api/cast_audio_decoder.h"
 #include "chromecast/media/cma/backend/android/audio_sink_android.h"
 #include "chromecast/media/cma/backend/android/audio_sink_manager.h"
-#include "chromecast/media/cma/decoder/cast_audio_decoder.h"
 #include "chromecast/public/media/decoder_config.h"
 #include "chromecast/public/media/media_pipeline_backend.h"
 #include "chromecast/public/media/media_pipeline_device_params.h"
@@ -79,7 +79,6 @@ class AudioDecoderAndroid : public MediaPipelineBackend::AudioDecoder,
   void ResetSinkForNewConfig(const AudioConfig& config);
   void CreateDecoder();
   void CreateRateShifter(const AudioConfig& config);
-  void OnDecoderInitialized(bool success);
   void OnBufferDecoded(uint64_t input_bytes,
                        CastAudioDecoder::Status status,
                        const AudioConfig& config,

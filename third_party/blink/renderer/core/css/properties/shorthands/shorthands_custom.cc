@@ -43,20 +43,21 @@ CSSValue* ConsumeAnimationValue(CSSPropertyID property,
                                 bool use_legacy_parsing) {
   switch (property) {
     case CSSPropertyID::kAnimationDelay:
-      return css_property_parser_helpers::ConsumeTime(range, kValueRangeAll);
+      return css_property_parser_helpers::ConsumeTime(range, context,
+                                                      kValueRangeAll);
     case CSSPropertyID::kAnimationDirection:
       return css_property_parser_helpers::ConsumeIdent<
           CSSValueID::kNormal, CSSValueID::kAlternate, CSSValueID::kReverse,
           CSSValueID::kAlternateReverse>(range);
     case CSSPropertyID::kAnimationDuration:
-      return css_property_parser_helpers::ConsumeTime(range,
+      return css_property_parser_helpers::ConsumeTime(range, context,
                                                       kValueRangeNonNegative);
     case CSSPropertyID::kAnimationFillMode:
       return css_property_parser_helpers::ConsumeIdent<
           CSSValueID::kNone, CSSValueID::kForwards, CSSValueID::kBackwards,
           CSSValueID::kBoth>(range);
     case CSSPropertyID::kAnimationIterationCount:
-      return css_parsing_utils::ConsumeAnimationIterationCount(range);
+      return css_parsing_utils::ConsumeAnimationIterationCount(range, context);
     case CSSPropertyID::kAnimationName:
       return css_parsing_utils::ConsumeAnimationName(range, context,
                                                      use_legacy_parsing);
@@ -65,7 +66,7 @@ CSSValue* ConsumeAnimationValue(CSSPropertyID property,
                                                        CSSValueID::kPaused>(
           range);
     case CSSPropertyID::kAnimationTimingFunction:
-      return css_parsing_utils::ConsumeAnimationTimingFunction(range);
+      return css_parsing_utils::ConsumeAnimationTimingFunction(range, context);
     default:
       NOTREACHED();
       return nullptr;
@@ -909,7 +910,7 @@ bool Flex::ParseShorthand(bool important,
     unsigned index = 0;
     while (!range.AtEnd() && index++ < 3) {
       double num;
-      if (css_property_parser_helpers::ConsumeNumberRaw(range, num)) {
+      if (css_property_parser_helpers::ConsumeNumberRaw(range, context, num)) {
         if (num < 0)
           return false;
         if (flex_grow == kUnsetValue) {
@@ -1095,7 +1096,7 @@ bool ConsumeFont(bool important,
     }
     if (!font_style &&
         (id == CSSValueID::kItalic || id == CSSValueID::kOblique)) {
-      font_style = css_parsing_utils::ConsumeFontStyle(range, context.Mode());
+      font_style = css_parsing_utils::ConsumeFontStyle(range, context);
       if (!font_style)
         return false;
       continue;
@@ -1109,7 +1110,7 @@ bool ConsumeFont(bool important,
         continue;
     }
     if (!font_weight) {
-      font_weight = css_parsing_utils::ConsumeFontWeight(range, context.Mode());
+      font_weight = css_parsing_utils::ConsumeFontWeight(range, context);
       if (font_weight)
         continue;
     }
@@ -1919,26 +1920,6 @@ const CSSValue* InsetInline::CSSValueFromComputedStyleInternal(
     bool allow_visited_style) const {
   return ComputedStyleUtils::ValuesForInlineBlockShorthand(
       insetInlineShorthand(), style, layout_object, allow_visited_style);
-}
-
-bool ContainIntrinsicSize::ParseShorthand(
-    bool important,
-    CSSParserTokenRange& range,
-    const CSSParserContext& context,
-    const CSSParserLocalContext&,
-    HeapVector<CSSPropertyValue, 256>& properties) const {
-  return css_property_parser_helpers::ConsumeShorthandVia2Longhands(
-      containIntrinsicSizeShorthand(), important, context, range, properties);
-}
-
-const CSSValue* ContainIntrinsicSize::CSSValueFromComputedStyleInternal(
-    const ComputedStyle& style,
-    const SVGComputedStyle&,
-    const LayoutObject* layout_object,
-    bool allow_visited_style) const {
-  return ComputedStyleUtils::ValuesForIntrinsicSizeShorthand(
-      containIntrinsicSizeShorthand(), style, layout_object,
-      allow_visited_style);
 }
 
 bool ListStyle::ParseShorthand(
@@ -2783,14 +2764,15 @@ CSSValue* ConsumeTransitionValue(CSSPropertyID property,
                                  bool use_legacy_parsing) {
   switch (property) {
     case CSSPropertyID::kTransitionDelay:
-      return css_property_parser_helpers::ConsumeTime(range, kValueRangeAll);
+      return css_property_parser_helpers::ConsumeTime(range, context,
+                                                      kValueRangeAll);
     case CSSPropertyID::kTransitionDuration:
-      return css_property_parser_helpers::ConsumeTime(range,
+      return css_property_parser_helpers::ConsumeTime(range, context,
                                                       kValueRangeNonNegative);
     case CSSPropertyID::kTransitionProperty:
       return css_parsing_utils::ConsumeTransitionProperty(range, context);
     case CSSPropertyID::kTransitionTimingFunction:
-      return css_parsing_utils::ConsumeAnimationTimingFunction(range);
+      return css_parsing_utils::ConsumeAnimationTimingFunction(range, context);
     default:
       NOTREACHED();
       return nullptr;

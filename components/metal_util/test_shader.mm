@@ -16,6 +16,7 @@
 #include "base/strings/sys_string_conversions.h"
 #include "base/synchronization/lock.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "components/crash/core/common/crash_key.h"
 #include "components/metal_util/device.h"
 
@@ -679,9 +680,9 @@ void TestRenderPipelineStateNow(base::scoped_nsprotocol<id<MTLDevice>> device,
   // calling into the Metal API.
   auto state =
       base::MakeRefCounted<TestShaderState>(std::move(callback), timeout);
-  base::PostDelayedTask(FROM_HERE, {base::ThreadPool()},
-                        base::BindOnce(&TestShaderState::OnTimeout, state),
-                        timeout);
+  base::ThreadPool::PostDelayedTask(
+      FROM_HERE, {}, base::BindOnce(&TestShaderState::OnTimeout, state),
+      timeout);
 
   // Request asynchronous compile of the RenderPipelineState.
   base::scoped_nsobject<MTLRenderPipelineDescriptor> descriptor(
@@ -716,9 +717,9 @@ void TestShaderNow(base::scoped_nsprotocol<id<MTLDevice>> device,
   // calling into the Metal API.
   auto state =
       base::MakeRefCounted<TestShaderState>(std::move(callback), timeout);
-  base::PostDelayedTask(FROM_HERE, {base::ThreadPool()},
-                        base::BindOnce(&TestShaderState::OnTimeout, state),
-                        timeout);
+  base::ThreadPool::PostDelayedTask(
+      FROM_HERE, {}, base::BindOnce(&TestShaderState::OnTimeout, state),
+      timeout);
 
   const std::string shader_source =
       base::StringPrintf(kTestShaderSource, base::RandDouble());
@@ -777,10 +778,9 @@ void TestShader(TestShaderCallback callback,
         if (delay.is_zero()) {
           std::move(closure).Run();
         } else {
-          base::PostDelayedTask(
-              FROM_HERE,
-              base::TaskTraits(base::ThreadPool(), base::TaskPriority::HIGHEST),
-              std::move(closure), delay);
+          base::ThreadPool::PostDelayedTask(FROM_HERE,
+                                            {base::TaskPriority::HIGHEST},
+                                            std::move(closure), delay);
         }
         return;
       }

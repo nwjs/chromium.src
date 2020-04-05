@@ -65,6 +65,57 @@ SMILTime ComputeNextRepeatTime(SMILTime interval_begin,
 
 }  // namespace
 
+void SMILInstanceTimeList::Append(SMILTime time, SMILTimeOrigin origin) {
+  instance_times_.push_back(SMILTimeWithOrigin(time, origin));
+  AddOrigin(origin);
+}
+
+void SMILInstanceTimeList::InsertSortedAndUnique(SMILTime time,
+                                                 SMILTimeOrigin origin) {
+  SMILTimeWithOrigin time_with_origin(time, origin);
+  auto* position = std::lower_bound(instance_times_.begin(),
+                                    instance_times_.end(), time_with_origin);
+  // Don't add it if we already have one of those.
+  for (auto* it = position; it != instance_times_.end(); ++it) {
+    if (position->Time() != time)
+      break;
+    // If they share both time and origin, we don't need to add it,
+    // we just need to react.
+    if (position->Origin() == origin)
+      return;
+  }
+  instance_times_.insert(position - instance_times_.begin(), time_with_origin);
+  AddOrigin(origin);
+}
+
+void SMILInstanceTimeList::RemoveWithOrigin(SMILTimeOrigin origin) {
+  if (!HasOrigin(origin))
+    return;
+  auto* tail =
+      std::remove_if(instance_times_.begin(), instance_times_.end(),
+                     [origin](const SMILTimeWithOrigin& instance_time) {
+                       return instance_time.Origin() == origin;
+                     });
+  instance_times_.Shrink(tail - instance_times_.begin());
+  ClearOrigin(origin);
+}
+
+void SMILInstanceTimeList::Sort() {
+  std::sort(instance_times_.begin(), instance_times_.end());
+}
+
+SMILTime SMILInstanceTimeList::NextAfter(SMILTime time) const {
+  // Find the value in |list| that is strictly greater than |time|.
+  auto* next_item = std::lower_bound(
+      instance_times_.begin(), instance_times_.end(), time,
+      [](const SMILTimeWithOrigin& instance_time, const SMILTime& time) {
+        return instance_time.Time() <= time;
+      });
+  if (next_item == instance_times_.end())
+    return SMILTime::Unresolved();
+  return next_item->Time();
+}
+
 // This is used for duration type time values that can't be negative.
 static constexpr SMILTime kInvalidCachedTime = SMILTime::Earliest();
 
@@ -84,7 +135,7 @@ class ConditionEventListener final : public NativeEventListener {
         animation_->Elapsed() + condition_->Offset(), SMILTimeOrigin::kEvent);
   }
 
-  void Trace(blink::Visitor* visitor) override {
+  void Trace(Visitor* visitor) override {
     visitor->Trace(animation_);
     visitor->Trace(condition_);
     NativeEventListener::Trace(visitor);
@@ -110,7 +161,7 @@ SVGSMILElement::Condition::Condition(Type type,
 
 SVGSMILElement::Condition::~Condition() = default;
 
-void SVGSMILElement::Condition::Trace(blink::Visitor* visitor) {
+void SVGSMILElement::Condition::Trace(Visitor* visitor) {
   visitor->Trace(base_element_);
   visitor->Trace(base_id_observer_);
   visitor->Trace(event_listener_);
@@ -241,15 +292,6 @@ void SVGSMILElement::BuildPendingResource() {
   ConnectConditions();
 }
 
-static inline void RemoveInstanceTimesWithOrigin(
-    Vector<SMILTimeWithOrigin>& time_list,
-    SMILTimeOrigin origin) {
-  for (int i = time_list.size() - 1; i >= 0; --i) {
-    if (time_list[i].Origin() == origin)
-      time_list.EraseAt(i);
-  }
-}
-
 void SVGSMILElement::Reset() {
   active_state_ = kInactive;
   is_waiting_for_first_interval_ = true;
@@ -281,10 +323,8 @@ Node::InsertionNotificationRequest SVGSMILElement::InsertedInto(
 
   // "If no attribute is present, the default begin value (an offset-value of 0)
   // must be evaluated."
-  if (!FastHasAttribute(svg_names::kBeginAttr) && begin_times_.IsEmpty()) {
-    begin_times_.push_back(
-        SMILTimeWithOrigin(SMILTime(), SMILTimeOrigin::kAttribute));
-  }
+  if (!FastHasAttribute(svg_names::kBeginAttr) && begin_times_.IsEmpty())
+    begin_times_.Append(SMILTime(), SMILTimeOrigin::kAttribute);
 
   BuildPendingResource();
   return kInsertionDone;
@@ -431,34 +471,30 @@ bool SVGSMILElement::ParseCondition(const String& value,
 
 void SVGSMILElement::ParseBeginOrEnd(const String& parse_string,
                                      BeginOrEnd begin_or_end) {
-  Vector<SMILTimeWithOrigin>& time_list =
-      begin_or_end == kBegin ? begin_times_ : end_times_;
+  auto& time_list = begin_or_end == kBegin ? begin_times_ : end_times_;
   if (begin_or_end == kEnd)
     has_end_event_conditions_ = false;
 
   // Remove any previously added offset-values.
   // TODO(fs): Ought to remove instance times originating from sync-bases,
   // events etc. as well if those conditions are no longer in the attribute.
-  RemoveInstanceTimesWithOrigin(time_list, SMILTimeOrigin::kAttribute);
+  time_list.RemoveWithOrigin(SMILTimeOrigin::kAttribute);
 
   Vector<String> split_string;
   parse_string.Split(';', split_string);
   for (const auto& item : split_string) {
     SMILTime value = ParseClockValue(item);
-    if (value.IsUnresolved()) {
+    if (value.IsUnresolved())
       ParseCondition(item, begin_or_end);
-    } else {
-      time_list.push_back(
-          SMILTimeWithOrigin(value, SMILTimeOrigin::kAttribute));
-    }
+    else
+      time_list.Append(value, SMILTimeOrigin::kAttribute);
   }
   // "If no attribute is present, the default begin value (an offset-value of 0)
   // must be evaluated."
-  if (begin_or_end == kBegin && parse_string.IsNull()) {
-    begin_times_.push_back(
-        SMILTimeWithOrigin(SMILTime(), SMILTimeOrigin::kAttribute));
-  }
-  std::sort(time_list.begin(), time_list.end());
+  if (begin_or_end == kBegin && parse_string.IsNull())
+    begin_times_.Append(SMILTime(), SMILTimeOrigin::kAttribute);
+
+  time_list.Sort();
 }
 
 void SVGSMILElement::ParseAttribute(const AttributeModificationParams& params) {
@@ -528,6 +564,14 @@ void SVGSMILElement::SvgAttributeChanged(const QualifiedName& attr_name) {
     return;
   }
   SVGElement::SvgAttributeChanged(attr_name);
+}
+
+bool SVGSMILElement::IsPresentationAttribute(
+    const QualifiedName& attr_name) const {
+  // Don't map 'fill' to the 'fill' property for animation elements.
+  if (attr_name == svg_names::kFillAttr)
+    return false;
+  return SVGElement::IsPresentationAttribute(attr_name);
 }
 
 void SVGSMILElement::ConnectConditions() {
@@ -655,27 +699,11 @@ SMILTime SVGSMILElement::SimpleDuration() const {
   return std::min(Dur(), SMILTime::Indefinite());
 }
 
-static void InsertSortedAndUnique(Vector<SMILTimeWithOrigin>& list,
-                                  SMILTimeWithOrigin time) {
-  auto* position = std::lower_bound(list.begin(), list.end(), time);
-  // Don't add it if we already have one of those.
-  for (auto* it = position; it < list.end(); ++it) {
-    if (position->Time() != time.Time())
-      break;
-    // If they share both time and origin, we don't need to add it,
-    // we just need to react.
-    if (position->Origin() == time.Origin())
-      return;
-  }
-  list.insert(position - list.begin(), time);
-}
-
 void SVGSMILElement::AddInstanceTime(BeginOrEnd begin_or_end,
                                      SMILTime time,
                                      SMILTimeOrigin origin) {
-  Vector<SMILTimeWithOrigin>& list =
-      begin_or_end == kBegin ? begin_times_ : end_times_;
-  InsertSortedAndUnique(list, SMILTimeWithOrigin(time, origin));
+  auto& list = begin_or_end == kBegin ? begin_times_ : end_times_;
+  list.InsertSortedAndUnique(time, origin);
   instance_lists_have_changed_ = true;
 }
 
@@ -689,30 +717,6 @@ void SVGSMILElement::AddInstanceTimeAndUpdate(BeginOrEnd begin_or_end,
     return;
   AddInstanceTime(begin_or_end, time, origin);
   InstanceListChanged();
-}
-
-SMILTime SVGSMILElement::NextAfter(BeginOrEnd begin_or_end,
-                                   SMILTime time) const {
-  const Vector<SMILTimeWithOrigin>& list =
-      begin_or_end == kBegin ? begin_times_ : end_times_;
-  if (list.IsEmpty()) {
-    return begin_or_end == kBegin ? SMILTime::Unresolved()
-                                  : SMILTime::Indefinite();
-  }
-  // Find the value in |list| that is strictly greater than |time|.
-  auto* next_item = std::lower_bound(
-      list.begin(), list.end(), time,
-      [](const SMILTimeWithOrigin& instance_time, const SMILTime& time) {
-        return instance_time.Time() <= time;
-      });
-  if (next_item == list.end())
-    return SMILTime::Unresolved();
-  SMILTime next = next_item->Time();
-  // The special value "indefinite" does not yield an instance time in the
-  // begin list.
-  if (begin_or_end == kBegin && next.IsIndefinite())
-    return SMILTime::Unresolved();
-  return next;
 }
 
 SMILTime SVGSMILElement::RepeatingDuration() const {
@@ -732,11 +736,16 @@ SMILTime SVGSMILElement::RepeatingDuration() const {
 }
 
 SMILTime SVGSMILElement::ResolveActiveEnd(SMILTime resolved_begin) const {
-  SMILTime resolved_end = NextAfter(kEnd, resolved_begin);
-  if (resolved_end.IsUnresolved()) {
-    // If we have no pending end conditions, don't generate a new interval.
-    if (!end_times_.IsEmpty() && !has_end_event_conditions_)
-      return SMILTime::Unresolved();
+  SMILTime resolved_end = SMILTime::Indefinite();
+  if (!end_times_.IsEmpty()) {
+    SMILTime next_end = end_times_.NextAfter(resolved_begin);
+    if (next_end.IsUnresolved()) {
+      // If we have no pending end conditions, don't generate a new interval.
+      if (!has_end_event_conditions_)
+        return SMILTime::Unresolved();
+    } else {
+      resolved_end = next_end;
+    }
   }
   // Computing the active duration
   // http://www.w3.org/TR/SMIL2/smil-timing.html#Timing-ComputingActiveDur
@@ -825,7 +834,12 @@ SMILTime SVGSMILElement::ComputeNextIntervalTime(
       next_interval_time = interval_.end;
     }
   }
-  return std::min(next_interval_time, NextAfter(kBegin, presentation_time));
+  SMILTime next_begin = begin_times_.NextAfter(presentation_time);
+  // The special value "indefinite" does not yield an instance time in the
+  // begin list, so only consider finite values here.
+  if (next_begin.IsFinite())
+    next_interval_time = std::min(next_interval_time, next_begin);
+  return next_interval_time;
 }
 
 void SVGSMILElement::InstanceListChanged() {
@@ -899,7 +913,7 @@ bool SVGSMILElement::HandleIntervalRestart(SMILTime presentation_time) {
   if (!interval_.IsResolved() || interval_.EndsBefore(presentation_time))
     return true;
   if (restart == kRestartAlways) {
-    SMILTime next_begin = NextAfter(kBegin, interval_.begin);
+    SMILTime next_begin = begin_times_.NextAfter(interval_.begin);
     if (interval_.EndsAfter(next_begin)) {
       SetNewIntervalEnd(next_begin);
       return interval_.EndsBefore(presentation_time);
@@ -1270,8 +1284,8 @@ void SVGSMILElement::StartedActiveInterval() {
 }
 
 void SVGSMILElement::EndedActiveInterval() {
-  RemoveInstanceTimesWithOrigin(begin_times_, SMILTimeOrigin::kScript);
-  RemoveInstanceTimesWithOrigin(end_times_, SMILTimeOrigin::kScript);
+  begin_times_.RemoveWithOrigin(SMILTimeOrigin::kScript);
+  end_times_.RemoveWithOrigin(SMILTimeOrigin::kScript);
 }
 
 bool SVGSMILElement::HasValidTarget() const {
@@ -1297,7 +1311,7 @@ void SVGSMILElement::DidChangeAnimationTarget() {
   is_scheduled_ = true;
 }
 
-void SVGSMILElement::Trace(blink::Visitor* visitor) {
+void SVGSMILElement::Trace(Visitor* visitor) {
   visitor->Trace(target_element_);
   visitor->Trace(target_id_observer_);
   visitor->Trace(time_container_);

@@ -22,6 +22,7 @@
 #include "device/fido/authenticator_get_assertion_response.h"
 #include "device/fido/authenticator_make_credential_response.h"
 #include "device/fido/authenticator_selection_criteria.h"
+#include "device/fido/client_data.h"
 #include "device/fido/ctap_get_assertion_request.h"
 #include "device/fido/ctap_make_credential_request.h"
 #include "device/fido/fido_constants.h"
@@ -52,6 +53,7 @@ namespace content {
 
 class BrowserContext;
 class RenderFrameHost;
+class WebAuthRequestSecurityChecker;
 
 namespace client_data {
 // These enumerate the possible values for the `type` member of
@@ -88,15 +90,6 @@ class CONTENT_EXPORT AuthenticatorCommon {
 
   void DisableUI();
 
-  base::flat_set<device::FidoTransportProtocol> enabled_transports_for_testing()
-      const {
-    return transports_;
-  }
-  void set_transports_for_testing(
-      base::flat_set<device::FidoTransportProtocol> transports) {
-    transports_ = transports;
-  }
-
  protected:
   virtual std::unique_ptr<AuthenticatorRequestClientDelegate>
   CreateRequestDelegate();
@@ -121,20 +114,6 @@ class CONTENT_EXPORT AuthenticatorCommon {
   void StartGetAssertionRequest(bool allow_skipping_pin_touch);
 
   bool IsFocused() const;
-
-  // Builds the CollectedClientData[1] dictionary with the given values,
-  // serializes it to JSON, and returns the resulting string. For legacy U2F
-  // requests coming from the CryptoToken U2F extension, modifies the object key
-  // 'type' as required[2].
-  // [1] https://w3c.github.io/webauthn/#dictdef-collectedclientdata
-  // [2]
-  // https://fidoalliance.org/specs/fido-u2f-v1.2-ps-20170411/fido-u2f-raw-message-formats-v1.2-ps-20170411.html#client-data
-  static std::string SerializeCollectedClientDataToJson(
-      const std::string& type,
-      const std::string& origin,
-      base::span<const uint8_t> challenge,
-      bool is_cross_origin,
-      bool use_legacy_u2f_type_key = false);
 
   // Callback to handle the async response from a U2fDevice.
   void OnRegisterResponse(
@@ -189,7 +168,6 @@ class CONTENT_EXPORT AuthenticatorCommon {
   BrowserContext* browser_context() const;
 
   RenderFrameHost* const render_frame_host_;
-  base::flat_set<device::FidoTransportProtocol> transports_;
   device::FidoDiscoveryFactory* discovery_factory_ = nullptr;
   std::unique_ptr<device::FidoRequestHandlerBase> request_;
   blink::mojom::Authenticator::MakeCredentialCallback
@@ -204,6 +182,7 @@ class CONTENT_EXPORT AuthenticatorCommon {
   bool disable_ui_ = false;
   url::Origin caller_origin_;
   std::string relying_party_id_;
+  scoped_refptr<WebAuthRequestSecurityChecker> security_checker_;
   std::unique_ptr<base::OneShotTimer> timer_;
   base::Optional<device::AuthenticatorSelectionCriteria>
       authenticator_selection_criteria_;

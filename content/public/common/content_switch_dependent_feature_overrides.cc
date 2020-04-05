@@ -7,6 +7,7 @@
 #include "content/public/common/content_features.h"
 #include "content/public/common/content_switches.h"
 #include "services/network/public/cpp/features.h"
+#include "ui/base/ui_base_features.h"
 
 namespace content {
 
@@ -26,11 +27,29 @@ GetSwitchDependentFeatureOverrides(const base::CommandLine& command_line) {
        std::cref(features::kCookieDeprecationMessages),
        base::FeatureList::OVERRIDE_ENABLE_FEATURE},
       {switches::kEnableExperimentalWebPlatformFeatures,
-       std::cref(network::features::kCrossOriginIsolation),
+       std::cref(network::features::kCrossOriginOpenerPolicy),
+       base::FeatureList::OVERRIDE_ENABLE_FEATURE},
+      {switches::kEnableExperimentalWebPlatformFeatures,
+       std::cref(network::features::kCrossOriginEmbedderPolicy),
        base::FeatureList::OVERRIDE_ENABLE_FEATURE},
       {switches::kEnableExperimentalWebPlatformFeatures,
        std::cref(features::kDocumentPolicy),
        base::FeatureList::OVERRIDE_ENABLE_FEATURE},
+      {switches::kEnableExperimentalWebPlatformFeatures,
+       std::cref(features::kFeaturePolicyForClientHints),
+       base::FeatureList::OVERRIDE_ENABLE_FEATURE},
+      {switches::kEnableExperimentalWebPlatformFeatures,
+       std::cref(features::kUserAgentClientHint),
+       base::FeatureList::OVERRIDE_ENABLE_FEATURE},
+      {switches::kEnableExperimentalWebPlatformFeatures,
+       std::cref(features::kOriginPolicy),
+       base::FeatureList::OVERRIDE_ENABLE_FEATURE},
+      {switches::kEnableExperimentalWebPlatformFeatures,
+       std::cref(features::kOriginIsolationHeader),
+       base::FeatureList::OVERRIDE_ENABLE_FEATURE},
+      {switches::kUseLegacyFormControls,
+       std::cref(features::kFormControlsRefresh),
+       base::FeatureList::OVERRIDE_DISABLE_FEATURE},
   };
 
   // TODO(chlily): There are currently a few places where, to check if some

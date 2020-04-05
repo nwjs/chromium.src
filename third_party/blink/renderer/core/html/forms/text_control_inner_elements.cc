@@ -87,6 +87,17 @@ void TextControlInnerEditorElement::DefaultEventHandler(Event& event) {
     if (shadow_ancestor)
       shadow_ancestor->DefaultEventHandler(event);
   }
+
+  if (event.type() == event_type_names::kScroll) {
+    // The scroller for a text control is inside of a shadow tree but the
+    // scroll event won't bubble past the shadow root and authors cannot add
+    // an event listener to it. Fire the scroll event at the shadow host so
+    // that the page can hear about the scroll.
+    Element* shadow_ancestor = OwnerShadowHost();
+    if (shadow_ancestor)
+      shadow_ancestor->DispatchEvent(event);
+  }
+
   if (!event.DefaultHandled())
     HTMLDivElement::DefaultEventHandler(event);
 }
@@ -136,6 +147,7 @@ TextControlInnerEditorElement::CreateInnerEditorStyle() const {
           : EUserModify::kReadWritePlaintextOnly);
   text_block_style->SetDisplay(EDisplay::kBlock);
   text_block_style->SetHasLineIfEmpty(true);
+  text_block_style->SetShouldIgnoreOverflowPropertyForInlineBlockBaseline();
 
   if (!IsA<HTMLTextAreaElement>(host)) {
     text_block_style->SetWhiteSpace(EWhiteSpace::kPre);
@@ -192,6 +204,7 @@ SearchFieldCancelButtonElement::SearchFieldCancelButtonElement(
 
 void SearchFieldCancelButtonElement::DefaultEventHandler(Event& event) {
   // If the element is visible, on mouseup, clear the value, and set selection
+  auto* mouse_event = DynamicTo<MouseEvent>(event);
   auto* input = To<HTMLInputElement>(OwnerShadowHost());
   if (!input || input->IsDisabledOrReadOnly()) {
     if (!event.DefaultHandled())
@@ -199,8 +212,8 @@ void SearchFieldCancelButtonElement::DefaultEventHandler(Event& event) {
     return;
   }
 
-  if (event.type() == event_type_names::kClick && event.IsMouseEvent() &&
-      ToMouseEvent(event).button() ==
+  if (event.type() == event_type_names::kClick && mouse_event &&
+      mouse_event->button() ==
           static_cast<int16_t>(WebPointerProperties::Button::kLeft)) {
     input->SetValueForUser("");
     input->SetAutofillState(WebAutofillState::kNotFilled);
@@ -238,7 +251,7 @@ void PasswordRevealButtonElement::DefaultEventHandler(Event& event) {
   }
 
   // Toggle the should-reveal-password state when clicked.
-  if (event.type() == event_type_names::kClick && event.IsMouseEvent()) {
+  if (event.type() == event_type_names::kClick && IsA<MouseEvent>(event)) {
     bool shouldRevealPassword = !input->ShouldRevealPassword();
 
     input->SetShouldRevealPassword(shouldRevealPassword);

@@ -6,6 +6,7 @@
 
 #include "base/bind.h"
 #include "base/debug/dump_without_crashing.h"
+#include "base/memory/ptr_util.h"
 #include "components/captive_portal/content/captive_portal_login_detector.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/navigation_handle.h"
@@ -15,7 +16,7 @@
 #include "content/public/browser/web_contents.h"
 #include "net/ssl/ssl_info.h"
 
-using captive_portal::CaptivePortalResult;
+namespace captive_portal {
 
 // static
 void CaptivePortalTabHelper::CreateForWebContents(
@@ -122,7 +123,8 @@ void CaptivePortalTabHelper::DidFinishNavigation(
   }
 
   if (navigation_handle->HasCommitted()) {
-    tab_reloader_->OnLoadCommitted(navigation_handle->GetNetErrorCode());
+    tab_reloader_->OnLoadCommitted(navigation_handle->GetNetErrorCode(),
+                                   navigation_handle->GetResolveErrorInfo());
   } else {
     tab_reloader_->OnAbort();
   }
@@ -168,3 +170,5 @@ CaptivePortalTabReloader* CaptivePortalTabHelper::GetTabReloaderForTest() {
 }
 
 WEB_CONTENTS_USER_DATA_KEY_IMPL(CaptivePortalTabHelper)
+
+}  // namespace captive_portal

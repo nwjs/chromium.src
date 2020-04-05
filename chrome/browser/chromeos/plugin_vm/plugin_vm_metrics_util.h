@@ -25,37 +25,41 @@ enum class PluginVmLaunchResult {
   kError = 1,
   kInvalidLicense = 2,
   kVmMissing = 3,
-  kMaxValue = kVmMissing,
+  kExpiredLicense = 4,
+  kNetworkError = 5,
+  kMaxValue = kNetworkError,
 };
 
 // These values are persisted to logs. Entries should not be renumbered and
 // numeric values should never be reused.
 enum class PluginVmSetupResult {
   kSuccess = 0,
-
-  kPluginVmIsNotAllowed = 1,
-
-  kErrorDownloadingPluginVmImage = 2,
-  kErrorImportingPluginVmImage = 3,
-
+  // kPluginVmIsNotAllowed = 1,
+  // kErrorDownloadingPluginVmImage = 2,
+  // kErrorImportingPluginVmImage = 3,
   kUserCancelledDownloadingPluginVmImage = 4,
   kUserCancelledImportingPluginVmImage = 5,
-
-  kErrorDownloadingPluginVmDlc = 6,
+  // kErrorDownloadingPluginVmDlc = 6,
   kUserCancelledDownloadingPluginVmDlc = 7,
-
   kVmAlreadyExists = 8,
+  kUserCancelledCheckingForExistingVm = 9,
+  // kErrorInsufficientDiskSpace = 10,
+  kUserCancelledLowDiskSpace = 11,
+  kUserCancelledCheckingDiskSpace = 12,
+  // Failure reasons are broken down in PluginVm.SetupFailureReason.
+  kError = 13,
 
-  kMaxValue = kVmAlreadyExists,
+  kMaxValue = kError,
 };
 
 enum class PluginVmDlcUseResult {
   kDlcSuccess = 0,
-  kFallbackToRootFsInvalidDlcError = 1,
-  kFallbackToRootFsInternalDlcError = 2,
-  kFallbackToRootFsBusyDlcError = 3,
-  kFallbackToRootFsNeedRebootDlcError = 4,
-  kMaxValue = kFallbackToRootFsNeedRebootDlcError,
+  kInvalidDlcError = 1,
+  kInternalDlcError = 2,
+  kBusyDlcError = 3,
+  kNeedRebootDlcError = 4,
+  kNeedSpaceDlcError = 5,
+  kMaxValue = kNeedSpaceDlcError,
 };
 
 void RecordPluginVmImageDownloadedSizeHistogram(uint64_t bytes_downloaded);

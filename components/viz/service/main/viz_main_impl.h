@@ -14,6 +14,7 @@
 #include "build/build_config.h"
 #include "components/discardable_memory/client/client_discardable_shared_memory_manager.h"
 #include "components/viz/service/main/viz_compositor_thread_runner_impl.h"
+#include "gpu/ipc/gpu_in_process_thread_service.h"
 #include "gpu/ipc/in_process_command_buffer.h"
 #include "mojo/public/cpp/bindings/associated_receiver_set.h"
 #include "mojo/public/cpp/bindings/pending_associated_receiver.h"
@@ -41,15 +42,9 @@ class MojoUkmRecorder;
 namespace viz {
 class GpuServiceImpl;
 
-class VizMainImpl : public mojom::VizMain {
+class VizMainImpl : public mojom::VizMain,
+                    public gpu::GpuInProcessThreadServiceDelegate {
  public:
-  struct LogMessage {
-    int severity;
-    std::string header;
-    std::string message;
-  };
-  using LogMessages = std::vector<LogMessage>;
-
   class Delegate {
    public:
     virtual ~Delegate() = default;
@@ -103,8 +98,6 @@ class VizMainImpl : public mojom::VizMain {
   // Destruction must happen on the GPU thread.
   ~VizMainImpl() override;
 
-  void SetLogMessagesForHost(LogMessages messages);
-
   void BindAssociated(
       mojo::PendingAssociatedReceiver<mojom::VizMain> pending_receiver);
 
@@ -119,6 +112,10 @@ class VizMainImpl : public mojom::VizMain {
       gfx::FontRenderParams::SubpixelRendering subpixel_rendering) override;
   void CreateFrameSinkManager(mojom::FrameSinkManagerParamsPtr params) override;
   void CreateVizDevTools(mojom::VizDevToolsParamsPtr params) override;
+
+  // gpu::GpuInProcessThreadServiceDelegate implementation:
+  scoped_refptr<gpu::SharedContextState> GetSharedContextState() override;
+  scoped_refptr<gl::GLShareGroup> GetShareGroup() override;
 
   GpuServiceImpl* gpu_service() { return gpu_service_.get(); }
   const GpuServiceImpl* gpu_service() const { return gpu_service_.get(); }
@@ -150,21 +147,19 @@ class VizMainImpl : public mojom::VizMain {
   // destroyed after they are.
   std::unique_ptr<base::Thread> io_thread_;
 
-  LogMessages log_messages_;
-
   std::unique_ptr<gpu::GpuInit> gpu_init_;
   std::unique_ptr<GpuServiceImpl> gpu_service_;
 
-  // This is created for OOP-D only. It allows the display compositor to use
-  // InProcessCommandBuffer to send GPU commands to the GPU thread from the
-  // compositor thread. This must outlive |viz_compositor_thread_runner_|.
+  // Allows the display compositor to use InProcessCommandBuffer to send GPU
+  // commands to the GPU thread from the compositor thread. This must outlive
+  // |viz_compositor_thread_runner_|.
   std::unique_ptr<gpu::CommandBufferTaskExecutor> task_executor_;
 
   // If the gpu service is not yet ready then we stash pending
   // FrameSinkManagerParams.
   mojom::FrameSinkManagerParamsPtr pending_frame_sink_manager_params_;
 
-  // Runs the VizCompositorThread for the display compositor with OOP-D.
+  // Runs the VizCompositorThread for the display compositor.
   std::unique_ptr<VizCompositorThreadRunnerImpl>
       viz_compositor_thread_runner_impl_;
   // Note under Android WebView where VizCompositorThreadRunner is not created

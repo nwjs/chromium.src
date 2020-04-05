@@ -16,6 +16,11 @@
 #include "chrome/browser/sync/profile_sync_service_factory.h"
 #include "chrome/browser/sync/sync_ui_util.h"
 #include "chrome/browser/ui/browser_list.h"
+#include "components/signin/public/identity_manager/consent_level.h"
+
+#if defined(OS_CHROMEOS)
+#include "chromeos/constants/chromeos_features.h"
+#endif
 
 namespace {
 
@@ -90,10 +95,8 @@ void AvatarToolbarButtonDelegate::Init(AvatarToolbarButton* button,
                                        Profile* profile) {
   avatar_toolbar_button_ = button;
   profile_ = profile;
-#if !defined(OS_CHROMEOS)
   error_controller_ =
       std::make_unique<AvatarButtonErrorController>(this, profile_);
-#endif  // !defined(OS_CHROMEOS)
   profile_observer_.Add(&GetProfileAttributesStorage());
   AvatarToolbarButton::State state = GetState();
   if (state == AvatarToolbarButton::State::kIncognitoProfile) {
@@ -108,13 +111,15 @@ void AvatarToolbarButtonDelegate::Init(AvatarToolbarButton* button,
   }
 
 #if defined(OS_CHROMEOS)
-  // On CrOS this button should only show as badging for Incognito and Guest
-  // sessions. It's only enabled for Incognito where a menu is available for
-  // closing all Incognito windows.
-  DCHECK(state == AvatarToolbarButton::State::kIncognitoProfile ||
-         state == AvatarToolbarButton::State::kGuestSession);
-  avatar_toolbar_button_->SetEnabled(
-      state == AvatarToolbarButton::State::kIncognitoProfile);
+  if (!base::FeatureList::IsEnabled(chromeos::features::kAvatarToolbarButton)) {
+    // On CrOS this button should only show as badging for Incognito and Guest
+    // sessions. It's only enabled for Incognito where a menu is available for
+    // closing all Incognito windows.
+    DCHECK(state == AvatarToolbarButton::State::kIncognitoProfile ||
+           state == AvatarToolbarButton::State::kGuestSession);
+    avatar_toolbar_button_->SetEnabled(
+        state == AvatarToolbarButton::State::kIncognitoProfile);
+  }
 #endif  // !defined(OS_CHROMEOS)
 }
 
@@ -131,11 +136,13 @@ base::string16 AvatarToolbarButtonDelegate::GetShortProfileName() const {
 gfx::Image AvatarToolbarButtonDelegate::GetGaiaAccountImage() const {
   signin::IdentityManager* identity_manager =
       IdentityManagerFactory::GetForProfile(profile_);
-  if (identity_manager && identity_manager->HasUnconsentedPrimaryAccount()) {
+  if (identity_manager &&
+      identity_manager->HasPrimaryAccount(signin::ConsentLevel::kNotRequired)) {
     base::Optional<AccountInfo> account_info =
         identity_manager
             ->FindExtendedAccountInfoForAccountWithRefreshTokenByAccountId(
-                identity_manager->GetUnconsentedPrimaryAccountId());
+                identity_manager->GetPrimaryAccountId(
+                    signin::ConsentLevel::kNotRequired));
     if (account_info.has_value())
       return account_info->account_image;
   }
@@ -161,7 +168,8 @@ AvatarToolbarButton::State AvatarToolbarButtonDelegate::GetState() const {
       IdentityManagerFactory::GetForProfile(profile_);
   ProfileAttributesEntry* entry = GetProfileAttributesEntry(profile_);
   if (!entry ||  // This can happen if the user deletes the current profile.
-      (!identity_manager->HasUnconsentedPrimaryAccount() &&
+      (!identity_manager->HasPrimaryAccount(
+           signin::ConsentLevel::kNotRequired) &&
        IsGenericProfile(*entry))) {
     return AvatarToolbarButton::State::kGenericProfile;
   }
@@ -173,16 +181,15 @@ AvatarToolbarButton::State AvatarToolbarButtonDelegate::GetState() const {
     return AvatarToolbarButton::State::kAnimatedUserIdentity;
   }
 
-#if !defined(OS_CHROMEOS)
   if (identity_manager->HasPrimaryAccount() &&
       ProfileSyncServiceFactory::IsSyncAllowed(profile_) &&
       error_controller_->HasAvatarError()) {
-    // When DICE is enabled and the error is an auth error, the sync-paused
-    // icon is shown.
     int unused;
     const sync_ui_util::AvatarSyncErrorType error =
         sync_ui_util::GetMessagesForAvatarSyncError(profile_, &unused, &unused);
 
+    // When DICE is enabled and the error is an auth error, the sync-paused
+    // icon is shown.
     if (AccountConsistencyModeManager::IsDiceEnabledForProfile(profile_) &&
         error == sync_ui_util::AUTH_ERROR) {
       return AvatarToolbarButton::State::kSyncPaused;
@@ -194,7 +201,7 @@ AvatarToolbarButton::State AvatarToolbarButtonDelegate::GetState() const {
 
     return AvatarToolbarButton::State::kSyncError;
   }
-#endif  // !defined(OS_CHROMEOS)
+
   return AvatarToolbarButton::State::kNormal;
 }
 
@@ -227,8 +234,8 @@ void AvatarToolbarButtonDelegate::ShowIdentityAnimation(
 
   // Check that the user is still signed in. See https://crbug.com/1025674
   CoreAccountInfo user_identity =
-      IdentityManagerFactory::GetForProfile(profile_)
-          ->GetUnconsentedPrimaryAccountInfo();
+      IdentityManagerFactory::GetForProfile(profile_)->GetPrimaryAccountInfo(
+          signin::ConsentLevel::kNotRequired);
   if (user_identity.IsEmpty()) {
     identity_animation_state_ = IdentityAnimationState::kNotShowing;
     return;
@@ -325,8 +332,9 @@ void AvatarToolbarButtonDelegate::OnRefreshTokensLoaded() {
           GetProfileAttributesStorage(), profile_)) {
     return;
   }
-  CoreAccountInfo account = IdentityManagerFactory::GetForProfile(profile_)
-                                ->GetUnconsentedPrimaryAccountInfo();
+  CoreAccountInfo account =
+      IdentityManagerFactory::GetForProfile(profile_)->GetPrimaryAccountInfo(
+          signin::ConsentLevel::kNotRequired);
   if (account.IsEmpty())
     return;
   OnUserIdentityChanged();

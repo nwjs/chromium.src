@@ -8,18 +8,19 @@
 #include <memory>
 
 #include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/debug/stack_trace.h"
 #include "base/logging.h"
 #include "base/macros.h"
 #include "base/run_loop.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/bind_test_util.h"
+#include "base/test/task_environment.h"
 #include "components/services/storage/indexed_db/scopes/disjoint_range_lock_manager.h"
 #include "content/browser/indexed_db/fake_indexed_db_metadata_coding.h"
 #include "content/browser/indexed_db/indexed_db_class_factory.h"
 #include "content/browser/indexed_db/indexed_db_connection.h"
 #include "content/browser/indexed_db/indexed_db_database_error.h"
-#include "content/browser/indexed_db/indexed_db_execution_context_connection_tracker.h"
 #include "content/browser/indexed_db/indexed_db_factory_impl.h"
 #include "content/browser/indexed_db/indexed_db_fake_backing_store.h"
 #include "content/browser/indexed_db/indexed_db_leveldb_coding.h"
@@ -27,7 +28,6 @@
 #include "content/browser/indexed_db/indexed_db_observer.h"
 #include "content/browser/indexed_db/mock_indexed_db_database_callbacks.h"
 #include "content/browser/indexed_db/mock_indexed_db_factory.h"
-#include "content/public/test/browser_task_environment.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/mojom/indexeddb/indexeddb.mojom.h"
 
@@ -57,7 +57,7 @@ class AbortObserver {
 class IndexedDBTransactionTest : public testing::Test {
  public:
   IndexedDBTransactionTest()
-      : task_environment_(std::make_unique<BrowserTaskEnvironment>()),
+      : task_environment_(std::make_unique<base::test::TaskEnvironment>()),
         backing_store_(new IndexedDBFakeBackingStore()),
         factory_(new MockIndexedDBFactory()),
         lock_manager_(kIndexedDBLockLevelCount) {}
@@ -121,7 +121,6 @@ class IndexedDBTransactionTest : public testing::Test {
   std::unique_ptr<IndexedDBConnection> CreateConnection() {
     auto connection = std::unique_ptr<
         IndexedDBConnection>(std::make_unique<IndexedDBConnection>(
-        IndexedDBExecutionContextConnectionTracker::Handle::CreateForTesting(),
         IndexedDBOriginStateHandle(), IndexedDBClassFactory::Get(),
         db_->AsWeakPtr(), base::DoNothing(), base::DoNothing(),
         new MockIndexedDBDatabaseCallbacks()));
@@ -132,7 +131,7 @@ class IndexedDBTransactionTest : public testing::Test {
   DisjointRangeLockManager* lock_manager() { return &lock_manager_; }
 
  protected:
-  std::unique_ptr<BrowserTaskEnvironment> task_environment_;
+  std::unique_ptr<base::test::TaskEnvironment> task_environment_;
   std::unique_ptr<IndexedDBFakeBackingStore> backing_store_;
   std::unique_ptr<IndexedDBDatabase> db_;
   std::unique_ptr<MockIndexedDBFactory> factory_;

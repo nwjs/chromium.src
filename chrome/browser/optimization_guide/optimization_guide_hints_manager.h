@@ -12,6 +12,7 @@
 #include "base/callback_forward.h"
 #include "base/containers/flat_map.h"
 #include "base/containers/flat_set.h"
+#include "base/containers/mru_cache.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/optional.h"
@@ -121,8 +122,8 @@ class OptimizationGuideHintsManager
 
   // Invokes |callback| with the decision for |navigation_url| and
   // |optimization_type|, when sufficient information has been collected by
-  // |this| to make the decision.
-  void CanApplyOptimizationAsync(
+  // |this| to make the decision. Virtual for testing.
+  virtual void CanApplyOptimizationAsync(
       const GURL& navigation_url,
       optimization_guide::proto::OptimizationType optimization_type,
       optimization_guide::OptimizationGuideDecisionCallback callback);
@@ -155,8 +156,11 @@ class OptimizationGuideHintsManager
   void OnNavigationStartOrRedirect(content::NavigationHandle* navigation_handle,
                                    base::OnceClosure callback);
 
-  // Notifies |this| that a navigation with URL |navigation_url| has finished.
-  void OnNavigationFinish(const GURL& navigation_url);
+  // Notifies |this| that a navigation with redirect chain
+  // |navigation_redirect_chain| has finished. The |navigation_data| will be
+  // updated based on the current state of |this|.
+  void OnNavigationFinish(const std::vector<GURL>& navigation_redirect_chain,
+                          OptimizationGuideNavigationData* navigation_data);
 
  private:
   FRIEND_TEST_ALL_PREFIXES(OptimizationGuideHintsManagerTest, IsGoogleURL);
@@ -173,6 +177,9 @@ class OptimizationGuideHintsManager
   FRIEND_TEST_ALL_PREFIXES(
       OptimizationGuideHintsManagerFetchingTest,
       HintsFetched_AtSRP_ECT_SLOW_2G_NonHTTPOrHTTPSHostsRemoved);
+  FRIEND_TEST_ALL_PREFIXES(
+      OptimizationGuideHintsManagerFetchingTest,
+      HintsFetched_ExternalAndroidApp_ECT_SLOW_2G_NonHTTPOrHTTPSHostsRemoved);
 
   // Processes the hints component.
   //
@@ -234,10 +241,13 @@ class OptimizationGuideHintsManager
   // Optimization Guide Service and are ready for parsing. This is used when
   // fetching hints in real-time. |navigation_url| is the URL associated with
   // the navigation handle that initiated the fetch.
-  // |page_navigation_hosts_requested| contains the hosts that were requested to
-  // be fetched.
+  // |page_navigation_urls_requested| contains the URLs that were requested  by
+  // |this| to be fetched. |page_navigation_hosts_requested| contains the hosts
+  // that were requested by |this| to be fetched.
   void OnPageNavigationHintsFetched(
+      base::WeakPtr<OptimizationGuideNavigationData> navigation_data_weak_ptr,
       const base::Optional<GURL>& navigation_url,
+      const base::flat_set<GURL>& page_navigation_urls_requested,
       const base::flat_set<std::string>& page_navigation_hosts_requested,
       base::Optional<
           std::unique_ptr<optimization_guide::proto::GetHintsResponse>>
@@ -253,11 +263,15 @@ class OptimizationGuideHintsManager
   // initiated the fetch. |page_navigation_hosts_requested| contains the hosts
   // whose hints should be loaded into memory when invoked.
   void OnFetchedPageNavigationHintsStored(
+      base::WeakPtr<OptimizationGuideNavigationData> navigation_data_weak_ptr,
       const base::Optional<GURL>& navigation_url,
       const base::flat_set<std::string>& page_navigation_hosts_requested);
 
   // Returns true if there is a fetch currently in-flight for |navigation_url|.
-  bool IsHintBeingFetchedForNavigation(const GURL& navigation_url) const;
+  bool IsHintBeingFetchedForNavigation(const GURL& navigation_url);
+
+  // Cleans up the hints fetcher for |navigation_url|, if applicable.
+  void CleanUpFetcherForNavigation(const GURL& navigation_url);
 
   // Returns the time when a hints fetch request was last attempted.
   base::Time GetLastHintsFetchAttemptTime() const;
@@ -292,7 +306,7 @@ class OptimizationGuideHintsManager
 
   // NavigationPredictorKeyedService::Observer:
   void OnPredictionUpdated(
-      const base::Optional<NavigationPredictorKeyedService::Prediction>&
+      const base::Optional<NavigationPredictorKeyedService::Prediction>
           prediction) override;
 
   // Creates a hints fetch for |navigation_handle| if it is allowed. The
@@ -317,6 +331,12 @@ class OptimizationGuideHintsManager
 
   // Invokes the registered callbacks for |navigation_url|, if applicable.
   void OnReadyToInvokeRegisteredCallbacks(const GURL& navigation_url);
+
+  // Whether all information was available to make a decision for
+  // |navigation_url| and |optimization type}.
+  bool HasAllInformationForDecisionAvailable(
+      const GURL& navigation_url,
+      optimization_guide::proto::OptimizationType optimization_type);
 
   // The OptimizationGuideService that this guide is listening to. Not owned.
   optimization_guide::OptimizationGuideService* const
@@ -372,9 +392,10 @@ class OptimizationGuideHintsManager
   // the remote Optimization Guide Service.
   std::unique_ptr<optimization_guide::HintsFetcher> batch_update_hints_fetcher_;
 
-  // A map from the navigation URL to the fetcher making a request for a hint
-  // for that URL and/or host to the remote Optimization Guide Service.
-  base::flat_map<GURL, std::unique_ptr<optimization_guide::HintsFetcher>>
+  // A cache keyed by navigation URL to the fetcher making a request for a hint
+  // for that URL and/or host to the remote Optimization Guide Service that
+  // keeps track of when an entry has been placed in the cache.
+  base::MRUCache<GURL, std::unique_ptr<optimization_guide::HintsFetcher>>
       page_navigation_hints_fetchers_;
 
   // The factory used to create hints fetchers. It is mostly used to create

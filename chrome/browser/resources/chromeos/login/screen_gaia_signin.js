@@ -170,15 +170,6 @@ Polymer({
     },
 
     /**
-     * Message displayed on SAML interstitial page.
-     * @private
-     */
-    samlInterstitialMessage_: {
-      type: String,
-      computed: 'calculateSamlMessage_(locale, samlInterstitialDomain_)',
-    },
-
-    /**
      * Contains the security token PIN dialog parameters object when the dialog
      * is shown. Is null when no PIN dialog is shown.
      * @type {OobeTypes.SecurityTokenPinDialogParameter}
@@ -415,8 +406,6 @@ Polymer({
           eventName, authenticatorEventListeners[eventName].bind(this));
     }
 
-    this.$['signin-back-button'].addEventListener(
-        'click', this.onBackButtonClicked_.bind(this));
     this.$['offline-gaia'].addEventListener(
         'offline-gaia-cancel', this.cancel.bind(this));
 
@@ -493,7 +482,7 @@ Polymer({
    */
   canGoBack_() {
     return this.lastBackMessageValue_ && !this.isWhitelistErrorShown_ &&
-        !this.authCompleted_ && !this.isLoadingUiShown_ && !this.isSaml_;
+        !this.authCompleted_ && !this.isSaml_;
   },
 
   /**
@@ -695,6 +684,10 @@ Polymer({
         GAIA_ANIMATION_GUARD_MILLISEC);
   },
 
+  getOobeUIInitialState() {
+    return OOBE_UI_STATE.GAIA_SIGNIN;
+  },
+
   /**
    * Event handler that is invoked just before the frame is shown.
    */
@@ -707,7 +700,6 @@ Polymer({
     this.screenMode_ = AuthMode.DEFAULT;
     this.loadingFrameContents_ = true;
     chrome.send('loginUIStateChanged', ['gaia-signin', true]);
-    Oobe.getInstance().setSigninUIState(SIGNIN_UI_STATE.GAIA_SIGNIN);
 
     // Ensure that GAIA signin (or loading UI) is actually visible.
     window.requestAnimationFrame(function() {
@@ -722,6 +714,7 @@ Polymer({
 
     this.$['offline-ad-auth'].onBeforeShow();
     this.$['signin-frame-dialog'].onBeforeShow();
+    this.$['offline-gaia'].onBeforeShow();
     this.$.pinDialog.onBeforeShow();
   },
 
@@ -768,7 +761,6 @@ Polymer({
    */
   onBeforeHide() {
     chrome.send('loginUIStateChanged', ['gaia-signin', false]);
-    Oobe.getInstance().setSigninUIState(SIGNIN_UI_STATE.HIDDEN);
     this.$['offline-gaia'].switchToEmailCard(false /* animated */);
   },
 
@@ -945,10 +937,10 @@ Polymer({
     // Workaround to hide flashing scroll bar.
     this.async(function() {
       this.loadingFrameContents_ = false;
-    }.bind(this), 100);
 
-    if (!this.$['offline-gaia'].hidden)
-      this.$['offline-gaia'].focus();
+      if (!this.$['offline-gaia'].hidden)
+        this.$['offline-gaia'].focus();
+    }.bind(this), 100);
   },
 
   /**
@@ -1275,7 +1267,7 @@ Polymer({
     this.authenticator_.resetStates();
     if (takeFocus) {
       if (!forceOnline && this.isOffline_()) {
-        Oobe.getInstance().setSigninUIState(SIGNIN_UI_STATE.GAIA_SIGNIN);
+        Oobe.getInstance().setOobeUIState(OOBE_UI_STATE.GAIA_SIGNIN);
         // Do nothing, since offline version is reloaded after an error comes.
       } else {
         Oobe.showSigninUI();
@@ -1325,8 +1317,7 @@ Polymer({
 
     // TODO(crbug.com/470893): Figure out whether/which of these exit conditions
     // are useful.
-    if (this.screenMode_ == AuthMode.SAML_INTERSTITIAL ||
-        this.isWhitelistErrorShown_ || this.authCompleted_) {
+    if (this.isWhitelistErrorShown_ || this.authCompleted_) {
       return;
     }
 
@@ -1481,8 +1472,8 @@ Polymer({
   /**
    * Observer that is called when the |pinDialogParameters_| property gets
    * changed.
-   * @param {number} newValue
-   * @param {number} oldValue
+   * @param {OobeTypes.SecurityTokenPinDialogParameter} newValue
+   * @param {OobeTypes.SecurityTokenPinDialogParameter} oldValue
    * @private
    */
   onPinDialogParametersChanged_(newValue, oldValue) {
@@ -1490,6 +1481,17 @@ Polymer({
       // Don't do anything on the initial call, triggered by the property
       // initialization.
       return;
+    }
+    if (oldValue === null && newValue !== null) {
+      // Asynchronously set the focus, so that this happens after Polymer
+      // recalculates the visibility of |pinDialog|.
+      // Also notify the C++ test after this happens, in order to avoid
+      // flakiness (so that the test doesn't try to simulate the input before
+      // the caret is positioned).
+      requestAnimationFrame(() => {
+        this.$.pinDialog.focus();
+        chrome.send('securityTokenPinDialogShownForTest');
+      });
     }
     if ((oldValue !== null && newValue === null) ||
         (oldValue !== null && newValue !== null &&
@@ -1592,17 +1594,6 @@ Polymer({
     this.authenticatorParams_.email = '';
     this.screenMode_ = AuthMode.DEFAULT;
     this.loadAuthenticator_(false /* doSamlRedirect */);
-  },
-
-  /**
-   * Calculates samlInterstitialMessage_, as it can not be easily evaluated via
-   * current i18n functions (HTML + substitutions).
-   * @param {string} locale
-   * @param {string} domain
-   * @private
-   */
-  calculateSamlMessage_(locale, domain) {
-    return loadTimeData.getStringF('samlInterstitialMessage', domain);
   },
 
   /**

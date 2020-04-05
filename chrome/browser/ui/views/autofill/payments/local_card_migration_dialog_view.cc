@@ -351,13 +351,17 @@ LocalCardMigrationDialogView::LocalCardMigrationDialogView(
     LocalCardMigrationDialogController* controller,
     content::WebContents* web_contents)
     : controller_(controller), web_contents_(web_contents) {
-  DialogDelegate::set_button_label(ui::DIALOG_BUTTON_OK, GetOkButtonLabel());
-  DialogDelegate::set_button_label(ui::DIALOG_BUTTON_CANCEL,
+  DialogDelegate::SetButtons(controller_->AllCardsInvalid()
+                                  ? ui::DIALOG_BUTTON_OK
+                                  : ui::DIALOG_BUTTON_OK |
+                                        ui::DIALOG_BUTTON_CANCEL);
+  DialogDelegate::SetButtonLabel(ui::DIALOG_BUTTON_OK, GetOkButtonLabel());
+  DialogDelegate::SetButtonLabel(ui::DIALOG_BUTTON_CANCEL,
                                    GetCancelButtonLabel());
-  DialogDelegate::set_cancel_callback(
+  DialogDelegate::SetCancelCallback(
       base::BindOnce(&LocalCardMigrationDialogView::OnDialogCancelled,
                      base::Unretained(this)));
-  DialogDelegate::set_accept_callback(base::BindOnce(
+  DialogDelegate::SetAcceptCallback(base::BindOnce(
       &LocalCardMigrationDialogView::OnDialogAccepted, base::Unretained(this)));
   set_close_on_deactivate(false);
   set_margins(gfx::Insets());
@@ -392,14 +396,6 @@ ui::ModalType LocalCardMigrationDialogView::GetModalType() const {
 
 bool LocalCardMigrationDialogView::ShouldShowCloseButton() const {
   return false;
-}
-
-int LocalCardMigrationDialogView::GetDialogButtons() const {
-  // Don't show the "View cards" button if all cards are invalid.
-  if (controller_->AllCardsInvalid())
-    return ui::DIALOG_BUTTON_OK;
-
-  return ui::DIALOG_BUTTON_OK | ui::DIALOG_BUTTON_CANCEL;
 }
 
 // TODO(crbug.com/867194): Update this method when adding feedback.

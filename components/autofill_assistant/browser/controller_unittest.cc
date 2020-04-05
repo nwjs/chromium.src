@@ -7,6 +7,7 @@
 #include <memory>
 #include <utility>
 
+#include "base/bind_helpers.h"
 #include "base/guid.h"
 #include "base/test/bind_test_util.h"
 #include "base/test/gmock_callback_support.h"
@@ -16,12 +17,14 @@
 #include "components/autofill/core/browser/autofill_test_utils.h"
 #include "components/autofill_assistant/browser/device_context.h"
 #include "components/autofill_assistant/browser/features.h"
+#include "components/autofill_assistant/browser/mock_client.h"
 #include "components/autofill_assistant/browser/mock_controller_observer.h"
 #include "components/autofill_assistant/browser/mock_personal_data_manager.h"
 #include "components/autofill_assistant/browser/mock_service.h"
 #include "components/autofill_assistant/browser/service.h"
 #include "components/autofill_assistant/browser/trigger_context.h"
 #include "components/autofill_assistant/browser/web/mock_web_controller.h"
+#include "components/password_manager/core/browser/stub_password_manager_client.h"
 #include "content/public/test/navigation_simulator.h"
 #include "content/public/test/test_browser_context.h"
 #include "content/public/test/test_renderer_host.h"
@@ -45,6 +48,7 @@ using ::testing::Invoke;
 using ::testing::IsEmpty;
 using ::testing::NiceMock;
 using ::testing::Not;
+using ::testing::NotNull;
 using ::testing::Pair;
 using ::testing::Pointee;
 using ::testing::Property;
@@ -58,27 +62,10 @@ using ::testing::UnorderedElementsAre;
 
 namespace {
 
-class FakeClient : public Client {
+class MockPasswordManagerClient
+    : public password_manager::StubPasswordManagerClient {
  public:
-  // Implements Client
-  std::string GetApiKey() override { return ""; }
-  AccessTokenFetcher* GetAccessTokenFetcher() override { return nullptr; }
-  MockPersonalDataManager* GetPersonalDataManager() override {
-    return &mock_personal_data_manager_;
-  }
-  WebsiteLoginFetcher* GetWebsiteLoginFetcher() override { return nullptr; }
-  std::string GetServerUrl() override { return ""; }
-  std::string GetAccountEmailAddress() override { return ""; }
-  std::string GetLocale() override { return ""; }
-  std::string GetCountryCode() override { return ""; }
-  DeviceContext GetDeviceContext() override { return DeviceContext(); }
-  MOCK_METHOD0(GetWebContents, content::WebContents*());
-  MOCK_METHOD1(Shutdown, void(Metrics::DropOutReason reason));
-  MOCK_METHOD0(AttachUI, void());
-  MOCK_METHOD0(DestroyUI, void());
-
- private:
-  MockPersonalDataManager mock_personal_data_manager_;
+  MOCK_CONST_METHOD0(WasCredentialLeakDialogShown, bool());
 };
 
 // Same as non-mock, but provides default mock callbacks.
@@ -114,10 +101,12 @@ class ControllerTest : public content::RenderViewHostTestHarness {
     auto service = std::make_unique<NiceMock<MockService>>();
     mock_service_ = service.get();
 
-    ON_CALL(fake_client_, GetWebContents).WillByDefault(Return(web_contents()));
+    ON_CALL(mock_client_, GetWebContents).WillByDefault(Return(web_contents()));
+    ON_CALL(mock_client_, GetPasswordManagerClient)
+        .WillByDefault(Return(&mock_password_manager_client_));
 
     controller_ = std::make_unique<Controller>(
-        web_contents(), &fake_client_, task_environment()->GetMockTickClock(),
+        web_contents(), &mock_client_, task_environment()->GetMockTickClock(),
         std::move(service));
     controller_->SetWebControllerForTest(std::move(web_controller));
 
@@ -234,9 +223,9 @@ class ControllerTest : public content::RenderViewHostTestHarness {
   std::vector<AutofillAssistantState> states_;
   MockService* mock_service_;
   MockWebController* mock_web_controller_;
-  NiceMock<FakeClient> fake_client_;
+  NiceMock<MockClient> mock_client_;
   NiceMock<MockControllerObserver> mock_observer_;
-
+  MockPasswordManagerClient mock_password_manager_client_;
   std::unique_ptr<Controller> controller_;
 };
 
@@ -295,10 +284,10 @@ TEST_F(ControllerTest, FetchAndRunScriptsWithChip) {
       controller_->GetUserActions(),
       UnorderedElementsAre(Property(&UserAction::chip,
                                     AllOf(Field(&Chip::text, StrEq("script1")),
-                                          Field(&Chip::type, SUGGESTION))),
+                                          Field(&Chip::type, NORMAL_ACTION))),
                            Property(&UserAction::chip,
                                     AllOf(Field(&Chip::text, StrEq("script2")),
-                                          Field(&Chip::type, SUGGESTION)))));
+                                          Field(&Chip::type, NORMAL_ACTION)))));
 
   // Choose script2 and run it successfully.
   EXPECT_CALL(*mock_service_, OnGetActions(StrEq("script2"), _, _, _, _, _))
@@ -400,7 +389,7 @@ TEST_F(ControllerTest, NoScripts) {
   SupportsScriptResponseProto empty;
   SetNextScriptResponse(empty);
 
-  EXPECT_CALL(fake_client_,
+  EXPECT_CALL(mock_client_,
               Shutdown(Metrics::DropOutReason::NO_INITIAL_SCRIPTS));
   Start("http://a.example.com/path");
   EXPECT_EQ(AutofillAssistantState::STOPPED, controller_->GetState());
@@ -414,7 +403,7 @@ TEST_F(ControllerTest, NoRelevantScripts) {
       ->add_domain("http://otherdomain.com");
   SetNextScriptResponse(script_response);
 
-  EXPECT_CALL(fake_client_,
+  EXPECT_CALL(mock_client_,
               Shutdown(Metrics::DropOutReason::NO_INITIAL_SCRIPTS));
   Start("http://a.example.com/path");
   EXPECT_EQ(AutofillAssistantState::STOPPED, controller_->GetState());
@@ -425,7 +414,8 @@ TEST_F(ControllerTest, NoRelevantScriptYet) {
   AddRunnableScript(&script_response, "no_match_yet")
       ->mutable_presentation()
       ->mutable_precondition()
-      ->add_elements_exist()
+      ->mutable_element_condition()
+      ->mutable_match()
       ->add_selectors("#element");
   SetNextScriptResponse(script_response);
 
@@ -433,7 +423,7 @@ TEST_F(ControllerTest, NoRelevantScriptYet) {
   EXPECT_EQ(AutofillAssistantState::STARTING, controller_->GetState());
 }
 
-TEST_F(ControllerTest, ReportPromptAndSuggestionsChanged) {
+TEST_F(ControllerTest, ReportPromptAndActionsChanged) {
   SupportsScriptResponseProto script_response;
   AddRunnableScript(&script_response, "script1");
   AddRunnableScript(&script_response, "script2");
@@ -531,7 +521,7 @@ TEST_F(ControllerTest, Stop) {
   ASSERT_THAT(controller_->GetUserActions(), SizeIs(1));
 
   testing::InSequence seq;
-  EXPECT_CALL(fake_client_, Shutdown(Metrics::DropOutReason::SCRIPT_SHUTDOWN));
+  EXPECT_CALL(mock_client_, Shutdown(Metrics::DropOutReason::SCRIPT_SHUTDOWN));
   EXPECT_TRUE(controller_->PerformUserAction(0));
 }
 
@@ -552,7 +542,7 @@ TEST_F(ControllerTest, CloseCustomTab) {
   EXPECT_CALL(mock_observer_, CloseCustomTab()).Times(1);
 
   testing::InSequence seq;
-  EXPECT_CALL(fake_client_,
+  EXPECT_CALL(mock_client_,
               Shutdown(Metrics::DropOutReason::CUSTOM_TAB_CLOSED));
   EXPECT_TRUE(controller_->PerformUserAction(0));
 }
@@ -587,7 +577,7 @@ TEST_F(ControllerTest, Autostart) {
   EXPECT_CALL(*mock_service_, OnGetActions(StrEq("autostart"), _, _, _, _, _))
       .WillOnce(RunOnceCallback<5>(true, ""));
 
-  EXPECT_CALL(fake_client_, AttachUI());
+  EXPECT_CALL(mock_client_, AttachUI());
   Start("http://a.example.com/path");
   EXPECT_EQ(AutofillAssistantState::PROMPT, controller_->GetState());
 
@@ -597,7 +587,7 @@ TEST_F(ControllerTest, Autostart) {
   SetupActionsForScript("runnable", runnable_script);
 
   // The script "runnable" stops the flow and shutdowns the controller.
-  EXPECT_CALL(fake_client_, Shutdown(Metrics::DropOutReason::SCRIPT_SHUTDOWN));
+  EXPECT_CALL(mock_client_, Shutdown(Metrics::DropOutReason::SCRIPT_SHUTDOWN));
   controller_->PerformUserAction(0);
   EXPECT_EQ(AutofillAssistantState::STOPPED, controller_->GetState());
 
@@ -695,7 +685,7 @@ TEST_F(ControllerTest, StateChanges) {
 }
 
 TEST_F(ControllerTest, AttachUIWhenStarting) {
-  EXPECT_CALL(fake_client_, AttachUI());
+  EXPECT_CALL(mock_client_, AttachUI());
   Start();
 }
 
@@ -703,14 +693,14 @@ TEST_F(ControllerTest, AttachUIWhenContentsFocused) {
   SimulateWebContentsFocused();  // must not call AttachUI
 
   testing::InSequence seq;
-  EXPECT_CALL(fake_client_, AttachUI());
+  EXPECT_CALL(mock_client_, AttachUI());
 
   SupportsScriptResponseProto script_response;
   AddRunnableScript(&script_response, "script1");
   SetNextScriptResponse(script_response);
   Start();  // must call AttachUI
 
-  EXPECT_CALL(fake_client_, AttachUI());
+  EXPECT_CALL(mock_client_, AttachUI());
   SimulateWebContentsFocused();  // must call AttachUI
 
   controller_->OnFatalError("test", Metrics::DropOutReason::TAB_CHANGED);
@@ -722,7 +712,8 @@ TEST_F(ControllerTest, KeepCheckingForElement) {
   AddRunnableScript(&script_response, "no_match_yet")
       ->mutable_presentation()
       ->mutable_precondition()
-      ->add_elements_exist()
+      ->mutable_element_condition()
+      ->mutable_match()
       ->add_selectors("#element");
   SetNextScriptResponse(script_response);
 
@@ -750,7 +741,8 @@ TEST_F(ControllerTest, ScriptTimeoutError) {
   AddRunnableScript(&script_response, "will_never_match")
       ->mutable_presentation()
       ->mutable_precondition()
-      ->add_elements_exist()
+      ->mutable_element_condition()
+      ->mutable_match()
       ->add_selectors("#element");
   script_response.mutable_script_timeout_error()->set_timeout_ms(30000);
   script_response.mutable_script_timeout_error()->set_script_path(
@@ -783,7 +775,8 @@ TEST_F(ControllerTest, ScriptTimeoutWarning) {
   AddRunnableScript(&script_response, "will_never_match")
       ->mutable_presentation()
       ->mutable_precondition()
-      ->add_elements_exist()
+      ->mutable_element_condition()
+      ->mutable_match()
       ->add_selectors("#element");
   script_response.mutable_script_timeout_error()->set_timeout_ms(4000);
   script_response.mutable_script_timeout_error()->set_script_path(
@@ -1045,7 +1038,7 @@ TEST_F(ControllerTest, Track) {
 
   // Execute the script, which requires showing the UI, then go back to tracking
   // mode
-  EXPECT_CALL(fake_client_, AttachUI());
+  EXPECT_CALL(mock_client_, AttachUI());
   EXPECT_TRUE(controller_->PerformUserAction(0));
   EXPECT_EQ(AutofillAssistantState::TRACKING, controller_->GetState());
   EXPECT_THAT(controller_->GetUserActions(), SizeIs(1));
@@ -1063,13 +1056,13 @@ TEST_F(ControllerTest, Track) {
 
   // Shutdown once we've moved from domain b.example.com, for which we know
   // there are no scripts, to c.example.com, which we don't want to check.
-  EXPECT_CALL(fake_client_, Shutdown(Metrics::DropOutReason::NO_SCRIPTS));
+  EXPECT_CALL(mock_client_, Shutdown(Metrics::DropOutReason::NO_SCRIPTS));
   SimulateNavigateToUrl(GURL("http://c.example.com/"));
 }
 
 TEST_F(ControllerTest, TrackScriptWithNoUI) {
   // The UI is never shown during this test.
-  EXPECT_CALL(fake_client_, AttachUI()).Times(0);
+  EXPECT_CALL(mock_client_, AttachUI()).Times(0);
 
   SupportsScriptResponseProto script_response;
   auto* script = AddRunnableScript(&script_response, "runnable");
@@ -1116,7 +1109,7 @@ TEST_F(ControllerTest, TrackScriptShowUIOnTell) {
   ASSERT_THAT(controller_->GetUserActions(), SizeIs(1));
 
   EXPECT_FALSE(controller_->NeedsUI());
-  EXPECT_CALL(fake_client_, AttachUI());
+  EXPECT_CALL(mock_client_, AttachUI());
   EXPECT_TRUE(controller_->PerformUserAction(0));
   EXPECT_EQ(AutofillAssistantState::TRACKING, controller_->GetState());
 
@@ -1147,7 +1140,7 @@ TEST_F(ControllerTest, TrackScriptShowUIOnError) {
   ASSERT_THAT(controller_->GetUserActions(), SizeIs(1));
 
   EXPECT_FALSE(controller_->NeedsUI());
-  EXPECT_CALL(fake_client_, AttachUI());
+  EXPECT_CALL(mock_client_, AttachUI());
   EXPECT_TRUE(controller_->PerformUserAction(0));
   EXPECT_EQ(AutofillAssistantState::TRACKING, controller_->GetState());
 
@@ -1244,7 +1237,8 @@ TEST_F(ControllerTest, TrackReportsNoScriptsForNow) {
   AddRunnableScript(&script_response, "no_match_yet")
       ->mutable_presentation()
       ->mutable_precondition()
-      ->add_elements_exist()
+      ->mutable_element_condition()
+      ->mutable_match()
       ->add_selectors("#element");
   SetNextScriptResponse(script_response);
 
@@ -1309,7 +1303,7 @@ TEST_F(ControllerTest, TrackThenAutostart) {
   runnable_script.add_actions()->mutable_stop();
   SetupActionsForScript("runnable", runnable_script);
 
-  EXPECT_CALL(fake_client_, AttachUI());
+  EXPECT_CALL(mock_client_, AttachUI());
   Start("http://example.com/");
   EXPECT_EQ(AutofillAssistantState::PROMPT, controller_->GetState());
   EXPECT_THAT(controller_->GetUserActions(), SizeIs(1));
@@ -1365,7 +1359,9 @@ TEST_F(ControllerTest, BrowseStateStopsOnDifferentDomain) {
   EXPECT_EQ(AutofillAssistantState::BROWSE, controller_->GetState());
 
   // Shut down once the user moves to a different domain
-  EXPECT_CALL(fake_client_, Shutdown(Metrics::DropOutReason::NAVIGATION));
+  EXPECT_CALL(
+      mock_client_,
+      Shutdown(Metrics::DropOutReason::DOMAIN_CHANGE_DURING_BROWSE_MODE));
   SimulateNavigateToUrl(GURL("http://other-example.com/"));
 }
 
@@ -1395,7 +1391,7 @@ TEST_F(ControllerTest, PromptStateStopsOnGoBack) {
   EXPECT_EQ(AutofillAssistantState::PROMPT, controller_->GetState());
 
   // go back.
-  EXPECT_CALL(fake_client_, Shutdown(Metrics::DropOutReason::NAVIGATION));
+  EXPECT_CALL(mock_client_, Shutdown(Metrics::DropOutReason::NAVIGATION));
   SetLastCommittedUrl(GURL("http://b.example.com"));
   content::NavigationSimulator::GoBack(web_contents());
 }
@@ -1483,7 +1479,7 @@ TEST_F(ControllerTest, UnexpectedNavigationDuringPromptAction) {
   EXPECT_CALL(mock_observer_, OnStatusMessageChanged(testing::Not(never_shown)))
       .Times(testing::AnyNumber());
 
-  EXPECT_CALL(fake_client_, Shutdown(Metrics::DropOutReason::NAVIGATION));
+  EXPECT_CALL(mock_client_, Shutdown(Metrics::DropOutReason::NAVIGATION));
   content::NavigationSimulator::NavigateAndCommitFromBrowser(
       web_contents(), GURL("http://example.com/otherpage"));
 
@@ -2099,6 +2095,52 @@ TEST_F(ControllerTest, SecondPromptActionShouldDefaultToExpandSheet) {
   EXPECT_TRUE(controller_->ShouldPromptActionExpandSheet());
   ASSERT_THAT(controller_->GetUserActions(), SizeIs(1));
   EXPECT_EQ(controller_->GetUserActions()[0].chip().text, "next");
+}
+
+TEST_F(ControllerTest, SetGenericUi) {
+  {
+    testing::InSequence seq;
+    EXPECT_CALL(mock_observer_, OnGenericUserInterfaceChanged(NotNull()));
+    EXPECT_CALL(mock_observer_, OnGenericUserInterfaceChanged(nullptr));
+  }
+  controller_->SetGenericUi(
+      std::make_unique<GenericUserInterfaceProto>(GenericUserInterfaceProto()),
+      base::DoNothing());
+  controller_->ClearGenericUi();
+}
+
+TEST_F(ControllerTest, StartPasswordChangeFlow) {
+  EXPECT_CALL(mock_password_manager_client_, WasCredentialLeakDialogShown())
+      .WillOnce(Return(true));
+
+  GURL initialUrl("http://example.com/password");
+  EXPECT_CALL(*mock_service_, OnGetScriptsForUrl(Eq(initialUrl), _, _))
+      .WillOnce(RunOnceCallback<2>(true, ""));
+  std::map<std::string, std::string> parameters;
+  std::string username = "test_username";
+  parameters["PASSWORD_CHANGE_USERNAME"] = username;
+
+  EXPECT_TRUE(
+      controller_->Start(initialUrl, TriggerContext::Create(parameters, "")));
+  EXPECT_EQ(GetUserData()->selected_login_->username, username);
+}
+
+TEST_F(ControllerTest, BlockPasswordChangeFlow) {
+  // If the password manager doesn't confirm that a leak dialog was shown, the
+  // flow should not start.
+  EXPECT_CALL(mock_password_manager_client_, WasCredentialLeakDialogShown())
+      .WillOnce(Return(false));
+
+  GURL initialUrl("http://example.com/password");
+  EXPECT_CALL(*mock_service_, OnGetScriptsForUrl(Eq(initialUrl), _, _))
+      .Times(0);
+  std::map<std::string, std::string> parameters;
+  std::string username = "test_username";
+  parameters["PASSWORD_CHANGE_USERNAME"] = username;
+
+  EXPECT_FALSE(
+      controller_->Start(initialUrl, TriggerContext::Create(parameters, "")));
+  EXPECT_FALSE(GetUserData()->selected_login_);
 }
 
 }  // namespace autofill_assistant

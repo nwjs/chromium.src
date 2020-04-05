@@ -57,8 +57,7 @@ void AXPlatformNodeTextProviderWin::CreateIUnknown(AXPlatformNodeWin* owner,
 // ITextProvider methods.
 //
 
-STDMETHODIMP AXPlatformNodeTextProviderWin::GetSelection(
-    SAFEARRAY** selection) {
+HRESULT AXPlatformNodeTextProviderWin::GetSelection(SAFEARRAY** selection) {
   WIN_ACCESSIBILITY_API_HISTOGRAM(UMA_API_TEXT_GETSELECTION);
   UIA_VALIDATE_TEXTPROVIDER_CALL();
 
@@ -132,7 +131,7 @@ STDMETHODIMP AXPlatformNodeTextProviderWin::GetSelection(
   return S_OK;
 }
 
-STDMETHODIMP AXPlatformNodeTextProviderWin::GetVisibleRanges(
+HRESULT AXPlatformNodeTextProviderWin::GetVisibleRanges(
     SAFEARRAY** visible_ranges) {
   WIN_ACCESSIBILITY_API_HISTOGRAM(UMA_API_TEXT_GETVISIBLERANGES);
   UIA_VALIDATE_TEXTPROVIDER_CALL();
@@ -203,7 +202,7 @@ STDMETHODIMP AXPlatformNodeTextProviderWin::GetVisibleRanges(
   return S_OK;
 }
 
-STDMETHODIMP AXPlatformNodeTextProviderWin::RangeFromChild(
+HRESULT AXPlatformNodeTextProviderWin::RangeFromChild(
     IRawElementProviderSimple* child,
     ITextRangeProvider** range) {
   WIN_ACCESSIBILITY_API_HISTOGRAM(UMA_API_TEXT_RANGEFROMCHILD);
@@ -223,28 +222,25 @@ STDMETHODIMP AXPlatformNodeTextProviderWin::RangeFromChild(
   return S_OK;
 }
 
-STDMETHODIMP AXPlatformNodeTextProviderWin::RangeFromPoint(
+HRESULT AXPlatformNodeTextProviderWin::RangeFromPoint(
     UiaPoint uia_point,
     ITextRangeProvider** range) {
   WIN_ACCESSIBILITY_API_HISTOGRAM(UMA_API_TEXT_RANGEFROMPOINT);
   UIA_VALIDATE_TEXTPROVIDER_CALL();
   *range = nullptr;
 
-  // Retrieve the closest accessibility node via hit testing the point. No
-  // coordinate unit conversion is needed, hit testing input is also in screen
-  // coordinates.
-  gfx::NativeViewAccessible nearest_native_view_accessible =
-      owner()->GetDelegate()->HitTestSync(uia_point.x, uia_point.y);
-  DCHECK(nearest_native_view_accessible);
+  gfx::Point point(uia_point.x, uia_point.y);
+  // Retrieve the closest accessibility node. No coordinate unit conversion is
+  // needed, hit testing input is also in screen coordinates.
 
-  AXPlatformNodeWin* nearest_node = static_cast<AXPlatformNodeWin*>(
-      AXPlatformNode::FromNativeViewAccessible(nearest_native_view_accessible));
+  AXPlatformNodeWin* nearest_node =
+      static_cast<AXPlatformNodeWin*>(owner()->NearestLeafToPoint(point));
   DCHECK(nearest_node);
+  DCHECK(nearest_node->IsLeaf());
 
   AXNodePosition::AXPositionInstance start, end;
   start = nearest_node->GetDelegate()->CreateTextPositionAt(
-      nearest_node->NearestTextIndexToPoint(
-          gfx::Point(uia_point.x, uia_point.y)));
+      nearest_node->NearestTextIndexToPoint(point));
   DCHECK(!start->IsNullPosition());
   end = start->Clone();
 
@@ -253,7 +249,7 @@ STDMETHODIMP AXPlatformNodeTextProviderWin::RangeFromPoint(
   return S_OK;
 }
 
-STDMETHODIMP AXPlatformNodeTextProviderWin::get_DocumentRange(
+HRESULT AXPlatformNodeTextProviderWin::get_DocumentRange(
     ITextRangeProvider** range) {
   WIN_ACCESSIBILITY_API_HISTOGRAM(UMA_API_TEXT_GET_DOCUMENTRANGE);
   UIA_VALIDATE_TEXTPROVIDER_CALL();
@@ -265,7 +261,7 @@ STDMETHODIMP AXPlatformNodeTextProviderWin::get_DocumentRange(
   return S_OK;
 }
 
-STDMETHODIMP AXPlatformNodeTextProviderWin::get_SupportedTextSelection(
+HRESULT AXPlatformNodeTextProviderWin::get_SupportedTextSelection(
     enum SupportedTextSelection* text_selection) {
   WIN_ACCESSIBILITY_API_HISTOGRAM(UMA_API_TEXT_GET_SUPPORTEDTEXTSELECTION);
   UIA_VALIDATE_TEXTPROVIDER_CALL();
@@ -278,7 +274,7 @@ STDMETHODIMP AXPlatformNodeTextProviderWin::get_SupportedTextSelection(
 // ITextEditProvider methods.
 //
 
-STDMETHODIMP AXPlatformNodeTextProviderWin::GetActiveComposition(
+HRESULT AXPlatformNodeTextProviderWin::GetActiveComposition(
     ITextRangeProvider** range) {
   WIN_ACCESSIBILITY_API_HISTOGRAM(UMA_API_TEXTEDIT_GETACTIVECOMPOSITION);
   UIA_VALIDATE_TEXTPROVIDER_CALL();
@@ -287,7 +283,7 @@ STDMETHODIMP AXPlatformNodeTextProviderWin::GetActiveComposition(
   return GetTextRangeProviderFromActiveComposition(range);
 }
 
-STDMETHODIMP AXPlatformNodeTextProviderWin::GetConversionTarget(
+HRESULT AXPlatformNodeTextProviderWin::GetConversionTarget(
     ITextRangeProvider** range) {
   WIN_ACCESSIBILITY_API_HISTOGRAM(UMA_API_TEXTEDIT_GETCONVERSIONTARGET);
   UIA_VALIDATE_TEXTPROVIDER_CALL();

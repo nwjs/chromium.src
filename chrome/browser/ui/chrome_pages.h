@@ -55,6 +55,8 @@ enum FeedbackSource {
   kFeedbackSourceSupervisedUserInterstitial,
   kFeedbackSourceAssistant,
   kFeedbackSourceDesktopTabGroups,
+  kFeedbackSourceMediaApp,
+  kFeedbackSourceHelpApp,
 
   // Must be last.
   kFeedbackSourceCount,
@@ -123,6 +125,7 @@ void ShowSettingsSubPageInTabbedBrowser(Browser* browser,
                                         const std::string& sub_page);
 void ShowClearBrowsingDataDialog(Browser* browser);
 void ShowPasswordManager(Browser* browser);
+void ShowPasswordCheck(Browser* browser);
 void ShowImportDialog(Browser* browser);
 void ShowAboutChrome(Browser* browser);
 void ShowSearchEngineSettings(Browser* browser);

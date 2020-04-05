@@ -21,6 +21,7 @@
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/tabs/tab_group.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
+#include "chrome/browser/ui/tabs/tab_group_theme.h"
 #include "chrome/browser/ui/tabs/tab_menu_model.h"
 #include "chrome/browser/ui/tabs/tab_renderer_data.h"
 #include "chrome/browser/ui/tabs/tab_utils.h"
@@ -37,6 +38,7 @@
 #include "ui/base/theme_provider.h"
 #include "ui/gfx/color_utils.h"
 #include "ui/gfx/geometry/point_conversions.h"
+#include "ui/gfx/geometry/rect.h"
 
 namespace {
 
@@ -163,7 +165,10 @@ TabStripUIHandler::TabStripUIHandler(Browser* browser,
     : browser_(browser),
       embedder_(embedder),
       thumbnail_tracker_(base::Bind(&TabStripUIHandler::HandleThumbnailUpdate,
-                                    base::Unretained(this))) {}
+                                    base::Unretained(this))),
+      tab_before_unload_tracker_(
+          base::Bind(&TabStripUIHandler::OnTabCloseCancelled,
+                     base::Unretained(this))) {}
 TabStripUIHandler::~TabStripUIHandler() = default;
 
 void TabStripUIHandler::NotifyLayoutChanged() {
@@ -346,9 +351,6 @@ void TabStripUIHandler::RegisterMessages() {
       "getTabs",
       base::Bind(&TabStripUIHandler::HandleGetTabs, base::Unretained(this)));
   web_ui()->RegisterMessageCallback(
-      "getWindowId", base::Bind(&TabStripUIHandler::HandleGetWindowId,
-                                base::Unretained(this)));
-  web_ui()->RegisterMessageCallback(
       "getGroupVisualData",
       base::Bind(&TabStripUIHandler::HandleGetGroupVisualData,
                  base::Unretained(this)));
@@ -365,6 +367,9 @@ void TabStripUIHandler::RegisterMessages() {
       "moveGroup",
       base::Bind(&TabStripUIHandler::HandleMoveGroup, base::Unretained(this)));
   web_ui()->RegisterMessageCallback(
+      "moveTab",
+      base::Bind(&TabStripUIHandler::HandleMoveTab, base::Unretained(this)));
+  web_ui()->RegisterMessageCallback(
       "setThumbnailTracked",
       base::Bind(&TabStripUIHandler::HandleSetThumbnailTracked,
                  base::Unretained(this)));
@@ -372,8 +377,15 @@ void TabStripUIHandler::RegisterMessages() {
       "closeContainer", base::Bind(&TabStripUIHandler::HandleCloseContainer,
                                    base::Unretained(this)));
   web_ui()->RegisterMessageCallback(
+      "closeTab",
+      base::Bind(&TabStripUIHandler::HandleCloseTab, base::Unretained(this)));
+  web_ui()->RegisterMessageCallback(
       "showBackgroundContextMenu",
       base::Bind(&TabStripUIHandler::HandleShowBackgroundContextMenu,
+                 base::Unretained(this)));
+  web_ui()->RegisterMessageCallback(
+      "showEditDialogForGroup",
+      base::Bind(&TabStripUIHandler::HandleShowEditDialogForGroup,
                  base::Unretained(this)));
   web_ui()->RegisterMessageCallback(
       "showTabContextMenu",
@@ -460,12 +472,11 @@ base::DictionaryValue TabStripUIHandler::GetTabGroupData(TabGroup* group) {
   base::DictionaryValue visual_data_dict;
   visual_data_dict.SetString("title", visual_data->title());
 
-  bool is_dark_frame = color_utils::IsDark(
-      embedder_->GetThemeProvider()->GetColor(ThemeProperties::COLOR_FRAME));
-  const tab_groups::TabGroupColor tab_group_color =
-      tab_groups::GetTabGroupColorSet().at(visual_data->color());
-  const SkColor group_color = is_dark_frame ? tab_group_color.dark_theme_color
-                                            : tab_group_color.light_theme_color;
+  // TODO the tab strip should support toggles between inactive and active frame
+  // states. Currently the webui tab strip only uses active frame colors
+  // (https://crbug.com/1060398).
+  const int color_id = GetTabGroupTabStripColorId(visual_data->color(), true);
+  const SkColor group_color = embedder_->GetColor(color_id);
   visual_data_dict.SetString("color",
                              color_utils::SkColorToRgbString(group_color));
   visual_data_dict.SetString(
@@ -487,14 +498,6 @@ void TabStripUIHandler::HandleGetTabs(const base::ListValue* args) {
   ResolveJavascriptCallback(callback_id, tabs);
 }
 
-void TabStripUIHandler::HandleGetWindowId(const base::ListValue* args) {
-  AllowJavascript();
-  const base::Value& callback_id = args->GetList()[0];
-  ResolveJavascriptCallback(
-      callback_id,
-      base::Value(extensions::ExtensionTabUtil::GetWindowId(browser_)));
-}
-
 void TabStripUIHandler::HandleGetGroupVisualData(const base::ListValue* args) {
   AllowJavascript();
   const base::Value& callback_id = args->GetList()[0];
@@ -502,7 +505,7 @@ void TabStripUIHandler::HandleGetGroupVisualData(const base::ListValue* args) {
   base::DictionaryValue group_visual_datas;
   std::vector<tab_groups::TabGroupId> groups =
       browser_->tab_strip_model()->group_model()->ListTabGroups();
-  for (const tab_groups::TabGroupId group : groups) {
+  for (const tab_groups::TabGroupId& group : groups) {
     group_visual_datas.SetDictionary(
         group.ToString(),
         std::make_unique<base::DictionaryValue>(GetTabGroupData(
@@ -515,39 +518,40 @@ void TabStripUIHandler::HandleGetThemeColors(const base::ListValue* args) {
   AllowJavascript();
   const base::Value& callback_id = args->GetList()[0];
 
-  const ui::ThemeProvider* tp = embedder_->GetThemeProvider();
-
   // This should return an object of CSS variables to rgba values so that
   // the WebUI can use the CSS variables to color the tab strip
   base::DictionaryValue colors;
   colors.SetString("--tabstrip-background-color",
-                   color_utils::SkColorToRgbaString(
-                       tp->GetColor(ThemeProperties::COLOR_FRAME)));
+                   color_utils::SkColorToRgbaString(embedder_->GetColor(
+                       ThemeProperties::COLOR_FRAME_ACTIVE)));
   colors.SetString("--tabstrip-tab-background-color",
                    color_utils::SkColorToRgbaString(
-                       tp->GetColor(ThemeProperties::COLOR_TOOLBAR)));
-  colors.SetString("--tabstrip-tab-text-color",
-                   color_utils::SkColorToRgbaString(
-                       tp->GetColor(ThemeProperties::COLOR_TAB_TEXT)));
-  colors.SetString("--tabstrip-tab-separator-color",
-                   color_utils::SkColorToRgbaString(SkColorSetA(
-                       tp->GetColor(ThemeProperties::COLOR_TAB_TEXT),
-                       /* 16% opacity */ 0.16 * 255)));
+                       embedder_->GetColor(ThemeProperties::COLOR_TOOLBAR)));
+  colors.SetString(
+      "--tabstrip-tab-text-color",
+      color_utils::SkColorToRgbaString(embedder_->GetColor(
+          ThemeProperties::COLOR_TAB_FOREGROUND_ACTIVE_FRAME_ACTIVE)));
+  colors.SetString(
+      "--tabstrip-tab-separator-color",
+      color_utils::SkColorToRgbaString(SkColorSetA(
+          embedder_->GetColor(
+              ThemeProperties::COLOR_TAB_FOREGROUND_ACTIVE_FRAME_ACTIVE),
+          /* 16% opacity */ 0.16 * 255)));
 
   colors.SetString("--tabstrip-tab-loading-spinning-color",
-                   color_utils::SkColorToRgbaString(tp->GetColor(
+                   color_utils::SkColorToRgbaString(embedder_->GetColor(
                        ThemeProperties::COLOR_TAB_THROBBER_SPINNING)));
   colors.SetString("--tabstrip-tab-waiting-spinning-color",
-                   color_utils::SkColorToRgbaString(tp->GetColor(
+                   color_utils::SkColorToRgbaString(embedder_->GetColor(
                        ThemeProperties::COLOR_TAB_THROBBER_WAITING)));
   colors.SetString("--tabstrip-indicator-recording-color",
-                   color_utils::SkColorToRgbaString(tp->GetColor(
+                   color_utils::SkColorToRgbaString(embedder_->GetColor(
                        ThemeProperties::COLOR_TAB_ALERT_RECORDING)));
   colors.SetString("--tabstrip-indicator-pip-color",
-                   color_utils::SkColorToRgbaString(
-                       tp->GetColor(ThemeProperties::COLOR_TAB_PIP_PLAYING)));
+                   color_utils::SkColorToRgbaString(embedder_->GetColor(
+                       ThemeProperties::COLOR_TAB_PIP_PLAYING)));
   colors.SetString("--tabstrip-indicator-capturing-color",
-                   color_utils::SkColorToRgbaString(tp->GetColor(
+                   color_utils::SkColorToRgbaString(embedder_->GetColor(
                        ThemeProperties::COLOR_TAB_ALERT_CAPTURING)));
   colors.SetString("--tabstrip-tab-blocked-color",
                    color_utils::SkColorToRgbaString(
@@ -557,6 +561,13 @@ void TabStripUIHandler::HandleGetThemeColors(const base::ListValue* args) {
                    color_utils::SkColorToRgbaString(
                        ui::NativeTheme::GetInstanceForWeb()->GetSystemColor(
                            ui::NativeTheme::kColorId_FocusedBorderColor)));
+
+#if !defined(OS_CHROMEOS)
+  colors.SetString(
+      "--tabstrip-scrollbar-thumb-color-rgb",
+      color_utils::SkColorToRgbString(color_utils::GetColorWithMaxContrast(
+          embedder_->GetColor(ThemeProperties::COLOR_FRAME_ACTIVE))));
+#endif
 
   ResolveJavascriptCallback(callback_id, colors);
 }
@@ -633,26 +644,50 @@ void TabStripUIHandler::HandleMoveGroup(const base::ListValue* args) {
       new_group_id,
       base::Optional<tab_groups::TabGroupVisualData>{*group->visual_data()});
 
-  content::WebContents* active_web_contents =
-      source_browser->tab_strip_model()->GetActiveWebContents();
+  // The front-end needs to understand that the tab group ID has changed so
+  // that when the tabs are moved into the new group, the new group ID is
+  // updated with the correct value.
+  FireWebUIListener("tab-group-id-replaced",
+                    base::Value(group->id().ToString()),
+                    base::Value(new_group_id.ToString()));
 
   std::vector<int> source_tab_indices = group->ListTabs();
   int tab_count = source_tab_indices.size();
   for (int i = 0; i < tab_count; i++) {
     // The index needs to account for the tabs being detached, as they will
     // cause the indices to shift.
-    int index = source_tab_indices[i] - i;
-    std::unique_ptr<content::WebContents> detached_contents =
-        source_browser->tab_strip_model()->DetachWebContentsAt(index);
-
-    int add_types = TabStripModel::ADD_NONE;
-    if (detached_contents.get() == active_web_contents) {
-      add_types |= TabStripModel::ADD_ACTIVE;
-    }
-
-    target_browser->tab_strip_model()->InsertWebContentsAt(
-        to_index + i, std::move(detached_contents), add_types, new_group_id);
+    int from_index = source_tab_indices[i] - i;
+    tab_strip_ui::MoveTabAcrossWindows(
+        source_browser, from_index, target_browser, to_index + i, new_group_id);
   }
+}
+
+void TabStripUIHandler::HandleMoveTab(const base::ListValue* args) {
+  int tab_id = args->GetList()[0].GetInt();
+  int to_index = args->GetList()[1].GetInt();
+  if (to_index == -1) {
+    to_index = browser_->tab_strip_model()->count();
+  }
+
+  Browser* source_browser;
+  int from_index = -1;
+  if (!extensions::ExtensionTabUtil::GetTabById(tab_id, browser_->profile(),
+                                                true, &source_browser, nullptr,
+                                                nullptr, &from_index)) {
+    return;
+  }
+
+  if (source_browser->profile() != browser_->profile()) {
+    return;
+  }
+
+  if (source_browser == browser_) {
+    browser_->tab_strip_model()->MoveWebContentsAt(from_index, to_index, false);
+    return;
+  }
+
+  tab_strip_ui::MoveTabAcrossWindows(source_browser, from_index, browser_,
+                                     to_index);
 }
 
 void TabStripUIHandler::HandleCloseContainer(const base::ListValue* args) {
@@ -660,6 +695,27 @@ void TabStripUIHandler::HandleCloseContainer(const base::ListValue* args) {
   RecordTabStripUICloseHistogram(TabStripUICloseAction::kTabSelected);
   DCHECK(embedder_);
   embedder_->CloseContainer();
+}
+
+void TabStripUIHandler::HandleCloseTab(const base::ListValue* args) {
+  AllowJavascript();
+
+  int tab_id = args->GetList()[0].GetInt();
+  content::WebContents* tab = nullptr;
+  if (!extensions::ExtensionTabUtil::GetTabById(tab_id, browser_->profile(),
+                                                true, &tab)) {
+    // ID didn't refer to a valid tab.
+    DVLOG(1) << "Invalid tab ID";
+    return;
+  }
+
+  bool tab_was_swiped = args->GetList()[1].GetBool();
+  if (tab_was_swiped) {
+    // The unload tracker will automatically unobserve the tab when it
+    // successfully closes.
+    tab_before_unload_tracker_.Observe(tab);
+  }
+  tab->Close();
 }
 
 void TabStripUIHandler::HandleShowBackgroundContextMenu(
@@ -676,6 +732,34 @@ void TabStripUIHandler::HandleShowBackgroundContextMenu(
       gfx::ToRoundedPoint(point),
       std::make_unique<WebUIBackgroundContextMenu>(
           browser_, embedder_->GetAcceleratorProvider()));
+}
+
+void TabStripUIHandler::HandleShowEditDialogForGroup(
+    const base::ListValue* args) {
+  const std::string group_id_string = args->GetList()[0].GetString();
+  base::Optional<tab_groups::TabGroupId> group_id =
+      tab_strip_ui::GetTabGroupIdFromString(
+          browser_->tab_strip_model()->group_model(), group_id_string);
+  if (!group_id.has_value()) {
+    return;
+  }
+
+  gfx::Point point;
+  {
+    double x = args->GetList()[1].GetDouble();
+    double y = args->GetList()[2].GetDouble();
+    point = gfx::Point(x, y);
+  }
+
+  gfx::Rect rect;
+  {
+    double width = args->GetList()[3].GetDouble();
+    double height = args->GetList()[4].GetDouble();
+    rect = gfx::Rect(width, height);
+  }
+
+  DCHECK(embedder_);
+  embedder_->ShowEditDialogForGroupAtPoint(point, rect, group_id.value());
 }
 
 void TabStripUIHandler::HandleShowTabContextMenu(const base::ListValue* args) {
@@ -766,6 +850,12 @@ void TabStripUIHandler::HandleThumbnailUpdate(
   const int tab_id = extensions::ExtensionTabUtil::GetTabId(tab);
   FireWebUIListener("tab-thumbnail-updated", base::Value(tab_id),
                     base::Value(data_uri));
+}
+
+void TabStripUIHandler::OnTabCloseCancelled(content::WebContents* tab) {
+  tab_before_unload_tracker_.Unobserve(tab);
+  const int tab_id = extensions::ExtensionTabUtil::GetTabId(tab);
+  FireWebUIListener("tab-close-cancelled", base::Value(tab_id));
 }
 
 // Reports a histogram using the format

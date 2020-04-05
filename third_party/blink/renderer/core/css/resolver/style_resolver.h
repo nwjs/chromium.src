@@ -136,11 +136,15 @@ class CORE_EXPORT StyleResolver final : public GarbageCollected<StyleResolver> {
       Element& target,
       ActiveInterpolationsMap& animations);
 
-  void Trace(blink::Visitor*);
+  void Trace(Visitor*);
 
  private:
+  void InitStyleAndApplyInheritance(Element& element,
+                                    StyleResolverState& state);
   void ApplyBaseComputedStyle(Element* element,
                               StyleResolverState& state,
+                              StyleCascade* cascade,
+                              MatchResult& match_result,
                               RuleMatchingBehavior matching_behavior,
                               bool can_cache_animation_base_computed_style);
 
@@ -201,6 +205,9 @@ class CORE_EXPORT StyleResolver final : public GarbageCollected<StyleResolver> {
       is_inherited_cache_hit = false;
       is_non_inherited_cache_hit = false;
     }
+    bool EffectiveZoomChanged(const ComputedStyle&) const;
+    bool FontChanged(const ComputedStyle&) const;
+    bool EffectiveZoomOrFontChanged(const ComputedStyle&) const;
   };
 
   // These flags indicate whether an apply pass for a given CSSPropertyPriority
@@ -266,23 +273,12 @@ class CORE_EXPORT StyleResolver final : public GarbageCollected<StyleResolver> {
   void CascadeAndApplyForcedColors(StyleResolverState&, const MatchResult&);
 
   void CascadeAndApplyMatchedProperties(StyleResolverState&,
-                                        const MatchResult&);
-  void CascadeMatchResult(StyleResolverState&,
-                          StyleCascade&,
-                          const MatchResult&);
-  void CascadeRange(StyleResolverState&,
-                    StyleCascade&,
-                    const MatchedPropertiesRange&,
-                    StyleCascade::Origin);
-  void CascadeTransitions(StyleResolverState&, StyleCascade&);
-  void CascadeAnimations(StyleResolverState&, StyleCascade&);
-  void CascadeInterpolations(StyleCascade&,
-                             const ActiveInterpolationsMap&,
-                             StyleCascade::Origin);
+                                        StyleCascade& cascade);
 
   void CalculateAnimationUpdate(StyleResolverState&);
 
-  bool ApplyAnimatedStandardProperties(StyleResolverState&);
+  bool ApplyAnimatedStandardProperties(StyleResolverState&,
+                                       StyleCascade* cascade = nullptr);
 
   void ApplyCallbackSelectors(StyleResolverState&);
 

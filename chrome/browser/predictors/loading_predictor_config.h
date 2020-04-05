@@ -47,8 +47,17 @@ enum class HintOrigin {
   // preconnect is initiated. Preconnect triggered by
   // OMNIBOX_PRERENDER_FALLBACK may be handled differently than preconnects
   // triggered by OMNIBOX since the former are triggered at higher confidence.
-  OMNIBOX_PRERENDER_FALLBACK
+  OMNIBOX_PRERENDER_FALLBACK,
+
+  // Triggered by optimization guide.
+  OPTIMIZATION_GUIDE,
 };
+
+// Gets the string that can be used to record histograms for the hint origin.
+//
+// Keep in sync with LoadingPredictorHintOrigin in histograms.xml. Will DCHECK
+// if an origin is added that is not listed in histograms.xml.
+std::string GetStringNameForHintOrigin(HintOrigin hint_origin);
 
 // Represents the config for the Loading predictor.
 struct LoadingPredictorConfig {

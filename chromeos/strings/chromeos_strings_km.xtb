@@ -1,16 +1,23 @@
 <?xml version="1.0" ?>
 <!DOCTYPE translationbundle>
 <translationbundle lang="km">
+<translation id="1195447618553298278">កំហុសឆ្គងមិនស្គាល់។</translation>
+<translation id="1468664791493211953">ការផ្តល់ជូន</translation>
 <translation id="1482734542997480527"><ph name="ENROLLMENT_DOMAIN" /> គ្រប់គ្រង​ឧបករណ៍នេះ ហើយ​ប្រហែលជាអាច​តាមដាន​សកម្មភាព​របស់អ្នកបាន។</translation>
+<translation id="150962533380566081">PUK មិនត្រឹមត្រូវ។</translation>
 <translation id="1510238584712386396">ឡាន់ឆ័រ</translation>
+<translation id="159973520823200404">Discover</translation>
 <translation id="1734367976349034509">ឧបករណ៍​នេះ​ត្រូវ​បាន​គ្រប់គ្រង​ដោយ​ក្រុមហ៊ុន</translation>
+<translation id="1905710495812624430">បាន​លើស​ការ​ព្យាយាម​ចូូល​អតិបរមា​ដែល​បាន​អនុញ្ញាត​ហើយ​។​</translation>
 <translation id="1930797645656624981">សេវាកម្ម​វិធី​បញ្ចូល Chrome OS</translation>
 <translation id="1979103255016296513">ការផ្លាស់ប្ដូរពាក្យសម្ងាត់​បានផុតកំណត់ហើយ</translation>
 <translation id="2049639323467105390">ឧបករណ៍នេះត្រូវបានគ្រប់គ្រងដោយ <ph name="DOMAIN" />។</translation>
 <translation id="2338501278241028356">បើកប៊្លូធូស​ដើម្បី​ស្វែងរក​ឧបករណ៍​ដែល​នៅជិត</translation>
+<translation id="2375079107209812402">អាច​ព្យាយាម​បាន <ph name="ATTEMPTS_LEFT" /> ដង​ទៀត</translation>
 <translation id="2805756323405976993">កម្មវិធី</translation>
 <translation id="2872961005593481000">បិទ</translation>
 <translation id="3008341117444806826">ផ្ទុក​ឡើង​វិញ</translation>
+<translation id="3820172043799983114">លេខ​កូដ PIN ​មិន​ត្រឹមត្រូវ។</translation>
 <translation id="3838338534323494292">ពាក្យសម្ងាត់ថ្មី</translation>
 <translation id="4003259559679196451"><ph name="ENROLLMENT_DOMAIN" /> គ្រប់គ្រង​ឧបករណ៍​នេះ និង​មានសិទ្ធិ​ចូលមើល​សកម្មភាព​អ្នកប្រើប្រាស់​ទាំងអស់ រួមទាំង​ទំព័របណ្ដាញ​ដែលបាន​ចូលមើល ពាក្យសម្ងាត់ និង​អ៊ីមែល​ផងដែរ។</translation>
 <translation id="4227825898293920515">ពាក្យសម្ងាត់ផុតកំណត់​ក្នុងរយៈពេល <ph name="TIME" /></translation>
@@ -33,7 +40,9 @@
 <translation id="7658239707568436148">បដិសេធ</translation>
 <translation id="7690294790491645610">បញ្ជាក់​ពាក្យ​សម្ងាត់​ថ្មី</translation>
 <translation id="808894953321890993">ប្ដូរ​ពាក្យ​សម្ងាត់</translation>
+<translation id="8208861521865154048">អត្ថប្រយោជន៍</translation>
 <translation id="8747900814994928677">បញ្ជាក់​ការ​ផ្លាស់ប្ដូរ</translation>
+<translation id="89415009803968170"><ph name="ERROR_MESSAGE" /> អាច​ព្យាយាម​បាន <ph name="ATTEMPTS_LEFT" /> ដងទៀត</translation>
 <translation id="910415269708673980">ផ្ទុកសំបុត្រ​ឡើងវិញសម្រាប់ <ph name="PRINCIPAL_NAME" /></translation>
 <translation id="9111102763498581341">ដោះសោរ</translation>
 </translationbundle>

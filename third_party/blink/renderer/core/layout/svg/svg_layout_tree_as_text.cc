@@ -647,9 +647,6 @@ void WriteSVGResourceContainer(WTF::TextStream& ts,
 void WriteSVGContainer(WTF::TextStream& ts,
                        const LayoutObject& container,
                        int indent) {
-  // Currently LayoutSVGResourceFilterPrimitive has no meaningful output.
-  if (container.IsSVGResourceFilterPrimitive())
-    return;
   WriteStandardPrefix(ts, container, indent);
   WritePositionAndStyle(ts, container);
   ts << "\n";
@@ -740,7 +737,7 @@ void WriteResources(WTF::TextStream& ts,
     WriteStandardPrefix(ts, *clipper, 0);
     ts << " " << clipper->ResourceBoundingBox(reference_box) << "\n";
   }
-  if (LayoutSVGResourceFilter* filter = resources->Filter()) {
+  if (LayoutSVGResourceFilter* filter = GetFilterResourceForSVG(style)) {
     DCHECK(style.HasFilter());
     DCHECK_EQ(style.Filter().size(), 1u);
     const FilterOperation& filter_operation = *style.Filter().at(0);

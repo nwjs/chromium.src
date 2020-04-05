@@ -33,7 +33,7 @@
 #include "third_party/blink/renderer/core/svg/svg_tests.h"
 #include "third_party/blink/renderer/core/svg_names.h"
 #include "third_party/blink/renderer/platform/heap/handle.h"
-#include "third_party/blink/renderer/platform/wtf/hash_map.h"
+#include "third_party/blink/renderer/platform/wtf/hash_set.h"
 
 namespace blink {
 
@@ -41,6 +41,39 @@ class ConditionEventListener;
 class SMILTimeContainer;
 class IdTargetObserver;
 class SVGSMILElement;
+
+class CORE_EXPORT SMILInstanceTimeList {
+ public:
+  void Append(SMILTime, SMILTimeOrigin);
+  void InsertSortedAndUnique(SMILTime, SMILTimeOrigin);
+  void RemoveWithOrigin(SMILTimeOrigin);
+  void Sort();
+  SMILTime NextAfter(SMILTime) const;
+
+  wtf_size_t size() const { return instance_times_.size(); }
+  bool IsEmpty() const { return instance_times_.IsEmpty(); }
+
+  using const_iterator = typename Vector<SMILTimeWithOrigin>::const_iterator;
+  const_iterator begin() const { return instance_times_.begin(); }
+  const_iterator end() const { return instance_times_.end(); }
+
+ private:
+  static unsigned OriginToMask(SMILTimeOrigin origin) {
+    return 1u << static_cast<unsigned>(origin);
+  }
+  void AddOrigin(SMILTimeOrigin origin) {
+    time_origin_mask_ |= OriginToMask(origin);
+  }
+  void ClearOrigin(SMILTimeOrigin origin) {
+    time_origin_mask_ &= ~OriginToMask(origin);
+  }
+  bool HasOrigin(SMILTimeOrigin origin) const {
+    return (time_origin_mask_ & OriginToMask(origin)) != 0;
+  }
+
+  Vector<SMILTimeWithOrigin> instance_times_;
+  unsigned time_origin_mask_ = 0;
+};
 
 // This class implements SMIL interval timing model as needed for SVG animation.
 class CORE_EXPORT SVGSMILElement : public SVGElement, public SVGTests {
@@ -115,7 +148,7 @@ class CORE_EXPORT SVGSMILElement : public SVGElement, public SVGTests {
 
   wtf_size_t& PriorityQueueHandle() { return queue_handle_; }
 
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
 
  protected:
   enum BeginOrEnd { kBegin, kEnd };
@@ -135,6 +168,8 @@ class CORE_EXPORT SVGSMILElement : public SVGElement, public SVGTests {
   const ProgressState& GetProgressState() const { return last_progress_; }
 
  private:
+  bool IsPresentationAttribute(const QualifiedName&) const override;
+
   void BuildPendingResource() override;
   void ClearResourceAndEventBaseReferences();
   void ClearConditions();
@@ -180,7 +215,7 @@ class CORE_EXPORT SVGSMILElement : public SVGElement, public SVGTests {
               unsigned repeat);
 
     ~Condition();
-    void Trace(blink::Visitor*);
+    void Trace(Visitor*);
 
     Type GetType() const { return type_; }
     BeginOrEnd GetBeginOrEnd() const { return begin_or_end_; }
@@ -253,8 +288,8 @@ class CORE_EXPORT SVGSMILElement : public SVGElement, public SVGTests {
   TimeDependentSet sync_base_dependents_;
 
   // Instance time lists
-  Vector<SMILTimeWithOrigin> begin_times_;
-  Vector<SMILTimeWithOrigin> end_times_;
+  SMILInstanceTimeList begin_times_;
+  SMILInstanceTimeList end_times_;
 
   // This is the upcoming or current interval
   SMILInterval interval_;

@@ -42,9 +42,9 @@
 #import "ios/chrome/browser/ui/util/ui_util.h"
 #import "ios/chrome/browser/ui/util/uikit_ui_util.h"
 #include "ios/chrome/browser/unified_consent/unified_consent_service_factory.h"
-#import "ios/chrome/common/colors/UIColor+cr_semantic_colors.h"
-#import "ios/chrome/common/colors/semantic_color_names.h"
 #include "ios/chrome/common/string_util.h"
+#import "ios/chrome/common/ui/colors/UIColor+cr_semantic_colors.h"
+#import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #include "ios/chrome/grit/ios_chromium_strings.h"
 #include "ios/chrome/grit/ios_strings.h"
 #import "ios/public/provider/chrome/browser/chrome_browser_provider.h"
@@ -692,7 +692,9 @@ enum AuthenticationState {
     // The user can refuse to sign-in into a managed account, so the state
     // returns to "IdentityPicker". In that case, there is no need to create a
     // new UnifiedConsentCoordinator. The current one should be used.
-    _unifiedConsentCoordinator = [[UnifiedConsentCoordinator alloc] init];
+    _unifiedConsentCoordinator = [[UnifiedConsentCoordinator alloc]
+        initWithBaseViewController:nil
+                           browser:self.browser];
     _unifiedConsentCoordinator.delegate = self;
     if (_selectedIdentity)
       _unifiedConsentCoordinator.selectedIdentity = _selectedIdentity;

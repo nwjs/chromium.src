@@ -11,6 +11,7 @@
 #include "gpu/command_buffer/service/shared_context_state.h"
 #include "third_party/skia/include/core/SkSurface.h"
 #include "third_party/skia/include/gpu/GrContext.h"
+#include "ui/gfx/buffer_format_util.h"
 #include "ui/gl/gl_bindings.h"
 #include "ui/gl/gl_surface.h"
 
@@ -21,12 +22,15 @@ SkiaOutputDeviceWebView::SkiaOutputDeviceWebView(
     scoped_refptr<gl::GLSurface> gl_surface,
     gpu::MemoryTracker* memory_tracker,
     DidSwapBufferCompleteCallback did_swap_buffer_complete_callback)
-    : SkiaOutputDevice(/*need_swap_semaphore=*/false,
-                       memory_tracker,
+    : SkiaOutputDevice(memory_tracker,
                        std::move(did_swap_buffer_complete_callback)),
       context_state_(context_state),
       gl_surface_(std::move(gl_surface)) {
-  capabilities_.flipped_output_surface = gl_surface_->FlipsVertically();
+  // Always set uses_default_gl_framebuffer to true, since
+  // SkSurfaceCharacterization created for  GL fbo0 is compatible with
+  // SkSurface wrappers non GL fbo0.
+  capabilities_.uses_default_gl_framebuffer = true;
+  capabilities_.output_surface_origin = gl_surface_->GetOrigin();
   capabilities_.max_frames_pending = gl_surface_->GetBufferCount() - 1;
 
   DCHECK(context_state_->gr_context());
@@ -39,6 +43,12 @@ SkiaOutputDeviceWebView::SkiaOutputDeviceWebView(
   glGetIntegerv(GL_ALPHA_BITS, &alpha_bits);
   CHECK_GL_ERROR();
   supports_alpha_ = alpha_bits > 0;
+
+  capabilities_.sk_color_type =
+      supports_alpha_ ? kRGBA_8888_SkColorType : kRGB_888x_SkColorType;
+  capabilities_.gr_backend_format =
+      context_state_->gr_context()->defaultBackendFormat(
+          capabilities_.sk_color_type, GrRenderable::kYes);
 }
 
 SkiaOutputDeviceWebView::~SkiaOutputDeviceWebView() = default;
@@ -46,18 +56,18 @@ SkiaOutputDeviceWebView::~SkiaOutputDeviceWebView() = default;
 bool SkiaOutputDeviceWebView::Reshape(const gfx::Size& size,
                                       float device_scale_factor,
                                       const gfx::ColorSpace& color_space,
-                                      bool has_alpha,
+                                      gfx::BufferFormat format,
                                       gfx::OverlayTransform transform) {
   DCHECK_EQ(transform, gfx::OVERLAY_TRANSFORM_NONE);
 
-  if (!gl_surface_->Resize(size, device_scale_factor, color_space, has_alpha)) {
+  if (!gl_surface_->Resize(size, device_scale_factor, color_space,
+                           gfx::AlphaBitsForBufferFormat(format))) {
     DLOG(ERROR) << "Failed to resize.";
     return false;
   }
 
   size_ = size;
   color_space_ = color_space;
-
   InitSkiaSurface(gl_surface_->GetBackingFramebufferObject());
   return !!sk_surface_;
 }
@@ -74,7 +84,8 @@ void SkiaOutputDeviceWebView::SwapBuffers(
                     std::move(latency_info));
 }
 
-SkSurface* SkiaOutputDeviceWebView::BeginPaint() {
+SkSurface* SkiaOutputDeviceWebView::BeginPaint(
+    std::vector<GrBackendSemaphore>* end_semaphores) {
   DCHECK(sk_surface_);
 
   unsigned int fbo = gl_surface_->GetBackingFramebufferObject();
@@ -86,7 +97,7 @@ SkSurface* SkiaOutputDeviceWebView::BeginPaint() {
   return sk_surface_.get();
 }
 
-void SkiaOutputDeviceWebView::EndPaint(const GrBackendSemaphore& semaphore) {}
+void SkiaOutputDeviceWebView::EndPaint() {}
 
 void SkiaOutputDeviceWebView::InitSkiaSurface(unsigned int fbo) {
   last_frame_buffer_object_ = fbo;
@@ -96,20 +107,17 @@ void SkiaOutputDeviceWebView::InitSkiaSurface(unsigned int fbo) {
 
   GrGLFramebufferInfo framebuffer_info;
   framebuffer_info.fFBOID = fbo;
+  framebuffer_info.fFormat = supports_alpha_ ? GL_RGBA8 : GL_RGB8_OES;
+  DCHECK_EQ(capabilities_.gr_backend_format.asGLFormat(),
+            supports_alpha_ ? GrGLFormat::kRGBA8 : GrGLFormat::kRGB8);
+  SkColorType color_type = capabilities_.sk_color_type;
 
-  SkColorType color_type;
-  if (supports_alpha_) {
-    framebuffer_info.fFormat = GL_RGBA8;
-    color_type = kRGBA_8888_SkColorType;
-  } else {
-    framebuffer_info.fFormat = GL_RGB8_OES;
-    color_type = kRGB_888x_SkColorType;
-  }
-
-  GrBackendRenderTarget render_target(size_.width(), size_.height(), 0, 8,
-                                      framebuffer_info);
-  auto origin = gl_surface_->FlipsVertically() ? kTopLeft_GrSurfaceOrigin
-                                               : kBottomLeft_GrSurfaceOrigin;
+  GrBackendRenderTarget render_target(size_.width(), size_.height(),
+                                      /*sampleCnt=*/0,
+                                      /*stencilBits=*/0, framebuffer_info);
+  auto origin = (gl_surface_->GetOrigin() == gfx::SurfaceOrigin::kTopLeft)
+                    ? kTopLeft_GrSurfaceOrigin
+                    : kBottomLeft_GrSurfaceOrigin;
   sk_surface_ = SkSurface::MakeFromBackendRenderTarget(
       context_state_->gr_context(), render_target, origin, color_type,
       color_space_.ToSkColorSpace(), &surface_props);

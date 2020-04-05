@@ -63,7 +63,7 @@ class CSSLayoutDefinition final : public GarbageCollected<CSSLayoutDefinition>,
         const NGBoxStrut& border_scrollbar_padding,
         const LayoutUnit child_percentage_resolution_block_size_for_min_max,
         CustomLayoutScope*,
-        FragmentResultOptions*,
+        FragmentResultOptions*&,
         scoped_refptr<SerializedScriptValue>* fragment_result_data);
 
     // Runs the web developer defined intrinsicSizes, returns true if everything
@@ -76,9 +76,9 @@ class CSSLayoutDefinition final : public GarbageCollected<CSSLayoutDefinition>,
         const NGBoxStrut& border_scrollbar_padding,
         const LayoutUnit child_percentage_resolution_block_size_for_min_max,
         CustomLayoutScope*,
-        IntrinsicSizesResultOptions*);
+        IntrinsicSizesResultOptions*&);
 
-    void Trace(blink::Visitor*);
+    void Trace(Visitor*);
 
    private:
     void ReportException(ExceptionState*);
@@ -106,7 +106,7 @@ class CSSLayoutDefinition final : public GarbageCollected<CSSLayoutDefinition>,
 
   ScriptState* GetScriptState() const { return script_state_; }
 
-  virtual void Trace(blink::Visitor* visitor);
+  virtual void Trace(Visitor* visitor);
 
   const char* NameInHeapSnapshot() const override {
     return "CSSLayoutDefinition";

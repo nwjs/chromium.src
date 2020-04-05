@@ -16,7 +16,6 @@
 #include "chrome/browser/ui/views/autofill/payments/local_card_migration_icon_view.h"
 #include "chrome/browser/ui/views/autofill/payments/save_card_bubble_views.h"
 #include "chrome/browser/ui/views/autofill/payments/save_card_failure_bubble_views.h"
-#include "chrome/browser/ui/views/autofill/payments/save_card_icon_view.h"
 #include "chrome/browser/ui/views/autofill/payments/save_card_manage_cards_bubble_views.h"
 #include "chrome/browser/ui/views/autofill/payments/save_card_offer_bubble_views.h"
 #include "chrome/browser/ui/views/autofill/payments/save_card_sign_in_promo_bubble_views.h"
@@ -48,8 +47,8 @@ AutofillBubbleHandlerImpl::AutofillBubbleHandlerImpl(
 
 AutofillBubbleHandlerImpl::~AutofillBubbleHandlerImpl() = default;
 
-// TODO(crbug.com/932818): Clean up this two functions and add helper for shared
-// code.
+// TODO(crbug.com/1061633): Clean up this two functions and add helper for
+// shared code.
 SaveCardBubbleView* AutofillBubbleHandlerImpl::ShowSaveCreditCardBubble(
     content::WebContents* web_contents,
     SaveCardBubbleController* controller,

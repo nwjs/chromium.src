@@ -5,6 +5,7 @@
 #include "ui/views/controls/native/native_view_host_aura.h"
 
 #include <memory>
+#include <utility>
 
 #include "base/logging.h"
 #include "base/optional.h"
@@ -55,9 +56,8 @@ class NativeViewHostAura::ClippingWindowDelegate : public aura::WindowDelegate {
     // Ask the hosted native view's delegate because directly calling
     // aura::Window::CanFocus() will call back into this when checking whether
     // parents can focus.
-    return native_view_ && native_view_->delegate()
-        ? native_view_->delegate()->CanFocus()
-        : true;
+    return !native_view_ || !native_view_->delegate() ||
+           native_view_->delegate()->CanFocus();
   }
   void OnCaptureLost() override {}
   void OnPaint(const ui::PaintContext& context) override {}
@@ -96,7 +96,7 @@ void NativeViewHostAura::AttachNativeView() {
   clipping_window_delegate_->set_native_view(host_->native_view());
   host_->native_view()->AddObserver(this);
   host_->native_view()->SetProperty(views::kHostViewKey,
-      static_cast<View*>(host_));
+                                    static_cast<View*>(host_));
 
   original_transform_ = host_->native_view()->transform();
   original_transform_changed_ = false;

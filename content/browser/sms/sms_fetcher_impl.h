@@ -33,26 +33,22 @@ class CONTENT_EXPORT SmsFetcherImpl : public content::SmsFetcher,
                  std::unique_ptr<SmsProvider> provider);
   ~SmsFetcherImpl() override;
 
-  static SmsFetcher* Get(BrowserContext* context);
-
   void Subscribe(const url::Origin& origin, Subscriber* subscriber) override;
   void Unsubscribe(const url::Origin& origin, Subscriber* subscriber) override;
 
   // content::SmsProvider::Observer:
   bool OnReceive(const url::Origin& origin,
-                 const std::string& one_time_code,
-                 const std::string& sms) override;
+                 const std::string& one_time_code) override;
 
   bool HasSubscribers() override;
+  bool CanReceiveSms() override;
 
   void SetSmsProviderForTesting(std::unique_ptr<SmsProvider> provider);
 
  private:
   void OnRemote(base::Optional<std::string> sms);
 
-  bool Notify(const url::Origin& origin,
-              const std::string& one_time_code,
-              const std::string& sms);
+  bool Notify(const url::Origin& origin, const std::string& one_time_code);
 
   // |context_| is safe because all instances of SmsFetcherImpl are owned by
   // the BrowserContext itself.

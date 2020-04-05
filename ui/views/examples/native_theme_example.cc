@@ -7,6 +7,8 @@
 #include <stdint.h>
 
 #include <memory>
+#include <string>
+#include <utility>
 
 #include "base/strings/string_piece.h"
 #include "base/strings/stringprintf.h"
@@ -103,8 +105,10 @@ std::unique_ptr<View> CreateAllColorsView() {
                  COLOR_LABEL_ARGS(kColorId_HighlightedMenuItemBackgroundColor));
   InsertColorRow(layout,
                  COLOR_LABEL_ARGS(kColorId_HighlightedMenuItemForegroundColor));
+  InsertColorRow(
+      layout, COLOR_LABEL_ARGS(kColorId_MenuItemInitialAlertBackgroundColor));
   InsertColorRow(layout,
-                 COLOR_LABEL_ARGS(kColorId_MenuItemAlertBackgroundColor));
+                 COLOR_LABEL_ARGS(kColorId_MenuItemTargetAlertBackgroundColor));
   InsertColorRow(layout, COLOR_LABEL_ARGS(kColorId_LabelEnabledColor));
   InsertColorRow(layout, COLOR_LABEL_ARGS(kColorId_LabelDisabledColor));
   InsertColorRow(layout, COLOR_LABEL_ARGS(kColorId_LabelSecondaryColor));
@@ -120,6 +124,7 @@ std::unique_ptr<View> CreateAllColorsView() {
   InsertColorRow(layout, COLOR_LABEL_ARGS(kColorId_TabBottomBorder));
   InsertColorRow(layout, COLOR_LABEL_ARGS(kColorId_TextfieldDefaultColor));
   InsertColorRow(layout, COLOR_LABEL_ARGS(kColorId_TextfieldDefaultBackground));
+  InsertColorRow(layout, COLOR_LABEL_ARGS(kColorId_TextfieldPlaceholderColor));
   InsertColorRow(layout, COLOR_LABEL_ARGS(kColorId_TextfieldReadOnlyColor));
   InsertColorRow(layout,
                  COLOR_LABEL_ARGS(kColorId_TextfieldReadOnlyBackground));

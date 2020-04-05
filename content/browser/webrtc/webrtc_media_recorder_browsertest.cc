@@ -59,9 +59,6 @@ class MAYBE_WebRtcMediaRecorderTest
 
     base::CommandLine::ForCurrentProcess()->AppendSwitch(
         switches::kUseFakeDeviceForMediaStream);
-
-    base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(
-        switches::kEnableBlinkFeatures, "GetUserMedia");
   }
 
   void MaybeForceDisableEncodeAccelerator(bool disable) {
@@ -84,14 +81,7 @@ IN_PROC_BROWSER_TEST_F(MAYBE_WebRtcMediaRecorderTest, StartAndStop) {
   MakeTypicalCall("testStartStopAndRecorderState();", kMediaRecorderHtmlFile);
 }
 
-// Flaky on TSAN. See https://crbug.com/1043828
-#if defined(THREAD_SANITIZER)
-#define MAYBE_StartAndDataAvailable DISABLED_StartAndDataAvailable
-#else
-#define MAYBE_StartAndDataAvailable StartAndDataAvailable
-#endif
-IN_PROC_BROWSER_TEST_P(MAYBE_WebRtcMediaRecorderTest,
-                       MAYBE_StartAndDataAvailable) {
+IN_PROC_BROWSER_TEST_P(MAYBE_WebRtcMediaRecorderTest, StartAndDataAvailable) {
   MaybeForceDisableEncodeAccelerator(GetParam().disable_accelerator);
   MakeTypicalCall(base::StringPrintf("testStartAndDataAvailable(\"%s\");",
                                      GetParam().mime_type.c_str()),
@@ -122,14 +112,7 @@ IN_PROC_BROWSER_TEST_F(MAYBE_WebRtcMediaRecorderTest,
   MakeTypicalCall("testIllegalResumeThrowsDOMError();", kMediaRecorderHtmlFile);
 }
 
-// Flaky on TSAN and ASAN. See https://crbug.com/1045381
-#if defined(THREAD_SANITIZER) || defined(ADDRESS_SANITIZER)
-#define MAYBE_ResumeAndDataAvailable DISABLED_ResumeAndDataAvailable
-#else
-#define MAYBE_ResumeAndDataAvailable ResumeAndDataAvailable
-#endif
-IN_PROC_BROWSER_TEST_P(MAYBE_WebRtcMediaRecorderTest,
-                       MAYBE_ResumeAndDataAvailable) {
+IN_PROC_BROWSER_TEST_P(MAYBE_WebRtcMediaRecorderTest, ResumeAndDataAvailable) {
   MaybeForceDisableEncodeAccelerator(GetParam().disable_accelerator);
   MakeTypicalCall(base::StringPrintf("testResumeAndDataAvailable(\"%s\");",
                                      GetParam().mime_type.c_str()),

@@ -5,10 +5,12 @@
 #include "ash/shelf/hotseat_transition_animator.h"
 
 #include "ash/public/cpp/shelf_config.h"
+#include "ash/shelf/drag_handle.h"
 #include "ash/shelf/shelf_widget.h"
 #include "ash/shell.h"
 #include "ash/wm/tablet_mode/tablet_mode_controller.h"
 #include "base/metrics/histogram_macros.h"
+#include "ui/compositor/animation_metrics_reporter.h"
 #include "ui/compositor/layer.h"
 #include "ui/compositor/layer_animator.h"
 #include "ui/compositor/scoped_layer_animation_settings.h"
@@ -28,7 +30,8 @@ class HotseatTransitionAnimator::TransitionAnimationMetricsReporter
   // ui::AnimationMetricsReporter:
   void Report(int value) override {
     switch (new_state_) {
-      case HotseatState::kShown:
+      case HotseatState::kShownClamshell:
+      case HotseatState::kShownHomeLauncher:
         UMA_HISTOGRAM_PERCENTAGE(
             "Ash.HotseatTransition.AnimationSmoothness."
             "TransitionToShownHotseat",
@@ -59,14 +62,10 @@ class HotseatTransitionAnimator::TransitionAnimationMetricsReporter
 HotseatTransitionAnimator::HotseatTransitionAnimator(ShelfWidget* shelf_widget)
     : shelf_widget_(shelf_widget),
       animation_metrics_reporter_(
-          std::make_unique<TransitionAnimationMetricsReporter>()) {
-  Shell::Get()->tablet_mode_controller()->AddObserver(this);
-}
+          std::make_unique<TransitionAnimationMetricsReporter>()) {}
 
 HotseatTransitionAnimator::~HotseatTransitionAnimator() {
   StopObservingImplicitAnimations();
-  if (Shell::Get()->tablet_mode_controller())
-    Shell::Get()->tablet_mode_controller()->RemoveObserver(this);
 }
 
 void HotseatTransitionAnimator::OnHotseatStateChanged(HotseatState old_state,
@@ -89,20 +88,14 @@ void HotseatTransitionAnimator::OnImplicitAnimationsCompleted() {
     test_observer_->OnTransitionTestAnimationEnded();
 }
 
-void HotseatTransitionAnimator::OnTabletModeStarting() {
-  tablet_mode_transitioning_ = true;
-}
-
-void HotseatTransitionAnimator::OnTabletModeStarted() {
-  tablet_mode_transitioning_ = false;
-}
-
-void HotseatTransitionAnimator::OnTabletModeEnding() {
-  tablet_mode_transitioning_ = true;
-}
-
-void HotseatTransitionAnimator::OnTabletModeEnded() {
-  tablet_mode_transitioning_ = false;
+void HotseatTransitionAnimator::OnLayerAnimationAborted(
+    ui::LayerAnimationSequence* sequence) {
+  // NOTE: This will be called only once (or zero times) each time for`
+  // DoAnimation because we only have one LayerAnimationSequence for this
+  // particular animation. If another is added we will have to modify how this
+  // is sent out.
+  for (auto& observer : observers_)
+    observer.OnHotseatTransitionAnimationAborted();
 }
 
 void HotseatTransitionAnimator::SetAnimationsEnabledInSessionState(
@@ -120,41 +113,30 @@ void HotseatTransitionAnimator::SetTestObserver(TestObserver* test_observer) {
 
 void HotseatTransitionAnimator::DoAnimation(HotseatState old_state,
                                             HotseatState new_state) {
-  if (!ShouldDoAnimation(old_state, new_state))
+  const bool animating_to_shown_background =
+      new_state != HotseatState::kShownHomeLauncher;
+  gfx::Transform transform;
+  if (animating_to_shown_background)
+    transform.Translate(0, -ShelfConfig::Get()->in_app_shelf_size());
+
+  if (!ShouldDoAnimation(old_state, new_state)) {
+    shelf_widget_->GetAnimatingBackground()->SetTransform(transform);
     return;
+  }
 
   StopObservingImplicitAnimations();
-
-  const bool animating_to_shown_background = new_state != HotseatState::kShown;
 
   shelf_widget_->GetAnimatingBackground()->SetColor(
       ShelfConfig::Get()->GetMaximizedShelfColor());
 
-  gfx::Rect target_bounds = shelf_widget_->GetOpaqueBackground()->bounds();
-  target_bounds.set_height(ShelfConfig::Get()->in_app_shelf_size());
-  target_bounds.set_y(animating_to_shown_background
-                          ? 0
-                          : ShelfConfig::Get()->system_shelf_size());
-  shelf_widget_->GetAnimatingBackground()->SetBounds(target_bounds);
-  shelf_widget_->GetAnimatingDragHandle()->SetBounds(
-      shelf_widget_->GetDragHandle()->bounds());
+  gfx::Rect drag_handle_bounds(shelf_widget_->GetAnimatingBackground()->size());
+  drag_handle_bounds.ClampToCenteredSize(ShelfConfig::Get()->DragHandleSize());
+  shelf_widget_->GetAnimatingDragHandle()->SetBounds(drag_handle_bounds);
 
-  int starting_y;
-  if (animating_to_shown_background) {
-    // The background will begin the animation hidden below the shelf.
-    starting_y = ShelfConfig::Get()->system_shelf_size();
-  } else {
-    // The background will begin the animation from the top of the shelf.
-    starting_y = 0;
-  }
-  gfx::Transform transform;
-  const int y_offset = starting_y - target_bounds.y();
-  transform.Translate(0, y_offset);
-  shelf_widget_->GetAnimatingBackground()->SetTransform(transform);
   animation_metrics_reporter_->set_new_state(new_state);
 
   for (auto& observer : observers_)
-    observer.OnHotseatTransitionAnimationStarted(old_state, new_state);
+    observer.OnHotseatTransitionAnimationWillStart(old_state, new_state);
 
   {
     ui::ScopedLayerAnimationSettings shelf_bg_animation_setter(
@@ -171,22 +153,19 @@ void HotseatTransitionAnimator::DoAnimation(HotseatState old_state,
         weak_ptr_factory_.GetWeakPtr(), old_state, new_state);
     shelf_bg_animation_setter.AddObserver(this);
 
-    shelf_widget_->GetAnimatingBackground()->SetTransform(gfx::Transform());
+    shelf_widget_->GetAnimatingBackground()->SetTransform(transform);
   }
 }
 
 bool HotseatTransitionAnimator::ShouldDoAnimation(HotseatState old_state,
                                                   HotseatState new_state) {
-  // The first HotseatState change when going to tablet mode should not be
-  // animated.
-  if (tablet_mode_transitioning_)
-    return false;
-
   if (!animations_enabled_for_current_session_state_)
     return false;
 
-  return (new_state == HotseatState::kShown ||
-          old_state == HotseatState::kShown) &&
+  return (new_state == HotseatState::kShownHomeLauncher ||
+          old_state == HotseatState::kShownHomeLauncher) &&
+         !(new_state == HotseatState::kShownClamshell ||
+           old_state == HotseatState::kShownClamshell) &&
          Shell::Get()->tablet_mode_controller()->InTabletMode();
 }
 

@@ -3,7 +3,21 @@
 // found in the LICENSE file.
 
 /** @typedef {{testQueryResult: string}} */
-var TestMessageResponseData;
+let TestMessageResponseData;
 
-/** @typedef {{testQuery: string, property: ?string}} */
-var TestMessageQueryData;
+/**
+ * @typedef {{
+ *     deleteLastFile: (boolean|undefined),
+ *     navigate: (string|undefined),
+ *     overwriteLastFile: (string|undefined),
+ *     pathToRoot: (Array<string>|undefined),
+ *     property: (string|undefined),
+ *     renameLastFile: (string|undefined),
+ *     requestFullscreen: (boolean|undefined),
+ *     testQuery: string,
+ * }}
+ */
+let TestMessageQueryData;
+
+/** @typedef {{testCase: string}} */
+let TestMessageRunTestCase;

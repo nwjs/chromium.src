@@ -75,10 +75,10 @@ class ASH_EXPORT OverviewGrid : public SplitViewObserver,
   // |animate| is true. Items in |ignored_items| are not positioned. This is for
   // dragging. |transition| specifies the overview state when this function is
   // called.
-  void PositionWindows(bool animate,
-                       const base::flat_set<OverviewItem*>& ignored_items = {},
-                       OverviewSession::OverviewTransition transition =
-                           OverviewSession::OverviewTransition::kInOverview);
+  void PositionWindows(
+      bool animate,
+      const base::flat_set<OverviewItem*>& ignored_items = {},
+      OverviewTransition transition = OverviewTransition::kInOverview);
 
   // Returns the OverviewItem if a window is contained in any of the
   // OverviewItems this grid owns. Returns nullptr if no such a OverviewItem
@@ -231,7 +231,7 @@ class ASH_EXPORT OverviewGrid : public SplitViewObserver,
   // and the overview bounds should be queried from |window_list_|.
   void CalculateWindowListAnimationStates(
       OverviewItem* selected_item,
-      OverviewSession::OverviewTransition transition,
+      OverviewTransition transition,
       const std::vector<gfx::RectF>& target_bounds);
 
   // Do not animate the entire window list during exiting the overview. It's
@@ -322,6 +322,13 @@ class ASH_EXPORT OverviewGrid : public SplitViewObserver,
   // widget as it may need to switch between default and compact layouts.
   void OnDesksChanged();
 
+  // Returns true if any desk name is being modified in its mini view on this
+  // grid.
+  bool IsDeskNameBeingModified() const;
+
+  // Commits any on-going desk name changes if any.
+  void CommitDeskNameChanges();
+
   // Returns true if the grid has no more windows.
   bool empty() const { return window_list_.empty(); }
 
@@ -340,6 +347,8 @@ class ASH_EXPORT OverviewGrid : public SplitViewObserver,
   SplitViewDragIndicators* split_view_drag_indicators() {
     return split_view_drag_indicators_.get();
   }
+
+  const views::Widget* desks_widget() const { return desks_widget_.get(); }
 
   const DesksBarView* desks_bar_view() const { return desks_bar_view_; }
 
@@ -425,7 +434,7 @@ class ASH_EXPORT OverviewGrid : public SplitViewObserver,
   // the window's bounds if it has been resized.
   void AddDraggedWindowIntoOverviewOnDragEnd(aura::Window* dragged_window);
 
-  // Returns the the bounds of the desks widget in root window.
+  // Returns the the bounds of the desks widget in screen coordinates.
   gfx::Rect GetDesksWidgetBounds() const;
 
   void UpdateCannotSnapWarningVisibility();

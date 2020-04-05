@@ -1,12 +1,13 @@
-load('//lib/builders.star', 'cpu', 'goma', 'os')
+load('//lib/builders.star', 'cpu', 'defaults', 'goma', 'os')
 load('//lib/try.star', 'try_')
-load('//versioned/vars/try.star', 'vars')
 # Load this using relative path so that the load statement doesn't
 # need to be changed when making a new milestone
-load('../vars.star', milestone_vars='vars')
+load('../vars.star', 'vars')
+
+defaults.pool.set('luci.chromium.try')
 
 luci.bucket(
-    name = vars.bucket.get(),
+    name = vars.try_bucket,
     acls = [
         acl.entry(
             roles = acl.BUILDBUCKET_READER,
@@ -33,14 +34,12 @@ luci.bucket(
 )
 
 luci.cq_group(
-    name = vars.cq_group.get(),
-    # TODO(crbug/959436): enable it.
-    cancel_stale_tryjobs = False,
+    name = vars.cq_group,
+    cancel_stale_tryjobs = True,
     retry_config = cq.RETRY_ALL_FAILURES,
-    tree_status_host = 'chromium-status.appspot.com/',
     watch = cq.refset(
         repo = 'https://chromium.googlesource.com/chromium/src',
-        refs = [milestone_vars.cq_ref_regexp],
+        refs = [vars.cq_ref_regexp],
     ),
     acls = [
         acl.entry(
@@ -54,9 +53,8 @@ luci.cq_group(
     ],
 )
 
-try_.defaults.bucket.set(vars.bucket.get())
-try_.defaults.bucketed_triggers.set(True)
-try_.defaults.cq_group.set(vars.cq_group.get())
+try_.defaults.bucket.set(vars.try_bucket)
+try_.defaults.cq_group.set(vars.cq_group)
 
 
 # Builders are sorted first lexicographically by the function used to define
@@ -125,6 +123,7 @@ try_.chromium_mac_builder(
 
 try_.chromium_mac_ios_builder(
     name = 'ios-simulator',
+    goma_backend = None,
     tryjob = try_.job(),
 )
 

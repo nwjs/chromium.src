@@ -13,6 +13,7 @@
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
 #include "build/chromecast_buildflags.h"
+#include "gpu/command_buffer/common/gpu_memory_buffer_support.h"
 #include "gpu/command_buffer/service/gpu_switches.h"
 #include "gpu/command_buffer/service/service_utils.h"
 #include "gpu/config/gpu_driver_bug_list.h"
@@ -33,13 +34,16 @@
 #include "ui/gl/gl_utils.h"
 #include "ui/gl/init/gl_factory.h"
 
+#if defined(OS_MACOSX)
+#include <GLES2/gl2.h>
+#endif
+
 #if defined(USE_OZONE)
 #include "ui/ozone/public/ozone_platform.h"
 #include "ui/ozone/public/surface_factory_ozone.h"
 #endif
 
 #if defined(OS_WIN)
-#include "ui/gl/direct_composition_surface_win.h"
 #include "ui/gl/gl_surface_egl.h"
 #endif
 
@@ -73,16 +77,6 @@ bool CollectGraphicsInfo(GPUInfo* gpu_info) {
   return success;
 }
 
-#if defined(OS_WIN)
-OverlaySupport FlagsToOverlaySupport(UINT flags) {
-  if (flags & DXGI_OVERLAY_SUPPORT_FLAG_SCALING)
-    return OverlaySupport::kScaling;
-  if (flags & DXGI_OVERLAY_SUPPORT_FLAG_DIRECT)
-    return OverlaySupport::kDirect;
-  return OverlaySupport::kNone;
-}
-#endif  // OS_WIN
-
 void InitializePlatformOverlaySettings(GPUInfo* gpu_info) {
 #if defined(OS_WIN)
   // This has to be called after a context is created, active GPU is identified,
@@ -90,19 +84,8 @@ void InitializePlatformOverlaySettings(GPUInfo* gpu_info) {
   // |disable_direct_composition| may not be correctly applied.
   // Also, this has to be called after falling back to SwiftShader decision is
   // finalized because this function depends on GL is ANGLE's GLES or not.
-  if (gl::GetGLImplementation() == gl::kGLImplementationEGLANGLE) {
-    DCHECK(gpu_info);
-    gpu_info->direct_composition =
-        gl::DirectCompositionSurfaceWin::IsDirectCompositionSupported();
-    gpu_info->supports_overlays =
-        gl::DirectCompositionSurfaceWin::AreOverlaysSupported();
-    gpu_info->nv12_overlay_support = FlagsToOverlaySupport(
-        gl::DirectCompositionSurfaceWin::GetOverlaySupportFlags(
-            DXGI_FORMAT_NV12));
-    gpu_info->yuy2_overlay_support = FlagsToOverlaySupport(
-        gl::DirectCompositionSurfaceWin::GetOverlaySupportFlags(
-            DXGI_FORMAT_YUY2));
-  }
+  DCHECK(gpu_info);
+  CollectHardwareOverlayInfo(&gpu_info->overlay_info);
 #elif defined(OS_ANDROID)
   if (gpu_info->gpu.vendor_string == "Qualcomm")
     gl::SurfaceControl::EnableQualcommUBWC();
@@ -146,6 +129,14 @@ GpuInit::~GpuInit() {
 bool GpuInit::InitializeAndStartSandbox(base::CommandLine* command_line,
                                         const GpuPreferences& gpu_preferences) {
   gpu_preferences_ = gpu_preferences;
+
+  if (gpu_preferences_.enable_perf_data_collection) {
+    // This is only enabled on the info collection GPU process.
+    DevicePerfInfo device_perf_info;
+    CollectDevicePerfInfo(&device_perf_info, /*in_browser_process=*/false);
+    device_perf_info_ = device_perf_info;
+  }
+
   // Blacklist decisions based on basic GPUInfo may not be final. It might
   // need more context based GPUInfo. In such situations, switching to
   // SwiftShader needs to wait until creating a context.
@@ -156,9 +147,9 @@ bool GpuInit::InitializeAndStartSandbox(base::CommandLine* command_line,
     CollectBasicGraphicsInfo(command_line, &gpu_info_);
   }
 #if defined(OS_WIN)
-  GpuSeriesType gpu_series_type = GetGpuSeriesType(
+  IntelGpuSeriesType intel_gpu_series_type = GetIntelGpuSeriesType(
       gpu_info_.active_gpu().vendor_id, gpu_info_.active_gpu().device_id);
-  UMA_HISTOGRAM_ENUMERATION("GPU.GpuGeneration", gpu_series_type);
+  UMA_HISTOGRAM_ENUMERATION("GPU.IntelGpuSeriesType", intel_gpu_series_type);
 #endif  // OS_WIN
 
   // Set keys for crash logging based on preliminary gpu info, in case we
@@ -182,6 +173,7 @@ bool GpuInit::InitializeAndStartSandbox(base::CommandLine* command_line,
         gpu_info_, gpu_preferences_, command_line, &needs_more_info);
   }
 #endif  // !OS_ANDROID && !BUILDFLAG(IS_CHROMECAST)
+
   gpu_info_.in_process_gpu = false;
   bool use_swiftshader = false;
 
@@ -351,6 +343,19 @@ bool GpuInit::InitializeAndStartSandbox(base::CommandLine* command_line,
   }
 #endif
 
+  // On MacOS, the default texture target for native GpuMemoryBuffers is
+  // GL_TEXTURE_RECTANGLE_ARB. This is due to CGL's requirements for creating
+  // a GL surface. However, when ANGLE is used on top of SwiftShader, it's
+  // necessary to use GL_TEXTURE_2D instead.
+  // TODO(crbug.com/1056312): The proper behavior is to check the config
+  // parameter set by the EGL_ANGLE_iosurface_client_buffer extension
+#if defined(OS_MACOSX)
+  if (gl::GetGLImplementation() == gl::kGLImplementationEGLANGLE &&
+      gl::GetANGLEImplementation() == gl::ANGLEImplementation::kSwiftShader) {
+    gpu::SetMacOSSpecificTextureTarget(GL_TEXTURE_2D);
+  }
+#endif  // defined(OS_MACOSX)
+
   bool gl_disabled = gl::GetGLImplementation() == gl::kGLImplementationDisabled;
 
   // Compute passthrough decoder status before ComputeGpuFeatureInfo below.
@@ -519,12 +524,6 @@ bool GpuInit::InitializeAndStartSandbox(base::CommandLine* command_line,
   ui::OzonePlatform::GetInstance()->AfterSandboxEntry();
 #endif
 
-#if defined(OS_ANDROID)
-  // Disable AImageReader if the workaround is enabled.
-  if (gpu_feature_info_.IsWorkaroundEnabled(DISABLE_AIMAGEREADER)) {
-    base::android::AndroidImageReader::DisableSupport();
-  }
-#endif
 #if defined(USE_OZONE)
   gpu_feature_info_.supported_buffer_formats_for_allocation_and_texturing =
       std::move(supported_buffer_formats_for_texturing);
@@ -550,11 +549,6 @@ void GpuInit::InitializeInProcess(base::CommandLine* command_line,
   InitializeVulkan();
 
   default_offscreen_surface_ = gl::init::CreateOffscreenGLSurface(gfx::Size());
-
-  // Disable AImageReader if the workaround is enabled.
-  if (gpu_feature_info_.IsWorkaroundEnabled(DISABLE_AIMAGEREADER)) {
-    base::android::AndroidImageReader::DisableSupport();
-  }
 
   UMA_HISTOGRAM_ENUMERATION("GPU.GLImplementation", gl::GetGLImplementation());
 }

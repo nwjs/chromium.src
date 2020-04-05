@@ -18,12 +18,12 @@
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/browser/web_contents_user_data.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
+#include "third_party/blink/public/mojom/favicon/favicon_url.mojom-forward.h"
 
 namespace performance_manager {
 
 class FrameNodeImpl;
 class PageNodeImpl;
-class PerformanceManagerImpl;
 
 // This tab helper maintains a page node, and its associated tree of frame nodes
 // in the performance manager graph. It also sources a smattering of attributes
@@ -62,8 +62,6 @@ class PerformanceManagerTabHelper
   void RenderFrameDeleted(content::RenderFrameHost* render_frame_host) override;
   void RenderFrameHostChanged(content::RenderFrameHost* old_host,
                               content::RenderFrameHost* new_host) override;
-  void DidStartLoading() override;
-  void DidStopLoading() override;
   void OnVisibilityChanged(content::Visibility visibility) override;
   void OnAudioStateChanged(bool audible) override;
   void DidFinishNavigation(
@@ -71,7 +69,7 @@ class PerformanceManagerTabHelper
   void TitleWasSet(content::NavigationEntry* entry) override;
   void WebContentsDestroyed() override;
   void DidUpdateFaviconURL(
-      const std::vector<content::FaviconURL>& candidates) override;
+      const std::vector<blink::mojom::FaviconURLPtr>& candidates) override;
 
   // WebContentsProxyImpl overrides.
   content::WebContents* GetWebContents() const override;
@@ -83,7 +81,8 @@ class PerformanceManagerTabHelper
 
   void SetUkmSourceIdForTesting(ukm::SourceId id) { ukm_source_id_ = id; }
 
-  // Retrieves the frame node associated with |render_frame_host|.
+  // Retrieves the frame node associated with |render_frame_host|. Returns
+  // nullptr if none exist for that frame.
   FrameNodeImpl* GetFrameNode(content::RenderFrameHost* render_frame_host);
 
   class Observer : public base::CheckedObserver {
@@ -109,18 +108,8 @@ class PerformanceManagerTabHelper
   // PerformanceManagerRegistry.
   using WebContentsUserData<PerformanceManagerTabHelper>::CreateForWebContents;
 
-  // Post a task to run in the performance manager sequence. The |node| will be
-  // passed as unretained, and the closure will be created with BindOnce.
-  template <typename Functor, typename NodeType, typename... Args>
-  void PostToGraph(const base::Location& from_here,
-                   Functor&& functor,
-                   NodeType* node,
-                   Args&&... args);
-
   void OnMainFrameNavigation(int64_t navigation_id);
 
-  // The performance manager for this process, if any.
-  PerformanceManagerImpl* const performance_manager_;
   std::unique_ptr<PageNodeImpl> page_node_;
   ukm::SourceId ukm_source_id_ = ukm::kInvalidSourceId;
 

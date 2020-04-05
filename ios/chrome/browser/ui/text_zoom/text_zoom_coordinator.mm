@@ -6,16 +6,18 @@
 
 #include "ios/chrome/browser/browser_state/chrome_browser_state.h"
 #import "ios/chrome/browser/main/browser.h"
-#import "ios/chrome/browser/ui/commands/browser_commands.h"
 #import "ios/chrome/browser/ui/commands/command_dispatcher.h"
+#import "ios/chrome/browser/ui/commands/text_zoom_commands.h"
 #include "ios/chrome/browser/ui/presenters/contained_presenter_delegate.h"
 #import "ios/chrome/browser/ui/text_zoom/text_zoom_mediator.h"
 #import "ios/chrome/browser/ui/text_zoom/text_zoom_view_controller.h"
 #import "ios/chrome/browser/ui/toolbar/accessory/toolbar_accessory_coordinator_delegate.h"
 #import "ios/chrome/browser/ui/toolbar/accessory/toolbar_accessory_presenter.h"
 #import "ios/chrome/browser/ui/toolbar/public/toolbar_constants.h"
-#import "ios/chrome/common/colors/dynamic_color_util.h"
-#import "ios/chrome/common/colors/semantic_color_names.h"
+#import "ios/chrome/browser/web/font_size_tab_helper.h"
+#import "ios/chrome/browser/web_state_list/web_state_list.h"
+#import "ios/chrome/common/ui/colors/dynamic_color_util.h"
+#import "ios/chrome/common/ui/colors/semantic_color_names.h"
 
 #if !defined(__has_feature) || !__has_feature(objc_arc)
 #error "This file requires ARC support."
@@ -29,6 +31,9 @@
 
 @property(nonatomic, strong) TextZoomMediator* mediator;
 
+// Allows simplified access to the TextZoomCommands handler.
+@property(nonatomic) id<TextZoomCommands> textZoomCommandHandler;
+
 @end
 
 @implementation TextZoomCoordinator
@@ -39,25 +44,45 @@
   DCHECK(self.browser);
   DCHECK(self.browserState);
 
+  self.textZoomCommandHandler = HandlerForProtocol(
+      self.browser->GetCommandDispatcher(), TextZoomCommands);
+
   self.mediator = [[TextZoomMediator alloc]
       initWithWebStateList:self.browser->GetWebStateList()
-            commandHandler:HandlerForProtocol(
-                               self.browser->GetCommandDispatcher(),
-                               BrowserCommands)];
+            commandHandler:self.textZoomCommandHandler];
 
   self.textZoomViewController = [[TextZoomViewController alloc]
       initWithDarkAppearance:self.browserState->IsOffTheRecord()];
-  self.textZoomViewController.commandHandler =
-      HandlerForProtocol(self.browser->GetCommandDispatcher(), BrowserCommands);
+  self.textZoomViewController.commandHandler = self.textZoomCommandHandler;
 
   self.textZoomViewController.zoomHandler = self.mediator;
   self.mediator.consumer = self.textZoomViewController;
 
-  [self showAnimated:YES];
+  DCHECK(self.currentWebState);
+  FontSizeTabHelper* helper =
+      FontSizeTabHelper::FromWebState(self.currentWebState);
+  // If Text Zoom UI is already active, just reshow it
+  if (helper->IsTextZoomUIActive()) {
+    [self showAnimated:NO];
+  } else {
+    helper->SetTextZoomUIActive(true);
+    [self showAnimated:YES];
+  }
 }
 
 - (void)stop {
-  [self.presenter dismissAnimated:YES];
+  // If the Text Zoom UI is still active, the dismiss should be unanimated,
+  // because the UI will be brought back later.
+  BOOL animated;
+  if (self.currentWebState) {
+    FontSizeTabHelper* helper =
+        FontSizeTabHelper::FromWebState(self.currentWebState);
+    animated = helper && !helper->IsTextZoomUIActive();
+  } else {
+    animated = YES;
+  }
+
+  [self.presenter dismissAnimated:animated];
   self.textZoomViewController = nil;
 
   [self.mediator disconnect];
@@ -75,6 +100,14 @@
 
 - (void)containedPresenterDidDismiss:(id<ContainedPresenter>)presenter {
   [self.delegate toolbarAccessoryCoordinatorDidDismissUI:self];
+}
+
+#pragma mark - Private
+
+- (web::WebState*)currentWebState {
+  return self.browser->GetWebStateList()
+             ? self.browser->GetWebStateList()->GetActiveWebState()
+             : nullptr;
 }
 
 @end

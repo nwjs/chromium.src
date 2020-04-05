@@ -12,17 +12,21 @@ class NodeWrapper extends SAChildNode {
   /**
    * @param {!AutomationNode} baseNode
    * @param {?SARootNode} parent
+   * @protected
    */
   constructor(baseNode, parent) {
     super();
     /** @private {!AutomationNode} */
     this.baseNode_ = baseNode;
 
+    /** @private {?SARootNode} */
+    this.parent_ = parent;
+
     /** @private {boolean} */
     this.isGroup_ = SwitchAccessPredicate.isGroup(this.baseNode_, parent);
 
     /** @private {function(chrome.automation.AutomationEvent)} */
-    this.locationChangedHandler_ = SwitchAccess.refreshFocusRings;
+    this.locationChangedHandler_ = NavigationManager.refreshFocusRings;
   }
 
   // ================= Getters and setters =================
@@ -30,12 +34,7 @@ class NodeWrapper extends SAChildNode {
   /** @override */
   get actions() {
     const actions = [];
-    if (SwitchAccessPredicate.isTextInput(this.baseNode_)) {
-      actions.push(SAConstants.MenuAction.OPEN_KEYBOARD);
-      actions.push(SAConstants.MenuAction.DICTATION);
-    } else {
-      actions.push(SAConstants.MenuAction.SELECT);
-    }
+    actions.push(SAConstants.MenuAction.SELECT);
 
     const ancestor = this.getScrollableAncestor_();
     if (ancestor.scrollable) {
@@ -140,45 +139,43 @@ class NodeWrapper extends SAChildNode {
   performAction(action) {
     let ancestor;
     switch (action) {
-      case SAConstants.MenuAction.OPEN_KEYBOARD:
-        this.baseNode_.focus();
-        return true;
       case SAConstants.MenuAction.SELECT:
-        this.baseNode_.doDefault();
-        return true;
-      case SAConstants.MenuAction.DICTATION:
-        chrome.accessibilityPrivate.toggleDictation();
-        return true;
+        if (this.isGroup()) {
+          NavigationManager.enterGroup();
+        } else {
+          this.baseNode_.doDefault();
+        }
+        return SAConstants.ActionResponse.CLOSE_MENU;
       case SAConstants.MenuAction.SCROLL_DOWN:
         ancestor = this.getScrollableAncestor_();
         if (ancestor.scrollable) {
-          ancestor.scrollDown(() => {});
+          ancestor.scrollDown(() => this.parent_.refresh());
         }
-        return true;
+        return SAConstants.ActionResponse.CLOSE_MENU;
       case SAConstants.MenuAction.SCROLL_UP:
         ancestor = this.getScrollableAncestor_();
         if (ancestor.scrollable) {
-          ancestor.scrollUp(() => {});
+          ancestor.scrollUp(() => this.parent_.refresh());
         }
-        return true;
+        return SAConstants.ActionResponse.CLOSE_MENU;
       case SAConstants.MenuAction.SCROLL_RIGHT:
         ancestor = this.getScrollableAncestor_();
         if (ancestor.scrollable) {
-          ancestor.scrollRight(() => {});
+          ancestor.scrollRight(() => this.parent_.refresh());
         }
-        return true;
+        return SAConstants.ActionResponse.CLOSE_MENU;
       case SAConstants.MenuAction.SCROLL_LEFT:
         ancestor = this.getScrollableAncestor_();
         if (ancestor.scrollable) {
-          ancestor.scrollLeft(() => {});
+          ancestor.scrollLeft(() => this.parent_.refresh());
         }
-        return true;
+        return SAConstants.ActionResponse.CLOSE_MENU;
       default:
         if (Object.values(chrome.automation.ActionType).includes(action)) {
           this.baseNode_.performStandardAction(
               /** @type {chrome.automation.ActionType} */ (action));
         }
-        return true;
+        return SAConstants.ActionResponse.CLOSE_MENU;
     }
   }
 
@@ -194,6 +191,26 @@ class NodeWrapper extends SAChildNode {
       ancestor = ancestor.parent;
     }
     return ancestor;
+  }
+
+  // ================= Static methods =================
+
+  /**
+   * @param {!AutomationNode} baseNode
+   * @param {?SARootNode} parent
+   * @return {!NodeWrapper}
+   */
+  static create(baseNode, parent) {
+    if (SwitchAccessPredicate.isTextInput(baseNode)) {
+      return new EditableTextNode(baseNode, parent);
+    }
+
+    switch (baseNode.role) {
+      case chrome.automation.RoleType.TAB:
+        return TabNode.create(baseNode, parent);
+      default:
+        return new NodeWrapper(baseNode, parent);
+    }
   }
 }
 
@@ -215,10 +232,10 @@ class RootNodeWrapper extends SARootNode {
     this.invalidated_ = false;
 
     /** @private {function(chrome.automation.AutomationEvent)} */
-    this.childrenChangedHandler_ = this.refresh_.bind(this);
+    this.childrenChangedHandler_ = this.refresh.bind(this);
 
     /** @private {function(chrome.automation.AutomationEvent)} */
-    this.locationChangedHandler_ = SwitchAccess.refreshFocusRings;
+    this.locationChangedHandler_ = NavigationManager.refreshFocusRings;
   }
 
   // ================= Getters and setters =================
@@ -288,13 +305,8 @@ class RootNodeWrapper extends SARootNode {
         this.locationChangedHandler_, false /* is_capture */);
   }
 
-  // ================= Private methods =================
-
-  /**
-   * Refreshes the children of this root node.
-   * @private
-   */
-  refresh_() {
+  /** @override */
+  refresh() {
     // Find the currently focused child.
     let focusedChild = null;
     for (const child of this.children) {
@@ -305,50 +317,30 @@ class RootNodeWrapper extends SARootNode {
     }
 
     // Update this RootNodeWrapper's children.
-    const childConstructor = (node) => new NodeWrapper(node, this);
+    const childConstructor = (node) => NodeWrapper.create(node, this);
     try {
       RootNodeWrapper.findAndSetChildren(this, childConstructor);
     } catch (e) {
       this.onUnfocus();
       this.invalidated_ = true;
-      SwitchAccess.moveToValidNode();
+      NavigationManager.moveToValidNode();
       return;
     }
 
     // Set the new instance of that child to be the focused node.
     for (const child of this.children) {
       if (child.isEquivalentTo(focusedChild)) {
-        SwitchAccess.forceFocusedNode(child);
+        NavigationManager.forceFocusedNode(child);
         return;
       }
     }
 
     // If the previously focused node no longer exists, focus the first node in
     // the group.
-    SwitchAccess.forceFocusedNode(this.children[0]);
+    NavigationManager.forceFocusedNode(this.children[0]);
   }
 
   // ================= Static methods =================
-
-  /**
-   * @param {!AutomationNode} desktop
-   * @return {!RootNodeWrapper}
-   */
-  static buildDesktopTree(desktop) {
-    const root = new RootNodeWrapper(desktop);
-    const interestingChildren = RootNodeWrapper.getInterestingChildren(root);
-
-    if (interestingChildren.length < 1) {
-      throw SwitchAccess.error(
-          SAConstants.ErrorType.MALFORMED_DESKTOP,
-          'Desktop node must have at least 1 interesting child.');
-    }
-
-    const childConstructor = (autoNode) => new NodeWrapper(autoNode, root);
-    root.children = interestingChildren.map(childConstructor);
-
-    return root;
-  }
 
   /**
    * @param {!AutomationNode} rootNode
@@ -356,7 +348,7 @@ class RootNodeWrapper extends SARootNode {
    */
   static buildTree(rootNode) {
     const root = new RootNodeWrapper(rootNode);
-    const childConstructor = (node) => new NodeWrapper(node, root);
+    const childConstructor = (node) => NodeWrapper.create(node, root);
 
     RootNodeWrapper.findAndSetChildren(root, childConstructor);
     return root;
@@ -387,6 +379,9 @@ class RootNodeWrapper extends SARootNode {
    * @return {!Array<!AutomationNode>}
    */
   static getInterestingChildren(root) {
+    if (root.baseNode_.children.length === 0) {
+      return [];
+    }
     const interestingChildren = [];
     const treeWalker = new AutomationTreeWalker(
         root.baseNode_, constants.Dir.FORWARD,

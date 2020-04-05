@@ -35,7 +35,6 @@
 
 #if defined(OS_WIN)
 #include "content/browser/frame_host/render_frame_host_impl.h"
-#include "content/public/common/context_menu_params.h"
 #include "ui/aura/window_tree_host.h"
 #include "ui/display/screen.h"
 #endif  // defined(OS_WIN)
@@ -153,22 +152,21 @@ void RenderWidgetHostViewEventHandler::UpdateMouseLockRegion() {
 }
 #endif
 
-bool RenderWidgetHostViewEventHandler::LockMouse(
+blink::mojom::PointerLockResult RenderWidgetHostViewEventHandler::LockMouse(
     bool request_unadjusted_movement) {
   aura::Window* root_window = window_->GetRootWindow();
   if (!root_window)
-    return false;
+    return blink::mojom::PointerLockResult::kWrongDocument;
 
   if (mouse_locked_)
-    return true;
+    return blink::mojom::PointerLockResult::kSuccess;
 
   if (request_unadjusted_movement && window_->GetHost()) {
     mouse_locked_unadjusted_movement_ =
         window_->GetHost()->RequestUnadjustedMovement();
     if (!mouse_locked_unadjusted_movement_)
-      return false;
+      return blink::mojom::PointerLockResult::kUnsupportedOptions;
   }
-
   mouse_locked_ = true;
 
 #if !defined(OS_WIN)
@@ -187,7 +185,39 @@ bool RenderWidgetHostViewEventHandler::LockMouse(
     MoveCursorToCenter(nullptr);
 
   delegate_->SetTooltipsEnabled(false);
-  return true;
+  return blink::mojom::PointerLockResult::kSuccess;
+}
+
+blink::mojom::PointerLockResult
+RenderWidgetHostViewEventHandler::ChangeMouseLock(
+    bool request_unadjusted_movement) {
+  aura::Window* root_window = window_->GetRootWindow();
+  if (!root_window || !window_->GetHost())
+    return blink::mojom::PointerLockResult::kWrongDocument;
+
+  // If lock was lost before completing this change request
+  // it was because the user hit escape or navigated away
+  // from the page.
+  if (!mouse_locked_)
+    return blink::mojom::PointerLockResult::kUserRejected;
+
+  if (!request_unadjusted_movement) {
+    mouse_locked_unadjusted_movement_.reset();
+    return blink::mojom::PointerLockResult::kSuccess;
+  }
+
+  if (mouse_locked_unadjusted_movement_) {
+    // Desired state already acquired.
+    return blink::mojom::PointerLockResult::kSuccess;
+  }
+
+  mouse_locked_unadjusted_movement_ =
+      window_->GetHost()->RequestUnadjustedMovement();
+
+  if (!mouse_locked_unadjusted_movement_)
+    return blink::mojom::PointerLockResult::kUnsupportedOptions;
+
+  return blink::mojom::PointerLockResult::kSuccess;
 }
 
 void RenderWidgetHostViewEventHandler::UnlockMouse() {

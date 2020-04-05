@@ -5,6 +5,7 @@ package org.chromium.chrome.browser.toolbar;
 
 import org.chromium.base.task.PostTask;
 import org.chromium.chrome.R;
+import org.chromium.chrome.browser.ActivityTabProvider;
 import org.chromium.chrome.browser.ActivityTabProvider.ActivityTabTabObserver;
 import org.chromium.chrome.browser.ChromeActivity;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
@@ -14,7 +15,6 @@ import org.chromium.chrome.browser.feature_engagement.ScreenshotMonitor;
 import org.chromium.chrome.browser.feature_engagement.ScreenshotMonitorDelegate;
 import org.chromium.chrome.browser.feature_engagement.ScreenshotTabObserver;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
-import org.chromium.chrome.browser.flags.FeatureUtilities;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.lifecycle.PauseResumeWithNativeObserver;
 import org.chromium.chrome.browser.net.spdyproxy.DataReductionProxySettings;
@@ -22,7 +22,7 @@ import org.chromium.chrome.browser.offlinepages.OfflinePageBridge;
 import org.chromium.chrome.browser.previews.Previews;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tab.TabImpl;
+import org.chromium.chrome.browser.toolbar.bottom.BottomToolbarConfiguration;
 import org.chromium.chrome.browser.translate.TranslateBridge;
 import org.chromium.chrome.browser.translate.TranslateUtils;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuCoordinator;
@@ -49,13 +49,13 @@ public class ToolbarButtonInProductHelpController
     private UserEducationHelper mUserEducationHelper;
 
     public ToolbarButtonInProductHelpController(final ChromeActivity activity,
-            AppMenuCoordinator appMenuCoordinator,
-            ActivityLifecycleDispatcher lifecycleDispatcher) {
+            AppMenuCoordinator appMenuCoordinator, ActivityLifecycleDispatcher lifecycleDispatcher,
+            ActivityTabProvider tabProvider) {
         mActivity = activity;
         mUserEducationHelper = new UserEducationHelper(mActivity);
         mScreenshotMonitor = new ScreenshotMonitor(this);
         lifecycleDispatcher.register(this);
-        mPageLoadObserver = new ActivityTabTabObserver(activity.getActivityTabProvider()) {
+        mPageLoadObserver = new ActivityTabTabObserver(tabProvider) {
             /**
              * Stores total data saved at the start of a page load. Used to calculate delta at the
              * end of page load, which is just an estimate of the data saved for the current page
@@ -85,7 +85,8 @@ public class ToolbarButtonInProductHelpController
                 long dataSaved = DataReductionProxySettings.getInstance()
                                          .getContentLengthSavedInHistorySummary()
                         - mDataSavedOnStartPageLoad;
-                Tracker tracker = TrackerFactory.getTrackerForProfile(Profile.getLastUsedProfile());
+                Tracker tracker = TrackerFactory.getTrackerForProfile(
+                        Profile.fromWebContents(tab.getWebContents()));
                 if (dataSaved > 0L) tracker.notifyEvent(EventConstants.DATA_SAVED_ON_PAGE_LOAD);
                 if (Previews.isPreview(tab)) {
                     tracker.notifyEvent(EventConstants.PREVIEWS_PAGE_LOADED);
@@ -106,14 +107,15 @@ public class ToolbarButtonInProductHelpController
                     return;
                 }
 
-                OfflinePageBridge bridge =
-                        OfflinePageBridge.getForProfile(((TabImpl) tab).getProfile());
+                OfflinePageBridge bridge = OfflinePageBridge.getForProfile(
+                        Profile.fromWebContents(tab.getWebContents()));
                 if (bridge == null
                         || !bridge.isShowingDownloadButtonInErrorPage(tab.getWebContents())) {
                     return;
                 }
 
-                Tracker tracker = TrackerFactory.getTrackerForProfile(((TabImpl) tab).getProfile());
+                Tracker tracker = TrackerFactory.getTrackerForProfile(
+                        Profile.fromWebContents(tab.getWebContents()));
                 tracker.notifyEvent(EventConstants.USER_HAS_SEEN_DINO);
             }
         };
@@ -169,7 +171,10 @@ public class ToolbarButtonInProductHelpController
 
     @Override
     public void onScreenshotTaken() {
-        Tracker tracker = TrackerFactory.getTrackerForProfile(Profile.getLastUsedProfile());
+        // TODO (https://crbug.com/1048632): Use the current profile (i.e., regular profile or
+        // incognito profile) instead of always using regular profile. It works correctly now, but
+        // it is not safe.
+        Tracker tracker = TrackerFactory.getTrackerForProfile(Profile.getLastUsedRegularProfile());
         tracker.notifyEvent(EventConstants.SCREENSHOT_TAKEN_CHROME_IN_FOREGROUND);
 
         PostTask.postTask(UiThreadTaskTraits.DEFAULT, () -> {
@@ -183,8 +188,8 @@ public class ToolbarButtonInProductHelpController
 
     // Private methods.
     private static int getDataReductionMenuItemHighlight() {
-        return FeatureUtilities.isBottomToolbarEnabled() ? R.id.data_reduction_menu_item
-                                                         : R.id.app_menu_footer;
+        return BottomToolbarConfiguration.isBottomToolbarEnabled() ? R.id.data_reduction_menu_item
+                                                                   : R.id.app_menu_footer;
     }
 
     // Attempts to show an IPH text bubble for data saver detail.
@@ -258,9 +263,8 @@ public class ToolbarButtonInProductHelpController
      */
     private void showDownloadPageTextBubble(final Tab tab, String featureName) {
         if (tab == null) return;
-        ChromeActivity activity = ((TabImpl) tab).getActivity();
-        if (!(activity instanceof ChromeTabbedActivity) || activity.isTablet()
-                || activity.isInOverviewMode() || !DownloadUtils.isAllowedToDownloadPage(tab)) {
+        if (!(mActivity instanceof ChromeTabbedActivity) || mActivity.isTablet()
+                || mActivity.isInOverviewMode() || !DownloadUtils.isAllowedToDownloadPage(tab)) {
             return;
         }
 
@@ -274,9 +278,7 @@ public class ToolbarButtonInProductHelpController
                         .setAnchorView(mActivity.getToolbarManager().getMenuButtonView())
                         .build());
         // Record metrics if we show Download IPH after a screenshot of the page.
-        ChromeTabbedActivity chromeActivity = ((ChromeTabbedActivity) activity);
-        ScreenshotTabObserver tabObserver =
-                ScreenshotTabObserver.from(chromeActivity.getActivityTab());
+        ScreenshotTabObserver tabObserver = ScreenshotTabObserver.from(tab);
         if (tabObserver != null) {
             tabObserver.onActionPerformedAfterScreenshot(
                     ScreenshotTabObserver.SCREENSHOT_ACTION_DOWNLOAD_IPH);

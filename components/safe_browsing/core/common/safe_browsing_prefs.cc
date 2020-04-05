@@ -81,6 +81,7 @@ GURL GetSimplifiedURL(const GURL& url) {
 
 namespace prefs {
 const char kSafeBrowsingEnabled[] = "safebrowsing.enabled";
+const char kSafeBrowsingEnhanced[] = "safebrowsing.enhanced";
 const char kSafeBrowsingExtendedReportingOptInAllowed[] =
     "safebrowsing.extended_reporting_opt_in_allowed";
 const char kSafeBrowsingIncidentsSent[] = "safebrowsing.incidents_sent";
@@ -106,8 +107,6 @@ const char kPasswordProtectionWarningTrigger[] =
     "safebrowsing.password_protection_warning_trigger";
 const char kAdvancedProtectionLastRefreshInUs[] =
     "safebrowsing.advanced_protection_last_refresh";
-const char kSafeBrowsingRealTimeLookupEnabled[] =
-    "safebrowsing.real_time_lookup_enabled";
 const char kSafeBrowsingSendFilesForMalwareCheck[] =
     "safebrowsing.send_files_for_malware_check";
 const char kUnsafeEventsReportingEnabled[] =
@@ -129,12 +128,32 @@ const char kURLsToNotCheckForMalwareOfDownloadedContent[] =
     "safebrowsing.urls_to_not_check_for_malware_of_downloaded_content";
 const char kURLsToNotCheckComplianceOfUploadedContent[] =
     "policy.urls_to_not_check_compliance_of_uploaded_content";
-const char kAdvancedProtectionDeepScanningEnabled[] =
-    "safebrowsing.advanced_protection_deep_scanning_enabled";
+const char kAdvancedProtectionAllowed[] =
+    "safebrowsing.advanced_protection_allowed";
 
 }  // namespace prefs
 
 namespace safe_browsing {
+
+SafeBrowsingState GetSafeBrowsingState(const PrefService& prefs) {
+  if (IsEnhancedProtectionEnabled(prefs)) {
+    return ENHANCED_PROTECTION;
+  } else if (prefs.GetBoolean(prefs::kSafeBrowsingEnabled)) {
+    return STANDARD_PROTECTION;
+  } else {
+    return NO_SAFE_BROWSING;
+  }
+}
+
+bool IsSafeBrowsingEnabled(const PrefService& prefs) {
+  return prefs.GetBoolean(prefs::kSafeBrowsingEnabled) ||
+         IsEnhancedProtectionEnabled(prefs);
+}
+
+bool IsEnhancedProtectionEnabled(const PrefService& prefs) {
+  return prefs.GetBoolean(prefs::kSafeBrowsingEnhanced) &&
+         base::FeatureList::IsEnabled(kEnhancedProtection);
+}
 
 bool ExtendedReportingPrefExists(const PrefService& prefs) {
   return prefs.HasPrefPath(prefs::kSafeBrowsingScoutReportingEnabled);
@@ -149,7 +168,9 @@ bool IsExtendedReportingOptInAllowed(const PrefService& prefs) {
 }
 
 bool IsExtendedReportingEnabled(const PrefService& prefs) {
-  return prefs.GetBoolean(prefs::kSafeBrowsingScoutReportingEnabled);
+  return (IsSafeBrowsingEnabled(prefs) &&
+          prefs.GetBoolean(prefs::kSafeBrowsingScoutReportingEnabled)) ||
+         IsEnhancedProtectionEnabled(prefs);
 }
 
 bool IsExtendedReportingPolicyManaged(const PrefService& prefs) {
@@ -179,6 +200,7 @@ void RegisterProfilePrefs(PrefRegistrySimple* registry) {
   registry->RegisterBooleanPref(
       prefs::kSafeBrowsingEnabled, true,
       user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
+  registry->RegisterBooleanPref(prefs::kSafeBrowsingEnhanced, false);
   registry->RegisterBooleanPref(prefs::kSafeBrowsingProceedAnywayDisabled,
                                 false);
   registry->RegisterDictionaryPref(prefs::kSafeBrowsingIncidentsSent);
@@ -193,12 +215,9 @@ void RegisterProfilePrefs(PrefRegistrySimple* registry) {
   registry->RegisterIntegerPref(prefs::kPasswordProtectionWarningTrigger,
                                 PASSWORD_PROTECTION_OFF);
   registry->RegisterInt64Pref(prefs::kAdvancedProtectionLastRefreshInUs, 0);
-  registry->RegisterBooleanPref(prefs::kSafeBrowsingRealTimeLookupEnabled,
-                                false);
   registry->RegisterIntegerPref(prefs::kSafeBrowsingSendFilesForMalwareCheck,
                                 DO_NOT_SCAN);
-  registry->RegisterBooleanPref(prefs::kAdvancedProtectionDeepScanningEnabled,
-                                true);
+  registry->RegisterBooleanPref(prefs::kAdvancedProtectionAllowed, true);
 }
 
 void RegisterLocalStatePrefs(PrefRegistrySimple* registry) {
@@ -229,6 +248,10 @@ void SetExtendedReportingPrefAndMetric(
 
 void SetExtendedReportingPref(PrefService* prefs, bool value) {
   prefs->SetBoolean(prefs::kSafeBrowsingScoutReportingEnabled, value);
+}
+
+void SetEnhancedProtectionPref(PrefService* prefs, bool value) {
+  prefs->SetBoolean(prefs::kSafeBrowsingEnhanced, value);
 }
 
 void UpdateMetricsAfterSecurityInterstitial(const PrefService& prefs,
@@ -303,7 +326,7 @@ base::ListValue GetSafeBrowsingPreferencesList(PrefService* prefs) {
   const char* safe_browsing_preferences[] = {
       prefs::kSafeBrowsingEnabled,
       prefs::kSafeBrowsingExtendedReportingOptInAllowed,
-      prefs::kSafeBrowsingScoutReportingEnabled};
+      prefs::kSafeBrowsingScoutReportingEnabled, prefs::kSafeBrowsingEnhanced};
 
   // Add the status of the preferences if they are Enabled or Disabled for the
   // user.

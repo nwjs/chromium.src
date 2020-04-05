@@ -8,6 +8,7 @@
 #include "build/build_config.h"
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/accessibility/ax_node_data.h"
+#include "ui/accessibility/ax_tree_manager.h"
 #include "ui/accessibility/ax_tree_manager_map.h"
 
 namespace ui {
@@ -18,8 +19,6 @@ AXEmbeddedObjectBehavior g_ax_embedded_object_behavior =
 #else
     AXEmbeddedObjectBehavior::kSuppressCharacter;
 #endif
-
-AXTree* AXNodePosition::tree_ = nullptr;
 
 // static
 AXNodePosition::AXPositionInstance AXNodePosition::CreatePosition(
@@ -61,7 +60,6 @@ void AXNodePosition::AnchorChild(int child_index,
   }
 
   AXNode* child = nullptr;
-
   const AXTreeManager* child_tree_manager =
       AXTreeManagerMap::GetInstance().GetManagerForChildTree(*GetAnchor());
   if (child_tree_manager) {
@@ -83,11 +81,17 @@ int AXNodePosition::AnchorChildCount() const {
 
   const AXTreeManager* child_tree_manager =
       AXTreeManagerMap::GetInstance().GetManagerForChildTree(*GetAnchor());
-  if (child_tree_manager) {
+  if (child_tree_manager)
     return 1;
-  }
 
   return int{GetAnchor()->children().size()};
+}
+
+int AXNodePosition::AnchorUnignoredChildCount() const {
+  if (!GetAnchor())
+    return 0;
+
+  return static_cast<int>(GetAnchor()->GetUnignoredChildCount());
 }
 
 int AXNodePosition::AnchorIndexInParent() const {
@@ -99,7 +103,7 @@ base::stack<AXNode*> AXNodePosition::GetAncestorAnchors() const {
   AXNode* current_anchor = GetAnchor();
 
   AXNode::AXID current_anchor_id = GetAnchor()->id();
-  AXTreeID current_tree_id = this->tree_id();
+  AXTreeID current_tree_id = tree_id();
 
   AXNode::AXID parent_anchor_id = AXNode::kInvalidAXID;
   AXTreeID parent_tree_id = AXTreeIDUnknown();
@@ -114,6 +118,13 @@ base::stack<AXNode*> AXNodePosition::GetAncestorAnchors() const {
     current_tree_id = parent_tree_id;
   }
   return anchors;
+}
+
+AXNode* AXNodePosition::GetLowestUnignoredAncestor() const {
+  if (!GetAnchor())
+    return nullptr;
+
+  return GetAnchor()->GetUnignoredParent();
 }
 
 void AXNodePosition::AnchorParent(AXTreeID* tree_id,
@@ -142,10 +153,6 @@ AXNode* AXNodePosition::GetNodeInTree(AXTreeID tree_id,
   if (node_id == AXNode::kInvalidAXID)
     return nullptr;
 
-  // Used for testing via AXNodePosition::SetTree
-  if (AXNodePosition::tree_)
-    return AXNodePosition::tree_->GetFromId(node_id);
-
   AXTreeManager* manager = AXTreeManagerMap::GetInstance().GetManager(tree_id);
   if (manager)
     return manager->GetNodeFromTree(tree_id, node_id);
@@ -153,7 +160,7 @@ AXNode* AXNodePosition::GetNodeInTree(AXTreeID tree_id,
   return nullptr;
 }
 
-int32_t AXNodePosition::GetAnchorID(AXNode* node) const {
+AXNode::AXID AXNodePosition::GetAnchorID(AXNode* node) const {
   return node->id();
 }
 
@@ -173,10 +180,16 @@ base::string16 AXNodePosition::GetText() const {
 
   const AXNode* anchor = GetAnchor();
   DCHECK(anchor);
-  text = GetAnchor()->data().GetString16Attribute(
-      ax::mojom::StringAttribute::kValue);
-  if (!text.empty())
-    return text;
+  // TODO(nektar): Replace with PlatformChildCount when AXNodePosition and
+  // BrowserAccessibilityPosition are merged into one class.
+  if (!AnchorChildCount()) {
+    // Special case: Allows us to get text even in non-web content, e.g. in the
+    // browser's UI.
+    text =
+        anchor->data().GetString16Attribute(ax::mojom::StringAttribute::kValue);
+    if (!text.empty())
+      return text;
+  }
 
   if (anchor->IsText()) {
     return anchor->data().GetString16Attribute(
@@ -225,10 +238,14 @@ int AXNodePosition::MaxTextOffset() const {
 
   const AXNode* anchor = GetAnchor();
   DCHECK(anchor);
-  base::string16 value = GetAnchor()->data().GetString16Attribute(
-      ax::mojom::StringAttribute::kValue);
-  if (!value.empty())
-    return value.length();
+  // TODO(nektar): Replace with PlatformChildCount when AXNodePosition and
+  // BrowserAccessibilityPosition will make one.
+  if (!AnchorChildCount()) {
+    base::string16 value =
+        anchor->data().GetString16Attribute(ax::mojom::StringAttribute::kValue);
+    if (!value.empty())
+      return value.length();
+  }
 
   if (anchor->IsText()) {
     return anchor->data()
@@ -282,8 +299,23 @@ std::vector<int32_t> AXNodePosition::GetWordStartOffsets() const {
   if (IsEmptyObjectReplacedByCharacter())
     return {0};
 
-  return GetAnchor()->data().GetIntListAttribute(
+  std::vector<int32_t> offsets = GetAnchor()->data().GetIntListAttribute(
       ax::mojom::IntListAttribute::kWordStarts);
+  if (!offsets.empty() ||
+      GetAnchor()
+          ->data()
+          .GetIntListAttribute(ax::mojom::IntListAttribute::kCharacterOffsets)
+          .empty() ||
+      IsInWhiteSpace()) {
+    return offsets;
+  }
+
+  // When the position is on a node that has character offsets but has no word
+  // boundary, treat the entire node content as a word. This can happen when
+  // the node contains only "skippable words", like whitespaces, punctuation or
+  // other special characters. E.g., "•" or any emoji.
+  // TODO: This should not be needed once https://crbug.com/1028830 is fixed.
+  return {0};
 }
 
 std::vector<int32_t> AXNodePosition::GetWordEndOffsets() const {
@@ -300,8 +332,23 @@ std::vector<int32_t> AXNodePosition::GetWordEndOffsets() const {
   if (IsEmptyObjectReplacedByCharacter())
     return {1};
 
-  return GetAnchor()->data().GetIntListAttribute(
+  std::vector<int32_t> offsets = GetAnchor()->data().GetIntListAttribute(
       ax::mojom::IntListAttribute::kWordEnds);
+  if (!offsets.empty() ||
+      GetAnchor()
+          ->data()
+          .GetIntListAttribute(ax::mojom::IntListAttribute::kCharacterOffsets)
+          .empty() ||
+      IsInWhiteSpace()) {
+    return offsets;
+  }
+
+  // When the position is on a node that has character offsets but has no word
+  // boundary, treat the entire node content as a word. This can happen when
+  // the node contains only "skippable words", like whitespaces, punctuation or
+  // other special characters. E.g., "•" or any emoji.
+  // TODO: This should not be needed once https://crbug.com/1028830 is fixed.
+  return {MaxTextOffset()};
 }
 
 AXNode::AXID AXNodePosition::GetNextOnLineID(AXNode::AXID node_id) const {

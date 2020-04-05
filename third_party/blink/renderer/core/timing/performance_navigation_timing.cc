@@ -57,7 +57,7 @@ PerformanceNavigationTiming::PerformanceNavigationTiming(
           time_origin,
           SecurityOrigin::IsSecure(frame->GetDocument()->Url()),
           std::move(server_timing)),
-      ContextClient(frame),
+      ExecutionContextClient(frame),
       resource_timing_info_(info) {
   DCHECK(frame);
   DCHECK(frame->GetDocument());
@@ -74,8 +74,8 @@ PerformanceEntryType PerformanceNavigationTiming::EntryTypeEnum() const {
   return PerformanceEntry::EntryType::kNavigation;
 }
 
-void PerformanceNavigationTiming::Trace(blink::Visitor* visitor) {
-  ContextClient::Trace(visitor);
+void PerformanceNavigationTiming::Trace(Visitor* visitor) {
+  ExecutionContextClient::Trace(visitor);
   PerformanceResourceTiming::Trace(visitor);
 }
 
@@ -151,7 +151,7 @@ AtomicString PerformanceNavigationTiming::initiatorType() const {
 
 bool PerformanceNavigationTiming::GetAllowRedirectDetails() const {
   blink::ExecutionContext* context =
-      GetFrame() ? GetFrame()->GetDocument() : nullptr;
+      GetFrame() ? GetFrame()->GetDocument()->ToExecutionContext() : nullptr;
   const blink::SecurityOrigin* security_origin = nullptr;
   if (context)
     security_origin = context->GetSecurityOrigin();

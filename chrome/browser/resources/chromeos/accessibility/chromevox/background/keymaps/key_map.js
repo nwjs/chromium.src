@@ -172,10 +172,11 @@ KeyMap = class {
    * if any.
    */
   keyForCommand(command) {
+    let keySequenceArray;
     if (this.commandToKey_ != null) {
       return [this.commandToKey_[command]];
     } else {
-      var keySequenceArray = [];
+      keySequenceArray = [];
       for (let i = 0; i < this.bindings_.length; i++) {
         const binding = this.bindings_[i];
         if (binding.command == command) {
@@ -240,7 +241,7 @@ KeyMap = class {
     // keymap.
     let bound = false;
     for (let i = 0; i < this.bindings_.length; i++) {
-      var binding = this.bindings_[i];
+      const binding = this.bindings_[i];
       if (binding.command == command) {
         // Replace the key with the new key.
         delete binding.sequence;
@@ -252,7 +253,7 @@ KeyMap = class {
       }
     }
     if (!bound) {
-      var binding = {command, 'sequence': newKey};
+      const binding = {command, 'sequence': newKey};
       this.bindings_.push(binding);
       this.commandToKey_[binding.command] = binding.sequence;
     }
@@ -264,16 +265,7 @@ KeyMap = class {
    */
   static fromDefaults() {
     return /** @type {!KeyMap} */ (KeyMap.fromPath(
-        KeyMap.KEYMAP_PATH + KeyMap.AVAILABLE_MAP_INFO['keymap_next'].file));
-  }
-
-  /**
-   * Convenience method for getting a ChromeVox Next key map.
-   * @return {KeyMap} The Next key map.
-   */
-  static fromNext() {
-    return KeyMap.fromPath(
-        KeyMap.KEYMAP_PATH + KeyMap.AVAILABLE_MAP_INFO['keymap_next'].file);
+        KeyMap.KEYMAP_PATH + KeyMap.AVAILABLE_MAP_INFO['keymap_default'].file));
   }
 
   /**
@@ -284,8 +276,9 @@ KeyMap = class {
    * @return {KeyMap} The resulting object; null if unable to parse.
    */
   static fromJSON(json) {
+    let commandsAndKeySequences = null;
     try {
-      var commandsAndKeySequences =
+      commandsAndKeySequences =
           /**
            * @type {Array<Object<{command: string,
            *                       sequence: KeySequence}>>}
@@ -401,7 +394,7 @@ KeyMap = class {
  * @type {string}
  * @const
  */
-KeyMap.KEYMAP_PATH = 'background/keymaps/';
+KeyMap.KEYMAP_PATH = 'chromevox/background/keymaps/';
 
 
 /**
@@ -414,7 +407,7 @@ KeyMap.KEYMAP_PATH = 'background/keymaps/';
  * @const
  */
 KeyMap.AVAILABLE_MAP_INFO = {
-  'keymap_next': {'file': 'default_keymap.json'}
+  'keymap_default': {'file': 'default_keymap.json'}
 };
 
 

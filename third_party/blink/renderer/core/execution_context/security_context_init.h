@@ -23,13 +23,12 @@ class Frame;
 class LocalFrame;
 class OriginTrialContext;
 class SecurityOrigin;
-enum class WebSandboxFlags;
 
 class CORE_EXPORT SecurityContextInit : public FeaturePolicyParserDelegate {
   STACK_ALLOCATED();
 
  public:
-  SecurityContextInit() = default;
+  SecurityContextInit();
   SecurityContextInit(scoped_refptr<SecurityOrigin>,
                       OriginTrialContext*,
                       Agent*);
@@ -39,13 +38,23 @@ class CORE_EXPORT SecurityContextInit : public FeaturePolicyParserDelegate {
     return security_origin_;
   }
 
-  WebSandboxFlags GetSandboxFlags() const { return sandbox_flags_; }
+  mojom::blink::WebSandboxFlags GetSandboxFlags() const {
+    return sandbox_flags_;
+  }
 
   ContentSecurityPolicy* GetCSP() const { return csp_; }
 
+  // Returns nullptr if SecurityContext is used for non-Document contexts(i.e.,
+  // workers and tests).
   std::unique_ptr<FeaturePolicy> CreateFeaturePolicy() const;
+  // Returns nullptr if SecurityContext is used for non-Document contexts(i.e.,
+  // workers and tests).
+  // Returns nullptr if there is no 'Feature-Policy-Report-Only' header present
+  // in http response.
+  std::unique_ptr<FeaturePolicy> CreateReportOnlyFeaturePolicy() const;
 
   std::unique_ptr<DocumentPolicy> CreateDocumentPolicy() const;
+  std::unique_ptr<DocumentPolicy> CreateReportOnlyDocumentPolicy() const;
 
   const ParsedFeaturePolicy& FeaturePolicyHeader() const {
     return feature_policy_header_;
@@ -55,6 +64,7 @@ class CORE_EXPORT SecurityContextInit : public FeaturePolicyParserDelegate {
 
   Agent* GetAgent() const { return agent_; }
   SecureContextMode GetSecureContextMode() const {
+    DCHECK(secure_context_mode_.has_value());
     return secure_context_mode_.value();
   }
 
@@ -74,17 +84,22 @@ class CORE_EXPORT SecurityContextInit : public FeaturePolicyParserDelegate {
   void InitializeContentSecurityPolicy(const DocumentInit&);
   void InitializeOrigin(const DocumentInit&);
   void InitializeSandboxFlags(const DocumentInit&);
+  void InitializeDocumentPolicy(const DocumentInit&);
   void InitializeFeaturePolicy(const DocumentInit&);
   void InitializeSecureContextMode(const DocumentInit&);
   void InitializeOriginTrials(const DocumentInit&);
   void InitializeAgent(const DocumentInit&);
 
   scoped_refptr<SecurityOrigin> security_origin_;
-  WebSandboxFlags sandbox_flags_ = WebSandboxFlags::kNone;
-  base::Optional<DocumentPolicy::FeatureState> document_policy_;
+  mojom::blink::WebSandboxFlags sandbox_flags_ =
+      mojom::blink::WebSandboxFlags::kNone;
+  DocumentPolicy::ParsedDocumentPolicy document_policy_;
+  DocumentPolicy::ParsedDocumentPolicy report_only_document_policy_;
   bool initialized_feature_policy_state_ = false;
   Vector<String> feature_policy_parse_messages_;
+  Vector<String> report_only_feature_policy_parse_messages_;
   ParsedFeaturePolicy feature_policy_header_;
+  ParsedFeaturePolicy report_only_feature_policy_header_;
   LocalFrame* frame_for_opener_feature_state_ = nullptr;
   Frame* parent_frame_ = nullptr;
   ParsedFeaturePolicy container_policy_;

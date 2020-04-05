@@ -61,7 +61,6 @@
 #include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/infobars/infobar_service.h"
 #include "chrome/browser/metrics/subprocess_metrics_provider.h"
-#include "chrome/browser/permissions/permission_request_manager.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_key.h"
 #include "chrome/browser/renderer_context_menu/render_view_context_menu_browsertest_util.h"
@@ -80,7 +79,6 @@
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
-#include "chrome/common/safe_browsing/download_file_types.pb.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/test/base/in_process_browser_test.h"
@@ -95,16 +93,19 @@
 #include "components/history/core/browser/history_service.h"
 #include "components/infobars/core/confirm_infobar_delegate.h"
 #include "components/infobars/core/infobar.h"
+#include "components/permissions/permission_request_manager.h"
 #include "components/prefs/pref_service.h"
 #include "components/safe_browsing/buildflags.h"
 #include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #include "components/safe_browsing/core/proto/csd.pb.h"
+#include "components/safe_browsing/core/proto/download_file_types.pb.h"
 #include "components/safe_browsing/core/safe_browsing_service_interface.h"
 #include "components/security_state/core/features.h"
 #include "components/security_state/core/security_state.h"
 #include "components/services/quarantine/test_support.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
+#include "content/public/browser/context_menu_params.h"
 #include "content/public/browser/device_service.h"
 #include "content/public/browser/download_manager.h"
 #include "content/public/browser/download_request_utils.h"
@@ -117,7 +118,6 @@
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_features.h"
 #include "content/public/common/content_switches.h"
-#include "content/public/common/context_menu_params.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/download_test_observer.h"
 #include "content/public/test/slow_download_http_response.h"
@@ -1237,16 +1237,16 @@ class DownloadReferrerPolicyTest
 INSTANTIATE_TEST_SUITE_P(
     All,
     DownloadReferrerPolicyTest,
-    ::testing::Values(network::mojom::ReferrerPolicy::kAlways,
-                      network::mojom::ReferrerPolicy::kDefault,
-                      network::mojom::ReferrerPolicy::kNoReferrerWhenDowngrade,
-                      network::mojom::ReferrerPolicy::kNever,
-                      network::mojom::ReferrerPolicy::kOrigin,
-                      network::mojom::ReferrerPolicy::kOriginWhenCrossOrigin,
-                      network::mojom::ReferrerPolicy::
-                          kNoReferrerWhenDowngradeOriginWhenCrossOrigin,
-                      network::mojom::ReferrerPolicy::kSameOrigin,
-                      network::mojom::ReferrerPolicy::kStrictOrigin));
+    ::testing::Values(
+        network::mojom::ReferrerPolicy::kAlways,
+        network::mojom::ReferrerPolicy::kDefault,
+        network::mojom::ReferrerPolicy::kNoReferrerWhenDowngrade,
+        network::mojom::ReferrerPolicy::kNever,
+        network::mojom::ReferrerPolicy::kOrigin,
+        network::mojom::ReferrerPolicy::kOriginWhenCrossOrigin,
+        network::mojom::ReferrerPolicy::kStrictOriginWhenCrossOrigin,
+        network::mojom::ReferrerPolicy::kSameOrigin,
+        network::mojom::ReferrerPolicy::kStrictOrigin));
 
 namespace {
 
@@ -3158,8 +3158,7 @@ IN_PROC_BROWSER_TEST_P(DownloadReferrerPolicyTest,
     case network::mojom::ReferrerPolicy::kDefault:
     case network::mojom::ReferrerPolicy::kNoReferrerWhenDowngrade:
     case network::mojom::ReferrerPolicy::kOriginWhenCrossOrigin:
-    case network::mojom::ReferrerPolicy::
-        kNoReferrerWhenDowngradeOriginWhenCrossOrigin:
+    case network::mojom::ReferrerPolicy::kStrictOriginWhenCrossOrigin:
     case network::mojom::ReferrerPolicy::kSameOrigin:
       EXPECT_TRUE(VerifyFile(file, url.spec(), url.spec().length()));
       break;
@@ -3234,8 +3233,7 @@ IN_PROC_BROWSER_TEST_P(DownloadReferrerPolicyTest, SaveLinkAsReferrerPolicy) {
     case network::mojom::ReferrerPolicy::kDefault:
     case network::mojom::ReferrerPolicy::kNoReferrerWhenDowngrade:
     case network::mojom::ReferrerPolicy::kOriginWhenCrossOrigin:
-    case network::mojom::ReferrerPolicy::
-        kNoReferrerWhenDowngradeOriginWhenCrossOrigin:
+    case network::mojom::ReferrerPolicy::kStrictOriginWhenCrossOrigin:
     case network::mojom::ReferrerPolicy::kSameOrigin:
       EXPECT_TRUE(VerifyFile(file, url.spec(), url.spec().length()));
       break;
@@ -3382,8 +3380,7 @@ IN_PROC_BROWSER_TEST_P(DownloadReferrerPolicyTest,
       break;
     case network::mojom::ReferrerPolicy::kDefault:
     case network::mojom::ReferrerPolicy::kNoReferrerWhenDowngrade:
-    case network::mojom::ReferrerPolicy::
-        kNoReferrerWhenDowngradeOriginWhenCrossOrigin:
+    case network::mojom::ReferrerPolicy::kStrictOriginWhenCrossOrigin:
     case network::mojom::ReferrerPolicy::kStrictOrigin:
     case network::mojom::ReferrerPolicy::kSameOrigin:
     case network::mojom::ReferrerPolicy::kNever:
@@ -3450,12 +3447,21 @@ IN_PROC_BROWSER_TEST_P(DownloadReferrerPolicyTest,
   // Check that the file contains the expected referrer. The referrer is
   // expected to be sent for policies kAlways, kDefault, and
   // kNoReferrerWhenDowngrade. The referrer should not be sent for policies
-  // kNever, kSameOrigin, and kNoReferrerWhenDowngradeOriginWhenCrossOrigin.
+  // kNever, kSameOrigin, and kStrictOriginWhenCrossOrigin.
   base::FilePath file(download_items[0]->GetTargetFilePath());
   GURL origin = url::Origin::Create(url).GetURL();
-  switch (referrer_policy()) {
+
+  // Since the default referrer policy can change based on configuration,
+  // resolve referrer_policy() into a concrete policy.
+  auto policy_for_comparison = referrer_policy();
+  if (policy_for_comparison == network::mojom::ReferrerPolicy::kDefault) {
+    policy_for_comparison =
+        content::Referrer::NetReferrerPolicyToBlinkReferrerPolicy(
+            content::Referrer::GetDefaultReferrerPolicy());
+  }
+
+  switch (policy_for_comparison) {
     case network::mojom::ReferrerPolicy::kAlways:
-    case network::mojom::ReferrerPolicy::kDefault:
     case network::mojom::ReferrerPolicy::kNoReferrerWhenDowngrade:
       EXPECT_TRUE(VerifyFile(file, url.spec(), url.spec().length()));
       break;
@@ -3464,12 +3470,13 @@ IN_PROC_BROWSER_TEST_P(DownloadReferrerPolicyTest,
       EXPECT_TRUE(VerifyFile(file, "", 0));
       break;
     case network::mojom::ReferrerPolicy::kOriginWhenCrossOrigin:
-    case network::mojom::ReferrerPolicy::
-        kNoReferrerWhenDowngradeOriginWhenCrossOrigin:
+    case network::mojom::ReferrerPolicy::kStrictOriginWhenCrossOrigin:
     case network::mojom::ReferrerPolicy::kOrigin:
     case network::mojom::ReferrerPolicy::kStrictOrigin:
       EXPECT_TRUE(VerifyFile(file, origin.spec(), origin.spec().length()));
       break;
+    default:
+      NOTREACHED() << "Unexpected policy.";
   }
 }
 
@@ -3478,11 +3485,11 @@ IN_PROC_BROWSER_TEST_F(DownloadTest, TestMultipleDownloadsRequests) {
   std::unique_ptr<content::DownloadTestObserver> downloads_observer(
       CreateWaiter(browser(), 2));
 
-  PermissionRequestManager* permission_request_manager =
-      PermissionRequestManager::FromWebContents(
+  permissions::PermissionRequestManager* permission_request_manager =
+      permissions::PermissionRequestManager::FromWebContents(
           browser()->tab_strip_model()->GetActiveWebContents());
   permission_request_manager->set_auto_response_for_test(
-      PermissionRequestManager::ACCEPT_ALL);
+      permissions::PermissionRequestManager::ACCEPT_ALL);
 
   embedded_test_server()->ServeFilesFromDirectory(GetTestDataDirectory());
   ASSERT_TRUE(embedded_test_server()->Start());
@@ -4346,14 +4353,14 @@ IN_PROC_BROWSER_TEST_F(InProgressDownloadTest,
   url_chain.emplace_back(url);
   // Kick off 2 download with the same GUID
   auto params = std::make_unique<DownloadUrlParameters>(
-      url, TRAFFIC_ANNOTATION_FOR_TESTS, net::NetworkIsolationKey());
+      url, TRAFFIC_ANNOTATION_FOR_TESTS);
   params->set_guid(guid);
   params->set_file_path(target_path);
   params->set_transient(true);
   params->set_require_safety_checks(false);
   in_progress_manager->DownloadUrl(std::move(params));
   auto params2 = std::make_unique<DownloadUrlParameters>(
-      url, TRAFFIC_ANNOTATION_FOR_TESTS, net::NetworkIsolationKey());
+      url, TRAFFIC_ANNOTATION_FOR_TESTS);
   params2->set_guid(guid);
   params2->set_file_path(target_path);
   params2->set_transient(true);

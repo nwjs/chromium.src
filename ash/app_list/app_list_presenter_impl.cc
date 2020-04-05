@@ -19,6 +19,7 @@
 #include "ash/public/cpp/shell_window_ids.h"
 #include "base/bind.h"
 #include "base/bind_helpers.h"
+#include "base/callback_helpers.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/metrics/user_metrics.h"
 #include "base/optional.h"
@@ -38,11 +39,10 @@
 namespace ash {
 namespace {
 
-constexpr std::array<int, 7> kIdsOfContainersThatWontHideAppList = {
-    kShellWindowId_AppListContainer,      kShellWindowId_HomeScreenContainer,
-    kShellWindowId_MenuContainer,         kShellWindowId_SettingBubbleContainer,
-    kShellWindowId_ShelfBubbleContainer,  kShellWindowId_ShelfContainer,
-    kShellWindowId_ShelfControlContainer,
+constexpr std::array<int, 6> kIdsOfContainersThatWontHideAppList = {
+    kShellWindowId_AppListContainer,     kShellWindowId_HomeScreenContainer,
+    kShellWindowId_MenuContainer,        kShellWindowId_SettingBubbleContainer,
+    kShellWindowId_ShelfBubbleContainer, kShellWindowId_ShelfContainer,
 };
 
 inline ui::Layer* GetLayer(views::Widget* widget) {
@@ -118,10 +118,10 @@ void AppListPresenterImpl::Show(int64_t display_id,
   if (is_target_visibility_show_) {
     // Launcher is always visible on the internal display when home launcher is
     // enabled in tablet mode.
-    if (display_id != GetDisplayId() && !delegate_->IsTabletMode()) {
-      Dismiss(event_time_stamp);
-    }
-    return;
+    if (delegate_->IsTabletMode() || display_id == GetDisplayId())
+      return;
+
+    Dismiss(event_time_stamp);
   }
 
   if (!delegate_->GetRootWindowForDisplayId(display_id)) {
@@ -210,7 +210,7 @@ ShelfAction AppListPresenterImpl::ToggleAppList(
                             show_source == kShelfButtonFullscreen;
   // Dismiss or show based on the target visibility because the show/hide
   // animation can be reversed.
-  if (is_target_visibility_show_) {
+  if (is_target_visibility_show_ && GetDisplayId() == display_id) {
     if (request_fullscreen) {
       if (view_->app_list_state() == AppListViewState::kPeeking) {
         view_->SetState(AppListViewState::kFullscreenAllApps);
@@ -230,7 +230,7 @@ ShelfAction AppListPresenterImpl::ToggleAppList(
 }
 
 bool AppListPresenterImpl::IsVisibleDeprecated() const {
-  return delegate_->IsVisible();
+  return delegate_->IsVisible(GetDisplayId());
 }
 
 bool AppListPresenterImpl::IsAtLeastPartiallyVisible() const {
@@ -444,7 +444,7 @@ void AppListPresenterImpl::ResetView() {
   view_ = nullptr;
 }
 
-int64_t AppListPresenterImpl::GetDisplayId() {
+int64_t AppListPresenterImpl::GetDisplayId() const {
   views::Widget* widget = view_ ? view_->GetWidget() : nullptr;
   if (!widget)
     return display::kInvalidDisplayId;
@@ -502,7 +502,7 @@ void AppListPresenterImpl::OnWindowFocused(aura::Window* gained_focus,
                        (IsAtLeastPartiallyVisible() && !app_list_lost_focus);
 
   if (delegate_->IsTabletMode()) {
-    if (visible != delegate_->IsVisible()) {
+    if (visible != delegate_->IsVisible(GetDisplayId())) {
       if (app_list_gained_focus)
         view_->OnHomeLauncherGainingFocusWithoutAnimation();
 

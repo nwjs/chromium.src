@@ -7,8 +7,9 @@ package org.chromium.chrome.browser.signin;
 import android.app.Dialog;
 import android.content.DialogInterface;
 import android.os.Bundle;
-import android.support.v4.app.DialogFragment;
-import android.support.v7.app.AlertDialog;
+
+import androidx.appcompat.app.AlertDialog;
+import androidx.fragment.app.DialogFragment;
 
 import org.chromium.chrome.R;
 
@@ -55,13 +56,15 @@ public class ConfirmManagedSyncDataDialog extends DialogFragment
     }
 
     private void setListener(Listener listener) {
-        assert mListener == null;
+        assert listener != null;
         mListener = listener;
     }
 
     @Override
     public Dialog onCreateDialog(Bundle savedInstanceState) {
-        // TODO(https://crbug.com/1033911): when the dialog is recreated, a NPE can occur here.
+        if (mListener == null) {
+            dismiss();
+        }
         String title = getString(R.string.sign_in_managed_account);
         String description = getString(
                 R.string.sign_in_managed_account_description, getArguments().getString(KEY_DOMAIN));
@@ -90,7 +93,7 @@ public class ConfirmManagedSyncDataDialog extends DialogFragment
     @Override
     public void onDismiss(DialogInterface dialog) {
         super.onDismiss(dialog);
-        if (!mListenerCalled) {
+        if (mListener != null && !mListenerCalled) {
             mListener.onCancel();
         }
     }

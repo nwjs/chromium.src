@@ -26,7 +26,6 @@
 #include "content/browser/scoped_active_url.h"
 #include "content/browser/site_instance_impl.h"
 #include "content/common/frame_messages.h"
-#include "content/common/frame_owner_properties.h"
 #include "content/common/unfreezable_frame_messages.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/common/content_client.h"
@@ -34,6 +33,7 @@
 #include "ipc/ipc_message.h"
 #include "mojo/public/cpp/bindings/pending_associated_receiver.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
+#include "third_party/blink/public/mojom/frame/frame_owner_properties.mojom.h"
 #include "third_party/blink/public/mojom/scroll/scroll_into_view_params.mojom.h"
 
 namespace content {
@@ -250,10 +250,13 @@ bool RenderFrameProxyHost::InitRenderFrameProxy() {
   // For subframes, initialize the proxy's FrameOwnerProperties only if they
   // differ from default values.
   bool should_send_properties =
-      frame_tree_node_->frame_owner_properties() != FrameOwnerProperties();
+      !frame_tree_node_->frame_owner_properties().Equals(
+          blink::mojom::FrameOwnerProperties());
   if (frame_tree_node_->parent() && should_send_properties) {
-    Send(new FrameMsg_SetFrameOwnerProperties(
-        routing_id_, frame_tree_node_->frame_owner_properties()));
+    auto frame_owner_properties =
+        frame_tree_node_->frame_owner_properties().Clone();
+    GetAssociatedRemoteFrame()->SetFrameOwnerProperties(
+        std::move(frame_owner_properties));
   }
 
   return true;
@@ -313,10 +316,24 @@ RenderFrameProxyHost::GetAssociatedRemoteFrame() {
   return remote_frame_;
 }
 
+const mojo::AssociatedRemote<content::mojom::RenderFrameProxy>&
+RenderFrameProxyHost::GetAssociatedRenderFrameProxy() {
+  if (!render_frame_proxy_)
+    GetRemoteAssociatedInterfaces()->GetInterface(&render_frame_proxy_);
+  return render_frame_proxy_;
+}
+
 void RenderFrameProxyHost::SetInheritedEffectiveTouchAction(
     cc::TouchAction touch_action) {
   cross_process_frame_connector_->OnSetInheritedEffectiveTouchAction(
       touch_action);
+}
+
+void RenderFrameProxyHost::UpdateRenderThrottlingStatus(
+    bool is_throttled,
+    bool subtree_throttled) {
+  cross_process_frame_connector_->UpdateRenderThrottlingStatus(
+      is_throttled, subtree_throttled);
 }
 
 void RenderFrameProxyHost::VisibilityChanged(
@@ -406,7 +423,8 @@ void RenderFrameProxyHost::OnOpenURL(
       current_rfh, params.user_gesture, &download_policy);
 
   if ((frame_tree_node_->pending_frame_policy().sandbox_flags &
-       blink::WebSandboxFlags::kDownloads) != blink::WebSandboxFlags::kNone) {
+       blink::mojom::WebSandboxFlags::kDownloads) !=
+      blink::mojom::WebSandboxFlags::kNone) {
     if (download_policy.blocking_downloads_in_sandbox_enabled) {
       download_policy.SetDisallowed(content::NavigationDownloadType::kSandbox);
     } else {
@@ -431,6 +449,24 @@ void RenderFrameProxyHost::OnOpenURL(
 void RenderFrameProxyHost::CheckCompleted() {
   RenderFrameHostImpl* target_rfh = frame_tree_node()->current_frame_host();
   target_rfh->GetAssociatedLocalFrame()->CheckCompleted();
+}
+
+void RenderFrameProxyHost::EnableAutoResize(const gfx::Size& min_size,
+                                            const gfx::Size& max_size) {
+  GetAssociatedRenderFrameProxy()->EnableAutoResize(min_size, max_size);
+}
+
+void RenderFrameProxyHost::DisableAutoResize() {
+  GetAssociatedRenderFrameProxy()->DisableAutoResize();
+}
+
+void RenderFrameProxyHost::DidUpdateVisualProperties(
+    const cc::RenderFrameMetadata& metadata) {
+  GetAssociatedRenderFrameProxy()->DidUpdateVisualProperties(metadata);
+}
+
+void RenderFrameProxyHost::ChildProcessGone() {
+  GetAssociatedRenderFrameProxy()->ChildProcessGone();
 }
 
 void RenderFrameProxyHost::OnRouteMessageEvent(
@@ -610,6 +646,24 @@ void RenderFrameProxyHost::DidFocusFrame() {
 
   render_frame_host->delegate()->SetFocusedFrame(frame_tree_node_,
                                                  GetSiteInstance());
+}
+
+void RenderFrameProxyHost::CapturePaintPreviewOfCrossProcessSubframe(
+    const gfx::Rect& clip_rect,
+    const base::UnguessableToken& guid) {
+  RenderFrameHostImpl* rfh = frame_tree_node_->current_frame_host();
+  if (!rfh->is_active())
+    return;
+  rfh->delegate()->CapturePaintPreviewOfCrossProcessSubframe(clip_rect, guid,
+                                                             rfh);
+}
+
+void RenderFrameProxyHost::SetIsInert(bool inert) {
+  cross_process_frame_connector_->SetIsInert(inert);
+}
+
+bool RenderFrameProxyHost::IsInertForTesting() {
+  return cross_process_frame_connector_->IsInert();
 }
 
 void RenderFrameProxyHost::OnPrintCrossProcessSubframe(const gfx::Rect& rect,

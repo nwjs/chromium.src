@@ -19,6 +19,8 @@ enum WebGLExtensionName {
   kEXTFragDepthName,
   kEXTShaderTextureLODName,
   kEXTsRGBName,
+  kEXTTextureCompressionBPTCName,
+  kEXTTextureCompressionRGTCName,
   kEXTTextureFilterAnisotropicName,
   kEXTTextureNorm16Name,
   kKHRParallelShaderCompileName,

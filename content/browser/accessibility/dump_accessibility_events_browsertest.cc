@@ -481,8 +481,16 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityEventsTest,
   RunEventTest(FILE_PATH_LITERAL("checkbox-validity.html"));
 }
 
+// Flaky on TSAN, see https://crbug.com/1066702
+#if defined(THREAD_SANITIZER)
+#define MAYBE_AccessibilityEventsCaretBrowsingEnabled \
+  DISABLED_AccessibilityEventsCaretBrowsingEnabled
+#else
+#define MAYBE_AccessibilityEventsCaretBrowsingEnabled \
+  AccessibilityEventsCaretBrowsingEnabled
+#endif
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityEventsTest,
-                       AccessibilityEventsCaretBrowsingEnabled) {
+                       MAYBE_AccessibilityEventsCaretBrowsingEnabled) {
   // Add command line switch that forces caret browsing on.
   base::CommandLine::ForCurrentProcess()->AppendSwitch(
       switches::kEnableCaretBrowsing);
@@ -502,6 +510,11 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityEventsTest,
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityEventsTest,
                        AccessibilityEventsCSSDisplay) {
   RunEventTest(FILE_PATH_LITERAL("css-display.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityEventsTest,
+                       AccessibilityEventsCSSFlexTextUpdate) {
+  RunEventTest(FILE_PATH_LITERAL("css-flex-text-update.html"));
 }
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityEventsTest,
@@ -791,18 +804,8 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityEventsTest,
   RunEventTest(FILE_PATH_LITERAL("visibility-hidden-changed.html"));
 }
 
-// Even with the deflaking in WaitForAccessibilityTreeToContainNodeWithName,
-// this test is still flaky on Windows.
-// TODO(aboxhall, dmazzoni, meredithl): re-enable with better fix for above.
-#if defined(OS_WIN)
-#define MAYBE_AccessibilityEventsAriaSelectedChanged \
-  DISABLED_AccessibilityEventsAriaSelectedChanged
-#else
-#define MAYBE_AccessibilityEventsAriaSelectedChanged \
-  AccessibilityEventsAriaSelectedChanged
-#endif
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityEventsTest,
-                       MAYBE_AccessibilityEventsAriaSelectedChanged) {
+                       AccessibilityEventsAriaSelectedChanged) {
   RunEventTest(FILE_PATH_LITERAL("aria-selected-changed.html"));
 }
 

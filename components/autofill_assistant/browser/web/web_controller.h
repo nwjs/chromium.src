@@ -25,6 +25,7 @@
 #include "components/autofill_assistant/browser/top_padding.h"
 #include "components/autofill_assistant/browser/web/element_finder.h"
 #include "components/autofill_assistant/browser/web/element_position_getter.h"
+#include "components/autofill_assistant/browser/web/element_rect_getter.h"
 #include "components/autofill_assistant/browser/web/web_controller_worker.h"
 #include "third_party/icu/source/common/unicode/umachine.h"
 #include "url/gurl.h"
@@ -106,7 +107,8 @@ class WebController {
   // picked.
   virtual void SelectOption(
       const Selector& selector,
-      const std::string& selected_option,
+      const std::string& value,
+      DropdownSelectStrategy select_strategy,
       base::OnceCallback<void(const ClientStatus&)> callback);
 
   // Highlight an element given by |selector|.
@@ -345,7 +347,8 @@ class WebController {
                       const DevtoolsClient::ReplyStatus& reply_status,
                       std::unique_ptr<runtime::CallFunctionOnResult> result);
   void OnFindElementForSelectOption(
-      const std::string& selected_option,
+      const std::string& value,
+      DropdownSelectStrategy select_strategy,
       base::OnceCallback<void(const ClientStatus&)> callback,
       const ClientStatus& status,
       std::unique_ptr<ElementFinder::Result> element_result);
@@ -471,10 +474,11 @@ class WebController {
       base::OnceCallback<void(bool, const RectF&)> callback,
       const DevtoolsClient::ReplyStatus& reply_status,
       std::unique_ptr<runtime::EvaluateResult> result);
-  void OnGetElementPositionResult(
+  void OnGetElementRectResult(
+      ElementRectGetter* getter_to_release,
       base::OnceCallback<void(bool, const RectF&)> callback,
-      const DevtoolsClient::ReplyStatus& reply_status,
-      std::unique_ptr<runtime::CallFunctionOnResult> result);
+      bool has_rect,
+      const RectF& element_rect);
 
   // Creates a new instance of DispatchKeyEventParams for the specified type and
   // unicode codepoint.

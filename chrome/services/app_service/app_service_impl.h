@@ -9,7 +9,7 @@
 
 #include "base/macros.h"
 #include "base/memory/weak_ptr.h"
-#include "chrome/services/app_service/public/cpp/preferred_apps.h"
+#include "chrome/services/app_service/public/cpp/preferred_apps_list.h"
 #include "chrome/services/app_service/public/mojom/app_service.mojom.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
@@ -55,6 +55,12 @@ class AppServiceImpl : public apps::mojom::AppService {
               int32_t event_flags,
               apps::mojom::LaunchSource launch_source,
               int64_t display_id) override;
+  void LaunchAppWithFiles(apps::mojom::AppType app_type,
+                          const std::string& app_id,
+                          apps::mojom::LaunchContainer container,
+                          int32_t event_flags,
+                          apps::mojom::LaunchSource launch_source,
+                          apps::mojom::FilePathsPtr file_paths) override;
   void LaunchAppWithIntent(apps::mojom::AppType app_type,
                            const std::string& app_id,
                            apps::mojom::IntentPtr intent,
@@ -63,8 +69,6 @@ class AppServiceImpl : public apps::mojom::AppService {
   void SetPermission(apps::mojom::AppType app_type,
                      const std::string& app_id,
                      apps::mojom::PermissionPtr permission) override;
-  void PromptUninstall(apps::mojom::AppType app_type,
-                       const std::string& app_id) override;
   void Uninstall(apps::mojom::AppType app_type,
                  const std::string& app_id,
                  bool clear_site_data,
@@ -93,7 +97,7 @@ class AppServiceImpl : public apps::mojom::AppService {
       apps::mojom::IntentFilterPtr intent_filter) override;
 
   // Retern the preferred_apps_ for testing.
-  PreferredApps& GetPreferredAppsForTesting();
+  PreferredAppsList& GetPreferredAppsForTesting();
 
  private:
   void OnPublisherDisconnected(apps::mojom::AppType app_type);
@@ -113,7 +117,7 @@ class AppServiceImpl : public apps::mojom::AppService {
 
   PrefService* const pref_service_;
 
-  PreferredApps preferred_apps_;
+  PreferredAppsList preferred_apps_;
 
   base::WeakPtrFactory<AppServiceImpl> weak_ptr_factory_{this};
 

@@ -25,7 +25,7 @@ TEST_F('ChromeVoxBrailleTableTest', 'testGetAllAndValidate', function() {
     assertNotNullNorUndefined(
         BrailleTable.forId(tables, 'en-US-g1'),
         'Can\'t find US English grade 1 table');
-    for (var i = 0, table; table = tables[i]; ++i) {
+    for (let i = 0, table; table = tables[i]; ++i) {
       expectEquals('string', typeof table.id);
       expectTrue(table.dots === '6' || table.dots === '8');
       expectTrue(BrailleTable.getDisplayName(table).length > 0);
@@ -42,6 +42,9 @@ TEST_F('ChromeVoxBrailleTableTest', 'testGetDisplayName', function() {
     expectEquals('Arabic, Grade 1', BrailleTable.getDisplayName(table));
     table = BrailleTable.forId(tables, 'en-UEB-g1');
     expectEquals('English (UEB), Grade 1', BrailleTable.getDisplayName(table));
+    table = BrailleTable.forId(tables, 'en-US-g2');
+    expectEquals(
+        'English (United States), Grade 2', BrailleTable.getDisplayName(table));
   }));
 });
 

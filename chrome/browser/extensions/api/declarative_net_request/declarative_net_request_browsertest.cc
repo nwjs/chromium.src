@@ -21,6 +21,7 @@
 #include "base/path_service.h"
 #include "base/rand_util.h"
 #include "base/run_loop.h"
+#include "base/sequence_checker.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
@@ -117,8 +118,6 @@ namespace {
 namespace dnr_api = api::declarative_net_request;
 
 constexpr char kJSONRulesFilename[] = "rules_file.json";
-const base::FilePath::CharType kJSONRulesetFilepath[] =
-    FILE_PATH_LITERAL("rules_file.json");
 
 // Returns true if |window.scriptExecuted| is true for the given frame.
 bool WasFrameWithScriptLoaded(content::RenderFrameHost* rfh) {
@@ -134,11 +133,14 @@ bool WasFrameWithScriptLoaded(content::RenderFrameHost* rfh) {
 // Used to monitor requests that reach the RulesetManager.
 class URLRequestMonitor : public RulesetManager::TestObserver {
  public:
-  explicit URLRequestMonitor(GURL url) : url_(std::move(url)) {}
+  explicit URLRequestMonitor(RulesetManager* manager, GURL url)
+      : manager_(manager), url_(std::move(url)) {
+    manager_->SetObserverForTest(this);
+  }
+  ~URLRequestMonitor() override { manager_->SetObserverForTest(nullptr); }
 
-  // This is called from both the UI and IO thread. Clients should ensure
-  // there's no race.
   bool GetAndResetRequestSeen(bool new_val) {
+    DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
     bool return_val = request_seen_;
     request_seen_ = new_val;
     return return_val;
@@ -148,12 +150,15 @@ class URLRequestMonitor : public RulesetManager::TestObserver {
   // RulesetManager::TestObserver implementation.
   void OnEvaluateRequest(const WebRequestInfo& request,
                          bool is_incognito_context) override {
+    DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
     if (request.url == url_)
       GetAndResetRequestSeen(true);
   }
 
+  RulesetManager* const manager_;
   GURL url_;
   bool request_seen_ = false;
+  SEQUENCE_CHECKER(sequence_checker_);
 
   DISALLOW_COPY_AND_ASSIGN(URLRequestMonitor);
 };
@@ -162,74 +167,44 @@ class URLRequestMonitor : public RulesetManager::TestObserver {
 // a certain count.
 class RulesetCountWaiter : public RulesetManager::TestObserver {
  public:
-  RulesetCountWaiter() = default;
+  explicit RulesetCountWaiter(RulesetManager* manager)
+      : manager_(manager), current_count_(manager_->GetMatcherCountForTest()) {
+    manager_->SetObserverForTest(this);
+  }
+  ~RulesetCountWaiter() override { manager_->SetObserverForTest(nullptr); }
 
   void WaitForRulesetCount(size_t count) {
-    {
-      base::AutoLock lock(lock_);
-      ASSERT_FALSE(expected_count_);
-      if (current_count_ == count)
-        return;
-      expected_count_ = count;
-      run_loop_ = std::make_unique<base::RunLoop>();
-    }
+    DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+    ASSERT_FALSE(expected_count_);
+    if (current_count_ == count)
+      return;
 
+    expected_count_ = count;
+    run_loop_ = std::make_unique<base::RunLoop>();
     run_loop_->Run();
   }
 
  private:
   // RulesetManager::TestObserver implementation.
   void OnRulesetCountChanged(size_t count) override {
-    base::AutoLock lock(lock_);
+    DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
     current_count_ = count;
     if (expected_count_ != count)
       return;
 
     ASSERT_TRUE(run_loop_.get());
 
-    // The run-loop has either started or a task on the UI thread to start it is
-    // underway. RunLoop::Quit is thread-safe and should post a task to the UI
-    // thread to quit the run-loop.
     run_loop_->Quit();
     expected_count_.reset();
   }
 
-  // Accessed on both the UI and IO threads. Access is synchronized using
-  // |lock_|.
+  RulesetManager* const manager_;
   size_t current_count_ = 0;
   base::Optional<size_t> expected_count_;
   std::unique_ptr<base::RunLoop> run_loop_;
-
-  base::Lock lock_;
+  SEQUENCE_CHECKER(sequence_checker_);
 
   DISALLOW_COPY_AND_ASSIGN(RulesetCountWaiter);
-};
-
-// Helper to set (and reset on destruction) the given
-// RulesetManager::TestObserver on the IO thread. Lifetime of |observer| should
-// be managed by clients.
-class ScopedRulesetManagerTestObserver {
- public:
-  ScopedRulesetManagerTestObserver(RulesetManager::TestObserver* observer,
-                                   content::BrowserContext* browser_context)
-      : browser_context_(browser_context) {
-    SetRulesetManagerTestObserver(observer);
-  }
-
-  ~ScopedRulesetManagerTestObserver() {
-    SetRulesetManagerTestObserver(nullptr);
-  }
-
- private:
-  void SetRulesetManagerTestObserver(RulesetManager::TestObserver* observer) {
-    declarative_net_request::RulesMonitorService::Get(browser_context_)
-        ->ruleset_manager()
-        ->SetObserverForTest(observer);
-  }
-
-  content::BrowserContext* browser_context_;
-
-  DISALLOW_COPY_AND_ASSIGN(ScopedRulesetManagerTestObserver);
 };
 
 // Helper to wait for warnings thrown for a given extension.
@@ -333,6 +308,10 @@ class DeclarativeNetRequestBrowserTest
         ->GetPageType();
   }
 
+  RulesetManager* ruleset_manager() {
+    return RulesMonitorService::Get(profile())->ruleset_manager();
+  }
+
   content::PageType GetPageType() const { return GetPageType(browser()); }
 
   std::string GetPageBody() const {
@@ -344,21 +323,7 @@ class DeclarativeNetRequestBrowserTest
     return result;
   }
 
-  // Sets whether the extension should have a background script.
-  void set_has_background_script(bool has_background_script) {
-    has_background_script_ = has_background_script;
-  }
-
-  // Sets whether the extension should load with the
-  // declarativeNetRequestFeedback permission.
-  void set_has_feedback_permission(bool has_feedback_permission) {
-    has_feedback_permission_ = has_feedback_permission;
-  }
-
-  // Sets whether the extension should load with the activeTab permission.
-  void set_has_active_tab_permission(bool has_active_tab_permission) {
-    has_active_tab_permission_ = has_active_tab_permission;
-  }
+  void set_config_flags(unsigned flags) { flags_ = flags; }
 
   // Loads an extension with the given declarative |rules| in the given
   // |directory|. Generates a fatal failure if the extension failed to load.
@@ -373,10 +338,8 @@ class DeclarativeNetRequestBrowserTest
     base::FilePath extension_dir = temp_dir_.GetPath().AppendASCII(directory);
     EXPECT_TRUE(base::CreateDirectory(extension_dir));
 
-    WriteManifestAndRuleset(extension_dir, kJSONRulesetFilepath,
-                            kJSONRulesFilename, rules, hosts,
-                            has_background_script_, has_feedback_permission_,
-                            has_active_tab_permission_);
+    TestRulesetInfo info = {kJSONRulesFilename, std::move(*ToListValue(rules))};
+    WriteManifestAndRuleset(extension_dir, info, hosts, flags_);
 
     background_page_ready_listener_->Reset();
     const Extension* extension = nullptr;
@@ -408,10 +371,10 @@ class DeclarativeNetRequestBrowserTest
         "Extensions.DeclarativeNetRequest.LoadRulesetResult",
         RulesetMatcher::kLoadSuccess /*sample*/, 1 /*count*/);
 
-    EXPECT_TRUE(HasValidIndexedRuleset(*extension, profile()));
+    EXPECT_TRUE(AreAllIndexedStaticRulesetsValid(*extension, profile()));
 
     // Wait for the background page to load if needed.
-    if (has_background_script_)
+    if (flags_ & kConfig_HasBackgroundScript)
       WaitForBackgroundScriptToLoad(extension->id());
 
     // Ensure no load errors were reported.
@@ -592,9 +555,7 @@ class DeclarativeNetRequestBrowserTest
   }
 
   base::ScopedTempDir temp_dir_;
-  bool has_background_script_ = false;
-  bool has_feedback_permission_ = false;
-  bool has_active_tab_permission_ = false;
+  unsigned flags_ = ConfigFlag::kConfig_None;
   std::unique_ptr<ExtensionTestMessageListener> background_page_ready_listener_;
 
   // Requests observed by the EmbeddedTestServer. This is accessed on both the
@@ -999,7 +960,7 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest, AllowBlock) {
 
 // Tests allowing rules for redirects.
 IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest, AllowRedirect) {
-  set_has_background_script(true);
+  set_config_flags(ConfigFlag::kConfig_HasBackgroundScript);
 
   const GURL static_redirect_url = embedded_test_server()->GetURL(
       "example.com", base::StringPrintf("/pages_with_script/page2.html"));
@@ -1016,9 +977,9 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest, AllowRedirect) {
     base::Optional<std::string> redirect_url;
   } rules_data[] = {
       {"google.com", 1, 1, "redirect", static_redirect_url.spec()},
-      {"num=1|", 2, 2, "allow", base::nullopt},
-      {"1|", 3, 1, "redirect", dynamic_redirect_url.spec()},
-      {"num=21|", 4, 2, "allow", base::nullopt},
+      {"num=1|", 2, 3, "allow", base::nullopt},
+      {"1|", 3, 4, "redirect", dynamic_redirect_url.spec()},
+      {"num=3|", 4, 2, "allow", base::nullopt},
   };
 
   std::vector<TestRule> rules;
@@ -1057,6 +1018,7 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest, AllowRedirect) {
   } static_test_cases[] = {
       {get_url(0), static_redirect_url},
       {get_url(1), get_url(1)},
+      {get_url(3), static_redirect_url},
   };
 
   for (const auto& test_case : static_test_cases) {
@@ -1070,18 +1032,18 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest, AllowRedirect) {
     EXPECT_EQ(test_case.expected_final_url, final_url);
   }
 
-  // Now add dynamic rules. These should override static rules in priority.
+  // Now add dynamic rules. These should share the priority space with static
+  // rules.
   const ExtensionId& extension_id = last_loaded_extension_id();
   ASSERT_NO_FATAL_FAILURE(AddDynamicRules(extension_id, dynamic_rules));
 
-  // Test that rules follow the priority of: dynamic allow > dynamic redirect >
-  // static allow > static redirect.
+  // Test that dynamic and static rules are in the same priority space.
   struct {
     GURL initial_url;
     GURL expected_final_url;
   } dynamic_test_cases[] = {
       {get_url(1), dynamic_redirect_url},
-      {get_url(21), get_url(21)},
+      {get_url(3), get_url(3)},
   };
 
   for (const auto& test_case : dynamic_test_cases) {
@@ -1100,7 +1062,7 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest, AllowRedirect) {
 // enabled.
 IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest,
                        Enable_Disable_Reload_Uninstall) {
-  set_has_background_script(true);
+  set_config_flags(ConfigFlag::kConfig_HasBackgroundScript);
 
   // Block all main frame requests to "index.html".
   TestRule rule = CreateGenericRule();
@@ -1598,7 +1560,7 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest_Packed,
   // directory won't be persisted across browser restarts.
   ASSERT_EQ(ExtensionLoadType::PACKED, GetParam());
 
-  set_has_background_script(true);
+  set_config_flags(ConfigFlag::kConfig_HasBackgroundScript);
 
   // Block all main frame requests to "index.html".
   TestRule rule = CreateGenericRule();
@@ -1640,8 +1602,8 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest, RendererCacheCleared) {
   // Set-up an observer for RulesetMatcher to monitor requests to
   // script.js.
   URLRequestMonitor script_monitor(
+      ruleset_manager(),
       embedded_test_server()->GetURL("example.com", "/cached/script.js"));
-  ScopedRulesetManagerTestObserver scoped_observer(&script_monitor, profile());
 
   GURL url = embedded_test_server()->GetURL(
       "example.com", "/cached/page_with_cacheable_script.html");
@@ -1868,11 +1830,9 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest_Packed,
                        CorruptedIndexedRuleset) {
   // Set-up an observer for RulesetMatcher to monitor the number of extension
   // rulesets.
-  RulesetCountWaiter ruleset_count_waiter;
-  ScopedRulesetManagerTestObserver scoped_observer(&ruleset_count_waiter,
-                                                   profile());
+  RulesetCountWaiter ruleset_count_waiter(ruleset_manager());
 
-  set_has_background_script(true);
+  set_config_flags(ConfigFlag::kConfig_HasBackgroundScript);
 
   // Load an extension which blocks all main-frame requests to "google.com".
   TestRule rule = CreateGenericRule();
@@ -1896,7 +1856,9 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest_Packed,
 
   const Extension* extension = extension_registry()->GetExtensionById(
       extension_id, ExtensionRegistry::ENABLED);
-  RulesetSource static_source = RulesetSource::CreateStatic(*extension);
+  std::vector<RulesetSource> static_sources =
+      RulesetSource::CreateStatic(*extension);
+  ASSERT_EQ(1u, static_sources.size());
   RulesetSource dynamic_source =
       RulesetSource::CreateDynamic(profile(), *extension);
 
@@ -1940,7 +1902,7 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest_Packed,
   // Test static ruleset re-indexing.
   {
     SCOPED_TRACE("Static ruleset corruption");
-    corrupt_file_for_checksum_mismatch(static_source.indexed_path());
+    corrupt_file_for_checksum_mismatch(static_sources[0].indexed_path());
 
     base::HistogramTester tester;
     test_extension_works_after_reload();
@@ -1987,7 +1949,7 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest_Packed,
   {
     SCOPED_TRACE("Static and dynamic ruleset corruption");
     corrupt_file_for_checksum_mismatch(dynamic_source.indexed_path());
-    corrupt_file_for_checksum_mismatch(static_source.indexed_path());
+    corrupt_file_for_checksum_mismatch(static_sources[0].indexed_path());
 
     base::HistogramTester tester;
     test_extension_works_after_reload();
@@ -2020,11 +1982,18 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest,
       declarative_net_request::RulesMonitorService::Get(profile());
   EXPECT_TRUE(rules_monitor_service->HasRegisteredRuleset(extension_id));
 
+  const Extension* extension = extension_registry()->GetExtensionById(
+      last_loaded_extension_id(), ExtensionRegistry::ENABLED);
+  ASSERT_TRUE(extension);
+
+  std::vector<RulesetSource> sources = RulesetSource::CreateStatic(*extension);
+  ASSERT_EQ(1u, sources.size());
+
   // Mimic extension prefs corruption by overwriting the indexed ruleset
   // checksum.
   const int kInvalidRulesetChecksum = -1;
-  ExtensionPrefs::Get(profile())->SetDNRRulesetChecksum(
-      extension_id, kInvalidRulesetChecksum);
+  ExtensionPrefs::Get(profile())->SetDNRStaticRulesetChecksum(
+      extension_id, sources[0].id(), kInvalidRulesetChecksum);
 
   TestExtensionRegistryObserver registry_observer(
       ExtensionRegistry::Get(profile()), extension_id);
@@ -2062,13 +2031,11 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest,
 // version is not the same as one used by Chrome.
 IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest_Packed,
                        ReindexOnRulesetVersionMismatch) {
-  set_has_background_script(true);
+  set_config_flags(ConfigFlag::kConfig_HasBackgroundScript);
 
   // Set up an observer for RulesetMatcher to monitor the number of extension
   // rulesets.
-  RulesetCountWaiter ruleset_count_waiter;
-  ScopedRulesetManagerTestObserver scoped_observer(&ruleset_count_waiter,
-                                                   profile());
+  RulesetCountWaiter ruleset_count_waiter(ruleset_manager());
 
   TestRule rule = CreateGenericRule();
   rule.condition->url_filter = std::string("*");
@@ -2296,7 +2263,7 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest,
 
 // Tests the dynamic rule support.
 IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest, DynamicRules) {
-  set_has_background_script(true);
+  set_config_flags(ConfigFlag::kConfig_HasBackgroundScript);
 
   // Add an extension which blocks main-frame requests to "yahoo.com".
   TestRule block_static_rule = CreateGenericRule();
@@ -2397,9 +2364,7 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest,
 
   // Set up an observer for RulesetMatcher to monitor the number of extension
   // rulesets.
-  RulesetCountWaiter ruleset_count_waiter;
-  ScopedRulesetManagerTestObserver scoped_observer(&ruleset_count_waiter,
-                                                   profile());
+  RulesetCountWaiter ruleset_count_waiter(ruleset_manager());
 
   EXPECT_FALSE(
       ExtensionWebRequestEventRouter::GetInstance()->HasAnyExtraHeadersListener(
@@ -2512,12 +2477,10 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest, Redirect) {
 IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest,
                        ActionsMatchedCountAsBadgeText) {
   // Load the extension with a background script so scripts can be run from its
-  // generated background page.
-  set_has_background_script(true);
-
-  // Grant the feedback permission for the extension so it has access to the
-  // getMatchedRules API function.
-  set_has_feedback_permission(true);
+  // generated background page. Also grant the feedback permission for the
+  // extension so it has access to the getMatchedRules API function.
+  set_config_flags(ConfigFlag::kConfig_HasBackgroundScript |
+                   ConfigFlag::kConfig_HasFeedbackPermission);
 
   auto get_url_for_host = [this](std::string hostname) {
     return embedded_test_server()->GetURL(hostname,
@@ -2585,9 +2548,8 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest,
     std::string expected_badge_text;
     bool has_referrer_header;
   } test_cases[] = {
-      // zzz.com does not match any rules, but we should still display 0 as the
-      // badge text as the preference is on.
-      {"zzz.com", "0", false},
+      // zzz.com does not match any rules, so no badge text should be displayed.
+      {"zzz.com", "", false},
       // abc.com is blocked by a matching rule and should increment the badge
       // text.
       {"abc.com", "1", false},
@@ -2609,9 +2571,10 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest,
   ui_test_utils::NavigateToURL(browser(), page_url);
   ASSERT_TRUE(WasFrameWithScriptLoaded(GetMainFrame()));
 
-  // Verify that the badge text is 0 when navigation finishes.
+  // Verify that the badge text is empty when navigation finishes because no
+  // actions have been matched.
   int first_tab_id = ExtensionTabUtil::GetTabId(web_contents());
-  EXPECT_EQ("0", action->GetDisplayBadgeText(first_tab_id));
+  EXPECT_EQ("", action->GetDisplayBadgeText(first_tab_id));
 
   for (const auto& test_case : test_cases) {
     GURL url = test_case.has_referrer_header
@@ -2635,7 +2598,7 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest,
   ASSERT_TRUE(browser()->tab_strip_model()->IsTabSelected(1));
 
   int second_tab_id = ExtensionTabUtil::GetTabId(web_contents());
-  EXPECT_EQ("0", action->GetDisplayBadgeText(second_tab_id));
+  EXPECT_EQ("", action->GetDisplayBadgeText(second_tab_id));
 
   // Verify that the badge text for the first tab is unaffected.
   EXPECT_EQ(first_tab_badge_text, action->GetDisplayBadgeText(first_tab_id));
@@ -2675,7 +2638,7 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest,
 IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest, WebRequestEvents) {
   // Load the extension with a background script so scripts can be run from its
   // generated background page.
-  set_has_background_script(true);
+  set_config_flags(ConfigFlag::kConfig_HasBackgroundScript);
 
   TestRule rule = CreateGenericRule();
   rule.condition->url_filter = "||example.com";
@@ -2724,7 +2687,7 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest, WebRequestEvents) {
 IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest, WebRequestPriority) {
   // Load the extension with a background script so scripts can be run from its
   // generated background page.
-  set_has_background_script(true);
+  set_config_flags(ConfigFlag::kConfig_HasBackgroundScript);
 
   GURL url = embedded_test_server()->GetURL("example.com",
                                             "/pages_with_script/index.html");
@@ -2792,10 +2755,17 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest,
 
   // Load the extension with a background script so scripts can be run from its
   // generated background page.
-  set_has_background_script(true);
+  set_config_flags(ConfigFlag::kConfig_HasBackgroundScript);
 
+  TestRule rule = CreateGenericRule();
+  rule.condition->url_filter = "abc.com";
+  rule.id = kMinValidID;
+  rule.condition->resource_types = std::vector<std::string>({"main_frame"});
+  rule.action->type = "block";
+
+  std::vector<TestRule> rules({rule});
   ASSERT_NO_FATAL_FAILURE(LoadExtensionWithRules(
-      {}, "test_extension", {URLPattern::kAllUrlsPattern}));
+      {rules}, "test_extension", {URLPattern::kAllUrlsPattern}));
 
   const ExtensionId& extension_id = last_loaded_extension_id();
   const Extension* dnr_extension = extension_registry()->GetExtensionById(
@@ -2809,9 +2779,8 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest,
   action->SetBadgeText(ExtensionAction::kDefaultTabId, default_badge_text);
 
   const GURL page_url = embedded_test_server()->GetURL(
-      "norulesmatched.com", "/pages_with_script/index.html");
+      "abc.com", "/pages_with_script/index.html");
   ui_test_utils::NavigateToURL(browser(), page_url);
-  ASSERT_TRUE(WasFrameWithScriptLoaded(GetMainFrame()));
 
   // The preference is initially turned off. Both the visible badge text and the
   // badge text queried by the extension using getBadgeText() should return the
@@ -2831,8 +2800,8 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest,
   EXPECT_EQ(declarative_net_request::kActionCountPlaceholderBadgeText,
             queried_badge_text);
 
-  // The displayed badge text should show "0" as no actions have been matched.
-  EXPECT_EQ("0", action->GetDisplayBadgeText(first_tab_id));
+  // One action was matched, and this should be reflected in the badge text.
+  EXPECT_EQ("1", action->GetDisplayBadgeText(first_tab_id));
 
   SetActionsAsBadgeText(extension_id, false);
   // Switching the preference off should cause the extension queried badge text
@@ -2856,10 +2825,17 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest,
                        ActionCountPreferenceMultipleWindows) {
   // Load the extension with a background script so scripts can be run from its
   // generated background page.
-  set_has_background_script(true);
+  set_config_flags(ConfigFlag::kConfig_HasBackgroundScript);
 
+  TestRule rule = CreateGenericRule();
+  rule.condition->url_filter = "abc.com";
+  rule.id = kMinValidID;
+  rule.condition->resource_types = std::vector<std::string>({"main_frame"});
+  rule.action->type = "block";
+
+  std::vector<TestRule> rules({rule});
   ASSERT_NO_FATAL_FAILURE(LoadExtensionWithRules(
-      {}, "test_extension", {URLPattern::kAllUrlsPattern}));
+      {rules}, "test_extension", {URLPattern::kAllUrlsPattern}));
 
   const ExtensionId& extension_id = last_loaded_extension_id();
   const Extension* dnr_extension = extension_registry()->GetExtensionById(
@@ -2870,9 +2846,8 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest,
           ->GetExtensionAction(*dnr_extension);
 
   const GURL page_url = embedded_test_server()->GetURL(
-      "norulesmatched.com", "/pages_with_script/index.html");
+      "abc.com", "/pages_with_script/index.html");
   ui_test_utils::NavigateToURL(browser(), page_url);
-  ASSERT_TRUE(WasFrameWithScriptLoaded(GetMainFrame()));
 
   int first_browser_tab_id = ExtensionTabUtil::GetTabId(web_contents());
   EXPECT_EQ("", extension_action->GetDisplayBadgeText(first_browser_tab_id));
@@ -2881,7 +2856,6 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest,
   // to |page_url|.
   Browser* second_browser = CreateBrowser(profile());
   ui_test_utils::NavigateToURL(second_browser, page_url);
-  ASSERT_TRUE(WasFrameWithScriptLoaded(GetMainFrame(second_browser)));
   content::WebContents* second_browser_contents =
       second_browser->tab_strip_model()->GetActiveWebContents();
 
@@ -2897,15 +2871,16 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest,
   SetActionsAsBadgeText(extension_id, true);
 
   // Wait until ExtensionActionAPI::NotifyChange is called, then perform a
-  // sanity check on the browser action's badge text.
+  // sanity check that one action was matched, and this is reflected in the
+  // badge text.
   test_api_observer.Wait();
 
-  EXPECT_EQ("0", extension_action->GetDisplayBadgeText(first_browser_tab_id));
+  EXPECT_EQ("1", extension_action->GetDisplayBadgeText(first_browser_tab_id));
 
   // The badge text for the second browser window should also update to the
   // matched action count because the second browser shares the same browser
   // context as the first.
-  EXPECT_EQ("0", extension_action->GetDisplayBadgeText(second_browser_tab_id));
+  EXPECT_EQ("1", extension_action->GetDisplayBadgeText(second_browser_tab_id));
 }
 
 // Test that the action matched badge text for an extension is visible in an
@@ -3021,8 +2996,9 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest,
       // The script on get_url_for_host("abc.com") matches with a rule and
       // should increment the badge text.
       {"abc.com", "1"},
-      // No rules match, so the badge text should be 0 once navigation finishes.
-      {"nomatch.com", "0"},
+      // No rules match, so there should be no badge text once navigation
+      // finishes.
+      {"nomatch.com", ""},
       // The request to def.com will redirect to get_url_for_host("abc.com") and
       // the script on abc.com should match with a rule.
       {"def.com", "2"},
@@ -3128,7 +3104,7 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest,
   } test_cases[] = {
       // This request only has a Set-Cookie header. Only the badge text for the
       // extension with a remove Set-Cookie header rule should be incremented.
-      {get_set_cookie_url("example.com"), false, "1", "0"},
+      {get_set_cookie_url("example.com"), false, "1", ""},
       // This request only has a Referer header. Only the badge text for the
       // extension with a remove Referer header rule should be incremented.
       {get_referer_url("example.com"), true, "1", "1"},
@@ -3149,8 +3125,8 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest,
   ASSERT_TRUE(WasFrameWithScriptLoaded(GetMainFrame()));
 
   int first_tab_id = ExtensionTabUtil::GetTabId(web_contents());
-  EXPECT_EQ("0", extension_1_action->GetDisplayBadgeText(first_tab_id));
-  EXPECT_EQ("0", extension_2_action->GetDisplayBadgeText(first_tab_id));
+  EXPECT_EQ("", extension_1_action->GetDisplayBadgeText(first_tab_id));
+  EXPECT_EQ("", extension_2_action->GetDisplayBadgeText(first_tab_id));
 
   for (const auto& test_case : test_cases) {
     SCOPED_TRACE(base::StringPrintf("Testing URL: %s, using referrer: %s",
@@ -3171,12 +3147,11 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest,
 IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest,
                        OnRuleMatchedDebugAvailability) {
   // Load the extension with a background script so scripts can be run from its
-  // generated background page.
-  set_has_background_script(true);
-
-  // Grant the feedback permission for the extension so it can have access to
-  // the onRuleMatchedDebug event when unpacked.
-  set_has_feedback_permission(true);
+  // generated background page. Also grant the feedback permission for the
+  // extension so it can have access to the onRuleMatchedDebug event when
+  // unpacked.
+  set_config_flags(ConfigFlag::kConfig_HasBackgroundScript |
+                   ConfigFlag::kConfig_HasFeedbackPermission);
 
   ASSERT_NO_FATAL_FAILURE(LoadExtensionWithRules(
       {}, "test_extension", {URLPattern::kAllUrlsPattern}));
@@ -3204,12 +3179,10 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest_Unpacked,
   ASSERT_EQ(ExtensionLoadType::UNPACKED, GetParam());
 
   // Load the extension with a background script so scripts can be run from its
-  // generated background page.
-  set_has_background_script(true);
-
-  // Grant the feedback permission for the extension so it has access to the
-  // onRuleMatchedDebug event.
-  set_has_feedback_permission(true);
+  // generated background page. Also grant the feedback permission for the
+  // extension so it has access to the onRuleMatchedDebug event.
+  set_config_flags(ConfigFlag::kConfig_HasBackgroundScript |
+                   ConfigFlag::kConfig_HasFeedbackPermission);
 
   auto create_remove_headers_rule =
       [](int id, const std::string& url_filter,
@@ -3285,12 +3258,10 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest_Unpacked,
 IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest,
                        GetMatchedRulesMultipleTabs) {
   // Load the extension with a background script so scripts can be run from its
-  // generated background page.
-  set_has_background_script(true);
-
-  // Grant the feedback permission for the extension so it has access to the
-  // getMatchedRules API function.
-  set_has_feedback_permission(true);
+  // generated background page. Also grant the feedback permission for the
+  // extension so it has access to the getMatchedRules API function.
+  set_config_flags(ConfigFlag::kConfig_HasBackgroundScript |
+                   ConfigFlag::kConfig_HasFeedbackPermission);
 
   DeclarativeNetRequestGetMatchedRulesFunction::
       set_disable_throttling_for_tests(true);
@@ -3430,12 +3401,10 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest,
 IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest,
                        GetMatchedRulesMainFrame) {
   // Load the extension with a background script so scripts can be run from its
-  // generated background page.
-  set_has_background_script(true);
-
-  // Grant the feedback permission for the extension so it has access to the
-  // getMatchedRules API function.
-  set_has_feedback_permission(true);
+  // generated background page. Also grant the feedback permission for the
+  // extension so it has access to the getMatchedRules API function.
+  set_config_flags(ConfigFlag::kConfig_HasBackgroundScript |
+                   ConfigFlag::kConfig_HasFeedbackPermission);
 
   DeclarativeNetRequestGetMatchedRulesFunction::
       set_disable_throttling_for_tests(true);
@@ -3507,12 +3476,10 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest,
   rules_monitor_service->action_tracker().SetClockForTests(&clock_);
 
   // Load the extension with a background script so scripts can be run from its
-  // generated background page.
-  set_has_background_script(true);
-
-  // Grant the feedback permission for the extension so it has access to the
-  // getMatchedRules API function.
-  set_has_feedback_permission(true);
+  // generated background page. Also grant the feedback permission for the
+  // extension so it has access to the getMatchedRules API function.
+  set_config_flags(ConfigFlag::kConfig_HasBackgroundScript |
+                   ConfigFlag::kConfig_HasFeedbackPermission);
 
   DeclarativeNetRequestGetMatchedRulesFunction::
       set_disable_throttling_for_tests(true);
@@ -3598,10 +3565,8 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest,
                        GetMatchedRulesActiveTab) {
   // Load the extension with a background script so scripts can be run from its
   // generated background page.
-  set_has_background_script(true);
-
-  // Turn activeTab on.
-  set_has_active_tab_permission(true);
+  set_config_flags(ConfigFlag::kConfig_HasBackgroundScript |
+                   ConfigFlag::kConfig_HasActiveTab);
 
   DeclarativeNetRequestGetMatchedRulesFunction::
       set_disable_throttling_for_tests(true);
@@ -3672,12 +3637,10 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest,
 IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest,
                        GetMatchedRulesNoThrottlingIfUserGesture) {
   // Load the extension with a background script so scripts can be run from its
-  // generated background page.
-  set_has_background_script(true);
-
-  // Grant the feedback permission for the extension so it has access to the
-  // getMatchedRules API function.
-  set_has_feedback_permission(true);
+  // generated background page. Also grant the feedback permission for the
+  // extension so it has access to the getMatchedRules API function.
+  set_config_flags(ConfigFlag::kConfig_HasBackgroundScript |
+                   ConfigFlag::kConfig_HasFeedbackPermission);
 
   // Ensure that GetMatchedRules is being throttled.
   DeclarativeNetRequestGetMatchedRulesFunction::

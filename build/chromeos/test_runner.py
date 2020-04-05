@@ -11,6 +11,7 @@ import logging
 import os
 import pipes
 import re
+import shutil
 import signal
 import socket
 import sys
@@ -31,10 +32,7 @@ sys.path.insert(0, os.path.join(CHROMIUM_SRC_PATH, 'build', 'android'))
 from pylib.base import base_test_result  # pylint: disable=import-error
 from pylib.results import json_results  # pylint: disable=import-error
 
-# Use luci-py's subprocess42.py
-sys.path.insert(
-    0, os.path.join(CHROMIUM_SRC_PATH, 'tools', 'swarming_client', 'utils'))
-import subprocess42  # pylint: disable=import-error
+import subprocess32 as subprocess  # pylint: disable=import-error
 
 DEFAULT_CROS_CACHE = os.path.abspath(
     os.path.join(CHROMIUM_SRC_PATH, 'build', 'cros_cache'))
@@ -187,20 +185,20 @@ class RemoteTest(object):
       logging.info('########################################')
       logging.info('Test attempt #%d', i)
       logging.info('########################################')
-      test_proc = subprocess42.Popen(
+      test_proc = subprocess.Popen(
           self._test_cmd,
           stdout=sys.stdout,
           stderr=sys.stderr,
           env=self._test_env)
       try:
         test_proc.wait(timeout=self._timeout)
-      except subprocess42.TimeoutExpired:
+      except subprocess.TimeoutExpired:
         logging.error('Test timed out. Sending SIGTERM.')
         # SIGTERM the proc and wait 10s for it to close.
         test_proc.terminate()
         try:
           test_proc.wait(timeout=10)
-        except subprocess42.TimeoutExpired:
+        except subprocess.TimeoutExpired:
           # If it hasn't closed in 10s, SIGKILL it.
           logging.error('Test did not exit in time. Sending SIGKILL.')
           test_proc.kill()
@@ -374,6 +372,7 @@ class TastTest(RemoteTest):
       base_result = base_test_result.BaseTestResult(
           test['name'], result, duration=duration_ms, log=error_log)
       suite_results.AddResult(base_result)
+      self._maybe_handle_perf_results(test['name'])
 
     if self._test_launcher_summary_output:
       with open(self._test_launcher_summary_output, 'w') as f:
@@ -387,6 +386,38 @@ class TastTest(RemoteTest):
           'cros_run_test.', return_code)
       return return_code
     return 0
+
+  def _maybe_handle_perf_results(self, test_name):
+    """Prepares any perf results from |test_name| for process_perf_results.
+
+    - process_perf_results looks for top level directories containing a
+      perf_results.json file and a test_results.json file. The directory names
+      are used as the benchmark names.
+    - If a perf_results.json or results-chart.json file exists in the
+      |test_name| results directory, a top level directory is created and the
+      perf results file is copied to perf_results.json.
+    - A trivial test_results.json file is also created to indicate that the test
+      succeeded (this function would not be called otherwise).
+    - When process_perf_results is run, it will find the expected files in the
+      named directory and upload the benchmark results.
+    """
+
+    perf_results = os.path.join(self._logs_dir, 'tests', test_name,
+                                'perf_results.json')
+    # TODO(stevenjb): Remove check for crosbolt results-chart.json file.
+    if not os.path.exists(perf_results):
+      perf_results = os.path.join(self._logs_dir, 'tests', test_name,
+                                  'results-chart.json')
+    if os.path.exists(perf_results):
+      benchmark_dir = os.path.join(self._logs_dir, test_name)
+      if not os.path.isdir(benchmark_dir):
+        os.makedirs(benchmark_dir)
+      shutil.copyfile(perf_results,
+                      os.path.join(benchmark_dir, 'perf_results.json'))
+      # process_perf_results.py expects a test_results.json file.
+      test_results = {'valid': True, 'failures': []}
+      with open(os.path.join(benchmark_dir, 'test_results.json'), 'w') as out:
+        json.dump(test_results, out)
 
 
 class GTestTest(RemoteTest):
@@ -402,7 +433,6 @@ class GTestTest(RemoteTest):
       # //testing/buildbot/filters/.
       re.compile(r'.*testing/(?!buildbot/filters).*'),
       re.compile(r'.*third_party/chromite.*'),
-      re.compile(r'.*tools/swarming_client.*'),
   ]
 
   def __init__(self, args, unknown_args):
@@ -710,7 +740,7 @@ def host_cmd(args, unknown_args):
   logging.info('Running the following command:')
   logging.info(' '.join(cros_run_test_cmd))
 
-  return subprocess42.call(
+  return subprocess.call(
       cros_run_test_cmd, stdout=sys.stdout, stderr=sys.stderr, env=test_env)
 
 

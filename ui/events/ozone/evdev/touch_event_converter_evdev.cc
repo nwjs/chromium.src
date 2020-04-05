@@ -38,6 +38,7 @@
 #include "ui/events/ozone/evdev/touch_filter/palm_detection_filter.h"
 #include "ui/events/ozone/evdev/touch_filter/palm_detection_filter_factory.h"
 #include "ui/events/ozone/features.h"
+#include "ui/events/types/event_type.h"
 #include "ui/ozone/public/input_controller.h"
 
 namespace {
@@ -119,7 +120,9 @@ TouchEventConverterEvdev::TouchEventConverterEvdev(
       palm_detection_filter_(
           CreatePalmDetectionFilter(devinfo, shared_palm_state)),
       palm_on_touch_major_max_(
-          base::FeatureList::IsEnabled(kEnablePalmOnMaxTouchMajor)) {
+          base::FeatureList::IsEnabled(kEnablePalmOnMaxTouchMajor)),
+      palm_on_tool_type_palm_(
+          base::FeatureList::IsEnabled(kEnablePalmOnToolTypePalm)) {
   touch_evdev_debug_buffer_.Initialize(devinfo);
 }
 
@@ -363,8 +366,12 @@ void TouchEventConverterEvdev::ProcessKey(const input_event& input) {
     case BTN_TOOL_PEN:
     case BTN_TOOL_RUBBER:
       if (input.value > 0) {
+        if (events_[current_slot_].tool_code != 0)
+          break;
         events_[current_slot_].tool_code = input.code;
       } else {
+        if (events_[current_slot_].tool_code != input.code)
+          break;
         events_[current_slot_].tool_code = 0;
       }
       events_[current_slot_].altered = true;
@@ -511,9 +518,12 @@ bool TouchEventConverterEvdev::MaybeCancelAllTouches() {
 }
 
 bool TouchEventConverterEvdev::IsPalm(const InProgressTouchEvdev& touch) {
-  return touch.tool_type == MT_TOOL_PALM ||
-         (palm_on_touch_major_max_ && major_max_ > 0 &&
-          touch.major == major_max_);
+  if (palm_on_tool_type_palm_ && touch.tool_type == MT_TOOL_PALM)
+    return true;
+  else if (palm_on_touch_major_max_ && major_max_ > 0 &&
+           touch.major == major_max_)
+    return true;
+  return false;
 }
 
 void TouchEventConverterEvdev::ReportEvents(base::TimeTicks timestamp) {

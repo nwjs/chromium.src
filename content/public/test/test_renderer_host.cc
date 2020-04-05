@@ -16,6 +16,7 @@
 #include "content/browser/frame_host/frame_tree_node.h"
 #include "content/browser/frame_host/navigation_entry_impl.h"
 #include "content/browser/frame_host/navigation_request.h"
+#include "content/browser/gpu/gpu_data_manager_impl.h"
 #include "content/browser/renderer_host/render_view_host_factory.h"
 #include "content/browser/renderer_host/render_widget_host_impl.h"
 #include "content/browser/site_instance_impl.h"
@@ -36,7 +37,6 @@
 #include "content/test/test_render_widget_host_factory.h"
 #include "content/test/test_web_contents.h"
 #include "net/base/mock_network_change_notifier.h"
-#include "ui/base/material_design/material_design_controller.h"
 
 #if defined(OS_ANDROID)
 #include "ui/android/dummy_screen_android.h"
@@ -49,7 +49,6 @@
 
 #if defined(USE_AURA)
 #include "ui/aura/test/aura_test_helper.h"
-#include "ui/wm/core/default_activation_client.h"
 #endif
 
 #if defined(OS_MACOSX)
@@ -206,10 +205,10 @@ std::unique_ptr<WebContents>
 RenderViewHostTestHarness::CreateTestWebContents() {
 // Make sure we ran SetUp() already.
 #if defined(OS_WIN)
-  DCHECK(ole_initializer_ != NULL);
+  DCHECK(ole_initializer_);
 #endif
 #if defined(USE_AURA)
-  DCHECK(aura_test_helper_ != nullptr);
+  DCHECK(aura_test_helper_);
 #endif
 
   scoped_refptr<SiteInstance> instance =
@@ -233,27 +232,20 @@ void RenderViewHostTestHarness::NavigateAndCommit(
 }
 
 void RenderViewHostTestHarness::SetUp() {
-  ui::MaterialDesignController::Initialize();
-
-  rvh_test_enabler_.reset(new RenderViewHostTestEnabler);
+  rvh_test_enabler_ = std::make_unique<RenderViewHostTestEnabler>();
   if (factory_)
     rvh_test_enabler_->rvh_factory_->set_render_process_host_factory(factory_);
 
 #if defined(OS_WIN)
-  ole_initializer_.reset(new ui::ScopedOleInitializer());
+  ole_initializer_ = std::make_unique<ui::ScopedOleInitializer>();
 #endif
 #if defined(USE_AURA)
-  ui::ContextFactory* context_factory =
-      ImageTransportFactory::GetInstance()->GetContextFactory();
-  ui::ContextFactoryPrivate* context_factory_private =
-      ImageTransportFactory::GetInstance()->GetContextFactoryPrivate();
-
-  aura_test_helper_.reset(new aura::test::AuraTestHelper());
-  aura_test_helper_->SetUp(context_factory, context_factory_private);
-  new wm::DefaultActivationClient(aura_test_helper_->root_window());
+  aura_test_helper_ = std::make_unique<aura::test::AuraTestHelper>(
+      ImageTransportFactory::GetInstance()->GetContextFactory());
+  aura_test_helper_->SetUp();
 #endif
 
-  sanity_checker_.reset(new ContentBrowserSanityChecker());
+  sanity_checker_ = std::make_unique<ContentBrowserSanityChecker>();
 
 #if !defined(OS_ANDROID)
   network_change_notifier_ = net::test::MockNetworkChangeNotifier::Create();
@@ -263,6 +255,9 @@ void RenderViewHostTestHarness::SetUp() {
   browser_context_ = CreateBrowserContext();
 
   SetContents(CreateTestWebContents());
+
+  // Create GpuDataManagerImpl here so it always runs on the main thread.
+  GpuDataManagerImpl::GetInstance();
 }
 
 void RenderViewHostTestHarness::TearDown() {

@@ -112,6 +112,7 @@ class ASH_EXPORT LoginShelfView : public views::View,
   void OnFocus() override;
   void AboutToRequestFocusFromTabTraversal(bool reverse) override;
   void GetAccessibleNodeData(ui::AXNodeData* node_data) override;
+  void Layout() override;
 
   // views::ButtonListener:
   void ButtonPressed(views::Button* sender, const ui::Event& event) override;
@@ -121,8 +122,7 @@ class ASH_EXPORT LoginShelfView : public views::View,
   // Test API. Returns true if request was successful (i.e. button was
   // clickable).
   bool LaunchAppForTesting(const std::string& app_id);
-  bool SimulateAddUserButtonForTesting();
-  bool SimulateGuestButtonForTesting();
+  bool SimulateButtonPressedForTesting(ButtonId button);
 
   // Adds test delegate. Delegate will become owned by LoginShelfView.
   void InstallTestUiUpdateDelegate(

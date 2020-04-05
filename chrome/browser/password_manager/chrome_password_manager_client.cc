@@ -111,7 +111,6 @@
 #include "chrome/browser/password_manager/account_chooser_dialog_android.h"
 #include "chrome/browser/password_manager/auto_signin_first_run_dialog_android.h"
 #include "chrome/browser/password_manager/auto_signin_prompt_controller.h"
-#include "chrome/browser/password_manager/credential_leak_controller_android.h"
 #include "chrome/browser/password_manager/generated_password_saved_infobar_delegate_android.h"
 #include "chrome/browser/password_manager/password_accessory_controller.h"
 #include "chrome/browser/password_manager/password_accessory_controller_impl.h"
@@ -130,6 +129,15 @@
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 #include "extensions/common/constants.h"
+#endif
+
+#if defined(OS_ANDROID)
+#if defined(ENABLE_PASSWORD_CHANGE)
+#include "chrome/browser/password_manager/credential_leak_password_change_controller_android.h"
+#else
+#include "chrome/browser/password_manager/credential_leak_controller_android.h"
+#endif
+using password_manager::CredentialCache;
 #endif
 
 using autofill::PasswordForm;
@@ -512,10 +520,13 @@ void ChromePasswordManagerClient::AutomaticPasswordSave(
 
 void ChromePasswordManagerClient::UpdateCredentialCache(
     const GURL& origin,
-    const std::vector<const autofill::PasswordForm*>& best_matches) {
+    const std::vector<const autofill::PasswordForm*>& best_matches,
+    bool is_blacklisted) {
 #if defined(OS_ANDROID)
-  credential_cache_.SaveCredentialsForOrigin(best_matches,
-                                             url::Origin::Create(origin));
+  credential_cache_.SaveCredentialsAndBlacklistedForOrigin(
+      best_matches, CredentialCache::IsOriginBlacklisted(is_blacklisted),
+      url::Origin::Create(origin));
+
 #endif
 }
 
@@ -542,16 +553,53 @@ void ChromePasswordManagerClient::AutofillHttpAuth(
 
 void ChromePasswordManagerClient::NotifyUserCredentialsWereLeaked(
     password_manager::CredentialLeakType leak_type,
-    const GURL& origin) {
+    const GURL& origin,
+    const base::string16& username) {
 #if defined(OS_ANDROID)
   HideSavePasswordInfobar(web_contents());
+#if defined(ENABLE_PASSWORD_CHANGE)
+  was_leak_dialog_shown_ = true;
+  (new CredentialLeakPasswordChangeControllerAndroid(
+       leak_type, origin, username, web_contents()->GetTopLevelNativeWindow()))
+      ->ShowDialog();
+#else
   (new CredentialLeakControllerAndroid(
        leak_type, origin, web_contents()->GetTopLevelNativeWindow()))
       ->ShowDialog();
+#endif
 #else   // !defined(OS_ANDROID)
   PasswordsClientUIDelegate* manage_passwords_ui_controller =
       PasswordsClientUIDelegateFromWebContents(web_contents());
   manage_passwords_ui_controller->OnCredentialLeak(leak_type, origin);
+#endif  // defined(OS_ANDROID)
+}
+
+void ChromePasswordManagerClient::TriggerReauthForAccount(
+    const CoreAccountId& account_id,
+    base::OnceCallback<void(ReauthSucceeded)> reauth_callback) {
+#if defined(OS_ANDROID)
+  std::move(reauth_callback).Run(ReauthSucceeded(false));
+#else   // !defined(OS_ANDROID)
+  Browser* browser = chrome::FindBrowserWithProfile(profile_);
+  if (!browser) {
+    std::move(reauth_callback).Run(ReauthSucceeded(false));
+    return;
+  }
+  SigninViewController* signin_view_controller =
+      browser->signin_view_controller();
+  if (!signin_view_controller) {
+    std::move(reauth_callback).Run(ReauthSucceeded(false));
+    return;
+  }
+  signin_view_controller->ShowReauthPrompt(
+      account_id,
+      base::BindOnce(
+          [](base::OnceCallback<void(ReauthSucceeded)> reauth_callback,
+             signin::ReauthResult result) {
+            std::move(reauth_callback)
+                .Run(ReauthSucceeded(result == signin::ReauthResult::kSuccess));
+          },
+          std::move(reauth_callback)));
 #endif  // defined(OS_ANDROID)
 }
 
@@ -592,7 +640,8 @@ void ChromePasswordManagerClient::CheckSafeBrowsingReputation(
 void ChromePasswordManagerClient::CheckProtectedPasswordEntry(
     PasswordType password_type,
     const std::string& username,
-    const std::vector<std::string>& matching_domains,
+    const std::vector<password_manager::MatchingReusedCredential>&
+        matching_reused_credentials,
     bool password_field_exists) {
 #if 0
   safe_browsing::PasswordProtectionService* pps =
@@ -602,7 +651,7 @@ void ChromePasswordManagerClient::CheckProtectedPasswordEntry(
 
   pps->MaybeStartProtectedPasswordEntryRequest(
       web_contents(), web_contents()->GetLastCommittedURL(), username,
-      password_type, matching_domains, password_field_exists);
+      password_type, matching_reused_credentials, password_field_exists);
 #endif
 }
 #endif  // defined(SYNC_PASSWORD_REUSE_DETECTION_ENABLED)
@@ -644,6 +693,10 @@ ChromePasswordManagerClient::GetOrCreateTouchToFillController() {
     touch_to_fill_controller_ = std::make_unique<TouchToFillController>(this);
 
   return touch_to_fill_controller_.get();
+}
+
+bool ChromePasswordManagerClient::WasCredentialLeakDialogShown() const {
+  return was_leak_dialog_shown_;
 }
 #endif  // defined(OS_ANDROID)
 
@@ -752,8 +805,9 @@ password_manager::PasswordStore*
 ChromePasswordManagerClient::GetProfilePasswordStore() const {
   // Always use EXPLICIT_ACCESS as the password manager checks IsIncognito
   // itself when it shouldn't access the PasswordStore.
-  return PasswordStoreFactory::GetForProfile(
-             profile_, ServiceAccessType::EXPLICIT_ACCESS).get();
+  return PasswordStoreFactory::GetForProfile(profile_,
+                                             ServiceAccessType::EXPLICIT_ACCESS)
+      .get();
 }
 
 password_manager::PasswordStore*
@@ -779,8 +833,7 @@ bool ChromePasswordManagerClient::WasLastNavigationHTTPError() const {
   if (log_manager_->IsLoggingActive()) {
     logger.reset(new password_manager::BrowserSavePasswordProgressLogger(
         log_manager_.get()));
-    logger->LogMessage(
-        Logger::STRING_WAS_LAST_NAVIGATION_HTTP_ERROR_METHOD);
+    logger->LogMessage(Logger::STRING_WAS_LAST_NAVIGATION_HTTP_ERROR_METHOD);
   }
 
   content::NavigationEntry* entry =

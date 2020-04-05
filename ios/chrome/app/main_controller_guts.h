@@ -9,33 +9,19 @@
 
 #import "base/ios/block_types.h"
 #include "components/browsing_data/core/browsing_data_utils.h"
+#import "ios/chrome/app/application_delegate/startup_information.h"
 #include "ios/chrome/app/startup/chrome_app_startup_parameters.h"
 #include "ios/chrome/browser/browsing_data/browsing_data_remove_mask.h"
 #import "ios/chrome/browser/crash_report/crash_restore_helper.h"
+#import "ios/chrome/browser/ui/commands/browsing_data_commands.h"
 
-@class BrowserViewController;
-@class BrowserViewWrangler;
+@class AppState;
 class ChromeBrowserState;
-@class TabGridCoordinator;
-@protocol BrowserInterfaceProvider;
-@protocol TabSwitcher;
-class AppUrlLoadingService;
 
 // TODO(crbug.com/1012697): Remove this protocol when SceneController is
 // operational. Move the private internals back into MainController, and pass
 // ownership of Scene-related objects to SceneController.
-@protocol MainControllerGuts
-
-// The application level component for url loading. Is passed down to
-// browser state level UrlLoadingService instances.
-@property(nonatomic, assign) AppUrlLoadingService* appURLLoadingService;
-
-// If YES, the tab switcher is currently active.
-@property(nonatomic, assign, getter=isTabSwitcherActive)
-    BOOL tabSwitcherIsActive;
-
-// YES while animating the dismissal of tab switcher.
-@property(nonatomic, assign) BOOL dismissingTabSwitcher;
+@protocol MainControllerGuts <StartupInformation, BrowsingDataCommands>
 
 // Parameters received at startup time when the app is launched from another
 // app.
@@ -44,21 +30,20 @@ class AppUrlLoadingService;
 // Keeps track of the restore state during startup.
 @property(nonatomic, strong) CrashRestoreHelper* restoreHelper;
 
-- (BrowserViewWrangler*)browserViewWrangler;
-- (id<TabSwitcher>)tabSwitcher;
-- (TabModel*)currentTabModel;
 - (ChromeBrowserState*)mainBrowserState;
-- (ChromeBrowserState*)currentBrowserState;
-- (BrowserViewController*)currentBVC;
-- (BrowserViewController*)mainBVC;
-- (BrowserViewController*)otrBVC;
-- (TabGridCoordinator*)mainCoordinator;
-- (id<BrowserInterfaceProvider>)interfaceProvider;
+- (UIWindow*)window;
+- (NSDictionary*)launchOptions;
+- (AppState*)appState;
 
 - (void)removeBrowsingDataForBrowserState:(ChromeBrowserState*)browserState
                                timePeriod:(browsing_data::TimePeriod)timePeriod
                                removeMask:(BrowsingDataRemoveMask)removeMask
                           completionBlock:(ProceduralBlock)completionBlock;
+// MainController tracks EULA acceptance and performs delayed tasks when the
+// first run UI is dismissed.
+- (void)prepareForFirstRunUI;
+// Returns whether or not the app can launch in incognito mode.
+- (BOOL)canLaunchInIncognito;
 
 @end
 

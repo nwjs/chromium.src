@@ -21,6 +21,7 @@
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/chrome_typography.h"
 #include "chrome/browser/ui/views/tabs/tab.h"
+#include "chrome/browser/ui/views/tabs/tab_controller.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/tab_count_metrics/tab_count_metrics.h"
 #include "components/url_formatter/url_formatter.h"
@@ -386,7 +387,7 @@ class TabHoverCardBubbleView::ThumbnailWatcher {
 
 TabHoverCardBubbleView::TabHoverCardBubbleView(Tab* tab)
     : BubbleDialogDelegateView(tab, views::BubbleBorder::TOP_LEFT) {
-  DialogDelegate::set_buttons(ui::DIALOG_BUTTON_NONE);
+  DialogDelegate::SetButtons(ui::DIALOG_BUTTON_NONE);
 
   // We'll do all of our own layout inside the bubble, so no need to inset this
   // view inside the client view.
@@ -412,11 +413,10 @@ TabHoverCardBubbleView::TabHoverCardBubbleView(Tab* tab)
   title_label_->SetVerticalAlignment(gfx::ALIGN_TOP);
   title_label_->SetMultiLine(true);
   title_label_->SetMaxLines(kTitleMaxLines);
-  title_label_->SetProperty(views::kFlexBehaviorKey,
-                            views::FlexSpecification::ForSizeRule(
-                                views::MinimumFlexSizeRule::kPreferred,
-                                views::MaximumFlexSizeRule::kPreferred,
-                                /* adjust_height_for_width */ true));
+  title_label_->SetProperty(
+      views::kFlexBehaviorKey,
+      views::FlexSpecification(views::MinimumFlexSizeRule::kPreferred,
+                               views::MaximumFlexSizeRule::kPreferred, true));
 
   title_fade_label_ = AddChildView(std::make_unique<FadeLabel>(
       base::string16(), CONTEXT_TAB_HOVER_CARD_TITLE,
@@ -462,17 +462,12 @@ TabHoverCardBubbleView::TabHoverCardBubbleView(Tab* tab)
 
   constexpr int kVerticalMargin = 10;
   constexpr int kHorizontalMargin = 18;
-  constexpr int kLineSpacing = 0;
-  title_label_->SetProperty(views::kMarginsKey,
-                            gfx::Insets(kVerticalMargin, kHorizontalMargin,
-                                        kLineSpacing, kHorizontalMargin));
-  title_label_->SetProperty(views::kFlexBehaviorKey,
-                            views::FlexSpecification::ForSizeRule(
-                                views::MinimumFlexSizeRule::kScaleToMinimum,
-                                views::MaximumFlexSizeRule::kPreferred));
-  domain_label_->SetProperty(views::kMarginsKey,
-                             gfx::Insets(kLineSpacing, kHorizontalMargin,
-                                         kVerticalMargin, kHorizontalMargin));
+  layout->SetInteriorMargin(gfx::Insets(kVerticalMargin, kHorizontalMargin));
+  title_label_->SetProperty(
+      views::kFlexBehaviorKey,
+      views::FlexSpecification(views::MinimumFlexSizeRule::kScaleToMinimum,
+                               views::MaximumFlexSizeRule::kPreferred));
+  domain_label_->SetVisible(tab->controller()->ShowDomainInHoverCard(tab));
 
   widget_ = views::BubbleDialogDelegateView::CreateBubble(this);
   set_adjust_if_offscreen(true);
@@ -692,7 +687,7 @@ void TabHoverCardBubbleView::UpdateCardContent(const Tab* tab) {
   } else {
     domain_url = tab->data().last_committed_url;
     title = tab->data().title;
-    alert_state_ = tab->data().alert_state;
+    alert_state_ = Tab::GetAlertStateToShow(tab->data().alert_state);
   }
   base::string16 domain;
   if (domain_url.SchemeIsFile()) {

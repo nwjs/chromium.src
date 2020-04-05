@@ -33,7 +33,7 @@ import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.ntp.NewTabPage;
 import org.chromium.chrome.browser.omnibox.UrlBarEditingTextStateProvider;
 import org.chromium.chrome.browser.toolbar.ToolbarCommonPropertiesModel;
-import org.chromium.chrome.browser.util.UrlConstants;
+import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.ui.modelutil.PropertyModel;
 
 /**
@@ -72,8 +72,8 @@ public final class StatusMediatorUnitTest {
         mResources = mContext.getResources();
 
         mModel = new PropertyModel(StatusProperties.ALL_KEYS);
-        mMediator =
-                new StatusMediator(mModel, mResources, mContext, mUrlBarEditingTextStateProvider);
+        mMediator = new StatusMediator(mModel, mResources, mContext,
+                mUrlBarEditingTextStateProvider, /* isTablet */ false);
         mMediator.setToolbarCommonPropertiesModel(mToolbarCommonPropertiesModel);
         mMediator.setDelegateForTesting(mDelegate);
         mBitmap = Bitmap.createBitmap(10, 10, Bitmap.Config.ARGB_8888);
@@ -344,9 +344,9 @@ public final class StatusMediatorUnitTest {
     @NativeJavaTestFeatures.Enable(ChromeFeatureList.OMNIBOX_SEARCH_ENGINE_LOGO)
     public void setSecurityIconTintForSearchEngineIcon_correctForDarkColors() {
         mMediator.setUseDarkColors(true);
-        Assert.assertEquals(R.color.default_icon_color_secondary_list,
+        Assert.assertEquals(R.color.default_icon_color_secondary_tint_list,
                 mMediator.getSecurityIconTintForSearchEngineIcon(R.drawable.ic_globe_24dp));
-        Assert.assertEquals(R.color.default_icon_color_secondary_list,
+        Assert.assertEquals(R.color.default_icon_color_secondary_tint_list,
                 mMediator.getSecurityIconTintForSearchEngineIcon(R.drawable.ic_search));
     }
 
@@ -354,9 +354,9 @@ public final class StatusMediatorUnitTest {
     @NativeJavaTestFeatures.Enable(ChromeFeatureList.OMNIBOX_SEARCH_ENGINE_LOGO)
     public void setSecurityIconTintForSearchEngineIcon_correctForLightColors() {
         mMediator.setUseDarkColors(false);
-        Assert.assertEquals(R.color.tint_on_dark_bg,
+        Assert.assertEquals(R.color.default_icon_color_light_tint_list,
                 mMediator.getSecurityIconTintForSearchEngineIcon(R.drawable.ic_globe_24dp));
-        Assert.assertEquals(R.color.tint_on_dark_bg,
+        Assert.assertEquals(R.color.default_icon_color_light_tint_list,
                 mMediator.getSecurityIconTintForSearchEngineIcon(R.drawable.ic_search));
     }
 

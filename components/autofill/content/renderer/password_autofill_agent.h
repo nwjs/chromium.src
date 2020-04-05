@@ -112,6 +112,9 @@ class PasswordAutofillAgent : public content::RenderFrameObserver,
                               public mojom::PasswordAutofillAgent {
  public:
   using UseFallbackData = util::StrongAlias<class UseFallbackDataTag, bool>;
+  using ShowAll = util::StrongAlias<class ShowAllTag, bool>;
+  using GenerationShowing = util::StrongAlias<class GenerationShowingTag, bool>;
+
   PasswordAutofillAgent(content::RenderFrame* render_frame,
                         blink::AssociatedInterfaceRegistry* registry);
   ~PasswordAutofillAgent() override;
@@ -199,8 +202,8 @@ class PasswordAutofillAgent : public content::RenderFrameObserver,
   // still be called in this situation so that UMA stats can be logged.
   // Returns true if any suggestions were shown, false otherwise.
   bool ShowSuggestions(const blink::WebInputElement& element,
-                       bool show_all,
-                       bool generation_popup_showing);
+                       ShowAll show_all,
+                       GenerationShowing generation_popup_showing);
 
   // Called when new form controls are inserted.
   void OnDynamicFormsSeen();
@@ -214,25 +217,8 @@ class PasswordAutofillAgent : public content::RenderFrameObserver,
   // moves outside the frame.
   void FocusedNodeHasChanged(const blink::WebNode& node);
 
-  // Creates a |PasswordForm| from |web_form|.
-  std::unique_ptr<PasswordForm> GetPasswordFormFromWebForm(
-      const blink::WebFormElement& web_form);
-
-  // Creates a |PasswordForm| from |web_form|, that contains only the
-  // |form_data|, the origin and the gaia flags.
-  std::unique_ptr<PasswordForm> GetSimplifiedPasswordFormFromWebForm(
-      const blink::WebFormElement& web_form);
-
   std::unique_ptr<FormData> GetFormDataFromWebForm(
       const blink::WebFormElement& web_form);
-
-  // Creates a |PasswordForm| of fields that are not enclosed in any <form> tag.
-  std::unique_ptr<PasswordForm> GetPasswordFormFromUnownedInputElements();
-
-  // Creates a |PasswordForm| containing only the |form_data|, origin and gaia
-  // flags, for fields that are not enclosed in any <form> tag.
-  std::unique_ptr<PasswordForm>
-  GetSimplifiedPasswordFormFromUnownedInputElements();
 
   std::unique_ptr<FormData> GetFormDataFromUnownedInputElements();
 
@@ -252,7 +238,13 @@ class PasswordAutofillAgent : public content::RenderFrameObserver,
                                 ui::PageTransition transition) override;
   void OnDestruct() override;
 
+  const scoped_refptr<FieldDataManager> GetFieldDataManager() {
+    return field_data_manager_;
+  }
+
  private:
+  using OnPasswordField = util::StrongAlias<class OnPasswordFieldTag, bool>;
+
   // Ways to restrict which passwords are saved in ProvisionallySavePassword.
   enum ProvisionallySaveRestriction {
     RESTRICTION_NONE,
@@ -357,15 +349,15 @@ class PasswordAutofillAgent : public content::RenderFrameObserver,
   void SendPasswordForms(bool only_visible);
 
   // Instructs the browser to show a pop-up suggesting which credentials could
-  // be filled. |show_in_password_field| should indicate whether the pop-up is
+  // be filled. |show_on_password_field| should indicate whether the pop-up is
   // to be shown on the password field instead of on the username field. If the
   // username exists, it should be passed as |user_input|. If there is no
   // username, pass the password field in |user_input|. In the latter case, no
   // username value will be shown in the pop-up.
-  bool ShowSuggestionPopup(const PasswordInfo& password_info,
+  void ShowSuggestionPopup(const base::string16& typed_username,
                            const blink::WebInputElement& user_input,
-                           bool show_all,
-                           bool show_on_password_field);
+                           ShowAll show_all,
+                           OnPasswordField show_on_password_field);
 
   // Finds the PasswordInfo, username and password fields corresponding to the
   // passed in |element|, which can refer to either a username or a password
@@ -488,7 +480,7 @@ class PasswordAutofillAgent : public content::RenderFrameObserver,
   // changes them.
   // 2) Field properties mask, i.e. whether the field was autofilled, modified
   // by user, etc. (see FieldPropertiesMask).
-  FieldDataManager field_data_manager_;
+  const scoped_refptr<FieldDataManager> field_data_manager_;
 
   PasswordValueGatekeeper gatekeeper_;
 

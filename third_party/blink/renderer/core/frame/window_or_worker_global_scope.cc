@@ -34,7 +34,6 @@
 
 #include "base/containers/span.h"
 #include "third_party/blink/renderer/bindings/core/v8/scheduled_action.h"
-#include "third_party/blink/renderer/bindings/core/v8/string_or_trusted_script.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_gc_for_context_dispose.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/events/event_target.h"
@@ -47,7 +46,7 @@
 #include "third_party/blink/renderer/core/workers/worker_global_scope.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/heap/heap.h"
-#include "third_party/blink/renderer/platform/weborigin/security_violation_reporting_policy.h"
+#include "third_party/blink/renderer/platform/weborigin/reporting_disposition.h"
 #include "third_party/blink/renderer/platform/wtf/text/base64.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_utf8_adaptor.h"
 
@@ -56,12 +55,11 @@ namespace blink {
 static bool IsAllowed(ExecutionContext* execution_context,
                       bool is_eval,
                       const String& source) {
-  if (execution_context->IsDocument()) {
-    Document* document = static_cast<Document*>(execution_context);
+  if (Document* document = Document::DynamicFrom(execution_context)) {
     if (!document->GetFrame())
       return false;
     if (is_eval && !document->GetContentSecurityPolicy()->AllowEval(
-                       SecurityViolationReportingPolicy::kReport,
+                       ReportingDisposition::kReport,
                        ContentSecurityPolicy::kWillNotThrowException, source)) {
       return false;
     }
@@ -75,7 +73,7 @@ static bool IsAllowed(ExecutionContext* execution_context,
     ContentSecurityPolicy* policy =
         worker_global_scope->GetContentSecurityPolicy();
     if (is_eval && policy &&
-        !policy->AllowEval(SecurityViolationReportingPolicy::kReport,
+        !policy->AllowEval(ReportingDisposition::kReport,
                            ContentSecurityPolicy::kWillNotThrowException,
                            source)) {
       return false;
@@ -149,31 +147,11 @@ int WindowOrWorkerGlobalScope::setTimeout(
                            base::TimeDelta::FromMilliseconds(timeout), true);
 }
 
-int WindowOrWorkerGlobalScope::setTimeout(
-    ScriptState* script_state,
-    EventTarget& event_target,
-    const StringOrTrustedScript& string_or_trusted_script,
-    int timeout,
-    const HeapVector<ScriptValue>& arguments,
-    ExceptionState& exception_state) {
-  ExecutionContext* execution_context = event_target.GetExecutionContext();
-  Document* document = execution_context->IsDocument()
-                           ? static_cast<Document*>(execution_context)
-                           : nullptr;
-  String handler = GetStringFromTrustedScript(string_or_trusted_script,
-                                              document, exception_state);
-  if (exception_state.HadException())
-    return 0;
-  return setTimeoutFromString(script_state, event_target, handler, timeout,
-                              arguments);
-}
-
-int WindowOrWorkerGlobalScope::setTimeoutFromString(
-    ScriptState* script_state,
-    EventTarget& event_target,
-    const String& handler,
-    int timeout,
-    const HeapVector<ScriptValue>&) {
+int WindowOrWorkerGlobalScope::setTimeout(ScriptState* script_state,
+                                          EventTarget& event_target,
+                                          const String& handler,
+                                          int timeout,
+                                          const HeapVector<ScriptValue>&) {
   ExecutionContext* execution_context = event_target.GetExecutionContext();
   if (!IsAllowed(execution_context, true, handler))
     return 0;
@@ -207,31 +185,11 @@ int WindowOrWorkerGlobalScope::setInterval(
                            base::TimeDelta::FromMilliseconds(timeout), false);
 }
 
-int WindowOrWorkerGlobalScope::setInterval(
-    ScriptState* script_state,
-    EventTarget& event_target,
-    const StringOrTrustedScript& string_or_trusted_script,
-    int timeout,
-    const HeapVector<ScriptValue>& arguments,
-    ExceptionState& exception_state) {
-  ExecutionContext* execution_context = event_target.GetExecutionContext();
-  Document* document = execution_context->IsDocument()
-                           ? static_cast<Document*>(execution_context)
-                           : nullptr;
-  String handler = GetStringFromTrustedScript(string_or_trusted_script,
-                                              document, exception_state);
-  if (exception_state.HadException())
-    return 0;
-  return setIntervalFromString(script_state, event_target, handler, timeout,
-                               arguments);
-}
-
-int WindowOrWorkerGlobalScope::setIntervalFromString(
-    ScriptState* script_state,
-    EventTarget& event_target,
-    const String& handler,
-    int timeout,
-    const HeapVector<ScriptValue>&) {
+int WindowOrWorkerGlobalScope::setInterval(ScriptState* script_state,
+                                           EventTarget& event_target,
+                                           const String& handler,
+                                           int timeout,
+                                           const HeapVector<ScriptValue>&) {
   ExecutionContext* execution_context = event_target.GetExecutionContext();
   if (!IsAllowed(execution_context, true, handler))
     return 0;

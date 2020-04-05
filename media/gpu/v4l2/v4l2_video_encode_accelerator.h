@@ -29,13 +29,12 @@
 #include "media/video/video_encode_accelerator.h"
 #include "ui/gfx/geometry/size.h"
 
-namespace media {
+namespace gpu {
+class GpuMemoryBufferFactory;
+}  // namespace gpu
 
+namespace media {
 class BitstreamBuffer;
-
-}  // namespace media
-
-namespace media {
 
 // This class handles video encode acceleration by interfacing with a V4L2
 // device exposed by the codec hardware driver. The threading model of this
@@ -182,7 +181,8 @@ class MEDIA_GPU_EXPORT V4L2VideoEncodeAccelerator
   // Create image processor that will process |input_layout| +
   // |input_visible_rect| to |output_layout|+|output_visible_rect|.
   bool CreateImageProcessor(const VideoFrameLayout& input_layout,
-                            const VideoFrameLayout& output_layout,
+                            const VideoPixelFormat output_format,
+                            const gfx::Size& output_size,
                             const gfx::Rect& input_visible_rect,
                             const gfx::Rect& output_visible_rect);
   // Process one video frame in |image_processor_input_queue_| by
@@ -208,9 +208,12 @@ class MEDIA_GPU_EXPORT V4L2VideoEncodeAccelerator
 
   // Try to set up the device to the input format we were Initialized() with,
   // or if the device doesn't support it, use one it can support, so that we
-  // can later instantiate an ImageProcessor to convert to it.
-  bool NegotiateInputFormat(VideoPixelFormat input_format,
-                            const gfx::Size& frame_size);
+  // can later instantiate an ImageProcessor to convert to it. Return
+  // base::nullopt if no format is supported, otherwise return v4l2_format
+  // adjusted by the driver.
+  base::Optional<struct v4l2_format> NegotiateInputFormat(
+      VideoPixelFormat input_format,
+      const gfx::Size& frame_size);
 
   // Apply the current crop parameters to the V4L2 device.
   bool ApplyCrop();
@@ -269,6 +272,9 @@ class MEDIA_GPU_EXPORT V4L2VideoEncodeAccelerator
   size_t output_buffer_byte_size_;
   uint32_t output_format_fourcc_;
 
+  size_t current_bitrate_;
+  size_t current_framerate_;
+
   // Encoder state, owned and operated by |encoder_task_runner_|.
   State encoder_state_;
 
@@ -316,6 +322,9 @@ class MEDIA_GPU_EXPORT V4L2VideoEncodeAccelerator
 
   // Image processor, if one is in use.
   std::unique_ptr<ImageProcessor> image_processor_;
+  // GpuMemoryBufferFactory to create GMB-based VideoFrame. This is needed only
+  // if image processor is used and its output buffer is GMB-based VideoFrame.
+  std::unique_ptr<gpu::GpuMemoryBufferFactory> image_processor_gmb_factory_;
   // Video frames for image processor output / VideoEncodeAccelerator input.
   // Only accessed on child thread.
   std::vector<scoped_refptr<VideoFrame>> image_processor_output_buffers_;

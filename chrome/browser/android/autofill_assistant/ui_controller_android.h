@@ -106,8 +106,11 @@ class UiControllerAndroid : public ControllerObserver {
   void OnExpandBottomSheet() override;
   void OnCollapseBottomSheet() override;
   void OnOverlayColorsChanged(const UiDelegate::OverlayColors& colors) override;
-  void OnFormChanged(const FormProto* form) override;
+  void OnFormChanged(const FormProto* form,
+                     const FormProto::Result* result) override;
   void OnClientSettingsChanged(const ClientSettings& settings) override;
+  void OnGenericUserInterfaceChanged(
+      const GenericUserInterfaceProto* generic_ui) override;
 
   // Called by AssistantOverlayDelegate:
   void OnUnexpectedTaps();
@@ -118,7 +121,8 @@ class UiControllerAndroid : public ControllerObserver {
   void OnFeedbackButtonClicked();
 
   // Called by AssistantGenericUiDelegate:
-  void OnViewEvent(const EventHandler::EventKey& key, const ValueProto& value);
+  void OnViewEvent(const EventHandler::EventKey& key);
+  void OnValueChanged(const std::string& identifier, const ValueProto& value);
 
   // Called by AssistantCollectUserDataDelegate:
   void OnShippingAddressChanged(
@@ -172,6 +176,10 @@ class UiControllerAndroid : public ControllerObserver {
   void OnCloseButtonClicked(
       JNIEnv* env,
       const base::android::JavaParamRef<jobject>& jcaller);
+  void OnKeyboardVisibilityChanged(
+      JNIEnv* env,
+      const base::android::JavaParamRef<jobject>& jcaller,
+      jboolean visible);
   void SetVisible(JNIEnv* env,
                   const base::android::JavaParamRef<jobject>& jcaller,
                   jboolean visible);
@@ -198,6 +206,7 @@ class UiControllerAndroid : public ControllerObserver {
   base::android::ScopedJavaLocalRef<jobject> GetInfoBoxModel();
   base::android::ScopedJavaLocalRef<jobject> GetCollectUserDataModel();
   base::android::ScopedJavaLocalRef<jobject> GetFormModel();
+  base::android::ScopedJavaLocalRef<jobject> GetGenericUiModel();
 
   void SetOverlayState(OverlayState state);
   void AllowShowingSoftKeyboard(bool enabled);
@@ -207,7 +216,6 @@ class UiControllerAndroid : public ControllerObserver {
   void DestroySelf();
   void Shutdown(Metrics::DropOutReason reason);
   void UpdateActions(const std::vector<UserAction>& GetUserActions);
-  void UpdateSuggestions(const std::vector<UserAction>& GetUserActions);
   void HideKeyboardIfFocusNotOnText();
 
   void ResetGenericUiControllers();
@@ -239,11 +247,12 @@ class UiControllerAndroid : public ControllerObserver {
   // Java-side AutofillAssistantUiController object.
   base::android::ScopedJavaGlobalRef<jobject> java_object_;
 
-  // Native controllers for generic UI in collect user data action.
+  // Native controllers for generic UI.
   std::unique_ptr<GenericUiControllerAndroid>
       collect_user_data_prepended_generic_ui_controller_;
   std::unique_ptr<GenericUiControllerAndroid>
       collect_user_data_appended_generic_ui_controller_;
+  std::unique_ptr<GenericUiControllerAndroid> generic_ui_controller_;
 
   OverlayState desired_overlay_state_ = OverlayState::FULL;
   base::WeakPtrFactory<UiControllerAndroid> weak_ptr_factory_{this};

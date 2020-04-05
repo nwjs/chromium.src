@@ -5,11 +5,24 @@
 import("//testing/libfuzzer/fuzzer_test.gni")
 import("//third_party/blink/renderer/bindings/bindings.gni")
 import("//third_party/blink/renderer/bindings/core/v8/generated.gni")
+import("//third_party/blink/renderer/bindings/generated_in_core.gni")
 import("//third_party/blink/renderer/bindings/scripts/scripts.gni")
 import("//third_party/blink/renderer/core/core.gni")
 import("//third_party/blink/renderer/core/core_idl_files.gni")
 
 visibility = [ "//third_party/blink/renderer/*" ]
+
+blink_core_sources("generated") {
+  sources = generated_enumeration_sources_in_core
+  deps =
+      [ "//third_party/blink/renderer/bindings:generate_bindings_enumeration" ]
+}
+
+blink_core_sources("generated_for_testing") {
+  sources = generated_enumeration_sources_for_testing_in_core
+  deps =
+      [ "//third_party/blink/renderer/bindings:generate_bindings_enumeration" ]
+}
 
 generate_origin_trial_features("bindings_core_origin_trial_features") {
   sources =
@@ -98,6 +111,19 @@ blink_core_sources("bindings_core_impl") {
 jumbo_source_set("testing") {
   sources = generated_core_testing_dictionary_files +
             generated_core_testing_callback_function_files
+
+  testing_idl_interface_files =
+      webcore_testing_idl_files + generated_webcore_testing_idl_files +
+      webcore_testing_idl_with_modules_dependency_files
+  if (!use_v8_bind_gen_for_dictionary) {
+    testing_idl_interface_files += core_testing_dictionary_idl_files
+  }
+  sources += process_file_template(
+          testing_idl_interface_files,
+          [
+            "$bindings_core_v8_output_dir/v8_{{source_name_part}}.cc",
+            "$bindings_core_v8_output_dir/v8_{{source_name_part}}.h",
+          ])
 
   configs -= core_config_remove
   configs += core_config_add + [ "//third_party/blink/renderer:inside_blink" ] -

@@ -8,6 +8,8 @@
 
 #include "base/command_line.h"
 #include "base/i18n/unicodestring.h"
+#include "base/metrics/histogram_functions.h"
+#include "base/metrics/histogram_macros.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/trace_event/trace_event.h"
 #include "ui/accessibility/accessibility_switches.h"
@@ -19,31 +21,50 @@ namespace ui {
 namespace {
 // This is the maximum number of languages we assign per page, so only the top
 // 3 languages on the top will be assigned to any node.
-const auto kMaxDetectedLanguagesPerPage = 3;
+const int kMaxDetectedLanguagesPerPage = 3;
 
 // This is the maximum number of languages that cld3 will detect for each
 // input we give it, 3 was recommended to us by the ML team as a good
 // starting point.
-const auto kMaxDetectedLanguagesPerSpan = 3;
+const int kMaxDetectedLanguagesPerSpan = 3;
 
-const auto kShortTextIdentifierMinByteLength = 1;
-// TODO(https://bugs.chromium.org/p/chromium/issues/detail?id=971360):
-// Determine appropriate value for kShortTextIdentifierMaxByteLength.
-const auto kShortTextIdentifierMaxByteLength = 1000;
+const int kShortTextIdentifierMinByteLength = 1;
+// TODO(https://crbug.com/971360): Determine appropriate value for
+// |kShortTextIdentifierMaxByteLength|.
+const int kShortTextIdentifierMaxByteLength = 1000;
 }  // namespace
+
+using Result = chrome_lang_id::NNetLanguageIdentifier::Result;
+using SpanInfo = chrome_lang_id::NNetLanguageIdentifier::SpanInfo;
 
 AXLanguageInfo::AXLanguageInfo() = default;
 AXLanguageInfo::~AXLanguageInfo() = default;
 
-AXLanguageInfoStats::AXLanguageInfoStats() : top_results_valid_(false) {}
+AXLanguageInfoStats::AXLanguageInfoStats()
+    : top_results_valid_(false),
+      disable_metric_clearing_(false),
+      count_detection_attempted_(0),
+      count_detection_results_(0),
+      count_labelled_(0),
+      count_labelled_with_top_result_(0),
+      count_overridden_(0) {}
+
 AXLanguageInfoStats::~AXLanguageInfoStats() = default;
 
 void AXLanguageInfoStats::Add(const std::vector<std::string>& languages) {
+  // Count this as a successful detection with results.
+  ++count_detection_results_;
+
   // Assign languages with higher probability a higher score.
   // TODO(chrishall): consider more complex scoring
-  size_t score = kMaxDetectedLanguagesPerSpan;
+  int score = kMaxDetectedLanguagesPerSpan;
   for (const auto& lang : languages) {
     lang_counts_[lang] += score;
+
+    // Record the highest scoring detected languages for each node.
+    if (score == kMaxDetectedLanguagesPerSpan)
+      unique_top_lang_detected_.insert(lang);
+
     --score;
   }
 
@@ -87,13 +108,97 @@ void AXLanguageInfoStats::GenerateTopResults() {
   // Since we store the pair as (score, language) the default operator> on pairs
   // does our sort appropriately.
   // Sort in descending order.
-  std::sort(top_results_.begin(), top_results_.end(),
-            std::greater<std::pair<unsigned int, std::string>>());
+  std::sort(top_results_.begin(), top_results_.end(), std::greater<>());
 
   // Resize down to remove all values greater than the N we are considering.
+  // TODO(chrishall): In the event of a tie, we want to include more than N.
   top_results_.resize(kMaxDetectedLanguagesPerPage);
 
   top_results_valid_ = true;
+}
+
+void AXLanguageInfoStats::RecordLabelStatistics(
+    const std::string& labelled_lang,
+    const std::string& author_lang,
+    bool labelled_with_first_result) {
+  // Count the number of nodes we labelled, and the number we labelled with
+  // our highest confidence result.
+  ++count_labelled_;
+
+  if (labelled_with_first_result)
+    ++count_labelled_with_top_result_;
+
+  // Record if we assigned a language that disagrees with the author
+  // provided language for that node.
+  if (author_lang != labelled_lang)
+    ++count_overridden_;
+}
+
+void AXLanguageInfoStats::RecordDetectionAttempt() {
+  ++count_detection_attempted_;
+}
+
+void AXLanguageInfoStats::ReportMetrics() {
+  // Only report statistics for pages which had detected results.
+  if (!count_detection_attempted_)
+    return;
+
+  // 50 buckets exponentially covering the range from 1 to 1000.
+  base::UmaHistogramCustomCounts(
+      "Accessibility.LanguageDetection.CountDetectionAttempted",
+      count_detection_attempted_, 1, 1000, 50);
+
+  int percentage_detected =
+      count_detection_results_ * 100 / count_detection_attempted_;
+  base::UmaHistogramPercentage(
+      "Accessibility.LanguageDetection.PercentageLanguageDetected",
+      percentage_detected);
+
+  // 50 buckets exponentially covering the range from 1 to 1000.
+  base::UmaHistogramCustomCounts(
+      "Accessibility.LanguageDetection.CountLabelled", count_labelled_, 1, 1000,
+      50);
+
+  // If no nodes were labelled, then the percentage labelled with the top result
+  // doesn't make sense to report.
+  if (count_labelled_) {
+    int percentage_top =
+        count_labelled_with_top_result_ * 100 / count_labelled_;
+    base::UmaHistogramPercentage(
+        "Accessibility.LanguageDetection.PercentageLabelledWithTop",
+        percentage_top);
+
+    int percentage_overridden = count_overridden_ * 100 / count_labelled_;
+    base::UmaHistogramPercentage(
+        "Accessibility.LanguageDetection.PercentageOverridden",
+        percentage_overridden);
+  }
+
+  // Exact count from 0 to 15, overflow is then truncated to 15.
+  base::UmaHistogramExactLinear("Accessibility.LanguageDetection.LangsPerPage",
+                                unique_top_lang_detected_.size(), 15);
+
+  // TODO(chrishall): Consider adding timing metrics for performance, consider:
+  //  - detect step.
+  //  - label step.
+  //  - total initial static detection & label timing.
+  //  - total incremental dynamic detection & label timing.
+
+  // Reset statistics for metrics.
+  ClearMetrics();
+}
+
+void AXLanguageInfoStats::ClearMetrics() {
+  // Do not clear metrics if we are specifically testing metrics.
+  if (disable_metric_clearing_)
+    return;
+
+  unique_top_lang_detected_.clear();
+  count_detection_attempted_ = 0;
+  count_detection_results_ = 0;
+  count_labelled_ = 0;
+  count_labelled_with_top_result_ = 0;
+  count_overridden_ = 0;
 }
 
 AXLanguageDetectionManager::AXLanguageDetectionManager(AXTree* tree)
@@ -150,22 +255,26 @@ void AXLanguageDetectionManager::DetectLanguagesForSubtree(
 // Will not descend into children.
 // Will not check feature flag.
 void AXLanguageDetectionManager::DetectLanguagesForNode(AXNode* node) {
+  // Count this detection attempt.
+  lang_info_stats_.RecordDetectionAttempt();
+
   // TODO(chrishall): implement strategy for nodes which are too small to get
   // reliable language detection results. Consider combination of
   // concatenation and bubbling up results.
   auto text = node->GetStringAttribute(ax::mojom::StringAttribute::kName);
 
-  // FindTopNMostFreqLangs will pad the results with
-  // NNetLanguageIdentifier::kUnknown in order to reach the requested number
+  // FindTopNMostFreqLangs() will pad the results with
+  // |NNetLanguageIdentifier::kUnknown| in order to reach the requested number
   // of languages, this means we cannot rely on the results' length and we
   // have to filter the results.
-  const auto results = language_identifier_.FindTopNMostFreqLangs(
-      text, kMaxDetectedLanguagesPerSpan);
+  const std::vector<Result> results =
+      language_identifier_.FindTopNMostFreqLangs(text,
+                                                 kMaxDetectedLanguagesPerSpan);
 
   std::vector<std::string> reliable_results;
 
-  for (const auto res : results) {
-    // The output of FindTopNMostFreqLangs is already sorted by byte count,
+  for (const auto& res : results) {
+    // The output of FindTopNMostFreqLangs() is already sorted by byte count,
     // this seems good enough for now.
     // Only consider results which are 'reliable', this will also remove
     // 'unknown'.
@@ -204,6 +313,14 @@ void AXLanguageDetectionManager::LabelLanguages() {
   }
 
   LabelLanguagesForSubtree(tree_->root());
+
+  // TODO(chrishall): consider refactoring to have a more clearly named entry
+  // point for static language detection.
+  //
+  // LabelLanguages is only called for the initial run of language detection for
+  // static content, this call to ReportMetrics therefore covers only the work
+  // we performed in response to a page load complete event.
+  lang_info_stats_.ReportMetrics();
 }
 
 // Label languages for each node in the subtree rooted at the given
@@ -223,39 +340,50 @@ void AXLanguageDetectionManager::LabelLanguagesForSubtree(
 // Will not check feature flag.
 void AXLanguageDetectionManager::LabelLanguagesForNode(AXNode* node) {
   AXLanguageInfo* lang_info = node->GetLanguageInfo();
+  if (!lang_info)
+    return;
 
-  // lang_info is only attached by Detect when it thinks a node is interesting,
-  // the presence of lang_info means that Detect expects the node to end up with
-  // a language specified.
+  // There is no work to do if we already have an assigned (non-empty) language.
+  if (lang_info->language.size())
+    return;
+
+  // Assign the highest probability language which is both:
+  // 1) reliably detected for this node, and
+  // 2) one of the top (kMaxDetectedLanguagesPerPage) languages on this page.
   //
-  // If the lang_info->language is already set then we have no more work to do
-  // for this node.
-  if (lang_info && lang_info->language.empty()) {
-    // We assign the highest probability language which is both:
-    // 1) reliably detected for this node, and
-    // 2) one of the top (kMaxDetectedLanguagesPerPage) languages on this page.
-    //
-    // This helps guard against false positives for nodes which have noisy
-    // language detection results in isolation.
-    for (const auto& lang : lang_info->detected_languages) {
-      if (lang_info_stats_.CheckLanguageWithinTop(lang)) {
-        lang_info->language = lang;
-        break;
-      }
-    }
+  // This helps guard against false positives for nodes which have noisy
+  // language detection results in isolation.
+  //
+  // Note that we assign a language even if it is the same as the author's
+  // annotation. This may not be needed in practice. In theory this would help
+  // if the author later on changed the language annotation to be incorrect, but
+  // this seems unlikely to occur in practice.
+  //
+  // TODO(chrishall): consider optimisation: only assign language if it
+  // disagrees with author's language annotation.
+  bool labelled_with_first_result = true;
+  for (const auto& lang : lang_info->detected_languages) {
+    if (lang_info_stats_.CheckLanguageWithinTop(lang)) {
+      lang_info->language = lang;
 
-    // After attempting labelling we no longer need the detected results in
-    // LanguageInfo, as they have no future use.
-    if (lang_info->language.empty()) {
-      // If no language was assigned then LanguageInfo as a whole can safely be
-      // destroyed.
-      node->ClearLanguageInfo();
-    } else {
-      // Otherwise, if we assigned a language then we need to keep
-      // LanguageInfo.language, but we can clear the detected results.
+      const std::string& author_lang = node->GetInheritedStringAttribute(
+          ax::mojom::StringAttribute::kLanguage);
+      lang_info_stats_.RecordLabelStatistics(lang, author_lang,
+                                             labelled_with_first_result);
+
+      // After assigning a label we no longer need detected languages.
+      // NB: clearing this invalidates the reference `lang`, so we must do this
+      // last and then immediately return.
       lang_info->detected_languages.clear();
+
+      return;
     }
+    labelled_with_first_result = false;
   }
+
+  // If we didn't label a language, then we can discard all language detection
+  // information for this node.
+  node->ClearLanguageInfo();
 }
 
 std::vector<AXLanguageSpan>
@@ -281,13 +409,12 @@ AXLanguageDetectionManager::GetLanguageAnnotationForStringAttribute(
   // Calculate top 3 languages.
   // TODO(akihiroota): What's a reasonable number of languages to have
   // cld_3 find? Should vary.
-  std::vector<chrome_lang_id::NNetLanguageIdentifier::Result> top_languages =
+  std::vector<Result> top_languages =
       short_text_language_identifier_.FindTopNMostFreqLangs(
           attr_value, kMaxDetectedLanguagesPerPage);
   // Create vector of AXLanguageSpans.
   for (const auto& result : top_languages) {
-    std::vector<chrome_lang_id::NNetLanguageIdentifier::SpanInfo> ranges =
-        result.byte_ranges;
+    const std::vector<SpanInfo>& ranges = result.byte_ranges;
     for (const auto& span_info : ranges) {
       language_annotation.push_back(
           AXLanguageSpan{span_info.start_index, span_info.end_index,
@@ -368,6 +495,11 @@ void AXLanguageDetectionObserver::OnAtomicUpdateFinished(
       tree->language_detection_manager->LabelLanguagesForNode(change.node);
     }
   }
+
+  // OnAtomicUpdateFinished is used for dynamic language detection, this call to
+  // ReportMetrics covers only the work we have performed in response to one
+  // update to the AXTree.
+  tree->language_detection_manager->lang_info_stats_.ReportMetrics();
 }
 
 }  // namespace ui

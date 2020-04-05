@@ -21,17 +21,18 @@
 #include "base/strings/safe_sprintf.h"
 #include "cc/base/math_util.h"
 #include "chrome/browser/chromeos/accessibility/accessibility_manager.h"
-#include "chrome/browser/permissions/permission_request_impl.h"
-#include "chrome/browser/permissions/permission_request_manager.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/bookmarks/bookmark_bar_view.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/top_container_view.h"
+#include "chrome/browser/ui/views/location_bar/location_bar_view.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/content_settings/core/common/content_settings_types.h"
+#include "components/permissions/permission_request_impl.h"
+#include "components/permissions/permission_request_manager.h"
 #include "content/public/test/browser_test_utils.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "net/dns/mock_host_resolver.h"
@@ -42,6 +43,7 @@
 #include "ui/display/screen.h"
 #include "ui/events/event_constants.h"
 #include "ui/events/test/event_generator.h"
+#include "ui/events/types/event_type.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/views/controls/native/native_view_host.h"
 #include "ui/views/view.h"
@@ -58,25 +60,6 @@ enum class ScrollDirection {
   kUp,
   kDown,
 };
-
-// Using the given |generator| and the start and end points, it generates a
-// gesture scroll sequence with appropriate velocity so that fling gesture
-// scrolls are generated.
-void GenerateGestureFlingScrollSequence(ui::test::EventGenerator* generator,
-                                        const gfx::Point& start_point,
-                                        const gfx::Point& end_point) {
-  DCHECK(generator);
-  generator->GestureScrollSequenceWithCallback(
-      start_point, end_point,
-      generator->CalculateScrollDurationForFlingVelocity(
-          start_point, end_point, 100 /* velocity */, 2 /* steps */),
-      2 /* steps */,
-      base::BindRepeating([](ui::EventType, const gfx::Vector2dF&) {
-        // Give the event a chance to propagate to renderer before sending the
-        // next one.
-        base::RunLoop().RunUntilIdle();
-      }));
-}
 
 // Checks that the translation part of the two given transforms are equal.
 void CompareTranslations(const gfx::Transform& t1, const gfx::Transform& t2) {
@@ -503,6 +486,33 @@ class TopControlsSlideControllerTest : public InProcessBrowserTest {
     CompareTranslations(expected_transform, root_view_layer->transform());
   }
 
+  // Using the given |generator| and the start and end points, it generates a
+  // gesture scroll sequence with appropriate velocity so that fling gesture
+  // scrolls are generated.
+  void GenerateGestureFlingScrollSequence(ui::test::EventGenerator* generator,
+                                          const gfx::Point& start_point,
+                                          const gfx::Point& end_point) {
+    DCHECK(generator);
+    content::WebContents* contents = browser_view()->GetActiveWebContents();
+    generator->GestureScrollSequenceWithCallback(
+        start_point, end_point,
+        generator->CalculateScrollDurationForFlingVelocity(
+            start_point, end_point, 100 /* velocity */, 2 /* steps */),
+        2 /* steps */,
+        base::BindRepeating(
+            [](content::WebContents* contents, ui::EventType,
+               const gfx::Vector2dF&) {
+              // Give the event a chance to propagate to renderer before sending
+              // the next one by waiting for at least 2 render frame
+              // submissions.
+              content::RenderFrameSubmissionObserver submission_observer(
+                  contents);
+              while (submission_observer.render_frame_count() < 2)
+                submission_observer.WaitForAnyFrameSubmission();
+            },
+            contents));
+  }
+
   // Generates a gesture fling scroll sequence to scroll the current page in the
   // given |direction|, and waits for and verifies that top-chrome reaches the
   // given |target_state|.
@@ -641,6 +651,37 @@ IN_PROC_BROWSER_TEST_F(TopControlsSlideControllerTest, TestScrollingPage) {
                                TopChromeShownState::kFullyShown);
 }
 
+IN_PROC_BROWSER_TEST_F(TopControlsSlideControllerTest, TestCtrlL) {
+  // Switch to tablet mode, and scroll until the top controls are fully hidden.
+  ToggleTabletMode();
+  ASSERT_TRUE(GetTabletModeEnabled());
+  EXPECT_TRUE(top_controls_slide_controller()->IsEnabled());
+  EXPECT_FLOAT_EQ(top_controls_slide_controller()->GetShownRatio(), 1.f);
+  OpenUrlAtIndex(embedded_test_server()->GetURL("/top_controls_scroll.html"),
+                 0);
+  auto* active_contents = browser_view()->GetActiveWebContents();
+  EXPECT_TRUE(content::WaitForLoadStop(active_contents));
+  TabNonEmptyPaintWaiter paint_waiter(
+      browser()->tab_strip_model()->GetActiveWebContents());
+  paint_waiter.Wait();
+  SCOPED_TRACE("Scrolling to fully hide the top controls.");
+  ScrollAndExpectTopChromeToBe(ScrollDirection::kDown,
+                               TopChromeShownState::kFullyHidden);
+  content::WaitForResizeComplete(active_contents);
+
+  // Hit Ctrl+L which should focus the omnibox. This should unhide the top
+  // controls.
+  SCOPED_TRACE("Firing Ctrl+L.");
+  aura::Window* browser_window = browser()->window()->GetNativeWindow();
+  ui::test::EventGenerator event_generator(browser_window->GetRootWindow(),
+                                           browser_window);
+  TopControlsShownRatioWaiter waiter(top_controls_slide_controller());
+  event_generator.PressKey(ui::VKEY_L, ui::EF_CONTROL_DOWN);
+  event_generator.ReleaseKey(ui::VKEY_L, ui::EF_CONTROL_DOWN);
+  waiter.WaitForRatio(1.f);
+  EXPECT_TRUE(browser_view()->GetLocationBarView()->omnibox_view()->HasFocus());
+}
+
 // TODO(https://crbug.com/911949): Times out on CrOS on the waterfall.
 IN_PROC_BROWSER_TEST_F(TopControlsSlideControllerTest,
                        DISABLED_TestScrollingPageAndSwitchingToNTP) {
@@ -760,6 +801,7 @@ IN_PROC_BROWSER_TEST_F(TopControlsSlideControllerTest,
   OpenUrlAtIndex(embedded_test_server()->GetURL("/top_controls_scroll.html"),
                  0);
 
+  SCOPED_TRACE("Initial scroll to hide the top controls.");
   ScrollAndExpectTopChromeToBe(ScrollDirection::kDown,
                                TopChromeShownState::kFullyHidden);
 
@@ -788,6 +830,7 @@ IN_PROC_BROWSER_TEST_F(TopControlsSlideControllerTest,
 
   // Focus on the editable element in the page and expect that top-chrome will
   // be shown.
+  SCOPED_TRACE("Focus an editable element in the page.");
   TopControlsShownRatioWaiter waiter(top_controls_slide_controller());
   content::WebContents* contents = browser_view()->GetActiveWebContents();
   bool bool_result = false;
@@ -801,18 +844,22 @@ IN_PROC_BROWSER_TEST_F(TopControlsSlideControllerTest,
   // Now try scrolling in a way that would normally hide top-chrome, and expect
   // that top-chrome will be forced shown as long as the editable element is
   // focused.
+  SCOPED_TRACE("Attempting a scroll which will not hide the top controls.");
   ScrollAndExpectTopChromeToBe(ScrollDirection::kDown,
                                TopChromeShownState::kFullyShown);
 
   // Now blur the focused editable element. Expect that top-chrome can now be
   // hidden with gesture scrolls.
   bool_result = false;
+  SCOPED_TRACE("Bluring the focus away from the editable element.");
   ASSERT_TRUE(content::ExecuteScriptAndExtractBool(
       contents, get_js_function_body(false /* should_focus */), &bool_result));
   EXPECT_TRUE(bool_result);
   // Evaluate an empty sentence to make sure that the event processing is done
   // in the content.
   ignore_result(content::EvalJs(contents, ";"));
+
+  SCOPED_TRACE("Scroll to hide should now work.");
   ScrollAndExpectTopChromeToBe(ScrollDirection::kDown,
                                TopChromeShownState::kFullyHidden);
 }
@@ -1029,8 +1076,10 @@ IN_PROC_BROWSER_TEST_F(TopControlsSlideControllerTest, TestDropDowns) {
   EXPECT_EQ("4", content::EvalJs(contents, "getSelectedValue();"));
 }
 
-IN_PROC_BROWSER_TEST_F(TopControlsSlideControllerTest,
-                       TestScrollingMaximizedPageBeforeGoingToTabletMode) {
+// Disabled due to flakiness. crbug/1063364
+IN_PROC_BROWSER_TEST_F(
+    TopControlsSlideControllerTest,
+    DISABLED_TestScrollingMaximizedPageBeforeGoingToTabletMode) {
   // If the page exists in a maximized browser window before going to tablet
   // mode, the layout that results from going to tablet mode does not change
   // the size of the page viewport. Hence, the visual properties of the renderer
@@ -1123,8 +1172,9 @@ class IntermediateShownRatioWaiter : public TestControllerObserver {
   DISALLOW_COPY_AND_ASSIGN(IntermediateShownRatioWaiter);
 };
 
+// Disabled due to flakiness: https://crbug.com/1055958.
 IN_PROC_BROWSER_TEST_F(TopControlsSlideControllerTest,
-                       TestIntermediateSliding) {
+                       DISABLED_TestIntermediateSliding) {
   ToggleTabletMode();
   ASSERT_TRUE(GetTabletModeEnabled());
   EXPECT_TRUE(top_controls_slide_controller()->IsEnabled());
@@ -1275,7 +1325,9 @@ IN_PROC_BROWSER_TEST_F(TopControlsSlideControllerTest,
   CheckBrowserLayout(browser_view(), TopChromeShownState::kFullyShown);
 }
 
-IN_PROC_BROWSER_TEST_F(TopControlsSlideControllerTest, TestPermissionBubble) {
+// Disabled due to flakiness: https://crbug.com/1033651
+IN_PROC_BROWSER_TEST_F(TopControlsSlideControllerTest,
+                       DISABLED_TestPermissionBubble) {
   ToggleTabletMode();
   ASSERT_TRUE(GetTabletModeEnabled());
   EXPECT_TRUE(top_controls_slide_controller()->IsEnabled());
@@ -1297,11 +1349,11 @@ IN_PROC_BROWSER_TEST_F(TopControlsSlideControllerTest, TestPermissionBubble) {
   // Fire a geolocation permission request, which should show a permission
   // request bubble resulting in top chrome unhiding.
   auto decided = [](ContentSetting) {};
-  PermissionRequestImpl permission_request(
-      url, ContentSettingsType::GEOLOCATION, true /* user_gesture */,
+  permissions::PermissionRequestImpl permission_request(
+      url, url, ContentSettingsType::GEOLOCATION, true /* user_gesture */,
       base::BindRepeating(decided), base::DoNothing() /* delete_callback */);
   auto* permission_manager =
-      PermissionRequestManager::FromWebContents(active_contents);
+      permissions::PermissionRequestManager::FromWebContents(active_contents);
   TopControlsShownRatioWaiter waiter(top_controls_slide_controller());
   permission_manager->AddRequest(&permission_request);
   waiter.WaitForRatio(1.f);
@@ -1324,7 +1376,9 @@ IN_PROC_BROWSER_TEST_F(TopControlsSlideControllerTest, TestPermissionBubble) {
                                TopChromeShownState::kFullyHidden);
 }
 
-IN_PROC_BROWSER_TEST_F(TopControlsSlideControllerTest, TestToggleChromeVox) {
+// Disabled due to flakiness: https://crbug.com/1033648.
+IN_PROC_BROWSER_TEST_F(TopControlsSlideControllerTest,
+                       DISABLED_TestToggleChromeVox) {
   ToggleTabletMode();
   ASSERT_TRUE(GetTabletModeEnabled());
   EXPECT_TRUE(top_controls_slide_controller()->IsEnabled());

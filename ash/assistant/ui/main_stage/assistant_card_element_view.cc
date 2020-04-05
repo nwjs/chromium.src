@@ -7,7 +7,6 @@
 #include <memory>
 
 #include "ash/assistant/model/ui/assistant_card_element.h"
-#include "ash/assistant/ui/assistant_container_view.h"
 #include "ash/assistant/ui/assistant_ui_constants.h"
 #include "ash/assistant/ui/assistant_view_delegate.h"
 #include "ash/assistant/util/deep_link_util.h"
@@ -19,6 +18,7 @@
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/layout/fill_layout.h"
 #include "ui/views/view.h"
+#include "ui/views/widget/widget.h"
 
 namespace ash {
 
@@ -214,8 +214,8 @@ void AssistantCardElementView::InitLayout(
   GetViewAccessibility().OverrideName(card_element->fallback());
 }
 
-AssistantWebView2* AssistantCardElementView::contents_view() {
-  return const_cast<AssistantWebView2*>(card_element_->contents_view());
+AssistantWebView* AssistantCardElementView::contents_view() {
+  return const_cast<AssistantWebView*>(card_element_->contents_view());
 }
 
 }  // namespace ash

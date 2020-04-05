@@ -12,9 +12,11 @@
 #include "base/macros.h"
 #include "media/base/media_export.h"
 #include "media/base/renderer_factory.h"
+#include "media/base/speech_recognition_client.h"
 
 namespace media {
 
+class AudioBuffer;
 class AudioDecoder;
 class AudioRendererSink;
 class DecoderFactory;
@@ -34,9 +36,11 @@ class MEDIA_EXPORT DefaultRendererFactory : public RendererFactory {
   using GetGpuFactoriesCB =
       base::RepeatingCallback<GpuVideoAcceleratorFactories*()>;
 
-  DefaultRendererFactory(MediaLog* media_log,
-                         DecoderFactory* decoder_factory,
-                         const GetGpuFactoriesCB& get_gpu_factories_cb);
+  DefaultRendererFactory(
+      MediaLog* media_log,
+      DecoderFactory* decoder_factory,
+      const GetGpuFactoriesCB& get_gpu_factories_cb,
+      std::unique_ptr<SpeechRecognitionClient> speech_recognition_client);
   ~DefaultRendererFactory() final;
 
   std::unique_ptr<Renderer> CreateRenderer(
@@ -44,15 +48,17 @@ class MEDIA_EXPORT DefaultRendererFactory : public RendererFactory {
       const scoped_refptr<base::TaskRunner>& worker_task_runner,
       AudioRendererSink* audio_renderer_sink,
       VideoRendererSink* video_renderer_sink,
-      const RequestOverlayInfoCB& request_overlay_info_cb,
+      RequestOverlayInfoCB request_overlay_info_cb,
       const gfx::ColorSpace& target_color_space) final;
+
+  void TranscribeAudio(scoped_refptr<media::AudioBuffer> buffer);
 
  private:
   std::vector<std::unique_ptr<AudioDecoder>> CreateAudioDecoders(
       const scoped_refptr<base::SingleThreadTaskRunner>& media_task_runner);
   std::vector<std::unique_ptr<VideoDecoder>> CreateVideoDecoders(
       const scoped_refptr<base::SingleThreadTaskRunner>& media_task_runner,
-      const RequestOverlayInfoCB& request_overlay_info_cb,
+      RequestOverlayInfoCB request_overlay_info_cb,
       const gfx::ColorSpace& target_color_space,
       GpuVideoAcceleratorFactories* gpu_factories);
 
@@ -64,6 +70,8 @@ class MEDIA_EXPORT DefaultRendererFactory : public RendererFactory {
 
   // Creates factories for supporting video accelerators. May be null.
   GetGpuFactoriesCB get_gpu_factories_cb_;
+
+  std::unique_ptr<SpeechRecognitionClient> speech_recognition_client_;
 
   DISALLOW_COPY_AND_ASSIGN(DefaultRendererFactory);
 };

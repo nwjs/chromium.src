@@ -15,6 +15,7 @@
 #include "base/i18n/unicodestring.h"
 #include "base/rand_util.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "base/test/bind_test_util.h"
 #include "build/build_config.h"
 #include "content/browser/file_system/file_system_url_loader_factory.h"
@@ -46,10 +47,12 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/icu/source/i18n/unicode/datefmt.h"
 #include "third_party/icu/source/i18n/unicode/regex.h"
+#include "url/gurl.h"
+#include "url/origin.h"
 
 using base::BindLambdaForTesting;
-using content::AsyncFileTestHelper;
 using network::mojom::URLLoaderFactory;
+using storage::AsyncFileTestHelper;
 using storage::FileSystemContext;
 using storage::FileSystemOperationContext;
 using storage::FileSystemURL;
@@ -168,9 +171,10 @@ class FileSystemURLLoaderFactoryTest
   void SetUpOnMainThread() override {
     io_task_runner_ = base::CreateSingleThreadTaskRunner({BrowserThread::IO});
     blocking_task_runner_ =
-        base::CreateSequencedTaskRunner({base::ThreadPool(), base::MayBlock()});
+        base::ThreadPool::CreateSequencedTaskRunner({base::MayBlock()});
 
-    special_storage_policy_ = new MockSpecialStoragePolicy;
+    special_storage_policy_ =
+        base::MakeRefCounted<storage::MockSpecialStoragePolicy>();
 
     // Support multiple sites on the test server.
     host_resolver()->AddRule("*", "127.0.0.1");
@@ -190,7 +194,8 @@ class FileSystemURLLoaderFactoryTest
         FROM_HERE,
         base::BindOnce(
             &FileSystemContext::OpenFileSystem, file_system_context_,
-            GURL("http://remote/"), storage::kFileSystemTypeTemporary,
+            url::Origin::Create(GURL("http://remote/")),
+            storage::kFileSystemTypeTemporary,
             storage::OPEN_FILE_SYSTEM_CREATE_IF_NONEXISTENT,
             base::BindOnce(&FileSystemURLLoaderFactoryTest::OnOpenFileSystem,
                            loop.QuitClosure())));
@@ -221,8 +226,9 @@ class FileSystemURLLoaderFactoryTest
 
     std::vector<std::unique_ptr<storage::FileSystemBackend>>
         additional_providers;
-    additional_providers.push_back(std::make_unique<TestFileSystemBackend>(
-        base::ThreadTaskRunnerHandle::Get().get(), mnt_point));
+    additional_providers.push_back(
+        std::make_unique<storage::TestFileSystemBackend>(
+            base::ThreadTaskRunnerHandle::Get().get(), mnt_point));
 
     std::vector<storage::URLRequestAutoMountHandler> handlers = {
         base::BindRepeating(&TestAutoMountForURLRequest)};
@@ -243,7 +249,8 @@ class FileSystemURLLoaderFactoryTest
 
   FileSystemURL CreateURL(const base::FilePath& file_path) {
     return file_system_context_->CreateCrackedFileSystemURL(
-        GURL("http://remote"), storage::kFileSystemTypeTemporary, file_path);
+        url::Origin::Create(GURL("http://remote")),
+        storage::kFileSystemTypeTemporary, file_path);
   }
 
   void CreateDirectory(const base::StringPiece& dir_name) {
@@ -266,7 +273,8 @@ class FileSystemURLLoaderFactoryTest
                  int buf_size) {
     FileSystemURL url;
     url = file_system_context_->CreateCrackedFileSystemURL(
-        GURL("http://remote"), storage::kFileSystemTypeTemporary,
+        url::Origin::Create(GURL("http://remote")),
+        storage::kFileSystemTypeTemporary,
         base::FilePath().AppendASCII(file_name));
 
     base::File::Error result = base::File::FILE_OK;
@@ -422,8 +430,9 @@ class FileSystemURLLoaderFactoryTest
       const base::FilePath& base_path) {
     std::vector<std::unique_ptr<storage::FileSystemBackend>>
         additional_providers;
-    additional_providers.push_back(std::make_unique<TestFileSystemBackend>(
-        blocking_task_runner_.get(), base_path));
+    additional_providers.push_back(
+        std::make_unique<storage::TestFileSystemBackend>(
+            blocking_task_runner_.get(), base_path));
     if (IsIncognito()) {
       return CreateIncognitoFileSystemContextWithAdditionalProvidersForTesting(
           io_task_runner_, blocking_task_runner_, quota_manager_proxy,
@@ -471,7 +480,7 @@ class FileSystemURLLoaderFactoryTest
     return client;
   }
 
-  scoped_refptr<MockSpecialStoragePolicy> special_storage_policy_;
+  scoped_refptr<storage::MockSpecialStoragePolicy> special_storage_policy_;
   scoped_refptr<base::SingleThreadTaskRunner> io_task_runner_;
   scoped_refptr<base::SequencedTaskRunner> blocking_task_runner_;
   scoped_refptr<FileSystemContext> file_system_context_;
@@ -571,9 +580,9 @@ IN_PROC_BROWSER_TEST_P(FileSystemURLLoaderFactoryTest, Incognito) {
   CreateDirectory("foo");
 
   scoped_refptr<FileSystemContext> file_system_context =
-      CreateIncognitoFileSystemContextForTesting(io_task_runner(),
-                                                 blocking_task_runner(),
-                                                 nullptr, temp_dir_.GetPath());
+      storage::CreateIncognitoFileSystemContextForTesting(
+          io_task_runner(), blocking_task_runner(), nullptr,
+          temp_dir_.GetPath());
 
   auto client =
       TestLoadWithContext(CreateFileSystemURL("/"), file_system_context.get());
@@ -850,9 +859,9 @@ IN_PROC_BROWSER_TEST_P(FileSystemURLLoaderFactoryTest, FileIncognito) {
 
   // Creates a new filesystem context for incognito mode.
   scoped_refptr<FileSystemContext> file_system_context =
-      CreateIncognitoFileSystemContextForTesting(io_task_runner(),
-                                                 blocking_task_runner(),
-                                                 nullptr, temp_dir_.GetPath());
+      storage::CreateIncognitoFileSystemContextForTesting(
+          io_task_runner(), blocking_task_runner(), nullptr,
+          temp_dir_.GetPath());
 
   // The request should return NOT_FOUND error if it's in incognito mode.
   auto client = TestLoadWithContext(CreateFileSystemURL("file"),

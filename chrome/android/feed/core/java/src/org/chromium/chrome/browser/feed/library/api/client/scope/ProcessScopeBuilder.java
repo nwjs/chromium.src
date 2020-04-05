@@ -5,7 +5,8 @@
 package org.chromium.chrome.browser.feed.library.api.client.scope;
 
 import android.content.Context;
-import android.support.annotation.VisibleForTesting;
+
+import androidx.annotation.VisibleForTesting;
 
 import org.chromium.chrome.browser.feed.library.api.host.config.ApplicationInfo;
 import org.chromium.chrome.browser.feed.library.api.host.config.Configuration;
@@ -225,8 +226,8 @@ public final class ProcessScopeBuilder {
         FeedSessionManager feedSessionManager = fsmFactory.create();
         RequestManagerImpl clientRequestManager =
                 new RequestManagerImpl(feedRequestManager, feedSessionManager);
-        ActionManager actionManager = new FeedActionManagerImpl(
-                feedSessionManager, store, threadUtils, taskQueue, mainThreadRunner, mClock);
+        ActionManager actionManager = new FeedActionManagerImpl(feedSessionManager, store,
+                threadUtils, taskQueue, mainThreadRunner, mClock, mBasicLoggingApi);
 
         FeedKnownContent feedKnownContent =
                 new FeedKnownContentImpl(feedSessionManager, mainThreadRunner, threadUtils);

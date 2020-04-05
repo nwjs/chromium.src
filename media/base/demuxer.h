@@ -57,14 +57,14 @@ class MEDIA_EXPORT Demuxer : public MediaResource {
   // First parameter - The type of initialization data.
   // Second parameter - The initialization data associated with the stream.
   using EncryptedMediaInitDataCB =
-      base::Callback<void(EmeInitDataType type,
-                          const std::vector<uint8_t>& init_data)>;
+      base::RepeatingCallback<void(EmeInitDataType type,
+                                   const std::vector<uint8_t>& init_data)>;
 
   // Notifies demuxer clients that media track configuration has been updated
   // (e.g. the initial stream metadata has been parsed successfully, or a new
   // init segment has been parsed successfully in MSE case).
   using MediaTracksUpdatedCB =
-      base::Callback<void(std::unique_ptr<MediaTracks>)>;
+      base::RepeatingCallback<void(std::unique_ptr<MediaTracks>)>;
 
   // Called once the demuxer has finished enabling or disabling tracks. The type
   // argument is required because the vector may be empty.

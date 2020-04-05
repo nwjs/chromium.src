@@ -109,7 +109,7 @@ GlassBrowserFrameView::GlassBrowserFrameView(BrowserFrame* frame,
 
   web_app::AppBrowserController* controller =
       browser_view->browser()->app_controller();
-  if (controller && controller->HasTitlebarToolbar()) {
+  if (controller) {
     set_web_app_frame_toolbar(AddChildView(
         std::make_unique<WebAppFrameToolbarView>(frame, browser_view)));
   }
@@ -179,6 +179,8 @@ int GlassBrowserFrameView::GetThemeBackgroundXInset() const {
 
 bool GlassBrowserFrameView::HasVisibleBackgroundTabShapes(
     BrowserFrameActiveState active_state) const {
+  DCHECK(GetWidget());
+
   // Pre-Win 8, tabs never match the glass frame appearance.
   if (base::win::GetVersion() < base::win::Version::WIN8)
     return true;
@@ -189,7 +191,7 @@ bool GlassBrowserFrameView::HasVisibleBackgroundTabShapes(
   // colors).
   // TODO(pkasting): https://crbug.com/831769  Change the architecture of the
   // high contrast support to respect system colors, then remove this.
-  if (ui::NativeTheme::GetInstanceForNativeUi()->UsesHighContrastColors())
+  if (GetNativeTheme()->UsesHighContrastColors())
     return true;
 
   return BrowserNonClientFrameView::HasVisibleBackgroundTabShapes(active_state);

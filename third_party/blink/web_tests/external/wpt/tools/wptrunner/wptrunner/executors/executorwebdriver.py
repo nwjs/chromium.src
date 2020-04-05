@@ -67,13 +67,20 @@ class WebDriverBaseProtocolPart(BaseProtocolPart):
         while True:
             try:
                 self.webdriver.execute_async_script("")
-            except (client.TimeoutException, client.ScriptTimeoutException):
+            except (client.TimeoutException,
+                    client.ScriptTimeoutException,
+                    client.JavascriptErrorException):
+                # A JavascriptErrorException will happen when we navigate;
+                # by ignoring it it's possible to reload the test whilst the
+                # harness remains paused
                 pass
-            except (socket.timeout, client.NoSuchWindowException,
-                    client.UnknownErrorException, IOError):
+            except (socket.timeout,
+                    client.NoSuchWindowException,
+                    client.UnknownErrorException,
+                    IOError):
                 break
-            except Exception as e:
-                self.logger.error(traceback.format_exc(e))
+            except Exception:
+                self.logger.error(traceback.format_exc())
                 break
 
 
@@ -289,15 +296,19 @@ class WebDriverProtocol(Protocol):
             message = str(getattr(e, "message", ""))
             if message:
                 message += "\n"
-            message += traceback.format_exc(e)
+            message += traceback.format_exc()
             self.logger.debug(message)
         self.webdriver = None
 
     def is_alive(self):
         try:
-            # Get a simple property over the connection
-            self.webdriver.window_handle
-        except (socket.timeout, client.UnknownErrorException):
+            # Get a simple property over the connection, with 2 seconds of timeout
+            # that should be more than enough to check if the WebDriver its
+            # still alive, and allows to complete the check within the testrunner
+            # 5 seconds of extra_timeout we have as maximum to end the test before
+            # the external timeout from testrunner triggers.
+            self.webdriver.send_session_command("GET", "window", timeout=2)
+        except (socket.timeout, client.UnknownErrorException, client.InvalidSessionIdException):
             return False
         return True
 
@@ -330,7 +341,7 @@ class WebDriverRun(TimedRunner):
                 message = str(getattr(e, "message", ""))
                 if message:
                     message += "\n"
-                message += traceback.format_exc(e)
+                message += traceback.format_exc()
                 self.result = False, ("INTERNAL-ERROR", message)
         finally:
             self.result_flag.set()

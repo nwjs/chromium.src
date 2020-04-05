@@ -49,10 +49,10 @@
 #include "chrome/browser/permissions/adaptive_quiet_notification_permission_ui_enabler.h"
 #include "chrome/browser/permissions/permission_decision_auto_blocker_factory.h"
 #include "chrome/browser/safe_browsing/safe_browsing_service.h"
-#include "chrome/browser/ssl/chrome_ssl_host_state_delegate.h"
-#include "chrome/browser/ssl/chrome_ssl_host_state_delegate_factory.h"
+#include "chrome/browser/ssl/stateful_ssl_host_state_delegate_factory.h"
 #include "chrome/browser/storage/durable_storage_permission_context.h"
 #include "chrome/browser/subresource_filter/subresource_filter_profile_context_factory.h"
+#include "chrome/browser/sync/profile_sync_service_factory.h"
 #include "chrome/browser/translate/chrome_translate_client.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/pref_names.h"
@@ -92,6 +92,7 @@
 #include "components/permissions/permission_util.h"
 #include "components/prefs/testing_pref_service.h"
 #include "components/safe_browsing/core/verdict_cache_manager.h"
+#include "components/security_interstitials/content/stateful_ssl_host_state_delegate.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browsing_data_filter_builder.h"
 #include "content/public/browser/browsing_data_remover.h"
@@ -133,7 +134,7 @@
 
 #if defined(OS_LINUX)
 #include "chrome/common/chrome_paths.h"
-#include "components/crash/content/app/crashpad.h"
+#include "components/crash/core/app/crashpad.h"
 #include "components/upload_list/crash_upload_list.h"
 #endif  // defined(OS_LINUX)
 
@@ -1098,10 +1099,10 @@ class ClearNetworkErrorLoggingTester {
 class BrowsingDataRemoverTestingProfile : public TestingProfile {
  public:
   BrowsingDataRemoverTestingProfile() {}
-  ~BrowsingDataRemoverTestingProfile() override {}
+  ~BrowsingDataRemoverTestingProfile() override = default;
 
   content::SSLHostStateDelegate* GetSSLHostStateDelegate() override {
-    return ChromeSSLHostStateDelegateFactory::GetForProfile(this);
+    return StatefulSSLHostStateDelegateFactory::GetForProfile(this);
   }
 
  private:
@@ -1600,6 +1601,9 @@ TEST_F(ChromeBrowsingDataRemoverDelegateTest,
 TEST_F(ChromeBrowsingDataRemoverDelegateTest, AutofillRemovalLastHour) {
   GetProfile()->CreateWebDataService();
   RemoveAutofillTester tester(GetProfile());
+  // Initialize sync service so that PersonalDatabaseHelper::server_database_
+  // gets initialized:
+  ProfileSyncServiceFactory::GetForProfile(GetProfile());
 
   ASSERT_FALSE(tester.HasProfile());
   tester.AddProfilesAndCards();
@@ -1621,6 +1625,9 @@ TEST_F(ChromeBrowsingDataRemoverDelegateTest, AutofillRemovalLastHour) {
 TEST_F(ChromeBrowsingDataRemoverDelegateTest, AutofillRemovalOlderThan30Days) {
   GetProfile()->CreateWebDataService();
   RemoveAutofillTester tester(GetProfile());
+  // Initialize sync service so that PersonalDatabaseHelper::server_database_
+  // gets initialized:
+  ProfileSyncServiceFactory::GetForProfile(GetProfile());
 
   const base::Time kNow = base::Time::Now();
   const base::Time k30DaysOld = kNow - base::TimeDelta::FromDays(30);
@@ -1658,6 +1665,9 @@ TEST_F(ChromeBrowsingDataRemoverDelegateTest, AutofillRemovalOlderThan30Days) {
 TEST_F(ChromeBrowsingDataRemoverDelegateTest, AutofillRemovalEverything) {
   GetProfile()->CreateWebDataService();
   RemoveAutofillTester tester(GetProfile());
+  // Initialize sync service so that PersonalDatabaseHelper::server_database_
+  // gets initialized:
+  ProfileSyncServiceFactory::GetForProfile(GetProfile());
 
   ASSERT_FALSE(tester.HasProfile());
   tester.AddProfilesAndCards();
@@ -1678,6 +1688,9 @@ TEST_F(ChromeBrowsingDataRemoverDelegateTest,
        StrikeDatabaseEmptyOnAutofillRemoveEverything) {
   GetProfile()->CreateWebDataService();
   RemoveAutofillTester tester(GetProfile());
+  // Initialize sync service so that PersonalDatabaseHelper::server_database_
+  // gets initialized:
+  ProfileSyncServiceFactory::GetForProfile(GetProfile());
 
   ASSERT_FALSE(tester.HasProfile());
   tester.AddProfilesAndCards();
@@ -1703,6 +1716,9 @@ TEST_F(ChromeBrowsingDataRemoverDelegateTest,
        AutofillOriginsRemovedWithHistory) {
   GetProfile()->CreateWebDataService();
   RemoveAutofillTester tester(GetProfile());
+  // Initialize sync service so that PersonalDatabaseHelper::server_database_
+  // gets initialized:
+  ProfileSyncServiceFactory::GetForProfile(GetProfile());
 
   tester.AddProfilesAndCards();
   EXPECT_FALSE(tester.HasOrigin(std::string()));
@@ -1988,9 +2004,6 @@ TEST_F(ChromeBrowsingDataRemoverDelegateTest,
 
 TEST_F(ChromeBrowsingDataRemoverDelegateTest,
        RemoveCompromisedCredentialsByTimeOnly) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(password_manager::features::kLeakHistory);
-
   RemovePasswordsTester tester(GetProfile());
   base::Callback<bool(const GURL&)> empty_filter;
 
@@ -1999,7 +2012,7 @@ TEST_F(ChromeBrowsingDataRemoverDelegateTest,
                                    base::Time(), base::Time::Max()));
   BlockUntilBrowsingDataRemoved(
       base::Time(), base::Time::Max(),
-      ChromeBrowsingDataRemoverDelegate::DATA_TYPE_HISTORY, false);
+      ChromeBrowsingDataRemoverDelegate::DATA_TYPE_PASSWORDS, false);
 }
 
 // TODO(crbug.com/589586): Disabled, since history is not yet marked as

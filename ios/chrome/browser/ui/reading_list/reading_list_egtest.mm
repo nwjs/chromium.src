@@ -318,9 +318,11 @@ void WaitForDistillation() {
   ConditionBlock wait_for_distillation_date = ^{
     NSError* error = nil;
     [[EarlGrey
-        selectElementWithMatcher:grey_accessibilityID(
-                                     kTableViewURLCellFaviconBadgeViewID)]
-        assertWithMatcher:grey_sufficientlyVisible()
+        selectElementWithMatcher:grey_allOf(
+                                     grey_accessibilityID(
+                                         kTableViewURLCellFaviconBadgeViewID),
+                                     grey_sufficientlyVisible(), nil)]
+        assertWithMatcher:grey_notNil()
                     error:&error];
     return error == nil;
   };
@@ -390,7 +392,7 @@ void AssertIsShowingDistillablePage(bool online, const GURL& distillable_url) {
   [[EarlGrey selectElementWithMatcher:
                  grey_allOf(chrome_test_util::PageSecurityInfoIndicator(),
                             chrome_test_util::ImageViewWithImageNamed(
-                                @"location_bar_offline"),
+                                @"location_bar_connection_offline"),
                             nil)]
       assertWithMatcher:online ? grey_nil() : grey_notNil()];
 }
@@ -447,10 +449,6 @@ void AssertIsShowingDistillablePage(bool online, const GURL& distillable_url) {
 // appearing, and that the Reading List entry is present in the Reading List.
 // Loads offline version via context menu.
 - (void)testSavingToReadingListAndLoadDistilled {
-  // TODO(crbug.com/1047236): Test fails when run on iOS 13.
-  if (@available(iOS 13, *)) {
-    EARL_GREY_TEST_DISABLED(@"Fails on iOS 13.");
-  }
   [ReadingListAppInterface forceConnectionToWifi];
   GURL distillablePageURL(self.testServer->GetURL(kDistillableURL));
   GURL nonDistillablePageURL(self.testServer->GetURL(kNonDistillableURL));
@@ -530,10 +528,6 @@ void AssertIsShowingDistillablePage(bool online, const GURL& distillable_url) {
 // appearing, and that the Reading List entry is present in the Reading List.
 // Loads offline version by tapping on entry without web server.
 - (void)testSavingToReadingListAndLoadNoNetwork {
-  // TODO(crbug.com/1046998): Flaky on iOS 13.1.
-  if (@available(iOS 13.1, *)) {
-    EARL_GREY_TEST_DISABLED(@"Fails on iOS 13.1.");
-  }
   [ReadingListAppInterface forceConnectionToWifi];
   GURL distillableURL = self.testServer->GetURL(kDistillableURL);
   // Open http://potato
@@ -580,10 +574,6 @@ void AssertIsShowingDistillablePage(bool online, const GURL& distillable_url) {
 // appearing, and that the Reading List entry is present in the Reading List.
 // Loads offline version by tapping on entry with delayed web server.
 - (void)testSavingToReadingListAndLoadBadNetwork {
-  // TODO(crbug.com/1046998): Flaky on iOS 13.1.
-  if (@available(iOS 13.1, *)) {
-    EARL_GREY_TEST_DISABLED(@"Fails on iOS 13.1.");
-  }
   [ReadingListAppInterface forceConnectionToWifi];
   GURL distillableURL = self.testServer->GetURL(kDistillableURL);
   // Open http://potato

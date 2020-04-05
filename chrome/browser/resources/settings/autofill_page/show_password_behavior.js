@@ -2,13 +2,18 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+// <if expr="chromeos">
+// #import {BlockingRequestManager} from './blocking_request_manager.m.js';
+// </if>
+// #import {PasswordManagerImpl} from './password_manager_proxy.m.js';
+
 /**
  * This behavior bundles functionality required to show a password to the user.
  * It is used by both <password-list-item> and <password-edit-dialog>.
  *
  * @polymerBehavior
  */
-const ShowPasswordBehavior = {
+/* #export */ const ShowPasswordBehavior = {
 
   properties: {
     /**
@@ -55,16 +60,18 @@ const ShowPasswordBehavior = {
 
   /**
    * Gets the text of the password. Will use the value of |password| unless it
-   * cannot be shown, in which case it will be spaces. It can also be the
-   * federated text.
+   * cannot be shown, in which case it will be a fixed number of spaces. It can
+   * also be the federated text.
    * @private
    */
   getPassword_() {
     if (!this.item) {
       return '';
     }
+
+    const NUM_PLACEHOLDERS = 10;
     return this.item.entry.federationText || this.item.password ||
-        ' '.repeat(this.item.entry.numCharactersInPassword);
+        ' '.repeat(NUM_PLACEHOLDERS);
   },
 
   /**
@@ -77,19 +84,19 @@ const ShowPasswordBehavior = {
       return;
     }
     PasswordManagerImpl.getInstance()
-        .getPlaintextPassword(this.item.entry.id)
-        .then(password => {
-          if (password) {
-            this.set('item.password', password);
-          }
-          // <if expr="chromeos">
-          if (!password) {
-            // If no password was found, refresh auth token and retry.
-            this.tokenRequestManager.request(
-                this.onShowPasswordButtonTap_.bind(this));
-          }
-          // </if>
-        });
+        .requestPlaintextPassword(
+            this.item.entry.id, chrome.passwordsPrivate.PlaintextReason.VIEW)
+        .then(
+            password => {
+              this.set('item.password', password);
+            },
+            error => {
+              // <if expr="chromeos">
+              // If no password was found, refresh auth token and retry.
+              this.tokenRequestManager.request(
+                  this.onShowPasswordButtonTap_.bind(this));
+              // </if>
+            });
   },
 };
 

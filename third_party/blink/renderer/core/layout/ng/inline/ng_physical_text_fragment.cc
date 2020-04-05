@@ -51,8 +51,11 @@ NGPhysicalTextFragment::NGPhysicalTextFragment(
   DCHECK_GE(text_offset_.start, source.StartOffset());
   DCHECK_LE(text_offset_.end, source.EndOffset());
   DCHECK(shape_result_ || IsFlowControl()) << *this;
-  is_generated_text_ = source.is_generated_text_;
+  base_or_resolved_direction_ = source.base_or_resolved_direction_;
+  is_generated_text_or_math_fraction_ =
+      source.is_generated_text_or_math_fraction_;
   ink_overflow_computed_ = false;
+  is_first_for_node_ = source.is_first_for_node_;
 }
 
 NGPhysicalTextFragment::NGPhysicalTextFragment(NGTextFragmentBuilder* builder)
@@ -61,8 +64,11 @@ NGPhysicalTextFragment::NGPhysicalTextFragment(NGTextFragmentBuilder* builder)
       text_offset_({builder->start_offset_, builder->end_offset_}),
       shape_result_(std::move(builder->shape_result_)) {
   DCHECK(shape_result_ || IsFlowControl()) << *this;
-  is_generated_text_ = builder->IsGeneratedText();
+  base_or_resolved_direction_ =
+      static_cast<unsigned>(builder->ResolvedDirection());
+  is_generated_text_or_math_fraction_ = builder->IsGeneratedText();
   ink_overflow_computed_ = false;
+  is_first_for_node_ = builder->is_first_for_node_;
 }
 
 LayoutUnit NGPhysicalTextFragment::InlinePositionForOffset(
@@ -261,12 +267,6 @@ UBiDiLevel NGPhysicalTextFragment::BidiLevel() const {
   DCHECK(containing_item);
   DCHECK_NE(containing_item, items.end());
   return containing_item->BidiLevel();
-}
-
-TextDirection NGPhysicalTextFragment::ResolvedDirection() const {
-  if (TextShapeResult())
-    return TextShapeResult()->Direction();
-  return DirectionFromLevel(BidiLevel());
 }
 
 }  // namespace blink

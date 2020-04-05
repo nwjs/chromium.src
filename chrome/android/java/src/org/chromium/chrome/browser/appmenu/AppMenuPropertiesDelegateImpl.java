@@ -10,8 +10,6 @@ import android.content.res.Resources;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.os.SystemClock;
-import android.support.v4.graphics.drawable.DrawableCompat;
-import android.support.v7.content.res.AppCompatResources;
 import android.text.TextUtils;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -19,6 +17,9 @@ import android.view.View;
 
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
+import androidx.appcompat.content.res.AppCompatResources;
+import androidx.core.graphics.drawable.DrawableCompat;
 
 import org.chromium.base.Callback;
 import org.chromium.base.CommandLine;
@@ -27,29 +28,33 @@ import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ActivityTabProvider;
-import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.ShortcutHelper;
 import org.chromium.chrome.browser.banners.AppBannerManager;
 import org.chromium.chrome.browser.bookmarks.BookmarkBridge;
 import org.chromium.chrome.browser.compositor.layouts.OverviewModeBehavior;
 import org.chromium.chrome.browser.device.DeviceClassManager;
 import org.chromium.chrome.browser.download.DownloadUtils;
-import org.chromium.chrome.browser.flags.FeatureUtilities;
+import org.chromium.chrome.browser.flags.CachedFeatureFlags;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.multiwindow.MultiWindowModeStateDispatcher;
 import org.chromium.chrome.browser.omaha.UpdateMenuItemHelper;
-import org.chromium.chrome.browser.settings.ManagedPreferencesUtils;
 import org.chromium.chrome.browser.share.ShareHelper;
+import org.chromium.chrome.browser.share.ShareUtils;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabImpl;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
+import org.chromium.chrome.browser.tasks.tab_management.TabUiFeatureUtilities;
 import org.chromium.chrome.browser.toolbar.ToolbarManager;
 import org.chromium.chrome.browser.translate.TranslateUtils;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuHandler;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuPropertiesDelegate;
 import org.chromium.chrome.browser.ui.appmenu.CustomViewBinder;
-import org.chromium.chrome.browser.util.UrlConstants;
+import org.chromium.chrome.features.start_surface.StartSurfaceConfiguration;
+import org.chromium.components.browser_ui.settings.ManagedPreferencesUtils;
 import org.chromium.components.dom_distiller.core.DomDistillerUrlUtils;
+import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.webapk.lib.client.WebApkValidator;
 
@@ -61,6 +66,8 @@ import java.util.List;
  * items based on activity state.
  */
 public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate {
+    private static Boolean sItemBookmarkedForTesting;
+
     protected MenuItem mReloadMenuItem;
 
     protected final Context mContext;
@@ -75,6 +82,7 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
     private @Nullable Callback<OverviewModeBehavior> mOverviewModeSupplierCallback;
     private Callback<BookmarkBridge> mBookmarkBridgeSupplierCallback;
     private boolean mUpdateMenuItemVisible;
+    private ShareUtils mShareUtils;
     @IntDef({MenuGroup.INVALID, MenuGroup.PAGE_MENU, MenuGroup.OVERVIEW_MODE_MENU,
             MenuGroup.START_SURFACE_MODE_MENU, MenuGroup.TABLET_EMPTY_MODE_MENU})
     private @interface MenuGroup {
@@ -128,6 +136,7 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
         mBookmarkBridgeSupplier = bookmarkBridgeSupplier;
         mBookmarkBridgeSupplierCallback = (bookmarkBridge) -> mBookmarkBridge = bookmarkBridge;
         mBookmarkBridgeSupplier.addObserver(mBookmarkBridgeSupplierCallback);
+        mShareUtils = new ShareUtils();
     }
 
     @Override
@@ -182,8 +191,9 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
                 menuGroup = MenuGroup.TABLET_EMPTY_MODE_MENU;
             }
         } else if (isOverview) {
-            menuGroup = FeatureUtilities.isStartSurfaceEnabled() ? MenuGroup.START_SURFACE_MODE_MENU
-                                                                 : MenuGroup.OVERVIEW_MODE_MENU;
+            menuGroup = StartSurfaceConfiguration.isStartSurfaceEnabled()
+                    ? MenuGroup.START_SURFACE_MODE_MENU
+                    : MenuGroup.OVERVIEW_MODE_MENU;
         }
         assert menuGroup != MenuGroup.INVALID;
 
@@ -197,7 +207,7 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
         boolean isIncognito = mTabModelSelector.getCurrentModel().isIncognito();
         Tab currentTab = mActivityTabProvider.get();
         if (menuGroup == MenuGroup.PAGE_MENU && currentTab != null) {
-            String url = currentTab.getUrl();
+            String url = currentTab.getUrlString();
             boolean isChromeScheme = url.startsWith(UrlConstants.CHROME_URL_PREFIX)
                     || url.startsWith(UrlConstants.CHROME_NATIVE_URL_PREFIX);
             boolean isFileScheme = url.startsWith(UrlConstants.FILE_URL_PREFIX);
@@ -221,7 +231,8 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
                 Drawable icon =
                         AppCompatResources.getDrawable(mContext, R.drawable.btn_reload_stop);
                 DrawableCompat.setTintList(icon,
-                        AppCompatResources.getColorStateList(mContext, R.color.standard_mode_tint));
+                        AppCompatResources.getColorStateList(
+                                mContext, R.color.default_icon_color_tint_list));
                 mReloadMenuItem.setIcon(icon);
                 loadingStateChanged(currentTab.isLoading());
 
@@ -248,15 +259,17 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
                             && hasMoreThanOneTab);
 
             // Don't allow either "chrome://" pages or interstitial pages to be shared.
-            boolean isChromeOrInterstitialPage =
-                    isChromeScheme || ((TabImpl) currentTab).isShowingInterstitialPage();
-            menu.findItem(R.id.share_row_menu_id).setVisible(!isChromeOrInterstitialPage);
+            menu.findItem(R.id.share_row_menu_id)
+                    .setVisible(mShareUtils.shouldEnableShare(currentTab));
 
             ShareHelper.configureDirectShareMenuItem(
                     mContext, menu.findItem(R.id.direct_share_menu_id));
 
-            menu.findItem(R.id.paint_preview_capture_id)
-                    .setVisible(FeatureUtilities.isPaintPreviewTestEnabled()
+            boolean isChromeOrInterstitialPage =
+                    isChromeScheme || ((TabImpl) currentTab).isShowingInterstitialPage();
+
+            menu.findItem(R.id.paint_preview_show_id)
+                    .setVisible(CachedFeatureFlags.isEnabled(ChromeFeatureList.PAINT_PREVIEW_DEMO)
                             && !isChromeOrInterstitialPage && !isIncognito);
 
             // Disable find in page on the native NTP.
@@ -285,7 +298,7 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
 
             // Only display reader mode settings menu option if the current page is in reader mode.
             menu.findItem(R.id.reader_mode_prefs_id)
-                    .setVisible(DomDistillerUrlUtils.isDistilledPage(currentTab.getUrl()));
+                    .setVisible(DomDistillerUrlUtils.isDistilledPage(currentTab.getUrlString()));
 
             // Only display the Enter VR button if VR Shell Dev environment is enabled.
             menu.findItem(R.id.enter_vr_id)
@@ -295,7 +308,7 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
 
         // We have to iterate all menu items since same menu item ID may be associated with more
         // than one menu items.
-        boolean isMenuGroupTabsVisible = FeatureUtilities.isTabGroupsAndroidUiImprovementsEnabled()
+        boolean isMenuGroupTabsVisible = TabUiFeatureUtilities.isTabGroupsAndroidEnabled()
                 && !DeviceClassManager.enableAccessibilityLayout();
         boolean isMenuGroupTabsEnabled = mTabModelSelector.getTabModelFilterProvider()
                                                  .getCurrentTabModelFilter()
@@ -351,7 +364,7 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
             Context context = ContextUtils.getApplicationContext();
             long addToHomeScreenStart = SystemClock.elapsedRealtime();
             ResolveInfo resolveInfo =
-                    WebApkValidator.queryFirstWebApkResolveInfo(context, currentTab.getUrl());
+                    WebApkValidator.queryFirstWebApkResolveInfo(context, currentTab.getUrlString());
             RecordHistogram.recordTimesHistogram("Android.PrepareMenu.OpenWebApkVisibilityCheck",
                     SystemClock.elapsedRealtime() - addToHomeScreenStart);
 
@@ -480,7 +493,10 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
             bookmarkMenuItem.setEnabled(mBookmarkBridge.isEditBookmarksEnabled());
         }
 
-        if (BookmarkBridge.hasBookmarkIdForTab(currentTab)) {
+        boolean isBookmarked = sItemBookmarkedForTesting != null
+                ? sItemBookmarkedForTesting
+                : BookmarkBridge.hasBookmarkIdForTab(currentTab);
+        if (isBookmarked) {
             bookmarkMenuItem.setIcon(R.drawable.btn_star_filled);
             bookmarkMenuItem.setChecked(true);
             bookmarkMenuItem.setTitleCondensed(mContext.getString(R.string.edit_bookmark));
@@ -504,7 +520,7 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
         MenuItem requestMenuCheck = menu.findItem(R.id.request_desktop_site_check_id);
 
         // Hide request desktop site on all chrome:// pages except for the NTP.
-        String url = currentTab.getUrl();
+        String url = currentTab.getUrlString();
         boolean isChromeScheme = url.startsWith(UrlConstants.CHROME_URL_PREFIX)
                 || url.startsWith(UrlConstants.CHROME_NATIVE_URL_PREFIX);
         // Also hide request desktop site on Reader Mode.
@@ -525,5 +541,10 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
         requestMenuLabel.setTitleCondensed(isRds
                         ? mContext.getString(R.string.menu_request_desktop_site_on)
                         : mContext.getString(R.string.menu_request_desktop_site_off));
+    }
+
+    @VisibleForTesting
+    static void setPageBookmarkedForTesting(Boolean bookmarked) {
+        sItemBookmarkedForTesting = bookmarked;
     }
 }

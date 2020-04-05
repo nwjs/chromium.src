@@ -60,7 +60,7 @@ class IntersectionObserverDelegateImpl final
 
   ExecutionContext* GetExecutionContext() const override { return context_; }
 
-  void Trace(blink::Visitor* visitor) override {
+  void Trace(Visitor* visitor) override {
     IntersectionObserverDelegate::Trace(visitor);
     visitor->Trace(context_);
   }
@@ -228,7 +228,7 @@ IntersectionObserver* IntersectionObserver::Create(
     ExceptionState& exception_state) {
   IntersectionObserverDelegateImpl* intersection_observer_delegate =
       MakeGarbageCollected<IntersectionObserverDelegateImpl>(
-          document, std::move(callback), behavior);
+          document->GetExecutionContext(), std::move(callback), behavior);
   return MakeGarbageCollected<IntersectionObserver>(
       *intersection_observer_delegate, nullptr, root_margin, thresholds,
       semantics, delay, track_visibility, always_report_root_bounds);
@@ -243,7 +243,7 @@ IntersectionObserver::IntersectionObserver(
     DOMHighResTimeStamp delay,
     bool track_visibility,
     bool always_report_root_bounds)
-    : ContextClient(delegate.GetExecutionContext()),
+    : ExecutionContextClient(delegate.GetExecutionContext()),
       delegate_(&delegate),
       root_(root),
       thresholds_(thresholds),
@@ -417,11 +417,9 @@ DOMHighResTimeStamp IntersectionObserver::GetEffectiveDelay() const {
 }
 
 DOMHighResTimeStamp IntersectionObserver::GetTimeStamp() const {
-  if (Document* document = To<Document>(delegate_->GetExecutionContext())) {
-    if (LocalDOMWindow* dom_window = document->domWindow())
-      return DOMWindowPerformance::performance(*dom_window)->now();
-  }
-  return -1;
+  return DOMWindowPerformance::performance(
+             *To<LocalDOMWindow>(delegate_->GetExecutionContext()))
+      ->now();
 }
 
 bool IntersectionObserver::ComputeIntersections(unsigned flags) {
@@ -446,7 +444,8 @@ void IntersectionObserver::SetNeedsDelivery() {
   if (needs_delivery_)
     return;
   needs_delivery_ = 1;
-  To<Document>(GetExecutionContext())
+  To<LocalDOMWindow>(GetExecutionContext())
+      ->document()
       ->EnsureIntersectionObserverController()
       .ScheduleIntersectionObserverForDelivery(*this);
 }
@@ -471,13 +470,13 @@ bool IntersectionObserver::HasPendingActivity() const {
   return !observations_.IsEmpty();
 }
 
-void IntersectionObserver::Trace(blink::Visitor* visitor) {
+void IntersectionObserver::Trace(Visitor* visitor) {
   visitor->template RegisterWeakCallbackMethod<
       IntersectionObserver, &IntersectionObserver::ProcessCustomWeakness>(this);
   visitor->Trace(delegate_);
   visitor->Trace(observations_);
   ScriptWrappable::Trace(visitor);
-  ContextClient::Trace(visitor);
+  ExecutionContextClient::Trace(visitor);
 }
 
 }  // namespace blink

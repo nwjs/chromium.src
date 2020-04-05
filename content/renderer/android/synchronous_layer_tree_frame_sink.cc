@@ -115,14 +115,11 @@ class SynchronousLayerTreeFrameSink::SoftwareOutputSurface
   void Reshape(const gfx::Size& size,
                float scale_factor,
                const gfx::ColorSpace& color_space,
-               bool has_alpha,
+               gfx::BufferFormat format,
                bool use_stencil) override {}
   uint32_t GetFramebufferCopyTextureFormat() override { return 0; }
   bool IsDisplayedAsOverlayPlane() const override { return false; }
   unsigned GetOverlayTextureId() const override { return 0; }
-  gfx::BufferFormat GetOverlayBufferFormat() const override {
-    return gfx::BufferFormat::RGBX_8888;
-  }
   bool HasExternalStencilTest() const override { return false; }
   void ApplyExternalStencil() override {}
   unsigned UpdateGpuFence() override { return 0; }
@@ -136,6 +133,7 @@ class SynchronousLayerTreeFrameSink::SoftwareOutputSurface
       override {
     return nullptr;
   }
+  gpu::MemoryTracker* GetMemoryTracker() override { return nullptr; }
 };
 
 base::TimeDelta SynchronousLayerTreeFrameSink::StubDisplayClient::

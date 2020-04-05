@@ -32,6 +32,7 @@
 #include "components/autofill/core/browser/autocomplete_history_manager.h"
 #include "components/autofill/core/common/autofill_prefs.h"
 #include "components/cdm/browser/media_drm_storage_impl.h"
+#include "components/crash/core/common/crash_key.h"
 #include "components/download/public/common/in_progress_download_manager.h"
 #include "components/keyed_service/core/simple_key_map.h"
 #include "components/policy/core/browser/browser_policy_connector_base.h"
@@ -71,6 +72,9 @@ const void* const kDownloadManagerDelegateKey = &kDownloadManagerDelegateKey;
 
 AwBrowserContext* g_browser_context = NULL;
 
+crash_reporter::CrashKeyString<1> g_web_view_compat_crash_key(
+    "WEBLAYER_WEB_VIEW_COMPAT_MODE");
+
 // Empty method to skip origin security check as DownloadManager will set its
 // own method.
 bool IgnoreOriginSecurityCheck(const GURL& url) {
@@ -79,6 +83,7 @@ bool IgnoreOriginSecurityCheck(const GURL& url) {
 
 void MigrateProfileData(base::FilePath cache_path,
                         base::FilePath context_storage_path) {
+  TRACE_EVENT0("startup", "MigrateProfileData");
   FilePath old_cache_path;
   base::PathService::Get(base::DIR_CACHE, &old_cache_path);
   old_cache_path = old_cache_path.DirName().Append(
@@ -141,6 +146,10 @@ AwBrowserContext::AwBrowserContext()
     : context_storage_path_(GetContextStoragePath()),
       simple_factory_key_(GetPath(), IsOffTheRecord()) {
   DCHECK(!g_browser_context);
+
+  TRACE_EVENT0("startup", "AwBrowserContext::AwBrowserContext");
+
+  g_web_view_compat_crash_key.Set("0");
 
   if (IsDefaultBrowserContext()) {
     MigrateProfileData(GetCacheDir(), GetContextStoragePath());
@@ -253,6 +262,7 @@ void AwBrowserContext::RegisterPrefs(PrefRegistrySimple* registry) {
 }
 
 void AwBrowserContext::CreateUserPrefService() {
+  TRACE_EVENT0("startup", "AwBrowserContext::CreateUserPrefService");
   auto pref_registry = base::MakeRefCounted<user_prefs::PrefRegistrySyncable>();
 
   RegisterPrefs(pref_registry.get());
@@ -318,6 +328,10 @@ AwQuotaManagerBridge* AwBrowserContext::GetQuotaManagerBridge() {
     quota_manager_bridge_ = AwQuotaManagerBridge::Create(this);
   }
   return quota_manager_bridge_.get();
+}
+
+void AwBrowserContext::SetWebLayerRunningInSameProcess(JNIEnv* env) {
+  g_web_view_compat_crash_key.Set("1");
 }
 
 AwFormDatabaseService* AwBrowserContext::GetFormDatabaseService() {

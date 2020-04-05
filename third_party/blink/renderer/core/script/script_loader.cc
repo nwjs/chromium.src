@@ -24,6 +24,7 @@
 
 #include "third_party/blink/renderer/core/script/script_loader.h"
 
+#include "base/feature_list.h"
 #include "third_party/blink/public/common/feature_policy/feature_policy.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/feature_policy/feature_policy_feature.mojom-blink.h"
@@ -56,6 +57,7 @@
 #include "third_party/blink/renderer/core/svg_names.h"
 #include "third_party/blink/renderer/core/trustedtypes/trusted_types_util.h"
 #include "third_party/blink/renderer/platform/bindings/parkable_string.h"
+#include "third_party/blink/renderer/platform/heap/heap.h"
 #include "third_party/blink/renderer/platform/instrumentation/histogram.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 #include "third_party/blink/renderer/platform/loader/fetch/fetch_client_settings_object_snapshot.h"
@@ -407,7 +409,7 @@ bool ScriptLoader::PrepareScript(const TextPosition& script_start_position,
   // This FeaturePolicy is still in the process of being added to the spec.
   if (ShouldBlockSyncScriptForFeaturePolicy(element_.Get(), GetScriptType(),
                                             parser_inserted_)) {
-    element_document.AddConsoleMessage(ConsoleMessage::Create(
+    element_document.AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
         mojom::ConsoleMessageSource::kJavaScript,
         mojom::ConsoleMessageLevel::kError,
         "Synchronous script execution is disabled by Feature Policy"));
@@ -437,11 +439,13 @@ bool ScriptLoader::PrepareScript(const TextPosition& script_start_position,
   IntegrityMetadataSet integrity_metadata;
   if (!integrity_attr.IsEmpty()) {
     SubresourceIntegrity::IntegrityFeatures integrity_features =
-        SubresourceIntegrityHelper::GetFeatures(&element_document);
+        SubresourceIntegrityHelper::GetFeatures(
+            element_document.ToExecutionContext());
     SubresourceIntegrity::ReportInfo report_info;
     SubresourceIntegrity::ParseIntegrityAttribute(
         integrity_attr, integrity_features, integrity_metadata, &report_info);
-    SubresourceIntegrityHelper::DoReport(element_document, report_info);
+    SubresourceIntegrityHelper::DoReport(*element_document.ToExecutionContext(),
+                                         report_info);
   }
 
   // <spec step="20">Let referrer policy be the current state of the element's
@@ -499,7 +503,7 @@ bool ScriptLoader::PrepareScript(const TextPosition& script_start_position,
     Modulator* modulator = Modulator::From(
         ToScriptStateForMainWorld(context_document->GetFrame()));
     if (!modulator->IsAcquiringImportMaps()) {
-      element_document.AddConsoleMessage(ConsoleMessage::Create(
+      element_document.AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
           mojom::ConsoleMessageSource::kJavaScript,
           mojom::ConsoleMessageLevel::kError,
           "An import map is added after module script load was triggered."));
@@ -549,7 +553,7 @@ bool ScriptLoader::PrepareScript(const TextPosition& script_start_position,
     // <spec step="24.6">Switch on the script's type:</spec>
     if (is_import_map) {
       // TODO(crbug.com/922212): Implement external import maps.
-      element_document.AddConsoleMessage(ConsoleMessage::Create(
+      element_document.AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
           mojom::ConsoleMessageSource::kJavaScript,
           mojom::ConsoleMessageLevel::kError,
           "External import maps are not yet supported."));
@@ -581,9 +585,7 @@ bool ScriptLoader::PrepareScript(const TextPosition& script_start_position,
       // Fetch a classic script given url, settings object, options, classic
       // script CORS setting, and encoding.</spec>
       Document* document_for_origin = &element_document;
-      if (base::FeatureList::IsEnabled(
-              features::kHtmlImportsRequestInitiatorLock) &&
-          element_document.ImportsController()) {
+      if (element_document.ImportsController()) {
         document_for_origin = context_document;
       }
       FetchClassicScript(url, *document_for_origin, options, cross_origin,
@@ -973,7 +975,9 @@ void ScriptLoader::PendingScriptFinished(PendingScript* pending_script) {
   // memory cache not be in the HTTPCache. So we keep |resource_keep_alive_| to
   // keep the resource in the memory cache.
   if (resource_keep_alive_ &&
-      !resource_keep_alive_->GetResponse().IsSignedExchangeInnerResponse()) {
+      !resource_keep_alive_->GetResponse().IsSignedExchangeInnerResponse() &&
+      !base::FeatureList::IsEnabled(
+          blink::features::kKeepScriptResourceAlive)) {
     resource_keep_alive_ = nullptr;
   }
 
@@ -1040,6 +1044,7 @@ String ScriptLoader::GetScriptText() const {
   if (child_text_content == script_text_internal_slot)
     return child_text_content;
   return GetStringForScriptExecution(child_text_content,
+                                     element_->GetScriptElementType(),
                                      element_->GetDocument().ContextDocument());
 }
 

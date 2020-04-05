@@ -38,7 +38,6 @@
 #include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/extensions/api/content_settings/content_settings_custom_extension_provider.h"
 #include "chrome/browser/extensions/api/content_settings/content_settings_service.h"
-#include "chrome/browser/extensions/app_data_migrator.h"
 #include "chrome/browser/extensions/component_loader.h"
 #include "chrome/browser/extensions/crx_installer.h"
 #include "chrome/browser/extensions/data_deleter.h"
@@ -259,7 +258,7 @@ bool ExtensionService::OnExternalExtensionUpdateUrlFound(
                                           ExtensionRegistry::EVERYTHING),
               nullptr)) {
         int disable_reasons =
-            extension_prefs_->GetDisableReasons(extension->id());
+            extension_prefs_->GetDisableReasons(info.extension_id);
         disable_reasons &= (~(disable_reason::DISABLE_USER_ACTION |
                               disable_reason::DISABLE_PERMISSIONS_INCREASE));
         extension_prefs_->ReplaceDisableReasons(info.extension_id,
@@ -271,7 +270,15 @@ bool ExtensionService::OnExternalExtensionUpdateUrlFound(
           EnableExtension(info.extension_id);
         }
       }
-      return false;
+      // If the extension is not corrupted, it is already installed with the
+      // correct install location, so there is no need to add it to the pending
+      // set of extensions. If the extension is corrupted, it should be
+      // reinstalled, thus it should be added to the pending extensions for
+      // installation.
+      if (!pending_extension_manager_.IsPolicyReinstallForCorruptionExpected(
+              info.extension_id)) {
+        return false;
+      }
     }
     // Otherwise, overwrite the current installation.
   }
@@ -350,9 +357,11 @@ ExtensionService::ExtensionService(Profile* profile,
       extensions_enabled_(extensions_enabled),
       ready_(ready),
       shared_module_service_(new SharedModuleService(profile_)),
-      app_data_migrator_(new AppDataMigrator(profile_, registry_)),
       extension_registrar_(profile_, this),
-      forced_extensions_tracker_(registry_, profile_) {
+      forced_extensions_tracker_(registry_, profile_),
+      forced_extensions_metrics_(registry_,
+                                 profile_,
+                                 &forced_extensions_tracker_) {
   CHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   TRACE_EVENT0("browser,startup", "ExtensionService::ExtensionService::ctor");
 
@@ -576,8 +585,7 @@ bool ExtensionService::UpdateExtension(const CRXFileInfo& file,
         ExtensionPrefs::Get(profile_)->HasDisableReason(
             id, disable_reason::DISABLE_PERMISSIONS_INCREASE);
     const base::Version& expected_version = pending_extension_info->version();
-    if (has_permissions_increase ||
-        pending_extension_info->remote_install() ||
+    if (has_permissions_increase || pending_extension_info->remote_install() ||
         !expected_version.IsValid()) {
       installer->set_grant_permissions(false);
     } else {
@@ -728,8 +736,8 @@ bool ExtensionService::UninstallExtension(
 
   InstallVerifier::Get(GetBrowserContext())->Remove(extension->id());
 
-  UMA_HISTOGRAM_ENUMERATION("Extensions.UninstallType",
-                            extension->GetType(), 100);
+  UMA_HISTOGRAM_ENUMERATION("Extensions.UninstallType", extension->GetType(),
+                            100);
   RecordPermissionMessagesHistogram(extension.get(), "Uninstall");
 
   // Unload before doing more cleanup to ensure that nothing is hanging on to
@@ -753,8 +761,8 @@ bool ExtensionService::UninstallExtension(
   extension_registrar_.UntrackTerminatedExtension(extension->id());
 
   // Notify interested parties that we've uninstalled this extension.
-  ExtensionRegistry::Get(profile_)
-      ->TriggerOnUninstalled(extension.get(), reason);
+  ExtensionRegistry::Get(profile_)->TriggerOnUninstalled(extension.get(),
+                                                         reason);
 
   delayed_installs_.Remove(extension->id());
 
@@ -903,10 +911,8 @@ void ExtensionService::RecordPermissionMessagesHistogram(
   // Since this is called from multiple sources, and since the histogram macros
   // use statics, we need to manually lookup the histogram ourselves.
   base::HistogramBase* counter = base::LinearHistogram::FactoryGet(
-      base::StringPrintf("Extensions.Permissions_%s3", histogram),
-      1,
-      APIPermission::kEnumBoundary,
-      APIPermission::kEnumBoundary + 1,
+      base::StringPrintf("Extensions.Permissions_%s3", histogram), 1,
+      APIPermission::kEnumBoundary, APIPermission::kEnumBoundary + 1,
       base::HistogramBase::kUmaTargetedHistogramFlag);
 
   base::HistogramBase* counter_has_any = base::BooleanHistogram::FactoryGet(
@@ -1031,6 +1037,12 @@ void ExtensionService::CheckManagementPolicy() {
     if (!system_->management_policy()->MustRemainDisabled(extension.get(),
                                                           nullptr, nullptr)) {
       disable_reasons &= (~disable_reason::DISABLE_BLOCKED_BY_POLICY);
+    }
+
+    // If this profile is not supervised, then remove any supervised user
+    // related disable reasons.
+    if (!profile()->IsChild()) {
+      disable_reasons &= (~disable_reason::DISABLE_CUSTODIAN_APPROVAL_REQUIRED);
     }
 
     extension_prefs_->ReplaceDisableReasons(extension->id(), disable_reasons);
@@ -1289,7 +1301,7 @@ void ExtensionService::AddComponentExtension(const Extension* extension) {
     // Request to component extensions and pass the ruleset checksum here.
     AddNewOrUpdatedExtension(extension, Extension::ENABLED, kInstallFlagNone,
                              syncer::StringOrdinal(), std::string(),
-                             base::nullopt);
+                             {} /* ruleset_checksums */);
     return;
   }
 
@@ -1446,7 +1458,7 @@ void ExtensionService::OnExtensionInstalled(
     const Extension* extension,
     const syncer::StringOrdinal& page_ordinal,
     int install_flags,
-    const base::Optional<int>& dnr_ruleset_checksum) {
+    const declarative_net_request::RulesetChecksums& ruleset_checksums) {
   CHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
   const std::string& id = extension->id();
@@ -1517,21 +1529,20 @@ void ExtensionService::OnExtensionInstalled(
     // showing the install dialogue).
     extension_prefs_->AcknowledgeBlacklistedExtension(id);
     UMA_HISTOGRAM_ENUMERATION("ExtensionBlacklist.SilentInstall",
-                              extension->location(),
-                              Manifest::NUM_LOCATIONS);
+                              extension->location(), Manifest::NUM_LOCATIONS);
   }
 
   if (!registry_->GetInstalledExtension(extension->id())) {
-    UMA_HISTOGRAM_ENUMERATION("Extensions.InstallType",
-                              extension->GetType(), 100);
-    UMA_HISTOGRAM_ENUMERATION("Extensions.InstallSource",
-                              extension->location(), Manifest::NUM_LOCATIONS);
+    UMA_HISTOGRAM_ENUMERATION("Extensions.InstallType", extension->GetType(),
+                              100);
+    UMA_HISTOGRAM_ENUMERATION("Extensions.InstallSource", extension->location(),
+                              Manifest::NUM_LOCATIONS);
     RecordPermissionMessagesHistogram(extension, "Install");
   } else {
-    UMA_HISTOGRAM_ENUMERATION("Extensions.UpdateType",
-                              extension->GetType(), 100);
-    UMA_HISTOGRAM_ENUMERATION("Extensions.UpdateSource",
-                              extension->location(), Manifest::NUM_LOCATIONS);
+    UMA_HISTOGRAM_ENUMERATION("Extensions.UpdateType", extension->GetType(),
+                              100);
+    UMA_HISTOGRAM_ENUMERATION("Extensions.UpdateSource", extension->location(),
+                              Manifest::NUM_LOCATIONS);
   }
 
   Extension::State initial_state =
@@ -1553,12 +1564,12 @@ void ExtensionService::OnExtensionInstalled(
     case InstallGate::INSTALL:
       AddNewOrUpdatedExtension(extension, initial_state, install_flags,
                                page_ordinal, install_parameter,
-                               dnr_ruleset_checksum);
+                               ruleset_checksums);
       return;
     case InstallGate::DELAY:
       extension_prefs_->SetDelayedInstallInfo(
           extension, initial_state, install_flags, delay_reason, page_ordinal,
-          install_parameter, dnr_ruleset_checksum);
+          install_parameter, ruleset_checksums);
 
       // Transfer ownership of |extension|.
       delayed_installs_.Insert(extension);
@@ -1607,23 +1618,14 @@ void ExtensionService::AddNewOrUpdatedExtension(
     int install_flags,
     const syncer::StringOrdinal& page_ordinal,
     const std::string& install_parameter,
-    const base::Optional<int>& dnr_ruleset_checksum) {
+    const declarative_net_request::RulesetChecksums& ruleset_checksums) {
   CHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   extension_prefs_->OnExtensionInstalled(extension, initial_state, page_ordinal,
                                          install_flags, install_parameter,
-                                         dnr_ruleset_checksum);
+                                         ruleset_checksums);
   delayed_installs_.Remove(extension->id());
   if (InstallVerifier::NeedsVerification(*extension))
     InstallVerifier::Get(GetBrowserContext())->VerifyExtension(extension->id());
-
-  const Extension* old = registry_->GetInstalledExtension(extension->id());
-  if (AppDataMigrator::NeedsMigration(old, extension)) {
-    app_data_migrator_->DoMigrationAndReply(
-        old, extension,
-        base::BindOnce(&ExtensionService::FinishInstallation, AsWeakPtr(),
-                       base::RetainedRef(extension)));
-    return;
-  }
 
   FinishInstallation(extension);
 }
@@ -1666,8 +1668,7 @@ bool ExtensionService::FinishDelayedInstallationIfReady(
   return true;
 }
 
-void ExtensionService::FinishInstallation(
-    const Extension* extension) {
+void ExtensionService::FinishInstallation(const Extension* extension) {
   const Extension* existing_extension =
       registry_->GetInstalledExtension(extension->id());
   bool is_update = false;
@@ -1676,8 +1677,7 @@ void ExtensionService::FinishInstallation(
     is_update = true;
     old_name = existing_extension->name();
   }
-  registry_->TriggerOnWillBeInstalled(
-      extension, is_update, old_name);
+  registry_->TriggerOnWillBeInstalled(extension, is_update, old_name);
 
   // Unpacked extensions default to allowing file access, but if that has been
   // overridden, don't reset the value.
@@ -1858,7 +1858,7 @@ void ExtensionService::Observe(int type,
       Profile* host_profile =
           Profile::FromBrowserContext(process->GetBrowserContext());
       if (!profile_->IsSameProfile(host_profile->GetOriginalProfile()))
-          break;
+        break;
 
       ProcessMap* process_map = ProcessMap::Get(profile_);
       if (process_map->Contains(process->GetID())) {
@@ -2108,7 +2108,7 @@ void Partition(const ExtensionIdSet& before,
                const ExtensionIdSet& unchanged,
                ExtensionIdSet* no_longer,
                ExtensionIdSet* not_yet) {
-  *not_yet   = base::STLSetDifference<ExtensionIdSet>(after, before);
+  *not_yet = base::STLSetDifference<ExtensionIdSet>(after, before);
   *no_longer = base::STLSetDifference<ExtensionIdSet>(before, after);
   *no_longer = base::STLSetDifference<ExtensionIdSet>(*no_longer, unchanged);
 }
@@ -2135,8 +2135,7 @@ void ExtensionService::UpdateBlacklistedExtensions(
                                                  NOT_BLACKLISTED);
     AddExtension(extension.get());
     UMA_HISTOGRAM_ENUMERATION("ExtensionBlacklist.UnblacklistInstalled",
-                              extension->location(),
-                              Manifest::NUM_LOCATIONS);
+                              extension->location(), Manifest::NUM_LOCATIONS);
   }
 
   for (auto it = not_yet_blocked.begin(); it != not_yet_blocked.end(); ++it) {
@@ -2162,9 +2161,8 @@ void ExtensionService::UpdateGreylistedExtensions(
     const ExtensionIdSet& unchanged,
     const Blacklist::BlacklistStateMap& state_map) {
   ExtensionIdSet not_yet_greylisted, no_longer_greylisted;
-  Partition(greylist_.GetIDs(),
-            greylist, unchanged,
-            &no_longer_greylisted, &not_yet_greylisted);
+  Partition(greylist_.GetIDs(), greylist, unchanged, &no_longer_greylisted,
+            &not_yet_greylisted);
 
   for (auto it = no_longer_greylisted.begin(); it != no_longer_greylisted.end();
        ++it) {
@@ -2223,6 +2221,12 @@ void ExtensionService::UnregisterInstallGate(InstallGate* install_delayer) {
       return;
     }
   }
+}
+
+bool ExtensionService::UserCanDisableInstalledExtension(
+    const std::string& extension_id) {
+  const Extension* extension = registry_->GetInstalledExtension(extension_id);
+  return CanDisableExtension(extension);
 }
 
 // Used only by test code.

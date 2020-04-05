@@ -3,7 +3,6 @@
 # found in the LICENSE file.
 
 import("//android_webview/variables.gni")
-import("//base/android/proguard/proguard.gni")
 import("//build/config/android/config.gni")
 import("//build/config/android/rules.gni")
 import("//build/config/locales.gni")
@@ -31,6 +30,8 @@ template("system_webview_apk_or_module_tmpl") {
     _is_bundle_module = invoker.target_type == "android_app_bundle_module"
     _target_type = invoker.target_type
   }
+  _exclude_weblayer_java =
+      defined(invoker.exclude_weblayer_java) && invoker.exclude_weblayer_java
   target(_target_type, target_name) {
     forward_variables_from(invoker,
                            "*",
@@ -41,10 +42,20 @@ template("system_webview_apk_or_module_tmpl") {
                            ])
 
     deps += [
-      "//android_webview:android_webview_step1_java",
       "//android_webview:locale_pak_assets",
       "//android_webview:pak_file_assets",
     ]
+
+    # If the R SDK isn't public yet, include the downstream code to support R.
+    if (!public_android_sdk && android_sdk_release == "r") {
+      deps += [ "//clank/android_webview/next:r_sdk_java" ]
+    }
+
+    if (_exclude_weblayer_java) {
+      deps += [ "//android_webview:android_webview_no_weblayer_java" ]
+    } else {
+      deps += [ "//android_webview:android_webview_java" ]
+    }
 
     target_sdk_version = android_sdk_version
     product_config_java_packages = [ webview_product_config_java_package ]
@@ -84,13 +95,7 @@ template("system_webview_apk_or_module_tmpl") {
     _include_secondary_support = false
 
     if (!_use_trichrome_library) {
-      if (_is_bundle_module) {
-        # TODO(b/146491000): aapt2 currently doesn't support the --shared-lib
-        # flag for bundles, so this will only work on M+.
-        app_as_shared_lib = true
-      } else {
-        shared_resources = true
-      }
+      shared_resources = true
 
       if (!android_64bit_target_cpu || !_pure_32_bit) {
         shared_libraries = [ "//android_webview:libwebviewchromium" ]
@@ -132,6 +137,11 @@ template("system_webview_apk_or_module_tmpl") {
         "//third_party/crashpad/crashpad/handler:crashpad_handler_trampoline",
       ]
       loadable_modules = [ "$root_out_dir/libcrashpad_handler_trampoline.so" ]
+      if (webview_includes_weblayer) {
+        deps += [ "//base/android/linker:chromium_android_linker" ]
+        loadable_modules +=
+            [ "$root_out_dir/libchromium_android_linker$shlib_extension" ]
+      }
     }
     if (_include_secondary_support) {
       _trampoline = "//third_party/crashpad/crashpad/handler:crashpad_handler_trampoline($android_secondary_abi_toolchain)"
@@ -142,6 +152,11 @@ template("system_webview_apk_or_module_tmpl") {
       _secondary_out_dir = get_label_info(_trampoline, "root_out_dir")
       secondary_abi_loadable_modules =
           [ "$_secondary_out_dir/libcrashpad_handler_trampoline.so" ]
+      if (webview_includes_weblayer) {
+        deps += [ "//base/android/linker:chromium_android_linker($android_secondary_abi_toolchain)" ]
+        secondary_abi_loadable_modules +=
+            [ "$_secondary_out_dir/libchromium_android_linker$shlib_extension" ]
+      }
     }
 
     if (!_use_trichrome_library || android_64bit_target_cpu) {
@@ -153,13 +168,13 @@ template("system_webview_apk_or_module_tmpl") {
       native_lib_version_arg = "@FileArg($_native_lib_file:full-quoted)"
     }
 
-    aapt_locale_whitelist = locales
+    aapt_locale_allowlist = locales
 
     # Match drawables, but not mipmaps.
-    resource_blacklist_regex = "drawable[^/]*-xxxhdpi"
+    resource_exclusion_regex = "drawable[^/]*-xxxhdpi"
 
     # Exception rationale in https://crbug.com/691733.
-    resource_blacklist_exceptions = [
+    resource_exclusion_exceptions = [
       "*shadow*",  # Combination of gradient & transparency cause pixelation.
       "*.9.*",  # Most nine-patches contain shadows.
     ]

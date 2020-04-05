@@ -5,6 +5,7 @@
 #include "content/public/browser/web_ui_url_loader_factory.h"
 
 #include <map>
+#include <utility>
 
 #include "base/bind.h"
 #include "base/debug/crash_logging.h"
@@ -14,6 +15,7 @@
 #include "base/single_thread_task_runner.h"
 #include "base/strings/string_piece.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "content/browser/bad_message.h"
 #include "content/browser/blob_storage/blob_internals_url_loader.h"
 #include "content/browser/blob_storage/chrome_blob_storage_context.h"
@@ -34,6 +36,7 @@
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/receiver_set.h"
 #include "mojo/public/cpp/bindings/remote.h"
+#include "services/network/public/cpp/content_security_policy/content_security_policy.h"
 #include "services/network/public/mojom/network_service.mojom.h"
 #include "ui/base/template_expressions.h"
 
@@ -136,8 +139,8 @@ void DataAvailable(
   // Since the bytes are from the memory mapped resource file, copying the
   // data can lead to disk access. Needs to be posted to a SequencedTaskRunner
   // as Mojo requires a SequencedTaskRunnerHandle in scope.
-  base::CreateSequencedTaskRunner(
-      {base::ThreadPool(), base::TaskPriority::USER_BLOCKING, base::MayBlock(),
+  base::ThreadPool::CreateSequencedTaskRunner(
+      {base::TaskPriority::USER_BLOCKING, base::MayBlock(),
        base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN})
       ->PostTask(FROM_HERE, base::BindOnce(ReadData, std::move(headers),
                                            replacements, replace_in_js, source,
@@ -177,6 +180,9 @@ void StartURLLoader(
       URLDataManagerBackend::GetHeaders(source, path, origin_header);
 
   auto resource_response = network::mojom::URLResponseHead::New();
+  network::AddContentSecurityPolicyFromHeaders(
+      *headers, request.url, &(resource_response->content_security_policy));
+
   resource_response->headers = headers;
   resource_response->mime_type = source->source()->GetMimeType(path);
   // TODO: fill all the time related field i.e. request_time response_time
@@ -191,14 +197,14 @@ void StartURLLoader(
 
   const ui::TemplateReplacements* replacements = nullptr;
   if (source->source()->GetMimeType(path) == "text/html" || replace_in_js)
-    replacements = source->GetReplacements();
+    replacements = source->source()->GetReplacements();
 
   // To keep the same behavior as the old WebUI code, we call the source to get
   // the value for |replacements| on the IO thread. Since |replacements| is
   // owned by |source| keep a reference to it in the callback.
   URLDataSource::GotDataCallback data_available_callback = base::BindOnce(
       DataAvailable, std::move(resource_response), replacements, replace_in_js,
-      base::RetainedRef(source), base::Passed(&client_remote));
+      base::RetainedRef(source), std::move(client_remote));
 
   // TODO(jam): once we only have this code path for WebUI, and not the
   // URLLRequestJob one, then we should switch data sources to run on the UI

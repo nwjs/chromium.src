@@ -33,7 +33,9 @@ include_rules = [
   "+components/tracing",
   "+components/ukm",
   "+components/url_formatter",
-  "+components/variations/net/variations_http_headers.h",
+  "+components/variations/variations_client.h",
+  "+components/variations/variations_http_header_provider.h",
+  "+components/variations/net",
   "+components/viz",
   "+components/cbor",
   "+components/os_crypt/os_crypt_switches.h",
@@ -96,10 +98,8 @@ include_rules = [
   "+third_party/blink/public/platform/viewport_intersection_state.h",
   "+third_party/blink/public/platform/web_client_hints_type.h",
   "+third_party/blink/public/platform/web_content_security_policy.h",
-  "+third_party/blink/public/platform/web_cursor_info.h",
   "+third_party/blink/public/platform/web_drag_operation.h",
   "+third_party/blink/public/platform/web_fullscreen_video_status.h",
-  "+third_party/blink/public/platform/web_insecure_request_policy.h",
   "+third_party/blink/public/platform/web_intrinsic_sizing_info.h",
   "+third_party/blink/public/platform/web_mixed_content_context_type.h",
   "+third_party/blink/public/platform/web_screen_info.h",
@@ -117,7 +117,6 @@ include_rules = [
   "+third_party/blink/public/web/web_drag_status.h",
   "+third_party/blink/public/web/web_ime_text_span.h",
   "+third_party/blink/public/web/web_serialized_script_value_version.h",
-  "+third_party/blink/public/web/web_text_direction.h",
   "+third_party/blink/public/web/web_tree_scope_type.h",
 
   # DO NOT ADD ANY CHROME OR COMPONENTS INCLUDES HERE!!!
@@ -129,6 +128,12 @@ specific_include_rules = {
   # To share values of UMA enums between product code and tests.
   "cross_site_document_blocking_browsertest.cc": [
     "+services/network/cross_origin_read_blocking.h",
+  ],
+  # SiteInstance and BrowsingInstance should not depend on the types of things
+  # that rely on them, like RenderFrameHostImpl or WebContentsImpl.
+  "(site_instance_impl|browsing_instance)\.(cc|h)": [
+    "-content/browser/frame_host",
+    "-content/browser/web_contents",
   ],
   "storage_partition_impl_unittest.cc": [
     "+third_party/leveldatabase",

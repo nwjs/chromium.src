@@ -7,13 +7,13 @@
 
 namespace updater {
 
-int Uninstall();
+// Set up the updater by copying the bundle, creating launchd plists for
+// scheduled tasks and xpc service, and start both launchd jobs.
+int SetupUpdater();
 
-namespace setup {
-
-int UpdaterSetupMain(int argc, const char* const* argv);
-
-}  // namespace setup
+// Remove the launchd plists for scheduled tasks and xpc service. Delete the
+// updater bundle from its installed location.
+int Uninstall(bool is_machine);
 
 }  // namespace updater
 

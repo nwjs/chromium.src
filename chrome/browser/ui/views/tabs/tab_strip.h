@@ -28,10 +28,8 @@
 #include "chrome/browser/ui/views/tabs/tab_drag_context.h"
 #include "chrome/browser/ui/views/tabs/tab_group_header.h"
 #include "chrome/browser/ui/views/tabs/tab_group_views.h"
-#include "chrome/browser/ui/views/tabs/tab_strip.h"
 #include "components/tab_groups/tab_group_visual_data.h"
-#include "ui/base/material_design/material_design_controller.h"
-#include "ui/base/material_design/material_design_controller_observer.h"
+#include "ui/base/pointer/touch_ui_controller.h"
 #include "ui/gfx/color_palette.h"
 #include "ui/gfx/geometry/point.h"
 #include "ui/gfx/geometry/rect.h"
@@ -44,7 +42,6 @@
 #include "ui/views/view_targeter_delegate.h"
 #include "ui/views/widget/widget_observer.h"
 
-class Browser;
 class NewTabButton;
 class StackedTabStripLayout;
 class Tab;
@@ -85,8 +82,7 @@ class TabStrip : public views::AccessiblePaneView,
                  public views::ViewTargeterDelegate,
                  public views::WidgetObserver,
                  public TabController,
-                 public BrowserRootView::DropTarget,
-                 public ui::MaterialDesignControllerObserver {
+                 public BrowserRootView::DropTarget {
  public:
   explicit TabStrip(std::unique_ptr<TabStripController> controller);
   ~TabStrip() override;
@@ -296,6 +292,7 @@ class TabStrip : public views::AccessiblePaneView,
   void OnMouseEventInTab(views::View* source,
                          const ui::MouseEvent& event) override;
   void UpdateHoverCard(Tab* tab) override;
+  bool ShowDomainInHoverCard(const Tab* tab) const override;
   bool HoverCardIsShowingForTab(Tab* tab) override;
   int GetBackgroundOffset() const override;
   int GetStrokeThickness() const override;
@@ -321,13 +318,6 @@ class TabStrip : public views::AccessiblePaneView,
       const tab_groups::TabGroupId& group) const override;
   SkColor GetPaintedGroupColor(
       const tab_groups::TabGroupColorId& color_id) const override;
-  void SetVisualDataForGroup(
-      const tab_groups::TabGroupId& group,
-      const tab_groups::TabGroupVisualData& visual_data) override;
-  void CloseAllTabsInGroup(const tab_groups::TabGroupId& group) override;
-  void UngroupAllTabsInGroup(const tab_groups::TabGroupId& group) override;
-  void AddNewTabInGroup(const tab_groups::TabGroupId& group) override;
-  const Browser* GetBrowser() override;
 
   // MouseWatcherListener:
   void MouseMovedOutOfHost() override;
@@ -658,8 +648,7 @@ class TabStrip : public views::AccessiblePaneView,
   // views::WidgetObserver:
   void OnWidgetActivationChanged(views::Widget* widget, bool active) override;
 
-  // ui::MaterialDesignControllerObserver:
-  void OnTouchUiChanged() override;
+  void OnTouchUiChanged();
 
   // -- Member Variables ------------------------------------------------------
 
@@ -771,9 +760,10 @@ class TabStrip : public views::AccessiblePaneView,
 
   SkColor separator_color_ = gfx::kPlaceholderColor;
 
-  ScopedObserver<ui::MaterialDesignController,
-                 ui::MaterialDesignControllerObserver>
-      md_observer_{this};
+  std::unique_ptr<ui::TouchUiController::Subscription> subscription_ =
+      ui::TouchUiController::Get()->RegisterCallback(
+          base::BindRepeating(&TabStrip::OnTouchUiChanged,
+                              base::Unretained(this)));
 
   std::unique_ptr<TabDragContextImpl> drag_context_;
 

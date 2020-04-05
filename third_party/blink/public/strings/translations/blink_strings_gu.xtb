@@ -4,6 +4,7 @@
 <translation id="1018939186200882850">મેનૂ આઇટમ</translation>
 <translation id="10623998915015855">ટોગલ બટન</translation>
 <translation id="1088086359088493902">સેકંડ</translation>
+<translation id="1142001580032786438">અઠવાડિયાનું પિકર બતાવો</translation>
 <translation id="1171774979989969504">કૃપા કરી કોઈ ઇમેઇલ ઍડ્રેસ દાખલ કરો.</translation>
 <translation id="1178581264944972037">થોભો</translation>
 <translation id="1188858454923323853">પૂરક</translation>
@@ -22,6 +23,7 @@
 <translation id="1727886345390570319">બંધ કરેલું ઉપશીર્ષક મેનૂ છુપાવો</translation>
 <translation id="1729654308190250600">કૃપા કરીને ખાલી ન હોય એવું ઇમેઇલ ઍડ્રેસ દાખલ કરો.</translation>
 <translation id="1758486001363313524">અન્ય...</translation>
+<translation id="1787192514241997742">કુલ સમય: <ph name="REMAINING_TIME" /></translation>
 <translation id="1806710327868736751">ચેતવણી_સંવાદ</translation>
 <translation id="1821985195704844674">ટ્રી ગ્રિડ</translation>
 <translation id="1822429046913737220">AM/PM</translation>
@@ -100,7 +102,6 @@
 <translation id="4444765639179266822">આવું બોલતા જણાય છે: <ph name="OCR_TEXT" /></translation>
 <translation id="4446524499724042288">શબ્દાવલીનો સંદર્ભ</translation>
 <translation id="4522570452068850558">વિગતો</translation>
-<translation id="4542388879936266156">બાકીનો સમય: <ph name="REMAINING_TIME" /></translation>
 <translation id="4597532268155981612">ફોર્મ</translation>
 <translation id="4661075872484491155">ટ્રી</translation>
 <translation id="4664250907885839816">'<ph name="ATSIGN" />' ને અનુસરી રહેલા ભાગમાં '<ph name="INVALIDCHARACTER" />' પ્રતીક શામેલ હોવું જોઈએ નહીં.</translation>
@@ -114,7 +115,9 @@
 <translation id="479989351350248267">search</translation>
 <translation id="4812940957355064477">કૃપા કરીને એક નંબર દાખલ કરો.</translation>
 <translation id="4912536737030637138">ગ્રંથસૂચિની એન્ટ્રી</translation>
+<translation id="4915360478455618802">સમય પિકર બતાવો</translation>
 <translation id="492244087561876220">કૉમેન્ટ</translation>
+<translation id="4950364064308314478">સ્થાનિક તારીખ અને સમય પિકર બતાવો</translation>
 <translation id="4971739861736909480"><ph name="ACCNAME" />ની પસંદગી કરી</translation>
 <translation id="4975562563186953947"><ph name="SELECTED_COUNT" /> પસંદ કર્યા</translation>
 <translation id="4992066212339426712">અનમ્યૂટ કરો</translation>
@@ -233,6 +236,7 @@
 <translation id="8284326494547611709">કૅપ્શન્સ</translation>
 <translation id="8346634859695247203">વિભાગ</translation>
 <translation id="835897206747267392">અમાન્ય મૂલ્ય.</translation>
+<translation id="839593075537728968">મૂલ્ય <ph name="MINIMUM_TIME" /> અને <ph name="MAXIMUM_TIME" />ની વચ્ચેનું હોવું જોઈએ.</translation>
 <translation id="8403857369060869934">વીતેલો સમય: <ph name="ELAPSED_TIME" /></translation>
 <translation id="8415319359811155763">ભાગ</translation>
 <translation id="8433900881053900389">ટુલબાર</translation>
@@ -249,6 +253,7 @@
 <translation id="860475260694818407">અનુક્રમણિકા</translation>
 <translation id="8613126697340063924">રિમોટ પ્લેબેકનું નિયંત્રણ કરો</translation>
 <translation id="862370744433916922">(સબટાઇટલ)</translation>
+<translation id="8634971699417195529">મહિનાનું પિકર બતાવો</translation>
 <translation id="8711688047404765493">આઉટપુટ</translation>
 <translation id="8750798805984357768">કૃપા કરીને આ વિકલ્પોમાંથી કોઈ એક પસંદ કરો.</translation>
 <translation id="8808573423886751634">પ્રકરણ</translation>

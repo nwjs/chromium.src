@@ -50,7 +50,7 @@ class TestStreamFactory : public audio::FakeStreamFactory {
       const media::AudioParameters& params,
       uint32_t shared_memory_count,
       bool enable_agc,
-      mojo::ScopedSharedBufferHandle key_press_count_buffer,
+      base::ReadOnlySharedMemoryRegion key_press_count_buffer,
       mojom::AudioProcessingConfigPtr processing_config,
       CreateInputStreamCallback created_callback) {
     if (should_fail_) {
@@ -69,11 +69,10 @@ class TestStreamFactory : public audio::FakeStreamFactory {
 
     base::SyncSocket socket1, socket2;
     base::SyncSocket::CreatePair(&socket1, &socket2);
-    auto h = mojo::SharedBufferHandle::Create(kShMemSize);
     std::move(created_callback)
         .Run({base::in_place,
               base::ReadOnlySharedMemoryRegion::Create(kShMemSize).region,
-              mojo::WrapPlatformFile(socket1.Release())},
+              mojo::PlatformHandle(socket1.Take())},
              initially_muted_, base::UnguessableToken::Create());
   }
 
@@ -94,13 +93,12 @@ class TestStreamFactory : public audio::FakeStreamFactory {
 
 class MockDelegate : public media::AudioInputIPCDelegate {
  public:
-  MockDelegate() {}
-  ~MockDelegate() override {}
+  MockDelegate() = default;
+  ~MockDelegate() override = default;
 
   void OnStreamCreated(base::ReadOnlySharedMemoryRegion mem_handle,
-                       base::SyncSocket::Handle socket_handle,
+                       base::SyncSocket::ScopedHandle socket_handle,
                        bool initially_muted) override {
-    base::SyncSocket socket(socket_handle);  // Releases the socket descriptor.
     GotOnStreamCreated(initially_muted);
   }
 

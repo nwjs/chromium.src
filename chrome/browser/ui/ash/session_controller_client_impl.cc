@@ -355,6 +355,11 @@ void SessionControllerClientImpl::UserAddedToSession(const User* added_user) {
   SendUserSession(*added_user);
 }
 
+void SessionControllerClientImpl::LocalStateChanged(
+    user_manager::UserManager* user_manager) {
+  SendSessionInfoIfChanged();
+}
+
 void SessionControllerClientImpl::OnUserImageChanged(const User& user) {
   // Only sends user session for signed-in user.
   if (GetSessionId(user) != 0)

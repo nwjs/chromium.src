@@ -39,11 +39,14 @@
 #import "ios/chrome/browser/ui/reading_list/reading_list_menu_notifier.h"
 #import "ios/chrome/browser/ui/toolbar/public/features.h"
 #import "ios/chrome/browser/ui/ui_feature_flags.h"
+#import "ios/chrome/browser/ui/util/multi_window_support.h"
 #import "ios/chrome/browser/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/web/features.h"
+#import "ios/chrome/browser/web/font_size_tab_helper.h"
 #import "ios/chrome/browser/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/web_state_list/web_state_list_observer_bridge.h"
 #include "ios/chrome/grit/ios_strings.h"
+#include "ios/components/webui/web_ui_url_constants.h"
 #include "ios/public/provider/chrome/browser/chrome_browser_provider.h"
 #import "ios/public/provider/chrome/browser/user_feedback/user_feedback_provider.h"
 #include "ios/web/common/features.h"
@@ -256,7 +259,7 @@ PopupMenuToolsItem* CreateTableViewItem(int titleID,
     didChangeActiveWebState:(web::WebState*)newWebState
                 oldWebState:(web::WebState*)oldWebState
                     atIndex:(int)atIndex
-                     reason:(int)reason {
+                     reason:(ActiveWebStateChangeReason)reason {
   DCHECK_EQ(_webStateList, webStateList);
   self.webState = newWebState;
 }
@@ -431,7 +434,7 @@ PopupMenuToolsItem* CreateTableViewItem(int titleID,
       case PopupMenuTypeTabStripTabGrid:
         [self createTabGridMenuItems];
         break;
-      case PopupMenuTypeSearch:
+      case PopupMenuTypeNewTab:
         [self createSearchMenuItems];
         break;
     }
@@ -537,8 +540,7 @@ PopupMenuToolsItem* CreateTableViewItem(int titleID,
   [self updateBookmarkItem];
   self.translateItem.enabled = [self isTranslateEnabled];
   self.findInPageItem.enabled = [self isFindInPageEnabled];
-  self.textZoomItem.enabled =
-      !self.webContentAreaShowingOverlay && [self isCurrentURLWebURL];
+  self.textZoomItem.enabled = [self isTextZoomEnabled];
   self.siteInformationItem.enabled = [self currentWebPageSupportsSiteInfo];
   self.requestDesktopSiteItem.enabled =
       [self userAgentType] == web::UserAgentType::MOBILE;
@@ -650,6 +652,20 @@ PopupMenuToolsItem* CreateTableViewItem(int titleID,
           !helper->IsFindUIActive());
 }
 
+// Whether or not text zoom is enabled
+- (BOOL)isTextZoomEnabled {
+  if (self.webContentAreaShowingOverlay) {
+    return NO;
+  }
+
+  if (!self.webState) {
+    return NO;
+  }
+  FontSizeTabHelper* helper = FontSizeTabHelper::FromWebState(self.webState);
+  return helper && helper->CurrentPageSupportsTextZoom() &&
+         !helper->IsTextZoomUIActive();
+}
+
 // Whether the page is currently loading.
 - (BOOL)isPageLoading {
   if (!self.webState)
@@ -710,7 +726,7 @@ PopupMenuToolsItem* CreateTableViewItem(int titleID,
       ClipboardRecentContent::GetInstance();
 
   if (search_engines::SupportsSearchByImage(self.templateURLService) &&
-      clipboardRecentContent->GetRecentImageFromClipboard()) {
+      clipboardRecentContent->HasRecentImageFromClipboard()) {
     copiedContentItem = CreateTableViewItem(
         IDS_IOS_TOOLS_MENU_SEARCH_COPIED_IMAGE,
         PopupMenuActionSearchCopiedImage, @"popup_menu_paste_and_go",
@@ -725,11 +741,7 @@ PopupMenuToolsItem* CreateTableViewItem(int titleID,
         @"popup_menu_paste_and_go", kToolsMenuPasteAndGo);
   }
   if (copiedContentItem) {
-    if (base::FeatureList::IsEnabled(kToolbarNewTabButton)) {
-      [items addObject:@[ copiedContentItem ]];
-    } else {
-      [items addObject:copiedContentItem];
-    }
+    [items addObject:@[ copiedContentItem ]];
   }
 
   PopupMenuToolsItem* QRCodeSearch = CreateTableViewItem(
@@ -745,20 +757,10 @@ PopupMenuToolsItem* CreateTableViewItem(int titleID,
       IDS_IOS_TOOLS_MENU_NEW_INCOGNITO_SEARCH, PopupMenuActionIncognitoSearch,
       @"popup_menu_new_incognito_tab", kToolsMenuIncognitoSearch);
 
-  if (base::FeatureList::IsEnabled(kToolbarNewTabButton)) {
-    [items addObject:@[
-      newSearch, newIncognitoSearch, voiceSearch, QRCodeSearch
-    ]];
-  } else {
-    [items addObject:QRCodeSearch];
-    [items addObject:voiceSearch];
-  }
+  [items
+      addObject:@[ newSearch, newIncognitoSearch, voiceSearch, QRCodeSearch ]];
 
-  if (base::FeatureList::IsEnabled(kToolbarNewTabButton)) {
-    self.items = items;
-  } else {
-    self.items = @[ items ];
-  }
+  self.items = items;
 }
 
 // Creates the menu items for the tools menu.
@@ -770,6 +772,13 @@ PopupMenuToolsItem* CreateTableViewItem(int titleID,
 
   NSArray* tabActions = [@[ self.reloadStopItem ]
       arrayByAddingObjectsFromArray:[self itemsForNewTab]];
+
+#if !defined(NDEBUG)
+  if (IsMultiwindowSupported() && IsIPadIdiom()) {
+    tabActions =
+        [tabActions arrayByAddingObjectsFromArray:[self itemsForNewWindow]];
+  }
+#endif  // !defined(NDEBUG)
 
   NSArray* browserActions = [self actionItems];
 
@@ -791,6 +800,23 @@ PopupMenuToolsItem* CreateTableViewItem(int titleID,
 
   return @[ openNewTabItem, self.openNewIncognitoTabItem ];
 }
+
+#if !defined(NDEBUG)
+- (NSArray<TableViewItem*>*)itemsForNewWindow {
+  if (!IsMultiwindowSupported())
+    return @[];
+
+  // Create the menu item -- hardcoded string and no accessibility ID.
+  PopupMenuToolsItem* openNewWindowItem =
+      [[PopupMenuToolsItem alloc] initWithType:kItemTypeEnumZero];
+  openNewWindowItem.title = @"New Window";
+  openNewWindowItem.actionIdentifier = PopupMenuActionOpenNewWindow;
+  openNewWindowItem.image = [[UIImage imageNamed:@"popup_menu_new_tab"]
+      imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+
+  return @[ openNewWindowItem ];
+}
+#endif  // !defined(NDEBUG)
 
 - (NSArray<TableViewItem*>*)actionItems {
   NSMutableArray* actionsArray = [NSMutableArray array];

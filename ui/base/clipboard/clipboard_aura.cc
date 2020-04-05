@@ -274,9 +274,8 @@ class AuraClipboard {
     if (!HasFormat(AuraClipboardFormat::kCustom))
       return;
 
-    ui::ReadCustomDataForType(data->custom_data_data().c_str(),
-        data->custom_data_data().size(),
-        type, result);
+    ReadCustomDataForType(data->custom_data_data().c_str(),
+                          data->custom_data_data().size(), type, result);
   }
 
   // Reads bookmark from the data at the top of clipboard stack.
@@ -487,7 +486,7 @@ void ClipboardAura::ReadAvailableTypes(ClipboardBuffer buffer,
 
   if (clipboard_internal_->IsFormatAvailable(AuraClipboardFormat::kCustom) &&
       clipboard_internal_->GetData()) {
-    ui::ReadCustomDataTypes(
+    ReadCustomDataTypes(
         clipboard_internal_->GetData()->custom_data_data().c_str(),
         clipboard_internal_->GetData()->custom_data_data().size(), types);
   }
@@ -546,9 +545,10 @@ void ClipboardAura::ReadRTF(ClipboardBuffer buffer, std::string* result) const {
   clipboard_internal_->ReadRTF(result);
 }
 
-SkBitmap ClipboardAura::ReadImage(ClipboardBuffer buffer) const {
+void ClipboardAura::ReadImage(ClipboardBuffer buffer,
+                              ReadImageCallback callback) const {
   DCHECK(CalledOnValidThread());
-  return clipboard_internal_->ReadImage();
+  std::move(callback).Run(clipboard_internal_->ReadImage());
 }
 
 void ClipboardAura::ReadCustomData(ClipboardBuffer buffer,

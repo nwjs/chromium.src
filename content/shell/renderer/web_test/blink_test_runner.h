@@ -17,10 +17,12 @@
 #include "content/public/common/page_state.h"
 #include "content/public/renderer/render_view_observer.h"
 #include "content/public/renderer/render_view_observer_tracker.h"
+#include "content/shell/common/blink_test.mojom.h"
 #include "content/shell/common/web_test.mojom.h"
 #include "content/shell/common/web_test/web_test_bluetooth_fake_adapter_setter.mojom.h"
 #include "content/shell/test_runner/test_preferences.h"
 #include "content/shell/test_runner/web_test_delegate.h"
+#include "mojo/public/cpp/bindings/associated_remote.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "v8/include/v8.h"
 
@@ -66,7 +68,6 @@ class BlinkTestRunner : public RenderViewObserver,
   long long GetCurrentTimeInMillisecond() override;
   blink::WebString GetAbsoluteWebStringFromUTF8Path(
       const std::string& utf8_path) override;
-  blink::WebURL LocalFileToDataURL(const blink::WebURL& file_url) override;
   blink::WebURL RewriteWebTestsURL(const std::string& utf8_url,
                                    bool is_wpt_mode) override;
   test_runner::TestPreferences* Preferences() override;
@@ -139,6 +140,7 @@ class BlinkTestRunner : public RenderViewObserver,
       const blink::WebPluginParams& params) override;
   void RunIdleTasks(base::OnceClosure callback) override;
   void ForceTextInputStateUpdate(blink::WebLocalFrame* frame) override;
+  void SetScreenOrientationChanged() override;
 
   // Resets a RenderView to a known state for web tests. It is used both when
   // a RenderView is created and when reusing an existing RenderView for the
@@ -151,7 +153,7 @@ class BlinkTestRunner : public RenderViewObserver,
   void OnSetTestConfiguration(mojom::ShellTestConfigurationPtr params);
   void OnReplicateTestConfiguration(mojom::ShellTestConfigurationPtr params);
   void OnSetupSecondaryRenderer();
-  void CaptureDump(mojom::WebTestControl::CaptureDumpCallback callback);
+  void CaptureDump(mojom::BlinkTestControl::CaptureDumpCallback callback);
   void DidCommitNavigationInMainFrame();
   void OnReset();
   void OnTestFinishedInSecondaryRenderer();
@@ -180,8 +182,13 @@ class BlinkTestRunner : public RenderViewObserver,
   mojo::Remote<mojom::WebTestBluetoothFakeAdapterSetter>
       bluetooth_fake_adapter_setter_;
 
-  mojom::WebTestClient& GetWebTestClientRemote();
-  mojo::Remote<mojom::WebTestClient> web_test_client_remote_;
+  void HandleBlinkTestClientDisconnected();
+  mojo::AssociatedRemote<mojom::BlinkTestClient>& GetBlinkTestClientRemote();
+  mojo::AssociatedRemote<mojom::BlinkTestClient> blink_test_client_remote_;
+
+  void HandleWebTestClientDisconnected();
+  mojo::AssociatedRemote<mojom::WebTestClient>& GetWebTestClientRemote();
+  mojo::AssociatedRemote<mojom::WebTestClient> web_test_client_remote_;
 
   test_runner::TestPreferences prefs_;
 
@@ -192,13 +199,14 @@ class BlinkTestRunner : public RenderViewObserver,
       get_bluetooth_events_callbacks_;
 
   bool is_main_window_ = false;
+  bool is_secondary_window_ = false;
 
   bool waiting_for_reset_ = false;
 
   std::unique_ptr<test_runner::AppBannerService> app_banner_service_;
 
-  mojom::WebTestControl::CaptureDumpCallback dump_callback_;
-  mojom::WebTestDumpPtr dump_result_;
+  mojom::BlinkTestControl::CaptureDumpCallback dump_callback_;
+  mojom::BlinkTestDumpPtr dump_result_;
   bool waiting_for_layout_dump_results_ = false;
   bool waiting_for_pixels_dump_result_ = false;
 

@@ -18,13 +18,14 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/string_util.h"
 #include "base/threading/thread_task_runner_handle.h"
+#include "base/time/time.h"
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/gcm/gcm_profile_service_factory.h"
 #include "chrome/browser/gcm/instance_id/instance_id_profile_service_factory.h"
-#include "chrome/browser/permissions/permission_manager.h"
+#include "chrome/browser/permissions/permission_manager_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/push_messaging/push_messaging_app_identifier.h"
 #include "chrome/browser/push_messaging/push_messaging_constants.h"
@@ -42,6 +43,7 @@
 #include "components/gcm_driver/instance_id/instance_id.h"
 #include "components/gcm_driver/instance_id/instance_id_driver.h"
 #include "components/gcm_driver/instance_id/instance_id_profile_service.h"
+#include "components/permissions/permission_manager.h"
 #include "components/permissions/permission_result.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/pref_service.h"
@@ -558,6 +560,15 @@ void PushMessagingServiceImpl::SubscribeFromDocument(
   content::RenderFrameHost* render_frame_host =
       content::RenderFrameHost::FromID(render_process_id, render_frame_id);
 
+  if (!render_frame_host) {
+    // It is possible for `render_frame_host` to be nullptr here due to a race
+    // (crbug.com/1057981).
+    SubscribeEndWithError(
+        std::move(callback),
+        blink::mojom::PushRegistrationStatus::RENDERER_SHUTDOWN);
+    return;
+  }
+
   if (!options->user_visible_only) {
     content::RenderFrameHost* main_frame =
         GetMainFrameForRenderFrameHost(render_frame_host);
@@ -574,7 +585,7 @@ void PushMessagingServiceImpl::SubscribeFromDocument(
   }
 
   // Push does not allow permission requests from iframes.
-  PermissionManager::Get(profile_)->RequestPermission(
+  PermissionManagerFactory::GetForProfile(profile_)->RequestPermission(
       ContentSettingsType::NOTIFICATIONS, render_frame_host, requesting_origin,
       user_gesture,
       base::BindOnce(&PushMessagingServiceImpl::DoSubscribe,
@@ -631,7 +642,7 @@ blink::mojom::PermissionStatus PushMessagingServiceImpl::GetPermissionStatus(
   // won't have an embedding origin at all. Only consider the requesting
   // |origin| when checking whether permission to use the API has been granted.
   return ToPermissionStatus(
-      PermissionManager::Get(profile_)
+      PermissionManagerFactory::GetForProfile(profile_)
           ->GetPermissionStatus(ContentSettingsType::NOTIFICATIONS, origin,
                                 origin)
           .content_setting);
@@ -690,6 +701,7 @@ void PushMessagingServiceImpl::DoSubscribe(
   GetInstanceIDDriver()
       ->GetInstanceID(app_identifier.app_id())
       ->GetToken(NormalizeSenderInfo(application_server_key_string), kGCMScope,
+                 base::TimeDelta() /* time_to_live */,
                  std::map<std::string, std::string>() /* options */,
                  {} /* flags */,
                  base::BindOnce(&PushMessagingServiceImpl::DidSubscribe,

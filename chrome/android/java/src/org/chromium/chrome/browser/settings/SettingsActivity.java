@@ -12,17 +12,17 @@ import android.content.res.Resources;
 import android.graphics.BitmapFactory;
 import android.os.Build;
 import android.os.Bundle;
-import android.support.graphics.drawable.VectorDrawableCompat;
-import android.support.v4.app.Fragment;
-import android.support.v4.app.ListFragment;
-import android.support.v7.preference.Preference;
-import android.support.v7.preference.PreferenceFragmentCompat;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 
 import androidx.annotation.VisibleForTesting;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.ListFragment;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceFragmentCompat;
+import androidx.vectordrawable.graphics.drawable.VectorDrawableCompat;
 
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.chrome.R;
@@ -31,6 +31,9 @@ import org.chromium.chrome.browser.help.HelpAndFeedback;
 import org.chromium.chrome.browser.init.ChromeBrowserInitializer;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileManagerUtils;
+import org.chromium.chrome.browser.site_settings.ChromeSiteSettingsClient;
+import org.chromium.chrome.browser.site_settings.SiteSettingsPreferenceFragment;
+import org.chromium.components.browser_ui.settings.SettingsUtils;
 import org.chromium.ui.UiUtils;
 import org.chromium.ui.util.ColorUtils;
 
@@ -239,7 +242,7 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
             return true;
         } else if (item.getItemId() == R.id.menu_id_general_help) {
             HelpAndFeedback.getInstance().show(this, getString(R.string.help_context_settings),
-                    Profile.getLastUsedProfile(), null);
+                    Profile.getLastUsedRegularProfile(), null);
             return true;
         }
         return super.onOptionsItemSelected(item);
@@ -256,6 +259,14 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
         if (!listener.onBackPressed()) {
             // Fragment hasn't handled this event, fall back to AppCompatActivity handling.
             super.onBackPressed();
+        }
+    }
+
+    @Override
+    public void onAttachFragment(Fragment fragment) {
+        if (fragment instanceof SiteSettingsPreferenceFragment) {
+            ((SiteSettingsPreferenceFragment) fragment)
+                    .setSiteSettingsClient(new ChromeSiteSettingsClient());
         }
     }
 
@@ -290,7 +301,7 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
 
         // Use background color as status bar color.
         int statusBarColor =
-                ApiCompatibilityUtils.getColor(getResources(), R.color.modern_primary_color);
+                ApiCompatibilityUtils.getColor(getResources(), R.color.default_bg_color);
         ApiCompatibilityUtils.setStatusBarColor(getWindow(), statusBarColor);
 
         // Set status bar icon color according to background color.

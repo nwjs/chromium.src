@@ -16,11 +16,12 @@ class MockPasswordFeatureManager : public PasswordFeatureManager {
   ~MockPasswordFeatureManager() override;
 
   MOCK_CONST_METHOD0(IsGenerationEnabled, bool());
-  MOCK_CONST_METHOD0(ShouldCheckReuseOnLeakDetection, bool());
 
   MOCK_CONST_METHOD0(IsOptedInForAccountStorage, bool());
   MOCK_CONST_METHOD0(ShouldShowAccountStorageOptIn, bool());
   MOCK_METHOD1(SetAccountStorageOptIn, void(bool));
+
+  MOCK_CONST_METHOD0(ShouldShowPasswordStorePicker, bool());
 
   MOCK_METHOD1(SetDefaultPasswordStore,
                void(const autofill::PasswordForm::Store& store));

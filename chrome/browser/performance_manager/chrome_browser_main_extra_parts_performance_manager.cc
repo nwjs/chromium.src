@@ -15,15 +15,19 @@
 #include "chrome/browser/performance_manager/decorators/helpers/page_live_state_decorator_helper.h"
 #include "chrome/browser/performance_manager/decorators/page_aggregator.h"
 #include "chrome/browser/performance_manager/decorators/process_metrics_decorator.h"
+#include "chrome/browser/performance_manager/graph/policies/background_tab_loading_policy.h"
+#include "chrome/browser/performance_manager/graph/policies/high_pmf_memory_pressure_policy.h"
 #include "chrome/browser/performance_manager/graph/policies/policy_features.h"
 #include "chrome/browser/performance_manager/graph/policies/urgent_page_discarding_policy.h"
 #include "chrome/browser/performance_manager/graph/policies/working_set_trimmer_policy.h"
+#include "chrome/browser/performance_manager/metrics/memory_pressure_metrics.h"
 #include "chrome/browser/performance_manager/observers/isolation_context_metrics.h"
 #include "chrome/browser/performance_manager/observers/metrics_collector.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "components/performance_manager/embedder/performance_manager_lifetime.h"
 #include "components/performance_manager/embedder/performance_manager_registry.h"
-#include "components/performance_manager/performance_manager_lock_observer.h"
+#include "components/performance_manager/performance_manager_feature_observer_client.h"
+#include "components/performance_manager/public/decorators/page_load_tracker_decorator_helper.h"
 #include "components/performance_manager/public/graph/graph.h"
 #include "content/public/browser/storage_partition.h"
 #include "content/public/common/content_features.h"
@@ -46,8 +50,9 @@ ChromeBrowserMainExtraPartsPerformanceManager* g_instance = nullptr;
 
 ChromeBrowserMainExtraPartsPerformanceManager::
     ChromeBrowserMainExtraPartsPerformanceManager()
-    : lock_observer_(std::make_unique<
-                     performance_manager::PerformanceManagerLockObserver>()) {
+    : feature_observer_client_(
+          std::make_unique<
+              performance_manager::PerformanceManagerFeatureObserverClient>()) {
   DCHECK(!g_instance);
   g_instance = this;
 }
@@ -102,12 +107,30 @@ void ChromeBrowserMainExtraPartsPerformanceManager::CreatePoliciesAndDecorators(
         std::make_unique<
             performance_manager::policies::UrgentPageDiscardingPolicy>());
   }
+
+  if (base::FeatureList::IsEnabled(
+          performance_manager::features::
+              kBackgroundTabLoadingFromPerformanceManager)) {
+    graph->PassToGraph(
+        std::make_unique<
+            performance_manager::policies::BackgroundTabLoadingPolicy>());
+  }
 #endif  // !defined(OS_ANDROID)
+
+  graph->PassToGraph(
+      std::make_unique<performance_manager::metrics::MemoryPressureMetrics>());
+
+  if (base::FeatureList::IsEnabled(
+          performance_manager::features::kHighPMFMemoryPressureSignals)) {
+    graph->PassToGraph(
+        std::make_unique<
+            performance_manager::policies::HighPMFMemoryPressurePolicy>());
+  }
 }
 
-content::LockObserver*
-ChromeBrowserMainExtraPartsPerformanceManager::GetLockObserver() {
-  return lock_observer_.get();
+content::FeatureObserverClient*
+ChromeBrowserMainExtraPartsPerformanceManager::GetFeatureObserverClient() {
+  return feature_observer_client_.get();
 }
 
 void ChromeBrowserMainExtraPartsPerformanceManager::PostCreateThreads() {
@@ -127,6 +150,8 @@ void ChromeBrowserMainExtraPartsPerformanceManager::PostCreateThreads() {
 
   page_live_state_data_helper_ =
       std::make_unique<performance_manager::PageLiveStateDecoratorHelper>();
+  page_load_tracker_decorator_helper_ =
+      std::make_unique<performance_manager::PageLoadTrackerDecoratorHelper>();
 }
 
 void ChromeBrowserMainExtraPartsPerformanceManager::PostMainMessageLoopRun() {
@@ -138,13 +163,13 @@ void ChromeBrowserMainExtraPartsPerformanceManager::PostMainMessageLoopRun() {
   g_browser_process->profile_manager()->RemoveObserver(this);
   observed_profiles_.RemoveAll();
 
+  page_load_tracker_decorator_helper_.reset();
   page_live_state_data_helper_.reset();
 
-  // There may still be WebContents and RenderProcessHosts with attached user
-  // data, retaining PageNodes, FrameNodes and ProcessNodes. Tear down the
-  // registry to release these nodes. There is no convenient later call-out to
-  // destroy the performance manager after all WebContents and
-  // RenderProcessHosts have been destroyed.
+  // There may still be worker hosts, WebContents and RenderProcessHosts with
+  // attached user data, retaining WorkerNodes, PageNodes, FrameNodes and
+  // ProcessNodes. Tear down the registry to release these nodes. After this,
+  // there is no convenient call-out to destroy the performance manager.
   registry_->TearDown();
   registry_.reset();
 

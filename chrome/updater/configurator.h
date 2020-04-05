@@ -10,8 +10,7 @@
 #include <vector>
 
 #include "base/containers/flat_map.h"
-#include "base/macros.h"
-#include "base/memory/ref_counted.h"
+#include "base/memory/scoped_refptr.h"
 #include "components/update_client/configurator.h"
 
 class GURL;
@@ -32,6 +31,8 @@ namespace updater {
 class Configurator : public update_client::Configurator {
  public:
   Configurator();
+  Configurator(const Configurator&) = delete;
+  Configurator& operator=(const Configurator&) = delete;
 
   // Configurator for update_client::Configurator.
   int InitialDelay() const override;
@@ -70,7 +71,6 @@ class Configurator : public update_client::Configurator {
   scoped_refptr<update_client::NetworkFetcherFactory> network_fetcher_factory_;
   scoped_refptr<update_client::UnzipperFactory> unzip_factory_;
   scoped_refptr<update_client::PatcherFactory> patch_factory_;
-  DISALLOW_COPY_AND_ASSIGN(Configurator);
 };
 
 }  // namespace updater

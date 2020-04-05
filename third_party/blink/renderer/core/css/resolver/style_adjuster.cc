@@ -54,6 +54,8 @@
 #include "third_party/blink/renderer/core/layout/layout_object.h"
 #include "third_party/blink/renderer/core/layout/layout_replaced.h"
 #include "third_party/blink/renderer/core/layout/layout_theme.h"
+#include "third_party/blink/renderer/core/mathml/mathml_fraction_element.h"
+#include "third_party/blink/renderer/core/mathml/mathml_space_element.h"
 #include "third_party/blink/renderer/core/style/computed_style.h"
 #include "third_party/blink/renderer/core/style/computed_style_constants.h"
 #include "third_party/blink/renderer/core/svg/svg_svg_element.h"
@@ -220,7 +222,6 @@ static void AdjustStyleForMarker(ComputedStyle& style,
     style.SetMarginEnd(Length::Fixed(margins.second));
   } else {
     // Outside list markers should generate a block container.
-    DCHECK_EQ(style.Display(), EDisplay::kInline);
     style.SetDisplay(EDisplay::kInlineBlock);
 
     // Do not break inside the marker, and honor the trailing spaces.
@@ -400,12 +401,6 @@ void StyleAdjuster::AdjustOverflow(ComputedStyle& style) {
              style.OverflowX() != EOverflow::kVisible) {
     style.SetOverflowY(EOverflow::kAuto);
   }
-
-  // Menulists should have visible overflow
-  if (style.Appearance() == kMenulistPart) {
-    style.SetOverflowX(EOverflow::kVisible);
-    style.SetOverflowY(EOverflow::kVisible);
-  }
 }
 
 static void AdjustStyleForDisplay(ComputedStyle& style,
@@ -571,61 +566,22 @@ static void AdjustEffectiveTouchAction(ComputedStyle& style,
   }
 }
 
-static void AdjustStateForRenderSubtree(ComputedStyle& style,
-                                        Element* element) {
+static void AdjustStateForSubtreeVisibility(ComputedStyle& style,
+                                            Element* element) {
   if (!element)
     return;
-
-  bool should_be_invisible = style.RenderSubtreeInvisible();
   auto* context = element->GetDisplayLockContext();
-
-  // Return early if there's no context and no render-subtree invisible token.
-  if (!should_be_invisible && !context)
+  // The common case for most elements is that we don't have a context and have
+  // the default (visible) subtree-visibility value.
+  if (LIKELY(!context &&
+             style.SubtreeVisibility() == ESubtreeVisibility::kVisible)) {
     return;
-
-  // If we're using an attribute version of display locking, then also abort.
-  if (context && DisplayLockContext::IsAttributeVersion(context))
-    return;
-
-  // Create a context if we need to be invisible.
-  if (should_be_invisible && !context) {
-    context = &element->EnsureDisplayLockContext(
-        DisplayLockContextCreateMethod::kCSS);
-  }
-  DCHECK(context);
-
-  uint16_t activation_mask =
-      static_cast<uint16_t>(DisplayLockActivationReason::kAny);
-  if (style.RenderSubtreeSkipActivation()) {
-    activation_mask = 0;
-  } else if (style.RenderSubtreeSkipViewportActivation()) {
-    activation_mask &=
-        ~static_cast<uint16_t>(DisplayLockActivationReason::kViewport);
   }
 
-  // Propagate activatable style to context.
-  context->SetActivatable(activation_mask);
-
-  if (should_be_invisible) {
-    // Add containment to style if we're invisible.
-    auto contain = style.Contain() | kContainsStyle | kContainsLayout;
-    // If we haven't activated, then we should also contain size. This means
-    // that if we are rendering the element's subtree (i.e. it is either
-    // unlocked or activated), then we do not have size containment.
-    if (!context->IsActivated())
-      contain |= kContainsSize;
-    style.SetContain(contain);
-
-    // If we're unlocked and unactivated, then we should lock the context. Note
-    // that we do this here, since locking the element means we can skip styling
-    // the subtree.
-    if (!context->IsLocked() && !context->IsActivated())
-      context->StartAcquire();
-  } else {
-    context->ClearActivated();
-    if (context->IsLocked())
-      context->StartCommit();
-  }
+  if (!context)
+    context = &element->EnsureDisplayLockContext();
+  context->SetRequestedState(style.SubtreeVisibility());
+  context->AdjustElementStyle(&style);
 }
 
 void StyleAdjuster::AdjustComputedStyle(StyleResolverState& state,
@@ -676,30 +632,18 @@ void StyleAdjuster::AdjustComputedStyle(StyleResolverState& state,
       style.SetDisplayLayoutCustomParentName(
           layout_parent_style.DisplayLayoutCustomName());
     }
+
+    bool is_in_main_frame = element && element->GetDocument().IsInMainFrame();
+    // The root element of the main frame has no backdrop, so don't allow
+    // it to have a backdrop filter either.
+    if (is_document_element && is_in_main_frame && style.HasBackdropFilter())
+      style.MutableBackdropFilter().clear();
   } else {
     AdjustStyleForFirstLetter(style);
   }
 
-  if (element &&
-      RuntimeEnabledFeatures::DisplayLockingEnabled(
-          element->GetExecutionContext()) &&
-      element->FastHasAttribute(html_names::kRendersubtreeAttr)) {
-    // The element has the rendersubtree attr, so we should add style and
-    // layout containment. If the attribute contains "invisible" we should
-    // also add size containment.
-    Containment contain = kContainsStyle | kContainsLayout;
-    SpaceSplitString tokens(
-        element->FastGetAttribute(html_names::kRendersubtreeAttr).LowerASCII());
-    if (style.ContainsSize() || tokens.Contains("invisible")) {
-      contain |= kContainsSize;
-    }
-    if (style.ContainsPaint())
-      contain |= kContainsPaint;
-    style.SetContain(contain);
-  }
-
-  if (RuntimeEnabledFeatures::CSSRenderSubtreeEnabled())
-    AdjustStateForRenderSubtree(style, element);
+  if (RuntimeEnabledFeatures::CSSSubtreeVisibilityEnabled())
+    AdjustStateForSubtreeVisibility(style, element);
 
   // Make sure our z-index value is only applied if the object is positioned.
   if (style.GetPosition() == EPosition::kStatic &&
@@ -771,6 +715,18 @@ void StyleAdjuster::AdjustComputedStyle(StyleResolverState& state,
     if (style.Display() == EDisplay::kContents) {
       // https://drafts.csswg.org/css-display/#unbox-mathml
       style.SetDisplay(EDisplay::kNone);
+    }
+    if (auto* space = DynamicTo<MathMLSpaceElement>(*element)) {
+      space->AddMathBaselineIfNeeded(style, state.CssToLengthConversionData());
+    } else if (auto* fraction = DynamicTo<MathMLFractionElement>(*element)) {
+      fraction->AddMathFractionBarThicknessIfNeeded(
+          style, state.CssToLengthConversionData());
+    }
+    if (style.GetWritingMode() != WritingMode::kHorizontalTb) {
+      // TODO(rbuis): this will not work with logical CSS properties.
+      // Disable vertical writing-mode for now.
+      style.SetWritingMode(WritingMode::kHorizontalTb);
+      style.UpdateFontOrientation();
     }
   }
 

@@ -5,8 +5,12 @@
 #include "storage/browser/blob/write_blob_to_file.h"
 
 #include <stdint.h>
+
 #include <algorithm>
 #include <limits>
+#include <memory>
+#include <utility>
+#include <vector>
 
 #include "base/bind.h"
 #include "base/files/file_util.h"
@@ -14,6 +18,7 @@
 #include "base/numerics/safe_conversions.h"
 #include "base/task/post_task.h"
 #include "base/task/task_traits.h"
+#include "base/task/thread_pool.h"
 #include "storage/browser/blob/blob_data_handle.h"
 #include "storage/browser/blob/blob_data_item.h"
 #include "storage/browser/blob/blob_data_snapshot.h"
@@ -140,8 +145,8 @@ mojom::WriteBlobToFileResult CopyFileAndMaybeWriteTimeModified(
   if (offset == 0) {
     base::File::Info info;
     base::GetFileInfo(copy_from, &info);
-    if (!storage::FileStreamReader::VerifySnapshotTime(
-            expected_last_modified_copy_from, info)) {
+    if (!FileStreamReader::VerifySnapshotTime(expected_last_modified_copy_from,
+                                              info)) {
       return mojom::WriteBlobToFileResult::kInvalidBlob;
     }
     if (!size || info.size == size.value()) {
@@ -167,8 +172,8 @@ mojom::WriteBlobToFileResult CopyFileAndMaybeWriteTimeModified(
 
   base::File::Info info;
   infile.GetInfo(&info);
-  if (!storage::FileStreamReader::VerifySnapshotTime(
-          expected_last_modified_copy_from, info)) {
+  if (!FileStreamReader::VerifySnapshotTime(expected_last_modified_copy_from,
+                                            info)) {
     return mojom::WriteBlobToFileResult::kInvalidBlob;
   }
 
@@ -223,8 +228,8 @@ void HandleModifiedTimeOnBlobFileWriteComplete(
     mojom::BlobStorageContext::WriteBlobToFileCallback callback,
     base::File::Error rv,
     int64_t bytes_written,
-    storage::FileWriterDelegate::WriteProgressStatus write_status) {
-  bool success = write_status == storage::FileWriterDelegate::SUCCESS_COMPLETED;
+    FileWriterDelegate::WriteProgressStatus write_status) {
+  bool success = write_status == FileWriterDelegate::SUCCESS_COMPLETED;
   if (!success) {
     std::move(callback).Run(mojom::WriteBlobToFileResult::kIOError);
     return;
@@ -233,10 +238,8 @@ void HandleModifiedTimeOnBlobFileWriteComplete(
     // Special Case 1: Success but no bytes were written, so just create
     // an empty file (LocalFileStreamWriter only creates a file
     // if data is actually written).
-    base::PostTaskAndReplyWithResult(
-        FROM_HERE,
-        {base::MayBlock(), base::TaskPriority::USER_VISIBLE,
-         base::ThreadPool()},
+    base::ThreadPool::PostTaskAndReplyWithResult(
+        FROM_HERE, {base::MayBlock(), base::TaskPriority::USER_VISIBLE},
         base::BindOnce(CreateEmptyFileAndMaybeSetModifiedTime,
                        std::move(file_path), last_modified, flush_on_write),
         std::move(callback));
@@ -244,10 +247,8 @@ void HandleModifiedTimeOnBlobFileWriteComplete(
   } else if (success && last_modified) {
     // Special Case 2: Success and |last_modified| needs to be set. Set
     // that before reporting write completion.
-    base::PostTaskAndReplyWithResult(
-        FROM_HERE,
-        {base::MayBlock(), base::TaskPriority::USER_VISIBLE,
-         base::ThreadPool()},
+    base::ThreadPool::PostTaskAndReplyWithResult(
+        FROM_HERE, {base::MayBlock(), base::TaskPriority::USER_VISIBLE},
         base::BindOnce(
             [](int64_t bytes_written, base::FilePath file_path,
                base::Optional<base::Time> last_modified) {
@@ -303,10 +304,8 @@ void WriteConstructedBlobToFile(
         return;
       }
 
-      base::PostTaskAndReplyWithResult(
-          FROM_HERE,
-          {base::MayBlock(), base::TaskPriority::USER_VISIBLE,
-           base::ThreadPool()},
+      base::ThreadPool::PostTaskAndReplyWithResult(
+          FROM_HERE, {base::MayBlock(), base::TaskPriority::USER_VISIBLE},
           base::BindOnce(CopyFileAndMaybeWriteTimeModified, item.path(),
                          item.expected_modification_time(), file_path,
                          item.offset(), optional_size, last_modified,
@@ -317,20 +316,19 @@ void WriteConstructedBlobToFile(
   }
 
   // If not, copy the BlobReader and FileStreamWriter.
-  std::unique_ptr<storage::FileStreamWriter> writer =
-      storage::FileStreamWriter::CreateForLocalFile(
-          base::CreateTaskRunner({base::MayBlock(), base::ThreadPool(),
-                                  base::TaskPriority::USER_VISIBLE})
+  std::unique_ptr<FileStreamWriter> writer =
+      FileStreamWriter::CreateForLocalFile(
+          base::ThreadPool::CreateTaskRunner(
+              {base::MayBlock(), base::TaskPriority::USER_VISIBLE})
               .get(),
           file_path, /*initial_offset=*/0,
-          storage::FileStreamWriter::CREATE_NEW_FILE_ALWAYS);
+          FileStreamWriter::CREATE_NEW_FILE_ALWAYS);
 
-  storage::FlushPolicy policy =
-      flush_on_write || last_modified
-          ? storage::FlushPolicy::FLUSH_ON_COMPLETION
-          : storage::FlushPolicy::NO_FLUSH_ON_COMPLETION;
-  std::unique_ptr<storage::FileWriterDelegate> delegate(
-      std::make_unique<storage::FileWriterDelegate>(std::move(writer), policy));
+  FlushPolicy policy = flush_on_write || last_modified
+                           ? FlushPolicy::FLUSH_ON_COMPLETION
+                           : FlushPolicy::NO_FLUSH_ON_COMPLETION;
+  auto delegate =
+      std::make_unique<FileWriterDelegate>(std::move(writer), policy);
 
   auto* raw_delegate = delegate.get();
   raw_delegate->Start(

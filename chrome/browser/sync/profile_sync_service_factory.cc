@@ -22,7 +22,6 @@
 #include "chrome/browser/favicon/favicon_service_factory.h"
 #include "chrome/browser/gcm/gcm_profile_service_factory.h"
 #include "chrome/browser/history/history_service_factory.h"
-#include "chrome/browser/invalidation/deprecated_profile_invalidation_provider_factory.h"
 #include "chrome/browser/invalidation/profile_invalidation_provider_factory.h"
 #include "chrome/browser/password_manager/account_storage/account_password_store_factory.h"
 #include "chrome/browser/password_manager/password_store_factory.h"
@@ -151,8 +150,6 @@ ProfileSyncServiceFactory::ProfileSyncServiceFactory()
   DependsOn(gcm::GCMProfileServiceFactory::GetInstance());
   DependsOn(HistoryServiceFactory::GetInstance());
   DependsOn(IdentityManagerFactory::GetInstance());
-  DependsOn(invalidation::DeprecatedProfileInvalidationProviderFactory::
-                GetInstance());
   DependsOn(invalidation::ProfileInvalidationProviderFactory::GetInstance());
   DependsOn(ModelTypeStoreServiceFactory::GetInstance());
   DependsOn(PasswordStoreFactory::GetInstance());
@@ -251,19 +248,8 @@ KeyedService* ProfileSyncServiceFactory::BuildServiceInstanceFor(
         invalidation::ProfileInvalidationProviderFactory::GetForProfile(
             profile);
     if (fcm_invalidation_provider) {
-      init_params.invalidations_identity_providers.push_back(
-          fcm_invalidation_provider->GetIdentityProvider());
-    }
-
-    // This code should stay here until all invalidation client are
-    // migrated from deprecated invalidation infrastructure.
-    // Since invalidations will work only if ProfileSyncService calls
-    // SetActiveAccountId for all identity providers.
-    auto* deprecated_invalidation_provider = invalidation::
-        DeprecatedProfileInvalidationProviderFactory::GetForProfile(profile);
-    if (deprecated_invalidation_provider) {
-      init_params.invalidations_identity_providers.push_back(
-          deprecated_invalidation_provider->GetIdentityProvider());
+      init_params.invalidations_identity_provider =
+          fcm_invalidation_provider->GetIdentityProvider();
     }
 
     // TODO(tim): Currently, AUTO/MANUAL settings refer to the *first* time sync
@@ -274,7 +260,7 @@ KeyedService* ProfileSyncServiceFactory::BuildServiceInstanceFor(
     // those two cases. Bug 88109.
     bool is_auto_start = browser_defaults::kSyncAutoStarts;
 #if defined(OS_CHROMEOS)
-    if (chromeos::features::IsSplitSettingsSyncEnabled())
+    if (chromeos::features::IsSplitSyncConsentEnabled())
       is_auto_start = false;
 #endif
     init_params.start_behavior = is_auto_start
@@ -313,8 +299,6 @@ bool ProfileSyncServiceFactory::IsSyncAllowed(Profile* profile) {
   if (HasSyncService(profile)) {
     syncer::SyncService* sync_service = GetForProfile(profile);
     return !sync_service->HasDisableReason(
-               syncer::SyncService::DISABLE_REASON_PLATFORM_OVERRIDE) &&
-           !sync_service->HasDisableReason(
                syncer::SyncService::DISABLE_REASON_ENTERPRISE_POLICY);
   }
 

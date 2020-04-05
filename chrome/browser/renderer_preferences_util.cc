@@ -183,12 +183,16 @@ void UpdateFromSystemSettings(blink::mojom::RendererPreferences* prefs,
   }
 
   if (::features::IsFormControlsRefreshEnabled()) {
+#if defined(OS_MACOSX)
+    prefs->focus_ring_color = SkColorSetRGB(0x00, 0x5F, 0xCC);
+#else
     prefs->focus_ring_color = SkColorSetRGB(0x10, 0x10, 0x10);
+#endif
   }
 
   std::string user_agent;
   if (nw::GetUserAgentFromManifest(&user_agent))
-    prefs->user_agent_override = user_agent;
+    prefs->user_agent_override.ua_string_override = user_agent;
 }
 
 }  // namespace renderer_preferences_util

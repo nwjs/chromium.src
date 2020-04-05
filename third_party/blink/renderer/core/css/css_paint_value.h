@@ -71,7 +71,7 @@ class CORE_EXPORT CSSPaintValue : public CSSImageGeneratorValue {
   }
   unsigned NumberOfGeneratorsForTesting() const { return generators_.size(); }
 
-  void TraceAfterDispatch(blink::Visitor*);
+  void TraceAfterDispatch(blink::Visitor*) const;
 
  private:
   class Observer final : public CSSPaintImageGenerator::Observer {
@@ -79,7 +79,7 @@ class CORE_EXPORT CSSPaintValue : public CSSImageGeneratorValue {
     explicit Observer(CSSPaintValue* owner_value) : owner_value_(owner_value) {}
 
     ~Observer() override = default;
-    void Trace(blink::Visitor* visitor) override {
+    void Trace(Visitor* visitor) override {
       visitor->Trace(owner_value_);
       CSSPaintImageGenerator::Observer::Trace(visitor);
     }

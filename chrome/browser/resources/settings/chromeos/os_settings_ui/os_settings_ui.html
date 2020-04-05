@@ -8,6 +8,7 @@
 <link rel="import" href="chrome://resources/html/find_shortcut_behavior.html">
 <link rel="import" href="chrome://resources/html/util.html">
 <link rel="import" href="chrome://resources/polymer/v1_0/paper-styles/color.html">
+<link rel="import" href="../metrics_recorder.html">
 <link rel="import" href="../os_settings_menu/os_settings_menu.html">
 <link rel="import" href="../os_settings_main/os_settings_main.html">
 <link rel="import" href="../os_toolbar/os_toolbar.html">
@@ -40,7 +41,9 @@
         @apply --layout-center;
         /* TODO(hsuregan): update for dark mode when needed. */
         min-height: 56px;
-        z-index: 2;
+        /* Needs to be higher than #cr-container-show-top's z-index so that the
+         * new settings search dropdown is not struck through by the shadow. */
+        z-index: 3;
       }
 
       cr-drawer {

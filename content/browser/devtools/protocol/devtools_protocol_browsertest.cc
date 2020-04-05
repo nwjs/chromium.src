@@ -168,6 +168,13 @@ class TestJavaScriptDialogManager : public JavaScriptDialogManager,
 
 }  // namespace
 
+class SitePerProcessDevToolsProtocolTest : public DevToolsProtocolTest {
+ public:
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    DevToolsProtocolTest::SetUpCommandLine(command_line);
+    IsolateAllSitesForTesting(command_line);
+  }
+};
 
 class TestInterstitialDelegate : public InterstitialPageDelegate {
  private:
@@ -784,6 +791,87 @@ IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest, DISABLED_SynthesizeTapGesture) {
   ASSERT_GT(scroll_top, 0);
 }
 #endif  // defined(OS_ANDROID)
+
+IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest, PageCrash) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+  GURL test_url = embedded_test_server()->GetURL("/devtools/navigation.html");
+  NavigateToURLBlockUntilNavigationsComplete(shell(), test_url, 1);
+  Attach();
+
+  std::unique_ptr<base::DictionaryValue> command_params;
+  command_params.reset(new base::DictionaryValue());
+  command_params->SetBoolean("discover", true);
+  SendCommand("Target.setDiscoverTargets", std::move(command_params));
+
+  std::string target_id;
+  std::unique_ptr<base::DictionaryValue> params;
+  std::string type;
+  params = WaitForNotification("Target.targetCreated", true);
+  ASSERT_TRUE(params->GetString("targetInfo.type", &type));
+  ASSERT_EQ(type, "page");
+  ASSERT_TRUE(params->GetString("targetInfo.targetId", &target_id));
+
+  ClearNotifications();
+  {
+    content::ScopedAllowRendererCrashes scoped_allow_renderer_crashes;
+    SendCommand("Page.crash", nullptr, false);
+    params = WaitForNotification("Target.targetCrashed", true);
+  }
+  ASSERT_TRUE(params);
+  std::string crashed_target_id;
+  ASSERT_TRUE(params->GetString("targetId", &crashed_target_id));
+  EXPECT_EQ(target_id, crashed_target_id);
+
+  ClearNotifications();
+  shell()->LoadURL(test_url);
+  WaitForNotification("Inspector.targetReloadedAfterCrash", true);
+}
+
+IN_PROC_BROWSER_TEST_F(SitePerProcessDevToolsProtocolTest, PageCrashInFrame) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+  GURL test_url =
+      embedded_test_server()->GetURL("/devtools/page-with-oopif.html");
+  NavigateToURLBlockUntilNavigationsComplete(shell(), test_url, 1);
+  Attach();
+
+  std::unique_ptr<base::DictionaryValue> command_params;
+  command_params.reset(new base::DictionaryValue());
+  command_params->SetBoolean("discover", true);
+  SendCommand("Target.setDiscoverTargets", std::move(command_params));
+
+  std::string frame_target_id;
+  std::unique_ptr<base::DictionaryValue> params;
+  for (int targetCount = 1; true; targetCount++) {
+    params = WaitForNotification("Target.targetCreated", true);
+    std::string type;
+    ASSERT_TRUE(params->GetString("targetInfo.type", &type));
+    if (type == "iframe") {
+      ASSERT_TRUE(params->GetString("targetInfo.targetId", &frame_target_id));
+      break;
+    }
+    ASSERT_LT(targetCount, 2);
+  }
+
+  command_params.reset(new base::DictionaryValue());
+  command_params->SetString("targetId", frame_target_id);
+  command_params->SetBoolean("flatten", true);
+  base::DictionaryValue* result =
+      SendCommand("Target.attachToTarget", std::move(command_params));
+  ASSERT_NE(nullptr, result);
+  std::string session_id;
+  ASSERT_TRUE(result->GetString("sessionId", &session_id));
+
+  ClearNotifications();
+  {
+    content::ScopedAllowRendererCrashes scoped_allow_renderer_crashes;
+    SendSessionCommand("Page.crash", nullptr, session_id, false);
+    params = WaitForNotification("Target.targetCrashed", true);
+  }
+  ASSERT_TRUE(params);
+  std::string crashed_target_id;
+  ASSERT_TRUE(params->GetString("targetId", &crashed_target_id));
+  EXPECT_EQ(frame_target_id, crashed_target_id);
+}
 
 IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest, NavigationPreservesMessages) {
   ASSERT_TRUE(embedded_test_server()->Start());
@@ -1663,20 +1751,6 @@ IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest, InterstitialShownOnAttach) {
   WaitForNotification("Page.interstitialShown", true);
 }
 
-class SitePerProcessDevToolsProtocolTest : public DevToolsProtocolTest {
- public:
-  void SetUpCommandLine(base::CommandLine* command_line) override {
-    DevToolsProtocolTest::SetUpCommandLine(command_line);
-    IsolateAllSitesForTesting(command_line);
-  }
-
-  void SetUpOnMainThread() override {
-    DevToolsProtocolTest::SetUpOnMainThread();
-    content::SetupCrossSiteRedirector(embedded_test_server());
-    ASSERT_TRUE(embedded_test_server()->Start());
-  }
-};
-
 IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest, SetAndGetCookies) {
   ASSERT_TRUE(embedded_test_server()->Start());
   GURL test_url = embedded_test_server()->GetURL("/title1.html");
@@ -1985,13 +2059,13 @@ class CountingDownloadFile : public download::DownloadFileImpl {
   }
 
   void Initialize(InitializeCallback callback,
-                  const CancelRequestCallback& cancel_request_callback,
+                  CancelRequestCallback cancel_request_callback,
                   const download::DownloadItem::ReceivedSlices& received_slices,
                   bool is_parallelizable) override {
     DCHECK(download::GetDownloadTaskRunner()->RunsTasksInCurrentSequence());
     active_files_++;
     download::DownloadFileImpl::Initialize(std::move(callback),
-                                           cancel_request_callback,
+                                           std::move(cancel_request_callback),
                                            received_slices, is_parallelizable);
   }
 
@@ -2230,7 +2304,6 @@ IN_PROC_BROWSER_TEST_F(DevToolsDownloadContentTest, SingleDownload) {
   download::DownloadItem* download = StartDownloadAndReturnItem(
       shell(), embedded_test_server()->GetURL("/download/download-test.lib"));
   ASSERT_EQ(download::DownloadItem::IN_PROGRESS, download->GetState());
-
   WaitForCompletion(download);
   ASSERT_EQ(download::DownloadItem::COMPLETE, download->GetState());
 }
@@ -2300,7 +2373,7 @@ IN_PROC_BROWSER_TEST_F(DevToolsDownloadContentTest, DefaultDownload) {
   EXPECT_TRUE(EnsureNoPendingDownloads());
 }
 
-// Check that defaulting downloads works as expected when there's no proxy
+// Check that defaulting downloads cancels when there's no proxy
 // download delegate.
 IN_PROC_BROWSER_TEST_F(DevToolsDownloadContentTest, DefaultDownloadHeadless) {
   base::ThreadRestrictions::SetIOAllowed(true);
@@ -2316,28 +2389,7 @@ IN_PROC_BROWSER_TEST_F(DevToolsDownloadContentTest, DefaultDownloadHeadless) {
   DownloadTestFlushObserver flush_observer(DownloadManagerForShell(shell()));
   flush_observer.WaitForFlush();
   EXPECT_TRUE(EnsureNoPendingDownloads());
-  // The download manager will intercept the download navigation and drop it
-  // since we have set the delegate to null.
-  EXPECT_EQ(nullptr, download);
-}
-
-// Check that download logic is reset when creating a new target.
-IN_PROC_BROWSER_TEST_F(DevToolsDownloadContentTest, ResetDownloadState) {
-  base::ThreadRestrictions::SetIOAllowed(true);
-  SetupEnsureNoPendingDownloads();
-  NavigateToURLBlockUntilNavigationsComplete(shell(), GURL("about:blank"), 1);
-  Attach();
-
-  SetDownloadBehavior("deny");
-
-  Shell* new_window = CreateBrowser();
-  NavigateToURLBlockUntilNavigationsComplete(shell(), GURL("about:blank"), 1);
-  // Create a download, wait and confirm it wasn't cancelled.
-  download::DownloadItem* download = StartDownloadAndReturnItem(
-      new_window,
-      embedded_test_server()->GetURL("/download/download-test.lib"));
-  WaitForCompletion(download);
-  ASSERT_EQ(download::DownloadItem::COMPLETE, download->GetState());
+  ASSERT_EQ(download::DownloadItem::CANCELLED, download->GetState());
 }
 
 // Flakly on ChromeOS https://crbug.com/860312

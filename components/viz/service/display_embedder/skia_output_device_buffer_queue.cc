@@ -4,9 +4,11 @@
 
 #include "components/viz/service/display_embedder/skia_output_device_buffer_queue.h"
 
+#include "base/command_line.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "build/build_config.h"
 #include "components/viz/common/resources/resource_format_utils.h"
+#include "components/viz/common/switches.h"
 #include "components/viz/service/display_embedder/skia_output_surface_dependency.h"
 #include "gpu/command_buffer/common/capabilities.h"
 #include "gpu/command_buffer/common/shared_image_usage.h"
@@ -18,6 +20,7 @@
 #include "third_party/skia/include/core/SkSurface.h"
 #include "third_party/skia/include/core/SkSurfaceProps.h"
 #include "ui/display/types/display_snapshot.h"
+#include "ui/gfx/buffer_format_util.h"
 #include "ui/gfx/geometry/rect_conversions.h"
 #include "ui/gl/gl_fence.h"
 #include "ui/gl/gl_surface.h"
@@ -40,7 +43,14 @@ class SkiaOutputDeviceBufferQueue::Image {
   Image(gpu::SharedImageFactory* factory,
         gpu::SharedImageRepresentationFactory* representation_factory)
       : factory_(factory), representation_factory_(representation_factory) {}
-  ~Image() = default;
+  ~Image() {
+    // TODO(vasilyt): As we are going to delete image anyway we should be able
+    // to abort write to avoid unnecessary flush to submit semaphores.
+    if (scoped_skia_write_access_) {
+      EndWriteSkia();
+    }
+    DCHECK(!scoped_skia_write_access_);
+  }
 
   bool Initialize(const gfx::Size& size,
                   const gfx::ColorSpace& color_space,
@@ -48,31 +58,50 @@ class SkiaOutputDeviceBufferQueue::Image {
                   SkiaOutputSurfaceDependency* deps,
                   uint32_t shared_image_usage) {
     auto mailbox = gpu::Mailbox::GenerateForSharedImage();
+    // TODO(penghuang): This should pass the surface handle for ChromeOS
     if (!factory_->CreateSharedImage(mailbox, format, size, color_space,
+                                     gpu::kNullSurfaceHandle,
                                      shared_image_usage)) {
       DLOG(ERROR) << "CreateSharedImage failed.";
       return false;
     }
+
+    // Initialize |shared_image_deletor_| to make sure the shared image backing
+    // will be released with the Image.
+    shared_image_deletor_.ReplaceClosure(base::BindOnce(
+        base::IgnoreResult(&gpu::SharedImageFactory::DestroySharedImage),
+        base::Unretained(factory_), mailbox));
+
     skia_representation_ = representation_factory_->ProduceSkia(
         mailbox, deps->GetSharedContextState());
+    if (!skia_representation_) {
+      DLOG(ERROR) << "ProduceSkia() failed.";
+      return false;
+    }
+
     overlay_representation_ = representation_factory_->ProduceOverlay(mailbox);
 
     // If the backing doesn't support overlay, then fallback to GL.
     if (!overlay_representation_)
       gl_representation_ = representation_factory_->ProduceGLTexture(mailbox);
-    shared_image_deletor_.ReplaceClosure(base::BindOnce(
-        base::IgnoreResult(&gpu::SharedImageFactory::DestroySharedImage),
-        base::Unretained(factory_), mailbox));
+
+    if (!overlay_representation_ && !gl_representation_) {
+      DLOG(ERROR) << "ProduceOverlay() and ProduceGLTexture() failed.";
+      return false;
+    }
+
     return true;
   }
 
-  SkSurface* BeginWriteSkia() {
+  void BeginWriteSkia() {
     DCHECK(!scoped_skia_write_access_);
     DCHECK(!scoped_overlay_read_access_);
     DCHECK(end_semaphores_.empty());
 
     std::vector<GrBackendSemaphore> begin_semaphores;
-    SkSurfaceProps surface_props{0, kUnknown_SkPixelGeometry};
+    // LegacyFontHost will get LCD text and skia figures out what type to use.
+    SkSurfaceProps surface_props(0 /* flags */,
+                                 SkSurfaceProps::kLegacyFontHost_InitType);
 
     // Buffer queue is internal to GPU proc and handles texture initialization,
     // so allow uncleared access.
@@ -86,8 +115,11 @@ class SkiaOutputDeviceBufferQueue::Image {
       scoped_skia_write_access_->surface()->wait(begin_semaphores.size(),
                                                  begin_semaphores.data());
     }
+  }
 
-    return scoped_skia_write_access_->surface();
+  SkSurface* sk_surface() {
+    return scoped_skia_write_access_ ? scoped_skia_write_access_->surface()
+                                     : nullptr;
   }
 
   std::vector<GrBackendSemaphore> TakeEndWriteSkiaSemaphores() {
@@ -95,6 +127,7 @@ class SkiaOutputDeviceBufferQueue::Image {
     temp_vector.swap(end_semaphores_);
     return temp_vector;
   }
+
   void EndWriteSkia() {
     // The Flush now takes place in finishPaintCurrentBuffer on the CPU side.
     // check if end_semaphores is not empty then flash here
@@ -216,9 +249,7 @@ SkiaOutputDeviceBufferQueue::SkiaOutputDeviceBufferQueue(
     gpu::MemoryTracker* memory_tracker,
     const DidSwapBufferCompleteCallback& did_swap_buffer_complete_callback,
     uint32_t shared_image_usage)
-    : SkiaOutputDevice(false /*need_swap_semaphore */,
-                       memory_tracker,
-                       did_swap_buffer_complete_callback),
+    : SkiaOutputDevice(memory_tracker, did_swap_buffer_complete_callback),
       dependency_(deps),
       gl_surface_(std::move(gl_surface)),
       supports_async_swap_(gl_surface_->SupportsAsyncSwap()),
@@ -234,22 +265,46 @@ SkiaOutputDeviceBufferQueue::SkiaOutputDeviceBufferQueue(
       shared_image_usage_(shared_image_usage) {
   shared_image_representation_factory_ =
       std::make_unique<gpu::SharedImageRepresentationFactory>(
-          deps->GetSharedImageManager(), memory_tracker);
+          dependency_->GetSharedImageManager(), memory_tracker);
 
 #if defined(USE_OZONE)
   image_format_ = GetResourceFormat(display::DisplaySnapshot::PrimaryFormat());
 #else
   image_format_ = RGBA_8888;
 #endif
+  // GL is origin is at bottom left normally, all Surfaceless implementations
+  // are flipped.
+  DCHECK_EQ(gl_surface_->GetOrigin(), gfx::SurfaceOrigin::kTopLeft);
 
+  capabilities_.uses_default_gl_framebuffer = false;
+  capabilities_.android_surface_control_feature_enabled = true;
   capabilities_.supports_post_sub_buffer = gl_surface_->SupportsPostSubBuffer();
-  // TODO(vasilyt): Need to figure out why partial swap isn't working
-  capabilities_.supports_post_sub_buffer = false;
   capabilities_.supports_commit_overlay_planes =
       gl_surface_->SupportsCommitOverlayPlanes();
   capabilities_.max_frames_pending = 2;
+
+  // Force the number of max pending frames to one when the switch
+  // "double-buffer-compositing" is passed.
+  // This will keep compositing in double buffered mode assuming |buffer_queue|
+  // allocates at most one additional buffer.
+  base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
+  if (command_line->HasSwitch(switches::kDoubleBufferCompositing))
+    capabilities_.max_frames_pending = 1;
+
+  capabilities_.only_invalidates_damage_rect = false;
   // Set supports_surfaceless to enable overlays.
   capabilities_.supports_surfaceless = true;
+  capabilities_.preserve_buffer_content = true;
+  // We expect origin of buffers is at top left.
+  capabilities_.output_surface_origin = gfx::SurfaceOrigin::kTopLeft;
+
+  // TODO(penghuang): Use defaultBackendFormat() in shared image implementation
+  // to make sure backend formant is consistent.
+  capabilities_.sk_color_type = ResourceFormatToClosestSkColorType(
+      true /* gpu_compositing */, image_format_);
+  capabilities_.gr_backend_format =
+      dependency_->GetSharedContextState()->gr_context()->defaultBackendFormat(
+          capabilities_.sk_color_type, GrRenderable::kYes);
 }
 
 SkiaOutputDeviceBufferQueue::SkiaOutputDeviceBufferQueue(
@@ -277,8 +332,12 @@ SkiaOutputDeviceBufferQueue::Create(
     gpu::MemoryTracker* memory_tracker,
     const DidSwapBufferCompleteCallback& did_swap_buffer_complete_callback) {
 #if defined(OS_ANDROID)
-  if (!features::IsAndroidSurfaceControlEnabled())
+  if (deps->GetGpuFeatureInfo()
+          .status_values[gpu::GPU_FEATURE_TYPE_ANDROID_SURFACE_CONTROL] !=
+      gpu::kGpuFeatureStatusEnabled) {
     return nullptr;
+  }
+
   bool can_be_used_with_surface_control = false;
   ANativeWindow* window =
       gpu::GpuSurfaceLookup::GetInstance()->AcquireNativeWidget(
@@ -309,22 +368,10 @@ SkiaOutputDeviceBufferQueue::Create(
 
 SkiaOutputDeviceBufferQueue::Image*
 SkiaOutputDeviceBufferQueue::GetNextImage() {
-  if (!available_images_.empty()) {
-    auto* image = available_images_.back();
-    available_images_.pop_back();
-    return image;
-  }
-
-  auto image = std::make_unique<Image>(
-      &shared_image_factory_, shared_image_representation_factory_.get());
-
-  if (image->Initialize(image_size_, color_space_, image_format_, dependency_,
-                        shared_image_usage_)) {
-    images_.push_back(std::move(image));
-    return images_.back().get();
-  }
-
-  return nullptr;
+  DCHECK(!available_images_.empty());
+  auto* image = available_images_.front();
+  available_images_.pop_front();
+  return image;
 }
 
 void SkiaOutputDeviceBufferQueue::PageFlipComplete(Image* image) {
@@ -334,6 +381,15 @@ void SkiaOutputDeviceBufferQueue::PageFlipComplete(Image* image) {
     displayed_image_->EndPresent();
     if (!displayed_image_->present_count()) {
       available_images_.push_back(displayed_image_);
+      // Call BeginWriteSkia() for the next frame here to avoid some expensive
+      // operations on the critical code path.
+      auto shared_context_state = dependency_->GetSharedContextState();
+      if (!available_images_.front()->sk_surface() &&
+          shared_context_state->MakeCurrent(nullptr)) {
+        // BeginWriteSkia() may alter GL's state.
+        shared_context_state->set_need_context_state_reset(true);
+        available_images_.front()->BeginWriteSkia();
+      }
     }
   }
 
@@ -347,6 +403,10 @@ void SkiaOutputDeviceBufferQueue::FreeAllSurfaces() {
   submitted_image_ = nullptr;
   displayed_image_ = nullptr;
   available_images_.clear();
+}
+
+bool SkiaOutputDeviceBufferQueue::IsPrimaryPlaneOverlay() const {
+  return true;
 }
 
 void SkiaOutputDeviceBufferQueue::SchedulePrimaryPlane(
@@ -441,6 +501,43 @@ void SkiaOutputDeviceBufferQueue::SwapBuffers(
   std::swap(committed_overlays_, pending_overlays_);
 }
 
+void SkiaOutputDeviceBufferQueue::PostSubBuffer(
+    const gfx::Rect& rect,
+    BufferPresentedCallback feedback,
+    std::vector<ui::LatencyInfo> latency_info) {
+  StartSwapBuffers({});
+
+  if (current_image_) {
+    submitted_image_ = current_image_;
+    current_image_ = nullptr;
+  }
+  DCHECK(submitted_image_);
+
+  if (supports_async_swap_) {
+    // Cancelable callback uses weak ptr to drop this task upon destruction.
+    // Thus it is safe to use |base::Unretained(this)|.
+    // Bind submitted_image_->GetWeakPtr(), since the |submitted_image_| could
+    // be released due to reshape() or destruction.
+    swap_completion_callbacks_.emplace_back(
+        std::make_unique<CancelableSwapCompletionCallback>(base::BindOnce(
+            &SkiaOutputDeviceBufferQueue::DoFinishSwapBuffers,
+            base::Unretained(this), image_size_, std::move(latency_info),
+            submitted_image_->GetWeakPtr(), std::move(committed_overlays_))));
+    gl_surface_->PostSubBufferAsync(
+        rect.x(), rect.y(), rect.width(), rect.height(),
+        swap_completion_callbacks_.back()->callback(), std::move(feedback));
+  } else {
+    DoFinishSwapBuffers(
+        image_size_, std::move(latency_info), submitted_image_->GetWeakPtr(),
+        std::move(committed_overlays_),
+        gl_surface_->PostSubBuffer(rect.x(), rect.y(), rect.width(),
+                                   rect.height(), std::move(feedback)),
+        nullptr);
+  }
+  committed_overlays_.clear();
+  std::swap(committed_overlays_, pending_overlays_);
+}
+
 void SkiaOutputDeviceBufferQueue::CommitOverlayPlanes(
     BufferPresentedCallback feedback,
     std::vector<ui::LatencyInfo> latency_info) {
@@ -482,16 +579,17 @@ void SkiaOutputDeviceBufferQueue::DoFinishSwapBuffers(
     std::unique_ptr<gfx::GpuFence> gpu_fence) {
   DCHECK(!gpu_fence);
 
-  PageFlipComplete(image.get());
   FinishSwapBuffers(result, size, latency_info);
+  PageFlipComplete(image.get());
 }
 
 bool SkiaOutputDeviceBufferQueue::Reshape(const gfx::Size& size,
                                           float device_scale_factor,
                                           const gfx::ColorSpace& color_space,
-                                          bool has_alpha,
+                                          gfx::BufferFormat format,
                                           gfx::OverlayTransform transform) {
-  if (!gl_surface_->Resize(size, device_scale_factor, color_space, has_alpha)) {
+  if (!gl_surface_->Resize(size, device_scale_factor, color_space,
+                           gfx::AlphaBitsForBufferFormat(format))) {
     DLOG(ERROR) << "Failed to resize.";
     return false;
   }
@@ -499,24 +597,35 @@ bool SkiaOutputDeviceBufferQueue::Reshape(const gfx::Size& size,
   color_space_ = color_space;
   image_size_ = size;
   FreeAllSurfaces();
+
+  for (int i = 0; i < capabilities_.max_frames_pending + 1; ++i) {
+    auto image = std::make_unique<Image>(
+        &shared_image_factory_, shared_image_representation_factory_.get());
+    if (!image->Initialize(image_size_, color_space_, image_format_,
+                           dependency_, shared_image_usage_)) {
+      DLOG(ERROR) << "Failed to initialize image.";
+      return false;
+    }
+    available_images_.push_back(image.get());
+    images_.push_back(std::move(image));
+  }
+
   return true;
 }
 
-SkSurface* SkiaOutputDeviceBufferQueue::BeginPaint() {
+SkSurface* SkiaOutputDeviceBufferQueue::BeginPaint(
+    std::vector<GrBackendSemaphore>* end_semaphores) {
   if (!current_image_)
     current_image_ = GetNextImage();
-  return current_image_->BeginWriteSkia();
+  if (!current_image_->sk_surface())
+    current_image_->BeginWriteSkia();
+  *end_semaphores = current_image_->TakeEndWriteSkiaSemaphores();
+  return current_image_->sk_surface();
 }
 
-void SkiaOutputDeviceBufferQueue::EndPaint(
-    const GrBackendSemaphore& semaphore) {
+void SkiaOutputDeviceBufferQueue::EndPaint() {
   DCHECK(current_image_);
   current_image_->EndWriteSkia();
-}
-
-std::vector<GrBackendSemaphore>
-SkiaOutputDeviceBufferQueue::TakeEndPaintSemaphores() {
-  return current_image_->TakeEndWriteSkiaSemaphores();
 }
 
 }  // namespace viz

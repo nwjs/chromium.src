@@ -181,11 +181,18 @@ bool FakeScriptExecutorDelegate::SetForm(
 }
 
 UserModel* FakeScriptExecutorDelegate::GetUserModel() {
-  return nullptr;
+  return user_model_;
 }
 
 EventHandler* FakeScriptExecutorDelegate::GetEventHandler() {
   return nullptr;
 }
+
+void FakeScriptExecutorDelegate::SetGenericUi(
+    std::unique_ptr<GenericUserInterfaceProto> generic_ui,
+    base::OnceCallback<void(bool, ProcessedActionStatusProto, const UserModel*)>
+        end_action_callback) {}
+
+void FakeScriptExecutorDelegate::ClearGenericUi() {}
 
 }  // namespace autofill_assistant

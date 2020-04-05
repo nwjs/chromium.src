@@ -26,7 +26,9 @@
 #include "third_party/blink/renderer/core/layout/layout_view.h"
 #include "third_party/blink/renderer/core/page/chrome_client.h"
 #include "third_party/blink/renderer/core/page/page.h"
+#include "third_party/blink/renderer/platform/cursors.h"
 #include "third_party/blink/renderer/platform/keyboard_codes.h"
+#include "third_party/inspector_protocol/crdtp/json.h"
 
 namespace blink {
 
@@ -113,7 +115,7 @@ SearchingForNodeTool::SearchingForNodeTool(InspectorDOMAgent* dom_agent,
       InspectorOverlayAgent::ToHighlightConfig(highlight_config.get());
 }
 
-void SearchingForNodeTool::Trace(blink::Visitor* visitor) {
+void SearchingForNodeTool::Trace(Visitor* visitor) {
   InspectTool::Trace(visitor);
   visitor->Trace(dom_agent_);
   visitor->Trace(hovered_node_);
@@ -337,7 +339,7 @@ void NodeHighlightTool::DrawMatchingSelector() {
   }
 }
 
-void NodeHighlightTool::Trace(blink::Visitor* visitor) {
+void NodeHighlightTool::Trace(Visitor* visitor) {
   InspectTool::Trace(visitor);
   visitor->Trace(node_);
 }
@@ -403,7 +405,7 @@ void NearbyDistanceTool::Draw(float scale) {
   overlay_->EvaluateInOverlay("drawDistances", highlight.AsProtocolValue());
 }
 
-void NearbyDistanceTool::Trace(blink::Visitor* visitor) {
+void NearbyDistanceTool::Trace(Visitor* visitor) {
   InspectTool::Trace(visitor);
   visitor->Trace(hovered_node_);
 }
@@ -436,14 +438,27 @@ int ScreenshotTool::GetDataResourceId() {
 }
 
 void ScreenshotTool::Dispatch(const String& message) {
+  if (message.IsEmpty())
+    return;
+  std::vector<uint8_t> cbor;
+  if (message.Is8Bit()) {
+    crdtp::json::ConvertJSONToCBOR(
+        crdtp::span<uint8_t>(message.Characters8(), message.length()), &cbor);
+  } else {
+    crdtp::json::ConvertJSONToCBOR(
+        crdtp::span<uint16_t>(
+            reinterpret_cast<const uint16_t*>(message.Characters16()),
+            message.length()),
+        &cbor);
+  }
   std::unique_ptr<protocol::Value> value =
-      protocol::StringUtil::parseJSON(message);
+      protocol::Value::parseBinary(cbor.data(), cbor.size());
   if (!value)
     return;
   protocol::ErrorSupport errors;
   std::unique_ptr<protocol::DOM::Rect> box =
       protocol::DOM::Rect::fromValue(value.get(), &errors);
-  if (errors.hasErrors())
+  if (!errors.Errors().empty())
     return;
 
   float scale = 1.0f;

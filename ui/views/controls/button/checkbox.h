@@ -5,6 +5,7 @@
 #ifndef UI_VIEWS_CONTROLS_BUTTON_CHECKBOX_H_
 #define UI_VIEWS_CONTROLS_BUTTON_CHECKBOX_H_
 
+#include <memory>
 #include <string>
 
 #include "base/compiler_specific.h"
@@ -35,6 +36,9 @@ class VIEWS_EXPORT Checkbox : public LabelButton {
   virtual void SetChecked(bool checked);
   bool GetChecked() const;
 
+  PropertyChangedSubscription AddCheckedChangedCallback(
+      PropertyChangedCallback callback) WARN_UNUSED_RESULT;
+
   void SetMultiLine(bool multi_line);
   bool GetMultiLine() const;
 
@@ -55,7 +59,6 @@ class VIEWS_EXPORT Checkbox : public LabelButton {
   void OnThemeChanged() override;
   std::unique_ptr<InkDrop> CreateInkDrop() override;
   std::unique_ptr<InkDropRipple> CreateInkDropRipple() const override;
-  std::unique_ptr<InkDropMask> CreateInkDropMask() const override;
   SkColor GetInkDropBaseColor() const override;
   gfx::ImageSkia GetImage(ButtonState for_state) const override;
   std::unique_ptr<LabelButtonBorder> CreateDefaultBorder() const override;

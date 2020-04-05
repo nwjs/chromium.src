@@ -17,6 +17,7 @@ class ToolbarButton;
 
 namespace gfx {
 class Rect;
+class Size;
 }
 
 namespace views {
@@ -35,6 +36,9 @@ class ToolbarButtonProvider {
   // Gets the ExtensionsToolbarContainer.
   virtual ExtensionsToolbarContainer* GetExtensionsToolbarContainer() = 0;
 
+  // Get the default size for toolbar buttons.
+  virtual gfx::Size GetToolbarButtonSize() const = 0;
+
   // Gets the default view to use as an anchor for extension dialogs if the
   // ToolbarActionView is not visible or available.
   virtual views::View* GetDefaultExtensionDialogAnchorView() = 0;
@@ -48,7 +52,7 @@ class ToolbarButtonProvider {
 
   // Returns a bounding box for the find bar in widget coordinates given the
   // bottom of the contents container.
-  virtual gfx::Rect GetFindBarBoundingBox(int contents_bottom) const = 0;
+  virtual gfx::Rect GetFindBarBoundingBox(int contents_bottom) = 0;
 
   // Gives the toolbar focus.
   virtual void FocusToolbar() = 0;

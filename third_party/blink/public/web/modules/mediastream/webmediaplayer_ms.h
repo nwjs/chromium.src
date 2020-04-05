@@ -136,15 +136,16 @@ class BLINK_MODULES_EXPORT WebMediaPlayerMS
   bool HasAudio() const override;
 
   // Dimensions of the video.
-  WebSize NaturalSize() const override;
+  gfx::Size NaturalSize() const override;
 
-  WebSize VisibleRect() const override;
+  gfx::Size VisibleSize() const override;
 
   // Getters of playback state.
   bool Paused() const override;
   bool Seeking() const override;
   double Duration() const override;
   double CurrentTime() const override;
+  bool IsEnded() const override;
 
   // Internal states of loading and network.
   WebMediaPlayer::NetworkState GetNetworkState() const override;
@@ -238,6 +239,8 @@ class BLINK_MODULES_EXPORT WebMediaPlayerMS
   void OnDisplayTypeChanged(WebMediaPlayer::DisplayType) override;
 
   void RequestAnimationFrame() override;
+  std::unique_ptr<WebMediaPlayer::VideoFramePresentationMetadata>
+  GetVideoFramePresentationMetadata() override;
 
  private:
   friend class WebMediaPlayerMSTest;
@@ -271,16 +274,10 @@ class BLINK_MODULES_EXPORT WebMediaPlayerMS
   void SetGpuMemoryBufferVideoForTesting(
       media::GpuMemoryBufferVideoFramePool* gpu_memory_buffer_pool);
 
-  // Returns |compositor_|'s current frame, or |current_frame_override_| if we
-  // are in the middle of a rAF callback.
-  scoped_refptr<media::VideoFrame> GetCurrentFrame() const;
-
   // Callback used to fulfill video.requestAnimationFrame() requests.
-  void OnNewFramePresentedCallback(
-      scoped_refptr<media::VideoFrame> presented_frame,
-      base::TimeTicks presentation_time,
-      base::TimeTicks expected_presentation_time,
-      uint32_t presentation_counter);
+  void OnNewFramePresentedCallback();
+
+  void SendLogMessage(const WTF::String& message) const;
 
   std::unique_ptr<MediaStreamInternalFrameWrapper> internal_frame_;
 
@@ -320,11 +317,6 @@ class BLINK_MODULES_EXPORT WebMediaPlayerMS
   // Indicated whether an outstanding rAF request needs to be forwarded to
   // |compositor_|. Set when RequestAnimationFrame() is called before Load().
   bool pending_raf_request_ = false;
-
-  // Takes precedence over the compositor's current frame when painting or
-  // copying frames. Only set when we are in the middle of executing a
-  // video.requestAnimationFrame() callback.
-  scoped_refptr<media::VideoFrame> current_frame_override_;
 
   bool paused_;
   media::VideoTransformation video_transformation_;

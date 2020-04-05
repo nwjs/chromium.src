@@ -62,6 +62,7 @@
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/content_browser_client.h"
+#include "content/public/browser/context_menu_params.h"
 #include "content/public/browser/native_web_keyboard_event.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_service.h"
@@ -74,7 +75,6 @@
 #include "content/public/common/content_constants.h"
 #include "content/public/common/content_features.h"
 #include "content/public/common/content_switches.h"
-#include "content/public/common/context_menu_params.h"
 #include "content/public/common/result_codes.h"
 #include "content/public/common/url_constants.h"
 #include "content/public/common/url_utils.h"
@@ -82,6 +82,7 @@
 #include "net/base/url_util.h"
 #include "net/url_request/url_request_context_getter.h"
 #include "services/network/public/cpp/features.h"
+#include "third_party/blink/public/common/features.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/clipboard/clipboard.h"
 #include "ui/base/device_form_factor.h"
@@ -110,7 +111,6 @@
 
 using base::TimeDelta;
 
-using blink::PluginAction;
 using blink::WebConsoleMessage;
 using blink::WebInputEvent;
 
@@ -208,6 +208,11 @@ void RenderViewHostImpl::GetPlatformSpecificPrefs(
       display::win::ScreenWin::GetSystemMetricsInDIP(SM_CXHSCROLL);
 #elif defined(OS_LINUX)
   prefs->system_font_family_name = gfx::Font().GetFontName();
+#elif defined(OS_FUCHSIA)
+  // Make Blink's "focus ring" invisible. The focus ring is a hairline border
+  // that's rendered around clickable targets.
+  // TODO(crbug.com/1066605): Consider exposing this as a FIDL parameter.
+  prefs->focus_ring_color = SK_AlphaTRANSPARENT;
 #endif
 }
 
@@ -251,6 +256,9 @@ RenderViewHostImpl::RenderViewHostImpl(
 
   input_device_change_observer_ =
       std::make_unique<InputDeviceChangeObserver>(this);
+
+  page_lifecycle_state_manager_ =
+      std::make_unique<PageLifecycleStateManager>(this);
 
   GetWidget()->set_owner_delegate(this);
 }
@@ -352,6 +360,11 @@ bool RenderViewHostImpl::CreateRenderView(
     main_rfh->BindBrowserInterfaceBrokerReceiver(
         params->main_frame_interface_bundle->browser_interface_broker
             .InitWithNewPipeAndPassReceiver());
+
+    std::tie(params->widget_host, params->widget) =
+        main_rfh->GetRenderWidgetHost()->BindNewWidgetInterfaces();
+    std::tie(params->frame_widget_host, params->frame_widget) =
+        main_rfh->GetRenderWidgetHost()->BindNewFrameWidgetInterfaces();
   }
   params->session_storage_namespace_id =
       delegate_->GetSessionStorageNamespace(instance_.get())->id();
@@ -371,7 +384,11 @@ bool RenderViewHostImpl::CreateRenderView(
   // GuestViews in the same StoragePartition need to find each other's frames.
   params->renderer_wide_named_frame_lookup = GetSiteInstance()->IsGuest();
   params->inside_portal = delegate_->IsPortal();
-
+  // RenderViweHostImpls is reused after a crash, so reset any endpoint that
+  // might be a leftover from a crash.
+  page_broadcast_.reset();
+  params->blink_page_broadcast =
+      page_broadcast_.BindNewEndpointAndPassReceiver();
   // TODO(danakj): Make the visual_properties optional in the message.
   if (proxy_route_id == MSG_ROUTING_NONE) {
     params->visual_properties = GetWidget()->GetInitialVisualProperties();
@@ -400,6 +417,11 @@ void RenderViewHostImpl::SetMainFrameRoutingId(int routing_id) {
   GetWidget()->UpdatePriority();
 }
 
+// TODO(https://crbug.com/1006814): Delete this.
+int RenderViewHostImpl::GetMainFrameRoutingIdForCrbug1006814() {
+  return main_frame_routing_id_;
+}
+
 void RenderViewHostImpl::EnterBackForwardCache() {
   if (!will_enter_back_forward_cache_callback_for_testing_.is_null())
     will_enter_back_forward_cache_callback_for_testing_.Run();
@@ -424,13 +446,17 @@ void RenderViewHostImpl::LeaveBackForwardCache(
                                                    navigation_start));
 }
 
+void RenderViewHostImpl::SetIsFrozen(bool frozen) {
+  page_lifecycle_state_manager_->SetIsFrozen(frozen);
+}
+
 bool RenderViewHostImpl::IsRenderViewLive() {
   return GetProcess()->IsInitializedAndNotDead() &&
          GetWidget()->renderer_initialized();
 }
 
 void RenderViewHostImpl::SetBackgroundOpaque(bool opaque) {
-  Send(new ViewMsg_SetBackgroundOpaque(GetRoutingID(), opaque));
+  GetWidget()->GetAssociatedFrameWidget()->SetBackgroundOpaque(opaque);
 }
 
 bool RenderViewHostImpl::IsMainFrameActive() {
@@ -468,7 +494,8 @@ const WebPreferences RenderViewHostImpl::ComputeWebPreferences() {
 
   prefs.remote_fonts_enabled =
       !command_line.HasSwitch(switches::kDisableRemoteFonts);
-  prefs.application_cache_enabled = true;
+  prefs.application_cache_enabled =
+      base::FeatureList::IsEnabled(blink::features::kAppCache);
   prefs.local_storage_enabled =
       !command_line.HasSwitch(switches::kDisableLocalStorage);
   prefs.databases_enabled =
@@ -689,14 +716,9 @@ void RenderViewHostImpl::DispatchRenderViewCreated() {
 }
 
 void RenderViewHostImpl::ClosePage() {
-  is_waiting_for_close_ack_ = true;
+  is_waiting_for_page_close_completion_ = true;
 
-  bool is_javascript_dialog_showing = delegate_->IsJavaScriptDialogShowing();
-
-  // If there is a JavaScript dialog up, don't bother sending the renderer the
-  // close event because it is known unresponsive, waiting for the reply from
-  // the dialog.
-  if (IsRenderViewLive() && !is_javascript_dialog_showing) {
+  if (IsRenderViewLive() && !SuddenTerminationAllowed()) {
     close_timeout_->Start(TimeDelta::FromMilliseconds(kUnloadTimeoutMS));
 
     // TODO(creis): Should this be moved to Shutdown?  It may not be called for
@@ -706,7 +728,10 @@ void RenderViewHostImpl::ClosePage() {
         ->WillCloseRenderView(GetProcess()->GetID(), GetRoutingID());
 #endif
 
-    Send(new ViewMsg_ClosePage(GetRoutingID()));
+    static_cast<RenderFrameHostImpl*>(GetMainFrame())
+        ->GetAssociatedLocalMainFrame()
+        ->ClosePage(base::BindOnce(&RenderViewHostImpl::OnPageClosed,
+                                   weak_factory_.GetWeakPtr()));
   } else {
     // This RenderViewHost doesn't have a live renderer, so just skip the close
     // event and close the page.
@@ -716,10 +741,16 @@ void RenderViewHostImpl::ClosePage() {
 
 void RenderViewHostImpl::ClosePageIgnoringUnloadEvents() {
   close_timeout_->Stop();
-  is_waiting_for_close_ack_ = false;
+  is_waiting_for_page_close_completion_ = false;
 
   sudden_termination_allowed_ = true;
   delegate_->Close(this);
+}
+
+void RenderViewHostImpl::ZoomToFindInPageRect(const gfx::Rect& rect_to_zoom) {
+  static_cast<RenderFrameHostImpl*>(GetMainFrame())
+      ->GetAssociatedLocalMainFrame()
+      ->ZoomToFindInPageRect(rect_to_zoom);
 }
 
 void RenderViewHostImpl::RenderProcessExited(
@@ -779,7 +810,16 @@ void RenderViewHostImpl::RenderWidgetLostFocus() {
 }
 
 void RenderViewHostImpl::SetInitialFocus(bool reverse) {
-  Send(new ViewMsg_SetInitialFocus(GetRoutingID(), reverse));
+  static_cast<RenderFrameHostImpl*>(GetMainFrame())
+      ->GetAssociatedLocalMainFrame()
+      ->SetInitialFocus(reverse);
+}
+
+void RenderViewHostImpl::AnimateDoubleTapZoom(const gfx::Point& point,
+                                              const gfx::Rect& rect) {
+  static_cast<RenderFrameHostImpl*>(GetMainFrame())
+      ->GetAssociatedLocalMainFrame()
+      ->AnimateDoubleTapZoom(point, rect);
 }
 
 void RenderViewHostImpl::RenderWidgetDidFirstVisuallyNonEmptyPaint() {
@@ -787,8 +827,14 @@ void RenderViewHostImpl::RenderWidgetDidFirstVisuallyNonEmptyPaint() {
   delegate_->DidFirstVisuallyNonEmptyPaint(this);
 }
 
-bool RenderViewHostImpl::SuddenTerminationAllowed() const {
-  return sudden_termination_allowed_;
+bool RenderViewHostImpl::SuddenTerminationAllowed() {
+  // If there is a JavaScript dialog up, don't bother sending the renderer the
+  // close event because it is known unresponsive, waiting for the reply from
+  // the dialog.
+  return sudden_termination_allowed_ ||
+         delegate_->IsJavaScriptDialogShowing() ||
+         static_cast<RenderFrameHostImpl*>(GetMainFrame())
+             ->BeforeUnloadTimedOut();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -809,10 +855,7 @@ bool RenderViewHostImpl::OnMessageReceived(const IPC::Message& msg) {
                         OnShowFullscreenWidget)
     IPC_MESSAGE_HANDLER(ViewHostMsg_RouteCloseEvent, OnRouteCloseEvent)
     IPC_MESSAGE_HANDLER(ViewHostMsg_UpdateTargetURL, OnUpdateTargetURL)
-    IPC_MESSAGE_HANDLER(ViewHostMsg_DidContentsPreferredSizeChange,
-                        OnDidContentsPreferredSizeChange)
     IPC_MESSAGE_HANDLER(ViewHostMsg_TakeFocus, OnTakeFocus)
-    IPC_MESSAGE_HANDLER(ViewHostMsg_ClosePage_ACK, OnClosePageACK)
     IPC_MESSAGE_HANDLER(ViewHostMsg_Focus, OnFocus)
     IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
@@ -828,20 +871,6 @@ void RenderViewHostImpl::RenderWidgetDidClose() {
   // If the renderer is telling us to close, it has already run the unload
   // events, and we can take the fast path.
   ClosePageIgnoringUnloadEvents();
-}
-
-void RenderViewHostImpl::CreateNewWidget(
-    int32_t widget_route_id,
-    mojo::PendingRemote<mojom::Widget> widget) {
-  delegate_->CreateNewWidget(GetProcess()->GetID(), widget_route_id,
-                             std::move(widget), this);
-}
-
-void RenderViewHostImpl::CreateNewFullscreenWidget(
-    int32_t widget_route_id,
-    mojo::PendingRemote<mojom::Widget> widget) {
-  delegate_->CreateNewFullscreenWidget(GetProcess()->GetID(), widget_route_id,
-                                       std::move(widget), this);
 }
 
 void RenderViewHostImpl::OnShowWidget(int widget_route_id,
@@ -860,9 +889,6 @@ void RenderViewHostImpl::OnShowFullscreenWidget(int widget_route_id) {
 void RenderViewHostImpl::OnRouteCloseEvent() {
   // This is only used when the RenderViewHost is not active, to signal to
   // the active RenderViewHost that JS has requested the page to close.
-  //
-  // TODO(https://crbug.com/419087): Move to RenderFrameHost or
-  // RenderFrameProxyHost.
   //
   // The delegate will route the close request to the active RenderViewHost.
   delegate_->RouteCloseEvent(this);
@@ -887,7 +913,7 @@ void RenderViewHostImpl::OnTakeFocus(bool reverse) {
     view->TakeFocus(reverse);
 }
 
-void RenderViewHostImpl::OnClosePageACK() {
+void RenderViewHostImpl::OnPageClosed() {
   ClosePageIgnoringUnloadEvents();
 }
 
@@ -895,6 +921,11 @@ void RenderViewHostImpl::OnFocus() {
   // Note: We allow focus and blur from swapped out RenderViewHosts, even when
   // the active RenderViewHost is in a different BrowsingInstance (e.g., WebUI).
   delegate_->Activate();
+}
+
+const mojo::AssociatedRemote<blink::mojom::PageBroadcast>&
+RenderViewHostImpl::GetAssociatedPageBroadcast() {
+  return page_broadcast_;
 }
 
 void RenderViewHostImpl::RenderWidgetDidForwardMouseEvent(
@@ -965,19 +996,26 @@ void RenderViewHostImpl::OnHardwareConfigurationChanged() {
 }
 
 void RenderViewHostImpl::EnablePreferredSizeMode() {
-  Send(new ViewMsg_EnablePreferredSizeChangedMode(GetRoutingID()));
+  if (is_active()) {
+    static_cast<RenderFrameHostImpl*>(GetMainFrame())
+        ->GetAssociatedLocalMainFrame()
+        ->EnablePreferredSizeChangedMode();
+  }
 }
 
 void RenderViewHostImpl::ExecutePluginActionAtLocation(
     const gfx::Point& location,
-    const blink::PluginAction& action) {
+    blink::mojom::PluginActionType plugin_action) {
   // TODO(wjmaclean): See if this needs to be done for OOPIFs as well.
   // https://crbug.com/776807
   gfx::PointF local_location_f =
       GetWidget()->GetView()->TransformRootPointToViewCoordSpace(
           gfx::PointF(location.x(), location.y()));
   gfx::Point local_location(local_location_f.x(), local_location_f.y());
-  Send(new ViewMsg_PluginActionAt(GetRoutingID(), local_location, action));
+
+  static_cast<RenderFrameHostImpl*>(GetMainFrame())
+      ->GetAssociatedLocalMainFrame()
+      ->PluginActionAt(local_location, plugin_action);
 }
 
 void RenderViewHostImpl::NotifyMoveOrResizeStarted() {

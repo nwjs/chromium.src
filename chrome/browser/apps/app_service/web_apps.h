@@ -5,17 +5,20 @@
 #ifndef CHROME_BROWSER_APPS_APP_SERVICE_WEB_APPS_H_
 #define CHROME_BROWSER_APPS_APP_SERVICE_WEB_APPS_H_
 
-#include <set>
+#include <memory>
 #include <string>
 
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observer.h"
 #include "chrome/browser/apps/app_service/app_icon_factory.h"
 #include "chrome/browser/apps/app_service/icon_key_util.h"
+#include "chrome/browser/apps/app_service/paused_apps.h"
 #include "chrome/browser/ui/app_list/arc/arc_app_list_prefs.h"
 #include "chrome/browser/web_applications/components/app_registrar.h"
 #include "chrome/browser/web_applications/components/app_registrar_observer.h"
+#include "chrome/browser/web_applications/components/web_app_helpers.h"
 #include "chrome/browser/web_applications/components/web_app_id.h"
+#include "chrome/services/app_service/public/cpp/instance_registry.h"
 #include "chrome/services/app_service/public/mojom/app_service.mojom.h"
 #include "components/content_settings/core/browser/content_settings_observer.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
@@ -28,6 +31,7 @@ class Profile;
 
 namespace web_app {
 class WebApp;
+class WebAppLaunchManager;
 class WebAppProvider;
 class WebAppRegistrar;
 }  // namespace web_app
@@ -41,7 +45,8 @@ class WebApps : public apps::mojom::Publisher,
                 public ArcAppListPrefs::Observer {
  public:
   WebApps(const mojo::Remote<apps::mojom::AppService>& app_service,
-          Profile* profile);
+          Profile* profile,
+          apps::InstanceRegistry* instance_registry);
   WebApps(const WebApps&) = delete;
   WebApps& operator=(const WebApps&) = delete;
   ~WebApps() override;
@@ -71,13 +76,17 @@ class WebApps : public apps::mojom::Publisher,
               int32_t event_flags,
               apps::mojom::LaunchSource launch_source,
               int64_t display_id) override;
+  void LaunchAppWithFiles(const std::string& app_id,
+                          apps::mojom::LaunchContainer container,
+                          int32_t event_flags,
+                          apps::mojom::LaunchSource launch_source,
+                          apps::mojom::FilePathsPtr file_paths) override;
   void LaunchAppWithIntent(const std::string& app_id,
                            apps::mojom::IntentPtr intent,
                            apps::mojom::LaunchSource launch_source,
                            int64_t display_id) override;
   void SetPermission(const std::string& app_id,
                      apps::mojom::PermissionPtr permission) override;
-  void PromptUninstall(const std::string& app_id) override;
   void Uninstall(const std::string& app_id,
                  bool clear_site_data,
                  bool report_abuse) override;
@@ -88,9 +97,11 @@ class WebApps : public apps::mojom::Publisher,
                     int64_t display_id,
                     GetMenuModelCallback callback) override;
   void OpenNativeSettings(const std::string& app_id) override;
-  void OnPreferredAppSet(const std::string& app_id,
-                         apps::mojom::IntentFilterPtr intent_filter,
-                         apps::mojom::IntentPtr intent) override;
+  void OnPreferredAppSet(
+      const std::string& app_id,
+      apps::mojom::IntentFilterPtr intent_filter,
+      apps::mojom::IntentPtr intent,
+      apps::mojom::ReplacedAppPreferencesPtr replaced_app_preferences) override;
 
   // content_settings::Observer overrides.
   void OnContentSettingChanged(const ContentSettingsPattern& primary_pattern,
@@ -127,7 +138,7 @@ class WebApps : public apps::mojom::Publisher,
   void StartPublishingWebApps(
       mojo::PendingRemote<apps::mojom::Subscriber> subscriber_remote);
 
-  IconEffects GetIconEffects(const web_app::WebApp* web_app);
+  IconEffects GetIconEffects(const web_app::WebApp* web_app, bool paused);
 
   // Get the equivalent Chrome app from |arc_package_name| and set the Chrome
   // app badge on the icon effects for the equivalent Chrome apps. If the
@@ -137,10 +148,12 @@ class WebApps : public apps::mojom::Publisher,
 
   void SetIconEffect(const std::string& app_id);
 
+  bool Accepts(const std::string& app_id);
+
   mojo::Receiver<apps::mojom::Publisher> receiver_{this};
   mojo::RemoteSet<apps::mojom::Subscriber> subscribers_;
 
-  Profile* profile_;
+  Profile* const profile_;
 
   ScopedObserver<web_app::AppRegistrar, web_app::AppRegistrarObserver>
       registrar_observer_{this};
@@ -150,9 +163,13 @@ class WebApps : public apps::mojom::Publisher,
 
   apps_util::IncrementingIconKeyFactory icon_key_factory_;
 
-  std::set<std::string> paused_apps_;
+  apps::InstanceRegistry* instance_registry_;
+
+  PausedApps paused_apps_;
 
   web_app::WebAppProvider* provider_ = nullptr;
+
+  std::unique_ptr<web_app::WebAppLaunchManager> web_app_launch_manager_;
 
   ArcAppListPrefs* arc_prefs_ = nullptr;
 

@@ -7,6 +7,7 @@
 #include <memory>
 #include <utility>
 
+#include "base/bind_helpers.h"
 #include "base/callback.h"
 #include "components/autofill_assistant/browser/actions/action_delegate.h"
 #include "components/autofill_assistant/browser/user_action.h"
@@ -46,7 +47,8 @@ void ShowFormAction::OnFormValuesChanged(const FormProto::Result* form_result) {
 
   // Show "Continue" chip.
   UserAction user_action =
-      UserAction(proto_.show_form().chip(), proto_.show_form().direct_action());
+      UserAction(proto_.show_form().chip(), proto_.show_form().direct_action(),
+                 /* enabled = */ true, /* identifier = */ std::string());
   if (user_action.chip().empty()) {
     user_action.chip().text =
         l10n_util::GetStringUTF8(IDS_AUTOFILL_ASSISTANT_PAYMENT_INFO_CONFIRM);

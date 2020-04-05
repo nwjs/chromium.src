@@ -3,6 +3,7 @@
      found in the LICENSE file. -->
 
 <link rel="import" href="chrome://resources/cr_elements/cr_icon_button/cr_icon_button.html">
+<link rel="import" href="chrome://resources/cr_elements/icons.html">
 
 <dom-module id="gaia-signin">
   <template>
@@ -39,7 +40,9 @@
           slot="bottom-buttons" class="relative flex layout horizontal">
         <div id="buttons-container" class="flex layout horizontal center">
           <oobe-back-button id="signin-back-button"
-              disabled="[[!navigationEnabled_]]"></oobe-back-button>
+              disabled="[[!navigationEnabled_]]"
+              on-click="onBackButtonClicked_">
+          </oobe-back-button>
           <div class="flex">
           </div>
           <oobe-text-button id="secondary-action-button"
@@ -78,20 +81,21 @@
           icon2x="oobe-64:googleg">
       </hd-iron-icon>
       <div slot="subtitle" hidden="[[isEmpty_(samlInterstitialDomain_)]]">
-        [[i18nDynamic(locale, 'enterpriseInfoMessage',
+        <iron-icon class="icon20" icon="cr20:domain"></iron-icon>
+        [[i18nDynamic(locale, 'samlInterstitialMessage',
                       samlInterstitialDomain_)]]
-      </div>
-      <div slot="footer" class="flex layout vertical">
-        <html-echo hidden="[[isEmpty_(samlInterstitialDomain_)]]"
-            content="[[samlInterstitialMessage_]]"></html-echo>
         <p>
           <a href="#" class="oobe-local-link" on-tap="onSamlPageChangeAccount_"
               id="interstitial-change-account">
-            [[i18nDynamic(locale, 'samlInterstitialChangeAccountLink')]]
+              [[i18nDynamic(locale, 'samlInterstitialChangeAccountLink')]]
           </a>
         </p>
       </div>
-      <div slot="bottom-buttons" class="flex layout horizontal end-justified">
+      <div slot="bottom-buttons" class="flex layout horizontal">
+        <oobe-back-button id="interstitial-back" on-tap="onBackButtonClicked_">
+        </oobe-back-button>
+        <div class="flex">
+        </div>
         <oobe-next-button on-tap="onSamlInterstitialNext_"
             id="interstitial-next" class="focus-on-show"></oobe-next-button>
       </div>

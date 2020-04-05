@@ -11,10 +11,9 @@
 
 #include "base/command_line.h"
 #include "base/lazy_instance.h"
+#include "base/memory/ptr_util.h"
 #include "components/viz/common/surfaces/local_surface_id_allocation.h"
 #include "content/common/content_switches_internal.h"
-#include "content/common/frame_message_structs.h"
-#include "content/common/frame_owner_properties.h"
 #include "content/common/frame_replication_state.h"
 #include "content/common/input_messages.h"
 #include "content/common/page_messages.h"
@@ -26,7 +25,6 @@
 #include "content/public/common/use_zoom_for_dsf_policy.h"
 #include "content/public/renderer/content_renderer_client.h"
 #include "content/renderer/child_frame_compositing_helper.h"
-#include "content/renderer/frame_owner_properties.h"
 #include "content/renderer/loader/web_url_request_util.h"
 #include "content/renderer/mojo/blink_interface_registry_impl.h"
 #include "content/renderer/render_frame_impl.h"
@@ -39,6 +37,7 @@
 #include "third_party/blink/public/common/feature_policy/feature_policy.h"
 #include "third_party/blink/public/common/frame/frame_policy.h"
 #include "third_party/blink/public/common/navigation/triggering_event_info.h"
+#include "third_party/blink/public/mojom/security_context/insecure_request_policy.mojom.h"
 #include "third_party/blink/public/platform/url_conversion.h"
 #include "third_party/blink/public/platform/web_rect.h"
 #include "third_party/blink/public/platform/web_string.h"
@@ -305,6 +304,14 @@ void RenderFrameProxy::OnPageScaleFactorChanged(float page_scale_factor,
   SynchronizeVisualProperties();
 }
 
+void RenderFrameProxy::OnVisibleViewportSizeChanged(
+    const gfx::Size& visible_viewport_size) {
+  DCHECK(ancestor_render_widget_);
+
+  pending_visual_properties_.visible_viewport_size = visible_viewport_size;
+  SynchronizeVisualProperties();
+}
+
 void RenderFrameProxy::UpdateCaptureSequenceNumber(
     uint32_t capture_sequence_number) {
   DCHECK(ancestor_render_widget_);
@@ -361,42 +368,6 @@ void RenderFrameProxy::SetReplicatedState(const FrameReplicationState& state) {
   }
 }
 
-// Update the proxy's FrameOwner with new sandbox flags and container policy
-// that were set by its parent in another process.
-//
-// Normally, when a frame's sandbox attribute is changed dynamically, the
-// frame's FrameOwner is updated with the new sandbox flags right away, while
-// the frame's SecurityContext is updated when the frame is navigated and the
-// new sandbox flags take effect.
-//
-// Currently, there is no use case for a proxy's pending FrameOwner sandbox
-// flags, so there's no message sent to proxies when the sandbox attribute is
-// first updated.  Instead, the active flags are updated when they take effect,
-// by OnDidSetActiveSandboxFlags. The proxy's FrameOwner flags are updated here
-// with the caveat that the FrameOwner won't learn about updates to its flags
-// until they take effect.
-void RenderFrameProxy::OnDidUpdateFramePolicy(
-    const blink::FramePolicy& frame_policy) {
-  DCHECK(web_frame()->Parent());
-  web_frame_->SetFrameOwnerPolicy(frame_policy);
-}
-
-// Update the proxy's SecurityContext with new sandbox flags or feature policy
-// that were set during navigation. Unlike changes to the FrameOwner, which are
-// handled by OnDidUpdateFramePolicy, these changes should be considered
-// effective immediately.
-//
-// These flags / policy are needed on the remote frame's SecurityContext to
-// ensure that sandbox flags and feature policy are inherited properly if this
-// proxy ever parents a local frame.
-void RenderFrameProxy::OnDidSetFramePolicyHeaders(
-    blink::WebSandboxFlags active_sandbox_flags,
-    blink::ParsedFeaturePolicy feature_policy_header) {
-  web_frame_->SetReplicatedSandboxFlags(active_sandbox_flags);
-  web_frame_->SetReplicatedFeaturePolicyHeaderAndOpenerPolicies(
-      feature_policy_header, blink::FeaturePolicy::FeatureState());
-}
-
 bool RenderFrameProxy::OnMessageReceived(const IPC::Message& msg) {
   // Page IPCs are routed via the main frame (both local and remote) and then
   // forwarded to the RenderView. See comment in
@@ -410,21 +381,8 @@ bool RenderFrameProxy::OnMessageReceived(const IPC::Message& msg) {
 
   bool handled = true;
   IPC_BEGIN_MESSAGE_MAP(RenderFrameProxy, msg)
-    IPC_MESSAGE_HANDLER(FrameMsg_ChildFrameProcessGone, OnChildFrameProcessGone)
     IPC_MESSAGE_HANDLER(FrameMsg_UpdateOpener, OnUpdateOpener)
-    IPC_MESSAGE_HANDLER(FrameMsg_ViewChanged, OnViewChanged)
-    IPC_MESSAGE_HANDLER(FrameMsg_DidUpdateFramePolicy, OnDidUpdateFramePolicy)
-    IPC_MESSAGE_HANDLER(FrameMsg_DidSetFramePolicyHeaders,
-                        OnDidSetFramePolicyHeaders)
     IPC_MESSAGE_HANDLER(FrameMsg_DidUpdateName, OnDidUpdateName)
-    IPC_MESSAGE_HANDLER(FrameMsg_EnforceInsecureRequestPolicy,
-                        OnEnforceInsecureRequestPolicy)
-    IPC_MESSAGE_HANDLER(FrameMsg_SetFrameOwnerProperties,
-                        OnSetFrameOwnerProperties)
-    IPC_MESSAGE_HANDLER(FrameMsg_DidUpdateVisualProperties,
-                        OnDidUpdateVisualProperties)
-    IPC_MESSAGE_HANDLER(FrameMsg_EnableAutoResize, OnEnableAutoResize)
-    IPC_MESSAGE_HANDLER(FrameMsg_DisableAutoResize, OnDisableAutoResize)
     IPC_MESSAGE_HANDLER(FrameMsg_TransferUserActivationFrom,
                         OnTransferUserActivationFrom)
     IPC_MESSAGE_HANDLER(UnfreezableFrameMsg_DeleteProxy, OnDeleteProxy)
@@ -438,7 +396,13 @@ bool RenderFrameProxy::OnMessageReceived(const IPC::Message& msg) {
 void RenderFrameProxy::OnAssociatedInterfaceRequest(
     const std::string& interface_name,
     mojo::ScopedInterfaceEndpointHandle handle) {
-  associated_interfaces_.TryBindInterface(interface_name, &handle);
+  if (interface_name == blink::mojom::RemoteFrame::Name_) {
+    associated_interfaces_.TryBindInterface(interface_name, &handle);
+  } else if (interface_name == content::mojom::RenderFrameProxy::Name_) {
+    render_frame_proxy_receiver_.Bind(
+        mojo::PendingAssociatedReceiver<mojom::RenderFrameProxy>(
+            std::move(handle)));
+  }
 }
 
 bool RenderFrameProxy::Send(IPC::Message* message) {
@@ -450,14 +414,14 @@ void RenderFrameProxy::OnDeleteProxy() {
   web_frame_->Detach();
 }
 
-void RenderFrameProxy::OnChildFrameProcessGone() {
+void RenderFrameProxy::ChildProcessGone() {
   crashed_ = true;
   compositing_helper_->ChildFrameGone(local_frame_size(),
                                       screen_info().device_scale_factor);
 }
 
 void RenderFrameProxy::OnUpdateOpener(int opener_routing_id) {
-  blink::WebFrame* opener = RenderFrameImpl::ResolveOpener(opener_routing_id);
+  blink::WebFrame* opener = RenderFrameImpl::ResolveWebFrame(opener_routing_id);
   web_frame_->SetOpener(opener);
 }
 
@@ -465,26 +429,10 @@ void RenderFrameProxy::DidStartLoading() {
   web_frame_->DidStartLoading();
 }
 
-void RenderFrameProxy::OnViewChanged(
-    const FrameMsg_ViewChanged_Params& params) {
-  FrameSinkIdChanged(params.frame_sink_id);
-}
-
 void RenderFrameProxy::OnDidUpdateName(const std::string& name,
                                        const std::string& unique_name) {
   web_frame_->SetReplicatedName(blink::WebString::FromUTF8(name));
   unique_name_ = unique_name;
-}
-
-void RenderFrameProxy::OnEnforceInsecureRequestPolicy(
-    blink::WebInsecureRequestPolicy policy) {
-  web_frame_->SetReplicatedInsecureRequestPolicy(policy);
-}
-
-void RenderFrameProxy::OnSetFrameOwnerProperties(
-    const FrameOwnerProperties& properties) {
-  web_frame_->SetFrameOwnerProperties(
-      ConvertFrameOwnerPropertiesToWebFrameOwnerProperties(properties));
 }
 
 void RenderFrameProxy::OnTransferUserActivationFrom(int32_t source_routing_id) {
@@ -495,7 +443,7 @@ void RenderFrameProxy::OnTransferUserActivationFrom(int32_t source_routing_id) {
   web_frame()->TransferUserActivationFrom(source_proxy->web_frame());
 }
 
-void RenderFrameProxy::OnDidUpdateVisualProperties(
+void RenderFrameProxy::DidUpdateVisualProperties(
     const cc::RenderFrameMetadata& metadata) {
   if (!parent_local_surface_id_allocator_->UpdateFromChild(
           metadata.local_surface_id_allocation.value_or(
@@ -508,8 +456,8 @@ void RenderFrameProxy::OnDidUpdateVisualProperties(
   SynchronizeVisualProperties();
 }
 
-void RenderFrameProxy::OnEnableAutoResize(const gfx::Size& min_size,
-                                          const gfx::Size& max_size) {
+void RenderFrameProxy::EnableAutoResize(const gfx::Size& min_size,
+                                        const gfx::Size& max_size) {
   DCHECK(ancestor_render_widget_);
 
   pending_visual_properties_.auto_resize_enabled = true;
@@ -518,11 +466,15 @@ void RenderFrameProxy::OnEnableAutoResize(const gfx::Size& min_size,
   SynchronizeVisualProperties();
 }
 
-void RenderFrameProxy::OnDisableAutoResize() {
+void RenderFrameProxy::DisableAutoResize() {
   DCHECK(ancestor_render_widget_);
 
   pending_visual_properties_.auto_resize_enabled = false;
   SynchronizeVisualProperties();
+}
+
+void RenderFrameProxy::SetFrameSinkId(const viz::FrameSinkId& frame_sink_id) {
+  FrameSinkIdChanged(frame_sink_id);
 }
 
 void RenderFrameProxy::SynchronizeVisualProperties() {
@@ -565,6 +517,8 @@ void RenderFrameProxy::SynchronizeVisualProperties() {
           pending_visual_properties_.page_scale_factor ||
       sent_visual_properties_->is_pinch_gesture_active !=
           pending_visual_properties_.is_pinch_gesture_active ||
+      sent_visual_properties_->visible_viewport_size !=
+          pending_visual_properties_.visible_viewport_size ||
       sent_visual_properties_->compositor_viewport !=
           pending_visual_properties_.compositor_viewport ||
       capture_sequence_number_changed;
@@ -733,31 +687,15 @@ void RenderFrameProxy::FrameRectsChanged(
 void RenderFrameProxy::UpdateRemoteViewportIntersection(
     const blink::ViewportIntersectionState& intersection_state) {
   DCHECK(ancestor_render_widget_);
-
-  // If the remote viewport intersection has changed, then we should check if
-  // the compositing rect has also changed: if it has, then we should update the
-  // visible properties.
-  // TODO(wjmaclean): Maybe we should always call SynchronizeVisualProperties()
-  // here? If nothing has changed, it will early out, and it avoids duplicate
-  // checks here.
-  blink::ViewportIntersectionState new_state(intersection_state);
-  new_state.compositor_visible_rect = web_frame_->GetCompositingRect();
-  if (new_state.compositor_visible_rect !=
-      blink::WebRect(pending_visual_properties_.compositor_viewport)) {
+  // TODO(szager): compositor_viewport is propagated twice, via
+  // ViewportIntersectionState and also via FrameVisualProperties. It should
+  // only go through FrameVisualProperties.
+  if (pending_visual_properties_.compositor_viewport !=
+      gfx::Rect(intersection_state.compositor_visible_rect)) {
     SynchronizeVisualProperties();
   }
-
-  Send(new FrameHostMsg_UpdateViewportIntersection(routing_id_, new_state));
-}
-
-void RenderFrameProxy::SetIsInert(bool inert) {
-  Send(new FrameHostMsg_SetIsInert(routing_id_, inert));
-}
-
-void RenderFrameProxy::UpdateRenderThrottlingStatus(bool is_throttled,
-                                                    bool subtree_throttled) {
-  Send(new FrameHostMsg_UpdateRenderThrottlingStatus(routing_id_, is_throttled,
-                                                     subtree_throttled));
+  Send(new FrameHostMsg_UpdateViewportIntersection(routing_id_,
+                                                   intersection_state));
 }
 
 void RenderFrameProxy::DidChangeOpener(blink::WebFrame* opener) {

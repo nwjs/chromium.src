@@ -1006,70 +1006,6 @@ void WebGL2RenderingContextBase::RestoreUnpackParameters() {
     ContextGL()->PixelStorei(GL_UNPACK_SKIP_IMAGES, unpack_skip_images_);
 }
 
-/* Texture objects */
-bool WebGL2RenderingContextBase::ValidateTexStorage(
-    const char* function_name,
-    GLenum target,
-    GLsizei levels,
-    GLenum internalformat,
-    GLsizei width,
-    GLsizei height,
-    GLsizei depth,
-    TexStorageType function_type) {
-  if (function_type == kTexStorageType2D) {
-    if (target != GL_TEXTURE_2D && target != GL_TEXTURE_CUBE_MAP) {
-      SynthesizeGLError(GL_INVALID_ENUM, function_name, "invalid 2D target");
-      return false;
-    }
-  } else {
-    if (target != GL_TEXTURE_3D && target != GL_TEXTURE_2D_ARRAY) {
-      SynthesizeGLError(GL_INVALID_ENUM, function_name, "invalid 3D target");
-      return false;
-    }
-  }
-
-  if (function_type == kTexStorageType3D && target != GL_TEXTURE_2D_ARRAY &&
-      compressed_texture_formats_etc2eac_.find(internalformat) !=
-          compressed_texture_formats_etc2eac_.end()) {
-    SynthesizeGLError(
-        GL_INVALID_OPERATION, function_name,
-        "target for ETC2/EAC internal formats must be TEXTURE_2D_ARRAY");
-    return false;
-  }
-
-  if (supported_internal_formats_storage_.find(internalformat) ==
-          supported_internal_formats_storage_.end() &&
-      (function_type == kTexStorageType2D &&
-       !compressed_texture_formats_.Contains(internalformat))) {
-    SynthesizeGLError(GL_INVALID_ENUM, function_name, "invalid internalformat");
-    return false;
-  }
-
-  if (width <= 0 || height <= 0 || depth <= 0) {
-    SynthesizeGLError(GL_INVALID_VALUE, function_name, "invalid dimensions");
-    return false;
-  }
-
-  if (levels <= 0) {
-    SynthesizeGLError(GL_INVALID_VALUE, function_name, "invalid levels");
-    return false;
-  }
-
-  if (target == GL_TEXTURE_3D) {
-    if (levels > log2(std::max(std::max(width, height), depth)) + 1) {
-      SynthesizeGLError(GL_INVALID_OPERATION, function_name, "to many levels");
-      return false;
-    }
-  } else {
-    if (levels > log2(std::max(width, height)) + 1) {
-      SynthesizeGLError(GL_INVALID_OPERATION, function_name, "to many levels");
-      return false;
-    }
-  }
-
-  return true;
-}
-
 void WebGL2RenderingContextBase::texImage2D(GLenum target,
                                             GLint level,
                                             GLint internalformat,
@@ -1678,9 +1614,7 @@ void WebGL2RenderingContextBase::texStorage2D(GLenum target,
                                               GLenum internalformat,
                                               GLsizei width,
                                               GLsizei height) {
-  if (isContextLost() ||
-      !ValidateTexStorage("texStorage2D", target, levels, internalformat, width,
-                          height, 1, kTexStorageType2D))
+  if (isContextLost())
     return;
 
   ContextGL()->TexStorage2DEXT(target, levels, internalformat, width, height);
@@ -1692,9 +1626,7 @@ void WebGL2RenderingContextBase::texStorage3D(GLenum target,
                                               GLsizei width,
                                               GLsizei height,
                                               GLsizei depth) {
-  if (isContextLost() ||
-      !ValidateTexStorage("texStorage3D", target, levels, internalformat, width,
-                          height, depth, kTexStorageType3D))
+  if (isContextLost())
     return;
 
   ContextGL()->TexStorage3D(target, levels, internalformat, width, height,
@@ -2527,7 +2459,7 @@ void WebGL2RenderingContextBase::uniform4ui(
 
 void WebGL2RenderingContextBase::uniform1fv(
     const WebGLUniformLocation* location,
-    const FlexibleFloat32ArrayView& v,
+    const FlexibleFloat32Array& v,
     GLuint src_offset,
     GLuint src_length) {
   if (isContextLost() || !ValidateUniformParameters("uniform1fv", location, v,
@@ -2558,7 +2490,7 @@ void WebGL2RenderingContextBase::uniform1fv(
 
 void WebGL2RenderingContextBase::uniform2fv(
     const WebGLUniformLocation* location,
-    const FlexibleFloat32ArrayView& v,
+    const FlexibleFloat32Array& v,
     GLuint src_offset,
     GLuint src_length) {
   if (isContextLost() || !ValidateUniformParameters("uniform2fv", location, v,
@@ -2592,7 +2524,7 @@ void WebGL2RenderingContextBase::uniform2fv(
 
 void WebGL2RenderingContextBase::uniform3fv(
     const WebGLUniformLocation* location,
-    const FlexibleFloat32ArrayView& v,
+    const FlexibleFloat32Array& v,
     GLuint src_offset,
     GLuint src_length) {
   if (isContextLost() || !ValidateUniformParameters("uniform3fv", location, v,
@@ -2626,7 +2558,7 @@ void WebGL2RenderingContextBase::uniform3fv(
 
 void WebGL2RenderingContextBase::uniform4fv(
     const WebGLUniformLocation* location,
-    const FlexibleFloat32ArrayView& v,
+    const FlexibleFloat32Array& v,
     GLuint src_offset,
     GLuint src_length) {
   if (isContextLost() || !ValidateUniformParameters("uniform4fv", location, v,
@@ -2660,7 +2592,7 @@ void WebGL2RenderingContextBase::uniform4fv(
 
 void WebGL2RenderingContextBase::uniform1iv(
     const WebGLUniformLocation* location,
-    const FlexibleInt32ArrayView& v,
+    const FlexibleInt32Array& v,
     GLuint src_offset,
     GLuint src_length) {
   if (isContextLost() || !ValidateUniformParameters("uniform1iv", location, v,
@@ -2691,7 +2623,7 @@ void WebGL2RenderingContextBase::uniform1iv(
 
 void WebGL2RenderingContextBase::uniform2iv(
     const WebGLUniformLocation* location,
-    const FlexibleInt32ArrayView& v,
+    const FlexibleInt32Array& v,
     GLuint src_offset,
     GLuint src_length) {
   if (isContextLost() || !ValidateUniformParameters("uniform2iv", location, v,
@@ -2725,7 +2657,7 @@ void WebGL2RenderingContextBase::uniform2iv(
 
 void WebGL2RenderingContextBase::uniform3iv(
     const WebGLUniformLocation* location,
-    const FlexibleInt32ArrayView& v,
+    const FlexibleInt32Array& v,
     GLuint src_offset,
     GLuint src_length) {
   if (isContextLost() || !ValidateUniformParameters("uniform3iv", location, v,
@@ -2759,7 +2691,7 @@ void WebGL2RenderingContextBase::uniform3iv(
 
 void WebGL2RenderingContextBase::uniform4iv(
     const WebGLUniformLocation* location,
-    const FlexibleInt32ArrayView& v,
+    const FlexibleInt32Array& v,
     GLuint src_offset,
     GLuint src_length) {
   if (isContextLost() || !ValidateUniformParameters("uniform4iv", location, v,
@@ -2793,7 +2725,7 @@ void WebGL2RenderingContextBase::uniform4iv(
 
 void WebGL2RenderingContextBase::uniform1uiv(
     const WebGLUniformLocation* location,
-    const FlexibleUint32ArrayView& v,
+    const FlexibleUint32Array& v,
     GLuint src_offset,
     GLuint src_length) {
   if (isContextLost() || !ValidateUniformParameters("uniform1uiv", location, v,
@@ -2825,7 +2757,7 @@ void WebGL2RenderingContextBase::uniform1uiv(
 
 void WebGL2RenderingContextBase::uniform2uiv(
     const WebGLUniformLocation* location,
-    const FlexibleUint32ArrayView& v,
+    const FlexibleUint32Array& v,
     GLuint src_offset,
     GLuint src_length) {
   if (isContextLost() || !ValidateUniformParameters("uniform2uiv", location, v,
@@ -2859,7 +2791,7 @@ void WebGL2RenderingContextBase::uniform2uiv(
 
 void WebGL2RenderingContextBase::uniform3uiv(
     const WebGLUniformLocation* location,
-    const FlexibleUint32ArrayView& v,
+    const FlexibleUint32Array& v,
     GLuint src_offset,
     GLuint src_length) {
   if (isContextLost() || !ValidateUniformParameters("uniform3uiv", location, v,
@@ -2893,7 +2825,7 @@ void WebGL2RenderingContextBase::uniform3uiv(
 
 void WebGL2RenderingContextBase::uniform4uiv(
     const WebGLUniformLocation* location,
-    const FlexibleUint32ArrayView& v,
+    const FlexibleUint32Array& v,
     GLuint src_offset,
     GLuint src_length) {
   if (isContextLost() || !ValidateUniformParameters("uniform4uiv", location, v,
@@ -3248,7 +3180,7 @@ void WebGL2RenderingContextBase::uniformMatrix4x3fv(
 
 void WebGL2RenderingContextBase::uniform1fv(
     const WebGLUniformLocation* location,
-    const FlexibleFloat32ArrayView& v) {
+    const FlexibleFloat32Array& v) {
   WebGLRenderingContextBase::uniform1fv(location, v);
 }
 
@@ -3260,7 +3192,7 @@ void WebGL2RenderingContextBase::uniform1fv(
 
 void WebGL2RenderingContextBase::uniform2fv(
     const WebGLUniformLocation* location,
-    const FlexibleFloat32ArrayView& v) {
+    const FlexibleFloat32Array& v) {
   WebGLRenderingContextBase::uniform2fv(location, v);
 }
 
@@ -3272,7 +3204,7 @@ void WebGL2RenderingContextBase::uniform2fv(
 
 void WebGL2RenderingContextBase::uniform3fv(
     const WebGLUniformLocation* location,
-    const FlexibleFloat32ArrayView& v) {
+    const FlexibleFloat32Array& v) {
   WebGLRenderingContextBase::uniform3fv(location, v);
 }
 
@@ -3284,7 +3216,7 @@ void WebGL2RenderingContextBase::uniform3fv(
 
 void WebGL2RenderingContextBase::uniform4fv(
     const WebGLUniformLocation* location,
-    const FlexibleFloat32ArrayView& v) {
+    const FlexibleFloat32Array& v) {
   WebGLRenderingContextBase::uniform4fv(location, v);
 }
 
@@ -3296,7 +3228,7 @@ void WebGL2RenderingContextBase::uniform4fv(
 
 void WebGL2RenderingContextBase::uniform1iv(
     const WebGLUniformLocation* location,
-    const FlexibleInt32ArrayView& v) {
+    const FlexibleInt32Array& v) {
   WebGLRenderingContextBase::uniform1iv(location, v);
 }
 
@@ -3308,7 +3240,7 @@ void WebGL2RenderingContextBase::uniform1iv(
 
 void WebGL2RenderingContextBase::uniform2iv(
     const WebGLUniformLocation* location,
-    const FlexibleInt32ArrayView& v) {
+    const FlexibleInt32Array& v) {
   WebGLRenderingContextBase::uniform2iv(location, v);
 }
 
@@ -3320,7 +3252,7 @@ void WebGL2RenderingContextBase::uniform2iv(
 
 void WebGL2RenderingContextBase::uniform3iv(
     const WebGLUniformLocation* location,
-    const FlexibleInt32ArrayView& v) {
+    const FlexibleInt32Array& v) {
   WebGLRenderingContextBase::uniform3iv(location, v);
 }
 
@@ -3332,7 +3264,7 @@ void WebGL2RenderingContextBase::uniform3iv(
 
 void WebGL2RenderingContextBase::uniform4iv(
     const WebGLUniformLocation* location,
-    const FlexibleInt32ArrayView& v) {
+    const FlexibleInt32Array& v) {
   WebGLRenderingContextBase::uniform4iv(location, v);
 }
 
@@ -5805,7 +5737,7 @@ ScriptValue WebGL2RenderingContextBase::getFramebufferAttachmentParameter(
   return ScriptValue::CreateNull(script_state->GetIsolate());
 }
 
-void WebGL2RenderingContextBase::Trace(blink::Visitor* visitor) {
+void WebGL2RenderingContextBase::Trace(Visitor* visitor) {
   visitor->Trace(read_framebuffer_binding_);
   visitor->Trace(transform_feedback_binding_);
   visitor->Trace(default_transform_feedback_);

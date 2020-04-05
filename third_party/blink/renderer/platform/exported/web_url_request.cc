@@ -35,12 +35,15 @@
 #include "base/time/time.h"
 #include "net/base/load_flags.h"
 #include "services/network/public/cpp/features.h"
+#include "services/network/public/cpp/optional_trust_token_params.h"
 #include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom-blink.h"
+#include "third_party/blink/public/platform/url_conversion.h"
 #include "third_party/blink/public/platform/web_http_body.h"
 #include "third_party/blink/public/platform/web_http_header_visitor.h"
 #include "third_party/blink/public/platform/web_security_origin.h"
 #include "third_party/blink/public/platform/web_url.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_request.h"
+#include "third_party/blink/renderer/platform/loader/fetch/trust_token_params_conversion.h"
 #include "third_party/blink/renderer/platform/network/encoded_form_data.h"
 #include "third_party/blink/renderer/platform/weborigin/referrer.h"
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
@@ -49,6 +52,33 @@
 using blink::mojom::FetchCacheMode;
 
 namespace blink {
+
+// This is complementary to ConvertNetPriorityToWebKitPriority, defined in
+// service_worker_context_client.cc.
+net::RequestPriority ConvertWebKitPriorityToNetPriority(
+    WebURLRequest::Priority priority) {
+  switch (priority) {
+    case WebURLRequest::Priority::kVeryHigh:
+      return net::HIGHEST;
+
+    case WebURLRequest::Priority::kHigh:
+      return net::MEDIUM;
+
+    case WebURLRequest::Priority::kMedium:
+      return net::LOW;
+
+    case WebURLRequest::Priority::kLow:
+      return net::LOWEST;
+
+    case WebURLRequest::Priority::kVeryLow:
+      return net::IDLE;
+
+    case WebURLRequest::Priority::kUnresolved:
+    default:
+      NOTREACHED();
+      return net::LOW;
+  }
+}
 
 WebURLRequest::ExtraData::ExtraData() : render_frame_id_(MSG_ROUTING_NONE) {}
 
@@ -89,7 +119,8 @@ void WebURLRequest::CopyFrom(const WebURLRequest& r) {
   DCHECK_EQ(owned_resource_request_.get(), resource_request_);
   DCHECK(owned_resource_request_->IsNull());
   DCHECK(this != &r);
-  resource_request_->CopyFrom(*r.resource_request_);
+  resource_request_->CopyHeadFrom(*r.resource_request_);
+  resource_request_->SetHttpBody(r.resource_request_->HttpBody());
 }
 
 bool WebURLRequest::IsNull() const {
@@ -346,11 +377,12 @@ void WebURLRequest::SetPreviewsState(
   return resource_request_->SetPreviewsState(previews_state);
 }
 
-WebURLRequest::ExtraData* WebURLRequest::GetExtraData() const {
+const scoped_refptr<WebURLRequest::ExtraData>& WebURLRequest::GetExtraData()
+    const {
   return resource_request_->GetExtraData();
 }
 
-void WebURLRequest::SetExtraData(std::unique_ptr<ExtraData> extra_data) {
+void WebURLRequest::SetExtraData(scoped_refptr<ExtraData> extra_data) {
   resource_request_->SetExtraData(std::move(extra_data));
 }
 
@@ -515,6 +547,10 @@ bool WebURLRequest::IsSignedExchangePrefetchCacheEnabled() const {
 base::Optional<base::UnguessableToken> WebURLRequest::RecursivePrefetchToken()
     const {
   return resource_request_->RecursivePrefetchToken();
+}
+
+network::OptionalTrustTokenParams WebURLRequest::TrustTokenParams() const {
+  return ConvertTrustTokenParams(resource_request_->TrustTokenParams());
 }
 
 WebURLRequest::WebURLRequest(ResourceRequest& r) : resource_request_(&r) {}

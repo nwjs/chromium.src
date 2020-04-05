@@ -18,6 +18,7 @@
 #include "third_party/blink/renderer/platform/scheduler/common/throttling/budget_pool.h"
 #include "third_party/blink/renderer/platform/scheduler/common/tracing_helper.h"
 #include "third_party/blink/renderer/platform/scheduler/main_thread/auto_advancing_virtual_time_domain.h"
+#include "third_party/blink/renderer/platform/scheduler/main_thread/find_in_page_budget_pool_controller.h"
 #include "third_party/blink/renderer/platform/scheduler/main_thread/main_thread_scheduler_impl.h"
 #include "third_party/blink/renderer/platform/scheduler/main_thread/page_scheduler_impl.h"
 #include "third_party/blink/renderer/platform/scheduler/main_thread/page_visibility_state.h"
@@ -78,45 +79,6 @@ void UpdatePriority(MainThreadTaskQueue* task_queue) {
   task_queue->SetQueuePriority(frame_scheduler->ComputePriority(task_queue));
 }
 
-// Extract a substring from |source| from [start to end), trimming leading
-// whitespace.
-String ExtractAndTrimString(String source, size_t start, size_t end) {
-  DCHECK(start < source.length());
-  DCHECK(end <= source.length());
-  DCHECK(start <= end);
-  // Trim whitespace
-  while (start < end && source[start] == ' ')
-    ++start;
-  if (start < end)
-    return source.Substring(start, end - start);
-  return "";
-}
-
-HashSet<String> TaskTypesFromFieldTrialParam(const char* param) {
-  HashSet<String> result;
-  String task_type_list =
-      String::FromUTF8(base::GetFieldTrialParamValueByFeature(
-          kThrottleAndFreezeTaskTypes, param));
-  if (!task_type_list.length())
-    return result;
-  // Extract the individual names, separated by ",".
-  size_t pos = 0, start = 0;
-  while ((pos = task_type_list.find(',', start)) != kNotFound) {
-    String task_type = ExtractAndTrimString(task_type_list, start, pos);
-    // Not valid to start with "," or have ",," in the list.
-    DCHECK(task_type.length());
-    result.insert(task_type);
-    start = pos + 1;
-  }
-  // Handle the last or only task type name.
-  String task_type =
-      ExtractAndTrimString(task_type_list, start, task_type_list.length());
-  DCHECK(task_type.length());
-  result.insert(task_type);
-
-  return result;
-}
-
 }  // namespace
 
 FrameSchedulerImpl::PauseSubresourceLoadingHandleImpl::
@@ -170,7 +132,7 @@ FrameSchedulerImpl::FrameSchedulerImpl(
                     PausedStateToString),
       frame_origin_type_(frame_type == FrameType::kMainFrame
                              ? FrameOriginType::kMainFrame
-                             : FrameOriginType::kSameOriginFrame,
+                             : FrameOriginType::kSameOriginToMainFrame,
                          "FrameScheduler.Origin",
                          this,
                          &tracing_controller_,
@@ -322,16 +284,16 @@ bool FrameSchedulerImpl::IsFrameVisible() const {
   return frame_visible_;
 }
 
-void FrameSchedulerImpl::SetCrossOrigin(bool cross_origin) {
+void FrameSchedulerImpl::SetCrossOriginToMainFrame(bool cross_origin) {
   DCHECK(parent_page_scheduler_);
   if (frame_origin_type_ == FrameOriginType::kMainFrame) {
     DCHECK(!cross_origin);
     return;
   }
   if (cross_origin) {
-    frame_origin_type_ = FrameOriginType::kCrossOriginFrame;
+    frame_origin_type_ = FrameOriginType::kCrossOriginToMainFrame;
   } else {
-    frame_origin_type_ = FrameOriginType::kSameOriginFrame;
+    frame_origin_type_ = FrameOriginType::kSameOriginToMainFrame;
   }
   UpdatePolicy();
 }
@@ -345,8 +307,8 @@ bool FrameSchedulerImpl::IsAdFrame() const {
   return is_ad_frame_;
 }
 
-bool FrameSchedulerImpl::IsCrossOrigin() const {
-  return frame_origin_type_ == FrameOriginType::kCrossOriginFrame;
+bool FrameSchedulerImpl::IsCrossOriginToMainFrame() const {
+  return frame_origin_type_ == FrameOriginType::kCrossOriginToMainFrame;
 }
 
 void FrameSchedulerImpl::TraceUrlChange(const String& url) {
@@ -371,42 +333,8 @@ FrameScheduler::FrameType FrameSchedulerImpl::GetFrameType() const {
   return frame_type_;
 }
 
-void FrameSchedulerImpl::InitializeTaskTypeQueueTraitsMap(
-    FrameTaskTypeToQueueTraitsArray& frame_task_types_to_queue_traits) {
-  DCHECK_EQ(frame_task_types_to_queue_traits.size(),
-            static_cast<size_t>(TaskType::kCount));
-  // Using std set and strings here because field trial parameters are std
-  // strings, and we cannot use WTF strings as Blink is not yet initialized.
-  HashSet<String> throttleable_task_type_names;
-  HashSet<String> freezable_task_type_names;
-  if (base::FeatureList::IsEnabled(kThrottleAndFreezeTaskTypes)) {
-    throttleable_task_type_names =
-        TaskTypesFromFieldTrialParam(kThrottleableTaskTypesListParam);
-    freezable_task_type_names =
-        TaskTypesFromFieldTrialParam(kFreezableTaskTypesListParam);
-  }
-  for (size_t i = 0; i < static_cast<size_t>(TaskType::kCount); i++) {
-    TaskType type = static_cast<TaskType>(i);
-    base::Optional<QueueTraits> queue_traits =
-        CreateQueueTraitsForTaskType(type);
-    if (queue_traits && (!throttleable_task_type_names.IsEmpty() ||
-                         !freezable_task_type_names.IsEmpty())) {
-      const char* task_type_name = TaskTypeNames::TaskTypeToString(type);
-      if (!throttleable_task_type_names.Take(task_type_name).IsEmpty())
-        queue_traits->SetCanBeThrottled(true);
-      if (freezable_task_type_names.Take(task_type_name).IsEmpty())
-        queue_traits->SetCanBeFrozen(true);
-    }
-    frame_task_types_to_queue_traits[i] = queue_traits;
-  }
-  // Protect against configuration errors.
-  DCHECK(throttleable_task_type_names.IsEmpty());
-  DCHECK(freezable_task_type_names.IsEmpty());
-}
-
 // static
-base::Optional<QueueTraits> FrameSchedulerImpl::CreateQueueTraitsForTaskType(
-    TaskType type) {
+QueueTraits FrameSchedulerImpl::CreateQueueTraitsForTaskType(TaskType type) {
   // TODO(haraken): Optimize the mapping from TaskTypes to task runners.
   // TODO(sreejakshetty): Clean up the PrioritisationType QueueTrait and
   // QueueType for kInternalContinueScriptLoading and kInternalContentCapture.
@@ -465,13 +393,15 @@ base::Optional<QueueTraits> FrameSchedulerImpl::CreateQueueTraitsForTaskType(
     case TaskType::kInternalUserInteraction:
     case TaskType::kInternalIntersectionObserver:
       return PausableTaskQueueTraits();
+    case TaskType::kInternalFindInPage:
+      return FindInPageTaskQueueTraits();
     case TaskType::kInternalContinueScriptLoading:
       return PausableTaskQueueTraits().SetPrioritisationType(
             QueueTraits::PrioritisationType::kVeryHigh);
     case TaskType::kDatabaseAccess:
       if (base::FeatureList::IsEnabled(kHighPriorityDatabaseTaskType)) {
         return PausableTaskQueueTraits().SetPrioritisationType(
-            QueueTraits::PrioritisationType::kHigh);
+            QueueTraits::PrioritisationType::kExperimentalDatabase);
       } else {
         return PausableTaskQueueTraits();
       }
@@ -509,19 +439,22 @@ base::Optional<QueueTraits> FrameSchedulerImpl::CreateQueueTraitsForTaskType(
     case TaskType::kWorkerThreadTaskQueueDefault:
     case TaskType::kWorkerThreadTaskQueueV8:
     case TaskType::kWorkerThreadTaskQueueCompositor:
+    case TaskType::kMainThreadTaskQueueNonWaking:
     // The web scheduling API task types are used by WebSchedulingTaskQueues.
     // The associated TaskRunner should be obtained by creating a
     // WebSchedulingTaskQueue with CreateWebSchedulingTaskQueue().
     case TaskType::kExperimentalWebScheduling:
     case TaskType::kCount:
       // Not a valid frame-level TaskType.
-      return base::nullopt;
+      NOTREACHED();
+      return QueueTraits();
   }
   // This method is called for all values between 0 and kCount. TaskType,
   // however, has numbering gaps, so even though all enumerated TaskTypes are
   // handled in the switch and return a value, we fall through for some values
   // of |type|.
-  return base::nullopt;
+  NOTREACHED();
+  return QueueTraits();
 }
 
 scoped_refptr<base::SingleThreadTaskRunner> FrameSchedulerImpl::GetTaskRunner(
@@ -533,17 +466,8 @@ scoped_refptr<base::SingleThreadTaskRunner> FrameSchedulerImpl::GetTaskRunner(
 
 scoped_refptr<MainThreadTaskQueue> FrameSchedulerImpl::GetTaskQueue(
     TaskType type) {
-  DCHECK_LT(static_cast<size_t>(type),
-            main_thread_scheduler_->scheduling_settings()
-                .frame_task_types_to_queue_traits.size());
-  base::Optional<QueueTraits> queue_traits =
-      main_thread_scheduler_->scheduling_settings()
-          .frame_task_types_to_queue_traits[static_cast<size_t>(type)];
-  // We don't have a QueueTraits mapping for |task_type| if it is not a
-  // frame-level task type.
-  DCHECK(queue_traits);
-  return frame_task_queue_controller_->GetTaskQueue(
-      queue_traits.value());
+  QueueTraits queue_traits = CreateQueueTraitsForTaskType(type);
+  return frame_task_queue_controller_->GetTaskQueue(queue_traits);
 }
 
 std::unique_ptr<WebResourceLoadingTaskRunnerHandle>
@@ -763,7 +687,7 @@ void FrameSchedulerImpl::AsValueInto(
     base::trace_event::TracedValue* state) const {
   state->SetBoolean("frame_visible", frame_visible_);
   state->SetBoolean("page_visible", parent_page_scheduler_->IsPageVisible());
-  state->SetBoolean("cross_origin", IsCrossOrigin());
+  state->SetBoolean("cross_origin_to_main_frame", IsCrossOriginToMainFrame());
   state->SetString("frame_type",
                    frame_type_ == FrameScheduler::FrameType::kMainFrame
                        ? "MainFrame"
@@ -912,7 +836,7 @@ bool FrameSchedulerImpl::ShouldThrottleTaskQueues() const {
   if (!parent_page_scheduler_->IsPageVisible())
     return true;
   return RuntimeEnabledFeatures::TimerThrottlingForHiddenFramesEnabled() &&
-         !frame_visible_ && IsCrossOrigin();
+         !frame_visible_ && IsCrossOriginToMainFrame();
 }
 
 void FrameSchedulerImpl::UpdateTaskQueueThrottling(
@@ -1038,7 +962,7 @@ TaskQueue::QueuePriority FrameSchedulerImpl::ComputePriority(
   }
 
   // Frame origin type experiment.
-  if (IsCrossOrigin()) {
+  if (IsCrossOriginToMainFrame()) {
     if (main_thread_scheduler_->scheduling_settings()
             .low_priority_cross_origin ||
         (main_thread_scheduler_->scheduling_settings()
@@ -1060,6 +984,21 @@ TaskQueue::QueuePriority FrameSchedulerImpl::ComputePriority(
       MainThreadTaskQueue::QueueTraits::PrioritisationType::kLoading &&
       main_thread_scheduler_->should_prioritize_loading_with_compositing()) {
     return main_thread_scheduler_->compositor_priority();
+  }
+
+  if (task_queue->GetPrioritisationType() ==
+      MainThreadTaskQueue::QueueTraits::PrioritisationType::kFindInPage) {
+    return main_thread_scheduler_->find_in_page_priority();
+  }
+
+  if (task_queue->GetPrioritisationType() ==
+      MainThreadTaskQueue::QueueTraits::PrioritisationType::
+          kExperimentalDatabase) {
+    // TODO(shaseley): This decision should probably be based on Agent
+    // visibility. Consider changing this before shipping anything.
+    return parent_page_scheduler_->IsPageVisible()
+               ? TaskQueue::QueuePriority::kHighPriority
+               : TaskQueue::QueuePriority::kNormalPriority;
   }
 
   return TaskQueue::QueuePriority::kNormalPriority;
@@ -1258,5 +1197,10 @@ FrameSchedulerImpl::LoadingControlTaskQueueTraits() {
           QueueTraits::PrioritisationType::kLoadingControl);
 }
 
+MainThreadTaskQueue::QueueTraits
+FrameSchedulerImpl::FindInPageTaskQueueTraits() {
+  return PausableTaskQueueTraits().SetPrioritisationType(
+      QueueTraits::PrioritisationType::kFindInPage);
+}
 }  // namespace scheduler
 }  // namespace blink

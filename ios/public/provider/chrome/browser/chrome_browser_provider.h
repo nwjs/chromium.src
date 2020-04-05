@@ -47,6 +47,7 @@ namespace ios {
 
 class ChromeBrowserProvider;
 class ChromeIdentityService;
+class ChromeTrustedVaultService;
 class GeolocationUpdaterProvider;
 class SigninErrorProvider;
 class SigninResourcesProvider;
@@ -104,6 +105,8 @@ class ChromeBrowserProvider {
       std::unique_ptr<ChromeIdentityService> service);
   // Returns an instance of a Chrome identity service.
   virtual ChromeIdentityService* GetChromeIdentityService();
+  // Returns an instance of a Chrome trusted vault service.
+  virtual ChromeTrustedVaultService* GetChromeTrustedVaultService();
   // Returns an instance of a GeolocationUpdaterProvider.
   virtual GeolocationUpdaterProvider* GetGeolocationUpdaterProvider();
   // Returns risk data used in Wallet requests.
@@ -134,7 +137,7 @@ class ChromeBrowserProvider {
   // Returns an instance of the app distribution provider.
   virtual AppDistributionProvider* GetAppDistributionProvider() const;
 
-  virtual id<LogoVendor> CreateLogoVendor(ChromeBrowserState* browser_state,
+  virtual id<LogoVendor> CreateLogoVendor(Browser* browser,
                                           web::WebState* web_state) const
       NS_RETURNS_RETAINED;
 

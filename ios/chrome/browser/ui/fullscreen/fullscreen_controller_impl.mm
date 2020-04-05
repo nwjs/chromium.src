@@ -4,6 +4,7 @@
 
 #import "ios/chrome/browser/ui/fullscreen/fullscreen_controller_impl.h"
 
+#include "base/memory/ptr_util.h"
 #include "base/supports_user_data.h"
 #include "ios/chrome/browser/browser_state/browser_state_otr_helper.h"
 #include "ios/chrome/browser/browser_state/chrome_browser_state.h"
@@ -137,9 +138,11 @@ FullscreenControllerImpl::FullscreenControllerImpl()
                 forSelector:@selector(broadcastExpandedToolbarHeight:)];
   [broadcaster_ addObserver:bridge_
                 forSelector:@selector(broadcastBottomToolbarHeight:)];
-  ios::GetChromeBrowserProvider()
-      ->GetFullscreenProvider()
-      ->InitializeFullscreen(this);
+  if (!fullscreen::features::ShouldScopeFullscreenControllerToBrowser()) {
+    ios::GetChromeBrowserProvider()
+        ->GetFullscreenProvider()
+        ->InitializeFullscreen(this);
+  }
 }
 
 FullscreenControllerImpl::~FullscreenControllerImpl() {

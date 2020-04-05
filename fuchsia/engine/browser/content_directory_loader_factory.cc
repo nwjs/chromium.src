@@ -22,6 +22,8 @@
 #include "base/strings/string_split.h"
 #include "base/task/post_task.h"
 #include "base/task/task_traits.h"
+#include "base/task/thread_pool.h"
+#include "fuchsia/base/fuchsia_dir_scheme.h"
 #include "fuchsia/engine/common/web_engine_content_client.h"
 #include "fuchsia/engine/switches.h"
 #include "mojo/public/cpp/bindings/remote.h"
@@ -341,9 +343,8 @@ class ContentDirectoryURLLoader : public network::mojom::URLLoader {
 }  // namespace
 
 ContentDirectoryLoaderFactory::ContentDirectoryLoaderFactory()
-    : task_runner_(base::CreateSequencedTaskRunner(
-          {base::ThreadPool(), base::MayBlock(),
-           base::TaskPriority::USER_VISIBLE,
+    : task_runner_(base::ThreadPool::CreateSequencedTaskRunner(
+          {base::MayBlock(), base::TaskPriority::USER_VISIBLE,
            base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN})) {}
 
 ContentDirectoryLoaderFactory::~ContentDirectoryLoaderFactory() {}
@@ -382,8 +383,7 @@ void ContentDirectoryLoaderFactory::CreateLoaderAndStart(
     const network::ResourceRequest& request,
     mojo::PendingRemote<network::mojom::URLLoaderClient> client,
     const net::MutableNetworkTrafficAnnotationTag& traffic_annotation) {
-  if (!request.url.SchemeIs(
-          WebEngineContentClient::kFuchsiaContentDirectoryScheme) ||
+  if (!request.url.SchemeIs(cr_fuchsia::kFuchsiaDirScheme) ||
       !request.url.is_valid()) {
     mojo::Remote<network::mojom::URLLoaderClient>(std::move(client))
         ->OnComplete(network::URLLoaderCompletionStatus(net::ERR_INVALID_URL));

@@ -34,8 +34,10 @@
 #include "third_party/blink/public/mojom/scroll/scroll_into_view_params.mojom-blink-forward.h"
 #include "third_party/blink/public/platform/shape_properties.h"
 #include "third_party/blink/renderer/core/core_export.h"
+#include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/frame/frame_view.h"
 #include "third_party/blink/renderer/core/frame/layout_subtree_root_list.h"
+#include "third_party/blink/renderer/core/frame/overlay_interstitial_ad_detector.h"
 #include "third_party/blink/renderer/core/layout/depth_ordered_layout_object_list.h"
 #include "third_party/blink/renderer/core/paint/compositing/paint_layer_compositor.h"
 #include "third_party/blink/renderer/core/paint/layout_object_counter.h"
@@ -47,7 +49,6 @@
 #include "third_party/blink/renderer/platform/graphics/paint/paint_record.h"
 #include "third_party/blink/renderer/platform/graphics/paint_invalidation_reason.h"
 #include "third_party/blink/renderer/platform/graphics/subtree_paint_property_update_reason.h"
-#include "third_party/blink/renderer/platform/instrumentation/memory_pressure_listener.h"
 #include "third_party/blink/renderer/platform/timer.h"
 #include "third_party/blink/renderer/platform/wtf/allocator/allocator.h"
 #include "third_party/blink/renderer/platform/wtf/casting.h"
@@ -59,11 +60,14 @@ class Layer;
 enum class PaintHoldingCommitTrigger;
 }
 
+namespace ui {
+class Cursor;
+}
+
 namespace blink {
 class AXObjectCache;
 class ChromeClient;
 class CompositorAnimationTimeline;
-class Cursor;
 class DocumentLifecycle;
 class FloatRect;
 class FloatSize;
@@ -85,7 +89,6 @@ class PaintArtifactCompositor;
 class PaintController;
 class PaintLayerScrollableArea;
 class PaintTimingDetector;
-class PrintContext;
 class RootFrameViewport;
 class ScrollableArea;
 class Scrollbar;
@@ -116,8 +119,7 @@ struct LifecycleData {
 
 class CORE_EXPORT LocalFrameView final
     : public GarbageCollected<LocalFrameView>,
-      public FrameView,
-      public MemoryPressureListener {
+      public FrameView {
   USING_GARBAGE_COLLECTED_MIXIN(LocalFrameView);
 
   friend class PaintControllerPaintTestBase;
@@ -128,8 +130,8 @@ class CORE_EXPORT LocalFrameView final
       : public GarbageCollectedMixin {
    public:
     // These are called when the lifecycle updates start/finish.
-    virtual void WillStartLifecycleUpdate(const LocalFrameView&) = 0;
-    virtual void DidFinishLifecycleUpdate(const LocalFrameView&) = 0;
+    virtual void WillStartLifecycleUpdate(const LocalFrameView&) {}
+    virtual void DidFinishLifecycleUpdate(const LocalFrameView&) {}
   };
 
   explicit LocalFrameView(LocalFrame&);
@@ -167,7 +169,7 @@ class CORE_EXPORT LocalFrameView final
 
   // Methods to capture forced layout metrics.
   void WillStartForcedLayout();
-  void DidFinishForcedLayout();
+  void DidFinishForcedLayout(DocumentUpdateReason);
 
   void ClearLayoutSubtreeRoot(const LayoutObject&);
   void AddOrthogonalWritingModeRoot(LayoutBox&);
@@ -337,7 +339,7 @@ class CORE_EXPORT LocalFrameView final
   // state >= PrePaintClean, unless the frame was throttled or inactive.
   // Returns whether the lifecycle was successfully updated to the
   // desired state.
-  bool UpdateAllLifecyclePhasesExceptPaint();
+  bool UpdateAllLifecyclePhasesExceptPaint(DocumentUpdateReason reason);
 
   // Printing needs everything up-to-date except paint (which will be done
   // specially). We may also print a detached frame or a descendant of a
@@ -349,21 +351,22 @@ class CORE_EXPORT LocalFrameView final
   // throttling is allowed), unless the frame was throttled or inactive.
   // Returns whether the lifecycle was successfully updated to the
   // desired state.
-  bool UpdateLifecycleToCompositingCleanPlusScrolling();
+  bool UpdateLifecycleToCompositingCleanPlusScrolling(
+      DocumentUpdateReason reason);
 
   // Computes the style, layout, and compositing inputs lifecycle stages if
   // needed. After calling this method, all frames will be in a lifecycle state
   // >= CompositingInputsClean, unless the frame was throttled or inactive.
   // Returns whether the lifecycle was successfully updated to the
   // desired state.
-  bool UpdateLifecycleToCompositingInputsClean();
+  bool UpdateLifecycleToCompositingInputsClean(DocumentUpdateReason reason);
 
   // Computes only the style and layout lifecycle stages.
   // After calling this method, all frames will be in a lifecycle
   // state >= LayoutClean, unless the frame was throttled or inactive.
   // Returns whether the lifecycle was successfully updated to the
   // desired state.
-  bool UpdateLifecycleToLayoutClean();
+  bool UpdateLifecycleToLayoutClean(DocumentUpdateReason reason);
 
   bool InLifecycleUpdate() { return in_lifecycle_update_; }
   void SetInLifecycleUpdateForTest(bool val) { in_lifecycle_update_ = val; }
@@ -423,7 +426,7 @@ class CORE_EXPORT LocalFrameView final
 
   bool ShouldSetCursor() const;
 
-  void SetCursor(const Cursor&);
+  void SetCursor(const ui::Cursor&);
 
   // FIXME: Remove this method once plugin loading is decoupled from layout.
   void FlushAnyPendingPostLayoutTasks();
@@ -549,8 +552,9 @@ class CORE_EXPORT LocalFrameView final
   void Hide() override;
 
   bool IsLocalFrameView() const override { return true; }
+  bool ShouldReportMainFrameIntersection() const override { return true; }
 
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
   void NotifyPageThatContentAreaWillPaint() const;
 
   // Returns the scrollable area for the frame. For the root frame, this will
@@ -619,7 +623,8 @@ class CORE_EXPORT LocalFrameView final
 
   void MapLocalToRemoteRootFrame(TransformState&);
 
-  void CrossOriginStatusChanged();
+  void CrossOriginToMainFrameChanged();
+  void CrossOriginToParentFrameChanged();
 
   // The visual viewport can supply scrollbars.
   void VisualViewportScrollbarsChanged();
@@ -682,9 +687,15 @@ class CORE_EXPORT LocalFrameView final
   void RegisterForLifecycleNotifications(LifecycleNotificationObserver*);
   void UnregisterFromLifecycleNotifications(LifecycleNotificationObserver*);
 
-  // Sets whether all ResizeObservers should check all their ResizeObservations
-  // for a resize. This is needed when exiting a display lock.
-  void SetNeedsForcedResizeObservations();
+  // Enqueue tasks to be run at the start of the next lifecycle. These tasks
+  // will run right after `WillStartLifecycleUpdate()` on the lifecycle
+  // notification observers.
+  void EnqueueStartOfLifecycleTask(base::OnceClosure);
+
+  // For testing way to steal the start-of-lifecycle tasks.
+  WTF::Vector<base::OnceClosure> TakeStartOfLifecycleTasksForTest() {
+    return std::move(start_of_lifecycle_tasks_);
+  }
 
  protected:
   void FrameRectsChanged(const IntRect&) override;
@@ -692,7 +703,7 @@ class CORE_EXPORT LocalFrameView final
   void ParentVisibleChanged() override;
   void NotifyFrameRectsChangedIfNeeded();
   void SetViewportIntersection(
-      const ViewportIntersectionState& intersection_state) override;
+      const ViewportIntersectionState& intersection_state) override {}
   void VisibilityForThrottlingChanged() override;
   bool LifecycleUpdatesThrottled() const override {
     return lifecycle_updates_throttled_;
@@ -729,11 +740,6 @@ class CORE_EXPORT LocalFrameView final
 
   LayoutSVGRoot* EmbeddedReplacedContent() const;
 
-  void DispatchEventsForPrintingOnAllFrames();
-
-  void SetupPrintContext();
-  void ClearPrintContext();
-
   // Returns whether the lifecycle was successfully updated to the
   // target state.
   bool UpdateLifecyclePhases(DocumentLifecycle::LifecycleState target_state,
@@ -747,6 +753,8 @@ class CORE_EXPORT LocalFrameView final
   // means further lifecycle phases need to be run. This is used to abort
   // earlier if we don't need to run future lifecycle phases.
   bool RunStyleAndLayoutLifecyclePhases(
+      DocumentLifecycle::LifecycleState target_state);
+  bool RunAccessibilityLifecyclePhase(
       DocumentLifecycle::LifecycleState target_state);
   bool RunCompositingLifecyclePhase(
       DocumentLifecycle::LifecycleState target_state);
@@ -819,10 +827,17 @@ class CORE_EXPORT LocalFrameView final
   template <typename Function>
   void ForAllNonThrottledLocalFrameViews(const Function&);
 
+  template <typename Function>
+  void ForAllThrottledLocalFrameViews(const Function&);
+
+  template <typename Function>
+  void ForAllRemoteFrameViews(const Function&);
+
   bool UpdateViewportIntersectionsForSubtree(unsigned parent_flags) override;
   void DeliverSynchronousIntersectionObservations();
 
-  void NotifyResizeObservers();
+  bool NotifyResizeObservers(DocumentLifecycle::LifecycleState target_state);
+  bool RunResizeObserverSteps(DocumentLifecycle::LifecycleState target_state);
 
   bool CheckLayoutInvalidationIsAllowed() const;
 
@@ -832,8 +847,9 @@ class CORE_EXPORT LocalFrameView final
 
   void UpdateLayerDebugInfoEnabled();
 
-  // MemoryPressureListener
-  void OnPurgeMemory() override;
+  // Return the interstitial-ad detector for this frame, creating it if
+  // necessary.
+  OverlayInterstitialAdDetector& EnsureOverlayInterstitialAdDetector();
 
   LayoutSize size_;
 
@@ -957,10 +973,6 @@ class CORE_EXPORT LocalFrameView final
   // For testing.
   bool is_tracking_raster_invalidations_ = false;
 
-  // True if a memory pressure signal has been received on a foregrounded page
-  // that has accelerated compositing enabled.
-  bool received_foreground_compositor_memory_pressure_purge_signal_ = false;
-
   // Currently used in PushPaintArtifactToCompositor() to collect composited
   // layers as foreign layers. It's transient, but may live across frame updates
   // until SetForeignLayerListNeedsUpdate() is called.
@@ -975,8 +987,6 @@ class CORE_EXPORT LocalFrameView final
   scoped_refptr<LocalFrameUkmAggregator> ukm_aggregator_;
   unsigned forced_layout_stack_depth_;
   base::TimeTicks forced_layout_start_time_;
-
-  Member<PrintContext> print_context_;
 
   // From the beginning of the document, how many frames have painted.
   size_t paint_frame_count_;
@@ -993,6 +1003,12 @@ class CORE_EXPORT LocalFrameView final
   // throttled, this will force the lifecycle to reach the paint phase so that
   // it can clear the painted output.
   bool need_paint_phase_after_throttling_ = false;
+
+  std::unique_ptr<OverlayInterstitialAdDetector>
+      overlay_interstitial_ad_detector_;
+
+  // These tasks will be run at the beginning of the next lifecycle.
+  WTF::Vector<base::OnceClosure> start_of_lifecycle_tasks_;
 
 #if DCHECK_IS_ON()
   bool is_updating_descendant_dependent_flags_;

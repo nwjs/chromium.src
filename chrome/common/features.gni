@@ -27,7 +27,8 @@ declare_args() {
   # builtin_cert_verifier_feature_supported platforms.
   # See crbug.com/410574.  This can be removed when the builtin verifier is
   # unconditionally enabled on all platforms.
-  builtin_cert_verifier_policy_supported = is_chromeos || is_desktop_linux
+  builtin_cert_verifier_policy_supported =
+      is_chromeos || is_desktop_linux || is_mac
 
   # Enables support for background apps.
   enable_background_contents = !is_android && !is_chromecast
@@ -50,6 +51,9 @@ declare_args() {
 
   enable_one_click_signin =
       is_win || is_mac || (is_linux && !is_chromeos && !is_chromecast)
+
+  # Enables password change in leaked password dialog, disabled by default.
+  enable_password_change_in_leaked_dialog = false
 
   enable_service_discovery = (enable_mdns && !is_android) || is_mac
 

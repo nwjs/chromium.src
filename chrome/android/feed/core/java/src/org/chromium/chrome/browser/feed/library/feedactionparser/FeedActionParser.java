@@ -216,11 +216,7 @@ public final class FeedActionParser implements ActionParser {
                 break;
             case SEND_FEEDBACK:
                 Log.d(TAG, "SendFeedback menu item clicked.");
-                // TODO(petewil):
-                // Marshall feed specific args.
-                // Get a Feedback object.
-                // Dismiss menu.
-                // Call the feedback object to send feedback async.  Don't wait for it.
+                streamActionApi.sendFeedback(this.mContentMetadata.get());
                 break;
             default:
                 Logger.wtf(TAG, "Haven't implemented host handling of %s",
@@ -251,6 +247,13 @@ public final class FeedActionParser implements ActionParser {
             mBasicLoggingApi.onInternalError(InternalFeedError.NO_URL_FOR_OPEN);
             Logger.e(TAG, "Cannot open URL action: %s, no URL available.", urlType);
             return;
+        }
+
+        if (urlType != OPEN_URL_INCOGNITO && openUrlData.hasContentId()
+                && openUrlData.hasPayload()) {
+            streamActionApi.reportClickAction(
+                    mProtocolAdapter.getStreamContentId(openUrlData.getContentId()),
+                    openUrlData.getPayload());
         }
 
         String url = openUrlData.getUrl();

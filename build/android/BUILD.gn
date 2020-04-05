@@ -8,8 +8,6 @@ import("//build/config/python.gni")
 import("//build_overrides/build.gni")
 
 if (enable_java_templates) {
-  sun_tools_jar_path = "$root_gen_dir/sun_tools_jar/tools.jar"
-
   # Create or update the API versions cache if necessary by running a
   # functionally empty lint task. This prevents racy creation of the
   # cache while linting java targets in android_lint.
@@ -18,30 +16,12 @@ if (enable_java_templates) {
     create_cache = true
   }
 
-  action("find_sun_tools_jar") {
-    script = "//build/android/gyp/find_sun_tools_jar.py"
-    depfile = "$target_gen_dir/$target_name.d"
-    outputs = [ sun_tools_jar_path ]
-    args = [
-      "--depfile",
-      rebase_path(depfile, root_build_dir),
-      "--output",
-      rebase_path(sun_tools_jar_path, root_build_dir),
-    ]
-  }
-
-  java_prebuilt("sun_tools_java") {
-    jar_path = sun_tools_jar_path
-    deps = [ ":find_sun_tools_jar" ]
-  }
-
   # Write to a file some GN vars that are useful to scripts that use the output
   # directory. Format is chosen as easliy importable by both python and bash.
   _lines = [
     "android_sdk_build_tools=" +
         rebase_path(android_sdk_build_tools, root_build_dir),
     "android_sdk_build_tools_version=$android_sdk_build_tools_version",
-    "android_sdk_tools_version_suffix=$android_sdk_tools_version_suffix",
     "android_sdk_root=" + rebase_path(android_sdk_root, root_build_dir),
     "android_sdk_version=$android_sdk_version",
     "android_ndk_root=" + rebase_path(android_ndk_root, root_build_dir),
@@ -84,7 +64,7 @@ python_library("test_runner_py") {
   data_deps = [ ":devil_chromium_py" ]
   if (build_with_chromium) {
     data += [
-      "//third_party/android_build_tools/bundletool/bundletool-all-0.12.0.jar",
+      "//third_party/android_build_tools/bundletool/bundletool-all-0.13.3.jar",
       "//tools/android/avd/proto/",
     ]
     data_deps +=
@@ -96,7 +76,7 @@ python_library("test_runner_py") {
 
   # Proguard is needed only when using apks (rather than native executables).
   if (enable_java_templates) {
-    deps = [ "//third_party/proguard:proguard603_java" ]
+    deps = [ "//build/android/stacktrace:java_deobfuscate" ]
   }
 }
 
@@ -119,18 +99,23 @@ python_library("resource_sizes_py") {
 python_library("bundle_wrapper_script_py") {
   pydeps_file = "gyp/create_bundle_wrapper_script.pydeps"
   data = [
-    "//third_party/android_build_tools/bundletool/bundletool-all-0.12.0.jar",
+    "//third_party/android_build_tools/bundletool/bundletool-all-0.13.3.jar",
   ]
 }
 
 # Tools necessary for symbolizing tombstones or stack traces that are output to
 # logcat.
-group("stack_tools") {
-  data = [
-    "tombstones.py",
-    "pylib/symbols/",
-    "stacktrace/",
-  ]
+# Hidden behind build_with_chromium because some third party repos that use
+# //build don't pull in //third_party/android_platform.
+if (build_with_chromium) {
+  group("stack_tools") {
+    data = [
+      "tombstones.py",
+      "pylib/symbols/",
+      "stacktrace/",
+    ]
 
-  data_deps = [ "//third_party/android_platform/development/scripts:stack_py" ]
+    data_deps =
+        [ "//third_party/android_platform/development/scripts:stack_py" ]
+  }
 }

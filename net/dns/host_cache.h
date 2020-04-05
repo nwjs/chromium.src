@@ -19,7 +19,6 @@
 #include "base/logging.h"
 #include "base/macros.h"
 #include "base/numerics/clamped_math.h"
-#include "base/observer_list_types.h"
 #include "base/optional.h"
 #include "base/threading/thread_checker.h"
 #include "base/time/time.h"
@@ -279,14 +278,6 @@ class NET_EXPORT HostCache {
     virtual void ScheduleWrite() = 0;
   };
 
-  // Delegate to receive cache invalidation notifications. Get the Invalidator
-  // for a HostCache via HostCache::invalidator() or override for testing via
-  // HostCache::set_invalidator_for_testing().
-  class Invalidator : public base::CheckedObserver {
-   public:
-    virtual void Invalidate() = 0;
-  };
-
   using EntryMap = std::map<Key, Entry>;
 
   // A HostCache::EntryStaleness representing a non-stale (fresh) cache entry.
@@ -334,7 +325,6 @@ class NET_EXPORT HostCache {
 
   // Marks all entries as stale on account of a network change.
   void Invalidate();
-  Invalidator* invalidator() { return invalidator_; }
 
   void set_persistence_delegate(PersistenceDelegate* delegate);
 
@@ -347,7 +337,7 @@ class NET_EXPORT HostCache {
 
   // Clears hosts matching |host_filter| from the cache.
   void ClearForHosts(
-      const base::Callback<bool(const std::string&)>& host_filter);
+      const base::RepeatingCallback<bool(const std::string&)>& host_filter);
 
   // Fills the provided base::ListValue with the contents of the cache for
   // serialization. |entry_list| must be non-null and will be cleared before
@@ -375,11 +365,6 @@ class NET_EXPORT HostCache {
   size_t max_entries() const;
   int network_changes() const { return network_changes_; }
   const EntryMap& entries() const { return entries_; }
-
-  void set_invalidator_for_testing(Invalidator* invalidator) {
-    owned_invalidator_ = nullptr;
-    invalidator_ = invalidator;
-  }
 
   // Creates a default cache.
   static std::unique_ptr<HostCache> CreateDefaultCache();
@@ -431,9 +416,6 @@ class NET_EXPORT HostCache {
   PersistenceDelegate* delegate_;
   // Shared tick clock, overridden for testing.
   const base::TickClock* tick_clock_;
-
-  std::unique_ptr<Invalidator> owned_invalidator_;
-  Invalidator* invalidator_;
 
   THREAD_CHECKER(thread_checker_);
 

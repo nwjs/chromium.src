@@ -55,8 +55,6 @@ ExtensionsMenuItemView* GetAsMenuItemView(views::View* view) {
 
 }  // namespace
 
-constexpr gfx::Size ExtensionsMenuView::kExtensionsMenuIconSize;
-
 ExtensionsMenuView::ButtonListener::ButtonListener(Browser* browser)
     : browser_(browser) {}
 
@@ -93,9 +91,12 @@ ExtensionsMenuView::ExtensionsMenuView(
   browser_->tab_strip_model()->AddObserver(this);
   set_margins(gfx::Insets(0));
 
-  DialogDelegate::set_buttons(ui::DIALOG_BUTTON_NONE);
+  DialogDelegate::SetButtons(ui::DIALOG_BUTTON_NONE);
 
   EnableUpDownKeyboardAccelerators();
+
+  // Let anchor view's MenuButtonController handle the highlight.
+  set_highlight_button_when_shown(false);
 
   SetLayoutManager(std::make_unique<views::BoxLayout>(
       views::BoxLayout::Orientation::kVertical));
@@ -191,7 +192,7 @@ ExtensionsMenuView::CreateExtensionButtonsContainer() {
         auto header = std::make_unique<views::Label>(
             l10n_util::GetStringUTF16(section->header_string_id),
             ChromeTextContext::CONTEXT_BODY_TEXT_SMALL,
-            ChromeTextStyle::STYLE_EMPHASIZED_SECONDARY);
+            ChromeTextStyle::STYLE_EMPHASIZED);
         header->SetHorizontalAlignment(gfx::ALIGN_LEFT);
         header->SetBorder(views::CreateEmptyBorder(
             ChromeLayoutProvider::Get()->GetDistanceMetric(
@@ -203,7 +204,7 @@ ExtensionsMenuView::CreateExtensionButtonsContainer() {
         auto description = std::make_unique<views::Label>(
             l10n_util::GetStringUTF16(section->description_string_id),
             ChromeTextContext::CONTEXT_BODY_TEXT_SMALL,
-            views::style::STYLE_SECONDARY);
+            views::style::STYLE_PRIMARY);
         description->SetMultiLine(true);
         description->SetHorizontalAlignment(gfx::ALIGN_LEFT);
         description->SetBorder(views::CreateEmptyBorder(0, horizontal_spacing,
@@ -474,13 +475,17 @@ base::AutoReset<bool> ExtensionsMenuView::AllowInstancesForTesting() {
 }
 
 // static
-void ExtensionsMenuView::ShowBubble(views::View* anchor_view,
-                                    Browser* browser,
-                                    ExtensionsContainer* extensions_container) {
+views::Widget* ExtensionsMenuView::ShowBubble(
+    views::View* anchor_view,
+    Browser* browser,
+    ExtensionsContainer* extensions_container) {
   DCHECK(!g_extensions_dialog);
   g_extensions_dialog =
       new ExtensionsMenuView(anchor_view, browser, extensions_container);
-  views::BubbleDialogDelegateView::CreateBubble(g_extensions_dialog)->Show();
+  views::Widget* widget =
+      views::BubbleDialogDelegateView::CreateBubble(g_extensions_dialog);
+  widget->Show();
+  return widget;
 }
 
 // static

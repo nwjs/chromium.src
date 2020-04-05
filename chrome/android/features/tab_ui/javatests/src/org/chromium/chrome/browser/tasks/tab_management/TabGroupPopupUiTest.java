@@ -26,6 +26,7 @@ import static org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper.r
 import static org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper.verifyShowingPopupTabList;
 import static org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper.verifyTabSwitcherCardCount;
 
+import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.espresso.contrib.RecyclerViewActions;
@@ -34,7 +35,6 @@ import android.view.View;
 import android.widget.FrameLayout;
 
 import org.junit.After;
-import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestRule;
@@ -42,11 +42,10 @@ import org.junit.runner.RunWith;
 
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Restriction;
-import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.compositor.layouts.Layout;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
-import org.chromium.chrome.browser.flags.FeatureUtilities;
+import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.fullscreen.FullscreenManagerTestUtils;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.toolbar.bottom.BottomToolbarVariationManager;
@@ -59,6 +58,7 @@ import org.chromium.chrome.test.util.browser.Features;
 import org.chromium.content_public.browser.test.util.CriteriaHelper;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.net.test.EmbeddedTestServer;
+import org.chromium.ui.UiSwitches;
 import org.chromium.ui.test.util.UiRestriction;
 
 import java.util.List;
@@ -66,9 +66,13 @@ import java.util.List;
 /** End-to-end tests for TabGroupPopupUi component. */
 @RunWith(ChromeJUnit4ClassRunner.class)
 // clang-format off
-@CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
+// TODO(crbug.com/1058231): ENABLE_SCREENSHOT_UI_MODE is to disable IPHs for TabGroups.
+//  We should make this test more robust so that it's agnostic of IPHs.
+@CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE,
+        UiSwitches.ENABLE_SCREENSHOT_UI_MODE})
 @Restriction(UiRestriction.RESTRICTION_TYPE_PHONE)
-@Features.EnableFeatures({ChromeFeatureList.TAB_GROUPS_UI_IMPROVEMENTS_ANDROID})
+@Features.EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID, ChromeFeatureList.CHROME_DUET,
+        ChromeFeatureList.DUET_TABSTRIP_INTEGRATION_ANDROID})
 public class TabGroupPopupUiTest {
     // clang-format on
 
@@ -78,23 +82,15 @@ public class TabGroupPopupUiTest {
     @Rule
     public TestRule mProcessor = new Features.InstrumentationProcessor();
 
-    @Before
-    public void setUp() {
-        FeatureUtilities.setTabGroupsAndroidEnabledForTesting(true);
-        FeatureUtilities.setIsBottomToolbarEnabledForTesting(true);
-        FeatureUtilities.setDuetTabStripIntegrationAndroidEnabledForTesting(true);
-    }
-
     @After
     public void tearDown() {
-        FeatureUtilities.setTabGroupsAndroidEnabledForTesting(null);
-        FeatureUtilities.setIsBottomToolbarEnabledForTesting(null);
-        FeatureUtilities.setDuetTabStripIntegrationAndroidEnabledForTesting(null);
+        mActivityTestRule.getActivity().setRequestedOrientation(
+                ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
     }
 
     @Test
     @MediumTest
-    public void testOnAnchorViewChanged_HOME_SEARCH_TAB_SWITCHER() throws InterruptedException {
+    public void testOnAnchorViewChanged_HOME_SEARCH_TAB_SWITCHER() {
         launchActivity(Variations.HOME_SEARCH_TAB_SWITCHER);
         final ChromeTabbedActivity cta = mActivityTestRule.getActivity();
         // Tab strip should show automatically when entering tab group.
@@ -115,7 +111,7 @@ public class TabGroupPopupUiTest {
 
     @Test
     @MediumTest
-    public void testOnAnchorViewChanged_HOME_SEARCH_SHARE() throws InterruptedException {
+    public void testOnAnchorViewChanged_HOME_SEARCH_SHARE() {
         launchActivity(Variations.HOME_SEARCH_SHARE);
         final ChromeTabbedActivity cta = mActivityTestRule.getActivity();
         // Tab strip should show automatically when entering tab group.
@@ -136,7 +132,7 @@ public class TabGroupPopupUiTest {
 
     @Test
     @MediumTest
-    public void testOnAnchorViewChanged_NEW_TAB_SEARCH_SHARE() throws InterruptedException {
+    public void testOnAnchorViewChanged_NEW_TAB_SEARCH_SHARE() {
         launchActivity(Variations.NEW_TAB_SEARCH_SHARE);
         final ChromeTabbedActivity cta = mActivityTestRule.getActivity();
         // Tab strip should show automatically when entering tab group.
@@ -157,7 +153,7 @@ public class TabGroupPopupUiTest {
 
     @Test
     @MediumTest
-    public void testTabStripShowHide() throws InterruptedException {
+    public void testTabStripShowHide() {
         launchActivity();
         final ChromeTabbedActivity cta = mActivityTestRule.getActivity();
         // Try to trigger tab strip in a single tab page.
@@ -190,7 +186,7 @@ public class TabGroupPopupUiTest {
 
     @Test
     @MediumTest
-    public void testTabStripUpdate() throws InterruptedException {
+    public void testTabStripUpdate() {
         launchActivity();
         final ChromeTabbedActivity cta = mActivityTestRule.getActivity();
 
@@ -227,7 +223,7 @@ public class TabGroupPopupUiTest {
     @Test
     @MediumTest
     @CommandLineFlags.Add({ChromeSwitches.DISABLE_MINIMUM_SHOW_DURATION})
-    public void testTabStripChangeWithScrolling() throws InterruptedException {
+    public void testTabStripChangeWithScrolling() {
         launchActivity();
         final ChromeTabbedActivity cta = mActivityTestRule.getActivity();
         FullscreenManagerTestUtils.disableBrowserOverrides();

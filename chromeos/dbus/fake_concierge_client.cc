@@ -75,6 +75,16 @@ void FakeConciergeClient::CreateDiskImage(
       base::BindOnce(std::move(callback), create_disk_image_response_));
 }
 
+void FakeConciergeClient::CreateDiskImageWithFd(
+    base::ScopedFD fd,
+    const vm_tools::concierge::CreateDiskImageRequest& request,
+    DBusMethodCallback<vm_tools::concierge::CreateDiskImageResponse> callback) {
+  create_disk_image_called_ = true;
+  base::ThreadTaskRunnerHandle::Get()->PostTask(
+      FROM_HERE,
+      base::BindOnce(std::move(callback), create_disk_image_response_));
+}
+
 void FakeConciergeClient::DestroyDiskImage(
     const vm_tools::concierge::DestroyDiskImageRequest& request,
     DBusMethodCallback<vm_tools::concierge::DestroyDiskImageResponse>
@@ -92,8 +102,10 @@ void FakeConciergeClient::ImportDiskImage(
   import_disk_image_called_ = true;
   base::ThreadTaskRunnerHandle::Get()->PostTask(
       FROM_HERE,
-      base::BindOnce(&FakeConciergeClient::FakeImportCallbacks,
-                     weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
+      base::BindOnce(std::move(callback), import_disk_image_response_));
+  base::ThreadTaskRunnerHandle::Get()->PostTask(
+      FROM_HERE, base::BindOnce(&FakeConciergeClient::NotifyDiskImageProgress,
+                                weak_ptr_factory_.GetWeakPtr()));
 }
 
 void FakeConciergeClient::CancelDiskImageOperation(
@@ -106,9 +118,7 @@ void FakeConciergeClient::CancelDiskImageOperation(
       base::BindOnce(std::move(callback), cancel_disk_image_response_));
 }
 
-void FakeConciergeClient::FakeImportCallbacks(
-    DBusMethodCallback<vm_tools::concierge::ImportDiskImageResponse> callback) {
-  std::move(callback).Run(import_disk_image_response_);
+void FakeConciergeClient::NotifyDiskImageProgress() {
   // Trigger DiskImageStatus signals.
   for (auto const& signal : disk_image_status_signals_) {
     OnDiskImageProgress(signal);
@@ -179,6 +189,20 @@ void FakeConciergeClient::StopVm(
       FROM_HERE, base::BindOnce(std::move(callback), stop_vm_response_));
 }
 
+void FakeConciergeClient::SuspendVm(
+    const vm_tools::concierge::SuspendVmRequest& request,
+    DBusMethodCallback<vm_tools::concierge::SuspendVmResponse> callback) {
+  base::ThreadTaskRunnerHandle::Get()->PostTask(
+      FROM_HERE, base::BindOnce(std::move(callback), suspend_vm_response_));
+}
+
+void FakeConciergeClient::ResumeVm(
+    const vm_tools::concierge::ResumeVmRequest& request,
+    DBusMethodCallback<vm_tools::concierge::ResumeVmResponse> callback) {
+  base::ThreadTaskRunnerHandle::Get()->PostTask(
+      FROM_HERE, base::BindOnce(std::move(callback), resume_vm_response_));
+}
+
 void FakeConciergeClient::GetVmInfo(
     const vm_tools::concierge::GetVmInfoRequest& request,
     DBusMethodCallback<vm_tools::concierge::GetVmInfoResponse> callback) {
@@ -226,7 +250,8 @@ void FakeConciergeClient::GetContainerSshKeys(
       base::BindOnce(std::move(callback), container_ssh_keys_response_));
 }
 
-void FakeConciergeClient::AttachUsbDevice(base::ScopedFD fd,
+void FakeConciergeClient::AttachUsbDevice(
+    base::ScopedFD fd,
     const vm_tools::concierge::AttachUsbDeviceRequest& request,
     DBusMethodCallback<vm_tools::concierge::AttachUsbDeviceResponse> callback) {
   attach_usb_device_called_ = true;
@@ -252,6 +277,18 @@ void FakeConciergeClient::StartArcVm(
   start_arc_vm_called_ = true;
   base::ThreadTaskRunnerHandle::Get()->PostTask(
       FROM_HERE, base::BindOnce(std::move(callback), start_vm_response_));
+}
+
+void FakeConciergeClient::ResizeDiskImage(
+    const vm_tools::concierge::ResizeDiskImageRequest& request,
+    DBusMethodCallback<vm_tools::concierge::ResizeDiskImageResponse> callback) {
+  resize_disk_image_called_ = true;
+  base::ThreadTaskRunnerHandle::Get()->PostTask(
+      FROM_HERE,
+      base::BindOnce(std::move(callback), resize_disk_image_response_));
+  base::ThreadTaskRunnerHandle::Get()->PostTask(
+      FROM_HERE, base::BindOnce(&FakeConciergeClient::NotifyDiskImageProgress,
+                                weak_ptr_factory_.GetWeakPtr()));
 }
 
 void FakeConciergeClient::NotifyVmStarted(
@@ -288,6 +325,12 @@ void FakeConciergeClient::InitializeProtoResponses() {
 
   stop_vm_response_.emplace();
   stop_vm_response_->set_success(true);
+
+  suspend_vm_response_.emplace();
+  suspend_vm_response_->set_success(true);
+
+  resume_vm_response_.emplace();
+  resume_vm_response_->set_success(true);
 
   get_vm_info_response_.emplace();
   get_vm_info_response_->set_success(true);

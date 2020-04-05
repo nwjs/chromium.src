@@ -30,11 +30,22 @@ SmsFetcherImpl::~SmsFetcherImpl() {
 // static
 SmsFetcher* SmsFetcher::Get(BrowserContext* context) {
   if (!context->GetUserData(kSmsFetcherImplKeyName)) {
-    auto fetcher =
-        std::make_unique<SmsFetcherImpl>(context, SmsProvider::Create());
+    auto fetcher = std::make_unique<SmsFetcherImpl>(context, nullptr);
     context->SetUserData(kSmsFetcherImplKeyName, std::move(fetcher));
   }
 
+  return static_cast<SmsFetcherImpl*>(
+      context->GetUserData(kSmsFetcherImplKeyName));
+}
+
+SmsFetcher* SmsFetcher::Get(BrowserContext* context, RenderFrameHost* rfh) {
+  auto* stored_fetcher = static_cast<SmsFetcherImpl*>(
+      context->GetUserData(kSmsFetcherImplKeyName));
+  if (!stored_fetcher || !stored_fetcher->CanReceiveSms()) {
+    auto fetcher =
+        std::make_unique<SmsFetcherImpl>(context, SmsProvider::Create(rfh));
+    context->SetUserData(kSmsFetcherImplKeyName, std::move(fetcher));
+  }
   return static_cast<SmsFetcherImpl*>(
       context->GetUserData(kSmsFetcherImplKeyName));
 }
@@ -66,15 +77,14 @@ void SmsFetcherImpl::Unsubscribe(const url::Origin& origin,
 }
 
 bool SmsFetcherImpl::Notify(const url::Origin& origin,
-                            const std::string& one_time_code,
-                            const std::string& sms) {
+                            const std::string& one_time_code) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   auto* subscriber = subscribers_.Pop(origin);
 
   if (!subscriber)
     return false;
 
-  subscriber->OnReceive(one_time_code, sms);
+  subscriber->OnReceive(one_time_code);
 
   return true;
 }
@@ -89,19 +99,22 @@ void SmsFetcherImpl::OnRemote(base::Optional<std::string> sms) {
   if (!result)
     return;
 
-  Notify(result->origin, result->one_time_code, *sms);
+  Notify(result->origin, result->one_time_code);
 }
 
 bool SmsFetcherImpl::OnReceive(const url::Origin& origin,
-                               const std::string& one_time_code,
-                               const std::string& sms) {
+                               const std::string& one_time_code) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  return Notify(origin, one_time_code, sms);
+  return Notify(origin, one_time_code);
 }
 
 bool SmsFetcherImpl::HasSubscribers() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   return subscribers_.HasSubscribers();
+}
+
+bool SmsFetcherImpl::CanReceiveSms() {
+  return provider_ != nullptr;
 }
 
 void SmsFetcherImpl::SetSmsProviderForTesting(

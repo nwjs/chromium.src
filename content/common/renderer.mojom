@@ -12,7 +12,10 @@ import "mojo/public/mojom/base/generic_pending_receiver.mojom";
 import "mojo/public/mojom/base/time.mojom";
 import "mojo/public/mojom/base/unguessable_token.mojom";
 import "services/network/public/mojom/network_types.mojom";
+import "third_party/blink/public/mojom/frame/frame_owner_properties.mojom";
 import "third_party/blink/public/mojom/manifest/manifest.mojom";
+import "third_party/blink/public/mojom/page/page.mojom";
+import "third_party/blink/public/mojom/page/widget.mojom";
 import "third_party/blink/public/mojom/renderer_preferences.mojom";
 import "third_party/blink/public/mojom/user_agent/user_agent_metadata.mojom";
 import "ui/gfx/geometry/mojom/geometry.mojom";
@@ -40,6 +43,13 @@ struct CreateViewParams {
   // This is null precisely when |main_frame_routing_id| is MSG_ROUTING_NONE,
   // that is, when creating a RenderView for a remote main frame.
   DocumentScopedInterfaceBundle? main_frame_interface_bundle;
+
+  // The communication interfaces for the WebFrameWidget in blink. All should
+  // be set if there is a |main_frame_routing_id|.
+  pending_associated_remote<blink.mojom.FrameWidgetHost>? frame_widget_host;
+  pending_associated_receiver<blink.mojom.FrameWidget>? frame_widget;
+  pending_associated_remote<blink.mojom.WidgetHost>? widget_host;
+  pending_associated_receiver<blink.mojom.Widget>? widget;
 
   // The session storage namespace ID this view should use.
   string session_storage_namespace_id;
@@ -93,6 +103,10 @@ struct CreateViewParams {
 
   // Set this to true when creating a RenderView inside a portal.
   bool inside_portal;
+
+  // Endpoint for any messages that are broadcast to all views in a WebContents.
+  pending_associated_receiver<blink.mojom.PageBroadcast> blink_page_broadcast;
+
   bool skip_blocking_parser;
 };
 
@@ -100,6 +114,12 @@ struct CreateFrameWidgetParams {
   // Gives the routing ID for the RenderWidget that will be attached to the
   // new RenderFrame.
   int32 routing_id;
+
+  // The communication interfaces for the WebFrameWidget in blink.
+  pending_associated_remote<blink.mojom.FrameWidgetHost> frame_widget_host;
+  pending_associated_receiver<blink.mojom.FrameWidget> frame_widget;
+  pending_associated_remote<blink.mojom.WidgetHost> widget_host;
+  pending_associated_receiver<blink.mojom.Widget> widget;
 
   // The initial visual properties of the widget.
   VisualProperties visual_properties;
@@ -148,7 +168,7 @@ struct CreateFrameParams {
   // properties of the HTMLFrameOwnerElement from the parent process.
   // Note that unlike FrameReplicationState, this is not replicated for remote
   // frames.
-  FrameOwnerProperties frame_owner_properties;
+  blink.mojom.FrameOwnerProperties frame_owner_properties;
 
   // Specifies properties for a new RenderWidget that will be attached to the
   // new RenderFrame (if one is needed).
@@ -176,7 +196,6 @@ struct UpdateScrollbarThemeParams {
 struct UpdateSystemColorInfoParams {
   bool is_dark_mode;
   bool is_high_contrast;
-  PreferredColorScheme preferred_color_scheme;
   // uint32 represents a SkColor in the map.
   map<SystemThemeColor, uint32> colors;
 };

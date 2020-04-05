@@ -116,9 +116,9 @@ const tests = [
     viewport.setViewportChangedCallback(mockCallback.callback);
 
     const paramsParser = new OpenPdfParamsParser(function(destination) {
-      if (destination == 'US') {
+      if (destination === 'US') {
         paramsParser.onNamedDestinationReceived(0);
-      } else if (destination == 'UY') {
+      } else if (destination === 'UY') {
         paramsParser.onNamedDestinationReceived(2);
       } else {
         paramsParser.onNamedDestinationReceived(-1);
@@ -262,6 +262,6 @@ const tests = [
 ];
 
 const scriptingAPI = new PDFScriptingAPI(window, window);
-scriptingAPI.setLoadCallback(function() {
+scriptingAPI.setLoadCompleteCallback(function() {
   chrome.test.runTests(tests);
 });

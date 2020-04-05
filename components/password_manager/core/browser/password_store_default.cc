@@ -30,28 +30,29 @@ void PasswordStoreDefault::ShutdownOnUIThread() {
   ScheduleTask(base::BindOnce(&PasswordStoreDefault::ResetLoginDB, this));
 }
 
-bool PasswordStoreDefault::InitOnBackgroundSequence(
-    const syncer::SyncableService::StartSyncFlare& flare) {
+bool PasswordStoreDefault::InitOnBackgroundSequence() {
   DCHECK(background_task_runner()->RunsTasksInCurrentSequence());
   DCHECK(login_db_);
   bool success = true;
   if (!login_db_->Init()) {
     login_db_.reset();
-    // The initialization should be continued, because PasswordSyncableService
+    // The initialization should be continued, because PasswordSyncBridge
     // has to be initialized even if database initialization failed.
     success = false;
     LOG(ERROR) << "Could not create/open login database.";
   }
-  return PasswordStore::InitOnBackgroundSequence(flare) && success;
+  return PasswordStore::InitOnBackgroundSequence() && success;
 }
 
 void PasswordStoreDefault::ReportMetricsImpl(
     const std::string& sync_username,
-    bool custom_passphrase_sync_enabled) {
+    bool custom_passphrase_sync_enabled,
+    BulkCheckDone bulk_check_done) {
   if (!login_db_)
     return;
   DCHECK(background_task_runner()->RunsTasksInCurrentSequence());
-  login_db_->ReportMetrics(sync_username, custom_passphrase_sync_enabled);
+  login_db_->ReportMetrics(sync_username, custom_passphrase_sync_enabled,
+                           bulk_check_done);
 }
 
 PasswordStoreChangeList PasswordStoreDefault::AddLoginImpl(
@@ -91,7 +92,7 @@ PasswordStoreChangeList PasswordStoreDefault::RemoveLoginImpl(
 }
 
 PasswordStoreChangeList PasswordStoreDefault::RemoveLoginsByURLAndTimeImpl(
-    const base::Callback<bool(const GURL&)>& url_filter,
+    const base::RepeatingCallback<bool(const GURL&)>& url_filter,
     base::Time delete_begin,
     base::Time delete_end) {
   PrimaryKeyToFormMap key_to_form_map;
@@ -123,7 +124,7 @@ PasswordStoreChangeList PasswordStoreDefault::RemoveLoginsCreatedBetweenImpl(
 }
 
 PasswordStoreChangeList PasswordStoreDefault::DisableAutoSignInForOriginsImpl(
-    const base::Callback<bool(const GURL&)>& origin_filter) {
+    const base::RepeatingCallback<bool(const GURL&)>& origin_filter) {
   PrimaryKeyToFormMap key_to_form_map;
   PasswordStoreChangeList changes;
   if (!login_db_ || !login_db_->GetAutoSignInLogins(&key_to_form_map))
@@ -152,7 +153,7 @@ PasswordStoreChangeList PasswordStoreDefault::DisableAutoSignInForOriginsImpl(
 }
 
 bool PasswordStoreDefault::RemoveStatisticsByOriginAndTimeImpl(
-    const base::Callback<bool(const GURL&)>& origin_filter,
+    const base::RepeatingCallback<bool(const GURL&)>& origin_filter,
     base::Time delete_begin,
     base::Time delete_end) {
   return login_db_ &&
@@ -222,22 +223,20 @@ std::vector<InteractionsStats> PasswordStoreDefault::GetSiteStatsImpl(
                    : std::vector<InteractionsStats>();
 }
 
-void PasswordStoreDefault::AddCompromisedCredentialsImpl(
-    const CompromisedCredentials& compromised_credentials) {
+bool PasswordStoreDefault::AddCompromisedCredentialsImpl(
+    const CompromisedCredentials& credentials) {
   DCHECK(background_task_runner()->RunsTasksInCurrentSequence());
-  if (login_db_)
-    login_db_->compromised_credentials_table().AddRow(compromised_credentials);
+  return login_db_ &&
+         login_db_->compromised_credentials_table().AddRow(credentials);
 }
 
-void PasswordStoreDefault::RemoveCompromisedCredentialsImpl(
+bool PasswordStoreDefault::RemoveCompromisedCredentialsImpl(
     const std::string& signon_realm,
     const base::string16& username,
     RemoveCompromisedCredentialsReason reason) {
   DCHECK(background_task_runner()->RunsTasksInCurrentSequence());
-  if (login_db_) {
-    login_db_->compromised_credentials_table().RemoveRow(signon_realm, username,
-                                                         reason);
-  }
+  return login_db_ && login_db_->compromised_credentials_table().RemoveRow(
+                          signon_realm, username, reason);
 }
 
 std::vector<CompromisedCredentials>
@@ -247,14 +246,14 @@ PasswordStoreDefault::GetAllCompromisedCredentialsImpl() {
                    : std::vector<CompromisedCredentials>();
 }
 
-void PasswordStoreDefault::RemoveCompromisedCredentialsByUrlAndTimeImpl(
+bool PasswordStoreDefault::RemoveCompromisedCredentialsByUrlAndTimeImpl(
     const base::RepeatingCallback<bool(const GURL&)>& url_filter,
     base::Time remove_begin,
     base::Time remove_end) {
-  if (login_db_) {
-    login_db_->compromised_credentials_table().RemoveRowsByUrlAndTime(
-        url_filter, remove_begin, remove_end);
-  }
+  DCHECK(background_task_runner()->RunsTasksInCurrentSequence());
+  return login_db_ &&
+         login_db_->compromised_credentials_table().RemoveRowsByUrlAndTime(
+             url_filter, remove_begin, remove_end);
 }
 
 void PasswordStoreDefault::AddFieldInfoImpl(const FieldInfo& field_info) {

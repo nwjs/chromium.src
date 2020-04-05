@@ -5,12 +5,12 @@
 package org.chromium.chrome.browser.payments;
 
 import android.content.Context;
-import android.support.v7.content.res.AppCompatResources;
 import android.text.TextUtils;
 import android.util.JsonWriter;
 
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
+import androidx.appcompat.content.res.AppCompatResources;
 
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeActivity;
@@ -21,6 +21,7 @@ import org.chromium.chrome.browser.autofill.PersonalDataManager.FullCardRequestD
 import org.chromium.chrome.browser.autofill.PersonalDataManager.NormalizedAddressRequestDelegate;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.components.payments.ErrorStrings;
+import org.chromium.components.payments.PayerData;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.payments.mojom.PaymentDetailsModifier;
 import org.chromium.payments.mojom.PaymentItem;
@@ -40,8 +41,8 @@ import java.util.Set;
 /**
  * The locally stored credit card payment instrument.
  */
-public class AutofillPaymentInstrument extends PaymentInstrument
-        implements FullCardRequestDelegate, NormalizedAddressRequestDelegate {
+public class AutofillPaymentInstrument
+        extends PaymentApp implements FullCardRequestDelegate, NormalizedAddressRequestDelegate {
     // Bit field values are identical to CreditCardCompletionStatus fields in
     // autofill_card_validation.h. Please modify autofill_card_validation.h after changing these
     // bits since missing fields on both Android and Desktop are recorded in the same UMA metric:
@@ -63,9 +64,12 @@ public class AutofillPaymentInstrument extends PaymentInstrument
     private final WebContents mWebContents;
     private CreditCard mCard;
     private String mSecurityCode;
-    @Nullable private AutofillProfile mBillingAddress;
-    @Nullable private String mMethodName;
-    @Nullable private InstrumentDetailsCallback mCallback;
+    @Nullable
+    private AutofillProfile mBillingAddress;
+    @Nullable
+    private String mMethodName;
+    @Nullable
+    private InstrumentDetailsCallback mCallback;
     private boolean mIsWaitingForBillingNormalization;
     private boolean mIsWaitingForFullCardDetails;
     private boolean mHasValidNumberAndName;

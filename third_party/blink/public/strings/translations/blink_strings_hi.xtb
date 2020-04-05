@@ -4,6 +4,7 @@
 <translation id="1018939186200882850">मेन्यू आइटम</translation>
 <translation id="10623998915015855">टॉगल बटन</translation>
 <translation id="1088086359088493902">सेकंड</translation>
+<translation id="1142001580032786438">हफ़्ता चुनने वाला टूल दिखाएं</translation>
 <translation id="1171774979989969504">कृपया ई-मेल पता दर्ज करें.</translation>
 <translation id="1178581264944972037">रोकें</translation>
 <translation id="1188858454923323853">पूरक</translation>
@@ -22,6 +23,7 @@
 <translation id="1727886345390570319">बंद कैप्शन मेन्यू छिपाएं</translation>
 <translation id="1729654308190250600">कृपया गैर-खाली ईमेल पता डालें.</translation>
 <translation id="1758486001363313524">अन्य...</translation>
+<translation id="1787192514241997742">कुल समय: <ph name="REMAINING_TIME" /></translation>
 <translation id="1806710327868736751">सूचना संवाद</translation>
 <translation id="1821985195704844674">ट्री ग्रिड</translation>
 <translation id="1822429046913737220">पूर्वाह्न/अपराह्न</translation>
@@ -100,7 +102,6 @@
 <translation id="4444765639179266822">यह जानकारी इस बारे में लगती है: <ph name="OCR_TEXT" /></translation>
 <translation id="4446524499724042288">संदर्भ के लिए शब्दावली</translation>
 <translation id="4522570452068850558">विवरण</translation>
-<translation id="4542388879936266156">बचा हुआ समय: <ph name="REMAINING_TIME" /></translation>
 <translation id="4597532268155981612">फ़ॉर्म</translation>
 <translation id="4661075872484491155">ट्री</translation>
 <translation id="4664250907885839816">'<ph name="ATSIGN" />' के बाद आने वाले भाग में '<ph name="INVALIDCHARACTER" />' प्रतीक शामिल नहीं होना चाहिए.</translation>
@@ -114,7 +115,9 @@
 <translation id="479989351350248267">search</translation>
 <translation id="4812940957355064477">कृपया कोई संख्या डालें.</translation>
 <translation id="4912536737030637138">संदर्भ सूची प्रविष्टि</translation>
+<translation id="4915360478455618802">समय चुनने वाला टूल दिखाएं</translation>
 <translation id="492244087561876220">टिप्पणी</translation>
+<translation id="4950364064308314478">स्थानीय तारीख और समय चुनने वाला टूल दिखाएं</translation>
 <translation id="4971739861736909480"><ph name="ACCNAME" /> चुना गया</translation>
 <translation id="4975562563186953947"><ph name="SELECTED_COUNT" /> चुने गए</translation>
 <translation id="4992066212339426712">अनम्यूट करें</translation>
@@ -233,6 +236,7 @@
 <translation id="8284326494547611709">कैप्शन</translation>
 <translation id="8346634859695247203">सेक्शन</translation>
 <translation id="835897206747267392">अमान्य मान.</translation>
+<translation id="839593075537728968">मान, <ph name="MINIMUM_TIME" /> और <ph name="MAXIMUM_TIME" /> के बीच होना चाहिए.</translation>
 <translation id="8403857369060869934">बीता हुआ समय: <ph name="ELAPSED_TIME" /></translation>
 <translation id="8415319359811155763">भाग</translation>
 <translation id="8433900881053900389">टूलबार</translation>
@@ -249,6 +253,7 @@
 <translation id="860475260694818407">विषय सूची</translation>
 <translation id="8613126697340063924">दूरस्थ प्लेबैक नियंत्रित करें</translation>
 <translation id="862370744433916922">सबटाइटल</translation>
+<translation id="8634971699417195529">महीना चुनने वाला टूल दिखाएं</translation>
 <translation id="8711688047404765493">आउटपुट</translation>
 <translation id="8750798805984357768">कृपया इनमें से कोई विकल्प चुनें.</translation>
 <translation id="8808573423886751634">पाठ</translation>

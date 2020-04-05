@@ -34,8 +34,13 @@ config("nanopb_config") {
 # want to use cc_grpc_library() from grpc_library.gni directly.
 static_library("grpcpp") {
   # This is currently only used by remoting and chromecast.
+  # NOTE: Using gRPC outside remoting may have security concerns and other
+  # complications when building the binary. Please contact
+  # chrome-security-reviews@ first before you decide to use gRPC.
   visibility = [
     "//chromecast/*",
+    "//chromeos/assistant/internal/*",
+    "//chromeos/services/assistant/*",
     "//remoting/*",
   ]
   sources = [

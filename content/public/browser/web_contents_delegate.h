@@ -44,6 +44,8 @@ class GURL;
 
 namespace base {
 class FilePath;
+template <typename T>
+class WeakPtr;
 }
 
 namespace blink {
@@ -63,6 +65,7 @@ class SiteInstance;
 class WebContentsImpl;
 struct ContextMenuParams;
 struct DropData;
+struct MediaPlayerWatchTime;
 struct NativeWebKeyboardEvent;
 struct Referrer;
 struct SecurityStyleExplanations;
@@ -344,8 +347,8 @@ class CONTENT_EXPORT WebContentsDelegate {
   // Notifies the embedder that an existing WebContents that it manages (e.g., a
   // browser tab) has become the contents of a portal.
   //
-  // During portal activation, WebContentsDelegate::SwapWebContents will be
-  // called to release the delegate's management of a WebContents.
+  // During portal activation, WebContentsDelegate::ActivatePortalWebContents
+  // will be called to release the delegate's management of a WebContents.
   // Shortly afterward, the portal will assume ownership of the contents and
   // call this function to indicate that this is complete, passing the
   // swapped-out contents as |portal_web_contents|.
@@ -651,6 +654,17 @@ class CONTENT_EXPORT WebContentsDelegate {
                                          RenderFrameHost* subframe_host) const {
   }
 
+  // Requests to capture a paint preview of an out-of-process subframe for the
+  // specified WebContents. |rect| is the rectangular area where its content
+  // resides in its parent frame. |guid| is a globally unique identitier for an
+  // entire paint preview. |render_frame_host| is the render frame host of the
+  // subframe to be captured.
+  virtual void CapturePaintPreviewOfCrossProcessSubframe(
+      WebContents* web_contents,
+      const gfx::Rect& rect,
+      const base::UnguessableToken& guid,
+      RenderFrameHost* render_frame_host) {}
+
   // Notifies the Picture-in-Picture controller that there is a new player
   // entering Picture-in-Picture.
   // Returns the result of the enter request.
@@ -674,17 +688,14 @@ class CONTENT_EXPORT WebContentsDelegate {
   // Returns true if lazy loading of images and frames should be enabled.
   virtual bool ShouldAllowLazyLoad();
 
-  // Requests the delegate to replace |old_contents| with |new_contents| in the
-  // container that holds |old_contents|. If the  delegate successfully replaces
-  // |old_contents|, the return parameter passes ownership of |old_contents|.
-  // Otherwise, |new_contents| is returned.
-  // |did_finish_load| is true if WebContentsObserver::DidFinishLoad() has
-  // already been called for |new_contents|.
-  virtual std::unique_ptr<WebContents> SwapWebContents(
-      WebContents* old_contents,
-      std::unique_ptr<WebContents> new_contents,
-      bool did_start_load,
-      bool did_finish_load);
+  // Requests the delegate to replace |predecessor_contents| with
+  // |portal_contents| in the container that holds |predecessor_contents|. If
+  // the delegate successfully replaces |predecessor_contents|, the return
+  // parameter passes ownership of |predecessor_contents|. Otherwise,
+  // |portal_contents| is returned.
+  virtual std::unique_ptr<WebContents> ActivatePortalWebContents(
+      WebContents* predecessor_contents,
+      std::unique_ptr<WebContents> portal_contents);
 
   // Returns true if the widget's frame content needs to be stored before
   // eviction and displayed until a new frame is generated. If false, a white
@@ -709,6 +720,12 @@ class CONTENT_EXPORT WebContentsDelegate {
   // directly user-visible feature), simply returning the contents is
   // appropriate.
   virtual WebContents* GetResponsibleWebContents(WebContents* web_contents);
+
+  // Invoked when media playback is interrupted or completed.
+  virtual void MediaWatchTimeChanged(const MediaPlayerWatchTime& watch_time) {}
+
+  // Returns a weak ptr to the web contents delegate.
+  virtual base::WeakPtr<WebContentsDelegate> GetDelegateWeakPtr();
 
  protected:
   virtual ~WebContentsDelegate();

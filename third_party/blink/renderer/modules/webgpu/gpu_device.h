@@ -48,7 +48,7 @@ class ScriptPromiseResolver;
 class ScriptState;
 
 class GPUDevice final : public EventTargetWithInlineData,
-                        public ContextClient,
+                        public ExecutionContextClient,
                         public DawnObject<WGPUDevice> {
   USING_GARBAGE_COLLECTED_MIXIN(GPUDevice);
   DEFINE_WRAPPERTYPEINFO();
@@ -57,10 +57,13 @@ class GPUDevice final : public EventTargetWithInlineData,
   explicit GPUDevice(ExecutionContext* execution_context,
                      scoped_refptr<DawnControlClientHolder> dawn_control_client,
                      GPUAdapter* adapter,
+                     uint64_t client_id,
                      const GPUDeviceDescriptor* descriptor);
   ~GPUDevice() override;
 
-  void Trace(blink::Visitor* visitor) override;
+  void Trace(Visitor* visitor) override;
+
+  uint64_t GetClientID() const;
 
   // gpu_device.idl
   GPUAdapter* adapter() const;
@@ -123,6 +126,8 @@ class GPUDevice final : public EventTargetWithInlineData,
   std::unique_ptr<
       DawnCallback<base::RepeatingCallback<void(WGPUErrorType, const char*)>>>
       error_callback_;
+
+  uint64_t client_id_;
 
   DISALLOW_COPY_AND_ASSIGN(GPUDevice);
 };

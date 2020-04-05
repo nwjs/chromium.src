@@ -67,7 +67,7 @@ void FakeSkiaOutputSurface::SetDrawRectangle(const gfx::Rect& draw_rectangle) {
 void FakeSkiaOutputSurface::Reshape(const gfx::Size& size,
                                     float device_scale_factor,
                                     const gfx::ColorSpace& color_space,
-                                    bool has_alpha,
+                                    gfx::BufferFormat format,
                                     bool use_stencil) {
   auto& sk_surface = sk_surfaces_[0];
   SkColorType color_type = kRGBA_8888_SkColorType;
@@ -105,11 +105,6 @@ bool FakeSkiaOutputSurface::IsDisplayedAsOverlayPlane() const {
 unsigned FakeSkiaOutputSurface::GetOverlayTextureId() const {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   return 0;
-}
-
-gfx::BufferFormat FakeSkiaOutputSurface::GetOverlayBufferFormat() const {
-  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
-  return gfx::BufferFormat::RGBX_8888;
 }
 
 bool FakeSkiaOutputSurface::HasExternalStencilTest() const {
@@ -169,8 +164,7 @@ void FakeSkiaOutputSurface::MakePromiseSkImage(ImageContext* image_context) {
 
 sk_sp<SkImage> FakeSkiaOutputSurface::MakePromiseSkImageFromYUV(
     const std::vector<ImageContext*>& contexts,
-    SkYUVColorSpace yuv_color_space,
-    sk_sp<SkColorSpace> dst_color_space,
+    sk_sp<SkColorSpace> image_color_space,
     bool has_alpha) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   NOTIMPLEMENTED();
@@ -361,6 +355,11 @@ void FakeSkiaOutputSurface::ScheduleGpuTaskForTesting(
 
 scoped_refptr<gpu::GpuTaskSchedulerHelper>
 FakeSkiaOutputSurface::GetGpuTaskSchedulerHelper() {
+  NOTIMPLEMENTED();
+  return nullptr;
+}
+
+gpu::MemoryTracker* FakeSkiaOutputSurface::GetMemoryTracker() {
   NOTIMPLEMENTED();
   return nullptr;
 }

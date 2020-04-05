@@ -66,6 +66,10 @@ bool AccessibilityNodeInfoDataWrapper::IsVisibleToUser() const {
   return GetProperty(AXBooleanProperty::VISIBLE_TO_USER);
 }
 
+bool AccessibilityNodeInfoDataWrapper::IsVirtualNode() const {
+  return node_ptr_->is_virtual_node;
+}
+
 bool AccessibilityNodeInfoDataWrapper::CanBeAccessibilityFocused() const {
   // An important node with a non-generic role and:
   // - actionable nodes
@@ -204,13 +208,13 @@ void AccessibilityNodeInfoDataWrapper::PopulateAXRole(
   // These mappings were taken from accessibility utils (Android -> Chrome) and
   // BrowserAccessibilityAndroid. They do not completely match the above two
   // sources.
+  // EditText is excluded because it can be a container (b/150827734).
   MAP_ROLE(ui::kAXAbsListViewClassname, ax::mojom::Role::kList);
   MAP_ROLE(ui::kAXButtonClassname, ax::mojom::Role::kButton);
   MAP_ROLE(ui::kAXCheckBoxClassname, ax::mojom::Role::kCheckBox);
   MAP_ROLE(ui::kAXCheckedTextViewClassname, ax::mojom::Role::kStaticText);
   MAP_ROLE(ui::kAXCompoundButtonClassname, ax::mojom::Role::kCheckBox);
   MAP_ROLE(ui::kAXDialogClassname, ax::mojom::Role::kDialog);
-  MAP_ROLE(ui::kAXEditTextClassname, ax::mojom::Role::kTextField);
   MAP_ROLE(ui::kAXGridViewClassname, ax::mojom::Role::kTable);
   MAP_ROLE(ui::kAXHorizontalScrollViewClassname, ax::mojom::Role::kScrollView);
   MAP_ROLE(ui::kAXImageClassname, ax::mojom::Role::kImage);
@@ -238,7 +242,9 @@ void AccessibilityNodeInfoDataWrapper::PopulateAXRole(
 
   std::string text;
   GetProperty(AXStringProperty::TEXT, &text);
-  if (!text.empty())
+  std::vector<AccessibilityInfoDataWrapper*> children;
+  GetChildren(&children);
+  if (!text.empty() && children.empty())
     out_data->role = ax::mojom::Role::kStaticText;
   else
     out_data->role = ax::mojom::Role::kGenericContainer;
@@ -328,7 +334,11 @@ void AccessibilityNodeInfoDataWrapper::Serialize(
     // This ensures that the edited text will be read out appropriately.
     if (!text.empty()) {
       if (out_data->role == ax::mojom::Role::kTextField) {
-        out_data->SetValue(text);
+        // When the edited text is empty, Android framework shows |hint_text| in
+        // the text field and |text| is also populated with |hint_text|.
+        // Prevent the duplicated output of |hint_text|.
+        if (!GetProperty(AXBooleanProperty::SHOWING_HINT_TEXT))
+          out_data->SetValue(text);
       } else {
         names.push_back(text);
       }
@@ -352,19 +362,6 @@ void AccessibilityNodeInfoDataWrapper::Serialize(
     ComputeNameFromContents(this, &names);
     if (!names.empty())
       out_data->SetName(base::JoinString(names, " "));
-  } else if (is_node_tree_root) {
-    AccessibilityInfoDataWrapper* parent =
-        tree_source_->GetParent(tree_source_->GetFromId(node_ptr_->id));
-    if (parent && parent->GetWindow()) {
-      std::string title;
-      if (arc::GetProperty(parent->GetWindow()->string_properties,
-                           mojom::AccessibilityWindowStringProperty::TITLE,
-                           &title) &&
-          !title.empty()) {
-        out_data->SetName(title);
-        out_data->SetNameFrom(ax::mojom::NameFrom::kTitle);
-      }
-    }
   }
 
   std::string role_description;
@@ -415,9 +412,6 @@ void AccessibilityNodeInfoDataWrapper::Serialize(
     out_data->AddBoolAttribute(ax::mojom::BoolAttribute::kSupportsTextLocation,
                                true);
   }
-  if (is_node_tree_root) {
-    out_data->AddBoolAttribute(ax::mojom::BoolAttribute::kModal, true);
-  }
 
   // Range info.
   if (node_ptr_->range_info) {
@@ -438,22 +432,35 @@ void AccessibilityNodeInfoDataWrapper::Serialize(
   if (GetProperty(AXIntProperty::TEXT_SELECTION_END, &val) && val >= 0)
     out_data->AddIntAttribute(ax::mojom::IntAttribute::kTextSelEnd, val);
 
-  std::vector<int32_t> standard_action_ids;
-  if (GetProperty(AXIntListProperty::STANDARD_ACTION_IDS,
-                  &standard_action_ids)) {
-    for (size_t i = 0; i < standard_action_ids.size(); ++i) {
-      switch (static_cast<AXActionType>(standard_action_ids[i])) {
-        case AXActionType::SCROLL_BACKWARD:
-          out_data->AddAction(ax::mojom::Action::kScrollBackward);
-          break;
-        case AXActionType::SCROLL_FORWARD:
-          out_data->AddAction(ax::mojom::Action::kScrollForward);
-          break;
-        default:
-          // unmapped
-          break;
-      }
-    }
+  if (GetProperty(AXIntProperty::LIVE_REGION, &val) && val >= 0 &&
+      static_cast<mojom::AccessibilityLiveRegionType>(val) !=
+          mojom::AccessibilityLiveRegionType::NONE) {
+    out_data->AddStringAttribute(
+        ax::mojom::StringAttribute::kLiveStatus,
+        ToLiveStatusString(
+            static_cast<mojom::AccessibilityLiveRegionType>(val)));
+  }
+  if (container_live_status_ != mojom::AccessibilityLiveRegionType::NONE) {
+    out_data->AddStringAttribute(
+        ax::mojom::StringAttribute::kContainerLiveStatus,
+        ToLiveStatusString(container_live_status_));
+  }
+
+  // Standard actions.
+  if (HasStandardAction(AXActionType::SCROLL_BACKWARD))
+    out_data->AddAction(ax::mojom::Action::kScrollBackward);
+
+  if (HasStandardAction(AXActionType::SCROLL_FORWARD))
+    out_data->AddAction(ax::mojom::Action::kScrollForward);
+
+  if (HasStandardAction(AXActionType::EXPAND)) {
+    out_data->AddAction(ax::mojom::Action::kExpand);
+    out_data->AddState(ax::mojom::State::kCollapsed);
+  }
+
+  if (HasStandardAction(AXActionType::COLLAPSE)) {
+    out_data->AddAction(ax::mojom::Action::kCollapse);
+    out_data->AddState(ax::mojom::State::kExpanded);
   }
 
   // Custom actions.
@@ -489,75 +496,40 @@ void AccessibilityNodeInfoDataWrapper::GetChildren(
 
 bool AccessibilityNodeInfoDataWrapper::GetProperty(
     AXBooleanProperty prop) const {
-  if (!node_ptr_->boolean_properties)
-    return false;
-
-  auto it = node_ptr_->boolean_properties->find(prop);
-  if (it == node_ptr_->boolean_properties->end())
-    return false;
-
-  return it->second;
+  return arc::GetBooleanProperty(node_ptr_, prop);
 }
 
 bool AccessibilityNodeInfoDataWrapper::GetProperty(AXIntProperty prop,
                                                    int32_t* out_value) const {
-  if (!node_ptr_->int_properties)
-    return false;
-
-  auto it = node_ptr_->int_properties->find(prop);
-  if (it == node_ptr_->int_properties->end())
-    return false;
-
-  *out_value = it->second;
-  return true;
+  return arc::GetProperty(node_ptr_->int_properties, prop, out_value);
 }
 
 bool AccessibilityNodeInfoDataWrapper::HasProperty(
     AXStringProperty prop) const {
-  if (!node_ptr_->string_properties)
-    return false;
-
-  auto it = node_ptr_->string_properties->find(prop);
-  return it != node_ptr_->string_properties->end();
+  return arc::HasProperty(node_ptr_->string_properties, prop);
 }
 
 bool AccessibilityNodeInfoDataWrapper::GetProperty(
     AXStringProperty prop,
     std::string* out_value) const {
-  if (!HasProperty(prop))
-    return false;
-
-  auto it = node_ptr_->string_properties->find(prop);
-  *out_value = it->second;
-  return true;
+  return arc::GetProperty(node_ptr_->string_properties, prop, out_value);
 }
 
 bool AccessibilityNodeInfoDataWrapper::GetProperty(
     AXIntListProperty prop,
     std::vector<int32_t>* out_value) const {
-  if (!node_ptr_->int_list_properties)
-    return false;
-
-  auto it = node_ptr_->int_list_properties->find(prop);
-  if (it == node_ptr_->int_list_properties->end())
-    return false;
-
-  *out_value = it->second;
-  return true;
+  return arc::GetProperty(node_ptr_->int_list_properties, prop, out_value);
 }
 
 bool AccessibilityNodeInfoDataWrapper::GetProperty(
     AXStringListProperty prop,
     std::vector<std::string>* out_value) const {
-  if (!node_ptr_->string_list_properties)
-    return false;
+  return arc::GetProperty(node_ptr_->string_list_properties, prop, out_value);
+}
 
-  auto it = node_ptr_->string_list_properties->find(prop);
-  if (it == node_ptr_->string_list_properties->end())
-    return false;
-
-  *out_value = it->second;
-  return true;
+bool AccessibilityNodeInfoDataWrapper::HasStandardAction(
+    AXActionType action) const {
+  return arc::HasStandardAction(node_ptr_, action);
 }
 
 bool AccessibilityNodeInfoDataWrapper::HasCoveringSpan(

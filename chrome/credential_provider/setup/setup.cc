@@ -27,6 +27,7 @@
 #include "base/strings/string_piece.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/win/process_startup_helper.h"
+#include "base/win/scoped_com_initializer.h"
 #include "base/win/scoped_handle.h"
 #include "base/win/win_util.h"
 #include "base/win/windows_version.h"
@@ -38,12 +39,13 @@
 #include "chrome/credential_provider/gaiacp/reg_utils.h"
 #include "chrome/credential_provider/setup/gcp_installer_crash_reporting.h"
 #include "chrome/credential_provider/setup/setup_lib.h"
-#include "components/crash/content/app/crash_switches.h"
-#include "components/crash/content/app/run_as_crashpad_handler_win.h"
+#include "components/crash/core/app/crash_switches.h"
+#include "components/crash/core/app/run_as_crashpad_handler_win.h"
 #include "content/public/common/content_switches.h"
 
 using credential_provider::GetGlobalFlagOrDefault;
 using credential_provider::kRegEnableVerboseLogging;
+using credential_provider::MakeGcpwDefaultCP;
 using credential_provider::putHR;
 
 namespace {
@@ -99,6 +101,9 @@ int APIENTRY wWinMain(HINSTANCE hInstance,
 
   if (GetGlobalFlagOrDefault(kRegEnableVerboseLogging, 1))
     logging::SetMinLogLevel(logging::LOG_VERBOSE);
+
+  // Set GCPW as the default credential provider for the end user.
+  MakeGcpwDefaultCP();
 
   if (cmdline->HasSwitch(switches::kLoggingLevel)) {
     std::string log_level =
@@ -163,11 +168,8 @@ int APIENTRY wWinMain(HINSTANCE hInstance,
     return -1;
   }
 
-  hr = ::CoInitializeEx(nullptr, COINIT_MULTITHREADED | COINIT_DISABLE_OLE1DDE);
-  if (FAILED(hr)) {
-    LOGFN(ERROR) << "Could not initialize COM.";
-    return -1;
-  }
+  base::win::ScopedCOMInitializer com_initializer(
+      base::win::ScopedCOMInitializer::kMTA);
 
   // Parse command line.
   bool is_uninstall =
@@ -224,6 +226,5 @@ int APIENTRY wWinMain(HINSTANCE hInstance,
                 << ". " << time_string;
   }
 
-  ::CoUninitialize();
   return 0;
 }

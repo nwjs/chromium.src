@@ -77,8 +77,7 @@ class BrowserProxy {
         omniboxOutput.updateAnswerImage.bind(omniboxOutput));
 
     /** @private {!mojom.OmniboxPageHandlerRemote} */
-    this.handler_ =
-        mojom.OmniboxPageHandler.getRemote(/*useBrowserInterfaceBroker=*/ true);
+    this.handler_ = mojom.OmniboxPageHandler.getRemote();
     this.handler_.setClientPage(
         this.callbackRouter_.$.bindNewPipeAndPassRemote());
 
@@ -165,7 +164,7 @@ class BrowserProxy {
     // time a request is made. Doing so would require extra bookkeeping on the
     // host side, so for now we keep it simple.
     return isPageController && this.lastRequest !== null &&
-        this.lastRequest.inputText.trim() === inputText;
+        this.lastRequest.inputText.trimStart() === inputText;
   }
 }
 

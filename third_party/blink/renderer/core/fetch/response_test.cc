@@ -13,6 +13,7 @@
 #include "third_party/blink/renderer/core/fetch/bytes_consumer_test_util.h"
 #include "third_party/blink/renderer/core/fetch/fetch_response_data.h"
 #include "third_party/blink/renderer/core/frame/frame.h"
+#include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/testing/dummy_page_holder.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/bindings/script_state.h"
@@ -35,7 +36,7 @@ TEST(ServiceWorkerResponseTest, FromFetchResponseData) {
   url_list.push_back(url);
   fetch_response_data->SetURLList(url_list);
   Response* response =
-      Response::Create(&page->GetDocument(), fetch_response_data);
+      Response::Create(page->GetFrame().DomWindow(), fetch_response_data);
   DCHECK(response);
   EXPECT_EQ(url, response->url());
 }

@@ -34,9 +34,9 @@
 
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/loader/link_load_parameters.h"
+#include "third_party/blink/renderer/core/loader/private/prerender_client.h"
 #include "third_party/blink/renderer/core/script/modulator.h"
 #include "third_party/blink/renderer/platform/loader/fetch/fetch_parameters.h"
-#include "third_party/blink/renderer/platform/prerender_client.h"
 
 namespace blink {
 
@@ -73,7 +73,7 @@ class CORE_EXPORT LinkLoader final : public SingleModuleClient,
 
   Resource* GetResourceForTesting();
 
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
 
  private:
   class FinishObserver;

@@ -111,9 +111,10 @@ class MockActionDelegate : public ActionDelegate {
                     const Selector& selector,
                     base::OnceCallback<void(const ClientStatus&)>& callback));
 
-  MOCK_METHOD3(SelectOption,
+  MOCK_METHOD4(SelectOption,
                void(const Selector& selector,
-                    const std::string& selected_option,
+                    const std::string& value,
+                    DropdownSelectStrategy select_strategy,
                     base::OnceCallback<void(const ClientStatus&)> callback));
   MOCK_METHOD3(FocusElement,
                void(const Selector& selector,
@@ -288,6 +289,22 @@ class MockActionDelegate : public ActionDelegate {
 
   MOCK_METHOD0(RequireUI, void());
   MOCK_METHOD0(SetExpandSheetForPromptAction, bool());
+
+  MOCK_METHOD2(
+      OnSetGenericUi,
+      void(std::unique_ptr<GenericUserInterfaceProto> generic_ui,
+           base::OnceCallback<void(bool,
+                                   ProcessedActionStatusProto,
+                                   const UserModel*)>& end_action_callback));
+
+  void SetGenericUi(
+      std::unique_ptr<GenericUserInterfaceProto> generic_ui,
+      base::OnceCallback<void(bool,
+                              ProcessedActionStatusProto,
+                              const UserModel*)> end_action_callback) override {
+    OnSetGenericUi(std::move(generic_ui), end_action_callback);
+  }
+  MOCK_METHOD0(ClearGenericUi, void());
 
   const ClientSettings& GetSettings() override { return client_settings_; }
 

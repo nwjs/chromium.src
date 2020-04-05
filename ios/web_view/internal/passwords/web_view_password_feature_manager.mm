@@ -16,10 +16,6 @@ bool WebViewPasswordFeatureManager::IsGenerationEnabled() const {
   return false;
 }
 
-bool WebViewPasswordFeatureManager::ShouldCheckReuseOnLeakDetection() const {
-  return false;
-}
-
 bool WebViewPasswordFeatureManager::IsOptedInForAccountStorage() const {
   return false;
 }
@@ -30,6 +26,10 @@ bool WebViewPasswordFeatureManager::ShouldShowAccountStorageOptIn() const {
 
 void WebViewPasswordFeatureManager::SetAccountStorageOptIn(bool opt_in) {
   NOTREACHED();
+}
+
+bool WebViewPasswordFeatureManager::ShouldShowPasswordStorePicker() const {
+  return false;
 }
 
 autofill::PasswordForm::Store

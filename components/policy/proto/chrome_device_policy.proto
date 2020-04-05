@@ -120,6 +120,9 @@ message DeviceReportingProto {
   optional bool report_cpu_info = 15 [default = false];
   optional bool report_graphics_status = 16 [default = false];
   optional bool report_crash_report_info = 17 [default = false];
+  optional bool report_timezone_info = 18 [default = false];
+  optional bool report_memory_info = 19 [default = false];
+  optional bool report_backlight_info = 20 [default = false];
 
   // Frequency to report device status, default to 3 hours.
   optional int64 device_status_frequency = 9 [default = 10800000];
@@ -392,6 +395,18 @@ message WebKioskAppInfoProto {
   // In case it is the only field provided, title and icon will be deduced
   // during first app launch.
   optional string url = 1;
+
+  // Title (optional).
+  // User-friendly app name that should be used in Chrome UI where kiosk app
+  // name is shown. Chrome side could override the string with an updated
+  // value that it will get during actual app launch.
+  optional string title = 2;
+
+  // Icon url (optional).
+  // Is not used in the current Implementation. Will be used instead of the
+  // placeholder icon that is displayed before the first successful app
+  // launch.
+  optional string icon_url = 3;
 }
 
 // Describes a single device-local account.
@@ -842,9 +857,9 @@ message AccessibilitySettingsProto {
   optional PolicyOptions login_screen_shortcuts_enabled_options = 35;
 }
 
-message SupervisedUsersSettingsProto {
+message OBSOLETE_SupervisedUsersSettingsProto {
   // Defines whether supervised users can be created on the device.
-  optional bool supervised_users_enabled = 1;
+  optional bool OBSOLETE_supervised_users_enabled = 1 [deprecated = true];
 }
 
 message LoginScreenPowerManagementProto {
@@ -1021,6 +1036,12 @@ message DisplayRotationDefaultProto {
     ROTATE_270 = 3;
   }
   optional Rotation display_rotation_default = 1;
+}
+
+// This setting is controlled by the device policy
+// DeviceLoginScreenPrivacyScreenEnabled.
+message DeviceLoginScreenPrivacyScreenEnabledProto {
+  optional bool enabled = 1 [default = false];
 }
 
 // This setting is configured by the device policy DeviceDisplayResolution.
@@ -1281,12 +1302,12 @@ message TPMFirmwareUpdateSettingsProto {
 }
 
 // Settings to control the minimum version that is allowed to sign in / stay
-// in session.
-message MinimumRequiredVersionProto {
+// in session. This is now deprecated from M82 onwards.
+message OBSOLETE_MinimumRequiredVersionProto {
   // Value is chrome_version string, e.g. 61.0.3163.120
   // The client will use prefix matching to compare its version against the
   // value of this field.
-  optional string chrome_version = 1;
+  optional string OBSOLETE_chrome_version = 1 [deprecated = true];
 }
 
 // Specifies a list of rules to automatically select certificates on SAML IdP
@@ -1550,6 +1571,21 @@ message DeviceLoginScreenWebUsbAllowDevicesForUrlsProto {
   optional string device_login_screen_webusb_allow_devices_for_urls = 1;
 }
 
+// Settings that control the availability of System-proxy service and the web
+// proxy credentials for system services connecting through System-proxy.
+message SystemProxySettingsProto {
+  // This is a JSON string, for details see "SystemProxySettings" in
+  // policy_templates.json.
+  optional string system_proxy_settings = 1;
+}
+
+// Settings that control what certificates should be privisioned via DM server.
+message RequiredClientCertificateForDeviceProto {
+  // This is a JSON string, for details see
+  // "RequiredClientCertificateForDevice" in policy_templates.json.
+  optional string required_client_certificate_for_device = 1;
+}
+
 message ChromeDeviceSettingsProto {
   reserved 61, 90;
   optional DevicePolicyRefreshRateProto device_policy_refresh_rate = 1;
@@ -1582,7 +1618,8 @@ message ChromeDeviceSettingsProto {
   optional VariationsParameterProto variations_parameter = 25;
   optional AttestationSettingsProto attestation_settings = 26;
   optional AccessibilitySettingsProto accessibility_settings = 27;
-  optional SupervisedUsersSettingsProto supervised_users_settings = 28;
+  optional OBSOLETE_SupervisedUsersSettingsProto supervised_users_settings = 28
+      [deprecated = true];
   optional LoginScreenPowerManagementProto login_screen_power_management = 29;
   optional SystemUse24HourClockProto use_24hour_clock = 30;
   optional AutoCleanupSettigsProto auto_clean_up_settings = 31;
@@ -1622,7 +1659,8 @@ message ChromeDeviceSettingsProto {
   optional DeviceNativePrintersWhitelistProto native_device_printers_whitelist =
       58;
   optional TPMFirmwareUpdateSettingsProto tpm_firmware_update_settings = 59;
-  optional MinimumRequiredVersionProto minimum_required_version = 60;
+  optional OBSOLETE_MinimumRequiredVersionProto minimum_required_version = 60
+      [deprecated = true];
   optional DeviceLoginScreenAutoSelectCertificateForUrls
       device_login_screen_auto_select_certificate_for_urls = 62;
   optional UnaffiliatedArcAllowedProto unaffiliated_arc_allowed = 63;
@@ -1668,4 +1706,11 @@ message ChromeDeviceSettingsProto {
   optional StringListPolicyProto device_web_based_attestation_allowed_urls = 94;
   optional BooleanPolicyProto device_show_numeric_keyboard_for_password = 95;
   optional BooleanPolicyProto login_screen_primary_mouse_button_switch = 96;
+  optional StringPolicyProto minimum_chrome_version_enforced = 97;
+  optional SystemProxySettingsProto system_proxy_settings = 98;
+  optional IntegerPolicyProto device_chrome_variations_type = 99;
+  optional DeviceLoginScreenPrivacyScreenEnabledProto
+      device_login_screen_privacy_screen_enabled = 100;
+  optional RequiredClientCertificateForDeviceProto
+      required_client_certificate_for_device = 101;
 }

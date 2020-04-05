@@ -29,6 +29,7 @@
 <translation id="1243314992276662751">ອັບ​ໂຫຼດ</translation>
 <translation id="1249250836236328755">ປະເພດ</translation>
 <translation id="1278813325885878377">ແປ້ນ​ພິມ QWERTY ພາ​ສາ​ຮົງ​ກາ​ລີ</translation>
+<translation id="1293556467332435079">ໄຟລ໌</translation>
 <translation id="1297922636971898492">ບໍ່ມີ Google Drive ຢູ່ໃນເວລານີ້. ການອັບໂຫຼດຈະເລີ່ມຕົ້ນໃໝ່ອັດຕະໂນມັດ ເມື່ອ Google Drive ກັບຄືນມາ.</translation>
 <translation id="1307931752636661898">ບໍ່ສາມາດເບິ່ງໄຟລ໌ Linux ໄດ້</translation>
 <translation id="1310751437842832374">ການປ່ຽນ​ຖ່າຍ​ຕົວ​ອັກສອນ (mausam → ມໍແຊມ)</translation>
@@ -507,6 +508,7 @@
 <translation id="6878261347041253038">ຄີບອດພາສາເດວັນນາກາຣີ (ການອອກສຽງ)</translation>
 <translation id="6885780034956018177">ຫອຍທາດ</translation>
 <translation id="6896758677409633944">ກັອບປີ້</translation>
+<translation id="6898028766943174120">ໂຟນເດີຍ່ອຍເພີ່ມເຕີມ...</translation>
 <translation id="691516599546977041">ບໍ່ສາມາດບັນທຶກໄວ້ໃນ <ph name="FOLDER_NAME" /> ໄດ້. ຮູບທີ່ແກ້ໄຂຈະຖືກບັນທຶກໄວ້ໃນໂຟນເດີການດາວໂຫຼດ.</translation>
 <translation id="6915678159055240887">Chromebox</translation>
 <translation id="6918340160281024199">US Workman</translation>
@@ -519,6 +521,7 @@
 <translation id="696203921837389374">ເປີດ​ໃຊ້​ງານ​ການ​ຊິງ​ຄ໌​ເທິງ​ເຄືອ​ຂ່າຍ​ມື​ຖື</translation>
 <translation id="6965382102122355670">ຕົກລົງ</translation>
 <translation id="6970230597523682626">ພາສາບຸນກາຣີ</translation>
+<translation id="6973630695168034713">ໂຟ​ລ​ເດີ</translation>
 <translation id="6978611942794658017">ໄຟລ໌ນີ້ຖືກອອກແບບສໍາລັບ PC ດ້ວຍການໃຊ້ຊອບແວ Windows. ອັນນີ້ບໍ່ເຂົ້າກັບອຸປະກອນຂອງທ່ານ ເຊິ່ງໃຊ້ Chrome OS. ກະລຸນາຊອກຫາ Chrome Web Store ສໍາລັບແອັບປ່ຽນແທນທີ່ເໝາະສົມ.</translation>
 <translation id="6979158407327259162">Google Drive</translation>
 <translation id="6990081529015358884">ທ່ານໝົດບ່ອນ​ວ່າງ​ແລ້ວ</translation>

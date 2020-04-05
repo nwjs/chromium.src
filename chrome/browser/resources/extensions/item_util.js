@@ -22,7 +22,6 @@ export const SourceType = {
 export const EnableControl = {
   RELOAD: 'RELOAD',
   REPAIR: 'REPAIR',
-  ENABLE_BUTTON: 'ENABLE_BUTTON',
   ENABLE_TOGGLE: 'ENABLE_TOGGLE',
 };
 
@@ -67,8 +66,7 @@ export function userCanChangeEnablement(item) {
   if (item.disableReasons.corruptInstall ||
       item.disableReasons.suspiciousInstall ||
       item.disableReasons.updateRequired ||
-      item.disableReasons.blockedByPolicy ||
-      item.disableReasons.custodianApprovalRequired) {
+      item.disableReasons.blockedByPolicy) {
     return false;
   }
   // An item with dependent extensions can't be disabled (it would bork the
@@ -181,9 +179,6 @@ export function getEnableControl(data) {
   }
   if (data.disableReasons.corruptInstall) {
     return EnableControl.REPAIR;
-  }
-  if (data.disableReasons.custodianApprovalRequired) {
-    return EnableControl.ENABLE_BUTTON;
   }
   return EnableControl.ENABLE_TOGGLE;
 }

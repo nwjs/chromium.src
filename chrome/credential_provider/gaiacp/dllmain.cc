@@ -38,8 +38,8 @@
 #include "chrome/credential_provider/gaiacp/os_user_manager.h"
 #include "chrome/credential_provider/gaiacp/reauth_credential.h"
 #include "chrome/credential_provider/gaiacp/reg_utils.h"
-#include "components/crash/content/app/crash_switches.h"
-#include "components/crash/content/app/run_as_crashpad_handler_win.h"
+#include "components/crash/core/app/crash_switches.h"
+#include "components/crash/core/app/run_as_crashpad_handler_win.h"
 #include "content/public/common/content_switches.h"
 
 using credential_provider::putHR;
@@ -69,7 +69,7 @@ STDAPI DllCanUnloadNow(void) {
 STDAPI DllGetClassObject(REFCLSID rclsid, REFIID riid, LPVOID* ppv) {
   // Check to see if the credential provider has crashed too much recently.
   // If it has then do not allow it to create any credential providers.
-  if (!credential_provider::VerifyStartupSentinel()) {
+  if (!credential_provider::WriteToStartupSentinel()) {
     LOGFN(ERROR) << "Disabled due to previous unsuccessful starts";
     return E_NOTIMPL;
   }

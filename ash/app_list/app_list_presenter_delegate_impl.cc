@@ -34,7 +34,6 @@
 #include "ui/events/keycodes/keyboard_codes_posix.h"
 #include "ui/views/widget/widget.h"
 #include "ui/wm/core/coordinate_conversion.h"
-#include "ui/wm/public/activation_client.h"
 
 namespace ash {
 namespace {
@@ -93,11 +92,8 @@ void AppListPresenterDelegateImpl::SetPresenter(
 
 void AppListPresenterDelegateImpl::Init(AppListView* view, int64_t display_id) {
   view_ = view;
-  view->InitView(
-      IsTabletMode(), controller_->GetContainerForDisplayId(display_id),
-      base::BindRepeating(
-          &AppListPresenterDelegateImpl::OnViewBoundsChangedAnimationEnded,
-          weak_ptr_factory_.GetWeakPtr()));
+  view->InitView(IsTabletMode(),
+                 controller_->GetContainerForDisplayId(display_id));
 
   // By setting us as DnD recipient, the app list knows that we can
   // handle items.
@@ -125,7 +121,6 @@ void AppListPresenterDelegateImpl::ShowForDisplay(int64_t display_id) {
   view_->SetShelfHasRoundedCorners(
       IsShelfBackgroundTypeWithRoundedCorners(shelf->GetBackgroundType()));
   view_->Show(IsSideShelf(shelf), IsTabletMode());
-  view_->GetWidget()->ShowInactive();
 
   SnapAppListBoundsToDisplayEdge();
 
@@ -179,8 +174,9 @@ void AppListPresenterDelegateImpl::OnVisibilityWillChange(bool visible,
   controller_->OnVisibilityWillChange(visible, display_id);
 }
 
-bool AppListPresenterDelegateImpl::IsVisible() {
-  return controller_->IsVisible();
+bool AppListPresenterDelegateImpl::IsVisible(
+    const base::Optional<int64_t>& display_id) {
+  return controller_->IsVisible(display_id);
 }
 
 void AppListPresenterDelegateImpl::OnDisplayMetricsChanged(
@@ -229,8 +225,7 @@ void AppListPresenterDelegateImpl::ProcessLocatedEvent(
   // If the event happened on the home button's widget, it'll get handled by the
   // button.
   Shelf* shelf = Shelf::ForWindow(target);
-  HomeButton* home_button =
-      shelf->shelf_widget()->navigation_widget()->GetHomeButton();
+  HomeButton* home_button = shelf->navigation_widget()->GetHomeButton();
   if (home_button && home_button->GetWidget() &&
       target == home_button->GetWidget()->GetNativeWindow()) {
     gfx::Point location_in_home_button = event->location();
@@ -241,8 +236,7 @@ void AppListPresenterDelegateImpl::ProcessLocatedEvent(
 
   // If the event happened on the back button, it'll get handled by the
   // button.
-  BackButton* back_button =
-      shelf->shelf_widget()->navigation_widget()->GetBackButton();
+  BackButton* back_button = shelf->navigation_widget()->GetBackButton();
   if (back_button && back_button->GetWidget() &&
       target == back_button->GetWidget()->GetNativeWindow()) {
     gfx::Point location_in_back_button = event->location();
@@ -256,18 +250,20 @@ void AppListPresenterDelegateImpl::ProcessLocatedEvent(
       !switches::ShouldNotDismissOnBlur() && !IsTabletMode()) {
     const aura::Window* status_window =
         shelf->shelf_widget()->status_area_widget()->GetNativeWindow();
-    // Don't dismiss the auto-hide shelf if event happened in status area. Then
-    // the event can still be propagated to the status area tray to open the
-    // corresponding tray bubble.
-    base::Optional<Shelf::ScopedAutoHideLock> auto_hide_lock;
-    if (status_window && status_window->Contains(target))
-      auto_hide_lock.emplace(shelf);
-
-    // Keep the app list open if the event happened in the shelf area.
     const aura::Window* hotseat_window =
-        shelf->shelf_widget()->hotseat_widget()->GetNativeWindow();
-    if (!hotseat_window || !hotseat_window->Contains(target))
-      presenter_->Dismiss(event->time_stamp());
+        shelf->hotseat_widget()->GetNativeWindow();
+    // Don't dismiss the auto-hide shelf if event happened in status area or the
+    // hotseat. Then the event can still be propagated.
+    base::Optional<Shelf::ScopedAutoHideLock> auto_hide_lock;
+    if ((status_window && status_window->Contains(target)) ||
+        (hotseat_window && hotseat_window->Contains(target))) {
+      auto_hide_lock.emplace(shelf);
+    }
+    // Record the current AppListViewState to be used later for metrics. The
+    // AppListViewState will change on app launch, so this will record the
+    // AppListViewState before the app was launched.
+    controller_->RecordAppListState();
+    presenter_->Dismiss(event->time_stamp());
   }
 }
 
@@ -299,7 +295,7 @@ void AppListPresenterDelegateImpl::OnKeyEvent(ui::KeyEvent* event) {
     return;
 
   // If the home launcher is not shown in tablet mode, ignore events.
-  if (IsTabletMode() && !IsVisible())
+  if (IsTabletMode() && !IsVisible(base::nullopt))
     return;
 
   // Don't absorb the first event for the search box while it is open
@@ -324,25 +320,6 @@ void AppListPresenterDelegateImpl::SnapAppListBoundsToDisplayEdge() {
   const gfx::Rect bounds =
       controller_->SnapBoundsToDisplayEdge(window->bounds());
   window->SetBounds(bounds);
-}
-
-void AppListPresenterDelegateImpl::OnViewBoundsChangedAnimationEnded() {
-  views::Widget* widget = view_->GetWidget();
-  // If we are currently dragging the applist from the shelf, do not update
-  // window activation to avoid redrawing during dragging which is also a heavy
-  // operation. The activation will be handled when this callback is run again
-  // after the state bounds animation finishes.
-  if (Shelf::ForWindow(widget->GetNativeWindow())
-          ->shelf_layout_manager()
-          ->IsDraggingApplist()) {
-    return;
-  }
-
-  // Deactivation after dragging or animating is not supported.
-  if (!is_visible_)
-    return;
-
-  UpdateActivationForAppListView(view_, IsTabletMode());
 }
 
 }  // namespace ash

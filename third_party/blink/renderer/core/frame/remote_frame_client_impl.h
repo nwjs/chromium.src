@@ -19,7 +19,7 @@ class RemoteFrameClientImpl final : public RemoteFrameClient {
  public:
   explicit RemoteFrameClientImpl(WebRemoteFrameImpl*);
 
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
 
   // FrameClient overrides:
   bool InShadowTree() const override;
@@ -42,15 +42,13 @@ class RemoteFrameClientImpl final : public RemoteFrameClient {
   unsigned BackForwardLength() override;
   void ForwardPostMessage(MessageEvent*,
                           scoped_refptr<const SecurityOrigin> target,
+                          base::Optional<base::UnguessableToken> cluster_id,
                           LocalFrame* source) const override;
   void FrameRectsChanged(const IntRect& local_frame_rect,
                          const IntRect& screen_space_rect) override;
   void UpdateRemoteViewportIntersection(
       const ViewportIntersectionState& intersection_state) override;
   void AdvanceFocus(mojom::blink::FocusType, LocalFrame*) override;
-  void SetIsInert(bool) override;
-  void UpdateRenderThrottlingStatus(bool is_throttled,
-                                    bool subtree_throttled) override;
   uint32_t Print(const IntRect&, cc::PaintCanvas*) const override;
 
   WebRemoteFrameImpl* GetWebFrame() const { return web_frame_; }

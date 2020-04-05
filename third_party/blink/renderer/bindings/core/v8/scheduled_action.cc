@@ -60,7 +60,7 @@ ScheduledAction::ScheduledAction(ScriptState* script_state,
   if (script_state->World().IsWorkerWorld() ||
       BindingSecurity::ShouldAllowAccessToFrame(
           EnteredDOMWindow(script_state->GetIsolate()),
-          To<Document>(target)->GetFrame(),
+          Document::From(target)->GetFrame(),
           BindingSecurity::ErrorReportOption::kDoNotReport)) {
     function_ = handler;
     arguments_ = arguments;
@@ -77,7 +77,7 @@ ScheduledAction::ScheduledAction(ScriptState* script_state,
   if (script_state->World().IsWorkerWorld() ||
       BindingSecurity::ShouldAllowAccessToFrame(
           EnteredDOMWindow(script_state->GetIsolate()),
-          To<Document>(target)->GetFrame(),
+          Document::From(target)->GetFrame(),
           BindingSecurity::ErrorReportOption::kDoNotReport)) {
     code_ = handler;
   } else {
@@ -121,7 +121,7 @@ void ScheduledAction::Execute(ExecutionContext* context) {
   // determine if it is allowed. Enter the scope here.
   ScriptState::Scope scope(script_state_->Get());
 
-  if (auto* document = DynamicTo<Document>(context)) {
+  if (auto* document = Document::DynamicFrom(context)) {
     LocalFrame* frame = document->GetFrame();
     if (!frame) {
       DVLOG(1) << "ScheduledAction::execute " << this << ": no frame";
@@ -139,7 +139,7 @@ void ScheduledAction::Execute(ExecutionContext* context) {
   }
 }
 
-void ScheduledAction::Trace(blink::Visitor* visitor) {
+void ScheduledAction::Trace(Visitor* visitor) {
   visitor->Trace(script_state_);
   visitor->Trace(function_);
   visitor->Trace(arguments_);

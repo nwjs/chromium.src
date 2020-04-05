@@ -11,6 +11,7 @@
 #include "base/files/file_util.h"
 #include "base/logging.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "chrome/browser/apps/app_service/arc_apps_factory.h"
 #include "chrome/browser/chromeos/apps/apk_web_app_service.h"
 #include "chrome/browser/chromeos/arc/accessibility/arc_accessibility_helper_bridge.h"
@@ -49,6 +50,7 @@
 #include "chrome/browser/chromeos/arc/user_session/arc_user_session_service.h"
 #include "chrome/browser/chromeos/arc/video/gpu_arc_video_service_host.h"
 #include "chrome/browser/chromeos/arc/wallpaper/arc_wallpaper_service.h"
+#include "chrome/browser/chromeos/profiles/profile_helper.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/app_list/arc/arc_usb_host_permission_manager.h"
 #include "chrome/browser/ui/ash/multi_user/multi_user_util.h"
@@ -111,8 +113,8 @@ ArcServiceLauncher::ArcServiceLauncher(
   g_arc_service_launcher = this;
 
   // Write kIsArcVm file to be 1 or 0.
-  base::PostTask(
-      FROM_HERE, {base::ThreadPool(), base::MayBlock()},
+  base::ThreadPool::PostTask(
+      FROM_HERE, {base::MayBlock()},
       base::BindOnce([](const base::FilePath& filename, const char* data,
                         int size) { base::WriteFile(filename, data, size); },
                      base::FilePath(kIsArcVm),
@@ -133,6 +135,7 @@ void ArcServiceLauncher::Initialize(
     mojo::PendingRemote<ash::mojom::CrosDisplayConfigController>
         display_config) {
   default_scale_factor_retriever_.Start(std::move(display_config));
+  arc_session_manager_->ExpandPropertyFiles();
 }
 
 void ArcServiceLauncher::MaybeSetProfile(Profile* profile) {
@@ -207,7 +210,8 @@ void ArcServiceLauncher::OnPrimaryUserProfilePrepared(Profile* profile) {
   ArcOemCryptoBridge::GetForBrowserContext(profile);
   ArcPipBridge::GetForBrowserContext(profile);
   ArcPolicyBridge::GetForBrowserContext(profile);
-  ArcPowerBridge::GetForBrowserContext(profile);
+  ArcPowerBridge::GetForBrowserContext(profile)->SetUserIdHash(
+      chromeos::ProfileHelper::GetUserIdHashFromProfile(profile));
   ArcPrintService::GetForBrowserContext(profile);
   ArcPrintSpoolerBridge::GetForBrowserContext(profile);
   ArcProcessService::GetForBrowserContext(profile);

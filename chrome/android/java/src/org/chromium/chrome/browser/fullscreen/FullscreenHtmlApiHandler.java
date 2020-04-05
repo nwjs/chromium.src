@@ -11,7 +11,6 @@ import static android.view.View.SYSTEM_UI_FLAG_LOW_PROFILE;
 import android.app.Activity;
 import android.os.Handler;
 import android.os.Message;
-import android.support.v4.util.ObjectsCompat;
 import android.view.Gravity;
 import android.view.View;
 import android.view.View.OnLayoutChangeListener;
@@ -19,13 +18,14 @@ import android.view.Window;
 import android.view.WindowManager;
 
 import androidx.annotation.Nullable;
+import androidx.core.util.ObjectsCompat;
 
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tab.TabImpl;
+import org.chromium.chrome.browser.tab.TabUtils;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.ui.widget.Toast;
 
@@ -294,7 +294,7 @@ public class FullscreenHtmlApiHandler {
                 == SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN) {
             systemUiVisibility = applyEnterFullscreenUIFlags(systemUiVisibility);
         } else {
-            Activity activity = ((TabImpl) tab).getActivity();
+            Activity activity = TabUtils.getActivity(tab);
             boolean isMultiWindow = MultiWindowUtils.getInstance().isLegacyMultiWindow(activity)
                     || MultiWindowUtils.getInstance().isInMultiWindowMode(activity);
 

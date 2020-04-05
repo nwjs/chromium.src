@@ -51,10 +51,6 @@ namespace ash {
 
 namespace {
 const char kPrimaryIdKey[] = "primary-id";
-const char kPositionKey[] = "position";
-const char kOffsetKey[] = "offset";
-const char kPlacementDisplayIdKey[] = "placement.display_id";
-const char kPlacementParentDisplayIdKey[] = "placement.parent_display_id";
 
 bool IsRotationLocked() {
   return ash::Shell::Get()->screen_orientation_controller()->rotation_locked();
@@ -115,15 +111,11 @@ bool ComparePortAssociations(
 
 class DisplayPrefsTest : public AshTestBase {
  protected:
-  DisplayPrefsTest() {}
-
-  ~DisplayPrefsTest() override {}
+  DisplayPrefsTest() = default;
+  ~DisplayPrefsTest() override = default;
 
   void SetUp() override {
-    DisableProvideLocalState();
     AshTestBase::SetUp();
-    DisplayPrefs::RegisterLocalStatePrefs(local_state_.registry());
-    display_prefs()->SetPrefServiceForTest(&local_state_);
     observer_ = std::make_unique<DisplayConfigurationObserver>();
     observer_->OnDisplaysInitialized();
   }
@@ -235,15 +227,14 @@ class DisplayPrefsTest : public AshTestBase {
         .ToString();
   }
 
-  chromeos::DisplayPowerState GetRequestedPowerState() const {
-    return Shell::Get()->display_configurator()->GetRequestedPowerState();
+  display::DisplayConfigurator* display_configurator() {
+    return Shell::Get()->display_configurator();
   }
-  PrefService* local_state() { return &local_state_; }
+
   DisplayPrefs* display_prefs() { return Shell::Get()->display_prefs(); }
 
  private:
   std::unique_ptr<WindowTreeHostManager::Observer> observer_;
-  TestingPrefServiceSimple local_state_;
   base::test::ScopedFeatureList scoped_feature_list_;
 
   DISALLOW_COPY_AND_ASSIGN(DisplayPrefsTest);
@@ -277,11 +268,12 @@ TEST_F(DisplayPrefsTest, ListedLayoutOverrides) {
 
   // requested_power_state_ should be chromeos::DISPLAY_POWER_ALL_ON at boot
   const base::Optional<chromeos::DisplayPowerState> requested_power_state =
-      Shell::Get()->display_configurator()->GetRequestedPowerStateForTest();
+      display_configurator()->GetRequestedPowerStateForTest();
   ASSERT_NE(base::nullopt, requested_power_state);
   EXPECT_EQ(chromeos::DISPLAY_POWER_ALL_ON, *requested_power_state);
   // DisplayPowerState should be ignored at boot.
-  EXPECT_EQ(chromeos::DISPLAY_POWER_ALL_ON, GetRequestedPowerState());
+  EXPECT_EQ(chromeos::DISPLAY_POWER_ALL_ON,
+            display_configurator()->GetRequestedPowerState());
 
   Shell::Get()->display_manager()->UpdateDisplays();
   // Check if the layout settings are notified to the system properly.
@@ -310,7 +302,8 @@ TEST_F(DisplayPrefsTest, BasicStores) {
   display::test::ScopedSetInternalDisplayId set_internal(display_manager(),
                                                          id1);
   UpdateDisplay("200x200*2, 400x300#400x400|300x200*1.25");
-  int64_t id2 = display_manager()->GetSecondaryDisplay().id();
+  display::test::DisplayManagerTestApi display_manager_test(display_manager());
+  int64_t id2 = display_manager_test.GetSecondaryDisplay().id();
   int64_t dummy_id = id2 + 1;
   ASSERT_NE(id1, dummy_id);
 
@@ -513,9 +506,6 @@ TEST_F(DisplayPrefsTest, BasicStores) {
   EXPECT_EQ(id2, stored_placement.parent_display_id);
   EXPECT_EQ(id2, stored_layout.primary_id);
 
-  if (true)
-    return;
-
   std::string primary_id_str;
   EXPECT_TRUE(layout_value->GetString(kPrimaryIdKey, &primary_id_str));
   EXPECT_EQ(base::NumberToString(id2), primary_id_str);
@@ -524,24 +514,17 @@ TEST_F(DisplayPrefsTest, BasicStores) {
       display::test::CreateDisplayLayout(Shell::Get()->display_manager(),
                                          display::DisplayPlacement::BOTTOM,
                                          20));
-
+  // Test Hardware Mirroring scenario.
   UpdateDisplay("1+0-200x200*2,1+0-200x200");
-  // Mirrored.
-  int offset = 0;
-  std::string position;
-  EXPECT_TRUE(displays->GetDictionary(key, &layout_value));
-  EXPECT_TRUE(layout_value->GetString(kPositionKey, &position));
-  EXPECT_EQ("bottom", position);
-  EXPECT_TRUE(layout_value->GetInteger(kOffsetKey, &offset));
-  EXPECT_EQ(20, offset);
-  std::string id;
-  EXPECT_TRUE(layout_value->GetString(kPlacementDisplayIdKey, &id));
-  EXPECT_EQ(base::NumberToString(id1), id);
-  EXPECT_TRUE(layout_value->GetString(kPlacementParentDisplayIdKey, &id));
-  EXPECT_EQ(base::NumberToString(id2), id);
+  EXPECT_FALSE(display_manager()->IsInSoftwareMirrorMode());
+  EXPECT_TRUE(display_manager()->IsInHardwareMirrorMode());
 
-  EXPECT_TRUE(layout_value->GetString(kPrimaryIdKey, &primary_id_str));
-  EXPECT_EQ(base::NumberToString(id2), primary_id_str);
+  EXPECT_TRUE(displays->GetDictionary(key, &layout_value));
+  EXPECT_TRUE(display::JsonToDisplayLayout(*layout_value, &stored_layout));
+  EXPECT_EQ(display::DisplayPlacement::BOTTOM, stored_placement.position);
+  EXPECT_EQ(20, stored_placement.offset);
+  EXPECT_EQ(id1, stored_placement.display_id);
+  EXPECT_EQ(id2, stored_placement.parent_display_id);
 
   EXPECT_TRUE(properties->GetDictionary(base::NumberToString(id1), &property));
   EXPECT_FALSE(property->GetInteger("width", &width));
@@ -550,7 +533,8 @@ TEST_F(DisplayPrefsTest, BasicStores) {
   external_display_mirror_info =
       local_state()->GetList(prefs::kExternalDisplayMirrorInfo);
   EXPECT_EQ(1U, external_display_mirror_info->GetSize());
-  EXPECT_EQ(base::NumberToString(id2),
+  // ExternalDisplayInfo stores ID without output index.
+  EXPECT_EQ(base::NumberToString(display::GetDisplayIdWithoutOutputIndex(id2)),
             external_display_mirror_info->GetList()[0].GetString());
 
   // External display's selected resolution must not change
@@ -567,15 +551,18 @@ TEST_F(DisplayPrefsTest, BasicStores) {
       1.0f, 60.f, false);
 
   UpdateDisplay("200x200*2, 600x500#600x500|500x400");
+  EXPECT_FALSE(display_manager()->IsInMirrorMode());
 
   // Update key as the 2nd display gets new id.
-  id2 = display_manager()->GetSecondaryDisplay().id();
+  id2 = display_manager_test.GetSecondaryDisplay().id();
   key = base::NumberToString(id1) + "," + base::NumberToString(id2);
+
   EXPECT_TRUE(displays->GetDictionary(key, &layout_value));
-  EXPECT_TRUE(layout_value->GetString(kPositionKey, &position));
-  EXPECT_EQ("right", position);
-  EXPECT_TRUE(layout_value->GetInteger(kOffsetKey, &offset));
-  EXPECT_EQ(0, offset);
+  EXPECT_TRUE(display::JsonToDisplayLayout(*layout_value, &stored_layout));
+  EXPECT_EQ(display::DisplayPlacement::RIGHT, stored_placement.position);
+  EXPECT_EQ(0, stored_placement.offset);
+  EXPECT_EQ(id1, stored_placement.parent_display_id);
+  EXPECT_EQ(id2, stored_placement.display_id);
   EXPECT_TRUE(layout_value->GetString(kPrimaryIdKey, &primary_id_str));
   EXPECT_EQ(base::NumberToString(id1), primary_id_str);
 
@@ -591,14 +578,14 @@ TEST_F(DisplayPrefsTest, BasicStores) {
   // Disconnect 2nd display first to generate new id for external display.
   UpdateDisplay("200x200*2");
   UpdateDisplay("200x200*2, 500x400#600x500|500x400%60.0f");
+
   // Update key as the 2nd display gets new id.
-  id2 = display_manager()->GetSecondaryDisplay().id();
+  id2 = display_manager_test.GetSecondaryDisplay().id();
   key = base::NumberToString(id1) + "," + base::NumberToString(id2);
   EXPECT_TRUE(displays->GetDictionary(key, &layout_value));
-  EXPECT_TRUE(layout_value->GetString(kPositionKey, &position));
-  EXPECT_EQ("right", position);
-  EXPECT_TRUE(layout_value->GetInteger(kOffsetKey, &offset));
-  EXPECT_EQ(0, offset);
+  EXPECT_TRUE(display::JsonToDisplayLayout(*layout_value, &stored_layout));
+  EXPECT_EQ(display::DisplayPlacement::RIGHT, stored_placement.position);
+  EXPECT_EQ(0, stored_placement.offset);
   EXPECT_TRUE(layout_value->GetString(kPrimaryIdKey, &primary_id_str));
   EXPECT_EQ(base::NumberToString(id1), primary_id_str);
 
@@ -654,13 +641,14 @@ TEST_F(DisplayPrefsTest, PreventStore) {
 
 TEST_F(DisplayPrefsTest, StoreForSwappedDisplay) {
   UpdateDisplay("100x100,200x200");
+  display::test::DisplayManagerTestApi display_manager_test(display_manager());
   int64_t id1 = display::Screen::GetScreen()->GetPrimaryDisplay().id();
-  int64_t id2 = display_manager()->GetSecondaryDisplay().id();
+  int64_t id2 = display_manager_test.GetSecondaryDisplay().id();
 
   LoggedInAsUser();
 
   SwapPrimaryDisplay();
-  ASSERT_EQ(id1, display_manager()->GetSecondaryDisplay().id());
+  ASSERT_EQ(id1, display_manager_test.GetSecondaryDisplay().id());
 
   std::string key = base::NumberToString(id1) + "," + base::NumberToString(id2);
   const base::DictionaryValue* displays =
@@ -730,7 +718,9 @@ TEST_F(DisplayPrefsTestGuest, DisplayPrefsTestGuest) {
   int64_t id1 = display::Screen::GetScreen()->GetPrimaryDisplay().id();
   display::test::ScopedSetInternalDisplayId set_internal(
       Shell::Get()->display_manager(), id1);
-  int64_t id2 = display_manager()->GetSecondaryDisplay().id();
+  int64_t id2 = display::test::DisplayManagerTestApi(display_manager())
+                    .GetSecondaryDisplay()
+                    .id();
   display_manager()->SetLayoutForCurrentDisplays(
       display::test::CreateDisplayLayout(display_manager(),
                                          display::DisplayPlacement::TOP, 10));
@@ -800,31 +790,32 @@ TEST_F(DisplayPrefsTest, StorePowerStateNormalUser) {
 TEST_F(DisplayPrefsTest, DisplayPowerStateAfterRestart) {
   display_prefs()->StoreDisplayPowerStateForTest(
       chromeos::DISPLAY_POWER_INTERNAL_OFF_EXTERNAL_ON);
+  EXPECT_EQ("internal_off_external_on",
+            local_state()->GetString(prefs::kDisplayPowerState));
+  display_configurator()->reset_requested_power_state_for_test();
   LoadDisplayPreferences();
   EXPECT_EQ(chromeos::DISPLAY_POWER_INTERNAL_OFF_EXTERNAL_ON,
-            GetRequestedPowerState());
+            display_configurator()->GetRequestedPowerState());
 }
 
 TEST_F(DisplayPrefsTest, DontSaveAndRestoreAllOff) {
   display_prefs()->StoreDisplayPowerStateForTest(
       chromeos::DISPLAY_POWER_INTERNAL_OFF_EXTERNAL_ON);
-  LoadDisplayPreferences();
-  // DisplayPowerState should be ignored at boot.
-  EXPECT_EQ(chromeos::DISPLAY_POWER_INTERNAL_OFF_EXTERNAL_ON,
-            GetRequestedPowerState());
-
-  display_prefs()->StoreDisplayPowerStateForTest(
-      chromeos::DISPLAY_POWER_ALL_OFF);
-  EXPECT_EQ(chromeos::DISPLAY_POWER_INTERNAL_OFF_EXTERNAL_ON,
-            GetRequestedPowerState());
   EXPECT_EQ("internal_off_external_on",
             local_state()->GetString(prefs::kDisplayPowerState));
 
-  // Don't try to load
+  // Don't save ALL_OFF.
+  display_prefs()->StoreDisplayPowerStateForTest(
+      chromeos::DISPLAY_POWER_ALL_OFF);
+  EXPECT_EQ("internal_off_external_on",
+            local_state()->GetString(prefs::kDisplayPowerState));
+
+  // Don't restore ALL_OFF.
   local_state()->SetString(prefs::kDisplayPowerState, "all_off");
+  display_configurator()->reset_requested_power_state_for_test();
   LoadDisplayPreferences();
-  EXPECT_EQ(chromeos::DISPLAY_POWER_INTERNAL_OFF_EXTERNAL_ON,
-            GetRequestedPowerState());
+  EXPECT_EQ(base::nullopt,
+            display_configurator()->GetRequestedPowerStateForTest());
 }
 
 // Tests that display configuration changes caused by TabletModeController
@@ -1234,7 +1225,9 @@ TEST_F(DisplayPrefsTest, LegacyTouchCalibrationDataSupport) {
   EXPECT_EQ(association_map.at(fallback_identifier).at(id).calibration_data,
             data);
 
-  int64_t id_2 = display_manager()->GetSecondaryDisplay().id();
+  int64_t id_2 = display::test::DisplayManagerTestApi(display_manager())
+                     .GetSecondaryDisplay()
+                     .id();
   gfx::Size touch_size_2(300, 300);
   display::TouchCalibrationData data_2(point_pair_quad, touch_size_2);
 

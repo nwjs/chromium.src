@@ -97,6 +97,7 @@
 <translation id="2149973817440762519">Upravit záložku</translation>
 <translation id="2179182049312275900">Synchronizaci můžete kdykoliv zapnout v nastavení.</translation>
 <translation id="2198757192731523470">Google vaši historii může používat k personalizaci Vyhledávání, reklam a dalších služeb Google.</translation>
+<translation id="2218443599109088993">Oddálit</translation>
 <translation id="2230173723195178503">Webová stránka byla načtena</translation>
 <translation id="2239626343334228536">Mazání údajů o prohlížení...</translation>
 <translation id="2257567812274161158">Synchronizace nefunguje.</translation>
@@ -159,6 +160,7 @@
 <translation id="2923448633003185837">Vložit a přejít</translation>
 <translation id="292639812446257861">Označit jako nepřečtené</translation>
 <translation id="2958718410589002129">Hesla</translation>
+<translation id="2964349545761222050">Blokovat soubory cookie třetích stran</translation>
 <translation id="2969979262385602596">Přihlášení se nezdařilo. Zkuste to znovu později.</translation>
 <translation id="298306318844797842">Přidat platební metodu...</translation>
 <translation id="2989805286512600854">Otevřít v nové kartě</translation>
@@ -178,6 +180,7 @@
 <translation id="3290875554372353449">Vyberte účet</translation>
 <translation id="3311748811247479259">Vypnuto</translation>
 <translation id="3324193307694657476">Druhý řádek adresy</translation>
+<translation id="3328801116991980348">Informace o stránkách</translation>
 <translation id="3329904751041170572">Nelze se připojit k serveru.</translation>
 <translation id="3335947283844343239">Znovu otevřít zavřenou kartu</translation>
 <translation id="3371831930909698441">Je k dispozici Překladač. Možnosti jsou k dispozici ve spodní části obrazovky.</translation>
@@ -300,6 +303,7 @@ Chcete-toto nastavení změnit, <ph name="BEGIN_LINK" />resetujte synchronizaci<
 <translation id="4979397965658815378">Přihlaste se pomocí účtu Google a získejte záložky, hesla, historii a další nastavení do všech svých zařízení.</translation>
 <translation id="5005498671520578047">Kopírování hesla</translation>
 <translation id="5010803260590204777">Chcete-li prohlížet internet v soukromí, otevřete novou anonymní kartu.</translation>
+<translation id="5039020240289137291">Blokování souborů cookie třetích stran</translation>
 <translation id="5039804452771397117">Povolit</translation>
 <translation id="5059136629401106827">OK</translation>
 <translation id="5062321486222145940">Instalace Disku Google</translation>
@@ -414,9 +418,11 @@ Vaše data byla <ph name="TIME" /> zašifrována pomocí heslové fráze pro syn
 <translation id="6434591244308415567">Došlo k chybě, zkuste to později.</translation>
 <translation id="6445051938772793705">Země</translation>
 <translation id="6445981559479772097">Zpráva odeslána</translation>
+<translation id="6447842834002726250">Soubory cookie</translation>
 <translation id="6464071786529933911">Otevřít v nové anonymní kartě</translation>
 <translation id="6476800141292307438">Stránka se překládá do jazyka <ph name="LANGUAGE" />. Možnosti jsou k dispozici u dolního okraje obrazovky.</translation>
 <translation id="6482629121755362506">Počet smazaných položek: <ph name="NUMBER_OF_SELECTED_BOOKMARKS" /></translation>
+<translation id="6561262006871132942">Přiblížit</translation>
 <translation id="6610002944194042868">Možnosti Překladače</translation>
 <translation id="6628106477656132239">Neplatné datum konce platnosti</translation>
 <translation id="6638511529934826365">Přiblížit text…</translation>
@@ -479,7 +485,6 @@ Vaše data byla <ph name="TIME" /> zašifrována pomocí heslové fráze pro syn
 <translation id="734758817008927353">Možnosti uložení karty</translation>
 <translation id="7348502496356775519">Záložka</translation>
 <translation id="7383797227493018512">Seznam četby</translation>
-<translation id="7392048574806661116">Odhlášení a vymazání synchronizovaných dat</translation>
 <translation id="7400418766976504921">Adresa URL</translation>
 <translation id="7409985198648820906">Nepřečtené články: <ph name="UNREAD_COUNT" />.</translation>
 <translation id="7425346204213733349">Změny záložek, historie, hesel a dalších nastavení se již nebudou synchronizovat do vašeho účtu Google. Vaše existující data však v účtu Google uložena zůstanou.</translation>
@@ -598,6 +603,7 @@ Vaše data byla <ph name="TIME" /> zašifrována pomocí heslové fráze pro syn
 <translation id="9223358826628549784">Zpráva o selhání byla odeslána.</translation>
 <translation id="952704832371081537">Zrušit</translation>
 <translation id="988141524645182168">Jiná zařízení</translation>
+<translation id="989697783705943787">Zabezpečení stránek</translation>
 <translation id="989988560359834682">Upravit adresu</translation>
 <translation id="994757059139821576">Návrhy článků</translation>
 </translationbundle>

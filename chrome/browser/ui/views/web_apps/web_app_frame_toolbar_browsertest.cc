@@ -16,11 +16,14 @@
 #include "chrome/browser/ui/views/frame/browser_non_client_frame_view.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
+#include "chrome/browser/ui/views/page_action/page_action_icon_controller.h"
 #include "chrome/browser/ui/views/web_apps/web_app_frame_toolbar_view.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/common/page_zoom.h"
 #include "content/public/test/browser_test_utils.h"
+#include "content/public/test/test_utils.h"
+#include "content/public/test/theme_change_waiter.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/gfx/geometry/size.h"
@@ -35,56 +38,15 @@ namespace {
 constexpr double kTitlePaddingWidthFraction = 0.1;
 #endif
 
-class LoadCompletedWaiter : public content::WebContentsObserver {
- public:
-  explicit LoadCompletedWaiter(content::WebContents* web_contents)
-      : content::WebContentsObserver(web_contents) {}
-  ~LoadCompletedWaiter() override = default;
-
-  void Wait() {
-    if (observed_)
-      return;
-
-    run_loop_.Run();
+template <typename T>
+T* GetLastVisible(const std::vector<T*>& views) {
+  T* visible = nullptr;
+  for (auto* view : views) {
+    if (view->GetVisible())
+      visible = view;
   }
-
- private:
-  // content::WebContentsObserver:
-  void DocumentOnLoadCompletedInMainFrame() override {
-    observed_ = true;
-    if (run_loop_.running())
-      run_loop_.Quit();
-  }
-
-  bool observed_ = false;
-  base::RunLoop run_loop_;
-};
-
-class ThemeChangeWaiter : public content::WebContentsObserver {
- public:
-  explicit ThemeChangeWaiter(content::WebContents* web_contents)
-      : content::WebContentsObserver(web_contents) {}
-  ~ThemeChangeWaiter() override = default;
-
-  void Wait() {
-    if (observed_)
-      return;
-
-    run_loop_.Run();
-  }
-
- private:
-  // content::WebContentsObserver:
-  void DidChangeThemeColor() override {
-    observed_ = true;
-
-    if (run_loop_.running())
-      run_loop_.Quit();
-  }
-
-  bool observed_ = false;
-  base::RunLoop run_loop_;
-};
+  return visible;
+}
 
 }  // namespace
 
@@ -126,9 +88,12 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest, SpaceConstrained) {
       web_app_frame_toolbar()->GetRightContainerForTesting();
   EXPECT_EQ(toolbar_right_container->parent(), web_app_frame_toolbar());
 
-  views::View* const page_action_icon_container =
-      web_app_frame_toolbar()->GetPageActionIconContainerForTesting();
-  EXPECT_EQ(page_action_icon_container->parent(), toolbar_right_container);
+  std::vector<const PageActionIconView*> page_actions =
+      web_app_frame_toolbar()
+          ->GetPageActionIconControllerForTesting()
+          ->GetPageActionIconViewsForTesting();
+  for (const PageActionIconView* action : page_actions)
+    EXPECT_EQ(action->parent(), toolbar_right_container);
 
   views::View* const menu_button =
       browser_view()->toolbar_button_provider()->GetAppMenuButton();
@@ -147,7 +112,7 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest, SpaceConstrained) {
 #endif
 
   // Initially the page action icons are not visible.
-  EXPECT_EQ(page_action_icon_container->width(), 0);
+  EXPECT_EQ(GetLastVisible(page_actions), nullptr);
   const int original_menu_button_width = menu_button->width();
   EXPECT_GT(original_menu_button_width, 0);
 
@@ -170,20 +135,20 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest, SpaceConstrained) {
   EXPECT_LT(window_title->width(), original_window_title_width);
 #endif
 
-  EXPECT_GT(page_action_icon_container->width(), 0);
+  EXPECT_NE(GetLastVisible(page_actions), nullptr);
   EXPECT_EQ(menu_button->width(), original_menu_button_width);
 
   // Resize the WebAppFrameToolbarView just enough to clip out the page action
   // icons (and toolbar contents left of them).
   const int original_toolbar_width = web_app_frame_toolbar()->width();
+  const int new_toolbar_width = toolbar_right_container->width() -
+                                GetLastVisible(page_actions)->bounds().right();
+  const int new_frame_width =
+      frame_view()->width() - original_toolbar_width + new_toolbar_width;
+
   web_app_frame_toolbar()->SetSize(
-      gfx::Size(toolbar_right_container->width() -
-                    page_action_icon_container->bounds().right(),
-                web_app_frame_toolbar()->height()));
-  frame_view()->SetSize(gfx::Size(frame_view()->width() -
-                                      original_toolbar_width +
-                                      web_app_frame_toolbar()->width(),
-                                  frame_view()->height()));
+      {new_toolbar_width, web_app_frame_toolbar()->height()});
+  frame_view()->SetSize({new_frame_width, frame_view()->height()});
 
   // The left container (containing Back and Reload) should be hidden.
   EXPECT_FALSE(toolbar_left_container->GetVisible());
@@ -193,9 +158,9 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest, SpaceConstrained) {
   EXPECT_EQ(window_title->width(), 0);
 #endif
 
-  // The page action icons should be clipped to 0 width while the app menu
-  // button retains its full width.
-  EXPECT_EQ(page_action_icon_container->width(), 0);
+  // The page action icons should be hidden while the app menu button retains
+  // its full width.
+  EXPECT_EQ(GetLastVisible(page_actions), nullptr);
   EXPECT_EQ(menu_button->width(), original_menu_button_width);
 }
 
@@ -206,14 +171,10 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest, ThemeChange) {
 
   content::WebContents* web_contents =
       app_browser()->tab_strip_model()->GetActiveWebContents();
-  LoadCompletedWaiter waiter(web_contents);
-  if (!web_contents->IsDocumentOnLoadCompletedInMainFrame())
-    waiter.Wait();
+  content::AwaitDocumentOnLoadCompleted(web_contents);
 
-#if defined(OS_LINUX) && !defined(OS_CHROMEOS)
+#if !defined(OS_LINUX) || defined(OS_CHROMEOS)
   // Avoid dependence on Linux GTK+ Themes appearance setting.
-  return;
-#endif
 
   ToolbarButtonProvider* const toolbar_button_provider =
       browser_view()->toolbar_button_provider();
@@ -224,7 +185,7 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest, ThemeChange) {
       app_menu_button->GetInkDropBaseColor();
 
   {
-    ThemeChangeWaiter theme_change_waiter(web_contents);
+    content::ThemeChangeWaiter theme_change_waiter(web_contents);
     EXPECT_TRUE(content::ExecJs(web_contents,
                                 "document.getElementById('theme-color')."
                                 "setAttribute('content', '#246')"));
@@ -234,13 +195,14 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest, ThemeChange) {
   }
 
   {
-    ThemeChangeWaiter theme_change_waiter(web_contents);
+    content::ThemeChangeWaiter theme_change_waiter(web_contents);
     EXPECT_TRUE(content::ExecJs(
         web_contents, "document.getElementById('theme-color').remove()"));
     theme_change_waiter.Wait();
 
     EXPECT_EQ(app_menu_button->GetInkDropBaseColor(), original_ink_drop_color);
   }
+#endif
 }
 
 // Test that a tooltip is shown when hovering over a truncated title.

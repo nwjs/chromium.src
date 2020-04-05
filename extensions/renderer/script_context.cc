@@ -49,6 +49,8 @@ std::string GetContextTypeDescriptionString(Feature::Context context_type) {
       return "BLESSED_WEB_PAGE";
     case Feature::WEBUI_CONTEXT:
       return "WEBUI";
+    case Feature::WEBUI_UNTRUSTED_CONTEXT:
+      return "WEBUI_UNTRUSTED";
     case Feature::LOCK_SCREEN_EXTENSION_CONTEXT:
       return "LOCK_SCREEN_EXTENSION";
   }
@@ -307,9 +309,9 @@ GURL ScriptContext::GetAccessCheckedFrameURL(
     const blink::WebLocalFrame* frame) {
   const blink::WebURL& weburl = frame->GetDocument().Url();
   if (weburl.IsEmpty() || GURL(weburl) == GURL("about:blank")) {
+    blink::WebDocumentLoader* document_loader = CurrentDocumentLoader(frame);
     // NWJS fix for iframe-remote race condition on win release
     // against 79b64c3e741cc9c6afbb23885945831a45c6baa5
-    blink::WebDocumentLoader* document_loader = CurrentDocumentLoader(frame);
     if (document_loader &&
         frame->GetSecurityOrigin().CanAccess(
             blink::WebSecurityOrigin::Create(document_loader->GetUrl()))) {

@@ -25,11 +25,15 @@ class Accelerometer : public Sensor {
                 device::mojom::blink::SensorType,
                 const Vector<mojom::blink::FeaturePolicyFeature>&);
 
-  double x(bool& is_null) const;
-  double y(bool& is_null) const;
-  double z(bool& is_null) const;
+  base::Optional<double> x() const;
+  base::Optional<double> y() const;
+  base::Optional<double> z() const;
+  // TODO(crbug.com/1060971): Remove |is_null| version.
+  double x(bool& is_null) const;  // DEPRECATED
+  double y(bool& is_null) const;  // DEPRECATED
+  double z(bool& is_null) const;  // DEPRECATED
 
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
 };
 
 }  // namespace blink

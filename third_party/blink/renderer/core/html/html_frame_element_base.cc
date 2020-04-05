@@ -43,13 +43,14 @@
 #include "third_party/blink/renderer/core/loader/frame_loader.h"
 #include "third_party/blink/renderer/core/page/focus_controller.h"
 #include "third_party/blink/renderer/core/page/page.h"
+#include "third_party/blink/renderer/platform/heap/heap.h"
 
 namespace blink {
 
 HTMLFrameElementBase::HTMLFrameElementBase(const QualifiedName& tag_name,
                                            Document& document)
     : HTMLFrameOwnerElement(tag_name, document),
-      scrolling_mode_(ScrollbarMode::kAuto),
+      scrollbar_mode_(mojom::blink::ScrollbarMode::kAuto),
       margin_width_(-1),
       margin_height_(-1) {}
 
@@ -95,11 +96,11 @@ void HTMLFrameElementBase::OpenURL(bool replace_current_item) {
   if (!url.IsValid() && GetDocument().BaseURL().ProtocolIsData()) {
     if (LocalDOMWindow* window = GetDocument().ExecutingWindow()) {
       if (LocalFrame* frame = window->GetFrame()) {
-        frame->Console().AddMessage(
-            ConsoleMessage::Create(mojom::ConsoleMessageSource::kRendering,
-                                   mojom::ConsoleMessageLevel::kWarning,
-                                   "Invalid relative frame source URL (" +
-                                       url_ + ") within data URL."));
+        frame->Console().AddMessage(MakeGarbageCollected<ConsoleMessage>(
+            mojom::ConsoleMessageSource::kRendering,
+            mojom::ConsoleMessageLevel::kWarning,
+            "Invalid relative frame source URL (" + url_ +
+                ") within data URL."));
       }
     }
   }
@@ -133,13 +134,18 @@ void HTMLFrameElementBase::ParseAttribute(
   } else if (name == html_names::kMarginheightAttr) {
     SetMarginHeight(value.ToInt());
   } else if (name == html_names::kScrollingAttr) {
-    // Auto and yes both simply mean "allow scrolling." No means "don't allow
-    // scrolling."
-    if (EqualIgnoringASCIICase(value, "auto") ||
-        DeprecatedEqualIgnoringCase(value, "yes"))
-      SetScrollingMode(ScrollbarMode::kAuto);
-    else if (EqualIgnoringASCIICase(value, "no"))
-      SetScrollingMode(ScrollbarMode::kAlwaysOff);
+    // https://html.spec.whatwg.org/multipage/rendering.html#the-page:
+    // If [the scrolling] attribute's value is an ASCII
+    // case-insensitive match for the string "off", "noscroll", or "no", then
+    // the user agent is expected to prevent any scrollbars from being shown for
+    // the viewport of the Document's browsing context, regardless of the
+    // 'overflow' property that applies to that viewport.
+    if (EqualIgnoringASCIICase(value, "off") ||
+        EqualIgnoringASCIICase(value, "noscroll") ||
+        EqualIgnoringASCIICase(value, "no"))
+      SetScrollbarMode(mojom::blink::ScrollbarMode::kAlwaysOff);
+    else
+      SetScrollbarMode(mojom::blink::ScrollbarMode::kAuto);
   } else if (name == html_names::kOnbeforeunloadAttr) {
     // FIXME: should <frame> elements have beforeunload handlers?
     SetAttributeEventListener(
@@ -155,8 +161,9 @@ void HTMLFrameElementBase::ParseAttribute(
 scoped_refptr<const SecurityOrigin>
 HTMLFrameElementBase::GetOriginForFeaturePolicy() const {
   // Sandboxed frames have a unique origin.
-  if ((GetFramePolicy().sandbox_flags & WebSandboxFlags::kOrigin) !=
-      WebSandboxFlags::kNone)
+  if ((GetFramePolicy().sandbox_flags &
+       mojom::blink::WebSandboxFlags::kOrigin) !=
+      mojom::blink::WebSandboxFlags::kNone)
     return SecurityOrigin::CreateUniqueOpaque();
 
   // If the frame will inherit its origin from the owner, then use the owner's
@@ -250,15 +257,16 @@ bool HTMLFrameElementBase::IsHTMLContentAttribute(
          HTMLFrameOwnerElement::IsHTMLContentAttribute(attribute);
 }
 
-void HTMLFrameElementBase::SetScrollingMode(ScrollbarMode scrollbar_mode) {
-  if (scrolling_mode_ == scrollbar_mode)
+void HTMLFrameElementBase::SetScrollbarMode(
+    mojom::blink::ScrollbarMode scrollbar_mode) {
+  if (scrollbar_mode_ == scrollbar_mode)
     return;
 
   if (contentDocument()) {
     contentDocument()->WillChangeFrameOwnerProperties(
         margin_width_, margin_height_, scrollbar_mode, IsDisplayNone());
   }
-  scrolling_mode_ = scrollbar_mode;
+  scrollbar_mode_ = scrollbar_mode;
   FrameOwnerPropertiesChanged();
 }
 
@@ -268,7 +276,7 @@ void HTMLFrameElementBase::SetMarginWidth(int margin_width) {
 
   if (contentDocument()) {
     contentDocument()->WillChangeFrameOwnerProperties(
-        margin_width, margin_height_, scrolling_mode_, IsDisplayNone());
+        margin_width, margin_height_, scrollbar_mode_, IsDisplayNone());
   }
   margin_width_ = margin_width;
   FrameOwnerPropertiesChanged();
@@ -280,7 +288,7 @@ void HTMLFrameElementBase::SetMarginHeight(int margin_height) {
 
   if (contentDocument()) {
     contentDocument()->WillChangeFrameOwnerProperties(
-        margin_width_, margin_height, scrolling_mode_, IsDisplayNone());
+        margin_width_, margin_height, scrollbar_mode_, IsDisplayNone());
   }
   margin_height_ = margin_height;
   FrameOwnerPropertiesChanged();

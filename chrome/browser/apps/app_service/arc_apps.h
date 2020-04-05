@@ -6,11 +6,12 @@
 #define CHROME_BROWSER_APPS_APP_SERVICE_ARC_APPS_H_
 
 #include <map>
+#include <memory>
 #include <set>
 #include <string>
 #include <vector>
 
-#include "base/callback_forward.h"
+#include "base/callback.h"
 #include "base/macros.h"
 #include "base/memory/weak_ptr.h"
 #include "base/optional.h"
@@ -18,6 +19,9 @@
 #include "chrome/browser/apps/app_service/app_icon_factory.h"
 #include "chrome/browser/apps/app_service/arc_icon_once_loader.h"
 #include "chrome/browser/apps/app_service/icon_key_util.h"
+#include "chrome/browser/apps/app_service/paused_apps.h"
+#include "chrome/browser/chromeos/arc/app_shortcuts/arc_app_shortcut_item.h"
+#include "chrome/browser/chromeos/arc/app_shortcuts/arc_app_shortcuts_request.h"
 #include "chrome/browser/ui/app_list/arc/arc_app_list_prefs.h"
 #include "chrome/services/app_service/public/mojom/app_service.mojom.h"
 #include "components/arc/intent_helper/arc_intent_helper_bridge.h"
@@ -72,13 +76,17 @@ class ArcApps : public KeyedService,
               int32_t event_flags,
               apps::mojom::LaunchSource launch_source,
               int64_t display_id) override;
+  void LaunchAppWithFiles(const std::string& app_id,
+                          apps::mojom::LaunchContainer container,
+                          int32_t event_flags,
+                          apps::mojom::LaunchSource launch_source,
+                          apps::mojom::FilePathsPtr file_paths) override;
   void LaunchAppWithIntent(const std::string& app_id,
                            apps::mojom::IntentPtr intent,
                            apps::mojom::LaunchSource launch_source,
                            int64_t display_id) override;
   void SetPermission(const std::string& app_id,
                      apps::mojom::PermissionPtr permission) override;
-  void PromptUninstall(const std::string& app_id) override;
   void Uninstall(const std::string& app_id,
                  bool clear_site_data,
                  bool report_abuse) override;
@@ -89,9 +97,11 @@ class ArcApps : public KeyedService,
                     int64_t display_id,
                     GetMenuModelCallback callback) override;
   void OpenNativeSettings(const std::string& app_id) override;
-  void OnPreferredAppSet(const std::string& app_id,
-                         apps::mojom::IntentFilterPtr intent_filter,
-                         apps::mojom::IntentPtr intent) override;
+  void OnPreferredAppSet(
+      const std::string& app_id,
+      apps::mojom::IntentFilterPtr intent_filter,
+      apps::mojom::IntentPtr intent,
+      apps::mojom::ReplacedAppPreferencesPtr replaced_app_preferences) override;
 
   // ArcAppListPrefs::Observer overrides.
   void OnAppRegistered(const std::string& app_id,
@@ -140,18 +150,32 @@ class ArcApps : public KeyedService,
       arc::ArcIntentHelperBridge* intent_helper_bridge,
       std::vector<apps::mojom::IntentFilterPtr>* intent_filters);
 
+  void BuildMenuForShortcut(const std::string& package_name,
+                            apps::mojom::MenuItemsPtr menu_items,
+                            GetMenuModelCallback callback);
+
+  // Bound by |arc_app_shortcuts_request_|'s OnGetAppShortcutItems method.
+  void OnGetAppShortcutItems(
+      const base::TimeTicks start_time,
+      apps::mojom::MenuItemsPtr menu_items,
+      GetMenuModelCallback callback,
+      std::unique_ptr<arc::ArcAppShortcutItems> app_shortcut_items);
+
   mojo::Receiver<apps::mojom::Publisher> receiver_{this};
   mojo::RemoteSet<apps::mojom::Subscriber> subscribers_;
 
-  Profile* profile_;
+  Profile* const profile_;
   ArcIconOnceLoader arc_icon_once_loader_;
 
   apps_util::IncrementingIconKeyFactory icon_key_factory_;
 
-  std::set<std::string> paused_apps_;
+  PausedApps paused_apps_;
 
   AppIdToTaskIds app_id_to_task_ids_;
   TaskIdToAppId task_id_to_app_id_;
+
+  // Handles requesting app shortcuts from Android.
+  std::unique_ptr<arc::ArcAppShortcutsRequest> arc_app_shortcuts_request_;
 
   ScopedObserver<arc::ArcIntentHelperBridge, arc::ArcIntentHelperObserver>
       arc_intent_helper_observer_{this};

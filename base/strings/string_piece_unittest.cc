@@ -543,15 +543,6 @@ TEST(StringPieceTest, CheckCustom) {
   StringPiece e;
   std::string s2;
 
-  // AppendToString
-  s2.erase();
-  a.AppendToString(&s2);
-  ASSERT_EQ(s2.size(), 6U);
-  ASSERT_EQ(s2, "foobar");
-  a.AppendToString(&s2);
-  ASSERT_EQ(s2.size(), 12U);
-  ASSERT_EQ(s2, "foobarfoobar");
-
   // starts_with
   ASSERT_TRUE(a.starts_with(a));
   ASSERT_TRUE(a.starts_with("foo"));
@@ -586,12 +577,7 @@ TEST(StringPieceTest, CheckCustom) {
 }
 
 TYPED_TEST(CommonStringPieceTest, CheckNULL) {
-  // we used to crash here, but now we don't.
-  BasicStringPiece<TypeParam> s(nullptr);
-  ASSERT_EQ(s.data(), nullptr);
-  ASSERT_EQ(s.size(), 0U);
-
-  s = nullptr;
+  BasicStringPiece<TypeParam> s;
   ASSERT_EQ(s.data(), nullptr);
   ASSERT_EQ(s.size(), 0U);
 
@@ -689,7 +675,7 @@ TYPED_TEST(CommonStringPieceTest, CheckConstructors) {
       BasicStringPiece<TypeParam>(
           str.c_str(),
           static_cast<typename BasicStringPiece<TypeParam>::size_type>(0)));
-  ASSERT_EQ(empty, BasicStringPiece<TypeParam>(nullptr));
+  ASSERT_EQ(empty, BasicStringPiece<TypeParam>());
   ASSERT_TRUE(
       empty ==
       BasicStringPiece<TypeParam>(

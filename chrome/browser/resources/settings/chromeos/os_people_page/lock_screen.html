@@ -99,20 +99,22 @@
               <cr-radio-button name="pin+password" class="list-item-start"
                   label=$i18n{lockScreenPinOrPassword}>
               </cr-radio-button>
-              <div class="list-item-end"
-                  hidden="[[!showConfigurePinButton_(selectedUnlockType)]]">
-                <div class="separator"></div>
-                <div id="pinPasswordSecondaryActionDiv"
-                    class="secondary-action">
-                  <!-- Use stop-keyboard-event-propagation to prevent
-                       triggering this when focused after closing the
-                       dialog. -->
-                  <cr-button id="setupPinButton" on-click="onConfigurePin_"
-                      stop-keyboard-event-propagation>
-                    [[getSetupPinText_(hasPin)]]
-                  </cr-button>
+              <template is="dom-if"
+                  if="[[showConfigurePinButton_(selectedUnlockType)]]">
+                <div class="list-item-end">
+                  <div class="separator"></div>
+                  <div id="pinPasswordSecondaryActionDiv"
+                      class="secondary-action">
+                    <!-- Use stop-keyboard-event-propagation to prevent
+                         triggering this when focused after closing the
+                         dialog. -->
+                    <cr-button id="setupPinButton" on-click="onConfigurePin_"
+                        stop-keyboard-event-propagation>
+                      [[getSetupPinText_(hasPin)]]
+                    </cr-button>
+                  </div>
                 </div>
-              </div>
+              </template>
             </cr-radio-group>
           </div>
         </div>
@@ -155,7 +157,7 @@
           </div>
           <div class="separator"></div>
           <div class="secondary-action">
-            <cr-button on-click="onEditFingerprints_"
+            <cr-button id="editFingerprints" on-click="onEditFingerprints_"
                 aria-label="$i18n{lockScreenEditFingerprints}"
                 aria-descibedby="lockScreenEditFingerprintsSecondary">
               $i18n{lockScreenSetupFingerprintButton}
@@ -167,8 +169,8 @@
       <template is="dom-if" if="[[showPasswordPromptDialog_]]" restamp>
         <settings-lock-screen-password-prompt-dialog
             id="lockScreenPasswordPrompt"
-            on-close="onPasswordPromptDialogClose_" set-modes="{{setModes_}}"
-            auth-token="{{authToken}}">
+            on-close="onPasswordPromptDialogClose_"
+            on-auth-token-obtained="onAuthTokenObtained_">
         </settings-lock-screen-password-prompt-dialog>
       </template>
 

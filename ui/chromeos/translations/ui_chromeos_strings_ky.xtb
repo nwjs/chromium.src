@@ -29,6 +29,7 @@
 <translation id="1243314992276662751">Жүктөп берүү</translation>
 <translation id="1249250836236328755">Жанр</translation>
 <translation id="1278813325885878377">Венгерче QWERTY баскычтобу</translation>
+<translation id="1293556467332435079">Файлдар</translation>
 <translation id="1297922636971898492">Google Drive учурда жеткиликтүү эмес. Google Drive кайтып келгенден кийин жүктөп берүү аракети автоматтык түрдө кайра аткарылат.</translation>
 <translation id="1307931752636661898">Linux Файлдарын көрүү мүмкүн болбой жатат</translation>
 <translation id="1310751437842832374">Транслитерация (mausam → ନମସ୍ତେ)</translation>
@@ -507,6 +508,7 @@
 <translation id="6878261347041253038">Деванагари баскычтобу (Фонетикалык)</translation>
 <translation id="6885780034956018177">Үлүл</translation>
 <translation id="6896758677409633944">Көчүрүү</translation>
+<translation id="6898028766943174120">Дагы башка кошумча файлдар...</translation>
 <translation id="691516599546977041"><ph name="FOLDER_NAME" /> папкасына сакталбай жатат. Түзөтүлгөн сүрөттөр "Жүктөлүп алынгандар" папкасына сакталат.</translation>
 <translation id="6915678159055240887">Chromebox</translation>
 <translation id="6918340160281024199">US Workman</translation>
@@ -519,6 +521,7 @@
 <translation id="696203921837389374">Мобилдик дайындар аркылуу шайкештештирүүнү иштетүү</translation>
 <translation id="6965382102122355670">OK</translation>
 <translation id="6970230597523682626">Болгарча</translation>
+<translation id="6973630695168034713">Куржундар</translation>
 <translation id="6978611942794658017">Бул файл Windows программасын колдонгон компьютер үчүн түзүлгөн. Ал Chrome OS негизинде иштеген түзмөгүңүзгө дал келбейт. Chrome Желе дүкөнүнөн анын ордуна колдонула турган ылайыктуу колдонмо издеп көрүңүз.</translation>
 <translation id="6979158407327259162">Google Drive</translation>
 <translation id="6990081529015358884">Бош орун калбай калды</translation>

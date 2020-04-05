@@ -23,7 +23,6 @@ class RenderViewImpl;
 }  // namespace content
 
 namespace test_runner {
-class WebTestInterfaces;
 
 // WebFrameTestProxy is used during running web tests instead of a
 // RenderFrameImpl to inject test-only behaviour by overriding methods in the
@@ -35,8 +34,11 @@ class TEST_RUNNER_EXPORT WebFrameTestProxy : public content::RenderFrameImpl {
       : RenderFrameImpl(std::forward<Args>(args)...) {}
   ~WebFrameTestProxy() override;
 
-  void Initialize(WebTestInterfaces* interfaces,
-                  content::RenderViewImpl* render_view_for_frame);
+  void Initialize(content::RenderViewImpl* render_view_for_frame);
+
+  // Returns a frame name that can be used in the output of web tests
+  // (the name is derived from the frame's unique name).
+  std::string GetFrameNameForWebTests();
 
   // RenderFrameImpl overrides.
   void UpdateAllLifecyclePhasesAndCompositeForTesting() override;
@@ -47,14 +49,6 @@ class TEST_RUNNER_EXPORT WebFrameTestProxy : public content::RenderFrameImpl {
                               const blink::WebString& source_name,
                               unsigned source_line,
                               const blink::WebString& stack_trace) override;
-  void DownloadURL(const blink::WebURLRequest& request,
-                   network::mojom::RedirectMode cross_origin_redirect_behavior,
-                   mojo::ScopedMessagePipeHandle blob_url_token) override;
-  void DidReceiveTitle(const blink::WebString& title,
-                       blink::WebTextDirection direction) override;
-  void DidChangeIcon(blink::WebIconURL::Type icon_type) override;
-  void DidFailLoad(const blink::WebURLError& error,
-                   blink::WebHistoryCommitType commit_type) override;
   void DidStartLoading() override;
   void DidStopLoading() override;
   void DidChangeSelection(bool is_selection_empty) override;

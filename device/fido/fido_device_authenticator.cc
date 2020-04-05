@@ -97,14 +97,14 @@ void FidoDeviceAuthenticator::GetTouch(base::OnceCallback<void()> callback) {
           GetId(), std::move(callback)));
 }
 
-void FidoDeviceAuthenticator::GetRetries(GetRetriesCallback callback) {
+void FidoDeviceAuthenticator::GetPinRetries(GetRetriesCallback callback) {
   DCHECK(Options());
   DCHECK(Options()->client_pin_availability !=
          AuthenticatorSupportedOptions::ClientPinAvailability::kNotSupported);
 
-  RunOperation<pin::RetriesRequest, pin::RetriesResponse>(
-      pin::RetriesRequest(), std::move(callback),
-      base::BindOnce(&pin::RetriesResponse::Parse));
+  RunOperation<pin::PinRetriesRequest, pin::RetriesResponse>(
+      pin::PinRetriesRequest(), std::move(callback),
+      base::BindOnce(&pin::RetriesResponse::ParsePinRetries));
 }
 
 void FidoDeviceAuthenticator::GetEphemeralKey(
@@ -209,16 +209,20 @@ FidoDeviceAuthenticator::WillNeedPINToMakeCredential(
   using ClientPinAvailability =
       AuthenticatorSupportedOptions::ClientPinAvailability;
 
-  // Authenticators with built-in UV can use that. (Fallback to PIN is not yet
-  // implemented.)
+  const auto device_support = Options()->client_pin_availability;
+  const bool can_collect_pin = observer && observer->SupportsPIN();
+
+  // Authenticators with built-in UV can use that.
   if (Options()->user_verification_availability ==
       AuthenticatorSupportedOptions::UserVerificationAvailability::
           kSupportedAndConfigured) {
-    return MakeCredentialPINDisposition::kNoPIN;
+    // TODO(crbug.com/1056317): implement inline bioenrollment.
+    return device_support == ClientPinAvailability::kSupportedAndPinSet &&
+                   can_collect_pin
+               ? MakeCredentialPINDisposition::kUsePINForFallback
+               : MakeCredentialPINDisposition::kNoPIN;
   }
 
-  const auto device_support = Options()->client_pin_availability;
-  const bool can_collect_pin = observer && observer->SupportsPIN();
 
   // CTAP 2.0 requires a PIN for credential creation once a PIN has been set.
   // Thus, if fallback to U2F isn't possible, a PIN will be needed if set.
@@ -273,20 +277,21 @@ FidoAuthenticator::GetAssertionPINDisposition
 FidoDeviceAuthenticator::WillNeedPINToGetAssertion(
     const CtapGetAssertionRequest& request,
     const FidoRequestHandlerBase::Observer* observer) {
-  // Authenticators with built-in UV can use that. (Fallback to PIN is not yet
-  // implemented.)
-  if (Options()->user_verification_availability ==
-      AuthenticatorSupportedOptions::UserVerificationAvailability::
-          kSupportedAndConfigured) {
-    return GetAssertionPINDisposition::kNoPIN;
-  }
-
   const bool can_use_pin = (Options()->client_pin_availability ==
                             AuthenticatorSupportedOptions::
                                 ClientPinAvailability::kSupportedAndPinSet) &&
                            // The PIN is effectively unavailable if there's no
                            // UI support for collecting it.
                            observer && observer->SupportsPIN();
+
+  // Authenticators with built-in UV can use that.
+  if (Options()->user_verification_availability ==
+      AuthenticatorSupportedOptions::UserVerificationAvailability::
+          kSupportedAndConfigured) {
+    return can_use_pin ? GetAssertionPINDisposition::kUsePINForFallback
+                       : GetAssertionPINDisposition::kNoPIN;
+  }
+
   const bool resident_key_request = request.allow_list.empty();
 
   if (resident_key_request) {
@@ -677,6 +682,17 @@ bool FidoDeviceAuthenticator::IsTouchIdAuthenticator() const {
 void FidoDeviceAuthenticator::SetTaskForTesting(
     std::unique_ptr<FidoTask> task) {
   task_ = std::move(task);
+}
+
+void FidoDeviceAuthenticator::GetUvRetries(GetRetriesCallback callback) {
+  DCHECK(Options());
+  DCHECK(Options()->user_verification_availability !=
+         AuthenticatorSupportedOptions::UserVerificationAvailability::
+             kNotSupported);
+
+  RunOperation<pin::UvRetriesRequest, pin::RetriesResponse>(
+      pin::UvRetriesRequest(), std::move(callback),
+      base::BindOnce(&pin::RetriesResponse::ParseUvRetries));
 }
 
 void FidoDeviceAuthenticator::GetUvToken(GetTokenCallback callback) {

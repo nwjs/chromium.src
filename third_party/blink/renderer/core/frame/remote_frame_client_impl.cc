@@ -39,7 +39,7 @@ Frame* ToCoreFrame(WebFrame* frame) {
 RemoteFrameClientImpl::RemoteFrameClientImpl(WebRemoteFrameImpl* web_frame)
     : web_frame_(web_frame) {}
 
-void RemoteFrameClientImpl::Trace(blink::Visitor* visitor) {
+void RemoteFrameClientImpl::Trace(Visitor* visitor) {
   visitor->Trace(web_frame_);
   RemoteFrameClient::Trace(visitor);
 }
@@ -127,11 +127,13 @@ unsigned RemoteFrameClientImpl::BackForwardLength() {
 void RemoteFrameClientImpl::ForwardPostMessage(
     MessageEvent* event,
     scoped_refptr<const SecurityOrigin> target,
+    base::Optional<base::UnguessableToken> cluster_id,
     LocalFrame* source_frame) const {
   if (web_frame_->Client()) {
     web_frame_->Client()->ForwardPostMessage(
         WebLocalFrameImpl::FromFrame(source_frame), web_frame_,
-        WebSecurityOrigin(std::move(target)), WebDOMMessageEvent(event));
+        WebSecurityOrigin(std::move(target)),
+        WebDOMMessageEvent(event, cluster_id));
   }
 }
 
@@ -150,17 +152,6 @@ void RemoteFrameClientImpl::AdvanceFocus(mojom::blink::FocusType type,
                                          LocalFrame* source) {
   web_frame_->Client()->AdvanceFocus(type,
                                      WebLocalFrameImpl::FromFrame(source));
-}
-
-void RemoteFrameClientImpl::SetIsInert(bool inert) {
-  web_frame_->Client()->SetIsInert(inert);
-}
-
-void RemoteFrameClientImpl::UpdateRenderThrottlingStatus(
-    bool is_throttled,
-    bool subtree_throttled) {
-  web_frame_->Client()->UpdateRenderThrottlingStatus(is_throttled,
-                                                     subtree_throttled);
 }
 
 uint32_t RemoteFrameClientImpl::Print(const IntRect& rect,

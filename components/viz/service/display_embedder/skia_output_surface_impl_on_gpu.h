@@ -16,6 +16,7 @@
 #include "base/util/type_safety/pass_key.h"
 #include "build/build_config.h"
 #include "components/viz/common/display/renderer_settings.h"
+#include "components/viz/common/gpu/context_lost_reason.h"
 #include "components/viz/common/quads/render_pass.h"
 #include "components/viz/service/display/external_use_client.h"
 #include "components/viz/service/display/output_surface.h"
@@ -36,10 +37,6 @@
 #include "third_party/skia/include/gpu/GrBackendSemaphore.h"
 
 class SkDeferredDisplayList;
-
-namespace base {
-class WaitableEvent;
-}
 
 namespace gfx {
 class ColorSpace;
@@ -75,8 +72,7 @@ struct RenderPassGeometry;
 
 // The SkiaOutputSurface implementation running on the GPU thread. This class
 // should be created, used and destroyed on the GPU thread.
-class SkiaOutputSurfaceImplOnGpu : public gpu::ImageTransportSurfaceDelegate,
-                                   public gpu::DisplayContext {
+class SkiaOutputSurfaceImplOnGpu : public gpu::ImageTransportSurfaceDelegate {
  public:
   class ScopedUseContextProvider;
 
@@ -124,11 +120,9 @@ class SkiaOutputSurfaceImplOnGpu : public gpu::ImageTransportSurfaceDelegate,
   void Reshape(const gfx::Size& size,
                float device_scale_factor,
                const gfx::ColorSpace& color_space,
-               bool has_alpha,
+               gfx::BufferFormat format,
                bool use_stencil,
-               gfx::OverlayTransform transform,
-               SkSurfaceCharacterization* characterization,
-               base::WaitableEvent* event);
+               gfx::OverlayTransform transform);
   bool FinishPaintCurrentFrame(
       std::unique_ptr<SkDeferredDisplayList> ddl,
       std::unique_ptr<SkDeferredDisplayList> overdraw_ddl,
@@ -203,13 +197,6 @@ class SkiaOutputSurfaceImplOnGpu : public gpu::ImageTransportSurfaceDelegate,
   GpuVSyncCallback GetGpuVSyncCallback() override;
   base::TimeDelta GetGpuBlockedTimeSinceLastSwap() override;
 
-#if defined(OS_ANDROID)
-  void RenderToOverlay(const OverlayCandidate& overlay);
-#endif
-
-  // gpu::DisplayContext implementation:
-  void MarkContextLost() override;
-
   void PostTaskToClientThread(base::OnceClosure closure) {
     dependency_->PostTaskToClientThread(std::move(closure));
   }
@@ -219,9 +206,12 @@ class SkiaOutputSurfaceImplOnGpu : public gpu::ImageTransportSurfaceDelegate,
     num_readbacks_pending_--;
   }
 
+  gpu::MemoryTracker* GetMemoryTracker() { return memory_tracker_.get(); }
+
  private:
   class ScopedPromiseImageAccess;
   class OffscreenSurface;
+  class DisplayContext;
 
   bool Initialize();
   bool InitializeForGL();
@@ -231,6 +221,7 @@ class SkiaOutputSurfaceImplOnGpu : public gpu::ImageTransportSurfaceDelegate,
   // Make context current for GL, and return false if the context is lost.
   // It will do nothing when Vulkan is used.
   bool MakeCurrent(bool need_fbo0);
+  void MarkContextLost(ContextLostReason reason);
 
   void PullTextureUpdates(std::vector<gpu::SyncToken> sync_token);
 
@@ -311,6 +302,9 @@ class SkiaOutputSurfaceImplOnGpu : public gpu::ImageTransportSurfaceDelegate,
   scoped_refptr<gpu::SharedContextState> context_state_;
   const gl::GLVersionInfo* gl_version_info_ = nullptr;
   size_t max_resource_cache_bytes_ = 0u;
+
+  std::unique_ptr<DisplayContext> display_context_;
+  bool context_is_lost_ = false;
 
   std::unique_ptr<SkiaOutputDevice> output_device_;
   base::Optional<SkiaOutputDevice::ScopedPaint> scoped_output_device_paint_;

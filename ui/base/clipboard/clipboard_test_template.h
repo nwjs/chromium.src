@@ -36,6 +36,7 @@
 #include "ui/base/clipboard/clipboard.h"
 #include "ui/base/clipboard/clipboard_constants.h"
 #include "ui/base/clipboard/scoped_clipboard_writer.h"
+#include "ui/base/clipboard/test/clipboard_test_util.h"
 #include "ui/base/clipboard/test/test_clipboard.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/gfx/half_float.h"
@@ -90,7 +91,7 @@ class ClipboardTest : public PlatformTest {
 #if defined(USE_X11)
   std::unique_ptr<PlatformEventSource> event_source_;
 #endif
-  // ui::Clipboard has a protected destructor, so scoped_ptr doesn't work here.
+  // Clipboard has a protected destructor, so scoped_ptr doesn't work here.
   Clipboard* clipboard_ = nullptr;
 };
 
@@ -174,6 +175,9 @@ TYPED_TEST(ClipboardTest, HTMLTest) {
 #endif  // defined(OS_WIN)
 }
 
+#if !defined(OS_ANDROID)
+// TODO(crbug/1064968): This test fails with ClipboardAndroid, but passes with
+// the TestClipboard as RTF isn't implemented in ClipboardAndroid.
 TYPED_TEST(ClipboardTest, RTFTest) {
   std::string rtf =
       "{\\rtf1\\ansi{\\fonttbl\\f0\\fswiss Helvetica;}\\f0\\pard\n"
@@ -193,6 +197,7 @@ TYPED_TEST(ClipboardTest, RTFTest) {
   this->clipboard().ReadRTF(ClipboardBuffer::kCopyPaste, &result);
   EXPECT_EQ(rtf, result);
 }
+#endif  // !defined(OS_ANDROID)
 
 // TODO(msisov, tonikitoo): Enable test once ClipboardOzone implements
 // selection support. https://crbug.com/911992
@@ -281,6 +286,10 @@ TYPED_TEST(ClipboardTest, UnicodeHTMLTest) {
   {
     ScopedClipboardWriter clipboard_writer(ClipboardBuffer::kCopyPaste);
     clipboard_writer.WriteHTML(markup, url);
+#if defined(OS_ANDROID)
+    // Android requires HTML and plain text representations to be written.
+    clipboard_writer.WriteText(markup);
+#endif
   }
 
   EXPECT_THAT(this->GetAvailableTypes(ClipboardBuffer::kCopyPaste),
@@ -416,7 +425,7 @@ static void TestBitmapWrite(Clipboard* clipboard,
 
   EXPECT_TRUE(clipboard->IsFormatAvailable(ClipboardFormatType::GetBitmapType(),
                                            ClipboardBuffer::kCopyPaste));
-  const SkBitmap& image = clipboard->ReadImage(ClipboardBuffer::kCopyPaste);
+  const SkBitmap& image = clipboard_test_util::ReadImage(clipboard);
   ASSERT_EQ(image.info().colorType(), kN32_SkColorType);
   ASSERT_NE(image.info().alphaType(), kUnpremul_SkAlphaType);
   EXPECT_EQ(gfx::Size(info.width(), info.height()),
@@ -446,6 +455,10 @@ constexpr U8x4 kN32 =
 constexpr U8x4 kN32Opaque =
     (kN32_SkColorType == kRGBA_8888_SkColorType) ? kRGBAOpaque : kBGRAOpaque;
 
+#if !defined(OS_ANDROID)
+// TODO(https://crbug.com/1056650): Re-enable these tests after fixing the root
+// cause. This test only fails on Android.
+
 // Either RGBA_8888 or BGRA_8888 will be equivalent to N32, but the other
 // won't be.
 TYPED_TEST(ClipboardTest, Bitmap_RGBA_Premul) {
@@ -466,6 +479,7 @@ TYPED_TEST(ClipboardTest, Bitmap_RGBA_Opaque) {
       SkImageInfo::Make(1, 1, kRGBA_8888_SkColorType, kOpaque_SkAlphaType),
       &kRGBAOpaque, &kN32Opaque);
 }
+
 TYPED_TEST(ClipboardTest, Bitmap_BGRA_Premul) {
   TestBitmapWrite(
       &this->clipboard(),
@@ -528,12 +542,13 @@ TYPED_TEST(ClipboardTest, Bitmap_N32_Premul_2x7) {
   };
   TestBitmapWrite(&this->clipboard(), SkImageInfo::MakeN32Premul(2, 7), b, b);
 }
+#endif  // !defined(OS_ANDROID)
 
 }  // namespace
 
 TYPED_TEST(ClipboardTest, PickleTest) {
-  const ui::ClipboardFormatType kFormat =
-      ui::ClipboardFormatType::GetType("chromium/x-test-format");
+  const ClipboardFormatType kFormat =
+      ClipboardFormatType::GetType("chromium/x-test-format");
   std::string payload("test string");
   base::Pickle write_pickle;
   write_pickle.WriteString(payload);
@@ -557,14 +572,14 @@ TYPED_TEST(ClipboardTest, PickleTest) {
 }
 
 TYPED_TEST(ClipboardTest, MultiplePickleTest) {
-  const ui::ClipboardFormatType kFormat1 =
-      ui::ClipboardFormatType::GetType("chromium/x-test-format1");
+  const ClipboardFormatType kFormat1 =
+      ClipboardFormatType::GetType("chromium/x-test-format1");
   std::string payload1("test string1");
   base::Pickle write_pickle1;
   write_pickle1.WriteString(payload1);
 
-  const ui::ClipboardFormatType kFormat2 =
-      ui::ClipboardFormatType::GetType("chromium/x-test-format2");
+  const ClipboardFormatType kFormat2 =
+      ClipboardFormatType::GetType("chromium/x-test-format2");
   std::string payload2("test string2");
   base::Pickle write_pickle2;
   write_pickle2.WriteString(payload2);
@@ -618,8 +633,8 @@ TYPED_TEST(ClipboardTest, MultiplePickleTest) {
 
 TYPED_TEST(ClipboardTest, DataTest) {
   const std::string kFormatString = "chromium/x-test-format";
-  const ui::ClipboardFormatType kFormat =
-      ui::ClipboardFormatType::GetType(kFormatString);
+  const ClipboardFormatType kFormat =
+      ClipboardFormatType::GetType(kFormatString);
   const std::string payload = "test string";
   base::span<const uint8_t> payload_span(
       reinterpret_cast<const uint8_t*>(payload.data()), payload.size());
@@ -646,15 +661,15 @@ TYPED_TEST(ClipboardTest, DataTest) {
     !defined(OS_CHROMEOS)
 TYPED_TEST(ClipboardTest, MultipleDataTest) {
   const std::string kFormatString1 = "chromium/x-test-format1";
-  const ui::ClipboardFormatType kFormat1 =
-      ui::ClipboardFormatType::GetType(kFormatString1);
+  const ClipboardFormatType kFormat1 =
+      ClipboardFormatType::GetType(kFormatString1);
   const std::string payload1("test string1");
   base::span<const uint8_t> payload_span1(
       reinterpret_cast<const uint8_t*>(payload1.data()), payload1.size());
 
   const std::string kFormatString2 = "chromium/x-test-format2";
-  const ui::ClipboardFormatType kFormat2 =
-      ui::ClipboardFormatType::GetType(kFormatString2);
+  const ClipboardFormatType kFormat2 =
+      ClipboardFormatType::GetType(kFormatString2);
   const std::string payload2("test string2");
   base::span<const uint8_t> payload_span2(
       reinterpret_cast<const uint8_t*>(payload2.data()), payload2.size());

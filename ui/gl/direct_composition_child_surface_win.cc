@@ -8,7 +8,9 @@
 #include <dcomptypes.h>
 
 #include "base/macros.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/process/process.h"
 #include "base/synchronization/waitable_event.h"
 #include "base/trace_event/trace_event.h"
 #include "base/trace_event/traced_value.h"
@@ -110,7 +112,6 @@ bool DirectCompositionChildSurfaceWin::ReleaseDrawTexture(bool will_discard) {
       }
       dcomp_surface_serial_++;
     } else if (!will_discard) {
-      TRACE_EVENT0("gpu", "DirectCompositionChildSurfaceWin::PresentSwapChain");
       const bool use_swap_chain_tearing =
           DirectCompositionSurfaceWin::AllowTearing();
       UINT interval =
@@ -120,6 +121,9 @@ bool DirectCompositionChildSurfaceWin::ReleaseDrawTexture(bool will_discard) {
       RECT dirty_rect = swap_rect_.ToRECT();
       params.DirtyRectsCount = 1;
       params.pDirtyRects = &dirty_rect;
+
+      TRACE_EVENT2("gpu", "DirectCompositionChildSurfaceWin::PresentSwapChain",
+                   "interval", interval, "dirty_rect", swap_rect_.ToString());
       HRESULT hr = swap_chain_->Present1(interval, flags, &params);
       // Ignore DXGI_STATUS_OCCLUDED since that's not an error but only
       // indicates that the window is occluded and we can stop rendering.
@@ -197,8 +201,8 @@ gfx::SwapResult DirectCompositionChildSurfaceWin::SwapBuffers(
              : gfx::SwapResult::SWAP_FAILED;
 }
 
-bool DirectCompositionChildSurfaceWin::FlipsVertically() const {
-  return true;
+gfx::SurfaceOrigin DirectCompositionChildSurfaceWin::GetOrigin() const {
+  return gfx::SurfaceOrigin::kTopLeft;
 }
 
 bool DirectCompositionChildSurfaceWin::SupportsPostSubBuffer() {
@@ -263,8 +267,7 @@ bool DirectCompositionChildSurfaceWin::SetDrawRectangle(
     return false;
   }
 
-  DXGI_FORMAT dxgi_format =
-      gfx::ColorSpaceWin::GetDXGIFormat(color_space_, has_alpha_);
+  DXGI_FORMAT dxgi_format = gfx::ColorSpaceWin::GetDXGIFormat(color_space_);
 
   if (!dcomp_surface_ && enable_dc_layers_) {
     TRACE_EVENT2("gpu", "DirectCompositionChildSurfaceWin::CreateSurface",
@@ -304,24 +307,32 @@ bool DirectCompositionChildSurfaceWin::SetDrawRectangle(
     desc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
     desc.Scaling = DXGI_SCALING_STRETCH;
     desc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
-    desc.AlphaMode = (has_alpha_ || enable_dc_layers_)
-                         ? DXGI_ALPHA_MODE_PREMULTIPLIED
-                         : DXGI_ALPHA_MODE_IGNORE;
+    desc.AlphaMode =
+        has_alpha_ ? DXGI_ALPHA_MODE_PREMULTIPLIED : DXGI_ALPHA_MODE_IGNORE;
     desc.Flags = DirectCompositionSurfaceWin::AllowTearing()
                      ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING
                      : 0;
     HRESULT hr = dxgi_factory->CreateSwapChainForComposition(
         d3d11_device_.Get(), &desc, nullptr, &swap_chain_);
     first_swap_ = true;
+    base::UmaHistogramSparse(
+        "GPU.DirectComposition.CreateSwapChainForComposition", hr);
     if (FAILED(hr)) {
       DLOG(ERROR) << "CreateSwapChainForComposition failed with error "
                   << std::hex << hr;
-      return false;
+      // If CreateSwapChainForComposition fails, we cannot draw to the
+      // browser window. Failure here is indicative of an unrecoverable driver
+      // bug. Hence, terminate immediately and let the browser process start
+      // a fresh new instance.
+      base::Process::TerminateCurrentProcessImmediately(0);
+      // No code runs beyond this point.
     }
     Microsoft::WRL::ComPtr<IDXGISwapChain3> swap_chain;
     if (SUCCEEDED(swap_chain_.As(&swap_chain))) {
-      swap_chain->SetColorSpace1(
+      hr = swap_chain->SetColorSpace1(
           gfx::ColorSpaceWin::GetDXGIColorSpace(color_space_));
+      DCHECK(SUCCEEDED(hr))
+          << "SetColorSpace1 failed with error " << std::hex << hr;
     }
   }
 
@@ -407,8 +418,7 @@ bool DirectCompositionChildSurfaceWin::Resize(
 
   // ResizeBuffers can't change alpha blending mode.
   if (swap_chain_ && resize_only) {
-    DXGI_FORMAT format =
-        gfx::ColorSpaceWin::GetDXGIFormat(color_space_, has_alpha_);
+    DXGI_FORMAT format = gfx::ColorSpaceWin::GetDXGIFormat(color_space_);
     UINT flags = DirectCompositionSurfaceWin::AllowTearing()
                      ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING
                      : 0;

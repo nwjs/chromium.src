@@ -274,6 +274,14 @@ void SystemTrayClient::ShowAccessibilitySettings() {
   ShowSettingsSubPageForActiveUser(chrome::kAccessibilitySubPage);
 }
 
+void SystemTrayClient::ShowGestureEducationHelp() {
+  chrome::ScopedTabbedBrowserDisplayer displayer(
+      ProfileManager::GetActiveUserProfile());
+  base::RecordAction(base::UserMetricsAction("ShowGestureEducationHelp"));
+  ShowSingletonTab(displayer.browser(),
+                   GURL(chrome::kChromeOSGestureEducationHelpURL));
+}
+
 void SystemTrayClient::ShowPaletteHelp() {
   chrome::ScopedTabbedBrowserDisplayer displayer(
       ProfileManager::GetActiveUserProfile());

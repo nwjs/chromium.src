@@ -24,9 +24,10 @@ import org.chromium.base.annotations.CalledByNative;
 import org.chromium.base.annotations.NativeMethods;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeActivity;
-import org.chromium.chrome.browser.ResourceId;
 import org.chromium.chrome.browser.vr.UiUnsupportedMode;
 import org.chromium.chrome.browser.vr.VrModuleProvider;
+import org.chromium.components.page_info.CertificateChainHelper;
+import org.chromium.components.page_info.CertificateViewer;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.WebContentsObserver;
 import org.chromium.ui.modaldialog.DialogDismissalCause;
@@ -101,9 +102,9 @@ public class ConnectionInfoPopup implements OnClickListener, ModalDialogProperti
      * description and a label for certificate info link.
      */
     @CalledByNative
-    private void addCertificateSection(int enumeratedIconId, String headline, String description,
-            String label) {
-        View section = addSection(enumeratedIconId, headline, description);
+    private void addCertificateSection(
+            int iconId, String headline, String description, String label) {
+        View section = addSection(iconId, headline, description);
         assert mCertificateLayout == null;
         mCertificateLayout = (ViewGroup) section.findViewById(R.id.connection_info_text_layout);
         if (label != null && !label.isEmpty()) {
@@ -116,18 +117,17 @@ public class ConnectionInfoPopup implements OnClickListener, ModalDialogProperti
      * description. Most likely headline for description is empty
      */
     @CalledByNative
-    private void addDescriptionSection(int enumeratedIconId, String headline, String description) {
-        View section = addSection(enumeratedIconId, headline, description);
+    private void addDescriptionSection(int iconId, String headline, String description) {
+        View section = addSection(iconId, headline, description);
         assert mDescriptionLayout == null;
         mDescriptionLayout = section.findViewById(R.id.connection_info_text_layout);
     }
 
-    private View addSection(int enumeratedIconId, String headline, String description) {
+    private View addSection(int iconId, String headline, String description) {
         View section = LayoutInflater.from(mContext).inflate(R.layout.connection_info,
                 null);
         ImageView i = section.findViewById(R.id.connection_info_icon);
-        int drawableId = ResourceId.mapToDrawableId(enumeratedIconId);
-        i.setImageResource(drawableId);
+        i.setImageResource(iconId);
 
         TextView h = section.findViewById(R.id.connection_info_headline);
         h.setText(headline);
@@ -146,7 +146,7 @@ public class ConnectionInfoPopup implements OnClickListener, ModalDialogProperti
         mCertificateViewerTextView = new TextView(mContext);
         mCertificateViewerTextView.setText(label);
         ApiCompatibilityUtils.setTextAppearance(
-                mCertificateViewerTextView, R.style.TextAppearance_BlueLink3);
+                mCertificateViewerTextView, R.style.TextAppearance_TextSmall_Blue);
         mCertificateViewerTextView.setOnClickListener(this);
         mCertificateViewerTextView.setPadding(0, mPaddingThin, 0, 0);
         mCertificateLayout.addView(mCertificateViewerTextView);
@@ -176,7 +176,8 @@ public class ConnectionInfoPopup implements OnClickListener, ModalDialogProperti
         mMoreInfoLink = new TextView(mContext);
         mLinkUrl = HELP_URL;
         mMoreInfoLink.setText(linkText);
-        ApiCompatibilityUtils.setTextAppearance(mMoreInfoLink, R.style.TextAppearance_BlueLink3);
+        ApiCompatibilityUtils.setTextAppearance(
+                mMoreInfoLink, R.style.TextAppearance_TextSmall_Blue);
         mMoreInfoLink.setPadding(0, mPaddingThin, 0, 0);
         mMoreInfoLink.setOnClickListener(this);
         mDescriptionLayout.addView(mMoreInfoLink);

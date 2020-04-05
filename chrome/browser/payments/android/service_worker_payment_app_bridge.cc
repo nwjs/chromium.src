@@ -13,7 +13,7 @@
 #include "base/bind.h"
 #include "base/macros.h"
 #include "base/numerics/safe_conversions.h"
-#include "chrome/android/chrome_jni_headers/ServiceWorkerPaymentAppBridge_jni.h"
+#include "chrome/browser/payments/android/jni_headers/ServiceWorkerPaymentAppBridge_jni.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/web_data_service_factory.h"
@@ -25,6 +25,7 @@
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/payment_app_provider.h"
 #include "content/public/browser/web_contents.h"
+#include "services/metrics/public/cpp/ukm_recorder.h"
 #include "third_party/blink/public/mojom/payments/payment_app.mojom.h"
 #include "ui/gfx/android/java_bitmap.h"
 #include "url/gurl.h"
@@ -178,9 +179,17 @@ void OnGetServiceWorkerPaymentAppsInfo(
 
 void OnCanMakePayment(const JavaRef<jobject>& jcallback,
                       const JavaRef<jobject>& japp,
-                      bool can_make_payment) {
+                      payments::mojom::CanMakePaymentResponsePtr response) {
+  JNIEnv* env = AttachCurrentThread();
   Java_PaymentHandlerFinder_onCanMakePaymentEventResponse(
-      AttachCurrentThread(), jcallback, japp, can_make_payment);
+      env, jcallback, japp,
+      ConvertUTF8ToJavaString(
+          env, payments::ConvertCanMakePaymentEventResponseTypeToErrorString(
+                   response->response_type)),
+      response->can_make_payment, response->ready_for_minimal_ui,
+      response->account_balance
+          ? ConvertUTF8ToJavaString(env, *response->account_balance)
+          : nullptr);
 }
 
 void OnPaymentAppInvoked(
@@ -412,17 +421,20 @@ PaymentRequestEventDataPtr ConvertPaymentRequestEventDataFromJavaToNative(
 
 static void JNI_ServiceWorkerPaymentAppBridge_GetAllPaymentApps(
     JNIEnv* env,
-    const JavaParamRef<jobject>& jweb_contents,
+    const JavaParamRef<jobject>& jorigin,
+    const JavaParamRef<jobject>& jrender_frame_host,
     const JavaParamRef<jobjectArray>& jmethod_data,
     jboolean jmay_crawl_for_installable_payment_apps,
     const JavaParamRef<jobject>& jcallback) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
+  content::RenderFrameHost* render_frame_host =
+      content::RenderFrameHost::FromJavaRenderFrameHost(jrender_frame_host);
   content::WebContents* web_contents =
-      content::WebContents::FromJavaWebContents(jweb_contents);
+      content::WebContents::FromRenderFrameHost(render_frame_host);
 
   payments::ServiceWorkerPaymentAppFinder::GetInstance()->GetAllPaymentApps(
-      web_contents,
+      url::Origin::FromJavaObject(jorigin), render_frame_host, web_contents,
       WebDataServiceFactory::GetPaymentManifestWebDataForProfile(
           Profile::FromBrowserContext(web_contents->GetBrowserContext()),
           ServiceAccessType::EXPLICIT_ACCESS),
@@ -466,6 +478,7 @@ static void JNI_ServiceWorkerPaymentAppBridge_FireCanMakePaymentEvent(
     const JavaParamRef<jstring>& jpayment_request_origin,
     const JavaParamRef<jobjectArray>& jmethod_data,
     const JavaParamRef<jobjectArray>& jmodifiers,
+    const JavaParamRef<jstring>& jcurrency,
     const JavaParamRef<jobject>& jcallback,
     const JavaParamRef<jobject>& japp) {
   content::WebContents* web_contents =
@@ -478,6 +491,8 @@ static void JNI_ServiceWorkerPaymentAppBridge_FireCanMakePaymentEvent(
       GURL(ConvertJavaStringToUTF8(env, jpayment_request_origin));
   event_data->method_data =
       ConvertPaymentMethodDataFromJavaToNative(env, jmethod_data);
+  if (!jcurrency.is_null())
+    event_data->currency = ConvertJavaStringToUTF8(env, jcurrency);
 
   for (auto jmodifier : jmodifiers.ReadElements<jobject>()) {
     PaymentDetailsModifierPtr modifier = PaymentDetailsModifier::New();
@@ -536,7 +551,7 @@ static void JNI_ServiceWorkerPaymentAppBridge_InvokePaymentApp(
     const JavaParamRef<jobject>& jpayment_options,
     const JavaParamRef<jobjectArray>& jshipping_options,
     jlong payment_handler_host,
-    jboolean is_microtransaction,
+    jboolean can_show_own_ui,
     const JavaParamRef<jobject>& jcallback) {
   content::WebContents* web_contents =
       content::WebContents::FromJavaWebContents(jweb_contents);
@@ -556,7 +571,7 @@ static void JNI_ServiceWorkerPaymentAppBridge_InvokePaymentApp(
   host->set_payment_request_id_for_logs(event_data->payment_request_id);
   host->set_registration_id_for_logs(reg_id);
 
-  // TODO(https://crbug.com/1000432): Pass |is_microtransaction| to the service
+  // TODO(https://crbug.com/1000432): Pass |can_show_own_ui| to the service
   // worker.
   content::PaymentAppProvider::GetInstance()->InvokePaymentApp(
       web_contents->GetBrowserContext(), reg_id, sw_scope_origin,
@@ -657,4 +672,17 @@ static void JNI_ServiceWorkerPaymentAppBridge_OnClosingPaymentAppWindow(
   content::PaymentAppProvider::GetInstance()->OnClosingOpenedWindow(
       web_contents->GetBrowserContext(),
       static_cast<payments::mojom::PaymentEventResponseType>(reason));
+}
+
+static jlong
+JNI_ServiceWorkerPaymentAppBridge_GetSourceIdForPaymentAppFromScope(
+    JNIEnv* env,
+    const JavaParamRef<jstring>& jscope) {
+  // At this point we know that the payment handler window is open for the
+  // payment app associated with this scope. Since this getter is called inside
+  // PaymentApp::getUkmSourceId() function which in turn gets called for the
+  // invoked app inside PaymentRequestImpl::openPaymentHandlerWindowInternal.
+  return content::PaymentAppProvider::GetInstance()
+      ->GetSourceIdForPaymentAppFromScope(
+          GURL(ConvertJavaStringToUTF8(env, jscope)).GetOrigin());
 }

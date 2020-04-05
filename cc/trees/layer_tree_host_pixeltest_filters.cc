@@ -71,12 +71,14 @@ class LayerTreeHostFiltersPixelTest
 };
 
 LayerTreeTest::RendererType const kRendererTypes[] = {
+#if !defined(GL_NOT_ON_PLATFORM)
     LayerTreeTest::RENDERER_GL,
     LayerTreeTest::RENDERER_SKIA_GL,
+#endif  // !defined(GL_NOT_ON_PLATFORM)
     LayerTreeTest::RENDERER_SOFTWARE,
 #if defined(ENABLE_CC_VULKAN_TESTS)
     LayerTreeTest::RENDERER_SKIA_VK,
-#endif
+#endif  // defined(ENABLE_CC_VULKAN_TESTS)
 };
 
 INSTANTIATE_TEST_SUITE_P(All,
@@ -85,17 +87,21 @@ INSTANTIATE_TEST_SUITE_P(All,
 
 using LayerTreeHostFiltersPixelTestGPU = LayerTreeHostFiltersPixelTest;
 
+#if !defined(GL_NOT_ON_PLATFORM) || defined(ENABLE_CC_VULKAN_TESTS)
 LayerTreeTest::RendererType const kRendererTypesGpu[] = {
+#if !defined(GL_NOT_ON_PLATFORM)
     LayerTreeTest::RENDERER_GL,
     LayerTreeTest::RENDERER_SKIA_GL,
+#endif  // !defined(GL_NOT_ON_PLATFORM)
 #if defined(ENABLE_CC_VULKAN_TESTS)
     LayerTreeTest::RENDERER_SKIA_VK,
-#endif
+#endif  // defined(ENABLE_CC_VULKAN_TESTS)
 };
 
 INSTANTIATE_TEST_SUITE_P(All,
                          LayerTreeHostFiltersPixelTestGPU,
                          ::testing::ValuesIn(kRendererTypesGpu));
+#endif  //  !defined(GL_NOT_ON_PLATFORM) || defined(ENABLE_CC_VULKAN_TESTS)
 
 TEST_P(LayerTreeHostFiltersPixelTest, BackdropFilterBlurRect) {
   scoped_refptr<SolidColorLayer> background = CreateSolidColorLayer(
@@ -419,9 +425,11 @@ class LayerTreeHostBlurFiltersPixelTestGPULayerList
   }
 };
 
+#if !defined(GL_NOT_ON_PLATFORM) || defined(ENABLE_CC_VULKAN_TESTS)
 INSTANTIATE_TEST_SUITE_P(PixelResourceTest,
                          LayerTreeHostBlurFiltersPixelTestGPULayerList,
                          ::testing::ValuesIn(kRendererTypesGpu));
+#endif  //  !defined(GL_NOT_ON_PLATFORM) || defined(ENABLE_CC_VULKAN_TESTS)
 
 TEST_P(LayerTreeHostBlurFiltersPixelTestGPULayerList,
        BackdropFilterBlurOffAxis) {
@@ -444,6 +452,9 @@ TEST_P(LayerTreeHostBlurFiltersPixelTestGPULayerList,
       average_error_allowed_in_bad_pixels,
       large_error_allowed,
       small_error_allowed));
+#else
+  if (use_vulkan())
+    pixel_comparator_ = std::make_unique<FuzzyPixelOffByOneComparator>(true);
 #endif
 
   RunPixelTestWithLayerList(
@@ -856,17 +867,22 @@ TEST_P(LayerTreeHostFiltersPixelTest, RotatedFilter) {
 
   background->AddChild(child);
 
-#if defined(OS_WIN)
+#if defined(OS_WIN) || defined(OS_FUCHSIA)
 #if defined (ARCH_CPU_ARM64)
-  // Windows ARM64 has some pixels difference: crbug.com/1029728
+  // Windows ARM64 and Fuchsia has some pixels difference
+  // crbug.com/1029728, crbug.com/1048249
   float percentage_pixels_large_error = 0.391112f;
   float average_error_allowed_in_bad_pixels = 1.1f;
   int large_error_allowed = 3;
-#else
+#elif defined(OS_WIN)
   // Windows has 1 pixel off by 1: crbug.com/259915
   float percentage_pixels_large_error = 0.00111112f;  // 1px / (300*300)
   float average_error_allowed_in_bad_pixels = 1.f;
   int large_error_allowed = 1;
+#else
+  float percentage_pixels_large_error = 0.0f;  // 1px / (300*300)
+  float average_error_allowed_in_bad_pixels = 0.0f;
+  int large_error_allowed = 0;
 #endif
   float percentage_pixels_small_error = 0.0f;
   int small_error_allowed = 0;
@@ -910,7 +926,7 @@ TEST_P(LayerTreeHostFiltersPixelTest, RotatedDropShadowFilter) {
   background->AddChild(child);
 
 #if defined(OS_WIN) || defined(ARCH_CPU_ARM64)
-#if defined(OS_WIN) && defined(ARCH_CPU_ARM64)
+#if (defined(OS_WIN) && defined(ARCH_CPU_ARM64)) || defined(OS_FUCHSIA)
   // Windows ARM64 has some pixels difference: crbug.com/1029729
   float percentage_pixels_large_error = 0.89f;
   float average_error_allowed_in_bad_pixels = 5.f;
@@ -928,6 +944,9 @@ TEST_P(LayerTreeHostFiltersPixelTest, RotatedDropShadowFilter) {
       percentage_pixels_large_error, percentage_pixels_small_error,
       average_error_allowed_in_bad_pixels, large_error_allowed,
       small_error_allowed));
+#else
+  if (use_vulkan())
+    pixel_comparator_ = std::make_unique<FuzzyPixelOffByOneComparator>(true);
 #endif
 
   RunPixelTest(

@@ -108,16 +108,8 @@ void FakeEmbeddedWorkerInstanceClient::StopWorker() {
   CallOnConnectionError();
 }
 
-void FakeEmbeddedWorkerInstanceClient::ResumeAfterDownload() {
-  EvaluateScript();
-}
-
 void FakeEmbeddedWorkerInstanceClient::DidPopulateScriptCacheMap() {
   host_->OnScriptLoaded();
-  if (start_params_->pause_after_download) {
-    // We continue when ResumeAfterDownload() is called.
-    return;
-  }
   EvaluateScript();
 }
 
@@ -134,7 +126,7 @@ void FakeEmbeddedWorkerInstanceClient::CallOnConnectionError() {
 void FakeEmbeddedWorkerInstanceClient::EvaluateScript() {
   host_->OnScriptEvaluationStart();
   host_->OnStarted(blink::mojom::ServiceWorkerStartStatus::kNormalCompletion,
-                   helper_->GetNextThreadId(),
+                   true /* has_fetch_handler */, helper_->GetNextThreadId(),
                    blink::mojom::EmbeddedWorkerStartTiming::New());
 }
 

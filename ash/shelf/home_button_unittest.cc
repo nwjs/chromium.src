@@ -71,7 +71,7 @@ class HomeButtonTest
 
   void SendGestureEvent(ui::GestureEvent* event) {
     HomeButton* const home_button =
-        GetPrimaryShelf()->shelf_widget()->navigation_widget()->GetHomeButton();
+        GetPrimaryShelf()->navigation_widget()->GetHomeButton();
     ASSERT_TRUE(home_button);
     home_button->OnGestureEvent(event);
   }
@@ -117,6 +117,7 @@ class HomeButtonTest
 };
 
 enum class TestAccessibilityFeature {
+  kTabletModeShelfNavigationButtons,
   kSpokenFeedback,
   kAutoclick,
   kSwitchAccess
@@ -138,6 +139,11 @@ class HomeButtonVisibilityWithAccessibilityFeaturesTest
 
   void SetTestA11yFeatureEnabled(bool enabled) {
     switch (GetParam()) {
+      case TestAccessibilityFeature::kTabletModeShelfNavigationButtons:
+        Shell::Get()
+            ->accessibility_controller()
+            ->SetTabletModeShelfNavigationButtonsEnabled(enabled);
+        break;
       case TestAccessibilityFeature::kSpokenFeedback:
         Shell::Get()->accessibility_controller()->SetSpokenFeedbackEnabled(
             enabled, A11Y_NOTIFICATION_NONE);
@@ -204,7 +210,7 @@ TEST_P(HomeButtonTest, ClickToOpenAppList) {
   EXPECT_EQ(ShelfAlignment::kBottom, shelf->alignment());
 
   ShelfNavigationWidget::TestApi test_api(
-      GetPrimaryShelf()->shelf_widget()->navigation_widget());
+      GetPrimaryShelf()->navigation_widget());
   ASSERT_TRUE(test_api.IsHomeButtonVisible());
   ASSERT_TRUE(home_button());
 
@@ -244,8 +250,7 @@ TEST_P(HomeButtonTest, ClickToOpenAppListInTabletMode) {
   Shelf* shelf = GetPrimaryShelf();
   EXPECT_EQ(ShelfAlignment::kBottom, shelf->alignment());
 
-  ShelfNavigationWidget::TestApi test_api(
-      shelf->shelf_widget()->navigation_widget());
+  ShelfNavigationWidget::TestApi test_api(shelf->navigation_widget());
 
   // Home button is expected to be hidden in tablet mode if shelf controls
   // should be hidden - this feature is available only with hotseat enabled.
@@ -288,8 +293,7 @@ TEST_P(HomeButtonTest, ButtonPositionInTabletMode) {
 
   Shelf* const shelf = GetPrimaryShelf();
   ShelfViewTestAPI shelf_test_api(shelf->GetShelfViewForTesting());
-  ShelfNavigationWidget::TestApi test_api(
-      shelf->shelf_widget()->navigation_widget());
+  ShelfNavigationWidget::TestApi test_api(shelf->navigation_widget());
 
   // Home button is expected to be hidden in tablet mode if shelf controls
   // should be hidden - this feature is available only with hotseat enabled.
@@ -310,7 +314,8 @@ TEST_P(HomeButtonTest, ButtonPositionInTabletMode) {
 
     if (should_show_home_button) {
       EXPECT_EQ(home_button()->bounds().x(),
-                ShelfConfig::Get()->home_button_edge_spacing());
+                ShelfConfig::Get()->control_button_edge_spacing(
+                    true /* is_primary_axis_edge */));
     }
 
     // Switch to in-app shelf.
@@ -334,8 +339,9 @@ TEST_P(HomeButtonTest, ButtonPositionInTabletMode) {
   EXPECT_TRUE(test_api.IsHomeButtonVisible());
   ASSERT_TRUE(home_button());
 
-  // Home button spacing is within the widget.
-  EXPECT_EQ(ShelfConfig::Get()->home_button_edge_spacing(),
+  // The space between button and screen edge is within the widget.
+  EXPECT_EQ(ShelfConfig::Get()->control_button_edge_spacing(
+                true /* is_primary_axis_edge */),
             home_button()->bounds().x());
 }
 
@@ -350,7 +356,7 @@ TEST_P(HomeButtonTest, LongPressGesture) {
   assistant_state()->NotifyStatusChanged(mojom::AssistantState::READY);
 
   ShelfNavigationWidget::TestApi test_api(
-      GetPrimaryShelf()->shelf_widget()->navigation_widget());
+      GetPrimaryShelf()->navigation_widget());
   EXPECT_TRUE(test_api.IsHomeButtonVisible());
   ASSERT_TRUE(home_button());
 
@@ -389,7 +395,7 @@ TEST_P(HomeButtonTest, LongPressGestureInTabletMode) {
   Shell::Get()->tablet_mode_controller()->SetEnabledForTest(true);
 
   ShelfNavigationWidget::TestApi test_api(
-      GetPrimaryShelf()->shelf_widget()->navigation_widget());
+      GetPrimaryShelf()->navigation_widget());
   const bool should_show_home_button =
       !(IsHotseatEnabled() && IsHideShelfControlsInTabletModeEnabled());
   EXPECT_EQ(should_show_home_button, test_api.IsHomeButtonVisible());
@@ -441,7 +447,7 @@ TEST_P(HomeButtonTest, LongPressGestureWithSecondaryUser) {
   prefs()->SetBoolean(chromeos::assistant::prefs::kAssistantEnabled, true);
 
   ShelfNavigationWidget::TestApi test_api(
-      GetPrimaryShelf()->shelf_widget()->navigation_widget());
+      GetPrimaryShelf()->navigation_widget());
   EXPECT_TRUE(test_api.IsHomeButtonVisible());
   ASSERT_TRUE(home_button());
 
@@ -475,7 +481,7 @@ TEST_P(HomeButtonTest, LongPressGestureWithSettingsDisabled) {
       mojom::AssistantAllowedState::ALLOWED);
 
   ShelfNavigationWidget::TestApi test_api(
-      GetPrimaryShelf()->shelf_widget()->navigation_widget());
+      GetPrimaryShelf()->navigation_widget());
   EXPECT_TRUE(test_api.IsHomeButtonVisible());
   ASSERT_TRUE(home_button());
 
@@ -562,7 +568,7 @@ TEST_P(HomeButtonTest, ClickOnCornerPixel) {
       0, display::Screen::GetScreen()->GetPrimaryDisplay().bounds().height());
 
   ShelfNavigationWidget::TestApi test_api(
-      GetPrimaryShelf()->shelf_widget()->navigation_widget());
+      GetPrimaryShelf()->navigation_widget());
   ASSERT_TRUE(test_api.IsHomeButtonVisible());
 
   GetAppListTestHelper()->CheckVisibility(false);
@@ -579,16 +585,18 @@ TEST_P(HomeButtonTest, ClickOnCornerPixel) {
 INSTANTIATE_TEST_SUITE_P(
     All,
     HomeButtonVisibilityWithAccessibilityFeaturesTest,
-    ::testing::Values(TestAccessibilityFeature::kSpokenFeedback,
-                      TestAccessibilityFeature::kAutoclick,
-                      TestAccessibilityFeature::kSwitchAccess));
+    ::testing::Values(
+        TestAccessibilityFeature::kTabletModeShelfNavigationButtons,
+        TestAccessibilityFeature::kSpokenFeedback,
+        TestAccessibilityFeature::kAutoclick,
+        TestAccessibilityFeature::kSwitchAccess));
 
 TEST_P(HomeButtonVisibilityWithAccessibilityFeaturesTest,
        TabletModeSwitchWithA11yFeatureEnabled) {
   SetTestA11yFeatureEnabled(true /*enabled*/);
 
   ShelfNavigationWidget::TestApi test_api(
-      GetPrimaryShelf()->shelf_widget()->navigation_widget());
+      GetPrimaryShelf()->navigation_widget());
   EXPECT_TRUE(test_api.IsHomeButtonVisible());
 
   // Switch to tablet mode, and verify the home button is still visible.
@@ -603,7 +611,7 @@ TEST_P(HomeButtonVisibilityWithAccessibilityFeaturesTest,
 TEST_P(HomeButtonVisibilityWithAccessibilityFeaturesTest,
        FeatureEnabledWhileInTabletMode) {
   ShelfNavigationWidget::TestApi test_api(
-      GetPrimaryShelf()->shelf_widget()->navigation_widget());
+      GetPrimaryShelf()->navigation_widget());
   EXPECT_TRUE(test_api.IsHomeButtonVisible());
 
   // Switch to tablet mode, and verify the home button is hidden.

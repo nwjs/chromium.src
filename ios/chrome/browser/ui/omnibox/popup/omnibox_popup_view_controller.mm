@@ -11,12 +11,13 @@
 #include "base/time/time.h"
 #import "ios/chrome/browser/ui/ntp_tile_views/ntp_tile_layout_util.h"
 #include "ios/chrome/browser/ui/omnibox/omnibox_constants.h"
+#import "ios/chrome/browser/ui/omnibox/popup/omnibox_popup_accessibility_identifier_constants.h"
 #import "ios/chrome/browser/ui/omnibox/popup/omnibox_popup_row_cell.h"
 #include "ios/chrome/browser/ui/omnibox/popup/self_sizing_table_view.h"
 #include "ios/chrome/browser/ui/toolbar/buttons/toolbar_configuration.h"
 #include "ios/chrome/browser/ui/util/ui_util.h"
 #include "ios/chrome/browser/ui/util/uikit_ui_util.h"
-#include "ios/chrome/common/ui_util/constraints_ui_util.h"
+#include "ios/chrome/common/ui/util/constraints_ui_util.h"
 
 #if !defined(__has_feature) || !__has_feature(objc_arc)
 #error "This file requires ARC support."
@@ -98,6 +99,8 @@ const CGFloat kTopAndBottomPadding = 8.0;
 - (void)viewDidLoad {
   [super viewDidLoad];
 
+  self.tableView.accessibilityIdentifier =
+      kOmniboxPopupTableViewAccessibilityIdentifier;
   self.tableView.insetsContentViewsToSafeArea = YES;
 
   // Initialize the same size as the parent view, autoresize will correct this.
@@ -136,6 +139,13 @@ const CGFloat kTopAndBottomPadding = 8.0;
   [super viewWillDisappear:animated];
   UMA_HISTOGRAM_MEDIUM_TIMES("MobileOmnibox.PopupOpenDuration",
                              base::TimeTicks::Now() - self.viewAppearanceTime);
+}
+
+- (void)viewWillTransitionToSize:(CGSize)size
+       withTransitionCoordinator:
+           (id<UIViewControllerTransitionCoordinator>)coordinator {
+  [super viewWillTransitionToSize:size withTransitionCoordinator:coordinator];
+  [self.tableView setEditing:NO animated:NO];
 }
 
 #pragma mark - AutocompleteResultConsumer

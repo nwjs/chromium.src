@@ -282,8 +282,6 @@ class BASE_EXPORT PartitionAllocHooks {
   static std::atomic<bool> hooks_enabled_;
 
   // Lock used to synchronize Set*Hooks calls.
-  static subtle::SpinLock set_hooks_lock_;
-
   static std::atomic<AllocationObserverHook*> allocation_observer_hook_;
   static std::atomic<FreeObserverHook*> free_observer_hook_;
 
@@ -368,7 +366,8 @@ ALWAYS_INLINE void PartitionFree(void* ptr) {
   internal::PartitionPage* page = internal::PartitionPage::FromPointer(ptr);
   // TODO(palmer): See if we can afford to make this a CHECK.
   DCHECK(internal::PartitionRootBase::IsValidPage(page));
-  page->Free(ptr);
+  internal::DeferredUnmap deferred_unmap = page->Free(ptr);
+  deferred_unmap.Run();
 #endif
 }
 
@@ -462,10 +461,12 @@ ALWAYS_INLINE void PartitionRootGeneric::Free(void* ptr) {
   internal::PartitionPage* page = internal::PartitionPage::FromPointer(ptr);
   // TODO(palmer): See if we can afford to make this a CHECK.
   DCHECK(IsValidPage(page));
+  internal::DeferredUnmap deferred_unmap;
   {
     subtle::SpinLock::Guard guard(lock);
-    page->Free(ptr);
+    deferred_unmap = page->Free(ptr);
   }
+  deferred_unmap.Run();
 #endif
 }
 

@@ -21,10 +21,11 @@ import android.support.test.espresso.contrib.RecyclerViewActions;
 import android.support.test.filters.LargeTest;
 import android.support.test.filters.MediumTest;
 import android.support.test.filters.SmallTest;
-import android.support.v7.widget.RecyclerView;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
+
+import androidx.recyclerview.widget.RecyclerView;
 
 import org.junit.After;
 import org.junit.Assert;
@@ -46,11 +47,11 @@ import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.RetryOnFailure;
 import org.chromium.base.test.util.UrlUtils;
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.feed.FeedNewTabPage;
 import org.chromium.chrome.browser.feed.FeedProcessScopeFactory;
 import org.chromium.chrome.browser.feed.TestNetworkClient;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.native_page.ContextMenuManager;
 import org.chromium.chrome.browser.ntp.cards.NewTabPageAdapter;
 import org.chromium.chrome.browser.ntp.cards.NewTabPageRecyclerView;
@@ -65,8 +66,6 @@ import org.chromium.chrome.browser.preferences.PrefServiceBridge;
 import org.chromium.chrome.browser.suggestions.SiteSuggestion;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.util.UrlConstants;
-import org.chromium.chrome.browser.widget.ScrimView;
 import org.chromium.chrome.test.ChromeJUnit4RunnerDelegate;
 import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
 import org.chromium.chrome.test.util.ChromeRenderTestRule;
@@ -77,6 +76,8 @@ import org.chromium.chrome.test.util.browser.Features;
 import org.chromium.chrome.test.util.browser.RecyclerViewTestUtils;
 import org.chromium.chrome.test.util.browser.suggestions.SuggestionsDependenciesRule;
 import org.chromium.chrome.test.util.browser.suggestions.mostvisited.FakeMostVisitedSites;
+import org.chromium.components.browser_ui.widget.scrim.ScrimCoordinator;
+import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.test.util.Criteria;
 import org.chromium.content_public.browser.test.util.CriteriaHelper;
@@ -215,12 +216,14 @@ public class NewTabPageTest {
     @Feature({"NewTabPage", "FeedNewTabPage", "RenderTest"})
     @ParameterAnnotations.UseMethodParameter(InterestFeedParams.class)
     public void testRender_FocusFakeBox(boolean interestFeedEnabled) throws Exception {
-        ScrimView scrimView = mActivityTestRule.getActivity().getScrim();
-        scrimView.disableAnimationForTesting(true);
+        ScrimCoordinator scrimCoordinator = mActivityTestRule.getActivity()
+                                                    .getRootUiCoordinatorForTesting()
+                                                    .getScrimCoordinatorForTesting();
+        scrimCoordinator.disableAnimationForTesting(true);
         onView(withId(R.id.search_box)).perform(click());
         ChromeRenderTestRule.sanitize(mNtp.getView().getRootView());
         mRenderTestRule.render(mNtp.getView().getRootView(), "focus_fake_box");
-        scrimView.disableAnimationForTesting(false);
+        scrimCoordinator.disableAnimationForTesting(false);
     }
 
     @DisabledTest(message = "https://crbug.com/898165")
@@ -365,7 +368,7 @@ public class NewTabPageTest {
                 TouchCommon.singleClickView(mostVisitedItem);
             }
         });
-        Assert.assertEquals(mSiteSuggestions.get(0).url, mTab.getUrl());
+        Assert.assertEquals(mSiteSuggestions.get(0).url, mTab.getUrlString());
     }
 
     /**

@@ -135,6 +135,8 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
       const blink::WebInputEvent& input_event) override;
   void GestureEventAck(const blink::WebGestureEvent& event,
                        InputEventAckState ack_result) override;
+  void ChildDidAckGestureEvent(const blink::WebGestureEvent& event,
+                               InputEventAckState ack_result) override;
   bool OnUnconsumedKeyboardEventAck(
       const NativeWebKeyboardEventWithLatencyInfo& event) override;
   void FallbackCursorModeLockCursor(bool left,
@@ -145,7 +147,10 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
   BrowserAccessibilityManager* CreateBrowserAccessibilityManager(
       BrowserAccessibilityDelegate* delegate,
       bool for_root_frame) override;
-  bool LockMouse(bool request_unadjusted_movement) override;
+  blink::mojom::PointerLockResult LockMouse(
+      bool request_unadjusted_movement) override;
+  blink::mojom::PointerLockResult ChangeMouseLock(
+      bool request_unadjusted_movement) override;
   void UnlockMouse() override;
   void ResetFallbackToFirstNavigationSurface() override;
   bool RequestRepaintForTesting() override;
@@ -370,6 +375,8 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
 
  private:
   friend class RenderWidgetHostViewAndroidTest;
+  FRIEND_TEST_ALL_PREFIXES(SitePerProcessBrowserTest,
+                           GestureManagerListensToChildFrames);
 
   MouseWheelPhaseHandler* GetMouseWheelPhaseHandler() override;
 

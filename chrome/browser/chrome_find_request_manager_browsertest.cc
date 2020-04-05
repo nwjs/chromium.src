@@ -101,10 +101,15 @@ IN_PROC_BROWSER_TEST_F(ChromeFindRequestManagerTest, MAYBE_FindInPDF) {
   ASSERT_TRUE(pdf_extension_test_util::EnsurePDFHasLoaded(contents()));
 
   auto options = blink::mojom::FindOptions::New();
-  options->run_synchronously_for_testing = true;
   Find("result", options.Clone());
+  delegate()->MarkNextReply();
+  delegate()->WaitForNextReply();
+
   options->find_next = true;
   Find("result", options.Clone());
+  delegate()->MarkNextReply();
+  delegate()->WaitForNextReply();
+
   Find("result", options.Clone());
   delegate()->WaitForFinalReply();
 
@@ -227,7 +232,6 @@ IN_PROC_BROWSER_TEST_F(ChromeFindRequestManagerTest, FindInChunkedPDF) {
 
   // Verify that find-in-page works fine.
   auto options = blink::mojom::FindOptions::New();
-  options->run_synchronously_for_testing = true;
   Find("FXCMAP_CMap", options.Clone());
   options->find_next = true;
   Find("FXCMAP_CMap", options.Clone());
@@ -274,7 +278,6 @@ IN_PROC_BROWSER_TEST_F(ChromeFindRequestManagerTest, FindMissingStringInPDF) {
   ASSERT_TRUE(pdf_extension_test_util::EnsurePDFHasLoaded(contents()));
 
   auto options = blink::mojom::FindOptions::New();
-  options->run_synchronously_for_testing = true;
   Find("missing", options.Clone());
   delegate()->WaitForFinalReply();
 
@@ -293,7 +296,6 @@ IN_PROC_BROWSER_TEST_F(ChromeFindRequestManagerTest,
   ASSERT_TRUE(pdf_extension_test_util::EnsurePDFHasLoaded(contents()));
 
   auto options = blink::mojom::FindOptions::New();
-  options->run_synchronously_for_testing = true;
   Find("r", options.Clone());
   delegate()->MarkNextReply();
   delegate()->WaitForNextReply();

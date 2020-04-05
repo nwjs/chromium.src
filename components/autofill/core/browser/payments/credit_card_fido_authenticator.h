@@ -14,17 +14,17 @@
 #include "components/autofill/core/browser/data_model/credit_card.h"
 #include "components/autofill/core/browser/payments/fido_authentication_strike_database.h"
 #include "components/autofill/core/browser/payments/full_card_request.h"
+#include "components/autofill/core/browser/payments/internal_authenticator.h"
 #include "components/autofill/core/browser/payments/payments_client.h"
 #include "device/fido/fido_constants.h"
 #include "mojo/public/cpp/bindings/remote.h"
-#include "third_party/blink/public/mojom/webauthn/internal_authenticator.mojom.h"
+#include "third_party/blink/public/mojom/webauthn/authenticator.mojom.h"
 
 namespace autofill {
 
 using blink::mojom::AuthenticatorStatus;
 using blink::mojom::GetAssertionAuthenticatorResponse;
 using blink::mojom::GetAssertionAuthenticatorResponsePtr;
-using blink::mojom::InternalAuthenticator;
 using blink::mojom::MakeCredentialAuthenticatorResponse;
 using blink::mojom::MakeCredentialAuthenticatorResponsePtr;
 using blink::mojom::PublicKeyCredentialCreationOptions;
@@ -38,6 +38,18 @@ using device::CredentialType;
 using device::FidoTransportProtocol;
 using device::PublicKeyCredentialDescriptor;
 using device::UserVerificationRequirement;
+
+// Enum denotes user's intention to opt in/out.
+enum class UserOptInIntention {
+  // Unspecified intention. No pref mismatch.
+  kUnspecified = 0,
+  // Only used for Android settings page. Local pref is opted in but Payments
+  // considers the user not opted-in.
+  kIntentToOptIn = 1,
+  // User intends to opt out, happens when user opted out from settings page on
+  // Android, or opt-out call failed on Desktop.
+  kIntentToOptOut = 2,
+};
 
 // Authenticates credit card unmasking through FIDO authentication, using the
 // WebAuthn specification, standardized by the FIDO alliance. The Webauthn
@@ -97,7 +109,7 @@ class CreditCardFIDOAuthenticator
                  base::Value request_options);
 
   // Opts the user out.
-  void OptOut();
+  virtual void OptOut();
 
   // Invokes callback with true if user has a verifying platform authenticator.
   // e.g. Touch/Face ID, Windows Hello, Android fingerprint, etc., is available
@@ -107,8 +119,10 @@ class CreditCardFIDOAuthenticator
   // Returns true only if the user has opted-in to use WebAuthn for autofill.
   virtual bool IsUserOptedIn();
 
-  // Ensures that local user opt-in pref is in-sync with payments server.
-  void SyncUserOptIn(payments::PaymentsClient::UnmaskDetails& unmask_details);
+  // Return user's opt in/out intention based on unmask detail response and
+  // local pref.
+  UserOptInIntention GetUserOptInIntention(
+      payments::PaymentsClient::UnmaskDetails& unmask_details);
 
   // Cancel the ongoing verification process. Used to reset states in this class
   // and in the FullCardRequest if any.
@@ -216,6 +230,9 @@ class CreditCardFIDOAuthenticator
   // Updates the user preference to the value of |user_is_opted_in_|.
   void UpdateUserPref();
 
+  // Gets or creates Authenticator pointer to facilitate WebAuthn.
+  InternalAuthenticator* authenticator();
+
   // Card being unmasked.
   const CreditCard* card_;
 
@@ -239,7 +256,7 @@ class CreditCardFIDOAuthenticator
   payments::PaymentsClient* const payments_client_;
 
   // Authenticator pointer to facilitate WebAuthn.
-  mojo::Remote<InternalAuthenticator> authenticator_;
+  InternalAuthenticator* authenticator_ = nullptr;
 
   // Responsible for getting the full card details, including the PAN and the
   // CVC.

@@ -228,6 +228,59 @@ TEST(PasswordManagerUtil, FindBestMatches) {
   }
 }
 
+TEST(PasswordManagerUtil, FindBestMatchesInProfileAndAccountStores) {
+  const base::string16 kUsername1 = base::ASCIIToUTF16("Username1");
+  const base::string16 kPassword1 = base::ASCIIToUTF16("Password1");
+  const base::string16 kUsername2 = base::ASCIIToUTF16("Username2");
+  const base::string16 kPassword2 = base::ASCIIToUTF16("Password2");
+
+  PasswordForm form;
+  form.is_public_suffix_match = false;
+  form.date_last_used = base::Time::Now();
+
+  // Add the same credentials in account and profile stores.
+  PasswordForm account_form1(form);
+  account_form1.username_value = kUsername1;
+  account_form1.password_value = kPassword1;
+  account_form1.in_store = PasswordForm::Store::kAccountStore;
+
+  PasswordForm profile_form1(account_form1);
+  profile_form1.in_store = PasswordForm::Store::kProfileStore;
+
+  // Add the credentials for the same username in account and profile stores but
+  // with different passwords.
+  PasswordForm account_form2(form);
+  account_form2.username_value = kUsername2;
+  account_form2.password_value = kPassword1;
+  account_form2.in_store = PasswordForm::Store::kAccountStore;
+
+  PasswordForm profile_form2(account_form2);
+  profile_form2.password_value = kPassword2;
+  profile_form2.in_store = PasswordForm::Store::kProfileStore;
+
+  std::vector<const PasswordForm*> matches;
+  matches.push_back(&account_form1);
+  matches.push_back(&profile_form1);
+  matches.push_back(&account_form2);
+  matches.push_back(&profile_form2);
+
+  std::vector<const PasswordForm*> best_matches;
+  const PasswordForm* preferred_match = nullptr;
+  std::vector<const PasswordForm*> same_scheme_matches;
+  FindBestMatches(matches, PasswordForm::Scheme::kHtml, &same_scheme_matches,
+                  &best_matches, &preferred_match);
+  // All 4 matches should be returned in best matches.
+  EXPECT_EQ(best_matches.size(), 4U);
+  EXPECT_NE(std::find(best_matches.begin(), best_matches.end(), &account_form1),
+            best_matches.end());
+  EXPECT_NE(std::find(best_matches.begin(), best_matches.end(), &account_form2),
+            best_matches.end());
+  EXPECT_NE(std::find(best_matches.begin(), best_matches.end(), &profile_form1),
+            best_matches.end());
+  EXPECT_NE(std::find(best_matches.begin(), best_matches.end(), &profile_form2),
+            best_matches.end());
+}
+
 TEST(PasswordManagerUtil, GetMatchForUpdating_MatchUsername) {
   autofill::PasswordForm stored = GetTestCredential();
   autofill::PasswordForm parsed = GetTestCredential();
@@ -423,12 +476,23 @@ TEST(PasswordManagerUtil, AccountStoragePerAccountSettings) {
   second_account.gaia = "second";
   second_account.account_id = CoreAccountId::FromGaiaId(second_account.gaia);
 
-  // SyncService is running in transport mode with |first_account|.
   syncer::TestSyncService sync_service;
+  sync_service.SetDisableReasons(
+      {syncer::SyncService::DISABLE_REASON_NOT_SIGNED_IN});
+  sync_service.SetTransportState(syncer::SyncService::TransportState::DISABLED);
   sync_service.SetIsAuthenticatedAccountPrimary(false);
+
+  // Initially the user is not signed in, so everything is off/local.
+  EXPECT_FALSE(IsOptedInForAccountStorage(&pref_service, &sync_service));
+  EXPECT_FALSE(ShouldShowAccountStorageOptIn(&pref_service, &sync_service));
+  EXPECT_FALSE(ShouldShowPasswordStorePicker(&pref_service, &sync_service));
+  EXPECT_EQ(GetDefaultPasswordStore(&pref_service, &sync_service),
+            autofill::PasswordForm::Store::kProfileStore);
+
+  // Now let SyncService run in transport mode with |first_account|.
   sync_service.SetAuthenticatedAccountInfo(first_account);
-  ASSERT_EQ(sync_service.GetTransportState(),
-            syncer::SyncService::TransportState::ACTIVE);
+  sync_service.SetDisableReasons({});
+  sync_service.SetTransportState(syncer::SyncService::TransportState::ACTIVE);
   ASSERT_FALSE(sync_service.IsSyncFeatureEnabled());
 
   // By default, the user is not opted in. But since they're eligible for
@@ -470,6 +534,96 @@ TEST(PasswordManagerUtil, AccountStoragePerAccountSettings) {
   sync_service.SetTransportState(syncer::SyncService::TransportState::DISABLED);
   EXPECT_FALSE(IsOptedInForAccountStorage(&pref_service, &sync_service));
   EXPECT_FALSE(ShouldShowAccountStorageOptIn(&pref_service, &sync_service));
+  EXPECT_EQ(GetDefaultPasswordStore(&pref_service, &sync_service),
+            autofill::PasswordForm::Store::kProfileStore);
+}
+
+TEST(PasswordManagerUtil, SyncSuppressesAccountStorageOptIn) {
+  base::test::ScopedFeatureList features;
+  features.InitAndEnableFeature(
+      password_manager::features::kEnablePasswordsAccountStorage);
+
+  TestingPrefServiceSimple pref_service;
+  pref_service.registry()->RegisterDictionaryPref(
+      password_manager::prefs::kAccountStoragePerAccountSettings);
+
+  CoreAccountInfo account;
+  account.email = "name@account.com";
+  account.gaia = "name";
+  account.account_id = CoreAccountId::FromGaiaId(account.gaia);
+
+  // Initially, the user is signed in but doesn't have Sync-the-feature enabled,
+  // so the SyncService is running in transport mode.
+  syncer::TestSyncService sync_service;
+  sync_service.SetIsAuthenticatedAccountPrimary(false);
+  sync_service.SetAuthenticatedAccountInfo(account);
+  ASSERT_EQ(sync_service.GetTransportState(),
+            syncer::SyncService::TransportState::ACTIVE);
+  ASSERT_FALSE(sync_service.IsSyncFeatureEnabled());
+
+  // In this state, the user could opt in to the account storage.
+  ASSERT_FALSE(IsOptedInForAccountStorage(&pref_service, &sync_service));
+  ASSERT_TRUE(ShouldShowAccountStorageOptIn(&pref_service, &sync_service));
+  ASSERT_TRUE(ShouldShowPasswordStorePicker(&pref_service, &sync_service));
+
+  // Now the user enables Sync-the-feature.
+  sync_service.SetIsAuthenticatedAccountPrimary(true);
+  sync_service.SetFirstSetupComplete(true);
+  ASSERT_TRUE(sync_service.IsSyncFeatureEnabled());
+
+  // Now the account-storage opt-in should *not* be available anymore.
+  EXPECT_FALSE(IsOptedInForAccountStorage(&pref_service, &sync_service));
+  EXPECT_FALSE(ShouldShowAccountStorageOptIn(&pref_service, &sync_service));
+  EXPECT_FALSE(ShouldShowPasswordStorePicker(&pref_service, &sync_service));
+}
+
+TEST(PasswordManagerUtil, SyncDisablesAccountStorage) {
+  base::test::ScopedFeatureList features;
+  features.InitAndEnableFeature(
+      password_manager::features::kEnablePasswordsAccountStorage);
+
+  TestingPrefServiceSimple pref_service;
+  pref_service.registry()->RegisterDictionaryPref(
+      password_manager::prefs::kAccountStoragePerAccountSettings);
+
+  CoreAccountInfo account;
+  account.email = "name@account.com";
+  account.gaia = "name";
+  account.account_id = CoreAccountId::FromGaiaId(account.gaia);
+
+  // The SyncService is running in transport mode.
+  syncer::TestSyncService sync_service;
+  sync_service.SetIsAuthenticatedAccountPrimary(false);
+  sync_service.SetAuthenticatedAccountInfo(account);
+  ASSERT_EQ(sync_service.GetTransportState(),
+            syncer::SyncService::TransportState::ACTIVE);
+  ASSERT_FALSE(sync_service.IsSyncFeatureEnabled());
+
+  // The account storage is available in principle, so the opt-in will be shown,
+  // and saving will default to the account store.
+  ASSERT_FALSE(IsOptedInForAccountStorage(&pref_service, &sync_service));
+  ASSERT_TRUE(ShouldShowAccountStorageOptIn(&pref_service, &sync_service));
+  ASSERT_TRUE(ShouldShowPasswordStorePicker(&pref_service, &sync_service));
+  ASSERT_EQ(GetDefaultPasswordStore(&pref_service, &sync_service),
+            autofill::PasswordForm::Store::kAccountStore);
+
+  // Opt in.
+  SetAccountStorageOptIn(&pref_service, &sync_service, true);
+  ASSERT_TRUE(IsOptedInForAccountStorage(&pref_service, &sync_service));
+  ASSERT_FALSE(ShouldShowAccountStorageOptIn(&pref_service, &sync_service));
+  ASSERT_TRUE(ShouldShowPasswordStorePicker(&pref_service, &sync_service));
+  ASSERT_EQ(GetDefaultPasswordStore(&pref_service, &sync_service),
+            autofill::PasswordForm::Store::kAccountStore);
+
+  // Now enable Sync-the-feature. This should effectively turn *off* the account
+  // storage again (since with Sync, there's only a single combined storage),
+  // even though the opt-in wasn't actually cleared.
+  sync_service.SetIsAuthenticatedAccountPrimary(true);
+  sync_service.SetFirstSetupComplete(true);
+  ASSERT_TRUE(sync_service.IsSyncFeatureEnabled());
+  EXPECT_TRUE(IsOptedInForAccountStorage(&pref_service, &sync_service));
+  EXPECT_FALSE(ShouldShowAccountStorageOptIn(&pref_service, &sync_service));
+  EXPECT_FALSE(ShouldShowPasswordStorePicker(&pref_service, &sync_service));
   EXPECT_EQ(GetDefaultPasswordStore(&pref_service, &sync_service),
             autofill::PasswordForm::Store::kProfileStore);
 }

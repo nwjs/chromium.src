@@ -37,6 +37,15 @@ const base::Feature kScrollableTabStrip{"ScrollableTabStrip",
 // Enables grouping tabs together in the tab strip. https://crbug.com/905491
 const base::Feature kTabGroups{"TabGroups", base::FEATURE_DISABLED_BY_DEFAULT};
 
+// Enables tab groups to be collapsed and expanded. https://crbug.com/1018230
+const base::Feature kTabGroupsCollapse{"TabGroupsCollapse",
+                                       base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Enables the feedback through the tab group editor bubble.
+// https://crbug.com/1067062
+const base::Feature kTabGroupsFeedback{"TabGroupsFeedback",
+                                       base::FEATURE_ENABLED_BY_DEFAULT};
+
 // Enables popup cards containing tab information when hovering over a tab.
 // https://crbug.com/910739
 const base::Feature kTabHoverCards {

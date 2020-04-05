@@ -14,6 +14,7 @@
 #include "content/browser/web_contents/web_contents_impl.h"
 #include "content/common/web_contents_ns_view_bridge.mojom.h"
 #include "content/public/browser/web_contents_delegate.h"
+#include "content/public/browser/web_contents_view_delegate.h"
 #include "content/public/browser/web_drag_dest_delegate.h"
 #include "content/public/common/child_process_host.h"
 #include "content/public/common/drop_data.h"
@@ -33,6 +34,26 @@ using content::OpenURLParams;
 using content::Referrer;
 using content::WebContentsImpl;
 using remote_cocoa::mojom::DraggingInfo;
+
+namespace content {
+
+DropContext::DropContext(
+    const content::DropData drop_data,
+    const gfx::PointF client_pt,
+    const gfx::PointF screen_pt,
+    int modifier_flags,
+    base::WeakPtr<content::RenderWidgetHostImpl> target_rwh)
+    : drop_data(drop_data),
+      client_pt(client_pt),
+      screen_pt(screen_pt),
+      modifier_flags(modifier_flags),
+      target_rwh(target_rwh) {}
+
+DropContext::DropContext(const DropContext& other) = default;
+
+DropContext::~DropContext() = default;
+
+}  // namespace content
 
 namespace {
 
@@ -66,6 +87,22 @@ int GetModifierFlags() {
 content::GlobalRoutingID GetRenderViewHostID(content::RenderViewHost* rvh) {
   return content::GlobalRoutingID(rvh->GetProcess()->GetID(),
                                   rvh->GetRoutingID());
+}
+
+void DropCompletionCallback(
+    WebDragDest* drag_dest,
+    const content::DropContext context,
+    content::WebContentsViewDelegate::DropCompletionResult result) {
+  // This is an async callback. Make sure RWH is still valid.
+  if (!context.target_rwh ||
+      ![drag_dest isValidDragTarget:context.target_rwh.get()]) {
+    return;
+  }
+
+  bool success =
+      result ==
+      content::WebContentsViewDelegate::DropCompletionResult::kContinue;
+  [drag_dest completeDropAsync:success withContext:context];
 }
 
 }  // namespace
@@ -141,6 +178,9 @@ content::GlobalRoutingID GetRenderViewHostID(content::RenderViewHost* rvh) {
 }
 
 - (NSDragOperation)draggingEntered:(const DraggingInfo*)info {
+  if (_webContents->ShouldIgnoreInputEvents())
+    return NSDragOperationNone;
+
   // Save off the RVH so we can tell if it changes during a drag. If it does,
   // we need to send a new enter message in draggingUpdated:.
   _currentRVH = _webContents->GetRenderViewHost();
@@ -202,6 +242,12 @@ content::GlobalRoutingID GetRenderViewHostID(content::RenderViewHost* rvh) {
 }
 
 - (void)draggingExited {
+  if (_webContents->ShouldIgnoreInputEvents())
+    return;
+
+  if (!_dropDataFiltered || !_dropDataUnfiltered)
+    return;
+
   DCHECK(_currentRVH);
   if (_currentRVH != _webContents->GetRenderViewHost())
     return;
@@ -224,6 +270,12 @@ content::GlobalRoutingID GetRenderViewHostID(content::RenderViewHost* rvh) {
 }
 
 - (NSDragOperation)draggingUpdated:(const DraggingInfo*)info {
+  if (_webContents->ShouldIgnoreInputEvents())
+    return NSDragOperationNone;
+
+  if (!_dropDataFiltered || !_dropDataUnfiltered)
+    return NSDragOperationNone;
+
   if (_canceled) {
     // TODO(ekaramad,paulmeyer): We probably shouldn't be checking for
     // |canceled_| twice in this method.
@@ -280,7 +332,12 @@ content::GlobalRoutingID GetRenderViewHostID(content::RenderViewHost* rvh) {
   return _currentOperation;
 }
 
-- (BOOL)performDragOperation:(const DraggingInfo*)info {
+- (BOOL)performDragOperation:(const DraggingInfo*)info
+    withWebContentsViewDelegate:
+        (content::WebContentsViewDelegate*)webContentsViewDelegate {
+  if (_webContents->ShouldIgnoreInputEvents())
+    return NO;
+
   gfx::PointF transformedPt;
   content::RenderWidgetHostImpl* targetRWH =
       [self GetRenderWidgetHostAtPoint:info->location_in_view
@@ -308,19 +365,44 @@ content::GlobalRoutingID GetRenderViewHostID(content::RenderViewHost* rvh) {
     }
   }
 
-  if (_delegate)
-    _delegate->OnDrop();
-
   _currentRVH = NULL;
-
   _webContents->Focus();
-  targetRWH->DragTargetDrop(*_dropDataFiltered, transformedPt,
-                            info->location_in_screen, GetModifierFlags());
 
+  if (webContentsViewDelegate) {
+    content::DropContext context(/*drop_data=*/*_dropDataFiltered,
+                                 /*client_pt=*/transformedPt,
+                                 /*screen_pt=*/info->location_in_screen,
+                                 /*modifier_flags=*/GetModifierFlags(),
+                                 /*target_rwh=*/targetRWH->GetWeakPtr());
+
+    webContentsViewDelegate->OnPerformDrop(
+        context.drop_data,
+        base::BindOnce(&DropCompletionCallback, self, context));
+  } else {
+    if (_delegate)
+      _delegate->OnDrop();
+    targetRWH->DragTargetDrop(*_dropDataFiltered, transformedPt,
+                              info->location_in_screen, GetModifierFlags());
+  }
   _dropDataUnfiltered.reset();
   _dropDataFiltered.reset();
 
   return YES;
+}
+
+- (void)completeDropAsync:(BOOL)success
+              withContext:(const content::DropContext)context {
+  if (success) {
+    if (_delegate)
+      _delegate->OnDrop();
+    context.target_rwh->DragTargetDrop(context.drop_data, context.client_pt,
+                                       context.screen_pt,
+                                       context.modifier_flags);
+  } else {
+    if (_delegate)
+      _delegate->OnDragLeave();
+    context.target_rwh->DragTargetDragLeave(gfx::PointF(), gfx::PointF());
+  }
 }
 
 - (content::RenderWidgetHostImpl*)

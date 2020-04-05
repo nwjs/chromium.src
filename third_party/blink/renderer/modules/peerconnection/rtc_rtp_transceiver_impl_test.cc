@@ -8,6 +8,7 @@
 
 #include "base/bind.h"
 #include "base/logging.h"
+#include "base/memory/ptr_util.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/optional.h"
 #include "base/run_loop.h"
@@ -253,8 +254,10 @@ TEST_F(RTCRtpTransceiverImplTest, CreateTranceiver) {
   EXPECT_FALSE(transceiver_state.is_initialized());
   transceiver_state.Initialize();
 
-  RTCRtpTransceiverImpl transceiver(peer_connection_.get(), track_map_,
-                                    std::move(transceiver_state));
+  RTCRtpTransceiverImpl transceiver(
+      peer_connection_.get(), track_map_, std::move(transceiver_state),
+      /*force_encoded_audio_insertable_streams=*/false,
+      /*force_encoded_video_insertable_streams=*/false);
   EXPECT_TRUE(transceiver.Mid().IsNull());
   EXPECT_TRUE(transceiver.Sender());
   EXPECT_TRUE(transceiver.Receiver());
@@ -297,8 +300,10 @@ TEST_F(RTCRtpTransceiverImplTest, ModifyTransceiver) {
 
   // Modifying the webrtc transceiver after the initial state was created should
   // not have affected the transceiver state.
-  RTCRtpTransceiverImpl transceiver(peer_connection_.get(), track_map_,
-                                    std::move(initial_transceiver_state));
+  RTCRtpTransceiverImpl transceiver(
+      peer_connection_.get(), track_map_, std::move(initial_transceiver_state),
+      /*force_encoded_audio_insertable_streams=*/false,
+      /*force_encoded_video_insertable_streams=*/false);
   EXPECT_TRUE(transceiver.Mid().IsNull());
   EXPECT_TRUE(transceiver.Sender());
   EXPECT_TRUE(transceiver.Receiver());
@@ -342,7 +347,9 @@ TEST_F(RTCRtpTransceiverImplTest, ShallowCopy) {
     EXPECT_FALSE(transceiver_state.is_initialized());
     transceiver_state.Initialize();
     transceiver.reset(new RTCRtpTransceiverImpl(
-        peer_connection_.get(), track_map_, std::move(transceiver_state)));
+        peer_connection_.get(), track_map_, std::move(transceiver_state),
+        /*force_encoded_audio_insertable_streams=*/false,
+        /*force_encoded_video_insertable_streams=*/false));
   }
   DCHECK(transceiver);
   EXPECT_FALSE(transceiver->Stopped());
@@ -401,8 +408,10 @@ TEST_F(RTCRtpTransceiverImplTest, TransceiverStateUpdateModeSetDescription) {
   modified_transceiver_state.Initialize();
 
   // Construct a transceiver from the initial state.
-  RTCRtpTransceiverImpl transceiver(peer_connection_.get(), track_map_,
-                                    std::move(initial_transceiver_state));
+  RTCRtpTransceiverImpl transceiver(
+      peer_connection_.get(), track_map_, std::move(initial_transceiver_state),
+      /*force_encoded_audio_insertable_streams=*/false,
+      /*force_encoded_video_insertable_streams=*/false);
   // Setting the state with TransceiverStateUpdateMode::kSetDescription should
   // make the transceiver state up-to-date, except leaving
   // "transceiver.direction" and "transceiver.sender.track" unmodified.

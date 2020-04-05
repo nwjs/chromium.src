@@ -73,12 +73,12 @@ void PickerIndicatorElement::DefaultEventHandler(Event& event) {
       picker_indicator_owner_->IsPickerIndicatorOwnerDisabledOrReadOnly())
     return;
 
+  auto* keyboard_event = DynamicTo<KeyboardEvent>(event);
   if (event.type() == event_type_names::kClick) {
     OpenPopup();
     event.SetDefaultHandled();
-  } else if (event.type() == event_type_names::kKeypress &&
-             event.IsKeyboardEvent()) {
-    int char_code = ToKeyboardEvent(event).charCode();
+  } else if (event.type() == event_type_names::kKeypress && keyboard_event) {
+    int char_code = keyboard_event->charCode();
     if (char_code == ' ' || char_code == '\r') {
       OpenPopup();
       event.SetDefaultHandled();
@@ -176,7 +176,8 @@ void PickerIndicatorElement::DidNotifySubtreeInsertionsToDocument() {
     return;
   // Don't make this focusable if we are in web tests in order to avoid
   // breaking existing tests.
-  // FIXME: We should have a way to disable accessibility in web tests.
+  // TODO(crbug.com/1054048): We should have a way to disable accessibility in
+  // web tests.  Once we do have it, this early return should be removed.
   if (WebTestSupport::IsRunningWebTest())
     return;
   setAttribute(html_names::kTabindexAttr, "0");
@@ -184,7 +185,8 @@ void PickerIndicatorElement::DidNotifySubtreeInsertionsToDocument() {
   setAttribute(html_names::kRoleAttr, "button");
   setAttribute(
       html_names::kAriaLabelAttr,
-      AtomicString(GetLocale().QueryString(IDS_AX_CALENDAR_SHOW_DATE_PICKER)));
+      AtomicString(
+          this->picker_indicator_owner_->AriaRoleForPickerIndicator()));
 }
 
 void PickerIndicatorElement::Trace(Visitor* visitor) {

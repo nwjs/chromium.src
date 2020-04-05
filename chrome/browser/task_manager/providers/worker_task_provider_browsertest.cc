@@ -5,6 +5,7 @@
 #include <memory>
 #include <vector>
 
+#include "base/bind_helpers.h"
 #include "base/callback_forward.h"
 #include "base/command_line.h"
 #include "base/stl_util.h"
@@ -97,8 +98,7 @@ class WorkerTaskProviderBrowserTest : public InProcessBrowserTest,
     run_loop.Run();
 
     profiles::SwitchToProfile(new_path, /* always_create = */ false,
-                              base::DoNothing(),
-                              ProfileMetrics::SWITCH_PROFILE_ICON);
+                              base::DoNothing());
     BrowserList* browser_list = BrowserList::GetInstance();
     return *browser_list->begin_last_active();
   }
@@ -320,6 +320,40 @@ IN_PROC_BROWSER_TEST_F(WorkerTaskProviderBrowserTest, CreateExistingTasks) {
 
   GetServiceWorkerContext(browser())->StopAllServiceWorkersForOrigin(
       embedded_test_server()->base_url());
+  WaitUntilTaskCount(0);
+
+  StopUpdating();
+}
+
+// Tests that destroying a profile while updating will correctly remove the
+// existing tasks. An incognito browser is used because a regular profile is
+// never truly destroyed until browser shutdown (See https://crbug.com/88586).
+IN_PROC_BROWSER_TEST_F(WorkerTaskProviderBrowserTest, DestroyedProfile) {
+  StartUpdating();
+
+  EXPECT_TRUE(tasks().empty());
+  Browser* browser = CreateIncognitoBrowser();
+
+  ui_test_utils::NavigateToURL(
+      browser, embedded_test_server()->GetURL(
+                   "/service_worker/create_service_worker.html"));
+  EXPECT_EQ("DONE", EvalJs(browser->tab_strip_model()->GetActiveWebContents(),
+                           "register('respond_with_fetch_worker.js');"));
+  WaitUntilTaskCount(1);
+
+  const Task* task_1 = tasks()[0];
+  EXPECT_EQ(task_1->GetChildProcessUniqueID(), GetChildProcessID(browser));
+  EXPECT_EQ(Task::SERVICE_WORKER, task_1->GetType());
+  EXPECT_TRUE(base::StartsWith(
+      task_1->title(),
+      ExpectedTaskTitle(
+          embedded_test_server()
+              ->GetURL("/service_worker/respond_with_fetch_worker.js")
+              .spec()),
+      base::CompareCase::INSENSITIVE_ASCII));
+
+  CloseBrowserSynchronously(browser);
+
   WaitUntilTaskCount(0);
 
   StopUpdating();

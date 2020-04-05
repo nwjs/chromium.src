@@ -116,15 +116,18 @@ class ServiceWorkerObjectHostTest : public testing::Test {
 
     blink::mojom::ServiceWorkerRegistrationOptions options;
     options.scope = scope;
-    registration_ =
-        helper_->context()->registry()->CreateNewRegistration(options);
-    version_ = helper_->context()->registry()->CreateNewVersion(
-        registration_.get(), script_url, blink::mojom::ScriptType::kClassic);
-    std::vector<ServiceWorkerDatabase::ResourceRecord> records;
-    records.push_back(
-        ServiceWorkerDatabase::ResourceRecord(10, version_->script_url(), 100));
+    registration_ = CreateNewServiceWorkerRegistration(
+        helper_->context()->registry(), options);
+    version_ = CreateNewServiceWorkerVersion(
+        helper_->context()->registry(), registration_.get(), script_url,
+        blink::mojom::ScriptType::kClassic);
+    std::vector<storage::mojom::ServiceWorkerResourceRecordPtr> records;
+    records.push_back(storage::mojom::ServiceWorkerResourceRecord::New(
+        10, version_->script_url(), 100));
     version_->script_cache_map()->SetResources(records);
-    version_->SetMainScriptHttpResponseInfo(net::HttpResponseInfo());
+    version_->SetMainScriptResponse(
+        std::make_unique<ServiceWorkerVersion::MainScriptResponse>(
+            network::mojom::URLResponseHead()));
     version_->set_fetch_handler_existence(
         ServiceWorkerVersion::FetchHandlerExistence::EXISTS);
     version_->SetStatus(ServiceWorkerVersion::INSTALLING);

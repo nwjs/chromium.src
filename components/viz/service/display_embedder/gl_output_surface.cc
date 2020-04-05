@@ -20,6 +20,7 @@
 #include "gpu/command_buffer/common/swap_buffers_complete_params.h"
 #include "gpu/command_buffer/common/swap_buffers_flags.h"
 #include "gpu/config/gpu_feature_info.h"
+#include "ui/gfx/buffer_format_util.h"
 #include "ui/gfx/overlay_transform_utils.h"
 
 namespace viz {
@@ -35,7 +36,7 @@ GLOutputSurface::GLOutputSurface(
           context_provider->ContextCapabilities()
               .use_gpu_fences_for_overlay_planes) {
   const auto& context_capabilities = context_provider->ContextCapabilities();
-  capabilities_.flipped_output_surface = context_capabilities.flips_vertically;
+  capabilities_.output_surface_origin = context_capabilities.surface_origin;
   capabilities_.supports_stencil = context_capabilities.num_stencil_bits > 0;
   // Since one of the buffers is used by the surface for presentation, there can
   // be at most |num_surface_buffers - 1| pending buffers that the compositor
@@ -44,8 +45,6 @@ GLOutputSurface::GLOutputSurface(
       context_capabilities.num_surface_buffers - 1;
   capabilities_.supports_gpu_vsync = context_capabilities.gpu_vsync;
   capabilities_.supports_dc_layers = context_capabilities.dc_layers;
-  capabilities_.supports_dc_video_overlays =
-      context_capabilities.use_dc_overlays_for_video;
   capabilities_.supports_surfaceless = context_capabilities.surfaceless;
   capabilities_.android_surface_control_feature_enabled =
       context_provider->GetGpuFeatureInfo()
@@ -94,14 +93,14 @@ void GLOutputSurface::SetDrawRectangle(const gfx::Rect& rect) {
 void GLOutputSurface::Reshape(const gfx::Size& size,
                               float device_scale_factor,
                               const gfx::ColorSpace& color_space,
-                              bool has_alpha,
+                              gfx::BufferFormat format,
                               bool use_stencil) {
   size_ = size;
   has_set_draw_rectangle_since_last_resize_ = false;
   set_draw_rectangle_for_frame_ = false;
   context_provider()->ContextGL()->ResizeCHROMIUM(
       size.width(), size.height(), device_scale_factor,
-      color_space.AsGLColorSpace(), has_alpha);
+      color_space.AsGLColorSpace(), gfx::AlphaBitsForBufferFormat(format));
 }
 
 void GLOutputSurface::SwapBuffers(OutputSurfaceFrame frame) {
@@ -148,10 +147,6 @@ bool GLOutputSurface::IsDisplayedAsOverlayPlane() const {
 
 unsigned GLOutputSurface::GetOverlayTextureId() const {
   return 0;
-}
-
-gfx::BufferFormat GLOutputSurface::GetOverlayBufferFormat() const {
-  return gfx::BufferFormat::RGBX_8888;
 }
 
 bool GLOutputSurface::HasExternalStencilTest() const {
@@ -254,5 +249,9 @@ gpu::SurfaceHandle GLOutputSurface::GetSurfaceHandle() const {
 scoped_refptr<gpu::GpuTaskSchedulerHelper>
 GLOutputSurface::GetGpuTaskSchedulerHelper() {
   return viz_context_provider_->GetGpuTaskSchedulerHelper();
+}
+
+gpu::MemoryTracker* GLOutputSurface::GetMemoryTracker() {
+  return viz_context_provider_->GetMemoryTracker();
 }
 }  // namespace viz

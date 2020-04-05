@@ -39,12 +39,6 @@ namespace content {
 class WebUI;
 }
 
-namespace identity {
-namespace mojom {
-class IdentityService;
-}  // namespace mojom
-}  // namespace identity
-
 namespace policy {
 class SchemaRegistryService;
 class ProfilePolicyConnector;
@@ -64,7 +58,6 @@ namespace user_prefs {
 class PrefRegistrySyncable;
 }
 
-class OffTheRecordProfileIOData;
 class ProfileObserver;
 
 // Instead of adding more members to Profile, consider creating a
@@ -157,6 +150,8 @@ class Profile : public content::BrowserContext {
   // Note that for Chrome this covers BOTH Incognito mode and Guest sessions.
   bool IsOffTheRecord() override = 0;
   virtual bool IsOffTheRecord() const = 0;
+
+  variations::VariationsClient* GetVariationsClient() override;
 
   // Returns the creation time of this profile. This will either be the creation
   // time of the profile directory or, for ephemeral off-the-record profiles,
@@ -386,10 +381,6 @@ class Profile : public content::BrowserContext {
       bool in_memory,
       const base::FilePath& relative_partition_path);
 
-  // Exposes access to the profile's Identity Service instance. This may return
-  // null if the profile does not have a corresponding service instance.
-  virtual identity::mojom::IdentityService* GetIdentityService();
-
   // Stop sending accessibility events until ResumeAccessibilityEvents().
   // Calls to Pause nest; no events will be sent until the number of
   // Resume calls matches the number of Pause calls received.
@@ -433,8 +424,6 @@ class Profile : public content::BrowserContext {
   virtual void SetCreationTimeForTesting(base::Time creation_time) = 0;
 
  protected:
-  friend class OffTheRecordProfileIOData;
-
   // Returns the profile type.
   virtual ProfileType GetProfileType() const = 0;
 
@@ -472,6 +461,8 @@ class Profile : public content::BrowserContext {
   bool is_system_profile_;
 
   base::ObserverList<ProfileObserver> observers_;
+
+  std::unique_ptr<variations::VariationsClient> chrome_variations_client_;
 
   DISALLOW_COPY_AND_ASSIGN(Profile);
 };

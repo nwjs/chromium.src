@@ -15,7 +15,9 @@
 #include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #include "components/safe_browsing/core/features.h"
 #include "components/signin/public/identity_manager/accounts_mutator.h"
+#include "components/signin/public/identity_manager/consent_level.h"
 #include "components/signin/public/identity_manager/primary_account_access_token_fetcher.h"
+#include "components/signin/public/identity_manager/scope_set.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
 #include "google_apis/gaia/gaia_constants.h"
@@ -53,8 +55,8 @@ void AdvancedProtectionStatusManager::Initialize() {
 
 void AdvancedProtectionStatusManager::MaybeRefreshOnStartUp() {
   // Retrieves advanced protection service status from primary account's info.
-  CoreAccountInfo core_info =
-      identity_manager_->GetUnconsentedPrimaryAccountInfo();
+  CoreAccountInfo core_info = identity_manager_->GetPrimaryAccountInfo(
+      signin::ConsentLevel::kNotRequired);
   if (core_info.account_id.empty())
     return;
 
@@ -185,7 +187,7 @@ void AdvancedProtectionStatusManager::RefreshAdvancedProtectionStatus() {
     return;
 
   // Refresh OAuth access token.
-  identity::ScopeSet scopes;
+  signin::ScopeSet scopes;
   scopes.insert(GaiaConstants::kOAuth1LoginScope);
 
   access_token_fetcher_ =
@@ -225,9 +227,14 @@ void AdvancedProtectionStatusManager::UpdateLastRefreshTime() {
 }
 
 bool AdvancedProtectionStatusManager::IsUnderAdvancedProtection() const {
-  return base::CommandLine::ForCurrentProcess()->HasSwitch(
-             kForceTreatUserAsAdvancedProtection) ||
-         is_under_advanced_protection_;
+  if (!pref_service_->GetBoolean(prefs::kAdvancedProtectionAllowed))
+    return false;
+
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
+          kForceTreatUserAsAdvancedProtection))
+    return true;
+
+  return is_under_advanced_protection_;
 }
 
 bool AdvancedProtectionStatusManager::IsUnconsentedPrimaryAccount(
@@ -280,7 +287,8 @@ AdvancedProtectionStatusManager::AdvancedProtectionStatusManager(
 
 CoreAccountId AdvancedProtectionStatusManager::GetUnconsentedPrimaryAccountId()
     const {
-  return identity_manager_ ? identity_manager_->GetUnconsentedPrimaryAccountId()
+  return identity_manager_ ? identity_manager_->GetPrimaryAccountId(
+                                 signin::ConsentLevel::kNotRequired)
                            : CoreAccountId();
 }
 

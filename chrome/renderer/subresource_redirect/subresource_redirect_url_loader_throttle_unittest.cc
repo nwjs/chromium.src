@@ -8,7 +8,7 @@
 #include "chrome/renderer/subresource_redirect/subresource_redirect_hints_agent.h"
 #include "chrome/renderer/subresource_redirect/subresource_redirect_util.h"
 #include "content/public/common/previews_state.h"
-#include "content/public/common/resource_type.h"
+#include "services/network/public/mojom/fetch_api.mojom-shared.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/platform/web_network_state_notifier.h"
@@ -101,7 +101,7 @@ TEST(SubresourceRedirectURLLoaderThrottleTest, TestMaybeCreateThrottle) {
     if (test_case.is_subresource_redirect_feature_enabled) {
       scoped_feature_list.InitWithFeaturesAndParameters(
           {{blink::features::kSubresourceRedirect,
-            {{"enable_lite_page_redirect", "true"}}}},
+            {{"enable_subresource_server_redirect", "true"}}}},
           {});
     } else {
       scoped_feature_list.InitAndDisableFeature(
@@ -167,7 +167,7 @@ TEST(SubresourceRedirectURLLoaderThrottleTest, TestGetSubresourceURL) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithFeaturesAndParameters(
       {{blink::features::kSubresourceRedirect,
-        {{"enable_lite_page_redirect", "true"}}}},
+        {{"enable_subresource_server_redirect", "true"}}}},
       {});
 
   for (const TestCase& test_case : kTestCases) {
@@ -180,7 +180,6 @@ TEST(SubresourceRedirectURLLoaderThrottleTest, TestGetSubresourceURL) {
     network::ResourceRequest request;
     request.url = test_case.original_url;
     request.destination = network::mojom::RequestDestination::kImage;
-    ;
     request.previews_state = test_case.previews_state;
     bool defer = true;
     throttle->WillStartRequest(&request, &defer);
@@ -199,7 +198,7 @@ TEST(SubresourceRedirectURLLoaderThrottleTest, DeferOverridenToFalse) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithFeaturesAndParameters(
       {{blink::features::kSubresourceRedirect,
-        {{"enable_lite_page_redirect", "true"}}}},
+        {{"enable_subresource_server_redirect", "true"}}}},
       {});
 
   auto throttle = CreateSubresourceRedirectURLLoaderThrottle(

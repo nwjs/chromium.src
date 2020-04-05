@@ -55,16 +55,9 @@ void SiteDataCacheFactory::OnBrowserContextCreatedOnUIThread(
     DCHECK(browser_context->IsOffTheRecord());
     parent_context_id = parent_context->UniqueId();
   }
-  PerformanceManagerImpl::GetInstance()->CallOnGraphImpl(
-      FROM_HERE, base::BindOnce(
-                     [](SiteDataCacheFactory* factory,
-                        const std::string& browser_context_id,
-                        const base::FilePath& context_path,
-                        base::Optional<std::string> parent_context_id,
-                        GraphImpl* graph_unused) {
-                       factory->OnBrowserContextCreated(
-                           browser_context_id, context_path, parent_context_id);
-                     },
+  PerformanceManagerImpl::CallOnGraphImpl(
+      FROM_HERE,
+      base::BindOnce(&SiteDataCacheFactory::OnBrowserContextCreated,
                      base::Unretained(factory), browser_context->UniqueId(),
                      browser_context->GetPath(), parent_context_id));
 }
@@ -75,13 +68,9 @@ void SiteDataCacheFactory::OnBrowserContextDestroyedOnUIThread(
     content::BrowserContext* browser_context) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   DCHECK(factory);
-  PerformanceManagerImpl::GetInstance()->CallOnGraphImpl(
-      FROM_HERE, base::BindOnce(
-                     [](SiteDataCacheFactory* factory,
-                        const std::string& browser_context_id,
-                        performance_manager::GraphImpl* graph_unused) {
-                       factory->OnBrowserContextDestroyed(browser_context_id);
-                     },
+  PerformanceManagerImpl::CallOnGraphImpl(
+      FROM_HERE,
+      base::BindOnce(&SiteDataCacheFactory::OnBrowserContextDestroyed,
                      base::Unretained(factory), browser_context->UniqueId()));
 }
 
@@ -121,17 +110,17 @@ void SiteDataCacheFactory::IsDataCacheRecordingForTesting(
     const std::string& browser_context_id,
     base::OnceCallback<void(bool)> cb) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  PerformanceManagerImpl::GetInstance()->CallOnGraphImpl(
-      FROM_HERE,
-      base::BindOnce(
-          [](SiteDataCacheFactory* factory,
-             const std::string& browser_context_id,
-             base::OnceCallback<void(bool)> cb, GraphImpl* graph_unused) {
-            auto it = factory->data_cache_map_.find(browser_context_id);
-            CHECK(it != factory->data_cache_map_.end());
-            std::move(cb).Run(it->second->IsRecordingForTesting());
-          },
-          this, browser_context_id, std::move(cb)));
+  PerformanceManagerImpl::CallOnGraphImpl(
+      FROM_HERE, base::BindOnce(
+                     [](SiteDataCacheFactory* factory,
+                        const std::string& browser_context_id,
+                        base::OnceCallback<void(bool)> cb) {
+                       auto it =
+                           factory->data_cache_map_.find(browser_context_id);
+                       CHECK(it != factory->data_cache_map_.end());
+                       std::move(cb).Run(it->second->IsRecordingForTesting());
+                     },
+                     this, browser_context_id, std::move(cb)));
 }
 
 void SiteDataCacheFactory::ReplaceCacheForTesting(

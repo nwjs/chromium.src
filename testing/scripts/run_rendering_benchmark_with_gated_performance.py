@@ -34,6 +34,7 @@ AVG_ERROR_MARGIN = 1.1
 # CI stands for confidence intervals. "ci_095"s recorded in the data is the
 # recorded range between upper and lower CIs. CI_ERROR_MARGIN is the maximum
 # acceptable ratio of calculated ci_095 to the recorded ones.
+# TODO(behdadb) crbug.com/1052054
 CI_ERROR_MARGIN = 1.5
 
 class ResultRecorder(object):
@@ -44,35 +45,53 @@ class ResultRecorder(object):
     self.output = {}
     self.return_code = 0
     self._failed_stories = set()
+    self._noisy_control_stories = set()
+    # Set of _noisy_control_stories keeps track of control tests which failed
+    # because of high noise values.
 
   def set_tests(self, output):
     self.output = output
-    self.fails = 0
-    if 'FAIL' in output['num_failures_by_type']:
-      self.fails = output['num_failures_by_type']['FAIL']
-    self.tests = self.fails + output['num_failures_by_type']['PASS']
+    self.fails = output['num_failures_by_type'].get('FAIL', 0)
+    self.tests = self.fails + output['num_failures_by_type'].get('PASS', 0)
 
-  def add_failure(self, name, benchmark):
+  def add_failure(self, name, benchmark, is_control=False):
     self.output['tests'][benchmark][name]['actual'] = 'FAIL'
     self.output['tests'][benchmark][name]['is_unexpected'] = True
     self._failed_stories.add(name)
     self.fails += 1
+    if is_control:
+      self._noisy_control_stories.add(name)
 
-  def remove_failure(self, name, benchmark):
+  def remove_failure(self, name, benchmark, is_control=False):
     self.output['tests'][benchmark][name]['actual'] = 'PASS'
     self.output['tests'][benchmark][name]['is_unexpected'] = False
     self._failed_stories.remove(name)
     self.fails -= 1
+    if is_control:
+      self._noisy_control_stories.remove(name)
+
+  def invalidate_failures(self, benchmark):
+    # The method is for invalidating the failures in case of noisy control test
+    for story in self._failed_stories:
+      print(story + ' [Invalidated Failure]: The story failed but was ' +
+        'invalidated as a result of noisy control test.')
+      self.output['tests'][benchmark][story]['is_unexpected'] = False
 
   @property
   def failed_stories(self):
     return self._failed_stories
 
+  @property
+  def is_control_stories_noisy(self):
+    return len(self._noisy_control_stories) > 0
+
   def get_output(self, return_code):
     self.output['seconds_since_epoch'] = time.time() - self.start_time
     self.output['num_failures_by_type']['PASS'] = self.tests - self.fails
-    if self.fails > 0:
+    if self.fails > 0 and not self.is_control_stories_noisy:
       self.output['num_failures_by_type']['FAIL'] = self.fails
+    else:
+      self.output['num_failures_by_type']['FAIL'] = 0
     if return_code == 1:
       self.output['interrupted'] = True
 
@@ -80,7 +99,7 @@ class ResultRecorder(object):
     tests = lambda n: plural(n, 'test', 'tests')
 
     print('[  PASSED  ] ' + tests(self.tests - self.fails) + '.')
-    if self.fails > 0:
+    if self.fails > 0 and not self.is_control_stories_noisy:
       print('[  FAILED  ] ' + tests(self.fails) + '.')
       self.return_code = 1
 
@@ -117,11 +136,7 @@ def parse_csv_results(csv_obj, upper_limit_data):
     if (row['avg'] == '' or row['count'] == 0):
       continue
     values_per_story[story_name]['ci_095'].append(float(row['ci_095']))
-
-    upper_limit_ci = upper_limit_data[story_name]['ci_095']
-    # Only average values which are not noisy will be used
-    if (float(row['ci_095']) <= upper_limit_ci * CI_ERROR_MARGIN):
-      values_per_story[story_name]['averages'].append(float(row['avg']))
+    values_per_story[story_name]['averages'].append(float(row['avg']))
 
   return values_per_story
 
@@ -155,11 +170,12 @@ def compare_values(values_per_story, upper_limit_data, benchmark,
     measured_avg = np.mean(np.array(values_per_story[story_name]['averages']))
     measured_ci = np.mean(np.array(values_per_story[story_name]['ci_095']))
 
-    if (measured_ci > upper_limit_ci * CI_ERROR_MARGIN):
+    if (measured_ci > upper_limit_ci * CI_ERROR_MARGIN and
+      is_control_story(upper_limit_data[story_name])):
       print(('[  FAILED  ] {}/{} frame_times has higher noise ({:.3f}) ' +
         'compared to upper limit ({:.3f})').format(
           benchmark, story_name, measured_ci,upper_limit_ci))
-      result_recorder.add_failure(story_name, benchmark)
+      result_recorder.add_failure(story_name, benchmark, True)
     elif (measured_avg > upper_limit_avg * AVG_ERROR_MARGIN):
       print(('[  FAILED  ] {}/{} higher average frame_times({:.3f}) compared' +
         ' to upper limit ({:.3f})').format(
@@ -203,6 +219,9 @@ def replace_arg_values(args, key_value_pairs):
         else:
           args[index+1] = value
   return args
+
+def is_control_story(story_data):
+  return ('control' in story_data and story_data['control'] == True)
 
 def main():
   overall_return_code = 0
@@ -257,8 +276,11 @@ def main():
       # positive.
       print('============ Re_run the failed tests ============')
       all_failed_stories = '('+'|'.join(result_recorder.failed_stories)+')'
-      re_run_args.extend(
-        ['--story-filter', all_failed_stories, '--pageset-repeat=3'])
+      # TODO(crbug.com/1055893): Remove the extra chrome categories after
+      # investigation of flakes in representative perf tests.
+      re_run_args.extend(['--story-filter', all_failed_stories,
+        '--pageset-repeat=3',
+        '--extra-chrome-categories=blink,blink_gc,gpu,v8,viz'])
 
       re_run_isolated_script_test_dir = os.path.join(out_dir_path,
         're_run_failures')
@@ -282,7 +304,13 @@ def main():
 
       for story_name in result_recorder.failed_stories.copy():
         if story_name not in re_run_result_recorder.failed_stories:
-          result_recorder.remove_failure(story_name, benchmark)
+          result_recorder.remove_failure(story_name, benchmark,
+            is_control_story(upper_limit_data[platform][story_name]))
+
+    if result_recorder.is_control_stories_noisy:
+      # In this case all failures are reported as expected, and the number of
+      # Failed stories in output.json will be zero.
+      result_recorder.invalidate_failures(benchmark)
 
     (
       finalOut,
@@ -293,6 +321,10 @@ def main():
 
     with open(options.isolated_script_test_output, 'w') as outputFile:
       json.dump(finalOut, outputFile, indent=4)
+
+    if result_recorder.is_control_stories_noisy:
+      assert overall_return_code == 0
+      print('Control story has high noise. These runs are not reliable!')
 
   return overall_return_code
 

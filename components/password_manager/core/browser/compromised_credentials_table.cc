@@ -4,7 +4,9 @@
 
 #include "components/password_manager/core/browser/compromised_credentials_table.h"
 
-#include "base/metrics/histogram_macros.h"
+#include "base/bind.h"
+#include "base/logging.h"
+#include "base/metrics/histogram_functions.h"
 #include "components/password_manager/core/browser/sql_table_builder.h"
 #include "components/password_manager/core/common/password_manager_features.h"
 #include "components/safe_browsing/core/features.h"
@@ -57,9 +59,8 @@ std::vector<CompromisedCredentials> StatementToCompromisedCredentials(
             GetColumnNumber(CompromisedCredentialsTableColumn::kCreateTime)))));
     CompromiseType compromise_type = static_cast<CompromiseType>(s->ColumnInt64(
         GetColumnNumber(CompromisedCredentialsTableColumn::kCompromiseType)));
-    results.push_back(CompromisedCredentials(std::move(signon_realm),
-                                             std::move(username), create_time,
-                                             compromise_type));
+    results.push_back({std::move(signon_realm), std::move(username),
+                       create_time, compromise_type});
   }
   return results;
 }
@@ -78,7 +79,7 @@ void CompromisedCredentialsTable::Init(sql::Database* db) {
       base::FeatureList::IsEnabled(
           safe_browsing::kPasswordProtectionShowDomainsForSavedPasswords);
   if (password_protection_show_domains_for_saved_password_is_on ||
-      base::FeatureList::IsEnabled(password_manager::features::kLeakHistory))
+      base::FeatureList::IsEnabled(password_manager::features::kPasswordCheck))
     db_ = db;
 }
 
@@ -101,14 +102,23 @@ bool CompromisedCredentialsTable::AddRow(
 
   DCHECK(db_->DoesTableExist(kCompromisedCredentialsTableName));
 
-  UMA_HISTOGRAM_ENUMERATION("PasswordManager.CompromisedCredentials.Add",
-                            compromised_credentials.compromise_type);
+  base::UmaHistogramEnumeration("PasswordManager.CompromisedCredentials.Add",
+                                compromised_credentials.compromise_type);
 
-  sql::Statement s(
-      db_->GetCachedStatement(SQL_FROM_HERE,
-                              "INSERT OR IGNORE INTO compromised_credentials "
-                              "(url, username, create_time, compromise_type) "
-                              "VALUES (?, ?, ?, ?)"));
+  // In case there is an error, expect it to be a constraint violation.
+  db_->set_error_callback(base::BindRepeating([](int error, sql::Statement*) {
+    constexpr int kSqliteErrorMask = 0xFF;
+    constexpr int kSqliteConstraint = 19;
+    if ((error & kSqliteErrorMask) != kSqliteConstraint) {
+      DLOG(ERROR) << "Got unexpected SQL error code: " << error;
+    }
+  }));
+
+  sql::Statement s(db_->GetCachedStatement(
+      SQL_FROM_HERE,
+      "INSERT INTO compromised_credentials (url, username, create_time, "
+      "compromise_type) VALUES (?, ?, ?, ?)"));
+
   s.BindString(GetColumnNumber(CompromisedCredentialsTableColumn::kSignonRealm),
                compromised_credentials.signon_realm);
   s.BindString16(GetColumnNumber(CompromisedCredentialsTableColumn::kUsername),
@@ -119,7 +129,10 @@ bool CompromisedCredentialsTable::AddRow(
   s.BindInt64(
       GetColumnNumber(CompromisedCredentialsTableColumn::kCompromiseType),
       static_cast<int>(compromised_credentials.compromise_type));
-  return s.Run();
+
+  bool result = s.Run();
+  db_->reset_error_callback();
+  return result;
 }
 
 std::vector<CompromisedCredentials> CompromisedCredentialsTable::GetRows(
@@ -155,8 +168,9 @@ bool CompromisedCredentialsTable::UpdateRow(
   if (compromised_credentials.empty())
     return false;
   for (const auto& compromised_credential : compromised_credentials) {
-    UMA_HISTOGRAM_ENUMERATION("PasswordManager.CompromisedCredentials.Update",
-                              compromised_credential.compromise_type);
+    base::UmaHistogramEnumeration(
+        "PasswordManager.CompromisedCredentials.Update",
+        compromised_credential.compromise_type);
   }
 
   sql::Statement s(db_->GetCachedStatement(SQL_FROM_HERE,
@@ -185,9 +199,10 @@ bool CompromisedCredentialsTable::RemoveRow(
   if (compromised_credentials.empty())
     return false;
   for (const auto& compromised_credential : compromised_credentials) {
-    UMA_HISTOGRAM_ENUMERATION("PasswordManager.CompromisedCredentials.Remove",
-                              compromised_credential.compromise_type);
-    UMA_HISTOGRAM_ENUMERATION(
+    base::UmaHistogramEnumeration(
+        "PasswordManager.CompromisedCredentials.Remove",
+        compromised_credential.compromise_type);
+    base::UmaHistogramEnumeration(
         "PasswordManager.RemoveCompromisedCredentials.RemoveReason", reason);
   }
 
@@ -264,6 +279,34 @@ std::vector<CompromisedCredentials> CompromisedCredentialsTable::GetAllRows() {
   static constexpr char query[] = "SELECT * FROM compromised_credentials";
   sql::Statement s(db_->GetCachedStatement(SQL_FROM_HERE, query));
   return StatementToCompromisedCredentials(&s);
+}
+
+void CompromisedCredentialsTable::ReportMetrics(BulkCheckDone bulk_check_done) {
+  if (!db_)
+    return;
+  sql::Statement s(
+      db_->GetCachedStatement(SQL_FROM_HERE,
+                              "SELECT COUNT(*) FROM compromised_credentials "
+                              "WHERE compromise_type = ? "));
+  s.BindInt(0, static_cast<int>(CompromiseType::kLeaked));
+  if (s.Step()) {
+    int count = s.ColumnInt(0);
+    base::UmaHistogramCounts100(
+        "PasswordManager.CompromisedCredentials.CountLeaked", count);
+    if (bulk_check_done) {
+      base::UmaHistogramCounts100(
+          "PasswordManager.CompromisedCredentials.CountLeakedAfterBulkCheck",
+          count);
+    }
+  }
+
+  s.Reset(true);
+  s.BindInt(0, static_cast<int>(CompromiseType::kPhished));
+  if (s.Step()) {
+    int count = s.ColumnInt(0);
+    base::UmaHistogramCounts100(
+        "PasswordManager.CompromisedCredentials.CountPhished", count);
+  }
 }
 
 }  // namespace password_manager

@@ -106,11 +106,6 @@ class ColumnRuleColor;
 class Fill;
 class Float;
 class FloodColor;
-class InternalUaBackgroundColor;
-class InternalUaBorderBottomColor;
-class InternalUaBorderLeftColor;
-class InternalUaBorderRightColor;
-class InternalUaBorderTopColor;
 class InternalVisitedBackgroundColor;
 class InternalVisitedBorderBottomColor;
 class InternalVisitedBorderLeftColor;
@@ -216,11 +211,6 @@ class ComputedStyle : public ComputedStyleBase,
   friend class css_longhand::Fill;
   friend class css_longhand::Float;
   friend class css_longhand::FloodColor;
-  friend class css_longhand::InternalUaBackgroundColor;
-  friend class css_longhand::InternalUaBorderBottomColor;
-  friend class css_longhand::InternalUaBorderLeftColor;
-  friend class css_longhand::InternalUaBorderRightColor;
-  friend class css_longhand::InternalUaBorderTopColor;
   friend class css_longhand::InternalVisitedBackgroundColor;
   friend class css_longhand::InternalVisitedBorderBottomColor;
   friend class css_longhand::InternalVisitedBorderLeftColor;
@@ -259,11 +249,12 @@ class ComputedStyle : public ComputedStyleBase,
   friend class StyleBuilderFunctions;
   // Saves Border/Background information for later comparison.
   friend class CachedUAStyle;
-  friend class UAStyle;
   // Accesses visited and unvisited colors.
   friend class ColorPropertyFunctions;
   // Edits the background for media controls.
   friend class StyleAdjuster;
+  // Access to private SetFontInternal().
+  friend class FontBuilder;
 
   // FIXME: When we stop resolving currentColor at style time, these can be
   // removed.
@@ -738,8 +729,6 @@ class ComputedStyle : public ComputedStyleBase,
 
   // outline-offset
   int OutlineOffset() const {
-    if (OutlineStyle() == EBorderStyle::kNone)
-      return 0;
     return OutlineOffsetInternal();
   }
 
@@ -909,7 +898,7 @@ class ComputedStyle : public ComputedStyleBase,
     SetZIndexInternal(0);
   }
 
-  bool SetEffectiveZoom(float);
+  CORE_EXPORT bool SetEffectiveZoom(float);
   float EffectiveZoom() const;
 
   // -webkit-clip-path
@@ -1016,6 +1005,15 @@ class ComputedStyle : public ComputedStyleBase,
   }
   CORE_EXPORT bool SetFontDescription(const FontDescription&);
   bool HasIdenticalAscentDescentAndLineGap(const ComputedStyle& other) const;
+  bool HasFontRelativeUnits() const {
+    return HasEmUnits() || HasRemUnits() || HasGlyphRelativeUnits();
+  }
+
+  // If true, the ComputedStyle must be recalculated when fonts are updated.
+  bool DependsOnFontMetrics() const {
+    return HasGlyphRelativeUnits() || HasFontSizeAdjust();
+  }
+  bool CachedPseudoElementStylesDependOnFontMetrics() const;
 
   // font-size
   int FontSize() const { return GetFontDescription().ComputedPixelSize(); }
@@ -1222,7 +1220,11 @@ class ComputedStyle : public ComputedStyleBase,
   }
   bool IsDeprecatedFlexboxUsingFlexLayout() const {
     return IsDeprecatedWebkitBox() &&
-           (!HasLineClamp() || BoxOrient() == EBoxOrient::kHorizontal);
+           !IsDeprecatedWebkitBoxWithVerticalLineClamp();
+  }
+  bool IsDeprecatedWebkitBoxWithVerticalLineClamp() const {
+    return IsDeprecatedWebkitBox() && BoxOrient() == EBoxOrient::kVertical &&
+           HasLineClamp();
   }
 
   // Variables.
@@ -1945,10 +1947,15 @@ class ComputedStyle : public ComputedStyleBase,
         LengthSize(Length::Fixed(s.Width()), Length::Fixed(s.Height())));
   }
 
+  FloatRoundedRect GetBorderFor(const LayoutRect& border_rect) const;
+
   FloatRoundedRect GetRoundedBorderFor(
       const LayoutRect& border_rect,
       bool include_logical_left_edge = true,
       bool include_logical_right_edge = true) const;
+
+  FloatRoundedRect GetInnerBorderFor(const LayoutRect& border_rect) const;
+
   FloatRoundedRect GetRoundedInnerBorderFor(
       const LayoutRect& border_rect,
       bool include_logical_left_edge = true,
@@ -2581,26 +2588,13 @@ class ComputedStyle : public ComputedStyleBase,
     // property should be canvastext, but since we do not yet ship color-scheme
     // aware system colors, we use this method instead. This should be replaced
     // by default_value:"canvastext" in css_properties.json5.
-    return DarkColorScheme() ? Color::kWhite : Color::kBlack;
+    return LayoutTheme::GetTheme().SystemColor(
+        CSSValueID::kCanvastext, UsedColorSchemeForInitialColors());
   }
 
   Color ForcedBackplateColor() const {
-    return LayoutTheme::GetTheme().SystemColor(CSSValueID::kWindow,
+    return LayoutTheme::GetTheme().SystemColor(CSSValueID::kCanvas,
                                                WebColorScheme::kLight);
-  }
-
-  // render-subtree helpers.
-  bool RenderSubtreeInvisible() const {
-    return static_cast<unsigned>(RenderSubtree()) &
-           static_cast<unsigned>(RenderSubtreeFlags::kInvisible);
-  }
-  bool RenderSubtreeSkipActivation() const {
-    return static_cast<unsigned>(RenderSubtree()) &
-           static_cast<unsigned>(RenderSubtreeFlags::kSkipActivation);
-  }
-  bool RenderSubtreeSkipViewportActivation() const {
-    return static_cast<unsigned>(RenderSubtree()) &
-           static_cast<unsigned>(RenderSubtreeFlags::kSkipViewportActivation);
   }
 
   bool GeneratesMarkerImage() const {
@@ -2691,6 +2685,7 @@ class ComputedStyle : public ComputedStyleBase,
            display == EDisplay::kInlineFlex ||
            display == EDisplay::kInlineTable ||
            display == EDisplay::kInlineGrid ||
+           display == EDisplay::kInlineMath ||
            display == EDisplay::kInlineLayoutCustom;
   }
 
@@ -2872,13 +2867,12 @@ class ComputedStyle : public ComputedStyleBase,
   bool DiffNeedsFullLayoutForLayoutCustomChild(
       const Document&,
       const ComputedStyle& other) const;
-  bool DiffNeedsPaintInvalidationSubtree(const ComputedStyle& other) const;
-  void AdjustDiffForNeedsPaintInvalidationObject(const ComputedStyle& other,
-                                                 StyleDifference&,
-                                                 const Document&) const;
-  bool DiffNeedsPaintInvalidationObjectForPaintImage(const StyleImage&,
-                                                     const ComputedStyle& other,
-                                                     const Document&) const;
+  void AdjustDiffForNeedsPaintInvalidation(const ComputedStyle& other,
+                                           StyleDifference&,
+                                           const Document&) const;
+  bool DiffNeedsPaintInvalidationForPaintImage(const StyleImage&,
+                                               const ComputedStyle& other,
+                                               const Document&) const;
   bool DiffNeedsVisualRectUpdate(const ComputedStyle& other) const;
   CORE_EXPORT void UpdatePropertySpecificDifferences(const ComputedStyle& other,
                                                      StyleDifference&) const;
@@ -2974,16 +2968,6 @@ class ComputedStyle : public ComputedStyleBase,
   FRIEND_TEST_ALL_PREFIXES(ComputedStyleTest, CustomPropertiesEqual_Values);
   FRIEND_TEST_ALL_PREFIXES(ComputedStyleTest, CustomPropertiesEqual_Data);
 };
-
-inline bool ComputedStyle::SetEffectiveZoom(float f) {
-  // Clamp the effective zoom value to a smaller (but hopeful still large
-  // enough) range, to avoid overflow in derived computations.
-  float clamped_effective_zoom = clampTo<float>(f, 1e-6, 1e6);
-  if (EffectiveZoom() == clamped_effective_zoom)
-    return false;
-  SetInternalEffectiveZoom(clamped_effective_zoom);
-  return true;
-}
 
 inline float ComputedStyle::EffectiveZoom() const {
   return InternalEffectiveZoom();

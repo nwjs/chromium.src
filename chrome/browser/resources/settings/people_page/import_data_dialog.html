@@ -64,7 +64,9 @@
               aria-label="$i18n{importFromLabel}"
               on-change="onBrowserProfileSelectionChange_">
             <template is="dom-repeat" items="[[browserProfiles_]]">
-              <option value="[[item.index]]">[[item.name]]</option>
+              <option value="[[item.index]]">
+                [[getProfileDisplayName_(item.name, item.profileName)]]
+              </option>
             </template>
           </select>
           <div class="description">$i18n{importDescription}</div>
@@ -127,4 +129,4 @@
     </cr-dialog>
   </template>
   <script src="import_data_dialog.js"></script>
-:</dom-module>
+</dom-module>

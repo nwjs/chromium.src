@@ -17,13 +17,13 @@
 #include "ash/wm/desks/desks_util.h"
 #include "ash/wm/drag_window_controller.h"
 #include "ash/wm/overview/delayed_animation_observer_impl.h"
-#include "ash/wm/overview/overview_animation_type.h"
 #include "ash/wm/overview/overview_constants.h"
 #include "ash/wm/overview/overview_controller.h"
 #include "ash/wm/overview/overview_grid.h"
 #include "ash/wm/overview/overview_grid_event_handler.h"
 #include "ash/wm/overview/overview_highlight_controller.h"
 #include "ash/wm/overview/overview_item_view.h"
+#include "ash/wm/overview/overview_types.h"
 #include "ash/wm/overview/overview_utils.h"
 #include "ash/wm/overview/overview_window_drag_controller.h"
 #include "ash/wm/overview/rounded_label_widget.h"
@@ -38,6 +38,7 @@
 #include "ash/wm/wm_event.h"
 #include "base/auto_reset.h"
 #include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/metrics/user_metrics.h"
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/aura/client/aura_constants.h"
@@ -115,18 +116,18 @@ class AnimationObserver : public ui::ImplicitAnimationObserver {
 };
 
 OverviewAnimationType GetExitOverviewAnimationTypeForMinimizedWindow(
-    OverviewSession::EnterExitOverviewType type,
+    OverviewEnterExitType type,
     bool should_animate_when_exiting) {
   // We should never get here when overview mode should exit immediately. The
   // minimized window's |item_widget_| should be closed and destroyed
   // immediately.
-  DCHECK_NE(type, OverviewSession::EnterExitOverviewType::kImmediateExit);
+  DCHECK_NE(type, OverviewEnterExitType::kImmediateExit);
 
-  // EnterExitOverviewType can only be set to kWindowMinimized in talbet mode.
+  // OverviewEnterExitType can only be set to kWindowMinimized in talbet mode.
   // Fade out the minimized window without animation if switch from tablet mode
   // to clamshell mode.
-  if (type == OverviewSession::EnterExitOverviewType::kSlideOutExit ||
-      type == OverviewSession::EnterExitOverviewType::kFadeOutExit) {
+  if (type == OverviewEnterExitType::kSlideOutExit ||
+      type == OverviewEnterExitType::kFadeOutExit) {
     return Shell::Get()->tablet_mode_controller()->InTabletMode()
                ? OVERVIEW_ANIMATION_EXIT_TO_HOME_LAUNCHER
                : OVERVIEW_ANIMATION_NONE;
@@ -206,6 +207,13 @@ bool OverviewItem::Contains(const aura::Window* target) const {
   return transform_window_.Contains(target);
 }
 
+void OverviewItem::OnMovingWindowToAnotherDesk() {
+  is_moving_to_another_desk_ = true;
+  // Restore the dragged item window, so that its transform is reset to
+  // identity.
+  RestoreWindow(/*reset_transform=*/true);
+}
+
 void OverviewItem::RestoreWindow(bool reset_transform) {
   // TODO(oshima): SplitViewController has its own logic to adjust the
   // target state in |SplitViewController::OnOverviewModeEnding|.
@@ -222,9 +230,12 @@ void OverviewItem::RestoreWindow(bool reset_transform) {
   if (transform_window_.IsMinimized()) {
     const auto enter_exit_type = overview_session_->enter_exit_overview_type();
 
-    if (enter_exit_type ==
-        OverviewSession::EnterExitOverviewType::kImmediateExit) {
+    if (is_moving_to_another_desk_ ||
+        enter_exit_type == OverviewEnterExitType::kImmediateExit) {
+      overview_session_->highlight_controller()->OnViewDestroyingOrDisabling(
+          overview_item_view_);
       ImmediatelyCloseWidgetOnExit(std::move(item_widget_));
+      overview_item_view_ = nullptr;
       return;
     }
 
@@ -234,8 +245,7 @@ void OverviewItem::RestoreWindow(bool reset_transform) {
     FadeOutWidgetAndMaybeSlideOnExit(
         std::move(item_widget_), animation_type,
         animation_type == OVERVIEW_ANIMATION_EXIT_TO_HOME_LAUNCHER &&
-            enter_exit_type ==
-                OverviewSession::EnterExitOverviewType::kSlideOutExit);
+            enter_exit_type == OverviewEnterExitType::kSlideOutExit);
   }
 }
 
@@ -251,58 +261,6 @@ void OverviewItem::Shutdown() {
 void OverviewItem::PrepareForOverview() {
   transform_window_.PrepareForOverview();
   prepared_for_overview_ = true;
-}
-
-void OverviewItem::SlideWindowIn() {
-  // This only gets called if we see the home launcher on enter (all windows are
-  // minimized).
-  DCHECK(transform_window_.IsMinimized());
-
-  // The mask and shadow will be shown when animation ends. Update the mask
-  // after starting the animation since starting the animation lets the
-  // controller know we are in starting animation.
-  FadeInWidgetAndMaybeSlideOnEnter(item_widget_.get(),
-                                   OVERVIEW_ANIMATION_ENTER_FROM_HOME_LAUNCHER,
-                                   /*slide=*/true, /*observe=*/true);
-  UpdateRoundedCornersAndShadow();
-}
-
-std::unique_ptr<ui::ScopedLayerAnimationSettings>
-OverviewItem::UpdateYPositionAndOpacity(
-    float new_grid_y,
-    float opacity,
-    OverviewSession::UpdateAnimationSettingsCallback callback) {
-  aura::Window::Windows windows = GetWindowsForHomeGesture();
-  std::unique_ptr<ui::ScopedLayerAnimationSettings> settings_to_observe;
-  for (auto* window : windows) {
-    ui::Layer* layer = window->layer();
-    std::unique_ptr<ui::ScopedLayerAnimationSettings> settings;
-    if (!callback.is_null()) {
-      settings = std::make_unique<ui::ScopedLayerAnimationSettings>(
-          layer->GetAnimator());
-      callback.Run(settings.get());
-    }
-    layer->SetOpacity(opacity);
-
-    float initial_y = 0.f;
-    if (translation_y_map_.contains(window))
-      initial_y = translation_y_map_[window];
-
-    // Alter the y-translation. Offset by the window location relative to the
-    // grid.
-    gfx::Transform transform = layer->transform();
-    transform.matrix().setFloat(1, 3, initial_y - new_grid_y);
-    layer->SetTransform(transform);
-
-    if (settings)
-      settings_to_observe = std::move(settings);
-  }
-
-  return settings_to_observe;
-}
-
-void OverviewItem::UpdateItemContentViewForMinimizedWindow() {
-  overview_item_view_->RefreshPreviewView();
 }
 
 float OverviewItem::GetItemScale(const gfx::Size& size) {
@@ -409,9 +367,8 @@ void OverviewItem::SetBounds(const gfx::RectF& target_bounds,
         } else {
           // Items that are slide in already have their slide in animations
           // handled in |SlideWindowIn|.
-          const bool slide_in =
-              overview_session_->enter_exit_overview_type() ==
-              OverviewSession::EnterExitOverviewType::kSlideInEnter;
+          const bool slide_in = overview_session_->enter_exit_overview_type() ==
+                                OverviewEnterExitType::kSlideInEnter;
           if (!slide_in) {
             // If entering from home launcher, use the home specific (fade)
             // animation.
@@ -609,16 +566,14 @@ void OverviewItem::SetVisibleDuringWindowDragging(bool visible, bool animate) {
   }
 }
 
-ScopedOverviewTransformWindow::GridWindowFillMode
-OverviewItem::GetWindowDimensionsType() const {
+OverviewGridWindowFillMode OverviewItem::GetWindowDimensionsType() const {
   return transform_window_.type();
 }
 
 void OverviewItem::UpdateWindowDimensionsType() {
   transform_window_.UpdateWindowDimensionsType();
   const bool show_backdrop =
-      GetWindowDimensionsType() !=
-      ScopedOverviewTransformWindow::GridWindowFillMode::kNormal;
+      GetWindowDimensionsType() != OverviewGridWindowFillMode::kNormal;
   overview_item_view_->SetBackdropVisibility(show_backdrop);
 }
 
@@ -648,9 +603,60 @@ void OverviewItem::ScaleUpSelectedItem(OverviewAnimationType animation_type) {
   SetBounds(scaled_bounds, animation_type);
 }
 
+void OverviewItem::SlideWindowIn() {
+  // This only gets called if we see the home launcher on enter (all windows are
+  // minimized).
+  DCHECK(transform_window_.IsMinimized());
+
+  // The mask and shadow will be shown when animation ends. Update the mask
+  // after starting the animation since starting the animation lets the
+  // controller know we are in starting animation.
+  FadeInWidgetAndMaybeSlideOnEnter(item_widget_.get(),
+                                   OVERVIEW_ANIMATION_ENTER_FROM_HOME_LAUNCHER,
+                                   /*slide=*/true, /*observe=*/true);
+  UpdateRoundedCornersAndShadow();
+}
+
+std::unique_ptr<ui::ScopedLayerAnimationSettings>
+OverviewItem::UpdateYPositionAndOpacity(
+    float new_grid_y,
+    float opacity,
+    OverviewSession::UpdateAnimationSettingsCallback callback) {
+  aura::Window::Windows windows = GetWindowsForHomeGesture();
+  std::unique_ptr<ui::ScopedLayerAnimationSettings> settings_to_observe;
+  for (auto* window : windows) {
+    ui::Layer* layer = window->layer();
+    std::unique_ptr<ui::ScopedLayerAnimationSettings> settings;
+    if (!callback.is_null()) {
+      settings = std::make_unique<ui::ScopedLayerAnimationSettings>(
+          layer->GetAnimator());
+      callback.Run(settings.get());
+    }
+    layer->SetOpacity(opacity);
+
+    float initial_y = 0.f;
+    if (translation_y_map_.contains(window))
+      initial_y = translation_y_map_[window];
+
+    // Alter the y-translation. Offset by the window location relative to the
+    // grid.
+    gfx::Transform transform = layer->transform();
+    transform.matrix().setFloat(1, 3, initial_y - new_grid_y);
+    layer->SetTransform(transform);
+
+    if (settings)
+      settings_to_observe = std::move(settings);
+  }
+
+  return settings_to_observe;
+}
+
+void OverviewItem::UpdateItemContentViewForMinimizedWindow() {
+  overview_item_view_->RefreshPreviewView();
+}
+
 bool OverviewItem::IsDragItem() {
-  return overview_session_->window_drag_controller() &&
-         overview_session_->window_drag_controller()->item() == this;
+  return overview_session_->GetCurrentDraggedOverviewItem() == this;
 }
 
 void OverviewItem::Restack() {
@@ -670,6 +676,11 @@ void OverviewItem::Restack() {
   // |window| and has the same parent.
   for (const std::unique_ptr<OverviewItem>& overview_item :
        overview_grid_->window_list()) {
+    // |Restack| is sometimes called when there is a drop target, but is never
+    // used to restack an item that comes after a drop target. In other words,
+    // |overview_grid_| might have a drop target, but we will break out of the
+    // for loop before reaching it.
+    DCHECK(!overview_grid_->IsDropTargetWindow(overview_item->GetWindow()));
     if (overview_item.get() == this)
       break;
     if (overview_item->GetWindow()->parent() == parent_window)
@@ -789,8 +800,7 @@ void OverviewItem::OnStartingAnimationComplete() {
         /*slide=*/false, /*observe=*/false);
   }
   const bool show_backdrop =
-      GetWindowDimensionsType() !=
-      ScopedOverviewTransformWindow::GridWindowFillMode::kNormal;
+      GetWindowDimensionsType() != OverviewGridWindowFillMode::kNormal;
   overview_item_view_->SetBackdropVisibility(show_backdrop);
   UpdateCannotSnapWarningVisibility();
 }
@@ -813,7 +823,7 @@ float OverviewItem::GetOpacity() {
 
 OverviewAnimationType OverviewItem::GetExitOverviewAnimationType() {
   if (overview_session_->enter_exit_overview_type() ==
-      OverviewSession::EnterExitOverviewType::kImmediateExit) {
+      OverviewEnterExitType::kImmediateExit) {
     return OVERVIEW_ANIMATION_NONE;
   }
 
@@ -823,66 +833,14 @@ OverviewAnimationType OverviewItem::GetExitOverviewAnimationType() {
 }
 
 OverviewAnimationType OverviewItem::GetExitTransformAnimationType() {
-  if (overview_session_->enter_exit_overview_type() ==
-      OverviewSession::EnterExitOverviewType::kImmediateExit) {
+  if (is_moving_to_another_desk_ ||
+      overview_session_->enter_exit_overview_type() ==
+          OverviewEnterExitType::kImmediateExit) {
     return OVERVIEW_ANIMATION_NONE;
   }
 
   return should_animate_when_exiting_ ? OVERVIEW_ANIMATION_RESTORE_WINDOW
                                       : OVERVIEW_ANIMATION_RESTORE_WINDOW_ZERO;
-}
-
-void OverviewItem::HandleMouseEvent(const ui::MouseEvent& event) {
-  const gfx::PointF screen_location = event.target()->GetScreenLocationF(event);
-  switch (event.type()) {
-    case ui::ET_MOUSE_PRESSED:
-      HandlePressEvent(screen_location, /*from_touch_gesture=*/false);
-      break;
-    case ui::ET_MOUSE_RELEASED:
-      HandleReleaseEvent(screen_location);
-      break;
-    case ui::ET_MOUSE_DRAGGED:
-      HandleDragEvent(screen_location);
-      break;
-    default:
-      NOTREACHED();
-      break;
-  }
-}
-
-void OverviewItem::HandleGestureEvent(ui::GestureEvent* event) {
-  if (ShouldUseTabletModeGridLayout()) {
-    HandleGestureEventForTabletModeLayout(event);
-    return;
-  }
-
-  const gfx::PointF location = event->details().bounding_box_f().CenterPoint();
-  switch (event->type()) {
-    case ui::ET_GESTURE_TAP_DOWN:
-      HandlePressEvent(location, /*from_touch_gesture=*/true);
-      break;
-    case ui::ET_GESTURE_SCROLL_UPDATE:
-      HandleDragEvent(location);
-      break;
-    case ui::ET_SCROLL_FLING_START:
-      HandleFlingStartEvent(location, event->details().velocity_x(),
-                            event->details().velocity_y());
-      break;
-    case ui::ET_GESTURE_SCROLL_END:
-      HandleReleaseEvent(location);
-      break;
-    case ui::ET_GESTURE_LONG_PRESS:
-      HandleLongPressEvent(location);
-      break;
-    case ui::ET_GESTURE_TAP:
-      HandleTapEvent();
-      break;
-    case ui::ET_GESTURE_END:
-      HandleGestureEndEvent();
-      break;
-    default:
-      break;
-  }
 }
 
 void OverviewItem::HandleGestureEventForTabletModeLayout(
@@ -929,6 +887,68 @@ void OverviewItem::HandleGestureEventForTabletModeLayout(
       break;
     default:
       overview_grid()->grid_event_handler()->OnGestureEvent(event);
+      break;
+  }
+}
+
+void OverviewItem::HandleMouseEvent(const ui::MouseEvent& event) {
+  if (!overview_session_->CanProcessEvent(this, /*from_touch_gesture=*/false))
+    return;
+
+  const gfx::PointF screen_location = event.target()->GetScreenLocationF(event);
+  switch (event.type()) {
+    case ui::ET_MOUSE_PRESSED:
+      HandlePressEvent(screen_location, /*from_touch_gesture=*/false);
+      break;
+    case ui::ET_MOUSE_RELEASED:
+      HandleReleaseEvent(screen_location);
+      break;
+    case ui::ET_MOUSE_DRAGGED:
+      HandleDragEvent(screen_location);
+      break;
+    default:
+      NOTREACHED();
+      break;
+  }
+}
+
+void OverviewItem::HandleGestureEvent(ui::GestureEvent* event) {
+  if (!overview_session_->CanProcessEvent(this, /*from_touch_gesture=*/true)) {
+    event->StopPropagation();
+    event->SetHandled();
+    return;
+  }
+
+  if (ShouldUseTabletModeGridLayout()) {
+    HandleGestureEventForTabletModeLayout(event);
+    return;
+  }
+
+  const gfx::PointF location = event->details().bounding_box_f().CenterPoint();
+  switch (event->type()) {
+    case ui::ET_GESTURE_TAP_DOWN:
+      HandlePressEvent(location, /*from_touch_gesture=*/true);
+      break;
+    case ui::ET_GESTURE_SCROLL_UPDATE:
+      HandleDragEvent(location);
+      break;
+    case ui::ET_SCROLL_FLING_START:
+      HandleFlingStartEvent(location, event->details().velocity_x(),
+                            event->details().velocity_y());
+      break;
+    case ui::ET_GESTURE_SCROLL_END:
+      HandleReleaseEvent(location);
+      break;
+    case ui::ET_GESTURE_LONG_PRESS:
+      HandleLongPressEvent(location);
+      break;
+    case ui::ET_GESTURE_TAP:
+      HandleTapEvent();
+      break;
+    case ui::ET_GESTURE_END:
+      HandleGestureEndEvent();
+      break;
+    default:
       break;
   }
 }
@@ -1040,7 +1060,7 @@ void OverviewItem::OnPostWindowStateTypeChange(WindowState* window_state,
   // When swiping away overview mode via shelf, windows will get minimized, but
   // we do not want show a mirrored view in this case.
   if (overview_session_->enter_exit_overview_type() ==
-      OverviewSession::EnterExitOverviewType::kSwipeFromShelf) {
+      OverviewEnterExitType::kSwipeFromShelf) {
     return;
   }
 
@@ -1302,14 +1322,23 @@ void OverviewItem::AnimateOpacity(float opacity,
   }
 }
 
+void OverviewItem::StartDrag() {
+  aura::Window* widget_window = item_widget_->GetNativeWindow();
+  aura::Window* window = GetWindow();
+  if (widget_window && widget_window->parent() == window->parent()) {
+    // TODO(xdai): This might not work if there is an always on top window.
+    // See crbug.com/733760.
+    widget_window->parent()->StackChildAtTop(window);
+    widget_window->parent()->StackChildBelow(widget_window, window);
+  }
+}
+
 void OverviewItem::HandlePressEvent(const gfx::PointF& location_in_screen,
                                     bool from_touch_gesture) {
-  // We allow switching finger while dragging, but do not allow dragging two
-  // or more items.
-  if (overview_session_->window_drag_controller() &&
-      overview_session_->window_drag_controller()->item()) {
+  // No need to start the drag again if already in a drag. This can happen if we
+  // switch fingers midway through a drag.
+  if (IsDragItem())
     return;
-  }
 
   StartDrag();
   overview_session_->InitiateDrag(this, location_in_screen,
@@ -1362,17 +1391,6 @@ void OverviewItem::HandleGestureEndEvent() {
   // stacking order on the next reposition.
   set_should_restack_on_animation_end(true);
   overview_session_->ResetDraggedWindowGesture();
-}
-
-void OverviewItem::StartDrag() {
-  aura::Window* widget_window = item_widget_->GetNativeWindow();
-  aura::Window* window = GetWindow();
-  if (widget_window && widget_window->parent() == window->parent()) {
-    // TODO(xdai): This might not work if there is an always on top window.
-    // See crbug.com/733760.
-    widget_window->parent()->StackChildAtTop(window);
-    widget_window->parent()->StackChildBelow(widget_window, window);
-  }
 }
 
 aura::Window::Windows OverviewItem::GetWindowsForHomeGesture() {

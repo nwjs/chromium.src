@@ -25,6 +25,7 @@
 #include "chrome/browser/extensions/api/passwords_private/passwords_private_event_router_factory.h"
 #include "chrome/browser/extensions/api/preference/preference_api.h"
 #include "chrome/browser/extensions/api/processes/processes_api.h"
+#include "chrome/browser/extensions/api/safe_browsing_private/safe_browsing_private_event_router_factory.h"
 #include "chrome/browser/extensions/api/sessions/sessions_api.h"
 #include "chrome/browser/extensions/api/settings_overrides/settings_overrides_api.h"
 #include "chrome/browser/extensions/api/settings_private/settings_private_event_router_factory.h"
@@ -64,6 +65,10 @@
 #include "chrome/browser/extensions/api/spellcheck/spellcheck_api.h"
 #endif
 
+#if BUILDFLAG(ENABLE_AUTOFILL_ASSISTANT_API)
+#include "chrome/browser/extensions/api/autofill_assistant_private/autofill_assistant_private_api.h"
+#endif
+
 #include "content/nw/src/api/object_manager_factory.h"
 
 namespace chrome_extensions {
@@ -71,6 +76,9 @@ namespace chrome_extensions {
 void EnsureBrowserContextKeyedServiceFactoriesBuilt() {
   extensions::ActivityLog::GetFactoryInstance();
   extensions::ActivityLogAPI::GetFactoryInstance();
+#if BUILDFLAG(ENABLE_AUTOFILL_ASSISTANT_API)
+  extensions::AutofillAssistantPrivateAPI::GetFactoryInstance();
+#endif
   extensions::AutofillPrivateEventRouterFactory::GetInstance();
   extensions::BluetoothLowEnergyAPI::GetFactoryInstance();
   extensions::BookmarksAPI::GetFactoryInstance();
@@ -112,6 +120,7 @@ void EnsureBrowserContextKeyedServiceFactoriesBuilt() {
 #endif
   extensions::PreferenceAPI::GetFactoryInstance();
   extensions::ProcessesAPI::GetFactoryInstance();
+  //extensions::SafeBrowsingPrivateEventRouterFactory::GetInstance();
   extensions::SessionsAPI::GetFactoryInstance();
   extensions::SettingsPrivateEventRouterFactory::GetInstance();
   extensions::SettingsOverridesAPI::GetFactoryInstance();

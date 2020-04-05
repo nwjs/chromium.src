@@ -57,6 +57,11 @@ extern const base::FeatureParam<int>
 COMPONENT_EXPORT(ASSISTANT_SERVICE_PUBLIC)
 extern const base::Feature kAssistantRoutines;
 
+// When enabled, we support the second version of timers UX which includes new
+// UI treatments for timers in Assistant and System UI.
+COMPONENT_EXPORT(ASSISTANT_SERVICE_PUBLIC)
+extern const base::Feature kAssistantTimersV2;
+
 // Enables in-Assistant notifications.
 COMPONENT_EXPORT(ASSISTANT_SERVICE_PUBLIC)
 extern const base::Feature kInAssistantNotifications;
@@ -80,10 +85,6 @@ extern const base::Feature kEnableStereoAudioInput;
 // Enables power management features i.e. Wake locks and wake up alarms.
 COMPONENT_EXPORT(ASSISTANT_SERVICE_PUBLIC)
 extern const base::Feature kEnablePowerManager;
-
-// Enables sending the client discourse context with text queries.
-COMPONENT_EXPORT(ASSISTANT_SERVICE_PUBLIC)
-extern const base::Feature kEnableTextQueriesWithClientDiscourseContext;
 
 COMPONENT_EXPORT(ASSISTANT_SERVICE_PUBLIC)
 int GetProactiveSuggestionsMaxWidth();
@@ -132,18 +133,18 @@ bool IsProactiveSuggestionsShowRichEntryPointEnabled();
 COMPONENT_EXPORT(ASSISTANT_SERVICE_PUBLIC)
 bool IsProactiveSuggestionsSuppressDuplicatesEnabled();
 
+COMPONENT_EXPORT(ASSISTANT_SERVICE_PUBLIC)
+bool IsResponseProcessingV2Enabled();
+
 COMPONENT_EXPORT(ASSISTANT_SERVICE_PUBLIC) bool IsRoutinesEnabled();
 
-COMPONENT_EXPORT(ASSISTANT_SERVICE_PUBLIC) bool IsScreenContextQueryEnabled();
-
 COMPONENT_EXPORT(ASSISTANT_SERVICE_PUBLIC) bool IsStereoAudioInputEnabled();
+
+COMPONENT_EXPORT(ASSISTANT_SERVICE_PUBLIC) bool IsTimersV2Enabled();
 
 COMPONENT_EXPORT(ASSISTANT_SERVICE_PUBLIC) bool IsWarmerWelcomeEnabled();
 
 COMPONENT_EXPORT(ASSISTANT_SERVICE_PUBLIC) bool IsVoiceMatchDisabled();
-
-COMPONENT_EXPORT(ASSISTANT_SERVICE_PUBLIC)
-bool IsAssistantWebContainerEnabled();
 
 }  // namespace features
 }  // namespace assistant

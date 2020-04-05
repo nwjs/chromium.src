@@ -10,6 +10,7 @@
 #include "third_party/blink/public/mojom/autoplay/autoplay.mojom-blink.h"
 #include "third_party/blink/public/platform/web_media_player.h"
 #include "third_party/blink/public/platform/web_media_player_source.h"
+#include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/html/media/html_audio_element.h"
 #include "third_party/blink/renderer/core/html/media/html_video_element.h"
@@ -33,12 +34,15 @@ using ::testing::Return;
 
 namespace blink {
 
+namespace {
+
 class MockWebMediaPlayer : public EmptyWebMediaPlayer {
  public:
   MOCK_CONST_METHOD0(HasAudio, bool());
   MOCK_CONST_METHOD0(HasVideo, bool());
   MOCK_CONST_METHOD0(Duration, double());
   MOCK_CONST_METHOD0(CurrentTime, double());
+  MOCK_CONST_METHOD0(IsEnded, bool());
   MOCK_CONST_METHOD0(GetNetworkState, NetworkState());
   MOCK_CONST_METHOD0(WouldTaintOrigin, bool());
   MOCK_METHOD1(SetLatencyHint, void(double));
@@ -72,6 +76,8 @@ class WebMediaStubLocalFrameClient : public EmptyLocalFrameClient {
 };
 
 enum class MediaTestParam { kAudio, kVideo };
+
+}  // namespace
 
 class HTMLMediaElementTest : public testing::TestWithParam<MediaTestParam> {
  protected:
@@ -146,7 +152,7 @@ class HTMLMediaElementTest : public testing::TestWithParam<MediaTestParam> {
   }
 
   ExecutionContext* GetExecutionContext() const {
-    return &dummy_page_holder_->GetDocument();
+    return dummy_page_holder_->GetFrame().DomWindow();
   }
 
  private:
@@ -271,7 +277,8 @@ TEST_P(HTMLMediaElementTest, CouldPlayIfEnoughDataRespondsToEnded) {
 
   MockWebMediaPlayer* mock_wmpi =
       reinterpret_cast<MockWebMediaPlayer*>(Media()->GetWebMediaPlayer());
-  EXPECT_NE(mock_wmpi, nullptr);
+  ASSERT_NE(mock_wmpi, nullptr);
+  EXPECT_CALL(*mock_wmpi, IsEnded()).WillRepeatedly(Return(false));
   EXPECT_TRUE(CouldPlayIfEnoughData());
 
   // Playback can only end once the ready state is above kHaveMetadata.
@@ -284,6 +291,7 @@ TEST_P(HTMLMediaElementTest, CouldPlayIfEnoughDataRespondsToEnded) {
   testing::Mock::VerifyAndClearExpectations(mock_wmpi);
   EXPECT_CALL(*mock_wmpi, CurrentTime())
       .WillRepeatedly(Return(Media()->duration()));
+  EXPECT_CALL(*mock_wmpi, IsEnded()).WillRepeatedly(Return(true));
   EXPECT_FALSE(CouldPlayIfEnoughData());
   EXPECT_TRUE(Media()->ended());
 }

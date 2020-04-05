@@ -12,6 +12,7 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/path_service.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
@@ -19,9 +20,11 @@
 #include "chrome/browser/native_file_system/native_file_system_permission_request_manager.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/safe_browsing/download_protection/download_protection_service.h"
-#include "chrome/browser/ui/browser_dialogs.h"
+#include "chrome/browser/ui/native_file_system_dialogs.h"
 #include "chrome/common/chrome_paths.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
+#include "components/content_settings/core/common/content_settings.h"
+#include "components/safe_browsing/buildflags.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/render_frame_host.h"
@@ -45,13 +48,16 @@ void ShowDirectoryAccessConfirmationPromptOnUIThread(
   if (!web_contents) {
     // Requested from a worker, or a no longer existing tab.
     std::move(callback).Run(permissions::PermissionAction::DISMISSED);
+    return;
   }
 
   // Drop fullscreen mode so that the user sees the URL bar.
-  web_contents->ForSecurityDropFullscreen();
+  base::ScopedClosureRunner fullscreen_block =
+      web_contents->ForSecurityDropFullscreen();
 
   ShowNativeFileSystemDirectoryAccessConfirmationDialog(
-      origin, path, std::move(callback), web_contents);
+      origin, path, std::move(callback), web_contents,
+      std::move(fullscreen_block));
 }
 
 void ShowNativeFileSystemRestrictedDirectoryDialogOnUIThread(
@@ -214,10 +220,10 @@ void DoSafeBrowsingCheckOnUIThread(
     std::unique_ptr<content::NativeFileSystemWriteItem> item,
     safe_browsing::CheckDownloadCallback callback) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-
+  // Download Protection Service is not supported on Android.
+#if BUILDFLAG(FULL_SAFE_BROWSING)
   safe_browsing::SafeBrowsingService* sb_service =
       g_browser_process->safe_browsing_service();
-
   if (!sb_service || !sb_service->download_protection_service() ||
       !sb_service->download_protection_service()->enabled()) {
     std::move(callback).Run(safe_browsing::DownloadCheckResult::UNKNOWN);
@@ -243,6 +249,7 @@ void DoSafeBrowsingCheckOnUIThread(
 
   sb_service->download_protection_service()->CheckNativeFileSystemWrite(
       std::move(item), std::move(callback));
+#endif
 }
 
 ChromeNativeFileSystemPermissionContext::AfterWriteCheckResult
@@ -264,6 +271,7 @@ InterpretSafeBrowsingResult(safe_browsing::DownloadCheckResult result) {
     case Result::POTENTIALLY_UNWANTED:
     case Result::BLOCKED_PASSWORD_PROTECTED:
     case Result::BLOCKED_TOO_LARGE:
+    case Result::BLOCKED_UNSUPPORTED_FILE_TYPE:
       return ChromeNativeFileSystemPermissionContext::AfterWriteCheckResult::
           kBlock;
 
@@ -300,15 +308,28 @@ ChromeNativeFileSystemPermissionContext::
 ChromeNativeFileSystemPermissionContext::
     ~ChromeNativeFileSystemPermissionContext() = default;
 
-bool ChromeNativeFileSystemPermissionContext::CanRequestWritePermission(
+ContentSetting
+ChromeNativeFileSystemPermissionContext::GetWriteGuardContentSetting(
     const url::Origin& origin) {
-  ContentSetting content_setting = content_settings()->GetContentSetting(
+  return content_settings()->GetContentSetting(
       origin.GetURL(), origin.GetURL(),
       ContentSettingsType::NATIVE_FILE_SYSTEM_WRITE_GUARD,
       /*provider_id=*/std::string());
-  DCHECK(content_setting == CONTENT_SETTING_ASK ||
-         content_setting == CONTENT_SETTING_BLOCK);
-  return content_setting == CONTENT_SETTING_ASK;
+}
+
+ContentSetting
+ChromeNativeFileSystemPermissionContext::GetReadGuardContentSetting(
+    const url::Origin& origin) {
+  return content_settings()->GetContentSetting(
+      origin.GetURL(), origin.GetURL(),
+      ContentSettingsType::NATIVE_FILE_SYSTEM_READ_GUARD,
+      /*provider_id=*/std::string());
+}
+
+bool ChromeNativeFileSystemPermissionContext::CanObtainWritePermission(
+    const url::Origin& origin) {
+  return GetWriteGuardContentSetting(origin) == CONTENT_SETTING_ASK ||
+         GetWriteGuardContentSetting(origin) == CONTENT_SETTING_ALLOW;
 }
 
 void ChromeNativeFileSystemPermissionContext::ConfirmDirectoryReadAccess(
@@ -353,9 +374,8 @@ void ChromeNativeFileSystemPermissionContext::ConfirmSensitiveDirectoryAccess(
   // It is enough to only verify access to the first path, as multiple
   // file selection is only supported if all files are in the same
   // directory.
-  base::PostTaskAndReplyWithResult(
-      FROM_HERE,
-      {base::ThreadPool(), base::MayBlock(), base::TaskPriority::USER_VISIBLE},
+  base::ThreadPool::PostTaskAndReplyWithResult(
+      FROM_HERE, {base::MayBlock(), base::TaskPriority::USER_VISIBLE},
       base::BindOnce(&ShouldBlockAccessToPath, paths[0]),
       base::BindOnce(&ChromeNativeFileSystemPermissionContext::
                          DidConfirmSensitiveDirectoryAccess,

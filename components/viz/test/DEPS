@@ -31,6 +31,7 @@ include_rules = [
   "+third_party/khronos/GLES2/gl2.h",
   "+third_party/khronos/GLES2/gl2ext.h",
   "+third_party/skia/include",
+  "+ui/events",
   "+ui/gl",
   "+ui/latency",
 ]
@@ -49,13 +50,13 @@ specific_include_rules = {
   ],
 
   "test_gpu_service_holder\.h": [
+    "+gpu/ipc/gpu_in_process_thread_service.h",
     "+gpu/vulkan/buildflags.h",
   ],
 
   "test_gpu_service_holder\.cc": [
     "+gpu/command_buffer/service/service_utils.h",
     "+gpu/config",
-    "+gpu/ipc/gpu_in_process_thread_service.h",
     "+gpu/ipc/service/gpu_watchdog_thread.h",
     "+gpu/vulkan/init/vulkan_factory.h",
     "+gpu/vulkan/vulkan_implementation.h",

@@ -10,10 +10,11 @@
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
 #include "weblayer/browser/download_manager_delegate_impl.h"
-#include "weblayer/browser/ssl_host_state_delegate_impl.h"
 #include "weblayer/public/profile.h"
 
-class PrefRegistrySimple;
+namespace user_prefs {
+class PrefRegistrySyncable;
+}
 class PrefService;
 
 namespace weblayer {
@@ -36,6 +37,7 @@ class BrowserContextImpl : public content::BrowserContext {
 #endif  // !defined(OS_ANDROID)
   base::FilePath GetPath() override;
   bool IsOffTheRecord() override;
+  variations::VariationsClient* GetVariationsClient() override;
   content::DownloadManagerDelegate* GetDownloadManagerDelegate() override;
 
   content::ResourceContext* GetResourceContext() override;
@@ -58,14 +60,18 @@ class BrowserContextImpl : public content::BrowserContext {
 
   ProfileImpl* profile_impl() const { return profile_impl_; }
 
+  PrefService* pref_service() const { return user_pref_service_.get(); }
+
  private:
+  class WebLayerVariationsClient;
+
   // Creates a simple in-memory pref service.
   // TODO(timvolodine): Investigate whether WebLayer needs persistent pref
   // service.
   void CreateUserPrefService();
 
   // Registers the preferences that WebLayer accesses.
-  void RegisterPrefs(PrefRegistrySimple* pref_registry);
+  void RegisterPrefs(user_prefs::PrefRegistrySyncable* pref_registry);
 
   ProfileImpl* const profile_impl_;
   base::FilePath path_;
@@ -79,10 +85,8 @@ class BrowserContextImpl : public content::BrowserContext {
   std::unique_ptr<ResourceContextImpl, content::BrowserThread::DeleteOnIOThread>
       resource_context_;
   DownloadManagerDelegateImpl download_delegate_;
-  SSLHostStateDelegateImpl ssl_host_state_delegate_;
   std::unique_ptr<PrefService> user_pref_service_;
-  std::unique_ptr<content::PermissionControllerDelegate>
-      permission_controller_delegate_;
+  std::unique_ptr<WebLayerVariationsClient> weblayer_variations_client_;
 };
 }  // namespace weblayer
 

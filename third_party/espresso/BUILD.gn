@@ -16,21 +16,19 @@ java_group("espresso_all_java") {
 }
 
 android_java_prebuilt("espresso_contrib_java") {
-  skip_jetify = true
   testonly = true
   jar_path = "lib/espresso-contrib-release-no-dep.jar"
   deps = [
     ":espresso_core_java",
     "//third_party/accessibility_test_framework:accessibility_test_framework_java",
     "//third_party/android_deps:android_support_v4_java",
-    "//third_party/android_deps:com_android_support_design_java",
+    "//third_party/android_deps:com_google_android_material_material_java",
     "//third_party/guava:guava_android_java",
     "//third_party/hamcrest:hamcrest_core_java",
   ]
 }
 
 android_java_prebuilt("espresso_core_java") {
-  skip_jetify = true
   testonly = true
   jar_path = "lib/espresso-core-release-no-dep.jar"
   deps = [
@@ -45,13 +43,11 @@ android_java_prebuilt("espresso_core_java") {
 }
 
 android_java_prebuilt("espresso_idling_java") {
-  skip_jetify = true
   testonly = true
   jar_path = "lib/espresso-idling-resource-release-no-dep.jar"
 }
 
 android_java_prebuilt("espresso_intents_java") {
-  skip_jetify = true
   testonly = true
   jar_path = "lib/espresso-intents-release-no-dep.jar"
   deps = [
@@ -66,7 +62,6 @@ android_java_prebuilt("espresso_intents_java") {
 android_java_prebuilt("espresso_web_java") {
   # Uses org/ccil/cowan/tagsoup/Parser which isn't in third_party.
   enable_bytecode_checks = false
-  skip_jetify = true
   testonly = true
   jar_path = "lib/espresso-web-release-no-dep.jar"
   deps = [

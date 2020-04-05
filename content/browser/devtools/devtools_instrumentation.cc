@@ -3,6 +3,8 @@
 // found in the LICENSE file.
 #include "content/browser/devtools/devtools_instrumentation.h"
 
+#include "components/download/public/common/download_create_info.h"
+#include "components/download/public/common/download_item.h"
 #include "content/browser/devtools/browser_devtools_agent_host.h"
 #include "content/browser/devtools/devtools_url_loader_interceptor.h"
 #include "content/browser/devtools/protocol/emulation_handler.h"
@@ -21,9 +23,12 @@
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #include "net/base/load_flags.h"
+#include "net/cookies/canonical_cookie.h"
 #include "net/http/http_request_headers.h"
 #include "net/ssl/ssl_info.h"
+#include "services/network/public/mojom/network_context.mojom.h"
 #include "services/network/public/mojom/url_loader_factory.mojom.h"
+#include "third_party/blink/public/mojom/devtools/inspector_issue.mojom.h"
 
 namespace content {
 namespace devtools_instrumentation {
@@ -111,17 +116,18 @@ void OnNavigationRequestFailed(
                    protocol::Network::ResourceTypeEnum::Document, status);
 }
 
-void WillBeginDownload(int render_process_id,
-                       int render_frame_id,
-                       const GURL& url) {
+void WillBeginDownload(download::DownloadCreateInfo* info,
+                       download::DownloadItem* item) {
+  if (!item)
+    return;
   auto* rfh = static_cast<RenderFrameHostImpl*>(
-      RenderFrameHost::FromID(render_process_id, render_frame_id));
+      RenderFrameHost::FromID(info->render_process_id, info->render_frame_id));
   FrameTreeNode* ftn =
       rfh ? FrameTreeNode::GloballyFindByID(rfh->GetFrameTreeNodeId())
           : nullptr;
   if (!ftn)
     return;
-  DispatchToAgents(ftn, &protocol::PageHandler::DownloadWillBegin, ftn, url);
+  DispatchToAgents(ftn, &protocol::PageHandler::DownloadWillBegin, ftn, item);
 }
 
 void OnSignedExchangeReceived(
@@ -190,14 +196,23 @@ void OnSignedExchangeCertificateRequestCompleted(
                    protocol::Network::ResourceTypeEnum::Other, status);
 }
 
+void CreateThrottlesForAgentHost(
+    DevToolsAgentHostImpl* agent_host,
+    NavigationHandle* navigation_handle,
+    std::vector<std::unique_ptr<NavigationThrottle>>* result) {
+  for (auto* target_handler :
+       protocol::TargetHandler::ForAgentHost(agent_host)) {
+    std::unique_ptr<NavigationThrottle> throttle =
+        target_handler->CreateThrottleForNavigation(navigation_handle);
+    if (throttle)
+      result->push_back(std::move(throttle));
+  }
+}
+
 std::vector<std::unique_ptr<NavigationThrottle>> CreateNavigationThrottles(
     NavigationHandle* navigation_handle) {
-  std::vector<std::unique_ptr<NavigationThrottle>> result;
   FrameTreeNode* frame_tree_node =
       NavigationRequest::From(navigation_handle)->frame_tree_node();
-
-  DevToolsAgentHostImpl* agent_host =
-      RenderFrameDevToolsAgentHost::GetFor(frame_tree_node);
   FrameTreeNode* parent = frame_tree_node->parent();
   if (!parent) {
     if (WebContentsImpl::FromFrameTreeNode(frame_tree_node)->IsPortal() &&
@@ -207,25 +222,33 @@ std::vector<std::unique_ptr<NavigationThrottle>> CreateNavigationThrottles(
                    ->GetOuterWebContents()
                    ->GetFrameTree()
                    ->root();
-    } else {
-      parent = frame_tree_node->original_opener();
     }
   }
-  if (!parent)
-    return result;
 
-  agent_host = RenderFrameDevToolsAgentHost::GetFor(parent);
-  if (agent_host) {
-    for (auto* target_handler :
-         protocol::TargetHandler::ForAgentHost(agent_host)) {
-      std::unique_ptr<NavigationThrottle> throttle =
-          target_handler->CreateThrottleForNavigation(navigation_handle);
-      if (throttle)
-        result.push_back(std::move(throttle));
-    }
+  std::vector<std::unique_ptr<NavigationThrottle>> result;
+  if (parent) {
+    DevToolsAgentHostImpl* agent_host =
+        RenderFrameDevToolsAgentHost::GetFor(parent);
+    if (agent_host)
+      CreateThrottlesForAgentHost(agent_host, navigation_handle, &result);
+  } else {
+    for (auto* browser_agent_host : BrowserDevToolsAgentHost::Instances())
+      CreateThrottlesForAgentHost(browser_agent_host, navigation_handle,
+                                  &result);
   }
 
   return result;
+}
+
+bool ShouldWaitForDebuggerInWindowOpen() {
+  for (auto* browser_agent_host : BrowserDevToolsAgentHost::Instances()) {
+    for (auto* target_handler :
+         protocol::TargetHandler::ForAgentHost(browser_agent_host)) {
+      if (target_handler->ShouldThrottlePopups())
+        return true;
+    }
+  }
+  return false;
 }
 
 void ApplyNetworkRequestOverrides(FrameTreeNode* frame_tree_node,
@@ -267,17 +290,16 @@ bool MaybeCreateProxyForInterception(
     const base::UnguessableToken& frame_token,
     bool is_navigation,
     bool is_download,
-    mojo::PendingReceiver<network::mojom::URLLoaderFactory>*
-        target_factory_receiver) {
+    network::mojom::URLLoaderFactoryOverride* agent_override) {
   if (!agent_host)
     return false;
   bool had_interceptors = false;
   const auto& handlers = HandlerType::ForAgentHost(agent_host);
   for (auto it = handlers.rbegin(); it != handlers.rend(); ++it) {
-    had_interceptors = (*it)->MaybeCreateProxyForInterception(
-                           rph, frame_token, is_navigation, is_download,
-                           target_factory_receiver) ||
-                       had_interceptors;
+    had_interceptors =
+        (*it)->MaybeCreateProxyForInterception(rph, frame_token, is_navigation,
+                                               is_download, agent_override) ||
+        had_interceptors;
   }
   return had_interceptors;
 }
@@ -289,14 +311,22 @@ bool WillCreateURLLoaderFactory(
     bool is_navigation,
     bool is_download,
     mojo::PendingReceiver<network::mojom::URLLoaderFactory>*
-        target_factory_receiver) {
+        target_factory_receiver,
+    network::mojom::URLLoaderFactoryOverridePtr* factory_override) {
   DCHECK(!is_download || is_navigation);
+
+  network::mojom::URLLoaderFactoryOverride devtools_override;
+  // If caller passed some existing overrides, use those.
+  // Otherwise, use our local var, then if handlers actually
+  // decide to intercept, move it to |factory_override|.
+  network::mojom::URLLoaderFactoryOverride* handler_override =
+      factory_override && *factory_override ? factory_override->get()
+                                            : &devtools_override;
 
   // Order of targets and sessions matters -- the latter proxy is created,
   // the closer it is to the network. So start with frame's NetworkHandler,
   // then process frame's FetchHandler and then browser's FetchHandler.
   // Within the target, the agents added earlier are closer to network.
-
   DevToolsAgentHostImpl* frame_agent_host =
       RenderFrameDevToolsAgentHost::GetFor(rfh);
   RenderProcessHost* rph = rfh->GetProcess();
@@ -305,28 +335,50 @@ bool WillCreateURLLoaderFactory(
   bool had_interceptors =
       MaybeCreateProxyForInterception<protocol::NetworkHandler>(
           frame_agent_host, rph, frame_token, is_navigation, is_download,
-          target_factory_receiver);
+          handler_override);
 
   had_interceptors = MaybeCreateProxyForInterception<protocol::FetchHandler>(
                          frame_agent_host, rph, frame_token, is_navigation,
-                         is_download, target_factory_receiver) ||
+                         is_download, handler_override) ||
                      had_interceptors;
 
   // TODO(caseq): assure deterministic order of browser agents (or sessions).
   for (auto* browser_agent_host : BrowserDevToolsAgentHost::Instances()) {
     had_interceptors = MaybeCreateProxyForInterception<protocol::FetchHandler>(
                            browser_agent_host, rph, frame_token, is_navigation,
-                           is_download, target_factory_receiver) ||
+                           is_download, handler_override) ||
                        had_interceptors;
   }
-  return had_interceptors;
+  if (!had_interceptors)
+    return false;
+  DCHECK(handler_override->overriding_factory);
+  DCHECK(handler_override->overridden_factory_receiver);
+  if (!factory_override) {
+    // Not a subresource navigation, so just override the target receiver.
+    mojo::FusePipes(std::move(*target_factory_receiver),
+                    std::move(devtools_override.overriding_factory));
+    *target_factory_receiver =
+        std::move(devtools_override.overridden_factory_receiver);
+  } else if (!*factory_override) {
+    // No other overrides, so just returns ours as is.
+    *factory_override = network::mojom::URLLoaderFactoryOverride::New(
+        std::move(devtools_override.overriding_factory),
+        std::move(devtools_override.overridden_factory_receiver), false);
+  }
+  // ... else things are already taken care of, as handler_override was pointing
+  // to factory override and we've done all magic in-place.
+  DCHECK(!devtools_override.overriding_factory);
+  DCHECK(!devtools_override.overridden_factory_receiver);
+
+  return true;
 }
 
 bool WillCreateURLLoaderFactoryForServiceWorker(
     RenderProcessHost* rph,
     int routing_id,
-    mojo::PendingReceiver<network::mojom::URLLoaderFactory>*
-        loader_factory_receiver) {
+    network::mojom::URLLoaderFactoryOverridePtr* factory_override) {
+  DCHECK(factory_override);
+
   ServiceWorkerDevToolsAgentHost* worker_agent_host =
       ServiceWorkerDevToolsManager::GetInstance()
           ->GetDevToolsAgentHostForWorker(rph->GetID(), routing_id);
@@ -334,22 +386,38 @@ bool WillCreateURLLoaderFactoryForServiceWorker(
     NOTREACHED();
     return false;
   }
+  network::mojom::URLLoaderFactoryOverride devtools_override;
+  // If caller passed some existing overrides, use those.
+  // Otherwise, use our local var, then if handlers actually
+  // decide to intercept, move it to |factory_override|.
+  network::mojom::URLLoaderFactoryOverride* handler_override =
+      *factory_override ? factory_override->get() : &devtools_override;
+
   const base::UnguessableToken& worker_token =
       worker_agent_host->devtools_worker_token();
 
   bool had_interceptors =
       MaybeCreateProxyForInterception<protocol::FetchHandler>(
-          worker_agent_host, rph, worker_token, false, false,
-          loader_factory_receiver);
+          worker_agent_host, rph, worker_token, false, false, handler_override);
 
   // TODO(caseq): assure deterministic order of browser agents (or sessions).
   for (auto* browser_agent_host : BrowserDevToolsAgentHost::Instances()) {
     had_interceptors = MaybeCreateProxyForInterception<protocol::FetchHandler>(
                            browser_agent_host, rph, worker_token, false, false,
-                           loader_factory_receiver) ||
+                           handler_override) ||
                        had_interceptors;
   }
-  return had_interceptors;
+  if (!had_interceptors)
+    return false;
+
+  DCHECK(handler_override->overriding_factory);
+  DCHECK(handler_override->overridden_factory_receiver);
+  if (!*factory_override) {
+    *factory_override = network::mojom::URLLoaderFactoryOverride::New(
+        std::move(devtools_override.overriding_factory),
+        std::move(devtools_override.overridden_factory_receiver), false);
+  }
+  return true;
 }
 
 bool WillCreateURLLoaderFactory(
@@ -360,8 +428,10 @@ bool WillCreateURLLoaderFactory(
   mojo::PendingRemote<network::mojom::URLLoaderFactory> proxied_factory;
   mojo::PendingReceiver<network::mojom::URLLoaderFactory> receiver =
       proxied_factory.InitWithNewPipeAndPassReceiver();
-  if (!WillCreateURLLoaderFactory(rfh, is_navigation, is_download, &receiver))
+  if (!WillCreateURLLoaderFactory(rfh, is_navigation, is_download, &receiver,
+                                  nullptr)) {
     return false;
+  }
   mojo::MakeSelfOwnedReceiver(std::move(*factory), std::move(receiver));
   *factory = std::make_unique<DevToolsURLLoaderFactoryAdapter>(
       std::move(proxied_factory));
@@ -489,6 +559,148 @@ void OnResponseReceivedExtraInfo(
                          &protocol::NetworkHandler::OnResponseReceivedExtraInfo,
                          devtools_request_id, response_cookie_list,
                          response_headers, response_headers_text);
+}
+
+void OnCorsPreflightRequest(int32_t process_id,
+                            int32_t render_frame_id,
+                            const base::UnguessableToken& devtools_request_id,
+                            const network::ResourceRequest& request,
+                            const GURL& initiator_url) {
+  FrameTreeNode* ftn = GetFtnForNetworkRequest(process_id, render_frame_id);
+  if (!ftn)
+    return;
+  auto timestamp = base::TimeTicks::Now();
+  auto id = devtools_request_id.ToString();
+  // TODO(crbug.com/941297): Currently we are using an empty string for
+  // |loader_id|. But when we will introduce a better UI for preflight requests,
+  // consider using the navigation token which is same as the |loader_id| of the
+  // original request or the |devtools_request_id| of the original request, so
+  // that we can associate the requests in the DevTools front end.
+  DispatchToAgents(ftn, &protocol::NetworkHandler::RequestSent, id,
+                   /* loader_id=*/"", request,
+                   protocol::Network::Initiator::TypeEnum::Other, initiator_url,
+                   timestamp);
+}
+
+void OnCorsPreflightResponse(int32_t process_id,
+                             int32_t render_frame_id,
+                             const base::UnguessableToken& devtools_request_id,
+                             const GURL& url,
+                             network::mojom::URLResponseHeadPtr head) {
+  FrameTreeNode* ftn = GetFtnForNetworkRequest(process_id, render_frame_id);
+  if (!ftn)
+    return;
+  auto id = devtools_request_id.ToString();
+  DispatchToAgents(ftn, &protocol::NetworkHandler::ResponseReceived, id,
+                   /* loader_id=*/"", url,
+                   protocol::Network::ResourceTypeEnum::Other, *head,
+                   protocol::Maybe<std::string>());
+}
+
+void OnCorsPreflightRequestCompleted(
+    int32_t process_id,
+    int32_t render_frame_id,
+    const base::UnguessableToken& devtools_request_id,
+    const network::URLLoaderCompletionStatus& status) {
+  FrameTreeNode* ftn = GetFtnForNetworkRequest(process_id, render_frame_id);
+  if (!ftn)
+    return;
+  auto id = devtools_request_id.ToString();
+  DispatchToAgents(ftn, &protocol::NetworkHandler::LoadingComplete, id,
+                   protocol::Network::ResourceTypeEnum::Other, status);
+}
+
+namespace {
+blink::mojom::SameSiteCookieIssueDetailsPtr BuildSameSiteCookieIssueDetails(
+    net::CanonicalCookie::CookieInclusionStatus status) {
+  std::vector<blink::mojom::SameSiteCookieExclusionReason> exclusion_reasons;
+  if (status.HasExclusionReason(
+          net::CanonicalCookie::CookieInclusionStatus::
+              EXCLUDE_SAMESITE_UNSPECIFIED_TREATED_AS_LAX)) {
+    exclusion_reasons.push_back(blink::mojom::SameSiteCookieExclusionReason::
+                                    ExcludeSameSiteUnspecifiedTreatedAsLax);
+  }
+  if (status.HasExclusionReason(net::CanonicalCookie::CookieInclusionStatus::
+                                    EXCLUDE_SAMESITE_NONE_INSECURE)) {
+    exclusion_reasons.push_back(blink::mojom::SameSiteCookieExclusionReason::
+                                    ExcludeSameSiteNoneInsecure);
+  }
+
+  std::vector<blink::mojom::SameSiteCookieWarningReason> warning_reasons;
+  if (status.HasWarningReason(
+          net::CanonicalCookie::CookieInclusionStatus::
+              WARN_SAMESITE_UNSPECIFIED_CROSS_SITE_CONTEXT)) {
+    warning_reasons.push_back(blink::mojom::SameSiteCookieWarningReason::
+                                  WarnSameSiteUnspecifiedCrossSiteContext);
+  }
+  if (status.HasWarningReason(net::CanonicalCookie::CookieInclusionStatus::
+                                  WARN_SAMESITE_NONE_INSECURE)) {
+    warning_reasons.push_back(
+        blink::mojom::SameSiteCookieWarningReason::WarnSameSiteNoneInsecure);
+  }
+  if (status.HasWarningReason(net::CanonicalCookie::CookieInclusionStatus::
+                                  WARN_SAMESITE_UNSPECIFIED_LAX_ALLOW_UNSAFE)) {
+    warning_reasons.push_back(blink::mojom::SameSiteCookieWarningReason::
+                                  WarnSameSiteUnspecifiedLaxAllowUnsafe);
+  }
+  if (status.HasWarningReason(
+          net::CanonicalCookie::CookieInclusionStatus::
+              WARN_SAMESITE_LAX_METHOD_UNSAFE_CROSS_SCHEME_SECURE_URL)) {
+    warning_reasons.push_back(blink::mojom::SameSiteCookieWarningReason::
+                                  WarnSameSiteCrossSchemeSecureUrlMethodUnsafe);
+  }
+  if (status.HasWarningReason(net::CanonicalCookie::CookieInclusionStatus::
+                                  WARN_SAMESITE_LAX_CROSS_SCHEME_SECURE_URL)) {
+    warning_reasons.push_back(blink::mojom::SameSiteCookieWarningReason::
+                                  WarnSameSiteCrossSchemeSecureUrlLax);
+  }
+  if (status.HasWarningReason(
+          net::CanonicalCookie::CookieInclusionStatus::
+              WARN_SAMESITE_STRICT_CROSS_SCHEME_SECURE_URL)) {
+    warning_reasons.push_back(blink::mojom::SameSiteCookieWarningReason::
+                                  WarnSameSiteCrossSchemeSecureUrlStrict);
+  }
+  if (status.HasWarningReason(
+          net::CanonicalCookie::CookieInclusionStatus::
+              WARN_SAMESITE_LAX_METHOD_UNSAFE_CROSS_SCHEME_INSECURE_URL)) {
+    warning_reasons.push_back(
+        blink::mojom::SameSiteCookieWarningReason::
+            WarnSameSiteCrossSchemeInsecureUrlMethodUnsafe);
+  }
+  if (status.HasWarningReason(
+          net::CanonicalCookie::CookieInclusionStatus::
+              WARN_SAMESITE_LAX_CROSS_SCHEME_INSECURE_URL)) {
+    warning_reasons.push_back(blink::mojom::SameSiteCookieWarningReason::
+                                  WarnSameSiteCrossSchemeInsecureUrlLax);
+  }
+  if (status.HasWarningReason(
+          net::CanonicalCookie::CookieInclusionStatus::
+              WARN_SAMESITE_STRICT_CROSS_SCHEME_INSECURE_URL)) {
+    warning_reasons.push_back(blink::mojom::SameSiteCookieWarningReason::
+                                  WarnSameSiteCrossSchemeInsecureUrlStrict);
+  }
+
+  return blink::mojom::SameSiteCookieIssueDetails::New(
+      std::move(exclusion_reasons), std::move(warning_reasons));
+}
+}  // namespace
+
+void ReportSameSiteCookieIssue(RenderFrameHostImpl* render_frame_host_impl,
+                               const net::CookieWithStatus& excluded_cookie,
+                               const GURL& url,
+                               const GURL& site_for_cookies) {
+  auto details = blink::mojom::InspectorIssueDetails::New();
+  details->sameSiteCookieIssueDetails =
+      BuildSameSiteCookieIssueDetails(excluded_cookie.status);
+  auto resources = blink::mojom::AffectedResources::New();
+  resources->cookies.push_back(blink::mojom::AffectedCookie::New(
+      excluded_cookie.cookie.Name(), excluded_cookie.cookie.Path(),
+      excluded_cookie.cookie.Domain(), site_for_cookies));
+
+  render_frame_host_impl->AddInspectorIssue(
+      blink::mojom::InspectorIssueInfo::New(
+          blink::mojom::InspectorIssueCode::kSameSiteCookieIssue,
+          std::move(details), std::move(resources)));
 }
 
 }  // namespace devtools_instrumentation

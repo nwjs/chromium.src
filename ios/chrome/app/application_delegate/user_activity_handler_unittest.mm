@@ -8,7 +8,7 @@
 
 #import <CoreSpotlight/CoreSpotlight.h>
 
-#include "base/mac/scoped_block.h"
+#include "base/memory/ptr_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/sys_string_conversions.h"
 #include "base/test/scoped_command_line.h"
@@ -380,7 +380,6 @@ TEST_F(UserActivityHandlerTest, ContinueUserActivityBrowsingWeb) {
   // Use an object to capture the startup paramters set by UserActivityHandler.
   FakeStartupInformation* fakeStartupInformation =
       [[FakeStartupInformation alloc] init];
-  [fakeStartupInformation setIsPresentingFirstRunUI:NO];
 
   BOOL result =
       [UserActivityHandler continueUserActivity:userActivity
@@ -669,7 +668,6 @@ TEST_F(UserActivityHandlerTest, PerformActionForShortcutItemWithRealShortcut) {
 
   FakeStartupInformation* fakeStartupInformation =
       [[FakeStartupInformation alloc] init];
-  [fakeStartupInformation setIsPresentingFirstRunUI:NO];
 
   NSArray* parametersToTest = @[
     @[ @"OpenNewSearch", @NO, @(FOCUS_OMNIBOX) ],

@@ -25,6 +25,8 @@
 
 #include "third_party/blink/renderer/core/html/forms/color_chooser_popup_ui_controller.h"
 
+#include "build/build_config.h"
+#include "third_party/blink/public/common/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/strings/grit/blink_strings.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
@@ -32,6 +34,7 @@
 #include "third_party/blink/renderer/core/html/forms/chooser_resource_loader.h"
 #include "third_party/blink/renderer/core/html/forms/color_chooser_client.h"
 #include "third_party/blink/renderer/core/page/chrome_client.h"
+#include "third_party/blink/renderer/core/page/color_page_popup_controller.h"
 #include "third_party/blink/renderer/core/page/page_popup.h"
 #include "third_party/blink/renderer/platform/geometry/int_rect.h"
 #include "ui/base/ui_base_features.h"
@@ -99,7 +102,6 @@ void ColorChooserPopupUIController::WriteColorPickerDocument(
       "<!DOCTYPE html><head><meta charset='UTF-8'><style>\n", data);
   data->Append(ChooserResourceLoader::GetPickerCommonStyleSheet());
   data->Append(ChooserResourceLoader::GetColorPickerStyleSheet());
-
   PagePopupClient::AddString(
       "</style></head><body>\n"
       "<div id='main'>Loading...</div><script>\n"
@@ -110,6 +112,11 @@ void ColorChooserPopupUIController::WriteColorPickerDocument(
   AddProperty("anchorRectInScreen", anchor_rect_in_screen, data);
   AddProperty("zoomFactor", ScaledZoomFactor(), data);
   AddProperty("shouldShowColorSuggestionPicker", false, data);
+  AddProperty("isEyeDropperEnabled", features::IsEyeDropperEnabled(), data);
+#if defined(OS_MACOSX)
+  AddProperty("isBorderTransparent", features::IsFormControlsRefreshEnabled(),
+              data);
+#endif
   PagePopupClient::AddString("};\n", data);
   data->Append(ChooserResourceLoader::GetPickerCommonJS());
   data->Append(ChooserResourceLoader::GetColorPickerJS());
@@ -133,7 +140,6 @@ void ColorChooserPopupUIController::WriteColorSuggestionPickerDocument(
   data->Append(ChooserResourceLoader::GetColorSuggestionPickerStyleSheet());
   if (features::IsFormControlsRefreshEnabled())
     data->Append(ChooserResourceLoader::GetColorPickerStyleSheet());
-
   PagePopupClient::AddString(
       "</style></head><body>\n"
       "<div id='main'>Loading...</div><script>\n"
@@ -152,6 +158,11 @@ void ColorChooserPopupUIController::WriteColorSuggestionPickerDocument(
   AddProperty("shouldShowColorSuggestionPicker", true, data);
   AddProperty("isFormControlsRefreshEnabled",
               features::IsFormControlsRefreshEnabled(), data);
+  AddProperty("isEyeDropperEnabled", features::IsEyeDropperEnabled(), data);
+#if defined(OS_MACOSX)
+  AddProperty("isBorderTransparent", features::IsFormControlsRefreshEnabled(),
+              data);
+#endif
   PagePopupClient::AddString("};\n", data);
   data->Append(ChooserResourceLoader::GetPickerCommonJS());
   data->Append(ChooserResourceLoader::GetColorSuggestionPickerJS());
@@ -211,6 +222,26 @@ void ColorChooserPopupUIController::CancelPopup() {
   if (!popup_)
     return;
   chrome_client_->ClosePagePopup(popup_);
+}
+
+PagePopupController* ColorChooserPopupUIController::CreatePagePopupController(
+    PagePopup& popup) {
+  return MakeGarbageCollected<ColorPagePopupController>(popup, this);
+}
+
+void ColorChooserPopupUIController::EyeDropperResponseHandler(bool success,
+                                                              uint32_t color) {
+  // TODO(crbug.com/992297): update the color popup with the chosen value.
+}
+
+void ColorChooserPopupUIController::OpenEyeDropper() {
+  frame_->GetBrowserInterfaceBroker().GetInterface(
+      eye_dropper_chooser_.BindNewPipeAndPassReceiver());
+  eye_dropper_chooser_.set_disconnect_handler(WTF::Bind(
+      &ColorChooserPopupUIController::EndChooser, WrapWeakPersistent(this)));
+  eye_dropper_chooser_->Choose(
+      WTF::Bind(&ColorChooserPopupUIController::EyeDropperResponseHandler,
+                WrapWeakPersistent(this)));
 }
 
 }  // namespace blink

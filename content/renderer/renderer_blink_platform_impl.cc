@@ -27,6 +27,7 @@
 #include "base/strings/sys_string_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
@@ -92,7 +93,6 @@
 #include "third_party/blink/public/platform/web_url_request.h"
 #include "third_party/blink/public/platform/web_vector.h"
 #include "third_party/blink/public/web/web_local_frame.h"
-#include "third_party/blink/public/web/web_user_media_request.h"
 #include "third_party/sqlite/sqlite3.h"
 #include "ui/base/ui_base_switches.h"
 #include "ui/gl/buildflags.h"
@@ -308,9 +308,6 @@ blink::WebThemeEngine* RendererBlinkPlatformImpl::ThemeEngine() {
       GetContentClient()->renderer()->OverrideThemeEngine();
   if (!theme_engine)
     theme_engine = BlinkPlatformImpl::ThemeEngine();
-  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kForceDarkMode))
-    theme_engine->SetPreferredColorScheme(blink::PreferredColorScheme::kDark);
   return theme_engine;
 }
 
@@ -513,7 +510,7 @@ RendererBlinkPlatformImpl::NewAudioCapturerSource(
       RenderFrame::GetRoutingIdForWebFrame(web_frame), params);
 }
 
-viz::ContextProvider*
+viz::RasterContextProvider*
 RendererBlinkPlatformImpl::SharedMainThreadContextProvider() {
   return RenderThreadImpl::current()->SharedMainThreadContextProvider().get();
 }
@@ -868,18 +865,6 @@ blink::WebString RendererBlinkPlatformImpl::ConvertIDNToUnicode(
 
 //------------------------------------------------------------------------------
 
-void RendererBlinkPlatformImpl::RecordRappor(const char* metric,
-                                             const blink::WebString& sample) {
-  GetContentClient()->renderer()->RecordRappor(metric, sample.Utf8());
-}
-
-void RendererBlinkPlatformImpl::RecordRapporURL(const char* metric,
-                                                const blink::WebURL& url) {
-  GetContentClient()->renderer()->RecordRapporURL(metric, url);
-}
-
-//------------------------------------------------------------------------------
-
 std::unique_ptr<blink::WebDedicatedWorkerHostFactoryClient>
 RendererBlinkPlatformImpl::CreateDedicatedWorkerHostFactoryClient(
     blink::WebDedicatedWorker* worker,
@@ -966,8 +951,8 @@ blink::mojom::CodeCacheHost& RendererBlinkPlatformImpl::GetCodeCacheHost() {
   if (!code_cache_host_) {
     code_cache_host_ = mojo::SharedRemote<blink::mojom::CodeCacheHost>(
         std::move(code_cache_host_remote_),
-        base::CreateSequencedTaskRunner(
-            {base::ThreadPool(), base::WithBaseSyncPrimitives()}));
+        base::ThreadPool::CreateSequencedTaskRunner(
+            {base::WithBaseSyncPrimitives()}));
   }
   return *code_cache_host_;
 }

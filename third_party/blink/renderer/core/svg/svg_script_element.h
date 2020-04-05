@@ -52,7 +52,7 @@ class SVGScriptElement final : public SVGElement,
 
   const AttrNameToTrustedType& GetCheckedAttributeTypes() const override;
 
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
 
  private:
   void ParseAttribute(const AttributeModificationParams&) override;
@@ -99,6 +99,8 @@ class SVGScriptElement final : public SVGElement,
   void DispatchErrorEvent() override;
   void SetScriptElementForBinding(
       HTMLScriptElementOrSVGScriptElement&) override;
+
+  Type GetScriptElementType() override;
 
   Element& CloneWithoutAttributesAndChildren(Document&) const override;
   bool LayoutObjectIsNeeded(const ComputedStyle&) const override {

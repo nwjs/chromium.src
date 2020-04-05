@@ -18,6 +18,7 @@
 #include "components/payments/content/payment_request_converter.h"
 #include "components/payments/content/payment_request_web_contents_manager.h"
 #include "components/payments/core/can_make_payment_query.h"
+#include "components/payments/core/error_message_util.h"
 #include "components/payments/core/error_strings.h"
 #include "components/payments/core/features.h"
 #include "components/payments/core/method_strings.h"
@@ -37,6 +38,7 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_features.h"
 #include "content/public/common/origin_util.h"
+#include "services/metrics/public/cpp/ukm_source_id.h"
 
 namespace payments {
 namespace {
@@ -47,27 +49,6 @@ using ::payments::mojom::HasEnrolledInstrumentQueryResult;
 bool IsGooglePaymentMethod(const std::string& method_name) {
   return method_name == methods::kGooglePay ||
          method_name == methods::kAndroidPay;
-}
-
-std::string GetNotSupportedErrorMessage(PaymentRequestSpec* spec) {
-  if (!spec || spec->payment_method_identifiers_set().empty())
-    return errors::kGenericPaymentMethodNotSupportedMessage;
-
-  std::vector<std::string> method_names(
-      spec->payment_method_identifiers_set().size());
-  std::transform(
-      spec->payment_method_identifiers_set().begin(),
-      spec->payment_method_identifiers_set().end(), method_names.begin(),
-      [](const std::string& method_name) { return "\"" + method_name + "\""; });
-
-  std::string output;
-  bool replaced = base::ReplaceChars(
-      method_names.size() == 1
-          ? errors::kSinglePaymentMethodNotSupportedFormat
-          : errors::kMultiplePaymentMethodsNotSupportedFormat,
-      "$", base::JoinString(method_names, ", "), &output);
-  DCHECK(replaced);
-  return output;
 }
 
 // Redact shipping address before exposing it in ShippingAddressChangeEvent.
@@ -97,6 +78,7 @@ PaymentRequest::PaymentRequest(
     mojo::PendingReceiver<mojom::PaymentRequest> receiver,
     ObserverForTest* observer_for_testing)
     : web_contents_(web_contents),
+      initiator_render_frame_host_(render_frame_host),
       log_(web_contents_),
       delegate_(std::move(delegate)),
       manager_(manager),
@@ -107,6 +89,7 @@ PaymentRequest::PaymentRequest(
           web_contents_->GetLastCommittedURL())),
       frame_origin_(url_formatter::FormatUrlForSecurityDisplay(
           render_frame_host->GetLastCommittedURL())),
+      frame_security_origin_(render_frame_host->GetLastCommittedOrigin()),
       observer_for_testing_(observer_for_testing),
       journey_logger_(delegate_->IsIncognito(),
                       ukm::GetSourceIdForWebContentsDocument(web_contents)) {
@@ -186,7 +169,8 @@ void PaymentRequest::Init(
       std::move(options), std::move(details), std::move(method_data),
       /*observer=*/this, delegate_->GetApplicationLocale());
   state_ = std::make_unique<PaymentRequestState>(
-      web_contents_, top_level_origin_, frame_origin_, spec_.get(),
+      web_contents_, initiator_render_frame_host_, top_level_origin_,
+      frame_origin_, frame_security_origin_, spec_.get(),
       /*delegate=*/this, delegate_->GetApplicationLocale(),
       delegate_->GetPersonalDataManager(), delegate_.get(),
       base::BindRepeating(&PaymentRequest::SetInvokedServiceWorkerIdentity,
@@ -425,6 +409,9 @@ void PaymentRequest::Abort() {
 
   if (observer_for_testing_)
     observer_for_testing_->OnAbortCalled();
+
+  if (accepting_abort)
+    state_->OnAbort();
 }
 
 void PaymentRequest::Complete(mojom::PaymentComplete result) {
@@ -577,7 +564,9 @@ void PaymentRequest::AreRequestedMethodsSupportedCallback(
     journey_logger_.SetNotShown(
         JourneyLogger::NOT_SHOWN_REASON_NO_SUPPORTED_PAYMENT_METHOD);
     client_->OnError(mojom::PaymentErrorReason::NOT_SUPPORTED,
-                     GetNotSupportedErrorMessage(spec_.get()) +
+                     GetNotSupportedErrorMessage(
+                         spec_ ? spec_->payment_method_identifiers_set()
+                               : std::set<std::string>()) +
                          (error_message.empty() ? "" : " " + error_message));
     if (observer_for_testing_)
       observer_for_testing_->OnNotSupportedError();
@@ -777,6 +766,14 @@ void PaymentRequest::HideIfNecessary() {
 
 bool PaymentRequest::IsIncognito() const {
   return delegate_->IsIncognito();
+}
+
+void PaymentRequest::OnPaymentHandlerOpenWindowCalled() {
+  DCHECK(state_->selected_app());
+  // UKM for payment app origin should get recorded only when the origin of the
+  // invoked payment app is shown to the user.
+  journey_logger_.SetPaymentAppUkmSourceId(
+      state_->selected_app()->UkmSourceId());
 }
 
 void PaymentRequest::RecordFirstAbortReason(

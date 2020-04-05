@@ -80,6 +80,8 @@ class UtilitySandboxedProcessLauncherDelegate
         sandbox_type_ ==
             service_manager::SandboxType::kNoSandboxAndElevatedPrivileges ||
         sandbox_type_ == service_manager::SandboxType::kXrCompositing ||
+        sandbox_type_ == service_manager::SandboxType::kProxyResolver ||
+        sandbox_type_ == service_manager::SandboxType::kPdfConversion ||
 #endif
         sandbox_type_ == service_manager::SandboxType::kUtility ||
         sandbox_type_ == service_manager::SandboxType::kNetwork ||
@@ -90,6 +92,9 @@ class UtilitySandboxedProcessLauncherDelegate
         sandbox_type_ == service_manager::SandboxType::kIme ||
 #endif  // OS_CHROMEOS
         sandbox_type_ == service_manager::SandboxType::kAudio ||
+#if !defined(OS_MACOSX)
+        sandbox_type_ == service_manager::SandboxType::kSharingService ||
+#endif
         sandbox_type_ == service_manager::SandboxType::kSoda;
     DCHECK(supported_sandbox_type);
 #endif  // DCHECK_IS_ON()
@@ -137,12 +142,20 @@ class UtilitySandboxedProcessLauncherDelegate
     if (sandbox_type_ == service_manager::SandboxType::kAudio)
       return audio::AudioPreSpawnTarget(policy);
 
+    if (sandbox_type_ == service_manager::SandboxType::kProxyResolver) {
+      sandbox::MitigationFlags flags = policy->GetDelayedProcessMitigations();
+      flags |= sandbox::MITIGATION_DYNAMIC_CODE_DISABLE;
+      if (sandbox::SBOX_ALL_OK != policy->SetDelayedProcessMitigations(flags))
+        return false;
+      return true;
+    }
+
     if (sandbox_type_ == service_manager::SandboxType::kXrCompositing &&
         base::FeatureList::IsEnabled(service_manager::features::kXRSandbox)) {
       // There were issues with some mitigations, causing an inability
       // to load OpenVR and Oculus APIs.
-      // TODO(https://crbug.com/881919): Try to harden the XR Compositor sandbox
-      // to use mitigations and restrict the token.
+      // TODO(https://crbug.com/881919): Try to harden the XR Compositor
+      // sandbox to use mitigations and restrict the token.
       policy->SetProcessMitigations(0);
       policy->SetDelayedProcessMitigations(0);
 
@@ -163,21 +176,45 @@ class UtilitySandboxedProcessLauncherDelegate
       service_manager::SandboxWin::SetJobLevel(
           cmd_line_, sandbox::JOB_UNPROTECTED, 0, policy);
     }
+
+    if (sandbox_type_ == service_manager::SandboxType::kSharingService) {
+      if (service_manager::IsWin32kLockdownEnabled()) {
+        auto result =
+            service_manager::SandboxWin::AddWin32kLockdownPolicy(policy, false);
+        if (result != sandbox::SBOX_ALL_OK)
+          return false;
+      }
+
+      auto delayed_flags = policy->GetDelayedProcessMitigations();
+      delayed_flags |= sandbox::MITIGATION_DYNAMIC_CODE_DISABLE;
+      auto result = policy->SetDelayedProcessMitigations(delayed_flags);
+      if (result != sandbox::SBOX_ALL_OK)
+        return false;
+    }
+
     return true;
   }
 #endif  // OS_WIN
 
 #if BUILDFLAG(USE_ZYGOTE_HANDLE)
   service_manager::ZygoteHandle GetZygote() override {
-    if (service_manager::IsUnsandboxedSandboxType(sandbox_type_) ||
-        sandbox_type_ == service_manager::SandboxType::kNetwork ||
+    // If the sandbox has been disabled for a given type, don't use a zygote.
+    if (service_manager::IsUnsandboxedSandboxType(sandbox_type_))
+      return nullptr;
+
+    // Utility processes which need specialized sandboxes fork from the
+    // unsandboxed zygote and then apply their actual sandboxes in the forked
+    // process upon startup.
+    if (sandbox_type_ == service_manager::SandboxType::kNetwork ||
 #if defined(OS_CHROMEOS)
         sandbox_type_ == service_manager::SandboxType::kIme ||
 #endif  // OS_CHROMEOS
         sandbox_type_ == service_manager::SandboxType::kAudio ||
         sandbox_type_ == service_manager::SandboxType::kSoda) {
-      return nullptr;
+      return service_manager::GetUnsandboxedZygote();
     }
+
+    // All other types use the pre-sandboxed zygote.
     return service_manager::GetGenericZygote();
   }
 #endif  // BUILDFLAG(USE_ZYGOTE_HANDLE)

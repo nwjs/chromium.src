@@ -4,6 +4,7 @@
 
 source_set("public") {
   sources = [
+    "all_web_state_list_observation_registrar.h",
     "browser.h",
     "browser_list.h",
     "browser_list_factory.h",
@@ -16,12 +17,14 @@ source_set("public") {
     "//components/keyed_service/core",
     "//components/keyed_service/ios",
     "//ios/chrome/browser/browser_state",
+    "//ios/chrome/browser/web_state_list",
   ]
   configs += [ "//build/config/compiler:enable_arc" ]
 }
 
 source_set("main") {
   sources = [
+    "all_web_state_list_observation_registrar.mm",
     "browser_agent_util.h",
     "browser_agent_util.mm",
     "browser_impl.h",
@@ -41,13 +44,19 @@ source_set("main") {
     "//ios/chrome/browser/browser_state",
     "//ios/chrome/browser/crash_report/breadcrumbs",
     "//ios/chrome/browser/crash_report/breadcrumbs:feature_flags",
+    "//ios/chrome/browser/device_sharing",
     "//ios/chrome/browser/infobars/overlays/browser_agent:browser_agent_util",
+    "//ios/chrome/browser/metrics:metrics_browser_agent",
+    "//ios/chrome/browser/sessions",
     "//ios/chrome/browser/sessions:restoration_agent",
     "//ios/chrome/browser/sessions:serialisation",
     "//ios/chrome/browser/sessions:session_service",
     "//ios/chrome/browser/tabs",
     "//ios/chrome/browser/ui/commands",
+    "//ios/chrome/browser/url_loading",
     "//ios/chrome/browser/web_state_list",
+    "//ios/chrome/browser/web_state_list:agents",
+    "//ios/chrome/browser/web_state_list/web_usage_enabler",
     "//ios/public/provider/chrome/browser",
   ]
   configs += [ "//build/config/compiler:enable_arc" ]
@@ -79,6 +88,7 @@ source_set("test_support") {
 source_set("unit_tests") {
   testonly = true
   sources = [
+    "all_web_state_list_observation_registrar_unittest.mm",
     "browser_impl_unittest.mm",
     "browser_list_impl_unittest.mm",
   ]

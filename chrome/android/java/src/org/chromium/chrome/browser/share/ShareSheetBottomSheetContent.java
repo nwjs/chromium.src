@@ -5,9 +5,6 @@
 package org.chromium.chrome.browser.share;
 
 import android.content.Context;
-import android.support.v7.content.res.AppCompatResources;
-import android.support.v7.widget.LinearLayoutManager;
-import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -16,10 +13,15 @@ import android.widget.AdapterView.OnItemClickListener;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import androidx.appcompat.content.res.AppCompatResources;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+
 import org.chromium.base.ApiCompatibilityUtils;
-import org.chromium.base.ContextUtils;
+import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.widget.bottomsheet.BottomSheetContent;
+import org.chromium.ui.modelutil.LayoutViewBuilder;
 import org.chromium.ui.modelutil.MVCListAdapter.ListItem;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 import org.chromium.ui.modelutil.PropertyKey;
@@ -62,10 +64,14 @@ public class ShareSheetBottomSheetContent implements BottomSheetContent, OnItemC
      */
     public void createRecyclerViews(
             ArrayList<PropertyModel> topRowModels, ArrayList<PropertyModel> bottomRowModels) {
-        populateView(
-                topRowModels, this.getContentView().findViewById(R.id.share_sheet_chrome_apps));
+        RecyclerView topRow = this.getContentView().findViewById(R.id.share_sheet_chrome_apps);
+        populateView(topRowModels, topRow);
+        topRow.addOnScrollListener(new ScrollEventReporter("SharingHubAndroid.TopRowScrolled"));
+        RecyclerView bottomRow = this.getContentView().findViewById(R.id.share_sheet_other_apps);
         populateView(
                 bottomRowModels, this.getContentView().findViewById(R.id.share_sheet_other_apps));
+        bottomRow.addOnScrollListener(
+                new ScrollEventReporter("SharingHubAndroid.BottomRowScrolled"));
     }
 
     private void populateView(ArrayList<PropertyModel> models, RecyclerView view) {
@@ -74,10 +80,8 @@ public class ShareSheetBottomSheetContent implements BottomSheetContent, OnItemC
             modelList.add(new ListItem(SHARE_SHEET_ITEM, model));
         }
         SimpleRecyclerViewAdapter adapter = new SimpleRecyclerViewAdapter(modelList);
-        adapter.registerType(SHARE_SHEET_ITEM, () -> {
-            return (ViewGroup) LayoutInflater.from(mContext).inflate(
-                    R.layout.share_sheet_item, (ViewGroup) view, false);
-        }, ShareSheetBottomSheetContent::bindShareItem);
+        adapter.registerType(SHARE_SHEET_ITEM, new LayoutViewBuilder(R.layout.share_sheet_item),
+                ShareSheetBottomSheetContent::bindShareItem);
         view.setAdapter(adapter);
         LinearLayoutManager layoutManager =
                 new LinearLayoutManager(mContext, LinearLayoutManager.HORIZONTAL, false);
@@ -99,7 +103,28 @@ public class ShareSheetBottomSheetContent implements BottomSheetContent, OnItemC
             ImageView view = (ImageView) parent.findViewById(R.id.icon);
             ApiCompatibilityUtils.setImageTintList(view,
                     AppCompatResources.getColorStateList(
-                            ContextUtils.getApplicationContext(), R.color.standard_mode_tint));
+                            parent.getContext(), R.color.default_icon_color_tint_list));
+        }
+    }
+
+    /**
+     * One-shot reporter that records the first time the user scrolls a {@link RecyclerView}.
+     */
+    private static class ScrollEventReporter extends RecyclerView.OnScrollListener {
+        private boolean mFired;
+        private String mActionName;
+
+        public ScrollEventReporter(String actionName) {
+            mActionName = actionName;
+        }
+
+        @Override
+        public void onScrollStateChanged(RecyclerView recyclerView, int newState) {
+            if (mFired) return;
+            if (newState != RecyclerView.SCROLL_STATE_DRAGGING) return;
+
+            RecordUserAction.record(mActionName);
+            mFired = true;
         }
     }
 

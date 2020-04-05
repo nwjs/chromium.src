@@ -10,6 +10,7 @@
 #include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/logging.h"
+#include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/autofill/address_normalizer_factory.h"
 #include "chrome/browser/autofill/autocomplete_history_manager_factory.h"
@@ -28,7 +29,6 @@
 #include "chrome/browser/ui/autofill/autofill_popup_controller_impl.h"
 #include "chrome/browser/ui/autofill/payments/create_card_unmask_prompt_view.h"
 #include "chrome/browser/ui/autofill/payments/credit_card_scanner_controller.h"
-#include "chrome/browser/ui/autofill/sms_client_impl.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/page_info/page_info_dialog.h"
 #include "chrome/browser/ui/passwords/manage_passwords_view_utils.h"
@@ -39,6 +39,7 @@
 #include "components/autofill/content/browser/autofill_log_router_factory.h"
 #include "components/autofill/content/browser/content_autofill_driver.h"
 #include "components/autofill/content/browser/content_autofill_driver_factory.h"
+#include "components/autofill/content/browser/webauthn/internal_authenticator_impl.h"
 #include "components/autofill/core/browser/form_data_importer.h"
 #include "components/autofill/core/browser/payments/payments_client.h"
 #include "components/autofill/core/browser/ui/payments/card_unmask_prompt_view.h"
@@ -59,6 +60,7 @@
 #include "components/translate/core/browser/translate_manager.h"
 #include "components/ukm/content/source_url_recorder.h"
 #include "components/user_prefs/user_prefs.h"
+#include "components/variations/service/variations_service.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/ssl_status.h"
@@ -139,10 +141,6 @@ signin::IdentityManager* ChromeAutofillClient::GetIdentityManager() {
   return IdentityManagerFactory::GetForProfile(profile->GetOriginalProfile());
 }
 
-SmsClient* ChromeAutofillClient::GetSmsClient() {
-  return sms_client_.get();
-}
-
 FormDataImporter* ChromeAutofillClient::GetFormDataImporter() {
   return form_data_importer_.get();
 }
@@ -201,6 +199,16 @@ std::string ChromeAutofillClient::GetPageLanguage() const {
   return std::string();
 }
 
+std::string ChromeAutofillClient::GetVariationConfigCountryCode() const {
+  variations::VariationsService* variation_service =
+      g_browser_process->variations_service();
+  // Retrieves the country code from variation service and converts it to upper
+  // case.
+  return variation_service
+             ? base::ToUpperASCII(variation_service->GetLatestCountry())
+             : std::string();
+}
+
 #if !defined(OS_ANDROID)
 std::vector<std::string>
 ChromeAutofillClient::GetMerchantWhitelistForVirtualCards() {
@@ -220,6 +228,16 @@ ChromeAutofillClient::GetBinRangeWhitelistForVirtualCards() {
       ->GetTokenizationBinRangesWhitelist();
 }
 #endif
+
+std::unique_ptr<InternalAuthenticator>
+ChromeAutofillClient::CreateCreditCardInternalAuthenticator(
+    content::RenderFrameHost* rfh) {
+#if defined(OS_ANDROID)
+  return nullptr;
+#else
+  return std::make_unique<content::InternalAuthenticatorImpl>(rfh);
+#endif
+}
 
 void ChromeAutofillClient::ShowAutofillSettings(
     bool show_credit_card_settings) {
@@ -508,9 +526,9 @@ base::span<const Suggestion> ChromeAutofillClient::GetPopupSuggestions() const {
   return popup_controller_->GetUnelidedSuggestions();
 }
 
-void ChromeAutofillClient::PinPopupViewUntilUpdate() {
+void ChromeAutofillClient::PinPopupView() {
   if (popup_controller_.get())
-    popup_controller_->PinViewUntilUpdate();
+    popup_controller_->PinView();
 }
 
 void ChromeAutofillClient::UpdatePopup(
@@ -648,7 +666,6 @@ ChromeAutofillClient::ChromeAutofillClient(content::WebContents* web_contents)
           GetPersonalDataManager(),
           Profile::FromBrowserContext(web_contents->GetBrowserContext())
               ->IsOffTheRecord())),
-      sms_client_(std::make_unique<SmsClientImpl>(web_contents)),
       form_data_importer_(std::make_unique<FormDataImporter>(
           this,
           payments_client_.get(),

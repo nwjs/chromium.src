@@ -5,6 +5,7 @@
 #ifndef COMPONENTS_STARTUP_METRIC_UTILS_BROWSER_STARTUP_METRIC_UTILS_H_
 #define COMPONENTS_STARTUP_METRIC_UTILS_BROWSER_STARTUP_METRIC_UTILS_H_
 
+#include "base/memory/memory_pressure_listener.h"
 #include "base/time/time.h"
 
 // Utility functions to support metric collection for browser startup. Timings
@@ -35,14 +36,14 @@ void SetBackgroundModeEnabled();
 void RecordStartupProcessCreationTime(base::Time time);
 
 // Call this with a time recorded as early as possible in the startup process.
-// On Android, the entry point time is the time at which the Java code starts.
-// In Mojo, the entry point time is the time at which the shell starts.
-void RecordMainEntryPointTime(base::TimeTicks ticks);
+// On Android, the application start is the time at which the Java code starts.
+// On Windows, the application start is sampled from chrome.exe:main, before
+// chrome.dll is loaded.
+void RecordApplicationStartTime(base::TimeTicks ticks);
 
-// Call this with the time when the executable is loaded and main() is entered.
-// Can be different from |RecordMainEntryPointTime| when the startup process is
-// contained in a separate dll, such as with chrome.exe / chrome.dll on Windows.
-void RecordExeMainEntryPointTicks(base::TimeTicks ticks);
+// Call this with the time when the executable is loaded and the ChromeMain()
+// function is invoked.
+void RecordChromeMainEntryTime(base::TimeTicks ticks);
 
 // Call this with the time recorded just before the message loop is started.
 // |is_first_run| - is the current launch part of a first run.
@@ -51,9 +52,6 @@ void RecordBrowserMainMessageLoopStart(base::TimeTicks ticks,
 
 // Call this with the time when the first browser window became visible.
 void RecordBrowserWindowDisplay(base::TimeTicks ticks);
-
-// Call this with the time delta that the browser spent opening its tabs.
-void RecordBrowserOpenTabsDelta(base::TimeDelta delta);
 
 // Call this with the time when the first web contents had a non-empty paint,
 // only if the first web contents was unimpeded in its attempt to do so.
@@ -85,6 +83,12 @@ base::TimeTicks MainEntryPointTicks();
 // Record metrics for the web-footer experiment. See https://crbug.com/993502.
 void RecordWebFooterDidFirstVisuallyNonEmptyPaint(base::TimeTicks ticks);
 void RecordWebFooterCreation(base::TimeTicks ticks);
+
+// Records memory pressure events occurring before the first web contents had a
+// non-empty paint.
+// This should only be called from the browser UI thread.
+void OnMemoryPressureBeforeFirstNonEmptyPaint(
+    base::MemoryPressureListener::MemoryPressureLevel level);
 
 }  // namespace startup_metric_utils
 

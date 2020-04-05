@@ -19,6 +19,7 @@
     <style include="cr-shared-style settings-shared">
       :host {
         background-color: var(--cr-card-background-color);
+        box-shadow: var(--cr-card-shadow);
         box-sizing: border-box;
         display: block;
         left: 0;
@@ -27,7 +28,6 @@
         position: absolute;
         right: 0;
         top: 0;
-        @apply --cr-card-elevation;
       }
 
       #headerLine {
@@ -60,7 +60,8 @@
       }
 
       paper-spinner-lite {
-        @apply --cr-icon-height-width;
+        height: var(--cr-icon-size);
+        width: var(--cr-icon-size);
       }
 
       h1 {

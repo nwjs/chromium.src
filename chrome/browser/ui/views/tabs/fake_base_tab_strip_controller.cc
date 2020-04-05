@@ -88,12 +88,6 @@ void FakeBaseTabStripController::SetVisualDataForGroup(
   fake_group_data_ = visual_data;
 }
 
-void FakeBaseTabStripController::UngroupAllTabsInGroup(
-    const tab_groups::TabGroupId& group) {}
-
-void FakeBaseTabStripController::AddNewTabInGroup(
-    const tab_groups::TabGroupId& group) {}
-
 void FakeBaseTabStripController::AddTabToGroup(
     int model_index,
     const tab_groups::TabGroupId& group) {
@@ -193,7 +187,7 @@ bool FakeBaseTabStripController::BeforeCloseTab(int index,
   return true;
 }
 
-void FakeBaseTabStripController::CloseTab(int index, CloseTabSource source) {
+void FakeBaseTabStripController::CloseTab(int index) {
   RemoveTab(index);
 }
 
@@ -222,7 +216,7 @@ void FakeBaseTabStripController::CreateNewTabWithLocation(
 void FakeBaseTabStripController::StackedLayoutMaybeChanged() {
 }
 
-void FakeBaseTabStripController::OnStartedDragging() {}
+void FakeBaseTabStripController::OnStartedDragging(bool dragging_window) {}
 
 void FakeBaseTabStripController::OnStoppedDragging() {}
 

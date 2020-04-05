@@ -47,10 +47,10 @@ class DownloadBrowserTest : public WebLayerBrowserTest,
     failed_run_loop_ = std::make_unique<base::RunLoop>();
 
     Tab* tab = shell()->tab();
-
-    tab->SetDownloadDelegate(this);
-
     TabImpl* tab_impl = static_cast<TabImpl*>(tab);
+
+    tab_impl->profile()->SetDownloadDelegate(this);
+
     auto* browser_context = tab_impl->web_contents()->GetBrowserContext();
     auto* download_manager_delegate =
         content::BrowserContext::GetDownloadManager(browser_context)
@@ -326,6 +326,18 @@ IN_PROC_BROWSER_TEST_F(DownloadBrowserTest, NetworkError) {
   EXPECT_EQ(failed_count(), 1);
   EXPECT_EQ(download_dropped_count(), 0);
   EXPECT_EQ(download_state(), DownloadError::kConnectivityError);
+}
+
+IN_PROC_BROWSER_TEST_F(DownloadBrowserTest, PendingOnExist) {
+  // Create a request that doesn't complete right away.
+  GURL url(embedded_test_server()->GetURL(
+      content::SlowDownloadHttpResponse::kKnownSizeUrl));
+
+  shell()->tab()->GetNavigationController()->Navigate(url);
+
+  WaitForStarted();
+
+  // If this test crashes later then there'd be a regression.
 }
 
 }  // namespace weblayer

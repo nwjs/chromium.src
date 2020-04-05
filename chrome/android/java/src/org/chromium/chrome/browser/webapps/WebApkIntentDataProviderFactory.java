@@ -11,22 +11,27 @@ import android.content.pm.PackageManager;
 import android.content.pm.ProviderInfo;
 import android.content.pm.ResolveInfo;
 import android.content.res.Resources;
+import android.content.res.XmlResourceParser;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Pair;
 
+import androidx.browser.trusted.sharing.ShareData;
+
+import org.xmlpull.v1.XmlPullParser;
+
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.base.ContextUtils;
+import org.chromium.base.IntentUtils;
 import org.chromium.base.Log;
 import org.chromium.base.PackageManagerUtils;
 import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.ShortcutHelper;
 import org.chromium.chrome.browser.ShortcutSource;
 import org.chromium.chrome.browser.browserservices.BrowserServicesIntentDataProvider;
-import org.chromium.chrome.browser.util.IntentUtils;
-import org.chromium.chrome.browser.webapps.WebApkInfo.ShareData;
+import org.chromium.chrome.browser.webapps.WebApkExtras.ShortcutItem;
 import org.chromium.chrome.browser.webapps.WebApkInfo.ShareTarget;
 import org.chromium.content_public.common.ScreenOrientationValues;
 import org.chromium.webapk.lib.common.WebApkCommonUtils;
@@ -47,7 +52,19 @@ import java.util.Map;
 public class WebApkIntentDataProviderFactory {
     public static final String RESOURCE_NAME = "name";
     public static final String RESOURCE_SHORT_NAME = "short_name";
+    public static final String RESOURCE_SHORTCUTS = "shortcuts";
     public static final String RESOURCE_STRING_TYPE = "string";
+    public static final String RESOURCE_XML_TYPE = "xml";
+
+    private static final String SHORTCUT_ATTRIBUTE_NAMESPACE =
+            "http://schemas.android.com/apk/res/android";
+    private static final String SHORTCUT_TAG_NAME = "shortcut";
+    private static final String SHORTCUT_INTENT_TAG_NAME = "intent";
+    private static final String SHORTCUT_NAME_ATTRIBUTE = "shortcutLongLabel";
+    private static final String SHORTCUT_SHORT_NAME_ATTRIBUTE = "shortcutShortLabel";
+    private static final String SHORTCUT_ICON_HASH_ATTRIBUTE = "iconHash";
+    private static final String SHORTCUT_ICON_URL_ATTRIBUTE = "iconUrl";
+    private static final String SHORTCUT_INTENT_LAUNCH_URL_ATTRIBUTE = "data";
 
     private static final String TAG = "WebApkInfo";
 
@@ -77,17 +94,17 @@ public class WebApkIntentDataProviderFactory {
 
         // Presence of {@link shareDataActivityClassName} indicates that this is a share.
         if (!TextUtils.isEmpty(shareDataActivityClassName)) {
-            shareData = new ShareData();
-            shareData.subject = IntentUtils.safeGetStringExtra(intent, Intent.EXTRA_SUBJECT);
-            shareData.text = IntentUtils.safeGetStringExtra(intent, Intent.EXTRA_TEXT);
-            shareData.files = IntentUtils.getParcelableArrayListExtra(intent, Intent.EXTRA_STREAM);
-            if (shareData.files == null) {
+            String subject = IntentUtils.safeGetStringExtra(intent, Intent.EXTRA_SUBJECT);
+            String text = IntentUtils.safeGetStringExtra(intent, Intent.EXTRA_TEXT);
+            List<Uri> files = IntentUtils.getParcelableArrayListExtra(intent, Intent.EXTRA_STREAM);
+            if (files == null) {
                 Uri file = IntentUtils.safeGetParcelableExtra(intent, Intent.EXTRA_STREAM);
                 if (file != null) {
-                    shareData.files = new ArrayList<>();
-                    shareData.files.add(file);
+                    files = new ArrayList<>();
+                    files.add(file);
                 }
             }
+            shareData = new ShareData(subject, text, files);
         }
 
         String url = IntentUtils.safeGetStringExtra(intent, ShortcutHelper.EXTRA_URL);
@@ -126,6 +143,55 @@ public class WebApkIntentDataProviderFactory {
         return packageName.startsWith(WebApkConstants.WEBAPK_PACKAGE_PREFIX)
                 ? WebApkDistributor.BROWSER
                 : WebApkDistributor.OTHER;
+    }
+
+    /**
+     * @param webApkPackageName
+     * @param resources
+     * @return A list of shortcut items derived from the parser.
+     */
+    private static List<ShortcutItem> parseShortcutItems(String webApkPackageName, Resources res) {
+        int shortcutsResId =
+                res.getIdentifier(RESOURCE_SHORTCUTS, RESOURCE_XML_TYPE, webApkPackageName);
+        if (shortcutsResId == 0) {
+            return new ArrayList<>();
+        }
+
+        XmlResourceParser parser = res.getXml(shortcutsResId);
+        List<ShortcutItem> shortcuts = new ArrayList<>();
+        try {
+            int eventType = parser.getEventType();
+            while (eventType != XmlPullParser.END_DOCUMENT) {
+                if (eventType == XmlPullParser.START_TAG
+                        && TextUtils.equals(parser.getName(), SHORTCUT_TAG_NAME)) {
+                    int nameResId = parser.getAttributeResourceValue(
+                            SHORTCUT_ATTRIBUTE_NAMESPACE, SHORTCUT_NAME_ATTRIBUTE, 0);
+                    int shortNameResId = parser.getAttributeResourceValue(
+                            SHORTCUT_ATTRIBUTE_NAMESPACE, SHORTCUT_SHORT_NAME_ATTRIBUTE, 0);
+                    String iconUrl = parser.getAttributeValue(null, SHORTCUT_ICON_URL_ATTRIBUTE);
+                    String iconHash = parser.getAttributeValue(null, SHORTCUT_ICON_HASH_ATTRIBUTE);
+
+                    eventType = parser.next();
+                    if (eventType != XmlPullParser.START_TAG
+                            && !TextUtils.equals(parser.getName(), SHORTCUT_INTENT_TAG_NAME)) {
+                        // shortcuts.xml is malformed for some reason. Bail out.
+                        return new ArrayList<>();
+                    }
+
+                    String launchUrl = parser.getAttributeValue(
+                            SHORTCUT_ATTRIBUTE_NAMESPACE, SHORTCUT_INTENT_LAUNCH_URL_ATTRIBUTE);
+
+                    shortcuts.add(new ShortcutItem(nameResId != 0 ? res.getString(nameResId) : "",
+                            shortNameResId != 0 ? res.getString(shortNameResId) : "", launchUrl,
+                            iconUrl, iconHash));
+                }
+                eventType = parser.next();
+            }
+        } catch (Exception e) {
+            return new ArrayList<>();
+        }
+
+        return shortcuts;
     }
 
     /**
@@ -225,10 +291,11 @@ public class WebApkIntentDataProviderFactory {
             }
         }
 
+        // Check the OS version because the same WebAPK is vended by the WebAPK server for all OS
+        // versions.
         boolean isPrimaryIconMaskable =
-                primaryMaskableIconId != 0 && ShortcutHelper.doesAndroidSupportMaskableIcons();
+                primaryMaskableIconId != 0 && (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O);
 
-        int badgeIconId = IntentUtils.safeGetInt(bundle, WebApkMetaDataKeys.BADGE_ICON_ID, 0);
         int splashIconId = IntentUtils.safeGetInt(bundle, WebApkMetaDataKeys.SPLASH_ID, 0);
 
         int isSplashIconMaskableBooleanId = IntentUtils.safeGetInt(
@@ -256,12 +323,12 @@ public class WebApkIntentDataProviderFactory {
         return create(url, scope,
                 new WebappIcon(webApkPackageName,
                         isPrimaryIconMaskable ? primaryMaskableIconId : primaryIconId),
-                new WebappIcon(webApkPackageName, badgeIconId),
                 new WebappIcon(webApkPackageName, splashIconId), name, shortName, displayMode,
                 orientation, source, themeColor, backgroundColor, defaultBackgroundColor,
                 isPrimaryIconMaskable, isSplashIconMaskable, webApkPackageName, shellApkVersion,
                 manifestUrl, manifestStartUrl, distributor, iconUrlToMurmur2HashMap, shareTarget,
-                forceNavigation, isSplashProvidedByWebApk, shareData, apkVersion);
+                forceNavigation, isSplashProvidedByWebApk, shareData,
+                parseShortcutItems(webApkPackageName, res), apkVersion);
     }
 
     /**
@@ -269,7 +336,6 @@ public class WebApkIntentDataProviderFactory {
      * @param url                      URL that the WebAPK should navigate to when launched.
      * @param scope                    Scope for the WebAPK.
      * @param primaryIcon              Primary icon to show for the WebAPK.
-     * @param badgeIcon                Badge icon to use for notifications.
      * @param splashIcon               Splash icon to use for the splash screen.
      * @param name                     Name of the WebAPK.
      * @param shortName                The short name of the WebAPK.
@@ -298,17 +364,18 @@ public class WebApkIntentDataProviderFactory {
      *                                 display the splash screen and (2) has a content provider
      *                                 which provides a screenshot of the splash screen.
      * @param shareData                Shared information from the share intent.
+     * @param shortcutItems            A list of shortcut items.
      * @param webApkVersionCode        WebAPK's version code.
      */
     public static BrowserServicesIntentDataProvider create(String url, String scope,
-            WebappIcon primaryIcon, WebappIcon badgeIcon, WebappIcon splashIcon, String name,
-            String shortName, @WebDisplayMode int displayMode, int orientation, int source,
-            long themeColor, long backgroundColor, int defaultBackgroundColor,
-            boolean isPrimaryIconMaskable, boolean isSplashIconMaskable, String webApkPackageName,
-            int shellApkVersion, String manifestUrl, String manifestStartUrl,
-            @WebApkDistributor int distributor, Map<String, String> iconUrlToMurmur2HashMap,
-            ShareTarget shareTarget, boolean forceNavigation, boolean isSplashProvidedByWebApk,
-            ShareData shareData, int webApkVersionCode) {
+            WebappIcon primaryIcon, WebappIcon splashIcon, String name, String shortName,
+            @WebDisplayMode int displayMode, int orientation, int source, long themeColor,
+            long backgroundColor, int defaultBackgroundColor, boolean isPrimaryIconMaskable,
+            boolean isSplashIconMaskable, String webApkPackageName, int shellApkVersion,
+            String manifestUrl, String manifestStartUrl, @WebApkDistributor int distributor,
+            Map<String, String> iconUrlToMurmur2HashMap, ShareTarget shareTarget,
+            boolean forceNavigation, boolean isSplashProvidedByWebApk, ShareData shareData,
+            List<ShortcutItem> shortcutItems, int webApkVersionCode) {
         if (manifestStartUrl == null || webApkPackageName == null) {
             Log.e(TAG, "Incomplete data provided: " + manifestStartUrl + ", " + webApkPackageName);
             return null;
@@ -329,10 +396,6 @@ public class WebApkIntentDataProviderFactory {
             primaryIcon = new WebappIcon();
         }
 
-        if (badgeIcon == null) {
-            badgeIcon = new WebappIcon();
-        }
-
         if (splashIcon == null) {
             splashIcon = new WebappIcon();
         }
@@ -346,16 +409,16 @@ public class WebApkIntentDataProviderFactory {
                 shortName, displayMode, orientation, source,
                 WebappIntentUtils.colorFromLongColor(backgroundColor), defaultBackgroundColor,
                 false /* isIconGenerated */, isPrimaryIconMaskable, forceNavigation);
-        WebApkExtras webApkExtras = new WebApkExtras(webApkPackageName, badgeIcon, splashIcon,
+        WebApkExtras webApkExtras = new WebApkExtras(webApkPackageName, splashIcon,
                 isSplashIconMaskable, shellApkVersion, manifestUrl, manifestStartUrl, distributor,
-                iconUrlToMurmur2HashMap, shareTarget, isSplashProvidedByWebApk, shareData,
+                iconUrlToMurmur2HashMap, shareTarget, isSplashProvidedByWebApk, shortcutItems,
                 webApkVersionCode);
         boolean hasCustomToolbarColor = WebappIntentUtils.isLongColorValid(themeColor);
         int toolbarColor = hasCustomToolbarColor
                 ? (int) themeColor
                 : WebappIntentDataProvider.getDefaultToolbarColor();
         return new WebappIntentDataProvider(
-                toolbarColor, hasCustomToolbarColor, webappExtras, webApkExtras);
+                toolbarColor, hasCustomToolbarColor, shareData, webappExtras, webApkExtras);
     }
 
     private static int computeSource(Intent intent, ShareData shareData) {
@@ -371,7 +434,7 @@ public class WebApkIntentDataProviderFactory {
         }
 
         if (source == ShortcutSource.WEBAPK_SHARE_TARGET && shareData != null
-                && shareData.files != null && shareData.files.size() > 0) {
+                && shareData.uris != null && shareData.uris.size() > 0) {
             return ShortcutSource.WEBAPK_SHARE_TARGET_FILE;
         }
         return source;

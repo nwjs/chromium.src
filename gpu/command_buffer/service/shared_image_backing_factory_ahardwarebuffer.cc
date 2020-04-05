@@ -38,6 +38,7 @@
 #include "gpu/vulkan/vulkan_device_queue.h"
 #include "gpu/vulkan/vulkan_fence_helper.h"
 #include "gpu/vulkan/vulkan_function_pointers.h"
+#include "gpu/vulkan/vulkan_image.h"
 #include "gpu/vulkan/vulkan_implementation.h"
 #include "gpu/vulkan/vulkan_util.h"
 #include "third_party/skia/include/core/SkPromiseImageTexture.h"
@@ -55,66 +56,6 @@
 
 namespace gpu {
 namespace {
-
-sk_sp<SkPromiseImageTexture> CreatePromiseTextureAHB(
-    viz::VulkanContextProvider* context_provider,
-    base::android::ScopedHardwareBufferHandle ahb_handle,
-    gfx::Size size,
-    viz::ResourceFormat format) {
-  VulkanImplementation* vk_implementation =
-      context_provider->GetVulkanImplementation();
-  VkDevice vk_device = context_provider->GetDeviceQueue()->GetVulkanDevice();
-  VkPhysicalDevice vk_physical_device =
-      context_provider->GetDeviceQueue()->GetVulkanPhysicalDevice();
-
-  // Create a VkImage and import AHB.
-  VkImage vk_image;
-  VkImageCreateInfo vk_image_info;
-  VkDeviceMemory vk_device_memory;
-  VkDeviceSize mem_allocation_size;
-  if (!vk_implementation->CreateVkImageAndImportAHB(
-          vk_device, vk_physical_device, size, std::move(ahb_handle), &vk_image,
-          &vk_image_info, &vk_device_memory, &mem_allocation_size)) {
-    return nullptr;
-  }
-
-  // Create backend texture from the VkImage.
-  GrVkAlloc alloc = {vk_device_memory, 0, mem_allocation_size, 0};
-  GrVkImageInfo vk_info = {vk_image,
-                           alloc,
-                           vk_image_info.tiling,
-                           vk_image_info.initialLayout,
-                           vk_image_info.format,
-                           vk_image_info.mipLevels,
-                           VK_QUEUE_FAMILY_EXTERNAL};
-  // TODO(bsalomon): Determine whether it makes sense to attempt to reuse this
-  // if the vk_info stays the same on subsequent calls.
-  auto promise_texture = SkPromiseImageTexture::Make(
-      GrBackendTexture(size.width(), size.height(), vk_info));
-  if (!promise_texture) {
-    vkDestroyImage(vk_device, vk_image, nullptr);
-    vkFreeMemory(vk_device, vk_device_memory, nullptr);
-    return nullptr;
-  }
-
-  return promise_texture;
-}
-
-void DestroyVkPromiseTextureAHB(viz::VulkanContextProvider* context_provider,
-                                sk_sp<SkPromiseImageTexture> promise_texture) {
-  DCHECK(promise_texture);
-  DCHECK(promise_texture->unique());
-
-  GrVkImageInfo vk_image_info;
-  bool result =
-      promise_texture->backendTexture().getVkImageInfo(&vk_image_info);
-  DCHECK(result);
-
-  VulkanFenceHelper* fence_helper =
-      context_provider->GetDeviceQueue()->GetFenceHelper();
-  fence_helper->EnqueueImageCleanupForSubmittedWork(
-      vk_image_info.fImage, vk_image_info.fAlloc.fMemory);
-}
 
 class OverlayImage final : public gl::GLImage {
  public:
@@ -191,8 +132,7 @@ class SharedImageBackingAHB : public ClearTrackingSharedImageBacking {
                         base::android::ScopedHardwareBufferHandle handle,
                         size_t estimated_size,
                         bool is_thread_safe,
-                        base::ScopedFD initial_upload_fd,
-                        bool using_gl);
+                        base::ScopedFD initial_upload_fd);
 
   ~SharedImageBackingAHB() override;
 
@@ -214,7 +154,6 @@ class SharedImageBackingAHB : public ClearTrackingSharedImageBacking {
                base::ScopedFD end_read_fd);
   gl::GLImage* BeginOverlayAccess();
   void EndOverlayAccess();
-  std::unique_ptr<gl::GLFence> TakeReadGLFence();
 
  protected:
   std::unique_ptr<SharedImageRepresentationGLTexture> ProduceGLTexture(
@@ -247,11 +186,8 @@ class SharedImageBackingAHB : public ClearTrackingSharedImageBacking {
   base::flat_set<const SharedImageRepresentation*> active_readers_
       GUARDED_BY(lock_);
 
-  std::unique_ptr<gl::GLFence> read_gl_fence_ GUARDED_BY(lock_);
-
   scoped_refptr<OverlayImage> overlay_image_ GUARDED_BY(lock_);
   bool is_overlay_accessing_ GUARDED_BY(lock_) = false;
-  const bool using_gl_;
 
   DISALLOW_COPY_AND_ASSIGN(SharedImageBackingAHB);
 };
@@ -288,15 +224,8 @@ class SharedImageRepresentationGLTextureAHB
       if (!ahb_backing()->BeginWrite(&sync_fd))
         return false;
 
-      auto gl_fence = ahb_backing()->TakeReadGLFence();
-      if (gl_fence) {
-        gl_fence->ServerWait();
-      }
-
-      if (sync_fd.is_valid()) {
-        if (!InsertEglFenceAndWait(std::move(sync_fd)))
-          return false;
-      }
+      if (!InsertEglFenceAndWait(std::move(sync_fd)))
+        return false;
     }
 
     if (mode == GL_SHARED_IMAGE_ACCESS_MODE_READ_CHROMIUM) {
@@ -340,21 +269,31 @@ class SharedImageRepresentationSkiaVkAHB
       SharedImageManager* manager,
       SharedImageBacking* backing,
       scoped_refptr<SharedContextState> context_state,
-      sk_sp<SkPromiseImageTexture> promise_texture,
+      std::unique_ptr<VulkanImage> vulkan_image,
       MemoryTypeTracker* tracker)
       : SharedImageRepresentationSkia(manager, backing, tracker),
-        promise_texture_(std::move(promise_texture)),
+        vulkan_image_(std::move(vulkan_image)),
         context_state_(std::move(context_state)) {
-    DCHECK(promise_texture_);
+    DCHECK(vulkan_image_);
     DCHECK(context_state_);
     DCHECK(context_state_->vk_context_provider());
+    // TODO(bsalomon): Determine whether it makes sense to attempt to reuse this
+    // if the vk_info stays the same on subsequent calls.
+    promise_texture_ = SkPromiseImageTexture::Make(
+        GrBackendTexture(size().width(), size().height(),
+                         CreateGrVkImageInfo(vulkan_image_.get())));
+    DCHECK(promise_texture_);
   }
 
   ~SharedImageRepresentationSkiaVkAHB() override {
-    DestroyVkPromiseTextureAHB(context_state_->vk_context_provider(),
-                               std::move(promise_texture_));
     DCHECK_EQ(mode_, RepresentationAccessMode::kNone);
-    DCHECK(!surface_);
+    surface_.reset();
+    DCHECK(vulkan_image_);
+    VulkanFenceHelper* fence_helper = context_state_->vk_context_provider()
+                                          ->GetDeviceQueue()
+                                          ->GetFenceHelper();
+    fence_helper->EnqueueVulkanObjectCleanupForSubmittedWork(
+        std::move(vulkan_image_));
   }
 
   sk_sp<SkSurface> BeginWriteAccess(
@@ -363,29 +302,31 @@ class SharedImageRepresentationSkiaVkAHB
       std::vector<GrBackendSemaphore>* begin_semaphores,
       std::vector<GrBackendSemaphore>* end_semaphores) override {
     DCHECK_EQ(mode_, RepresentationAccessMode::kNone);
-    DCHECK(!surface_);
 
     if (!BeginAccess(false /* readonly */, begin_semaphores, end_semaphores))
       return nullptr;
 
-    SkColorType sk_color_type = viz::ResourceFormatToClosestSkColorType(
-        /*gpu_compositing=*/true, format());
-    auto surface = SkSurface::MakeFromBackendTextureAsRenderTarget(
-        context_state_->gr_context(), promise_texture_->backendTexture(),
-        kTopLeft_GrSurfaceOrigin, final_msaa_count, sk_color_type,
-        color_space().ToSkColorSpace(), &surface_props);
-    DCHECK(surface);
-    surface_ = surface.get();
-    return surface;
+    if (!surface_) {
+      SkColorType sk_color_type = viz::ResourceFormatToClosestSkColorType(
+          /*gpu_compositing=*/true, format());
+      surface_ = SkSurface::MakeFromBackendTextureAsRenderTarget(
+          context_state_->gr_context(), promise_texture_->backendTexture(),
+          kTopLeft_GrSurfaceOrigin, final_msaa_count, sk_color_type,
+          color_space().ToSkColorSpace(), &surface_props);
+    }
+
+    DCHECK(surface_);
+    return surface_;
   }
 
   void EndWriteAccess(sk_sp<SkSurface> surface) override {
     DCHECK_EQ(mode_, RepresentationAccessMode::kWrite);
-    DCHECK_EQ(surface.get(), surface_);
-    DCHECK(surface->unique());
+    DCHECK_EQ(surface.get(), surface_.get());
+
+    surface.reset();
+    DCHECK(surface_->unique());
 
     EndAccess(false /* readonly */);
-    surface_ = nullptr;
   }
 
   sk_sp<SkPromiseImageTexture> BeginReadAccess(
@@ -507,9 +448,10 @@ class SharedImageRepresentationSkiaVkAHB
     mode_ = RepresentationAccessMode::kNone;
   }
 
+  std::unique_ptr<VulkanImage> vulkan_image_;
   sk_sp<SkPromiseImageTexture> promise_texture_;
   RepresentationAccessMode mode_ = RepresentationAccessMode::kNone;
-  SkSurface* surface_ = nullptr;
+  sk_sp<SkSurface> surface_;
   scoped_refptr<SharedContextState> context_state_;
   VkSemaphore end_access_semaphore_ = VK_NULL_HANDLE;
 };
@@ -560,8 +502,7 @@ SharedImageBackingAHB::SharedImageBackingAHB(
     base::android::ScopedHardwareBufferHandle handle,
     size_t estimated_size,
     bool is_thread_safe,
-    base::ScopedFD initial_upload_fd,
-    bool using_gl)
+    base::ScopedFD initial_upload_fd)
     : ClearTrackingSharedImageBacking(mailbox,
                                       format,
                                       size,
@@ -570,8 +511,7 @@ SharedImageBackingAHB::SharedImageBackingAHB(
                                       estimated_size,
                                       is_thread_safe),
       hardware_buffer_handle_(std::move(handle)),
-      write_sync_fd_(std::move(initial_upload_fd)),
-      using_gl_(using_gl) {
+      write_sync_fd_(std::move(initial_upload_fd)) {
   DCHECK(hardware_buffer_handle_.is_valid());
 }
 
@@ -664,12 +604,16 @@ SharedImageBackingAHB::ProduceSkia(
   // Check whether we are in Vulkan mode OR GL mode and accordingly create
   // Skia representation.
   if (context_state->GrContextIsVulkan()) {
-    sk_sp<SkPromiseImageTexture> promise_texture = CreatePromiseTextureAHB(
-        context_state->vk_context_provider(), GetAhbHandle(), size(), format());
-    if (!promise_texture)
+    auto* device_queue = context_state->vk_context_provider()->GetDeviceQueue();
+    gfx::GpuMemoryBufferHandle gmb_handle(GetAhbHandle());
+    auto vulkan_image = VulkanImage::CreateFromGpuMemoryBufferHandle(
+        device_queue, std::move(gmb_handle), size(), ToVkFormat(format()),
+        0 /* usage */);
+    if (!vulkan_image)
       return nullptr;
+
     return std::make_unique<SharedImageRepresentationSkiaVkAHB>(
-        manager, this, std::move(context_state), std::move(promise_texture),
+        manager, this, std::move(context_state), std::move(vulkan_image),
         tracker);
   }
   DCHECK(context_state->GrContextIsGL());
@@ -777,6 +721,7 @@ gl::GLImage* SharedImageBackingAHB::BeginOverlayAccess() {
   if (!overlay_image_) {
     overlay_image_ =
         base::MakeRefCounted<OverlayImage>(hardware_buffer_handle_.get());
+    overlay_image_->SetColorSpace(color_space());
   }
 
   if (write_sync_fd_.is_valid()) {
@@ -796,15 +741,6 @@ void SharedImageBackingAHB::EndOverlayAccess() {
 
   auto fence_fd = overlay_image_->TakeEndFence();
   read_sync_fd_ = gl::MergeFDs(std::move(read_sync_fd_), std::move(fence_fd));
-
-  if (using_gl_ && read_sync_fd_.is_valid()) {
-    read_gl_fence_ = CreateEglFence(std::move(read_sync_fd_));
-  }
-}
-
-std::unique_ptr<gl::GLFence> SharedImageBackingAHB::TakeReadGLFence() {
-  AutoLock auto_lock(this);
-  return std::move(read_gl_fence_);
 }
 
 gles2::Texture* SharedImageBackingAHB::GenGLTexture() {
@@ -844,6 +780,7 @@ gles2::Texture* SharedImageBackingAHB::GenGLTexture() {
     api->glDeleteTexturesFn(1, &service_id);
     return nullptr;
   }
+  egl_image->SetColorSpace(color_space());
 
   // Create a gles2 Texture.
   auto* texture = new gles2::Texture(service_id);
@@ -866,9 +803,7 @@ gles2::Texture* SharedImageBackingAHB::GenGLTexture() {
 
 SharedImageBackingFactoryAHB::SharedImageBackingFactoryAHB(
     const GpuDriverBugWorkarounds& workarounds,
-    const GpuFeatureInfo& gpu_feature_info,
-    SharedContextState* context_state)
-    : context_state_(context_state) {
+    const GpuFeatureInfo& gpu_feature_info) {
   scoped_refptr<gles2::FeatureInfo> feature_info =
       new gles2::FeatureInfo(workarounds, gpu_feature_info);
   feature_info->Initialize(ContextType::CONTEXT_TYPE_OPENGLES2, false,
@@ -1082,11 +1017,9 @@ std::unique_ptr<SharedImageBacking> SharedImageBackingFactoryAHB::MakeBacking(
     initial_upload_fd = base::ScopedFD(fence);
   }
 
-  bool using_gl = context_state_ && context_state_->GrContextIsGL();
-
   auto backing = std::make_unique<SharedImageBackingAHB>(
       mailbox, format, size, color_space, usage, std::move(handle),
-      estimated_size, is_thread_safe, std::move(initial_upload_fd), using_gl);
+      estimated_size, is_thread_safe, std::move(initial_upload_fd));
 
   // If we uploaded initial data, set the backing as cleared.
   if (!pixel_data.empty())
@@ -1099,6 +1032,7 @@ std::unique_ptr<SharedImageBacking>
 SharedImageBackingFactoryAHB::CreateSharedImage(
     const Mailbox& mailbox,
     viz::ResourceFormat format,
+    SurfaceHandle surface_handle,
     const gfx::Size& size,
     const gfx::ColorSpace& color_space,
     uint32_t usage,
@@ -1125,6 +1059,14 @@ SharedImageBackingFactoryAHB::CreateSharedImage(
 bool SharedImageBackingFactoryAHB::CanImportGpuMemoryBuffer(
     gfx::GpuMemoryBufferType memory_buffer_type) {
   return memory_buffer_type == gfx::ANDROID_HARDWARE_BUFFER;
+}
+
+bool SharedImageBackingFactoryAHB::IsFormatSupported(
+    viz::ResourceFormat format) {
+  DCHECK_GE(format, 0);
+  DCHECK_LE(format, viz::RESOURCE_FORMAT_MAX);
+
+  return format_info_[format].ahb_supported;
 }
 
 SharedImageBackingFactoryAHB::FormatInfo::FormatInfo() = default;
@@ -1159,12 +1101,10 @@ SharedImageBackingFactoryAHB::CreateSharedImage(
     return nullptr;
   }
 
-  bool using_gl = context_state_ && context_state_->GrContextIsGL();
-
   return std::make_unique<SharedImageBackingAHB>(
       mailbox, resource_format, size, color_space, usage,
       std::move(handle.android_hardware_buffer), estimated_size, false,
-      base::ScopedFD(), using_gl);
+      base::ScopedFD());
 }
 
 }  // namespace gpu

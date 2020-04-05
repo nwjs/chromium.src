@@ -82,7 +82,7 @@ class ImageProcessorParamTest
           std::tuple<base::FilePath, base::FilePath>> {
  public:
   void SetUp() override {}
-  void TearDown() override {}
+  void TearDown() override { model_frames_.clear(); }
 
   std::unique_ptr<test::ImageProcessorClient> CreateImageProcessorClient(
       const test::Image& input_image,
@@ -120,14 +120,14 @@ class ImageProcessorParamTest
     LOG_ASSERT(output_image->IsMetadataLoaded());
     std::vector<std::unique_ptr<test::VideoFrameProcessor>> frame_processors;
     // TODO(crbug.com/944823): Use VideoFrameValidator for RGB formats.
-    // TODO(crbug.com/917951): We should validate a scaled image with SSIM.
     // Validating processed frames is currently not supported when a format is
     // not YUV or when scaling images.
     if (IsYuvPlanar(input_fourcc.ToVideoPixelFormat()) &&
         IsYuvPlanar(output_fourcc.ToVideoPixelFormat())) {
       if (input_image.Size() == output_image->Size()) {
-        auto vf_validator = test::VideoFrameValidator::Create(
+        auto vf_validator = test::MD5VideoFrameValidator::Create(
             {output_image->Checksum()}, output_image->PixelFormat());
+        LOG_ASSERT(vf_validator);
         frame_processors.push_back(std::move(vf_validator));
       } else if (input_fourcc == output_fourcc) {
         // Scaling case.
@@ -135,12 +135,10 @@ class ImageProcessorParamTest
         scoped_refptr<const VideoFrame> model_frame =
             CreateVideoFrameFromImage(*output_image);
         LOG_ASSERT(model_frame) << "Failed to create from image";
-        // Scaling is not deterministic process. There are various algorithms to
-        // scale images. We set a weaker tolerance value, 32, to avoid false
-        // negative.
-        constexpr uint32_t kImageProcessorTestTorelance = 32;
-        auto vf_validator = test::VideoFrameValidator::Create(
-            {model_frame}, kImageProcessorTestTorelance);
+        model_frames_ = {model_frame};
+        auto vf_validator = test::SSIMVideoFrameValidator::Create(
+            base::BindRepeating(&ImageProcessorParamTest::GetModelFrame,
+                                base::Unretained(this)));
         frame_processors.push_back(std::move(vf_validator));
       }
     }
@@ -161,6 +159,18 @@ class ImageProcessorParamTest
         input_config, output_config, kNumBuffers, std::move(frame_processors));
     return ip_client;
   }
+
+ private:
+  scoped_refptr<const VideoFrame> GetModelFrame(size_t frame_index) const {
+    if (frame_index >= model_frames_.size()) {
+      LOG(ERROR) << "Failed to get model frame with index=" << frame_index;
+      ADD_FAILURE();
+      return nullptr;
+    }
+    return model_frames_[frame_index];
+  }
+
+  std::vector<scoped_refptr<const VideoFrame>> model_frames_;
 };
 
 TEST_P(ImageProcessorParamTest, ConvertOneTime_MemToMem) {

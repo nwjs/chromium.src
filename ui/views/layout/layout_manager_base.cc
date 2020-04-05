@@ -12,6 +12,29 @@
 
 namespace views {
 
+namespace {
+
+// Adjusts |child_available_size| by adding the difference between the host
+// view's size and the size available to it.
+SizeBounds AdjustAvailableSizeForParentAvailableSize(
+    const View* host,
+    const SizeBounds& child_available_size) {
+  if (!host || !host->parent() || child_available_size == SizeBounds())
+    return child_available_size;
+
+  SizeBounds host_additional_size = host->parent()->GetAvailableSize(host);
+  host_additional_size.Enlarge(-host->width(), -host->height());
+  return SizeBounds(
+      child_available_size.width() && host_additional_size.width()
+          ? *child_available_size.width() + *host_additional_size.width()
+          : child_available_size.width(),
+      child_available_size.height() && host_additional_size.height()
+          ? *child_available_size.height() + *host_additional_size.height()
+          : child_available_size.height());
+}
+
+}  // anonymous namespace
+
 LayoutManagerBase::~LayoutManagerBase() = default;
 
 gfx::Size LayoutManagerBase::GetPreferredSize(const View* host) const {
@@ -44,8 +67,10 @@ SizeBounds LayoutManagerBase::GetAvailableSize(const View* host,
   DCHECK_EQ(host_view_, host);
   if (cached_layout_size_) {
     for (const auto& child_layout : cached_layout_.child_layouts)
-      if (child_layout.child_view == view)
-        return child_layout.available_size;
+      if (child_layout.child_view == view) {
+        return AdjustAvailableSizeForParentAvailableSize(
+            host, child_layout.available_size);
+      }
   }
   return SizeBounds();
 }
@@ -96,6 +121,12 @@ bool LayoutManagerBase::IsChildViewIgnoredByLayout(
 
 LayoutManagerBase::LayoutManagerBase() = default;
 
+SizeBounds LayoutManagerBase::GetAvailableHostSize() const {
+  DCHECK(host_view());
+  const auto* const parent = host_view()->parent();
+  return parent ? parent->GetAvailableSize(host_view()) : SizeBounds();
+}
+
 bool LayoutManagerBase::IsChildIncludedInLayout(const View* child,
                                                 bool include_hidden) const {
   const auto it = child_infos_.find(child);
@@ -126,6 +157,8 @@ void LayoutManagerBase::LayoutImpl() {
 }
 
 void LayoutManagerBase::ApplyLayout(const ProposedLayout& layout) {
+  const SizeBounds new_available_size = GetAvailableHostSize();
+
   for (auto& child_layout : layout.child_layouts) {
     DCHECK_EQ(host_view_, child_layout.child_view->parent());
 
@@ -133,14 +166,15 @@ void LayoutManagerBase::ApplyLayout(const ProposedLayout& layout) {
     // a non-const reference to the child.
     View* const child_view = child_layout.child_view;
     // Should not be attempting to modify a child view that has been removed.
-    DCHECK(host_view()->GetIndexOf(child_view) >= 0);
+    DCHECK_GE(host_view()->GetIndexOf(child_view), 0);
     if (child_view->GetVisible() != child_layout.visible)
       SetViewVisibility(child_view, child_layout.visible);
 
     // If the child view is not visible and we haven't bothered to specify
     // bounds, don't bother setting them (which would cause another cascade of
     // events that wouldn't do anything useful).
-    if (child_layout.visible || !child_layout.bounds.IsEmpty()) {
+    if (new_available_size != cached_available_size_ || child_layout.visible ||
+        !child_layout.bounds.IsEmpty()) {
       if (child_view->bounds() != child_layout.bounds)
         child_view->SetBoundsRect(child_layout.bounds);
       // Child layouts which are not invalid will not be laid out by the default
@@ -152,6 +186,8 @@ void LayoutManagerBase::ApplyLayout(const ProposedLayout& layout) {
         child_view->Layout();
     }
   }
+
+  cached_available_size_ = new_available_size;
 }
 
 void LayoutManagerBase::InvalidateHost(bool mark_layouts_changed) {

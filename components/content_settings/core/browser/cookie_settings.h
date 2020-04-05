@@ -28,6 +28,8 @@ namespace content_settings {
 
 // This enum is used in prefs, do not change values.
 // The enum needs to correspond to CookieControlsMode in enums.xml.
+// This enum needs to be kept in sync with the enum of the same name in
+// browser/resources/settings/site_settings/constants.js.
 // GENERATED_JAVA_ENUM_PACKAGE: org.chromium.components.content_settings
 enum class CookieControlsMode {
   kOff = 0,
@@ -99,7 +101,8 @@ class CookieSettings : public CookieSettingsBase,
   // accessing cookies.
   //
   // This should only be called on the UI thread.
-  bool IsThirdPartyAccessAllowed(const GURL& first_party_url);
+  bool IsThirdPartyAccessAllowed(const GURL& first_party_url,
+                                 content_settings::SettingSource* source);
 
   // Sets the cookie setting for the site and third parties embedded in it.
   //

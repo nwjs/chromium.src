@@ -8,6 +8,7 @@
 
 #include "base/test/task_environment.h"
 #include "base/time/time.h"
+#include "build/build_config.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/password_manager/core/browser/field_info_table.h"
 #include "components/password_manager/core/browser/mock_password_store.h"
@@ -37,7 +38,7 @@ class FieldInfoManagerTest : public testing::Test {
     test_data_.push_back({102u, 1u, SINGLE_USERNAME, Time::FromTimeT(10)});
 
     store_ = new MockPasswordStore;
-    store_->Init(syncer::SyncableService::StartSyncFlare(), /*prefs=*/nullptr);
+    store_->Init(/*prefs=*/nullptr);
     EXPECT_CALL(*store_, GetAllFieldInfoImpl());
     field_info_manager_ = std::make_unique<FieldInfoManagerImpl>(store_);
     task_environment_.RunUntilIdle();
@@ -56,10 +57,19 @@ class FieldInfoManagerTest : public testing::Test {
 TEST_F(FieldInfoManagerTest, AddFieldType) {
   EXPECT_EQ(UNKNOWN_TYPE, field_info_manager_->GetFieldType(101u, 1u));
 
+#if defined(OS_ANDROID)
+  EXPECT_CALL(*store_, AddFieldInfoImpl).Times(0);
+#else
   EXPECT_CALL(*store_, AddFieldInfoImpl(FieldInfoHasData(101u, 1u, PASSWORD)));
+#endif  //  !defined(OS_ANDROID)
+
   field_info_manager_->AddFieldType(101u, 1u, PASSWORD);
   task_environment_.RunUntilIdle();
+#if defined(OS_ANDROID)
+  EXPECT_EQ(UNKNOWN_TYPE, field_info_manager_->GetFieldType(101u, 1u));
+#else
   EXPECT_EQ(PASSWORD, field_info_manager_->GetFieldType(101u, 1u));
+#endif  //  !defined(OS_ANDROID)
 }
 
 TEST_F(FieldInfoManagerTest, OnGetAllFieldInfo) {

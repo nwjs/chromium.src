@@ -7,6 +7,7 @@
 #include <utility>
 
 #include "base/callback.h"
+#include "base/memory/ptr_util.h"
 #include "base/metrics/histogram_macros.h"
 #include "chrome/browser/autofill/address_accessory_controller.h"
 #include "chrome/browser/autofill/credit_card_accessory_controller.h"
@@ -176,6 +177,15 @@ void ManualFillingControllerImpl::OnOptionSelected(
   controller->OnOptionSelected(selected_action);
 }
 
+void ManualFillingControllerImpl::OnToggleChanged(
+    AccessoryAction toggled_action,
+    bool enabled) const {
+  AccessoryController* controller = GetControllerForAction(toggled_action);
+  if (!controller)
+    return;  // Controller not available anymore.
+  controller->OnToggleChanged(toggled_action, enabled);
+}
+
 gfx::NativeView ManualFillingControllerImpl::container_view() const {
   return web_contents_->GetNativeView();
 }
@@ -288,6 +298,7 @@ AccessoryController* ManualFillingControllerImpl::GetControllerForAction(
     case AccessoryAction::GENERATE_PASSWORD_MANUAL:
     case AccessoryAction::MANAGE_PASSWORDS:
     case AccessoryAction::GENERATE_PASSWORD_AUTOMATIC:
+    case AccessoryAction::TOGGLE_SAVE_PASSWORDS:
       return GetPasswordController();
     case AccessoryAction::MANAGE_ADDRESSES:
       return address_controller_.get();

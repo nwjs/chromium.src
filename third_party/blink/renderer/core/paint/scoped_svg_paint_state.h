@@ -30,14 +30,14 @@
 #include "third_party/blink/renderer/core/paint/object_paint_properties.h"
 #include "third_party/blink/renderer/core/paint/paint_info.h"
 #include "third_party/blink/renderer/core/paint/svg_filter_painter.h"
+#include "third_party/blink/renderer/core/paint/svg_mask_painter.h"
 #include "third_party/blink/renderer/platform/graphics/paint/scoped_paint_chunk_properties.h"
 #include "third_party/blink/renderer/platform/transforms/affine_transform.h"
 
 namespace blink {
 
+class FilterData;
 class LayoutObject;
-class LayoutSVGResourceFilter;
-class LayoutSVGResourceMasker;
 class SVGResources;
 
 // Hooks up the correct paint property transform node.
@@ -89,13 +89,13 @@ class ScopedSVGPaintState {
       : object_(object),
         paint_info_(paint_info),
         display_item_client_(display_item_client),
-        filter_(nullptr),
-        masker_(nullptr) {}
+        filter_data_(nullptr) {}
 
   ~ScopedSVGPaintState();
 
-  PaintInfo& GetPaintInfo() {
-    return filter_paint_info_ ? *filter_paint_info_ : paint_info_;
+  const PaintInfo& GetPaintInfo() const {
+    return filter_recording_context_ ? filter_recording_context_->GetPaintInfo()
+                                     : paint_info_;
   }
 
   // Return true if these operations aren't necessary or if they are
@@ -105,10 +105,7 @@ class ScopedSVGPaintState {
  private:
   void ApplyPaintPropertyState();
   void ApplyClipIfNecessary();
-
-  // Return true if no masking is necessary or if the mask is successfully
-  // applied.
-  bool ApplyMaskIfNecessary(SVGResources*);
+  void ApplyMaskIfNecessary(SVGResources*);
 
   // Return true if no filtering is necessary or if the filter is successfully
   // applied.
@@ -117,12 +114,11 @@ class ScopedSVGPaintState {
   const LayoutObject& object_;
   PaintInfo paint_info_;
   const DisplayItemClient& display_item_client_;
-  std::unique_ptr<PaintInfo> filter_paint_info_;
-  LayoutSVGResourceFilter* filter_;
-  LayoutSVGResourceMasker* masker_;
+  FilterData* filter_data_;
   base::Optional<ClipPathClipper> clip_path_clipper_;
   std::unique_ptr<SVGFilterRecordingContext> filter_recording_context_;
   base::Optional<ScopedPaintChunkProperties> scoped_paint_chunk_properties_;
+  base::Optional<SVGMaskPainter> mask_painter_;
 #if DCHECK_IS_ON()
   bool apply_clip_mask_and_filter_if_necessary_called_ = false;
 #endif

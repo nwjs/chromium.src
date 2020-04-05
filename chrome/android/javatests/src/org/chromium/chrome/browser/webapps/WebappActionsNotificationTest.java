@@ -11,8 +11,9 @@ import android.content.ClipboardManager;
 import android.content.Context;
 import android.os.Build;
 import android.service.notification.StatusBarNotification;
-import android.support.annotation.Nullable;
 import android.support.test.filters.SmallTest;
+
+import androidx.annotation.Nullable;
 
 import org.junit.Assert;
 import org.junit.Before;
@@ -27,9 +28,9 @@ import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.MinAndroidSdkLevel;
 import org.chromium.base.test.util.RetryOnFailure;
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.ShortcutHelper;
+import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.notifications.NotificationConstants;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.content_public.browser.test.util.Criteria;

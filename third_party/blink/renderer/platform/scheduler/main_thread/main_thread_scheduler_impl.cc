@@ -22,6 +22,7 @@
 #include "build/build_config.h"
 #include "components/viz/common/frame_sinks/begin_frame_args.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
+#include "third_party/blink/public/common/input/web_input_event_attribution.h"
 #include "third_party/blink/public/common/input/web_mouse_wheel_event.h"
 #include "third_party/blink/public/common/input/web_touch_event.h"
 #include "third_party/blink/public/common/page/launching_process_state.h"
@@ -202,6 +203,8 @@ MainThreadSchedulerImpl::MainThreadSchedulerImpl(
                            .SetFixedPriority(
                                TaskQueue::QueuePriority::kBestEffortPriority))),
       render_widget_scheduler_signals_(this),
+      find_in_page_budget_pool_controller_(
+          new FindInPageBudgetPoolController(this)),
       control_task_queue_(helper_.ControlMainThreadTaskQueue()),
       compositor_task_queue_(
           helper_.NewTaskQueue(MainThreadTaskQueue::QueueCreationParams(
@@ -216,6 +219,7 @@ MainThreadSchedulerImpl::MainThreadSchedulerImpl(
                   TaskQueue::QueuePriority::kBestEffortPriority))),
       memory_purge_manager_(memory_purge_task_queue_->CreateTaskRunner(
           TaskType::kMainThreadTaskQueueMemoryPurge)),
+      non_waking_time_domain_(tick_clock()),
       delayed_update_policy_runner_(
           base::BindRepeating(&MainThreadSchedulerImpl::UpdatePolicy,
                               base::Unretained(this)),
@@ -237,12 +241,18 @@ MainThreadSchedulerImpl::MainThreadSchedulerImpl(
   task_runners_.emplace(compositor_task_queue_,
                         compositor_task_queue_->CreateQueueEnabledVoter());
 
+  RegisterTimeDomain(&non_waking_time_domain_);
+
   v8_task_queue_ = NewTaskQueue(MainThreadTaskQueue::QueueCreationParams(
       MainThreadTaskQueue::QueueType::kV8));
   ipc_task_queue_ = NewTaskQueue(MainThreadTaskQueue::QueueCreationParams(
       MainThreadTaskQueue::QueueType::kIPC));
   cleanup_task_queue_ = NewTaskQueue(MainThreadTaskQueue::QueueCreationParams(
       MainThreadTaskQueue::QueueType::kCleanup));
+  non_waking_task_queue_ =
+      NewTaskQueue(MainThreadTaskQueue::QueueCreationParams(
+                       MainThreadTaskQueue::QueueType::kNonWaking)
+                       .SetTimeDomain(&non_waking_time_domain_));
 
   v8_task_runner_ =
       v8_task_queue_->CreateTaskRunner(TaskType::kMainThreadTaskQueueV8);
@@ -254,6 +264,8 @@ MainThreadSchedulerImpl::MainThreadSchedulerImpl(
       ipc_task_queue_->CreateTaskRunner(TaskType::kMainThreadTaskQueueIPC);
   cleanup_task_runner_ = cleanup_task_queue_->CreateTaskRunner(
       TaskType::kMainThreadTaskQueueCleanup);
+  non_waking_task_runner_ = non_waking_task_queue_->CreateTaskRunner(
+      TaskType::kMainThreadTaskQueueNonWaking);
 
   // TaskQueueThrottler requires some task runners, then initialize
   // TaskQueueThrottler after task queues/runners are initialized.
@@ -293,6 +305,9 @@ MainThreadSchedulerImpl::MainThreadSchedulerImpl(
   main_thread_only()
       .compositor_priority_experiments.OnMainThreadSchedulerInitialized();
 
+  main_thread_only().current_policy.find_in_page_priority() =
+      find_in_page_budget_pool_controller_->CurrentTaskPriority();
+
   g_main_thread_scheduler = this;
 }
 
@@ -304,6 +319,8 @@ MainThreadSchedulerImpl::~MainThreadSchedulerImpl() {
   for (auto& pair : task_runners_) {
     pair.first->ShutdownTaskQueue();
   }
+
+  UnregisterTimeDomain(&non_waking_time_domain_);
 
   if (virtual_time_domain_)
     UnregisterTimeDomain(virtual_time_domain_.get());
@@ -590,9 +607,6 @@ MainThreadSchedulerImpl::SchedulingSettings::SchedulingSettings() {
       }
     }
   }
-
-  FrameSchedulerImpl::InitializeTaskTypeQueueTraitsMap(
-      frame_task_types_to_queue_traits);
 }
 
 MainThreadSchedulerImpl::AnyThread::~AnyThread() = default;
@@ -1246,13 +1260,15 @@ void MainThreadSchedulerImpl::UpdateForInputEventOnCompositorThread(
 }
 
 void MainThreadSchedulerImpl::WillPostInputEventToMainThread(
-    WebInputEvent::Type web_input_event_type) {
+    WebInputEvent::Type web_input_event_type,
+    const WebInputEventAttribution& web_input_event_attribution) {
   base::AutoLock lock(any_thread_lock_);
   any_thread().pending_input_monitor.OnEnqueue(web_input_event_type);
 }
 
 void MainThreadSchedulerImpl::WillHandleInputEventOnMainThread(
-    WebInputEvent::Type web_input_event_type) {
+    WebInputEvent::Type web_input_event_type,
+    const WebInputEventAttribution& web_input_event_attribution) {
   helper_.CheckOnValidThread();
 
   base::AutoLock lock(any_thread_lock_);
@@ -1461,7 +1477,7 @@ void MainThreadSchedulerImpl::UpdatePolicyLocked(UpdateType update_type) {
       break;
 
     case UseCase::kNone:
-      // It's only safe to block tasks that if we are expecting a compositor
+      // It's only safe to block tasks if we are expecting a compositor
       // driven gesture.
       if (main_thread_only().blocking_input_expected_soon &&
           any_thread().last_gesture_was_compositor_driven) {
@@ -1525,6 +1541,9 @@ void MainThreadSchedulerImpl::UpdatePolicyLocked(UpdateType update_type) {
   }
 
   new_policy.should_disable_throttling() = main_thread_only().use_virtual_time;
+
+  new_policy.find_in_page_priority() =
+      find_in_page_budget_pool_controller_->CurrentTaskPriority();
 
   // Tracing is done before the early out check, because it's quite possible we
   // will otherwise miss this information in traces.
@@ -2081,6 +2100,8 @@ MainThreadSchedulerImpl::Policy::Policy()
       should_prioritize_loading_with_compositing_(false),
       compositor_priority_(
           base::sequence_manager::TaskQueue::QueuePriority::kNormalPriority),
+      find_in_page_priority_(FindInPageBudgetPoolController::
+                                 kFindInPageBudgetNotExhaustedPriority),
       use_case_(UseCase::kNone) {}
 
 void MainThreadSchedulerImpl::Policy::AsValueInto(
@@ -2327,6 +2348,11 @@ MainThreadSchedulerImpl::CompositorTaskRunner() {
   return compositor_task_runner_;
 }
 
+scoped_refptr<base::SingleThreadTaskRunner>
+MainThreadSchedulerImpl::NonWakingTaskRunner() {
+  return non_waking_task_runner_;
+}
+
 std::unique_ptr<PageScheduler> MainThreadSchedulerImpl::CreatePageScheduler(
     PageScheduler::Delegate* delegate) {
   return std::make_unique<PageSchedulerImpl>(delegate, this);
@@ -2473,6 +2499,9 @@ void MainThreadSchedulerImpl::OnTaskCompleted(
   main_thread_only().compositor_priority_experiments.OnTaskCompleted(
       queue.get(), main_thread_only().current_policy.compositor_priority(),
       task_timing);
+
+  find_in_page_budget_pool_controller_->OnTaskCompleted(queue.get(),
+                                                        task_timing);
 }
 
 void MainThreadSchedulerImpl::RecordTaskUkm(
@@ -2568,7 +2597,7 @@ TaskQueue::QueuePriority MainThreadSchedulerImpl::ComputePriority(
     MainThreadTaskQueue* task_queue) const {
   DCHECK(task_queue);
 
-  // If |task_queue| is associated to a frame, the the frame scheduler computes
+  // If |task_queue| is associated to a frame, then the frame scheduler computes
   // the priority.
   FrameSchedulerImpl* frame_scheduler = task_queue->GetFrameScheduler();
 
@@ -2730,7 +2759,9 @@ bool MainThreadSchedulerImpl::ShouldUpdateTaskQueuePriorities(
   return old_policy.use_case() !=
              main_thread_only().current_policy.use_case() ||
          old_policy.compositor_priority() !=
-             main_thread_only().current_policy.compositor_priority();
+             main_thread_only().current_policy.compositor_priority() ||
+         old_policy.find_in_page_priority() !=
+             main_thread_only().current_policy.find_in_page_priority();
 }
 
 UseCase MainThreadSchedulerImpl::current_use_case() const {

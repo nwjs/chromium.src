@@ -77,17 +77,19 @@ class DateTimeLocalPicker extends HTMLElement {
       case 'ArrowRight':
       case 'PageUp':
       case 'PageDown':
-      case 't':
-      case 'm':
-      case 'M':
-      case 'y':
-      case 'Y':
-      case 'd':
-      case 'D':
         if (event.target.matches('.calendar-table-view, .time-column') &&
             this.hasSelectedDate) {
           window.pagePopupController.setValue(this.selectedValue);
         }
+        // Stop the native scrolling behavior; the Time picker needs to manage
+        // its own scroll position.
+        event.preventDefault();
+        break;
+      case 'Home':
+      case 'End':
+        // Prevent an attempt to scroll to the end of
+        // of an infinitely looping time picker column.
+        event.preventDefault();
         break;
     }
   };

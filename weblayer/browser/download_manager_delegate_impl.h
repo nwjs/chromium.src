@@ -14,6 +14,8 @@
 namespace weblayer {
 class DownloadDelegate;
 
+extern const char kDownloadNextIDPref[];
+
 class DownloadManagerDelegateImpl : public content::DownloadManagerDelegate,
                                     public content::DownloadManager::Observer,
                                     public download::DownloadItem::Observer {
@@ -29,6 +31,7 @@ class DownloadManagerDelegateImpl : public content::DownloadManagerDelegate,
 
  private:
   // content::DownloadManagerDelegate implementation:
+  void GetNextId(content::DownloadIdCallback callback) override;
   bool DetermineDownloadTarget(
       download::DownloadItem* item,
       content::DownloadTargetCallback* callback) override;
@@ -50,12 +53,14 @@ class DownloadManagerDelegateImpl : public content::DownloadManagerDelegate,
       const std::string& request_method,
       base::Optional<url::Origin> request_initiator,
       bool from_download_cross_origin_redirect,
+      bool content_initiated,
       content::CheckDownloadAllowedCallback check_download_allowed_cb) override;
 
   // content::DownloadManager::Observer implementation:
   void OnDownloadCreated(content::DownloadManager* manager,
                          download::DownloadItem* item) override;
   void OnDownloadDropped(content::DownloadManager* manager) override;
+  void OnManagerInitialized() override;
 
   // download::DownloadItem::Observer implementation:
   void OnDownloadUpdated(download::DownloadItem* item) override;
@@ -67,6 +72,7 @@ class DownloadManagerDelegateImpl : public content::DownloadManagerDelegate,
 
   // Helper methods to get a DownloadDelegate.
   DownloadDelegate* GetDelegate(content::WebContents* web_contents);
+  DownloadDelegate* GetDelegate(content::BrowserContext* browser_context);
   DownloadDelegate* GetDelegate(download::DownloadItem* item);
 
   content::DownloadManager* download_manager_;

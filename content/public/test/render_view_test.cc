@@ -50,10 +50,12 @@
 #include "third_party/blink/public/mojom/leak_detector/leak_detector.mojom.h"
 #include "third_party/blink/public/mojom/renderer_preferences.mojom.h"
 #include "third_party/blink/public/platform/scheduler/web_thread_scheduler.h"
+#include "third_party/blink/public/platform/web_runtime_features.h"
 #include "third_party/blink/public/platform/web_url_loader_client.h"
 #include "third_party/blink/public/platform/web_url_request.h"
 #include "third_party/blink/public/web/blink.h"
 #include "third_party/blink/public/web/web_document.h"
+#include "third_party/blink/public/web/web_frame_widget.h"
 #include "third_party/blink/public/web/web_history_item.h"
 #include "third_party/blink/public/web/web_input_element.h"
 #include "third_party/blink/public/web/web_local_frame.h"
@@ -62,6 +64,7 @@
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/events/base_event_utils.h"
 #include "ui/events/keycodes/keyboard_codes.h"
+#include "ui/native_theme/native_theme_features.h"
 #include "v8/include/v8.h"
 
 #if defined(OS_MACOSX)
@@ -118,25 +121,37 @@ class FakeWebURLLoader : public blink::WebURLLoader {
           task_runner_handle)
       : task_runner_handle_(std::move(task_runner_handle)) {}
 
-  void LoadSynchronously(const WebURLRequest& request,
-                         blink::WebURLLoaderClient* client,
-                         blink::WebURLResponse&,
-                         base::Optional<blink::WebURLError>&,
-                         blink::WebData&,
-                         int64_t&,
-                         int64_t&,
-                         blink::WebBlobInfo&) override {
-    client->DidFail(blink::WebURLError(kFailureReason, request.Url()), 0, 0, 0);
+  void LoadSynchronously(
+      std::unique_ptr<network::ResourceRequest> request,
+      scoped_refptr<WebURLRequest::ExtraData> request_extra_data,
+      int requestor_id,
+      bool download_to_network_cache_only,
+      bool pass_response_pipe_to_client,
+      bool no_mime_sniffing,
+      base::TimeDelta timeout_interval,
+      blink::WebURLLoaderClient* client,
+      blink::WebURLResponse&,
+      base::Optional<blink::WebURLError>&,
+      blink::WebData&,
+      int64_t&,
+      int64_t&,
+      blink::WebBlobInfo&) override {
+    client->DidFail(blink::WebURLError(kFailureReason, request->url), 0, 0, 0);
   }
 
-  void LoadAsynchronously(const WebURLRequest& request,
-                          blink::WebURLLoaderClient* client) override {
+  void LoadAsynchronously(
+      std::unique_ptr<network::ResourceRequest> request,
+      scoped_refptr<WebURLRequest::ExtraData> request_extra_data,
+      int requestor_id,
+      bool download_to_network_cache_only,
+      bool no_mime_sniffing,
+      blink::WebURLLoaderClient* client) override {
     DCHECK(task_runner_handle_);
     async_client_ = client;
     task_runner_handle_->GetTaskRunner()->PostTask(
         FROM_HERE,
         base::BindOnce(&FakeWebURLLoader::DidFail, weak_factory_.GetWeakPtr(),
-                       blink::WebURLError(kFailureReason, request.Url()), 0, 0,
+                       blink::WebURLError(kFailureReason, request->url), 0, 0,
                        0));
   }
 
@@ -342,6 +357,13 @@ void RenderViewTest::SetUp() {
   // Ensure that this looks like the renderer process based on the command line.
   base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(
       switches::kProcessType, switches::kRendererProcess);
+
+  // Enable Blink's experimental and test only features so that test code
+  // does not have to bother enabling each feature.
+  blink::WebRuntimeFeatures::EnableExperimentalFeatures(true);
+  blink::WebRuntimeFeatures::EnableTestOnlyFeatures(true);
+  blink::WebRuntimeFeatures::EnableOverlayScrollbars(
+      ui::IsOverlayScrollbarEnabled());
 
   test_io_thread_ =
       std::make_unique<base::TestIOThread>(base::TestIOThread::kAutoStart);
@@ -662,8 +684,9 @@ void RenderViewTest::SimulateRectTap(const gfx::Rect& rect) {
 }
 
 void RenderViewTest::SetFocused(const blink::WebElement& element) {
-  RenderViewImpl* view = static_cast<RenderViewImpl*>(view_);
-  view->FocusedElementChanged(blink::WebElement(), element);
+  auto* frame = RenderFrameImpl::FromWebFrame(element.GetDocument().GetFrame());
+  if (frame)
+    frame->FocusedElementChanged(element);
 }
 
 void RenderViewTest::Reload(const GURL& url) {
@@ -671,7 +694,8 @@ void RenderViewTest::Reload(const GURL& url) {
       url, base::nullopt, blink::mojom::Referrer::New(),
       ui::PAGE_TRANSITION_LINK, mojom::NavigationType::RELOAD,
       NavigationDownloadPolicy(), false, GURL(), GURL(), PREVIEWS_UNSPECIFIED,
-      base::TimeTicks::Now(), "GET", nullptr, base::Optional<SourceLocation>(),
+      base::TimeTicks::Now(), "GET", nullptr,
+      network::mojom::SourceLocation::New(),
       false /* started_from_context_menu */, false /* has_user_gesture */,
       CreateInitiatorCSPInfo(), std::vector<int>(), std::string(),
       false /* is_history_navigation_in_new_child_frame */, base::TimeTicks());
@@ -820,7 +844,8 @@ void RenderViewTest::GoToOffset(int offset,
       ui::PAGE_TRANSITION_FORWARD_BACK,
       mojom::NavigationType::HISTORY_DIFFERENT_DOCUMENT,
       NavigationDownloadPolicy(), false, GURL(), GURL(), PREVIEWS_UNSPECIFIED,
-      base::TimeTicks::Now(), "GET", nullptr, base::Optional<SourceLocation>(),
+      base::TimeTicks::Now(), "GET", nullptr,
+      network::mojom::SourceLocation::New(),
       false /* started_from_context_menu */, false /* has_user_gesture */,
       CreateInitiatorCSPInfo(), std::vector<int>(), std::string(),
       false /* is_history_navigation_in_new_child_frame */, base::TimeTicks());

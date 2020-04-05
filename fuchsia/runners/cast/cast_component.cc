@@ -9,10 +9,12 @@
 #include <utility>
 
 #include "base/auto_reset.h"
+#include "base/bind.h"
 #include "base/files/file_util.h"
 #include "base/fuchsia/fuchsia_logging.h"
 #include "base/message_loop/message_loop_current.h"
 #include "base/path_service.h"
+#include "fuchsia/base/agent_manager.h"
 #include "fuchsia/base/mem_buffer_util.h"
 #include "fuchsia/fidl/chromium/cast/cpp/fidl.h"
 #include "fuchsia/runners/cast/cast_runner.h"
@@ -67,7 +69,8 @@ void CastComponent::StartComponent() {
   OnRewriteRulesReceived(std::move(initial_rewrite_rules_));
 
   frame()->SetMediaSessionId(media_session_id_);
-  frame()->SetEnableInput(false);
+  frame()->ConfigureInputTypes(fuchsia::web::InputTypes::ALL,
+                               fuchsia::web::AllowInputState::DENY);
   frame()->SetNavigationEventListener(
       navigation_listener_binding_.NewBinding());
   api_bindings_client_->AttachToFrame(
@@ -76,10 +79,27 @@ void CastComponent::StartComponent() {
                      kBindingsFailureExitCode,
                      fuchsia::sys::TerminationReason::INTERNAL_ERROR));
 
+  if (application_config_.has_force_content_dimensions()) {
+    frame()->ForceContentDimensions(std::make_unique<fuchsia::ui::gfx::vec2>(
+        application_config_.force_content_dimensions()));
+  }
+
   application_controller_ = std::make_unique<ApplicationControllerImpl>(
-      frame(), agent_manager_->ConnectToAgentService<
-                   chromium::cast::ApplicationControllerReceiver>(
-                   CastRunner::kAgentComponentUrl));
+      frame(),
+      agent_manager_->ConnectToAgentService<chromium::cast::ApplicationContext>(
+          CastRunner::kAgentComponentUrl));
+
+  // Pass application permissions to the frame.
+  std::string origin = GURL(application_config_.web_url()).GetOrigin().spec();
+  if (application_config_.has_permissions()) {
+    for (auto& permission : application_config_.permissions()) {
+      fuchsia::web::PermissionDescriptor permission_clone;
+      zx_status_t status = permission.Clone(&permission_clone);
+      ZX_DCHECK(status == ZX_OK, status);
+      frame()->SetPermissionState(std::move(permission_clone), origin,
+                                  fuchsia::web::PermissionState::GRANTED);
+    }
+  }
 }
 
 void CastComponent::DestroyComponent(int termination_exit_code,

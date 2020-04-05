@@ -9,7 +9,6 @@
 #include "base/bind.h"
 #include "base/memory/ptr_util.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/no_destructor.h"
 #include "base/stl_util.h"
 #include "chromeos/components/multidevice/logging/logging.h"
 #include "chromeos/services/device_sync/async_execution_time_metrics_logger.h"
@@ -17,13 +16,19 @@
 #include "chromeos/services/device_sync/cryptauth_ecies_encryptor_impl.h"
 #include "chromeos/services/device_sync/cryptauth_key_creator_impl.h"
 #include "chromeos/services/device_sync/cryptauth_task_metrics_logger.h"
+#include "chromeos/services/device_sync/pref_names.h"
+#include "chromeos/services/device_sync/proto/cryptauth_logging.h"
 #include "chromeos/services/device_sync/value_string_encoding.h"
+#include "components/prefs/pref_registry_simple.h"
+#include "components/prefs/pref_service.h"
 
 namespace chromeos {
 
 namespace device_sync {
 
 namespace {
+
+const char kUnsetPrefValue[] = "[Unset pref value]";
 
 const cryptauthv2::KeyType kGroupKeyType = cryptauthv2::KeyType::P256;
 
@@ -117,13 +122,18 @@ CryptAuthMetadataSyncerImpl::Factory*
     CryptAuthMetadataSyncerImpl::Factory::test_factory_ = nullptr;
 
 // static
-CryptAuthMetadataSyncerImpl::Factory*
-CryptAuthMetadataSyncerImpl::Factory::Get() {
-  if (test_factory_)
-    return test_factory_;
+std::unique_ptr<CryptAuthMetadataSyncer>
+CryptAuthMetadataSyncerImpl::Factory::Create(
+    CryptAuthClientFactory* client_factory,
+    PrefService* pref_service,
+    std::unique_ptr<base::OneShotTimer> timer) {
+  if (test_factory_) {
+    return test_factory_->CreateInstance(client_factory, pref_service,
+                                         std::move(timer));
+  }
 
-  static base::NoDestructor<CryptAuthMetadataSyncerImpl::Factory> factory;
-  return factory.get();
+  return base::WrapUnique(new CryptAuthMetadataSyncerImpl(
+      client_factory, pref_service, std::move(timer)));
 }
 
 // static
@@ -134,22 +144,16 @@ void CryptAuthMetadataSyncerImpl::Factory::SetFactoryForTesting(
 
 CryptAuthMetadataSyncerImpl::Factory::~Factory() = default;
 
-std::unique_ptr<CryptAuthMetadataSyncer>
-CryptAuthMetadataSyncerImpl::Factory::BuildInstance(
-    CryptAuthClientFactory* client_factory,
-    std::unique_ptr<base::OneShotTimer> timer) {
-  return base::WrapUnique(
-      new CryptAuthMetadataSyncerImpl(client_factory, std::move(timer)));
+// static
+void CryptAuthMetadataSyncerImpl::RegisterPrefs(PrefRegistrySimple* registry) {
+  registry->RegisterStringPref(
+      prefs::kCryptAuthLastSyncedEncryptedLocalDeviceMetadata, kUnsetPrefValue);
+  registry->RegisterStringPref(
+      prefs::kCryptAuthLastSyncedUnencryptedLocalDeviceMetadata,
+      kUnsetPrefValue);
+  registry->RegisterStringPref(prefs::kCryptAuthLastSyncedGroupPublicKey,
+                               kUnsetPrefValue);
 }
-
-CryptAuthMetadataSyncerImpl::CryptAuthMetadataSyncerImpl(
-    CryptAuthClientFactory* client_factory,
-    std::unique_ptr<base::OneShotTimer> timer)
-    : client_factory_(client_factory), timer_(std::move(timer)) {
-  DCHECK(client_factory);
-}
-
-CryptAuthMetadataSyncerImpl::~CryptAuthMetadataSyncerImpl() = default;
 
 // static
 base::Optional<base::TimeDelta> CryptAuthMetadataSyncerImpl::GetTimeoutForState(
@@ -190,6 +194,19 @@ CryptAuthMetadataSyncerImpl::ResultCodeErrorFromTimeoutDuringState(
       return base::nullopt;
   }
 }
+
+CryptAuthMetadataSyncerImpl::CryptAuthMetadataSyncerImpl(
+    CryptAuthClientFactory* client_factory,
+    PrefService* pref_service,
+    std::unique_ptr<base::OneShotTimer> timer)
+    : client_factory_(client_factory),
+      pref_service_(pref_service),
+      timer_(std::move(timer)) {
+  DCHECK(client_factory);
+  DCHECK(pref_service);
+}
+
+CryptAuthMetadataSyncerImpl::~CryptAuthMetadataSyncerImpl() = default;
 
 void CryptAuthMetadataSyncerImpl::OnAttemptStarted(
     const cryptauthv2::RequestContext& request_context,
@@ -280,8 +297,11 @@ CryptAuthMetadataSyncerImpl::GetGroupPublicKeyState() {
 
 void CryptAuthMetadataSyncerImpl::AttemptNextStep() {
   switch (state_) {
-    case State::kNotStarted:
-      switch (GetGroupPublicKeyState()) {
+    // Start the flow.
+    case State::kNotStarted: {
+      GroupPublicKeyState group_public_key_state = GetGroupPublicKeyState();
+      PA_LOG(VERBOSE) << "Group public key state: " << group_public_key_state;
+      switch (group_public_key_state) {
         case GroupPublicKeyState::kNewKeyNeedsToBeCreated:
           CreateGroupKey();
           return;
@@ -292,17 +312,25 @@ void CryptAuthMetadataSyncerImpl::AttemptNextStep() {
           NOTREACHED();
           return;
       }
+    }
 
+    // After group key creation, encrypt the local device metadata.
     case State::kWaitingForGroupKeyCreation:
       EncryptLocalDeviceMetadata();
       return;
 
+    // After local device metadata is encrypted, start constructing the
+    // SyncMetadata call.
     case State::kWaitingForLocalDeviceMetadataEncryption:
       MakeSyncMetadataCall();
       return;
 
-    case State::kWaitingForFirstSyncMetadataResponse:
-      switch (GetGroupPublicKeyState()) {
+    // After receiving the first SyncMetadata response, take further action
+    // based on the state of the group public key.
+    case State::kWaitingForFirstSyncMetadataResponse: {
+      GroupPublicKeyState group_public_key_state = GetGroupPublicKeyState();
+      PA_LOG(VERBOSE) << "Group public key state: " << group_public_key_state;
+      switch (group_public_key_state) {
         case GroupPublicKeyState::kNewKeyNeedsToBeCreated:
           CreateGroupKey();
           return;
@@ -320,11 +348,16 @@ void CryptAuthMetadataSyncerImpl::AttemptNextStep() {
           NOTREACHED();
           return;
       }
+    }
 
-    case State::kWaitingForSecondSyncMetadataResponse:
-      // No more than two SyncMetadata requests should be necessary in the v2
-      // DeviceSync protocol to establish the group public key.
-      switch (GetGroupPublicKeyState()) {
+    // After receiving the second SyncMetadata response, process the metadata
+    // and finish. Note: In the v2 DeviceSync protocol, no more than two
+    // SyncMetadata requests should be necessary to establish the group public
+    // key.
+    case State::kWaitingForSecondSyncMetadataResponse: {
+      GroupPublicKeyState group_public_key_state = GetGroupPublicKeyState();
+      PA_LOG(VERBOSE) << "Group public key state: " << group_public_key_state;
+      switch (group_public_key_state) {
         case GroupPublicKeyState::kEstablished:
           FilterMetadataAndFinishAttempt();
           return;
@@ -333,17 +366,48 @@ void CryptAuthMetadataSyncerImpl::AttemptNextStep() {
                             kErrorEstablishingGroupPublicKey);
           return;
       }
+    }
 
+    // Each CryptAuthMetadataSyncer object can only be used once.
     case State::kFinished:
       NOTREACHED();
       return;
   }
 }
 
+bool CryptAuthMetadataSyncerImpl::
+    ShouldUseCachedEncryptedLocalDeviceMetadata() {
+  std::string last_synced_unencrypted_metadata = pref_service_->GetString(
+      prefs::kCryptAuthLastSyncedUnencryptedLocalDeviceMetadata);
+  std::string last_synced_group_public_key =
+      pref_service_->GetString(prefs::kCryptAuthLastSyncedGroupPublicKey);
+
+  // Prefs should be all set or all unset.
+  DCHECK_EQ(last_synced_unencrypted_metadata == kUnsetPrefValue,
+            last_synced_group_public_key == kUnsetPrefValue);
+  DCHECK_EQ(last_synced_unencrypted_metadata == kUnsetPrefValue,
+            pref_service_->GetString(
+                prefs::kCryptAuthLastSyncedEncryptedLocalDeviceMetadata) ==
+                kUnsetPrefValue);
+
+  if (last_synced_unencrypted_metadata == kUnsetPrefValue)
+    return false;
+
+  return last_synced_unencrypted_metadata ==
+             local_device_metadata_.SerializeAsString() &&
+         last_synced_group_public_key == GetGroupKey()->public_key();
+}
+
 void CryptAuthMetadataSyncerImpl::EncryptLocalDeviceMetadata() {
   SetState(State::kWaitingForLocalDeviceMetadataEncryption);
 
-  encryptor_ = CryptAuthEciesEncryptorImpl::Factory::Get()->BuildInstance();
+  if (ShouldUseCachedEncryptedLocalDeviceMetadata()) {
+    OnLocalDeviceMetadataEncrypted(pref_service_->GetString(
+        prefs::kCryptAuthLastSyncedEncryptedLocalDeviceMetadata));
+    return;
+  }
+
+  encryptor_ = CryptAuthEciesEncryptorImpl::Factory::Create();
   encryptor_->Encrypt(
       local_device_metadata_.SerializeAsString(), GetGroupKey()->public_key(),
       base::BindOnce(
@@ -375,7 +439,7 @@ void CryptAuthMetadataSyncerImpl::OnLocalDeviceMetadataEncrypted(
 void CryptAuthMetadataSyncerImpl::CreateGroupKey() {
   SetState(State::kWaitingForGroupKeyCreation);
 
-  key_creator_ = CryptAuthKeyCreatorImpl::Factory::Get()->BuildInstance();
+  key_creator_ = CryptAuthKeyCreatorImpl::Factory::Create();
   key_creator_->CreateKeys(
       {{CryptAuthKeyBundle::Name::kDeviceSyncBetterTogetherGroupKey,
         CryptAuthKeyCreator::CreateKeyData(CryptAuthKey::Status::kActive,
@@ -459,6 +523,21 @@ void CryptAuthMetadataSyncerImpl::OnSyncMetadataSuccess(
                                     CryptAuthApiCallResult::kSuccess);
   else
     NOTREACHED();
+
+  PA_LOG(VERBOSE) << "SyncMetadata response:\n" << response;
+
+  // Cache encrypted and unencrypted local device metadata, along with the group
+  // public key used to encrypt the data, that was successfully sent in the
+  // SyncMetadata request. Note: the cached group public key might not match
+  // the key returned in the respone.
+  pref_service_->SetString(
+      prefs::kCryptAuthLastSyncedUnencryptedLocalDeviceMetadata,
+      local_device_metadata_.SerializeAsString());
+  pref_service_->SetString(prefs::kCryptAuthLastSyncedGroupPublicKey,
+                           GetGroupKey()->public_key());
+  pref_service_->SetString(
+      prefs::kCryptAuthLastSyncedEncryptedLocalDeviceMetadata,
+      *encrypted_local_device_metadata_);
 
   sync_metadata_response_ = response;
 
@@ -604,6 +683,33 @@ std::ostream& operator<<(std::ostream& stream,
       break;
     case CryptAuthMetadataSyncerImpl::State::kFinished:
       stream << "[MetadataSyncer state: Finished]";
+      break;
+  }
+
+  return stream;
+}
+
+std::ostream& operator<<(
+    std::ostream& stream,
+    const CryptAuthMetadataSyncerImpl::GroupPublicKeyState& key_state) {
+  switch (key_state) {
+    case CryptAuthMetadataSyncerImpl::GroupPublicKeyState::kUndetermined:
+      stream << "[Undetermined]";
+      break;
+    case CryptAuthMetadataSyncerImpl::GroupPublicKeyState::
+        kKeyExistsButNotConfirmedWithCryptAuth:
+      stream << "[Key exists but not confirmed with CryptAuth]";
+      break;
+    case CryptAuthMetadataSyncerImpl::GroupPublicKeyState::
+        kNewKeyNeedsToBeCreated:
+      stream << "[New key needs to be created]";
+      break;
+    case CryptAuthMetadataSyncerImpl::GroupPublicKeyState::
+        kNewKeyReceivedFromCryptAuth:
+      stream << "[New key received from CryptAuth]";
+      break;
+    case CryptAuthMetadataSyncerImpl::GroupPublicKeyState::kEstablished:
+      stream << "[Established]";
       break;
   }
 

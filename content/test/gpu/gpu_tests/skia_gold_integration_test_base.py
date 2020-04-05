@@ -2,7 +2,6 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import contextlib
 from datetime import date
 import json
 import logging
@@ -42,16 +41,6 @@ SKIA_GOLD_INSTANCE = 'chrome-gpu'
 SKIA_GOLD_CORPUS = SKIA_GOLD_INSTANCE
 
 
-@contextlib.contextmanager
-def RunInChromiumSrc():
-  old_cwd = os.getcwd()
-  os.chdir(path_util.GetChromiumSrcDir())
-  try:
-    yield
-  finally:
-    os.chdir(old_cwd)
-
-
 # This is mainly used to determine if we need to run a subprocess through the
 # shell - on Windows, finding executables via PATH doesn't work properly unless
 # run through the shell.
@@ -88,7 +77,7 @@ class SkiaGoldIntegrationTestBase(gpu_integration_test.GpuIntegrationTest):
   _skia_gold_temp_dir = None
 
   _local_run = None
-  _build_revision = None
+  _git_revision = None
 
   @classmethod
   def SetParsedCommandLineOptions(cls, options):
@@ -113,12 +102,16 @@ class SkiaGoldIntegrationTestBase(gpu_integration_test.GpuIntegrationTest):
   def _AddDefaultArgs(browser_args):
     if not browser_args:
       browser_args = []
+    force_color_profile_arg = [
+        arg for arg in browser_args if arg.startswith('--force-color-profile=')
+    ]
+    if not force_color_profile_arg:
+      browser_args = browser_args + [
+          '--force-color-profile=srgb',
+          '--ensure-forced-color-profile',
+      ]
     # All tests receive the following options.
-    return [
-      '--force-color-profile=srgb',
-      '--ensure-forced-color-profile',
-      '--enable-gpu-benchmarking',
-      '--test-type=gpu'] + browser_args
+    return browser_args + ['--enable-gpu-benchmarking', '--test-type=gpu']
 
   @classmethod
   def StopBrowser(cls):
@@ -134,7 +127,7 @@ class SkiaGoldIntegrationTestBase(gpu_integration_test.GpuIntegrationTest):
   def AddCommandlineArgs(cls, parser):
     super(SkiaGoldIntegrationTestBase, cls).AddCommandlineArgs(parser)
     parser.add_option(
-      '--build-revision',
+      '--git-revision',
       help='Chrome revision being tested.',
       default=None)
     parser.add_option(
@@ -151,15 +144,15 @@ class SkiaGoldIntegrationTestBase(gpu_integration_test.GpuIntegrationTest):
       'profile after the test completes; leave the system using the sRGB color '
       'profile. See http://crbug.com/784456.')
     parser.add_option(
-      '--review-patch-issue',
+      '--gerrit-issue',
       help='For Skia Gold integration. Gerrit issue ID.',
       default='')
     parser.add_option(
-      '--review-patch-set',
+      '--gerrit-patchset',
       help='For Skia Gold integration. Gerrit patch set number.',
       default='')
     parser.add_option(
-      '--buildbucket-build-id',
+      '--buildbucket-id',
       help='For Skia Gold integration. Buildbucket build ID.',
       default='')
     parser.add_option(
@@ -182,6 +175,12 @@ class SkiaGoldIntegrationTestBase(gpu_integration_test.GpuIntegrationTest):
       help='Don\'t use the service account provided by LUCI for authentication '
            'for Skia Gold, instead relying on gsutil to be pre-authenticated. '
            'Meant for testing locally instead of on the bots.')
+    parser.add_option(
+      '--bypass-skia-gold-functionality',
+      action='store_true', default=False,
+      help='Bypass all interaction with Skia Gold, effectively disabling the '
+           'image comparison portion of any tests that use Gold. Only meant to '
+           'be used in case a Gold outage occurs and cannot be fixed quickly.')
 
   @classmethod
   def ResetGpuInfo(cls):
@@ -340,16 +339,15 @@ class SkiaGoldIntegrationTestBase(gpu_integration_test.GpuIntegrationTest):
       '--commit',
       self._GetBuildRevision(),
     ]
-    # If --review-patch-issue is passed, then we assume we're running on a
-    # trybot.
-    if parsed_options.review_patch_issue:
+    # If --gerrit-issue is passed, then we assume we're running on a trybot.
+    if parsed_options.gerrit_issue:
       build_id_args += [
         '--issue',
-        parsed_options.review_patch_issue,
+        parsed_options.gerrit_issue,
         '--patchset',
-        parsed_options.review_patch_set,
+        parsed_options.gerrit_patchset,
         '--jobid',
-        parsed_options.buildbucket_build_id,
+        parsed_options.buildbucket_id,
         '--crs',
         'gerrit',
         '--cis',
@@ -386,6 +384,10 @@ class SkiaGoldIntegrationTestBase(gpu_integration_test.GpuIntegrationTest):
       page: the GPU PixelTestPage object for the test.
       build_id_args: a list of build-identifying flags and values.
     """
+    if self.GetParsedCommandLineOptions().bypass_skia_gold_functionality:
+      logging.warning('Not actually comparing with Gold due to '
+                      '--bypass-skia-gold-functionality being present.')
+      return
     if not isinstance(build_id_args, list) or '--commit' not in build_id_args:
       raise Exception('Requires build args to be specified, including --commit')
 
@@ -440,10 +442,10 @@ class SkiaGoldIntegrationTestBase(gpu_integration_test.GpuIntegrationTest):
       # If we're running on a trybot, instead generate a link to all results
       # for the CL so that the user can visit a single page instead of
       # clicking on multiple links on potentially multiple bots.
-      elif parsed_options.review_patch_issue:
+      elif parsed_options.gerrit_issue:
         cl_images = ('https://%s-gold.skia.org/search?'
                      'issue=%s&new_clstore=true' % (
-                       SKIA_GOLD_INSTANCE, parsed_options.review_patch_issue))
+                       SKIA_GOLD_INSTANCE, parsed_options.gerrit_issue))
         self.artifacts.CreateLink('triage_link_for_entire_cl', cl_images)
       else:
         try:
@@ -504,7 +506,7 @@ class SkiaGoldIntegrationTestBase(gpu_integration_test.GpuIntegrationTest):
     # grace period. However, fail if we're on a trybot so that as many images
     # can be triaged as possible before a new test is committed.
     if (page.grace_period_end and date.today() <= page.grace_period_end and
-        not parsed_options.review_patch_issue):
+        not parsed_options.gerrit_issue):
       return False
     return True
 
@@ -556,42 +558,40 @@ class SkiaGoldIntegrationTestBase(gpu_integration_test.GpuIntegrationTest):
     # Use the --local-run value if it's been set.
     elif cls.GetParsedCommandLineOptions().local_run is not None:
       cls._local_run = cls.GetParsedCommandLineOptions().local_run
-    # Look for the presence of a git repo as a heuristic to determine whether
-    # we're running on a workstation or a bot.
-    else:
-      with RunInChromiumSrc():
-        try:
-          subprocess.check_output(['git', 'status'], shell=IsWin())
-          logging.warning(
+    # Look for the presence of the SWARMING_SERVER environment variable as a
+    # heuristic to determine whether we're running on a workstation or a bot.
+    # This should always be set on swarming, but would be strange to be set on
+    # a workstation.
+    cls._local_run = 'SWARMING_SERVER' not in os.environ
+    if cls._local_run:
+      logging.warning(
               'Automatically determined that test is running on a workstation')
-          cls._local_run = True
-        except subprocess.CalledProcessError:
-          logging.warning(
-              'Automatically determined that test is running on a bot')
-          cls._local_run = False
+    else:
+      logging.warning('Automatically determined that test is running on a bot')
     return cls._local_run
 
   @classmethod
   def _GetBuildRevision(cls):
     """Returns the current git master revision being tested."""
-    # Do nothing if we've already determined the build revision.
-    if cls._build_revision is not None:
+    # Do nothing if we've already determined the git revision.
+    if cls._git_revision is not None:
       pass
-    # use the --build-revision value if it's been set.
-    elif cls.GetParsedCommandLineOptions().build_revision:
-      cls._build_revision = cls.GetParsedCommandLineOptions().build_revision
+    # use the --git-revision value if it's been set.
+    elif cls.GetParsedCommandLineOptions().git_revision:
+      cls._git_revision = cls.GetParsedCommandLineOptions().git_revision
     # Try to determine what revision we're on using git.
     else:
-      with RunInChromiumSrc():
-        try:
-          cls._build_revision = subprocess.check_output(
-              ['git', 'rev-parse', 'origin/master'], shell=IsWin()).strip()
-          logging.warning('Automatically determined build revision to be %s',
-              cls._build_revision)
-        except subprocess.CalledProcessError:
-          raise Exception('--build-revision not passed, and unable to '
-                          'determine revision using git')
-    return cls._build_revision
+      try:
+        cls._git_revision = subprocess.check_output(
+            ['git', 'rev-parse', 'origin/master'],
+            shell=IsWin(),
+            cwd=path_util.GetChromiumSrcDir()).strip()
+        logging.warning('Automatically determined git revision to be %s',
+            cls._git_revision)
+      except subprocess.CalledProcessError:
+        raise Exception('--git-revision not passed, and unable to '
+                        'determine revision using git')
+    return cls._git_revision
 
   @classmethod
   def GenerateGpuTests(cls, options):

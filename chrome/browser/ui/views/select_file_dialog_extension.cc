@@ -42,9 +42,12 @@
 #include "ui/views/widget/widget.h"
 
 #if defined(OS_CHROMEOS)
+#include "base/feature_list.h"
 #include "chrome/browser/chromeos/login/ui/login_display_host.h"
 #include "chrome/browser/chromeos/login/ui/webui_login_view.h"
 #include "chrome/browser/chromeos/profiles/profile_helper.h"
+#include "chromeos/constants/chromeos_features.h"
+#include "ui/gfx/color_palette.h"
 #endif
 
 using extensions::AppWindow;
@@ -397,13 +400,22 @@ void SelectFileDialogExtension::SelectFileWithFileManagerParams(
           default_path.BaseName().value(), file_types, file_type_index,
           default_extension, show_android_picker_apps);
 
+  ExtensionDialog::InitParams dialog_params(kFileManagerWidth,
+                                            kFileManagerHeight);
+  dialog_params.is_modal = (owner_window != nullptr);
+  dialog_params.min_width = kFileManagerMinimumWidth;
+  dialog_params.min_height = kFileManagerMinimumHeight;
+  dialog_params.title = file_manager::util::GetSelectFileDialogTitle(type);
+#if defined(OS_CHROMEOS)
+  if (base::FeatureList::IsEnabled(chromeos::features::kFilesNG)) {
+    dialog_params.title_color = gfx::kGoogleGrey300;
+  }
+#endif
+
   ExtensionDialog* dialog = ExtensionDialog::Show(
       file_manager_url,
       base_window ? base_window->GetNativeWindow() : owner_window, profile_,
-      web_contents, (owner_window != nullptr) /* is_modal */, kFileManagerWidth,
-      kFileManagerHeight, kFileManagerMinimumWidth, kFileManagerMinimumHeight,
-      file_manager::util::GetSelectFileDialogTitle(type),
-      this /* ExtensionDialog::Observer */);
+      web_contents, this /* ExtensionDialog::Observer */, dialog_params);
   if (!dialog) {
     LOG(ERROR) << "Unable to create extension dialog";
     return;

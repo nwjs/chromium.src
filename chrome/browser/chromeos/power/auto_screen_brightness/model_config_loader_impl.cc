@@ -12,10 +12,12 @@
 #include "base/json/json_reader.h"
 #include "base/json/json_value_converter.h"
 #include "base/logging.h"
+#include "base/memory/ptr_util.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "base/task_runner_util.h"
 #include "base/values.h"
 #include "chromeos/constants/chromeos_features.h"
@@ -91,9 +93,8 @@ ModelConfigLoaderImpl::ModelConfigLoaderImpl()
     : ModelConfigLoaderImpl(
           base::FilePath(
               "/usr/share/chromeos-assets/autobrightness/model_params.json"),
-          base::CreateSequencedTaskRunner(
-              {base::ThreadPool(), base::TaskPriority::USER_VISIBLE,
-               base::MayBlock(),
+          base::ThreadPool::CreateSequencedTaskRunner(
+              {base::TaskPriority::USER_VISIBLE, base::MayBlock(),
                base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN}),
           false /* is_testing */) {}
 

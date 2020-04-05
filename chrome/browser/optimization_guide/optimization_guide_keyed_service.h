@@ -37,6 +37,7 @@ class PredictionManager;
 
 class GURL;
 class OptimizationGuideHintsManager;
+class OptimizationGuideNavigationData;
 
 class OptimizationGuideKeyedService
     : public KeyedService,
@@ -54,9 +55,8 @@ class OptimizationGuideKeyedService
       leveldb_proto::ProtoDatabaseProvider* database_provider,
       const base::FilePath& profile_path);
 
-  OptimizationGuideHintsManager* GetHintsManager() {
-    return hints_manager_.get();
-  }
+  // Virtualized for testing.
+  virtual OptimizationGuideHintsManager* GetHintsManager();
 
   optimization_guide::TopHostProvider* GetTopHostProvider() {
     return top_host_provider_.get();
@@ -72,8 +72,9 @@ class OptimizationGuideKeyedService
       content::NavigationHandle* navigation_handle);
 
   // Notifies |hints_manager_| that the navigation associated with
-  // |navigation_url| has finished.
-  void OnNavigationFinish(const GURL& navigation_url);
+  // |navigation_redirect_chain| has finished.
+  void OnNavigationFinish(const std::vector<GURL>& navigation_redirect_chain,
+                          OptimizationGuideNavigationData* navigation_data);
 
   // Clears data specific to the user.
   void ClearData();

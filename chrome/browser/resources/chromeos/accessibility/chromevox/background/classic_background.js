@@ -36,12 +36,11 @@ goog.require('TtsBackground');
  */
 ChromeVoxBackground = class {
   constructor() {
-    this.prefs = new ChromeVoxPrefs();
     ChromeVoxBackground.readPrefs();
 
     const consoleTts = ConsoleTts.getInstance();
     consoleTts.setEnabled(
-        this.prefs.getPrefs()['enableSpeechLogging'] == 'true');
+        ChromeVoxPrefs.instance.getPrefs()['enableSpeechLogging'] == 'true');
 
     LogStore.getInstance();
 
@@ -119,13 +118,12 @@ ChromeVoxBackground = class {
     if (pref == 'earcons') {
       AbstractEarcons.enabled = !!value;
     } else if (pref == 'sticky' && announce) {
-      if (value) {
-        ChromeVox.tts.speak(
-            Msgs.getMsg('sticky_mode_enabled'), QueueMode.FLUSH);
-      } else {
-        ChromeVox.tts.speak(
-            Msgs.getMsg('sticky_mode_disabled'), QueueMode.FLUSH);
-      }
+      new Output()
+          .withInitialSpeechProperties(AbstractTts.PERSONALITY_ANNOTATION)
+          .withString(
+              value ? Msgs.getMsg('sticky_mode_enabled') :
+                      Msgs.getMsg('sticky_mode_disabled'))
+          .go();
     } else if (pref == 'typingEcho' && announce) {
       let announceStr = '';
       switch (value) {
@@ -145,7 +143,10 @@ ChromeVoxBackground = class {
           break;
       }
       if (announceStr) {
-        ChromeVox.tts.speak(announceStr, QueueMode.QUEUE);
+        new Output()
+            .withInitialSpeechProperties(AbstractTts.PERSONALITY_ANNOTATION)
+            .withString(announceStr)
+            .go();
       }
     } else if (pref == 'brailleCaptions') {
       BrailleCaptionsBackground.setActive(!!value);
@@ -162,11 +163,7 @@ ChromeVoxBackground = class {
    * Read and apply preferences that affect the background context.
    */
   static readPrefs() {
-    if (!window['prefs']) {
-      return;
-    }
-
-    const prefs = window['prefs'].getPrefs();
+    const prefs = ChromeVoxPrefs.instance.getPrefs();
     ChromeVoxEditableTextBase.useIBeamCursor =
         (prefs['useIBeamCursor'] == 'true');
     ChromeVox.isStickyPrefOn = (prefs['sticky'] == 'true');
@@ -192,15 +189,15 @@ ChromeVoxBackground = class {
     }
 
     const stageTwo = function(code) {
-      for (var i = 0, tab; tab = tabs[i]; i++) {
+      for (let i = 0, tab; tab = tabs[i]; i++) {
         window.console.log('Injecting into ' + tab.id, tab);
-        var sawError = false;
+        let sawError = false;
 
         /**
          * A helper function which executes code.
          * @param {string} code The code to execute.
          */
-        var executeScript = goog.bind(function(code) {
+        const executeScript = goog.bind(function(code) {
           chrome.tabs.executeScript(
               tab.id, {code, 'allFrames': true}, goog.bind(function() {
                 if (!chrome.extension.lastError) {
@@ -363,7 +360,7 @@ const background = new ChromeVoxBackground();
 window['speak'] = goog.bind(background.tts.speak, background.tts);
 ChromeVoxState.backgroundTts = background.backgroundTts_;
 // Export the prefs object for access by the options page.
-window['prefs'] = background.prefs;
+window['prefs'] = ChromeVoxPrefs.instance;
 // Export the braille translator manager for access by the options page.
 window['braille_translator_manager'] =
     background.backgroundBraille_.getTranslatorManager();

@@ -4,6 +4,7 @@
 <translation id="1018939186200882850">मेनू आयटम</translation>
 <translation id="10623998915015855">टॉगल बटण</translation>
 <translation id="1088086359088493902">सेकंद</translation>
+<translation id="1142001580032786438">आठवडा पिकर दाखवा</translation>
 <translation id="1171774979989969504">कृपया एक ईमेल ॲड्रेस एंटर करा.</translation>
 <translation id="1178581264944972037">विराम द्या</translation>
 <translation id="1188858454923323853">पूरक</translation>
@@ -22,6 +23,7 @@
 <translation id="1727886345390570319">सबटायटल मेनू लपवा</translation>
 <translation id="1729654308190250600">कृपया एक रिक्त नसलेला ईमेल ॲड्रेस एंटर करा.</translation>
 <translation id="1758486001363313524">अन्य...</translation>
+<translation id="1787192514241997742">एकूण वेळ: <ph name="REMAINING_TIME" /></translation>
 <translation id="1806710327868736751">सूचना_संवाद</translation>
 <translation id="1821985195704844674">ट्री ग्रीड</translation>
 <translation id="1822429046913737220">AM/PM</translation>
@@ -100,7 +102,6 @@
 <translation id="4444765639179266822">असे म्हणत असल्याचे दिसत आहे: <ph name="OCR_TEXT" /></translation>
 <translation id="4446524499724042288">शब्दावली संदर्भ</translation>
 <translation id="4522570452068850558">तपशील</translation>
-<translation id="4542388879936266156">शिल्लक वेळ: <ph name="REMAINING_TIME" /></translation>
 <translation id="4597532268155981612">फॉर्म</translation>
 <translation id="4661075872484491155">tree</translation>
 <translation id="4664250907885839816">'<ph name="ATSIGN" />' चे फॉलो करणार्‍या भागामध्ये '<ph name="INVALIDCHARACTER" />' चिन्ह नसावे.</translation>
@@ -114,7 +115,9 @@
 <translation id="479989351350248267">search</translation>
 <translation id="4812940957355064477">कृपया एक नंबर एंटर करा.</translation>
 <translation id="4912536737030637138">ग्रंथसूची नोंद</translation>
+<translation id="4915360478455618802">वेळ पिकर दाखवा</translation>
 <translation id="492244087561876220">टिप्पणी</translation>
+<translation id="4950364064308314478">स्थानिक तारीख आणि वेळ पिकर दाखवा</translation>
 <translation id="4971739861736909480"><ph name="ACCNAME" /> निवडले आहे</translation>
 <translation id="4975562563186953947"><ph name="SELECTED_COUNT" /> निवडले</translation>
 <translation id="4992066212339426712">सशब्द करा</translation>
@@ -233,6 +236,7 @@
 <translation id="8284326494547611709">मथळे</translation>
 <translation id="8346634859695247203">विभाग</translation>
 <translation id="835897206747267392">चुकीचे मूल्य.</translation>
+<translation id="839593075537728968">मूल्य <ph name="MINIMUM_TIME" /> आणि <ph name="MAXIMUM_TIME" /> यांच्या मधले असणे आवश्यक आहे.</translation>
 <translation id="8403857369060869934">गेलेला वेळ: <ph name="ELAPSED_TIME" /></translation>
 <translation id="8415319359811155763">भाग</translation>
 <translation id="8433900881053900389">टूलबार</translation>
@@ -249,6 +253,7 @@
 <translation id="860475260694818407">अनुक्रमणिका</translation>
 <translation id="8613126697340063924">दूरस्थ प्लेबॅक नियंत्रित करा</translation>
 <translation id="862370744433916922">उपशीर्षक</translation>
+<translation id="8634971699417195529">महिना पिकर दाखवा</translation>
 <translation id="8711688047404765493">आउटपुट</translation>
 <translation id="8750798805984357768">कृपया या पर्यायांपैकी एक निवडा.</translation>
 <translation id="8808573423886751634">प्रकरण</translation>

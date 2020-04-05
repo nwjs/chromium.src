@@ -20,7 +20,7 @@ std::unique_ptr<TransformationMatrix> XRTargetRaySpace::MojoFromNative() {
   switch (input_source_->TargetRayMode()) {
     case device::mojom::XRTargetRayMode::TAPPING: {
       // If the pointer origin is the screen, we need mojo_from_viewer, as the
-      // viewer space is the input spce.
+      // viewer space is the input space.
       // So our result will be mojo_from_viewer * viewer_from_pointer
       if (!(mojo_from_viewer && input_source_->InputFromPointer()))
         return nullptr;
@@ -62,7 +62,7 @@ base::Optional<XRNativeOriginInformation> XRTargetRaySpace::NativeOrigin()
   return input_source_->nativeOrigin();
 }
 
-void XRTargetRaySpace::Trace(blink::Visitor* visitor) {
+void XRTargetRaySpace::Trace(Visitor* visitor) {
   visitor->Trace(input_source_);
   XRSpace::Trace(visitor);
 }

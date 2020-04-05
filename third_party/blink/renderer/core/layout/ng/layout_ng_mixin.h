@@ -25,6 +25,11 @@ class LayoutNGMixin : public Base {
 
   void Paint(const PaintInfo&) const override;
 
+  bool NodeAtPoint(HitTestResult&,
+                   const HitTestLocation&,
+                   const PhysicalOffset& accumulated_offset,
+                   HitTestAction) override;
+
   bool IsLayoutNGObject() const final { return true; }
 
   const NGPhysicalBoxFragment* CurrentFragment() const final;
@@ -32,9 +37,8 @@ class LayoutNGMixin : public Base {
  protected:
   bool IsOfType(LayoutObject::LayoutObjectType) const override;
 
-  void ComputeIntrinsicLogicalWidths(
-      LayoutUnit& min_logical_width,
-      LayoutUnit& max_logical_width) const override;
+  MinMaxSizes ComputeIntrinsicLogicalWidths() const override;
+  NGConstraintSpace ConstraintSpaceForMinMaxSizes() const;
 
   void UpdateOutOfFlowBlockLayout();
   scoped_refptr<const NGLayoutResult> UpdateInFlowBlockLayout();

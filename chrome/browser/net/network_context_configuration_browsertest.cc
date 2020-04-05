@@ -22,6 +22,7 @@
 #include "base/test/bind_test_util.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/threading/thread_restrictions.h"
+#include "base/threading/thread_task_runner_handle.h"
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chrome_content_browser_client.h"
@@ -1121,15 +1122,21 @@ IN_PROC_BROWSER_TEST_P(NetworkContextConfigurationBrowserTest, DiskCache) {
 
 // Make sure that NetworkContexts have separate DNS caches.
 IN_PROC_BROWSER_TEST_P(NetworkContextConfigurationBrowserTest,
-                       DISABLED_DnsCacheIsolation) {
+                       DnsCacheIsolation) {
   net::NetworkIsolationKey network_isolation_key =
       net::NetworkIsolationKey::CreateTransient();
   net::HostPortPair host_port_pair(kHostname, 0);
+  network::mojom::ResolveHostParametersPtr params =
+      network::mojom::ResolveHostParameters::New();
+  // Use A queries, to avoid running into issues with the IPv6 probe, the
+  // results of which can change during runtime, and can affect the DNS cache
+  // key.
+  params->dns_query_type = net::DnsQueryType ::A;
   // Resolve |host_port_pair|, which should succeed and put it in the
   // NetworkContext's cache.
   network::DnsLookupResult result =
       network::BlockingDnsLookup(network_context(), host_port_pair,
-                                 nullptr /* params */, network_isolation_key);
+                                 std::move(params), network_isolation_key);
   EXPECT_EQ(net::OK, result.error);
   ASSERT_TRUE(result.resolved_addresses.has_value());
   ASSERT_EQ(1u, result.resolved_addresses->size());
@@ -1139,8 +1146,8 @@ IN_PROC_BROWSER_TEST_P(NetworkContextConfigurationBrowserTest,
   // context, and make sure no result is returned.
   ForEachOtherContext(
       base::BindLambdaForTesting([&](NetworkContextType network_context_type) {
-        network::mojom::ResolveHostParametersPtr params =
-            network::mojom::ResolveHostParameters::New();
+        params = network::mojom::ResolveHostParameters::New();
+        params->dns_query_type = net::DnsQueryType ::A;
         // Cache only lookup.
         params->cache_usage =
             network::mojom::ResolveHostParameters::CacheUsage::STALE_ALLOWED;
@@ -1152,9 +1159,9 @@ IN_PROC_BROWSER_TEST_P(NetworkContextConfigurationBrowserTest,
       }));
   // Do a cache-only lookup using the original network context, which should
   // return the same result it initially did.
-  network::mojom::ResolveHostParametersPtr params =
-      network::mojom::ResolveHostParameters::New();
+  params = network::mojom::ResolveHostParameters::New();
   // Cache only lookup.
+  params->dns_query_type = net::DnsQueryType ::A;
   params->source = net::HostResolverSource::LOCAL_ONLY;
   params->cache_usage =
       network::mojom::ResolveHostParameters::CacheUsage::STALE_ALLOWED;
@@ -1881,54 +1888,6 @@ IN_PROC_BROWSER_TEST_P(NetworkContextConfigurationFtpPacBrowserTest, FtpPac) {
   EXPECT_EQ(net::ERR_PROXY_CONNECTION_FAILED, simple_loader->NetError());
 }
 
-// Used to test that PAC HTTPS URL stripping works. A different test server is
-// used as the "proxy" based on whether the PAC script sees the full path or
-// not. The servers aren't correctly set up to mimic HTTP proxies that tunnel
-// to an HTTPS test server, so the test fixture just watches for any incoming
-// connection.
-class NetworkContextConfigurationHttpsStrippingPacBrowserTest
-    : public NetworkContextConfigurationBrowserTest {
- public:
-  NetworkContextConfigurationHttpsStrippingPacBrowserTest() {}
-
-  ~NetworkContextConfigurationHttpsStrippingPacBrowserTest() override {}
-
-  void SetUpCommandLine(base::CommandLine* command_line) override {
-    // Test server HostPortPair, as a string.
-    std::string test_server_host_port_pair =
-        net::HostPortPair::FromURL(embedded_test_server()->base_url())
-            .ToString();
-    // Set up a PAC file that directs to different servers based on the URL it
-    // sees.
-    std::string pac_script = base::StringPrintf(
-        "function FindProxyForURL(url, host) {"
-        // With the test URL stripped of the path, try to use the embedded test
-        // server to establish a an SSL tunnel over an HTTP proxy. The request
-        // will fail with ERR_TUNNEL_CONNECTION_FAILED.
-        "  if (url == 'https://does.not.resolve.test:1872/')"
-        "    return 'PROXY %s';"
-        // With the full test URL, try to use a domain that does not resolve as
-        // a proxy. Errors connecting to the proxy result in
-        // ERR_PROXY_CONNECTION_FAILED.
-        "  if (url == 'https://does.not.resolve.test:1872/foo')"
-        "    return 'PROXY does.not.resolve.test';"
-        // Otherwise, use direct. If a connection to "does.not.resolve.test"
-        // tries to use a direction connection, it will fail with
-        // ERR_NAME_NOT_RESOLVED. This path will also
-        // be used by the initial request in NetworkServiceState::kRestarted
-        // tests to make sure the network service process is fully started
-        // before it's crashed and restarted. Using direct in this case avoids
-        // that request failing with an unexpeced error when being directed to a
-        // bogus proxy.
-        "  return 'DIRECT';"
-        "}",
-        test_server_host_port_pair.c_str());
-
-    command_line->AppendSwitchASCII(switches::kProxyPacUrl,
-                                    "data:," + pac_script);
-  }
-};
-
 class NetworkContextConfigurationProxySettingsBrowserTest
     : public NetworkContextConfigurationHttpPacBrowserTest {
  public:
@@ -2010,12 +1969,11 @@ class NetworkContextConfigurationProxySettingsBrowserTest
     expected_connections_run_loop.Run();
 
     // Then wait for any remaining connections that we should NOT get.
-    base::RunLoop unexpected_connections_run_loop;
-    base::RunLoop::ScopedRunTimeoutForTest run_timeout(
-        base::TimeDelta::FromMilliseconds(100),
-        base::BindLambdaForTesting(
-            [&]() { unexpected_connections_run_loop.Quit(); }));
-    unexpected_connections_run_loop.Run();
+    base::RunLoop ugly_100ms_wait;
+    base::ThreadTaskRunnerHandle::Get()->PostDelayedTask(
+        FROM_HERE, ugly_100ms_wait.QuitClosure(),
+        base::TimeDelta::FromMilliseconds(100));
+    ugly_100ms_wait.Run();
 
     // Stop the server.
     ASSERT_TRUE(embedded_test_server()->ShutdownAndWaitUntilComplete());
@@ -2334,8 +2292,6 @@ INSTANTIATE_TEST_CASES_FOR_TEST_FIXTURE(
     NetworkContextConfigurationDataPacBrowserTest);
 INSTANTIATE_TEST_CASES_FOR_TEST_FIXTURE(
     NetworkContextConfigurationFtpPacBrowserTest);
-INSTANTIATE_TEST_CASES_FOR_TEST_FIXTURE(
-    NetworkContextConfigurationHttpsStrippingPacBrowserTest);
 INSTANTIATE_TEST_CASES_FOR_TEST_FIXTURE(
     NetworkContextConfigurationProxySettingsBrowserTest);
 INSTANTIATE_TEST_CASES_FOR_TEST_FIXTURE(

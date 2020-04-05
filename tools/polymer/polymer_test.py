@@ -37,6 +37,8 @@ class PolymerModulizerTest(unittest.TestCase):
       '--html_type',  html_type,
       '--namespace_rewrites',
       'Polymer.PaperRippleBehavior|PaperRippleBehavior',
+      '--ignore_imports',
+      'ui/webui/resources/html/ignore_me.html',
       '--auto_imports',
       'ui/webui/resources/html/polymer.html|Polymer,html',
       'third_party/polymer/v1_0/components-chromium/paper-behaviors/paper-ripple-behavior.html|PaperRippleBehavior',
@@ -73,6 +75,13 @@ class PolymerModulizerTest(unittest.TestCase):
     self._run_test(
         'dom-module', 'dom_module.html', 'dom_module_with_define.js',
         'dom_module_with_define.m.js', 'dom_module_with_define_expected.js')
+
+  # Test case where HTML is extracted from a Polymer2 <dom-module> that has
+  # ignore annotations.
+  def testDomModuleWithIgnore(self):
+    self._run_test('dom-module', 'dom_module.html', 'dom_module_with_ignore.js',
+                   'dom_module_with_ignore.m.js',
+                   'dom_module_with_ignore_expected.js')
 
   # Test case where HTML is extracted from a Polymer2 <dom-module> that also
   # uses <if expr> for imports.

@@ -26,18 +26,20 @@
 #include "components/content_settings/core/browser/content_settings_ephemeral_provider.h"
 #include "components/content_settings/core/browser/content_settings_pref_provider.h"
 #include "components/content_settings/core/browser/content_settings_registry.h"
+#include "components/content_settings/core/browser/content_settings_utils.h"
 #include "components/content_settings/core/browser/cookie_settings.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
 #include "components/content_settings/core/browser/user_modifiable_provider.h"
 #include "components/content_settings/core/browser/website_settings_info.h"
 #include "components/content_settings/core/browser/website_settings_registry.h"
+#include "components/content_settings/core/common/content_settings_utils.h"
 #include "components/content_settings/core/common/pref_names.h"
 #include "components/content_settings/core/test/content_settings_test_utils.h"
 #include "components/prefs/pref_service.h"
 #include "components/prefs/scoped_user_pref_update.h"
 #include "components/sync_preferences/testing_pref_service_syncable.h"
 #include "content/public/test/browser_task_environment.h"
-#include "net/base/static_cookie_policy.h"
+#include "net/cookies/static_cookie_policy.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/gurl.h"
@@ -791,6 +793,18 @@ TEST_F(HostContentSettingsMapTest, IncognitoInheritInitialAllow) {
             otr_map->GetContentSetting(host, host, ContentSettingsType::COOKIES,
                                        std::string()));
 
+  // The inherited setting should be included in ContentSettingsForOneType
+  // table as well.
+  {
+    ContentSettingsForOneType otr_settings;
+    otr_map->GetSettingsForOneType(ContentSettingsType::COOKIES, std::string(),
+                                   &otr_settings);
+    ASSERT_EQ(1u, otr_settings.size());
+    EXPECT_FALSE(otr_settings[0].incognito);
+    EXPECT_EQ(CONTENT_SETTING_ALLOW, content_settings::ValueToContentSetting(
+                                         &otr_settings[0].setting_value));
+  }
+
   // Changing content settings on the main map should also affect the
   // incognito map.
   host_content_settings_map->SetContentSettingDefaultScope(
@@ -802,6 +816,21 @@ TEST_F(HostContentSettingsMapTest, IncognitoInheritInitialAllow) {
   EXPECT_EQ(CONTENT_SETTING_SESSION_ONLY,
             otr_map->GetContentSetting(host, host, ContentSettingsType::COOKIES,
                                        std::string()));
+
+  // Inherited setting + default in ContentSettingsForOneType
+  {
+    ContentSettingsForOneType otr_settings;
+    otr_map->GetSettingsForOneType(ContentSettingsType::COOKIES, std::string(),
+                                   &otr_settings);
+    ASSERT_EQ(2u, otr_settings.size());
+    EXPECT_FALSE(otr_settings[0].incognito);
+    EXPECT_EQ(CONTENT_SETTING_SESSION_ONLY,
+              content_settings::ValueToContentSetting(
+                  &otr_settings[0].setting_value));
+    EXPECT_FALSE(otr_settings[1].incognito);
+    EXPECT_EQ(CONTENT_SETTING_ALLOW, content_settings::ValueToContentSetting(
+                                         &otr_settings[1].setting_value));
+  }
 
   host_content_settings_map->SetContentSettingDefaultScope(
       host, GURL(), ContentSettingsType::COOKIES, std::string(),
@@ -824,6 +853,24 @@ TEST_F(HostContentSettingsMapTest, IncognitoInheritInitialAllow) {
   EXPECT_EQ(CONTENT_SETTING_ALLOW,
             otr_map->GetContentSetting(host, host, ContentSettingsType::COOKIES,
                                        std::string()));
+
+  // The GetSettingsForOneType includes incognito setting first, but also
+  // inherited ones.
+  {
+    ContentSettingsForOneType otr_settings;
+    otr_map->GetSettingsForOneType(ContentSettingsType::COOKIES, std::string(),
+                                   &otr_settings);
+    ASSERT_EQ(3u, otr_settings.size());
+    EXPECT_TRUE(otr_settings[0].incognito);
+    EXPECT_EQ(CONTENT_SETTING_ALLOW, content_settings::ValueToContentSetting(
+                                         &otr_settings[0].setting_value));
+    EXPECT_FALSE(otr_settings[1].incognito);
+    EXPECT_EQ(CONTENT_SETTING_BLOCK, content_settings::ValueToContentSetting(
+                                         &otr_settings[1].setting_value));
+    EXPECT_FALSE(otr_settings[2].incognito);
+    EXPECT_EQ(CONTENT_SETTING_ALLOW, content_settings::ValueToContentSetting(
+                                         &otr_settings[2].setting_value));
+  }
 }
 
 TEST_F(HostContentSettingsMapTest, IncognitoInheritPopups) {
@@ -895,6 +942,16 @@ TEST_F(HostContentSettingsMapTest, IncognitoPartialInheritPref) {
       otr_map->GetContentSetting(
           host, host, ContentSettingsType::MEDIASTREAM_MIC, std::string()));
 
+  {
+    ContentSettingsForOneType otr_settings;
+    otr_map->GetSettingsForOneType(ContentSettingsType::MEDIASTREAM_MIC,
+                                   std::string(), &otr_settings);
+    ASSERT_EQ(1u, otr_settings.size());
+    EXPECT_FALSE(otr_settings[0].incognito);
+    EXPECT_EQ(CONTENT_SETTING_ASK, content_settings::ValueToContentSetting(
+                                       &otr_settings[0].setting_value));
+  }
+
   // BLOCK should be inherited from the main map to the incognito map.
   host_content_settings_map->SetContentSettingDefaultScope(
       host, GURL(), ContentSettingsType::MEDIASTREAM_MIC, std::string(),
@@ -907,6 +964,22 @@ TEST_F(HostContentSettingsMapTest, IncognitoPartialInheritPref) {
       CONTENT_SETTING_BLOCK,
       otr_map->GetContentSetting(
           host, host, ContentSettingsType::MEDIASTREAM_MIC, std::string()));
+
+  // GetSettingsForOneType should return preference followed by default, both inherited.
+  {
+    
+    ContentSettingsForOneType otr_settings;
+    otr_map->GetSettingsForOneType(ContentSettingsType::MEDIASTREAM_MIC,
+                                   std::string(), &otr_settings);
+    ASSERT_EQ(2u, otr_settings.size());
+    EXPECT_FALSE(otr_settings[0].incognito);
+    EXPECT_EQ(CONTENT_SETTING_BLOCK, content_settings::ValueToContentSetting(
+                                         &otr_settings[0].setting_value));
+
+    EXPECT_FALSE(otr_settings[1].incognito);
+    EXPECT_EQ(CONTENT_SETTING_ASK, content_settings::ValueToContentSetting(
+                                       &otr_settings[1].setting_value));
+  }
 
   // ALLOW should not be inherited from the main map to the incognito map (but
   // it still overwrites the BLOCK, hence incognito reverts to ASK).
@@ -921,6 +994,22 @@ TEST_F(HostContentSettingsMapTest, IncognitoPartialInheritPref) {
       CONTENT_SETTING_ASK,
       otr_map->GetContentSetting(
           host, host, ContentSettingsType::MEDIASTREAM_MIC, std::string()));
+
+  // The inherited ALLOW gets turned back into ASK in GetSettingsForOneType, mirroring the 
+  // reverting to ASK behavior above.
+  {
+    ContentSettingsForOneType otr_settings;
+    otr_map->GetSettingsForOneType(ContentSettingsType::MEDIASTREAM_MIC,
+                                   std::string(), &otr_settings);
+    ASSERT_EQ(2u, otr_settings.size());
+    EXPECT_FALSE(otr_settings[0].incognito);
+    EXPECT_EQ(CONTENT_SETTING_ASK, content_settings::ValueToContentSetting(
+                                       &otr_settings[0].setting_value));
+
+    EXPECT_FALSE(otr_settings[1].incognito);
+    EXPECT_EQ(CONTENT_SETTING_ASK, content_settings::ValueToContentSetting(
+                                       &otr_settings[1].setting_value));
+  }
 }
 
 TEST_F(HostContentSettingsMapTest, IncognitoPartialInheritDefault) {
@@ -1016,6 +1105,13 @@ TEST_F(HostContentSettingsMapTest, IncognitoDontInheritSetting) {
   EXPECT_EQ(nullptr, otr_map->GetWebsiteSetting(
                          host, host, ContentSettingsType::USB_CHOOSER_DATA,
                          std::string(), nullptr));
+  {
+    ContentSettingsForOneType otr_settings;
+    otr_map->GetSettingsForOneType(ContentSettingsType::USB_CHOOSER_DATA,
+                                   std::string(), &otr_settings);
+    // Nothing gets inherited here, and there is no default.
+    ASSERT_EQ(0u, otr_settings.size());
+  }
 }
 
 TEST_F(HostContentSettingsMapTest, PrefExceptionsOperation) {
@@ -2165,4 +2261,40 @@ TEST_F(HostContentSettingsMapTest, IncognitoChangesDoNotPersist) {
       EXPECT_FALSE(original_value);
     }
   }
+}
+
+TEST_F(HostContentSettingsMapTest, OriginAllowlist) {
+  TestingProfile profile;
+  auto* regular_map = HostContentSettingsMapFactory::GetForProfile(&profile);
+  regular_map->SetDefaultContentSetting(
+      ContentSettingsType::CLIPBOARD_READ_WRITE, CONTENT_SETTING_BLOCK);
+
+  const GURL allowed_url =
+      GURL(content_settings::kChromeUIUntrustedTerminalAppURL);
+  const GURL ordinary_url = GURL("https://example.com/");
+
+  // The allowlist should take precedence, even if there is a user-defined BLOCK
+  // exception.
+  regular_map->SetContentSettingDefaultScope(
+      allowed_url, allowed_url, ContentSettingsType::CLIPBOARD_READ_WRITE,
+      std::string(), CONTENT_SETTING_BLOCK);
+
+  EXPECT_EQ(CONTENT_SETTING_ALLOW,
+            regular_map->GetContentSetting(
+                allowed_url, allowed_url,
+                ContentSettingsType::CLIPBOARD_READ_WRITE, std::string()));
+
+  content_settings::SettingInfo setting_info;
+  regular_map->GetWebsiteSetting(allowed_url, allowed_url,
+                                 ContentSettingsType::CLIPBOARD_READ_WRITE,
+                                 std::string(), &setting_info);
+  EXPECT_EQ(content_settings::SETTING_SOURCE_WHITELIST, setting_info.source);
+  EXPECT_EQ(allowed_url.GetOrigin().spec(),
+            setting_info.primary_pattern.ToString());
+  EXPECT_EQ(ContentSettingsPattern::Wildcard(), setting_info.secondary_pattern);
+
+  EXPECT_EQ(CONTENT_SETTING_BLOCK,
+            regular_map->GetContentSetting(
+                ordinary_url, ordinary_url,
+                ContentSettingsType::CLIPBOARD_READ_WRITE, std::string()));
 }

@@ -239,6 +239,10 @@ struct GPU_EXPORT GpuPreferences {
   // Enable measuring blocked time on GPU Main thread
   bool enable_gpu_blocked_time_metric = false;
 
+  // Enable collecting perf data for device categorization purpose. Currently
+  // only enabled on Windows platform for the info collection GPU process.
+  bool enable_perf_data_collection = false;
+
 #if defined(USE_OZONE)
   // Determines message pump type for the GPU thread.
   base::MessagePumpType message_pump_type = base::MessagePumpType::DEFAULT;
@@ -249,6 +253,12 @@ struct GPU_EXPORT GpuPreferences {
 
   // Enable native CPU-mappable GPU memory buffer support on Linux.
   bool enable_native_gpu_memory_buffers = false;
+
+  // ===================================
+  // Settings from //media/base/media_switches.h
+
+  // Force to disable new VideoDecoder.
+  bool force_disable_new_accelerated_video_decoder = false;
 
   // Please update gpu_preferences_unittest.cc when making additions or
   // changes to this struct.

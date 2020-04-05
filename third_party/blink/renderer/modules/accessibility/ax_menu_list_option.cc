@@ -36,7 +36,7 @@ namespace blink {
 
 AXMenuListOption::AXMenuListOption(HTMLOptionElement* element,
                                    AXObjectCacheImpl& ax_object_cache)
-    : AXMockObject(ax_object_cache), element_(element) {}
+    : AXNodeObject(element, ax_object_cache), element_(element) {}
 
 AXMenuListOption::~AXMenuListOption() {
   DCHECK(!element_);
@@ -44,7 +44,7 @@ AXMenuListOption::~AXMenuListOption() {
 
 void AXMenuListOption::Detach() {
   element_ = nullptr;
-  AXMockObject::Detach();
+  AXNodeObject::Detach();
 }
 
 LocalFrameView* AXMenuListOption::DocumentFrameView() const {
@@ -81,17 +81,17 @@ AXObject* AXMenuListOption::ComputeParent() const {
     return nullptr;
 
   // This happens if the <select> is not rendered. Return it and move on.
-  if (!select_ax_object->IsMenuList())
+  auto* menu_list = DynamicTo<AXMenuList>(select_ax_object);
+  if (!menu_list)
     return select_ax_object;
 
-  AXMenuList* menu_list = ToAXMenuList(select_ax_object);
   if (menu_list->HasChildren()) {
     const auto& child_objects = menu_list->Children();
     if (child_objects.IsEmpty())
       return nullptr;
     DCHECK_EQ(child_objects.size(), 1UL);
-    DCHECK(child_objects[0]->IsMenuListPopup());
-    ToAXMenuListPopup(child_objects[0].Get())->UpdateChildrenIfNecessary();
+    DCHECK(IsA<AXMenuListPopup>(child_objects[0].Get()));
+    To<AXMenuListPopup>(child_objects[0].Get())->UpdateChildrenIfNecessary();
   } else {
     menu_list->UpdateChildrenIfNecessary();
   }
@@ -151,10 +151,10 @@ bool AXMenuListOption::OnNativeClickAction() {
 
   // Calling OnNativeClickAction on the parent select element will toggle
   // it open or closed.
-  if (ParentObject() && ParentObject()->IsMenuListPopup())
+  if (IsA<AXMenuListPopup>(ParentObject()))
     return ParentObject()->OnNativeClickAction();
 
-  return AXMockObject::OnNativeClickAction();
+  return AXNodeObject::OnNativeClickAction();
 }
 
 bool AXMenuListOption::OnNativeSetSelectedAction(bool b) {
@@ -181,7 +181,7 @@ void AXMenuListOption::GetRelativeBounds(AXObject** out_container,
   AXObject* parent = ParentObject();
   if (!parent)
     return;
-  DCHECK(parent->IsMenuListPopup());
+  DCHECK(IsA<AXMenuListPopup>(parent));
 
   AXObject* grandparent = parent->ParentObject();
   if (!grandparent)
@@ -234,9 +234,9 @@ HTMLSelectElement* AXMenuListOption::ParentSelectNode() const {
   return nullptr;
 }
 
-void AXMenuListOption::Trace(blink::Visitor* visitor) {
+void AXMenuListOption::Trace(Visitor* visitor) {
   visitor->Trace(element_);
-  AXMockObject::Trace(visitor);
+  AXNodeObject::Trace(visitor);
 }
 
 }  // namespace blink

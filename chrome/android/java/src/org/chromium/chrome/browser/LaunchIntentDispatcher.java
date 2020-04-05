@@ -24,9 +24,10 @@ import androidx.browser.customtabs.TrustedWebUtils;
 import org.chromium.base.ApplicationStatus;
 import org.chromium.base.CommandLine;
 import org.chromium.base.ContextUtils;
+import org.chromium.base.IntentUtils;
 import org.chromium.base.PackageManagerUtils;
 import org.chromium.base.StrictModeContext;
-import org.chromium.base.metrics.CachedMetrics;
+import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.chrome.browser.browserservices.BrowserServicesIntentDataProvider.CustomTabsUiType;
 import org.chromium.chrome.browser.browserservices.SessionDataHolder;
 import org.chromium.chrome.browser.browserservices.trustedwebactivityui.splashscreen.TwaSplashController;
@@ -36,6 +37,7 @@ import org.chromium.chrome.browser.customtabs.CustomTabsConnection;
 import org.chromium.chrome.browser.customtabs.PaymentHandlerActivity;
 import org.chromium.chrome.browser.customtabs.SeparateTaskCustomTabActivity;
 import org.chromium.chrome.browser.firstrun.FirstRunFlowSequencer;
+import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.instantapps.InstantAppsHandler;
 import org.chromium.chrome.browser.metrics.MediaNotificationUma;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
@@ -43,11 +45,10 @@ import org.chromium.chrome.browser.notifications.NotificationPlatformBridge;
 import org.chromium.chrome.browser.partnercustomizations.PartnerBrowserCustomizations;
 import org.chromium.chrome.browser.searchwidget.SearchActivity;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.util.IntentUtils;
-import org.chromium.chrome.browser.util.UrlConstants;
 import org.chromium.chrome.browser.vr.VrModuleProvider;
 import org.chromium.chrome.browser.webapps.ActivityAssigner;
 import org.chromium.chrome.browser.webapps.WebappLauncherActivity;
+import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.ui.widget.Toast;
 
 import java.lang.annotation.Retention;
@@ -72,9 +73,6 @@ public class LaunchIntentDispatcher implements IntentHandler.IntentHandlerDelega
      * provider by default.
      */
     private static final int PARTNER_BROWSER_CUSTOMIZATIONS_TIMEOUT_MS = 10000;
-
-    private static final CachedMetrics.SparseHistogramSample sIntentFlagsHistogram =
-            new CachedMetrics.SparseHistogramSample("Launch.IntentFlags");
 
     private final Activity mActivity;
     private final Intent mIntent;
@@ -152,7 +150,7 @@ public class LaunchIntentDispatcher implements IntentHandler.IntentHandlerDelega
         // Read partner browser customizations information asynchronously.
         // We want to initialize early because when there are no tabs to restore, we should possibly
         // show homepage, which might require reading PartnerBrowserCustomizations provider.
-        PartnerBrowserCustomizations.initializeAsync(
+        PartnerBrowserCustomizations.getInstance().initializeAsync(
                 mActivity.getApplicationContext(), PARTNER_BROWSER_CUSTOMIZATIONS_TIMEOUT_MS);
 
         int tabId = IntentUtils.safeGetIntExtra(
@@ -344,14 +342,12 @@ public class LaunchIntentDispatcher implements IntentHandler.IntentHandlerDelega
             }
         }
 
-        // If the previous caller was not Chrome, but added EXTRA_IS_OPENED_BY_CHROME or
-        // EXTRA_IS_OPENED_BY_WEBAPK for malicious purpose, remove it. The new intent will be sent
-        // by Chrome, but was not sent by Chrome initially.
+        // If the previous caller was not Chrome, but added EXTRA_IS_OPENED_BY_CHROME
+        // for malicious purpose, remove it. The new intent will be sent by Chrome, but was not
+        // sent by Chrome initially.
         if (!IntentHandler.wasIntentSenderChrome(intent)) {
             IntentUtils.safeRemoveExtra(
                     newIntent, CustomTabIntentDataProvider.EXTRA_IS_OPENED_BY_CHROME);
-            IntentUtils.safeRemoveExtra(
-                    newIntent, CustomTabIntentDataProvider.EXTRA_IS_OPENED_BY_WEBAPK);
         }
 
         return newIntent;
@@ -475,7 +471,7 @@ public class LaunchIntentDispatcher implements IntentHandler.IntentHandlerDelega
                 flagsOfInterest |= Intent.FLAG_ACTIVITY_NEW_DOCUMENT;
             }
             int maskedFlags = mIntent.getFlags() & flagsOfInterest;
-            sIntentFlagsHistogram.record(maskedFlags);
+            RecordHistogram.recordSparseHistogram("Launch.IntentFlags", maskedFlags);
         }
         MediaNotificationUma.recordClickSource(mIntent);
     }

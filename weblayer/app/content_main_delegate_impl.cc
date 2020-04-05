@@ -116,18 +116,26 @@ bool ContentMainDelegateImpl::BasicStartupComplete(int* exit_code) {
   // sites to do feature detection, and prevents crashes in some not fully
   // implemented features.
   base::CommandLine* cl = base::CommandLine::ForCurrentProcess();
+  // TODO(crbug.com/1025610): make notifications work with WebLayer.
   cl->AppendSwitch(switches::kDisableNotifications);
+  // TODO(crbug.com/1025626): and crbug.com/1051752, make speech work with
+  // WebLayer.
   cl->AppendSwitch(switches::kDisableSpeechSynthesisAPI);
   cl->AppendSwitch(switches::kDisableSpeechAPI);
-  if (!cl->HasSwitch(switches::kWebLayerFakePermissions))
-    cl->AppendSwitch(switches::kDisablePermissionsAPI);
+  // TODO(crbug.com/1057099): make presentation-api work with WebLayer.
   cl->AppendSwitch(switches::kDisablePresentationAPI);
+  // TODO(crbug.com/1057100): make remote-playback-api work with WebLayer.
   cl->AppendSwitch(switches::kDisableRemotePlaybackAPI);
 #if defined(OS_ANDROID)
+  // TODO(crbug.com/1066263): make MediaSession work with WebLayer.
   cl->AppendSwitch(switches::kDisableMediaSessionAPI);
 #endif
   DisableFeaturesIfNotSet({
-    ::features::kWebPayments, ::features::kWebAuth, ::features::kSmsReceiver,
+    // TODO(crbug.com/1025619): make web-payments work with WebLayer.
+    ::features::kWebPayments,
+        // TODO(crbug.com/1025627): make webauth work with WebLayer.
+        ::features::kWebAuth, ::features::kSmsReceiver,
+        // TODO(crbug.com/1057106): make web-xr work with WebLayer.
         ::features::kWebXr,
 #if defined(OS_ANDROID)
         media::kPictureInPictureAPI,
@@ -143,6 +151,16 @@ bool ContentMainDelegateImpl::BasicStartupComplete(int* exit_code) {
   RegisterPathProvider();
 
   return false;
+}
+
+bool ContentMainDelegateImpl::ShouldCreateFeatureList() {
+#if defined(OS_ANDROID)
+  // On android WebLayer is in charge of creating its own FeatureList.
+  return false;
+#else
+  // TODO(weblayer-dev): Support feature lists on desktop.
+  return true;
+#endif
 }
 
 void ContentMainDelegateImpl::PreSandboxStartup() {
@@ -183,6 +201,10 @@ void ContentMainDelegateImpl::PreSandboxStartup() {
   }
   SetWebLayerCrashKeys();
 #endif
+}
+
+void ContentMainDelegateImpl::PostEarlyInitialization(bool is_running_tests) {
+  browser_client_->CreateFeatureListAndFieldTrials();
 }
 
 int ContentMainDelegateImpl::RunProcess(

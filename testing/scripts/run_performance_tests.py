@@ -93,6 +93,8 @@ SHARD_MAPS_DIRECTORY = os.path.join(
 GTEST_CONVERSION_WHITELIST = [
   'angle_perftests',
   'base_perftests',
+  'blink_heap_unittests',
+  'blink_platform_perftests',
   'cc_perftests',
   'components_perftests',
   'command_buffer_perftests',
@@ -103,6 +105,7 @@ GTEST_CONVERSION_WHITELIST = [
   'net_perftests',
   'browser_tests',
   'services_perftests',
+  'sync_performance_tests',
   'tracing_perftests',
   'views_perftests',
   'viz_perftests',
@@ -584,8 +587,6 @@ def main(sys_args):
                                     options.test_shard_map_filename)
       # Copy sharding map file to isolated_out_dir so that the merge script
       # can collect it later.
-      # TODO(crouleau): Move this step over to merge script
-      # (process_perf_results.py).
       shutil.copyfile(
           shard_map_path,
           os.path.join(isolated_out_dir, 'benchmarks_shard_map.json'))

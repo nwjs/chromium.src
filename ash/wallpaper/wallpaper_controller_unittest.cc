@@ -8,7 +8,6 @@
 #include <cstdlib>
 
 #include "ash/public/cpp/ash_pref_names.h"
-#include "ash/public/cpp/ash_prefs.h"
 #include "ash/public/cpp/ash_switches.h"
 #include "ash/public/cpp/shell_window_ids.h"
 #include "ash/public/cpp/test/shell_test_api.h"
@@ -61,6 +60,8 @@ namespace {
 constexpr int kWallpaperId = kShellWindowId_WallpaperContainer;
 constexpr int kLockScreenWallpaperId =
     kShellWindowId_LockScreenWallpaperContainer;
+constexpr int kAlwaysOnTopWallpaperId =
+    kShellWindowId_AlwaysOnTopWallpaperContainer;
 
 constexpr char kDefaultSmallWallpaperName[] = "small.jpg";
 constexpr char kDefaultLargeWallpaperName[] = "large.jpg";
@@ -2488,6 +2489,16 @@ TEST_F(WallpaperControllerTest, ShowOneShotWallpaper) {
   EXPECT_FALSE(controller_->IsBlurAllowedForLockState());
   EXPECT_FALSE(controller_->ShouldApplyDimming());
 
+  // Verify that we can reload wallpaer without losing it.
+  // This is important for screen rotation.
+  controller_->ReloadWallpaperForTesting(/*clear_cache=*/false);
+  RunAllTasksUntilIdle();
+  EXPECT_EQ(2, GetWallpaperCount());  // Reload increments count.
+  EXPECT_EQ(kOneShotWallpaperColor, GetWallpaperColor());
+  EXPECT_EQ(WallpaperType::ONE_SHOT, controller_->GetWallpaperType());
+  EXPECT_FALSE(controller_->IsBlurAllowedForLockState());
+  EXPECT_FALSE(controller_->ShouldApplyDimming());
+
   // Verify the user wallpaper info is unaffected, and the one-shot wallpaper
   // can be replaced by the user wallpaper.
   EXPECT_TRUE(controller_->GetUserWallpaperInfo(account_id_1, &wallpaper_info));
@@ -2583,7 +2594,8 @@ TEST_F(WallpaperControllerTest, AlwaysOnTopWallpaper) {
   RunAllTasksUntilIdle();
   EXPECT_EQ(1, GetWallpaperCount());
   EXPECT_EQ(controller_->GetWallpaperType(), DEFAULT);
-  EXPECT_EQ(kShellWindowId_WallpaperContainer, GetWallpaperContainerId());
+  EXPECT_EQ(1, ChildCountForContainer(kWallpaperId));
+  EXPECT_EQ(0, ChildCountForContainer(kAlwaysOnTopWallpaperId));
 
   // Show an always-on-top wallpaper.
   const base::FilePath image_path =
@@ -2593,8 +2605,8 @@ TEST_F(WallpaperControllerTest, AlwaysOnTopWallpaper) {
   RunAllTasksUntilIdle();
   EXPECT_EQ(2, GetWallpaperCount());
   EXPECT_EQ(controller_->GetWallpaperType(), ONE_SHOT);
-  EXPECT_EQ(kShellWindowId_AlwaysOnTopWallpaperContainer,
-            GetWallpaperContainerId());
+  EXPECT_EQ(0, ChildCountForContainer(kWallpaperId));
+  EXPECT_EQ(1, ChildCountForContainer(kAlwaysOnTopWallpaperId));
 
   // Subsequent wallpaper requests are ignored when the current wallpaper is
   // always-on-top.
@@ -2602,8 +2614,8 @@ TEST_F(WallpaperControllerTest, AlwaysOnTopWallpaper) {
   RunAllTasksUntilIdle();
   EXPECT_EQ(2, GetWallpaperCount());
   EXPECT_EQ(controller_->GetWallpaperType(), ONE_SHOT);
-  EXPECT_EQ(kShellWindowId_AlwaysOnTopWallpaperContainer,
-            GetWallpaperContainerId());
+  EXPECT_EQ(0, ChildCountForContainer(kWallpaperId));
+  EXPECT_EQ(1, ChildCountForContainer(kAlwaysOnTopWallpaperId));
 
   // The wallpaper reverts to the default after the always-on-top wallpaper is
   // removed.
@@ -2611,7 +2623,8 @@ TEST_F(WallpaperControllerTest, AlwaysOnTopWallpaper) {
   RunAllTasksUntilIdle();
   EXPECT_EQ(3, GetWallpaperCount());
   EXPECT_EQ(controller_->GetWallpaperType(), DEFAULT);
-  EXPECT_EQ(kShellWindowId_WallpaperContainer, GetWallpaperContainerId());
+  EXPECT_EQ(1, ChildCountForContainer(kWallpaperId));
+  EXPECT_EQ(0, ChildCountForContainer(kAlwaysOnTopWallpaperId));
 
   // Calling |RemoveAlwaysOnTopWallpaper| is a no-op when the current wallpaper
   // is not always-on-top.
@@ -2619,34 +2632,26 @@ TEST_F(WallpaperControllerTest, AlwaysOnTopWallpaper) {
   RunAllTasksUntilIdle();
   EXPECT_EQ(3, GetWallpaperCount());
   EXPECT_EQ(controller_->GetWallpaperType(), DEFAULT);
-  EXPECT_EQ(kShellWindowId_WallpaperContainer, GetWallpaperContainerId());
+  EXPECT_EQ(1, ChildCountForContainer(kWallpaperId));
+  EXPECT_EQ(0, ChildCountForContainer(kAlwaysOnTopWallpaperId));
 }
 
 namespace {
 
 class WallpaperControllerPrefTest : public AshTestBase {
  public:
-  WallpaperControllerPrefTest() = default;
-  ~WallpaperControllerPrefTest() override = default;
+  WallpaperControllerPrefTest() {
+    auto property = std::make_unique<base::DictionaryValue>();
+    property->SetInteger("rotation",
+                         static_cast<int>(display::Display::ROTATE_90));
+    property->SetInteger("width", 800);
+    property->SetInteger("height", 600);
 
-  void SetUp() override {
-    {
-      RegisterLocalStatePrefs(local_state_->registry(), true);
-      register_local_state_ = false;
-      DictionaryPrefUpdate update(local_state_.get(),
-                                  prefs::kDisplayProperties);
-
-      base::DictionaryValue* pref_data = update.Get();
-
-      auto property = std::make_unique<base::DictionaryValue>();
-      property->SetInteger("rotation",
-                           static_cast<int>(display::Display::ROTATE_90));
-      property->SetInteger("width", 800);
-      property->SetInteger("height", 600);
-      pref_data->Set("2200000000", std::move(property));
-    }
-    AshTestBase::SetUp();
+    DictionaryPrefUpdate update(local_state(), prefs::kDisplayProperties);
+    update.Get()->Set("2200000000", std::move(property));
   }
+
+  ~WallpaperControllerPrefTest() override = default;
 };
 
 }  // namespace

@@ -70,7 +70,17 @@ class WebFrameWidgetImpl;
 class WebFrameWidgetImpl final : public WebFrameWidgetBase,
                                  public PageWidgetEventHandler {
  public:
-  explicit WebFrameWidgetImpl(util::PassKey<WebFrameWidget>, WebWidgetClient&);
+  WebFrameWidgetImpl(
+      util::PassKey<WebFrameWidget>,
+      WebWidgetClient&,
+      CrossVariantMojoAssociatedRemote<
+          mojom::blink::FrameWidgetHostInterfaceBase> frame_widget_host,
+      CrossVariantMojoAssociatedReceiver<mojom::blink::FrameWidgetInterfaceBase>
+          frame_widget,
+      CrossVariantMojoAssociatedRemote<mojom::blink::WidgetHostInterfaceBase>
+          widget_host,
+      CrossVariantMojoAssociatedReceiver<mojom::blink::WidgetInterfaceBase>
+          widget);
   ~WebFrameWidgetImpl() override;
 
   // WebWidget functions:
@@ -79,21 +89,18 @@ class WebFrameWidgetImpl final : public WebFrameWidgetBase,
   void Resize(const WebSize&) override;
   void DidEnterFullscreen() override;
   void DidExitFullscreen() override;
-  void SetSuppressFrameRequestsWorkaroundFor704763Only(bool) final;
-  void BeginFrame(base::TimeTicks last_frame_time,
-                  bool record_main_frame_metrics) override;
   void DidBeginFrame() override;
-  void BeginRafAlignedInput() override;
-  void EndRafAlignedInput() override;
   void BeginUpdateLayers() override;
   void EndUpdateLayers() override;
   void BeginCommitCompositorFrame() override;
-  void EndCommitCompositorFrame() override;
+  void EndCommitCompositorFrame(base::TimeTicks commit_start_time) override;
   void RecordStartOfFrameMetrics() override;
-  void RecordEndOfFrameMetrics(base::TimeTicks) override;
+  void RecordEndOfFrameMetrics(
+      base::TimeTicks,
+      cc::ActiveFrameSequenceTrackers trackers) override;
   std::unique_ptr<cc::BeginMainFrameMetrics> GetBeginMainFrameMetrics()
       override;
-  void UpdateLifecycle(LifecycleUpdate requested_update,
+  void UpdateLifecycle(WebLifecycleUpdate requested_update,
                        DocumentUpdateReason reason) override;
   void ThemeChanged() override;
   WebHitTestResult HitTestResultAt(const gfx::Point&) override;
@@ -102,11 +109,9 @@ class WebFrameWidgetImpl final : public WebFrameWidgetBase,
   void SetCursorVisibilityState(bool is_visible) override;
   void OnFallbackCursorModeToggled(bool is_on) override;
 
-  void ApplyViewportChanges(const ApplyViewportChangesArgs&) override;
   void MouseCaptureLost() override;
   void SetFocus(bool enable) override;
   bool SelectionBounds(WebRect& anchor, WebRect& focus) const override;
-  bool IsAcceleratedCompositingActive() const override;
   void SetRemoteViewportIntersection(const ViewportIntersectionState&) override;
   void SetIsInert(bool) override;
   void SetInheritedEffectiveTouchAction(TouchAction) override;
@@ -127,22 +132,25 @@ class WebFrameWidgetImpl final : public WebFrameWidgetBase,
   PaintLayerCompositor* Compositor() const;
 
   // WebFrameWidgetBase overrides:
-  void SetAnimationHost(cc::AnimationHost*) override;
   bool ForSubframe() const override { return true; }
   void IntrinsicSizingInfoChanged(const IntrinsicSizingInfo&) override;
   void DidCreateLocalRootView() override;
-
-  void SetRootLayer(scoped_refptr<cc::Layer>) override;
-  cc::AnimationHost* AnimationHost() const override;
   HitTestResult CoreHitTestResultAt(const gfx::Point&) override;
   void ZoomToFindInPageRect(const WebRect& rect_in_root_frame) override;
+
+  // FrameWidget overrides:
+  void SetRootLayer(scoped_refptr<cc::Layer>) override;
+
+  // WidgetBaseClient overrides:
+  void BeginMainFrame(base::TimeTicks last_frame_time) override;
+  void SetSuppressFrameRequestsWorkaroundFor704763Only(bool) final;
 
   void UpdateMainFrameLayoutSize();
 
   // Event related methods:
   void MouseContextMenu(const WebMouseEvent&);
 
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
 
  private:
   friend class WebFrameWidget;  // For WebFrameWidget::create.
@@ -164,6 +172,7 @@ class WebFrameWidgetImpl final : public WebFrameWidgetBase,
   WebInputEventResult HandleCharEvent(const WebKeyboardEvent&) override;
 
   PageWidgetEventHandler* GetPageWidgetEventHandler() override;
+  LocalFrameView* GetLocalFrameViewForAnimationScrolling() override;
 
   LocalFrame* FocusedLocalFrameAvailableForIme() const;
 
@@ -181,15 +190,9 @@ class WebFrameWidgetImpl final : public WebFrameWidgetBase,
   // If set, the (plugin) element which has mouse capture.
   Member<HTMLPlugInElement> mouse_capture_element_;
 
-  cc::AnimationHost* animation_host_ = nullptr;
-  scoped_refptr<cc::Layer> root_layer_;
-
   // Metrics gathering timing information
-  base::Optional<base::TimeTicks> raf_aligned_input_start_time_;
   base::Optional<base::TimeTicks> update_layers_start_time_;
   base::Optional<base::TimeTicks> commit_compositor_frame_start_time_;
-
-  bool is_accelerated_compositing_active_ = false;
 
   bool suppress_next_keypress_event_ = false;
 

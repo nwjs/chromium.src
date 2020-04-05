@@ -7,8 +7,6 @@ package org.chromium.chrome.browser.autofill_assistant.user_data.additional_sect
 import static org.chromium.chrome.browser.autofill.prefeditor.EditorFieldModel.INPUT_TYPE_HINT_ALPHA_NUMERIC;
 
 import android.content.Context;
-import android.support.annotation.Nullable;
-import android.support.v4.util.Pair;
 import android.text.Editable;
 import android.text.TextUtils;
 import android.text.TextWatcher;
@@ -17,6 +15,9 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+
+import androidx.annotation.Nullable;
+import androidx.core.util.Pair;
 
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.base.Callback;

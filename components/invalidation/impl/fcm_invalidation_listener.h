@@ -15,7 +15,6 @@
 #include "components/invalidation/impl/per_user_topic_subscription_manager.h"
 #include "components/invalidation/impl/unacked_invalidation_set.h"
 #include "components/invalidation/public/ack_handler.h"
-#include "components/invalidation/public/invalidation_object_id.h"
 #include "components/invalidation/public/invalidation_util.h"
 #include "components/invalidation/public/invalidator_state.h"
 #include "services/network/public/mojom/url_loader_factory.mojom.h"
@@ -66,10 +65,9 @@ class FCMInvalidationListener
   void ClearInstanceIDToken();
 
   // AckHandler implementation.
-  void Acknowledge(const invalidation::ObjectId& id,
+  void Acknowledge(const Topic& topic,
                    const syncer::AckHandle& handle) override;
-  void Drop(const invalidation::ObjectId& id,
-            const syncer::AckHandle& handle) override;
+  void Drop(const Topic& topic, const syncer::AckHandle& handle) override;
 
   // FCMSyncNetworkChannel::Observer implementation.
   void OnFCMChannelStateChanged(FcmChannelState state) override;

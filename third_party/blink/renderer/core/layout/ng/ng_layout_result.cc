@@ -49,6 +49,10 @@ NGLayoutResult::NGLayoutResult(
   bitfields_.subtree_modified_margin_strut =
       builder->subtree_modified_margin_strut_;
   intrinsic_block_size_ = builder->intrinsic_block_size_;
+  // We don't support fragment caching when block-fragmenting, so mark the
+  // result as non-reusable.
+  if (builder->has_block_fragmentation_)
+    EnsureRareData()->is_single_use = true;
   if (builder->minimal_space_shortage_ != LayoutUnit::Max()) {
 #if DCHECK_IS_ON()
     DCHECK(!HasRareData() || !rare_data_->has_tallest_unbreakable_block_size);
@@ -73,6 +77,8 @@ NGLayoutResult::NGLayoutResult(
   }
   if (builder->column_spanner_)
     EnsureRareData()->column_spanner = builder->column_spanner_;
+  if (builder->lines_until_clamp_)
+    EnsureRareData()->lines_until_clamp = *builder->lines_until_clamp_;
   bitfields_.initial_break_before =
       static_cast<unsigned>(builder->initial_break_before_);
   bitfields_.final_break_after =
@@ -93,6 +99,8 @@ NGLayoutResult::NGLayoutResult(NGBoxFragmentBuilderPassKey key,
     : NGLayoutResult(/* physical_fragment */ nullptr,
                      static_cast<NGContainerFragmentBuilder*>(builder)) {
   bitfields_.status = status;
+  if (builder->lines_until_clamp_)
+    EnsureRareData()->lines_until_clamp = *builder->lines_until_clamp_;
   DCHECK_NE(status, kSuccess)
       << "Use the other constructor for successful layout";
 }
@@ -155,7 +163,7 @@ NGLayoutResult::NGLayoutResult(
 #if DCHECK_IS_ON()
   if (bitfields_.is_self_collapsing && physical_fragment_) {
     // A new formatting-context shouldn't be self-collapsing.
-    DCHECK(!physical_fragment_->IsBlockFormattingContextRoot());
+    DCHECK(!physical_fragment_->IsFormattingContextRoot());
 
     // Self-collapsing children must have a block-size of zero.
     NGFragment fragment(physical_fragment_->Style().GetWritingMode(),

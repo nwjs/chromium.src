@@ -29,8 +29,17 @@ void AnimationTimeline::AnimationDetached(Animation* animation) {
     outdated_animation_count_--;
 }
 
+bool CompareAnimations(const Member<Animation>& left,
+                       const Member<Animation>& right) {
+  // This uses pointer order comparision because it is less expensive and
+  // element order doesn't affect the animation result(http://crbug.com/1047316)
+  return Animation::HasLowerCompositeOrdering(
+      left.Get(), right.Get(),
+      Animation::CompareAnimationsOrdering::kPointerOrder);
+}
+
 double AnimationTimeline::currentTime(bool& is_null) {
-  base::Optional<base::TimeDelta> result = CurrentTimeInternal();
+  base::Optional<base::TimeDelta> result = CurrentPhaseAndTime().time;
 
   is_null = !result.has_value();
   return result ? result->InMillisecondsF()
@@ -38,20 +47,33 @@ double AnimationTimeline::currentTime(bool& is_null) {
 }
 
 double AnimationTimeline::currentTime() {
-  base::Optional<base::TimeDelta> result = CurrentTimeInternal();
+  base::Optional<base::TimeDelta> result = CurrentPhaseAndTime().time;
   return result ? result->InMillisecondsF()
                 : std::numeric_limits<double>::quiet_NaN();
 }
 
 base::Optional<double> AnimationTimeline::CurrentTime() {
-  base::Optional<base::TimeDelta> result = CurrentTimeInternal();
+  base::Optional<base::TimeDelta> result = CurrentPhaseAndTime().time;
   return result ? base::make_optional(result->InMillisecondsF())
                 : base::nullopt;
 }
 
 base::Optional<double> AnimationTimeline::CurrentTimeSeconds() {
-  base::Optional<base::TimeDelta> result = CurrentTimeInternal();
+  base::Optional<base::TimeDelta> result = CurrentPhaseAndTime().time;
   return result ? base::make_optional(result->InSecondsF()) : base::nullopt;
+}
+
+String AnimationTimeline::phase() {
+  switch (CurrentPhaseAndTime().phase) {
+    case TimelinePhase::kInactive:
+      return "inactive";
+    case TimelinePhase::kBefore:
+      return "before";
+    case TimelinePhase::kActive:
+      return "active";
+    case TimelinePhase::kAfter:
+      return "after";
+  }
 }
 
 void AnimationTimeline::ClearOutdatedAnimation(Animation* animation) {
@@ -60,14 +82,15 @@ void AnimationTimeline::ClearOutdatedAnimation(Animation* animation) {
 }
 
 bool AnimationTimeline::NeedsAnimationTimingUpdate() {
-  if (CurrentTimeInternal() == last_current_time_internal_)
+  PhaseAndTime current_phase_and_time = CurrentPhaseAndTime();
+  if (current_phase_and_time == last_current_phase_and_time_)
     return false;
 
-  // We allow |last_current_time_internal_| to advance here when there
+  // We allow |last_current_phase_and_time_| to advance here when there
   // are no animations to allow animations spawned during style
   // recalc to not invalidate this flag.
   if (animations_needing_update_.IsEmpty())
-    last_current_time_internal_ = CurrentTimeInternal();
+    last_current_phase_and_time_ = current_phase_and_time;
 
   return !animations_needing_update_.IsEmpty();
 }
@@ -75,23 +98,34 @@ bool AnimationTimeline::NeedsAnimationTimingUpdate() {
 void AnimationTimeline::ServiceAnimations(TimingUpdateReason reason) {
   TRACE_EVENT0("blink", "AnimationTimeline::serviceAnimations");
 
-  last_current_time_internal_ = CurrentTimeInternal();
+  auto current_phase_and_time = CurrentPhaseAndTime();
+  bool maybe_update_compositor_scroll_timeline = false;
+
+  if (IsScrollTimeline() &&
+      last_current_phase_and_time_ != current_phase_and_time) {
+    maybe_update_compositor_scroll_timeline = true;
+  }
+
+  last_current_phase_and_time_ = current_phase_and_time;
 
   HeapVector<Member<Animation>> animations;
   animations.ReserveInitialCapacity(animations_needing_update_.size());
   for (Animation* animation : animations_needing_update_)
     animations.push_back(animation);
 
-  std::sort(animations.begin(), animations.end(),
-            Animation::HasLowerCompositeOrdering);
+  std::sort(animations.begin(), animations.end(), CompareAnimations);
 
   for (Animation* animation : animations) {
-    if (!animation->Update(reason))
+    if (!animation->Update(reason)) {
       animations_needing_update_.erase(animation);
+      continue;
+    }
+    if (maybe_update_compositor_scroll_timeline)
+      animation->UpdateCompositorScrollTimeline();
   }
 
   DCHECK_EQ(outdated_animation_count_, 0U);
-  DCHECK(last_current_time_internal_ == CurrentTimeInternal());
+  DCHECK(last_current_phase_and_time_ == CurrentPhaseAndTime());
 
 #if DCHECK_IS_ON()
   for (const auto& animation : animations_needing_update_)
@@ -144,8 +178,7 @@ void AnimationTimeline::RemoveReplacedAnimations() {
 
     // By processing in decreasing order by priority, we can perform a single
     // pass for discovery of replaced properties.
-    std::sort(animations->begin(), animations->end(),
-              Animation::HasLowerCompositeOrdering);
+    std::sort(animations->begin(), animations->end(), CompareAnimations);
     PropertyHandleSet replaced_properties;
     for (auto anim_it = animations->rbegin(); anim_it != animations->rend();
          anim_it++) {
@@ -197,7 +230,7 @@ void AnimationTimeline::ScheduleServiceOnNextFrame() {
     document_->View()->ScheduleAnimation();
 }
 
-void AnimationTimeline::Trace(blink::Visitor* visitor) {
+void AnimationTimeline::Trace(Visitor* visitor) {
   visitor->Trace(document_);
   visitor->Trace(animations_needing_update_);
   visitor->Trace(animations_);

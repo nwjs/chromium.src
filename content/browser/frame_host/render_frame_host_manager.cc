@@ -41,7 +41,6 @@
 #include "content/browser/webui/web_ui_controller_factory_registry.h"
 #include "content/common/content_navigation_policy.h"
 #include "content/common/frame_messages.h"
-#include "content/common/frame_owner_properties.h"
 #include "content/common/page_messages.h"
 #include "content/common/unfreezable_frame_messages.h"
 #include "content/common/view_messages.h"
@@ -59,7 +58,9 @@
 #include "content/public/common/url_constants.h"
 #include "content/public/common/url_utils.h"
 #include "services/network/public/cpp/features.h"
+#include "third_party/blink/public/mojom/frame/frame_owner_properties.mojom.h"
 #include "third_party/blink/public/mojom/frame/user_activation_update_types.mojom.h"
+#include "third_party/blink/public/mojom/security_context/insecure_request_policy.mojom.h"
 
 #if defined(OS_MACOSX)
 #include "ui/gfx/mac/scoped_cocoa_disable_screen_updates.h"
@@ -166,7 +167,7 @@ ShouldSwapBrowsingInstance ShouldProactivelySwapBrowsingInstance(
   }
 
   if (IsProactivelySwapBrowsingInstanceEnabled())
-    return ShouldSwapBrowsingInstance::kYes;
+    return ShouldSwapBrowsingInstance::kYes_ProactiveSwap;
 
   // If BackForwardCache is enabled, swap BrowsingInstances only when needed
   // for back-forward cache.
@@ -175,7 +176,7 @@ ShouldSwapBrowsingInstance ShouldProactivelySwapBrowsingInstance(
       current_rfh->frame_tree_node()->navigator()->GetController());
   if (controller->GetBackForwardCache().IsAllowed(
           current_rfh->GetLastCommittedURL())) {
-    return ShouldSwapBrowsingInstance::kYes;
+    return ShouldSwapBrowsingInstance::kYes_ProactiveSwap;
   } else {
     return ShouldSwapBrowsingInstance::kNo_NotNeededForBackForwardCache;
   }
@@ -187,10 +188,10 @@ ShouldSwapBrowsingInstance ShouldProactivelySwapBrowsingInstance(
 // [1] https://gist.github.com/annevk/6f2dd8c79c77123f39797f6bdac43f3e
 bool CrossOriginOpenerPolicyMatch(
     network::mojom::CrossOriginOpenerPolicy initiator_coop,
-    network::mojom::CrossOriginEmbedderPolicy initiator_coep,
+    network::mojom::CrossOriginEmbedderPolicyValue initiator_coep,
     const url::Origin& initiator_origin,
     network::mojom::CrossOriginOpenerPolicy destination_coop,
-    network::mojom::CrossOriginEmbedderPolicy destination_coep,
+    network::mojom::CrossOriginEmbedderPolicyValue destination_coep,
     const url::Origin& destination_origin) {
   if (initiator_coop != destination_coop)
     return false;
@@ -209,16 +210,17 @@ bool CrossOriginOpenerPolicyMatch(
 // https://gist.github.com/annevk/6f2dd8c79c77123f39797f6bdac43f3e#changes-to-navigation
 bool ShouldSwapBrowsingInstanceForCrossOriginOpenerPolicy(
     network::mojom::CrossOriginOpenerPolicy initiator_coop,
-    network::mojom::CrossOriginEmbedderPolicy initiator_coep,
+    network::mojom::CrossOriginEmbedderPolicyValue initiator_coep,
     const url::Origin& initiator_origin,
     bool is_initiator_aboutblank,
     network::mojom::CrossOriginOpenerPolicy destination_coop,
-    network::mojom::CrossOriginEmbedderPolicy destination_coep,
+    network::mojom::CrossOriginEmbedderPolicyValue destination_coep,
     const url::Origin& destination_origin) {
-  using network::mojom::CrossOriginEmbedderPolicy;
+  using network::mojom::CrossOriginEmbedderPolicyValue;
   using network::mojom::CrossOriginOpenerPolicy;
 
-  if (!base::FeatureList::IsEnabled(network::features::kCrossOriginIsolation))
+  if (!base::FeatureList::IsEnabled(
+          network::features::kCrossOriginOpenerPolicy))
     return false;
 
   // If policies match there is no reason to switch BrowsingInstances.
@@ -288,23 +290,23 @@ RenderFrameHostManager::~RenderFrameHostManager() {
   SetRenderFrameHost(std::unique_ptr<RenderFrameHostImpl>());
 }
 
-void RenderFrameHostManager::Init(SiteInstance* site_instance,
-                                  int32_t view_routing_id,
-                                  int32_t frame_routing_id,
-                                  int32_t widget_routing_id,
-                                  bool renderer_initiated_creation) {
-  DCHECK(site_instance);
-  SetRenderFrameHost(CreateRenderFrameHost(site_instance, view_routing_id,
-                                           frame_routing_id, widget_routing_id,
-                                           renderer_initiated_creation));
+void RenderFrameHostManager::InitRoot(SiteInstance* site_instance,
+                                      bool renderer_initiated_creation) {
+  SetRenderFrameHost(CreateRenderFrameHost(
+      CreateFrameCase::kInitRoot, site_instance,
+      /*frame_routing_id=*/MSG_ROUTING_NONE, renderer_initiated_creation));
+}
 
+void RenderFrameHostManager::InitChild(SiteInstance* site_instance,
+                                       int32_t frame_routing_id) {
+  SetRenderFrameHost(CreateRenderFrameHost(
+      CreateFrameCase::kInitChild, site_instance, frame_routing_id,
+      /*renderer_initiated_creation=*/false));
   // Notify the delegate of the creation of the current RenderFrameHost.
   // Do this only for subframes, as the main frame case is taken care of by
   // WebContentsImpl::Init.
-  if (!frame_tree_node_->IsMainFrame()) {
-    delegate_->NotifySwappedFromRenderManager(nullptr, render_frame_host_.get(),
-                                              false);
-  }
+  delegate_->NotifySwappedFromRenderManager(nullptr, render_frame_host_.get(),
+                                            false);
 }
 
 RenderViewHostImpl* RenderFrameHostManager::current_host() const {
@@ -387,7 +389,7 @@ void RenderFrameHostManager::SetIsLoading(bool is_loading) {
   render_frame_host_->render_view_host()->GetWidget()->SetIsLoading(is_loading);
 }
 
-void RenderFrameHostManager::OnBeforeUnloadACK(
+void RenderFrameHostManager::BeforeUnloadCompleted(
     bool proceed,
     const base::TimeTicks& proceed_time) {
   // If beforeunload was dispatched as part of preparing this frame for
@@ -420,9 +422,11 @@ void RenderFrameHostManager::DidNavigateFrame(
     RenderFrameHostImpl* render_frame_host,
     bool was_caused_by_user_gesture,
     bool is_same_document_navigation,
+    bool clear_proxies_on_commit,
     const blink::FramePolicy& frame_policy) {
   CommitPendingIfNecessary(render_frame_host, was_caused_by_user_gesture,
-                           is_same_document_navigation);
+                           is_same_document_navigation,
+                           clear_proxies_on_commit);
 
   // Make sure any dynamic changes to this frame's sandbox flags and feature
   // policy that were made prior to navigation take effect.  This should only
@@ -434,7 +438,8 @@ void RenderFrameHostManager::DidNavigateFrame(
 void RenderFrameHostManager::CommitPendingIfNecessary(
     RenderFrameHostImpl* render_frame_host,
     bool was_caused_by_user_gesture,
-    bool is_same_document_navigation) {
+    bool is_same_document_navigation,
+    bool clear_proxies_on_commit) {
   if (!speculative_render_frame_host_) {
     // There's no speculative RenderFrameHost so it must be that the current
     // renderer process completed a navigation.
@@ -451,7 +456,8 @@ void RenderFrameHostManager::CommitPendingIfNecessary(
     // speculative RenderFrameHost replaces the current one in the commit call
     // below.
     CommitPending(std::move(speculative_render_frame_host_),
-                  std::move(bfcache_entry_to_restore_));
+                  std::move(bfcache_entry_to_restore_),
+                  clear_proxies_on_commit);
     frame_tree_node_->ResetNavigationRequest(false);
     return;
   }
@@ -538,17 +544,17 @@ void RenderFrameHostManager::CommitFramePolicy(
       frame_tree_node_->parent()->current_frame_host()->GetSiteInstance();
   for (const auto& pair : proxy_hosts_) {
     if (pair.second->GetSiteInstance() != parent_site_instance) {
-      pair.second->Send(new FrameMsg_DidUpdateFramePolicy(
-          pair.second->GetRoutingID(), frame_policy));
+      pair.second->GetAssociatedRemoteFrame()->DidUpdateFramePolicy(
+          frame_policy);
     }
   }
 }
 
 void RenderFrameHostManager::OnDidSetFramePolicyHeaders() {
   for (const auto& pair : proxy_hosts_) {
-    pair.second->Send(new FrameMsg_DidSetFramePolicyHeaders(
-        pair.second->GetRoutingID(), frame_tree_node_->active_sandbox_flags(),
-        frame_tree_node_->current_replication_state().feature_policy_header));
+    pair.second->GetAssociatedRemoteFrame()->DidSetFramePolicyHeaders(
+        frame_tree_node_->active_sandbox_flags(),
+        frame_tree_node_->current_replication_state().feature_policy_header);
   }
 }
 
@@ -589,9 +595,10 @@ void RenderFrameHostManager::UnloadOldFrame(
   //
   // TODO(altimin, crbug.com/933147): Remove this logic after we are done with
   // implementing back-forward cache.
-  if (old_page_back_forward_cache_metrics)
+  if (old_page_back_forward_cache_metrics) {
     old_page_back_forward_cache_metrics->RecordFeatureUsage(
         old_render_frame_host.get());
+  }
 
   // BackForwardCache:
   //
@@ -645,25 +652,36 @@ void RenderFrameHostManager::UnloadOldFrame(
       old_page_back_forward_cache_metrics->MarkNotRestoredWithReason(can_store);
   }
 
-  // Create a replacement proxy for the old RenderFrameHost. (There should not
-  // be one yet.)  This is done even if there are no active frames besides this
-  // one to simplify cleanup logic on the renderer side (see
-  // https://crbug.com/568836 for motivation).
-  RenderFrameProxyHost* proxy =
-      CreateRenderFrameProxyHost(old_render_frame_host->GetSiteInstance(),
-                                 old_render_frame_host->render_view_host());
-
-  // Tell the old RenderFrameHost to unload and be replaced by the proxy.
-  old_render_frame_host->Unload(proxy, true);
+  // Create a replacement proxy for the old RenderFrameHost when we're switching
+  // SiteInstance. There should not be one yet. This is done even if there are
+  // no active frames besides this one to simplify cleanup logic on the renderer
+  // side. See https://crbug.com/568836 for motivation.
+  RenderFrameProxyHost* proxy = nullptr;
+  if (render_frame_host_->GetSiteInstance() !=
+      old_render_frame_host->GetSiteInstance()) {
+    proxy =
+        CreateRenderFrameProxyHost(old_render_frame_host->GetSiteInstance(),
+                                   old_render_frame_host->render_view_host());
+  }
 
   // |old_render_frame_host| will be deleted when its unload ACK is received,
   // or when the timer times out, or when the RFHM itself is deleted (whichever
   // comes first).
   pending_delete_hosts_.push_back(std::move(old_render_frame_host));
+
+  // Tell the old RenderFrameHost to swap out and be replaced by the proxy.
+  pending_delete_hosts_.back()->Unload(proxy, true);
 }
 
 void RenderFrameHostManager::DiscardUnusedFrame(
     std::unique_ptr<RenderFrameHostImpl> render_frame_host) {
+  // RenderDocument: In the case of a local<->local RenderFrameHost Swap, just
+  // discard the RenderFrameHost. There are no other proxies associated.
+  if (render_frame_host->GetSiteInstance() ==
+      render_frame_host_->GetSiteInstance()) {
+    return;  // |render_frame_host| is released here.
+  }
+
   // TODO(carlosk): this code is very similar to what can be found in
   // UnloadOldFrame and we should see that these are unified at some point.
 
@@ -785,6 +803,10 @@ RenderFrameHostImpl* RenderFrameHostManager::GetFrameHostForNavigation(
     base::debug::DumpWithoutCrashing();
   }
 
+  // Speculative RFHs are deleted immediately.
+  if (speculative_render_frame_host_)
+    DCHECK(!speculative_render_frame_host_->must_be_replaced());
+
   // The appropriate RenderFrameHost to commit the navigation.
   RenderFrameHostImpl* navigation_rfh = nullptr;
 
@@ -796,6 +818,27 @@ RenderFrameHostImpl* RenderFrameHostManager::GetFrameHostForNavigation(
 
   // The SiteInstance determines whether to switch RenderFrameHost or not.
   bool use_current_rfh = current_site_instance == dest_site_instance;
+
+  // If a crashed RenderFrameHost must not be reused, replace it by a
+  // new one immediately.
+  if (render_frame_host_->must_be_replaced()) {
+    use_current_rfh = false;
+    // TODO(https://crbug.com/1006814): Remove this.
+    if (render_frame_host_->render_view_host()
+            ->GetWidget()
+            ->renderer_initialized()) {
+      base::debug::DumpWithoutCrashing();
+      NOTREACHED();
+    }
+  }
+
+  // Force using a different RenderFrameHost when RenderDocument is enabled.
+  // TODO(arthursonzogni, fergal): Add support for the main frame.
+  if (CreateNewHostForSameSiteSubframe() && !frame_tree_node_->IsMainFrame() &&
+      !request->IsSameDocument() &&
+      render_frame_host_->has_committed_any_navigation()) {
+    use_current_rfh = false;
+  }
 
   bool notify_webui_of_rf_creation = false;
   if (use_current_rfh) {
@@ -886,6 +929,11 @@ RenderFrameHostImpl* RenderFrameHostManager::GetFrameHostForNavigation(
 
     navigation_rfh = speculative_render_frame_host_.get();
 
+    // Ensure that if the current RenderFrameHost is crashed, the following code
+    // path will always be used.
+    if (render_frame_host_->must_be_replaced())
+      DCHECK(!render_frame_host_->IsRenderFrameLive());
+
     // Check if our current RFH is live.
     if (!render_frame_host_->IsRenderFrameLive()) {
       // The current RFH is not live. There's no reason to sit around with a
@@ -905,15 +953,18 @@ RenderFrameHostImpl* RenderFrameHostManager::GetFrameHostForNavigation(
         navigation_rfh->Send(
             new FrameMsg_SwapIn(navigation_rfh->GetRoutingID()));
       }
-      CommitPending(std::move(speculative_render_frame_host_), nullptr);
+      CommitPending(std::move(speculative_render_frame_host_), nullptr,
+                    request->require_coop_browsing_instance_swap());
     }
   }
   DCHECK(navigation_rfh &&
          (navigation_rfh == render_frame_host_.get() ||
           navigation_rfh == speculative_render_frame_host_.get()));
+  DCHECK(!render_frame_host_->must_be_replaced());
+  DCHECK(!navigation_rfh->must_be_replaced());
 
   // If the RenderFrame that needs to navigate is not live (its process was just
-  // created or has crashed), initialize it.
+  // created), initialize it.
   if (!navigation_rfh->IsRenderFrameLive()) {
     if (!ReinitializeRenderFrame(navigation_rfh))
       return nullptr;
@@ -1030,10 +1081,10 @@ void RenderFrameHostManager::OnDidResetContentSecurityPolicy() {
 }
 
 void RenderFrameHostManager::OnEnforceInsecureRequestPolicy(
-    blink::WebInsecureRequestPolicy policy) {
+    blink::mojom::InsecureRequestPolicy policy) {
   for (const auto& pair : proxy_hosts_) {
-    pair.second->Send(new FrameMsg_EnforceInsecureRequestPolicy(
-        pair.second->GetRoutingID(), policy));
+    pair.second->GetAssociatedRemoteFrame()->EnforceInsecureRequestPolicy(
+        policy);
   }
 }
 
@@ -1065,16 +1116,18 @@ void RenderFrameHostManager::OnDidChangeCollapsedState(bool collapsed) {
 }
 
 void RenderFrameHostManager::OnDidUpdateFrameOwnerProperties(
-    const FrameOwnerProperties& properties) {
+    const blink::mojom::FrameOwnerProperties& properties) {
   // FrameOwnerProperties exist only for frames that have a parent.
   CHECK(frame_tree_node_->parent());
   SiteInstance* parent_instance =
       frame_tree_node_->parent()->current_frame_host()->GetSiteInstance();
 
+  auto properties_for_local_frame = properties.Clone();
+
   // Notify the RenderFrame if it lives in a different process from its parent.
   if (render_frame_host_->GetSiteInstance() != parent_instance) {
-    render_frame_host_->Send(new FrameMsg_SetFrameOwnerProperties(
-        render_frame_host_->GetRoutingID(), properties));
+    render_frame_host_->GetAssociatedLocalFrame()->SetFrameOwnerProperties(
+        std::move(properties_for_local_frame));
   }
 
   // Notify this frame's proxies if they live in a different process from its
@@ -1085,8 +1138,10 @@ void RenderFrameHostManager::OnDidUpdateFrameOwnerProperties(
   // in the current FrameTree.
   for (const auto& pair : proxy_hosts_) {
     if (pair.second->GetSiteInstance() != parent_instance) {
-      pair.second->Send(new FrameMsg_SetFrameOwnerProperties(
-          pair.second->GetRoutingID(), properties));
+      auto properties_for_remote_frame = properties.Clone();
+      RenderFrameProxyHost* proxy = pair.second.get();
+      proxy->GetAssociatedRemoteFrame()->SetFrameOwnerProperties(
+          std::move(properties_for_remote_frame));
     }
   }
 }
@@ -1217,12 +1272,16 @@ ShouldSwapBrowsingInstance
 RenderFrameHostManager::ShouldSwapBrowsingInstancesForNavigation(
     const GURL& current_effective_url,
     bool current_is_view_source_mode,
-    SiteInstance* destination_site_instance,
+    SiteInstanceImpl* source_instance,
+    SiteInstanceImpl* current_instance,
+    SiteInstance* destination_instance,
     const GURL& destination_effective_url,
     bool destination_is_view_source_mode,
+    ui::PageTransition transition,
     bool is_failure,
     bool is_reload,
-    bool cross_origin_opener_policy_mismatch) const {
+    bool cross_origin_opener_policy_mismatch,
+    bool was_server_redirect) {
   // A subframe must stay in the same BrowsingInstance as its parent.
   if (!frame_tree_node_->IsMainFrame())
     return ShouldSwapBrowsingInstance::kNo_NotMainFrame;
@@ -1243,11 +1302,11 @@ RenderFrameHostManager::ShouldSwapBrowsingInstancesForNavigation(
 
   // If new_entry already has a SiteInstance, assume it is correct.  We only
   // need to force a swap if it is in a different BrowsingInstance.
-  if (destination_site_instance) {
-    bool should_swap = !destination_site_instance->IsRelatedSiteInstance(
+  if (destination_instance) {
+    bool should_swap = !destination_instance->IsRelatedSiteInstance(
         render_frame_host_->GetSiteInstance());
     if (should_swap) {
-      return ShouldSwapBrowsingInstance::kYes;
+      return ShouldSwapBrowsingInstance::kYes_ForceSwap;
     } else {
       return ShouldSwapBrowsingInstance::kNo_AlreadyHasMatchingBrowsingInstance;
     }
@@ -1265,7 +1324,7 @@ RenderFrameHostManager::ShouldSwapBrowsingInstancesForNavigation(
     return ShouldSwapBrowsingInstance::kNo_RendererDebugURL;
 
   if (cross_origin_opener_policy_mismatch)
-    return ShouldSwapBrowsingInstance::kYes;
+    return ShouldSwapBrowsingInstance::kYes_ForceSwap;
 
   // Transitions across BrowserContexts should always require a
   // BrowsingInstance swap. For example, this can happen if an extension in a
@@ -1279,7 +1338,7 @@ RenderFrameHostManager::ShouldSwapBrowsingInstancesForNavigation(
             render_frame_host_->GetSiteInstance()->GetBrowserContext());
   if (browser_context !=
       render_frame_host_->GetSiteInstance()->GetBrowserContext()) {
-    return ShouldSwapBrowsingInstance::kYes;
+    return ShouldSwapBrowsingInstance::kYes_ForceSwap;
   }
 
   // For security, we should transition between processes when one is a Web UI
@@ -1292,7 +1351,7 @@ RenderFrameHostManager::ShouldSwapBrowsingInstancesForNavigation(
     // Here, data URLs are never allowed.
     if (!WebUIControllerFactoryRegistry::GetInstance()->IsURLAcceptableForWebUI(
             browser_context, destination_effective_url)) {
-      return ShouldSwapBrowsingInstance::kYes;
+      return ShouldSwapBrowsingInstance::kYes_ForceSwap;
     }
 
     // Force swap if the current WebUI type differs from the one for the
@@ -1301,13 +1360,13 @@ RenderFrameHostManager::ShouldSwapBrowsingInstancesForNavigation(
             browser_context, current_effective_url) !=
         WebUIControllerFactoryRegistry::GetInstance()->GetWebUIType(
             browser_context, destination_effective_url)) {
-      return ShouldSwapBrowsingInstance::kYes;
+      return ShouldSwapBrowsingInstance::kYes_ForceSwap;
     }
   } else {
     // Force a swap if it's a Web UI URL.
     if (WebUIControllerFactoryRegistry::GetInstance()->UseWebUIBindingsForURL(
             browser_context, destination_effective_url)) {
-      return ShouldSwapBrowsingInstance::kYes;
+      return ShouldSwapBrowsingInstance::kYes_ForceSwap;
     }
   }
 
@@ -1317,7 +1376,7 @@ RenderFrameHostManager::ShouldSwapBrowsingInstancesForNavigation(
   if (GetContentClient()->browser()->ShouldSwapBrowsingInstancesForNavigation(
           render_frame_host_->GetSiteInstance(), current_effective_url,
           destination_effective_url)) {
-    return ShouldSwapBrowsingInstance::kYes;
+    return ShouldSwapBrowsingInstance::kYes_ForceSwap;
   }
 
   // We can't switch a RenderView between view source and non-view source mode
@@ -1325,7 +1384,13 @@ RenderFrameHostManager::ShouldSwapBrowsingInstancesForNavigation(
   // "view-source:http://foo.com/" and "http://foo.com/", Blink doesn't treat
   // it as a new navigation). So require a BrowsingInstance switch.
   if (current_is_view_source_mode != destination_is_view_source_mode)
-    return ShouldSwapBrowsingInstance::kYes;
+    return ShouldSwapBrowsingInstance::kYes_ForceSwap;
+
+  // If we haven't used the current SiteInstance but the destination is a
+  // view-source URL, we should force a BrowsingInstance swap so that we won't
+  // reuse the current SiteInstance.
+  if (!current_instance->HasSite() && destination_is_view_source_mode)
+    return ShouldSwapBrowsingInstance::kYes_ForceSwap;
 
   // If the target URL's origin was dynamically isolated, and the isolation
   // wouldn't apply in the current BrowsingInstance, see if this navigation can
@@ -1336,7 +1401,27 @@ RenderFrameHostManager::ShouldSwapBrowsingInstancesForNavigation(
   // possible (e.g., when there are no existing script references).
   if (ShouldSwapBrowsingInstancesForDynamicIsolation(
           render_frame_host_.get(), destination_effective_url)) {
-    return ShouldSwapBrowsingInstance::kYes;
+    return ShouldSwapBrowsingInstance::kYes_ForceSwap;
+  }
+
+  // If this is a cross-site navigation, we may be able to force a
+  // BrowsingInstance swap to avoid unneeded process sharing. This is done for
+  // certain main frame browser-initiated navigations where we can't use
+  // |source_instance| and we don't need to preserve scripting
+  // relationship for it (for isolated error pages).
+  // See https://crbug.com/803367.
+  bool is_for_isolated_error_page =
+      is_failure && SiteIsolationPolicy::IsErrorPageIsolationEnabled(
+                        frame_tree_node_->IsMainFrame());
+  if (current_instance->HasSite() &&
+      !IsCurrentlySameSite(render_frame_host_.get(),
+                           destination_effective_url) &&
+      !CanUseSourceSiteInstance(destination_effective_url, source_instance,
+                                was_server_redirect, is_failure) &&
+      !is_for_isolated_error_page &&
+      IsBrowsingInstanceSwapAllowedForPageTransition(
+          transition, destination_effective_url)) {
+    return ShouldSwapBrowsingInstance::kYes_ForceSwap;
   }
 
   // Experimental mode to swap BrowsingInstances on most cross-site navigations
@@ -1404,30 +1489,37 @@ RenderFrameHostManager::GetSiteInstanceForNavigation(
                                          ? current_entry->IsViewSourceMode()
                                          : dest_is_view_source_mode;
 
-  ShouldSwapBrowsingInstance force_swap_result =
+  ShouldSwapBrowsingInstance should_swap_result =
       ShouldSwapBrowsingInstancesForNavigation(
-          current_effective_url, current_is_view_source_mode, dest_instance,
+          current_effective_url, current_is_view_source_mode, source_instance,
+          static_cast<SiteInstanceImpl*>(current_instance), dest_instance,
           SiteInstanceImpl::GetEffectiveURL(browser_context, dest_url),
-          dest_is_view_source_mode, is_failure, is_reload,
-          cross_origin_opener_policy_mismatch);
-  bool force_swap = force_swap_result == ShouldSwapBrowsingInstance::kYes;
-  if (!force_swap) {
+          dest_is_view_source_mode, transition, is_failure, is_reload,
+          cross_origin_opener_policy_mismatch, was_server_redirect);
+  bool proactive_swap =
+      (should_swap_result == ShouldSwapBrowsingInstance::kYes_ProactiveSwap);
+  bool should_swap =
+      (should_swap_result == ShouldSwapBrowsingInstance::kYes_ForceSwap) ||
+      proactive_swap;
+  if (!should_swap) {
     render_frame_host_->set_browsing_instance_not_swapped_reason(
-        force_swap_result);
+        should_swap_result);
   }
   SiteInstanceDescriptor new_instance_descriptor = DetermineSiteInstanceForURL(
       dest_url, source_instance, current_instance, dest_instance, transition,
-      is_failure, dest_is_restore, dest_is_view_source_mode, force_swap,
+      is_failure, dest_is_restore, dest_is_view_source_mode, should_swap,
       was_server_redirect);
+  DCHECK(new_instance_descriptor.relation != SiteInstanceRelation::UNRELATED ||
+         should_swap);
 
   scoped_refptr<SiteInstance> new_instance =
       ConvertToSiteInstance(new_instance_descriptor, candidate_instance);
 
-  // If |force_swap| is true, we must use a different SiteInstance than the
+  // If |should_swap| is true, we must use a different SiteInstance than the
   // current one. If we didn't, we would have two RenderFrameHosts in the same
   // SiteInstance and the same frame, breaking lookup of RenderFrameHosts by
   // SiteInstance.
-  if (force_swap)
+  if (should_swap)
     CHECK_NE(new_instance, current_instance);
 
   if (new_instance == current_instance) {
@@ -1462,6 +1554,14 @@ RenderFrameHostManager::GetSiteInstanceForNavigation(
     }
   }
 
+  // If we're doing a proactive BI swap, we should try to reuse the current
+  // SiteInstance's process for the new SiteInstance if possible.
+  if (IsProactivelySwapBrowsingInstanceWithProcessReuseEnabled() &&
+      proactive_swap && !current_instance->RequiresDedicatedProcess()) {
+    DCHECK(frame_tree_node_->IsMainFrame());
+    new_instance_impl->ReuseCurrentProcessIfPossible(
+        current_instance->GetProcess());
+  }
   return new_instance;
 }
 
@@ -1534,6 +1634,11 @@ RenderFrameHostManager::DetermineSiteInstanceForURL(
     bool dest_is_view_source_mode,
     bool force_browsing_instance_swap,
     bool was_server_redirect) {
+  // Note that this function should return SiteInstance with
+  // SiteInstanceRelation::UNRELATED relation to |current_instance| iff
+  // |force_browsing_instance_swap| is true. All cases that result in an
+  // unrelated SiteInstance should return Yes_ForceSwap or Yes_ProactiveSwap in
+  // ShouldSwapBrowsingInstancesForNavigation.
   SiteInstanceImpl* current_instance_impl =
       static_cast<SiteInstanceImpl*>(current_instance);
   NavigationControllerImpl& controller =
@@ -1637,23 +1742,6 @@ RenderFrameHostManager::DetermineSiteInstanceForURL(
                                     SiteInstanceRelation::RELATED);
     }
 
-    // View-source URLs must use a new SiteInstance and BrowsingInstance.
-    // TODO(nasko): This is the same condition as later in the function. This
-    // should be taken into account when refactoring this method as part of
-    // http://crbug.com/123007.
-    if (dest_is_view_source_mode) {
-      return SiteInstanceDescriptor(browser_context, dest_url,
-                                    SiteInstanceRelation::UNRELATED);
-    }
-
-    // If we are navigating from a blank SiteInstance to a WebUI, make sure we
-    // create a new SiteInstance.
-    if (WebUIControllerFactoryRegistry::GetInstance()->UseWebUIForURL(
-            browser_context, dest_url)) {
-      return SiteInstanceDescriptor(browser_context, dest_url,
-                                    SiteInstanceRelation::UNRELATED);
-    }
-
     // Normally the "site" on the SiteInstance is set lazily when the load
     // actually commits. This is to support better process sharing in case
     // the site redirects to some other site: we want to use the destination
@@ -1674,69 +1762,16 @@ RenderFrameHostManager::DetermineSiteInstanceForURL(
     return SiteInstanceDescriptor(current_instance_impl);
   }
 
-  // Otherwise, only create a new SiteInstance for a cross-process navigation.
-
-  // TODO(creis): Once we intercept links and script-based navigations, we
-  // will be able to enforce that all entries in a SiteInstance actually have
-  // the same site, and it will be safe to compare the URL against the
-  // SiteInstance's site, as follows:
-  // const GURL& current_url = current_instance_impl->site();
-  // For now, though, we're in a hybrid model where you only switch
-  // SiteInstances if you type in a cross-site URL.  This means we have to
-  // compare the entry's URL to the last committed entry's URL.
-  NavigationEntry* current_entry = controller.GetLastCommittedEntry();
-  if (delegate_->GetInterstitialForRenderManager()) {
-    // The interstitial is currently the last committed entry, but we want to
-    // compare against the last non-interstitial entry.
-    current_entry = controller.GetEntryAtOffset(-1);
-  }
-
-  // View-source URLs must use a new SiteInstance and BrowsingInstance.
-  // We don't need a swap when going from view-source to a debug URL like
-  // chrome://crash, however.
-  // TODO(creis): Refactor this method so this duplicated code isn't needed.
-  // See http://crbug.com/123007.
-  if (current_entry &&
-      current_entry->IsViewSourceMode() != dest_is_view_source_mode &&
-      !IsRendererDebugURL(dest_url)) {
-    return SiteInstanceDescriptor(browser_context, dest_url,
-                                  SiteInstanceRelation::UNRELATED);
-  }
-
-  // Use the source SiteInstance in case of data URLs, about:srcdoc pages and
-  // about:blank pages because the content is then controlled and/or scriptable
-  // by the source SiteInstance.
-  //
-  // One exception to this is when these URLs are reached via a server redirect.
-  // Normally, redirects to data: or about: URLs are disallowed as
-  // net::ERR_UNSAFE_REDIRECT, but extensions can still redirect arbitrary
-  // requests to those URLs using webRequest or declarativeWebRequest API (for
-  // an example, see NavigationInitiatedByCrossSiteSubframeRedirectedTo... test
-  // cases in the ChromeNavigationBrowserTest test suite.  For such data: URL
-  // redirects, the content is controlled by the extension (rather than by the
-  // |source_instance|), so we don't use the |source_instance| for data: URLs if
-  // there was a server redirect.
-  bool can_use_source_instance_for_dest_url =
-      IsDataOrAbout(dest_url) &&
-      (!was_server_redirect || !dest_url.SchemeIs(url::kDataScheme));
-  if (can_use_source_instance_for_dest_url && source_instance &&
-      IsSiteInstanceCompatibleWithErrorIsolation(
-          source_instance, frame_tree_node_->IsMainFrame(), is_failure)) {
+  // Check if we should use |source_instance|, such as for about:blank and data:
+  // URLs.
+  if (CanUseSourceSiteInstance(dest_url, source_instance, was_server_redirect,
+                               is_failure)) {
     return SiteInstanceDescriptor(source_instance);
   }
 
   // Use the current SiteInstance for same site navigations.
   if (IsCurrentlySameSite(render_frame_host_.get(), dest_url))
     return SiteInstanceDescriptor(render_frame_host_->GetSiteInstance());
-
-  // At this point, |dest_url| corresponds to a cross-site navigation.  See if
-  // we can swap BrowsingInstances to avoid unneeded process sharing.  This is
-  // done for certain main frame browser-initiated navigations. See
-  // https://crbug.com/803367.
-  if (IsBrowsingInstanceSwapAllowedForPageTransition(transition, dest_url)) {
-    return SiteInstanceDescriptor(browser_context, dest_url,
-                                  SiteInstanceRelation::UNRELATED);
-  }
 
   // Shortcut some common cases for reusing an existing frame's SiteInstance.
   // There are several reasons for this:
@@ -1845,8 +1880,12 @@ scoped_refptr<SiteInstance> RenderFrameHostManager::ConvertToSiteInstance(
 
   // Note: If the |candidate_instance| matches the descriptor, it will already
   // be set to |descriptor.existing_site_instance|.
-  if (descriptor.existing_site_instance)
+  if (descriptor.existing_site_instance) {
+    DCHECK_EQ(descriptor.relation, SiteInstanceRelation::PREEXISTING);
     return descriptor.existing_site_instance;
+  } else {
+    DCHECK_NE(descriptor.relation, SiteInstanceRelation::PREEXISTING);
+  }
 
   // Note: If the |candidate_instance| matches the descriptor,
   // GetRelatedSiteInstance will return it.
@@ -1865,6 +1904,30 @@ scoped_refptr<SiteInstance> RenderFrameHostManager::ConvertToSiteInstance(
   return SiteInstance::CreateForURL(
       delegate_->GetControllerForRenderManager().GetBrowserContext(),
       descriptor.dest_url);
+}
+
+bool RenderFrameHostManager::CanUseSourceSiteInstance(
+    const GURL& dest_url,
+    SiteInstance* source_instance,
+    bool was_server_redirect,
+    bool is_failure) {
+  // We use the source SiteInstance in case of data URLs, about:srcdoc pages and
+  // about:blank pages because the content is then controlled and/or scriptable
+  // by the source SiteInstance.
+  //
+  // One exception to this is when these URLs are reached via a server redirect.
+  // Normally, redirects to data: or about: URLs are disallowed as
+  // net::ERR_UNSAFE_REDIRECT, but extensions can still redirect arbitrary
+  // requests to those URLs using webRequest or declarativeWebRequest API (for
+  // an example, see NavigationInitiatedByCrossSiteSubframeRedirectedTo... test
+  // cases in the ChromeNavigationBrowserTest test suite.  For such data: URL
+  // redirects, the content is controlled by the extension (rather than by the
+  // |source_instance|), so we don't use the |source_instance| for data: URLs if
+  // there was a server redirect.
+  return source_instance && IsDataOrAbout(dest_url) &&
+         (!was_server_redirect || !dest_url.SchemeIs(url::kDataScheme)) &&
+         IsSiteInstanceCompatibleWithErrorIsolation(
+             source_instance, frame_tree_node_->IsMainFrame(), is_failure);
 }
 
 bool RenderFrameHostManager::IsCurrentlySameSite(RenderFrameHostImpl* candidate,
@@ -2002,52 +2065,79 @@ void RenderFrameHostManager::CreateProxiesForNewNamedFrame() {
 
 std::unique_ptr<RenderFrameHostImpl>
 RenderFrameHostManager::CreateRenderFrameHost(
+    CreateFrameCase create_frame_case,
     SiteInstance* site_instance,
-    int32_t view_routing_id,
     int32_t frame_routing_id,
-    int32_t widget_routing_id,
     bool renderer_initiated_creation) {
-  if (frame_routing_id == MSG_ROUTING_NONE)
-    frame_routing_id = site_instance->GetProcess()->GetNextRoutingID();
-
-  // Create a RVH for main frames, or find the existing one for subframes.
   FrameTree* frame_tree = frame_tree_node_->frame_tree();
-  scoped_refptr<RenderViewHostImpl> render_view_host;
-  if (frame_tree_node_->IsMainFrame()) {
-    render_view_host = frame_tree->CreateRenderViewHost(
-        site_instance, view_routing_id, frame_routing_id, widget_routing_id,
-        false);
-    // TODO(avi): It's a bit bizarre that this logic lives here instead of in
-    // CreateRenderFrame(). It turns out that FrameTree::CreateRenderViewHost
-    // doesn't /always/ create a new RenderViewHost. It first tries to find an
-    // already existing one to reuse by a SiteInstance lookup. If it finds one,
-    // then the supplied routing IDs are completely ignored.
-    // CreateRenderFrame() could do this lookup too, but it seems redundant to
-    // do this lookup in two places. This is a good yak shave to clean up, or,
-    // if just ignored, should be an easy cleanup once RenderViewHostImpl has-a
-    // RenderWidgetHostImpl. https://crbug.com/545684
-    if (view_routing_id == MSG_ROUTING_NONE) {
-      widget_routing_id = render_view_host->GetWidget()->GetRoutingID();
-    } else {
-      DCHECK_NE(view_routing_id, widget_routing_id);
-      DCHECK_EQ(view_routing_id, render_view_host->GetRoutingID());
-    }
-  } else {
-    render_view_host = frame_tree->GetRenderViewHost(site_instance);
-    CHECK(render_view_host);
+
+  // Only the kInitChild case passes in a frame routing id.
+  DCHECK_EQ(create_frame_case != CreateFrameCase::kInitChild,
+            frame_routing_id == MSG_ROUTING_NONE);
+  if (frame_routing_id == MSG_ROUTING_NONE) {
+    frame_routing_id = site_instance->GetProcess()->GetNextRoutingID();
   }
 
+  scoped_refptr<RenderViewHostImpl> render_view_host =
+      frame_tree->GetRenderViewHost(site_instance);
+
+  switch (create_frame_case) {
+    case CreateFrameCase::kInitChild:
+      DCHECK(!frame_tree_node_->IsMainFrame());
+      // The first RenderFrameHost for a child FrameTreeNode is always in the
+      // same SiteInstance as its parent.
+      DCHECK_EQ(
+          frame_tree_node_->parent()->current_frame_host()->GetSiteInstance(),
+          site_instance);
+      // The RenderViewHost must already exist for the parent's SiteInstance.
+      DCHECK(render_view_host);
+      break;
+    case CreateFrameCase::kInitRoot:
+      DCHECK(frame_tree_node_->IsMainFrame());
+      // The view should not already exist when we are initializing the frame
+      // tree.
+      DCHECK(!render_view_host);
+      break;
+    case CreateFrameCase::kCreateSpeculative:
+      // We create speculative frames both for main frame and subframe
+      // navigations. The view might exist already if the SiteInstance already
+      // has frames hosted in the target process. So we don't check the view.
+      //
+      // A speculative frame should be replacing an existing frame.
+      DCHECK(render_frame_host_);
+      break;
+  }
+  if (!render_view_host) {
+    render_view_host =
+        frame_tree->CreateRenderViewHost(site_instance, frame_routing_id,
+                                         /*swapped_out=*/false);
+  }
+  CHECK(render_view_host);
+
   return RenderFrameHostFactory::Create(
-      site_instance, render_view_host, frame_tree->render_frame_delegate(),
-      frame_tree, frame_tree_node_, frame_routing_id, widget_routing_id,
-      renderer_initiated_creation);
+      site_instance, std::move(render_view_host),
+      frame_tree->render_frame_delegate(), frame_tree, frame_tree_node_,
+      frame_routing_id, renderer_initiated_creation);
 }
 
 bool RenderFrameHostManager::CreateSpeculativeRenderFrameHost(
     SiteInstance* old_instance,
     SiteInstance* new_instance) {
   CHECK(new_instance);
-  CHECK_NE(old_instance, new_instance);
+  // This DCHECK is going to be fully removed as part of RenderDocument [1].
+  //
+  // With RenderDocument for sub frames or main frames: cross-document
+  // navigation creates a new RenderFrameHost. The navigation is potentially
+  // same-SiteInstance.
+  //
+  // With RenderDocument for crashed frames: navigations from a crashed
+  // RenderFrameHost creates a new RenderFrameHost. The navigation is
+  // potentially same-SiteInstance.
+  //
+  // [1] http://crbug.com/936696
+  DCHECK(old_instance != new_instance ||
+         render_frame_host_->must_be_replaced() ||
+         CreateNewHostForSameSiteSubframe());
 
   // The process for the new SiteInstance may (if we're sharing a process with
   // another host that already initialized it) or may not (we have our own
@@ -2058,7 +2148,7 @@ bool RenderFrameHostManager::CreateSpeculativeRenderFrameHost(
 
   CreateProxiesForNewRenderFrameHost(old_instance, new_instance);
 
-  speculative_render_frame_host_ = CreateRenderFrame(new_instance);
+  speculative_render_frame_host_ = CreateSpeculativeRenderFrame(new_instance);
 
   // If RenderViewHost was created along with the speculative RenderFrameHost,
   // ensure that RenderViewCreated is fired for it.  It is important to do this
@@ -2073,28 +2163,28 @@ bool RenderFrameHostManager::CreateSpeculativeRenderFrameHost(
   return !!speculative_render_frame_host_;
 }
 
-std::unique_ptr<RenderFrameHostImpl> RenderFrameHostManager::CreateRenderFrame(
-    SiteInstance* instance) {
+std::unique_ptr<RenderFrameHostImpl>
+RenderFrameHostManager::CreateSpeculativeRenderFrame(SiteInstance* instance) {
   CHECK(instance);
-
-  // We are creating a pending or speculative RFH here. We should never create
-  // it in the same SiteInstance as our current RFH.
-  CHECK_NE(render_frame_host_->GetSiteInstance(), instance);
-
-  // A RenderFrame in a different process from its parent RenderFrame
-  // requires a RenderWidget for input/layout/painting.
+  // This DCHECK is going to be fully removed as part of RenderDocument [1].
   //
-  // TODO(ajwong): When RVH no longer owns a RWH, this logic should be
-  // simplified as the decision to create a RWH will be centralized here.
-  // https://crbug.com/545684
-  FrameTreeNode* parent = frame_tree_node_->parent();
-  int32_t widget_routing_id = MSG_ROUTING_NONE;
-  if (parent && parent->current_frame_host()->GetSiteInstance() != instance)
-    widget_routing_id = instance->GetProcess()->GetNextRoutingID();
+  // With RenderDocument for sub frames or main frames: cross-document
+  // navigation creates a new RenderFrameHost. The navigation is potentially
+  // same-SiteInstance.
+  //
+  // With RenderDocument for crashed frames: navigations from a crashed
+  // RenderFrameHost creates a new RenderFrameHost. The navigation is
+  // potentially same-SiteInstance.
+  //
+  // [1] http://crbug.com/936696
+  DCHECK(render_frame_host_->GetSiteInstance() != instance ||
+         render_frame_host_->must_be_replaced() ||
+         CreateNewHostForSameSiteSubframe());
 
   std::unique_ptr<RenderFrameHostImpl> new_render_frame_host =
-      CreateRenderFrameHost(instance, MSG_ROUTING_NONE, MSG_ROUTING_NONE,
-                            widget_routing_id, false);
+      CreateRenderFrameHost(CreateFrameCase::kCreateSpeculative, instance,
+                            /*frame_routing_id=*/MSG_ROUTING_NONE,
+                            /*renderer_initiated_creation=*/false);
   DCHECK_EQ(new_render_frame_host->GetSiteInstance(), instance);
 
   // Prevent the process from exiting while we're trying to navigate in it.
@@ -2102,7 +2192,23 @@ std::unique_ptr<RenderFrameHostImpl> RenderFrameHostManager::CreateRenderFrame(
 
   RenderViewHostImpl* render_view_host =
       new_render_frame_host->render_view_host();
+  // TODO(https://crbug.com/1006814): Remove this.
+  bool recreated_main_frame = false;
+  bool widget_renderer_initialized = false;
   if (frame_tree_node_->IsMainFrame()) {
+    if (render_view_host == render_frame_host_->render_view_host()) {
+      // We are replacing the main frame's host with |new_render_frame_host|.
+      // RenderViewHost is reused after a crash and in order for InitRenderView
+      // to find |new_render_frame_host| as the new main frame, we set the
+      // routing ID now. This is safe to do as we will call CommitPending() in
+      // GetFrameHostForNavigation() before yielding to other tasks.
+      render_view_host->SetMainFrameRoutingId(
+          new_render_frame_host->GetRoutingID());
+      recreated_main_frame = true;
+      widget_renderer_initialized =
+          render_view_host->GetWidget()->renderer_initialized();
+    }
+
     if (!InitRenderView(render_view_host, GetRenderFrameProxyHost(instance)))
       return nullptr;
 
@@ -2114,10 +2220,31 @@ std::unique_ptr<RenderFrameHostImpl> RenderFrameHostManager::CreateRenderFrame(
     // And since we are reusing the RenderViewHost make sure it is hidden, like
     // a new RenderViewHost would be, until navigation commits.
     render_view_host->GetWidget()->GetView()->Hide();
-  } else {
-    DCHECK(render_view_host->IsRenderViewLive());
   }
 
+  DCHECK(render_view_host->IsRenderViewLive());
+  // TODO(https://crbug.com/1006814): Remove this.
+  if (recreated_main_frame && !new_render_frame_host->IsRenderFrameLive()) {
+    static auto* crash_key = base::debug::AllocateCrashKeyString(
+        "IsRenderFrameLive", base::debug::CrashKeySize::Size256);
+    int main_rfh_routing_id =
+        render_view_host->GetMainFrameRoutingIdForCrbug1006814();
+    std::string message = base::StringPrintf(
+        "created=%d,process=%d,proxy=%d,widget=%d,main_rfh=%d,new_rfh=%d,"
+        "in_pdo=%d",
+        new_render_frame_host->IsRenderFrameCreated(),
+        new_render_frame_host->GetProcess()->IsInitializedAndNotDead(),
+        !!GetRenderFrameProxyHost(instance), widget_renderer_initialized,
+        main_rfh_routing_id, new_render_frame_host->routing_id(),
+        static_cast<RenderProcessHostImpl*>(
+            render_view_host->GetWidget()->GetProcess())
+            ->GetWithinProcessDiedObserverForCrbug1006814());
+    // This string is whitelisted for collection from Android Webview. It must
+    // only contain booleans to avoid leaking any PII.
+    base::debug::SetCrashKeyString(crash_key, message);
+    base::debug::DumpWithoutCrashing();
+    NOTREACHED() << message;
+  }
   // RenderViewHost for |instance| might exist prior to calling
   // CreateRenderFrame. In such a case, InitRenderView will not create the
   // RenderFrame in the renderer process and it needs to be done
@@ -2145,16 +2272,16 @@ void RenderFrameHostManager::CreateRenderFrameProxy(SiteInstance* instance) {
   if (!proxy) {
     // The RenderViewHost creates the page level structure in Blink. The first
     // object to depend on it is necessarily a main frame one.
-    CHECK(frame_tree_node_->frame_tree()->GetRenderViewHost(instance) ||
-          frame_tree_node_->IsMainFrame());
-
-    // Before creating a new RenderFrameProxyHost, ensure a RenderViewHost
-    // exists for |instance|, as it creates the page level structure in Blink.
     scoped_refptr<RenderViewHostImpl> render_view_host =
-        frame_tree_node_->frame_tree()->CreateRenderViewHost(
-            instance, MSG_ROUTING_NONE, MSG_ROUTING_NONE, MSG_ROUTING_NONE,
-            /*swapped_out=*/true);
-
+        frame_tree_node_->frame_tree()->GetRenderViewHost(instance);
+    CHECK(render_view_host || frame_tree_node_->IsMainFrame());
+    if (!render_view_host) {
+      // Before creating a new RenderFrameProxyHost, ensure a RenderViewHost
+      // exists for |instance|, as it creates the page level structure in Blink.
+      render_view_host = frame_tree_node_->frame_tree()->CreateRenderViewHost(
+          instance, /*frame_routing_id=*/MSG_ROUTING_NONE,
+          /*swapped_out=*/true);
+    }
     proxy = CreateRenderFrameProxyHost(instance, std::move(render_view_host));
   }
 
@@ -2305,15 +2432,18 @@ RenderFrameHostManager::GetSiteInstanceForNavigationRequest(
                        mojom::NavigationType::RELOAD_ORIGINAL_REQUEST_URL;
 
   bool cross_origin_policy_swap =
-      request->response() &&
+      request->response() && frame_tree_node_->IsMainFrame() &&
       ShouldSwapBrowsingInstanceForCrossOriginOpenerPolicy(
           render_frame_host_->cross_origin_opener_policy(),
-          render_frame_host_->cross_origin_embedder_policy(),
+          render_frame_host_->cross_origin_embedder_policy().value,
           render_frame_host_->GetLastCommittedOrigin(),
           !render_frame_host_->has_committed_any_navigation(),
           request->response()->cross_origin_opener_policy,
-          request->response()->cross_origin_embedder_policy,
+          request->response()->cross_origin_embedder_policy.value,
           url::Origin::Create(request->common_params().url));
+
+  if (cross_origin_policy_swap)
+    request->set_require_coop_browsing_instance_swap();
 
   scoped_refptr<SiteInstance> dest_site_instance = GetSiteInstanceForNavigation(
       request->common_params().url, request->GetSourceSiteInstance(),
@@ -2321,7 +2451,8 @@ RenderFrameHostManager::GetSiteInstanceForNavigationRequest(
       request->common_params().transition,
       request->state() >= NavigationRequest::CANCELING, is_reload,
       request->GetRestoreType() != RestoreType::NONE, request->is_view_source(),
-      request->WasServerRedirect(), cross_origin_policy_swap);
+      request->WasServerRedirect(),
+      request->require_coop_browsing_instance_swap());
 
   // If the NavigationRequest's dest_site_instance was present but incorrect,
   // then ensure no sensitive state is kept on the request. This can happen for
@@ -2374,9 +2505,9 @@ bool RenderFrameHostManager::InitRenderFrame(
   // SiteInstance as its RenderFrameHost. This is only the case until the
   // RenderFrameHost commits, at which point it will replace and delete the
   // RenderFrameProxyHost.
-  // TODO(arthursonzogni): Implement same-process RenderFrame swap. In this case
-  // |previous_routing_id| can represent not only a RenderFrameProxyHost, but
-  // can also represent a RenderFrameHost.
+  //
+  // RenderDocument: During a same-process RenderFrame swap, the
+  // |previous_routing_id| doesn't represent a proxy, but a frame.
   int previous_routing_id = MSG_ROUTING_NONE;
   RenderFrameProxyHost* existing_proxy = GetRenderFrameProxyHost(site_instance);
   if (existing_proxy) {
@@ -2384,6 +2515,8 @@ bool RenderFrameHostManager::InitRenderFrame(
     CHECK_NE(previous_routing_id, MSG_ROUTING_NONE);
     if (!existing_proxy->is_render_frame_proxy_live())
       existing_proxy->InitRenderFrameProxy();
+  } else if (CreateNewHostForSameSiteSubframe()) {
+    previous_routing_id = current_frame_host()->GetRoutingID();
   }
 
   return delegate_->CreateRenderFrameForRenderManager(
@@ -2454,7 +2587,8 @@ int RenderFrameHostManager::GetRoutingIdForSiteInstance(
 
 void RenderFrameHostManager::CommitPending(
     std::unique_ptr<RenderFrameHostImpl> pending_rfh,
-    std::unique_ptr<BackForwardCacheImpl::Entry> pending_bfcache_entry) {
+    std::unique_ptr<BackForwardCacheImpl::Entry> pending_bfcache_entry,
+    bool clear_proxies_on_commit) {
   TRACE_EVENT1("navigation", "RenderFrameHostManager::CommitPending",
                "FrameTreeNode id", frame_tree_node_->frame_tree_node_id());
   DCHECK(pending_rfh);
@@ -2542,8 +2676,12 @@ void RenderFrameHostManager::CommitPending(
     }
   }
 
-  // For top-level frames, the RenderWidget{Host} will not be destroyed when the
+  // For top-level frames, the RenderWidgetHost will not be destroyed when the
   // local frame is detached. https://crbug.com/419087
+  //
+  // The RenderWidget in the renderer process is destroyed, but the
+  // RenderWidgetHost and RenderWidgetHostView are still kept alive for a remote
+  // main frame.
   //
   // To work around that, we hide it here. Truly this is to hit all the hide
   // paths in the browser side, but has a side effect of also hiding the
@@ -2555,23 +2693,22 @@ void RenderFrameHostManager::CommitPending(
   // RenderFrameHost crashed.
   //
   // TODO(crbug.com/419087): This is only done for the main frame, as for sub
-  // frames the RenderWidget and its view will be destroyed when the frame is
-  // detached, but for the main frame it is not. This call to Hide() can go away
-  // when the main frame's RenderWidget is destroyed on frame detach. Note that
-  // calling this on a subframe that is not a local root would be incorrect as
-  // it would hide an ancestor local root's RenderWidget when that frame is not
-  // necessarily navigating. Removing this Hide() has previously been attempted
-  // without success in r426913 (https://crbug.com/658688) and r438516 (broke
-  // assumptions about RenderWidgetHosts not changing RenderWidgetHostViews over
-  // time).
+  // frames the RenderWidgetHost and its view will be destroyed when the frame
+  // is detached, but for the main frame it is not. This call to Hide() can go
+  // away when the main frame's RenderWidgetHost is destroyed on frame detach.
+  // Note that calling this on a subframe that is not a local root would be
+  // incorrect as it would hide an ancestor local root's RenderWidget when that
+  // frame is not necessarily navigating. Removing this Hide() has previously
+  // been attempted without success in r426913 (https://crbug.com/658688) and
+  // r438516 (broke assumptions about RenderWidgetHosts not changing
+  // RenderWidgetHostViews over time).
   //
   // |old_rvh| and |new_rvh| can be the same when navigating same-site from a
   // crashed RenderFrameHost. When RenderDocument will be implemented, this will
   // happen for each same-site navigation.
   RenderViewHostImpl* old_rvh = old_render_frame_host->render_view_host();
   RenderViewHostImpl* new_rvh = render_frame_host_->render_view_host();
-  if (is_main_frame && old_view) {
-    DCHECK_NE(old_rvh, new_rvh);
+  if (is_main_frame && old_view && old_rvh != new_rvh) {
     // Note that this hides the RenderWidget but does not hide the Page. If it
     // did hide the Page then making a new RenderFrameHost on another call to
     // here would need to make sure it showed the RenderView when the
@@ -2615,7 +2752,7 @@ void RenderFrameHostManager::CommitPending(
 
   // Make the new view show the contents of old view until it has something
   // useful to show.
-  if (is_main_frame && old_view && new_view)
+  if (is_main_frame && old_view && new_view && old_view != new_view)
     new_view->TakeFallbackContentFrom(old_view);
 
   // The RenderViewHost keeps track of the main RenderFrameHost routing id.
@@ -2637,7 +2774,8 @@ void RenderFrameHostManager::CommitPending(
       new_rvh->PostRenderViewReady();
 
     new_rvh->SetMainFrameRoutingId(render_frame_host_->routing_id());
-    old_rvh->SetMainFrameRoutingId(MSG_ROUTING_NONE);
+    if (old_rvh != new_rvh)
+      old_rvh->SetMainFrameRoutingId(MSG_ROUTING_NONE);
   }
 
   // Store the old_render_frame_host's current frame size so that it can be used
@@ -2652,6 +2790,35 @@ void RenderFrameHostManager::CommitPending(
   // Since the new RenderFrameHost is now committed, there must be no proxies
   // for its SiteInstance. Delete any existing ones.
   DeleteRenderFrameProxyHost(render_frame_host_->GetSiteInstance());
+
+  // If this is a top-level frame, and COOP triggered a BrowsingInstance swap,
+  // make sure all relationships with the previous BrowsingInstance are severed
+  // by removing the opener and proxies with unrelated SiteInstances.
+  if (clear_proxies_on_commit) {
+    DCHECK(frame_tree_node_->IsMainFrame());
+    if (frame_tree_node_->opener() &&
+        !render_frame_host_->GetSiteInstance()->IsRelatedSiteInstance(
+            frame_tree_node_->opener()
+                ->current_frame_host()
+                ->GetSiteInstance())) {
+      frame_tree_node_->SetOpener(nullptr);
+      // Note: It usually makes sense to notify the proxies of that frame that
+      // the opener was removed. However since these proxies are destroyed right
+      // after it is not necessary in this particuliar case.
+    }
+
+    std::vector<RenderFrameProxyHost*> removed_proxies;
+    for (auto& it : proxy_hosts_) {
+      const auto& proxy = it.second;
+      if (!render_frame_host_->GetSiteInstance()->IsRelatedSiteInstance(
+              proxy->GetSiteInstance())) {
+        removed_proxies.push_back(proxy.get());
+      }
+    }
+
+    for (auto* proxy : removed_proxies)
+      DeleteRenderFrameProxyHost(proxy->GetSiteInstance());
+  }
 
   // If this is a subframe, it should have a CrossProcessFrameConnector
   // created already.  Use it to link the new RFH's view to the proxy that
@@ -2951,7 +3118,8 @@ void RenderFrameHostManager::CreateNewFrameForInnerDelegateAttachIfNecessary() {
   // WebContents::AttachToOuterWebContentsFrame is called.
   speculative_render_frame_host_->Send(
       new FrameMsg_SwapIn(speculative_render_frame_host_->GetRoutingID()));
-  CommitPending(std::move(speculative_render_frame_host_), nullptr);
+  CommitPending(std::move(speculative_render_frame_host_), nullptr,
+                false /* clear_proxies_on_commit */);
   NotifyPrepareForInnerDelegateAttachComplete(true /* success */);
 }
 

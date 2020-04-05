@@ -107,6 +107,8 @@ bool GetCompressedTexSizeInBytes(const char* function_name,
                                  GLsizei* size_in_bytes,
                                  ErrorState* error_state);
 
+bool ValidateCompressedFormatTarget(GLenum target, GLenum format);
+
 bool ValidateCompressedTexSubDimensions(GLenum target,
                                         GLint level,
                                         GLint xoffset,
@@ -157,6 +159,9 @@ gfx::OverlayTransform GetGFXOverlayTransform(GLenum plane_transform);
 
 bool GetGFXBufferFormat(GLenum internal_format, gfx::BufferFormat* out_format);
 bool GetGFXBufferUsage(GLenum buffer_usage, gfx::BufferUsage* out_usage);
+
+bool IsASTCFormat(GLenum internal_format);
+bool IsCompressedTextureFormat(GLenum internal_format);
 
 }  // namespace gles2
 }  // namespace gpu

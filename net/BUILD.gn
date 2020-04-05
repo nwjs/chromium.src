@@ -109,7 +109,7 @@ if (is_linux) {
 
 # Reset sources_assignment_filter for the BUILD.gn file to prevent
 # regression during the migration of Chromium away from the feature.
-# See build/no_sources_assignment_filter.md for more information.
+# See docs/no_sources_assignment_filter.md for more information.
 # TODO(crbug.com/1018739): Remove this when migration is done.
 set_sources_assignment_filter([])
 
@@ -304,6 +304,8 @@ component("net") {
     "http/http_util.h",
     "http/http_vary_data.cc",
     "http/http_vary_data.h",
+    "http/structured_headers.cc",
+    "http/structured_headers.h",
     "http/transport_security_state.h",
     "http/transport_security_state_source.cc",
     "http/transport_security_state_source.h",
@@ -365,6 +367,7 @@ component("net") {
     "ssl/ssl_info.cc",
     "ssl/ssl_info.h",
     "ssl/ssl_key_logger.h",
+    "ssl/ssl_legacy_crypto_fallback.h",
     "ssl/ssl_private_key.cc",
     "ssl/ssl_private_key.h",
     "ssl/ssl_server_config.cc",
@@ -445,6 +448,8 @@ component("net") {
       "base/http_user_agent_settings.h",
       "base/ip_pattern.cc",
       "base/ip_pattern.h",
+      "base/isolation_info.cc",
+      "base/isolation_info.h",
       "base/load_flags.h",
       "base/load_flags_list.h",
       "base/load_states.h",
@@ -478,11 +483,11 @@ component("net") {
       "base/proxy_server.h",
       "base/request_priority.cc",
       "base/request_priority.h",
+      "base/scheme_host_port_matcher.cc",
+      "base/scheme_host_port_matcher.h",
       "base/scheme_host_port_matcher_result.h",
       "base/scheme_host_port_matcher_rule.cc",
       "base/scheme_host_port_matcher_rule.h",
-      "base/static_cookie_policy.cc",
-      "base/static_cookie_policy.h",
       "base/test_data_stream.cc",
       "base/test_data_stream.h",
       "base/upload_bytes_element_reader.cc",
@@ -566,6 +571,8 @@ component("net") {
       "cookies/parsed_cookie.h",
       "cookies/site_for_cookies.cc",
       "cookies/site_for_cookies.h",
+      "cookies/static_cookie_policy.cc",
+      "cookies/static_cookie_policy.h",
       "disk_cache/backend_cleanup_tracker.cc",
       "disk_cache/backend_cleanup_tracker.h",
       "disk_cache/blockfile/addr.cc",
@@ -606,8 +613,6 @@ component("net") {
       "disk_cache/blockfile/storage_block-inl.h",
       "disk_cache/blockfile/storage_block.h",
       "disk_cache/blockfile/stress_support.h",
-      "disk_cache/blockfile/trace.cc",
-      "disk_cache/blockfile/trace.h",
       "disk_cache/cache_util.cc",
       "disk_cache/cache_util.h",
       "disk_cache/disk_cache.cc",
@@ -792,7 +797,6 @@ component("net") {
       "nqe/network_quality_estimator_util.h",
       "nqe/network_quality_observation.cc",
       "nqe/network_quality_observation.h",
-      "nqe/network_quality_observation_source.cc",
       "nqe/network_quality_observation_source.h",
       "nqe/network_quality_store.cc",
       "nqe/network_quality_store.h",
@@ -807,6 +811,10 @@ component("net") {
       "nqe/throughput_analyzer.cc",
       "nqe/throughput_analyzer.h",
       "nqe/weighted_observation.h",
+      "proxy_resolution/configured_proxy_resolution_request.cc",
+      "proxy_resolution/configured_proxy_resolution_request.h",
+      "proxy_resolution/configured_proxy_resolution_service.cc",
+      "proxy_resolution/configured_proxy_resolution_service.h",
       "proxy_resolution/dhcp_pac_file_fetcher.cc",
       "proxy_resolution/dhcp_pac_file_fetcher.h",
       "proxy_resolution/multi_threaded_proxy_resolver.cc",
@@ -835,7 +843,7 @@ component("net") {
       "proxy_resolution/proxy_info.h",
       "proxy_resolution/proxy_list.cc",
       "proxy_resolution/proxy_list.h",
-      "proxy_resolution/proxy_resolution_service.cc",
+      "proxy_resolution/proxy_resolution_request.h",
       "proxy_resolution/proxy_resolution_service.h",
       "proxy_resolution/proxy_resolve_dns_operation.h",
       "proxy_resolution/proxy_resolver.h",
@@ -880,7 +888,6 @@ component("net") {
       "quic/platform/impl/quic_mem_slice_storage_impl.h",
       "quic/platform/impl/quic_mutex_impl.cc",
       "quic/platform/impl/quic_mutex_impl.h",
-      "quic/platform/impl/quic_optional_impl.h",
       "quic/platform/impl/quic_pcc_sender_impl.h",
       "quic/platform/impl/quic_prefetch_impl.h",
       "quic/platform/impl/quic_ptr_util_impl.h",
@@ -906,6 +913,8 @@ component("net") {
       "quic/quic_chromium_packet_reader.h",
       "quic/quic_chromium_packet_writer.cc",
       "quic/quic_chromium_packet_writer.h",
+      "quic/quic_client_session_cache.cc",
+      "quic/quic_client_session_cache.h",
       "quic/quic_clock_skew_detector.cc",
       "quic/quic_clock_skew_detector.h",
       "quic/quic_connection_logger.cc",
@@ -1103,8 +1112,6 @@ component("net") {
       "url_request/url_request_filter.h",
       "url_request/url_request_http_job.cc",
       "url_request/url_request_http_job.h",
-      "url_request/url_request_intercepting_job_factory.cc",
-      "url_request/url_request_intercepting_job_factory.h",
       "url_request/url_request_interceptor.cc",
       "url_request/url_request_interceptor.h",
       "url_request/url_request_job.cc",
@@ -1330,6 +1337,10 @@ component("net") {
         "proxy_resolution/proxy_config_service_win.h",
         "proxy_resolution/proxy_resolver_winhttp.cc",
         "proxy_resolution/proxy_resolver_winhttp.h",
+        "proxy_resolution/win/windows_system_proxy_resolution_request.cc",
+        "proxy_resolution/win/windows_system_proxy_resolution_request.h",
+        "proxy_resolution/win/windows_system_proxy_resolution_service.cc",
+        "proxy_resolution/win/windows_system_proxy_resolution_service.h",
         "socket/tcp_socket_win.cc",
         "socket/tcp_socket_win.h",
         "socket/udp_socket_win.cc",
@@ -1452,6 +1463,7 @@ component("net") {
     }
 
     if (is_fuchsia) {
+      public_deps += [ "//third_party/fuchsia-sdk/sdk/fidl/fuchsia.netstack" ]
       sources += [
         "base/network_change_notifier_fuchsia.cc",
         "base/network_change_notifier_fuchsia.h",
@@ -1643,6 +1655,11 @@ component("net") {
       sources += [ "filter/brotli_source_stream_disabled.cc" ]
     }
   }
+
+  if (!is_debug && !optimize_for_size) {
+    configs -= [ "//build/config/compiler:default_optimization" ]
+    configs += [ "//build/config/compiler:optimize_max" ]
+  }
 }
 
 # net_export.h has its own build target so that code (eg
@@ -1697,9 +1714,9 @@ source_set("net_deps") {
 
     if (is_fuchsia) {
       public_deps += [
-        "//third_party/fuchsia-sdk/sdk:fuchsia-hardware-ethernet",
-        "//third_party/fuchsia-sdk/sdk:fuchsia-netstack",
-        "//third_party/fuchsia-sdk/sdk:sys_cpp",
+        "//third_party/fuchsia-sdk/sdk/fidl/fuchsia.hardware.ethernet",
+        "//third_party/fuchsia-sdk/sdk/fidl/fuchsia.netstack",
+        "//third_party/fuchsia-sdk/sdk/pkg/sys_cpp",
       ]
     }
 
@@ -2125,6 +2142,8 @@ static_library("test_support") {
     "proxy_resolution/proxy_config_service_common_unittest.h",
     "quic/quic_test_packet_printer.cc",
     "quic/quic_test_packet_printer.h",
+    "socket/read_buffering_stream_socket.cc",
+    "socket/read_buffering_stream_socket.h",
     "socket/socket_test_util.cc",
     "socket/socket_test_util.h",
     "spdy/spdy_test_util_common.cc",
@@ -2580,9 +2599,6 @@ source_set("spdy_test_tools") {
     "//testing/gmock",
     "//testing/gtest",
   ]
-  public_deps = [ "//net/third_party/quiche:spdy_test_tools_core" ]
-  allow_circular_includes_from =
-      [ "//net/third_party/quiche:spdy_test_tools_core" ]
 }
 
 source_set("quiche_test_tools") {
@@ -4117,6 +4133,7 @@ test("net_unittests") {
     "base/ip_address_unittest.cc",
     "base/ip_endpoint_unittest.cc",
     "base/ip_pattern_unittest.cc",
+    "base/isolation_info_unittest.cc",
     "base/lookup_string_in_fixed_set_unittest.cc",
     "base/mime_sniffer_unittest.cc",
     "base/mime_util_unittest.cc",
@@ -4133,7 +4150,7 @@ test("net_unittests") {
     "base/priority_queue_unittest.cc",
     "base/registry_controlled_domains/registry_controlled_domain_unittest.cc",
     "base/scheme_host_port_matcher_rule_unittest.cc",
-    "base/static_cookie_policy_unittest.cc",
+    "base/scheme_host_port_matcher_unittest.cc",
     "base/test_completion_callback_unittest.cc",
     "base/test_proxy_delegate.cc",
     "base/test_proxy_delegate.h",
@@ -4201,6 +4218,7 @@ test("net_unittests") {
     "cookies/cookie_util_unittest.cc",
     "cookies/parsed_cookie_unittest.cc",
     "cookies/site_for_cookies_unittest.cc",
+    "cookies/static_cookie_policy_unittest.cc",
     "der/encode_values_unittest.cc",
     "der/input_unittest.cc",
     "der/parse_values_unittest.cc",
@@ -4269,6 +4287,7 @@ test("net_unittests") {
     "http/http_vary_data_unittest.cc",
     "http/mock_allow_http_auth_preferences.cc",
     "http/mock_allow_http_auth_preferences.h",
+    "http/structured_headers_unittest.cc",
     "http/transport_security_persister_unittest.cc",
     "http/transport_security_state_unittest.cc",
     "http/url_security_manager_unittest.cc",
@@ -4293,6 +4312,7 @@ test("net_unittests") {
     "nqe/observation_buffer_unittest.cc",
     "nqe/socket_watcher_unittest.cc",
     "nqe/throughput_analyzer_unittest.cc",
+    "proxy_resolution/configured_proxy_resolution_service_unittest.cc",
     "proxy_resolution/multi_threaded_proxy_resolver_unittest.cc",
     "proxy_resolution/network_delegate_error_observer_unittest.cc",
     "proxy_resolution/pac_file_decider_unittest.cc",
@@ -4301,7 +4321,6 @@ test("net_unittests") {
     "proxy_resolution/proxy_config_unittest.cc",
     "proxy_resolution/proxy_info_unittest.cc",
     "proxy_resolution/proxy_list_unittest.cc",
-    "proxy_resolution/proxy_resolution_service_unittest.cc",
     "proxy_resolution/proxy_server_unittest.cc",
     "quic/bidirectional_stream_quic_impl_unittest.cc",
     "quic/crypto/proof_test_chromium.cc",
@@ -4319,6 +4338,7 @@ test("net_unittests") {
     "quic/quic_chromium_client_session_test.cc",
     "quic/quic_chromium_client_stream_test.cc",
     "quic/quic_chromium_connection_helper_test.cc",
+    "quic/quic_client_session_cache_unittests.cc",
     "quic/quic_clock_skew_detector_test.cc",
     "quic/quic_connectivity_probing_manager_test.cc",
     "quic/quic_end_to_end_unittest.cc",
@@ -4447,10 +4467,6 @@ test("net_unittests") {
     ]
   }
 
-  if (is_ios) {
-    sources += [ "cert/cert_verify_proc_ios_unittest.cc" ]
-  }
-
   if (is_linux) {
     sources += [
       "base/address_tracker_linux_unittest.cc",
@@ -4481,6 +4497,7 @@ test("net_unittests") {
       "proxy_resolution/dhcp_pac_file_adapter_fetcher_win_unittest.cc",
       "proxy_resolution/dhcp_pac_file_fetcher_win_unittest.cc",
       "proxy_resolution/proxy_config_service_win_unittest.cc",
+      "proxy_resolution/win/windows_system_proxy_resolution_service_unittest.cc",
       "ssl/client_cert_store_win_unittest.cc",
       "ssl/ssl_platform_key_win_unittest.cc",
     ]
@@ -4501,16 +4518,18 @@ test("net_unittests") {
     "//base",
     "//base:i18n",
     "//base/third_party/dynamic_annotations",
+    "//components/sqlite_proto",
     "//crypto",
     "//crypto:platform",
     "//crypto:test_support",
     "//net/base/registry_controlled_domains",
+    "//net/base/registry_controlled_domains:lookup_strings_test_sets",
     "//net/dns:tests",
+    "//net/dns/public:tests",
     "//net/http:transport_security_state_unittest_data",
     "//net/http:transport_security_state_unittest_data_default",
     "//net/third_party/quiche:quiche_tests",
     "//net/tools/huffman_trie:huffman_trie_generator_sources",
-    "//net/trust_tokens:tests",
     "//sql",
     "//testing/gmock",
     "//testing/gtest",
@@ -4560,16 +4579,16 @@ test("net_unittests") {
 
   if (is_linux || is_mac || is_win || is_fuchsia) {
     deps += [
-      "//third_party/pywebsocket/",
+      "//third_party/pywebsocket3/",
       "//third_party/tlslite/",
     ]
     data_deps += [
-      "//third_party/pywebsocket/",
+      "//third_party/pywebsocket3/",
       "//third_party/tlslite/",
     ]
     data += [
       "tools/testserver/",
-      "//third_party/pywebsocket/src/mod_pywebsocket/",
+      "//third_party/pywebsocket3/src/mod_pywebsocket/",
       "//third_party/tlslite/",
     ]
   }
@@ -4612,8 +4631,8 @@ test("net_unittests") {
   if (is_fuchsia) {
     use_test_server = true
     deps += [
-      "//third_party/fuchsia-sdk/sdk:fidl_cpp",
-      "//third_party/fuchsia-sdk/sdk:fuchsia-netstack",
+      "//third_party/fuchsia-sdk/sdk/fidl/fuchsia.netstack",
+      "//third_party/fuchsia-sdk/sdk/pkg/fidl_cpp",
     ]
     sources += [ "base/network_change_notifier_fuchsia_unittest.cc" ]
   }
@@ -4993,6 +5012,17 @@ fuzzer_test("net_get_domain_and_registry_fuzzer") {
   dict = "data/fuzzer_dictionaries/net_get_domain_and_registry_fuzzer.dict"
 }
 
+fuzzer_test("net_lookup_string_in_fixed_set_fuzzer") {
+  sources = [ "base/lookup_string_in_fixed_set_fuzzer.cc" ]
+  deps = [
+    ":net_fuzzer_test_support",
+    "//base",
+    "//net",
+    "//net/base/registry_controlled_domains:lookup_strings_test_sets",
+  ]
+  dict = "data/fuzzer_dictionaries/net_get_domain_and_registry_fuzzer.dict"
+}
+
 fuzzer_test("net_cert_ct_decode_signed_certificate_timestamp_fuzzer") {
   sources = [ "cert/decode_signed_certificate_timestamp_fuzzer.cc" ]
   deps = [
@@ -5290,8 +5320,8 @@ fuzzer_test("net_http_auth_handler_basic_fuzzer") {
   dict = "data/fuzzer_dictionaries/net_http_auth_handler_basic_fuzzer.dict"
   deps = [
     ":net_fuzzer_test_support",
+    ":test_support",
     "//net",
-    "//net/dns:test_support",
   ]
 }
 
@@ -5300,8 +5330,8 @@ fuzzer_test("net_http_auth_handler_digest_fuzzer") {
   dict = "data/fuzzer_dictionaries/net_http_auth_handler_digest_fuzzer.dict"
   deps = [
     ":net_fuzzer_test_support",
+    ":test_support",
     "//net",
-    "//net/dns:test_support",
   ]
 }
 
@@ -5323,6 +5353,17 @@ fuzzer_test("net_http_proxy_client_socket_fuzzer") {
     "//net",
   ]
   dict = "data/fuzzer_dictionaries/net_http_proxy_client_socket_fuzzer.dict"
+}
+
+fuzzer_test("net_structured_headers_fuzzer") {
+  sources = [ "http/structured_headers_fuzzer.cc" ]
+  deps = [
+    ":net_fuzzer_test_support",
+    ":test_support",
+    "//base",
+    "//net",
+  ]
+  seed_corpus = "data/fuzzer_data/structured_headers_corpus"
 }
 
 fuzzer_test("net_parse_url_hostname_to_address_fuzzer") {

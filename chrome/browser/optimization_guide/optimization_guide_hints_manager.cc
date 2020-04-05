@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
@@ -15,6 +16,7 @@
 #include "base/rand_util.h"
 #include "base/sequenced_task_runner.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "base/task_runner_util.h"
 #include "base/time/default_clock.h"
 #include "chrome/browser/browser_process.h"
@@ -165,16 +167,20 @@ bool IsOptimizationTypeSupportedByPageHint(
     if (optimization_metadata) {
       switch (optimization.metadata_case()) {
         case optimization_guide::proto::Optimization::kPreviewsMetadata:
-          optimization_metadata->previews_metadata =
-              optimization.previews_metadata();
+          optimization_metadata->set_previews_metadata(
+              optimization.previews_metadata());
           break;
         case optimization_guide::proto::Optimization::kPerformanceHintsMetadata:
-          optimization_metadata->performance_hints_metadata =
-              optimization.performance_hints_metadata();
+          optimization_metadata->set_performance_hints_metadata(
+              optimization.performance_hints_metadata());
           break;
         case optimization_guide::proto::Optimization::kPublicImageMetadata:
-          optimization_metadata->public_image_metadata =
-              optimization.public_image_metadata();
+          optimization_metadata->set_public_image_metadata(
+              optimization.public_image_metadata());
+          break;
+        case optimization_guide::proto::Optimization::kLoadingPredictorMetadata:
+          optimization_metadata->set_loading_predictor_metadata(
+              optimization.loading_predictor_metadata());
           break;
         case optimization_guide::proto::Optimization::METADATA_NOT_SET:
           // Some optimization types do not have metadata, make sure we do not
@@ -200,6 +206,10 @@ class ScopedHintsManagerRaceNavigationHintsFetchAttemptRecorder {
   ~ScopedHintsManagerRaceNavigationHintsFetchAttemptRecorder() {
     DCHECK_NE(race_attempt_status_,
               optimization_guide::RaceNavigationFetchAttemptStatus::kUnknown);
+    DCHECK_NE(
+        race_attempt_status_,
+        optimization_guide::RaceNavigationFetchAttemptStatus::
+            kDeprecatedRaceNavigationFetchNotAttemptedTooManyConcurrentFetches);
     base::UmaHistogramEnumeration(
         "OptimizationGuide.HintsManager.RaceNavigationFetchAttemptStatus",
         race_attempt_status_);
@@ -228,9 +238,8 @@ OptimizationGuideHintsManager::OptimizationGuideHintsManager(
     optimization_guide::TopHostProvider* top_host_provider,
     scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory)
     : optimization_guide_service_(optimization_guide_service),
-      background_task_runner_(
-          base::CreateSequencedTaskRunner({base::ThreadPool(), base::MayBlock(),
-                                           base::TaskPriority::BEST_EFFORT})),
+      background_task_runner_(base::ThreadPool::CreateSequencedTaskRunner(
+          {base::MayBlock(), base::TaskPriority::BEST_EFFORT})),
       profile_(profile),
       pref_service_(pref_service),
       hint_cache_(std::make_unique<optimization_guide::HintCache>(
@@ -239,6 +248,8 @@ OptimizationGuideHintsManager::OptimizationGuideHintsManager(
               profile_path.AddExtensionASCII(
                   optimization_guide::kOptimizationGuideHintStore),
               background_task_runner_))),
+      page_navigation_hints_fetchers_(
+          optimization_guide::features::MaxConcurrentPageNavigationFetches()),
       hints_fetcher_factory_(
           std::make_unique<optimization_guide::HintsFetcherFactory>(
               url_loader_factory,
@@ -571,7 +582,8 @@ void OptimizationGuideHintsManager::OnTopHostsHintsFetched(
   if (get_hints_response) {
     hint_cache_->UpdateFetchedHints(
         std::move(*get_hints_response),
-        clock_->Now() + kUpdateFetchedHintsDelay, base::nullopt,
+        clock_->Now() + kUpdateFetchedHintsDelay,
+        /*urls_fetched=*/{},
         base::BindOnce(
             &OptimizationGuideHintsManager::OnFetchedTopHostsHintsStored,
             ui_weak_ptr_factory_.GetWeakPtr()));
@@ -587,25 +599,27 @@ void OptimizationGuideHintsManager::OnTopHostsHintsFetched(
 }
 
 void OptimizationGuideHintsManager::OnPageNavigationHintsFetched(
+    base::WeakPtr<OptimizationGuideNavigationData> navigation_data_weak_ptr,
     const base::Optional<GURL>& navigation_url,
+    const base::flat_set<GURL>& page_navigation_urls_requested,
     const base::flat_set<std::string>& page_navigation_hosts_requested,
     base::Optional<std::unique_ptr<optimization_guide::proto::GetHintsResponse>>
         get_hints_response) {
   if (!get_hints_response.has_value() || !get_hints_response.value()) {
     if (navigation_url) {
+      CleanUpFetcherForNavigation(*navigation_url);
       PrepareToInvokeRegisteredCallbacks(*navigation_url);
-      page_navigation_hints_fetchers_.erase(*navigation_url);
     }
     return;
   }
 
   hint_cache_->UpdateFetchedHints(
       std::move(*get_hints_response), clock_->Now() + kUpdateFetchedHintsDelay,
-      navigation_url,
+      page_navigation_urls_requested,
       base::BindOnce(
           &OptimizationGuideHintsManager::OnFetchedPageNavigationHintsStored,
-          ui_weak_ptr_factory_.GetWeakPtr(), navigation_url,
-          page_navigation_hosts_requested));
+          ui_weak_ptr_factory_.GetWeakPtr(), navigation_data_weak_ptr,
+          navigation_url, page_navigation_hosts_requested));
 }
 
 void OptimizationGuideHintsManager::OnFetchedTopHostsHintsStored() {
@@ -621,13 +635,18 @@ void OptimizationGuideHintsManager::OnFetchedTopHostsHintsStored() {
 }
 
 void OptimizationGuideHintsManager::OnFetchedPageNavigationHintsStored(
+    base::WeakPtr<OptimizationGuideNavigationData> navigation_data_weak_ptr,
     const base::Optional<GURL>& navigation_url,
     const base::flat_set<std::string>& page_navigation_hosts_requested) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
+  if (navigation_data_weak_ptr) {
+    navigation_data_weak_ptr->set_hints_fetch_end(base::TimeTicks::Now());
+  }
+
   if (navigation_url) {
+    CleanUpFetcherForNavigation(*navigation_url);
     PrepareToInvokeRegisteredCallbacks(*navigation_url);
-    page_navigation_hints_fetchers_.erase(*navigation_url);
   }
 
   for (const auto& host : page_navigation_hosts_requested)
@@ -635,9 +654,16 @@ void OptimizationGuideHintsManager::OnFetchedPageNavigationHintsStored(
 }
 
 bool OptimizationGuideHintsManager::IsHintBeingFetchedForNavigation(
-    const GURL& navigation_url) const {
-  return page_navigation_hints_fetchers_.find(navigation_url) !=
+    const GURL& navigation_url) {
+  return page_navigation_hints_fetchers_.Get(navigation_url) !=
          page_navigation_hints_fetchers_.end();
+}
+
+void OptimizationGuideHintsManager::CleanUpFetcherForNavigation(
+    const GURL& navigation_url) {
+  auto it = page_navigation_hints_fetchers_.Peek(navigation_url);
+  if (it != page_navigation_hints_fetchers_.end())
+    page_navigation_hints_fetchers_.Erase(it);
 }
 
 base::Time OptimizationGuideHintsManager::GetLastHintsFetchAttemptTime() const {
@@ -698,7 +724,7 @@ bool OptimizationGuideHintsManager::IsGoogleURL(const GURL& url) const {
 }
 
 void OptimizationGuideHintsManager::OnPredictionUpdated(
-    const base::Optional<NavigationPredictorKeyedService::Prediction>&
+    const base::Optional<NavigationPredictorKeyedService::Prediction>
         prediction) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
@@ -708,17 +734,27 @@ void OptimizationGuideHintsManager::OnPredictionUpdated(
   if (!prediction.has_value())
     return;
 
-  const GURL& source_document_url = prediction->source_document_url();
+  if (prediction->prediction_source() !=
+      NavigationPredictorKeyedService::PredictionSource::
+          kAnchorElementsParsedFromWebPage) {
+    return;
+  }
 
-  // We only extract next predicted navigations from Google URLs.
-  if (!IsGoogleURL(source_document_url))
+  const base::Optional<GURL>& source_document_url =
+      prediction->source_document_url();
+  if (!source_document_url || source_document_url->is_empty())
     return;
 
-  // Extract the target hosts. Use a flat set to remove duplicates.
+  // We only extract next predicted navigations from Google URLs.
+  if (!IsGoogleURL(source_document_url.value()))
+    return;
+
+  // Extract the target hosts and URLs. Use a flat set to remove duplicates.
   // |target_hosts_serialized| is the ordered list of non-duplicate hosts.
   // TODO(sophiechang): See if we can make this logic simpler.
   base::flat_set<std::string> target_hosts;
   std::vector<std::string> target_hosts_serialized;
+  std::vector<GURL> target_urls;
   for (const auto& url : prediction->sorted_predicted_urls()) {
     if (!IsAllowedToFetchNavigationHints(url))
       continue;
@@ -733,12 +769,16 @@ void OptimizationGuideHintsManager::OnPredictionUpdated(
 
     // Ensure that the 2 data structures remain synchronized.
     DCHECK_EQ(target_hosts.size(), target_hosts_serialized.size());
+
+    if (!hint_cache_->HasURLKeyedEntryForURL(url))
+      target_urls.push_back(url);
   }
 
-  if (target_hosts.empty())
+  if (target_hosts.empty() && target_urls.empty())
     return;
 
   if (!batch_update_hints_fetcher_) {
+    DCHECK(hints_fetcher_factory_);
     batch_update_hints_fetcher_ = hints_fetcher_factory_->BuildInstance();
   }
 
@@ -746,16 +786,13 @@ void OptimizationGuideHintsManager::OnPredictionUpdated(
   // not fetching for the current navigation, even though we are fetching using
   // the page navigation context. However, since we do want to load the hints
   // returned, we pass this through to the page navigation callback.
-  //
-  // TODO(crbug/1041693): Add support for URL-keyed hints fetch from the
-  // search results page.
   batch_update_hints_fetcher_->FetchOptimizationGuideServiceHints(
-      target_hosts_serialized, std::vector<GURL>{},
-      registered_optimization_types_,
-      optimization_guide::proto::CONTEXT_PAGE_NAVIGATION,
+      target_hosts_serialized, target_urls, registered_optimization_types_,
+      optimization_guide::proto::CONTEXT_BATCH_UPDATE,
       base::BindOnce(
           &OptimizationGuideHintsManager::OnPageNavigationHintsFetched,
-          ui_weak_ptr_factory_.GetWeakPtr(), base::nullopt, target_hosts));
+          ui_weak_ptr_factory_.GetWeakPtr(), nullptr, base::nullopt,
+          target_urls, target_hosts));
 
   for (const auto& host : target_hosts)
     LoadHintForHost(host, base::DoNothing());
@@ -888,9 +925,9 @@ void OptimizationGuideHintsManager::CanApplyOptimizationAsync(
       GetOptimizationGuideDecisionFromOptimizationTypeDecision(type_decision);
   // It's possible that a hint that applies to |navigation_url| will come in
   // later, so only run the callback if we are sure we can apply the decision.
-  // Also return early if the decision came from an optimization filter.
   if (decision == optimization_guide::OptimizationGuideDecision::kTrue ||
-      HasLoadedOptimizationFilter(optimization_type)) {
+      HasAllInformationForDecisionAvailable(navigation_url,
+                                            optimization_type)) {
     base::UmaHistogramEnumeration(
         "OptimizationGuide.ApplyDecisionAsync." +
             optimization_guide::GetStringNameForOptimizationType(
@@ -928,23 +965,6 @@ OptimizationGuideHintsManager::CanApplyOptimization(
   if (!url.has_host())
     return optimization_guide::OptimizationTypeDecision::kNoHintAvailable;
   const auto& host = url.host();
-
-  // Check if we have a hint already loaded for this navigation.
-  const optimization_guide::proto::Hint* loaded_hint =
-      hint_cache_->GetHostKeyedHintIfLoaded(host);
-  bool has_hint_in_cache = hint_cache_->HasHint(host);
-  const optimization_guide::proto::PageHint* matched_page_hint =
-      loaded_hint ? GetPageHint(navigation_data, url, loaded_hint) : nullptr;
-
-  // Populate navigation data with hint information, if provided.
-  if (navigation_data) {
-    navigation_data->set_has_hint_after_commit(has_hint_in_cache);
-
-    if (loaded_hint) {
-      navigation_data->set_serialized_hint_version_string(
-          loaded_hint->version());
-    }
-  }
 
   // Check if the URL should be filtered out if we have an optimization filter
   // for the type.
@@ -984,11 +1004,14 @@ OptimizationGuideHintsManager::CanApplyOptimization(
     }
   }
 
+  // Check if we have a hint already loaded for this navigation.
+  const optimization_guide::proto::Hint* loaded_hint =
+      hint_cache_->GetHostKeyedHintIfLoaded(host);
   if (!loaded_hint) {
     // If we do not have a hint already loaded and we do not have one in the
     // cache, we do not know what to do with the URL so just return.
     // Otherwise, we do have information, but we just do not know it yet.
-    if (has_hint_in_cache) {
+    if (hint_cache_->HasHint(host)) {
       return optimization_guide::OptimizationTypeDecision::
           kHadHintButNotLoadedInTime;
     }
@@ -1001,6 +1024,8 @@ OptimizationGuideHintsManager::CanApplyOptimization(
     return optimization_guide::OptimizationTypeDecision::kNoHintAvailable;
   }
 
+  const optimization_guide::proto::PageHint* matched_page_hint =
+      loaded_hint ? GetPageHint(navigation_data, url, loaded_hint) : nullptr;
   return IsOptimizationTypeSupportedByPageHint(
              matched_page_hint, optimization_type, optimization_metadata)
              ? optimization_guide::OptimizationTypeDecision::kAllowedByHint
@@ -1094,9 +1119,9 @@ void OptimizationGuideHintsManager::OnNavigationStartOrRedirect(
     return;
   }
 
-  MaybeFetchHintsForNavigation(navigation_handle);
-
   LoadHintForNavigation(navigation_handle, std::move(callback));
+
+  MaybeFetchHintsForNavigation(navigation_handle);
 }
 
 void OptimizationGuideHintsManager::MaybeFetchHintsForNavigation(
@@ -1122,14 +1147,14 @@ void OptimizationGuideHintsManager::MaybeFetchHintsForNavigation(
     return;
   }
 
+  OptimizationGuideNavigationData* navigation_data =
+      OptimizationGuideNavigationData::GetFromNavigationHandle(
+          navigation_handle);
+
   std::vector<std::string> hosts;
   std::vector<GURL> urls;
   if (!hint_cache_->HasHint(url.host())) {
     hosts.push_back(url.host());
-
-    OptimizationGuideNavigationData* navigation_data =
-        OptimizationGuideNavigationData::GetFromNavigationHandle(
-            navigation_handle);
     navigation_data->set_was_hint_for_host_attempted_to_be_fetched(true);
     race_navigation_recorder.set_race_attempt_status(
         optimization_guide::RaceNavigationFetchAttemptStatus::
@@ -1150,28 +1175,22 @@ void OptimizationGuideHintsManager::MaybeFetchHintsForNavigation(
     return;
   }
 
-  if (page_navigation_hints_fetchers_.size() >=
-      optimization_guide::features::MaxConcurrentPageNavigationFetches()) {
-    race_navigation_recorder.set_race_attempt_status(
-        optimization_guide::RaceNavigationFetchAttemptStatus::
-            kRaceNavigationFetchNotAttemptedTooManyConcurrentFetches);
-    return;
-  }
-
   DCHECK(hints_fetcher_factory_);
-  page_navigation_hints_fetchers_[url] =
-      hints_fetcher_factory_->BuildInstance();
+  auto it = page_navigation_hints_fetchers_.Put(
+      url, hints_fetcher_factory_->BuildInstance());
 
   UMA_HISTOGRAM_COUNTS_100(
       "OptimizationGuide.HintsManager.ConcurrentPageNavigationFetches",
       page_navigation_hints_fetchers_.size());
 
-  page_navigation_hints_fetchers_.at(url)->FetchOptimizationGuideServiceHints(
+  navigation_data->set_hints_fetch_start(base::TimeTicks::Now());
+  it->second->FetchOptimizationGuideServiceHints(
       hosts, urls, registered_optimization_types_,
       optimization_guide::proto::CONTEXT_PAGE_NAVIGATION,
       base::BindOnce(
           &OptimizationGuideHintsManager::OnPageNavigationHintsFetched,
-          ui_weak_ptr_factory_.GetWeakPtr(), url,
+          ui_weak_ptr_factory_.GetWeakPtr(), navigation_data->GetWeakPtr(), url,
+          base::flat_set<GURL>({url}),
           base::flat_set<std::string>({url.host()})));
 
   if (!hosts.empty() && !urls.empty()) {
@@ -1182,15 +1201,71 @@ void OptimizationGuideHintsManager::MaybeFetchHintsForNavigation(
 }
 
 void OptimizationGuideHintsManager::OnNavigationFinish(
-    const GURL& navigation_url) {
+    const std::vector<GURL>& navigation_redirect_chain,
+    OptimizationGuideNavigationData* navigation_data) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+
+  // Populate navigation data with hint information.
+  const GURL navigation_url = navigation_redirect_chain.back();
+  if (navigation_data && navigation_url.has_host()) {
+    const std::string host = navigation_url.host();
+    navigation_data->set_has_hint_after_commit(hint_cache_->HasHint(host));
+
+    const optimization_guide::proto::Hint* loaded_hint =
+        hint_cache_->GetHostKeyedHintIfLoaded(host);
+    if (loaded_hint) {
+      navigation_data->set_serialized_hint_version_string(
+          loaded_hint->version());
+    }
+  }
 
   // The callbacks will be invoked when the fetch request comes back, so it
   // will be cleaned up later.
-  if (IsHintBeingFetchedForNavigation(navigation_url))
-    return;
+  for (const auto& url : navigation_redirect_chain) {
+    if (IsHintBeingFetchedForNavigation(url))
+      continue;
 
-  PrepareToInvokeRegisteredCallbacks(navigation_url);
+    PrepareToInvokeRegisteredCallbacks(url);
+  }
+}
+
+bool OptimizationGuideHintsManager::HasAllInformationForDecisionAvailable(
+    const GURL& navigation_url,
+    optimization_guide::proto::OptimizationType optimization_type) {
+  if (HasLoadedOptimizationFilter(optimization_type)) {
+    // If we have an optimization filter for the optimization type, it is
+    // consulted instead of any hints that may be available.
+    return true;
+  }
+
+  bool has_host_keyed_hint = hint_cache_->HasHint(navigation_url.host());
+  const auto* host_keyed_hint =
+      hint_cache_->GetHostKeyedHintIfLoaded(navigation_url.host());
+  if (has_host_keyed_hint && host_keyed_hint == nullptr) {
+    // If we have a host-keyed hint in the cache and it is not loaded, we do not
+    // have all information available, regardless of whether we can fetch hints
+    // or not.
+    return false;
+  }
+
+  if (!IsAllowedToFetchNavigationHints(navigation_url)) {
+    // If we are not allowed to fetch hints for the navigation, we have all
+    // information available if the host-keyed hint we have has been loaded
+    // already or we don't have a hint available.
+    return host_keyed_hint != nullptr || !has_host_keyed_hint;
+  }
+
+  if (IsHintBeingFetchedForNavigation(navigation_url)) {
+    // If a hint is being fetched for the navigation, then we do not have all
+    // information available yet.
+    return false;
+  }
+
+  // If we are allowed to fetch hints for the navigation, we only have all
+  // information available for certain if we have attempted to get the URL-keyed
+  // hint and if the host-keyed hint is loaded.
+  return hint_cache_->HasURLKeyedEntryForURL(navigation_url) &&
+         host_keyed_hint != nullptr;
 }
 
 void OptimizationGuideHintsManager::ClearFetchedHints() {

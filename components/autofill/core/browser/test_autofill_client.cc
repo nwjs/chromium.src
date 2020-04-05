@@ -215,7 +215,7 @@ base::span<const Suggestion> TestAutofillClient::GetPopupSuggestions() const {
   return base::span<const Suggestion>();
 }
 
-void TestAutofillClient::PinPopupViewUntilUpdate() {}
+void TestAutofillClient::PinPopupView() {}
 
 void TestAutofillClient::UpdatePopup(const std::vector<Suggestion>& suggestions,
                                      autofill::PopupType popup_type) {}
@@ -267,10 +267,6 @@ void TestAutofillClient::set_form_origin(const GURL& url) {
 
 ukm::TestUkmRecorder* TestAutofillClient::GetTestUkmRecorder() {
   return &test_ukm_recorder_;
-}
-
-SmsClient* TestAutofillClient::GetSmsClient() {
-  return &mock_sms_client_;
 }
 
 }  // namespace autofill

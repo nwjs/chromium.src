@@ -81,12 +81,6 @@ cr.define('settings', function() {
       /** @private */
       showClearBrowsingDataDialog_: Boolean,
 
-      /** @private */
-      showDoNotTrackDialog_: {
-        type: Boolean,
-        value: false,
-      },
-
       /**
        * Used for HTML bindings. This is defined as a property rather than
        * within the ready callback, because the value needs to be available
@@ -116,6 +110,18 @@ cr.define('settings', function() {
       },
 
       /**
+       * Whether the secure DNS setting should be displayed.
+       * @private
+       */
+      showSecureDnsSetting_: {
+        type: Boolean,
+        readOnly: true,
+        value: function() {
+          return loadTimeData.getBoolean('showSecureDnsSetting');
+        },
+      },
+
+      /**
        * Whether the more settings list is opened.
        * @private
        */
@@ -123,6 +129,9 @@ cr.define('settings', function() {
         type: Boolean,
         value: false,
       },
+
+      /** @private */
+      cookieSettingDescription_: String,
 
       /** @private */
       enableBlockAutoplayContentSetting_: {
@@ -191,6 +200,13 @@ cr.define('settings', function() {
       },
 
       /** @private */
+      enableWebBluetoothNewPermissionsBackend_: {
+        type: Boolean,
+        value: () =>
+            loadTimeData.getBoolean('enableWebBluetoothNewPermissionsBackend'),
+      },
+
+      /** @private */
       enableWebXrContentSetting_: {
         type: Boolean,
         value: () => loadTimeData.getBoolean('enableWebXrContentSetting'),
@@ -201,28 +217,52 @@ cr.define('settings', function() {
         type: Object,
         value() {
           const map = new Map();
-          // <if expr="use_nss_certs">
-          if (settings.routes.CERTIFICATES) {
-            map.set(settings.routes.CERTIFICATES.path, '#manageCertificates');
-          }
-          // </if>
-          if (settings.routes.SITE_SETTINGS) {
-            map.set(
-                settings.routes.SITE_SETTINGS.path,
-                '#site-settings-subpage-trigger');
+
+          if (this.privacySettingsRedesignEnabled_) {
+            if (settings.routes.SECURITY) {
+              map.set(settings.routes.SECURITY.path, '#securityLinkRow');
+            }
+
+            if (settings.routes.COOKIES) {
+              map.set(
+                  `${settings.routes.COOKIES.path}_${
+                      settings.routes.PRIVACY.path}`,
+                  '#cookiesLinkRow');
+              map.set(
+                  `${settings.routes.COOKIES.path}_${
+                      settings.routes.BASIC.path}`,
+                  '#cookiesLinkRow');
+            }
+
+            if (settings.routes.SITE_SETTINGS) {
+              map.set(
+                  settings.routes.SITE_SETTINGS.path, '#permissionsLinkRow');
+            }
+          } else {
+            // <if expr="use_nss_certs">
+            if (settings.routes.CERTIFICATES) {
+              map.set(settings.routes.CERTIFICATES.path, '#manageCertificates');
+            }
+            // </if>
+            if (settings.routes.SITE_SETTINGS) {
+              map.set(
+                  settings.routes.SITE_SETTINGS.path,
+                  '#site-settings-subpage-trigger');
+            }
+
+            if (settings.routes.SITE_SETTINGS_SITE_DATA) {
+              map.set(
+                  settings.routes.SITE_SETTINGS_SITE_DATA.path,
+                  '#site-data-trigger');
+            }
+
+            if (settings.routes.SECURITY_KEYS) {
+              map.set(
+                  settings.routes.SECURITY_KEYS.path,
+                  '#security-keys-subpage-trigger');
+            }
           }
 
-          if (settings.routes.SITE_SETTINGS_SITE_DATA) {
-            map.set(
-                settings.routes.SITE_SETTINGS_SITE_DATA.path,
-                '#site-data-trigger');
-          }
-
-          if (settings.routes.SECURITY_KEYS) {
-            map.set(
-                settings.routes.SECURITY_KEYS.path,
-                '#security-keys-subpage-trigger');
-          }
           return map;
         },
       },
@@ -237,6 +277,9 @@ cr.define('settings', function() {
     observers: [
       'onSafeBrowsingReportingPrefChange_(prefs.safebrowsing.*)',
     ],
+
+    /** @private {?settings.PrivacyPageBrowserProxy} */
+    browserProxy_: null,
 
     /** @override */
     ready() {
@@ -260,6 +303,45 @@ cr.define('settings', function() {
           this.handleSyncStatus_.bind(this));
       this.addWebUIListener(
           'sync-status-changed', this.handleSyncStatus_.bind(this));
+
+      settings.SiteSettingsPrefsBrowserProxyImpl.getInstance()
+          .getCookieSettingDescription()
+          .then(description => this.cookieSettingDescription_ = description);
+      this.addWebUIListener(
+          'cookieSettingDescriptionChanged',
+          description => this.cookieSettingDescription_ = description);
+    },
+
+    /**
+     * @return {Element}
+     * @private
+     */
+    getControlForSiteSettingsSubpage_() {
+      return this.$$(
+          this.privacySettingsRedesignEnabled_ ?
+              '#permissionsLinkRow' :
+              '#site-settings-subpage-trigger');
+    },
+
+    /**
+     * @return {Element}
+     * @private
+     */
+    getControlForCertificatesSubpage_() {
+      return this.$$(
+          this.privacySettingsRedesignEnabled_ ? '#securityLinkRow' :
+                                                 '#manageCertificates');
+    },
+
+    /**
+     * @return {Element}
+     * @private
+     */
+    getControlForSecurityKeysSubpage_() {
+      return this.$$(
+          this.privacySettingsRedesignEnabled_ ?
+              '#securityLinkRow' :
+              '#security-keys-subpage-trigger');
     },
 
     /**
@@ -273,7 +355,7 @@ cr.define('settings', function() {
     /** @private */
     onSafeBrowsingReportingToggleChange_() {
       this.metricsBrowserProxy_.recordSettingsPageHistogram(
-          settings.SettingsPageInteractions.PRIVACY_IMPROVE_SECURITY);
+          settings.PrivacyElementInteractions.IMPROVE_SECURITY);
       this.setPrefValue(
           'safebrowsing.scout_reporting_enabled',
           this.$$('#safeBrowsingReportingToggle').checked);
@@ -313,15 +395,6 @@ cr.define('settings', function() {
           settings.routes.CLEAR_BROWSER_DATA;
     },
 
-    /**
-     * @param {!Event} event
-     * @private
-     */
-    onDoNotTrackDomChange_(event) {
-      if (this.showDoNotTrackDialog_) {
-        this.maybeShowDoNotTrackDialog_();
-      }
-    },
 
     /**
      * Called when the block autoplay status changes.
@@ -350,74 +423,13 @@ cr.define('settings', function() {
      */
     onCanMakePaymentChange_() {
       this.metricsBrowserProxy_.recordSettingsPageHistogram(
-          settings.SettingsPageInteractions.PRIVACY_PAYMENT_METHOD);
-    },
-
-    /**
-     * Handles the change event for the do-not-track toggle. Shows a
-     * confirmation dialog when enabling the setting.
-     * @param {!Event} event
-     * @private
-     */
-    onDoNotTrackChange_(event) {
-      this.metricsBrowserProxy_.recordSettingsPageHistogram(
-          settings.SettingsPageInteractions.PRIVACY_DO_NOT_TRACK);
-      const target = /** @type {!SettingsToggleButtonElement} */ (event.target);
-      if (!target.checked) {
-        // Always allow disabling the pref.
-        target.sendPrefChange();
-        return;
-      }
-      this.showDoNotTrackDialog_ = true;
-      // If the dialog has already been stamped, show it. Otherwise it will be
-      // shown in onDomChange_.
-      this.maybeShowDoNotTrackDialog_();
-    },
-
-    /** @private */
-    maybeShowDoNotTrackDialog_() {
-      const dialog = this.$$('#confirmDoNotTrackDialog');
-      if (dialog && !dialog.open) {
-        dialog.showModal();
-      }
-    },
-
-    /** @private */
-    closeDoNotTrackDialog_() {
-      this.$$('#confirmDoNotTrackDialog').close();
-      this.showDoNotTrackDialog_ = false;
-    },
-
-    /** @private */
-    onDoNotTrackDialogClosed_() {
-      cr.ui.focusWithoutInk(this.$.doNotTrack);
-    },
-
-    /**
-     * Handles the shared proxy confirmation dialog 'Confirm' button.
-     * @private
-     */
-    onDoNotTrackDialogConfirm_() {
-      /** @type {!SettingsToggleButtonElement} */ (this.$.doNotTrack)
-          .sendPrefChange();
-      this.closeDoNotTrackDialog_();
-    },
-
-    /**
-     * Handles the shared proxy confirmation dialog 'Cancel' button or a cancel
-     * event.
-     * @private
-     */
-    onDoNotTrackDialogCancel_() {
-      /** @type {!SettingsToggleButtonElement} */ (this.$.doNotTrack)
-          .resetToPrefValue();
-      this.closeDoNotTrackDialog_();
+          settings.PrivacyElementInteractions.PAYMENT_METHOD);
     },
 
     /** @private */
     onManageCertificatesTap_() {
       this.metricsBrowserProxy_.recordSettingsPageHistogram(
-          settings.SettingsPageInteractions.PRIVACY_MANAGE_CERTIFICATES);
+          settings.PrivacyElementInteractions.MANAGE_CERTIFICATES);
       // <if expr="use_nss_certs">
       settings.Router.getInstance().navigateTo(settings.routes.CERTIFICATES);
       // </if>
@@ -434,7 +446,7 @@ cr.define('settings', function() {
      */
     onNetworkPredictionChange_() {
       this.metricsBrowserProxy_.recordSettingsPageHistogram(
-          settings.SettingsPageInteractions.PRIVACY_NETWORK_PREDICTION);
+          settings.PrivacyElementInteractions.NETWORK_PREDICTION);
     },
 
     /**
@@ -457,37 +469,54 @@ cr.define('settings', function() {
 
     /** @private */
     onSiteSettingsTap_() {
-      this.metricsBrowserProxy_.recordSettingsPageHistogram(
-          settings.SettingsPageInteractions.PRIVACY_SITE_SETTINGS);
       settings.Router.getInstance().navigateTo(settings.routes.SITE_SETTINGS);
     },
 
     /** @private */
     onSafeBrowsingToggleChange_: function() {
       this.metricsBrowserProxy_.recordSettingsPageHistogram(
-          settings.SettingsPageInteractions.PRIVACY_SAFE_BROWSING);
+          settings.PrivacyElementInteractions.SAFE_BROWSING);
     },
 
     /** @private */
     onClearBrowsingDataTap_() {
-      this.metricsBrowserProxy_.recordSettingsPageHistogram(
-          settings.SettingsPageInteractions.PRIVACY_CLEAR_BROWSING_DATA);
+      this.tryShowHatsSurvey_();
+
       settings.Router.getInstance().navigateTo(
           settings.routes.CLEAR_BROWSER_DATA);
     },
 
     /** @private */
+    onCookiesClick_() {
+      this.tryShowHatsSurvey_();
+
+      settings.Router.getInstance().navigateTo(settings.routes.COOKIES);
+    },
+
+    /** @private */
     onDialogClosed_() {
       settings.Router.getInstance().navigateTo(
-          settings.routes.CLEAR_BROWSER_DATA.parent);
-      cr.ui.focusWithoutInk(assert(this.$.clearBrowsingData));
+          assert(settings.routes.CLEAR_BROWSER_DATA.parent));
+      cr.ui.focusWithoutInk(assert(this.$$('#clearBrowsingData')));
+    },
+
+    /** @private */
+    onPermissionsPageClick_() {
+      this.tryShowHatsSurvey_();
+
+      settings.Router.getInstance().navigateTo(settings.routes.SITE_SETTINGS);
     },
 
     /** @private */
     onSecurityKeysTap_() {
-      this.metricsBrowserProxy_.recordSettingsPageHistogram(
-          settings.SettingsPageInteractions.PRIVACY_SECURITY_KEYS);
       settings.Router.getInstance().navigateTo(settings.routes.SECURITY_KEYS);
+    },
+
+    /** @private */
+    onSecurityPageClick_() {
+      this.tryShowHatsSurvey_();
+
+      settings.Router.getInstance().navigateTo(settings.routes.SECURITY);
     },
 
     /** @private */
@@ -501,6 +530,11 @@ cr.define('settings', function() {
       return value ?
           this.i18n('siteSettingsProtectedContentEnableIdentifiers') :
           this.i18n('siteSettingsBlocked');
+    },
+
+    /** @private */
+    tryShowHatsSurvey_() {
+      settings.HatsBrowserProxyImpl.getInstance().tryShowSurvey();
     },
   });
 

@@ -10,6 +10,9 @@
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/fullscreen/fullscreen.h"
+#include "third_party/blink/renderer/core/html/html_body_element.h"
+#include "third_party/blink/renderer/core/layout/layout_embedded_content.h"
+#include "third_party/blink/renderer/core/layout/layout_video.h"
 #include "third_party/blink/renderer/core/layout/layout_view.h"
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/paint/paint_layer.h"
@@ -65,7 +68,7 @@ CompositingReasonFinder::PotentialCompositingReasonsFromStyle(
   if (style.BackfaceVisibility() == EBackfaceVisibility::kHidden)
     reasons |= CompositingReason::kBackfaceVisibilityHidden;
 
-  reasons |= CompositingReasonsForAnimation(style);
+  reasons |= CompositingReasonsForAnimation(layout_object);
   reasons |= CompositingReasonsForWillChange(style);
 
   // If the implementation of CreatesGroup changes, we need to be aware of that
@@ -101,6 +104,26 @@ CompositingReasonFinder::PotentialCompositingReasonsFromStyle(
   return reasons;
 }
 
+static bool ShouldPreferCompositingForLayoutView(
+    const LayoutView& layout_view) {
+  auto has_direct_compositing_reasons = [](const LayoutObject* object) -> bool {
+    return object && CompositingReasonFinder::DirectReasonsForPaintProperties(
+                         *object) != CompositingReason::kNone;
+  };
+  if (has_direct_compositing_reasons(
+          layout_view.GetFrame()->OwnerLayoutObject()))
+    return true;
+  if (auto* document_element = layout_view.GetDocument().documentElement()) {
+    if (has_direct_compositing_reasons(document_element->GetLayoutObject()))
+      return true;
+  }
+  if (auto* body = layout_view.GetDocument().FirstBodyElement()) {
+    if (has_direct_compositing_reasons(body->GetLayoutObject()))
+      return true;
+  }
+  return false;
+}
+
 CompositingReasons CompositingReasonFinder::DirectReasonsForPaintProperties(
     const LayoutObject& object) {
   // TODO(wangxianzhu): Don't depend on PaintLayer for CompositeAfterPaint.
@@ -108,7 +131,7 @@ CompositingReasons CompositingReasonFinder::DirectReasonsForPaintProperties(
     return CompositingReason::kNone;
 
   const ComputedStyle& style = object.StyleRef();
-  auto reasons = CompositingReasonsForAnimation(style) |
+  auto reasons = CompositingReasonsForAnimation(object) |
                  CompositingReasonsForWillChange(style);
 
   if (RequiresCompositingFor3DTransform(object))
@@ -136,7 +159,15 @@ CompositingReasons CompositingReasonFinder::DirectReasonsForPaintProperties(
   if (auto* scrollable_area = layer->GetScrollableArea()) {
     if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled()) {
       bool force_prefer_compositing_to_lcd_text =
-          reasons != CompositingReason::kNone;
+          reasons != CompositingReason::kNone ||
+          // In CompositeAfterPaint though we don't treat hidden backface as
+          // a direct compositing reason, it's very likely that the object will
+          // be composited, and it also indicates preference of compositing,
+          // so we prefer composited scrolling here.
+          style.BackfaceVisibility() == EBackfaceVisibility::kHidden ||
+          (object.IsLayoutView() &&
+           ShouldPreferCompositingForLayoutView(To<LayoutView>(object)));
+
       if (scrollable_area->ComputeNeedsCompositedScrolling(
               force_prefer_compositing_to_lcd_text)) {
         reasons |= CompositingReason::kOverflowScrolling;
@@ -198,15 +229,15 @@ CompositingReasons CompositingReasonFinder::NonStyleDeterminedDirectReasons(
   // into. These children (the controls) always need to be promoted into their
   // own layers to draw on top of the accelerated video.
   if (layer.CompositingContainer() &&
-      layer.CompositingContainer()->GetLayoutObject().IsVideo())
+      IsA<LayoutVideo>(layer.CompositingContainer()->GetLayoutObject()))
     direct_reasons |= CompositingReason::kVideoOverlay;
 
   // Special case for immersive-ar DOM overlay mode, see also
-  // PaintLayerCompositor::ApplyXrImmersiveDomOverlayIfNeeded()
+  // PaintLayerCompositor::GetXrOverlayLayer()
   if (const Node* node = layer.GetLayoutObject().GetNode()) {
-    if (node->IsElementNode() && node->GetDocument().IsImmersiveArOverlay() &&
+    if (node->IsElementNode() && node->GetDocument().IsXrOverlay() &&
         node == Fullscreen::FullscreenElementFrom(node->GetDocument())) {
-      direct_reasons |= CompositingReason::kImmersiveArOverlay;
+      direct_reasons |= CompositingReason::kXrOverlay;
     }
   }
 
@@ -225,12 +256,15 @@ CompositingReasons CompositingReasonFinder::NonStyleDeterminedDirectReasons(
 }
 
 CompositingReasons CompositingReasonFinder::CompositingReasonsForAnimation(
-    const ComputedStyle& style) {
+    const LayoutObject& object) {
   CompositingReasons reasons = CompositingReason::kNone;
+  const auto& style = object.StyleRef();
   if (style.SubtreeWillChangeContents())
     return reasons;
 
-  if (style.HasCurrentTransformAnimation())
+  // Transforms don't apply on non-replaced inline elements.
+  // TODO(crbug.com/666244): Support composited transform animation for SVG.
+  if (object.IsBox() && style.HasCurrentTransformAnimation())
     reasons |= CompositingReason::kActiveTransformAnimation;
   if (style.HasCurrentOpacityAnimation())
     reasons |= CompositingReason::kActiveOpacityAnimation;

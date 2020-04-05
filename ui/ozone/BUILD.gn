@@ -85,6 +85,7 @@ jumbo_component("ozone_base") {
     "public/ozone_switches.cc",
     "public/ozone_switches.h",
     "public/platform_clipboard.h",
+    "public/platform_screen.cc",
     "public/platform_screen.h",
     "public/platform_window_surface.h",
     "public/surface_factory_ozone.cc",
@@ -103,6 +104,7 @@ jumbo_component("ozone_base") {
     "//ipc",
     "//skia",
     "//ui/base/clipboard:clipboard_types",
+    "//ui/base/mojom:cursor_type",
     "//ui/display",
     "//ui/display/types",
     "//ui/display/util",
@@ -126,6 +128,7 @@ jumbo_component("ozone_base") {
     # Everyone should depend on //ui/ozone instead except a handful of
     # things that would otherwise create a cycle.
     "//ui/base",
+    "//ui/base/cursor",
     "//ui/events/ozone/*",
     "//ui/ozone/common/*",
     "//ui/ozone/public/mojom",

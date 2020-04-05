@@ -20,19 +20,60 @@ config("crashpad_config") {
   include_dirs = [ "." ]
 }
 
+# TODO(fuchsia:46805): Remove this once instances of UB have been cleaned up.
+config("disable_ubsan") {
+  if (crashpad_is_in_fuchsia) {
+    cflags = [ "-fno-sanitize=undefined" ]
+  }
+  visibility = [
+    "snapshot:snapshot",
+    "minidump:minidump_test",
+    "third_party/gtest:gtest",
+    "util:util",
+  ]
+}
+
 if (crashpad_is_in_chromium || crashpad_is_in_fuchsia) {
   test("crashpad_tests") {
     deps = [
+      "client:client_test",
       "test:gmock_main",
       "test:test_test",
     ]
     if (!crashpad_is_ios) {
       deps += [
-        "client:client_test",
         "handler:handler_test",
         "minidump:minidump_test",
         "snapshot:snapshot_test",
         "util:util_test",
+      ]
+    }
+    if (crashpad_is_in_fuchsia) {
+      # TODO(fuchsia:46559): Fix the leaks and remove this.
+      deps += [ "//build/config/sanitizers:suppress-lsan.DO-NOT-USE-THIS" ]
+    }
+    if (crashpad_is_android) {
+      use_raw_android_executable = true
+
+      copy("crashpad_test_data") {
+        testonly = true
+        sources = [
+          "test/test_paths_test_data_root.txt",
+          "util/net/testdata/ascii_http_body.txt",
+          "util/net/testdata/binary_http_body.dat",
+        ]
+
+        outputs = [
+          "$root_out_dir/crashpad_test_data/{{source}}",
+        ]
+      }
+
+      deps += [ ":crashpad_test_data" ]
+
+      extra_dist_files = [
+        "$root_out_dir/crashpad_handler",
+        "$root_out_dir/crashpad_test_test_multiprocess_exec_test_child",
+        "$root_out_dir/crashpad_test_data",
       ]
     }
   }
@@ -137,9 +178,6 @@ if (crashpad_is_in_chromium || crashpad_is_in_fuchsia) {
       "client:client_test",
       "test:gmock_main",
     ]
-    if (crashpad_is_ios) {
-      deps -= [ "client:client_test" ]
-    }
   }
 
   test("crashpad_handler_test") {
@@ -187,5 +225,12 @@ if (crashpad_is_in_chromium || crashpad_is_in_fuchsia) {
     if (crashpad_is_ios) {
       deps -= [ "util:util_test" ]
     }
+  }
+}
+
+if (crashpad_is_ios) {
+  group("ios_xcuitests") {
+    testonly = true
+    deps = [ "test/ios:all_tests" ]
   }
 }

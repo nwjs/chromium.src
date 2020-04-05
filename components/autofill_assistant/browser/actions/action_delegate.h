@@ -157,13 +157,14 @@ class ActionDelegate {
       const Selector& selector,
       base::OnceCallback<void(const ClientStatus&,
                               const autofill::FormData&,
-                              const autofill::FormFieldData&)> callback);
+                              const autofill::FormFieldData&)> callback) = 0;
 
   // Select the option given by |selector| and the value of the option to be
   // picked.
   virtual void SelectOption(
       const Selector& selector,
-      const std::string& selected_option,
+      const std::string& value,
+      DropdownSelectStrategy select_strategy,
       base::OnceCallback<void(const ClientStatus&)> callback) = 0;
 
   // Focus on element given by |selector|. |top_padding| specifies the padding
@@ -351,6 +352,20 @@ class ActionDelegate {
 
   // Gets the user data.
   virtual const UserData* GetUserData() const = 0;
+
+  // Show |generic_ui| to the user and call |end_action_callback| when done.
+  // Note that this callback needs to be tied to one or multiple interactions
+  // specified in |generic_ui|, as otherwise it will never be called.
+  virtual void SetGenericUi(
+      std::unique_ptr<GenericUserInterfaceProto> generic_ui,
+      base::OnceCallback<void(bool,
+                              ProcessedActionStatusProto,
+                              const UserModel*)> end_action_callback) = 0;
+
+  // Clears the generic UI. This will remove all corresponding views from the
+  // view hierarchy and remove all corresponding interactions. Note that
+  // |user_model| will persist and will not be affected by this call.
+  virtual void ClearGenericUi() = 0;
 
  protected:
   ActionDelegate() = default;

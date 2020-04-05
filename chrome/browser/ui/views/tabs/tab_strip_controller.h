@@ -80,13 +80,7 @@ class TabStripController {
   virtual bool BeforeCloseTab(int index, CloseTabSource source) = 0;
 
   // Closes the tab at the specified index in the model.
-  virtual void CloseTab(int index, CloseTabSource source) = 0;
-
-  // Ungroups the tabs at the specified index in the model.
-  virtual void UngroupAllTabsInGroup(const tab_groups::TabGroupId& group) = 0;
-
-  // Adds a new tab to end of the tab group.
-  virtual void AddNewTabInGroup(const tab_groups::TabGroupId& group) = 0;
+  virtual void CloseTab(int index) = 0;
 
   // Adds a tab to an existing tab group.
   virtual void AddTabToGroup(int model_index,
@@ -130,7 +124,9 @@ class TabStripController {
   virtual void StackedLayoutMaybeChanged() = 0;
 
   // Notifies controller that the user started dragging this tabstrip's tabs.
-  virtual void OnStartedDragging() = 0;
+  // |dragging_window| indicates if the whole window is moving, or if tabs are
+  // moving within a window.
+  virtual void OnStartedDragging(bool dragging_window) = 0;
 
   // Notifies controller that the user stopped dragging this tabstrip's tabs.
   // This is also called when the tabs that the user is dragging were detached

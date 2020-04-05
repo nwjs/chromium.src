@@ -499,6 +499,9 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
       if (ExtensionTabUtil::IsKillURL(url))
         return RespondNow(Error(tabs_constants::kNoCrashBrowserError));
       urls.push_back(url);
+
+      // Log if this navigation looks like it is to a devtools URL.
+      ExtensionTabUtil::LogPossibleDevtoolsSchemeNavigation(url);
     }
   }
 
@@ -577,9 +580,9 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
     // Initialize default window bounds according to window type.
     ui::WindowShowState ignored_show_state = ui::SHOW_STATE_DEFAULT;
     gfx::Rect ignored_window_bounds;
-    WindowSizer::GetBrowserWindowBoundsAndShowState(std::string(), gfx::Rect(),
-                                                    nullptr, &ignored_window_bounds,
-                                                    &ignored_show_state);
+    WindowSizer::GetBrowserWindowBoundsAndShowState(
+        gfx::Rect(), nullptr, &ignored_window_bounds, &ignored_show_state);
+
     // Any part of the bounds can optionally be set by the caller.
     if (create_data->left)
       window_bounds.set_x(*create_data->left);
@@ -595,8 +598,7 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
 
     if (create_data->min_width) {
       min_width = *create_data->min_width;
-      if (window_bounds.width())
-        window_bounds.set_width(std::max(min_width, window_bounds.width()));
+      window_bounds.set_width(std::max(min_width, window_bounds.width()));
     }
     if (create_data->max_width) {
       max_width = *create_data->max_width;
@@ -604,8 +606,7 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
     }
     if (create_data->min_height) {
       min_height = *create_data->min_height;
-      if (window_bounds.height())
-        window_bounds.set_height(std::max(min_height, window_bounds.height()));
+      window_bounds.set_height(std::max(min_height, window_bounds.height()));
     }
     if (create_data->max_height) {
       max_height = *create_data->max_height;
@@ -690,12 +691,15 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
         ConvertToWindowShowState(create_data->state);
   }
 
-  create_params.position = position;
   Browser* new_window = Browser::Create(create_params);
   if (!new_window)
     return RespondNow(Error(tabs_constants::kBrowserWindowNotAllowed));
 
   BrowserFrame* frame = BrowserView::GetBrowserViewForBrowser(new_window)->frame();
+  if (position == "center") {
+    gfx::Rect bounds = frame->GetWindowBoundsInScreen();
+    frame->CenterWindow(bounds.size());
+  }
 
   if (kiosk) {
     frame->SetFullscreen(true);
@@ -1094,7 +1098,6 @@ ExtensionFunction::ResponseAction TabsQueryFunction::Run() {
   EXTENSION_FUNCTION_VALIDATE(params.get());
 
   bool loading_status_set = params->query_info.status != tabs::TAB_STATUS_NONE;
-  bool loading = params->query_info.status == tabs::TAB_STATUS_LOADING;
 
   URLPatternSet url_patterns;
   if (params->query_info.url.get()) {
@@ -1251,8 +1254,11 @@ ExtensionFunction::ResponseAction TabsQueryFunction::Run() {
         }
       }
 
-      if (loading_status_set && loading != web_contents->IsLoading())
+      if (loading_status_set &&
+          params->query_info.status !=
+              ExtensionTabUtil::GetLoadingStatus(web_contents)) {
         continue;
+      }
 
       result->Append(CreateTabObjectHelper(web_contents, extension(),
                                            source_context_type(), tab_strip, i)
@@ -1564,6 +1570,9 @@ bool TabsUpdateFunction::UpdateURL(const std::string& url_string,
     *error = tabs_constants::kNoCrashBrowserError;
     return false;
   }
+
+  // Log if this navigation looks like it is to a devtools URL.
+  ExtensionTabUtil::LogPossibleDevtoolsSchemeNavigation(url);
 
   const bool is_javascript_scheme = url.SchemeIs(url::kJavaScriptScheme);
   UMA_HISTOGRAM_BOOLEAN("Extensions.ApiTabUpdateJavascript",

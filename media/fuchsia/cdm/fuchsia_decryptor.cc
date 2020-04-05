@@ -28,19 +28,19 @@ FuchsiaDecryptor::~FuchsiaDecryptor() {
 }
 
 void FuchsiaDecryptor::RegisterNewKeyCB(StreamType stream_type,
-                                        const NewKeyCB& new_key_cb) {
+                                        NewKeyCB new_key_cb) {
   if (stream_type != kAudio)
     return;
 
   base::AutoLock auto_lock(new_key_cb_lock_);
-  new_key_cb_ = new_key_cb;
+  new_key_cb_ = std::move(new_key_cb);
 }
 
 void FuchsiaDecryptor::Decrypt(StreamType stream_type,
                                scoped_refptr<DecoderBuffer> encrypted,
-                               const DecryptCB& decrypt_cb) {
+                               DecryptCB decrypt_cb) {
   if (stream_type != StreamType::kAudio) {
-    decrypt_cb.Run(Status::kError, nullptr);
+    std::move(decrypt_cb).Run(Status::kError, nullptr);
     return;
   }
 
@@ -49,7 +49,7 @@ void FuchsiaDecryptor::Decrypt(StreamType stream_type,
     audio_decryptor_ = FuchsiaClearStreamDecryptor::Create(cdm_);
   }
 
-  audio_decryptor_->Decrypt(std::move(encrypted), decrypt_cb);
+  audio_decryptor_->Decrypt(std::move(encrypted), std::move(decrypt_cb));
 }
 
 void FuchsiaDecryptor::CancelDecrypt(StreamType stream_type) {
@@ -59,15 +59,15 @@ void FuchsiaDecryptor::CancelDecrypt(StreamType stream_type) {
 }
 
 void FuchsiaDecryptor::InitializeAudioDecoder(const AudioDecoderConfig& config,
-                                              const DecoderInitCB& init_cb) {
+                                              DecoderInitCB init_cb) {
   // Only decryption is supported.
-  init_cb.Run(false);
+  std::move(init_cb).Run(false);
 }
 
 void FuchsiaDecryptor::InitializeVideoDecoder(const VideoDecoderConfig& config,
-                                              const DecoderInitCB& init_cb) {
+                                              DecoderInitCB init_cb) {
   // Only decryption is supported.
-  init_cb.Run(false);
+  std::move(init_cb).Run(false);
 }
 
 void FuchsiaDecryptor::DecryptAndDecodeAudio(
@@ -99,7 +99,7 @@ bool FuchsiaDecryptor::CanAlwaysDecrypt() {
 void FuchsiaDecryptor::OnNewKey() {
   base::AutoLock auto_lock(new_key_cb_lock_);
   if (new_key_cb_)
-    new_key_cb_.Run();
+    std::move(new_key_cb_).Run();
 }
 
 }  // namespace media

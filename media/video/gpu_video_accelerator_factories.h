@@ -41,7 +41,7 @@ class SharedImageInterface;
 }
 
 namespace viz {
-class ContextProvider;
+class RasterContextProvider;
 }  // namespace viz
 
 namespace media {
@@ -97,7 +97,7 @@ class MEDIA_EXPORT GpuVideoAcceleratorFactories {
   virtual std::unique_ptr<media::VideoDecoder> CreateVideoDecoder(
       MediaLog* media_log,
       VideoDecoderImplementation implementation,
-      const RequestOverlayInfoCB& request_overlay_info_cb) = 0;
+      RequestOverlayInfoCB request_overlay_info_cb) = 0;
 
   // Caller owns returned pointer, but should call Destroy() on it (instead of
   // directly deleting) for proper destruction, as per the
@@ -146,7 +146,7 @@ class MEDIA_EXPORT GpuVideoAcceleratorFactories {
   virtual base::Optional<VideoEncodeAccelerator::SupportedProfiles>
   GetVideoEncodeAcceleratorSupportedProfiles() = 0;
 
-  virtual scoped_refptr<viz::ContextProvider> GetMediaContextProvider() = 0;
+  virtual viz::RasterContextProvider* GetMediaContextProvider() = 0;
 
   // Sets the current pipeline rendering color space.
   virtual void SetRenderingColorSpace(const gfx::ColorSpace& color_space) = 0;

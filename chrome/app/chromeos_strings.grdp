@@ -10,6 +10,23 @@
     The application appears to be invalid.
   </message>
 
+  <!-- Per-App Time Limits -->
+  <message name="IDS_APP_TIME_LIMIT_APP_WILL_PAUSE_SYSTEM_NOTIFICATION_TITLE" desc="PerAppTimeLimit system notification title specifying that the application will pause soon.">
+    <ph name="APP_NAME">$1<ex>App x</ex></ph> will pause soon
+  </message>
+  <message name="IDS_APP_TIME_LIMIT_APP_WILL_PAUSE_SYSTEM_NOTIFICATION_MESSAGE" desc="PerAppTimeLimit system notification message specifying that the application will pause in the specified time.">
+    <ph name="TIME">$1<ex> 5 minutes</ex></ph> left
+  </message>
+  <message name="IDS_APP_TIME_LIMIT_APP_TIME_LIMIT_SET_SYSTEM_NOTIFICATION_TITLE" desc="PerAppTimeLimit system notification title specifying that the application's time limit has been set by a parent.">
+    Update from your parent
+  </message>
+  <message name="IDS_APP_TIME_LIMIT_APP_TIME_LIMIT_SET_SYSTEM_NOTIFICATION_MESSAGE" desc="PerAppTimeLimit system notification message specifying that the application's time limit has been set by a parent.">
+    <ph name="TIME">$1<ex> 1 hour 30 minutes</ex></ph> time limit set for <ph name="APP_NAME">$2<ex>Gmail</ex></ph>
+  </message>
+  <message name="IDS_APP_TIME_LIMIT_APP_TIME_LIMIT_REMOVED_SYSTEM_NOTIFICATION_MESSAGE" desc="PerAppTimeLimit system notification message specifying that the application's time limit has been removed by parent.">
+    Time limit removed for <ph name="APP_NAME">$1<ex>Gmail</ex></ph>
+  </message>
+
   <!-- Wallpaper Manager -->
   <message name="IDS_WALLPAPER_MANAGER_ALL_CATEGORY_LABEL" desc="Wallpaper category label.">
     All
@@ -266,27 +283,27 @@
   <!-- Upgrade notifications -->
   <message name="IDS_RELAUNCH_REQUIRED_TITLE_DAYS" desc="The title of a dialog that tells users the device must be restarted within two or more days.">
     {0, plural,
-      =1 {Update within a day}
-      other {Update within # days}}
+      =1 {Update device within a day}
+      other {Update device within # days}}
   </message>
   <message name="IDS_RELAUNCH_REQUIRED_TITLE_HOURS" desc="The title of a dialog that tells users the device must be restarted within one or more hours.">
     {0, plural,
-      =1 {Update within an hour}
-      other {Update within # hours}}
+      =1 {Update device within an hour}
+      other {Update device within # hours}}
   </message>
   <message name="IDS_RELAUNCH_REQUIRED_TITLE_MINUTES" desc="The title of a dialog that tells users the device must be restarted within one or more minutes.">
     {0, plural,
-      =1 {Update within 1 minute}
-      other {Update within # minutes}}
+      =1 {Update device within 1 minute}
+      other {Update device within # minutes}}
   </message>
   <message name="IDS_RELAUNCH_REQUIRED_TITLE_SECONDS" desc="The title of a dialog that tells users the device must be restarted within some number of seconds.">
     {0, plural,
-      =0 {Update now}
-      =1 {Update within 1 second}
-      other {Update within # seconds}}
+      =0 {Update device now}
+      =1 {Update device within 1 second}
+      other {Update device within # seconds}}
   </message>
   <message name="IDS_RELAUNCH_REQUIRED_BODY" desc="The body text of a dialog that tells users the device must be restarted.">
-    Your organization requires an update to this device
+    <ph name="organization_name">$1<ex>google.com</ex></ph> requires you to update this device before the deadline.
   </message>
 
   <message name="IDS_RELAUNCH_RECOMMENDED_TITLE" desc="The title of a dialog that tells users that a device restart is recommended for an update.">
@@ -296,10 +313,10 @@
     Update overdue
   </message>
   <message name="IDS_RELAUNCH_RECOMMENDED_BODY" desc="The body text of a dialog that tells users the device must be restarted.">
-    Your organization asks that you update this device
+    <ph name="organization_name">$1<ex>google.com</ex></ph> recommends that you update this device.
   </message>
   <message name="IDS_RELAUNCH_RECOMMENDED_OVERDUE_BODY" desc="The body text of a dialog that tells users the device must be restarted right now.">
-    Your organization requires an update to this device right away
+    <ph name="organization_name">$1<ex>google.com</ex></ph> requires you to update this device immediately.
   </message>
 
   <!-- Chrome OS Strings -->
@@ -486,8 +503,17 @@
   <message name="IDS_HID_DETECTION_PAIRED_BLUETOOTH_KEYBOARD" desc="Text shown on HID detection screen next to keyboard icon after Bluetooth keyboard is connected.">
     "<ph name="DEVICE_NAME">$1<ex>Bluetooth Keyboard</ex></ph>" paired
   </message>
-  <message name="IDS_HID_DETECTION_BLUETOOTH_REMOTE_PIN_CODE_REQUEST" desc="Bluetooth pairing message displayed on HID detection screen when pairing a Bluetooth keyboard.">
-    Type this code on "<ph name="DEVICE_NAME">$1<ex>Nexus S</ex></ph>" to pair:
+  <message name="IDS_HID_DETECTION_PAIRING_BLUETOOTH_KEYBOARD" desc="Bluetooth pairing message displayed on HID detection screen when pairing a Bluetooth keyboard.">
+    Pairing with "<ph name="DEVICE_NAME">$1<ex>Nexus S</ex></ph>" ...
+  </message>
+  <message name="IDS_HID_DETECTION_PAIRING_BLUETOOTH_KEYBOARD_PIN_DIALOG_TITLE" desc="Dialog title for PIN input on HID detection screen when pairing a Bluetooth keyboard.">
+    Pair with "<ph name="DEVICE_NAME">$1<ex>Nexus S</ex></ph>"?
+  </message>
+  <message name="IDS_HID_DETECTION_BLUETOOTH_PAIRING_CODE" desc="Bluetooth pairing code inside the PIN input dialog on the HID detection screen.">
+    Bluetooth pairing code:
+  </message>
+  <message name="IDS_HID_DETECTION_BLUETOOTH_PAIRING_CODE_EXPLANATION" desc="Explanation to the user on how to type in the PIN while connecting to a bluetooth keyboard on the HID detection screen.">
+    Type the bluetooth pairing code then press Return or Enter.
   </message>
   <message name="IDS_HID_DETECTION_DEFAULT_KEYBOARD_NAME" desc="Default keyboard name used at HID-detection labels and messages at HID-detection OOBE screen.">
     Unknown keyboard
@@ -607,10 +633,13 @@
     Select timezone
   </message>
   <message name="IDS_OOBE_EULA_SECTION_TITLE" desc="Title of Terms of Service screen">
-    Google Chrome OS Terms
+    Google universal Terms of Service (uToS)
   </message>
   <message name="IDS_OOBE_EULA_IFRAME_LABEL" desc="Accessibility label on an iframe with full Chrome OS Terms text">
     Google Chrome OS Terms contents
+  </message>
+  <message name="IDS_OOBE_EULA_ADDITIONAL_TERMS" desc="Text of the Link to Google Chrome and Chrome OS additional terms">
+    Google Chrome and Chrome OS Additional Terms
   </message>
   <message name="IDS_OOBE_EULA_ACCEPT_AND_CONTINUE_BUTTON_TEXT" desc="Label on a button on the Title of Terms of Service OOBE screen to accept EULA and continue.">
     Accept and continue
@@ -841,19 +870,40 @@
     Continue setup
   </message>
   <message name="IDS_LOGIN_MARKETING_OPT_IN_SCREEN_TITLE" desc="The title of the last dialog in the set of screens that are always displayed to the user on the first login to the Chrome OS device.">
-    One last thing
+    All set!
   </message>
   <message name="IDS_LOGIN_MARKETING_OPT_IN_SCREEN_SUBTITLE" desc="The sub-title of the dialog that allows user to opt-in into several Google marketing options.">
-    Get <ph name="DEVICE_TYPE">$1<ex>Chromebook</ex></ph> tips and updates on Google products and share feedback. Unsubscribe anytime.
+    Get <ph name="DEVICE_TYPE">$1<ex>Chromebook</ex></ph> tips, offers, and updates, and share feedback
   </message>
-  <message name="IDS_LOGIN_MARKETING_OPT_IN_SCREEN_GET_PLAY_UPDATES" desc="A label next to the checkbox that controls user subscription to marketing updates from Google about Google Play Store.">
-    Get the latest updates and recommendations on Play Store apps
+  <message name="IDS_LOGIN_MARKETING_OPT_IN_SCREEN_SUBTITLE_WITH_DEVICE_NAME" desc="The sub-title of the marketing opt in screen which will also include the name of the user's device.">
+    You are ready to start using your <ph name="DEVICE_TYPE">$1<ex>Chromebook</ex></ph>.
   </message>
   <message name="IDS_LOGIN_MARKETING_OPT_IN_SCREEN_GET_CHROMEBOOK_UPDATES" desc="A lablel next to the checkbox that controls user subscription to marketing updates and useful information about the user's Chrome device.">
     Tips and updates on <ph name="DEVICE_TYPE">$1<ex>Chromebook</ex></ph>
   </message>
+  <message name="IDS_LOGIN_MARKETING_OPT_IN_SCREEN_GET_CHROMEBOOK_UPDATES_SIGN_ME_UP" desc="A lablel next to the checkbox that controls user subscription to marketing updates and useful information about the user's Chrome device.">
+    Sign me up
+  </message>
   <message name="IDS_LOGIN_MARKETING_OPT_IN_SCREEN_ALL_SET" desc="A label on the button that closes the initial setup dialog, which suggests to the user that initial device setup is complete.">
-    All set
+    Get started
+  </message>
+  <message name="IDS_LOGIN_MARKETING_OPT_IN_SCREEN_SWIPE_FROM_SHELF_LABEL" desc="The label shown in Chrome OS system shelf above a drag handle UI on the last dialog in the set of screens displayed to the user on the first login to the Chrome OS device. The label informs the user that swiping up from the shelf will start the session.">
+    Swipe up to get started
+  </message>
+  <message name="IDS_MARKETING_OPT_IN_ACCESSIBILITY_BUTTON_LABEL" desc="The label of the button which appears at the bottom left of the last OOBE dialog shown to the user on the first login. Clicking the button will show a screen that allows the user to change certain accessibility settings.">
+    Accessibility
+  </message>
+  <message name="IDS_MARKETING_OPT_IN_ACCESSIBILITY_TITLE" desc="The title of the accessibility page that is part of the the marketing opt in dialog screen, the last OOBE screen shown to the user on their first login to the Chrome OS device. The accessibility page will allow the user to change certain accessibility settings.">
+    Accessibility settings
+  </message>
+  <message name="IDS_MARKETING_OPT_IN_ACCESSIBILITY_NAV_BUTTON_SETTING_TITLE" desc="The title of the of the accessibility option that forces shelf navigation buttons (button to go home, back, or the active apps overview) to be always shown. These buttons are hidden by default when the device is in tablet mode.">
+    Show navigation buttons
+  </message>
+  <message name="IDS_MARKETING_OPT_IN_ACCESSIBILITY_NAV_BUTTON_SETTING_DESCRIPTION" desc="The descripton of the accessibility option that forces shelf navigation buttons (button to go home, back, or the active apps overview) to be always shown. These buttons are hidden by default when the device is in tablet mode.">
+    Navigate home, back, and switch apps with buttons in tablet mode.
+  </message>
+  <message name="IDS_MARKETING_OPT_IN_ACCESSIBILITY_DONE_BUTTON" desc="The label for the button on the accessibility page that is part of the the marketing opt in dialog screen, the last OOBE screen shown to the user on their first login to the Chrome OS device. The button closes the screen, and ends the OOBE (which will start the user session).">
+    Done
   </message>
   <message name="IDS_DISABLED_ADD_USER_TOOLTIP" desc="Tooltip over disabled Add user button">
     The owner of this device has disabled new users from being added
@@ -911,6 +961,9 @@
   </message>
   <message name="IDS_DISCOVER_PIN_SETUP_DONE" desc="Label for the done button on the success screen in 'PIN-unlock' setup dialog.">
     Done
+  </message>
+  <message name="IDS_APP_START_PREPARING_PROFILE_MESSAGE" desc="Message displayed while preparing profile in which the app will be run.">
+    Preparing app profile...
   </message>
   <message name="IDS_APP_START_NETWORK_WAIT_MESSAGE" desc="Message displayed while installing and/or launching web application in kiosk mode.">
     Waiting for network connection...
@@ -1017,8 +1070,7 @@
     Sign-in failed because your access token could not be retrieved. Please check your network connection and try again.
   </message>
   <message name="IDS_LOGIN_SAML_INTERSTITIAL_MESSAGE" desc="Message to show on the SAML interstitial page to tell the user to continue signing in using their enterprise account.">
-    This device is managed by <ph name="BEGIN_BOLD">&lt;strong&gt;</ph><ph name="DOMAIN">$1<ex>acmecorp.com</ex></ph><ph name="END_BOLD">&lt;/strong&gt;</ph>.
-    Please click "Next" to continue signing in to your <ph name="BEGIN_BOLD">&lt;strong&gt;</ph><ph name="DOMAIN">$1<ex>acmecorp.com</ex></ph><ph name="END_BOLD">&lt;/strong&gt;</ph> account.
+    This device is managed by <ph name="DOMAIN">$1<ex>acmecorp.com</ex></ph> and requires you to sign in every time.
   </message>
   <message name="IDS_LOGIN_SAML_INTERSTITIAL_CHANGE_ACCOUNT_LINK_TEXT" desc="Text of the link that allows the user to change the login account.">
     Sign in with a different account
@@ -1113,6 +1165,12 @@
   </message>
   <message name="IDS_WILCO_NOTIFICATION_DOCK_THUNDERBOLT_MESSAGE" desc="The message of the notification shown to inform the user that attached dock will operate in USB Type-C compatible mode.">
     Your docking station will operate in USB Type-C compatible mode.
+  </message>
+  <message name="IDS_WILCO_LOW_POWER_CHARGER_TITLE" desc="The title of a notification indicating that a low-power USB charger has been connected.">
+    Low-power charger connected
+  </message>
+  <message name="IDS_WILCO_LOW_POWER_CHARGER_MESSAGE" desc="The message body of a notification indicating that a low-power USB charger has been connected, short version.">
+    Your Chromebook may not charge while it is turned on.
   </message>
   <message name="IDS_WILCO_NOTIFICATION_LEARN_MORE" desc="Label on button in various Wilco notification.">
     Learn More
@@ -1808,6 +1866,11 @@
     Learn more.
   </message>
 
+  <!-- Common strings used in OOBE -->
+  <message name="IDS_CHROMEOS_OOBE_CLOSE_DIALOG" desc="Message to shown on a button for closing a modal dialog in OOBE">
+    Close
+  </message>
+
   <!-- Auto launch managed guest sessions privacy notification -->
   <message name="IDS_AUTO_LAUNCH_NOTIFICATION_TITLE" desc="Title of the notification which is shown when the managed guest session auto launched.">
     Managed guest session
@@ -2137,10 +2200,10 @@
     For security, sign out when your computer isn't being used.
   </message>
   <message name="IDS_KIOSK_APP_FAILED_TO_LAUNCH" desc="Generic error message used when a kiosk app fails to launch.">
-    Darn, the kiosk application could not be launched.
+    The kiosk application could not be launched.
   </message>
   <message name="IDS_KIOSK_APP_ERROR_UNABLE_TO_MOUNT" desc="Error message used when a kiosk app fails to launch due to cryptohome error.">
-    Kryptonite! The cryptohome for the kiosk application could not be mounted.
+    The cryptohome for the kiosk application could not be mounted.
   </message>
   <message name="IDS_KIOSK_APP_ERROR_UNABLE_TO_INSTALL" desc="Error message used when a kiosk app fails to launch due to install failure.">
     Kiosk application could not be installed.
@@ -2205,6 +2268,11 @@
     Automatic updates don't download on this network type, but you can check for updates manually.
   </message>
 
+  <!-- About flags page -->
+  <message name="IDS_FLAGS_IGNORED_DUE_TO_CRASHY_CHROME" desc="Text on an info bar added when user flags are dropped when chrome crashed too many times in short time." translateable="false">
+    Flags are ignored because of too many consecutive startup crashes.
+  </message>
+
   <!-- EOL Notification Strings -->
   <message name="IDS_EOL_NOTIFICATION_TITLE" desc="Notification title shown to inform the user that this device is no longer supported.">
     Final software update
@@ -2242,8 +2310,35 @@
   </message>
 
   <!-- Obsolete versions Notification strings-->
-  <message name="IDS_UPDATE_REQUIRED_LOGIN_SCREEN_MESSAGE" desc="The message on login screen to inform the user that policy prevents user sign in before OS version is is updated.">
-    Your device is no longer compliant with the minimum client version specified by your admin. Please update to login.
+  <message name="IDS_UPDATE_REQUIRED_SCREEN_TITLE" desc="The title of the update required dialog on the login screen to inform the user that policy prevents user sign in before OS version is is updated.">
+     Immediate update required
+  </message>
+  <message name="IDS_UPDATE_REQUIRED_SCREEN_MESSAGE" desc="The message of the update required dialog on the login screen to inform the user that policy prevents user sign in before OS version is is updated.">
+     <ph name="DOMAIN">$1<ex>example.com</ex></ph> requires you to update your <ph name="DEVICE_TYPE">$2<ex>Chromebook</ex></ph> immediately.
+  </message>
+  <message name="IDS_UPDATE_REQUIRED_SCREEN_START_UPDATE" desc="Label for the update button on the update required dialog on the login screen to start the update process.">
+     Update now
+  </message>
+  <message name="IDS_UPDATE_REQUIRED_SCREEN_EOL_TITLE" desc="The title on login screen to inform the user that policy prevents the device from being used as it has reached its end of life.">
+    Device has been blocked
+  </message>
+  <message name="IDS_UPDATE_REQUIRED_SCREEN_EOL_MESSAGE" desc="The message on login screen to inform the user that policy prevents the device from being used as it has reached its end of life.">
+    The deadline to return this device has passed.
+  </message>
+  <message name="IDS_UPDATE_REQUIRED_SCREEN_METERED_MESSAGE" desc="The message on the dialog shown to the user in Chrome OS before forced update is attempted if the Chrome OS device is connected to a cellular/metered network. The dialog warns the user that procceeding on a metered network can cause overage charges.">
+    <ph name="DOMAIN">$1<ex>example.com</ex></ph> requires you to connect to Wi-Fi now and download an update. Or, download from a metered connection (charges may apply).
+  </message>
+  <message name="IDS_UPDATE_REQUIRED_SCREEN_ALLOW_METERED" desc="Label for button to allow downloading update over a metered connection.">
+    Use metered connection
+  </message>
+  <message name="IDS_UPDATE_REQUIRED_SCREEN_NO_NETWORK_MESSAGE" desc="The message on the dialog shown to the user in Chrome OS before forced update is attempted if the Chrome OS device is not connected to a network.">
+    <ph name="DOMAIN">$1<ex>example.com</ex></ph> requires you to connect to Wi-Fi now and download an update. The update will download automatically when you connect to the internet.
+  </message>
+  <message name="IDS_UPDATE_REQUIRED_SCREEN_OPEN_NETWORK_SETTINGS" desc="Label for network configuration button on the update required dialog on the login screen to open network settings so that the user can connect to a network.">
+    Open network settings
+  </message>
+  <message name="IDS_UPDATE_REQUIRED_UPDATING_MESSAGE" desc="The message of the update required dialog on the login screen to inform the user that the device is updating and will restart after the update is complete.">
+    Device will restart when updates are complete.
   </message>
 
   <!-- Genius App -->
@@ -2578,17 +2673,26 @@
   <message name="IDS_ENTERPRISE_ENROLLMENT_DEVICE_INFORMATION" desc="The subtitle on the device attribute prompt screen.">
     Device information
   </message>
+  <message name="IDS_ENTERPRISE_ENROLLMENT_ERROR_TITLE" desc="Title of the screen to be shown upon an error during enterprise enrollment.">
+    Enrollment Error
+  </message>
+  <message name="IDS_ENTERPRISE_ENROLLMENT_ERROR_ILLUSTRATION_TITLE" desc="Accessible title of the enterprise enrollment screen illustration depicting error during enrollment.">
+    Enrollment error illustration
+  </message>
   <message name="IDS_ENTERPRISE_ENROLLMENT_RETRY" desc="Label for the retry button on the error step in the enterprise enrollment dialog.">
     Try again
   </message>
   <message name="IDS_ENTERPRISE_ENROLLMENT_DONE" desc="Label for the done button on the success screen in the enterprise enrollment dialog.">
     Done
   </message>
+  <message name="IDS_ENTERPRISE_ENROLLMENT_ENROLL_MANUALLY" desc="Label for the button on the error step in the enterprise enrollment dialog that allows to run manual enrollment (after an error during automated enrollment).">
+    Enroll manually
+  </message>
   <message name="IDS_ENTERPRISE_ENROLLMENT_SKIP" desc="Label for the skip button on the device attribute prompt screen in the enterprise enrollment dialog.">
     Skip
   </message>
   <message name="IDS_ENTERPRISE_ENROLLMENT_SUCCESS_TITLE" desc="Title of the screen to be shown once enterprise enrollment completes.">
-    You are enrolled successfully
+    Enterprise enrollment complete
   </message>
   <message name="IDS_ENTERPRISE_ENROLLMENT_SUCCESS" desc="Success message to be shown once enterprise enrollment completes.">
     Your <ph name="DEVICE_TYPE">$1<ex>Chromebook</ex></ph> has successfully been enrolled for enterprise management.
@@ -2596,8 +2700,8 @@
   <message name="IDS_ENTERPRISE_ENROLLMENT_SUCCESS_ILLUSTRATION_TITLE" desc="Accessible title of the enterprise enrollment screen illustration depicting successful enrollment.">
     Successful enrollment illustration
   </message>
-  <message name="IDS_ENTERPRISE_ENROLLMENT_SUCCESS_ABE_DOMAIN" desc="Success message to be shown once attestation-based enterprise enrollment completes.">
-    Your <ph name="DEVICE_TYPE">$1<ex>Chromebook</ex></ph> has successfully been enrolled for enterprise management by <ph name="BEGIN_BOLD">&lt;strong&gt;</ph><ph name="DOMAIN">$2<ex>acmecorp.com</ex></ph><ph name="END_BOLD">&lt;/strong&gt;</ph>.
+  <message name="IDS_ENTERPRISE_ENROLLMENT_SUCCESS_DOMAIN" desc="Success message to be shown once enterprise enrollment completes.">
+    This <ph name="DEVICE_TYPE">$1<ex>Chromebook</ex></ph> will be managed by <ph name="DOMAIN">$2<ex>acmecorp.com</ex></ph>.
   </message>
   <message name="IDS_ENTERPRISE_ENROLLMENT_SUCCESS_ABE_SUPPORT" desc="Recommendation to contact support. Shown once attestation-based enterprise enrollment completes.">
     If this is unexpected, please contact support.
@@ -2922,6 +3026,9 @@
   <message name="IDS_ARC_OPT_IN_DIALOG_TERMS_OF_SERVICE" desc="Terms of service caption in the opt-in dialog for Android apps.">
     Terms of Service
   </message>
+  <message name="IDS_ARC_OPT_IN_DIALOG_LEARN_MORE_LINK_TEXT" desc="Text for learn more link in opt-in dialog for Android apps.">
+    Learn More
+  </message>
   <message name="IDS_ARC_OPT_IN_DIALOG_METRICS_MANAGED_ENABLED" desc="Message in the opt-in dialog for Android apps in case metrics are managed on the device and on.">
     Send usage and diagnostic data. This device is currently automatically sending diagnostic, device, and app usage data to Google. This will help system and app stability and other improvements. Some aggregate data will also help Google apps and partners, such as Android developers. This <ph name="BEGIN_LINK1">&lt;a href="#" id="settings-link"&gt;</ph>setting<ph name="END_LINK1">&lt;/a&gt;<ex>&lt;/a&gt;</ex></ph> is enforced by the owner. If your additional Web &#38; App Activity setting is turned on, this data may be saved to your Google account. <ph name="BEGIN_LINK2">&lt;a href="#" id="learn-more-link-metrics"&gt;</ph>Learn More<ph name="END_LINK2">&lt;/a&gt;<ex>&lt;/a&gt;</ex></ph>
   </message>
@@ -2952,29 +3059,35 @@
   <message name="IDS_ARC_OPT_IN_DIALOG_BACKUP_RESTORE_CHILD" desc="Message in the opt-in dialog for users to enable Backup and Restore for Android apps, and a child account is in use.">
     Back up to Google Drive. Easily restore data or switch device at any time. This backup includes app data. Backups are uploaded to Google and encrypted using your child's Google Account password. <ph name="BEGIN_LINK1">&lt;a href="#" id="learn-more-link-backup-restore"&gt;</ph>Learn More<ph name="END_LINK1">&lt;/a&gt;<ex>&lt;/a&gt;</ex></ph>
   </message>
+  <message name="IDS_ARC_OOBE_BACKUP_RESTORE" desc="Message in the opt-in dialog for users to enable Backup and Restore for Android apps.">
+    Back up to Google Drive. Easily restore your data or switch device at any time. Your backup includes app data. Your backups are uploaded to Google and encrypted using your Google Account password.
+  </message>
+  <message name="IDS_ARC_OOBE_BACKUP_RESTORE_CHILD" desc="Message in the opt-in dialog for users to enable Backup and Restore for Android apps, and a child account is in use.">
+    Back up to Google Drive. Easily restore data or switch device at any time. This backup includes app data. Backups are uploaded to Google and encrypted using your child's Google Account password.
+  </message>
   <message name="IDS_ARC_OOBE_TERMS_DIALOG_METRICS_MANAGED_ENABLED" desc="Message in the Arc Terms OOBE dialog in case metrics are managed on the device and on.">
-    Send usage and diagnostic data. This device is currently automatically sending diagnostic, device, and app usage data to Google. This will help system and app stability and other improvements. Some aggregate data will also help Google apps and partners, such as Android developers. This setting is enforced by the owner. If your additional Web &#38; App Activity setting is turned on, this data may be saved to your Google Account. <ph name="BEGIN_LINK1">&lt;a href="#" id="learn-more-link-metrics"&gt;</ph>Learn More<ph name="END_LINK1">&lt;/a&gt;<ex>&lt;/a&gt;</ex></ph>
+    Send usage and diagnostic data. This device is currently automatically sending diagnostic, device, and app usage data to Google. This will help system and app stability and other improvements. Some aggregate data will also help Google apps and partners, such as Android developers. This setting is enforced by the owner. If your additional Web &#38; App Activity setting is turned on, this data may be saved to your Google Account.
   </message>
   <message name="IDS_ARC_OOBE_TERMS_DIALOG_METRICS_MANAGED_ENABLED_CHILD" desc="Message in the Arc Terms OOBE dialog in case metrics are managed on the device and on, and a child account is in use.">
-    Send usage and diagnostic data. This device is currently automatically sending diagnostic, device, and app usage data to Google. This won't be used to identify your child and  will help system and app stability and other improvements. Some aggregate data will also help Google apps and partners, such as Android developers. This setting is enforced by the owner. If additional Web &#38; App Activity is turned on for your child, this data may be saved to their Google Account. <ph name="BEGIN_LINK1">&lt;a href="#" id="learn-more-link-metrics"&gt;</ph>Learn More<ph name="END_LINK1">&lt;/a&gt;<ex>&lt;/a&gt;</ex></ph>
+    Send usage and diagnostic data. This device is currently automatically sending diagnostic, device, and app usage data to Google. This won't be used to identify your child and  will help system and app stability and other improvements. Some aggregate data will also help Google apps and partners, such as Android developers. This setting is enforced by the owner. If additional Web &#38; App Activity is turned on for your child, this data may be saved to their Google Account.
   </message>
   <message name="IDS_ARC_OOBE_TERMS_DIALOG_METRICS_MANAGED_DISABLED" desc="Message in the Arc Terms OOBE dialog in case metrics are managed on the device and off.">
-    Send usage and diagnostic data. Help improve your Android experience by automatically sending diagnostic, device, and app usage data to Google. This will help system and app stability and other improvements. Some aggregate data will also help Google apps and partners, such as Android developers. This setting is enforced by the owner. The owner may choose to send diagnostic and usage data for this device to Google. If your additional Web &#38; App Activity setting is turned on, this data may be saved to your Google Account. <ph name="BEGIN_LINK1">&lt;a href="#" id="learn-more-link-metrics"&gt;</ph>Learn More<ph name="END_LINK1">&lt;/a&gt;<ex>&lt;/a&gt;</ex></ph>
+    Send usage and diagnostic data. Help improve your Android experience by automatically sending diagnostic, device, and app usage data to Google. This will help system and app stability and other improvements. Some aggregate data will also help Google apps and partners, such as Android developers. This setting is enforced by the owner. The owner may choose to send diagnostic and usage data for this device to Google. If your additional Web &#38; App Activity setting is turned on, this data may be saved to your Google Account.
   </message>
   <message name="IDS_ARC_OOBE_TERMS_DIALOG_METRICS_MANAGED_DISABLED_CHILD" desc="Message in the Arc Terms OOBE dialog in case metrics are managed on the device and off, and a child account is in use.">
-    Send usage and diagnostic data. Help improve your child's Android experience by automatically sending diagnostic, device, and app usage data to Google. This won't be used to identify your child and will help system and app stability and other improvements. Some aggregate data will also help Google apps and partners, such as Android developers. This setting is enforced by the owner. The owner may choose to send diagnostic and usage data for this device to Google. If additional Web &#38; App Activity setting is turned on for your child, this data may be saved to their Google Account. <ph name="BEGIN_LINK1">&lt;a href="#" id="learn-more-link-metrics"&gt;</ph>Learn More<ph name="END_LINK1">&lt;/a&gt;<ex>&lt;/a&gt;</ex></ph>
+    Send usage and diagnostic data. Help improve your child's Android experience by automatically sending diagnostic, device, and app usage data to Google. This won't be used to identify your child and will help system and app stability and other improvements. Some aggregate data will also help Google apps and partners, such as Android developers. This setting is enforced by the owner. The owner may choose to send diagnostic and usage data for this device to Google. If additional Web &#38; App Activity setting is turned on for your child, this data may be saved to their Google Account.
   </message>
   <message name="IDS_ARC_OOBE_TERMS_DIALOG_METRICS_ENABLED" desc="Message in the Arc Terms OOBE dialog in case metrics are already enabled on the device.">
-    Send usage and diagnostic data. This device is currently automatically sending diagnostic, device, and app usage data to Google. This will help system and app stability and other improvements. Some aggregate data will also help Google apps and partners, such as Android developers. If your additional Web &#38; App Activity setting is turned on, this data may be saved to your Google Account. <ph name="BEGIN_LINK1">&lt;a href="#" id="learn-more-link-metrics"&gt;</ph>Learn More<ph name="END_LINK1">&lt;/a&gt;<ex>&lt;/a&gt;</ex></ph>
+    Send usage and diagnostic data. This device is currently automatically sending diagnostic, device, and app usage data to Google. This will help system and app stability and other improvements. Some aggregate data will also help Google apps and partners, such as Android developers. If your additional Web &#38; App Activity setting is turned on, this data may be saved to your Google Account.
   </message>
   <message name="IDS_ARC_OOBE_TERMS_DIALOG_METRICS_ENABLED_CHILD" desc="Message in the Arc Terms OOBE dialog in case metrics are already enabled on the device, and a child account is in use.">
-    Send usage and diagnostic data. This device is currently automatically sending diagnostic, device, and app usage data to Google. This won't be used to identify your child and will help system and app stability and other improvements. Some aggregate data will also help Google apps and partners, such as Android developers. If additional Web &#38; App Activity setting is turned on for your child, this data may be saved to their Google Account. <ph name="BEGIN_LINK1">&lt;a href="#" id="learn-more-link-metrics"&gt;</ph>Learn More<ph name="END_LINK1">&lt;/a&gt;<ex>&lt;/a&gt;</ex></ph>
+    Send usage and diagnostic data. This device is currently automatically sending diagnostic, device, and app usage data to Google. This won't be used to identify your child and will help system and app stability and other improvements. Some aggregate data will also help Google apps and partners, such as Android developers. If additional Web &#38; App Activity setting is turned on for your child, this data may be saved to their Google Account.
   </message>
   <message name="IDS_ARC_OOBE_TERMS_DIALOG_METRICS_DISABLED" desc="Message in the Arc Terms OOBE dialog in case metrics are disabled on the device.">
-    Send usage and diagnostic data. Help improve your Android experience by automatically sending diagnostic, device, and app usage data to Google. This will help system and app stability and other improvements. Some aggregate data will also help Google apps and partners, such as Android developers. If your additional Web &#38; App Activity setting is turned on, this data may be saved to your Google Account. <ph name="BEGIN_LINK1">&lt;a href="#" id="learn-more-link-metrics"&gt;</ph>Learn More<ph name="END_LINK1">&lt;/a&gt;<ex>&lt;/a&gt;</ex></ph>
+    Send usage and diagnostic data. Help improve your Android experience by automatically sending diagnostic, device, and app usage data to Google. This will help system and app stability and other improvements. Some aggregate data will also help Google apps and partners, such as Android developers. If your additional Web &#38; App Activity setting is turned on, this data may be saved to your Google Account.
   </message>
   <message name="IDS_ARC_OOBE_TERMS_DIALOG_METRICS_DISABLED_CHILD" desc="Message in the Arc Terms OOBE dialog in case metrics disabled on the device, and a child account is in use.">
-    Send usage and diagnostic data. Help improve your child's Android experience by automatically sending diagnostic, device, and app usage data to Google. This won't be used to identify your child and will help system and app stability and other improvements. Some aggregate data will also help Google apps and partners, such as Android developers. If additional Web &#38; App Activity setting is turned on for your child, this data may be saved to their Google Account. <ph name="BEGIN_LINK1">&lt;a href="#" id="learn-more-link-metrics"&gt;</ph>Learn More<ph name="END_LINK1">&lt;/a&gt;<ex>&lt;/a&gt;</ex></ph>
+    Send usage and diagnostic data. Help improve your child's Android experience by automatically sending diagnostic, device, and app usage data to Google. This won't be used to identify your child and will help system and app stability and other improvements. Some aggregate data will also help Google apps and partners, such as Android developers. If additional Web &#38; App Activity setting is turned on for your child, this data may be saved to their Google Account.
   </message>
   <message name="IDS_ARC_OOBE_TERMS_DIALOG_DEMO_APPS" desc="Addendum to the metrics disclaimer in the Arc Terms OOBE dialog during Demo Mode setup explaining that demo apps have their own policies for data collection.">
     Note that Android, Play, and associated apps are governed by their own data collection and use policies.
@@ -2985,8 +3098,17 @@
   <message name="IDS_ARC_OPT_IN_LOCATION_SETTING_CHILD" desc="Message in the opt-in dialog for Android apps for the user to turn on Google location services, and a child account is in use.">
     Use location. Allow apps and services with location permission to use this device’s location. Google may collect location data periodically and use this data in an anonymous way to improve location accuracy and location-based services. <ph name="BEGIN_LINK1">&lt;a href="#" id="learn-more-link-location-service"&gt;</ph>Learn More<ph name="END_LINK1">&lt;/a&gt;<ex>&lt;/a&gt;</ex></ph>
   </message>
+  <message name="IDS_ARC_OOBE_LOCATION_SETTING" desc="Message in the opt-in dialog for Android apps for the user to turn on Google location services.">
+      Use location. Allow apps and services with location permission to use your device’s location. Google may collect location data periodically and use this data in an anonymous way to improve location accuracy and location-based services.
+  </message>
+  <message name="IDS_ARC_OOBE_LOCATION_SETTING_CHILD" desc="Message in the opt-in dialog for Android apps for the user to turn on Google location services, and a child account is in use.">
+      Use location. Allow apps and services with location permission to use this device’s location. Google may collect location data periodically and use this data in an anonymous way to improve location accuracy and location-based services.
+  </message>
   <message name="IDS_ARC_OPT_IN_PAI" desc="Message in the opt-in dialog for Play auto install.">
     Install updates &#38; apps. By continuing, you agree that this device may also automatically download and install updates and apps from Google, your carrier, and your device's manufacturer, possibly using cellular data. Some of these apps may offer in-app purchases. <ph name="BEGIN_LINK1">&lt;a href="#" id="learn-more-link-pai"&gt;</ph>Learn More<ph name="END_LINK1">&lt;/a&gt;<ex>&lt;/a&gt;</ex></ph>
+  </message>
+  <message name="IDS_ARC_OOBE_PAI" desc="Message in the opt-in dialog for Play auto install.">
+    Install updates &#38; apps. By continuing, you agree that this device may also automatically download and install updates and apps from Google, your carrier, and your device's manufacturer, possibly using cellular data. Some of these apps may offer in-app purchases.
   </message>
   <message name="IDS_ARC_OPT_IN_GOOGLE_SERVICE_CONFIRMATION" desc="Message in the opt-in dialog for Accepting Google services.">
    Tap “Accept” to confirm your selection of these Google services settings.
@@ -3000,17 +3122,47 @@
   <message name="IDS_ARC_OPT_IN_LEARN_MORE_CLOSE" desc="Text for close button in learn more dialog">
     Close
   </message>
+  <message name="IDS_ARC_OPT_IN_LEARN_MORE_STATISTICS_TITLE" desc="Title for pop up overlay dialog when user clicks learn more UMA">
+    Usage and diagnostic data
+  </message>
   <message name="IDS_ARC_OPT_IN_LEARN_MORE_STATISTICS" desc="Message shown in pop up overlay dialog when user clicks learn more UMA">
     <ph name="BEGIN_PARAGRAPH1">&lt;p&gt;</ph>This is general information about your device and how you use it (such as battery level, system and app activity, and errors). The data will be used to improve Android, and some aggregated information will also help Google apps and partners, such as Android developers, make their apps and products better.<ph name="END_PARAGRAPH1">&lt;/p&gt;</ph>
     <ph name="BEGIN_PARAGRAPH2">&lt;p&gt;</ph>Turning off this feature doesn't affect your device's ability to send the information needed for essential services such as system updates and security.<ph name="END_PARAGRAPH2">&lt;/p&gt;</ph>
     <ph name="BEGIN_PARAGRAPH3">&lt;p&gt;</ph>The owner can control this feature from Settings &gt; Advanced &gt; Automatically send diagnostic and usage data to Google.<ph name="END_PARAGRAPH3">&lt;/p&gt;</ph>
     <ph name="BEGIN_PARAGRAPH4">&lt;p&gt;</ph>If your additional Web &amp; App Activity setting is turned on, this data may be saved to your Google Account. You can see your data, delete it, and change your account settings at account.google.com.<ph name="END_PARAGRAPH4">&lt;/p&gt;</ph>
   </message>
+  <message name="IDS_ARC_OPT_IN_LEARN_MORE_STATISTICS_P1" desc="First paragraph of message shown in pop up overlay dialog when user clicks learn more UMA">
+    This is general information about your device and how you use it (such as battery level, system and app activity, and errors). The data will be used to improve Android, and some aggregated information will also help Google apps and partners, such as Android developers, make their apps and products better.
+  </message>
+  <message name="IDS_ARC_OPT_IN_LEARN_MORE_STATISTICS_P2" desc="Second paragraph of message shown in pop up overlay dialog when user clicks learn more UMA">
+    Turning off this feature doesn't affect your device's ability to send the information needed for essential services such as system updates and security.
+  </message>
+  <message name="IDS_ARC_OPT_IN_LEARN_MORE_STATISTICS_P3" desc="Third paragraph of message shown in pop up overlay dialog when user clicks learn more UMA">
+    The owner can control this feature from Settings &gt; Advanced &gt; Automatically send diagnostic and usage data to Google.
+  </message>
+  <message name="IDS_ARC_OPT_IN_LEARN_MORE_STATISTICS_P4" desc="Fourth paragraph of message shown in pop up overlay dialog when user clicks learn more UMA">
+    If your additional Web &amp; App Activity setting is turned on, this data may be saved to your Google Account. You can see your data, delete it, and change your account settings at account.google.com.
+  </message>
   <message name="IDS_ARC_OPT_IN_LEARN_MORE_STATISTICS_CHILD" desc="Message shown in pop up overlay dialog when user clicks learn more UMA, and a child account is in use">
     <ph name="BEGIN_PARAGRAPH1">&lt;p&gt;</ph>This is general information about this device and how it's used (such as battery level, system and app activity, and errors). The data will be used to improve Android, and some aggregated information will also help Google apps and partners, such as Android developers, make their apps and products better.<ph name="END_PARAGRAPH1">&lt;/p&gt;</ph>
     <ph name="BEGIN_PARAGRAPH2">&lt;p&gt;</ph>Turning off this feature doesn't affect this device's ability to send the information needed for essential services such as system updates and security.<ph name="END_PARAGRAPH2">&lt;/p&gt;</ph>
     <ph name="BEGIN_PARAGRAPH3">&lt;p&gt;</ph>The owner can control this feature from Settings &gt; Advanced &gt; Automatically send diagnostic and usage data to Google.<ph name="END_PARAGRAPH3">&lt;/p&gt;</ph>
     <ph name="BEGIN_PARAGRAPH4">&lt;p&gt;</ph>If additional Web &amp; App Activity setting is turned on for your child, this data may be saved to their Google Account. Learn more about these settings and how to adjust them at families.google.com.<ph name="END_PARAGRAPH4">&lt;/p&gt;</ph>
+  </message>
+  <message name="IDS_ARC_OPT_IN_LEARN_MORE_STATISTICS_CHILD_P1" desc="First paragraph of message shown in pop up overlay dialog when user clicks learn more UMA, and a child account is in use">
+    This is general information about this device and how it's used (such as battery level, system and app activity, and errors). The data will be used to improve Android, and some aggregated information will also help Google apps and partners, such as Android developers, make their apps and products better.
+  </message>
+  <message name="IDS_ARC_OPT_IN_LEARN_MORE_STATISTICS_CHILD_P2" desc="Second paragraph of message shown in pop up overlay dialog when user clicks learn more UMA, and a child account is in use">
+    Turning off this feature doesn't affect this device's ability to send the information needed for essential services such as system updates and security.
+  </message>
+  <message name="IDS_ARC_OPT_IN_LEARN_MORE_STATISTICS_CHILD_P3" desc="Third paragraph of message shown in pop up overlay dialog when user clicks learn more UMA, and a child account is in use">
+    The owner can control this feature from Settings &gt; Advanced &gt; Automatically send diagnostic and usage data to Google.
+  </message>
+  <message name="IDS_ARC_OPT_IN_LEARN_MORE_STATISTICS_CHILD_P4" desc="Fourth paragraph of message shown in pop up overlay dialog when user clicks learn more UMA, and a child account is in use">
+    If additional Web &amp; App Activity setting is turned on for your child, this data may be saved to their Google Account. Learn more about these settings and how to adjust them at families.google.com.
+  </message>
+  <message name="IDS_ARC_OPT_IN_LEARN_MORE_BACKUP_AND_RESTORE_TITLE" desc="Title for pop up overlay dialog when user clicks learn more backup and restore">
+    Back up to Google Drive
   </message>
   <message name="IDS_ARC_OPT_IN_LEARN_MORE_BACKUP_AND_RESTORE" desc="Message shown in pop up overlay dialog when user clicks learn more backup and restore">
     <ph name="BEGIN_PARAGRAPH1">&lt;p&gt;</ph>Back up to Google Drive. Easily restore your data or switch device at any time. Your backup includes app data.<ph name="END_PARAGRAPH1">&lt;/p&gt;</ph>
@@ -3024,6 +3176,33 @@
     <ph name="BEGIN_PARAGRAPH2">&lt;p&gt;</ph>Backup data will not count toward your child's Drive storage quota.<ph name="END_PARAGRAPH2">&lt;/p&gt;</ph>
     <ph name="BEGIN_PARAGRAPH3">&lt;p&gt;</ph>You can turn this service off in Settings.<ph name="END_PARAGRAPH3">&lt;/p&gt;</ph>
   </message>
+  <message name="IDS_ARC_OPT_IN_LEARN_MORE_BACKUP_AND_RESTORE_P1" desc="First paragraph of message shown in pop up overlay dialog when user clicks learn more backup and restore">
+    Back up to Google Drive. Easily restore your data or switch device at any time. Your backup includes app data.
+  </message>
+  <message name="IDS_ARC_OPT_IN_LEARN_MORE_BACKUP_AND_RESTORE_P2" desc="Second paragraph of message shown in pop up overlay dialog when user clicks learn more backup and restore">
+    Your backups are uploaded to Google and encrypted using your Google Account password.
+  </message>
+  <message name="IDS_ARC_OPT_IN_LEARN_MORE_BACKUP_AND_RESTORE_P3" desc="Third paragraph of message shown in pop up overlay dialog when user clicks learn more backup and restore">
+    App data can be any data that an app has saved (based on developer settings), including data such as contacts, messages, and photos.
+  </message>
+  <message name="IDS_ARC_OPT_IN_LEARN_MORE_BACKUP_AND_RESTORE_P4" desc="Fourth paragraph of message shown in pop up overlay dialog when user clicks learn more backup and restore">
+    Backup data will not count toward your Drive storage quota.
+  </message>
+  <message name="IDS_ARC_OPT_IN_LEARN_MORE_BACKUP_AND_RESTORE_P5" desc="Fifth paragraph of message shown in pop up overlay dialog when user clicks learn more backup and restore">
+    You can turn this service off in Settings.
+  </message>
+  <message name="IDS_ARC_OPT_IN_LEARN_MORE_BACKUP_AND_RESTORE_CHILD_P1" desc="First paragraph of message shown in pop up overlay dialog when user clicks learn more backup and restore, and a child account is in use">
+    App data can be any data that an app has saved (based on developer settings), including data such as contacts, messages, and photos.
+  </message>
+  <message name="IDS_ARC_OPT_IN_LEARN_MORE_BACKUP_AND_RESTORE_CHILD_P2" desc="Second paragraph of message shown in pop up overlay dialog when user clicks learn more backup and restore, and a child account is in use">
+    Backup data will not count toward your child's Drive storage quota.
+  </message>
+  <message name="IDS_ARC_OPT_IN_LEARN_MORE_BACKUP_AND_RESTORE_CHILD_P3" desc="Third paragraph of message shown in pop up overlay dialog when user clicks learn more backup and restore, and a child account is in use">
+    You can turn this service off in Settings.
+  </message>
+  <message name="IDS_ARC_OPT_IN_LEARN_MORE_LOCATION_SERVICES_TITLE" desc="Title for pop up overlay dialog when user clicks learn more location services">
+    Location Services
+  </message>
   <message name="IDS_ARC_OPT_IN_LEARN_MORE_LOCATION_SERVICES" desc="Message shown in pop up overlay dialog when user clicks learn more location services">
     <ph name="BEGIN_PARAGRAPH1">&lt;p&gt;</ph>Google's location service uses sources like Wi-Fi, mobile networks, and sensors to help estimate your device’s location.<ph name="END_PARAGRAPH1">&lt;/p&gt;</ph>
     <ph name="BEGIN_PARAGRAPH2">&lt;p&gt;</ph>You can turn off Location by turning off the main Location setting on your device. You can also turn off the use of Wi-Fi, mobile networks, and sensors for location in location settings.<ph name="END_PARAGRAPH2">&lt;/p&gt;</ph>
@@ -3032,8 +3211,26 @@
     <ph name="BEGIN_PARAGRAPH1">&lt;p&gt;</ph>Google's location service uses sources like Wi-Fi, mobile networks, and sensors to help estimate this device’s location.<ph name="END_PARAGRAPH1">&lt;/p&gt;</ph>
     <ph name="BEGIN_PARAGRAPH2">&lt;p&gt;</ph>You can turn off Location by turning off the main Location setting on this device. You can also turn off the use of Wi-Fi, mobile networks, and sensors for location in location settings.<ph name="END_PARAGRAPH2">&lt;/p&gt;</ph>
   </message>
+  <message name="IDS_ARC_OPT_IN_LEARN_MORE_LOCATION_SERVICES_P1" desc="First paragraph of message shown in pop up overlay dialog when user clicks learn more location services">
+    Google's location service uses sources like Wi-Fi, mobile networks, and sensors to help estimate your device’s location.
+  </message>
+  <message name="IDS_ARC_OPT_IN_LEARN_MORE_LOCATION_SERVICES_P2" desc="Second paragraph of message shown in pop up overlay dialog when user clicks learn more location services">
+    You can turn off Location by turning off the main Location setting on your device. You can also turn off the use of Wi-Fi, mobile networks, and sensors for location in location settings.
+  </message>
+  <message name="IDS_ARC_OPT_IN_LEARN_MORE_LOCATION_SERVICES_CHILD_P1" desc="First paragragh of message shown in pop up overlay dialog when user clicks learn more location services, and a child account is in use">
+    Google's location service uses sources like Wi-Fi, mobile networks, and sensors to help estimate this device’s location.
+  </message>
+  <message name="IDS_ARC_OPT_IN_LEARN_MORE_LOCATION_SERVICES_CHILD_P2" desc="Second paragragh of message shown in pop up overlay dialog when user clicks learn more location services, and a child account is in use">
+    You can turn off Location by turning off the main Location setting on this device. You can also turn off the use of Wi-Fi, mobile networks, and sensors for location in location settings.
+  </message>
+  <message name="IDS_ARC_OPT_IN_LEARN_MORE_PAI_SERVICE_TITLE" desc="Title for pop up overlay dialog when user clicks learn more play auto install services">
+    Install Updates and Apps
+  </message>
   <message name="IDS_ARC_OPT_IN_LEARN_MORE_PAI_SERVICE" desc="Message shown in pop up overlay dialog when user clicks learn more play auto install services.">
     <ph name="BEGIN_PARAGRAPH1">&lt;p&gt;</ph>To remove apps, go to Settings &gt; Google Play Store &gt; Manage Android preferences &gt; Apps or Application manager. Then tap the app you want to uninstall (you may need to swipe right or left to find the app). Then tap Uninstall or Disable.<ph name="END_PARAGRAPH1">&lt;/p&gt;</ph>
+  </message>
+  <message name="IDS_ARC_OOBE_LEARN_MORE_PAI_SERVICE" desc="Message shown in pop up overlay dialog when user clicks learn more play auto install services.">
+    To remove apps, go to Settings &gt; Google Play Store &gt; Manage Android preferences &gt; Apps or Application manager. Then tap the app you want to uninstall (you may need to swipe right or left to find the app). Then tap Uninstall or Disable.
   </message>
   <message name="IDS_ARC_OPT_IN_CONTACT_ADMIN_TITLE" desc="Title of dialog shown when user tries to launch ARC app but ARC is diabled by admin">
     This app requires access to the Play Store
@@ -3109,9 +3306,6 @@
   </message>
     <message name="IDS_ARC_OOBE_TERMS_BUTTON_ACCEPT" desc="Accept button of the Arc Terms OOBE dialog.">
     Accept
-  </message>
-  <message name="IDS_ARC_OOBE_TERMS_BUTTON_SKIP" desc="Skip button of the Arc Terms OOBE dialog.">
-    Skip
   </message>
   <message name="IDS_ARC_OOBE_TERMS_BUTTON_RETRY" desc="Retry button of the Arc Terms OOBE dialog that reloads Play Store terms.">
     Retry
@@ -3378,27 +3572,6 @@
   <message name="IDS_REQUEST_PIN_DIALOG_PROCESSING" desc="The text displayed while the certificate provider API is waiting for response from extension.">
     Processing request...
   </message>
-  <message name="IDS_REQUEST_PIN_DIALOG_INVALID_PIN_ERROR" desc="The error message displayed in the certificate provider PIN request dialog when an invalid PIN was entered. Should end with a full stop since it can be chained with more text.">
-    Invalid PIN.
-  </message>
-  <message name="IDS_REQUEST_PIN_DIALOG_INVALID_PUK_ERROR" desc="The error message displayed in the certificate provider PIN request dialog when an invalid PUK was entered. Should end with a full stop since it can be chained with more text.">
-    Invalid PUK.
-  </message>
-  <message name="IDS_REQUEST_PIN_DIALOG_MAX_ATTEMPTS_EXCEEDED_ERROR" desc="The error message displayed in the certificate provider PIN request dialog when maximum allowed attempts exceeded.">
-    Maximum allowed attempts exceeded.
-  </message>
-  <message name="IDS_REQUEST_PIN_DIALOG_UNKNOWN_ERROR" desc="The error message displayed in the certificate provider PIN request dialog when unknown error occurred in extension code. Should end with a full stop since it can be chained with more text.">
-    Unknown error.
-  </message>
-  <message name="IDS_REQUEST_PIN_DIALOG_ATTEMPTS_LEFT" desc="The text displayed in the certificate provider PIN request dialog about the number of attempts left">
-    Attempts left: <ph name="ATTEMPTS_LEFT">$1<ex>3</ex></ph>
-  </message>
-  <message name="IDS_REQUEST_PIN_DIALOG_ERROR_RETRY" desc="The text displayed in the certificate provider PIN request dialog when the previous login attempt was unsuccessful, including the reason for the previous failure.">
-    <ph name="ERROR_MESSAGE">$1<ex>Invalid PIN.</ex></ph> Please try again.
-  </message>
-  <message name="IDS_REQUEST_PIN_DIALOG_ERROR_RETRY_ATTEMPTS" desc="The text displayed in the certificate provider PIN request dialog when the previous login attempt was unsuccessful but there are more attempts remaining. Includes the reason for the previous failure.">
-    <ph name="ERROR_MESSAGE">$1<ex>Invalid PIN.</ex></ph> Please try again. Attempts left: <ph name="ATTEMPTS_LEFT">$2<ex>3</ex></ph>
-  </message>
   <message name="IDS_REQUEST_PIN_DIALOG_PIN" desc="The Provider Identification Number abbreviation">
     PIN
   </message>
@@ -3504,6 +3677,9 @@
   <message name="IDS_CROSTINI_INSTALLER_NEXT_BUTTON" desc="Label for the button in the Crostini installer dialog to progress to the next page.">
     Next
   </message>
+  <message name="IDS_CROSTINI_INSTALLER_BACK_BUTTON" desc="Label for the button in the Crostini installer dialog to go back to the previous page.">
+    Back
+  </message>
   <message name="IDS_CROSTINI_INSTALLER_INSTALL_BUTTON" desc="Label for the button in the Crostini installer dialog to begin installing Linux.">
     Install
   </message>
@@ -3571,7 +3747,7 @@
     The Linux container didn't start. Please try again.
   </message>
   <message name="IDS_CROSTINI_INSTALLER_CONFIGURE_CONTAINER_ERROR" desc="Text shown in the Crostini installer dialog when the container fails to be configured inside the VM">
-    The was an error while configuring Linux. Contact your administrator.
+    There was an error while configuring Linux. Contact your administrator.
   </message>
   <message name="IDS_CROSTINI_INSTALLER_SETUP_CONTAINER_ERROR" desc="Text shown in the Crostini installer dialog when the container fails to be set up inside the VM">
     The Linux container setup did not complete. Please try again.
@@ -3593,6 +3769,15 @@
   </message>
   <message name="IDS_CROSTINI_INSTALLER_USERNAME_MESSAGE" desc="Text shown in the Crostini installer dialog prompting the user to pick their username">
     Select a username
+  </message>
+  <message name="IDS_CROSTINI_INSTALLER_USERNAME_INVALID_FIRST_CHARACTER_ERROR" desc="Text shown in the Crostini installer dialog when the user picks a username starting with an invalid character">
+    Must start with a lowercase character or underscore
+  </message>
+  <message name="IDS_CROSTINI_INSTALLER_USERNAME_INVALID_CHARACTERS_ERROR" desc="Text shown in the Crostini installer dialog when the user picks a username containing an invalid character">
+    Lowercase characters, digits, underscores, or dashes only
+  </message>
+  <message name="IDS_CROSTINI_INSTALLER_USERNAME_NOT_AVAILABLE_ERROR" desc="Text shown in the Crostini installer dialog when the user picks a username that is not available">
+    Username "<ph name="USERNAME">$1<ex>root</ex></ph>" is not available
   </message>
   <message name="IDS_CROSTINI_UNINSTALLER_TITLE" desc="Title of the Crostini uninstaller, a dialog for uninstalling Linux, the associated VM and Linux files.">
     Delete Linux (Beta)
@@ -3624,8 +3809,8 @@
   <message name="IDS_CROSTINI_UPGRADER_UPGRADE_BUTTON" desc="Label for the button in the Crostini upgrader dialog to begin upgrading Linux.">
     Upgrade
   </message>
-  <message name="IDS_CROSTINI_UPGRADER_LAUNCH_BUTTON" desc="Label for the button in the Crostini upgrader dialog to launch the Linux terminal after upgrading Linux.">
-    Launch
+  <message name="IDS_CROSTINI_UPGRADER_DONE_BUTTON" desc="Label for the button in the Crostini upgrader dialog to indicate upgrading Linux is complete.">
+    Done
   </message>
     <message name="IDS_CROSTINI_UPGRADER_RESTORE_BUTTON" desc="Label for the button in the Crostini upgrader dialog to restore a backup if there was an error upgrading Linux.">
     Restore
@@ -3661,7 +3846,7 @@
     This may take up to 30 minutes.
   </message>
   <message name="IDS_CROSTINI_UPGRADER_SUCCEEDED_TITLE" desc="Title of the Crostini upgrader when the upgrade is finished successfully.">
-    Upgrading Linux
+    Upgrade complete
   </message>
   <message name="IDS_CROSTINI_UPGRADER_SUCCEEDED" desc="Text shown by the Crostini upgrader when the upgrade is finished successfully.">
     Linux has been successfully upgraded.
@@ -3777,7 +3962,7 @@
     Uninstall app?
   </message>
   <message name="IDS_CROSTINI_APPLICATION_UNINSTALL_CONFIRM_BODY" desc="Description for the Crostini application uninstaller, a confirmation dialog for uninstalling a Linux application.">
-    <ph name="LINUX_APP_NAME">$1<ex>GIMP</ex></ph> and the data associated with it will be removed from this device.
+    Data associated with this app may be removed from this device.
   </message>
   <message name="IDS_CROSTINI_APPLICATION_UNINSTALL_UNINSTALL_BUTTON" desc="Label for the button in the Linux application uninstaller dialog to uninstall the application">
     Uninstall
@@ -3897,7 +4082,18 @@
   <message name="IDS_CROSTINI_IMPORT_NOTIFICATION_MESSAGE_FAILED_SPACE" desc="Message displayed in the notification when import (restore) of the Linux container fails due to insufficient space.">
     Cannot restore due to lack of storage space. Free up <ph name="SPACE_REQUIRED">$1<ex>10Gb</ex></ph> from the device and try again.
   </message>
-
+  <message name="IDS_CROSTINI_RECOVERY_TITLE" desc="Title displayed in the dialog when a Linux will be restarted after a Chrome crash.">
+    Restart Linux?
+  </message>
+  <message name="IDS_CROSTINI_RECOVERY_MESSAGE" desc="Message displayed in the dialog when a Linux will be restarted after a Chrome crash.">
+    Your device didn't shut down properly. Restart Linux to use Linux apps.
+  </message>
+  <message name="IDS_CROSTINI_RECOVERY_TERMINAL_BUTTON" desc="Label for the dialog button when Linux will not be restarted after a Chrome crash, and instead a Terminal will be shown.">
+    Open recovery terminal
+  </message>
+  <message name="IDS_CROSTINI_RECOVERY_RESTART_BUTTON" desc="Label for the dialog button when Linux will be restarted after a Chrome crash.">
+    Restart Linux
+  </message>
   <!-- Time limit notification -->
   <message name="IDS_SCREEN_TIME_NOTIFICATION_TITLE" desc="The title of the notification when screen usage limit reaches before locking the device.">
     Almost time for a break
@@ -4076,6 +4272,41 @@
     Try again.
   </message>
 
+  <!-- Strings for Oobe gesture navigation education screen -->
+  <message name="IDS_OOBE_GESTURE_NAVIGATION_INTRO_TITLE" desc="The title in the gesture navigation education intro OOBE screen shown on the first user login.">
+    Introducing a new way to navigate with gestures
+  </message>
+  <message name="IDS_OOBE_GESTURE_NAVIGATION_INTRO_NEXT_BUTTON" desc="The label for the button which advances to the next page in the gesture navigation education intro OOBE screen shown on the first user login.">
+    Get started
+  </message>
+  <message name="IDS_OOBE_GESTURE_NAVIGATION_INTRO_GO_HOME" desc="The label for the home gesture item in the gesture list within the gesture navigation education intro OOBE screen shown on the first user login.">
+    Go home
+  </message>
+  <message name="IDS_OOBE_GESTURE_NAVIGATION_INTRO_SWITCH_APP" desc="The label for the switch app gesture item in the gesture list within the gesture navigation education intro OOBE screen shown on the first user login.">
+    Switch to another open app
+  </message>
+  <message name="IDS_OOBE_GESTURE_NAVIGATION_INTRO_GO_BACK" desc="The label for the go back gesture item in the gesture list within the gesture navigation education intro OOBE screen shown on the first user login.">
+    Go back
+  </message>
+  <message name="IDS_OOBE_GESTURE_NAVIGATION_HOME_TITLE" desc="The title in the gesture navigation education home OOBE screen shown on the first user login.">
+    Go Home
+  </message>
+  <message name="IDS_OOBE_GESTURE_NAVIGATION_HOME_DESCRIPTION" desc="The description for the gesture navigation education home OOBE screen shown on the first user login.">
+    To get to the Home screen at any time, swipe up from the bottom.
+  </message>
+  <message name="IDS_OOBE_GESTURE_NAVIGATION_BACK_TITLE" desc="The title in the gesture navigation education back OOBE screen shown on the first user login.">
+    Go Back
+  </message>
+  <message name="IDS_OOBE_GESTURE_NAVIGATION_BACK_DESCRIPTION" desc="The description for the gesture navigation education back OOBE screen shown on the first user login. This string should say to swipe from the right side in RTL languages.">
+    To return to the previous screen, swipe from the left side.
+  </message>
+  <message name="IDS_OOBE_GESTURE_NAVIGATION_OVERVIEW_TITLE" desc="The title in the gesture navigation education overview OOBE screen shown on the first user login.">
+    Switch to another open app
+  </message>
+  <message name="IDS_OOBE_GESTURE_NAVIGATION_OVERVIEW_DESCRIPTION" desc="The description for the gesture navigation education overview OOBE screen shown on the first user login.">
+    To see all open app windows, swipe up from the bottom and hold.
+  </message>
+
   <!-- Mojo service names (displayed in task manager) -->
   <message name="IDS_ASH_ASH_SERVICE_NAME" desc="Name of the internal software service that manages windows. Appears in the task manager.">
     Window manager
@@ -4153,6 +4384,9 @@
   <message name="IDS_PLUGIN_VM_INSTALLER_NOT_ALLOWED_TITLE" desc="Title of the Plugin VM installer if Plugin VM is disallowed.">
     Plugin VM needs permission to run
   </message>
+  <message name="IDS_PLUGIN_VM_INSTALLER_LOW_DISK_SPACE_MESSAGE" desc="Text of the Plugin VM installer that warns them of low disk space.">
+    Your device is low on storage space. At least <ph name="RECOMMENDED_SPACE">$1<ex>32GB</ex></ph> of free space is recommended to use Plugin VM. To free up space, delete files from device storage.
+  </message>
   <message name="IDS_PLUGIN_VM_INSTALLER_START_DOWNLOADING_MESSAGE" desc="Text of the Plugin VM installer that informs the user that setup may take a while.">
     This may take awhile
   </message>
@@ -4162,8 +4396,11 @@
   <message name="IDS_PLUGIN_VM_INSTALLER_IMPORTING_MESSAGE" desc="Text of the Plugin VM installer while configuring the VM.">
     Configuring the virtual machine. This may take a few minutes.
   </message>
-  <message name="IDS_PLUGIN_VM_INSTALLER_FINISHED_MESSAGE" desc="Text of the Plugin VM installer after successful installation.">
-    Plugin VM is ready to use
+  <message name="IDS_PLUGIN_VM_INSTALLER_IMPORTED_MESSAGE" desc="Text of the Plugin VM installer after successful installation.">
+    Plugin VM is ready to use.
+  </message>
+  <message name="IDS_PLUGIN_VM_INSTALLER_CREATED_MESSAGE" desc="Text of the Plugin VM installer after new VM creation.">
+    Please launch Plugin VM to install the Guest Operating System.
   </message>
   <message name="IDS_PLUGIN_VM_INSTALLER_ERROR_MESSAGE_LOGIC_ERROR" desc="Text of the Plugin VM installer if the installation failed due to an internal error.">
     Couldn't install Plugin VM. Please try again, or contact your organization's device administrator. Error code: <ph name="ERROR_CODE">$1<ex>7</ex></ph>.
@@ -4178,7 +4415,7 @@
     Couldn't install the virtual machine. Please try again, or contact your organization's device administrator. Error code: <ph name="ERROR_CODE">$1<ex>7</ex></ph>.
   </message>
   <message name="IDS_PLUGIN_VM_INSTALLER_NOT_ALLOWED_MESSAGE" desc="Error message to be shown if a setup/launch is attempted although Plugin VM is disallowed.">
-    Plugin VM isn't allowed on this device. Contact your organization's device administrator.
+    Plugin VM isn't allowed on this device. Contact your organization's device administrator. Error code: <ph name="ERROR_CODE">$1<ex>7</ex></ph>.
   </message>
   <message name="IDS_PLUGIN_VM_INSTALLER_DOWNLOAD_PROGRESS_MESSAGE" desc="Text of the Plugin VM installer during downloading Plugin VM image, showing download progress.">
     <ph name="DOWNLOADED_SIZE">$1<ex>1.2</ex></ph>/<ph name="DOWNLOAD_SIZE">$2<ex>3.4 GB</ex></ph>
@@ -4189,6 +4426,9 @@
   <message name="IDS_PLUGIN_VM_INSTALLER_TIME_LEFT_MESSAGE" desc="Text of the Plugin VM installer that shows estimated time left before current installation stage ends.">
     <ph name="TIME_LEFT">$1<ex>30 mins</ex></ph> left
   </message>
+  <message name="IDS_PLUGIN_VM_INSTALLER_CONTINUE_BUTTON" desc="Label for the button in the Plugin VM installer to continue installation.">
+    Continue
+  </message>
   <message name="IDS_PLUGIN_VM_INSTALLER_LAUNCH_BUTTON" desc="Label for the button in the Plugin VM installer to launch Plugin VM after successful installation.">
     Launch
   </message>
@@ -4198,11 +4438,23 @@
   <message name="IDS_PLUGIN_VM_SHUT_DOWN_MENU_ITEM" desc="Text shown in the launcher and shelf context menus for the Plugin VM app to shut it down.">
     Shut down
   </message>
-  <message name="IDS_PLUGIN_VM_INVALID_LICENSE_NOTIFICATION_TITLE" desc="Title in the notification shown when launching the 'Plugin VM' app failed due to an invalid or missing license.">
+  <message name="IDS_PLUGIN_VM_INVALID_LICENSE_TITLE" desc="Title in the notification shown when launching the 'Plugin VM' app failed due to an invalid or missing license.">
     Plugin VM requires a license
   </message>
-  <message name="IDS_PLUGIN_VM_INVALID_LICENSE_NOTIFICATION_MESSAGE" desc="Message in the notification shown when launching the 'Plugin VM' app failed due to an invalid or missing license.">
-    Contact the device admin for your organization
+  <message name="IDS_PLUGIN_VM_EXPIRED_LICENSE_TITLE" desc="Title in the notification shown when launching the 'Plugin VM' app failed due to an expired license.">
+    Plugin VM license has expired
+  </message>
+  <message name="IDS_PLUGIN_VM_INVALID_LICENSE_MESSAGE" desc="Message in the notification shown when launching the 'Plugin VM' app failed due to an invalid, missing, or expired license.">
+    Contact your organization's device administrator
+  </message>
+  <message name="IDS_PLUGIN_VM_START_VM_ERROR_TITLE" desc="Title in the notification shown when launching the 'Plugin VM' app failed due to a network or unknown error.">
+    Couldn't open Plugin VM
+  </message>
+  <message name="IDS_PLUGIN_VM_NETWORK_ERROR_MESSAGE" desc="Message in the notification shown when launching the 'Plugin VM' app failed due to a network error.">
+    Connect to the internet and try again
+  </message>
+  <message name="IDS_PLUGIN_VM_START_VM_ERROR_MESSAGE" desc="Message in the notificataion shown when launching the 'Plugin VM' app failed due to an unknown error.">
+    Something went wrong. Please try again.
   </message>
   <message name="IDS_PLUGIN_VM_REMOVING_NOTIFICATION_IN_PROGRESS_MESSAGE" desc="Message in the notification shown when removing the 'Plugin VM' app.">
     Uninstalling Plugin VM...
@@ -4213,6 +4465,18 @@
   <message name="IDS_PLUGIN_VM_REMOVING_NOTIFICATION_FAILED_MESSAGE" desc="Message in the notification shown when removing the 'Plugin VM' app failed.">
     Couldn't uninstall Plugin VM
   </message>
+  <message name="IDS_PLUGIN_VM_DLC_INTERNAL_FAILED_MESSAGE" desc="Error message shown if Plugin VM installation fails because an internal error indicates the device needs to be updated.">
+    Your device needs to be updated before you can use Plugin VM.
+  </message>
+  <message name="IDS_PLUGIN_VM_DLC_BUSY_FAILED_MESSAGE" desc="Error message shown if Plugin VM installation fails because dlcservice and update_engine are busy.">
+    Something went wrong. Please wait a few minutes and run Plugin VM again.
+  </message>
+  <message name="IDS_PLUGIN_VM_DLC_NEED_REBOOT_FAILED_MESSAGE" desc="Error message shown if Plugin VM installation fails because a pending update requires the device to be restarted.">
+    Please restart your device to use Plugin VM.
+  </message>
+  <message name="IDS_PLUGIN_VM_INSUFFICIENT_DISK_SPACE_MESSAGE" desc="Error message shown if Plugin VM installation fails because there is not enough free space on the device.">
+    Your device is low on storage space. At least <ph name="MINIMUM_SPACE">$1<ex>16GB</ex></ph> of free space is required to use Plugin VM, and over <ph name="RECOMMENDED_SPACE">$2<ex>32GB</ex></ph> of free space is recommended. To free up space, delete files from device storage.
+  </message>
 
   <!-- Strings for Account Manager error screen -->
   <message name="IDS_ACCOUNT_MANAGER_SECONDARY_ACCOUNTS_DISABLED_TITLE" desc="Title for the Chrome OS Account Manager error screen when addition of secondary Google Accounts is disabled.">
@@ -4220,6 +4484,12 @@
   </message>
   <message name="IDS_ACCOUNT_MANAGER_SECONDARY_ACCOUNTS_DISABLED_TEXT" desc="Text body for the Chrome OS Account Manager error screen when addition of secondary Google Accounts is disabled.">
     Your administrator has disabled the addition of more Google Accounts
+  </message>
+  <message name="IDS_ACCOUNT_MANAGER_CHILD_USER_ARC_DISABLED_TITLE" desc="Title for the Chrome OS Account Manager error screen when addition of accounts in ARC++ is disabled for child users.">
+    Can't add account
+  </message>
+  <message name="IDS_ACCOUNT_MANAGER_CHILD_USER_ARC_DISABLED_TEXT" desc="Text body for the Chrome OS Account Manager error screen when addition of accounts in ARC++ is disabled for child users.">
+    Adding G Suite for Education account in Android apps is not supported.
   </message>
 
   <!-- Strings for Account Manager welcome screen -->
@@ -4245,6 +4515,79 @@
   </message>
   <message name="IDS_ACCOUNT_MIGRATION_UPDATE_BUTTON" desc="Label for the button in Account Migration dialog to migrate the account.">
     Update account
+  </message>
+
+  <!-- Strings for EDU login flow -->
+  <message name="IDS_EDU_LOGIN_BACK" desc="The name of the button that goes to the previous step in EDU login flow.">
+    Back
+  </message>
+  <message name="IDS_EDU_LOGIN_NEXT" desc="The name of the button that goes to the next step in EDU login flow.">
+    Next
+  </message>
+  <message name="IDS_EDU_LOGIN_WELCOME_TITLE" desc="Title for the welcome screen in EDU account addition flow.">
+    Get started with a school account
+  </message>
+  <message name="IDS_EDU_LOGIN_WELCOME_BODY" desc="Text on the welcome screen in EDU account addition flow informing user to ask their parent for permission to add the account.">
+    To add an account for access to educational resources, ask a parent to give you permission
+  </message>
+  <message name="IDS_EDU_LOGIN_WELCOME_REAUTH_TITLE" desc="Title for the reauthentication screen in EDU account addition flow.">
+    Sign in again with a school account
+  </message>
+  <message name="IDS_EDU_LOGIN_WELCOME_REAUTH_BODY" desc="Text on the reauthentication screen in EDU account addition flow informing user to ask their parent for permission to reauthenticate the account.">
+    To sign in again for access to educational resources, ask a parent to give you permission
+  </message>
+  <message name="IDS_EDU_LOGIN_PARENTS_LIST_TITLE" desc="Title for the parent sign-in screen asking the user to ask a parent to sign-in to approve EDU account addition.">
+    Parent sign-in
+  </message>
+  <message name="IDS_EDU_LOGIN_PARENTS_LIST_BODY" desc="Text on the parent sign-in screen asking the user to ask a parent to sign-in to approve EDU account addition.">
+    Ask a parent to sign in to grant permission to add a school account
+  </message>
+  <message name="IDS_EDU_LOGIN_PARENT_SIGNIN_TITLE" desc="Title for the parent sign-in screen asking parent to sign-in to approve EDU account addition.">
+    Hi <ph name="PARENT_NAME">$1<ex>Francis</ex></ph>
+  </message>
+  <message name="IDS_EDU_LOGIN_PARENT_SIGNIN_BODY" desc="Text on the parent sign-in screen asking parent to sign-in to approve EDU account addition.">
+    Sign in to help <ph name="USER_NAME">$1<ex>Julie</ex></ph> add a school account
+  </message>
+  <message name="IDS_EDU_LOGIN_PARENT_SIGNIN_PASSWORD_LABEL" desc="Label for the password field on parent sign-in page in EDU account addition flow.">
+    Parent password
+  </message>
+  <message name="IDS_EDU_LOGIN_PARENT_SIGNIN_PASSWORD_ERROR_MESSAGE" desc="Error message that is shown when password is wrong in EDU login flow.">
+    Wrong password. Try again or click Forgot password to reset it.
+  </message>
+  <message name="IDS_EDU_LOGIN_PARENT_SIGNIN_ACCOUNT_RECOVERY_LINK_TEXT" desc="Text for the link that points to password recovery page.">
+    Forgot password?
+  </message>
+  <message name="IDS_EDU_LOGIN_PARENT_SIGNIN_PASSWORD_SHOW" desc="A tool tip on a button that reveals the saved password.">
+    Show password
+  </message>
+  <message name="IDS_EDU_LOGIN_PARENT_SIGNIN_PASSWORD_HIDE" desc="A tool tip on a button that hides the saved password that is being shown.">
+    Hide password
+  </message>
+  <message name="IDS_EDU_LOGIN_INFO_TITLE" desc="Title for the parent information screen in EDU account addition flow.">
+    School account info for parents
+  </message>
+  <message name="IDS_EDU_LOGIN_INFO_BODY" desc="Text informing parent that only EDU account may be added to the device.">
+    Your child wants to add another Google account to this device. Only G Suite for Education accounts may be added to Family Link managed devices.
+  </message>
+  <message name="IDS_EDU_LOGIN_INFO_PARENT_SETTINGS" desc="Text informing parent about Family Link parent settings.">
+    Your Family Link parent settings will still apply. If you've previously blocked an app or site, you won't have to do it again.
+  </message>
+  <message name="IDS_EDU_LOGIN_INFO_DATA_PROTECTION" desc="Text informing parent about their child's data protection.">
+    You child's data in Classroom will be protected. <ph name="LINK_BEGIN">&lt;a target="_blank" href="$1<ex>https://support.google.com</ex>"&gt;</ph>Learn more<ph name="LINK_END">&lt;/a&gt;</ph>
+  </message>
+  <message name="IDS_EDU_LOGIN_INFO_RESOURCES_AVAILABILITY" desc="Text informing parent some resources for schoolwork might not be available.">
+    Resources for schoolwork might not be available or automatically loaded
+    Your child might not have access to:
+    <ph name="BEGIN_LIST">&lt;ul&gt;</ph>
+      <ph name="LIST_ITEM">&lt;li&gt;</ph>Applications and extensions that were installed by the school
+      <ph name="LIST_ITEM">&lt;li&gt;</ph>Bookmarks from a school Chromebook
+      <ph name="LIST_ITEM">&lt;li&gt;</ph>Autofill passwords to educational sites
+    <ph name="END_LIST">&lt;/ul&gt;</ph>
+    To get the full school experience on this device, your child should:
+    <ph name="BEGIN_OLIST">&lt;ol&gt;</ph>
+      <ph name="OLIST_ITEM">&lt;li&gt;</ph>Sign out of their Family Link managed account
+      <ph name="OLIST_ITEM">&lt;li&gt;</ph>Sign in with their GSuite for Education account on the sign-in screen. Note, however, this will mean school policies including app and website access settings will take effect over your Family Link supervision features (for instance, school administrators may allow YouTube if it’s necessary for homework, screentime would not be enforced, etc.)
+    <ph name="END_OLIST">&lt;/ol&gt;</ph>
   </message>
 
   <!-- TPM firmware auto-update notifications -->
@@ -4328,5 +4671,28 @@ You can manage this account’s settings by installing the Family Link app on yo
   </message>
   <message name="IDS_SAML_SECURITY_TOKEN_PIN_DIALOG_TRY_AGAIN" desc="Message asking the user to try again in the security token PIN input dialog during the SAML sign-in.">
     Please try again.
+  </message>
+
+  <!-- Powerwash request strings -->
+  <message name="IDS_POWERWASH_REQUEST_TITLE" desc="Title of a notification asking user to powerwash the device">
+    Update required
+  </message>
+  <message name="IDS_POWERWASH_REQUEST_MESSAGE_FOR_ARC" desc="Message of the notification for user trying to start ARC application">
+    To start Google Play, <ph name="ORGANIZATION_NAME">$1</ph> requires you to back up your data and reset this Chromebook to factory settings.
+  </message>
+  <message name="IDS_POWERWASH_REQUEST_MESSAGE_FOR_CROSTINI" desc="Message of the notification for user trying to start Crostini application">
+    To start Linux, <ph name="ORGANIZATION_NAME">$1</ph> requires you to back up your data and reset this Chromebook to factory settings.
+  </message>
+    <message name="IDS_POWERWASH_REQUEST_MESSAGE_BUTTON" desc="Name of the button appearing in the notification">
+    Learn more
+  </message>
+  <message name="IDS_POWERWASH_REQUEST_UNDEFINED_STATE_ERROR_TITLE" desc="Title of a notification asking user to try again because failed to determine powerwash status">
+    Error launching application
+  </message>
+  <message name="IDS_POWERWASH_REQUEST_UNDEFINED_STATE_ERROR_MESSAGE_FOR_ARC" desc="Message of the notification for user trying to start ARC application while powerwash state is not determined yet">
+    Please try to start Google Play again in a few moments.
+  </message>
+  <message name="IDS_POWERWASH_REQUEST_UNDEFINED_STATE_ERROR_MESSAGE_FOR_CROSTINI" desc="Message of the notification for user trying to start Crostini application while powerwash state is not determined yet">
+    Please try to start Linux again in a few moments.
   </message>
 </grit-part>

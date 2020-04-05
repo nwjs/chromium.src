@@ -109,13 +109,13 @@ void GetPathsFromEnvironment(std::vector<base::FilePath>* paths) {
 namespace internal {
 
 bool FindExe(
-    const base::Callback<bool(const base::FilePath&)>& exists_func,
+    const base::RepeatingCallback<bool(const base::FilePath&)>& exists_func,
     const std::vector<base::FilePath>& rel_paths,
     const std::vector<base::FilePath>& locations,
     base::FilePath* out_path) {
-  for (size_t i = 0; i < rel_paths.size(); ++i) {
-    for (size_t j = 0; j < locations.size(); ++j) {
-      base::FilePath path = locations[j].Append(rel_paths[i]);
+  for (auto& rel_path : rel_paths) {
+    for (auto& location : locations) {
+      base::FilePath path = location.Append(rel_path);
       if (exists_func.Run(path)) {
         *out_path = path;
         return true;
@@ -138,7 +138,7 @@ bool FindChrome(base::FilePath* browser_exe) {
     base::FilePath(chrome::kBrowserProcessExecutablePathChromium)
 #elif defined(OS_LINUX)
     base::FilePath(chrome::kBrowserProcessExecutablePath),
-    base::FilePath(chrome::kBrowserProcessExecutablePathChromium)
+    base::FilePath(chrome::kBrowserProcessExecutablePathChromium),
 #else
     // it will compile but won't work on other OSes
     base::FilePath()
@@ -164,9 +164,6 @@ bool FindChrome(base::FilePath* browser_exe) {
   base::PathService::Get(base::DIR_EXE, &exe_path);
   locations.push_back(exe_path);
 
-  return internal::FindExe(
-      base::Bind(&base::PathExists),
-      browser_exes,
-      locations,
-      browser_exe);
+  return internal::FindExe(base::BindRepeating(&base::PathExists), browser_exes,
+                           locations, browser_exe);
 }

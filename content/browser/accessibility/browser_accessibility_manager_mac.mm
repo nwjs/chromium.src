@@ -15,7 +15,6 @@
 #include "base/time/time.h"
 #import "content/browser/accessibility/browser_accessibility_cocoa.h"
 #import "content/browser/accessibility/browser_accessibility_mac.h"
-#include "content/common/accessibility_messages.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "ui/accelerated_widget_mac/accelerated_widget_mac.h"
@@ -123,10 +122,7 @@ BrowserAccessibilityManagerMac::BrowserAccessibilityManagerMac(
     BrowserAccessibilityFactory* factory)
     : BrowserAccessibilityManager(delegate, factory) {
   Initialize(initial_tree);
-  // Temporary fix. Disable extra mac nodes, which only affects column
-  // navigation but fixes a number of crash bugs seen only with VoiceOver.
-  // This does not affect verbalization of columns headers in cell navigation.
-  tree_->SetEnableExtraMacNodes(GetExtraMacNodesAllowed());
+  ax_tree()->SetEnableExtraMacNodes(true);
 }
 
 BrowserAccessibilityManagerMac::~BrowserAccessibilityManagerMac() {}
@@ -198,7 +194,7 @@ void PostAnnouncementNotification(NSString* announcement) {
 // Check whether the current batch of events contains the event type.
 bool BrowserAccessibilityManagerMac::IsInGeneratedEventBatch(
     ui::AXEventGenerator::Event event_type) const {
-  for (const auto& event : event_generator_) {
+  for (const auto& event : event_generator()) {
     if (event.event_params.event == event_type)
       return true;  // Announcement will already be handled via this event.
   }
@@ -242,6 +238,10 @@ void BrowserAccessibilityManagerMac::FireGeneratedEvent(
       } else {
         mac_notification = NSAccessibilityLayoutCompleteNotification;
       }
+      break;
+    case ui::AXEventGenerator::Event::PORTAL_ACTIVATED:
+      DCHECK(IsRootTree());
+      mac_notification = NSAccessibilityLoadCompleteNotification;
       break;
     case ui::AXEventGenerator::Event::INVALID_STATUS_CHANGED:
       mac_notification = NSAccessibilityInvalidStatusChangedNotification;

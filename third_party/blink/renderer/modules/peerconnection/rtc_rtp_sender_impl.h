@@ -23,6 +23,9 @@
 
 namespace blink {
 
+class RTCEncodedAudioStreamTransformer;
+class RTCEncodedVideoStreamTransformer;
+
 // This class represents the state of a sender; a snapshot of what a
 // webrtc-layer sender looked like when it was inspected on the signaling thread
 // such that this information can be moved to the main thread in a single
@@ -120,7 +123,9 @@ class MODULES_EXPORT RTCRtpSenderImpl : public blink::RTCRtpSenderPlatform {
   RTCRtpSenderImpl(
       scoped_refptr<webrtc::PeerConnectionInterface> native_peer_connection,
       scoped_refptr<blink::WebRtcMediaStreamTrackAdapterMap> track_map,
-      RtpSenderState state);
+      RtpSenderState state,
+      bool force_encoded_audio_insertable_streams,
+      bool force_encoded_video_insertable_streams);
   RTCRtpSenderImpl(const RTCRtpSenderImpl& other);
   ~RTCRtpSenderImpl() override;
   RTCRtpSenderImpl& operator=(const RTCRtpSenderImpl& other);
@@ -140,11 +145,15 @@ class MODULES_EXPORT RTCRtpSenderImpl : public blink::RTCRtpSenderPlatform {
   std::unique_ptr<blink::RtcDtmfSenderHandler> GetDtmfSender() const override;
   std::unique_ptr<webrtc::RtpParameters> GetParameters() const override;
   void SetParameters(Vector<webrtc::RtpEncodingParameters>,
-                     webrtc::DegradationPreference,
+                     absl::optional<webrtc::DegradationPreference>,
                      blink::RTCVoidRequest*) override;
   void GetStats(RTCStatsReportCallback,
                 const Vector<webrtc::NonStandardGroupId>&) override;
   void SetStreams(const Vector<String>& stream_ids) override;
+  RTCEncodedAudioStreamTransformer* GetEncodedAudioStreamTransformer()
+      const override;
+  RTCEncodedVideoStreamTransformer* GetEncodedVideoStreamTransformer()
+      const override;
 
   // The ReplaceTrack() that takes a blink::RTCVoidRequest is implemented on
   // top of this, which returns the result in a callback instead. Allows doing

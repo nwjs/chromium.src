@@ -52,6 +52,11 @@ constexpr char kInvalidData[] = "Invalid document";
 
 constexpr int kIconSize = 64;
 
+// We want to have an ability to disable PDF flattening for unit tests as
+// printing::mojom::PdfFlattener requires real browser instance to be able to
+// handle requests.
+bool g_disable_pdf_flattening_for_testing = false;
+
 // Returns true if |extension_id| is in the whitelist.
 bool IsUserConfirmationRequired(content::BrowserContext* browser_context,
                                 const std::string& extension_id) {
@@ -167,6 +172,11 @@ void PrintJobSubmitter::OnDocumentDataRead(std::unique_ptr<std::string> data,
   }
   memcpy(memory.mapping.memory(), data->data(), data->length());
 
+  if (g_disable_pdf_flattening_for_testing) {
+    OnPdfFlattened(std::move(memory.region));
+    return;
+  }
+
   if (!pdf_flattener_->is_bound()) {
     GetPrintingService()->BindPdfFlattener(
         pdf_flattener_->BindNewPipeAndPassReceiver());
@@ -233,12 +243,11 @@ void PrintJobSubmitter::OnPrintJobConfirmationDialogClosed(bool accepted) {
 }
 
 void PrintJobSubmitter::StartPrintJob() {
-  auto metafile = std::make_unique<printing::MetafileSkia>();
-  CHECK(metafile->InitFromData(flattened_pdf_mapping_.memory(),
-                               flattened_pdf_mapping_.size()));
-
   DCHECK(extension_);
   DCHECK(settings_);
+  auto metafile = std::make_unique<printing::MetafileSkia>();
+  CHECK(metafile->InitFromData(
+      flattened_pdf_mapping_.GetMemoryAsSpan<const uint8_t>()));
   print_job_controller_->StartPrintJob(
       extension_->id(), std::move(metafile), std::move(settings_),
       base::BindOnce(&PrintJobSubmitter::OnPrintJobSubmitted,
@@ -268,6 +277,11 @@ void PrintJobSubmitter::FireErrorCallback(const std::string& error) {
   base::SequencedTaskRunnerHandle::Get()->PostTask(
       FROM_HERE,
       base::BindOnce(std::move(callback_), base::nullopt, nullptr, error));
+}
+
+// static
+base::AutoReset<bool> PrintJobSubmitter::DisablePdfFlatteningForTesting() {
+  return base::AutoReset<bool>(&g_disable_pdf_flattening_for_testing, true);
 }
 
 }  // namespace extensions

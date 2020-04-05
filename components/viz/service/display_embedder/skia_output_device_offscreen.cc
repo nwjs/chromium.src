@@ -21,17 +21,21 @@ constexpr SkColorType kSurfaceColorType = kRGBA_8888_SkColorType;
 
 SkiaOutputDeviceOffscreen::SkiaOutputDeviceOffscreen(
     scoped_refptr<gpu::SharedContextState> context_state,
-    bool flipped,
+    gfx::SurfaceOrigin origin,
     bool has_alpha,
     gpu::MemoryTracker* memory_tracker,
     DidSwapBufferCompleteCallback did_swap_buffer_complete_callback)
-    : SkiaOutputDevice(false /*need_swap_semaphore */,
-                       memory_tracker,
-                       did_swap_buffer_complete_callback),
+    : SkiaOutputDevice(memory_tracker, did_swap_buffer_complete_callback),
       context_state_(context_state),
       has_alpha_(has_alpha) {
-  capabilities_.flipped_output_surface = flipped;
+  capabilities_.uses_default_gl_framebuffer = false;
+  capabilities_.output_surface_origin = origin;
   capabilities_.supports_post_sub_buffer = true;
+
+  capabilities_.sk_color_type = kSurfaceColorType;
+  capabilities_.gr_backend_format =
+      context_state_->gr_context()->defaultBackendFormat(kSurfaceColorType,
+                                                         GrRenderable::kYes);
 }
 
 SkiaOutputDeviceOffscreen::~SkiaOutputDeviceOffscreen() {
@@ -41,7 +45,7 @@ SkiaOutputDeviceOffscreen::~SkiaOutputDeviceOffscreen() {
 bool SkiaOutputDeviceOffscreen::Reshape(const gfx::Size& size,
                                         float device_scale_factor,
                                         const gfx::ColorSpace& color_space,
-                                        bool has_alpha,
+                                        gfx::BufferFormat format,
                                         gfx::OverlayTransform transform) {
   DCHECK_EQ(transform, gfx::OVERLAY_TRANSFORM_NONE);
 
@@ -114,20 +118,24 @@ void SkiaOutputDeviceOffscreen::DiscardBackbuffer() {
   }
 }
 
-SkSurface* SkiaOutputDeviceOffscreen::BeginPaint() {
+SkSurface* SkiaOutputDeviceOffscreen::BeginPaint(
+    std::vector<GrBackendSemaphore>* end_semaphores) {
   DCHECK(backend_texture_.isValid());
   if (!sk_surface_) {
+    // LegacyFontHost will get LCD text and skia figures out what type to use.
+    SkSurfaceProps surface_props(0 /* flags */,
+                                 SkSurfaceProps::kLegacyFontHost_InitType);
     sk_surface_ = SkSurface::MakeFromBackendTexture(
         context_state_->gr_context(), backend_texture_,
-        capabilities_.flipped_output_surface ? kTopLeft_GrSurfaceOrigin
-                                             : kBottomLeft_GrSurfaceOrigin,
+        capabilities_.output_surface_origin == gfx::SurfaceOrigin::kTopLeft
+            ? kTopLeft_GrSurfaceOrigin
+            : kBottomLeft_GrSurfaceOrigin,
         0 /* sampleCount */, kSurfaceColorType, sk_color_space_,
-        nullptr /* surfaceProps */);
+        &surface_props);
   }
   return sk_surface_.get();
 }
 
-void SkiaOutputDeviceOffscreen::EndPaint(const GrBackendSemaphore& semaphore) {
-}
+void SkiaOutputDeviceOffscreen::EndPaint() {}
 
 }  // namespace viz

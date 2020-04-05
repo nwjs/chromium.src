@@ -16,7 +16,8 @@
 #include "base/json/json_reader.h"
 #include "base/logging.h"
 #include "base/macros.h"
-#include "base/metrics/histogram_macros.h"
+#include "base/metrics/histogram_functions.h"
+#include "base/optional.h"
 #include "base/stl_util.h"
 #include "base/syslog_logging.h"
 #include "base/threading/thread_restrictions.h"
@@ -24,6 +25,7 @@
 #include "chrome/browser/chromeos/ownership/owner_settings_service_chromeos.h"
 #include "chrome/browser/chromeos/policy/device_policy_decoder_chromeos.h"
 #include "chrome/browser/chromeos/policy/off_hours/off_hours_proto_parser.h"
+#include "chrome/browser/chromeos/policy/system_proxy_settings_policy_handler.h"
 #include "chrome/browser/chromeos/settings/cros_settings.h"
 #include "chrome/browser/chromeos/settings/device_settings_cache.h"
 #include "chrome/browser/chromeos/settings/stats_reporting_controller.h"
@@ -102,7 +104,7 @@ const char* const kKnownSettings[] = {
     kHeartbeatFrequency,
     kLoginAuthenticationBehavior,
     kLoginVideoCaptureAllowedUrls,
-    kMinimumRequiredChromeVersion,
+    kMinimumChromeVersionEnforced,
     kPluginVmAllowed,
     kPluginVmLicenseKey,
     kPolicyMissingMitigationMode,
@@ -120,7 +122,10 @@ const char* const kKnownSettings[] = {
     kReportDeviceStorageStatus,
     kReportDeviceNetworkInterfaces,
     kReportDeviceSessionStatus,
+    kReportDeviceTimezoneInfo,
     kReportDeviceGraphicsStatus,
+    kReportDeviceMemoryInfo,
+    kReportDeviceBacklightInfo,
     kReportDeviceUsers,
     kReportDeviceVersionInfo,
     kReportOsUpdateStatus,
@@ -132,6 +137,7 @@ const char* const kKnownSettings[] = {
     kStartUpFlags,
     kStatsReportingPref,
     kSystemLogUploadEnabled,
+    kSystemProxySettings,
     kSystemTimezonePolicy,
     kSystemUse24HourClock,
     kTargetVersionPrefix,
@@ -152,11 +158,10 @@ void SetJsonDeviceSetting(const std::string& setting_name,
                           const std::string& json_string,
                           PrefValueMap* pref_value_map) {
   std::string error;
-  std::unique_ptr<base::Value> decoded_json =
+  base::Optional<base::Value> decoded_json =
       policy::DecodeJsonStringAndNormalize(json_string, policy_name, &error);
-  if (decoded_json) {
-    pref_value_map->SetValue(
-        setting_name, base::Value::FromUniquePtrValue(std::move(decoded_json)));
+  if (decoded_json.has_value()) {
+    pref_value_map->SetValue(setting_name, std::move(decoded_json.value()));
   }
 }
 
@@ -283,6 +288,16 @@ void DecodeLoginPolicies(const em::ChromeDeviceSettingsProto& policy,
         entry_dict.SetKey(
             chromeos::kAccountsPrefDeviceLocalAccountsKeyWebKioskUrl,
             base::Value(entry.web_kiosk_app().url()));
+      }
+      if (entry.web_kiosk_app().has_title()) {
+        entry_dict.SetKey(
+            chromeos::kAccountsPrefDeviceLocalAccountsKeyWebKioskTitle,
+            base::Value(entry.web_kiosk_app().title()));
+      }
+      if (entry.web_kiosk_app().has_icon_url()) {
+        entry_dict.SetKey(
+            chromeos::kAccountsPrefDeviceLocalAccountsKeyWebKioskIconUrl,
+            base::Value(entry.web_kiosk_app().icon_url()));
       }
     } else if (entry.has_deprecated_public_session_id()) {
       // Deprecated public session specification.
@@ -445,6 +460,16 @@ void DecodeNetworkPolicies(const em::ChromeDeviceSettingsProto& policy,
       policy.has_data_roaming_enabled() &&
           policy.data_roaming_enabled().has_data_roaming_enabled() &&
           policy.data_roaming_enabled().data_roaming_enabled());
+
+  if (policy.has_system_proxy_settings()) {
+    const em::SystemProxySettingsProto& settings_proto(
+        policy.system_proxy_settings());
+    if (settings_proto.has_system_proxy_settings()) {
+      SetJsonDeviceSetting(
+          kSystemProxySettings, policy::key::kSystemProxySettings,
+          settings_proto.system_proxy_settings(), new_values_cache);
+    }
+  }
 }
 
 void DecodeAutoUpdatePolicies(const em::ChromeDeviceSettingsProto& policy,
@@ -564,6 +589,18 @@ void DecodeReportingPolicies(const em::ChromeDeviceSettingsProto& policy,
     if (reporting_policy.has_report_cpu_info()) {
       new_values_cache->SetBoolean(kReportDeviceCpuInfo,
                                    reporting_policy.report_cpu_info());
+    }
+    if (reporting_policy.has_report_timezone_info()) {
+      new_values_cache->SetBoolean(kReportDeviceTimezoneInfo,
+                                   reporting_policy.report_timezone_info());
+    }
+    if (reporting_policy.has_report_memory_info()) {
+      new_values_cache->SetBoolean(kReportDeviceMemoryInfo,
+                                   reporting_policy.report_memory_info());
+    }
+    if (reporting_policy.has_report_backlight_info()) {
+      new_values_cache->SetBoolean(kReportDeviceBacklightInfo,
+                                   reporting_policy.report_backlight_info());
     }
   }
 }
@@ -720,12 +757,14 @@ void DecodeGenericPolicies(const em::ChromeDeviceSettingsProto& policy,
                                        policy.tpm_firmware_update_settings())));
   }
 
-  if (policy.has_minimum_required_version()) {
-    const em::MinimumRequiredVersionProto& container(
-        policy.minimum_required_version());
-    if (container.has_chrome_version())
-      new_values_cache->SetString(kMinimumRequiredChromeVersion,
-                                  container.chrome_version());
+  if (policy.has_minimum_chrome_version_enforced()) {
+    const em::StringPolicyProto& container(
+        policy.minimum_chrome_version_enforced());
+    if (container.has_value()) {
+      SetJsonDeviceSetting(kMinimumChromeVersionEnforced,
+                           policy::key::kMinimumChromeVersionEnforced,
+                           container.value(), new_values_cache);
+    }
   }
 
   if (policy.has_cast_receiver_name()) {
@@ -1138,6 +1177,8 @@ bool DeviceSettingsProvider::MitigateMissingPolicy() {
   LOG(ERROR) << "Corruption of the policy data has been detected."
              << "Switching to \"safe-mode\" policies until the owner logs in "
              << "to regenerate the policy data.";
+  base::UmaHistogramBoolean("Enterprise.DeviceSettings.MissingPolicyMitigated",
+                            true);
 
   device_settings_.Clear();
   device_settings_.mutable_allow_new_users()->set_allow_new_users(true);
@@ -1187,6 +1228,8 @@ void DeviceSettingsProvider::UpdateAndProceedStoring() {
 
 bool DeviceSettingsProvider::UpdateFromService() {
   bool settings_loaded = false;
+  base::UmaHistogramEnumeration("Enterprise.DeviceSettings.UpdatedStatus",
+                                device_settings_service_->status());
   switch (device_settings_service_->status()) {
     case DeviceSettingsService::STORE_SUCCESS: {
       const em::PolicyData* policy_data =

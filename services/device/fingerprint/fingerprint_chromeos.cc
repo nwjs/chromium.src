@@ -7,6 +7,8 @@
 #include <string.h>
 
 #include "base/bind.h"
+#include "base/bind_helpers.h"
+#include "base/callback_helpers.h"
 #include "chromeos/dbus/biod/biod_client.h"
 #include "dbus/object_path.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
@@ -72,10 +74,9 @@ FingerprintChromeOS::FingerprintChromeOS() {
 FingerprintChromeOS::~FingerprintChromeOS() {
   GetBiodClient()->RemoveObserver(this);
   if (opened_session_ == FingerprintSession::ENROLL) {
-    GetBiodClient()->CancelEnrollSession(
-        chromeos::EmptyVoidDBusMethodCallback());
+    GetBiodClient()->CancelEnrollSession(base::DoNothing());
   } else if (opened_session_ == FingerprintSession::AUTH) {
-    GetBiodClient()->EndAuthSession(chromeos::EmptyVoidDBusMethodCallback());
+    GetBiodClient()->EndAuthSession(base::DoNothing());
   }
 }
 

@@ -7,13 +7,19 @@ package org.chromium.ui.test.util;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
+import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.text.TextUtils;
 import android.util.Pair;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
+import android.widget.ImageView;
 
+import androidx.vectordrawable.graphics.drawable.AnimatedVectorDrawableCompat;
+
+import org.json.JSONException;
+import org.json.JSONObject;
 import org.junit.Assert;
 import org.junit.rules.TestWatcher;
 import org.junit.runner.Description;
@@ -28,6 +34,7 @@ import org.chromium.ui.UiUtils;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -40,6 +47,45 @@ import java.util.concurrent.Callable;
 /**
  * A TestRule for creating Render Tests. An exception will be thrown after the test method completes
  * if the test fails.
+ *
+ * Skia Gold/newer diffing approach:
+ *
+ * <pre>
+ * {@code
+ *
+ * @RunWith(BaseJUnit4ClassRunner.class)
+ * public class MyTest extends DummyUiActivityTestCase >
+ *     @Rule
+ *     public RenderTestRule mRenderTestRule = new RenderTestRule.SkiaGoldBuilder()
+ *             // Optional, only necessary if you want your results to be kept in a different
+ *             // corpus than the default.
+ *             .setCorpus("android-render-tests-my-fancy-feature")
+ *             // Optional, only necessary once a CL lands that should invalidate previous golden
+ *             // images, e.g. a UI rework.
+ *             .setRevision(2)
+ *             // Optional, only necessary if you want a message to be associated with these
+ *             // golden images and shown in the Gold web UI, e.g. the reason why the revision was
+ *             // incremented.
+ *             .setDescription("Material design rework")
+ *             .build();
+ *
+ *     @Test
+ *     // "RenderTest" feature still required.
+ *     @Feature({"RenderTest"})
+ *     public void testViewAppearance() {
+ *         // Setup the UI.
+ *         ...
+ *
+ *         // Render the UI Elements.
+ *         mRenderTestRule.render(bigWidgetView, "big_widget");
+ *         mRenderTestRule.render(smallWidgetView, "small_widget");
+ *     }
+ * }
+ *
+ * }
+ * </pre>
+ *
+ * Legacy/local diffing approach:
  *
  * <pre>
  * {@code
@@ -66,6 +112,7 @@ import java.util.concurrent.Callable;
  *
  * }
  * </pre>
+ *
  */
 public class RenderTestRule extends TestWatcher {
     private static final String TAG = "RenderTest";
@@ -73,12 +120,15 @@ public class RenderTestRule extends TestWatcher {
     private static final String DIFF_FOLDER_RELATIVE = "/diffs";
     private static final String FAILURE_FOLDER_RELATIVE = "/failures";
     private static final String GOLDEN_FOLDER_RELATIVE = "/goldens";
+    private static final String SKIA_GOLD_FOLDER_RELATIVE = "/skia_gold";
 
     /**
      * This is a list of model-SDK version identifiers for devices we maintain golden images for.
      * If render tests are being run on a device of a model-sdk on this list, goldens should exist.
+     * TODO(https://crbug.com/1060245): Re-add Nexus_5-19 when chrome_public_test_apk is back on the
+     *      KitKat bot on the CQ.
      */
-    private static final String[] RENDER_TEST_MODEL_SDK_PAIRS = {"Nexus_5-19", "Nexus_5X-23"};
+    private static final String[] RENDER_TEST_MODEL_SDK_PAIRS = {"Nexus_5X-23"};
 
     private enum ComparisonResult { MATCH, MISMATCH, GOLDEN_NOT_FOUND }
 
@@ -103,6 +153,11 @@ public class RenderTestRule extends TestWatcher {
 
     private Map<String, DiffReport> mMismatchReports = new HashMap<>();
 
+    private boolean mUseSkiaGold;
+    private String mSkiaGoldCorpus;
+    private int mSkiaGoldRevision;
+    private String mSkiaGoldRevisionDescription;
+
     /**
      * An exception thrown after a Render Test if images do not match the goldens or goldens are
      * missing on a render test device.
@@ -119,6 +174,21 @@ public class RenderTestRule extends TestWatcher {
         mGoldenFolder = UrlUtils.getIsolatedTestFilePath(goldenFolder);
         // The output folder can be overridden with the --render-test-output-dir command.
         mOutputFolder = CommandLine.getInstance().getSwitchValue("render-test-output-dir");
+    }
+
+    // Skia Gold-specific constructor used by the builder.
+    protected RenderTestRule(int revision, String corpus, String description) {
+        assert revision >= 0;
+
+        mUseSkiaGold = true;
+        mSkiaGoldCorpus = (corpus == null) ? "android-render-tests" : corpus;
+        mSkiaGoldRevisionDescription = description;
+        mSkiaGoldRevision = revision;
+
+        // The output folder can be overridden with the --render-test-output-dir command.
+        mOutputFolder = CommandLine.getInstance().getSwitchValue("render-test-output-dir");
+        // Unused when using Skia Gold, but compiler complains about it being uninitialized.
+        mGoldenFolder = null;
     }
 
     @Override
@@ -175,7 +245,34 @@ public class RenderTestRule extends TestWatcher {
     public void compareForResult(Bitmap testBitmap, String id) throws IOException {
         Assert.assertTrue("Render Tests must have the RenderTest feature.", mHasRenderTestFeature);
 
-        String filename = imageName(mTestClassName, mVariantPrefix, id);
+        if (mUseSkiaGold) {
+            compareForResultSkiaGold(testBitmap, id);
+        } else {
+            compareForResultLocal(testBitmap, id);
+        }
+    }
+
+    public void compareForResultSkiaGold(Bitmap testBitmap, String id) throws IOException {
+        // Save the image and its metadata to a location where it can be pulled by the test runner
+        // for comparison after the test finishes.
+        String imageName = getImageName(mTestClassName, mVariantPrefix, id);
+        String jsonName = getJsonName(mTestClassName, mVariantPrefix, id);
+
+        saveBitmap(testBitmap, createOutputPath(SKIA_GOLD_FOLDER_RELATIVE, imageName));
+        JSONObject goldKeys = new JSONObject();
+        try {
+            goldKeys.put("source_type", mSkiaGoldCorpus);
+            if (!TextUtils.isEmpty(mSkiaGoldRevisionDescription)) {
+                goldKeys.put("revision_description", mSkiaGoldRevisionDescription);
+            }
+        } catch (JSONException e) {
+            Assert.fail("Failed to create Skia Gold JSON keys: " + e.toString());
+        }
+        saveString(goldKeys.toString(), createOutputPath(SKIA_GOLD_FOLDER_RELATIVE, jsonName));
+    }
+
+    public void compareForResultLocal(Bitmap testBitmap, String id) throws IOException {
+        String filename = getImageName(mTestClassName, mVariantPrefix, id);
 
         BitmapFactory.Options options = new BitmapFactory.Options();
         options.inPreferredConfig = testBitmap.getConfig();
@@ -262,6 +359,11 @@ public class RenderTestRule extends TestWatcher {
         } else if (view instanceof EditText) {
             EditText editText = (EditText) view;
             editText.setCursorVisible(false);
+        } else if (view instanceof ImageView) {
+            Drawable drawable = ((ImageView) view).getDrawable();
+            if (drawable instanceof AnimatedVectorDrawableCompat) {
+                ((AnimatedVectorDrawableCompat) drawable).stop();
+            }
         }
     }
 
@@ -302,11 +404,27 @@ public class RenderTestRule extends TestWatcher {
     /**
      * Creates an image name combining the image description with details about the device
      * (eg model, current orientation).
+     */
+    private String getImageName(String testClass, String variantPrefix, String desc) {
+        return String.format("%s.png", getFileName(testClass, variantPrefix, desc));
+    }
+
+    /**
+     * Creates a JSON name combining the description with details about the device (e.g. model,
+     * current orientation).
+     */
+    private String getJsonName(String testClass, String variantPrefix, String desc) {
+        return String.format("%s.json", getFileName(testClass, variantPrefix, desc));
+    }
+
+    /**
+     * Creates a generic filename (without a file extension) combining the description with details
+     * about the device (e.g. model, current orientation).
      *
      * This function must be kept in sync with |RE_RENDER_IMAGE_NAME| from
      * src/build/android/pylib/local/device/local_device_instrumentation_test_run.py.
      */
-    private String imageName(String testClass, String variantPrefix, String desc) {
+    private String getFileName(String testClass, String variantPrefix, String desc) {
         if (!TextUtils.isEmpty(mNightModePrefix)) {
             desc = mNightModePrefix + "-" + desc;
         }
@@ -315,8 +433,12 @@ public class RenderTestRule extends TestWatcher {
             desc = variantPrefix + "-" + desc;
         }
 
-        return String.format(
-                Locale.getDefault(), "%s.%s.%s.png", testClass, desc, modelSdkIdentifier());
+        if (mUseSkiaGold) {
+            return String.format(
+                    "%s.%s.%s.rev_%s", testClass, desc, modelSdkIdentifier(), mSkiaGoldRevision);
+        }
+
+        return String.format("%s.%s.%s", testClass, desc, modelSdkIdentifier());
     }
 
     /**
@@ -335,6 +457,15 @@ public class RenderTestRule extends TestWatcher {
             bitmap.compress(Bitmap.CompressFormat.PNG, 100, out);
         } finally {
             out.close();
+        }
+    }
+
+    /**
+     * Saves the given |string| to the |file|.
+     */
+    private static void saveString(String string, File file) throws IOException {
+        try (PrintWriter out = new PrintWriter(file)) {
+            out.println(string);
         }
     }
 
@@ -362,6 +493,34 @@ public class RenderTestRule extends TestWatcher {
             }
         }
         return new File(path + "/" + filename);
+    }
+
+    /**
+     * Builder to create a RenderTestRule for use with Skia Gold.
+     */
+    public static class SkiaGoldBuilder {
+        private int mRevision;
+        private String mCorpus;
+        private String mDescription;
+
+        public SkiaGoldBuilder setRevision(int revision) {
+            mRevision = revision;
+            return this;
+        }
+
+        public SkiaGoldBuilder setCorpus(String corpus) {
+            mCorpus = corpus;
+            return this;
+        }
+
+        public SkiaGoldBuilder setDescription(String description) {
+            mDescription = description;
+            return this;
+        }
+
+        public RenderTestRule build() {
+            return new RenderTestRule(mRevision, mCorpus, mDescription);
+        }
     }
 
     /**

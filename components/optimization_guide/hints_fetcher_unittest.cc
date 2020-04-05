@@ -129,6 +129,10 @@ class HintsFetcherTest : public testing::Test {
       EXPECT_EQ(pending_request.request.method, "POST");
       EXPECT_TRUE(net::GetValueForKeyInQuery(pending_request.request.url, "key",
                                              &key_value));
+      EXPECT_EQ(pending_request.request.request_body->elements()->size(), 1u);
+      auto& element =
+          pending_request.request.request_body->elements_mutable()->front();
+      last_request_body_ = std::string(element.bytes(), element.length());
     }
   }
 
@@ -136,6 +140,10 @@ class HintsFetcherTest : public testing::Test {
     return HintsFetcher::WasHostCoveredByFetch(pref_service(), host,
                                                GetMockClock());
   }
+
+  void ResetHintsFetcher() { hints_fetcher_.reset(); }
+
+  std::string last_request_body() const { return last_request_body_; }
 
  private:
   void RunUntilIdle() {
@@ -153,8 +161,24 @@ class HintsFetcherTest : public testing::Test {
   network::TestURLLoaderFactory test_url_loader_factory_;
   network::TestNetworkConnectionTracker* network_tracker_;
 
+  std::string last_request_body_;
+
   DISALLOW_COPY_AND_ASSIGN(HintsFetcherTest);
 };
+
+TEST_F(HintsFetcherTest,
+       FetchOptimizationGuideServiceHintsLogsHistogramUponExiting) {
+  base::HistogramTester histogram_tester;
+
+  EXPECT_TRUE(FetchHints({"foo.com"}, {} /* urls */));
+  VerifyHasPendingFetchRequests();
+  ResetHintsFetcher();
+
+  histogram_tester.ExpectUniqueSample(
+      "OptimizationGuide.HintsFetcher.GetHintsRequest.ActiveRequestCanceled."
+      "BatchUpdate",
+      1, 1);
+}
 
 TEST_F(HintsFetcherTest, FetchOptimizationGuideServiceHints) {
   base::HistogramTester histogram_tester;
@@ -173,6 +197,10 @@ TEST_F(HintsFetcherTest, FetchOptimizationGuideServiceHints) {
   histogram_tester.ExpectUniqueSample(
       "OptimizationGuide.HintsFetcher.RequestStatus.BatchUpdate",
       HintsFetcherRequestStatus::kSuccess, 1);
+  histogram_tester.ExpectTotalCount(
+      "OptimizationGuide.HintsFetcher.GetHintsRequest.ActiveRequestCanceled."
+      "BatchUpdate",
+      0);
 }
 
 // Tests to ensure that multiple hint fetches by the same object cannot be in
@@ -256,6 +284,17 @@ TEST_F(HintsFetcherTest, FetchInProgress_HostsHintsRefreshed) {
   EXPECT_FALSE(FetchHints({"foo.com"}, {} /* urls */));
   EXPECT_FALSE(FetchHints({"bar.com"}, {} /* urls */));
   EXPECT_TRUE(FetchHints({"baz.com"}, {} /* urls */));
+  proto::GetHintsResponse response;
+  response.mutable_max_cache_duration()->set_seconds(60 * 60 * 24 * 20);
+  response.SerializeToString(&response_content);
+  SimulateResponse(response_content, net::HTTP_OK);
+
+  // Advance clock for the default duration that the hint normally expires
+  // under.
+  test_clock.Advance(features::StoredFetchedHintsFreshnessDuration());
+
+  // Max cache duration from response should be used for pref instead.
+  EXPECT_FALSE(FetchHints({"baz.com"}, {} /* urls */));
 }
 
 // Tests 404 response from request.
@@ -533,6 +572,43 @@ TEST_F(HintsFetcherTest, MaxHostsForOptimizationGuideServiceHintsFetch) {
   for (size_t i = 0; i < max_hosts_in_fetch_request; ++i) {
     EXPECT_TRUE(
         WasHostCoveredByFetch("host" + base::NumberToString(i) + ".com"));
+  }
+}
+
+TEST_F(HintsFetcherTest, MaxUrlsForOptimizationGuideServiceHintsFetch) {
+  base::HistogramTester histogram_tester;
+  std::string response_content;
+  std::vector<GURL> all_urls;
+
+  // IP addresses, and localhosts should be skipped.
+  all_urls.push_back(GURL("localhost"));
+  all_urls.push_back(GURL("8.8.8.8"));
+
+  size_t max_urls_in_fetch_request = optimization_guide::features::
+      MaxUrlsForOptimizationGuideServiceHintsFetch();
+  for (size_t i = 0; i < max_urls_in_fetch_request; ++i) {
+    all_urls.push_back(GURL("https://url" + base::NumberToString(i) + ".com/"));
+  }
+
+  all_urls.push_back(GURL("https://notfetched.com/"));
+  all_urls.push_back(GURL("https://notfetched-2.com/"));
+
+  EXPECT_TRUE(FetchHints({} /* hosts */, all_urls));
+  VerifyHasPendingFetchRequests();
+  EXPECT_TRUE(SimulateResponse(response_content, net::HTTP_OK));
+  EXPECT_TRUE(hints_fetched());
+
+  histogram_tester.ExpectUniqueSample(
+      "OptimizationGuide.HintsFetcher.GetHintsRequest.UrlCount",
+      max_urls_in_fetch_request, 1);
+
+  proto::GetHintsRequest last_request;
+  last_request.ParseFromString(last_request_body());
+  EXPECT_EQ(static_cast<size_t>(last_request.urls_size()),
+            max_urls_in_fetch_request);
+  for (size_t i = 0; i < max_urls_in_fetch_request; ++i) {
+    EXPECT_EQ(last_request.urls(i).url(),
+              "https://url" + base::NumberToString(i) + ".com/");
   }
 }
 

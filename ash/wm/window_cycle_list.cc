@@ -30,6 +30,7 @@
 #include "ui/aura/scoped_window_targeter.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_targeter.h"
+#include "ui/compositor/animation_metrics_reporter.h"
 #include "ui/compositor/layer_animation_sequence.h"
 #include "ui/compositor/scoped_layer_animation_settings.h"
 #include "ui/display/display.h"
@@ -158,6 +159,7 @@ class WindowCycleItemView : public WindowMiniView {
     SetShowPreview(/*show=*/true);
     UpdatePreviewRoundedCorners(/*show=*/true);
     SetFocusBehavior(FocusBehavior::ALWAYS);
+    UpdateIconView();
   }
   ~WindowCycleItemView() override = default;
 

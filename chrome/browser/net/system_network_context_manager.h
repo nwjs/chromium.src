@@ -12,7 +12,9 @@
 #include "base/macros.h"
 #include "base/memory/ref_counted.h"
 #include "base/optional.h"
+#include "chrome/browser/net/dns_util.h"
 #include "chrome/browser/net/proxy_config_monitor.h"
+#include "chrome/browser/net/stub_resolver_config_reader.h"
 #include "components/prefs/pref_change_registrar.h"
 #include "components/prefs/pref_member.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
@@ -36,6 +38,7 @@ class SharedURLLoaderFactory;
 
 namespace net_log {
 class NetExportFileWriter;
+class NetLogProxySource;
 }
 
 // Responsible for creating and managing access to the system NetworkContext.
@@ -78,12 +81,7 @@ class SystemNetworkContextManager {
 
   static void RegisterPrefs(PrefRegistrySimple* registry);
 
-  static void GetStubResolverConfig(
-      PrefService* local_state,
-      bool* insecure_stub_resolver_enabled,
-      net::DnsConfig::SecureDnsMode* secure_dns_mode,
-      base::Optional<std::vector<network::mojom::DnsOverHttpsServerPtr>>*
-          dns_over_https_servers);
+  static StubResolverConfigReader* GetStubResolverConfigReader();
 
   // Returns the System NetworkContext. May only be called after SetUp(). Does
   // any initialization of the NetworkService that may be needed when first
@@ -149,6 +147,11 @@ class SystemNetworkContextManager {
   static void SetEnableCertificateTransparencyForTesting(
       base::Optional<bool> enabled);
 
+  static void set_stub_resolver_config_reader_for_testing(
+      StubResolverConfigReader* reader) {
+    stub_resolver_config_reader_for_testing_ = reader;
+  }
+
  private:
   class URLLoaderFactoryForSystem;
 
@@ -186,8 +189,16 @@ class SystemNetworkContextManager {
 
   BooleanPrefMember enable_referrers_;
 
+  // Copies NetLog events from the browser process to the Network Service, if
+  // the network service is running in a separate process. It will be destroyed
+  // and re-created on Network Service crash.
+  std::unique_ptr<net_log::NetLogProxySource> net_log_proxy_source_;
+
   // Initialized on first access.
   std::unique_ptr<net_log::NetExportFileWriter> net_export_file_writer_;
+
+  StubResolverConfigReader stub_resolver_config_reader_;
+  static StubResolverConfigReader* stub_resolver_config_reader_for_testing_;
 
   DISALLOW_COPY_AND_ASSIGN(SystemNetworkContextManager);
 };

@@ -21,13 +21,18 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/post_task.h"
 #include "base/task/task_traits.h"
+#include "base/task/thread_pool.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/extensions/api/safe_browsing_private/safe_browsing_private_event_router.h"
 #include "chrome/browser/file_util_service.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/safe_browsing/cloud_content_scanning/binary_upload_service.h"
+#include "chrome/browser/safe_browsing/cloud_content_scanning/binary_upload_service_factory.h"
 #include "chrome/browser/safe_browsing/cloud_content_scanning/deep_scanning_dialog_views.h"
+#include "chrome/browser/safe_browsing/cloud_content_scanning/deep_scanning_utils.h"
+#include "chrome/browser/safe_browsing/cloud_content_scanning/file_source_request.h"
 #include "chrome/browser/safe_browsing/dm_token_utils.h"
 #include "chrome/browser/safe_browsing/download_protection/check_client_download_request.h"
 #include "chrome/grit/generated_resources.h"
@@ -35,22 +40,20 @@
 #include "chrome/services/file_util/public/cpp/sandboxed_zip_analyzer.h"
 #include "components/policy/core/browser/url_blacklist_manager.h"
 #include "components/policy/core/browser/url_util.h"
+#include "components/policy/core/common/chrome_schema.h"
 #include "components/prefs/pref_service.h"
 #include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #include "components/safe_browsing/core/features.h"
 #include "components/safe_browsing/core/proto/webprotect.pb.h"
 #include "components/url_matcher/url_matcher.h"
 #include "content/public/browser/web_contents.h"
+#include "crypto/secure_hash.h"
 #include "crypto/sha2.h"
 #include "net/base/mime_util.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/ui_base_types.h"
 
 namespace safe_browsing {
-
-// TODO(rogerta): keeping this disabled by default until UX is finalized.
-const base::Feature kDeepScanningOfUploadsUI{
-    "SafeBrowsingDeepScanningOfUploadsUI", base::FEATURE_DISABLED_BY_DEFAULT};
 
 namespace {
 
@@ -67,45 +70,6 @@ bool WaitForVerdict() {
   int state = g_browser_process->local_state()->GetInteger(
       prefs::kDelayDeliveryUntilVerdict);
   return state == DELAY_UPLOADS || state == DELAY_UPLOADS_AND_DOWNLOADS;
-}
-
-struct FileContents {
-  FileContents() : result(BinaryUploadService::Result::UNKNOWN) {}
-  explicit FileContents(BinaryUploadService::Result result) : result(result) {}
-  FileContents(FileContents&&) = default;
-  FileContents& operator=(FileContents&&) = default;
-
-  BinaryUploadService::Result result;
-  BinaryUploadService::Request::Data data;
-  std::string sha256;
-};
-
-// Callback used by FileSourceRequest to read file data on a blocking thread.
-FileContents GetFileContentsSHA256Blocking(const base::FilePath& path) {
-  base::File file(path, base::File::FLAG_OPEN | base::File::FLAG_READ);
-  if (!file.IsValid())
-    return FileContents();
-
-  size_t file_size = file.GetLength();
-  if (file_size > BinaryUploadService::kMaxUploadSizeBytes)
-    return FileContents(BinaryUploadService::Result::FILE_TOO_LARGE);
-
-  FileContents file_contents;
-  file_contents.result = BinaryUploadService::Result::SUCCESS;
-  file_contents.data.contents.resize(file_size);
-
-  size_t bytes_read = 0;
-  while (bytes_read < file_size) {
-    int64_t bytes_currently_read = file.ReadAtCurrentPos(
-        &file_contents.data.contents[bytes_read], file_size - bytes_read);
-    if (bytes_currently_read == -1)
-      return FileContents();
-
-    bytes_read += bytes_currently_read;
-  }
-
-  file_contents.sha256 = crypto::SHA256HashString(file_contents.data.contents);
-  return file_contents;
 }
 
 // A BinaryUploadService::Request implementation that gets the data to scan
@@ -155,11 +119,26 @@ bool DlpTriggeredRulesOK(
 
   for (int i = 0; i < verdict.triggered_rules_size(); ++i) {
     if (verdict.triggered_rules(i).action() ==
-        DlpDeepScanningVerdict::TriggeredRule::BLOCK) {
+            DlpDeepScanningVerdict::TriggeredRule::BLOCK ||
+        verdict.triggered_rules(i).action() ==
+            DlpDeepScanningVerdict::TriggeredRule::WARN) {
       return false;
     }
   }
   return true;
+}
+
+bool ShouldShowWarning(const DlpDeepScanningVerdict& verdict) {
+  // Show a warning if one of the triggered rules is WARN and no other rule is
+  // BLOCK.
+  auto rules = verdict.triggered_rules();
+  bool no_block = std::all_of(rules.begin(), rules.end(), [](const auto& rule) {
+    return rule.action() != DlpDeepScanningVerdict::TriggeredRule::BLOCK;
+  });
+  bool warning = std::any_of(rules.begin(), rules.end(), [](const auto& rule) {
+    return rule.action() == DlpDeepScanningVerdict::TriggeredRule::WARN;
+  });
+  return no_block && warning;
 }
 
 std::string GetFileMimeType(base::FilePath path) {
@@ -170,60 +149,32 @@ std::string GetFileMimeType(base::FilePath path) {
   return mime_type;
 }
 
+bool AllowLargeFile() {
+  int state = g_browser_process->local_state()->GetInteger(
+      prefs::kBlockLargeFileTransfer);
+  return state != BLOCK_LARGE_UPLOADS &&
+         state != BLOCK_LARGE_UPLOADS_AND_DOWNLOADS;
+}
+
+bool AllowEncryptedFiles() {
+  int state = g_browser_process->local_state()->GetInteger(
+      prefs::kAllowPasswordProtectedFiles);
+  return state == ALLOW_UPLOADS || state == ALLOW_UPLOADS_AND_DOWNLOADS;
+}
+
+bool AllowUnsupportedFileTypes() {
+  int state = g_browser_process->local_state()->GetInteger(
+      prefs::kBlockUnsupportedFiletypes);
+  return state != BLOCK_UNSUPPORTED_FILETYPES_UPLOADS &&
+         state != BLOCK_UNSUPPORTED_FILETYPES_UPLOADS_AND_DOWNLOADS;
+}
+
+bool* UIEnabledStorage() {
+  static bool enabled = true;
+  return &enabled;
+}
+
 }  // namespace
-
-// A BinaryUploadService::Request implementation that gets the data to scan
-// from the contents of a file.
-class DeepScanningDialogDelegate::FileSourceRequest
-    : public BinaryUploadService::Request {
- public:
-  FileSourceRequest(base::WeakPtr<DeepScanningDialogDelegate> delegate,
-                    base::FilePath path,
-                    BinaryUploadService::Callback callback);
-  FileSourceRequest(const FileSourceRequest&) = delete;
-  FileSourceRequest& operator=(const FileSourceRequest&) = delete;
-  ~FileSourceRequest() override = default;
-
- private:
-  // BinaryUploadService::Request implementation.
-  void GetRequestData(DataCallback callback) override;
-
-  void OnGotFileContents(DataCallback callback, FileContents file_contents);
-
-  base::WeakPtr<DeepScanningDialogDelegate> delegate_;
-  base::FilePath path_;
-  base::WeakPtrFactory<FileSourceRequest> weakptr_factory_{this};
-};
-
-DeepScanningDialogDelegate::FileSourceRequest::FileSourceRequest(
-    base::WeakPtr<DeepScanningDialogDelegate> delegate,
-    base::FilePath path,
-    BinaryUploadService::Callback callback)
-    : Request(std::move(callback)),
-      delegate_(delegate),
-      path_(std::move(path)) {
-  set_filename(path_.BaseName().AsUTF8Unsafe());
-}
-
-void DeepScanningDialogDelegate::FileSourceRequest::GetRequestData(
-    DataCallback callback) {
-  base::PostTaskAndReplyWithResult(
-      FROM_HERE,
-      {base::ThreadPool(), base::TaskPriority::USER_VISIBLE, base::MayBlock()},
-      base::BindOnce(&GetFileContentsSHA256Blocking, path_),
-      base::BindOnce(&FileSourceRequest::OnGotFileContents,
-                     weakptr_factory_.GetWeakPtr(), std::move(callback)));
-}
-
-void DeepScanningDialogDelegate::FileSourceRequest::OnGotFileContents(
-    DataCallback callback,
-    FileContents file_contents) {
-  if (delegate_)
-    delegate_->SetFileInfo(path_, std::move(file_contents.sha256),
-                           file_contents.data.contents.length());
-
-  std::move(callback).Run(file_contents.result, file_contents.data);
-}
 
 DeepScanningDialogDelegate::Data::Data() = default;
 DeepScanningDialogDelegate::Data::Data(Data&& other) = default;
@@ -237,21 +188,69 @@ DeepScanningDialogDelegate::FileInfo::FileInfo() = default;
 DeepScanningDialogDelegate::FileInfo::FileInfo(FileInfo&& other) = default;
 DeepScanningDialogDelegate::FileInfo::~FileInfo() = default;
 
+DeepScanningDialogDelegate::FileContents::FileContents() = default;
+DeepScanningDialogDelegate::FileContents::FileContents(
+    BinaryUploadService::Result result)
+    : result(result) {}
+
+DeepScanningDialogDelegate::FileContents::FileContents(FileContents&& other) =
+    default;
+DeepScanningDialogDelegate::FileContents&
+DeepScanningDialogDelegate::FileContents::operator=(
+    DeepScanningDialogDelegate::FileContents&& other) = default;
 DeepScanningDialogDelegate::~DeepScanningDialogDelegate() = default;
 
-void DeepScanningDialogDelegate::Cancel() {
+void DeepScanningDialogDelegate::BypassWarnings() {
   if (callback_.is_null())
     return;
 
-  RecordDeepScanMetrics(access_point_,
-                        base::TimeTicks::Now() - upload_start_time_, 0,
-                        "CancelledByUser", false);
+  // Mark the full text as complying and report a warning bypass.
+  if (text_warning_) {
+    std::fill(result_.text_results.begin(), result_.text_results.end(), true);
+
+    int64_t content_size = 0;
+    for (const base::string16& entry : data_.text)
+      content_size += (entry.size() * sizeof(base::char16));
+
+    ReportSensitiveDataWarningBypass(
+        Profile::FromBrowserContext(web_contents_->GetBrowserContext()),
+        web_contents_->GetLastCommittedURL(), "Text data", std::string(),
+        "text/plain",
+        extensions::SafeBrowsingPrivateEventRouter::kTriggerWebContentUpload,
+        content_size);
+  }
+
+  // Mark every "warning" file as complying and report a warning bypass.
+  for (size_t index : file_warnings_) {
+    result_.paths_results[index] = true;
+
+    ReportSensitiveDataWarningBypass(
+        Profile::FromBrowserContext(web_contents_->GetBrowserContext()),
+        web_contents_->GetLastCommittedURL(), data_.paths[index].AsUTF8Unsafe(),
+        file_info_[index].sha256, file_info_[index].mime_type,
+        extensions::SafeBrowsingPrivateEventRouter::kTriggerFileUpload,
+        file_info_[index].size);
+  }
+
+  RunCallback();
+}
+
+void DeepScanningDialogDelegate::Cancel(bool warning) {
+  if (callback_.is_null())
+    return;
+
+  // Don't report this upload as cancelled if the user didn't bypass the
+  // warning.
+  if (!warning) {
+    RecordDeepScanMetrics(access_point_,
+                          base::TimeTicks::Now() - upload_start_time_, 0,
+                          "CancelledByUser", false);
+  }
 
   // Make sure to reject everything.
   FillAllResultsWith(false);
   RunCallback();
 }
-
 
 bool DeepScanningDialogDelegate::ResultShouldAllowDataUse(
     BinaryUploadService::Result result) {
@@ -271,8 +270,13 @@ bool DeepScanningDialogDelegate::ResultShouldAllowDataUse(
       return true;
 
     case BinaryUploadService::Result::FILE_TOO_LARGE:
+      return AllowLargeFile();
+
     case BinaryUploadService::Result::FILE_ENCRYPTED:
-      return false;
+      return AllowEncryptedFiles();
+
+    case BinaryUploadService::Result::UNSUPPORTED_FILE_TYPE:
+      return AllowUnsupportedFileTypes();
   }
 }
 
@@ -353,9 +357,8 @@ void DeepScanningDialogDelegate::ShowForWebContents(
   bool work_being_done = delegate->UploadData();
 
   // Only show UI if work is being done in the background, the user must
-  // wait for a verdict, and the UI feature is enabled.
-  bool show_ui = work_being_done && wait_for_verdict &&
-                 base::FeatureList::IsEnabled(kDeepScanningOfUploadsUI);
+  // wait for a verdict.
+  bool show_ui = work_being_done && wait_for_verdict && (*UIEnabledStorage());
 
   // If the UI is enabled, create the modal dialog.
   if (show_ui) {
@@ -388,6 +391,17 @@ void DeepScanningDialogDelegate::SetFactoryForTesting(Factory factory) {
   *GetFactoryStorage() = factory;
 }
 
+// static
+void DeepScanningDialogDelegate::ResetFactoryForTesting() {
+  if (GetFactoryStorage())
+    GetFactoryStorage()->Reset();
+}
+
+// static
+void DeepScanningDialogDelegate::DisableUIForTesting() {
+  *UIEnabledStorage() = false;
+}
+
 DeepScanningDialogDelegate::DeepScanningDialogDelegate(
     content::WebContents* web_contents,
     Data data,
@@ -396,7 +410,10 @@ DeepScanningDialogDelegate::DeepScanningDialogDelegate(
     : web_contents_(web_contents),
       data_(std::move(data)),
       callback_(std::move(callback)),
-      access_point_(access_point) {
+      access_point_(access_point),
+      handler_("CheckContentCompliance",
+               prefs::kCheckContentCompliance,
+               policy::GetChromeSchema()) {
   DCHECK(web_contents_);
   result_.text_results.resize(data_.text.size(), false);
   result_.paths_results.resize(data_.paths.size(), false);
@@ -425,6 +442,16 @@ void DeepScanningDialogDelegate::StringRequestCallback(
                        DlpTriggeredRulesOK(response.dlp_scan_verdict());
   std::fill(result_.text_results.begin(), result_.text_results.end(),
             text_complies);
+
+  if (!text_complies) {
+    if (ShouldShowWarning(response.dlp_scan_verdict())) {
+      text_warning_ = true;
+      UpdateFinalResult(DeepScanningFinalResult::WARNING);
+    } else {
+      UpdateFinalResult(DeepScanningFinalResult::FAILURE);
+    }
+  }
+
   MaybeCompleteScanRequest();
 }
 
@@ -434,29 +461,39 @@ void DeepScanningDialogDelegate::CompleteFileRequestCallback(
     BinaryUploadService::Result result,
     DeepScanningClientResponse response,
     std::string mime_type) {
+  file_info_[index].mime_type = mime_type;
   MaybeReportDeepScanningVerdict(
       Profile::FromBrowserContext(web_contents_->GetBrowserContext()),
       web_contents_->GetLastCommittedURL(), path.AsUTF8Unsafe(),
-      base::HexEncode(file_info_[index].sha256.data(),
-                      file_info_[index].sha256.size()),
-      mime_type, extensions::SafeBrowsingPrivateEventRouter::kTriggerFileUpload,
+      file_info_[index].sha256, mime_type,
+      extensions::SafeBrowsingPrivateEventRouter::kTriggerFileUpload,
       file_info_[index].size, result, response);
 
   bool dlp_ok = DlpTriggeredRulesOK(response.dlp_scan_verdict());
   bool malware_ok = true;
   if (response.has_malware_scan_verdict()) {
-    malware_ok = response.malware_scan_verdict().status() ==
-                     MalwareDeepScanningVerdict::SUCCESS &&
-                 response.malware_scan_verdict().verdict() !=
-                     MalwareDeepScanningVerdict::UWS &&
-                 response.malware_scan_verdict().verdict() !=
-                     MalwareDeepScanningVerdict::MALWARE;
+    malware_ok = response.malware_scan_verdict().verdict() ==
+                 MalwareDeepScanningVerdict::CLEAN;
   }
 
   bool file_complies = ResultShouldAllowDataUse(result) && dlp_ok && malware_ok;
   result_.paths_results[index] = file_complies;
 
   ++file_result_count_;
+
+  if (!file_complies) {
+    if (result == BinaryUploadService::Result::FILE_TOO_LARGE) {
+      UpdateFinalResult(DeepScanningFinalResult::LARGE_FILES);
+    } else if (result == BinaryUploadService::Result::FILE_ENCRYPTED) {
+      UpdateFinalResult(DeepScanningFinalResult::ENCRYPTED_FILES);
+    } else if (ShouldShowWarning(response.dlp_scan_verdict())) {
+      file_warnings_.insert(index);
+      UpdateFinalResult(DeepScanningFinalResult::WARNING);
+    } else {
+      UpdateFinalResult(DeepScanningFinalResult::FAILURE);
+    }
+  }
+
   MaybeCompleteScanRequest();
 }
 
@@ -473,9 +510,8 @@ void DeepScanningDialogDelegate::FileRequestCallback(
                         base::TimeTicks::Now() - upload_start_time_,
                         file_info_[index].size, result, response);
 
-  base::PostTaskAndReplyWithResult(
-      FROM_HERE,
-      {base::ThreadPool(), base::TaskPriority::USER_VISIBLE, base::MayBlock()},
+  base::ThreadPool::PostTaskAndReplyWithResult(
+      FROM_HERE, {base::TaskPriority::USER_VISIBLE, base::MayBlock()},
       base::BindOnce(&GetFileMimeType, path),
       base::BindOnce(&DeepScanningDialogDelegate::CompleteFileRequestCallback,
                      weak_ptr_factory_.GetWeakPtr(), index, path, result,
@@ -513,11 +549,11 @@ bool DeepScanningDialogDelegate::UploadData() {
       PrepareFileRequest(
           data_.paths[i],
           base::BindOnce(&DeepScanningDialogDelegate::AnalyzerCallback,
-                         base::Unretained(this), i));
+                         weak_ptr_factory_.GetWeakPtr(), i));
     } else {
-      ++file_result_count_;
-      result_.paths_results[i] = true;
-      // TODO(crbug/1013584): Handle unsupported types appropriately.
+      FileRequestCallback(data_.paths[i],
+                          BinaryUploadService::Result::UNSUPPORTED_FILE_TYPE,
+                          DeepScanningClientResponse());
     }
   }
 
@@ -551,24 +587,21 @@ void DeepScanningDialogDelegate::AnalyzerCallback(
   // If the file contains encrypted parts and the user is not allowed to use
   // them, fail the request.
   if (contains_encrypted_parts) {
-    int state = g_browser_process->local_state()->GetInteger(
-        prefs::kAllowPasswordProtectedFiles);
-    BinaryUploadService::Result result =
-        state == ALLOW_UPLOADS || state == ALLOW_UPLOADS_AND_DOWNLOADS
-            ? BinaryUploadService::Result::SUCCESS
-            : BinaryUploadService::Result::FILE_ENCRYPTED;
-    FileRequestCallback(data_.paths[index], result,
+    FileRequestCallback(data_.paths[index],
+                        BinaryUploadService::Result::FILE_ENCRYPTED,
                         DeepScanningClientResponse());
     return;
   }
 
   auto request = std::make_unique<FileSourceRequest>(
-      weak_ptr_factory_.GetWeakPtr(), data_.paths[index],
+      data_.paths[index],
       base::BindOnce(&DeepScanningDialogDelegate::FileRequestCallback,
                      weak_ptr_factory_.GetWeakPtr(), data_.paths[index]));
 
-  PrepareRequest(DlpDeepScanningClientRequest::FILE_UPLOAD, request.get());
-  UploadFileForDeepScanning(data_.paths[index], std::move(request));
+  FileSourceRequest* request_raw = request.get();
+  request_raw->GetRequestData(base::BindOnce(
+      &DeepScanningDialogDelegate::OnGotFileInfo,
+      weak_ptr_factory_.GetWeakPtr(), std::move(request), data_.paths[index]));
 }
 
 void DeepScanningDialogDelegate::PrepareRequest(
@@ -598,43 +631,50 @@ void DeepScanningDialogDelegate::FillAllResultsWith(bool status) {
   std::fill(result_.paths_results.begin(), result_.paths_results.end(), status);
 }
 
+BinaryUploadService* DeepScanningDialogDelegate::GetBinaryUploadService() {
+  return BinaryUploadServiceFactory::GetForProfile(
+      Profile::FromBrowserContext(web_contents_->GetBrowserContext()));
+}
+
 void DeepScanningDialogDelegate::UploadTextForDeepScanning(
     std::unique_ptr<BinaryUploadService::Request> request) {
   DCHECK_EQ(
       DlpDeepScanningClientRequest::WEB_CONTENT_UPLOAD,
       request->deep_scanning_request().dlp_scan_request().content_source());
-  BinaryUploadService* upload_service =
-      g_browser_process->safe_browsing_service()->GetBinaryUploadService(
-          Profile::FromBrowserContext(web_contents_->GetBrowserContext()));
+  BinaryUploadService* upload_service = GetBinaryUploadService();
   if (upload_service)
     upload_service->MaybeUploadForDeepScanning(std::move(request));
 }
 
 void DeepScanningDialogDelegate::UploadFileForDeepScanning(
+    BinaryUploadService::Result result,
     const base::FilePath& path,
     std::unique_ptr<BinaryUploadService::Request> request) {
   DCHECK(
       !data_.do_dlp_scan ||
       (DlpDeepScanningClientRequest::FILE_UPLOAD ==
        request->deep_scanning_request().dlp_scan_request().content_source()));
-  BinaryUploadService* upload_service =
-      g_browser_process->safe_browsing_service()->GetBinaryUploadService(
-          Profile::FromBrowserContext(web_contents_->GetBrowserContext()));
+
+  // If a non-SUCCESS result was previously obtained, it means the file has some
+  // property (too large, unsupported file type, encrypted, ...) that makes its
+  // upload pointless, so the request should finish early. This is done here
+  // instead of OnGotFileInfo (UploadFileForDeepScanning's only caller) so tests
+  // can override this behavior.
+  if (result != BinaryUploadService::Result::SUCCESS) {
+    request->FinishRequest(result, DeepScanningClientResponse());
+    return;
+  }
+
+  BinaryUploadService* upload_service = GetBinaryUploadService();
   if (upload_service)
     upload_service->MaybeUploadForDeepScanning(std::move(request));
 }
 
-bool DeepScanningDialogDelegate::CloseTabModalDialog() {
+bool DeepScanningDialogDelegate::UpdateDialog() {
   if (!dialog_)
     return false;
 
-  auto is_true = [](bool x) { return x; };
-  bool success = std::all_of(result_.text_results.begin(),
-                             result_.text_results.end(), is_true) &&
-                 std::all_of(result_.paths_results.begin(),
-                             result_.paths_results.end(), is_true);
-
-  dialog_->ShowResult(success);
+  dialog_->ShowResult(final_result_);
   return true;
 }
 
@@ -642,9 +682,12 @@ void DeepScanningDialogDelegate::MaybeCompleteScanRequest() {
   if (!text_request_complete_ || file_result_count_ < data_.paths.size())
     return;
 
-  RunCallback();
+  // If showing the warning message, wait before running the callback. The
+  // callback will be called either in BypassWarnings or Cancel.
+  if (final_result_ != DeepScanningFinalResult::WARNING)
+    RunCallback();
 
-  if (!CloseTabModalDialog()) {
+  if (!UpdateDialog()) {
     // No UI was shown.  Delete |this| to cleanup.
     delete this;
   }
@@ -655,14 +698,25 @@ void DeepScanningDialogDelegate::RunCallback() {
     std::move(callback_).Run(data_, result_);
 }
 
-void DeepScanningDialogDelegate::SetFileInfo(const base::FilePath& path,
-                                             std::string sha256,
-                                             int64_t size) {
+void DeepScanningDialogDelegate::OnGotFileInfo(
+    std::unique_ptr<BinaryUploadService::Request> request,
+    const base::FilePath& path,
+    BinaryUploadService::Result result,
+    const BinaryUploadService::Request::Data& data) {
   auto it = std::find(data_.paths.begin(), data_.paths.end(), path);
   DCHECK(it != data_.paths.end());
   size_t index = std::distance(data_.paths.begin(), it);
-  file_info_[index].sha256 = std::move(sha256);
-  file_info_[index].size = size;
+  file_info_[index].sha256 = data.hash;
+  file_info_[index].size = data.size;
+
+  PrepareRequest(DlpDeepScanningClientRequest::FILE_UPLOAD, request.get());
+  UploadFileForDeepScanning(result, data_.paths[index], std::move(request));
+}
+
+void DeepScanningDialogDelegate::UpdateFinalResult(
+    DeepScanningFinalResult result) {
+  if (result < final_result_)
+    final_result_ = result;
 }
 
 }  // namespace safe_browsing

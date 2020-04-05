@@ -165,7 +165,8 @@ class MockRenderProcessHost : public RenderProcessHost {
   void LockToOrigin(const IsolationContext& isolation_context,
                     const GURL& lock_url) override;
   void BindCacheStorage(
-      network::mojom::CrossOriginEmbedderPolicy,
+      const network::CrossOriginEmbedderPolicy&,
+      mojo::PendingRemote<network::mojom::CrossOriginEmbedderPolicyReporter>,
       const url::Origin& origin,
       mojo::PendingReceiver<blink::mojom::CacheStorage> receiver) override;
   void BindFileSystemManager(
@@ -177,7 +178,6 @@ class MockRenderProcessHost : public RenderProcessHost {
       mojo::PendingReceiver<blink::mojom::NativeFileSystemManager> receiver)
       override {}
   void BindIndexedDB(
-      int render_frame_id,
       const url::Origin& origin,
       mojo::PendingReceiver<blink::mojom::IDBFactory> receiver) override;
   void BindRestrictedCookieManagerForServiceWorker(
@@ -187,11 +187,11 @@ class MockRenderProcessHost : public RenderProcessHost {
   void BindVideoDecodePerfHistory(
       mojo::PendingReceiver<media::mojom::VideoDecodePerfHistory> receiver)
       override {}
-  void BindQuotaDispatcherHost(
+  void BindQuotaManagerHost(
       int render_frame_id,
       const url::Origin& origin,
-      mojo::PendingReceiver<blink::mojom::QuotaDispatcherHost> receiver)
-      override {}
+      mojo::PendingReceiver<blink::mojom::QuotaManagerHost> receiver) override {
+  }
   void CreateLockManager(
       int render_frame_id,
       const url::Origin& origin,
@@ -213,7 +213,7 @@ class MockRenderProcessHost : public RenderProcessHost {
       mojo::PendingReceiver<blink::mojom::WebSocketConnector> receiver)
       override {}
 
-  void CleanupCorbExceptionForPluginUponDestruction() override;
+  void CleanupNetworkServicePluginExceptionsUponDestruction() override;
 
   // IPC::Sender via RenderProcessHost.
   bool Send(IPC::Message* msg) override;

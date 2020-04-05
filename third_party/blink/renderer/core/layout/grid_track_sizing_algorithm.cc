@@ -148,27 +148,45 @@ class DefiniteSizeStrategy final : public GridTrackSizingAlgorithmStrategy {
 
 GridTrackSizingAlgorithmStrategy::~GridTrackSizingAlgorithmStrategy() = default;
 
+bool GridTrackSizingAlgorithmStrategy::HasRelativeMarginOrPaddingForChild(
+    const LayoutGrid& grid,
+    const LayoutBox& child,
+    GridTrackSizingDirection direction) {
+  GridTrackSizingDirection child_inline_direction =
+      GridLayoutUtils::FlowAwareDirectionForChild(grid, child, kForColumns);
+  if (direction == child_inline_direction) {
+    return child.StyleRef().MarginStart().IsPercentOrCalc() ||
+           child.StyleRef().MarginEnd().IsPercentOrCalc() ||
+           child.StyleRef().PaddingStart().IsPercentOrCalc() ||
+           child.StyleRef().PaddingEnd().IsPercentOrCalc();
+  }
+  return child.StyleRef().MarginBefore().IsPercentOrCalc() ||
+         child.StyleRef().MarginAfter().IsPercentOrCalc() ||
+         child.StyleRef().PaddingBefore().IsPercentOrCalc() ||
+         child.StyleRef().PaddingAfter().IsPercentOrCalc();
+}
+
+bool GridTrackSizingAlgorithmStrategy::HasRelativeOrIntrinsicSizeForChild(
+    const LayoutGrid& grid,
+    const LayoutBox& child,
+    GridTrackSizingDirection direction) {
+  GridTrackSizingDirection child_inline_direction =
+      GridLayoutUtils::FlowAwareDirectionForChild(grid, child, kForColumns);
+  if (direction == child_inline_direction) {
+    return child.HasRelativeLogicalWidth() ||
+           child.StyleRef().LogicalWidth().IsIntrinsicOrAuto();
+  }
+  return child.HasRelativeLogicalHeight() ||
+         child.StyleRef().LogicalHeight().IsIntrinsicOrAuto();
+}
+
 bool GridTrackSizingAlgorithmStrategy::
     ShouldClearOverrideContainingBlockContentSizeForChild(
         const LayoutGrid& grid,
         const LayoutBox& child,
         GridTrackSizingDirection direction) {
-  GridTrackSizingDirection child_inline_direction =
-      GridLayoutUtils::FlowAwareDirectionForChild(grid, child, kForColumns);
-  if (direction == child_inline_direction) {
-    return child.HasRelativeLogicalWidth() ||
-           child.StyleRef().LogicalWidth().IsIntrinsicOrAuto() ||
-           child.StyleRef().MarginStart().IsPercentOrCalc() ||
-           child.StyleRef().MarginEnd().IsPercentOrCalc() ||
-           child.StyleRef().PaddingStart().IsPercentOrCalc() ||
-           child.StyleRef().PaddingEnd().IsPercentOrCalc();
-  }
-  return child.HasRelativeLogicalHeight() ||
-         child.StyleRef().LogicalHeight().IsIntrinsicOrAuto() ||
-         child.StyleRef().MarginBefore().IsPercentOrCalc() ||
-         child.StyleRef().MarginAfter().IsPercentOrCalc() ||
-         child.StyleRef().PaddingBefore().IsPercentOrCalc() ||
-         child.StyleRef().PaddingAfter().IsPercentOrCalc();
+  return HasRelativeOrIntrinsicSizeForChild(grid, child, direction) ||
+         HasRelativeMarginOrPaddingForChild(grid, child, direction);
 }
 
 void GridTrackSizingAlgorithmStrategy::
@@ -224,7 +242,8 @@ LayoutUnit GridTrackSizingAlgorithm::EstimatedGridAreaBreadthForChild(
                                                   kForColumns);
   if (grid_area_is_indefinite) {
     return direction == child_inline_direction
-               ? std::max(child.MaxPreferredLogicalWidth(), grid_area_size)
+               ? std::max(child.PreferredLogicalWidths().max_size,
+                          grid_area_size)
                : LayoutUnit(-1);
   }
   return grid_area_size;
@@ -338,7 +357,7 @@ LayoutUnit GridTrackSizingAlgorithmStrategy::MinContentForChild(
     // FIXME: It's unclear if we should return the intrinsic width or the
     // preferred width.
     // See http://lists.w3.org/Archives/Public/www-style/2013Jan/0245.html
-    return child.MinPreferredLogicalWidth() +
+    return child.PreferredLogicalWidths().min_size +
            GridLayoutUtils::MarginLogicalWidthForChild(*GetLayoutGrid(),
                                                        child) +
            algorithm_.BaselineOffsetForChild(child,
@@ -362,7 +381,7 @@ LayoutUnit GridTrackSizingAlgorithmStrategy::MaxContentForChild(
     // FIXME: It's unclear if we should return the intrinsic width or the
     // preferred width.
     // See http://lists.w3.org/Archives/Public/www-style/2013Jan/0245.html
-    return child.MaxPreferredLogicalWidth() +
+    return child.PreferredLogicalWidths().max_size +
            GridLayoutUtils::MarginLogicalWidthForChild(*GetLayoutGrid(),
                                                        child) +
            algorithm_.BaselineOffsetForChild(child,
@@ -570,8 +589,11 @@ LayoutUnit DefiniteSizeStrategy::MinLogicalSizeForChild(
                                                   kForColumns);
   LayoutUnit indefinite_size =
       Direction() == child_inline_direction ? LayoutUnit() : LayoutUnit(-1);
-  if (ShouldClearOverrideContainingBlockContentSizeForChild(
-          *GetLayoutGrid(), child, Direction())) {
+  if (HasRelativeMarginOrPaddingForChild(*GetLayoutGrid(), child,
+                                         Direction()) ||
+      (Direction() != child_inline_direction &&
+       HasRelativeOrIntrinsicSizeForChild(*GetLayoutGrid(), child,
+                                          Direction()))) {
     SetOverrideContainingBlockContentSizeForChild(child, Direction(),
                                                   indefinite_size);
   }

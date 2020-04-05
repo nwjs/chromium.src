@@ -17,9 +17,8 @@ namespace content {
 //
 // RenderWidgetDelegate
 //
-//  An interface implemented by an object owning a RenderWidget. This is
-//  intended to be temporary until the RenderViewImpl and RenderWidget classes
-//  are disentangled; see https://crbug.com/583347 and https://crbug.com/478281.
+//  An interface to provide View-level (and/or Page-level) functionality to
+//  the main frame's RenderWidget.
 class CONTENT_EXPORT RenderWidgetDelegate {
  public:
   virtual ~RenderWidgetDelegate() = default;
@@ -71,6 +70,7 @@ class CONTENT_EXPORT RenderWidgetDelegate {
   // happens.
   virtual void ResizeWebWidgetForWidget(
       const gfx::Size& size,
+      const gfx::Size& visible_viewport_size,
       cc::BrowserControlsParams browser_controls_params) = 0;
 
   // Called when RenderWidget services RenderWidgetScreenMetricsEmulatorDelegate
@@ -78,11 +78,6 @@ class CONTENT_EXPORT RenderWidgetDelegate {
   virtual void SetScreenMetricsEmulationParametersForWidget(
       bool enabled,
       const blink::WebDeviceEmulationParams& params) = 0;
-
-  // Called when the VisualViewport needs to be updated. Expects coordinates
-  // scaled to account for DeviceScaleFactor.
-  virtual void ResizeVisualViewportForWidget(
-      const gfx::Size& scaled_viewport_size) = 0;
 };
 
 }  // namespace content

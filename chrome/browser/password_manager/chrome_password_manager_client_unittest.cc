@@ -36,6 +36,7 @@
 #include "components/favicon/core/test/mock_favicon_service.h"
 #include "components/password_manager/content/browser/content_password_manager_driver.h"
 #include "components/password_manager/content/browser/password_manager_log_router_factory.h"
+#include "components/password_manager/core/browser/credential_cache.h"
 #include "components/password_manager/core/browser/credentials_filter.h"
 #include "components/password_manager/core/browser/mock_password_store.h"
 #include "components/password_manager/core/browser/password_manager.h"
@@ -97,6 +98,10 @@ using testing::_;
 using testing::NiceMock;
 using testing::Return;
 using testing::StrictMock;
+
+#if defined(OS_ANDROID)
+using password_manager::CredentialCache;
+#endif
 
 namespace {
 // TODO(crbug.com/474577): Get rid of the mocked client in the client's own
@@ -722,18 +727,21 @@ TEST_F(ChromePasswordManagerClientTest,
       *client->password_protection_service(),
       MaybeStartProtectedPasswordEntryRequest(_, _, "username", _, _, true))
       .Times(4);
+  std::vector<password_manager::MatchingReusedCredential> credentials = {
+      {"saved_domain.com", base::ASCIIToUTF16("username")}};
+
   client->CheckProtectedPasswordEntry(
       password_manager::metrics_util::PasswordType::SAVED_PASSWORD, "username",
-      std::vector<std::string>({"saved_domain.com"}), true);
+      credentials, true);
   client->CheckProtectedPasswordEntry(
       password_manager::metrics_util::PasswordType::PRIMARY_ACCOUNT_PASSWORD,
-      "username", std::vector<std::string>({"saved_domain.com"}), true);
+      "username", credentials, true);
   client->CheckProtectedPasswordEntry(
       password_manager::metrics_util::PasswordType::OTHER_GAIA_PASSWORD,
-      "username", std::vector<std::string>({"saved_domain.com"}), true);
+      "username", credentials, true);
   client->CheckProtectedPasswordEntry(
       password_manager::metrics_util::PasswordType::ENTERPRISE_PASSWORD,
-      "username", std::vector<std::string>({"saved_domain.com"}), true);
+      "username", credentials, true);
 }
 
 TEST_F(ChromePasswordManagerClientTest, VerifyLogPasswordReuseDetectedEvent) {
@@ -767,6 +775,14 @@ class ChromePasswordManagerClientAndroidTest
   CreateContentPasswordManagerDriver(content::RenderFrameHost* rfh);
 
   void CreateManualFillingController(content::WebContents* web_contents);
+
+  ManualFillingControllerImpl* controller() {
+    return ManualFillingControllerImpl::FromWebContents(web_contents());
+  }
+
+  MockManualFillingView* view() {
+    return static_cast<MockManualFillingView*>(controller()->view());
+  }
 
  private:
   autofill::TestAutofillClient test_autofill_client_;
@@ -876,8 +892,10 @@ TEST_F(ChromePasswordManagerClientAndroidTest,
   form.origin = origin.GetURL();
   form.username_value = base::ASCIIToUTF16("alice");
   form.password_value = base::ASCIIToUTF16("S3cr3t");
-  GetClient()->GetCredentialCacheForTesting()->SaveCredentialsForOrigin({&form},
-                                                                        origin);
+  GetClient()
+      ->GetCredentialCacheForTesting()
+      ->SaveCredentialsAndBlacklistedForOrigin(
+          {&form}, CredentialCache::IsOriginBlacklisted(false), origin);
 
   // Check that a navigation within the same document does not clear the cache.
   content::MockNavigationHandle handle(web_contents());
@@ -901,4 +919,16 @@ TEST_F(ChromePasswordManagerClientAndroidTest,
                   .empty());
 }
 
+TEST_F(ChromePasswordManagerClientAndroidTest, HideFillingUIOnNavigatingAway) {
+  CreateManualFillingController(web_contents());
+  // Navigate to a URL with a bubble/popup.
+  GURL kUrl1("https://example.com/");
+  NavigateAndCommit(kUrl1);
+  EXPECT_TRUE(ChromePasswordManagerClient::CanShowBubbleOnURL(kUrl1));
+
+  // Navigating away should call Hide.
+  EXPECT_CALL(*view(), Hide());
+  GURL kUrl2("https://accounts.google.com");
+  NavigateAndCommit(kUrl2);
+}
 #endif  //  defined(OS_ANDROID)

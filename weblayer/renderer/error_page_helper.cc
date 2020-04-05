@@ -64,7 +64,7 @@ void ErrorPageHelper::SendCommand(
       interface->OpenHelpCenter();
       break;
     case security_interstitials::CMD_OPEN_DIAGNOSTIC:
-      // Used by safebrowsing interstitials.
+      // Used by safebrowsing interstials.
       interface->OpenDiagnostic();
       break;
     case security_interstitials::CMD_RELOAD:
@@ -73,11 +73,13 @@ void ErrorPageHelper::SendCommand(
     case security_interstitials::CMD_OPEN_LOGIN:
       interface->OpenLogin();
       break;
+    case security_interstitials::CMD_OPEN_DATE_SETTINGS:
+      interface->OpenDateSettings();
+      break;
     case security_interstitials::CMD_REPORT_PHISHING_ERROR:
       // Used by safebrowsing phishing interstitial.
       interface->ReportPhishingError();
       break;
-    case security_interstitials::CMD_OPEN_DATE_SETTINGS:
     case security_interstitials::CMD_DO_REPORT:
     case security_interstitials::CMD_DONT_REPORT:
     case security_interstitials::CMD_OPEN_REPORTING_PRIVACY:

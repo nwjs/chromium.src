@@ -32,25 +32,25 @@ TabModalConfirmDialogViews::TabModalConfirmDialogViews(
     std::unique_ptr<TabModalConfirmDialogDelegate> delegate,
     content::WebContents* web_contents)
     : delegate_(std::move(delegate)) {
-  DialogDelegate::set_buttons(delegate_->GetDialogButtons());
-  DialogDelegate::set_button_label(ui::DIALOG_BUTTON_OK,
+  DialogDelegate::SetButtons(delegate_->GetDialogButtons());
+  DialogDelegate::SetButtonLabel(ui::DIALOG_BUTTON_OK,
                                    delegate_->GetAcceptButtonTitle());
-  DialogDelegate::set_button_label(ui::DIALOG_BUTTON_CANCEL,
+  DialogDelegate::SetButtonLabel(ui::DIALOG_BUTTON_CANCEL,
                                    delegate_->GetCancelButtonTitle());
 
-  DialogDelegate::set_accept_callback(
+  DialogDelegate::SetAcceptCallback(
       base::BindOnce(&TabModalConfirmDialogDelegate::Accept,
                      base::Unretained(delegate_.get())));
-  DialogDelegate::set_cancel_callback(
+  DialogDelegate::SetCancelCallback(
       base::BindOnce(&TabModalConfirmDialogDelegate::Cancel,
                      base::Unretained(delegate_.get())));
-  DialogDelegate::set_close_callback(
+  DialogDelegate::SetCloseCallback(
       base::BindOnce(&TabModalConfirmDialogDelegate::Close,
                      base::Unretained(delegate_.get())));
 
   base::Optional<int> default_button = delegate_->GetDefaultDialogButton();
   if (bool(default_button))
-    DialogDelegate::set_default_button(*default_button);
+    DialogDelegate::SetDefaultButton(*default_button);
 
   views::MessageBoxView::InitParams init_params(delegate_->GetDialogMessage());
   init_params.inter_row_vertical_spacing =
@@ -84,6 +84,14 @@ views::View* TabModalConfirmDialogViews::GetContentsView() {
   return message_box_view_;
 }
 
+views::Widget* TabModalConfirmDialogViews::GetWidget() {
+  return message_box_view_->GetWidget();
+}
+
+const views::Widget* TabModalConfirmDialogViews::GetWidget() const {
+  return message_box_view_->GetWidget();
+}
+
 void TabModalConfirmDialogViews::DeleteDelegate() {
   delete this;
 }
@@ -104,10 +112,6 @@ void TabModalConfirmDialogViews::CancelTabModalDialog() {
 
 void TabModalConfirmDialogViews::CloseDialog() {
   GetWidget()->Close();
-}
-
-const views::Widget* TabModalConfirmDialogViews::GetWidgetImpl() const {
-  return message_box_view_->GetWidget();
 }
 
 void TabModalConfirmDialogViews::LinkClicked(views::Link* source,

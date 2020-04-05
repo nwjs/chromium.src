@@ -147,8 +147,7 @@ DesktopMediaPickerController::Params MakeDesktopPickerParams(
   params.context = web_contents->GetTopLevelNativeWindow();
   params.app_name = l10n_util::GetStringUTF16(IDS_SHORT_PRODUCT_NAME);
   params.target_name = params.app_name;
-  // TODO(crbug.com/637643): Change to true after privacy approval.
-  params.select_only_screen = false;
+  params.select_only_screen = true;
   return params;
 }
 
@@ -457,29 +456,6 @@ void MediaRouterMojoImpl::SendRouteBinaryMessage(
 }
 
 void MediaRouterMojoImpl::OnUserGesture() {}
-
-void MediaRouterMojoImpl::SearchSinks(
-    const MediaSink::Id& sink_id,
-    const MediaSource::Id& source_id,
-    const std::string& search_input,
-    const std::string& domain,
-    MediaSinkSearchResponseCallback sink_callback) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  base::Optional<MediaRouteProviderId> provider_id =
-      GetProviderIdForSink(sink_id);
-  if (!provider_id) {
-    DVLOG_WITH_INSTANCE(1) << __func__ << ": sink not found: " << sink_id;
-    std::move(sink_callback).Run("");
-    return;
-  }
-
-  auto sink_search_criteria = mojom::SinkSearchCriteria::New();
-  sink_search_criteria->input = search_input;
-  sink_search_criteria->domain = domain;
-  media_route_providers_[*provider_id]->SearchSinks(
-      sink_id, source_id, std::move(sink_search_criteria),
-      std::move(sink_callback));
-}
 
 void MediaRouterMojoImpl::GetMediaController(
     const MediaRoute::Id& route_id,
@@ -982,12 +958,10 @@ void MediaRouterMojoImpl::GetMediaSinkServiceStatus(
 void MediaRouterMojoImpl::GetMirroringServiceHostForTab(
     int32_t target_tab_id,
     mojo::PendingReceiver<mirroring::mojom::MirroringServiceHost> receiver) {
-  if (ShouldUseMirroringService()) {
-    mirroring::CastMirroringServiceHost::GetForTab(
-        GetWebContentsFromId(target_tab_id, context_,
-                             true /* include_incognito */),
-        std::move(receiver));
-  }
+  mirroring::CastMirroringServiceHost::GetForTab(
+      GetWebContentsFromId(target_tab_id, context_,
+                           true /* include_incognito */),
+      std::move(receiver));
 }
 
 // TODO(crbug.com/809249): This method is currently part of a Mojo interface,
@@ -1016,7 +990,7 @@ void MediaRouterMojoImpl::GetMirroringServiceHostForDesktop(
     }
     mirroring::CastMirroringServiceHost::GetForDesktop(media_id,
                                                        std::move(receiver));
-  } else if (ShouldUseMirroringService()) {
+  } else {
     // This code path is taken when the mirroring service is enabled
     // but the native Cast MRP is not.
     //
@@ -1033,7 +1007,7 @@ void MediaRouterMojoImpl::GetMirroringServiceHostForOffscreenTab(
     const GURL& presentation_url,
     const std::string& presentation_id,
     mojo::PendingReceiver<mirroring::mojom::MirroringServiceHost> receiver) {
-  if (ShouldUseMirroringService() && IsValidPresentationUrl(presentation_url)) {
+  if (IsValidPresentationUrl(presentation_url)) {
     mirroring::CastMirroringServiceHost::GetForOffscreenTab(
         context_, presentation_url, presentation_id, std::move(receiver));
   }

@@ -7,7 +7,7 @@
 
 #include "base/callback.h"
 #include "third_party/blink/renderer/bindings/core/v8/active_script_wrappable.h"
-#include "third_party/blink/renderer/core/execution_context/context_lifecycle_observer.h"
+#include "third_party/blink/renderer/core/execution_context/execution_context_lifecycle_observer.h"
 #include "third_party/blink/renderer/core/intersection_observer/intersection_observation.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/bindings/script_wrappable.h"
@@ -31,7 +31,7 @@ class V8IntersectionObserverCallback;
 class CORE_EXPORT IntersectionObserver final
     : public ScriptWrappable,
       public ActiveScriptWrappable<IntersectionObserver>,
-      public ContextClient {
+      public ExecutionContextClient {
   USING_GARBAGE_COLLECTED_MIXIN(IntersectionObserver);
   DEFINE_WRAPPERTYPEINFO();
 
@@ -158,7 +158,7 @@ class CORE_EXPORT IntersectionObserver final
   // ScriptWrappable override:
   bool HasPendingActivity() const override;
 
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
 
   // Enable/disable throttling of visibility checking, so we don't have to add
   // sleep() calls to tests to wait for notifications to show up.

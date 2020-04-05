@@ -17,6 +17,7 @@
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/render_widget_host.h"
+#include "content/public/browser/render_widget_host_iterator.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/web_preferences.h"
@@ -38,8 +39,24 @@ WebContentController::~WebContentController() {
     surface_->RemoveSurfaceObserver(this);
     surface_->SetEmbeddedSurfaceId(base::RepeatingCallback<viz::SurfaceId()>());
   }
-  for (auto* rwh : current_render_widget_set_) {
-    rwh->RemoveInputEventObserver(this);
+  if (!current_render_widget_set_.empty()) {
+    // TODO(b/150955487): A WebContentController can be destructed without us
+    // having received RenderViewDeleted notifications for all observed
+    // RenderWidgetHosts, so we go through the current_render_widget_set_ to
+    // remove the input event observers. It has sometimes been the case (perhaps
+    // only on a renderer process crash; requires investigation) that an
+    // observed RenderWidgetHost has disappeared without notification.
+    // Therefore, it is not safe to call RemoveInputEventObserver on every
+    // RenderWidgetHost that we started observing; we need to remove only
+    // from currently live RenderWidgetHosts.
+    std::unique_ptr<content::RenderWidgetHostIterator> widgets(
+        content::RenderWidgetHost::GetRenderWidgetHosts());
+    while (content::RenderWidgetHost* widget = widgets->GetNextHost()) {
+      auto it = current_render_widget_set_.find(widget);
+      if (it != current_render_widget_set_.end()) {
+        widget->RemoveInputEventObserver(this);
+      }
+    }
   }
 }
 
@@ -128,8 +145,8 @@ void WebContentController::ProcessRequest(
 
     case webview::WebviewRequest::kResize:
       if (request.has_resize()) {
-        GetWebContents()->GetNativeView()->SetBounds(
-            gfx::Rect(request.resize().width(), request.resize().height()));
+        HandleResize(
+            gfx::Size(request.resize().width(), request.resize().height()));
       } else {
         client_->OnError("resize() not supplied");
       }
@@ -160,13 +177,7 @@ void WebContentController::AttachTo(aura::Window* window, int window_id) {
   // Unretained is safe because we unset this in the destructor.
   surface_->SetEmbeddedSurfaceId(base::BindRepeating(
       &WebContentController::GetSurfaceId, base::Unretained(this)));
-
-  content::RenderFrameHost* rfh = GetWebContents()->GetMainFrame();
-  if (rfh) {
-    const base::Optional<gfx::Size>& size = rfh->GetFrameSize();
-    if (size.has_value())
-      surface_->SetEmbeddedSurfaceSize(*size);
-  }
+  HandleResize(contents_window->bounds().size());
 }
 
 void WebContentController::ProcessInputEvent(const webview::InputEvent& ev) {
@@ -224,7 +235,7 @@ void WebContentController::ProcessInputEvent(const webview::InputEvent& ev) {
           // sequence, even if we didn't get a WebContentsObserver notification
           // for its creation. (This is not the normal case, but can happen
           // e.g. when loading a page with the Fling interface.)
-          ObserveRenderWidget(rwhv->GetRenderWidgetHost());
+          RegisterRenderWidgetInputObserver(rwhv->GetRenderWidgetHost());
         }
 
         // Record touch event information to match against acks.
@@ -267,12 +278,25 @@ void WebContentController::ProcessInputEvent(const webview::InputEvent& ev) {
   }
 }
 
-void WebContentController::ObserveRenderWidget(
+void WebContentController::RegisterRenderWidgetInputObserverFromRenderFrameHost(
+    WebContentController* web_content_controller,
+    content::RenderFrameHost* render_frame_host) {
+  web_content_controller->RegisterRenderWidgetInputObserver(
+      render_frame_host->GetView()->GetRenderWidgetHost());
+}
+
+void WebContentController::RegisterRenderWidgetInputObserver(
     content::RenderWidgetHost* render_widget_host) {
   auto insertion = current_render_widget_set_.insert(render_widget_host);
   if (insertion.second) {
     render_widget_host->AddInputEventObserver(this);
   }
+}
+
+void WebContentController::UnregisterRenderWidgetInputObserver(
+    content::RenderWidgetHost* render_widget_host) {
+  current_render_widget_set_.erase(render_widget_host);
+  render_widget_host->RemoveInputEventObserver(this);
 }
 
 void WebContentController::JavascriptCallback(int64_t id, base::Value result) {
@@ -390,7 +414,9 @@ void WebContentController::HandleUpdateSettings(
 
   if (request.has_user_agent() &&
       request.user_agent().type_case() == webview::UserAgent::kValue) {
-    contents->SetUserAgentOverride(request.user_agent().value(), true);
+    contents->SetUserAgentOverride(
+        blink::UserAgentOverride::UserAgentOnly(request.user_agent().value()),
+        true);
   }
 }
 
@@ -403,6 +429,15 @@ void WebContentController::HandleSetAutoMediaPlaybackPolicy(
                               ? content::AutoplayPolicy::kUserGestureRequired
                               : content::AutoplayPolicy::kNoUserGestureRequired;
   contents->GetRenderViewHost()->UpdateWebkitPreferences(prefs);
+}
+
+void WebContentController::HandleResize(const gfx::Size& size) {
+  LOG(INFO) << "Sizing web content to " << size.ToString();
+  GetWebContents()->GetNativeView()->SetBounds(gfx::Rect(size));
+  if (surface_) {
+    surface_->SetEmbeddedSurfaceSize(size);
+    surface_->Commit();
+  }
 }
 
 viz::SurfaceId WebContentController::GetSurfaceId() {
@@ -425,12 +460,20 @@ void WebContentController::OnSurfaceDestroying(exo::Surface* surface) {
   surface_ = nullptr;
 }
 
+void WebContentController::MainFrameWasResized(bool width_changed) {
+  // The surface ID may have changed, so trigger a new commit to re-issue the
+  // draw quad.
+  if (surface_) {
+    surface_->Commit();
+  }
+}
+
 void WebContentController::FrameSizeChanged(
     content::RenderFrameHost* render_frame_host,
     const gfx::Size& frame_size) {
-  content::RenderFrameHost* rfh = GetWebContents()->GetMainFrame();
-  if (render_frame_host == rfh && surface_) {
-    surface_->SetEmbeddedSurfaceSize(frame_size);
+  // The surface ID may have changed, so trigger a new commit to re-issue the
+  // draw quad.
+  if (surface_) {
     surface_->Commit();
   }
 }
@@ -445,11 +488,22 @@ void WebContentController::RenderFrameCreated(
   // it later on.
   if (instance)
     SendInitialChannelSet(instance);
+  RegisterRenderWidgetInputObserver(
+      render_frame_host->GetView()->GetRenderWidgetHost());
 }
 
 void WebContentController::RenderFrameDeleted(
     content::RenderFrameHost* render_frame_host) {
   current_render_frame_set_.erase(render_frame_host);
+  // The RenderFrameHost might not have a RenderWidgetHostView.
+  // TODO(b/150955487): Investigate the conditions for this (renderer process
+  // crash?) and Render.* relationships and notifications to see whether this
+  // can be cleaned up (and in particular not potentially retain stale
+  // |current_render_widget_set_| entries).
+  content::RenderWidgetHostView* const rwhv = render_frame_host->GetView();
+  if (rwhv) {
+    UnregisterRenderWidgetInputObserver(rwhv->GetRenderWidgetHost());
+  }
 }
 
 void WebContentController::RenderFrameHostChanged(
@@ -457,27 +511,20 @@ void WebContentController::RenderFrameHostChanged(
     content::RenderFrameHost* new_host) {
   // The surface ID may have changed, so trigger a new commit to re-issue the
   // draw quad.
-  content::RenderFrameHost* rfh = GetWebContents()->GetMainFrame();
-  if (new_host == rfh && surface_) {
-    if (new_host) {
-      auto size = new_host->GetFrameSize();
-      if (size.has_value())
-        surface_->SetEmbeddedSurfaceSize(*size);
-    }
+  if (surface_) {
     surface_->Commit();
   }
 }
 
 void WebContentController::RenderViewCreated(
     content::RenderViewHost* render_view_host) {
-  ObserveRenderWidget(render_view_host->GetWidget());
+  RegisterRenderWidgetInputObserver(render_view_host->GetWidget());
 }
 
 void WebContentController::RenderViewDeleted(
     content::RenderViewHost* render_view_host) {
   content::RenderWidgetHost* rwh = render_view_host->GetWidget();
-  current_render_widget_set_.erase(rwh);
-  rwh->RemoveInputEventObserver(this);
+  UnregisterRenderWidgetInputObserver(rwh);
   content::RenderWidgetHostView* rwhv = rwh->GetView();
   base::EraseIf(touch_queue_,
                 [rwhv](TouchData data) { return data.rwhv == rwhv; });

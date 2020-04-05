@@ -69,6 +69,7 @@
 #include "base/sequenced_task_runner.h"
 #include "base/task/post_task.h"
 #include "base/task/task_traits.h"
+#include "base/task/thread_pool.h"
 #include "base/threading/thread.h"
 #include "net/base/address_tracker_linux.h"
 
@@ -90,11 +91,12 @@ enum NetId {
 class NetworkChangeNotifierAndroid::BlockingThreadObjects {
  public:
   BlockingThreadObjects()
-      : address_tracker_(base::DoNothing(),
-                         base::DoNothing(),
-                         // We're only interested in tunnel interface changes.
-                         base::Bind(NotifyNetworkChangeNotifierObservers),
-                         std::unordered_set<std::string>()) {}
+      : address_tracker_(
+            base::DoNothing(),
+            base::DoNothing(),
+            // We're only interested in tunnel interface changes.
+            base::BindRepeating(NotifyNetworkChangeNotifierObservers),
+            std::unordered_set<std::string>()) {}
 
   void Init() {
     address_tracker_.Init();
@@ -212,7 +214,7 @@ NetworkChangeNotifierAndroid::NetworkChangeNotifierAndroid(
       base::android::SDK_VERSION_P) {
     // |blocking_thread_objects_| will live on this runner.
     scoped_refptr<base::SequencedTaskRunner> blocking_thread_runner =
-        base::CreateSequencedTaskRunner({base::ThreadPool(), base::MayBlock()});
+        base::ThreadPool::CreateSequencedTaskRunner({base::MayBlock()});
     blocking_thread_objects_ =
         std::unique_ptr<BlockingThreadObjects, base::OnTaskRunnerDeleter>(
             new BlockingThreadObjects(),

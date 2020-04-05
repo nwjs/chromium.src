@@ -120,7 +120,7 @@ class WebViewPasswordManagerClient
  private:
   __weak id<CWVPasswordManagerClientDelegate> delegate_;
 
-  const WebViewPasswordFeatureManager password_feature_manager_;
+  WebViewPasswordFeatureManager password_feature_manager_;
 
   // The preference associated with
   // password_manager::prefs::kCredentialsEnableService.

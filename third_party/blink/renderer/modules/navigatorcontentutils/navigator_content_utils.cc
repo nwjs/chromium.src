@@ -185,7 +185,7 @@ void NavigatorContentUtils::registerProtocolHandler(
   // Count usage; perhaps we can forbid this from cross-origin subframes as
   // proposed in https://crbug.com/977083.
   UseCounter::Count(
-      *document, frame->IsCrossOriginSubframe()
+      *document, frame->IsCrossOriginToMainFrame()
                      ? WebFeature::kRegisterProtocolHandlerCrossOriginSubframe
                      : WebFeature::kRegisterProtocolHandlerSameOriginAsTop);
   // Count usage. Context should now always be secure due to the same-origin
@@ -222,7 +222,7 @@ void NavigatorContentUtils::unregisterProtocolHandler(
       ->UnregisterProtocolHandler(scheme, document->CompleteURL(url));
 }
 
-void NavigatorContentUtils::Trace(blink::Visitor* visitor) {
+void NavigatorContentUtils::Trace(Visitor* visitor) {
   visitor->Trace(client_);
   Supplement<Navigator>::Trace(visitor);
 }

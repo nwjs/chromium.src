@@ -51,6 +51,8 @@ class CORE_EXPORT DocumentAnimations final
   void UpdateAnimationTimingForAnimationFrame();
   bool NeedsAnimationTimingUpdate();
   void UpdateAnimationTimingIfNeeded();
+  void GetAnimationsTargetingTreeScope(HeapVector<Member<Animation>>&,
+                                       const TreeScope&);
 
   // Updates existing animations as part of generating a new (document
   // lifecycle) frame. Note that this considers and updates state for
@@ -59,8 +61,8 @@ class CORE_EXPORT DocumentAnimations final
       DocumentLifecycle::LifecycleState required_lifecycle_state,
       const PaintArtifactCompositor* paint_artifact_compositor);
 
-  HeapVector<Member<Animation>> getAnimations();
-  void Trace(blink::Visitor*);
+  HeapVector<Member<Animation>> getAnimations(const TreeScope&);
+  void Trace(Visitor*);
 
  private:
   Member<Document> document_;

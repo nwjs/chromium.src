@@ -186,7 +186,8 @@ class RemoteCall {
    *     If query is an array, |query[0]| specifies the first
    *     element(s), |query[1]| specifies elements inside the shadow DOM of
    *     the first element, and so on.
-   * @return {Promise} Promise to be fulfilled when the element appears.
+   * @return {Promise<ElementObject>} Promise to be fulfilled when the element
+   *     appears.
    */
   waitForElement(appId, query) {
     return this.waitForElementStyles(appId, query, []);
@@ -201,8 +202,8 @@ class RemoteCall {
    *     the first element, and so on.
    * @param {!Array<string>} styleNames List of CSS property name to be
    *     obtained. NOTE: Causes element style re-calculation.
-   *     TODO(lucmult): Add a typedef for the returned object.
-   * @return {Promise} Promise to be fulfilled when the element appears.
+   * @return {Promise<ElementObject>} Promise to be fulfilled when the element
+   *     appears.
    */
   waitForElementStyles(appId, query, styleNames) {
     const caller = getCaller();
@@ -210,7 +211,7 @@ class RemoteCall {
       const elements = await this.callRemoteTestUtil(
           'deepQueryAllElements', appId, [query, styleNames]);
       if (elements.length > 0) {
-        return elements[0];
+        return /** @type {ElementObject} */ (elements[0]);
       }
       return pending(caller, 'Element %s is not found.', query);
     });
@@ -266,6 +267,27 @@ class RemoteCall {
         return pending(caller, 'Elements %j is still exists.', elements);
       }
       return true;
+    });
+  }
+
+  /**
+   * Wait for the |query| to match |count| elements.
+   *
+   * @param {string} appId App window Id.
+   * @param {string|!Array<string>} query Query to specify the element.
+   *     If query is an array, |query[0]| specifies the first
+   *     element(s), |query[1]| specifies elements inside the shadow DOM of
+   *     the first element, and so on.
+   * @param {number} count The expected element match count.
+   * @return {Promise} Promise to be fulfilled on success.
+   */
+  waitForElementsCount(appId, query, count) {
+    const caller = getCaller();
+    return repeatUntil(async () => {
+      const expect = `Waiting for [${query}] to match ${count} elements`;
+      const result =
+          await this.callRemoteTestUtil('countElements', appId, [query, count]);
+      return !result ? pending(caller, expect) : true;
     });
   }
 
@@ -403,10 +425,11 @@ class RemoteCallFilesApp extends RemoteCall {
    * Waits for the file list turns to the given contents.
    * @param {string} appId App window Id.
    * @param {Array<Array<string>>} expected Expected contents of file list.
-   * @param {{orderCheck:?boolean, ignoreLastModifiedTime:?boolean}=}
-   *     opt_options Options of the comparison. If orderCheck is true, it also
-   *     compares the order of files. If ignoreLastModifiedTime is true, it
-   *     compares the file without its last modified time.
+   * @param {{orderCheck:(?boolean|undefined),
+   *     ignoreLastModifiedTime:(?boolean|undefined)}=} opt_options Options of
+   *     the comparison. If orderCheck is true, it also compares the order of
+   *     files. If ignoreLastModifiedTime is true, it compares the file without
+   *     its last modified time.
    * @return {Promise} Promise to be fulfilled when the file list turns to the
    *     given contents.
    */
@@ -501,8 +524,14 @@ class RemoteCallFilesApp extends RemoteCall {
 
     const caller = getCaller();
     return repeatUntil(async () => {
-      const element =
+      let element =
           await this.callRemoteTestUtil('getActiveElement', appId, []);
+      if (element && element.attributes['id'] === elementId) {
+        return true;
+      }
+      // Try to check the shadow root.
+      element =
+          await this.callRemoteTestUtil('deepGetActiveElement', appId, []);
       if (element && element.attributes['id'] === elementId) {
         return true;
       }

@@ -28,6 +28,7 @@ import("//build/config/dcheck_always_on.gni")
 import("//build/config/jumbo.gni")
 import("//build/config/logging.gni")
 import("//build/config/nacl/config.gni")
+import("//build/config/profiling/profiling.gni")
 import("//build/config/sysroot.gni")
 import("//build/config/ui.gni")
 import("//build/nocompile.gni")
@@ -43,7 +44,7 @@ if (is_mac) {
 
 # Reset sources_assignment_filter for the BUILD.gn file to prevent
 # regression during the migration of Chromium away from the feature.
-# See build/no_sources_assignment_filter.md for more information.
+# See docs/no_sources_assignment_filter.md for more information.
 # TODO(crbug.com/1018739): remove this when migration is done.
 set_sources_assignment_filter([])
 
@@ -52,6 +53,13 @@ declare_args() {
   # (file, function, line). False means only the program counter (and currently
   # file name) is saved.
   enable_location_source = true
+
+  # Whether or not the FROM_HERE macro uses base::Location::Current(). This
+  # allows the implementation to be reverted if needed while validating its
+  # replacement base::Location::Current(). On by default in non-official builds
+  # for testing purposes.
+  # TODO(https://crbug.com/974061): remove this eventually.
+  from_here_uses_location_builtins = !is_official_build
 
   # Unsafe developer build. Has developer-friendly features that may weaken or
   # disable security measures like sandboxing or ASLR.
@@ -87,7 +95,7 @@ if (is_android) {
 }
 
 if (is_fuchsia) {
-  import("//build/config/fuchsia/fidl_library.gni")
+  import("//third_party/fuchsia-sdk/sdk/build/fidl_library.gni")
 }
 
 config("base_flags") {
@@ -278,6 +286,8 @@ jumbo_component("base") {
     "guid.h",
     "hash/hash.cc",
     "hash/hash.h",
+    "hash/legacy_hash.cc",
+    "hash/legacy_hash.h",
     "immediate_crash.h",
     "json/json_common.h",
     "json/json_file_value_serializer.cc",
@@ -334,6 +344,8 @@ jumbo_component("base") {
     "memory/shared_memory_hooks.h",
     "memory/shared_memory_mapping.cc",
     "memory/shared_memory_mapping.h",
+    "memory/shared_memory_security_policy.cc",
+    "memory/shared_memory_security_policy.h",
     "memory/shared_memory_tracker.cc",
     "memory/shared_memory_tracker.h",
     "memory/singleton.h",
@@ -465,6 +477,8 @@ jumbo_component("base") {
     "profiler/frame.h",
     "profiler/metadata_recorder.cc",
     "profiler/metadata_recorder.h",
+    "profiler/module_cache.cc",
+    "profiler/module_cache.h",
     "profiler/native_unwinder.h",
     "profiler/profile_builder.cc",
     "profiler/profile_builder.h",
@@ -495,8 +509,6 @@ jumbo_component("base") {
     "run_loop.h",
     "sampling_heap_profiler/lock_free_address_hash_set.cc",
     "sampling_heap_profiler/lock_free_address_hash_set.h",
-    "sampling_heap_profiler/module_cache.cc",
-    "sampling_heap_profiler/module_cache.h",
     "sampling_heap_profiler/poisson_allocation_sampler.cc",
     "sampling_heap_profiler/poisson_allocation_sampler.h",
     "sampling_heap_profiler/sampling_heap_profiler.cc",
@@ -552,6 +564,7 @@ jumbo_component("base") {
     "strings/utf_string_conversions.h",
     "supports_user_data.cc",
     "supports_user_data.h",
+    "sync_socket.cc",
     "sync_socket.h",
     "synchronization/atomic_flag.cc",
     "synchronization/atomic_flag.h",
@@ -698,6 +711,8 @@ jumbo_component("base") {
     "test/spin_wait.h",
     "third_party/cityhash/city.cc",
     "third_party/cityhash/city.h",
+    "third_party/cityhash_v103/src/city_v103.cc",
+    "third_party/cityhash_v103/src/city_v103.h",
     "third_party/icu/icu_utf.cc",
     "third_party/icu/icu_utf.h",
     "third_party/nspr/prtime.cc",
@@ -712,6 +727,8 @@ jumbo_component("base") {
     "threading/post_task_and_reply_impl.h",
     "threading/scoped_blocking_call.cc",
     "threading/scoped_blocking_call.h",
+    "threading/scoped_blocking_call_internal.cc",
+    "threading/scoped_blocking_call_internal.h",
     "threading/scoped_thread_priority.cc",
     "threading/scoped_thread_priority.h",
     "threading/sequence_bound.h",
@@ -800,8 +817,8 @@ jumbo_component("base") {
     "trace_event/memory_dump_request_args.h",
     "trace_event/memory_dump_scheduler.cc",
     "trace_event/memory_dump_scheduler.h",
-    "trace_event/memory_infra_background_whitelist.cc",
-    "trace_event/memory_infra_background_whitelist.h",
+    "trace_event/memory_infra_background_allowlist.cc",
+    "trace_event/memory_infra_background_allowlist.h",
     "trace_event/memory_usage_estimator.cc",
     "trace_event/memory_usage_estimator.h",
     "trace_event/process_memory_dump.cc",
@@ -895,8 +912,8 @@ jumbo_component("base") {
       "process/process_handle_posix.cc",
       "process/process_metrics_posix.cc",
       "process/process_posix.cc",
+      "profiler/module_cache_posix.cc",
       "rand_util_posix.cc",
-      "sampling_heap_profiler/module_cache_posix.cc",
       "strings/string_util_posix.h",
       "strings/sys_string_conversions_posix.cc",
       "sync_socket_posix.cc",
@@ -955,12 +972,12 @@ jumbo_component("base") {
       "process/process_iterator_win.cc",
       "process/process_metrics_win.cc",
       "process/process_win.cc",
+      "profiler/module_cache_win.cc",
       "profiler/native_unwinder_win.cc",
       "profiler/native_unwinder_win.h",
       "profiler/stack_sampler_win.cc",
       "profiler/suspendable_thread_delegate_win.cc",
       "profiler/suspendable_thread_delegate_win.h",
-      "sampling_heap_profiler/module_cache_win.cc",
       "scoped_clear_last_error_win.cc",
       "strings/string_util_win.h",
       "strings/sys_string_conversions_win.cc",
@@ -1129,7 +1146,6 @@ jumbo_component("base") {
       "mac/scoped_nsautorelease_pool.h",
       "mac/scoped_nsautorelease_pool.mm",
       "mac/scoped_nsobject.h",
-      "mac/scoped_nsobject.mm",
       "mac/scoped_objc_class_swizzler.h",
       "mac/scoped_objc_class_swizzler.mm",
       "mac/scoped_sending_event.h",
@@ -1148,12 +1164,12 @@ jumbo_component("base") {
       "process/process_iterator_mac.cc",
       "process/process_mac.cc",
       "process/process_metrics_mac.cc",
+      "profiler/module_cache_mac.cc",
       "profiler/native_unwinder_mac.cc",
       "profiler/native_unwinder_mac.h",
       "profiler/stack_sampler_mac.cc",
       "profiler/suspendable_thread_delegate_mac.cc",
       "profiler/suspendable_thread_delegate_mac.h",
-      "sampling_heap_profiler/module_cache_mac.cc",
       "strings/sys_string_conversions_mac.mm",
       "synchronization/waitable_event_mac.cc",
       "synchronization/waitable_event_watcher_mac.cc",
@@ -1294,7 +1310,7 @@ jumbo_component("base") {
     ":base_static",
     ":build_date",
     ":cfi_buildflags",
-    ":clang_coverage_buildflags",
+    ":clang_profiling_buildflags",
     ":debugging_buildflags",
     ":logging_buildflags",
     ":orderfile_buildflags",
@@ -1350,11 +1366,11 @@ jumbo_component("base") {
     }
   }
 
-  if (use_clang_coverage) {
-    # Call-sites use this conditional on the CLANG_COVERAGE macro, for clarity.
+  if (use_clang_profiling) {
+    # Call-sites use this conditional on the CLANG_PROFILING macro, for clarity.
     sources += [
-      "test/clang_coverage.cc",
-      "test/clang_coverage.h",
+      "test/clang_profiling.cc",
+      "test/clang_profiling.h",
     ]
   }
 
@@ -1559,10 +1575,6 @@ jumbo_component("base") {
       "fuchsia/intl_profile_watcher.h",
       "fuchsia/scoped_service_binding.cc",
       "fuchsia/scoped_service_binding.h",
-      "fuchsia/service_directory.cc",
-      "fuchsia/service_directory.h",
-      "fuchsia/service_directory_client.cc",
-      "fuchsia/service_directory_client.h",
       "fuchsia/service_provider_impl.cc",
       "fuchsia/service_provider_impl.h",
       "fuchsia/startup_context.cc",
@@ -1588,9 +1600,9 @@ jumbo_component("base") {
       "process/process_iterator_fuchsia.cc",
       "process/process_metrics_fuchsia.cc",
       "process/process_metrics_posix.cc",
+      "profiler/module_cache_posix.cc",
       "profiler/stack_sampler_posix.cc",
       "rand_util_fuchsia.cc",
-      "sampling_heap_profiler/module_cache_posix.cc",
       "strings/string_util_posix.h",
       "strings/sys_string_conversions_posix.cc",
       "sync_socket_posix.cc",
@@ -1614,23 +1626,23 @@ jumbo_component("base") {
     # by public //base headers, which requires they be on the include path.
     # TODO(https://crbug.com/841171): Move these back to |deps|.
     public_deps += [
-      "//third_party/fuchsia-sdk/sdk:async",
-      "//third_party/fuchsia-sdk/sdk:fdio",
-      "//third_party/fuchsia-sdk/sdk:fidl_cpp",
-      "//third_party/fuchsia-sdk/sdk:fuchsia-io",
-      "//third_party/fuchsia-sdk/sdk:sys_cpp",
-      "//third_party/fuchsia-sdk/sdk:zx",
+      "//third_party/fuchsia-sdk/sdk/fidl/fuchsia.intl",
+      "//third_party/fuchsia-sdk/sdk/fidl/fuchsia.io",
+      "//third_party/fuchsia-sdk/sdk/pkg/async",
+      "//third_party/fuchsia-sdk/sdk/pkg/fdio",
+      "//third_party/fuchsia-sdk/sdk/pkg/fidl_cpp",
+      "//third_party/fuchsia-sdk/sdk/pkg/sys_cpp",
+      "//third_party/fuchsia-sdk/sdk/pkg/zx",
     ]
 
     deps += [
-      "//third_party/fuchsia-sdk/sdk:async-default",
-      "//third_party/fuchsia-sdk/sdk:async-loop-cpp",
-      "//third_party/fuchsia-sdk/sdk:async-loop-default",
-      "//third_party/fuchsia-sdk/sdk:fidl",
-      "//third_party/fuchsia-sdk/sdk:fuchsia-intl",
-      "//third_party/fuchsia-sdk/sdk:fuchsia-sys",
-      "//third_party/fuchsia-sdk/sdk:syslog",
-      "//third_party/fuchsia-sdk/sdk:vfs_cpp",
+      "//third_party/fuchsia-sdk/sdk/fidl/fuchsia.sys",
+      "//third_party/fuchsia-sdk/sdk/pkg/async-default",
+      "//third_party/fuchsia-sdk/sdk/pkg/async-loop-cpp",
+      "//third_party/fuchsia-sdk/sdk/pkg/async-loop-default",
+      "//third_party/fuchsia-sdk/sdk/pkg/fidl",
+      "//third_party/fuchsia-sdk/sdk/pkg/syslog",
+      "//third_party/fuchsia-sdk/sdk/pkg/vfs_cpp",
       "//third_party/icu",
     ]
   }
@@ -1705,7 +1717,7 @@ jumbo_component("base") {
       "process/process_metrics.cc",
       "process/process_metrics_posix.cc",
       "process/process_posix.cc",
-      "sampling_heap_profiler/module_cache_posix.cc",
+      "profiler/module_cache_posix.cc",
       "scoped_native_library.cc",
       "sync_socket_posix.cc",
       "system/sys_info.cc",
@@ -1887,7 +1899,7 @@ jumbo_component("base") {
   if (is_mac || is_ios) {
     sources -= [
       "native_library_posix.cc",
-      "sampling_heap_profiler/module_cache_posix.cc",
+      "profiler/module_cache_posix.cc",
       "strings/sys_string_conversions_posix.cc",
       "synchronization/waitable_event_posix.cc",
       "synchronization/waitable_event_watcher_posix.cc",
@@ -1985,7 +1997,6 @@ jumbo_component("base") {
       "mac/scoped_nsautorelease_pool.h",
       "mac/scoped_nsautorelease_pool.mm",
       "mac/scoped_nsobject.h",
-      "mac/scoped_nsobject.mm",
       "mac/scoped_objc_class_swizzler.h",
       "mac/scoped_objc_class_swizzler.mm",
       "mac/scoped_typeref.h",
@@ -1993,7 +2004,7 @@ jumbo_component("base") {
       "message_loop/message_pump_mac.mm",
       "power_monitor/power_monitor_device_source_ios.mm",
       "process/memory_stubs.cc",
-      "sampling_heap_profiler/module_cache_stub.cc",
+      "profiler/module_cache_stub.cc",
       "strings/sys_string_conversions_mac.mm",
       "synchronization/waitable_event_mac.cc",
       "system/sys_info_ios.mm",
@@ -2009,6 +2020,8 @@ jumbo_component("base") {
     } else {
       sources += [ "time/time_exploded_ios.cc" ]
     }
+
+    libs += [ "UIKit.framework" ]
   }
 
   if (dep_libevent) {
@@ -2102,6 +2115,7 @@ buildflag_header("debugging_buildflags") {
 
   flags = [
     "ENABLE_LOCATION_SOURCE=$enable_location_source",
+    "FROM_HERE_USES_LOCATION_BUILTINS=$from_here_uses_location_builtins",
     "ENABLE_PROFILING=$enable_profiling",
     "CAN_UNWIND_WITH_FRAME_POINTERS=$can_unwind_with_frame_pointers",
     "UNSAFE_DEVELOPER_BUILD=$is_unsafe_developer_build",
@@ -2157,13 +2171,13 @@ buildflag_header("partition_alloc_buildflags") {
   flags = [ "USE_PARTITION_ALLOC=$use_partition_alloc" ]
 }
 
-buildflag_header("clang_coverage_buildflags") {
-  header = "clang_coverage_buildflags.h"
+buildflag_header("clang_profiling_buildflags") {
+  header = "clang_profiling_buildflags.h"
   header_dir = "base"
 
   flags = [
-    "CLANG_COVERAGE=$use_clang_coverage",
-    "CLANG_COVERAGE_INSIDE_SANDBOX=$use_clang_coverage_inside_sandbox",
+    "CLANG_PROFILING=$use_clang_profiling",
+    "CLANG_PROFILING_INSIDE_SANDBOX=$use_clang_profiling_inside_sandbox",
   ]
 }
 
@@ -2371,7 +2385,8 @@ if (is_win) {
 if (is_win || is_mac) {
   if (current_cpu == "x64" || (current_cpu == "arm64" && is_win)) {
     # Must be a shared library so that it can be unloaded during testing.
-    shared_library("base_profiler_test_support_library") {
+    loadable_module("base_profiler_test_support_library") {
+      testonly = true
       sources = [ "profiler/test_support_library.cc" ]
     }
   }
@@ -2423,10 +2438,7 @@ bundle_data("base_unittests_bundle_data") {
 if (is_ios || is_mac) {
   source_set("base_unittests_arc") {
     testonly = true
-    sources = [
-      "mac/bind_objc_block_unittest_arc.mm",
-      "mac/scoped_nsobject_unittest_arc.mm",
-    ]
+    sources = [ "mac/bind_objc_block_unittest_arc.mm" ]
     configs += [ "//build/config/compiler:enable_arc" ]
     deps = [
       ":base",
@@ -2437,7 +2449,7 @@ if (is_ios || is_mac) {
 
 if (is_fuchsia) {
   fidl_library("testfidl") {
-    namespace = "base.fuchsia"
+    library_name = "base.fuchsia.testfidl"
 
     sources = [ "fuchsia/test.fidl" ]
   }
@@ -2486,6 +2498,7 @@ test("base_unittests") {
     "component_export_unittest.cc",
     "containers/adapters_unittest.cc",
     "containers/buffer_iterator_unittest.cc",
+    "containers/checked_iterators_unittest.cc",
     "containers/checked_range_unittest.cc",
     "containers/circular_deque_unittest.cc",
     "containers/flat_map_unittest.cc",
@@ -2524,6 +2537,7 @@ test("base_unittests") {
     "gmock_unittest.cc",
     "guid_unittest.cc",
     "hash/hash_unittest.cc",
+    "hash/legacy_hash_unittest.cc",
     "hash/md5_constexpr_unittest.cc",
     "hash/md5_unittest.cc",
     "hash/sha1_unittest.cc",
@@ -2607,6 +2621,7 @@ test("base_unittests") {
     "process/process_util_unittest.cc",
     "profiler/arm_cfi_table_unittest.cc",
     "profiler/metadata_recorder_unittest.cc",
+    "profiler/module_cache_unittest.cc",
     "profiler/sample_metadata_unittest.cc",
     "profiler/stack_copier_suspend_unittest.cc",
     "profiler/stack_copier_unittest.cc",
@@ -2616,7 +2631,6 @@ test("base_unittests") {
     "run_loop_unittest.cc",
     "safe_numerics_unittest.cc",
     "sampling_heap_profiler/lock_free_address_hash_set_unittest.cc",
-    "sampling_heap_profiler/module_cache_unittest.cc",
     "scoped_clear_last_error_unittest.cc",
     "scoped_generic_unittest.cc",
     "scoped_native_library_unittest.cc",
@@ -2693,9 +2707,11 @@ test("base_unittests") {
     "task/thread_pool/tracked_ref_unittest.cc",
     "task/thread_pool/worker_thread_stack_unittest.cc",
     "task/thread_pool/worker_thread_unittest.cc",
+    "task_runner_unittest.cc",
     "task_runner_util_unittest.cc",
     "template_util_unittest.cc",
     "test/gmock_callback_support_unittest.cc",
+    "test/gmock_move_support_unittest.cc",
     "test/launcher/test_launcher_unittest.cc",
     "test/metrics/histogram_enum_reader_unittest.cc",
     "test/metrics/histogram_tester_unittest.cc",
@@ -2704,9 +2720,11 @@ test("base_unittests") {
     "test/scoped_feature_list_unittest.cc",
     "test/scoped_mock_clock_override_unittest.cc",
     "test/scoped_mock_time_message_loop_task_runner_unittest.cc",
+    "test/scoped_run_loop_timeout_unittest.cc",
     "test/task_environment_unittest.cc",
     "test/test_mock_time_task_runner_unittest.cc",
     "test/test_pending_task_unittest.cc",
+    "test/test_waitable_event_unittest.cc",
     "test/trace_event_analyzer_unittest.cc",
     "thread_annotations_unittest.cc",
     "threading/hang_watcher_unittest.cc",
@@ -2743,7 +2761,7 @@ test("base_unittests") {
     "trace_event/memory_allocator_dump_unittest.cc",
     "trace_event/memory_dump_manager_unittest.cc",
     "trace_event/memory_dump_scheduler_unittest.cc",
-    "trace_event/memory_infra_background_whitelist_unittest.cc",
+    "trace_event/memory_infra_background_allowlist_unittest.cc",
     "trace_event/memory_usage_estimator_unittest.cc",
     "trace_event/process_memory_dump_unittest.cc",
     "trace_event/trace_arguments_unittest.cc",
@@ -3001,7 +3019,7 @@ test("base_unittests") {
       "Foundation.framework",
     ]
     if (current_cpu == "x64") {
-      data_deps += [ ":base_profiler_test_support_library" ]
+      deps += [ ":base_profiler_test_support_library" ]
     }
   }
 
@@ -3047,6 +3065,7 @@ test("base_unittests") {
       "fuchsia/service_directory_test_base.cc",
       "fuchsia/service_directory_test_base.h",
       "fuchsia/service_provider_impl_unittest.cc",
+      "fuchsia/test_component_context_for_process_unittest.cc",
       "fuchsia/time_zone_data_unittest.cc",
       "message_loop/fd_watch_controller_posix_unittest.cc",
       "posix/file_descriptor_shuffle_unittest.cc",
@@ -3059,13 +3078,13 @@ test("base_unittests") {
     deps += [
       ":test_interface_impl",
       ":testfidl",
-      "//third_party/fuchsia-sdk/sdk:async",
-      "//third_party/fuchsia-sdk/sdk:async-default",
-      "//third_party/fuchsia-sdk/sdk:fdio",
-      "//third_party/fuchsia-sdk/sdk:fuchsia-intl",
-      "//third_party/fuchsia-sdk/sdk:fuchsia-logger",
-      "//third_party/fuchsia-sdk/sdk:fuchsia-sys",
-      "//third_party/fuchsia-sdk/sdk:sys_cpp",
+      "//third_party/fuchsia-sdk/sdk/fidl/fuchsia.intl",
+      "//third_party/fuchsia-sdk/sdk/fidl/fuchsia.logger",
+      "//third_party/fuchsia-sdk/sdk/fidl/fuchsia.sys",
+      "//third_party/fuchsia-sdk/sdk/pkg/async",
+      "//third_party/fuchsia-sdk/sdk/pkg/async-default",
+      "//third_party/fuchsia-sdk/sdk/pkg/fdio",
+      "//third_party/fuchsia-sdk/sdk/pkg/sys_cpp",
     ]
 
     manifest = "//build/config/fuchsia/tests.cmx"
@@ -3088,7 +3107,7 @@ test("base_unittests") {
     deps += [ "//base:scoped_handle_test_dll" ]
     if (current_cpu == "x64" || current_cpu == "arm64") {
       sources += [ "profiler/win32_stack_frame_unwinder_unittest.cc" ]
-      data_deps += [ ":base_profiler_test_support_library" ]
+      deps += [ ":base_profiler_test_support_library" ]
     }
     sources += [ "files/os_validation_win_unittest.cc" ]
   }
@@ -3220,6 +3239,7 @@ if (is_android) {
   }
 
   android_library("base_java") {
+    skip_jetify = true
     srcjar_deps = [
       ":base_android_java_enums_srcjar",
       ":base_build_config_gen",
@@ -3231,8 +3251,9 @@ if (is_android) {
       ":jni_java",
       "//third_party/android_deps:android_support_v4_java",
       "//third_party/android_deps:androidx_annotation_annotation_java",
-      "//third_party/android_deps:com_android_support_collections_java",
-      "//third_party/android_deps:com_android_support_multidex_java",
+      "//third_party/android_deps:androidx_collection_collection_java",
+      "//third_party/android_deps:androidx_core_core_java",
+      "//third_party/android_deps:androidx_multidex_multidex_java",
       "//third_party/jsr-305:jsr_305_javalib",
     ]
 
@@ -3256,11 +3277,13 @@ if (is_android) {
       "android/java/src/org/chromium/base/DiscardableReferencePool.java",
       "android/java/src/org/chromium/base/EarlyTraceEvent.java",
       "android/java/src/org/chromium/base/EventLog.java",
+      "android/java/src/org/chromium/base/FeatureList.java",
       "android/java/src/org/chromium/base/FieldTrialList.java",
       "android/java/src/org/chromium/base/FileUtils.java",
       "android/java/src/org/chromium/base/Function.java",
       "android/java/src/org/chromium/base/ImportantFileWriterAndroid.java",
       "android/java/src/org/chromium/base/IntStringCallback.java",
+      "android/java/src/org/chromium/base/IntentUtils.java",
       "android/java/src/org/chromium/base/JNIUtils.java",
       "android/java/src/org/chromium/base/JavaExceptionReporter.java",
       "android/java/src/org/chromium/base/JavaHandlerThread.java",
@@ -3323,7 +3346,6 @@ if (is_android) {
       "android/java/src/org/chromium/base/library_loader/LibraryLoader.java",
       "android/java/src/org/chromium/base/library_loader/LibraryPrefetcher.java",
       "android/java/src/org/chromium/base/library_loader/Linker.java",
-      "android/java/src/org/chromium/base/library_loader/LoadStatusRecorder.java",
       "android/java/src/org/chromium/base/library_loader/LoaderErrors.java",
       "android/java/src/org/chromium/base/library_loader/ModernLinker.java",
       "android/java/src/org/chromium/base/library_loader/NativeLibraryPreloader.java",
@@ -3332,7 +3354,6 @@ if (is_android) {
       "android/java/src/org/chromium/base/memory/MemoryPressureCallback.java",
       "android/java/src/org/chromium/base/memory/MemoryPressureMonitor.java",
       "android/java/src/org/chromium/base/memory/MemoryPressureUma.java",
-      "android/java/src/org/chromium/base/metrics/CachedMetrics.java",
       "android/java/src/org/chromium/base/metrics/CachingUmaRecorder.java",
       "android/java/src/org/chromium/base/metrics/NativeUmaRecorder.java",
       "android/java/src/org/chromium/base/metrics/NoopUmaRecorder.java",
@@ -3341,6 +3362,7 @@ if (is_android) {
       "android/java/src/org/chromium/base/metrics/ScopedSysTraceEvent.java",
       "android/java/src/org/chromium/base/metrics/StatisticsRecorderAndroid.java",
       "android/java/src/org/chromium/base/metrics/UmaRecorder.java",
+      "android/java/src/org/chromium/base/metrics/UmaRecorderHolder.java",
       "android/java/src/org/chromium/base/multidex/ChromiumMultiDexInstaller.java",
       "android/java/src/org/chromium/base/process_launcher/BindService.java",
       "android/java/src/org/chromium/base/process_launcher/ChildConnectionAllocator.java",
@@ -3398,6 +3420,8 @@ if (is_android) {
       ":base_java_test_support",
       ":jni_java",
       "//base/test:test_support_java",
+      "//third_party/android_deps:androidx_test_monitor_java",
+      "//third_party/android_deps:androidx_test_uiautomator_uiautomator_java",
       "//third_party/android_support_test_runner:runner_java",
       "//third_party/hamcrest:hamcrest_java",
       "//third_party/junit:junit",
@@ -3445,13 +3469,17 @@ if (is_android) {
   }
 
   android_library("base_java_test_support") {
+    skip_jetify = true
     testonly = true
     deps = [
       ":base_java",
       ":jni_java",
       "//testing/android/reporter:reporter_java",
       "//third_party/android_deps:androidx_annotation_annotation_java",
-      "//third_party/android_deps:com_android_support_support_compat_java",
+      "//third_party/android_deps:androidx_core_core_java",
+      "//third_party/android_deps:androidx_test_monitor_java",
+      "//third_party/android_deps:androidx_test_runner_java",
+      "//third_party/android_deps:androidx_test_uiautomator_uiautomator_java",
       "//third_party/android_sdk:android_support_chromium_java",
       "//third_party/android_sdk:android_test_base_java",
       "//third_party/android_sdk:android_test_mock_java",
@@ -3560,6 +3588,8 @@ if (is_android) {
     deps = [
       ":base_java",
       "//testing/android/junit:junit_test_support",
+      "//third_party/android_deps:androidx_test_monitor_java",
+      "//third_party/android_deps:androidx_test_uiautomator_uiautomator_java",
       "//third_party/android_support_test_runner:runner_java",
       "//third_party/hamcrest:hamcrest_java",
       "//third_party/junit:junit",
@@ -3568,10 +3598,12 @@ if (is_android) {
   }
 
   junit_binary("base_junit_tests") {
+    skip_jetify = true
     sources = [
       "android/junit/src/org/chromium/base/AnimationFrameTimeHistogramTest.java",
       "android/junit/src/org/chromium/base/ApplicationStatusTest.java",
       "android/junit/src/org/chromium/base/DiscardableReferencePoolTest.java",
+      "android/junit/src/org/chromium/base/FileUtilsTest.java",
       "android/junit/src/org/chromium/base/LifetimeAssertTest.java",
       "android/junit/src/org/chromium/base/LogTest.java",
       "android/junit/src/org/chromium/base/NonThreadSafeTest.java",
@@ -3631,6 +3663,7 @@ if (is_android) {
   }
 
   android_library("base_java_unittest_support") {
+    skip_jetify = true
     testonly = true
     deps = [ ":base_java" ]
     sources = [

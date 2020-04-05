@@ -61,13 +61,19 @@
 #include "testing/gtest/include/gtest/gtest.h"
 
 #if BUILDFLAG(ENABLE_SUPERVISED_USERS)
+#include "base/test/metrics/histogram_tester.h"
+#include "base/test/metrics/user_action_tester.h"
+#include "chrome/browser/extensions/extension_management_test_util.h"
+#include "chrome/browser/extensions/standard_management_policy_provider.h"
 #include "chrome/browser/supervised_user/supervised_user_constants.h"
+#include "chrome/browser/supervised_user/supervised_user_extensions_metrics_recorder.h"
 #include "chrome/browser/supervised_user/supervised_user_features.h"
 #include "chrome/browser/supervised_user/supervised_user_service.h"
 #include "chrome/browser/supervised_user/supervised_user_service_factory.h"
 #include "chrome/browser/supervised_user/supervised_user_settings_service.h"
 #include "chrome/browser/supervised_user/supervised_user_settings_service_factory.h"
 #include "chrome/common/pref_names.h"
+#include "components/sync_preferences/testing_pref_service_syncable.h"
 #endif
 
 using extensions::AppSorting;
@@ -696,7 +702,7 @@ TEST_F(ExtensionServiceSyncTest, GetSyncData) {
       std::make_unique<syncer::SyncErrorFactoryMock>());
 
   syncer::SyncDataList list =
-      extension_sync_service()->GetAllSyncData(syncer::EXTENSIONS);
+      extension_sync_service()->GetAllSyncDataForTesting(syncer::EXTENSIONS);
   ASSERT_EQ(list.size(), 1U);
   std::unique_ptr<ExtensionSyncData> data =
       ExtensionSyncData::CreateFromSyncData(list[0]);
@@ -725,7 +731,7 @@ TEST_F(ExtensionServiceSyncTest, GetSyncDataDisableReasons) {
 
   {
     syncer::SyncDataList list =
-        extension_sync_service()->GetAllSyncData(syncer::EXTENSIONS);
+        extension_sync_service()->GetAllSyncDataForTesting(syncer::EXTENSIONS);
     ASSERT_EQ(list.size(), 1U);
     std::unique_ptr<ExtensionSyncData> data =
         ExtensionSyncData::CreateFromSyncData(list[0]);
@@ -741,7 +747,7 @@ TEST_F(ExtensionServiceSyncTest, GetSyncDataDisableReasons) {
                               extensions::disable_reason::DISABLE_USER_ACTION);
   {
     syncer::SyncDataList list =
-        extension_sync_service()->GetAllSyncData(syncer::EXTENSIONS);
+        extension_sync_service()->GetAllSyncDataForTesting(syncer::EXTENSIONS);
     ASSERT_EQ(list.size(), 1U);
     std::unique_ptr<ExtensionSyncData> data =
         ExtensionSyncData::CreateFromSyncData(list[0]);
@@ -758,7 +764,7 @@ TEST_F(ExtensionServiceSyncTest, GetSyncDataDisableReasons) {
                               extensions::disable_reason::DISABLE_RELOAD);
   {
     syncer::SyncDataList list =
-        extension_sync_service()->GetAllSyncData(syncer::EXTENSIONS);
+        extension_sync_service()->GetAllSyncDataForTesting(syncer::EXTENSIONS);
     ASSERT_EQ(list.size(), 1U);
     std::unique_ptr<ExtensionSyncData> data =
         ExtensionSyncData::CreateFromSyncData(list[0]);
@@ -777,7 +783,7 @@ TEST_F(ExtensionServiceSyncTest, GetSyncDataDisableReasons) {
                                   extensions::disable_reason::DISABLE_RELOAD);
   {
     syncer::SyncDataList list =
-        extension_sync_service()->GetAllSyncData(syncer::EXTENSIONS);
+        extension_sync_service()->GetAllSyncDataForTesting(syncer::EXTENSIONS);
     ASSERT_EQ(list.size(), 1U);
     std::unique_ptr<ExtensionSyncData> data =
         ExtensionSyncData::CreateFromSyncData(list[0]);
@@ -803,7 +809,7 @@ TEST_F(ExtensionServiceSyncTest, GetSyncDataTerminated) {
       std::make_unique<syncer::SyncErrorFactoryMock>());
 
   syncer::SyncDataList list =
-      extension_sync_service()->GetAllSyncData(syncer::EXTENSIONS);
+      extension_sync_service()->GetAllSyncDataForTesting(syncer::EXTENSIONS);
   ASSERT_EQ(list.size(), 1U);
   std::unique_ptr<ExtensionSyncData> data =
       ExtensionSyncData::CreateFromSyncData(list[0]);
@@ -831,7 +837,7 @@ TEST_F(ExtensionServiceSyncTest, GetSyncDataFilter) {
       std::make_unique<syncer::SyncErrorFactoryMock>());
 
   syncer::SyncDataList list =
-      extension_sync_service()->GetAllSyncData(syncer::EXTENSIONS);
+      extension_sync_service()->GetAllSyncDataForTesting(syncer::EXTENSIONS);
   ASSERT_EQ(list.size(), 0U);
 }
 
@@ -848,7 +854,7 @@ TEST_F(ExtensionServiceSyncTest, GetSyncExtensionDataUserSettings) {
 
   {
     syncer::SyncDataList list =
-        extension_sync_service()->GetAllSyncData(syncer::EXTENSIONS);
+        extension_sync_service()->GetAllSyncDataForTesting(syncer::EXTENSIONS);
     ASSERT_EQ(list.size(), 1U);
     std::unique_ptr<ExtensionSyncData> data =
         ExtensionSyncData::CreateFromSyncData(list[0]);
@@ -861,7 +867,7 @@ TEST_F(ExtensionServiceSyncTest, GetSyncExtensionDataUserSettings) {
                               extensions::disable_reason::DISABLE_USER_ACTION);
   {
     syncer::SyncDataList list =
-        extension_sync_service()->GetAllSyncData(syncer::EXTENSIONS);
+        extension_sync_service()->GetAllSyncDataForTesting(syncer::EXTENSIONS);
     ASSERT_EQ(list.size(), 1U);
     std::unique_ptr<ExtensionSyncData> data =
         ExtensionSyncData::CreateFromSyncData(list[0]);
@@ -873,7 +879,7 @@ TEST_F(ExtensionServiceSyncTest, GetSyncExtensionDataUserSettings) {
   extensions::util::SetIsIncognitoEnabled(good_crx, profile(), true);
   {
     syncer::SyncDataList list =
-        extension_sync_service()->GetAllSyncData(syncer::EXTENSIONS);
+        extension_sync_service()->GetAllSyncDataForTesting(syncer::EXTENSIONS);
     ASSERT_EQ(list.size(), 1U);
     std::unique_ptr<ExtensionSyncData> data =
         ExtensionSyncData::CreateFromSyncData(list[0]);
@@ -885,7 +891,7 @@ TEST_F(ExtensionServiceSyncTest, GetSyncExtensionDataUserSettings) {
   service()->EnableExtension(good_crx);
   {
     syncer::SyncDataList list =
-        extension_sync_service()->GetAllSyncData(syncer::EXTENSIONS);
+        extension_sync_service()->GetAllSyncDataForTesting(syncer::EXTENSIONS);
     ASSERT_EQ(list.size(), 1U);
     std::unique_ptr<ExtensionSyncData> data =
         ExtensionSyncData::CreateFromSyncData(list[0]);
@@ -944,7 +950,7 @@ TEST_F(ExtensionServiceSyncTest, GetSyncAppDataUserSettings) {
       syncer::StringOrdinal::CreateInitialOrdinal();
   {
     syncer::SyncDataList list =
-        extension_sync_service()->GetAllSyncData(syncer::APPS);
+        extension_sync_service()->GetAllSyncDataForTesting(syncer::APPS);
     ASSERT_EQ(list.size(), 1U);
 
     std::unique_ptr<ExtensionSyncData> app_sync_data =
@@ -957,7 +963,7 @@ TEST_F(ExtensionServiceSyncTest, GetSyncAppDataUserSettings) {
   sorting->SetAppLaunchOrdinal(app->id(), initial_ordinal.CreateAfter());
   {
     syncer::SyncDataList list =
-        extension_sync_service()->GetAllSyncData(syncer::APPS);
+        extension_sync_service()->GetAllSyncDataForTesting(syncer::APPS);
     ASSERT_EQ(list.size(), 1U);
 
     std::unique_ptr<ExtensionSyncData> app_sync_data =
@@ -970,7 +976,7 @@ TEST_F(ExtensionServiceSyncTest, GetSyncAppDataUserSettings) {
   sorting->SetPageOrdinal(app->id(), initial_ordinal.CreateAfter());
   {
     syncer::SyncDataList list =
-        extension_sync_service()->GetAllSyncData(syncer::APPS);
+        extension_sync_service()->GetAllSyncDataForTesting(syncer::APPS);
     ASSERT_EQ(list.size(), 1U);
 
     std::unique_ptr<ExtensionSyncData> app_sync_data =
@@ -1007,7 +1013,7 @@ TEST_F(ExtensionServiceSyncTest, GetSyncAppDataUserSettingsOnExtensionMoved) {
       ->OnExtensionMoved(apps[0]->id(), apps[1]->id(), apps[2]->id());
   {
     syncer::SyncDataList list =
-        extension_sync_service()->GetAllSyncData(syncer::APPS);
+        extension_sync_service()->GetAllSyncDataForTesting(syncer::APPS);
     ASSERT_EQ(list.size(), 3U);
 
     std::unique_ptr<ExtensionSyncData> data[kAppCount];
@@ -1052,9 +1058,12 @@ TEST_F(ExtensionServiceSyncTest, GetSyncDataList) {
                               extensions::disable_reason::DISABLE_USER_ACTION);
   TerminateExtension(theme2_crx);
 
-  EXPECT_EQ(0u, extension_sync_service()->GetAllSyncData(syncer::APPS).size());
   EXPECT_EQ(
-      2u, extension_sync_service()->GetAllSyncData(syncer::EXTENSIONS).size());
+      0u,
+      extension_sync_service()->GetAllSyncDataForTesting(syncer::APPS).size());
+  EXPECT_EQ(2u, extension_sync_service()
+                    ->GetAllSyncDataForTesting(syncer::EXTENSIONS)
+                    .size());
 }
 
 TEST_F(ExtensionServiceSyncTest, ProcessSyncDataUninstall) {
@@ -1338,7 +1347,7 @@ TEST_F(ExtensionServiceSyncTest, ProcessSyncDataVersionCheck) {
     EXPECT_FALSE(service()->updater()->WillCheckSoon());
     // Make sure the version we'll send back to sync didn't change.
     syncer::SyncDataList data =
-        extension_sync_service()->GetAllSyncData(syncer::EXTENSIONS);
+        extension_sync_service()->GetAllSyncDataForTesting(syncer::EXTENSIONS);
     ASSERT_EQ(1u, data.size());
     std::unique_ptr<ExtensionSyncData> extension_data =
         ExtensionSyncData::CreateFromSyncData(data[0]);
@@ -1357,7 +1366,7 @@ TEST_F(ExtensionServiceSyncTest, ProcessSyncDataVersionCheck) {
     EXPECT_FALSE(service()->updater()->WillCheckSoon());
     // Make sure the version we'll send back to sync didn't change.
     syncer::SyncDataList data =
-        extension_sync_service()->GetAllSyncData(syncer::EXTENSIONS);
+        extension_sync_service()->GetAllSyncDataForTesting(syncer::EXTENSIONS);
     ASSERT_EQ(1u, data.size());
     std::unique_ptr<ExtensionSyncData> extension_data =
         ExtensionSyncData::CreateFromSyncData(data[0]);
@@ -1379,7 +1388,7 @@ TEST_F(ExtensionServiceSyncTest, ProcessSyncDataVersionCheck) {
     // haven't actually updated yet. This is to prevent the data in sync from
     // flip-flopping back and forth until all clients are up to date.
     syncer::SyncDataList data =
-        extension_sync_service()->GetAllSyncData(syncer::EXTENSIONS);
+        extension_sync_service()->GetAllSyncDataForTesting(syncer::EXTENSIONS);
     ASSERT_EQ(1u, data.size());
     std::unique_ptr<ExtensionSyncData> extension_data =
         ExtensionSyncData::CreateFromSyncData(data[0]);
@@ -1755,6 +1764,8 @@ TEST_F(ExtensionServiceSyncTest, DontSyncThemes) {
 
 #if BUILDFLAG(ENABLE_SUPERVISED_USERS)
 
+// TODO(crbug/1065107): Move this test class and associated tests to a separate
+// file under enable_supervised_users build.
 class ExtensionServiceTestSupervised
     : public ExtensionServiceSyncCustomGalleryTest,
       public SupervisedUserService::Delegate {
@@ -1775,11 +1786,51 @@ class ExtensionServiceTestSupervised
   }
 
  protected:
-  void InitSupervisedUserInitiatedExtensionInstallFeature(bool enabled) {
-    if (enabled) {
-      scoped_feature_list_.InitAndEnableFeature(
-          supervised_users::kSupervisedUserInitiatedExtensionInstall);
+  typedef extensions::ExtensionManagementPrefUpdater<
+      sync_preferences::TestingPrefServiceSyncable>
+      ManagementPrefUpdater;
+
+  // These enum values represent various feature flags for enabling
+  // supervised users to install extensions.
+  enum class SupervisedUserExtensionInstallFeatureMode {
+    // Turn off all feature flags.
+    kNone,
+    // Refers to the extensions lite feature that enables supervised users to
+    // install from the ExtensionInstallWhitelist policy as a temporary measure
+    // in response to the COVID-19 crisis.
+    kLite,
+    // Refers to the full extensions feature where each install has be approved
+    // through the parent permissions dialog.
+    kFull
+  };
+
+  // Enables or disables features for allowing supervised users to install
+  // extensions.
+  void InitSupervisedUserExtensionInstallFeatures(
+      SupervisedUserExtensionInstallFeatureMode mode) {
+    std::vector<base::Feature> enabled_features;
+    std::vector<base::Feature> disabled_features;
+    switch (mode) {
+      case SupervisedUserExtensionInstallFeatureMode::kNone:
+        disabled_features.push_back(
+            supervised_users::kSupervisedUserInitiatedExtensionInstall);
+        disabled_features.push_back(
+            supervised_users::kSupervisedUserAllowlistExtensionInstall);
+        break;
+      case SupervisedUserExtensionInstallFeatureMode::kLite:
+        disabled_features.push_back(
+            supervised_users::kSupervisedUserInitiatedExtensionInstall);
+        enabled_features.push_back(
+            supervised_users::kSupervisedUserAllowlistExtensionInstall);
+        break;
+      case SupervisedUserExtensionInstallFeatureMode::kFull:
+        enabled_features.push_back(
+            supervised_users::kSupervisedUserInitiatedExtensionInstall);
+        disabled_features.push_back(
+            supervised_users::kSupervisedUserAllowlistExtensionInstall);
+        break;
     }
+    scoped_feature_list_.InitWithFeatures(enabled_features, disabled_features);
   }
 
   void SetSupervisedUserExtensionsMayRequestPermissionsPref(bool enabled) {
@@ -1928,9 +1979,10 @@ class ExtensionServiceTestSupervised
 // in the pref kSupervisedUserExtensionsMayRequestPermissions returning false,
 // then child users cannot install new extensions.
 TEST_F(ExtensionServiceTestSupervised, SupervisedUserCannotInstallExtension) {
-  InitSupervisedUserInitiatedExtensionInstallFeature(true);
+  InitSupervisedUserExtensionInstallFeatures(
+      SupervisedUserExtensionInstallFeatureMode::kFull);
 
-  InitServices(true /* profile_is_supervised */);
+  InitServices(/*profile_is_supervised=*/true);
 
   ASSERT_NO_FATAL_FAILURE(
       SetSupervisedUserExtensionsMayRequestPermissionsPref(false));
@@ -1946,9 +1998,10 @@ TEST_F(ExtensionServiceTestSupervised, SupervisedUserCannotInstallExtension) {
 // supervised user controls, and the extension remains disabled.
 TEST_F(ExtensionServiceTestSupervised,
        AddSupervisionAndSyncShouldNotReenablePreinstalledExtension) {
-  InitSupervisedUserInitiatedExtensionInstallFeature(true);
+  InitSupervisedUserExtensionInstallFeatures(
+      SupervisedUserExtensionInstallFeatureMode::kFull);
 
-  InitServices(false /* profile_is_supervised */);
+  InitServices(/*profile_is_supervised=*/false);
 
   // Install an extension.
   base::FilePath path = data_dir().AppendASCII("good.crx");
@@ -1988,9 +2041,10 @@ TEST_F(ExtensionServiceTestSupervised,
 // unexpected behavior.
 TEST_F(ExtensionServiceTestSupervised,
        CustodianApprovalDoesNotAffectRegularUsers) {
-  InitSupervisedUserInitiatedExtensionInstallFeature(true);
+  InitSupervisedUserExtensionInstallFeatures(
+      SupervisedUserExtensionInstallFeatureMode::kFull);
 
-  InitServices(false /* profile_is_supervised */);
+  InitServices(/*profile_is_supervised=*/false);
 
   ASSERT_NO_FATAL_FAILURE(
       SetSupervisedUserExtensionsMayRequestPermissionsPref(false));
@@ -2015,9 +2069,10 @@ TEST_F(ExtensionServiceTestSupervised,
 // newly-installed extensions are disabled until approved.
 TEST_F(ExtensionServiceTestSupervised,
        InstallAllowedButDisabledForSupervisedUser) {
-  InitSupervisedUserInitiatedExtensionInstallFeature(true);
+  InitSupervisedUserExtensionInstallFeatures(
+      SupervisedUserExtensionInstallFeatureMode::kFull);
 
-  InitServices(true /* profile_is_supervised */);
+  InitServices(/*profile_is_supervised=*/true);
 
   ASSERT_NO_FATAL_FAILURE(
       SetSupervisedUserExtensionsMayRequestPermissionsPref(true));
@@ -2036,9 +2091,10 @@ TEST_F(ExtensionServiceTestSupervised,
 
 TEST_F(ExtensionServiceTestSupervised,
        PreinstalledExtensionWithSUInitiatedInstalls) {
-  InitSupervisedUserInitiatedExtensionInstallFeature(true);
+  InitSupervisedUserExtensionInstallFeatures(
+      SupervisedUserExtensionInstallFeatureMode::kFull);
 
-  InitServices(false /* profile_is_supervised */);
+  InitServices(/*profile_is_supervised=*/false);
 
   ASSERT_NO_FATAL_FAILURE(
       SetSupervisedUserExtensionsMayRequestPermissionsPref(true));
@@ -2061,9 +2117,10 @@ TEST_F(ExtensionServiceTestSupervised,
 
 TEST_F(ExtensionServiceTestSupervised,
        PreinstalledExtensionWithoutSUInitiatedInstalls) {
-  InitSupervisedUserInitiatedExtensionInstallFeature(true);
+  InitSupervisedUserExtensionInstallFeatures(
+      SupervisedUserExtensionInstallFeatureMode::kFull);
 
-  InitServices(false /* profile_is_supervised */);
+  InitServices(/*profile_is_supervised=*/false);
 
   // Install an extension.
   base::FilePath path = data_dir().AppendASCII("good.crx");
@@ -2086,9 +2143,10 @@ TEST_F(ExtensionServiceTestSupervised,
 // This tests the case when the sync entity flagging the extension as approved
 // arrives before the extension itself is installed.
 TEST_F(ExtensionServiceTestSupervised, ExtensionApprovalBeforeInstallation) {
-  InitSupervisedUserInitiatedExtensionInstallFeature(true);
+  InitSupervisedUserExtensionInstallFeatures(
+      SupervisedUserExtensionInstallFeatureMode::kFull);
 
-  InitServices(true /* profile_is_supervised */);
+  InitServices(/*profile_is_supervised=*/true);
 
   ASSERT_NO_FATAL_FAILURE(
       SetSupervisedUserExtensionsMayRequestPermissionsPref(true));
@@ -2110,9 +2168,10 @@ TEST_F(ExtensionServiceTestSupervised, ExtensionApprovalBeforeInstallation) {
 // Test that if an approved extension is updated to a newer version that doesn't
 // require additional permissions, it is still enabled.
 TEST_F(ExtensionServiceTestSupervised, UpdateWithoutPermissionIncrease) {
-  InitSupervisedUserInitiatedExtensionInstallFeature(true);
+  InitSupervisedUserExtensionInstallFeatures(
+      SupervisedUserExtensionInstallFeatureMode::kFull);
 
-  InitServices(true /* profile_is_supervised */);
+  InitServices(/*profile_is_supervised=*/true);
 
   ASSERT_NO_FATAL_FAILURE(
       SetSupervisedUserExtensionsMayRequestPermissionsPref(true));
@@ -2136,9 +2195,10 @@ TEST_F(ExtensionServiceTestSupervised, UpdateWithoutPermissionIncrease) {
 
 TEST_F(ExtensionServiceTestSupervised,
        UpdateWithPermissionIncreaseApprovalOldVersion) {
-  InitSupervisedUserInitiatedExtensionInstallFeature(true);
+  InitSupervisedUserExtensionInstallFeatures(
+      SupervisedUserExtensionInstallFeatureMode::kFull);
 
-  InitServices(true /* profile_is_supervised */);
+  InitServices(/*profile_is_supervised=*/true);
 
   ASSERT_NO_FATAL_FAILURE(
       SetSupervisedUserExtensionsMayRequestPermissionsPref(true));
@@ -2168,9 +2228,10 @@ TEST_F(ExtensionServiceTestSupervised,
 
 TEST_F(ExtensionServiceTestSupervised,
        UpdateWithPermissionIncreaseApprovalMatchingVersion) {
-  InitSupervisedUserInitiatedExtensionInstallFeature(true);
+  InitSupervisedUserExtensionInstallFeatures(
+      SupervisedUserExtensionInstallFeatureMode::kFull);
 
-  InitServices(true /* profile_is_supervised */);
+  InitServices(/*profile_is_supervised=*/true);
 
   ASSERT_NO_FATAL_FAILURE(
       SetSupervisedUserExtensionsMayRequestPermissionsPref(true));
@@ -2195,9 +2256,24 @@ TEST_F(ExtensionServiceTestSupervised,
 // updates to that approved, newer version.
 TEST_F(ExtensionServiceTestSupervised,
        UpdateWithPermissionIncreaseApprovalNewVersion) {
-  InitSupervisedUserInitiatedExtensionInstallFeature(true);
+  InitSupervisedUserExtensionInstallFeatures(
+      SupervisedUserExtensionInstallFeatureMode::kFull);
 
-  InitServices(true /* profile_is_supervised */);
+  base::HistogramTester histogram_tester;
+
+  // Should see 0 SupervisedUsers.Extensions metrics at first.
+  histogram_tester.ExpectTotalCount("SupervisedUsers.Extensions", 0);
+
+  base::UserActionTester user_action_tester;
+  // Should see 0 user actions at first.
+  EXPECT_EQ(0, user_action_tester.GetActionCount(
+                   "SupervisedUsers_Extensions_NewExtensionApprovalGranted"));
+  EXPECT_EQ(0, user_action_tester.GetActionCount(
+                   "SupervisedUsers_Extensions_NewVersionApprovalGranted"));
+  EXPECT_EQ(0, user_action_tester.GetActionCount(
+                   "SupervisedUsers_Extensions_Removed"));
+
+  InitServices(/*profile_is_supervised=*/true);
 
   ASSERT_NO_FATAL_FAILURE(
       SetSupervisedUserExtensionsMayRequestPermissionsPref(true));
@@ -2205,6 +2281,18 @@ TEST_F(ExtensionServiceTestSupervised,
   std::string id = InstallPermissionsTestExtension();
   const std::string version1("1");
   SimulateApprovalChangeViaSync(id, version1, SyncChange::ACTION_ADD);
+
+  // Should see 1 kNewExtensionApprovalGranted metric count recorded.
+  histogram_tester.ExpectUniqueSample(
+      "SupervisedUsers.Extensions",
+      SupervisedUserExtensionsMetricsRecorder::UmaExtensionState::
+          kNewExtensionApprovalGranted,
+      1);
+  histogram_tester.ExpectTotalCount("SupervisedUsers.Extensions", 1);
+
+  // Should see 1 NewExtensionApprovalGranted action.
+  EXPECT_EQ(1, user_action_tester.GetActionCount(
+                   "SupervisedUsers_Extensions_NewExtensionApprovalGranted"));
 
   // Update to a new version with increased permissions.
   const std::string version2("2");
@@ -2227,12 +2315,38 @@ TEST_F(ExtensionServiceTestSupervised,
 
   // Update to the matching version. Now the extension should get enabled.
   UpdatePermissionsTestExtension(id, version3, ENABLED);
+
+  // Should see 1 kNewVersionApprovalGranted metric count recorded.
+  histogram_tester.ExpectBucketCount(
+      "SupervisedUsers.Extensions",
+      SupervisedUserExtensionsMetricsRecorder::UmaExtensionState::
+          kNewVersionApprovalGranted,
+      1);
+  histogram_tester.ExpectTotalCount("SupervisedUsers.Extensions", 2);
+
+  // Should see 1 NewVersionApprovalGranted action.
+  EXPECT_EQ(1, user_action_tester.GetActionCount(
+                   "SupervisedUsers_Extensions_NewVersionApprovalGranted"));
+
+  // Uninstall the extension.
+  UninstallExtension(id);
+
+  // Should see 1 kRemoved metric count recorded.
+  histogram_tester.ExpectBucketCount(
+      "SupervisedUsers.Extensions",
+      SupervisedUserExtensionsMetricsRecorder::UmaExtensionState::kRemoved, 1);
+  histogram_tester.ExpectTotalCount("SupervisedUsers.Extensions", 3);
+
+  // Should see 1 Removed action.
+  EXPECT_EQ(1, user_action_tester.GetActionCount(
+                   "SupervisedUsers_Extensions_Removed"));
 }
 
 TEST_F(ExtensionServiceTestSupervised, SupervisedUserInitiatedInstalls) {
-  InitSupervisedUserInitiatedExtensionInstallFeature(true);
+  InitSupervisedUserExtensionInstallFeatures(
+      SupervisedUserExtensionInstallFeatureMode::kFull);
 
-  InitServices(true /* profile_is_supervised */);
+  InitServices(/*profile_is_supervised=*/true);
 
   ASSERT_NO_FATAL_FAILURE(
       SetSupervisedUserExtensionsMayRequestPermissionsPref(true));
@@ -2263,9 +2377,10 @@ TEST_F(ExtensionServiceTestSupervised, SupervisedUserInitiatedInstalls) {
 
 TEST_F(ExtensionServiceTestSupervised,
        UpdateSUInitiatedInstallWithoutPermissionIncrease) {
-  InitSupervisedUserInitiatedExtensionInstallFeature(true);
+  InitSupervisedUserExtensionInstallFeatures(
+      SupervisedUserExtensionInstallFeatureMode::kFull);
 
-  InitServices(true /* profile_is_supervised */);
+  InitServices(/*profile_is_supervised=*/true);
 
   ASSERT_NO_FATAL_FAILURE(
       SetSupervisedUserExtensionsMayRequestPermissionsPref(true));
@@ -2305,9 +2420,10 @@ TEST_F(ExtensionServiceTestSupervised,
 
 TEST_F(ExtensionServiceTestSupervised,
        UpdateSUInitiatedInstallWithPermissionIncrease) {
-  InitSupervisedUserInitiatedExtensionInstallFeature(true);
+  InitSupervisedUserExtensionInstallFeatures(
+      SupervisedUserExtensionInstallFeatureMode::kFull);
 
-  InitServices(true /* profile_is_supervised */);
+  InitServices(/*profile_is_supervised=*/true);
 
   ASSERT_NO_FATAL_FAILURE(
       SetSupervisedUserExtensionsMayRequestPermissionsPref(true));
@@ -2351,9 +2467,10 @@ TEST_F(ExtensionServiceTestSupervised,
 
 TEST_F(ExtensionServiceTestSupervised,
        UpdateSUInitiatedInstallWithPermissionIncreaseApprovalArrivesFirst) {
-  InitSupervisedUserInitiatedExtensionInstallFeature(true);
+  InitSupervisedUserExtensionInstallFeatures(
+      SupervisedUserExtensionInstallFeatureMode::kFull);
 
-  InitServices(true /* profile_is_supervised */);
+  InitServices(/*profile_is_supervised=*/true);
 
   ASSERT_NO_FATAL_FAILURE(
       SetSupervisedUserExtensionsMayRequestPermissionsPref(true));
@@ -2385,9 +2502,10 @@ TEST_F(ExtensionServiceTestSupervised,
 // kSupervisedUserExtensionsMayRequestPermissions pref being set to false.
 TEST_F(ExtensionServiceTestSupervised,
        SupervisedUserExtensionsMayRequestPermissionsToggleOff) {
-  InitSupervisedUserInitiatedExtensionInstallFeature(true);
+  InitSupervisedUserExtensionInstallFeatures(
+      SupervisedUserExtensionInstallFeatureMode::kFull);
 
-  InitServices(false /* profile_is_supervised */);
+  InitServices(/*profile_is_supervised=*/false);
 
   ASSERT_NO_FATAL_FAILURE(
       SetSupervisedUserExtensionsMayRequestPermissionsPref(false));
@@ -2419,9 +2537,10 @@ TEST_F(ExtensionServiceTestSupervised,
 // supervised user's approved and enabled extensions are not affected.
 TEST_F(ExtensionServiceTestSupervised,
        SupervisedUserExtensionsMayRequestPermissionsDoesNotAffectExisting) {
-  InitSupervisedUserInitiatedExtensionInstallFeature(true);
+  InitSupervisedUserExtensionInstallFeatures(
+      SupervisedUserExtensionInstallFeatureMode::kFull);
 
-  InitServices(true /* profile_is_supervised */);
+  InitServices(/*profile_is_supervised=*/true);
 
   ASSERT_NO_FATAL_FAILURE(
       SetSupervisedUserExtensionsMayRequestPermissionsPref(true));
@@ -2471,9 +2590,10 @@ TEST_F(ExtensionServiceTestSupervised,
 // kSupervisedUserExtensionsMayRequestPermissions is false.
 TEST_F(ExtensionServiceTestSupervised,
        ChildUserCannotApproveAdditionalPermissions) {
-  InitSupervisedUserInitiatedExtensionInstallFeature(true);
+  InitSupervisedUserExtensionInstallFeatures(
+      SupervisedUserExtensionInstallFeatureMode::kFull);
 
-  InitServices(true /* profile_is_supervised */);
+  InitServices(/*profile_is_supervised=*/true);
 
   SetSupervisedUserExtensionsMayRequestPermissionsPref(true);
 
@@ -2518,6 +2638,113 @@ TEST_F(ExtensionServiceTestSupervised,
       disable_reasons,
       extensions::disable_reason::DISABLE_PERMISSIONS_INCREASE |
           extensions::disable_reason::DISABLE_CUSTODIAN_APPROVAL_REQUIRED);
+}
+
+// Tests that extension installation is blocked for child accounts without any
+// features.
+TEST_F(ExtensionServiceTestSupervised, ExtensionsLiteInstallBlocked) {
+  InitSupervisedUserExtensionInstallFeatures(
+      SupervisedUserExtensionInstallFeatureMode::kNone);
+  InitServices(/*profile_is_supervised=*/true);
+
+  base::FilePath path = data_dir().AppendASCII("good.crx");
+  const Extension* extension = InstallCRX(path, INSTALL_FAILED);
+  // The extension should not have been installed.
+  EXPECT_FALSE(extension);
+}
+
+// Tests that extension installation is still blocked if no
+// ExtensionInstallWhitelist or ExtensionInstallBlacklist policies present.
+TEST_F(ExtensionServiceTestSupervised,
+       ExtensionsLiteInstallWithoutPolicyStillBlocked) {
+  InitSupervisedUserExtensionInstallFeatures(
+      SupervisedUserExtensionInstallFeatureMode::kLite);
+  InitServices(/*profile_is_supervised=*/true);
+
+  base::FilePath path = data_dir().AppendASCII("good.crx");
+  const Extension* extension = InstallCRX(path, INSTALL_FAILED);
+  // The extension should not have been installed.
+  EXPECT_FALSE(extension);
+}
+
+// Tests that extension installation is blocked for supervised users, if the
+// extension id is not on the ExtensionInstallWhitelist.
+TEST_F(ExtensionServiceTestSupervised, ExtensionsLiteInstallBlacklisted) {
+  InitSupervisedUserExtensionInstallFeatures(
+      SupervisedUserExtensionInstallFeatureMode::kLite);
+  InitServices(/*profile_is_supervised=*/true);
+
+  base::HistogramTester histogram_tester;
+  histogram_tester.ExpectTotalCount("SupervisedUsers.ExtensionsAllowlist", 0);
+
+  {
+    ManagementPrefUpdater pref_updater(testing_pref_service());
+    pref_updater.SetBlacklistedByDefault(true);
+  }
+
+  base::FilePath path = data_dir().AppendASCII("good.crx");
+  const Extension* extension = InstallCRX(path, INSTALL_FAILED);
+  // The extension should not have been installed.
+  EXPECT_FALSE(extension);
+
+  // We should have one allowlist miss.
+  histogram_tester.ExpectUniqueSample(
+      "SupervisedUsers.ExtensionsAllowlist",
+      extensions::StandardManagementPolicyProvider::UmaExtensionStateAllowlist::
+          kAllowlistMiss,
+      1);
+  histogram_tester.ExpectTotalCount("SupervisedUsers.ExtensionsAllowlist", 1);
+}
+
+// Tests that extension installation is not blocked for supervised users, if the
+// extension id is allowlisted by policy.
+TEST_F(ExtensionServiceTestSupervised, ExtensionsLiteInstallAllowlisted) {
+  InitSupervisedUserExtensionInstallFeatures(
+      SupervisedUserExtensionInstallFeatureMode::kLite);
+  InitServices(/*profile_is_supervised=*/true);
+
+  base::HistogramTester histogram_tester;
+  histogram_tester.ExpectTotalCount("SupervisedUsers.ExtensionsAllowlist", 0);
+
+  {
+    ManagementPrefUpdater pref_updater(testing_pref_service());
+    pref_updater.SetBlacklistedByDefault(true);
+    pref_updater.SetIndividualExtensionInstallationAllowed(good_crx, true);
+  }
+
+  base::FilePath path = data_dir().AppendASCII("good.crx");
+  const Extension* extension = InstallCRX(path, INSTALL_NEW);
+  ASSERT_TRUE(extension);
+  std::string id = extension->id();
+  EXPECT_TRUE(registry()->enabled_extensions().Contains(id));
+
+  // We should have two allowlist hits, because UserMayLoad() gets called
+  // multiple times.
+  histogram_tester.ExpectBucketCount(
+      "SupervisedUsers.ExtensionsAllowlist",
+      extensions::StandardManagementPolicyProvider::UmaExtensionStateAllowlist::
+          kAllowlistHit,
+      2);
+  histogram_tester.ExpectTotalCount("SupervisedUsers.ExtensionsAllowlist", 2);
+}
+
+// Tests that theme installation is not blocked for supervised users, even if
+// the id is not on the allowlist.
+TEST_F(ExtensionServiceTestSupervised, ExtensionsLiteThemesAllowed) {
+  InitSupervisedUserExtensionInstallFeatures(
+      SupervisedUserExtensionInstallFeatureMode::kLite);
+  InitServices(/*profile_is_supervised=*/true);
+
+  {
+    ManagementPrefUpdater pref_updater(testing_pref_service());
+    pref_updater.SetBlacklistedByDefault(true);
+  }
+
+  base::FilePath path = data_dir().AppendASCII("theme.crx");
+  const Extension* theme = InstallCRX(path, INSTALL_NEW);
+  ASSERT_TRUE(theme);
+  std::string id = theme->id();
+  EXPECT_TRUE(registry()->enabled_extensions().Contains(id));
 }
 
 #endif  // BUILDFLAG(ENABLE_SUPERVISED_USERS)

@@ -447,6 +447,68 @@ experimental domain ApplicationCache
 experimental domain Audits
   depends on Network
 
+  # Information about a cookie that is affected by an inspector issue.
+  type AffectedCookie extends object
+    properties
+      # The following three properties uniquely identify a cookie
+      string name
+      string path
+      string domain
+      # Optionally identifies the site-for-cookies, which may be used by the
+      # front-end as additional context.
+      optional string siteForCookies
+
+  type SameSiteCookieExclusionReason extends string
+    enum
+      ExcludeSameSiteUnspecifiedTreatedAsLax
+      ExcludeSameSiteNoneInsecure
+
+  type SameSiteCookieWarningReason extends string
+    enum
+      WarnSameSiteUnspecifiedCrossSiteContext
+      WarnSameSiteNoneInsecure
+      WarnSameSiteUnspecifiedLaxAllowUnsafe
+      WarnSameSiteCrossSchemeSecureUrlMethodUnsafe
+      WarnSameSiteCrossSchemeSecureUrlLax
+      WarnSameSiteCrossSchemeSecureUrlStrict
+      WarnSameSiteCrossSchemeInsecureUrlMethodUnsafe
+      WarnSameSiteCrossSchemeInsecureUrlLax
+      WarnSameSiteCrossSchemeInsecureUrlStrict
+
+  # This information is currently necessary, as the front-end has a difficult
+  # time finding a specific cookie. With this, we can convey specific error
+  # information without the cookie.
+  type SameSiteCookieIssueDetails extends object
+    properties
+      array of SameSiteCookieWarningReason cookieWarningReasons
+      array of SameSiteCookieExclusionReason cookieExclusionReasons
+
+  type AffectedResources extends object
+    properties
+      optional array of AffectedCookie cookies
+
+  # A unique identifier for the type of issue. Each type may use one of the
+  # optional fields in InspectorIssueDetails to convey more specific
+  # information about the kind of issue, and AffectedResources to identify
+  # resources that are affected by this issue.
+  type InspectorIssueCode extends string
+    enum
+      SameSiteCookieIssue
+
+  # This struct holds a list of optional fields with additional information
+  # pertaining to the kind of issue. This is useful if there is a number of
+  # very similar issues that only differ in details.
+  type InspectorIssueDetails extends object
+    properties
+      optional SameSiteCookieIssueDetails sameSiteCookieIssueDetails
+
+  # An inspector issue reported from the back-end.
+  type InspectorIssue extends object
+    properties
+      InspectorIssueCode code
+      InspectorIssueDetails details
+      AffectedResources resources
+
   # Returns the response body and size if it were re-encoded with the specified settings. Only
   # applies to images.
   command getEncodedResponse
@@ -469,6 +531,17 @@ experimental domain Audits
       integer originalSize
       # Size after re-encoding.
       integer encodedSize
+
+  # Disables issues domain, prevents further issues from being reported to the client.
+  command disable
+
+  # Enables issues domain, sends the issues collected so far to the client by means of the
+  # `issueAdded` event.
+  command enable
+
+  event issueAdded
+    parameters
+      InspectorIssue issue
 
 # Defines events for background web platform features.
 experimental domain BackgroundService
@@ -617,8 +690,8 @@ domain Browser
   # Set permission settings for given origin.
   experimental command setPermission
     parameters
-      # Origin the permission applies to.
-      string origin
+      # Origin the permission applies to, all origins if not specified.
+      optional string origin
       # Descriptor of permission to override.
       PermissionDescriptor permission
       # Setting of the permission.
@@ -629,7 +702,8 @@ domain Browser
   # Grant specific permissions to the given origin and reject all others.
   experimental command grantPermissions
     parameters
-      string origin
+      # Origin the permission applies to, all origins if not specified.
+      optional string origin
       array of PermissionType permissions
       # BrowserContext to override permissions. When omitted, default browser context is used.
       optional BrowserContextID browserContextId
@@ -640,6 +714,22 @@ domain Browser
       # BrowserContext to reset permissions. When omitted, default browser context is used.
       optional BrowserContextID browserContextId
 
+  # Set the behavior when downloading a file.
+  experimental command setDownloadBehavior
+    parameters
+      # Whether to allow all or deny all download requests, or use default Chrome behavior if
+      # available (otherwise deny). |allowAndName| allows download and names files according to
+      # their dowmload guids.
+      enum behavior
+        deny
+        allow
+        allowAndName
+        default
+      # BrowserContext to set download behavior. When omitted, default browser context is used.
+      optional BrowserContextID browserContextId
+      # The default path to save downloaded files to. This is requred if behavior is set to 'allow'
+      # or 'allowAndName'.
+      optional string downloadPath
 
   # Close browser gracefully.
   command close
@@ -1652,6 +1742,21 @@ domain DOM
     returns
       # Node description.
       Node node
+
+  # Scrolls the specified rect of the given node into view if not already visible.
+  # Note: exactly one between nodeId, backendNodeId and objectId should be passed
+  # to identify the node.
+  experimental command scrollIntoViewIfNeeded
+    parameters
+      # Identifier of the node.
+      optional NodeId nodeId
+      # Identifier of the backend node.
+      optional BackendNodeId backendNodeId
+      # JavaScript object id of the node wrapper.
+      optional Runtime.RemoteObjectId objectId
+      # The rect to be scrolled into view, relative to the node's border box, in CSS pixels.
+      # When omitted, center of the node will be used, similar to Element.scrollIntoView.
+      optional Rect rect
 
   # Disables DOM agent for the given page.
   command disable
@@ -2815,6 +2920,18 @@ domain Emulation
       # Media features to emulate.
       optional array of MediaFeature features
 
+  # Emulates the given vision deficiency.
+  experimental command setEmulatedVisionDeficiency
+    parameters
+      # Vision deficiency to emulate.
+      enum type
+        none
+        achromatopsia
+        blurredVision
+        deuteranopia
+        protanopia
+        tritanopia
+
   # Overrides the Geolocation Position or Error. Omitting any of the parameters emulates position
   # unavailable.
   command setGeolocationOverride
@@ -2871,6 +2988,13 @@ domain Emulation
     returns
       # Absolute timestamp at which virtual time was first enabled (up time in milliseconds).
       number virtualTimeTicksBase
+
+  # Overrides default host system locale with the specified one.
+  experimental command setLocaleOverride
+    parameters
+      # ICU style C locale (e.g. "en_US"). If not specified or empty, disables the override and
+      # restores default host system locale.
+      optional string locale
 
   # Overrides default host system timezone with the specified one.
   experimental command setTimezoneOverride
@@ -4023,6 +4147,11 @@ domain Network
       subresource-filter
       content-type
       collapsed-by-client
+      coep-frame-resource-needs-coep-header
+      coop-sandboxed-iframe-cannot-navigate-to-coop-page
+      corp-not-same-origin
+      corp-not-same-origin-after-defaulted-to-same-origin-by-coep
+      corp-not-same-site
 
   # HTTP response data.
   type Response extends object
@@ -5355,6 +5484,18 @@ domain Page
       # The list of error arguments (e.g. {name:'minimum-icon-size-in-pixels', value:'64'}).
       array of InstallabilityErrorArgument errorArguments
 
+  # The referring-policy used for the navigation.
+  experimental type ReferrerPolicy extends string
+    enum
+      noReferrer
+      noReferrerWhenDowngrade
+      origin
+      originWhenCrossOrigin
+      sameOrigin
+      strictOrigin
+      strictOriginWhenCrossOrigin
+      unsafeUrl
+
   # Deprecated, please use addScriptToEvaluateOnNewDocument instead.
   experimental deprecated command addScriptToEvaluateOnLoad
     parameters
@@ -5463,8 +5604,7 @@ domain Page
 
   experimental command getInstallabilityErrors
     returns
-      deprecated array of string errors
-      experimental array of InstallabilityError installabilityErrors
+      array of InstallabilityError installabilityErrors
 
   experimental command getManifestIcons
     returns
@@ -5545,6 +5685,8 @@ domain Page
       optional TransitionType transitionType
       # Frame id to navigate, if not specified navigates the top frame.
       optional FrameId frameId
+      # Referrer-policy used for the navigation.
+      experimental optional ReferrerPolicy referrerPolicy
     returns
       # Frame id that has navigated (or failed to navigate)
       FrameId frameId
@@ -5733,7 +5875,7 @@ domain Page
       string html
 
   # Set the behavior when downloading a file.
-  experimental command setDownloadBehavior
+  experimental deprecated command setDownloadBehavior
     parameters
       # Whether to allow all or deny all download requests, or use default Chrome behavior if
       # available (otherwise deny).
@@ -5934,8 +6076,25 @@ domain Page
     parameters
       # Id of the frame that caused download to begin.
       FrameId frameId
+      # Global unique identifier of the download.
+      string guid
       # URL of the resource being downloaded.
       string url
+
+  # Fired when download makes progress. Last call has |done| == true.
+  experimental event downloadProgress
+    parameters
+      # Global unique identifier of the download.
+      string guid
+      # Total expected bytes to download.
+      number totalBytes
+      # Total bytes received.
+      number receivedBytes
+      # Download status.
+      enum state
+        inProgress
+        completed
+        canceled
 
   # Fired when interstitial page was hidden
   event interstitialHidden
@@ -6043,11 +6202,18 @@ domain Performance
 
   # Enable collecting and reporting metrics.
   command enable
+    parameters
+      # Time domain to use for collecting and reporting duration metrics.
+      optional enum timeDomain
+        # Use monotonically increasing abstract time (default).
+        timeTicks
+        # Use thread running time.
+        threadTicks
 
   # Sets time domain to use for collecting and reporting duration metrics.
   # Note that this must be called before enabling metrics collection. Calling
   # this method while metrics collection is enabled returns an error.
-  experimental command setTimeDomain
+  experimental deprecated command setTimeDomain
     parameters
       # Time domain
       enum timeDomain
@@ -6709,6 +6875,9 @@ domain Target
   # Creates a new empty BrowserContext. Similar to an incognito profile but you can have more than
   # one.
   experimental command createBrowserContext
+    parameters
+      # If specified, disposes this context when debugging session disconnects.
+      optional boolean disposeOnDetach
     returns
       # The id of the context created.
       Browser.BrowserContextID browserContextId
@@ -6794,8 +6963,6 @@ domain Target
       # We plan to make this the default, deprecate non-flattened mode,
       # and eventually retire it. See crbug.com/991325.
       optional boolean flatten
-      # Auto-attach to the targets created via window.open from current target.
-      experimental optional boolean windowOpen
 
   # Controls whether to discover available targets and notify via
   # `targetCreated/targetInfoChanged/targetDestroyed` events.
@@ -7125,7 +7292,7 @@ experimental domain Fetch
       optional string method
       # If set, overrides the post data in the request.
       optional string postData
-      # If set, overrides the request headrts.
+      # If set, overrides the request headers.
       optional array of HeaderEntry headers
 
   # Continues a request supplying authChallengeResponse following authRequired event.

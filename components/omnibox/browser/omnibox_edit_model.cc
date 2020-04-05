@@ -21,6 +21,8 @@
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
 #include "components/bookmarks/browser/bookmark_model.h"
+#include "components/dom_distiller/core/url_constants.h"
+#include "components/dom_distiller/core/url_utils.h"
 #include "components/navigation_metrics/navigation_metrics.h"
 #include "components/omnibox/browser/autocomplete_classifier.h"
 #include "components/omnibox/browser/autocomplete_match_type.h"
@@ -387,8 +389,17 @@ void OmniboxEditModel::AdjustTextForCopy(int sel_min,
 
     // If the omnibox is displaying a URL, set the hyperlink text to the URL's
     // spec. This undoes any URL elisions.
-    if (!controller()->GetLocationBarModel()->GetDisplaySearchTerms(nullptr))
+    if (!controller()->GetLocationBarModel()->GetDisplaySearchTerms(nullptr)) {
+      // Don't let users copy Reader Mode ("chrome-distiller://") URLs.
+      // We display the original article's URL in the omnibox, so users will
+      // expect that to be what is copied to the clipboard.
+      if (url_from_text->SchemeIs(dom_distiller::kDomDistillerScheme)) {
+        *url_from_text =
+            dom_distiller::url_utils::GetOriginalUrlFromDistillerUrl(
+                *url_from_text);
+      }
       *text = base::UTF8ToUTF16(url_from_text->spec());
+    }
 
     return;
   }
@@ -717,6 +728,21 @@ void OmniboxEditModel::EnterKeywordModeForDefaultSearchProvider(
   EmitKeywordHistogram(entry_method);
 }
 
+void OmniboxEditModel::ExecutePedal(const AutocompleteMatch& match,
+                                    base::TimeTicks match_selection_timestamp) {
+  CHECK(match.pedal);
+  {
+    // This block resets omnibox to unedited state and closes popup, which
+    // may not seem necessary in cases of navigation but makes sense for
+    // taking Pedal actions in general.
+    base::AutoReset<bool> tmp(&in_revert_, true);
+    view_->RevertAll();
+  }
+  OmniboxPedal::ExecutionContext context(*client_, *controller_,
+                                         match_selection_timestamp);
+  match.pedal->Execute(context);
+}
+
 void OmniboxEditModel::OpenMatch(AutocompleteMatch match,
                                  WindowOpenDisposition disposition,
                                  const GURL& alternate_nav_url,
@@ -729,17 +755,11 @@ void OmniboxEditModel::OpenMatch(AutocompleteMatch match,
   autocomplete_controller()->UpdateMatchDestinationURLWithQueryFormulationTime(
       elapsed_time_since_user_first_modified_omnibox, &match);
 
-  if (match.pedal) {
-    {
-      // This block resets omnibox to unedited state and closes popup, which
-      // may not seem necessary in cases of navigation but makes sense for
-      // taking Pedal actions in general.
-      base::AutoReset<bool> tmp(&in_revert_, true);
-      view_->RevertAll();
-    }
-    OmniboxPedal::ExecutionContext context(*client_, *controller_,
-                                           match_selection_timestamp);
-    match.pedal->Execute(context);
+  // Matches with |pedal| may be opened normally or executed, but when a match
+  // is a dedicated Pedal suggestion, it should always be executed. This only
+  // happens when the button row feature is disabled.
+  if (match.pedal && !OmniboxFieldTrial::IsSuggestionButtonRowEnabled()) {
+    ExecutePedal(match, match_selection_timestamp);
     return;
   }
 
@@ -1195,6 +1215,8 @@ void OmniboxEditModel::OnPaste() {
 }
 
 void OmniboxEditModel::OnUpOrDownKeyPressed(int count) {
+  DCHECK(count == -1 || count == 1);
+
   // NOTE: This purposefully doesn't trigger any code that resets paste_state_.
   if (PopupIsOpen()) {
     // The popup is open, so the user should be able to interact with it
@@ -1207,17 +1229,30 @@ void OmniboxEditModel::OnUpOrDownKeyPressed(int count) {
     // Reverting, however, does not make sense for on-focus suggestions
     // (user_input_in_progress_ is false) unless the first result is a
     // verbatim match of the omnibox input (on-focus query refinements on SERP).
-    const size_t line_no = GetNewSelectedLine(count);
-    if (result().default_match() && has_temporary_text_ && line_no == 0 &&
+    const auto next_selection = popup_model()->GetNextSelection(
+        count > 0 ? OmniboxPopupModel::kForward : OmniboxPopupModel::kBackward,
+        OmniboxPopupModel::kWholeLine);
+    if (result().default_match() && has_temporary_text_ &&
+        next_selection.line == 0 &&
         (user_input_in_progress_ ||
          result().default_match()->IsVerbatimType())) {
       RevertTemporaryTextAndPopup();
     } else {
-      popup_model()->MoveTo(line_no);
+      popup_model()->SetSelection(next_selection);
     }
     return;
   }
 
+  MaybeStartQueryForPopup();
+
+  // TODO(pkasting): Here, the popup could be working on a query but is not
+  // open. In that case, we should force it to open immediately.
+}
+
+bool OmniboxEditModel::MaybeStartQueryForPopup() {
+  if (PopupIsOpen()) {
+    return false;
+  }
   if (!query_in_progress()) {
     // The popup is neither open nor working on a query already.  So, start an
     // autocomplete query for the current text.  This also sets
@@ -1230,11 +1265,9 @@ void OmniboxEditModel::OnUpOrDownKeyPressed(int count) {
     if (!user_input_in_progress_)
       InternalSetUserText(url_for_editing_);
     view_->UpdatePopup();
-    return;
+    return true;
   }
-
-  // TODO(pkasting): The popup is working on a query but is not open.  We should
-  // force it to open immediately.
+  return false;
 }
 
 void OmniboxEditModel::OnPopupDataChanged(const base::string16& text,
@@ -1683,12 +1716,4 @@ void OmniboxEditModel::SetFocusState(OmniboxFocusState state,
     view_->ApplyCaretVisibility();
 
   client_->OnFocusChanged(focus_state_, reason);
-}
-
-size_t OmniboxEditModel::GetNewSelectedLine(int count) {
-  int line_no = (static_cast<int>(popup_model()->selected_line()) + count) %
-                static_cast<int>(popup_model()->result().size());
-  if (line_no < 0)
-    line_no += popup_model()->result().size();
-  return line_no;
 }

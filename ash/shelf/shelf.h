@@ -22,22 +22,24 @@ class Rect;
 }
 
 namespace ui {
+class AnimationMetricsReporter;
 class GestureEvent;
 class MouseWheelEvent;
 class MouseEvent;
-}
-
-namespace views {
-class View;
-}
+class ScrollEvent;
+}  // namespace ui
 
 namespace ash {
 
 enum class AnimationChangeType;
+class HotseatWidget;
+class HotseatWidgetAnimationMetricsReporter;
+class NavigationWidgetAnimationMetricsReporter;
 class ShelfFocusCycler;
 class ShelfLayoutManager;
 class ShelfLayoutManagerTest;
 class ShelfLockingManager;
+class ShelfNavigationWidget;
 class ShelfView;
 class ShelfWidget;
 class StatusAreaWidget;
@@ -85,6 +87,9 @@ class ASH_EXPORT Shelf : public ShelfLayoutManagerObserver {
   // on the display identified by |display_id|.
   static void ActivateShelfItemOnDisplay(int item_index, int64_t display_id);
 
+  void CreateNavigationWidget(aura::Window* container);
+  void CreateHotseatWidget(aura::Window* container);
+  void CreateStatusAreaWidget(aura::Window* status_container);
   void CreateShelfWidget(aura::Window* root);
   void ShutdownShelfWidget();
   void DestroyShelfWidget();
@@ -163,8 +168,13 @@ class ASH_EXPORT Shelf : public ShelfLayoutManagerObserver {
   // Handles a mouse |event| coming from the Shelf.
   void ProcessMouseEvent(const ui::MouseEvent& event);
 
-  // Handles a mousewheel scroll event coming from the shelf.
-  void ProcessMouseWheelEvent(ui::MouseWheelEvent* event);
+  // Handles a scroll |event| coming from the Shelf.
+  void ProcessScrollEvent(ui::ScrollEvent* event);
+
+  // Handles a mousewheel scroll event coming from the shelf. We use
+  // |from_touchpad| to distinguish if an event originated from a touchpad
+  // scroll or a mousewheel scroll.
+  void ProcessMouseWheelEvent(ui::MouseWheelEvent* event, bool from_touchpad);
 
   void AddObserver(ShelfObserver* observer);
   void RemoveObserver(ShelfObserver* observer);
@@ -187,14 +197,23 @@ class ASH_EXPORT Shelf : public ShelfLayoutManagerObserver {
   bool ShouldHideOnSecondaryDisplay(session_manager::SessionState state);
 
   void SetVirtualKeyboardBoundsForTesting(const gfx::Rect& bounds);
-  void SetRoundedCornersForInkDrop(bool show, views::View* ink_drop_host);
   ShelfLockingManager* GetShelfLockingManagerForTesting();
   ShelfView* GetShelfViewForTesting();
 
   ShelfLayoutManager* shelf_layout_manager() const {
     return shelf_layout_manager_;
   }
+
+  // Getters for the various shelf components.
   ShelfWidget* shelf_widget() const { return shelf_widget_.get(); }
+  ShelfNavigationWidget* navigation_widget() const {
+    return navigation_widget_.get();
+  }
+  HotseatWidget* hotseat_widget() const { return hotseat_widget_.get(); }
+  StatusAreaWidget* status_area_widget() const {
+    return status_area_widget_.get();
+  }
+
   ShelfAlignment alignment() const { return alignment_; }
   ShelfAutoHideBehavior auto_hide_behavior() const {
     return auto_hide_behavior_;
@@ -211,6 +230,12 @@ class ASH_EXPORT Shelf : public ShelfLayoutManagerObserver {
   int auto_hide_lock() const { return auto_hide_lock_; }
 
   ShelfTooltipManager* tooltip() { return tooltip_.get(); }
+
+  // |target_state| is the hotseat state after hotseat transition animation.
+  ui::AnimationMetricsReporter* GetHotseatTransitionMetricsReporter(
+      HotseatState target_state);
+
+  ui::AnimationMetricsReporter* GetNavigationWidgetAnimationMetricsReporter();
 
  protected:
   // ShelfLayoutManagerObserver:
@@ -240,6 +265,10 @@ class ASH_EXPORT Shelf : public ShelfLayoutManagerObserver {
   // ShelfWidget and lifetimes are managed by the container windows themselves.
   ShelfLayoutManager* shelf_layout_manager_ = nullptr;
 
+  // Pointers to shelf components.
+  std::unique_ptr<ShelfNavigationWidget> navigation_widget_;
+  std::unique_ptr<HotseatWidget> hotseat_widget_;
+  std::unique_ptr<StatusAreaWidget> status_area_widget_;
   // Null during display teardown, see WindowTreeHostManager::DeleteHost() and
   // RootWindowController::CloseAllChildWindows().
   std::unique_ptr<ShelfWidget> shelf_widget_;
@@ -262,6 +291,16 @@ class ASH_EXPORT Shelf : public ShelfLayoutManagerObserver {
 
   // Hands focus off to different parts of the shelf.
   std::unique_ptr<ShelfFocusCycler> shelf_focus_cycler_;
+
+  // Animation metrics reporter for hotseat animations. Owned by the Shelf to
+  // ensure it outlives the Hotseat Widget.
+  std::unique_ptr<HotseatWidgetAnimationMetricsReporter>
+      hotseat_transition_metrics_reporter_;
+
+  // Animation metrics reporter for navigation widget animations. Owned by the
+  // Shelf to ensure it outlives the Navigation Widget.
+  std::unique_ptr<NavigationWidgetAnimationMetricsReporter>
+      navigation_widget_metrics_reporter_;
 
   // True while the animation to enter or exit tablet mode is running. Sometimes
   // this value is true when the shelf movements are not actually animating

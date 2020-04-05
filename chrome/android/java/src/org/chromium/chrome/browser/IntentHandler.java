@@ -30,8 +30,8 @@ import androidx.annotation.VisibleForTesting;
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.FileUtils;
+import org.chromium.base.IntentUtils;
 import org.chromium.base.Log;
-import org.chromium.base.library_loader.LibraryProcessType;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.chrome.browser.document.ChromeLauncherActivity;
@@ -44,10 +44,9 @@ import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteCoordinatorFa
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabLaunchType;
-import org.chromium.chrome.browser.util.IntentUtils;
-import org.chromium.chrome.browser.util.UrlConstants;
-import org.chromium.chrome.browser.util.UrlUtilities;
 import org.chromium.chrome.browser.webapps.WebappActivity;
+import org.chromium.components.embedder_support.util.UrlConstants;
+import org.chromium.components.embedder_support.util.UrlUtilities;
 import org.chromium.content_public.browser.BrowserStartupController;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.common.ContentUrlConstants;
@@ -619,8 +618,7 @@ public class IntentHandler {
         // The logic in this method should be moved to ChromeTabbedActivity eventually. We should
         // support async handling of voice search when native finishes initializing.
         if (results == null || results.size() == 0
-                || !BrowserStartupController.get(LibraryProcessType.PROCESS_BROWSER)
-                            .isFullBrowserStarted()) {
+                || !BrowserStartupController.getInstance().isFullBrowserStarted()) {
             return null;
         }
         String query = results.get(0);
@@ -722,15 +720,20 @@ public class IntentHandler {
      */
     public static void addTrustedIntentExtras(Intent intent) {
         if (ExternalNavigationDelegateImpl.willChromeHandleIntent(intent, true)) {
-            // It is crucial that we never leak the authentication token to other packages, because
-            // then the other package could be used to impersonate us/do things as us. Therefore,
-            // scope the real Intent to our package.
-            intent.setPackage(ContextUtils.getApplicationContext().getPackageName());
-            // The PendingIntent functions as an authentication token --- it could only have come
-            // from us. Stash it in the real Intent as an extra. shouldIgnoreIntent will retrieve it
-            // and check it with isIntentChromeInternal.
-            intent.putExtra(TRUSTED_APPLICATION_CODE_EXTRA, getAuthenticationToken());
+            addTrustedIntentExtrasInternal(intent);
         }
+    }
+
+    @VisibleForTesting
+    static void addTrustedIntentExtrasInternal(Intent intent) {
+        // It is crucial that we never leak the authentication token to other packages, because
+        // then the other package could be used to impersonate us/do things as us. Therefore,
+        // scope the real Intent to our package.
+        intent.setPackage(ContextUtils.getApplicationContext().getPackageName());
+        // The PendingIntent functions as an authentication token --- it could only have come
+        // from us. Stash it in the real Intent as an extra. shouldIgnoreIntent will retrieve it
+        // and check it with isIntentChromeInternal.
+        intent.putExtra(TRUSTED_APPLICATION_CODE_EXTRA, getAuthenticationToken());
     }
 
     /**

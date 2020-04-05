@@ -140,17 +140,6 @@ void MergeLists(base::Optional<T>* target, const base::Optional<T>& source) {
   }
 }
 
-class InvalidatorImpl : public HostCache::Invalidator {
- public:
-  explicit InvalidatorImpl(HostCache* cache) : cache_(cache) {}
-  void Invalidate() override { cache_->Invalidate(); }
-
- private:
-  HostCache* cache_;
-
-  DISALLOW_COPY_AND_ASSIGN(InvalidatorImpl);
-};
-
 }  // namespace
 
 // Used in histograms; do not modify existing values.
@@ -462,9 +451,7 @@ HostCache::HostCache(size_t max_entries)
       network_changes_(0),
       restore_size_(0),
       delegate_(nullptr),
-      tick_clock_(base::DefaultTickClock::GetInstance()),
-      owned_invalidator_(std::make_unique<InvalidatorImpl>(this)),
-      invalidator_(owned_invalidator_.get()) {}
+      tick_clock_(base::DefaultTickClock::GetInstance()) {}
 
 HostCache::~HostCache() {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
@@ -682,7 +669,7 @@ void HostCache::clear() {
 }
 
 void HostCache::ClearForHosts(
-    const base::Callback<bool(const std::string&)>& host_filter) {
+    const base::RepeatingCallback<bool(const std::string&)>& host_filter) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
 
   if (host_filter.is_null()) {

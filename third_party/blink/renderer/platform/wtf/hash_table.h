@@ -25,6 +25,7 @@
 
 #include <memory>
 
+#include "base/bits.h"
 #include "base/numerics/checked_math.h"
 #include "third_party/blink/renderer/platform/wtf/allocator/allocator.h"
 #include "third_party/blink/renderer/platform/wtf/allocator/partition_allocator.h"
@@ -136,7 +137,7 @@ struct WTF_EXPORT HashTableStats {
   static HashTableStats& instance();
 
   template <typename VisitorDispatcher>
-  void trace(VisitorDispatcher) {}
+  void trace(VisitorDispatcher) const {}
 
  private:
   void RecordCollisionAtCountWithoutLock(int count);
@@ -649,7 +650,16 @@ struct HashTableAddResult final {
 
 template <typename Value, typename Extractor, typename KeyTraits>
 struct HashTableHelper {
-  using Key = typename KeyTraits::TraitType;
+  template <typename T>
+  struct AddConstToPtrType {
+    using type = T;
+  };
+  template <typename T>
+  struct AddConstToPtrType<T*> {
+    using type = const T*;
+  };
+
+  using Key = typename AddConstToPtrType<typename KeyTraits::TraitType>::type;
 
   STATIC_ONLY(HashTableHelper);
   static bool IsEmptyBucket(const Key& key) {
@@ -659,11 +669,11 @@ struct HashTableHelper {
     return KeyTraits::IsDeletedValue(key);
   }
   static bool IsEmptyOrDeletedBucket(const Value& value) {
-    const auto& key = Extractor::Extract(value);
+    const Key& key = Extractor::Extract(value);
     return IsEmptyBucket(key) || IsDeletedBucket(key);
   }
   static bool IsEmptyOrDeletedBucketSafe(const Value& value) {
-    char buf[sizeof(Key)];
+    alignas(std::max(alignof(Key), sizeof(size_t))) char buf[sizeof(Key)];
     const Key& key = Extractor::ExtractSafe(value, &buf);
     return IsEmptyBucket(key) || IsDeletedBucket(key);
   }
@@ -846,7 +856,7 @@ class HashTable final
   ValueType** GetBufferSlot() { return &table_; }
 
   template <typename VisitorDispatcher, typename A = Allocator>
-  std::enable_if_t<A::kIsGarbageCollected> Trace(VisitorDispatcher);
+  std::enable_if_t<A::kIsGarbageCollected> Trace(VisitorDispatcher) const;
 
 #if DCHECK_IS_ON()
   void EnterAccessForbiddenScope() {
@@ -1680,7 +1690,17 @@ void HashTable<Key,
                KeyTraits,
                Allocator>::DeleteAllBucketsAndDeallocate(ValueType* table,
                                                          unsigned size) {
-  if (!std::is_trivially_destructible<ValueType>::value) {
+  // We delete a bucket in the following cases:
+  // - It is not trivially destructible.
+  // - The table is weak (thus garbage collected) and we are currently marking.
+  // This is to handle the case where a backing store is removed from the
+  // HashTable after HashTable has been enqueued for processing. If we remove
+  // the backing in that case it stays unprocessed which upsets the marking
+  // verifier that checks that all backings are in consistent state.
+  const bool needs_bucket_deletion =
+      !std::is_trivially_destructible<ValueType>::value ||
+      (WTF::IsWeak<ValueType>::value && Allocator::IsIncrementalMarking());
+  if (needs_bucket_deletion) {
     for (unsigned i = 0; i < size; ++i) {
       // This code is called when the hash table is cleared or resized. We
       // have allocated a new backing store and we need to run the
@@ -1906,7 +1926,7 @@ void HashTable<Key,
   EnterAccessForbiddenScope();
   DeleteAllBucketsAndDeallocate(table_, table_size_);
   LeaveAccessForbiddenScope();
-  table_ = nullptr;
+  AsAtomicPtr(&table_)->store(nullptr, std::memory_order_relaxed);
   table_size_ = 0;
   key_count_ = 0;
 }
@@ -1992,9 +2012,7 @@ void HashTable<Key,
   // race). Atomic reads are not needed here because this method is only called
   // on the mutator thread, which is also the only one that writes to them, so
   // there is *no* risk of data races when reading.
-  Value* tmp_table = other.table_;
-  AsAtomicPtr(&other.table_)->store(table_, std::memory_order_relaxed);
-  AsAtomicPtr(&table_)->store(tmp_table, std::memory_order_relaxed);
+  AtomicWriteSwap(table_, other.table_);
   Allocator::template BackingWriteBarrierForHashTable<HashTable>(&table_);
   Allocator::template BackingWriteBarrierForHashTable<HashTable>(&other.table_);
   if (IsWeak<ValueType>::value) {
@@ -2062,7 +2080,8 @@ template <WeakHandlingFlag weakHandlingFlag,
           typename Allocator>
 struct WeakProcessingHashTableHelper {
   STATIC_ONLY(WeakProcessingHashTableHelper);
-  static void Process(const typename Allocator::WeakCallbackInfo&, void*) {}
+  static void Process(const typename Allocator::WeakCallbackInfo&,
+                      const void*) {}
 };
 
 template <typename Key,
@@ -2093,8 +2112,9 @@ struct WeakProcessingHashTableHelper<kWeakHandling,
 
   // Used for purely weak and for weak-and-strong tables (ephemerons).
   static void Process(const typename Allocator::WeakCallbackInfo&,
-                      void* parameter) {
-    HashTableType* table = reinterpret_cast<HashTableType*>(parameter);
+                      const void* parameter) {
+    HashTableType* table =
+        reinterpret_cast<HashTableType*>(const_cast<void*>(parameter));
     // During incremental marking, the table may be freed after the callback has
     // been registered.
     if (!table->table_)
@@ -2129,12 +2149,13 @@ template <typename Key,
 template <typename VisitorDispatcher, typename A>
 std::enable_if_t<A::kIsGarbageCollected>
 HashTable<Key, Value, Extractor, HashFunctions, Traits, KeyTraits, Allocator>::
-    Trace(VisitorDispatcher visitor) {
+    Trace(VisitorDispatcher visitor) const {
   // bail out for concurrent marking
   if (visitor->ConcurrentTracingBailOut(
-          {this, [](blink::Visitor* visitor, void* object) {
-             reinterpret_cast<HashTable<Key, Value, Extractor, HashFunctions,
-                                        Traits, KeyTraits, Allocator>*>(object)
+          {this, [](blink::Visitor* visitor, const void* object) {
+             reinterpret_cast<
+                 const HashTable<Key, Value, Extractor, HashFunctions, Traits,
+                                 KeyTraits, Allocator>*>(object)
                  ->Trace(visitor);
            }}))
     return;
@@ -2142,7 +2163,8 @@ HashTable<Key, Value, Extractor, HashFunctions, Traits, KeyTraits, Allocator>::
   static_assert(WTF::IsWeak<ValueType>::value ||
                     IsTraceableInCollectionTrait<Traits>::value,
                 "Value should not be traced");
-  ValueType* table = AsAtomicPtr(&table_)->load(std::memory_order_relaxed);
+  const ValueType* table =
+      AsAtomicPtr(&table_)->load(std::memory_order_relaxed);
   if (!WTF::IsWeak<ValueType>::value) {
     // Strong HashTable.
     Allocator::template TraceHashTableBackingStrongly<ValueType, HashTable>(

@@ -56,6 +56,7 @@
 #include "gpu/ipc/gl_in_process_context.h"
 #include "media/base/media_switches.h"
 #include "media/media_buildflags.h"
+#include "services/network/public/cpp/features.h"
 #include "ui/base/ui_base_paths.h"
 #include "ui/base/ui_base_switches.h"
 #include "ui/events/gesture_detection/gesture_configuration.h"
@@ -75,6 +76,7 @@ AwMainDelegate::AwMainDelegate() = default;
 AwMainDelegate::~AwMainDelegate() = default;
 
 bool AwMainDelegate::BasicStartupComplete(int* exit_code) {
+  TRACE_EVENT0("startup", "AwMainDelegate::BasicStartupComplete");
   base::CommandLine* cl = base::CommandLine::ForCurrentProcess();
 
   // WebView uses the Android system's scrollbars and overscroll glow.
@@ -182,11 +184,7 @@ bool AwMainDelegate::BasicStartupComplete(int* exit_code) {
     // so we can't use FeatureList::IsEnabled. This is necessary if someone
     // enabled feature through command line. Finch experiments will need to set
     // all flags in trial config.
-    if (features.IsEnabled(::features::kVizForWebView)) {
-      features.EnableIfNotSet(::features::kEnableSharedImageForWebview);
-      features.EnableIfNotSet(::features::kUseSkiaForGLReadback);
-      features.EnableIfNotSet(::features::kUseSkiaRenderer);
-    } else {
+    if (!features.IsEnabled(::features::kVizForWebView)) {
       // Viz for WebView is required to support embedding CompositorFrameSinks
       // which is needed for UseSurfaceLayerForVideo feature.
       // https://crbug.com/853832
@@ -223,6 +221,11 @@ bool AwMainDelegate::BasicStartupComplete(int* exit_code) {
 
     // De-jelly is never supported on WebView.
     features.EnableIfNotSet(::features::kDisableDeJelly);
+
+    // COEP is not supported on WebView.
+    // See
+    // https://groups.google.com/a/chromium.org/forum/#!topic/blink-dev/XBKAGb2_7uAi.
+    features.DisableIfNotSet(network::features::kCrossOriginEmbedderPolicy);
   }
 
   android_webview::RegisterPathProvider();
@@ -251,6 +254,7 @@ bool AwMainDelegate::BasicStartupComplete(int* exit_code) {
 }
 
 void AwMainDelegate::PreSandboxStartup() {
+  TRACE_EVENT0("startup", "AwMainDelegate::PreSandboxStartup");
 #if defined(ARCH_CPU_ARM_FAMILY)
   // Create an instance of the CPU class to parse /proc/cpuinfo and cache
   // cpu_brand info.

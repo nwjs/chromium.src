@@ -82,7 +82,7 @@ class CORE_EXPORT KeyframeEffect final : public AnimationEffect {
   // this returns the originating element.
   Element* target() const { return target_element_; }
   void setTarget(Element*);
-  const String& pseudoElement();
+  const String& pseudoElement() const;
   void setPseudoElement(String, ExceptionState&);
   String composite() const;
   void setComposite(String);
@@ -129,11 +129,16 @@ class CORE_EXPORT KeyframeEffect final : public AnimationEffect {
   bool HasAnimation() const;
   bool HasPlayingAnimation() const;
 
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
 
   bool AnimationsPreserveAxisAlignment() const;
 
   ActiveInterpolationsMap InterpolationsForCommitStyles();
+
+  // Explicitly setting the keyframes via KeyfrfameEffect.setFrames or
+  // Animation.effect block subseuqent changes via CSS keyframe rules.
+  bool GetIgnoreCSSKeyframes() { return ignore_css_keyframes_; }
+  void SetIgnoreCSSKeyframes() { ignore_css_keyframes_ = true; }
 
  private:
   EffectModel::CompositeOperation CompositeInternal() const;
@@ -164,6 +169,8 @@ class CORE_EXPORT KeyframeEffect final : public AnimationEffect {
   Priority priority_;
 
   Vector<int> compositor_keyframe_model_ids_;
+
+  bool ignore_css_keyframes_;
 };
 
 template <>

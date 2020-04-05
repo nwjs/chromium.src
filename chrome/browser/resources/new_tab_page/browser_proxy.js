@@ -19,8 +19,7 @@ export class BrowserProxy {
     /** @type {newTabPage.mojom.PageHandlerRemote} */
     this.handler = new newTabPage.mojom.PageHandlerRemote();
 
-    const factory = newTabPage.mojom.PageHandlerFactory.getRemote(
-        /*useBrowserInterfaceBroker=*/ true);
+    const factory = newTabPage.mojom.PageHandlerFactory.getRemote();
     factory.createPageHandler(
         this.callbackRouter.$.bindNewPipeAndPassRemote(),
         this.handler.$.bindNewPipeAndPassReceiver());
@@ -43,6 +42,27 @@ export class BrowserProxy {
   /** @param {number} id */
   clearTimeout(id) {
     window.clearTimeout(id);
+  }
+
+  /** @return {number} */
+  random() {
+    return Math.random();
+  }
+
+  /**
+   * @param {string} path
+   * @return {string}
+   */
+  createUntrustedIframeSrc(path) {
+    return `chrome-untrusted://new-tab-page/${path}`;
+  }
+
+  /**
+   * @param {string} query
+   * @return {!MediaQueryList}
+   */
+  matchMedia(query) {
+    return window.matchMedia(query);
   }
 }
 

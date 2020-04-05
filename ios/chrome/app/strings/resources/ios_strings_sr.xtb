@@ -97,6 +97,7 @@
 <translation id="2149973817440762519">Измените обележивач</translation>
 <translation id="2179182049312275900">Можете да укључите синхронизацију у подешавањима у било ком тренутку.</translation>
 <translation id="2198757192731523470">Google може да користи историју за персонализацију Претраге, огласа и других Google услуга.</translation>
+<translation id="2218443599109088993">Умањите</translation>
 <translation id="2230173723195178503">Веб-страница је учитана</translation>
 <translation id="2239626343334228536">Бришу се подаци прегледања...</translation>
 <translation id="2257567812274161158">Синхронизација не ради.</translation>
@@ -159,6 +160,7 @@
 <translation id="2923448633003185837">Налепи и иди</translation>
 <translation id="292639812446257861">Означи као непрочитано</translation>
 <translation id="2958718410589002129">Лозинке</translation>
+<translation id="2964349545761222050">Блокирај колачиће треће стране</translation>
 <translation id="2969979262385602596">Пријављивање није успело. Пробајте поново касније.</translation>
 <translation id="298306318844797842">Додајте начин плаћања...</translation>
 <translation id="2989805286512600854">Отвори на новој картици</translation>
@@ -178,6 +180,7 @@
 <translation id="3290875554372353449">Изаберите налог</translation>
 <translation id="3311748811247479259">Искључено</translation>
 <translation id="3324193307694657476">2. ред за адресу</translation>
+<translation id="3328801116991980348">Информације о сајту</translation>
 <translation id="3329904751041170572">Повезивање са сервером није могуће.</translation>
 <translation id="3335947283844343239">Поново отвори затворену картицу</translation>
 <translation id="3371831930909698441">Преводилац је доступан. Опције су доступне у дну екрана.</translation>
@@ -300,6 +303,7 @@
 <translation id="4979397965658815378">Пријавите се помоћу Google налога да бисте имали обележиваче, лозинке, историју и друга подешавања на свим уређајима</translation>
 <translation id="5005498671520578047">Копирање лозинке</translation>
 <translation id="5010803260590204777">Отворите картицу Без архивирања да бисте приватно прегледали веб.</translation>
+<translation id="5039020240289137291">Блокира колачиће треће стране</translation>
 <translation id="5039804452771397117">Дозволи</translation>
 <translation id="5059136629401106827">Потврди</translation>
 <translation id="5062321486222145940">Инсталирај Google диск</translation>
@@ -414,9 +418,11 @@ Handoff треба да се омогући у одељку General (Опште)
 <translation id="6434591244308415567">Дошло је до грешке. Пробајте поново касније.</translation>
 <translation id="6445051938772793705">Земља</translation>
 <translation id="6445981559479772097">Порука је послата.</translation>
+<translation id="6447842834002726250">Колачићи</translation>
 <translation id="6464071786529933911">Отвори на новој картици без архивирања</translation>
 <translation id="6476800141292307438">Страница се преводи на: <ph name="LANGUAGE" />. Опције су доступне у дну екрана.</translation>
 <translation id="6482629121755362506">Број избрисаних ставки је <ph name="NUMBER_OF_SELECTED_BOOKMARKS" /></translation>
+<translation id="6561262006871132942">Увећајте</translation>
 <translation id="6610002944194042868">Опције превода</translation>
 <translation id="6628106477656132239">Неважећи датум истека</translation>
 <translation id="6638511529934826365">Зумирај текст…</translation>
@@ -479,7 +485,6 @@ Handoff треба да се омогући у одељку General (Опште)
 <translation id="734758817008927353">Опције за чување картице</translation>
 <translation id="7348502496356775519">Означи</translation>
 <translation id="7383797227493018512">Листа за читање</translation>
-<translation id="7392048574806661116">Одјави ме и обриши синхронизоване податке</translation>
 <translation id="7400418766976504921">URL адреса</translation>
 <translation id="7409985198648820906">Непрочитаних чланака: <ph name="UNREAD_COUNT" />.</translation>
 <translation id="7425346204213733349">Промене обележивача, историје, лозинки и других подешавања се више неће синхронизовати са Google налогом. Међутим, постојећи подаци ће остати сачувани на Google налогу.</translation>
@@ -598,6 +603,7 @@ Handoff треба да се омогући у одељку General (Опште)
 <translation id="9223358826628549784">Извештај о отказивању је послат.</translation>
 <translation id="952704832371081537">Откажи</translation>
 <translation id="988141524645182168">Други уређаји</translation>
+<translation id="989697783705943787">Безбедност сајта</translation>
 <translation id="989988560359834682">Измена адресе</translation>
 <translation id="994757059139821576">Предлози чланака</translation>
 </translationbundle>

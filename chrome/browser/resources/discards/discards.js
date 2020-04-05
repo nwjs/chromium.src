@@ -11,10 +11,21 @@
    */
   export function getOrCreateDetailsProvider() {
     if (!discardsDetailsProvider) {
-      discardsDetailsProvider = discards.mojom.DetailsProvider.getRemote(
-          /*useBrowserInterfaceBroker=*/ true);
+      discardsDetailsProvider = discards.mojom.DetailsProvider.getRemote();
     }
     return discardsDetailsProvider;
+  }
+
+  let siteDataProvider;
+
+  /**
+   * @return {!discards.mojom.SiteDataProviderRemote} Provides site data info.
+   */
+  export function getOrCreateSiteDataProvider() {
+    if (!siteDataProvider) {
+      siteDataProvider = discards.mojom.SiteDataProvider.getRemote();
+    }
+    return siteDataProvider;
   }
 
   /**

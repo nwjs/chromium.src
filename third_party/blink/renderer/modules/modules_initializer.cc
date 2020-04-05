@@ -59,6 +59,7 @@
 #include "third_party/blink/renderer/modules/indexeddb/inspector_indexed_db_agent.h"
 #include "third_party/blink/renderer/modules/installation/installation_service_impl.h"
 #include "third_party/blink/renderer/modules/installedapp/installed_app_controller.h"
+#include "third_party/blink/renderer/modules/launch/file_handling_expiry_impl.h"
 #include "third_party/blink/renderer/modules/launch/web_launch_service_impl.h"
 #include "third_party/blink/renderer/modules/manifest/manifest_manager.h"
 #include "third_party/blink/renderer/modules/media_controls/media_controls_impl.h"
@@ -162,10 +163,11 @@ void ModulesInitializer::InitLocalFrame(LocalFrame& frame) const {
     frame.GetInterfaceRegistry()->AddInterface(WTF::BindRepeating(
         &DocumentMetadataServer::BindMojoReceiver, WrapWeakPersistent(&frame)));
   }
-  if (RuntimeEnabledFeatures::FileHandlingEnabled(frame.GetDocument())) {
-    frame.GetInterfaceRegistry()->AddAssociatedInterface(WTF::BindRepeating(
-        &WebLaunchServiceImpl::Create, WrapWeakPersistent(&frame)));
-  }
+  frame.GetInterfaceRegistry()->AddAssociatedInterface(WTF::BindRepeating(
+      &WebLaunchServiceImpl::Create, WrapWeakPersistent(&frame)));
+  frame.GetInterfaceRegistry()->AddAssociatedInterface(WTF::BindRepeating(
+      &FileHandlingExpiryImpl::Create, WrapWeakPersistent(&frame)));
+
   frame.GetInterfaceRegistry()->AddInterface(WTF::BindRepeating(
       &InstallationServiceImpl::Create, WrapWeakPersistent(&frame)));
   // TODO(dominickn): This interface should be document-scoped rather than
@@ -197,10 +199,7 @@ void ModulesInitializer::InstallSupplements(LocalFrame& frame) const {
   InspectorAccessibilityAgent::ProvideTo(&frame);
   ManifestManager::ProvideTo(frame);
   InstalledAppController::ProvideTo(frame);
-  if (frame.IsMainFrame()) {
-    // Only main frame has ImageDownloader service.
-    ImageDownloaderImpl::ProvideTo(frame);
-  }
+  ImageDownloaderImpl::ProvideTo(frame);
   MediaInspectorContextImpl::ProvideToLocalFrame(frame);
 }
 

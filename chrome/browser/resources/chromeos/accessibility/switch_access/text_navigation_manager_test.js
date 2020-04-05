@@ -17,9 +17,9 @@ SwitchAccessTextNavigationManagerTest.prototype = {
 
   /** @override */
   setUp() {
-    this.textNavigationManager =
-        switchAccess.navigationManager_.menuManager_.textNavigationManager_;
-    this.navigationManager = switchAccess.navigationManager_;
+    TextNavigationManager.initialize();
+    this.textNavigationManager = TextNavigationManager.instance;
+    this.navigationManager = NavigationManager.instance;
   }
 };
 
@@ -242,7 +242,7 @@ TEST_F('SwitchAccessTextNavigationManagerTest', 'JumpToBeginning', function() {
     initialIndex: 6,
     targetIndex: 0,
     navigationAction: () => {
-      this.textNavigationManager.jumpToBeginning();
+      TextNavigationManager.jumpToBeginning();
     }
   });
 });
@@ -253,7 +253,7 @@ TEST_F('SwitchAccessTextNavigationManagerTest', 'JumpToEnd', function() {
     initialIndex: 3,
     targetIndex: 8,
     navigationAction: () => {
-      this.textNavigationManager.jumpToEnd();
+      TextNavigationManager.jumpToEnd();
     }
   });
 });
@@ -265,7 +265,7 @@ TEST_F(
         initialIndex: 7,
         targetIndex: 6,
         navigationAction: () => {
-          this.textNavigationManager.moveBackwardOneChar();
+          TextNavigationManager.moveBackwardOneChar();
         }
       });
     });
@@ -277,7 +277,7 @@ TEST_F(
         initialIndex: 5,
         targetIndex: 0,
         navigationAction: () => {
-          this.textNavigationManager.moveBackwardOneWord();
+          TextNavigationManager.moveBackwardOneWord();
         }
       });
     });
@@ -289,7 +289,7 @@ TEST_F(
         initialIndex: 0,
         targetIndex: 1,
         navigationAction: () => {
-          this.textNavigationManager.moveForwardOneChar();
+          TextNavigationManager.moveForwardOneChar();
         }
       });
     });
@@ -301,7 +301,7 @@ TEST_F(
         initialIndex: 4,
         targetIndex: 12,
         navigationAction: () => {
-          this.textNavigationManager.moveForwardOneWord();
+          TextNavigationManager.moveForwardOneWord();
         }
       });
     });
@@ -314,7 +314,7 @@ TEST_F('SwitchAccessTextNavigationManagerTest', 'MoveUpOneLine', function() {
     cols: 8,
     wrap: 'hard',
     navigationAction: () => {
-      this.textNavigationManager.moveUpOneLine();
+      TextNavigationManager.moveUpOneLine();
     }
   });
 });
@@ -327,7 +327,7 @@ TEST_F('SwitchAccessTextNavigationManagerTest', 'MoveDownOneLine', function() {
     cols: 8,
     wrap: 'hard',
     navigationAction: () => {
-      this.textNavigationManager.moveDownOneLine();
+      TextNavigationManager.moveDownOneLine();
     }
   });
 });
@@ -349,7 +349,7 @@ TEST_F(
         checkNodeIsFocused(inputNode);
 
         this.textNavigationManager.saveSelectStart();
-        const startIndex = this.textNavigationManager.getSelStartIndex();
+        const startIndex = this.textNavigationManager.selectionStartIndex_;
         assertEquals(startIndex, 3);
       });
     });
@@ -371,8 +371,8 @@ TEST_F(
 
 
         const startIndex = 3;
-        this.textNavigationManager.setSelStartIndexAndNode(
-            startIndex, inputNode);
+        this.textNavigationManager.selectionStartIndex_ = startIndex;
+        this.textNavigationManager.selectionStartObject_ = inputNode;
         this.textNavigationManager.saveSelectEnd();
         const endIndex = inputNode.textSelEnd;
         assertEquals(6, endIndex);
@@ -394,7 +394,7 @@ TEST_F(
         cols: 8,
         wrap: 'hard',
         navigationAction: () => {
-          this.textNavigationManager.moveForwardOneChar();
+          TextNavigationManager.moveForwardOneChar();
         }
       });
     });
@@ -414,7 +414,7 @@ TEST_F(
         cols: 8,
         wrap: 'hard',
         navigationAction: () => {
-          this.textNavigationManager.moveBackwardOneWord();
+          TextNavigationManager.moveBackwardOneWord();
         },
         backward: true
       });

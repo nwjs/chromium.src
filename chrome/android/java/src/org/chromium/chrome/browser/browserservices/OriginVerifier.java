@@ -25,12 +25,12 @@ import org.chromium.base.ThreadUtils;
 import org.chromium.base.annotations.CalledByNative;
 import org.chromium.base.annotations.JNINamespace;
 import org.chromium.base.annotations.NativeMethods;
-import org.chromium.base.library_loader.LibraryProcessType;
 import org.chromium.base.task.PostTask;
-import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.IntentHandler;
+import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.profiles.Profile;
-import org.chromium.chrome.browser.util.UrlConstants;
+import org.chromium.components.embedder_support.util.Origin;
+import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.content_public.browser.BrowserStartupController;
 import org.chromium.content_public.browser.UiThreadTaskTraits;
 import org.chromium.content_public.browser.WebContents;
@@ -263,14 +263,12 @@ public class OriginVerifier {
         }
 
         if (mNativeOriginVerifier != 0) cleanUp();
-        if (!BrowserStartupController.get(LibraryProcessType.PROCESS_BROWSER)
-                        .isFullBrowserStarted()) {
-            // Early return for testing without native.
-            return;
-        }
+        // Early return for testing without native.
+        if (!BrowserStartupController.getInstance().isFullBrowserStarted()) return;
+
         if (mWebContents != null && mWebContents.isDestroyed()) mWebContents = null;
-        mNativeOriginVerifier = OriginVerifierJni.get().init(OriginVerifier.this, mWebContents,
-                Profile.getLastUsedProfile().getOriginalProfile());
+        mNativeOriginVerifier = OriginVerifierJni.get().init(
+                OriginVerifier.this, mWebContents, Profile.getLastUsedRegularProfile());
         assert mNativeOriginVerifier != 0;
         String relationship = null;
         switch (mRelation) {

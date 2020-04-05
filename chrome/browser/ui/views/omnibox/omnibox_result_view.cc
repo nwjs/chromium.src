@@ -16,6 +16,7 @@
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/omnibox/omnibox_theme.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
+#include "chrome/browser/ui/views/location_bar/selected_keyword_view.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_match_cell_view.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_contents_view.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_tab_switch_button.h"
@@ -29,6 +30,7 @@
 #include "components/omnibox/common/omnibox_features.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/vector_icons/vector_icons.h"
+#include "third_party/metrics_proto/omnibox_event.pb.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/accessibility/ax_node_data.h"
@@ -152,8 +154,15 @@ void OmniboxResultView::SetMatch(const AutocompleteMatch& match) {
         match_.description, match_.description_class, deemphasize);
   }
 
-  // When button row feature is enabled, |keyword_button_| is used instead.
-  if (!OmniboxFieldTrial::IsSuggestionButtonRowEnabled()) {
+  // With button row, |keyword_button_| is used instead of |keyword_view_|.
+  if (OmniboxFieldTrial::IsSuggestionButtonRowEnabled()) {
+    const OmniboxEditModel* edit_model =
+        popup_contents_view_->model()->edit_model();
+    const base::string16& keyword = edit_model->keyword();
+    const auto names = SelectedKeywordView::GetKeywordLabelNames(
+        keyword, edit_model->client()->GetTemplateURLService());
+    keyword_button_->SetText(names.full_name);
+  } else {
     AutocompleteMatch* keyword_match = match_.associated_keyword.get();
     keyword_view_->SetVisible(keyword_match != nullptr);
     if (keyword_match) {
@@ -164,7 +173,7 @@ void OmniboxResultView::SetMatch(const AutocompleteMatch& match) {
     }
   }
 
-  Invalidate();
+  ApplyThemeAndRefreshIcons();
   InvalidateLayout();
 }
 
@@ -175,7 +184,7 @@ void OmniboxResultView::ShowKeyword(bool show_keyword) {
     animation_->Hide();
 }
 
-void OmniboxResultView::Invalidate(bool force_reapply_styles) {
+void OmniboxResultView::ApplyThemeAndRefreshIcons(bool force_reapply_styles) {
   bool high_contrast =
       GetNativeTheme() && GetNativeTheme()->UsesHighContrastColors();
   // TODO(tapted): Consider using background()->SetNativeControlColor() and
@@ -241,6 +250,9 @@ void OmniboxResultView::OnSelectionStateChanged() {
     // about the list and the user's position within it.
     NotifyAccessibilityEvent(ax::mojom::Event::kSelection, true);
   }
+
+  ApplyThemeAndRefreshIcons();
+  ShowKeyword(false);
 }
 
 bool OmniboxResultView::IsSelected() const {
@@ -315,8 +327,8 @@ OmniboxPartState OmniboxResultView::GetThemeState() const {
 }
 
 void OmniboxResultView::OnMatchIconUpdated() {
-  // The new icon will be fetched during Invalidate().
-  Invalidate();
+  // The new icon will be fetched during ApplyThemeAndRefreshIcons().
+  ApplyThemeAndRefreshIcons();
 }
 
 void OmniboxResultView::SetRichSuggestionImage(const gfx::ImageSkia& image) {
@@ -326,7 +338,6 @@ void OmniboxResultView::SetRichSuggestionImage(const gfx::ImageSkia& image) {
 ////////////////////////////////////////////////////////////////////////////////
 // views::ButtonListener overrides:
 
-// |button| is the tab switch button.
 void OmniboxResultView::ButtonPressed(views::Button* button,
                                       const ui::Event& event) {
   if (button == suggestion_tab_switch_button_ || button == tab_switch_button_) {
@@ -358,12 +369,27 @@ void OmniboxResultView::ButtonPressed(views::Button* button,
 
     popup_contents_view_->model()->set_popup_closes_on_blur(true);
   } else if (button == keyword_button_) {
-    // TODO(orinj): Implement.
+    // TODO(orinj): Clear out existing suggestions, particularly this one, as
+    // once we AcceptKeyword, we are really in a new scope state and holding
+    // onto old suggestions is confusing and error prone. Without this check,
+    // a second click of the button violates assumptions in |AcceptKeyword|.
+    if (popup_contents_view_->model()->edit_model()->is_keyword_hint()) {
+      auto method = metrics::OmniboxEventProto::INVALID;
+      if (event.IsKeyEvent()) {
+        method = metrics::OmniboxEventProto::KEYBOARD_SHORTCUT;
+      } else if (event.IsMouseEvent()) {
+        method = metrics::OmniboxEventProto::CLICK_HINT_VIEW;
+      } else if (event.IsGestureEvent()) {
+        method = metrics::OmniboxEventProto::TAP_HINT_VIEW;
+      }
+      DCHECK_NE(method, metrics::OmniboxEventProto::INVALID);
+      popup_contents_view_->model()->edit_model()->AcceptKeyword(method);
+    }
   } else if (button == pedal_button_) {
     DCHECK(match_.pedal);
-    // TODO(orinj): Open the match in a way that does not conflict with search
-    // or tab switch. Various dispositions are now possible from a single match.
-    OpenMatch(WindowOpenDisposition::SWITCH_TO_TAB, event.time_stamp());
+    // Pedal action intent means we execute the match instead of opening it.
+    popup_contents_view_->model()->edit_model()->ExecutePedal(
+        match_, event.time_stamp());
   } else {
     NOTREACHED();
   }
@@ -564,11 +590,12 @@ gfx::Size OmniboxResultView::CalculatePreferredSize() const {
 }
 
 void OmniboxResultView::OnThemeChanged() {
+  views::View::OnThemeChanged();
   views::SetImageFromVectorIcon(remove_suggestion_button_,
                                 vector_icons::kCloseRoundedIcon,
                                 GetLayoutConstant(LOCATION_BAR_ICON_SIZE),
                                 GetColor(OmniboxPart::RESULTS_ICON));
-  Invalidate(true);
+  ApplyThemeAndRefreshIcons(true);
 }
 
 void OmniboxResultView::ProvideButtonFocusHint() {
@@ -614,7 +641,7 @@ gfx::Image OmniboxResultView::GetIcon() const {
 
 void OmniboxResultView::UpdateHoverState() {
   UpdateRemoveSuggestionVisibility();
-  Invalidate();
+  ApplyThemeAndRefreshIcons();
 }
 
 void OmniboxResultView::OpenMatch(WindowOpenDisposition disposition,

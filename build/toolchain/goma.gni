@@ -9,9 +9,9 @@ declare_args() {
   use_goma = false
 
   # This flag is for ChromeOS compiler wrapper.
-  # By passing gomacc path via GOMACC_PATH environment variable, ChromeOS'
-  # compiler wrapper invokes gomacc inside it.
-  has_gomacc_path = false
+  # By passing gomacc path via cmd-line arg, ChromeOS' compiler wrapper
+  # invokes gomacc inside it.
+  needs_gomacc_path_arg = false
 
   # Set the default value based on the platform.
   if (host_os == "win") {

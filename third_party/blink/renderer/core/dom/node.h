@@ -260,7 +260,7 @@ class CORE_EXPORT Node : public EventTarget {
   const AtomicString& lookupNamespaceURI(const String& prefix) const;
 
   String textContent(bool convert_brs_to_newlines = false) const;
-  void setTextContent(const String&);
+  virtual void setTextContent(const String&);
   void textContent(StringOrTrustedScript& result);
   virtual void setTextContent(const StringOrTrustedScript&, ExceptionState&);
 
@@ -269,22 +269,26 @@ class CORE_EXPORT Node : public EventTarget {
   void SetComputedStyle(scoped_refptr<const ComputedStyle> computed_style);
 
   // Other methods (not part of DOM)
-  bool IsTextNode() const { return GetDOMNodeType() == DOMNodeType::kText; }
-  bool IsContainerNode() const { return GetFlag(kIsContainerFlag); }
-  bool IsElementNode() const {
+  ALWAYS_INLINE bool IsTextNode() const {
+    return GetDOMNodeType() == DOMNodeType::kText;
+  }
+  ALWAYS_INLINE bool IsContainerNode() const {
+    return GetFlag(kIsContainerFlag);
+  }
+  ALWAYS_INLINE bool IsElementNode() const {
     return GetDOMNodeType() == DOMNodeType::kElement;
   }
-  bool IsDocumentFragment() const {
+  ALWAYS_INLINE bool IsDocumentFragment() const {
     return GetDOMNodeType() == DOMNodeType::kDocumentFragment;
   }
 
-  bool IsHTMLElement() const {
+  ALWAYS_INLINE bool IsHTMLElement() const {
     return GetElementNamespaceType() == ElementNamespaceType::kHTML;
   }
-  bool IsMathMLElement() const {
+  ALWAYS_INLINE bool IsMathMLElement() const {
     return GetElementNamespaceType() == ElementNamespaceType::kMathML;
   }
-  bool IsSVGElement() const {
+  ALWAYS_INLINE bool IsSVGElement() const {
     return GetElementNamespaceType() == ElementNamespaceType::kSVG;
   }
 
@@ -472,6 +476,10 @@ class CORE_EXPORT Node : public EventTarget {
 
   // Propagates a dirty bit breadcrumb for this element up the ancestor chain.
   void MarkAncestorsWithChildNeedsStyleRecalc();
+
+  // Traverses subtree (include pseudo elements and shadow trees) and
+  // invalidates nodes whose styles depend on font metrics (e.g., 'ex' unit).
+  void MarkSubtreeNeedsStyleRecalcForFontUpdates();
 
   // Nodes which are not connected are style clean. Mark them for style recalc
   // when inserting them into a document. This method was added as a light-
@@ -759,16 +767,20 @@ class CORE_EXPORT Node : public EventTarget {
   //
   // Blink notifies this callback regardless if the subtree of the node is a
   // document tree or a floating subtree.  Implementation can determine the type
-  // of subtree by seeing insertionPoint->isConnected().  For a performance
+  // of subtree by seeing insertion_point->isConnected().  For a performance
   // reason, notifications are delivered only to ContainerNode subclasses if the
-  // insertionPoint is out of document.
+  // insertion_point is out of document.
   //
-  // There are another callback named didNotifySubtreeInsertionsToDocument(),
+  // There are another callback named DidNotifySubtreeInsertionsToDocument(),
   // which is called after all the descendant is notified, if this node was
   // inserted into the document tree. Only a few subclasses actually need
   // this. To utilize this, the node should return
-  // InsertionShouldCallDidNotifySubtreeInsertions from insertedInto().
+  // kInsertionShouldCallDidNotifySubtreeInsertions from InsertedInto().
   //
+  // InsertedInto() implementations must not modify the DOM tree, and must not
+  // dispatch synchronous events. On the other hand,
+  // DidNotifySubtreeInsertionsToDocument() may modify the DOM tree, and may
+  // dispatch synchronous events.
   enum InsertionNotificationRequest {
     kInsertionDone,
     kInsertionShouldCallDidNotifySubtreeInsertions
@@ -780,10 +792,12 @@ class CORE_EXPORT Node : public EventTarget {
 
   // Notifies the node that it is no longer part of the tree.
   //
-  // This is a dual of insertedInto(), and is similar to the
+  // This is a dual of InsertedInto(), and is similar to the
   // DOMNodeRemovedFromDocument DOM event, but does not require the overhead of
   // event dispatching, and is called _after_ the node is removed from the tree.
   //
+  // RemovedFrom() implementations must not modify the DOM tree, and must not
+  // dispatch synchronous events.
   virtual void RemovedFrom(ContainerNode& insertion_point);
 
   // FIXME(dominicc): This method is not debug-only--it is used by
@@ -841,10 +855,6 @@ class CORE_EXPORT Node : public EventTarget {
   }
   virtual void PostDispatchEventHandler(Event&, EventDispatchHandlingState*) {}
 
-  // TODO(crbug.com/1013385): Remove DidPreventDefault. It is here as a
-  //   temporary fix for form double-submit.
-  virtual void DidPreventDefault(const Event&) {}
-
   void DispatchScopedEvent(Event&);
 
   virtual void HandleLocalEvents(Event&);
@@ -853,7 +863,7 @@ class CORE_EXPORT Node : public EventTarget {
   DispatchEventResult DispatchDOMActivateEvent(int detail,
                                                Event& underlying_event);
 
-  void DispatchSimulatedClick(Event* underlying_event,
+  void DispatchSimulatedClick(const Event* underlying_event,
                               SimulatedClickMouseEventOptions = kSendNoEvents,
                               SimulatedClickCreationScope =
                                   SimulatedClickCreationScope::kFromUserAgent);
@@ -971,7 +981,9 @@ class CORE_EXPORT Node : public EventTarget {
     // 4 bits remaining.
   };
 
-  bool GetFlag(NodeFlags mask) const { return node_flags_ & mask; }
+  ALWAYS_INLINE bool GetFlag(NodeFlags mask) const {
+    return node_flags_ & mask;
+  }
   void SetFlag(bool f, NodeFlags mask) {
     node_flags_ = (node_flags_ & ~mask) | (-(int32_t)f & mask);
   }
@@ -979,45 +991,55 @@ class CORE_EXPORT Node : public EventTarget {
   void ClearFlag(NodeFlags mask) { node_flags_ &= ~mask; }
 
   enum class DOMNodeType : uint32_t {
-    kOther = 0,
+    kElement = 0,
     kText = 1 << kDOMNodeTypeShift,
-    kElement = 2 << kDOMNodeTypeShift,
-    kDocumentFragment = 3 << kDOMNodeTypeShift,
+    kDocumentFragment = 2 << kDOMNodeTypeShift,
+    kOther = 3 << kDOMNodeTypeShift,
   };
-  DOMNodeType GetDOMNodeType() const {
+  ALWAYS_INLINE DOMNodeType GetDOMNodeType() const {
     return static_cast<DOMNodeType>(node_flags_ & kDOMNodeTypeMask);
   }
 
   enum class ElementNamespaceType : uint32_t {
-    kOther = 0,
-    kHTML = 1 << kElementNamespaceTypeShift,
-    kMathML = 2 << kElementNamespaceTypeShift,
-    kSVG = 3 << kElementNamespaceTypeShift,
+    kHTML = 0,
+    kMathML = 1 << kElementNamespaceTypeShift,
+    kSVG = 2 << kElementNamespaceTypeShift,
+    kOther = 3 << kElementNamespaceTypeShift,
   };
-  ElementNamespaceType GetElementNamespaceType() const {
+  ALWAYS_INLINE ElementNamespaceType GetElementNamespaceType() const {
     return static_cast<ElementNamespaceType>(node_flags_ &
                                              kElementNamespaceTypeMask);
   }
 
  protected:
   enum ConstructionType {
-    kCreateOther =
-        kDefaultNodeFlags | static_cast<NodeFlags>(DOMNodeType::kOther),
-    kCreateText =
-        kDefaultNodeFlags | static_cast<NodeFlags>(DOMNodeType::kText),
-    kCreateContainer = kDefaultNodeFlags | kIsContainerFlag,
-    kCreateElement =
-        kCreateContainer | static_cast<NodeFlags>(DOMNodeType::kElement),
+    kCreateOther = kDefaultNodeFlags |
+                   static_cast<NodeFlags>(DOMNodeType::kOther) |
+                   static_cast<NodeFlags>(ElementNamespaceType::kOther),
+    kCreateText = kDefaultNodeFlags |
+                  static_cast<NodeFlags>(DOMNodeType::kText) |
+                  static_cast<NodeFlags>(ElementNamespaceType::kOther),
+    kCreateContainer = kDefaultNodeFlags | kIsContainerFlag |
+                       static_cast<NodeFlags>(DOMNodeType::kOther) |
+                       static_cast<NodeFlags>(ElementNamespaceType::kOther),
+    kCreateElement = kDefaultNodeFlags | kIsContainerFlag |
+                     static_cast<NodeFlags>(DOMNodeType::kElement) |
+                     static_cast<NodeFlags>(ElementNamespaceType::kOther),
     kCreateDocumentFragment =
-        kCreateContainer |
-        static_cast<NodeFlags>(DOMNodeType::kDocumentFragment),
+        kDefaultNodeFlags | kIsContainerFlag |
+        static_cast<NodeFlags>(DOMNodeType::kDocumentFragment) |
+        static_cast<NodeFlags>(ElementNamespaceType::kOther),
     kCreateShadowRoot = kCreateDocumentFragment | kIsInShadowTreeFlag,
-    kCreateHTMLElement =
-        kCreateElement | static_cast<NodeFlags>(ElementNamespaceType::kHTML),
+    kCreateHTMLElement = kDefaultNodeFlags | kIsContainerFlag |
+                         static_cast<NodeFlags>(DOMNodeType::kElement) |
+                         static_cast<NodeFlags>(ElementNamespaceType::kHTML),
     kCreateMathMLElement =
-        kCreateElement | static_cast<NodeFlags>(ElementNamespaceType::kMathML),
-    kCreateSVGElement =
-        kCreateElement | static_cast<NodeFlags>(ElementNamespaceType::kSVG),
+        kDefaultNodeFlags | kIsContainerFlag |
+        static_cast<NodeFlags>(DOMNodeType::kElement) |
+        static_cast<NodeFlags>(ElementNamespaceType::kMathML),
+    kCreateSVGElement = kDefaultNodeFlags | kIsContainerFlag |
+                        static_cast<NodeFlags>(DOMNodeType::kElement) |
+                        static_cast<NodeFlags>(ElementNamespaceType::kSVG),
     kCreateDocument = kCreateContainer | kIsConnectedFlag,
     kCreateV0InsertionPoint = kCreateHTMLElement | kIsV0InsertionPointFlag,
     kCreateEditingText = kCreateText | kHasNameOrIsEditingTextFlag,

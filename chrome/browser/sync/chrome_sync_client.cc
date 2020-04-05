@@ -30,6 +30,7 @@
 #include "chrome/browser/sharing/sharing_message_bridge.h"
 #include "chrome/browser/sharing/sharing_message_bridge_factory.h"
 #include "chrome/browser/sharing/sharing_message_model_type_controller.h"
+#include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/sync/bookmark_sync_service_factory.h"
 #include "chrome/browser/sync/device_info_sync_service_factory.h"
 #include "chrome/browser/sync/model_type_store_service_factory.h"
@@ -64,7 +65,6 @@
 #include "components/invalidation/impl/invalidation_switches.h"
 #include "components/invalidation/impl/profile_invalidation_provider.h"
 #include "components/password_manager/core/browser/password_store.h"
-#include "components/password_manager/core/browser/sync/password_model_worker.h"
 #include "components/search_engines/template_url_service.h"
 #include "components/send_tab_to_self/send_tab_to_self_sync_service.h"
 #include "components/spellcheck/spellcheck_buildflags.h"
@@ -78,8 +78,6 @@
 #include "components/sync/driver/sync_util.h"
 #include "components/sync/driver/syncable_service_based_model_type_controller.h"
 #include "components/sync/engine/passive_model_worker.h"
-#include "components/sync/engine/sequenced_model_worker.h"
-#include "components/sync/engine/ui_model_worker.h"
 #include "components/sync/model/model_type_store.h"
 #include "components/sync/model/model_type_store_service.h"
 #include "components/sync/model_impl/forwarding_model_type_controller_delegate.h"
@@ -234,6 +232,11 @@ ChromeSyncClient::~ChromeSyncClient() {}
 PrefService* ChromeSyncClient::GetPrefService() {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   return profile_->GetPrefs();
+}
+
+signin::IdentityManager* ChromeSyncClient::GetIdentityManager() {
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  return IdentityManagerFactory::GetForProfile(profile_);
 }
 
 base::FilePath ChromeSyncClient::GetLocalSyncBackendFolder() {
@@ -488,7 +491,8 @@ ChromeSyncClient::CreateDataTypeControllers(syncer::SyncService* sync_service) {
           profile_->GetPrefs(), sync_service));
     }
     if (!disabled_types.Has(syncer::WIFI_CONFIGURATIONS) &&
-        base::FeatureList::IsEnabled(switches::kSyncWifiConfigurations)) {
+        base::FeatureList::IsEnabled(switches::kSyncWifiConfigurations) &&
+        WifiConfigurationSyncServiceFactory::ShouldRunInProfile(profile_)) {
       // Use the same delegate in full-sync and transport-only modes.
       syncer::ModelTypeControllerDelegate* delegate =
           GetControllerDelegateForModelType(syncer::WIFI_CONFIGURATIONS).get();
@@ -570,15 +574,6 @@ ChromeSyncClient::GetSyncableServiceForType(syncer::ModelType type) {
                  : nullptr;
     }
 #endif  // BUILDFLAG(ENABLE_SPELLCHECK)
-    case syncer::FAVICON_IMAGES:
-    case syncer::FAVICON_TRACKING:
-      if (!base::FeatureList::IsEnabled(switches::kDoNotSyncFaviconDataTypes)) {
-        return GetWeakPtrOrNull(
-            SessionSyncServiceFactory::GetForProfile(profile_)
-                ->GetFaviconCache());
-      }
-      NOTREACHED();
-      return nullptr;
 #if BUILDFLAG(ENABLE_SUPERVISED_USERS)
     case syncer::SUPERVISED_USER_SETTINGS:
       return SupervisedUserSettingsServiceFactory::GetForKey(
@@ -589,11 +584,6 @@ ChromeSyncClient::GetSyncableServiceForType(syncer::ModelType type) {
           ->GetWhitelistService()
           ->AsWeakPtr();
 #endif  // BUILDFLAG(ENABLE_SUPERVISED_USERS)
-    case syncer::PASSWORDS: {
-      return profile_password_store_.get()
-                 ? profile_password_store_->GetPasswordSyncableService()
-                 : nullptr;
-    }
 #if defined(OS_CHROMEOS)
     case syncer::ARC_PACKAGE:
       return arc::ArcPackageSyncableService::Get(profile_)->AsWeakPtr();
@@ -604,9 +594,6 @@ ChromeSyncClient::GetSyncableServiceForType(syncer::ModelType type) {
           ->AsWeakPtr();
 #endif  // defined(OS_CHROMEOS)
     default:
-      // The following datatypes still need to be transitioned to the
-      // syncer::SyncableService API:
-      // Bookmarks
       NOTREACHED();
       return nullptr;
   }
@@ -627,7 +614,8 @@ ChromeSyncClient::GetControllerDelegateForModelType(syncer::ModelType type) {
           ->change_processor()
           ->GetControllerDelegate();
     case syncer::WIFI_CONFIGURATIONS:
-      return WifiConfigurationSyncServiceFactory::GetForProfile(profile_)
+      return WifiConfigurationSyncServiceFactory::GetForProfile(profile_,
+                                                                /*create=*/true)
           ->GetControllerDelegate();
 #endif  // defined(OS_CHROMEOS)
     case syncer::SHARING_MESSAGE:
@@ -680,19 +668,8 @@ scoped_refptr<syncer::ModelSafeWorker>
 ChromeSyncClient::CreateModelWorkerForGroup(syncer::ModelSafeGroup group) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   switch (group) {
-    case syncer::GROUP_UI:
-      return new syncer::UIModelWorker(
-          base::CreateSingleThreadTaskRunner({BrowserThread::UI}));
     case syncer::GROUP_PASSIVE:
       return new syncer::PassiveModelWorker();
-    case syncer::GROUP_PASSWORD: {
-      // Note: This is only used for the directory implementation of passwords,
-      // not for USS, but only USS supports the account password store. So we
-      // can safely ignore the account store here.
-      if (!profile_password_store_.get())
-        return nullptr;
-      return new PasswordModelWorker(profile_password_store_);
-    }
     default:
       return nullptr;
   }

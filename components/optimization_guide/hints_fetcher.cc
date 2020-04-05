@@ -31,11 +31,6 @@ namespace optimization_guide {
 
 namespace {
 
-// The duration that hosts placed in the HintsFetcherHostsSuccessfullyFetched
-// dictionary pref are considered valid.
-constexpr base::TimeDelta kHintsFetcherHostFetchedValidDuration =
-    base::TimeDelta::FromDays(7);
-
 // Returns the string that can be used to record histograms for the request
 // context.
 //
@@ -61,6 +56,10 @@ std::string GetStringNameForRequestContext(
 std::vector<GURL> GetValidURLsForFetching(const std::vector<GURL>& urls) {
   std::vector<GURL> valid_urls;
   for (const auto& url : urls) {
+    if (valid_urls.size() >=
+        features::MaxUrlsForOptimizationGuideServiceHintsFetch()) {
+      break;
+    }
     if (IsValidURLForURLKeyedHint(url))
       valid_urls.push_back(url);
   }
@@ -92,7 +91,17 @@ HintsFetcher::HintsFetcher(
   DCHECK(features::IsRemoteFetchingEnabled());
 }
 
-HintsFetcher::~HintsFetcher() {}
+HintsFetcher::~HintsFetcher() {
+  if (active_url_loader_) {
+    if (hints_fetched_callback_)
+      std::move(hints_fetched_callback_).Run(base::nullopt);
+    base::UmaHistogramExactLinear(
+        "OptimizationGuide.HintsFetcher.GetHintsRequest."
+        "ActiveRequestCanceled." +
+            GetStringNameForRequestContext(request_context_),
+        1, 1);
+  }
+}
 
 // static
 void HintsFetcher::ClearHostsSuccessfullyFetched(PrefService* pref_service) {
@@ -164,6 +173,8 @@ bool HintsFetcher::FetchOptimizationGuideServiceHints(
 
   DCHECK_GE(features::MaxHostsForOptimizationGuideServiceHintsFetch(),
             filtered_hosts.size());
+  DCHECK_GE(features::MaxUrlsForOptimizationGuideServiceHintsFetch(),
+            valid_urls.size());
 
   if (optimization_types.empty()) {
     RecordRequestStatusHistogram(
@@ -232,6 +243,9 @@ bool HintsFetcher::FetchOptimizationGuideServiceHints(
   UMA_HISTOGRAM_COUNTS_100(
       "OptimizationGuide.HintsFetcher.GetHintsRequest.HostCount",
       filtered_hosts.size());
+  UMA_HISTOGRAM_COUNTS_100(
+      "OptimizationGuide.HintsFetcher.GetHintsRequest.UrlCount",
+      valid_urls.size());
 
   // |active_url_loader_| should not retry on 5xx errors since the server may
   // already be overloaded. |active_url_loader_| should retry on network changes
@@ -241,6 +255,9 @@ bool HintsFetcher::FetchOptimizationGuideServiceHints(
   active_url_loader_->SetRetryOptions(
       kMaxRetries, network::SimpleURLLoader::RETRY_ON_NETWORK_CHANGE);
 
+  // It's safe to use |base::Unretained(this)| here because |this| owns
+  // |active_url_loader_| and the callback will be canceled if
+  // |active_url_loader_| is destroyed.
   active_url_loader_->DownloadToStringOfUnboundedSizeUntilCrashAndDie(
       url_loader_factory_.get(),
       base::BindOnce(&HintsFetcher::OnURLLoadComplete, base::Unretained(this)));
@@ -281,7 +298,13 @@ void HintsFetcher::HandleResponse(const std::string& get_hints_response_data,
         "OptimizationGuide.HintsFetcher.GetHintsRequest.FetchLatency." +
             GetStringNameForRequestContext(request_context_),
         fetch_latency);
-    UpdateHostsSuccessfullyFetched();
+    base::TimeDelta valid_duration =
+        features::StoredFetchedHintsFreshnessDuration();
+    if (get_hints_response->has_max_cache_duration()) {
+      valid_duration = base::TimeDelta::FromSeconds(
+          get_hints_response->max_cache_duration().seconds());
+    }
+    UpdateHostsSuccessfullyFetched(valid_duration);
     RecordRequestStatusHistogram(request_context_,
                                  HintsFetcherRequestStatus::kSuccess);
     std::move(hints_fetched_callback_).Run(std::move(get_hints_response));
@@ -293,7 +316,8 @@ void HintsFetcher::HandleResponse(const std::string& get_hints_response_data,
   }
 }
 
-void HintsFetcher::UpdateHostsSuccessfullyFetched() {
+void HintsFetcher::UpdateHostsSuccessfullyFetched(
+    base::TimeDelta valid_duration) {
   DictionaryPrefUpdate hosts_fetched_list(
       pref_service_, prefs::kHintsFetcherHostsSuccessfullyFetched);
 
@@ -331,8 +355,7 @@ void HintsFetcher::UpdateHostsSuccessfullyFetched() {
   }
 
   // Add the covered hosts in |hosts_fetched_| to the dictionary pref.
-  base::Time host_invalid_time =
-      time_clock_->Now() + kHintsFetcherHostFetchedValidDuration;
+  base::Time host_invalid_time = time_clock_->Now() + valid_duration;
   for (const std::string& host : hosts_fetched_) {
     hosts_fetched_list->SetDoubleKey(
         HashHostForDictionary(host),
@@ -343,6 +366,7 @@ void HintsFetcher::UpdateHostsSuccessfullyFetched() {
   hosts_fetched_.clear();
 }
 
+// Callback is only invoked if |active_url_loader_| is bound and still alive.
 void HintsFetcher::OnURLLoadComplete(
     std::unique_ptr<std::string> response_body) {
   SEQUENCE_CHECKER(sequence_checker_);

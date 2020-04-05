@@ -152,8 +152,8 @@ SuggestionInfosWithNodeAndHighlightColor ComputeSuggestionInfos(
 
   Vector<TextSuggestionInfo>& suggestion_infos =
       suggestion_infos_with_node_and_highlight_color.suggestion_infos;
-  for (const std::pair<const Text*, DocumentMarker*>& node_marker_pair :
-       node_suggestion_marker_pairs_sorted_by_length) {
+  for (const std::pair<Member<const Text>, Member<DocumentMarker>>&
+           node_marker_pair : node_suggestion_marker_pairs_sorted_by_length) {
     if (node_marker_pair.first !=
         suggestion_infos_with_node_and_highlight_color.text_node)
       continue;
@@ -161,7 +161,7 @@ SuggestionInfosWithNodeAndHighlightColor ComputeSuggestionInfos(
     if (suggestion_infos.size() == max_number_of_suggestions)
       break;
 
-    const auto* marker = To<SuggestionMarker>(node_marker_pair.second);
+    const auto* marker = To<SuggestionMarker>(node_marker_pair.second.Get());
     const Vector<String>& marker_suggestions = marker->Suggestions();
     for (wtf_size_t suggestion_index = 0;
          suggestion_index < marker_suggestions.size(); ++suggestion_index) {
@@ -197,7 +197,7 @@ TextSuggestionController::TextSuggestionController(LocalFrame& frame)
 
 void TextSuggestionController::DidAttachDocument(Document* document) {
   DCHECK(document);
-  SetContext(document);
+  SetExecutionContext(document->ToExecutionContext());
 }
 
 bool TextSuggestionController::IsMenuOpen() const {
@@ -206,8 +206,18 @@ bool TextSuggestionController::IsMenuOpen() const {
 
 void TextSuggestionController::HandlePotentialSuggestionTap(
     const PositionInFlatTree& caret_position) {
+  if (!IsAvailable()) {
+    // TODO(crbug.com/1054955): We should fix caller not to make this happens.
+    NOTREACHED();
+    return;
+  }
+  if (GetFrame() != GetDocument().GetFrame()) {
+    // TODO(crbug.com/1054955): We should fix caller not to make this happens.
+    NOTREACHED();
+    return;
+  }
   // TODO(crbug.com/779126): add support for suggestions in immersive mode.
-  if (GetDocument().GetSettings()->GetImmersiveModeEnabled())
+  if (GetFrame().GetSettings()->GetImmersiveModeEnabled())
     return;
 
   // It's theoretically possible, but extremely unlikely, that the user has
@@ -243,7 +253,7 @@ void TextSuggestionController::HandlePotentialSuggestionTap(
 
 void TextSuggestionController::Trace(Visitor* visitor) {
   visitor->Trace(frame_);
-  DocumentShutdownObserver::Trace(visitor);
+  ExecutionContextLifecycleObserver::Trace(visitor);
 }
 
 void TextSuggestionController::ReplaceActiveSuggestionRange(
@@ -525,11 +535,11 @@ void TextSuggestionController::CallMojoShowTextSuggestionMenu(
 
 Document& TextSuggestionController::GetDocument() const {
   DCHECK(IsAvailable());
-  return *LifecycleContext();
+  return *Document::From(GetExecutionContext());
 }
 
 bool TextSuggestionController::IsAvailable() const {
-  return LifecycleContext();
+  return GetExecutionContext();
 }
 
 LocalFrame& TextSuggestionController::GetFrame() const {
@@ -614,7 +624,8 @@ void TextSuggestionController::ReplaceRangeWithText(const EphemeralRange& range,
   // available or not.
   // TODO(editing-dev): The use of UpdateStyleAndLayout
   // needs to be audited.  See http://crbug.com/590369 for more details.
-  GetFrame().GetDocument()->UpdateStyleAndLayout();
+  GetFrame().GetDocument()->UpdateStyleAndLayout(
+      DocumentUpdateReason::kSpellCheck);
 
   // Dispatch 'beforeinput'.
   Element* const target = FindEventTargetFrom(
@@ -636,7 +647,8 @@ void TextSuggestionController::ReplaceRangeWithText(const EphemeralRange& range,
 
   // TODO(editing-dev): The use of UpdateStyleAndLayout
   // needs to be audited.  See http://crbug.com/590369 for more details.
-  GetFrame().GetDocument()->UpdateStyleAndLayout();
+  GetFrame().GetDocument()->UpdateStyleAndLayout(
+      DocumentUpdateReason::kSpellCheck);
 
   if (is_canceled)
     return;

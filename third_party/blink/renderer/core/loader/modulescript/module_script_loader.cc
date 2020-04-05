@@ -143,6 +143,9 @@ void ModuleScriptLoader::FetchInternal(
   // https://fetch.spec.whatwg.org/#concept-request-initiator
   options.initiator_info.name = g_empty_atom;
 
+  // TODO(crbug.com/1064920): Remove this once PlzDedicatedWorker ships.
+  options.reject_coep_unsafe_none = options_.GetRejectCoepUnsafeNone();
+
   if (level == ModuleGraphLevel::kDependentModuleFetch) {
     options.initiator_info.imported_module_referrer =
         module_request.ReferrerString();
@@ -150,7 +153,7 @@ void ModuleScriptLoader::FetchInternal(
   }
 
   // Note: |options| should not be modified after here.
-  FetchParameters fetch_params(resource_request, options);
+  FetchParameters fetch_params(std::move(resource_request), options);
 
   // <spec label="SMSR">... its integrity metadata to options's integrity
   // metadata, ...</spec>
@@ -213,9 +216,10 @@ void ModuleScriptLoader::FetchInternal(
   // steps. Otherwise, fetch request. Return from this algorithm, and run the
   // remaining steps as part of the fetch's process response for the response
   // response.</spec>
-  module_fetcher_ = modulator_->CreateModuleScriptFetcher(custom_fetch_type);
+  module_fetcher_ =
+      modulator_->CreateModuleScriptFetcher(custom_fetch_type, PassKey());
   module_fetcher_->Fetch(fetch_params, fetch_client_settings_object_fetcher,
-                         modulator_, level, this);
+                         level, this);
 }
 
 // <specdef href="https://html.spec.whatwg.org/C/#fetch-a-single-module-script">
@@ -275,7 +279,7 @@ void ModuleScriptLoader::NotifyFetchFinished(
   AdvanceState(State::kFinished);
 }
 
-void ModuleScriptLoader::Trace(blink::Visitor* visitor) {
+void ModuleScriptLoader::Trace(Visitor* visitor) {
   visitor->Trace(modulator_);
   visitor->Trace(module_script_);
   visitor->Trace(registry_);

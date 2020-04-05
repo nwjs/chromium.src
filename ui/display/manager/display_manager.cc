@@ -35,6 +35,7 @@
 #include "ui/display/manager/display_layout_store.h"
 #include "ui/display/manager/managed_display_info.h"
 #include "ui/display/screen.h"
+#include "ui/display/types/display_snapshot.h"
 #include "ui/gfx/font_render_params.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/size_conversions.h"
@@ -735,7 +736,7 @@ void DisplayManager::OnNativeDisplaysChanged(
     const DisplayInfoList& updated_displays) {
   if (updated_displays.empty()) {
     VLOG(1) << __func__
-             << "(0): # of current displays=" << active_display_list_.size();
+            << "(0): # of current displays=" << active_display_list_.size();
     // If the device is booted without display, or chrome is started
     // without --ash-host-window-bounds on linux desktop, use the
     // default display.
@@ -841,18 +842,20 @@ void DisplayManager::OnNativeDisplaysChanged(
 #if defined(OS_CHROMEOS)
   if (!configure_displays_ && new_display_info_list.size() > 1 &&
       hardware_mirroring_display_id_list.empty()) {
-    // Mirror mode is set by DisplayConfigurator on the device. Emulate it when
-    // running on linux desktop. Do not emulate it when hardware mirroring is
-    // on (This only happens in test).
     DisplayIdList list = GenerateDisplayIdList(
         new_display_info_list.begin(), new_display_info_list.end(),
         [](const ManagedDisplayInfo& display_info) {
           return display_info.id();
         });
+    // Mirror mode is set by DisplayConfigurator on the device. Emulate it when
+    // running on linux desktop.  Carry over HW mirroring state only in unified
+    // desktop so that it can switch to software mirroring to avoid exiting
+    // unified desktop.
+    // Note that this is only for testing.
     bool should_enable_software_mirroring =
         base::CommandLine::ForCurrentProcess()->HasSwitch(
             ::switches::kEnableSoftwareMirroring) ||
-        ShouldSetMirrorModeOn(list);
+        ShouldSetMirrorModeOn(list, unified_desktop_enabled_);
     SetSoftwareMirroring(should_enable_software_mirroring);
   }
 #endif
@@ -1131,6 +1134,22 @@ const Display& DisplayManager::GetPrimaryDisplayCandidate() const {
   return GetDisplayForId(layout.primary_id);
 }
 
+// static
+const Display& DisplayManager::GetFakePrimaryDisplay() {
+  static Display* fake_display = nullptr;
+  if (!fake_display) {
+    fake_display = new Display(Display::GetDefaultDisplay());
+    // Note that if an inappropriate gfx::BufferFormat is specified in the
+    // gfx::DisplayColorSpaces of the fake display, this can sometimes
+    // propagate to allocation code and cause errors.
+    // https://crbug.com/1057501
+    gfx::DisplayColorSpaces display_color_spaces(
+        gfx::ColorSpace::CreateSRGB(), DisplaySnapshot::PrimaryFormat());
+    fake_display->set_color_spaces(display_color_spaces);
+  }
+  return *fake_display;
+}
+
 size_t DisplayManager::GetNumDisplays() const {
   return active_display_list_.size();
 }
@@ -1282,7 +1301,9 @@ std::string DisplayManager::GetDisplayNameForId(int64_t id) const {
   return base::StringPrintf("Display %d", static_cast<int>(id));
 }
 
-bool DisplayManager::ShouldSetMirrorModeOn(const DisplayIdList& new_id_list) {
+bool DisplayManager::ShouldSetMirrorModeOn(
+    const DisplayIdList& new_id_list,
+    bool should_check_hardware_mirroring) {
   DCHECK(new_id_list.size() > 1);
   if (layout_store_->forced_mirror_mode_for_tablet())
     return true;
@@ -1312,7 +1333,8 @@ bool DisplayManager::ShouldSetMirrorModeOn(const DisplayIdList& new_id_list) {
   }
   // Mirror mode should remain unchanged as long as there are more than one
   // connected displays.
-  return IsInMirrorMode();
+  return IsInSoftwareMirrorMode() ||
+         (should_check_hardware_mirroring && IsInHardwareMirrorMode());
 }
 
 void DisplayManager::SetMirrorMode(
@@ -2042,7 +2064,7 @@ Display DisplayManager::CreateDisplayFromDisplayInfoById(int64_t id) {
   new_display.set_panel_rotation(display_info.GetLogicalActiveRotation());
   new_display.set_touch_support(display_info.touch_support());
   new_display.set_maximum_cursor_size(display_info.maximum_cursor_size());
-  new_display.SetColorSpaceAndDepth(display_info.color_space());
+  new_display.set_color_spaces(display_info.display_color_spaces());
   constexpr uint32_t kNormalBitDepthNumBitsPerChannel = 8u;
   if (display_info.bits_per_channel() > kNormalBitDepthNumBitsPerChannel) {
     new_display.set_depth_per_component(display_info.bits_per_channel());
@@ -2164,13 +2186,6 @@ void DisplayManager::AddObserver(DisplayObserver* observer) {
 
 void DisplayManager::RemoveObserver(DisplayObserver* observer) {
   observers_.RemoveObserver(observer);
-}
-
-const Display& DisplayManager::GetSecondaryDisplay() const {
-  CHECK_LE(2U, GetNumDisplays());
-  return GetDisplayAt(0).id() == Screen::GetScreen()->GetPrimaryDisplay().id()
-             ? GetDisplayAt(1)
-             : GetDisplayAt(0);
 }
 
 void DisplayManager::UpdateInfoForRestoringMirrorMode() {

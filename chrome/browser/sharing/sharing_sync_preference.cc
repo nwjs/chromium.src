@@ -82,10 +82,10 @@ base::Value SharingInfoToValue(const syncer::DeviceInfo::SharingInfo& device) {
   // bit-mask to be readable by legacy devices. New features won't be included.
   int capabilities = 0;
   if (device.enabled_features.count(
-          sync_pb::SharingSpecificFields::CLICK_TO_CALL))
+          sync_pb::SharingSpecificFields::CLICK_TO_CALL_V2))
     capabilities |= kClickToCall;
   if (device.enabled_features.count(
-          sync_pb::SharingSpecificFields::SHARED_CLIPBOARD))
+          sync_pb::SharingSpecificFields::SHARED_CLIPBOARD_V2))
     capabilities |= kSharedClipboard;
 
   base::Value result = TargetInfoToValue(device.vapid_target_info);
@@ -155,9 +155,6 @@ void SharingSyncPreference::RegisterProfilePrefs(
 // static
 base::Optional<syncer::DeviceInfo::SharingInfo>
 SharingSyncPreference::GetLocalSharingInfoForSync(PrefService* prefs) {
-  if (!base::FeatureList::IsEnabled(kSharingUseDeviceInfo))
-    return base::nullopt;
-
   return GetLocalSharingInfo(prefs);
 }
 
@@ -262,9 +259,9 @@ SharingSyncPreference::GetEnabledFeatures(
   // Legacy device store EnabledFeatures as bit-mask. They won't support new
   // features.
   if ((*capabilities & kClickToCall) == kClickToCall)
-    enabled_features.insert(SharingSpecificFields::CLICK_TO_CALL);
+    enabled_features.insert(SharingSpecificFields::CLICK_TO_CALL_V2);
   if ((*capabilities & kSharedClipboard) == kSharedClipboard)
-    enabled_features.insert(SharingSpecificFields::SHARED_CLIPBOARD);
+    enabled_features.insert(SharingSpecificFields::SHARED_CLIPBOARD_V2);
 
   return enabled_features;
 }
@@ -389,8 +386,7 @@ void SharingSyncPreference::SetLocalSharingInfo(
   local_sharing_info_update->SetKey(kSharingInfoEnabledFeatures,
                                     std::move(list_value));
 
-  if (base::FeatureList::IsEnabled(kSharingUseDeviceInfo))
-    device_info_sync_service_->RefreshLocalDeviceInfo();
+  device_info_sync_service_->RefreshLocalDeviceInfo();
 }
 
 void SharingSyncPreference::ClearLocalSharingInfo() {
@@ -405,10 +401,15 @@ void SharingSyncPreference::ClearLocalSharingInfo() {
   // Update prefs::kSharingLocalSharingInfo to clear local cache.
   prefs_->ClearPref(prefs::kSharingLocalSharingInfo);
 
-  if (base::FeatureList::IsEnabled(kSharingUseDeviceInfo) &&
-      device_info->sharing_info()) {
+  if (device_info->sharing_info()) {
     device_info_sync_service_->RefreshLocalDeviceInfo();
   }
+}
+
+void SharingSyncPreference::SetDeviceInfoTrackerForTesting(
+    syncer::DeviceInfoTracker* tracker) {
+  DCHECK(tracker);
+  device_info_tracker_ = tracker;
 }
 
 // static

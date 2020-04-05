@@ -7,14 +7,17 @@
 
 #include <map>
 #include <string>
+#include <utility>
 
 #include "base/containers/flat_set.h"
-#include "chrome/browser/permissions/chooser_context_base.h"
+#include "components/permissions/chooser_context_base.h"
 #include "device/bluetooth/bluetooth_adapter.h"
 #include "device/bluetooth/bluetooth_device.h"
 #include "device/bluetooth/public/cpp/bluetooth_uuid.h"
 #include "third_party/blink/public/common/bluetooth/web_bluetooth_device_id.h"
 #include "third_party/blink/public/mojom/bluetooth/web_bluetooth.mojom-forward.h"
+
+class Profile;
 
 namespace base {
 class Value;
@@ -30,7 +33,7 @@ class Origin;
 // and is unique for a given Bluetooth device address and origin pair, so this
 // class stores this mapping and provides utility methods to convert between
 // the WebBluetoothDeviceId and Bluetooth device address.
-class BluetoothChooserContext : public ChooserContextBase {
+class BluetoothChooserContext : public permissions::ChooserContextBase {
  public:
   explicit BluetoothChooserContext(Profile* profile);
   ~BluetoothChooserContext() override;
@@ -61,7 +64,7 @@ class BluetoothChooserContext : public ChooserContextBase {
       const url::Origin& requesting_origin,
       const url::Origin& embedding_origin,
       const device::BluetoothDevice* device,
-      const blink::mojom::WebBluetoothRequestDeviceOptionsPtr& options);
+      const blink::mojom::WebBluetoothRequestDeviceOptions* options);
   bool HasDevicePermission(const url::Origin& requesting_origin,
                            const url::Origin& embedding_origin,
                            const blink::WebBluetoothDeviceId& device_id);
@@ -74,9 +77,12 @@ class BluetoothChooserContext : public ChooserContextBase {
                                 const blink::WebBluetoothDeviceId& device_id,
                                 device::BluetoothUUID service);
 
- protected:
-  // ChooserContextBase implementation;
+  static blink::WebBluetoothDeviceId GetObjectDeviceId(
+      const base::Value& object);
+
+  // ChooserContextBase;
   bool IsValidObject(const base::Value& object) override;
+  base::string16 GetObjectDisplayName(const base::Value& object) override;
 
  private:
   // This map records the generated Web Bluetooth IDs for devices discovered via

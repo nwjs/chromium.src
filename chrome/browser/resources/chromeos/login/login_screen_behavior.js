@@ -7,6 +7,8 @@
  * 'LoginScreenBehavior' is login.Screen API implementation for Polymer objects.
  */
 
+const CALLBACK_USER_ACTED = 'userActed';
+
 /** @polymerBehavior */
 var LoginScreenBehavior = {
   // List of methods exported to login.screenName.<method> API.
@@ -34,10 +36,21 @@ var LoginScreenBehavior = {
         api[methodName] = this[methodName].bind(this);
       }
     }
+    this.sendPrefix_ = 'login.' + screenName + '.';
     this.registerScreenApi_(screenName, api);
     Oobe.getInstance().registerScreen(this, attributes);
   },
 
+
+  sendPrefix_: undefined,
+
+  userActed(action_id) {
+    if (this.sendPrefix_ === undefined) {
+      console.error('LoginScreenBehavior: send prefix is not defined');
+      return;
+    }
+    chrome.send(this.sendPrefix_ + CALLBACK_USER_ACTED, [action_id]);
+  },
 
   /* ******************  Default screen API below.  ********************** */
 
@@ -65,6 +78,15 @@ var LoginScreenBehavior = {
    */
   getPreferredSize() {
     return {width: this.offsetWidth, height: this.offsetHeight};
+  },
+
+  /**
+   * Returns UI state to be used when showing this screen. Default
+   * implementation returns OOBE_UI_STATE.HIDDEN.
+   * @return number} The state (see OOBE_UI_STATE) of the OOBE UI.
+   */
+  getOobeUIInitialState() {
+    return OOBE_UI_STATE.HIDDEN;
   },
 
   /**

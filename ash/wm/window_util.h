@@ -112,6 +112,20 @@ ASH_EXPORT bool IsArcPipWindow(const aura::Window* window);
 // Expands the Android PIP window.
 ASH_EXPORT void ExpandArcPipWindow();
 
+// Returns true if any window is being dragged, or we are in overview mode and
+// an item is being dragged around.
+bool IsAnyWindowDragged();
+
+// Returns the top window on MRU window list, or null if the list is empty.
+aura::Window* GetTopWindow();
+
+// Returns whether the top window should be minimized on back action.
+ASH_EXPORT bool ShouldMinimizeTopWindowOnBack();
+
+// Sends |ui::VKEY_BROWSER_BACK| key press and key release event to the
+// WindowTreeHost associated with |root_window|.
+void SendBackKeyEvent(aura::Window* root_window);
+
 }  // namespace window_util
 }  // namespace ash
 

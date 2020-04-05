@@ -5,6 +5,7 @@
 package org.chromium.weblayer;
 
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.os.Build;
@@ -14,6 +15,7 @@ import android.os.RemoteException;
 import android.support.v4.app.Fragment;
 import android.util.AndroidRuntimeException;
 import android.util.Log;
+import android.util.Pair;
 import android.webkit.ValueCallback;
 
 import androidx.annotation.NonNull;
@@ -25,20 +27,21 @@ import org.chromium.weblayer_private.interfaces.IBrowserFragment;
 import org.chromium.weblayer_private.interfaces.IProfile;
 import org.chromium.weblayer_private.interfaces.IRemoteFragmentClient;
 import org.chromium.weblayer_private.interfaces.IWebLayer;
+import org.chromium.weblayer_private.interfaces.IWebLayerClient;
 import org.chromium.weblayer_private.interfaces.IWebLayerFactory;
 import org.chromium.weblayer_private.interfaces.ObjectWrapper;
+import org.chromium.weblayer_private.interfaces.StrictModeWorkaround;
 
 import java.io.File;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
 
 /**
  * WebLayer is responsible for initializing state necessary to use any of the classes in web layer.
  */
-public final class WebLayer {
+public class WebLayer {
     private static final String TAG = "WebLayer";
     // This metadata key, if defined, overrides the default behaviour of loading WebLayer from the
     // current WebView implementation. This is only intended for testing, and does not enforce any
@@ -59,18 +62,12 @@ public final class WebLayer {
     @NonNull
     private final IWebLayer mImpl;
 
-    private static WebViewCompatibilityHelper sWebViewCompatHelper;
+    private static ClassLoader sWebViewCompatClassLoader;
 
     /** The result of calling {@link #initializeWebViewCompatibilityMode}. */
     public enum WebViewCompatibilityResult {
-        /** Native libs were copied to data directory. */
-        SUCCESS_COPIED,
-
-        /** Correct libs have already been copied, or symlinks were used. */
-        SUCCESS_CACHED,
-
-        /** IOException was thrown, could mean there is not enough disk space. */
-        FAILURE_IO_ERROR,
+        /** Compatibility mode has been successfully set up. */
+        SUCCESS,
 
         /** This version of the WebLayer implementation does not support WebView compatibility. */
         FAILURE_UNSUPPORTED_VERSION,
@@ -100,18 +97,24 @@ public final class WebLayer {
         }
     }
 
-    /**
-     * Performs initialization needed to run WebView and WebLayer in the same process. This should
-     * be called as early as possible if this functionality is needed.
-     *
-     * @param appContext The hosting application's Context.
-     * @param baseDir The directory to copy any necessary files into.
-     * @param callback Callback called on success or failure.
-     */
+    /** Deprecated. Use initializeWebViewCompatibilityMode(Context) instead. */
     public static void initializeWebViewCompatibilityMode(@NonNull Context appContext,
             @NonNull File baseDir, @NonNull Callback<WebViewCompatibilityResult> callback) {
+        WebViewCompatibilityResult result = initializeWebViewCompatibilityMode(appContext);
+        if (callback != null) {
+            callback.onResult(result);
+        }
+    }
+
+    /**
+     * Performs initialization needed to run WebView and WebLayer in the same process.
+     *
+     * @param appContext The hosting application's Context.
+     */
+    public static WebViewCompatibilityResult initializeWebViewCompatibilityMode(
+            @NonNull Context appContext) {
         ThreadCheck.ensureOnUiThread();
-        if (sWebViewCompatHelper != null) {
+        if (sWebViewCompatClassLoader != null) {
             throw new AndroidRuntimeException(
                     "initializeWebViewCompatibilityMode() has already been called.");
         }
@@ -121,13 +124,14 @@ public final class WebLayer {
                     + "loaded.");
         }
         try {
-            sWebViewCompatHelper = WebViewCompatibilityHelper.initialize(
-                    appContext, getOrCreateRemoteContext(appContext), baseDir, callback);
+            Pair<ClassLoader, WebLayer.WebViewCompatibilityResult> result =
+                    WebViewCompatibilityHelper.initialize(
+                            appContext, getOrCreateRemoteContext(appContext));
+            sWebViewCompatClassLoader = result.first;
+            return result.second;
         } catch (Exception e) {
-            if (callback != null) {
-                callback.onResult(WebViewCompatibilityResult.FAILURE_OTHER);
-            }
             Log.e(TAG, "Unable to initialize WebView compatibility", e);
+            return WebViewCompatibilityResult.FAILURE_OTHER;
         }
     }
 
@@ -196,7 +200,7 @@ public final class WebLayer {
      *
      * @return the supported version, or -1 if WebLayer is not available.
      */
-    public static int getSupportedMajorVersion(Context context) {
+    public static int getSupportedMajorVersion(@NonNull Context context) {
         ThreadCheck.ensureOnUiThread();
         context = context.getApplicationContext();
         return getWebLayerLoader(context).getMajorVersion();
@@ -223,7 +227,8 @@ public final class WebLayer {
      * string such as "79.0.3945.0", while {@link getSupportedMajorVersion} will only return the
      * major version integer (79 in the example).
      */
-    public static String getSupportedFullVersion(Context context) {
+    @NonNull
+    public static String getSupportedFullVersion(@NonNull Context context) {
         ThreadCheck.ensureOnUiThread();
         context = context.getApplicationContext();
         return getWebLayerLoader(context).getVersion();
@@ -233,6 +238,7 @@ public final class WebLayer {
      * Returns the Chrome version this client was built at. This will return a full version string
      * such as "79.0.3945.0".
      */
+    @NonNull
     public static String getVersion() {
         ThreadCheck.ensureOnUiThread();
         return WebLayerClientVersionConstants.PRODUCT_VERSION;
@@ -265,27 +271,24 @@ public final class WebLayer {
             int majorVersion = -1;
             String version = "<unavailable>";
             try {
-                if (sWebViewCompatHelper != null) {
-                    remoteClassLoader = sWebViewCompatHelper.getWebLayerClassLoader();
+                if (sWebViewCompatClassLoader != null) {
+                    remoteClassLoader = sWebViewCompatClassLoader;
                 }
                 if (remoteClassLoader == null) {
                     remoteClassLoader = getOrCreateRemoteContext(appContext).getClassLoader();
                 }
                 Class factoryClass = remoteClassLoader.loadClass(
                         "org.chromium.weblayer_private.WebLayerFactoryImpl");
-                // NOTE: the 20 comes from the previous scheme of incrementing versioning. It must
-                // remain at 20 for Chrome version 79.
-                // TODO(https://crbug.com/1031830): change 20 to -1 when tip of tree is at 83.
                 mFactory = IWebLayerFactory.Stub.asInterface(
                         (IBinder) factoryClass
                                 .getMethod("create", String.class, int.class, int.class)
                                 .invoke(null, WebLayerClientVersionConstants.PRODUCT_VERSION,
-                                        WebLayerClientVersionConstants.PRODUCT_MAJOR_VERSION, 20));
+                                        WebLayerClientVersionConstants.PRODUCT_MAJOR_VERSION, -1));
                 available = mFactory.isClientSupported();
                 majorVersion = mFactory.getImplementationMajorVersion();
                 version = mFactory.getImplementationVersion();
             } catch (PackageManager.NameNotFoundException | ReflectiveOperationException
-                    | RemoteException | ExecutionException | InterruptedException e) {
+                    | RemoteException e) {
                 Log.e(TAG, "Unable to create WebLayerFactory", e);
             }
             mAvailable = available;
@@ -389,8 +392,21 @@ public final class WebLayer {
         }
     }
 
+    // Constructor for test mocking.
+    protected WebLayer() {
+        mImpl = null;
+    }
+
     private WebLayer(IWebLayer iWebLayer) {
         mImpl = iWebLayer;
+
+        if (getSupportedMajorVersionInternal() >= 83) {
+            try {
+                mImpl.setClient(new WebLayerClientImpl());
+            } catch (RemoteException e) {
+                throw new APICallException(e);
+            }
+        }
     }
 
     /**
@@ -409,6 +425,25 @@ public final class WebLayer {
             throw new APICallException(e);
         }
         return Profile.of(iprofile);
+    }
+
+    /**
+     * Return a list of Profile names currently on disk. This will not include the incognito
+     * profile. This will not include profiles that are being deleted from disk.
+     * WebLayer must be initialized before calling this.
+     * @since 82
+     */
+    public void enumerateAllProfileNames(@NonNull Callback<String[]> callback) {
+        ThreadCheck.ensureOnUiThread();
+        if (getSupportedMajorVersionInternal() < 82) {
+            throw new UnsupportedOperationException();
+        }
+        try {
+            ValueCallback<String[]> valueCallback = (String[] value) -> callback.onResult(value);
+            mImpl.enumerateAllProfileNames(ObjectWrapper.wrap(valueCallback));
+        } catch (RemoteException e) {
+            throw new APICallException(e);
+        }
     }
 
     /**
@@ -460,6 +495,7 @@ public final class WebLayer {
      *
      * @since 81
      */
+    @NonNull
     public static Fragment createBrowserFragment(
             @Nullable String profileName, @Nullable String persistenceId) {
         ThreadCheck.ensureOnUiThread();
@@ -561,5 +597,16 @@ public final class WebLayer {
                                   .metaData;
         if (metaData != null) return metaData.getString(PACKAGE_MANIFEST_KEY);
         return null;
+    }
+
+    private final class WebLayerClientImpl extends IWebLayerClient.Stub {
+        @Override
+        public Intent createIntent() {
+            StrictModeWorkaround.apply();
+            // Intent objects need to be created in the client library so they can refer to the
+            // broadcast receiver that will handle them. The broadcast receiver needs to be in the
+            // client library because it's referenced in the manifest.
+            return new Intent(WebLayer.getAppContext(), DownloadBroadcastReceiver.class);
+        }
     }
 }

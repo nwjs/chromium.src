@@ -6,8 +6,10 @@
 #import "ios/chrome/browser/ui/infobars/coordinators/infobar_coordinator+subclassing.h"
 
 #include "base/mac/foundation_util.h"
+#import "ios/chrome/browser/main/browser.h"
 #import "ios/chrome/browser/ui/fullscreen/animated_scoped_fullscreen_disabler.h"
 #import "ios/chrome/browser/ui/fullscreen/fullscreen_controller.h"
+#import "ios/chrome/browser/ui/fullscreen/fullscreen_features.h"
 #import "ios/chrome/browser/ui/infobars/banners/infobar_banner_accessibility_util.h"
 #import "ios/chrome/browser/ui/infobars/banners/infobar_banner_presentation_state.h"
 #import "ios/chrome/browser/ui/infobars/coordinators/infobar_coordinator_implementation.h"
@@ -25,11 +27,6 @@
 #if !defined(__has_feature) || !__has_feature(objc_arc)
 #error "This file requires ARC support."
 #endif
-
-namespace {
-// Banner View constant.
-const CGFloat kBannerOverlapWithOmnibox = 5.0;
-}  // namespace
 
 @interface InfobarCoordinator () <InfobarCoordinatorImplementation,
                                   InfobarBannerPositioner,
@@ -63,7 +60,7 @@ const CGFloat kBannerOverlapWithOmnibox = 5.0;
 // Synthesize since readonly property from superclass is changed to readwrite.
 @synthesize baseViewController = _baseViewController;
 // Synthesize since readonly property from superclass is changed to readwrite.
-@synthesize browserState = _browserState;
+@synthesize browser = _browser;
 // Property defined in InfobarUIDelegate.
 @synthesize delegate = _delegate;
 // Property defined in InfobarUIDelegate.
@@ -97,7 +94,7 @@ const CGFloat kBannerOverlapWithOmnibox = 5.0;
 
 - (void)presentInfobarBannerAnimated:(BOOL)animated
                           completion:(ProceduralBlock)completion {
-  DCHECK(self.browserState);
+  DCHECK(self.browser);
   DCHECK(self.baseViewController);
   DCHECK(self.bannerViewController);
   DCHECK(self.started);
@@ -109,9 +106,16 @@ const CGFloat kBannerOverlapWithOmnibox = 5.0;
   }
 
   // Make sure to display the Toolbar/s before presenting the Banner.
-  _animatedFullscreenDisabler =
-      std::make_unique<AnimatedScopedFullscreenDisabler>(
-          FullscreenController::FromBrowserState(self.browserState));
+  if (fullscreen::features::ShouldScopeFullscreenControllerToBrowser()) {
+    _animatedFullscreenDisabler =
+        std::make_unique<AnimatedScopedFullscreenDisabler>(
+            FullscreenController::FromBrowser(self.browser));
+  } else {
+    _animatedFullscreenDisabler =
+        std::make_unique<AnimatedScopedFullscreenDisabler>(
+            FullscreenController::FromBrowserState(
+                self.browser->GetBrowserState()));
+  }
   _animatedFullscreenDisabler->StartAnimation();
 
   [self.bannerViewController
@@ -128,24 +132,27 @@ const CGFloat kBannerOverlapWithOmnibox = 5.0;
   }
 
   self.infobarBannerState = InfobarBannerPresentationState::IsAnimating;
-  __weak __typeof(self) weakSelf = self;
   [self.baseViewController
       presentViewController:self.bannerViewController
                    animated:animated
                  completion:^{
-                   [weakSelf
-                       configureAccessibilityForBannerInViewController:
-                           weakSelf.baseViewController
-                                                            presenting:YES];
-                   weakSelf.bannerWasPresented = YES;
+                   // Capture self in order to make sure the animation dismisses
+                   // correctly in case the Coordinator gets stopped mid
+                   // presentation. This will also make sure some cleanup tasks
+                   // like configuring accessibility for the presenter VC are
+                   // performed successfully.
+                   [self configureAccessibilityForBannerInViewController:
+                             self.baseViewController
+                                                              presenting:YES];
+                   self.bannerWasPresented = YES;
                    // Set to NO for each Banner this coordinator might present.
-                   weakSelf.bannerIsBeingDismissed = NO;
-                   weakSelf.infobarBannerState =
+                   self.bannerIsBeingDismissed = NO;
+                   self.infobarBannerState =
                        InfobarBannerPresentationState::Presented;
-                   [weakSelf.badgeDelegate
-                       infobarBannerWasPresented:weakSelf.infobarType
-                                     forWebState:weakSelf.webState];
-                   [weakSelf infobarBannerWasPresented];
+                   [self.badgeDelegate
+                       infobarBannerWasPresented:self.infobarType
+                                     forWebState:self.webState];
+                   [self infobarBannerWasPresented];
                    if (completion)
                      completion();
                  }];
@@ -222,6 +229,9 @@ const CGFloat kBannerOverlapWithOmnibox = 5.0;
 #pragma mark InfobarBannerDelegate
 
 - (void)bannerInfobarButtonWasPressed:(id)sender {
+  if (!self.infobarDelegate)
+    return;
+
   [self performInfobarAction];
   // The Infobar action might be async, and the badge should not change until
   // the Infobar has been accepted.
@@ -256,6 +266,8 @@ const CGFloat kBannerOverlapWithOmnibox = 5.0;
 }
 
 - (void)infobarBannerWasDismissed {
+  DCHECK(self.infobarBannerState == InfobarBannerPresentationState::Presented);
+
   self.infobarBannerState = InfobarBannerPresentationState::NotPresented;
   [self configureAccessibilityForBannerInViewController:self.baseViewController
                                              presenting:NO];
@@ -281,10 +293,8 @@ const CGFloat kBannerOverlapWithOmnibox = 5.0;
                            view:self.baseViewController.view];
   UIView* omniboxView = omniboxGuide.owningView;
   CGRect omniboxFrame = [omniboxView convertRect:omniboxGuide.layoutFrame
-                                          toView:self.baseViewController.view];
-
-  return omniboxFrame.origin.y + omniboxFrame.size.height -
-         kBannerOverlapWithOmnibox;
+                                          toView:omniboxView.window];
+  return CGRectGetMaxY(omniboxFrame) - kInfobarBannerOverlapWithOmnibox;
 }
 
 - (UIView*)bannerView {
@@ -456,7 +466,7 @@ const CGFloat kBannerOverlapWithOmnibox = 5.0;
           self.bannerViewController) {
     self.bannerIsBeingDismissed = YES;
     [self infobarBannerWillBeDismissed:userInitiated];
-    [self.baseViewController dismissViewControllerAnimated:YES
+    [self.baseViewController dismissViewControllerAnimated:animated
                                                 completion:completion];
   } else if (completion) {
     completion();

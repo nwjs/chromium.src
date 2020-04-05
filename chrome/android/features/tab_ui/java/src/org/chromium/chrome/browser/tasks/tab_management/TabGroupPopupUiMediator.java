@@ -12,11 +12,15 @@ import org.chromium.chrome.browser.compositor.layouts.EmptyOverviewModeObserver;
 import org.chromium.chrome.browser.compositor.layouts.OverviewModeBehavior;
 import org.chromium.chrome.browser.fullscreen.ChromeFullscreenManager;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.EmptyTabModelObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
+import org.chromium.chrome.browser.widget.bottomsheet.BottomSheetController;
+import org.chromium.chrome.browser.widget.bottomsheet.BottomSheetObserver;
+import org.chromium.chrome.browser.widget.bottomsheet.EmptyBottomSheetObserver;
 import org.chromium.chrome.tab_ui.R;
 import org.chromium.ui.KeyboardVisibilityDelegate;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -48,18 +52,22 @@ public class TabGroupPopupUiMediator {
     private final KeyboardVisibilityDelegate.KeyboardVisibilityListener mKeyboardVisibilityListener;
     private final TabGroupPopUiUpdater mUiUpdater;
     private final TabGroupUiMediator.TabGroupUiController mTabGroupUiController;
+    private final BottomSheetController mBottomSheetController;
+    private final BottomSheetObserver mBottomSheetObserver;
 
     private boolean mIsOverviewModeVisible;
 
     TabGroupPopupUiMediator(PropertyModel model, TabModelSelector tabModelSelector,
             OverviewModeBehavior overviewModeBehavior, ChromeFullscreenManager fullscreenManager,
-            TabGroupPopUiUpdater updater, TabGroupUiMediator.TabGroupUiController controller) {
+            TabGroupPopUiUpdater updater, TabGroupUiMediator.TabGroupUiController controller,
+            BottomSheetController bottomSheetController) {
         mModel = model;
         mTabModelSelector = tabModelSelector;
         mOverviewModeBehavior = overviewModeBehavior;
         mFullscreenManager = fullscreenManager;
         mUiUpdater = updater;
         mTabGroupUiController = controller;
+        mBottomSheetController = bottomSheetController;
 
         mFullscreenListener = new ChromeFullscreenManager.FullscreenListener() {
             @Override
@@ -75,6 +83,23 @@ public class TabGroupPopupUiMediator {
 
         mTabModelObserver = new EmptyTabModelObserver() {
             @Override
+            public void didSelectTab(Tab tab, int type, int lastId) {
+                List<Tab> tabList = mTabModelSelector.getTabModelFilterProvider()
+                                            .getCurrentTabModelFilter()
+                                            .getRelatedTabList(lastId);
+                if (tabList.contains(tab)) return;
+                if (isCurrentTabInGroup()) {
+                    if (isTabStripShowing()) {
+                        mUiUpdater.updateTabGroupPopUi();
+                    } else {
+                        maybeShowTabStrip();
+                    }
+                } else {
+                    hideTabStrip();
+                }
+            }
+
+            @Override
             public void willCloseTab(Tab tab, boolean animate) {
                 if (!isCurrentTabInGroup()) {
                     hideTabStrip();
@@ -85,7 +110,7 @@ public class TabGroupPopupUiMediator {
             }
 
             @Override
-            public void didAddTab(Tab tab, int type) {
+            public void didAddTab(Tab tab, int type, @TabCreationState int creationState) {
                 if (isTabStripShowing()) {
                     mUiUpdater.updateTabGroupPopUi();
                     return;
@@ -143,6 +168,25 @@ public class TabGroupPopupUiMediator {
         KeyboardVisibilityDelegate.getInstance().addKeyboardVisibilityListener(
                 mKeyboardVisibilityListener);
 
+        mBottomSheetObserver = new EmptyBottomSheetObserver() {
+            private Boolean mWasShowingStrip;
+            @Override
+            public void onSheetStateChanged(int newState) {
+                if (newState == BottomSheetController.SheetState.HIDDEN) {
+                    if (mWasShowingStrip != null && mWasShowingStrip) {
+                        maybeShowTabStrip();
+                    }
+                    mWasShowingStrip = null;
+                } else {
+                    if (mWasShowingStrip == null) {
+                        mWasShowingStrip = isTabStripShowing();
+                    }
+                    hideTabStrip();
+                }
+            }
+        };
+        mBottomSheetController.addObserver(mBottomSheetObserver);
+
         // TODO(yuezhanggg): Reset the strip with empty tab list as well.
         mTabGroupUiController.setupLeftButtonOnClickListener(view -> hideTabStrip());
     }
@@ -198,6 +242,7 @@ public class TabGroupPopupUiMediator {
         mTabModelSelector.getTabModelFilterProvider().removeTabModelFilterObserver(
                 mTabModelObserver);
         mFullscreenManager.removeListener(mFullscreenListener);
+        mBottomSheetController.removeObserver(mBottomSheetObserver);
     }
 
     @VisibleForTesting

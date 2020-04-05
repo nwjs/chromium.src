@@ -157,11 +157,45 @@
       },
     },
   },
+  'chrome-gold-service-account': {
+    'swarming': {
+      'service_account': 'chrome-gold@chops-service-accounts.iam.gserviceaccount.com',
+    },
+  },
+  'chrome-gpu-gold-service-account': {
+    'swarming': {
+      'service_account': 'chrome-gpu-gold@chops-service-accounts.iam.gserviceaccount.com',
+    },
+  },
   'chrome-swarming-pool': {
     'swarming': {
       'dimensions': {
-        'pool': 'chrome.tests',
+        'pool': 'chrome.tests.template',
       },
+    },
+  },
+  'chrome-tester-service-account': {
+    'swarming': {
+      'service_account': 'chrome-tester@chops-service-accounts.iam.gserviceaccount.com',
+    },
+  },
+  # TODO(crbug.com/812428): Remove this mixin after all test pools have migrated
+  # to using templates.
+  'chromium-template-pool': {
+    'swarming': {
+      'dimensions': {
+        'pool': 'chromium.tests.template',
+      },
+    },
+  },
+  'chromium-tester-dev-service-account': {
+    'swarming': {
+      'service_account': 'chromium-tester-dev@chops-service-accounts.iam.gserviceaccount.com',
+    },
+  },
+  'chromium-tester-service-account': {
+    'swarming': {
+      'service_account': 'chromium-tester@chops-service-accounts.iam.gserviceaccount.com',
     },
   },
   'code-coverage': {
@@ -203,7 +237,9 @@
   'gpu_pool': {
     'swarming': {
       'dimensions': {
-        'pool': 'chromium.tests.gpu',
+         # TODO(crbug.com/812428): Remove the ".template" bit once the old pool
+         # has been migrated to using templates.
+        'pool': 'chromium.tests.gpu.template',
       },
     },
   },
@@ -216,18 +252,19 @@
       },
     },
   },
-  'host_mac_10.14': {
-    'swarming': {
-      'dimensions': {
-        'host os': 'Mac-10.14.6',
-      },
-    },
-  },
   'intel_iris_5100': {
     'swarming': {
       'dimensions': {
         'gpu': '8086:0a2e',
       },
+    },
+  },
+  'ios_custom_webkit': {
+    '$mixin_append': {
+      'args': [
+        '--args-json',
+        '{"test_args": ["--run-with-custom-webkit"]}'
+      ],
     },
   },
   'kitkat': {
@@ -276,7 +313,7 @@
       'dimensions': {
         'gpu': '1002:6613',
         'os': 'Ubuntu',
-        'pool': 'chromium.tests.gpu',
+        'pool': 'chromium.tests.gpu.template',
       },
     },
   },
@@ -285,7 +322,7 @@
       'dimensions': {
         'gpu': '8086:1912',
         'os': 'Ubuntu',
-        'pool': 'chromium.tests.gpu',
+        'pool': 'chromium.tests.gpu.template',
       }
     }
   },
@@ -295,7 +332,7 @@
         # Defined in bot_config.py in internal infradata/config workspace
         'gpu': 'intel-hd-630-ubuntu-stable',
         'os': 'linux-intel-stable',
-        'pool': 'chromium.tests.gpu',
+        'pool': 'chromium.tests.gpu.template',
       }
     }
   },
@@ -305,7 +342,7 @@
       'dimensions': {
         'gpu': '8086:5912-19.0.2',
         'os': 'Ubuntu-19.04',
-        'pool': 'chromium.tests.gpu',
+        'pool': 'chromium.tests.gpu.template',
       },
     },
   },
@@ -315,7 +352,7 @@
         # Defined in bot_config.py in internal infradata/config workspace
         'gpu': 'intel-uhd-630-ubuntu-stable',
         'os': 'Ubuntu-19.04',
-        'pool': 'chromium.tests.gpu',
+        'pool': 'chromium.tests.gpu.template',
       },
       # Same long expiration as win10_intel_uhd_630_stable due to capacity.
       # TODO(https://crbug.com/986939): Remove this when more devices
@@ -329,7 +366,7 @@
         # Defined in bot_config.py in internal infradata/config workspace
         'gpu': 'nvidia-quadro-p400-ubuntu-stable',
         'os': 'linux-nvidia-stable',
-        'pool': 'chromium.tests.gpu',
+        'pool': 'chromium.tests.gpu.template',
       }
     }
   },
@@ -338,7 +375,7 @@
       'dimensions': {
         'gpu': '10de:1cb3-418.56',
         'os': 'Ubuntu-19.04',
-        'pool': 'chromium.tests.gpu',
+        'pool': 'chromium.tests.gpu.template',
       },
     },
   },
@@ -382,6 +419,13 @@
       },
     },
   },
+  'mac_10.15': {
+    'swarming': {
+      'dimensions': {
+        'os': 'Mac-10.15',
+      },
+    },
+  },
   'mac_10.15_beta': {
     'swarming': {
       'dimensions': {
@@ -418,7 +462,7 @@
       'dimensions': {
         'gpu': '1002:679e',
         'os': 'Mac-10.12.6',
-        'pool': 'chromium.tests.gpu',
+        'pool': 'chromium.tests.gpu.template',
       },
     },
   },
@@ -428,7 +472,7 @@
         'gpu': '1002:6821',
         'hidpi': '1',
         'os': 'mac-amd-stable',
-        'pool': 'chromium.tests.gpu',
+        'pool': 'chromium.tests.gpu.template',
       },
     },
   },
@@ -439,7 +483,7 @@
         'gpu': '1002:6821',
         'hidpi': '1',
         'os': 'Mac-10.13.6',
-        'pool': 'chromium.tests.gpu',
+        'pool': 'chromium.tests.gpu.template',
       },
     },
   },
@@ -449,7 +493,7 @@
         'gpu': '10de:0fe9',
         'hidpi': '1',
         'os': 'mac-nvidia-stable',
-        'pool': 'chromium.tests.gpu',
+        'pool': 'chromium.tests.gpu.template',
       },
     },
   },
@@ -460,8 +504,19 @@
         'gpu': '10de:0fe9',
         'hidpi': '1',
         'os': 'Mac-10.14.6',
-        'pool': 'chromium.tests.gpu',
+        'pool': 'chromium.tests.gpu.template',
       },
+    },
+  },
+  'mac_toolchain': {
+    'swarming': {
+      'cipd_packages': [
+        {
+          "cipd_package": 'infra/tools/mac_toolchain/${platform}',
+          'location': '.',
+          'revision': 'git_revision:796d2b92cff93fc2059623ce0a66284373ceea0a',
+        },
+      ],
     },
   },
   'marshmallow': {
@@ -481,7 +536,7 @@
       'dimensions': {
         'device_os': None,
         'device_type': None,
-        'pool': 'chromium.tests.avd',
+        'pool': 'chromium.tests.avd.template',
         'ssd': '1',
       },
       'named_caches': [
@@ -525,6 +580,14 @@
       },
     },
   },
+  'out_dir_arg': {
+    '$mixin_append': {
+      'args': [
+        '--out-dir',
+        '${ISOLATED_OUTDIR}'
+      ],
+    },
+  },
   'pie-x86-emulator': {
     '$mixin_append': {
       'args': [
@@ -535,7 +598,7 @@
       'dimensions': {
         'device_os': None,
         'device_type': None,
-        'pool': 'chromium.tests.avd',
+        'pool': 'chromium.tests.avd.template',
         'ssd': '1',
       },
       'named_caches': [
@@ -567,9 +630,27 @@
       },
     },
   },
+  'skia_gold_test': {
+    '$mixin_append': {
+      'args': [
+        '--git-revision', '${got_revision}',
+      ],
+      'precommit_args': [
+        '--gerrit-issue', '${patch_issue}',
+        '--gerrit-patchset', '${patch_set}',
+        '--buildbucket-id', '${buildbucket_build_id}',
+      ],
+    }
+  },
   'swarming_containment_auto': {
     'swarming': {
       'containment_type': 'AUTO',
+    },
+  },
+  'timeout_15m': {
+    'swarming': {
+      'hard_timeout': 900,
+      'io_timeout': 900,
     },
   },
   'walleye': {
@@ -600,16 +681,16 @@
       'dimensions': {
         'gpu': '1002:699f',
         'os': 'Windows-10',
-        'pool': 'chromium.tests.gpu',
+        'pool': 'chromium.tests.gpu.template',
       },
     },
   },
   'win10_intel_hd_630_experimental': {
     'swarming': {
       'dimensions': {
-        'gpu': '8086:5912-26.20.100.7323',
+        'gpu': '8086:5912-26.20.100.7870',
         'os': 'Windows-10',
-        'pool': 'chromium.tests.gpu',
+        'pool': 'chromium.tests.gpu.template',
       },
     },
   },
@@ -619,7 +700,7 @@
         # Defined in bot_config.py in internal infradata/config workspace
         'gpu': 'intel-hd-630-win10-stable',
         'os': 'Windows-10',
-        'pool': 'chromium.tests.gpu',
+        'pool': 'chromium.tests.gpu.template',
       },
     },
   },
@@ -629,7 +710,7 @@
         # Defined in bot_config.py in internal infradata/config workspace
         'gpu': 'intel-uhd-630-win10-stable',
         'os': 'Windows-10',
-        'pool': 'chromium.tests.gpu',
+        'pool': 'chromium.tests.gpu.template',
       },
       # ~50% of the WebGL2 conformance tests time out with the default
       # 1 hour expiration, but the last shard times out with a 3 hour
@@ -644,7 +725,7 @@
       'dimensions': {
         'gpu': '10de:2184',
         'os': 'Windows-10',
-        'pool': 'chromium.tests.gpu',
+        'pool': 'chromium.tests.gpu.template',
       },
     },
   },
@@ -653,7 +734,7 @@
       'dimensions': {
         'gpu': '10de:1cb3-26.21.14.3102',
         'os': 'Windows-10',
-        'pool': 'chromium.tests.gpu',
+        'pool': 'chromium.tests.gpu.template',
       },
     },
   },
@@ -663,7 +744,7 @@
         # Defined in bot_config.py in internal infradata/config workspace
         'gpu': 'nvidia-quadro-p400-win10-stable',
         'os': 'Windows-10',
-        'pool': 'chromium.tests.gpu',
+        'pool': 'chromium.tests.gpu.template',
       },
     },
   },
@@ -679,7 +760,7 @@
       'dimensions': {
         'gpu': '1002:6613',
         'os': 'Windows-2008ServerR2-SP1',
-        'pool': 'chromium.tests.gpu',
+        'pool': 'chromium.tests.gpu.template',
       },
     },
   },
@@ -688,7 +769,7 @@
       'dimensions': {
         'gpu': '10de:1cb3-24.21.14.1195',
         'os': 'Windows-2008ServerR2-SP1',
-        'pool': 'chromium.tests.gpu',
+        'pool': 'chromium.tests.gpu.template',
       },
     },
   },
@@ -715,16 +796,12 @@
   },
   'xcode_11c29': {
     'swarming': {
-      'dimensions': {
-        'xcode_build_version': '11c29',
-      },
-    },
-  },
-  'xcode_parallelization': {
-    'swarming': {
-      'dimensions': {
-        'xcode_parallelization': 'true',
-      },
+      'named_caches': [
+        {
+          'name': 'xcode_ios_11c29',
+          'path': 'Xcode.app',
+        },
+      ],
     },
   },
 }

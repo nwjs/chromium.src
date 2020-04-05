@@ -196,6 +196,7 @@ viz_component("service") {
     "//media",
     "//media/capture:capture_lib",
     "//media/mojo/services",
+    "//services/tracing/public/cpp:cpp",
     "//services/viz/privileged/mojom",
     "//skia:skcms",
     "//ui/display/types",
@@ -525,6 +526,7 @@ viz_source_set("unit_tests") {
     sources += [
       "display/overlay_dc_unittest.cc",
       "display_embedder/output_device_backing_unittest.cc",
+      "display_embedder/software_output_device_win_unittest.cc",
     ]
   }
 
@@ -536,6 +538,8 @@ viz_source_set("unit_tests") {
     ]
   }
 
+  defines = []
+
   if (enable_vulkan) {
     deps += [
       "//gpu/vulkan:test_support",
@@ -546,8 +550,12 @@ viz_source_set("unit_tests") {
     # CFI issue: https://crbug.com/967819
     # LSAN issue: https://crbug.com/971357
     if (use_x11 && !is_cfi && !is_lsan) {
-      defines = [ "ENABLE_VIZ_VULKAN_TESTS" ]
+      defines += [ "ENABLE_VIZ_VULKAN_TESTS" ]
     }
+  }
+
+  if (skia_use_dawn) {
+    defines += [ "ENABLE_VIZ_DAWN_TESTS" ]
   }
 }
 

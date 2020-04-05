@@ -26,7 +26,8 @@ FIELDTRIAL_CONFIG_TOO_LONG_ERROR_MSG = \
   "entries. To check if an entry is obsolete, do a code search for its "\
   "'enable_features' and 'disable_features' strings and verify there are "\
   "no results other than the files related to the testing config. "\
-  "See crbug.com/1045530 for more details." % FIELDTRIAL_CONFIG_FILE_NAME
+  "Automating this is tracked under crbug.com/1053702." % \
+  FIELDTRIAL_CONFIG_FILE_NAME
 
 
 def PrettyPrint(contents):
@@ -167,7 +168,8 @@ def _ValidateExperimentConfig(experiment_config, create_message_fn):
   if not isinstance(experiment_config['platforms'], list):
     return create_message_fn('Expecting list for platforms')
   supported_platforms = [
-      'android', 'android_webview', 'chromeos', 'ios', 'linux', 'mac', 'windows'
+      'android', 'android_weblayer', 'android_webview', 'chromeos', 'ios',
+          'linux', 'mac', 'windows'
   ]
   experiment_platforms = experiment_config['platforms']
   unsupported_platforms = list(

@@ -2,6 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+// clang-format off
+// #import {ImportDataBrowserProxyImpl, ImportDataStatus} from 'chrome://settings/lazy_load.js';
+// #import {TestBrowserProxy} from 'chrome://test/test_browser_proxy.m.js';
+// #import {flush} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
+// clang-format on
+
 /** @implements {settings.ImportDataBrowserProxy} */
 class TestImportDataBrowserProxy extends TestBrowserProxy {
   constructor() {
@@ -50,10 +56,20 @@ suite('ImportDataDialog', function() {
       search: true
     },
     {
+      autofillFormData: true,
+      favorites: true,
+      history: true,
+      index: 1,
+      name: 'Mozilla Firefox',
+      passwords: true,
+      profileName: 'My profile',
+      search: true
+    },
+    {
       autofillFormData: false,
       favorites: true,
       history: false,
-      index: 1,
+      index: 2,
       name: 'Bookmarks HTML File',
       passwords: false,
       search: false
@@ -77,6 +93,8 @@ suite('ImportDataDialog', function() {
   });
 
   let dialog = null;
+
+  let browserProxy = null;
 
   setup(function() {
     browserProxy = new TestImportDataBrowserProxy();
@@ -104,6 +122,18 @@ suite('ImportDataDialog', function() {
     assertFalse(dialog.$.cancel.disabled);
     assertTrue(dialog.$.done.hidden);
     assertTrue(dialog.$.successIcon.parentElement.hidden);
+
+    // Check that the displayed text correctly combines browser name and profile
+    // name (if any).
+    const expectedText = [
+      'Mozilla Firefox',
+      'Mozilla Firefox - My profile',
+      'Bookmarks HTML File',
+    ];
+
+    Array.from(dialog.$.browserSelect.options).forEach((option, i) => {
+      assertEquals(expectedText[i], option.textContent.trim());
+    });
   });
 
   test('ImportButton', function() {
@@ -116,7 +146,7 @@ suite('ImportDataDialog', function() {
     assertTrue(dialog.$.import.disabled);
 
     // Change browser selection to "Import from Bookmarks HTML file".
-    simulateBrowserProfileChange(1);
+    simulateBrowserProfileChange(2);
     assertTrue(dialog.$.import.disabled);
 
     // Ensure everything except |import_dialog_bookmarks| is ignored.
@@ -151,7 +181,7 @@ suite('ImportDataDialog', function() {
   }
 
   test('ImportFromBookmarksFile', function() {
-    simulateBrowserProfileChange(1);
+    simulateBrowserProfileChange(2);
     dialog.$.import.click();
     return browserProxy.whenCalled('importFromBookmarksFile').then(function() {
       simulateImportStatusChange(settings.ImportDataStatus.IN_PROGRESS);

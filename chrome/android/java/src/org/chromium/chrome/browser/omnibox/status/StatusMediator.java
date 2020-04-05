@@ -17,7 +17,6 @@ import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.Callback;
 import org.chromium.base.MathUtils;
-import org.chromium.base.library_loader.LibraryProcessType;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.omnibox.SearchEngineLogoUtils;
 import org.chromium.chrome.browser.omnibox.UrlBarEditingTextStateProvider;
@@ -40,15 +39,14 @@ class StatusMediator {
         boolean isUrlValid(String partialUrl) {
             if (TextUtils.isEmpty(partialUrl)) return false;
 
-            return BrowserStartupController.get(LibraryProcessType.PROCESS_BROWSER)
-                           .isFullBrowserStarted()
+            return BrowserStartupController.getInstance().isFullBrowserStarted()
                     && AutocompleteCoordinatorFactory.qualifyPartialURLQuery(partialUrl) != null;
         }
 
         /** @see {@link SearchEngineLogoUtils#getSearchEngineLogoFavicon} */
         void getSearchEngineLogoFavicon(Resources res, Callback<Bitmap> callback) {
             SearchEngineLogoUtils.getSearchEngineLogoFavicon(
-                    Profile.getLastUsedProfile().getOriginalProfile(), res, callback);
+                    Profile.getLastUsedRegularProfile(), res, callback);
         }
 
         /** @see {@link SearchEngineLogoUtils#shouldShowSearchEngineLogo} */
@@ -79,6 +77,7 @@ class StatusMediator {
     private boolean mIsSearchEngineStateSetup;
     private boolean mIsSearchEngineGoogle;
     private boolean mShouldCancelCustomFavicon;
+    private boolean mIsTablet;
 
     private int mUrlMinWidth;
     private int mSeparatorMinWidth;
@@ -113,7 +112,7 @@ class StatusMediator {
     private final float mTextOffsetAdjustedScale;
 
     StatusMediator(PropertyModel model, Resources resources, Context context,
-            UrlBarEditingTextStateProvider urlBarEditingTextStateProvider) {
+            UrlBarEditingTextStateProvider urlBarEditingTextStateProvider, boolean isTablet) {
         mModel = model;
         mDelegate = new StatusMediatorDelegate();
         updateColorTheme();
@@ -130,6 +129,8 @@ class StatusMediator {
                         - resources.getDimensionPixelSize(
                                 R.dimen.sei_location_bar_icon_end_padding));
         mTextOffsetAdjustedScale = mTextOffsetThreshold == 1 ? 1 : (1 - mTextOffsetThreshold);
+
+        mIsTablet = isTablet;
     }
 
     /**
@@ -264,7 +265,12 @@ class StatusMediator {
         if (!mUrlHasFocus) updateLocationBarIconForUrlBarAutocompleteText("");
     }
 
+    // Extra logic to support extra NTP use cases which show the status icon when animating and when
+    // focused, but hide it when unfocused.
     void setUrlAnimationFinished(boolean urlHasFocus) {
+        // On tablets, the status icon should always be shown so the following logic doesn't apply.
+        assert !mIsTablet : "This logic shouldn't be called on tablets";
+
         if (!mDelegate.shouldShowSearchEngineLogo(mToolbarCommonPropertiesModel.isIncognito())) {
             return;
         }
@@ -288,6 +294,9 @@ class StatusMediator {
      */
     void setUrlFocusChangePercent(float percent) {
         mUrlFocusPercent = percent;
+        // On tablets, the status icon should always be shown so the following logic doesn't apply.
+        assert !mIsTablet : "This logic shouldn't be called on tablets";
+
         if (!mDelegate.shouldShowSearchEngineLogo(mToolbarCommonPropertiesModel.isIncognito())) {
             return;
         }
@@ -384,7 +393,7 @@ class StatusMediator {
     private void updateColorTheme() {
         @ColorRes
         int separatorColor =
-                mDarkTheme ? R.color.divider_bg_color_dark : R.color.divider_bg_color_light;
+                mDarkTheme ? R.color.divider_line_bg_color_dark : R.color.divider_line_bg_color_light;
 
         @ColorRes
         int textColor = 0;
@@ -575,7 +584,7 @@ class StatusMediator {
         if (icon == 0 || icon == R.drawable.ic_logo_googleg_20dp) {
             tint = 0;
         } else {
-            tint = mDarkTheme ? R.color.default_icon_color_secondary_list
+            tint = mDarkTheme ? R.color.default_icon_color_secondary_tint_list
                               : ToolbarColors.getThemedToolbarIconTintRes(!mDarkTheme);
         }
 

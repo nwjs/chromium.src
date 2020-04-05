@@ -40,6 +40,13 @@ namespace declarativeNetRequest {
     setCookie
   };
 
+  // This describes the possible opeations for a "modifyHeaders" rule.
+  // TODO(crbug.com/947591): Add documentation once implementation is complete.
+  [nodoc]
+  enum HeaderOperation {
+    remove
+  };
+
   // Describes the kind of action to take if a given RuleCondition matches.
   enum RuleActionType {
     // Block the network request.
@@ -54,9 +61,20 @@ namespace declarativeNetRequest {
     upgradeScheme,
     // Remove request/response headers from the network request.
     removeHeaders,
+    // Modify request/response headers from the network request.
+    // TODO(crbug.com/947591): Add documentation once implementation is
+    // complete.
+    [nodoc]
+    modifyHeaders,
     // Allow all requests within a frame hierarchy, including the frame request
     // itself.
     allowAllRequests
+  };
+
+  // Describes a single static ruleset.
+  dictionary Ruleset {
+    // The path of the JSON ruleset relative to the extension directory.
+    DOMString path;
   };
 
   // Represents a query key-value pair.
@@ -113,9 +131,12 @@ namespace declarativeNetRequest {
      URLTransform? transform;
      // The redirect url. Redirects to JavaScript urls are not allowed.
      DOMString? url;
-     // TODO(crbug.com/974391): Add documentation once the implementation is
-     // complete.
-     [nodoc]
+
+     // Substitution pattern for rules which specify a <code>regexFilter</code>.
+     // The first match of <code>regexFilter</code> within the url will be
+     // replaced with this pattern. Within <code>regexSubstitution</code>,
+     // backslash-escaped digits (\1 to \9) can be used to insert the
+     // corresponding capture groups. \0 refers to the entire matching text.
      DOMString? regexSubstitution;
   };
 
@@ -144,6 +165,9 @@ namespace declarativeNetRequest {
     // A pattern beginning with <code>||*</code> is not allowed. Use
     // <code>*</code> instead.
     //
+    // Note: Only one of <code>urlFilter</code> or <code>regexFilter</code> can
+    // be specified.
+    //
     // Note: The <code>urlFilter</code> must be composed of only ASCII
     // characters. This is matched against a url where the host is encoded in
     // the punycode format (in case of internationalized domains) and any other
@@ -153,12 +177,20 @@ namespace declarativeNetRequest {
     // http://abc.xn--p1ai/?q=%D1%84.
     DOMString? urlFilter;
 
-    // TODO(crbug.com/974391): Add documentation once the implementation is
-    // complete.
-    [nodoc]
+    // Regular expression to match against the network request url. This follows
+    // the <a href = "https://github.com/google/re2/wiki/Syntax">RE2 syntax</a>.
+    //
+    // Note: Only one of <code>urlFilter</code> or <code>regexFilter</code> can
+    // be specified.
+    //
+    // Note: The <code>regexFilter</code> must be composed of only ASCII
+    // characters. This is matched against a url where the host is encoded in
+    // the punycode format (in case of internationalized domains) and any other
+    // non-ascii characters are url encoded in utf-8.
     DOMString? regexFilter;
 
-    // Whether the <code>urlFilter</code> is case sensitive. Default is true.
+    // Whether the <code>urlFilter</code> or <code>regexFilter</code>
+    // (whichever is specified) is case sensitive. Default is true.
     boolean? isUrlFilterCaseSensitive;
 
     // The rule will only match network requests originating from the list of
@@ -199,6 +231,13 @@ namespace declarativeNetRequest {
     DomainType? domainType;
   };
 
+  // TODO(crbug.com/947591): Add documentation once implementation is complete.
+  [nodoc]
+  dictionary ModifyHeaderInfo {
+    DOMString header;
+    HeaderOperation operation;
+  };
+
   dictionary RuleAction {
     // The type of action to perform.
     RuleActionType type;
@@ -210,14 +249,28 @@ namespace declarativeNetRequest {
     // The headers to remove from the request. Only valid if RuleActionType is
     // "removeHeaders".
     RemoveHeaderType[]? removeHeadersList;
+
+    // The request headers to modify for the request. Only valid if
+    // RuleActionType is "modifyHeaders".
+    // TODO(crbug.com/947591): Add documentation once implementation is
+    // complete.
+    [nodoc]
+    ModifyHeaderInfo[]? requestHeaders;
+
+    // The response headers to modify for the request. Only valid if
+    // RuleActionType is "modifyHeaders".
+    // TODO(crbug.com/947591): Add documentation once implementation is
+    // complete.
+    [nodoc]
+    ModifyHeaderInfo[]? responseHeaders;
   };
 
   dictionary Rule {
     // An id which uniquely identifies a rule. Mandatory and should be >= 1.
     long id;
 
-    // Rule priority. Mandatory for redirect and upgradeScheme rules and should
-    // be >= 1. This is used to break ties between multiple matching redirect
+    // Rule priority. Mandatory for all rules other than removeHeaders, and
+    // should be >= 1. This is used to break ties between multiple matching
     // rules.
     long? priority;
 
@@ -245,7 +298,6 @@ namespace declarativeNetRequest {
     SourceType sourceType;
   };
 
-  [nodoc]
   dictionary MatchedRuleInfo {
     MatchedRule rule;
 
@@ -259,7 +311,6 @@ namespace declarativeNetRequest {
     long tabId;
   };
 
-  [nodoc]
   dictionary MatchedRulesFilter {
     // If specified, only matches rules for the given tab.
     long? tabId;
@@ -268,7 +319,6 @@ namespace declarativeNetRequest {
     double? minTimeStamp;
   };
 
-  [nodoc]
   dictionary RulesMatchedDetails {
      // Rules matching the given filter.
      MatchedRuleInfo[] rulesMatchedInfo;
@@ -350,9 +400,19 @@ namespace declarativeNetRequest {
     // raised in case of transient internal errors.
     static void getDynamicRules(GetRulesCallback callback);
 
-    // TODO(crbug.com/1044702): Add documentation once implementation is
-    // complete.
-    [nodoc]
+    // Returns all rules matched for the extension. Callers can optionally
+    // filter the list of matched rules by specifying a |filter|. This method is
+    // only available to extensions with the
+    // <code>declarativeNetRequestFeedback</code> permission or having the
+    // <code>activeTab</code> permission granted for the <code>tabId</code>
+    // specified in <code>filter</code>.
+    // Note: Rules not associated with an active document that were matched more
+    // than five minutes ago will not be returned.
+    // |filter|: An object to filter the list of matched rules.
+    // |callback|: Called once the list of matched rules has been fetched. In
+    // case of an error, $(ref:runtime.lastError) will be set to denote the
+    // error and no rules will be returned. This can happen for multiple
+    // reasons, such as insufficient permissions, or exceeding the quota.
     static void getMatchedRules(optional MatchedRulesFilter filter,
         GetMatchedRulesCallback callback);
 
@@ -374,16 +434,28 @@ namespace declarativeNetRequest {
     // Time interval within which <code>MAX_GETMATCHEDRULES_CALLS_PER_INTERVAL
     // getMatchedRules</code> calls can be made, specified in minutes.
     // Additional calls will fail immediately and set $(ref:runtime.lastError).
-    [value=10, nodoc] static long GETMATCHEDRULES_QUOTA_INTERVAL();
+    // Note: <code>getMatchedRules</code> calls associated with a user gesture
+    // are exempt from the quota.
+    [value=10] static long GETMATCHEDRULES_QUOTA_INTERVAL();
 
     // The number of times <code>getMatchedRules</code> can be called within a
     // period of <code>GETMATCHEDRULES_QUOTA_INTERVAL</code>.
-    [value=20, nodoc] static long MAX_GETMATCHEDRULES_CALLS_PER_INTERVAL();
+    [value=20] static long MAX_GETMATCHEDRULES_CALLS_PER_INTERVAL();
+
+    // The maximum number of regular expression rules that an extension can
+    // add. This limit is evaluated separately for the set of dynamic rules and
+    // those specified in the rule resources file.
+    [value=1000] static long MAX_NUMBER_OF_REGEX_RULES();
+
+    // The maximum number of static <code>Rulesets</code> an extension can
+    // specify as part of the <code>"rule_resources"</code> manifest key.
+    [value=10, nodoc] static long MAX_NUMBER_OF_STATIC_RULESETS();
   };
 
   interface Events {
     // Fired when a rule is matched with a request. Only available for unpacked
-    // extensions as this is intended to be used for debugging purposes only.
+    // extensions with the <code>declarativeNetRequestFeedback</code> permission
+    // as this is intended to be used for debugging purposes only.
     // |matched_rule_info|: The rule that has been matched along with
     // information about the associated request.
     static void onRuleMatchedDebug(MatchedRuleInfoDebug matched_rule_info);

@@ -7,8 +7,6 @@ package org.chromium.chrome.browser.bookmarks;
 import android.app.Activity;
 import android.app.ActivityManager;
 import android.content.Context;
-import android.support.v7.widget.RecyclerView;
-import android.support.v7.widget.RecyclerView.AdapterDataObserver;
 import android.text.TextUtils;
 import android.view.View;
 import android.view.ViewGroup;
@@ -16,6 +14,8 @@ import android.view.accessibility.AccessibilityManager;
 import android.widget.TextView;
 
 import androidx.annotation.VisibleForTesting;
+import androidx.recyclerview.widget.RecyclerView;
+import androidx.recyclerview.widget.RecyclerView.AdapterDataObserver;
 
 import org.chromium.base.ContextUtils;
 import org.chromium.base.ObserverList;
@@ -23,10 +23,10 @@ import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.bookmarks.BookmarkBridge.BookmarkItem;
 import org.chromium.chrome.browser.bookmarks.BookmarkBridge.BookmarkModelObserver;
-import org.chromium.chrome.browser.favicon.LargeIconBridge;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.partnerbookmarks.PartnerBookmarksReader;
 import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.ui.favicon.LargeIconBridge;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.ui.native_page.BasicNativePage;
 import org.chromium.chrome.browser.util.ConversionUtils;
@@ -36,6 +36,7 @@ import org.chromium.components.browser_ui.widget.dragreorder.DragStateDelegate;
 import org.chromium.components.browser_ui.widget.selectable_list.SelectableListLayout;
 import org.chromium.components.browser_ui.widget.selectable_list.SelectableListToolbar.SearchDelegate;
 import org.chromium.components.browser_ui.widget.selectable_list.SelectionDelegate;
+import org.chromium.url.GURL;
 
 import java.util.Stack;
 
@@ -190,8 +191,6 @@ public class BookmarkManager
         boolean reorderBookmarksEnabled =
                 ChromeFeatureList.isEnabled(ChromeFeatureList.REORDER_BOOKMARKS);
 
-        PartnerBookmarksReader.addFaviconUpdateObserver(this);
-
         mSelectionDelegate = new SelectionDelegate<BookmarkId>() {
             @Override
             public boolean toggleSelectionForItem(BookmarkId bookmark) {
@@ -263,11 +262,12 @@ public class BookmarkManager
                 if (!TextUtils.isEmpty(mInitialUrl)) {
                     setState(BookmarkUIState.createStateFromUrl(mInitialUrl, mBookmarkModel));
                 }
+                PartnerBookmarksReader.addFaviconUpdateObserver(this);
             };
             mBookmarkModel.finishLoadingBookmarkModel(modelLoadedRunnable);
         }
 
-        mLargeIconBridge = new LargeIconBridge(Profile.getLastUsedProfile().getOriginalProfile());
+        mLargeIconBridge = new LargeIconBridge(Profile.getLastUsedRegularProfile());
         ActivityManager activityManager = ((ActivityManager) ContextUtils
                 .getApplicationContext().getSystemService(Context.ACTIVITY_SERVICE));
         int maxSize =
@@ -283,7 +283,7 @@ public class BookmarkManager
 
     @Override
     public void onUpdateFavicon(String url) {
-        mLargeIconBridge.clearFavicon(url);
+        mLargeIconBridge.clearFavicon(new GURL(url));
         mFaviconsNeedRefresh = true;
     }
 

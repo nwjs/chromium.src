@@ -6,6 +6,7 @@
 #define UI_VIEWS_WINDOW_DIALOG_DELEGATE_H_
 
 #include <memory>
+#include <utility>
 
 #include "base/compiler_specific.h"
 #include "base/macros.h"
@@ -55,7 +56,7 @@ class VIEWS_EXPORT DialogDelegate : public WidgetDelegate {
 
     // Text labels for the buttons on this dialog. Any button without a label
     // here will get the default text for its type from GetDialogButtonLabel.
-    // Prefer to use this field (via set_button_label) rather than override
+    // Prefer to use this field (via SetButtonLabel) rather than override
     // GetDialogButtonLabel - see https://crbug.com/1011446
     base::string16 button_labels[ui::DIALOG_BUTTON_LAST + 1];
   };
@@ -89,10 +90,9 @@ class VIEWS_EXPORT DialogDelegate : public WidgetDelegate {
   virtual void OnDialogInitialized() {}
 
   // Returns a mask specifying which of the available DialogButtons are visible
-  // for the dialog. Note: Dialogs with just an OK button are frowned upon.
-  // DEPRECATED: Prefer to use set_buttons() below; this method is being
-  // removed. See https://crbug.com/1011446.
-  virtual int GetDialogButtons() const;
+  // for the dialog.
+  // TODO(https://crbug.com/1011446): Rename this to buttons().
+  int GetDialogButtons() const { return params_.buttons; }
 
   // Returns the default dialog button. This should not be a mask as only
   // one button should ever be the default button.  Return
@@ -114,7 +114,7 @@ class VIEWS_EXPORT DialogDelegate : public WidgetDelegate {
   // overridden. This function should return true if the window can be closed
   // after it returns, or false if it must remain open. By default, return true
   // without doing anything.
-  // DEPRECATED: use |set_cancel_callback| instead.
+  // DEPRECATED: use |SetCancelCallback| instead.
   virtual bool Cancel();
 
   // For Dialog boxes, this is called when the user presses the "OK" button,
@@ -122,25 +122,15 @@ class VIEWS_EXPORT DialogDelegate : public WidgetDelegate {
   // has not been overridden. This function should return true if the window
   // can be closed after it returns, or false if it must remain open. By
   // default, return true without doing anything.
-  // DEPRECATED: use |set_accept_callback| instead.
+  // DEPRECATED: use |SetAcceptCallback| instead.
   virtual bool Accept();
-
-  // Called when the user closes the window without selecting an option, e.g. by
-  // pressing the close button on the window, pressing the Esc key, or using a
-  // window manager gesture. By default, this calls Accept() if the only button
-  // in the dialog is Accept, Cancel() otherwise. This function should return
-  // true if the window can be closed after it returns, or false if it must
-  // remain open.
-  // DEPRECATED: use |set_close_callback| instead.
-  // NOTE: If **any** of the {accept,cancel,close} callbacks is set,
-  // DefaultClose() is not called and closing is unconditional.
-  virtual bool Close();
 
   // Overridden from WidgetDelegate:
   View* GetInitiallyFocusedView() override;
   DialogDelegate* AsDialogDelegate() override;
   ClientView* CreateClientView(Widget* widget) override;
   NonClientFrameView* CreateNonClientFrameView(Widget* widget) override;
+  void WindowWillClose() override;
 
   static NonClientFrameView* CreateDialogFrameView(Widget* widget);
 
@@ -182,27 +172,18 @@ class VIEWS_EXPORT DialogDelegate : public WidgetDelegate {
   // Notifies observers when the result of the DialogModel overrides changes.
   void DialogModelChanged();
 
-  void set_default_button(int button) { params_.default_button = button; }
   void set_use_round_corners(bool round) { params_.round_corners = round; }
   void set_draggable(bool draggable) { params_.draggable = draggable; }
   bool draggable() const { return params_.draggable; }
   void set_use_custom_frame(bool use) { params_.custom_frame = use; }
   bool use_custom_frame() const { return params_.custom_frame; }
-  void set_buttons(int buttons) { params_.buttons = buttons; }
 
-  void set_button_label(ui::DialogButton button, base::string16 label) {
-    params_.button_labels[button] = label;
-  }
-
-  void set_accept_callback(base::OnceClosure callback) {
-    accept_callback_ = std::move(callback);
-  }
-  void set_cancel_callback(base::OnceClosure callback) {
-    cancel_callback_ = std::move(callback);
-  }
-  void set_close_callback(base::OnceClosure callback) {
-    close_callback_ = std::move(callback);
-  }
+  void SetDefaultButton(int button);
+  void SetButtons(int buttons);
+  void SetButtonLabel(ui::DialogButton button, base::string16 label);
+  void SetAcceptCallback(base::OnceClosure callback);
+  void SetCancelCallback(base::OnceClosure callback);
+  void SetCloseCallback(base::OnceClosure callback);
 
   // Returns ownership of the extra view for this dialog, if one was provided
   // via SetExtraView(). This is only for use by DialogClientView; don't call
@@ -237,13 +218,20 @@ class VIEWS_EXPORT DialogDelegate : public WidgetDelegate {
   //    lazy layout system in View::InvalidateLayout
   std::unique_ptr<View> DisownExtraView();
 
-  // Externally or accept the dialog. These methods:
+  // Accept or cancel the dialog, as though the user had pressed the
+  // Accept/Cancel buttons. These methods:
   // 1) Invoke the DialogDelegate's Cancel or Accept methods
   // 2) Depending on their return value, close the dialog's widget.
   // Neither of these methods can be called before the dialog has been
   // initialized.
-  void CancelDialog();
   void AcceptDialog();
+  void CancelDialog();
+
+  // This method invokes the behavior that *would* happen if this dialog's
+  // containing widget were closed. It is present only as a compatibility shim
+  // for unit tests; do not add new calls to it.
+  // TODO(https://crbug.com/1011446): Delete this.
+  bool Close();
 
   // Reset the dialog's shown timestamp, for tests that are subject to the
   // "unintended interaction" detection mechanism.
@@ -277,9 +265,9 @@ class VIEWS_EXPORT DialogDelegate : public WidgetDelegate {
   const DialogClientView* GetDialogClientView() const;
   DialogClientView* GetDialogClientView();
 
-  // Implements the default close behavior, as described in the comment on
-  // Close() above.
-  bool DefaultClose();
+  // Runs a close callback, ensuring that at most one close callback is ever
+  // run.
+  void RunCloseCallback(base::OnceClosure callback);
 
   // The margins between the content and the inside of the border.
   // TODO(crbug.com/733040): Most subclasses assume they must set their own
@@ -307,20 +295,26 @@ class VIEWS_EXPORT DialogDelegate : public WidgetDelegate {
   base::OnceClosure cancel_callback_;
   base::OnceClosure close_callback_;
 
+  // Whether any of the three callbacks just above has been delivered yet, *or*
+  // one of the Accept/Cancel methods have been called and returned true.
+  bool already_started_close_ = false;
+
   DISALLOW_COPY_AND_ASSIGN(DialogDelegate);
 };
 
-// A DialogDelegate implementation that is-a View. Note that DialogDelegateView
-// is not owned by view's hierarchy and is expected to be deleted on
-// DeleteDelegate call.
-class VIEWS_EXPORT DialogDelegateView : public DialogDelegate,
-                                        public View {
+// A DialogDelegate implementation that is-a View. Used to override GetWidget()
+// to call View's GetWidget() for the common case where a DialogDelegate
+// implementation is-a View. Note that DialogDelegateView is not owned by
+// view's hierarchy and is expected to be deleted on DeleteDelegate call.
+class VIEWS_EXPORT DialogDelegateView : public DialogDelegate, public View {
  public:
   DialogDelegateView();
   ~DialogDelegateView() override;
 
   // DialogDelegate:
   void DeleteDelegate() override;
+  Widget* GetWidget() override;
+  const Widget* GetWidget() const override;
   View* GetContentsView() override;
 
   // View:

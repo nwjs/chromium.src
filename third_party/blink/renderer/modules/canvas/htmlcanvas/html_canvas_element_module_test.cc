@@ -60,7 +60,7 @@ class HTMLCanvasElementModuleTest : public ::testing::Test,
  protected:
   void SetUp() override {
     web_view_helper_.Initialize();
-    GetDocument().documentElement()->SetInnerHTMLFromString(
+    GetDocument().documentElement()->setInnerHTML(
         String::FromUTF8("<body><canvas id='c'></canvas></body>"));
     canvas_element_ = To<HTMLCanvasElement>(GetDocument().getElementById("c"));
   }
@@ -76,7 +76,7 @@ class HTMLCanvasElementModuleTest : public ::testing::Test,
   HTMLCanvasElement& canvas_element() const { return *canvas_element_; }
   OffscreenCanvas* TransferControlToOffscreen(ExceptionState& exception_state) {
     return HTMLCanvasElementModule::TransferControlToOffscreenInternal(
-        &GetDocument(), canvas_element(), exception_state);
+        GetDocument().ToExecutionContext(), canvas_element(), exception_state);
   }
 
   frame_test_helpers::WebViewHelper web_view_helper_;
@@ -96,11 +96,8 @@ TEST_F(HTMLCanvasElementModuleTest, TransferControlToOffscreen) {
 // Verifies that a desynchronized canvas has the appropriate opacity/blending
 // information sent to the CompositorFrameSink.
 TEST_P(HTMLCanvasElementModuleTest, LowLatencyCanvasCompositorFrameOpacity) {
-#if defined(OS_MACOSX)
   // TODO(crbug.com/922218): enable desynchronized on Mac.
-  return;
-#endif
-
+#if !defined(OS_MACOSX)
   // This test relies on GpuMemoryBuffers being supported and enabled for low
   // latency canvas.  The latter is true only on ChromeOS in production.
   ScopedTestingPlatformSupport<LowLatencyTestPlatform> platform;
@@ -165,6 +162,7 @@ TEST_P(HTMLCanvasElementModuleTest, LowLatencyCanvasCompositorFrameOpacity) {
   platform->RunUntilIdle();
 
   SharedGpuContext::ResetForTesting();
+#endif
 }
 
 INSTANTIATE_TEST_SUITE_P(All, HTMLCanvasElementModuleTest, Values(true, false));

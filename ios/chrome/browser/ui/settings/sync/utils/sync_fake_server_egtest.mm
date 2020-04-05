@@ -191,8 +191,8 @@ void AssertNumberOfEntities(int entity_count, syncer::ModelType entity_type) {
   GREYAssertFalse([ChromeEarlGrey isAutofillProfilePresentWithGUID:kGuid
                                                autofillProfileName:kFullName],
                   @"autofill profile should not exist");
-  [ChromeEarlGrey injectAutofillProfileOnFakeSyncServerWithGUID:kGuid
-                                            autofillProfileName:kFullName];
+  [ChromeEarlGrey addAutofillProfileToFakeSyncServerWithGUID:kGuid
+                                         autofillProfileName:kFullName];
   [self setTearDownHandler:^{
     [ChromeEarlGrey clearAutofillProfileWithGUID:kGuid];
   }];
@@ -220,8 +220,8 @@ void AssertNumberOfEntities(int entity_count, syncer::ModelType entity_type) {
                                                autofillProfileName:kFullName],
                   @"autofill profile should not exist");
 
-  [ChromeEarlGrey injectAutofillProfileOnFakeSyncServerWithGUID:kGuid
-                                            autofillProfileName:kFullName];
+  [ChromeEarlGrey addAutofillProfileToFakeSyncServerWithGUID:kGuid
+                                         autofillProfileName:kFullName];
   [self setTearDownHandler:^{
     [ChromeEarlGrey clearAutofillProfileWithGUID:kGuid];
   }];
@@ -239,9 +239,8 @@ void AssertNumberOfEntities(int entity_count, syncer::ModelType entity_type) {
                  @"autofill profile should exist");
 
   // Update autofill profile.
-  [ChromeEarlGrey
-      injectAutofillProfileOnFakeSyncServerWithGUID:kGuid
-                                autofillProfileName:kUpdatedFullName];
+  [ChromeEarlGrey addAutofillProfileToFakeSyncServerWithGUID:kGuid
+                                         autofillProfileName:kUpdatedFullName];
 
   // Trigger sync cycle and wait for update.
   [ChromeEarlGrey triggerSyncCycleForType:syncer::AUTOFILL_PROFILE];
@@ -267,8 +266,8 @@ void AssertNumberOfEntities(int entity_count, syncer::ModelType entity_type) {
   GREYAssertFalse([ChromeEarlGrey isAutofillProfilePresentWithGUID:kGuid
                                                autofillProfileName:kFullName],
                   @"autofill profile should not exist");
-  [ChromeEarlGrey injectAutofillProfileOnFakeSyncServerWithGUID:kGuid
-                                            autofillProfileName:kFullName];
+  [ChromeEarlGrey addAutofillProfileToFakeSyncServerWithGUID:kGuid
+                                         autofillProfileName:kFullName];
   [self setTearDownHandler:^{
     [ChromeEarlGrey clearAutofillProfileWithGUID:kGuid];
   }];
@@ -286,7 +285,7 @@ void AssertNumberOfEntities(int entity_count, syncer::ModelType entity_type) {
                  @"autofill profile should exist");
 
   // Delete autofill profile from server, and verify it is removed.
-  [ChromeEarlGrey deleteAutofillProfileOnFakeSyncServerWithGUID:kGuid];
+  [ChromeEarlGrey deleteAutofillProfileFromFakeSyncServerWithGUID:kGuid];
   [ChromeEarlGrey triggerSyncCycleForType:syncer::AUTOFILL_PROFILE];
   ConditionBlock condition = ^{
     return ![ChromeEarlGrey isAutofillProfilePresentWithGUID:kGuid
@@ -452,6 +451,39 @@ void AssertNumberOfEntities(int entity_count, syncer::ModelType entity_type) {
   [ChromeEarlGrey waitForTypedURL:mockURL
                     expectPresent:NO
                           timeout:kSyncOperationTimeout];
+}
+
+// Tests download of two legacy bookmarks with the same item id.
+- (void)testDownloadTwoPre2015BookmarksWithSameItemId {
+  const GURL URL1 = web::test::HttpServer::MakeUrl("http://page1.com");
+  const GURL URL2 = web::test::HttpServer::MakeUrl("http://page2.com");
+  NSString* title1 = @"title1";
+  NSString* title2 = @"title2";
+
+  [[self class] assertBookmarksWithTitle:title1 expectedCount:0];
+  [[self class] assertBookmarksWithTitle:title2 expectedCount:0];
+
+  // Mimic the creation of two bookmarks from two different devices, with the
+  // same client item ID.
+  [ChromeEarlGrey
+      addFakeSyncServerLegacyBookmarkWithURL:URL1
+                                       title:base::SysNSStringToUTF8(title1)
+                   originator_client_item_id:"1"];
+  [ChromeEarlGrey
+      addFakeSyncServerLegacyBookmarkWithURL:URL2
+                                       title:base::SysNSStringToUTF8(title2)
+                   originator_client_item_id:"1"];
+
+  // Sign in to sync.
+  FakeChromeIdentity* fakeIdentity =
+      [SigninEarlGreyUtilsAppInterface fakeIdentity1];
+  [SigninEarlGreyUtilsAppInterface addFakeIdentity:fakeIdentity];
+  [SigninEarlGreyUI signinWithFakeIdentity:fakeIdentity];
+
+  [ChromeEarlGrey waitForSyncInitialized:YES syncTimeout:kSyncOperationTimeout];
+
+  [[self class] assertBookmarksWithTitle:title1 expectedCount:1];
+  [[self class] assertBookmarksWithTitle:title2 expectedCount:1];
 }
 
 #pragma mark - Test Utilities

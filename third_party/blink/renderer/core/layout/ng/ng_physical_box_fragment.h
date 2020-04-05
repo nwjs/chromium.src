@@ -77,7 +77,37 @@ class CORE_EXPORT NGPhysicalBoxFragment final
   }
 
   bool HasSelfPaintingLayer() const;
-  bool ChildrenInline() const { return children_inline_; }
+
+  // Return true if this is either a container that establishes an inline
+  // formatting context, or if it's non-atomic inline content participating in
+  // one. Empty blocks don't establish an inline formatting context.
+  //
+  // The return value from this method is undefined and irrelevant if the object
+  // establishes a different type of formatting context than block/inline, such
+  // as table or flexbox.
+  //
+  // Example:
+  // <div>                                       <!-- false -->
+  //   <div>                                     <!-- true -->
+  //     <div style="float:left;"></div>         <!-- false -->
+  //     <div style="float:left;">               <!-- true -->
+  //       xxx                                   <!-- true -->
+  //     </div>
+  //     <div style="float:left;">               <!-- false -->
+  //       <div style="float:left;"></div>       <!-- false -->
+  //     </div>
+  //     <span>                                  <!-- true -->
+  //       xxx                                   <!-- true -->
+  //       <span style="display:inline-block;">  <!-- false -->
+  //         <div></div>                         <!-- false -->
+  //       </span>
+  //       <span style="display:inline-block;">  <!-- true -->
+  //         xxx                                 <!-- true -->
+  //       </span>
+  //       <span style="display:inline-flex;">   <!-- N/A -->
+  bool IsInlineFormattingContext() const {
+    return is_inline_formatting_context_;
+  }
 
   PhysicalRect ScrollableOverflow() const;
   PhysicalRect ScrollableOverflowFromChildren() const;
@@ -94,6 +124,14 @@ class CORE_EXPORT NGPhysicalBoxFragment final
   // Compute visual overflow of this box in the local coordinate.
   PhysicalRect ComputeSelfInkOverflow() const;
 
+  // Contents ink overflow includes anything that would bleed out of the box and
+  // would be clipped by the overflow clip ('overflow' != visible). This
+  // corresponds to children that overflows their parent.
+  PhysicalRect ContentsInkOverflow() const {
+    // TODO(layout-dev): Implement box fragment overflow.
+    return LocalRect();
+  }
+
   // Fragment offset is this fragment's offset from parent.
   // Needed to compensate for LayoutInline Legacy code offsets.
   void AddSelfOutlineRects(const PhysicalOffset& additional_offset,
@@ -105,9 +143,6 @@ class CORE_EXPORT NGPhysicalBoxFragment final
   // Bitmask for border edges, see NGBorderEdges::Physical.
   unsigned BorderEdges() const { return border_edge_; }
   NGPixelSnappedPhysicalBoxStrut BorderWidths() const;
-
-  // Return true if this is the first fragment generated from a node.
-  bool IsFirstForNode() const { return is_first_for_node_; }
 
 #if DCHECK_IS_ON()
   void CheckSameForSimplifiedLayout(const NGPhysicalBoxFragment&,
@@ -135,6 +170,10 @@ class CORE_EXPORT NGPhysicalBoxFragment final
     return has_borders_ ? address + 1 : address;
   }
 
+#if DCHECK_IS_ON()
+  void CheckIntegrity() const;
+#endif
+
   LayoutUnit baseline_;
   LayoutUnit last_baseline_;
   NGLink children_[];
@@ -144,8 +183,7 @@ class CORE_EXPORT NGPhysicalBoxFragment final
 template <>
 struct DowncastTraits<NGPhysicalBoxFragment> {
   static bool AllowFrom(const NGPhysicalFragment& fragment) {
-    return fragment.Type() == NGPhysicalFragment::kFragmentBox ||
-           fragment.Type() == NGPhysicalFragment::kFragmentRenderedLegend;
+    return fragment.Type() == NGPhysicalFragment::kFragmentBox;
   }
 };
 

@@ -78,7 +78,9 @@ class CORE_EXPORT CSSFontSelector : public FontSelector {
   void RegisterForInvalidationCallbacks(FontSelectorClient*) override;
   void UnregisterForInvalidationCallbacks(FontSelectorClient*) override;
 
-  ExecutionContext* GetExecutionContext() const override { return document_; }
+  ExecutionContext* GetExecutionContext() const override {
+    return document_ ? document_->GetExecutionContext() : nullptr;
+  }
   FontFaceCache* GetFontFaceCache() override { return &font_face_cache_; }
 
   const GenericFontFamilySettings& GetGenericFontFamilySettings() const {
@@ -86,7 +88,7 @@ class CORE_EXPORT CSSFontSelector : public FontSelector {
   }
   void UpdateGenericFontFamilySettings(Document&);
 
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
 
  protected:
   void DispatchInvalidationCallbacks();

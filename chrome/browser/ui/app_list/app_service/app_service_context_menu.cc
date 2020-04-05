@@ -11,8 +11,8 @@
 #include "chrome/browser/apps/app_service/app_service_proxy.h"
 #include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
 #include "chrome/browser/apps/app_service/menu_util.h"
-#include "chrome/browser/chromeos/arc/app_shortcuts/arc_app_shortcuts_menu_builder.h"
 #include "chrome/browser/chromeos/crostini/crostini_manager.h"
+#include "chrome/browser/chromeos/crostini/crostini_terminal.h"
 #include "chrome/browser/chromeos/crostini/crostini_util.h"
 #include "chrome/browser/chromeos/plugin_vm/plugin_vm_manager.h"
 #include "chrome/browser/chromeos/plugin_vm/plugin_vm_util.h"
@@ -23,6 +23,7 @@
 #include "chrome/browser/ui/app_list/app_context_menu_delegate.h"
 #include "chrome/browser/ui/app_list/app_list_controller_delegate.h"
 #include "chrome/browser/ui/app_list/arc/arc_app_list_prefs.h"
+#include "chrome/browser/ui/app_list/arc/arc_app_utils.h"
 #include "chrome/browser/ui/app_list/extension_app_utils.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/webui/settings/chromeos/app_management/app_management_uma.h"
@@ -30,7 +31,7 @@
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/grit/generated_resources.h"
-#include "content/public/common/context_menu_params.h"
+#include "content/public/browser/context_menu_params.h"
 #include "ui/gfx/vector_icon_types.h"
 
 namespace {
@@ -49,6 +50,7 @@ web_app::DisplayMode ConvertUseLaunchTypeCommandToDisplayMode(int command_id) {
       return web_app::DisplayMode::kStandalone;
     case ash::USE_LAUNCH_TYPE_PINNED:
     case ash::USE_LAUNCH_TYPE_FULLSCREEN:
+    case ash::USE_LAUNCH_TYPE_TABBED_WINDOW:
     default:
       return web_app::DisplayMode::kUndefined;
   }
@@ -65,7 +67,13 @@ AppServiceContextMenu::AppServiceContextMenu(
   apps::AppServiceProxy* proxy =
       apps::AppServiceProxyFactory::GetForProfile(profile);
   DCHECK(proxy);
-  app_type_ = proxy->AppRegistryCache().GetAppType(app_id);
+  proxy->AppRegistryCache().ForOneApp(
+      app_id, [this](const apps::AppUpdate& update) {
+        app_type_ =
+            update.Readiness() == apps::mojom::Readiness::kUninstalledByUser
+                ? apps::mojom::AppType::kUnknown
+                : app_type_ = update.AppType();
+      });
 }
 
 AppServiceContextMenu::~AppServiceContextMenu() = default;
@@ -99,6 +107,11 @@ void AppServiceContextMenu::ExecuteCommand(int command_id, int event_flags) {
       controller()->UninstallApp(profile(), app_id());
       break;
 
+    case ash::SETTINGS:
+      if (app_id() == crostini::GetTerminalId())
+        crostini::LaunchTerminalSettings(profile());
+      break;
+
     case ash::APP_CONTEXT_MENU_NEW_WINDOW:
       controller()->CreateNewWindow(profile(), false);
       break;
@@ -113,7 +126,7 @@ void AppServiceContextMenu::ExecuteCommand(int command_id, int event_flags) {
             crostini::kCrostiniDefaultVmName, base::DoNothing());
       } else if (app_id() == plugin_vm::kPluginVmAppId) {
         plugin_vm::PluginVmManager::GetForProfile(profile())->StopPluginVm(
-            plugin_vm::kPluginVmName);
+            plugin_vm::kPluginVmName, /*force=*/false);
       } else {
         LOG(ERROR) << "App " << app_id()
                    << " should not have a stop app command.";
@@ -123,6 +136,15 @@ void AppServiceContextMenu::ExecuteCommand(int command_id, int event_flags) {
     default:
       if (command_id >= ash::USE_LAUNCH_TYPE_COMMAND_START &&
           command_id < ash::USE_LAUNCH_TYPE_COMMAND_END) {
+        if (app_type_ == apps::mojom::AppType::kWeb &&
+            command_id == ash::USE_LAUNCH_TYPE_TABBED_WINDOW) {
+          auto* provider = web_app::WebAppProvider::Get(profile());
+          DCHECK(provider);
+          provider->registry_controller().SetExperimentalTabbedWindowMode(
+              app_id(), true);
+          return;
+        }
+
         SetLaunchType(command_id);
         return;
       }
@@ -136,8 +158,7 @@ void AppServiceContextMenu::ExecuteCommand(int command_id, int event_flags) {
 
       if (command_id >= ash::LAUNCH_APP_SHORTCUT_FIRST &&
           command_id <= ash::LAUNCH_APP_SHORTCUT_LAST) {
-        DCHECK(arc_shortcuts_menu_builder_);
-        arc_shortcuts_menu_builder_->ExecuteCommand(command_id);
+        ExecuteArcShortcutCommand(command_id);
         return;
       }
 
@@ -148,22 +169,22 @@ void AppServiceContextMenu::ExecuteCommand(int command_id, int event_flags) {
 bool AppServiceContextMenu::IsCommandIdChecked(int command_id) const {
   switch (app_type_) {
     case apps::mojom::AppType::kWeb:
-      if (base::FeatureList::IsEnabled(
-              features::kDesktopPWAsWithoutExtensions)) {
-        if (command_id >= ash::USE_LAUNCH_TYPE_COMMAND_START &&
-            command_id < ash::USE_LAUNCH_TYPE_COMMAND_END) {
-          auto* provider = web_app::WebAppProvider::Get(profile());
-          DCHECK(provider);
-          web_app::DisplayMode effective_display_mode =
-              provider->registrar().GetAppEffectiveDisplayMode(app_id());
-          return effective_display_mode != web_app::DisplayMode::kUndefined &&
-                 effective_display_mode ==
-                     ConvertUseLaunchTypeCommandToDisplayMode(command_id);
+      if (command_id >= ash::USE_LAUNCH_TYPE_COMMAND_START &&
+          command_id < ash::USE_LAUNCH_TYPE_COMMAND_END) {
+        auto* provider = web_app::WebAppProvider::Get(profile());
+        DCHECK(provider);
+        if (provider->registrar().IsInExperimentalTabbedWindowMode(app_id())) {
+          return command_id == ash::USE_LAUNCH_TYPE_TABBED_WINDOW;
         }
-        return AppContextMenu::IsCommandIdChecked(command_id);
+
+        web_app::DisplayMode effective_display_mode =
+            provider->registrar().GetAppEffectiveDisplayMode(app_id());
+        return effective_display_mode != web_app::DisplayMode::kUndefined &&
+               effective_display_mode ==
+                   ConvertUseLaunchTypeCommandToDisplayMode(command_id);
       }
-      // Otherwise deliberately fall through to fallback on Bookmark Apps.
-      FALLTHROUGH;
+      return AppContextMenu::IsCommandIdChecked(command_id);
+
     case apps::mojom::AppType::kExtension:
       if (command_id >= ash::USE_LAUNCH_TYPE_COMMAND_START &&
           command_id < ash::USE_LAUNCH_TYPE_COMMAND_END) {
@@ -212,24 +233,28 @@ void AppServiceContextMenu::OnGetMenuModel(
   }
 
   // Create default items.
-  if (app_id() != extension_misc::kChromeAppId)
+  if (app_id() != extension_misc::kChromeAppId &&
+      app_type_ != apps::mojom::AppType::kUnknown) {
     app_list::AppContextMenu::BuildMenu(menu_model.get());
+  }
 
   if (app_type_ == apps::mojom::AppType::kExtension) {
     BuildExtensionAppShortcutsMenu(menu_model.get());
   }
 
+  app_shortcut_items_ = std::make_unique<arc::ArcAppShortcutItems>();
   for (size_t i = index; i < menu_items->items.size(); i++) {
-    DCHECK_EQ(apps::mojom::MenuItemType::kCommand, menu_items->items[i]->type);
-    AddContextMenuOption(
-        menu_model.get(),
-        static_cast<ash::CommandId>(menu_items->items[i]->command_id),
-        menu_items->items[i]->string_id);
-  }
-
-  if (app_type_ == apps::mojom::AppType::kArc) {
-    BuildArcAppShortcutsMenu(std::move(menu_model), std::move(callback));
-    return;
+    if (menu_items->items[i]->type == apps::mojom::MenuItemType::kCommand) {
+      AddContextMenuOption(
+          menu_model.get(),
+          static_cast<ash::CommandId>(menu_items->items[i]->command_id),
+          menu_items->items[i]->string_id);
+    } else {
+      DCHECK_EQ(apps::mojom::AppType::kArc, app_type_);
+      apps::PopulateItemFromMojoMenuItems(std::move(menu_items->items[i]),
+                                          menu_model.get(),
+                                          app_shortcut_items_.get());
+    }
   }
 
   std::move(callback).Run(std::move(menu_model));
@@ -252,27 +277,6 @@ void AppServiceContextMenu::BuildExtensionAppShortcutsMenu(
       appended_count);
 }
 
-void AppServiceContextMenu::BuildArcAppShortcutsMenu(
-    std::unique_ptr<ui::SimpleMenuModel> menu_model,
-    GetMenuModelCallback callback) {
-  const ArcAppListPrefs* arc_prefs = ArcAppListPrefs::Get(profile());
-  DCHECK(arc_prefs);
-  std::unique_ptr<ArcAppListPrefs::AppInfo> app_info =
-      arc_prefs->GetApp(app_id());
-  if (!app_info) {
-    LOG(ERROR) << "App " << app_id() << " is not available.";
-    std::move(callback).Run(std::move(menu_model));
-    return;
-  }
-
-  arc_shortcuts_menu_builder_ =
-      std::make_unique<arc::ArcAppShortcutsMenuBuilder>(
-          profile(), app_id(), controller()->GetAppListDisplayId(),
-          ash::LAUNCH_APP_SHORTCUT_FIRST, ash::LAUNCH_APP_SHORTCUT_LAST);
-  arc_shortcuts_menu_builder_->BuildMenu(
-      app_info->package_name, std::move(menu_model), std::move(callback));
-}
-
 void AppServiceContextMenu::ShowAppInfo() {
   if (app_type_ == apps::mojom::AppType::kArc) {
     chrome::ShowAppManagementPage(profile(), app_id());
@@ -287,22 +291,20 @@ void AppServiceContextMenu::ShowAppInfo() {
 
 void AppServiceContextMenu::SetLaunchType(int command_id) {
   switch (app_type_) {
-    case apps::mojom::AppType::kWeb:
-      if (base::FeatureList::IsEnabled(
-              features::kDesktopPWAsWithoutExtensions)) {
-        // Web apps can only toggle between kStandalone and kBrowser.
-        web_app::DisplayMode user_display_mode =
-            ConvertUseLaunchTypeCommandToDisplayMode(command_id);
-        if (user_display_mode != web_app::DisplayMode::kUndefined) {
-          auto* provider = web_app::WebAppProvider::Get(profile());
-          DCHECK(provider);
-          provider->registry_controller().SetAppUserDisplayMode(
-              app_id(), user_display_mode);
-        }
-        return;
+    case apps::mojom::AppType::kWeb: {
+      // Web apps can only toggle between kStandalone and kBrowser.
+      web_app::DisplayMode user_display_mode =
+          ConvertUseLaunchTypeCommandToDisplayMode(command_id);
+      if (user_display_mode != web_app::DisplayMode::kUndefined) {
+        auto* provider = web_app::WebAppProvider::Get(profile());
+        DCHECK(provider);
+        provider->registry_controller().SetExperimentalTabbedWindowMode(
+            app_id(), false);
+        provider->registry_controller().SetAppUserDisplayMode(
+            app_id(), user_display_mode);
       }
-      // Otherwise deliberately fall through to fallback on Bookmark Apps.
-      FALLTHROUGH;
+      return;
+    }
     case apps::mojom::AppType::kExtension: {
       // Hosted apps can only toggle between LAUNCH_TYPE_WINDOW and
       // LAUNCH_TYPE_REGULAR.
@@ -323,4 +325,16 @@ void AppServiceContextMenu::SetLaunchType(int command_id) {
     default:
       return;
   }
+}
+
+void AppServiceContextMenu::ExecuteArcShortcutCommand(int command_id) {
+  DCHECK(command_id >= ash::LAUNCH_APP_SHORTCUT_FIRST &&
+         command_id <= ash::LAUNCH_APP_SHORTCUT_LAST);
+  const size_t index = command_id - ash::LAUNCH_APP_SHORTCUT_FIRST;
+  DCHECK(app_shortcut_items_);
+  DCHECK_LT(index, app_shortcut_items_->size());
+
+  arc::ExecuteArcShortcutCommand(profile(), app_id(),
+                                 app_shortcut_items_->at(index).shortcut_id,
+                                 controller()->GetAppListDisplayId());
 }

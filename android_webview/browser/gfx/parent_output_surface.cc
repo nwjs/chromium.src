@@ -59,7 +59,7 @@ void ParentOutputSurface::SetDrawRectangle(const gfx::Rect& rect) {}
 void ParentOutputSurface::Reshape(const gfx::Size& size,
                                   float scale_factor,
                                   const gfx::ColorSpace& color_space,
-                                  bool has_alpha,
+                                  gfx::BufferFormat format,
                                   bool use_stencil) {}
 
 void ParentOutputSurface::SwapBuffers(viz::OutputSurfaceFrame frame) {
@@ -121,10 +121,6 @@ unsigned ParentOutputSurface::GetOverlayTextureId() const {
   return 0;
 }
 
-gfx::BufferFormat ParentOutputSurface::GetOverlayBufferFormat() const {
-  return gfx::BufferFormat::RGBX_8888;
-}
-
 unsigned ParentOutputSurface::UpdateGpuFence() {
   return 0;
 }
@@ -138,6 +134,10 @@ gfx::OverlayTransform ParentOutputSurface::GetDisplayTransform() {
 
 scoped_refptr<gpu::GpuTaskSchedulerHelper>
 ParentOutputSurface::GetGpuTaskSchedulerHelper() {
+  return nullptr;
+}
+
+gpu::MemoryTracker* ParentOutputSurface::GetMemoryTracker() {
   return nullptr;
 }
 

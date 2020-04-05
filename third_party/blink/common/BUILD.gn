@@ -57,13 +57,14 @@ jumbo_source_set("common") {
     "experiments/memory_ablation_experiment.cc",
     "feature_policy/document_policy.cc",
     "feature_policy/feature_policy.cc",
+    "feature_policy/feature_policy_mojom_traits.cc",
     "feature_policy/policy_value.cc",
     "features.cc",
     "fetch/fetch_api_request_body_mojom_traits.cc",
     "frame/frame_policy.cc",
+    "frame/frame_policy_mojom_traits.cc",
     "frame/from_ad_state.cc",
     "frame/user_activation_state.cc",
-    "http/structured_header.cc",
     "indexeddb/indexed_db_default_mojom_traits.cc",
     "indexeddb/indexeddb_key.cc",
     "indexeddb/indexeddb_key_path.cc",
@@ -77,6 +78,7 @@ jumbo_source_set("common") {
     "input/web_touch_event.cc",
     "loader/mime_sniffing_throttle.cc",
     "loader/mime_sniffing_url_loader.cc",
+    "loader/resource_type_util.cc",
     "loader/throttling_url_loader.cc",
     "loader/throttling_url_loader.h",
     "loader/url_loader_factory_bundle.cc",
@@ -104,21 +106,21 @@ jumbo_source_set("common") {
     "notifications/notification_mojom_traits.cc",
     "notifications/notification_resources.cc",
     "notifications/platform_notification_data.cc",
-    "origin_policy/origin_policy.cc",
-    "origin_policy/origin_policy_parser.cc",
-    "origin_policy/origin_policy_parser.h",
     "origin_trials/trial_token.cc",
     "origin_trials/trial_token_validator.cc",
     "page/page_zoom.cc",
     "peerconnection/webrtc_ip_handling_policy.cc",
     "permissions/permission_utils.cc",
+    "privacy_budget/identifiability_metric_builder.cc",
+    "privacy_budget/identifiability_metrics.cc",
     "scheduler/web_scheduler_tracked_feature.cc",
     "service_worker/service_worker_status_code.cc",
     "service_worker/service_worker_type_converters.cc",
     "service_worker/service_worker_utils.cc",
     "thread_safe_browser_interface_broker_proxy.cc",
+    "user_agent/user_agent_metadata.cc",
     "web_package/signed_exchange_consts.cc",
-    "web_package/signed_exchange_request_matcher.cc",
+    "web_package/web_package_request_matcher.cc",
   ]
 
   sources += get_target_outputs(":make_generated_document_policy_features")
@@ -132,6 +134,7 @@ jumbo_source_set("common") {
     "//base",
     "//mojo/public/cpp/system",
     "//net",
+    "//services/metrics/public/cpp:metrics_cpp",
     "//services/metrics/public/cpp:ukm_builders",
     "//services/network/public/cpp:cpp",
   ]
@@ -157,19 +160,13 @@ jumbo_source_set("common") {
   }
 }
 
-fuzzer_test("http_structured_header_fuzzer") {
-  sources = [ "http/structured_header_fuzzer.cc" ]
-  deps = [
-    ":common",
-    "//third_party/blink/renderer/platform:blink_fuzzer_test_support",
-  ]
-  seed_corpus = "http/structured_header_corpus"
-}
-
 test("blink_common_unittests") {
   visibility = [ "*" ]
   deps = [
     ":common_unittests_sources",
+    "//services/metrics/public/cpp:metrics_cpp",
+    "//services/metrics/public/cpp:ukm_builders",
+    "//services/metrics/public/mojom:mojom",
     "//third_party/blink/public/common",
   ]
   if (is_android) {
@@ -191,7 +188,6 @@ jumbo_source_set("common_unittests_sources") {
     "feature_policy/feature_policy_unittest.cc",
     "feature_policy/policy_value_unittest.cc",
     "frame/user_activation_state_unittest.cc",
-    "http/structured_header_unittest.cc",
     "indexeddb/indexeddb_key_unittest.cc",
     "loader/mime_sniffing_throttle_unittest.cc",
     "loader/throttling_url_loader_unittest.cc",
@@ -201,11 +197,13 @@ jumbo_source_set("common_unittests_sources") {
     "messaging/message_port_descriptor_unittest.cc",
     "mime_util/mime_util_unittest.cc",
     "notifications/notification_mojom_traits_unittest.cc",
-    "origin_policy/origin_policy_unittest.cc",
     "origin_trials/trial_token_unittest.cc",
     "origin_trials/trial_token_validator_unittest.cc",
+    "privacy_budget/identifiability_metric_builder_unittest.cc",
+    "privacy_budget/identifiability_metrics_unittest.cc",
+    "privacy_budget/identifiable_surface_unittest.cc",
     "test/run_all_unittests.cc",
-    "web_package/signed_exchange_request_matcher_unittest.cc",
+    "web_package/web_package_request_matcher_unittest.cc",
   ]
 
   deps = [

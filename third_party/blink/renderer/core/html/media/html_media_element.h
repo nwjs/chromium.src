@@ -36,7 +36,7 @@
 #include "third_party/blink/renderer/bindings/core/v8/active_script_wrappable.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
 #include "third_party/blink/renderer/core/core_export.h"
-#include "third_party/blink/renderer/core/execution_context/context_lifecycle_state_observer.h"
+#include "third_party/blink/renderer/core/execution_context/execution_context_lifecycle_state_observer.h"
 #include "third_party/blink/renderer/core/html/html_element.h"
 #include "third_party/blink/renderer/core/html/media/media_controls.h"
 #include "third_party/blink/renderer/core/intersection_observer/intersection_observer.h"
@@ -61,12 +61,11 @@ class AudioTrackList;
 class AutoplayPolicy;
 class ContentType;
 class CueTimeline;
-class EnumerationHistogram;
 class Event;
 class EventQueue;
 class ExceptionState;
 class HTMLMediaElementControlsList;
-class HTMLMediaSource;
+class MediaSource;
 class HTMLSourceElement;
 class HTMLTrackElement;
 class MediaError;
@@ -86,7 +85,7 @@ class CORE_EXPORT HTMLMediaElement
     : public HTMLElement,
       public Supplementable<HTMLMediaElement>,
       public ActiveScriptWrappable<HTMLMediaElement>,
-      public ContextLifecycleStateObserver,
+      public ExecutionContextLifecycleStateObserver,
       private WebMediaPlayerClient {
   DEFINE_WRAPPERTYPEINFO();
   USING_GARBAGE_COLLECTED_MIXIN(HTMLMediaElement);
@@ -263,10 +262,10 @@ class CORE_EXPORT HTMLMediaElement
   void DisableAutomaticTextTrackSelection();
 
   // EventTarget function.
-  // Both Node (via HTMLElement) and ContextLifecycleStateObserver define this
-  // method, which causes an ambiguity error at compile time. This class's
-  // constructor ensures that both implementations return document, so return
-  // the result of one of them here.
+  // Both Node (via HTMLElement) and ExecutionContextLifecycleStateObserver
+  // define this method, which causes an ambiguity error at compile time. This
+  // class's constructor ensures that both implementations return document, so
+  // return the result of one of them here.
   using HTMLElement::GetExecutionContext;
 
   bool IsFullscreen() const;
@@ -304,9 +303,6 @@ class CORE_EXPORT HTMLMediaElement
 
   // Checks to see if current media data is CORS-same-origin.
   bool IsMediaDataCorsSameOrigin() const;
-
-  // Returns this media element is in a cross-origin frame.
-  bool IsInCrossOriginFrame() const;
 
   void ScheduleEvent(Event*);
 
@@ -394,9 +390,9 @@ class CORE_EXPORT HTMLMediaElement
 
   bool IsInteractiveContent() const final;
 
-  // ContextLifecycleStateObserver functions.
+  // ExecutionContextLifecycleStateObserver functions.
   void ContextLifecycleStateChanged(mojom::FrameLifecycleState) override;
-  void ContextDestroyed(ExecutionContext*) override;
+  void ContextDestroyed() override;
 
   virtual void UpdateDisplayState() {}
   virtual void OnPlay() {}
@@ -560,8 +556,6 @@ class CORE_EXPORT HTMLMediaElement
   void RejectPlayPromises(DOMExceptionCode, const String&);
   void RejectPlayPromisesInternal(DOMExceptionCode, const String&);
 
-  EnumerationHistogram& ShowControlsHistogram() const;
-
   void OnRemovedFromDocumentTimerFired(TimerBase*);
 
   Features GetFeatures() override;
@@ -632,14 +626,7 @@ class CORE_EXPORT HTMLMediaElement
 
   DisplayMode display_mode_;
 
-  // If any portion of an attached HTMLMediaElement (HTMLME) and the MediaSource
-  // Extensions (MSE) API is alive (having pending activity or traceable from a
-  // GC root), the whole group is not GC'ed. Here, using Member,
-  // instead of Member, because |media_source_|'s wrapper needs to remain alive
-  // at least to successfully dispatch any events enqueued by behavior of the
-  // HTMLME+MSE API. It makes |media_source_|'s wrapper remain alive as long as
-  // this HTMLMediaElement's wrapper is alive.
-  Member<HTMLMediaSource> media_source_;
+  Member<MediaSource> media_source_;
 
   // Stores "official playback position", updated periodically from "current
   // playback position". Official playback position should not change while

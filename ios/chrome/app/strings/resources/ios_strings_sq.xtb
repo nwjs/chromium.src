@@ -97,6 +97,7 @@
 <translation id="2149973817440762519">Redakto faqeshënuesin</translation>
 <translation id="2179182049312275900">Mund ta aktivizosh sinkronizimin në çdo kohë te cilësimet.</translation>
 <translation id="2198757192731523470">Google mund ta përdorë historikun tënd për të personalizuar "Kërko me Google", reklamat dhe shërbime të tjera të Google.</translation>
+<translation id="2218443599109088993">Zvogëlo</translation>
 <translation id="2230173723195178503">Faqja e uebit u ngarkua</translation>
 <translation id="2239626343334228536">Të dhënat e shfletimit po pastrohen...</translation>
 <translation id="2257567812274161158">Sinkronizimi nuk po punon.</translation>
@@ -159,6 +160,7 @@
 <translation id="2923448633003185837">Ngjit dhe vazhdo</translation>
 <translation id="292639812446257861">Shëno si të palexuara</translation>
 <translation id="2958718410589002129">Fjalëkalimet</translation>
+<translation id="2964349545761222050">Blloko kukit e palëve të treta</translation>
 <translation id="2969979262385602596">Nuk mund të identifikohej. Provo përsëri.</translation>
 <translation id="298306318844797842">Shto mënyrën e pagesës...</translation>
 <translation id="2989805286512600854">Hape në skedë të re</translation>
@@ -178,6 +180,7 @@
 <translation id="3290875554372353449">Zgjidh një llogari</translation>
 <translation id="3311748811247479259">Joaktiv</translation>
 <translation id="3324193307694657476">Adresa 2</translation>
+<translation id="3328801116991980348">Informacionet rreth sajtit</translation>
 <translation id="3329904751041170572">Nuk mund të lidhej me serverin.</translation>
 <translation id="3335947283844343239">Rihap skedën e mbyllur</translation>
 <translation id="3371831930909698441">Ofrohet "Përkthe". Opsionet ofrohen pranë fundit të ekranit</translation>
@@ -300,6 +303,7 @@ Për të ndryshuar këtë cilësim, <ph name="BEGIN_LINK" />rivendos sinkronizim
 <translation id="4979397965658815378">Identifikohu me llogarinë e Google për të marrë faqeshënuesit, fjalëkalimet, historikun dhe cilësime të tjera në të gjitha pajisjet e tua.</translation>
 <translation id="5005498671520578047">Kopjo fjalëkalimin</translation>
 <translation id="5010803260590204777">Hap një skedë "të fshehtë" për të shfletuar uebin privatisht.</translation>
+<translation id="5039020240289137291">Bllokimi i kukive të palëve të treta</translation>
 <translation id="5039804452771397117">Lejo</translation>
 <translation id="5059136629401106827">Në rregull</translation>
 <translation id="5062321486222145940">Instalo "Diskun e Google"</translation>
@@ -414,9 +418,11 @@ Të dhënat e tua janë koduar me frazën tënde të kalimit më <ph name="TIME"
 <translation id="6434591244308415567">Ndodhi një gabim. Provo përsëri më vonë.</translation>
 <translation id="6445051938772793705">Shteti</translation>
 <translation id="6445981559479772097">Mesazhi u dërgua.</translation>
+<translation id="6447842834002726250">Kukit</translation>
 <translation id="6464071786529933911">Hape në një skedë të re "të fshehtë"</translation>
 <translation id="6476800141292307438">Po përkthen faqen në <ph name="LANGUAGE" />. Opsionet që ofrohen janë pranë fundit të ekranit.</translation>
 <translation id="6482629121755362506"><ph name="NUMBER_OF_SELECTED_BOOKMARKS" /> elementë u fshinë</translation>
+<translation id="6561262006871132942">Zmadho</translation>
 <translation id="6610002944194042868">Opsionet e "Përkthe"</translation>
 <translation id="6628106477656132239">Datë skadimi e pavlefshme</translation>
 <translation id="6638511529934826365">Zmadho tekstin…</translation>
@@ -479,7 +485,6 @@ Të dhënat e tua janë koduar me frazën tënde të kalimit më <ph name="TIME"
 <translation id="734758817008927353">Opsionet për ruajtjen e kartës</translation>
 <translation id="7348502496356775519">Shëno si faqeshënues</translation>
 <translation id="7383797227493018512">Lista e leximit</translation>
-<translation id="7392048574806661116">Dil dhe pastro të dhënat e sinkronizuara</translation>
 <translation id="7400418766976504921">URL-ja</translation>
 <translation id="7409985198648820906"><ph name="UNREAD_COUNT" /> artikuj të palexuar.</translation>
 <translation id="7425346204213733349">Ndryshimet te faqeshënuesit, historiku, fjalëkalimet dhe cilësimet e tjera nuk do të sinkronizohen më te llogaria jote e Google. Sidoqoftë, të dhënat e tua ekzistuese do të qëndrojnë të ruajtura te llogaria jote e Google.</translation>
@@ -598,6 +603,7 @@ Të dhënat e tua janë koduar me frazën tënde të kalimit më <ph name="TIME"
 <translation id="9223358826628549784">Raporti i ndërprerjes aksidentale u dërgua.</translation>
 <translation id="952704832371081537">Anulo</translation>
 <translation id="988141524645182168">Pajisjet e tjera</translation>
+<translation id="989697783705943787">Siguria e sajtit</translation>
 <translation id="989988560359834682">Redakto adresën</translation>
 <translation id="994757059139821576">Sugjerimet e artikujve</translation>
 </translationbundle>

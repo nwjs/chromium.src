@@ -55,6 +55,8 @@ jumbo_static_library("browser") {
     "actions/show_details_action.h",
     "actions/show_form_action.cc",
     "actions/show_form_action.h",
+    "actions/show_generic_ui_action.cc",
+    "actions/show_generic_ui_action.h",
     "actions/show_info_box_action.cc",
     "actions/show_info_box_action.h",
     "actions/show_progress_bar_action.cc",
@@ -77,6 +79,8 @@ jumbo_static_library("browser") {
     "actions/wait_for_dom_action.h",
     "actions/wait_for_navigation_action.cc",
     "actions/wait_for_navigation_action.h",
+    "basic_interactions.cc",
+    "basic_interactions.h",
     "batch_element_checker.cc",
     "batch_element_checker.h",
     "chip.cc",
@@ -104,6 +108,7 @@ jumbo_static_library("browser") {
     "event_handler.h",
     "features.cc",
     "features.h",
+    "generic_ui_java_generated_enums.h",
     "info_box.cc",
     "info_box.h",
     "metrics.cc",
@@ -147,11 +152,15 @@ jumbo_static_library("browser") {
     "user_data_util.h",
     "user_model.cc",
     "user_model.h",
+    "value_util.cc",
+    "value_util.h",
     "viewport_mode.h",
     "web/element_finder.cc",
     "web/element_finder.h",
     "web/element_position_getter.cc",
     "web/element_position_getter.h",
+    "web/element_rect_getter.cc",
+    "web/element_rect_getter.h",
     "web/web_controller.cc",
     "web/web_controller.h",
     "web/web_controller_util.cc",
@@ -181,31 +190,15 @@ jumbo_static_library("browser") {
   ]
 }
 
-source_set("unit_tests") {
+static_library("unit_test_support") {
   testonly = true
   sources = [
-    "actions/collect_user_data_action_unittest.cc",
-    "actions/configure_bottom_sheet_action_unittest.cc",
     "actions/mock_action_delegate.cc",
     "actions/mock_action_delegate.h",
-    "actions/popup_message_action_unittest.cc",
-    "actions/prompt_action_unittest.cc",
-    "actions/required_fields_fallback_handler_unittest.cc",
-    "actions/set_form_field_value_action_unittest.cc",
-    "actions/show_details_action_unittest.cc",
-    "actions/tell_action_unittest.cc",
-    "actions/use_address_action_unittest.cc",
-    "actions/use_credit_card_action_unittest.cc",
-    "actions/wait_for_document_action_unittest.cc",
-    "actions/wait_for_dom_action_unittest.cc",
-    "batch_element_checker_unittest.cc",
-    "controller_unittest.cc",
-    "details_unittest.cc",
-    "element_area_unittest.cc",
-    "element_precondition_unittest.cc",
-    "event_handler_unittest.cc",
     "fake_script_executor_delegate.cc",
     "fake_script_executor_delegate.h",
+    "mock_client.cc",
+    "mock_client.h",
     "mock_controller_observer.cc",
     "mock_controller_observer.h",
     "mock_personal_data_manager.cc",
@@ -216,16 +209,6 @@ source_set("unit_tests") {
     "mock_user_model_observer.h",
     "mock_website_login_fetcher.cc",
     "mock_website_login_fetcher.h",
-    "protocol_utils_unittest.cc",
-    "retry_timer_unittest.cc",
-    "script_executor_unittest.cc",
-    "script_precondition_unittest.cc",
-    "script_tracker_unittest.cc",
-    "selector_unittest.cc",
-    "string_conversions_util_unittest.cc",
-    "trigger_context_unittest.cc",
-    "user_data_util_unittest.cc",
-    "user_model_unittest.cc",
     "web/mock_web_controller.cc",
     "web/mock_web_controller.h",
   ]
@@ -236,11 +219,74 @@ source_set("unit_tests") {
     "//base",
     "//base/test:test_support",
     "//components/autofill/core/browser:test_support",
+    "//testing/gmock",
+    "//testing/gtest",
+  ]
+}
+
+source_set("unit_tests") {
+  testonly = true
+  sources = [
+    "actions/collect_user_data_action_unittest.cc",
+    "actions/configure_bottom_sheet_action_unittest.cc",
+    "actions/popup_message_action_unittest.cc",
+    "actions/prompt_action_unittest.cc",
+    "actions/required_fields_fallback_handler_unittest.cc",
+    "actions/set_form_field_value_action_unittest.cc",
+    "actions/show_details_action_unittest.cc",
+    "actions/show_generic_ui_action_unittest.cc",
+    "actions/tell_action_unittest.cc",
+    "actions/use_address_action_unittest.cc",
+    "actions/use_credit_card_action_unittest.cc",
+    "actions/wait_for_document_action_unittest.cc",
+    "actions/wait_for_dom_action_unittest.cc",
+    "basic_interactions_unittest.cc",
+    "batch_element_checker_unittest.cc",
+    "controller_unittest.cc",
+    "details_unittest.cc",
+    "element_area_unittest.cc",
+    "element_precondition_unittest.cc",
+    "event_handler_unittest.cc",
+    "protocol_utils_unittest.cc",
+    "retry_timer_unittest.cc",
+    "script_executor_unittest.cc",
+    "script_precondition_unittest.cc",
+    "script_tracker_unittest.cc",
+    "selector_unittest.cc",
+    "service_impl_unittest.cc",
+    "string_conversions_util_unittest.cc",
+    "trigger_context_unittest.cc",
+    "user_data_util_unittest.cc",
+    "user_model_unittest.cc",
+    "value_util_unittest.cc",
+  ]
+
+  deps = [
+    ":browser",
+    ":proto",
+    ":unit_test_support",
+    "//base",
+    "//base/test:test_support",
+    "//components/autofill/core/browser:test_support",
+    "//components/password_manager/core/browser:test_support",
     "//components/strings:components_strings_grit",
     "//content/test:test_support",
     "//testing/gmock",
     "//testing/gtest",
     "//third_party/re2",
+  ]
+}
+
+static_library("extensions_test_support") {
+  testonly = true
+  deps = [
+    ":browser",
+    ":proto",
+    ":unit_test_support",
+    "//base",
+    "//base/test:test_support",
+    "//testing/gmock",
+    "//testing/gtest",
   ]
 }
 
@@ -258,6 +304,7 @@ if (is_android) {
 
   java_cpp_enum("autofill_assistant_enums_java") {
     sources = [
+      "generic_ui_java_generated_enums.h",
       "metrics.h",
       "overlay_state.h",
       "user_data.h",

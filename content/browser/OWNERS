@@ -30,6 +30,7 @@ per-file sandbox_mac_unittest.*=file://sandbox/mac/OWNERS
 # Linux sandboxing.
 per-file sandbox_host_linux.*=file://sandbox/linux/OWNERS
 per-file sandbox_ipc_linux.*=file://sandbox/linux/OWNERS
+per-file utility_process_sandbox_browsertest.cc=file://sandbox/linux/OWNERS
 
 # Service manifests provided by content require security review
 per-file builtin_service_manifests.*=set noparent
@@ -41,4 +42,7 @@ per-file back_forward_cache_browsertest.cc=altimin@chromium.org
 
 # Storage API dependencies.
 per-file storage_partition*=file://storage/OWNERS
-per-file quota_dispatcher_host*=file://storage/OWNERS
+per-file storage_service*=file://components/services/storage/OWNERS
+
+# Variations.
+per-file field_trial_synchronizer.*=file://base/metrics/OWNERS

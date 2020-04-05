@@ -36,7 +36,7 @@ class SyncedNetworkUpdaterImpl
   ~SyncedNetworkUpdaterImpl() override;
 
   void AddOrUpdateNetwork(
-      const sync_pb::WifiConfigurationSpecificsData& specifics) override;
+      const sync_pb::WifiConfigurationSpecifics& specifics) override;
 
   void RemoveNetwork(const NetworkIdentifier& id) override;
 
@@ -57,7 +57,7 @@ class SyncedNetworkUpdaterImpl
   void StartAddOrUpdateOperation(
       const std::string& change_guid,
       const NetworkIdentifier& id,
-      const sync_pb::WifiConfigurationSpecificsData& specifics);
+      const sync_pb::WifiConfigurationSpecifics& specifics);
   void StartDeleteOperation(const std::string& change_guid,
                             const NetworkIdentifier& id,
                             std::string guid);
@@ -72,7 +72,7 @@ class SyncedNetworkUpdaterImpl
       const NetworkIdentifier& id);
 
   base::Optional<base::DictionaryValue> ConvertToDictionary(
-      const sync_pb::WifiConfigurationSpecificsData& specifics,
+      const sync_pb::WifiConfigurationSpecifics& specifics,
       const std::string& guid);
   void OnGetNetworkList(
       std::vector<network_config::mojom::NetworkStatePropertiesPtr> networks);
@@ -80,12 +80,13 @@ class SyncedNetworkUpdaterImpl
                const NetworkIdentifier& id,
                const std::string& error_name);
   void OnSetPropertiesResult(const std::string& change_guid,
+                             const std::string& network_guid,
                              const NetworkIdentifier& id,
                              bool success,
                              const std::string& error_message);
   void OnConfigureNetworkResult(const std::string& change_guid,
                                 const NetworkIdentifier& id,
-                                const base::Optional<std::string>& guid,
+                                const base::Optional<std::string>& network_guid,
                                 const std::string& error_message);
   void OnForgetNetworkResult(const std::string& change_guid,
                              const NetworkIdentifier& id,

@@ -20,7 +20,6 @@
 // <include
 // src="../../../../../ui/login/account_picker/chromeos_user_pod_row.js">
 // <include src="cr_ui.js">
-// <include src="oobe_screen_reset.js">
 // <include src="oobe_screen_autolaunch.js">
 // <include src="oobe_screen_supervision_transition.js">
 // <include src="oobe_screen_assistant_optin_flow.js">
@@ -43,7 +42,6 @@
 // <include src="screen_recommend_apps.js">
 // <include src="screen_app_downloading.js">
 // <include src="screen_discover.js">
-// <include src="screen_marketing_opt_in.js">
 // <include src="screen_multidevice_setup.js">
 
 // <include src="../../gaia_auth_host/authenticator.js">
@@ -52,7 +50,6 @@
 // <include src="oobe_screen_demo_preferences.js">
 // <include src="oobe_screen_enable_debugging.js">
 // <include src="oobe_screen_eula.js">
-// <include src="oobe_screen_hid_detection.js">
 // <include src="oobe_screen_network.js">
 // <include src="oobe_screen_oauth_enrollment.js">
 // <include src="oobe_screen_update.js">
@@ -67,14 +64,12 @@ cr.define('cr.ui.Oobe', function() {
      */
     initialize() {
       cr.ui.login.DisplayManager.initialize();
-      login.HIDDetectionScreen.register();
       login.WrongHWIDScreen.register();
       login.NetworkScreen.register();
       login.EulaScreen.register();
       login.UpdateScreen.register();
       login.AutoEnrollmentCheckScreen.register();
       login.EnableDebuggingScreen.register();
-      login.ResetScreen.register();
       login.AutolaunchScreen.register();
       login.AccountPickerScreen.register();
       login.OAuthEnrollmentScreen.register();
@@ -95,7 +90,6 @@ cr.define('cr.ui.Oobe', function() {
       login.DemoSetupScreen.register();
       login.DemoPreferencesScreen.register();
       login.DiscoverScreen.register();
-      login.MarketingOptInScreen.register();
       login.AssistantOptInFlowScreen.register();
       login.MultiDeviceSetupScreen.register();
       login.UpdateRequiredScreen.register();

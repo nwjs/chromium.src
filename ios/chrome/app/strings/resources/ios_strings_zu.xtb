@@ -97,6 +97,7 @@
 <translation id="2149973817440762519">Hlela ibhukhimakhi</translation>
 <translation id="2179182049312275900">Ungavula ukuvumelanisa noma kunini kuzilungiselelo.</translation>
 <translation id="2198757192731523470">I-Google ingasebenzisa umlando wakho ukuze yenze ngendlela ofisa ngayoyo usesho, izikhangiso, namanye amasevisi e-Google.</translation>
+<translation id="2218443599109088993">Hlehlisa isithombe</translation>
 <translation id="2230173723195178503">Ikhasi lewebhu lilayishiwe</translation>
 <translation id="2239626343334228536">Isula idatha yokuphequlula...</translation>
 <translation id="2257567812274161158">Ukuvumelanisa akusebenzi.</translation>
@@ -159,6 +160,7 @@
 <translation id="2923448633003185837">Namathisela uphinde uhambe</translation>
 <translation id="292639812446257861">Maka njengokungafundiwe</translation>
 <translation id="2958718410589002129">Amaphasiwedi</translation>
+<translation id="2964349545761222050">Vimba Amakhukhi Enkampani Yangaphandle</translation>
 <translation id="2969979262385602596">Yehlulekile ukungena ngemvume. Sicela uzame futhi emuva kwesikhathi.</translation>
 <translation id="298306318844797842">Engeza indlela yokukhokha...</translation>
 <translation id="2989805286512600854">Vula kuthebhu entsha</translation>
@@ -178,6 +180,7 @@
 <translation id="3290875554372353449">Khetha i-Akhawunti</translation>
 <translation id="3311748811247479259">Valiwe</translation>
 <translation id="3324193307694657476">Ikheli 2</translation>
+<translation id="3328801116991980348">Ulwazi lwesayithi</translation>
 <translation id="3329904751041170572">Ayikwazanga ukuxhuma kuseva.</translation>
 <translation id="3335947283844343239">Phinda uvule ithebhu evaliwe</translation>
 <translation id="3371831930909698441">Ukuhumusha kuyatholakala. Izinketho ziyatholakala eduze kwangaphansi kwesikrini.</translation>
@@ -300,6 +303,7 @@ Ukuze ushintshe lesi silungiselelo, <ph name="BEGIN_LINK" />setha kabusha ukuvum
 <translation id="4979397965658815378">Ngena ngemvume nge-akhawunti yakho ye-Google ukuze uthole amabhukhimakhi, amaphasiwedi, umlando nezinye izilungiselelo kuwo wonke amadivayisi akho</translation>
 <translation id="5005498671520578047">Kopisha iphasiwedi</translation>
 <translation id="5010803260590204777">Vula i ithebhu ye-incognito ukuze uphequlule iwebhu ngokuyimfihlo.</translation>
+<translation id="5039020240289137291">Ukuvimba amakhukhi wenkampani yangaphandle</translation>
 <translation id="5039804452771397117">Vumela</translation>
 <translation id="5059136629401106827">KULUNGILE</translation>
 <translation id="5062321486222145940">Faka ku-Google Drayivu</translation>
@@ -414,9 +418,11 @@ Idatha yakho ibethelwe ngomushwana wokungena wakho ngo-<ph name="TIME" />. Yifak
 <translation id="6434591244308415567">Kuvele iphutha. Zama futhi ngemuva kwesikhathi.</translation>
 <translation id="6445051938772793705">Izwe</translation>
 <translation id="6445981559479772097">Umyalezo uthunyelwe.</translation>
+<translation id="6447842834002726250">Amakhukhi</translation>
 <translation id="6464071786529933911">Vula kuthebhu elisha le-Incognito</translation>
 <translation id="6476800141292307438">Ukuhumushela ikhasi kusi-<ph name="LANGUAGE" />. Izinketho ziyatholakala eduzane naphansi kwesikrini.</translation>
 <translation id="6482629121755362506"><ph name="NUMBER_OF_SELECTED_BOOKMARKS" /> izinto zisusiwe</translation>
+<translation id="6561262006871132942">Sondeza isithombe</translation>
 <translation id="6610002944194042868">Izinketho zokuhumusha</translation>
 <translation id="6628106477656132239">Idethi yokuphelelwa isikhathi engavumelekile</translation>
 <translation id="6638511529934826365">Sondeza umbhalo…</translation>
@@ -479,7 +485,6 @@ Idatha yakho ibethelwe ngomushwana wokungena wakho ngo-<ph name="TIME" />. Yifak
 <translation id="734758817008927353">Izinketho zokulondoloza ikhadi</translation>
 <translation id="7348502496356775519">Ibhukhimakhi</translation>
 <translation id="7383797227493018512">Uhlu lokufunda</translation>
-<translation id="7392048574806661116">Phuma ngemvume futhi usule idatha evumelanisiwe</translation>
 <translation id="7400418766976504921">I-URL</translation>
 <translation id="7409985198648820906"><ph name="UNREAD_COUNT" /> ama-athikili angafundiwe.</translation>
 <translation id="7425346204213733349">Izinguquko kumabhukhimakhi akho, umlando, amaphasiwedi, nezinye izilungiselelo ngeke kusavumelaniswa ku-akhawunti yakho ye-Google. Yize kunjalo, idatha yakho ekhona izohlala igcinwe ku-akhawunti yakho ye-Google.</translation>
@@ -598,6 +603,7 @@ Idatha yakho ibethelwe ngomushwana wokungena wakho ngo-<ph name="TIME" />. Yifak
 <translation id="9223358826628549784">Umbiko wokuphahlazeka uthunyelwe.</translation>
 <translation id="952704832371081537">Khansela</translation>
 <translation id="988141524645182168">Amanye amadivayisi</translation>
+<translation id="989697783705943787">Ukuvikeleka kwesayithi</translation>
 <translation id="989988560359834682">Hlela ikheli</translation>
 <translation id="994757059139821576">Iziphakamiso ze-athikili</translation>
 </translationbundle>

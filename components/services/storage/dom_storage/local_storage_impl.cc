@@ -14,10 +14,12 @@
 
 #include "base/barrier_closure.h"
 #include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/files/file_enumerator.h"
 #include "base/files/file_path.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/numerics/safe_conversions.h"
 #include "base/optional.h"
 #include "base/single_thread_task_runner.h"
 #include "base/stl_util.h"
@@ -26,6 +28,7 @@
 #include "base/strings/stringprintf.h"
 #include "base/system/sys_info.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "base/task_runner_util.h"
 #include "base/trace_event/memory_dump_manager.h"
 #include "build/build_config.h"
@@ -339,7 +342,7 @@ class LocalStorageImpl::StorageAreaHolder final
           FROM_HERE, base::BindOnce(&MigrateStorageHelper, sql_db_path(),
                                     base::ThreadTaskRunnerHandle::Get(),
                                     base::BindOnce(&CallMigrationCalback,
-                                                   base::Passed(&callback))));
+                                                   std::move(callback))));
       return;
     }
     std::move(callback).Run(nullptr);
@@ -459,8 +462,8 @@ LocalStorageImpl::LocalStorageImpl(
     mojo::PendingReceiver<mojom::LocalStorageControl> receiver)
     : directory_(storage_root.empty() ? storage_root
                                       : storage_root.Append(kLocalStoragePath)),
-      leveldb_task_runner_(base::CreateSequencedTaskRunner(
-          {base::ThreadPool(), base::MayBlock(),
+      leveldb_task_runner_(base::ThreadPool::CreateSequencedTaskRunner(
+          {base::MayBlock(), base::WithBaseSyncPrimitives(),
            base::TaskShutdownBehavior::BLOCK_SHUTDOWN})),
       memory_dump_id_(base::StringPrintf("LocalStorage/0x%" PRIXPTR,
                                          reinterpret_cast<uintptr_t>(this))),
@@ -508,9 +511,12 @@ void LocalStorageImpl::DeleteStorage(const url::Origin& origin,
   auto found = areas_.find(origin);
   if (found != areas_.end()) {
     // Renderer process expects |source| to always be two newline separated
-    // strings.
+    // strings. We don't bother passing an observer because this is a one-shot
+    // event and we only care about observing its completion, for which the
+    // reply alone is sufficient.
     found->second->storage_area()->DeleteAll(
-        "\n", base::BindOnce(&SuccessResponse, std::move(callback)));
+        "\n", /*new_observer=*/mojo::NullRemote(),
+        base::BindOnce(&SuccessResponse, std::move(callback)));
     found->second->storage_area()->ScheduleImmediateCommit();
   } else if (database_) {
     DeleteOrigins(
@@ -557,10 +563,11 @@ void LocalStorageImpl::Flush(FlushCallback callback) {
                                     std::move(callback)));
     return;
   }
-  for (const auto& it : areas_)
-    it.second->storage_area()->ScheduleImmediateCommit();
 
-  std::move(callback).Run();
+  base::RepeatingClosure commit_callback = base::BarrierClosure(
+      base::saturated_cast<int>(areas_.size()), std::move(callback));
+  for (const auto& it : areas_)
+    it.second->storage_area()->ScheduleImmediateCommit(commit_callback);
 }
 
 void LocalStorageImpl::FlushOriginForTesting(const url::Origin& origin) {

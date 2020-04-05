@@ -63,7 +63,7 @@ class ViewCreatingClient : public frame_test_helpers::TestWebViewClient {
                       const WebWindowFeatures&,
                       const WebString& name,
                       WebNavigationPolicy,
-                      WebSandboxFlags,
+                      mojom::blink::WebSandboxFlags,
                       const FeaturePolicy::FeatureState&,
                       const SessionStorageNamespaceId&) override {
     return web_view_helper_.InitializeWithOpener(opener);
@@ -96,7 +96,8 @@ TEST_F(CreateWindowTest, CreateWindowFromPausedPage) {
   request.SetNavigationPolicy(kNavigationPolicyNewForegroundTab);
   WebWindowFeatures features;
   EXPECT_EQ(nullptr, chrome_client_impl_->CreateWindow(
-                         frame, request, "", features, WebSandboxFlags::kNone,
+                         frame, request, "", features,
+                         mojom::blink::WebSandboxFlags::kNone,
                          FeaturePolicy::FeatureState(), ""));
 }
 
@@ -107,7 +108,7 @@ class FakeColorChooserClient : public GarbageCollected<FakeColorChooserClient>,
       : owner_element_(owner_element) {}
   ~FakeColorChooserClient() override = default;
 
-  void Trace(blink::Visitor* visitor) override {
+  void Trace(Visitor* visitor) override {
     visitor->Trace(owner_element_);
     ColorChooserClient::Trace(visitor);
   }
@@ -137,7 +138,7 @@ class FakeDateTimeChooserClient
       : owner_element_(owner_element) {}
   ~FakeDateTimeChooserClient() override = default;
 
-  void Trace(blink::Visitor* visitor) override {
+  void Trace(Visitor* visitor) override {
     visitor->Trace(owner_element_);
     DateTimeChooserClient::Trace(visitor);
   }

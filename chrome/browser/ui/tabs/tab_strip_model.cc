@@ -126,7 +126,8 @@ class RenderWidgetHostVisibilityTracker
     if (!host_ || host_->GetView()->IsShowing())
       return;
     host_->AddObserver(this);
-    TRACE_EVENT_ASYNC_BEGIN0("ui,latency", "TabSwitchVisibilityRequest", this);
+    TRACE_EVENT_NESTABLE_ASYNC_BEGIN0("ui,latency",
+                                      "TabSwitchVisibilityRequest", this);
   }
 
   ~RenderWidgetHostVisibilityTracker() override {
@@ -144,7 +145,8 @@ class RenderWidgetHostVisibilityTracker
         "Browser.Tabs.SelectionToVisibilityRequestTime", timer_.Elapsed(),
         base::TimeDelta::FromMicroseconds(1), base::TimeDelta::FromSeconds(3),
         50);
-    TRACE_EVENT_ASYNC_END0("ui,latency", "TabSwitchVisibilityRequest", this);
+    TRACE_EVENT_NESTABLE_ASYNC_END0("ui,latency", "TabSwitchVisibilityRequest",
+                                    this);
   }
 
   void RenderWidgetHostDestroyed(content::RenderWidgetHost* host) override {
@@ -933,6 +935,11 @@ void TabStripModel::AddWebContents(
     index = order_controller_->DetermineInsertionIndex(transition,
                                                        add_types & ADD_ACTIVE);
     inherit_opener = true;
+
+    // The current active index is our opener. If the tab we are adding is not
+    // in a group, set the group of the tab to that of its opener.
+    if (!group.has_value())
+      group = GetTabGroupForTab(active_index());
   } else {
     // For all other types, respect what was passed to us, normalizing -1s and
     // values that are too large.
@@ -951,6 +958,8 @@ void TabStripModel::AddWebContents(
       index = base::ClampToRange(index, grouped_tabs.front(),
                                  grouped_tabs.back() + 1);
     }
+  } else if (GetTabGroupForTab(index - 1) == GetTabGroupForTab(index)) {
+    group = GetTabGroupForTab(index);
   }
 
   if (ui::PageTransitionTypeIncludingQualifiersIs(transition,
@@ -1214,6 +1223,9 @@ bool TabStripModel::IsContextMenuCommandEnabled(
     case CommandRemoveFromGroup:
       return true;
 
+    case CommandMoveToExistingWindow:
+      return true;
+
     case CommandMoveTabsToNewWindow:
       return delegate()->CanMoveTabsToWindow(
           GetIndicesForCommand(context_index));
@@ -1381,6 +1393,12 @@ void TabStripModel::ExecuteContextMenuCommand(int context_index,
       break;
     }
 
+    case CommandMoveToExistingWindow: {
+      // Do nothing. The submenu's delegate will invoke
+      // ExecuteAddToExistingWindowCommand with the correct window later.
+      break;
+    }
+
     case CommandMoveTabsToNewWindow: {
       base::RecordAction(
           UserMetricsAction("TabContextMenu_MoveTabToNewWindow"));
@@ -1399,6 +1417,17 @@ void TabStripModel::ExecuteAddToExistingGroupCommand(
   base::RecordAction(UserMetricsAction("TabContextMenu_AddToExistingGroup"));
 
   AddToExistingGroup(GetIndicesForCommand(context_index), group);
+}
+
+void TabStripModel::ExecuteAddToExistingWindowCommand(int context_index,
+                                                      int browser_index) {
+  base::RecordAction(UserMetricsAction("TabContextMenu_AddToExistingWindow"));
+  delegate()->MoveToExistingWindow(GetIndicesForCommand(context_index),
+                                   browser_index);
+}
+
+std::vector<base::string16> TabStripModel::GetExistingWindowsForMoveMenu() {
+  return delegate()->GetExistingWindowsForMoveMenu();
 }
 
 bool TabStripModel::WillContextMenuMuteSites(int index) {
@@ -1763,7 +1792,8 @@ TabStripSelectionChange TabStripModel::SetSelection(
                 resource_coordinator::ResourceCoordinatorTabHelper::IsFrozen(
                     selection.new_contents),
                 /*show_reason_tab_switching=*/true,
-                /*show_reason_unoccluded=*/false);
+                /*show_reason_unoccluded=*/false,
+                /*show_reason_bfcache_restore=*/false);
       }
       tab_switch_event_latency_recorder_.OnWillChangeActiveTab(now);
     }

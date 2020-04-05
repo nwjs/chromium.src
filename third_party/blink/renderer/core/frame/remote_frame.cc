@@ -6,8 +6,9 @@
 
 #include "cc/layers/surface_layer.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
-#include "third_party/blink/public/common/features.h"
+#include "third_party/blink/public/mojom/frame/frame_owner_properties.mojom-blink.h"
 #include "third_party/blink/public/mojom/frame/intrinsic_sizing_info.mojom-blink.h"
+#include "third_party/blink/public/mojom/security_context/insecure_request_policy.mojom-blink.h"
 #include "third_party/blink/public/platform/interface_registry.h"
 #include "third_party/blink/public/web/web_frame.h"
 #include "third_party/blink/public/web/web_view.h"
@@ -19,6 +20,7 @@
 #include "third_party/blink/renderer/core/frame/local_frame_client.h"
 #include "third_party/blink/renderer/core/frame/remote_dom_window.h"
 #include "third_party/blink/renderer/core/frame/remote_frame_client.h"
+#include "third_party/blink/renderer/core/frame/remote_frame_owner.h"
 #include "third_party/blink/renderer/core/frame/remote_frame_view.h"
 #include "third_party/blink/renderer/core/fullscreen/fullscreen.h"
 #include "third_party/blink/renderer/core/html/html_frame_owner_element.h"
@@ -34,7 +36,6 @@
 #include "third_party/blink/renderer/core/page/plugin_script_forbidden_scope.h"
 #include "third_party/blink/renderer/core/paint/paint_layer.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
-#include "third_party/blink/renderer/core/scroll/scroll_into_view_params_type_converters.h"
 #include "third_party/blink/renderer/core/timing/dom_window_performance.h"
 #include "third_party/blink/renderer/platform/graphics/graphics_layer.h"
 #include "third_party/blink/renderer/platform/heap/heap.h"
@@ -48,8 +49,8 @@
 namespace blink {
 
 namespace {
-FloatRect DeNormalizeRect(const WebFloatRect& normalized, const IntRect& base) {
-  FloatRect result = normalized;
+FloatRect DeNormalizeRect(const gfx::RectF& normalized, const IntRect& base) {
+  FloatRect result(normalized);
   result.Scale(base.Width(), base.Height());
   result.MoveBy(FloatPoint(base.Location()));
   return result;
@@ -87,7 +88,7 @@ RemoteFrame::~RemoteFrame() {
   DCHECK(!view_);
 }
 
-void RemoteFrame::Trace(blink::Visitor* visitor) {
+void RemoteFrame::Trace(Visitor* visitor) {
   visitor->Trace(view_);
   visitor->Trace(security_context_);
   Frame::Trace(visitor);
@@ -105,10 +106,11 @@ void RemoteFrame::Navigate(FrameLoadRequest& frame_request,
   const KURL& url = frame_request.GetResourceRequest().Url();
   if (!frame_request.CanDisplay(url)) {
     if (frame_request.OriginDocument()) {
-      frame_request.OriginDocument()->AddConsoleMessage(ConsoleMessage::Create(
-          mojom::ConsoleMessageSource::kSecurity,
-          mojom::ConsoleMessageLevel::kError,
-          "Not allowed to load local resource: " + url.ElidedString()));
+      frame_request.OriginDocument()->AddConsoleMessage(
+          MakeGarbageCollected<ConsoleMessage>(
+              mojom::ConsoleMessageSource::kSecurity,
+              mojom::ConsoleMessageLevel::kError,
+              "Not allowed to load local resource: " + url.ElidedString()));
     }
     return;
   }
@@ -128,7 +130,10 @@ void RemoteFrame::Navigate(FrameLoadRequest& frame_request,
                           : nullptr;
   MixedContentChecker::UpgradeInsecureRequest(
       frame_request.GetResourceRequest(), fetch_client_settings_object,
-      frame_request.OriginDocument(), frame_request.GetFrameType(),
+      frame_request.OriginDocument()
+          ? frame_request.OriginDocument()->ToExecutionContext()
+          : nullptr,
+      frame_request.GetFrameType(),
       frame ? frame->GetContentSettingsClient() : nullptr);
 
   // Navigations in portal contexts do not create back/forward entries.
@@ -145,7 +150,8 @@ void RemoteFrame::Navigate(FrameLoadRequest& frame_request,
     is_opener_navigation = frame->Client()->Opener() == this;
     initiator_frame_has_download_sandbox_flag =
         frame->GetSecurityContext() &&
-        frame->GetSecurityContext()->IsSandboxed(WebSandboxFlags::kDownloads);
+        frame->GetSecurityContext()->IsSandboxed(
+            mojom::blink::WebSandboxFlags::kDownloads);
     initiator_frame_is_ad = frame->IsAdSubframe();
     if (frame_request.ClientRedirectReason() != ClientNavigationReason::kNone) {
       probe::FrameRequestedNavigation(frame, this, url,
@@ -205,7 +211,7 @@ bool RemoteFrame::ShouldClose() {
 
 void RemoteFrame::SetIsInert(bool inert) {
   if (inert != is_inert_)
-    Client()->SetIsInert(inert);
+    GetRemoteFrameHostRemote().SetIsInert(inert);
   is_inert_ = inert;
 }
 
@@ -316,11 +322,13 @@ void RemoteFrame::SetReplicatedFeaturePolicyHeaderAndOpenerPolicies(
   ApplyReplicatedFeaturePolicyHeader();
 }
 
-void RemoteFrame::SetReplicatedSandboxFlags(WebSandboxFlags flags) {
+void RemoteFrame::SetReplicatedSandboxFlags(
+    mojom::blink::WebSandboxFlags flags) {
   security_context_.ResetAndEnforceSandboxFlags(flags);
 }
 
-void RemoteFrame::SetInsecureRequestPolicy(WebInsecureRequestPolicy policy) {
+void RemoteFrame::SetInsecureRequestPolicy(
+    mojom::blink::InsecureRequestPolicy policy) {
   security_context_.SetInsecureRequestPolicy(policy);
 }
 
@@ -365,6 +373,16 @@ void RemoteFrame::ResetReplicatedContentSecurityPolicy() {
 void RemoteFrame::EnforceInsecureNavigationsSet(
     const WTF::Vector<uint32_t>& set) {
   security_context_.SetInsecureNavigationsSet(set);
+}
+
+void RemoteFrame::SetFrameOwnerProperties(
+    mojom::blink::FrameOwnerPropertiesPtr properties) {
+  Frame::ApplyFrameOwnerProperties(std::move(properties));
+}
+
+void RemoteFrame::EnforceInsecureRequestPolicy(
+    mojom::blink::InsecureRequestPolicy policy) {
+  SetInsecureRequestPolicy(policy);
 }
 
 void RemoteFrame::SetReplicatedOrigin(
@@ -422,9 +440,8 @@ void RemoteFrame::SetNeedsOcclusionTracking(bool needs_tracking) {
   View()->SetNeedsOcclusionTracking(needs_tracking);
 }
 
-void RemoteFrame::BubbleLogicalScroll(
-    mojom::blink::ScrollDirection direction,
-    ui::input_types::ScrollGranularity granularity) {
+void RemoteFrame::BubbleLogicalScroll(mojom::blink::ScrollDirection direction,
+                                      ui::ScrollGranularity granularity) {
   Frame* parent_frame = Client()->Parent();
   DCHECK(parent_frame);
   DCHECK(parent_frame->IsLocalFrame());
@@ -462,7 +479,7 @@ void RemoteFrame::SetPageFocus(bool is_focused) {
 }
 
 void RemoteFrame::ScrollRectToVisible(
-    const WebRect& rect_to_scroll,
+    const gfx::Rect& rect_to_scroll,
     mojom::blink::ScrollIntoViewParamsPtr params) {
   Element* owner_element = DeprecatedLocalOwner();
   LayoutObject* owner_object = owner_element->GetLayoutObject();
@@ -475,9 +492,10 @@ void RemoteFrame::ScrollRectToVisible(
 
   // Schedule the scroll.
   PhysicalRect absolute_rect = owner_object->LocalToAncestorRect(
-      PhysicalRect(LayoutUnit(rect_to_scroll.x), LayoutUnit(rect_to_scroll.y),
-                   LayoutUnit(rect_to_scroll.width),
-                   LayoutUnit(rect_to_scroll.height)),
+      PhysicalRect(LayoutUnit(rect_to_scroll.x()),
+                   LayoutUnit(rect_to_scroll.y()),
+                   LayoutUnit(rect_to_scroll.width()),
+                   LayoutUnit(rect_to_scroll.height())),
       owner_object->View());
 
   if (!params->zoom_into_rect ||
@@ -528,14 +546,73 @@ void RemoteFrame::IntrinsicSizingInfoOfChildChanged(
   // C++ Blink type and use the Mojo type everywhere or typemap the
   // Mojo type to the pre-existing native C++ Blink type.
   IntrinsicSizingInfo sizing_info;
-  sizing_info.size = FloatSize(info->size->width, info->size->height);
-  sizing_info.aspect_ratio =
-      FloatSize(info->aspect_ratio->width, info->aspect_ratio->height);
+  sizing_info.size = FloatSize(info->size);
+  sizing_info.aspect_ratio = FloatSize(info->aspect_ratio);
   sizing_info.has_width = info->has_width;
   sizing_info.has_height = info->has_height;
   View()->SetIntrinsicSizeInfo(sizing_info);
 
   owner->IntrinsicSizingInfoChanged();
+}
+
+// Update the proxy's SecurityContext with new sandbox flags or feature policy
+// that were set during navigation. Unlike changes to the FrameOwner, which are
+// handled by RenderFrameProxy::OnDidUpdateFramePolicy, these changes should be
+// considered effective immediately.
+//
+// These flags / policy are needed on the remote frame's SecurityContext to
+// ensure that sandbox flags and feature policy are inherited properly if this
+// proxy ever parents a local frame.
+void RemoteFrame::DidSetFramePolicyHeaders(
+    mojom::blink::WebSandboxFlags sandbox_flags,
+    const Vector<ParsedFeaturePolicyDeclaration>& parsed_feature_policy) {
+  SetReplicatedSandboxFlags(sandbox_flags);
+  // Convert from WTF::Vector<ParsedFeaturePolicyDeclaration>
+  // to std::vector<ParsedFeaturePolicyDeclaration>, since ParsedFeaturePolicy
+  // is an alias for the later.
+  //
+  // TODO(crbug.com/1047273): Remove this conversion by switching
+  // ParsedFeaturePolicy to operate over Vector
+  ParsedFeaturePolicy parsed_feature_policy_copy(parsed_feature_policy.size());
+  for (size_t i = 0; i < parsed_feature_policy.size(); ++i)
+    parsed_feature_policy_copy[i] = parsed_feature_policy[i];
+  SetReplicatedFeaturePolicyHeaderAndOpenerPolicies(
+      parsed_feature_policy_copy, FeaturePolicy::FeatureState());
+}
+
+// Update the proxy's FrameOwner with new sandbox flags and container policy
+// that were set by its parent in another process.
+//
+// Normally, when a frame's sandbox attribute is changed dynamically, the
+// frame's FrameOwner is updated with the new sandbox flags right away, while
+// the frame's SecurityContext is updated when the frame is navigated and the
+// new sandbox flags take effect.
+//
+// Currently, there is no use case for a proxy's pending FrameOwner sandbox
+// flags, so there's no message sent to proxies when the sandbox attribute is
+// first updated.  Instead, the active flags are updated when they take effect,
+// by OnDidSetActiveSandboxFlags. The proxy's FrameOwner flags are updated here
+// with the caveat that the FrameOwner won't learn about updates to its flags
+// until they take effect.
+void RemoteFrame::DidUpdateFramePolicy(const FramePolicy& frame_policy) {
+  // At the moment, this is only used to replicate sandbox flags and container
+  // policy for frames with a remote owner.
+  SECURITY_CHECK(IsA<RemoteFrameOwner>(Owner()));
+  To<RemoteFrameOwner>(Owner())->SetFramePolicy(frame_policy);
+}
+
+IntSize RemoteFrame::GetMainFrameViewportSize() const {
+  HTMLFrameOwnerElement* owner = DeprecatedLocalOwner();
+  DCHECK(owner);
+  DCHECK(owner->GetDocument().GetFrame());
+  return owner->GetDocument().GetFrame()->GetMainFrameViewportSize();
+}
+
+IntPoint RemoteFrame::GetMainFrameScrollOffset() const {
+  HTMLFrameOwnerElement* owner = DeprecatedLocalOwner();
+  DCHECK(owner);
+  DCHECK(owner->GetDocument().GetFrame());
+  return owner->GetDocument().GetFrame()->GetMainFrameScrollOffset();
 }
 
 bool RemoteFrame::IsIgnoredForHitTest() const {
@@ -545,27 +622,6 @@ bool RemoteFrame::IsIgnoredForHitTest() const {
 
   return owner->OwnerType() == FrameOwnerElementType::kPortal ||
          !visible_to_hit_testing_;
-}
-
-void RemoteFrame::UpdateHitTestOcclusionData() {
-  if (!cc_layer_ || !is_surface_layer_)
-    return;
-  bool unoccluded = false;
-  if (base::FeatureList::IsEnabled(
-          blink::features::kVizHitTestOcclusionCheck)) {
-    if (LayoutEmbeddedContent* owner = OwnerLayoutObject()) {
-      if (owner->GetFrame()->IsAttached() &&
-          !owner->GetFrameView()->CanThrottleRendering()) {
-        // TODO(szager): remove this CHECK after diagnosing crash.
-        CHECK(owner->GetFrame()->GetPage());
-        HitTestResult hit_test_result(owner->HitTestForOcclusion());
-        const Node* hit_node = hit_test_result.InnerNode();
-        unoccluded = (!hit_node || hit_node == owner->GetNode());
-      }
-    }
-  }
-  static_cast<cc::SurfaceLayer*>(cc_layer_)->SetUnoccludedForHitTesting(
-      unoccluded);
 }
 
 void RemoteFrame::SetCcLayer(cc::Layer* cc_layer,

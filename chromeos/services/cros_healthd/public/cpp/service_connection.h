@@ -6,7 +6,9 @@
 #define CHROMEOS_SERVICES_CROS_HEALTHD_PUBLIC_CPP_SERVICE_CONNECTION_H_
 
 #include <cstdint>
+#include <string>
 
+#include "base/optional.h"
 #include "chromeos/services/cros_healthd/public/mojom/cros_healthd.mojom.h"
 
 namespace chromeos {
@@ -68,6 +70,83 @@ class ServiceConnection {
   // details.
   virtual void RunSmartctlCheckRoutine(
       mojom::CrosHealthdDiagnosticsService::RunSmartctlCheckRoutineCallback
+          callback) = 0;
+
+  // Requests that cros_healthd runs the AC power routine. See
+  // src/chromeos/service/cros_healthd/public/mojom/cros_healthd.mojom for
+  // details.
+  virtual void RunAcPowerRoutine(
+      mojom::AcPowerStatusEnum expected_status,
+      const base::Optional<std::string>& expected_power_type,
+      mojom::CrosHealthdDiagnosticsService::RunAcPowerRoutineCallback
+          callback) = 0;
+
+  // Requests that cros_healthd runs the CPU cache routine. See
+  // src/chromeos/service/cros_healthd/public/mojom/cros_healthd.mojom for
+  // details.
+  virtual void RunCpuCacheRoutine(
+      const base::TimeDelta& exec_duration,
+      mojom::CrosHealthdDiagnosticsService::RunCpuCacheRoutineCallback
+          callback) = 0;
+
+  // Requests that cros_healthd runs the CPU stress routine. See
+  // src/chromeos/service/cros_healthd/public/mojom/cros_healthd.mojom for
+  // details.
+  virtual void RunCpuStressRoutine(
+      const base::TimeDelta& exec_duration,
+      mojom::CrosHealthdDiagnosticsService::RunCpuStressRoutineCallback
+          callback) = 0;
+
+  // Requests that cros_healthd runs the floating point accuracy routine. See
+  // src/chromeos/service/cros_healthd/public/mojom/cros_healthd.mojom for
+  // details.
+  virtual void RunFloatingPointAccuracyRoutine(
+      const base::TimeDelta& exec_duration,
+      mojom::CrosHealthdDiagnosticsService::
+          RunFloatingPointAccuracyRoutineCallback callback) = 0;
+
+  // Requests that cros_healthd runs the NVMe wear-level routine. See
+  // src/chromeos/service/cros_healthd/public/mojom/cros_healthd.mojom for
+  // details.
+  virtual void RunNvmeWearLevelRoutine(
+      uint32_t wear_level_threshold,
+      mojom::CrosHealthdDiagnosticsService::RunNvmeWearLevelRoutineCallback
+          callback) = 0;
+
+  // Requests that cros_healthd runs the NVMe self-test routine. See
+  // src/chromeos/service/cros_healthd/public/mojom/cros_healthd.mojom for
+  // details.
+  virtual void RunNvmeSelfTestRoutine(
+      mojom::NvmeSelfTestTypeEnum nvme_self_test_type,
+      mojom::CrosHealthdDiagnosticsService::RunNvmeSelfTestRoutineCallback
+          callback) = 0;
+
+  // Requests that cros_healthd runs the Disk Read routine. See
+  // src/chromeos/service/cros_healthd/public/mojom/cros_healthd.mojom for
+  // details.
+  virtual void RunDiskReadRoutine(
+      mojom::DiskReadRoutineTypeEnum type,
+      base::TimeDelta& exec_duration,
+      uint32_t file_size_mb,
+      mojom::CrosHealthdDiagnosticsService::RunDiskReadRoutineCallback
+          callback) = 0;
+
+  // Requests that cros_healthd runs the prime search routine. See
+  // src/chromeos/service/cros_healthd/public/mojom/cros_healthd.mojom for
+  // details.
+  virtual void RunPrimeSearchRoutine(
+      base::TimeDelta& exec_duration,
+      uint64_t max_num,
+      mojom::CrosHealthdDiagnosticsService::RunPrimeSearchRoutineCallback
+          callback) = 0;
+
+  // Requests that cros_healthd runs the battery discharge routine. See
+  // src/chromeos/service/cros_healthd/public/mojom/cros_healthd.mojom for
+  // details.
+  virtual void RunBatteryDischargeRoutine(
+      base::TimeDelta exec_duration,
+      uint32_t maximum_discharge_percent_allowed,
+      mojom::CrosHealthdDiagnosticsService::RunBatteryDischargeRoutineCallback
           callback) = 0;
 
   // Gather pieces of information about the platform. See

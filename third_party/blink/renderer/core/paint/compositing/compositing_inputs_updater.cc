@@ -227,6 +227,22 @@ void CompositingInputsUpdater::UpdateAncestorInfo(PaintLayer* const layer,
       info.enclosing_stacking_composited_layer;
   PaintLayer* enclosing_squashing_composited_layer =
       info.enclosing_squashing_composited_layer;
+
+  if (layer->NeedsCompositingInputsUpdate()) {
+    if (enclosing_stacking_composited_layer) {
+      enclosing_stacking_composited_layer->GetCompositedLayerMapping()
+          ->SetNeedsGraphicsLayerUpdate(kGraphicsLayerUpdateSubtree);
+    }
+
+    if (enclosing_squashing_composited_layer) {
+      enclosing_squashing_composited_layer->GetCompositedLayerMapping()
+          ->SetNeedsGraphicsLayerUpdate(kGraphicsLayerUpdateSubtree);
+    }
+
+    update_type = kForceUpdate;
+  }
+
+
   switch (layer->GetCompositingState()) {
     case kNotComposited:
       break;
@@ -240,17 +256,19 @@ void CompositingInputsUpdater::UpdateAncestorInfo(PaintLayer* const layer,
       break;
   }
 
+  // invalidate again after the switch, in case
+  // enclosing_stacking_composited_layer or
+  // enclosing_squashing_composited_layer was previously null.
   if (layer->NeedsCompositingInputsUpdate()) {
     if (enclosing_stacking_composited_layer) {
       enclosing_stacking_composited_layer->GetCompositedLayerMapping()
           ->SetNeedsGraphicsLayerUpdate(kGraphicsLayerUpdateSubtree);
     }
+
     if (enclosing_squashing_composited_layer) {
       enclosing_squashing_composited_layer->GetCompositedLayerMapping()
           ->SetNeedsGraphicsLayerUpdate(kGraphicsLayerUpdateSubtree);
     }
-
-    update_type = kForceUpdate;
   }
 
   if (style.GetPosition() == EPosition::kAbsolute) {
@@ -295,13 +313,13 @@ void CompositingInputsUpdater::UpdateAncestorInfo(PaintLayer* const layer,
   // in the sense that they don't scroll along with its in-flow contents.
   // However LayoutView does clip them.
   if (layout_object.CanContainFixedPositionObjects() &&
-      !layout_object.IsLayoutView()) {
+      !IsA<LayoutView>(layout_object)) {
     info.clip_chain_parent_for_fixed = layer;
     info.escape_clip_to_for_fixed = info.escape_clip_to;
     info.scrolling_ancestor_for_fixed = info.scrolling_ancestor;
     info.needs_reparent_scroll_for_fixed = info.needs_reparent_scroll;
   }
-  if (layout_object.IsLayoutView())
+  if (IsA<LayoutView>(layout_object))
     info.clip_chain_parent_for_fixed = layer;
 
   // CSS clip affects all descendants, not just containing-block descendants.

@@ -17,7 +17,7 @@
 #include "third_party/blink/renderer/bindings/modules/v8/v8_payment_method_data.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_payment_options.h"
 #include "third_party/blink/renderer/core/dom/events/event_target.h"
-#include "third_party/blink/renderer/core/execution_context/context_lifecycle_observer.h"
+#include "third_party/blink/renderer/core/execution_context/execution_context_lifecycle_observer.h"
 #include "third_party/blink/renderer/modules/modules_export.h"
 #include "third_party/blink/renderer/modules/payments/payment_request_delegate.h"
 #include "third_party/blink/renderer/modules/payments/payment_state_resolver.h"
@@ -43,7 +43,7 @@ class MODULES_EXPORT PaymentRequest final
       public payments::mojom::blink::PaymentRequestClient,
       public PaymentStateResolver,
       public PaymentRequestDelegate,
-      public ContextLifecycleObserver,
+      public ExecutionContextLifecycleObserver,
       public ActiveScriptWrappable<PaymentRequest> {
   DEFINE_WRAPPERTYPEINFO();
   USING_GARBAGE_COLLECTED_MIXIN(PaymentRequest);
@@ -105,7 +105,7 @@ class MODULES_EXPORT PaymentRequest final
   void OnUpdatePaymentDetailsFailure(const String& error) override;
   bool IsInteractive() const override;
 
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
 
   void OnCompleteTimeoutForTesting();
   void OnUpdatePaymentDetailsTimeoutForTesting();
@@ -122,7 +122,7 @@ class MODULES_EXPORT PaymentRequest final
   void OnConnectionError();
 
   // LifecycleObserver:
-  void ContextDestroyed(ExecutionContext*) override;
+  void ContextDestroyed() override;
 
   // payments::mojom::blink::PaymentRequestClient:
   void OnPaymentMethodChange(const String& method_name,

@@ -8,6 +8,11 @@
 #include "build/build_config.h"
 #include "content/public/browser/permission_type.h"
 
+#if defined(OS_ANDROID)
+#include "base/android/jni_array.h"
+#include "components/permissions/android/jni_headers/PermissionUtil_jni.h"
+#endif
+
 using content::PermissionType;
 
 namespace permissions {
@@ -63,6 +68,8 @@ std::string PermissionUtil::GetPermissionString(
       return "VR";
     case ContentSettingsType::AR:
       return "AR";
+    case ContentSettingsType::STORAGE_ACCESS:
+      return "StorageAccess";
     default:
       break;
   }
@@ -98,6 +105,8 @@ PermissionRequestType PermissionUtil::GetRequestType(ContentSettingsType type) {
       return PermissionRequestType::PERMISSION_VR;
     case ContentSettingsType::AR:
       return PermissionRequestType::PERMISSION_AR;
+    case ContentSettingsType::STORAGE_ACCESS:
+      return PermissionRequestType::PERMISSION_STORAGE_ACCESS;
     default:
       NOTREACHED();
       return PermissionRequestType::UNKNOWN;
@@ -155,6 +164,8 @@ bool PermissionUtil::GetPermissionType(ContentSettingsType type,
     *out = PermissionType::VR;
   } else if (type == ContentSettingsType::AR) {
     *out = PermissionType::AR;
+  } else if (type == ContentSettingsType::STORAGE_ACCESS) {
+    *out = PermissionType::STORAGE_ACCESS_GRANT;
   } else {
     return false;
   }
@@ -185,10 +196,25 @@ bool PermissionUtil::IsPermission(ContentSettingsType type) {
     case ContentSettingsType::NFC:
     case ContentSettingsType::VR:
     case ContentSettingsType::AR:
+    case ContentSettingsType::STORAGE_ACCESS:
       return true;
     default:
       return false;
   }
 }
+
+#if defined(OS_ANDROID)
+// static
+void PermissionUtil::GetAndroidPermissionsForContentSetting(
+    ContentSettingsType content_settings_type,
+    std::vector<std::string>* out) {
+  JNIEnv* env = base::android::AttachCurrentThread();
+  base::android::AppendJavaStringArrayToStringVector(
+      env,
+      Java_PermissionUtil_getAndroidPermissionsForContentSetting(
+          env, static_cast<int>(content_settings_type)),
+      out);
+}
+#endif
 
 }  // namespace permissions

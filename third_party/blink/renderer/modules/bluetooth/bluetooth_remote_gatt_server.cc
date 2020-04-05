@@ -26,9 +26,11 @@ namespace blink {
 
 BluetoothRemoteGATTServer::BluetoothRemoteGATTServer(ExecutionContext* context,
                                                      BluetoothDevice* device)
-    : ContextLifecycleObserver(context), device_(device), connected_(false) {}
+    : ExecutionContextLifecycleObserver(context),
+      device_(device),
+      connected_(false) {}
 
-void BluetoothRemoteGATTServer::ContextDestroyed(ExecutionContext*) {
+void BluetoothRemoteGATTServer::ContextDestroyed() {
   Dispose();
 }
 
@@ -82,11 +84,11 @@ void BluetoothRemoteGATTServer::Dispose() {
   client_receivers_.Clear();
 }
 
-void BluetoothRemoteGATTServer::Trace(blink::Visitor* visitor) {
+void BluetoothRemoteGATTServer::Trace(Visitor* visitor) {
   visitor->Trace(active_algorithms_);
   visitor->Trace(device_);
   ScriptWrappable::Trace(visitor);
-  ContextLifecycleObserver::Trace(visitor);
+  ExecutionContextLifecycleObserver::Trace(visitor);
 }
 
 void BluetoothRemoteGATTServer::ConnectCallback(

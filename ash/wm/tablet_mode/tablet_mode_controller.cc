@@ -15,6 +15,7 @@
 #include "ash/public/cpp/tablet_mode.h"
 #include "ash/public/cpp/tablet_mode_observer.h"
 #include "ash/root_window_controller.h"
+#include "ash/shelf/shelf.h"
 #include "ash/shell.h"
 #include "ash/shell_delegate.h"
 #include "ash/wm/overview/overview_controller.h"
@@ -22,6 +23,7 @@
 #include "ash/wm/tablet_mode/internal_input_devices_event_blocker.h"
 #include "ash/wm/tablet_mode/tablet_mode_window_manager.h"
 #include "ash/wm/window_state.h"
+#include "ash/wm/window_util.h"
 #include "base/bind.h"
 #include "base/callback.h"
 #include "base/command_line.h"
@@ -32,6 +34,7 @@
 #include "base/time/default_tick_clock.h"
 #include "base/time/tick_clock.h"
 #include "chromeos/dbus/power/power_manager_client.h"
+#include "chromeos/system/devicemode.h"
 #include "components/viz/common/frame_sinks/copy_output_request.h"
 #include "components/viz/common/frame_sinks/copy_output_result.h"
 #include "third_party/khronos/GLES2/gl2.h"
@@ -46,6 +49,7 @@
 #include "ui/events/keycodes/keyboard_codes.h"
 #include "ui/gfx/geometry/vector3d_f.h"
 #include "ui/views/widget/widget.h"
+#include "ui/wm/core/window_util.h"
 
 namespace ash {
 
@@ -120,7 +124,8 @@ bool IsAngleBetweenAccelerometerReadingsStable(
          kNoisyMagnitudeDeviation;
 }
 
-bool ShouldInitTabletModeController() {
+// Returns true if the device's board is tablet mode capable.
+bool IsBoardTypeMarkedAsTabletCapable() {
   return base::CommandLine::ForCurrentProcess()->HasSwitch(
       switches::kAshEnableTabletMode);
 }
@@ -172,6 +177,27 @@ std::unique_ptr<ui::Layer> CreateLayerFromScreenshotResult(
   return screenshot_layer;
 }
 
+// Check if there is any external and internal pointing device in
+// |input_devices|.
+void CheckHasPointingDevices(
+    const std::vector<ui::InputDevice>& input_devices,
+    BluetoothDevicesObserver* bluetooth_device_observer,
+    bool* out_has_external_pointing_device,
+    bool* out_has_internal_pointing_device) {
+  for (const ui::InputDevice& input_device : input_devices) {
+    if (input_device.type == ui::INPUT_DEVICE_INTERNAL) {
+      *out_has_internal_pointing_device = true;
+    } else if (input_device.type == ui::INPUT_DEVICE_USB ||
+               (input_device.type == ui::INPUT_DEVICE_BLUETOOTH &&
+                bluetooth_device_observer->IsConnectedBluetoothDevice(
+                    input_device))) {
+      *out_has_external_pointing_device = true;
+    }
+    if (*out_has_external_pointing_device && *out_has_internal_pointing_device)
+      return;
+  }
+}
+
 // The default behavior in Clamshell mode.
 constexpr TabletModeController::TabletModeBehavior kDefault{};
 
@@ -179,7 +205,7 @@ constexpr TabletModeController::TabletModeBehavior kDefault{};
 constexpr TabletModeController::TabletModeBehavior kOnBySensor{
     /*use_sensor=*/true,
     /*observe_display_events=*/true,
-    /*observe_external_pointer_device_events=*/true,
+    /*observe_pointer_device_events=*/true,
     /*block_internal_input_device=*/true,
     /*always_show_overview_button=*/false,
     /*force_physical_tablet_state=*/false,
@@ -190,7 +216,7 @@ constexpr TabletModeController::TabletModeBehavior kOnBySensor{
 constexpr TabletModeController::TabletModeBehavior kLockInTabletMode{
     /*use_sensor=*/false,
     /*observe_display_events=*/false,
-    /*observe_external_pointer_device_events=*/false,
+    /*observe_pointer_device_events=*/false,
     /*block_internal_input_device=*/false,
     /*always_show_overview_button=*/true,
     /*force_physical_tablet_state=*/false,
@@ -201,7 +227,7 @@ constexpr TabletModeController::TabletModeBehavior kLockInTabletMode{
 constexpr TabletModeController::TabletModeBehavior kLockInClamshellMode{
     /*use_sensor=*/false,
     /*observe_display_events=*/false,
-    /*observe_external_pointer_device_events=*/false,
+    /*observe_pointer_device_events=*/false,
     /*block_internal_input_device=*/false,
     /*always_show_overview_button=*/false,
     /*force_physical_tablet_state=*/false,
@@ -212,7 +238,7 @@ constexpr TabletModeController::TabletModeBehavior kLockInClamshellMode{
 constexpr TabletModeController::TabletModeBehavior kOnForTest{
     /*use_sensor=*/false,
     /*observe_display_events=*/true,
-    /*observe_external_pointer_device_events=*/true,
+    /*observe_pointer_device_events=*/true,
     /*block_internal_input_device=*/true,
     /*always_show_overview_button=*/false,
     /*force_physical_tablet_state=*/true,
@@ -224,7 +250,7 @@ constexpr TabletModeController::TabletModeBehavior kOnForTest{
 constexpr TabletModeController::TabletModeBehavior kOnForDev{
     /*use_sensor=*/false,
     /*observe_display_events=*/true,
-    /*observe_external_pointer_device_events=*/true,
+    /*observe_pointer_device_events=*/true,
     /*block_internal_input_device=*/false,
     /*always_show_overview_button=*/true,
     /*force_physical_tablet_state=*/true,
@@ -291,7 +317,7 @@ class TabletModeController::DestroyObserver : public aura::WindowObserver {
 constexpr char TabletModeController::kLidAngleHistogramName[];
 
 ////////////////////////////////////////////////////////////////////////////////
-// TabletModeContrller, public:
+// TabletModeController, public:
 
 // static
 void TabletModeController::SetUseScreenshotForTest(bool use_screenshot) {
@@ -309,7 +335,7 @@ TabletModeController::TabletModeController()
   // unavailable. This will require refactoring
   // InTabletMode to check for the existence of the
   // controller.
-  if (ShouldInitTabletModeController()) {
+  if (IsBoardTypeMarkedAsTabletCapable()) {
     Shell::Get()->window_tree_host_manager()->AddObserver(this);
     AccelerometerReader::GetInstance()->AddObserver(this);
     ui::DeviceDataManager::GetInstance()->AddObserver(this);
@@ -347,7 +373,7 @@ void TabletModeController::Shutdown() {
 
   Shell::Get()->RemoveShellObserver(this);
 
-  if (ShouldInitTabletModeController()) {
+  if (IsBoardTypeMarkedAsTabletCapable()) {
     Shell::Get()->window_tree_host_manager()->RemoveObserver(this);
     AccelerometerReader::GetInstance()->RemoveObserver(this);
     ui::DeviceDataManager::GetInstance()->RemoveObserver(this);
@@ -400,6 +426,7 @@ void TabletModeController::MaybeObserveBoundsAnimation(aura::Window* window) {
                              /*delete_screenshot=*/true));
   animating_layer_ = window->layer();
   animating_layer_->GetAnimator()->AddObserver(this);
+  animating_layer_->AddObserver(this);
 }
 
 void TabletModeController::StopObservingAnimation(bool record_stats,
@@ -408,9 +435,17 @@ void TabletModeController::StopObservingAnimation(bool record_stats,
 
   ResetDestroyObserver();
 
-  if (animating_layer_)
-    animating_layer_->GetAnimator()->RemoveObserver(this);
-  animating_layer_ = nullptr;
+  if (animating_layer_) {
+    animating_layer_->GetAnimator()->StopAnimating();
+
+    // If the observed layer is part of a cross fade animation, stopping the
+    // animation will end up destroying the layer.
+    if (animating_layer_) {
+      animating_layer_->RemoveObserver(this);
+      animating_layer_->GetAnimator()->RemoveObserver(this);
+      animating_layer_ = nullptr;
+    }
+  }
 
   if (record_stats && fps_counter_)
     fps_counter_->LogUma();
@@ -518,6 +553,7 @@ void TabletModeController::OnAccelerometerUpdated(
   // case, TabletModeController no longer listens to accelerometer events.
   if (update->HasLidAngleDriver(ACCELEROMETER_SOURCE_SCREEN) ||
       update->HasLidAngleDriver(ACCELEROMETER_SOURCE_ATTACHED_KEYBOARD)) {
+    ec_lid_angle_driver_present_ = true;
     AccelerometerReader::GetInstance()->RemoveObserver(this);
     return;
   }
@@ -585,7 +621,7 @@ void TabletModeController::SuspendImminent(
   // Stop listening to any incoming input device changes during suspend as the
   // input devices may be removed during suspend and cause the device enter/exit
   // tablet mode unexpectedly.
-  if (ShouldInitTabletModeController()) {
+  if (IsBoardTypeMarkedAsTabletCapable()) {
     ui::DeviceDataManager::GetInstance()->RemoveObserver(this);
     bluetooth_devices_observer_.reset();
   }
@@ -596,7 +632,7 @@ void TabletModeController::SuspendDone(const base::TimeDelta& sleep_duration) {
   tablet_mode_usage_interval_start_time_ = base::Time::Now();
 
   // Start listening to the input device changes again.
-  if (ShouldInitTabletModeController()) {
+  if (IsBoardTypeMarkedAsTabletCapable()) {
     bluetooth_devices_observer_ =
         std::make_unique<BluetoothDevicesObserver>(base::BindRepeating(
             &TabletModeController::OnBluetoothAdapterOrDeviceChanged,
@@ -668,6 +704,13 @@ void TabletModeController::OnLayerAnimationScheduled(
   StopObservingAnimation(/*record_stats=*/false, /*delete_screenshot=*/true);
 }
 
+void TabletModeController::LayerDestroyed(ui::Layer* layer) {
+  DCHECK_EQ(animating_layer_, layer);
+  animating_layer_->RemoveObserver(this);
+  animating_layer_->GetAnimator()->RemoveObserver(this);
+  animating_layer_ = nullptr;
+}
+
 void TabletModeController::SetEnabledForDev(bool enabled) {
   tablet_mode_behavior_ = enabled ? kOnForDev : kDefault;
   force_notify_events_blocking_changed_ = true;
@@ -676,19 +719,15 @@ void TabletModeController::SetEnabledForDev(bool enabled) {
 }
 
 bool TabletModeController::ShouldShowOverviewButton() const {
-  if (!ShelfConfig::Get()->shelf_controls_shown())
-    return false;
-
   return AreInternalInputDeviceEventsBlocked() ||
          tablet_mode_behavior_.always_show_overview_button;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// TabletModeContrller, private:
+// TabletModeController, private:
 
 void TabletModeController::SetTabletModeEnabledInternal(bool should_enable) {
-  if (InTabletMode() == should_enable)
-    return;
+  DCHECK_NE(InTabletMode(), should_enable);
 
   // Hide the context menu on entering tablet mode to prevent users from
   // accessing forbidden options. Hide the context menu on exiting tablet mode
@@ -706,7 +745,7 @@ void TabletModeController::SetTabletModeEnabledInternal(bool should_enable) {
     // Take a screenshot if there is a top window that will get animated.
     // TODO(sammiequon): Handle the case where the top window is not on the
     // primary display.
-    aura::Window* top_window = TabletModeWindowManager::GetTopWindow();
+    aura::Window* top_window = window_util::GetTopWindow();
     const bool top_window_on_primary_display =
         top_window &&
         top_window->GetRootWindow() == Shell::GetPrimaryRootWindow();
@@ -890,41 +929,34 @@ TabletModeController::CurrentTabletModeIntervalType() {
 
 void TabletModeController::HandlePointingDeviceAddedOrRemoved() {
   bool has_external_pointing_device = false;
-  // Check if there is an external mouse device.
-  for (const ui::InputDevice& mouse :
-       ui::DeviceDataManager::GetInstance()->GetMouseDevices()) {
-    if (mouse.type == ui::INPUT_DEVICE_USB ||
-        (mouse.type == ui::INPUT_DEVICE_BLUETOOTH &&
-         bluetooth_devices_observer_->IsConnectedBluetoothDevice(mouse))) {
-      has_external_pointing_device = true;
-      break;
-    }
-  }
-  // Check if there is an external touchpad device.
-  if (!has_external_pointing_device) {
-    for (const ui::InputDevice& touch_pad :
-         ui::DeviceDataManager::GetInstance()->GetTouchpadDevices()) {
-      if (touch_pad.type == ui::INPUT_DEVICE_USB ||
-          (touch_pad.type == ui::INPUT_DEVICE_BLUETOOTH &&
-           bluetooth_devices_observer_->IsConnectedBluetoothDevice(
-               touch_pad))) {
-        has_external_pointing_device = true;
-        break;
-      }
-    }
+  bool has_internal_pointing_device = false;
+
+  // Check if there is an external and internal mouse or touchpad device.
+  CheckHasPointingDevices(
+      ui::DeviceDataManager::GetInstance()->GetMouseDevices(),
+      bluetooth_devices_observer_.get(), &has_external_pointing_device,
+      &has_internal_pointing_device);
+  if (!has_external_pointing_device || !has_internal_pointing_device) {
+    CheckHasPointingDevices(
+        ui::DeviceDataManager::GetInstance()->GetTouchpadDevices(),
+        bluetooth_devices_observer_.get(), &has_external_pointing_device,
+        &has_internal_pointing_device);
   }
 
-  if (has_external_pointing_device_ == has_external_pointing_device)
+  const bool changed =
+      (has_external_pointing_device_ != has_external_pointing_device) ||
+      (has_internal_pointing_device_ != has_internal_pointing_device);
+
+  if (!changed)
     return;
 
   has_external_pointing_device_ = has_external_pointing_device;
+  has_internal_pointing_device_ = has_internal_pointing_device;
 
-  if (!tablet_mode_behavior_.observe_external_pointer_device_events)
-    return;
-
-  // External pointing devices affect only the UI state (i.e. may result in
-  // switching to tablet or clamshell UI modes).
-  UpdateUiTabletState();
+  // We only need to update UI state if observed internal pointing device or
+  // external pointing device changed.
+  if (tablet_mode_behavior_.observe_pointer_device_events)
+    UpdateUiTabletState();
 }
 
 void TabletModeController::OnBluetoothAdapterOrDeviceChanged(
@@ -1040,10 +1072,14 @@ void TabletModeController::TakeScreenshot(aura::Window* top_window) {
       kShellWindowId_ScreenRotationContainer);
   base::OnceClosure callback = screenshot_set_callback_.callback();
 
+  aura::Window* root_window = top_window->GetRootWindow();
+
+  UpdateShelfVisibilityForScreenshot(root_window, /*show=*/false);
+
   // Request a screenshot.
-  screenshot_taken_callback_.Reset(
-      base::BindOnce(&TabletModeController::OnScreenshotTaken,
-                     weak_factory_.GetWeakPtr(), std::move(callback)));
+  screenshot_taken_callback_.Reset(base::BindOnce(
+      &TabletModeController::OnScreenshotTaken, weak_factory_.GetWeakPtr(),
+      std::move(callback), root_window));
 
   const gfx::Rect request_bounds(screenshot_window->layer()->size());
   auto screenshot_request = std::make_unique<viz::CopyOutputRequest>(
@@ -1057,10 +1093,17 @@ void TabletModeController::TakeScreenshot(aura::Window* top_window) {
 
 void TabletModeController::OnScreenshotTaken(
     base::OnceClosure on_screenshot_taken,
+    aura::Window* root_window,
     std::unique_ptr<viz::CopyOutputResult> copy_result) {
   aura::Window* top_window =
       destroy_observer_ ? destroy_observer_->window() : nullptr;
   ResetDestroyObserver();
+
+  // Cancel if the root window is deleted while taking a screenshot.
+  if (!base::Contains(Shell::GetAllRootWindows(), root_window))
+    return;
+
+  UpdateShelfVisibilityForScreenshot(root_window, /*show=*/true);
 
   if (!copy_result || copy_result->IsEmpty() || !top_window) {
     std::move(on_screenshot_taken).Run();
@@ -1076,6 +1119,25 @@ void TabletModeController::OnScreenshotTaken(
                                             top_window->layer());
 
   std::move(on_screenshot_taken).Run();
+}
+
+void TabletModeController::UpdateShelfVisibilityForScreenshot(
+    aura::Window* root_window,
+    bool show) {
+  DCHECK(root_window->IsRootWindow());
+  auto* shelf_container =
+      root_window->GetChildById(kShellWindowId_ShelfContainer);
+
+  if (show) {
+    phantom_shelf_layer_.reset();
+  } else {
+    phantom_shelf_layer_ = wm::RecreateLayers(shelf_container);
+    ui::Layer* root = phantom_shelf_layer_->root();
+    root_window->layer()->Add(root);
+    root_window->layer()->StackAtTop(root);
+  }
+
+  shelf_container->layer()->SetOpacity(show ? 1 : 0);
 }
 
 bool TabletModeController::CalculateIsInTabletPhysicalState() const {
@@ -1122,12 +1184,21 @@ bool TabletModeController::ShouldUiBeInTabletMode() const {
   if (forced_ui_mode_ == UiMode::kClamshell)
     return false;
 
-  if (has_external_pointing_device_ &&
-      tablet_mode_behavior_.observe_external_pointer_device_events) {
-    return false;
-  }
+  if (!tablet_mode_behavior_.observe_pointer_device_events)
+    return is_in_tablet_physical_state_;
 
-  return is_in_tablet_physical_state_;
+  if (has_external_pointing_device_)
+    return false;
+
+  if (is_in_tablet_physical_state_)
+    return true;
+
+  const bool can_enter_tablet_mode =
+      IsBoardTypeMarkedAsTabletCapable() && HasActiveInternalDisplay() &&
+      (ec_lid_angle_driver_present_ || have_seen_accelerometer_data_);
+
+  return !has_internal_pointing_device_ && can_enter_tablet_mode &&
+         chromeos::IsRunningAsSystemCompositor();
 }
 
 bool TabletModeController::SetIsInTabletPhysicalState(bool new_state) {

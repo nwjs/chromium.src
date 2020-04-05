@@ -13,9 +13,10 @@ bool SchedulingPolicy::IsFeatureSticky(SchedulingPolicy::Feature feature) {
     case Feature::kWebSocket:
     case Feature::kWebRTC:
     case Feature::kDedicatedWorkerOrWorklet:
-    case Feature::kOutstandingNetworkRequest:
+    case Feature::kOutstandingNetworkRequestFetch:
+    case Feature::kOutstandingNetworkRequestXHR:
+    case Feature::kOutstandingNetworkRequestOthers:
     case Feature::kOutstandingIndexedDBTransaction:
-    case Feature::kHasScriptableFramesInMultipleTabs:
     case Feature::kBroadcastChannel:
     case Feature::kIndexedDBConnection:
     case Feature::kWebGL:
@@ -23,6 +24,7 @@ bool SchedulingPolicy::IsFeatureSticky(SchedulingPolicy::Feature feature) {
     case Feature::kWebXR:
     case Feature::kSharedWorker:
     case Feature::kWebHID:
+    case Feature::kWebShare:
       return false;
     case Feature::kMainResourceHasCacheControlNoStore:
     case Feature::kMainResourceHasCacheControlNoCache:
@@ -46,6 +48,9 @@ bool SchedulingPolicy::IsFeatureSticky(SchedulingPolicy::Feature feature) {
     case Feature::kRequestedBackgroundWorkPermission:
     case Feature::kWebLocks:
     case Feature::kWakeLock:
+    case Feature::kRequestedStorageAccessGrant:
+    case Feature::kWebNfc:
+    case Feature::kWebFileSystem:
       return true;
   }
 }

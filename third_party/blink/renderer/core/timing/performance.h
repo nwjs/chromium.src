@@ -61,7 +61,6 @@ class PerformanceMarkOptions;
 class ExceptionState;
 class LargestContentfulPaint;
 class LayoutShift;
-class MeasureMemoryOptions;
 class MemoryInfo;
 class PerformanceElementTiming;
 class PerformanceEventTiming;
@@ -97,7 +96,6 @@ class CORE_EXPORT Performance : public EventTargetWithInlineData {
   virtual PerformanceNavigation* navigation() const;
   virtual MemoryInfo* memory() const;
   virtual ScriptPromise measureMemory(ScriptState*,
-                                      MeasureMemoryOptions*,
                                       ExceptionState& exception_state) const;
 
   // Reduce the resolution to prevent timing attacks. See:
@@ -289,7 +287,7 @@ class CORE_EXPORT Performance : public EventTargetWithInlineData {
 
   ScriptValue toJSONForBinding(ScriptState*) const;
 
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
 
   class UnifiedClock {
    public:

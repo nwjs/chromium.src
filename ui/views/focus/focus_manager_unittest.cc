@@ -6,6 +6,7 @@
 
 #include <stddef.h>
 
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -573,44 +574,44 @@ TEST_F(FocusManagerTest, RotatePaneFocus) {
   FocusManager* focus_manager = GetWidget()->GetFocusManager();
 
   // Advance forwards. Focus should stay trapped within each pane.
-  EXPECT_TRUE(focus_manager->RotatePaneFocus(FocusManager::kForward,
-                                             FocusManager::kWrap));
+  EXPECT_TRUE(focus_manager->RotatePaneFocus(
+      FocusManager::kForward, FocusManager::FocusCycleWrapping::kEnabled));
   EXPECT_EQ(v1, focus_manager->GetFocusedView());
   focus_manager->AdvanceFocus(false);
   EXPECT_EQ(v2, focus_manager->GetFocusedView());
   focus_manager->AdvanceFocus(false);
   EXPECT_EQ(v1, focus_manager->GetFocusedView());
 
-  EXPECT_TRUE(focus_manager->RotatePaneFocus(FocusManager::kForward,
-                                             FocusManager::kWrap));
+  EXPECT_TRUE(focus_manager->RotatePaneFocus(
+      FocusManager::kForward, FocusManager::FocusCycleWrapping::kEnabled));
   EXPECT_EQ(v3, focus_manager->GetFocusedView());
   focus_manager->AdvanceFocus(false);
   EXPECT_EQ(v4, focus_manager->GetFocusedView());
   focus_manager->AdvanceFocus(false);
   EXPECT_EQ(v3, focus_manager->GetFocusedView());
 
-  EXPECT_TRUE(focus_manager->RotatePaneFocus(FocusManager::kForward,
-                                             FocusManager::kWrap));
+  EXPECT_TRUE(focus_manager->RotatePaneFocus(
+      FocusManager::kForward, FocusManager::FocusCycleWrapping::kEnabled));
   EXPECT_EQ(v1, focus_manager->GetFocusedView());
 
   // Advance backwards.
-  EXPECT_TRUE(focus_manager->RotatePaneFocus(FocusManager::kBackward,
-                                             FocusManager::kWrap));
+  EXPECT_TRUE(focus_manager->RotatePaneFocus(
+      FocusManager::kBackward, FocusManager::FocusCycleWrapping::kEnabled));
   EXPECT_EQ(v3, focus_manager->GetFocusedView());
 
-  EXPECT_TRUE(focus_manager->RotatePaneFocus(FocusManager::kBackward,
-                                             FocusManager::kWrap));
+  EXPECT_TRUE(focus_manager->RotatePaneFocus(
+      FocusManager::kBackward, FocusManager::FocusCycleWrapping::kEnabled));
   EXPECT_EQ(v1, focus_manager->GetFocusedView());
 
   // Advance without wrap. When it gets to the end of the list of
   // panes, RotatePaneFocus should return false but the current
   // focused view shouldn't change.
-  EXPECT_TRUE(focus_manager->RotatePaneFocus(FocusManager::kForward,
-                                             FocusManager::kNoWrap));
+  EXPECT_TRUE(focus_manager->RotatePaneFocus(
+      FocusManager::kForward, FocusManager::FocusCycleWrapping::kDisabled));
   EXPECT_EQ(v3, focus_manager->GetFocusedView());
 
-  EXPECT_FALSE(focus_manager->RotatePaneFocus(FocusManager::kForward,
-                                              FocusManager::kNoWrap));
+  EXPECT_FALSE(focus_manager->RotatePaneFocus(
+      FocusManager::kForward, FocusManager::FocusCycleWrapping::kDisabled));
   EXPECT_EQ(v3, focus_manager->GetFocusedView());
 }
 
@@ -862,11 +863,10 @@ class AdvanceFocusWidgetDelegate : public WidgetDelegate {
   bool ShouldAdvanceFocusToTopLevelWidget() const override {
     return should_advance_focus_to_parent_;
   }
+  Widget* GetWidget() override { return widget_; }
+  const Widget* GetWidget() const override { return widget_; }
 
  private:
-  // WidgetDelegate:
-  const Widget* GetWidgetImpl() const override { return widget_; }
-
   Widget* widget_;
   bool should_advance_focus_to_parent_;
 
@@ -877,7 +877,7 @@ class TestBubbleDialogDelegateView : public BubbleDialogDelegateView {
  public:
   explicit TestBubbleDialogDelegateView(View* anchor)
       : BubbleDialogDelegateView(anchor, BubbleBorder::NONE) {
-    DialogDelegate::set_buttons(ui::DIALOG_BUTTON_NONE);
+    DialogDelegate::SetButtons(ui::DIALOG_BUTTON_NONE);
   }
   ~TestBubbleDialogDelegateView() override = default;
 

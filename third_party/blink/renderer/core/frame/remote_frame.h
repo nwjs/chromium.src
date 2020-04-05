@@ -8,8 +8,10 @@
 #include "mojo/public/cpp/bindings/associated_receiver.h"
 #include "mojo/public/cpp/bindings/associated_remote.h"
 #include "third_party/blink/public/mojom/frame/frame.mojom-blink.h"
+#include "third_party/blink/public/mojom/frame/frame_owner_properties.mojom-blink-forward.h"
 #include "third_party/blink/public/mojom/input/focus_type.mojom-blink-forward.h"
 #include "third_party/blink/public/mojom/scroll/scroll_into_view_params.mojom-blink.h"
+#include "third_party/blink/public/mojom/security_context/insecure_request_policy.mojom-blink-forward.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/execution_context/remote_security_context.h"
 #include "third_party/blink/renderer/core/frame/frame.h"
@@ -42,7 +44,7 @@ class CORE_EXPORT RemoteFrame final : public Frame,
   ~RemoteFrame() override;
 
   // Frame overrides:
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
   void Navigate(FrameLoadRequest&, WebFrameLoadType) override;
   const RemoteSecurityContext* GetSecurityContext() const override;
   bool DetachDocument() override;
@@ -80,7 +82,6 @@ class CORE_EXPORT RemoteFrame final : public Frame,
   RemoteFrameClient* Client() const;
 
   bool IsIgnoredForHitTest() const;
-  void UpdateHitTestOcclusionData();
 
   void DidChangeVisibleToHitTesting() override;
 
@@ -88,8 +89,8 @@ class CORE_EXPORT RemoteFrame final : public Frame,
       const ParsedFeaturePolicy& parsed_header,
       const FeaturePolicy::FeatureState&);
 
-  void SetReplicatedSandboxFlags(WebSandboxFlags);
-  void SetInsecureRequestPolicy(WebInsecureRequestPolicy);
+  void SetReplicatedSandboxFlags(mojom::blink::WebSandboxFlags);
+  void SetInsecureRequestPolicy(mojom::blink::InsecureRequestPolicy);
   void SetInsecureNavigationsSet(const WebVector<unsigned>&);
 
   // blink::mojom::RemoteFrame overrides:
@@ -99,6 +100,10 @@ class CORE_EXPORT RemoteFrame final : public Frame,
           headers) override;
   void ResetReplicatedContentSecurityPolicy() override;
   void EnforceInsecureNavigationsSet(const WTF::Vector<uint32_t>& set) override;
+  void SetFrameOwnerProperties(
+      mojom::blink::FrameOwnerPropertiesPtr properties) override;
+  void EnforceInsecureRequestPolicy(
+      mojom::blink::InsecureRequestPolicy policy) override;
   void SetReplicatedOrigin(
       const scoped_refptr<const SecurityOrigin>& origin,
       bool is_potentially_trustworthy_unique_origin) override;
@@ -109,9 +114,8 @@ class CORE_EXPORT RemoteFrame final : public Frame,
   void Focus() override;
   void SetHadStickyUserActivationBeforeNavigation(bool value) override;
   void SetNeedsOcclusionTracking(bool needs_tracking) override;
-  void BubbleLogicalScroll(
-      mojom::blink::ScrollDirection direction,
-      ui::input_types::ScrollGranularity granularity) override;
+  void BubbleLogicalScroll(mojom::blink::ScrollDirection direction,
+                           ui::ScrollGranularity granularity) override;
   void UpdateUserActivationState(
       mojom::blink::UserActivationUpdateType) override;
   void SetEmbeddingToken(
@@ -119,12 +123,25 @@ class CORE_EXPORT RemoteFrame final : public Frame,
   void SetPageFocus(bool is_focused) override;
   void RenderFallbackContent() override;
   void ScrollRectToVisible(
-      const WebRect& rect_to_scroll,
+      const gfx::Rect& rect_to_scroll,
       mojom::blink::ScrollIntoViewParamsPtr params) override;
   void DidStartLoading() override;
   void DidStopLoading() override;
   void IntrinsicSizingInfoOfChildChanged(
       mojom::blink::IntrinsicSizingInfoPtr sizing_info) override;
+  void DidSetFramePolicyHeaders(
+      mojom::blink::WebSandboxFlags,
+      const WTF::Vector<ParsedFeaturePolicyDeclaration>&) override;
+  // Updates the snapshotted policy attributes (sandbox flags and feature policy
+  // container policy) in the frame's FrameOwner. This is used when this frame's
+  // parent is in another process and it dynamically updates this frame's
+  // sandbox flags or container policy. The new policy won't take effect until
+  // the next navigation.
+  void DidUpdateFramePolicy(const FramePolicy& frame_policy) override;
+
+  // Called only when this frame has a local frame owner.
+  IntSize GetMainFrameViewportSize() const override;
+  IntPoint GetMainFrameScrollOffset() const override;
 
  private:
   // Frame protected overrides:

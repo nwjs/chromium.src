@@ -9,8 +9,10 @@
     <title>&#xfeff;</title>
     <meta charset="utf-8">
     <link rel="stylesheet" href="../css/main.css">
-    <script src="../js/google-analytics-bundle.js"></script>
+    <script src="../js/lib/google-analytics-bundle.js"></script>
     <script src="../js/mojo/mojo_bindings_lite.js"></script>
+    <script src="../js/mojo/time.mojom-lite.js"></script>
+    <script src="../js/mojo/idle_manager.mojom-lite.js"></script>
     <script src="../js/mojo/camera_metadata_tags.mojom-lite.js"></script>
     <script src="../js/mojo/camera_metadata.mojom-lite.js"></script>
     <script src="../js/mojo/camera_common.mojom-lite.js"></script>
@@ -340,9 +342,16 @@
                  data-key="saveMetadata">
           <span i18n-content="expert_save_metadata"></span>
         </label>
+        <label class="menu-item" for="expert-print-performance-logs">
+          <input class="icon" id="expert-print-performance-logs" type="checkbox"
+                 tabindex="0" data-state="print-performance-logs"
+                 data-key="printPerformanceLogs">
+          <span i18n-content="expert_print_performance_logs"></span>
+        </label>
       </div>
     </div>
     <div class="centered-overlay" id="spinner"></div>
+    <div id="view-splash"></div>
     <div id="view-warning">
       <div id="error-msg" aria-live="polite"></div>
     </div>
@@ -369,7 +378,7 @@
       data-timeout="200">
     <audio id="sound-rec-end" src="../sounds/record_end.ogg" data-timeout="450">
     <template id="resolution-item-template">
-      <label class="menu-item circle">
+      <label class="menu-item circle resolution-option">
         <input class="icon" type="radio" tabindex="0">
         <span></span>
       </label>

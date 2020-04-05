@@ -141,8 +141,8 @@ static_library("test_support") {
   if (!is_fuchsia) {
     # TODO(crbug.com/753619): Enable crash reporting on Fuchsia.
     deps += [
-      "//components/crash/content/app",
-      "//components/crash/content/app:test_support",
+      "//components/crash/core/app",
+      "//components/crash/core/app:test_support",
     ]
   }
 
@@ -154,9 +154,9 @@ static_library("test_support") {
 
   if (is_win) {
     deps += [
-      "//chrome:chrome_initial",
       "//chrome/chrome_elf:test_stubs",
       "//chrome/install_static:install_static_util",
+      "//components/browser_watcher:stability_client",
       "//sandbox/win:sandbox",
     ]
   }
@@ -206,10 +206,8 @@ source_set("chrome_content_browser_overlay_manifest") {
     "//chrome/test/data:web_ui_test_bindings",
     "//components/autofill/content/common/mojom",
     "//components/contextual_search/content/common/mojom",
-    "//components/data_reduction_proxy/core/common:interfaces",
     "//components/metrics/public/mojom:call_stack_mojo_bindings",
     "//components/page_load_metrics/common:page_load_metrics_mojom",
-    "//components/rappor/public/mojom",
     "//components/safe_browsing/content/common:interfaces",
     "//components/services/heap_profiling/public/mojom",
     "//components/translate/content/common",
@@ -231,6 +229,7 @@ source_set("chrome_content_browser_overlay_manifest") {
       "//chrome/browser/ui/webui/chromeos/crostini_installer:mojo_bindings",
       "//chrome/browser/ui/webui/chromeos/crostini_upgrader:mojo_bindings",
       "//chrome/browser/ui/webui/chromeos/machine_learning:mojo_bindings",
+      "//chrome/browser/ui/webui/settings/chromeos/search:mojo_bindings",
       "//chromeos/services/cellular_setup/public/mojom",
       "//chromeos/services/ime/public/mojom",
       "//chromeos/services/media_perception/public/mojom",

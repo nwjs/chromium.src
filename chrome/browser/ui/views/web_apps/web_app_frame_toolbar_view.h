@@ -23,6 +23,7 @@ class Widget;
 
 class BrowserView;
 class ContentSettingImageView;
+class PageActionIconController;
 
 #if defined(OS_MACOSX)
 constexpr int kWebAppMenuMargin = 7;
@@ -71,10 +72,11 @@ class WebAppFrameToolbarView : public views::AccessiblePaneView,
   // ToolbarButtonProvider:
   BrowserActionsContainer* GetBrowserActionsContainer() override;
   ExtensionsToolbarContainer* GetExtensionsToolbarContainer() override;
+  gfx::Size GetToolbarButtonSize() const override;
   views::View* GetDefaultExtensionDialogAnchorView() override;
   PageActionIconView* GetPageActionIconView(PageActionIconType type) override;
   AppMenuButton* GetAppMenuButton() override;
-  gfx::Rect GetFindBarBoundingBox(int contents_bottom) const override;
+  gfx::Rect GetFindBarBoundingBox(int contents_bottom) override;
   void FocusToolbar() override;
   views::AccessiblePaneView* GetAsAccessiblePaneView() override;
   views::View* GetAnchorView(PageActionIconType type) override;
@@ -86,7 +88,7 @@ class WebAppFrameToolbarView : public views::AccessiblePaneView,
   static void DisableAnimationForTesting();
   views::View* GetLeftContainerForTesting();
   views::View* GetRightContainerForTesting();
-  views::View* GetPageActionIconContainerForTesting();
+  PageActionIconController* GetPageActionIconControllerForTesting();
 
  protected:
   // views::AccessiblePaneView:

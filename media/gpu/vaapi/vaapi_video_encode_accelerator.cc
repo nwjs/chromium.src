@@ -25,6 +25,7 @@
 #include "base/stl_util.h"
 #include "base/task/post_task.h"
 #include "base/task/task_traits.h"
+#include "base/task/thread_pool.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
@@ -249,8 +250,8 @@ VaapiVideoEncodeAccelerator::VaapiVideoEncodeAccelerator()
       child_task_runner_(base::ThreadTaskRunnerHandle::Get()),
       // TODO(akahuang): Change to use SequencedTaskRunner to see if the
       // performance is affected.
-      encoder_task_runner_(base::CreateSingleThreadTaskRunner(
-          {base::ThreadPool(), base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN},
+      encoder_task_runner_(base::ThreadPool::CreateSingleThreadTaskRunner(
+          {base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN},
           base::SingleThreadTaskRunnerThreadMode::DEDICATED)) {
   VLOGF(2);
   DCHECK_CALLED_ON_VALID_SEQUENCE(child_sequence_checker_);
@@ -634,8 +635,17 @@ std::unique_ptr<VaapiEncodeJob> VaapiVideoEncodeAccelerator::CreateEncodeJob(
                    "Expected NV12, got: " << frame->format());
       return nullptr;
     }
+    DCHECK(frame);
 
-    input_surface = vaapi_wrapper_->CreateVASurfaceForVideoFrame(frame.get());
+    scoped_refptr<gfx::NativePixmap> pixmap =
+        CreateNativePixmapDmaBuf(frame.get());
+    if (!pixmap) {
+      NOTIFY_ERROR(kPlatformFailureError,
+                   "Failed to create NativePixmap from VideoFrame");
+      return nullptr;
+    }
+    input_surface = vaapi_wrapper_->CreateVASurfaceForPixmap(std::move(pixmap));
+
     if (!input_surface) {
       NOTIFY_ERROR(kPlatformFailureError, "Failed to create VASurface");
       return nullptr;
@@ -811,7 +821,6 @@ void VaapiVideoEncodeAccelerator::UseOutputBitstreamBufferTask(
 void VaapiVideoEncodeAccelerator::RequestEncodingParametersChange(
     uint32_t bitrate,
     uint32_t framerate) {
-  VLOGF(2) << "bitrate: " << bitrate << " framerate: " << framerate;
   DCHECK_CALLED_ON_VALID_SEQUENCE(child_sequence_checker_);
 
   VideoBitrateAllocation allocation;
@@ -826,8 +835,6 @@ void VaapiVideoEncodeAccelerator::RequestEncodingParametersChange(
 void VaapiVideoEncodeAccelerator::RequestEncodingParametersChange(
     const VideoBitrateAllocation& bitrate_allocation,
     uint32_t framerate) {
-  VLOGF(2) << "bitrate: " << bitrate_allocation.GetSumBps()
-           << " framerate: " << framerate;
   DCHECK_CALLED_ON_VALID_SEQUENCE(child_sequence_checker_);
 
   encoder_task_runner_->PostTask(
@@ -840,8 +847,6 @@ void VaapiVideoEncodeAccelerator::RequestEncodingParametersChange(
 void VaapiVideoEncodeAccelerator::RequestEncodingParametersChangeTask(
     VideoBitrateAllocation bitrate_allocation,
     uint32_t framerate) {
-  VLOGF(2) << "bitrate: " << bitrate_allocation.GetSumBps()
-           << " framerate: " << framerate;
   DCHECK_CALLED_ON_VALID_SEQUENCE(encoder_sequence_checker_);
   DCHECK_NE(state_, kUninitialized);
 

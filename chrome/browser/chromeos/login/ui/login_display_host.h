@@ -31,7 +31,6 @@ namespace chromeos {
 
 class AppLaunchController;
 class ExistingUserController;
-class LoginScreenContext;
 class OobeUI;
 class WebUILoginView;
 class WizardController;
@@ -111,7 +110,7 @@ class LoginDisplayHost {
   virtual void CancelUserAdding() = 0;
 
   // Starts sign in screen.
-  virtual void StartSignInScreen(const LoginScreenContext& context) = 0;
+  virtual void StartSignInScreen() = 0;
 
   // Invoked when system preferences that affect the signin screen have changed.
   virtual void OnPreferencesChanged() = 0;
@@ -134,10 +133,9 @@ class LoginDisplayHost {
   // Starts web kiosk splash screen.
   virtual void StartWebKiosk(const AccountId& account_id) = 0;
 
-  // Show the gaia dialog. |can_close| determines if the user is allowed to
-  // close the dialog. If available, |account| is preloaded in the gaia dialog.
-  virtual void ShowGaiaDialog(bool can_close,
-                              const AccountId& prefilled_account) = 0;
+  // Show the gaia dialog. If available, |account| is preloaded in the gaia
+  // dialog.
+  virtual void ShowGaiaDialog(const AccountId& prefilled_account) = 0;
 
   // Hide any visible oobe dialog.
   virtual void HideOobeDialog() = 0;

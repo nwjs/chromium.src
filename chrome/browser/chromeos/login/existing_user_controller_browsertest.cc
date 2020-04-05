@@ -539,11 +539,8 @@ IN_PROC_BROWSER_TEST_F(ExistingUserControllerPublicSessionTest,
   EXPECT_FALSE(auto_login_timer()->IsRunning());
 }
 
-// Disable since the flake from this test makes it hard to track down other
-// problems on the bots.
-// See https://crbug.com/644205 or https://crbug.com/516015 .
 IN_PROC_BROWSER_TEST_F(ExistingUserControllerPublicSessionTest,
-                       DISABLED_AutoLoginNoDelay) {
+                       AutoLoginNoDelay) {
   // Set up mocks to check login success.
   UserContext user_context(user_manager::USER_TYPE_PUBLIC_ACCOUNT,
                            public_session_account_id_);
@@ -1102,7 +1099,8 @@ class ExistingUserControllerAuthFailureTest
     // login, the login attempt cannot be shortcut by login manager mixin API -
     // it has to go through login UI.
     const std::string& password = user_context.GetKey()->GetSecret();
-    ash::LoginScreenTestApi::SubmitPassword(test_user_.account_id, password);
+    ash::LoginScreenTestApi::SubmitPassword(test_user_.account_id, password,
+                                            true /*check_if_submittable*/);
   }
 
   void SetUpStubAuthenticatorAndAttemptLoginWithWrongPassword() {
@@ -1113,8 +1111,8 @@ class ExistingUserControllerAuthFailureTest
     test::UserSessionManagerTestApi(UserSessionManager::GetInstance())
         .InjectAuthenticatorBuilder(std::move(authenticator_builder));
 
-    ash::LoginScreenTestApi::SubmitPassword(test_user_.account_id,
-                                            "wrong!!!!!");
+    ash::LoginScreenTestApi::SubmitPassword(test_user_.account_id, "wrong!!!!!",
+                                            true /*check_if_submittable*/);
   }
 
   // Waits for auth error message to be shown in login UI.

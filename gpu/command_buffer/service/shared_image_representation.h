@@ -158,6 +158,7 @@ class GPU_GLES2_EXPORT SharedImageRepresentationGLTextureBase
 
  protected:
   friend class SharedImageRepresentationSkiaGL;
+  friend class SharedImageRepresentationGLTextureImpl;
 
   // Can be overridden to handle clear state tracking when GL access begins or
   // ends.
@@ -168,6 +169,8 @@ class GPU_GLES2_EXPORT SharedImageRepresentationGLTextureBase
   // exist.
   virtual bool BeginAccess(GLenum mode);
   virtual void EndAccess() {}
+
+  virtual bool SupportsMultipleConcurrentReadAccess();
 };
 
 class GPU_GLES2_EXPORT SharedImageRepresentationGLTexture

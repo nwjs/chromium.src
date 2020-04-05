@@ -4,7 +4,13 @@
 
 #include "chrome/browser/predictors/predictors_features.h"
 
+#include "base/metrics/field_trial_params.h"
+
 namespace features {
+
+// Whether local predictions should be used to make preconnect predictions.
+const base::Feature kLoadingPredictorUseLocalPredictions{
+    "LoadingPredictorUseLocalPredictions", base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Modifies loading predictor so that it only learns about subresources and
 // origins that are high priority.
@@ -25,5 +31,23 @@ const base::Feature kLoadingPreconnectToRedirectTarget{
 const base::Feature kLoadingPredictorDisregardAlwaysAccessesNetwork{
     "LoadingPredictorDisregardAlwaysAccessesNetwork",
     base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Modifies loading predictor so that it can also use predictions coming from
+// the optimization guide.
+const base::Feature kLoadingPredictorUseOptimizationGuide{
+    "LoadingPredictorUseOptimizationGuide", base::FEATURE_DISABLED_BY_DEFAULT};
+
+bool ShouldUseLocalPredictions() {
+  return base::FeatureList::IsEnabled(kLoadingPredictorUseLocalPredictions);
+}
+
+bool ShouldUseOptimizationGuidePredictionsToPreconnect() {
+  if (!base::FeatureList::IsEnabled(kLoadingPredictorUseOptimizationGuide))
+    return false;
+
+  return base::GetFieldTrialParamByFeatureAsBool(
+      kLoadingPredictorUseOptimizationGuide, "use_predictions_for_preconnect",
+      true);
+}
 
 }  // namespace features

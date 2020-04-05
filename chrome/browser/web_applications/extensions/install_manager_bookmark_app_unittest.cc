@@ -15,6 +15,7 @@
 #include "chrome/browser/extensions/launch_util.h"
 #include "chrome/browser/installable/installable_metrics.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/web_applications/components/app_shortcut_manager.h"
 #include "chrome/browser/web_applications/components/install_manager.h"
 #include "chrome/browser/web_applications/components/web_app_constants.h"
 #include "chrome/browser/web_applications/components/web_app_id.h"
@@ -159,6 +160,9 @@ class InstallManagerBookmarkAppTest : public ExtensionServiceTestBase {
     provider->SetInstallFinalizer(std::move(install_finalizer));
 
     provider->Start();
+    web_app::WebAppProviderBase::GetProviderBase(profile())
+        ->shortcut_manager()
+        .SuppressShortcutsForTesting();
   }
 
   void TearDown() override {
@@ -617,7 +621,7 @@ TEST_F(InstallManagerBookmarkAppTest, CreateWebAppFromInfo) {
                    .empty());
 }
 
-TEST_F(InstallManagerBookmarkAppTest, InstallWebAppFromSync) {
+TEST_F(InstallManagerBookmarkAppTest, InstallBookmarkAppFromSync) {
   CreateEmptyDataRetriever();
 
   EXPECT_EQ(0u, registry()->enabled_extensions().size());
@@ -643,7 +647,7 @@ TEST_F(InstallManagerBookmarkAppTest, InstallWebAppFromSync) {
   {
     base::RunLoop run_loop;
 
-    provider->install_manager().InstallWebAppFromSync(
+    provider->install_manager().InstallBookmarkAppFromSync(
         app_id, std::move(web_app_info),
         base::BindLambdaForTesting([&](const web_app::AppId& installed_app_id,
                                        web_app::InstallResultCode code) {
@@ -689,7 +693,7 @@ TEST_F(InstallManagerBookmarkAppTest, InstallWebAppFromSync) {
   {
     base::RunLoop run_loop;
 
-    provider->install_manager().InstallWebAppFromSync(
+    provider->install_manager().InstallBookmarkAppFromSync(
         app_id, std::move(web_app_info2),
         base::BindLambdaForTesting([&](const web_app::AppId& installed_app_id,
                                        web_app::InstallResultCode code) {

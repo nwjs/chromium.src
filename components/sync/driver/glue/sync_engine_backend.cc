@@ -7,6 +7,7 @@
 #include <utility>
 
 #include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/files/file_util.h"
 #include "base/location.h"
 #include "base/metrics/histogram_macros.h"
@@ -14,7 +15,7 @@
 #include "base/threading/sequenced_task_runner_handle.h"
 #include "base/trace_event/memory_dump_manager.h"
 #include "components/invalidation/public/invalidation_util.h"
-#include "components/invalidation/public/object_id_invalidation_map.h"
+#include "components/invalidation/public/topic_invalidation_map.h"
 #include "components/sync/base/invalidation_adapter.h"
 #include "components/sync/base/sync_base_switches.h"
 #include "components/sync/driver/configure_context.h"
@@ -63,14 +64,12 @@ const base::FilePath::CharType kNigoriStorageFilename[] =
     FILE_PATH_LITERAL("Nigori.bin");
 
 bool ShouldEnableUSSNigori() {
-  // USS implementation of Nigori is not compatible with Directory
-  // implementations of Passwords and Bookmarks.
-  // |kSyncUSSNigori| should be checked last, since check itself has side
-  // effect (only clients, which have feature-flag checked participate in the
-  // study). Otherwise, we will have different amount of clients in control and
-  // experiment groups.
-  return base::FeatureList::IsEnabled(switches::kSyncUSSPasswords) &&
-         base::FeatureList::IsEnabled(switches::kSyncUSSNigori);
+  return base::FeatureList::IsEnabled(switches::kSyncUSSNigori);
+}
+
+// Checks if there is at least one experiment for USS is disabled.
+bool ShouldClearDirectoryOnEmptyBirthday() {
+  return !base::FeatureList::IsEnabled(switches::kSyncUSSNigori);
 }
 
 }  // namespace
@@ -218,6 +217,11 @@ void SyncEngineBackend::OnStatusCountersUpdated(
       counters);
 }
 
+void SyncEngineBackend::OnSyncStatusChanged(const SyncStatus& status) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  host_.Call(FROM_HERE, &SyncEngineImpl::HandleSyncStatusChanged, status);
+}
+
 void SyncEngineBackend::OnActionableError(const SyncProtocolError& sync_error) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   host_.Call(FROM_HERE,
@@ -271,20 +275,18 @@ bool SyncEngineBackend::ShouldIgnoreRedundantInvalidation(
 }
 
 void SyncEngineBackend::DoOnIncomingInvalidation(
-    const ObjectIdInvalidationMap& invalidation_map) {
+    const TopicInvalidationMap& invalidation_map) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
-  ObjectIdSet ids = invalidation_map.GetObjectIds();
-  for (const invalidation::ObjectId& object_id : ids) {
+  for (const Topic& topic : invalidation_map.GetTopics()) {
     ModelType type;
-    if (!NotificationTypeToRealModelType(object_id.name(), &type)) {
-      DLOG(WARNING) << "Notification has invalid id: "
-                    << ObjectIdToString(object_id);
+    if (!NotificationTypeToRealModelType(topic, &type)) {
+      DLOG(WARNING) << "Notification has invalid topic: " << topic;
     } else {
       UMA_HISTOGRAM_ENUMERATION("Sync.InvalidationPerModelType",
                                 ModelTypeHistogramValue(type));
       SingleObjectInvalidationSet invalidation_set =
-          invalidation_map.ForObject(object_id);
+          invalidation_map.ForTopic(topic);
       for (Invalidation invalidation : invalidation_set) {
         if (ShouldIgnoreRedundantInvalidation(invalidation, type)) {
           continue;
@@ -305,6 +307,10 @@ void SyncEngineBackend::DoOnIncomingInvalidation(
 
 void SyncEngineBackend::DoInitialize(SyncEngine::InitParams params) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+  if (params.birthday.empty() && ShouldClearDirectoryOnEmptyBirthday()) {
+    syncable::Directory::DeleteDirectoryFiles(sync_data_folder_);
+  }
 
   // Make sure that the directory exists before initializing the backend.
   // If it already exists, this will do no harm.
@@ -376,6 +382,7 @@ void SyncEngineBackend::DoInitialize(SyncEngine::InitParams params) {
   args.cache_guid = params.cache_guid;
   args.birthday = params.birthday;
   args.bag_of_chips = params.bag_of_chips;
+  args.sync_status_observers.push_back(this);
   sync_manager_->Init(&args);
   base::trace_event::MemoryDumpManager::GetInstance()
       ->RegisterDumpProviderWithSequencedTaskRunner(
@@ -458,8 +465,7 @@ void SyncEngineBackend::DoInitialProcessControlTypes() {
       FROM_HERE, &SyncEngineImpl::HandleInitializationSuccessOnFrontendLoop,
       registrar_->GetLastConfiguredTypes(), js_backend_, debug_info_listener_,
       base::Passed(sync_manager_->GetModelTypeConnectorProxy()),
-      sync_manager_->cache_guid(), sync_manager_->birthday(),
-      sync_manager_->bag_of_chips(),
+      sync_manager_->birthday(), sync_manager_->bag_of_chips(),
       sync_manager_->GetEncryptionHandler()->GetLastKeystoreKey());
 
   js_backend_.Reset();

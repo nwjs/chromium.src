@@ -31,6 +31,8 @@ class BASE_EXPORT ScopedBstr {
   explicit ScopedBstr(WStringPiece non_bstr);
   ~ScopedBstr();
 
+  BSTR Get() const { return bstr_; }
+
   // Give ScopedBstr ownership over an already allocated BSTR or null.
   // If you need to allocate a new BSTR instance, use |allocate| instead.
   void Reset(BSTR bstr = nullptr);
@@ -77,8 +79,6 @@ class BASE_EXPORT ScopedBstr {
 
   // Returns the number of bytes allocated for the BSTR.
   size_t ByteLength() const;
-
-  operator BSTR() const { return bstr_; }
 
   // Forbid comparison of ScopedBstr types.  You should never have the same
   // BSTR owned by two different scoped_ptrs.

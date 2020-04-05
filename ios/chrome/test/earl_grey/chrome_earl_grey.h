@@ -155,14 +155,19 @@ id ExecuteJavaScript(NSString* javascript, NSError* __autoreleasing* out_error);
 // Stops the sync server. The server should be running when calling this.
 - (void)stopSync;
 
+// Injects user demographics into the fake sync server. The year is the
+// un-noised birth year, and the gender corresponds to the options in
+// UserDemographicsProto::Gender.
+- (void)addUserDemographicsToSyncServerWithBirthYear:(int)birthYear
+                                              gender:(int)gender;
+
 // Clears the autofill profile for the given |GUID|.
 - (void)clearAutofillProfileWithGUID:(const std::string&)GUID;
 
 // Injects an autofill profile into the fake sync server with |GUID| and
 // |full_name|.
-- (void)injectAutofillProfileOnFakeSyncServerWithGUID:(const std::string&)GUID
-                                  autofillProfileName:
-                                      (const std::string&)fullName;
+- (void)addAutofillProfileToFakeSyncServerWithGUID:(const std::string&)GUID
+                               autofillProfileName:(const std::string&)fullName;
 
 // Returns YES if there is an autofilll profile with the corresponding |GUID|
 // and |full_name|.
@@ -190,6 +195,14 @@ id ExecuteJavaScript(NSString* javascript, NSError* __autoreleasing* out_error);
 - (void)addFakeSyncServerBookmarkWithURL:(const GURL&)URL
                                    title:(const std::string&)title;
 
+// Injects a legacy bookmark into the fake sync server. The legacy bookmark
+// means 2015 and earlier, prior to the adoption of GUIDs for originator client
+// item ID.
+- (void)addFakeSyncServerLegacyBookmarkWithURL:(const GURL&)URL
+                                         title:(const std::string&)title
+                     originator_client_item_id:
+                         (const std::string&)originator_client_item_id;
+
 // Injects typed URL to sync FakeServer.
 - (void)addFakeSyncServerTypedURL:(const GURL&)URL;
 
@@ -198,7 +211,8 @@ id ExecuteJavaScript(NSString* javascript, NSError* __autoreleasing* out_error);
 
 // Deletes an autofill profile from the fake sync server with |GUID|, if it
 // exists. If it doesn't exist, nothing is done.
-- (void)deleteAutofillProfileOnFakeSyncServerWithGUID:(const std::string&)GUID;
+- (void)deleteAutofillProfileFromFakeSyncServerWithGUID:
+    (const std::string&)GUID;
 
 // Verifies the sessions hierarchy on the Sync FakeServer. |URLs| is
 // the collection of URLs that are to be expected for a single window. A
@@ -315,6 +329,11 @@ id ExecuteJavaScript(NSString* javascript, NSError* __autoreleasing* out_error);
 // Signs the user out, clears the known accounts entirely and checks whether the
 // accounts were correctly removed from the keychain. Induces a GREYAssert if
 // the operation fails.
+- (void)signOutAndClearIdentities;
+
+// Same as signOutAndClearIdentities.
+//
+// DEPRECATED in favor of signOutAndClearIdentities
 - (void)signOutAndClearAccounts;
 
 #pragma mark - Sync Utilities (EG2)
@@ -466,6 +485,12 @@ id ExecuteJavaScript(NSString* javascript, NSError* __autoreleasing* out_error);
 // Returns YES if AutofillEnableCompanyName feature is enabled.
 - (BOOL)isAutofillCompanyNameEnabled WARN_UNUSED_RESULT;
 
+// Returns YES if DemographicMetricsReporting feature is enabled.
+- (BOOL)isDemographicMetricsReportingEnabled WARN_UNUSED_RESULT;
+
+// Returns YES if the |launchSwitch| is found in host app launch switches.
+- (BOOL)appHasLaunchSwitch:(const std::string&)launchSwitch;
+
 // Returns YES if custom WebKit frameworks were properly loaded, rather than
 // system frameworks. Always returns YES if the app was not requested to run
 // with custom WebKit frameworks.
@@ -495,6 +520,16 @@ id ExecuteJavaScript(NSString* javascript, NSError* __autoreleasing* out_error);
                                 flags:(UIKeyModifierFlags)flags;
 
 #pragma mark - Pref Utilities (EG2)
+
+// Gets the value of a local state pref.
+- (bool)localStateBooleanPref:(const std::string&)prefName;
+- (int)localStateIntegerPref:(const std::string&)prefName;
+- (std::string)localStateStringPref:(const std::string&)prefName;
+
+// Gets the value of a user pref in the original browser state.
+- (bool)userBooleanPref:(const std::string&)prefName;
+- (int)userIntegerPref:(const std::string&)prefName;
+- (std::string)userStringPref:(const std::string&)prefName;
 
 // Sets the value of a boolean user pref in the original browser state.
 - (void)setBoolValue:(BOOL)value forUserPref:(const std::string&)UTF8PrefName;

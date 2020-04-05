@@ -47,7 +47,7 @@ struct KeyValuePairKeyExtractor {
   // Assumes out points to a buffer of size at least sizeof(T::KeyType).
   template <typename T>
   static const typename T::KeyType& ExtractSafe(const T& p, void* out) {
-    AtomicMemcpy<sizeof(typename T::KeyType)>(out, &p.key);
+    AtomicReadMemcpy<sizeof(typename T::KeyType)>(out, &p.key);
     return *reinterpret_cast<typename T::KeyType*>(out);
   }
 };
@@ -209,7 +209,8 @@ class HashMap {
   static bool IsValidKey(const IncomingKeyType&);
 
   template <typename VisitorDispatcher, typename A = Allocator>
-  std::enable_if_t<A::kIsGarbageCollected> Trace(VisitorDispatcher visitor) {
+  std::enable_if_t<A::kIsGarbageCollected> Trace(
+      VisitorDispatcher visitor) const {
     impl_.Trace(visitor);
   }
 

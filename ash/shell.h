@@ -57,7 +57,6 @@ class KeyboardUIFactory;
 
 namespace ui {
 class ContextFactory;
-class ContextFactoryPrivate;
 class UserActivityDetector;
 class UserActivityPowerManagerNotifier;
 }  // namespace ui
@@ -141,6 +140,7 @@ class MultiDeviceNotificationPresenter;
 class NightLightControllerImpl;
 class OverlayEventFilter;
 class OverviewController;
+class ParentAccessController;
 class PartialMagnificationController;
 class PeripheralBatteryNotifier;
 class PeripheralBatteryTracker;
@@ -149,7 +149,9 @@ class PolicyRecommendationRestorer;
 class PowerButtonController;
 class PowerEventObserver;
 class PowerPrefs;
+class PrivacyScreenController;
 class ProjectingObserver;
+class QuickAnswersController;
 class ResizeShadowController;
 class ResolutionNotificationController;
 class RootWindowController;
@@ -282,7 +284,12 @@ class ASH_EXPORT Shell : public SessionObserver,
   // Called when dictation is ended.
   void OnDictationEnded();
 
-  // Test if TabletModeWindowManager is not enabled, and if
+  // Returns whether the device is currently in tablet mode. If the tablet
+  // mode controller isn't available, we assume the device is not in
+  // tablet mode.
+  bool IsInTabletMode() const;
+
+  // Tests if TabletModeWindowManager is not enabled, and if
   // TabletModeController is not currently setting a display rotation. Or if
   // the |resolution_notification_controller_| is not showing its confirmation
   // dialog. If true then changes to display settings can be saved.
@@ -405,7 +412,13 @@ class ASH_EXPORT Shell : public SessionObserver,
   NightLightControllerImpl* night_light_controller() {
     return night_light_controller_.get();
   }
+  PrivacyScreenController* privacy_screen_controller() {
+    return privacy_screen_controller_.get();
+  }
   OverlayEventFilter* overlay_filter() { return overlay_filter_.get(); }
+  ParentAccessController* parent_access_controller() {
+    return parent_access_controller_.get();
+  }
   PartialMagnificationController* partial_magnification_controller() {
     return partial_magnification_controller_.get();
   }
@@ -462,7 +475,7 @@ class ASH_EXPORT Shell : public SessionObserver,
   SystemTrayNotifier* system_tray_notifier() {
     return system_tray_notifier_.get();
   }
-  TabletModeController* tablet_mode_controller() {
+  TabletModeController* tablet_mode_controller() const {
     return tablet_mode_controller_.get();
   }
   ToastManagerImpl* toast_manager() { return toast_manager_.get(); }
@@ -570,7 +583,6 @@ class ASH_EXPORT Shell : public SessionObserver,
   ~Shell() override;
 
   void Init(ui::ContextFactory* context_factory,
-            ui::ContextFactoryPrivate* context_factory_private,
             PrefService* local_state,
             std::unique_ptr<keyboard::KeyboardUIFactory> keyboard_ui_factory,
             scoped_refptr<dbus::Bus> dbus_bus);
@@ -650,10 +662,13 @@ class ASH_EXPORT Shell : public SessionObserver,
   std::unique_ptr<MruWindowTracker> mru_window_tracker_;
   std::unique_ptr<MultiDeviceNotificationPresenter>
       multidevice_notification_presenter_;
+  std::unique_ptr<ParentAccessController> parent_access_controller_;
+  std::unique_ptr<QuickAnswersController> quick_answers_controller_;
   std::unique_ptr<ResizeShadowController> resize_shadow_controller_;
   std::unique_ptr<AshColorProvider> ash_color_provider_;
   std::unique_ptr<SessionControllerImpl> session_controller_;
   std::unique_ptr<NightLightControllerImpl> night_light_controller_;
+  std::unique_ptr<PrivacyScreenController> privacy_screen_controller_;
   std::unique_ptr<PolicyRecommendationRestorer> policy_recommendation_restorer_;
   std::unique_ptr<ScreenSwitchCheckController> screen_switch_check_controller_;
   std::unique_ptr<ShelfConfig> shelf_config_;

@@ -88,11 +88,6 @@ extern const char kLogBreadcrumbsDescription[];
 extern const char kBreakpadNoDelayInitialUploadName[];
 extern const char kBreakpadNoDelayInitialUploadDescription[];
 
-// Title and description for the flag to make browser container keep the
-// content view hierarchy directly.
-extern const char kBrowserContainerKeepsContentViewName[];
-extern const char kBrowserContainerKeepsContentViewDescription[];
-
 // Title and description for the flag to control if Chrome should wipe synced
 // data from a local device on sign-out from a non-managed account.
 extern const char kClearSyncedDataName[];
@@ -177,11 +172,6 @@ extern const char
 extern const char kEnableClipboardProviderImageSuggestionsName[];
 extern const char kEnableClipboardProviderImageSuggestionsDescription[];
 
-// Title and description for the flag to enable the clipboard provider to
-// suggest copied text
-extern const char kEnableClipboardProviderTextSuggestionsName[];
-extern const char kEnableClipboardProviderTextSuggestionsDescription[];
-
 // Title and description for the flag to enable the new error page workflow.
 extern const char kUseJSForErrorPageName[];
 extern const char kUseJSForErrorPageDescription[];
@@ -190,8 +180,8 @@ extern const char kUseJSForErrorPageDescription[];
 extern const char kEnablePersistentDownloadsName[];
 extern const char kEnablePersistentDownloadsDescription[];
 
-extern const char kEnableSyncUSSPasswordsName[];
-extern const char kEnableSyncUSSPasswordsDescription[];
+extern const char kEnableSyncTrustedVaultName[];
+extern const char kEnableSyncTrustedVaultDescription[];
 
 extern const char kEnableSyncUSSNigoriName[];
 extern const char kEnableSyncUSSNigoriDescription[];
@@ -232,6 +222,11 @@ extern const char kInfobarUIRebootDescription[];
 extern const char kInProductHelpDemoModeName[];
 extern const char kInProductHelpDemoModeDescription[];
 
+// Title and description for the flag to enable interstitials on lookalike
+// URL navigations.
+extern const char kIOSLookalikeUrlNavigationSuggestionsUIName[];
+extern const char kIOSLookalikeUrlNavigationSuggestionsUIDescription[];
+
 // Title and description for the flag to lock the bottom toolbar into place.
 extern const char kLockBottomToolbarName[];
 extern const char kLockBottomToolbarDescription[];
@@ -265,23 +260,40 @@ extern const char kOmniboxUIMaxAutocompleteMatchesDescription[];
 extern const char kOmniboxOnDeviceHeadSuggestionsName[];
 extern const char kOmniboxOnDeviceHeadSuggestionsDescription[];
 
+// Title and description for the flag to control Omnibox on-focus suggestions.
+extern const char kOmniboxOnFocusSuggestionsName[];
+extern const char kOmniboxOnFocusSuggestionsDescription[];
+
+// Title and description for the flag to open Downloaded files in Files.app.
+extern const char kOpenDownloadsInFilesAppName[];
+extern const char kOpenDownloadsInFilesAppDescription[];
+
+// Title and description for the flag to allow user to manage third-party cookie
+// blocking from the page info.
+extern const char kPageInfoChromeGuardName[];
+extern const char kPageInfoChromeGuardDescription[];
+
 // Title and description for the flag to enable the new design of the page info.
 extern const char kPageInfoRefactoringName[];
 extern const char kPageInfoRefactoringDescription[];
+
+// Title and description for the flag to enable QR code generation for a page.
+extern const char kQRCodeGenerationName[];
+extern const char kQRCodeGenerationDescription[];
 
 // Title and description for the flag that reload the page when the renderer
 // crashes.
 extern const char kReloadSadTabName[];
 extern const char kReloadSadTabDescription[];
 
+// Title and description for the flag that makes Safe Browsing available.
+extern const char kSafeBrowsingAvailableName[];
+extern const char kSafeBrowsingAvailableDescription[];
+
 // Title and description for the flag that enables Messages UI on
 // SaveCard Infobars.
 extern const char kSaveCardInfobarMessagesUIName[];
 extern const char kSaveCardInfobarMessagesUIDescription[];
-
-// Title and description for the flag to toggle the flag of the search button.
-extern const char kSearchIconToggleName[];
-extern const char kSearchIconToggleDescription[];
 
 // Title and description for the flag to enable the send tab to self receiving
 // feature.
@@ -320,6 +332,10 @@ extern const char kSSLCommittedInterstitialsDescription[];
 extern const char kForceStartupSigninPromoName[];
 extern const char kForceStartupSigninPromoDescription[];
 
+// Title and description for the flag to enable the new sign-in architecture.
+extern const char kNewSigninArchitectureName[];
+extern const char kNewSigninArchitectureDescription[];
+
 // Title and description for the flag to allow syncing DeviceInfo in
 // transport-only mode.
 extern const char kSyncDeviceInfoInTransportModeName[];
@@ -335,34 +351,15 @@ extern const char kSyncSandboxDescription[];
 extern const char kToolbarContainerName[];
 extern const char kToolbarContainerDescription[];
 
-// Title and description for the flag to enable the new tab button in the
-// toolbar.
-extern const char kToolbarNewTabButtonName[];
-extern const char kToolbarNewTabButtonDescription[];
-
 // Title and description for the flag to enable the Messages UI for Translate
 // Infobars.
 extern const char kTranslateInfobarMessagesUIName[];
 extern const char kTranslateInfobarMessagesUIDescription[];
 
-// Title and description for the flag to enable the ddljson Doodle API.
-extern const char kUseDdljsonApiName[];
-extern const char kUseDdljsonApiDescription[];
-
-// Title and description for the flag to enable using WKWebView.loading for
-// WebState::IsLoading.
-extern const char kUseWKWebViewLoadingName[];
-extern const char kUseWKWebViewLoadingDescription[];
-
 // Title and description for the flag to control if Google Payments API calls
 // should use the sandbox servers.
 extern const char kWalletServiceUseSandboxName[];
 extern const char kWalletServiceUseSandboxDescription[];
-
-// Title and description for the flag to use the Clear browsing data API from
-// web.
-extern const char kWebClearBrowsingDataName[];
-extern const char kWebClearBrowsingDataDescription[];
 
 // Title and description for the flag to enable text accessibility in webpages.
 extern const char kWebPageTextAccessibilityName[];

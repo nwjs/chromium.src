@@ -5,6 +5,8 @@
 #ifndef CONTENT_BROWSER_WORKER_HOST_DEDICATED_WORKER_HOST_H_
 #define CONTENT_BROWSER_WORKER_HOST_DEDICATED_WORKER_HOST_H_
 
+#include <memory>
+
 #include "base/optional.h"
 #include "base/scoped_observer.h"
 #include "build/build_config.h"
@@ -18,11 +20,13 @@
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
+#include "services/network/public/cpp/cross_origin_embedder_policy.h"
 #include "third_party/blink/public/mojom/filesystem/file_system.mojom-forward.h"
 #include "third_party/blink/public/mojom/idle/idle_manager.mojom-forward.h"
 #include "third_party/blink/public/mojom/payments/payment_app.mojom-forward.h"
 #include "third_party/blink/public/mojom/sms/sms_receiver.mojom-forward.h"
 #include "third_party/blink/public/mojom/usb/web_usb_service.mojom-forward.h"
+#include "third_party/blink/public/mojom/wake_lock/wake_lock.mojom-forward.h"
 #include "third_party/blink/public/mojom/websockets/websocket_connector.mojom-forward.h"
 #include "third_party/blink/public/mojom/webtransport/quic_transport_connector.mojom-forward.h"
 #include "third_party/blink/public/mojom/worker/dedicated_worker_host.mojom.h"
@@ -39,6 +43,7 @@ class Origin;
 
 namespace content {
 
+class CrossOriginEmbedderPolicyReporter;
 class DedicatedWorkerServiceImpl;
 class ServiceWorkerMainResourceHandle;
 class ServiceWorkerObjectHost;
@@ -50,7 +55,10 @@ CONTENT_EXPORT void CreateDedicatedWorkerHostFactory(
     int worker_process_id,
     base::Optional<GlobalFrameRoutingId> creator_render_frame_host_id,
     GlobalFrameRoutingId ancestor_render_frame_host_id,
-    const url::Origin& origin,
+    const url::Origin& creator_origin,
+    const network::CrossOriginEmbedderPolicy& cross_origin_embedder_policy,
+    mojo::PendingRemote<network::mojom::CrossOriginEmbedderPolicyReporter>
+        coep_reporter,
     mojo::PendingReceiver<blink::mojom::DedicatedWorkerHostFactory> receiver);
 
 // A host for a single dedicated worker. It deletes itself upon Mojo
@@ -65,7 +73,10 @@ class DedicatedWorkerHost final : public blink::mojom::DedicatedWorkerHost,
       RenderProcessHost* worker_process_host,
       base::Optional<GlobalFrameRoutingId> creator_render_frame_host_id,
       GlobalFrameRoutingId ancestor_render_frame_host_id,
-      const url::Origin& origin,
+      const url::Origin& creator_origin,
+      const network::CrossOriginEmbedderPolicy& cross_origin_embedder_policy,
+      mojo::PendingRemote<network::mojom::CrossOriginEmbedderPolicyReporter>
+          coep_reporter,
       mojo::PendingReceiver<blink::mojom::DedicatedWorkerHost> host);
   ~DedicatedWorkerHost() final;
 
@@ -73,7 +84,7 @@ class DedicatedWorkerHost final : public blink::mojom::DedicatedWorkerHost,
       mojo::PendingReceiver<blink::mojom::BrowserInterfaceBroker> receiver);
 
   RenderProcessHost* GetProcessHost() { return worker_process_host_; }
-  const url::Origin& GetOrigin() { return origin_; }
+  const url::Origin& GetWorkerOrigin() { return worker_origin_; }
 
   void CreateIdleManager(
       mojo::PendingReceiver<blink::mojom::IdleManager> receiver);
@@ -87,6 +98,10 @@ class DedicatedWorkerHost final : public blink::mojom::DedicatedWorkerHost,
       mojo::PendingReceiver<blink::mojom::WebSocketConnector> receiver);
   void CreateQuicTransportConnector(
       mojo::PendingReceiver<blink::mojom::QuicTransportConnector> receiver);
+  void CreateWakeLockService(
+      mojo::PendingReceiver<blink::mojom::WakeLockService> receiver);
+  void BindCacheStorage(
+      mojo::PendingReceiver<blink::mojom::CacheStorage> receiver);
 
 #if !defined(OS_ANDROID)
   void BindSerialService(
@@ -104,12 +119,13 @@ class DedicatedWorkerHost final : public blink::mojom::DedicatedWorkerHost,
   // PlzDedicatedWorker:
   void StartScriptLoad(
       const GURL& script_url,
-      const url::Origin& request_initiator_origin,
       network::mojom::CredentialsMode credentials_mode,
       blink::mojom::FetchClientSettingsObjectPtr
           outside_fetch_client_settings_object,
       mojo::PendingRemote<blink::mojom::BlobURLToken> blob_url_token,
       mojo::Remote<blink::mojom::DedicatedWorkerHostFactoryClient> client);
+
+  void ReportNoBinderForInterface(const std::string& error);
 
  private:
   // RenderProcessHostObserver:
@@ -118,6 +134,10 @@ class DedicatedWorkerHost final : public blink::mojom::DedicatedWorkerHost,
 
   // Called from WorkerScriptFetchInitiator. Continues starting the dedicated
   // worker in the renderer process.
+  //
+  // |success| is true only when the script fetch succeeded.
+  //
+  // Note: None of the following parameters are valid if |success| is false.
   //
   // |main_script_load_params| is sent to the renderer process and to be used to
   // load the dedicated worker main script pre-requested by the browser process.
@@ -130,14 +150,19 @@ class DedicatedWorkerHost final : public blink::mojom::DedicatedWorkerHost,
   // |controller| contains information about the service worker controller. Once
   // a ServiceWorker object about the controller is prepared, it is registered
   // to |controller_service_worker_object_host|.
+  //
+  // |final_response_url| is the URL calculated from the initial request URL,
+  // redirect chain, and URLs fetched via service worker.
+  // https://fetch.spec.whatwg.org/#concept-response-url
   void DidStartScriptLoad(
+      bool success,
       std::unique_ptr<blink::PendingURLLoaderFactoryBundle>
           subresource_loader_factories,
       blink::mojom::WorkerMainScriptLoadParamsPtr main_script_load_params,
       blink::mojom::ControllerServiceWorkerInfoPtr controller,
       base::WeakPtr<ServiceWorkerObjectHost>
           controller_service_worker_object_host,
-      bool success);
+      const GURL& final_response_url);
 
   // Sets up the observer of network service crash.
   void ObserveNetworkServiceCrash(StoragePartitionImpl* storage_partition_impl);
@@ -174,11 +199,21 @@ class DedicatedWorkerHost final : public blink::mojom::DedicatedWorkerHost,
   // of nested workers) indirectly via a tree of dedicated workers.
   const GlobalFrameRoutingId ancestor_render_frame_host_id_;
 
-  const url::Origin origin_;
+  // The origin of the frame or dedicated worker that starts this worker.
+  const url::Origin creator_origin_;
+
+  // The origin of this worker.
+  // https://html.spec.whatwg.org/C/#concept-settings-object-origin
+  const url::Origin worker_origin_;
 
   // The network isolation key to be used for both the worker script and the
   // worker's subresources.
   net::NetworkIsolationKey network_isolation_key_;
+
+  // The DedicatedWorker's Cross-Origin-Embedder-Policy(COEP). It is equals to
+  // the nearest ancestor frame host's COEP:
+  // https://mikewest.github.io/corpp/#initialize-embedder-policy-for-global
+  const network::CrossOriginEmbedderPolicy cross_origin_embedder_policy_;
 
   // This is kept alive during the lifetime of the dedicated worker, since it's
   // associated with Mojo interfaces (ServiceWorkerContainer and
@@ -205,6 +240,15 @@ class DedicatedWorkerHost final : public blink::mojom::DedicatedWorkerHost,
       network_service_connection_error_handler_holder_;
   mojo::Remote<blink::mojom::SubresourceLoaderUpdater>
       subresource_loader_updater_;
+
+  // The endpoint of this mojo interface is the RenderFrameHostImpl's COEP
+  // reporter. The COEP endpoint is correct, but the context_url is the
+  // Document's URL.
+  // TODO(arthursonzogni): After landing PlzDedicatedWorker, make the
+  // DedicatedWorkerHost to have its own COEP reporter using the right
+  // context_url.
+  mojo::Remote<network::mojom::CrossOriginEmbedderPolicyReporter>
+      coep_reporter_;  // Never null.
 
   base::WeakPtrFactory<DedicatedWorkerHost> weak_factory_{this};
 

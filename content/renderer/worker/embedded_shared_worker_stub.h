@@ -17,6 +17,7 @@
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "services/network/public/mojom/url_loader_factory.mojom-forward.h"
+#include "third_party/blink/public/common/user_agent/user_agent_metadata.h"
 #include "third_party/blink/public/mojom/browser_interface_broker.mojom-forward.h"
 #include "third_party/blink/public/mojom/devtools/devtools_agent.mojom-forward.h"
 #include "third_party/blink/public/mojom/renderer_preference_watcher.mojom-forward.h"
@@ -57,7 +58,9 @@ class EmbeddedSharedWorkerStub : public blink::WebSharedWorkerClient,
  public:
   EmbeddedSharedWorkerStub(
       blink::mojom::SharedWorkerInfoPtr info,
+      const url::Origin& constructor_origin,
       const std::string& user_agent,
+      const blink::UserAgentMetadata& ua_metadata,
       bool pause_on_start,
       const base::UnguessableToken& devtools_worker_token,
       const blink::mojom::RendererPreferences& renderer_preferences,
@@ -85,7 +88,7 @@ class EmbeddedSharedWorkerStub : public blink::WebSharedWorkerClient,
   void WorkerReadyForInspection(
       mojo::ScopedMessagePipeHandle devtools_agent_ptr_info,
       mojo::ScopedMessagePipeHandle devtools_agent_host_request) override;
-  void WorkerScriptLoadFailed() override;
+  void WorkerScriptLoadFailed(const std::string& error_message) override;
   void WorkerScriptEvaluated(bool success) override;
   scoped_refptr<blink::WebWorkerFetchContext> CreateWorkerFetchContext()
       override;

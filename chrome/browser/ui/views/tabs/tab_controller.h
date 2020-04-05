@@ -10,7 +10,6 @@
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/base/ui_base_types.h"
 
-class Browser;
 class Tab;
 class TabSlotView;
 
@@ -23,7 +22,6 @@ class Rect;
 namespace tab_groups {
 enum class TabGroupColorId;
 class TabGroupId;
-class TabGroupVisualData;
 }  // namespace tab_groups
 namespace ui {
 class ListSelectionModel;
@@ -126,6 +124,9 @@ class TabController {
   // will cause the tab hover card to be hidden.
   virtual void UpdateHoverCard(Tab* tab) = 0;
 
+  // Returns whether domain/origin should be shown in the tab hover card.
+  virtual bool ShowDomainInHoverCard(const Tab* tab) const = 0;
+
   // Returns true if the hover card is showing for the given tab.
   virtual bool HoverCardIsShowingForTab(Tab* tab) = 0;
 
@@ -201,19 +202,6 @@ class TabController {
   // current theme.
   virtual SkColor GetPaintedGroupColor(
       const tab_groups::TabGroupColorId& color_id) const = 0;
-
-  // Sets the title and color ID of the given |group|.
-  virtual void SetVisualDataForGroup(
-      const tab_groups::TabGroupId& group,
-      const tab_groups::TabGroupVisualData& visual_data) = 0;
-
-  virtual void CloseAllTabsInGroup(const tab_groups::TabGroupId& group) = 0;
-
-  virtual void UngroupAllTabsInGroup(const tab_groups::TabGroupId& group) = 0;
-
-  virtual void AddNewTabInGroup(const tab_groups::TabGroupId& group) = 0;
-
-  virtual const Browser* GetBrowser() = 0;
 
  protected:
   virtual ~TabController() {}

@@ -70,9 +70,6 @@ class CONTENT_EXPORT ServiceWorkerContextCore
   using ContainerHostByClientUUIDMap =
       std::map<std::string, std::unique_ptr<ServiceWorkerContainerHost>>;
 
-  // Directory for ServiceWorkerStorage and ServiceWorkerCacheManager.
-  static const base::FilePath::CharType kServiceWorkerDirectory[];
-
   // Iterates over ServiceWorkerContainerHost objects in the
   // ContainerHostByClientUUIDMap.
   // Note: As ContainerHostIterator is operating on a member of
@@ -125,11 +122,14 @@ class CONTENT_EXPORT ServiceWorkerContextCore
 
   void OnStorageWiped();
 
+  void OnMainScriptResponseSet(
+      int64_t version_id,
+      const ServiceWorkerVersion::MainScriptResponse& response);
+
   // ServiceWorkerVersion::Observer overrides.
   void OnRunningStateChanged(ServiceWorkerVersion* version) override;
   void OnVersionStateChanged(ServiceWorkerVersion* version) override;
   void OnDevToolsRoutingIdChanged(ServiceWorkerVersion* version) override;
-  void OnMainScriptHttpResponseInfoSet(ServiceWorkerVersion* version) override;
   void OnErrorReported(ServiceWorkerVersion* version,
                        const base::string16& error_message,
                        int line_number,
@@ -201,10 +201,14 @@ class CONTENT_EXPORT ServiceWorkerContextCore
       blink::mojom::FetchClientSettingsObjectPtr
           outside_fetch_client_settings_object,
       RegistrationCallback callback);
+
+  // If |is_immediate| is true, unregister clears the active worker from the
+  // registration without waiting for the controlled clients to unload.
   void UnregisterServiceWorker(const GURL& scope,
+                               bool is_immediate,
                                UnregistrationCallback callback);
 
-  // Callback is called after all deletions occured. The status code is
+  // Callback is called after all deletions occurred. The status code is
   // blink::ServiceWorkerStatusCode::kOk if all succeed, or
   // SERVICE_WORKER_FAILED if any did not succeed.
   void DeleteForOrigin(const GURL& origin, StatusCallback callback);
@@ -341,6 +345,7 @@ class CONTENT_EXPORT ServiceWorkerContextCore
                               std::string* out_error) const;
 
   void DidGetRegistrationsForDeleteForOrigin(
+      const GURL& origin,
       base::OnceCallback<void(blink::ServiceWorkerStatusCode)> callback,
       blink::ServiceWorkerStatusCode status,
       const std::vector<scoped_refptr<ServiceWorkerRegistration>>&

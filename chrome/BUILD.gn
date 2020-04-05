@@ -4,7 +4,6 @@
 
 import("//build/config/chrome_build.gni")
 import("//build/config/compiler/compiler.gni")
-import("//build/config/compiler/pgo/pgo.gni")
 import("//build/config/features.gni")
 import("//build/config/locales.gni")
 import("//build/config/sanitizers/sanitizers.gni")
@@ -64,15 +63,11 @@ if (is_win) {
 
     # See comment in chrome_dll.gypi in the hardlink_to_output
     # target for why this cannot be 'initial' like the DLL.
-    inputs = [
-      "$root_out_dir/initialexe/nw.exe",
-    ]
+    inputs = [ "$root_out_dir/initialexe/nw.exe" ]
     outputs = [
       "$root_out_dir/nw.exe",
+      "$root_out_dir/nw.exe.pdb",
     ]
-    if (symbol_level != 0) {
-      outputs += [ "$root_out_dir/nw.exe.pdb" ]
-    }
     args = [
       "-i",
       rebase_path("$root_out_dir/initialexe", root_build_dir),
@@ -150,16 +145,6 @@ if (!is_android && !is_mac) {
       output_name = "nw"
     }
 
-    if (!is_win || is_clang) {
-      # Normally, we need to pass specific flags to the linker to
-      # create an executable that gathers profile data. However, when
-      # using MSVC, we need to make sure we *don't* pass /GENPROFILE
-      # when linking without generating any code, or else the linker
-      # will give us fatal error LNK1264. So we add the PGO flags
-      # on all configurations, execpt MSVC on Windows.
-      configs += [ "//build/config/compiler/pgo:default_pgo_flags" ]
-    }
-
     # Because the sources list varies so significantly per-platform, generally
     # each platform lists its own files rather than relying on filtering or
     # removing unused files.
@@ -179,10 +164,6 @@ if (!is_android && !is_mac) {
       sources += [
         "app/chrome_exe.rc",
         "app/chrome_exe_main_win.cc",
-        "app/chrome_watcher_client_win.cc",
-        "app/chrome_watcher_client_win.h",
-        "app/chrome_watcher_command_line_win.cc",
-        "app/chrome_watcher_command_line_win.h",
         "app/main_dll_loader_win.cc",
         "app/main_dll_loader_win.h",
         "common/crash_keys.cc",
@@ -200,15 +181,12 @@ if (!is_android && !is_mac) {
         "//chrome/browser:active_use_util",
         "//chrome/browser:chrome_process_finder",
         "//chrome/chrome_elf",
-        "//chrome/chrome_watcher",
-        "//chrome/chrome_watcher:client",
         "//chrome/common:constants",
-        "//chrome/common:metrics_constants_util_win",
         "//chrome/install_static:secondary_module",
         "//chrome/installer/util:constants",
         "//chrome/installer/util:did_run_support",
         "//components/browser_watcher:browser_watcher_client",
-        "//components/crash/content/app:run_as_crashpad_handler",
+        "//components/crash/core/app:run_as_crashpad_handler",
         "//components/crash/core/common",
         "//components/flags_ui:switches",
         "//content:sandbox_helper_win",
@@ -218,9 +196,11 @@ if (!is_android && !is_mac) {
         "//services/service_manager/sandbox",
         "//third_party/breakpad:breakpad_handler",
         "//third_party/breakpad:breakpad_sender",
+        "//third_party/crashpad/crashpad/util",
       ]
       data_deps = [
         "//chrome/app/version_assembly:version_assembly_manifest",
+        "//chrome/browser/web_applications/chrome_pwa_launcher",
         "//chrome/chrome_proxy",
         "//chrome/elevation_service",
         "//chrome/notification_helper",
@@ -329,8 +309,10 @@ if (!is_android && !is_mac) {
 
     if (is_chromeos) {
       data_deps += [ "//mojo/core:shared_libraries_for_arc" ]
-      configs += [ "//build/config/chromeos:print_orderfile" ]
-      configs += [ "//build/config/compiler:chrome_orderfile_config" ]
+      if (is_chromeos_device) {
+        configs += [ "//build/config/chromeos:print_orderfile" ]
+        configs += [ "//build/config/compiler:chrome_orderfile_config" ]
+      }
     }
 
     # These files are used by the installer so we need a public dep.
@@ -419,8 +401,8 @@ if (is_win || (is_linux && !is_component_build)) {
         "//chrome/app/theme:chrome_unscaled_resources",
         "//chrome/install_static:install_static_util",
         "//chrome/install_static:secondary_module",
-        "//chrome/chrome_elf",
-        "//components/crash/content/app",
+        "//components/browser_watcher:stability_client",
+        "//components/crash/core/app",
         "//components/policy:generated",
         "//content/app/resources",
         "//content/public/common:service_names",
@@ -443,13 +425,6 @@ if (is_win || (is_linux && !is_component_build)) {
       configs += [ "//build/config/win:delayloads_not_for_child_dll" ]
     }
 
-    if (!is_component_build) {
-      # This is a large module that can't do incremental linking in some
-      # cases.
-      configs -= [ "//build/config/win:default_incremental_linking" ]
-      configs +=
-          [ "//build/config/win:default_large_module_incremental_linking" ]
-    }
     } #is_win
 
     if (use_aura) {
@@ -508,7 +483,7 @@ if (is_win || (is_linux && !is_component_build)) {
         "//chrome/common:buildflags",
         "//chrome/common/profiler",
         "//components/browser_watcher:browser_watcher_client",
-        "//components/crash/content/app",
+        "//components/crash/core/app",
         "//content/public/app:child",
         "//content/public/common:service_names",
         "//headless:headless_shell_child_lib",
@@ -531,7 +506,6 @@ if (is_win || (is_linux && !is_component_build)) {
         configs -= [ "//build/config/win:default_incremental_linking" ]
         configs += [ "//build/config/win:no_incremental_linking" ]
       }
-      configs += [ "//build/config/compiler/pgo:default_pgo_flags" ]
       } #is_win
     }
   }
@@ -839,7 +813,7 @@ if (is_win || (is_linux && !is_component_build)) {
 
     public_deps = [
       "//chrome/app_shim:app_mode_loader",
-      "//components/crash/content/app:chrome_crashpad_handler",
+      "//components/crash/core/app:chrome_crashpad_handler",
     ]
 
     foreach(helper_params, content_mac_helpers) {
@@ -976,9 +950,14 @@ if (is_win || (is_linux && !is_component_build)) {
       sources = [
         "$root_out_dir/egl_intermediates/libswiftshader_libEGL.dylib",
         "$root_out_dir/egl_intermediates/libswiftshader_libGLESv2.dylib",
+        "$root_out_dir/vk_intermediates/libvk_swiftshader.dylib",
+        "$root_out_dir/vk_intermediates/vk_swiftshader_icd.json",
       ]
       outputs = [ "{{bundle_contents_dir}}/Libraries/{{source_file_part}}" ]
-      public_deps = [ "//ui/gl:swiftshader_library_copy" ]
+      public_deps = [
+        "//ui/gl:swiftshader_egl_library_copy",
+        "//ui/gl:swiftshader_vk_library_copy",
+      ]
     }
   }
 
@@ -1101,7 +1080,7 @@ if (is_win || (is_linux && !is_component_build)) {
       "//chrome/app:command_ids",
       "//chrome/common:buildflags",
       "//chrome/common/profiler",
-      "//components/crash/content/app",
+      "//components/crash/core/app",
       "//components/policy:generated",
       "//content/public/app:both",
       "//content/public/common:service_names",
@@ -1269,7 +1248,7 @@ if (is_win || (is_linux && !is_component_build)) {
         ":chrome_app",
         ":chrome_framework",
         "//chrome/browser/ui/cocoa/notifications:alert_notification_xpc_service",
-        "//components/crash/content/app:chrome_crashpad_handler",
+        "//components/crash/core/app:chrome_crashpad_handler",
         "//third_party/breakpad:dump_syms",
         "//third_party/swiftshader/src/OpenGL/libEGL:swiftshader_libEGL",
         "//third_party/swiftshader/src/OpenGL/libGLESv2:swiftshader_libGLESv2",
@@ -1335,7 +1314,7 @@ if (is_win || (is_linux && !is_component_build)) {
         ":chrome_app",
         ":chrome_framework",
         "//chrome/browser/ui/cocoa/notifications:alert_notification_xpc_service",
-        "//components/crash/content/app:chrome_crashpad_handler",
+        "//components/crash/core/app:chrome_crashpad_handler",
         "//third_party/swiftshader/src/OpenGL/libEGL:swiftshader_libEGL",
         "//third_party/swiftshader/src/OpenGL/libGLESv2:swiftshader_libGLESv2",
       ]
@@ -1511,6 +1490,7 @@ group("extra_resources") {
       "//chrome/browser/resources:component_extension_resources",
       "//chrome/browser/resources:dev_ui_paks",
       "//chrome/browser/resources:downloads_resources",
+      "//chrome/browser/resources:gaia_auth_host_resources",
       "//chrome/browser/resources:history_resources",
       "//chrome/browser/resources:local_ntp_resources",
       "//chrome/browser/resources:new_tab_page_resources",
@@ -1523,10 +1503,7 @@ group("extra_resources") {
       "//chrome/browser/resources:os_settings_resources",
       "//chrome/browser/resources/chromeos:cellular_setup_resources",
       "//chrome/browser/resources/chromeos:multidevice_setup_resources",
-      "//chrome/browser/resources/chromeos/accessibility/autoclick:build",
-      "//chrome/browser/resources/chromeos/accessibility/chromevox",
-      "//chrome/browser/resources/chromeos/accessibility/select_to_speak:build",
-      "//chrome/browser/resources/chromeos/accessibility/switch_access:build",
+      "//chrome/browser/resources/chromeos/accessibility:build",
       "//third_party/ink:ink_resources",
     ]
   }
@@ -1623,12 +1600,6 @@ if (is_android) {
         [ "../components/content_settings/core/common/content_settings.h" ]
   }
 
-  java_cpp_enum("content_settings_type_javagen") {
-    sources = [
-      "../components/content_settings/core/common/content_settings_types.h",
-    ]
-  }
-
   java_cpp_enum("cookie_controls_mode_javagen") {
     sources =
         [ "../components/content_settings/core/browser/cookie_settings.h" ]
@@ -1642,10 +1613,6 @@ if (is_android) {
 
   java_cpp_enum("page_info_connection_type_javagen") {
     sources = [ "browser/ui/android/page_info/page_info_controller_android.h" ]
-  }
-
-  java_cpp_enum("page_info_action_javagen") {
-    sources = [ "browser/ui/page_info/page_info.h" ]
   }
 
   java_cpp_enum("partner_bookmarks_javagen") {
@@ -1677,6 +1644,10 @@ if (is_android) {
 
   java_cpp_enum("supervised_user_url_filter_enum_javagen") {
     sources = [ "browser/supervised_user/supervised_user_url_filter.h" ]
+  }
+
+  java_cpp_enum("context_menu_image_format_enum_javagen") {
+    sources = [ "browser/ui/android/context_menu_helper.h" ]
   }
 
   source_set("chrome_android_core") {

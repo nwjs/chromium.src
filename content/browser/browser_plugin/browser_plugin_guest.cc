@@ -17,6 +17,7 @@
 
 #include "base/bind.h"
 #include "base/macros.h"
+#include "base/memory/ptr_util.h"
 #include "base/metrics/user_metrics.h"
 #include "base/pickle.h"
 #include "base/strings/utf_string_conversions.h"
@@ -72,7 +73,6 @@ BrowserPluginGuest::BrowserPluginGuest(bool has_render_view,
       browser_plugin_instance_id_(browser_plugin::kInstanceIDNone),
       focused_(false),
       mouse_locked_(false),
-      pending_lock_request_(false),
       is_full_page_plugin_(false),
       has_render_view_(has_render_view),
       is_in_destruction_(false),
@@ -155,13 +155,6 @@ void BrowserPluginGuest::SetFocus(RenderWidgetHost* rwh,
   SendTextInputTypeChangedToView(rwhv);
 }
 
-bool BrowserPluginGuest::LockMouse(bool allowed) {
-  if (!attached() || (mouse_locked_ == allowed))
-    return false;
-
-  return embedder_web_contents()->GotResponseToLockMouseRequest(allowed);
-}
-
 WebContentsImpl* BrowserPluginGuest::CreateNewGuestWindow(
     const WebContents::CreateParams& params) {
   WebContentsImpl* new_contents =
@@ -186,7 +179,8 @@ void BrowserPluginGuest::InitInternal(WebContentsImpl* owner_web_contents) {
 
   blink::mojom::RendererPreferences* renderer_prefs =
       GetWebContents()->GetMutableRendererPrefs();
-  std::string guest_user_agent_override = renderer_prefs->user_agent_override;
+  blink::UserAgentOverride guest_user_agent_override =
+      renderer_prefs->user_agent_override;
   // Copy renderer preferences (and nothing else) from the embedder's
   // WebContents to the guest.
   //
@@ -194,7 +188,7 @@ void BrowserPluginGuest::InitInternal(WebContentsImpl* owner_web_contents) {
   // values for caret blinking interval, colors related to selection and
   // focus.
   *renderer_prefs = *owner_web_contents_->GetMutableRendererPrefs();
-  renderer_prefs->user_agent_override = guest_user_agent_override;
+  renderer_prefs->user_agent_override = std::move(guest_user_agent_override);
 
   // Navigation is disabled in Chrome Apps. We want to make sure guest-initiated
   // navigations still continue to function inside the app.
@@ -420,27 +414,6 @@ void BrowserPluginGuest::DidTextInputStateChange(const TextInputState& params) {
       web_contents()->GetRenderWidgetHostView()));
 }
 
-void BrowserPluginGuest::DidLockMouse(bool user_gesture, bool privileged) {
-  if (pending_lock_request_) {
-    // Immediately reject the lock because only one pointerLock may be active
-    // at a time.
-    RenderWidgetHost* widget_host =
-        web_contents()->GetRenderViewHost()->GetWidget();
-    widget_host->Send(
-        new WidgetMsg_LockMouse_ACK(widget_host->GetRoutingID(), false));
-    return;
-  }
-
-  pending_lock_request_ = true;
-
-  RenderWidgetHostImpl* owner = GetOwnerRenderWidgetHost();
-  bool is_last_unlocked_by_target =
-      owner ? owner->is_last_unlocked_by_target() : false;
-
-  delegate_->RequestPointerLockPermission(
-      user_gesture, is_last_unlocked_by_target, base::BindOnce([](bool) {}));
-}
-
 void BrowserPluginGuest::DidUnlockMouse() {
 }
 
@@ -583,17 +556,6 @@ void BrowserPluginGuest::OnExtendSelectionAndDelete(
     rfh->GetFrameInputHandler()->ExtendSelectionAndDelete(before, after);
 }
 
-void BrowserPluginGuest::OnLockMouseAck(int browser_plugin_instance_id,
-                                        bool succeeded) {
-  RenderWidgetHost* widget_host =
-      web_contents()->GetRenderViewHost()->GetWidget();
-  widget_host->Send(
-      new WidgetMsg_LockMouse_ACK(widget_host->GetRoutingID(), succeeded));
-  pending_lock_request_ = false;
-  if (succeeded)
-    mouse_locked_ = true;
-}
-
 void BrowserPluginGuest::OnSetFocus(int browser_plugin_instance_id,
                                     bool focused,
                                     blink::mojom::FocusType focus_type) {
@@ -617,9 +579,11 @@ void BrowserPluginGuest::OnUnlockMouseAck(int browser_plugin_instance_id) {
   // to window focus, or for various other reasons before the guest was informed
   // of the lock's success.
   if (mouse_locked_) {
-    RenderWidgetHost* widget_host =
-        web_contents()->GetRenderViewHost()->GetWidget();
-    widget_host->Send(new WidgetMsg_MouseLockLost(widget_host->GetRoutingID()));
+    mojom::WidgetInputHandler* input_handler = GetWebContents()
+                                                   ->GetRenderViewHost()
+                                                   ->GetWidget()
+                                                   ->GetWidgetInputHandler();
+    input_handler->MouseLockLost();
   }
   mouse_locked_ = false;
 }

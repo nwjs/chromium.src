@@ -30,6 +30,8 @@ class MediaHistorySessionTable : public MediaHistoryTableBase {
  public:
   static const char kTableName[];
 
+  bool DeleteURL(const GURL& url) override;
+
  private:
   friend class MediaHistoryStoreInternal;
 
@@ -42,16 +44,16 @@ class MediaHistorySessionTable : public MediaHistoryTableBase {
   // MediaHistoryTableBase:
   sql::InitStatus CreateTableIfNonExistent() override;
 
-  // Returns a flag indicating whether the session was created successfully.
-  bool SavePlaybackSession(
+  // Returns the ID of the session if it was created successfully.
+  base::Optional<int64_t> SavePlaybackSession(
       const GURL& url,
       const url::Origin& origin,
       const media_session::MediaMetadata& metadata,
       const base::Optional<media_session::MediaPosition>& position);
 
-  base::Optional<MediaHistoryStore::MediaPlaybackSessionList>
-  GetPlaybackSessions(unsigned int num_sessions,
-                      MediaHistoryStore::GetPlaybackSessionsFilter filter);
+  std::vector<mojom::MediaHistoryPlaybackSessionRowPtr> GetPlaybackSessions(
+      base::Optional<unsigned int> num_sessions,
+      base::Optional<MediaHistoryStore::GetPlaybackSessionsFilter> filter);
 };
 
 }  // namespace media_history

@@ -48,7 +48,7 @@ Polymer({
     /**
      * Reference to OOBE screen object.
      * @type {!{
-     *     loadEulaToWebview_: function(Element),
+     *     loadEulaToWebview_: function(Element, string, boolean),
      *     onUsageStatsClicked_: function(boolean),
      * }}
      */
@@ -114,6 +114,7 @@ Polymer({
   onFrameLoad_() {
     this.acceptButtonDisabled = false;
     this.eulaLoadingScreenShown = false;
+    this.$.eulaDialog.scrollToBottom();
   },
 
   /**
@@ -121,7 +122,16 @@ Polymer({
    */
   updateLocalizedContent(event) {
     // This forces frame to reload.
-    this.screen.loadEulaToWebview_(this.$.crosEulaFrame);
+    const onlineEulaUrl = loadTimeData.getString('eulaOnlineUrl');
+
+    this.screen.loadEulaToWebview_(
+        this.$.crosEulaFrame, onlineEulaUrl, false /* clear_anchors */);
+
+    const additionalToSUrl =
+        loadTimeData.getString('eulaAdditionalToSOnlineUrl');
+    this.screen.loadEulaToWebview_(
+        this.$.additionalChromeToSFrame, additionalToSUrl,
+        true /* clear_anchors */);
     this.i18nUpdateLocale();
   },
 
@@ -141,6 +151,29 @@ Polymer({
    */
   onUsageChanged_() {
     this.screen.onUsageStatsClicked_(this.$.usageStats.checked);
+  },
+
+  /**
+   * @private
+   */
+  onAdditionalTermsClicked_() {
+    this.$['additional-tos'].showModal();
+  },
+
+  /**
+   * On-click event handler for close button of the additional ToS dialog.
+   *
+   * @private
+   */
+  hideToSDialog_() {
+    this.$['additional-tos'].close();
+  },
+
+  /**
+   * @private
+   */
+  focusAdditionalTermsLink_() {
+    this.$.additionalTerms.focus();
   },
 
   /**

@@ -27,7 +27,6 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.Collections;
 import java.util.List;
-import java.util.regex.Pattern;
 
 /**
  * Interface for model classes which parses incoming intent for customization data.
@@ -291,13 +290,6 @@ public class BrowserServicesIntentDataProvider {
     }
 
     /**
-     * @return Whether the Custom Tab was opened from a WebAPK.
-     */
-    public boolean isOpenedByWebApk() {
-        return false;
-    }
-
-    /**
      * @return Whether the Activity should be opened in incognito mode.
      */
     public boolean isIncognito() {
@@ -315,6 +307,13 @@ public class BrowserServicesIntentDataProvider {
      * @return Whether the Activity is either a Webapp or a WebAPK activity.
      */
     public boolean isWebappOrWebApkActivity() {
+        return false;
+    }
+
+    /**
+     * @return Whether the Activity is a WebAPK activity.
+     */
+    public boolean isWebApkActivity() {
         return false;
     }
 
@@ -350,31 +349,6 @@ public class BrowserServicesIntentDataProvider {
     @Nullable
     public String getModuleDexAssetName() {
         return null;
-    }
-
-    /**
-     * @return The pattern compiled from the regex that defines the module managed URLs,
-     * or null if not specified.
-     */
-    @Nullable
-    public Pattern getExtraModuleManagedUrlsPattern() {
-        return null;
-    }
-
-    /**
-     * @return The header value sent to managed hosts when the URL matches
-     *         {@link #getExtraModuleManagedUrlsPattern()}.
-     */
-    @Nullable
-    public String getExtraModuleManagedUrlsHeaderValue() {
-        return null;
-    }
-
-    /**
-     * @return Whether to hide CCT header on module managed URLs.
-     */
-    public boolean shouldHideCctHeaderOnModuleManagedUrls() {
-        return false;
     }
 
     /**

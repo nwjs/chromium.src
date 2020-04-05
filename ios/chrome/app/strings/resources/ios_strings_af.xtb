@@ -97,6 +97,7 @@
 <translation id="2149973817440762519">Wysig boekmerk</translation>
 <translation id="2179182049312275900">Jy kan sinkronisering enige tyd in instellings aanskakel.</translation>
 <translation id="2198757192731523470">Google sal dalk jou geskiedenis gebruik om Search, advertensies en ander Google-dienste te personaliseer.</translation>
+<translation id="2218443599109088993">Zoem uit</translation>
 <translation id="2230173723195178503">Webblad is gelaai</translation>
 <translation id="2239626343334228536">Vee blaaierdata uit …</translation>
 <translation id="2257567812274161158">Sinkronisering werk nie.</translation>
@@ -159,6 +160,7 @@
 <translation id="2923448633003185837">Plak en gaan</translation>
 <translation id="292639812446257861">Merk as ongelees</translation>
 <translation id="2958718410589002129">Wagwoorde</translation>
+<translation id="2964349545761222050">Blokkeer derdepartywebkoekies</translation>
 <translation id="2969979262385602596">Kon nie aanmeld nie. Probeer asseblief later weer.</translation>
 <translation id="298306318844797842">Voeg betaalmetode by …</translation>
 <translation id="2989805286512600854">Maak in 'n nuwe oortjie oop</translation>
@@ -178,6 +180,7 @@
 <translation id="3290875554372353449">Kies 'n rekening</translation>
 <translation id="3311748811247479259">Af</translation>
 <translation id="3324193307694657476">Adres 2</translation>
+<translation id="3328801116991980348">Werfinligting</translation>
 <translation id="3329904751041170572">Kon nie aan die bediener koppel nie.</translation>
 <translation id="3335947283844343239">Maak toegemaakte oortjie weer oop</translation>
 <translation id="3371831930909698441">Vertaal is beskikbaar. Opsies is naby die onderkant van die skerm beskikbaar.</translation>
@@ -300,6 +303,7 @@ Jou data is met jou sinkroniseringwagfrase geënkripteer. Voer dit in om te begi
 <translation id="4979397965658815378">Meld met jou Google-rekening aan om jou boekmerke, wagwoorde, geskiedenis en ander instellings op al jou toestelle te kry</translation>
 <translation id="5005498671520578047">Kopieer wagwoord</translation>
 <translation id="5010803260590204777">Maak 'n incognito-oortjie oop om privaat deur die web te blaai.</translation>
+<translation id="5039020240289137291">Blokkering van derdepartywebkoekies</translation>
 <translation id="5039804452771397117">Laat toe</translation>
 <translation id="5059136629401106827">OK</translation>
 <translation id="5062321486222145940">Installeer Google Drive</translation>
@@ -414,9 +418,11 @@ Jou data is op <ph name="TIME" /> met jou sinkroniseringwagfrase geënkripteer.<
 <translation id="6434591244308415567">Iets is fout. Probeer later weer.</translation>
 <translation id="6445051938772793705">Land</translation>
 <translation id="6445981559479772097">Boodskap is gestuur.</translation>
+<translation id="6447842834002726250">Webkoekies</translation>
 <translation id="6464071786529933911">Maak in nuwe incognito-oortjie oop</translation>
 <translation id="6476800141292307438">Vertaal tans die bladsy in <ph name="LANGUAGE" />. Opsies is naby die onderkant van die skerm beskikbaar.</translation>
 <translation id="6482629121755362506"><ph name="NUMBER_OF_SELECTED_BOOKMARKS" /> items uitgevee</translation>
+<translation id="6561262006871132942">Zoem in</translation>
 <translation id="6610002944194042868">Vertaalopsies</translation>
 <translation id="6628106477656132239">Ongeldige vervaldatum</translation>
 <translation id="6638511529934826365">Zoem teks …</translation>
@@ -479,7 +485,6 @@ Jou data is op <ph name="TIME" /> met jou sinkroniseringwagfrase geënkripteer.<
 <translation id="734758817008927353">Opsies om 'n kaart te stoor</translation>
 <translation id="7348502496356775519">Boekmerk</translation>
 <translation id="7383797227493018512">Leeslys</translation>
-<translation id="7392048574806661116">Meld af en vee gesinkroniseerde data uit</translation>
 <translation id="7400418766976504921">URL</translation>
 <translation id="7409985198648820906"><ph name="UNREAD_COUNT" /> ongeleesde artikels.</translation>
 <translation id="7425346204213733349">Veranderinge aan jou boekmerke, geskiedenis, wagwoorde en ander instellings sal nie meer met jou Google-rekening gesinkroniseer word nie. Jou bestaande data sal egter in jou Google-rekening geberg bly.</translation>
@@ -598,6 +603,7 @@ Jou data is op <ph name="TIME" /> met jou sinkroniseringwagfrase geënkripteer.<
 <translation id="9223358826628549784">Omvalverslag is gestuur.</translation>
 <translation id="952704832371081537">Kanselleer</translation>
 <translation id="988141524645182168">Ander toestelle</translation>
+<translation id="989697783705943787">Werfsekuriteit</translation>
 <translation id="989988560359834682">Wysig adres</translation>
 <translation id="994757059139821576">Artikelvoorstelle</translation>
 </translationbundle>

@@ -21,7 +21,6 @@ goog.require('DesktopAutomationHandler');
 goog.require('DownloadHandler');
 goog.require('FindHandler');
 goog.require('GestureCommandHandler');
-goog.require('LanguageSwitching');
 goog.require('LiveRegions');
 goog.require('MathHandler');
 goog.require('MediaAutomationHandler');
@@ -41,6 +40,7 @@ goog.require('ChromeVoxEditableTextBase');
 goog.require('ExtensionBridge');
 goog.require('NavBraille');
 goog.require('NodeIdentifier');
+goog.require('UserAnnotationHandler');
 
 goog.scope(function() {
 const AutomationNode = chrome.automation.AutomationNode;
@@ -138,11 +138,14 @@ Background = class extends ChromeVoxState {
     /** @private {cursors.Range} */
     this.pageSel_;
 
+    /** @type {boolean} */
+    this.talkBackEnabled = false;
+
     CommandHandler.init();
     FindHandler.init();
     DownloadHandler.init();
-    LanguageSwitching.init();
     PhoneticData.init();
+    UserAnnotationHandler.init();
 
     Notifications.onStartup();
 
@@ -150,10 +153,47 @@ Background = class extends ChromeVoxState {
         (announceText) => {
           ChromeVox.tts.speak(announceText.join(' '), QueueMode.FLUSH);
         });
+    chrome.accessibilityPrivate.onCustomSpokenFeedbackToggled.addListener(
+        (enabled) => {
+          this.talkBackEnabled = enabled;
+        });
 
     // Set the darkScreen state to false, since the display will be on whenever
     // ChromeVox starts.
     sessionStorage.setItem('darkScreen', 'false');
+
+    chrome.loginState.getSessionState((sessionState) => {
+      // Play startup progress only when starting in a user session. Split
+      // incognito manifest appears to run two copies of the background page in
+      // different contexts, so that two progress ticks play.
+      if (sessionState === 'IN_OOBE_SCREEN' ||
+          sessionState === 'IN_LOGIN_SCREEN') {
+        return;
+      }
+
+      // A self-contained class to start and stop progress sounds before any
+      // speech has been generated on startup. This is important in cases where
+      // speech is severely delayed.
+      /** @implements {TtsCapturingEventListener} */
+      const ProgressPlayer = class {
+        constructor() {
+          ChromeVox.tts.addCapturingEventListener(this);
+          ChromeVox.earcons.playEarcon(Earcon.CHROMEVOX_LOADING);
+        }
+
+        /** @override */
+        onTtsStart() {
+          ChromeVox.earcons.playEarcon(Earcon.CHROMEVOX_LOADED);
+          ChromeVox.tts.removeCapturingEventListener(this);
+        }
+
+        /** @override */
+        onTtsEnd() {}
+        /** @override */
+        onTtsInterrupted() {}
+      };
+      new ProgressPlayer();
+    });
   }
 
   /**
@@ -322,7 +362,7 @@ Background = class extends ChromeVoxState {
    * Open the options page in a new tab.
    */
   showOptionsPage() {
-    const optionsPage = {url: 'background/options/options.html'};
+    const optionsPage = {url: '/chromevox/options/options.html'};
     chrome.tabs.create(optionsPage);
   }
 

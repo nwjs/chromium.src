@@ -40,7 +40,6 @@
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/receiver_set.h"
 #include "mojo/public/cpp/bindings/remote.h"
-#include "third_party/blink/public/platform/web_insecure_request_policy.h"
 #include "third_party/blink/renderer/core/frame/local_frame_client.h"
 #include "third_party/blink/renderer/core/frame/web_local_frame_impl.h"
 #include "third_party/blink/renderer/platform/heap/handle.h"
@@ -60,13 +59,14 @@ class LocalFrameClientImpl final : public LocalFrameClient {
   explicit LocalFrameClientImpl(WebLocalFrameImpl*);
   ~LocalFrameClientImpl() override;
 
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
 
   WebLocalFrameImpl* GetWebFrame() const override;
 
   // LocalFrameClient ----------------------------------------------
   WebContentCaptureClient* GetWebContentCaptureClient() const override;
-  void DidCreateNewDocument() override;
+  void DidCreateInitialEmptyDocument() override;
+  void DidCommitJavascriptUrlNavigation(DocumentLoader*) override;
   void willHandleNavigationPolicy(const blink::ResourceRequest& request, blink::NavigationPolicy* policy, WebString* manifest = nullptr, bool new_win = true) override;
   // Notifies the WebView delegate that the JS window object has been cleared,
   // giving it a chance to bind native objects to the window before script
@@ -102,9 +102,7 @@ class LocalFrameClientImpl final : public LocalFrameClient {
   void DidFinishSameDocumentNavigation(HistoryItem*,
                                        WebHistoryCommitType,
                                        bool content_initiated) override;
-  void DispatchDidStartProvisionalLoad(DocumentLoader*) override;
   void DispatchDidReceiveTitle(const String&) override;
-  void DispatchDidChangeIcons(IconType) override;
   void DispatchDidCommitLoad(HistoryItem*,
                              WebHistoryCommitType,
                              GlobalObjectReusePolicy) override;
@@ -128,14 +126,14 @@ class LocalFrameClientImpl final : public LocalFrameClient {
       mojo::PendingRemote<mojom::blink::BlobURLToken>,
       base::TimeTicks input_start_time,
       const String& href_translate,
-      WebContentSecurityPolicyList,
+      WTF::Vector<network::mojom::blink::ContentSecurityPolicyPtr>
+          initiator_csp,
+      network::mojom::blink::CSPSourcePtr initiator_self_source,
       network::mojom::IPAddressSpace,
       mojo::PendingRemote<mojom::blink::NavigationInitiator>) override;
   void DispatchWillSendSubmitEvent(HTMLFormElement*) override;
   void DidStartLoading() override;
   void DidStopLoading() override;
-  void DownloadURL(const ResourceRequest&,
-                   network::mojom::RedirectMode) override;
   bool NavigateBackForward(int offset) const override;
   void DidRunInsecureContent(const SecurityOrigin*,
                              const KURL& insecure_url) override;
@@ -143,6 +141,7 @@ class LocalFrameClientImpl final : public LocalFrameClient {
   void DidDisplayContentWithCertificateErrors() override;
   void DidRunContentWithCertificateErrors() override;
   void DidChangePerformanceTiming() override;
+  void DidObserveInputDelay(base::TimeDelta) override;
   void DidChangeCpuTiming(base::TimeDelta) override;
   void DidObserveLoadingBehavior(LoadingBehaviorFlag) override;
   void DidObserveNewFeatureUsage(mojom::WebFeature) override;
@@ -171,7 +170,7 @@ class LocalFrameClientImpl final : public LocalFrameClient {
       DocumentLoader* document_loader,
       std::unique_ptr<WebDocumentLoader::ExtraData> extra_data) override;
   WTF::String UserAgent() override;
-  blink::UserAgentMetadata UserAgentMetadata() override;
+  base::Optional<blink::UserAgentMetadata> UserAgentMetadata() override;
   WTF::String DoNotTrackValue() override;
   void TransitionToCommittedForNewPage() override;
   LocalFrame* CreateFrame(const WTF::AtomicString& name,
@@ -201,14 +200,10 @@ class LocalFrameClientImpl final : public LocalFrameClient {
   void DidChangeName(const String&) override;
   void DidChangeFramePolicy(Frame* child_frame, const FramePolicy&) override;
   void DidSetFramePolicyHeaders(
-      WebSandboxFlags,
+      mojom::blink::WebSandboxFlags,
       const ParsedFeaturePolicy& fp_header,
       const blink::DocumentPolicy::FeatureState& dp_header) override;
-  void DidAddContentSecurityPolicies(
-      const blink::WebVector<WebContentSecurityPolicy>&) override;
   void DidChangeFrameOwnerProperties(HTMLFrameOwnerElement*) override;
-
-  bool ShouldBlockWebGL() override;
 
   std::unique_ptr<WebServiceWorkerProvider> CreateServiceWorkerProvider()
       override;
@@ -222,8 +217,7 @@ class LocalFrameClientImpl final : public LocalFrameClient {
 
   KURL OverrideFlashEmbedWithHTML(const KURL&) override;
 
-  void NotifyUserActivation(bool need_browser_verification) override;
-  void ConsumeTransientUserActivation() override;
+  void NotifyUserActivation() override;
 
   void AbortClientNavigation() override;
 
@@ -232,8 +226,6 @@ class LocalFrameClientImpl final : public LocalFrameClient {
   WebTextCheckClient* GetTextCheckerClient() const override;
 
   std::unique_ptr<WebURLLoaderFactory> CreateURLLoaderFactory() override;
-
-  service_manager::InterfaceProvider* GetInterfaceProvider() override;
 
   blink::BrowserInterfaceBrokerProxy& GetBrowserInterfaceBroker() override;
 
@@ -255,6 +247,8 @@ class LocalFrameClientImpl final : public LocalFrameClient {
   Frame* FindFrame(const AtomicString& name) const override;
 
   void FrameRectsChanged(const IntRect&) override;
+
+  void FocusedElementChanged(Element* element) override;
 
   void OnMainFrameDocumentIntersectionChanged(
       const IntRect& intersection_rect) override;

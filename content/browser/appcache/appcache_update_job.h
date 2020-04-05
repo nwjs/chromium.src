@@ -23,7 +23,6 @@
 #include "base/time/time.h"
 #include "content/browser/appcache/appcache.h"
 #include "content/browser/appcache/appcache_host.h"
-#include "content/browser/appcache/appcache_response.h"
 #include "content/browser/appcache/appcache_service_impl.h"
 #include "content/browser/appcache/appcache_storage.h"
 #include "content/browser/appcache/appcache_update_job_state.h"
@@ -43,9 +42,10 @@ namespace appcache_update_job_unittest {
 class AppCacheUpdateJobTest;
 }
 
+class AppCacheResponseInfo;
 class HostNotifier;
 
-CONTENT_EXPORT extern const base::Feature kAppCacheManifestScopeChecksFeature;
+CONTENT_EXPORT extern const base::Feature kAppCacheUpdateResourceOn304Feature;
 
 // Application cache Update algorithm and state.
 class CONTENT_EXPORT AppCacheUpdateJob
@@ -71,6 +71,7 @@ class CONTENT_EXPORT AppCacheUpdateJob
   friend class content::AppCacheGroupTest;
   friend class content::appcache_update_job_unittest::AppCacheUpdateJobTest;
 
+  class CacheCopier;
   class URLFetcher;
   class UpdateRequestBase;
   class UpdateURLLoaderRequest;
@@ -140,17 +141,20 @@ class CONTENT_EXPORT AppCacheUpdateJob
   // new master entry.
   void FetchManifest();
   void HandleManifestFetchCompleted(URLFetcher* url_fetcher, int net_error);
-  void ContinueHandleManifestFetchCompleted(bool changed);
+  void HandleFetchedManifestChanged(base::Time token_expires);
+  void HandleFetchedManifestIsUnchanged();
 
   void HandleResourceFetchCompleted(URLFetcher* url_fetcher, int net_error);
+  void ContinueHandleResourceFetchCompleted(const GURL& url,
+                                            URLFetcher* entry_fetcher);
   void HandleNewMasterEntryFetchCompleted(URLFetcher* url_fetcher,
                                           int net_error);
 
   void RefetchManifest();
   void HandleManifestRefetchCompleted(URLFetcher* url_fetcher, int net_error);
 
-  void OnManifestInfoWriteComplete(int result);
-  void OnManifestDataWriteComplete(int result);
+  void OnManifestInfoWriteComplete(base::Time token_expires, int result);
+  void OnManifestDataWriteComplete(base::Time token_expires, int result);
 
   void StoreGroupAndCache();
 
@@ -165,8 +169,8 @@ class CONTENT_EXPORT AppCacheUpdateJob
 
   // Checks if manifest is byte for byte identical with the manifest
   // in the newest application cache.
-  void CheckIfManifestChanged();
-  void OnManifestDataReadComplete(int result);
+  void CheckIfManifestChanged(base::Time token_expires);
+  void OnManifestDataReadComplete(base::Time token_expires, int result);
 
   // Used to read a manifest from the cache in case of a 304 Not Modified HTTP
   // response.
@@ -216,6 +220,7 @@ class CONTENT_EXPORT AppCacheUpdateJob
   void ClearPendingMasterEntries();
   void DiscardInprogressCache();
   void DiscardDuplicateResponses();
+  bool IsFinished() const;
 
   void MadeProgress() { last_progress_time_ = base::Time::Now(); }
 
@@ -226,6 +231,8 @@ class CONTENT_EXPORT AppCacheUpdateJob
     return internal_state_ >= AppCacheUpdateJobState::REFETCH_MANIFEST ||
            stored_state_ != UNSTORED;
   }
+
+  AppCache* inprogress_cache() { return inprogress_cache_.get(); }
 
   AppCacheServiceImpl* service_;
   const GURL manifest_url_;  // here for easier access
@@ -242,9 +249,9 @@ class CONTENT_EXPORT AppCacheUpdateJob
   // Stores the manifest scope determined during the refetch phase.
   std::string refetched_manifest_scope_;
 
-  // If true, AppCaches will be limited to their determined manifest scope
-  // (either the scope of the manifest URL or the override the server gives us).
-  bool manifest_scope_checks_enabled_;
+  // If true, AppCache resource fetches that return a 304 response will have
+  // their cache entry copied and updated based on the 304 response.
+  const bool update_resource_on_304_enabled_;
 
   // Defined prior to refs to AppCaches and Groups because destruction
   // order matters, the disabled_storage_reference_ must outlive those
@@ -297,6 +304,7 @@ class CONTENT_EXPORT AppCacheUpdateJob
   std::unique_ptr<net::HttpResponseInfo> manifest_response_info_;
   std::unique_ptr<AppCacheResponseWriter> manifest_response_writer_;
   scoped_refptr<net::IOBuffer> read_manifest_buffer_;
+  base::Time read_manifest_token_expires_;
   std::string loaded_manifest_data_;
   std::unique_ptr<AppCacheResponseReader> manifest_response_reader_;
   bool manifest_has_valid_mime_type_;
@@ -322,6 +330,9 @@ class CONTENT_EXPORT AppCacheUpdateJob
   // Used to track behavior and conditions found during update for submission
   // to UMA.
   AppCacheUpdateMetricsRecorder update_metrics_;
+
+  // |cache_copier_by_url_| owns all running cache copies, indexed by |url|.
+  std::map<GURL, std::unique_ptr<CacheCopier>> cache_copier_by_url_;
 
   AppCacheStorage* storage_;
   base::WeakPtrFactory<AppCacheUpdateJob> weak_factory_{this};

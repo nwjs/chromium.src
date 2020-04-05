@@ -94,6 +94,10 @@ class ProfileAttributesStorage
   bool IsDefaultProfileName(const base::string16& name,
                             bool include_check_for_legacy_profile_name) const;
 
+  // Records statistics about profiles as would be visible in the profile picker
+  // (if we would display it in this moment).
+  void RecordProfilesState();
+
   // Returns an avatar icon index that can be assigned to a newly created
   // profile. Note that the icon may not be unique since there are a limited
   // set of default icons.
@@ -126,6 +130,10 @@ class ProfileAttributesStorage
   // Notifies observers. The following methods are accessed by
   // ProfileAttributesEntry.
   void NotifyOnProfileAvatarChanged(const base::FilePath& profile_path) const;
+
+  // Disables the periodic reporting of profile metrics, as this is causing
+  // tests to time out.
+  virtual void DisableProfileMetricsForTesting() {}
 
  protected:
   FRIEND_TEST_ALL_PREFIXES(ProfileInfoCacheTest, EntriesInAttributesStorage);
@@ -191,6 +199,12 @@ class ProfileAttributesStorage
                             const base::FilePath& profile_path,
                             base::OnceClosure callback,
                             bool success) const;
+
+  // Helper function that calls SaveAvatarImageAtPath without a callback.
+  void SaveAvatarImageAtPathNoCallback(const base::FilePath& profile_path,
+                                       gfx::Image image,
+                                       const std::string& key,
+                                       const base::FilePath& image_path);
 
   // Notifies observers.
   void NotifyOnProfileHighResAvatarLoaded(

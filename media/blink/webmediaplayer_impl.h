@@ -25,7 +25,7 @@
 #include "base/timer/timer.h"
 #include "build/build_config.h"
 #include "cc/layers/surface_layer.h"
-#include "components/viz/common/gpu/context_provider.h"
+#include "components/viz/common/gpu/raster_context_provider.h"
 #include "media/base/cdm_config.h"
 #include "media/base/encryption_scheme.h"
 #include "media/base/media_observer.h"
@@ -83,6 +83,7 @@ class CdmContextRef;
 class ChunkDemuxer;
 class VideoDecodeStatsReporter;
 class MediaLog;
+class MemoryDumpProviderProxy;
 class UrlIndex;
 class VideoFrameCompositor;
 class WatchTimeReporter;
@@ -157,9 +158,9 @@ class MEDIA_BLINK_EXPORT WebMediaPlayerImpl
       blink::WebMediaPlayer::TrackId* selectedTrackId) override;
 
   // Dimensions of the video.
-  blink::WebSize NaturalSize() const override;
+  gfx::Size NaturalSize() const override;
 
-  blink::WebSize VisibleRect() const override;
+  gfx::Size VisibleSize() const override;
 
   // Getters of playback state.
   bool Paused() const override;
@@ -167,6 +168,7 @@ class MEDIA_BLINK_EXPORT WebMediaPlayerImpl
   double Duration() const override;
   virtual double timelineOffset() const;
   double CurrentTime() const override;
+  bool IsEnded() const override;
 
   bool PausedWhenHidden() const override;
 
@@ -276,7 +278,6 @@ class MEDIA_BLINK_EXPORT WebMediaPlayerImpl
       const std::string& remote_device_friendly_name) override;
   void SwitchToLocalRenderer(
       MediaObserverClient::ReasonToSwitchToLocal reason) override;
-  void ActivateViewportIntersectionMonitoring(bool activate) override;
   void UpdateRemotePlaybackCompatibility(bool is_compatible) override;
 
   // Test helper methods for exercising media suspension. Once called, when
@@ -292,6 +293,8 @@ class MEDIA_BLINK_EXPORT WebMediaPlayerImpl
   base::Optional<viz::SurfaceId> GetSurfaceId() override;
   GURL GetSrcAfterRedirects() override;
   void RequestAnimationFrame() override;
+  std::unique_ptr<blink::WebMediaPlayer::VideoFramePresentationMetadata>
+  GetVideoFramePresentationMetadata() override;
 
   base::WeakPtr<blink::WebMediaPlayer> AsWeakPtr() override;
 
@@ -384,9 +387,8 @@ class MEDIA_BLINK_EXPORT WebMediaPlayerImpl
 
   // Called by GpuVideoDecoder on Android to request a surface to render to (if
   // necessary).
-  void OnOverlayInfoRequested(
-      bool decoder_requires_restart_for_overlay,
-      const ProvideOverlayInfoCB& provide_overlay_info_cb);
+  void OnOverlayInfoRequested(bool decoder_requires_restart_for_overlay,
+                              ProvideOverlayInfoCB provide_overlay_info_cb);
 
   // Creates a Renderer via the |renderer_factory_selector_|. If the
   // |factory_type| is base::nullopt, create the base Renderer. Otherwise, set
@@ -469,12 +471,23 @@ class MEDIA_BLINK_EXPORT WebMediaPlayerImpl
   void SetMemoryReportingState(bool is_memory_reporting_enabled);
   void SetSuspendState(bool is_suspended);
 
+  void SetDemuxer(std::unique_ptr<Demuxer> demuxer);
+
   // Called at low frequency to tell external observers how much memory we're
   // using for video playback.  Called by |memory_usage_reporting_timer_|.
   // Memory usage reporting is done in two steps, because |demuxer_| must be
   // accessed on the media thread.
   void ReportMemoryUsage();
   void FinishMemoryUsageReport(int64_t demuxer_memory_usage);
+
+  void OnMainThreadMemoryDump(int32_t id,
+                              const base::trace_event::MemoryDumpArgs& args,
+                              base::trace_event::ProcessMemoryDump* pmd);
+  static void OnMediaThreadMemoryDump(
+      int32_t id,
+      Demuxer* demuxer,
+      const base::trace_event::MemoryDumpArgs& args,
+      base::trace_event::ProcessMemoryDump* pmd);
 
   void OnMemoryPressure(
       base::MemoryPressureListener::MemoryPressureLevel memory_pressure_level);
@@ -624,18 +637,12 @@ class MEDIA_BLINK_EXPORT WebMediaPlayerImpl
 
   // Called by |compositor_| upon presenting a frame, after
   // RequestAnimationFrame() is called.
-  void OnNewFramePresentedCallback(scoped_refptr<VideoFrame> presented_frame,
-                                   base::TimeTicks presentation_time,
-                                   base::TimeTicks expected_presentation_time,
-                                   uint32_t presentation_counter);
+  void OnNewFramePresentedCallback();
 
   // Notifies |mb_data_source_| of playback and rate changes which may increase
   // the amount of data the DataSource buffers. Does nothing prior to reaching
   // kReadyStateHaveEnoughData for the first time.
   void MaybeUpdateBufferSizesForPlayback();
-
-  void SetCurrentFrameOverrideForTesting(
-      scoped_refptr<VideoFrame> current_frame_override);
 
   // Create / recreate |smoothness_helper_|, with current features.  Will take
   // no action if we already have a smoothness helper with the same features
@@ -643,9 +650,9 @@ class MEDIA_BLINK_EXPORT WebMediaPlayerImpl
   // smoothness right now.
   void UpdateSmoothnessHelper();
 
-  // Get the LearningTaskController for |task_id|.
+  // Get the LearningTaskController for |task_name|.
   std::unique_ptr<learning::LearningTaskController> GetLearningTaskController(
-      learning::MediaLearningTasks::Id task_id);
+      const char* task_name);
 
   blink::WebLocalFrame* const frame_;
 
@@ -760,6 +767,8 @@ class MEDIA_BLINK_EXPORT WebMediaPlayerImpl
   base::RepeatingTimer memory_usage_reporting_timer_;
   WebMediaPlayerParams::AdjustAllocatedMemoryCB adjust_allocated_memory_cb_;
   int64_t last_reported_memory_usage_ = 0;
+  std::unique_ptr<MemoryDumpProviderProxy> main_thread_mem_dumper_;
+  std::unique_ptr<MemoryDumpProviderProxy> media_thread_mem_dumper_;
 
   // Routes audio playback to either AudioRendererSink or WebAudio.
   scoped_refptr<blink::WebAudioSourceProviderImpl> audio_source_provider_;
@@ -781,7 +790,7 @@ class MEDIA_BLINK_EXPORT WebMediaPlayerImpl
 
   std::unique_ptr<BufferedDataSourceHostImpl> buffered_data_source_host_;
   UrlIndex* const url_index_;
-  scoped_refptr<viz::ContextProvider> context_provider_;
+  scoped_refptr<viz::RasterContextProvider> raster_context_provider_;
 
   // Video rendering members.
   // The |compositor_| runs on the compositor thread, or if
@@ -1023,9 +1032,14 @@ class MEDIA_BLINK_EXPORT WebMediaPlayerImpl
   // Whether background video optimization is supported on current platform.
   bool is_background_video_track_optimization_supported_ = true;
 
-  // Valid while an active OnNewFramePresentedCallback() is in progress.
-  // Overrides the VideoFrame returned by GetCurrentFrameFromCompositor().
-  scoped_refptr<VideoFrame> current_frame_override_;
+  // Whether the media in this frame is a remoting media.
+  //
+  // Remoting media is a special media that has the media streams are delivered
+  // to the browser directly from somewhere without any URL request
+  // (http, file, ...)
+  // When setting to true, a remoting renderer will be created as the remoting
+  // target in the client.
+  bool is_remoting_renderer_enabled_ = false;
 
   base::CancelableOnceClosure have_enough_after_lazy_load_cb_;
 

@@ -4,6 +4,8 @@
 
 package org.chromium.chrome.browser.omnibox.suggestions.editurl;
 
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -23,11 +25,13 @@ import org.robolectric.annotation.Config;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ActivityTabProvider;
-import org.chromium.chrome.browser.favicon.LargeIconBridge;
 import org.chromium.chrome.browser.omnibox.OmniboxSuggestionType;
 import org.chromium.chrome.browser.omnibox.suggestions.OmniboxSuggestion;
+import org.chromium.chrome.browser.omnibox.suggestions.basic.SuggestionHost;
+import org.chromium.chrome.browser.omnibox.suggestions.basic.SuggestionViewDelegate;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
 import org.chromium.chrome.browser.tab.TabImpl;
+import org.chromium.chrome.browser.ui.favicon.LargeIconBridge;
 import org.chromium.components.search_engines.TemplateUrlService;
 import org.chromium.ui.modelutil.PropertyModel;
 
@@ -74,9 +78,6 @@ public final class EditUrlSuggestionTest {
     private EditUrlSuggestionProcessor.LocationBarDelegate mLocationBarDelegate;
 
     @Mock
-    private EditUrlSuggestionProcessor.SuggestionSelectionHandler mSelectionHandler;
-
-    @Mock
     private View mEditButton;
 
     @Mock
@@ -88,6 +89,12 @@ public final class EditUrlSuggestionTest {
     @Mock
     private TemplateUrlService mTemplateUrlService;
 
+    @Mock
+    private SuggestionHost mSuggestionHost;
+
+    @Mock
+    private SuggestionViewDelegate mDelegate;
+
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
@@ -95,7 +102,7 @@ public final class EditUrlSuggestionTest {
         TemplateUrlServiceFactory.setInstanceForTesting(mTemplateUrlService);
 
         when(mContext.getResources()).thenReturn(mResources);
-        when(mTab.getUrl()).thenReturn(TEST_URL);
+        when(mTab.getUrlString()).thenReturn(TEST_URL);
         when(mTab.getTitle()).thenReturn(TEST_TITLE);
         when(mTab.isNativePage()).thenReturn(false);
         when(mTab.isIncognito()).thenReturn(false);
@@ -112,10 +119,12 @@ public final class EditUrlSuggestionTest {
 
         when(mOtherSuggestion.getType()).thenReturn(OmniboxSuggestionType.SEARCH_HISTORY);
 
+        when(mSuggestionHost.createSuggestionViewDelegate(any(), anyInt())).thenReturn(mDelegate);
+
         mModel = new PropertyModel.Builder(EditUrlSuggestionProperties.ALL_KEYS).build();
 
         mProcessor = new EditUrlSuggestionProcessor(
-                mContext, null, mLocationBarDelegate, mSelectionHandler, () -> mIconBridge);
+                mContext, mSuggestionHost, mLocationBarDelegate, () -> mIconBridge);
         mProcessor.setActivityTabProvider(mTabProvider);
 
         when(mEditButton.getId()).thenReturn(R.id.url_edit_icon);
@@ -171,15 +180,15 @@ public final class EditUrlSuggestionTest {
         mProcessor.doesProcessSuggestion(mWhatYouTypedSuggestion);
         mProcessor.populateModel(mWhatYouTypedSuggestion, mModel, 0);
 
-        mModel.get(EditUrlSuggestionProperties.BUTTON_CLICK_LISTENER).onClick(mSuggestionView);
+        mModel.get(EditUrlSuggestionProperties.TEXT_CLICK_LISTENER).onClick(mSuggestionView);
 
-        verify(mSelectionHandler).onEditUrlSuggestionSelected(mWhatYouTypedSuggestion);
+        verify(mDelegate).onSelection();
     }
 
     @Test
     @SmallTest
     public void testSearchSuggestion() {
-        when(mTab.getUrl()).thenReturn(FOOBAR_SEARCH_URL);
+        when(mTab.getUrlString()).thenReturn(FOOBAR_SEARCH_URL);
         mProcessor.onUrlFocusChange(true);
         when(mTemplateUrlService.getSearchQueryForUrl(FOOBAR_SEARCH_URL))
                 .thenReturn(FOOBAR_SEARCH_TERMS);

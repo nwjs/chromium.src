@@ -22,6 +22,9 @@ namespace prefs {
 // Boolean that is true when SafeBrowsing is enabled.
 extern const char kSafeBrowsingEnabled[];
 
+// Boolean that is true when Safe Browsing Enhanced Protection is enabled.
+extern const char kSafeBrowsingEnhanced[];
+
 // Boolean that tells us whether users are given the option to opt in to Safe
 // Browsing extended reporting. This is exposed as a preference that can be
 // overridden by enterprise policy.
@@ -84,10 +87,6 @@ extern const char kPasswordProtectionWarningTrigger[];
 // microseconds);
 extern const char kAdvancedProtectionLastRefreshInUs[];
 
-// Whether or not to check URLs in real time. This is configured by enterprise
-// policy. For consumers, this pref is irrelevant.
-extern const char kSafeBrowsingRealTimeLookupEnabled[];
-
 // Whether or not to send downloads to Safe Browsing for deep scanning. This
 // is configured by enterprise policy.
 extern const char kSafeBrowsingSendFilesForMalwareCheck[];
@@ -129,9 +128,9 @@ extern const char kURLsToNotCheckForMalwareOfDownloadedContent[];
 // files.
 extern const char kURLsToNotCheckComplianceOfUploadedContent[];
 
-// Boolean that indicates if Chrome is allowed to prompt Advanced Protection
-// users to send their files to Google for malware scanning.
-extern const char kAdvancedProtectionDeepScanningEnabled[];
+// Boolean that indicates if Chrome is allowed to provide extra
+// features to users enrolled in the Advanced Protection Program.
+extern const char kAdvancedProtectionAllowed[];
 
 }  // namespace prefs
 
@@ -238,6 +237,26 @@ enum DelayDeliveryUntilVerdictValues {
   DELAY_UPLOADS_AND_DOWNLOADS = 3,
 };
 
+enum SafeBrowsingState {
+  // The user is not opted into Safe Browsing.
+  NO_SAFE_BROWSING = 0,
+  // The user selected standard protection.
+  STANDARD_PROTECTION = 1,
+  // The user selected enhanced protection.
+  ENHANCED_PROTECTION = 2,
+};
+
+SafeBrowsingState GetSafeBrowsingState(const PrefService& prefs);
+
+// Returns whether Safe Browsing is enabled for the user.
+bool IsSafeBrowsingEnabled(const PrefService& prefs);
+
+// Returns whether Safe Browsing Standard Protection is enabled for the user.
+bool IsStandardProtectionEnabled(const PrefService& prefs);
+
+// Returns whether Safe Browsing enhanced protection is enabled for the user.
+bool IsEnhancedProtectionEnabled(const PrefService& prefs);
+
 // Returns whether the currently active Safe Browsing Extended Reporting
 // preference exists (eg: has been set before).
 bool ExtendedReportingPrefExists(const PrefService& prefs);
@@ -273,8 +292,13 @@ void RegisterLocalStatePrefs(PrefRegistrySimple* registry);
 void SetExtendedReportingPrefAndMetric(PrefService* prefs,
                                        bool value,
                                        ExtendedReportingOptInLocation location);
+
 // This variant is used to simplify test code by omitting the location.
 void SetExtendedReportingPref(PrefService* prefs, bool value);
+
+// Sets the currently active Safe Browsing Enhanced Protection to the specified
+// value.
+void SetEnhancedProtectionPref(PrefService* prefs, bool value);
 
 // Called when a security interstitial is closed by the user.
 // |on_show_pref_existed| indicates whether the pref existed when the

@@ -51,6 +51,11 @@
 #include "ui/ozone/platform/wayland/gpu/drm_render_node_handle.h"
 #endif
 
+#if BUILDFLAG(USE_GTK)
+#include "ui/gtk/gtk_ui_delegate.h"  // nogncheck
+#include "ui/ozone/platform/wayland/host/gtk_ui_delegate_wayland.h"  //nogncheck
+#endif
+
 namespace ui {
 
 namespace {
@@ -132,7 +137,17 @@ class OzonePlatformWayland : public OzonePlatform {
 
   std::unique_ptr<InputMethod> CreateInputMethod(
       internal::InputMethodDelegate* delegate,
-      gfx::AcceleratedWidget) override {
+      gfx::AcceleratedWidget widget) override {
+    // Instantiate and set LinuxInputMethodContextFactory unless it is already
+    // set (e.g: tests may have already set it).
+    if (!LinuxInputMethodContextFactory::instance() &&
+        !input_method_context_factory_) {
+      input_method_context_factory_ =
+          std::make_unique<WaylandInputMethodContextFactory>(connection_.get());
+      LinuxInputMethodContextFactory::SetInstance(
+          input_method_context_factory_.get());
+    }
+
     return std::make_unique<InputMethodAuraLinux>(delegate);
   }
 
@@ -174,16 +189,12 @@ class OzonePlatformWayland : public OzonePlatform {
 
     supported_buffer_formats_ =
         connection_->buffer_manager_host()->GetSupportedBufferFormats();
-
-    // Instantiate and set LinuxInputMethodContextFactory unless it is already
-    // set (e.g: tests may have already set it).
-    if (!LinuxInputMethodContextFactory::instance() &&
-        !input_method_context_factory_) {
-      input_method_context_factory_ =
-          std::make_unique<WaylandInputMethodContextFactory>(connection_.get());
-      LinuxInputMethodContextFactory::SetInstance(
-          input_method_context_factory_.get());
-    }
+#if BUILDFLAG(USE_GTK)
+    DCHECK(!GtkUiDelegate::instance());
+    gtk_ui_delegate_ =
+        std::make_unique<GtkUiDelegateWayland>(connection_.get());
+    GtkUiDelegate::SetInstance(gtk_ui_delegate_.get());
+#endif
   }
 
   void InitializeGPU(const InitParams& args) override {
@@ -251,6 +262,10 @@ class OzonePlatformWayland : public OzonePlatform {
   // This is used both in the gpu and browser processes to find out if a drm
   // render node is available.
   DrmRenderNodePathFinder path_finder_;
+
+#if BUILDFLAG(USE_GTK)
+  std::unique_ptr<GtkUiDelegateWayland> gtk_ui_delegate_;
+#endif
 
   DISALLOW_COPY_AND_ASSIGN(OzonePlatformWayland);
 };

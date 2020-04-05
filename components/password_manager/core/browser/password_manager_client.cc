@@ -42,7 +42,8 @@ void PasswordManagerClient::GeneratePassword() {}
 
 void PasswordManagerClient::UpdateCredentialCache(
     const GURL& origin,
-    const std::vector<const autofill::PasswordForm*>& best_matches) {}
+    const std::vector<const autofill::PasswordForm*>& best_matches,
+    bool is_blacklisted) {}
 
 void PasswordManagerClient::PasswordWasAutofilled(
     const std::vector<const autofill::PasswordForm*>& best_matches,
@@ -55,13 +56,24 @@ void PasswordManagerClient::AutofillHttpAuth(
 
 void PasswordManagerClient::NotifyUserCredentialsWereLeaked(
     password_manager::CredentialLeakType leak_type,
-    const GURL& origin) {}
+    const GURL& origin,
+    const base::string16& username) {}
+
+void PasswordManagerClient::TriggerReauthForAccount(
+    const CoreAccountId& account_id,
+    base::OnceCallback<void(ReauthSucceeded)> reauth_callback) {
+  std::move(reauth_callback).Run(ReauthSucceeded(false));
+}
 
 SyncState PasswordManagerClient::GetPasswordSyncState() const {
   return NOT_SYNCING;
 }
 
 bool PasswordManagerClient::WasLastNavigationHTTPError() const {
+  return false;
+}
+
+bool PasswordManagerClient::WasCredentialLeakDialogShown() const {
   return false;
 }
 
@@ -82,6 +94,11 @@ const PasswordManager* PasswordManagerClient::GetPasswordManager() const {
 PasswordManager* PasswordManagerClient::GetPasswordManager() {
   return const_cast<PasswordManager*>(
       static_cast<const PasswordManagerClient*>(this)->GetPasswordManager());
+}
+
+const PasswordFeatureManager* PasswordManagerClient::GetPasswordFeatureManager()
+    const {
+  return nullptr;
 }
 
 PasswordFeatureManager* PasswordManagerClient::GetPasswordFeatureManager() {

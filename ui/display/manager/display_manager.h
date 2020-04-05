@@ -276,6 +276,16 @@ class DISPLAY_MANAGER_EXPORT DisplayManager
 
   const Display& GetPrimaryDisplayCandidate() const;
 
+  // This is called by ScreenAsh when the primary display is requested, but
+  // there is no valid display. It provides a display that
+  // - has a non-empty screen rect
+  // - has a valid gfx::BufferFormat
+  // This exists to enable buggy observers assume that the primary display
+  // will always have non-zero size and a valid gfx::BufferFormat. The right
+  // solution to this problem is to fix those observers.
+  // https://crbug.com/866714, https://crbug.com/1057501
+  static const Display& GetFakePrimaryDisplay();
+
   // Returns the logical number of displays. This returns 1 when displays are
   // mirrored.
   size_t GetNumDisplays() const;
@@ -402,7 +412,10 @@ class DISPLAY_MANAGER_EXPORT DisplayManager
   std::string GetDisplayNameForId(int64_t id) const;
 
   // Returns true if mirror mode should be set on for the specified displays.
-  bool ShouldSetMirrorModeOn(const DisplayIdList& id_list);
+  // If |should_check_hardware_mirroring| is true, the state of
+  // IsInHardwareMirroringMode() will also be taken into account.
+  bool ShouldSetMirrorModeOn(const DisplayIdList& id_list,
+                             bool should_check_hardware_mirroring);
 
   // Change the mirror mode. |mixed_params| will be ignored if mirror mode is
   // off or normal. When mirror mode is off, display mode will be set to default
@@ -483,12 +496,6 @@ class DISPLAY_MANAGER_EXPORT DisplayManager
   // Delegated from the Screen implementation.
   void AddObserver(DisplayObserver* observer);
   void RemoveObserver(DisplayObserver* observer);
-
-  // Returns a Display object for a secondary display if it exists or returns
-  // invalid display if there is no secondary display.  TODO(rjkroege): Display
-  // swapping is an obsolete feature pre-dating multi-display support so remove
-  // it.
-  const Display& GetSecondaryDisplay() const;
 
  private:
   friend class test::DisplayManagerTestApi;

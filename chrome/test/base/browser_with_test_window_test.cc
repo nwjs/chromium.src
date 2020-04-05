@@ -25,19 +25,14 @@
 #include "content/public/test/navigation_simulator.h"
 #include "content/public/test/test_renderer_host.h"
 #include "ui/base/page_transition_types.h"
-#include "ui/views/test/test_views_delegate.h"
 
 #if defined(TOOLKIT_VIEWS)
 #include "chrome/browser/ui/views/chrome_constrained_window_views_client.h"
-#include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "components/constrained_window/constrained_window_views.h"
 
 #if defined(OS_CHROMEOS)
-#include "ash/test/ash_test_views_delegate.h"
 #include "chrome/browser/chromeos/app_mode/kiosk_app_manager.h"
 #include "content/public/browser/context_factory.h"
-#else
-#include "ui/views/test/test_views_delegate.h"
 #endif
 #endif
 
@@ -51,21 +46,15 @@ BrowserWithTestWindowTest::~BrowserWithTestWindowTest() {}
 void BrowserWithTestWindowTest::SetUp() {
   testing::Test::SetUp();
 #if defined(OS_CHROMEOS)
-  ash::AshTestHelper::InitParams init_params;
-  ash_test_helper_.SetUp(init_params);
-#elif defined(TOOLKIT_VIEWS)
-  views_test_helper_.reset(new views::ScopedViewsTestHelper());
+  ash_test_helper_.SetUp();
 #endif
 
-  // This must be created after ash_test_helper_ is set up so that it doesn't
-  // create an DeviceDataManager.
+  // This must be created after |ash_test_helper_| is set up so that it doesn't
+  // create a DeviceDataManager.
   rvh_test_enabler_ = std::make_unique<content::RenderViewHostTestEnabler>();
 
 #if defined(TOOLKIT_VIEWS)
   SetConstrainedWindowViewsClient(CreateChromeConstrainedWindowViewsClient());
-
-  test_views_delegate()->set_layout_provider(
-      ChromeLayoutProvider::CreateLayoutProvider());
 #endif
 
   profile_manager_ = std::make_unique<TestingProfileManager>(
@@ -114,6 +103,7 @@ void BrowserWithTestWindowTest::TearDown() {
   // as part of the teardown will avoid unexpected test failures.
   chromeos::KioskAppManager::Shutdown();
 
+  test_views_delegate_.reset();
   ash_test_helper_.TearDown();
 #elif defined(TOOLKIT_VIEWS)
   views_test_helper_.reset();
@@ -127,7 +117,7 @@ void BrowserWithTestWindowTest::TearDown() {
 
 gfx::NativeWindow BrowserWithTestWindowTest::GetContext() {
 #if defined(OS_CHROMEOS)
-  return ash_test_helper_.CurrentContext();
+  return ash_test_helper_.GetContext();
 #elif defined(TOOLKIT_VIEWS)
   return views_test_helper_->GetContext();
 #else

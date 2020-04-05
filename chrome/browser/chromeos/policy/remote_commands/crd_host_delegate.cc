@@ -14,8 +14,8 @@
 #include "chrome/browser/chromeos/app_mode/kiosk_app_manager.h"
 #include "chrome/browser/chromeos/app_mode/web_app/web_kiosk_app_manager.h"
 #include "chrome/browser/chromeos/profiles/profile_helper.h"
-#include "chrome/browser/chromeos/settings/device_oauth2_token_service.h"
-#include "chrome/browser/chromeos/settings/device_oauth2_token_service_factory.h"
+#include "chrome/browser/device_identity/device_oauth2_token_service.h"
+#include "chrome/browser/device_identity/device_oauth2_token_service_factory.h"
 #include "chrome/common/chrome_features.h"
 #include "components/user_manager/user_manager.h"
 #include "content/public/browser/browser_task_traits.h"
@@ -92,8 +92,7 @@ constexpr char kTachyonOAuth2Scope[] =
 CRDHostDelegate::CRDHostDelegate()
     : OAuth2AccessTokenManager::Consumer("crd_host_delegate") {}
 
-CRDHostDelegate::~CRDHostDelegate() {
-}
+CRDHostDelegate::~CRDHostDelegate() {}
 
 bool CRDHostDelegate::HasActiveSession() const {
   return host_ != nullptr;
@@ -108,7 +107,7 @@ bool CRDHostDelegate::AreServicesReady() const {
   return user_manager::UserManager::IsInitialized() &&
          ui::UserActivityDetector::Get() != nullptr &&
          chromeos::ProfileHelper::Get() != nullptr &&
-         chromeos::DeviceOAuth2TokenServiceFactory::Get() != nullptr;
+         DeviceOAuth2TokenServiceFactory::Get() != nullptr;
 }
 
 bool CRDHostDelegate::IsRunningKiosk() const {
@@ -147,8 +146,8 @@ void CRDHostDelegate::FetchOAuthToken(
     DeviceCommandStartCRDSessionJob::ErrorCallback error_callback) {
   DCHECK(!oauth_success_callback_);
   DCHECK(!error_callback_);
-  chromeos::DeviceOAuth2TokenService* oauth_service =
-      chromeos::DeviceOAuth2TokenServiceFactory::Get();
+  DeviceOAuth2TokenService* oauth_service =
+      DeviceOAuth2TokenServiceFactory::Get();
 
   OAuth2AccessTokenManager::ScopeSet scopes;
   scopes.insert(GaiaConstants::kGoogleUserInfoEmail);
@@ -163,8 +162,7 @@ void CRDHostDelegate::FetchOAuthToken(
   oauth_success_callback_ = std::move(success_callback);
   error_callback_ = std::move(error_callback);
 
-  oauth_request_ = oauth_service->StartAccessTokenRequest(
-      oauth_service->GetRobotAccountId(), scopes, this);
+  oauth_request_ = oauth_service->StartAccessTokenRequest(scopes, this);
 }
 
 void CRDHostDelegate::OnGetTokenSuccess(
@@ -197,7 +195,7 @@ void CRDHostDelegate::StartCRDHostAndGetCode(
   // Store all parameters for future connect call.
   base::Value connect_params(base::Value::Type::DICTIONARY);
   CoreAccountId account_id =
-      chromeos::DeviceOAuth2TokenServiceFactory::Get()->GetRobotAccountId();
+      DeviceOAuth2TokenServiceFactory::Get()->GetRobotAccountId();
 
   // TODO(msarda): This conversion will not be correct once account id is
   // migrated to be the Gaia ID on ChromeOS. Fix it.

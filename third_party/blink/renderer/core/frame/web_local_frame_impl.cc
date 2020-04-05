@@ -119,7 +119,6 @@
 #include "third_party/blink/public/web/web_form_element.h"
 #include "third_party/blink/public/web/web_frame_owner_properties.h"
 #include "third_party/blink/public/web/web_history_item.h"
-#include "third_party/blink/public/web/web_icon_url.h"
 #include "third_party/blink/public/web/web_input_element.h"
 #include "third_party/blink/public/web/web_local_frame_client.h"
 #include "third_party/blink/public/web/web_manifest_manager.h"
@@ -132,7 +131,6 @@
 #include "third_party/blink/public/web/web_range.h"
 #include "third_party/blink/public/web/web_script_source.h"
 #include "third_party/blink/public/web/web_serialized_script_value.h"
-#include "third_party/blink/public/web/web_text_direction.h"
 #include "third_party/blink/public/web/web_tree_scope_type.h"
 #include "third_party/blink/renderer/bindings/core/v8/binding_security.h"
 #include "third_party/blink/renderer/bindings/core/v8/isolated_world_csp.h"
@@ -146,11 +144,9 @@
 #include "third_party/blink/renderer/core/clipboard/clipboard_utilities.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/icon_url.h"
-#include "third_party/blink/renderer/core/dom/ignore_opens_during_unload_count_incrementer.h"
 #include "third_party/blink/renderer/core/dom/node.h"
 #include "third_party/blink/renderer/core/dom/node_traversal.h"
 #include "third_party/blink/renderer/core/dom/shadow_root.h"
-
 #include "third_party/blink/renderer/core/editing/editing_utilities.h"
 #include "third_party/blink/renderer/core/editing/editor.h"
 #include "third_party/blink/renderer/core/editing/ephemeral_range.h"
@@ -214,6 +210,7 @@
 #include "third_party/blink/renderer/core/input/context_menu_allowed_scope.h"
 #include "third_party/blink/renderer/core/input/event_handler.h"
 #include "third_party/blink/renderer/core/inspector/console_message.h"
+#include "third_party/blink/renderer/core/inspector/inspector_issue.h"
 #include "third_party/blink/renderer/core/inspector/main_thread_debugger.h"
 #include "third_party/blink/renderer/core/layout/hit_test_result.h"
 #include "third_party/blink/renderer/core/layout/layout_embedded_content.h"
@@ -257,6 +254,7 @@
 #include "third_party/blink/renderer/platform/loader/fetch/resource_fetcher.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_request.h"
 #include "third_party/blink/renderer/platform/scheduler/public/frame_scheduler.h"
+#include "third_party/blink/renderer/platform/text/text_direction.h"
 #include "third_party/blink/renderer/platform/weborigin/kurl.h"
 #include "third_party/blink/renderer/platform/weborigin/scheme_registry.h"
 #include "third_party/blink/renderer/platform/weborigin/security_policy.h"
@@ -465,7 +463,7 @@ class ChromePluginPrintContext final : public ChromePrintContext {
 
   ~ChromePluginPrintContext() override = default;
 
-  void Trace(blink::Visitor* visitor) override {
+  void Trace(Visitor* visitor) override {
     visitor->Trace(plugin_);
     ChromePrintContext::Trace(visitor);
   }
@@ -535,7 +533,7 @@ class PaintPreviewContext : public PrintContext {
     LocalFrameView* frame_view = GetFrame()->View();
     DCHECK(frame_view);
     PropertyTreeState property_tree_state =
-        frame_view->GetLayoutView()->FirstFragment().LocalBorderBoxProperties();
+        frame_view->GetLayoutView()->FirstFragment().ContentsProperties();
 
     // This calls BeginRecording on |builder| with dimensions specified by the
     // CullRect.
@@ -643,14 +641,6 @@ void WebLocalFrameImpl::SetName(const WebString& name) {
   GetFrame()->Tree().SetName(name, FrameTree::kReplicate);
 }
 
-WebVector<WebIconURL> WebLocalFrameImpl::IconURLs(int icon_types_mask) const {
-  // The URL to the icon may be in the header. As such, only
-  // ask the loader for the icon if it's finished loading.
-  if (GetFrame()->GetDocument()->LoadEventFinished())
-    return GetFrame()->GetDocument()->IconURLs(icon_types_mask);
-  return WebVector<WebIconURL>();
-}
-
 void WebLocalFrameImpl::SetContentSettingsClient(
     WebContentSettingsClient* client) {
   content_settings_client_ = client;
@@ -683,9 +673,8 @@ WebSize WebLocalFrameImpl::GetScrollOffset() const {
 
 void WebLocalFrameImpl::SetScrollOffset(const WebSize& offset) {
   if (ScrollableArea* scrollable_area = LayoutViewport()) {
-    scrollable_area->SetScrollOffset(
-        ScrollOffset(offset.width, offset.height),
-        mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
+    scrollable_area->SetScrollOffset(ScrollOffset(offset.width, offset.height),
+                                     mojom::blink::ScrollType::kProgrammatic);
   }
 }
 
@@ -741,18 +730,6 @@ void WebLocalFrameImpl::SetIsAdSubframe(
     blink::mojom::AdFrameType ad_frame_type) {
   DCHECK(GetFrame());
   GetFrame()->SetIsAdSubframe(ad_frame_type);
-}
-
-void WebLocalFrameImpl::DispatchUnloadEvent() {
-  if (!GetFrame())
-    return;
-  SubframeLoadingDisabler disabler(GetFrame()->GetDocument());
-  // https://html.spec.whatwg.org/C/browsing-the-web.html#unload-a-document
-  // The ignore-opens-during-unload counter of a Document must be incremented
-  // when unloading itself.
-  IgnoreOpensDuringUnloadCountIncrementer ignore_opens_during_unload(
-      GetFrame()->GetDocument());
-  GetFrame()->Loader().DispatchUnloadEvent(nullptr, nullptr);
 }
 
 void WebLocalFrameImpl::ExecuteScript(const WebScriptSource& source) {
@@ -814,8 +791,10 @@ void WebLocalFrameImpl::SetIsolatedWorldInfo(int32_t world_id,
       info.security_origin.Get()
           ? info.security_origin.Get()
                 ->IsolatedCopy()
-                ->GetOriginForAgentCluster(
-                    GetFrame()->GetDocument()->GetAgentClusterID())
+                ->GetOriginForAgentCluster(GetFrame()
+                                               ->GetDocument()
+                                               ->ToExecutionContext()
+                                               ->GetAgentClusterID())
           : nullptr;
 
   CHECK(info.content_security_policy.IsNull() || security_origin);
@@ -929,7 +908,7 @@ v8::MaybeLocal<v8::Value> WebLocalFrameImpl::CallFunctionEvenIfScriptDisabled(
     v8::Local<v8::Value> argv[]) {
   DCHECK(GetFrame());
   return V8ScriptRunner::CallFunction(
-      function, GetFrame()->GetDocument(), receiver, argc,
+      function, GetFrame()->GetDocument()->ToExecutionContext(), receiver, argc,
       static_cast<v8::Local<v8::Value>*>(argv), ToIsolate(GetFrame()));
 }
 
@@ -1033,7 +1012,8 @@ WebAssociatedURLLoader* WebLocalFrameImpl::CreateAssociatedURLLoader(
 void WebLocalFrameImpl::ReplaceSelection(const WebString& text) {
   // TODO(editing-dev): The use of UpdateStyleAndLayout
   // needs to be audited.  See http://crbug.com/590369 for more details.
-  GetFrame()->GetDocument()->UpdateStyleAndLayout();
+  GetFrame()->GetDocument()->UpdateStyleAndLayout(
+      DocumentUpdateReason::kSelection);
 
   GetFrame()->GetEditor().ReplaceSelection(text);
 }
@@ -1064,7 +1044,7 @@ bool WebLocalFrameImpl::FirstRectForCharacterRange(
 
   // TODO(editing-dev): The use of UpdateStyleAndLayout
   // needs to be audited.  see http://crbug.com/590369 for more details.
-  editable->GetDocument().UpdateStyleAndLayout();
+  editable->GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kEditing);
 
   const EphemeralRange range =
       PlainTextRange(location, location + length).CreateRange(*editable);
@@ -1139,8 +1119,9 @@ bool WebLocalFrameImpl::IsCommandEnabled(const WebString& name) const {
   return GetFrame()->GetEditor().IsCommandEnabled(name);
 }
 
-bool WebLocalFrameImpl::SelectionTextDirection(WebTextDirection& start,
-                                               WebTextDirection& end) const {
+bool WebLocalFrameImpl::SelectionTextDirection(
+    base::i18n::TextDirection& start,
+    base::i18n::TextDirection& end) const {
   FrameSelection& selection = frame_->Selection();
   if (!selection.IsAvailable()) {
     // plugins/mouse-capture-inside-shadow.html reaches here
@@ -1149,15 +1130,15 @@ bool WebLocalFrameImpl::SelectionTextDirection(WebTextDirection& start,
 
   // TODO(editing-dev): The use of UpdateStyleAndLayout
   // needs to be audited.  See http://crbug.com/590369 for more details.
-  frame_->GetDocument()->UpdateStyleAndLayout();
+  frame_->GetDocument()->UpdateStyleAndLayout(DocumentUpdateReason::kSelection);
 
   if (selection.ComputeVisibleSelectionInDOMTree()
           .ToNormalizedEphemeralRange()
           .IsNull())
     return false;
-  start = ToWebTextDirection(PrimaryDirectionOf(
+  start = ToBaseTextDirection(PrimaryDirectionOf(
       *selection.ComputeVisibleSelectionInDOMTree().Start().AnchorNode()));
-  end = ToWebTextDirection(PrimaryDirectionOf(
+  end = ToBaseTextDirection(PrimaryDirectionOf(
       *selection.ComputeVisibleSelectionInDOMTree().End().AnchorNode()));
   return true;
 }
@@ -1172,7 +1153,7 @@ bool WebLocalFrameImpl::IsSelectionAnchorFirst() const {
   return selection.GetSelectionInDOMTree().IsBaseFirst();
 }
 
-void WebLocalFrameImpl::SetTextDirection(WebTextDirection direction) {
+void WebLocalFrameImpl::SetTextDirection(base::i18n::TextDirection direction) {
   // The Editor::SetBaseWritingDirection() function checks if we can change
   // the text direction of the selected node and updates its DOM "dir"
   // attribute and its CSS "direction" property.
@@ -1182,15 +1163,15 @@ void WebLocalFrameImpl::SetTextDirection(WebTextDirection direction) {
     return;
 
   switch (direction) {
-    case kWebTextDirectionDefault:
+    case base::i18n::TextDirection::UNKNOWN_DIRECTION:
       editor.SetBaseWritingDirection(WritingDirection::kNatural);
       break;
 
-    case kWebTextDirectionLeftToRight:
+    case base::i18n::TextDirection::LEFT_TO_RIGHT:
       editor.SetBaseWritingDirection(WritingDirection::kLeftToRight);
       break;
 
-    case kWebTextDirectionRightToLeft:
+    case base::i18n::TextDirection::RIGHT_TO_LEFT:
       editor.SetBaseWritingDirection(WritingDirection::kRightToLeft);
       break;
 
@@ -1209,7 +1190,8 @@ void WebLocalFrameImpl::ReplaceMisspelledRange(const WebString& text) {
 
   // TODO(editing-dev): The use of UpdateStyleAndLayout
   // needs to be audited.  see http://crbug.com/590369 for more details.
-  GetFrame()->GetDocument()->UpdateStyleAndLayout();
+  GetFrame()->GetDocument()->UpdateStyleAndLayout(
+      DocumentUpdateReason::kSpellCheck);
 
   GetFrame()->GetSpellChecker().ReplaceMisspelledRange(text);
 }
@@ -1241,7 +1223,8 @@ bool WebLocalFrameImpl::HasSelection() const {
 WebRange WebLocalFrameImpl::SelectionRange() const {
   // TODO(editing-dev): The use of UpdateStyleAndLayout
   // needs to be audited.  See http://crbug.com/590369 for more details.
-  GetFrame()->GetDocument()->UpdateStyleAndLayout();
+  GetFrame()->GetDocument()->UpdateStyleAndLayout(
+      DocumentUpdateReason::kSelection);
 
   return GetFrame()
       ->Selection()
@@ -1258,7 +1241,8 @@ WebString WebLocalFrameImpl::SelectionAsText() const {
 
   // TODO(editing-dev): The use of UpdateStyleAndLayout
   // needs to be audited.  See http://crbug.com/590369 for more details.
-  GetFrame()->GetDocument()->UpdateStyleAndLayout();
+  GetFrame()->GetDocument()->UpdateStyleAndLayout(
+      DocumentUpdateReason::kSelection);
 
   String text = GetFrame()->Selection().SelectedText(
       TextIteratorBehavior::EmitsObjectReplacementCharacterBehavior());
@@ -1278,7 +1262,8 @@ WebString WebLocalFrameImpl::SelectionAsMarkup() const {
   // TODO(editing-dev): The use of UpdateStyleAndLayout
   // needs to be audited.  See http://crbug.com/590369 for more details.
   // Selection normalization and markup generation require clean layout.
-  GetFrame()->GetDocument()->UpdateStyleAndLayout();
+  GetFrame()->GetDocument()->UpdateStyleAndLayout(
+      DocumentUpdateReason::kSelection);
 
   return GetFrame()->Selection().SelectedHTMLForClipboard();
 }
@@ -1288,7 +1273,8 @@ bool WebLocalFrameImpl::SelectWordAroundCaret() {
 
   // TODO(editing-dev): The use of UpdateStyleAndLayout
   // needs to be audited.  see http://crbug.com/590369 for more details.
-  GetFrame()->GetDocument()->UpdateStyleAndLayout();
+  GetFrame()->GetDocument()->UpdateStyleAndLayout(
+      DocumentUpdateReason::kSelection);
   return GetFrame()->Selection().SelectWordAroundCaret();
 }
 
@@ -1305,7 +1291,8 @@ void WebLocalFrameImpl::SelectRange(
 
   // TODO(editing-dev): The use of UpdateStyleAndLayout
   // needs to be audited.  see http://crbug.com/590369 for more details.
-  GetFrame()->GetDocument()->UpdateStyleAndLayout();
+  GetFrame()->GetDocument()->UpdateStyleAndLayout(
+      DocumentUpdateReason::kSelection);
 
   const EphemeralRange& range = web_range.CreateEphemeralRange(GetFrame());
   if (range.IsNull())
@@ -1338,7 +1325,8 @@ void WebLocalFrameImpl::SelectRange(
 WebString WebLocalFrameImpl::RangeAsText(const WebRange& web_range) {
   // TODO(editing-dev): The use of UpdateStyleAndLayout
   // needs to be audited.  see http://crbug.com/590369 for more details.
-  GetFrame()->GetDocument()->UpdateStyleAndLayout();
+  GetFrame()->GetDocument()->UpdateStyleAndLayout(
+      DocumentUpdateReason::kEditing);
 
   DocumentLifecycle::DisallowTransitionScope disallow_transition(
       GetFrame()->GetDocument()->Lifecycle());
@@ -1353,7 +1341,8 @@ void WebLocalFrameImpl::MoveRangeSelectionExtent(const gfx::Point& point) {
 
   // TODO(editing-dev): The use of UpdateStyleAndLayout
   // needs to be audited.  See http://crbug.com/590369 for more details.
-  GetFrame()->GetDocument()->UpdateStyleAndLayout();
+  GetFrame()->GetDocument()->UpdateStyleAndLayout(
+      DocumentUpdateReason::kSelection);
 
   GetFrame()->Selection().MoveRangeSelectionExtent(
       GetFrame()->View()->ViewportToFrame(IntPoint(point)));
@@ -1367,7 +1356,8 @@ void WebLocalFrameImpl::MoveRangeSelection(
 
   // TODO(editing-dev): The use of UpdateStyleAndLayout
   // needs to be audited.  See http://crbug.com/590369 for more details.
-  GetFrame()->GetDocument()->UpdateStyleAndLayout();
+  GetFrame()->GetDocument()->UpdateStyleAndLayout(
+      DocumentUpdateReason::kSelection);
 
   blink::TextGranularity blink_granularity = blink::TextGranularity::kCharacter;
   if (granularity == WebFrame::kWordGranularity)
@@ -1384,7 +1374,8 @@ void WebLocalFrameImpl::MoveCaretSelection(
 
   // TODO(editing-dev): The use of UpdateStyleAndLayout
   // needs to be audited.  see http://crbug.com/590369 for more details.
-  GetFrame()->GetDocument()->UpdateStyleAndLayout();
+  GetFrame()->GetDocument()->UpdateStyleAndLayout(
+      DocumentUpdateReason::kSelection);
   const IntPoint point_in_contents =
       GetFrame()->View()->ViewportToFrame(IntPoint(point_in_viewport));
   GetFrame()->Selection().MoveCaretSelection(point_in_contents);
@@ -1395,7 +1386,8 @@ bool WebLocalFrameImpl::SetEditableSelectionOffsets(int start, int end) {
 
   // TODO(editing-dev): The use of UpdateStyleAndLayout
   // needs to be audited.  See http://crbug.com/590369 for more details.
-  GetFrame()->GetDocument()->UpdateStyleAndLayout();
+  GetFrame()->GetDocument()->UpdateStyleAndLayout(
+      DocumentUpdateReason::kSelection);
 
   return GetFrame()->GetInputMethodController().SetEditableSelectionOffsets(
       PlainTextRange(start, end));
@@ -1420,7 +1412,8 @@ bool WebLocalFrameImpl::SetCompositionFromExistingText(
 
   // TODO(editing-dev): The use of UpdateStyleAndLayout
   // needs to be audited.  See http://crbug.com/590369 for more details.
-  GetFrame()->GetDocument()->UpdateStyleAndLayout();
+  GetFrame()->GetDocument()->UpdateStyleAndLayout(
+      DocumentUpdateReason::kEditing);
 
   input_method_controller.SetCompositionFromExistingText(
       ImeTextSpanVectorBuilder::Build(ime_text_spans), composition_start,
@@ -1444,7 +1437,8 @@ void WebLocalFrameImpl::ExtendSelectionAndDelete(int before, int after) {
 
   // TODO(editing-dev): The use of UpdateStyleAndLayout
   // needs to be audited.  See http://crbug.com/590369 for more details.
-  GetFrame()->GetDocument()->UpdateStyleAndLayout();
+  GetFrame()->GetDocument()->UpdateStyleAndLayout(
+      DocumentUpdateReason::kSelection);
 
   GetFrame()->GetInputMethodController().ExtendSelectionAndDelete(before,
                                                                   after);
@@ -1459,7 +1453,8 @@ void WebLocalFrameImpl::DeleteSurroundingText(int before, int after) {
 
   // TODO(editing-dev): The use of UpdateStyleAndLayout
   // needs to be audited.  See http://crbug.com/590369 for more details.
-  GetFrame()->GetDocument()->UpdateStyleAndLayout();
+  GetFrame()->GetDocument()->UpdateStyleAndLayout(
+      DocumentUpdateReason::kEditing);
 
   GetFrame()->GetInputMethodController().DeleteSurroundingText(before, after);
 }
@@ -1474,7 +1469,8 @@ void WebLocalFrameImpl::DeleteSurroundingTextInCodePoints(int before,
 
   // TODO(editing-dev): The use of UpdateStyleAndLayout
   // needs to be audited.  See http://crbug.com/590369 for more details.
-  GetFrame()->GetDocument()->UpdateStyleAndLayout();
+  GetFrame()->GetDocument()->UpdateStyleAndLayout(
+      DocumentUpdateReason::kEditing);
 
   GetFrame()->GetInputMethodController().DeleteSurroundingTextInCodePoints(
       before, after);
@@ -1612,9 +1608,8 @@ bool WebLocalFrameImpl::CapturePaintPreview(const WebRect& bounds,
   return success;
 }
 
-bool WebLocalFrameImpl::HasCustomPageSizeStyle(int page_index) {
-  return GetFrame()->GetDocument()->StyleForPage(page_index)->PageSizeType() !=
-         EPageSizeType::kAuto;
+PageSizeType WebLocalFrameImpl::GetPageSizeType(int page_index) {
+  return GetFrame()->GetDocument()->StyleForPage(page_index)->GetPageSizeType();
 }
 
 void WebLocalFrameImpl::PageSizeAndMarginsInPixels(int page_index,
@@ -1653,7 +1648,7 @@ WebLocalFrame* WebLocalFrame::CreateMainFrame(
     InterfaceRegistry* interface_registry,
     WebFrame* opener,
     const WebString& name,
-    WebSandboxFlags sandbox_flags,
+    mojom::blink::WebSandboxFlags sandbox_flags,
     const FeaturePolicy::FeatureState& opener_feature_state) {
   return WebLocalFrameImpl::CreateMainFrame(
       web_view, client, interface_registry, opener, name, sandbox_flags,
@@ -1664,9 +1659,10 @@ WebLocalFrame* WebLocalFrame::CreateProvisional(
     WebLocalFrameClient* client,
     InterfaceRegistry* interface_registry,
     WebFrame* previous_frame,
-    const FramePolicy& frame_policy) {
-  return WebLocalFrameImpl::CreateProvisional(client, interface_registry,
-                                              previous_frame, frame_policy);
+    const FramePolicy& frame_policy,
+    const WebString& name) {
+  return WebLocalFrameImpl::CreateProvisional(
+      client, interface_registry, previous_frame, frame_policy, name);
 }
 
 WebLocalFrameImpl* WebLocalFrameImpl::CreateMainFrame(
@@ -1675,7 +1671,7 @@ WebLocalFrameImpl* WebLocalFrameImpl::CreateMainFrame(
     InterfaceRegistry* interface_registry,
     WebFrame* opener,
     const WebString& name,
-    WebSandboxFlags sandbox_flags,
+    mojom::blink::WebSandboxFlags sandbox_flags,
     const FeaturePolicy::FeatureState& opener_feature_state) {
   auto* frame = MakeGarbageCollected<WebLocalFrameImpl>(
       util::PassKey<WebLocalFrameImpl>(), WebTreeScopeType::kDocument, client,
@@ -1694,17 +1690,20 @@ WebLocalFrameImpl* WebLocalFrameImpl::CreateProvisional(
     WebLocalFrameClient* client,
     blink::InterfaceRegistry* interface_registry,
     WebFrame* previous_web_frame,
-    const FramePolicy& frame_policy) {
+    const FramePolicy& frame_policy,
+    const WebString& name) {
   DCHECK(client);
+  Frame* previous_frame = ToCoreFrame(*previous_web_frame);
+  DCHECK(name.IsEmpty() || name.Equals(previous_frame->Tree().GetName()));
   auto* web_frame = MakeGarbageCollected<WebLocalFrameImpl>(
       util::PassKey<WebLocalFrameImpl>(),
       previous_web_frame->InShadowTree() ? WebTreeScopeType::kShadow
                                          : WebTreeScopeType::kDocument,
       client, interface_registry);
-  Frame* previous_frame = ToCoreFrame(*previous_web_frame);
   web_frame->SetParent(previous_web_frame->Parent());
   web_frame->SetOpener(previous_web_frame->Opener());
-  WebSandboxFlags sandbox_flags = WebSandboxFlags::kNone;
+  mojom::blink::WebSandboxFlags sandbox_flags =
+      mojom::blink::WebSandboxFlags::kNone;
   FeaturePolicy::FeatureState feature_state;
   if (!previous_frame->Owner()) {
     // Provisional main frames need to force sandbox flags.  This is necessary
@@ -1727,10 +1726,11 @@ WebLocalFrameImpl* WebLocalFrameImpl::CreateProvisional(
   // observable, it will have the real FrameOwner, and any subsequent real
   // documents will correctly inherit sandbox flags from the owner.
   web_frame->InitializeCoreFrame(
-      *previous_frame->GetPage(), MakeGarbageCollected<DummyFrameOwner>(),
-      previous_frame->Tree().GetName(),
-      &ToCoreFrame(*previous_web_frame)->window_agent_factory(), sandbox_flags,
-      feature_state);
+      *previous_frame->GetPage(), MakeGarbageCollected<DummyFrameOwner>(), name,
+      frame_policy.disallow_document_access
+          ? nullptr
+          : &ToCoreFrame(*previous_web_frame)->window_agent_factory(),
+      sandbox_flags, feature_state);
 
   LocalFrame* new_frame = web_frame->GetFrame();
   new_frame->SetOwner(previous_frame->Owner());
@@ -1788,7 +1788,7 @@ WebLocalFrameImpl::~WebLocalFrameImpl() {
   g_frame_count--;
 }
 
-void WebLocalFrameImpl::Trace(blink::Visitor* visitor) {
+void WebLocalFrameImpl::Trace(Visitor* visitor) {
   visitor->Trace(local_frame_client_);
   visitor->Trace(find_in_page_);
   visitor->Trace(frame_);
@@ -1808,7 +1808,7 @@ void WebLocalFrameImpl::InitializeCoreFrame(
     FrameOwner* owner,
     const AtomicString& name,
     WindowAgentFactory* window_agent_factory,
-    WebSandboxFlags sandbox_flags,
+    mojom::blink::WebSandboxFlags sandbox_flags,
     const FeaturePolicy::FeatureState& opener_feature_state) {
   SetCoreFrame(MakeGarbageCollected<LocalFrame>(local_frame_client_.Get(), page,
                                                 owner, window_agent_factory,
@@ -1847,7 +1847,7 @@ LocalFrame* WebLocalFrameImpl::CreateChildFrame(
           : WebTreeScopeType::kShadow;
   WebFrameOwnerProperties owner_properties(
       owner_element->BrowsingContextContainerName(),
-      owner_element->ScrollingMode(), owner_element->MarginWidth(),
+      owner_element->ScrollbarMode(), owner_element->MarginWidth(),
       owner_element->MarginHeight(), owner_element->AllowFullscreen(),
       owner_element->AllowPaymentRequest(), owner_element->IsDisplayNone(),
       owner_element->RequiredCsp());
@@ -1868,7 +1868,7 @@ LocalFrame* WebLocalFrameImpl::CreateChildFrame(
 
   webframe_child->InitializeCoreFrame(
       *GetFrame()->GetPage(), owner_element, name,
-      owner_element->DisallowDocumentAccess()
+      owner_element->GetFramePolicy().disallow_document_access
           ? nullptr
           : &GetFrame()->window_agent_factory());
 
@@ -1972,12 +1972,12 @@ WebViewImpl* WebLocalFrameImpl::ViewImpl() const {
 
 void WebLocalFrameImpl::DidFailLoad(const ResourceError& error,
                                     WebHistoryCommitType web_commit_type) {
-  if (!Client())
-    return;
-  WebURLError web_error = error;
   if (WebPluginContainerImpl* plugin = GetFrame()->GetWebPluginContainer())
     plugin->DidFailLoading(error);
-  Client()->DidFailLoad(web_error, web_commit_type);
+  WebDocumentLoader* document_loader = GetDocumentLoader();
+  DCHECK(document_loader);
+  GetFrame()->GetLocalFrameHostRemote().DidFailLoadWithError(
+      document_loader->GetUrl(), error.ErrorCode());
 }
 
 void WebLocalFrameImpl::DidFinish() {
@@ -2067,15 +2067,13 @@ bool WebLocalFrameImpl::DispatchBeforeUnloadEvent(bool is_reload) {
 
 void WebLocalFrameImpl::CommitNavigation(
     std::unique_ptr<WebNavigationParams> navigation_params,
-    std::unique_ptr<WebDocumentLoader::ExtraData> extra_data,
-    base::OnceClosure call_before_attaching_new_document) {
+    std::unique_ptr<WebDocumentLoader::ExtraData> extra_data) {
   DCHECK(GetFrame());
   DCHECK(!navigation_params->url.ProtocolIs("javascript"));
   if (GetTextFinder())
     GetTextFinder()->ClearActiveFindMatch();
-  GetFrame()->Loader().CommitNavigation(
-      std::move(navigation_params), std::move(extra_data),
-      std::move(call_before_attaching_new_document));
+  GetFrame()->Loader().CommitNavigation(std::move(navigation_params),
+                                        std::move(extra_data));
 }
 
 blink::mojom::CommitResult WebLocalFrameImpl::CommitSameDocumentNavigation(
@@ -2119,42 +2117,6 @@ WebLocalFrameImpl::MaybeRenderFallbackContent(const WebURLError& error) const {
 
   return GetFrame()->Loader().MaybeRenderFallbackContent() ? FallbackRendered
                                                            : NoLoadInProgress;
-}
-
-// Called when a navigation is blocked because a Content Security Policy (CSP)
-// is infringed.
-void WebLocalFrameImpl::ReportContentSecurityPolicyViolation(
-    const blink::WebContentSecurityPolicyViolation& violation) {
-  AddMessageToConsole(blink::WebConsoleMessage(
-      mojom::ConsoleMessageLevel::kError, violation.console_message,
-      violation.source_location.url, violation.source_location.line_number,
-      violation.source_location.column_number));
-
-  std::unique_ptr<SourceLocation> source_location =
-      std::make_unique<SourceLocation>(
-          violation.source_location.url, violation.source_location.line_number,
-          violation.source_location.column_number, nullptr);
-
-  DCHECK(GetFrame() && GetFrame()->GetDocument());
-  Document* document = GetFrame()->GetDocument();
-  Vector<String> report_endpoints;
-  for (const WebString& end_point : violation.report_endpoints)
-    report_endpoints.push_back(end_point);
-  auto directive_type =
-      ContentSecurityPolicy::GetDirectiveType(violation.effective_directive);
-  LocalFrame* context_frame =
-      directive_type == ContentSecurityPolicy::DirectiveType::kFrameAncestors
-          ? GetFrame()
-          : nullptr;
-  document->GetContentSecurityPolicy()->ReportViolation(
-      violation.directive, directive_type, violation.console_message,
-      violation.blocked_url, report_endpoints, violation.use_reporting_api,
-      violation.header, violation.disposition,
-      ContentSecurityPolicy::ViolationType::kURLViolation,
-      std::move(source_location), context_frame,
-      violation.after_redirect ? RedirectStatus::kFollowedRedirect
-                               : RedirectStatus::kNoRedirect,
-      nullptr /* Element */);
 }
 
 bool WebLocalFrameImpl::IsLoading() const {
@@ -2222,6 +2184,15 @@ void WebLocalFrameImpl::MarkAsLoading() {
 
 bool WebLocalFrameImpl::IsClientNavigationInitialHistoryLoad() {
   return GetFrame()->Loader().IsClientNavigationInitialHistoryLoad();
+}
+
+void WebLocalFrameImpl::DownloadURL(
+    const WebURLRequest& request,
+    network::mojom::blink::RedirectMode cross_origin_redirect_behavior,
+    mojo::ScopedMessagePipeHandle blob_url_token) {
+  GetFrame()->DownloadURL(request.ToResourceRequest(),
+                          cross_origin_redirect_behavior,
+                          std::move(blob_url_token));
 }
 
 bool WebLocalFrameImpl::WillStartNavigation(
@@ -2321,9 +2292,10 @@ void WebLocalFrameImpl::CopyImageAtForTesting(
   GetFrame()->CopyImageAtViewportPoint(IntPoint(pos_in_viewport));
 }
 
-WebSandboxFlags WebLocalFrameImpl::EffectiveSandboxFlagsForTesting() const {
+mojom::blink::WebSandboxFlags
+WebLocalFrameImpl::EffectiveSandboxFlagsForTesting() const {
   if (!GetFrame())
-    return WebSandboxFlags::kNone;
+    return mojom::blink::WebSandboxFlags::kNone;
   SandboxFlags flags = GetFrame()->Loader().EffectiveSandboxFlags();
   if (RuntimeEnabledFeatures::FeaturePolicyForSandboxEnabled()) {
     // When some of sandbox flags set in the 'sandbox' attribute are implemented
@@ -2341,7 +2313,7 @@ WebSandboxFlags WebLocalFrameImpl::EffectiveSandboxFlagsForTesting() const {
                    ->sandbox_flags_converted_to_feature_policies();
     }
   }
-  return static_cast<WebSandboxFlags>(flags);
+  return static_cast<mojom::blink::WebSandboxFlags>(flags);
 }
 
 bool WebLocalFrameImpl::IsAllowedToDownload() const {
@@ -2360,7 +2332,8 @@ bool WebLocalFrameImpl::IsAllowedToDownload() const {
            GetFrame()->Owner()->GetFramePolicy().allowed_to_download;
   }
   return (GetFrame()->Loader().PendingEffectiveSandboxFlags() &
-          WebSandboxFlags::kDownloads) == WebSandboxFlags::kNone;
+          mojom::blink::WebSandboxFlags::kDownloads) ==
+         mojom::blink::WebSandboxFlags::kNone;
 }
 
 void WebLocalFrameImpl::UsageCountChromeLoadTimes(const WebString& metric) {
@@ -2470,8 +2443,9 @@ bool WebLocalFrameImpl::ShouldSuppressKeyboardForFocusedElement() {
 
 void WebLocalFrameImpl::OnPortalActivated(
     const base::UnguessableToken& portal_token,
-    mojo::ScopedInterfaceEndpointHandle portal_pipe,
-    mojo::ScopedInterfaceEndpointHandle portal_client_pipe,
+    CrossVariantMojoAssociatedRemote<mojom::blink::PortalInterfaceBase> portal,
+    CrossVariantMojoAssociatedReceiver<mojom::blink::PortalClientInterfaceBase>
+        portal_client,
     TransferableMessage data,
     OnPortalActivatedCallback callback) {
   LocalDOMWindow* window = GetFrame()->DomWindow();
@@ -2484,14 +2458,10 @@ void WebLocalFrameImpl::OnPortalActivated(
       << "portal activation is always cross-agent-cluster and should be "
          "diagnosed early";
   MessagePortArray* ports = MessagePort::EntanglePorts(
-      *window->document(), std::move(blink_data.ports));
+      *window->document()->ToExecutionContext(), std::move(blink_data.ports));
 
   PortalActivateEvent* event = PortalActivateEvent::Create(
-      frame_.Get(), portal_token,
-      mojo::PendingAssociatedRemote<mojom::blink::Portal>(
-          std::move(portal_pipe), mojom::blink::Portal::Version_),
-      mojo::PendingAssociatedReceiver<mojom::blink::PortalClient>(
-          std::move(portal_client_pipe)),
+      frame_.Get(), portal_token, std::move(portal), std::move(portal_client),
       std::move(blink_data.message), ports, std::move(callback));
 
   ThreadDebugger* debugger = MainThreadDebugger::Instance();
@@ -2521,8 +2491,18 @@ void WebLocalFrameImpl::AddMessageToConsoleImpl(
     bool discard_duplicates) {
   DCHECK(GetFrame());
   GetFrame()->GetDocument()->AddConsoleMessage(
-      ConsoleMessage::CreateFromWebConsoleMessage(message, GetFrame()),
+      MakeGarbageCollected<ConsoleMessage>(message, GetFrame()),
       discard_duplicates);
+}
+
+void WebLocalFrameImpl::AddInspectorIssueImpl(
+    mojom::blink::InspectorIssueCode code) {
+  DCHECK(GetFrame());
+  auto info = mojom::blink::InspectorIssueInfo::New(
+      code, mojom::blink::InspectorIssueDetails::New(),
+      mojom::blink::AffectedResources::New());
+  GetFrame()->GetDocument()->AddInspectorIssue(
+      InspectorIssue::Create(std::move(info)));
 }
 
 void WebLocalFrameImpl::SetTextCheckClient(
@@ -2547,6 +2527,11 @@ Node* WebLocalFrameImpl::ContextMenuNodeInner() const {
       ->GetPage()
       ->GetContextMenuController()
       .ContextMenuNodeForFrame(GetFrame());
+}
+
+void WebLocalFrameImpl::WaitForDebuggerWhenShown() {
+  DCHECK(frame_->IsLocalRoot());
+  DevToolsAgentImpl()->WaitForDebuggerWhenShown();
 }
 
 void WebLocalFrameImpl::SetDevToolsAgentImpl(WebDevToolsAgentImpl* agent) {

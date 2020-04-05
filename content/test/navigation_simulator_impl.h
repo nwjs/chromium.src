@@ -20,6 +20,7 @@
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "net/base/host_port_pair.h"
 #include "net/base/ip_endpoint.h"
+#include "net/dns/public/resolve_error_info.h"
 #include "services/service_manager/public/cpp/interface_provider.h"
 #include "third_party/blink/public/mojom/referrer.mojom-forward.h"
 #include "url/gurl.h"
@@ -95,6 +96,8 @@ class NavigationSimulatorImpl : public NavigationSimulator,
       override;
   void SetContentsMimeType(const std::string& contents_mime_type) override;
   void SetAutoAdvance(bool auto_advance) override;
+  void SetResolveErrorInfo(
+      const net::ResolveErrorInfo& resolve_error_info) override;
   void SetSSLInfo(const net::SSLInfo& ssl_info) override;
 
   NavigationThrottle::ThrottleCheckResult GetLastThrottleCheckResult() override;
@@ -151,11 +154,13 @@ class NavigationSimulatorImpl : public NavigationSimulator,
     drop_unload_ack_ = drop_unload_ack;
   }
 
-  // Whether to drop the BeforeUnloadACK of the current RenderFrameHost at the
-  // beginning of a browser-initiated navigation. By default this is false, set
-  // to true if you want to simulate the BeforeUnloadACK manually.
-  void set_block_on_before_unload_ack(bool block_on_before_unload_ack) {
-    block_on_before_unload_ack_ = block_on_before_unload_ack;
+  // Whether to drop the BeforeUnloadCompleted of the current RenderFrameHost at
+  // the beginning of a browser-initiated navigation. By default this is false,
+  // set to true if you want to simulate the BeforeUnloadCompleted manually.
+  void set_block_invoking_before_unload_completed_callback(
+      bool block_invoking_before_unload_completed_callback) {
+    block_invoking_before_unload_completed_callback_ =
+        block_invoking_before_unload_completed_callback;
   }
 
   void set_page_state(const PageState& page_state) { page_state_ = page_state; }
@@ -238,7 +243,7 @@ class NavigationSimulatorImpl : public NavigationSimulator,
 
   // Simulate the UnloadACK in the old RenderFrameHost if it was unloaded at the
   // commit time.
-  void SimulateUnloadACKForPreviousFrameIfNeeded(
+  void SimulateUnloadCompletionCallbackForPreviousFrameIfNeeded(
       RenderFrameHostImpl* previous_frame);
 
   enum State {
@@ -295,6 +300,7 @@ class NavigationSimulatorImpl : public NavigationSimulator,
       network::mojom::CSPDisposition::CHECK;
   net::HttpResponseInfo::ConnectionInfo http_connection_info_ =
       net::HttpResponseInfo::CONNECTION_INFO_UNKNOWN;
+  net::ResolveErrorInfo resolve_error_info_ = net::ResolveErrorInfo(net::OK);
   base::Optional<net::SSLInfo> ssl_info_;
   base::Optional<PageState> page_state_;
   base::Optional<url::Origin> origin_;
@@ -302,7 +308,7 @@ class NavigationSimulatorImpl : public NavigationSimulator,
 
   bool auto_advance_ = true;
   bool drop_unload_ack_ = false;
-  bool block_on_before_unload_ack_ = false;
+  bool block_invoking_before_unload_completed_callback_ = false;
   bool keep_loading_ = false;
 
   // Generic params structure used for fully customized browser initiated

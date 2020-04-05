@@ -32,6 +32,7 @@ namespace switches {
 extern const char kAllowCrossOriginAuthPrompt[];
 extern const char kAllowHttpScreenCapture[];
 extern const char kAllowOutdatedPlugins[];
+extern const char kAllowProfilesOutsideUserDir[];
 extern const char kAllowRunningInsecureContent[];
 extern const char kAllowSilentPush[];
 extern const char kApp[];
@@ -58,7 +59,6 @@ extern const char kCreateBrowserOnStartupForTests[];
 extern const char kCustomDevtoolsFrontend[];
 extern const char kDebugEnableFrameToggle[];
 extern const char kDebugPackedApps[];
-extern const char kDenyPermissionPrompts[];
 extern const char kDevToolsFlags[];
 extern const char kDiagnostics[];
 extern const char kDiagnosticsFormat[];
@@ -90,7 +90,6 @@ extern const char kEnableAutoReload[];
 extern const char kEnableBookmarkUndo[];
 extern const char kEnableCloudPrintProxy[];
 extern const char kEnableDeviceDiscoveryNotifications[];
-extern const char kEnableDevToolsExperiments[];
 extern const char kEnableDomainReliability[];
 extern const char kEnableExtensionActivityLogging[];
 extern const char kEnableExtensionActivityLogTesting[];
@@ -170,6 +169,7 @@ extern const char kSSLVersionTLSv13[];
 extern const char kStartMaximized[];
 extern const char kStartStackProfiler[];
 extern const char kStartStackProfilerBrowserTest[];
+extern const char kStoragePressureNotificationInterval[];
 extern const char kSupervisedUserId[];
 extern const char kSystemLogUploadFrequency[];
 extern const char kTaskManagerShowExtraRenderers[];
@@ -226,7 +226,6 @@ extern const char kWmClass[];
 #if defined(OS_MACOSX)
 extern const char kAppsKeepChromeAliveInTests[];
 extern const char kDisableHostedAppShimCreation[];
-extern const char kEnableFullscreenToolbarReveal[];
 extern const char kEnableUserMetrics[];
 extern const char kHostedAppQuitNotification[];
 extern const char kMetricsClientID[];
@@ -245,10 +244,9 @@ extern const char kNotificationInlineReply[];
 extern const char kNotificationLaunchId[];
 extern const char kPrefetchArgumentBrowserBackground[];
 extern const char kPrefetchArgumentWatcher[];
+extern const char kPwaLauncherVersion[];
 extern const char kShowIcons[];
 extern const char kUninstall[];
-extern const char kUserDataMigrated[];
-extern const char kWatcherProcess[];
 #endif  // defined(OS_WIN)
 
 #if BUILDFLAG(ENABLE_PRINT_PREVIEW) && !defined(OFFICIAL_BUILD)
@@ -269,10 +267,11 @@ extern const char kGuest[];
 #if !defined(OS_CHROMEOS) && !defined(OS_ANDROID)
 // Only has an effect in branded builds.
 extern const char kEnableChromeBrowserCloudManagement[];
+extern const char kUseSystemDefaultPrinter[];
 #endif
 
-#if !defined(OS_CHROMEOS) && !defined(OS_ANDROID)
-extern const char kUseSystemDefaultPrinter[];
+#if BUILDFLAG(ENABLE_DOWNGRADE_PROCESSING)
+extern const char kUserDataMigrated[];
 #endif
 
 // DON'T ADD RANDOM STUFF HERE. Put it in the main section above in

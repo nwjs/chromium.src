@@ -33,13 +33,9 @@ class HardwareRendererViz : public HardwareRenderer {
   bool IsUsingVulkan() const;
 
   // Information about last delegated frame.
-  gfx::Size surface_size_;
   float device_scale_factor_ = 0;
 
   viz::SurfaceId surface_id_;
-
-  // If last draw surface fbo id was zero or not.
-  bool was_fbo0_ = false;
 
   // Used to create viz::OutputSurface and gl::GLSurface
   OutputSurfaceProviderWebview output_surface_provider_;

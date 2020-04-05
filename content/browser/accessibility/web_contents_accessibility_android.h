@@ -9,6 +9,7 @@
 
 #include "base/android/jni_weak_ref.h"
 #include "base/android/scoped_java_ref.h"
+#include "base/memory/weak_ptr.h"
 
 namespace ui {
 class MotionEventAndroid;
@@ -81,6 +82,11 @@ class CONTENT_EXPORT WebContentsAccessibilityAndroid
       jint id);
 
   // Populate Java accessibility data structures with info about a node.
+  jboolean UpdateCachedAccessibilityNodeInfo(
+      JNIEnv* env,
+      const base::android::JavaParamRef<jobject>& obj,
+      const base::android::JavaParamRef<jobject>& info,
+      jint id);
   jboolean PopulateAccessibilityNodeInfo(
       JNIEnv* env,
       const base::android::JavaParamRef<jobject>& obj,
@@ -186,11 +192,18 @@ class CONTENT_EXPORT WebContentsAccessibilityAndroid
                                jint id);
 
   // Scrolls any scrollable container by about 80% of one page in the
-  // given direction.
+  // given direction, or 100% in the case of page scrolls.
   bool Scroll(JNIEnv* env,
               const base::android::JavaParamRef<jobject>& obj,
               jint id,
-              int direction);
+              int direction,
+              bool is_page_scroll);
+
+  // Sets value for range type nodes.
+  bool SetRangeValue(JNIEnv* env,
+                     const base::android::JavaParamRef<jobject>& obj,
+                     jint id,
+                     float value);
 
   // Returns true if the given subtree has inline text box data, or if there
   // aren't any to load.
@@ -256,11 +269,20 @@ class CONTENT_EXPORT WebContentsAccessibilityAndroid
   bool OnHoverEvent(const ui::MotionEventAndroid& event);
   void HandleHover(int32_t unique_id);
   void HandleNavigate();
+  void ClearNodeInfoCacheForGivenId(int32_t unique_id);
+
+  base::WeakPtr<WebContentsAccessibilityAndroid> GetWeakPtr();
 
  private:
   BrowserAccessibilityAndroid* GetAXFromUniqueID(int32_t unique_id);
 
   void CollectStats();
+  void UpdateAccessibilityNodeInfoBoundsRect(
+      JNIEnv* env,
+      const base::android::JavaParamRef<jobject>& obj,
+      const base::android::JavaParamRef<jobject>& info,
+      jint id,
+      BrowserAccessibilityAndroid* node);
 
   // A weak reference to the Java WebContentsAccessibilityAndroid object.
   JavaObjectWeakGlobalRef java_ref_;
@@ -280,6 +302,8 @@ class CONTENT_EXPORT WebContentsAccessibilityAndroid
   // Owns itself, and destroyed upon WebContentsObserver::WebContentsDestroyed.
   class Connector;
   Connector* connector_;
+
+  base::WeakPtrFactory<WebContentsAccessibilityAndroid> weak_ptr_factory_{this};
 
   DISALLOW_COPY_AND_ASSIGN(WebContentsAccessibilityAndroid);
 };

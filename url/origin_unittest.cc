@@ -55,7 +55,6 @@ class OriginTest : public ::testing::Test {
     AddStandardScheme("standard-but-noaccess", SchemeType::SCHEME_WITH_HOST);
     AddNoAccessScheme("standard-but-noaccess");
   }
-  void TearDown() override { url::ResetForTests(); }
 
   ::testing::AssertionResult DoEqualityComparisons(const url::Origin& a,
                                                    const url::Origin& b,
@@ -96,7 +95,8 @@ class OriginTest : public ::testing::Test {
     return origin.GetNonceForSerialization();
   }
 
-  // Wrapper around url::Origin method to expose it to tests.
+  // Wrappers around url::Origin methods to expose it to tests.
+
   base::Optional<Origin> UnsafelyCreateOpaqueOriginWithoutNormalization(
       base::StringPiece precursor_scheme,
       base::StringPiece precursor_host,
@@ -105,6 +105,17 @@ class OriginTest : public ::testing::Test {
     return Origin::UnsafelyCreateOpaqueOriginWithoutNormalization(
         precursor_scheme, precursor_host, precursor_port, nonce);
   }
+
+  base::Optional<std::string> SerializeWithNonce(const Origin& origin) {
+    return origin.SerializeWithNonce();
+  }
+
+  base::Optional<Origin> Deserialize(const std::string& value) {
+    return Origin::Deserialize(value);
+  }
+
+ private:
+  ScopedSchemeRegistryForTests scoped_registry_;
 };
 
 TEST_F(OriginTest, OpaqueOriginComparison) {
@@ -623,9 +634,9 @@ TEST_F(OriginTest, DomainIs) {
   };
 
   for (const auto& test_case : kTestCases) {
-    SCOPED_TRACE(testing::Message() << "(url, domain): (" << test_case.url
-                                    << ", " << test_case.lower_ascii_domain
-                                    << ")");
+    SCOPED_TRACE(testing::Message()
+                 << "(url, domain): (" << test_case.url << ", "
+                 << test_case.lower_ascii_domain << ")");
     GURL url(test_case.url);
     ASSERT_TRUE(url.is_valid());
     Origin origin = Origin::Create(url);
@@ -656,6 +667,7 @@ TEST_F(OriginTest, NonStandardScheme) {
   Origin origin = Origin::Create(GURL("cow://"));
   EXPECT_TRUE(origin.opaque());
 }
+
 TEST_F(OriginTest, NonStandardSchemeWithAndroidWebViewHack) {
   EnableNonStandardSchemesForAndroidWebView();
   Origin origin = Origin::Create(GURL("cow://"));
@@ -663,10 +675,10 @@ TEST_F(OriginTest, NonStandardSchemeWithAndroidWebViewHack) {
   EXPECT_EQ("cow", origin.scheme());
   EXPECT_EQ("", origin.host());
   EXPECT_EQ(0, origin.port());
-  ResetForTests();
 }
 
 TEST_F(OriginTest, CanBeDerivedFrom) {
+  AddStandardScheme("new-standard", SchemeType::SCHEME_WITH_HOST);
   Origin opaque_unique_origin = Origin();
 
   Origin regular_origin = Origin::Create(GURL("https://a.com/"));
@@ -684,7 +696,6 @@ TEST_F(OriginTest, CanBeDerivedFrom) {
       non_standard_scheme_origin.DeriveNewOpaqueOrigin();
 
   // Also, add new standard scheme that is local to the test.
-  AddStandardScheme("new-standard", SchemeType::SCHEME_WITH_HOST);
   Origin new_standard_origin = Origin::Create(GURL("new-standard://host/"));
   Origin new_standard_opaque_precursor_origin =
       new_standard_origin.DeriveNewOpaqueOrigin();
@@ -857,6 +868,80 @@ TEST_F(OriginTest, GetDebugString) {
       Origin::Create(GURL("file://example.com/etc/passwd"));
   EXPECT_STREQ(file_server_origin.GetDebugString().c_str(),
                "file:// [internally: file://example.com]");
+}
+
+TEST_F(OriginTest, Deserialize) {
+  std::vector<GURL> valid_urls = {
+      GURL("https://a.com"),         GURL("http://a"),
+      GURL("http://a:80"),           GURL("file://a.com/etc/passwd"),
+      GURL("file:///etc/passwd"),    GURL("http://192.168.1.1"),
+      GURL("http://[2001:db8::1]/"),
+  };
+  for (const GURL& url : valid_urls) {
+    SCOPED_TRACE(url.spec());
+    Origin origin = Origin::Create(url);
+    base::Optional<std::string> serialized = SerializeWithNonce(origin);
+    ASSERT_TRUE(serialized);
+
+    base::Optional<Origin> deserialized = Deserialize(std::move(*serialized));
+    ASSERT_TRUE(deserialized.has_value());
+
+    EXPECT_TRUE(DoEqualityComparisons(origin, deserialized.value(), true));
+    EXPECT_EQ(origin.GetDebugString(), deserialized.value().GetDebugString());
+  }
+}
+
+TEST_F(OriginTest, DeserializeInvalid) {
+  EXPECT_EQ(base::nullopt, Deserialize(std::string()));
+  EXPECT_EQ(base::nullopt, Deserialize("deadbeef"));
+  EXPECT_EQ(base::nullopt, Deserialize("0123456789"));
+  EXPECT_EQ(base::nullopt, Deserialize("https://a.com"));
+  EXPECT_EQ(base::nullopt, Deserialize("https://192.168.1.1"));
+}
+
+TEST_F(OriginTest, SerializeTBDNonce) {
+  std::vector<GURL> invalid_urls = {
+      GURL("data:uniqueness"),       GURL("data:,"),
+      GURL("data:text/html,Hello!"), GURL("javascript:alert(1)"),
+      GURL("about:blank"),           GURL("google.com"),
+  };
+  for (const GURL& url : invalid_urls) {
+    SCOPED_TRACE(url.spec());
+    Origin origin = Origin::Create(url);
+    base::Optional<std::string> serialized = SerializeWithNonce(origin);
+    base::Optional<Origin> deserialized = Deserialize(std::move(*serialized));
+    ASSERT_TRUE(deserialized.has_value());
+
+    // Can't use DoEqualityComparisons here since empty nonces are never ==
+    // unless they are the same object.
+    EXPECT_EQ(origin.GetDebugString(), deserialized.value().GetDebugString());
+  }
+
+  // Same basic test as above, but without a GURL to create tuple_.
+  Origin opaque;
+  base::Optional<std::string> serialized = SerializeWithNonce(opaque);
+  ASSERT_TRUE(serialized);
+
+  base::Optional<Origin> deserialized = Deserialize(std::move(*serialized));
+  ASSERT_TRUE(deserialized.has_value());
+
+  // Can't use DoEqualityComparisons here since empty nonces are never == unless
+  // they are the same object.
+  EXPECT_EQ(opaque.GetDebugString(), deserialized.value().GetDebugString());
+}
+
+TEST_F(OriginTest, DeserializeValidNonce) {
+  Origin opaque;
+  GetNonce(opaque);
+
+  base::Optional<std::string> serialized = SerializeWithNonce(opaque);
+  ASSERT_TRUE(serialized);
+
+  base::Optional<Origin> deserialized = Deserialize(std::move(*serialized));
+  ASSERT_TRUE(deserialized.has_value());
+
+  EXPECT_TRUE(DoEqualityComparisons(opaque, deserialized.value(), true));
+  EXPECT_EQ(opaque.GetDebugString(), deserialized.value().GetDebugString());
 }
 
 }  // namespace url

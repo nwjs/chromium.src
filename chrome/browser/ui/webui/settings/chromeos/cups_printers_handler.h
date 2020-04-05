@@ -18,7 +18,7 @@
 #include "chrome/browser/ui/webui/settings/settings_page_ui_handler.h"
 #include "chromeos/printing/ppd_provider.h"
 #include "chromeos/printing/printer_configuration.h"
-#include "printing/printer_query_result_chromeos.h"
+#include "printing/printer_query_result.h"
 #include "ui/shell_dialogs/select_file_dialog.h"
 
 namespace base {
@@ -29,6 +29,10 @@ class ListValue;
 namespace local_discovery {
 class EndpointResolver;
 }  // namespace local_discovery
+
+namespace printing {
+struct PrinterStatus;
+}  // namespace printing
 
 class GURL;
 class Profile;
@@ -77,14 +81,17 @@ class CupsPrintersHandler : public ::settings::SettingsPageUIHandler,
   void HandleGetPrinterInfo(const base::ListValue* args);
 
   // Handles the callback for HandleGetPrinterInfo. |callback_id| is the
-  // identifier to resolve the correct Promise. |success| indicates if the query
-  // was successful. |make| is the detected printer manufacturer. |model| is the
+  // identifier to resolve the correct Promise. |result| indicates if the query
+  // was successful. |printer_status| contains the current status of the
+  // printer. |make| is the detected printer manufacturer. |model| is the
   // detected model. |make_and_model| is the unparsed printer-make-and-model
   // string. |ipp_everywhere| indicates if configuration using the CUPS IPP
-  // Everywhere driver should be attempted. If |success| is false, the values of
-  // |make|, |model|, |make_and_model|, and |ipp_everywhere| are not specified.
+  // Everywhere driver should be attempted. If |result| is not SUCCESS, the
+  // values of |printer_status|, |make|, |model|, |make_and_model|, and
+  // |ipp_everywhere| are not specified.
   void OnAutoconfQueried(const std::string& callback_id,
                          printing::PrinterQueryResult result,
+                         const printing::PrinterStatus& printer_status,
                          const std::string& make,
                          const std::string& model,
                          const std::string& make_and_model,
@@ -96,6 +103,7 @@ class CupsPrintersHandler : public ::settings::SettingsPageUIHandler,
       const std::string& callback_id,
       Printer printer,
       printing::PrinterQueryResult result,
+      const printing::PrinterStatus& printer_status,
       const std::string& make,
       const std::string& model,
       const std::string& make_and_model,
@@ -214,8 +222,14 @@ class CupsPrintersHandler : public ::settings::SettingsPageUIHandler,
                     const net::IPEndPoint& endpoint);
 
   void HandleQueryPrintServer(const base::ListValue* args);
+
+  void QueryPrintServer(const std::string& callback_id,
+                        const GURL& server_url,
+                        bool should_fallback);
+
   void OnQueryPrintServerCompleted(
       const std::string& callback_id,
+      bool should_fallback,
       const ServerPrintersFetcher* sender,
       const GURL& server_url,
       std::vector<PrinterDetector::DetectedPrinter>&& returned_printers);

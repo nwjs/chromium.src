@@ -13,6 +13,7 @@
 #include "base/containers/flat_set.h"
 #include "base/feature_list.h"
 #include "base/location.h"
+#include "base/memory/ptr_util.h"
 #include "base/single_thread_task_runner.h"
 #include "base/stl_util.h"
 #include "base/threading/thread_task_runner_handle.h"
@@ -107,13 +108,16 @@ base::flat_set<std::string> GetStringListPolicyItems(
 
 }  // namespace
 
-PolicyServiceImpl::PolicyServiceImpl(Providers providers)
+PolicyServiceImpl::PolicyServiceImpl(Providers providers, Migrators migrators)
     : PolicyServiceImpl(std::move(providers),
+                        std::move(migrators),
                         /*initialization_throttled=*/false) {}
 
 PolicyServiceImpl::PolicyServiceImpl(Providers providers,
+                                     Migrators migrators,
                                      bool initialization_throttled)
     : providers_(std::move(providers)),
+      migrators_(std::move(migrators)),
       initialization_throttled_(initialization_throttled) {
   for (int domain = 0; domain < POLICY_DOMAIN_SIZE; ++domain)
     initialization_complete_[domain] = true;
@@ -131,9 +135,11 @@ PolicyServiceImpl::PolicyServiceImpl(Providers providers,
 
 // static
 std::unique_ptr<PolicyServiceImpl>
-PolicyServiceImpl::CreateWithThrottledInitialization(Providers providers) {
-  return base::WrapUnique(new PolicyServiceImpl(
-      std::move(providers), /*initialization_throttled=*/true));
+PolicyServiceImpl::CreateWithThrottledInitialization(Providers providers,
+                                                     Migrators migrators) {
+  return base::WrapUnique(
+      new PolicyServiceImpl(std::move(providers), std::move(migrators),
+                            /*initialization_throttled=*/true));
 }
 
 PolicyServiceImpl::~PolicyServiceImpl() {
@@ -326,6 +332,9 @@ void PolicyServiceImpl::MergeAndTriggerUpdates() {
 
   for (auto it = bundle.begin(); it != bundle.end(); ++it)
     it->second->MergeValues(mergers);
+
+  for (auto& migrator : migrators_)
+    migrator->Migrate(&bundle);
 
   // Swap first, so that observers that call GetPolicies() see the current
   // values.

@@ -32,6 +32,7 @@
 #include "ash/public/cpp/app_list/app_list_switches.h"
 #include "ash/public/cpp/ash_features.h"
 #include "ash/public/cpp/pagination/pagination_controller.h"
+#include "base/bind_helpers.h"
 #include "base/guid.h"
 #include "base/macros.h"
 #include "base/metrics/histogram_macros.h"
@@ -257,10 +258,6 @@ bool IsOEMFolderItem(AppListItem* item) {
              AppListFolderItem::FOLDER_TYPE_OEM;
 }
 
-int GetCompositorActivatedFrameCount(ui::Compositor* compositor) {
-  return compositor ? compositor->activated_frame_count() : 0;
-}
-
 }  // namespace
 
 std::string GridIndex::ToString() const {
@@ -335,11 +332,9 @@ AppsGridView::AppsGridView(ContentsView* contents_view,
     : folder_delegate_(folder_delegate),
       contents_view_(contents_view),
       page_flip_delay_in_ms_(kPageFlipDelayInMsFullscreen),
-      pagination_animation_start_frame_number_(0),
       view_structure_(this) {
   DCHECK(contents_view_);
   SetPaintToLayer(ui::LAYER_NOT_DRAWN);
-  layer()->SetMasksToBounds(true);
   // Clip any icons that are outside the grid view's bounds. These icons would
   // otherwise be visible to the user when the grid view is off screen.
   layer()->SetMasksToBounds(true);
@@ -347,7 +342,8 @@ AppsGridView::AppsGridView(ContentsView* contents_view,
   items_container_ = AddChildView(std::make_unique<views::View>());
   items_container_->SetPaintToLayer();
   items_container_->layer()->SetFillsBoundsOpaquely(false);
-  bounds_animator_ = std::make_unique<views::BoundsAnimator>(items_container_);
+  bounds_animator_ = std::make_unique<views::BoundsAnimator>(
+      items_container_, /*use_transforms=*/true);
 
   if (!folder_delegate) {
     SetBorder(views::CreateEmptyBorder(
@@ -368,6 +364,12 @@ AppsGridView::AppsGridView(ContentsView* contents_view,
           : base::BindRepeating(&AppListRecordPageSwitcherSourceByEventType),
       IsTabletMode());
   bounds_animator_->AddObserver(this);
+
+  pagination_metrics_reporter_ =
+      std::make_unique<PaginationTransitionAnimationReporter>();
+  pagination_metrics_recorder_ =
+      std::make_unique<AppListAnimationMetricsRecorder>(
+          pagination_metrics_reporter_.get());
 }
 
 AppsGridView::~AppsGridView() {
@@ -724,6 +726,10 @@ void AppsGridView::EndDrag(bool cancel) {
           DropTargetIsValidFolder()) {
         MaybeCreateFolderDroppingAccessibilityEvent();
         folder_item_view = MoveItemToFolder(drag_view_, drop_target_);
+        // If the view that the folder is replacing had a layer, ensure the new
+        // folder view has one too.
+        if (drag_view_ && drag_view_->layer())
+          folder_item_view->EnsureLayer();
       } else if (IsValidReorderTargetIndex(drop_target_)) {
         // Ensure reorder event has already been announced by the end of drag.
         MaybeCreateDragReorderAccessibilityEvent();
@@ -1734,7 +1740,7 @@ gfx::Rect AppsGridView::GetTargetIconRectInFolder(
   const gfx::Rect icon_ideal_bounds =
       folder_item_view->GetIconBoundsForTargetViewBounds(
           GetAppListConfig(), view_ideal_bounds,
-          folder_item_view->GetIconImage().size());
+          folder_item_view->GetIconImage().size(), /*icon_scale=*/1.0f);
   AppListFolderItem* folder_item =
       static_cast<AppListFolderItem*>(folder_item_view->item());
   return folder_item->GetTargetIconRectInFolderForItem(
@@ -1931,15 +1937,27 @@ void AppsGridView::EndDragFromReparentItemInRootLevel(
   }
 
   SetAsFolderDroppingTarget(drop_target_, false);
+
+  AppListItemView* released_drag_view = nullptr;
   if (!cancel_reparent) {
     // By setting |drag_view_| to nullptr here, we prevent ClearDragState() from
     // cleaning up the newly created AppListItemView, effectively claiming
     // ownership of the newly created drag view.
     drag_view_->OnDragEnded();
+    // Hide the title if the item is being dropped into another folder, so it
+    // doesn't flash during transition. Otherwise, the item is being dropped
+    // into the root apps grid - pass the released view to
+    // AnimateToIdealBounds(), which will ensure the title remains hidden
+    // during the item view bounds animation to the target apps grid location.
+    if (folder_item_view) {
+      drag_view_->title()->SetVisible(false);
+    } else {
+      released_drag_view = drag_view_;
+    }
     drag_view_ = nullptr;
   }
   ClearDragState();
-  AnimateToIdealBounds(nullptr /* released_drag_view */);
+  AnimateToIdealBounds(released_drag_view);
   if (!folder_delegate_)
     view_structure_.SaveToMetadata();
 
@@ -2159,7 +2177,8 @@ void AppsGridView::StartDragAndDropHostDrag(const gfx::Point& grid_location) {
   DCHECK(!IsDraggingForReparentInRootLevelGridView());
   drag_and_drop_host_->CreateDragIconProxyByLocationWithNoAnimation(
       drag_view_->GetIconBoundsInScreen().origin(), drag_view_->GetIconImage(),
-      drag_view_, kDragAndDropProxyScale,
+      drag_view_,
+      drag_view_->item()->is_folder() ? kDragAndDropProxyScale : 1.0f,
       drag_view_->item()->is_folder() && IsTabletMode()
           ? GetAppListConfig().blur_radius()
           : 0);
@@ -2355,6 +2374,7 @@ void AppsGridView::FadeOutItemViewAndDelete(AppListItemView* item_view) {
   view_model_.Remove(model_index);
   if (!folder_delegate_)
     view_structure_.Remove(item_view);
+  item_view->title()->SetVisible(false);
   bounds_animator_->AnimateViewTo(item_view, item_view->bounds());
   bounds_animator_->SetAnimationDelegate(
       item_view, std::unique_ptr<gfx::AnimationDelegate>(
@@ -2779,8 +2799,6 @@ void AppsGridView::TransitionStarting() {
 
   MaybeCreateGradientMask();
   CancelContextMenusOnCurrentPage();
-  pagination_animation_start_frame_number_ =
-      GetCompositorActivatedFrameCount(layer()->GetCompositor());
 }
 
 void AppsGridView::TransitionStarted() {
@@ -2788,6 +2806,10 @@ void AppsGridView::TransitionStarted() {
           pagination_model_.selected_page()) > 1) {
     Layout();
   }
+
+  pagination_metrics_recorder_->OnAnimationStart(
+      pagination_model_.GetTransitionAnimationSlideDuration(),
+      GetWidget()->GetCompositor());
 }
 
 void AppsGridView::TransitionChanged() {
@@ -2828,23 +2850,12 @@ void AppsGridView::TransitionChanged() {
 }
 
 void AppsGridView::TransitionEnded() {
-  const base::TimeDelta duration =
-      pagination_model_.GetTransitionAnimationSlideDuration();
+  pagination_metrics_reporter_->set_is_tablet_mode(IsTabletMode());
+  pagination_metrics_recorder_->OnAnimationEnd(GetWidget()->GetCompositor());
 
-  ui::Compositor* compositor = layer()->GetCompositor();
-  // Do not record animation smoothness if |compositor| is nullptr.
-  if (!compositor)
-    return;
-
-  const int end_frame_number = GetCompositorActivatedFrameCount(compositor);
-  if (end_frame_number > pagination_animation_start_frame_number_ &&
-      !duration.is_zero()) {
-    RecordPaginationAnimationSmoothness(
-        end_frame_number - pagination_animation_start_frame_number_, duration,
-        compositor->refresh_rate(), IsTabletMode());
-  }
   // Gradient mask is no longer necessary once transition is finished.
-  layer()->SetMaskLayer(nullptr);
+  if (layer()->layer_mask_layer())
+    layer()->SetMaskLayer(nullptr);
 }
 
 void AppsGridView::ScrollStarted() {
@@ -2865,8 +2876,9 @@ void AppsGridView::ScrollStarted() {
 void AppsGridView::ScrollEnded() {
   // Scroll can end without triggering state animation.
   presentation_time_recorder_.reset();
-  // No need to reset the mask because transition will happen in almost all
-  // cases.
+  // Need to reset the mask because transition will not happen in some
+  // cases. (See https://crbug.com/1049275)
+  layer()->SetMaskLayer(nullptr);
 }
 
 void AppsGridView::OnAppListModelStatusChanged() {

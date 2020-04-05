@@ -3,18 +3,21 @@
 <link rel="import" href="chrome://resources/cr_elements/cr_button/cr_button.html">
 <link rel="import" href="chrome://resources/cr_elements/hidden_style_css.html">
 <link rel="import" href="chrome://resources/cr_elements/shared_vars_css.html">
-<link rel="import" href="chrome://resources/html/web_ui_listener_behavior.html">
+<link rel="import" href="chrome://resources/html/assert.html">
 <link rel="import" href="../appearance_page/appearance_page.html">
 <link rel="import" href="../privacy_page/privacy_page.html">
+<link rel="import" href="../safety_check_page/safety_check_page.html">
 <link rel="import" href="../autofill_page/autofill_page.html">
-<link rel="import" href="../change_password_page/change_password_page.html">
 <link rel="import" href="../controls/settings_idle_load.html">
 <link rel="import" href="../on_startup_page/on_startup_page.html">
 <link rel="import" href="../people_page/people_page.html">
 <link rel="import" href="../reset_page/reset_profile_banner.html">
 <link rel="import" href="../search_page/search_page.html">
+<link rel="import" href="../search_settings.html">
 <link rel="import" href="../settings_page/main_page_behavior.html">
 <link rel="import" href="../settings_page/settings_section.html">
+<link rel="import" href="../i18n_setup.html">
+<link rel="import" href="../page_visibility.html">
 <link rel="import" href="../route.html">
 <link rel="import" href="../router.html">
 <link rel="import" href="../settings_page_css.html">
@@ -59,10 +62,10 @@
       }
 
       #osSettingsBanner {
-        @apply --cr-card-elevation;
         align-items: center;
         background-color: white;
         border-radius: 2px;
+        box-shadow: var(--cr-card-shadow);
         display: flex;
         margin-top: 21px;
       }
@@ -107,11 +110,6 @@
           </div>
         </template>
 </if>
-        <template is="dom-if" if="[[showChangePassword]]" restamp>
-          <settings-section section="changePassword">
-            <settings-change-password-page></settings-change-password-page>
-          </settings-section>
-        </template>
         <template is="dom-if" if="[[showPage_(pageVisibility.people)]]" restamp>
           <settings-section page-title="$i18n{peoplePageTitle}"
               section="people">
@@ -125,6 +123,15 @@
           <settings-section page-title="$i18n{autofillPageTitle}"
               section="autofill">
             <settings-autofill-page prefs="{{prefs}}"></settings-autofill-page>
+          </settings-section>
+        </template>
+        <template is="dom-if" if="[[showSafetyCheckPage_(
+            pageVisibility.privacy)]]" restamp>
+          <settings-section page-title="$i18n{safetyCheckSectionTitle}"
+              section="safetyCheck"
+              id="safetyCheckSettingsSection">
+            <settings-safety-check-page prefs="{{prefs}}">
+            </settings-safety-check-page>
           </settings-section>
         </template>
         <template is="dom-if" if="[[showPage_(pageVisibility.privacy)]]"

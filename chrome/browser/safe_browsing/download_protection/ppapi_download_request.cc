@@ -15,9 +15,9 @@
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/safe_browsing/download_protection/download_protection_service.h"
 #include "chrome/browser/safe_browsing/download_protection/download_protection_util.h"
-#include "chrome/common/safe_browsing/file_type_policies.h"
 #include "components/safe_browsing/core/common/utils.h"
 #include "components/safe_browsing/core/db/database_manager.h"
+#include "components/safe_browsing/core/file_type_policies.h"
 #include "components/sessions/content/session_tab_helper.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
@@ -60,9 +60,11 @@ PPAPIDownloadRequest::PPAPIDownloadRequest(
       database_manager_(database_manager),
       start_time_(base::TimeTicks::Now()),
       supported_path_(
-          GetSupportedFilePath(default_file_path, alternate_extensions)) {
+          GetSupportedFilePath(default_file_path, alternate_extensions)),
+      profile_(profile) {
   DCHECK(profile);
   is_extended_reporting_ = IsExtendedReportingEnabled(*profile->GetPrefs());
+  is_enhanced_protection_ = IsEnhancedProtectionEnabled(*profile->GetPrefs());
 
   if (service->navigation_observer_manager()) {
     has_user_gesture_ =
@@ -166,9 +168,11 @@ void PPAPIDownloadRequest::SendRequest() {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
   ClientDownloadRequest request;
-  auto population = is_extended_reporting_
-                        ? ChromeUserPopulation::EXTENDED_REPORTING
-                        : ChromeUserPopulation::SAFE_BROWSING;
+  auto population = is_enhanced_protection_
+                        ? ChromeUserPopulation::ENHANCED_PROTECTION
+                        : is_extended_reporting_
+                              ? ChromeUserPopulation::EXTENDED_REPORTING
+                              : ChromeUserPopulation::SAFE_BROWSING;
   request.mutable_population()->set_user_population(population);
   request.mutable_population()->set_profile_management_status(
       GetProfileManagementStatus(
@@ -255,7 +259,7 @@ void PPAPIDownloadRequest::SendRequest() {
   loader_->AttachStringForUpload(client_download_request_data_,
                                  "application/octet-stream");
   loader_->DownloadToStringOfUnboundedSizeUntilCrashAndDie(
-      service_->url_loader_factory_.get(),
+      service_->GetURLLoaderFactory(profile_).get(),
       base::BindOnce(&PPAPIDownloadRequest::OnURLLoaderComplete,
                      base::Unretained(this)));
 }

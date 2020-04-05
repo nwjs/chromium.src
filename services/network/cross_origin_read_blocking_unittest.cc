@@ -2037,7 +2037,9 @@ class ResponseAnalyzerTest : public testing::Test,
     // Create a ResponseAnalyzer to test.
     analyzer_ = std::make_unique<ResponseAnalyzer>(
         request->url(), request->initiator(), response,
-        request_initiator_site_lock, request_mode);
+        request_initiator_site_lock, request_mode,
+        base::nullopt /* isolated_world_origin */,
+        nullptr /* network_service_client */);
 
     // Verify MIME type was classified correctly.
     EXPECT_EQ(scenario.canonical_mime_type,

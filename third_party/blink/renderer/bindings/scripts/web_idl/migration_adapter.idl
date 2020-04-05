@@ -8,10 +8,6 @@
 // and the *.idl files get updated to be spec conformant, almost all (if not
 // really all) the followings will be gone.
 
-typedef object SerializedScriptValue;
-
-dictionary Dictionary {};
-
 typedef EventHandlerNonNull? EventHandler;
 
 typedef DOMMatrix DOMMatrixConstructor;
@@ -24,8 +20,3 @@ typedef SpeechRecognition SpeechRecognitionConstructor;
 typedef SpeechRecognitionErrorEvent SpeechRecognitionErrorEventConstructor;
 typedef SpeechRecognitionEvent SpeechRecognitionEventConstructor;
 typedef URL URLConstructor;
-
-// https://heycam.github.io/webidl/#ArrayBufferView
-typedef (Int8Array or Int16Array or Int32Array or
-         Uint8Array or Uint16Array or Uint32Array or Uint8ClampedArray or
-         Float32Array or Float64Array or DataView) ArrayBufferView;

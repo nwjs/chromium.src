@@ -6,7 +6,9 @@
 
 #include "cc/layers/heads_up_display_layer.h"
 #include "cc/layers/picture_layer.h"
+#include "cc/trees/layer_tree_host.h"
 #include "third_party/blink/public/common/input/web_pointer_event.h"
+#include "third_party/blink/renderer/core/dom/dom_node_ids.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame_client.h"
@@ -28,18 +30,18 @@ namespace blink {
 
 using ReattachHook = LayoutShiftTracker::ReattachHook;
 
-static ReattachHook& GetReattachHook() {
+namespace {
+
+ReattachHook& GetReattachHook() {
   DEFINE_STATIC_LOCAL(Persistent<ReattachHook>, hook,
                       (MakeGarbageCollected<ReattachHook>()));
   return *hook;
 }
 
-static constexpr base::TimeDelta kTimerDelay =
-    base::TimeDelta::FromMilliseconds(500);
-static const float kMovementThreshold = 3.0;  // CSS pixels.
+constexpr base::TimeDelta kTimerDelay = base::TimeDelta::FromMilliseconds(500);
+const float kMovementThreshold = 3.0;  // CSS pixels.
 
-static FloatPoint LogicalStart(const FloatRect& rect,
-                               const LayoutObject& object) {
+FloatPoint LogicalStart(const FloatRect& rect, const LayoutObject& object) {
   const ComputedStyle* style = object.Style();
   DCHECK(style);
   auto logical =
@@ -48,58 +50,66 @@ static FloatPoint LogicalStart(const FloatRect& rect,
   return FloatPoint(logical.InlineStart(), logical.BlockStart());
 }
 
-static float GetMoveDistance(const FloatRect& old_rect,
-                             const FloatRect& new_rect,
-                             const LayoutObject& object) {
+float GetMoveDistance(const FloatRect& old_rect,
+                      const FloatRect& new_rect,
+                      const LayoutObject& object) {
   FloatSize location_delta =
       LogicalStart(new_rect, object) - LogicalStart(old_rect, object);
   return std::max(fabs(location_delta.Width()), fabs(location_delta.Height()));
 }
 
-static bool EqualWithinMovementThreshold(const FloatPoint& a,
-                                         const FloatPoint& b,
-                                         const LayoutObject& object) {
+bool EqualWithinMovementThreshold(const FloatPoint& a,
+                                  const FloatPoint& b,
+                                  const LayoutObject& object) {
   float threshold_physical_px =
       kMovementThreshold * object.StyleRef().EffectiveZoom();
   return fabs(a.X() - b.X()) < threshold_physical_px &&
          fabs(a.Y() - b.Y()) < threshold_physical_px;
 }
 
-static bool SmallerThanRegionGranularity(const FloatRect& rect) {
+bool SmallerThanRegionGranularity(const FloatRect& rect) {
   // The region uses integer coordinates, so the rects are snapped to
   // pixel boundaries. Ignore rects smaller than half a pixel.
   return rect.Width() < 0.5 || rect.Height() < 0.5;
 }
 
-static const PropertyTreeState PropertyTreeStateFor(
-    const LayoutObject& object) {
+const PropertyTreeState PropertyTreeStateFor(const LayoutObject& object) {
   return object.FirstFragment().LocalBorderBoxProperties();
 }
 
-static void RegionToTracedValue(const LayoutShiftRegion& region,
-                                TracedValue& value) {
+void RectToTracedValue(const IntRect& rect,
+                       TracedValue& value,
+                       const char* key = nullptr) {
+  if (key)
+    value.BeginArray(key);
+  else
+    value.BeginArray();
+  value.PushInteger(rect.X());
+  value.PushInteger(rect.Y());
+  value.PushInteger(rect.Width());
+  value.PushInteger(rect.Height());
+  value.EndArray();
+}
+
+void RegionToTracedValue(const LayoutShiftRegion& region, TracedValue& value) {
   Region blink_region;
   for (IntRect rect : region.GetRects())
     blink_region.Unite(Region(rect));
 
   value.BeginArray("region_rects");
-  for (const IntRect& rect : blink_region.Rects()) {
-    value.BeginArray();
-    value.PushInteger(rect.X());
-    value.PushInteger(rect.Y());
-    value.PushInteger(rect.Width());
-    value.PushInteger(rect.Height());
-    value.EndArray();
-  }
+  for (const IntRect& rect : blink_region.Rects())
+    RectToTracedValue(rect, value);
   value.EndArray();
 }
 
 #if DCHECK_IS_ON()
-static bool ShouldLog(const LocalFrame& frame) {
+bool ShouldLog(const LocalFrame& frame) {
   const String& url = frame.GetDocument()->Url().GetString();
-  return !url.StartsWith("chrome-devtools:") && !url.StartsWith("devtools:");
+  return !url.StartsWith("devtools:");
 }
 #endif
+
+}  // namespace
 
 LayoutShiftTracker::LayoutShiftTracker(LocalFrameView* frame_view)
     : frame_view_(frame_view),
@@ -208,6 +218,60 @@ void LayoutShiftTracker::ObjectShifted(
 
   region_.AddRect(visible_old_rect);
   region_.AddRect(visible_new_rect);
+
+  if (Node* node = source.GetNode()) {
+    MaybeRecordAttribution(
+        {DOMNodeIds::IdForNode(node), visible_old_rect, visible_new_rect});
+  }
+}
+
+LayoutShiftTracker::Attribution::Attribution() : node_id(kInvalidDOMNodeId) {}
+LayoutShiftTracker::Attribution::Attribution(DOMNodeId node_id_arg,
+                                             IntRect old_visual_rect_arg,
+                                             IntRect new_visual_rect_arg)
+    : node_id(node_id_arg),
+      old_visual_rect(old_visual_rect_arg),
+      new_visual_rect(new_visual_rect_arg) {}
+
+LayoutShiftTracker::Attribution::operator bool() const {
+  return node_id != kInvalidDOMNodeId;
+}
+
+bool LayoutShiftTracker::Attribution::Encloses(const Attribution& other) const {
+  return old_visual_rect.Contains(other.old_visual_rect) &&
+         new_visual_rect.Contains(other.new_visual_rect);
+}
+
+int LayoutShiftTracker::Attribution::Area() const {
+  int old_area = old_visual_rect.Width() * old_visual_rect.Height();
+  int new_area = new_visual_rect.Width() * new_visual_rect.Height();
+
+  IntRect intersection = Intersection(old_visual_rect, new_visual_rect);
+  int shared_area = intersection.Width() * intersection.Height();
+  return old_area + new_area - shared_area;
+}
+
+bool LayoutShiftTracker::Attribution::MoreImpactfulThan(
+    const Attribution& other) const {
+  return Area() > other.Area();
+}
+
+void LayoutShiftTracker::MaybeRecordAttribution(
+    const Attribution& attribution) {
+  Attribution* smallest = nullptr;
+  for (auto& slot : attributions_) {
+    if (!slot || attribution.Encloses(slot)) {
+      slot = attribution;
+      return;
+    }
+    if (slot.Encloses(attribution))
+      return;
+    if (!smallest || smallest->MoreImpactfulThan(slot))
+      smallest = &slot;
+  }
+  // No empty slots or redundancies. Replace smallest existing slot if larger.
+  if (attribution.MoreImpactfulThan(*smallest))
+    *smallest = attribution;
 }
 
 void LayoutShiftTracker::NotifyObjectPrePaint(
@@ -296,6 +360,7 @@ void LayoutShiftTracker::NotifyPrePaintFinished() {
 
   frame_max_distance_ = 0.0;
   frame_scroll_delta_ = ScrollOffset();
+  attributions_.fill(Attribution());
 }
 
 void LayoutShiftTracker::ReportShift(double score_delta,
@@ -386,15 +451,14 @@ void LayoutShiftTracker::UpdateInputTimestamp(base::TimeTicks timestamp) {
   }
 }
 
-void LayoutShiftTracker::NotifyScroll(
-    mojom::blink::ScrollIntoViewParams::Type scroll_type,
-    ScrollOffset delta) {
+void LayoutShiftTracker::NotifyScroll(mojom::blink::ScrollType scroll_type,
+                                      ScrollOffset delta) {
   frame_scroll_delta_ += delta;
 
   // Only set observed_input_or_scroll_ for user-initiated scrolls, and not
   // other scrolls such as hash fragment navigations.
-  if (scroll_type == mojom::blink::ScrollIntoViewParams::Type::kUser ||
-      scroll_type == mojom::blink::ScrollIntoViewParams::Type::kCompositor)
+  if (scroll_type == mojom::blink::ScrollType::kUser ||
+      scroll_type == mojom::blink::ScrollType::kCompositor)
     observed_input_or_scroll_ = true;
 }
 
@@ -423,7 +487,33 @@ std::unique_ptr<TracedValue> LayoutShiftTracker::PerFrameTraceData(
   RegionToTracedValue(region_, *value);
   value->SetBoolean("is_main_frame", frame_view_->GetFrame().IsMainFrame());
   value->SetBoolean("had_recent_input", input_detected);
+  AttributionsToTracedValue(*value);
   return value;
+}
+
+void LayoutShiftTracker::AttributionsToTracedValue(TracedValue& value) const {
+  const Attribution* it = attributions_.begin();
+  if (!*it)
+    return;
+
+  bool should_include_names;
+  TRACE_EVENT_CATEGORY_GROUP_ENABLED(
+      TRACE_DISABLED_BY_DEFAULT("layout_shift.debug"), &should_include_names);
+
+  value.BeginArray("impacted_nodes");
+  while (it != attributions_.end() && it->node_id != kInvalidDOMNodeId) {
+    value.BeginDictionary();
+    value.SetInteger("node_id", it->node_id);
+    RectToTracedValue(it->old_visual_rect, value, "old_rect");
+    RectToTracedValue(it->new_visual_rect, value, "new_rect");
+    if (should_include_names) {
+      Node* node = DOMNodeIds::NodeForId(it->node_id);
+      value.SetString("debug_name", node ? node->DebugName() : "");
+    }
+    value.EndDictionary();
+    it++;
+  }
+  value.EndArray();
 }
 
 void LayoutShiftTracker::SetLayoutShiftRects(const Vector<IntRect>& int_rects) {

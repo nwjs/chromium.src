@@ -5,25 +5,15 @@
 #ifndef THIRD_PARTY_BLINK_PUBLIC_WEB_WEB_FRAME_OWNER_PROPERTIES_H_
 #define THIRD_PARTY_BLINK_PUBLIC_WEB_WEB_FRAME_OWNER_PROPERTIES_H_
 
+#include "third_party/blink/public/mojom/scroll/scrollbar_mode.mojom-shared.h"
 #include "third_party/blink/public/platform/web_string.h"
-
-#if INSIDE_BLINK
-#include "third_party/blink/renderer/core/scroll/scroll_types.h"  // nogncheck
-#endif
 
 namespace blink {
 
 struct WebFrameOwnerProperties {
-  enum class ScrollingMode {
-    kAuto,
-    kAlwaysOff,
-    kAlwaysOn,
-    kMaxValue = kAlwaysOn
-  };
-
   WebString nwuseragent;
   WebString name;  // browsing context container's name
-  ScrollingMode scrolling_mode;
+  mojom::ScrollbarMode scrollbar_mode;
   bool nwFakeTop;
   int margin_width;
   int margin_height;
@@ -34,7 +24,8 @@ struct WebFrameOwnerProperties {
 
  public:
   WebFrameOwnerProperties()
-      : scrolling_mode(ScrollingMode::kAuto), nwFakeTop(false),
+      : scrollbar_mode(mojom::ScrollbarMode::kAuto),
+        nwFakeTop(false),
         margin_width(-1),
         margin_height(-1),
         allow_fullscreen(false),
@@ -43,7 +34,7 @@ struct WebFrameOwnerProperties {
 
 #if INSIDE_BLINK
   WebFrameOwnerProperties(const WebString& name,
-                          ScrollbarMode scrolling_mode,
+                          mojom::ScrollbarMode scrollbar_mode,
                           int margin_width,
                           int margin_height,
                           bool allow_fullscreen,
@@ -51,7 +42,7 @@ struct WebFrameOwnerProperties {
                           bool is_display_none,
                           const WebString& required_csp)
       : name(name),
-        scrolling_mode(static_cast<ScrollingMode>(scrolling_mode)),
+        scrollbar_mode(scrollbar_mode),
         nwFakeTop(false),
         margin_width(margin_width),
         margin_height(margin_height),

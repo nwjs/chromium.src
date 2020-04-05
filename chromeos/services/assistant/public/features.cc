@@ -70,7 +70,16 @@ const base::FeatureParam<int>
     kAssistantProactiveSuggestionsTimeoutThresholdMillis{
         &kAssistantProactiveSuggestions, "timeout-threshold-millis", 15 * 1000};
 
+// When enabled, Assistant will use response processing V2. This is a set of
+// synced client and server changes which will turn on default parallel client
+// op processing and eager (streaming) UI element rendering.
+const base::Feature kAssistantResponseProcessingV2{
+    "AssistantResponseProcessingV2", base::FEATURE_DISABLED_BY_DEFAULT};
+
 const base::Feature kAssistantRoutines{"AssistantRoutines",
+                                       base::FEATURE_DISABLED_BY_DEFAULT};
+
+const base::Feature kAssistantTimersV2{"AssistantTimersV2",
                                        base::FEATURE_DISABLED_BY_DEFAULT};
 
 const base::Feature kInAssistantNotifications{
@@ -85,17 +94,7 @@ const base::Feature kEnableDspHotword{"EnableDspHotword",
 const base::Feature kEnableStereoAudioInput{"AssistantEnableStereoAudioInput",
                                             base::FEATURE_DISABLED_BY_DEFAULT};
 
-const base::Feature kEnableTextQueriesWithClientDiscourseContext{
-    "AssistantEnableTextQueriesWithClientDiscourseContext",
-    base::FEATURE_DISABLED_BY_DEFAULT};
-
 const base::Feature kEnablePowerManager{"ChromeOSAssistantEnablePowerManager",
-                                        base::FEATURE_DISABLED_BY_DEFAULT};
-
-// Enables sending a screen context request ("What's on my screen?" and
-// metalayer selection) as a text query. This is as opposed to sending
-// the request as a contextual cards request.
-const base::Feature kScreenContextQuery{"ChromeOSAssistantScreenContextQuery",
                                         base::FEATURE_DISABLED_BY_DEFAULT};
 
 const base::Feature kEnableMediaSessionIntegration{
@@ -180,12 +179,12 @@ bool IsProactiveSuggestionsSuppressDuplicatesEnabled() {
   return kAssistantProactiveSuggestionsSuppressDuplicates.Get();
 }
 
-bool IsRoutinesEnabled() {
-  return base::FeatureList::IsEnabled(kAssistantRoutines);
+bool IsResponseProcessingV2Enabled() {
+  return base::FeatureList::IsEnabled(kAssistantResponseProcessingV2);
 }
 
-bool IsScreenContextQueryEnabled() {
-  return base::FeatureList::IsEnabled(kScreenContextQuery);
+bool IsRoutinesEnabled() {
+  return base::FeatureList::IsEnabled(kAssistantRoutines);
 }
 
 bool IsStereoAudioInputEnabled() {
@@ -194,16 +193,16 @@ bool IsStereoAudioInputEnabled() {
          base::FeatureList::IsEnabled(kAssistantAudioEraser);
 }
 
+bool IsTimersV2Enabled() {
+  return base::FeatureList::IsEnabled(kAssistantTimersV2);
+}
+
 bool IsWarmerWelcomeEnabled() {
   return base::FeatureList::IsEnabled(kAssistantWarmerWelcomeFeature);
 }
 
 bool IsVoiceMatchDisabled() {
   return base::FeatureList::IsEnabled(kDisableVoiceMatch);
-}
-
-bool IsAssistantWebContainerEnabled() {
-  return app_list_features::IsAssistantLauncherUIEnabled();
 }
 
 }  // namespace features

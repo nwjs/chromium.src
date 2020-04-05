@@ -8,7 +8,8 @@
 #include "ash/public/cpp/android_intent_helper.h"
 #include "base/scoped_observer.h"
 #include "chrome/browser/ui/app_list/arc/arc_app_list_prefs.h"
-#include "chromeos/services/assistant/public/mojom/assistant.mojom.h"
+#include "chrome/browser/ui/ash/assistant/device_actions_delegate.h"
+#include "chromeos/services/assistant/public/mojom/assistant.mojom-forward.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/receiver_set.h"
 #include "mojo/public/cpp/bindings/remote_set.h"
@@ -17,7 +18,7 @@ class DeviceActions : public ash::AndroidIntentHelper,
                       public chromeos::assistant::mojom::DeviceActions,
                       public ArcAppListPrefs::Observer {
  public:
-  DeviceActions();
+  explicit DeviceActions(std::unique_ptr<DeviceActionsDelegate> delegate);
   ~DeviceActions() override;
 
   mojo::PendingRemote<chromeos::assistant::mojom::DeviceActions> AddReceiver();
@@ -29,6 +30,7 @@ class DeviceActions : public ash::AndroidIntentHelper,
       GetScreenBrightnessLevelCallback callback) override;
   void SetScreenBrightnessLevel(double level, bool gradual) override;
   void SetNightLightEnabled(bool enabled) override;
+  void SetSwitchAccessEnabled(bool enabled) override;
   void OpenAndroidApp(chromeos::assistant::mojom::AndroidAppInfoPtr app_info,
                       OpenAndroidAppCallback callback) override;
   void VerifyAndroidApp(
@@ -49,6 +51,8 @@ class DeviceActions : public ash::AndroidIntentHelper,
   void OnAppRegistered(const std::string& app_id,
                        const ArcAppListPrefs::AppInfo& app_info) override;
   void OnAppRemoved(const std::string& id) override;
+
+  std::unique_ptr<DeviceActionsDelegate> delegate_;
 
   ScopedObserver<ArcAppListPrefs, ArcAppListPrefs::Observer>
       scoped_prefs_observer_{this};

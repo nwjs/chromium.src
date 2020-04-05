@@ -42,11 +42,11 @@ class MediaGalleriesDialogViews : public MediaGalleriesDialog,
   base::string16 GetWindowTitle() const override;
   bool ShouldShowCloseButton() const override;
   void DeleteDelegate() override;
+  views::Widget* GetWidget() override;
+  const views::Widget* GetWidget() const override;
   views::View* GetContentsView() override;
   bool IsDialogButtonEnabled(ui::DialogButton button) const override;
   ui::ModalType GetModalType() const override;
-  bool Cancel() override;
-  bool Accept() override;
 
   // views::ButtonListener:
   void ButtonPressed(views::Button* sender, const ui::Event& event) override;
@@ -66,9 +66,6 @@ class MediaGalleriesDialogViews : public MediaGalleriesDialog,
 
   // MediaGalleriesDialog:
   void AcceptDialogForTesting() override;
-
-  // views::DialogDelegate:
-  const views::Widget* GetWidgetImpl() const override;
 
   void InitChildViews();
 

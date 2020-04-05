@@ -10,6 +10,8 @@
 #include "content/common/content_export.h"
 #include "content/public/browser/global_routing_id.h"
 
+class GURL;
+
 namespace content {
 
 using DedicatedWorkerId = util::IdType64<class DedicatedWorkerTag>;
@@ -28,11 +30,28 @@ class CONTENT_EXPORT DedicatedWorkerService {
     virtual void OnBeforeWorkerTerminated(
         DedicatedWorkerId dedicated_worker_id,
         GlobalFrameRoutingId ancestor_render_frame_host_id) = 0;
+
+    // Called when the final response URL (the URL after redirects) was
+    // determined when fetching the worker's script.
+    //
+    // TODO(pmonette): Implement this in derived classes and make it pure.
+    virtual void OnFinalResponseURLDetermined(
+        DedicatedWorkerId dedicated_worker_id,
+        const GURL& url) {}
   };
 
   // Adds/removes an observer.
   virtual void AddObserver(Observer* observer) = 0;
   virtual void RemoveObserver(Observer* observer) = 0;
+
+  // Invokes OnWorkerStarted() on |observer| for all existing dedicated workers.
+  //
+  // This function must be invoked in conjunction with AddObserver(). It is
+  // meant to be used by an observer that dynamically subscribes to the
+  // DedicatedWorkerService while some workers are already running. It avoids
+  // receiving a OnBeforeWorkerTerminated() event without having received the
+  // corresponding OnWorkerStart() event.
+  virtual void EnumerateDedicatedWorkers(Observer* observer) = 0;
 
  protected:
   virtual ~DedicatedWorkerService() = default;

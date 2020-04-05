@@ -5,6 +5,7 @@
 #import <TestLib/EarlGreyImpl/EarlGrey.h>
 #import <UIKit/UIKit.h>
 
+#include "ios/chrome/browser/pref_names.h"
 #import "ios/chrome/browser/ui/ui_feature_flags.h"
 #include "ios/chrome/grit/ios_strings.h"
 #import "ios/chrome/test/earl_grey/chrome_actions.h"
@@ -151,8 +152,8 @@
   GREYAssertTrue(![ChromeEarlGrey isAutofillProfilePresentWithGUID:fakeGUID
                                                autofillProfileName:profileName],
                  @"Autofill profile should not be present.");
-  [ChromeEarlGrey injectAutofillProfileOnFakeSyncServerWithGUID:fakeGUID
-                                            autofillProfileName:profileName];
+  [ChromeEarlGrey addAutofillProfileToFakeSyncServerWithGUID:fakeGUID
+                                         autofillProfileName:profileName];
 }
 
 // Tests waitForSufficientlyVisibleElementWithMatcher in chrome_earl_grey.h
@@ -228,6 +229,25 @@
                   @"Exactly one new tab should be opened.");
 }
 
+// Tests AppLaunchManager can pass an arbitrary arg to host app.
+- (void)testAppLaunchManagerLaunchWithArbitraryArgs {
+  AppLaunchConfiguration config;
+  config.additional_args = {"-switch1", "--switch2", "--switch3=somevalue"};
+  config.relaunch_policy = ForceRelaunchByKilling;
+
+  [[AppLaunchManager sharedManager] ensureAppLaunchedWithConfiguration:config];
+
+  GREYAssertTrue([ChromeEarlGrey appHasLaunchSwitch:"switch1"],
+                 @"switch1 should be in app launch switches.");
+  GREYAssertTrue([ChromeEarlGrey appHasLaunchSwitch:"switch2"],
+                 @"switch2 should be in app launch switches.");
+  GREYAssertTrue([ChromeEarlGrey appHasLaunchSwitch:"switch3"],
+                 @"switch3 should be in app launch switches.");
+
+  GREYAssertFalse([ChromeEarlGrey appHasLaunchSwitch:"switch4"],
+                  @"switch4 should not be in app launch switches.");
+}
+
 // Tests gracefully kill through AppLaunchManager.
 - (void)testAppLaunchManagerForceRelaunchByCleanShutdown {
   [ChromeEarlGrey openNewTab];
@@ -236,7 +256,6 @@
       relaunchPolicy:ForceRelaunchByCleanShutdown];
   [[EarlGrey selectElementWithMatcher:grey_text(@"Restore")]
       assertWithMatcher:grey_notVisible()];
-  [ChromeEarlGrey waitForMainTabCount:2];
 }
 
 // Tests hard kill(crash) through AppLaunchManager.
@@ -296,6 +315,19 @@
   GREYAssertTrue([ChromeEarlGrey isCompactWidth] == expectedIsCompactWidth,
                  @"isCompactWidth should return %@",
                  expectedIsCompactWidth ? @"YES" : @"NO");
+}
+
+// Tests helpers that retrieve prefs and local state values.
+- (void)testGetPrefs {
+  // The actual pref names and values below are irrelevant, but the calls
+  // themselves should return data without crashing or asserting.
+  [ChromeEarlGrey localStateBooleanPref:prefs::kLastSessionExitedCleanly];
+  [ChromeEarlGrey localStateIntegerPref:prefs::kBrowserStatesNumCreated];
+  [ChromeEarlGrey localStateStringPref:prefs::kBrowserStateLastUsed];
+
+  [ChromeEarlGrey userBooleanPref:prefs::kIosBookmarkPromoAlreadySeen];
+  [ChromeEarlGrey userIntegerPref:prefs::kIosBookmarkCachedTopMostRow];
+  [ChromeEarlGrey userStringPref:prefs::kDefaultCharset];
 }
 
 @end

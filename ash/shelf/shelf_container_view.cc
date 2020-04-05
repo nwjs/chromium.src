@@ -14,11 +14,11 @@ ShelfContainerView::ShelfContainerView(ShelfView* shelf_view)
 ShelfContainerView::~ShelfContainerView() = default;
 
 void ShelfContainerView::Initialize() {
-  SetPaintToLayer();
+  SetPaintToLayer(ui::LAYER_NOT_DRAWN);
   layer()->SetFillsBoundsOpaquely(false);
   layer()->SetMasksToBounds(true);
 
-  shelf_view_->SetPaintToLayer();
+  shelf_view_->SetPaintToLayer(ui::LAYER_NOT_DRAWN);
   shelf_view_->layer()->SetFillsBoundsOpaquely(false);
   AddChildView(shelf_view_);
 }
@@ -55,8 +55,7 @@ void ShelfContainerView::TranslateShelfView(const gfx::Vector2dF& offset) {
 gfx::Size ShelfContainerView::CalculateIdealSize() const {
   const int width =
       ShelfView::GetSizeOfAppIcons(shelf_view_->last_visible_index() -
-                                       shelf_view_->first_visible_index() + 1,
-                                   false);
+                                   shelf_view_->first_visible_index() + 1);
   const int height = ShelfConfig::Get()->button_size();
   return shelf_view_->shelf()->IsHorizontalAlignment()
              ? gfx::Size(width, height)

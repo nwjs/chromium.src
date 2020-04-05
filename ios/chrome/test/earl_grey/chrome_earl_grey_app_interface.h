@@ -196,10 +196,15 @@
 // Sets value for content setting.
 + (void)setContentSettings:(ContentSetting)setting;
 
-// Signs the user out, clears the known accounts entirely and checks whether
-// the accounts were correctly removed from the keychain. Returns nil on
-// success, or else an NSError indicating why the operation failed.
-+ (NSError*)signOutAndClearAccounts;
+// Signs the user out from Chrome and then starts clearing the identities.
+//
+// Note: This method does not wait for identities to be cleared from the
+// keychain. To wait for this operation to finish, please use an GREYCondition
+// and wait for +hasIdentities to return NO.
++ (void)signOutAndClearIdentities;
+
+// Returns YES if there is at at least identity in the ChromeIdentityService.
++ (BOOL)hasIdentities;
 
 // Returns the current WebState's VisibleURL.
 + (NSString*)webStateVisibleURL;
@@ -223,21 +228,6 @@
 
 // Returns the size of the current WebState's web view.
 + (CGSize)webStateWebViewSize;
-
-#pragma mark - Sync Utilities (EG2)
-
-// Clears the autofill profile for the given |GUID|.
-+ (void)clearAutofillProfileWithGUID:(NSString*)GUID;
-
-// Injects an autofill profile into the fake sync server with |GUID| and
-// |full_name|.
-+ (void)injectAutofillProfileOnFakeSyncServerWithGUID:(NSString*)GUID
-                                  autofillProfileName:(NSString*)fullName;
-
-// Returns YES if there is an autofilll profile with the corresponding |GUID|
-// and |full_name|.
-+ (BOOL)isAutofillProfilePresentWithGUID:(NSString*)GUID
-                     autofillProfileName:(NSString*)fullName;
 
 #pragma mark - Bookmarks Utilities (EG2)
 
@@ -290,6 +280,14 @@
 // Injects a bookmark into the fake sync server with |URL| and |title|.
 + (void)addFakeSyncServerBookmarkWithURL:(NSString*)URL title:(NSString*)title;
 
+// Injects a legacy bookmark into the fake sync server. The legacy bookmark
+// means 2015 and earlier, prior to the adoption of GUIDs for originator client
+// item ID.
++ (void)addFakeSyncServerLegacyBookmarkWithURL:(NSString*)URL
+                                         title:(NSString*)title
+                     originator_client_item_id:
+                         (NSString*)originator_client_item_id;
+
 // Injects typed URL to sync FakeServer.
 + (void)addFakeSyncServerTypedURL:(NSString*)URL;
 
@@ -307,9 +305,28 @@
 // Triggers a sync cycle for a |type|.
 + (void)triggerSyncCycleForType:(syncer::ModelType)type;
 
+// Injects user demographics into the fake sync server. The year is the
+// un-noised birth year, and the gender corresponds to the options in
+// UserDemographicsProto::Gender..
++ (void)addUserDemographicsToSyncServerWithBirthYear:(int)birthYear
+                                              gender:(int)gender;
+
+// Clears the autofill profile for the given |GUID|.
++ (void)clearAutofillProfileWithGUID:(NSString*)GUID;
+
+// Injects an autofill profile into the fake sync server with |GUID| and
+// |full_name|.
++ (void)addAutofillProfileToFakeSyncServerWithGUID:(NSString*)GUID
+                               autofillProfileName:(NSString*)fullName;
+
+// Returns YES if there is an autofilll profile with the corresponding |GUID|
+// and |full_name|.
++ (BOOL)isAutofillProfilePresentWithGUID:(NSString*)GUID
+                     autofillProfileName:(NSString*)fullName;
+
 // Deletes an autofill profile from the fake sync server with |GUID|, if it
 // exists. If it doesn't exist, nothing is done.
-+ (void)deleteAutofillProfileOnFakeSyncServerWithGUID:(NSString*)GUID;
++ (void)deleteAutofillProfileFromFakeSyncServerWithGUID:(NSString*)GUID;
 
 // Verifies the sessions hierarchy on the Sync FakeServer. |specs| is
 // the collection of URLs that are to be expected for a single window. On
@@ -371,6 +388,12 @@
 // Returns YES if AutofillEnableCompanyName feature is enabled.
 + (BOOL)isAutofillCompanyNameEnabled WARN_UNUSED_RESULT;
 
+// Returns YES if DemographicMetricsReporting feature is enabled.
++ (BOOL)isDemographicMetricsReportingEnabled WARN_UNUSED_RESULT;
+
+// Returns YES if the |launchSwitch| is found in host app launch switches.
++ (BOOL)appHasLaunchSwitch:(NSString*)launchSwitch;
+
 // Returns YES if custom WebKit frameworks were properly loaded, rather than
 // system frameworks. Always returns YES if the app was not requested to run
 // with custom WebKit frameworks.
@@ -390,6 +413,16 @@
 + (void)setPopupPrefValue:(ContentSetting)value;
 
 #pragma mark - Pref Utilities (EG2)
+
+// Gets the value of a local state pref. Returns a
+// base::Value encoded as a JSON string. If the pref was not registered,
+// returns a Value of type NONE.
++ (NSString*)localStatePrefValue:(NSString*)prefName;
+
+// Gets the value of a user pref in the original browser state. Returns a
+// base::Value encoded as a JSON string. If the pref was not registered,
+// returns a Value of type NONE.
++ (NSString*)userPrefValue:(NSString*)prefName;
 
 // Sets the value of a boolean user pref in the original browser state.
 + (void)setBoolValue:(BOOL)value forUserPref:(NSString*)prefName;

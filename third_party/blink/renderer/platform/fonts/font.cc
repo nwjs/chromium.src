@@ -52,6 +52,11 @@ Font::Font() = default;
 
 Font::Font(const FontDescription& fd) : font_description_(fd) {}
 
+Font::Font(const FontDescription& font_description, FontSelector* font_selector)
+    : font_description_(font_description),
+      font_fallback_list_(
+          font_selector ? FontFallbackList::Create(font_selector) : nullptr) {}
+
 Font::Font(const Font& other) = default;
 
 Font& Font::operator=(const Font& other) {
@@ -77,18 +82,6 @@ bool Font::operator==(const Font& other) const {
              (other.font_fallback_list_
                   ? other.font_fallback_list_->Generation()
                   : 0);
-}
-
-void Font::Update(FontSelector* font_selector) const {
-  // FIXME: It is pretty crazy that we are willing to just poke into a RefPtr,
-  // but it ends up being reasonably safe (because inherited fonts in the render
-  // tree pick up the new style anyway. Other copies are transient, e.g., the
-  // state in the GraphicsContext, and won't stick around long enough to get you
-  // in trouble). Still, this is pretty disgusting, and could eventually be
-  // rectified by using RefPtrs for Fonts themselves.
-  if (!font_fallback_list_)
-    font_fallback_list_ = FontFallbackList::Create();
-  font_fallback_list_->Invalidate(font_selector);
 }
 
 namespace {
@@ -205,7 +198,10 @@ bool Font::DrawBidiText(cc::PaintCanvas* canvas,
 
     TextRunPaintInfo subrun_info(subrun);
 
-    ShapeResultBloberizer bloberizer(*this, device_scale_factor);
+    // Fix regression with -ftrivial-auto-var-init=pattern. See
+    // crbug.com/1055652.
+    STACK_UNINITIALIZED ShapeResultBloberizer bloberizer(*this,
+                                                         device_scale_factor);
     ShapeResultBuffer buffer;
     word_shaper.FillResultBuffer(subrun_info, &buffer);
     float run_width = bloberizer.FillGlyphs(subrun_info, buffer);
@@ -410,16 +406,15 @@ int Font::OffsetForPosition(const TextRun& run,
 }
 
 ShapeCache* Font::GetShapeCache() const {
-  return font_fallback_list_->GetShapeCache(font_description_);
+  return EnsureFontFallbackList()->GetShapeCache(font_description_);
 }
 
 bool Font::CanShapeWordByWord() const {
-  return font_fallback_list_ &&
-         font_fallback_list_->CanShapeWordByWord(GetFontDescription());
+  return EnsureFontFallbackList()->CanShapeWordByWord(GetFontDescription());
 }
 
 void Font::ReportNotDefGlyph() const {
-  FontSelector* fontSelector = font_fallback_list_->GetFontSelector();
+  FontSelector* fontSelector = EnsureFontFallbackList()->GetFontSelector();
   // We have a few non-DOM usages of Font code, for example in DragImage::Create
   // and in EmbeddedObjectPainter::paintReplaced. In those cases, we can't
   // retrieve a font selector as our connection to a Document object to report

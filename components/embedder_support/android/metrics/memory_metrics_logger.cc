@@ -12,6 +12,7 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/sequenced_task_runner.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "services/resource_coordinator/public/cpp/memory_instrumentation/browser_metrics.h"
@@ -55,7 +56,9 @@ void RecordMemoryMetricsImpl(
         break;
       }
 
-      // WebView only supports the browser and possibly renderer process.
+      // Currently this class only records metrics for the browser and
+      // renderer process, as it originated from WebView, where there are no
+      // other processes.
       // TODO(weblayer-team): refactor to allow the embedder to record GPU
       // metrics.
       case memory_instrumentation::mojom::ProcessType::GPU:
@@ -67,7 +70,6 @@ void RecordMemoryMetricsImpl(
       case memory_instrumentation::mojom::ProcessType::PLUGIN:
         FALLTHROUGH;
       case memory_instrumentation::mojom::ProcessType::OTHER:
-        NOTREACHED();
         break;
     }
   }
@@ -102,7 +104,7 @@ struct MemoryMetricsLogger::State : public base::RefCountedThreadSafe<State> {
 MemoryMetricsLogger::MemoryMetricsLogger()
     : state_(base::MakeRefCounted<State>()) {
   g_instance = this;
-  state_->task_runner = base::CreateSequencedTaskRunner({base::ThreadPool()});
+  state_->task_runner = base::ThreadPool::CreateSequencedTaskRunner({});
   state_->task_runner->PostTask(
       FROM_HERE,
       base::BindOnce(&MemoryMetricsLogger::RecordMemoryMetricsAfterDelay,

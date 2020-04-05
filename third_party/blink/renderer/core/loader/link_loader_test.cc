@@ -25,6 +25,7 @@
 #include "third_party/blink/renderer/platform/loader/fetch/memory_cache.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_fetcher.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_load_priority.h"
+#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/testing/testing_platform_support.h"
 #include "third_party/blink/renderer/platform/testing/url_test_helpers.h"
 
@@ -40,9 +41,7 @@ class MockLinkLoaderClient final
  public:
   explicit MockLinkLoaderClient(bool should_load) : should_load_(should_load) {}
 
-  void Trace(blink::Visitor* visitor) override {
-    LinkLoaderClient::Trace(visitor);
-  }
+  void Trace(Visitor* visitor) override { LinkLoaderClient::Trace(visitor); }
 
   bool ShouldLoadLink() override { return should_load_; }
   bool IsLinkCreatedByParser() override { return true; }
@@ -326,8 +325,7 @@ constexpr network::mojom::ReferrerPolicy kPreloadReferrerPolicyTestParams[] = {
     network::mojom::ReferrerPolicy::kOriginWhenCrossOrigin,
     network::mojom::ReferrerPolicy::kSameOrigin,
     network::mojom::ReferrerPolicy::kStrictOrigin,
-    network::mojom::ReferrerPolicy::
-        kNoReferrerWhenDowngradeOriginWhenCrossOrigin,
+    network::mojom::ReferrerPolicy::kStrictOriginWhenCrossOrigin,
     network::mojom::ReferrerPolicy::kNever};
 
 class LinkLoaderPreloadReferrerPolicyTest
@@ -587,7 +585,9 @@ TEST_P(LinkLoaderTestPrefetchPrivacyChanges, PrefetchPrivacyChanges) {
     EXPECT_EQ(resource->GetResourceRequest().GetRedirectMode(),
               network::mojom::RedirectMode::kFollow);
     EXPECT_EQ(resource->GetResourceRequest().GetReferrerPolicy(),
-              network::mojom::ReferrerPolicy::kNoReferrerWhenDowngrade);
+              RuntimeEnabledFeatures::ReducedReferrerGranularityEnabled()
+                  ? network::mojom::ReferrerPolicy::kStrictOriginWhenCrossOrigin
+                  : network::mojom::ReferrerPolicy::kNoReferrerWhenDowngrade);
   }
 
   platform_->GetURLLoaderMockFactory()->UnregisterAllURLsAndClearMemoryCache();

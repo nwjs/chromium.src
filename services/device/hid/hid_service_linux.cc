@@ -13,6 +13,7 @@
 #include <utility>
 
 #include "base/bind.h"
+#include "base/callback_helpers.h"
 #include "base/files/file.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
@@ -23,7 +24,7 @@
 #include "base/sequenced_task_runner.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
-#include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "base/threading/scoped_blocking_call.h"
 #include "base/threading/sequenced_task_runner_handle.h"
 #include "build/build_config.h"
@@ -56,7 +57,7 @@ struct HidServiceLinux::ConnectParams {
         callback(std::move(callback)),
         task_runner(base::SequencedTaskRunnerHandle::Get()),
         blocking_task_runner(
-            base::CreateSequencedTaskRunner(kBlockingTaskTraits)) {}
+            base::ThreadPool::CreateSequencedTaskRunner(kBlockingTaskTraits)) {}
   ~ConnectParams() {}
 
   scoped_refptr<HidDeviceInfo> device_info;
@@ -195,7 +196,7 @@ class HidServiceLinux::BlockingTaskRunnerHelper : public UdevWatcher::Observer {
 
 HidServiceLinux::HidServiceLinux()
     : blocking_task_runner_(
-          base::CreateSequencedTaskRunner(kBlockingTaskTraits)),
+          base::ThreadPool::CreateSequencedTaskRunner(kBlockingTaskTraits)),
       helper_(nullptr, base::OnTaskRunnerDeleter(blocking_task_runner_)) {
   // We need to properly initialize |blocking_task_helper_| here because we need
   // |weak_factory_| to be created first.

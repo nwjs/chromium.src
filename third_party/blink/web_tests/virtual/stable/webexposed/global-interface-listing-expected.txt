@@ -290,6 +290,11 @@ interface BarProp
     attribute @@toStringTag
     getter visible
     method constructor
+interface BarcodeDetector
+    static method getSupportedFormats
+    attribute @@toStringTag
+    method constructor
+    method detect
 interface BaseAudioContext : EventTarget
     attribute @@toStringTag
     getter audioWorklet
@@ -1635,6 +1640,7 @@ interface Element : Node
     getter ariaColIndex
     getter ariaColSpan
     getter ariaCurrent
+    getter ariaDescription
     getter ariaDisabled
     getter ariaExpanded
     getter ariaHasPopup
@@ -1685,6 +1691,7 @@ interface Element : Node
     getter onbeforecopy
     getter onbeforecut
     getter onbeforepaste
+    getter onbeforexrselect
     getter onfullscreenchange
     getter onfullscreenerror
     getter onsearch
@@ -1760,6 +1767,7 @@ interface Element : Node
     setter ariaColIndex
     setter ariaColSpan
     setter ariaCurrent
+    setter ariaDescription
     setter ariaDisabled
     setter ariaExpanded
     setter ariaHasPopup
@@ -1796,6 +1804,7 @@ interface Element : Node
     setter onbeforecopy
     setter onbeforecut
     setter onbeforepaste
+    setter onbeforexrselect
     setter onfullscreenchange
     setter onfullscreenerror
     setter onsearch
@@ -1816,6 +1825,7 @@ interface ElementInternals
     getter ariaColIndex
     getter ariaColSpan
     getter ariaCurrent
+    getter ariaDescription
     getter ariaDisabled
     getter ariaExpanded
     getter ariaHasPopup
@@ -1862,6 +1872,7 @@ interface ElementInternals
     setter ariaColIndex
     setter ariaColSpan
     setter ariaCurrent
+    setter ariaDescription
     setter ariaDisabled
     setter ariaExpanded
     setter ariaHasPopup
@@ -3833,6 +3844,7 @@ interface IDBRequest : EventTarget
 interface IDBTransaction : EventTarget
     attribute @@toStringTag
     getter db
+    getter durability
     getter error
     getter mode
     getter objectStoreNames
@@ -5336,6 +5348,7 @@ interface RTCIceTransport : EventTarget
 interface RTCPeerConnection : EventTarget
     static method generateCertificate
     attribute @@toStringTag
+    getter canTrickleIceCandidates
     getter connectionState
     getter currentLocalDescription
     getter currentRemoteDescription
@@ -7239,6 +7252,38 @@ interface TreeWalker
     method previousNode
     method previousSibling
     setter currentNode
+interface TrustedHTML
+    attribute @@toStringTag
+    method constructor
+    method toString
+interface TrustedScript
+    attribute @@toStringTag
+    method constructor
+    method toString
+interface TrustedScriptURL
+    attribute @@toStringTag
+    method constructor
+    method toString
+interface TrustedTypePolicy
+    attribute @@toStringTag
+    getter name
+    method constructor
+    method createHTML
+    method createScript
+    method createScriptURL
+interface TrustedTypePolicyFactory
+    attribute @@toStringTag
+    getter defaultPolicy
+    getter emptyHTML
+    getter emptyScript
+    method constructor
+    method createPolicy
+    method getAttributeType
+    method getPropertyType
+    method getTypeMapping
+    method isHTML
+    method isScript
+    method isScriptURL
 interface UIEvent : Event
     attribute @@toStringTag
     getter detail
@@ -8970,17 +9015,13 @@ interface XPathResult
     method constructor
     method iterateNext
     method snapshotItem
-interface XR : EventTarget
-    attribute @@toStringTag
-    getter ondevicechange
-    method constructor
-    method isSessionSupported
-    method requestSession
-    method supportsSession
-    setter ondevicechange
 interface XRBoundedReferenceSpace : XRReferenceSpace
     attribute @@toStringTag
     getter boundsGeometry
+    method constructor
+interface XRDOMOverlayState
+    attribute @@toStringTag
+    getter type
     method constructor
 interface XRFrame
     attribute @@toStringTag
@@ -9065,6 +9106,7 @@ interface XRRigidTransform
     method constructor
 interface XRSession : EventTarget
     attribute @@toStringTag
+    getter domOverlayState
     getter environmentBlendMode
     getter inputSources
     getter onend
@@ -9072,6 +9114,9 @@ interface XRSession : EventTarget
     getter onselect
     getter onselectend
     getter onselectstart
+    getter onsqueeze
+    getter onsqueezeend
+    getter onsqueezestart
     getter onvisibilitychange
     getter renderState
     getter visibilityState
@@ -9088,6 +9133,9 @@ interface XRSession : EventTarget
     setter onselect
     setter onselectend
     setter onselectstart
+    setter onsqueeze
+    setter onsqueezeend
+    setter onsqueezestart
     setter onvisibilitychange
 interface XRSessionEvent : Event
     attribute @@toStringTag
@@ -9096,6 +9144,14 @@ interface XRSessionEvent : Event
 interface XRSpace : EventTarget
     attribute @@toStringTag
     method constructor
+interface XRSystem : EventTarget
+    attribute @@toStringTag
+    getter ondevicechange
+    method constructor
+    method isSessionSupported
+    method requestSession
+    method supportsSession
+    setter ondevicechange
 interface XRTransientInputHitTestResult
     attribute @@toStringTag
     getter inputSource
@@ -9166,6 +9222,7 @@ interface webkitMediaStream : EventTarget
 interface webkitRTCPeerConnection : EventTarget
     static method generateCertificate
     attribute @@toStringTag
+    getter canTrickleIceCandidates
     getter connectionState
     getter currentLocalDescription
     getter currentRemoteDescription
@@ -9489,6 +9546,7 @@ interface webkitURL
     getter statusbar
     getter styleMedia
     getter toolbar
+    getter trustedTypes
     getter visualViewport
     getter webkitStorageInfo
     method NodeFilter

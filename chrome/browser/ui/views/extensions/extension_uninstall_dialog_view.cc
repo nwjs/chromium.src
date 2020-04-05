@@ -86,6 +86,9 @@ class ExtensionUninstallDialogDelegateView
   void DialogDestroyed() { dialog_ = NULL; }
 
  private:
+  // views::View:
+  const char* GetClassName() const override;
+
   // views::DialogDelegateView:
   bool Accept() override;
   bool Cancel() override;
@@ -204,7 +207,7 @@ ExtensionUninstallDialogDelegateView::ExtensionUninstallDialogDelegateView(
           skia::ImageOperations::ResizeMethod::RESIZE_GOOD,
           gfx::Size(extension_misc::EXTENSION_ICON_SMALL,
                     extension_misc::EXTENSION_ICON_SMALL))) {
-  DialogDelegate::set_button_label(
+  DialogDelegate::SetButtonLabel(
       ui::DIALOG_BUTTON_OK,
       l10n_util::GetStringUTF16(IDS_EXTENSION_PROMPT_UNINSTALL_BUTTON));
 
@@ -262,6 +265,10 @@ ExtensionUninstallDialogDelegateView::~ExtensionUninstallDialogDelegateView() {
     reinterpret_cast<ToolbarActionView*>(anchor_view)
         ->AnimateInkDrop(views::InkDropState::DEACTIVATED, nullptr);
   }
+}
+
+const char* ExtensionUninstallDialogDelegateView::GetClassName() const {
+  return "ExtensionUninstallDialogDelegateView";
 }
 
 bool ExtensionUninstallDialogDelegateView::Accept() {

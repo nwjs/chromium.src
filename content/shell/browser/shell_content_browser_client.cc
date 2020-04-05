@@ -29,31 +29,21 @@
 #include "content/public/browser/storage_partition.h"
 #include "content/public/common/content_features.h"
 #include "content/public/common/content_switches.h"
-#include "content/public/common/service_names.mojom.h"
 #include "content/public/common/url_constants.h"
 #include "content/public/common/user_agent.h"
 #include "content/public/common/web_preferences.h"
-#include "content/public/test/test_service.h"
 #include "content/shell/browser/shell.h"
 #include "content/shell/browser/shell_browser_context.h"
 #include "content/shell/browser/shell_browser_main_parts.h"
 #include "content/shell/browser/shell_devtools_manager_delegate.h"
 #include "content/shell/browser/shell_quota_permission_context.h"
 #include "content/shell/browser/shell_web_contents_view_delegate_creator.h"
-#include "content/shell/common/power_monitor_test.mojom.h"
 #include "content/shell/common/shell_switches.h"
-#include "content/shell/common/web_test.mojom.h"
-#include "content/shell/common/web_test/fake_bluetooth_chooser.mojom.h"
-#include "content/shell/common/web_test/web_test_bluetooth_fake_adapter_setter.mojom.h"
-#include "content/shell/common/web_test/web_test_switches.h"
-#include "content/test/data/mojo_web_test_helper_test.mojom.h"
-#include "device/bluetooth/public/mojom/test/fake_bluetooth.mojom.h"
 #include "media/mojo/buildflags.h"
+#include "media/mojo/mojom/media_service.mojom.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "net/ssl/client_cert_identity.h"
 #include "services/network/public/mojom/network_service.mojom.h"
-#include "services/service_manager/public/cpp/manifest.h"
-#include "services/service_manager/public/cpp/manifest_builder.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/user_agent/user_agent_metadata.h"
 #include "ui/base/ui_base_features.h"
@@ -76,14 +66,9 @@
 #endif
 
 #if defined(OS_LINUX) || defined(OS_ANDROID)
-#include "components/crash/content/app/crash_switches.h"
-#include "components/crash/content/app/crashpad.h"
+#include "components/crash/core/app/crash_switches.h"
+#include "components/crash/core/app/crashpad.h"
 #include "content/public/common/content_descriptors.h"
-#endif
-
-#if defined(OS_WIN)
-#include "sandbox/win/src/sandbox.h"
-#include "services/service_manager/sandbox/win/sandbox_win.h"
 #endif
 
 #if BUILDFLAG(ENABLE_CAST_RENDERER)
@@ -108,20 +93,6 @@ int GetCrashSignalFD(const base::CommandLine& command_line) {
 }
 #endif
 
-const service_manager::Manifest& GetContentBrowserOverlayManifest() {
-  static base::NoDestructor<service_manager::Manifest> manifest{
-      service_manager::ManifestBuilder()
-          .ExposeCapability(
-              "renderer",
-              service_manager::Manifest::InterfaceList<
-                  mojom::MojoWebTestHelper, mojom::FakeBluetoothChooser,
-                  mojom::FakeBluetoothChooserFactory,
-                  mojom::WebTestBluetoothFakeAdapterSetter,
-                  bluetooth::mojom::FakeBluetooth>())
-          .Build()};
-  return *manifest;
-}
-
 }  // namespace
 
 std::string GetShellUserAgent() {
@@ -129,8 +100,8 @@ std::string GetShellUserAgent() {
   base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
   if (base::FeatureList::IsEnabled(blink::features::kFreezeUserAgent)) {
     return content::GetFrozenUserAgent(
-               command_line->HasSwitch(switches::kUseMobileUserAgent))
-        .as_string();
+        command_line->HasSwitch(switches::kUseMobileUserAgent),
+        CONTENT_SHELL_MAJOR_VERSION);
   }
   if (command_line->HasSwitch(switches::kUseMobileUserAgent))
     product += " Mobile";
@@ -201,25 +172,29 @@ bool ShellContentBrowserClient::ShouldTerminateOnServiceQuit(
   return false;
 }
 
-base::Optional<service_manager::Manifest>
-ShellContentBrowserClient::GetServiceManifestOverlay(base::StringPiece name) {
-  if (name == content::mojom::kBrowserServiceName)
-    return GetContentBrowserOverlayManifest();
-
-  return base::nullopt;
-}
-
 void ShellContentBrowserClient::AppendExtraCommandLineSwitches(
     base::CommandLine* command_line,
     int child_process_id) {
-  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kExposeInternalsForTesting)) {
-    command_line->AppendSwitch(switches::kExposeInternalsForTesting);
-  }
+  static const char* kForwardSwitches[] = {
+#if defined(OS_MACOSX)
+    // Needed since on Mac, content_browsertests doesn't use
+    // content_test_launcher.cc and instead uses shell_main.cc. So give a signal
+    // to shell_main.cc that it's a browser test.
+    switches::kBrowserTest,
+#endif
+    switches::kCrashDumpsDir,
+    switches::kEnableCrashReporter,
+    switches::kExposeInternalsForTesting,
+    switches::kRunWebTests,
+  };
+
+  command_line->CopySwitchesFrom(*base::CommandLine::ForCurrentProcess(),
+                                 kForwardSwitches,
+                                 base::size(kForwardSwitches));
+
+#if defined(OS_LINUX)
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kEnableCrashReporter)) {
-    command_line->AppendSwitch(switches::kEnableCrashReporter);
-#if defined(OS_LINUX)
     int fd;
     pid_t pid;
     if (crash_reporter::GetHandlerSocket(&fd, &pid)) {
@@ -227,32 +202,8 @@ void ShellContentBrowserClient::AppendExtraCommandLineSwitches(
           crash_reporter::switches::kCrashpadHandlerPid,
           base::NumberToString(pid));
     }
+  }
 #endif  // OS_LINUX
-  }
-  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kCrashDumpsDir)) {
-    command_line->AppendSwitchPath(
-        switches::kCrashDumpsDir,
-        base::CommandLine::ForCurrentProcess()->GetSwitchValuePath(
-            switches::kCrashDumpsDir));
-  }
-  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kRegisterFontFiles)) {
-    command_line->AppendSwitchASCII(
-        switches::kRegisterFontFiles,
-        base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
-            switches::kRegisterFontFiles));
-  }
-
-#if defined(OS_MACOSX)
-  // Needed since on Mac, content_browsertests doesn't use
-  // content_test_launcher.cc and instead uses shell_main.cc. So give a signal
-  // to shell_main.cc that it's a browser test.
-  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kBrowserTest)) {
-    command_line->AppendSwitch(switches::kBrowserTest);
-  }
-#endif
 }
 
 std::string ShellContentBrowserClient::GetAcceptLangs(BrowserContext* context) {
@@ -295,6 +246,17 @@ base::OnceClosure ShellContentBrowserClient::SelectClientCertificate(
 SpeechRecognitionManagerDelegate*
     ShellContentBrowserClient::CreateSpeechRecognitionManagerDelegate() {
   return new ShellSpeechRecognitionManagerDelegate();
+}
+
+void ShellContentBrowserClient::OverrideWebkitPrefs(
+    RenderViewHost* render_view_host,
+    WebPreferences* prefs) {
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kForceDarkMode)) {
+    prefs->preferred_color_scheme = blink::PreferredColorScheme::kDark;
+  } else {
+    prefs->preferred_color_scheme = blink::PreferredColorScheme::kLight;
+  }
 }
 
 base::FilePath ShellContentBrowserClient::GetFontLookupTableCacheDir() {
@@ -345,12 +307,28 @@ std::unique_ptr<LoginDelegate> ShellContentBrowserClient::CreateLoginDelegate(
   return nullptr;
 }
 
+base::FilePath
+ShellContentBrowserClient::GetSandboxedStorageServiceDataDirectory() {
+  return browser_context()->GetPath();
+}
+
 std::string ShellContentBrowserClient::GetUserAgent() {
   return GetShellUserAgent();
 }
 
 blink::UserAgentMetadata ShellContentBrowserClient::GetUserAgentMetadata() {
   return GetShellUserAgentMetadata();
+}
+
+void ShellContentBrowserClient::OverrideURLLoaderFactoryParams(
+    BrowserContext* browser_context,
+    const url::Origin& origin,
+    bool is_for_isolated_world,
+    network::mojom::URLLoaderFactoryParams* factory_params) {
+  if (url_loader_factory_params_callback_) {
+    url_loader_factory_params_callback_.Run(factory_params, origin,
+                                            is_for_isolated_world);
+  }
 }
 
 #if defined(OS_LINUX) || defined(OS_ANDROID)
@@ -371,49 +349,14 @@ void ShellContentBrowserClient::GetAdditionalMappedFilesForChildProcess(
 }
 #endif  // defined(OS_LINUX) || defined(OS_ANDROID)
 
-#if defined(OS_WIN)
-bool ShellContentBrowserClient::PreSpawnRenderer(sandbox::TargetPolicy* policy,
-                                                 RendererSpawnFlags flags) {
-  // Add sideloaded font files for testing. See also DIR_WINDOWS_FONTS
-  // addition in |StartSandboxedProcess|.
-  std::vector<std::string> font_files = switches::GetSideloadFontFiles();
-  for (std::vector<std::string>::const_iterator i(font_files.begin());
-      i != font_files.end();
-      ++i) {
-    policy->AddRule(sandbox::TargetPolicy::SUBSYS_FILES,
-        sandbox::TargetPolicy::FILES_ALLOW_READONLY,
-        base::UTF8ToWide(*i).c_str());
-  }
-  return true;
-}
-#endif  // OS_WIN
-
 mojo::Remote<network::mojom::NetworkContext>
 ShellContentBrowserClient::CreateNetworkContext(
     BrowserContext* context,
     bool in_memory,
     const base::FilePath& relative_partition_path) {
-  mojo::Remote<network::mojom::NetworkContext> network_context;
   network::mojom::NetworkContextParamsPtr context_params =
-      network::mojom::NetworkContextParams::New();
-  UpdateCorsExemptHeader(context_params.get());
-  context_params->user_agent = GetUserAgent();
-  context_params->accept_language = GetAcceptLangs(context);
-
-#if BUILDFLAG(ENABLE_REPORTING)
-  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kRunWebTests)) {
-    // Configure the Reporting service in a manner expected by certain Web
-    // Platform Tests (network-error-logging and reporting-api).
-    //
-    //   (1) Always send reports (irrespective of BACKGROUND_SYNC permission)
-    //   (2) Lower the timeout for sending reports.
-    context_params->reporting_delivery_interval =
-        kReportingDeliveryIntervalTimeForWebTests;
-    context_params->skip_reporting_send_permission_check = true;
-  }
-#endif
-
+      CreateNetworkContextParams(context);
+  mojo::Remote<network::mojom::NetworkContext> network_context;
   GetNetworkService()->CreateNetworkContext(
       network_context.BindNewPipeAndPassReceiver(), std::move(context_params));
   return network_context;
@@ -431,6 +374,16 @@ ShellBrowserContext* ShellContentBrowserClient::browser_context() {
 ShellBrowserContext*
     ShellContentBrowserClient::off_the_record_browser_context() {
   return shell_browser_main_parts_->off_the_record_browser_context();
+}
+
+network::mojom::NetworkContextParamsPtr
+ShellContentBrowserClient::CreateNetworkContextParams(BrowserContext* context) {
+  network::mojom::NetworkContextParamsPtr context_params =
+      network::mojom::NetworkContextParams::New();
+  UpdateCorsExemptHeader(context_params.get());
+  context_params->user_agent = GetUserAgent();
+  context_params->accept_language = GetAcceptLangs(context);
+  return context_params;
 }
 
 }  // namespace content

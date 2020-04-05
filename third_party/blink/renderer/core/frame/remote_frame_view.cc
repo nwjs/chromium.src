@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/core/frame/remote_frame_view.h"
 
+#include "components/paint_preview/common/paint_preview_tracker.h"
 #include "third_party/blink/public/common/frame/frame_owner_element_type.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
@@ -89,10 +90,11 @@ bool RemoteFrameView::UpdateViewportIntersectionsForSubtree(
 
 void RemoteFrameView::SetViewportIntersection(
     const ViewportIntersectionState& intersection_state) {
-  if (intersection_state != last_intersection_state_) {
-    last_intersection_state_ = intersection_state;
-    remote_frame_->Client()->UpdateRemoteViewportIntersection(
-        intersection_state);
+  ViewportIntersectionState new_state(intersection_state);
+  new_state.compositor_visible_rect = WebRect(compositing_rect_);
+  if (new_state != last_intersection_state_) {
+    last_intersection_state_ = new_state;
+    remote_frame_->Client()->UpdateRemoteViewportIntersection(new_state);
   }
 }
 
@@ -106,10 +108,11 @@ void RemoteFrameView::SetNeedsOcclusionTracking(bool needs_tracking) {
   }
 }
 
-IntRect RemoteFrameView::GetCompositingRect() {
+void RemoteFrameView::UpdateCompositingRect() {
+  compositing_rect_ = IntRect();
   LocalFrameView* local_root_view = ParentLocalRootFrameView();
   if (!local_root_view || !remote_frame_->OwnerLayoutObject())
-    return IntRect();
+    return;
 
   // For main frames we constrain the rect that gets painted to the viewport.
   // If the local frame root is an OOPIF itself, then we use the root's
@@ -128,8 +131,7 @@ IntRect RemoteFrameView::GetCompositingRect() {
           local_root_view->GetLayoutView(),
           PhysicalRect(PhysicalOffset(), PhysicalSize(viewport_size)),
           kTraverseDocumentBoundaries);
-  IntSize converted_viewport_size = EnclosingIntRect(viewport_rect).Size();
-
+  compositing_rect_ = EnclosingIntRect(viewport_rect);
   IntSize frame_size = Size();
 
   // Iframes that fit within the window viewport get fully rastered. For
@@ -140,22 +142,15 @@ IntRect RemoteFrameView::GetCompositingRect() {
   // it seems to make guttering rare with slow to medium speed wheel scrolling.
   // Can we collect UMA data to estimate how much extra rastering this causes,
   // and possibly how common guttering is?
-  converted_viewport_size.Scale(1.3f);
-  converted_viewport_size.SetWidth(
-      std::min(frame_size.Width(), converted_viewport_size.Width()));
-  converted_viewport_size.SetHeight(
-      std::min(frame_size.Height(), converted_viewport_size.Height()));
-  IntPoint expanded_origin;
-  const IntRect& last_rect = last_intersection_state_.viewport_intersection;
-  if (!last_rect.IsEmpty()) {
-    IntSize expanded_size =
-        last_rect.Size().ExpandedTo(converted_viewport_size);
-    expanded_size -= last_rect.Size();
-    expanded_size.Scale(0.5f, 0.5f);
-    expanded_origin = last_rect.Location() - expanded_size;
-    expanded_origin.ClampNegativeToZero();
-  }
-  return IntRect(expanded_origin, converted_viewport_size);
+  compositing_rect_.InflateX(ceilf(viewport_rect.Width() * 0.15f));
+  compositing_rect_.InflateY(ceilf(viewport_rect.Height() * 0.15f));
+  compositing_rect_.SetWidth(
+      std::min(frame_size.Width(), compositing_rect_.Width()));
+  compositing_rect_.SetHeight(
+      std::min(frame_size.Height(), compositing_rect_.Height()));
+  IntPoint compositing_rect_location = compositing_rect_.Location();
+  compositing_rect_location.ClampNegativeToZero();
+  compositing_rect_.SetLocation(compositing_rect_location);
 }
 
 void RemoteFrameView::Dispose() {
@@ -205,16 +200,21 @@ void RemoteFrameView::Paint(GraphicsContext& context,
   if (!rect.Intersects(FrameRect()))
     return;
 
-  if (context.Printing()) {
+  if (context.IsPrintingOrPaintingPreview()) {
     DrawingRecorder recorder(context, *GetFrame().OwnerLayoutObject(),
                              DisplayItem::kDocumentBackground);
     context.Save();
     context.Translate(paint_offset.Width(), paint_offset.Height());
-
     DCHECK(context.Canvas());
-    // Inform the remote frame to print.
-    uint32_t content_id = Print(FrameRect(), context.Canvas());
 
+    uint32_t content_id = 0;
+    if (context.Printing()) {
+      // Inform the remote frame to print.
+      content_id = Print(FrameRect(), context.Canvas());
+    } else if (context.IsPaintingPreview()) {
+      // Inform the remote frame to capture a paint preview.
+      content_id = CapturePaintPreview(FrameRect(), context.Canvas());
+    }
     // Record the place holder id on canvas.
     context.Canvas()->recordCustomData(content_id);
     context.Restore();
@@ -255,10 +255,8 @@ void RemoteFrameView::ParentVisibleChanged() {
 
 void RemoteFrameView::VisibilityForThrottlingChanged() {
   TRACE_EVENT0("blink", "RemoteFrameView::VisibilityForThrottlingChanged");
-  if (!remote_frame_->Client())
-    return;
-  remote_frame_->Client()->UpdateRenderThrottlingStatus(IsHiddenForThrottling(),
-                                                        IsSubtreeThrottled());
+  remote_frame_->GetRemoteFrameHostRemote().UpdateRenderThrottlingStatus(
+      IsHiddenForThrottling(), IsSubtreeThrottled());
 }
 
 void RemoteFrameView::VisibilityChanged(
@@ -294,7 +292,35 @@ uint32_t RemoteFrameView::Print(const IntRect& rect,
   return remote_frame_->Client()->Print(rect, canvas);
 }
 
-void RemoteFrameView::Trace(blink::Visitor* visitor) {
+uint32_t RemoteFrameView::CapturePaintPreview(const IntRect& rect,
+                                              cc::PaintCanvas* canvas) const {
+  auto* tracker = canvas->GetPaintPreviewTracker();
+  DCHECK(tracker);  // |tracker| must exist or there is a bug upstream.
+
+  // Create a placeholder ID that maps to an embedding token.
+  HTMLFrameOwnerElement* owner = remote_frame_->DeprecatedLocalOwner();
+  DCHECK(owner);
+
+  // RACE: there is a possibility that the embedding token will be null and
+  // still be in a valid state. This can occur is the frame has recently
+  // navigated and the embedding token hasn't propagated from the FrameTreeNode
+  // to this HTMLFrameOwnerElement yet (over IPC). If the token is null the
+  // failure can be handled gracefully by simply ignoring the subframe in the
+  // result.
+  base::Optional<base::UnguessableToken> maybe_embedding_token =
+      owner->GetEmbeddingToken();
+  if (!maybe_embedding_token.has_value())
+    return 0;
+  uint32_t content_id =
+      tracker->CreateContentForRemoteFrame(rect, maybe_embedding_token.value());
+
+  // Send a request to the browser to trigger a capture of the remote frame.
+  remote_frame_->GetRemoteFrameHostRemote()
+      .CapturePaintPreviewOfCrossProcessSubframe(rect, tracker->Guid());
+  return content_id;
+}
+
+void RemoteFrameView::Trace(Visitor* visitor) {
   visitor->Trace(remote_frame_);
 }
 

@@ -11,9 +11,6 @@ Polymer({
 
   behaviors: [
     settings.RouteObserverBehavior, I18nBehavior, WebUIListenerBehavior,
-    // <if expr="chromeos">
-    CrPngBehavior,
-    // </if>
   ],
 
   properties: {
@@ -25,8 +22,6 @@ Polymer({
       notify: true,
     },
 
-    // Chrome OS does not support DICE.
-    // <if expr="not chromeos">
     /**
      * This flag is used to conditionally show a set of new sign-in UIs to the
      * profiles that have been migrated to be consistent with the web sign-ins.
@@ -34,13 +29,14 @@ Polymer({
      * this should be removed, and UIs hidden behind it should become default.
      * @private
      */
-    diceEnabled_: {
+    signinAllowed_: {
       type: Boolean,
       value() {
-        return loadTimeData.getBoolean('diceEnabled');
+        return loadTimeData.getBoolean('signinAllowed');
       },
     },
 
+    // <if expr="not chromeos">
     /**
      * Stored accounts to the system, supplied by SyncBrowserProxy.
      * @type {?Array<!settings.StoredAccount>}
@@ -130,9 +126,8 @@ Polymer({
         if (settings.routes.MANAGE_PROFILE) {
           map.set(
               settings.routes.MANAGE_PROFILE.path,
-              loadTimeData.getBoolean('diceEnabled') ?
-                  '#edit-profile .subpage-arrow' :
-                  '#picture-subpage-trigger .subpage-arrow');
+              this.signinAllowed_ ? '#edit-profile .subpage-arrow' :
+                                    '#picture-subpage-trigger .subpage-arrow');
         }
         // </if>
         return map;
@@ -157,8 +152,10 @@ Polymer({
     }
     // </if>
     if (useProfileNameAndIcon) {
-      settings.ProfileInfoBrowserProxyImpl.getInstance().getProfileInfo().then(
-          this.handleProfileInfo_.bind(this));
+      /** @type {!settings.ProfileInfoBrowserProxy} */ (
+          settings.ProfileInfoBrowserProxyImpl.getInstance())
+          .getProfileInfo()
+          .then(this.handleProfileInfo_.bind(this));
       this.addWebUIListener(
           'profile-info-changed', this.handleProfileInfo_.bind(this));
     }
@@ -206,9 +203,8 @@ Polymer({
    * @private
    */
   getEditPersonAssocControl_() {
-    return this.syncStatus.signinAllowed ?
-        assert(this.$$('#edit-profile')) :
-        assert(this.$$('#picture-subpage-trigger'));
+    return this.signinAllowed_ ? assert(this.$$('#edit-profile')) :
+                                 assert(this.$$('#picture-subpage-trigger'));
   },
 
   /**
@@ -236,8 +232,7 @@ Polymer({
      */
     // <if expr="chromeos">
     if (info.iconUrl.startsWith('data:image/png;base64')) {
-      this.profileIconUrl_ =
-          CrPngBehavior.convertImageSequenceToPng([info.iconUrl]);
+      this.profileIconUrl_ = cr.png.convertImageSequenceToPng([info.iconUrl]);
       return;
     }
     // </if>
@@ -276,7 +271,7 @@ Polymer({
     // shown. They should be recorder only once, the first time
     // |this.syncStatus| is set.
     const shouldRecordSigninImpression = !this.syncStatus && syncStatus &&
-        !!syncStatus.signinAllowed && !syncStatus.signedIn;
+        this.signinAllowed_ && !syncStatus.signedIn;
 
     this.syncStatus = syncStatus;
 
@@ -363,12 +358,11 @@ Polymer({
       return false;
     }
     // <if expr="chromeos">
-    if (!loadTimeData.getBoolean('splitSettingsSyncEnabled')) {
+    if (!loadTimeData.getBoolean('splitSyncConsent')) {
       return false;
     }
     // </if>
-    return !!this.syncStatus.syncSystemEnabled &&
-        !!this.syncStatus.signinAllowed;
+    return !!this.syncStatus.syncSystemEnabled && this.signinAllowed_;
   },
 
   /**

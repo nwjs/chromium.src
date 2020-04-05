@@ -14,7 +14,6 @@
 #include "base/files/file.h"
 #include "base/memory/scoped_refptr.h"
 #include "storage/common/file_system/file_system_types.h"
-#include "url/gurl.h"
 
 namespace url {
 class Origin;
@@ -39,24 +38,26 @@ class COMPONENT_EXPORT(STORAGE_BROWSER) FileSystemQuotaUtil {
   virtual base::File::Error DeleteOriginDataOnFileTaskRunner(
       FileSystemContext* context,
       QuotaManagerProxy* proxy,
-      const GURL& origin_url,
+      const url::Origin& origin,
       FileSystemType type) = 0;
 
   virtual void PerformStorageCleanupOnFileTaskRunner(FileSystemContext* context,
                                                      QuotaManagerProxy* proxy,
                                                      FileSystemType type) = 0;
 
-  virtual void GetOriginsForTypeOnFileTaskRunner(FileSystemType type,
-                                                 std::set<GURL>* origins) = 0;
+  virtual void GetOriginsForTypeOnFileTaskRunner(
+      FileSystemType type,
+      std::set<url::Origin>* origins) = 0;
 
-  virtual void GetOriginsForHostOnFileTaskRunner(FileSystemType type,
-                                                 const std::string& host,
-                                                 std::set<GURL>* origins) = 0;
+  virtual void GetOriginsForHostOnFileTaskRunner(
+      FileSystemType type,
+      const std::string& host,
+      std::set<url::Origin>* origins) = 0;
 
   // Returns the amount of data used for the origin for usage tracking.
   virtual int64_t GetOriginUsageOnFileTaskRunner(
       FileSystemContext* file_system_context,
-      const GURL& origin_url,
+      const url::Origin& origin,
       FileSystemType type) = 0;
 
   // Creates new reservation object for the origin and the type.

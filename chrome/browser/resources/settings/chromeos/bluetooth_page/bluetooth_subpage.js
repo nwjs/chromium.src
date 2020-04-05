@@ -390,7 +390,8 @@ Polymer({
     const address = device.address;
     this.bluetoothPrivate.connect(address, result => {
       if (isPaired) {
-        this.recordUserInitiatedReconnectionAttemptResult_(result);
+        const connectResult = chrome.runtime.lastError ? undefined : result;
+        chrome.bluetoothPrivate.recordReconnection(connectResult);
       }
 
       // If |pairingDevice_| has changed, ignore the connect result.
@@ -409,6 +410,7 @@ Polymer({
         this.$.deviceDialog.close();
       }
     });
+    settings.recordSettingChange();
   },
 
   /**
@@ -423,6 +425,7 @@ Polymer({
             chrome.runtime.lastError.message);
       }
     });
+    settings.recordSettingChange();
   },
 
   /**
@@ -437,6 +440,7 @@ Polymer({
             chrome.runtime.lastError.message);
       }
     });
+    settings.recordSettingChange();
   },
 
   /** @private */
@@ -508,36 +512,6 @@ Polymer({
     this.updateTimerId_ = undefined;
 
     this.startOrStopRefreshingDeviceList_();
-  },
-
-  /**
-   * Record metrics for user-initiated attempts to reconnect to an already
-   * paired device.
-   * @param {!chrome.bluetoothPrivate.ConnectResultType} result The connection
-   *     result.
-   * @private
-   */
-  recordUserInitiatedReconnectionAttemptResult_(result) {
-    let success;
-    if (chrome.runtime.lastError) {
-      success = false;
-    } else {
-      switch (result) {
-        case chrome.bluetoothPrivate.ConnectResultType.SUCCESS:
-          success = true;
-          break;
-        case chrome.bluetoothPrivate.ConnectResultType.AUTH_CANCELED:
-        case chrome.bluetoothPrivate.ConnectResultType.IN_PROGRESS:
-          // Don't record metrics until connection has ended, and don't record
-          // cancellations.
-          return;
-        default:
-          success = false;
-          break;
-      }
-    }
-
-    chrome.bluetoothPrivate.recordReconnection(success);
   },
 
   /**

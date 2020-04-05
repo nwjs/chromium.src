@@ -55,6 +55,7 @@
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
+#include "third_party/blink/renderer/core/html/forms/html_select_element.h"
 #include "third_party/blink/renderer/core/html/html_element.h"
 #include "third_party/blink/renderer/core/html/html_html_element.h"
 #include "third_party/blink/renderer/core/html/html_table_cell_element.h"
@@ -76,6 +77,7 @@
 #include "third_party/blink/renderer/core/layout/layout_image_resource_style_image.h"
 #include "third_party/blink/renderer/core/layout/layout_inline.h"
 #include "third_party/blink/renderer/core/layout/layout_list_item.h"
+#include "third_party/blink/renderer/core/layout/layout_list_marker.h"
 #include "third_party/blink/renderer/core/layout/layout_multi_column_spanner_placeholder.h"
 #include "third_party/blink/renderer/core/layout/layout_object_factory.h"
 #include "third_party/blink/renderer/core/layout/layout_table_caption.h"
@@ -102,7 +104,6 @@
 #include "third_party/blink/renderer/core/paint/paint_layer.h"
 #include "third_party/blink/renderer/core/paint/paint_layer_scrollable_area.h"
 #include "third_party/blink/renderer/core/paint/paint_timing_detector.h"
-#include "third_party/blink/renderer/core/scroll/scroll_into_view_params_type_converters.h"
 #include "third_party/blink/renderer/core/scroll/smooth_scroll_sequencer.h"
 #include "third_party/blink/renderer/core/style/content_data.h"
 #include "third_party/blink/renderer/core/style/cursor_data.h"
@@ -262,9 +263,14 @@ LayoutObject* LayoutObject::CreateObject(Element* element,
       return LayoutObjectFactory::CreateTableCaption(*element, style, legacy);
     case EDisplay::kWebkitBox:
     case EDisplay::kWebkitInlineBox:
+      if (style.IsDeprecatedWebkitBoxWithVerticalLineClamp() &&
+          RuntimeEnabledFeatures::BlockFlowHandlesWebkitLineClampEnabled()) {
+        return LayoutObjectFactory::CreateBlockForLineClamp(*element, style,
+                                                            legacy);
+      }
       if (style.IsDeprecatedFlexboxUsingFlexLayout())
         return new LayoutFlexibleBox(element);
-      return new LayoutDeprecatedFlexibleBox(*element);
+      return new LayoutDeprecatedFlexibleBox(element);
     case EDisplay::kFlex:
     case EDisplay::kInlineFlex:
       UseCounter::Count(element->GetDocument(), WebFeature::kCSSFlexibleBox);
@@ -363,6 +369,22 @@ bool LayoutObject::RequiresAnonymousTableWrappers(
     return !IsTableRow();
   return false;
 }
+
+#if DCHECK_IS_ON()
+
+void LayoutObject::AssertClearedPaintInvalidationFlags() const {
+  if (!PaintInvalidationStateIsDirty() ||
+      PrePaintBlockedByDisplayLock(DisplayLockLifecycleTarget::kChildren))
+    return;
+  // NG text objects are exempt, as pre-paint walking doesn't visit those with
+  // no paint effects (only white-space, for instance).
+  if (IsText() && IsLayoutNGObject())
+    return;
+  ShowLayoutTreeForThis();
+  NOTREACHED();
+}
+
+#endif  // DCHECK_IS_ON()
 
 DISABLE_CFI_PERF
 void LayoutObject::AddChild(LayoutObject* new_child,
@@ -762,7 +784,7 @@ PhysicalRect LayoutObject::ScrollRectToVisible(
   GetDocument().GetFrame()->GetSmoothScrollSequencer().SetScrollType(
       params->type);
   params->is_for_scroll_sequence |=
-      params->type == mojom::blink::ScrollIntoViewParams::Type::kProgrammatic;
+      params->type == mojom::blink::ScrollType::kProgrammatic;
   PhysicalRect new_location =
       enclosing_box->ScrollRectToVisibleRecursive(rect, std::move(params));
   GetDocument().GetFrame()->GetSmoothScrollSequencer().RunQueuedAnimations();
@@ -885,6 +907,17 @@ static inline bool ObjectIsRelayoutBoundary(const LayoutObject* object) {
   if (object->IsOutOfFlowPositioned() &&
       (style->HasAutoLeftAndRight() || style->HasAutoTopAndBottom()))
     return false;
+
+  if (UNLIKELY(RuntimeEnabledFeatures::LayoutNGFragmentTraversalEnabled() &&
+               object->IsLayoutNGObject())) {
+    // We need to rebuild the entire NG fragment spine all the way from the root
+    // (or at least the nearest self-painting paint layer), since we traverse
+    // the fragments, and not objects. Fragment painting is initiated at
+    // self-painting layers, but we cannot check if it's a self-painting layer
+    // now, because it may cease to be one during layout (an object with clipped
+    // overflow that no longer has content that requires it to clip).
+    return false;
+  }
 
   if (object->ShouldApplyLayoutContainment() &&
       object->ShouldApplySizeContainment())
@@ -1030,7 +1063,7 @@ void LayoutObject::MarkContainerChainForLayout(bool schedule_relayout,
     // Don't mark the outermost object of an unrooted subtree. That object will
     // be marked when the subtree is added to the document.
     LayoutObject* container = object->Container();
-    if (!container && !object->IsLayoutView())
+    if (!container && !IsA<LayoutView>(object))
       return;
     if (!last->IsTextOrSVGChild() && last->StyleRef().HasOutOfFlowPosition()) {
       object = last->ContainingBlock();
@@ -1126,16 +1159,25 @@ void LayoutObject::CheckBlockPositionedObjectsNeedLayout() {
 }
 #endif
 
-void LayoutObject::SetPreferredLogicalWidthsDirty(
+void LayoutObject::SetIntrinsicLogicalWidthsDirty(
     MarkingBehavior mark_parents) {
-  bitfields_.SetPreferredLogicalWidthsDirty(true);
+  bitfields_.SetIntrinsicLogicalWidthsDirty(true);
   if (mark_parents == kMarkContainerChain &&
       (IsText() || !StyleRef().HasOutOfFlowPosition()))
-    InvalidateContainerPreferredLogicalWidths();
+    InvalidateContainerIntrinsicLogicalWidths();
 }
 
-void LayoutObject::ClearPreferredLogicalWidthsDirty() {
-  bitfields_.SetPreferredLogicalWidthsDirty(false);
+void LayoutObject::ClearIntrinsicLogicalWidthsDirty() {
+  bitfields_.SetIntrinsicLogicalWidthsDirty(false);
+}
+
+void LayoutObject::InvalidateSubtreeLayoutForFontUpdates() {
+  SetNeedsLayoutAndIntrinsicWidthsRecalcAndFullPaintInvalidation(
+      layout_invalidation_reason::kFontsChanged);
+  for (LayoutObject* child = SlowFirstChild(); child;
+       child = child->NextSibling()) {
+    child->InvalidateSubtreeLayoutForFontUpdates();
+  }
 }
 
 void LayoutObject::InvalidateIntersectionObserverCachedRects() {
@@ -1162,21 +1204,21 @@ static inline bool NGKeepInvalidatingBeyond(LayoutObject* o) {
   return false;
 }
 
-inline void LayoutObject::InvalidateContainerPreferredLogicalWidths() {
+inline void LayoutObject::InvalidateContainerIntrinsicLogicalWidths() {
   // In order to avoid pathological behavior when inlines are deeply nested, we
   // do include them in the chain that we mark dirty (even though they're kind
   // of irrelevant).
   LayoutObject* o = IsTableCell() ? ContainingBlock() : Container();
   while (o &&
-         (!o->PreferredLogicalWidthsDirty() || NGKeepInvalidatingBeyond(o))) {
+         (!o->IntrinsicLogicalWidthsDirty() || NGKeepInvalidatingBeyond(o))) {
     // Don't invalidate the outermost object of an unrooted subtree. That object
     // will be invalidated when the subtree is added to the document.
     LayoutObject* container =
         o->IsTableCell() ? o->ContainingBlock() : o->Container();
-    if (!container && !o->IsLayoutView())
+    if (!container && !IsA<LayoutView>(o))
       break;
 
-    o->bitfields_.SetPreferredLogicalWidthsDirty(true);
+    o->bitfields_.SetIntrinsicLogicalWidthsDirty(true);
     // A positioned object has no effect on the min/max width of its containing
     // block ever. We can optimize this case and not go up any further.
     if (o->StyleRef().HasOutOfFlowPosition())
@@ -1209,24 +1251,6 @@ LayoutObject* LayoutObject::ContainerForFixedPosition(
     }
     return candidate->CanContainFixedPositionObjects();
   });
-}
-
-LayoutBlock* LayoutObject::FindNonAnonymousContainingBlock(
-    LayoutObject* container,
-    AncestorSkipInfo* skip_info) {
-  // For inlines, we return the nearest non-anonymous enclosing
-  // block. We don't try to return the inline itself. This allows us to avoid
-  // having a positioned objects list in all LayoutInlines and lets us return a
-  // strongly-typed LayoutBlock* result from this method. The
-  // LayoutObject::Container() method can actually be used to obtain the inline
-  // directly.
-  if (container && !container->IsLayoutBlock())
-    container = container->ContainingBlock(skip_info);
-
-  while (container && container->IsAnonymousBlock())
-    container = container->ContainingBlock(skip_info);
-
-  return DynamicTo<LayoutBlock>(container);
 }
 
 LayoutBlock* LayoutObject::ContainingBlockForAbsolutePosition(
@@ -1274,6 +1298,24 @@ LayoutBlock* LayoutObject::ContainingBlock(AncestorSkipInfo* skip_info) const {
   return DynamicTo<LayoutBlock>(object);
 }
 
+LayoutBlock* LayoutObject::FindNonAnonymousContainingBlock(
+    LayoutObject* container,
+    AncestorSkipInfo* skip_info) {
+  // For inlines, we return the nearest non-anonymous enclosing
+  // block. We don't try to return the inline itself. This allows us to avoid
+  // having a positioned objects list in all LayoutInlines and lets us return a
+  // strongly-typed LayoutBlock* result from this method. The
+  // LayoutObject::Container() method can actually be used to obtain the inline
+  // directly.
+  if (container && !container->IsLayoutBlock())
+    container = container->ContainingBlock(skip_info);
+
+  while (container && container->IsAnonymousBlock())
+    container = container->ContainingBlock(skip_info);
+
+  return DynamicTo<LayoutBlock>(container);
+}
+
 bool LayoutObject::ComputeIsFixedContainer(const ComputedStyle* style) const {
   if (!style)
     return false;
@@ -1291,7 +1333,7 @@ bool LayoutObject::ComputeIsFixedContainer(const ComputedStyle* style) const {
   // select elements inside that are created by user agent shadow DOM, and we
   // have (C++) code that assumes that the elements are indeed contained by the
   // text control. So just make sure this is the case.
-  if (IsLayoutView() || IsSVGForeignObject() || IsTextControl())
+  if (IsA<LayoutView>(this) || IsSVGForeignObject() || IsTextControl())
     return true;
   // https://www.w3.org/TR/css-transforms-1/#containing-block-for-all-descendants
   if (style->HasTransformRelatedProperty()) {
@@ -1356,16 +1398,6 @@ PhysicalRect LayoutObject::AbsoluteBoundingBoxRectForScrollIntoView() const {
                    LayoutUnit(style.ScrollMarginBottom()),
                    LayoutUnit(style.ScrollMarginLeft()));
   return rect;
-}
-
-FloatRect LayoutObject::AbsoluteBoundingBoxRectForRange(
-    const EphemeralRange& range) {
-  if (range.IsNull() || !range.StartPosition().ComputeContainerNode())
-    return FloatRect();
-
-  range.GetDocument().UpdateStyleAndLayout();
-
-  return ComputeTextFloatRect(range);
 }
 
 void LayoutObject::AddAbsoluteRectForLayer(IntRect& result) {
@@ -1436,6 +1468,7 @@ void LayoutObject::RecalcNormalFlowChildVisualOverflowIfNeeded() {
 }
 
 const LayoutBoxModelObject* LayoutObject::EnclosingCompositedContainer() const {
+  DCHECK(!RuntimeEnabledFeatures::CompositeAfterPaintEnabled());
   LayoutBoxModelObject* container = nullptr;
   // FIXME: CompositingState is not necessarily up to date for many callers of
   // this function.
@@ -1519,7 +1552,7 @@ String LayoutObject::DecoratedName() const {
     name.Append(" (anonymous)");
   // FIXME: Remove the special case for LayoutView here (requires rebaseline of
   // all tests).
-  if (IsOutOfFlowPositioned() && !IsLayoutView())
+  if (IsOutOfFlowPositioned() && !IsA<LayoutView>(this))
     name.Append(" (positioned)");
   if (IsRelPositioned())
     name.Append(" (relative positioned)");
@@ -1932,26 +1965,20 @@ StyleDifference LayoutObject::AdjustStyleDifference(
       diff.SetNeedsFullLayout();
   }
 
-  // TODO(wangxianzhu): We may avoid subtree paint invalidation on CSS clip
-  // change for CAP.
-  if (diff.CssClipChanged())
-    diff.SetNeedsPaintInvalidationSubtree();
-
   // Optimization: for decoration/color property changes, invalidation is only
   // needed if we have style or text affected by these properties.
-  if (diff.TextDecorationOrColorChanged() &&
-      !diff.NeedsFullPaintInvalidation()) {
+  if (diff.TextDecorationOrColorChanged() && !diff.NeedsPaintInvalidation()) {
     if (StyleRef().HasBorderColorReferencingCurrentColor() ||
         StyleRef().HasOutlineWithCurrentColor() ||
         StyleRef().HasBackgroundRelatedColorReferencingCurrentColor() ||
         // Skip any text nodes that do not contain text boxes. Whitespace cannot
         // be skipped or we will miss invalidating decorations (e.g.,
         // underlines).
-        (IsText() && !IsBR() && ToLayoutText(this)->HasTextBoxes()) ||
+        (IsText() && !IsBR() && ToLayoutText(this)->HasInlineFragments()) ||
         (IsSVG() && StyleRef().SvgStyle().IsFillColorCurrentColor()) ||
         (IsSVG() && StyleRef().SvgStyle().IsStrokeColorCurrentColor()) ||
         IsListMarker() || IsDetailsMarker())
-      diff.SetNeedsPaintInvalidationObject();
+      diff.SetNeedsPaintInvalidation();
   }
 
   // The answer to layerTypeRequired() for plugins, iframes, and canvas can
@@ -2006,9 +2033,26 @@ void LayoutObject::MarkContainerChainForOverflowRecalcIfNeeded(
                  ? object->Parent()
                  : object->Container();
     if (object) {
-      if (mark_container_chain_layout_overflow_recalc)
-        object->SetChildNeedsLayoutOverflowRecalc();
-      object->MarkSelfPaintingLayerForVisualOverflowRecalc();
+      bool already_needs_layout_overflow_recalc = false;
+      if (mark_container_chain_layout_overflow_recalc) {
+        already_needs_layout_overflow_recalc =
+            object->ChildNeedsLayoutOverflowRecalc();
+        if (!already_needs_layout_overflow_recalc)
+          object->SetChildNeedsLayoutOverflowRecalc();
+      }
+
+      if (object->HasLayer()) {
+        auto* box_model_object = ToLayoutBoxModelObject(object);
+        if (box_model_object->HasSelfPaintingLayer()) {
+          auto* layer = box_model_object->Layer();
+          if (layer->NeedsVisualOverflowRecalc()) {
+            if (already_needs_layout_overflow_recalc)
+              return;
+          } else {
+            layer->SetNeedsVisualOverflowRecalc();
+          }
+        }
+      }
     }
 
   } while (object);
@@ -2097,7 +2141,7 @@ void LayoutObject::SetStyle(scoped_refptr<const ComputedStyle> style,
 
   if (!diff.NeedsFullLayout()) {
     if (updated_diff.NeedsFullLayout()) {
-      SetNeedsLayoutAndPrefWidthsRecalc(
+      SetNeedsLayoutAndIntrinsicWidthsRecalc(
           layout_invalidation_reason::kStyleChange);
     } else if (updated_diff.NeedsPositionedMovementLayout()) {
       SetNeedsPositionedMovementLayout();
@@ -2112,14 +2156,13 @@ void LayoutObject::SetStyle(scoped_refptr<const ComputedStyle> style,
   }
 
   if (diff.NeedsRecomputeVisualOverflow()) {
-    if (IsInline() && !IsInLayoutNGInlineFormattingContext() &&
-        !NeedsLayout()) {
+    if (!IsLayoutNGObject() && !IsLayoutBlock() && !NeedsLayout()) {
       // TODO(rego): This is still needed because RecalcVisualOverflow() does
       // not actually compute the visual overflow for inline elements (legacy
       // layout). However in LayoutNG RecalcInlineChildrenInkOverflow() is
       // called and visual overflow is recomputed properly so we don't need this
       // (see crbug.com/1043927).
-      SetNeedsLayoutAndPrefWidthsRecalc(
+      SetNeedsLayoutAndIntrinsicWidthsRecalc(
           layout_invalidation_reason::kStyleChange);
     } else {
       PaintingLayer()->SetNeedsVisualOverflowRecalc();
@@ -2127,22 +2170,19 @@ void LayoutObject::SetStyle(scoped_refptr<const ComputedStyle> style,
     }
   }
 
-  if (diff.NeedsPaintInvalidationSubtree() ||
-      updated_diff.NeedsPaintInvalidationSubtree()) {
-    SetSubtreeShouldDoFullPaintInvalidation();
-  } else if (diff.NeedsPaintInvalidationObject() ||
-             updated_diff.NeedsPaintInvalidationObject()) {
-    // TODO(wangxianzhu): For now LayoutSVGRoot::localVisualRect() depends on
-    // several styles. Refactor to avoid this special case.
-    if (IsSVGRoot())
+  if (diff.NeedsPaintInvalidation() || updated_diff.NeedsPaintInvalidation()) {
+    if (IsSVGRoot()) {
+      // LayoutSVGRoot::LocalVisualRect() depends on some styles.
       SetShouldDoFullPaintInvalidation();
-    else
+    } else {
+      // We'll set needing geometry change later if the style change does cause
+      // possible layout change or visual overflow change.
       SetShouldDoFullPaintInvalidationWithoutGeometryChange();
+    }
   }
 
-  if ((diff.NeedsPaintInvalidationObject() ||
-       diff.NeedsPaintInvalidationSubtree()) &&
-      old_style && !old_style->ClipPathDataEquivalent(*style_)) {
+  if (diff.NeedsPaintInvalidation() && old_style &&
+      !old_style->ClipPathDataEquivalent(*style_)) {
     InvalidateClipPathCache();
     PaintingLayer()->SetNeedsCompositingInputsUpdate();
   }
@@ -2445,7 +2485,8 @@ void LayoutObject::StyleDidChange(StyleDifference diff,
       MarkContainerChainForLayout();
     }
 
-    SetNeedsLayoutAndPrefWidthsRecalc(layout_invalidation_reason::kStyleChange);
+    SetNeedsLayoutAndIntrinsicWidthsRecalc(
+        layout_invalidation_reason::kStyleChange);
   } else if (diff.NeedsPositionedMovementLayout()) {
     SetNeedsPositionedMovementLayout();
   }
@@ -2467,7 +2508,7 @@ void LayoutObject::StyleDidChange(StyleDifference diff,
     }
   }
 
-  if (diff.NeedsFullPaintInvalidation() && old_style) {
+  if (diff.NeedsPaintInvalidation() && old_style) {
     if (ResolveColor(*old_style, GetCSSPropertyBackgroundColor()) !=
             ResolveColor(GetCSSPropertyBackgroundColor()) ||
         old_style->BackgroundLayers() != StyleRef().BackgroundLayers())
@@ -2518,12 +2559,12 @@ void LayoutObject::ApplyFirstLineChanges(const ComputedStyle* old_style) {
     }
   }
   if (!has_diff) {
-    diff.SetNeedsPaintInvalidationObject();
+    diff.SetNeedsPaintInvalidation();
     diff.SetNeedsFullLayout();
   }
 
-  if (BehavesLikeBlockContainer() && (diff.NeedsFullPaintInvalidation() ||
-                                      diff.TextDecorationOrColorChanged())) {
+  if (BehavesLikeBlockContainer() &&
+      (diff.NeedsPaintInvalidation() || diff.TextDecorationOrColorChanged())) {
     if (auto* first_line_container =
             To<LayoutBlock>(this)->NearestInnerBlockWithFirstLine())
       first_line_container->SetShouldDoFullPaintInvalidationForFirstLine();
@@ -2532,7 +2573,8 @@ void LayoutObject::ApplyFirstLineChanges(const ComputedStyle* old_style) {
   if (diff.NeedsLayout()) {
     if (diff.NeedsFullLayout())
       SetNeedsCollectInlines();
-    SetNeedsLayoutAndPrefWidthsRecalc(layout_invalidation_reason::kStyleChange);
+    SetNeedsLayoutAndIntrinsicWidthsRecalc(
+        layout_invalidation_reason::kStyleChange);
   }
 }
 
@@ -2761,10 +2803,10 @@ void LayoutObject::MapLocalToAncestor(const LayoutBoxModelObject* ancestor,
                                     : TransformState::kFlattenTransform);
     // If the ancestor is fixed, then the rect is already in its coordinates so
     // doesn't need viewport-adjusting.
+    auto* layout_view = DynamicTo<LayoutView>(container);
     if (ancestor->StyleRef().GetPosition() != EPosition::kFixed &&
-        container->IsLayoutView() &&
-        StyleRef().GetPosition() == EPosition::kFixed) {
-      transform_state.Move(ToLayoutView(container)->OffsetForFixedPosition());
+        layout_view && StyleRef().GetPosition() == EPosition::kFixed) {
+      transform_state.Move(layout_view->OffsetForFixedPosition());
     }
     return;
   }
@@ -2825,10 +2867,10 @@ void LayoutObject::MapAncestorToLocal(const LayoutBoxModelObject* ancestor,
     transform_state.Move(-container_offset);
     // If the ancestor is fixed, then the rect is already in its coordinates so
     // doesn't need viewport-adjusting.
+    auto* layout_view = DynamicTo<LayoutView>(container);
     if (ancestor->StyleRef().GetPosition() != EPosition::kFixed &&
-        container->IsLayoutView() &&
-        StyleRef().GetPosition() == EPosition::kFixed) {
-      transform_state.Move(ToLayoutView(container)->OffsetForFixedPosition());
+        layout_view && StyleRef().GetPosition() == EPosition::kFixed) {
+      transform_state.Move(layout_view->OffsetForFixedPosition());
     }
   }
 }
@@ -3055,7 +3097,7 @@ LayoutObject* LayoutObject::Container(AncestorSkipInfo* skip_info) const {
 }
 
 inline LayoutObject* LayoutObject::ParentCrossingFrames() const {
-  if (IsLayoutView())
+  if (IsA<LayoutView>(this))
     return GetFrame()->OwnerLayoutObject();
   return Parent();
 }
@@ -3450,9 +3492,8 @@ bool LayoutObject::NodeAtPoint(HitTestResult&,
 }
 
 void LayoutObject::ScheduleRelayout() {
-  if (IsLayoutView()) {
-    LocalFrameView* view = ToLayoutView(this)->GetFrameView();
-    if (view)
+  if (auto* layout_view = DynamicTo<LayoutView>(this)) {
+    if (LocalFrameView* view = layout_view->GetFrameView())
       view->ScheduleRelayout();
   } else {
     if (IsRooted()) {
@@ -3769,11 +3810,12 @@ PositionWithAffinity LayoutObject::CreatePositionWithAffinity(
   if (position.IsNotNull())
     return PositionWithAffinity(position);
 
-  DCHECK(!GetNode());
+  DCHECK(!NonPseudoNode());
   return CreatePositionWithAffinity(0);
 }
 
-CursorDirective LayoutObject::GetCursor(const PhysicalOffset&, Cursor&) const {
+CursorDirective LayoutObject::GetCursor(const PhysicalOffset&,
+                                        ui::Cursor&) const {
   return kSetCursorBasedOnStyle;
 }
 
@@ -4177,6 +4219,20 @@ void LayoutObject::MarkSelfPaintingLayerForVisualOverflowRecalc() {
     if (box_model_object->HasSelfPaintingLayer())
       box_model_object->Layer()->SetNeedsVisualOverflowRecalc();
   }
+}
+
+bool IsMenuList(const LayoutObject* object) {
+  if (!object)
+    return false;
+  auto* select = DynamicTo<HTMLSelectElement>(object->GetNode());
+  return select && select->UsesMenuList();
+}
+
+bool IsListBox(const LayoutObject* object) {
+  if (!object)
+    return false;
+  auto* select = DynamicTo<HTMLSelectElement>(object->GetNode());
+  return select && !select->UsesMenuList();
 }
 
 }  // namespace blink

@@ -10,8 +10,10 @@
 #include <string>
 #include <vector>
 
+#include "base/bind_helpers.h"
 #include "base/macros.h"
 #include "base/optional.h"
+#include "components/autofill_assistant/browser/basic_interactions.h"
 #include "components/autofill_assistant/browser/client.h"
 #include "components/autofill_assistant/browser/client_settings.h"
 #include "components/autofill_assistant/browser/element_area.h"
@@ -129,6 +131,12 @@ class Controller : public ScriptExecutorDelegate,
       base::OnceCallback<void(const ClientStatus&)> cancel_callback) override;
   bool IsNavigatingToNewDocument() override;
   bool HasNavigationError() override;
+  void SetGenericUi(
+      std::unique_ptr<GenericUserInterfaceProto> generic_ui,
+      base::OnceCallback<void(bool,
+                              ProcessedActionStatusProto,
+                              const UserModel*)> end_action_callback) override;
+  void ClearGenericUi() override;
 
   // Show the UI if it's not already shown. This is only meaningful while in
   // states where showing the UI is optional, such as RUNNING, in tracking mode.
@@ -194,17 +202,19 @@ class Controller : public ScriptExecutorDelegate,
   void GetOverlayColors(OverlayColors* colors) const override;
   const ClientSettings& GetClientSettings() const override;
   const FormProto* GetForm() const override;
+  const FormProto::Result* GetFormResult() const override;
   void SetCounterValue(int input_index, int counter_index, int value) override;
   void SetChoiceSelected(int input_index,
                          int choice_index,
                          bool selected) override;
   void AddObserver(ControllerObserver* observer) override;
   void RemoveObserver(const ControllerObserver* observer) override;
-  void DispatchEvent(const EventHandler::EventKey& key,
-                     const ValueProto& value) override;
+  void DispatchEvent(const EventHandler::EventKey& key) override;
   UserModel* GetUserModel() override;
   EventHandler* GetEventHandler() override;
   bool ShouldPromptActionExpandSheet() const override;
+  BasicInteractions* GetBasicInteractions() override;
+  const GenericUserInterfaceProto* GetGenericUiProto() const override;
 
  private:
   friend ControllerTest;
@@ -436,8 +446,12 @@ class Controller : public ScriptExecutorDelegate,
 
   EventHandler event_handler_;
   UserModel user_model_;
+  BasicInteractions basic_interactions_{this};
 
   bool expand_sheet_for_prompt_action_ = true;
+
+  // Only set during a ShowGenericUiAction.
+  std::unique_ptr<GenericUserInterfaceProto> generic_user_interface_;
 
   base::WeakPtrFactory<Controller> weak_ptr_factory_{this};
 

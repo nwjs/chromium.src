@@ -4,10 +4,12 @@
 
 #include "content/browser/accessibility/browser_accessibility_manager_android.h"
 
+#include <vector>
+
 #include "base/i18n/char_iterator.h"
 #include "content/browser/accessibility/browser_accessibility_android.h"
 #include "content/browser/accessibility/web_contents_accessibility_android.h"
-#include "content/common/accessibility_messages.h"
+#include "content/common/render_accessibility.mojom.h"
 #include "content/public/common/use_zoom_for_dsf_policy.h"
 #include "ui/accessibility/ax_role_properties.h"
 
@@ -24,14 +26,14 @@ BrowserAccessibilityManager* BrowserAccessibilityManager::Create(
 
 BrowserAccessibilityManagerAndroid::BrowserAccessibilityManagerAndroid(
     const ui::AXTreeUpdate& initial_tree,
-    WebContentsAccessibilityAndroid* web_contents_accessibility,
+    base::WeakPtr<WebContentsAccessibilityAndroid> web_contents_accessibility,
     BrowserAccessibilityDelegate* delegate,
     BrowserAccessibilityFactory* factory)
     : BrowserAccessibilityManager(delegate, factory),
-      web_contents_accessibility_(web_contents_accessibility),
+      web_contents_accessibility_(std::move(web_contents_accessibility)),
       prune_tree_for_screen_reader_(true) {
-  if (web_contents_accessibility)
-    web_contents_accessibility->set_root_manager(this);
+  if (web_contents_accessibility_)
+    web_contents_accessibility_->set_root_manager(this);
   Initialize(initial_tree);
 }
 
@@ -143,7 +145,7 @@ void BrowserAccessibilityManagerAndroid::FireGeneratedEvent(
   // character with a dot after a short pause. On Android we don't want to
   // fire an event for those changes, but we do want to make sure our internal
   // state is correct, so we call OnDataChanged() and then return.
-  if (android_node->IsPassword() && original_node != node) {
+  if (android_node->IsPasswordField() && original_node != node) {
     android_node->OnDataChanged();
     return;
   }
@@ -191,7 +193,7 @@ void BrowserAccessibilityManagerAndroid::FireGeneratedEvent(
       break;
     }
     case ui::AXEventGenerator::Event::VALUE_CHANGED:
-      if (android_node->IsEditableText() && GetFocus() == node) {
+      if (android_node->IsTextField() && GetFocus() == node) {
         wcax->HandleEditableTextChanged(android_node->unique_id());
       } else if (android_node->IsSlider()) {
         wcax->HandleSliderChanged(android_node->unique_id());
@@ -236,6 +238,7 @@ void BrowserAccessibilityManagerAndroid::FireGeneratedEvent(
     case ui::AXEventGenerator::Event::NAME_CHANGED:
     case ui::AXEventGenerator::Event::OTHER_ATTRIBUTE_CHANGED:
     case ui::AXEventGenerator::Event::PLACEHOLDER_CHANGED:
+    case ui::AXEventGenerator::Event::PORTAL_ACTIVATED:
     case ui::AXEventGenerator::Event::POSITION_IN_SET_CHANGED:
     case ui::AXEventGenerator::Event::READONLY_CHANGED:
     case ui::AXEventGenerator::Event::RELATED_NODE_CHANGED:
@@ -258,19 +261,19 @@ void BrowserAccessibilityManagerAndroid::FireGeneratedEvent(
 }
 
 void BrowserAccessibilityManagerAndroid::SendLocationChangeEvents(
-    const std::vector<AccessibilityHostMsg_LocationChangeParams>& params) {
+    const std::vector<mojom::LocationChangesPtr>& changes) {
   // Android is not very efficient at handling notifications, and location
   // changes in particular are frequent and not time-critical. If a lot of
   // nodes changed location, just send a single notification after a short
   // delay (to batch them), rather than lots of individual notifications.
-  if (params.size() > 3) {
+  if (changes.size() > 3) {
     auto* wcax = GetWebContentsAXFromRootManager();
     if (!wcax)
       return;
     wcax->SendDelayedWindowContentChangedEvent();
     return;
   }
-  BrowserAccessibilityManager::SendLocationChangeEvents(params);
+  BrowserAccessibilityManager::SendLocationChangeEvents(changes);
 }
 
 bool BrowserAccessibilityManagerAndroid::NextAtGranularity(
@@ -365,6 +368,15 @@ bool BrowserAccessibilityManagerAndroid::PreviousAtGranularity(
   return true;
 }
 
+void BrowserAccessibilityManagerAndroid::ClearNodeInfoCacheForGivenId(
+    int32_t unique_id) {
+  WebContentsAccessibilityAndroid* wcax = GetWebContentsAXFromRootManager();
+  if (!wcax)
+    return;
+
+  wcax->ClearNodeInfoCacheForGivenId(unique_id);
+}
+
 bool BrowserAccessibilityManagerAndroid::OnHoverEvent(
     const ui::MotionEventAndroid& event) {
   WebContentsAccessibilityAndroid* wcax = GetWebContentsAXFromRootManager();
@@ -401,17 +413,36 @@ void BrowserAccessibilityManagerAndroid::HandleHoverEvent(
     wcax->HandleHover(android_node->unique_id());
 }
 
-gfx::Rect BrowserAccessibilityManagerAndroid::GetViewBounds() {
+gfx::Rect BrowserAccessibilityManagerAndroid::GetViewBoundsInScreenCoordinates()
+    const {
   // We have to take the device scale factor into account on Android.
   BrowserAccessibilityDelegate* delegate = GetDelegateFromRootManager();
   if (delegate) {
     gfx::Rect bounds = delegate->AccessibilityGetViewBounds();
+
+    // http://www.chromium.org/developers/design-documents/blink-coordinate-spaces
+    // The bounds returned by the delegate are always in device-independent
+    // pixels (DIPs), meaning physical pixels divided by device scale factor
+    // (DSF). However, if UseZoomForDSF is enabled, then Blink does not apply
+    // DSF when going from physical to screen pixels. In that case, we need to
+    // multiply DSF back in to get to Blink's notion of "screen pixels."
     if (IsUseZoomForDSFEnabled() && device_scale_factor() > 0.0 &&
         device_scale_factor() != 1.0)
       bounds = ScaleToEnclosingRect(bounds, device_scale_factor());
     return bounds;
   }
   return gfx::Rect();
+}
+
+void BrowserAccessibilityManagerAndroid::OnNodeWillBeDeleted(ui::AXTree* tree,
+                                                             ui::AXNode* node) {
+  BrowserAccessibility* wrapper = GetFromAXNode(node);
+  BrowserAccessibilityAndroid* android_node =
+      static_cast<BrowserAccessibilityAndroid*>(wrapper);
+
+  ClearNodeInfoCacheForGivenId(android_node->unique_id());
+
+  BrowserAccessibilityManager::OnNodeWillBeDeleted(tree, node);
 }
 
 void BrowserAccessibilityManagerAndroid::OnAtomicUpdateFinished(
@@ -438,7 +469,7 @@ WebContentsAccessibilityAndroid*
 BrowserAccessibilityManagerAndroid::GetWebContentsAXFromRootManager() {
   BrowserAccessibility* parent_node = GetParentNodeFromParentTree();
   if (!parent_node)
-    return web_contents_accessibility_;
+    return web_contents_accessibility_.get();
 
   auto* parent_manager =
       static_cast<BrowserAccessibilityManagerAndroid*>(parent_node->manager());

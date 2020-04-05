@@ -6,6 +6,7 @@
 
 #include <string>
 
+#include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
 #include "chrome/browser/prerender/isolated/isolated_prerender_features.h"
@@ -16,38 +17,43 @@ bool IsolatedPrerenderIsEnabled() {
   return base::FeatureList::IsEnabled(features::kIsolatePrerenders);
 }
 
-base::Optional<GURL> IsolatedPrerenderProxyServer() {
-  if (!base::FeatureList::IsEnabled(features::kIsolatedPrerenderUsesProxy))
-    return base::nullopt;
-
-  GURL url(base::GetFieldTrialParamValueByFeature(
-      features::kIsolatedPrerenderUsesProxy, "proxy_server_url"));
-  if (!url.is_valid() || !url.has_host() || !url.has_scheme())
-    return base::nullopt;
-  return url;
-}
-
 bool IsolatedPrerenderShouldReplaceDataReductionCustomProxy() {
   bool replace =
       data_reduction_proxy::params::IsIncludedInHoldbackFieldTrial() &&
-      IsolatedPrerenderIsEnabled() &&
-      IsolatedPrerenderProxyServer().has_value();
+      IsolatedPrerenderIsEnabled();
   // TODO(robertogden): Remove this once all pieces are landed.
   DCHECK(!replace);
   return replace;
 }
 
 base::Optional<size_t> IsolatedPrerenderMaximumNumberOfPrefetches() {
-  if (!base::FeatureList::IsEnabled(
-          features::kPrefetchSRPNavigationPredictions_HTMLOnly)) {
+  if (!IsolatedPrerenderIsEnabled()) {
     return 0;
   }
 
-  int max = base::GetFieldTrialParamByFeatureAsInt(
-      features::kPrefetchSRPNavigationPredictions_HTMLOnly,
-      "max_srp_prefetches", 1);
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
+          "isolated-prerender-unlimited-prefetches")) {
+    return base::nullopt;
+  }
+
+  int max = base::GetFieldTrialParamByFeatureAsInt(features::kIsolatePrerenders,
+                                                   "max_srp_prefetches", 1);
   if (max < 0) {
     return base::nullopt;
   }
   return max;
+}
+
+base::TimeDelta IsolatedPrerenderProbeTimeout() {
+  return base::TimeDelta::FromMilliseconds(
+      base::GetFieldTrialParamByFeatureAsInt(
+          features::kIsolatePrerendersMustProbeOrigin, "probe_timeout_ms",
+          10 * 1000 /* 10 seconds */));
+}
+
+base::TimeDelta IsolatedPrefetchTimeoutDuration() {
+  return base::TimeDelta::FromMilliseconds(
+      base::GetFieldTrialParamByFeatureAsInt(features::kIsolatePrerenders,
+                                             "prefetch_timeout_ms",
+                                             10 * 1000 /* 10 seconds */));
 }

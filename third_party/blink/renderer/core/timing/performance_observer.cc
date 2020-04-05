@@ -21,6 +21,7 @@
 #include "third_party/blink/renderer/core/workers/worker_global_scope.h"
 #include "third_party/blink/renderer/platform/bindings/exception_messages.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
+#include "third_party/blink/renderer/platform/heap/heap.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/timer.h"
@@ -80,7 +81,7 @@ PerformanceObserver::PerformanceObserver(
     ExecutionContext* execution_context,
     Performance* performance,
     V8PerformanceObserverCallback* callback)
-    : ContextLifecycleStateObserver(execution_context),
+    : ExecutionContextLifecycleStateObserver(execution_context),
       callback_(callback),
       performance_(performance),
       filter_options_(PerformanceEntry::kInvalid),
@@ -123,9 +124,10 @@ void PerformanceObserver::observe(const PerformanceObserverInit* observer_init,
       if (entry_type == PerformanceEntry::kInvalid) {
         String message = "The entry type '" + entry_type_string +
                          "' does not exist or isn't supported.";
-        GetExecutionContext()->AddConsoleMessage(ConsoleMessage::Create(
-            mojom::ConsoleMessageSource::kJavaScript,
-            mojom::ConsoleMessageLevel::kWarning, message));
+        GetExecutionContext()->AddConsoleMessage(
+            MakeGarbageCollected<ConsoleMessage>(
+                mojom::ConsoleMessageSource::kJavaScript,
+                mojom::ConsoleMessageLevel::kWarning, message));
       }
       entry_types |= entry_type;
     }
@@ -136,9 +138,10 @@ void PerformanceObserver::observe(const PerformanceObserverInit* observer_init,
       String message =
           "The PerformanceObserver does not support buffered flag with "
           "the entryTypes argument.";
-      GetExecutionContext()->AddConsoleMessage(ConsoleMessage::Create(
-          mojom::ConsoleMessageSource::kJavaScript,
-          mojom::ConsoleMessageLevel::kWarning, message));
+      GetExecutionContext()->AddConsoleMessage(
+          MakeGarbageCollected<ConsoleMessage>(
+              mojom::ConsoleMessageSource::kJavaScript,
+              mojom::ConsoleMessageLevel::kWarning, message));
     }
     filter_options_ = entry_types;
   } else {
@@ -161,19 +164,10 @@ void PerformanceObserver::observe(const PerformanceObserverInit* observer_init,
     if (entry_type == PerformanceEntry::kInvalid) {
       String message = "The entry type '" + observer_init->type() +
                        "' does not exist or isn't supported.";
-      GetExecutionContext()->AddConsoleMessage(ConsoleMessage::Create(
-          mojom::ConsoleMessageSource::kJavaScript,
-          mojom::ConsoleMessageLevel::kWarning, message));
-      return;
-    }
-    if (filter_options_ & entry_type) {
-      String message =
-          "The PerformanceObserver has already been called with the entry type "
-          "'" +
-          observer_init->type() + "'.";
-      GetExecutionContext()->AddConsoleMessage(ConsoleMessage::Create(
-          mojom::ConsoleMessageSource::kJavaScript,
-          mojom::ConsoleMessageLevel::kWarning, message));
+      GetExecutionContext()->AddConsoleMessage(
+          MakeGarbageCollected<ConsoleMessage>(
+              mojom::ConsoleMessageSource::kJavaScript,
+              mojom::ConsoleMessageLevel::kWarning, message));
       return;
     }
     if (observer_init->buffered()) {
@@ -216,6 +210,7 @@ void PerformanceObserver::disconnect() {
   if (performance_)
     performance_->UnregisterPerformanceObserver(*this);
   is_registered_ = false;
+  filter_options_ = PerformanceEntry::kInvalid;
 }
 
 PerformanceEntryVector PerformanceObserver::takeRecords() {
@@ -257,12 +252,12 @@ void PerformanceObserver::ContextLifecycleStateChanged(
     performance_->SuspendObserver(*this);
 }
 
-void PerformanceObserver::Trace(blink::Visitor* visitor) {
+void PerformanceObserver::Trace(Visitor* visitor) {
   visitor->Trace(callback_);
   visitor->Trace(performance_);
   visitor->Trace(performance_entries_);
   ScriptWrappable::Trace(visitor);
-  ContextLifecycleStateObserver::Trace(visitor);
+  ExecutionContextLifecycleStateObserver::Trace(visitor);
 }
 
 }  // namespace blink

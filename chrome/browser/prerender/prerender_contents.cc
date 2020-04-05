@@ -10,6 +10,7 @@
 #include <utility>
 
 #include "base/bind.h"
+#include "base/callback_helpers.h"
 #include "base/stl_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/post_task.h"
@@ -98,10 +99,6 @@ class PrerenderContents::WebContentsDelegateImpl
     // or cross-site subframe navigations in --site-per-process.
     prerender_contents_->Destroy(FINAL_STATUS_OPEN_URL);
     return false;
-  }
-
-  void CloseContents(content::WebContents* contents) override {
-    prerender_contents_->Destroy(FINAL_STATUS_CLOSED);
   }
 
   void CanDownload(const GURL& url,
@@ -278,9 +275,9 @@ void PrerenderContents::StartPrerendering(
       this, content::NOTIFICATION_WEB_CONTENTS_RENDER_VIEW_HOST_CREATED,
       content::Source<WebContents>(prerender_contents_.get()));
 
-  // Transfer over the user agent override.
-  prerender_contents_.get()->SetUserAgentOverride(
-      prerender_manager_->config().user_agent_override, false);
+  // Reset UA override.
+  prerender_contents_.get()->SetUserAgentOverride(blink::UserAgentOverride(),
+                                                  false);
 
   content::NavigationController::LoadURLParams load_url_params(
       prerender_url_);
@@ -296,8 +293,6 @@ void PrerenderContents::StartPrerendering(
         ui::PageTransitionFromInt(ui::PAGE_TRANSITION_GENERATED);
   }
   load_url_params.override_user_agent =
-      prerender_manager_->config().is_overriding_user_agent ?
-      content::NavigationController::UA_OVERRIDE_TRUE :
       content::NavigationController::UA_OVERRIDE_FALSE;
   prerender_contents_.get()->GetController().LoadURLWithParams(load_url_params);
 }

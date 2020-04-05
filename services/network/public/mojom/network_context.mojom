@@ -11,6 +11,7 @@ import "mojo/public/mojom/base/time.mojom";
 import "mojo/public/mojom/base/unguessable_token.mojom";
 import "mojo/public/mojom/base/values.mojom";
 import "services/network/public/mojom/address_list.mojom";
+import "services/network/public/mojom/content_security_policy.mojom";
 import "services/network/public/mojom/cookie_manager.mojom";
 import "services/network/public/mojom/default_credentials.mojom";
 import "services/network/public/mojom/cors_origin_pattern.mojom";
@@ -19,6 +20,7 @@ import "services/network/public/mojom/host_resolver.mojom";
 import "services/network/public/mojom/http_request_headers.mojom";
 import "services/network/public/mojom/ip_address.mojom";
 import "services/network/public/mojom/ip_endpoint.mojom";
+import "services/network/public/mojom/ip_address_space.mojom";
 import "services/network/public/mojom/mdns_responder.mojom";
 import "services/network/public/mojom/mutable_network_traffic_annotation_tag.mojom";
 import "services/network/public/mojom/net_log.mojom";
@@ -83,40 +85,6 @@ struct CustomProxyConfig {
   // non-idempotent methods. Can be true if the proxy is known to handle this
   // case properly.
   bool allow_non_idempotent_methods = false;
-
-  // Whether every HTTPS proxy in the custom proxy config can be assumed to
-  // also support QUIC. If this is true, the network service will try to
-  // establish an alternative QUIC stream to the proxy in parallel to the HTTPS
-  // stream in an attempt to use QUIC if possible.
-  bool assume_https_proxies_support_quic = false;
-
-  // Whether the custom proxy config can be used on HTTP URLs whose fetching
-  // causes redirect cycles. If set to false, network service will try to
-  // bypass custom proxies on HTTP requests whose fetching causes redirect
-  // cycles. In such cases, the request will be fetched directly once the
-  // redirect cycle is detected.
-  // TODO(https://crbug.com/945892): Remove this boolean once Network
-  // Servicification is fully launched.
-  bool can_use_proxy_on_http_url_redirect_cycles = true;
-
-  // The custom proxy can set these headers in this config which will be added
-  // to all requests using the proxy. This allows setting headers that may be
-  // privacy/security sensitive which we don't want to send to the renderer.
-  // Headers that require per-request logic can be added through the
-  // |custom_proxy_pre_cache_headers| and |custom_proxy_post_cache_headers|
-  // fields in ResourceRequest.
-  //
-  // Headers that will be set before the cache for http:// requests. If the
-  // request does not use a custom proxy, these headers will be removed before
-  // sending to the network. If a request already has one of these headers set,
-  // it may be overwritten if a custom proxy is used, or removed if a custom
-  // proxy is not used.
-  HttpRequestHeaders pre_cache_headers;
-
-  // Headers that will be set after the cache for http:// requests that are
-  // issued through a custom proxy. Headers here will overwrite matching
-  // headers on the request if a custom proxy is used.
-  HttpRequestHeaders post_cache_headers;
 
   // For tunneled requests (https://, ws://, wss://), these headers are added
   // to the CONNECT request. Headers here will overwrite matching headers on
@@ -231,6 +199,14 @@ struct NetworkContextParams {
 
   // Points to the cookie file. An in-memory cookie store is used if it's empty.
   mojo_base.mojom.FilePath? cookie_path;
+
+  // Points to the Trust Token database. An in-memory trust token store is used
+  // if it's empty, or (through a fallback in the initialization logic; see
+  // SQLiteTrustTokenPersister's comments) if initialization fails.
+  //
+  // Initializing the on-disk database takes place asynchronously, so requests
+  // near startup may not support Trust Tokens protocol operations.
+  mojo_base.mojom.FilePath? trust_token_path;
 
   // If true, cookies will be stored encrypted.
   bool enable_encrypted_cookies = true;
@@ -367,10 +343,14 @@ struct NetworkContextParams {
   [EnableIf=is_chromeos]
   AdditionalCertificates? initial_additional_certificates;
 
-  // If true, the built-in cert verifier will be used. If false, the platform
-  // cert verifier will be used.
+  // Specifies which cert verifier implementation to use.
+  //   kDefault - Decided by base::Feature
+  //   kBuiltin - Use CertVerifyProcBuiltin
+  //   kSystem  - Use the system CertVerifyProc implementation
   [EnableIf=is_builtin_cert_verifier_feature_supported]
-  bool use_builtin_cert_verifier = false;
+  enum CertVerifierImpl {kDefault, kBuiltin, kSystem};
+  [EnableIf=is_builtin_cert_verifier_feature_supported]
+  CertVerifierImpl use_builtin_cert_verifier = kDefault;
 
   // Parameters for the cert verifier comparison trial. This is a temporary
   // interface and embedders should not use it.
@@ -549,6 +529,22 @@ struct URLLoaderFactoryOverride {
 
   // A receiver for the replaced "internal" URLLoaderFactory.
   pending_receiver<URLLoaderFactory>? overridden_factory_receiver;
+
+  // Specifies if we should accept unknown schemes for CORS-enabled requests
+  // so that the |overriding_factory| can provide content for custom schemes.
+  bool skip_cors_enabled_scheme_check = false;
+};
+
+struct ClientSecurityState {
+  // https://mikewest.github.io/corpp/#integration-html
+  // https://mikewest.github.io/corpp/#initialize-embedder-policy-for-global
+  CrossOriginEmbedderPolicy cross_origin_embedder_policy;
+
+  // Whether the initiator of the requests is in a web secure context.
+  bool is_web_secure_context = false;
+
+  // The initiator's IP AddressSpace.
+  IPAddressSpace ip_address_space = IPAddressSpace.kUnknown;
 };
 
 struct URLLoaderFactoryParams {
@@ -561,6 +557,10 @@ struct URLLoaderFactoryParams {
   // TODO(lukasza): https://crbug.com/891872: 1) Make this non-optional,
   // 2) Make this an *origin* lock (rather than a *site* lock).
   url.mojom.Origin? request_initiator_site_lock;
+
+  // For subresource requests from frames, |top_frame_origin| is the request's
+  // top frame's origin.
+  url.mojom.Origin? top_frame_origin;
 
   // Cross-origin read blocking (CORB) configuration.
   bool is_corb_enabled = true;
@@ -580,11 +580,6 @@ struct URLLoaderFactoryParams {
   // this factory as initiated by the user agent itself, not from any
   // particular page.
   bool disable_web_security = false;
-
-  // https://mikewest.github.io/corpp/#integration-html
-  // https://mikewest.github.io/corpp/#initialize-embedder-policy-for-global
-  CrossOriginEmbedderPolicy cross_origin_embedder_policy =
-      CrossOriginEmbedderPolicy.kNone;
 
   // If this is set, requests with the kURLLoadOptionUseHeaderClient option will
   // callback to the |header_client|, allowing the Cookie/Referrer request
@@ -616,6 +611,13 @@ struct URLLoaderFactoryParams {
 
   // Replaces the "internal" factory used by security features such as CORS.
   URLLoaderFactoryOverride? factory_override;
+
+  // Used to enforce security properties on the requests loaded by the
+  // URLLoader based on the Fetch client state.
+  ClientSecurityState? client_security_state;
+
+  // Used to report CORP violations caused by COEP.
+  CrossOriginEmbedderPolicyReporter? coep_reporter;
 };
 
 // The |credentials| output parameter is given to URLRequest::SetAuth()
@@ -1210,6 +1212,12 @@ interface NetworkContext {
                               string sct_list) => (int32 error_code,
                                                    CertVerifyResult cv_result,
                                                    CTVerifyResult ct_result);
+
+  // Parses a Content Security Policy originating from the browser. This is
+  // used by Signed Exchanges and Appcache requests, where the browser
+  // parses the header contents.
+  ParseContentSecurityPolicy(url.mojom.Url url, HttpResponseHeaders headers)
+      => (array<ContentSecurityPolicy> content_security_policy);
 
   // Adds explicitly-specified data as if it was processed from an
   // HSTS header. Used by tests and implementation of chrome://net-internals.

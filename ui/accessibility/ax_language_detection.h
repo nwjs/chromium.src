@@ -8,6 +8,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -68,6 +69,7 @@ struct AX_EXPORT AXLanguageInfo {
   //
   // This should not be read directly by clients of AXNode, instead clients
   // should call AXNode::GetLanguage().
+  // TODO(chrishall): consider renaming this to `assigned_language`.
   std::string language;
 
   // Detected languages for this node sorted as returned by
@@ -97,6 +99,9 @@ struct AX_EXPORT AXLanguageSpan {
 // provide extra signals to increase our confidence in assigning a detected
 // language.
 //
+// These tree level statistics are also used to send reports on the language
+// detection feature to enable tuning.
+//
 // The Label step will only assign a detected language to a node if that
 // language is one of the most frequent languages on the page.
 //
@@ -110,6 +115,11 @@ class AX_EXPORT AXLanguageInfoStats {
   AXLanguageInfoStats();
   ~AXLanguageInfoStats();
 
+  // Each AXLanguageInfoStats is tied to a specific AXTree, copying is safe but
+  // logically doesn't make sense.
+  AXLanguageInfoStats(const AXLanguageInfoStats&) = delete;
+  AXLanguageInfoStats& operator=(const AXLanguageInfoStats&) = delete;
+
   // Adjust our statistics to add provided detected languages.
   void Add(const std::vector<std::string>& languages);
 
@@ -119,13 +129,32 @@ class AX_EXPORT AXLanguageInfoStats {
   // Check if a given language is within the top results.
   bool CheckLanguageWithinTop(const std::string& lang);
 
+  // Record statistics based on how we labelled a node.
+  // We consider the language we labelled the node with, the language the author
+  // assigned, and whether or not we assigned our highest confidence detection
+  // result.
+  void RecordLabelStatistics(const std::string& labelled_lang,
+                             const std::string& author_lang,
+                             bool labelled_with_first_result);
+
+  // Update metrics to reflect we attempted to detect language for a node.
+  void RecordDetectionAttempt();
+
+  // Report metrics to UMA.
+  // Reports statistics since last run, run once detect & label iteration.
+  // If successful, will reset statistics.
+  void ReportMetrics();
+
  private:
+  // Allow access from a fixture only used in testing.
+  friend class AXLanguageDetectionTestFixture;
+
   // Store a count of the occurrences of a given language.
-  std::unordered_map<std::string, unsigned int> lang_counts_;
+  std::unordered_map<std::string, int> lang_counts_;
 
   // Cache of last calculated top language results.
   // A vector of pairs of (score, language) sorted by descending score.
-  std::vector<std::pair<unsigned int, std::string>> top_results_;
+  std::vector<std::pair<int, std::string>> top_results_;
 
   // Boolean recording that we have not mutated the statistics since last
   // calculating top results, setting this to false will cause recalculation
@@ -138,7 +167,41 @@ class AX_EXPORT AXLanguageInfoStats {
   // Compute the top results and store them in cache.
   void GenerateTopResults();
 
-  DISALLOW_COPY_AND_ASSIGN(AXLanguageInfoStats);
+  // TODO(chrishall): Do we want this for testing? or is it better to only test
+  //  the generated metrics by inspecting the histogram?
+  // Boolean used for testing metrics only, disables clearing of metrics.
+  bool disable_metric_clearing_;
+  void ClearMetrics();
+
+  // *** Statistics recorded for metric reporting. ***
+  // All statistics represent a single iteration of language detection and are
+  // reset after each successful call of ReportMetrics.
+
+  // The number of nodes we attempted detection on.
+  int count_detection_attempted_;
+
+  // The number of nodes we got detection results for.
+  int count_detection_results_;
+
+  // The number of nodes we assigned a label to.
+  int count_labelled_;
+
+  // The number of nodes we assigned a label to which was the highest confident
+  // detected language.
+  int count_labelled_with_top_result_;
+
+  // The number of times we labelled a language which disagreed with the node's
+  // author provided language annotation.
+  //
+  // If we have
+  //  <div lang='en'><span>...</span><span>...</span></div>
+  // and we detect and label both spans as having language 'fr', then we count
+  // this as `2` overrides.
+  int count_overridden_;
+
+  // Set of top language detected for every node, used to generate the unique
+  // number of detected languages metric (LangsPerPage).
+  std::unordered_set<std::string> unique_top_lang_detected_;
 };
 
 // AXLanguageDetectionObserver is registered as a change observer on an AXTree
@@ -162,6 +225,11 @@ class AX_EXPORT AXLanguageDetectionObserver : public ui::AXTreeObserver {
   // Observer destructor will remove itself as an observer from the AXTree.
   ~AXLanguageDetectionObserver() override;
 
+  // AXLanguageDetectionObserver contains a pointer so copying is non-trivial.
+  AXLanguageDetectionObserver(const AXLanguageDetectionObserver&) = delete;
+  AXLanguageDetectionObserver& operator=(const AXLanguageDetectionObserver&) =
+      delete;
+
  private:
   void OnAtomicUpdateFinished(ui::AXTree* tree,
                               bool root_changed,
@@ -169,8 +237,6 @@ class AX_EXPORT AXLanguageDetectionObserver : public ui::AXTreeObserver {
 
   // Non-owning pointer to AXTree, used to de-register observer on destruction.
   AXTree* const tree_;
-
-  DISALLOW_COPY_AND_ASSIGN(AXLanguageDetectionObserver);
 };
 
 // AXLanguageDetectionManager manages all of the context needed for language
@@ -178,8 +244,13 @@ class AX_EXPORT AXLanguageDetectionObserver : public ui::AXTreeObserver {
 class AX_EXPORT AXLanguageDetectionManager {
  public:
   // Construct an AXLanguageDetectionManager for the specified tree.
-  AXLanguageDetectionManager(AXTree* tree);
+  explicit AXLanguageDetectionManager(AXTree* tree);
   ~AXLanguageDetectionManager();
+
+  // AXLanguageDetectionManager contains pointers so copying is non-trivial.
+  AXLanguageDetectionManager(const AXLanguageDetectionManager&) = delete;
+  AXLanguageDetectionManager& operator=(const AXLanguageDetectionManager&) =
+      delete;
 
   // Detect languages for each node in the tree managed by this manager.
   // This is the first pass in detection and labelling.
@@ -236,8 +307,6 @@ class AX_EXPORT AXLanguageDetectionManager {
   AXTree* tree_;
 
   AXLanguageInfoStats lang_info_stats_;
-
-  DISALLOW_COPY_AND_ASSIGN(AXLanguageDetectionManager);
 };
 
 }  // namespace ui

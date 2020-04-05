@@ -27,8 +27,6 @@
 
 namespace blink {
 
-class HTMLInputElement;
-
 // Each LayoutFileUploadControl contains a LayoutButton (for opening the file
 // chooser), and sufficient space to draw a file icon and filename. The
 // LayoutButton has a shadow node associated with it to receive click/hover
@@ -36,7 +34,7 @@ class HTMLInputElement;
 
 class CORE_EXPORT LayoutFileUploadControl final : public LayoutBlockFlow {
  public:
-  LayoutFileUploadControl(HTMLInputElement*);
+  explicit LayoutFileUploadControl(Element*);
   ~LayoutFileUploadControl() override;
 
   bool IsOfType(LayoutObjectType type) const override {
@@ -48,24 +46,16 @@ class CORE_EXPORT LayoutFileUploadControl final : public LayoutBlockFlow {
 
   HTMLInputElement* UploadButton() const;
 
-  bool HasControlClip() const override { return true; }
-  PhysicalRect ControlClipRect(const PhysicalOffset&) const override;
   PhysicalRect OverflowClipRect(const PhysicalOffset&,
                                 OverlayScrollbarClipBehavior) const override;
-
-  bool PaintedOutputOfObjectHasNoEffectRegardlessOfSize() const override {
-    return false;
-  }
 
   static const int kAfterButtonSpacing = 4;
 
   const char* GetName() const override { return "LayoutFileUploadControl"; }
 
  private:
-  void ComputeIntrinsicLogicalWidths(
-      LayoutUnit& min_logical_width,
-      LayoutUnit& max_logical_width) const override;
-  void ComputePreferredLogicalWidths() override;
+  bool IsChildAllowed(LayoutObject* child,
+                      const ComputedStyle& style) const override;
   void PaintObject(const PaintInfo&,
                    const PhysicalOffset& paint_offset) const override;
 

@@ -12,9 +12,11 @@
 #include "ash/public/mojom/assistant_state_controller.mojom.h"
 #include "base/macros.h"
 #include "chrome/browser/ui/ash/assistant/device_actions.h"
-#include "chromeos/services/assistant/public/mojom/assistant.mojom.h"
+#include "chromeos/services/assistant/public/mojom/assistant.mojom-forward.h"
 #include "components/session_manager/core/session_manager_observer.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
+#include "content/public/browser/notification_observer.h"
+#include "content/public/browser/notification_registrar.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
@@ -29,6 +31,7 @@ class Profile;
 // Class to handle all Assistant in-browser-process functionalities.
 class AssistantClientImpl : public ash::AssistantClient,
                             public chromeos::assistant::mojom::Client,
+                            public content::NotificationObserver,
                             public signin::IdentityManager::Observer,
                             public session_manager::SessionManagerObserver {
  public:
@@ -42,11 +45,17 @@ class AssistantClientImpl : public ash::AssistantClient,
   void BindAssistant(
       mojo::PendingReceiver<chromeos::assistant::mojom::Assistant> receiver)
       override;
+  void RequestAssistantStructure(
+      ash::AssistantClient::RequestAssistantStructureCallback callback)
+      override;
+
+  // content::NotificationObserver overrides:
+  void Observe(int type,
+               const content::NotificationSource& source,
+               const content::NotificationDetails& details) override;
 
   // assistant::mojom::Client overrides:
   void OnAssistantStatusChanged(ash::mojom::AssistantState new_state) override;
-  void RequestAssistantStructure(
-      RequestAssistantStructureCallback callback) override;
   void RequestAssistantController(
       mojo::PendingReceiver<chromeos::assistant::mojom::AssistantController>
           receiver) override;
@@ -75,9 +84,6 @@ class AssistantClientImpl : public ash::AssistantClient,
       mojo::PendingReceiver<
           chromeos::assistant::mojom::AssistantAudioDecoderFactory> receiver)
       override;
-  void RequestIdentityAccessor(
-      mojo::PendingReceiver<identity::mojom::IdentityAccessor> receiver)
-      override;
   void RequestAudioFocusManager(
       mojo::PendingReceiver<media_session::mojom::AudioFocusManager> receiver)
       override;
@@ -103,8 +109,7 @@ class AssistantClientImpl : public ash::AssistantClient,
 
   mojo::Receiver<chromeos::assistant::mojom::Client> client_receiver_{this};
 
-  DeviceActions device_actions_;
-
+  std::unique_ptr<DeviceActions> device_actions_;
   std::unique_ptr<AssistantImageDownloader> assistant_image_downloader_;
   std::unique_ptr<AssistantSetup> assistant_setup_;
   std::unique_ptr<AssistantWebViewFactoryImpl> assistant_web_view_factory_;
@@ -118,6 +123,8 @@ class AssistantClientImpl : public ash::AssistantClient,
       pending_assistant_receivers_;
 
   bool initialized_ = false;
+
+  content::NotificationRegistrar notification_registrar_;
 
   // Non-owning pointers.
   Profile* profile_ = nullptr;

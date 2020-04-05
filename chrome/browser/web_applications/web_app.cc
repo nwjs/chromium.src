@@ -158,8 +158,13 @@ void WebApp::SetDownloadedIconSizes(std::vector<SquareSizePx> sizes) {
   downloaded_icon_sizes_ = std::move(sizes);
 }
 
-void WebApp::SetFileHandlers(FileHandlers file_handlers) {
+void WebApp::SetFileHandlers(apps::FileHandlers file_handlers) {
   file_handlers_ = std::move(file_handlers);
+}
+
+void WebApp::SetAdditionalSearchTerms(
+    std::vector<std::string> additional_search_terms) {
+  additional_search_terms_ = std::move(additional_search_terms);
 }
 
 void WebApp::SetSyncData(SyncData sync_data) {
@@ -174,38 +179,9 @@ WebApp::SyncData::SyncData(const SyncData& sync_data) = default;
 
 WebApp::SyncData& WebApp::SyncData::operator=(SyncData&& sync_data) = default;
 
-WebApp::FileHandlerAccept::FileHandlerAccept() = default;
-WebApp::FileHandlerAccept::~FileHandlerAccept() = default;
-WebApp::FileHandlerAccept::FileHandlerAccept(
-    const FileHandlerAccept& file_handler_accept) = default;
-WebApp::FileHandlerAccept& WebApp::FileHandlerAccept::operator=(
-    FileHandlerAccept&& file_handler_accept) = default;
-
-WebApp::FileHandler::FileHandler() = default;
-WebApp::FileHandler::~FileHandler() = default;
-WebApp::FileHandler::FileHandler(const FileHandler& file_handler) = default;
-WebApp::FileHandler& WebApp::FileHandler::operator=(
-    FileHandler&& file_handler) = default;
-
 std::ostream& operator<<(std::ostream& out, const WebApp::SyncData& sync_data) {
   return out << "theme_color: " << ColorToString(sync_data.theme_color)
              << " name: " << sync_data.name;
-}
-
-std::ostream& operator<<(std::ostream& out,
-                         const WebApp::FileHandlerAccept& file_handler_accept) {
-  out << "mimetype: " << file_handler_accept.mimetype << " file_extensions:";
-  for (const auto& file_extension : file_handler_accept.file_extensions)
-    out << " " << file_extension;
-  return out;
-}
-
-std::ostream& operator<<(std::ostream& out,
-                         const WebApp::FileHandler& file_handler) {
-  out << "action: " << file_handler.action;
-  for (const auto& accept_entry : file_handler.accept)
-    out << " accept: " << accept_entry;
-  return out;
 }
 
 std::ostream& operator<<(std::ostream& out, const WebApp& app) {
@@ -232,40 +208,18 @@ std::ostream& operator<<(std::ostream& out, const WebApp& app) {
     out << "  icon_url: " << icon << std::endl;
   for (SquareSizePx size : app.downloaded_icon_sizes_)
     out << "  icon_size_on_disk: " << size << std::endl;
-  for (const WebApp::FileHandler& file_handler : app.file_handlers_)
+  for (const apps::FileHandler& file_handler : app.file_handlers_)
     out << "  file_handler: " << file_handler << std::endl;
+  for (const std::string& additional_search_term : app.additional_search_terms_)
+    out << "  additional_search_term: " << additional_search_term << std::endl;
 
   return out;
-}
-
-bool operator==(const WebApp::FileHandlerAccept& file_handler_accept1,
-                const WebApp::FileHandlerAccept& file_handler_accept2) {
-  return std::tie(file_handler_accept1.mimetype,
-                  file_handler_accept1.file_extensions) ==
-         std::tie(file_handler_accept2.mimetype,
-                  file_handler_accept2.file_extensions);
-}
-
-bool operator==(const WebApp::FileHandler& file_handler1,
-                const WebApp::FileHandler& file_handler2) {
-  return std::tie(file_handler1.action, file_handler1.accept) ==
-         std::tie(file_handler2.action, file_handler2.accept);
 }
 
 bool operator==(const WebApp::SyncData& sync_data1,
                 const WebApp::SyncData& sync_data2) {
   return std::tie(sync_data1.name, sync_data1.theme_color) ==
          std::tie(sync_data2.name, sync_data2.theme_color);
-}
-
-bool operator!=(const WebApp::FileHandlerAccept& file_handler_accept1,
-                const WebApp::FileHandlerAccept& file_handler_accept2) {
-  return !(file_handler_accept1 == file_handler_accept2);
-}
-
-bool operator!=(const WebApp::FileHandler& file_handler1,
-                const WebApp::FileHandler& file_handler2) {
-  return !(file_handler1 == file_handler2);
 }
 
 bool operator!=(const WebApp::SyncData& sync_data1,
@@ -279,13 +233,15 @@ bool operator==(const WebApp& app1, const WebApp& app2) {
                   app1.icon_infos_, app1.downloaded_icon_sizes_,
                   app1.display_mode_, app1.user_display_mode_,
                   app1.is_locally_installed_, app1.is_in_sync_install_,
-                  app1.file_handlers_, app1.sync_data_) ==
+                  app1.file_handlers_, app1.additional_search_terms_,
+                  app1.sync_data_) ==
          std::tie(app2.app_id_, app2.sources_, app2.name_, app2.launch_url_,
                   app2.description_, app2.scope_, app2.theme_color_,
                   app2.icon_infos_, app2.downloaded_icon_sizes_,
                   app2.display_mode_, app2.user_display_mode_,
                   app2.is_locally_installed_, app2.is_in_sync_install_,
-                  app2.file_handlers_, app2.sync_data_);
+                  app2.file_handlers_, app2.additional_search_terms_,
+                  app2.sync_data_);
 }
 
 bool operator!=(const WebApp& app1, const WebApp& app2) {

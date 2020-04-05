@@ -18,6 +18,7 @@
 #include "base/stl_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/chromeos/printing/cups_print_job.h"
@@ -132,23 +133,17 @@ class ArcPrintServiceFactory
 std::unique_ptr<printing::MetafileSkia> ReadFileOnBlockingTaskRunner(
     base::File file,
     size_t data_size) {
-  // TODO(vkuzkokov) Can we make give pipe to CUPS directly?
-  std::vector<char> buf(data_size);
-  int bytes = file.ReadAtCurrentPos(buf.data(), data_size);
-  if (bytes < 0) {
+  // TODO(vkuzkokov): Can we make give pipe to CUPS directly?
+  std::vector<uint8_t> buf(data_size);
+  if (!file.ReadAtCurrentPosAndCheck(buf)) {
     PLOG(ERROR) << "Error reading PDF";
     return nullptr;
   }
-  if (static_cast<size_t>(bytes) != data_size)
-    return nullptr;
 
   file.Close();
 
   auto metafile = std::make_unique<printing::MetafileSkia>();
-  if (!metafile->InitFromData(buf.data(), buf.size())) {
-    LOG(ERROR) << "Failed to initialize PDF metafile";
-    return nullptr;
-  }
+  CHECK(metafile->InitFromData(buf));
   return metafile;
 }
 
@@ -311,8 +306,8 @@ class PrinterDiscoverySessionHostImpl
   void FetchCapabilities(const chromeos::Printer& printer) {
     DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
-    base::PostTaskAndReplyWithResult(
-        FROM_HERE, {base::ThreadPool(), base::MayBlock()},
+    base::ThreadPool::PostTaskAndReplyWithResult(
+        FROM_HERE, {base::MayBlock()},
         base::BindOnce(&FetchCapabilitiesOnBlockingTaskRunner, printer.id(),
                        g_browser_process->GetApplicationLocale()),
         base::BindOnce(&PrinterDiscoverySessionHostImpl::CapabilitiesReceived,
@@ -394,8 +389,8 @@ class PrintJobHostImpl : public mojom::PrintJobHost,
     // We read printing data from pipe on working thread in parallel with
     // initializing PrinterQuery on IO thread. When both tasks are complete we
     // start printing.
-    base::PostTaskAndReplyWithResult(
-        FROM_HERE, {base::ThreadPool(), base::MayBlock()},
+    base::ThreadPool::PostTaskAndReplyWithResult(
+        FROM_HERE, {base::MayBlock()},
         base::BindOnce(&ReadFileOnBlockingTaskRunner, std::move(file),
                        data_size),
         base::BindOnce(&PrintJobHostImpl::OnFileRead,

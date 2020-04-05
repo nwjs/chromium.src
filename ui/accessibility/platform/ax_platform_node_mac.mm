@@ -28,7 +28,12 @@ static int kLiveRegionDebounceMillis = 20;
 using RoleMap = std::map<ax::mojom::Role, NSString*>;
 using EventMap = std::map<ax::mojom::Event, NSString*>;
 using ActionList = std::vector<std::pair<ax::mojom::Action, NSString*>>;
-using AnnouncementSpec = std::pair<base::scoped_nsobject<NSString>, bool>;
+
+struct AnnouncementSpec {
+  base::scoped_nsobject<NSString> announcement;
+  base::scoped_nsobject<NSWindow> window;
+  bool is_polite;
+};
 
 RoleMap BuildRoleMap() {
   const RoleMap::value_type roles[] = {
@@ -138,7 +143,6 @@ RoleMap BuildRoleMap() {
       {ax::mojom::Role::kLabelText, NSAccessibilityGroupRole},
       {ax::mojom::Role::kLayoutTable, NSAccessibilityGroupRole},
       {ax::mojom::Role::kLayoutTableCell, NSAccessibilityGroupRole},
-      {ax::mojom::Role::kLayoutTableColumn, NSAccessibilityGroupRole},
       {ax::mojom::Role::kLayoutTableRow, NSAccessibilityGroupRole},
       {ax::mojom::Role::kLegend, NSAccessibilityGroupRole},
       {ax::mojom::Role::kLineBreak, NSAccessibilityGroupRole},
@@ -311,18 +315,20 @@ const ActionList& GetActionList() {
   return *action_map;
 }
 
-void PostAnnouncementNotification(NSString* announcement, bool is_polite) {
+void PostAnnouncementNotification(NSString* announcement,
+                                  NSWindow* window,
+                                  bool is_polite) {
   NSAccessibilityPriorityLevel priority =
       is_polite ? NSAccessibilityPriorityMedium : NSAccessibilityPriorityHigh;
   NSDictionary* notification_info = @{
     NSAccessibilityAnnouncementKey : announcement,
     NSAccessibilityPriorityKey : @(priority)
   };
+  // On Mojave, announcements from an inactive window aren't spoken.
   NSAccessibilityPostNotificationWithUserInfo(
-      [NSApp mainWindow], NSAccessibilityAnnouncementRequestedNotification,
+      window, NSAccessibilityAnnouncementRequestedNotification,
       notification_info);
 }
-
 void NotifyMacEvent(AXPlatformNodeCocoa* target, ax::mojom::Event event_type) {
   NSString* notification =
       [AXPlatformNodeCocoa nativeNotificationFromAXEvent:event_type];
@@ -361,7 +367,7 @@ bool AlsoUseShowMenuActionForDefaultAction(const ui::AXNodeData& data) {
 // notifications happening one after another (for example, results for
 // find-in-page updating rapidly as they come in from subframes).
 - (void)scheduleLiveRegionAnnouncement:
-    (std::unique_ptr<AnnouncementSpec>)polite;
+    (std::unique_ptr<AnnouncementSpec>)announcement;
 @end
 
 @implementation AXPlatformNodeCocoa {
@@ -408,7 +414,7 @@ bool AlsoUseShowMenuActionForDefaultAction(const ui::AXNodeData& data) {
   if (!_node || !_node->GetDelegate())
     return NSZeroRect;
   return gfx::ScreenRectToNSRect(_node->GetDelegate()->GetBoundsRect(
-      ui::AXCoordinateSystem::kScreen, ui::AXClippingBehavior::kClipped));
+      ui::AXCoordinateSystem::kScreenDIPs, ui::AXClippingBehavior::kClipped));
 }
 
 - (NSString*)getStringAttribute:(ax::mojom::StringAttribute)attribute {
@@ -423,6 +429,10 @@ bool AlsoUseShowMenuActionForDefaultAction(const ui::AXNodeData& data) {
   return [value isKindOfClass:[NSString class]] ? value : nil;
 }
 
+- (NSString*)getName {
+  return base::SysUTF8ToNSString(_node->GetName());
+}
+
 - (std::unique_ptr<AnnouncementSpec>)announcementForEvent:
     (ax::mojom::Event)eventType {
   // Only alerts and live region changes should be announced.
@@ -434,16 +444,20 @@ bool AlsoUseShowMenuActionForDefaultAction(const ui::AXNodeData& data) {
   if (liveStatus == "off")
     return nullptr;
 
-  NSString* name = [self getStringAttribute:ax::mojom::StringAttribute::kName];
+  NSString* name = [self getName];
   NSString* announcementText =
       [name length] > 0 ? name
                         : base::SysUTF16ToNSString(_node->GetInnerText());
   if ([announcementText length] == 0)
     return nullptr;
 
-  return std::make_unique<AnnouncementSpec>(
-      base::scoped_nsobject<NSString>([announcementText retain]),
-      liveStatus != "assertive");
+  auto announcement = std::make_unique<AnnouncementSpec>();
+  announcement->announcement =
+      base::scoped_nsobject<NSString>([announcementText retain]);
+  announcement->window =
+      base::scoped_nsobject<NSWindow>([[self AXWindow] retain]);
+  announcement->is_polite = liveStatus != "assertive";
+  return announcement;
 }
 
 - (void)scheduleLiveRegionAnnouncement:
@@ -461,8 +475,10 @@ bool AlsoUseShowMenuActionForDefaultAction(const ui::AXNodeData& data) {
                    if (!_pendingAnnouncement) {
                      return;
                    }
-                   PostAnnouncementNotification(_pendingAnnouncement->first,
-                                                _pendingAnnouncement->second);
+                   PostAnnouncementNotification(
+                       _pendingAnnouncement->announcement,
+                       _pendingAnnouncement->window,
+                       _pendingAnnouncement->is_polite);
                    _pendingAnnouncement.reset();
                  });
 }
@@ -513,7 +529,7 @@ bool AlsoUseShowMenuActionForDefaultAction(const ui::AXNodeData& data) {
   // VoiceOver expects the "press" action to be first. Note that some roles
   // should be given a press action implicitly.
   DCHECK([action_list[0].second isEqualToString:NSAccessibilityPressAction]);
-  for (const auto item : action_list) {
+  for (const auto& item : action_list) {
     if (data.HasAction(item.first) || HasImplicitAction(data, item.first))
       [axActions addObject:item.second];
   }
@@ -726,7 +742,7 @@ bool AlsoUseShowMenuActionForDefaultAction(const ui::AXNodeData& data) {
     return [self AXSelected];
 
   if (ui::IsNameExposedInAXValueForRole(role))
-    return [self getStringAttribute:ax::mojom::StringAttribute::kName];
+    return [self getName];
 
   if (_node->HasIntAttribute(ax::mojom::IntAttribute::kCheckedState)) {
     // Mixed checkbox state not currently supported in views, but could be.
@@ -790,7 +806,7 @@ bool AlsoUseShowMenuActionForDefaultAction(const ui::AXNodeData& data) {
   if (ui::IsNameExposedInAXValueForRole(_node->GetData().role))
     return @"";
 
-  return [self getStringAttribute:ax::mojom::StringAttribute::kName];
+  return [self getName];
 }
 
 // Misc attributes.
@@ -1237,7 +1253,8 @@ void AXPlatformNodeMac::NotifyAccessibilityEvent(ax::mojom::Event event_type) {
 }
 
 void AXPlatformNodeMac::AnnounceText(const base::string16& text) {
-  PostAnnouncementNotification(base::SysUTF16ToNSString(text), false);
+  PostAnnouncementNotification(base::SysUTF16ToNSString(text),
+                               [native_node_ AXWindow], false);
 }
 
 int AXPlatformNodeMac::GetIndexInParent() {

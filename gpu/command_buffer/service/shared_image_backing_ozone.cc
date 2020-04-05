@@ -23,6 +23,8 @@
 #include "gpu/command_buffer/service/shared_context_state.h"
 #include "gpu/command_buffer/service/shared_image_manager.h"
 #include "gpu/command_buffer/service/shared_image_representation.h"
+#include "gpu/command_buffer/service/shared_image_representation_gl_ozone.h"
+#include "gpu/command_buffer/service/shared_image_representation_skia_gl.h"
 #include "gpu/vulkan/vulkan_device_queue.h"
 #include "ui/gfx/buffer_format_util.h"
 #include "ui/gfx/buffer_types.h"
@@ -69,7 +71,8 @@ std::unique_ptr<SharedImageBackingOzone> SharedImageBackingOzone::Create(
     viz::ResourceFormat format,
     const gfx::Size& size,
     const gfx::ColorSpace& color_space,
-    uint32_t usage) {
+    uint32_t usage,
+    SurfaceHandle surface_handle) {
   gfx::BufferFormat buffer_format = viz::BufferFormat(format);
   gfx::BufferUsage buffer_usage = GetBufferUsage(usage);
   VkDevice vk_device = VK_NULL_HANDLE;
@@ -82,8 +85,7 @@ std::unique_ptr<SharedImageBackingOzone> SharedImageBackingOzone::Create(
   ui::SurfaceFactoryOzone* surface_factory =
       ui::OzonePlatform::GetInstance()->GetSurfaceFactoryOzone();
   scoped_refptr<gfx::NativePixmap> pixmap = surface_factory->CreateNativePixmap(
-      gfx::kNullAcceleratedWidget, vk_device, size, buffer_format,
-      buffer_usage);
+      surface_handle, vk_device, size, buffer_format, buffer_usage);
   if (!pixmap) {
     return nullptr;
   }
@@ -94,15 +96,6 @@ std::unique_ptr<SharedImageBackingOzone> SharedImageBackingOzone::Create(
 }
 
 SharedImageBackingOzone::~SharedImageBackingOzone() = default;
-
-gfx::Rect SharedImageBackingOzone::ClearedRect() const {
-  NOTIMPLEMENTED_LOG_ONCE();
-  return gfx::Rect();
-}
-
-void SharedImageBackingOzone::SetClearedRect(const gfx::Rect& cleared_rect) {
-  NOTIMPLEMENTED_LOG_ONCE();
-}
 
 void SharedImageBackingOzone::Update(std::unique_ptr<gfx::GpuFence> in_fence) {
   NOTIMPLEMENTED_LOG_ONCE();
@@ -120,6 +113,7 @@ SharedImageBackingOzone::ProduceDawn(SharedImageManager* manager,
                                      MemoryTypeTracker* tracker,
                                      WGPUDevice device) {
 #if BUILDFLAG(USE_DAWN)
+  DCHECK(dawn_procs_);
   WGPUTextureFormat webgpu_format = viz::ToWGPUFormat(format());
   if (webgpu_format == WGPUTextureFormat_Undefined) {
     return nullptr;
@@ -134,8 +128,8 @@ SharedImageBackingOzone::ProduceDawn(SharedImageManager* manager,
 std::unique_ptr<SharedImageRepresentationGLTexture>
 SharedImageBackingOzone::ProduceGLTexture(SharedImageManager* manager,
                                           MemoryTypeTracker* tracker) {
-  NOTIMPLEMENTED_LOG_ONCE();
-  return nullptr;
+  return SharedImageRepresentationGLOzone::Create(manager, this, tracker,
+                                                  pixmap_, format());
 }
 
 std::unique_ptr<SharedImageRepresentationGLTexturePassthrough>
@@ -151,6 +145,23 @@ SharedImageBackingOzone::ProduceSkia(
     SharedImageManager* manager,
     MemoryTypeTracker* tracker,
     scoped_refptr<SharedContextState> context_state) {
+  if (context_state->GrContextIsGL()) {
+    auto gl_representation = ProduceGLTexture(manager, tracker);
+    if (!gl_representation) {
+      LOG(ERROR) << "SharedImageBackingOzone::ProduceSkia failed to create GL "
+                    "representation";
+      return nullptr;
+    }
+    auto skia_representation = SharedImageRepresentationSkiaGL::Create(
+        std::move(gl_representation), std::move(context_state), manager, this,
+        tracker);
+    if (!skia_representation) {
+      LOG(ERROR) << "SharedImageBackingOzone::ProduceSkia failed to create "
+                    "Skia representation";
+      return nullptr;
+    }
+    return skia_representation;
+  }
   NOTIMPLEMENTED_LOG_ONCE();
   return nullptr;
 }
@@ -171,13 +182,13 @@ SharedImageBackingOzone::SharedImageBackingOzone(
     SharedContextState* context_state,
     scoped_refptr<gfx::NativePixmap> pixmap,
     scoped_refptr<base::RefCountedData<DawnProcTable>> dawn_procs)
-    : SharedImageBacking(mailbox,
-                         format,
-                         size,
-                         color_space,
-                         usage,
-                         GetPixmapSizeInBytes(*pixmap),
-                         false),
+    : ClearTrackingSharedImageBacking(mailbox,
+                                      format,
+                                      size,
+                                      color_space,
+                                      usage,
+                                      GetPixmapSizeInBytes(*pixmap),
+                                      false),
       pixmap_(std::move(pixmap)),
       dawn_procs_(std::move(dawn_procs)) {}
 

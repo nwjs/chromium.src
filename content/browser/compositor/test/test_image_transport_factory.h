@@ -24,11 +24,10 @@
 
 namespace content {
 
-// Test implementation of ImageTransportFactory, ContextFactory and
-// ContextFactoryPrivate. This class tries to do very little, mostly setting up
-// HostFrameSinkManager and returning fake implementations where possible.
+// Test implementation of ImageTransportFactory and ContextFactory. This class
+// tries to do very little, mostly setting up HostFrameSinkManager and returning
+// fake implementations where possible.
 class TestImageTransportFactory : public ui::ContextFactory,
-                                  public ui::ContextFactoryPrivate,
                                   public ImageTransportFactory {
  public:
   TestImageTransportFactory();
@@ -44,37 +43,12 @@ class TestImageTransportFactory : public ui::ContextFactory,
   void RemoveCompositor(ui::Compositor* compositor) override {}
   gpu::GpuMemoryBufferManager* GetGpuMemoryBufferManager() override;
   cc::TaskGraphRunner* GetTaskGraphRunner() override;
-
-  // ui::ContextFactoryPrivate implementation.
   viz::FrameSinkId AllocateFrameSinkId() override;
   viz::HostFrameSinkManager* GetHostFrameSinkManager() override;
-  void SetDisplayVisible(ui::Compositor* compositor, bool visible) override {}
-  void ResizeDisplay(ui::Compositor* compositor,
-                     const gfx::Size& size) override {}
-  void DisableSwapUntilResize(ui::Compositor* compositor) override {}
-  void SetDisplayColorMatrix(ui::Compositor* compositor,
-                             const SkMatrix44& matrix) override {}
-  void SetDisplayColorSpaces(
-      ui::Compositor* compositor,
-      const gfx::DisplayColorSpaces& display_color_spaces) override {}
-  void SetDisplayVSyncParameters(ui::Compositor* compositor,
-                                 base::TimeTicks timebase,
-                                 base::TimeDelta interval) override {}
-  void IssueExternalBeginFrame(
-      ui::Compositor* compositor,
-      const viz::BeginFrameArgs& args,
-      bool force,
-      base::OnceCallback<void(const viz::BeginFrameAck&)> callback) override {}
-  void SetOutputIsSecure(ui::Compositor* compositor, bool secure) override {}
-  void AddVSyncParameterObserver(
-      ui::Compositor* compositor,
-      mojo::PendingRemote<viz::mojom::VSyncParameterObserver> observer)
-      override {}
 
   // ImageTransportFactory implementation.
   void DisableGpuCompositing() override;
   ui::ContextFactory* GetContextFactory() override;
-  ui::ContextFactoryPrivate* GetContextFactoryPrivate() override;
 
  private:
   cc::TestTaskGraphRunner task_graph_runner_;

@@ -146,7 +146,8 @@ class ScriptExecutor : public ActionDelegate,
           callback) override;
   void SelectOption(
       const Selector& selector,
-      const std::string& selected_option,
+      const std::string& value,
+      DropdownSelectStrategy select_strategy,
       base::OnceCallback<void(const ClientStatus&)> callback) override;
   void HighlightElement(
       const Selector& selector,
@@ -225,6 +226,12 @@ class ScriptExecutor : public ActionDelegate,
       base::RepeatingCallback<void(const FormProto::Result*)> changed_callback,
       base::OnceCallback<void(const ClientStatus&)> cancel_callback) override;
   void RequireUI() override;
+  void SetGenericUi(
+      std::unique_ptr<GenericUserInterfaceProto> generic_ui,
+      base::OnceCallback<void(bool,
+                              ProcessedActionStatusProto,
+                              const UserModel*)> end_action_callback) override;
+  void ClearGenericUi() override;
 
  private:
   // Helper for WaitForElementVisible that keeps track of the state required to

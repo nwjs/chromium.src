@@ -24,7 +24,6 @@ void UpdateNotificationClient::BeforeShowNotification(
     std::move(callback).Run(nullptr);
     return;
   }
-  // TODO(hesen): Record metrics, and add iHNR buttons.
   std::move(callback).Run(std::move(notification_data));
 }
 
@@ -42,10 +41,14 @@ void UpdateNotificationClient::OnUserAction(const UserActionData& action_data) {
 
   switch (action_data.action_type) {
     case notifications::UserActionType::kClick:
-      update_notification_service->OnUserClick();
+      update_notification_service->OnUserClick(action_data.custom_data);
       break;
     case notifications::UserActionType::kButtonClick:
-      NOTIMPLEMENTED();
+      DCHECK(!action_data.button_click_info.has_value());
+      if (action_data.button_click_info.value().type ==
+          notifications::ActionButtonType::kUnhelpful) {
+        update_notification_service->OnUserClickButton(false);
+      }
       break;
     case notifications::UserActionType::kDismiss:
       update_notification_service->OnUserDismiss();
@@ -54,6 +57,11 @@ void UpdateNotificationClient::OnUserAction(const UserActionData& action_data) {
       NOTREACHED();
       break;
   }
+}
+
+void UpdateNotificationClient::GetThrottleConfig(
+    ThrottleConfigCallback callback) {
+  std::move(callback).Run(nullptr);
 }
 
 }  // namespace updates

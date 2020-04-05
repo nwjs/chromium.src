@@ -39,12 +39,11 @@ import org.mockito.MockitoAnnotations;
 import org.robolectric.annotation.Config;
 
 import org.chromium.base.metrics.RecordHistogram;
-import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.ThemeColorProvider;
 import org.chromium.chrome.browser.compositor.layouts.OverviewModeBehavior;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tab.TabImpl;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabSelectionType;
@@ -67,6 +66,7 @@ import java.util.List;
 /**
  * Tests for {@link TabGroupUiMediator}.
  */
+@SuppressWarnings({"ResultOfMethodCallIgnored", "ArraysAsListWithZeroOrOneArgument", "unchecked"})
 @RunWith(BaseRobolectricTestRunner.class)
 @Config(manifest = Config.NONE)
 public class TabGroupUiMediatorUnitTest {
@@ -196,7 +196,6 @@ public class TabGroupUiMediatorUnitTest {
         // initAndAssertProperties(true), TabModel has 3 tabs in the following order: mTab1, mTab2,
         // and mTab3, while mTab2 and mTab3 are in a group. By default mTab1 is selected. If
         // initAndAssertProperties(false) is called instead, there's no tabs in TabModel.
-        RecordUserAction.setDisabledForTests(true);
         RecordHistogram.setDisabledForTests(true);
 
         MockitoAnnotations.initMocks(this);
@@ -277,12 +276,11 @@ public class TabGroupUiMediatorUnitTest {
 
         mResetHandlerInOrder = inOrder(mResetHandler);
         mVisibilityControllerInOrder = inOrder(mVisibilityController);
-        mModel = new PropertyModel(TabStripToolbarViewProperties.ALL_KEYS);
+        mModel = new PropertyModel(TabGroupUiProperties.ALL_KEYS);
     }
 
     @After
     public void tearDown() {
-        RecordUserAction.setDisabledForTests(false);
         RecordHistogram.setDisabledForTests(false);
     }
 
@@ -303,15 +301,11 @@ public class TabGroupUiMediatorUnitTest {
     }
 
     @Test
-    // clang-format off
-    @Features.EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_UI_IMPROVEMENTS_ANDROID})
     public void onClickExpand() {
-        // clang-format on
         initAndAssertProperties(mTab2);
 
         View.OnClickListener listener =
-                mModel.get(TabStripToolbarViewProperties.LEFT_BUTTON_ON_CLICK_LISTENER);
+                mModel.get(TabGroupUiProperties.LEFT_BUTTON_ON_CLICK_LISTENER);
         assertThat(listener, instanceOf(View.OnClickListener.class));
 
         listener.onClick(mView);
@@ -324,7 +318,7 @@ public class TabGroupUiMediatorUnitTest {
         initAndAssertProperties(mTab1);
 
         View.OnClickListener listener =
-                mModel.get(TabStripToolbarViewProperties.RIGHT_BUTTON_ON_CLICK_LISTENER);
+                mModel.get(TabGroupUiProperties.RIGHT_BUTTON_ON_CLICK_LISTENER);
         assertThat(listener, instanceOf(View.OnClickListener.class));
 
         listener.onClick(mView);
@@ -409,6 +403,26 @@ public class TabGroupUiMediatorUnitTest {
     }
 
     @Test
+    public void tabSelection_ScrollToSelectedIndex() {
+        initAndAssertProperties(mTab1);
+        assertThat(mModel.get(TabGroupUiProperties.INITIAL_SCROLL_INDEX), equalTo(null));
+
+        // Mock that {tab2, tab3} are in the same tab group.
+        List<Tab> tabGroup = mTabGroupModelFilter.getRelatedTabList(TAB2_ID);
+        assertThat(tabGroup.size(), equalTo(2));
+
+        // Mock selecting tab 3, and the last selected tab is tab 1 which is a single tab.
+        doReturn(mTab3).when(mTabModelSelector).getCurrentTab();
+        mTabModelObserverArgumentCaptor.getValue().didSelectTab(
+                mTab3, TabSelectionType.FROM_USER, TAB1_ID);
+
+        // Strip should be showing since we are selecting a group, and it should scroll to the index
+        // of currently selected tab.
+        verifyResetStrip(true, tabGroup);
+        assertThat(mModel.get(TabGroupUiProperties.INITIAL_SCROLL_INDEX), equalTo(1));
+    }
+
+    @Test
     public void tabClosure_NotLastTabInGroup() {
         initAndAssertProperties(mTab2);
 
@@ -463,8 +477,10 @@ public class TabGroupUiMediatorUnitTest {
         List<Tab> tabs = new ArrayList<>(Arrays.asList(newTab));
         doReturn(tabs).when(mTabGroupModelFilter).getRelatedTabList(TAB4_ID);
 
-        mTabModelObserverArgumentCaptor.getValue().didAddTab(newTab, TabLaunchType.FROM_CHROME_UI);
-        mTabModelObserverArgumentCaptor.getValue().didAddTab(newTab, TabLaunchType.FROM_RESTORE);
+        mTabModelObserverArgumentCaptor.getValue().didAddTab(
+                newTab, TabLaunchType.FROM_CHROME_UI, TabCreationState.LIVE_IN_FOREGROUND);
+        mTabModelObserverArgumentCaptor.getValue().didAddTab(
+                newTab, TabLaunchType.FROM_RESTORE, TabCreationState.FROZEN_ON_RESTORE);
 
         // Strip should be not be reset when adding a single new tab.
         verifyNeverReset();
@@ -478,8 +494,10 @@ public class TabGroupUiMediatorUnitTest {
         mTabGroup2.add(newTab);
         doReturn(mTabGroup1).when(mTabGroupModelFilter).getRelatedTabList(TAB4_ID);
 
-        mTabModelObserverArgumentCaptor.getValue().didAddTab(newTab, TabLaunchType.FROM_CHROME_UI);
-        mTabModelObserverArgumentCaptor.getValue().didAddTab(newTab, TabLaunchType.FROM_RESTORE);
+        mTabModelObserverArgumentCaptor.getValue().didAddTab(
+                newTab, TabLaunchType.FROM_CHROME_UI, TabCreationState.LIVE_IN_FOREGROUND);
+        mTabModelObserverArgumentCaptor.getValue().didAddTab(
+                newTab, TabLaunchType.FROM_RESTORE, TabCreationState.FROZEN_ON_RESTORE);
 
         // Strip should be not be reset through these two types of launching.
         verifyNeverReset();
@@ -493,11 +511,29 @@ public class TabGroupUiMediatorUnitTest {
         mTabGroup2.add(newTab);
         doReturn(mTabGroup2).when(mTabGroupModelFilter).getRelatedTabList(TAB4_ID);
 
-        mTabModelObserverArgumentCaptor.getValue().didAddTab(
-                newTab, TabLaunchType.FROM_LONGPRESS_BACKGROUND);
+        mTabModelObserverArgumentCaptor.getValue().didAddTab(newTab,
+                TabLaunchType.FROM_LONGPRESS_BACKGROUND, TabCreationState.LIVE_IN_FOREGROUND);
 
         // Strip should be be reset when long pressing a link and add a tab into group.
         verifyResetStrip(true, mTabGroup2);
+    }
+
+    @Test
+    public void tabAddition_TabGroup_ScrollToTheLast() {
+        initAndAssertProperties(mTab2);
+        assertThat(mModel.get(TabGroupUiProperties.INITIAL_SCROLL_INDEX), equalTo(0));
+
+        TabImpl newTab = prepareTab(TAB4_ID, TAB4_ID);
+        mTabGroup2.add(newTab);
+        doReturn(mTabGroup2).when(mTabGroupModelFilter).getRelatedTabList(TAB4_ID);
+
+        mTabModelObserverArgumentCaptor.getValue().didAddTab(
+                newTab, TabLaunchType.FROM_CHROME_UI, TabCreationState.LIVE_IN_FOREGROUND);
+
+        // Strip should be not be reset through adding tab from UI.
+        verifyNeverReset();
+        assertThat(mTabGroupModelFilter.getRelatedTabList(TAB4_ID).size(), equalTo(3));
+        assertThat(mModel.get(TabGroupUiProperties.INITIAL_SCROLL_INDEX), equalTo(2));
     }
 
     @Test
@@ -676,22 +712,22 @@ public class TabGroupUiMediatorUnitTest {
     @Test
     public void themeColorChange() {
         initAndAssertProperties(mTab1);
-        mModel.set(TabStripToolbarViewProperties.PRIMARY_COLOR, -1);
+        mModel.set(TabGroupUiProperties.PRIMARY_COLOR, -1);
 
         mThemeColorObserverArgumentCaptor.getValue().onThemeColorChanged(1, false);
 
-        assertThat(mModel.get(TabStripToolbarViewProperties.PRIMARY_COLOR), equalTo(1));
+        assertThat(mModel.get(TabGroupUiProperties.PRIMARY_COLOR), equalTo(1));
     }
 
     @Test
     public void tintChange() {
         initAndAssertProperties(mTab1);
-        mModel.set(TabStripToolbarViewProperties.TINT, null);
+        mModel.set(TabGroupUiProperties.TINT, null);
         ColorStateList colorStateList = mock(ColorStateList.class);
 
         mTintObserverArgumentCaptor.getValue().onTintChanged(colorStateList, true);
 
-        assertThat(mModel.get(TabStripToolbarViewProperties.TINT), equalTo(colorStateList));
+        assertThat(mModel.get(TabGroupUiProperties.TINT), equalTo(colorStateList));
     }
 
     @Test
@@ -744,12 +780,11 @@ public class TabGroupUiMediatorUnitTest {
         initAndAssertProperties(mTab3);
         int drawableId = 321;
 
-        mModel.set(TabStripToolbarViewProperties.LEFT_BUTTON_DRAWABLE_ID, 0);
+        mModel.set(TabGroupUiProperties.LEFT_BUTTON_DRAWABLE_ID, 0);
 
         mTabGroupUiMediator.setupLeftButtonDrawable(drawableId);
 
-        assertThat(mModel.get(TabStripToolbarViewProperties.LEFT_BUTTON_DRAWABLE_ID),
-                equalTo(drawableId));
+        assertThat(mModel.get(TabGroupUiProperties.LEFT_BUTTON_DRAWABLE_ID), equalTo(drawableId));
     }
 
     @Test
@@ -757,11 +792,11 @@ public class TabGroupUiMediatorUnitTest {
         initAndAssertProperties(mTab3);
         View.OnClickListener listener = v -> {};
 
-        mModel.set(TabStripToolbarViewProperties.LEFT_BUTTON_ON_CLICK_LISTENER, null);
+        mModel.set(TabGroupUiProperties.LEFT_BUTTON_ON_CLICK_LISTENER, null);
 
         mTabGroupUiMediator.setupLeftButtonOnClickListener(listener);
 
-        assertThat(mModel.get(TabStripToolbarViewProperties.LEFT_BUTTON_ON_CLICK_LISTENER),
-                equalTo(listener));
+        assertThat(
+                mModel.get(TabGroupUiProperties.LEFT_BUTTON_ON_CLICK_LISTENER), equalTo(listener));
     }
 }

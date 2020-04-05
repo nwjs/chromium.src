@@ -10,8 +10,11 @@ import android.text.Editable;
 import android.text.InputType;
 import android.text.TextWatcher;
 import android.util.AttributeSet;
+import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.EditText;
 import android.widget.TextView;
+
+import androidx.annotation.VisibleForTesting;
 
 import org.chromium.ui.KeyboardVisibilityDelegate;
 
@@ -113,13 +116,16 @@ public class RadioButtonWithEditText extends RadioButtonWithDescription {
         });
 
         // Handle touches beside the Edit text
-        mEditText.setOnFocusChangeListener((v, hasFocus) -> {
-            if (hasFocus) {
-                mEditText.setCursorVisible(true);
-            } else {
-                releaseFocusForEditText();
-            }
-        });
+        mEditText.setOnFocusChangeListener((v, hasFocus) -> { onEditTextFocusChanged(hasFocus); });
+    }
+
+    @Override
+    public void onInitializeAccessibilityNodeInfo(AccessibilityNodeInfo info) {
+        // Fix the announcement for a11y as EditText cannot be correctly read out as a child
+        // of a ViewGroup. Setting EditText as the label for this custom view is a workaround
+        // as label will be announce at end of ViewGroup's readable a11y children.
+        super.onInitializeAccessibilityNodeInfo(info);
+        info.setLabeledBy(mEditText);
     }
 
     @Override
@@ -151,6 +157,16 @@ public class RadioButtonWithEditText extends RadioButtonWithDescription {
     public void setChecked(boolean checked) {
         super.setChecked(checked);
         mEditText.clearFocus();
+    }
+
+    private void onEditTextFocusChanged(boolean hasFocus) {
+        if (hasFocus) {
+            setCheckedWithNoFocusChange(true);
+            mEditText.setCursorVisible(true);
+        } else {
+            mEditText.setCursorVisible(false);
+            KeyboardVisibilityDelegate.getInstance().hideKeyboard(mEditText);
+        }
     }
 
     /**
@@ -192,10 +208,10 @@ public class RadioButtonWithEditText extends RadioButtonWithDescription {
     }
 
     /**
-     * Handle focus when the edit text is selected
+     * @return the EditText living inside this widget.
      */
-    private void releaseFocusForEditText() {
-        mEditText.setCursorVisible(false);
-        KeyboardVisibilityDelegate.getInstance().hideKeyboard(mEditText);
+    @VisibleForTesting
+    public EditText getEditTextForTests() {
+        return mEditText;
     }
 }

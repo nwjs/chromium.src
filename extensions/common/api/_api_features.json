@@ -145,11 +145,6 @@
     "dependencies": ["permission:declarativeNetRequest"],
     "contexts": ["blessed_extension"]
   },
-  "declarativeNetRequest.getMatchedRules": {
-    "dependencies": ["permission:declarativeNetRequest"],
-    "contexts": ["blessed_extension"],
-    "channel": "trunk"
-  },
   "declarativeNetRequest.onRuleMatchedDebug": {
     "dependencies": ["permission:declarativeNetRequest", "permission:declarativeNetRequestFeedback"],
     "contexts": ["blessed_extension"],
@@ -310,12 +305,18 @@
     "matches": [
       "chrome://bookmarks/*",
       "chrome://extensions/*",
-      "chrome://media-app-guest/*",
       "chrome://os-settings/*",
       "chrome://settings/*",
       "chrome://sync-confirmation/*",
       "chrome://tab-strip/*",
       "chrome://welcome/*"
+    ]
+  }, {
+    "channel": "stable",
+    "contexts": ["webui_untrusted"],
+    "matches": [
+      "chrome-untrusted://help-app/*",
+      "chrome-untrusted://media-app/*"
     ]
   }],
   "metricsPrivate.getIsCrashReportingEnabled": {
@@ -584,6 +585,10 @@
     "channel": "stable",
     "contexts": ["webui"],
     "matches": ["chrome://extensions/*"]
+  }, {
+    "channel": "stable",
+    "contexts": [ "webui_untrusted" ],
+    "matches": [ "chrome-untrusted://api-test/*" ]
   }],
   "types": {
     "internal": true,

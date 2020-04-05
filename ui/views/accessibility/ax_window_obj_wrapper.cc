@@ -6,6 +6,9 @@
 
 #include <stddef.h>
 
+#include <string>
+#include <vector>
+
 #include "base/strings/utf_string_conversions.h"
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/accessibility/ax_node_data.h"
@@ -36,23 +39,28 @@ Widget* GetWidgetForWindow(aura::Window* window) {
   return widget;
 }
 
+// Fires |event| on the |window|, and the Widget and RootView associated with
+// |window|.
+void FireEventOnWindowChildWidgetAndRootView(aura::Window* window,
+                                             ax::mojom::Event event,
+                                             AXAuraObjCache* cache) {
+  cache->FireEvent(cache->GetOrCreate(window), event);
+  Widget* widget = GetWidgetForWindow(window);
+  if (widget) {
+    cache->FireEvent(cache->GetOrCreate(widget), event);
+
+    views::View* root_view = widget->GetRootView();
+    if (root_view)
+      root_view->NotifyAccessibilityEvent(event, true);
+  }
+}
+
 // Fires location change events on a window, taking into account its
 // associated widget, that widget's root view, and descendant windows.
 void FireLocationChangesRecursively(aura::Window* window,
                                     AXAuraObjCache* cache) {
-  cache->FireEvent(cache->GetOrCreate(window),
-                   ax::mojom::Event::kLocationChanged);
-
-  Widget* widget = GetWidgetForWindow(window);
-  if (widget) {
-    cache->FireEvent(cache->GetOrCreate(widget),
-                     ax::mojom::Event::kLocationChanged);
-
-    views::View* root_view = widget->GetRootView();
-    if (root_view)
-      root_view->NotifyAccessibilityEvent(ax::mojom::Event::kLocationChanged,
-                                          true);
-  }
+  FireEventOnWindowChildWidgetAndRootView(
+      window, ax::mojom::Event::kLocationChanged, cache);
 
   for (auto* child : window->children())
     FireLocationChangesRecursively(child, cache);
@@ -186,7 +194,8 @@ void AXWindowObjWrapper::OnWindowTransformed(aura::Window* window,
 }
 
 void AXWindowObjWrapper::OnWindowTitleChanged(aura::Window* window) {
-  FireEvent(ax::mojom::Event::kTextChanged);
+  FireEventOnWindowChildWidgetAndRootView(
+      window_, ax::mojom::Event::kTreeChanged, aura_obj_cache_);
 }
 
 void AXWindowObjWrapper::FireEvent(ax::mojom::Event event_type) {

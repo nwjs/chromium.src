@@ -21,6 +21,7 @@
 
       domain: {
         type: String,
+        value: null,
       },
 
       emailDomain: String,
@@ -47,6 +48,14 @@
 
     back() {
       this.switchToEmailCard(true /* animated */);
+    },
+
+    onBeforeShow() {
+      this.behaviors.forEach((behavior) => {
+        if (behavior.onBeforeShow)
+          behavior.onBeforeShow.call(this);
+      });
+      this.$$('#dialog').onBeforeShow();
     },
 
     onForgotPasswordClicked_() {

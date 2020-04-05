@@ -21,7 +21,9 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_CORE_HTML_HTML_FRAME_OWNER_ELEMENT_H_
 #define THIRD_PARTY_BLINK_RENDERER_CORE_HTML_HTML_FRAME_OWNER_ELEMENT_H_
 
+#include "services/network/public/mojom/trust_tokens.mojom-blink-forward.h"
 #include "third_party/blink/public/common/frame/frame_owner_element_type.h"
+#include "third_party/blink/public/mojom/scroll/scrollbar_mode.mojom-blink.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/feature_policy/feature_policy_parser.h"
@@ -74,7 +76,7 @@ class CORE_EXPORT HTMLFrameOwnerElement : public HTMLElement,
     return embedded_content_view_;
   }
 
-  void FrameCrossOriginStatusChanged();
+  void FrameCrossOriginToParentFrameChanged();
 
   class PluginDisposeSuspendScope {
     STACK_ALLOCATED();
@@ -110,8 +112,9 @@ class CORE_EXPORT HTMLFrameOwnerElement : public HTMLElement,
   AtomicString BrowsingContextContainerName() const override {
     return FastGetAttribute(html_names::kNameAttr);
   }
-
-  ScrollbarMode ScrollingMode() const override { return ScrollbarMode::kAuto; }
+  mojom::blink::ScrollbarMode ScrollbarMode() const override {
+    return mojom::blink::ScrollbarMode::kAuto;
+  }
 
   AtomicString nwuseragent() const override {
     return getAttribute(html_names::kNwuseragentAttr);
@@ -124,7 +127,6 @@ class CORE_EXPORT HTMLFrameOwnerElement : public HTMLElement,
   int MarginWidth() const override { return -1; }
   int MarginHeight() const override { return -1; }
   bool AllowFullscreen() const override { return false; }
-  bool DisallowDocumentAccess() const override { return false; }
   bool AllowPaymentRequest() const override { return false; }
   bool IsDisplayNone() const override { return !embedded_content_view_; }
   AtomicString RequiredCsp() const override { return g_null_atom; }
@@ -147,10 +149,11 @@ class CORE_EXPORT HTMLFrameOwnerElement : public HTMLElement,
  protected:
   HTMLFrameOwnerElement(const QualifiedName& tag_name, Document&);
 
-  void SetSandboxFlags(WebSandboxFlags);
+  void SetSandboxFlags(mojom::blink::WebSandboxFlags);
   void SetAllowedToDownload(bool allowed) {
     frame_policy_.allowed_to_download = allowed;
   }
+  void SetDisallowDocumentAccesss(bool disallowed);
 
   bool LoadOrRedirectSubframe(const KURL&,
                               const AtomicString& frame_name,
@@ -188,6 +191,11 @@ class CORE_EXPORT HTMLFrameOwnerElement : public HTMLElement,
   // Update the required policy and notify the frame loader client of any
   // changes.
   void UpdateRequiredPolicy();
+
+  // Return a set of Trust Tokens parameters for requests for this frame,
+  // based on the frame attributes.
+  virtual network::mojom::blink::TrustTokenParamsPtr ConstructTrustTokenParams()
+      const;
 
  private:
   // Intentionally private to prevent redundant checks when the type is

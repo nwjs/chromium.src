@@ -4,6 +4,10 @@
 
 #include "chrome/browser/metrics/process_memory_metrics_emitter.h"
 
+#include <set>
+#include <string>
+#include <utility>
+
 #include "base/bind.h"
 #include "base/compiler_specific.h"
 #include "base/containers/flat_set.h"
@@ -142,6 +146,8 @@ const Metric kAllocatorDumpNamesForMetrics[] = {
      &Memory_Experimental::SetDownloadService},
     {"discardable", "Discardable", MetricSize::kLarge, kEffectiveSize,
      EmitTo::kSizeInUkmAndUma, &Memory_Experimental::SetDiscardable},
+    {"extensions/functions", "ExtensionFunctions", MetricSize::kLarge,
+     kEffectiveSize, EmitTo::kSizeInUmaOnly, nullptr},
     {"extensions/value_store", "Extensions.ValueStore", MetricSize::kLarge,
      kEffectiveSize, EmitTo::kSizeInUkmAndUma,
      &Memory_Experimental::SetExtensions_ValueStore},
@@ -175,6 +181,21 @@ const Metric kAllocatorDumpNamesForMetrics[] = {
     {"mojo", "NumberOfMojoHandles", MetricSize::kSmall,
      MemoryAllocatorDump::kNameObjectCount, EmitTo::kCountsInUkmOnly,
      &Memory_Experimental::SetNumberOfMojoHandles},
+    {"media/webmediaplayer/audio", "WebMediaPlayer.Audio", MetricSize::kSmall,
+     kSize, EmitTo::kSizeInUkmAndUma,
+     &Memory_Experimental::SetWebMediaPlayer_Audio},
+    {"media/webmediaplayer/video", "WebMediaPlayer.Video", MetricSize::kLarge,
+     kSize, EmitTo::kSizeInUkmAndUma,
+     &Memory_Experimental::SetWebMediaPlayer_Video},
+    {"media/webmediaplayer/data_source", "WebMediaPlayer.DataSource",
+     MetricSize::kLarge, kSize, EmitTo::kSizeInUkmAndUma,
+     &Memory_Experimental::SetWebMediaPlayer_DataSource},
+    {"media/webmediaplayer/demuxer", "WebMediaPlayer.Demuxer",
+     MetricSize::kLarge, kSize, EmitTo::kSizeInUkmAndUma,
+     &Memory_Experimental::SetWebMediaPlayer_Demuxer},
+    {"media/webmediaplayer", "WebMediaPlayer.Instances", MetricSize::kTiny,
+     MemoryAllocatorDump::kNameObjectCount, EmitTo::kCountsInUkmOnly,
+     &Memory_Experimental::SetNumberOfWebMediaPlayers},
     {"net", "Net", MetricSize::kSmall, kEffectiveSize, EmitTo::kSizeInUkmAndUma,
      &Memory_Experimental::SetNet},
     {"net/url_request_context", "Net.UrlRequestContext", MetricSize::kSmall,
@@ -244,6 +265,9 @@ const Metric kAllocatorDumpNamesForMetrics[] = {
     {"v8/main", "V8.Main.AllocatedObjects", MetricSize::kLarge,
      kAllocatedObjectsSize, EmitTo::kSizeInUkmAndUma,
      &Memory_Experimental::SetV8_Main_AllocatedObjects},
+    {"v8/main/global_handles", "V8.Main.GlobalHandles", MetricSize::kSmall,
+     kEffectiveSize, EmitTo::kSizeInUkmAndUma,
+     &Memory_Experimental::SetV8_Main_GlobalHandles},
     {"v8/main/heap", "V8.Main.Heap", MetricSize::kLarge, kEffectiveSize,
      EmitTo::kSizeInUkmAndUma, &Memory_Experimental::SetV8_Main_Heap},
     {"v8/main/heap", "V8.Main.Heap.AllocatedObjects", MetricSize::kLarge,
@@ -757,6 +781,9 @@ void ProcessMemoryMetricsEmitter::CollateResults() {
 
   if (memory_dump_in_progress_ || get_process_urls_in_progress_)
     return;
+  // The memory dump can be done, yet |global_dump_| not set if:
+  // - Process metrics collection fails first.
+  // - Process Infos arrive later.
   if (!global_dump_)
     return;
 
@@ -909,6 +936,8 @@ void ProcessMemoryMetricsEmitter::CollateResults() {
     // processes.
     per_tab_metrics.RecordPmfs(GetUkmRecorder());
   }
+
+  global_dump_ = nullptr;
 }
 
 namespace {

@@ -24,7 +24,6 @@ import static org.mockito.Mockito.when;
 
 import android.content.Context;
 import android.content.res.Resources;
-import android.graphics.Rect;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.MotionEvent;
@@ -45,12 +44,12 @@ import org.robolectric.annotation.Config;
 
 import org.chromium.base.Callback;
 import org.chromium.base.metrics.RecordHistogram;
-import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.supplier.ObservableSupplier;
+import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
-import org.chromium.chrome.browser.flags.FeatureUtilities;
 import org.chromium.chrome.browser.share.ShareDelegate;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tab.TabImpl;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabSelectionType;
@@ -64,7 +63,6 @@ import org.chromium.chrome.browser.widget.ScrimView;
 import org.chromium.chrome.tab_ui.R;
 import org.chromium.chrome.test.util.browser.Features;
 import org.chromium.content_public.browser.LoadUrlParams;
-import org.chromium.testing.local.LocalRobolectricTestRunner;
 import org.chromium.ui.KeyboardVisibilityDelegate;
 import org.chromium.ui.modelutil.PropertyModel;
 
@@ -75,10 +73,14 @@ import java.util.List;
 /**
  * Tests for {@link TabGridDialogMediator}.
  */
-@RunWith(LocalRobolectricTestRunner.class)
+@SuppressWarnings({"ArraysAsListWithZeroOrOneArgument", "ResultOfMethodCallIgnored"})
+@RunWith(BaseRobolectricTestRunner.class)
 @Config(manifest = Config.NONE)
+// clang-format off
+@Features.EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID})
 @Features.DisableFeatures(ChromeFeatureList.TAB_GROUPS_CONTINUATION_ANDROID)
 public class TabGridDialogMediatorUnitTest {
+    // clang-format on
     @Rule
     public TestRule mProcessor = new Features.JUnitProcessor();
 
@@ -99,8 +101,6 @@ public class TabGridDialogMediatorUnitTest {
     Context mContext;
     @Mock
     Resources mResources;
-    @Mock
-    Rect mRect;
     @Mock
     View mView;
     @Mock
@@ -141,12 +141,10 @@ public class TabGridDialogMediatorUnitTest {
 
     @Before
     public void setUp() {
-        RecordUserAction.setDisabledForTests(true);
         RecordHistogram.setDisabledForTests(true);
 
         MockitoAnnotations.initMocks(this);
 
-        FeatureUtilities.setTabGroupsAndroidEnabledForTesting(true);
         mTab1 = prepareTab(TAB1_ID, TAB1_TITLE);
         mTab2 = prepareTab(TAB2_ID, TAB2_TITLE);
         List<Tab> tabs1 = new ArrayList<>(Arrays.asList(mTab1));
@@ -192,19 +190,18 @@ public class TabGridDialogMediatorUnitTest {
         doReturn(mEditable).when(mTitleTextView).getText();
         doReturn(CUSTOMIZED_DIALOG_TITLE).when(mEditable).toString();
 
-        if (!FeatureUtilities.isTabGroupsAndroidContinuationEnabled()) {
+        if (!TabUiFeatureUtilities.isTabGroupsAndroidContinuationEnabled()) {
             mTabSelectionEditorController = null;
         }
         mModel = new PropertyModel(TabGridPanelProperties.ALL_KEYS);
         mMediator = new TabGridDialogMediator(mContext, mDialogController, mModel,
                 mTabModelSelector, mTabCreatorManager, mTabSwitcherResetHandler,
-                mAnimationSourceViewProvider, mTabSelectionEditorController, mTabGroupTitleEditor,
-                mShareDelegateSupplier, "");
+                mAnimationSourceViewProvider, mShareDelegateSupplier, "");
+        mMediator.initWithNative(mTabSelectionEditorController, mTabGroupTitleEditor);
     }
 
     @After
     public void tearDown() {
-        RecordUserAction.setDisabledForTests(false);
         RecordHistogram.setDisabledForTests(false);
     }
 
@@ -222,7 +219,7 @@ public class TabGridDialogMediatorUnitTest {
     @Test
     @Features.EnableFeatures(ChromeFeatureList.TAB_GROUPS_CONTINUATION_ANDROID)
     public void setupTabGroupsContinuation_flagEnabled() {
-        assertThat(FeatureUtilities.isTabGroupsAndroidContinuationEnabled(), equalTo(true));
+        assertThat(TabUiFeatureUtilities.isTabGroupsAndroidContinuationEnabled(), equalTo(true));
         // Setup editable title.
         assertThat(mMediator.getKeyboardVisibilityListenerForTesting(),
                 instanceOf(KeyboardVisibilityDelegate.KeyboardVisibilityListener.class));
@@ -243,7 +240,7 @@ public class TabGridDialogMediatorUnitTest {
 
     @Test
     public void setupTabGroupsContinuation_flagDisabled() {
-        assertThat(FeatureUtilities.isTabGroupsAndroidContinuationEnabled(), equalTo(false));
+        assertThat(TabUiFeatureUtilities.isTabGroupsAndroidContinuationEnabled(), equalTo(false));
 
         assertThat(mMediator.getKeyboardVisibilityListenerForTesting(), equalTo(null));
         assertThat(mModel.get(TabGridPanelProperties.TITLE_TEXT_WATCHER), equalTo(null));
@@ -436,7 +433,8 @@ public class TabGridDialogMediatorUnitTest {
         // Mock that the animation source view is not null.
         mModel.set(TabGridPanelProperties.ANIMATION_SOURCE_VIEW, mView);
 
-        mTabModelObserverCaptor.getValue().didAddTab(newTab, TabLaunchType.FROM_CHROME_UI);
+        mTabModelObserverCaptor.getValue().didAddTab(
+                newTab, TabLaunchType.FROM_CHROME_UI, TabCreationState.LIVE_IN_FOREGROUND);
 
         assertThat(mModel.get(TabGridPanelProperties.ANIMATION_SOURCE_VIEW), equalTo(null));
         verify(mDialogController).resetWithListOfTabs(null);
@@ -875,7 +873,8 @@ public class TabGridDialogMediatorUnitTest {
         // the animationParamsProvider is null.
         mMediator = new TabGridDialogMediator(mContext, mDialogController, mModel,
                 mTabModelSelector, mTabCreatorManager, mTabSwitcherResetHandler, null,
-                mTabSelectionEditorController, mTabGroupTitleEditor, mShareDelegateSupplier, "");
+                mShareDelegateSupplier, "");
+        mMediator.initWithNative(mTabSelectionEditorController, mTabGroupTitleEditor);
 
         // Mock that the dialog is hidden and animation source view and header title are all null.
         mModel.set(TabGridPanelProperties.IS_DIALOG_VISIBLE, false);
@@ -900,7 +899,8 @@ public class TabGridDialogMediatorUnitTest {
         // the animationParamsProvider is null.
         mMediator = new TabGridDialogMediator(mContext, mDialogController, mModel,
                 mTabModelSelector, mTabCreatorManager, mTabSwitcherResetHandler, null,
-                mTabSelectionEditorController, mTabGroupTitleEditor, mShareDelegateSupplier, "");
+                mShareDelegateSupplier, "");
+        mMediator.initWithNative(mTabSelectionEditorController, mTabGroupTitleEditor);
         // Mock that the dialog is hidden and animation source view and header title are all null.
         mModel.set(TabGridPanelProperties.IS_DIALOG_VISIBLE, false);
         mModel.set(TabGridPanelProperties.ANIMATION_SOURCE_VIEW, null);
@@ -946,9 +946,9 @@ public class TabGridDialogMediatorUnitTest {
         String url1 = "https://www.google.com";
         String url2 = "http://example.com";
         String url3 = "https://maps.google.com";
-        doReturn(url1).when(mTab1).getUrl();
-        doReturn(url2).when(mTab2).getUrl();
-        doReturn(url3).when(newTab).getUrl();
+        doReturn(url1).when(mTab1).getUrlString();
+        doReturn(url2).when(mTab2).getUrlString();
+        doReturn(url3).when(newTab).getUrlString();
         mMediator.setCurrentTabIdForTesting(TAB1_ID);
 
         // Setup two sets of tab group and share strings.
@@ -979,7 +979,7 @@ public class TabGridDialogMediatorUnitTest {
         TabImpl tab = mock(TabImpl.class);
         doReturn(id).when(tab).getId();
         doReturn(id).when(tab).getRootId();
-        doReturn("").when(tab).getUrl();
+        doReturn("").when(tab).getUrlString();
         doReturn(title).when(tab).getTitle();
         doReturn(true).when(tab).isIncognito();
         return tab;

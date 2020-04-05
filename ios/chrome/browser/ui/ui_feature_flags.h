@@ -7,9 +7,6 @@
 
 #include "base/feature_list.h"
 
-// Feature to retain the contentView in the browser container.
-extern const base::Feature kBrowserContainerKeepsContentView;
-
 // Feature to take snapshots using |-drawViewHierarchy:|.
 extern const base::Feature kSnapshotDrawView;
 
@@ -40,5 +37,14 @@ extern const base::Feature kTestFeature;
 // Feature flag to display a new option that wipes synced data on a local
 // device when signing out from a non-managed account.
 extern const base::Feature kClearSyncedData;
+
+// Verify if the crash in https://crbug.com/816427 is fixed on iOS 12.
+extern const base::Feature kFirstResponderSendAction;
+
+// Feature flag to enable the new sign-in architecture.
+extern const base::Feature kNewSigninArchitecture;
+
+// Feature flag to enable QR code generation for a URL.
+extern const base::Feature kQRCodeGeneration;
 
 #endif  // IOS_CHROME_BROWSER_UI_UI_FEATURE_FLAGS_H_

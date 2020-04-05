@@ -85,10 +85,6 @@ storage::mojom::IndexedDBControl& TestStoragePartition::GetIndexedDBControl() {
   return *indexed_db_control_;
 }
 
-IndexedDBContext* TestStoragePartition::GetIndexedDBContext() {
-  return indexed_db_context_;
-}
-
 NativeFileSystemEntryFactory*
 TestStoragePartition::GetNativeFileSystemEntryFactory() {
   return nullptr;

@@ -6,7 +6,7 @@
 
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
 #include "third_party/blink/renderer/core/layout/layout_box.h"
-#include "third_party/blink/renderer/core/layout/min_max_size.h"
+#include "third_party/blink/renderer/core/layout/min_max_sizes.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_block_break_token.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_constraint_space.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_constraint_space_builder.h"
@@ -72,8 +72,8 @@ NGConstraintSpace CreateConstraintSpaceForFloat(
     DCHECK(parent_space.HasBlockFragmentation());
     DCHECK_EQ(style.GetWritingMode(), parent_space.GetWritingMode());
 
-    SetupFragmentation(parent_space, *origin_block_offset, &builder,
-                       /* is_new_fc */ true);
+    SetupFragmentation(parent_space, unpositioned_float.node,
+                       *origin_block_offset, &builder, /* is_new_fc */ true);
   } else {
     builder.SetFragmentationType(NGFragmentationType::kFragmentNone);
   }
@@ -119,7 +119,7 @@ std::unique_ptr<NGExclusionShapeData> CreateExclusionShapeData(
     case CSSBoxType::kContent:
       const NGConstraintSpace space =
           CreateConstraintSpaceForFloat(unpositioned_float);
-      NGBoxStrut strut = ComputeBorders(space, unpositioned_float.node);
+      NGBoxStrut strut = ComputeBorders(space, style);
       if (style.ShapeOutside()->CssBox() == CSSBoxType::kContent)
         strut += ComputePadding(space, style);
       shape_insets =

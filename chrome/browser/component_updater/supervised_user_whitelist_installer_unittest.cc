@@ -75,7 +75,7 @@ std::string JsonToString(const base::DictionaryValue& dict) {
 class MockComponentUpdateService : public ComponentUpdateService,
                                    public OnDemandUpdater {
  public:
-  ~MockComponentUpdateService() override {}
+  ~MockComponentUpdateService() override = default;
 
   bool on_demand_update_called() const { return on_demand_update_called_; }
 
@@ -201,7 +201,7 @@ class SupervisedUserWhitelistInstallerTest : public testing::Test {
   SupervisedUserWhitelistInstallerTest()
       : testing_profile_manager_(TestingBrowserProcess::GetGlobal()) {}
 
-  ~SupervisedUserWhitelistInstallerTest() override {}
+  ~SupervisedUserWhitelistInstallerTest() override = default;
 
   void SetUp() override {
     SupervisedUserWhitelistInstaller::RegisterPrefs(local_state_.registry());
@@ -360,7 +360,7 @@ TEST_F(SupervisedUserWhitelistInstallerTest, InstallNewWhitelist) {
   // installer only calls |ComponentReady| if the install of the component
   // has succeeded.
   component->installer->Install(
-      unpacked_path, std::string(),
+      unpacked_path, std::string(), nullptr,
       base::Bind(
           [](WhitelistLoadObserver* observer,
              const update_client::CrxInstaller::Result& result) {

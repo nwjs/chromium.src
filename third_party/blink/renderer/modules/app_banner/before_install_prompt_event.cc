@@ -22,14 +22,14 @@ BeforeInstallPromptEvent::BeforeInstallPromptEvent(
     mojo::PendingReceiver<mojom::blink::AppBannerEvent> event_receiver,
     const Vector<String>& platforms)
     : Event(name, Bubbles::kNo, Cancelable::kYes),
-      ContextClient(&frame),
+      ExecutionContextClient(&frame),
       banner_service_remote_(std::move(service_remote)),
       receiver_(this,
                 std::move(event_receiver),
                 frame.GetTaskRunner(TaskType::kApplicationLifeCycle)),
       platforms_(platforms),
-      user_choice_(
-          MakeGarbageCollected<UserChoiceProperty>(frame.GetDocument())) {
+      user_choice_(MakeGarbageCollected<UserChoiceProperty>(
+          frame.GetDocument()->ToExecutionContext())) {
   DCHECK(banner_service_remote_);
   DCHECK(receiver_.is_bound());
   UseCounter::Count(frame.GetDocument(), WebFeature::kBeforeInstallPromptEvent);
@@ -39,7 +39,7 @@ BeforeInstallPromptEvent::BeforeInstallPromptEvent(
     ExecutionContext* execution_context,
     const AtomicString& name,
     const BeforeInstallPromptEventInit* init)
-    : Event(name, init), ContextClient(execution_context) {
+    : Event(name, init), ExecutionContextClient(execution_context) {
   if (init->hasPlatforms())
     platforms_ = init->platforms();
 }
@@ -82,7 +82,7 @@ ScriptPromise BeforeInstallPromptEvent::prompt(
   }
 
   ExecutionContext* context = ExecutionContext::From(script_state);
-  Document* doc = To<Document>(context);
+  Document* doc = Document::From(context);
 
   if (!LocalFrame::ConsumeTransientUserActivation(doc ? doc->GetFrame()
                                                       : nullptr)) {
@@ -128,10 +128,10 @@ void BeforeInstallPromptEvent::BannerDismissed() {
   user_choice_->Resolve(result);
 }
 
-void BeforeInstallPromptEvent::Trace(blink::Visitor* visitor) {
+void BeforeInstallPromptEvent::Trace(Visitor* visitor) {
   visitor->Trace(user_choice_);
   Event::Trace(visitor);
-  ContextClient::Trace(visitor);
+  ExecutionContextClient::Trace(visitor);
 }
 
 }  // namespace blink

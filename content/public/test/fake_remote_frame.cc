@@ -29,6 +29,12 @@ void FakeRemoteFrame::ResetReplicatedContentSecurityPolicy() {}
 void FakeRemoteFrame::EnforceInsecureNavigationsSet(
     const std::vector<uint32_t>& set) {}
 
+void FakeRemoteFrame::SetFrameOwnerProperties(
+    blink::mojom::FrameOwnerPropertiesPtr properties) {}
+
+void FakeRemoteFrame::EnforceInsecureRequestPolicy(
+    blink::mojom::InsecureRequestPolicy policy) {}
+
 void FakeRemoteFrame::SetReplicatedOrigin(
     const url::Origin& origin,
     bool is_potentially_trustworthy_unique_origin) {}
@@ -48,7 +54,7 @@ void FakeRemoteFrame::SetNeedsOcclusionTracking(bool needs_tracking) {}
 
 void FakeRemoteFrame::BubbleLogicalScroll(
     blink::mojom::ScrollDirection direction,
-    ui::input_types::ScrollGranularity granularity) {}
+    ui::ScrollGranularity granularity) {}
 
 void FakeRemoteFrame::UpdateUserActivationState(
     blink::mojom::UserActivationUpdateType) {}

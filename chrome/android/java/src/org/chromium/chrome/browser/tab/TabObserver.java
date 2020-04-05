@@ -142,6 +142,12 @@ public interface TabObserver {
     void onRestoreStarted(Tab tab);
 
     /**
+     * Called when restoration of the corresponding tab failed.
+     * @param tab The notifying {@link Tab}.
+     */
+    void onRestoreFailed(Tab tab);
+
+    /**
      * Called when the WebContents of a {@link Tab} have been swapped.
      * @param tab The notifying {@link Tab}.
      * @param didStartLoad Whether WebContentsObserver::DidStartProvisionalLoadForFrame() has
@@ -158,14 +164,6 @@ public interface TabObserver {
      *             ContextMenu.
      */
     void onContextMenuShown(Tab tab, ContextMenu menu);
-
-    /**
-     * Called when the contextual action bar's visibility has changed (i.e. the widget shown
-     * when you can copy/paste text after long press).
-     * @param tab The notifying {@link Tab}.
-     * @param visible Whether the contextual action bar is now visible.
-     */
-    void onContextualActionBarVisibilityChanged(Tab tab, boolean visible);
 
     // WebContentsDelegateAndroid methods ---------------------------------------------------------
 

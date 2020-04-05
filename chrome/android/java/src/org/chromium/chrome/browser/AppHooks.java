@@ -4,9 +4,6 @@
 
 package org.chromium.chrome.browser;
 
-import android.app.Notification;
-import android.app.Service;
-import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.view.View;
@@ -20,7 +17,6 @@ import com.google.android.gms.common.GoogleApiAvailability;
 import org.chromium.base.Callback;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.annotations.CalledByNative;
-import org.chromium.base.task.PostTask;
 import org.chromium.chrome.browser.banners.AppDetailsDelegate;
 import org.chromium.chrome.browser.customtabs.CustomTabsConnection;
 import org.chromium.chrome.browser.directactions.DirectActionCoordinator;
@@ -46,7 +42,6 @@ import org.chromium.chrome.browser.partnercustomizations.PartnerBrowserCustomiza
 import org.chromium.chrome.browser.password_manager.GooglePasswordManagerUIProvider;
 import org.chromium.chrome.browser.policy.PolicyAuditor;
 import org.chromium.chrome.browser.rlz.RevenueStats;
-import org.chromium.chrome.browser.services.AndroidEduOwnerCheckCallback;
 import org.chromium.chrome.browser.signin.GoogleActivityController;
 import org.chromium.chrome.browser.survey.SurveyController;
 import org.chromium.chrome.browser.sync.TrustedVaultClient;
@@ -56,11 +51,11 @@ import org.chromium.chrome.browser.ui.ImmersiveModeManager;
 import org.chromium.chrome.browser.usage_stats.DigitalWellbeingClient;
 import org.chromium.chrome.browser.webapps.GooglePlayWebApkInstallDelegate;
 import org.chromium.chrome.browser.webauth.Fido2ApiHandler;
-import org.chromium.chrome.browser.widget.FeatureHighlightProvider;
-import org.chromium.components.download.DownloadCollectionBridge;
+import org.chromium.chrome.browser.xsurface.SurfaceDependencyProvider;
+import org.chromium.chrome.browser.xsurface.SurfaceRenderer;
+import org.chromium.components.browser_ui.widget.FeatureHighlightProvider;
 import org.chromium.components.signin.AccountManagerDelegate;
 import org.chromium.components.signin.SystemAccountManagerDelegate;
-import org.chromium.content_public.browser.UiThreadTaskTraits;
 import org.chromium.policy.AppRestrictionsProvider;
 import org.chromium.policy.CombinedPolicyProvider;
 
@@ -87,14 +82,6 @@ public abstract class AppHooks {
     public static AppHooks get() {
         if (sInstance == null) sInstance = new AppHooksImpl();
         return sInstance;
-    }
-
-    /**
-     * Initiate AndroidEdu device check.
-     * @param callback Callback that should receive the results of the AndroidEdu device check.
-     */
-    public void checkIsAndroidEduDevice(final AndroidEduOwnerCheckCallback callback) {
-        PostTask.postTask(UiThreadTaskTraits.DEFAULT, () -> callback.onSchoolCheckDone(false));
     }
 
     /**
@@ -264,22 +251,6 @@ public abstract class AppHooks {
     }
 
     /**
-     * Upgrades a service from background to foreground after calling
-     * {@link Service#startForegroundService(Intent)}.
-     * @param service The service to be foreground.
-     * @param id The notification id.
-     * @param notification The notification attached to the foreground service.
-     * @param foregroundServiceType The type of foreground service. Must be a subset of the
-     *                              foreground service types defined in AndroidManifest.xml.
-     *                              Use 0 if no foregroundServiceType attribute is defined.
-     */
-    public void startForeground(
-            Service service, int id, Notification notification, int foregroundServiceType) {
-        // TODO(xingliu): Add appropriate foregroundServiceType to manifest when we have new sdk.
-        service.startForeground(id, notification);
-    }
-
-    /**
      * @return A callback that will be run each time an offline page is saved in the custom tabs
      * namespace.
      */
@@ -333,6 +304,7 @@ public abstract class AppHooks {
      * @return a new {@link Fido2ApiHandler} instance.
      */
     public Fido2ApiHandler createFido2ApiHandler() {
+        // TODO(nsatragno): remove after cleaning up Fido2ApiHandlerInternal.
         return new Fido2ApiHandler();
     }
 
@@ -341,13 +313,6 @@ public abstract class AppHooks {
      */
     public FeatureHighlightProvider createFeatureHighlightProvider() {
         return new FeatureHighlightProvider();
-    }
-
-    /**
-     * @return A new {@link DownloadCollectionBridge} instance.
-     */
-    public DownloadCollectionBridge getDownloadCollectionBridge() {
-        return DownloadCollectionBridge.getDownloadCollectionBridge();
     }
 
     /**
@@ -395,5 +360,21 @@ public abstract class AppHooks {
      */
     public TrustedVaultClient.Backend createSyncTrustedVaultClientBackend() {
         return new TrustedVaultClient.EmptyBackend();
+    }
+
+    /**
+     * Returns a new {@link SurfaceRenderer} if the xsurface implementation is included in the
+     * apk. Otherwise null is returned.
+     */
+    public @Nullable SurfaceRenderer createExternalSurfaceRenderer(
+            SurfaceDependencyProvider dependencies) {
+        return null;
+    }
+
+    /**
+     * Returns the URL to the WebAPK creation/update server.
+     */
+    public String getWebApkServerUrl() {
+        return "https://webapk.googleapis.com/v1/webApks/?alt=proto&key=AIzaSyAoI6v-F31-3t9NunLYEiKcPIqgTJIUZBw";
     }
 }

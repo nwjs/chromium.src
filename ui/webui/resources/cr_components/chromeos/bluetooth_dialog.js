@@ -121,6 +121,12 @@ Polymer({
   bluetoothPrivateOnPairingListener_: null,
 
   /**
+   * Listener for chrome.bluetoothPrivate.deviceAddressChanged events.
+   * @private {?function(!chrome.bluetooth.Device, !string)}
+   */
+  bluetoothPrivateDeviceAddressChangedListener_: null,
+
+  /**
    * Listener for chrome.bluetooth.onBluetoothDeviceChanged events.
    * @private {?function(!chrome.bluetooth.Device)}
    */
@@ -156,7 +162,9 @@ Polymer({
     if (wasPairing) {
       const transport = device.transport ? device.transport :
                                            chrome.bluetooth.Transport.INVALID;
-      this.recordPairingMetrics_(transport, lastError, result);
+      const connectResult = lastError ? undefined : result;
+      chrome.bluetoothPrivate.recordPairing(
+          transport, this.getPairingDurationMs_(), connectResult);
     }
 
     let error;
@@ -177,6 +185,13 @@ Polymer({
 
     // Attempting to connect and pair has failed. Remove listeners.
     this.endPairing();
+
+    if (!wasPairing && !this.getDialog_().open &&
+        (result === chrome.bluetoothPrivate.ConnectResultType.FAILED)) {
+      // Inform the caller to not open the dialog; the user is informed by
+      // other UI that the connection failed.
+      return false;
+    }
 
     const name = device.name || device.address;
     let id = 'bluetooth_connect_' + error;
@@ -233,6 +248,12 @@ Polymer({
 
       this.connectionAttemptStartTimestampMs_ = Date.now();
     }
+    if (!this.bluetoothPrivateDeviceAddressChangedListener_) {
+      this.bluetoothPrivateDeviceAddressChangedListener_ =
+          this.onBluetoothPrivateDeviceAddressChanged_.bind(this);
+      this.bluetoothPrivate.onDeviceAddressChanged.addListener(
+          this.bluetoothPrivateDeviceAddressChangedListener_);
+    }
     if (!this.bluetoothDeviceChangedListener_) {
       this.bluetoothDeviceChangedListener_ =
           this.onBluetoothDeviceChanged_.bind(this);
@@ -247,6 +268,11 @@ Polymer({
       this.bluetoothPrivate.onPairing.removeListener(
           this.bluetoothPrivateOnPairingListener_);
       this.bluetoothPrivateOnPairingListener_ = null;
+    }
+    if (this.bluetoothPrivateDeviceAddressChangedListener_) {
+      this.bluetoothPrivate.onDeviceAddressChanged.removeListener(
+          this.bluetoothPrivateDeviceAddressChangedListener_);
+      this.bluetoothPrivateDeviceAddressChangedListener_ = null;
     }
     if (this.bluetoothDeviceChangedListener_) {
       this.bluetooth.onDeviceChanged.removeListener(
@@ -273,6 +299,19 @@ Polymer({
       event.passkey = this.pairingEvent_.passkey;
     }
     this.pairingEvent_ = event;
+  },
+
+  /**
+   * Process bluetoothPrivate.onDeviceAddressChanged events.
+   * @param {!chrome.bluetooth.Device} device
+   * @param {!string} oldAddress
+   * @private
+   */
+  onBluetoothPrivateDeviceAddressChanged_(device, oldAddress) {
+    if (!this.pairingDevice || oldAddress !== this.pairingDevice.address) {
+      return;
+    }
+    this.pairingDevice = device;
   },
 
   /**
@@ -543,45 +582,6 @@ Polymer({
       }
     }
     return cssClass;
-  },
-
-  /**
-   * Record metrics for pairing attempt results.
-   * @param {!chrome.bluetooth.Transport} transport The transport type of the
-   *     device.
-   * @param {!{message: string}} lastError chrome.runtime.lastError.
-   * @param {!chrome.bluetoothPrivate.ConnectResultType} result The connection
-   *     result.
-   * @private
-   */
-  recordPairingMetrics_(transport, lastError, result) {
-    // TODO(crbug.com/953149): Also create metrics which break down the simple
-    // boolean success/failure metric with error reasons, including |lastError|.
-
-    let success;
-    if (lastError) {
-      success = false;
-    } else {
-      switch (result) {
-        case chrome.bluetoothPrivate.ConnectResultType.SUCCESS:
-          success = true;
-          break;
-        case chrome.bluetoothPrivate.ConnectResultType.IN_PROGRESS:
-        case chrome.bluetoothPrivate.ConnectResultType.ALREADY_CONNECTED:
-        case chrome.bluetoothPrivate.ConnectResultType.AUTH_CANCELED:
-        case chrome.bluetoothPrivate.ConnectResultType.AUTH_REJECTED:
-          // Cases like this do not reflect success or failure to pair,
-          // particularly AUTH_CANCELED or AUTH_REJECTED. Do not emit to
-          // metrics.
-          return;
-        default:
-          success = false;
-          break;
-      }
-    }
-
-    chrome.bluetoothPrivate.recordPairing(
-        success, transport, this.getPairingDurationMs_());
   },
 
   /**

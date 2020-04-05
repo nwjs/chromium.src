@@ -23,7 +23,8 @@ FingerprintSetupScreen* FingerprintSetupScreen::Get(ScreenManager* manager) {
 FingerprintSetupScreen::FingerprintSetupScreen(
     FingerprintSetupScreenView* view,
     const base::RepeatingClosure& exit_callback)
-    : BaseScreen(FingerprintSetupScreenView::kScreenId),
+    : BaseScreen(FingerprintSetupScreenView::kScreenId,
+                 OobeScreenPriority::DEFAULT),
       view_(view),
       exit_callback_(exit_callback) {
   DCHECK(view_);
@@ -34,7 +35,7 @@ FingerprintSetupScreen::~FingerprintSetupScreen() {
   view_->Bind(nullptr);
 }
 
-void FingerprintSetupScreen::Show() {
+void FingerprintSetupScreen::ShowImpl() {
   if (!chromeos::quick_unlock::IsFingerprintEnabled(
           ProfileManager::GetActiveUserProfile()) ||
       chrome_user_manager_util::IsPublicSessionOrEphemeralLogin()) {
@@ -44,7 +45,7 @@ void FingerprintSetupScreen::Show() {
   view_->Show();
 }
 
-void FingerprintSetupScreen::Hide() {
+void FingerprintSetupScreen::HideImpl() {
   view_->Hide();
 }
 

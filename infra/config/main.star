@@ -59,6 +59,30 @@ luci.cq(
     status_host = 'chromium-cq-status.appspot.com',
 )
 
+# Declare a CQ group that watches all branch heads
+# We won't add any builders, but SUBMIT TO CQ fails on Gerrit if there is no CQ
+# group
+luci.cq_group(
+    name = 'fallback-empty-cq',
+    # TODO(crbug/959436): enable it.
+    cancel_stale_tryjobs = False,
+    retry_config = cq.RETRY_ALL_FAILURES,
+    watch = cq.refset(
+        repo = 'https://chromium.googlesource.com/chromium/src',
+        refs = ['refs/branch-heads/.+'],
+    ),
+    acls = [
+        acl.entry(
+            acl.CQ_COMMITTER,
+            groups = 'project-chromium-committers',
+        ),
+        acl.entry(
+            acl.CQ_DRY_RUNNER,
+            groups = 'project-chromium-tryjob-access',
+        ),
+    ],
+)
+
 luci.logdog(
     gs_bucket = 'chromium-luci-logdog',
 )
@@ -73,6 +97,7 @@ exec('//buckets/ci.star')
 exec('//buckets/findit.star')
 exec('//buckets/goma.star')
 exec('//buckets/gpu.try.star')
+exec('//buckets/swangle.try.star')
 exec('//buckets/try.star')
 exec('//buckets/webrtc.star')
 exec('//buckets/webrtc.fyi.star')
@@ -87,7 +112,6 @@ exec('//consoles/chromium.clang.star')
 exec('//consoles/chromium.dawn.star')
 exec('//consoles/chromium.fuzz.star')
 exec('//consoles/chromium.fyi.star')
-exec('//consoles/chromium.fyi.goma.star')
 exec('//consoles/chromium.goma.star')
 exec('//consoles/chromium.goma.fyi.star')
 exec('//consoles/chromium.goma.migration.star')
@@ -105,11 +129,9 @@ exec('//consoles/goma.latest.star')
 exec('//consoles/luci.chromium.goma.star')
 exec('//consoles/luci.chromium.try.star')
 exec('//consoles/main.star')
-exec('//consoles/main-beta.star')
-exec('//consoles/main-stable.star')
 exec('//consoles/sheriff.ios.star')
-exec('//consoles/try-beta.star')
-exec('//consoles/try-stable.star')
+exec('//consoles/try-m80.star')
+exec('//consoles/try-m81.star')
 exec('//consoles/tryserver.blink.star')
 exec('//consoles/tryserver.chromium.android.star')
 exec('//consoles/tryserver.chromium.chromiumos.star')
@@ -122,6 +144,18 @@ exec('//consoles/tryserver.chromium.win.star')
 exec('//notifiers.star')
 
 exec('//generators/cq-builders-md.star')
+# This should be exec'ed before exec'ing scheduler-noop-jobs.star because
+# attempting to read the buildbucket field that is not set for the noop jobs
+# actually causes an empty buildbucket message to be set
+# TODO(https://crbug.com/1062385) The automatic generation of job IDs causes
+# problems when the number of builders with the same name goes from 1 to >1 or
+# vice-versa. This generator makes sure both the bucketed and non-bucketed IDs
+# work so that there aren't transient failures when the configuration changes
+exec('//generators/scheduler-bucketed-jobs.star')
+# TODO(https://crbug.com/966115) Run the generator to set the fallback field for
+# the empty CQ group until it's exposed in lucicfg or there is a better way to
+# create a CQ group for all of the canary branches
+exec('//generators/cq-fallback.star')
 # TODO(https://crbug.com/819899) There are a number of noop jobs for dummy
 # builders defined due to legacy requirements that trybots mirror CI bots
 # no-op scheduler jobs are not supported by the lucicfg libraries, so this

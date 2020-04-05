@@ -8,15 +8,21 @@
 #include <vector>
 
 #include "ash/public/cpp/app_list/app_list_metrics.h"
+#include "ash/public/cpp/app_list/internal_app_id_constants.h"
 #include "ash/public/cpp/app_menu_constants.h"
+#include "ash/public/cpp/keyboard_shortcut_viewer.h"
+#include "base/metrics/user_metrics.h"
 #include "base/time/time.h"
 #include "chrome/browser/apps/app_service/app_icon_factory.h"
 #include "chrome/browser/apps/app_service/app_service_metrics.h"
 #include "chrome/browser/apps/app_service/menu_util.h"
+#include "chrome/browser/chromeos/plugin_vm/plugin_vm_manager.h"
 #include "chrome/browser/chromeos/plugin_vm/plugin_vm_util.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/app_list/internal_app/internal_app_item.h"
 #include "chrome/browser/ui/app_list/internal_app/internal_app_metadata.h"
+#include "chrome/browser/ui/chrome_pages.h"
+#include "chrome/browser/ui/settings_window_manager_chromeos.h"
+#include "chrome/browser/ui/webui/chromeos/login/discover/discover_window_manager.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/services/app_service/public/mojom/types.mojom.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -153,7 +159,32 @@ void BuiltInChromeOsApps::Launch(const std::string& app_id,
                                  int32_t event_flags,
                                  apps::mojom::LaunchSource launch_source,
                                  int64_t display_id) {
-  app_list::OpenInternalApp(app_id, profile_, event_flags);
+  if (app_id == ash::kInternalAppIdKeyboardShortcutViewer) {
+    ash::ToggleKeyboardShortcutViewer();
+  } else if (app_id == ash::kInternalAppIdDiscover) {
+    base::RecordAction(base::UserMetricsAction("ShowDiscover"));
+    chromeos::DiscoverWindowManager::GetInstance()
+        ->ShowChromeDiscoverPageForProfile(profile_);
+  } else if (app_id == plugin_vm::kPluginVmAppId) {
+    if (plugin_vm::IsPluginVmEnabled(profile_)) {
+      plugin_vm::PluginVmManager::GetForProfile(profile_)->LaunchPluginVm();
+    } else {
+      plugin_vm::ShowPluginVmInstallerView(profile_);
+    }
+  } else if (app_id == ash::kReleaseNotesAppId) {
+    base::RecordAction(
+        base::UserMetricsAction("ReleaseNotes.SuggestionChipLaunched"));
+    chrome::LaunchReleaseNotes(profile_);
+  }
+}
+
+void BuiltInChromeOsApps::LaunchAppWithFiles(
+    const std::string& app_id,
+    apps::mojom::LaunchContainer container,
+    int32_t event_flags,
+    apps::mojom::LaunchSource launch_source,
+    apps::mojom::FilePathsPtr file_paths) {
+  NOTIMPLEMENTED();
 }
 
 void BuiltInChromeOsApps::LaunchAppWithIntent(
@@ -167,12 +198,6 @@ void BuiltInChromeOsApps::LaunchAppWithIntent(
 void BuiltInChromeOsApps::SetPermission(const std::string& app_id,
                                         apps::mojom::PermissionPtr permission) {
   NOTIMPLEMENTED();
-}
-
-void BuiltInChromeOsApps::PromptUninstall(const std::string& app_id) {
-  constexpr bool kClearSiteData = false;
-  constexpr bool kReportAbuse = false;
-  Uninstall(app_id, kClearSiteData, kReportAbuse);
 }
 
 void BuiltInChromeOsApps::Uninstall(const std::string& app_id,
@@ -221,7 +246,8 @@ void BuiltInChromeOsApps::OpenNativeSettings(const std::string& app_id) {
 void BuiltInChromeOsApps::OnPreferredAppSet(
     const std::string& app_id,
     apps::mojom::IntentFilterPtr intent_filter,
-    apps::mojom::IntentPtr intent) {
+    apps::mojom::IntentPtr intent,
+    apps::mojom::ReplacedAppPreferencesPtr replaced_app_preferences) {
   NOTIMPLEMENTED();
 }
 

@@ -17,12 +17,12 @@
 #include <vector>
 
 #include "base/macros.h"
-#include "base/memory/platform_shared_memory_region.h"
+#include "base/memory/read_only_shared_memory_region.h"
 #include "content/public/browser/web_contents_delegate.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "fuchsia/engine/browser/accessibility_bridge.h"
-#include "fuchsia/engine/browser/audio_consumer_provider_service.h"
-#include "fuchsia/engine/browser/discarding_event_filter.h"
+#include "fuchsia/engine/browser/event_filter.h"
+#include "fuchsia/engine/browser/frame_permission_controller.h"
 #include "fuchsia/engine/browser/navigation_controller_impl.h"
 #include "fuchsia/engine/browser/url_request_rewrite_rules_manager.h"
 #include "fuchsia/engine/on_load_script_injector.mojom.h"
@@ -39,6 +39,7 @@ class FromRenderFrameHost;
 }  // namespace content
 
 class ContextImpl;
+class FrameLayoutManager;
 
 // Implementation of fuchsia.web.Frame based on content::WebContents.
 class FrameImpl : public fuchsia::web::Frame,
@@ -55,9 +56,14 @@ class FrameImpl : public fuchsia::web::Frame,
             fidl::InterfaceRequest<fuchsia::web::Frame> frame_request);
   ~FrameImpl() override;
 
-  void BindAudioConsumerProvider(
-      mojo::PendingReceiver<media::mojom::FuchsiaAudioConsumerProvider>
-          receiver);
+  FrameImpl(const FrameImpl&) = delete;
+  FrameImpl& operator=(const FrameImpl&) = delete;
+
+  uint64_t media_session_id() const { return media_session_id_; }
+
+  FramePermissionController* permission_controller() {
+    return &permission_controller_;
+  }
 
   zx::unowned_channel GetBindingChannelForTest() const;
   content::WebContents* web_contents_for_test() const {
@@ -75,6 +81,9 @@ class FrameImpl : public fuchsia::web::Frame,
       fuchsia::accessibility::semantics::SemanticsManagerPtr
           semantics_manager) {
     semantics_manager_for_test_ = std::move(semantics_manager);
+  }
+  void set_handle_actions_for_test(bool handle) {
+    accessibility_bridge_->set_handle_actions_for_test(handle);
   }
 
  private:
@@ -154,7 +163,8 @@ class FrameImpl : public fuchsia::web::Frame,
       fidl::InterfaceHandle<fuchsia::web::NavigationEventListener> listener)
       override;
   void SetJavaScriptLogLevel(fuchsia::web::ConsoleLogLevel level) override;
-  void SetEnableInput(bool enable_input) override;
+  void ConfigureInputTypes(fuchsia::web::InputTypes types,
+                           fuchsia::web::AllowInputState allow) override;
   void SetPopupFrameCreationListener(
       fidl::InterfaceHandle<fuchsia::web::PopupFrameCreationListener> listener)
       override;
@@ -164,6 +174,11 @@ class FrameImpl : public fuchsia::web::Frame,
   void EnableHeadlessRendering() override;
   void DisableHeadlessRendering() override;
   void SetMediaSessionId(uint64_t session_id) override;
+  void ForceContentDimensions(
+      std::unique_ptr<fuchsia::ui::gfx::vec2> web_dips) override;
+  void SetPermissionState(fuchsia::web::PermissionDescriptor permission,
+                          std::string web_origin,
+                          fuchsia::web::PermissionState state) override;
 
   // content::WebContentsDelegate implementation.
   void CloseContents(content::WebContents* source) override;
@@ -190,38 +205,56 @@ class FrameImpl : public fuchsia::web::Frame,
                       const gfx::Rect& initial_rect,
                       bool user_gesture,
                       bool* was_blocked) override;
+  void RequestMediaAccessPermission(
+      content::WebContents* web_contents,
+      const content::MediaStreamRequest& request,
+      content::MediaResponseCallback callback) override;
+  bool CheckMediaAccessPermission(content::RenderFrameHost* render_frame_host,
+                                  const GURL& security_origin,
+                                  blink::mojom::MediaStreamType type) override;
 
   // content::WebContentsObserver implementation.
   void ReadyToCommitNavigation(
       content::NavigationHandle* navigation_handle) override;
   void DidFinishLoad(content::RenderFrameHost* render_frame_host,
                      const GURL& validated_url) override;
+  void RenderViewCreated(content::RenderViewHost* render_view_host) override;
+  void RenderViewReady() override;
+
+  const std::unique_ptr<content::WebContents> web_contents_;
+  ContextImpl* const context_;
 
   std::unique_ptr<aura::WindowTreeHost> window_tree_host_;
-  const std::unique_ptr<content::WebContents> web_contents_;
+
   std::unique_ptr<wm::FocusController> focus_controller_;
-  ContextImpl* const context_;
+
+  // Owned via |window_tree_host_|.
+  FrameLayoutManager* layout_manager_ = nullptr;
+
   std::unique_ptr<AccessibilityBridge> accessibility_bridge_;
   fuchsia::accessibility::semantics::SemanticsManagerPtr
       semantics_manager_for_test_;
 
-  DiscardingEventFilter discarding_event_filter_;
+  EventFilter event_filter_;
   NavigationControllerImpl navigation_controller_;
   logging::LogSeverity log_level_;
   std::map<uint64_t, OriginScopedScript> before_load_scripts_;
   std::vector<uint64_t> before_load_scripts_order_;
   base::RepeatingCallback<void(base::StringPiece)> console_log_message_hook_;
   UrlRequestRewriteRulesManager url_request_rewrite_rules_manager_;
-  AudioConsumerProviderService audio_consumer_provider_service_;
+  FramePermissionController permission_controller_;
+
+  // Session ID to use for fuchsia.media.AudioConsumer. Set with
+  // SetMediaSessionId().
+  uint64_t media_session_id_ = 0;
 
   // Used for receiving and dispatching popup created by this Frame.
   fuchsia::web::PopupFrameCreationListenerPtr popup_listener_;
   std::list<std::unique_ptr<content::WebContents>> pending_popups_;
   bool popup_ack_outstanding_ = false;
+  gfx::Size render_size_override_;
 
   fidl::Binding<fuchsia::web::Frame> binding_;
-
-  DISALLOW_COPY_AND_ASSIGN(FrameImpl);
 };
 
 #endif  // FUCHSIA_ENGINE_BROWSER_FRAME_IMPL_H_

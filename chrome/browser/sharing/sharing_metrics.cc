@@ -103,6 +103,8 @@ std::string SharingSendMessageResultToString(SharingSendMessageResult result) {
       return "InternalError";
     case SharingSendMessageResult::kEncryptionError:
       return "EncryptionError";
+    case SharingSendMessageResult::kCommitTimeout:
+      return "CommitTimeout";
   }
 }
 
@@ -273,6 +275,7 @@ void LogSharingMessageAckTime(chrome_browser_sharing::MessageType message_type,
       break;
     case chrome_browser_sharing::MessageType::SMS_FETCH_REQUEST:
     case chrome_browser_sharing::MessageType::DISCOVERY_REQUEST:
+    case chrome_browser_sharing::MessageType::WEB_RTC_SIGNALING_FRAME:
       base::UmaHistogramCustomTimes(
           type_suffixed_name, time,
           /*min=*/base::TimeDelta::FromMilliseconds(1),

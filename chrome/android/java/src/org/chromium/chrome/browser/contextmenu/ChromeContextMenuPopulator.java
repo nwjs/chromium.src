@@ -16,19 +16,20 @@ import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
-import org.chromium.base.library_loader.LibraryProcessType;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.compositor.bottombar.ephemeraltab.EphemeralTabPanel;
+import org.chromium.chrome.browser.compositor.bottombar.ephemeraltab.EphemeralTabCoordinator;
 import org.chromium.chrome.browser.contextmenu.ChromeContextMenuItem.Item;
-import org.chromium.chrome.browser.contextmenu.ContextMenuParams.PerformanceClass;
+import org.chromium.chrome.browser.externalauth.ExternalAuthUtils;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.firstrun.FirstRunStatus;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.gsa.GSAState;
 import org.chromium.chrome.browser.locale.LocaleManager;
 import org.chromium.chrome.browser.metrics.UkmRecorder;
+import org.chromium.chrome.browser.performance_hints.PerformanceHintsObserver;
+import org.chromium.chrome.browser.performance_hints.PerformanceHintsObserver.PerformanceClass;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.SharedPreferencesManager;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -36,7 +37,8 @@ import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
 import org.chromium.chrome.browser.share.LensUtils;
 import org.chromium.chrome.browser.share.ShareDelegate;
 import org.chromium.chrome.browser.share.ShareParams;
-import org.chromium.chrome.browser.util.UrlUtilities;
+import org.chromium.components.embedder_support.contextmenu.ContextMenuParams;
+import org.chromium.components.embedder_support.util.UrlUtilities;
 import org.chromium.components.feature_engagement.FeatureConstants;
 import org.chromium.components.feature_engagement.Tracker;
 import org.chromium.components.search_engines.TemplateUrlService;
@@ -44,10 +46,10 @@ import org.chromium.components.url_formatter.UrlFormatter;
 import org.chromium.content_public.browser.BrowserStartupController;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.common.ContentUrlConstants;
+import org.chromium.url.URI;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
-import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
@@ -60,6 +62,7 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
     private final ContextMenuItemDelegate mDelegate;
     private final @ContextMenuMode int mMode;
     private final Supplier<ShareDelegate> mShareDelegateSupplier;
+    private final ExternalAuthUtils mExternalAuthUtils;
     private boolean mEnableLensWithSearchByImageText;
     private @Nullable UkmRecorder.Bridge mUkmRecorderBridge;
 
@@ -178,7 +181,7 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
          * @param params The ContextMenuParams describing the current context menu.
          * @param action The action that the user selected (e.g. ACTION_SAVE_IMAGE).
          */
-        static void record(ContextMenuParams params, @Action int action) {
+        static void record(WebContents webContents, ContextMenuParams params, @Action int action) {
             String histogramName;
             if (params.isVideo()) {
                 histogramName = "ContextMenu.SelectedOptionAndroid.Video";
@@ -191,7 +194,9 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
             }
             RecordHistogram.recordEnumeratedHistogram(histogramName, action, Action.NUM_ENTRIES);
             if (params.isAnchor()
-                    && params.getPerformanceClass() == PerformanceClass.PERFORMANCE_FAST) {
+                    && PerformanceHintsObserver.getPerformanceClassForURL(
+                               webContents, params.getLinkUrl())
+                            == PerformanceClass.PERFORMANCE_FAST) {
                 RecordHistogram.recordEnumeratedHistogram(
                         histogramName + ".PerformanceClassFast", action, Action.NUM_ENTRIES);
             }
@@ -238,7 +243,8 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
         // Only add new values at the end, right before NUM_ENTRIES.
         @IntDef({LensSupportStatus.LENS_SUPPORTED, LensSupportStatus.NON_GOOGLE_SEARCH_ENGINE,
                 LensSupportStatus.ACTIVITY_NOT_ACCESSIBLE, LensSupportStatus.OUT_OF_DATE,
-                LensSupportStatus.SEARCH_BY_IMAGE_UNAVAILABLE, LensSupportStatus.LEGACY_OS})
+                LensSupportStatus.SEARCH_BY_IMAGE_UNAVAILABLE, LensSupportStatus.LEGACY_OS,
+                LensSupportStatus.INVALID_PACKAGE})
         @Retention(RetentionPolicy.SOURCE)
         public @interface LensSupportStatus {
             int LENS_SUPPORTED = 0;
@@ -247,7 +253,8 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
             int OUT_OF_DATE = 3;
             int SEARCH_BY_IMAGE_UNAVAILABLE = 4;
             int LEGACY_OS = 5;
-            int NUM_ENTRIES = 6;
+            int INVALID_PACKAGE = 6;
+            int NUM_ENTRIES = 7;
         }
 
         /**
@@ -268,10 +275,12 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
      * @param mode Defines the context menu mode
      */
     public ChromeContextMenuPopulator(ContextMenuItemDelegate delegate,
-            Supplier<ShareDelegate> shareDelegate, @ContextMenuMode int mode) {
+            Supplier<ShareDelegate> shareDelegate, @ContextMenuMode int mode,
+            ExternalAuthUtils externalAuthUtils) {
         mDelegate = delegate;
         mShareDelegateSupplier = shareDelegate;
         mMode = mode;
+        mExternalAuthUtils = externalAuthUtils;
     }
 
     @Override
@@ -307,8 +316,7 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
         // The context menu can be created without native library
         // being loaded. Only use native URL formatting methods
         // if the native libraries have been loaded.
-        if (BrowserStartupController.get(LibraryProcessType.PROCESS_BROWSER)
-                        .isFullBrowserStarted()) {
+        if (BrowserStartupController.getInstance().isFullBrowserStarted()) {
             return UrlFormatter.formatUrlForDisplayOmitHTTPScheme(params.getLinkUrl());
         }
         return params.getLinkUrl();
@@ -326,17 +334,19 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
 
         if (params.isAnchor()) {
             List<ContextMenuItem> linkTab = new ArrayList<>();
-            if (FirstRunStatus.getFirstRunFlowComplete() && mMode == ContextMenuMode.NORMAL
-                    && !isEmptyUrl(params.getUrl())
+            if (FirstRunStatus.getFirstRunFlowComplete() && !isEmptyUrl(params.getUrl())
                     && UrlUtilities.isAcceptedScheme(params.getUrl())) {
-                linkTab.add(new ChromeContextMenuItem(Item.OPEN_IN_NEW_TAB));
-                if (!mDelegate.isIncognito() && mDelegate.isIncognitoSupported()) {
-                    linkTab.add(new ChromeContextMenuItem(Item.OPEN_IN_INCOGNITO_TAB));
+                if (mMode == ContextMenuMode.NORMAL) {
+                    linkTab.add(new ChromeContextMenuItem(Item.OPEN_IN_NEW_TAB));
+                    if (!mDelegate.isIncognito() && mDelegate.isIncognitoSupported()) {
+                        linkTab.add(new ChromeContextMenuItem(Item.OPEN_IN_INCOGNITO_TAB));
+                    }
+                    if (mDelegate.isOpenInOtherWindowSupported()) {
+                        linkTab.add(new ChromeContextMenuItem(Item.OPEN_IN_OTHER_WINDOW));
+                    }
                 }
-                if (mDelegate.isOpenInOtherWindowSupported()) {
-                    linkTab.add(new ChromeContextMenuItem(Item.OPEN_IN_OTHER_WINDOW));
-                }
-                if (EphemeralTabPanel.isSupported()) {
+                if ((mMode == ContextMenuMode.NORMAL || mMode == ContextMenuMode.CUSTOM_TAB)
+                        && EphemeralTabCoordinator.isSupported()) {
                     ContextMenuItem item = new ChromeContextMenuItem(Item.OPEN_IN_EPHEMERAL_TAB);
                     mShowEphemeralTabNewLabel = shouldTriggerEphemeralTabHelpUi();
                     if (mShowEphemeralTabNewLabel) item.setShowInProductHelp();
@@ -399,7 +409,8 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
                 if (mMode == ContextMenuMode.NORMAL) {
                     imageTab.add(new ChromeContextMenuItem(Item.OPEN_IMAGE_IN_NEW_TAB));
                 }
-                if (EphemeralTabPanel.isSupported()) {
+                if ((mMode == ContextMenuMode.NORMAL || mMode == ContextMenuMode.CUSTOM_TAB)
+                        && EphemeralTabCoordinator.isSupported()) {
                     ContextMenuItem item =
                             new ChromeContextMenuItem(Item.OPEN_IMAGE_IN_EPHEMERAL_TAB);
                     if (mShowEphemeralTabNewLabel == null) {
@@ -495,8 +506,7 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
         }
 
         if (!groupedItems.isEmpty()
-                && BrowserStartupController.get(LibraryProcessType.PROCESS_BROWSER)
-                           .isFullBrowserStarted()) {
+                && BrowserStartupController.getInstance().isFullBrowserStarted()) {
             if (!hasSaveImage) {
                 ContextMenuUma.recordSaveImageUma(params.isImage()
                                 ? ContextMenuUma.TypeSaveImage.DISABLED_AND_IS_IMAGE_PARAM
@@ -669,8 +679,7 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
      * @param isDownloadableScheme The image is downloadable.
      */
     private void recordSaveImageContextMenuResult(boolean isDownloadableScheme) {
-        if (!BrowserStartupController.get(LibraryProcessType.PROCESS_BROWSER)
-                        .isFullBrowserStarted()) {
+        if (!BrowserStartupController.getInstance().isFullBrowserStarted()) {
             return;
         }
 
@@ -685,7 +694,7 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
      * Record a UMA ping and a UKM ping if enabled.
      */
     private void recordContextMenuSelection(ContextMenuParams params, int actionId) {
-        ContextMenuUma.record(params, actionId);
+        ContextMenuUma.record(mDelegate.getWebContents(), params, actionId);
         maybeRecordActionUkm("ContextMenuAndroid.Selected", actionId);
     }
 
@@ -719,6 +728,12 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
 
         if (LensUtils.isDeviceOsBelowMinimum()) {
             ContextMenuUma.recordLensSupportStatus(ContextMenuUma.LensSupportStatus.LEGACY_OS);
+            return false;
+        }
+
+        if (!LensUtils.isValidAgsaPackage(mExternalAuthUtils)) {
+            ContextMenuUma.recordLensSupportStatus(
+                    ContextMenuUma.LensSupportStatus.INVALID_PACKAGE);
             return false;
         }
 

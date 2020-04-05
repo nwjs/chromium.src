@@ -17,6 +17,7 @@
 
 namespace weblayer {
 
+class FeatureListCreator;
 class SafeBrowsingService;
 struct MainParams;
 
@@ -28,12 +29,11 @@ class ContentBrowserClientImpl : public content::ContentBrowserClient {
   // ContentBrowserClient overrides.
   std::unique_ptr<content::BrowserMainParts> CreateBrowserMainParts(
       const content::MainFunctionParams& parameters) override;
-  void AppendExtraCommandLineSwitches(base::CommandLine* command_line,
-                                      int child_process_id) override;
   std::string GetApplicationLocale() override;
   std::string GetAcceptLangs(content::BrowserContext* context) override;
   content::WebContentsViewDelegate* GetWebContentsViewDelegate(
       content::WebContents* web_contents) override;
+  bool CanShutdownGpuProcessNowOnIOThread() override;
   content::DevToolsManagerDelegate* GetDevToolsManagerDelegate() override;
   base::Optional<service_manager::Manifest> GetServiceManifestOverlay(
       base::StringPiece name) override;
@@ -80,9 +80,15 @@ class ContentBrowserClientImpl : public content::ContentBrowserClient {
       service_manager::BinderRegistry* registry,
       blink::AssociatedInterfaceRegistry* associated_registry,
       content::RenderProcessHost* render_process_host) override;
+  void ExposeInterfacesToMediaService(
+      service_manager::BinderRegistry* registry,
+      content::RenderFrameHost* render_frame_host) override;
   void RegisterBrowserInterfaceBindersForFrame(
       content::RenderFrameHost* render_frame_host,
       service_manager::BinderMapWithContext<content::RenderFrameHost*>* map)
+      override;
+  void RenderProcessWillLaunch(content::RenderProcessHost* host) override;
+  scoped_refptr<content::QuotaPermissionContext> CreateQuotaPermissionContext()
       override;
 
 #if defined(OS_LINUX) || defined(OS_ANDROID)
@@ -92,25 +98,20 @@ class ContentBrowserClientImpl : public content::ContentBrowserClient {
       content::PosixFileDescriptorInfo* mappings) override;
 #endif  // defined(OS_LINUX) || defined(OS_ANDROID)
 
-#if defined(OS_ANDROID)
-  bool ShouldOverrideUrlLoading(int frame_tree_node_id,
-                                bool browser_initiated,
-                                const GURL& gurl,
-                                const std::string& request_method,
-                                bool has_user_gesture,
-                                bool is_redirect,
-                                bool is_main_frame,
-                                ui::PageTransition transition,
-                                bool* ignore_navigation) override;
-#endif
+  void CreateFeatureListAndFieldTrials();
 
  private:
+#if defined(OS_ANDROID)
+  SafeBrowsingService* GetSafeBrowsingService();
+#endif
+
   MainParams* params_;
 
 #if defined(OS_ANDROID)
-  SafeBrowsingService* GetSafeBrowsingService();
   std::unique_ptr<SafeBrowsingService> safe_browsing_service_;
 #endif
+
+  std::unique_ptr<FeatureListCreator> feature_list_creator_;
 };
 
 }  // namespace weblayer

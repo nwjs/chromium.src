@@ -185,7 +185,9 @@ static inline bool FeatureWithAspectRatio(const String& media_feature) {
          media_feature == kMaxDeviceAspectRatioMediaFeature;
 }
 
-static inline bool FeatureWithoutValue(const String& media_feature) {
+static inline bool FeatureWithoutValue(
+    const String& media_feature,
+    const ExecutionContext* execution_context) {
   // Media features that are prefixed by min/max cannot be used without a value.
   return media_feature == media_feature_names::kMonochromeMediaFeature ||
          media_feature == media_feature_names::kColorMediaFeature ||
@@ -207,15 +209,22 @@ static inline bool FeatureWithoutValue(const String& media_feature) {
          media_feature == media_feature_names::kResolutionMediaFeature ||
          media_feature == media_feature_names::kDisplayModeMediaFeature ||
          media_feature == media_feature_names::kScanMediaFeature ||
-         media_feature == media_feature_names::kShapeMediaFeature ||
+         (media_feature == media_feature_names::kShapeMediaFeature &&
+          RuntimeEnabledFeatures::MediaQueryShapeEnabled()) ||
          media_feature == media_feature_names::kColorGamutMediaFeature ||
          media_feature == media_feature_names::kImmersiveMediaFeature ||
          media_feature ==
              media_feature_names::kPrefersColorSchemeMediaFeature ||
          media_feature ==
              media_feature_names::kPrefersReducedMotionMediaFeature ||
-         media_feature == media_feature_names::kForcedColorsMediaFeature ||
-         media_feature == media_feature_names::kNavigationControlsMediaFeature;
+         (media_feature == media_feature_names::kForcedColorsMediaFeature &&
+          RuntimeEnabledFeatures::ForcedColorsEnabled()) ||
+         (media_feature ==
+              media_feature_names::kNavigationControlsMediaFeature &&
+          RuntimeEnabledFeatures::MediaQueryNavigationControlsEnabled()) ||
+         (media_feature == media_feature_names::kOriginTrialTestMediaFeature &&
+          RuntimeEnabledFeatures::OriginTrialsSampleAPIEnabled(
+              execution_context));
 }
 
 bool MediaQueryExp::IsViewportDependent() const {
@@ -259,7 +268,8 @@ MediaQueryExp::MediaQueryExp(const String& media_feature,
 
 MediaQueryExp MediaQueryExp::Create(const String& media_feature,
                                     CSSParserTokenRange& range,
-                                    const CSSParserContext& context) {
+                                    const CSSParserContext& context,
+                                    const ExecutionContext* execution_context) {
   DCHECK(!media_feature.IsNull());
 
   MediaQueryExpValue exp_value;
@@ -269,10 +279,10 @@ MediaQueryExp MediaQueryExp::Create(const String& media_feature,
   CSSParserContext::ParserModeOverridingScope scope(context, kHTMLStandardMode);
 
   CSSPrimitiveValue* value =
-      css_property_parser_helpers::ConsumeInteger(range, 0);
+      css_property_parser_helpers::ConsumeInteger(range, context, 0);
   if (!value && !FeatureExpectingPositiveInteger(lower_media_feature) &&
       !FeatureWithAspectRatio(lower_media_feature)) {
-    value = css_property_parser_helpers::ConsumeNumber(range,
+    value = css_property_parser_helpers::ConsumeNumber(range, context,
                                                        kValueRangeNonNegative);
   }
   if (!value) {
@@ -292,7 +302,7 @@ MediaQueryExp MediaQueryExp::Create(const String& media_feature,
       exp_value.is_id = true;
       return MediaQueryExp(lower_media_feature, exp_value);
     }
-    if (FeatureWithoutValue(lower_media_feature)) {
+    if (FeatureWithoutValue(lower_media_feature, execution_context)) {
       // Valid, creates a MediaQueryExp with an 'invalid' MediaQueryExpValue
       return MediaQueryExp(lower_media_feature, exp_value);
     }
@@ -307,7 +317,7 @@ MediaQueryExp MediaQueryExp::Create(const String& media_feature,
     if (!css_property_parser_helpers::ConsumeSlashIncludingWhitespace(range))
       return Invalid();
     CSSPrimitiveValue* denominator =
-        css_property_parser_helpers::ConsumePositiveInteger(range);
+        css_property_parser_helpers::ConsumePositiveInteger(range, context);
     if (!denominator)
       return Invalid();
 

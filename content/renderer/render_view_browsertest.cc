@@ -27,7 +27,6 @@
 #include "cc/input/browser_controls_state.h"
 #include "cc/trees/layer_tree_host.h"
 #include "content/common/frame_messages.h"
-#include "content/common/frame_owner_properties.h"
 #include "content/common/frame_replication_state.h"
 #include "content/common/renderer.mojom.h"
 #include "content/common/unfreezable_frame_messages.h"
@@ -48,7 +47,7 @@
 #include "content/public/test/render_view_test.h"
 #include "content/public/test/test_utils.h"
 #include "content/renderer/accessibility/render_accessibility_impl.h"
-#include "content/renderer/compositor/layer_tree_view.h"
+#include "content/renderer/accessibility/render_accessibility_manager.h"
 #include "content/renderer/history_entry.h"
 #include "content/renderer/history_serialization.h"
 #include "content/renderer/loader/request_extra_data.h"
@@ -74,18 +73,19 @@
 #include "third_party/blink/public/common/origin_trials/origin_trial_policy.h"
 #include "third_party/blink/public/common/origin_trials/trial_token_validator.h"
 #include "third_party/blink/public/common/page/page_zoom.h"
+#include "third_party/blink/public/mojom/frame/frame_owner_properties.mojom.h"
 #include "third_party/blink/public/mojom/loader/request_context_frame_type.mojom.h"
 #include "third_party/blink/public/platform/modules/service_worker/web_service_worker_network_provider.h"
 #include "third_party/blink/public/platform/scheduler/test/renderer_scheduler_test_support.h"
 #include "third_party/blink/public/platform/web_data.h"
 #include "third_party/blink/public/platform/web_http_body.h"
-#include "third_party/blink/public/platform/web_runtime_features.h"
 #include "third_party/blink/public/platform/web_string.h"
 #include "third_party/blink/public/platform/web_url_response.h"
 #include "third_party/blink/public/web/web_autofill_client.h"
 #include "third_party/blink/public/web/web_device_emulation_params.h"
 #include "third_party/blink/public/web/web_document_loader.h"
 #include "third_party/blink/public/web/web_frame_content_dumper.h"
+#include "third_party/blink/public/web/web_frame_widget.h"
 #include "third_party/blink/public/web/web_history_commit_type.h"
 #include "third_party/blink/public/web/web_history_item.h"
 #include "third_party/blink/public/web/web_input_method_controller.h"
@@ -102,9 +102,9 @@
 #include "ui/events/event.h"
 #include "ui/events/keycodes/dom/dom_code.h"
 #include "ui/events/keycodes/keyboard_codes.h"
+#include "ui/events/types/event_type.h"
 #include "ui/gfx/codec/jpeg_codec.h"
 #include "ui/gfx/range/range.h"
-#include "ui/native_theme/native_theme_features.h"
 #include "url/url_constants.h"
 
 #if defined(OS_ANDROID)
@@ -123,6 +123,7 @@
 #include "ui/events/keycodes/keyboard_code_conversion.h"
 #include "ui/events/test/events_test_utils.h"
 #include "ui/events/test/events_test_utils_x11.h"
+#include "ui/events/x/x11_event_translation.h"
 #include "ui/gfx/x/x11.h"
 #endif
 
@@ -139,9 +140,7 @@ using blink::WebGestureEvent;
 using blink::WebInputEvent;
 using blink::WebLocalFrame;
 using blink::WebMouseEvent;
-using blink::WebRuntimeFeatures;
 using blink::WebString;
-using blink::WebTextDirection;
 using blink::WebURLError;
 
 namespace content {
@@ -246,16 +245,6 @@ class RenderViewImplTest : public RenderViewTest {
 
   ~RenderViewImplTest() override {}
 
-  void SetUp() override {
-    // Enable Blink's experimental and test only features so that test code
-    // does not have to bother enabling each feature.
-    WebRuntimeFeatures::EnableExperimentalFeatures(true);
-    WebRuntimeFeatures::EnableTestOnlyFeatures(true);
-    WebRuntimeFeatures::EnableOverlayScrollbars(
-        ui::IsOverlayScrollbarEnabled());
-    RenderViewTest::SetUp();
-  }
-
   RenderViewImpl* view() {
     return static_cast<RenderViewImpl*>(view_);
   }
@@ -266,6 +255,14 @@ class RenderViewImplTest : public RenderViewTest {
 
   TestRenderFrame* frame() {
     return static_cast<TestRenderFrame*>(view()->GetMainRenderFrame());
+  }
+
+  RenderAccessibilityManager* GetRenderAccessibilityManager() {
+    return frame()->GetRenderAccessibilityManager();
+  }
+
+  ui::AXMode GetAccessibilityMode() {
+    return GetRenderAccessibilityManager()->GetAccessibilityMode();
   }
 
   void ReceiveDisableDeviceEmulation(RenderViewImpl* view) {
@@ -285,7 +282,7 @@ class RenderViewImplTest : public RenderViewTest {
   }
 
   void ReceiveSetTextDirection(RenderWidget* widget,
-                               blink::WebTextDirection direction) {
+                               base::i18n::TextDirection direction) {
     // Emulates receiving an IPC message.
     widget->OnSetTextDirection(direction);
   }
@@ -371,8 +368,8 @@ class RenderViewImplTest : public RenderViewTest {
     xevent.InitKeyEvent(ui::ET_KEY_PRESSED,
                         static_cast<ui::KeyboardCode>(key_code),
                         flags);
-    ui::KeyEvent event1(xevent);
-    NativeWebKeyboardEvent keydown_event(event1);
+    auto event1 = ui::BuildKeyEventFromXEvent(*xevent);
+    NativeWebKeyboardEvent keydown_event(*event1);
     SendNativeKeyEvent(keydown_event);
 
     // X11 doesn't actually have native character events, but give the test
@@ -380,19 +377,19 @@ class RenderViewImplTest : public RenderViewTest {
     xevent.InitKeyEvent(ui::ET_KEY_PRESSED,
                         static_cast<ui::KeyboardCode>(key_code),
                         flags);
-    ui::KeyEvent event2(xevent);
-    event2.set_character(
-        DomCodeToUsLayoutCharacter(event2.code(), event2.flags()));
-    ui::KeyEventTestApi test_event2(&event2);
+    auto event2 = ui::BuildKeyEventFromXEvent(*xevent);
+    event2->set_character(
+        DomCodeToUsLayoutCharacter(event2->code(), event2->flags()));
+    ui::KeyEventTestApi test_event2(event2.get());
     test_event2.set_is_char(true);
-    NativeWebKeyboardEvent char_event(event2);
+    NativeWebKeyboardEvent char_event(*event2);
     SendNativeKeyEvent(char_event);
 
     xevent.InitKeyEvent(ui::ET_KEY_RELEASED,
                         static_cast<ui::KeyboardCode>(key_code),
                         flags);
-    ui::KeyEvent event3(xevent);
-    NativeWebKeyboardEvent keyup_event(event3);
+    auto event3 = ui::BuildKeyEventFromXEvent(*xevent);
+    NativeWebKeyboardEvent keyup_event(*event3);
     SendNativeKeyEvent(keyup_event);
 
     long c = DomCodeToUsLayoutCharacter(
@@ -433,16 +430,18 @@ class RenderViewImplTest : public RenderViewTest {
   }
 
   void EnablePreferredSizeMode() {
-    view()->OnEnablePreferredSizeChangedMode();
+    blink::WebView* webview = view()->GetWebView();
+    webview->EnablePreferredSizeChangedMode();
   }
 
-  const gfx::Size& GetPreferredSize() {
-    view()->UpdatePreferredSize();
-    return view()->preferred_size_;
+  gfx::Size GetPreferredSize() {
+    blink::WebView* webview = view()->GetWebView();
+    webview->UpdatePreferredSize();
+    return gfx::Size(webview->GetPreferredSizeForTest());
   }
 
   int GetScrollbarWidth() {
-    blink::WebView* webview = view()->webview();
+    blink::WebView* webview = view()->GetWebView();
     return webview->MainFrameWidget()->Size().width -
            webview->MainFrame()->ToWebLocalFrame()->VisibleContentRect().width;
   }
@@ -457,7 +456,7 @@ class RenderViewImplBlinkSettingsTest : public RenderViewImplTest {
     RenderViewImplTest::SetUp();
   }
 
-  blink::WebSettings* settings() { return view()->webview()->GetSettings(); }
+  blink::WebSettings* settings() { return view()->GetWebView()->GetSettings(); }
 
  protected:
   // Blink settings may be specified on the command line, which must
@@ -532,8 +531,7 @@ class RenderViewImplScaleFactorTest : public RenderViewImplTest {
     EXPECT_EQ(height, emulated_height);
     EXPECT_TRUE(ExecuteJavaScriptAndReturnIntValue(get_dpr, &emulated_dpr));
     EXPECT_EQ(static_cast<int>(dpr * 10), emulated_dpr);
-    cc::LayerTreeHost* host =
-        main_widget()->layer_tree_view()->layer_tree_host();
+    cc::LayerTreeHost* host = main_widget()->layer_tree_host();
     EXPECT_EQ(compositor_dsf, host->device_scale_factor());
   }
 };
@@ -597,7 +595,7 @@ TEST_F(RenderViewImplTest, IsPinchGestureActivePropagatesToProxies) {
   args.browser_controls_constraint = cc::BrowserControlsState::kHidden;
   args.scroll_gesture_did_end = false;
 
-  view()->webview()->MainFrameWidget()->ApplyViewportChanges(args);
+  view()->GetWebView()->MainFrameWidget()->ApplyViewportChangesForTesting(args);
   EXPECT_TRUE(child_proxy_1->is_pinch_gesture_active_for_testing());
 
   // Create a new remote child, and get its proxy. Unloading will force creation
@@ -614,7 +612,7 @@ TEST_F(RenderViewImplTest, IsPinchGestureActivePropagatesToProxies) {
 
   // Reset the flag, make sure both children respond.
   args.is_pinch_gesture_active = false;
-  view()->webview()->MainFrameWidget()->ApplyViewportChanges(args);
+  view()->GetWebView()->MainFrameWidget()->ApplyViewportChangesForTesting(args);
   EXPECT_FALSE(child_proxy_1->is_pinch_gesture_active_for_testing());
   EXPECT_FALSE(child_proxy_2->is_pinch_gesture_active_for_testing());
 }
@@ -802,7 +800,65 @@ TEST_F(RenderViewImplTest, OnNavigationHttpPost) {
 }
 
 #if defined(OS_ANDROID)
-TEST_F(RenderViewImplTest, OnNavigationLoadDataWithBaseURL) {
+namespace {
+class UpdateTitleLocalFrameHost : public LocalFrameHostInterceptor {
+ public:
+  explicit UpdateTitleLocalFrameHost(
+      blink::AssociatedInterfaceProvider* provider)
+      : LocalFrameHostInterceptor(provider) {}
+
+  MOCK_METHOD2(UpdateTitle,
+               void(const base::Optional<::base::string16>& title,
+                    base::i18n::TextDirection title_direction));
+};
+
+class UpdateTitleTestRenderFrame : public TestRenderFrame {
+ public:
+  static RenderFrameImpl* CreateTestRenderFrame(
+      RenderFrameImpl::CreateParams params) {
+    return new UpdateTitleTestRenderFrame(std::move(params));
+  }
+
+  ~UpdateTitleTestRenderFrame() override = default;
+
+  blink::AssociatedInterfaceProvider* GetRemoteAssociatedInterfaces() override {
+    blink::AssociatedInterfaceProvider* associated_interface_provider =
+        RenderFrameImpl::GetRemoteAssociatedInterfaces();
+
+    // Attach our fake local frame host at the very first call to
+    // GetRemoteAssociatedInterfaces.
+    if (!local_frame_host_) {
+      local_frame_host_ = std::make_unique<UpdateTitleLocalFrameHost>(
+          associated_interface_provider);
+    }
+    return associated_interface_provider;
+  }
+
+  UpdateTitleLocalFrameHost* title_mock_frame_host() {
+    return local_frame_host_.get();
+  }
+
+ private:
+  explicit UpdateTitleTestRenderFrame(RenderFrameImpl::CreateParams params)
+      : TestRenderFrame(std::move(params)) {}
+
+  std::unique_ptr<UpdateTitleLocalFrameHost> local_frame_host_;
+};
+}  // namespace
+
+class RenderViewImplUpdateTitleTest : public RenderViewImplTest {
+ public:
+  RenderViewImplUpdateTitleTest()
+      : RenderViewImplTest(&UpdateTitleTestRenderFrame::CreateTestRenderFrame) {
+  }
+
+  UpdateTitleLocalFrameHost* title_mock_frame_host() {
+    return static_cast<UpdateTitleTestRenderFrame*>(frame())
+        ->title_mock_frame_host();
+  }
+};
+
+TEST_F(RenderViewImplUpdateTitleTest, OnNavigationLoadDataWithBaseURL) {
   auto common_params = CreateCommonNavigationParams();
   common_params->url = GURL("data:text/html,");
   common_params->navigation_type = mojom::NavigationType::DIFFERENT_DOCUMENT;
@@ -812,20 +868,19 @@ TEST_F(RenderViewImplTest, OnNavigationLoadDataWithBaseURL) {
   auto commit_params = CreateCommitNavigationParams();
   commit_params->data_url_as_string =
       "data:text/html,<html><head><title>Data page</title></head></html>";
-
-  render_thread_->sink().ClearMessages();
+  FrameLoadWaiter waiter(frame());
   frame()->Navigate(std::move(common_params), std::move(commit_params));
-  const IPC::Message* frame_title_msg = nullptr;
-  do {
-    base::RunLoop().RunUntilIdle();
-    frame_title_msg = render_thread_->sink().GetUniqueMessageMatching(
-        FrameHostMsg_UpdateTitle::ID);
-  } while (!frame_title_msg);
+  waiter.Wait();
 
-  // Check post data sent to browser matches.
-  FrameHostMsg_UpdateTitle::Param title_params;
-  EXPECT_TRUE(FrameHostMsg_UpdateTitle::Read(frame_title_msg, &title_params));
-  EXPECT_EQ(base::ASCIIToUTF16("Data page"), std::get<0>(title_params));
+  // While LocalFrame is initialized, it's called with an empty title.
+  const base::Optional<::base::string16> null_title;
+  EXPECT_CALL(*title_mock_frame_host(), UpdateTitle(null_title, testing::_))
+      .Times(1);
+
+  const base::Optional<::base::string16>& title =
+      base::make_optional(base::ASCIIToUTF16("Data page"));
+  EXPECT_CALL(*title_mock_frame_host(), UpdateTitle(title, testing::_))
+      .Times(1);
 }
 #endif
 
@@ -986,7 +1041,8 @@ TEST_F(RenderViewImplTest, BeginNavigationForWebUI) {
   blink::WebView* new_web_view = view()->CreateView(
       GetMainFrame(), popup_request, blink::WebWindowFeatures(), "foo",
       blink::kWebNavigationPolicyNewForegroundTab,
-      blink::WebSandboxFlags::kNone, blink::FeaturePolicy::FeatureState(),
+      blink::mojom::WebSandboxFlags::kNone,
+      blink::FeaturePolicy::FeatureState(),
       blink::AllocateSessionStorageNamespaceId());
   RenderViewImpl* new_view = RenderViewImpl::FromWebView(new_web_view);
   auto popup_navigation_info = std::make_unique<blink::WebNavigationInfo>();
@@ -1112,7 +1168,7 @@ TEST_F(RenderViewImplEnableZoomForDSFTest,
       ReconstructReplicationStateForTesting(frame());
   // replication_state.origin = url::Origin(GURL("http://foo.com"));
   frame()->Unload(kProxyRoutingId, true, replication_state);
-  EXPECT_TRUE(view()->webview()->MainFrame()->IsWebRemoteFrame());
+  EXPECT_TRUE(view()->GetWebView()->MainFrame()->IsWebRemoteFrame());
 
   // Do the remote-to-local transition for the proxy, which is to create a
   // provisional local frame.
@@ -1126,15 +1182,17 @@ TEST_F(RenderViewImplEnableZoomForDSFTest,
 
   // The new frame is initialized with |device_scale| as the device scale
   // factor.
-  mojom::CreateFrameWidgetParams widget_params;
-  widget_params.routing_id = kProxyRoutingId + 2;
-  widget_params.visual_properties = test_visual_properties;
+  mojom::CreateFrameWidgetParamsPtr widget_params =
+      mojom::CreateFrameWidgetParams::New();
+  widget_params->routing_id = kProxyRoutingId + 2;
+  widget_params->visual_properties = test_visual_properties;
   RenderFrameImpl::CreateFrame(
       routing_id, std::move(stub_interface_provider),
       std::move(stub_browser_interface_broker), kProxyRoutingId,
       MSG_ROUTING_NONE, MSG_ROUTING_NONE, MSG_ROUTING_NONE,
       base::UnguessableToken::Create(), replication_state,
-      compositor_deps_.get(), &widget_params, FrameOwnerProperties(),
+      compositor_deps_.get(), std::move(widget_params),
+      blink::mojom::FrameOwnerProperties::New(),
       /*has_committed_real_load=*/true);
   TestRenderFrame* provisional_frame =
       static_cast<TestRenderFrame*>(RenderFrameImpl::FromRoutingID(routing_id));
@@ -1151,7 +1209,8 @@ TEST_F(RenderViewImplEnableZoomForDSFTest,
   base::RunLoop().RunUntilIdle();
 
   EXPECT_EQ(device_scale, view()->GetMainRenderFrame()->GetDeviceScaleFactor());
-  EXPECT_EQ(device_scale, view()->webview()->ZoomFactorForDeviceScaleFactor());
+  EXPECT_EQ(device_scale,
+            view()->GetWebView()->ZoomFactorForDeviceScaleFactor());
 
   double device_pixel_ratio;
   base::string16 get_dpr =
@@ -1164,7 +1223,7 @@ TEST_F(RenderViewImplEnableZoomForDSFTest,
   base::string16 get_width =
       base::ASCIIToUTF16("Number(document.documentElement.clientWidth)");
   EXPECT_TRUE(ExecuteJavaScriptAndReturnIntValue(get_width, &width));
-  EXPECT_EQ(view()->webview()->MainFrameWidget()->Size().width,
+  EXPECT_EQ(view()->GetWebView()->MainFrameWidget()->Size().width,
             width * device_scale);
 }
 
@@ -1199,7 +1258,7 @@ TEST_F(RenderViewImplTest, DetachingProxyAlsoDestroysProvisionalFrame) {
       std::move(stub_browser_interface_broker), kProxyRoutingId,
       MSG_ROUTING_NONE, frame()->GetRoutingID(), MSG_ROUTING_NONE,
       base::UnguessableToken::Create(), replication_state, nullptr,
-      /*widget_params=*/nullptr, FrameOwnerProperties(),
+      /*widget_params=*/nullptr, blink::mojom::FrameOwnerProperties::New(),
       /*has_committed_real_load=*/true);
   {
     TestRenderFrame* provisional_frame = static_cast<TestRenderFrame*>(
@@ -1236,7 +1295,7 @@ TEST_F(RenderViewImplEnableZoomForDSFTest,
       static_cast<TestRenderFrame*>(view()->GetMainRenderFrame());
   main_frame->Unload(kProxyRoutingId, true,
                      ReconstructReplicationStateForTesting(main_frame));
-  EXPECT_TRUE(view()->webview()->MainFrame()->IsWebRemoteFrame());
+  EXPECT_TRUE(view()->GetWebView()->MainFrame()->IsWebRemoteFrame());
 }
 
 // Test that our IME backend sends a notification message when the input focus
@@ -1427,12 +1486,19 @@ TEST_F(RenderViewImplTest, EditContextGetLayoutBoundsAndInputPanelPolicy) {
   main_widget()->UpdateTextInputState();
   auto params = ProcessAndReadIPC<WidgetHostMsg_TextInputStateChanged>();
   EXPECT_EQ(true, std::get<0>(params).show_ime_if_needed);
-  gfx::Rect edit_context_control_bounds_expected(10, 20, 30, 40);
-  gfx::Rect edit_context_selection_bounds_expected(10, 20, 1, 5);
+  blink::WebRect edit_context_control_bounds_expected(10, 20, 30, 40);
+  blink::WebRect edit_context_selection_bounds_expected(10, 20, 1, 5);
+  main_widget()->ConvertViewportToWindow(&edit_context_control_bounds_expected);
+  main_widget()->ConvertViewportToWindow(
+      &edit_context_selection_bounds_expected);
+  blink::WebRect actual_active_element_control_bounds(
+      std::get<0>(params).edit_context_control_bounds.value());
+  blink::WebRect actual_active_element_selection_bounds(
+      std::get<0>(params).edit_context_selection_bounds.value());
   EXPECT_EQ(edit_context_control_bounds_expected,
-            std::get<0>(params).edit_context_control_bounds.value());
+            actual_active_element_control_bounds);
   EXPECT_EQ(edit_context_selection_bounds_expected,
-            std::get<0>(params).edit_context_selection_bounds.value());
+            actual_active_element_selection_bounds);
 }
 
 TEST_F(RenderViewImplTest, ActiveElementGetLayoutBounds) {
@@ -1459,6 +1525,7 @@ TEST_F(RenderViewImplTest, ActiveElementGetLayoutBounds) {
   blink::WebRect expected_control_bounds;
   blink::WebRect temp_selection_bounds;
   controller->GetLayoutBounds(&expected_control_bounds, &temp_selection_bounds);
+  main_widget()->ConvertViewportToWindow(&expected_control_bounds);
   blink::WebRect actual_active_element_control_bounds(
       std::get<0>(params).edit_context_control_bounds.value());
   EXPECT_EQ(actual_active_element_control_bounds, expected_control_bounds);
@@ -1621,16 +1688,16 @@ TEST_F(RenderViewImplTest, OnSetTextDirection) {
   render_thread_->sink().ClearMessages();
 
   static const struct {
-    WebTextDirection direction;
+    base::i18n::TextDirection direction;
     const wchar_t* expected_result;
   } kTextDirection[] = {
-      {blink::kWebTextDirectionRightToLeft, L"rtl,rtl"},
-      {blink::kWebTextDirectionLeftToRight, L"ltr,ltr"},
+      {base::i18n::RIGHT_TO_LEFT, L"rtl,rtl"},
+      {base::i18n::LEFT_TO_RIGHT, L"ltr,ltr"},
   };
-  for (size_t i = 0; i < base::size(kTextDirection); ++i) {
+  for (auto& test_case : kTextDirection) {
     // Set the text direction of the <textarea> element.
     ExecuteJavaScriptForTests("document.getElementById('test').focus();");
-    ReceiveSetTextDirection(main_widget(), kTextDirection[i].direction);
+    ReceiveSetTextDirection(main_widget(), test_case.direction);
 
     // Write the values of its DOM 'dir' attribute and its CSS 'direction'
     // property to the <div> element.
@@ -1648,7 +1715,7 @@ TEST_F(RenderViewImplTest, OnSetTextDirection) {
     base::string16 output = WebFrameContentDumper::DumpWebViewAsText(
                                 view()->GetWebView(), kMaxOutputCharacters)
                                 .Utf16();
-    EXPECT_EQ(base::WideToUTF16(kTextDirection[i].expected_result), output);
+    EXPECT_EQ(base::WideToUTF16(test_case.expected_result), output);
   }
 }
 
@@ -1832,8 +1899,8 @@ TEST_F(RenderViewImplTest, GetCompositionCharacterBoundsTest) {
   main_widget()->GetCompositionCharacterBounds(&bounds);
   ASSERT_EQ(ascii_composition.size(), bounds.size());
 
-  for (size_t i = 0; i < bounds.size(); ++i)
-    EXPECT_LT(0, bounds[i].width());
+  for (const gfx::Rect& r : bounds)
+    EXPECT_LT(0, r.width());
   main_widget()->OnImeCommitText(empty_string,
                                  std::vector<blink::WebImeTextSpan>(),
                                  gfx::Range::InvalidRange(), 0);
@@ -1845,8 +1912,8 @@ TEST_F(RenderViewImplTest, GetCompositionCharacterBoundsTest) {
                                      gfx::Range::InvalidRange(), 0, 0);
   main_widget()->GetCompositionCharacterBounds(&bounds);
   ASSERT_EQ(unicode_composition.size(), bounds.size());
-  for (size_t i = 0; i < bounds.size(); ++i)
-    EXPECT_LT(0, bounds[i].width());
+  for (const gfx::Rect& r : bounds)
+    EXPECT_LT(0, r.width());
   main_widget()->OnImeCommitText(empty_string, empty_ime_text_span,
                                  gfx::Range::InvalidRange(), 0);
 
@@ -2226,74 +2293,42 @@ TEST_F(RendererErrorPageTest, MAYBE_HttpStatusCodeErrorWithEmptyBody) {
                 .Ascii());
 }
 
-// Ensure the render view sends favicon url update events correctly.
-TEST_F(RenderViewImplTest, SendFaviconURLUpdateEvent) {
-  // An event should be sent when a favicon url exists.
-  LoadHTML("<html>"
-           "<head>"
-           "<link rel='icon' href='http://www.google.com/favicon.ico'>"
-           "</head>"
-           "</html>");
-  EXPECT_TRUE(render_thread_->sink().GetFirstMessageMatching(
-      FrameHostMsg_UpdateFaviconURL::ID));
-  render_thread_->sink().ClearMessages();
+TEST_F(RenderViewImplTest, SetAccessibilityMode) {
+  ASSERT_TRUE(GetAccessibilityMode().is_mode_off());
+  ASSERT_TRUE(GetRenderAccessibilityManager());
+  ASSERT_FALSE(GetRenderAccessibilityManager()->GetRenderAccessibilityImpl());
 
-  // An event should not be sent if no favicon url exists. This is an assumption
-  // made by some of Chrome's favicon handling.
-  LoadHTML("<html>"
-           "<head>"
-           "</head>"
-           "</html>");
-  EXPECT_FALSE(render_thread_->sink().GetFirstMessageMatching(
-      FrameHostMsg_UpdateFaviconURL::ID));
+  GetRenderAccessibilityManager()->SetMode(ui::kAXModeWebContentsOnly.mode());
+  ASSERT_TRUE(GetAccessibilityMode() == ui::kAXModeWebContentsOnly);
+  ASSERT_TRUE(GetRenderAccessibilityManager()->GetRenderAccessibilityImpl());
+
+  GetRenderAccessibilityManager()->SetMode(0);
+  ASSERT_TRUE(GetAccessibilityMode().is_mode_off());
+  ASSERT_FALSE(GetRenderAccessibilityManager()->GetRenderAccessibilityImpl());
+
+  GetRenderAccessibilityManager()->SetMode(ui::kAXModeComplete.mode());
+  ASSERT_TRUE(GetAccessibilityMode() == ui::kAXModeComplete);
+  ASSERT_TRUE(GetRenderAccessibilityManager()->GetRenderAccessibilityImpl());
 }
 
-TEST_F(RenderViewImplTest, FocusElementCallsFocusedNodeChanged) {
-  LoadHTML("<input id='test1' value='hello1'></input>"
-           "<input id='test2' value='hello2'></input>");
+TEST_F(RenderViewImplTest, AccessibilityModeOnClosingConnection) {
+  // Force the RenderAccessibilityManager to bind a pending receiver so that we
+  // can test what happens after closing the remote endpoint.
+  mojo::AssociatedRemote<mojom::RenderAccessibility> remote;
+  GetRenderAccessibilityManager()->BindReceiver(
+      remote.BindNewEndpointAndPassReceiver());
 
-  ExecuteJavaScriptForTests("document.getElementById('test1').focus();");
-  const IPC::Message* msg1 = render_thread_->sink().GetFirstMessageMatching(
-      FrameHostMsg_FocusedNodeChanged::ID);
-  EXPECT_TRUE(msg1);
+  GetRenderAccessibilityManager()->SetMode(ui::kAXModeWebContentsOnly.mode());
+  ASSERT_TRUE(GetAccessibilityMode() == ui::kAXModeWebContentsOnly);
+  ASSERT_TRUE(GetRenderAccessibilityManager()->GetRenderAccessibilityImpl());
 
-  FrameHostMsg_FocusedNodeChanged::Param params;
-  FrameHostMsg_FocusedNodeChanged::Read(msg1, &params);
-  EXPECT_TRUE(std::get<0>(params));
-  render_thread_->sink().ClearMessages();
-
-  ExecuteJavaScriptForTests("document.getElementById('test2').focus();");
-  const IPC::Message* msg2 = render_thread_->sink().GetFirstMessageMatching(
-      FrameHostMsg_FocusedNodeChanged::ID);
-  EXPECT_TRUE(msg2);
-  FrameHostMsg_FocusedNodeChanged::Read(msg2, &params);
-  EXPECT_TRUE(std::get<0>(params));
-  render_thread_->sink().ClearMessages();
-
-  ExecuteJavaScriptForTests("document.getElementById('test2').blur();");
-  const IPC::Message* msg3 = render_thread_->sink().GetFirstMessageMatching(
-      FrameHostMsg_FocusedNodeChanged::ID);
-  EXPECT_TRUE(msg3);
-  FrameHostMsg_FocusedNodeChanged::Read(msg3, &params);
-  EXPECT_FALSE(std::get<0>(params));
-  render_thread_->sink().ClearMessages();
-}
-
-TEST_F(RenderViewImplTest, OnSetAccessibilityMode) {
-  ASSERT_TRUE(frame()->accessibility_mode().is_mode_off());
-  ASSERT_FALSE(frame()->render_accessibility());
-
-  frame()->SetAccessibilityMode(ui::kAXModeWebContentsOnly);
-  ASSERT_TRUE(frame()->accessibility_mode() == ui::kAXModeWebContentsOnly);
-  ASSERT_TRUE(frame()->render_accessibility());
-
-  frame()->SetAccessibilityMode(ui::AXMode());
-  ASSERT_TRUE(frame()->accessibility_mode().is_mode_off());
-  ASSERT_FALSE(frame()->render_accessibility());
-
-  frame()->SetAccessibilityMode(ui::kAXModeComplete);
-  ASSERT_TRUE(frame()->accessibility_mode() == ui::kAXModeComplete);
-  ASSERT_TRUE(frame()->render_accessibility());
+  // Closing the remote endpoint of the mojo pipe gets accessibility disabled
+  // for the frame and the RenderAccessibility object deleted.
+  remote.reset();
+  base::RunLoop().RunUntilIdle();
+  ASSERT_TRUE(GetRenderAccessibilityManager());
+  ASSERT_TRUE(GetAccessibilityMode().is_mode_off());
+  ASSERT_FALSE(GetRenderAccessibilityManager()->GetRenderAccessibilityImpl());
 }
 
 // Checks that when a navigation starts in the renderer, |navigation_start| is
@@ -2682,8 +2717,8 @@ TEST_F(RenderViewImplBlinkSettingsTest, DefaultPageScaleSettings) {
       "}"
       "</style>");
 
-  EXPECT_EQ(1.f, view()->webview()->PageScaleFactor());
-  EXPECT_EQ(1.f, view()->webview()->MinimumPageScaleFactor());
+  EXPECT_EQ(1.f, view()->GetWebView()->PageScaleFactor());
+  EXPECT_EQ(1.f, view()->GetWebView()->MinimumPageScaleFactor());
 
   WebPreferences prefs;
   prefs.shrinks_viewport_contents_to_fit = true;
@@ -2691,9 +2726,9 @@ TEST_F(RenderViewImplBlinkSettingsTest, DefaultPageScaleSettings) {
   prefs.default_maximum_page_scale_factor = 5.5f;
   view()->SetWebkitPreferences(prefs);
 
-  EXPECT_EQ(1.f, view()->webview()->PageScaleFactor());
-  EXPECT_EQ(1.f, view()->webview()->MinimumPageScaleFactor());
-  EXPECT_EQ(5.5f, view()->webview()->MaximumPageScaleFactor());
+  EXPECT_EQ(1.f, view()->GetWebView()->PageScaleFactor());
+  EXPECT_EQ(1.f, view()->GetWebView()->MinimumPageScaleFactor());
+  EXPECT_EQ(5.5f, view()->GetWebView()->MaximumPageScaleFactor());
 }
 
 TEST_F(RenderViewImplDisableZoomForDSFTest,

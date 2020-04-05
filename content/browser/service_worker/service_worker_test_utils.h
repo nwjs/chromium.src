@@ -24,6 +24,7 @@
 #include "mojo/public/cpp/bindings/associated_remote.h"
 #include "mojo/public/cpp/bindings/pending_associated_receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
+#include "net/base/completion_once_callback.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_provider.mojom.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_registration.mojom.h"
@@ -33,6 +34,7 @@ namespace content {
 class EmbeddedWorkerTestHelper;
 class ServiceWorkerContextCore;
 class ServiceWorkerProviderHost;
+class ServiceWorkerRegistry;
 class ServiceWorkerStorage;
 class ServiceWorkerVersion;
 
@@ -141,17 +143,32 @@ CreateProviderHostForServiceWorkerContext(
     base::WeakPtr<ServiceWorkerContextCore> context,
     ServiceWorkerRemoteProviderEndpoint* output_endpoint);
 
+// Calls CreateNewRegistration() synchronously.
+scoped_refptr<ServiceWorkerRegistration> CreateNewServiceWorkerRegistration(
+    ServiceWorkerRegistry* registry,
+    const blink::mojom::ServiceWorkerRegistrationOptions& options);
+
+// Calls CreateNewVersion() synchronously.
+scoped_refptr<ServiceWorkerVersion> CreateNewServiceWorkerVersion(
+    ServiceWorkerRegistry* registry,
+    scoped_refptr<ServiceWorkerRegistration> registration,
+    const GURL& script_url,
+    blink::mojom::ScriptType script_type);
+
 // Creates a registration with a waiting version in INSTALLED state.
+// |resource_id| is used as ID to represent script resource (|script|) and
+// should be unique for each test.
 scoped_refptr<ServiceWorkerRegistration>
 CreateServiceWorkerRegistrationAndVersion(ServiceWorkerContextCore* context,
                                           const GURL& scope,
-                                          const GURL& script);
+                                          const GURL& script,
+                                          int64_t resource_id);
 
 // Writes the script down to |storage| synchronously. This should not be used in
 // base::RunLoop since base::RunLoop is used internally to wait for completing
 // all of tasks. If it's in another base::RunLoop, consider to use
 // WriteToDiskCacheAsync().
-ServiceWorkerDatabase::ResourceRecord WriteToDiskCacheSync(
+storage::mojom::ServiceWorkerResourceRecordPtr WriteToDiskCacheWithIdSync(
     ServiceWorkerStorage* storage,
     const GURL& script_url,
     int64_t resource_id,
@@ -159,18 +176,37 @@ ServiceWorkerDatabase::ResourceRecord WriteToDiskCacheSync(
     const std::string& body,
     const std::string& meta_data);
 
+// Similar to WriteToDiskCacheWithIdSync() but instead of taking a resource id,
+// this assigns a new resource ID internally.
+storage::mojom::ServiceWorkerResourceRecordPtr WriteToDiskCacheSync(
+    ServiceWorkerStorage* storage,
+    const GURL& script_url,
+    const std::vector<std::pair<std::string, std::string>>& headers,
+    const std::string& body,
+    const std::string& meta_data);
+
+using WriteToDiskCacheCallback = base::OnceCallback<void(
+    storage::mojom::ServiceWorkerResourceRecordPtr record)>;
+
 // Writes the script down to |storage| asynchronously. When completing tasks,
 // |callback| will be called. You must wait for |callback| instead of
 // base::RunUntilIdle because wiriting to the storage might happen on another
 // thread and base::RunLoop could get idle before writes has not finished yet.
-ServiceWorkerDatabase::ResourceRecord WriteToDiskCacheAsync(
+void WriteToDiskCacheAsync(
     ServiceWorkerStorage* storage,
     const GURL& script_url,
-    int64_t resource_id,
     const std::vector<std::pair<std::string, std::string>>& headers,
     const std::string& body,
     const std::string& meta_data,
-    base::OnceClosure callback);
+    WriteToDiskCacheCallback callback);
+
+// Calls ServiceWorkerStorage::CreateNewResponseWriter() and returns the
+// created writer synchronously.
+std::unique_ptr<ServiceWorkerResponseWriter> CreateNewResponseWriterSync(
+    ServiceWorkerStorage* storage);
+
+// Calls ServiceWorkerStorage::GetNewResourceId() synchronously.
+int64_t GetNewResourceIdSync(ServiceWorkerStorage* storage);
 
 // A test implementation of ServiceWorkerResponseReader.
 //
@@ -197,10 +233,10 @@ class MockServiceWorkerResponseReader : public ServiceWorkerResponseReader {
 
   // ServiceWorkerResponseReader overrides
   void ReadInfo(HttpResponseInfoIOBuffer* info_buf,
-                OnceCompletionCallback callback) override;
+                net::CompletionOnceCallback callback) override;
   void ReadData(net::IOBuffer* buf,
                 int buf_len,
-                OnceCompletionCallback callback) override;
+                net::CompletionOnceCallback callback) override;
 
   // Test helpers. ExpectReadInfo() and ExpectReadData() give precise control
   // over both the data to be written and the result to return.
@@ -249,7 +285,7 @@ class MockServiceWorkerResponseReader : public ServiceWorkerResponseReader {
   scoped_refptr<net::IOBuffer> pending_buffer_;
   size_t pending_buffer_len_;
   scoped_refptr<HttpResponseInfoIOBuffer> pending_info_;
-  OnceCompletionCallback pending_callback_;
+  net::CompletionOnceCallback pending_callback_;
 
   DISALLOW_COPY_AND_ASSIGN(MockServiceWorkerResponseReader);
 };
@@ -281,10 +317,10 @@ class MockServiceWorkerResponseWriter : public ServiceWorkerResponseWriter {
 
   // ServiceWorkerResponseWriter overrides
   void WriteInfo(HttpResponseInfoIOBuffer* info_buf,
-                 OnceCompletionCallback callback) override;
+                 net::CompletionOnceCallback callback) override;
   void WriteData(net::IOBuffer* buf,
                  int buf_len,
-                 OnceCompletionCallback callback) override;
+                 net::CompletionOnceCallback callback) override;
 
   // Enqueue expected writes.
   void ExpectWriteInfoOk(size_t len, bool async);
@@ -315,7 +351,7 @@ class MockServiceWorkerResponseWriter : public ServiceWorkerResponseWriter {
   size_t info_written_;
   size_t data_written_;
 
-  OnceCompletionCallback pending_callback_;
+  net::CompletionOnceCallback pending_callback_;
 
   DISALLOW_COPY_AND_ASSIGN(MockServiceWorkerResponseWriter);
 };

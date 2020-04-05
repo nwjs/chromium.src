@@ -32,6 +32,7 @@
 #define THIRD_PARTY_BLINK_PUBLIC_PLATFORM_WEB_URL_REQUEST_H_
 
 #include <memory>
+#include "base/memory/ref_counted.h"
 #include "base/optional.h"
 #include "base/time/time.h"
 #include "base/unguessable_token.h"
@@ -48,6 +49,8 @@ enum class ReferrerPolicy : int32_t;
 enum class RequestMode : int32_t;
 enum class RequestDestination : int32_t;
 }  // namespace mojom
+
+class OptionalTrustTokenParams;
 }  // namespace network
 
 namespace net {
@@ -125,7 +128,7 @@ class WebURLRequest {
     kPreviewsStateLast = kSubresourceRedirectOn
   };
 
-  class ExtraData {
+  class ExtraData : public base::RefCounted<ExtraData> {
    public:
     void set_render_frame_id(int render_frame_id) {
       render_frame_id_ = render_frame_id;
@@ -159,9 +162,10 @@ class WebURLRequest {
       attach_same_site_cookies_ = attach;
     }
 
+   protected:
+    friend class base::RefCounted<ExtraData>;
     virtual ~ExtraData() = default;
 
-   protected:
     BLINK_PLATFORM_EXPORT ExtraData();
 
     int render_frame_id_;
@@ -323,8 +327,8 @@ class WebURLRequest {
   // deleted when the last resource request is destroyed. Setting the extra
   // data pointer will cause the underlying resource request to be
   // dissociated from any existing non-null extra data pointer.
-  BLINK_PLATFORM_EXPORT ExtraData* GetExtraData() const;
-  BLINK_PLATFORM_EXPORT void SetExtraData(std::unique_ptr<ExtraData>);
+  BLINK_PLATFORM_EXPORT const scoped_refptr<ExtraData>& GetExtraData() const;
+  BLINK_PLATFORM_EXPORT void SetExtraData(scoped_refptr<ExtraData>);
 
   // The request is downloaded to the network cache, but not rendered or
   // executed.
@@ -391,6 +395,11 @@ class WebURLRequest {
 
   BLINK_PLATFORM_EXPORT base::Optional<base::UnguessableToken>
   RecursivePrefetchToken() const;
+
+  // Specifies a Trust Tokens protocol operation to execute alongside the
+  // request's load (https://github.com/wicg/trust-token-api).
+  BLINK_PLATFORM_EXPORT network::OptionalTrustTokenParams TrustTokenParams()
+      const;
 
 #if INSIDE_BLINK
   BLINK_PLATFORM_EXPORT ResourceRequest& ToMutableResourceRequest();

@@ -17,11 +17,11 @@
 #include "third_party/blink/public/mojom/web_feature/web_feature.mojom-blink.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/task_type.h"
+#include "third_party/blink/renderer/bindings/core/v8/native_value_traits_impl.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_string_resource.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_address_errors.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_android_pay_method_data.h"
-#include "third_party/blink/renderer/bindings/modules/v8/v8_android_pay_tokenization.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_basic_card_request.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_payer_errors.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_payment_details_init.h"
@@ -258,7 +258,7 @@ void ValidateShippingOptionOrPaymentItem(const T* item,
   }
 
   if (item->label().IsEmpty()) {
-    execution_context.AddConsoleMessage(ConsoleMessage::Create(
+    execution_context.AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
         mojom::ConsoleMessageSource::kJavaScript,
         mojom::ConsoleMessageLevel::kError,
         "Empty " + item_name + " label may be confusing the user"));
@@ -317,7 +317,7 @@ void ValidateAndConvertShippingOptions(
     }
 
     if (option->id().IsEmpty()) {
-      execution_context.AddConsoleMessage(ConsoleMessage::Create(
+      execution_context.AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
           mojom::ConsoleMessageSource::kJavaScript,
           mojom::ConsoleMessageLevel::kWarning,
           "Empty shipping option ID may be hard to debug"));
@@ -364,9 +364,9 @@ void SetAndroidPayMethodData(v8::Isolate* isolate,
                              const ScriptValue& input,
                              PaymentMethodDataPtr& output,
                              ExceptionState& exception_state) {
-  AndroidPayMethodData* android_pay = AndroidPayMethodData::Create();
-  V8AndroidPayMethodData::ToImpl(isolate, input.V8Value(), android_pay,
-                                 exception_state);
+  AndroidPayMethodData* android_pay =
+      NativeValueTraits<AndroidPayMethodData>::NativeValue(
+          isolate, input.V8Value(), exception_state);
   if (exception_state.HadException())
     return;
 
@@ -636,7 +636,7 @@ bool AllowedToUsePaymentRequest(const ExecutionContext* execution_context) {
 
   // Note: PaymentRequest is only exposed to Window and not workers.
   // 1. If |document| has no browsing context, then return false.
-  const Document* document = To<Document>(execution_context);
+  const Document* document = Document::From(execution_context);
   if (!document->GetFrame())
     return false;
 
@@ -654,9 +654,9 @@ void WarnIgnoringQueryQuotaForCanMakePayment(
       "reject the promise, but allowing continued usage on localhost and "
       "file:// scheme origins.",
       method_name);
-  execution_context.AddConsoleMessage(
-      ConsoleMessage::Create(mojom::ConsoleMessageSource::kJavaScript,
-                             mojom::ConsoleMessageLevel::kWarning, error));
+  execution_context.AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
+      mojom::ConsoleMessageSource::kJavaScript,
+      mojom::ConsoleMessageLevel::kWarning, error));
 }
 
 }  // namespace
@@ -820,7 +820,7 @@ const AtomicString& PaymentRequest::InterfaceName() const {
 }
 
 ExecutionContext* PaymentRequest::GetExecutionContext() const {
-  return ContextLifecycleObserver::GetExecutionContext();
+  return ExecutionContextLifecycleObserver::GetExecutionContext();
 }
 
 ScriptPromise PaymentRequest::Retry(ScriptState* script_state,
@@ -863,36 +863,40 @@ ScriptPromise PaymentRequest::Retry(ScriptState* script_state,
   if (!options_->requestPayerName() && errors->hasPayer() &&
       errors->payer()->hasName()) {
     GetExecutionContext()->AddConsoleMessage(
-        ConsoleMessage::Create(mojom::ConsoleMessageSource::kJavaScript,
-                               mojom::ConsoleMessageLevel::kWarning,
-                               "The payer.name passed to retry() may not be "
-                               "shown because requestPayerName is false"));
+        MakeGarbageCollected<ConsoleMessage>(
+            mojom::ConsoleMessageSource::kJavaScript,
+            mojom::ConsoleMessageLevel::kWarning,
+            "The payer.name passed to retry() may not be "
+            "shown because requestPayerName is false"));
   }
 
   if (!options_->requestPayerEmail() && errors->hasPayer() &&
       errors->payer()->hasEmail()) {
     GetExecutionContext()->AddConsoleMessage(
-        ConsoleMessage::Create(mojom::ConsoleMessageSource::kJavaScript,
-                               mojom::ConsoleMessageLevel::kWarning,
-                               "The payer.email passed to retry() may not be "
-                               "shown because requestPayerEmail is false"));
+        MakeGarbageCollected<ConsoleMessage>(
+            mojom::ConsoleMessageSource::kJavaScript,
+            mojom::ConsoleMessageLevel::kWarning,
+            "The payer.email passed to retry() may not be "
+            "shown because requestPayerEmail is false"));
   }
 
   if (!options_->requestPayerPhone() && errors->hasPayer() &&
       errors->payer()->hasPhone()) {
     GetExecutionContext()->AddConsoleMessage(
-        ConsoleMessage::Create(mojom::ConsoleMessageSource::kJavaScript,
-                               mojom::ConsoleMessageLevel::kWarning,
-                               "The payer.phone passed to retry() may not be "
-                               "shown because requestPayerPhone is false"));
+        MakeGarbageCollected<ConsoleMessage>(
+            mojom::ConsoleMessageSource::kJavaScript,
+            mojom::ConsoleMessageLevel::kWarning,
+            "The payer.phone passed to retry() may not be "
+            "shown because requestPayerPhone is false"));
   }
 
   if (!options_->requestShipping() && errors->hasShippingAddress()) {
     GetExecutionContext()->AddConsoleMessage(
-        ConsoleMessage::Create(mojom::ConsoleMessageSource::kJavaScript,
-                               mojom::ConsoleMessageLevel::kWarning,
-                               "The shippingAddress passed to retry() may not "
-                               "be shown because requestShipping is false"));
+        MakeGarbageCollected<ConsoleMessage>(
+            mojom::ConsoleMessageSource::kJavaScript,
+            mojom::ConsoleMessageLevel::kWarning,
+            "The shippingAddress passed to retry() may not "
+            "be shown because requestShipping is false"));
   }
 
   complete_timer_.Stop();
@@ -963,13 +967,13 @@ void PaymentRequest::OnUpdatePaymentDetails(
 
   update_payment_details_timer_.Stop();
 
-  PaymentDetailsUpdate* details = PaymentDetailsUpdate::Create();
   ExceptionState exception_state(v8::Isolate::GetCurrent(),
                                  ExceptionState::kConstructionContext,
                                  "PaymentDetailsUpdate");
-  V8PaymentDetailsUpdate::ToImpl(resolver->GetScriptState()->GetIsolate(),
-                                 details_script_value.V8Value(), details,
-                                 exception_state);
+  PaymentDetailsUpdate* details =
+      NativeValueTraits<PaymentDetailsUpdate>::NativeValue(
+          resolver->GetScriptState()->GetIsolate(),
+          details_script_value.V8Value(), exception_state);
   if (exception_state.HadException()) {
     resolver->Reject(exception_state.GetException());
     ClearResolversAndCloseMojoConnection();
@@ -1027,7 +1031,7 @@ bool PaymentRequest::IsInteractive() const {
   return !!GetPendingAcceptPromiseResolver();
 }
 
-void PaymentRequest::Trace(blink::Visitor* visitor) {
+void PaymentRequest::Trace(Visitor* visitor) {
   visitor->Trace(options_);
   visitor->Trace(shipping_address_);
   visitor->Trace(payment_response_);
@@ -1038,7 +1042,7 @@ void PaymentRequest::Trace(blink::Visitor* visitor) {
   visitor->Trace(can_make_payment_resolver_);
   visitor->Trace(has_enrolled_instrument_resolver_);
   EventTargetWithInlineData::Trace(visitor);
-  ContextLifecycleObserver::Trace(visitor);
+  ExecutionContextLifecycleObserver::Trace(visitor);
 }
 
 void PaymentRequest::OnCompleteTimeoutForTesting() {
@@ -1063,7 +1067,7 @@ PaymentRequest::PaymentRequest(
     const PaymentDetailsInit* details,
     const PaymentOptions* options,
     ExceptionState& exception_state)
-    : ContextLifecycleObserver(execution_context),
+    : ExecutionContextLifecycleObserver(execution_context),
       options_(options),
       complete_timer_(
           execution_context->GetTaskRunner(TaskType::kMiscPlatformAPI),
@@ -1158,7 +1162,7 @@ PaymentRequest::PaymentRequest(
 #endif
 }
 
-void PaymentRequest::ContextDestroyed(ExecutionContext*) {
+void PaymentRequest::ContextDestroyed() {
   ClearResolversAndCloseMojoConnection();
 }
 
@@ -1459,15 +1463,15 @@ void PaymentRequest::OnHasEnrolledInstrument(
 }
 
 void PaymentRequest::WarnNoFavicon() {
-  GetExecutionContext()->AddConsoleMessage(
-      ConsoleMessage::Create(mojom::ConsoleMessageSource::kJavaScript,
-                             mojom::ConsoleMessageLevel::kWarning,
-                             "Favicon not found for PaymentRequest UI. User "
-                             "may not recognize the website."));
+  GetExecutionContext()->AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
+      mojom::ConsoleMessageSource::kJavaScript,
+      mojom::ConsoleMessageLevel::kWarning,
+      "Favicon not found for PaymentRequest UI. User "
+      "may not recognize the website."));
 }
 
 void PaymentRequest::OnCompleteTimeout(TimerBase*) {
-  GetExecutionContext()->AddConsoleMessage(ConsoleMessage::Create(
+  GetExecutionContext()->AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
       mojom::ConsoleMessageSource::kJavaScript,
       mojom::ConsoleMessageLevel::kError,
       "Timed out waiting for a PaymentResponse.complete() call."));
@@ -1522,8 +1526,9 @@ void PaymentRequest::DispatchPaymentRequestUpdateEvent(
         "line items and total.",
         event->type().Ascii().c_str());
     GetExecutionContext()->AddConsoleMessage(
-        ConsoleMessage::Create(mojom::ConsoleMessageSource::kJavaScript,
-                               mojom::ConsoleMessageLevel::kWarning, message));
+        MakeGarbageCollected<ConsoleMessage>(
+            mojom::ConsoleMessageSource::kJavaScript,
+            mojom::ConsoleMessageLevel::kWarning, message));
     payment_provider_->OnPaymentDetailsNotUpdated();
     // Make sure that updateWith() is only allowed to be called within the same
     // event loop as the event dispatch. See

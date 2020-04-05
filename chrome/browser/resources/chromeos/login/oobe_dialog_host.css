@@ -30,7 +30,7 @@
 }
 
 .oobe-tos-webview {
-  border: 0.5px solid rgb(218, 220, 224); /* #DADCE0 */
+  border: 1px solid rgb(218, 220, 224); /* #DADCE0 */
   border-radius: 4px;
   box-shadow: inset 0 0 4px 4px rgba(241, 243, 244, 0.5); /* #F1F3F4 */
 }
@@ -39,4 +39,43 @@
   color: rgb(17, 85, 204); /* #1155CC */
   cursor: pointer;
   text-decoration: none;
+}
+
+.oobe-local-link:focus {
+  outline-color: rgb(77, 144, 254); /* #4D90FE */
+  transition: outline-color 200ms;
+}
+
+/* -- WebviewScrollShadowsHelper --
+ * Variables that are used for displaying scroll shadows in OOBE.
+ */
+:host {
+  --oobe-scroll-shadow-common: {
+    content: '';
+    height: 100%;
+    opacity: 0.3;
+    pointer-events: none;
+    position: absolute;
+    width: 100%;
+  };
+
+  --oobe-scroll-shadow-bottom: {
+    @apply --oobe-scroll-shadow-common;
+    background: linear-gradient(0deg, var(--google-grey-400) 0,
+                                      transparent 8px);
+  };
+
+  --oobe-scroll-shadow-top-and-bottom: {
+    @apply --oobe-scroll-shadow-common;
+    background: linear-gradient(0deg,   var(--google-grey-400) 0,
+                                        transparent 8px),
+                linear-gradient(180deg, var(--google-grey-400) 0,
+                                        transparent 8px);
+  };
+
+  --oobe-scroll-shadow-top: {
+    @apply --oobe-scroll-shadow-common;
+    background: linear-gradient(180deg, var(--google-grey-400) 0,
+                                      transparent 8px);
+  };
 }

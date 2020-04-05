@@ -41,6 +41,7 @@
 #include "third_party/blink/renderer/core/html/html_image_element.h"
 #include "third_party/blink/renderer/core/html/media/html_video_element.h"
 #include "third_party/blink/renderer/core/loader/resource/image_resource_content.h"
+#include "third_party/blink/renderer/core/testing/dummy_page_holder.h"
 #include "third_party/blink/renderer/platform/graphics/accelerated_static_bitmap_image.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_resource_provider.h"
 #include "third_party/blink/renderer/platform/graphics/color_correction_test_utils.h"
@@ -104,8 +105,9 @@ class ImageBitmapTest : public testing::Test {
 
 TEST_F(ImageBitmapTest, ImageResourceConsistency) {
   const ImageBitmapOptions* default_options = ImageBitmapOptions::Create();
+  auto dummy = std::make_unique<DummyPageHolder>(IntSize(800, 600));
   auto* image_element =
-      MakeGarbageCollected<HTMLImageElement>(*MakeGarbageCollected<Document>());
+      MakeGarbageCollected<HTMLImageElement>(dummy->GetDocument());
   sk_sp<SkColorSpace> src_rgb_color_space = SkColorSpace::MakeSRGB();
   SkImageInfo raster_image_info =
       SkImageInfo::MakeN32Premul(5, 5, src_rgb_color_space);
@@ -175,8 +177,8 @@ TEST_F(ImageBitmapTest, ImageResourceConsistency) {
 // Verifies that ImageBitmaps constructed from HTMLImageElements hold a
 // reference to the original Image if the HTMLImageElement src is changed.
 TEST_F(ImageBitmapTest, ImageBitmapSourceChanged) {
-  auto* image =
-      MakeGarbageCollected<HTMLImageElement>(*MakeGarbageCollected<Document>());
+  auto dummy = std::make_unique<DummyPageHolder>(IntSize(800, 600));
+  auto* image = MakeGarbageCollected<HTMLImageElement>(dummy->GetDocument());
   sk_sp<SkColorSpace> src_rgb_color_space = SkColorSpace::MakeSRGB();
   SkImageInfo raster_image_info =
       SkImageInfo::MakeN32Premul(5, 5, src_rgb_color_space);
@@ -256,11 +258,12 @@ TEST_F(ImageBitmapTest, AvoidGPUReadback) {
   base::WeakPtr<WebGraphicsContext3DProviderWrapper> context_provider_wrapper =
       SharedGpuContext::ContextProviderWrapper();
   CanvasColorParams color_params;
-  auto resource_provider = CanvasResourceProvider::Create(
-      IntSize(100, 100),
-      CanvasResourceProvider::ResourceUsage::kAcceleratedResourceUsage,
-      context_provider_wrapper, 0, kLow_SkFilterQuality, color_params,
-      CanvasResourceProvider::kDefaultPresentationMode, nullptr);
+  auto resource_provider = CanvasResourceProvider::CreateSharedImageProvider(
+      IntSize(100, 100), context_provider_wrapper, kLow_SkFilterQuality,
+      color_params, true /*is_origin_top_left*/,
+      CanvasResourceProvider::RasterMode::kGPU,
+      0u /*shared_image_usage_flags*/);
+
   scoped_refptr<StaticBitmapImage> bitmap = resource_provider->Snapshot();
   ASSERT_TRUE(bitmap->IsTextureBacked());
 
@@ -311,8 +314,9 @@ TEST_F(ImageBitmapTest, AvoidGPUReadback) {
 }
 
 TEST_F(ImageBitmapTest, ImageBitmapColorSpaceConversionHTMLImageElement) {
+  auto dummy = std::make_unique<DummyPageHolder>(IntSize(800, 600));
   auto* image_element =
-      MakeGarbageCollected<HTMLImageElement>(*MakeGarbageCollected<Document>());
+      MakeGarbageCollected<HTMLImageElement>(dummy->GetDocument());
 
   SkPaint p;
   p.setColor(SK_ColorRED);
@@ -516,10 +520,11 @@ TEST_F(ImageBitmapTest, ImageBitmapColorSpaceConversionStaticBitmapImage) {
 
 TEST_F(ImageBitmapTest, ImageBitmapColorSpaceConversionImageData) {
   unsigned char data_buffer[4] = {32, 96, 160, 128};
-  DOMUint8ClampedArray* data = DOMUint8ClampedArray::Create(data_buffer, 4);
+  NotShared<DOMUint8ClampedArray> data(
+      DOMUint8ClampedArray::Create(data_buffer, 4));
   ImageDataColorSettings* color_settings = ImageDataColorSettings::Create();
-  ImageData* image_data = ImageData::Create(
-      IntSize(1, 1), NotShared<DOMUint8ClampedArray>(data), color_settings);
+  ImageData* image_data =
+      ImageData::Create(IntSize(1, 1), data, color_settings);
 
   SkImageInfo image_info =
       SkImageInfo::Make(1, 1, kRGBA_8888_SkColorType, kUnpremul_SkAlphaType,

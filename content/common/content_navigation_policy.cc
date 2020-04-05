@@ -39,9 +39,60 @@ bool IsBackForwardCacheEnabled() {
   return base::FeatureList::IsEnabled(features::kBackForwardCache);
 }
 
+const char kProactivelySwapBrowsingInstanceLevelParameterName[] = "level";
+
+constexpr base::FeatureParam<ProactivelySwapBrowsingInstanceLevel>::Option
+    proactively_swap_browsing_instance_levels[] = {
+        {ProactivelySwapBrowsingInstanceLevel::kDisabled, "Disabled"},
+        {ProactivelySwapBrowsingInstanceLevel::kCrossSiteSwapProcess,
+         "CrossSiteSwapProcess"},
+        {ProactivelySwapBrowsingInstanceLevel::kCrossSiteReuseProcess,
+         "CrossSiteReuseProcess"}};
+const base::FeatureParam<ProactivelySwapBrowsingInstanceLevel>
+    proactively_swap_browsing_instance_level{
+        &features::kProactivelySwapBrowsingInstance,
+        kProactivelySwapBrowsingInstanceLevelParameterName,
+        ProactivelySwapBrowsingInstanceLevel::kDisabled,
+        &proactively_swap_browsing_instance_levels};
+
+ProactivelySwapBrowsingInstanceLevel GetProactivelySwapBrowsingInstanceLevel() {
+  if (base::FeatureList::IsEnabled(features::kProactivelySwapBrowsingInstance))
+    return proactively_swap_browsing_instance_level.Get();
+  return ProactivelySwapBrowsingInstanceLevel::kDisabled;
+}
+
 bool IsProactivelySwapBrowsingInstanceEnabled() {
-  return base::FeatureList::IsEnabled(
-      features::kProactivelySwapBrowsingInstance);
+  return GetProactivelySwapBrowsingInstanceLevel() >=
+         ProactivelySwapBrowsingInstanceLevel::kCrossSiteSwapProcess;
+}
+
+bool IsProactivelySwapBrowsingInstanceWithProcessReuseEnabled() {
+  return GetProactivelySwapBrowsingInstanceLevel() >=
+         ProactivelySwapBrowsingInstanceLevel::kCrossSiteReuseProcess;
+}
+const char kRenderDocumentLevelParameterName[] = "level";
+
+constexpr base::FeatureParam<RenderDocumentLevel>::Option
+    render_document_levels[] = {
+        {RenderDocumentLevel::kDisabled, "disabled"},
+        {RenderDocumentLevel::kCrashedFrame, "crashed-frame"},
+        {RenderDocumentLevel::kSubframe, "subframe"}};
+const base::FeatureParam<RenderDocumentLevel> render_document_level{
+    &features::kRenderDocument, kRenderDocumentLevelParameterName,
+    RenderDocumentLevel::kDisabled, &render_document_levels};
+
+RenderDocumentLevel GetRenderDocumentLevel() {
+  if (base::FeatureList::IsEnabled(features::kRenderDocument))
+    return render_document_level.Get();
+  return RenderDocumentLevel::kDisabled;
+}
+
+std::string GetRenderDocumentLevelName(RenderDocumentLevel level) {
+  return render_document_level.GetName(level);
+}
+
+bool CreateNewHostForSameSiteSubframe() {
+  return GetRenderDocumentLevel() >= RenderDocumentLevel::kSubframe;
 }
 
 }  // namespace content

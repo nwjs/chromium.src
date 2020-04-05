@@ -7,6 +7,7 @@
 #include <utility>
 
 #include "base/bind.h"
+#include "base/memory/ptr_util.h"
 #include "base/run_loop.h"
 #include "base/test/task_environment.h"
 #include "build/build_config.h"
@@ -221,7 +222,7 @@ TEST_F(AudioServiceOutputDeviceTest, MAYBE_VerifyDataFlow) {
 
   std::move(stream_factory_->created_callback_)
       .Run({base::in_place, env.reader->TakeSharedMemoryRegion(),
-            mojo::WrapPlatformFile(env.client_socket.Release())});
+            mojo::PlatformHandle(env.client_socket.Take())});
   task_env_.RunUntilIdle();
 
   // At this point, the callback thread should be running. Send some data over
@@ -277,7 +278,7 @@ TEST_F(AudioServiceOutputDeviceTest, CreateBitStreamStream) {
   audio_device->OnDeviceAuthorized(media::OUTPUT_DEVICE_STATUS_OK, params,
                                    kNonDefaultDeviceId);
   audio_device->OnStreamCreated(env.reader->TakeSharedMemoryRegion(),
-                                env.client_socket.Release(),
+                                env.client_socket.Take(),
                                 /*playing_automatically*/ false);
 
   task_env_.RunUntilIdle();
@@ -341,7 +342,7 @@ TEST_F(AudioServiceOutputDeviceTest, CreateNondefaultDevice) {
   audio_device->OnDeviceAuthorized(media::OUTPUT_DEVICE_STATUS_OK, params,
                                    kNonDefaultDeviceId);
   audio_device->OnStreamCreated(env.reader->TakeSharedMemoryRegion(),
-                                env.client_socket.Release(),
+                                env.client_socket.Take(),
                                 /*playing_automatically*/ false);
 
   audio_device->Stop();

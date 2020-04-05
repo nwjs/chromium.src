@@ -19,7 +19,7 @@ if (is_ios) {
 
 # Reset sources_assignment_filter for the BUILD.gn file to prevent
 # regression during the migration of Chromium away from the feature.
-# See build/no_sources_assignment_filter.md for more information.
+# See docs/no_sources_assignment_filter.md for more information.
 # TODO(crbug.com/1018739): remove this when migration is done.
 set_sources_assignment_filter([])
 
@@ -160,6 +160,7 @@ jumbo_component("events_base") {
     ":platform_event",
     "//base",
     "//ui/events/platform",
+    "//ui/events/types:headers",
     "//ui/gfx/geometry",
   ]
 
@@ -277,10 +278,7 @@ jumbo_component("events") {
   friend = [ ":*" ]
 
   if (use_x11) {
-    sources += [
-      "x/events_x.cc",
-      "x/keyboard_hook_x11.cc",
-    ]
+    sources += [ "x/keyboard_hook_x11.cc" ]
   }
 
   if (use_x11 || ozone_platform_x11) {
@@ -299,7 +297,7 @@ jumbo_component("events") {
     configs += [ "//build/config/linux:glib" ]
   }
 
-  if (use_ozone) {
+  if (use_ozone || use_x11) {
     sources += [ "events_default.cc" ]
   }
 
@@ -368,7 +366,7 @@ jumbo_component("events") {
       "fuchsia/input_event_dispatcher_delegate.h",
     ]
     sources += [ "fuchsia/input_event_dispatcher.cc" ]
-    public_deps += [ "//third_party/fuchsia-sdk/sdk:fuchsia-ui-input" ]
+    public_deps += [ "//third_party/fuchsia-sdk/sdk/fidl/fuchsia.ui.input" ]
   }
 }
 
@@ -448,14 +446,13 @@ jumbo_static_library("test_support") {
     "test/motion_event_test_utils.h",
     "test/platform_event_source_test_api.cc",
     "test/platform_event_source_test_api.h",
-    "test/platform_event_waiter.cc",
-    "test/platform_event_waiter.h",
     "test/test_event_handler.cc",
     "test/test_event_handler.h",
     "test/test_event_processor.cc",
     "test/test_event_processor.h",
     "test/test_event_rewriter.cc",
     "test/test_event_rewriter.h",
+    "test/test_event_rewriter_continuation.h",
     "test/test_event_source.cc",
     "test/test_event_source.h",
     "test/test_event_target.cc",
@@ -499,10 +496,13 @@ jumbo_static_library("test_support") {
     sources += [
       "test/events_test_utils_x11.cc",
       "test/events_test_utils_x11.h",
+      "test/x11_event_waiter.cc",
+      "test/x11_event_waiter.h",
     ]
     deps += [
       "//ui/events/devices/x11",
       "//ui/events/keycodes:x11",
+      "//ui/events/platform/x11",
       "//ui/events/x",
       "//ui/gfx/x",
     ]
@@ -611,23 +611,11 @@ if (!is_ios) {
     }
 
     if (use_x11) {
-      sources += [
-        "devices/x11/device_data_manager_x11_unittest.cc",
-        "x/events_x_unittest.cc",
-      ]
+      sources += [ "devices/x11/device_data_manager_x11_unittest.cc" ]
       configs += [ "//build/config/linux:x11" ]
       deps += [
         "//ui/events/devices/x11",
-        "//ui/events/x",
-        "//ui/gfx/x",
-      ]
-    }
-
-    if (use_x11 || ozone_platform_x11) {
-      sources += [ "x/x11_event_translation_unittest.cc" ]
-      deps += [
-        "//ui/events/x",
-        "//ui/gfx/x",
+        "//ui/events/x:unittests",
       ]
     }
 
@@ -659,7 +647,7 @@ if (!is_ios) {
 
     if (is_fuchsia) {
       sources += [ "fuchsia/input_event_dispatcher_unittest.cc" ]
-      deps += [ "//third_party/fuchsia-sdk/sdk:fuchsia-ui-input" ]
+      deps += [ "//third_party/fuchsia-sdk/sdk/fidl/fuchsia.ui.input" ]
     }
 
     if (is_win || is_mac || use_ozone) {

@@ -360,7 +360,7 @@ AccessibilityUIObserver::~AccessibilityUIObserver() = default;
 
 void AccessibilityUIObserver::AccessibilityEventReceived(
     const content::AXEventNotificationDetails& details) {
-  for (const ui::AXEvent event : details.events) {
+  for (const ui::AXEvent& event : details.events) {
     event_logs_->push_back(event.ToString());
   }
 }
@@ -555,6 +555,8 @@ void AccessibilityUIMessageHandler::RequestWebContentsTree(
   // because we are about to show the accessibility tree
   web_contents->SetAccessibilityMode(
       ui::AXMode(ui::AXMode::kNativeAPIs | ui::AXMode::kWebContents));
+  // Enable AXMode to access to AX objects.
+  ui::AXPlatformNode::NotifyAddAXModeFlags(ui::kAXModeComplete);
 
   std::vector<content::AccessibilityTreeFormatter::PropertyFilter>
       property_filters;

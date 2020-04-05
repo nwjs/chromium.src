@@ -23,6 +23,7 @@
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "base/threading/thread.h"
 #include "base/values.h"
 #include "build/build_config.h"
@@ -118,7 +119,7 @@ bool RequestIsSafeToServe(const net::HttpServerRequestInfo& info) {
   std::string header = info.GetHeaderValue("host");
   if (header.empty())
     return true;
-  GURL url = GURL("http://" + header);
+  GURL url = GURL("https://" + header);
   return url.HostIsIPAddress() || net::IsLocalHostname(url.host(), nullptr);
 }
 
@@ -229,10 +230,9 @@ void TerminateOnUI(std::unique_ptr<base::Thread> thread,
   if (socket_factory)
     thread->task_runner()->DeleteSoon(FROM_HERE, std::move(socket_factory));
   if (thread) {
-    base::PostTask(
+    base::ThreadPool::PostTask(
         FROM_HERE,
-        {base::ThreadPool(), base::WithBaseSyncPrimitives(),
-         base::TaskPriority::BEST_EFFORT},
+        {base::WithBaseSyncPrimitives(), base::TaskPriority::BEST_EFFORT},
         BindOnce([](std::unique_ptr<base::Thread>) {}, std::move(thread)));
   }
 }
@@ -514,7 +514,7 @@ std::string DevToolsHttpHandler::GetFrontendURLInternal(
     bool is_worker = type == DevToolsAgentHost::kTypeServiceWorker ||
                      type == DevToolsAgentHost::kTypeSharedWorker;
     frontend_url = base::StringPrintf(
-        "http://chrome-devtools-frontend.appspot.com/serve_rev/%s/%s.html",
+        "https://chrome-devtools-frontend.appspot.com/serve_rev/%s/%s.html",
         GetWebKitRevision().c_str(), is_worker ? "worker_app" : "inspector");
   }
   return base::StringPrintf("%s?ws=%s%s%s", frontend_url.c_str(), host.c_str(),

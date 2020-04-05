@@ -9,16 +9,17 @@ import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
-import android.support.v7.content.res.AppCompatResources;
 import android.text.TextUtils;
 
 import androidx.annotation.ColorRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
+import androidx.appcompat.content.res.AppCompatResources;
 
 import org.chromium.base.LocaleUtils;
 import org.chromium.base.SysUtils;
+import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.externalauth.ExternalAuthUtils;
@@ -39,6 +40,9 @@ import java.util.Set;
  * of Assistant Voice Search.
  **/
 public class AssistantVoiceSearchService implements TemplateUrlService.TemplateUrlServiceObserver {
+    private static final String USER_ELIGIBILITY_HISTOGRAM =
+            "Assistant.VoiceSearch.UserEligibility";
+
     /** Allows outside classes to listen for changes in this service. */
     public interface Observer {
         /**
@@ -55,7 +59,6 @@ public class AssistantVoiceSearchService implements TemplateUrlService.TemplateU
     //                          landed.
     @VisibleForTesting
     public static final String DEFAULT_ASSISTANT_AGSA_MIN_VERSION = "10.98";
-
     @VisibleForTesting
     public static final int DEFAULT_ASSISTANT_MIN_ANDROID_SDK_VERSION =
             Build.VERSION_CODES.LOLLIPOP;
@@ -156,7 +159,6 @@ public class AssistantVoiceSearchService implements TemplateUrlService.TemplateU
      * @return Whether the startVoiceRecognition call has been resolved.
      */
     public boolean shouldRequestAssistantVoiceSearch() {
-        // TODO(crbug.com/1042085): Instrument new histogram for the assistant voice search feature.
         if (!mIsAssistantVoiceSearchEnabled || !mIsDefaultSearchEngineGoogle
                 || !isDeviceEligibleForAssistant(
                         ConversionUtils.kilobytesToMegabytes(SysUtils.amountOfPhysicalMemoryKB()),
@@ -183,7 +185,7 @@ public class AssistantVoiceSearchService implements TemplateUrlService.TemplateU
 
         final boolean useLightColors =
                 ColorUtils.shouldUseLightForegroundOnBackground(primaryColor);
-        int id = ChromeColors.getIconTintRes(useLightColors);
+        int id = ChromeColors.getPrimaryIconTintRes(useLightColors);
         return AppCompatResources.getColorStateList(context, id);
     }
 
@@ -214,6 +216,8 @@ public class AssistantVoiceSearchService implements TemplateUrlService.TemplateU
             return false;
         }
 
+        // AGSA will throw an exception if Chrome isn't Google signed.
+        if (!mExternalAuthUtils.isChromeGoogleSigned()) return false;
         if (!mExternalAuthUtils.isGoogleSigned(IntentHandler.PACKAGE_GSA)) return false;
 
         return mMinMemoryMb <= availableMemoryMb && mMinAndroidSdkVersion <= Build.VERSION.SDK_INT
@@ -247,6 +251,11 @@ public class AssistantVoiceSearchService implements TemplateUrlService.TemplateU
         }
 
         return enabledLocales;
+    }
+
+    /** Records whether the user is eligible. */
+    public static void reportUserEligibility(boolean eligible) {
+        RecordHistogram.recordBooleanHistogram(USER_ELIGIBILITY_HISTOGRAM, eligible);
     }
 
     /** Enable the colorful mic for testing purposes. */

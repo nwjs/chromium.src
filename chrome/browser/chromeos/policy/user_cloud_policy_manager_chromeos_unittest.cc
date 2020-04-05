@@ -27,7 +27,7 @@
 #include "chrome/browser/chromeos/login/users/fake_chrome_user_manager.h"
 #include "chrome/browser/chromeos/policy/user_cloud_policy_token_forwarder.h"
 #include "chrome/browser/chromeos/profiles/profile_helper.h"
-#include "chrome/browser/enterprise_reporting/report_scheduler.h"
+#include "chrome/browser/enterprise/reporting/report_scheduler.h"
 #include "chrome/browser/policy/cloud/cloud_policy_test_utils.h"
 #include "chrome/browser/prefs/browser_prefs.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
@@ -56,6 +56,7 @@
 #include "components/prefs/testing_pref_service.h"
 #include "components/session_manager/core/session_manager.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
+#include "components/signin/public/identity_manager/scope_set.h"
 #include "components/sync_preferences/pref_service_syncable.h"
 #include "components/user_manager/scoped_user_manager.h"
 #include "content/public/test/browser_task_environment.h"
@@ -280,7 +281,7 @@ class UserCloudPolicyManagerChromeOSTest
       // Since the refresh token is available, IdentityManager was used
       // to request the access token and not UserCloudPolicyTokenForwarder.
       // Issue the access token with the former.
-      identity::ScopeSet scopes;
+      signin::ScopeSet scopes;
       scopes.insert(GaiaConstants::kDeviceManagementServiceOAuth);
       scopes.insert(GaiaConstants::kOAuthWrapBridgeUserInfoScope);
 
@@ -1160,7 +1161,7 @@ class UserCloudPolicyManagerChromeOSChildTest
  public:
   // Issues OAuthToken for device management scopes.
   void IssueOAuth2AccessToken(base::TimeDelta token_lifetime) {
-    identity::ScopeSet scopes;
+    signin::ScopeSet scopes;
     scopes.insert(GaiaConstants::kDeviceManagementServiceOAuth);
     scopes.insert(GaiaConstants::kOAuthWrapBridgeUserInfoScope);
     identity_test_env()

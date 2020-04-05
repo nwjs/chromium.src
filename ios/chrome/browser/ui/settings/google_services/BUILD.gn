@@ -7,10 +7,6 @@ source_set("google_services") {
   sources = [
     "accounts_table_view_controller.h",
     "accounts_table_view_controller.mm",
-    "advanced_signin_settings_coordinator.h",
-    "advanced_signin_settings_coordinator.mm",
-    "advanced_signin_settings_navigation_controller.h",
-    "advanced_signin_settings_navigation_controller.mm",
     "google_services_settings_command_handler.h",
     "google_services_settings_consumer.h",
     "google_services_settings_coordinator.h",
@@ -60,6 +56,7 @@ source_set("google_services") {
     "//ios/chrome/browser/ui/alert_coordinator",
     "//ios/chrome/browser/ui/authentication",
     "//ios/chrome/browser/ui/authentication/cells",
+    "//ios/chrome/browser/ui/authentication/signin/advanced_settings_signin",
     "//ios/chrome/browser/ui/commands",
     "//ios/chrome/browser/ui/coordinators:chrome_coordinators",
     "//ios/chrome/browser/ui/icons",
@@ -73,14 +70,16 @@ source_set("google_services") {
     "//ios/chrome/browser/ui/table_view",
     "//ios/chrome/browser/ui/table_view/cells:cells_constants",
     "//ios/chrome/browser/ui/util",
-    "//ios/chrome/common/colors",
+    "//ios/chrome/common/ui/colors",
     "//ios/public/provider/chrome/browser",
     "//ios/public/provider/chrome/browser/images",
     "//ios/public/provider/chrome/browser/signin",
     "//ui/base",
   ]
-  allow_circular_includes_from =
-      [ "//ios/chrome/browser/ui/signin_interaction" ]
+  allow_circular_includes_from = [
+    "//ios/chrome/browser/ui/signin_interaction",
+    "//ios/chrome/browser/ui/authentication/signin/advanced_settings_signin",
+  ]
 }
 
 source_set("constants") {
@@ -88,8 +87,6 @@ source_set("constants") {
   sources = [
     "accounts_table_view_controller_constants.h",
     "accounts_table_view_controller_constants.mm",
-    "advanced_signin_settings_constants.h",
-    "advanced_signin_settings_constants.mm",
     "google_services_settings_constants.h",
     "google_services_settings_constants.mm",
     "manage_sync_settings_constants.h",

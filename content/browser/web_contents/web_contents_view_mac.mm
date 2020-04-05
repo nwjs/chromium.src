@@ -12,6 +12,7 @@
 #import "base/mac/scoped_sending_event.h"
 #include "base/message_loop/message_loop_current.h"
 #import "base/message_loop/message_pump_mac.h"
+#include "base/task/thread_pool.h"
 #include "base/threading/thread_restrictions.h"
 #include "components/remote_cocoa/browser/ns_view_ids.h"
 #include "components/remote_cocoa/common/application.mojom.h"
@@ -398,13 +399,6 @@ void WebContentsViewMac::SetPageTitle(const base::string16& title) {
 }
 
 
-void WebContentsViewMac::RenderViewCreated(RenderViewHost* host) {
-  // We want updates whenever the intrinsic width of the webpage changes.
-  // Put the RenderView into that mode. The preferred width is used for example
-  // when the "zoom" button in the browser window is clicked.
-  host->EnablePreferredSizeMode();
-}
-
 void WebContentsViewMac::RenderViewReady() {}
 
 void WebContentsViewMac::RenderViewHostChanged(RenderViewHost* old_host,
@@ -513,7 +507,8 @@ bool WebContentsViewMac::DraggingUpdated(DraggingInfoPtr dragging_info,
 
 bool WebContentsViewMac::PerformDragOperation(DraggingInfoPtr dragging_info,
                                               bool* out_result) {
-  *out_result = [drag_dest_ performDragOperation:dragging_info.get()];
+  *out_result = [drag_dest_ performDragOperation:dragging_info.get()
+                     withWebContentsViewDelegate:delegate_.get()];
   return true;
 }
 
@@ -546,10 +541,8 @@ bool WebContentsViewMac::DragPromisedFileTo(const base::FilePath& file_path,
         new PromiseFileFinalizer(std::move(drag_file_downloader)));
   } else {
     // The writer will take care of closing and deletion.
-    base::PostTask(
-        FROM_HERE,
-        {base::ThreadPool(), base::TaskPriority::USER_VISIBLE,
-         base::MayBlock()},
+    base::ThreadPool::PostTask(
+        FROM_HERE, {base::TaskPriority::USER_VISIBLE, base::MayBlock()},
         base::BindOnce(&PromiseWriterHelper, drop_data, std::move(file)));
   }
 

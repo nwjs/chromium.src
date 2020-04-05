@@ -337,7 +337,7 @@ posting order.
 ### Posting to the Main Thread or to the IO Thread in the Browser Process
 
 To post tasks to the main thread or to the IO thread, use
-`content::GetUIThreadTaskRunner({})` or `content::GetUIThreadTaskRunner({})`
+`content::GetUIThreadTaskRunner({})` or `content::GetIOThreadTaskRunner({})`
 from
 [`content/public/browser/browser_thread.h`](https://cs.chromium.org/chromium/src/content/public/browser/browser_thread.h)
 
@@ -455,8 +455,10 @@ scheduling decisions.
 
 Methods that take `base::TaskTraits` can be be passed `{}` when default traits
 are sufficient. Default traits are appropriate for tasks that:
-- Don’t block (ref. MayBlock and WithBaseSyncPrimitives).
-- Prefer inheriting the current priority to specifying their own.
+- Don’t block (ref. MayBlock and WithBaseSyncPrimitives);
+- Pertain to user-blocking activity;
+  (explicitly or implicitly by having an ordering dependency with a component
+   that does)
 - Can either block shutdown or be skipped on shutdown (thread pool is free to
   choose a fitting default).
 Tasks that don’t match this description must be posted with explicit TaskTraits.
@@ -470,14 +472,12 @@ to facilitate posting a task onto a BrowserThread.
 Below are some examples of how to specify `base::TaskTraits`.
 
 ```cpp
-// This task has no explicit TaskTraits. It cannot block. Its priority
-// is inherited from the calling context (e.g. if it is posted from
-// a BEST_EFFORT task, it will have a BEST_EFFORT priority). It will either
-// block shutdown or be skipped on shutdown.
+// This task has no explicit TaskTraits. It cannot block. Its priority is
+// USER_BLOCKING. It will either block shutdown or be skipped on shutdown.
 base::ThreadPool::PostTask(FROM_HERE, base::BindOnce(...));
 
-// This task has the highest priority. The thread pool will try to
-// run it before USER_VISIBLE and BEST_EFFORT tasks.
+// This task has the highest priority. The thread pool will schedule it before
+// USER_VISIBLE and BEST_EFFORT tasks.
 base::ThreadPool::PostTask(
     FROM_HERE, {base::TaskPriority::USER_BLOCKING},
     base::BindOnce(...));
@@ -691,10 +691,10 @@ Tests can run the `base::test::TaskEnvironment`'s message pump using a
 `RunLoop::QuitClosure()`), or to `RunUntilIdle()` ready-to-run tasks and
 immediately return.
 
-TaskEnvironment configures RunLoop::Run() to LOG(FATAL) if it hasn't been
+TaskEnvironment configures RunLoop::Run() to GTEST_FAIL() if it hasn't been
 explicitly quit after TestTimeouts::action_timeout(). This is preferable to
 having the test hang if the code under test fails to trigger the RunLoop to
-quit. The timeout can be overridden with ScopedRunTimeoutForTest.
+quit. The timeout can be overridden with base::test::ScopedRunLoopTimeout.
 
 ```cpp
 class MyTest : public testing::Test {

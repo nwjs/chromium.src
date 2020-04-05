@@ -22,6 +22,7 @@
 #include "content/public/common/child_process_host.h"
 #include "content/public/common/origin_util.h"
 #include "mojo/public/cpp/bindings/message.h"
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/messaging/message_port_channel.h"
 #include "third_party/blink/public/common/service_worker/service_worker_utils.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_client.mojom.h"
@@ -56,10 +57,10 @@ void CreateQuicTransportConnectorImpl(
 ServiceWorkerProviderHost::ServiceWorkerProviderHost(
     mojo::PendingAssociatedReceiver<blink::mojom::ServiceWorkerContainerHost>
         host_receiver,
-    scoped_refptr<ServiceWorkerVersion> running_hosted_version,
+    ServiceWorkerVersion* running_hosted_version,
     base::WeakPtr<ServiceWorkerContextCore> context)
     : provider_id_(NextProviderId()),
-      running_hosted_version_(std::move(running_hosted_version)),
+      running_hosted_version_(running_hosted_version),
       container_host_(std::make_unique<content::ServiceWorkerContainerHost>(
           blink::mojom::ServiceWorkerContainerType::kForServiceWorker,
           /*is_parent_frame_secure=*/true,
@@ -89,13 +90,6 @@ ServiceWorkerProviderHost::~ServiceWorkerProviderHost() {
   container_host_.reset();
 }
 
-ServiceWorkerVersion* ServiceWorkerProviderHost::running_hosted_version()
-    const {
-  DCHECK_CURRENTLY_ON(ServiceWorkerContext::GetCoreThreadId());
-  DCHECK(running_hosted_version_);
-  return running_hosted_version_.get();
-}
-
 void ServiceWorkerProviderHost::CompleteStartWorkerPreparation(
     int process_id,
     mojo::PendingReceiver<blink::mojom::BrowserInterfaceBroker>
@@ -117,10 +111,24 @@ void ServiceWorkerProviderHost::CreateQuicTransportConnector(
                      std::move(receiver)));
 }
 
+void ServiceWorkerProviderHost::BindCacheStorage(
+    mojo::PendingReceiver<blink::mojom::CacheStorage> receiver) {
+  DCHECK_CURRENTLY_ON(ServiceWorkerContext::GetCoreThreadId());
+  DCHECK(!base::FeatureList::IsEnabled(
+      blink::features::kEagerCacheStorageSetupForServiceWorkers));
+  running_hosted_version_->embedded_worker()->BindCacheStorage(
+      std::move(receiver));
+}
+
 base::WeakPtr<ServiceWorkerProviderHost>
 ServiceWorkerProviderHost::GetWeakPtr() {
   DCHECK_CURRENTLY_ON(ServiceWorkerContext::GetCoreThreadId());
   return weak_factory_.GetWeakPtr();
+}
+
+void ServiceWorkerProviderHost::ReportNoBinderForInterface(
+    const std::string& error) {
+  broker_receiver_.ReportBadMessage(error + " for the service worker scope");
 }
 
 }  // namespace content

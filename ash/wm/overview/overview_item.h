@@ -47,11 +47,13 @@ class ASH_EXPORT OverviewItem : public views::ButtonListener,
 
   aura::Window* GetWindow();
 
-  // Returns the root window on which this item is shown.
-  aura::Window* root_window() { return root_window_; }
-
   // Returns true if |target| is contained in this OverviewItem.
   bool Contains(const aura::Window* target) const;
+
+  // This called when the window is dragged and dropped on the mini view of
+  // another desk, which prepares this item for being removed from the grid, and
+  // the window to restore its transform.
+  void OnMovingWindowToAnotherDesk();
 
   // Restores and animates the managed window to its non overview mode state.
   // If |reset_transform| equals false, the window's transform will not be
@@ -122,8 +124,7 @@ class ASH_EXPORT OverviewItem : public views::ButtonListener,
   // window from shelf.
   void SetVisibleDuringWindowDragging(bool visible, bool animate);
 
-  ScopedOverviewTransformWindow::GridWindowFillMode GetWindowDimensionsType()
-      const;
+  OverviewGridWindowFillMode GetWindowDimensionsType() const;
 
   // Recalculates the window dimensions type of |transform_window_|. Called when
   // |window_|'s bounds change.
@@ -155,7 +156,7 @@ class ASH_EXPORT OverviewItem : public views::ButtonListener,
   // If the window item represents a minimized window, update its content view.
   void UpdateItemContentViewForMinimizedWindow();
 
-  // Checks if this item is current being dragged.
+  // Checks if this item is currently being dragged.
   bool IsDragItem();
 
   // Inserts the window back to its original stacking order so that the order of
@@ -216,6 +217,9 @@ class ASH_EXPORT OverviewItem : public views::ButtonListener,
   void OnPostWindowStateTypeChange(WindowState* window_state,
                                    WindowStateType old_type) override;
 
+  // Returns the root window on which this item is shown.
+  aura::Window* root_window() { return root_window_; }
+
   const gfx::RectF& target_bounds() const { return target_bounds_; }
 
   views::Widget* item_widget() { return item_widget_.get(); }
@@ -224,11 +228,13 @@ class ASH_EXPORT OverviewItem : public views::ButtonListener,
 
   OverviewGrid* overview_grid() { return overview_grid_; }
 
-  bool should_use_spawn_animation() const {
-    return should_use_spawn_animation_;
-  }
+  bool is_moving_to_another_desk() const { return is_moving_to_another_desk_; }
+
   void set_should_use_spawn_animation(bool value) {
     should_use_spawn_animation_ = value;
+  }
+  bool should_use_spawn_animation() const {
+    return should_use_spawn_animation_;
   }
 
   void set_should_animate_when_entering(bool should_animate) {
@@ -249,16 +255,16 @@ class ASH_EXPORT OverviewItem : public views::ButtonListener,
     should_restack_on_animation_end_ = val;
   }
 
-  bool animating_to_close() const { return animating_to_close_; }
   void set_animating_to_close(bool val) { animating_to_close_ = val; }
+  bool animating_to_close() const { return animating_to_close_; }
 
   void set_disable_mask(bool disable) { disable_mask_ = disable; }
+
+  void set_activate_on_unminimized(bool val) { activate_on_unminimized_ = val; }
 
   void set_unclipped_size(base::Optional<gfx::Size> unclipped_size) {
     unclipped_size_ = unclipped_size;
   }
-
-  void set_activate_on_unminimized(bool val) { activate_on_unminimized_ = val; }
 
   gfx::Rect GetShadowBoundsForTesting();
   RoundedLabelWidget* cannot_snap_widget_for_testing() {
@@ -373,6 +379,11 @@ class ASH_EXPORT OverviewItem : public views::ButtonListener,
   // Pointer to the OverviewGrid that contains |this|. Guaranteed to be non-null
   // for the lifetime of |this|.
   OverviewGrid* overview_grid_;
+
+  // True when the item is dragged and dropped on another desk's mini view. This
+  // causes it to restore its transform immediately without any animations,
+  // since it is moving to an inactive desk, and therefore won't be visible.
+  bool is_moving_to_another_desk_ = false;
 
   // True if this item should be added to an active overview session using the
   // spawn animation on its first update. This implies an animation type of

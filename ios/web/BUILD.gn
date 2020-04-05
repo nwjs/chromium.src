@@ -570,6 +570,7 @@ test("ios_web_inttests") {
   sources = [
     "browser_state_web_view_partition_inttest.mm",
     "find_in_page/find_in_page_manager_inttest.mm",
+    "navigation/error_page_helper_inttest.mm",
     "navigation/history_state_operations_inttest.mm",
     "navigation/meta_tag_inttest.mm",
     "navigation/window_location_inttest.mm",
@@ -659,8 +660,8 @@ bundle_data("navigation_resources") {
 grit("resources") {
   source = "ios_web_resources.grd"
 
-  # The .grd contains references to generated files.
-  source_is_generated = true
+  # Required due to flattenhtml="true" on a generated file.
+  enable_input_discovery_for_gn_analyze = false
 
   outputs = [
     "grit/ios_web_resources.h",

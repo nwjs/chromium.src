@@ -12,11 +12,13 @@
 #include "chromecast/base/bitstream_audio_codecs.h"
 #include "chromecast/base/cast_features.h"
 #include "chromecast/base/chromecast_switches.h"
+#include "chromecast/crash/app_state_tracker.h"
 #include "chromecast/media/base/media_codec_support.h"
 #include "chromecast/media/base/supported_codec_profile_levels_memo.h"
 #include "chromecast/public/media/media_capabilities_shlib.h"
 #include "chromecast/renderer/cast_media_playback_options.h"
 #include "chromecast/renderer/cast_url_loader_throttle_provider.h"
+#include "chromecast/renderer/cast_websocket_handshake_throttle_provider.h"
 #include "chromecast/renderer/js_channel_bindings.h"
 #include "chromecast/renderer/media/key_systems_cast.h"
 #include "chromecast/renderer/media/media_caps_observer_impl.h"
@@ -46,10 +48,6 @@
 #else
 #include "chromecast/renderer/memory_pressure_observer_impl.h"
 #endif  // OS_ANDROID
-
-#if !defined(OS_FUCHSIA)
-#include "chromecast/crash/cast_crash_keys.h"
-#endif  // !defined(OS_FUCHSIA)
 
 #if BUILDFLAG(ENABLE_CHROMECAST_EXTENSIONS)
 #include "chromecast/common/cast_extensions_client.h"
@@ -88,7 +86,9 @@ constexpr base::TimeDelta kAudioRendererStartingCapacityEncrypted =
 
 CastContentRendererClient::CastContentRendererClient()
     : supported_profiles_(
-          std::make_unique<media::SupportedCodecProfileLevelsMemo>()) {
+          std::make_unique<media::SupportedCodecProfileLevelsMemo>()),
+      activity_url_filter_manager_(
+          std::make_unique<CastActivityUrlFilterManager>()) {
 #if defined(OS_ANDROID)
   DCHECK(::media::MediaCodecUtil::IsMediaCodecAvailable())
       << "MediaCodec is not available!";
@@ -129,20 +129,17 @@ void CastContentRendererClient::RenderThreadStarted() {
   memory_pressure_controller->AddObserver(std::move(memory_pressure_proxy));
 #endif
 
-#if !defined(OS_FUCHSIA)
-  // TODO(crbug.com/753619): Enable crash reporting on Fuchsia.
   base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
 
   std::string last_launched_app =
       command_line->GetSwitchValueNative(switches::kLastLaunchedApp);
   if (!last_launched_app.empty())
-    crash_keys::last_app.Set(last_launched_app);
+    AppStateTracker::SetLastLaunchedApp(last_launched_app);
 
   std::string previous_app =
       command_line->GetSwitchValueNative(switches::kPreviousApp);
   if (!previous_app.empty())
-    crash_keys::previous_app.Set(previous_app);
-#endif  // !defined(OS_FUCHSIA)
+    AppStateTracker::SetPreviousApp(previous_app);
 
 #if BUILDFLAG(ENABLE_CHROMECAST_EXTENSIONS)
   extensions_client_ = std::make_unique<extensions::CastExtensionsClient>();
@@ -169,18 +166,17 @@ void CastContentRendererClient::RenderThreadStarted() {
 void CastContentRendererClient::RenderViewCreated(
     content::RenderView* render_view) {
   blink::WebView* webview = render_view->GetWebView();
-  if (webview) {
-    webview->SetBaseBackgroundColor(chromecast::GetSwitchValueColor(
-        switches::kCastAppBackgroundColor, SK_ColorBLACK));
-    // Disable application cache as Chromecast doesn't support off-line
-    // application running.
-    webview->GetSettings()->SetOfflineWebApplicationCacheEnabled(false);
-  }
+  webview->SetBaseBackgroundColor(chromecast::GetSwitchValueColor(
+      switches::kCastAppBackgroundColor, SK_ColorBLACK));
+  // Disable application cache as Chromecast doesn't support off-line
+  // application running.
+  webview->GetSettings()->SetOfflineWebApplicationCacheEnabled(false);
 }
 
 void CastContentRendererClient::RenderFrameCreated(
     content::RenderFrame* render_frame) {
   DCHECK(render_frame);
+
   // Lifetime is tied to |render_frame| via content::RenderFrameObserver.
   new CastMediaPlaybackOptions(render_frame);
   if (!::chromecast::IsFeatureEnabled(kUseQueryableDataBackend)) {
@@ -212,6 +208,8 @@ void CastContentRendererClient::RenderFrameCreated(
   // JsChannelBindings destroys itself when the RenderFrame is destroyed.
   JsChannelBindings::Create(render_frame);
 #endif
+
+  activity_url_filter_manager_->OnRenderFrameCreated(render_frame);
 }
 
 content::BrowserPluginDelegate*
@@ -369,10 +367,17 @@ void CastContentRendererClient::OnSupportedBitstreamAudioCodecsChanged(
   supported_bitstream_audio_codecs_info_ = info;
 }
 
+std::unique_ptr<content::WebSocketHandshakeThrottleProvider>
+CastContentRendererClient::CreateWebSocketHandshakeThrottleProvider() {
+  return std::make_unique<CastWebSocketHandshakeThrottleProvider>(
+      activity_url_filter_manager_.get());
+}
+
 std::unique_ptr<content::URLLoaderThrottleProvider>
 CastContentRendererClient::CreateURLLoaderThrottleProvider(
     content::URLLoaderThrottleProviderType type) {
-  return std::make_unique<CastURLLoaderThrottleProvider>(type);
+  return std::make_unique<CastURLLoaderThrottleProvider>(
+      type, activity_url_filter_manager_.get());
 }
 
 base::Optional<::media::AudioRendererAlgorithmParameters>

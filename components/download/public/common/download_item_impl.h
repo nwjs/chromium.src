@@ -54,7 +54,6 @@ class COMPONENTS_DOWNLOAD_EXPORT DownloadItemImpl
                 const GURL& tab_url,
                 const GURL& tab_referrer_url,
                 const base::Optional<url::Origin>& request_initiator,
-                const net::NetworkIsolationKey& network_isolation_key,
                 const std::string& suggested_filename,
                 const base::FilePath& forced_file_path,
                 ui::PageTransition transition_type,
@@ -63,8 +62,7 @@ class COMPONENTS_DOWNLOAD_EXPORT DownloadItemImpl
                 base::Time start_time);
     RequestInfo();
     explicit RequestInfo(const RequestInfo& other);
-    explicit RequestInfo(const GURL& url,
-                         const net::NetworkIsolationKey& network_isolation_key);
+    explicit RequestInfo(const GURL& url);
     ~RequestInfo();
 
     // The chain of redirects that leading up to and including the final URL.
@@ -84,10 +82,6 @@ class COMPONENTS_DOWNLOAD_EXPORT DownloadItemImpl
 
     // The origin of the requester that originally initiated the download.
     base::Optional<url::Origin> request_initiator;
-
-    // The key used to isolate requests from different contexts in accessing
-    // shared network resources like the cache.
-    net::NetworkIsolationKey network_isolation_key;
 
     // Filename suggestion from DownloadSaveInfo. It could, among others, be the
     // suggested filename in 'download' attribute of an anchor. Details:
@@ -216,7 +210,6 @@ class COMPONENTS_DOWNLOAD_EXPORT DownloadItemImpl
                    const base::FilePath& path,
                    const GURL& url,
                    const std::string& mime_type,
-                   const net::NetworkIsolationKey& network_isolation_key,
                    DownloadJob::CancelRequestCallback cancel_request_callback);
 
   ~DownloadItemImpl() override;
@@ -228,7 +221,7 @@ class COMPONENTS_DOWNLOAD_EXPORT DownloadItemImpl
   void ValidateDangerousDownload() override;
   void ValidateMixedContentDownload() override;
   void StealDangerousDownload(bool need_removal,
-                              const AcquireFileCallback& callback) override;
+                              AcquireFileCallback callback) override;
   void Pause() override;
   void Resume(bool user_resume) override;
   void Cancel(bool user_cancel) override;
@@ -256,7 +249,6 @@ class COMPONENTS_DOWNLOAD_EXPORT DownloadItemImpl
   const GURL& GetTabUrl() const override;
   const GURL& GetTabReferrerUrl() const override;
   const base::Optional<url::Origin>& GetRequestInitiator() const override;
-  const net::NetworkIsolationKey& GetNetworkIsolationKey() const override;
   std::string GetSuggestedFilename() const override;
   const scoped_refptr<const net::HttpResponseHeaders>& GetResponseHeaders()
       const override;
@@ -630,7 +622,7 @@ class COMPONENTS_DOWNLOAD_EXPORT DownloadItemImpl
   // Check if a download is ready for completion.  The callback provided
   // may be called at some point in the future if an external entity
   // state has change s.t. this routine should be checked again.
-  bool IsDownloadReadyForCompletion(const base::Closure& state_change_notify);
+  bool IsDownloadReadyForCompletion(base::OnceClosure state_change_notify);
 
   // Call to transition state; all state transitions should go through this.
   // |notify_action| specifies whether or not to call UpdateObservers() after

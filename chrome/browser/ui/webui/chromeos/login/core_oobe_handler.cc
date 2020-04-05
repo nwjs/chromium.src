@@ -55,7 +55,6 @@
 #include "components/strings/grit/components_strings.h"
 #include "components/version_info/version_info.h"
 #include "google_apis/google_api_keys.h"
-#include "ui/accessibility/accessibility_switches.h"
 #include "ui/aura/window_tree_host.h"
 #include "ui/display/screen.h"
 #include "ui/events/event_sink.h"
@@ -203,8 +202,8 @@ void CoreOobeHandler::RegisterMessages() {
               &CoreOobeHandler::HandleEnableDockedMagnifier);
   AddCallback("setDeviceRequisition",
               &CoreOobeHandler::HandleSetDeviceRequisition);
-  AddRawCallback("skipToLoginForTesting",
-                 &CoreOobeHandler::HandleSkipToLoginForTesting);
+  AddCallback("skipToLoginForTesting",
+              &CoreOobeHandler::HandleSkipToLoginForTesting);
   AddCallback("skipToUpdateForTesting",
               &CoreOobeHandler::HandleSkipToUpdateForTesting);
   AddCallback("launchHelpApp", &CoreOobeHandler::HandleLaunchHelpApp);
@@ -220,6 +219,9 @@ void CoreOobeHandler::RegisterMessages() {
   AddCallback("setupDemoMode", &CoreOobeHandler::HandleSetupDemoMode);
   AddCallback("startDemoModeSetupForTesting",
               &CoreOobeHandler::HandleStartDemoModeSetupForTesting);
+
+  AddCallback("hideOobeDialog", &CoreOobeHandler::HandleHideOobeDialog);
+  AddCallback("updateOobeUIState", &CoreOobeHandler::HandleUpdateOobeUIState);
 }
 
 void CoreOobeHandler::ShowSignInError(
@@ -378,6 +380,11 @@ void CoreOobeHandler::HandleEnableDockedMagnifier(bool enabled) {
   MagnificationManager::Get()->SetDockedMagnifierEnabled(enabled);
 }
 
+void CoreOobeHandler::HandleHideOobeDialog() {
+  if (LoginDisplayHost::default_host())
+    LoginDisplayHost::default_host()->HideOobeDialog();
+}
+
 void CoreOobeHandler::HandleSetDeviceRequisition(
     const std::string& requisition) {
   policy::BrowserPolicyConnectorChromeOS* connector =
@@ -401,18 +408,9 @@ void CoreOobeHandler::HandleSetDeviceRequisition(
   }
 }
 
-void CoreOobeHandler::HandleSkipToLoginForTesting(const base::ListValue* args) {
-  LoginScreenContext context;
-
-  // Parse |args|.
-  if (args->GetSize() > 0) {
-    std::string email;
-    if (args->GetString(0, &email))
-      context.set_email(email);
-  }
-
+void CoreOobeHandler::HandleSkipToLoginForTesting() {
   if (WizardController::default_controller())
-    WizardController::default_controller()->SkipToLoginForTesting(context);
+    WizardController::default_controller()->SkipToLoginForTesting();
 }
 
 void CoreOobeHandler::HandleSkipToUpdateForTesting() {
@@ -474,10 +472,6 @@ void CoreOobeHandler::UpdateA11yState() {
                        AccessibilityManager::Get()->IsSpokenFeedbackEnabled());
   a11y_info.SetBoolean("selectToSpeakEnabled",
                        AccessibilityManager::Get()->IsSelectToSpeakEnabled());
-  a11y_info.SetBoolean(
-      "enableExperimentalA11yFeatures",
-      base::CommandLine::ForCurrentProcess()->HasSwitch(
-          ::switches::kEnableExperimentalAccessibilityFeatures));
   DCHECK(MagnificationManager::Get());
   a11y_info.SetBoolean("screenMagnifierEnabled",
                        MagnificationManager::Get()->IsMagnifierEnabled());
@@ -664,6 +658,13 @@ void CoreOobeHandler::HandleStartDemoModeSetupForTesting(
   if (wizard_controller && !wizard_controller->login_screen_started()) {
     wizard_controller->SimulateDemoModeSetupForTesting(config);
     wizard_controller->AdvanceToScreen(DemoSetupScreenView::kScreenId);
+  }
+}
+
+void CoreOobeHandler::HandleUpdateOobeUIState(int state) {
+  if (LoginDisplayHost::default_host()) {
+    auto dialog_state = static_cast<ash::OobeDialogState>(state);
+    LoginDisplayHost::default_host()->UpdateOobeDialogState(dialog_state);
   }
 }
 

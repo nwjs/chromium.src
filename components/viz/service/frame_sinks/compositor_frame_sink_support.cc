@@ -41,6 +41,7 @@ enum class SendBeginFrameResult {
 };
 
 void RecordShouldSendBeginFrame(SendBeginFrameResult result) {
+  TRACE_EVENT1("viz", "ShouldNotSendBeginFrame", "reason", result);
   UMA_HISTOGRAM_ENUMERATION(
       "Compositing.CompositorFrameSinkSupport.ShouldSendBeginFrame", result);
 }
@@ -323,9 +324,10 @@ bool CompositorFrameSinkSupport::IsRoot() const {
 }
 
 void CompositorFrameSinkSupport::DidNotProduceFrame(const BeginFrameAck& ack) {
-  TRACE_EVENT2("viz", "CompositorFrameSinkSupport::DidNotProduceFrame",
-               "ack.source_id", ack.frame_id.source_id, "ack.sequence_number",
-               ack.frame_id.sequence_number);
+  TRACE_EVENT_WITH_FLOW2(
+      "viz,benchmark", "Graphics.Pipeline", TRACE_ID_GLOBAL(ack.trace_id),
+      TRACE_EVENT_FLAG_FLOW_IN | TRACE_EVENT_FLAG_FLOW_OUT, "step",
+      "DidNotProduceFrame", "FrameSinkId", frame_sink_id_.ToString());
   DCHECK(ack.frame_id.IsSequenceValid());
 
   begin_frame_tracker_.ReceivedAck(ack);
@@ -373,7 +375,7 @@ void CompositorFrameSinkSupport::DidDeleteSharedBitmap(
   owned_bitmaps_.erase(id);
 }
 
-SubmitResult CompositorFrameSinkSupport::MaybeSubmitCompositorFrameInternal(
+SubmitResult CompositorFrameSinkSupport::MaybeSubmitCompositorFrame(
     const LocalSurfaceId& local_surface_id,
     CompositorFrame frame,
     base::Optional<HitTestRegionList> hit_test_region_list,
@@ -392,12 +394,8 @@ SubmitResult CompositorFrameSinkSupport::MaybeSubmitCompositorFrameInternal(
   CHECK(callback_received_begin_frame_);
   CHECK(callback_received_receive_ack_);
 
+  begin_frame_tracker_.ReceivedAck(frame.metadata.begin_frame_ack);
   ++ack_pending_count_;
-
-  base::ScopedClosureRunner frame_rejected_callback(
-      base::BindOnce(&CompositorFrameSinkSupport::DidRejectCompositorFrame,
-                     weak_factory_.GetWeakPtr(), frame.metadata.frame_token,
-                     frame.resource_list));
 
   compositor_frame_callback_ = std::move(callback);
   if (compositor_frame_callback_) {
@@ -408,17 +406,6 @@ SubmitResult CompositorFrameSinkSupport::MaybeSubmitCompositorFrameInternal(
 
   base::TimeTicks now_time = base::TimeTicks::Now();
   pending_received_frame_times_.emplace(frame.metadata.frame_token, now_time);
-
-  // Ensure no CopyOutputRequests have been submitted if they are banned.
-  if (!allow_copy_output_requests_ && frame.HasCopyOutputRequests()) {
-    TRACE_EVENT_INSTANT0("viz", "CopyOutputRequests not allowed",
-                         TRACE_EVENT_SCOPE_THREAD);
-    return SubmitResult::COPY_OUTPUT_REQUESTS_NOT_ALLOWED;
-  }
-
-  // TODO(crbug.com/846739): It should be possible to use
-  // |frame.metadata.frame_token| instead of maintaining a |last_frame_index_|.
-  uint64_t frame_index = ++last_frame_index_;
 
   // Override the has_damage flag (ignoring invalid data from clients).
   frame.metadata.begin_frame_ack.has_damage = true;
@@ -437,6 +424,22 @@ SubmitResult CompositorFrameSinkSupport::MaybeSubmitCompositorFrameInternal(
           ui::DISPLAY_COMPOSITOR_RECEIVED_FRAME_COMPONENT, now_time);
     }
   }
+
+  base::ScopedClosureRunner frame_rejected_callback(
+      base::BindOnce(&CompositorFrameSinkSupport::DidRejectCompositorFrame,
+                     weak_factory_.GetWeakPtr(), frame.metadata.frame_token,
+                     frame.resource_list, frame.metadata.latency_info));
+
+  // Ensure no CopyOutputRequests have been submitted if they are banned.
+  if (!allow_copy_output_requests_ && frame.HasCopyOutputRequests()) {
+    TRACE_EVENT_INSTANT0("viz", "CopyOutputRequests not allowed",
+                         TRACE_EVENT_SCOPE_THREAD);
+    return SubmitResult::COPY_OUTPUT_REQUESTS_NOT_ALLOWED;
+  }
+
+  // TODO(crbug.com/846739): It should be possible to use
+  // |frame.metadata.frame_token| instead of maintaining a |last_frame_index_|.
+  uint64_t frame_index = ++last_frame_index_;
 
   if (frame.metadata.preferred_frame_interval) {
     frame_sink_manager_->SetPreferredFrameIntervalForFrameSinkId(
@@ -615,7 +618,15 @@ void CompositorFrameSinkSupport::DidPresentCompositorFrame(
 
 void CompositorFrameSinkSupport::DidRejectCompositorFrame(
     uint32_t frame_token,
-    std::vector<TransferableResource> frame_resource_list) {
+    std::vector<TransferableResource> frame_resource_list,
+    std::vector<ui::LatencyInfo> latency_info) {
+  TRACE_EVENT_INSTANT0("viz", "DidRejectCompositorFrame",
+                       TRACE_EVENT_SCOPE_THREAD);
+  // TODO(eseckler): Should these be stored and attached to the next successful
+  // frame submission instead?
+  for (ui::LatencyInfo& info : latency_info)
+    info.Terminate();
+
   std::vector<ReturnedResource> resources =
       TransferableResource::ReturnResources(frame_resource_list);
   ReturnResources(resources);
@@ -697,22 +708,6 @@ void CompositorFrameSinkSupport::UpdateNeedsBeginFramesInternal() {
     begin_frame_source_->AddObserver(this);
   else
     begin_frame_source_->RemoveObserver(this);
-}
-
-SubmitResult CompositorFrameSinkSupport::MaybeSubmitCompositorFrame(
-    const LocalSurfaceId& local_surface_id,
-    CompositorFrame frame,
-    base::Optional<HitTestRegionList> hit_test_region_list,
-    uint64_t submit_time,
-    mojom::CompositorFrameSink::SubmitCompositorFrameSyncCallback callback) {
-  begin_frame_tracker_.ReceivedAck(frame.metadata.begin_frame_ack);
-
-  SubmitResult result = MaybeSubmitCompositorFrameInternal(
-      local_surface_id, std::move(frame), std::move(hit_test_region_list),
-      submit_time, std::move(callback));
-  UMA_HISTOGRAM_ENUMERATION(
-      "Compositing.CompositorFrameSinkSupport.SubmitResult", result);
-  return result;
 }
 
 void CompositorFrameSinkSupport::AttachCaptureClient(

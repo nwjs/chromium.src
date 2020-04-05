@@ -21,11 +21,13 @@ import org.chromium.base.Log;
 import org.chromium.base.annotations.CalledByNative;
 import org.chromium.base.annotations.JNINamespace;
 import org.chromium.base.annotations.NativeMethods;
+import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.chrome.browser.ChromeActivity;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.lifecycle.Destroyable;
 import org.chromium.chrome.browser.omaha.OmahaBase;
 import org.chromium.chrome.browser.omaha.UpdateStatusProvider;
-import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.omaha.UpdateStatusProvider.UpdateState;
 
 /**
  * Class supports to build and to send update notification per certain duration if new Chrome
@@ -74,12 +76,15 @@ public class UpdateNotificationServiceBridge implements UpdateNotificationContro
     private void processUpdateStatus() {
         if (mUpdateStatus == null) return;
         switch (mUpdateStatus.updateState) {
-            case UPDATE_AVAILABLE:
-                UpdateNotificationServiceBridgeJni.get().schedule(Profile.getLastUsedProfile(),
-                        getUpdateNotificationTitle(), getUpdateNotificationTextBody());
-                break;
-            case INLINE_UPDATE_AVAILABLE:
-                // TODO(hesen): handle inline update.
+            case UPDATE_AVAILABLE: // Intentional fallthrough.
+            case INLINE_UPDATE_AVAILABLE: // Intentional fallthrough.
+                boolean shouldShowImmediately = mUpdateStatus.updateState == INLINE_UPDATE_AVAILABLE
+                        || ChromeFeatureList.isEnabled(
+                                ChromeFeatureList.UPDATE_NOTIFICATION_IMMEDIATE_SHOW_OPTION);
+                UpdateNotificationServiceBridgeJni.get().schedule(getUpdateNotificationTitle(),
+                        getUpdateNotificationTextBody(), mUpdateStatus.updateState,
+                        shouldShowImmediately);
+
                 break;
             default:
                 break;
@@ -88,7 +93,15 @@ public class UpdateNotificationServiceBridge implements UpdateNotificationContro
 
     @NativeMethods
     interface Natives {
-        void schedule(Profile profile, String title, String message);
+        /**
+         * Schedule a notification through scheduling system.
+         * @param title The title string of notification context.
+         * @param message The body string of notification context.
+         * @param state An enum of {@link UpdateState} pulled from UpdateStatusProvider.
+         * @param shouldShowImmediately A flag to show notification right away if it is true.
+         */
+        void schedule(String title, String message, @UpdateState int state,
+                boolean shouldShowImmediately);
     }
 
     @CalledByNative
@@ -129,36 +142,47 @@ public class UpdateNotificationServiceBridge implements UpdateNotificationContro
     }
 
     /**
-     * Gets the number of users consecutive dimiss action on update notification from {@link
-     * SharedPreferences}.
+     * Gets the number of users consecutive dismiss or negative button action on update notification
+     * from {@link SharedPreferences}.
      */
     @CalledByNative
-    public static int getUserDismissCount() {
+    public static int getNegativeActionCount() {
         SharedPreferences preferences = OmahaBase.getSharedPreferences();
         return preferences.getInt(PREF_UPDATE_NOTIFICATION_USER_DISMISS_COUNT_KEY, 0);
     }
 
     /**
-     * Updates the number to record users consecutive dimiss action on update notification in {@link
-     * SharedPreferences}.
+     * Updates the number to record users consecutive dismiss or negative button click action on
+     * update notification in {@link SharedPreferences}.
      * @param count A number of users consecutive dimiss action.
      */
     @CalledByNative
-    private static void updateUserDismissCount(int count) {
+    private static void updateNegativeActionCount(int count) {
         SharedPreferences preferences = OmahaBase.getSharedPreferences();
         SharedPreferences.Editor editor = preferences.edit();
         editor.putInt(PREF_UPDATE_NOTIFICATION_USER_DISMISS_COUNT_KEY, count);
         editor.apply();
     }
 
+    /**
+     * Launches Chrome activity depends on {@link UpdateState}.
+     * @param state An enum value of {@link UpdateState} stored in native side schedule service.
+     * */
     @CalledByNative
-    private static void launchChromeActivity() {
-        // TODO(hesen): Record metrics.
+    private static void launchChromeActivity(@UpdateState int state) {
         try {
-            // TODO(hesen): Handle the INLINE_UPDATE_AVAILABLE state.
-            UpdateUtils.onUpdateAvailable(ContextUtils.getApplicationContext(), UPDATE_AVAILABLE);
+            RecordHistogram.recordEnumeratedHistogram("GoogleUpdate.Notification.LaunchEvent",
+                    UpdateNotificationControllerImpl.UpdateNotificationReceiver.LaunchEvent.START,
+                    UpdateNotificationControllerImpl.UpdateNotificationReceiver.LaunchEvent
+                            .NUM_ENTRIES);
+            UpdateUtils.onUpdateAvailable(ContextUtils.getApplicationContext(), state);
         } catch (IllegalArgumentException e) {
             Log.e(TAG, "Failed to start activity in background.", e);
+            RecordHistogram.recordEnumeratedHistogram("GoogleUpdate.Notification.LaunchEvent",
+                    UpdateNotificationControllerImpl.UpdateNotificationReceiver.LaunchEvent
+                            .START_ACTIVITY_FAILED,
+                    UpdateNotificationControllerImpl.UpdateNotificationReceiver.LaunchEvent
+                            .NUM_ENTRIES);
         }
     }
 }

@@ -61,9 +61,6 @@ ASH_PUBLIC_EXPORT extern const base::Feature kEnableSuggestedFiles;
 // Enables the Assistant search redirection in the app list.
 ASH_PUBLIC_EXPORT extern const base::Feature kEnableAssistantSearch;
 
-// Enables the embedded Assistant UI in the app list.
-ASH_PUBLIC_EXPORT extern const base::Feature kEnableAssistantLauncherUI;
-
 // Enables ghosting in any AppsGridView (folder or root) when dragging an item.
 ASH_PUBLIC_EXPORT extern const base::Feature kEnableAppGridGhost;
 
@@ -77,6 +74,9 @@ ASH_PUBLIC_EXPORT extern const base::Feature kEnableAggregatedMlAppRanking;
 
 // Enables using the fuzzy search algorithm for app search provider.
 ASH_PUBLIC_EXPORT extern const base::Feature kEnableFuzzyAppSearch;
+
+// Enables using exact string search for non latin locales.
+ASH_PUBLIC_EXPORT extern const base::Feature kEnableExactMatchForNonLatinLocale;
 
 // If enabled, app list will support separate configurations (for app list items
 // sizing and spacing) for smaller screens (instead of a single configuration
@@ -100,13 +100,13 @@ bool ASH_PUBLIC_EXPORT IsZeroStateMixedTypesRankerEnabled();
 bool ASH_PUBLIC_EXPORT IsAppReinstallZeroStateEnabled();
 bool ASH_PUBLIC_EXPORT IsSuggestedFilesEnabled();
 bool ASH_PUBLIC_EXPORT IsAssistantSearchEnabled();
-bool ASH_PUBLIC_EXPORT IsAssistantLauncherUIEnabled();
 bool ASH_PUBLIC_EXPORT IsAppGridGhostEnabled();
 bool ASH_PUBLIC_EXPORT IsAppListLaunchRecordingEnabled();
 bool ASH_PUBLIC_EXPORT IsSearchBoxSelectionEnabled();
 bool ASH_PUBLIC_EXPORT IsAggregatedMlAppRankingEnabled();
 bool ASH_PUBLIC_EXPORT IsScalableAppListEnabled();
 bool ASH_PUBLIC_EXPORT IsFuzzyAppSearchEnabled();
+bool ASH_PUBLIC_EXPORT IsExactMatchForNonLatinLocaleEnabled();
 bool ASH_PUBLIC_EXPORT IsAggregatedMlSearchRankingEnabled();
 
 std::string ASH_PUBLIC_EXPORT AnswerServerUrl();

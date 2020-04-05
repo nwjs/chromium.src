@@ -7,14 +7,15 @@
 #include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/macros.h"
+#include "base/memory/ptr_util.h"
 #include "base/optional.h"
 #include "base/run_loop.h"
 #include "base/test/bind_test_util.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "chrome/browser/chromeos/crostini/ansible/ansible_management_test_helper.h"
-#include "chrome/browser/chromeos/crostini/crostini_installer_types.mojom.h"
 #include "chrome/browser/chromeos/crostini/crostini_installer_ui_delegate.h"
 #include "chrome/browser/chromeos/crostini/crostini_test_helper.h"
+#include "chrome/browser/chromeos/crostini/crostini_types.mojom.h"
 #include "chrome/test/base/scoped_testing_local_state.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
@@ -150,7 +151,7 @@ class CrostiniInstallerTest : public testing::Test {
 
   void Install() {
     CrostiniManager::GetForProfile(profile_.get())
-        ->SetInstallerViewStatus(true);
+        ->SetCrostiniDialogStatus(DialogType::INSTALLER, true);
     crostini_installer_->Install(
         CrostiniManager::RestartOptions{},
         base::BindRepeating(&MockCallbacks::OnProgress,

@@ -662,6 +662,11 @@ class FileManager extends cr.EventTarget {
     for (const button of this.dialogDom_.querySelectorAll('button[command]')) {
       CommandButton.decorate(button);
     }
+    // Hook up the cr-button commands.
+    for (const crButton of this.dialogDom_.querySelectorAll(
+             'cr-button[command]')) {
+      CommandButton.decorate(crButton);
+    }
 
     for (const input of this.getDomInputs_()) {
       this.setContextMenuForInput_(input);
@@ -759,7 +764,11 @@ class FileManager extends cr.EventTarget {
 
     metrics.startInterval('Load.InitUI');
     if (util.isFilesNg()) {
+      this.document_.documentElement.classList.add('files-ng');
       this.dialogDom_.classList.add('files-ng');
+    } else {
+      this.document_.documentElement.classList.remove('files-ng');
+      this.dialogDom_.classList.remove('files-ng');
     }
     this.initEssentialUI_();
     this.initAdditionalUI_();
@@ -890,6 +899,8 @@ class FileManager extends cr.EventTarget {
       // Move the dialog header to the side of the splitter above the list view.
       const dialogMain = queryRequiredElement('.dialog-main');
       dialogMain.insertBefore(dialogHeader, dialogMain.firstChild);
+    } else {
+      dialogHeader.classList.remove('files-ng');
     }
 
     // Create the root view of FileManager.

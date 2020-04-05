@@ -10,17 +10,19 @@
 #include <utility>
 #include <vector>
 
-#include "base/fuchsia/service_directory.h"
 #include "base/fuchsia/startup_context.h"
 #include "base/gtest_prod_util.h"
 #include "base/message_loop/message_pump_for_io.h"
 #include "base/message_loop/message_pump_fuchsia.h"
 #include "base/optional.h"
-#include "fuchsia/base/agent_manager.h"
 #include "fuchsia/runners/cast/api_bindings_client.h"
 #include "fuchsia/runners/cast/application_controller_impl.h"
 #include "fuchsia/runners/cast/named_message_port_connector.h"
 #include "fuchsia/runners/common/web_component.h"
+
+namespace cr_fuchsia {
+class AgentManager;
+}
 
 class CastRunner;
 
@@ -62,6 +64,12 @@ class CastComponent : public WebComponent,
       base::OnceClosure on_headless_disconnect_cb) {
     on_headless_disconnect_cb_ = std::move(on_headless_disconnect_cb);
   }
+
+  const chromium::cast::ApplicationConfig& application_config() {
+    return application_config_;
+  }
+
+  cr_fuchsia::AgentManager* agent_manager() { return agent_manager_.get(); }
 
  private:
   FRIEND_TEST_ALL_PREFIXES(HeadlessCastRunnerIntegrationTest, Headless);

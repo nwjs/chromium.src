@@ -133,8 +133,9 @@ class CnnStory2018(_ArticleBrowsingStory):
   URL = 'http://edition.cnn.com/'
   ITEM_SELECTOR = '.cd__content > h3 > a'
   ITEMS_TO_VISIT = 2
-  TAGS = [story_tags.JAVASCRIPT_HEAVY, story_tags.HEALTH_CHECK,
-          story_tags.YEAR_2018]
+  TAGS = [
+      story_tags.HEALTH_CHECK, story_tags.JAVASCRIPT_HEAVY, story_tags.YEAR_2018
+  ]
 
 
 class FacebookMobileStory2019(_ArticleBrowsingStory):
@@ -227,6 +228,8 @@ class NytimesMobileStory2019(_ArticleBrowsingStory):
   NAME = 'browse:news:nytimes:2019'
   URL = 'http://mobile.nytimes.com'
   ITEM_SELECTOR = '.css-1yjtett a'
+  # Nytimes is very heavy so only visit 2 articles.
+  ITEMS_TO_VISIT = 2
   SUPPORTED_PLATFORMS = platforms.MOBILE_ONLY
   TAGS = [story_tags.YEAR_2019]
 
@@ -239,8 +242,7 @@ class QqMobileStory2019(_ArticleBrowsingStory):
   ITEMS_TO_VISIT = 2
 
   SUPPORTED_PLATFORMS = platforms.MOBILE_ONLY
-  TAGS = [story_tags.INTERNATIONAL, story_tags.HEALTH_CHECK,
-          story_tags.YEAR_2019]
+  TAGS = [story_tags.INTERNATIONAL, story_tags.YEAR_2019]
 
 
 class RedditDesktopStory2018(_ArticleBrowsingStory):
@@ -259,7 +261,7 @@ class RedditMobileStory2019(_ArticleBrowsingStory):
   IS_SINGLE_PAGE_APP = True
   ITEM_SELECTOR = '.PostHeader__post-title-line'
   SUPPORTED_PLATFORMS = platforms.MOBILE_ONLY
-  TAGS = [story_tags.YEAR_2019]
+  TAGS = [story_tags.HEALTH_CHECK, story_tags.YEAR_2019]
 
   def _DidLoadDocument(self, action_runner):
     # We encountered ads disguised as articles on the Reddit one so far. The
@@ -285,7 +287,7 @@ class TwitterMobileStory2019(_ArticleBrowsingStory):
   ITEM_SELECTOR = ('[class="css-901oao r-hkyrab r-1qd0xha r-1b43r93 r-16dba41 '
       'r-ad9z0x r-bcqeeo r-bnwqim r-qvutc0"]')
   SUPPORTED_PLATFORMS = platforms.MOBILE_ONLY
-  TAGS = [story_tags.YEAR_2019]
+  TAGS = [story_tags.HEALTH_CHECK, story_tags.YEAR_2019]
 
   def _WaitForNavigation(self, action_runner):
     action_runner.WaitForElement(selector=('[class="css-901oao css-16my406 '
@@ -568,8 +570,10 @@ class YouTubeMobileStory2019(_MediaBrowsingStory):
   IS_SINGLE_PAGE_APP = True
   ITEM_SELECTOR_INDEX = 3
   ITEMS_TO_VISIT = 8
-  TAGS = [story_tags.JAVASCRIPT_HEAVY, story_tags.EMERGING_MARKET,
-          story_tags.HEALTH_CHECK, story_tags.YEAR_2019]
+  TAGS = [
+      story_tags.JAVASCRIPT_HEAVY, story_tags.EMERGING_MARKET,
+      story_tags.YEAR_2019
+  ]
 
 
 class YouTubeDesktopStory2019(_MediaBrowsingStory):
@@ -587,6 +591,79 @@ class YouTubeDesktopStory2019(_MediaBrowsingStory):
   ITEM_SELECTOR_INDEX = 3
   PLATFORM_SPECIFIC = True
   TAGS = [story_tags.JAVASCRIPT_HEAVY, story_tags.YEAR_2019]
+
+
+class EarthDesktopStory2020(_MediaBrowsingStory):
+  """Load Google Earth and search for the Empire State Building. Watch the
+  Empire State Building for a few seconds.
+  """
+  NAME = 'browse:tools:earth:2020'
+  URL = 'https://earth.google.com/web/'
+  SUPPORTED_PLATFORMS = platforms.DESKTOP_ONLY
+  TAGS = [
+      story_tags.YEAR_2020, story_tags.WEBASSEMBLY, story_tags.WEBGL,
+      story_tags.KEYBOARD_INPUT
+  ]
+
+  def __init__(self, story_set, take_memory_measurement):
+    super(EarthDesktopStory2020, self).__init__(story_set,
+                                                take_memory_measurement)
+
+    # This script sets values in localStorage that suggest that Google Earth has
+    # already been visited before. Thereby we can avoid the tutorial at startup.
+    self.script_to_evaluate_on_commit = '''
+    localStorage.setItem('earth.out_of_box.url:',
+      'https://www.google.com/earth/clientassets/oobe/rev0/oobe_r0__$[hl].kml');
+    localStorage.setItem('earth.out_of_box.major_revision:', '0');
+    localStorage.setItem('earth.out_of_box.client_version:', '9.3.99.1');
+    '''
+
+  def _DidLoadDocument(self, action_runner):
+
+    CHECK_LOADED = (
+        'document.querySelector("body > earth-app").shadowRoot'
+        '.querySelector("#earthRelativeElements > earth-view-status")'
+        '.shadowRoot.querySelector("#percentageText").textContent === {{target}}'
+    )
+
+    action_runner.WaitForJavaScriptCondition(CHECK_LOADED, target="100%")
+
+    search_selector = ('(() => document.querySelector("body > earth-app")'
+                       '.shadowRoot.querySelector("#toolbar").shadowRoot'
+                       '.querySelector("#search"))()')
+    action_runner.ClickElement(element_function=search_selector)
+
+    search_text_selector = (
+        '(() => document.querySelector("body > earth-app")'
+        '.shadowRoot.querySelector("#drawerContainer").shadowRoot'
+        '.querySelector("#search").shadowRoot.querySelector("#omnibox")'
+        '.shadowRoot.querySelector("#queryInput"))()')
+
+    action_runner.WaitForElement(element_function=search_text_selector)
+    action_runner.ClickElement(element_function=search_text_selector)
+
+    action_runner.EnterText('Empire State Building')
+    action_runner.PressKey('Return')
+    # Wait for 20 seconds so that the Empire State Building is reached and fully
+    # loaded.
+    action_runner.Wait(20)
+
+    compass_selector = (
+        '(() => document.querySelector("body > earth-app").shadowRoot'
+        '.querySelector("#compass").shadowRoot'
+        '.querySelector("#compassIcon"))()')
+
+    action_runner.ClickElement(element_function=compass_selector)
+    action_runner.Wait(5)
+
+    zoom_2d_selector = (
+        '(() => document.querySelector("body > earth-app").shadowRoot'
+        '.querySelector("#hoverButton").shadowRoot'
+        '.querySelector("#hoverButton"))()')
+    action_runner.ClickElement(element_function=zoom_2d_selector)
+    # Wait for 5 seconds to load everything. We cannot wait for 100% because of
+    # the non-deterministic nature of the benchmark.
+    action_runner.Wait(5)
 
 
 class YouTubeTVDesktopStory2019(_MediaBrowsingStory):
@@ -852,8 +929,7 @@ class BrowseAvitoMobileStory2019(_ArticleBrowsingStory):
   NAME = 'browse:shopping:avito:2019'
   URL = 'https://www.avito.ru/rossiya'
   SUPPORTED_PLATFORMS = platforms.MOBILE_ONLY
-  TAGS = [story_tags.EMERGING_MARKET, story_tags.HEALTH_CHECK,
-          story_tags.YEAR_2019]
+  TAGS = [story_tags.EMERGING_MARKET, story_tags.YEAR_2019]
 
   ITEM_SELECTOR = '._3eXe2'
   ITEMS_TO_VISIT = 4
@@ -906,7 +982,9 @@ class GoogleMapsMobileStory2019(system_health_story.SystemHealthStory):
   NAME = 'browse:tools:maps:2019'
   URL = 'https://maps.google.com/maps?force=pwa&source=mlpwa'
   SUPPORTED_PLATFORMS = platforms.MOBILE_ONLY
-  TAGS = [story_tags.EMERGING_MARKET, story_tags.YEAR_2019]
+  TAGS = [
+      story_tags.HEALTH_CHECK, story_tags.EMERGING_MARKET, story_tags.YEAR_2019
+  ]
 
   _MAPS_SEARCH_BOX_SELECTOR = '.ml-searchbox-pwa-textarea'
   _MAPS_SEARCH_BOX_FORM = '[id="ml-searchboxform"]'
@@ -1087,55 +1165,6 @@ class GoogleMapsStory2019(_BrowsingStory):
       action_runner.Wait(3)
 
 
-class GoogleEarthStory(_BrowsingStory):
-  """
-  Google Earth story:
-    _ Start at https://www.maps.google.com/maps
-    _ Click on the Earth link
-    _ Click ZoomIn three times, waiting for 3 sec in between.
-
-  """
-  # When recording this story:
-  # Force tactile using this: http://google.com/maps?force=tt
-  # Force webgl using this: http://google.com/maps?force=webgl
-  # Change the speed as mentioned in the comment below for
-  # RepeatableBrowserDrivenScroll
-  NAME = 'browse:tools:earth'
-  # Randomly picked location.
-  URL = 'https://www.google.co.uk/maps/@51.4655936,-0.0985949,3329a,35y,40.58t/data=!3m1!1e3'
-  _EARTH_BUTTON_SELECTOR = '[aria-labelledby="widget-minimap-caption"]'
-  _EARTH_ZOOM_IN_SELECTOR = '[aria-label="Zoom in"]'
-  SUPPORTED_PLATFORMS = platforms.DESKTOP_ONLY
-  TAGS = [story_tags.JAVASCRIPT_HEAVY, story_tags.WEBGL,
-          story_tags.YEAR_2016]
-
-  def _DidLoadDocument(self, action_runner):
-    # Zommin three times.
-    action_runner.WaitForElement(selector=self._EARTH_ZOOM_IN_SELECTOR)
-    action_runner.ClickElement(selector=self._EARTH_ZOOM_IN_SELECTOR)
-    # To make the recording more realistic.
-    action_runner.Wait(1)
-    action_runner.ClickElement(selector=self._EARTH_ZOOM_IN_SELECTOR)
-    # To make the recording more realistic.
-    action_runner.Wait(1)
-    action_runner.ClickElement(selector=self._EARTH_ZOOM_IN_SELECTOR)
-    # To make the recording more realistic.
-    action_runner.Wait(1)
-    action_runner.ClickElement(selector=self._EARTH_ZOOM_IN_SELECTOR)
-    action_runner.Wait(4)
-
-    # Reduce the speed (the current wpr is recorded with speed set to 50)  when
-    # recording the wpr. If we scroll too fast, the data will not be recorded
-    # well. After recording reset it back to the original value to have a more
-    # realistic scroll.
-    action_runner.RepeatableBrowserDrivenScroll(
-        x_scroll_distance_ratio = 0.0, y_scroll_distance_ratio = 1,
-        repeat_count=3, speed=400, timeout=120)
-    action_runner.RepeatableBrowserDrivenScroll(
-        x_scroll_distance_ratio = 1, y_scroll_distance_ratio = 0,
-        repeat_count=3, speed=500, timeout=120)
-
-
 ##############################################################################
 # Google sheets browsing story.
 ##############################################################################
@@ -1147,7 +1176,9 @@ class GoogleSheetsDesktopStory(system_health_story.SystemHealthStory):
          '16jfsJs14QrWKhsbxpdJXgoYumxNpnDt08DTK82Puc2A/' +
          'edit#gid=896027318&range=C:C')
   SUPPORTED_PLATFORMS = platforms.DESKTOP_ONLY
-  TAGS = [story_tags.JAVASCRIPT_HEAVY, story_tags.YEAR_2019]
+  TAGS = [
+      story_tags.HEALTH_CHECK, story_tags.JAVASCRIPT_HEAVY, story_tags.YEAR_2019
+  ]
 
   # This map translates page-specific event names to event names needed for
   # the reported_by_page:* metric.
@@ -1245,6 +1276,82 @@ class GoogleSheetsDesktopStory(system_health_story.SystemHealthStory):
     action_runner.WaitForJavaScriptCondition(self.CALC_BEGIN_EVENT)
     action_runner.WaitForJavaScriptCondition(self.CALC_END_EVENT)
 
+
+##############################################################################
+# Google docs browsing stories.
+##############################################################################
+
+
+class GoogleDocsDesktopScrollingStory(system_health_story.SystemHealthStory):
+  """
+  Google Docs scrolling story:
+    _ Open a document
+    _ Wait for UI to become available
+    _ Scroll through the document
+  """
+  NAME = 'browse:tools:docs_scrolling'
+  # Test document. safe=true forces synchronous layout which helps determinism
+  # pylint: disable=line-too-long
+  URL = 'https://docs.google.com/document/d/14sZMXhI1NljEDSFfxhgA4FNI2_rSImxx3tZ4YsNRUdU/preview?safe=true&Debug=true'
+  # pylint: enable=line-too-long
+  SUPPORTED_PLATFORMS = platforms.DESKTOP_ONLY
+  TAGS = [story_tags.JAVASCRIPT_HEAVY, story_tags.YEAR_2020]
+
+  # This map translates page-specific event names to event names needed for
+  # the reported_by_page:* metric.
+  EVENTS_REPORTED_BY_PAGE = '''
+    window.__telemetry_reported_page_events = {
+      'ccv':
+          'telemetry:reported_by_page:viewable',
+      'fcoe':
+          'telemetry:reported_by_page:editable',
+    };
+  '''
+
+  # Patch performance.mark to get notified about page events.
+  PERFORMANCE_MARK_PATCH = '''
+    window.__telemetry_observed_page_events = new Set();
+    (function () {
+      let reported = window.__telemetry_reported_page_events;
+      let observed = window.__telemetry_observed_page_events;
+      let performance_mark = window.performance.mark;
+      window.performance.mark = function (label) {
+        performance_mark.call(window.performance, label);
+        if (reported.hasOwnProperty(label)) {
+          performance_mark.call(
+              window.performance, reported[label]);
+          observed.add(reported[label]);
+        }
+      }
+    })();
+  '''
+
+  # Page event queries.
+  EDITABLE_EVENT = '''
+    (window.__telemetry_observed_page_events.has(
+        "telemetry:reported_by_page:editable"))
+  '''
+
+  def __init__(self, story_set, take_memory_measurement):
+    super(GoogleDocsDesktopScrollingStory, self).__init__(
+        story_set, take_memory_measurement)
+    self.script_to_evaluate_on_commit = js_template.Render(
+        '''{{@events_reported_by_page}}
+        {{@performance_mark}}''',
+        events_reported_by_page=self.EVENTS_REPORTED_BY_PAGE,
+        performance_mark=self.PERFORMANCE_MARK_PATCH)
+
+  def _DidLoadDocument(self, action_runner):
+    # Wait for load.
+    action_runner.WaitForJavaScriptCondition(self.EDITABLE_EVENT)
+    action_runner.Wait(10)
+    # Scroll through the document.
+    action_runner.RepeatableBrowserDrivenScroll(
+        x_scroll_distance_ratio=0.0,
+        y_scroll_distance_ratio=1,
+        repeat_count=6,
+        speed=800,
+        timeout=120)
 
 ##############################################################################
 # Browsing stories with infinite scrolling
@@ -1363,7 +1470,9 @@ class PinterestMobileStory2019(_InfiniteScrollStory):
   NAME = 'browse:social:pinterest_infinite_scroll:2019'
   URL = 'https://www.pinterest.co.uk'
   SUPPORTED_PLATFORMS = platforms.MOBILE_ONLY
-  TAGS = [story_tags.INFINITE_SCROLL, story_tags.YEAR_2019]
+  TAGS = [
+      story_tags.HEALTH_CHECK, story_tags.INFINITE_SCROLL, story_tags.YEAR_2019
+  ]
   # TODO(crbug.com/862077): Story breaks if login is skipped during replay.
   SKIP_LOGIN = False
 
@@ -1375,8 +1484,10 @@ class TumblrStory2018(_InfiniteScrollStory):
   NAME = 'browse:social:tumblr_infinite_scroll:2018'
   URL = 'https://techcrunch.tumblr.com/'
   SCROLL_DISTANCE = 20000
-  TAGS = [story_tags.INFINITE_SCROLL, story_tags.JAVASCRIPT_HEAVY,
-          story_tags.YEAR_2018]
+  TAGS = [
+      story_tags.HEALTH_CHECK, story_tags.INFINITE_SCROLL,
+      story_tags.JAVASCRIPT_HEAVY, story_tags.YEAR_2018
+  ]
 
   def _Login(self, action_runner):
     tumblr_login.LoginDesktopAccount(action_runner, 'tumblr')

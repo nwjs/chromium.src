@@ -29,10 +29,10 @@ namespace base {
 class SequencedTaskRunner;
 }
 
-namespace content {
+namespace storage {
 class SandboxFileSystemBackendDelegateTest;
 class SandboxFileSystemTestHelper;
-}  // namespace content
+}  // namespace storage
 
 namespace leveldb {
 class Env;
@@ -74,8 +74,9 @@ class COMPONENT_EXPORT(STORAGE_BROWSER) SandboxFileSystemBackendDelegate
    public:
     virtual ~OriginEnumerator() {}
 
-    // Returns the next origin.  Returns empty if there are no more origins.
-    virtual GURL Next() = 0;
+    // Returns the next origin.  Returns base::nullopt if there are no more
+    // origins.
+    virtual base::Optional<url::Origin> Next() = 0;
 
     // Returns the current origin's information.
     virtual bool HasFileSystemType(FileSystemType type) const = 0;
@@ -84,13 +85,12 @@ class COMPONENT_EXPORT(STORAGE_BROWSER) SandboxFileSystemBackendDelegate
   // Returns the type directory name in sandbox directory for given |type|.
   static std::string GetTypeString(FileSystemType type);
 
-  SandboxFileSystemBackendDelegate(
-      storage::QuotaManagerProxy* quota_manager_proxy,
-      base::SequencedTaskRunner* file_task_runner,
-      const base::FilePath& profile_path,
-      storage::SpecialStoragePolicy* special_storage_policy,
-      const FileSystemOptions& file_system_options,
-      leveldb::Env* env_override);
+  SandboxFileSystemBackendDelegate(QuotaManagerProxy* quota_manager_proxy,
+                                   base::SequencedTaskRunner* file_task_runner,
+                                   const base::FilePath& profile_path,
+                                   SpecialStoragePolicy* special_storage_policy,
+                                   const FileSystemOptions& file_system_options,
+                                   leveldb::Env* env_override);
 
   ~SandboxFileSystemBackendDelegate() override;
 
@@ -104,12 +104,12 @@ class COMPONENT_EXPORT(STORAGE_BROWSER) SandboxFileSystemBackendDelegate
   // the 'unique' part.)
   // Returns an empty path if the given type is invalid.
   // This method can only be called on the file thread.
-  base::FilePath GetBaseDirectoryForOriginAndType(const GURL& origin_url,
+  base::FilePath GetBaseDirectoryForOriginAndType(const url::Origin& origin,
                                                   FileSystemType type,
                                                   bool create);
 
   // FileSystemBackend helpers.
-  void OpenFileSystem(const GURL& origin_url,
+  void OpenFileSystem(const url::Origin& origin,
                       FileSystemType type,
                       OpenFileSystemMode mode,
                       OpenFileSystemCallback callback,
@@ -118,7 +118,7 @@ class COMPONENT_EXPORT(STORAGE_BROWSER) SandboxFileSystemBackendDelegate
       const FileSystemURL& url,
       FileSystemContext* context,
       base::File::Error* error_code) const;
-  std::unique_ptr<storage::FileStreamReader> CreateFileStreamReader(
+  std::unique_ptr<FileStreamReader> CreateFileStreamReader(
       const FileSystemURL& url,
       int64_t offset,
       const base::Time& expected_modification_time,
@@ -132,19 +132,21 @@ class COMPONENT_EXPORT(STORAGE_BROWSER) SandboxFileSystemBackendDelegate
   // FileSystemQuotaUtil overrides.
   base::File::Error DeleteOriginDataOnFileTaskRunner(
       FileSystemContext* context,
-      storage::QuotaManagerProxy* proxy,
-      const GURL& origin_url,
+      QuotaManagerProxy* proxy,
+      const url::Origin& origin,
       FileSystemType type) override;
   void PerformStorageCleanupOnFileTaskRunner(FileSystemContext* context,
-                                             storage::QuotaManagerProxy* proxy,
+                                             QuotaManagerProxy* proxy,
                                              FileSystemType type) override;
-  void GetOriginsForTypeOnFileTaskRunner(FileSystemType type,
-                                         std::set<GURL>* origins) override;
-  void GetOriginsForHostOnFileTaskRunner(FileSystemType type,
-                                         const std::string& host,
-                                         std::set<GURL>* origins) override;
+  void GetOriginsForTypeOnFileTaskRunner(
+      FileSystemType type,
+      std::set<url::Origin>* origins) override;
+  void GetOriginsForHostOnFileTaskRunner(
+      FileSystemType type,
+      const std::string& host,
+      std::set<url::Origin>* origins) override;
   int64_t GetOriginUsageOnFileTaskRunner(FileSystemContext* context,
-                                         const GURL& origin_url,
+                                         const url::Origin& origin,
                                          FileSystemType type) override;
   scoped_refptr<QuotaReservation> CreateQuotaReservationOnFileTaskRunner(
       const url::Origin& origin,
@@ -181,7 +183,7 @@ class COMPONENT_EXPORT(STORAGE_BROWSER) SandboxFileSystemBackendDelegate
 
   // Used for migrating from the general storage partition to an isolated
   // storage partition
-  void CopyFileSystem(const GURL& origin_url,
+  void CopyFileSystem(const url::Origin& origin,
                       FileSystemType type,
                       SandboxFileSystemBackendDelegate* destination);
 
@@ -193,7 +195,7 @@ class COMPONENT_EXPORT(STORAGE_BROWSER) SandboxFileSystemBackendDelegate
   FileSystemUsageCache* usage_cache() { return file_system_usage_cache_.get(); }
   SandboxQuotaObserver* quota_observer() { return quota_observer_.get(); }
 
-  storage::SpecialStoragePolicy* special_storage_policy() {
+  SpecialStoragePolicy* special_storage_policy() {
     return special_storage_policy_.get();
   }
 
@@ -208,8 +210,8 @@ class COMPONENT_EXPORT(STORAGE_BROWSER) SandboxFileSystemBackendDelegate
  private:
   friend class QuotaBackendImpl;
   friend class SandboxQuotaObserver;
-  friend class content::SandboxFileSystemBackendDelegateTest;
-  friend class content::SandboxFileSystemTestHelper;
+  friend class SandboxFileSystemBackendDelegateTest;
+  friend class SandboxFileSystemTestHelper;
 
   // Performs API-specific validity checks on the given path |url|.
   // Returns true if access to |url| is valid in this filesystem.
@@ -231,20 +233,20 @@ class COMPONENT_EXPORT(STORAGE_BROWSER) SandboxFileSystemBackendDelegate
       base::File::Error* error_out);
 
   int64_t RecalculateUsage(FileSystemContext* context,
-                           const GURL& origin,
+                           const url::Origin& origin,
                            FileSystemType type);
 
   ObfuscatedFileUtil* obfuscated_file_util();
 
   scoped_refptr<base::SequencedTaskRunner> file_task_runner_;
-  scoped_refptr<storage::QuotaManagerProxy> quota_manager_proxy_;
+  scoped_refptr<QuotaManagerProxy> quota_manager_proxy_;
 
   std::unique_ptr<AsyncFileUtil> sandbox_file_util_;
   std::unique_ptr<FileSystemUsageCache> file_system_usage_cache_;
   std::unique_ptr<SandboxQuotaObserver> quota_observer_;
   std::unique_ptr<QuotaReservationManager> quota_reservation_manager_;
 
-  scoped_refptr<storage::SpecialStoragePolicy> special_storage_policy_;
+  scoped_refptr<SpecialStoragePolicy> special_storage_policy_;
 
   FileSystemOptions file_system_options_;
 
@@ -252,9 +254,9 @@ class COMPONENT_EXPORT(STORAGE_BROWSER) SandboxFileSystemBackendDelegate
   THREAD_CHECKER(io_thread_checker_);
 
   // Accessed only on the file thread.
-  std::set<GURL> visited_origins_;
+  std::set<url::Origin> visited_origins_;
 
-  std::set<std::pair<GURL, FileSystemType>> sticky_dirty_origins_;
+  std::set<std::pair<url::Origin, FileSystemType>> sticky_dirty_origins_;
 
   std::map<FileSystemType, UpdateObserverList> update_observers_;
   std::map<FileSystemType, ChangeObserverList> change_observers_;

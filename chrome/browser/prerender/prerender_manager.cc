@@ -405,12 +405,6 @@ WebContents* PrerenderManager::SwapInternal(const GURL& url,
     return nullptr;
   }
 
-  // Do not use the prerendered version if there is an opener object.
-  if (web_contents->HasOpener()) {
-    prerender_data->contents()->Destroy(FINAL_STATUS_WINDOW_OPENER);
-    return nullptr;
-  }
-
   DCHECK(prerender_data->contents()->prerendering_has_started());
 
   // At this point, we've determined that we will use the prerender.
@@ -439,8 +433,8 @@ WebContents* PrerenderManager::SwapInternal(const GURL& url,
       &web_contents->GetController(), should_replace_current_entry);
   WebContents* raw_new_web_contents = new_web_contents.get();
   std::unique_ptr<content::WebContents> old_web_contents =
-      web_contents->GetDelegate()->SwapWebContents(
-          web_contents, std::move(new_web_contents), true,
+      core_tab_helper->SwapWebContents(
+          std::move(new_web_contents), true,
           prerender_contents->has_finished_loading());
   prerender_contents->CommitHistory(raw_new_web_contents);
 

@@ -97,6 +97,7 @@
 <translation id="2149973817440762519">Edit Bookmark</translation>
 <translation id="2179182049312275900">You can turn on sync at any time in settings.</translation>
 <translation id="2198757192731523470">Google may use your history to personalise Search, ads and other Google services.</translation>
+<translation id="2218443599109088993">Zoom out</translation>
 <translation id="2230173723195178503">Web page loaded</translation>
 <translation id="2239626343334228536">Clearing browsing data…</translation>
 <translation id="2257567812274161158">Sync isn't working.</translation>
@@ -159,6 +160,7 @@
 <translation id="2923448633003185837">Paste and Go</translation>
 <translation id="292639812446257861">Mark Unread</translation>
 <translation id="2958718410589002129">Passwords</translation>
+<translation id="2964349545761222050">Block third-party cookies</translation>
 <translation id="2969979262385602596">Failed to sign in. Please try again later.</translation>
 <translation id="298306318844797842">Add Payment Method...</translation>
 <translation id="2989805286512600854">Open in New Tab</translation>
@@ -178,6 +180,7 @@
 <translation id="3290875554372353449">Choose an Account</translation>
 <translation id="3311748811247479259">Off</translation>
 <translation id="3324193307694657476">Address 2</translation>
+<translation id="3328801116991980348">Site information</translation>
 <translation id="3329904751041170572">Could not connect to the server.</translation>
 <translation id="3335947283844343239">Re-open Closed Tab</translation>
 <translation id="3371831930909698441">Translate is available. Options available near bottom of the screen.</translation>
@@ -300,6 +303,7 @@ To change this setting, <ph name="BEGIN_LINK" />reset sync<ph name="END_LINK" />
 <translation id="4979397965658815378">Sign in with your Google Account to get your bookmarks, passwords, history and other settings on all your devices</translation>
 <translation id="5005498671520578047">Copy password</translation>
 <translation id="5010803260590204777">Open an incognito tab to browse the web privately.</translation>
+<translation id="5039020240289137291">Blocking third-party cookies</translation>
 <translation id="5039804452771397117">Allow</translation>
 <translation id="5059136629401106827">OK</translation>
 <translation id="5062321486222145940">Install Google Drive</translation>
@@ -414,9 +418,11 @@ Your data was encrypted with your sync passphrase on <ph name="TIME" />. Enter i
 <translation id="6434591244308415567">An error occurred. Try again later.</translation>
 <translation id="6445051938772793705">Country</translation>
 <translation id="6445981559479772097">Message sent.</translation>
+<translation id="6447842834002726250">Cookies</translation>
 <translation id="6464071786529933911">Open in New Incognito Tab</translation>
 <translation id="6476800141292307438">Translating the page to <ph name="LANGUAGE" />. Options available near bottom of the screen.</translation>
 <translation id="6482629121755362506"><ph name="NUMBER_OF_SELECTED_BOOKMARKS" /> items deleted</translation>
+<translation id="6561262006871132942">Zoom in</translation>
 <translation id="6610002944194042868">Translate Options</translation>
 <translation id="6628106477656132239">Invalid Expiry Date</translation>
 <translation id="6638511529934826365">Zoom text…</translation>
@@ -479,7 +485,6 @@ Your data was encrypted with your sync passphrase on <ph name="TIME" />. Enter i
 <translation id="734758817008927353">Options to save card</translation>
 <translation id="7348502496356775519">Bookmark</translation>
 <translation id="7383797227493018512">Reading List</translation>
-<translation id="7392048574806661116">Sign out and clear synced data</translation>
 <translation id="7400418766976504921">URL</translation>
 <translation id="7409985198648820906"><ph name="UNREAD_COUNT" /> unread articles.</translation>
 <translation id="7425346204213733349">Changes to your bookmarks, history, passwords and other settings will no longer be synced to your Google Account. However, your existing data will remain stored in your Google Account.</translation>
@@ -598,6 +603,7 @@ Your data was encrypted with your sync passphrase on <ph name="TIME" />. Enter i
 <translation id="9223358826628549784">Crash report sent.</translation>
 <translation id="952704832371081537">Cancel</translation>
 <translation id="988141524645182168">Other devices</translation>
+<translation id="989697783705943787">Site security</translation>
 <translation id="989988560359834682">Edit Address</translation>
 <translation id="994757059139821576">Article Suggestions</translation>
 </translationbundle>

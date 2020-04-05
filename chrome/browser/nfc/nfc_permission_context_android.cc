@@ -6,15 +6,16 @@
 
 #include "base/android/jni_android.h"
 #include "base/bind.h"
-#include "chrome/browser/android/nfc_system_level_setting_impl.h"
 #include "chrome/browser/android/tab_android.h"
+#include "components/permissions/android/nfc/nfc_system_level_setting_impl.h"
 #include "components/permissions/permission_request_id.h"
 #include "content/public/browser/web_contents.h"
 
-NfcPermissionContextAndroid::NfcPermissionContextAndroid(Profile* profile)
-    : NfcPermissionContext(profile),
-      nfc_system_level_setting_(std::make_unique<NfcSystemLevelSettingImpl>()) {
-}
+NfcPermissionContextAndroid::NfcPermissionContextAndroid(
+    content::BrowserContext* browser_context)
+    : NfcPermissionContext(browser_context),
+      nfc_system_level_setting_(
+          std::make_unique<permissions::NfcSystemLevelSettingImpl>()) {}
 
 NfcPermissionContextAndroid::~NfcPermissionContextAndroid() = default;
 
@@ -22,7 +23,7 @@ void NfcPermissionContextAndroid::NotifyPermissionSet(
     const permissions::PermissionRequestID& id,
     const GURL& requesting_origin,
     const GURL& embedding_origin,
-    BrowserPermissionCallback callback,
+    permissions::BrowserPermissionCallback callback,
     bool persist,
     ContentSetting content_setting) {
   if (content_setting != CONTENT_SETTING_ALLOW ||
@@ -48,7 +49,7 @@ void NfcPermissionContextAndroid::NotifyPermissionSet(
   // in tab-switching mode).
   TabAndroid* tab = TabAndroid::FromWebContents(web_contents);
   if (tab && !tab->IsUserInteractable()) {
-    PermissionContextBase::NotifyPermissionSet(
+    permissions::PermissionContextBase::NotifyPermissionSet(
         id, requesting_origin, embedding_origin, std::move(callback),
         false /* persist */, CONTENT_SETTING_BLOCK);
     return;
@@ -67,7 +68,7 @@ void NfcPermissionContextAndroid::OnNfcSystemLevelSettingPromptClosed(
     const permissions::PermissionRequestID& id,
     const GURL& requesting_origin,
     const GURL& embedding_origin,
-    BrowserPermissionCallback callback,
+    permissions::BrowserPermissionCallback callback,
     bool persist,
     ContentSetting content_setting) {
   NfcPermissionContext::NotifyPermissionSet(

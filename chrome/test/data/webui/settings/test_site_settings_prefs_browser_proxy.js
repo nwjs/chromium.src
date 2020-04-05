@@ -2,6 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+// clang-format off
+// #import {assert} from 'chrome://resources/js/assert.m.js';
+// #import {ContentSetting,SiteSettingSource} from 'chrome://settings/lazy_load.js';
+// #import {createSiteGroup,createSiteSettingsPrefs, getContentSettingsTypeFromChooserType} from 'chrome://test/settings/test_util.m.js';
+// #import {TestBrowserProxy} from 'chrome://test/test_browser_proxy.m.js';
+// clang-format on
+
 /**
  * In the real (non-test) code, this data comes from the C++ handler.
  * Only used for tests.
@@ -21,7 +28,7 @@ let SiteSettingsPref;
  *
  * @implements {settings.SiteSettingsPrefsBrowserProxy}
  */
-class TestSiteSettingsPrefsBrowserProxy extends TestBrowserProxy {
+/* #export */ class TestSiteSettingsPrefsBrowserProxy extends TestBrowserProxy {
   constructor() {
     super([
       'clearFlashPref',
@@ -72,6 +79,12 @@ class TestSiteSettingsPrefsBrowserProxy extends TestBrowserProxy {
 
     /** @private {boolean} */
     this.isPatternValidForType_ = true;
+
+    this.mockMethods([
+      'getCookieSettingDescription',
+      'getCookieControlsManagedState',
+      'getRecentSitePermissions',
+    ]);
   }
 
   /**
@@ -282,7 +295,7 @@ class TestSiteSettingsPrefsBrowserProxy extends TestBrowserProxy {
     const setting =
         test_util.getContentSettingsTypeFromChooserType(chooserType);
     assert(
-        settings != null,
+        setting != null,
         'ContentSettingsType mapping missing for ' + chooserType);
 
     // Create a deep copy of the pref so that the chooser-exception-list element

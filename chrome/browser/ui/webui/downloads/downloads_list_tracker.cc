@@ -75,6 +75,8 @@ const char* GetDangerTypeString(download::DownloadDangerType danger_type) {
       return "DEEP_SCANNED_SAFE";
     case download::DOWNLOAD_DANGER_TYPE_DEEP_SCANNED_OPENED_DANGEROUS:
       return "DEEP_SCANNED_OPENED_DANGEROUS";
+    case download::DOWNLOAD_DANGER_TYPE_BLOCKED_UNSUPPORTED_FILETYPE:
+      return "BLOCKED_UNSUPPORTED_FILE_TYPE";
     case download::DOWNLOAD_DANGER_TYPE_PROMPT_FOR_SCANNING:
     case download::DOWNLOAD_DANGER_TYPE_NOT_DANGEROUS:
     case download::DOWNLOAD_DANGER_TYPE_MAYBE_DANGEROUS_CONTENT:
@@ -275,6 +277,9 @@ downloads::mojom::DataPtr DownloadsListTracker::CreateDownloadData(
         state = "DANGEROUS";
       } else if (download_item->IsMixedContent()) {
         state = "MIXED_CONTENT";
+      } else if (download_item->GetDangerType() ==
+                 download::DOWNLOAD_DANGER_TYPE_ASYNC_SCANNING) {
+        state = "ASYNC_SCANNING";
       } else if (download_item->IsPaused()) {
         state = "PAUSED";
       } else {

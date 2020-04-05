@@ -22,7 +22,12 @@ class XRObjectSpace : public XRSpace {
       : XRSpace(session), object_(object) {}
 
   std::unique_ptr<TransformationMatrix> MojoFromNative() override {
-    return std::make_unique<TransformationMatrix>(object_->MojoFromObject());
+    auto maybe_mojo_from_object = object_->MojoFromObject();
+    if (maybe_mojo_from_object) {
+      return std::make_unique<TransformationMatrix>(*maybe_mojo_from_object);
+    } else {
+      return nullptr;
+    }
   }
 
   std::unique_ptr<TransformationMatrix> NativeFromMojo() final {
@@ -33,7 +38,7 @@ class XRObjectSpace : public XRSpace {
     return XRNativeOriginInformation::Create(object_);
   }
 
-  void Trace(blink::Visitor* visitor) override {
+  void Trace(Visitor* visitor) override {
     visitor->Trace(object_);
     XRSpace::Trace(visitor);
   }

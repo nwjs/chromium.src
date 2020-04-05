@@ -4,6 +4,7 @@
 
 import("//build/config/features.gni")
 import("//testing/libfuzzer/fuzzer_test.gni")
+import("//third_party/protobuf/proto_library.gni")
 
 component("fido") {
   sources = [
@@ -56,6 +57,13 @@ component("fido") {
     "cable/fido_cable_discovery.h",
     "cable/fido_cable_handshake_handler.cc",
     "cable/fido_cable_handshake_handler.h",
+    "cable/noise.cc",
+    "cable/noise.h",
+    "cable/v2_handshake.cc",
+    "cable/v2_handshake.h",
+    "cbor_extract.cc",
+    "client_data.cc",
+    "client_data.h",
     "credential_management.cc",
     "credential_management.h",
     "credential_management_handler.cc",
@@ -230,6 +238,28 @@ component("fido") {
       "win/webauthn_api.cc",
       "win/webauthn_api.h",
     ]
+  }
+
+  if (is_chromeos) {
+    sources += [
+      "cros/authenticator.cc",
+      "cros/authenticator.h",
+      "cros/discovery.cc",
+      "cros/discovery.h",
+    ]
+
+    deps += [
+      ":u2f_proto",
+      "//dbus",
+    ]
+  }
+}
+
+if (is_chromeos) {
+  proto_library("u2f_proto") {
+    sources = [ "//third_party/cros_system_api/dbus/u2f/u2f_interface.proto" ]
+
+    proto_out_dir = "chromeos/dbus/u2f"
   }
 }
 

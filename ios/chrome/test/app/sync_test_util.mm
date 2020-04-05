@@ -8,6 +8,7 @@
 #include <string>
 
 #include "base/bind.h"
+#include "base/guid.h"
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
 #include "base/strings/sys_string_conversions.h"
@@ -16,6 +17,7 @@
 #include "components/autofill/core/browser/personal_data_manager.h"
 #include "components/history/core/browser/history_service.h"
 #include "components/keyed_service/core/service_access_type.h"
+#include "components/sync/base/pref_names.h"
 #include "components/sync/driver/profile_sync_service.h"
 #include "components/sync/driver/sync_service.h"
 #include "components/sync/test/fake_server/entity_builder_factory.h"
@@ -109,7 +111,6 @@ void ClearSyncServerData() {
 }
 
 int GetNumberOfSyncEntities(syncer::ModelType type) {
-  DCHECK(gSyncFakeServer);
   std::unique_ptr<base::DictionaryValue> entities =
       gSyncFakeServer->GetEntitiesAsDictionaryValue();
 
@@ -141,12 +142,23 @@ BOOL VerifyNumberOfSyncEntitiesWithName(syncer::ModelType type,
   return result == testing::AssertionSuccess();
 }
 
-void InjectBookmarkOnFakeSyncServer(std::string url, std::string title) {
-  DCHECK(gSyncFakeServer);
+void AddBookmarkToFakeSyncServer(std::string url, std::string title) {
   fake_server::EntityBuilderFactory entity_builder_factory;
   fake_server::BookmarkEntityBuilder bookmark_builder =
       entity_builder_factory.NewBookmarkEntityBuilder(title);
   gSyncFakeServer->InjectEntity(bookmark_builder.BuildBookmark(GURL(url)));
+}
+
+void AddLegacyBookmarkToFakeSyncServer(std::string url,
+                                       std::string title,
+                                       std::string originator_client_item_id) {
+  DCHECK(!base::IsValidGUID(originator_client_item_id));
+  fake_server::EntityBuilderFactory entity_builder_factory;
+  fake_server::BookmarkEntityBuilder bookmark_builder =
+      entity_builder_factory.NewBookmarkEntityBuilder(
+          title, std::move(originator_client_item_id));
+  gSyncFakeServer->InjectEntity(
+      bookmark_builder.BuildBookmark(GURL(url), /*is_legacy=*/true));
 }
 
 bool IsSyncInitialized() {
@@ -169,9 +181,26 @@ std::string GetSyncCacheGuid() {
   return info_provider->GetLocalDeviceInfo()->guid();
 }
 
-void InjectAutofillProfileOnFakeSyncServer(std::string guid,
-                                           std::string full_name) {
-  DCHECK(gSyncFakeServer);
+void AddUserDemographicsToSyncServer(int birth_year, int gender) {
+  sync_pb::EntitySpecifics specifics;
+  specifics.mutable_priority_preference()->mutable_preference()->set_name(
+      syncer::prefs::kSyncDemographics);
+  specifics.mutable_priority_preference()->mutable_preference()->set_value(
+      base::StringPrintf("{\"birth_year\":%d,\"gender\":%d}", birth_year,
+                         gender));
+
+  std::unique_ptr<syncer::LoopbackServerEntity> entity =
+      syncer::PersistentUniqueClientEntity::CreateFromSpecificsForTesting(
+          /*non_unique_name=*/syncer::prefs::kSyncDemographics,
+          /*client_tag=*/specifics.preference().name(), specifics,
+          /*creation_time=*/0,
+          /*last_modified_time=*/0);
+
+  gSyncFakeServer->InjectEntity(std::move(entity));
+}
+
+void AddAutofillProfileToFakeSyncServer(std::string guid,
+                                        std::string full_name) {
   sync_pb::EntitySpecifics entity_specifics;
   sync_pb::AutofillProfileSpecifics* autofill_profile =
       entity_specifics.mutable_autofill_profile();
@@ -185,8 +214,7 @@ void InjectAutofillProfileOnFakeSyncServer(std::string guid,
   gSyncFakeServer->InjectEntity(std::move(entity));
 }
 
-void DeleteAutofillProfileOnFakeSyncServer(std::string guid) {
-  DCHECK(gSyncFakeServer);
+void DeleteAutofillProfileFromFakeSyncServer(std::string guid) {
   std::vector<sync_pb::SyncEntity> autofill_profiles =
       gSyncFakeServer->GetSyncEntitiesByModelType(syncer::AUTOFILL_PROFILE);
   std::string entity_id;
@@ -250,7 +278,7 @@ BOOL VerifySessionsOnSyncServer(const std::multiset<std::string>& expected_urls,
   return result == testing::AssertionSuccess();
 }
 
-void AddTypedURLOnClient(const GURL& url) {
+void AddTypedURLToClient(const GURL& url) {
   ChromeBrowserState* browser_state =
       chrome_test_util::GetOriginalBrowserState();
   history::HistoryService* historyService =
@@ -262,8 +290,7 @@ void AddTypedURLOnClient(const GURL& url) {
                           history::SOURCE_BROWSED, false);
 }
 
-void InjectTypedURLOnFakeSyncServer(const std::string& url) {
-  DCHECK(gSyncFakeServer);
+void AddTypedURLToFakeSyncServer(const std::string& url) {
   sync_pb::EntitySpecifics entitySpecifics;
   sync_pb::TypedUrlSpecifics* typedUrl = entitySpecifics.mutable_typed_url();
   typedUrl->set_url(url);
@@ -340,7 +367,6 @@ void DeleteTypedUrlFromClient(const GURL& url) {
 }
 
 void DeleteTypedUrlFromFakeSyncServer(std::string url) {
-  DCHECK(gSyncFakeServer);
   std::vector<sync_pb::SyncEntity> typed_urls =
       gSyncFakeServer->GetSyncEntitiesByModelType(syncer::TYPED_URLS);
   std::string entity_id;

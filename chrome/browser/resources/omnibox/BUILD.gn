@@ -12,6 +12,7 @@ js_type_check("closure_compile") {
     ":omnibox_element",
     ":omnibox_input",
     ":omnibox_output",
+    ":omnibox_popup",
   ]
 }
 
@@ -43,11 +44,16 @@ js_library("omnibox_output") {
   externs_list = [ "$externs_path/pending.js" ]
 }
 
+js_library("omnibox_popup") {
+  deps = [
+    "//chrome/browser/ui/webui/omnibox:mojo_bindings_js_library_for_compile",
+    "//ui/webui/resources/cr_components/omnibox:cr_autocomplete_match_list",
+  ]
+}
+
 grit("resources") {
   source = "resources.grd"
 
-  # The .grd contains references to generated files.
-  source_is_generated = true
   outputs = [
     "grit/omnibox_resources.h",
     "omnibox_resources.pak",

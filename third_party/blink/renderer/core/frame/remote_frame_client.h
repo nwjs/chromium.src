@@ -37,9 +37,11 @@ class RemoteFrameClient : public FrameClient {
   unsigned BackForwardLength() override = 0;
 
   // Forwards a postMessage for a remote frame.
-  virtual void ForwardPostMessage(MessageEvent*,
-                                  scoped_refptr<const SecurityOrigin> target,
-                                  LocalFrame* source_frame) const = 0;
+  virtual void ForwardPostMessage(
+      MessageEvent*,
+      scoped_refptr<const SecurityOrigin> target,
+      base::Optional<base::UnguessableToken> cluster_id,
+      LocalFrame* source_frame) const = 0;
 
   // Forwards a change to the rects of a remote frame. |local_frame_rect| is the
   // size of the frame in its parent's coordinate space prior to applying CSS
@@ -52,11 +54,6 @@ class RemoteFrameClient : public FrameClient {
       const ViewportIntersectionState& intersection_state) = 0;
 
   virtual void AdvanceFocus(mojom::blink::FocusType, LocalFrame* source) = 0;
-
-  virtual void SetIsInert(bool) = 0;
-
-  virtual void UpdateRenderThrottlingStatus(bool isThrottled,
-                                            bool subtreeThrottled) = 0;
 
   virtual uint32_t Print(const IntRect&, cc::PaintCanvas*) const = 0;
 };

@@ -53,8 +53,7 @@ CallStackProfileBuilder::CallStackProfileBuilder(
     const CallStackProfileParams& profile_params,
     const WorkIdRecorder* work_id_recorder,
     base::OnceClosure completed_callback)
-    : work_id_recorder_(work_id_recorder),
-      profile_start_time_(base::TimeTicks::Now()) {
+    : work_id_recorder_(work_id_recorder) {
   completed_callback_ = std::move(completed_callback);
   sampled_profile_.set_process(
       ToExecutionContextProcess(profile_params.process));
@@ -84,6 +83,41 @@ void CallStackProfileBuilder::RecordMetadata(
   }
 
   metadata_.RecordMetadata(metadata_provider);
+}
+
+void CallStackProfileBuilder::ApplyMetadataRetrospectively(
+    base::TimeTicks period_start,
+    base::TimeTicks period_end,
+    const MetadataItem& item) {
+  DCHECK_LE(period_start, period_end);
+  DCHECK_LE(period_end, base::TimeTicks::Now());
+
+  // We don't set metadata if the period extends before the start of the
+  // sampling, to avoid biasing against the unobserved execution. This will
+  // introduce bias due to dropping periods longer than the sampling time, but
+  // that bias is easier to reason about and account for.
+  if (period_start < profile_start_time_)
+    return;
+
+  CallStackProfile* call_stack_profile =
+      sampled_profile_.mutable_call_stack_profile();
+  google::protobuf::RepeatedPtrField<CallStackProfile::StackSample>* samples =
+      call_stack_profile->mutable_stack_sample();
+
+  DCHECK_EQ(sample_timestamps_.size(), static_cast<size_t>(samples->size()));
+
+  const ptrdiff_t start_offset =
+      std::lower_bound(sample_timestamps_.begin(), sample_timestamps_.end(),
+                       period_start) -
+      sample_timestamps_.begin();
+  const ptrdiff_t end_offset =
+      std::upper_bound(sample_timestamps_.begin(), sample_timestamps_.end(),
+                       period_end) -
+      sample_timestamps_.begin();
+
+  metadata_.ApplyMetadata(item, samples->begin() + start_offset,
+                          samples->begin() + end_offset, samples,
+                          call_stack_profile->mutable_metadata_name_hash());
 }
 
 void CallStackProfileBuilder::OnSampleCompleted(
@@ -153,6 +187,11 @@ void CallStackProfileBuilder::OnSampleCompleted(
 
   *stack_sample_proto->mutable_metadata() = metadata_.CreateSampleMetadata(
       call_stack_profile->mutable_metadata_name_hash());
+
+  if (profile_start_time_.is_null())
+    profile_start_time_ = sample_timestamp;
+
+  sample_timestamps_.push_back(sample_timestamp);
 }
 
 void CallStackProfileBuilder::OnProfileCompleted(
@@ -174,7 +213,8 @@ void CallStackProfileBuilder::OnProfileCompleted(
         HashModuleFilename(module->GetDebugBasename()));
   }
 
-  PassProfilesToMetricsProvider(std::move(sampled_profile_));
+  PassProfilesToMetricsProvider(profile_start_time_,
+                                std::move(sampled_profile_));
 
   // Run the completed callback if there is one.
   if (!completed_callback_.is_null())
@@ -202,13 +242,14 @@ void CallStackProfileBuilder::SetParentProfileCollectorForChildProcess(
 }
 
 void CallStackProfileBuilder::PassProfilesToMetricsProvider(
+    base::TimeTicks profile_start_time,
     SampledProfile sampled_profile) {
   if (sampled_profile.process() == BROWSER_PROCESS) {
-    GetBrowserProcessReceiverCallbackInstance().Run(profile_start_time_,
+    GetBrowserProcessReceiverCallbackInstance().Run(profile_start_time,
                                                     std::move(sampled_profile));
   } else {
     g_child_call_stack_profile_collector.Get()
-        .ChildCallStackProfileCollector::Collect(profile_start_time_,
+        .ChildCallStackProfileCollector::Collect(profile_start_time,
                                                  std::move(sampled_profile));
   }
 }

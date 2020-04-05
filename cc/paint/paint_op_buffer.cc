@@ -84,6 +84,7 @@ SkRect MapRect(const SkMatrix& matrix, const SkRect& src) {
   M(SaveLayerAlphaOp) \
   M(ScaleOp)          \
   M(SetMatrixOp)      \
+  M(SetNodeIdOp)      \
   M(TranslateOp)
 
 static constexpr size_t kNumOpTypes =
@@ -293,6 +294,8 @@ std::string PaintOpTypeToString(PaintOpType type) {
       return "Scale";
     case PaintOpType::SetMatrix:
       return "SetMatrix";
+    case PaintOpType::SetNodeId:
+      return "SetNodeId";
     case PaintOpType::Translate:
       return "Translate";
   }
@@ -702,6 +705,13 @@ size_t SetMatrixOp::Serialize(const PaintOp* op,
   SetMatrixOp transformed(*static_cast<const SetMatrixOp*>(op));
   transformed.matrix.postConcat(options.original_ctm);
   return SimpleSerialize<SetMatrixOp>(&transformed, memory, size);
+}
+
+size_t SetNodeIdOp::Serialize(const PaintOp* op,
+                              void* memory,
+                              size_t size,
+                              const SerializeOptions& options) {
+  return SimpleSerialize<SetNodeIdOp>(op, memory, size);
 }
 
 size_t TranslateOp::Serialize(const PaintOp* op,
@@ -1169,6 +1179,15 @@ PaintOp* SetMatrixOp::Deserialize(const volatile void* input,
   return op;
 }
 
+PaintOp* SetNodeIdOp::Deserialize(const volatile void* input,
+                                  size_t input_size,
+                                  void* output,
+                                  size_t output_size,
+                                  const DeserializeOptions& options) {
+  DCHECK_GE(output_size, sizeof(SetNodeIdOp));
+  return SimpleDeserialize<SetNodeIdOp>(input, input_size, output, output_size);
+}
+
 PaintOp* TranslateOp::Deserialize(const volatile void* input,
                                   size_t input_size,
                                   void* output,
@@ -1434,11 +1453,13 @@ void DrawTextBlobOp::RasterWithFlags(const DrawTextBlobOp* op,
                                      const PaintFlags* flags,
                                      SkCanvas* canvas,
                                      const PlaybackParams& params) {
-  SkPDF::SetNodeId(canvas, op->node_id);
+  if (op->node_id)
+    SkPDF::SetNodeId(canvas, op->node_id);
   flags->DrawToSk(canvas, [op](SkCanvas* c, const SkPaint& p) {
     c->drawTextBlob(op->blob.get(), op->x, op->y, p);
   });
-  SkPDF::SetNodeId(canvas, 0);
+  if (op->node_id)
+    SkPDF::SetNodeId(canvas, 0);
 }
 
 void RestoreOp::Raster(const RestoreOp* op,
@@ -1487,6 +1508,12 @@ void SetMatrixOp::Raster(const SetMatrixOp* op,
                          SkCanvas* canvas,
                          const PlaybackParams& params) {
   canvas->setMatrix(SkMatrix::Concat(params.original_ctm, op->matrix));
+}
+
+void SetNodeIdOp::Raster(const SetNodeIdOp* op,
+                         SkCanvas* canvas,
+                         const PlaybackParams& params) {
+  SkPDF::SetNodeId(canvas, op->node_id);
 }
 
 void TranslateOp::Raster(const TranslateOp* op,
@@ -1916,6 +1943,16 @@ bool SetMatrixOp::AreEqual(const PaintOp* base_left,
   return true;
 }
 
+bool SetNodeIdOp::AreEqual(const PaintOp* base_left,
+                           const PaintOp* base_right) {
+  auto* left = static_cast<const SetNodeIdOp*>(base_left);
+  auto* right = static_cast<const SetNodeIdOp*>(base_right);
+
+  DCHECK(left->IsValid());
+  DCHECK(right->IsValid());
+  return left->node_id == right->node_id;
+}
+
 bool TranslateOp::AreEqual(const PaintOp* base_left,
                            const PaintOp* base_right) {
   auto* left = static_cast<const TranslateOp*>(base_left);
@@ -2103,7 +2140,7 @@ gfx::Rect PaintOp::ComputePaintRect(const PaintOp* op,
     SkRect paint_rect = MapRect(ctm, op_rect);
     if (flags) {
       SkPaint paint = flags->ToSkPaint();
-      paint_rect = paint.canComputeFastBounds()
+      paint_rect = paint.canComputeFastBounds() && paint_rect.isFinite()
                        ? paint.computeFastBounds(paint_rect, &paint_rect)
                        : clip_rect;
     }
@@ -2305,10 +2342,6 @@ bool DrawRecordOp::HasDiscardableImages() const {
   return record->HasDiscardableImages();
 }
 
-bool DrawRecordOp::HasText() const {
-  return record->HasText();
-}
-
 DrawTextBlobOp::DrawTextBlobOp() : PaintOpWithFlags(kType) {}
 
 DrawTextBlobOp::DrawTextBlobOp(sk_sp<SkTextBlob> blob,
@@ -2346,9 +2379,7 @@ PaintOpBuffer::CompositeIterator::CompositeIterator(CompositeIterator&& other) =
     default;
 
 PaintOpBuffer::PaintOpBuffer()
-    : has_non_aa_paint_(false),
-      has_discardable_images_(false),
-      has_text_(false) {}
+    : has_non_aa_paint_(false), has_discardable_images_(false) {}
 
 PaintOpBuffer::PaintOpBuffer(PaintOpBuffer&& other) {
   *this = std::move(other);
@@ -2368,7 +2399,6 @@ PaintOpBuffer& PaintOpBuffer::operator=(PaintOpBuffer&& other) {
   subrecord_op_count_ = other.subrecord_op_count_;
   has_non_aa_paint_ = other.has_non_aa_paint_;
   has_discardable_images_ = other.has_discardable_images_;
-  has_text_ = other.has_text_;
 
   // Make sure the other pob can destruct safely.
   other.used_ = 0;
@@ -2390,7 +2420,6 @@ void PaintOpBuffer::Reset() {
   subrecord_bytes_used_ = 0;
   subrecord_op_count_ = 0;
   has_discardable_images_ = false;
-  has_text_ = false;
 }
 
 // When |op| is a nested PaintOpBuffer, this returns the PaintOp inside
@@ -2665,8 +2694,6 @@ bool PaintOpBuffer::operator==(const PaintOpBuffer& other) const {
   if (has_non_aa_paint_ != other.has_non_aa_paint_)
     return false;
   if (has_discardable_images_ != other.has_discardable_images_)
-    return false;
-  if (has_text_ != other.has_text_)
     return false;
 
   auto left_iter = Iterator(this);

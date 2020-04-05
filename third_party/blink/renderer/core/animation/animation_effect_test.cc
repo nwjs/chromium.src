@@ -98,10 +98,11 @@ class TestAnimationEffect : public AnimationEffect {
       bool forwards,
       base::Optional<double> local_time,
       AnimationTimeDelta time_to_next_iteration) const override {
-    DCHECK(!local_time || !IsNull(local_time.value()));
+    DCHECK(!local_time || !Timing::IsNull(local_time.value()));
     local_time_ = local_time;
     time_to_next_iteration_ = time_to_next_iteration;
-    return AnimationTimeDelta::FromSecondsD(-1);
+    return AnimationTimeDelta::FromSecondsD(
+        std::numeric_limits<double>::infinity());
   }
   double TakeLocalTime() {
     DCHECK(local_time_);
@@ -116,7 +117,7 @@ class TestAnimationEffect : public AnimationEffect {
     return result;
   }
 
-  void Trace(blink::Visitor* visitor) override {
+  void Trace(Visitor* visitor) override {
     visitor->Trace(event_delegate_);
     AnimationEffect::Trace(visitor);
   }

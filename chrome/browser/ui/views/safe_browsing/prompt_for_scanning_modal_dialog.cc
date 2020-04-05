@@ -41,14 +41,14 @@ PromptForScanningModalDialog::PromptForScanningModalDialog(
     base::OnceClosure accept_callback,
     base::OnceClosure open_now_callback)
     : web_contents_(web_contents),
-      accept_callback_(std::move(accept_callback)),
       open_now_callback_(std::move(open_now_callback)) {
-  DialogDelegate::set_button_label(
+  DialogDelegate::SetButtonLabel(
       ui::DIALOG_BUTTON_OK,
       l10n_util::GetStringUTF16(IDS_DEEP_SCANNING_INFO_DIALOG_ACCEPT_BUTTON));
-  DialogDelegate::set_button_label(
+  DialogDelegate::SetButtonLabel(
       ui::DIALOG_BUTTON_CANCEL,
       l10n_util::GetStringUTF16(IDS_DEEP_SCANNING_INFO_DIALOG_CANCEL_BUTTON));
+  DialogDelegate::SetAcceptCallback(std::move(accept_callback));
   auto open_now_button = views::MdTextButton::CreateSecondaryUiButton(
       this,
       l10n_util::GetStringUTF16(IDS_DEEP_SCANNING_INFO_DIALOG_OPEN_NOW_BUTTON));
@@ -93,15 +93,6 @@ PromptForScanningModalDialog::~PromptForScanningModalDialog() = default;
 bool PromptForScanningModalDialog::IsDialogButtonEnabled(
     ui::DialogButton button) const {
   return (button == ui::DIALOG_BUTTON_OK || button == ui::DIALOG_BUTTON_CANCEL);
-}
-
-bool PromptForScanningModalDialog::Accept() {
-  std::move(accept_callback_).Run();
-  return true;
-}
-
-bool PromptForScanningModalDialog::Cancel() {
-  return true;
 }
 
 bool PromptForScanningModalDialog::ShouldShowCloseButton() const {

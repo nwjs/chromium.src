@@ -105,7 +105,7 @@ bool InitializeStaticEGLInternal(GLImplementation implementation) {
   SetGLGetProcAddressProc(get_proc_address);
   AddGLNativeLibrary(egl_library);
   AddGLNativeLibrary(gles_library);
-  SetGLImplementation(kGLImplementationEGLANGLE);
+  SetGLImplementation(implementation);
 
   InitializeStaticGLBindingsGL();
   InitializeStaticGLBindingsEGL();
@@ -192,7 +192,7 @@ bool InitializeGLOneOffPlatform() {
       break;
     case kGLImplementationSwiftShaderGL:
     case kGLImplementationEGLANGLE:
-      if (!GLSurfaceEGL::InitializeOneOff(GetDC(nullptr))) {
+      if (!GLSurfaceEGL::InitializeOneOff(EGLDisplayPlatform(GetDC(nullptr)))) {
         LOG(ERROR) << "GLSurfaceEGL::InitializeOneOff failed.";
         return false;
       }

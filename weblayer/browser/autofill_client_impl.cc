@@ -48,11 +48,6 @@ autofill::payments::PaymentsClient* AutofillClientImpl::GetPaymentsClient() {
   return nullptr;
 }
 
-autofill::SmsClient* AutofillClientImpl::GetSmsClient() {
-  NOTREACHED();
-  return nullptr;
-}
-
 autofill::StrikeDatabase* AutofillClientImpl::GetStrikeDatabase() {
   NOTREACHED();
   return nullptr;
@@ -245,7 +240,7 @@ base::span<const autofill::Suggestion> AutofillClientImpl::GetPopupSuggestions()
   return base::span<const autofill::Suggestion>();
 }
 
-void AutofillClientImpl::PinPopupViewUntilUpdate() {
+void AutofillClientImpl::PinPopupView() {
   NOTIMPLEMENTED();
 }
 

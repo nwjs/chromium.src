@@ -13,7 +13,6 @@
 #include "android_webview/browser/aw_browser_main_parts.h"
 #include "android_webview/browser/aw_contents_client_bridge.h"
 #include "android_webview/browser/aw_contents_io_thread_client.h"
-#include "android_webview/browser/aw_contents_lifecycle_notifier.h"
 #include "android_webview/browser/aw_pdf_exporter.h"
 #include "android_webview/browser/aw_render_process.h"
 #include "android_webview/browser/aw_renderer_priority.h"
@@ -28,6 +27,7 @@
 #include "android_webview/browser/gfx/java_browser_view_renderer_helper.h"
 #include "android_webview/browser/gfx/render_thread_manager.h"
 #include "android_webview/browser/gfx/scoped_app_gl_state_restore.h"
+#include "android_webview/browser/lifecycle/aw_contents_lifecycle_notifier.h"
 #include "android_webview/browser/page_load_metrics/page_load_metrics_initialize.h"
 #include "android_webview/browser/permission/aw_permission_request.h"
 #include "android_webview/browser/permission/permission_request_handler.h"
@@ -944,6 +944,10 @@ void AwContents::SetWindowVisibility(JNIEnv* env,
                                      bool visible) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   browser_view_renderer_.SetWindowVisibility(visible);
+  if (visible)
+    AwContentsLifecycleNotifier::GetInstance().OnWebViewWindowBeVisible(this);
+  else
+    AwContentsLifecycleNotifier::GetInstance().OnWebViewWindowBeInvisible(this);
 }
 
 void AwContents::SetIsPaused(JNIEnv* env,
@@ -959,12 +963,14 @@ void AwContents::OnAttachedToWindow(JNIEnv* env,
                                     int h) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   browser_view_renderer_.OnAttachedToWindow(w, h);
+  AwContentsLifecycleNotifier::GetInstance().OnWebViewAttachedToWindow(this);
 }
 
 void AwContents::OnDetachedFromWindow(JNIEnv* env,
                                       const JavaParamRef<jobject>& obj) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   browser_view_renderer_.OnDetachedFromWindow();
+  AwContentsLifecycleNotifier::GetInstance().OnWebViewDetachedFromWindow(this);
 }
 
 bool AwContents::IsVisible(JNIEnv* env, const JavaParamRef<jobject>& obj) {
@@ -1326,6 +1332,16 @@ void AwContents::RemoveWebMessageListener(
     const base::android::JavaParamRef<jobject>& obj,
     const base::android::JavaParamRef<jstring>& js_object_name) {
   GetJsJavaConfiguratorHost()->RemoveWebMessageListener(env, js_object_name);
+}
+
+base::android::ScopedJavaLocalRef<jobjectArray> AwContents::GetJsObjectsInfo(
+    JNIEnv* env,
+    const base::android::JavaParamRef<jobject>& obj,
+    const base::android::JavaParamRef<jclass>& clazz) {
+  if (js_java_configurator_host_.get()) {
+    return GetJsJavaConfiguratorHost()->GetJsObjectsInfo(env, clazz);
+  }
+  return nullptr;
 }
 
 void AwContents::ClearView(JNIEnv* env, const JavaParamRef<jobject>& obj) {

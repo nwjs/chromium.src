@@ -292,8 +292,18 @@ cr.define('device_page_tests', function() {
             type: chrome.settingsPrivate.PrefType.BOOLEAN,
             value: true,
           },
+          scroll_acceleration: {
+            key: 'settings.touchpad.scroll_acceleration',
+            type: chrome.settingsPrivate.PrefType.BOOLEAN,
+            value: true,
+          },
           sensitivity2: {
             key: 'settings.touchpad.sensitivity2',
+            type: chrome.settingsPrivate.PrefType.NUMBER,
+            value: 3,
+          },
+          scroll_sensitivity: {
+            key: 'settings.touchpad.scroll_sensitivity',
             type: chrome.settingsPrivate.PrefType.NUMBER,
             value: 3,
           },
@@ -314,8 +324,18 @@ cr.define('device_page_tests', function() {
             type: chrome.settingsPrivate.PrefType.BOOLEAN,
             value: true,
           },
+          scroll_acceleration: {
+            key: 'settings.mouse.scroll_acceleration',
+            type: chrome.settingsPrivate.PrefType.BOOLEAN,
+            value: true,
+          },
           sensitivity2: {
             key: 'settings.mouse.sensitivity2',
+            type: chrome.settingsPrivate.PrefType.NUMBER,
+            value: 4,
+          },
+          scroll_sensitivity: {
+            key: 'settings.mouse.scroll_sensitivity',
             type: chrome.settingsPrivate.PrefType.NUMBER,
             value: 4,
           },
@@ -1830,6 +1850,24 @@ cr.define('device_page_tests', function() {
             (element.offsetWidth == 0 && element.offsetHeight == 0);
       }
 
+      /**
+       * @param {string} id
+       * @return {string}
+       */
+      function getStorageItemLabelFromId(id) {
+        const rowItem = storagePage.$$('#' + id).shadowRoot;
+        return rowItem.querySelector('#label').innerText;
+      }
+
+      /**
+       * @param {string} id
+       * @return {string}
+       */
+      function getStorageItemSubLabelFromId(id) {
+        const rowItem = storagePage.$$('#' + id).shadowRoot;
+        return rowItem.querySelector('#subLabel').innerText;
+      }
+
       suiteSetup(function() {
         // Disable animations so sub-pages open within one event loop.
         testing.Test.disableAnimationsAndTransitions();
@@ -1904,6 +1942,63 @@ cr.define('device_page_tests', function() {
             '7.5 GB',
             storagePage.$.availableLabelArea.querySelector('.storage-size')
                 .innerText);
+      });
+
+      test('system size', async function() {
+        assertEquals('System', storagePage.$$('#systemSizeLabel').innerText);
+        assertEquals(
+            'Calculating…', storagePage.$$('#systemSizeSubLabel').innerText);
+
+        // Send system size callback.
+        cr.webUIListenerCallback('storage-system-size-changed', '8.4 GB');
+        Polymer.dom.flush();
+        assertEquals('8.4 GB', storagePage.$$('#systemSizeSubLabel').innerText);
+
+        // In guest mode, the system row should be hidden.
+        storagePage.isGuest_ = true;
+        Polymer.dom.flush();
+        assertTrue(isHidden(storagePage.$$('#systemSize')));
+      });
+
+      test('apps extensions size', async function() {
+        assertEquals(
+            'Apps and extensions', getStorageItemLabelFromId('appsSize'));
+        assertEquals('Calculating…', getStorageItemSubLabelFromId('appsSize'));
+
+        // Send apps size callback.
+        cr.webUIListenerCallback('storage-apps-size-changed', '59.5 KB');
+        Polymer.dom.flush();
+        assertEquals('59.5 KB', getStorageItemSubLabelFromId('appsSize'));
+      });
+
+      test('other users size', async function() {
+        // The other users row is visible by default, displaying
+        // "calculating...".
+        assertFalse(isHidden(storagePage.$$('#otherUsersSize')));
+        assertEquals(
+            'Other users', getStorageItemLabelFromId('otherUsersSize'));
+        assertEquals(
+            'Calculating…', getStorageItemSubLabelFromId('otherUsersSize'));
+
+        // Simulate absence of other users.
+        cr.webUIListenerCallback(
+            'storage-other-users-size-changed', '0 B', true);
+        Polymer.dom.flush();
+        assertTrue(isHidden(storagePage.$$('#otherUsersSize')));
+
+        // Send other users callback with a size that is not null.
+        cr.webUIListenerCallback(
+            'storage-other-users-size-changed', '322 MB', false);
+        Polymer.dom.flush();
+        assertFalse(isHidden(storagePage.$$('#otherUsersSize')));
+        assertEquals('322 MB', getStorageItemSubLabelFromId('otherUsersSize'));
+
+        // If the user is in Guest mode, the row is not visible.
+        storagePage.isGuest_ = true;
+        cr.webUIListenerCallback(
+            'storage-other-users-size-changed', '322 MB', false);
+        Polymer.dom.flush();
+        assertTrue(isHidden(storagePage.$$('#otherUsersSize')));
       });
     });
   });

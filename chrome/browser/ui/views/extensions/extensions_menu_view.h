@@ -33,8 +33,6 @@ class ExtensionsMenuView : public views::BubbleDialogDelegateView,
                            public TabStripModelObserver,
                            public ToolbarActionsModel::Observer {
  public:
-  static constexpr gfx::Size kExtensionsMenuIconSize = gfx::Size(28, 28);
-
   ExtensionsMenuView(views::View* anchor_view,
                      Browser* browser,
                      ExtensionsContainer* extensions_container);
@@ -43,9 +41,9 @@ class ExtensionsMenuView : public views::BubbleDialogDelegateView,
   // Displays the ExtensionsMenu under |anchor_view|, attached to |browser|, and
   // with the associated |extensions_container|.
   // Only one menu is allowed to be shown at a time (outside of tests).
-  static void ShowBubble(views::View* anchor_view,
-                         Browser* browser,
-                         ExtensionsContainer* extensions_container);
+  static views::Widget* ShowBubble(views::View* anchor_view,
+                                   Browser* browser,
+                                   ExtensionsContainer* extensions_container);
 
   // Returns true if there is currently an ExtensionsMenuView showing (across
   // all browsers and profiles).

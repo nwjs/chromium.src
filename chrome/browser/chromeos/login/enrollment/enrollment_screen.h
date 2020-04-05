@@ -46,6 +46,8 @@ class EnrollmentScreen
  public:
   enum class Result { COMPLETED, BACK };
 
+  static std::string GetResultString(Result result);
+
   using ScreenExitCallback = base::RepeatingCallback<void(Result result)>;
   EnrollmentScreen(EnrollmentScreenView* view,
                    const ScreenExitCallback& exit_callback);
@@ -55,10 +57,6 @@ class EnrollmentScreen
 
   // Setup how this screen will handle enrollment.
   void SetEnrollmentConfig(const policy::EnrollmentConfig& enrollment_config);
-
-  // BaseScreen implementation:
-  void Show() override;
-  void Hide() override;
 
   // EnrollmentScreenView::Controller implementation:
   void OnLoginDone(const std::string& user,
@@ -96,6 +94,10 @@ class EnrollmentScreen
   }
 
  protected:
+  // BaseScreen:
+  void ShowImpl() override;
+  void HideImpl() override;
+
   // Expose the exit_callback to test screen overrides.
   ScreenExitCallback* exit_callback() { return &exit_callback_; }
 
@@ -184,8 +186,11 @@ class EnrollmentScreen
   ScreenExitCallback exit_callback_;
   policy::EnrollmentConfig config_;
   policy::EnrollmentConfig enrollment_config_;
+
+  // 'Current' and 'Next' authentication mechanisms to be used.
   Auth current_auth_ = AUTH_OAUTH;
-  Auth last_auth_ = AUTH_OAUTH;
+  Auth next_auth_ = AUTH_OAUTH;
+
   bool enrollment_failed_once_ = false;
   bool enrollment_succeeded_ = false;
   std::string enrolling_user_domain_;

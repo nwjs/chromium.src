@@ -19,12 +19,10 @@ import org.chromium.weblayer_private.interfaces.StrictModeWorkaround;
 @JNINamespace("weblayer")
 public final class NavigationControllerImpl extends INavigationController.Stub {
     private long mNativeNavigationController;
-    private TabImpl mTab;
     private INavigationControllerClient mNavigationControllerClient;
 
     public NavigationControllerImpl(TabImpl tab, INavigationControllerClient client) {
         mNavigationControllerClient = client;
-        mTab = tab;
         mNativeNavigationController =
                 NavigationControllerImplJni.get().getNavigationController(tab.getNativeTab());
         NavigationControllerImplJni.get().setNavigationControllerImpl(
@@ -35,6 +33,13 @@ public final class NavigationControllerImpl extends INavigationController.Stub {
     public void navigate(String uri) {
         StrictModeWorkaround.apply();
         NavigationControllerImplJni.get().navigate(
+                mNativeNavigationController, NavigationControllerImpl.this, uri);
+    }
+
+    @Override
+    public void replace(String uri) {
+        StrictModeWorkaround.apply();
+        NavigationControllerImplJni.get().replace(
                 mNativeNavigationController, NavigationControllerImpl.this, uri);
     }
 
@@ -167,6 +172,8 @@ public final class NavigationControllerImpl extends INavigationController.Stub {
                 long nativeNavigationControllerImpl, NavigationControllerImpl caller);
         long getNavigationController(long tab);
         void navigate(
+                long nativeNavigationControllerImpl, NavigationControllerImpl caller, String uri);
+        void replace(
                 long nativeNavigationControllerImpl, NavigationControllerImpl caller, String uri);
         void goBack(long nativeNavigationControllerImpl, NavigationControllerImpl caller);
         void goForward(long nativeNavigationControllerImpl, NavigationControllerImpl caller);

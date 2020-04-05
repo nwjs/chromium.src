@@ -165,18 +165,7 @@ Polymer({
       // Fall back onto using the host of the first origin, if no eTLD+1 name
       // was computed.
     }
-    return this.originRepresentation_(siteGroup.origins[0]);
-  },
-
-  /**
-   * Returns a user-friendly name for the origin.
-   * @param {OriginInfo} origin
-   * @return {string} The user-friendly name.
-   * @private
-   */
-  originRepresentation_(origin) {
-    const url = this.toUrl(origin.origin);
-    return url.host;
+    return this.originRepresentation(siteGroup.origins[0].origin);
   },
 
   /**
@@ -345,7 +334,8 @@ Polymer({
    */
   onOriginTap_(e) {
     this.navigateToSiteDetails_(this.siteGroup.origins[e.model.index].origin);
-    this.browserProxy.recordAction(settings.AllSitesAction.ENTER_SITE_DETAILS);
+    this.browserProxy.recordAction(settings.AllSitesAction2.ENTER_SITE_DETAILS);
+    chrome.metricsPrivate.recordUserAction('AllSites_EnterSiteDetails');
   },
 
   /**
@@ -358,7 +348,8 @@ Polymer({
     if (!this.grouped_(this.siteGroup)) {
       this.navigateToSiteDetails_(this.siteGroup.origins[0].origin);
       this.browserProxy.recordAction(
-          settings.AllSitesAction.ENTER_SITE_DETAILS);
+          settings.AllSitesAction2.ENTER_SITE_DETAILS);
+      chrome.metricsPrivate.recordUserAction('AllSites_EnterSiteDetails');
       return;
     }
     this.toggleCollapsible_();

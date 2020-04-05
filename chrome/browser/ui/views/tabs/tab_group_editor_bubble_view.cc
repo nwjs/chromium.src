@@ -11,18 +11,25 @@
 
 #include "base/containers/flat_map.h"
 #include "base/containers/span.h"
+#include "base/feature_list.h"
 #include "base/logging.h"
 #include "base/metrics/user_metrics.h"
 #include "base/metrics/user_metrics_action.h"
 #include "base/no_destructor.h"
+#include "base/optional.h"
 #include "base/strings/string16.h"
 #include "base/strings/utf_string_conversions.h"
+#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/chrome_pages.h"
+#include "chrome/browser/ui/tabs/tab_group.h"
+#include "chrome/browser/ui/tabs/tab_group_model.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/browser/ui/tabs/tab_strip_model_delegate.h"
+#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/bubble_menu_item_factory.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/chrome_typography.h"
 #include "chrome/browser/ui/views/tabs/color_picker_view.h"
-#include "chrome/browser/ui/views/tabs/tab_controller.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_ink_drop_util.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/tab_groups/tab_group_color.h"
@@ -30,7 +37,8 @@
 #include "components/tab_groups/tab_group_visual_data.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/base/l10n/l10n_util.h"
-#include "ui/events/event_constants.h"
+#include "ui/base/pointer/touch_ui_controller.h"
+#include "ui/events/types/event_type.h"
 #include "ui/gfx/geometry/insets.h"
 #include "ui/native_theme/native_theme.h"
 #include "ui/views/controls/button/button.h"
@@ -44,19 +52,19 @@
 
 // static
 views::Widget* TabGroupEditorBubbleView::Show(
-    TabGroupHeader* anchor_view,
-    TabController* tab_controller,
-    const tab_groups::TabGroupId& group) {
-  views::Widget* const widget = BubbleDialogDelegateView::CreateBubble(
-      new TabGroupEditorBubbleView(anchor_view, tab_controller, group));
+    const Browser* browser,
+    const tab_groups::TabGroupId& group,
+    TabGroupHeader* header_view,
+    base::Optional<gfx::Rect> anchor_rect,
+    views::View* anchor_view,
+    bool stop_context_menu_propagation) {
+  // If |header_view| is not null, use |header_view| as the |anchor_view|.
+  views::Widget* const widget =
+      BubbleDialogDelegateView::CreateBubble(new TabGroupEditorBubbleView(
+          browser, group, header_view ? header_view : anchor_view, anchor_rect,
+          header_view, stop_context_menu_propagation));
   widget->Show();
   return widget;
-}
-
-gfx::Size TabGroupEditorBubbleView::CalculatePreferredSize() const {
-  const int width = ChromeLayoutProvider::Get()->GetDistanceMetric(
-      DISTANCE_BUBBLE_TABSTRIP_PREFERRED_WIDTH);
-  return gfx::Size(width, GetHeightForWidth(width));
 }
 
 ui::ModalType TabGroupEditorBubbleView::GetModalType() const {
@@ -67,55 +75,89 @@ views::View* TabGroupEditorBubbleView::GetInitiallyFocusedView() {
   return title_field_;
 }
 
+gfx::Rect TabGroupEditorBubbleView::GetAnchorRect() const {
+  // We want to avoid calling BubbleDialogDelegateView::GetAnchorRect() if
+  // |anchor_rect_| has been set. This is because the default behavior uses the
+  // anchor view's bounds and also updates |anchor_rect_| to the views bounds.
+  // It does this so that the bubble does not jump when the anchoring view is
+  // deleted.
+  if (use_set_anchor_rect_)
+    return anchor_rect().value();
+  return BubbleDialogDelegateView::GetAnchorRect();
+}
+
 TabGroupEditorBubbleView::TabGroupEditorBubbleView(
-    TabGroupHeader* anchor_view,
-    TabController* tab_controller,
-    const tab_groups::TabGroupId& group)
-    : tab_controller_(tab_controller),
+    const Browser* browser,
+    const tab_groups::TabGroupId& group,
+    views::View* anchor_view,
+    base::Optional<gfx::Rect> anchor_rect,
+    TabGroupHeader* header_view,
+    bool stop_context_menu_propagation)
+    : browser_(browser),
       group_(group),
       title_field_controller_(this),
-      button_listener_(tab_controller, anchor_view, group) {
+      button_listener_(browser, group, header_view),
+      use_set_anchor_rect_(anchor_rect) {
+  // |anchor_view| should always be defined as it will be used to source the
+  // |anchor_widget_|.
+  DCHECK(anchor_view);
   SetAnchorView(anchor_view);
+  if (anchor_rect)
+    SetAnchorRect(anchor_rect.value());
+
   set_margins(gfx::Insets());
 
-  DialogDelegate::set_buttons(ui::DIALOG_BUTTON_NONE);
+  DialogDelegate::SetButtons(ui::DIALOG_BUTTON_NONE);
+
+  const base::string16 title = browser_->tab_strip_model()
+                                   ->group_model()
+                                   ->GetTabGroup(group_)
+                                   ->visual_data()
+                                   ->title();
+  title_at_opening_ = title;
+  DialogDelegate::SetCloseCallback(base::BindOnce(
+      &TabGroupEditorBubbleView::OnBubbleClose, base::Unretained(this)));
 
   const auto* layout_provider = ChromeLayoutProvider::Get();
-  const base::string16 title = tab_controller_->GetGroupTitle(group_);
   const int horizontal_spacing = layout_provider->GetDistanceMetric(
       views::DISTANCE_RELATED_CONTROL_HORIZONTAL);
-  const int vertical_menu_spacing = layout_provider->GetDistanceMetric(
+  const int vertical_spacing = layout_provider->GetDistanceMetric(
       views::DISTANCE_RELATED_CONTROL_VERTICAL);
-
-  // The vertical spacing for the non menu items within the editor bubble.
-  const int vertical_dialog_content_spacing = 16;
+  // The padding of the editing controls is adaptive, to improve the hit target
+  // size on touch devices.
+  const gfx::Insets control_insets =
+      ui::TouchUiController::Get()->touch_ui()
+          ? gfx::Insets(3 * vertical_spacing / 2, 3 * horizontal_spacing / 2)
+          : gfx::Insets(vertical_spacing, horizontal_spacing);
+  // Some spacing is only present on non-touch UI, since real estate is
+  // generally more precious on touch devices.
+  const int nontouch_only_spacing =
+      ui::TouchUiController::Get()->touch_ui()
+          ? 0
+          : ChromeLayoutProvider::Get()->GetDistanceMetric(
+                ChromeDistanceMetric::DISTANCE_CONTENT_LIST_VERTICAL_SINGLE);
 
   views::View* group_modifier_container =
       AddChildView(std::make_unique<views::View>());
+  group_modifier_container->SetBorder(
+      views::CreateEmptyBorder(gfx::Insets(control_insets.top(), 0)));
 
-  gfx::Insets color_element_insets =
-      ChromeLayoutProvider::Get()->GetInsetsMetric(
-          views::INSETS_VECTOR_IMAGE_BUTTON);
-  group_modifier_container->SetBorder(views::CreateEmptyBorder(
-      gfx::Insets(vertical_dialog_content_spacing,
-                  horizontal_spacing - color_element_insets.left(),
-                  vertical_dialog_content_spacing,
-                  horizontal_spacing - color_element_insets.right())));
-
-  views::FlexLayout* container_layout =
+  views::FlexLayout* group_modifier_container_layout =
       group_modifier_container->SetLayoutManager(
           std::make_unique<views::FlexLayout>());
-  container_layout->SetOrientation(views::LayoutOrientation::kVertical)
+  group_modifier_container_layout
+      ->SetOrientation(views::LayoutOrientation::kVertical)
       .SetIgnoreDefaultMainAxisMargins(true);
 
   // Add the text field for editing the title.
   views::View* title_field_container =
       group_modifier_container->AddChildView(std::make_unique<views::View>());
-  title_field_container->SetBorder(views::CreateEmptyBorder(gfx::Insets(
-      0, color_element_insets.left(), vertical_dialog_content_spacing,
-      color_element_insets.right())));
-  title_field_ =
-      title_field_container->AddChildView(std::make_unique<views::Textfield>());
+  title_field_container->SetBorder(views::CreateEmptyBorder(control_insets));
+  title_field_container->SetProperty(views::kMarginsKey,
+                                     gfx::Insets(nontouch_only_spacing, 0));
+
+  title_field_ = title_field_container->AddChildView(
+      std::make_unique<TitleField>(stop_context_menu_propagation));
   title_field_->SetText(title);
   title_field_->SetAccessibleName(base::ASCIIToUTF16("Group title"));
   title_field_->SetPlaceholderText(
@@ -129,57 +171,68 @@ TabGroupEditorBubbleView::TabGroupEditorBubbleView(
       ->SetOrientation(views::LayoutOrientation::kVertical)
       .SetIgnoreDefaultMainAxisMargins(true);
 
-  const SkColor initial_color = InitColorSet();
+  const tab_groups::TabGroupColorId initial_color_id = InitColorSet();
   color_selector_ =
       group_modifier_container->AddChildView(std::make_unique<ColorPickerView>(
-          colors_, background_color(), initial_color,
+          this, colors_, initial_color_id,
           base::Bind(&TabGroupEditorBubbleView::UpdateGroup,
                      base::Unretained(this))));
+  color_selector_->SetProperty(
+      views::kMarginsKey,
+      gfx::Insets(0, control_insets.left(), nontouch_only_spacing,
+                  control_insets.right()));
 
   AddChildView(std::make_unique<views::Separator>());
 
   views::View* menu_items_container =
       AddChildView(std::make_unique<views::View>());
   menu_items_container->SetBorder(
-      views::CreateEmptyBorder(gfx::Insets(vertical_menu_spacing, 0)));
+      views::CreateEmptyBorder(gfx::Insets(control_insets.top(), 0)));
   views::FlexLayout* layout_manager_ = menu_items_container->SetLayoutManager(
       std::make_unique<views::FlexLayout>());
   layout_manager_->SetOrientation(views::LayoutOrientation::kVertical)
       .SetIgnoreDefaultMainAxisMargins(true);
 
-  gfx::Insets menu_item_border_inset =
-      gfx::Insets(vertical_menu_spacing, horizontal_spacing);
-
   std::unique_ptr<views::LabelButton> new_tab_menu_item = CreateBubbleMenuItem(
       TAB_GROUP_HEADER_CXMENU_NEW_TAB_IN_GROUP,
       l10n_util::GetStringUTF16(IDS_TAB_GROUP_HEADER_CXMENU_NEW_TAB_IN_GROUP),
       &button_listener_);
-  new_tab_menu_item->SetBorder(
-      views::CreateEmptyBorder(menu_item_border_inset));
+  new_tab_menu_item->SetBorder(views::CreateEmptyBorder(control_insets));
   menu_items_container->AddChildView(std::move(new_tab_menu_item));
 
   std::unique_ptr<views::LabelButton> ungroup_menu_item = CreateBubbleMenuItem(
       TAB_GROUP_HEADER_CXMENU_UNGROUP,
       l10n_util::GetStringUTF16(IDS_TAB_GROUP_HEADER_CXMENU_UNGROUP),
       &button_listener_);
-  ungroup_menu_item->SetBorder(
-      views::CreateEmptyBorder(menu_item_border_inset));
+  ungroup_menu_item->SetBorder(views::CreateEmptyBorder(control_insets));
   menu_items_container->AddChildView(std::move(ungroup_menu_item));
 
   std::unique_ptr<views::LabelButton> close_menu_item = CreateBubbleMenuItem(
       TAB_GROUP_HEADER_CXMENU_CLOSE_GROUP,
       l10n_util::GetStringUTF16(IDS_TAB_GROUP_HEADER_CXMENU_CLOSE_GROUP),
       &button_listener_);
-  close_menu_item->SetBorder(views::CreateEmptyBorder(menu_item_border_inset));
+  close_menu_item->SetBorder(views::CreateEmptyBorder(control_insets));
   menu_items_container->AddChildView(std::move(close_menu_item));
 
-  std::unique_ptr<views::LabelButton> feedback_menu_item = CreateBubbleMenuItem(
-      TAB_GROUP_HEADER_CXMENU_FEEDBACK,
-      l10n_util::GetStringUTF16(IDS_TAB_GROUP_HEADER_CXMENU_SEND_FEEDBACK),
-      &button_listener_);
-  feedback_menu_item->SetBorder(
-      views::CreateEmptyBorder(menu_item_border_inset));
-  menu_items_container->AddChildView(std::move(feedback_menu_item));
+  std::unique_ptr<views::LabelButton> move_to_new_window_menu_item =
+      CreateBubbleMenuItem(
+          TAB_GROUP_HEADER_CXMENU_MOVE_GROUP_TO_NEW_WINDOW,
+          l10n_util::GetStringUTF16(
+              IDS_TAB_GROUP_HEADER_CXMENU_MOVE_GROUP_TO_NEW_WINDOW),
+          &button_listener_);
+  move_to_new_window_menu_item->SetBorder(
+      views::CreateEmptyBorder(control_insets));
+  menu_items_container->AddChildView(std::move(move_to_new_window_menu_item));
+
+  if (base::FeatureList::IsEnabled(features::kTabGroupsFeedback)) {
+    std::unique_ptr<views::LabelButton> feedback_menu_item =
+        CreateBubbleMenuItem(TAB_GROUP_HEADER_CXMENU_FEEDBACK,
+                             l10n_util::GetStringUTF16(
+                                 IDS_TAB_GROUP_HEADER_CXMENU_SEND_FEEDBACK),
+                             &button_listener_);
+    feedback_menu_item->SetBorder(views::CreateEmptyBorder(control_insets));
+    menu_items_container->AddChildView(std::move(feedback_menu_item));
+  }
 
   views::FlexLayout* menu_layout_manager_ =
       SetLayoutManager(std::make_unique<views::FlexLayout>());
@@ -188,39 +241,29 @@ TabGroupEditorBubbleView::TabGroupEditorBubbleView(
 
 TabGroupEditorBubbleView::~TabGroupEditorBubbleView() = default;
 
-SkColor TabGroupEditorBubbleView::InitColorSet() {
-  base::flat_map<tab_groups::TabGroupColorId, tab_groups::TabGroupColor>
-      all_colors = tab_groups::GetTabGroupColorSet();
-  ui::NativeTheme* native_theme = ui::NativeTheme::GetInstanceForNativeUi();
+tab_groups::TabGroupColorId TabGroupEditorBubbleView::InitColorSet() {
+  const tab_groups::ColorLabelMap& color_map =
+      tab_groups::GetTabGroupColorLabelMap();
+
+  // TODO(tluk) remove the reliance on the ordering of the color pairs in the
+  // vector and use the ColorLabelMap structure instead.
+  std::copy(color_map.begin(), color_map.end(), std::back_inserter(colors_));
 
   // Keep track of the current group's color, to be returned as the initial
   // selected value.
-  const tab_groups::TabGroupColorId initial_color_id =
-      tab_controller_->GetGroupColorId(group_);
-  SkColor initial_color;
-
-  color_ids_.reserve(all_colors.size());
-  colors_.reserve(all_colors.size());
-  for (auto const color_pair : all_colors) {
-    color_ids_.push_back(color_pair.first);
-    SkColor color = native_theme->ShouldUseDarkColors()
-                        ? color_pair.second.dark_theme_color
-                        : color_pair.second.light_theme_color;
-    colors_.push_back({color, color_pair.second.label});
-
-    if (color_pair.first == initial_color_id)
-      initial_color = color;
-  }
-
-  return initial_color;
+  auto* const group_model = browser_->tab_strip_model()->group_model();
+  return group_model->GetTabGroup(group_)->visual_data()->color();
 }
 
 void TabGroupEditorBubbleView::UpdateGroup() {
   base::Optional<int> selected_element = color_selector_->GetSelectedElement();
+  TabGroup* tab_group =
+      browser_->tab_strip_model()->group_model()->GetTabGroup(group_);
+
   const tab_groups::TabGroupColorId current_color =
-      tab_controller_->GetGroupColorId(group_);
+      tab_group->visual_data()->color();
   const tab_groups::TabGroupColorId updated_color =
-      selected_element.has_value() ? color_ids_[selected_element.value()]
+      selected_element.has_value() ? colors_[selected_element.value()].first
                                    : current_color;
 
   if (current_color != updated_color) {
@@ -230,7 +273,14 @@ void TabGroupEditorBubbleView::UpdateGroup() {
 
   tab_groups::TabGroupVisualData new_data(title_field_->GetText(),
                                           updated_color);
-  tab_controller_->SetVisualDataForGroup(group_, new_data);
+  tab_group->SetVisualData(new_data, true);
+}
+
+void TabGroupEditorBubbleView::OnBubbleClose() {
+  if (title_at_opening_ != title_field_->GetText()) {
+    base::RecordAction(
+        base::UserMetricsAction("TabGroups_TabGroupBubble_NameChanged"));
+  }
 }
 
 void TabGroupEditorBubbleView::TitleFieldController::ContentsChanged(
@@ -264,40 +314,64 @@ bool TabGroupEditorBubbleView::TitleFieldController::HandleKeyEvent(
   return false;
 }
 
+void TabGroupEditorBubbleView::TitleField::ShowContextMenu(
+    const gfx::Point& p,
+    ui::MenuSourceType source_type) {
+  // There is no easy way to stop the propagation of a ShowContextMenu event,
+  // which is sometimes used to open the bubble itself. So when the bubble is
+  // opened this way, we manually hide the textfield's context menu the first
+  // time. Otherwise, the textfield, which is automatically focused, would show
+  // an extra context menu when the bubble first opens.
+  if (stop_context_menu_propagation_) {
+    stop_context_menu_propagation_ = false;
+    return;
+  }
+  views::Textfield::ShowContextMenu(p, source_type);
+}
+
 TabGroupEditorBubbleView::ButtonListener::ButtonListener(
-    TabController* tab_controller,
-    TabGroupHeader* anchor_view,
-    tab_groups::TabGroupId group)
-    : tab_controller_(tab_controller),
-      anchor_view_(anchor_view),
-      group_(group) {}
+    const Browser* browser,
+    tab_groups::TabGroupId group,
+    TabGroupHeader* header_view)
+    : browser_(browser), group_(group), header_view_(header_view) {}
 
 void TabGroupEditorBubbleView::ButtonListener::ButtonPressed(
     views::Button* sender,
     const ui::Event& event) {
+  TabStripModel* model = browser_->tab_strip_model();
+  const std::vector<int> tabs_in_group =
+      model->group_model()->GetTabGroup(group_)->ListTabs();
   switch (sender->GetID()) {
     case TAB_GROUP_HEADER_CXMENU_NEW_TAB_IN_GROUP:
       base::RecordAction(
           base::UserMetricsAction("TabGroups_TabGroupBubble_NewTabInGroup"));
-      tab_controller_->AddNewTabInGroup(group_);
+      model->delegate()->AddTabAt(GURL(), tabs_in_group.back() + 1, true,
+                                  group_);
       break;
     case TAB_GROUP_HEADER_CXMENU_UNGROUP:
       base::RecordAction(
           base::UserMetricsAction("TabGroups_TabGroupBubble_Ungroup"));
-      anchor_view_->RemoveObserverFromWidget(sender->GetWidget());
-      tab_controller_->UngroupAllTabsInGroup(group_);
+      if (header_view_)
+        header_view_->RemoveObserverFromWidget(sender->GetWidget());
+      model->RemoveFromGroup(tabs_in_group);
       break;
     case TAB_GROUP_HEADER_CXMENU_CLOSE_GROUP:
       base::RecordAction(
           base::UserMetricsAction("TabGroups_TabGroupBubble_CloseGroup"));
-      tab_controller_->CloseAllTabsInGroup(group_);
+      for (int i = tabs_in_group.size() - 1; i >= 0; --i) {
+        model->CloseWebContentsAt(
+            tabs_in_group[i], TabStripModel::CLOSE_USER_GESTURE |
+                                  TabStripModel::CLOSE_CREATE_HISTORICAL_TAB);
+      }
+      break;
+    case TAB_GROUP_HEADER_CXMENU_MOVE_GROUP_TO_NEW_WINDOW:
+      model->delegate()->MoveGroupToNewWindow(group_);
       break;
     case TAB_GROUP_HEADER_CXMENU_FEEDBACK: {
       base::RecordAction(
           base::UserMetricsAction("TabGroups_TabGroupBubble_SendFeedback"));
-      const Browser* browser = tab_controller_->GetBrowser();
       chrome::ShowFeedbackPage(
-          browser, chrome::FeedbackSource::kFeedbackSourceDesktopTabGroups,
+          browser_, chrome::FeedbackSource::kFeedbackSourceDesktopTabGroups,
           std::string() /* description_template */,
           std::string() /* description_placeholder_text */,
           std::string("DESKTOP_TAB_GROUPS") /* category_tag */,

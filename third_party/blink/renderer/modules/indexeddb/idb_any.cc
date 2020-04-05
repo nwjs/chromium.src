@@ -59,8 +59,8 @@ IDBCursor* IDBAny::IdbCursor() const {
 
 IDBCursorWithValue* IDBAny::IdbCursorWithValue() const {
   DCHECK_EQ(type_, kIDBCursorWithValueType);
-  SECURITY_DCHECK(idb_cursor_->IsCursorWithValue());
-  return ToIDBCursorWithValue(idb_cursor_.Get());
+  SECURITY_DCHECK(IsA<IDBCursorWithValue>(idb_cursor_.Get()));
+  return To<IDBCursorWithValue>(idb_cursor_.Get());
 }
 
 IDBDatabase* IDBAny::IdbDatabase() const {
@@ -93,8 +93,8 @@ IDBAny::IDBAny(DOMStringList* value)
     : type_(kDOMStringListType), dom_string_list_(value) {}
 
 IDBAny::IDBAny(IDBCursor* value)
-    : type_(value->IsCursorWithValue() ? kIDBCursorWithValueType
-                                       : kIDBCursorType),
+    : type_(IsA<IDBCursorWithValue>(value) ? kIDBCursorWithValueType
+                                           : kIDBCursorType),
       idb_cursor_(value) {}
 
 IDBAny::IDBAny(IDBDatabase* value)
@@ -111,7 +111,7 @@ IDBAny::IDBAny(std::unique_ptr<IDBKey> key)
 
 IDBAny::IDBAny(int64_t value) : type_(kIntegerType), integer_(value) {}
 
-void IDBAny::Trace(blink::Visitor* visitor) {
+void IDBAny::Trace(Visitor* visitor) {
   visitor->Trace(dom_string_list_);
   visitor->Trace(idb_cursor_);
   visitor->Trace(idb_database_);

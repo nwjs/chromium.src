@@ -447,7 +447,7 @@ std::vector<std::string> MakeMenuItemStringsFor(
   // These constants are based on Safari's context menu because tests are made
   // for it.
   static const char* kNonEditableMenuStrings[] = {
-      "Back",        "Reload Page",     "Open in Dashbaord",
+      "Back",        "Reload Page",     "Open in Dashboard",
       "<separator>", "View Source",     "Save Page As",
       "Print Page",  "Inspect Element", nullptr};
   static const char* kEditableMenuStrings[] = {"Cut",
@@ -543,27 +543,26 @@ bool IsSystemKeyEvent(const WebKeyboardEvent& event) {
 #endif
 }
 
-bool GetScrollUnits(gin::Arguments* args,
-                    ui::input_types::ScrollGranularity* units) {
+bool GetScrollUnits(gin::Arguments* args, ui::ScrollGranularity* units) {
   std::string units_string;
   if (!args->PeekNext().IsEmpty()) {
     if (args->PeekNext()->IsString())
       args->GetNext(&units_string);
     if (units_string == "Page") {
-      *units = ui::input_types::ScrollGranularity::kScrollByPage;
+      *units = ui::ScrollGranularity::kScrollByPage;
       return true;
     } else if (units_string == "Pixels") {
-      *units = ui::input_types::ScrollGranularity::kScrollByPixel;
+      *units = ui::ScrollGranularity::kScrollByPixel;
       return true;
     } else if (units_string == "PrecisePixels") {
-      *units = ui::input_types::ScrollGranularity::kScrollByPrecisePixel;
+      *units = ui::ScrollGranularity::kScrollByPrecisePixel;
       return true;
     } else {
       args->ThrowError();
       return false;
     }
   } else {
-    *units = ui::input_types::ScrollGranularity::kScrollByPrecisePixel;
+    *units = ui::ScrollGranularity::kScrollByPrecisePixel;
     return true;
   }
 }
@@ -1825,7 +1824,7 @@ void EventSender::ZoomPageIn() {
     content::RenderFrameImpl* main_frame = view_proxy->GetMainRenderFrame();
     if (main_frame) {
       main_frame->GetLocalRootRenderWidget()->SetZoomLevelForTesting(
-          view_proxy->webview()->ZoomLevel() + 1);
+          view_proxy->GetWebView()->ZoomLevel() + 1);
     }
   }
 }
@@ -1838,7 +1837,7 @@ void EventSender::ZoomPageOut() {
     content::RenderFrameImpl* main_frame = view_proxy->GetMainRenderFrame();
     if (main_frame) {
       main_frame->GetLocalRootRenderWidget()->SetZoomLevelForTesting(
-          view_proxy->webview()->ZoomLevel() - 1);
+          view_proxy->GetWebView()->ZoomLevel() - 1);
     }
   }
 }
@@ -2578,12 +2577,11 @@ WebMouseWheelEvent EventSender::GetMouseWheelEvent(gin::Arguments* args,
   event.delta_x = event.wheel_ticks_x;
   event.delta_y = event.wheel_ticks_y;
   if (paged) {
-    event.delta_units = ui::input_types::ScrollGranularity::kScrollByPage;
+    event.delta_units = ui::ScrollGranularity::kScrollByPage;
   } else if (has_precise_scrolling_deltas) {
-    event.delta_units =
-        ui::input_types::ScrollGranularity::kScrollByPrecisePixel;
+    event.delta_units = ui::ScrollGranularity::kScrollByPrecisePixel;
   } else {
-    event.delta_units = ui::input_types::ScrollGranularity::kScrollByPixel;
+    event.delta_units = ui::ScrollGranularity::kScrollByPixel;
   }
   event.phase = phase;
   if (scroll_type == MouseScrollType::PIXEL) {
@@ -2805,8 +2803,7 @@ void EventSender::SendGesturesForMouseWheelEvent(
   begin_event.data.scroll_begin.delta_x_hint = wheel_event.delta_x;
   begin_event.data.scroll_begin.delta_y_hint = wheel_event.delta_y;
   begin_event.data.scroll_begin.delta_hint_units = wheel_event.delta_units;
-  if (wheel_event.delta_units ==
-      ui::input_types::ScrollGranularity::kScrollByPage) {
+  if (wheel_event.delta_units == ui::ScrollGranularity::kScrollByPage) {
     if (begin_event.data.scroll_begin.delta_x_hint) {
       begin_event.data.scroll_begin.delta_x_hint =
           begin_event.data.scroll_begin.delta_x_hint > 0 ? 1 : -1;
@@ -2858,11 +2855,11 @@ WebTestDelegate* EventSender::delegate() {
 }
 
 const blink::WebView* EventSender::view() const {
-  return web_widget_test_proxy_->GetWebViewTestProxy()->webview();
+  return web_widget_test_proxy_->GetWebViewTestProxy()->GetWebView();
 }
 
 blink::WebView* EventSender::view() {
-  return web_widget_test_proxy_->GetWebViewTestProxy()->webview();
+  return web_widget_test_proxy_->GetWebViewTestProxy()->GetWebView();
 }
 
 blink::WebWidget* EventSender::widget() {
@@ -2885,7 +2882,7 @@ std::unique_ptr<WebInputEvent> EventSender::TransformScreenToWidgetCoordinates(
 }
 
 void EventSender::UpdateLifecycleToPrePaint() {
-  widget()->UpdateLifecycle(blink::WebWidget::LifecycleUpdate::kPrePaint,
+  widget()->UpdateLifecycle(blink::WebLifecycleUpdate::kPrePaint,
                             blink::DocumentUpdateReason::kTest);
 }
 

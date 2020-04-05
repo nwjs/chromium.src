@@ -38,6 +38,10 @@ class CONTENT_EXPORT NavigatorImpl : public Navigator {
       RenderFrameHostImpl* render_frame_host,
       const GURL& url);
 
+  static bool ShouldIgnoreIncomingRendererRequest(
+      const NavigationRequest* ongoing_navigation_request,
+      bool has_user_gesture);
+
   // Navigator implementation.
   NavigatorDelegate* GetDelegate() override;
   NavigationController* GetController() override;
@@ -83,9 +87,9 @@ class CONTENT_EXPORT NavigatorImpl : public Navigator {
       const std::string& extra_headers,
       scoped_refptr<network::SharedURLLoaderFactory> blob_url_loader_factory,
       bool has_user_gesture) override;
-  void OnBeforeUnloadACK(FrameTreeNode* frame_tree_node,
-                         bool proceed,
-                         const base::TimeTicks& proceed_time) override;
+  void BeforeUnloadCompleted(FrameTreeNode* frame_tree_node,
+                             bool proceed,
+                             const base::TimeTicks& proceed_time) override;
   void OnBeginNavigation(
       FrameTreeNode* frame_tree_node,
       mojom::CommonNavigationParamsPtr common_params,

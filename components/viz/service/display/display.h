@@ -103,7 +103,8 @@ class VIZ_SERVICE_EXPORT Display : public DisplaySchedulerClient,
 #endif
   void Initialize(DisplayClient* client,
                   SurfaceManager* surface_manager,
-                  bool enable_shared_images = kEnableSharedImages);
+                  bool enable_shared_images = kEnableSharedImages,
+                  bool using_synthetic_bfs = false);
 
   void AddObserver(DisplayObserver* observer);
   void RemoveObserver(DisplayObserver* observer);
@@ -113,7 +114,6 @@ class VIZ_SERVICE_EXPORT Display : public DisplaySchedulerClient,
   void SetLocalSurfaceId(const LocalSurfaceId& id, float device_scale_factor);
   void SetVisible(bool visible);
   void Resize(const gfx::Size& new_size);
-  void ForceReshapeOnNextDraw();
 
   // Stop drawing until Resize() is called with a new size. If the display
   // hasn't drawn a frame at the current size *and* it's possible to immediately
@@ -244,8 +244,14 @@ class VIZ_SERVICE_EXPORT Display : public DisplaySchedulerClient,
   scoped_refptr<base::SingleThreadTaskRunner> current_task_runner_;
   std::unique_ptr<DirectRenderer> renderer_;
   SoftwareRenderer* software_renderer_ = nullptr;
+  // Currently, this OverlayProcessor takes raw pointer to memory tracker, which
+  // is owned by the OutputSurface. This OverlayProcessor also takes resource
+  // locks which contains raw pointers to DisplayResourceProvider. Make sure
+  // both the OutputSurface and the DisplayResourceProvider outlive the
+  // Overlay Processor.
   std::unique_ptr<OverlayProcessorInterface> overlay_processor_;
   std::vector<ui::LatencyInfo> stored_latency_info_;
+  std::vector<gfx::Rect> cached_visible_region_;
 
   // |pending_presentation_group_timings_| stores a
   // Display::PresentationGroupTiming for each group currently waiting for
@@ -253,7 +259,9 @@ class VIZ_SERVICE_EXPORT Display : public DisplaySchedulerClient,
   base::circular_deque<Display::PresentationGroupTiming>
       pending_presentation_group_timings_;
 
-  bool disable_draw_until_resize_ = true;
+  bool disable_swap_until_resize_ = true;
+
+  bool enable_quad_splitting_ = true;
 
   // Callback that will be run after all pending swaps have acked.
   base::OnceClosure no_pending_swaps_callback_;

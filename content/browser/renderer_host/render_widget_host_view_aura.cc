@@ -73,8 +73,8 @@
 #include "ui/base/clipboard/scoped_clipboard_writer.h"
 #include "ui/base/hit_test.h"
 #include "ui/base/ime/input_method.h"
+#include "ui/base/mojom/cursor_type.mojom-shared.h"
 #include "ui/base/ui_base_switches.h"
-#include "ui/base/ui_base_switches_util.h"
 #include "ui/base/ui_base_types.h"
 #include "ui/compositor/dip_util.h"
 #include "ui/display/screen.h"
@@ -648,15 +648,24 @@ void RenderWidgetHostViewAura::WasUnOccluded() {
         base::Optional<bool>() /* destination_is_loaded */,
         base::Optional<bool>() /* destination_is_frozen */,
         false /* show_reason_tab_switching */,
-        true /* show_reason_unoccluded */);
+        true /* show_reason_unoccluded */,
+        false /* show_reason_bfcache_restore */);
   }
 
   auto tab_switch_start_state = TakeRecordContentToVisibleTimeRequest();
   bool has_saved_frame =
       delegated_frame_host_ ? delegated_frame_host_->HasSavedFrame() : false;
 
-  host()->WasShown(has_saved_frame ? base::nullopt : tab_switch_start_state);
+  bool show_reason_bfcache_restore =
+      tab_switch_start_state
+          ? tab_switch_start_state->show_reason_bfcache_restore
+          : false;
 
+  // No need to check for saved frames for the case of bfcache restore.
+  if (show_reason_bfcache_restore)
+    host()->WasShown(tab_switch_start_state);
+  else
+    host()->WasShown(has_saved_frame ? base::nullopt : tab_switch_start_state);
   aura::Window* root = window_->GetRootWindow();
   if (root) {
     aura::client::CursorClient* cursor_client =
@@ -1148,8 +1157,14 @@ void RenderWidgetHostViewAura::SetMainFrameAXTreeID(ui::AXTreeID id) {
   window_->SetProperty(ui::kChildAXTreeID, id.ToString());
 }
 
-bool RenderWidgetHostViewAura::LockMouse(bool request_unadjusted_movement) {
+blink::mojom::PointerLockResult RenderWidgetHostViewAura::LockMouse(
+    bool request_unadjusted_movement) {
   return event_handler_->LockMouse(request_unadjusted_movement);
+}
+
+blink::mojom::PointerLockResult RenderWidgetHostViewAura::ChangeMouseLock(
+    bool request_unadjusted_movement) {
+  return event_handler_->ChangeMouseLock(request_unadjusted_movement);
 }
 
 void RenderWidgetHostViewAura::UnlockMouse() {
@@ -1445,10 +1460,7 @@ bool RenderWidgetHostViewAura::ChangeTextDirectionAndLayoutAlignment(
   if (!GetTextInputManager() && !GetTextInputManager()->GetActiveWidget())
     return false;
 
-  GetTextInputManager()->GetActiveWidget()->UpdateTextDirection(
-      direction == base::i18n::RIGHT_TO_LEFT
-          ? blink::kWebTextDirectionRightToLeft
-          : blink::kWebTextDirectionLeftToRight);
+  GetTextInputManager()->GetActiveWidget()->UpdateTextDirection(direction);
   GetTextInputManager()->GetActiveWidget()->NotifyTextDirection();
   return true;
 }
@@ -1525,10 +1537,14 @@ void RenderWidgetHostViewAura::GetActiveTextInputControlLayoutBounds(
   if (text_input_manager_) {
     const TextInputState* state = text_input_manager_->GetTextInputState();
     if (state) {
-      *control_bounds = state->edit_context_control_bounds;
+      if (state->edit_context_control_bounds)
+        *control_bounds =
+            ConvertRectToScreen(state->edit_context_control_bounds.value());
       // Selection bounds are currently populated only for EditContext.
       // For editable elements we use GetCompositionCharacterBounds.
-      *selection_bounds = state->edit_context_selection_bounds;
+      if (state->edit_context_selection_bounds)
+        *selection_bounds =
+            ConvertRectToScreen(state->edit_context_selection_bounds.value());
     }
   }
 }
@@ -1602,7 +1618,7 @@ void RenderWidgetHostViewAura::OnBoundsChanged(const gfx::Rect& old_bounds,
 
 gfx::NativeCursor RenderWidgetHostViewAura::GetCursor(const gfx::Point& point) {
   if (IsMouseLocked())
-    return ui::CursorType::kNone;
+    return ui::mojom::CursorType::kNone;
   return current_cursor_.GetNativeCursor();
 }
 
@@ -2086,8 +2102,8 @@ void RenderWidgetHostViewAura::UpdateCursorIfOverSelf() {
 
   gfx::NativeCursor cursor = current_cursor_.GetNativeCursor();
   // Do not show loading cursor when the cursor is currently hidden.
-  if (is_loading_ && cursor != ui::CursorType::kNone)
-    cursor = ui::Cursor(ui::CursorType::kPointer);
+  if (is_loading_ && cursor != ui::mojom::CursorType::kNone)
+    cursor = ui::Cursor(ui::mojom::CursorType::kPointer);
 
   aura::client::CursorClient* cursor_client =
       aura::client::GetCursorClient(root_window);
@@ -2173,8 +2189,9 @@ bool RenderWidgetHostViewAura::NeedsInputGrab() {
 bool RenderWidgetHostViewAura::NeedsMouseCapture() {
 #if defined(OS_LINUX) && !defined(OS_CHROMEOS)
   return NeedsInputGrab();
-#endif
+#else
   return false;
+#endif
 }
 
 void RenderWidgetHostViewAura::SetTooltipsEnabled(bool enable) {
@@ -2406,9 +2423,13 @@ void RenderWidgetHostViewAura::OnUpdateTextInputStateCalled(
   if (state && state->type != ui::TEXT_INPUT_TYPE_NONE &&
       state->mode != ui::TEXT_INPUT_MODE_NONE) {
     bool show_virtual_keyboard = true;
-#if defined(OS_WIN) || defined(OS_FUCHSIA)
+#if defined(OS_FUCHSIA)
     show_virtual_keyboard =
         last_pointer_type_ == ui::EventPointerType::POINTER_TYPE_TOUCH;
+#elif defined(OS_WIN)
+    show_virtual_keyboard =
+        last_pointer_type_ == ui::EventPointerType::POINTER_TYPE_TOUCH ||
+        last_pointer_type_ == ui::EventPointerType::POINTER_TYPE_PEN;
 #endif
 
 #if !defined(OS_WIN)

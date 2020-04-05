@@ -31,6 +31,7 @@
 #include "extensions/browser/warning_service_factory.h"
 #include "extensions/browser/warning_set.h"
 #include "extensions/common/api/declarative_net_request.h"
+#include "extensions/common/api/declarative_net_request/constants.h"
 #include "extensions/common/api/declarative_net_request/dnr_manifest_data.h"
 #include "extensions/common/api/declarative_net_request/utils.h"
 #include "extensions/common/extension_id.h"
@@ -189,13 +190,23 @@ void RulesMonitorService::OnExtensionLoaded(
 
   // Static ruleset.
   {
-    bool has_checksum = prefs_->GetDNRRulesetChecksum(
-        extension->id(), &expected_ruleset_checksum);
-    DCHECK(has_checksum);
+    std::vector<RulesetSource> static_rulesets =
+        RulesetSource::CreateStatic(*extension);
 
-    RulesetInfo static_ruleset(RulesetSource::CreateStatic(*extension));
-    static_ruleset.set_expected_checksum(expected_ruleset_checksum);
-    load_data.rulesets.push_back(std::move(static_ruleset));
+    // TODO(crbug.com/754526): Load all static rulesets for the extension.
+    RulesetInfo static_ruleset(std::move(static_rulesets[0]));
+    bool has_checksum = prefs_->GetDNRStaticRulesetChecksum(
+        extension->id(), static_ruleset.source().id(),
+        &expected_ruleset_checksum);
+
+    if (!has_checksum) {
+      // This might happen on prefs corruption.
+      warning_service_->AddWarnings(
+          {Warning::CreateRulesetFailedToLoadWarning(load_data.extension_id)});
+    } else {
+      static_ruleset.set_expected_checksum(expected_ruleset_checksum);
+      load_data.rulesets.push_back(std::move(static_ruleset));
+    }
   }
 
   // Dynamic ruleset
@@ -206,6 +217,9 @@ void RulesMonitorService::OnExtensionLoaded(
     dynamic_ruleset.set_expected_checksum(expected_ruleset_checksum);
     load_data.rulesets.push_back(std::move(dynamic_ruleset));
   }
+
+  if (load_data.rulesets.empty())
+    return;
 
   auto load_ruleset_callback = base::BindOnce(
       &RulesMonitorService::OnRulesetLoaded, weak_factory_.GetWeakPtr());
@@ -240,8 +254,10 @@ void RulesMonitorService::OnExtensionUninstalled(
 
   // Skip if the extension doesn't have a dynamic ruleset.
   int dynamic_checksum;
-  if (!prefs_->GetDNRDynamicRulesetChecksum(extension->id(), &dynamic_checksum))
+  if (!prefs_->GetDNRDynamicRulesetChecksum(extension->id(),
+                                            &dynamic_checksum)) {
     return;
+  }
 
   // Cleanup the dynamic rules directory for the extension.
   // TODO(karandeepb): It's possible that this task fails, e.g. during shutdown.
@@ -260,24 +276,25 @@ void RulesMonitorService::OnRulesetLoaded(LoadRequestData load_data) {
   // per extension.
   DCHECK(load_data.rulesets.size() == 1u || load_data.rulesets.size() == 2u);
   RulesetInfo& static_ruleset = load_data.rulesets[0];
-  DCHECK_EQ(static_ruleset.source().id(), RulesetSource::kStaticRulesetID)
+  DCHECK_GE(static_ruleset.source().id(), kMinValidStaticRulesetID)
       << static_ruleset.source().id();
 
   RulesetInfo* dynamic_ruleset =
       load_data.rulesets.size() == 2 ? &load_data.rulesets[1] : nullptr;
   DCHECK(!dynamic_ruleset ||
-         dynamic_ruleset->source().id() == RulesetSource::kDynamicRulesetID)
+         dynamic_ruleset->source().id() == kDynamicRulesetID)
       << dynamic_ruleset->source().id();
 
   // Update the ruleset checksums if needed.
   if (static_ruleset.new_checksum()) {
-    prefs_->SetDNRRulesetChecksum(load_data.extension_id,
-                                  *(static_ruleset.new_checksum()));
+    prefs_->SetDNRStaticRulesetChecksum(load_data.extension_id,
+                                        static_ruleset.source().id(),
+                                        *(static_ruleset.new_checksum()));
   }
 
   if (dynamic_ruleset && dynamic_ruleset->new_checksum()) {
-    prefs_->SetDNRRulesetChecksum(load_data.extension_id,
-                                  *(dynamic_ruleset->new_checksum()));
+    prefs_->SetDNRDynamicRulesetChecksum(load_data.extension_id,
+                                         *(dynamic_ruleset->new_checksum()));
   }
 
   // It's possible that the extension has been disabled since the initial load

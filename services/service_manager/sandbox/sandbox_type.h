@@ -27,6 +27,12 @@ enum class SandboxType {
 
   // The XR Compositing process.
   kXrCompositing,
+
+  // The proxy resolver process.
+  kProxyResolver,
+
+  // The PDF conversion service process used in printing.
+  kPdfConversion,
 #endif
 
 #if defined(OS_FUCHSIA)
@@ -68,8 +74,15 @@ enum class SandboxType {
   kIme,
 #endif  // defined(OS_CHROMEOS)
 
+#if !defined(OS_MACOSX)
+  // Hosts WebRTC for Sharing Service, uses kUtility on OS_MACOSX.
+  kSharingService,
+#endif
+
   // The Speech On-Device API service process.
-  kSoda
+  kSoda,
+
+  kMaxValue = kSoda
 };
 
 SERVICE_MANAGER_SANDBOX_EXPORT bool IsUnsandboxedSandboxType(

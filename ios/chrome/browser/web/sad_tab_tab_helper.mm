@@ -20,6 +20,7 @@
 #import "ios/chrome/browser/web/features.h"
 #import "ios/chrome/browser/web/page_placeholder_tab_helper.h"
 #import "ios/chrome/browser/web/sad_tab_tab_helper_delegate.h"
+#include "ios/components/webui/web_ui_url_constants.h"
 #include "ios/web/public/navigation/navigation_context.h"
 #import "ios/web/public/navigation/navigation_manager.h"
 #import "ios/web/public/web_state.h"
@@ -74,7 +75,6 @@ void SadTabTabHelper::CreateForWebState(web::WebState* web_state,
 void SadTabTabHelper::SetDelegate(id<SadTabTabHelperDelegate> delegate) {
   delegate_ = delegate;
   if (delegate_ && showing_sad_tab_ && web_state_->IsVisible()) {
-    UpdateFullscreenDisabler();
     [delegate_ sadTabTabHelper:this
         didShowForRepeatedFailure:repeated_failure_];
   }
@@ -86,7 +86,6 @@ void SadTabTabHelper::WasShown(web::WebState* web_state) {
     ReloadTab();
     requires_reload_on_becoming_visible_ = false;
   }
-  UpdateFullscreenDisabler();
   if (showing_sad_tab_) {
     DCHECK(delegate_);
     [delegate_ sadTabTabHelper:this
@@ -95,7 +94,6 @@ void SadTabTabHelper::WasShown(web::WebState* web_state) {
 }
 
 void SadTabTabHelper::WasHidden(web::WebState* web_state) {
-  UpdateFullscreenDisabler();
   if (showing_sad_tab_) {
     DCHECK(delegate_);
     [delegate_ sadTabTabHelperDidHide:this];
@@ -193,7 +191,6 @@ void SadTabTabHelper::PresentSadTab() {
 void SadTabTabHelper::SetIsShowingSadTab(bool showing_sad_tab) {
   if (showing_sad_tab_ != showing_sad_tab) {
     showing_sad_tab_ = showing_sad_tab;
-    UpdateFullscreenDisabler();
   }
 }
 
@@ -230,21 +227,6 @@ void SadTabTabHelper::RemoveApplicationDidBecomeActiveObserver() {
     [[NSNotificationCenter defaultCenter]
         removeObserver:application_did_become_active_observer_];
     application_did_become_active_observer_ = nil;
-  }
-}
-
-void SadTabTabHelper::UpdateFullscreenDisabler() {
-  if (showing_sad_tab_ && web_state_->IsVisible()) {
-    ChromeBrowserState* browser_state =
-        ChromeBrowserState::FromBrowserState(web_state_->GetBrowserState());
-    FullscreenController* fullscreen_controller =
-        FullscreenController::FromBrowserState(browser_state);
-    if (fullscreen_controller) {
-      fullscreen_disabler_ =
-          std::make_unique<ScopedFullscreenDisabler>(fullscreen_controller);
-    }
-  } else {
-    fullscreen_disabler_ = nullptr;
   }
 }
 

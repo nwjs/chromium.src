@@ -14,6 +14,7 @@
 #include "chrome/browser/chromeos/login/test/fake_gaia_mixin.h"
 #include "chrome/browser/chromeos/login/test/js_checker.h"
 #include "chrome/browser/chromeos/login/test/oobe_base_test.h"
+#include "chrome/browser/chromeos/login/test/oobe_screens_utils.h"
 #include "chrome/browser/chromeos/login/test/session_manager_state_waiter.h"
 #include "chrome/browser/chromeos/login/test/test_condition_waiter.h"
 #include "chrome/browser/chromeos/login/ui/login_display_host.h"
@@ -120,8 +121,7 @@ class SyncConsentTest : public OobeBaseTest {
   }
 
   void LoginToSyncConsentScreen() {
-    WizardController::default_controller()->SkipToLoginForTesting(
-        LoginScreenContext());
+    WizardController::default_controller()->SkipToLoginForTesting();
     WaitForGaiaPageEvent("ready");
     LoginDisplayHost::default_host()
         ->GetOobeUI()
@@ -283,6 +283,7 @@ IN_PROC_BROWSER_TEST_P(SyncConsentPolicyDisabledTest,
   screen->OnStateChanged(nullptr);
 
   // Expect for other screens to be skipped and begin user session.
+  test::WaitForLastScreenAndTapGetStarted();
   test::WaitForPrimaryUserSessionStart();
 }
 
@@ -290,20 +291,27 @@ INSTANTIATE_TEST_SUITE_P(All,
                          SyncConsentPolicyDisabledTest,
                          testing::Bool());
 
-// Tests of the consent dialog with the SplitSettingsSync flag enabled.
-class SyncConsentSplitSettingsSyncTest : public SyncConsentTest {
+// Tests of the consent dialog with the SplitSyncConsent flag enabled.
+class SyncConsentSplitSyncConsentTest : public SyncConsentTest {
  public:
-  SyncConsentSplitSettingsSyncTest() {
-    sync_feature_list_.InitAndEnableFeature(
-        chromeos::features::kSplitSettingsSync);
+  SyncConsentSplitSyncConsentTest() {
+    sync_feature_list_.InitWithFeatures({chromeos::features::kSplitSettingsSync,
+                                         chromeos::features::kSplitSyncConsent},
+                                        {});
   }
-  ~SyncConsentSplitSettingsSyncTest() override = default;
+  ~SyncConsentSplitSyncConsentTest() override = default;
 
  private:
   base::test::ScopedFeatureList sync_feature_list_;
 };
 
-IN_PROC_BROWSER_TEST_F(SyncConsentSplitSettingsSyncTest, DefaultFlow) {
+// Flaky failures on sanitizer builds. https://crbug.com/1054377
+#if defined(ADDRESS_SANITIZER) || defined(LEAK_SANITIZER)
+#define MAYBE_DefaultFlow DISABLED_DefaultFlow
+#else
+#define MAYBE_DefaultFlow DefaultFlow
+#endif
+IN_PROC_BROWSER_TEST_F(SyncConsentSplitSyncConsentTest, MAYBE_DefaultFlow) {
   LoginToSyncConsentScreen();
 
   // OS sync is disabled by default.
@@ -352,7 +360,13 @@ IN_PROC_BROWSER_TEST_F(SyncConsentSplitSettingsSyncTest, DefaultFlow) {
   EXPECT_TRUE(prefs->GetBoolean(syncer::prefs::kOsSyncFeatureEnabled));
 }
 
-IN_PROC_BROWSER_TEST_F(SyncConsentSplitSettingsSyncTest, UserCanDisable) {
+// Flaky failures on sanitizer builds. https://crbug.com/1054377
+#if defined(ADDRESS_SANITIZER) || defined(LEAK_SANITIZER)
+#define MAYBE_UserCanDisable DISABLED_UserCanDisable
+#else
+#define MAYBE_UserCanDisable UserCanDisable
+#endif
+IN_PROC_BROWSER_TEST_F(SyncConsentSplitSyncConsentTest, MAYBE_UserCanDisable) {
   LoginToSyncConsentScreen();
 
   // Wait for content to load.

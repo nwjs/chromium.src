@@ -47,9 +47,7 @@ struct NDEFError {
 // https://w3c.github.io/web-nfc/#dom-ndefrecord
 struct NDEFRecord {
   // The category |record_type| belongs to. This field is not exposed to JS, but
-  // is used to transfer information internally and make code more readable,
-  // given that there're some complex logic around external types and local
-  // types (will be supported in the future).
+  // is used to transfer information internally and make code more readable.
   NDEFRecordTypeCategory category;
 
   // The type of NDEFRecord.
@@ -73,18 +71,29 @@ struct NDEFRecord {
   // Payload of the NDEFRecord.
   array<uint8> data;
 
-  // |data| parsed as an NDEFMessage. This field may be set for some
-  // "smart-poster" or external type records. This field may be null even if
-  // |data| is valid.
+  // This field may be set for some "smart-poster", external, or local type
+  // records.
+  // On the writing direction (passed from inside Blink), if this field is
+  // non-null, |data| will be empty and the receiver is expected to make out the
+  // payload raw bytes from this field.
+  // On the reading direction (passed towards Blink), |data| always carries the
+  // payload raw bytes, this field is non-null only if |data| can be parsed as
+  // an NDEFMessage.
   NDEFMessage? payload_message;
 };
 
+// Mojo has a maximum size limit usually in megabytes for messages sent/received
+// via message pipes, possibly like 256M or 128M.
+//
+// On the reading direction, the NDEFMessage is read from an NFC tag which can
+// never have so large storage, so we'll never exceed the size limit above.
+//
+// On the writing direction, if the NDEFMessage input from users exceeds the
+// limit, Mojo will raise a crash for the sender process, which is specifically
+// the renderer process for our WebNFC impl.
 struct NDEFMessage {
   // The body of the NDEFMessage is a collection of NDEFRecord objects.
   array<NDEFRecord> data;
-
-  // Maximum size of NFC message that can be sent over IPC is 32KB.
-  const uint32 kMaxSize = 32768;
 };
 
 struct NDEFWriteOptions {
@@ -135,13 +144,6 @@ interface NFC {
 
   // Cancels all watch operations.
   CancelAllWatches () => (NDEFError? error);
-
-  // Suspends all pending NFC operations. Could be used when web page
-  // visibility is lost.
-  SuspendNFCOperations();
-
-  // Resumes all suspended NFC operations.
-  ResumeNFCOperations();
 };
 
 interface NFCClient {

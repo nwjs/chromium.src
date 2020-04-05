@@ -74,16 +74,13 @@ class CompositeMatcher {
   // Returns whether this modifies "extraHeaders".
   bool HasAnyExtraHeadersMatcher() const;
 
+  void OnRenderFrameCreated(content::RenderFrameHost* host);
   void OnRenderFrameDeleted(content::RenderFrameHost* host);
   void OnDidFinishNavigation(content::RenderFrameHost* host);
 
  private:
   bool ComputeHasAnyExtraHeadersMatcher() const;
 
-  // Sorts |matchers_| in descending order of priority.
-  void SortMatchersByPriority();
-
-  // Sorted by priority in descending order.
   MatcherList matchers_;
 
   // Denotes the cached return value for |HasAnyExtraHeadersMatcher|. Care must

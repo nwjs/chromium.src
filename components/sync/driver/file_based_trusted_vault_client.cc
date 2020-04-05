@@ -11,8 +11,8 @@
 #include "base/files/important_file_writer.h"
 #include "base/memory/ref_counted.h"
 #include "base/sequenced_task_runner.h"
-#include "base/task/post_task.h"
 #include "base/task/task_traits.h"
+#include "base/task/thread_pool.h"
 #include "base/task_runner_util.h"
 #include "components/os_crypt/os_crypt.h"
 #include "components/signin/public/identity_manager/account_info.h"
@@ -22,8 +22,8 @@ namespace syncer {
 
 namespace {
 
-constexpr base::TaskTraits kTaskTraits = {
-    base::ThreadPool(), base::MayBlock(), base::TaskPriority::USER_VISIBLE,
+constexpr base::TaskTraits kBackendTaskTraits = {
+    base::MayBlock(), base::TaskPriority::USER_VISIBLE,
     base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN};
 
 sync_pb::LocalTrustedVault ReadEncryptedFile(const base::FilePath& file_path) {
@@ -98,6 +98,11 @@ class FileBasedTrustedVaultClient::Backend
     WriteToDisk(data_, file_path_);
   }
 
+  void RemoveAllStoredKeys() {
+    base::DeleteFile(file_path_, /*recursive=*/false);
+    data_.Clear();
+  }
+
  private:
   friend class base::RefCountedThreadSafe<Backend>;
 
@@ -124,7 +129,8 @@ class FileBasedTrustedVaultClient::Backend
 FileBasedTrustedVaultClient::FileBasedTrustedVaultClient(
     const base::FilePath& file_path)
     : file_path_(file_path),
-      backend_task_runner_(base::CreateSequencedTaskRunner(kTaskTraits)) {}
+      backend_task_runner_(
+          base::ThreadPool::CreateSequencedTaskRunner(kBackendTaskTraits)) {}
 
 FileBasedTrustedVaultClient::~FileBasedTrustedVaultClient() = default;
 
@@ -152,6 +158,13 @@ void FileBasedTrustedVaultClient::StoreKeys(
   backend_task_runner_->PostTask(
       FROM_HERE, base::BindOnce(&Backend::StoreKeys, backend_, gaia_id, keys,
                                 last_key_version));
+  observer_list_.Notify();
+}
+
+void FileBasedTrustedVaultClient::RemoveAllStoredKeys() {
+  TriggerLazyInitializationIfNeeded();
+  backend_task_runner_->PostTask(
+      FROM_HERE, base::BindOnce(&Backend::RemoveAllStoredKeys, backend_));
   observer_list_.Notify();
 }
 

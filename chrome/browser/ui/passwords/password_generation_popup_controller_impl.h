@@ -6,14 +6,15 @@
 #define CHROME_BROWSER_UI_PASSWORDS_PASSWORD_GENERATION_POPUP_CONTROLLER_IMPL_H_
 
 #include <stddef.h>
+#include <memory>
 #include <string>
+#include <vector>
 
 #include "base/macros.h"
 #include "base/memory/weak_ptr.h"
 #include "base/strings/string16.h"
 #include "build/build_config.h"
 #include "chrome/browser/ui/autofill/popup_controller_common.h"
-#include "chrome/browser/ui/autofill/popup_view_common.h"
 #include "chrome/browser/ui/passwords/password_generation_popup_controller.h"
 #include "components/autofill/content/browser/key_press_handler_manager.h"
 #include "components/autofill/core/common/password_form.h"
@@ -38,7 +39,6 @@ class PasswordManagerDriver;
 
 namespace autofill {
 struct FormData;
-struct Suggestion;
 namespace password_generation {
 struct PasswordGenerationUIData;
 }  // namespace password_generation
@@ -129,21 +129,12 @@ class PasswordGenerationPopupControllerImpl
   // PasswordGenerationPopupController implementation:
   void Hide(autofill::PopupHidingReason reason) override;
   void ViewDestroyed() override;
-  void SetSelectionAtPoint(const gfx::Point& point) override;
-  bool AcceptSelectedLine() override;
   void SelectionCleared() override;
-  bool HasSelection() const override;
   void SetSelected() override;
   void PasswordAccepted() override;
   gfx::NativeView container_view() const override;
-  gfx::Rect popup_bounds() const override;
   const gfx::RectF& element_bounds() const override;
   bool IsRTL() const override;
-  const std::vector<autofill::Suggestion> GetSuggestions() override;
-#if !defined(OS_ANDROID)
-  int GetElidedValueWidthForRow(int row) override;
-  int GetElidedLabelWidthForRow(int row) override;
-#endif
 
   GenerationUIState state() const override;
   bool password_selected() const override;
@@ -194,8 +185,6 @@ class PasswordGenerationPopupControllerImpl
 
   // The state of the generation popup.
   GenerationUIState state_;
-
-  autofill::PopupViewCommon view_common_;
 
   std::unique_ptr<KeyPressRegistrator> key_press_handler_manager_;
 

@@ -31,15 +31,14 @@ import org.chromium.chrome.browser.AppHooks;
 import org.chromium.chrome.browser.ChromeCachedFlags;
 import org.chromium.chrome.browser.ChromeLocalizationUtils;
 import org.chromium.chrome.browser.ChromeStrictMode;
-import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.FileProviderHelper;
 import org.chromium.chrome.browser.crash.LogcatExtractionRunnable;
 import org.chromium.chrome.browser.download.DownloadManagerService;
+import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.services.GoogleServicesManager;
 import org.chromium.chrome.browser.webapps.ActivityAssigner;
 import org.chromium.chrome.browser.webapps.ChromeWebApkHost;
-import org.chromium.components.background_task_scheduler.BackgroundTaskSchedulerExternalUma;
-import org.chromium.components.background_task_scheduler.BackgroundTaskSchedulerPrefs;
+import org.chromium.components.background_task_scheduler.BackgroundTaskSchedulerFactory;
 import org.chromium.components.crash.browser.ChildProcessCrashObserver;
 import org.chromium.components.minidump_uploader.CrashFileManager;
 import org.chromium.components.module_installer.util.ModuleUtil;
@@ -154,6 +153,7 @@ public class ChromeBrowserInitializer {
      */
     public void handlePreNativeStartup(final BrowserParts parts) {
         ThreadUtils.checkUiThread();
+        if (parts.isActivityFinishingOrDestroyed()) return;
         ProcessInitializationHandler.getInstance().initializePreNative();
         try (TraceEvent e = TraceEvent.scoped("ChromeBrowserInitializer.preInflationStartup")) {
             preInflationStartup();
@@ -198,12 +198,12 @@ public class ChromeBrowserInitializer {
             PostTask.postTask(TaskTraits.BEST_EFFORT_MAY_BLOCK, () -> {
                 ActivityAssigner.warmUpSharedPrefs();
                 DownloadManagerService.warmUpSharedPrefs();
-                BackgroundTaskSchedulerPrefs.warmUpSharedPrefs();
+                BackgroundTaskSchedulerFactory.warmUpSharedPrefs();
             });
         } else {
             ActivityAssigner.warmUpSharedPrefs();
             DownloadManagerService.warmUpSharedPrefs();
-            BackgroundTaskSchedulerPrefs.warmUpSharedPrefs();
+            BackgroundTaskSchedulerFactory.warmUpSharedPrefs();
         }
     }
 
@@ -310,7 +310,7 @@ public class ChromeBrowserInitializer {
         int startupMode =
                 getBrowserStartupController().getStartupMode(delegate.startServiceManagerOnly());
         tasks.add(UiThreadTaskTraits.DEFAULT, () -> {
-            BackgroundTaskSchedulerExternalUma.getInstance().reportStartupMode(startupMode);
+            BackgroundTaskSchedulerFactory.getUmaReporter().reportStartupMode(startupMode);
         });
 
         if (isAsync) {
@@ -322,7 +322,7 @@ public class ChromeBrowserInitializer {
                     new BrowserStartupController.StartupCallback() {
                         @Override
                         public void onFailure() {
-                            delegate.onStartupFailure();
+                            delegate.onStartupFailure(null);
                         }
 
                         @Override
@@ -341,7 +341,8 @@ public class ChromeBrowserInitializer {
         try {
             TraceEvent.begin("ChromeBrowserInitializer.startChromeBrowserProcessesAsync");
             getBrowserStartupController().startBrowserProcessesAsync(
-                    startGpuProcess, startServiceManagerOnly, callback);
+                    LibraryProcessType.PROCESS_BROWSER, startGpuProcess, startServiceManagerOnly,
+                    callback);
         } finally {
             TraceEvent.end("ChromeBrowserInitializer.startChromeBrowserProcessesAsync");
         }
@@ -355,7 +356,8 @@ public class ChromeBrowserInitializer {
             LibraryLoader.getInstance().ensureInitialized();
             StrictMode.setThreadPolicy(oldPolicy);
             LibraryPrefetcher.asyncPrefetchLibrariesToMemory();
-            getBrowserStartupController().startBrowserProcessesSync(false);
+            getBrowserStartupController().startBrowserProcessesSync(
+                    LibraryProcessType.PROCESS_BROWSER, /*singleProcess=*/false);
             GoogleServicesManager.get();
         } finally {
             TraceEvent.end("ChromeBrowserInitializer.startChromeBrowserProcessesSync");
@@ -364,8 +366,7 @@ public class ChromeBrowserInitializer {
 
     private BrowserStartupController getBrowserStartupController() {
         if (sBrowserStartupController == null) {
-            sBrowserStartupController =
-                    BrowserStartupController.get(LibraryProcessType.PROCESS_BROWSER);
+            sBrowserStartupController = BrowserStartupController.getInstance();
         }
         return sBrowserStartupController;
     }

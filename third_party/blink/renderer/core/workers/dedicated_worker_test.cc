@@ -128,12 +128,11 @@ class DedicatedWorkerMessagingProxyForTest
         {"contentSecurityPolicy",
          network::mojom::ContentSecurityPolicyType::kReport}};
     auto worker_settings = std::make_unique<WorkerSettings>(
-        To<Document>(GetExecutionContext())->GetSettings());
+        Document::From(GetExecutionContext())->GetSettings());
     InitializeWorkerThread(
         std::make_unique<GlobalScopeCreationParams>(
-            script_url, mojom::ScriptType::kClassic,
-            OffMainThreadWorkerScriptFetchOption::kDisabled,
-            "fake global scope name", "fake user agent",
+            script_url, mojom::ScriptType::kClassic, "fake global scope name",
+            "fake user agent", UserAgentMetadata(),
             nullptr /* web_worker_fetch_context */, headers,
             network::mojom::ReferrerPolicy::kDefault, security_origin_.get(),
             false /* starter_secure_context */,
@@ -155,7 +154,7 @@ class DedicatedWorkerMessagingProxyForTest
     return static_cast<DedicatedWorkerThreadForTest*>(GetWorkerThread());
   }
 
-  void Trace(blink::Visitor* visitor) override {
+  void Trace(Visitor* visitor) override {
     DedicatedWorkerMessagingProxy::Trace(visitor);
   }
 
@@ -176,7 +175,7 @@ class DedicatedWorkerTest : public PageTestBase {
     PageTestBase::SetUp(IntSize());
     worker_messaging_proxy_ =
         MakeGarbageCollected<DedicatedWorkerMessagingProxyForTest>(
-            &GetDocument());
+            GetDocument().ToExecutionContext());
   }
 
   void TearDown() override {

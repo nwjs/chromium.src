@@ -41,7 +41,6 @@
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/previews_state.h"
-#include "content/public/common/resource_type.h"
 #include "content/public/test/browser_task_environment.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/receiver.h"
@@ -662,7 +661,7 @@ void OfflinePageRequestHandlerTest::ExpectOfflinePageSizeTotalSuffixCount(
   base::HistogramTester::CountsMap all_offline_counts =
       histogram_tester_->GetTotalCountsForPrefix(
           kPageSizeAccessOfflineHistogramBase);
-  for (const std::pair<std::string, base::HistogramBase::Count>&
+  for (const std::pair<const std::string, base::HistogramBase::Count>&
            namespace_and_count : all_offline_counts) {
     total_offline_count += namespace_and_count.second;
   }
@@ -685,7 +684,7 @@ void OfflinePageRequestHandlerTest::ExpectOnlinePageSizeTotalSuffixCount(
   base::HistogramTester::CountsMap all_online_counts =
       histogram_tester_->GetTotalCountsForPrefix(
           kPageSizeAccessOnlineHistogramBase);
-  for (const std::pair<std::string, base::HistogramBase::Count>&
+  for (const std::pair<const std::string, base::HistogramBase::Count>&
            namespace_and_count : all_online_counts) {
     online_count += namespace_and_count.second;
   }

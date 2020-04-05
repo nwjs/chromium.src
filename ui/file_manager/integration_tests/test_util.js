@@ -614,6 +614,17 @@ const ENTRIES = {
     typeText: 'ORF image'
   }),
 
+  nefImage: new TestEntryInfo({
+    type: EntryType.FILE,
+    sourceFileName: 'raw.nef',
+    // No mime type.
+    targetPath: 'raw.nef',
+    lastModifiedTime: 'May 9, 2015, 11:16 PM',
+    nameText: 'raw.nef',
+    sizeText: '92 KB',
+    typeText: 'NEF image'
+  }),
+
   beautiful: new TestEntryInfo({
     type: EntryType.FILE,
     sourceFileName: 'music.ogg',
@@ -699,6 +710,17 @@ const ENTRIES = {
     nameText: 'plaintext',
     sizeText: '32 bytes',
     typeText: 'Plain text',
+  }),
+
+  mHtml: new TestEntryInfo({
+    type: EntryType.FILE,
+    sourceFileName: 'page.mhtml',
+    targetPath: 'page.mhtml',
+    mimeType: 'multipart/related',
+    lastModifiedTime: 'Sep 4, 1998, 12:34 PM',
+    nameText: 'page.mhtml',
+    sizeText: '421 bytes',
+    typeText: 'HTML document',
   }),
 
   tallHtml: new TestEntryInfo({

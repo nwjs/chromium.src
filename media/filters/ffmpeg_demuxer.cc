@@ -21,6 +21,7 @@
 #include "base/strings/string_util.h"
 #include "base/sys_byteorder.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "base/task_runner_util.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/time/time.h"
@@ -153,24 +154,6 @@ static void RecordVideoCodecStats(container_names::MediaContainerName container,
     UMA_HISTOGRAM_ENUMERATION("Media.SRC.VideoCodec.WebM", video_config.codec(),
                               kVideoCodecMax + 1);
   }
-
-  // Drop UNKNOWN because U_H_E() uses one bucket for all values less than 1.
-  if (video_config.profile() >= 0) {
-    UMA_HISTOGRAM_ENUMERATION("Media.VideoCodecProfile", video_config.profile(),
-                              VIDEO_CODEC_PROFILE_MAX + 1);
-  }
-  UMA_HISTOGRAM_COUNTS_10000("Media.VideoVisibleWidth",
-                             video_config.visible_rect().width());
-  UmaHistogramAspectRatio("Media.VideoVisibleAspectRatio",
-                          video_config.visible_rect());
-
-  // TODO(hubbe): make better color space statistics
-
-  // Note the PRESUBMIT_IGNORE_UMA_MAX below, this silences the PRESUBMIT.py
-  // check for uma enum max usage, since we're abusing
-  // UMA_HISTOGRAM_ENUMERATION to report a discrete value.
-  UMA_HISTOGRAM_ENUMERATION("Media.VideoColorRange", color_range,
-                            AVCOL_RANGE_NB);  // PRESUBMIT_IGNORE_UMA_MAX
 }
 
 static const char kCodecNone[] = "none";
@@ -914,20 +897,19 @@ FFmpegDemuxer::FFmpegDemuxer(
     const scoped_refptr<base::SingleThreadTaskRunner>& task_runner,
     DataSource* data_source,
     const EncryptedMediaInitDataCB& encrypted_media_init_data_cb,
-    const MediaTracksUpdatedCB& media_tracks_updated_cb,
+    MediaTracksUpdatedCB media_tracks_updated_cb,
     MediaLog* media_log,
     bool is_local_file)
     : task_runner_(task_runner),
       // FFmpeg has no asynchronous API, so we use base::WaitableEvents inside
       // the BlockingUrlProtocol to handle hops to the render thread for network
       // reads and seeks.
-      blocking_task_runner_(
-          base::CreateSequencedTaskRunner({base::ThreadPool(), base::MayBlock(),
-                                           base::TaskPriority::USER_BLOCKING})),
+      blocking_task_runner_(base::ThreadPool::CreateSequencedTaskRunner(
+          {base::MayBlock(), base::TaskPriority::USER_BLOCKING})),
       data_source_(data_source),
       media_log_(media_log),
       encrypted_media_init_data_cb_(encrypted_media_init_data_cb),
-      media_tracks_updated_cb_(media_tracks_updated_cb),
+      media_tracks_updated_cb_(std::move(media_tracks_updated_cb)),
       is_local_file_(is_local_file) {
   DCHECK(task_runner_.get());
   DCHECK(data_source_);

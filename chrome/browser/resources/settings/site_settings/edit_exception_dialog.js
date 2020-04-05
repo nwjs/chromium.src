@@ -37,7 +37,7 @@ Polymer({
     },
   },
 
-  /** @private {!settings.SiteSettingsPrefsBrowserProxy} */
+  /** @private {?settings.SiteSettingsPrefsBrowserProxy} */
   browserProxy_: null,
 
   /** @override */
@@ -63,8 +63,8 @@ Polymer({
           this.model.incognito);
 
       this.browserProxy_.setCategoryPermissionForPattern(
-          this.origin_, this.origin_, this.model.category, this.model.setting,
-          this.model.incognito);
+          this.origin_, settings.SITE_EXCEPTION_WILDCARD, this.model.category,
+          this.model.setting, this.model.incognito);
     }
 
     this.$.dialog.close();

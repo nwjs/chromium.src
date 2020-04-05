@@ -106,7 +106,8 @@ class TestRenderWidgetHostView : public RenderWidgetHostViewBase,
   void Destroy() override;
   void SetTooltipText(const base::string16& tooltip_text) override {}
   gfx::Rect GetBoundsInRootWindow() override;
-  bool LockMouse(bool) override;
+  blink::mojom::PointerLockResult LockMouse(bool) override;
+  blink::mojom::PointerLockResult ChangeMouseLock(bool) override;
   void UnlockMouse() override;
   const viz::FrameSinkId& GetFrameSinkId() const override;
   const viz::LocalSurfaceIdAllocation& GetLocalSurfaceIdAllocation()
@@ -137,12 +138,6 @@ class TestRenderWidgetHostView : public RenderWidgetHostViewBase,
   std::unique_ptr<aura::Window> window_;
 #endif
 };
-
-#if defined(COMPILER_MSVC)
-// See comment for same warning on RenderViewHostImpl.
-#pragma warning(push)
-#pragma warning(disable: 4250)
-#endif
 
 // TestRenderViewHost ----------------------------------------------------------
 
@@ -263,10 +258,6 @@ class TestRenderViewHost
 
   DISALLOW_COPY_AND_ASSIGN(TestRenderViewHost);
 };
-
-#if defined(COMPILER_MSVC)
-#pragma warning(pop)
-#endif
 
 // Adds methods to get straight at the impl classes.
 class RenderViewHostImplTestHarness : public RenderViewHostTestHarness {

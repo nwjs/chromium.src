@@ -5,6 +5,7 @@
 #include "chrome/browser/ui/views/tabs/browser_tab_strip_controller.h"
 
 #include <limits>
+#include <memory>
 #include <utility>
 
 #include "base/auto_reset.h"
@@ -18,7 +19,6 @@
 #include "chrome/browser/autocomplete/autocomplete_classifier_factory.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chrome_notification_types.h"
-#include "chrome/browser/extensions/tab_helper.h"
 #include "chrome/browser/favicon/favicon_utils.h"
 #include "chrome/browser/search/search.h"
 #include "chrome/browser/ui/browser.h"
@@ -58,6 +58,7 @@
 #include "ipc/ipc_message.h"
 #include "third_party/metrics_proto/omnibox_event.pb.h"
 #include "ui/base/models/list_selection_model.h"
+#include "ui/base/models/menu_model.h"
 #include "ui/gfx/color_utils.h"
 #include "ui/gfx/image/image.h"
 #include "ui/views/controls/menu/menu_runner.h"
@@ -106,7 +107,7 @@ class BrowserTabStripController::TabContextMenuContents
  public:
   TabContextMenuContents(Tab* tab, BrowserTabStripController* controller)
       : tab_(tab), controller_(controller) {
-    model_ = std::make_unique<TabMenuModel>(
+    model_ = controller_->menu_model_factory_->Create(
         this, controller->model_, controller->tabstrip_->GetModelIndexOf(tab));
     menu_runner_ = std::make_unique<views::MenuRunner>(
         model_.get(),
@@ -130,12 +131,17 @@ class BrowserTabStripController::TabContextMenuContents
   }
   bool GetAcceleratorForCommandId(int command_id,
                                   ui::Accelerator* accelerator) const override {
+    auto* app_controller =
+        controller_->browser_view_->browser()->app_controller();
+    if (app_controller &&
+        !app_controller->ShouldShowTabContextMenuShortcut(command_id))
+      return false;
+
     int browser_cmd;
     return TabStripModel::ContextMenuCommandToBrowserCommand(command_id,
-                                                             &browser_cmd) ?
-        controller_->tabstrip_->GetWidget()->GetAccelerator(browser_cmd,
-                                                            accelerator) :
-        false;
+                                                             &browser_cmd) &&
+           controller_->tabstrip_->GetWidget()->GetAccelerator(browser_cmd,
+                                                               accelerator);
   }
   void ExecuteCommand(int command_id, int event_flags) override {
     // Executing the command destroys |this|, and can also end up destroying
@@ -146,7 +152,7 @@ class BrowserTabStripController::TabContextMenuContents
   }
 
  private:
-  std::unique_ptr<TabMenuModel> model_;
+  std::unique_ptr<ui::SimpleMenuModel> model_;
   std::unique_ptr<views::MenuRunner> menu_runner_;
 
   // The tab we're showing a menu for.
@@ -161,12 +167,19 @@ class BrowserTabStripController::TabContextMenuContents
 ////////////////////////////////////////////////////////////////////////////////
 // BrowserTabStripController, public:
 
-BrowserTabStripController::BrowserTabStripController(TabStripModel* model,
-                                                     BrowserView* browser_view)
+BrowserTabStripController::BrowserTabStripController(
+    TabStripModel* model,
+    BrowserView* browser_view,
+    std::unique_ptr<TabMenuModelFactory> menu_model_factory_override)
     : model_(model),
       tabstrip_(nullptr),
       browser_view_(browser_view),
-      hover_tab_selector_(model) {
+      hover_tab_selector_(model),
+      menu_model_factory_(std::move(menu_model_factory_override)) {
+  if (!menu_model_factory_) {
+    // Use the default one.
+    menu_model_factory_ = std::make_unique<TabMenuModelFactory>();
+  }
   model_->SetTabStripUI(this);
 
   local_pref_registrar_.Init(g_browser_process->local_state());
@@ -250,11 +263,7 @@ void BrowserTabStripController::SelectTab(int model_index,
                                           const ui::Event& event) {
   std::unique_ptr<content::PeakGpuMemoryTracker> tracker =
       content::PeakGpuMemoryTracker::Create(
-          base::BindOnce([](uint64_t peak_memory) {
-            // Converting Bytes to Kilobytes.
-            UMA_HISTOGRAM_MEMORY_KB("Memory.GPU.PeakMemoryUsage.ChangeTab",
-                                    peak_memory / 1024u);
-          }));
+          content::PeakGpuMemoryTracker::Usage::CHANGE_TAB);
 
   TabStripModel::UserGestureDetails gesture_detail(
       TabStripModel::GestureType::kOther, event.time_stamp());
@@ -310,25 +319,13 @@ bool BrowserTabStripController::BeforeCloseTab(int model_index,
   return result == Browser::WarnBeforeClosingResult::kOkToClose;
 }
 
-void BrowserTabStripController::CloseTab(int model_index,
-                                         CloseTabSource source) {
+void BrowserTabStripController::CloseTab(int model_index) {
   // Cancel any pending tab transition.
   hover_tab_selector_.CancelTabTransition();
 
   model_->CloseWebContentsAt(model_index,
                              TabStripModel::CLOSE_USER_GESTURE |
                              TabStripModel::CLOSE_CREATE_HISTORICAL_TAB);
-}
-
-void BrowserTabStripController::UngroupAllTabsInGroup(
-    const tab_groups::TabGroupId& group) {
-  model_->RemoveFromGroup(ListTabsInGroup(group));
-}
-
-void BrowserTabStripController::AddNewTabInGroup(
-    const tab_groups::TabGroupId& group) {
-  const std::vector<int> tabs = ListTabsInGroup(group);
-  model_->delegate()->AddTabAt(GURL(), tabs.back() + 1, true, group);
 }
 
 void BrowserTabStripController::AddTabToGroup(
@@ -416,7 +413,7 @@ void BrowserTabStripController::StackedLayoutMaybeChanged() {
                                                tabstrip_->stacked_layout());
 }
 
-void BrowserTabStripController::OnStartedDragging() {
+void BrowserTabStripController::OnStartedDragging(bool dragging_window) {
   if (!immersive_reveal_lock_.get()) {
     // The top-of-window views should be revealed while the user is dragging
     // tabs in immersive fullscreen. The top-of-window views may not be already
@@ -427,12 +424,13 @@ void BrowserTabStripController::OnStartedDragging() {
             ImmersiveModeController::ANIMATE_REVEAL_NO));
   }
 
-  browser_view_->TabDraggingStatusChanged(/*is_dragging=*/true);
+  browser_view_->frame()->SetTabDragKind(dragging_window ? TabDragKind::kAllTabs
+                                                         : TabDragKind::kTab);
   // We also use fast resize for the source browser window as the source browser
   // window may also change bounds during dragging.
   BrowserView* source_browser_view = GetSourceBrowserViewInTabDragging();
   if (source_browser_view && source_browser_view != browser_view_)
-    source_browser_view->TabDraggingStatusChanged(/*is_dragging=*/true);
+    source_browser_view->frame()->SetTabDragKind(TabDragKind::kTab);
 }
 
 void BrowserTabStripController::OnStoppedDragging() {
@@ -442,9 +440,9 @@ void BrowserTabStripController::OnStoppedDragging() {
   // Only reset the source window's fast resize bit after the entire drag
   // ends.
   if (browser_view_ != source_browser_view)
-    browser_view_->TabDraggingStatusChanged(/*is_dragging=*/false);
+    browser_view_->frame()->SetTabDragKind(TabDragKind::kNone);
   if (source_browser_view && !TabDragController::IsActive())
-    source_browser_view->TabDraggingStatusChanged(/*is_dragging=*/false);
+    source_browser_view->frame()->SetTabDragKind(TabDragKind::kNone);
 }
 
 void BrowserTabStripController::OnKeyboardFocusedTabChanged(

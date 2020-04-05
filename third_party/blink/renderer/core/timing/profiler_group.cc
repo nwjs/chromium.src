@@ -133,7 +133,7 @@ void ProfilerGroup::WillBeDestroyed() {
     TeardownV8Profiler();
 }
 
-void ProfilerGroup::Trace(blink::Visitor* visitor) {
+void ProfilerGroup::Trace(Visitor* visitor) {
   visitor->Trace(profilers_);
   V8PerIsolateData::GarbageCollectedData::Trace(visitor);
 }
@@ -173,7 +173,8 @@ void ProfilerGroup::StopProfiler(ScriptState* script_state,
       script_state, profile, profiler->SourceOrigin(), profiler->TimeOrigin());
   resolver->Resolve(trace);
 
-  profile->Delete();
+  if (profile)
+    profile->Delete();
 
   if (--num_active_profilers_ == 0)
     TeardownV8Profiler();

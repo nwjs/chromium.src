@@ -35,7 +35,7 @@
         -webkit-tap-highlight-color: transparent;
       }
 
-      /* Override --cr-selectable-focus mixin. */
+      /* Override focus CSS for selectable items. */
       [selectable]:focus,
       [selectable] > :focus {
         background-color: transparent;
@@ -130,8 +130,9 @@
       }
 
       #advancedButton > iron-icon {
-        @apply --cr-icon-height-width;
+        height: var(--cr-icon-size);
         margin-inline-end: 14px;  /* 16px - 2px from margin for outline. */
+        width: var(--cr-icon-size);
       }
 
       #menuSeparator {
@@ -197,7 +198,7 @@
           $i18n{personalizationPageTitle}
         </div>
       </a>
-      <a href="/search">
+      <a href="/osSearch">
         <div class="item">
           <iron-icon icon="cr:search"></iron-icon>
           $i18n{osSearchPageTitle}
@@ -261,13 +262,13 @@
               $i18n{printingPageTitle}
             </div>
           </a>
-          <a href="/accessibility">
+          <a href="/osAccessibility">
             <div class="item">
               <iron-icon icon="settings:accessibility"></iron-icon>
               $i18n{a11yPageTitle}
             </div>
           </a>
-          <a id="reset" href="/reset" hidden="[[!showReset]]">
+          <a id="osReset" href="/osReset" hidden="[[!showReset]]">
             <div class="item">
               <iron-icon icon="settings:restore"></iron-icon>
               $i18n{resetPageTitle}

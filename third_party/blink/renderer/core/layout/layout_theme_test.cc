@@ -34,8 +34,7 @@ class LayoutThemeTest : public PageTestBase,
 };
 
 void LayoutThemeTest::SetHtmlInnerHTML(const char* html_content) {
-  GetDocument().documentElement()->SetInnerHTMLFromString(
-      String::FromUTF8(html_content));
+  GetDocument().documentElement()->setInnerHTML(String::FromUTF8(html_content));
   UpdateAllLifecyclePhasesForTest();
 }
 
@@ -81,8 +80,8 @@ TEST_F(LayoutThemeTest, ChangeFocusRingColor) {
   EXPECT_EQ(custom_color, OutlineColor(span));
 }
 
-// The expectations are based on LayoutThemeDefault::SystemColor.
-// LayoutThemeMac doesn't use that code path.
+// The expectations in the tests below are relying on LayoutThemeDefault.
+// LayoutThemeMac doesn't inherit from that class.
 #if !defined(OS_MACOSX)
 TEST_F(LayoutThemeTest, SystemColorWithColorScheme) {
   SetHtmlInnerHTML(R"HTML(
@@ -104,15 +103,40 @@ TEST_F(LayoutThemeTest, SystemColorWithColorScheme) {
             style->VisitedDependentColor(GetCSSPropertyColor()));
 
   // Change color scheme to dark.
-  ColorSchemeHelper color_scheme_helper;
-  color_scheme_helper.SetPreferredColorScheme(GetDocument(),
-                                              PreferredColorScheme::kDark);
+  ColorSchemeHelper color_scheme_helper(GetDocument());
+  color_scheme_helper.SetPreferredColorScheme(PreferredColorScheme::kDark);
   UpdateAllLifecyclePhasesForTest();
 
   style = dark_element->GetComputedStyle();
   EXPECT_EQ(WebColorScheme::kDark, style->UsedColorScheme());
   EXPECT_EQ(Color(0x44, 0x44, 0x44),
             style->VisitedDependentColor(GetCSSPropertyColor()));
+}
+
+TEST_F(LayoutThemeTest, SetSelectionColors) {
+  LayoutTheme::GetTheme().SetSelectionColors(Color::kBlack, Color::kBlack,
+                                             Color::kBlack, Color::kBlack);
+  EXPECT_EQ(Color::kBlack,
+            LayoutTheme::GetTheme().ActiveSelectionForegroundColor(
+                WebColorScheme::kLight));
+  {
+    // Enabling MobileLayoutTheme switches which instance is returned from
+    // LayoutTheme::GetTheme(). Devtools expect SetSelectionColors() to affect
+    // both LayoutTheme instances.
+    ScopedMobileLayoutThemeForTest scope(true);
+    EXPECT_EQ(Color::kBlack,
+              LayoutTheme::GetTheme().ActiveSelectionForegroundColor(
+                  WebColorScheme::kLight));
+
+    LayoutTheme::GetTheme().SetSelectionColors(Color::kWhite, Color::kWhite,
+                                               Color::kWhite, Color::kWhite);
+    EXPECT_EQ(Color::kWhite,
+              LayoutTheme::GetTheme().ActiveSelectionForegroundColor(
+                  WebColorScheme::kLight));
+  }
+  EXPECT_EQ(Color::kWhite,
+            LayoutTheme::GetTheme().ActiveSelectionForegroundColor(
+                WebColorScheme::kLight));
 }
 #endif  // !defined(OS_MACOSX)
 

@@ -1,5 +1,5 @@
 # tags: [ android chromeos highsierra linux mac mojave win ]
-# tags: [ android-chromium android-webview-instrumentation debug ]
+# tags: [ android-chromium android-webview-instrumentation android-not-webview debug ]
 # tags: [ skia-renderer no-skia-renderer ]
 # tags: [ use-gl no-use-gl ]
 # tags: [ use-vulkan no-use-vulkan ]
@@ -53,22 +53,6 @@ crbug.com/653538 [ win amd-0x6613 ] Pixel_GpuRasterization_BlueBox [ RetryOnFail
 [ android ] Pixel_CSS3DBlueBox_NoGpuProcess [ Skip ]
 [ chromeos ] Pixel_CSS3DBlueBox_NoGpuProcess [ Skip ]
 
-# Skip tests on Android WebView that requires embedding viz clients. This
-# includes offscreen canvas and other features. crbug.com/805739 tracks
-# making this work.
-crbug.com/805739 [ android android-webview-instrumentation ] Pixel_OffscreenCanvas2DResizeOnWorker [ Skip ]
-crbug.com/805739 [ android-webview-instrumentation ] Pixel_OffscreenCanvasAccelerated2D [ Skip ]
-crbug.com/805739 [ android-webview-instrumentation ] Pixel_OffscreenCanvasAccelerated2DWorker [ Skip ]
-crbug.com/805739 [ android-webview-instrumentation ] Pixel_OffscreenCanvasTransferAfterStyleResize [ Skip ]
-crbug.com/805739 [ android android-webview-instrumentation ] Pixel_OffscreenCanvasTransferBeforeStyleResize [ Skip ]
-crbug.com/805739 [ android-webview-instrumentation ] Pixel_OffscreenCanvasWebGLDefault [ Skip ]
-crbug.com/805739 [ android-webview-instrumentation ] Pixel_OffscreenCanvasWebGLDefaultWorker [ Skip ]
-crbug.com/805739 [ android-webview-instrumentation ] Pixel_OffscreenCanvasWebGLPaintAfterResize [ Skip ]
-crbug.com/805739 [ android android-webview-instrumentation ] Pixel_OffscreenCanvasWebglResizeOnWorker [ Skip ]
-crbug.com/805739 [ android android-webview-instrumentation ] Pixel_CanvasLowLatencyWebGL [ Skip ]
-crbug.com/992599 [ android android-webview-instrumentation ] Pixel_OffscreenCanvasTransferToImageBitmapWorker [ Skip ]
-crbug.com/992599 [ android android-webview-instrumentation ] Pixel_OffscreenCanvasTransferToImageBitmap [ Skip ]
-
 # Fails on Android WebView due to requiring embedding viz clients. crbug.com/805739
 # Produces black images on Nexus 5Xs in Android Webview (qualcomm-adreno-(tm)-418) crbug.com/984352
 # Fails on Pixel 2 (qualcomm-adreno-(tm)-540) crbug.com/966069
@@ -104,8 +88,7 @@ crbug.com/660461 [ mac ] Pixel_ScissorTestWithPreserveDrawingBuffer [ RetryOnFai
 crbug.com/773293 [ android no-use-gl qualcomm-adreno-(tm)-330 ] Pixel_WebGL2_BlitFramebuffer_Result_Displayed [ Skip ]
 crbug.com/773293 [ android qualcomm-adreno-(tm)-330 ] Pixel_WebGL2_ClearBufferfv_Result_Displayed [ Skip ]
 
-crbug.com/774809 [ highsierra intel-0xa2e ] Pixel_WebGLGreenTriangle_NonChromiumImage_NoAA_NoAlpha [ Failure ]
-crbug.com/774809 [ mojave intel-0xa2e ] Pixel_WebGLGreenTriangle_NonChromiumImage_NoAA_NoAlpha [ Failure ]
+crbug.com/774809 [ mac intel ] Pixel_WebGLGreenTriangle_NonChromiumImage_NoAA_NoAlpha [ Failure ]
 
 crbug.com/857578 [ highsierra intel-0xa2e ] Pixel_OffscreenCanvasTransferBeforeStyleResize [ RetryOnFailure ]
 
@@ -146,9 +129,6 @@ crbug.com/883500 [ android-chromium no-use-gl no-use-vulkan qualcomm-adreno-(tm)
 # context loss which results in hardware decoder loss.
 crbug.com/580386 [ android ] Pixel_Video_Context_Loss_MP4 [ Skip ]
 
-# Fails on multiple Android devices.
-crbug.com/927107 [ android no-skia-renderer ] Pixel_CSS3DBlueBox [ Failure ]
-
 # Skip on platforms where DXVA vs D3D11 decoder doesn't matter.
 crbug.com/927901 [ linux ] Pixel_Video_MP4_DXVA [ Skip ]
 crbug.com/927901 [ android ] Pixel_Video_MP4_DXVA [ Skip ]
@@ -185,16 +165,6 @@ crbug.com/974383 [ mac ] Pixel_CanvasDisplayLinearRGBAccelerated2D [ Skip ]
 crbug.com/1008450 [ android use-vulkan skia-renderer ] Pixel_Video_BackdropFilter [ Skip ]
 crbug.com/1008450 [ android skia-renderer ] Pixel_Video_MP4_Rounded_Corner [ Skip ]
 
-# Skia Renderer Vulkan (and GL) producing incorrect negative result
-crbug.com/1033113 [ android android-chromium skia-renderer ] Pixel_Video_Context_Loss_VP9 [ Skip ]
-
-# Skia Renderer EGL timeout, fails to load minidump
-crbug.com/1033121 [ android skia-renderer use-gl no-use-vulkan ] Pixel_Video_MP4_FourColors_Aspect_4x3 [ Skip ]
-crbug.com/1033121 [ android skia-renderer use-gl no-use-vulkan ] Pixel_Video_MP4_FourColors_Rot_180 [ Skip ]
-crbug.com/1033121 [ android skia-renderer use-gl no-use-vulkan ] Pixel_Video_MP4_FourColors_Rot_270 [ Skip ]
-crbug.com/1033121 [ android skia-renderer use-gl no-use-vulkan ] Pixel_Video_MP4_FourColors_Rot_90 [ Skip ]
-crbug.com/1041856 [ android skia-renderer use-gl no-use-vulkan ] Pixel_Video_MP4 [ Skip ]
-
 # Produces blank images on Intel HD 630 w/ Mesa 19.0.2
 crbug.com/976861 [ linux intel-0x5912 ] Pixel_OffscreenCanvasTransferToImageBitmap [ Skip ]
 
@@ -224,8 +194,14 @@ crbug.com/1019462 [ android nvidia no-skia-renderer ] Pixel_Video_MP4_Rounded_Co
 crbug.com/1019462 [ android nvidia no-skia-renderer ] Pixel_Video_Context_Loss_VP9 [ RetryOnFailure ]
 crbug.com/1019462 [ android nvidia no-skia-renderer ] Pixel_WebGL2_BlitFramebuffer_Result_Displayed [ RetryOnFailure ]
 
-# Skip dual gpu switch tests on Mac Nvidia
-crbug.com/681341 [ mac nvidia ] Pixel_WebGLLowToHighPower [ Skip ]
+# Skip dual gpu switching tests on Mac Nvidia because this
+# configuration has been forced to use only the low-power GPU due to
+# graphics driver bugs.
+crbug.com/1047573 [ mac nvidia ] Pixel_WebGLLowToHighPower [ Skip ]
+crbug.com/1047573 [ mac nvidia ] Pixel_WebGLLowToHighPowerAlphaFalse [ Skip ]
+crbug.com/1047573 [ mac nvidia ] Pixel_WebGLHighToLowPower [ Skip ]
+crbug.com/1048892 [ mac nvidia ] Pixel_OffscreenCanvasIBRCWebGLHighPerfMain [ Skip ]
+crbug.com/1048892 [ mac nvidia ] Pixel_OffscreenCanvasIBRCWebGLHighPerfWorker [ Skip ]
 
 # Flakes on Linux, Mac and Windows
 crbug.com/1028975 [ linux ] Pixel_PrecisionRoundedCorner [ RetryOnFailure ]
@@ -234,3 +210,8 @@ crbug.com/1028975 [ win ] Pixel_PrecisionRoundedCorner [ RetryOnFailure ]
 
 # VP9 appears to not recover correctly after GPU process crashes on Windows.
 crbug.com/1033982 [ win nvidia ] Pixel_Video_Context_Loss_VP9 [ RetryOnFailure ]
+
+# HDR rendering with PQ color space appears to be broken on Windows RS2.
+# TODO(sunnyps): Revert this temporary suppression after ensuring pixel tests
+# always run on Windows RS3 or above.
+crbug.com/1066979 [ win ] Pixel_Canvas2DRedBoxHdr10 [ Skip ]

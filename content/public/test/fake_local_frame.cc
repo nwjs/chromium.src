@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "content/public/test/fake_local_frame.h"
+#include "services/network/public/mojom/content_security_policy.mojom.h"
 #include "third_party/blink/public/mojom/frame/media_player_action.mojom.h"
 
 namespace content {
@@ -27,12 +28,18 @@ void FakeLocalFrame::GetTextSurroundingSelection(
 void FakeLocalFrame::SendInterventionReport(const std::string& id,
                                             const std::string& message) {}
 
+void FakeLocalFrame::SetFrameOwnerProperties(
+    blink::mojom::FrameOwnerPropertiesPtr properties) {}
+
 void FakeLocalFrame::NotifyUserActivation() {}
 
 void FakeLocalFrame::AddMessageToConsole(
     blink::mojom::ConsoleMessageLevel level,
     const std::string& message,
     bool discard_duplicates) {}
+
+void FakeLocalFrame::AddInspectorIssue(
+    blink::mojom::InspectorIssueInfoPtr info) {}
 
 void FakeLocalFrame::CheckCompleted() {}
 
@@ -43,6 +50,10 @@ void FakeLocalFrame::EnableViewSourceMode() {}
 void FakeLocalFrame::Focus() {}
 
 void FakeLocalFrame::ClearFocusedElement() {}
+
+void FakeLocalFrame::GetResourceSnapshotForWebBundle(
+    mojo::PendingReceiver<data_decoder::mojom::ResourceSnapshotForWebBundle>
+        receiver) {}
 
 void FakeLocalFrame::CopyImageAt(const gfx::Point& window_point) {}
 
@@ -64,6 +75,12 @@ void FakeLocalFrame::MediaPlayerActionAt(
     blink::mojom::MediaPlayerActionPtr action) {}
 
 void FakeLocalFrame::AdvanceFocusInForm(blink::mojom::FocusType focus_type) {}
+
+void FakeLocalFrame::ReportContentSecurityPolicyViolation(
+    network::mojom::CSPViolationPtr violation) {}
+
+void FakeLocalFrame::DidUpdateFramePolicy(
+    const blink::FramePolicy& frame_policy) {}
 
 void FakeLocalFrame::BindFrameHostReceiver(
     mojo::ScopedInterfaceEndpointHandle handle) {

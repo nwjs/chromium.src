@@ -14,7 +14,6 @@
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
-#include "chrome/browser/permissions/permission_manager.h"
 #include "chrome/browser/permissions/permission_manager_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
@@ -73,7 +72,7 @@ class TestNotificationPermissionContext : public NotificationPermissionContext {
 
   ContentSetting GetContentSettingFromMap(const GURL& url_a,
                                           const GURL& url_b) {
-    return HostContentSettingsMapFactory::GetForProfile(profile())
+    return HostContentSettingsMapFactory::GetForProfile(browser_context())
         ->GetContentSetting(url_a.GetOrigin(), url_b.GetOrigin(),
                             content_settings_type(), std::string());
   }
@@ -83,7 +82,7 @@ class TestNotificationPermissionContext : public NotificationPermissionContext {
   void NotifyPermissionSet(const permissions::PermissionRequestID& id,
                            const GURL& requesting_origin,
                            const GURL& embedder_origin,
-                           BrowserPermissionCallback callback,
+                           permissions::BrowserPermissionCallback callback,
                            bool persist,
                            ContentSetting content_setting) override {
     permission_set_count_++;
@@ -276,7 +275,7 @@ TEST_F(NotificationPermissionContextTest, WebNotificationsTopLevelOriginOnly) {
   ContentSetting result = CONTENT_SETTING_DEFAULT;
   context.DecidePermission(web_contents(), fake_id, requesting_origin,
                            embedding_origin, true /* user_gesture */,
-                           base::Bind(&StoreContentSetting, &result));
+                           base::BindOnce(&StoreContentSetting, &result));
 
   ASSERT_EQ(result, CONTENT_SETTING_BLOCK);
   EXPECT_EQ(CONTENT_SETTING_ASK,

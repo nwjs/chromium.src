@@ -4,7 +4,8 @@
 
 import("//build/config/chrome_build.gni")
 import("//build/config/chromecast_build.gni")
-import("//build/config/coverage/coverage.gni")
+import("//build/config/chromeos/args.gni")
+import("//build/config/profiling/profiling.gni")
 import("//build/toolchain/toolchain.gni")
 
 declare_args() {
@@ -51,13 +52,12 @@ declare_args() {
   # See http://clang.llvm.org/docs/ControlFlowIntegrity.html
   #
   # TODO(pcc): Remove this flag if/when CFI is enabled in all official builds.
-  is_cfi = target_os == "linux" && !is_chromeos && target_cpu == "x64" &&
-           is_official_build
-
-  # Enable checks for bad casts: derived cast and unrelated cast.
-  # TODO(krasin): remove this, when we're ready to add these checks by default.
-  # https://crbug.com/626794
-  use_cfi_cast = false
+  #
+  # Disable this on linux-chromeos to avoid using ThinLTO there;
+  # crbug.com/1033839. Similarly, don't use this on ARC builds.
+  is_cfi = is_official_build &&
+           ((target_os == "linux" && !is_chromeos && target_cpu == "x64") ||
+            (target_os == "chromeos" && is_chromeos_device && !is_android))
 
   # Enable checks for indirect function calls via a function pointer.
   # TODO(pcc): remove this when we're ready to add these checks by default.
@@ -113,6 +113,13 @@ declare_args() {
   archive_seed_corpus = true
 }
 
+declare_args() {
+  # Enable checks for bad casts: derived cast and unrelated cast.
+  # TODO(krasin): remove this, when we're ready to add these checks by default.
+  # https://crbug.com/626794
+  use_cfi_cast = is_cfi && target_os == "chromeos"
+}
+
 # Disable sanitizers for non-target toolchains.
 if (!is_a_target_toolchain) {
   is_asan = false
@@ -160,7 +167,8 @@ declare_args() {
   # work well for fuzzing builds. Since fuzzing builds already disable the
   # sandbox when dumping coverage, limit the sandbox-only path to non-fuzzing
   # builds.
-  use_clang_coverage_inside_sandbox = use_clang_coverage && !use_fuzzing_engine
+  use_clang_profiling_inside_sandbox =
+      use_clang_profiling && !use_fuzzing_engine
 
   # Detect overflow/underflow for global objects.
   #

@@ -7,6 +7,7 @@
 
 #include <vector>
 
+#include "base/callback_forward.h"
 #include "base/observer_list.h"
 #include "base/observer_list_types.h"
 #include "base/time/time.h"
@@ -16,14 +17,20 @@
 class Profile;
 
 namespace apps {
+class AppServiceProxy;
 class AppUpdate;
 class InstanceUpdate;
 }  // namespace apps
+
+namespace gfx {
+class ImageSkia;
+}
 
 namespace chromeos {
 namespace app_time {
 
 class AppId;
+struct PauseAppInfo;
 
 // Wrapper around AppService.
 // Provides abstraction layer for Per-App Time Limits (PATL). Takes care of
@@ -64,17 +71,39 @@ class AppServiceWrapper : public apps::AppRegistryCache::Observer,
     // Inactive means that the app is not in the foreground. It still can run
     // and be partially visible. |timestamp| indicates the time when the app
     // became inactive. |window| to specify which of the application's
-    // potentially multiple windows became incactive.Note: This can be called
+    // potentially multiple windows became inactive.Note: This can be called
     // for the app that is already inactive.
     virtual void OnAppInactive(const AppId& app_id,
                                aura::Window* window,
                                base::Time timestamp) {}
+
+    // Called when app with |app_id| is destroyed.
+    // |timestamp| indicates the time when the app is destroyed.
+    // |window| to specify which of the application's potentially multiple
+    // window was destroyed.
+    virtual void OnAppDestroyed(const AppId& app_id,
+                                aura::Window* window,
+                                base::Time timestamp) {}
   };
 
   explicit AppServiceWrapper(Profile* profile);
   AppServiceWrapper(const AppServiceWrapper&) = delete;
   AppServiceWrapper& operator=(const AppServiceWrapper&) = delete;
   ~AppServiceWrapper() override;
+
+  // Pauses the app identified by |PauseAppInfo::app_id|.
+  // Uses |PauseAppInfo::daily_limit| to communicate applied time restriction to
+  // the user by showing the dialog. After this is called user will not be able
+  // to launch the app and the visual effect will be applied to the icon.
+  // |PauseAppInfo::show_pause_dialog| indicates whether the user should be
+  // notified with a dialog.
+  void PauseApp(const PauseAppInfo& pause_app);
+  void PauseApps(const std::vector<PauseAppInfo>& paused_apps);
+
+  // Resets time restriction from the app identified with |app_id|. After this
+  // is called user will be able to use the app again and the visual effect
+  // will be removed from the icon.
+  void ResumeApp(const AppId& app_id);
 
   // Returns installed apps that are relevant for Per-App Time Limits feature.
   // Installed apps of unsupported types will not be included.
@@ -84,10 +113,21 @@ class AppServiceWrapper : public apps::AppRegistryCache::Observer,
   // Might return empty string.
   std::string GetAppName(const AppId& app_id) const;
 
+  // Returns the uncompressed image icon for app identified by |app_id| with
+  // size |size_hint_in_dp|.
+  void GetAppIcon(const AppId& app_id,
+                  int size_hint_in_dp,
+                  base::OnceCallback<void(base::Optional<gfx::ImageSkia>)>
+                      on_icon_ready) const;
+
   // Returns app service id for the app identified by |app_id|.
   // App service id will be only different from app_id.app_id() for ARC++ apps.
   // It does not make sense to call it for other apps.
   std::string GetAppServiceId(const AppId& app_id) const;
+
+  // Returns AppId from |app_service_id| and |app_type|.
+  AppId AppIdFromAppServiceId(const std::string& app_service_id,
+                              apps::mojom::AppType app_type) const;
 
   void AddObserver(EventListener* observer);
   void RemoveObserver(EventListener* observer);
@@ -103,6 +143,7 @@ class AppServiceWrapper : public apps::AppRegistryCache::Observer,
       apps::InstanceRegistry* cache) override;
 
  private:
+  apps::AppServiceProxy* GetAppProxy();
   apps::AppRegistryCache& GetAppCache() const;
   apps::InstanceRegistry& GetInstanceRegistry() const;
 

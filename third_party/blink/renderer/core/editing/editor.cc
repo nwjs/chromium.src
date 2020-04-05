@@ -174,7 +174,7 @@ bool Editor::HandleTextEvent(TextEvent* event) {
 
   // TODO(editing-dev): The use of UpdateStyleAndLayout
   // needs to be audited.  See http://crbug.com/590369 for more details.
-  frame_->GetDocument()->UpdateStyleAndLayout();
+  frame_->GetDocument()->UpdateStyleAndLayout(DocumentUpdateReason::kEditing);
 
   if (event->IsPaste()) {
     if (event->PastingFragment()) {
@@ -235,7 +235,7 @@ bool Editor::CanCopy() const {
   FrameSelection& selection = GetFrameSelection();
   if (!selection.IsAvailable())
     return false;
-  frame_->GetDocument()->UpdateStyleAndLayout();
+  frame_->GetDocument()->UpdateStyleAndLayout(DocumentUpdateReason::kEditing);
   const VisibleSelectionInFlatTree& visible_selection =
       selection.ComputeVisibleSelectionInFlatTree();
   return visible_selection.IsRange() &&
@@ -501,7 +501,7 @@ bool Editor::InsertTextWithoutSendingTextEvent(
       LocalFrame* focused_or_main_frame =
           To<LocalFrame>(page->GetFocusController().FocusedOrMainFrame());
       focused_or_main_frame->Selection().RevealSelection(
-          ScrollAlignment::kAlignToEdgeIfNeeded);
+          ScrollAlignment::ToEdgeIfNeeded());
     }
   }
 
@@ -517,7 +517,7 @@ bool Editor::InsertLineBreak() {
   DCHECK(GetFrame().GetDocument());
   if (!TypingCommand::InsertLineBreak(*GetFrame().GetDocument()))
     return false;
-  RevealSelectionAfterEditingOperation(ScrollAlignment::kAlignToEdgeIfNeeded);
+  RevealSelectionAfterEditingOperation(ScrollAlignment::ToEdgeIfNeeded());
 
   return true;
 }
@@ -535,7 +535,7 @@ bool Editor::InsertParagraphSeparator() {
   EditingState editing_state;
   if (!TypingCommand::InsertParagraphSeparator(*GetFrame().GetDocument()))
     return false;
-  RevealSelectionAfterEditingOperation(ScrollAlignment::kAlignToEdgeIfNeeded);
+  RevealSelectionAfterEditingOperation(ScrollAlignment::ToEdgeIfNeeded());
 
   return true;
 }
@@ -657,7 +657,7 @@ void Editor::SetBaseWritingDirection(WritingDirection direction) {
 }
 
 void Editor::RevealSelectionAfterEditingOperation(
-    const ScrollAlignment& alignment) {
+    const mojom::blink::ScrollAlignment& alignment) {
   if (prevent_reveal_selection_)
     return;
   if (!GetFrameSelection().IsAvailable())
@@ -725,8 +725,8 @@ void Editor::ComputeAndSetTypingStyle(CSSPropertyValueSet* style,
       EditingStyle::kPreserveWritingDirection);
 
   // Handle block styles, substracting these from the typing style.
-  EditingStyle* block_style =
-      typing_style_->ExtractAndRemoveBlockProperties(GetFrame().GetDocument());
+  EditingStyle* block_style = typing_style_->ExtractAndRemoveBlockProperties(
+      GetFrame().GetDocument()->ToExecutionContext());
   if (!block_style->IsEmpty()) {
     DCHECK(GetFrame().GetDocument());
     MakeGarbageCollected<ApplyStyleCommand>(*GetFrame().GetDocument(),

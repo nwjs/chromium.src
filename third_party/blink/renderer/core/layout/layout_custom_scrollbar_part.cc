@@ -211,13 +211,8 @@ void LayoutCustomScrollbarPart::UpdateScrollbarHeight() {
           .Round()));
 }
 
-void LayoutCustomScrollbarPart::ComputePreferredLogicalWidths() {
-  if (!PreferredLogicalWidthsDirty())
-    return;
-
-  min_preferred_logical_width_ = max_preferred_logical_width_ = LayoutUnit();
-
-  ClearPreferredLogicalWidthsDirty();
+MinMaxSizes LayoutCustomScrollbarPart::PreferredLogicalWidths() const {
+  return MinMaxSizes();
 }
 
 void LayoutCustomScrollbarPart::StyleWillChange(
@@ -235,7 +230,7 @@ void LayoutCustomScrollbarPart::StyleDidChange(StyleDifference diff,
   SetInline(false);
   ClearPositionedState();
   SetFloating(false);
-  if (old_style && (diff.NeedsFullPaintInvalidation() || diff.NeedsLayout()))
+  if (old_style && (diff.NeedsPaintInvalidation() || diff.NeedsLayout()))
     SetNeedsPaintInvalidation();
 }
 

@@ -7,11 +7,11 @@
 
 #include <string>
 
-#include "base/macros.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
 #include "base/optional.h"
 #include "components/dom_distiller/content/browser/distillable_page_utils.h"
+#include "components/dom_distiller/content/browser/uma_helper.h"
 #include "components/dom_distiller/content/common/mojom/distillability_service.mojom.h"
 #include "content/public/browser/web_contents_user_data.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
@@ -33,6 +33,17 @@ class DistillabilityDriver
     return latest_result_;
   }
 
+  // Sets a callback which can be used to determine the security of a page,
+  // to decide whether it can be distilled. DANGEROUS pages are never
+  // distillable.
+  void SetIsDangerousCallback(
+      base::RepeatingCallback<bool(content::WebContents*)> is_dangerous_check);
+
+  UMAHelper::DistillabilityDriverTimer& GetTimer() { return timer_; }
+
+  DistillabilityDriver(const DistillabilityDriver&) = delete;
+  DistillabilityDriver& operator=(const DistillabilityDriver&) = delete;
+
  private:
   explicit DistillabilityDriver(content::WebContents* web_contents);
   friend class content::WebContentsUserData<DistillabilityDriver>;
@@ -48,11 +59,19 @@ class DistillabilityDriver
   // new page, accounting for same-document navigation.
   base::Optional<DistillabilityResult> latest_result_;
 
+  // For UMA metrics on durations spent in distilled or distillable pages.
+  // Because each DistillabilityDriver is associated with just one WebContents,
+  // it can be used to track the amount of time spent actively viewing that
+  // WebContents when the page is distillable or distilled, creating useful
+  // metrics for the ReaderMode experiment.
+  UMAHelper::DistillabilityDriverTimer timer_;
+
+  content::WebContents* web_contents_;
+  base::RepeatingCallback<bool(content::WebContents*)> is_dangerous_check_;
+
   base::WeakPtrFactory<DistillabilityDriver> weak_factory_{this};
 
   WEB_CONTENTS_USER_DATA_KEY_DECL();
-
-  DISALLOW_COPY_AND_ASSIGN(DistillabilityDriver);
 };
 
 }  // namespace dom_distiller

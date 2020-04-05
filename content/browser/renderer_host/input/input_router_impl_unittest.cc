@@ -111,6 +111,19 @@ class MockInputRouterImplClient : public InputRouterImplClient {
 
   void SetMouseCapture(bool capture) override {}
 
+  void RequestMouseLock(bool from_user_gesture,
+                        bool privileged,
+                        bool unadjusted_movement,
+                        mojom::WidgetInputHandlerHost::RequestMouseLockCallback
+                            response) override {}
+
+  void RequestMouseLockChange(
+      bool unadjusted_movement,
+      mojom::WidgetInputHandlerHost::RequestMouseLockCallback response)
+      override {}
+
+  void UnlockMouse() override {}
+
   void FallbackCursorModeLockCursor(bool left,
                                     bool right,
                                     bool up,
@@ -271,8 +284,8 @@ class InputRouterImplTestBase : public testing::Test {
                           WebMouseWheelEvent::Phase phase) {
     WebMouseWheelEvent wheel_event = SyntheticWebMouseWheelEventBuilder::Build(
         x, y, dX, dY, modifiers,
-        precise ? ui::input_types::ScrollGranularity::kScrollByPrecisePixel
-                : ui::input_types::ScrollGranularity::kScrollByPixel);
+        precise ? ui::ScrollGranularity::kScrollByPrecisePixel
+                : ui::ScrollGranularity::kScrollByPixel);
     wheel_event.phase = phase;
     input_router_->SendWheelEvent(MouseWheelEventWithLatencyInfo(wheel_event));
   }

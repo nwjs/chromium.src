@@ -37,14 +37,11 @@ scoped_refptr<StaticBitmapImage> MakeAccelerated(
     return source;
 
   auto paint_image = source->PaintImageForCurrentFrame();
-  auto provider = CanvasResourceProvider::Create(
-      source->Size(),
-      CanvasResourceProvider::ResourceUsage::
-          kAcceleratedCompositedResourceUsage,
-      context_provider_wrapper, 0, kLow_SkFilterQuality,
+  auto provider = CanvasResourceProvider::CreateSharedImageProvider(
+      source->Size(), context_provider_wrapper, kLow_SkFilterQuality,
       CanvasColorParams(paint_image.GetSkImage()->imageInfo()),
-      CanvasResourceProvider::kDefaultPresentationMode, nullptr,
-      source->IsOriginTopLeft());
+      source->IsOriginTopLeft(), CanvasResourceProvider::RasterMode::kGPU,
+      gpu::SHARED_IMAGE_USAGE_DISPLAY);
   if (!provider || !provider->IsAccelerated())
     return nullptr;
 
@@ -157,9 +154,7 @@ bool ImageLayerBridge::PrepareTransferableResource(
                          image_for_compositor->height());
     uint32_t filter =
         filter_quality_ == kNone_SkFilterQuality ? GL_NEAREST : GL_LINEAR;
-    image_for_compositor->EnsureMailbox(kUnverifiedSyncToken, filter);
     auto mailbox_holder = image_for_compositor->GetMailboxHolder();
-
     auto* sii = image_for_compositor->ContextProvider()->SharedImageInterface();
     bool is_overlay_candidate = sii->UsageForMailbox(mailbox_holder.mailbox) &
                                 gpu::SHARED_IMAGE_USAGE_SCANOUT;

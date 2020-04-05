@@ -97,6 +97,7 @@
 <translation id="2149973817440762519">Edit Penanda Halaman</translation>
 <translation id="2179182049312275900">Anda boleh menghidupkan penyegerakan pada bila-bila masa dalam tetapan.</translation>
 <translation id="2198757192731523470">Google boleh menggunakan sejarah anda untuk memperibadikan Carian, iklan dan perkhidmatan Google yang lain.</translation>
+<translation id="2218443599109088993">Zum Keluar</translation>
 <translation id="2230173723195178503">Halaman web dimuatkan</translation>
 <translation id="2239626343334228536">Mengosongkan data semakan imbas...</translation>
 <translation id="2257567812274161158">Penyegerakan tidak berfungsi.</translation>
@@ -159,6 +160,7 @@
 <translation id="2923448633003185837">Tampal dan Pergi</translation>
 <translation id="292639812446257861">Tandakan Belum Dibaca</translation>
 <translation id="2958718410589002129">Kata laluan</translation>
+<translation id="2964349545761222050">Sekat Kuki Pihak Ketiga</translation>
 <translation id="2969979262385602596">Gagal melog masuk. Sila cuba sebentar lagi.</translation>
 <translation id="298306318844797842">Tambahkan Kaedah Pembayaran...</translation>
 <translation id="2989805286512600854">Buka dalam Tab Baharu</translation>
@@ -178,6 +180,7 @@
 <translation id="3290875554372353449">Pilih Akaun</translation>
 <translation id="3311748811247479259">Mati</translation>
 <translation id="3324193307694657476">Alamat 2</translation>
+<translation id="3328801116991980348">Maklumat tapak</translation>
 <translation id="3329904751041170572">Tidak dapat menyambung ke pelayan.</translation>
 <translation id="3335947283844343239">Buka Semula Tab Yang Ditutup</translation>
 <translation id="3371831930909698441">Terjemah tersedia. Pilihan tersedia berhampiran bahagian bawah skrin.</translation>
@@ -300,6 +303,7 @@ Untuk menukar tetapan ini, <ph name="BEGIN_LINK" />tetapkan semula penyegerakan<
 <translation id="4979397965658815378">Log masuk dengan Akaun Google anda untuk mendapatkan penanda halaman, kata laluan, sejarah dan tetapan anda yang lain pada semua peranti anda</translation>
 <translation id="5005498671520578047">Salin kata laluan</translation>
 <translation id="5010803260590204777">Buka tab inkognito untuk menyemak imbas web secara sulit.</translation>
+<translation id="5039020240289137291">Menyekat kuki pihak ketiga</translation>
 <translation id="5039804452771397117">Benarkan</translation>
 <translation id="5059136629401106827">OK</translation>
 <translation id="5062321486222145940">Pasang Google Drive</translation>
@@ -414,9 +418,11 @@ Data anda disulitkan dengan ungkapan laluan segerak anda pada <ph name="TIME" />
 <translation id="6434591244308415567">Ralat telah berlaku. Cuba sebentar lagi.</translation>
 <translation id="6445051938772793705">Negara</translation>
 <translation id="6445981559479772097">Mesej dihantar.</translation>
+<translation id="6447842834002726250">Kuki</translation>
 <translation id="6464071786529933911">Buka dalam Tab Inkognito Baharu</translation>
 <translation id="6476800141292307438">Menterjemah halaman ini kepada <ph name="LANGUAGE" />. Pilihan tersedia berhampiran bahagian bawah skrin.</translation>
 <translation id="6482629121755362506"><ph name="NUMBER_OF_SELECTED_BOOKMARKS" /> item dipadamkan</translation>
+<translation id="6561262006871132942">Zum Masuk</translation>
 <translation id="6610002944194042868">Pilihan Terjemahan</translation>
 <translation id="6628106477656132239">Tarikh Tamat Tempoh Tidak Sah</translation>
 <translation id="6638511529934826365">Zum Teks…</translation>
@@ -479,7 +485,6 @@ Data anda disulitkan dengan ungkapan laluan segerak anda pada <ph name="TIME" />
 <translation id="734758817008927353">Pilihan untuk Simpan Kad</translation>
 <translation id="7348502496356775519">Bookmark</translation>
 <translation id="7383797227493018512">Senarai Bacaan</translation>
-<translation id="7392048574806661116">Log Keluar dan Kosongkan Data yang Disegerakkan</translation>
 <translation id="7400418766976504921">URL</translation>
 <translation id="7409985198648820906"><ph name="UNREAD_COUNT" /> artikel belum dibaca.</translation>
 <translation id="7425346204213733349">Perubahan kepada penanda halaman, sejarah, kata laluan dan tetapan anda yang lain tidak akan disegerakkan ke Akaun Google anda lagi. Walau bagaimanapun, data sedia ada akan kekal disimpan dalam Akaun Google anda.</translation>
@@ -598,6 +603,7 @@ Data anda disulitkan dengan ungkapan laluan segerak anda pada <ph name="TIME" />
 <translation id="9223358826628549784">Laporan ranap sistem dihantar.</translation>
 <translation id="952704832371081537">Batal</translation>
 <translation id="988141524645182168">Peranti Lain</translation>
+<translation id="989697783705943787">Keselamatan tapak</translation>
 <translation id="989988560359834682">Edit Alamat</translation>
 <translation id="994757059139821576">Cadangan Artikel</translation>
 </translationbundle>

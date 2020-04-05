@@ -4,6 +4,7 @@
 
 package org.chromium.chrome.browser.tasks.tab_management;
 
+import android.os.Handler;
 import android.view.View;
 
 import androidx.annotation.Nullable;
@@ -14,8 +15,8 @@ import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.chrome.browser.ThemeColorProvider;
 import org.chromium.chrome.browser.compositor.layouts.EmptyOverviewModeObserver;
 import org.chromium.chrome.browser.compositor.layouts.OverviewModeBehavior;
-import org.chromium.chrome.browser.flags.FeatureUtilities;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tabmodel.EmptyTabModelObserver;
@@ -29,7 +30,8 @@ import org.chromium.chrome.browser.tabmodel.TabModelSelectorTabObserver;
 import org.chromium.chrome.browser.tasks.tab_groups.EmptyTabGroupModelFilterObserver;
 import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
 import org.chromium.chrome.browser.toolbar.bottom.BottomControlsCoordinator;
-import org.chromium.chrome.browser.util.UrlConstants;
+import org.chromium.chrome.browser.toolbar.bottom.BottomToolbarConfiguration;
+import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.ui.modelutil.PropertyModel;
 
@@ -79,7 +81,7 @@ public class TabGroupUiMediator {
         void resetGridWithListOfTabs(List<Tab> tabs);
     }
 
-    private final PropertyModel mToolbarPropertyModel;
+    private final PropertyModel mModel;
     private final TabModelObserver mTabModelObserver;
     private final ResetHandler mResetHandler;
     private final TabModelSelector mTabModelSelector;
@@ -100,12 +102,12 @@ public class TabGroupUiMediator {
 
     TabGroupUiMediator(
             BottomControlsCoordinator.BottomControlsVisibilityController visibilityController,
-            ResetHandler resetHandler, PropertyModel toolbarPropertyModel,
-            TabModelSelector tabModelSelector, TabCreatorManager tabCreatorManager,
-            OverviewModeBehavior overviewModeBehavior, ThemeColorProvider themeColorProvider,
+            ResetHandler resetHandler, PropertyModel model, TabModelSelector tabModelSelector,
+            TabCreatorManager tabCreatorManager, OverviewModeBehavior overviewModeBehavior,
+            ThemeColorProvider themeColorProvider,
             @Nullable TabGridDialogMediator.DialogController dialogController) {
         mResetHandler = resetHandler;
-        mToolbarPropertyModel = toolbarPropertyModel;
+        mModel = model;
         mTabModelSelector = tabModelSelector;
         mTabCreatorManager = tabCreatorManager;
         mOverviewModeBehavior = overviewModeBehavior;
@@ -135,7 +137,11 @@ public class TabGroupUiMediator {
             }
 
             @Override
-            public void didAddTab(Tab tab, int type) {
+            public void didAddTab(Tab tab, int type, @TabCreationState int creationState) {
+                if (type == TabLaunchType.FROM_CHROME_UI && mIsTabGroupUiVisible) {
+                    mModel.set(TabGroupUiProperties.INITIAL_SCROLL_INDEX,
+                            getRelatedTabsForId(tab.getId()).size() - 1);
+                }
                 if (type == TabLaunchType.FROM_CHROME_UI || type == TabLaunchType.FROM_RESTORE
                         || type == TabLaunchType.FROM_STARTUP) {
                     return;
@@ -215,10 +221,9 @@ public class TabGroupUiMediator {
                  true))
                 .addTabGroupObserver(mTabGroupModelFilterObserver);
 
-        mThemeColorObserver = (color, shouldAnimate)
-                -> mToolbarPropertyModel.set(TabStripToolbarViewProperties.PRIMARY_COLOR, color);
-        mTintObserver = (tint,
-                useLight) -> mToolbarPropertyModel.set(TabStripToolbarViewProperties.TINT, tint);
+        mThemeColorObserver =
+                (color, shouldAnimate) -> mModel.set(TabGroupUiProperties.PRIMARY_COLOR, color);
+        mTintObserver = (tint, useLight) -> mModel.set(TabGroupUiProperties.TINT, tint);
 
         mTabModelSelector.getTabModelFilterProvider().addTabModelFilterObserver(mTabModelObserver);
         mTabModelSelector.addObserver(mTabModelSelectorObserver);
@@ -227,7 +232,7 @@ public class TabGroupUiMediator {
         mThemeColorProvider.addTintObserver(mTintObserver);
 
         setupToolbarClickHandlers();
-        mToolbarPropertyModel.set(TabStripToolbarViewProperties.IS_MAIN_CONTENT_VISIBLE, true);
+        mModel.set(TabGroupUiProperties.IS_MAIN_CONTENT_VISIBLE, true);
         Tab tab = mTabModelSelector.getCurrentTab();
         if (tab != null) {
             resetTabStripWithRelatedTabsForId(tab.getId());
@@ -235,27 +240,22 @@ public class TabGroupUiMediator {
     }
 
     void setupLeftButtonDrawable(int drawableId) {
-        mToolbarPropertyModel.set(
-                TabStripToolbarViewProperties.LEFT_BUTTON_DRAWABLE_ID, drawableId);
+        mModel.set(TabGroupUiProperties.LEFT_BUTTON_DRAWABLE_ID, drawableId);
     }
 
     void setupLeftButtonOnClickListener(View.OnClickListener listener) {
-        mToolbarPropertyModel.set(
-                TabStripToolbarViewProperties.LEFT_BUTTON_ON_CLICK_LISTENER, listener);
+        mModel.set(TabGroupUiProperties.LEFT_BUTTON_ON_CLICK_LISTENER, listener);
     }
 
     private void setupToolbarClickHandlers() {
-        mToolbarPropertyModel.set(
-                TabStripToolbarViewProperties.LEFT_BUTTON_ON_CLICK_LISTENER, view -> {
-                    Tab currentTab = mTabModelSelector.getCurrentTab();
-                    if (currentTab == null) return;
-                    mResetHandler.resetGridWithListOfTabs(getRelatedTabsForId(currentTab.getId()));
-                    if (FeatureUtilities.isTabGroupsAndroidUiImprovementsEnabled()) {
-                        RecordUserAction.record("TabGroup.ExpandedFromStrip.TabGridDialog");
-                    }
-                });
-        mToolbarPropertyModel.set(
-                TabStripToolbarViewProperties.RIGHT_BUTTON_ON_CLICK_LISTENER, view -> {
+        mModel.set(TabGroupUiProperties.LEFT_BUTTON_ON_CLICK_LISTENER, view -> {
+            Tab currentTab = mTabModelSelector.getCurrentTab();
+            if (currentTab == null) return;
+            mResetHandler.resetGridWithListOfTabs(getRelatedTabsForId(currentTab.getId()));
+            RecordUserAction.record("TabGroup.ExpandedFromStrip.TabGridDialog");
+        });
+        mModel.set(
+                TabGroupUiProperties.RIGHT_BUTTON_ON_CLICK_LISTENER, view -> {
                     Tab currentTab = mTabModelSelector.getCurrentTab();
                     List<Tab> relatedTabs = mTabModelSelector.getTabModelFilterProvider()
                                                     .getCurrentTabModelFilter()
@@ -284,10 +284,19 @@ public class TabGroupUiMediator {
             mIsTabGroupUiVisible = true;
         }
         boolean isDuetTabStripIntegrationEnabled =
-                FeatureUtilities.isDuetTabStripIntegrationAndroidEnabled()
-                && FeatureUtilities.isBottomToolbarEnabled();
+                TabUiFeatureUtilities.isDuetTabStripIntegrationAndroidEnabled()
+                && BottomToolbarConfiguration.isBottomToolbarEnabled();
         assert (mVisibilityController == null) == isDuetTabStripIntegrationEnabled;
         if (isDuetTabStripIntegrationEnabled) return;
+        if (mIsTabGroupUiVisible) {
+            // Post to make sure that the recyclerView already knows how many visible items it has.
+            // This is to make sure that we can scroll to a state where the selected tab is in the
+            // middle of the strip.
+            Handler handler = new Handler();
+            handler.post(()
+                                 -> mModel.set(TabGroupUiProperties.INITIAL_SCROLL_INDEX,
+                                         listOfTabs.indexOf(mTabModelSelector.getCurrentTab())));
+        }
         mVisibilityController.setBottomControlsVisible(mIsTabGroupUiVisible);
     }
 

@@ -17,6 +17,7 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/string_split.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/content_settings/cookie_settings_factory.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
@@ -169,7 +170,9 @@ void InitializeCorsExtraSafelistedRequestHeaderNamesForProfile(
 
   // We trust and append |pref|'s values only when they are set by the managed
   // policy. Chrome does not have any interface to set this preference manually.
-  if (has_managed_mitigation_list) {
+  if (!base::FeatureList::IsEnabled(
+          features::kHideCorsMitigationListPolicySupport) &&
+      has_managed_mitigation_list) {
     for (const auto& header_name_value :
          *pref->GetList(prefs::kCorsMitigationList)) {
       extra_safelisted_request_header_names->push_back(
@@ -303,9 +306,9 @@ ProfileNetworkContextService::CreateNetworkContext(
                                   &base_cache_path);
     base::FilePath media_cache_path =
         base_cache_path.Append(chrome::kMediaCacheDirname);
-    base::PostTask(
+    base::ThreadPool::PostTask(
         FROM_HERE,
-        {base::ThreadPool(), base::TaskPriority::BEST_EFFORT, base::MayBlock(),
+        {base::TaskPriority::BEST_EFFORT, base::MayBlock(),
          base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
         base::BindOnce(base::IgnoreResult(&base::DeleteFile), media_cache_path,
                        true /* recursive */));
@@ -707,6 +710,10 @@ ProfileNetworkContextService::CreateNetworkContextParams(
     cookie_path = cookie_path.Append(chrome::kCookieFilename);
     network_context_params->cookie_path = cookie_path;
 
+    base::FilePath trust_token_path = path;
+    trust_token_path = trust_token_path.Append(chrome::kTrustTokenFilename);
+    network_context_params->trust_token_path = std::move(trust_token_path);
+
 #if BUILDFLAG(ENABLE_REPORTING)
     base::FilePath reporting_and_nel_store_path = path;
     reporting_and_nel_store_path = reporting_and_nel_store_path.Append(
@@ -753,7 +760,14 @@ ProfileNetworkContextService::CreateNetworkContextParams(
   network_context_params->enable_expect_ct_reporting = true;
 
 #if BUILDFLAG(TRIAL_COMPARISON_CERT_VERIFIER_SUPPORTED)
-  if (!in_memory && !network_context_params->use_builtin_cert_verifier &&
+  // Require the use_builtin_cert_verifier to be explicitly initialized, as
+  // using the TrialComparisonCertVerifier requires knowing whether Chrome is
+  // using the system verifier.
+  DCHECK_NE(network_context_params->use_builtin_cert_verifier,
+            network::mojom::NetworkContextParams::CertVerifierImpl::kDefault);
+  if (!in_memory &&
+      network_context_params->use_builtin_cert_verifier ==
+          network::mojom::NetworkContextParams::CertVerifierImpl::kSystem &&
       TrialComparisonCertVerifierController::MaybeAllowedForProfile(profile_)) {
     mojo::PendingRemote<network::mojom::TrialComparisonCertVerifierConfigClient>
         config_client;
@@ -807,7 +821,9 @@ ProfileNetworkContextService::CreateNetworkContextParams(
   // Note: On non-ChromeOS platforms, the |use_builtin_cert_verifier| param
   // value is inherited from CreateDefaultNetworkContextParams.
   network_context_params->use_builtin_cert_verifier =
-      using_builtin_cert_verifier_;
+      using_builtin_cert_verifier_
+          ? network::mojom::NetworkContextParams::CertVerifierImpl::kBuiltin
+          : network::mojom::NetworkContextParams::CertVerifierImpl::kSystem;
 
   bool profile_supports_policy_certs = false;
   if (chromeos::ProfileHelper::IsSigninProfile(profile_))

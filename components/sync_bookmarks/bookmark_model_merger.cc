@@ -16,9 +16,9 @@
 #include "components/bookmarks/browser/bookmark_node.h"
 #include "components/sync/base/hash_util.h"
 #include "components/sync/base/unique_position.h"
-#include "components/sync/driver/sync_driver_switches.h"
 #include "components/sync/engine/engine_util.h"
 #include "components/sync_bookmarks/bookmark_specifics_conversions.h"
+#include "components/sync_bookmarks/switches.h"
 #include "components/sync_bookmarks/synced_bookmark_tracker.h"
 #include "ui/base/models/tree_node_iterator.h"
 
@@ -31,10 +31,6 @@ namespace sync_bookmarks {
 namespace {
 
 static const size_t kInvalidIndex = -1;
-
-// Maximum number of bytes to allow in a title (must match sync's internal
-// limits; see write_node.cc).
-const int kTitleLimitBytes = 255;
 
 // The sync protocol identifies top-level entities by means of well-known tags,
 // (aka server defined tags) which should not be confused with titles or client
@@ -78,14 +74,12 @@ const bookmarks::BookmarkNode* GetPermanentFolder(
   return nullptr;
 }
 
-// Canonicalize |title| similar to legacy client's implementation by truncating
-// up to |kTitleLimitBytes| and the appending ' ' in some cases.
-std::string CanonicalizeTitle(const std::string& title) {
-  std::string canonical_title;
-  syncer::SyncAPINameToServerName(title, &canonical_title);
-  base::TruncateUTF8ToByteSize(canonical_title, kTitleLimitBytes,
-                               &canonical_title);
-  return canonical_title;
+std::string LegacyCanonicalizedTitleFromSpecifics(
+    const sync_pb::BookmarkSpecifics& specifics) {
+  if (specifics.has_full_title()) {
+    return FullTitleToLegacyCanonicalizedTitle(specifics.full_title());
+  }
+  return specifics.legacy_canonicalized_title();
 }
 
 // Heuristic to consider two nodes (local and remote) a match by semantics for
@@ -100,13 +94,16 @@ bool NodeSemanticsMatch(const bookmarks::BookmarkNode* local_node,
   const sync_pb::BookmarkSpecifics& specifics =
       remote_node.specifics.bookmark();
   const std::string local_title = base::UTF16ToUTF8(local_node->GetTitle());
-  const std::string remote_title = specifics.title();
+  const std::string remote_title =
+      LegacyCanonicalizedTitleFromSpecifics(specifics);
   // Titles match if they are identical or the remote one is the canonical form
   // of the local one. The latter is the case when a legacy client has
   // canonicalized the same local title before committing it. Modern clients
   // don't canonicalize titles anymore.
+  // TODO(rushans): the comment above is off.
   if (local_title != remote_title &&
-      CanonicalizeTitle(local_title) != remote_title) {
+      sync_bookmarks::FullTitleToLegacyCanonicalizedTitle(local_title) !=
+          remote_title) {
     return false;
   }
   if (remote_node.is_folder) {
@@ -161,8 +158,9 @@ UpdatesPerParentId GroupValidUpdatesByParentId(
     if (!syncer::UniquePosition::FromProto(update_entity.unique_position)
              .IsValid()) {
       // Ignore updates with invalid positions.
-      DLOG(ERROR) << "Remote update with invalid position: "
-                  << update_entity.specifics.bookmark().title();
+      DLOG(ERROR)
+          << "Remote update with invalid position: "
+          << update_entity.specifics.bookmark().legacy_canonicalized_title();
       continue;
     }
     if (!IsValidBookmarkSpecifics(update_entity.specifics.bookmark(),
@@ -203,7 +201,7 @@ void BookmarkModelMerger::RemoteTreeNode::EmplaceSelfAndDescendantsByGUID(
 
   if (entity().server_defined_unique_tag.empty()) {
     const std::string& guid = entity().specifics.bookmark().guid();
-    DCHECK(base::IsValidGUID(guid));
+    DCHECK(base::IsValidGUIDOutputString(guid));
 
     // Duplicate GUIDs have been sorted out before.
     bool success = guid_to_remote_node_map->emplace(guid, this).second;
@@ -235,6 +233,13 @@ BookmarkModelMerger::RemoteTreeNode::BuildTree(
 
   RemoteTreeNode node;
   node.update_ = std::move(update);
+
+  if (!node.update_.entity.is_folder &&
+      node.update_.entity.server_defined_unique_tag.empty()) {
+    // Only folders may have descendants (ignore them otherwise). Treat
+    // permanent nodes as folders explicitly.
+    return node;
+  }
 
   // Populate descendants recursively.
   for (UpdateResponseData& child_update :
@@ -358,7 +363,7 @@ BookmarkModelMerger::FindGuidMatchesOrReassignLocal(
       bookmark_model->root_node());
   while (iterator.has_next()) {
     const bookmarks::BookmarkNode* const node = iterator.Next();
-    DCHECK(base::IsValidGUID(node->guid()));
+    DCHECK(base::IsValidGUIDOutputString(node->guid()));
 
     const auto remote_it = guid_to_remote_node_map.find(node->guid());
     if (remote_it == guid_to_remote_node_map.end()) {
@@ -417,14 +422,23 @@ void BookmarkModelMerger::MergeSubtree(
     const bookmarks::BookmarkNode* local_subtree_root,
     const RemoteTreeNode& remote_node) {
   const EntityData& remote_update_entity = remote_node.entity();
-  bookmark_tracker_->Add(
-      remote_update_entity.id, local_subtree_root,
+  const SyncedBookmarkTracker::Entity* entity = bookmark_tracker_->Add(
+      local_subtree_root, remote_update_entity.id,
       remote_node.response_version(), remote_update_entity.creation_time,
       remote_update_entity.unique_position, remote_update_entity.specifics);
+  if (!local_subtree_root->is_permanent_node() &&
+      IsFullTitleReuploadNeeded(remote_update_entity.specifics.bookmark())) {
+    bookmark_tracker_->IncrementSequenceNumber(entity);
+  }
 
   // If there are remote child updates, try to match them.
   for (size_t remote_index = 0; remote_index < remote_node.children().size();
        ++remote_index) {
+    // TODO(crbug.com/1050776): change to DCHECK after investigating.
+    // Here is expected that all nodes to the left of current |remote_index| are
+    // filled with remote updates. All local nodes which are not merged will be
+    // added later.
+    CHECK_LE(remote_index, local_subtree_root->children().size());
     const RemoteTreeNode& remote_child =
         remote_node.children().at(remote_index);
     const bookmarks::BookmarkNode* matching_local_node =
@@ -468,6 +482,7 @@ const bookmarks::BookmarkNode* BookmarkModelMerger::FindMatchingLocalNode(
     const RemoteTreeNode& remote_child,
     const bookmarks::BookmarkNode* local_parent,
     size_t local_child_start_index) const {
+  DCHECK(local_parent);
   // Try to match child by GUID. If we can't, try to match child by semantics.
   const bookmarks::BookmarkNode* matching_local_node_by_guid =
       FindMatchingLocalNodeByGUID(remote_child);
@@ -501,6 +516,7 @@ const bookmarks::BookmarkNode*
 BookmarkModelMerger::UpdateBookmarkNodeFromSpecificsIncludingGUID(
     const bookmarks::BookmarkNode* local_node,
     const RemoteTreeNode& remote_node) {
+  DCHECK(local_node);
   DCHECK(!local_node->is_permanent_node());
   // Ensure bookmarks have the same URL, otherwise they would not have been
   // matched.
@@ -555,22 +571,22 @@ void BookmarkModelMerger::ProcessRemoteCreation(
       CreateBookmarkNodeFromSpecifics(specifics.bookmark(), local_parent, index,
                                       remote_update_entity.is_folder,
                                       bookmark_model_, favicon_service_);
-  if (!bookmark_node) {
-    // We ignore bookmarks we can't add.
-    DLOG(ERROR) << "Failed to create bookmark node with title "
-                << specifics.bookmark().title() << " and url "
-                << specifics.bookmark().url();
-    return;
+  DCHECK(bookmark_node);
+  const SyncedBookmarkTracker::Entity* entity = bookmark_tracker_->Add(
+      bookmark_node, remote_update_entity.id, remote_node.response_version(),
+      remote_update_entity.creation_time, remote_update_entity.unique_position,
+      specifics);
+  if (IsFullTitleReuploadNeeded(specifics.bookmark())) {
+    bookmark_tracker_->IncrementSequenceNumber(entity);
   }
-  bookmark_tracker_->Add(remote_update_entity.id, bookmark_node,
-                         remote_node.response_version(),
-                         remote_update_entity.creation_time,
-                         remote_update_entity.unique_position, specifics);
 
   // Recursively, match by GUID or, if not possible, create local node for all
   // child remote nodes.
-  int i = 0;
+  size_t i = 0;
   for (const RemoteTreeNode& remote_child : remote_node.children()) {
+    // TODO(crbug.com/1050776): change to DCHECK after investigating of some
+    // crashes.
+    CHECK_LE(i, bookmark_node->children().size());
     const bookmarks::BookmarkNode* local_child =
         FindMatchingLocalNodeByGUID(remote_child);
     if (!local_child) {
@@ -587,6 +603,7 @@ void BookmarkModelMerger::ProcessRemoteCreation(
 void BookmarkModelMerger::ProcessLocalCreation(
     const bookmarks::BookmarkNode* parent,
     size_t index) {
+  DCHECK_LE(index, parent->children().size());
   const SyncedBookmarkTracker::Entity* parent_entity =
       bookmark_tracker_->GetEntityForBookmarkNode(parent);
   // Since we are merging top down, parent entity must be tracked.
@@ -598,7 +615,7 @@ void BookmarkModelMerger::ProcessLocalCreation(
   // server id upon receiving commit response.
   const bookmarks::BookmarkNode* node = parent->children()[index].get();
   DCHECK(!FindMatchingRemoteNodeByGUID(node));
-  DCHECK(base::IsValidGUID(node->guid()));
+  DCHECK(base::IsValidGUIDOutputString(node->guid()));
 
   // The node's GUID cannot run into collisions because
   // FindGuidMatchesOrReassignLocal() takes care of reassigning local GUIDs if
@@ -618,6 +635,7 @@ void BookmarkModelMerger::ProcessLocalCreation(
     const SyncedBookmarkTracker::Entity* predecessor_entity =
         bookmark_tracker_->GetEntityForBookmarkNode(
             parent->children()[index - 1].get());
+    DCHECK(predecessor_entity);
     pos = syncer::UniquePosition::After(
         syncer::UniquePosition::FromProto(
             predecessor_entity->metadata()->unique_position()),
@@ -627,10 +645,10 @@ void BookmarkModelMerger::ProcessLocalCreation(
   const sync_pb::EntitySpecifics specifics = CreateSpecificsFromBookmarkNode(
       node, bookmark_model_, /*force_favicon_load=*/true,
       /*include_guid=*/true);
-  bookmark_tracker_->Add(sync_id, node, server_version, creation_time,
-                         pos.ToProto(), specifics);
+  const SyncedBookmarkTracker::Entity* entity = bookmark_tracker_->Add(
+      node, sync_id, server_version, creation_time, pos.ToProto(), specifics);
   // Mark the entity that it needs to be committed.
-  bookmark_tracker_->IncrementSequenceNumber(sync_id);
+  bookmark_tracker_->IncrementSequenceNumber(entity);
   for (size_t i = 0; i < node->children().size(); ++i) {
     // If a local node hasn't matched with any remote entity, its descendants
     // will neither, unless they have been or will be matched by GUID, in which
@@ -646,6 +664,7 @@ size_t BookmarkModelMerger::FindMatchingChildBySemanticsStartingAt(
     const RemoteTreeNode& remote_node,
     const bookmarks::BookmarkNode* local_parent,
     size_t starting_child_index) const {
+  DCHECK(local_parent);
   const auto& children = local_parent->children();
   DCHECK_LE(starting_child_index, children.size());
   const EntityData& remote_entity = remote_node.entity();

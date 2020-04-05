@@ -11,11 +11,15 @@
 #include "base/bind.h"
 #include "base/logging.h"
 #include "base/macros.h"
+#include "base/memory/ptr_util.h"
 #include "base/memory/ref_counted.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/sequenced_task_runner_helpers.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/post_task.h"
+#include "base/time/default_tick_clock.h"
+#include "base/time/tick_clock.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/safe_browsing/browser_feature_extractor.h"
@@ -40,7 +44,6 @@
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/frame_navigate_params.h"
-#include "content/public/common/resource_load_info.mojom.h"
 #include "content/public/common/url_constants.h"
 #include "net/base/ip_endpoint.h"
 #include "net/http/http_response_headers.h"
@@ -50,7 +53,6 @@
 
 using content::BrowserThread;
 using content::NavigationEntry;
-using content::ResourceType;
 using content::WebContents;
 
 namespace safe_browsing {
@@ -290,7 +292,8 @@ ClientSideDetectionHost::ClientSideDetectionHost(WebContents* tab)
       csd_service_(nullptr),
       classification_request_(nullptr),
       pageload_complete_(false),
-      unsafe_unique_page_id_(-1) {
+      unsafe_unique_page_id_(-1),
+      tick_clock_(base::DefaultTickClock::GetInstance()) {
   DCHECK(tab);
   // Note: csd_service_ and sb_service will be NULL here in testing.
   csd_service_ = g_browser_process->safe_browsing_detection_service();
@@ -414,6 +417,7 @@ void ClientSideDetectionHost::OnPhishingPreClassificationDone(
     phishing_detector_.reset();
     rfh->GetRemoteInterfaces()->GetInterface(
         phishing_detector_.BindNewPipeAndPassReceiver());
+    phishing_detection_start_time_ = tick_clock_->NowTicks();
     phishing_detector_->StartPhishingDetection(
         browse_info_->url,
         base::BindRepeating(&ClientSideDetectionHost::PhishingDetectionDone,
@@ -431,6 +435,9 @@ void ClientSideDetectionHost::PhishingDetectionDone(
   DCHECK(csd_service_);
   DCHECK(browse_info_.get());
 
+  UmaHistogramMediumTimes(
+      "SBClientPhishing.PhishingDetectionDuration",
+      base::TimeTicks::Now() - phishing_detection_start_time_);
   UMA_HISTOGRAM_ENUMERATION("SBClientPhishing.PhishingDetectorResult", result);
   if (result == mojom::PhishingDetectorResult::CLASSIFIER_NOT_READY) {
     Profile* profile =
@@ -514,7 +521,8 @@ void ClientSideDetectionHost::FeatureExtractionDone(
   // Send ping even if the browser feature extraction failed.
   csd_service_->SendClientReportPhishingRequest(
       request.release(),  // The service takes ownership of the request object.
-      IsExtendedReportingEnabled(*profile->GetPrefs()), callback);
+      IsExtendedReportingEnabled(*profile->GetPrefs()),
+      IsEnhancedProtectionEnabled(*profile->GetPrefs()), callback);
 }
 
 bool ClientSideDetectionHost::DidShowSBInterstitial() const {

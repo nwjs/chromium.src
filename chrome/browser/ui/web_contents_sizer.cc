@@ -25,6 +25,7 @@ void ResizeWebContents(content::WebContents* web_contents,
   if (view)
     view->SetBounds(new_bounds);
 #else
+// The Mac implementation is in web_contents_sizer.mm.
 #error "ResizeWebContents not implemented for this platform"
 #endif
 }
@@ -37,6 +38,7 @@ gfx::Size GetWebContentsSize(content::WebContents* web_contents) {
   ui::ViewAndroid* view_android = web_contents->GetNativeView();
   return view_android->bounds().size();
 #else
+// The Mac implementation is in web_contents_sizer.mm.
 #error "GetWebContentsSize not implemented for this platform"
 #endif
 }

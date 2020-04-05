@@ -97,6 +97,7 @@
 <translation id="2149973817440762519">Editar marcador</translation>
 <translation id="2179182049312275900">Pode ativar a sincronização em qualquer altura nas definições.</translation>
 <translation id="2198757192731523470">A Google pode utilizar o seu histórico para personalizar a Pesquisa, os anúncios e outros serviços Google.</translation>
+<translation id="2218443599109088993">Diminuir zoom</translation>
 <translation id="2230173723195178503">Página Web carregada</translation>
 <translation id="2239626343334228536">A limpar os dados de navegação…</translation>
 <translation id="2257567812274161158">A sincronização não está a funcionar.</translation>
@@ -159,6 +160,7 @@
 <translation id="2923448633003185837">Colar e ir</translation>
 <translation id="292639812446257861">Marcar como não lidas</translation>
 <translation id="2958718410589002129">Palavras-passe</translation>
+<translation id="2964349545761222050">Bloquear cookies de terceiros</translation>
 <translation id="2969979262385602596">Falha ao iniciar sessão. Tente nov. mais tarde.</translation>
 <translation id="298306318844797842">Adicionar método de pagamento…</translation>
 <translation id="2989805286512600854">Abrir num Novo Separador</translation>
@@ -178,6 +180,7 @@
 <translation id="3290875554372353449">Selecione uma conta</translation>
 <translation id="3311748811247479259">Desativado</translation>
 <translation id="3324193307694657476">Morada 2</translation>
+<translation id="3328801116991980348">Informações do site</translation>
 <translation id="3329904751041170572">Não foi possível ligar ao servidor.</translation>
 <translation id="3335947283844343239">Reabrir separador fechado</translation>
 <translation id="3371831930909698441">A tradução está disponível. Opções disponíveis junto à parte inferior do ecrã.</translation>
@@ -300,6 +303,7 @@ Para alterar esta definição, <ph name="BEGIN_LINK" />reponha a sincronização
 <translation id="4979397965658815378">Inicie sessão com a sua Conta Google para aceder aos marcadores, às palavras-passe, ao histórico e a outras definições em todos os dispositivos</translation>
 <translation id="5005498671520578047">Copiar palavra-passe</translation>
 <translation id="5010803260590204777">Abra um separador de navegação anónima para navegar na Web de forma privada.</translation>
+<translation id="5039020240289137291">Bloquear cookies de terceiros</translation>
 <translation id="5039804452771397117">Permitir</translation>
 <translation id="5059136629401106827">OK</translation>
 <translation id="5062321486222145940">Instalar o Google Drive</translation>
@@ -414,9 +418,11 @@ Os dados foram encriptados com a sua frase de acesso de sincronização em <ph n
 <translation id="6434591244308415567">Ocorreu um erro. Tente novamente mais tarde.</translation>
 <translation id="6445051938772793705">País</translation>
 <translation id="6445981559479772097">Mensagem enviada.</translation>
+<translation id="6447842834002726250">Cookies</translation>
 <translation id="6464071786529933911">Abrir num novo separador de navegação anónima</translation>
 <translation id="6476800141292307438">A traduzir a página para <ph name="LANGUAGE" />. Estão disponíveis opções junto à parte inferior do ecrã.</translation>
 <translation id="6482629121755362506"><ph name="NUMBER_OF_SELECTED_BOOKMARKS" /> itens eliminados</translation>
+<translation id="6561262006871132942">Aumentar zoom</translation>
 <translation id="6610002944194042868">Opções de tradução</translation>
 <translation id="6628106477656132239">Data de validade inválida</translation>
 <translation id="6638511529934826365">Aplicar zoom no texto…</translation>
@@ -479,7 +485,6 @@ Os dados foram encriptados com a sua frase de acesso de sincronização em <ph n
 <translation id="734758817008927353">Opções para guardar o cartão</translation>
 <translation id="7348502496356775519">Adicionar aos marcadores</translation>
 <translation id="7383797227493018512">Lista de leitura</translation>
-<translation id="7392048574806661116">Terminar sessão e limpar dados sincronizados</translation>
 <translation id="7400418766976504921">URL</translation>
 <translation id="7409985198648820906"><ph name="UNREAD_COUNT" /> artigos não lidos.</translation>
 <translation id="7425346204213733349">As alterações aos marcadores, ao histórico, às palavras-passe e a outras definições deixam de ser sincronizadas com a Conta Google. Contudo, os dados existentes permanecem armazenados na Conta Google.</translation>
@@ -598,6 +603,7 @@ Os dados foram encriptados com a sua frase de acesso de sincronização em <ph n
 <translation id="9223358826628549784">Relatório de falha enviado.</translation>
 <translation id="952704832371081537">Cancelar</translation>
 <translation id="988141524645182168">Outros Dispositivos</translation>
+<translation id="989697783705943787">Segurança do site</translation>
 <translation id="989988560359834682">Editar endereço</translation>
 <translation id="994757059139821576">Sugestões de artigos</translation>
 </translationbundle>

@@ -1680,10 +1680,8 @@ error::Error GLES2DecoderPassthroughImpl::DoGetFramebufferAttachmentParameteriv(
 
   CheckErrorCallbackState();
 
-  // Get a scratch buffer to hold the result of the query
-  GLint* scratch_params = GetTypedScratchMemory<GLint>(bufsize);
   api()->glGetFramebufferAttachmentParameterivRobustANGLEFn(
-      target, updated_attachment, pname, bufsize, length, scratch_params);
+      target, updated_attachment, pname, bufsize, length, params);
 
   if (CheckErrorCallbackState()) {
     DCHECK(*length == 0);
@@ -1691,16 +1689,12 @@ error::Error GLES2DecoderPassthroughImpl::DoGetFramebufferAttachmentParameteriv(
   }
 
   // Update the results of the query, if needed
-  error::Error error = PatchGetFramebufferAttachmentParameter(
-      target, updated_attachment, pname, *length, scratch_params);
+  const error::Error error = PatchGetFramebufferAttachmentParameter(
+      target, updated_attachment, pname, *length, params);
   if (error != error::kNoError) {
     *length = 0;
     return error;
   }
-
-  // Copy into the destination
-  DCHECK(*length < bufsize);
-  std::copy(scratch_params, scratch_params + *length, params);
 
   return error::kNoError;
 }
@@ -3388,7 +3382,8 @@ error::Error GLES2DecoderPassthroughImpl::DoTexStorage2DImageCHROMIUM(
   bool is_cleared;
   scoped_refptr<gl::GLImage> image =
       GetContextGroup()->image_factory()->CreateAnonymousImage(
-          gfx::Size(width, height), buffer_format, buffer_usage, &is_cleared);
+          gfx::Size(width, height), buffer_format, buffer_usage,
+          gpu::kNullSurfaceHandle, &is_cleared);
   if (!image || !image->BindTexImage(target)) {
     InsertError(GL_INVALID_OPERATION, "Failed to create or bind GL Image");
     return error::kNoError;
@@ -3759,7 +3754,7 @@ error::Error GLES2DecoderPassthroughImpl::DoSwapBuffers(uint64_t swap_id,
       }
     }
 
-    DCHECK(emulated_front_buffer_->size == emulated_back_buffer_->size);
+    DCHECK_EQ(emulated_front_buffer_->size, emulated_back_buffer_->size);
 
     if (emulated_default_framebuffer_format_.samples > 0) {
       // Resolve the multisampled renderbuffer into the emulated_front_buffer_
@@ -4690,6 +4685,11 @@ error::Error GLES2DecoderPassthroughImpl::DoDescheduleUntilFinishedCHROMIUM() {
 error::Error GLES2DecoderPassthroughImpl::DoDrawBuffersEXT(
     GLsizei count,
     const volatile GLenum* bufs) {
+  if (!feature_info_->feature_flags().ext_draw_buffers &&
+      !feature_info_->gl_version_info().is_es3) {
+    return error::kUnknownCommand;
+  }
+
   // Validate that count is non-negative before allocating a vector
   if (count < 0) {
     InsertError(GL_INVALID_VALUE, "count cannot be negative.");
@@ -5005,232 +5005,6 @@ error::Error GLES2DecoderPassthroughImpl::DoFlushDriverCachesCHROMIUM() {
     context_->ReleaseCurrent(nullptr);
     context_->MakeCurrent(surface_.get());
   }
-  return error::kNoError;
-}
-
-error::Error GLES2DecoderPassthroughImpl::DoMatrixLoadfCHROMIUM(
-    GLenum matrixMode,
-    const volatile GLfloat* m) {
-  NOTIMPLEMENTED();
-  return error::kNoError;
-}
-
-error::Error GLES2DecoderPassthroughImpl::DoMatrixLoadIdentityCHROMIUM(
-    GLenum matrixMode) {
-  NOTIMPLEMENTED();
-  return error::kNoError;
-}
-
-error::Error GLES2DecoderPassthroughImpl::DoGenPathsCHROMIUM(GLuint path,
-                                                             GLsizei range) {
-  NOTIMPLEMENTED();
-  return error::kNoError;
-}
-
-error::Error GLES2DecoderPassthroughImpl::DoDeletePathsCHROMIUM(GLuint path,
-                                                                GLsizei range) {
-  NOTIMPLEMENTED();
-  return error::kNoError;
-}
-
-error::Error GLES2DecoderPassthroughImpl::DoIsPathCHROMIUM(GLuint path,
-                                                           uint32_t* result) {
-  NOTIMPLEMENTED();
-  return error::kNoError;
-}
-
-error::Error GLES2DecoderPassthroughImpl::DoPathCommandsCHROMIUM(
-    GLuint path,
-    GLsizei numCommands,
-    const GLubyte* commands,
-    GLsizei numCoords,
-    GLenum coordType,
-    const GLvoid* coords,
-    GLsizei coords_bufsize) {
-  NOTIMPLEMENTED();
-  return error::kNoError;
-}
-
-error::Error GLES2DecoderPassthroughImpl::DoPathParameterfCHROMIUM(
-    GLuint path,
-    GLenum pname,
-    GLfloat value) {
-  NOTIMPLEMENTED();
-  return error::kNoError;
-}
-
-error::Error GLES2DecoderPassthroughImpl::DoPathParameteriCHROMIUM(
-    GLuint path,
-    GLenum pname,
-    GLint value) {
-  NOTIMPLEMENTED();
-  return error::kNoError;
-}
-
-error::Error GLES2DecoderPassthroughImpl::DoPathStencilFuncCHROMIUM(
-    GLenum func,
-    GLint ref,
-    GLuint mask) {
-  NOTIMPLEMENTED();
-  return error::kNoError;
-}
-
-error::Error GLES2DecoderPassthroughImpl::DoStencilFillPathCHROMIUM(
-    GLuint path,
-    GLenum fillMode,
-    GLuint mask) {
-  NOTIMPLEMENTED();
-  return error::kNoError;
-}
-
-error::Error GLES2DecoderPassthroughImpl::DoStencilStrokePathCHROMIUM(
-    GLuint path,
-    GLint reference,
-    GLuint mask) {
-  NOTIMPLEMENTED();
-  return error::kNoError;
-}
-
-error::Error GLES2DecoderPassthroughImpl::DoCoverFillPathCHROMIUM(
-    GLuint path,
-    GLenum coverMode) {
-  NOTIMPLEMENTED();
-  return error::kNoError;
-}
-
-error::Error GLES2DecoderPassthroughImpl::DoCoverStrokePathCHROMIUM(
-    GLuint path,
-    GLenum coverMode) {
-  NOTIMPLEMENTED();
-  return error::kNoError;
-}
-
-error::Error GLES2DecoderPassthroughImpl::DoStencilThenCoverFillPathCHROMIUM(
-    GLuint path,
-    GLenum fillMode,
-    GLuint mask,
-    GLenum coverMode) {
-  NOTIMPLEMENTED();
-  return error::kNoError;
-}
-
-error::Error GLES2DecoderPassthroughImpl::DoStencilThenCoverStrokePathCHROMIUM(
-    GLuint path,
-    GLint reference,
-    GLuint mask,
-    GLenum coverMode) {
-  NOTIMPLEMENTED();
-  return error::kNoError;
-}
-
-error::Error GLES2DecoderPassthroughImpl::DoStencilFillPathInstancedCHROMIUM(
-    GLsizei numPaths,
-    GLenum pathNameType,
-    const GLvoid* paths,
-    GLsizei pathsBufsize,
-    GLuint pathBase,
-    GLenum fillMode,
-    GLuint mask,
-    GLenum transformType,
-    const GLfloat* transformValues,
-    GLsizei transformValuesBufsize) {
-  NOTIMPLEMENTED();
-  return error::kNoError;
-}
-
-error::Error GLES2DecoderPassthroughImpl::DoStencilStrokePathInstancedCHROMIUM(
-    GLsizei numPaths,
-    GLenum pathNameType,
-    const GLvoid* paths,
-    GLsizei pathsBufsize,
-    GLuint pathBase,
-    GLint reference,
-    GLuint mask,
-    GLenum transformType,
-    const GLfloat* transformValues,
-    GLsizei transformValuesBufsize) {
-  NOTIMPLEMENTED();
-  return error::kNoError;
-}
-
-error::Error GLES2DecoderPassthroughImpl::DoCoverFillPathInstancedCHROMIUM(
-    GLsizei numPaths,
-    GLenum pathNameType,
-    const GLvoid* paths,
-    GLsizei pathsBufsize,
-    GLuint pathBase,
-    GLenum coverMode,
-    GLenum transformType,
-    const GLfloat* transformValues,
-    GLsizei transformValuesBufsize) {
-  NOTIMPLEMENTED();
-  return error::kNoError;
-}
-
-error::Error GLES2DecoderPassthroughImpl::DoCoverStrokePathInstancedCHROMIUM(
-    GLsizei numPaths,
-    GLenum pathNameType,
-    const GLvoid* paths,
-    GLsizei pathsBufsize,
-    GLuint pathBase,
-    GLenum coverMode,
-    GLenum transformType,
-    const GLfloat* transformValues,
-    GLsizei transformValuesBufsize) {
-  NOTIMPLEMENTED();
-  return error::kNoError;
-}
-
-error::Error
-GLES2DecoderPassthroughImpl::DoStencilThenCoverFillPathInstancedCHROMIUM(
-    GLsizei numPaths,
-    GLenum pathNameType,
-    const GLvoid* paths,
-    GLsizei pathsBufsize,
-    GLuint pathBase,
-    GLenum fillMode,
-    GLuint mask,
-    GLenum coverMode,
-    GLenum transformType,
-    const GLfloat* transformValues,
-    GLsizei transformValuesBufsize) {
-  NOTIMPLEMENTED();
-  return error::kNoError;
-}
-
-error::Error
-GLES2DecoderPassthroughImpl::DoStencilThenCoverStrokePathInstancedCHROMIUM(
-    GLsizei numPaths,
-    GLenum pathNameType,
-    const GLvoid* paths,
-    GLsizei pathsBufsize,
-    GLuint pathBase,
-    GLint reference,
-    GLuint mask,
-    GLenum coverMode,
-    GLenum transformType,
-    const GLfloat* transformValues,
-    GLsizei transformValuesBufsize) {
-  NOTIMPLEMENTED();
-  return error::kNoError;
-}
-
-error::Error GLES2DecoderPassthroughImpl::DoBindFragmentInputLocationCHROMIUM(
-    GLuint program,
-    GLint location,
-    const char* name) {
-  NOTIMPLEMENTED();
-  return error::kNoError;
-}
-
-error::Error GLES2DecoderPassthroughImpl::DoProgramPathFragmentInputGenCHROMIUM(
-    GLuint program,
-    GLint location,
-    GLenum genMode,
-    GLint components,
-    const GLfloat* coeffs,
-    GLsizei coeffsBufsize) {
-  NOTIMPLEMENTED();
   return error::kNoError;
 }
 

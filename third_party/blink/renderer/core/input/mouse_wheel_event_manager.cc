@@ -26,8 +26,7 @@ namespace {
 
 gfx::Vector2dF ResolveMouseWheelPercentToWheelDelta(
     const WebMouseWheelEvent& event) {
-  DCHECK(event.delta_units ==
-         ui::input_types::ScrollGranularity::kScrollByPercentage);
+  DCHECK(event.delta_units == ui::ScrollGranularity::kScrollByPercentage);
   // TODO (dlibby): OS scroll settings need to be factored into this.
   // Note that this value is negative because we're converting from wheel
   // ticks to wheel delta pixel. Wheel ticks are negative for scrolling down,
@@ -44,7 +43,7 @@ MouseWheelEventManager::MouseWheelEventManager(LocalFrame& frame,
                                                ScrollManager& scroll_manager)
     : frame_(frame), wheel_target_(nullptr), scroll_manager_(scroll_manager) {}
 
-void MouseWheelEventManager::Trace(blink::Visitor* visitor) {
+void MouseWheelEventManager::Trace(Visitor* visitor) {
   visitor->Trace(frame_);
   visitor->Trace(wheel_target_);
   visitor->Trace(scroll_manager_);
@@ -104,8 +103,7 @@ WebInputEventResult MouseWheelEventManager::HandleWheelEvent(
 
   if (wheel_target_) {
     WheelEvent* dom_event =
-        (event.delta_units ==
-         ui::input_types::ScrollGranularity::kScrollByPercentage)
+        (event.delta_units == ui::ScrollGranularity::kScrollByPercentage)
             ? WheelEvent::Create(event,
                                  ResolveMouseWheelPercentToWheelDelta(event),
                                  wheel_target_->GetDocument().domWindow())

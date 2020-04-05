@@ -7,6 +7,7 @@
 #include <memory>
 #include <utility>
 
+#include "base/metrics/histogram_macros.h"
 #include "base/optional.h"
 #include "services/network/public/mojom/fetch_api.mojom-blink.h"
 #include "third_party/blink/public/common/cache_storage/cache_storage_utils.h"
@@ -40,7 +41,6 @@
 #include "third_party/blink/renderer/platform/bindings/script_state.h"
 #include "third_party/blink/renderer/platform/bindings/v8_throw_exception.h"
 #include "third_party/blink/renderer/platform/heap/heap.h"
-#include "third_party/blink/renderer/platform/instrumentation/histogram.h"
 #include "third_party/blink/renderer/platform/instrumentation/tracing/trace_event.h"
 #include "third_party/blink/renderer/platform/instrumentation/tracing/traced_value.h"
 #include "third_party/blink/renderer/platform/loader/fetch/cached_metadata.h"
@@ -213,7 +213,7 @@ class Cache::FetchResolvedForAdd final : public ScriptFunction {
     return ScriptValue(GetScriptState()->GetIsolate(), put_promise.V8Value());
   }
 
-  void Trace(blink::Visitor* visitor) override {
+  void Trace(Visitor* visitor) override {
     visitor->Trace(cache_);
     visitor->Trace(requests_);
     ScriptFunction::Trace(visitor);
@@ -298,8 +298,8 @@ class Cache::BarrierCallbackForPut final
                   message.Append(": ");
                   message.Append(error->message);
                 }
-                resolver->Reject(CacheStorageError::CreateException(
-                    error->value, message.ToString()));
+                RejectCacheStorageWithError(resolver, error->value,
+                                            message.ToString());
               }
             },
             method_name_, WrapPersistent(resolver_.Get()),
@@ -326,7 +326,7 @@ class Cache::BarrierCallbackForPut final
         MakeGarbageCollected<DOMException>(DOMExceptionCode::kAbortError));
   }
 
-  virtual void Trace(blink::Visitor* visitor) {
+  virtual void Trace(Visitor* visitor) {
     visitor->Trace(cache_);
     visitor->Trace(resolver_);
   }
@@ -412,7 +412,7 @@ class Cache::BlobHandleCallbackForPut final
 
   void Abort() override { barrier_callback_->Abort(); }
 
-  void Trace(blink::Visitor* visitor) override {
+  void Trace(Visitor* visitor) override {
     visitor->Trace(barrier_callback_);
     FetchDataLoader::Client::Trace(visitor);
   }
@@ -495,7 +495,7 @@ class Cache::CodeCacheHandleCallbackForPut final
 
   void Abort() override { barrier_callback_->Abort(); }
 
-  void Trace(blink::Visitor* visitor) override {
+  void Trace(Visitor* visitor) override {
     visitor->Trace(script_state_);
     visitor->Trace(barrier_callback_);
     FetchDataLoader::Client::Trace(visitor);
@@ -678,7 +678,7 @@ Cache::Cache(GlobalFetch::ScopedFetcher* fetcher,
   cache_remote_.Bind(std::move(cache_pending_remote), std::move(task_runner));
 }
 
-void Cache::Trace(blink::Visitor* visitor) {
+void Cache::Trace(Visitor* visitor) {
   visitor->Trace(scoped_fetcher_);
   visitor->Trace(blob_client_list_);
   ScriptWrappable::Trace(visitor);
@@ -743,8 +743,7 @@ ScriptPromise Cache::MatchImpl(ScriptState* script_state,
                   resolver->Resolve();
                   break;
                 default:
-                  resolver->Reject(
-                      CacheStorageError::CreateException(result->get_status()));
+                  RejectCacheStorageWithError(resolver, result->get_status());
                   break;
               }
             } else {
@@ -824,8 +823,7 @@ ScriptPromise Cache::MatchAllImpl(ScriptState* script_state,
                   "CacheStorage", "Cache::MatchAllImpl::Callback",
                   TRACE_ID_GLOBAL(trace_id), TRACE_EVENT_FLAG_FLOW_IN, "status",
                   CacheStorageTracedValue(result->get_status()));
-              resolver->Reject(
-                  CacheStorageError::CreateException(result->get_status()));
+              RejectCacheStorageWithError(resolver, result->get_status());
             } else {
               TRACE_EVENT_WITH_FLOW1(
                   "CacheStorage", "Cache::MatchAllImpl::Callback",
@@ -940,8 +938,8 @@ ScriptPromise Cache::DeleteImpl(ScriptState* script_state,
                     message.Append("Cache.delete(): ");
                     message.Append(error->message);
                   }
-                  resolver->Reject(CacheStorageError::CreateException(
-                      error->value, message.ToString()));
+                  RejectCacheStorageWithError(resolver, error->value,
+                                              message.ToString());
                   break;
               }
             } else {
@@ -1092,8 +1090,7 @@ ScriptPromise Cache::KeysImpl(ScriptState* script_state,
                   "CacheStorage", "Cache::KeysImpl::Callback",
                   TRACE_ID_GLOBAL(trace_id), TRACE_EVENT_FLAG_FLOW_IN, "status",
                   CacheStorageTracedValue(result->get_status()));
-              resolver->Reject(
-                  CacheStorageError::CreateException(result->get_status()));
+              RejectCacheStorageWithError(resolver, result->get_status());
             } else {
               TRACE_EVENT_WITH_FLOW1(
                   "CacheStorage", "Cache::KeysImpl::Callback",

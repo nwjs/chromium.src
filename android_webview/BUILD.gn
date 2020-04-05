@@ -24,7 +24,7 @@ if (enable_resource_whitelist_generation) {
       "$target_gen_dir/system_webview_pak_whitelist.txt"
 }
 
-if (public_android_sdk) {
+if (define_upstream_webview_targets) {
   template("standalone_system_webview_apk_tmpl") {
     system_webview_apk_or_module_tmpl(target_name) {
       forward_variables_from(invoker, "*")
@@ -39,6 +39,14 @@ if (public_android_sdk) {
   # Standalone WebView APK.
   standalone_system_webview_apk_tmpl("system_webview_apk") {
     apk_name = "SystemWebView"
+  }
+
+  # This version of the WebView APK doesn't include WebLayer java and resources.
+  # It's used to define the whitelist of resources to be pulled out of language
+  # splits. See |shared_resources_allowlist_target|.
+  standalone_system_webview_apk_tmpl("system_webview_no_weblayer_apk") {
+    exclude_weblayer_java = true
+    apk_name = "SystemWebViewNoWebLayer"
   }
 
   if (enable_webview_bundles) {
@@ -261,11 +269,7 @@ if (defined(android_secondary_abi_toolchain)) {
   }
 }
 
-# Contains all Java dependencies used by WebView.
-# TODO(crbug.com/934152): Rename this to android_webview_java. It has a
-#                         temporary name because GN doesn't allow the direction
-#                         of existing dependencies to be reversed.
-java_group("android_webview_step1_java") {
+java_group("android_webview_no_weblayer_java") {
   deps = [
     ":browser_java",
 
@@ -277,6 +281,11 @@ java_group("android_webview_step1_java") {
     "//android_webview/nonembedded:nonembedded_java",
     "//android_webview/support_library:support_lib_glue_java",
   ]
+}
+
+# Contains all Java dependencies used by WebView.
+java_group("android_webview_java") {
+  deps = [ ":android_webview_no_weblayer_java" ]
 
   if (webview_includes_weblayer) {
     deps += [
@@ -331,6 +340,7 @@ generate_jni("browser_jni_headers") {
     "java/src/org/chromium/android_webview/JsReplyProxy.java",
     "java/src/org/chromium/android_webview/PopupTouchHandleDrawable.java",
     "java/src/org/chromium/android_webview/WebMessageListenerHolder.java",
+    "java/src/org/chromium/android_webview/WebMessageListenerInfo.java",
     "java/src/org/chromium/android_webview/gfx/AwDrawFnImpl.java",
     "java/src/org/chromium/android_webview/gfx/AwGLFunctor.java",
     "java/src/org/chromium/android_webview/gfx/AwPicture.java",
@@ -351,7 +361,6 @@ generate_jar_jni("cancellation_signal_android_jar_jni_headers") {
 android_library("browser_java") {
   sources = [
     "java/src/org/chromium/android_webview/AndroidProtocolHandler.java",
-    "java/src/org/chromium/android_webview/AutofillActionModeCallback.java",
     "java/src/org/chromium/android_webview/AwActionModeCallback.java",
     "java/src/org/chromium/android_webview/AwAutofillClient.java",
     "java/src/org/chromium/android_webview/AwBrowserContext.java",
@@ -422,6 +431,7 @@ android_library("browser_java") {
     "java/src/org/chromium/android_webview/ViewPositionObserver.java",
     "java/src/org/chromium/android_webview/WebMessageListener.java",
     "java/src/org/chromium/android_webview/WebMessageListenerHolder.java",
+    "java/src/org/chromium/android_webview/WebMessageListenerInfo.java",
     "java/src/org/chromium/android_webview/WebViewChromiumRunQueue.java",
     "java/src/org/chromium/android_webview/gfx/AwDrawFnImpl.java",
     "java/src/org/chromium/android_webview/gfx/AwFunctor.java",
@@ -453,7 +463,9 @@ android_library("browser_java") {
     "//components/content_capture/android:java",
     "//components/crash/android:handler_java",
     "//components/crash/android:java",
+    "//components/embedder_support/android:util_java",
     "//components/embedder_support/android:web_contents_delegate_java",
+    "//components/embedder_support/android/metrics:java",
     "//components/minidump_uploader:minidump_uploader_java",
     "//components/navigation_interception/android:navigation_interception_java",
     "//components/policy/android:policy_java",
@@ -471,6 +483,7 @@ android_library("browser_java") {
     "//third_party/android_deps:androidx_annotation_annotation_java",
     "//third_party/blink/public:blink_headers_java",
     "//ui/android:ui_java",
+    "//url:gurl_java",
   ]
   annotation_processor_deps = [ "//base/android/jni_generator:jni_processor" ]
 
@@ -496,7 +509,7 @@ android_library("common_variations_java") {
     "//android_webview/proto:aw_variations_seed_proto_java",
     "//base:base_java",
     "//components/variations/android:variations_java",
-    "//third_party/android_deps:com_google_protobuf_protobuf_lite_java",
+    "//third_party/android_deps:com_google_protobuf_protobuf_javalite_java",
   ]
 }
 
@@ -505,7 +518,6 @@ android_library("common_variations_java") {
 # compiled separately.
 android_library("common_platform_services_java") {
   sources = [
-    "java/src/org/chromium/android_webview/common/MetricsLogUploaderAdapter.java",
     "java/src/org/chromium/android_webview/common/PlatformServiceBridge.java",
     "java/src/org/chromium/android_webview/common/PlatformServiceBridgeImpl.java",
   ]
@@ -755,7 +767,13 @@ android_assets("stub_assets") {
 }
 
 android_resources("resources") {
-  resource_dirs = [ "java/res" ]
+  sources = [
+    "java/res/drawable-hdpi/ic_play_circle_outline_black_48dp.png",
+    "java/res/drawable-mdpi/ic_play_circle_outline_black_48dp.png",
+    "java/res/drawable-xhdpi/ic_play_circle_outline_black_48dp.png",
+    "java/res/drawable-xxhdpi/ic_play_circle_outline_black_48dp.png",
+    "java/res/drawable-xxxhdpi/ic_play_circle_outline_black_48dp.png",
+  ]
   custom_package = "org.chromium.android_webview"
   deps = [ ":strings_grd" ]
 }
@@ -779,16 +797,15 @@ grit("generate_aw_strings") {
 grit("generate_webui_resources") {
   source = "../ui/webui/resources/webui_resources.grd"
 
-  # The .grd contains references to generated files.
-  source_is_generated = true
-
-  # webui/resources has way too many resources. The whitelist is trim this down
+  # webui/resources has way too many resources. The allowlist is trim this down
   # to a reasonable size
-  _whitelist = "ui/grit_resources_whitelist.txt"
-  inputs = [ _whitelist ]
+  _allowlist = "ui/grit_resources_allowlist.txt"
+  inputs = [ _allowlist ]
   grit_flags = [
     "-w",
-    rebase_path(_whitelist, root_build_dir),
+    rebase_path(_allowlist, root_build_dir),
+    "-E",
+    "root_gen_dir=" + rebase_path(root_gen_dir, root_build_dir),
   ]
   outputs = [
     "grit/webui_resources.h",
@@ -796,20 +813,22 @@ grit("generate_webui_resources") {
     "grit/webui_resources_map.h",
     "webui_resources.pak",
   ]
+  deps = [
+    "//ui/webui/resources/js:modulize",
+    "//ui/webui/resources/js/cr:modulize",
+    "//ui/webui/resources/js/cr/ui:modulize",
+  ]
 }
 
 grit("generate_mojo_resources") {
   source = "../mojo/public/js/mojo_bindings_resources.grd"
 
-  # The .grd contains references to generated files.
-  source_is_generated = true
-
-  # See :generate_webui_resources for an explanation of the whitelist
-  _whitelist = "ui/grit_resources_whitelist.txt"
-  inputs = [ _whitelist ]
+  # See :generate_webui_resources for an explanation of the allowlist
+  _allowlist = "ui/grit_resources_allowlist.txt"
+  inputs = [ _allowlist ]
   grit_flags = [
     "-w",
-    rebase_path(_whitelist, root_build_dir),
+    rebase_path(_allowlist, root_build_dir),
     "-E",
     "root_gen_dir=" + rebase_path(root_gen_dir, root_build_dir),
   ]
@@ -819,36 +838,41 @@ grit("generate_mojo_resources") {
     "grit/mojo_bindings_resources_map.h",
     "mojo_bindings_resources.pak",
   ]
-  deps = [ "//mojo/public/js:bindings_lite" ]
+  deps = [
+    "//mojo/public/js:bindings_lite",
+    "//mojo/public/mojom/base:base_js",
+  ]
 }
 
 grit("generate_components_resources") {
   # Note that dev_ui_components_resources.grd is Chrome-only, so excluded.
   source = "../components/resources/components_resources.grd"
 
-  # The .grd contains references to generated files.
-  source_is_generated = true
-
   use_brotli = true
 
-  # See :generate_webui_resources for an explanation of the whitelist
-  _whitelist = "ui/grit_resources_whitelist.txt"
-  inputs = [ _whitelist ]
+  # See :generate_webui_resources for an explanation of the allowlist
+  _allowlist = "ui/grit_resources_allowlist.txt"
+  inputs = [ _allowlist ]
   _about_credits_file = get_label_info("//components/resources",
                                        "target_gen_dir") + "/about_credits.html"
 
   grit_flags = [
     "-w",
-    rebase_path(_whitelist, root_build_dir),
+    rebase_path(_allowlist, root_build_dir),
     "-E",
     "about_credits_file=" + rebase_path(_about_credits_file, root_build_dir),
+    "-E",
+    "root_gen_dir=" + rebase_path(root_gen_dir, root_build_dir),
   ]
   outputs = [
     "grit/components_resources.h",
     "components_resources.pak",
   ]
 
-  deps = [ "//components/resources:about_credits" ]
+  deps = [
+    "//components/resources:about_credits",
+    "//components/resources/ssl/ssl_error_assistant:make_ssl_error_assistant_protobuf",
+  ]
 }
 
 grit("generate_components_strings") {
@@ -856,13 +880,13 @@ grit("generate_components_strings") {
 
   # components_strings contains strings from all components. WebView
   # will never display most of them, so we try to limit the included
-  # strings. This whitelist trims about 50% more than the compile-based
-  # whitelist generated by :system_webview_pak_whitelist.
-  whitelist = rebase_path("ui/grit_strings_whitelist.txt", root_build_dir)
-  inputs = [ "//android_webview/ui/grit_strings_whitelist.txt" ]
+  # strings. This allowlist trims about 50% more than the compile-based
+  # allowlist generated by :system_webview_pak_whitelist.
+  _allowlist = rebase_path("ui/grit_strings_allowlist.txt", root_build_dir)
+  inputs = [ "//android_webview/ui/grit_strings_allowlist.txt" ]
   grit_flags = [
     "-w",
-    whitelist,
+    _allowlist,
   ]
   outputs =
       [

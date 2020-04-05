@@ -116,6 +116,15 @@ void ManualFillingViewAndroid::OnOptionSelected(
       static_cast<autofill::AccessoryAction>(selected_action));
 }
 
+void ManualFillingViewAndroid::OnToggleChanged(
+    JNIEnv* env,
+    const base::android::JavaParamRef<jobject>& obj,
+    jint selected_action,
+    jboolean enabled) {
+  controller_->OnToggleChanged(
+      static_cast<autofill::AccessoryAction>(selected_action), enabled);
+}
+
 ScopedJavaLocalRef<jobject>
 ManualFillingViewAndroid::ConvertAccessorySheetDataToJavaObject(
     JNIEnv* env,
@@ -125,6 +134,14 @@ ManualFillingViewAndroid::ConvertAccessorySheetDataToJavaObject(
           env, static_cast<int>(tab_data.get_sheet_type()),
           ConvertUTF16ToJavaString(env, tab_data.title()),
           ConvertUTF16ToJavaString(env, tab_data.warning()));
+
+  if (tab_data.option_toggle().has_value()) {
+    autofill::OptionToggle toggle = tab_data.option_toggle().value();
+    Java_ManualFillingComponentBridge_addOptionToggleToAccessorySheetData(
+        env, java_object_, j_tab_data,
+        ConvertUTF16ToJavaString(env, toggle.display_text()),
+        toggle.is_enabled(), static_cast<int>(toggle.accessory_action()));
+  }
 
   for (const UserInfo& user_info : tab_data.user_info_list()) {
     ScopedJavaLocalRef<jobject> j_user_info =
@@ -172,7 +189,8 @@ void JNI_ManualFillingComponentBridge_CachePasswordSheetDataForTesting(
     JNIEnv* env,
     const base::android::JavaParamRef<jobject>& j_web_contents,
     const base::android::JavaParamRef<jobjectArray>& j_usernames,
-    const base::android::JavaParamRef<jobjectArray>& j_passwords) {
+    const base::android::JavaParamRef<jobjectArray>& j_passwords,
+    jboolean j_blacklisted) {
   content::WebContents* web_contents =
       content::WebContents::FromJavaWebContents(j_web_contents);
 
@@ -193,7 +211,10 @@ void JNI_ManualFillingComponentBridge_CachePasswordSheetDataForTesting(
   }
   return ChromePasswordManagerClient::FromWebContents(web_contents)
       ->GetCredentialCacheForTesting()
-      ->SaveCredentialsForOrigin(credentials, origin);
+      ->SaveCredentialsAndBlacklistedForOrigin(
+          credentials,
+          password_manager::CredentialCache::IsOriginBlacklisted(j_blacklisted),
+          origin);
 }
 
 // static

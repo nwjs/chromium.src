@@ -28,8 +28,6 @@ class FakeClient : public mojom::Client {
   // mojom::Client implementation:
   void OnAssistantStatusChanged(ash::mojom::AssistantState new_state) override {
   }
-  void RequestAssistantStructure(
-      RequestAssistantStructureCallback callback) override {}
   void RequestAssistantController(
       mojo::PendingReceiver<mojom::AssistantController> receiver) override {}
   void RequestAssistantAlarmTimerController(
@@ -56,9 +54,6 @@ class FakeClient : public mojom::Client {
       mojo::PendingReceiver<audio::mojom::StreamFactory> receiver) override {}
   void RequestAudioDecoderFactory(
       mojo::PendingReceiver<mojom::AssistantAudioDecoderFactory> receiver)
-      override {}
-  void RequestIdentityAccessor(
-      mojo::PendingReceiver<identity::mojom::IdentityAccessor> receiver)
       override {}
   void RequestAudioFocusManager(
       mojo::PendingReceiver<media_session::mojom::AudioFocusManager> receiver)

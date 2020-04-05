@@ -8,10 +8,10 @@
 
 #include "base/strings/stringprintf.h"
 #include "chromeos/components/quick_answers/quick_answers_model.h"
+#include "chromeos/components/quick_answers/understanding/intent_generator.h"
 #include "chromeos/components/quick_answers/utils/quick_answers_metrics.h"
 #include "chromeos/constants/chromeos_features.h"
 #include "third_party/icu/source/common/unicode/locid.h"
-#include "third_party/re2/src/re2/re2.h"
 
 namespace chromeos {
 namespace quick_answers {
@@ -19,27 +19,40 @@ namespace {
 
 using network::mojom::URLLoaderFactory;
 
-constexpr char kAddressRegex[] =
-    "^\\d+\\s[A-z]+\\s[A-z]+, ([A-z]|\\s)+, [A-z]{2}\\s[0-9]{5}";
-constexpr char kDirectionQueryRewriteTemplate[] = "Direction to %s";
+constexpr char kDictionaryQueryRewriteTemplate[] = "Define:%s";
 
-const QuickAnswersRequest PreprocessRequest(
-    const QuickAnswersRequest& request) {
+QuickAnswersClient::ResultLoaderFactoryCallback*
+    g_testing_result_factory_callback = nullptr;
+
+const QuickAnswersRequest PreprocessRequest(const QuickAnswersRequest& request,
+                                            const std::string& intent_text,
+                                            IntentType intent_type) {
   QuickAnswersRequest processed_request = request;
-  // Temporarily classify text for demo purpose only. This will be replaced with
-  // TCLib when it is ready.
-  // TODO(llin): Query TCLib and rewrite the query based on TCLib result.
-  if (re2::RE2::FullMatch(request.selected_text, kAddressRegex)) {
-    // TODO(llin): Add localization string for query rewrite.
-    processed_request.selected_text =
-        base::StringPrintf(kDirectionQueryRewriteTemplate,
-                           processed_request.selected_text.c_str());
-  }
 
+  switch (intent_type) {
+    case IntentType::kUnit:
+      processed_request.selected_text = intent_text;
+      break;
+    case IntentType::kDictionary:
+      processed_request.selected_text = base::StringPrintf(
+          kDictionaryQueryRewriteTemplate, intent_text.c_str());
+      break;
+    case IntentType::kTranslation:
+      break;
+    case IntentType::kUnknown:
+      // TODO(llin): Update to NOTREACHED after integrating with TCLib.
+      break;
+  }
   return processed_request;
 }
 
 }  // namespace
+
+// static
+void QuickAnswersClient::SetResultLoaderFactoryForTesting(
+    ResultLoaderFactoryCallback* factory) {
+  g_testing_result_factory_callback = factory;
+}
 
 QuickAnswersClient::QuickAnswersClient(URLLoaderFactory* url_loader_factory,
                                        ash::AssistantState* assistant_state,
@@ -76,7 +89,12 @@ void QuickAnswersClient::OnAssistantContextEnabled(bool enabled) {
 }
 
 void QuickAnswersClient::OnLocaleChanged(const std::string& locale) {
-  const std::string kAllowedLocales[] = {ULOC_US};
+  // String literals used in some cases in the array because their
+  // constant equivalents don't exist in:
+  // third_party/icu/source/common/unicode/uloc.h
+  const std::string kAllowedLocales[] = {ULOC_CANADA, ULOC_UK, ULOC_US,
+                                         "en_AU",     "en_IN", "en_NZ"};
+
   const std::string kRuntimeLocale = icu::Locale::getDefault().getName();
   locale_supported_ = (base::Contains(kAllowedLocales, locale) ||
                        base::Contains(kAllowedLocales, kRuntimeLocale));
@@ -91,18 +109,27 @@ void QuickAnswersClient::SendRequest(
     const QuickAnswersRequest& quick_answers_request) {
   RecordSelectedTextLength(quick_answers_request.selected_text.length());
 
-  // Preprocess the request.
-  auto& processed_request = PreprocessRequest(quick_answers_request);
-  delegate_->OnRequestPreprocessFinish(processed_request);
+  // Generate intent from |quick_answers_request|.
+  IntentGenerator(base::BindOnce(&QuickAnswersClient::IntentGeneratorCallback,
+                                 weak_factory_.GetWeakPtr(),
+                                 quick_answers_request))
+      .GenerateIntent(quick_answers_request);
+}
 
-  // Load and parse search result.
-  search_results_loader_ =
-      std::make_unique<SearchResultLoader>(url_loader_factory_, this);
-  search_results_loader_->Fetch(processed_request.selected_text);
+void QuickAnswersClient::OnQuickAnswerClick(ResultType result_type) {
+  // Use default 0 duration for clicks before fetch finish.
+  base::TimeDelta duration;
+  if (!quick_answer_received_time_.is_null()) {
+    // Fetch finish with no result, set the duration to be between fetch
+    // finish and user clicks.
+    duration = base::TimeTicks::Now() - quick_answer_received_time_;
+  }
+  RecordClick(result_type, duration);
 }
 
 void QuickAnswersClient::NotifyEligibilityChanged() {
   DCHECK(delegate_);
+
   bool is_eligible =
       (chromeos::features::IsQuickAnswersEnabled() && assistant_state_ &&
        assistant_enabled_ && locale_supported_ && assistant_context_enabled_ &&
@@ -114,6 +141,13 @@ void QuickAnswersClient::NotifyEligibilityChanged() {
   }
 }
 
+std::unique_ptr<ResultLoader> QuickAnswersClient::CreateResultLoader(
+    IntentType intent_type) {
+  if (g_testing_result_factory_callback)
+    return g_testing_result_factory_callback->Run();
+  return ResultLoader::Create(intent_type, url_loader_factory_, this);
+}
+
 void QuickAnswersClient::OnNetworkError() {
   DCHECK(delegate_);
   delegate_->OnNetworkError();
@@ -122,7 +156,25 @@ void QuickAnswersClient::OnNetworkError() {
 void QuickAnswersClient::OnQuickAnswerReceived(
     std::unique_ptr<QuickAnswer> quick_answer) {
   DCHECK(delegate_);
+  quick_answer_received_time_ = base::TimeTicks::Now();
   delegate_->OnQuickAnswerReceived(std::move(quick_answer));
+}
+
+void QuickAnswersClient::IntentGeneratorCallback(
+    const QuickAnswersRequest& quick_answers_request,
+    const std::string& intent_text,
+    IntentType intent_type) {
+  // Preprocess the request.
+  auto& processed_request =
+      PreprocessRequest(quick_answers_request, intent_text, intent_type);
+
+  delegate_->OnRequestPreprocessFinish(processed_request);
+
+  // TODO(llin): Only fetch answer if there is a intent generated after
+  // integrating with TCLib.
+  result_loader_ = CreateResultLoader(intent_type);
+  // Load and parse search result.
+  result_loader_->Fetch(processed_request.selected_text);
 }
 
 }  // namespace quick_answers

@@ -15,6 +15,7 @@
 #include "build/build_config.h"
 #include "components/autofill/core/browser/data_model/credit_card.h"
 #include "components/payments/core/payer_data.h"
+#include "services/metrics/public/cpp/ukm_source_id.h"
 #include "ui/gfx/image/image_skia.h"
 
 namespace payments {
@@ -60,10 +61,8 @@ class PaymentApp {
   // Returns a message to indicate to the user what's missing for the app to be
   // complete for payment.
   virtual base::string16 GetMissingInfoLabel() const = 0;
-  // Returns whether the app is valid for the purposes of responding to
-  // canMakePayment.
-  // TODO(crbug.com/915907): rename to IsValidForHasEnrolledInstrument.
-  virtual bool IsValidForCanMakePayment() const = 0;
+  // Returns this app's answer for PaymentRequest.hasEnrolledInstrument().
+  virtual bool HasEnrolledInstrument() const = 0;
   // Records the use of this payment app.
   virtual void RecordUse() = 0;
   // Check whether this payment app needs installation before it can be used.
@@ -111,6 +110,8 @@ class PaymentApp {
 
   int icon_resource_id() const { return icon_resource_id_; }
   Type type() const { return type_; }
+
+  virtual ukm::SourceId UkmSourceId();
 
  protected:
   PaymentApp(int icon_resource_id, Type type);

@@ -4,11 +4,17 @@
 
 module smbfs.mojom;
 
+import "chromeos/components/smbfs/mojom/ip_address.mojom";
+
 // This file is shared between Chrome and Chrome OS.
 // In Chrome, this file is located at:
 // //chromeos/components/smbfs/mojom/smbfs.mojom
 // In Chrome OS, this file is located at:
 // //platform2/smbfs/mojom/smbfs.mojom
+
+// Name used to identify the bootstrap message pipe. To be used with
+// mojo::{Incoming,Outgoing}Invitation.
+const string kBootstrapPipeName = "smbfs-bootstrap";
 
 // Implemented by SmbFs, used from Chrome.
 interface SmbFsBootstrap {
@@ -23,6 +29,10 @@ interface SmbFs {
 
 // Implemented by Chrome, used from SmbFs.
 interface SmbFsDelegate {
+  // Request authentication credentials. This request is made when accessing a
+  // share fails with an authentication error. If null is returned, this
+  // indicates the request was dismissed by the user.
+  RequestCredentials() => (Credentials? credentials);
 };
 
 enum MountError {
@@ -86,6 +96,9 @@ struct MountOptions {
   // (unless the user entered an IP address as the hostname).
   string share_path;
 
+  // Resolved IP address of the share's hostname.
+  IPAddress? resolved_host;
+
   // Authentication parameters.
   string username;
   string workgroup;
@@ -97,4 +110,14 @@ struct MountOptions {
 
   // Allow NTLM authentication.
   bool allow_ntlm = false;
+
+  // Skip attempting to connect to the share, and instead unconditionally mount
+  // the share.
+  bool skip_connect = false;
+};
+
+struct Credentials {
+  string username;
+  string workgroup;
+  Password? password;
 };

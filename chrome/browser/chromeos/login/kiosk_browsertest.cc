@@ -46,9 +46,9 @@
 #include "chrome/browser/chromeos/policy/device_local_account.h"
 #include "chrome/browser/chromeos/policy/device_policy_cros_browser_test.h"
 #include "chrome/browser/chromeos/profiles/profile_helper.h"
-#include "chrome/browser/chromeos/settings/device_oauth2_token_service.h"
-#include "chrome/browser/chromeos/settings/device_oauth2_token_service_factory.h"
 #include "chrome/browser/chromeos/settings/scoped_cros_settings_test_helper.h"
+#include "chrome/browser/device_identity/device_oauth2_token_service.h"
+#include "chrome/browser/device_identity/device_oauth2_token_service_factory.h"
 #include "chrome/browser/extensions/browsertest_util.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/profiles/profile_impl.h"
@@ -585,7 +585,7 @@ class KioskTest : public OobeBaseTest {
     chromeos::WizardController* wizard_controller =
         chromeos::WizardController::default_controller();
     if (wizard_controller)
-      wizard_controller->SkipToLoginForTesting(LoginScreenContext());
+      wizard_controller->SkipToLoginForTesting();
 
     OobeScreenWaiter(GaiaView::kScreenId).Wait();
   }
@@ -932,8 +932,8 @@ IN_PROC_BROWSER_TEST_F(KioskTest, NotSignedInWithGAIAAccount) {
 
   Profile* app_profile = ProfileManager::GetPrimaryUserProfile();
   ASSERT_TRUE(app_profile);
-  EXPECT_FALSE(
-      IdentityManagerFactory::GetForProfile(app_profile)->HasPrimaryAccount());
+  EXPECT_FALSE(IdentityManagerFactory::GetForProfile(app_profile)
+                   ->HasPrimaryAccount(signin::ConsentLevel::kNotRequired));
 }
 
 IN_PROC_BROWSER_TEST_F(KioskTest, PRE_LaunchAppNetworkDown) {
@@ -1081,7 +1081,7 @@ IN_PROC_BROWSER_TEST_F(KioskTest, AutolaunchWarningCancel) {
   ReloadAutolaunchKioskApps();
   EXPECT_FALSE(KioskAppManager::Get()->GetAutoLaunchApp().empty());
   EXPECT_FALSE(KioskAppManager::Get()->IsAutoLaunchEnabled());
-  wizard_controller->SkipToLoginForTesting(LoginScreenContext());
+  wizard_controller->SkipToLoginForTesting();
 
   // Wait for the auto launch warning come up.
   content::WindowedNotificationObserver(
@@ -1114,7 +1114,7 @@ IN_PROC_BROWSER_TEST_F(KioskTest, AutolaunchWarningConfirm) {
   ReloadAutolaunchKioskApps();
   EXPECT_FALSE(KioskAppManager::Get()->GetAutoLaunchApp().empty());
   EXPECT_FALSE(KioskAppManager::Get()->IsAutoLaunchEnabled());
-  wizard_controller->SkipToLoginForTesting(LoginScreenContext());
+  wizard_controller->SkipToLoginForTesting();
 
   // Wait for the auto launch warning come up.
   content::WindowedNotificationObserver(
@@ -1152,7 +1152,7 @@ IN_PROC_BROWSER_TEST_F(KioskTest, KioskEnableCancel) {
             GetConsumerKioskModeStatus());
 
   // Wait for the login UI to come up and switch to the kiosk_enable screen.
-  wizard_controller->SkipToLoginForTesting(LoginScreenContext());
+  wizard_controller->SkipToLoginForTesting();
   OobeScreenWaiter(GaiaView::kScreenId).Wait();
   GetLoginUI()->CallJavascriptFunctionUnsafe("cr.ui.Oobe.handleAccelerator",
                                              base::Value("kiosk_enable"));
@@ -1187,7 +1187,7 @@ IN_PROC_BROWSER_TEST_F(KioskTest, MAYBE_KioskEnableConfirmed) {
             GetConsumerKioskModeStatus());
 
   // Wait for the login UI to come up and switch to the kiosk_enable screen.
-  wizard_controller->SkipToLoginForTesting(LoginScreenContext());
+  wizard_controller->SkipToLoginForTesting();
   OobeScreenWaiter(GaiaView::kScreenId).Wait();
   GetLoginUI()->CallJavascriptFunctionUnsafe("cr.ui.Oobe.handleAccelerator",
                                              base::Value("kiosk_enable"));
@@ -1216,7 +1216,7 @@ IN_PROC_BROWSER_TEST_F(KioskTest, KioskEnableAfter2ndSigninScreen) {
             GetConsumerKioskModeStatus());
 
   // Wait for the login UI to come up and switch to the kiosk_enable screen.
-  wizard_controller->SkipToLoginForTesting(LoginScreenContext());
+  wizard_controller->SkipToLoginForTesting();
   OobeScreenWaiter(GaiaView::kScreenId).Wait();
   GetLoginUI()->CallJavascriptFunctionUnsafe("cr.ui.Oobe.handleAccelerator",
                                              base::Value("kiosk_enable"));
@@ -1287,7 +1287,7 @@ IN_PROC_BROWSER_TEST_F(KioskTest, MAYBE_NoConsumerAutoLaunchWhenUntrusted) {
   ASSERT_TRUE(wizard_controller);
   wizard_controller->AdvanceToScreen(WelcomeView::kScreenId);
   ReloadAutolaunchKioskApps();
-  wizard_controller->SkipToLoginForTesting(LoginScreenContext());
+  wizard_controller->SkipToLoginForTesting();
   content::WindowedNotificationObserver(
       chrome::NOTIFICATION_KIOSK_AUTOLAUNCH_WARNING_VISIBLE,
       content::NotificationService::AllSources())
@@ -2290,8 +2290,8 @@ IN_PROC_BROWSER_TEST_F(KioskEnterpriseTest, EnterpriseKioskApp) {
   // account.
   Profile* app_profile = ProfileManager::GetPrimaryUserProfile();
   ASSERT_TRUE(app_profile);
-  EXPECT_FALSE(
-      IdentityManagerFactory::GetForProfile(app_profile)->HasPrimaryAccount());
+  EXPECT_FALSE(IdentityManagerFactory::GetForProfile(app_profile)
+                   ->HasPrimaryAccount(signin::ConsentLevel::kNotRequired));
 
   // Terminate the app.
   window->GetBaseWindow()->Close();
@@ -2495,7 +2495,7 @@ IN_PROC_BROWSER_TEST_F(KioskHiddenWebUITest, AutolaunchWarning) {
   // is triggered when switching to login screen.
   wizard_controller->AdvanceToScreen(WelcomeView::kScreenId);
   ReloadAutolaunchKioskApps();
-  wizard_controller->SkipToLoginForTesting(LoginScreenContext());
+  wizard_controller->SkipToLoginForTesting();
 
   EXPECT_FALSE(KioskAppManager::Get()->GetAutoLaunchApp().empty());
   EXPECT_FALSE(KioskAppManager::Get()->IsAutoLaunchEnabled());

@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <utility>
 
+#include "base/metrics/histogram_macros.h"
 #include "base/no_destructor.h"
 #include "base/numerics/ranges.h"
 #include "base/stl_util.h"
@@ -15,9 +16,9 @@
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/extensions/api/tabs/tabs_api.h"
 #include "chrome/browser/extensions/api/tabs/tabs_constants.h"
 #include "chrome/browser/extensions/browser_extension_window_controller.h"
-#include "chrome/browser/extensions/chrome_extension_function.h"
 #include "chrome/browser/extensions/chrome_extension_function_details.h"
 #include "chrome/browser/extensions/tab_helper.h"
 #include "chrome/browser/platform_util.h"
@@ -38,8 +39,11 @@
 #include "components/sessions/content/session_tab_helper.h"
 #include "components/url_formatter/url_fixer.h"
 #include "content/public/browser/favicon_status.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
+#include "content/public/browser/render_process_host.h"
 #include "content/public/browser/web_contents.h"
+#include "extensions/browser/extension_function.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/error_utils.h"
 #include "extensions/common/extension.h"
@@ -132,6 +136,10 @@ ExtensionTabUtil::ScrubTabBehaviorType GetScrubTabBehaviorImpl(
     return ExtensionTabUtil::kDontScrubTab;
   }
 
+  if (context == Feature::Context::WEBUI_UNTRUSTED_CONTEXT) {
+    return ExtensionTabUtil::kScrubTabFully;
+  }
+
   bool has_permission = false;
 
   if (extension) {
@@ -159,6 +167,12 @@ ExtensionTabUtil::ScrubTabBehaviorType GetScrubTabBehaviorImpl(
   }
 
   return ExtensionTabUtil::kDontScrubTab;
+}
+
+bool HasValidMainFrameProcess(content::WebContents* contents) {
+  content::RenderFrameHost* main_frame_host = contents->GetMainFrame();
+  content::RenderProcessHost* process_host = main_frame_host->GetProcess();
+  return process_host->IsReady() && process_host->IsInitializedAndNotDead();
 }
 
 }  // namespace
@@ -236,14 +250,17 @@ base::DictionaryValue* ExtensionTabUtil::OpenTab(ExtensionFunction* function,
                                               url_string);
       return nullptr;
     }
+
+    // Don't let extensions crash the browser or renderers.
+    if (ExtensionTabUtil::IsKillURL(url)) {
+      *error = tabs_constants::kNoCrashBrowserError;
+      return nullptr;
+    }
+
+    // Log if this navigation looks like it is to a devtools URL.
+    ExtensionTabUtil::LogPossibleDevtoolsSchemeNavigation(url);
   } else {
     url = GURL(chrome::kChromeUINewTabURL);
-  }
-
-  // Don't let extensions crash the browser or renderers.
-  if (ExtensionTabUtil::IsKillURL(url)) {
-    *error = tabs_constants::kNoCrashBrowserError;
-    return nullptr;
   }
 
   // Default to foreground for the new tab. The presence of 'active' property
@@ -377,11 +394,6 @@ int ExtensionTabUtil::GetTabId(const WebContents* web_contents) {
   return sessions::SessionTabHelper::IdForTab(web_contents).id();
 }
 
-std::string ExtensionTabUtil::GetTabStatusText(bool is_loading) {
-  return is_loading ? tabs_constants::kStatusValueLoading
-                    : tabs_constants::kStatusValueComplete;
-}
-
 int ExtensionTabUtil::GetWindowIdOfTab(const WebContents* web_contents) {
   return sessions::SessionTabHelper::IdForWindowContainingTab(web_contents)
       .id();
@@ -409,15 +421,12 @@ std::unique_ptr<api::tabs::Tab> ExtensionTabUtil::CreateTabObject(
     int tab_index) {
   if (!tab_strip)
     ExtensionTabUtil::GetTabStripModel(contents, &tab_strip, &tab_index);
-  bool is_loading = contents->IsLoading();
   auto tab_object = std::make_unique<api::tabs::Tab>();
   tab_object->id = std::make_unique<int>(GetTabIdForExtensions(contents));
   tab_object->index = tab_index;
   tab_object->window_id = GetWindowIdOfTab(contents);
-  tab_object->status =
-      std::make_unique<std::string>(GetTabStatusText(is_loading));
-  tab_object->nwstatus =
-      std::make_unique<std::string>(GetTabStatusText(is_loading));
+  tab_object->status = GetLoadingStatus(contents);
+  tab_object->nwstatus = GetLoadingStatus(contents);
   tab_object->active = tab_strip && tab_index == tab_strip->active_index();
   tab_object->selected = tab_strip && tab_index == tab_strip->active_index();
   tab_object->highlighted = tab_strip && tab_strip->IsTabSelected(tab_index);
@@ -434,13 +443,20 @@ std::unique_ptr<api::tabs::Tab> ExtensionTabUtil::CreateTabObject(
     audible = contents->IsCurrentlyAudible();
   }
   tab_object->audible = std::make_unique<bool>(audible);
-  auto* tab_lifeycle_unit_external =
+  auto* tab_lifecycle_unit_external =
       resource_coordinator::TabLifecycleUnitExternal::FromWebContents(contents);
+
+  // Note that while a discarded tab *must* have an unloaded status, its
+  // possible for an unloaded tab to not be discarded (session restored tabs
+  // whose loads have been deferred, for example).
   tab_object->discarded =
-      tab_lifeycle_unit_external && tab_lifeycle_unit_external->IsDiscarded();
+      tab_lifecycle_unit_external && tab_lifecycle_unit_external->IsDiscarded();
+  DCHECK(!tab_object->discarded ||
+         tab_object->status == api::tabs::TAB_STATUS_UNLOADED);
   tab_object->auto_discardable =
-      !tab_lifeycle_unit_external ||
-      tab_lifeycle_unit_external->IsAutoDiscardable();
+      !tab_lifecycle_unit_external ||
+      tab_lifecycle_unit_external->IsAutoDiscardable();
+
   tab_object->muted_info = CreateMutedInfo(contents);
   tab_object->incognito = contents->GetBrowserContext()->IsOffTheRecord();
   gfx::Size contents_size = contents->GetContainerBounds().size();
@@ -804,6 +820,12 @@ bool ExtensionTabUtil::IsKillURL(const GURL& url) {
   return false;
 }
 
+void ExtensionTabUtil::LogPossibleDevtoolsSchemeNavigation(const GURL& url) {
+  const bool is_devtools_scheme = url.SchemeIs(content::kChromeDevToolsScheme);
+  UMA_HISTOGRAM_BOOLEAN("Extensions.ApiUrlNavigationDevtools",
+                        is_devtools_scheme);
+}
+
 void ExtensionTabUtil::CreateTab(std::unique_ptr<WebContents> web_contents,
                                  const std::string& extension_id,
                                  WindowOpenDisposition disposition,
@@ -928,6 +950,19 @@ bool ExtensionTabUtil::OpenOptionsPage(const Extension* extension,
 // static
 bool ExtensionTabUtil::BrowserSupportsTabs(Browser* browser) {
   return browser && !browser->is_type_devtools();
+}
+
+// static
+api::tabs::TabStatus ExtensionTabUtil::GetLoadingStatus(WebContents* contents) {
+  if (contents->IsLoading())
+    return api::tabs::TAB_STATUS_LOADING;
+
+  // Anything that isn't backed by a process is considered unloaded.
+  if (!HasValidMainFrameProcess(contents))
+    return api::tabs::TAB_STATUS_UNLOADED;
+
+  // Otherwise its considered loaded.
+  return api::tabs::TAB_STATUS_COMPLETE;
 }
 
 }  // namespace extensions

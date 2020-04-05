@@ -49,23 +49,23 @@ MojoResult MojoWatcher::cancel() {
   return MOJO_RESULT_OK;
 }
 
-void MojoWatcher::Trace(blink::Visitor* visitor) {
+void MojoWatcher::Trace(Visitor* visitor) {
   visitor->Trace(callback_);
   ScriptWrappable::Trace(visitor);
-  ContextLifecycleObserver::Trace(visitor);
+  ExecutionContextLifecycleObserver::Trace(visitor);
 }
 
 bool MojoWatcher::HasPendingActivity() const {
   return handle_.is_valid();
 }
 
-void MojoWatcher::ContextDestroyed(ExecutionContext*) {
+void MojoWatcher::ContextDestroyed() {
   cancel();
 }
 
 MojoWatcher::MojoWatcher(ExecutionContext* context,
                          V8MojoWatchCallback* callback)
-    : ContextLifecycleObserver(context),
+    : ExecutionContextLifecycleObserver(context),
       task_runner_(context->GetTaskRunner(TaskType::kInternalDefault)),
       callback_(callback) {}
 

@@ -64,8 +64,8 @@ TEST_P(ValidationMessageOverlayDelegateTest,
   auto overlay =
       std::make_unique<FrameOverlay>(&GetFrame(), std::move(delegate));
   delegate_ptr->CreatePage(*overlay);
-  ASSERT_TRUE(
-      GetFrame().View()->UpdateLifecycleToCompositingCleanPlusScrolling());
+  ASSERT_TRUE(GetFrame().View()->UpdateLifecycleToCompositingCleanPlusScrolling(
+      DocumentUpdateReason::kTest));
 
   // Trigger the overlay animations.
   auto paint_controller =
@@ -78,7 +78,8 @@ TEST_P(ValidationMessageOverlayDelegateTest,
       To<LocalFrame>(delegate_ptr->GetPageForTesting()->MainFrame())
           ->GetDocument();
   HeapVector<Member<Animation>> animations =
-      internal_document->GetDocumentAnimations().getAnimations();
+      internal_document->GetDocumentAnimations().getAnimations(
+          *internal_document);
   ASSERT_FALSE(animations.IsEmpty());
 
   for (const auto& animation : animations) {

@@ -28,11 +28,11 @@
 #include "chrome/common/chrome_features.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
-#include "components/app_modal/javascript_app_modal_dialog.h"
-#include "components/app_modal/native_app_modal_dialog.h"
 #include "components/guest_view/browser/guest_view_base.h"
 #include "components/guest_view/browser/guest_view_manager_delegate.h"
 #include "components/guest_view/browser/test_guest_view_manager.h"
+#include "components/javascript_dialogs/app_modal_dialog_controller.h"
+#include "components/javascript_dialogs/app_modal_dialog_view.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/interstitial_page.h"
@@ -62,8 +62,6 @@
 #include "ui/events/base_event_utils.h"
 #include "ui/gfx/geometry/point.h"
 #include "url/gurl.h"
-
-using app_modal::JavaScriptAppModalDialog;
 
 namespace {
 
@@ -627,9 +625,10 @@ IN_PROC_BROWSER_TEST_F(ChromeSitePerProcessTest,
   browser()->OpenURL(content::OpenURLParams(redirect_url, content::Referrer(),
                                             WindowOpenDisposition::CURRENT_TAB,
                                             ui::PAGE_TRANSITION_TYPED, false));
-  JavaScriptAppModalDialog* alert = ui_test_utils::WaitForAppModalDialog();
+  javascript_dialogs::AppModalDialogController* alert =
+      ui_test_utils::WaitForAppModalDialog();
   EXPECT_TRUE(alert->is_before_unload_dialog());
-  alert->native_dialog()->AcceptAppModalDialog();
+  alert->view()->AcceptAppModalDialog();
   nav_observer.WaitForNavigationFinished();
 }
 
@@ -1231,7 +1230,7 @@ IN_PROC_BROWSER_TEST_F(ChromeSitePerProcessTest,
 
   // Cancel the dialog and make sure the tab stays alive.
   auto* dialog = ui_test_utils::WaitForAppModalDialog();
-  dialog->native_dialog()->CancelAppModalDialog();
+  dialog->view()->CancelAppModalDialog();
   base::RunLoop().RunUntilIdle();
   EXPECT_EQ(second_web_contents, tab_strip_model->GetActiveWebContents());
   EXPECT_EQ(2, browser()->tab_strip_model()->count());
@@ -1243,7 +1242,7 @@ IN_PROC_BROWSER_TEST_F(ChromeSitePerProcessTest,
   // Accept the dialog and wait for tab close to complete.
   content::WebContentsDestroyedWatcher destroyed_watcher(second_web_contents);
   dialog = ui_test_utils::WaitForAppModalDialog();
-  dialog->native_dialog()->AcceptAppModalDialog();
+  dialog->view()->AcceptAppModalDialog();
   destroyed_watcher.Wait();
   EXPECT_EQ(first_web_contents, tab_strip_model->GetActiveWebContents());
 }
@@ -1290,7 +1289,7 @@ IN_PROC_BROWSER_TEST_F(ChromeSitePerProcessTest,
 
   // Cancel the dialog and make sure the tab stays alive.
   auto* dialog = ui_test_utils::WaitForAppModalDialog();
-  dialog->native_dialog()->CancelAppModalDialog();
+  dialog->view()->CancelAppModalDialog();
   base::RunLoop().RunUntilIdle();
   EXPECT_EQ(second_web_contents, tab_strip_model->GetActiveWebContents());
   EXPECT_EQ(2, browser()->tab_strip_model()->count());
@@ -1302,7 +1301,7 @@ IN_PROC_BROWSER_TEST_F(ChromeSitePerProcessTest,
   // Accept the dialog and wait for tab close to complete.
   content::WebContentsDestroyedWatcher destroyed_watcher(second_web_contents);
   dialog = ui_test_utils::WaitForAppModalDialog();
-  dialog->native_dialog()->AcceptAppModalDialog();
+  dialog->view()->AcceptAppModalDialog();
   destroyed_watcher.Wait();
   EXPECT_EQ(first_web_contents, tab_strip_model->GetActiveWebContents());
 }
@@ -1543,4 +1542,22 @@ IN_PROC_BROWSER_TEST_F(ChromeSitePerProcessTest, NtpProcesses) {
 
   // Verify that no processes were be unnecessarily terminated.
   EXPECT_EQ(0u, process_termination_tracker.size());
+}
+
+IN_PROC_BROWSER_TEST_F(ChromeSitePerProcessTest, JSPrintDuringSwap) {
+  content::WebContents* contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  content::RenderProcessHostWatcher watcher(
+      contents->GetMainFrame()->GetProcess(),
+      content::RenderProcessHostWatcher::WATCH_FOR_PROCESS_EXIT);
+
+  // This file will attempt a cross-process navigation.
+  GURL main_url(embedded_test_server()->GetURL(
+      "a.com", "/print_during_load_with_broken_pdf_then_navigate.html"));
+  ui_test_utils::NavigateToURL(browser(), main_url);
+
+  // Ensure the first process did not crash when the queued print() fires during frame detach.
+  EXPECT_TRUE(WaitForLoadStop(contents));
+  watcher.Wait();
+  EXPECT_TRUE(watcher.did_exit_normally());
 }

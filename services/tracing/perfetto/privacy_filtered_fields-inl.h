@@ -131,6 +131,10 @@ constexpr MessageInfo kChromeCompositorSchedulerState = {
     kChromeCompositorSchedulerStateIndices,
     kChromeCompositorSchedulerStateComplexMessages};
 
+// Proto Message: ChromeUserEvent
+constexpr int kChromeUserEventIndices[] = {2, -1};
+constexpr MessageInfo kChromeUserEvent = {kChromeUserEventIndices, nullptr};
+
 // Proto Message: ChromeLegacyIpc
 constexpr int kChromeLegacyIpcIndices[] = {1, 2, -1};
 constexpr MessageInfo kChromeLegacyIpc = {kChromeLegacyIpcIndices, nullptr};
@@ -140,9 +144,27 @@ constexpr int kChromeHistogramSampleIndices[] = {1, 3, -1};
 constexpr MessageInfo kChromeHistogramSample = {kChromeHistogramSampleIndices,
                                                 nullptr};
 
+// Proto Message: ComponentInfo
+constexpr int kComponentInfoIndices[] = {1, 2, -1};
+constexpr MessageInfo kComponentInfo = {
+    kComponentInfoIndices,
+    nullptr};
+
+// Proto Message: ChromeLatencyInfo
+constexpr int kChromeLatencyInfoIndices[] = {1, 2, 3, 4, 5, -1};
+constexpr MessageInfo const* kChromeLatencyInfoComplexMessages[] = {
+    nullptr,
+    nullptr,
+    nullptr,
+    &kComponentInfo,
+    nullptr};
+constexpr MessageInfo kChromeLatencyInfo = {kChromeLatencyInfoIndices,
+                                            kChromeLatencyInfoComplexMessages};
+
 // Proto Message: TrackEvent
-constexpr int kTrackEventIndices[] = {1,  2,  3,  5,  6,  9,  10,
-                                      11, 16, 17, 24, 27, 28, -1};
+// EDIT: Manually whitelisted: 29 (chrome_latency_info).
+constexpr int kTrackEventIndices[] = {1,  2,  3,  5,  6,  9,  10, 11,
+                                      16, 17, 24, 25, 27, 28, 29, -1};
 constexpr MessageInfo const* kTrackEventComplexMessages[] = {
     nullptr,
     nullptr,
@@ -155,8 +177,10 @@ constexpr MessageInfo const* kTrackEventComplexMessages[] = {
     nullptr,
     nullptr,
     &kChromeCompositorSchedulerState,
+    &kChromeUserEvent,
     &kChromeLegacyIpc,
-    &kChromeHistogramSample};
+    &kChromeHistogramSample,
+    &kChromeLatencyInfo};
 constexpr MessageInfo kTrackEvent = {kTrackEventIndices,
                                      kTrackEventComplexMessages};
 

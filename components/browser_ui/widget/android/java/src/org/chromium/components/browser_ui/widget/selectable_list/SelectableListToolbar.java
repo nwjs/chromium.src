@@ -9,10 +9,6 @@ import android.content.Context;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.drawable.Drawable;
-import android.support.v4.graphics.drawable.DrawableCompat;
-import android.support.v4.view.ViewCompat;
-import android.support.v7.content.res.AppCompatResources;
-import android.support.v7.widget.Toolbar;
 import android.text.Editable;
 import android.text.TextUtils;
 import android.text.TextWatcher;
@@ -35,6 +31,10 @@ import androidx.annotation.CallSuper;
 import androidx.annotation.IntDef;
 import androidx.annotation.StringRes;
 import androidx.annotation.VisibleForTesting;
+import androidx.appcompat.content.res.AppCompatResources;
+import androidx.appcompat.widget.Toolbar;
+import androidx.core.graphics.drawable.DrawableCompat;
+import androidx.core.view.ViewCompat;
 
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.components.browser_ui.widget.NumberRollView;
@@ -198,14 +198,14 @@ public class SelectableListToolbar<E>
                 R.dimen.selectable_list_search_icon_end_padding);
 
         mNormalBackgroundColor =
-                ApiCompatibilityUtils.getColor(getResources(), R.color.modern_primary_color);
+                ApiCompatibilityUtils.getColor(getResources(), R.color.default_bg_color);
         setBackgroundColor(mNormalBackgroundColor);
 
         mSelectionBackgroundColor =
                 ApiCompatibilityUtils.getColor(getResources(), R.color.light_active_color);
 
-        mDarkIconColorList =
-                AppCompatResources.getColorStateList(getContext(), R.color.standard_mode_tint);
+        mDarkIconColorList = AppCompatResources.getColorStateList(
+                getContext(), R.color.default_icon_color_tint_list);
         mLightIconColorList = AppCompatResources.getColorStateList(
                 getContext(), R.color.default_icon_color_inverse);
 
@@ -215,11 +215,11 @@ public class SelectableListToolbar<E>
         // TODO(twellington): add the concept of normal & selected tint to apply to all toolbar
         //                    buttons.
         mNormalMenuButton = UiUtils.getTintedDrawable(
-                getContext(), R.drawable.ic_more_vert_24dp, R.color.standard_mode_tint);
+                getContext(), R.drawable.ic_more_vert_24dp, R.color.default_icon_color_tint_list);
         mSelectionMenuButton = UiUtils.getTintedDrawable(
                 getContext(), R.drawable.ic_more_vert_24dp, R.color.default_icon_color_inverse);
-        mNavigationIconDrawable = UiUtils.getTintedDrawable(
-                getContext(), R.drawable.ic_arrow_back_white_24dp, R.color.standard_mode_tint);
+        mNavigationIconDrawable = UiUtils.getTintedDrawable(getContext(),
+                R.drawable.ic_arrow_back_white_24dp, R.color.default_icon_color_tint_list);
 
         mVrModeProvider = vrModeProvider;
         mVrModeProvider.registerVrModeObserver(this);
@@ -612,7 +612,8 @@ public class SelectableListToolbar<E>
             if (mShowInfoIcon) {
                 Drawable iconDrawable =
                         TintedDrawable.constructTintedDrawable(getContext(), R.drawable.btn_info,
-                                infoShowing ? R.color.blue_mode_tint : R.color.standard_mode_tint);
+                                infoShowing ? R.color.blue_mode_tint
+                                            : R.color.default_icon_color_tint_list);
 
                 infoMenuItem.setIcon(iconDrawable);
             }

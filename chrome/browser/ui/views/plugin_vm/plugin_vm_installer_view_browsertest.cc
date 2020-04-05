@@ -92,7 +92,8 @@ class PluginVmInstallerViewBrowserTest : public DialogBrowserTest {
     plugin_vm_image->SetKey("hash", base::Value(hash));
   }
 
-  void CheckSetupNotAllowed() {
+  void CheckSetupNotAllowed(
+      plugin_vm::PluginVmInstaller::FailureReason reason) {
     EXPECT_FALSE(HasAcceptButton());
     EXPECT_TRUE(HasCancelButton());
     EXPECT_EQ(
@@ -100,7 +101,11 @@ class PluginVmInstallerViewBrowserTest : public DialogBrowserTest {
         l10n_util::GetStringUTF16(IDS_PLUGIN_VM_INSTALLER_NOT_ALLOWED_TITLE));
     EXPECT_EQ(
         view_->GetMessage(),
-        l10n_util::GetStringUTF16(IDS_PLUGIN_VM_INSTALLER_NOT_ALLOWED_MESSAGE));
+        l10n_util::GetStringFUTF16(
+            IDS_PLUGIN_VM_INSTALLER_NOT_ALLOWED_MESSAGE,
+            base::NumberToString16(
+                static_cast<std::underlying_type_t<
+                    plugin_vm::PluginVmInstaller::FailureReason>>(reason))));
   }
 
   void WaitForSetupToFinish() {
@@ -222,7 +227,7 @@ IN_PROC_BROWSER_TEST_F(PluginVmInstallerViewBrowserTestWithFeatureEnabled,
 
   histogram_tester_->ExpectUniqueSample(
       plugin_vm::kPluginVmSetupResultHistogram,
-      plugin_vm::PluginVmSetupResult::kErrorDownloadingPluginVmImage, 1);
+      plugin_vm::PluginVmSetupResult::kError, 1);
 }
 
 IN_PROC_BROWSER_TEST_F(PluginVmInstallerViewBrowserTestWithFeatureEnabled,
@@ -240,7 +245,7 @@ IN_PROC_BROWSER_TEST_F(PluginVmInstallerViewBrowserTestWithFeatureEnabled,
 
   histogram_tester_->ExpectUniqueSample(
       plugin_vm::kPluginVmSetupResultHistogram,
-      plugin_vm::PluginVmSetupResult::kErrorImportingPluginVmImage, 1);
+      plugin_vm::PluginVmSetupResult::kError, 1);
 }
 
 IN_PROC_BROWSER_TEST_F(PluginVmInstallerViewBrowserTestWithFeatureEnabled,
@@ -268,9 +273,9 @@ IN_PROC_BROWSER_TEST_F(PluginVmInstallerViewBrowserTestWithFeatureEnabled,
 
   CheckSetupIsFinishedSuccessfully();
 
-  histogram_tester_->ExpectBucketCount(
-      plugin_vm::kPluginVmSetupResultHistogram,
-      plugin_vm::PluginVmSetupResult::kErrorDownloadingPluginVmImage, 1);
+  histogram_tester_->ExpectBucketCount(plugin_vm::kPluginVmSetupResultHistogram,
+                                       plugin_vm::PluginVmSetupResult::kError,
+                                       1);
   histogram_tester_->ExpectBucketCount(plugin_vm::kPluginVmSetupResultHistogram,
                                        plugin_vm::PluginVmSetupResult::kSuccess,
                                        1);
@@ -284,9 +289,10 @@ IN_PROC_BROWSER_TEST_F(
 
   // We do not have to wait for setup to finish since the NOT_ALLOWED state
   // is set during dialogue construction.
-  CheckSetupNotAllowed();
+  CheckSetupNotAllowed(
+      plugin_vm::PluginVmInstaller::FailureReason::NOT_ALLOWED);
 
   histogram_tester_->ExpectUniqueSample(
       plugin_vm::kPluginVmSetupResultHistogram,
-      plugin_vm::PluginVmSetupResult::kPluginVmIsNotAllowed, 1);
+      plugin_vm::PluginVmSetupResult::kError, 1);
 }

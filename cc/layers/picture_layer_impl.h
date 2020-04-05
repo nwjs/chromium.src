@@ -64,6 +64,7 @@ class CC_EXPORT PictureLayerImpl
   void RecreateTileResources() override;
   Region GetInvalidationRegionForDebugging() override;
   gfx::Rect GetEnclosingRectInTargetSpace() const override;
+  gfx::ContentColorUsage GetContentColorUsage() const override;
 
   // PictureLayerTilingClient overrides.
   std::unique_ptr<Tile> CreateTile(const Tile::CreateInfo& info) override;
@@ -187,8 +188,6 @@ class CC_EXPORT PictureLayerImpl
 
   void RegisterAnimatedImages();
   void UnregisterAnimatedImages();
-
-  std::unique_ptr<base::DictionaryValue> LayerAsJson() const override;
 
   // Set the collection of PaintWorkletInput as well as their PaintImageId that
   // are part of this layer.

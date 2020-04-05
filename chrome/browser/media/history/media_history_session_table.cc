@@ -7,7 +7,9 @@
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/updateable_sequenced_task_runner.h"
+#include "chrome/browser/media/history/media_history_origin_table.h"
 #include "chrome/browser/media/history/media_history_store.h"
+#include "services/media_session/public/cpp/media_image.h"
 #include "services/media_session/public/cpp/media_metadata.h"
 #include "services/media_session/public/cpp/media_position.h"
 #include "sql/statement.h"
@@ -31,7 +33,7 @@ sql::InitStatus MediaHistorySessionTable::CreateTableIfNonExistent() {
       DB()->Execute(base::StringPrintf("CREATE TABLE IF NOT EXISTS %s("
                                        "id INTEGER PRIMARY KEY AUTOINCREMENT,"
                                        "origin_id INTEGER NOT NULL,"
-                                       "url TEXT,"
+                                       "url TEXT NOT NULL UNIQUE,"
                                        "duration_ms INTEGER,"
                                        "position_ms INTEGER,"
                                        "last_updated_time_s BIGINT NOT NULL,"
@@ -49,9 +51,10 @@ sql::InitStatus MediaHistorySessionTable::CreateTableIfNonExistent() {
 
   if (success) {
     success = DB()->Execute(
-        base::StringPrintf("CREATE INDEX IF NOT EXISTS origin_id_index ON "
-                           "%s (origin_id)",
-                           kTableName)
+        base::StringPrintf(
+            "CREATE INDEX IF NOT EXISTS playbackSession_origin_id_index ON "
+            "%s (origin_id)",
+            kTableName)
             .c_str());
   }
 
@@ -64,26 +67,26 @@ sql::InitStatus MediaHistorySessionTable::CreateTableIfNonExistent() {
   return sql::INIT_OK;
 }
 
-bool MediaHistorySessionTable::SavePlaybackSession(
+base::Optional<int64_t> MediaHistorySessionTable::SavePlaybackSession(
     const GURL& url,
     const url::Origin& origin,
     const media_session::MediaMetadata& metadata,
     const base::Optional<media_session::MediaPosition>& position) {
   DCHECK_LT(0, DB()->transaction_nesting());
   if (!CanAccessDatabase())
-    return false;
+    return base::nullopt;
 
   sql::Statement statement(DB()->GetCachedStatement(
       SQL_FROM_HERE,
       base::StringPrintf(
-          "INSERT INTO %s "
+          "REPLACE INTO %s "
           "(origin_id, url, duration_ms, position_ms, last_updated_time_s, "
           "title, artist, album, source_title) "
           "VALUES "
           "((SELECT id FROM origin WHERE origin = ?), ?, ?, ?, ?, ?, ?, ?, ?)",
           kTableName)
           .c_str()));
-  statement.BindString(0, origin.Serialize());
+  statement.BindString(0, MediaHistoryOriginTable::GetOriginForStorage(origin));
   statement.BindString(1, url.spec());
 
   if (position.has_value()) {
@@ -104,58 +107,70 @@ bool MediaHistorySessionTable::SavePlaybackSession(
   statement.BindString16(7, metadata.album);
   statement.BindString16(8, metadata.source_title);
 
-  return statement.Run();
+  if (statement.Run()) {
+    return DB()->GetLastInsertRowId();
+  }
+
+  return base::nullopt;
 }
 
-base::Optional<MediaHistoryStore::MediaPlaybackSessionList>
+std::vector<mojom::MediaHistoryPlaybackSessionRowPtr>
 MediaHistorySessionTable::GetPlaybackSessions(
-    unsigned int num_sessions,
-    MediaHistoryStore::GetPlaybackSessionsFilter filter) {
+    base::Optional<unsigned int> num_sessions,
+    base::Optional<MediaHistoryStore::GetPlaybackSessionsFilter> filter) {
+  std::vector<mojom::MediaHistoryPlaybackSessionRowPtr> sessions;
   if (!CanAccessDatabase())
-    return base::nullopt;
+    return sessions;
 
   sql::Statement statement(DB()->GetCachedStatement(
       SQL_FROM_HERE,
-      base::StringPrintf("SELECT url, duration_ms, position_ms, title, artist, "
-                         "album, source_title FROM %s ORDER BY id DESC",
-                         kTableName)
+      base::StringPrintf(
+          "SELECT id, url, duration_ms, position_ms, title, artist, "
+          "album, source_title, last_updated_time_s FROM %s ORDER BY id DESC",
+          kTableName)
           .c_str()));
 
-  std::set<GURL> previous_urls;
-  MediaHistoryStore::MediaPlaybackSessionList sessions;
-
   while (statement.Step()) {
-    // Check if we already have a playback session for this url.
-    GURL url(statement.ColumnString(0));
-    if (base::Contains(previous_urls, url))
-      continue;
-    previous_urls.insert(url);
-
-    auto duration = base::TimeDelta::FromMilliseconds(statement.ColumnInt64(1));
-    auto position = base::TimeDelta::FromMilliseconds(statement.ColumnInt64(2));
+    auto duration = base::TimeDelta::FromMilliseconds(statement.ColumnInt64(2));
+    auto position = base::TimeDelta::FromMilliseconds(statement.ColumnInt64(3));
 
     // Skip any that should not be shown.
-    if (!filter.Run(duration, position))
+    if (filter.has_value() && !filter->Run(duration, position))
       continue;
 
-    MediaHistoryStore::MediaPlaybackSession session;
-    session.url = url;
-    session.duration = duration;
-    session.position = position;
-    session.metadata.title = statement.ColumnString16(3);
-    session.metadata.artist = statement.ColumnString16(4);
-    session.metadata.album = statement.ColumnString16(5);
-    session.metadata.source_title = statement.ColumnString16(6);
+    auto session(mojom::MediaHistoryPlaybackSessionRow::New());
+    session->id = statement.ColumnInt64(0);
+    session->url = GURL(statement.ColumnString(1));
+    session->duration = duration;
+    session->position = position;
+    session->metadata.title = statement.ColumnString16(4);
+    session->metadata.artist = statement.ColumnString16(5);
+    session->metadata.album = statement.ColumnString16(6);
+    session->metadata.source_title = statement.ColumnString16(7);
+    session->last_updated_time =
+        base::Time::FromDeltaSinceWindowsEpoch(
+            base::TimeDelta::FromSeconds(statement.ColumnInt64(8)))
+            .ToJsTime();
 
     sessions.push_back(std::move(session));
 
     // If we have all the sessions we want we can stop loading data from the
     // database.
-    if (sessions.size() >= num_sessions)
+    if (num_sessions.has_value() && sessions.size() >= *num_sessions)
       break;
   }
 
   return sessions;
+}
+
+bool MediaHistorySessionTable::DeleteURL(const GURL& url) {
+  if (!CanAccessDatabase())
+    return false;
+
+  sql::Statement statement(DB()->GetCachedStatement(
+      SQL_FROM_HERE, "DELETE FROM playbackSession WHERE url = ?"));
+  statement.BindString(0, url.spec());
+  return statement.Run();
 }
 
 }  // namespace media_history

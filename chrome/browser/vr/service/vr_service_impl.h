@@ -14,11 +14,11 @@
 #include "base/util/type_safety/pass_key.h"
 #include "build/build_config.h"
 #include "chrome/browser/vr/metrics/session_metrics_helper.h"
-#include "chrome/browser/vr/service/xr_consent_helper.h"
-#include "chrome/browser/vr/service/xr_consent_prompt_level.h"
 #include "components/content_settings/core/common/content_settings.h"
 #include "content/public/browser/web_contents_observer.h"
-#include "device/vr/public/mojom/vr_service.mojom.h"
+#include "content/public/browser/xr_consent_helper.h"
+#include "content/public/browser/xr_consent_prompt_level.h"
+#include "device/vr/public/mojom/vr_service.mojom-forward.h"
 #include "device/vr/vr_device.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
@@ -33,17 +33,15 @@ class WebContents;
 
 namespace vr {
 
-class XRRuntimeManager;
+class XRRuntimeManagerImpl;
 class XRRuntimeManagerTest;
-class BrowserXRRuntime;
+class BrowserXRRuntimeImpl;
 
 // Browser process implementation of the VRService mojo interface. Instantiated
 // through Mojo once the user loads a page containing WebXR.
 class VRServiceImpl : public device::mojom::VRService,
                       content::WebContentsObserver {
  public:
-  static bool IsXrDeviceConsentPromptDisabledForTesting();
-
   explicit VRServiceImpl(content::RenderFrameHost* render_frame_host);
 
   // Constructor for tests.
@@ -73,7 +71,7 @@ class VRServiceImpl : public device::mojom::VRService,
   // it.
   void OnInlineSessionDisconnected(mojo::RemoteSetElementId session_id);
 
-  // Notifications/calls from BrowserXRRuntime:
+  // Notifications/calls from BrowserXRRuntimeImpl:
   void OnExitPresent();
   void OnVisibilityStateChanged(
       device::mojom::XRVisibilityState visibility_state);
@@ -123,9 +121,9 @@ class VRServiceImpl : public device::mojom::VRService,
   bool InternalSupportsSession(device::mojom::XRSessionOptions* options);
 
   bool IsConsentGrantedForDevice(device::mojom::XRDeviceId device_id,
-                                 XrConsentPromptLevel consent_level);
+                                 content::XrConsentPromptLevel consent_level);
   void AddConsentGrantedDevice(device::mojom::XRDeviceId device_id,
-                               XrConsentPromptLevel consent_level);
+                               content::XrConsentPromptLevel consent_level);
 
   // The following steps are ordered in the general flow for "RequestSession"
   // If the WebXrPermissionsAPI is enabled ShowConsentPrompt will result in a
@@ -134,17 +132,18 @@ class VRServiceImpl : public device::mojom::VRService,
   // has already been granted), then it will directly call
   // EnsureRuntimeInstalled. DoRequestSession will continue with OnInline or
   // OnImmersive SessionCreated depending on the type of session created.
-  void ShowConsentPrompt(SessionRequestData request, BrowserXRRuntime* runtime);
+  void ShowConsentPrompt(SessionRequestData request,
+                         BrowserXRRuntimeImpl* runtime);
 
   void OnConsentResult(SessionRequestData request,
-                       XrConsentPromptLevel consent_level,
+                       content::XrConsentPromptLevel consent_level,
                        bool is_consent_granted);
   void OnPermissionResult(SessionRequestData request,
-                          XrConsentPromptLevel consent_level,
+                          content::XrConsentPromptLevel consent_level,
                           ContentSetting setting_value);
 
   void EnsureRuntimeInstalled(SessionRequestData request,
-                              BrowserXRRuntime* runtime);
+                              BrowserXRRuntimeImpl* runtime);
   void OnInstallResult(SessionRequestData request_data, bool install_succeeded);
 
   void DoRequestSession(SessionRequestData request);
@@ -155,11 +154,13 @@ class VRServiceImpl : public device::mojom::VRService,
       mojo::PendingRemote<device::mojom::XRSessionController> controller);
   void OnImmersiveSessionCreated(SessionRequestData request,
                                  device::mojom::XRSessionPtr session);
-  void OnSessionCreated(SessionRequestData request,
-                        device::mojom::XRSessionPtr session,
-                        WebXRSessionTracker* session_metrics_tracker);
+  void OnSessionCreated(
+      SessionRequestData request,
+      device::mojom::XRSessionPtr session,
+      mojo::PendingRemote<device::mojom::XRSessionMetricsRecorder>
+          session_metrics_recorder);
 
-  scoped_refptr<XRRuntimeManager> runtime_manager_;
+  scoped_refptr<XRRuntimeManagerImpl> runtime_manager_;
   mojo::RemoteSet<device::mojom::XRSessionClient> session_clients_;
   mojo::Remote<device::mojom::VRServiceClient> service_client_;
   content::RenderFrameHost* render_frame_host_;
@@ -175,7 +176,7 @@ class VRServiceImpl : public device::mojom::VRService,
   bool in_focused_frame_ = false;
   bool frames_throttled_ = false;
 
-  std::map<device::mojom::XRDeviceId, XrConsentPromptLevel>
+  std::map<device::mojom::XRDeviceId, content::XrConsentPromptLevel>
       consent_granted_devices_;
 
   base::WeakPtrFactory<VRServiceImpl> weak_ptr_factory_{this};

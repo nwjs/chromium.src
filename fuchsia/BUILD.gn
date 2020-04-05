@@ -5,12 +5,11 @@
 assert(is_fuchsia)
 
 import("//build/buildflag_header.gni")
-import("//build/config/fuchsia/fidl_library.gni")
 import("//fuchsia/release_channel.gni")
+import("//third_party/fuchsia-sdk/sdk/build/fidl_library.gni")
 
 fidl_library("cast_fidl") {
-  library_name = "cast"
-  namespace = "chromium"
+  library_name = "chromium.cast"
 
   sources = [
     "fidl/cast/api_bindings.fidl",
@@ -20,7 +19,10 @@ fidl_library("cast_fidl") {
     "fidl/cast/url_request_rewriter.fidl",
   ]
 
-  public_deps = [ "//third_party/fuchsia-sdk/sdk:fuchsia-web" ]
+  public_deps = [
+    "//third_party/fuchsia-sdk/sdk/fidl/fuchsia.ui.gfx",
+    "//third_party/fuchsia-sdk/sdk/fidl/fuchsia.web",
+  ]
 }
 
 # Used by the top-level "gn_all" target to discover Fuchsia build targets.
@@ -28,6 +30,7 @@ group("gn_all") {
   testonly = true
   deps = [
     "base:cr_fuchsia_base_unittests",
+    "cast_streaming:receiver",
     "engine:web_engine",
     "engine:web_engine_browsertests",
     "engine:web_engine_shell",

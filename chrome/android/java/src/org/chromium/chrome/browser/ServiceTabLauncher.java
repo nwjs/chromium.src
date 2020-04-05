@@ -39,11 +39,11 @@ import org.chromium.content_public.common.Referrer;
 import org.chromium.content_public.common.ResourceRequestBody;
 import org.chromium.ui.base.PageTransition;
 import org.chromium.ui.mojom.WindowOpenDisposition;
+import org.chromium.url.URI;
 import org.chromium.webapk.lib.client.WebApkIdentityServiceClient;
 import org.chromium.webapk.lib.client.WebApkNavigationClient;
 import org.chromium.webapk.lib.client.WebApkValidator;
 
-import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
 
@@ -81,9 +81,13 @@ public class ServiceTabLauncher {
         if (disposition == WindowOpenDisposition.NEW_POPUP) {
             boolean success = false;
             try {
-                success = PaymentHandlerCoordinator.isEnabled()
-                        ? PaymentRequestImpl.openPaymentHandlerWindow(new URI(url))
-                        : createPopupCustomTab(requestId, url, incognito);
+                if (PaymentHandlerCoordinator.isEnabled()) {
+                    success = PaymentRequestImpl.openPaymentHandlerWindow(new URI(url),
+                            (webContents)
+                                    -> onWebContentsForRequestAvailable(requestId, webContents));
+                } else {
+                    success = createPopupCustomTab(requestId, url, incognito);
+                }
             } catch (URISyntaxException e) { /* Intentionally leave blank, so success is false. */
             }
             if (!success) {

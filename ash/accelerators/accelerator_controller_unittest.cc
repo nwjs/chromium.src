@@ -37,6 +37,9 @@
 #include "ash/test_media_client.h"
 #include "ash/test_screenshot_delegate.h"
 #include "ash/wm/lock_state_controller.h"
+#include "ash/wm/overview/overview_controller.h"
+#include "ash/wm/overview/overview_item.h"
+#include "ash/wm/overview/overview_test_util.h"
 #include "ash/wm/tablet_mode/tablet_mode_controller.h"
 #include "ash/wm/tablet_mode/tablet_mode_controller_test_api.h"
 #include "ash/wm/test_session_state_animator.h"
@@ -85,6 +88,37 @@ namespace ash {
 using media_session::mojom::MediaSessionAction;
 
 namespace {
+
+struct PrefToAcceleratorEntry {
+  const char* pref_name;
+  // If |notification_id| has been set to nullptr, then no notification is
+  // expected.
+  const char* notification_id;
+  const char* histogram_id;
+  const ui::Accelerator accelerator;
+};
+
+const PrefToAcceleratorEntry kAccessibilityAcceleratorMap[] = {
+    {
+        prefs::kAccessibilityHighContrastEnabled,
+        kHighContrastToggleAccelNotificationId,
+        kAccessibilityHighContrastShortcut,
+        ui::Accelerator(ui::VKEY_H, ui::EF_COMMAND_DOWN | ui::EF_CONTROL_DOWN),
+    },
+    {prefs::kDockedMagnifierEnabled, kDockedMagnifierToggleAccelNotificationId,
+     kAccessibilityDockedMagnifierShortcut,
+     ui::Accelerator(ui::VKEY_D, ui::EF_COMMAND_DOWN | ui::EF_CONTROL_DOWN)},
+    {
+        prefs::kAccessibilitySpokenFeedbackEnabled,
+        nullptr,
+        kAccessibilitySpokenFeedbackShortcut,
+        ui::Accelerator(ui::VKEY_Z, ui::EF_CONTROL_DOWN | ui::EF_ALT_DOWN),
+    },
+    {prefs::kAccessibilityScreenMagnifierEnabled,
+     kFullscreenMagnifierToggleAccelNotificationId,
+     kAccessibilityScreenMagnifierShortcut,
+     ui::Accelerator(ui::VKEY_M, ui::EF_COMMAND_DOWN | ui::EF_CONTROL_DOWN)},
+};
 
 void AddTestImes() {
   ImeInfo ime1;
@@ -561,6 +595,169 @@ TEST_F(AcceleratorControllerTest, TestRepeatedSnap) {
   EXPECT_EQ(normal_bounds.ToString(), window->bounds().ToString());
 }
 
+namespace {
+
+class AcceleratorControllerTestWithClamshellSplitView
+    : public AcceleratorControllerTest {
+ public:
+  AcceleratorControllerTestWithClamshellSplitView() = default;
+  AcceleratorControllerTestWithClamshellSplitView(
+      const AcceleratorControllerTestWithClamshellSplitView&) = delete;
+  AcceleratorControllerTestWithClamshellSplitView& operator=(
+      const AcceleratorControllerTestWithClamshellSplitView&) = delete;
+  ~AcceleratorControllerTestWithClamshellSplitView() override = default;
+
+  void SetUp() override {
+    scoped_feature_list_.InitAndEnableFeature(
+        features::kDragToSnapInClamshellMode);
+    AcceleratorControllerTest::SetUp();
+  }
+
+ protected:
+  // Note: These functions assume the default display resolution 800x600.
+  void EnterOverviewAndDragToSnapLeft(aura::Window* window) {
+    EnterOverviewAndDragTo(window, gfx::Point(0, 300));
+  }
+  void EnterOverviewAndDragToSnapRight(aura::Window* window) {
+    EnterOverviewAndDragTo(window, gfx::Point(799, 300));
+  }
+
+ private:
+  void EnterOverviewAndDragTo(aura::Window* window,
+                              const gfx::Point& destination) {
+    DCHECK(!Shell::Get()->overview_controller()->InOverviewSession());
+    ToggleOverview();
+
+    ui::test::EventGenerator* generator = GetEventGenerator();
+    generator->MoveMouseTo(gfx::ToRoundedPoint(
+        GetOverviewItemForWindow(window)->target_bounds().CenterPoint()));
+    generator->DragMouseTo(destination);
+  }
+
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+TEST_F(AcceleratorControllerTestWithClamshellSplitView, WindowSnapUma) {
+  base::UserActionTester user_action_tester;
+  base::HistogramTester histogram_tester;
+  std::unique_ptr<aura::Window> window1(
+      CreateTestWindowInShellWithBounds(gfx::Rect(10, 10, 20, 20)));
+  // Some test cases use clamshell split view, for which we need a second window
+  // so overview will be nonempty. Otherwise split view will end when it starts.
+  std::unique_ptr<aura::Window> window2(
+      CreateTestWindowInShellWithBounds(gfx::Rect(5, 5, 20, 20)));
+  base::HistogramBase::Count left_clamshell_no_overview = 0;
+  base::HistogramBase::Count left_clamshell_overview = 0;
+  base::HistogramBase::Count left_tablet = 0;
+  base::HistogramBase::Count right_clamshell_no_overview = 0;
+  base::HistogramBase::Count right_clamshell_overview = 0;
+  base::HistogramBase::Count right_tablet = 0;
+  // Performs |action|, checks that |window1| is in |target_window1_state_type|,
+  // and verifies metrics. Output of failed expectations includes |description|.
+  const auto test = [&](const char* description, AcceleratorAction action,
+                        WindowStateType target_window1_state_type) {
+    SCOPED_TRACE(description);
+    controller_->PerformActionIfEnabled(action, {});
+    EXPECT_EQ(target_window1_state_type,
+              WindowState::Get(window1.get())->GetStateType());
+    EXPECT_EQ(
+        left_clamshell_no_overview + left_clamshell_overview + left_tablet,
+        user_action_tester.GetActionCount("Accel_Window_Snap_Left"));
+    EXPECT_EQ(
+        right_clamshell_no_overview + right_clamshell_overview + right_tablet,
+        user_action_tester.GetActionCount("Accel_Window_Snap_Right"));
+    histogram_tester.ExpectBucketCount(
+        kAccelWindowSnap,
+        WindowSnapAcceleratorAction::kCycleLeftSnapInClamshellNoOverview,
+        left_clamshell_no_overview);
+    histogram_tester.ExpectBucketCount(
+        kAccelWindowSnap,
+        WindowSnapAcceleratorAction::kCycleLeftSnapInClamshellOverview,
+        left_clamshell_overview);
+    histogram_tester.ExpectBucketCount(
+        kAccelWindowSnap, WindowSnapAcceleratorAction::kCycleLeftSnapInTablet,
+        left_tablet);
+    histogram_tester.ExpectBucketCount(
+        kAccelWindowSnap,
+        WindowSnapAcceleratorAction::kCycleRightSnapInClamshellNoOverview,
+        right_clamshell_no_overview);
+    histogram_tester.ExpectBucketCount(
+        kAccelWindowSnap,
+        WindowSnapAcceleratorAction::kCycleRightSnapInClamshellOverview,
+        right_clamshell_overview);
+    histogram_tester.ExpectBucketCount(
+        kAccelWindowSnap, WindowSnapAcceleratorAction::kCycleRightSnapInTablet,
+        right_tablet);
+  };
+
+  // Alt+[, clamshell, no overview
+  wm::ActivateWindow(window1.get());
+  left_clamshell_no_overview = 1;
+  test("Snap left, clamshell, no overview", WINDOW_CYCLE_SNAP_LEFT,
+       WindowStateType::kLeftSnapped);
+  left_clamshell_no_overview = 2;
+  test("Unsnap left, clamshell, no overview", WINDOW_CYCLE_SNAP_LEFT,
+       WindowStateType::kNormal);
+  // Alt+[, clamshell, overview
+  EnterOverviewAndDragToSnapRight(window1.get());
+  left_clamshell_overview = 1;
+  test("Snap left, clamshell, overview", WINDOW_CYCLE_SNAP_LEFT,
+       WindowStateType::kLeftSnapped);
+  left_clamshell_overview = 2;
+  test("Unsnap left, clamshell, overview", WINDOW_CYCLE_SNAP_LEFT,
+       WindowStateType::kNormal);
+  // Alt+], clamshell, no overview
+  right_clamshell_no_overview = 1;
+  test("Snap right, clamshell, no overview", WINDOW_CYCLE_SNAP_RIGHT,
+       WindowStateType::kRightSnapped);
+  right_clamshell_no_overview = 2;
+  test("Unsnap right, clamshell, no overview", WINDOW_CYCLE_SNAP_RIGHT,
+       WindowStateType::kNormal);
+  // Alt+], clamshell, overview
+  EnterOverviewAndDragToSnapLeft(window1.get());
+  right_clamshell_overview = 1;
+  test("Snap right, clamshell, overview", WINDOW_CYCLE_SNAP_RIGHT,
+       WindowStateType::kRightSnapped);
+  right_clamshell_overview = 2;
+  test("Unsnap right, clamshell, overview", WINDOW_CYCLE_SNAP_RIGHT,
+       WindowStateType::kNormal);
+  // Alt+[, tablet, no overview
+  ShellTestApi().SetTabletModeEnabledForTest(true);
+  left_tablet = 1;
+  test("Snap left, tablet, no overview", WINDOW_CYCLE_SNAP_LEFT,
+       WindowStateType::kLeftSnapped);
+  ToggleOverview();
+  left_tablet = 2;
+  test("Unsnap left, tablet, no overview", WINDOW_CYCLE_SNAP_LEFT,
+       WindowStateType::kMaximized);
+  // Alt+[, tablet, overview
+  EnterOverviewAndDragToSnapRight(window1.get());
+  left_tablet = 3;
+  test("Snap left, tablet, overview", WINDOW_CYCLE_SNAP_LEFT,
+       WindowStateType::kLeftSnapped);
+  left_tablet = 4;
+  test("Unsnap left, tablet, overview", WINDOW_CYCLE_SNAP_LEFT,
+       WindowStateType::kMaximized);
+  // Alt+], tablet, no overview
+  right_tablet = 1;
+  test("Snap right, tablet, no overview", WINDOW_CYCLE_SNAP_RIGHT,
+       WindowStateType::kRightSnapped);
+  ToggleOverview();
+  right_tablet = 2;
+  test("Unsnap right, tablet, no overview", WINDOW_CYCLE_SNAP_RIGHT,
+       WindowStateType::kMaximized);
+  // Alt+], tablet, overview
+  EnterOverviewAndDragToSnapLeft(window1.get());
+  right_tablet = 3;
+  test("Snap right, tablet, overview", WINDOW_CYCLE_SNAP_RIGHT,
+       WindowStateType::kRightSnapped);
+  right_tablet = 4;
+  test("Unsnap right, tablet, overview", WINDOW_CYCLE_SNAP_RIGHT,
+       WindowStateType::kMaximized);
+}
+
+}  // namespace
+
 TEST_F(AcceleratorControllerTest, RotateScreen) {
   display::Display display = display::Screen::GetScreen()->GetPrimaryDisplay();
   display::Display::Rotation initial_rotation =
@@ -794,7 +991,7 @@ TEST_F(AcceleratorControllerTest, DontRepeatToggleFullscreen) {
   views::Widget::InitParams params(views::Widget::InitParams::TYPE_WINDOW);
   params.bounds = gfx::Rect(5, 5, 20, 20);
   views::Widget* widget = new views::Widget;
-  params.context = CurrentContext();
+  params.context = GetContext();
   widget->Init(std::move(params));
   widget->Show();
   widget->Activate();
@@ -2127,12 +2324,15 @@ class AccessibilityAcceleratorTester : public MagnifiersAcceleratorsTester {
   void TestAccessibilityAcceleratorControlledByPref(
       const std::string& pref_name,
       const char* notification_id,
+      const std::string& accessibility_histogram_id,
       const ui::Accelerator& accelerator) {
     // Verify that the initial state for the accessibility feature will be
     // disabled, and for accessibility accelerators controller pref
     // |kAccessibilityShortcutsEnabled| is enabled. And neither of that
     // accessibility feature notification id, nor its confirmation dialog have
     // appeared.
+    base::HistogramTester histogram_tester_;
+
     EXPECT_FALSE(user_pref_service()->GetBoolean(pref_name));
     EXPECT_TRUE(
         user_pref_service()->GetBoolean(prefs::kAccessibilityShortcutsEnabled));
@@ -2143,7 +2343,9 @@ class AccessibilityAcceleratorTester : public MagnifiersAcceleratorsTester {
     // Verify that after disabling the accessibility accelerators, the
     // confirmation dialog won't appear for that accessibility feature. And its
     // corresponding pref won't be enabled. But a notification should appear,
-    // which shows that the shortcut for that feature has been disabled.
+    // which shows that the shortcut for that feature has been disabled. And
+    // verify that the accessibility shortcut state is being recorded
+    // accordingly.
     user_pref_service()->SetBoolean(prefs::kAccessibilityShortcutsEnabled,
                                     false);
     EXPECT_TRUE(ProcessInController(accelerator));
@@ -2151,11 +2353,13 @@ class AccessibilityAcceleratorTester : public MagnifiersAcceleratorsTester {
     if (notification_id)
       EXPECT_TRUE(ContainsAccessibilityNotification(notification_id));
     EXPECT_FALSE(user_pref_service()->GetBoolean(pref_name));
+    histogram_tester_.ExpectBucketCount(accessibility_histogram_id, 0, 1);
 
     // Verify that if the accessibility accelerators are enabled, then
     // it will show the confirmation dialog for the first time only when
     // toggling its value. And the coressponding pref will be chanaged
-    // accordingly.
+    // accordingly. And verify that the accessibility shortcut state is being
+    // recorded accordingly.
     user_pref_service()->SetBoolean(prefs::kAccessibilityShortcutsEnabled,
                                     true);
     EXPECT_TRUE(ProcessInController(accelerator));
@@ -2168,13 +2372,18 @@ class AccessibilityAcceleratorTester : public MagnifiersAcceleratorsTester {
     EXPECT_TRUE(user_pref_service()->GetBoolean(pref_name));
     if (notification_id)
       EXPECT_TRUE(ContainsAccessibilityNotification(notification_id));
+    histogram_tester_.ExpectBucketCount(accessibility_histogram_id, 1, 1);
 
     // Verify that the notification id, won't be shown if the accessibility
-    // feature is going to be disabled.
+    // feature is going to be disabled. And verify that the accessibility
+    // shortcut state is being recorded accordingly.
     EXPECT_TRUE(ProcessInController(accelerator));
     if (notification_id)
       EXPECT_FALSE(ContainsAccessibilityNotification(notification_id));
     EXPECT_FALSE(user_pref_service()->GetBoolean(pref_name));
+    histogram_tester_.ExpectBucketCount(accessibility_histogram_id, 1, 2);
+
+    histogram_tester_.ExpectTotalCount(accessibility_histogram_id, 3);
 
     // Remove all the current notifications, to get the initial state again.
     RemoveAllNotifications();
@@ -2182,31 +2391,12 @@ class AccessibilityAcceleratorTester : public MagnifiersAcceleratorsTester {
 };
 
 TEST_F(AccessibilityAcceleratorTester, DisableAccessibilityAccelerators) {
-  struct PrefToAcceleratorEntry {
-    const char* pref_name;
-    // If |notification_id| has been set to nullptr, then no notification is
-    // expected.
-    const char* notification_id;
-    const ui::Accelerator accelerator;
-  };
-  const PrefToAcceleratorEntry kAccessibilityAcceleratorMap[] = {
-      {prefs::kAccessibilityHighContrastEnabled,
-       kHighContrastToggleAccelNotificationId,
-       ui::Accelerator(ui::VKEY_H, ui::EF_COMMAND_DOWN | ui::EF_CONTROL_DOWN)},
-      {prefs::kDockedMagnifierEnabled,
-       kDockedMagnifierToggleAccelNotificationId,
-       ui::Accelerator(ui::VKEY_D, ui::EF_COMMAND_DOWN | ui::EF_CONTROL_DOWN)},
-      {prefs::kAccessibilitySpokenFeedbackEnabled, nullptr,
-       ui::Accelerator(ui::VKEY_Z, ui::EF_CONTROL_DOWN | ui::EF_ALT_DOWN)},
-      {prefs::kAccessibilityScreenMagnifierEnabled,
-       kFullscreenMagnifierToggleAccelNotificationId,
-       ui::Accelerator(ui::VKEY_M, ui::EF_COMMAND_DOWN | ui::EF_CONTROL_DOWN)},
-  };
   FakeMagnificationManager manager;
   manager.SetPrefs(user_pref_service());
   for (const auto& test_data : kAccessibilityAcceleratorMap) {
     TestAccessibilityAcceleratorControlledByPref(
-        test_data.pref_name, test_data.notification_id, test_data.accelerator);
+        test_data.pref_name, test_data.notification_id, test_data.histogram_id,
+        test_data.accelerator);
   }
 }
 

@@ -5,8 +5,12 @@
 #ifndef UI_VIEWS_TEST_FOCUS_MANAGER_TEST_H_
 #define UI_VIEWS_TEST_FOCUS_MANAGER_TEST_H_
 
-#include "base/macros.h"
 #include "ui/views/focus/focus_manager.h"
+
+#include <utility>
+#include <vector>
+
+#include "base/macros.h"
 #include "ui/views/focus/widget_focus_manager.h"
 #include "ui/views/test/views_test_base.h"
 #include "ui/views/widget/widget_delegate.h"
@@ -31,6 +35,8 @@ class FocusManagerTest : public ViewsTestBase, public WidgetDelegate {
 
   // WidgetDelegate:
   View* GetContentsView() override;
+  Widget* GetWidget() override;
+  const Widget* GetWidget() const override;
   void GetAccessiblePanes(std::vector<View*>* panes) override;
 
  protected:
@@ -45,9 +51,6 @@ class FocusManagerTest : public ViewsTestBase, public WidgetDelegate {
   void SetAccessiblePanes(const std::vector<View*>& panes);
 
  private:
-  // WidgetDelegate:
-  const Widget* GetWidgetImpl() const override;
-
   View* contents_view_;
   FocusChangeListener* focus_change_listener_ = nullptr;
   WidgetFocusChangeListener* widget_focus_change_listener_ = nullptr;

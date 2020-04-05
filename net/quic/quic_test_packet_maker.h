@@ -18,10 +18,10 @@
 #include "net/third_party/quiche/src/common/platform/api/quiche_string_piece.h"
 #include "net/third_party/quiche/src/quic/core/http/http_encoder.h"
 #include "net/third_party/quiche/src/quic/core/qpack/qpack_encoder.h"
+#include "net/third_party/quiche/src/quic/core/quic_clock.h"
 #include "net/third_party/quiche/src/quic/core/quic_packets.h"
 #include "net/third_party/quiche/src/quic/core/quic_stream_frame_data_producer.h"
 #include "net/third_party/quiche/src/quic/core/quic_utils.h"
-#include "net/third_party/quiche/src/quic/platform/api/quic_clock.h"
 #include "net/third_party/quiche/src/quic/test_tools/mock_random.h"
 #include "net/third_party/quiche/src/quic/test_tools/qpack/qpack_encoder_test_utils.h"
 #include "net/third_party/quiche/src/quic/test_tools/qpack/qpack_test_utils.h"
@@ -315,6 +315,15 @@ class QuicTestPacketMaker {
       uint64_t new_packet_number,
       bool should_include_version);
 
+  std::unique_ptr<quic::QuicReceivedPacket> MakeAckAndPriorityUpdatePacket(
+      uint64_t packet_number,
+      bool should_include_version,
+      uint64_t largest_received,
+      uint64_t smallest_received,
+      uint64_t least_unacked,
+      quic::QuicStreamId id,
+      spdy::SpdyPriority priority);
+
   // Removes all stream frames associated with |stream_id|.
   void RemoveSavedStreamFrames(quic::QuicStreamId stream_id);
 
@@ -425,6 +434,7 @@ class QuicTestPacketMaker {
   std::string GenerateHttp3MaxPushIdData();
   std::string GenerateHttp3PriorityData(spdy::SpdyPriority priority,
                                         quic::QuicStreamId stream_id);
+  std::string GenerateHttp3GreaseData();
 
   void MaybeAddHttp3SettingsFrames();
 

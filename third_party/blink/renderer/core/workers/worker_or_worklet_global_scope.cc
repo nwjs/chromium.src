@@ -4,6 +4,8 @@
 
 #include "third_party/blink/renderer/core/workers/worker_or_worklet_global_scope.h"
 
+#include "third_party/blink/public/common/features.h"
+#include "third_party/blink/public/mojom/security_context/insecure_request_policy.mojom-blink.h"
 #include "third_party/blink/public/platform/task_type.h"
 #include "third_party/blink/public/platform/web_worker_fetch_context.h"
 #include "third_party/blink/renderer/bindings/core/v8/worker_or_worklet_script_controller.h"
@@ -61,7 +63,7 @@ class OutsideSettingsCSPDelegate final
     DCHECK(global_scope_for_logging_->IsContextThread());
   }
 
-  void Trace(blink::Visitor* visitor) override {
+  void Trace(Visitor* visitor) override {
     visitor->Trace(global_scope_for_logging_);
     visitor->Trace(outside_settings_object_);
   }
@@ -76,6 +78,19 @@ class OutsideSettingsCSPDelegate final
     return outside_settings_object_->GetSecurityOrigin();
   }
 
+  SecureContextMode GetSecureContextMode() override {
+    DCHECK(global_scope_for_logging_->IsContextThread());
+    // TODO(mkwst): This doesn't handle nested workers correctly; we ought to
+    // be reading the SecureContextMode from the relevant SecurityContext, but
+    // we don't have it here. This code simply checks the worker's origin, which
+    // generally works, but would incorrectly consider a secure worker nested in
+    // a non-secure worker as a "secure context".
+    return outside_settings_object_->GetSecurityOrigin()
+                   ->IsPotentiallyTrustworthy()
+               ? SecureContextMode::kSecureContext
+               : SecureContextMode::kInsecureContext;
+  }
+
   // We don't have to do anything here, as we don't want to update
   // SecurityContext of either parent context or WorkerOrWorkletGlobalScope.
   // TODO(hiroshige): Revisit the relationship of ContentSecurityPolicy,
@@ -84,7 +99,7 @@ class OutsideSettingsCSPDelegate final
   // https://crbug.com/924041 https://crbug.com/924043
   void SetSandboxFlags(SandboxFlags) override {}
   void SetRequireTrustedTypes() override {}
-  void AddInsecureRequestPolicy(WebInsecureRequestPolicy) override {}
+  void AddInsecureRequestPolicy(mojom::blink::InsecureRequestPolicy) override {}
   void DisableEval(const String& error_message) override {}
 
   std::unique_ptr<SourceLocation> GetSourceLocation() override {
@@ -148,7 +163,7 @@ class OutsideSettingsCSPDelegate final
   }
 
   void DidAddContentSecurityPolicies(
-      const blink::WebVector<WebContentSecurityPolicy>&) override {
+      WTF::Vector<network::mojom::blink::ContentSecurityPolicyPtr>) override {
     DCHECK(global_scope_for_logging_->IsContextThread());
     // We do nothing here, because if the added policies should be reported to
     // LocalFrameClient, then they are already reported on the parent
@@ -171,7 +186,6 @@ WorkerOrWorkletGlobalScope::WorkerOrWorkletGlobalScope(
     v8::Isolate* isolate,
     scoped_refptr<SecurityOrigin> origin,
     Agent* agent,
-    OffMainThreadWorkerScriptFetchOption off_main_thread_fetch_option,
     const String& name,
     const base::UnguessableToken& parent_devtools_token,
     V8CacheOptions v8_cache_options,
@@ -179,12 +193,12 @@ WorkerOrWorkletGlobalScope::WorkerOrWorkletGlobalScope(
     std::unique_ptr<WebContentSettingsClient> content_settings_client,
     scoped_refptr<WebWorkerFetchContext> web_worker_fetch_context,
     WorkerReportingProxy& reporting_proxy)
-    : ExecutionContext(
-          isolate,
+    : ExecutionContext(isolate),
+      security_context_(
           SecurityContextInit(origin,
                               MakeGarbageCollected<OriginTrialContext>(),
-                              agent)),
-      off_main_thread_fetch_option_(off_main_thread_fetch_option),
+                              agent),
+          SecurityContext::kLocal),
       name_(name),
       parent_devtools_token_(parent_devtools_token),
       worker_clients_(worker_clients),
@@ -194,6 +208,7 @@ WorkerOrWorkletGlobalScope::WorkerOrWorkletGlobalScope(
           MakeGarbageCollected<WorkerOrWorkletScriptController>(this, isolate)),
       v8_cache_options_(v8_cache_options),
       reporting_proxy_(reporting_proxy) {
+  GetSecurityContext().GetOriginTrialContext()->BindExecutionContext(this);
   if (worker_clients_)
     worker_clients_->ReattachThread();
 }
@@ -207,7 +222,7 @@ const AtomicString& WorkerOrWorkletGlobalScope::InterfaceName() const {
   return g_null_atom;
 }
 
-v8::Local<v8::Object> WorkerOrWorkletGlobalScope::Wrap(
+v8::Local<v8::Value> WorkerOrWorkletGlobalScope::Wrap(
     v8::Isolate*,
     v8::Local<v8::Object> creation_context) {
   LOG(FATAL) << "WorkerOrWorkletGlobalScope must never be wrapped with wrap "
@@ -252,10 +267,10 @@ void WorkerOrWorkletGlobalScope::CountDeprecation(WebFeature feature) {
 
   // Adds a deprecation message to the console.
   DCHECK(!Deprecation::DeprecationMessage(feature).IsEmpty());
-  AddConsoleMessage(
-      ConsoleMessage::Create(mojom::ConsoleMessageSource::kDeprecation,
-                             mojom::ConsoleMessageLevel::kWarning,
-                             Deprecation::DeprecationMessage(feature)));
+  AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
+      mojom::ConsoleMessageSource::kDeprecation,
+      mojom::ConsoleMessageLevel::kWarning,
+      Deprecation::DeprecationMessage(feature)));
   ReportingProxy().CountDeprecation(feature);
 }
 
@@ -410,7 +425,7 @@ WorkerOrWorkletGlobalScope::GetTaskRunner(TaskType type) {
 
 void WorkerOrWorkletGlobalScope::ApplySandboxFlags(SandboxFlags mask) {
   GetSecurityContext().ApplySandboxFlags(mask);
-  if (IsSandboxed(WebSandboxFlags::kOrigin) &&
+  if (IsSandboxed(mojom::blink::WebSandboxFlags::kOrigin) &&
       !GetSecurityOrigin()->IsOpaque()) {
     GetSecurityContext().SetSecurityOrigin(
         GetSecurityOrigin()->DeriveNewOpaqueOrigin());
@@ -460,6 +475,14 @@ void WorkerOrWorkletGlobalScope::FetchModuleScript(
   String integrity_attribute;
   // parser metadata is "not-parser-inserted,
   ParserDisposition parser_state = kNotParserInserted;
+
+  RejectCoepUnsafeNone reject_coep_unsafe_none(false);
+  if (ShouldRejectCoepUnsafeNoneTopModuleScript() &&
+      destination == network::mojom::RequestDestination::kWorker) {
+    DCHECK(!base::FeatureList::IsEnabled(features::kPlzDedicatedWorker));
+    reject_coep_unsafe_none = RejectCoepUnsafeNone(true);
+  }
+
   // credentials mode is credentials mode, and referrer policy is the empty
   // string."
   // TODO(domfarolino): Module worker scripts are fetched with kImportanceAuto.
@@ -467,10 +490,10 @@ void WorkerOrWorkletGlobalScope::FetchModuleScript(
   // worker script tree" sets the script fetch options struct's "importance" to
   // "auto". See https://github.com/whatwg/html/issues/3670 and
   // https://crbug.com/821464.
-  ScriptFetchOptions options(nonce, IntegrityMetadataSet(), integrity_attribute,
-                             parser_state, credentials_mode,
-                             network::mojom::ReferrerPolicy::kDefault,
-                             mojom::FetchImportanceMode::kImportanceAuto);
+  ScriptFetchOptions options(
+      nonce, IntegrityMetadataSet(), integrity_attribute, parser_state,
+      credentials_mode, network::mojom::ReferrerPolicy::kDefault,
+      mojom::FetchImportanceMode::kImportanceAuto, reject_coep_unsafe_none);
 
   Modulator* modulator = Modulator::From(ScriptController()->GetScriptState());
   // Step 3. "Perform the internal module script graph fetching procedure ..."
@@ -487,7 +510,8 @@ void WorkerOrWorkletGlobalScope::SetDefersLoadingForResourceFetchers(
     resource_fetcher->SetDefersLoading(defers);
 }
 
-void WorkerOrWorkletGlobalScope::Trace(blink::Visitor* visitor) {
+void WorkerOrWorkletGlobalScope::Trace(Visitor* visitor) {
+  visitor->Trace(security_context_);
   visitor->Trace(inside_settings_resource_fetcher_);
   visitor->Trace(resource_fetchers_);
   visitor->Trace(subresource_filter_);

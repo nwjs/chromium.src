@@ -12,9 +12,10 @@
 #include "chrome/browser/chromeos/crostini/crostini_features.h"
 #include "chrome/browser/chromeos/crostini/crostini_package_service.h"
 #include "chrome/browser/chromeos/crostini/crostini_pref_names.h"
-#include "chrome/browser/chromeos/crostini/crostini_registry_service_factory.h"
 #include "chrome/browser/chromeos/crostini/crostini_util.h"
+#include "chrome/browser/chromeos/guest_os/guest_os_registry_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/common/chrome_features.h"
 #include "chrome/grit/chrome_unscaled_resources.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/prefs/pref_change_registrar.h"
@@ -90,7 +91,7 @@ void CrostiniApps::Initialize(
   if (!crostini::CrostiniFeatures::Get()->IsUIAllowed(profile_)) {
     return;
   }
-  registry_ = crostini::CrostiniRegistryServiceFactory::GetForProfile(profile_);
+  registry_ = guest_os::GuestOsRegistryServiceFactory::GetForProfile(profile_);
   if (!registry_) {
     return;
   }
@@ -115,7 +116,7 @@ void CrostiniApps::Connect(
   std::vector<apps::mojom::AppPtr> apps;
   for (const auto& pair : registry_->GetRegisteredApps()) {
     const std::string& app_id = pair.first;
-    const crostini::CrostiniRegistryService::Registration& registration =
+    const guest_os::GuestOsRegistryService::Registration& registration =
         pair.second;
     apps.push_back(Convert(app_id, registration, true));
   }
@@ -169,6 +170,14 @@ void CrostiniApps::Launch(const std::string& app_id,
   crostini::LaunchCrostiniApp(profile_, app_id, display_id);
 }
 
+void CrostiniApps::LaunchAppWithFiles(const std::string& app_id,
+                                      apps::mojom::LaunchContainer container,
+                                      int32_t event_flags,
+                                      apps::mojom::LaunchSource launch_source,
+                                      apps::mojom::FilePathsPtr file_paths) {
+  NOTIMPLEMENTED();
+}
+
 void CrostiniApps::LaunchAppWithIntent(const std::string& app_id,
                                        apps::mojom::IntentPtr intent,
                                        apps::mojom::LaunchSource launch_source,
@@ -178,10 +187,6 @@ void CrostiniApps::LaunchAppWithIntent(const std::string& app_id,
 
 void CrostiniApps::SetPermission(const std::string& app_id,
                                  apps::mojom::PermissionPtr permission) {
-  NOTIMPLEMENTED();
-}
-
-void CrostiniApps::PromptUninstall(const std::string& app_id) {
   NOTIMPLEMENTED();
 }
 
@@ -214,10 +219,14 @@ void CrostiniApps::GetMenuModel(const std::string& app_id,
     AddCommandItem(ash::UNINSTALL, IDS_APP_LIST_UNINSTALL_ITEM, &menu_items);
   }
 
-  if (app_id == crostini::GetTerminalId() &&
-      crostini::IsCrostiniRunning(profile_)) {
-    AddCommandItem(ash::STOP_APP, IDS_CROSTINI_SHUT_DOWN_LINUX_MENU_ITEM,
-                   &menu_items);
+  if (app_id == crostini::GetTerminalId()) {
+    if (base::FeatureList::IsEnabled(features::kTerminalSystemApp)) {
+      AddCommandItem(ash::SETTINGS, IDS_INTERNAL_APP_SETTINGS, &menu_items);
+    }
+    if (crostini::IsCrostiniRunning(profile_)) {
+      AddCommandItem(ash::STOP_APP, IDS_CROSTINI_SHUT_DOWN_LINUX_MENU_ITEM,
+                     &menu_items);
+    }
   }
 
   if (ShouldAddOpenItem(app_id, menu_type, profile_)) {
@@ -234,14 +243,16 @@ void CrostiniApps::GetMenuModel(const std::string& app_id,
   // to match the system display density, but others are density-unaware and
   // look better when scaled to match the display density.
   if (ShouldShowDisplayDensityMenuItem(app_id, menu_type, display_id)) {
-    base::Optional<crostini::CrostiniRegistryService::Registration>
+    base::Optional<guest_os::GuestOsRegistryService::Registration>
         registration = registry_->GetRegistration(app_id);
-    if (registration->IsScaled()) {
-      AddCommandItem(ash::CROSTINI_USE_HIGH_DENSITY,
-                     IDS_CROSTINI_USE_HIGH_DENSITY, &menu_items);
-    } else {
-      AddCommandItem(ash::CROSTINI_USE_LOW_DENSITY,
-                     IDS_CROSTINI_USE_LOW_DENSITY, &menu_items);
+    if (registration) {
+      if (registration->IsScaled()) {
+        AddCommandItem(ash::CROSTINI_USE_HIGH_DENSITY,
+                       IDS_CROSTINI_USE_HIGH_DENSITY, &menu_items);
+      } else {
+        AddCommandItem(ash::CROSTINI_USE_LOW_DENSITY,
+                       IDS_CROSTINI_USE_LOW_DENSITY, &menu_items);
+      }
     }
   }
 
@@ -252,14 +263,16 @@ void CrostiniApps::OpenNativeSettings(const std::string& app_id) {
   NOTIMPLEMENTED();
 }
 
-void CrostiniApps::OnPreferredAppSet(const std::string& app_id,
-                                     apps::mojom::IntentFilterPtr intent_filter,
-                                     apps::mojom::IntentPtr intent) {
+void CrostiniApps::OnPreferredAppSet(
+    const std::string& app_id,
+    apps::mojom::IntentFilterPtr intent_filter,
+    apps::mojom::IntentPtr intent,
+    apps::mojom::ReplacedAppPreferencesPtr replaced_app_preferences) {
   NOTIMPLEMENTED();
 }
 
 void CrostiniApps::OnRegistryUpdated(
-    crostini::CrostiniRegistryService* registry_service,
+    guest_os::GuestOsRegistryService* registry_service,
     const std::vector<std::string>& updated_apps,
     const std::vector<std::string>& removed_apps,
     const std::vector<std::string>& inserted_apps) {
@@ -334,7 +347,7 @@ void CrostiniApps::LoadIconFromVM(const std::string app_id,
 
 apps::mojom::AppPtr CrostiniApps::Convert(
     const std::string& app_id,
-    const crostini::CrostiniRegistryService::Registration& registration,
+    const guest_os::GuestOsRegistryService::Registration& registration,
     bool new_icon_key) {
   apps::mojom::AppPtr app = apps::mojom::App::New();
 
@@ -417,7 +430,7 @@ void CrostiniApps::PublishAppID(const std::string& app_id,
     return;
   }
 
-  base::Optional<crostini::CrostiniRegistryService::Registration> registration =
+  base::Optional<guest_os::GuestOsRegistryService::Registration> registration =
       registry_->GetRegistration(app_id);
   if (registration.has_value()) {
     Publish(Convert(app_id, *registration, type == PublishAppIDType::kInstall));

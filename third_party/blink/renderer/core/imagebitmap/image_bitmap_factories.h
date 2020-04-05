@@ -38,7 +38,7 @@
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_image_bitmap_options.h"
-#include "third_party/blink/renderer/core/execution_context/context_lifecycle_observer.h"
+#include "third_party/blink/renderer/core/execution_context/execution_context_lifecycle_observer.h"
 #include "third_party/blink/renderer/core/fileapi/file_reader_loader.h"
 #include "third_party/blink/renderer/core/fileapi/file_reader_loader_client.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
@@ -98,14 +98,14 @@ class ImageBitmapFactories final
 
   virtual ~ImageBitmapFactories() = default;
 
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
   const char* NameInHeapSnapshot() const override {
     return "ImageBitmapLoader";
   }
 
  private:
   class ImageBitmapLoader final : public GarbageCollected<ImageBitmapLoader>,
-                                  public ContextLifecycleObserver,
+                                  public ExecutionContextLifecycleObserver,
                                   public FileReaderLoaderClient {
     USING_GARBAGE_COLLECTED_MIXIN(ImageBitmapLoader);
 
@@ -126,7 +126,7 @@ class ImageBitmapFactories final
     void LoadBlobAsync(Blob*);
     ScriptPromise Promise() { return resolver_->Promise(); }
 
-    void Trace(blink::Visitor*) override;
+    void Trace(Visitor*) override;
 
     ~ImageBitmapLoader() override;
 
@@ -143,8 +143,8 @@ class ImageBitmapFactories final
     void ScheduleAsyncImageBitmapDecoding(ArrayBufferContents);
     void ResolvePromiseOnOriginalThread(sk_sp<SkImage>);
 
-    // ContextLifecycleObserver
-    void ContextDestroyed(ExecutionContext*) override;
+    // ExecutionContextLifecycleObserver
+    void ContextDestroyed() override;
 
     // FileReaderLoaderClient
     void DidStartLoading() override {}

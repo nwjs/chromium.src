@@ -6,65 +6,171 @@
 
 namespace gfx {
 
-DisplayColorSpaces::DisplayColorSpaces() = default;
+namespace {
+
+const ContentColorUsage kAllColorUsages[] = {
+    ContentColorUsage::kSRGB,
+    ContentColorUsage::kWideColorGamut,
+    ContentColorUsage::kHDR,
+};
+
+size_t GetIndex(ContentColorUsage color_usage, bool needs_alpha) {
+  switch (color_usage) {
+    case ContentColorUsage::kSRGB:
+      return 0 + needs_alpha;
+    case ContentColorUsage::kWideColorGamut:
+      return 2 + needs_alpha;
+    case ContentColorUsage::kHDR:
+      return 4 + needs_alpha;
+  }
+}
+
+}  // namespace
+
+DisplayColorSpaces::DisplayColorSpaces() {
+  for (auto& color_space : color_spaces_)
+    color_space = gfx::ColorSpace::CreateSRGB();
+  for (auto& buffer_format : buffer_formats_)
+    buffer_format = gfx::BufferFormat::RGBA_8888;
+}
 
 DisplayColorSpaces::DisplayColorSpaces(const gfx::ColorSpace& c)
-    : srgb(c.IsValid() ? c : gfx::ColorSpace::CreateSRGB()),
-      wcg_opaque(srgb),
-      wcg_transparent(srgb),
-      hdr_opaque(srgb),
-      hdr_transparent(srgb) {}
+    : DisplayColorSpaces() {
+  if (!c.IsValid())
+    return;
+  for (auto& color_space : color_spaces_)
+    color_space = c;
+}
+
+DisplayColorSpaces::DisplayColorSpaces(const ColorSpace& c, BufferFormat f) {
+  for (auto& color_space : color_spaces_)
+    color_space = c.IsValid() ? c : gfx::ColorSpace::CreateSRGB();
+  for (auto& buffer_format : buffer_formats_)
+    buffer_format = f;
+}
+
+void DisplayColorSpaces::SetOutputBufferFormats(
+    gfx::BufferFormat buffer_format_no_alpha,
+    gfx::BufferFormat buffer_format_needs_alpha) {
+  for (const auto& color_usage : kAllColorUsages) {
+    size_t i_no_alpha = GetIndex(color_usage, false);
+    size_t i_needs_alpha = GetIndex(color_usage, true);
+    buffer_formats_[i_no_alpha] = buffer_format_no_alpha;
+    buffer_formats_[i_needs_alpha] = buffer_format_needs_alpha;
+  }
+}
+
+void DisplayColorSpaces::SetOutputColorSpaceAndBufferFormat(
+    ContentColorUsage color_usage,
+    bool needs_alpha,
+    const gfx::ColorSpace& color_space,
+    gfx::BufferFormat buffer_format) {
+  size_t i = GetIndex(color_usage, needs_alpha);
+  color_spaces_[i] = color_space;
+  buffer_formats_[i] = buffer_format;
+}
+
+ColorSpace DisplayColorSpaces::GetOutputColorSpace(
+    ContentColorUsage color_usage,
+    bool needs_alpha) const {
+  return color_spaces_[GetIndex(color_usage, needs_alpha)];
+}
+
+BufferFormat DisplayColorSpaces::GetOutputBufferFormat(
+    ContentColorUsage color_usage,
+    bool needs_alpha) const {
+  return buffer_formats_[GetIndex(color_usage, needs_alpha)];
+}
 
 gfx::ColorSpace DisplayColorSpaces::GetRasterColorSpace() const {
-  return hdr_opaque.GetRasterColorSpace();
+  return GetOutputColorSpace(ContentColorUsage::kHDR, false /* needs_alpha */)
+      .GetRasterColorSpace();
 }
 
 gfx::ColorSpace DisplayColorSpaces::GetCompositingColorSpace(
-    bool needs_alpha) const {
-  const gfx::ColorSpace result = needs_alpha ? hdr_transparent : hdr_opaque;
-  if (result.IsHDR()) {
-    // PQ is not an acceptable space to do blending in -- blending 0 and 1
-    // evenly will get a result of sRGB 0.259 (instead of 0.5).
-    if (result.GetTransferID() == gfx::ColorSpace::TransferID::SMPTEST2084)
-      return gfx::ColorSpace::CreateExtendedSRGB();
-
-    // If the color space is nearly-linear, then it is not suitable for
-    // blending -- blending 0 and 1 evenly will get a result of sRGB 0.735
-    // (instead of 0.5).
-    skcms_TransferFunction fn;
-    if (result.GetTransferFunction(&fn)) {
-      constexpr float kMinGamma = 1.25;
-      if (fn.g < kMinGamma)
-        return gfx::ColorSpace::CreateExtendedSRGB();
-    }
-  }
+    bool needs_alpha,
+    ContentColorUsage color_usage) const {
+  gfx::ColorSpace result = GetOutputColorSpace(color_usage, needs_alpha);
+  if (!result.IsSuitableForBlending())
+    result = gfx::ColorSpace::CreateExtendedSRGB();
   return result;
 }
 
-gfx::ColorSpace DisplayColorSpaces::GetOutputColorSpace(
-    bool needs_alpha) const {
-  if (needs_alpha)
-    return hdr_transparent;
-  else
-    return hdr_opaque;
-}
-
-bool DisplayColorSpaces::NeedsHDRColorConversionPass(
-    const gfx::ColorSpace& color_space) const {
-  return color_space.IsHDR() && color_space != hdr_opaque &&
-         color_space != hdr_transparent;
-}
-
 bool DisplayColorSpaces::SupportsHDR() const {
-  return hdr_opaque.IsHDR() && hdr_transparent.IsHDR();
+  return GetOutputColorSpace(ContentColorUsage::kHDR, false).IsHDR() ||
+         GetOutputColorSpace(ContentColorUsage::kHDR, true).IsHDR();
+}
+
+void DisplayColorSpaces::ToStrings(
+    std::vector<std::string>* out_names,
+    std::vector<gfx::ColorSpace>* out_color_spaces,
+    std::vector<gfx::BufferFormat>* out_buffer_formats) const {
+  // The names of the configurations.
+  const char* config_names[kConfigCount] = {
+      "sRGB/no-alpha", "sRGB/alpha",   "WCG/no-alpha",
+      "WCG/alpha",     "HDR/no-alpha", "HDR/alpha",
+  };
+  // Names for special configuration subsets (e.g, all sRGB, all WCG, etc).
+  constexpr size_t kSpecialConfigCount = 5;
+  const char* special_config_names[kSpecialConfigCount] = {
+      "sRGB", "WCG", "SDR", "HDR", "all",
+  };
+  const size_t special_config_indices[kSpecialConfigCount][2] = {
+      {0, 2}, {2, 4}, {0, 4}, {4, 6}, {0, 6},
+  };
+
+  // We don't want to take up 6 lines (one for each config) if we don't need to.
+  // To avoid this, build up half-open intervals [i, j) which have the same
+  // color space and buffer formats, and group them together. The above "special
+  // configs" give groups that have a common name.
+  size_t i = 0;
+  size_t j = 0;
+  while (i != kConfigCount) {
+    // Keep growing the interval [i, j) until entry j is different, or past the
+    // end.
+    if (color_spaces_[i] == color_spaces_[j] &&
+        buffer_formats_[i] == buffer_formats_[j] && j != kConfigCount) {
+      j += 1;
+      continue;
+    }
+
+    // Populate the name for the group from the "special config" names.
+    std::string name;
+    for (size_t k = 0; k < kSpecialConfigCount; ++k) {
+      if (i == special_config_indices[k][0] &&
+          j == special_config_indices[k][1]) {
+        name = special_config_names[k];
+        break;
+      }
+    }
+    // If that didn't work, just list the configs.
+    if (name.empty()) {
+      for (size_t k = i; k < j; ++k) {
+        name += std::string(config_names[k]);
+        if (k != j - 1)
+          name += ",";
+      }
+    }
+
+    // Add an entry, and continue with the interval [j, j).
+    out_names->push_back(name);
+    out_buffer_formats->push_back(buffer_formats_[i]);
+    out_color_spaces->push_back(color_spaces_[i]);
+    i = j;
+  };
 }
 
 bool DisplayColorSpaces::operator==(const DisplayColorSpaces& other) const {
-  return srgb == other.srgb && wcg_opaque == other.wcg_opaque &&
-         wcg_transparent == other.wcg_transparent &&
-         hdr_opaque == other.hdr_opaque &&
-         hdr_transparent == other.hdr_transparent &&
-         sdr_white_level == other.sdr_white_level;
+  for (size_t i = 0; i < kConfigCount; ++i) {
+    if (color_spaces_[i] != other.color_spaces_[i])
+      return false;
+    if (buffer_formats_[i] != other.buffer_formats_[i])
+      return false;
+  }
+  if (sdr_white_level_ != other.sdr_white_level_)
+    return false;
+
+  return true;
 }
 
 bool DisplayColorSpaces::operator!=(const DisplayColorSpaces& other) const {

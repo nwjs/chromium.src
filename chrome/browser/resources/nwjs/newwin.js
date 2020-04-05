@@ -8,10 +8,9 @@ if (manifest.window) {
     options.frameless = true;
   if (manifest.window.resizable === false)
     options.resizable = false;
-  if (manifest.window.height)
-    options.height = manifest.window.height;
-  if (manifest.window.width)
-    options.width = manifest.window.width;
+  // do NOT set option.width/height here. it will override the saved
+  // window placement. the default manifest size is handled in
+  // WindowSizer::GetDefaultWindowBounds() NWJS#7314
   if (manifest.window.min_width)
     options.minWidth = manifest.window.min_width;
   if (manifest.window.max_width)

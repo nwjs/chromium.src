@@ -13,6 +13,7 @@
 #include "base/single_thread_task_runner.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/web_contents.h"
+#include "ui/base/template_expressions.h"
 
 class GURL;
 
@@ -135,6 +136,9 @@ class CONTENT_EXPORT URLDataSource {
   virtual std::string GetContentSecurityPolicyImgSrc();
   // By default empty. Override to change this.
   virtual std::string GetContentSecurityPolicyWorkerSrc();
+  // By default, "frame ancestors: 'none'" is added to the CSP unless
+  // ShouldDenyXFrameOptions() returns false.
+  virtual std::string GetContentSecurityPolicyFrameAncestors();
 
   // By default, the "X-Frame-Options: DENY" header is sent. To stop this from
   // happening, return false. It is OK to return false as needed.
@@ -171,6 +175,9 @@ class CONTENT_EXPORT URLDataSource {
   // TODO (rbpotter): Remove this function when the OOBE page Polymer 2
   // migration is complete.
   virtual void DisablePolymer2ForHost(const std::string& host);
+
+  // Replacements for i18n or null if no replacements are desired.
+  virtual const ui::TemplateReplacements* GetReplacements();
 
   // Whether i18n template expression replacement should be allowed in HTML
   // templates within JS files.

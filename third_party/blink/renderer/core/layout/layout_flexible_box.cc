@@ -33,10 +33,12 @@
 #include <limits>
 #include "base/auto_reset.h"
 #include "third_party/blink/renderer/core/frame/web_feature.h"
+#include "third_party/blink/renderer/core/html/forms/html_select_element.h"
 #include "third_party/blink/renderer/core/layout/flexible_box_algorithm.h"
 #include "third_party/blink/renderer/core/layout/layout_state.h"
+#include "third_party/blink/renderer/core/layout/layout_video.h"
 #include "third_party/blink/renderer/core/layout/layout_view.h"
-#include "third_party/blink/renderer/core/layout/min_max_size.h"
+#include "third_party/blink/renderer/core/layout/min_max_sizes.h"
 #include "third_party/blink/renderer/core/layout/ng/layout_ng_mixin.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_constraint_space.h"
 #include "third_party/blink/renderer/core/layout/text_autosizer.h"
@@ -52,7 +54,7 @@
 namespace blink {
 
 static bool HasAspectRatio(const LayoutBox& child) {
-  return child.IsImage() || child.IsCanvas() || child.IsVideo();
+  return child.IsImage() || child.IsCanvas() || IsA<LayoutVideo>(child);
 }
 
 LayoutFlexibleBox::LayoutFlexibleBox(Element* element)
@@ -66,19 +68,37 @@ LayoutFlexibleBox::LayoutFlexibleBox(Element* element)
 
 LayoutFlexibleBox::~LayoutFlexibleBox() = default;
 
-void LayoutFlexibleBox::ComputeIntrinsicLogicalWidths(
-    LayoutUnit& min_logical_width,
-    LayoutUnit& max_logical_width) const {
-  LayoutUnit scrollbar_width(ScrollbarLogicalWidth());
+bool LayoutFlexibleBox::IsChildAllowed(LayoutObject* object,
+                                       const ComputedStyle& style) const {
+  const auto* select = DynamicTo<HTMLSelectElement>(GetNode());
+  if (UNLIKELY(select && select->UsesMenuList())) {
+    // For a size=1 <select>, we only render the active option label through the
+    // InnerElement. We do not allow adding layout objects for options and
+    // optgroups.
+    return object->GetNode() == &select->InnerElement();
+  }
+  return LayoutBlock::IsChildAllowed(object, style);
+}
+
+MinMaxSizes LayoutFlexibleBox::ComputeIntrinsicLogicalWidths() const {
+  MinMaxSizes sizes;
+  sizes += BorderAndPaddingLogicalWidth() + ScrollbarLogicalWidth();
+
   if (HasOverrideIntrinsicContentLogicalWidth()) {
-    max_logical_width = min_logical_width =
-        OverrideIntrinsicContentLogicalWidth() + scrollbar_width;
-    return;
+    sizes += OverrideIntrinsicContentLogicalWidth();
+    return sizes;
   }
-  if (ShouldApplySizeContainment()) {
-    max_logical_width = min_logical_width = scrollbar_width;
-    return;
+  LayoutUnit default_inline_size = DefaultIntrinsicContentInlineSize();
+  if (default_inline_size != kIndefiniteSize) {
+    sizes.max_size += default_inline_size;
+    if (!StyleRef().LogicalWidth().IsPercentOrCalc())
+      sizes.min_size = sizes.max_size;
+    return sizes;
   }
+  if (ShouldApplySizeContainment())
+    return sizes;
+
+  MinMaxSizes child_sizes;
 
   // FIXME: We're ignoring flex-basis here and we shouldn't. We can't start
   // honoring it though until the flex shorthand stops setting it to 0. See
@@ -95,7 +115,7 @@ void LayoutFlexibleBox::ComputeIntrinsicLogicalWidths(
     LayoutUnit min_preferred_logical_width;
     LayoutUnit max_preferred_logical_width;
     if (child->NeedsPreferredWidthsRecalculation())
-      child->SetPreferredLogicalWidthsDirty();
+      child->SetIntrinsicLogicalWidthsDirty();
     ComputeChildPreferredLogicalWidths(*child, min_preferred_logical_width,
                                        max_preferred_logical_width);
     DCHECK_GE(min_preferred_logical_width, LayoutUnit());
@@ -103,35 +123,35 @@ void LayoutFlexibleBox::ComputeIntrinsicLogicalWidths(
     min_preferred_logical_width += margin;
     max_preferred_logical_width += margin;
     if (!IsColumnFlow()) {
-      max_logical_width += max_preferred_logical_width;
+      child_sizes.max_size += max_preferred_logical_width;
       if (IsMultiline()) {
         // For multiline, the min preferred width is if you put a break between
         // each item.
-        min_logical_width =
-            std::max(min_logical_width, min_preferred_logical_width);
+        child_sizes.min_size =
+            std::max(child_sizes.min_size, min_preferred_logical_width);
       } else {
-        min_logical_width += min_preferred_logical_width;
+        child_sizes.min_size += min_preferred_logical_width;
       }
     } else {
-      min_logical_width =
-          std::max(min_preferred_logical_width, min_logical_width);
-      max_logical_width =
-          std::max(max_preferred_logical_width, max_logical_width);
+      child_sizes.min_size =
+          std::max(min_preferred_logical_width, child_sizes.min_size);
+      child_sizes.max_size =
+          std::max(max_preferred_logical_width, child_sizes.max_size);
     }
 
     previous_max_content_flex_fraction = CountIntrinsicSizeForAlgorithmChange(
         max_preferred_logical_width, child, previous_max_content_flex_fraction);
   }
 
-  max_logical_width = std::max(min_logical_width, max_logical_width);
+  child_sizes.max_size = std::max(child_sizes.min_size, child_sizes.max_size);
 
   // Due to negative margins, it is possible that we calculated a negative
   // intrinsic width. Make sure that we never return a negative width.
-  min_logical_width = std::max(LayoutUnit(), min_logical_width);
-  max_logical_width = std::max(LayoutUnit(), max_logical_width);
+  child_sizes.min_size = std::max(LayoutUnit(), child_sizes.min_size);
+  child_sizes.max_size = std::max(LayoutUnit(), child_sizes.max_size);
 
-  max_logical_width += scrollbar_width;
-  min_logical_width += scrollbar_width;
+  sizes += child_sizes;
+  return sizes;
 }
 
 float LayoutFlexibleBox::CountIntrinsicSizeForAlgorithmChange(
@@ -622,9 +642,9 @@ LayoutUnit LayoutFlexibleBox::ComputeMainAxisExtentForChild(
   // that here. (Compare code in LayoutBlock::computePreferredLogicalWidths)
   if (child.StyleRef().LogicalWidth().IsAuto() && !HasAspectRatio(child)) {
     if (size.IsMinContent())
-      return child.MinPreferredLogicalWidth() - border_and_padding;
+      return child.PreferredLogicalWidths().min_size - border_and_padding;
     if (size.IsMaxContent())
-      return child.MaxPreferredLogicalWidth() - border_and_padding;
+      return child.PreferredLogicalWidths().max_size - border_and_padding;
   }
   return child.ComputeLogicalWidthUsing(size_type, size, ContentLogicalWidth(),
                                         this) -
@@ -808,7 +828,7 @@ void LayoutFlexibleBox::CacheChildMainSize(const LayoutBox& child) {
                                      DisplayLockLifecycleTarget::kChildren));
   LayoutUnit main_size;
   if (MainAxisIsInlineAxis(child)) {
-    main_size = child.MaxPreferredLogicalWidth();
+    main_size = child.PreferredLogicalWidths().max_size;
   } else {
     if (FlexBasisForChild(child).IsPercentOrCalc() &&
         !MainAxisLengthIsDefinite(child, FlexBasisForChild(child))) {
@@ -861,7 +881,7 @@ LayoutUnit LayoutFlexibleBox::ComputeInnerFlexBaseSizeForChild(
     LayoutBox& child,
     LayoutUnit main_axis_border_and_padding,
     ChildLayoutType child_layout_type) {
-  if (child.IsImage() || child.IsVideo() || child.IsCanvas())
+  if (child.IsImage() || IsA<LayoutVideo>(child) || child.IsCanvas())
     UseCounter::Count(GetDocument(), WebFeature::kAspectRatioFlexItem);
 
   Length flex_basis = FlexBasisForChild(child);
@@ -895,7 +915,7 @@ LayoutUnit LayoutFlexibleBox::ComputeInnerFlexBaseSizeForChild(
   if (MainAxisIsInlineAxis(child)) {
     // We don't need to add ScrollbarLogicalWidth here because the preferred
     // width includes the scrollbar, even for overflow: auto.
-    main_axis_extent = child.MaxPreferredLogicalWidth();
+    main_axis_extent = child.PreferredLogicalWidths().max_size;
   } else {
     // The needed value here is the logical height. This value does not include
     // the border/scrollbar/padding size, so we have to add the scrollbar.
@@ -1028,11 +1048,11 @@ void LayoutFlexibleBox::PrepareOrderIteratorAndMargins() {
 }
 
 DISABLE_CFI_PERF
-MinMaxSize LayoutFlexibleBox::ComputeMinAndMaxSizesForChild(
+MinMaxSizes LayoutFlexibleBox::ComputeMinAndMaxSizesForChild(
     const FlexLayoutAlgorithm& algorithm,
     const LayoutBox& child,
     LayoutUnit border_and_padding) const {
-  MinMaxSize sizes{LayoutUnit(), LayoutUnit::Max()};
+  MinMaxSizes sizes{LayoutUnit(), LayoutUnit::Max()};
 
   const Length& max = IsHorizontalFlow() ? child.StyleRef().MaxWidth()
                                          : child.StyleRef().MaxHeight();
@@ -1206,8 +1226,8 @@ void LayoutFlexibleBox::ConstructAndAppendFlexItem(
   LayoutUnit child_inner_flex_base_size = ComputeInnerFlexBaseSizeForChild(
       child, main_axis_border_padding, layout_type);
 
-  MinMaxSize sizes = ComputeMinAndMaxSizesForChild(*algorithm, child,
-                                                   main_axis_border_padding);
+  MinMaxSizes sizes = ComputeMinAndMaxSizesForChild(*algorithm, child,
+                                                    main_axis_border_padding);
 
   NGPhysicalBoxStrut physical_margins(child.MarginTop(), child.MarginRight(),
                                       child.MarginBottom(), child.MarginLeft());

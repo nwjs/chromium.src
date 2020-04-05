@@ -31,13 +31,12 @@ class MockAnimationTimeline : public AnimationTimeline {
   MOCK_METHOD1(ServiceAnimations, void(TimingUpdateReason));
   MOCK_CONST_METHOD0(AnimationsNeedingUpdateCount, wtf_size_t());
   MOCK_METHOD0(ScheduleNextService, void());
+  MOCK_METHOD0(EnsureCompositorTimeline, CompositorAnimationTimeline*());
 
-  void Trace(blink::Visitor* visitor) override {
-    AnimationTimeline::Trace(visitor);
-  }
+  void Trace(Visitor* visitor) override { AnimationTimeline::Trace(visitor); }
 
  protected:
-  MOCK_METHOD0(CurrentTimeInternal, base::Optional<base::TimeDelta>());
+  MOCK_METHOD0(CurrentPhaseAndTime, PhaseAndTime());
 };
 
 class DocumentAnimationsTest : public RenderingTest {

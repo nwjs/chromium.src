@@ -10,6 +10,7 @@ import("//build/config/jumbo.gni")
 import("//media/gpu/args.gni")
 import("//testing/libfuzzer/fuzzer_test.gni")
 import("//third_party/libaom/options.gni")
+import("//third_party/libgav1/options.gni")
 
 # Do not expand this list without double-checking with OWNERS, this is a list of
 # all targets which roll up into the //media component. It controls visibility
@@ -86,9 +87,7 @@ declare_args() {
   # Enable logging override, e.g. enable DVLOGs at build time. Must not be
   # enabled when |use_jumbo_build| is true, in which case multiple .cc files
   # are combined and we could override more logging than expected.
-  # TODO(1021274): Disable this for Fuchsia once we're confident on the media
-  # playback quality.
-  enable_logging_override = !use_jumbo_build && (is_chromecast || is_fuchsia)
+  enable_logging_override = !use_jumbo_build && is_chromecast
 
   enable_dav1d_decoder = !is_android && !is_ios
 
@@ -98,7 +97,8 @@ declare_args() {
 }
 
 declare_args() {
-  enable_av1_decoder = enable_dav1d_decoder || enable_libaom_decoder
+  enable_av1_decoder =
+      enable_dav1d_decoder || enable_libaom || enable_libgav1_decoder
 }
 
 # enable_hls_sample_aes can only be true if enable_mse_mpeg2ts_stream_parser is.
@@ -126,7 +126,14 @@ declare_args() {
     use_alsa = true
 
     # Pulse is not supported on Chromecast platforms.
-    if (!use_cras && !is_chromecast) {
+    #
+    # ASAN and TSAN will occasionally hang during pa_context_connect(), so we
+    # disable PulseAudio when these configurations are enabled.
+    #
+    # TODO(crbug.com/986021): We shouldn't have to do this, but it's unclear why
+    # our test bots are hanging and all of the ones that don't hang just fall
+    # back to ALSA after a connection error anyways.
+    if (!use_cras && !is_chromecast && !is_asan && !is_tsan) {
       use_pulseaudio = true
     }
   }

@@ -474,7 +474,9 @@ else
   dev_list="${dev_list} libudev0"
   nacl_list="${nacl_list} libudev0:i386"
 fi
-if package_exists libbrlapi0.6; then
+if package_exists libbrlapi0.7; then
+  dev_list="${dev_list} libbrlapi0.7"
+elif package_exists libbrlapi0.6; then
   dev_list="${dev_list} libbrlapi0.6"
 else
   dev_list="${dev_list} libbrlapi0.5"
@@ -520,7 +522,10 @@ if package_exists libinput10; then
   lib_list="${lib_list} libinput10"
 fi
 if package_exists libinput-dev; then
-  dev_list="${dev_list} libinput-dev"
+    dev_list="${dev_list} libinput-dev"
+fi
+if package_exists snapcraft; then
+    dev_list="${dev_list} snapcraft"
 fi
 
 # Cross-toolchain strip is needed for building the sysroots.

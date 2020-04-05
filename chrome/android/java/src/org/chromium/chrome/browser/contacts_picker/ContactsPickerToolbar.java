@@ -5,9 +5,10 @@
 package org.chromium.chrome.browser.contacts_picker;
 
 import android.content.Context;
-import android.support.v4.widget.ImageViewCompat;
-import android.support.v7.widget.AppCompatImageView;
 import android.util.AttributeSet;
+
+import androidx.appcompat.widget.AppCompatImageView;
+import androidx.core.widget.ImageViewCompat;
 
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.chrome.R;
@@ -107,7 +108,8 @@ public class ContactsPickerToolbar extends SelectableListToolbar<ContactDetails>
                 useDarkIcons() ? getDarkIconColorStateList() : getLightIconColorStateList());
 
         if (doneEnabled) {
-            ApiCompatibilityUtils.setTextAppearance(done, R.style.TextAppearance_Body_Inverse);
+            ApiCompatibilityUtils.setTextAppearance(
+                    done, R.style.TextAppearance_TextMedium_Primary_Inverse);
         } else {
             ApiCompatibilityUtils.setTextAppearance(
                     done, R.style.TextAppearance_TextMedium_Tertiary);

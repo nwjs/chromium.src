@@ -20,19 +20,20 @@ import org.chromium.chrome.browser.explore_sites.ExploreSitesPage;
 import org.chromium.chrome.browser.feed.FeedNewTabPage;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.fullscreen.ChromeFullscreenManager;
+import org.chromium.chrome.browser.history.HistoryManagerUtils;
 import org.chromium.chrome.browser.history.HistoryPage;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.ntp.IncognitoNewTabPage;
 import org.chromium.chrome.browser.ntp.NewTabPage;
 import org.chromium.chrome.browser.ntp.RecentTabsManager;
 import org.chromium.chrome.browser.ntp.RecentTabsPage;
+import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tab.TabImpl;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.ui.native_page.NativePage;
 import org.chromium.chrome.browser.ui.native_page.NativePageHost;
-import org.chromium.chrome.browser.util.UrlConstants;
+import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.content_public.browser.LoadUrlParams;
 
 import java.lang.annotation.Retention;
@@ -60,12 +61,11 @@ public class NativePageFactory {
             if (ChromeFeatureList.isEnabled(ChromeFeatureList.INTEREST_FEED_CONTENT_SUGGESTIONS)) {
                 return new FeedNewTabPage(activity,
                         new TabShim(tab, activity.getFullscreenManager()), tabModelSelector,
-                        activityTabProvider, activityLifecycleDispatcher, (TabImpl) tab);
+                        activityTabProvider, activityLifecycleDispatcher, tab);
             }
 
             return new NewTabPage(activity, new TabShim(tab, activity.getFullscreenManager()),
-                    tabModelSelector, activityTabProvider, activityLifecycleDispatcher,
-                    (TabImpl) tab);
+                    tabModelSelector, activityTabProvider, activityLifecycleDispatcher, tab);
         }
 
         protected NativePage buildBookmarksPage(ChromeActivity activity, Tab tab) {
@@ -78,7 +78,7 @@ public class NativePageFactory {
 
         protected NativePage buildExploreSitesPage(ChromeActivity activity, Tab tab) {
             return new ExploreSitesPage(
-                    activity, new TabShim(tab, activity.getFullscreenManager()), (TabImpl) tab);
+                    activity, new TabShim(tab, activity.getFullscreenManager()), tab);
         }
 
         protected NativePage buildHistoryPage(ChromeActivity activity, Tab tab) {
@@ -87,7 +87,8 @@ public class NativePageFactory {
 
         protected NativePage buildRecentTabsPage(ChromeActivity activity, Tab tab) {
             RecentTabsManager recentTabsManager =
-                    new RecentTabsManager(tab, ((TabImpl) tab).getProfile(), activity);
+                    new RecentTabsManager(tab, Profile.fromWebContents(tab.getWebContents()),
+                            activity, () -> HistoryManagerUtils.showHistoryManager(activity, tab));
             return new RecentTabsPage(
                     activity, recentTabsManager, new TabShim(tab, activity.getFullscreenManager()));
         }

@@ -22,6 +22,7 @@
 #include "third_party/blink/renderer/platform/heap/heap.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 #include "third_party/blink/renderer/platform/mojo/mojo_helper.h"
+#include "third_party/blink/renderer/platform/scheduler/public/frame_or_worker_scheduler.h"
 
 namespace blink {
 
@@ -64,7 +65,7 @@ bool HasFiles(const ShareData& share_data) {
 String CheckForTypeError(const Document& doc,
                          const ShareData& share_data,
                          KURL* full_url) {
-  if (!share_data.hasTitle() && !share_data.hasText() && !share_data.hasURL() &&
+  if (!share_data.hasTitle() && !share_data.hasText() && !share_data.hasUrl() &&
       !HasFiles(share_data)) {
     return "No known share data fields supplied. If using only new fields "
            "(other than title, text and url), you must feature-detect "
@@ -90,7 +91,7 @@ class NavigatorShare::ShareClientImpl final
 
   void OnConnectionError();
 
-  void Trace(blink::Visitor* visitor) {
+  void Trace(Visitor* visitor) {
     visitor->Trace(navigator_);
     visitor->Trace(resolver_);
   }
@@ -99,13 +100,23 @@ class NavigatorShare::ShareClientImpl final
   WeakMember<NavigatorShare> navigator_;
   bool has_files_;
   Member<ScriptPromiseResolver> resolver_;
+  FrameOrWorkerScheduler::SchedulingAffectingFeatureHandle
+      feature_handle_for_scheduler_;
 };
 
 NavigatorShare::ShareClientImpl::ShareClientImpl(
     NavigatorShare* navigator_share,
     bool has_files,
     ScriptPromiseResolver* resolver)
-    : navigator_(navigator_share), has_files_(has_files), resolver_(resolver) {}
+    : navigator_(navigator_share),
+      has_files_(has_files),
+      resolver_(resolver),
+      feature_handle_for_scheduler_(
+          ExecutionContext::From(resolver_->GetScriptState())
+              ->GetScheduler()
+              ->RegisterFeature(
+                  SchedulingPolicy::Feature::kWebShare,
+                  {SchedulingPolicy::RecordMetricsForBackForwardCache()})) {}
 
 void NavigatorShare::ShareClientImpl::Callback(mojom::blink::ShareError error) {
   if (navigator_)
@@ -148,7 +159,7 @@ NavigatorShare& NavigatorShare::From(Navigator& navigator) {
   return *supplement;
 }
 
-void NavigatorShare::Trace(blink::Visitor* visitor) {
+void NavigatorShare::Trace(Visitor* visitor) {
   visitor->Trace(clients_);
   Supplement<Navigator>::Trace(visitor);
 }
@@ -159,7 +170,7 @@ const char NavigatorShare::kSupplementName[] = "NavigatorShare";
 
 bool NavigatorShare::canShare(ScriptState* script_state,
                               const ShareData* share_data) {
-  Document* doc = To<Document>(ExecutionContext::From(script_state));
+  Document* doc = Document::From(ExecutionContext::From(script_state));
   KURL full_url;
   return CheckForTypeError(*doc, *share_data, &full_url).IsEmpty();
 }
@@ -173,7 +184,7 @@ bool NavigatorShare::canShare(ScriptState* script_state,
 ScriptPromise NavigatorShare::share(ScriptState* script_state,
                                     const ShareData* share_data,
                                     ExceptionState& exception_state) {
-  Document* doc = To<Document>(ExecutionContext::From(script_state));
+  Document* doc = Document::From(ExecutionContext::From(script_state));
   KURL full_url;
   String error_message = CheckForTypeError(*doc, *share_data, &full_url);
   if (!error_message.IsEmpty()) {

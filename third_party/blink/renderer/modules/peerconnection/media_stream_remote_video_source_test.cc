@@ -8,9 +8,11 @@
 #include <utility>
 
 #include "base/bind.h"
+#include "base/memory/ptr_util.h"
 #include "base/run_loop.h"
 #include "base/single_thread_task_runner.h"
 #include "base/synchronization/waitable_event.h"
+#include "base/test/gmock_callback_support.h"
 #include "media/base/video_frame.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/mojom/mediastream/media_stream.mojom-blink.h"
@@ -27,6 +29,7 @@
 #include "third_party/webrtc/api/rtp_packet_infos.h"
 #include "third_party/webrtc/api/video/color_space.h"
 #include "third_party/webrtc/api/video/i420_buffer.h"
+#include "third_party/webrtc/system_wrappers/include/clock.h"
 #include "ui/gfx/color_space.h"
 
 namespace blink {
@@ -40,15 +43,12 @@ namespace {
 // we need to use the worst case difference between these two measurements.
 float kChromiumWebRtcMaxTimeDiffMs = 40.0f;
 
+using base::test::RunOnceClosure;
 using ::testing::_;
 using ::testing::Gt;
 using ::testing::SaveArg;
 using ::testing::Sequence;
 }  // namespace
-
-ACTION_P(RunClosure, closure) {
-  closure.Run();
-}
 
 webrtc::VideoFrame::Builder CreateBlackFrameBuilder() {
   rtc::scoped_refptr<webrtc::I420Buffer> buffer =
@@ -198,7 +198,8 @@ TEST_F(MediaStreamRemoteVideoSourceTest, StartTrack) {
   track->AddSink(&sink, sink.GetDeliverFrameCB(), false);
   base::RunLoop run_loop;
   base::RepeatingClosure quit_closure = run_loop.QuitClosure();
-  EXPECT_CALL(sink, OnVideoFrame).WillOnce(RunClosure(std::move(quit_closure)));
+  EXPECT_CALL(sink, OnVideoFrame)
+      .WillOnce(RunOnceClosure(std::move(quit_closure)));
   rtc::scoped_refptr<webrtc::I420Buffer> buffer(
       new rtc::RefCountedObject<webrtc::I420Buffer>(320, 240));
 
@@ -263,7 +264,8 @@ TEST_F(MediaStreamRemoteVideoSourceTest, PreservesColorSpace) {
   track->AddSink(&sink, sink.GetDeliverFrameCB(), false);
 
   base::RunLoop run_loop;
-  EXPECT_CALL(sink, OnVideoFrame).WillOnce(RunClosure(run_loop.QuitClosure()));
+  EXPECT_CALL(sink, OnVideoFrame)
+      .WillOnce(RunOnceClosure(run_loop.QuitClosure()));
   rtc::scoped_refptr<webrtc::I420Buffer> buffer(
       new rtc::RefCountedObject<webrtc::I420Buffer>(320, 240));
   webrtc::ColorSpace kColorSpace(webrtc::ColorSpace::PrimaryID::kSMPTE240M,
@@ -311,7 +313,8 @@ TEST_F(MediaStreamRemoteVideoSourceTest,
   track->AddSink(&sink, sink.GetDeliverFrameCB(), false);
 
   base::RunLoop run_loop;
-  EXPECT_CALL(sink, OnVideoFrame).WillOnce(RunClosure(run_loop.QuitClosure()));
+  EXPECT_CALL(sink, OnVideoFrame)
+      .WillOnce(RunOnceClosure(run_loop.QuitClosure()));
   rtc::scoped_refptr<webrtc::I420Buffer> buffer(
       new rtc::RefCountedObject<webrtc::I420Buffer>(320, 240));
 
@@ -321,17 +324,29 @@ TEST_F(MediaStreamRemoteVideoSourceTest,
   float kProcessingTime = 0.014;
 
   const webrtc::Timestamp kProcessingFinish =
-      webrtc::Timestamp::ms(rtc::TimeMillis());
+      webrtc::Timestamp::Millis(rtc::TimeMillis());
   const webrtc::Timestamp kProcessingStart =
-      kProcessingFinish - webrtc::TimeDelta::ms(1.0e3 * kProcessingTime);
+      kProcessingFinish - webrtc::TimeDelta::Millis(1.0e3 * kProcessingTime);
+  const webrtc::Timestamp kCaptureTime =
+      kProcessingStart - webrtc::TimeDelta::Millis(20.0);
+  webrtc::Clock* clock = webrtc::Clock::GetRealTimeClock();
+  const int64_t ntp_offset =
+      clock->CurrentNtpInMilliseconds() - clock->TimeInMilliseconds();
+  const webrtc::Timestamp kCaptureTimeNtp =
+      kCaptureTime + webrtc::TimeDelta::Millis(ntp_offset);
+  // Expected capture time in Chromium epoch.
+  base::TimeTicks kExpectedCaptureTime =
+      base::TimeTicks() + base::TimeDelta::FromMilliseconds(kCaptureTime.ms()) +
+      time_diff();
 
   webrtc::RtpPacketInfos::vector_type packet_infos;
   for (int i = 0; i < 4; ++i) {
     packet_infos.emplace_back(kSsrc, kCsrcs, kRtpTimestamp, absl::nullopt,
                               absl::nullopt, kProcessingStart.ms() - 100 + i);
   }
-  // Capture time should be the same as the last arrival time.
-  base::TimeTicks kExpectedCaptureTime =
+  // Expected receive time should be the same as the last arrival time, in
+  // Chromium epoch.
+  base::TimeTicks kExpectedReceiveTime =
       base::TimeTicks() +
       base::TimeDelta::FromMilliseconds(kProcessingStart.ms() - 100 + 3) +
       time_diff();
@@ -340,6 +355,7 @@ TEST_F(MediaStreamRemoteVideoSourceTest,
       webrtc::VideoFrame::Builder()
           .set_video_frame_buffer(buffer)
           .set_timestamp_rtp(kRtpTimestamp)
+          .set_ntp_time_ms(kCaptureTimeNtp.ms())
           .set_packet_infos(webrtc::RtpPacketInfos(packet_infos))
           .build();
 
@@ -362,6 +378,12 @@ TEST_F(MediaStreamRemoteVideoSourceTest,
   EXPECT_NEAR((capture_time - kExpectedCaptureTime).InMillisecondsF(), 0.0f,
               kChromiumWebRtcMaxTimeDiffMs);
 
+  base::TimeTicks receive_time;
+  EXPECT_TRUE(output_frame->metadata()->GetTimeTicks(
+      media::VideoFrameMetadata::RECEIVE_TIME, &receive_time));
+  EXPECT_NEAR((receive_time - kExpectedReceiveTime).InMillisecondsF(), 0.0f,
+              kChromiumWebRtcMaxTimeDiffMs);
+
   double rtp_timestamp;
   EXPECT_TRUE(output_frame->metadata()->GetDouble(
       media::VideoFrameMetadata::RTP_TIMESTAMP, &rtp_timestamp));
@@ -376,7 +398,8 @@ TEST_F(MediaStreamRemoteVideoSourceTest, MAYBE_ReferenceTimeEqualsTimestampUs) {
   track->AddSink(&sink, sink.GetDeliverFrameCB(), false);
 
   base::RunLoop run_loop;
-  EXPECT_CALL(sink, OnVideoFrame).WillOnce(RunClosure(run_loop.QuitClosure()));
+  EXPECT_CALL(sink, OnVideoFrame)
+      .WillOnce(RunOnceClosure(run_loop.QuitClosure()));
   rtc::scoped_refptr<webrtc::I420Buffer> buffer(
       new rtc::RefCountedObject<webrtc::I420Buffer>(320, 240));
 
@@ -411,7 +434,8 @@ TEST_F(MediaStreamRemoteVideoSourceTest, NoTimestampUsMeansNoReferenceTime) {
   track->AddSink(&sink, sink.GetDeliverFrameCB(), false);
 
   base::RunLoop run_loop;
-  EXPECT_CALL(sink, OnVideoFrame).WillOnce(RunClosure(run_loop.QuitClosure()));
+  EXPECT_CALL(sink, OnVideoFrame)
+      .WillOnce(RunOnceClosure(run_loop.QuitClosure()));
   rtc::scoped_refptr<webrtc::I420Buffer> buffer(
       new rtc::RefCountedObject<webrtc::I420Buffer>(320, 240));
 
@@ -464,9 +488,9 @@ TEST_F(MediaStreamRemoteVideoSourceTest, ForwardsEncodedVideoFrames) {
   base::RunLoop run_loop;
   base::RepeatingClosure quit_closure = run_loop.QuitClosure();
   EXPECT_CALL(sink, OnEncodedVideoFrame)
-      .WillOnce(RunClosure(std::move(quit_closure)));
+      .WillOnce(RunOnceClosure(std::move(quit_closure)));
   source()->EncodedSinkInterfaceForTesting()->OnFrame(
-      TestEncodedVideoFrame(webrtc::Timestamp::ms(0)));
+      TestEncodedVideoFrame(webrtc::Timestamp::Millis(0)));
   run_loop.Run();
   track->RemoveEncodedSink(&sink);
 }
@@ -486,7 +510,7 @@ TEST_F(MediaStreamRemoteVideoSourceTest,
       .WillOnce(SaveArg<0>(&frame_timestamp1));
   EXPECT_CALL(sink, OnVideoFrame(Gt(frame_timestamp1)))
       .InSequence(s)
-      .WillOnce(RunClosure(std::move(quit_closure)));
+      .WillOnce(RunOnceClosure(std::move(quit_closure)));
   source()->SinkInterfaceForTesting()->OnFrame(
       CreateBlackFrameBuilder().set_timestamp_ms(0).build());
   // Spin until the time counter changes.
@@ -514,7 +538,7 @@ TEST_F(MediaStreamRemoteVideoSourceTest,
       .WillOnce(SaveArg<0>(&frame_timestamp1));
   EXPECT_CALL(sink, OnVideoFrame(Gt(frame_timestamp1)))
       .InSequence(s)
-      .WillOnce(RunClosure(std::move(quit_closure)));
+      .WillOnce(RunOnceClosure(std::move(quit_closure)));
   source()->SinkInterfaceForTesting()->OnFrame(
       CreateBlackFrameBuilder().set_timestamp_ms(4711).build());
   source()->SinkInterfaceForTesting()->OnFrame(
@@ -538,15 +562,15 @@ TEST_F(MediaStreamRemoteVideoSourceTest,
       .WillOnce(SaveArg<0>(&frame_timestamp1));
   EXPECT_CALL(sink, OnEncodedVideoFrame(Gt(frame_timestamp1)))
       .InSequence(s)
-      .WillOnce(RunClosure(std::move(quit_closure)));
+      .WillOnce(RunOnceClosure(std::move(quit_closure)));
   source()->EncodedSinkInterfaceForTesting()->OnFrame(
-      TestEncodedVideoFrame(webrtc::Timestamp::ms(0)));
+      TestEncodedVideoFrame(webrtc::Timestamp::Millis(0)));
   // Spin until the time counter changes.
   base::TimeTicks now = base::TimeTicks::Now();
   while (base::TimeTicks::Now() == now) {
   }
   source()->EncodedSinkInterfaceForTesting()->OnFrame(
-      TestEncodedVideoFrame(webrtc::Timestamp::ms(0)));
+      TestEncodedVideoFrame(webrtc::Timestamp::Millis(0)));
   run_loop.Run();
   track->RemoveEncodedSink(&sink);
 }
@@ -566,11 +590,11 @@ TEST_F(MediaStreamRemoteVideoSourceTest,
       .WillOnce(SaveArg<0>(&frame_timestamp1));
   EXPECT_CALL(sink, OnEncodedVideoFrame(Gt(frame_timestamp1)))
       .InSequence(s)
-      .WillOnce(RunClosure(std::move(quit_closure)));
+      .WillOnce(RunOnceClosure(std::move(quit_closure)));
   source()->EncodedSinkInterfaceForTesting()->OnFrame(
-      TestEncodedVideoFrame(webrtc::Timestamp::ms(42)));
+      TestEncodedVideoFrame(webrtc::Timestamp::Millis(42)));
   source()->EncodedSinkInterfaceForTesting()->OnFrame(
-      TestEncodedVideoFrame(webrtc::Timestamp::ms(43)));
+      TestEncodedVideoFrame(webrtc::Timestamp::Millis(43)));
   run_loop.Run();
   track->RemoveEncodedSink(&sink);
 }

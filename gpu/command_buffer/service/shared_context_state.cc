@@ -26,6 +26,11 @@
 
 #if BUILDFLAG(ENABLE_VULKAN)
 #include "components/viz/common/gpu/vulkan_context_provider.h"
+#include "gpu/vulkan/vulkan_device_queue.h"
+#endif
+
+#if defined(OS_FUCHSIA)
+#include "gpu/vulkan/fuchsia/vulkan_fuchsia_ext.h"
 #endif
 
 #if defined(OS_MACOSX)
@@ -52,7 +57,7 @@ void SharedContextState::compileError(const char* shader, const char* errors) {
 }
 
 SharedContextState::MemoryTracker::MemoryTracker(
-    gpu::MemoryTracker::Observer* peak_memory_monitor)
+    base::WeakPtr<gpu::MemoryTracker::Observer> peak_memory_monitor)
     : peak_memory_monitor_(peak_memory_monitor) {}
 
 SharedContextState::MemoryTracker::~MemoryTracker() {
@@ -62,10 +67,15 @@ SharedContextState::MemoryTracker::~MemoryTracker() {
 void SharedContextState::MemoryTracker::OnMemoryAllocatedChange(
     CommandBufferId id,
     uint64_t old_size,
-    uint64_t new_size) {
+    uint64_t new_size,
+    GpuPeakMemoryAllocationSource source) {
   size_ += new_size - old_size;
-  if (peak_memory_monitor_)
-    peak_memory_monitor_->OnMemoryAllocatedChange(id, old_size, new_size);
+  if (source == GpuPeakMemoryAllocationSource::UNKNOWN)
+    source = GpuPeakMemoryAllocationSource::SHARED_CONTEXT_STATE;
+  if (peak_memory_monitor_) {
+    peak_memory_monitor_->OnMemoryAllocatedChange(id, old_size, new_size,
+                                                  source);
+  }
 }
 
 SharedContextState::SharedContextState(
@@ -78,7 +88,7 @@ SharedContextState::SharedContextState(
     viz::VulkanContextProvider* vulkan_context_provider,
     viz::MetalContextProvider* metal_context_provider,
     viz::DawnContextProvider* dawn_context_provider,
-    gpu::MemoryTracker::Observer* peak_memory_monitor)
+    base::WeakPtr<gpu::MemoryTracker::Observer> peak_memory_monitor)
     : use_virtualized_gl_contexts_(use_virtualized_gl_contexts),
       context_lost_callback_(std::move(context_lost_callback)),
       gr_context_type_(gr_context_type),
@@ -179,9 +189,18 @@ void SharedContextState::InitializeGrContext(
 
   if (GrContextIsGL()) {
     DCHECK(context_->IsCurrent(nullptr));
+
+    std::vector<const char*> blacklisted_extensions;
+    constexpr char kQualcommTiledRendering[] = "GL_QCOM_tiled_rendering";
+    // We rely on |enable_threaded_texture_mailboxes| to limit the
+    // workaround to webview only.
+    if (workarounds.disable_qcomm_tiled_rendering &&
+        gpu_preferences.enable_threaded_texture_mailboxes) {
+      blacklisted_extensions.push_back(kQualcommTiledRendering);
+    }
     sk_sp<GrGLInterface> interface(gl::init::CreateGrGLInterface(
         *context_->GetVersionInfo(), workarounds.use_es2_for_oopr,
-        progress_reporter));
+        progress_reporter, blacklisted_extensions));
     if (!interface) {
       LOG(ERROR) << "OOP raster support disabled: GrGLInterface creation "
                     "failed.";
@@ -268,6 +287,10 @@ bool SharedContextState::InitializeGL(
   GLint max_vertex_attribs = 0;
   api->glGetIntegervFn(GL_MAX_VERTEX_ATTRIBS, &max_vertex_attribs);
   if (max_vertex_attribs < kGLES2RequiredMinimumVertexAttribs) {
+    LOG(ERROR)
+        << "SharedContextState::InitializeGL failure max_vertex_attribs : "
+        << max_vertex_attribs << " is less that minimum required : "
+        << kGLES2RequiredMinimumVertexAttribs;
     feature_info_ = nullptr;
     return false;
   }
@@ -291,6 +314,8 @@ bool SharedContextState::InitializeGL(
     // inconsistent between various ContextStates on the same underlying real
     // GL context. Make sure to report the failure early, to not allow
     // virtualized context switches in that case.
+    LOG(ERROR) << "SharedContextState::InitializeGL failure driver error : "
+               << driver_status;
     feature_info_ = nullptr;
     context_state_ = nullptr;
     return false;
@@ -301,6 +326,8 @@ bool SharedContextState::InitializeGL(
         share_group_.get(), real_context_.get(),
         weak_ptr_factory_.GetWeakPtr());
     if (!virtual_context->Initialize(surface_.get(), gl::GLContextAttribs())) {
+      LOG(ERROR) << "SharedContextState::InitializeGL failure Initialize "
+                    "virtual context failed";
       feature_info_ = nullptr;
       context_state_ = nullptr;
       return false;
@@ -316,10 +343,45 @@ bool SharedContextState::InitializeGL(
 
   // Swiftshader GL and Vulkan report supporting external objects extensions,
   // but they don't.
+  bool gl_supports_memory_object =
+      gl::g_current_gl_driver->ext.b_GL_EXT_memory_object_fd ||
+      gl::g_current_gl_driver->ext.b_GL_ANGLE_memory_object_fuchsia;
+  bool gl_supports_semaphore =
+      gl::g_current_gl_driver->ext.b_GL_EXT_semaphore_fd ||
+      gl::g_current_gl_driver->ext.b_GL_ANGLE_semaphore_fuchsia;
+  bool vk_supports_external_memory = false;
+  bool vk_supports_external_semaphore = false;
+#if BUILDFLAG(ENABLE_VULKAN)
+  if (vk_context_provider_) {
+    const auto& extensions =
+        vk_context_provider_->GetDeviceQueue()->enabled_extensions();
+#if !defined(OS_FUCHSIA)
+    vk_supports_external_memory =
+        gfx::HasExtension(extensions, VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME) &&
+        gfx::HasExtension(extensions, VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME);
+    vk_supports_external_semaphore =
+        gfx::HasExtension(extensions,
+                          VK_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME) &&
+        gfx::HasExtension(extensions,
+                          VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME);
+#else
+    vk_supports_external_memory =
+        gfx::HasExtension(extensions, VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME) &&
+        gfx::HasExtension(extensions,
+                          VK_FUCHSIA_EXTERNAL_MEMORY_EXTENSION_NAME);
+    vk_supports_external_semaphore =
+        gfx::HasExtension(extensions,
+                          VK_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME) &&
+        gfx::HasExtension(extensions,
+                          VK_FUCHSIA_EXTERNAL_SEMAPHORE_EXTENSION_NAME);
+#endif
+  }
+#endif  // BUILDFLAG(ENABLE_VULKAN)
+
   support_vulkan_external_object_ =
       !gl::g_current_gl_version->is_swiftshader && is_native_vulkan &&
-      gl::g_current_gl_driver->ext.b_GL_EXT_memory_object_fd &&
-      gl::g_current_gl_driver->ext.b_GL_EXT_semaphore_fd;
+      gl_supports_memory_object && gl_supports_semaphore &&
+      vk_supports_external_memory && vk_supports_external_semaphore;
 
   return true;
 }
@@ -327,6 +389,11 @@ bool SharedContextState::InitializeGL(
 bool SharedContextState::MakeCurrent(gl::GLSurface* surface, bool needs_gl) {
   if (context_lost_)
     return false;
+
+  if (gr_context_ && gr_context_->abandoned()) {
+    MarkContextLost();
+    return false;
+  }
 
   if (!GrContextIsGL() && !needs_gl)
     return true;
@@ -363,8 +430,15 @@ void SharedContextState::MarkContextLost() {
     // context_state_ could be nullptr for some unittests.
     if (context_state_)
       context_state_->MarkContextLost();
-    if (gr_context_)
-      gr_context_->abandonContext();
+    // Only abandon the GrContext if it is owned by SharedContextState, because
+    // the passed in GrContext will be reused.
+    // TODO(https://crbug.com/1048692): always abandon GrContext to release all
+    // resources when chrome goes into background with low end device.
+    if (owned_gr_context_) {
+      owned_gr_context_->abandonContext();
+      owned_gr_context_.reset();
+      gr_context_ = nullptr;
+    }
     UpdateSkiaOwnedMemorySize();
     std::move(context_lost_callback_).Run();
     for (auto& observer : context_lost_observers_)
@@ -412,7 +486,8 @@ void SharedContextState::PurgeMemory(
   }
 
   // Ensure the context is current before doing any GPU cleanup.
-  MakeCurrent(nullptr);
+  if (!MakeCurrent(nullptr))
+    return;
 
   switch (memory_pressure_level) {
     case base::MemoryPressureListener::MEMORY_PRESSURE_LEVEL_NONE:

@@ -4,13 +4,18 @@
 
 #include "chrome/browser/browser_process_platform_part_mac.h"
 
+#include "base/feature_list.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 
 #include "base/mac/foundation_util.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/time/time.h"
 #import "chrome/browser/app_controller_mac.h"
+#include "chrome/browser/apps/app_shim/app_shim_manager_mac.h"
+#include "chrome/browser/apps/app_shim/web_app_shim_manager_delegate_mac.h"
+#include "chrome/browser/apps/platform_apps/extension_app_shim_manager_delegate_mac.h"
 #include "chrome/browser/chrome_browser_application_mac.h"
+#include "chrome/common/chrome_features.h"
 #include "components/metal_util/test_shader.h"
 
 namespace {
@@ -73,6 +78,22 @@ void BrowserProcessPlatformPart::AttemptExit(bool try_to_quit_application) {
 }
 
 void BrowserProcessPlatformPart::PreMainMessageLoopRun() {
+  // Create two AppShimManager::Delegates -- one for extensions-based apps
+  // (which will be deprecatedin 2020), and one for web apps (PWAs and
+  // bookmark apps). The WebAppShimManagerDelegate will defer to the
+  // ExtensionAppShimManagerDelegate passed to it for extension-based apps.
+  // When extension-based apps are deprecated, the
+  // ExtensionAppShimManagerDelegate may be changed to nullptr here.
+  std::unique_ptr<apps::AppShimManager::Delegate> app_shim_manager_delegate =
+      std::make_unique<apps::ExtensionAppShimManagerDelegate>();
+  if (base::FeatureList::IsEnabled(features::kDesktopPWAsWithoutExtensions)) {
+    app_shim_manager_delegate =
+        std::make_unique<web_app::WebAppShimManagerDelegate>(
+            std::move(app_shim_manager_delegate));
+  }
+  app_shim_manager_ = std::make_unique<apps::AppShimManager>(
+      std::move(app_shim_manager_delegate));
+
   // AppShimListener can not simply be reset, otherwise destroying the old
   // domain socket will cause the just-created socket to be unlinked.
   DCHECK(!app_shim_listener_.get());
@@ -80,6 +101,10 @@ void BrowserProcessPlatformPart::PreMainMessageLoopRun() {
 
   // Launch a test Metal shader compile once the run loop starts.
   metal::TestShader(base::BindOnce(&TestShaderCallback));
+}
+
+apps::AppShimManager* BrowserProcessPlatformPart::app_shim_manager() {
+  return app_shim_manager_.get();
 }
 
 AppShimListener* BrowserProcessPlatformPart::app_shim_listener() {

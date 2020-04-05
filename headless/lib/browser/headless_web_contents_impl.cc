@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "base/bind.h"
+#include "base/memory/ptr_util.h"
 #include "base/memory/weak_ptr.h"
 #include "base/stl_util.h"
 #include "base/strings/utf_string_conversions.h"
@@ -487,8 +488,8 @@ void HeadlessWebContentsImpl::BeginFrame(
 
   ui::Compositor* compositor = browser()->PlatformGetCompositor(this);
   CHECK(compositor);
-  compositor->context_factory_private()->IssueExternalBeginFrame(
-      compositor, args, /* force= */ true,
+  compositor->IssueExternalBeginFrame(
+      args, /*force=*/true,
       base::BindOnce(&PendingFrame::OnFrameComplete, pending_frame));
 }
 

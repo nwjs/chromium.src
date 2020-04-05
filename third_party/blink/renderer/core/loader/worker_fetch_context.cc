@@ -144,9 +144,9 @@ bool WorkerFetchContext::ShouldBlockFetchByMixedContentCheck(
     mojom::RequestContextType request_context,
     ResourceRequest::RedirectStatus redirect_status,
     const KURL& url,
-    SecurityViolationReportingPolicy reporting_policy) const {
+    ReportingDisposition reporting_disposition) const {
   return MixedContentChecker::ShouldBlockFetchOnWorker(
-      *this, request_context, redirect_status, url, reporting_policy,
+      *this, request_context, redirect_status, url, reporting_disposition,
       global_scope_->IsWorkletGlobalScope());
 }
 
@@ -279,7 +279,7 @@ bool WorkerFetchContext::AllowRunningInsecureContent(
       enabled_per_settings, url);
 }
 
-void WorkerFetchContext::Trace(blink::Visitor* visitor) {
+void WorkerFetchContext::Trace(Visitor* visitor) {
   visitor->Trace(global_scope_);
   visitor->Trace(subresource_filter_);
   visitor->Trace(content_security_policy_);

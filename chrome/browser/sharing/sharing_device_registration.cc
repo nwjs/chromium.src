@@ -10,6 +10,7 @@
 #include "base/base64url.h"
 #include "base/bind.h"
 #include "base/feature_list.h"
+#include "base/time/time.h"
 #include "build/build_config.h"
 #include "chrome/browser/sharing/buildflags.h"
 #include "chrome/browser/sharing/click_to_call/feature.h"
@@ -72,6 +73,7 @@ void SharingDeviceRegistration::RetrieveTargetInfo(
     TargetInfoCallback callback) {
   instance_id_driver_->GetInstanceID(kSharingFCMAppID)
       ->GetToken(authorized_entity, instance_id::kGCMScope,
+                 /*time_to_live=*/base::TimeDelta(),
                  /*options=*/{},
                  /*flags=*/{InstanceID::Flags::kBypassScheduler},
                  base::BindOnce(&SharingDeviceRegistration::OnFCMTokenReceived,
@@ -274,14 +276,15 @@ SharingDeviceRegistration::GetEnabledFeatures(bool supports_vapid) const {
 
   std::set<SharingSpecificFields::EnabledFeatures> enabled_features;
   if (IsClickToCallSupported()) {
-    enabled_features.insert(SharingSpecificFields::CLICK_TO_CALL);
+    enabled_features.insert(SharingSpecificFields::CLICK_TO_CALL_V2);
     if (supports_vapid)
       enabled_features.insert(SharingSpecificFields::CLICK_TO_CALL_VAPID);
   }
   if (IsSharedClipboardSupported()) {
-    enabled_features.insert(SharingSpecificFields::SHARED_CLIPBOARD);
-    if (supports_vapid)
+    enabled_features.insert(SharingSpecificFields::SHARED_CLIPBOARD_V2);
+    if (supports_vapid) {
       enabled_features.insert(SharingSpecificFields::SHARED_CLIPBOARD_VAPID);
+    }
   }
   if (IsSmsFetcherSupported())
     enabled_features.insert(SharingSpecificFields::SMS_FETCHER);
@@ -313,7 +316,7 @@ bool SharingDeviceRegistration::IsSharedClipboardSupported() const {
       !pref_service_->GetBoolean(prefs::kSharedClipboardEnabled)) {
     return false;
   }
-  return base::FeatureList::IsEnabled(kSharedClipboardReceiver);
+  return true;
 }
 
 bool SharingDeviceRegistration::IsSmsFetcherSupported() const {
@@ -328,13 +331,18 @@ bool SharingDeviceRegistration::IsRemoteCopySupported() const {
 #if defined(OS_WIN) || defined(OS_MACOSX) || defined(OS_LINUX) || \
     defined(OS_CHROMEOS)
   return base::FeatureList::IsEnabled(kRemoteCopyReceiver);
-#endif
-
+#else
   return false;
+#endif
 }
 
 bool SharingDeviceRegistration::IsPeerConnectionSupported() const {
+#if defined(OS_WIN) || defined(OS_MACOSX) || defined(OS_LINUX) || \
+    defined(OS_CHROMEOS)
   return base::FeatureList::IsEnabled(kSharingPeerConnectionReceiver);
+#else
+  return false;
+#endif
 }
 
 void SharingDeviceRegistration::SetEnabledFeaturesForTesting(

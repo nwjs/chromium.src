@@ -163,14 +163,9 @@ std::unique_ptr<net::test_server::HttpResponse> StandardResponse(
 }
 
 // Tests that the incognito tabs aren't displayed as "opened" tab in the
-// non-incognito suggestions and vice-versa.
-// TODO(crbug.com/1045950): fix and reenable on devices.
-#if !TARGET_IPHONE_SIMULATOR
-#define MAYBE_testIncognitoSeparation DISABLED_testIncognitoSeparation
-#else
-#define MAYBE_testIncognitoSeparation testIncognitoSeparation
-#endif
-- (void)MAYBE_testIncognitoSeparation {
+// non-incognito suggestions and vice-versa. TODO(crbug.com/1059464): Test is
+// flaky.
+- (void)DISABLED_testIncognitoSeparation {
   GURL URL1 = self.testServer->GetURL(kPage1URL);
   GURL URL2 = self.testServer->GetURL(kPage2URL);
   GURL URL3 = self.testServer->GetURL(kPage3URL);
@@ -328,8 +323,8 @@ std::unique_ptr<net::test_server::HttpResponse> StandardResponse(
 }
 
 // Tests that having multiple suggestions with corresponding opened tabs display
-// multiple buttons.
-- (void)testMultiplePageOpened {
+// multiple buttons. TODO(crbug.com/1059464): Test is flaky.
+- (void)DISABLED_testMultiplePageOpened {
   // Open the first page.
   GURL URL1 = self.testServer->GetURL(kPage1URL);
   [ChromeEarlGrey loadURL:URL1];
@@ -354,6 +349,44 @@ std::unique_ptr<net::test_server::HttpResponse> StandardResponse(
       assertWithMatcher:grey_sufficientlyVisible()];
   [[EarlGrey selectElementWithMatcher:SwitchTabElementForUrl(URL2)]
       assertWithMatcher:grey_sufficientlyVisible()];
+}
+
+// Test that on iPhones, when the popup is scrolled, the keyboard is dismissed
+// but the omnibox is still expanded and the suggestions are visible.
+- (void)testScrollingDismissesKeyboardOnPhones {
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::FakeOmnibox()]
+      performAction:grey_typeText(@"hello")];
+
+  // Matcher for a URL-what-you-typed suggestion.
+  id<GREYMatcher> row = grey_allOf(
+      grey_kindOfClassName(@"OmniboxPopupRowCell"),
+      grey_descendant(
+          chrome_test_util::StaticTextWithAccessibilityLabel(@"hello")),
+      grey_sufficientlyVisible(), nil);
+
+  [[EarlGrey selectElementWithMatcher:row]
+      assertWithMatcher:grey_sufficientlyVisible()];
+  GREYAssertTrue([ChromeEarlGrey isKeyboardShownWithError:nil],
+                 @"Keyboard Should be Shown");
+
+  // Scroll the popup.
+  [[EarlGrey
+      selectElementWithMatcher:
+          grey_accessibilityID(kOmniboxPopupTableViewAccessibilityIdentifier)]
+      performAction:grey_swipeFastInDirection(kGREYDirectionUp)];
+
+  [[EarlGrey selectElementWithMatcher:row]
+      assertWithMatcher:grey_sufficientlyVisible()];
+
+  // The keyboard should only be dismissed on phones. Ipads, even in
+  // multitasking, are considered tall enough to fit all suggestions.
+  if ([ChromeEarlGrey isIPadIdiom]) {
+    GREYAssertTrue([ChromeEarlGrey isKeyboardShownWithError:nil],
+                   @"Keyboard Should be Shown");
+  } else {
+    GREYAssertFalse([ChromeEarlGrey isKeyboardShownWithError:nil],
+                    @"Keyboard Should not be Shown");
+  }
 }
 
 @end

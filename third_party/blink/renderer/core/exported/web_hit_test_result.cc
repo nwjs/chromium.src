@@ -42,7 +42,7 @@ class WebHitTestResultPrivate final
   WebHitTestResultPrivate(const HitTestResult&);
   WebHitTestResultPrivate(const WebHitTestResultPrivate&);
 
-  void Trace(blink::Visitor* visitor) { visitor->Trace(result_); }
+  void Trace(Visitor* visitor) { visitor->Trace(result_); }
   const HitTestResult& Result() const { return result_; }
 
  private:
@@ -99,6 +99,10 @@ WebURL WebHitTestResult::AbsoluteLinkURL() const {
 
 bool WebHitTestResult::IsContentEditable() const {
   return private_->Result().IsContentEditable();
+}
+
+uint64_t WebHitTestResult::GetScrollableContainerId() const {
+  return private_->Result().GetScrollableContainer().GetStableId();
 }
 
 WebHitTestResult::WebHitTestResult(const HitTestResult& result)

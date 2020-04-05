@@ -17,6 +17,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/path_service.h"
 #include "base/run_loop.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
@@ -226,6 +227,10 @@ class PageLoadMetricsBrowserTest : public InProcessBrowserTest {
     // The final status may be either  FINAL_STATUS_NOSTATE_PREFETCH_FINISHED or
     // FINAL_STATUS_RECENTLY_VISITED.
     test_prerender->contents()->set_skip_final_checks(true);
+  }
+
+  content::RenderFrameHost* RenderFrameHost() const {
+    return browser()->tab_strip_model()->GetActiveWebContents()->GetMainFrame();
   }
 
   base::test::ScopedFeatureList scoped_feature_list_;
@@ -2484,4 +2489,333 @@ IN_PROC_BROWSER_TEST_F(PageLoadMetricsBrowserTest, PreCommitWebFeature) {
   histogram_tester_.ExpectBucketCount(
       internal::kFeaturesHistogramName,
       static_cast<int32_t>(WebFeature::kSecureContextCheckFailed), 0);
+}
+
+IN_PROC_BROWSER_TEST_F(PageLoadMetricsBrowserTest,
+                       MainFrameDocumentIntersectionsMainFrame) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+
+  auto waiter = CreatePageLoadMetricsTestWaiter();
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+
+  // Evaluate the height and width of the page as the browser_test can
+  // vary the dimensions.
+  int document_height =
+      EvalJs(web_contents, "document.body.scrollHeight").ExtractInt();
+  int document_width =
+      EvalJs(web_contents, "document.body.scrollWidth").ExtractInt();
+
+  // Expectation is before NavigateToUrl for this test as the expectation can be
+  // met after NavigateToUrl and before the Wait.
+  waiter->AddMainFrameDocumentIntersectionExpectation(
+      gfx::Rect(0, 0, document_width,
+                document_height));  // Initial main frame rect.
+
+  ui_test_utils::NavigateToURL(
+      browser(),
+      embedded_test_server()->GetURL(
+          "/page_load_metrics/blank_with_positioned_iframe_writer.html"));
+  waiter->Wait();
+
+  // Create a |document_width|x|document_height| frame at 100,100, increasing
+  // the page width and height by 100.
+  waiter->AddMainFrameDocumentIntersectionExpectation(
+      gfx::Rect(0, 0, document_width + 100, document_height + 100));
+  EXPECT_TRUE(ExecJs(
+      web_contents,
+      content::JsReplace("createIframeAtRect(\"test\", 100, 100, $1, $2);",
+                         document_width, document_height)));
+  waiter->Wait();
+}
+
+// Creates a single frame within the main frame and verifies the intersection
+// with the main frame.
+IN_PROC_BROWSER_TEST_F(PageLoadMetricsBrowserTest,
+                       MainFrameDocumentIntersectionSingleFrame) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+
+  auto waiter = CreatePageLoadMetricsTestWaiter();
+  ui_test_utils::NavigateToURL(
+      browser(),
+      embedded_test_server()->GetURL(
+          "/page_load_metrics/blank_with_positioned_iframe_writer.html"));
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+
+  waiter->AddMainFrameDocumentIntersectionExpectation(
+      gfx::Rect(100, 100, 200, 200));
+
+  // Create a 200x200 iframe at 100,100.
+  EXPECT_TRUE(ExecJs(web_contents,
+                     "createIframeAtRect(\"test\", 100, 100, 200, 200);"));
+
+  waiter->Wait();
+}
+
+// Creates a set of nested frames within the main frame and verifies
+// their intersections with the main frame.
+IN_PROC_BROWSER_TEST_F(PageLoadMetricsBrowserTest,
+                       MainFrameDocumentIntersectionSameOrigin) {
+  EXPECT_TRUE(embedded_test_server()->Start());
+
+  auto waiter = CreatePageLoadMetricsTestWaiter();
+  ui_test_utils::NavigateToURL(
+      browser(),
+      embedded_test_server()->GetURL(
+          "/page_load_metrics/blank_with_positioned_iframe_writer.html"));
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+
+  waiter->AddMainFrameDocumentIntersectionExpectation(
+      gfx::Rect(100, 100, 200, 200));
+
+  // Create a 200x200 iframe at 100,100.
+  EXPECT_TRUE(ExecJs(web_contents,
+                     "createIframeAtRect(\"test\", 100, 100, 200, 200);"));
+  waiter->Wait();
+
+  NavigateIframeToURL(
+      web_contents, "test",
+      embedded_test_server()->GetURL(
+          "/page_load_metrics/blank_with_positioned_iframe_writer.html"));
+
+  // Creates the grandchild iframe within the child frame at 10, 10 with
+  // dimensions 300x300. This frame is clipped by 110 pixels in the bottom and
+  // right. This translates to an intersection of 110, 110, 190, 190 with the
+  // main frame.
+  waiter->AddMainFrameDocumentIntersectionExpectation(
+      gfx::Rect(110, 110, 190, 190));
+  content::RenderFrameHost* child_frame =
+      content::ChildFrameAt(web_contents->GetMainFrame(), 0);
+  EXPECT_TRUE(
+      ExecJs(child_frame, "createIframeAtRect(\"test2\", 10, 10, 300, 300);"));
+
+  waiter->Wait();
+}
+
+// Creates a set of nested frames, with a cross origin subframe, within the
+// main frame and verifies their intersections with the main frame.
+IN_PROC_BROWSER_TEST_F(PageLoadMetricsBrowserTest,
+                       MainFrameDocumentIntersectionCrossOrigin) {
+  EXPECT_TRUE(embedded_test_server()->Start());
+  auto waiter = CreatePageLoadMetricsTestWaiter();
+  ui_test_utils::NavigateToURL(
+      browser(),
+      embedded_test_server()->GetURL(
+          "/page_load_metrics/blank_with_positioned_iframe_writer.html"));
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+
+  waiter->AddMainFrameDocumentIntersectionExpectation(
+      gfx::Rect(100, 100, 200, 200));
+
+  // Create a 200x200 iframe at 100,100.
+  EXPECT_TRUE(ExecJs(web_contents,
+                     "createIframeAtRect(\"test\", 100, 100, 200, 200);"));
+  waiter->Wait();
+
+  NavigateIframeToURL(
+      web_contents, "test",
+      embedded_test_server()->GetURL(
+          "b.com",
+          "/page_load_metrics/blank_with_positioned_iframe_writer.html"));
+
+  // Creates the grandchild iframe within the child frame at 10, 10 with
+  // dimensions 300x300. This frame is clipped by 110 pixels in the bottom and
+  // right. This translates to an intersection of 110, 110, 190, 190 with the
+  // main frame.
+  waiter->AddMainFrameDocumentIntersectionExpectation(
+      gfx::Rect(110, 110, 190, 190));
+  content::RenderFrameHost* child_frame =
+      content::ChildFrameAt(web_contents->GetMainFrame(), 0);
+  EXPECT_TRUE(
+      ExecJs(child_frame, "createIframeAtRect(\"test2\", 10, 10, 300, 300);"));
+
+  waiter->Wait();
+}
+
+// Creates a set of nested frames, with a cross origin subframe that is out of
+// view within the main frame and verifies their intersections with the main
+// frame.
+IN_PROC_BROWSER_TEST_F(PageLoadMetricsBrowserTest,
+                       MainFrameDocumentIntersectionCrossOriginOutOfView) {
+  EXPECT_TRUE(embedded_test_server()->Start());
+  auto waiter = CreatePageLoadMetricsTestWaiter();
+  ui_test_utils::NavigateToURL(
+      browser(),
+      embedded_test_server()->GetURL(
+          "/page_load_metrics/blank_with_positioned_iframe_writer.html"));
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+
+  waiter->AddMainFrameDocumentIntersectionExpectation(
+      gfx::Rect(100, 100, 200, 200));
+
+  // Create a 200x200 iframe at 100,100.
+  EXPECT_TRUE(ExecJs(web_contents,
+                     "createIframeAtRect(\"test\", 100, 100, 200, 200);"));
+  waiter->Wait();
+
+  NavigateIframeToURL(
+      web_contents, "test",
+      embedded_test_server()->GetURL(
+          "b.com",
+          "/page_load_metrics/blank_with_positioned_iframe_writer.html"));
+
+  // Creates the grandchild iframe within the child frame outside the parent
+  // frame's viewport.
+  waiter->AddMainFrameDocumentIntersectionExpectation(gfx::Rect(0, 0, 0, 0));
+  content::RenderFrameHost* child_frame =
+      content::ChildFrameAt(web_contents->GetMainFrame(), 0);
+  EXPECT_TRUE(ExecJs(child_frame,
+                     "createIframeAtRect(\"test2\", 5000, 5000, 190, 190);"));
+
+  waiter->Wait();
+}
+
+// Creates a set of nested frames, with a cross origin subframe that is out of
+// view within the main frame and verifies their intersections with the main
+// frame. The out of view frame is then scrolled back into view and the
+// intersection is verified.
+IN_PROC_BROWSER_TEST_F(PageLoadMetricsBrowserTest,
+                       MainFrameDocumentIntersectionCrossOriginScrolled) {
+  EXPECT_TRUE(embedded_test_server()->Start());
+  auto waiter = CreatePageLoadMetricsTestWaiter();
+  ui_test_utils::NavigateToURL(
+      browser(),
+      embedded_test_server()->GetURL(
+          "/page_load_metrics/blank_with_positioned_iframe_writer.html"));
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+
+  waiter->AddMainFrameDocumentIntersectionExpectation(
+      gfx::Rect(100, 100, 200, 200));
+
+  // Create a 200x200 iframe at 100,100.
+  EXPECT_TRUE(ExecJs(web_contents,
+                     "createIframeAtRect(\"test\", 100, 100, 200, 200);"));
+  waiter->Wait();
+
+  NavigateIframeToURL(
+      web_contents, "test",
+      embedded_test_server()->GetURL(
+          "b.com",
+          "/page_load_metrics/blank_with_positioned_iframe_writer.html"));
+
+  // Creates the grandchild iframe within the child frame outside the parent
+  // frame's viewport.
+  waiter->AddMainFrameDocumentIntersectionExpectation(gfx::Rect(0, 0, 0, 0));
+  content::RenderFrameHost* child_frame =
+      content::ChildFrameAt(web_contents->GetMainFrame(), 0);
+  EXPECT_TRUE(ExecJs(child_frame,
+                     "createIframeAtRect(\"test2\", 5000, 5000, 190, 190);"));
+  waiter->Wait();
+
+  // Scroll the child frame and verify the grandchild frame's intersection.
+  // The parent frame is at position 100,100 with dimensions 200x200. The
+  // child frame after scrolling is positioned at 100,100 within the parent
+  // frame and is clipped to 100x100. The grand child's main frame document
+  // position is then 200,200 after the child frame is scrolled.
+  waiter->AddMainFrameDocumentIntersectionExpectation(
+      gfx::Rect(200, 200, 100, 100));
+
+  EXPECT_TRUE(ExecJs(child_frame, "window.scroll(4900, 4900); "));
+
+  waiter->Wait();
+}
+
+IN_PROC_BROWSER_TEST_F(PageLoadMetricsBrowserTest, PageLCPStopsUponInput) {
+  embedded_test_server()->ServeFilesFromSourceDirectory("content/test/data");
+  content::SetupCrossSiteRedirector(embedded_test_server());
+  ASSERT_TRUE(embedded_test_server()->Start());
+
+  // Waiter to ensure main content is loaded.
+  auto waiter = CreatePageLoadMetricsTestWaiter();
+  waiter->AddPageExpectation(TimingField::kLoadEvent);
+  waiter->AddPageExpectation(TimingField::kFirstContentfulPaint);
+  waiter->AddPageExpectation(TimingField::kLargestContentfulPaint);
+
+  //  Waiter to ensure that iframe content is loaded.
+  auto waiter2 = CreatePageLoadMetricsTestWaiter();
+  waiter2->AddPageExpectation(TimingField::kLoadEvent);
+  waiter2->AddSubFrameExpectation(TimingField::kLoadEvent);
+  waiter2->AddPageExpectation(TimingField::kFirstContentfulPaint);
+  waiter2->AddSubFrameExpectation(TimingField::kFirstContentfulPaint);
+  waiter2->AddPageExpectation(TimingField::kLargestContentfulPaint);
+  waiter2->AddSubFrameExpectation(TimingField::kLargestContentfulPaint);
+  waiter2->AddPageExpectation(TimingField::kFirstInputOrScroll);
+
+  ui_test_utils::NavigateToURL(
+      browser(), embedded_test_server()->GetURL(
+                     "/page_load_metrics/click_to_create_iframe.html"));
+  waiter->Wait();
+
+  // Tap in the middle of the button.
+  ASSERT_TRUE(content::ExecuteScriptWithoutUserGesture(
+      RenderFrameHost(),
+      "var submitRect = document.getElementById('button')"
+      ".getBoundingClientRect();"));
+  double y;
+  ASSERT_TRUE(content::ExecuteScriptWithoutUserGestureAndExtractDouble(
+      RenderFrameHost(),
+      "window.domAutomationController.send((submitRect.top +"
+      "submitRect.bottom) / 2);",
+      &y));
+  double x;
+  EXPECT_TRUE(content::ExecuteScriptWithoutUserGestureAndExtractDouble(
+      RenderFrameHost(),
+      "window.domAutomationController.send((submitRect.left + submitRect.right)"
+      "/ 2);",
+      &x));
+  content::SimulateMouseClickAt(
+      browser()->tab_strip_model()->GetActiveWebContents(), 0,
+      blink::WebMouseEvent::Button::kLeft,
+      gfx::Point(static_cast<int>(x), static_cast<int>(y)));
+  waiter2->Wait();
+
+  // LCP is collected only at the end of the page lifecycle. Navigate to flush.
+  NavigateToUntrackedUrl();
+
+  histogram_tester_.ExpectTotalCount(internal::kHistogramLargestContentfulPaint,
+                                     1);
+  auto all_frames_value =
+      histogram_tester_
+          .GetAllSamples(internal::kHistogramLargestContentfulPaint)[0]
+          .min;
+
+  histogram_tester_.ExpectTotalCount(
+      internal::kHistogramLargestContentfulPaintMainFrame, 1);
+  auto main_frame_value =
+      histogram_tester_
+          .GetAllSamples(internal::kHistogramLargestContentfulPaintMainFrame)[0]
+          .min;
+  // Even though the content on the iframe is larger, the all_frames LCP value
+  // should match the main frame value because the iframe content was created
+  // after input in the main frame.
+  ASSERT_EQ(all_frames_value, main_frame_value);
+}
+
+IN_PROC_BROWSER_TEST_F(PageLoadMetricsBrowserTest, FirstInputDelayFromClick) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+
+  auto waiter = CreatePageLoadMetricsTestWaiter();
+  waiter->AddPageExpectation(TimingField::kLoadEvent);
+  waiter->AddPageExpectation(TimingField::kFirstContentfulPaint);
+
+  auto waiter2 = CreatePageLoadMetricsTestWaiter();
+  waiter2->AddPageExpectation(TimingField::kLoadEvent);
+  waiter2->AddPageExpectation(TimingField::kFirstContentfulPaint);
+  waiter2->AddPageExpectation(TimingField::kFirstInputDelay);
+  ui_test_utils::NavigateToURL(browser(), embedded_test_server()->GetURL(
+                                              "/page_load_metrics/click.html"));
+  waiter->Wait();
+  content::SimulateMouseClickAt(
+      browser()->tab_strip_model()->GetActiveWebContents(), 0,
+      blink::WebMouseEvent::Button::kLeft, gfx::Point(100, 100));
+  waiter2->Wait();
+
+  histogram_tester_.ExpectTotalCount(internal::kHistogramFirstInputDelay, 1);
+  histogram_tester_.ExpectTotalCount(internal::kHistogramFirstInputTimestamp,
+                                     1);
 }

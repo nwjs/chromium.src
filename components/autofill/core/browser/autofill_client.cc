@@ -16,6 +16,18 @@ std::string AutofillClient::GetPageLanguage() const {
   return std::string();
 }
 
+std::string AutofillClient::GetVariationConfigCountryCode() const {
+  return std::string();
+}
+
+#if !defined(OS_IOS)
+std::unique_ptr<InternalAuthenticator>
+AutofillClient::CreateCreditCardInternalAuthenticator(
+    content::RenderFrameHost* rfh) {
+  return nullptr;
+}
+#endif
+
 LogManager* AutofillClient::GetLogManager() const {
   return nullptr;
 }

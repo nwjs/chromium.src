@@ -28,6 +28,9 @@ class PageLoadMetricsTestWaiter
     kLoadEvent = 1 << 4,
     // kLoadTimingInfo waits for main frame timing info only.
     kLoadTimingInfo = 1 << 5,
+    kLargestContentfulPaint = 1 << 6,
+    kFirstInputOrScroll = 1 << 7,
+    kFirstInputDelay = 1 << 8,
   };
   using FrameTreeNodeId =
       page_load_metrics::PageLoadMetricsObserver::FrameTreeNodeId;
@@ -45,6 +48,11 @@ class PageLoadMetricsTestWaiter
   // Add a frame size expectation. Expects that at least one frame receives a
   // size update of |size|.
   void AddFrameSizeExpectation(const gfx::Size& size);
+
+  // Add a main frame document intersection expectation. Expects that a frame
+  // receives an intersection update with a main frame document intersection
+  // of |rect|. Subsequent calls overwrite unmet expectations.
+  void AddMainFrameDocumentIntersectionExpectation(const gfx::Rect& rect);
 
   // Add a single WebFeature expectation.
   void AddWebFeatureExpectation(blink::mojom::WebFeature web_feature);
@@ -127,6 +135,10 @@ class PageLoadMetricsTestWaiter
         content::NavigationHandle* navigation_handle) override;
     void FrameSizeChanged(content::RenderFrameHost* render_frame_host,
                           const gfx::Size& frame_size) override;
+    void OnFrameIntersectionUpdate(
+        content::RenderFrameHost* rfh,
+        const page_load_metrics::mojom::FrameIntersectionUpdate&
+            frame_intersection_update) override;
 
    private:
     const base::WeakPtr<PageLoadMetricsTestWaiter> waiter_;
@@ -169,7 +181,7 @@ class PageLoadMetricsTestWaiter
 
   static TimingFieldBitSet GetMatchedBits(
       const page_load_metrics::mojom::PageLoadTiming& timing,
-      const page_load_metrics::mojom::PageLoadMetadata& metadata);
+      const page_load_metrics::mojom::FrameMetadata& metadata);
 
   // Updates observed page fields when a timing update is received by the
   // MetricsWebContentsObserver. Stops waiting if expectations are satsfied
@@ -204,6 +216,11 @@ class PageLoadMetricsTestWaiter
   void FrameSizeChanged(content::RenderFrameHost* render_frame_host,
                         const gfx::Size& frame_size);
 
+  void OnFrameIntersectionUpdate(
+      content::RenderFrameHost* rfh,
+      const page_load_metrics::mojom::FrameIntersectionUpdate&
+          frame_intersection_update);
+
   void OnDidFinishSubFrameNavigation(
       content::NavigationHandle* navigation_handle);
 
@@ -236,6 +253,10 @@ class PageLoadMetricsTestWaiter
 
   std::set<gfx::Size, FrameSizeComparator> expected_frame_sizes_;
   std::set<gfx::Size, FrameSizeComparator> observed_frame_sizes_;
+
+  // Expectation for the main frame document intersection. Has a value when
+  // an expectation has not been met.
+  base::Optional<gfx::Rect> expected_main_frame_intersection_;
 
   int current_complete_resources_ = 0;
   int64_t current_network_bytes_ = 0;

@@ -59,7 +59,7 @@ class MediaKeySystemAccessInitializer final
       std::unique_ptr<WebContentDecryptionModuleAccess>) override;
   void RequestNotSupported(const WebString& error_message) override;
 
-  void Trace(blink::Visitor* visitor) override {
+  void Trace(Visitor* visitor) override {
     MediaKeySystemAccessInitializerBase::Trace(visitor);
   }
 
@@ -112,17 +112,17 @@ ScriptPromise NavigatorRequestMediaKeySystemAccess::requestMediaKeySystemAccess(
   DVLOG(3) << __func__;
 
   ExecutionContext* execution_context = ExecutionContext::From(script_state);
-  Document* document = To<Document>(execution_context);
+  Document* document = Document::From(execution_context);
 
   if (!document->IsFeatureEnabled(
           mojom::blink::FeaturePolicyFeature::kEncryptedMedia,
           ReportOptions::kReportOnFailure)) {
     UseCounter::Count(document,
                       WebFeature::kEncryptedMediaDisabledByFeaturePolicy);
-    document->AddConsoleMessage(
-        ConsoleMessage::Create(mojom::ConsoleMessageSource::kJavaScript,
-                               mojom::ConsoleMessageLevel::kWarning,
-                               kEncryptedMediaFeaturePolicyConsoleWarning));
+    document->AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
+        mojom::ConsoleMessageSource::kJavaScript,
+        mojom::ConsoleMessageLevel::kWarning,
+        kEncryptedMediaFeaturePolicyConsoleWarning));
     exception_state.ThrowSecurityError(
         "requestMediaKeySystemAccess is disabled by feature policy.");
     return ScriptPromise();

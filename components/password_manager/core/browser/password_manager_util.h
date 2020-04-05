@@ -151,7 +151,8 @@ bool IsOptedInForAccountStorage(const PrefService* pref_service,
 
 // Whether it makes sense to ask the user to opt-in for account-based
 // password storage. This is true if the opt-in doesn't exist yet, but all
-// other requirements are met (i.e. there is a signed-in user etc).
+// other requirements are met (i.e. there is a signed-in user, Sync-the-feature
+// is not enabled, etc).
 // |pref_service| must not be null.
 // |sync_service| may be null (commonly the case in incognito mode), in which
 // case this will simply return false.
@@ -165,18 +166,38 @@ void SetAccountStorageOptIn(PrefService* pref_service,
                             const syncer::SyncService* sync_service,
                             bool opt_in);
 
+// Whether it makes sense to ask the user about the store when saving a
+// password (i.e. profile or account store). This is true if the user has
+// opted in already, or hasn't opted in but all other requirements are met (i.e.
+// there is a signed-in user, Sync-the-feature is not enabled, etc).
+// |pref_service| must not be null.
+// |sync_service| may be null (commonly the case in incognito mode), in which
+// case this will simply return false.
+bool ShouldShowPasswordStorePicker(const PrefService* pref_service,
+                                   const syncer::SyncService* sync_service);
+
 // Returns the default storage location for signed-in but non-syncing users
 // (i.e. will new passwords be saved to locally or to the account by default).
 // Always returns an actual value, never kNotSet.
+// |pref_service| must not be null.
+// |sync_service| may be null (commonly the case in incognito mode), in which
+// case this will return kProfileStore.
 autofill::PasswordForm::Store GetDefaultPasswordStore(
     const PrefService* pref_service,
     const syncer::SyncService* sync_service);
 
 // Sets the default storage location for signed-in but non-syncing users (i.e.
-// will new passwords be saved to locally or to the account by default).
+// will new passwords be saved locally or to the account by default).
+// |pref_service| and |sync_service| must not be null.
 void SetDefaultPasswordStore(PrefService* pref_service,
                              const syncer::SyncService* sync_service,
                              autofill::PasswordForm::Store default_store);
+
+// Clears all account-storage-related settings for all users. Most notably, this
+// includes the opt-in, but also all other related settings like the default
+// password store. Meant to be called when account cookies were cleared.
+// |pref_service| must not be null.
+void ClearAccountStorageSettingsForAllUsers(PrefService* pref_service);
 
 }  // namespace password_manager_util
 

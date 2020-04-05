@@ -23,6 +23,7 @@ import org.chromium.chrome.browser.compositor.layouts.components.CompositorButto
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutHelper;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tab.TabHidingType;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabSelectionType;
@@ -118,7 +119,7 @@ public class ChromeTabUtils {
     }
 
     private static boolean loadComplete(Tab tab, String url) {
-        return !tab.isLoading() && (url == null || TextUtils.equals(tab.getUrl(), url))
+        return !tab.isLoading() && (url == null || TextUtils.equals(tab.getUrlString(), url))
                 && !tab.getWebContents().isLoadingToDifferentDocument();
     }
 
@@ -213,8 +214,8 @@ public class ChromeTabUtils {
                         "Page did not load.  Tab information at time of failure -- "
                                 + "expected url: '%s', actual URL: '%s', load progress: %d, is "
                                 + "loading: %b, web contents init: %b, web contents loading: %b",
-                        url, tab.getUrl(), Math.round(100 * tab.getProgress()), tab.isLoading(),
-                        webContents != null,
+                        url, tab.getUrlString(), Math.round(100 * tab.getProgress()),
+                        tab.isLoading(), webContents != null,
                         webContents == null ? false : webContents.isLoadingToDifferentDocument()));
             }
         }
@@ -245,8 +246,7 @@ public class ChromeTabUtils {
             startedCallback.waitForCallback(0, 1, secondsToWait, TimeUnit.SECONDS);
         } catch (TimeoutException e) {
             Assert.fail("Page did not start loading.  Tab information at time of failure --"
-                    + " url: " + tab.getUrl()
-                    + ", load progress: " + tab.getProgress()
+                    + " url: " + tab.getUrlString() + ", load progress: " + tab.getProgress()
                     + ", is loading: " + Boolean.toString(tab.isLoading()));
         }
     }
@@ -340,7 +340,8 @@ public class ChromeTabUtils {
         final CallbackHelper createdCallback = new CallbackHelper();
         normalTabModel.addObserver(new EmptyTabModelObserver() {
             @Override
-            public void didAddTab(Tab tab, @TabLaunchType int type) {
+            public void didAddTab(
+                    Tab tab, @TabLaunchType int type, @TabCreationState int creationState) {
                 createdCallback.notifyCalled();
                 normalTabModel.removeObserver(this);
             }
@@ -386,7 +387,8 @@ public class ChromeTabUtils {
         TabModel tabModel = activity.getTabModelSelector().getModel(incognito);
         TabModelObserver observer = new EmptyTabModelObserver() {
             @Override
-            public void didAddTab(Tab tab, @TabLaunchType int type) {
+            public void didAddTab(
+                    Tab tab, @TabLaunchType int type, @TabCreationState int creationState) {
                 createdCallback.notifyCalled();
             }
 
@@ -641,8 +643,9 @@ public class ChromeTabUtils {
                 testRule.getActivity().getTabModelSelector().getModel(expectIncognito);
         tabModel.addObserver(new EmptyTabModelObserver() {
             @Override
-            public void didAddTab(Tab tab, @TabLaunchType int type) {
-                if (TextUtils.equals(expectedUrl, tab.getUrl())) {
+            public void didAddTab(
+                    Tab tab, @TabLaunchType int type, @TabCreationState int creationState) {
+                if (TextUtils.equals(expectedUrl, tab.getUrlString())) {
                     createdCallback.notifyCalled();
                     tabModel.removeObserver(this);
                 }
@@ -690,8 +693,9 @@ public class ChromeTabUtils {
                 backgroundActivity.getTabModelSelector().getModel(expectIncognito);
         tabModel.addObserver(new EmptyTabModelObserver() {
             @Override
-            public void didAddTab(Tab tab, @TabLaunchType int type) {
-                if (TextUtils.equals(expectedUrl, tab.getUrl())) {
+            public void didAddTab(
+                    Tab tab, @TabLaunchType int type, @TabCreationState int creationState) {
+                if (TextUtils.equals(expectedUrl, tab.getUrlString())) {
                     createdCallback.notifyCalled();
                     tabModel.removeObserver(this);
                 }

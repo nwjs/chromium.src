@@ -41,7 +41,13 @@ void NavigationBodyLoader::FillNavigationParamsResponseAndBodyLoader(
       !commit_params->original_method.empty() ? commit_params->original_method
                                               : common_params->method,
       common_params->referrer->url,
-      is_main_frame ? ResourceType::kMainFrame : ResourceType::kSubFrame,
+      // TODO(kinuko): This should use the same value as in the request that
+      // was used in browser process, i.e. what CreateResourceRequest in
+      // content/browser/loader/navigation_url_loader_impl.cc gives.
+      // (Currently we don't propagate the value from the browser on navigation
+      // commit.)
+      is_main_frame ? network::mojom::RequestDestination::kDocument
+                    : network::mojom::RequestDestination::kIframe,
       is_main_frame ? net::HIGHEST : net::LOWEST);
   size_t redirect_count = commit_params->redirect_response.size();
   navigation_params->redirects.reserve(redirect_count);
@@ -89,7 +95,7 @@ NavigationBodyLoader::NavigationBodyLoader(
     network::mojom::URLLoaderClientEndpointsPtr endpoints,
     scoped_refptr<base::SingleThreadTaskRunner> task_runner,
     int render_frame_id,
-    mojom::ResourceLoadInfoPtr resource_load_info)
+    blink::mojom::ResourceLoadInfoPtr resource_load_info)
     : render_frame_id_(render_frame_id),
       response_head_(std::move(response_head)),
       response_body_(std::move(response_body)),

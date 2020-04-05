@@ -25,6 +25,9 @@ class PackagedLicenseScreen : public BaseScreen {
     // Show enterprise enrollment screen
     ENROLL
   };
+
+  static std::string GetResultString(Result result);
+
   using ScreenExitCallback = base::RepeatingCallback<void(Result result)>;
   PackagedLicenseScreen(PackagedLicenseView* view,
                         const ScreenExitCallback& exit_callback);
@@ -32,9 +35,14 @@ class PackagedLicenseScreen : public BaseScreen {
   PackagedLicenseScreen& operator=(const PackagedLicenseScreen&) = delete;
   ~PackagedLicenseScreen() override;
 
+  void set_exit_callback_for_testing(const ScreenExitCallback& exit_callback) {
+    exit_callback_ = exit_callback;
+  }
+
+ protected:
   // BaseScreen
-  void Show() override;
-  void Hide() override;
+  void ShowImpl() override;
+  void HideImpl() override;
   void OnUserAction(const std::string& action_id) override;
 
  private:

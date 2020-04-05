@@ -103,9 +103,8 @@ TEST_F(ShellSurfaceTest, AcknowledgeConfigure) {
   EXPECT_TRUE(compositor->IsLocked());
 
   shell_surface->AcknowledgeConfigure(kSerial);
-  std::unique_ptr<Buffer> fullscreen_buffer(
-      new Buffer(exo_test_helper()->CreateGpuMemoryBuffer(
-          CurrentContext()->bounds().size())));
+  std::unique_ptr<Buffer> fullscreen_buffer(new Buffer(
+      exo_test_helper()->CreateGpuMemoryBuffer(GetContext()->bounds().size())));
   surface->Attach(fullscreen_buffer.get());
   surface->Commit();
 
@@ -162,7 +161,7 @@ TEST_F(ShellSurfaceTest, Maximize) {
   EXPECT_FALSE(HasBackdrop());
   surface->Commit();
   EXPECT_FALSE(HasBackdrop());
-  EXPECT_EQ(CurrentContext()->bounds().width(),
+  EXPECT_EQ(GetContext()->bounds().width(),
             shell_surface->GetWidget()->GetWindowBoundsInScreen().width());
   EXPECT_TRUE(shell_surface->GetWidget()->IsMaximized());
 
@@ -263,12 +262,12 @@ TEST_F(ShellSurfaceTest, SetFullscreen) {
   surface->Attach(buffer.get());
   surface->Commit();
   EXPECT_FALSE(HasBackdrop());
-  EXPECT_EQ(CurrentContext()->bounds().ToString(),
+  EXPECT_EQ(GetContext()->bounds().ToString(),
             shell_surface->GetWidget()->GetWindowBoundsInScreen().ToString());
   shell_surface->SetFullscreen(false);
   surface->Commit();
   EXPECT_FALSE(HasBackdrop());
-  EXPECT_NE(CurrentContext()->bounds().ToString(),
+  EXPECT_NE(GetContext()->bounds().ToString(),
             shell_surface->GetWidget()->GetWindowBoundsInScreen().ToString());
 }
 
@@ -655,7 +654,7 @@ TEST_F(ShellSurfaceTest, ConfigureCallback) {
 
   shell_surface->SetFullscreen(true);
   shell_surface->AcknowledgeConfigure(0);
-  EXPECT_EQ(CurrentContext()->bounds().size().ToString(),
+  EXPECT_EQ(GetContext()->bounds().size().ToString(),
             suggested_size.ToString());
   EXPECT_EQ(ash::WindowStateType::kFullscreen, has_state_type);
   shell_surface->SetFullscreen(false);
@@ -690,7 +689,7 @@ TEST_F(ShellSurfaceTest, ToggleFullscreen) {
       shell_surface->GetWidget()->GetWindowBoundsInScreen().size().ToString());
   shell_surface->Maximize();
   EXPECT_FALSE(HasBackdrop());
-  EXPECT_EQ(CurrentContext()->bounds().width(),
+  EXPECT_EQ(GetContext()->bounds().width(),
             shell_surface->GetWidget()->GetWindowBoundsInScreen().width());
 
   ash::WMEvent event(ash::WM_EVENT_TOGGLE_FULLSCREEN);
@@ -700,7 +699,7 @@ TEST_F(ShellSurfaceTest, ToggleFullscreen) {
   ash::WindowState::Get(window)->OnWMEvent(&event);
 
   EXPECT_FALSE(HasBackdrop());
-  EXPECT_EQ(CurrentContext()->bounds().ToString(),
+  EXPECT_EQ(GetContext()->bounds().ToString(),
             shell_surface->GetWidget()->GetWindowBoundsInScreen().ToString());
 
   // Leave fullscreen mode.
@@ -708,7 +707,7 @@ TEST_F(ShellSurfaceTest, ToggleFullscreen) {
   EXPECT_FALSE(HasBackdrop());
 
   // Check that shell surface is maximized.
-  EXPECT_EQ(CurrentContext()->bounds().width(),
+  EXPECT_EQ(GetContext()->bounds().width(),
             shell_surface->GetWidget()->GetWindowBoundsInScreen().width());
 }
 
@@ -754,14 +753,14 @@ TEST_F(ShellSurfaceTest, CycleSnap) {
   // Enter snapped mode.
   ash::WindowState::Get(window)->OnWMEvent(&event);
 
-  EXPECT_EQ(CurrentContext()->bounds().width() / 2,
+  EXPECT_EQ(GetContext()->bounds().width() / 2,
             shell_surface->GetWidget()->GetWindowBoundsInScreen().width());
 
   surface->Attach(buffer.get());
   surface->Commit();
 
   // Commit shouldn't change widget bounds when snapped.
-  EXPECT_EQ(CurrentContext()->bounds().width() / 2,
+  EXPECT_EQ(GetContext()->bounds().width() / 2,
             shell_surface->GetWidget()->GetWindowBoundsInScreen().width());
 }
 
@@ -878,6 +877,83 @@ TEST_F(ShellSurfaceTest, Popup) {
     ui::MouseEvent event(ui::ET_MOUSE_MOVED, gfx::Point(0, 0),
                          gfx::Point(50, 50), ui::EventTimeForNow(), 0, 0);
     EXPECT_EQ(popup_surface.get(), GetTargetSurfaceForLocatedEvent(&event));
+  }
+}
+
+TEST_F(ShellSurfaceTest, Caption) {
+  gfx::Size buffer_size(256, 256);
+  auto buffer = std::make_unique<Buffer>(
+      exo_test_helper()->CreateGpuMemoryBuffer(buffer_size));
+  auto surface = std::make_unique<Surface>();
+  auto shell_surface = std::make_unique<ShellSurface>(surface.get());
+
+  surface->Attach(buffer.get());
+  shell_surface->OnSetFrame(SurfaceFrameType::NORMAL);
+  surface->Commit();
+  shell_surface->GetWidget()->SetBounds(gfx::Rect(0, 0, 256, 256));
+
+  shell_surface->GetWidget()->GetNativeWindow()->SetCapture();
+  EXPECT_EQ(WMHelper::GetInstance()->GetCaptureClient()->GetCaptureWindow(),
+            shell_surface->GetWidget()->GetNativeWindow());
+  {
+    // Move the mouse at the caption of the captured window.
+    ui::MouseEvent event(ui::ET_MOUSE_MOVED, gfx::Point(5, 5), gfx::Point(5, 5),
+                         ui::EventTimeForNow(), 0, 0);
+    EXPECT_EQ(nullptr, GetTargetSurfaceForLocatedEvent(&event));
+  }
+
+  {
+    // Move the mouse at the center of the captured window.
+    gfx::Rect bounds = shell_surface->GetWidget()->GetWindowBoundsInScreen();
+    gfx::Point center = bounds.CenterPoint();
+    ui::MouseEvent event(ui::ET_MOUSE_MOVED, center - bounds.OffsetFromOrigin(),
+                         center, ui::EventTimeForNow(), 0, 0);
+    EXPECT_EQ(surface.get(), GetTargetSurfaceForLocatedEvent(&event));
+  }
+}
+
+TEST_F(ShellSurfaceTest, CaptionWithPopup) {
+  gfx::Size buffer_size(256, 256);
+  auto buffer = std::make_unique<Buffer>(
+      exo_test_helper()->CreateGpuMemoryBuffer(buffer_size));
+  auto surface = std::make_unique<Surface>();
+  auto shell_surface = std::make_unique<ShellSurface>(surface.get());
+
+  surface->Attach(buffer.get());
+  surface->Commit();
+  shell_surface->GetWidget()->SetBounds(gfx::Rect(0, 0, 256, 256));
+  shell_surface->OnSetFrame(SurfaceFrameType::NORMAL);
+
+  auto popup_buffer = std::make_unique<Buffer>(
+      exo_test_helper()->CreateGpuMemoryBuffer(buffer_size));
+  auto popup_surface = std::make_unique<Surface>();
+  popup_surface->Attach(popup_buffer.get());
+  std::unique_ptr<ShellSurface> popup_shell_surface(CreatePopupShellSurface(
+      popup_surface.get(), shell_surface.get(), gfx::Point(50, 50)));
+  popup_shell_surface->Grab();
+  popup_surface->Commit();
+
+  EXPECT_EQ(WMHelper::GetInstance()->GetCaptureClient()->GetCaptureWindow(),
+            popup_shell_surface->GetWidget()->GetNativeWindow());
+  {
+    // Move the mouse at the popup window.
+    ui::MouseEvent event(ui::ET_MOUSE_MOVED, gfx::Point(5, 5),
+                         gfx::Point(55, 55), ui::EventTimeForNow(), 0, 0);
+    EXPECT_EQ(popup_surface.get(), GetTargetSurfaceForLocatedEvent(&event));
+  }
+
+  {
+    // Move the mouse at the caption of the main window.
+    ui::MouseEvent event(ui::ET_MOUSE_MOVED, gfx::Point(-45, -45),
+                         gfx::Point(5, 5), ui::EventTimeForNow(), 0, 0);
+    EXPECT_EQ(nullptr, GetTargetSurfaceForLocatedEvent(&event));
+  }
+
+  {
+    // Move the mouse in the main window.
+    ui::MouseEvent event(ui::ET_MOUSE_MOVED, gfx::Point(-25, 0),
+                         gfx::Point(25, 50), ui::EventTimeForNow(), 0, 0);
+    EXPECT_EQ(surface.get(), GetTargetSurfaceForLocatedEvent(&event));
   }
 }
 

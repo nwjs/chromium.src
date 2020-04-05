@@ -101,6 +101,7 @@
         color: var(--google-blue-500);
       }
 
+      collapse-radio-button,
       controlled-radio-button,
       cr-radio-button {
         min-height: var(--settings-row-min-height);
@@ -125,7 +126,9 @@
 
       /* See also: .no-min-width below. */
       .text-elide {
-        @apply --cr-text-elide;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
 
       /* By default, flexbox children have min-width calculated to be the width

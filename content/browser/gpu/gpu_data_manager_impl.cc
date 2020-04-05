@@ -120,6 +120,18 @@ void GpuDataManagerImpl::UpdateDx12VulkanInfo(
   private_->UpdateDx12VulkanInfo(dx12_vulkan_version_info);
 }
 
+void GpuDataManagerImpl::UpdateDevicePerfInfo(
+    const gpu::DevicePerfInfo& device_perf_info) {
+  base::AutoLock auto_lock(lock_);
+  private_->UpdateDevicePerfInfo(device_perf_info);
+}
+
+void GpuDataManagerImpl::UpdateOverlayInfo(
+    const gpu::OverlayInfo& overlay_info) {
+  base::AutoLock auto_lock(lock_);
+  private_->UpdateOverlayInfo(overlay_info);
+}
+
 void GpuDataManagerImpl::UpdateDxDiagNodeRequestStatus(bool request_continues) {
   base::AutoLock auto_lock(lock_);
   private_->UpdateDxDiagNodeRequestStatus(request_continues);
@@ -133,6 +145,11 @@ void GpuDataManagerImpl::UpdateDx12VulkanRequestStatus(bool request_continues) {
 bool GpuDataManagerImpl::Dx12VulkanRequested() const {
   base::AutoLock auto_lock(lock_);
   return private_->Dx12VulkanRequested();
+}
+
+void GpuDataManagerImpl::OnBrowserThreadsStarted() {
+  base::AutoLock auto_lock(lock_);
+  private_->OnBrowserThreadsStarted();
 }
 #endif
 

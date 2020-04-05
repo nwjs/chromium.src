@@ -27,9 +27,17 @@ namespace web_app {
 
 class WebAppUiManager;
 class InstallManager;
+class SystemWebAppManager;
 
 // Checks for updates to a web app's manifest and triggers a reinstall if the
 // current installation is out of date.
+//
+// Update checks are throttled per app (see MaybeConsumeUpdateCheck()) to avoid
+// excessive updating on pathological sites.
+//
+// Each update check is performed by a |ManifestUpdateTask|, see that class for
+// details about what happens during a check.
+//
 // TODO(crbug.com/926083): Replace MaybeUpdate() with a background check instead
 // of being triggered by page loads.
 class ManifestUpdateManager final : public AppRegistrarObserver {
@@ -38,8 +46,10 @@ class ManifestUpdateManager final : public AppRegistrarObserver {
   ~ManifestUpdateManager() override;
 
   void SetSubsystems(AppRegistrar* registrar,
+                     AppIconManager* icon_manager,
                      WebAppUiManager* ui_manager,
-                     InstallManager* install_manager);
+                     InstallManager* install_manager,
+                     SystemWebAppManager* system_web_app_manager);
   void Start();
   void Shutdown();
 
@@ -75,8 +85,10 @@ class ManifestUpdateManager final : public AppRegistrarObserver {
 
   Profile* const profile_ = nullptr;
   AppRegistrar* registrar_ = nullptr;
+  AppIconManager* icon_manager_ = nullptr;
   WebAppUiManager* ui_manager_ = nullptr;
   InstallManager* install_manager_ = nullptr;
+  SystemWebAppManager* system_web_app_manager_ = nullptr;
 
   ScopedObserver<AppRegistrar, AppRegistrarObserver> registrar_observer_{this};
 

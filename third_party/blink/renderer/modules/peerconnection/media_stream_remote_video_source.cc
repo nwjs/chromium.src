@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <utility>
 
+#include "base/bind_helpers.h"
 #include "base/location.h"
 #include "base/single_thread_task_runner.h"
 #include "base/trace_event/trace_event.h"
@@ -24,7 +25,8 @@
 #include "third_party/blink/renderer/platform/wtf/thread_safe_ref_counted.h"
 #include "third_party/webrtc/api/video/i420_buffer.h"
 #include "third_party/webrtc/api/video/recordable_encoded_frame.h"
-#include "third_party/webrtc/rtc_base/time_utils.h"  // for TimeMicros
+#include "third_party/webrtc/rtc_base/time_utils.h"
+#include "third_party/webrtc/system_wrappers/include/clock.h"
 
 namespace WTF {
 
@@ -144,6 +146,12 @@ class MediaStreamRemoteVideoSource::RemoteVideoSourceDelegate
 
   // WebRTC Chromium timestamp diff
   const base::TimeDelta time_diff_encoded_;
+
+  // WebRTC real time clock, needed to determine NTP offset.
+  webrtc::Clock* clock_;
+
+  // Offset between NTP clock and WebRTC clock.
+  const int64_t ntp_offset_;
 };
 
 MediaStreamRemoteVideoSource::RemoteVideoSourceDelegate::
@@ -162,11 +170,13 @@ MediaStreamRemoteVideoSource::RemoteVideoSourceDelegate::
                  base::TimeDelta::FromMicroseconds(rtc::TimeMicros())),
       start_timestamp_encoded_(media::kNoTimestamp),
       time_diff_encoded_(base::TimeTicks::Now() - base::TimeTicks() -
-                         base::TimeDelta::FromMicroseconds(rtc::TimeMicros())) {
-}
+                         base::TimeDelta::FromMicroseconds(rtc::TimeMicros())),
+      clock_(webrtc::Clock::GetRealTimeClock()),
+      ntp_offset_(clock_->TimeInMilliseconds() -
+                  clock_->CurrentNtpInMilliseconds()) {}
 
 MediaStreamRemoteVideoSource::RemoteVideoSourceDelegate::
-    ~RemoteVideoSourceDelegate() {}
+    ~RemoteVideoSourceDelegate() = default;
 
 void MediaStreamRemoteVideoSource::RemoteVideoSourceDelegate::OnFrame(
     const webrtc::VideoFrame& incoming_frame) {
@@ -298,7 +308,19 @@ void MediaStreamRemoteVideoSource::RemoteVideoSourceDelegate::OnFrame(
             incoming_frame.processing_time()->Elapsed().us()));
   }
 
-  // Set capture time to arrival of last packet.
+  // Set capture time to the NTP time, which is the estimated capture time
+  // converted to the local clock.
+  if (incoming_frame.ntp_time_ms() > 0) {
+    const base::TimeTicks capture_time =
+        base::TimeTicks() +
+        base::TimeDelta::FromMilliseconds(incoming_frame.ntp_time_ms() +
+                                          ntp_offset_) +
+        time_diff_;
+    video_frame->metadata()->SetTimeTicks(
+        media::VideoFrameMetadata::CAPTURE_BEGIN_TIME, capture_time);
+  }
+
+  // Set receive time to arrival of last packet.
   if (!incoming_frame.packet_infos().empty()) {
     int64_t last_packet_arrival_ms =
         std::max_element(
@@ -308,12 +330,11 @@ void MediaStreamRemoteVideoSource::RemoteVideoSourceDelegate::OnFrame(
               return a.receive_time_ms() < b.receive_time_ms();
             })
             ->receive_time_ms();
-    const base::TimeTicks capture_time =
+    const base::TimeTicks receive_time =
         base::TimeTicks() +
         base::TimeDelta::FromMilliseconds(last_packet_arrival_ms) + time_diff_;
-
     video_frame->metadata()->SetTimeTicks(
-        media::VideoFrameMetadata::CAPTURE_BEGIN_TIME, capture_time);
+        media::VideoFrameMetadata::RECEIVE_TIME, receive_time);
   }
 
   // Use our computed render time as estimated capture time. If timestamp_us()

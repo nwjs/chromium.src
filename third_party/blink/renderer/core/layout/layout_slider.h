@@ -23,6 +23,7 @@
 
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/layout/layout_flexible_box.h"
+#include "third_party/blink/renderer/platform/wtf/casting.h"
 
 namespace blink {
 
@@ -47,12 +48,15 @@ class CORE_EXPORT LayoutSlider final : public LayoutFlexibleBox {
       bool first_line,
       LineDirectionMode,
       LinePositionMode = kPositionOnContainingLine) const override;
-  void ComputeIntrinsicLogicalWidths(
-      LayoutUnit& min_logical_width,
-      LayoutUnit& max_logical_width) const override;
+  MinMaxSizes ComputeIntrinsicLogicalWidths() const override;
 };
 
-DEFINE_LAYOUT_OBJECT_TYPE_CASTS(LayoutSlider, IsSlider());
+template <>
+struct DowncastTraits<LayoutSlider> {
+  static bool AllowFrom(const LayoutObject& object) {
+    return object.IsSlider();
+  }
+};
 
 }  // namespace blink
 

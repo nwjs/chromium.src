@@ -254,9 +254,16 @@ class BlockChildrenLayoutInfo {
   bool IsAtFirstInFlowChild() const { return is_at_first_in_flow_child_; }
   void ClearIsAtFirstInFlowChild() { is_at_first_in_flow_child_ = false; }
 
+  // The page name of the previous sibling. Consecutive siblings with the same
+  // name are allowed on the same page, but if they differ, we need a page
+  // break.
+  const AtomicString& ChildPageName() const { return child_page_name_; }
+  void SetChildPageName(const AtomicString& name) { child_page_name_ = name; }
+
  private:
   MultiColumnLayoutState multi_column_layout_state_;
   MarginInfo margin_info_;
+  AtomicString child_page_name_;
   LayoutUnit previous_float_logical_bottom_;
   EBreakBetween previous_break_after_value_;
   bool is_at_first_in_flow_child_;
@@ -389,7 +396,7 @@ bool LayoutBlockFlow::CheckIfIsSelfCollapsingBlock() const {
       !GetDocument().InQuirksMode()) {
     has_auto_height = true;
     if (LayoutBlock* cb = ContainingBlock()) {
-      if (!cb->IsLayoutView() &&
+      if (!IsA<LayoutView>(cb) &&
           (cb->StyleRef().LogicalHeight().IsFixed() || cb->IsTableCell()))
         has_auto_height = false;
     }
@@ -458,7 +465,7 @@ void LayoutBlockFlow::UpdateBlockLayout(bool relayout_children) {
   TextAutosizer::LayoutScope text_autosizer_layout_scope(this, &layout_scope);
 
   bool pagination_state_changed = pagination_state_changed_;
-  bool preferred_logical_widths_were_dirty = PreferredLogicalWidthsDirty();
+  bool intrinsic_logical_widths_were_dirty = IntrinsicLogicalWidthsDirty();
 
   // Multiple passes might be required for column based layout.
   // The number of passes could be as high as the number of columns.
@@ -475,7 +482,7 @@ void LayoutBlockFlow::UpdateBlockLayout(bool relayout_children) {
 
     LayoutChildren(relayout_children, layout_scope);
 
-    if (!preferred_logical_widths_were_dirty && PreferredLogicalWidthsDirty()) {
+    if (!intrinsic_logical_widths_were_dirty && IntrinsicLogicalWidthsDirty()) {
       // The only thing that should dirty preferred widths at this point is the
       // addition of overflow:auto scrollbars in a descendant. To avoid a
       // potential infinite loop, run layout again with auto scrollbars frozen
@@ -845,6 +852,24 @@ void LayoutBlockFlow::InsertForcedBreakBeforeChildIfNeeded(
   // those preceding the break.
   EBreakBetween class_a_break_point_value =
       child.ClassABreakPointValue(layout_info.PreviousBreakAfterValue());
+
+  bool is_named_page_break;
+  if (layout_info.ChildPageName()) {
+    // Adjacent siblings with the same page name may be put on the same
+    // page. Otherwise, we need a break.
+    is_named_page_break =
+        layout_info.ChildPageName() != child.StyleRef().Page();
+  } else {
+    // If the previous sibling (if any) didn't specify a page name, see if one
+    // is specified on an ancestor. If the child specifies a page name, and it
+    // doesn't match what's specified further up (if anything), we need a break.
+    is_named_page_break =
+        child.StyleRef().Page() &&
+        child.StyleRef().Page() != View()->GetLayoutState()->PageName();
+  }
+  if (is_named_page_break)
+    class_a_break_point_value = EBreakBetween::kPage;
+
   if (IsForcedFragmentainerBreakValue(class_a_break_point_value)) {
     layout_info.GetMarginInfo().ClearMargin();
     LayoutUnit old_logical_top = LogicalHeight();
@@ -853,6 +878,10 @@ void LayoutBlockFlow::InsertForcedBreakBeforeChildIfNeeded(
     SetLogicalHeight(new_logical_top);
     LayoutUnit pagination_strut = new_logical_top - old_logical_top;
     child.SetPaginationStrut(pagination_strut);
+    if (is_named_page_break) {
+      // This was a forced break because of named pages.
+      layout_info.SetChildPageName(child.StyleRef().Page());
+    }
   }
 }
 
@@ -1359,8 +1388,9 @@ void LayoutBlockFlow::RebuildFloatsFromIntruding() {
 
   // Inline blocks are covered by the isAtomicInlineLevel() check in the
   // avoidFloats method.
-  if (CreatesNewFormattingContext() || IsDocumentElement() || IsLayoutView() ||
-      IsFloatingOrOutOfFlowPositioned() || IsTableCell()) {
+  if (CreatesNewFormattingContext() || IsDocumentElement() ||
+      IsA<LayoutView>(this) || IsFloatingOrOutOfFlowPositioned() ||
+      IsTableCell()) {
     if (floating_objects_) {
       floating_objects_->Clear();
     }
@@ -1605,10 +1635,10 @@ MarginInfo::MarginInfo(LayoutBlockFlow* block_flow,
       determined_margin_before_quirk_(false),
       last_child_is_self_collapsing_block_with_clearance_(false) {
   const ComputedStyle& block_style = block_flow->StyleRef();
-  DCHECK(block_flow->IsLayoutView() || block_flow->Parent());
+  DCHECK(IsA<LayoutView>(block_flow) || block_flow->Parent());
   can_collapse_with_children_ = !block_flow->CreatesNewFormattingContext() &&
                                 !block_flow->IsLayoutFlowThread() &&
-                                !block_flow->IsLayoutView();
+                                !IsA<LayoutView>(block_flow);
 
   can_collapse_margin_before_with_children_ =
       can_collapse_with_children_ && !before_border_padding;
@@ -2346,7 +2376,7 @@ void LayoutBlockFlow::AddVisualOverflowFromFloats(
     if (const NGPhysicalContainerFragment* child_container =
             DynamicTo<NGPhysicalContainerFragment>(child.get())) {
       if (child_container->HasFloatingDescendantsForPaint() &&
-          !child_container->IsBlockFormattingContextRoot())
+          !child_container->IsFormattingContextRoot())
         AddVisualOverflowFromFloats(*child_container);
     }
   }
@@ -2803,7 +2833,7 @@ void LayoutBlockFlow::StyleDidChange(StyleDifference diff,
     const FloatingObjectSet& floating_object_set = floating_objects_->Set();
     FloatingObjectSetIterator end = floating_object_set.end();
 
-    for (LayoutObject* curr = Parent(); curr && !curr->IsLayoutView();
+    for (LayoutObject* curr = Parent(); !IsA<LayoutView>(curr);
          curr = curr->Parent()) {
       auto* curr_block = DynamicTo<LayoutBlockFlow>(curr);
       if (curr_block) {
@@ -2922,9 +2952,9 @@ void LayoutBlockFlow::AddChild(LayoutObject* new_child,
       return;
     }
 
-    // LayoutNGListMarker is out-of-flow for the tree building purpose, and that
-    // is not inline level, but IsInline().
-    if (new_child->IsInline() && !new_child->IsLayoutNGListMarker()) {
+    // LayoutNGOutsideListMarker is out-of-flow for the tree building purpose,
+    // and that is not inline level, but IsInline().
+    if (new_child->IsInline() && !new_child->IsLayoutNGOutsideListMarker()) {
       // No suitable existing anonymous box - create a new one.
       auto* new_block = To<LayoutBlockFlow>(CreateAnonymousBlock());
       LayoutBox::AddChild(new_block, before_child);
@@ -3137,7 +3167,7 @@ void LayoutBlockFlow::CollapseAnonymousBlockChild(LayoutBlockFlow* child) {
   // design, so we don't remove them.
   if (child->IsRubyRun() || child->IsRubyBase())
     return;
-  SetNeedsLayoutAndPrefWidthsRecalcAndFullPaintInvalidation(
+  SetNeedsLayoutAndIntrinsicWidthsRecalcAndFullPaintInvalidation(
       layout_invalidation_reason::kChildAnonymousBlockChanged);
 
   child->MoveAllChildrenTo(this, child->NextSibling(), child->HasLayer());
@@ -3163,7 +3193,7 @@ bool LayoutBlockFlow::MergeSiblingContiguousAnonymousBlock(
       !IsMergeableAnonymousBlock(sibling_that_may_be_deleted))
     return false;
 
-  SetNeedsLayoutAndPrefWidthsRecalcAndFullPaintInvalidation(
+  SetNeedsLayoutAndIntrinsicWidthsRecalcAndFullPaintInvalidation(
       layout_invalidation_reason::kAnonymousBlockChange);
 
   // If the inlineness of children of the two block don't match, we'd need
@@ -3283,9 +3313,9 @@ static void GetInlineRun(LayoutObject* start,
   // Start by skipping as many non-inlines as we can.
   LayoutObject* curr = start;
 
-  // LayoutNGListMarker is out-of-flow for the tree building purpose. Skip here
-  // because it's the first child.
-  if (curr && curr->IsLayoutNGListMarker())
+  // LayoutNGOutsideListMarker is out-of-flow for the tree building purpose.
+  // Skip here because it's the first child.
+  if (curr && curr->IsLayoutNGOutsideListMarker())
     curr = curr->NextSibling();
 
   bool saw_inline;
@@ -3350,7 +3380,7 @@ void LayoutBlockFlow::MakeChildrenNonInline(LayoutObject* insertion_point) {
 
 #if DCHECK_IS_ON()
   for (LayoutObject* c = FirstChild(); c; c = c->NextSibling())
-    DCHECK(!c->IsInline() || c->IsLayoutNGListMarker());
+    DCHECK(!c->IsInline() || c->IsLayoutNGOutsideListMarker());
 #endif
 
   SetShouldDoFullPaintInvalidation();
@@ -4291,7 +4321,7 @@ void LayoutBlockFlow::CreateOrDestroyMultiColumnFlowThreadIfNeeded(
 
   // Form controls are replaced content, and are therefore not supposed to
   // support multicol.
-  if (IsFileUploadControl() || IsTextControl() || IsListBox())
+  if (IsFileUploadControl() || IsTextControl() || IsListBox(this))
     return;
 
   // We don't allow custom layout and multicol on the same object. This is
@@ -4404,10 +4434,9 @@ void LayoutBlockFlow::RecalcInlineChildrenVisualOverflow() {
       if (const NGFragmentItems* items = fragment->Items()) {
         NGInlineCursor cursor(*items);
         NGFragmentItem::RecalcInkOverflowForCursor(&cursor);
-      }
-
-      if (fragment->HasFloatingDescendantsForPaint())
+      } else if (fragment->HasFloatingDescendantsForPaint()) {
         RecalcFloatingDescendantsVisualOverflow(*fragment);
+      }
       return;
     }
   }

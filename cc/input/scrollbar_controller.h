@@ -230,9 +230,8 @@ class CC_EXPORT ScrollbarController {
   float GetScrollDeltaForAbsoluteJump(const ScrollbarLayerImplBase* scrollbar);
 
   // Determines if the delta needs to be animated.
-  ui::input_types::ScrollGranularity Granularity(
-      const ScrollbarPart scrollbar_part,
-      bool shift_modifier);
+  ui::ScrollGranularity Granularity(const ScrollbarPart scrollbar_part,
+                                    bool shift_modifier);
 
   // Calculates the scroll_offset based on position_in_widget and
   // drag_anchor_relative_to_thumb_.
@@ -247,6 +246,9 @@ class CC_EXPORT ScrollbarController {
   // Returns the ratio of the scroller length to the scrollbar length. This is
   // needed to scale the scroll delta for thumb drag.
   float GetScrollerToScrollbarRatio(const ScrollbarLayerImplBase* scrollbar);
+
+  int GetViewportLength(const ScrollbarLayerImplBase* scrollbar) const;
+
   LayerTreeHostImpl* layer_tree_host_impl_;
 
   // Used to safeguard against firing GSE without firing GSB and GSU. For

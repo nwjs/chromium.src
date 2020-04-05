@@ -22,6 +22,7 @@
 #include "chrome/android/features/autofill_assistant/jni_headers/AssistantDetails_jni.h"
 #include "chrome/android/features/autofill_assistant/jni_headers/AssistantFormInput_jni.h"
 #include "chrome/android/features/autofill_assistant/jni_headers/AssistantFormModel_jni.h"
+#include "chrome/android/features/autofill_assistant/jni_headers/AssistantGenericUiModel_jni.h"
 #include "chrome/android/features/autofill_assistant/jni_headers/AssistantHeaderModel_jni.h"
 #include "chrome/android/features/autofill_assistant/jni_headers/AssistantInfoBoxModel_jni.h"
 #include "chrome/android/features/autofill_assistant/jni_headers/AssistantInfoBox_jni.h"
@@ -64,6 +65,8 @@ using base::android::JavaRef;
 namespace autofill_assistant {
 
 namespace {
+
+static const char* const kCancelChipIdentifier = "CANCEL_CHIP_ID";
 
 std::vector<float> ToFloatVector(const std::vector<RectF>& areas) {
   std::vector<float> flattened;
@@ -200,6 +203,45 @@ base::android::ScopedJavaLocalRef<jobject> CreateJavaAdditionalSections(
   }
   return jsection_list;
 }
+
+base::Optional<int> GetPreviousFormCounterResult(
+    const FormProto::Result* result,
+    int input_index,
+    int counter_index) {
+  if (result == nullptr) {
+    return base::nullopt;
+  }
+
+  if (input_index >= result->input_results().size()) {
+    return base::nullopt;
+  }
+  auto input_result = result->input_results(input_index);
+
+  if (counter_index >= input_result.counter().values().size()) {
+    return base::nullopt;
+  }
+  return input_result.counter().values(counter_index);
+}
+
+base::Optional<bool> GetPreviousFormSelectionResult(
+    const FormProto::Result* result,
+    int input_index,
+    int selection_index) {
+  if (result == nullptr) {
+    return base::nullopt;
+  }
+
+  if (input_index >= result->input_results().size()) {
+    return base::nullopt;
+  }
+  auto input_result = result->input_results(input_index);
+
+  if (selection_index >= input_result.selection().selected().size()) {
+    return base::nullopt;
+  }
+  return input_result.selection().selected(selection_index);
+}
+
 }  // namespace
 
 // static
@@ -286,6 +328,7 @@ void UiControllerAndroid::Attach(content::WebContents* web_contents,
     OnUserActionsChanged(ui_delegate_->GetUserActions());
     OnCollectUserDataOptionsChanged(ui_delegate->GetCollectUserDataOptions());
     OnUserDataChanged(ui_delegate->GetUserData(), UserData::FieldChange::ALL);
+    OnGenericUserInterfaceChanged(ui_delegate->GetGenericUiProto());
 
     std::vector<RectF> area;
     ui_delegate->GetTouchableArea(&area);
@@ -296,7 +339,7 @@ void UiControllerAndroid::Attach(content::WebContents* web_contents,
     OnTouchableAreaChanged(visual_viewport, area, restricted_area);
     OnViewportModeChanged(ui_delegate->GetViewportMode());
     OnPeekModeChanged(ui_delegate->GetPeekMode());
-    OnFormChanged(ui_delegate->GetForm());
+    OnFormChanged(ui_delegate->GetForm(), ui_delegate->GetFormResult());
     // TODO(b/145204744): Store the collapsed or expanded state from the bottom
     // sheet when detaching the UI so that it can be restored appropriately
     // here.
@@ -495,9 +538,13 @@ void UiControllerAndroid::OnFeedbackButtonClicked() {
       base::android::ConvertUTF8ToJavaString(env, GetDebugContext()));
 }
 
-void UiControllerAndroid::OnViewEvent(const EventHandler::EventKey& key,
-                                      const ValueProto& value) {
-  ui_delegate_->DispatchEvent(key, value);
+void UiControllerAndroid::OnViewEvent(const EventHandler::EventKey& key) {
+  ui_delegate_->DispatchEvent(key);
+}
+
+void UiControllerAndroid::OnValueChanged(const std::string& identifier,
+                                         const ValueProto& value) {
+  ui_delegate_->GetUserModel()->SetValue(identifier, value);
 }
 
 void UiControllerAndroid::Shutdown(Metrics::DropOutReason reason) {
@@ -570,25 +617,7 @@ void UiControllerAndroid::SetVisible(bool visible) {
   }
 }
 
-// Suggestions and actions carousels related methods.
-
-void UiControllerAndroid::UpdateSuggestions(
-    const std::vector<UserAction>& user_actions) {
-  JNIEnv* env = AttachCurrentThread();
-  auto chips = Java_AutofillAssistantUiController_createChipList(env);
-  int user_action_count = static_cast<int>(user_actions.size());
-  for (int i = 0; i < user_action_count; i++) {
-    const auto& user_action = user_actions[i];
-    if (user_action.chip().type != SUGGESTION)
-      continue;
-
-    Java_AutofillAssistantUiController_addSuggestion(
-        env, java_object_, chips,
-        base::android::ConvertUTF8ToJavaString(env, user_action.chip().text), i,
-        user_action.chip().icon, !user_action.enabled());
-  }
-  Java_AutofillAssistantUiController_setSuggestions(env, java_object_, chips);
-}
+// Actions carousels related methods.
 
 void UiControllerAndroid::UpdateActions(
     const std::vector<UserAction>& user_actions) {
@@ -607,17 +636,23 @@ void UiControllerAndroid::UpdateActions(
         break;
 
       case HIGHLIGHTED_ACTION:
+        // Here and below, we set the identifier to the empty string so that we
+        // can hide all the chips except for the cancel chip when the keyboard
+        // is showing.
+        // TODO(b/149543425): Find a better way to do this.
         Java_AutofillAssistantUiController_addHighlightedActionButton(
             env, java_object_, chips, chip.icon,
             base::android::ConvertUTF8ToJavaString(env, chip.text), i,
-            !action.enabled(), chip.sticky);
+            !action.enabled(), chip.sticky,
+            base::android::ConvertUTF8ToJavaString(env, ""));
         break;
 
       case NORMAL_ACTION:
         Java_AutofillAssistantUiController_addActionButton(
             env, java_object_, chips, chip.icon,
             base::android::ConvertUTF8ToJavaString(env, chip.text), i,
-            !action.enabled(), chip.sticky);
+            !action.enabled(), chip.sticky,
+            base::android::ConvertUTF8ToJavaString(env, ""));
         break;
 
       case CANCEL_ACTION:
@@ -626,7 +661,8 @@ void UiControllerAndroid::UpdateActions(
         Java_AutofillAssistantUiController_addCancelButton(
             env, java_object_, chips, chip.icon,
             base::android::ConvertUTF8ToJavaString(env, chip.text), i,
-            !action.enabled(), chip.sticky);
+            !action.enabled(), chip.sticky,
+            base::android::ConvertUTF8ToJavaString(env, kCancelChipIdentifier));
         has_close_or_cancel = true;
         break;
 
@@ -634,7 +670,8 @@ void UiControllerAndroid::UpdateActions(
         Java_AutofillAssistantUiController_addActionButton(
             env, java_object_, chips, chip.icon,
             base::android::ConvertUTF8ToJavaString(env, chip.text), i,
-            !action.enabled(), chip.sticky);
+            !action.enabled(), chip.sticky,
+            base::android::ConvertUTF8ToJavaString(env, ""));
         has_close_or_cancel = true;
         break;
 
@@ -642,7 +679,8 @@ void UiControllerAndroid::UpdateActions(
         Java_AutofillAssistantUiController_addHighlightedActionButton(
             env, java_object_, chips, chip.icon,
             base::android::ConvertUTF8ToJavaString(env, chip.text), i,
-            !action.enabled(), chip.sticky);
+            !action.enabled(), chip.sticky,
+            base::android::ConvertUTF8ToJavaString(env, ""));
         has_close_or_cancel = true;
         break;
     }
@@ -653,12 +691,14 @@ void UiControllerAndroid::UpdateActions(
       Java_AutofillAssistantUiController_addCloseButton(
           env, java_object_, chips, ICON_CLEAR,
           base::android::ConvertUTF8ToJavaString(env, ""),
-          /* disabled= */ false, /* sticky= */ true);
+          /* disabled= */ false, /* sticky= */ true,
+          base::android::ConvertUTF8ToJavaString(env, ""));
     } else if (ui_delegate_->GetState() != AutofillAssistantState::INACTIVE) {
       Java_AutofillAssistantUiController_addCancelButton(
           env, java_object_, chips, ICON_CLEAR,
           base::android::ConvertUTF8ToJavaString(env, ""), -1,
-          /* disabled= */ false, /* sticky= */ true);
+          /* disabled= */ false, /* sticky= */ true,
+          base::android::ConvertUTF8ToJavaString(env, kCancelChipIdentifier));
     }
   }
 
@@ -668,7 +708,6 @@ void UiControllerAndroid::UpdateActions(
 void UiControllerAndroid::OnUserActionsChanged(
     const std::vector<UserAction>& actions) {
   UpdateActions(actions);
-  UpdateSuggestions(actions);
 }
 
 void UiControllerAndroid::OnUserActionSelected(
@@ -697,6 +736,19 @@ void UiControllerAndroid::OnCloseButtonClicked(
     JNIEnv* env,
     const base::android::JavaParamRef<jobject>& jcaller) {
   DestroySelf();
+}
+
+void UiControllerAndroid::OnKeyboardVisibilityChanged(
+    JNIEnv* env,
+    const base::android::JavaParamRef<jobject>& jcaller,
+    jboolean visible) {
+  // Hide all chips except cancel while the keyboard is shown, to prevent users
+  // from accidentally tapping chips while using the keyboard.
+  // TODO(b/149543425): Find a better way to do this.
+  Java_AutofillAssistantUiController_setAllChipsVisibleExcept(
+      env, java_object_,
+      base::android::ConvertUTF8ToJavaString(env, kCancelChipIdentifier),
+      !visible);
 }
 
 void UiControllerAndroid::CloseOrCancel(
@@ -922,7 +974,7 @@ void UiControllerAndroid::OnKeyValueChanged(const std::string& key,
 void UiControllerAndroid::OnTextFocusLost() {
   // We set a delay to avoid having the keyboard flickering when the focus goes
   // from one text field to another
-  base::PostDelayedTask(
+  content::GetUIThreadTaskRunner({})->PostDelayedTask(
       FROM_HERE,
       base::BindOnce(&UiControllerAndroid::HideKeyboardIfFocusNotOnText,
                      weak_ptr_factory_.GetWeakPtr()),
@@ -1298,7 +1350,8 @@ base::android::ScopedJavaLocalRef<jobject> UiControllerAndroid::GetFormModel() {
   return Java_AssistantModel_getFormModel(AttachCurrentThread(), GetModel());
 }
 
-void UiControllerAndroid::OnFormChanged(const FormProto* form) {
+void UiControllerAndroid::OnFormChanged(const FormProto* form,
+                                        const FormProto::Result* result) {
   JNIEnv* env = AttachCurrentThread();
 
   if (!form) {
@@ -1315,13 +1368,15 @@ void UiControllerAndroid::OnFormChanged(const FormProto* form) {
         CounterInputProto counter_input = input.counter();
 
         auto jcounters = Java_AssistantFormInput_createCounterList(env);
-        for (const CounterInputProto::Counter counter :
-             counter_input.counters()) {
+        for (int j = 0; j < counter_input.counters_size(); ++j) {
+          const CounterInputProto::Counter& counter = counter_input.counters(j);
+
           std::vector<int> allowed_values;
           for (int value : counter.allowed_values()) {
             allowed_values.push_back(value);
           }
 
+          auto result_value = GetPreviousFormCounterResult(result, i, j);
           Java_AssistantFormInput_addCounter(
               env, jcounters,
               Java_AssistantFormInput_createCounter(
@@ -1331,8 +1386,9 @@ void UiControllerAndroid::OnFormChanged(const FormProto* form) {
                       env, counter.description_line_1()),
                   base::android::ConvertUTF8ToJavaString(
                       env, counter.description_line_2()),
-                  counter.initial_value(), counter.min_value(),
-                  counter.max_value(),
+                  result_value.has_value() ? result_value.value()
+                                           : counter.initial_value(),
+                  counter.min_value(), counter.max_value(),
                   base::android::ToJavaIntArray(env, allowed_values)));
         }
 
@@ -1356,8 +1412,11 @@ void UiControllerAndroid::OnFormChanged(const FormProto* form) {
         SelectionInputProto selection_input = input.selection();
 
         auto jchoices = Java_AssistantFormInput_createChoiceList(env);
-        for (const SelectionInputProto::Choice choice :
-             selection_input.choices()) {
+        for (int j = 0; j < selection_input.choices_size(); ++j) {
+          const SelectionInputProto::Choice& choice =
+              selection_input.choices(j);
+
+          auto result_value = GetPreviousFormSelectionResult(result, i, j);
           Java_AssistantFormInput_addChoice(
               env, jchoices,
               Java_AssistantFormInput_createChoice(
@@ -1367,7 +1426,8 @@ void UiControllerAndroid::OnFormChanged(const FormProto* form) {
                       env, choice.description_line_1()),
                   base::android::ConvertUTF8ToJavaString(
                       env, choice.description_line_2()),
-                  choice.selected()));
+                  result_value.has_value() ? result_value.value()
+                                           : choice.selected()));
         }
 
         Java_AssistantFormModel_addInput(
@@ -1440,7 +1500,35 @@ void UiControllerAndroid::OnClientSettingsChanged(
     Java_AssistantHeaderModel_setDisableAnimations(
         env, GetHeaderModel(),
         settings.integration_test_settings->disable_header_animations());
+    Java_AutofillAssistantUiController_setDisableChipChangeAnimations(
+        env, java_object_,
+        settings.integration_test_settings
+            ->disable_carousel_change_animations());
   }
+}
+
+void UiControllerAndroid::OnGenericUserInterfaceChanged(
+    const GenericUserInterfaceProto* generic_ui) {
+  // Try to inflate user interface from proto.
+  if (generic_ui != nullptr) {
+    generic_ui_controller_ = CreateGenericUiControllerForProto(*generic_ui);
+    if (generic_ui_controller_ == nullptr) {
+      // If creation of generic UI fails, end the action.
+      LOG(ERROR) << "Failed to show generic ui: view inflation failed";
+      EndActionProto action_failed;
+      action_failed.set_status(INVALID_ACTION);
+      ui_delegate_->GetBasicInteractions()->EndAction(
+          /* view_inflation_successful = */ false, action_failed);
+    }
+  } else {
+    generic_ui_controller_.reset();
+  }
+
+  // Set or clear generic UI.
+  Java_AssistantGenericUiModel_setView(
+      AttachCurrentThread(), GetGenericUiModel(),
+      generic_ui_controller_ != nullptr ? generic_ui_controller_->GetRootView()
+                                        : nullptr);
 }
 
 void UiControllerAndroid::OnCounterChanged(int input_index,
@@ -1541,13 +1629,15 @@ void UiControllerAndroid::OnFatalError(
 
 void UiControllerAndroid::ResetGenericUiControllers() {
   JNIEnv* env = AttachCurrentThread();
-  auto jmodel = GetCollectUserDataModel();
   collect_user_data_prepended_generic_ui_controller_.reset();
   collect_user_data_appended_generic_ui_controller_.reset();
+  generic_ui_controller_.reset();
+  auto jcollectuserdatamodel = GetCollectUserDataModel();
   Java_AssistantCollectUserDataModel_setGenericUserInterfacePrepended(
-      env, jmodel, nullptr);
+      env, jcollectuserdatamodel, nullptr);
   Java_AssistantCollectUserDataModel_setGenericUserInterfaceAppended(
-      env, jmodel, nullptr);
+      env, jcollectuserdatamodel, nullptr);
+  Java_AssistantGenericUiModel_setView(env, GetGenericUiModel(), nullptr);
 }
 
 std::unique_ptr<GenericUiControllerAndroid>
@@ -1557,8 +1647,15 @@ UiControllerAndroid::CreateGenericUiControllerForProto(
   auto jcontext =
       Java_AutofillAssistantUiController_getContext(env, java_object_);
   return GenericUiControllerAndroid::CreateFromProto(
-      proto, jcontext, generic_ui_delegate_.GetJavaObject(),
-      ui_delegate_->GetUserModel(), ui_delegate_->GetEventHandler());
+      proto, base::android::ScopedJavaGlobalRef<jobject>(jcontext),
+      generic_ui_delegate_.GetJavaObject(), ui_delegate_->GetEventHandler(),
+      ui_delegate_->GetUserModel(), ui_delegate_->GetBasicInteractions());
+}
+
+base::android::ScopedJavaLocalRef<jobject>
+UiControllerAndroid::GetGenericUiModel() {
+  return Java_AssistantModel_getGenericUiModel(AttachCurrentThread(),
+                                               GetModel());
 }
 
 }  // namespace autofill_assistant

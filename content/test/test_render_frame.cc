@@ -11,6 +11,7 @@
 #include "base/bind_helpers.h"
 #include "base/optional.h"
 #include "base/threading/thread_task_runner_handle.h"
+#include "base/unguessable_token.h"
 #include "build/build_config.h"
 #include "content/common/frame.mojom.h"
 #include "content/common/frame_messages.h"
@@ -100,8 +101,20 @@ class MockFrameHost : public mojom::FrameHost {
                          const gfx::Rect& initial_rect,
                          bool user_gesture, const std::string& manifest) override {}
 
-  void DidAddContentSecurityPolicies(
-      std::vector<network::mojom::ContentSecurityPolicyPtr>) override {}
+  void set_overlay_routing_token(const base::UnguessableToken& token) {
+    overlay_routing_token_ = token;
+  }
+
+  size_t request_overlay_routing_token_called() {
+    return request_overlay_routing_token_called_;
+  }
+
+  void RequestOverlayRoutingToken(
+      media::RoutingTokenCallback callback) override {
+    request_overlay_routing_token_called_++;
+    if (overlay_routing_token_.has_value())
+      std::move(callback).Run(overlay_routing_token_.value());
+  }
 
  protected:
   // mojom::FrameHost:
@@ -121,6 +134,36 @@ class MockFrameHost : public mojom::FrameHost {
         static_cast<MockRenderThread*>(RenderThread::Get());
     mock_render_thread->OnCreateWindow(*params, reply->get());
     return true;
+  }
+
+  bool CreateNewWidget(
+      mojo::PendingRemote<::content::mojom::Widget> widget,
+      mojo::PendingAssociatedReceiver<blink::mojom::WidgetHost>
+          blink_widget_host,
+      mojo::PendingAssociatedRemote<blink::mojom::Widget> blink_widget,
+      int32_t* out_routing_id) override {
+    MockRenderThread* mock_render_thread =
+        static_cast<MockRenderThread*>(RenderThread::Get());
+    *out_routing_id = mock_render_thread->GetNextRoutingID();
+    return true;
+  }
+
+  void CreateNewWidget(
+      mojo::PendingRemote<mojom::Widget> widget,
+      mojo::PendingAssociatedReceiver<blink::mojom::WidgetHost>
+          blink_widget_host,
+      mojo::PendingAssociatedRemote<blink::mojom::Widget> blink_widget,
+      CreateNewWidgetCallback callback) override {
+    std::move(callback).Run(MSG_ROUTING_NONE);
+  }
+
+  void CreateNewFullscreenWidget(
+      mojo::PendingRemote<mojom::Widget> widget,
+      mojo::PendingAssociatedReceiver<blink::mojom::WidgetHost>
+          blink_widget_host,
+      mojo::PendingAssociatedRemote<blink::mojom::Widget> blink_widget,
+      CreateNewFullscreenWidgetCallback callback) override {
+    std::move(callback).Run(MSG_ROUTING_NONE);
   }
 
   void CreatePortal(mojo::PendingAssociatedReceiver<blink::mojom::Portal>,
@@ -156,13 +199,13 @@ class MockFrameHost : public mojom::FrameHost {
                                   net::CertStatus cert_status) override {}
 
   void ResourceLoadComplete(
-      mojom::ResourceLoadInfoPtr resource_load_info) override {}
+      blink::mojom::ResourceLoadInfoPtr resource_load_info) override {}
 
   void DidChangeName(const std::string& name,
                      const std::string& unique_name) override {}
 
   void DidSetFramePolicyHeaders(
-      blink::WebSandboxFlags sandbox_flags,
+      blink::mojom::WebSandboxFlags sandbox_flags,
       const blink::ParsedFeaturePolicy& feature_policy_header,
       const blink::DocumentPolicy::FeatureState& document_policy_header)
       override {}
@@ -182,8 +225,6 @@ class MockFrameHost : public mojom::FrameHost {
     }
   }
 
-  void DidFailLoadWithError(const GURL& url, int error_code) override {}
-
 #if defined(OS_ANDROID)
   void UpdateUserGestureCarryoverInfo() override {}
 #endif
@@ -198,6 +239,9 @@ class MockFrameHost : public mojom::FrameHost {
 
   base::OnceCallback<void(const base::string16& msg)>
       did_add_message_to_console_callback_;
+
+  size_t request_overlay_routing_token_called_ = 0;
+  base::Optional<base::UnguessableToken> overlay_routing_token_;
 
   DISALLOW_COPY_AND_ASSIGN(MockFrameHost);
 };
@@ -299,10 +343,6 @@ void TestRenderFrame::CollapseSelection() {
   GetFrameInputHandler()->CollapseSelection();
 }
 
-void TestRenderFrame::SetAccessibilityMode(ui::AXMode new_mode) {
-  OnSetAccessibilityMode(new_mode);
-}
-
 void TestRenderFrame::SetCompositionFromExistingText(
     int start,
     int end,
@@ -317,9 +357,8 @@ void TestRenderFrame::BeginNavigation(
     auto navigation_params = blink::WebNavigationParams::CreateWithHTMLString(
         next_navigation_html_override_.value(), info->url_request.Url());
     next_navigation_html_override_ = base::nullopt;
-    frame_->CommitNavigation(
-        std::move(navigation_params), nullptr /* extra_data */,
-        base::DoNothing::Once() /* call_before_attaching_new_document */);
+    frame_->CommitNavigation(std::move(navigation_params),
+                             nullptr /* extra_data */);
     return;
   }
   if (info->navigation_policy == blink::kWebNavigationPolicyCurrentTab &&
@@ -343,9 +382,8 @@ void TestRenderFrame::BeginNavigation(
           navigation_params.get(), blink::WebString::FromUTF8(mime_type),
           blink::WebString::FromUTF8(charset), data);
     }
-    frame_->CommitNavigation(
-        std::move(navigation_params), nullptr /* extra_data */,
-        base::DoNothing::Once() /* call_before_attaching_new_document */);
+    frame_->CommitNavigation(std::move(navigation_params),
+                             nullptr /* extra_data */);
     return;
   }
   RenderFrameImpl::BeginNavigation(std::move(info));
@@ -377,6 +415,15 @@ void TestRenderFrame::SimulateBeforeUnload(bool is_reload) {
   // process will send separate IPCs to dispatch beforeunload in any
   // out-of-process child frames.
   frame_->DispatchBeforeUnloadEvent(is_reload);
+}
+
+void TestRenderFrame::SetOverlayRoutingToken(
+    const base::UnguessableToken& token) {
+  mock_frame_host_->set_overlay_routing_token(token);
+}
+
+size_t TestRenderFrame::RequestOverlayRoutingTokenCalled() {
+  return mock_frame_host_->request_overlay_routing_token_called();
 }
 
 mojom::FrameHost* TestRenderFrame::GetFrameHost() {

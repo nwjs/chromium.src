@@ -11,6 +11,7 @@
 #include "base/bind.h"
 #include "base/location.h"
 #include "base/metrics/histogram_base.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/one_shot_event.h"
 #include "base/single_thread_task_runner.h"
@@ -493,9 +494,30 @@ void ToolbarActionsModel::InitializeActionList() {
     Populate();
 
   if (base::FeatureList::IsEnabled(features::kExtensionsToolbarMenu)) {
+    if (!extension_prefs_->IsPinnedExtensionsMigrationComplete() &&
+        !profile_->IsOffTheRecord()) {
+      // Migrate extensions visible in the toolbar to pinned extensions.
+      auto new_pinned_action_ids = std::vector<ActionId>(
+          action_ids_.begin(), action_ids_.begin() + visible_icon_count());
+      extension_prefs_->SetPinnedExtensions(new_pinned_action_ids);
+      extension_prefs_->MarkPinnedExtensionsMigrationComplete();
+    }
     // Set |pinned_action_ids_| directly to avoid notifying observers that they
     // have changed even though they haven't.
     pinned_action_ids_ = GetFilteredPinnedActionIds();
+
+    if (!profile_->IsOffTheRecord()) {
+      base::UmaHistogramCounts100("Extensions.Toolbar.PinnedExtensionCount",
+                                  pinned_action_ids_.size());
+      int percentage = 0;
+      if (!action_ids_.empty()) {
+        double percentage_double =
+            pinned_action_ids_.size() / action_ids_.size() * 100.0;
+        percentage = int{percentage_double};
+      }
+      base::UmaHistogramPercentage(
+          "Extensions.Toolbar.PinnedExtensionPercentage", percentage);
+    }
   }
 }
 

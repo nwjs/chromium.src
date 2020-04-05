@@ -28,17 +28,15 @@ PasswordAutoSignInView::~PasswordAutoSignInView() = default;
 
 PasswordAutoSignInView::PasswordAutoSignInView(
     content::WebContents* web_contents,
-    views::View* anchor_view,
-    DisplayReason reason)
+    views::View* anchor_view)
     : PasswordBubbleViewBase(web_contents,
                              anchor_view,
-                             reason,
                              /*easily_dismissable=*/false),
       controller_(PasswordsModelDelegateFromWebContents(web_contents)) {
   SetLayoutManager(std::make_unique<views::FillLayout>());
   const autofill::PasswordForm& form = controller_.pending_password();
 
-  DialogDelegate::set_buttons(ui::DIALOG_BUTTON_NONE);
+  DialogDelegate::SetButtons(ui::DIALOG_BUTTON_NONE);
 
   set_margins(
       ChromeLayoutProvider::Get()->GetInsetsMetric(views::INSETS_DIALOG));
@@ -51,7 +49,7 @@ PasswordAutoSignInView::PasswordAutoSignInView(
           controller_.GetProfile())
           ->GetURLLoaderFactoryForBrowserProcess()
           .get(),
-      STYLE_HINT, views::style::STYLE_PRIMARY);
+      views::style::STYLE_HINT, views::style::STYLE_PRIMARY);
   credential->SetEnabled(false);
   AddChildView(credential);
 

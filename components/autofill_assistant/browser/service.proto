@@ -66,6 +66,19 @@ message ClientContextProto {
     optional string model = 3;
   }
   optional DeviceContextProto device_context = 11;
+
+  enum AccountsMatchingStatus {
+    // The account was not present in the intent.
+    UNKNOWN = 0;
+
+    // The account in the intent and the current chrome account match.
+    ACCOUNTS_MATCHING = 1;
+
+    // The account in the intent and the current chrome account DON'T match.
+    ACCOUNTS_NOT_MATCHING = 2;
+  }
+  // Whether the account from the intent and the chrome account match.
+  optional AccountsMatchingStatus accounts_matching_status = 12;
 }
 
 // Get the list of scripts that can potentially be run on a url.
@@ -119,6 +132,8 @@ message ClientSettingsProto {
   message IntegrationTestSettings {
     // Disables animations for the poodle and the progress bar.
     optional bool disable_header_animations = 1;
+    // Disables change animations in the actions carousel.
+    optional bool disable_carousel_change_animations = 2;
   }
 
   // Time between two periodic script precondition checks.
@@ -233,73 +248,6 @@ message SupportedScriptProto {
   optional PresentationProto presentation = 2;
 }
 
-// A message to describe a chip.
-message ChipProto {
-  // The type of the chip.
-  optional ChipType type = 1;
-
-  // The icon shown on the chip. Not required if text is set.
-  optional ChipIcon icon = 2;
-
-  // The text shown on the chip. Not required if icon is set.
-  optional string text = 3;
-
-  // Whether the chip is sticky. When the bottom sheet is configured with the
-  // ConfigureBottomSheetProto::PeekMode::HANDLE_HEADER peek mode and the
-  // sheet is minimized, the first sticky action will be displayed instead of
-  // the profile icon.
-  optional bool sticky = 4;
-}
-
-enum ChipType {
-  UNKNOWN_CHIP_TYPE = 0;
-
-  // Chip is a highlighted (blue) action chip.
-  HIGHLIGHTED_ACTION = 1;
-
-  // Chip is a suggestion.
-  SUGGESTION = 2;
-
-  // Chip is a normal action chip.
-  NORMAL_ACTION = 3;
-
-  // A cancel chip, which closes AA in a way that allows the user to undo.
-  //
-  // The action associated with the chip is only executed after enough time has
-  // passed that undo is not possible.
-  //
-  // The presence of this chip inhibit the addition of an implicit close or
-  // cancel button.
-  CANCEL_ACTION = 4;
-
-  // A close chip, which closes AA immediately.
-  //
-  // The presence of this chip inhibit the addition of an implicit close or
-  // cancel button. Otherwise, buttons of this type work and look like a
-  // NORMAL_ACTION.
-  CLOSE_ACTION = 5;
-
-  // Chip is a highlighted (blue) action chip.
-  //
-  // The presence of this chip inhibit the addition of an implicit close or
-  // cancel button. Otherwise, buttons of this type work and look like a
-  // HIGHLIGHTED_ACTION.
-  DONE_ACTION = 6;
-}
-
-enum ChipIcon {
-  NO_ICON = 0;
-
-  // https://icons.googleplex.com/#icon=ic_clear
-  ICON_CLEAR = 1;
-
-  // https://icons.googleplex.com/#icon=ic_done
-  ICON_DONE = 2;
-
-  // https://icons.googleplex.com/#icon=ic_refresh
-  ICON_REFRESH = 3;
-}
-
 enum ScriptStatusProto {
   // Never explicitly set. Reading this value means the enum field is either
   // not set or set to a value not listed here.
@@ -336,16 +284,19 @@ message ScriptStatusMatchProto {
 }
 
 message ScriptPreconditionProto {
-  // Combined with AND: the elements referenced here must be present.
-  repeated ElementReferenceProto elements_exist = 3;
   // Pattern of the path parts of the URL, including query and '#''.
   repeated string path_pattern = 5;
   // Domain (exact match) excluding the last '/' character.
   repeated string domain = 6;
+
   // Combined with AND: all matches must be true for precondition to hold.
   repeated ScriptParameterMatchProto script_parameter_match = 7;
   repeated ScriptStatusMatchProto script_status_match = 8;
-  repeated FormValueMatchProto form_value_match = 9;
+
+  // Script can only run if the given condition match.
+  optional ElementConditionProto element_condition = 10;
+
+  reserved 3, 9;
 }
 
 message ScriptParameterMatchProto {
@@ -358,17 +309,6 @@ message ScriptParameterMatchProto {
   // Checks whether the script parameter has exact value. Empty or missing value
   // is treated as wildcard - any value will pass.
   optional string value_equals = 3;
-}
-
-message FormValueMatchProto {
-  // Required. The selector associated to the form element whose value should be
-  // checked.
-  optional ElementReferenceProto element = 1;
-
-  // Optional value. If specified, the element value must match the given value,
-  // even if it's empty. If not specified, we just check that the element value
-  // is non empty.
-  optional string value = 2;
 }
 
 enum PolicyType {
@@ -459,6 +399,19 @@ enum KeyboardValueFillStrategy {
   SIMULATE_KEY_PRESSES_SELECT_VALUE = 3;
 }
 
+enum DropdownSelectStrategy {
+  UNSPECIFIED_SELECT_STRATEGY = 0;
+
+  // Match by the option's value, case insensitive.
+  VALUE_MATCH = 1;
+
+  // Match by the option's label, case insensitive.
+  LABEL_MATCH = 2;
+
+  // Match by the option's label by `label.startsWith`, case insensitive.
+  LABEL_STARTS_WITH = 3;
+}
+
 // An action could be performed.
 message ActionProto {
   // Wait these many milliseconds before executing the action, if set.
@@ -493,6 +446,7 @@ message ActionProto {
     ShowFormProto show_form = 43;
     PopupMessageProto popup_message = 44;
     WaitForDocumentProto wait_for_document = 45;
+    ShowGenericUiProto show_generic_ui = 49;
   }
 
   // Set to true to make the client remove any contextual information if the
@@ -500,7 +454,7 @@ message ActionProto {
   // action sent to the client after this one. Default is false.
   optional bool clean_contextual_ui = 33;
 
-  reserved 34, 47;
+  reserved 34, 46, 47, 48;
 }
 
 // Result of |CollectUserDataProto| to be sent to the server.
@@ -563,6 +517,8 @@ message ProcessedActionProto {
     FormProto.Result form_result = 21;
 
     WaitForDocumentProto.Result wait_for_document_result = 25;
+    // Should be set as a result of ShowGenericUiProto.
+    ShowGenericUiProto.Result show_generic_ui_result = 28;
   }
 
   // Reports information about navigation that happened while
@@ -577,6 +533,8 @@ message ProcessedActionProto {
   // action, such as a prompt choice, through a direct action instead of
   // selecting a chip on the UI. This is meant for monitoring and debugging.
   optional bool direct_action = 24;
+
+  reserved 26, 27;
 }
 
 // Extended information about the action status, which provides more details
@@ -659,8 +617,8 @@ message AutofillErrorInfoProto {
     // The field the error occurred for.
     optional ElementReferenceProto field = 1;
 
-    // The key of the fallback field. Matches the RequiredField::X enum entry.
-    optional int32 field_key = 2;
+    // The value expression associated with the field that caused the error.
+    optional string value_expression = 5;
 
     oneof error_type {
       // No fallback value for this field.
@@ -669,6 +627,8 @@ message AutofillErrorInfoProto {
       // The status of the action.
       ProcessedActionStatusProto status = 4;
     }
+
+    reserved 2;
   }
 
   // Comma separated list of address keys in the client memory when the
@@ -688,111 +648,6 @@ message AutofillErrorInfoProto {
 
   // Errors that occurred during fallback filling of autofill fields.
   repeated AutofillFieldError autofill_field_error = 5;
-}
-
-// Next: 22
-enum ProcessedActionStatusProto {
-  UNKNOWN_ACTION_STATUS = 0;
-
-  // Element could not be found.
-  ELEMENT_RESOLUTION_FAILED = 1;
-
-  // The action was applied successfully.
-  ACTION_APPLIED = 2;
-
-  // The action failed (generic error).
-  //
-  // This usually means that the client needs to be fixed: either the error
-  // should be assigned a more specific error code, or a bug in the client code
-  // needs to be fixed.
-  //
-  // ProcessedActionProto.UnexpectedErrorInfoProto contains more details.
-  OTHER_ACTION_STATUS = 3;
-
-  // The action failed to collect the requested user data.
-  COLLECT_USER_DATA_ERROR = 4;
-
-  // Server asked the client to execute an unknown or unsupported action.
-  UNSUPPORTED_ACTION = 5;
-
-  // The action decided to fallback to manual mode, stopping the script.
-  //
-  // This can happen:
-  // - if an autofill action or an update details action cancels the script,
-  //   possibly, not necessarily, as a result of a user action.
-  // - if an interrupt explicitly stops the main script, for wait for dom
-  MANUAL_FALLBACK = 6;
-
-  // The WaitForDom action failed because an interrupt that ran during
-  // that action failed.
-  INTERRUPT_FAILED = 7;
-
-  // The script was canceled by the user, while it was running.
-  //
-  // This only report such events that happen while a script is running. It can
-  // affect any action. It is a signal that the action or script ran in an
-  // abnormal situation and its outcome cannot be trusted.
-  USER_ABORTED_ACTION = 8;
-
-  // The Autofill Action failed to get the full card information.
-  //
-  // Possible causes:
-  // - the user filled in the wrong CVC number.
-  // - the card has expired
-  GET_FULL_CARD_FAILED = 9;
-
-  // The action did not have what it needs. This is generally a bug in the
-  // script.
-  //
-  // This is currently returned by the autofill action, when it could not find
-  // the credit card or the address it needs in the client memory. This is
-  // usually the sign that the CollectUserDataAction was not run or failed.
-  //
-  PRECONDITION_FAILED = 10;
-
-  // The action definition returned by the server was rejected.
-  INVALID_ACTION = 11;
-
-  // Executing the action as defined is unsupported.
-  UNSUPPORTED = 12;
-
-  // Timed out waiting for the document to load.
-  TIMED_OUT = 13;
-
-  // Failed to get a stable position for the element, usually to click on it.
-  ELEMENT_UNSTABLE = 14;
-
-  reserved 15;
-
-  // The value passed to the select option action does not exist in the element.
-  // This is usually a scripting error.
-  OPTION_VALUE_NOT_FOUND = 16;
-
-  // The client got an unexpected error from a JavaScript snippet executed
-  // through devtools. This means that there's a bug in the client code.
-  //
-  // ProcessedActionProto.UnexpectedErrorInfoProto contains more details.
-  UNEXPECTED_JS_ERROR = 17;
-
-  // There were more than one matching element in the DOM in a context where
-  // only one is supported. This is generally a scripting error: the selector is
-  // not specific enough.
-  TOO_MANY_ELEMENTS = 18;
-
-  // The browser failed to navigate to a new document for its main frame. Note
-  // that this doesn't include page load errors, which are reported as
-  // TIMED_OUT.
-  NAVIGATION_ERROR = 19;
-
-  // A selector included into the current action is invalid.
-  INVALID_SELECTOR = 20;
-
-  // The requested autofill info (e.g., Chrome password manager login) was not
-  // available. It might have been recently deleted.
-  AUTOFILL_INFO_NOT_AVAILABLE = 21;
-
-  // An unexpected error occurred during element resolution.
-  FRAME_HOST_NOT_FOUND = 22;
 }
 
 // The pseudo type values come from
@@ -881,8 +736,14 @@ message ClickProto {
 message SelectOptionProto {
   // The drop down element on which to select an option.
   optional ElementReferenceProto element = 2;
+
   // Value of the option to use.
   optional string selected_option = 3;
+
+  // The strategy used to select a value option. This defaults to
+  // |LABEL_STARTS_WITH| for the legacy case.
+  optional DropdownSelectStrategy select_strategy = 4
+      [default = LABEL_STARTS_WITH];
 }
 
 // Contain a localized text message from the server.
@@ -955,28 +816,29 @@ message UseAddressProto {
   // Message used to indicate what form fields should be filled with what
   // information coming from the address.
   message RequiredField {
-    enum AddressField {
-      UNDEFINED = 0;
-      FIRST_NAME = 1;
-      LAST_NAME = 2;
-      FULL_NAME = 3;
-      PHONE_NUMBER = 4;
-      EMAIL = 5;
-      ORGANIZATION = 6;
-      COUNTRY_CODE = 7;
-      REGION = 8;  // e.g. state
-      STREET_ADDRESS = 9;
-      LOCALITY = 10;  // e.g. city
-      DEPENDANT_LOCALITY = 11;
-      POSTAL_CODE = 12;
-    }
+    // Fields we add that are not mapped to field_types.h. The values must be
+    // negative not to overlap with the source.
+    enum AutofillAssistantCustomField { UNDEFINED = 0; }
 
-    optional AddressField address_field = 1;
+    // A string containing either a single integer key or multiple "${key}"
+    // placeholders, where the key is an integer corresponding to entries from
+    // field_types.h or RequiredField::AutofillAssistantCustomField.
+    // Example:
+    // * "3" -> First name.
+    // * "${3}" -> First name.
+    // * "(+${12}) (${11}) ${10}" -> phone country code, city code, number,
+    //   e.g., (+41) (79) (1234567)
+    // Note that the set of actually available fields are outside of our
+    // control and are retrieved automatically from the provided profile.
+    optional string value_expression = 6;
 
     optional ElementReferenceProto element = 2;
 
     // The strategy used to execute filling the value.
     optional KeyboardValueFillStrategy fill_strategy = 7;
+
+    // The strategy used to select a value option.
+    optional DropdownSelectStrategy select_strategy = 8;
 
     // Delay between two key presses when simlulating.
     optional int32 delay_in_millisecond = 4 [default = 20];
@@ -986,7 +848,7 @@ message UseAddressProto {
     // Usually used together with simulate_key_presses.
     optional bool forced = 5;
 
-    reserved 3;
+    reserved 1, 3;
   }
 
   // An optional name to allow to handle multiple addresses selection (for
@@ -1010,24 +872,33 @@ message UseCreditCardProto {
   // Message used to indicate what form fields should be filled with what
   // information.
   message RequiredField {
-    enum CardField {
+    // Fields we add that are not mapped to field_types.h. The values must be
+    // negative not to overlap with the source.
+    enum AutofillAssistantCustomField {
       UNDEFINED = 0;
-      CREDIT_CARD_VERIFICATION_CODE = 1;
-      CREDIT_CARD_EXP_MONTH = 2;
-      CREDIT_CARD_EXP_2_DIGIT_YEAR = 3;
-      CREDIT_CARD_EXP_4_DIGIT_YEAR = 4;
-      CREDIT_CARD_CARD_HOLDER_NAME = 5;
-      CREDIT_CARD_NUMBER = 6;
-      CREDIT_CARD_EXP_MM_YY = 7;
-      CREDIT_CARD_NETWORK = 8;
+      CREDIT_CARD_VERIFICATION_CODE = -1;
+      CREDIT_CARD_NETWORK = -2;
+      CREDIT_CARD_RAW_NUMBER = -3;
     }
 
-    optional CardField card_field = 1;
+    // A string containing either a single integer key or multiple "${key}"
+    // placeholders, where the key is an integer corresponding to entries from
+    // field_types.h or RequiredField::AutofillAssistantCustomField.
+    // Example:
+    // * "51" -> Full name.
+    // * "${51}" -> Full Name.
+    // * "${53}/${55}" -> expiration month / expiration year
+    // Note that the set of actually available fields are outside of our
+    // control and are retrieved automatically from the provided credit card.
+    optional string value_expression = 6;
 
     optional ElementReferenceProto element = 2;
 
     // The strategy used to execute filling the value.
     optional KeyboardValueFillStrategy fill_strategy = 7;
+
+    // The strategy used to select a value option.
+    optional DropdownSelectStrategy select_strategy = 8;
 
     // Delay between two key presses when simlulating.
     optional int32 delay_in_millisecond = 4 [default = 20];
@@ -1037,7 +908,7 @@ message UseCreditCardProto {
     // Usually used together with simulate_key_presses.
     optional bool forced = 5;
 
-    reserved 3;
+    reserved 1, 3;
   }
 
   // An optional message to show to the user when asking to select a card.
@@ -1056,57 +927,48 @@ message WaitForDomProto {
   // Fail after waiting this amount of time.
   optional int32 timeout_ms = 1;
 
-  oneof wait_on {
-    // Wait until there exists at least one element that matches the given
-    // selector.
-    ElementReferenceProto wait_until = 5;
-
-    // Wait as long as there's at least one element that matches the given
-    // reference.
-    ElementReferenceProto wait_while = 6;
-
-    // Wait until at least one condition is met.
-    //
-    // If, at the end of the timeout, no conditions are not met, the action
-    // returns ELEMENT_RESOLUTION_FAILED.
-    ElementConditions wait_for_any = 7;
-
-    // Wait until all conditions are met.
-    //
-    // If, at the end of the timeout, not all condition are met, the action
-    // returns ELEMENT_RESOLUTION_FAILED.
-    ElementConditions wait_for_all = 8;
-  }
+  // Wait until this condition becomes true. If, at the end of the timeout, the
+  // condition is not true, returns ELEMENT_RESOLUTION_FAILED.
+  optional ElementConditionProto wait_condition = 9;
 
   // If true, run scripts flagged with 'interrupt=true' as soon as their
   // preconditions match.
   optional bool allow_interrupt = 3;
 
-  reserved 4;
-
-  // Multiple element conditions.
-  message ElementConditions { repeated ElementCondition conditions = 1; }
-
-  // A single element condition.
-  message ElementCondition {
-    oneof condition {
-      // There must be at least one matching element.
-      ElementReferenceProto must_match = 1;
-
-      // There must not be any matching elements.
-      ElementReferenceProto must_not_match = 2;
-    }
-
-    // If this condition is met and this is nonempty, put the following payload
-    // into the result.
-    optional bytes server_payload = 5;
-  }
+  reserved 4 to 8;
 
   // Result to include into ProcessedActionProto.
   message Result {
     // Payload of all matching conditions, if one is set.
     repeated bytes matching_condition_payloads = 1;
   }
+}
+
+// A condition that expects a specific combination of elements. An empty
+// condition is true.
+message ElementConditionProto {
+  oneof type {
+    // The condition matches if all of these conditions match.
+    ElementConditionsProto all_of = 1;
+
+    // The condition matches if at least one of these conditions matches.
+    ElementConditionsProto any_of = 2;
+
+    // The condition matches if none of these conditions match.
+    ElementConditionsProto none_of = 3;
+
+    // The condition matches if the given element exists. An empty
+    // ElementReference never match.
+    ElementReferenceProto match = 4;
+  }
+
+  // A payload that identifies this condition. WaitForDom puts this payload
+  // into the result. This is ignored outside of WaitForDom.
+  optional bytes payload = 5;
+}
+
+message ElementConditionsProto {
+  repeated ElementConditionProto conditions = 1;
 }
 
 // Volatile upload of a portion of the dom for backend analysis, does not store
@@ -1225,6 +1087,31 @@ message WaitForDocumentProto {
   }
 }
 
+// Show backend-specified user interface elements to the user.
+//
+// Note that this action will behave similar to a prompt, i.e., it requires a
+// specific EndAction interaction (usually tied to tapping a Chip) to end.
+//
+// Client errors:
+//   INVALID_ACTION if |generic_user_interface| was ill-defined or incomplete,
+//   or if the client failed to instantiate the UI for some reason. The Chrome
+//   log should contain additional information about the issue, if verbose
+//   logging is enabled (suggested level: 2 or 3).
+message ShowGenericUiProto {
+  message Result {
+    // The model containing the values for all keys specified in
+    // |output_model_identifiers|.
+    optional ModelProto model = 1;
+  }
+
+  // The generic user interface to show.
+  optional GenericUserInterfaceProto generic_user_interface = 1;
+
+  // The set of model identifiers to write to the result. Note: this must be a
+  // subset of the input model identifiers!
+  repeated string output_model_identifiers = 2;
+}
+
 // Allow choosing one or more possibility. If FocusElement was called just
 // before, allow interaction with the touchable element area, otherwise don't
 // allow any interactions.
@@ -1235,7 +1122,7 @@ message PromptProto {
   // A choice that can be triggered:
   // - by clicking on a chip, if a chip is set
   // - by triggering a direct action, if direct action names are set
-  // - indirectly, DOM change, if auto_select_if_element_exists if set
+  // - indirectly, DOM change, if auto_select_when if set
   //
   // One of these protos must is transmitted as-is back to the server as part of
   // ProcessedActionProto.
@@ -1246,19 +1133,11 @@ message PromptProto {
     // Map this choice to a direct action.
     optional DirectActionProto direct_action = 12;
 
-    oneof auto_select {
-      // Auto-select this choice if the given element exist.
-      ElementReferenceProto auto_select_if_element_exists = 4;
+    // Auto-select this choice when the condition is met.
+    optional ElementConditionProto auto_select_when = 15;
 
-      // Auto-select this choice if the given element disappears.
-      ElementReferenceProto auto_select_if_element_disappears = 14;
-    }
-
-    // The chip is only visible or enabled if all the given element exists.
-    repeated ElementReferenceProto show_only_if_element_exists = 6;
-
-    // The chip is only visible or enabled if all the form values match.
-    repeated FormValueMatchProto show_only_if_form_value_matches = 8;
+    // This chip is only visible or enabled if this condition is met.
+    optional ElementConditionProto show_only_when = 16;
 
     // Disable the chip instead of hiding it completely, if the preconditions
     // don't match.
@@ -1268,7 +1147,7 @@ message PromptProto {
     // be transmitted as-is by the client without interpreting.
     optional bytes server_payload = 5;
 
-    reserved 13;
+    reserved 4, 6, 8, 13, 14;
   }
   repeated Choice choices = 4;
 
@@ -1465,7 +1344,7 @@ message PopupListSectionProto {
 
 // Asks to provide the data used by UseAddressAction and
 // UseCreditCardAction.
-// Next: 26
+// Next: 31
 message CollectUserDataProto {
   enum TermsAndConditionsState {
     // No choice has been made yet.
@@ -1544,6 +1423,23 @@ message CollectUserDataProto {
   optional GenericUserInterfaceProto generic_user_interface_appended = 25;
   // Text to be shown in a separate info section.
   optional string info_section_text = 24;
+  // Optional. If specified, the continue button will only be enabled if the
+  // boolean at this location is true (and everything else is valid too).
+  optional string additional_model_identifier_to_check = 27;
+  // Clears any previously selected credit card. The client will revert to
+  // default-selecting the card instead. NOTE: When clearing the credit card
+  // selection, the billing address should also be cleared!
+  optional bool clear_previous_credit_card_selection = 28;
+  // Clears the previously selected login option, if any. The client will revert
+  // to default-selecting the login option instead.
+  optional bool clear_previous_login_selection = 29;
+  // The names of the selected profiles to clear. Should be a subset of
+  // {billing_address_name, shipping_address_name,
+  // contact_details.contact_details_name}. NOTE: when clearing the billing
+  // address, the selected credit card should also be cleared!
+  repeated string clear_previous_profile_selection = 30;
+
+  reserved 26;
 }
 
 // Stop Autofill Assistant.
@@ -1553,32 +1449,6 @@ message StopProto {
   optional bool close_cct = 2;
 
   reserved 1;  // stop_action_type
-}
-
-message DateProto {
-  optional int64 year = 1;
-
-  // Month of the year in the range [1-12].
-  optional int32 month = 2;
-
-  // Day of the month in the range [1-31].
-  optional int32 day = 3;
-}
-
-message TimeProto {
-  // Hour in the range [0-23].
-  optional int32 hour = 1;
-
-  // Minute in the range [0-59].
-  optional int32 minute = 2;
-
-  // Second in the range [0-59].
-  optional int32 second = 3;
-}
-
-message DateTimeProto {
-  optional DateProto date = 1;
-  optional TimeProto time = 2;
 }
 
 message DetailsChangesProto {
@@ -2044,32 +1914,6 @@ message SelectionInputProto {
   // The minimum number of choices that should be selected to consider this
   // input valid.
   optional int32 min_selected_choices = 4 [default = 1];
-}
-
-// Defines a mapping to an Android Q direct action.
-message DirectActionProto {
-  // Map to direct actions with the given names.
-  repeated string names = 1;
-
-  // Arguments to report as required for the direct action.
-  //
-  // This is included into the definition reported to the caller without being
-  // interpreted. Requirement is not enforced.
-  repeated string required_arguments = 2;
-
-  // Arguments to report as optional for the direct action.
-  //
-  // This is included into the definition reported to the caller without being
-  // interpreted.
-  repeated string optional_arguments = 3;
-}
-
-// An action that can be performed via the UI and/or via Direct Actions (in
-// Android Q+).
-message UserActionProto {
-  optional ChipProto chip = 1;
-
-  optional DirectActionProto direct_action = 2;
 }
 
 // Action to show a popup bubble on top of the bottom sheet, anchored at the

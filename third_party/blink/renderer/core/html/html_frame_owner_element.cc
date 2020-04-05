@@ -273,12 +273,23 @@ DOMWindow* HTMLFrameOwnerElement::contentWindow() const {
   return content_frame_ ? content_frame_->DomWindow() : nullptr;
 }
 
-void HTMLFrameOwnerElement::SetSandboxFlags(WebSandboxFlags flags) {
+void HTMLFrameOwnerElement::SetSandboxFlags(
+    mojom::blink::WebSandboxFlags flags) {
   frame_policy_.sandbox_flags = flags;
   // Recalculate the container policy in case the allow-same-origin flag has
   // changed.
   frame_policy_.container_policy = ConstructContainerPolicy(nullptr);
 
+  // Don't notify about updates if ContentFrame() is null, for example when
+  // the subframe hasn't been created yet.
+  if (ContentFrame()) {
+    GetDocument().GetFrame()->Client()->DidChangeFramePolicy(ContentFrame(),
+                                                             frame_policy_);
+  }
+}
+
+void HTMLFrameOwnerElement::SetDisallowDocumentAccesss(bool disallowed) {
+  frame_policy_.disallow_document_access = disallowed;
   // Don't notify about updates if ContentFrame() is null, for example when
   // the subframe hasn't been created yet.
   if (ContentFrame()) {
@@ -310,16 +321,30 @@ void HTMLFrameOwnerElement::UpdateContainerPolicy(Vector<String>* messages) {
 }
 
 void HTMLFrameOwnerElement::UpdateRequiredPolicy() {
-  const DocumentPolicy::FeatureState self_required_policy =
-      ConstructRequiredPolicy();
   const auto* frame = GetDocument().GetFrame();
   DCHECK(frame);
-  frame_policy_.required_document_policy = DocumentPolicy::MergeFeatureState(
-      self_required_policy,
-      frame->GetRequiredDocumentPolicy() /* parent required policy */);
+  DocumentPolicy::FeatureState new_required_policy =
+      DocumentPolicy::MergeFeatureState(
+          ConstructRequiredPolicy(), /* self_required_policy */
+          frame->GetRequiredDocumentPolicy() /* parent_required_policy */);
+
+  // Filter out policies that are disabled by origin trials.
+  frame_policy_.required_document_policy.clear();
+  for (auto i = new_required_policy.begin(), last = new_required_policy.end();
+       i != last;) {
+    if (!DisabledByOriginTrial(i->first, &GetDocument()))
+      frame_policy_.required_document_policy.insert(*i);
+    ++i;
+  }
+
   if (ContentFrame()) {
     frame->Client()->DidChangeFramePolicy(ContentFrame(), frame_policy_);
   }
+}
+
+network::mojom::blink::TrustTokenParamsPtr
+HTMLFrameOwnerElement::ConstructTrustTokenParams() const {
+  return nullptr;
 }
 
 void HTMLFrameOwnerElement::FrameOwnerPropertiesChanged() {
@@ -364,7 +389,7 @@ void HTMLFrameOwnerElement::SetEmbeddedContentView(
     bool will_be_display_none = !embedded_content_view;
     if (IsDisplayNone() != will_be_display_none) {
       doc->WillChangeFrameOwnerProperties(
-          MarginWidth(), MarginHeight(), ScrollingMode(), will_be_display_none);
+          MarginWidth(), MarginHeight(), ScrollbarMode(), will_be_display_none);
     }
   }
 
@@ -441,8 +466,13 @@ bool HTMLFrameOwnerElement::LoadOrRedirectSubframe(
   UpdateRequiredPolicy();
 
   KURL url_to_request = url.IsNull() ? BlankURL() : url;
-  ResourceRequest request(url_to_request);
+  ResourceRequestHead request(url_to_request);
   request.SetReferrerPolicy(ReferrerPolicyAttribute());
+
+  network::mojom::blink::TrustTokenParamsPtr trust_token_params =
+      ConstructTrustTokenParams();
+  if (trust_token_params)
+    request.SetTrustTokenParams(*trust_token_params);
 
   if (ContentFrame()) {
     // TODO(sclittle): Support lazily loading frame navigations.
@@ -560,7 +590,7 @@ void HTMLFrameOwnerElement::ParseAttribute(
   }
 }
 
-void HTMLFrameOwnerElement::FrameCrossOriginStatusChanged() {
+void HTMLFrameOwnerElement::FrameCrossOriginToParentFrameChanged() {
   if (base::FeatureList::IsEnabled(
           blink::features::kCompositeCrossOriginIframes)) {
     SetNeedsCompositingUpdate();

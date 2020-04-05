@@ -375,7 +375,6 @@ ContainerNode* Node::parentNode() const {
 }
 
 NodeList* Node::childNodes() {
-  ThreadState::MainThreadGCForbiddenScope gc_forbidden;
   auto* this_node = DynamicTo<ContainerNode>(this);
   if (this_node)
     return EnsureRareData().EnsureNodeLists().EnsureChildNodeList(*this_node);
@@ -543,9 +542,8 @@ void Node::NativeApplyScroll(ScrollState& scroll_state) {
   if (delta.IsZero())
     return;
 
-  // TODO(esprehn): This should use
-  // updateStyleAndLayoutForNode.
-  GetDocument().UpdateStyleAndLayout();
+  // TODO: This should use updateStyleAndLayoutForNode.
+  GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kScroll);
 
   LayoutBox* box_to_scroll = ToLayoutBox(GetLayoutObject());
 
@@ -563,7 +561,7 @@ void Node::NativeApplyScroll(ScrollState& scroll_state) {
   // behavior in CC.
   bool also_scroll_visual_viewport = GetDocument().GetFrame() &&
                                      GetDocument().GetFrame()->IsMainFrame() &&
-                                     box_to_scroll->IsLayoutView();
+                                     IsA<LayoutView>(box_to_scroll);
   DCHECK(!also_scroll_visual_viewport ||
          !box_to_scroll->IsGlobalRootScroller());
 
@@ -828,8 +826,8 @@ static Node* NodeOrStringToNode(
                             ? node_or_string.GetAsString()
                             : node_or_string.GetAsNode()->textContent();
 
-  string_value =
-      GetStringFromTrustedScript(string_value, &document, exception_state);
+  string_value = TrustedTypesCheckForScript(
+      string_value, document.GetExecutionContext(), exception_state);
   if (exception_state.HadException())
     return nullptr;
   return Text::Create(document, string_value);
@@ -1228,6 +1226,35 @@ void Node::MarkAncestorsWithChildNeedsDistributionRecalc() {
   GetDocument().ScheduleLayoutTreeUpdateIfNeeded();
 }
 
+void Node::MarkSubtreeNeedsStyleRecalcForFontUpdates() {
+  if (GetStyleChangeType() == kSubtreeStyleChange)
+    return;
+
+  if (IsElementNode()) {
+    const ComputedStyle* style = GetComputedStyle();
+    if (!style)
+      return;
+
+    // We require font-specific metrics to resolve length units 'ex' and 'ch',
+    // and to compute the adjusted font size when 'font-size-adjust' is set. All
+    // other style computations are unaffected by font loading.
+    if (!NeedsStyleRecalc()) {
+      if (style->DependsOnFontMetrics() ||
+          To<Element>(this)->PseudoElementStylesDependOnFontMetrics()) {
+        SetNeedsStyleRecalc(
+            kLocalStyleChange,
+            StyleChangeReasonForTracing::Create(style_change_reason::kFonts));
+      }
+    }
+
+    if (Node* shadow_root = GetShadowRoot())
+      shadow_root->MarkSubtreeNeedsStyleRecalcForFontUpdates();
+  }
+
+  for (Node* child = firstChild(); child; child = child->nextSibling())
+    child->MarkSubtreeNeedsStyleRecalcForFontUpdates();
+}
+
 #if DCHECK_IS_ON()
 namespace {
 class AllowDirtyShadowV0TraversalScope {
@@ -1291,7 +1318,7 @@ void Node::MarkAncestorsWithChildNeedsStyleRecalc() {
       break;
     // If we reach a locked ancestor, we should abort since the ancestor marking
     // will be done when the lock is committed.
-    if (RuntimeEnabledFeatures::DisplayLockingEnabled(GetExecutionContext())) {
+    if (RuntimeEnabledFeatures::CSSSubtreeVisibilityEnabled()) {
       auto* ancestor_element = DynamicTo<Element>(ancestor);
       if (ancestor_element && ancestor_element->StyleRecalcBlockedByDisplayLock(
                                   DisplayLockLifecycleTarget::kChildren)) {
@@ -1327,7 +1354,7 @@ void Node::MarkAncestorsWithChildNeedsStyleRecalc() {
   // roots. These would be updated when we commit the lock. If we have locked
   // display locks somewhere in the document, we iterate up the ancestor chain
   // to check if we're in one such subtree.
-  if (RuntimeEnabledFeatures::DisplayLockingEnabled(GetExecutionContext()) &&
+  if (RuntimeEnabledFeatures::CSSSubtreeVisibilityEnabled() &&
       GetDocument().LockedDisplayLockCount() > 0) {
     for (auto* ancestor_copy = ancestor; ancestor_copy;
          ancestor_copy = ancestor_copy->GetStyleRecalcParent()) {
@@ -1416,7 +1443,8 @@ void Node::SetNeedsStyleRecalc(StyleChangeType change_type,
   TRACE_EVENT_INSTANT1(
       TRACE_DISABLED_BY_DEFAULT("devtools.timeline.invalidationTracking"),
       "StyleRecalcInvalidationTracking", TRACE_EVENT_SCOPE_THREAD, "data",
-      inspector_style_recalc_invalidation_tracking_event::Data(this, reason));
+      inspector_style_recalc_invalidation_tracking_event::Data(
+          this, change_type, reason));
 
   StyleChangeType existing_change_type = GetStyleChangeType();
   if (change_type > existing_change_type)
@@ -1649,7 +1677,7 @@ void Node::AttachLayoutTree(AttachContext& context) {
   LayoutObject* layout_object = GetLayoutObject();
   DCHECK(!layout_object ||
          (layout_object->Style() &&
-          (layout_object->Parent() || layout_object->IsLayoutView())));
+          (layout_object->Parent() || IsA<LayoutView>(layout_object))));
 
   ClearNeedsReattachLayoutTree();
 
@@ -2584,7 +2612,9 @@ const AtomicString& Node::InterfaceName() const {
 }
 
 ExecutionContext* Node::GetExecutionContext() const {
-  return GetDocument().ContextDocument();
+  if (auto* document = GetDocument().ContextDocument())
+    return document->domWindow();
+  return nullptr;
 }
 
 void Node::WillMoveToNewDocument(Document& old_document,
@@ -2847,7 +2877,7 @@ void Node::HandleLocalEvents(Event& event) {
   if (!HasEventTargetData())
     return;
 
-  if (IsDisabledFormControl(this) && event.IsMouseEvent() &&
+  if (IsDisabledFormControl(this) && IsA<MouseEvent>(event) &&
       !RuntimeEnabledFeatures::SendMouseEventsDisabledFormControlsEnabled()) {
     if (HasEventListeners(event.type())) {
       UseCounter::Count(GetDocument(),
@@ -2908,7 +2938,7 @@ DispatchEventResult Node::DispatchDOMActivateEvent(int detail,
   return EventTarget::GetDispatchEventResult(event);
 }
 
-void Node::DispatchSimulatedClick(Event* underlying_event,
+void Node::DispatchSimulatedClick(const Event* underlying_event,
                                   SimulatedClickMouseEventOptions event_options,
                                   SimulatedClickCreationScope scope) {
   if (auto* element = IsElementNode() ? To<Element>(this) : parentElement()) {
@@ -2926,22 +2956,22 @@ void Node::DefaultEventHandler(Event& event) {
   if (event_type == event_type_names::kKeydown ||
       event_type == event_type_names::kKeypress ||
       event_type == event_type_names::kKeyup) {
-    if (event.IsKeyboardEvent()) {
+    if (auto* keyboard_event = DynamicTo<KeyboardEvent>(&event)) {
       if (LocalFrame* frame = GetDocument().GetFrame()) {
-        frame->GetEventHandler().DefaultKeyboardEventHandler(
-            ToKeyboardEvent(&event));
+        frame->GetEventHandler().DefaultKeyboardEventHandler(keyboard_event);
       }
     }
   } else if (event_type == event_type_names::kClick) {
-    int detail = event.IsUIEvent() ? ToUIEvent(event).detail() : 0;
+    auto* ui_event = DynamicTo<UIEvent>(event);
+    int detail = ui_event ? ui_event->detail() : 0;
     if (DispatchDOMActivateEvent(detail, event) !=
         DispatchEventResult::kNotCanceled)
       event.SetDefaultHandled();
   } else if (event_type == event_type_names::kContextmenu &&
-             event.IsMouseEvent()) {
+             IsA<MouseEvent>(event)) {
     if (Page* page = GetDocument().GetPage()) {
       page->GetContextMenuController().HandleContextMenuEvent(
-          ToMouseEvent(&event));
+          To<MouseEvent>(&event));
     }
   } else if (event_type == event_type_names::kTextInput) {
     if (event.HasInterface(event_interface_names::kTextEvent)) {
@@ -2952,8 +2982,8 @@ void Node::DefaultEventHandler(Event& event) {
     }
   } else if (RuntimeEnabledFeatures::MiddleClickAutoscrollEnabled() &&
              event_type == event_type_names::kMousedown &&
-             event.IsMouseEvent()) {
-    auto& mouse_event = ToMouseEvent(event);
+             IsA<MouseEvent>(event)) {
+    auto& mouse_event = To<MouseEvent>(event);
     if (mouse_event.button() ==
         static_cast<int16_t>(WebPointerProperties::Button::kMiddle)) {
       if (EnclosingLinkEventParentOrSelf())
@@ -2964,7 +2994,7 @@ void Node::DefaultEventHandler(Event& event) {
       // FIXME: We should avoid synchronous layout if possible. We can
       // remove this synchronous layout if we avoid synchronous layout in
       // LayoutTextControlSingleLine::scrollHeight
-      GetDocument().UpdateStyleAndLayout();
+      GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kInput);
       LayoutObject* layout_object = GetLayoutObject();
       while (
           layout_object &&

@@ -9,7 +9,6 @@ import static androidx.browser.customtabs.CustomTabsIntent.COLOR_SCHEME_SYSTEM;
 
 import android.app.PendingIntent;
 import android.app.PendingIntent.CanceledException;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
@@ -36,29 +35,24 @@ import androidx.browser.trusted.TrustedWebActivityIntentBuilder;
 import androidx.browser.trusted.sharing.ShareData;
 import androidx.browser.trusted.sharing.ShareTarget;
 
+import org.chromium.base.IntentUtils;
 import org.chromium.base.Log;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeActivity;
-import org.chromium.chrome.browser.ChromeApplication;
 import org.chromium.chrome.browser.ChromeVersionInfo;
 import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.browserservices.BrowserServicesIntentDataProvider;
-import org.chromium.chrome.browser.customtabs.dynamicmodule.ModuleMetrics;
-import org.chromium.chrome.browser.externalauth.ExternalAuthUtils;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
-import org.chromium.chrome.browser.net.spdyproxy.DataReductionProxySettings;
-import org.chromium.chrome.browser.util.IntentUtils;
-import org.chromium.chrome.browser.util.UrlConstants;
 import org.chromium.components.browser_ui.styles.ChromeColors;
 import org.chromium.components.browser_ui.widget.TintedDrawable;
+import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.ui.util.ColorUtils;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Pattern;
 
 /**
  * A model class that parses the incoming intent for Custom Tabs specific customization data.
@@ -121,10 +115,6 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
     public static final String EXTRA_DISABLE_DOWNLOAD_BUTTON =
             "org.chromium.chrome.browser.customtabs.EXTRA_DISABLE_DOWNLOAD_BUTTON";
 
-    /** Extra that indicates whether the client is a WebAPK. */
-    public static final String EXTRA_IS_OPENED_BY_WEBAPK =
-            "org.chromium.chrome.browser.customtabs.EXTRA_IS_OPENED_BY_WEBAPK";
-
     /**
      * Indicates the source where the Custom Tab is launched. The value is defined as
      * {@link LaunchSourceType}.
@@ -136,35 +126,6 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
     /** Signals custom tabs to favor sending initial urls to external handler apps if possible. */
     public static final String EXTRA_SEND_TO_EXTERNAL_DEFAULT_HANDLER =
             "android.support.customtabs.extra.SEND_TO_EXTERNAL_HANDLER";
-
-    /** Extra that defines the module managed URLs regex. */
-    @VisibleForTesting
-    public static final String EXTRA_MODULE_MANAGED_URLS_REGEX =
-            "org.chromium.chrome.browser.customtabs.EXTRA_MODULE_MANAGED_URLS_REGEX";
-
-    /** The APK package to load the module from. */
-    @VisibleForTesting
-    public static final String EXTRA_MODULE_PACKAGE_NAME =
-            "org.chromium.chrome.browser.customtabs.EXTRA_MODULE_PACKAGE_NAME";
-
-    /** The asset name of the dex file that contains the module code. */
-    private static final String EXTRA_MODULE_DEX_ASSET_NAME =
-            "org.chromium.chrome.browser.customtabs.EXTRA_MODULE_DEX_ASSET_NAME";
-
-    /** The class name of the module entry point. */
-    @VisibleForTesting
-    public static final String EXTRA_MODULE_CLASS_NAME =
-            "org.chromium.chrome.browser.customtabs.EXTRA_MODULE_CLASS_NAME";
-
-    /** The custom header's value sent for module managed URLs */
-    @VisibleForTesting
-    public static final String EXTRA_MODULE_MANAGED_URLS_HEADER_VALUE =
-            "org.chromium.chrome.browser.customtabs.EXTRA_MODULE_MANAGED_URLS_HEADER_VALUE";
-
-    /** Extra that indicates whether to hide the CCT header on module managed URLs. */
-    @VisibleForTesting
-    public static final String EXTRA_HIDE_CCT_HEADER_ON_MODULE_MANAGED_URLS =
-            "org.chromium.chrome.browser.customtabs.EXTRA_HIDE_CCT_HEADER_ON_MODULE_MANAGED_URLS";
 
     // TODO(amalova): Move this to CustomTabsIntent.
     /**
@@ -204,19 +165,9 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
     private final int mInitialBackgroundColor;
     private final boolean mDisableStar;
     private final boolean mDisableDownload;
-    private final boolean mIsOpenedByWebApk;
     private final boolean mIsTrustedWebActivity;
     @Nullable
     private final Integer mNavigationBarColor;
-    @Nullable
-    private final ComponentName mModuleComponentName;
-    @Nullable
-    private final Pattern mModuleManagedUrlsPattern;
-    @Nullable
-    private final String mModuleManagedUrlsHeaderValue;
-    private final boolean mHideCctHeaderOnModuleManagedUrls;
-    @Nullable
-    private final String mModuleDexAssetName;
     private final boolean mIsIncognito;
     @Nullable
     private final List<String> mTrustedWebActivityAdditionalOrigins;
@@ -268,6 +219,20 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
     }
 
     /**
+     * Evaluates whether the passed Intent and/or CustomTabsSessionToken are
+     * from a trusted source. Trusted in this case means from the app itself or
+     * via a first-party application.
+     *
+     * @param intent The Intent used to start the custom tabs activity, or null.
+     * @param session The connected session for the custom tabs activity, or null.
+     * @return True if the intent or session are trusted.
+     */
+    public static boolean isTrustedCustomTab(Intent intent, CustomTabsSessionToken session) {
+        return IntentHandler.wasIntentSenderChrome(intent)
+                || CustomTabsConnection.getInstance().isSessionFirstParty(session);
+    }
+
+    /**
      * Constructs a {@link CustomTabIntentDataProvider}.
      *
      * The colorScheme parameter specifies which color scheme the Custom Tab should use.
@@ -282,7 +247,7 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
         mIntent = intent;
 
         mSession = CustomTabsSessionToken.getSessionTokenFromIntent(intent);
-        mIsTrustedIntent = IntentHandler.notSecureIsIntentChromeOrFirstParty(intent);
+        mIsTrustedIntent = isTrustedCustomTab(intent, mSession);
 
         mAnimationBundle = IntentUtils.safeGetBundleExtra(
                 intent, CustomTabsIntent.EXTRA_EXIT_ANIMATION_BUNDLE);
@@ -370,35 +335,9 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
         mDisableStar = IntentUtils.safeGetBooleanExtra(intent, EXTRA_DISABLE_STAR_BUTTON, false);
         mDisableDownload =
                 IntentUtils.safeGetBooleanExtra(intent, EXTRA_DISABLE_DOWNLOAD_BUTTON, false);
-        mIsOpenedByWebApk =
-                IntentUtils.safeGetBooleanExtra(intent, EXTRA_IS_OPENED_BY_WEBAPK, false);
 
         mTranslateLanguage = IntentUtils.safeGetStringExtra(intent, EXTRA_TRANSLATE_LANGUAGE);
         mFocusIntent = IntentUtils.safeGetParcelableExtra(intent, EXTRA_FOCUS_INTENT);
-
-        String modulePackageName =
-                IntentUtils.safeGetStringExtra(intent, EXTRA_MODULE_PACKAGE_NAME);
-        String moduleClassName = IntentUtils.safeGetStringExtra(intent, EXTRA_MODULE_CLASS_NAME);
-        if (modulePackageName != null && moduleClassName != null) {
-            mModuleComponentName = new ComponentName(modulePackageName, moduleClassName);
-            mModuleDexAssetName =
-                    IntentUtils.safeGetStringExtra(intent, EXTRA_MODULE_DEX_ASSET_NAME);
-            String moduleManagedUrlsRegex =
-                    IntentUtils.safeGetStringExtra(intent, EXTRA_MODULE_MANAGED_URLS_REGEX);
-            mModuleManagedUrlsPattern = (moduleManagedUrlsRegex != null)
-                    ? Pattern.compile(moduleManagedUrlsRegex)
-                    : null;
-            mModuleManagedUrlsHeaderValue =
-                    IntentUtils.safeGetStringExtra(intent, EXTRA_MODULE_MANAGED_URLS_HEADER_VALUE);
-            mHideCctHeaderOnModuleManagedUrls = IntentUtils.safeGetBooleanExtra(
-                    intent, EXTRA_HIDE_CCT_HEADER_ON_MODULE_MANAGED_URLS, false);
-        } else {
-            mModuleComponentName = null;
-            mModuleManagedUrlsPattern = null;
-            mModuleManagedUrlsHeaderValue = null;
-            mHideCctHeaderOnModuleManagedUrls = false;
-            mModuleDexAssetName = null;
-        }
     }
 
     /**
@@ -572,11 +511,6 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
                 }
             }
         }
-
-        if (!TextUtils.isEmpty(url)) {
-            url = DataReductionProxySettings.getInstance().maybeRewriteWebliteUrl(url);
-        }
-
         return url;
     }
 
@@ -790,11 +724,6 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
     }
 
     @Override
-    public boolean isOpenedByWebApk() {
-        return mIsOpenedByWebApk;
-    }
-
-    @Override
     public boolean isIncognito() {
         return mIsIncognito;
     }
@@ -808,61 +737,6 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
     @Override
     public TrustedWebActivityDisplayMode getTwaDisplayMode() {
         return mTrustedWebActivityDisplayMode;
-    }
-
-    @Override
-    public boolean isDynamicModuleEnabled() {
-        if (!ChromeFeatureList.isInitialized()) return false;
-
-        ComponentName componentName = getModuleComponentName();
-        // Return early if no component name was provided. It's important to do this before checking
-        // the feature experiment group, to avoid entering users into the experiment that do not
-        // even receive the extras for using the feature.
-        if (componentName == null) return false;
-
-        if (!ChromeFeatureList.isEnabled(ChromeFeatureList.CCT_MODULE)) {
-            Log.w(TAG, "The %s feature is disabled.", ChromeFeatureList.CCT_MODULE);
-            ModuleMetrics.recordLoadResult(ModuleMetrics.LoadResult.FEATURE_DISABLED);
-            return false;
-        }
-
-        ExternalAuthUtils authUtils = ChromeApplication.getComponent().resolveExternalAuthUtils();
-        if (!authUtils.isGoogleSigned(componentName.getPackageName())) {
-            Log.w(TAG, "The %s package is not Google-signed.", componentName.getPackageName());
-            ModuleMetrics.recordLoadResult(ModuleMetrics.LoadResult.NOT_GOOGLE_SIGNED);
-            return false;
-        }
-
-        return true;
-    }
-
-    @Override
-    @Nullable
-    public ComponentName getModuleComponentName() {
-        return mModuleComponentName;
-    }
-
-    @Override
-    @Nullable
-    public String getModuleDexAssetName() {
-        return mModuleDexAssetName;
-    }
-
-    @Override
-    @Nullable
-    public Pattern getExtraModuleManagedUrlsPattern() {
-        return mModuleManagedUrlsPattern;
-    }
-
-    @Override
-    @Nullable
-    public String getExtraModuleManagedUrlsHeaderValue() {
-        return mModuleManagedUrlsHeaderValue;
-    }
-
-    @Override
-    public boolean shouldHideCctHeaderOnModuleManagedUrls() {
-        return mHideCctHeaderOnModuleManagedUrls;
     }
 
     @Override

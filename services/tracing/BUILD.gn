@@ -47,7 +47,6 @@ source_set("privacy_check") {
   deps = [
     "//base",
     "//third_party/perfetto:libperfetto",
-    "//third_party/perfetto/src/protozero:protozero",
   ]
 }
 
@@ -66,13 +65,11 @@ source_set("test_utils") {
     "//third_party/perfetto/protos/perfetto/trace:lite",
   ]
 
-  if (is_android) {
+  if (is_posix) {
     sources += [
       "perfetto/system_test_utils.cc",
       "perfetto/system_test_utils.h",
     ]
-
-    deps += [ "//third_party/perfetto/src/tracing/ipc/service" ]
   }
 }
 
@@ -100,6 +97,7 @@ source_set("tests") {
     "//base",
     "//base/test:test_support",
     "//mojo/public/cpp/bindings",
+    "//services/tracing/public/cpp/background_tracing:unit_tests",
     "//testing/gmock",
     "//testing/gtest",
     "//third_party/perfetto/include/perfetto/protozero:protozero",
@@ -110,9 +108,8 @@ source_set("tests") {
     "//third_party/perfetto/protos/perfetto/trace/track_event:lite",
   ]
 
-  if (is_android) {
+  if (is_posix) {
     sources += [ "perfetto/system_perfetto_unittest.cc" ]
-    deps += [ "//third_party/perfetto/include/perfetto/ext/tracing/ipc" ]
 
     if (can_unwind_with_cfi_table && is_official_build) {
       sources +=

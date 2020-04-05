@@ -31,6 +31,7 @@
 #include "media/audio/fake_audio_manager.h"
 #include "media/audio/test_audio_thread.h"
 #include "media/base/limits.h"
+#include "media/base/media_switches.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -276,7 +277,15 @@ class AudioManagerTest : public ::testing::Test {
 #endif  // defined(USE_CRAS)
 
  protected:
-  AudioManagerTest() { CreateAudioManagerForTesting(); }
+  AudioManagerTest() {
+#if defined(OS_LINUX)
+    // Due to problems with PulseAudio failing to start, use a fake audio
+    // stream. https://crbug.com/1047655#c70
+    base::CommandLine::ForCurrentProcess()->AppendSwitch(
+        switches::kDisableAudioOutput);
+#endif
+    CreateAudioManagerForTesting();
+  }
   ~AudioManagerTest() override { audio_manager_->Shutdown(); }
 
   // Helper method which verifies that the device list starts with a valid

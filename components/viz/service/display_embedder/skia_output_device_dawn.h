@@ -24,6 +24,7 @@ class SkiaOutputDeviceDawn : public SkiaOutputDevice {
   SkiaOutputDeviceDawn(
       DawnContextProvider* context_provider,
       gfx::AcceleratedWidget widget,
+      gfx::SurfaceOrigin origin,
       gpu::MemoryTracker* memory_tracker,
       DidSwapBufferCompleteCallback did_swap_buffer_complete_callback);
   ~SkiaOutputDeviceDawn() override;
@@ -32,12 +33,13 @@ class SkiaOutputDeviceDawn : public SkiaOutputDevice {
   bool Reshape(const gfx::Size& size,
                float device_scale_factor,
                const gfx::ColorSpace& color_space,
-               bool has_alpha,
+               gfx::BufferFormat format,
                gfx::OverlayTransform transform) override;
   void SwapBuffers(BufferPresentedCallback feedback,
                    std::vector<ui::LatencyInfo> latency_info) override;
-  SkSurface* BeginPaint() override;
-  void EndPaint(const GrBackendSemaphore& semaphore) override;
+  SkSurface* BeginPaint(
+      std::vector<GrBackendSemaphore>* end_semaphores) override;
+  void EndPaint() override;
 
  private:
   // Create a platform-specific swapchain implementation.

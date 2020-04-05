@@ -90,8 +90,7 @@ TEST_P(SubresourceRedirectSimTest, CSSBackgroundImage) {
   if (is_lazyload_image_enabled()) {
     // Scroll down until the background image is visible.
     GetDocument().View()->LayoutViewport()->SetScrollOffset(
-        ScrollOffset(0, 10000),
-        mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
+        ScrollOffset(0, 10000), mojom::blink::ScrollType::kProgrammatic);
     Compositor().BeginFrame();
     test::RunPendingTasks();
     image_resource.Complete(ReadTestImage());

@@ -3,8 +3,13 @@
 # found in the LICENSE file.
 
 import("//build/config/android/config.gni")
+import("//components/safe_browsing/buildflags.gni")
 import("//printing/buildflags/buildflags.gni")
 import("//tools/grit/grit_rule.gni")
+
+if (is_android) {
+  import("//build/config/android/rules.gni")
+}
 
 about_credits_file = "$target_gen_dir/about_credits.html"
 
@@ -39,12 +44,21 @@ grit("components_resources") {
   defines = [
     "enable_basic_printing=$enable_basic_printing",
     "enable_print_preview=$enable_print_preview",
+    "safe_browsing_mode=$safe_browsing_mode",
+    "is_fuchsia=$is_fuchsia",
   ]
 
   deps = [ ":about_credits" ]
 
   if (!is_ios) {
     deps += [ "//components/resources/ssl/ssl_error_assistant:make_ssl_error_assistant_protobuf" ]
+  }
+
+  # TODO(crbug/1056278): Enable this on Fuchsia
+  # if (safe_browsing_mode > 0 && !is_fuchsia) {
+  if (true) {
+    deps +=
+        [ "//components/safe_browsing/core/resources:make_file_types_protobuf" ]
   }
 }
 
@@ -90,6 +104,16 @@ action("about_credits") {
     "credits",
     rebase_path(about_credits_file, root_build_dir),
   ]
+}
+
+if (is_android) {
+  source_set("android_resources") {
+    sources = [
+      "android/page_info_resource_id.h",
+      "android/permissions_resource_id.h",
+      "android/theme_resources.h",
+    ]
+  }
 }
 
 copy("about_credits_nw") {

@@ -61,11 +61,15 @@ const base::Feature kDisplayLocking{"DisplayLocking",
 const base::Feature kJSONModules{"JSONModules",
                                  base::FEATURE_DISABLED_BY_DEFAULT};
 
+// Enables top-level await in modules.
+const base::Feature kTopLevelAwait{"TopLevelAwait",
+                                   base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Enable LayoutNG.
 const base::Feature kLayoutNG{"LayoutNG", base::FEATURE_ENABLED_BY_DEFAULT};
 
 const base::Feature kMixedContentAutoupgrade{"AutoupgradeMixedContent",
-                                             base::FEATURE_DISABLED_BY_DEFAULT};
+                                             base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Used to control the collection of anchor element metrics (crbug.com/856683).
 // If kNavigationPredictor is enabled, then metrics of anchor elements
@@ -81,11 +85,6 @@ const base::Feature kNavigationPredictor {
       base::FEATURE_DISABLED_BY_DEFAULT
 #endif
 };
-
-// Start service workers on a background thread.
-// https://crbug.com/692909
-const base::Feature kOffMainThreadServiceWorkerStartup{
-    "OffMainThreadServiceWorkerStartup", base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Enable browser-initiated dedicated worker script loading
 // (PlzDedicatedWorker). https://crbug.com/906991
@@ -164,6 +163,11 @@ const base::Feature kRTCUnifiedPlanByDefault{"RTCUnifiedPlanByDefault",
 const base::Feature kRTCOfferExtmapAllowMixed{
     "RTCOfferExtmapAllowMixed", base::FEATURE_DISABLED_BY_DEFAULT};
 
+// Prevents workers from sending IsolateInBackgroundNotification to V8
+// and thus instructs V8 to favor performance over memory on workers.
+const base::Feature kV8OptimizeWorkersForPerformance{
+    "V8OptimizeWorkersForPerformance", base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Enables negotiation of experimental multiplex codec in SDP.
 const base::Feature kWebRtcMultiplexCodec{"WebRTC-MultiplexCodec",
                                           base::FEATURE_DISABLED_BY_DEFAULT};
@@ -214,12 +218,6 @@ const base::Feature kStorageAccessAPI{"StorageAccessAPI",
 const base::Feature kTextFragmentAnchor{"TextFragmentAnchor",
                                         base::FEATURE_ENABLED_BY_DEFAULT};
 
-// Enables the site isolated Wasm code cache that is keyed on the resource URL
-// and the origin lock of the renderer that is requesting the resource. When
-// this flag is enabled, content/GeneratedCodeCache handles code cache requests.
-const base::Feature kWasmCodeCache = {"WasmCodeCache",
-                                      base::FEATURE_ENABLED_BY_DEFAULT};
-
 // Writable files and native file system access. https://crbug.com/853326
 const base::Feature kNativeFileSystemAPI{"NativeFileSystemAPI",
                                          base::FEATURE_ENABLED_BY_DEFAULT};
@@ -247,7 +245,7 @@ const base::Feature kPrefetchPrivacyChanges{"PrefetchPrivacyChanges",
                                             base::FEATURE_DISABLED_BY_DEFAULT};
 
 const char kMixedContentAutoupgradeModeParamName[] = "mode";
-const char kMixedContentAutoupgradeModeNoImages[] = "no-images";
+const char kMixedContentAutoupgradeModeAllPassive[] = "all-passive";
 
 // Decodes jpeg 4:2:0 formatted images to YUV instead of RGBX and stores in this
 // format in the image decode cache. See crbug.com/919627 for details on the
@@ -298,6 +296,11 @@ const base::Feature kLightweightNoStatePrefetch_FetchFonts{
 const base::Feature kForceWebContentsDarkMode{
     "WebContentsForceDark", base::FEATURE_DISABLED_BY_DEFAULT};
 
+// A feature to enable using the smallest image specified within image srcset
+// for users with Save Data enabled.
+const base::Feature kSaveDataImgSrcset{"SaveDataImgSrcset",
+                                       base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Which algorithm should be used for color inversion?
 const base::FeatureParam<ForceDarkInversionMethod>::Option
     forcedark_inversion_method_options[] = {
@@ -339,8 +342,15 @@ const base::FeatureParam<int> kForceDarkBackgroundLightnessThresholdParam{
     &kForceWebContentsDarkMode, "background_lightness_threshold", -1};
 
 // Instructs WebRTC to honor the Min/Max Video Encode Accelerator dimensions.
-const base::Feature kWebRtcUseMinMaxVEADimensions{
-    "WebRtcUseMinMaxVEADimensions", base::FEATURE_DISABLED_BY_DEFAULT};
+const base::Feature kWebRtcUseMinMaxVEADimensions {
+  "WebRtcUseMinMaxVEADimensions",
+  // TODO(crbug.com/1008491): enable other platforms.
+#if defined(OS_CHROMEOS)
+      base::FEATURE_ENABLED_BY_DEFAULT
+#else
+      base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+};
 
 // Blink garbage collection.
 // Enables compaction of backing stores on Blink's heap.
@@ -348,7 +358,7 @@ const base::Feature kBlinkHeapCompaction{"BlinkHeapCompaction",
                                          base::FEATURE_ENABLED_BY_DEFAULT};
 // Enables concurrently marking Blink's heap.
 const base::Feature kBlinkHeapConcurrentMarking{
-    "BlinkHeapConcurrentMarking", base::FEATURE_DISABLED_BY_DEFAULT};
+    "BlinkHeapConcurrentMarking", base::FEATURE_ENABLED_BY_DEFAULT};
 // Enables concurrently sweeping Blink's heap.
 const base::Feature kBlinkHeapConcurrentSweeping{
     "BlinkHeapConcurrentSweeping", base::FEATURE_ENABLED_BY_DEFAULT};
@@ -394,9 +404,6 @@ const base::Feature kLowerJavaScriptPriorityWhenForceDeferred{
 const base::Feature kDisableForceDeferInChildFrames{
     "DisableForceDeferInChildFrames", base::FEATURE_DISABLED_BY_DEFAULT};
 
-const base::Feature kHtmlImportsRequestInitiatorLock{
-    "HtmlImportsRequestInitiatorLock", base::FEATURE_ENABLED_BY_DEFAULT};
-
 // Enables redirecting subresources in the page to better compressed and
 // optimized versions to provide data savings.
 const base::Feature kSubresourceRedirect{"SubresourceRedirect",
@@ -405,11 +412,6 @@ const base::Feature kSubresourceRedirect{"SubresourceRedirect",
 // When 'enabled', all cross-origin iframes will get a compositing layer.
 const base::Feature kCompositeCrossOriginIframes{
     "CompositeCrossOriginIframes", base::FEATURE_DISABLED_BY_DEFAULT};
-
-// When 'enabled', an accurate occlusion test will be performed to improve the
-// quality of viz hit test data.
-const base::Feature kVizHitTestOcclusionCheck{
-    "VizHitTestOcclusionCheck", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // When enabled, beacons (and friends) have ResourceLoadPriority::kLow,
 // not ResourceLoadPriority::kVeryLow.
@@ -452,6 +454,47 @@ const base::Feature kLowLatencyCanvas2dSwapChain{
 // Enables the use of shared image swap chains for low latency webgl canvas.
 const base::Feature kLowLatencyWebGLSwapChain{"LowLatencyWebGLSwapChain",
                                               base::FEATURE_ENABLED_BY_DEFAULT};
+
+// Enables forcing additional rendering of subframes for the purpose of sticky
+// frame tracking.
+const base::Feature kForceExtraRenderingToTrackStickyFrame{
+    "ForceExtraRenderingToTrackStickyFrame", base::FEATURE_DISABLED_BY_DEFAULT};
+
+const base::Feature kCSSReducedFontLoadingInvalidations{
+    "CSSReducedFontLoadingInvalidations", base::FEATURE_DISABLED_BY_DEFAULT};
+
+// When enabled, frees up CachedMetadata after consumption by script resources
+// and modules. Needed for the experiment in http://crbug.com/1045052.
+const base::Feature kDiscardCodeCacheAfterFirstUse{
+    "DiscardCodeCacheAfterFirstUse", base::FEATURE_DISABLED_BY_DEFAULT};
+
+// The kill-switch for the fix for https://crbug.com/1051439.
+// TODO(crbug.com/1053369): Remove this around M84.
+const base::Feature kSuppressContentTypeForBeaconMadeWithArrayBufferView{
+    "SuppressContentTypeForBeaconMadeWithArrayBufferView",
+    base::FEATURE_ENABLED_BY_DEFAULT};
+
+const base::Feature kBlockHTMLParserOnStyleSheets{
+    "BlockHTMLParserOnStyleSheets", base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Slightly delays rendering if there are fonts being preloaded, so that
+// they don't miss the first paint if they can be loaded fast enough (e.g.,
+// from the disk cache)
+const base::Feature kFontPreloadingDelaysRendering{
+    "FontPreloadingDelaysRendering", base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Set to be over 90th-percentile of HttpCache.AccessToDone.Used on all
+// platforms, and also to allow some time for IPC and scheduling.
+// TODO(xiaochengh): Tune it for the best performance.
+const base::FeatureParam<int> kFontPreloadingDelaysRenderingParam{
+    &kFontPreloadingDelaysRendering, "delay-in-ms", 100};
+
+const base::Feature kFlexNG{"FlexNG", base::FEATURE_DISABLED_BY_DEFAULT};
+
+const base::Feature kKeepScriptResourceAlive{"KeepScriptResourceAlive",
+                                             base::FEATURE_DISABLED_BY_DEFAULT};
+
+const base::Feature kAppCache{"AppCache", base::FEATURE_ENABLED_BY_DEFAULT};
 
 }  // namespace features
 }  // namespace blink

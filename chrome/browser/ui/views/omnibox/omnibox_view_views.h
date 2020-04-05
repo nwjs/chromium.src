@@ -17,6 +17,7 @@
 #include "build/build_config.h"
 #include "chrome/browser/ui/send_tab_to_self/send_tab_to_self_sub_menu_model.h"
 #include "components/omnibox/browser/omnibox_view.h"
+#include "components/prefs/pref_change_registrar.h"
 #include "components/search_engines/template_url_service.h"
 #include "components/search_engines/template_url_service_observer.h"
 #include "ui/base/window_open_disposition.h"
@@ -194,10 +195,6 @@ class OmniboxViewViews : public OmniboxView,
   void SetAccessibilityLabel(const base::string16& display_text,
                              const AutocompleteMatch& match) override;
 
-  // Selects the whole omnibox contents as a result of the user gesture. This
-  // may also unapply steady state elisions depending on user preferences.
-  void SelectAllForUserGesture();
-
   // Returns true if the user text was updated with the full URL (without
   // steady-state elisions).  |gesture| is the user gesture causing unelision.
   bool UnapplySteadyStateElisions(UnelisionGesture gesture);
@@ -212,12 +209,6 @@ class OmniboxViewViews : public OmniboxView,
 
   // Like SelectionAtEnd(), but accounts for RTL.
   bool DirectionAwareSelectionAtEnd() const;
-
-  // Attempts to either focus or unfocus the secondary button (tests if all
-  // conditions are met and makes necessary subroutine call) and returns
-  // whether it succeeded.
-  bool MaybeFocusSecondaryButton();
-  bool MaybeUnfocusSecondaryButton();
 
   // If the Secondary button for the current suggestion is focused, clicks it
   // and returns true.
@@ -291,6 +282,9 @@ class OmniboxViewViews : public OmniboxView,
       std::set<ui::ClipboardFormatType>* format_types) override;
   int OnDrop(const ui::OSExchangeData& data) override;
   void UpdateContextMenu(ui::SimpleMenuModel* menu_contents) override;
+
+  // ui::SimpleMenuModel::Delegate:
+  bool IsCommandIdChecked(int id) const override;
 
   // ui::CompositorObserver:
   void OnCompositingDidCommit(ui::Compositor* compositor) override;
@@ -384,6 +378,8 @@ class OmniboxViewViews : public OmniboxView,
   // Send tab to self submenu.
   std::unique_ptr<send_tab_to_self::SendTabToSelfSubMenuModel>
       send_tab_to_self_sub_menu_model_;
+
+  PrefChangeRegistrar pref_change_registrar_;
 
   DISALLOW_COPY_AND_ASSIGN(OmniboxViewViews);
 };

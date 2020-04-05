@@ -35,7 +35,7 @@ const char* WebGLVideoTexture::ExtensionName() {
   return "WEBGL_video_texture";
 }
 
-void WebGLVideoTexture::Trace(blink::Visitor* visitor) {
+void WebGLVideoTexture::Trace(Visitor* visitor) {
   visitor->Trace(current_frame_metadata_);
   WebGLExtension::Trace(visitor);
 }
@@ -74,23 +74,19 @@ VideoFrameMetadata* WebGLVideoTexture::VideoElementTargetVideoTexture(
     return nullptr;
   }
 
-  // For WebGL last-uploaded-frame-metadata API.
-  WebMediaPlayer::VideoFrameUploadMetadata frame_metadata = {};
-  int already_uploaded_id = HTMLVideoElement::kNoAlreadyUploadedFrame;
-  WebMediaPlayer::VideoFrameUploadMetadata* frame_metadata_ptr =
-      &frame_metadata;
-  if (RuntimeEnabledFeatures::ExtraWebGLVideoTextureMetadataEnabled()) {
-    already_uploaded_id = texture->GetLastUploadedVideoFrameId();
-  }
-
 #if defined(OS_ANDROID)
   // TODO(crbug.com/776222): support extension on Android
   NOTIMPLEMENTED();
   return nullptr;
-#else  // defined OS_ANDROID
-  target = GL_TEXTURE_2D;
+#else
+  // For WebGL last-uploaded-frame-metadata API.
+  WebMediaPlayer::VideoFrameUploadMetadata frame_metadata = {};
+  auto* frame_metadata_ptr = &frame_metadata;
+  int already_uploaded_id = HTMLVideoElement::kNoAlreadyUploadedFrame;
+  if (RuntimeEnabledFeatures::ExtraWebGLVideoTextureMetadataEnabled())
+    already_uploaded_id = texture->GetLastUploadedVideoFrameId();
 
-#endif  // defined OS_ANDROID
+  target = GL_TEXTURE_2D;
 
   // TODO(shaobo.yan@intel.com) : A fallback path or exception needs to be
   // added when video is not using gpu decoder.
@@ -102,20 +98,31 @@ VideoFrameMetadata* WebGLVideoTexture::VideoElementTargetVideoTexture(
     return nullptr;
   }
 
-  if (frame_metadata_ptr) {
-    current_frame_metadata_ = VideoFrameMetadata::Create();
-    current_frame_metadata_->setPresentationTime(
-        frame_metadata_ptr->timestamp.InMicrosecondsF());
-    current_frame_metadata_->setExpectedPresentationTime(
-        frame_metadata_ptr->expected_timestamp.InMicrosecondsF());
-    current_frame_metadata_->setWidth(frame_metadata_ptr->visible_rect.width());
-    current_frame_metadata_->setHeight(
-        frame_metadata_ptr->visible_rect.height());
-    current_frame_metadata_->setPresentationTimestamp(
-        frame_metadata_ptr->timestamp.InSecondsF());
-  }
+  if (RuntimeEnabledFeatures::ExtraWebGLVideoTextureMetadataEnabled())
+    texture->UpdateLastUploadedFrame(frame_metadata);
 
+  if (!current_frame_metadata_)
+    current_frame_metadata_ = VideoFrameMetadata::Create();
+
+  // TODO(crbug.com/776222): These should be read from the VideoFrameCompositor
+  // when the VideoFrame is retrieved in WebMediaPlayerImpl. These fields are
+  // not currently saved in VideoFrameCompositor, so VFC::ProcessNewFrame()
+  // would need to save the current time as well as the presentation time.
+  current_frame_metadata_->setPresentationTime(
+      frame_metadata_ptr->timestamp.InMicrosecondsF());
+  current_frame_metadata_->setExpectedDisplayTime(
+      frame_metadata_ptr->expected_timestamp.InMicrosecondsF());
+
+  current_frame_metadata_->setWidth(frame_metadata_ptr->visible_rect.width());
+  current_frame_metadata_->setHeight(frame_metadata_ptr->visible_rect.height());
+  current_frame_metadata_->setMediaTime(
+      frame_metadata_ptr->timestamp.InSecondsF());
+
+  // This is a required field. It is supposed to be monotonically increasing for
+  // video.requestAnimationFrame, but it isn't used yet for WebGLVideoTexture.
+  current_frame_metadata_->setPresentedFrames(0);
   return current_frame_metadata_;
+#endif  // defined OS_ANDROID
 }
 
 }  // namespace blink

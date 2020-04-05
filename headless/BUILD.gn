@@ -109,7 +109,6 @@ grit("resources") {
     "grit/headless_lib_resources.h",
     "$root_gen_dir/headless/headless_lib_resources.pak",
   ]
-  source_is_generated = true
 }
 
 devtools_domains = [
@@ -291,7 +290,7 @@ jumbo_source_set("headless_shared_sources") {
     deps += [ "//components/crash/content/browser" ]
   }
   if (is_component_build && is_win) {
-    deps += [ "//components/crash/content/app:crash_export_thunks" ]
+    deps += [ "//components/crash/core/app:crash_export_thunks" ]
   }
 
   if (is_linux && !is_chromeos) {
@@ -447,7 +446,7 @@ jumbo_component("headless_non_renderer") {
       deps += [ "//components/crash/content/browser" ]
     }
     if (is_win && is_component_build) {
-      deps += [ "//components/crash/content/app:crash_export_thunks" ]
+      deps += [ "//components/crash/core/app:crash_export_thunks" ]
     }
 
     if (enable_basic_printing) {
@@ -595,7 +594,7 @@ test("headless_unittests") {
   }
 
   if (is_win) {
-    deps += [ "//components/crash/content/app:crash_export_thunks" ]
+    deps += [ "//components/crash/core/app:crash_export_thunks" ]
   }
 
   if (enable_basic_printing) {
@@ -612,7 +611,7 @@ if (is_mac) {
   copy("mac_helpers") {
     sources = [ "$root_out_dir/chrome_crashpad_handler" ]
 
-    deps = [ "//components/crash/content/app:chrome_crashpad_handler" ]
+    deps = [ "//components/crash/core/app:chrome_crashpad_handler" ]
 
     outputs = [ "$root_out_dir/Helpers/{{source_file_part}}" ]
   }
@@ -624,6 +623,7 @@ test("headless_browsertests") {
     "lib/headless_browser_browsertest.cc",
     "lib/headless_browser_context_browsertest.cc",
     "lib/headless_devtools_client_browsertest.cc",
+    "lib/headless_origin_trials_browsertest.cc",
     "lib/headless_web_contents_browsertest.cc",
     "test/headless_browser_test.cc",
     "test/headless_browser_test.h",
@@ -640,7 +640,7 @@ test("headless_browsertests") {
     "$root_out_dir/headless_lib.pak",
     "//net/tools/testserver/",
     "//third_party/blink/web_tests/http/tests/inspector-protocol/",
-    "//third_party/pywebsocket/",
+    "//third_party/pywebsocket3/",
     "//third_party/tlslite/",
     "test/data/",
   ]
@@ -824,8 +824,8 @@ jumbo_static_library("headless_shell_lib") {
     defines = [ "HEADLESS_USE_CRASHPAD" ]
 
     deps += [
-      "//components/crash/content/app:crash_export_thunks",
-      "//components/crash/content/app:run_as_crashpad_handler",
+      "//components/crash/core/app:crash_export_thunks",
+      "//components/crash/core/app:run_as_crashpad_handler",
       "//content:sandbox_helper_win",
       "//sandbox",
     ]
@@ -833,7 +833,7 @@ jumbo_static_library("headless_shell_lib") {
 }
 
 if (is_fuchsia) {
-  fuchsia_package("headless_shell_pkg") {
+  cr_fuchsia_package("headless_shell_pkg") {
     binary = ":headless_shell"
     package_name_override = "headless_shell"
     manifest = "//build/config/fuchsia/tests.cmx"

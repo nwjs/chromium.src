@@ -37,7 +37,7 @@
 </style>
 <print-preview-header id="header" destination="[[destination]]"
     cloud-print-error-message="[[cloudPrintErrorMessage]]"
-    error="[[error]]" state="[[state]]"
+    error="[[error]]" sheet-count="[[sheetCount_]]" state="[[state]]"
     settings="[[settings]]" managed="[[controlsManaged]]">
 </print-preview-header>
 <div id="container" show-bottom-shadow>
@@ -60,6 +60,7 @@
       hidden$="[[!settings.pages.available]]" class="settings-section">
   </print-preview-pages-settings>
   <print-preview-copies-settings settings="[[settings]]"
+      capability="[[destination.capabilities.printer.copies]]"
       disabled="[[controlsDisabled_]]"
       hidden$="[[!settings.copies.available]]" class="settings-section">
   </print-preview-copies-settings>

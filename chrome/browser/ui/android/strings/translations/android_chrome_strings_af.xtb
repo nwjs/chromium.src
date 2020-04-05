@@ -5,6 +5,7 @@
 <translation id="1028699632127661925">Stuur tans na <ph name="DEVICE_NAME" /> toe …</translation>
 <translation id="1036727731225946849">Voeg tans <ph name="WEBAPK_NAME" /> by …</translation>
 <translation id="1041308826830691739">Vanaf webwerwe</translation>
+<translation id="1044891598689252897">Werwe sal normaalweg werk</translation>
 <translation id="1049743911850919806">Incognito</translation>
 <translation id="10614374240317010">Nooit gestoor nie</translation>
 <translation id="1067922213147265141">Ander Google-dienste</translation>
@@ -46,8 +47,10 @@
 <translation id="1291207594882862231">Maak geskiedenis, webkoekies, werfdata, kas skoon …</translation>
 <translation id="129382876167171263">Lêers wat deur webwerwe gestoor is, verskyn hier</translation>
 <translation id="129553762522093515">Onlangs toegemaak</translation>
+<translation id="1303339473099049190">Kan nie daardie wagwoord kry nie. Gaan die spelling na en probeer weer.</translation>
 <translation id="1303507811548703290"><ph name="DOMAIN" /> – Gestuur vanaf <ph name="DEVICE_NAME" /></translation>
 <translation id="1310482092992808703">Groepeer oortjies</translation>
+<translation id="1311657260431405215">Hierdie QR-kode is nie 'n URL nie: <ph name="QRCODEVALUE" /></translation>
 <translation id="1327257854815634930">Navigasiegeskiedenis is oopgemaak</translation>
 <translation id="1331212799747679585">Chrome kan nie opdateer nie. Meer opsies</translation>
 <translation id="1332501820983677155">Google Chrome-kenmerkkortpaaie</translation>
@@ -68,9 +71,9 @@
 <translation id="1430915738399379752">Druk uit</translation>
 <translation id="1446450296470737166">Laat vol MIDI-toestelbeheer toe</translation>
 <translation id="1450753235335490080">Kan nie <ph name="CONTENT_TYPE" /> deel nie</translation>
-<translation id="145097072038377568">Afgeskakel in Android-instellings</translation>
 <translation id="1477626028522505441">Kon <ph name="FILE_NAME" /> weens bedienerkwessies nie aflaai nie.</translation>
 <translation id="1506061864768559482">Soekenjin</translation>
+<translation id="1509960214886564027">Kenmerke op baie werwe kan breek</translation>
 <translation id="1513352483775369820">Boekmerke en webgeskiedenis</translation>
 <translation id="1513858653616922153">Vee wagwoord uit</translation>
 <translation id="1521774566618522728">Aktief vandag</translation>
@@ -101,6 +104,7 @@
 <translation id="1782483593938241562">Einddatum <ph name="DATE" /></translation>
 <translation id="1791662854739702043">Geïnstalleer</translation>
 <translation id="1792959175193046959">Verander enige tyd die verstekaflaailigging</translation>
+<translation id="1795251344124198516">Chrome en Chrome-bedryfstelsel se bykomende bepalings</translation>
 <translation id="1807246157184219062">Lig</translation>
 <translation id="1810845389119482123">Aanvanklike sinkronisering-opstelling is nie klaar nie</translation>
 <translation id="1821253160463689938">Gebruik webkoekies om jou voorkeure te onthou, selfs al besoek jy nie daardie bladsye nie</translation>
@@ -110,11 +114,11 @@
 <translation id="1868024384445905608">Chrome laai lêers nou vinniger af</translation>
 <translation id="1883903952484604915">My lêers</translation>
 <translation id="1887786770086287077">Liggingtoegang is af vir hierdie toestel. Skakel dit in <ph name="BEGIN_LINK" />Android-instellings<ph name="END_LINK" /> aan.</translation>
-<translation id="1891331835972267886"><ph name="APP_NAME" /> sal in Chrome oopmaak. Deur voort te gaan, stem jy in tot Chrome se <ph name="BEGIN_LINK1" />diensbepalings<ph name="END_LINK1" /> en <ph name="BEGIN_LINK2" />privaatheidskennisgewing<ph name="END_LINK2" />.</translation>
 <translation id="1919345977826869612">Advertensies</translation>
 <translation id="1919950603503897840">Kies kontakte</translation>
 <translation id="1922076542920281912">Vir Chrome om toegang tot jou ligging te kry, moet jy ligging ook in <ph name="BEGIN_LINK" />Android-instellings<ph name="END_LINK" /> aanskakel.</translation>
 <translation id="1923695749281512248"><ph name="BYTES_DOWNLOADED_WITH_UNITS" /> van <ph name="FILE_SIZE_WITH_UNITS" /></translation>
+<translation id="1925021887439448749">Voer gepasmaakte webadres in</translation>
 <translation id="1928696683969751773">Opdaterings</translation>
 <translation id="19288952978244135">Maak Chrome weer oop.</translation>
 <translation id="1933845786846280168">Gekose oortjie</translation>
@@ -137,6 +141,7 @@
 <translation id="2013642289801508067">{FILE_COUNT,plural, =1{# lêer}other{# lêers}}</translation>
 <translation id="2017836877785168846">Vee geskiedenis en outovoltooiings in die adresbalk uit.</translation>
 <translation id="2021896219286479412">Volskermwerfkontroles</translation>
+<translation id="2025115093177348061">Aangevulde realiteit</translation>
 <translation id="2038563949887743358">Skakel Versoek rekenaarwerf aan</translation>
 <translation id="2041019821020695769">Vir Chrome om toegang tot jou kennisgewings te kry, moet jy kennisgewings ook in <ph name="BEGIN_LINK" />Android-instellings<ph name="END_LINK" /> aanskakel.</translation>
 <translation id="204321170514947529"><ph name="APP_NAME" /> het ook data in Chrome</translation>
@@ -150,6 +155,9 @@
 <translation id="2100273922101894616">Outomatiese aanmelding</translation>
 <translation id="2100314319871056947">Probeer die teks in kleiner stukkies deel</translation>
 <translation id="2107397443965016585">Vra voordat jy werwe toelaat om beskermde inhoud te speel (aanbeveel)</translation>
+<translation id="2109711654079915747">Kom meer te wete oor onderwerpe op webwerwe sonder om die bladsy te verlaat. Raak om te Soek stuur 'n woord en sy omringende konteks na Google Search toe en wys definisies, prente, soekresultate en ander besonderhede.
+
+Tik op enige woord om te soek. Raak en hou om meer of minder woorde te kies as jy jou soektog wil verfyn. Maak die paneel oop, tik op die ikoon om dit in 'n nuwe oortjie oop te maak en bring jou veranderinge in die soekkassie aan as jy jou soektog wil wysig.</translation>
 <translation id="2111511281910874386">Gaan na bladsy</translation>
 <translation id="2122601567107267586">Kon nie program oopmaak nie</translation>
 <translation id="2126426811489709554">Aangedryf deur Chrome</translation>
@@ -162,7 +170,9 @@
 <translation id="2156074688469523661">Oorblywende werwe (<ph name="NUMBER_OF_SITES" />)</translation>
 <translation id="2157851137955077194">Skakel sinkronisering op albei toestelle in Chrome-instellings aan om iets van jou foon af na 'n ander toestel toe te deel</translation>
 <translation id="2175927920773552910">QR-kode</translation>
+<translation id="2182457891543959921">Vra voordat werwe toegelaat word om 'n 3D-kaart van jou omgewing te skep of kameraposisie na te spoor (aanbeveel)</translation>
 <translation id="218608176142494674">Deling</translation>
+<translation id="2212565012507486665">Laat webkoekies toe</translation>
 <translation id="2227444325776770048">Gaan voort as <ph name="USER_FULL_NAME" /></translation>
 <translation id="2234876718134438132">Sinkronisering en Google-dienste</translation>
 <translation id="2259659629660284697">Voer wagwoorde uit …</translation>
@@ -176,6 +186,7 @@
 <translation id="2321958826496381788">Trek die glyer totdat jy dit gemaklik kan lees. Teks behoort minstens só groot te lyk nadat jy op 'n paragraaf gedubbeltik het.</translation>
 <translation id="2323763861024343754">Werfberging</translation>
 <translation id="2328985652426384049">Kan nie aanmeld nie</translation>
+<translation id="234265804618409743">Kan nie jou kamera oopmaak nie. Iets is fout.</translation>
 <translation id="2349710944427398404">Alle data deur Chrome gebruik, insluitend rekeninge, boekmerke en gestoorde instellings</translation>
 <translation id="2353636109065292463">Gaan jou internetverbinding na</translation>
 <translation id="2359808026110333948">Gaan voort</translation>
@@ -186,12 +197,14 @@
 <translation id="2407481962792080328">Hierdie kenmerk word aangeskakel wanneer jy by jou Google-rekening aanmeld</translation>
 <translation id="2410754283952462441">Kies 'n rekening</translation>
 <translation id="2414886740292270097">Donker</translation>
-<translation id="2416359993254398973">Chrome het toestemming nodig vir toegang tot jou kamera vir hierdie werf.</translation>
 <translation id="2426805022920575512">Kies 'n ander rekening</translation>
 <translation id="2433507940547922241">Voorkoms</translation>
 <translation id="2434158240863470628">Aflaai is voltooi <ph name="SEPARATOR" /> <ph name="BYTES_DOWNLOADED" /></translation>
 <translation id="2440823041667407902">Liggingtoegang</translation>
 <translation id="2450083983707403292">Wil jy <ph name="FILE_NAME" /> weer begin aflaai?</translation>
+<translation id="2450907520913474542">Kom meer te wete oor onderwerpe op webwerwe sonder om die bladsy te verlaat. Raak om te Soek stuur 'n woord en sy omringende konteks na Google Search toe en wys definisies, prente, soekresultate en ander besonderhede.
+
+Raak en hou enige woord om te soek. Kies meer of minder woorde as jy jou soektog wil verfyn. Maak die paneel oop, tik op die ikoon om dit in 'n nuwe oortjie oop te maak en bring jou veranderinge in die soekkassie aan as jy jou soektog wil wysig.</translation>
 <translation id="246532703174860178">Deel</translation>
 <translation id="2482878487686419369">Kennisgewings</translation>
 <translation id="2490684707762498678">Bestuur deur <ph name="APP_NAME" /></translation>
@@ -212,7 +225,6 @@
 <translation id="2567385386134582609">PRENT</translation>
 <translation id="257088987046510401">Temas</translation>
 <translation id="2570922361219980984">Liggingtoegang is ook af vir hierdie toestel. Skakel dit in <ph name="BEGIN_LINK" />Android-instellings<ph name="END_LINK" /> aan.</translation>
-<translation id="257931822824936280">Uitgevou – klik om in te vou.</translation>
 <translation id="2581165646603367611">Dit sal koekies, kas en ander data uitvee van werwe wat Chrome nie dink belangrik is nie.</translation>
 <translation id="2586657967955657006">Knipbord</translation>
 <translation id="2587052924345400782">Nuwer weergawe is beskikbaar</translation>
@@ -224,6 +236,8 @@
 <translation id="2647434099613338025">Voeg taal by</translation>
 <translation id="2650751991977523696">Laai lêer weer af?</translation>
 <translation id="2651091186440431324">{FILE_COUNT,plural, =1{# oudiolêer}other{# oudiolêers}}</translation>
+<translation id="2687403674020088961">Blokkeer alle webkoekies (nie aanbeveel nie)</translation>
+<translation id="2689830683995595741">As jy Chrome gebruik, stem jy in tot <ph name="BEGIN_LINK1" />Google se diensbepalings<ph name="END_LINK1" /> en <ph name="BEGIN_LINK2" />Google Chrome en Chrome-bedryfstelsel se bykomende diensbepalings<ph name="END_LINK2" />. Die <ph name="BEGIN_LINK3" />Privaatheidskennisgewing vir Google-rekeninge wat met Family Link bestuur word<ph name="END_LINK3" /> is ook van toepassing.</translation>
 <translation id="2707726405694321444">Herlaai bladsy</translation>
 <translation id="2709516037105925701">Outovul</translation>
 <translation id="2717722538473713889">E-posadresse</translation>
@@ -276,11 +290,13 @@
 <translation id="3058498974290601450">Jy kan sinkronisering enige tyd in Instellings aanskakel</translation>
 <translation id="3060635849835183725">{BOOKMARKS_COUNT,plural, =1{<ph name="BOOKMARKS_COUNT_ONE" /> boekmerk}other{<ph name="BOOKMARKS_COUNT_MANY" /> boekmerke}}</translation>
 <translation id="3089395242580810162">Maak in incognito-oortjie oop</translation>
+<translation id="3114012059975132928">Videospeler</translation>
 <translation id="3123473560110926937">Geblokkeer op sommige werwe</translation>
 <translation id="3123734510202723619">Aankondigings</translation>
 <translation id="3137521801621304719">Verlaat incognitomodus</translation>
 <translation id="3140134512074889489">Aktiveer asseblief jou kamera om 'n QR-kode te skandeer</translation>
 <translation id="3143515551205905069">Kanselleer sinkronisering</translation>
+<translation id="314939179385989105">Chrome se tuisblad</translation>
 <translation id="3157842584138209013">Sien deur die Meer Opsies-knoppie hoeveel data jy bespaar het</translation>
 <translation id="3166827708714933426">Oortjie- en vensterkortpaaie</translation>
 <translation id="3181954750937456830">Veiligblaai (beskerm jou en jou toestel teen gevaarlike werwe)</translation>
@@ -306,7 +322,6 @@
 <translation id="3298243779924642547">Lig</translation>
 <translation id="3303414029551471755">Gaan voort om die inhoud af te laai?</translation>
 <translation id="3306398118552023113">Hierdie program loop tans in Chrome</translation>
-<translation id="3312292613668865961">Vra voordat werwe toegelaat word om toegang tot jou virtuelerealiteit-toestel en -data te kry (aanbeveel)</translation>
 <translation id="3315103659806849044">Jy pasmaak tans jou sinkronisering- en Google-diensinstellings. Tik op die Bevestig-knoppie naby die onderkant van die skerm om die aanskakel van sinkronisering te voltooi. Gaan op</translation>
 <translation id="3328801116991980348">Werfinligting</translation>
 <translation id="3333961966071413176">Alle kontakte</translation>
@@ -315,6 +330,7 @@
 <translation id="3350687908700087792">Maak alle incognito-oortjies toe</translation>
 <translation id="3353615205017136254">Ligte bladsy deur Google verskaf. Tik op die Laai Oorspronklike Bladsy-knoppie om die oorspronklike bladsy te laai.</translation>
 <translation id="3367813778245106622">Meld weer aan om sinkronisering te begin</translation>
+<translation id="3373979091428520308">Skakel sinkronisering in Chrome-instellings op 'n ander toestel aan om hierdie bladsy met die ander toestel te deel</translation>
 <translation id="3374023511497244703">Jou boekmerke, geskiedenis, wagwoorde en ander Chrome-data sal nie meer met jou Google-rekening gesinkroniseer word nie</translation>
 <translation id="3384347053049321195">Deel prent</translation>
 <translation id="3386292677130313581">Vra voordat werwe toegelaat word om jou ligging te ken (aanbeveel)</translation>
@@ -327,11 +343,13 @@
 <translation id="3478363558367712427">Jy kan jou soekenjin kies</translation>
 <translation id="3492207499832628349">Nuwe incognito-oortjie</translation>
 <translation id="3493531032208478708"><ph name="BEGIN_LINK" />Kom meer te wete<ph name="END_LINK" /> oor voorgestelde inhoud</translation>
+<translation id="3499246418971111862">chrome_qrcode_<ph name="CURRENT_TIMESTAMP_MS" /></translation>
 <translation id="3513704683820682405">Aangevulde realiteit</translation>
 <translation id="3518985090088779359">Aanvaar, gaan voort</translation>
 <translation id="3522247891732774234">Opdatering is beskikbaar. Meer opsies</translation>
 <translation id="3524138585025253783">Ontwikkelaar-UI</translation>
 <translation id="3527085408025491307">Vouer</translation>
+<translation id="3538390592868664640">Verhoed werwe om 'n 3D-kaart van jou omgewing te skep of kameraposisie na te spoor</translation>
 <translation id="3542235761944717775"><ph name="KILOBYTES" /> KB beskikbaar</translation>
 <translation id="3549657413697417275">Deursoek jou geskiedenis</translation>
 <translation id="3557336313807607643">Voeg by kontakte</translation>
@@ -340,6 +358,8 @@
 <translation id="3587482841069643663">Alles</translation>
 <translation id="358794129225322306">Laat 'n werf toe om outomaties veelvuldige lêers af te laai</translation>
 <translation id="3590487821116122040">Berging van werwe wat Chrome nie dink belangrik is nie (bv. werwe met geen gestoorde instellings nie of wat jy nie dikwels besoek nie)</translation>
+<translation id="3594780231884063836">Demp video</translation>
+<translation id="3596414637720633074">Blokkeer derdepartywebkoekies in Incognito</translation>
 <translation id="3599863153486145794">Vee geskiedenis op alle aangemelde toestelle uit. Jou Google-rekening het dalk ander vorme van blaaigeskiedenis by <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" />.</translation>
 <translation id="3600792891314830896">Demp werwe wat klank speel</translation>
 <translation id="3616113530831147358">Oudio</translation>
@@ -358,6 +378,7 @@
 <translation id="3749259744154402564">Ongesteun</translation>
 <translation id="3771001275138982843">Kon nie die opdatering aflaai nie</translation>
 <translation id="3771033907050503522">Incognito-oortjies</translation>
+<translation id="3771694256347217732">Google se diensbepalings</translation>
 <translation id="3773755127849930740"><ph name="BEGIN_LINK" />Skakel Bluetooth aan<ph name="END_LINK" /> om saambinding moontlik te maak</translation>
 <translation id="3775705724665058594">Stuur na jou toestelle toe</translation>
 <translation id="3778956594442850293">By tuisskerm gevoeg</translation>
@@ -385,6 +406,7 @@ Net jy kan sien waarna jou kamera kyk. Hierdie werf kan nie jou kamera se prente
 <translation id="396192773038029076">{NUM_IN_PROGRESS,plural, =1{Chrome sal jou bladsy laai wanneer dit gereed is}other{Chrome sal jou bladsye laai wanneer dit gereed is}}</translation>
 <translation id="3963007978381181125">Wagfrase-enkripsie sluit nie betaalmetodes en adresse van Google Pay af in nie. Net iemand met jou wagfrase kan jou geënkripteerde data lees. Die wagfrase word nie na Google toe gestuur of deur Google geberg nie. As jy jou wagfrase vergeet of hierdie instelling wil verander, sal jy sinkronisering moet terugstel. <ph name="BEGIN_LINK" />Kom meer te wete<ph name="END_LINK" /></translation>
 <translation id="3967822245660637423">Aflaai is voltooi</translation>
+<translation id="3974987681202239636"><ph name="APP_NAME" /> sal in Chrome oopmaak. As jy voortgaan, stem jy in tot <ph name="BEGIN_LINK1" />Google se diensbepalings<ph name="END_LINK1" /> en <ph name="BEGIN_LINK2" />Google Chrome en Chrome-bedryfstelsel se bykomende diensbepalings<ph name="END_LINK2" />. Die <ph name="BEGIN_LINK3" />Privaatheidskennisgewing vir Google-rekeninge wat met Family Link bestuur word<ph name="END_LINK3" /> is ook van toepassing.</translation>
 <translation id="397583555483684758">Sinkronisering het ophou werk</translation>
 <translation id="3976396876660209797">Verwyder hierdie kortpad en skep dit weer</translation>
 <translation id="3985215325736559418">Wil jy <ph name="FILE_NAME" /> weer aflaai?</translation>
@@ -428,6 +450,8 @@ Net jy kan sien waarna jou kamera kyk. Hierdie werf kan nie jou kamera se prente
 <translation id="4298388696830689168">Gekoppelde werwe</translation>
 <translation id="4307992518367153382">Basies</translation>
 <translation id="4314815835985389558">Bestuur sinkronisering</translation>
+<translation id="4320177379694898372">Geen internetverbinding nie</translation>
+<translation id="4321739720395210191">Kan nie jou kamera oopmaak nie. Herbegin jou toestel en probeer weer.</translation>
 <translation id="4351244548802238354">Maak dialoog toe</translation>
 <translation id="4353114845960720315">Terwyl jy in VR is, sal hierdie werf dalk meer te wete kom oor:</translation>
 <translation id="4378154925671717803">Foon</translation>
@@ -455,9 +479,6 @@ Net jy kan sien waarna jou kamera kyk. Hierdie werf kan nie jou kamera se prente
 <translation id="4521489764227272523">Die gekose data is van Chrome en jou gesinkroniseerde toestelle verwyder.
 
 Jou Google-rekening het dalk ander vorme van blaaigeskiedenis, soos soektogte en aktiwiteit van ander Google-dienste af, by <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" />.</translation>
-<translation id="4527374721149092498">Kom meer te wete oor onderwerpe op webwerwe sonder om die bladsy te verlaat. Raak om te Soek stuur 'n woord en sy omringende konteks na Google Search toe en wys definisies, prente, soekresultate en ander besonderhede.
-
-Tik op enige woord om 'n soektog daarvoor te skep. Langdruk om te kies as jy jou soekterm wil aanpas. Skuif die paneel oop, tik op die uitvou-ikoon om 'n nuwe oortjie oop te maak, en tik dan in die soekkassie om jou soektog te verfyn.</translation>
 <translation id="4532845899244822526">Kies vouer</translation>
 <translation id="4538018662093857852">Skakel Ligte Modus aan</translation>
 <translation id="4550003330909367850">Stel skermslot op hierdie toestel op om jou wagwoord hier te bekyk of te kopieer.</translation>
@@ -472,11 +493,11 @@ Tik op enige woord om 'n soektog daarvoor te skep. Langdruk om te kies as jy jou
 <translation id="4605958867780575332">Item is verwyder: <ph name="ITEM_TITLE" /></translation>
 <translation id="4616150815774728855">Maak <ph name="WEBAPK_NAME" /> oop</translation>
 <translation id="4634124774493850572">Gebruik wagwoord</translation>
-<translation id="4645575059429386691">Deur jou ouer bestuur</translation>
 <translation id="4650364565596261010">Stelsel se verstek</translation>
 <translation id="4660838440047236328">die uitleg van jou vertrek</translation>
 <translation id="4663756553811254707"><ph name="NUMBER_OF_BOOKMARKS" /> boekmerke is uitgevee</translation>
 <translation id="4665282149850138822"><ph name="NAME" /> is by jou tuisskerm gevoeg</translation>
+<translation id="4670064810192446073">Virtuele realiteit</translation>
 <translation id="4684427112815847243">Sinkroniseer alles</translation>
 <translation id="4695891336199304370">{SHIPPING_OPTIONS,plural, =1{<ph name="SHIPPING_OPTION_PREVIEW" /> \u2026 en nog <ph name="NUMBER_OF_ADDITIONAL_SHIPPING_OPTIONS" />}other{<ph name="SHIPPING_OPTION_PREVIEW" /> \u2026 en nog <ph name="NUMBER_OF_ADDITIONAL_SHIPPING_OPTIONS" />}}</translation>
 <translation id="4696983787092045100">Stuur teks na jou toestelle toe</translation>
@@ -510,15 +531,14 @@ Tik op enige woord om 'n soektog daarvoor te skep. Langdruk om te kies as jy jou
 <translation id="4881695831933465202">Maak oop</translation>
 <translation id="488187801263602086">Hernoem lêer</translation>
 <translation id="4882831918239250449">Beheer hoe jou blaaigeskiedenis gebruik word om Search, advertensies en meer te personaliseer</translation>
-<translation id="4883854917563148705">Bestuurde instellings kan nie teruggestel word nie</translation>
 <translation id="4885273946141277891">Ongesteunde aantal Chrome-gevalle.</translation>
+<translation id="4887024562049524730">Vra voordat werwe toegelaat word om jou virtuelerealiteittoestel en -data te gebruik (aanbeveel)</translation>
 <translation id="4910889077668685004">Betalingprogramme</translation>
 <translation id="4913161338056004800">Stel statistiek terug</translation>
 <translation id="4913169188695071480">Hou op herlaai</translation>
 <translation id="4915549754973153784"><ph name="BEGIN_LINK" />Kry hulp<ph name="END_LINK" /> terwyl toestelle gesoek word …</translation>
 <translation id="4921180162323349895">{FILE_COUNT,plural, =1{# bladsy}other{# bladsye}}</translation>
 <translation id="4932247056774066048">Jou Chrome-data sal van hierdie toestel af uitgevee word omdat jy uitteken by 'n rekening wat deur <ph name="DOMAIN_NAME" /> bestuur word. Dit sal in jou Google-rekening bly.</translation>
-<translation id="4935305910887312910">Vra voordat werwe toegelaat word om kameraposisie te ontvang of jou vertrek te karteer (aanbeveel)</translation>
 <translation id="4943703118917034429">Virtuele realiteit</translation>
 <translation id="4943872375798546930">Geen resultate nie</translation>
 <translation id="4958708863221495346"><ph name="URL_OF_THE_CURRENT_TAB" /> deel tans jou skerm</translation>
@@ -540,7 +560,6 @@ Tik op enige woord om 'n soektog daarvoor te skep. Langdruk om te kies as jy jou
 <translation id="5048398596102334565">Laat werwe toegang tot bewegingsensors toe (aanbeveel)</translation>
 <translation id="5063480226653192405">Gebruik</translation>
 <translation id="5087580092889165836">Voeg kaart by</translation>
-<translation id="5100237604440890931">Ingevou – klik om uit te vou.</translation>
 <translation id="510275257476243843">1 uur oor</translation>
 <translation id="5123685120097942451">Incognito-oortjie</translation>
 <translation id="5127805178023152808">Sinkronisering is af</translation>
@@ -576,9 +595,7 @@ Tik op enige woord om 'n soektog daarvoor te skep. Langdruk om te kies as jy jou
 <translation id="534295439873310000">NFC-toestelle</translation>
 <translation id="5357811892247919462">Oortjie is ontvang</translation>
 <translation id="5368958499335451666">{OPEN_TABS,plural, =1{<ph name="OPEN_TABS_ONE" /> oop oortjie, tik om oortjies te wissel}other{<ph name="OPEN_TABS_MANY" /> oop oortjies, tik om oortjies te wissel}}</translation>
-<translation id="5391532827096253100">Jou verbinding aan hierdie werf is nie veilig nie. Werfinligting</translation>
 <translation id="5394307150471348411">{DETAIL_COUNT,plural, =1{(+ nog 1)}other{(+ nog #)}}</translation>
-<translation id="5400569084694353794">Deur hierdie program te gebruik, stem jy in tot Chrome se <ph name="BEGIN_LINK1" />diensbepalings<ph name="END_LINK1" /> en <ph name="BEGIN_LINK2" />privaatheidkennisgewing<ph name="END_LINK2" />.</translation>
 <translation id="5403592356182871684">Name</translation>
 <translation id="5403644198645076998">Laat net sekere werwe toe</translation>
 <translation id="5414836363063783498">Verifieer tans …</translation>
@@ -594,6 +611,7 @@ Tik op enige woord om 'n soektog daarvoor te skep. Langdruk om te kies as jy jou
 <translation id="5456381639095306749">Laai bladsy af</translation>
 <translation id="548278423535722844">Maak in kaarteprogram oop</translation>
 <translation id="5487521232677179737">Vee data uit</translation>
+<translation id="5489227211564503167">Tyd verstreke is <ph name="ELAPSED_TIME" /> van <ph name="TOTAL_TIME" />.</translation>
 <translation id="5494752089476963479">Blokkeer advertensies op werwe wat indringerige of misleidende advertensies wys</translation>
 <translation id="5500777121964041360">Dalk nie in jou ligging beskikbaar nie</translation>
 <translation id="5505264765875738116">Werwe kan nie vra om kennisgewings te stuur nie</translation>
@@ -608,7 +626,6 @@ Tik op enige woord om 'n soektog daarvoor te skep. Langdruk om te kies as jy jou
 <translation id="5530766185686772672">Maak incognito-oortjies toe</translation>
 <translation id="5534640966246046842">Werf is gekopieer</translation>
 <translation id="5561549206367097665">Wag tans vir netwerk …</translation>
-<translation id="557283862590186398">Chrome het toestemming nodig vir toegang tot jou mikrofoon vir hierdie werf.</translation>
 <translation id="55737423895878184">Ligging en kennisgewings word toegelaat</translation>
 <translation id="5578795271662203820">Deursoek <ph name="SEARCH_ENGINE" /> vir hierdie prent</translation>
 <translation id="5581519193887989363">Jy kan altyd in <ph name="BEGIN_LINK1" />instellings<ph name="END_LINK1" /> kies wat om te sinkroniseer.</translation>
@@ -638,6 +655,7 @@ Tik op enige woord om 'n soektog daarvoor te skep. Langdruk om te kies as jy jou
 <translation id="5763514718066511291">Tik om hierdie program se URL te kopieer</translation>
 <translation id="5765780083710877561">Beskrywing:</translation>
 <translation id="5793665092639000975">Gebruik tans <ph name="SPACE_USED" /> van <ph name="SPACE_AVAILABLE" /></translation>
+<translation id="5795872532621730126">Soek en blaai</translation>
 <translation id="5797070761912323120">Google kan jou geskiedenis gebruik om Search, advertensies en ander Google-dienste te personaliseer</translation>
 <translation id="5804241973901381774">Toestemmings</translation>
 <translation id="5809361687334836369">{HOURS,plural, =1{# uur gelede}other{# uur gelede}}</translation>
@@ -649,12 +667,12 @@ Tik op enige woord om 'n soektog daarvoor te skep. Langdruk om te kies as jy jou
 <translation id="5853623416121554550">laat wag</translation>
 <translation id="5854790677617711513">Ouer as 30 dae</translation>
 <translation id="5858741533101922242">Chrome kan nie Bluetooth-aansluitprop aanskakel nie</translation>
-<translation id="5860491529813859533">Skakel aan</translation>
 <translation id="5862731021271217234">Skakel sinkronisering aan om jou oortjies van jou ander toestelle af te kry</translation>
 <translation id="5864174910718532887">Besonderhede: Gerangskik volgens werfnaam</translation>
 <translation id="5864419784173784555">Wag tans vir nog 'n aflaai …</translation>
 <translation id="5865733239029070421">Stuur gebruikstatistieke en omvalverslae outomaties na Google</translation>
 <translation id="5869522115854928033">Gestoorde wagwoorde</translation>
+<translation id="5876056640971328065">Onderbreek video</translation>
 <translation id="5884076754568147479">Om jou te help om take te voltooi, sal Google die URL'e en inhoud ontvang van werwe waarop jy Assistent gebruik, asook inligting wat jy deur Assistent indien</translation>
 <translation id="5902828464777634901">Alle plaaslike data wat deur hierdie webwerf gestuur word, insluitend webkoekies, sal uitgevee word.</translation>
 <translation id="5919204609460789179">Dateer <ph name="PRODUCT_NAME" /> op om sinkronisering te begin</translation>
@@ -665,6 +683,7 @@ Tik op enige woord om 'n soektog daarvoor te skep. Langdruk om te kies as jy jou
 <translation id="5956665950594638604">Maak die Chrome-hulpsentrum in 'n nuwe oortjie oop</translation>
 <translation id="5958275228015807058">Kry jou lêers en bladsye in Aflaaie</translation>
 <translation id="5962718611393537961">Tik om in te vou</translation>
+<translation id="5964805880140440652">Skakel sinkronisering in Chrome-instellings aan om hierdie bladsy met 'n ander toestel te deel</translation>
 <translation id="6000066717592683814">Hou Google</translation>
 <translation id="6005538289190791541">Voorgestelde wagwoord</translation>
 <translation id="6036057147555329831">Ekstra ICU</translation>
@@ -674,8 +693,6 @@ Tik op enige woord om 'n soektog daarvoor te skep. Langdruk om te kies as jy jou
 <translation id="604996488070107836">Kon <ph name="FILE_NAME" /> weens 'n onbekende fout nie aflaai nie.</translation>
 <translation id="605721222689873409">YY</translation>
 <translation id="6064125863973209585">Voltooide aflaaie</translation>
-<translation id="6075798973483050474">Wysig tuisblad</translation>
-<translation id="6092062101542170135">Skakel NFC in Android-instellings aan om voort te gaan</translation>
 <translation id="60923314841986378"><ph name="HOURS" /> uur oor</translation>
 <translation id="6108923351542677676">Opstelling is besig …</translation>
 <translation id="6111020039983847643">data gebruik</translation>
@@ -692,21 +709,19 @@ Tik op enige woord om 'n soektog daarvoor te skep. Langdruk om te kies as jy jou
 <translation id="6194112207524046168">Vir Chrome om toegang tot jou kamera te kry, moet jy kamera ook in <ph name="BEGIN_LINK" />Android-instellings<ph name="END_LINK" /> aanskakel.</translation>
 <translation id="6196640612572343990">Blokkeer derdeparty-webkoekies</translation>
 <translation id="6201345951596836663">Skakel is gekopieer</translation>
-<translation id="6206551242102657620">Verbinding is veilig. Werfinligting</translation>
 <translation id="6210748933810148297">Nie <ph name="EMAIL" /> nie?</translation>
 <translation id="6221633008163990886">Ontsluit om jou wagwoorde uit te voer</translation>
 <translation id="6232535412751077445">As “Moenie naspoor nie” geaktiveer word, beteken dit dat 'n versoek by jou blaaiverkeer ingesluit sal word. Enige uitwerking sal afhang van of 'n webwerf op die versoek reageer en hoe die versoek geïnterpreteer word.
 
 Byvoorbeeld, sommige webwerwe kan op hierdie versoek reageer deur vir jou advertensies te wys wat nie gegrond is op ander webwerwe wat jy besoek het nie. Baie webwerwe sal steeds jou blaaidata insamel en gebruik – byvoorbeeld om sekuriteit te verbeter, om inhoud, advertensies en aanbevelings te verskaf en om verslagdoeningstatistiek te genereer.</translation>
-<translation id="6238003486329291387">Kom meer te wete oor onderwerpe op webwerwe sonder om die bladsy te verlaat. Raak om te Soek stuur 'n woord en sy omringende konteks na Google Search toe en wys definisies, prente, soekresultate en ander besonderhede.
-
-Langdruk enige woord om 'n soektog daarvoor te skep. Pas die seleksie aan om jou soektog te verfyn. Jy kan ook die paneel oopskuif, op die uitvou-ikoon tik om 'n nuwe oortjie oop te maak, en dan in die soekkassie tik.</translation>
 <translation id="624789221780392884">Opdatering gereed</translation>
 <translation id="6255999984061454636">Inhoudvoorstelle</translation>
 <translation id="6270391203985052864">Werwe kan vra om kennisgewings te stuur</translation>
 <translation id="6277522088822131679">Kon nie die bladsy uitdruk nie. Probeer asseblief weer.</translation>
+<translation id="6292420053234093573">As jy Chrome gebruik, stem jy in tot <ph name="BEGIN_LINK1" />Google se diensbepalings<ph name="END_LINK1" /> en <ph name="BEGIN_LINK2" />Google Chrome en Chrome-bedryfstelsel se bykomende diensbepalings<ph name="END_LINK2" />.</translation>
 <translation id="6295158916970320988">Alle werwe</translation>
 <translation id="629730747756840877">Rekening</translation>
+<translation id="6297765934698848803">Die organisasie wat jou toestel bestuur, het jou kamera afgeskakel.</translation>
 <translation id="6303969859164067831">Meld af en skakel sinkronisering af</translation>
 <translation id="6316139424528454185">Steun nie Android-weergawe nie</translation>
 <translation id="6320088164292336938">Vibreer</translation>
@@ -718,10 +733,11 @@ Langdruk enige woord om 'n soektog daarvoor te skep. Pas die seleksie aan om jou
 <translation id="6364438453358674297">Verwyder voorstel uit geskiedenis?</translation>
 <translation id="6369229450655021117">Van hier af kan jy die web deursoek, met vriende deel, en oop bladsye sien</translation>
 <translation id="6378173571450987352">Besonderhede: Gerangskik volgens hoeveelheid data gebruik</translation>
+<translation id="6379829913050047669"><ph name="APP_NAME" /> sal in Chrome oopmaak. As jy voortgaan, stem jy in tot <ph name="BEGIN_LINK1" />Google se diensbepalings<ph name="END_LINK1" /> en <ph name="BEGIN_LINK2" />Google Chrome en Chrome-bedryfstelsel se bykomende diensbepalings<ph name="END_LINK2" />.</translation>
 <translation id="6381421346744604172">Verdonker webwerwe</translation>
 <translation id="6388207532828177975">Vee uit en stel terug</translation>
-<translation id="6393863479814692971">Chrome het toestemming nodig vir toegang tot jou kamera en mikrofoon vir hierdie werf.</translation>
 <translation id="6395288395575013217">SKAKEL</translation>
+<translation id="6397616442223433927">Weer aanlyn</translation>
 <translation id="6404511346730675251">Wysig boekmerk</translation>
 <translation id="6406506848690869874">Sinkronisering</translation>
 <translation id="6410973561433500075">Voer AR van <ph name="DOMAIN" /> af in?</translation>
@@ -730,8 +746,10 @@ Langdruk enige woord om 'n soektog daarvoor te skep. Pas die seleksie aan om jou
 <translation id="6427112570124116297">Vertaal die Web</translation>
 <translation id="6433501201775827830">Kies jou soekenjin</translation>
 <translation id="6437478888915024427">Bladsy-inligting</translation>
+<translation id="6439114592976064011">Keer werwe om jou virtuelerealiteittoestel en -data te gebruik</translation>
 <translation id="6441734959916820584">Naam is te lank</translation>
 <translation id="6444421004082850253">{FILE_COUNT,plural, =1{# prent}other{# prente}}</translation>
+<translation id="6447558397796644647">Kan nie daardie boekmerk opspoor nie. Gaan jou spelling na of voeg 'n nuwe boekmerk by.</translation>
 <translation id="6447842834002726250">Webkoekies</translation>
 <translation id="6461962085415701688">Kan nie lêer oopmaak nie</translation>
 <translation id="6464977750820128603">Jy kan werwe sien wat jy in Chrome besoek en tydtellers vir hulle stel.\n\nGoogle kry inligting oor die werwe waarvoor jy tydtellers stel en hoe lank jy hulle besoek. Hierdie inligting word gebruik om Digitale Welstand te verbeter.</translation>
@@ -771,7 +789,6 @@ Langdruk enige woord om 'n soektog daarvoor te skep. Pas die seleksie aan om jou
 <translation id="6676840375528380067">Vee jou Chrome-data op hierdie toestel uit?</translation>
 <translation id="6689172468748959065">Profielfoto's</translation>
 <translation id="6697492270171225480">Wys voorstelle vir soortgelyke bladsye wanneer 'n bladsy nie gevind kan word nie</translation>
-<translation id="6697947395630195233">Chrome het toegang tot jou ligging nodig om jou ligging met hierdie werf te deel.</translation>
 <translation id="6698801883190606802">Bestuur gesinkroniseerde data</translation>
 <translation id="6699370405921460408">Google-bedieners sal die bladsye wat jy besoek, optimeer.</translation>
 <translation id="6710213216561001401">Vorige</translation>
@@ -789,6 +806,7 @@ Langdruk enige woord om 'n soektog daarvoor te skep. Pas die seleksie aan om jou
 <translation id="6846298663435243399">Laai tans …</translation>
 <translation id="6850409657436465440">Jou aflaai is nog aan die gang</translation>
 <translation id="6850830437481525139"><ph name="TAB_COUNT" /> oortjies is toegemaak</translation>
+<translation id="6864395892908308021">Hierdie toestel kan nie NFC lees nie</translation>
 <translation id="6864459304226931083">Laai prent af</translation>
 <translation id="6865313869410766144">Vul vormdata outomaties in</translation>
 <translation id="6884306546558072722">Hou aan om vanlyn te verken</translation>
@@ -799,7 +817,6 @@ Langdruk enige woord om 'n soektog daarvoor te skep. Pas die seleksie aan om jou
 <translation id="6914783257214138813">Jou wagwoorde sal sigbaar wees aan enigiemand wat die uitgevoerde lêer kan sien.</translation>
 <translation id="6942665639005891494">Verander enige tyd die verstekaflaailigging met die Instellingskieslysopsie</translation>
 <translation id="6945221475159498467">Kies</translation>
-<translation id="6963642900430330478">Hierdie bladsy is gevaarlik. Werfinligting</translation>
 <translation id="6963766334940102469">Vee boekmerke uit</translation>
 <translation id="6979737339423435258">Van die begin af</translation>
 <translation id="6981982820502123353">Toeganklikheid</translation>
@@ -807,6 +824,7 @@ Langdruk enige woord om 'n soektog daarvoor te skep. Pas die seleksie aan om jou
 <translation id="6990079615885386641">Kry die program van die Google Play Winkel af: <ph name="APP_ACTION" /></translation>
 <translation id="6992289844737586249">Vra eers voordat werwe toegelaat word om jou mikrofoon te gebruik (aanbeveel)</translation>
 <translation id="6995899638241819463">Waarsku jou as wagwoorde in 'n dataskending blootgestel is</translation>
+<translation id="7000754031042624318">Afgeskakel in Android-instellings</translation>
 <translation id="7015203776128479407">Aanvanklike sinkroniseringopstelling is nie voltooi nie. Sinkronisering is af.</translation>
 <translation id="7016516562562142042">Toegelaat vir huidige soekenjin</translation>
 <translation id="7022756207310403729">Maak in blaaier oop</translation>
@@ -823,6 +841,7 @@ Langdruk enige woord om 'n soektog daarvoor te skep. Pas die seleksie aan om jou
 <translation id="7141896414559753902">Verhinder werwe om opspringers en herleidings te wys (aanbeveel)</translation>
 <translation id="7149158118503947153"><ph name="BEGIN_LINK" />Laai oorspronklike bladsy<ph name="END_LINK" /> van <ph name="DOMAIN_NAME" /> af</translation>
 <translation id="7149893636342594995">Afgelope 24 uur</translation>
+<translation id="7173114856073700355">Maak Instellings oop</translation>
 <translation id="7176368934862295254"><ph name="KILOBYTES" /> KB</translation>
 <translation id="7177466738963138057">Jy kan dit later verander in Instellings</translation>
 <translation id="7180611975245234373">Herlaai</translation>
@@ -908,6 +927,8 @@ Langdruk enige woord om 'n soektog daarvoor te skep. Pas die seleksie aan om jou
 <translation id="780301667611848630">Nee, dankie</translation>
 <translation id="7810647596859435254">Maak oop met …</translation>
 <translation id="7821588508402923572">Jou databesparing sal hier verskyn</translation>
+<translation id="7828557259026017104">Webkoekies is lêers wat geskep word deur webwerwe wat jy besoek. Werwe kan hulle gebruik om jou voorkeure te onthou. Derdepartywebkoekies word deur ander werwe geskep. Hierdie werwe besit van die inhoud, soos advertensies of prente, wat jy sien op die webbladsy wat jy besoek.</translation>
+<translation id="783819812427904514">Ontdemp video</translation>
 <translation id="784934925303690534">Tydomvang</translation>
 <translation id="7851858861565204677">Ander toestelle</translation>
 <translation id="7875915731392087153">Skep e-pos</translation>
@@ -920,12 +941,13 @@ Langdruk enige woord om 'n soektog daarvoor te skep. Pas die seleksie aan om jou
 <translation id="7942131818088350342"><ph name="PRODUCT_NAME" /> is verouderd.</translation>
 <translation id="7947953824732555851">Aanvaar en meld aan</translation>
 <translation id="7963646190083259054">Verskaffer:</translation>
+<translation id="7967911570373677897">Verander jou instellings sodat Chrome jou kamera kan gebruik as jy 'n QR-kode wil skandeer</translation>
 <translation id="7971136598759319605">1 dag gelede aktief</translation>
 <translation id="7975379999046275268">Voorbeskou bladsy <ph name="BEGIN_NEW" />Nuwe<ph name="END_NEW" /></translation>
 <translation id="7981313251711023384">Laai bladsye vooraf om vinniger te blaai en te soek</translation>
 <translation id="79859296434321399">Installeer ARCore om verhoogderealiteitinhoud te bekyk</translation>
 <translation id="7986741934819883144">Kies 'n kontak</translation>
-<translation id="7987073022710626672">Chrome se diensbepalings</translation>
+<translation id="7993619969781047893">Kenmerke op sommige werwe kan breek</translation>
 <translation id="7998918019931843664">Heropen toegemaakte oortjie</translation>
 <translation id="7999064672810608036">Is jy seker dat jy alle plaaslike data, insluitend webkoekies, wil uitvee en alle toestemmings vir hierdie webwerf wil terugstel?</translation>
 <translation id="8004582292198964060">Blaaier</translation>
@@ -965,6 +987,7 @@ Langdruk enige woord om 'n soektog daarvoor te skep. Pas die seleksie aan om jou
 <translation id="8218622182176210845">Bestuur jou rekening</translation>
 <translation id="8224471946457685718">Laai vir jou artikels op Wi-Fi af</translation>
 <translation id="8232956427053453090">Hou data</translation>
+<translation id="8233540874193135768">Gebruik 'n toestel met 'n kamera as jy 'n QR-kode wil skandeer.</translation>
 <translation id="8250920743982581267">Dokumente</translation>
 <translation id="825412236959742607">Hierdie bladsy gebruik te veel berging en daarom het Chrome van die inhoud verwyder.</translation>
 <translation id="8260126382462817229">Probeer weer om aan te meld</translation>
@@ -981,7 +1004,6 @@ Langdruk enige woord om 'n soektog daarvoor te skep. Pas die seleksie aan om jou
 <translation id="8364299278605033898">Sien gewilde webwerwe</translation>
 <translation id="8368027906805972958">Onbekende of ongesteunde toestel (<ph name="DEVICE_ID" />)</translation>
 <translation id="8372893542064058268">Laat agtergrondsinkronisering vir 'n spesifieke werf toe.</translation>
-<translation id="8378714024927312812">Bestuur deur jou organisasie</translation>
 <translation id="8380167699614421159">Hierdie werf wys indringerige of misleidende advertensies</translation>
 <translation id="8393700583063109961">Stuur boodskap</translation>
 <translation id="8413126021676339697">Wys volle geskiedenis</translation>
@@ -1025,9 +1047,7 @@ Langdruk enige woord om 'n soektog daarvoor te skep. Pas die seleksie aan om jou
 <translation id="8664979001105139458">Lêernaam bestaan reeds</translation>
 <translation id="8687353297350450808">{N_BARS,plural, =1{Seinsterktevlak: # stafie}other{Seinsterktevlak: # stafies}}</translation>
 <translation id="868929229000858085">Deursoek jou kontakte</translation>
-<translation id="8698438463325761328">Blokkeer werwe om toegang tot jou virtuelerealiteit-toestel en -data te kry</translation>
 <translation id="869891660844655955">Vervaldatum</translation>
-<translation id="8728487861892616501">Deur hierdie program te gebruik, stem jy in tot Chrome se <ph name="BEGIN_LINK1" />diensbepalings<ph name="END_LINK1" /> en <ph name="BEGIN_LINK2" />privaatheidkennisgewing<ph name="END_LINK2" />, en die <ph name="BEGIN_LINK3" />privaatheidkennisgewing vir Google-rekeninge wat met Family Link bestuur word<ph name="END_LINK3" />.</translation>
 <translation id="8748850008226585750">Inhoud word versteek</translation>
 <translation id="8751914237388039244">Kies 'n prent</translation>
 <translation id="8758557275681689734">Sien al jou oop oortjies</translation>
@@ -1036,17 +1056,14 @@ Langdruk enige woord om 'n soektog daarvoor te skep. Pas die seleksie aan om jou
 <translation id="8801436777607969138">Blokkeer JavaScript vir 'n spesifieke werf.</translation>
 <translation id="8812260976093120287">Op sommige webwerwe kan jy met gesteunde betalingprogramme op jou toestel betaal.</translation>
 <translation id="8816026460808729765">Blokkeer werwe om toegang tot sensors kry</translation>
-<translation id="8816439037877937734"><ph name="APP_NAME" /> sal in Chrome oopmaak. Deur voort te gaan, stem jy in tot Chrome se <ph name="BEGIN_LINK1" />diensbepalings<ph name="END_LINK1" /> en <ph name="BEGIN_LINK2" />privaatheidskennisgewing<ph name="END_LINK2" />, en die <ph name="BEGIN_LINK3" />privaatheidskennisgewing vir Google-rekeninge wat met Family Link bestuur word<ph name="END_LINK3" />.</translation>
 <translation id="8820817407110198400">Boekmerke</translation>
 <translation id="8833831881926404480">'n Werf deel tans jou skerm</translation>
 <translation id="883806473910249246">Kon nie die inhoud aflaai nie.</translation>
 <translation id="8840953339110955557">Hierdie bladsy kan van die aanlyn weergawe verskil.</translation>
 <translation id="8847988622838149491">USB</translation>
-<translation id="884828189055900810">Blokkeer werwe om kameraposisie te ontvang en jou vertrek te karteer</translation>
 <translation id="8853345339104747198"><ph name="TAB_TITLE" />, oortjie</translation>
 <translation id="885701979325669005">Berging</translation>
 <translation id="889338405075704026">Gaan na Chrome-instellings</translation>
-<translation id="8901170036886848654">Geen boekmerke gevind nie</translation>
 <translation id="8909135823018751308">Deel …</translation>
 <translation id="8912362522468806198">Google-rekening</translation>
 <translation id="8920114477895755567">Wag tans vir besonderhede van ouers.</translation>
@@ -1062,9 +1079,9 @@ Langdruk enige woord om 'n soektog daarvoor te skep. Pas die seleksie aan om jou
 <translation id="8965591936373831584">hangende</translation>
 <translation id="8970887620466824814">Iets is fout.</translation>
 <translation id="8972098258593396643">Laai af na verstekvouer?</translation>
+<translation id="8988028529677883095">Gebruik foon as 'n sekuriteitsleutel</translation>
 <translation id="8993760627012879038">Maak 'n nuwe oortjie in incognitomodus oop</translation>
 <translation id="8998729206196772491">Jy meld tans aan met 'n rekening wat deur <ph name="MANAGED_DOMAIN" /> bestuur word en gee sy administrateur beheer oor jou Chrome-data. Jou data sal permanent met hierdie rekening verbind word. As jy by Chrome afmeld, sal jou data van hierdie toestel af uitgevee word, maar dit sal steeds in jou Google-rekening geberg word.</translation>
-<translation id="9019902583201351841">Deur jou ouers bestuur</translation>
 <translation id="9028914725102941583">Skakel sinkronisering aan om tussen toestelle te deel</translation>
 <translation id="9040142327097499898">Kennisgewings word toegelaat. Ligging is af vir hierdie toestel.</translation>
 <translation id="9041669420854607037">{FILE_COUNT,plural, =1{# video}other{# video's}}</translation>
@@ -1073,6 +1090,7 @@ Langdruk enige woord om 'n soektog daarvoor te skep. Pas die seleksie aan om jou
 <translation id="9065203028668620118">Wysig</translation>
 <translation id="9070377983101773829">Begin stemsoektog</translation>
 <translation id="9074336505530349563">Meld aan en skakel sinkronisering aan om gepersonaliseerde inhoud wat deur Google voorgestel is, te kry</translation>
+<translation id="9086302186042011942">Sinkroniseer tans</translation>
 <translation id="9086455579313502267">Kon nie by netwerk ingaan nie</translation>
 <translation id="9100505651305367705">Bied aan om artikels in vereenvoudigde aansig te wys, as dit gesteun word</translation>
 <translation id="9100610230175265781">Wagwoordfrase word vereis</translation>

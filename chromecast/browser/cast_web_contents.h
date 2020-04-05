@@ -12,9 +12,11 @@
 #include "base/containers/flat_set.h"
 #include "base/observer_list.h"
 #include "base/optional.h"
+#include "base/process/process.h"
 #include "base/strings/string16.h"
 #include "base/strings/string_piece_forward.h"
 #include "chromecast/common/mojom/feature_manager.mojom.h"
+#include "content/public/common/media_playback_renderer_type.mojom.h"
 #include "services/service_manager/public/cpp/binder_registry.h"
 #include "services/service_manager/public/cpp/interface_provider.h"
 #include "third_party/blink/public/common/messaging/web_message_port.h"
@@ -164,6 +166,10 @@ class CastWebContents {
     // Notifies that a resource for the main frame failed to load.
     virtual void ResourceLoadFailed(CastWebContents* cast_web_contents) {}
 
+    // Propagates the process information via observer, in particular to
+    // the underlying OnRendererProcessStarted() method.
+    virtual void OnRenderProcessReady(const base::Process& process) {}
+
     // Adds |this| to the ObserverList in the implementation of
     // |cast_web_contents|.
     void Observe(CastWebContents* cast_web_contents);
@@ -199,7 +205,8 @@ class CastWebContents {
     // debugging interfaces.
     bool enabled_for_dev = false;
     // Chooses a media renderer for the WebContents.
-    bool use_cma_renderer = false;
+    content::mojom::RendererType renderer_type =
+        content::mojom::RendererType::DEFAULT_RENDERER;
     // Whether the WebContents is a root native window, or if it is embedded in
     // another WebContents (see Delegate::InnerContentsCreated()).
     bool is_root_window = false;
@@ -220,6 +227,10 @@ class CastWebContents {
     // Clients can use it to send queryable values to the render frames.
     // queryable_data_host() will return a nullptr if this is false.
     bool enable_queryable_data_host = false;
+    // Whether to provide a URL filter applied to network requests for the
+    // activity hosted by this CastWebContents.
+    // No filters implies no restrictions.
+    base::Optional<std::vector<std::string>> url_filters = base::nullopt;
 
     InitParams();
     InitParams(const InitParams& other);
@@ -291,6 +302,18 @@ class CastWebContents {
   virtual void Stop(int error_code) = 0;
 
   // ===========================================================================
+  // Visibility
+  // ===========================================================================
+
+  // Specify if the WebContents should be treated as visible. This triggers a
+  // document "visibilitychange" change event, and will paint the WebContents
+  // quad if |visible| is true (otherwise it will be blank). Note that this does
+  // *not* guarantee the page is visible on the screen, as that depends on if
+  // the WebContents quad is present in the screen layout and isn't obscured by
+  // another window.
+  virtual void SetWebVisibilityAndPaint(bool visible) = 0;
+
+  // ===========================================================================
   // Media Management
   // ===========================================================================
 
@@ -348,6 +371,16 @@ class CastWebContents {
       const std::string& data,
       std::vector<blink::WebMessagePort> ports) = 0;
 
+  // Executes a string of JavaScript in the main frame's context.
+  // This is no-op if the main frame is not available.
+  // Pass in a callback to receive a result when it is available.
+  // If there is no need to receive the result, pass in a
+  // default-constructed callback. If provided, the callback
+  // will be invoked on the UI thread.
+  virtual void ExecuteJavaScript(
+      const base::string16& javascript,
+      base::OnceCallback<void(base::Value)> callback) = 0;
+
   // ===========================================================================
   // Utility Methods
   // ===========================================================================
@@ -377,6 +410,10 @@ class CastWebContents {
 
   // Returns true if mixer audio is enabled.
   virtual bool is_mixer_audio_enabled() = 0;
+
+  // Returns whether or not CastWebContents binder_registry() is valid for
+  // binding interfaces.
+  virtual bool can_bind_interfaces() = 0;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(CastWebContents);

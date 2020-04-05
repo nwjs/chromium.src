@@ -7,6 +7,7 @@
 #include <string>
 #include <utility>
 
+#include "base/bind_helpers.h"
 #include "base/logging.h"
 #include "base/macros.h"
 #include "chromeos/dbus/dbus_method_call_status.h"
@@ -98,6 +99,8 @@ class ArcContainerClientAdapter
     request.set_arc_custom_tabs_experiment(params.arc_custom_tabs_experiment);
     request.set_arc_print_spooler_experiment(
         params.arc_print_spooler_experiment);
+    request.set_disable_system_default_app(
+        params.arc_disable_system_default_app);
 
     chromeos::SessionManagerClient::Get()->StartArcMiniContainer(
         request, std::move(callback));
@@ -128,8 +131,7 @@ class ArcContainerClientAdapter
   void StopArcInstance(bool) override {
     // Since we have the ArcInstanceStopped() callback, we don't need to do
     // anything when StopArcInstance completes.
-    chromeos::SessionManagerClient::Get()->StopArcInstance(
-        chromeos::EmptyVoidDBusMethodCallback());
+    chromeos::SessionManagerClient::Get()->StopArcInstance(base::DoNothing());
   }
 
   void SetUserInfo(const std::string& hash,

@@ -292,7 +292,7 @@ bool PropertyTreeBuilderContext::AddTransformNodeIfNeeded(
   GetAnimationScales(mutator_host_, layer, &node->maximum_animation_scale,
                      &node->starting_animation_scale);
 
-  node->scroll_offset = layer->CurrentScrollOffset();
+  node->scroll_offset = layer->scroll_offset();
 
   node->needs_local_transform_update = true;
   transform_tree_.UpdateTransforms(node->id);
@@ -626,7 +626,7 @@ void PropertyTreeBuilderContext::AddScrollNodeIfNeeded(
 
     if (node.scrollable) {
       scroll_tree_.SetBaseScrollOffset(layer->element_id(),
-                                       layer->CurrentScrollOffset());
+                                       layer->scroll_offset());
     }
   }
 
@@ -634,19 +634,12 @@ void PropertyTreeBuilderContext::AddScrollNodeIfNeeded(
 }
 
 void SetBackfaceVisibilityTransform(Layer* layer, bool created_transform_node) {
-  if (layer->use_parent_backface_visibility()) {
-    DCHECK(layer->parent());
-    DCHECK(!layer->parent()->use_parent_backface_visibility());
-    layer->SetShouldCheckBackfaceVisibility(
-        layer->parent()->should_check_backface_visibility());
-  } else {
-    // A double-sided layer's backface can been shown when its visible.
-    // In addition, we need to check if (1) there might be a local 3D transform
-    // on the layer that might turn it to the backface, or (2) it is not drawn
-    // into a flattened space.
-    layer->SetShouldCheckBackfaceVisibility(!layer->double_sided() &&
-                                            created_transform_node);
-  }
+  // A double-sided layer's backface can been shown when its visible.
+  // In addition, we need to check if (1) there might be a local 3D transform
+  // on the layer that might turn it to the backface, or (2) it is not drawn
+  // into a flattened space.
+  layer->SetShouldCheckBackfaceVisibility(!layer->double_sided() &&
+                                          created_transform_node);
 }
 
 void SetSafeOpaqueBackgroundColor(const DataForRecursion& data_from_ancestor,
@@ -764,7 +757,6 @@ void PropertyTreeBuilderContext::BuildPropertyTrees() {
   transform_tree_.set_needs_update(false);
   clip_tree_.set_needs_update(true);
   effect_tree_.set_needs_update(true);
-  scroll_tree_.set_needs_update(false);
 }
 
 }  // namespace

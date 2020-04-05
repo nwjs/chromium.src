@@ -20,6 +20,8 @@ extern const int kTrayTextFontSizeIncrease;
 
 ASH_EXPORT extern const int kTrayItemSize;
 
+extern const float kTrayItemCornerRadius;
+
 // Extra padding used beside a single icon in the tray area of the shelf.
 constexpr int kTrayImageItemPadding = 3;
 
@@ -27,6 +29,7 @@ constexpr int kTrayImageItemPadding = 3;
 extern const int kTrayMenuWidth;
 
 extern const int kTrayPopupAutoCloseDelayInSeconds;
+extern const int kTrayPopupAutoCloseDelayInSecondsWithSpokenFeedback;
 extern const int kTrayPopupPaddingHorizontal;
 extern const int kTrayPopupButtonEndMargin;
 
@@ -91,10 +94,13 @@ extern const int kTrayPopupInkDropCornerRadius;
 
 constexpr float kUnifiedMenuBackgroundBlur = 30.f;
 
+// Threshold to ignore update on the slider value.
+constexpr float kAudioSliderIgnoreUpdateThreshold = 0.01;
+
 constexpr gfx::Insets kUnifiedMenuItemPadding(0, 16, 16, 16);
 constexpr gfx::Insets kUnifiedSystemInfoViewPadding(0, 16, 16, 16);
 constexpr gfx::Insets kUnifiedManagedDeviceViewPadding(4, 19, 4, 16);
-constexpr gfx::Insets kUnifiedSliderRowPadding(0, 12, 8, 16);
+constexpr gfx::Insets kUnifiedSliderRowPadding(0, 16, 8, 16);
 constexpr gfx::Insets kUnifiedSliderBubblePadding(12, 0, 4, 0);
 constexpr gfx::Insets kUnifiedSliderPadding(0, 16);
 
@@ -102,7 +108,7 @@ constexpr int kMessageCenterCollapseThreshold = 175;
 constexpr int kStackedNotificationBarHeight = 32;
 constexpr int kStackedNotificationBarCollapsedHeight = 40;
 constexpr int kNotificationIconStackThreshold = 28;
-constexpr int kUnifiedSliderViewSpacing = 12;
+constexpr int kUnifiedSliderViewSpacing = 16;
 constexpr int kUnifiedMenuPadding = 8;
 constexpr int kUnifiedMessageCenterBubbleSpacing = 8;
 constexpr int kUnifiedNotificationCenterSpacing = 16;
@@ -152,7 +158,7 @@ constexpr gfx::Insets kUnifiedFeaturePodHoverPadding(2);
 constexpr int kUnifiedFeaturePodVectorIconSize = 20;
 constexpr int kUnifiedFeaturePodLabelWidth = 80;
 constexpr int kUnifiedFeaturePodSpacing = 6;
-constexpr int kUnifiedFeaturePodHoverRadius = 4;
+constexpr int kUnifiedFeaturePodHoverCornerRadius = 4;
 constexpr int kUnifiedFeaturePodVerticalPadding = 24;
 constexpr int kUnifiedFeaturePodTopPadding = 20;
 constexpr int kUnifiedFeaturePodBottomPadding = 0;
@@ -166,6 +172,7 @@ constexpr int kUnifiedFeaturePodLabelFontSize = 13;
 constexpr int kUnifiedFeaturePodSubLabelFontSize = 12;
 constexpr int kUnifiedFeaturePodInterLabelPadding = 2;
 constexpr int kUnifiedFeaturePodArrowSpacing = 4;
+constexpr int kUnifiedFeaturePodMinimumHorizontalMargin = 4;
 constexpr int kUnifiedFeaturePodItemsInRow = 3;
 constexpr int kUnifiedFeaturePodMaxRows = 3;
 constexpr int kUnifiedFeaturePodMinRows = 1;
@@ -202,6 +209,15 @@ constexpr int kStatusAreaOverflowGradientSize = 24;
 // Height compensations in tablet mode based on whether the hotseat is shown.
 constexpr int kTrayBubbleInsetTabletModeCompensation = 8;
 constexpr int kTrayBubbleInsetHotseatCompensation = 16;
+
+// Constants used for the privacy screen toast.
+constexpr int kPrivacyScreenToastMinWidth = 256;
+constexpr int kPrivacyScreenToastMaxWidth = 512;
+constexpr int kPrivacyScreenToastHeight = 64;
+constexpr int kPrivacyScreenToastMainLabelFontSize = 14;
+constexpr int kPrivacyScreenToastSubLabelFontSize = 13;
+constexpr gfx::Insets kPrivacyScreenToastInsets(10, 16);
+constexpr int kPrivacyScreenToastSpacing = 16;
 
 }  // namespace ash
 

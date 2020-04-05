@@ -7,6 +7,7 @@
 
 #include <stdint.h>
 
+#include <map>
 #include <memory>
 
 #include "base/compiler_specific.h"
@@ -18,11 +19,14 @@
 #include "base/process/process_handle.h"
 #include "build/build_config.h"
 #include "components/services/storage/public/mojom/indexed_db_control.mojom.h"
+#include "components/services/storage/public/mojom/partition.mojom.h"
+#include "components/services/storage/public/mojom/storage_service.mojom.h"
 #include "content/browser/appcache/chrome_appcache_service.h"
 #include "content/browser/background_sync/background_sync_context_impl.h"
 #include "content/browser/bluetooth/bluetooth_allowed_devices_map.h"
 #include "content/browser/broadcast_channel/broadcast_channel_provider.h"
 #include "content/browser/cache_storage/cache_storage_context_impl.h"
+#include "content/browser/child_process_security_policy_impl.h"
 #include "content/browser/content_index/content_index_context_impl.h"
 #include "content/browser/devtools/devtools_background_services_context_impl.h"
 #include "content/browser/dom_storage/dom_storage_context_wrapper.h"
@@ -48,7 +52,7 @@
 #include "services/network/public/mojom/network_context.mojom.h"
 #include "services/network/public/mojom/network_service.mojom.h"
 #include "storage/browser/quota/special_storage_policy.h"
-#include "third_party/blink/public/mojom/dom_storage/storage_partition_service.mojom.h"
+#include "third_party/blink/public/mojom/dom_storage/dom_storage.mojom.h"
 
 #if !defined(OS_ANDROID)
 #include "content/browser/host_zoom_level_context.h"
@@ -68,10 +72,12 @@ class PrefetchURLLoaderService;
 class GeneratedCodeCacheContext;
 class NativeFileSystemEntryFactory;
 class NativeFileSystemManagerImpl;
+class NativeIOContext;
+class QuotaContext;
 
 class CONTENT_EXPORT StoragePartitionImpl
     : public StoragePartition,
-      public blink::mojom::StoragePartitionService,
+      public blink::mojom::DomStorage,
       public network::mojom::NetworkContextClient {
  public:
   // It is guaranteed that storage partitions are destructed before the
@@ -134,7 +140,6 @@ class CONTENT_EXPORT StoragePartitionImpl
   IdleManager* GetIdleManager();
   LockManager* GetLockManager();  // override; TODO: Add to interface
   storage::mojom::IndexedDBControl& GetIndexedDBControl() override;
-  IndexedDBContextImpl* GetIndexedDBContext() override;
   NativeFileSystemEntryFactory* GetNativeFileSystemEntryFactory() override;
   CacheStorageContextImpl* GetCacheStorageContext() override;
   ServiceWorkerContextWrapper* GetServiceWorkerContext() override;
@@ -190,15 +195,22 @@ class CONTENT_EXPORT StoragePartitionImpl
   PrefetchURLLoaderService* GetPrefetchURLLoaderService();
   CookieStoreContext* GetCookieStoreContext();
   NativeFileSystemManagerImpl* GetNativeFileSystemManager();
+  QuotaContext* GetQuotaContext();
+  ConversionManager* GetConversionManager();
+  NativeIOContext* GetNativeIOContext();
 
-  // blink::mojom::StoragePartitionService interface.
+  // blink::mojom::DomStorage interface.
   void OpenLocalStorage(
       const url::Origin& origin,
       mojo::PendingReceiver<blink::mojom::StorageArea> receiver) override;
-  void OpenSessionStorage(
+  void BindSessionStorageNamespace(
       const std::string& namespace_id,
       mojo::PendingReceiver<blink::mojom::SessionStorageNamespace> receiver)
       override;
+  void BindSessionStorageArea(
+      const url::Origin& origin,
+      const std::string& namespace_id,
+      mojo::PendingReceiver<blink::mojom::StorageArea> receiver) override;
 
   // network::mojom::NetworkContextClient interface.
   void OnAuthRequired(
@@ -276,16 +288,25 @@ class CONTENT_EXPORT StoragePartitionImpl
   // Can return nullptr while |this| is being destroyed.
   BrowserContext* browser_context() const;
 
-  // Called by each renderer process for each StoragePartitionService interface
-  // it binds in the renderer process. Returns the id of the created receiver.
-  mojo::ReceiverId Bind(
+  // Returns the interface used to control the corresponding remote Partition in
+  // the Storage Service.
+  storage::mojom::Partition* GetStorageServicePartition();
+
+  // Exposes the shared top-level connection to the Storage Service, for tests.
+  static mojo::Remote<storage::mojom::StorageService>&
+  GetStorageServiceForTesting();
+
+  // Called by each renderer process to bind its global DomStorage interface.
+  // Returns the id of the created receiver.
+  mojo::ReceiverId BindDomStorage(
       int process_id,
-      mojo::PendingReceiver<blink::mojom::StoragePartitionService> receiver);
+      mojo::PendingReceiver<blink::mojom::DomStorage> receiver,
+      mojo::PendingRemote<blink::mojom::DomStorageClient> client);
 
-  // Remove a receiver created by a previous Bind() call.
-  void Unbind(mojo::ReceiverId receiver_id);
+  // Remove a receiver created by a previous BindDomStorage() call.
+  void UnbindDomStorage(mojo::ReceiverId receiver_id);
 
-  auto& receivers_for_testing() { return receivers_; }
+  auto& dom_storage_receivers_for_testing() { return dom_storage_receivers_; }
 
   // When this StoragePartition is for guests (e.g., for a <webview> tag), this
   // is the site URL to use when creating a SiteInstance for a service worker.
@@ -386,6 +407,11 @@ class CONTENT_EXPORT StoragePartitionImpl
   // can query properties of the StoragePartitionImpl (notably GetPath()).
   void Initialize();
 
+  // If we're running Storage Service out-of-process and it crashes, this
+  // re-establishes a connection and makes sure the service returns to a usable
+  // state.
+  void OnStorageServiceDisconnected();
+
   // We will never have both remove_origin be populated and a cookie_matcher.
   void ClearDataImpl(
       uint32_t remove_mask,
@@ -411,6 +437,8 @@ class CONTENT_EXPORT StoragePartitionImpl
   network::mojom::URLLoaderFactory*
   GetURLLoaderFactoryForBrowserProcessInternal(bool corb_enabled);
 
+  IndexedDBContextImpl* GetIndexedDBContextInternal();
+
   // Raw pointer that should always be valid. The BrowserContext owns the
   // StoragePartitionImplMap which then owns StoragePartitionImpl. When the
   // BrowserContext is destroyed, |this| will be destroyed too.
@@ -429,7 +457,9 @@ class CONTENT_EXPORT StoragePartitionImpl
   // querying its path abd BrowserContext is allowed.
   bool initialized_ = false;
 
+  mojo::Remote<storage::mojom::Partition> remote_partition_;
   scoped_refptr<URLLoaderFactoryGetter> url_loader_factory_getter_;
+  scoped_refptr<QuotaContext> quota_context_;
   scoped_refptr<storage::QuotaManager> quota_manager_;
   scoped_refptr<ChromeAppCacheService> appcache_service_;
   scoped_refptr<storage::FileSystemContext> filesystem_context_;
@@ -446,7 +476,8 @@ class CONTENT_EXPORT StoragePartitionImpl
   std::unique_ptr<PushMessagingContext> push_messaging_context_;
   scoped_refptr<storage::SpecialStoragePolicy> special_storage_policy_;
 #if !defined(OS_ANDROID)
-  scoped_refptr<HostZoomLevelContext> host_zoom_level_context_;
+  std::unique_ptr<HostZoomLevelContext, BrowserThread::DeleteOnUIThread>
+      host_zoom_level_context_;
 #endif  // !defined(OS_ANDROID)
   scoped_refptr<PlatformNotificationContextImpl> platform_notification_context_;
   scoped_refptr<BackgroundFetchContext> background_fetch_context_;
@@ -465,11 +496,20 @@ class CONTENT_EXPORT StoragePartitionImpl
       proto_database_provider_;
   scoped_refptr<ContentIndexContextImpl> content_index_context_;
   std::unique_ptr<ConversionManager> conversion_manager_;
+  std::unique_ptr<NativeIOContext> native_io_context_;
 
-  // ReceiverSet for StoragePartitionService, using the process id as the
-  // binding context type. The process id can subsequently be used during
-  // interface method calls to enforce security checks.
-  mojo::ReceiverSet<blink::mojom::StoragePartitionService, int> receivers_;
+  // ReceiverSet for DomStorage, using the
+  // ChildProcessSecurityPolicyImpl::Handle as the binding context type. The
+  // handle can subsequently be used during interface method calls to
+  // enforce security checks.
+  using SecurityPolicyHandle = ChildProcessSecurityPolicyImpl::Handle;
+  mojo::ReceiverSet<blink::mojom::DomStorage,
+                    std::unique_ptr<SecurityPolicyHandle>>
+      dom_storage_receivers_;
+
+  // A client interface for each receiver above.
+  std::map<mojo::ReceiverId, mojo::Remote<blink::mojom::DomStorageClient>>
+      dom_storage_clients_;
 
   // This is the NetworkContext used to
   // make requests for the StoragePartition. When the network service is

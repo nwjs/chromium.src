@@ -12,6 +12,7 @@
 #include "base/location.h"
 #include "base/run_loop.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "base/threading/thread_restrictions.h"
 #include "build/build_config.h"
 #include "chrome/browser/chrome_notification_types.h"
@@ -26,7 +27,6 @@
 #include "base/command_line.h"
 #include "chrome/browser/printing/pdf_to_emf_converter.h"
 #include "chrome/common/chrome_features.h"
-#include "printing/common/printing_features.h"
 #include "printing/pdf_render_settings.h"
 #include "printing/printed_page_win.h"
 #endif
@@ -93,15 +93,6 @@ std::vector<int> PrintJob::GetFullPageMapping(const std::vector<int>& pages,
       mapping[page_number] = page_number;
   }
   return mapping;
-}
-
-bool PrintJob::ShouldPrintUsingXps() const {
-  // Non-modifiable jobs are PDF, need to check a different flag for those when
-  // determining whether to print with XPS or GDI print API.
-  return document_->settings().is_modifiable()
-             ? base::FeatureList::IsEnabled(features::kUseXpsForPrinting)
-             : base::FeatureList::IsEnabled(
-                   features::kUseXpsForPrintingFromPdf);
 }
 
 void PrintJob::StartConversionToNativeFormat(
@@ -543,9 +534,9 @@ void PrintJob::ControlledWorkerShutdown() {
 
   // Now make sure the thread object is cleaned up. Do this on a worker
   // thread because it may block.
-  base::PostTaskAndReply(
+  base::ThreadPool::PostTaskAndReply(
       FROM_HERE,
-      {base::ThreadPool(), base::MayBlock(), base::WithBaseSyncPrimitives(),
+      {base::MayBlock(), base::WithBaseSyncPrimitives(),
        base::TaskPriority::BEST_EFFORT,
        base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
       base::BindOnce(&PrintJobWorker::Stop, base::Unretained(worker_.get())),

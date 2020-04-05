@@ -206,13 +206,17 @@ class BackForwardCacheMetrics
 
   bool ShouldRecordBrowsingInstanceNotSwappedReason() const;
 
+  void RecordHistoryNavigationUkm(NavigationRequest* navigation);
+
   // Main frame document sequence number that identifies all NavigationEntries
   // this metrics object is associated with.
   const int64_t document_sequence_number_;
 
-  // NavigationHandle's ID for the last main frame navigation.
+  // NavigationHandle's ID for the last main frame navigation. This is updated
+  // for a main frame, not-same-document navigation.
+  //
   // Should not be confused with NavigationEntryId.
-  int64_t last_committed_main_frame_navigation_id_ = -1;
+  int64_t last_committed_cross_document_main_frame_navigation_id_ = -1;
 
   int64_t last_committed_navigation_entry_id_ = -1;
 
@@ -242,6 +246,8 @@ class BackForwardCacheMetrics
   // main-frame navigations.
   bool previous_navigation_is_history_ = false;
   bool previous_navigation_is_served_from_bfcache_ = false;
+
+  base::Optional<base::TimeTicks> renderer_killed_timestamp_;
 
   DISALLOW_COPY_AND_ASSIGN(BackForwardCacheMetrics);
 };

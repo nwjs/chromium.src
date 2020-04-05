@@ -12,7 +12,6 @@
 
 @protocol ApplicationCommands;
 class ChromeBrowserState;
-@class DeviceSharingManager;
 @class MainController;
 @class NewTabPageController;
 @class UIViewController;
@@ -22,9 +21,6 @@ namespace chrome_test_util {
 // Returns the main controller.
 MainController* GetMainController();
 
-// Returns the DeviceSharingManager object.
-DeviceSharingManager* GetDeviceSharingManager();
-
 // Returns the current, non-incognito ChromeBrowserState.
 ChromeBrowserState* GetOriginalBrowserState();
 
@@ -32,7 +28,7 @@ ChromeBrowserState* GetOriginalBrowserState();
 ChromeBrowserState* GetCurrentIncognitoBrowserState();
 
 // Returns the dispatcher for the main BVC.
-// TODO(crbug.com/738881): Use DispatcherForActiveBrowserViewController()
+// TODO(crbug.com/738881): Use HandlerForActiveBrowser()
 // instead.
 id<BrowserCommands> BrowserCommandDispatcherForMainBVC();
 
@@ -41,10 +37,8 @@ id<BrowserCommands> BrowserCommandDispatcherForMainBVC();
 // possible.
 UIViewController* GetActiveViewController();
 
-// Returns the dispatcher for the active BrowserViewController. If the
-// BrowserViewController isn't presented, returns nil.
-id<ApplicationCommands, BrowserCommands>
-DispatcherForActiveBrowserViewController();
+// Returns the dispatcher for the active Browser.
+id<ApplicationCommands, BrowserCommands> HandlerForActiveBrowser();
 
 // Removes all presented infobars.
 void RemoveAllInfoBars();

@@ -29,8 +29,6 @@
 #include "chrome/browser/media/webrtc/media_capture_devices_dispatcher.h"
 #include "chrome/browser/media/webrtc/permission_bubble_media_access_handler.h"
 #include "chrome/browser/media/webrtc/system_media_capture_permissions_mac.h"
-#include "chrome/browser/permissions/permission_request_manager.h"
-#include "chrome/browser/permissions/permission_uma_util.h"
 #include "chrome/browser/permissions/quiet_notification_permission_ui_config.h"
 #include "chrome/browser/plugins/chrome_plugin_service_filter.h"
 #include "chrome/browser/plugins/plugin_utils.h"
@@ -50,6 +48,8 @@
 #include "components/content_settings/core/browser/cookie_settings.h"
 #include "components/content_settings/core/common/content_settings.h"
 #include "components/content_settings/core/common/content_settings_utils.h"
+#include "components/permissions/permission_request_manager.h"
+#include "components/permissions/permission_uma_util.h"
 #include "components/permissions/permission_util.h"
 #include "components/prefs/pref_service.h"
 #include "components/strings/grit/components_strings.h"
@@ -562,10 +562,11 @@ void ContentSettingMidiSysExBubbleModel::OnCustomLinkClicked() {
       content_settings->midi_usages_state().state_map();
   HostContentSettingsMap* map =
       HostContentSettingsMapFactory::GetForProfile(GetProfile());
-  for (const std::pair<GURL, ContentSetting>& map_entry : state_map) {
-    PermissionUmaUtil::ScopedRevocationReporter(
+  for (const std::pair<const GURL, ContentSetting>& map_entry : state_map) {
+    permissions::PermissionUmaUtil::ScopedRevocationReporter(
         GetProfile(), map_entry.first, embedder_url,
-        ContentSettingsType::MIDI_SYSEX, PermissionSourceUI::PAGE_ACTION);
+        ContentSettingsType::MIDI_SYSEX,
+        permissions::PermissionSourceUI::PAGE_ACTION);
     map->SetContentSettingDefaultScope(map_entry.first, embedder_url,
                                        ContentSettingsType::MIDI_SYSEX,
                                        std::string(), CONTENT_SETTING_DEFAULT);
@@ -650,10 +651,11 @@ void ContentSettingDomainListBubbleModel::OnCustomLinkClicked() {
       content_settings->geolocation_usages_state().state_map();
   HostContentSettingsMap* map =
       HostContentSettingsMapFactory::GetForProfile(GetProfile());
-  for (const std::pair<GURL, ContentSetting>& map_entry : state_map) {
-    PermissionUmaUtil::ScopedRevocationReporter(
+  for (const std::pair<const GURL, ContentSetting>& map_entry : state_map) {
+    permissions::PermissionUmaUtil::ScopedRevocationReporter(
         GetProfile(), map_entry.first, embedder_url,
-        ContentSettingsType::GEOLOCATION, PermissionSourceUI::PAGE_ACTION);
+        ContentSettingsType::GEOLOCATION,
+        permissions::PermissionSourceUI::PAGE_ACTION);
     map->SetContentSettingDefaultScope(map_entry.first, embedder_url,
                                        ContentSettingsType::GEOLOCATION,
                                        std::string(), CONTENT_SETTING_DEFAULT);
@@ -1234,19 +1236,21 @@ void ContentSettingMediaStreamBubbleModel::UpdateSettings(
   HostContentSettingsMap* map =
       HostContentSettingsMapFactory::GetForProfile(GetProfile());
   if (MicrophoneAccessed()) {
-    PermissionUmaUtil::ScopedRevocationReporter scoped_revocation_reporter(
-        GetProfile(), tab_content_settings->media_stream_access_origin(),
-        GURL(), ContentSettingsType::MEDIASTREAM_MIC,
-        PermissionSourceUI::PAGE_ACTION);
+    permissions::PermissionUmaUtil::ScopedRevocationReporter
+        scoped_revocation_reporter(
+            GetProfile(), tab_content_settings->media_stream_access_origin(),
+            GURL(), ContentSettingsType::MEDIASTREAM_MIC,
+            permissions::PermissionSourceUI::PAGE_ACTION);
     map->SetContentSettingDefaultScope(
         tab_content_settings->media_stream_access_origin(), GURL(),
         ContentSettingsType::MEDIASTREAM_MIC, std::string(), setting);
   }
   if (CameraAccessed()) {
-    PermissionUmaUtil::ScopedRevocationReporter scoped_revocation_reporter(
-        GetProfile(), tab_content_settings->media_stream_access_origin(),
-        GURL(), ContentSettingsType::MEDIASTREAM_CAMERA,
-        PermissionSourceUI::PAGE_ACTION);
+    permissions::PermissionUmaUtil::ScopedRevocationReporter
+        scoped_revocation_reporter(
+            GetProfile(), tab_content_settings->media_stream_access_origin(),
+            GURL(), ContentSettingsType::MEDIASTREAM_CAMERA,
+            permissions::PermissionSourceUI::PAGE_ACTION);
     map->SetContentSettingDefaultScope(
         tab_content_settings->media_stream_access_origin(), GURL(),
         ContentSettingsType::MEDIASTREAM_CAMERA, std::string(), setting);
@@ -1336,10 +1340,10 @@ void ContentSettingMediaStreamBubbleModel::SetMediaMenus() {
   PrefService* prefs = GetProfile()->GetPrefs();
   MediaCaptureDevicesDispatcher* dispatcher =
       MediaCaptureDevicesDispatcher::GetInstance();
-  const blink::MediaStreamDevices& microphones =
-      dispatcher->GetAudioCaptureDevices();
 
   if (MicrophoneAccessed()) {
+    const blink::MediaStreamDevices& microphones =
+        dispatcher->GetAudioCaptureDevices();
     MediaMenu mic_menu;
     mic_menu.label = l10n_util::GetStringUTF16(IDS_MEDIA_SELECTED_MIC_LABEL);
     if (!microphones.empty()) {
@@ -1623,13 +1627,14 @@ ContentSettingNotificationsBubbleModel::ContentSettingNotificationsBubbleModel(
   // TODO(crbug.com/1030633): This block is more defensive than it needs to be
   // because ContentSettingImageModelBrowserTest exercises it without setting up
   // the correct PermissionRequestManager state. Fix that.
-  PermissionRequestManager* manager =
-      PermissionRequestManager::FromWebContents(web_contents);
+  permissions::PermissionRequestManager* manager =
+      permissions::PermissionRequestManager::FromWebContents(web_contents);
   int message_resource_id =
       IDS_NOTIFICATIONS_QUIET_PERMISSION_BUBBLE_DESCRIPTION;
   if (manager->ShouldCurrentRequestUseQuietUI() &&
       manager->ReasonForUsingQuietUi() ==
-          PermissionRequestManager::QuietUiReason::kTriggeredByCrowdDeny) {
+          permissions::PermissionRequestManager::QuietUiReason::
+              kTriggeredByCrowdDeny) {
     message_resource_id =
         IDS_NOTIFICATIONS_QUIET_PERMISSION_BUBBLE_CROWD_DENY_DESCRIPTION;
     base::RecordAction(
@@ -1658,8 +1663,8 @@ void ContentSettingNotificationsBubbleModel::OnManageButtonClicked() {
 }
 
 void ContentSettingNotificationsBubbleModel::OnDoneButtonClicked() {
-  PermissionRequestManager* manager =
-      PermissionRequestManager::FromWebContents(web_contents());
+  permissions::PermissionRequestManager* manager =
+      permissions::PermissionRequestManager::FromWebContents(web_contents());
   manager->Accept();
 
   base::RecordAction(

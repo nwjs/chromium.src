@@ -17,6 +17,7 @@
 #include "ash/system/message_center/unified_message_center_view.h"
 #include "ash/system/tray/interacted_by_tap_recorder.h"
 #include "ash/system/tray/tray_constants.h"
+#include "ash/system/unified/detailed_view_controller.h"
 #include "ash/system/unified/feature_pod_button.h"
 #include "ash/system/unified/feature_pods_container_view.h"
 #include "ash/system/unified/notification_hidden_view.h"
@@ -141,6 +142,8 @@ class AccessibilityFocusHelperView : public views::View {
       : controller_(controller) {}
 
   bool HandleAccessibleAction(const ui::AXActionData& action_data) override {
+    GetFocusManager()->ClearFocus();
+    GetFocusManager()->SetStoredFocusView(nullptr);
     controller_->FocusOut(false);
     return true;
   }
@@ -252,17 +255,13 @@ class UnifiedSystemTrayView::FocusSearch : public views::FocusSearch {
 
 // static
 SkColor UnifiedSystemTrayView::GetBackgroundColor() {
-  if (!features::IsBackgroundBlurEnabled()) {
-    return AshColorProvider::Get()->DeprecatedGetBaseLayerColor(
-        AshColorProvider::BaseLayerType::kTransparent90,
-        kUnifiedMenuBackgroundColor);
-  }
   auto background_type = Shelf::ForWindow(Shell::GetPrimaryRootWindow())
                              ->shelf_widget()
                              ->GetBackgroundType();
   AshColorProvider::BaseLayerType layer_type =
       (background_type == ShelfBackgroundType::kMaximized ||
-       background_type == ShelfBackgroundType::kInApp)
+       background_type == ShelfBackgroundType::kInApp) ||
+       !features::IsBackgroundBlurEnabled()
           ? AshColorProvider::BaseLayerType::kTransparent90
           : AshColorProvider::BaseLayerType::kTransparent80;
 
@@ -506,6 +505,14 @@ void UnifiedSystemTrayView::SetNotificationRectBelowScroll(
 
 int UnifiedSystemTrayView::GetVisibleFeaturePodCount() const {
   return feature_pods_container_->GetVisibleCount();
+}
+
+base::string16 UnifiedSystemTrayView::GetDetailedViewAccessibleName() const {
+  return controller_->detailed_view_controller()->GetAccessibleName();
+}
+
+bool UnifiedSystemTrayView::IsDetailedViewShown() const {
+  return detailed_view_container_->GetVisible();
 }
 
 views::View* UnifiedSystemTrayView::GetFirstFocusableChild() {

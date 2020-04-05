@@ -8,15 +8,16 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/time/time.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/interstitials/chrome_metrics_helper.h"
+#include "chrome/browser/history/history_service_factory.h"
+#include "chrome/browser/net/stub_resolver_config_reader.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/renderer_preferences_util.h"
-#include "chrome/browser/ssl/chrome_ssl_host_state_delegate.h"
-#include "chrome/browser/ssl/chrome_ssl_host_state_delegate_factory.h"
 #include "chrome/browser/ssl/ssl_error_controller_client.h"
+#include "chrome/browser/ssl/stateful_ssl_host_state_delegate_factory.h"
 #include "chrome/common/channel_info.h"
-#include "chrome/common/url_constants.h"
+#include "components/security_interstitials/content/content_metrics_helper.h"
 #include "components/security_interstitials/content/ssl_blocking_page.h"
+#include "components/security_interstitials/content/stateful_ssl_host_state_delegate.h"
 #include "components/security_interstitials/core/controller_client.h"
 #include "components/security_interstitials/core/metrics_helper.h"
 #include "content/public/browser/web_contents.h"
@@ -105,85 +106,32 @@ void OpenLoginPage(content::WebContents* web_contents) {
 #endif  // !BUILDFLAG(ENABLE_CAPTIVE_PORTAL_DETECTION)
 }
 
-std::unique_ptr<ChromeMetricsHelper> CreateCaptivePortalMetricsHelper(
+std::unique_ptr<ContentMetricsHelper> CreateMetricsHelperAndStartRecording(
     content::WebContents* web_contents,
-    const GURL& request_url) {
-  security_interstitials::MetricsHelper::ReportDetails reporting_info;
-  reporting_info.metric_prefix = "captive_portal";
-  std::unique_ptr<ChromeMetricsHelper> metrics_helper =
-      std::make_unique<ChromeMetricsHelper>(web_contents, request_url,
-                                            reporting_info);
-  metrics_helper.get()->StartRecordingCaptivePortalMetrics(false);
-  return metrics_helper;
-}
-
-std::unique_ptr<ChromeMetricsHelper> CreateSSLProblemMetricsHelper(
-    content::WebContents* web_contents,
-    int cert_error,
     const GURL& request_url,
+    const std::string& metric_prefix,
     bool overridable) {
   security_interstitials::MetricsHelper::ReportDetails reporting_info;
-  reporting_info.metric_prefix =
-      overridable ? "ssl_overridable" : "ssl_nonoverridable";
-  return std::make_unique<ChromeMetricsHelper>(web_contents, request_url,
-                                               reporting_info);
-}
-
-std::unique_ptr<ChromeMetricsHelper> CreateBadClockMetricsHelper(
-    content::WebContents* web_contents,
-    const GURL& request_url) {
-  // Set up the metrics helper for the BadClockUI.
-  security_interstitials::MetricsHelper::ReportDetails reporting_info;
-  reporting_info.metric_prefix = "bad_clock";
-  std::unique_ptr<ChromeMetricsHelper> metrics_helper =
-      std::make_unique<ChromeMetricsHelper>(web_contents, request_url,
-                                            reporting_info);
-  metrics_helper.get()->StartRecordingCaptivePortalMetrics(false);
-  return metrics_helper;
-}
-
-std::unique_ptr<ChromeMetricsHelper> CreateLegacyTLSMetricsHelper(
-    content::WebContents* web_contents,
-    const GURL& request_url) {
-  // Set up the metrics helper for the LegacyTLSUI.
-  security_interstitials::MetricsHelper::ReportDetails reporting_info;
-  reporting_info.metric_prefix = "legacy_tls";
-  std::unique_ptr<ChromeMetricsHelper> metrics_helper =
-      std::make_unique<ChromeMetricsHelper>(web_contents, request_url,
-                                            reporting_info);
-  metrics_helper.get()->StartRecordingCaptivePortalMetrics(false);
-  return metrics_helper;
-}
-
-std::unique_ptr<ChromeMetricsHelper> CreateMitmSoftwareMetricsHelper(
-    content::WebContents* web_contents,
-    const GURL& request_url) {
-  // Set up the metrics helper for the MITMSoftwareUI.
-  security_interstitials::MetricsHelper::ReportDetails reporting_info;
-  reporting_info.metric_prefix = "mitm_software";
-  std::unique_ptr<ChromeMetricsHelper> metrics_helper =
-      std::make_unique<ChromeMetricsHelper>(web_contents, request_url,
-                                            reporting_info);
-  metrics_helper.get()->StartRecordingCaptivePortalMetrics(false);
-  return metrics_helper;
-}
-
-std::unique_ptr<ChromeMetricsHelper> CreateBlockedInterceptionMetricsHelper(
-    content::WebContents* web_contents,
-    const GURL& request_url) {
-  // Set up the metrics helper for the BlockedInterceptionUI.
-  security_interstitials::MetricsHelper::ReportDetails reporting_info;
-  reporting_info.metric_prefix = "blocked_interception";
-  std::unique_ptr<ChromeMetricsHelper> metrics_helper =
-      std::make_unique<ChromeMetricsHelper>(web_contents, request_url,
-                                            reporting_info);
-  metrics_helper.get()->StartRecordingCaptivePortalMetrics(false);
+  reporting_info.metric_prefix = metric_prefix;
+  std::unique_ptr<ContentMetricsHelper> metrics_helper =
+      std::make_unique<ContentMetricsHelper>(
+          HistoryServiceFactory::GetForProfile(
+              Profile::FromBrowserContext(web_contents->GetBrowserContext()),
+              ServiceAccessType::EXPLICIT_ACCESS),
+          request_url, reporting_info);
+#if BUILDFLAG(ENABLE_CAPTIVE_PORTAL_DETECTION)
+  metrics_helper.get()->StartRecordingCaptivePortalMetrics(
+      CaptivePortalServiceFactory::GetForProfile(
+          Profile::FromBrowserContext(web_contents->GetBrowserContext())),
+      overridable);
+#endif
   return metrics_helper;
 }
 
 }  // namespace
 
-SSLBlockingPage* ChromeSecurityBlockingPageFactory::CreateSSLPage(
+std::unique_ptr<SSLBlockingPage>
+ChromeSecurityBlockingPageFactory::CreateSSLPage(
     content::WebContents* web_contents,
     int cert_error,
     const net::SSLInfo& ssl_info,
@@ -193,13 +141,13 @@ SSLBlockingPage* ChromeSecurityBlockingPageFactory::CreateSSLPage(
     const GURL& support_url,
     std::unique_ptr<SSLCertReporter> ssl_cert_reporter) {
   bool overridable = SSLBlockingPage::IsOverridable(options_mask);
-  std::unique_ptr<ChromeMetricsHelper> metrics_helper(
-      CreateSSLProblemMetricsHelper(web_contents, cert_error, request_url,
-                                    overridable));
-  metrics_helper.get()->StartRecordingCaptivePortalMetrics(overridable);
+  std::unique_ptr<ContentMetricsHelper> metrics_helper(
+      CreateMetricsHelperAndStartRecording(
+          web_contents, request_url,
+          overridable ? "ssl_overridable" : "ssl_nonoverridable", overridable));
 
-  ChromeSSLHostStateDelegate* state =
-      ChromeSSLHostStateDelegateFactory::GetForProfile(
+  StatefulSSLHostStateDelegate* state =
+      StatefulSSLHostStateDelegateFactory::GetForProfile(
           Profile::FromBrowserContext(web_contents->GetBrowserContext()));
   state->DidDisplayErrorPage(cert_error);
   bool is_recurrent_error = state->HasSeenRecurrentErrors(cert_error);
@@ -227,25 +175,16 @@ SSLBlockingPage* ChromeSecurityBlockingPageFactory::CreateSSLPage(
 
   std::unique_ptr<SSLBlockingPage> page;
 
-  if (cert_error == net::ERR_CERT_SYMANTEC_LEGACY) {
-    GURL symantec_support_url(chrome::kSymantecSupportUrl);
-    page = std::make_unique<SSLBlockingPage>(
-        web_contents, cert_error, ssl_info, request_url, options_mask,
-        time_triggered, std::move(symantec_support_url),
-        std::move(ssl_cert_reporter), overridable,
-        std::move(controller_client));
-  } else {
-    page = std::make_unique<SSLBlockingPage>(
-        web_contents, cert_error, ssl_info, request_url, options_mask,
-        time_triggered, support_url, std::move(ssl_cert_reporter), overridable,
-        std::move(controller_client));
-  }
+  page = std::make_unique<SSLBlockingPage>(
+      web_contents, cert_error, ssl_info, request_url, options_mask,
+      time_triggered, support_url, std::move(ssl_cert_reporter), overridable,
+      std::move(controller_client));
 
   DoChromeSpecificSetup(page.get());
-  return page.release();
+  return page;
 }
 
-CaptivePortalBlockingPage*
+std::unique_ptr<CaptivePortalBlockingPage>
 ChromeSecurityBlockingPageFactory::CreateCaptivePortalBlockingPage(
     content::WebContents* web_contents,
     const GURL& request_url,
@@ -258,14 +197,15 @@ ChromeSecurityBlockingPageFactory::CreateCaptivePortalBlockingPage(
       ssl_info,
       std::make_unique<SSLErrorControllerClient>(
           web_contents, ssl_info, cert_error, request_url,
-          CreateCaptivePortalMetricsHelper(web_contents, request_url)),
+          CreateMetricsHelperAndStartRecording(web_contents, request_url,
+                                               "captive_portal", false)),
       base::BindRepeating(&OpenLoginPage));
 
   DoChromeSpecificSetup(page.get());
-  return page.release();
+  return page;
 }
 
-BadClockBlockingPage*
+std::unique_ptr<BadClockBlockingPage>
 ChromeSecurityBlockingPageFactory::CreateBadClockBlockingPage(
     content::WebContents* web_contents,
     int cert_error,
@@ -279,13 +219,14 @@ ChromeSecurityBlockingPageFactory::CreateBadClockBlockingPage(
       clock_state, std::move(ssl_cert_reporter),
       std::make_unique<SSLErrorControllerClient>(
           web_contents, ssl_info, cert_error, request_url,
-          CreateBadClockMetricsHelper(web_contents, request_url)));
+          CreateMetricsHelperAndStartRecording(web_contents, request_url,
+                                               "bad_clock", false)));
 
   ChromeSecurityBlockingPageFactory::DoChromeSpecificSetup(page.get());
-  return page.release();
+  return page;
 }
 
-LegacyTLSBlockingPage*
+std::unique_ptr<LegacyTLSBlockingPage>
 ChromeSecurityBlockingPageFactory::CreateLegacyTLSBlockingPage(
     content::WebContents* web_contents,
     int cert_error,
@@ -297,13 +238,14 @@ ChromeSecurityBlockingPageFactory::CreateLegacyTLSBlockingPage(
       ssl_info,
       std::make_unique<SSLErrorControllerClient>(
           web_contents, ssl_info, cert_error, request_url,
-          CreateLegacyTLSMetricsHelper(web_contents, request_url)));
+          CreateMetricsHelperAndStartRecording(web_contents, request_url,
+                                               "legacy_tls", false)));
 
   DoChromeSpecificSetup(page.get());
-  return page.release();
+  return page;
 }
 
-MITMSoftwareBlockingPage*
+std::unique_ptr<MITMSoftwareBlockingPage>
 ChromeSecurityBlockingPageFactory::CreateMITMSoftwareBlockingPage(
     content::WebContents* web_contents,
     int cert_error,
@@ -316,13 +258,14 @@ ChromeSecurityBlockingPageFactory::CreateMITMSoftwareBlockingPage(
       ssl_info, mitm_software_name, IsEnterpriseManaged(),
       std::make_unique<SSLErrorControllerClient>(
           web_contents, ssl_info, cert_error, request_url,
-          CreateMitmSoftwareMetricsHelper(web_contents, request_url)));
+          CreateMetricsHelperAndStartRecording(web_contents, request_url,
+                                               "mitm_software", false)));
 
   DoChromeSpecificSetup(page.get());
-  return page.release();
+  return page;
 }
 
-BlockedInterceptionBlockingPage*
+std::unique_ptr<BlockedInterceptionBlockingPage>
 ChromeSecurityBlockingPageFactory::CreateBlockedInterceptionBlockingPage(
     content::WebContents* web_contents,
     int cert_error,
@@ -334,10 +277,11 @@ ChromeSecurityBlockingPageFactory::CreateBlockedInterceptionBlockingPage(
       ssl_info,
       std::make_unique<SSLErrorControllerClient>(
           web_contents, ssl_info, cert_error, request_url,
-          CreateBlockedInterceptionMetricsHelper(web_contents, request_url)));
+          CreateMetricsHelperAndStartRecording(web_contents, request_url,
+                                               "blocked_interception", false)));
 
   ChromeSecurityBlockingPageFactory::DoChromeSpecificSetup(page.get());
-  return page.release();
+  return page;
 }
 
 // static
@@ -385,8 +329,8 @@ void ChromeSecurityBlockingPageFactory::OpenLoginTabForWebContents(
   net::DnsConfig::SecureDnsMode secure_dns_mode;
   base::Optional<std::vector<network::mojom::DnsOverHttpsServerPtr>>
       dns_over_https_servers;
-  SystemNetworkContextManager::GetStubResolverConfig(
-      g_browser_process->local_state(), &insecure_stub_resolver_enabled,
+  SystemNetworkContextManager::GetStubResolverConfigReader()->GetConfiguration(
+      &insecure_stub_resolver_enabled,
       &secure_dns_mode, &dns_over_https_servers);
 
   // If the DNS mode is SECURE, captive portal login tabs should be opened in
@@ -394,8 +338,8 @@ void ChromeSecurityBlockingPageFactory::OpenLoginTabForWebContents(
   if (secure_dns_mode == net::DnsConfig::SecureDnsMode::SECURE) {
     // If there is already a captive portal popup window, do not create another.
     for (auto* contents : AllTabContentses()) {
-      CaptivePortalTabHelper* captive_portal_tab_helper =
-          CaptivePortalTabHelper::FromWebContents(contents);
+      captive_portal::CaptivePortalTabHelper* captive_portal_tab_helper =
+          captive_portal::CaptivePortalTabHelper::FromWebContents(contents);
       if (captive_portal_tab_helper->IsLoginTab()) {
         Browser* browser_with_login_tab =
             chrome::FindBrowserWithWebContents(contents);
@@ -414,11 +358,11 @@ void ChromeSecurityBlockingPageFactory::OpenLoginTabForWebContents(
             ->test_url(),
         ui::PAGE_TRANSITION_TYPED);
     params.disposition = WindowOpenDisposition::NEW_POPUP;
+    params.is_captive_portal_popup = true;
     Navigate(&params);
     content::WebContents* new_contents = params.navigated_or_inserted_contents;
-    CaptivePortalTabHelper* captive_portal_tab_helper =
-        CaptivePortalTabHelper::FromWebContents(new_contents);
-    captive_portal_tab_helper->set_is_captive_portal_window();
+    captive_portal::CaptivePortalTabHelper* captive_portal_tab_helper =
+        captive_portal::CaptivePortalTabHelper::FromWebContents(new_contents);
     captive_portal_tab_helper->SetIsLoginTab();
     return;
   }
@@ -430,8 +374,8 @@ void ChromeSecurityBlockingPageFactory::OpenLoginTabForWebContents(
   for (int i = 0; i < browser->tab_strip_model()->count(); ++i) {
     content::WebContents* contents =
         browser->tab_strip_model()->GetWebContentsAt(i);
-    CaptivePortalTabHelper* captive_portal_tab_helper =
-        CaptivePortalTabHelper::FromWebContents(contents);
+    captive_portal::CaptivePortalTabHelper* captive_portal_tab_helper =
+        captive_portal::CaptivePortalTabHelper::FromWebContents(contents);
     if (captive_portal_tab_helper->IsLoginTab()) {
       if (focus)
         browser->tab_strip_model()->ActivateTabAt(i);
@@ -440,14 +384,15 @@ void ChromeSecurityBlockingPageFactory::OpenLoginTabForWebContents(
   }
 
   // Otherwise, open a login tab.  Only end up here when a captive portal result
-  // was received, so it's safe to assume profile has a CaptivePortalService.
+  // was received, so it's safe to assume profile has a
+  // captive_portal::CaptivePortalService.
   content::WebContents* new_contents = chrome::AddSelectedTabWithURL(
       browser,
       CaptivePortalServiceFactory::GetForProfile(browser->profile())
           ->test_url(),
       ui::PAGE_TRANSITION_TYPED);
-  CaptivePortalTabHelper* captive_portal_tab_helper =
-      CaptivePortalTabHelper::FromWebContents(new_contents);
+  captive_portal::CaptivePortalTabHelper* captive_portal_tab_helper =
+      captive_portal::CaptivePortalTabHelper::FromWebContents(new_contents);
   captive_portal_tab_helper->SetIsLoginTab();
 }
 #endif  // BUILDFLAG(ENABLE_CAPTIVE_PORTAL_DETECTION)

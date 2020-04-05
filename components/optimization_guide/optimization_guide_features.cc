@@ -77,6 +77,12 @@ size_t MaxHostsForOptimizationGuideServiceHintsFetch() {
       "max_hosts_for_optimization_guide_service_hints_fetch", 30);
 }
 
+size_t MaxUrlsForOptimizationGuideServiceHintsFetch() {
+  return GetFieldTrialParamByFeatureAsInt(
+      kRemoteOptimizationGuideFetching,
+      "max_urls_for_optimization_guide_service_hints_fetch", 30);
+}
+
 size_t MaxHostsForRecordingSuccessfullyCovered() {
   return GetFieldTrialParamByFeatureAsInt(
       kRemoteOptimizationGuideFetching,
@@ -178,7 +184,7 @@ GetMaxEffectiveConnectionTypeForNavigationHintsFetch() {
 
   // Use a default value.
   if (param_value.empty())
-    return net::EFFECTIVE_CONNECTION_TYPE_3G;
+    return net::EFFECTIVE_CONNECTION_TYPE_4G;
 
   return net::GetEffectiveConnectionTypeForName(param_value);
 }
@@ -190,6 +196,9 @@ base::TimeDelta GetHintsFetchRefreshDuration() {
 }
 
 size_t MaxConcurrentPageNavigationFetches() {
+  // If overridden, this needs to be large enough where we do not thrash the
+  // inflight page navigations since if we approach the limit here, we will
+  // abort the oldest page navigation fetch that is in flight.
   return GetFieldTrialParamByFeatureAsInt(
       kRemoteOptimizationGuideFetching,
       "max_concurrent_page_navigation_fetches", 20);

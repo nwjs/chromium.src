@@ -17,6 +17,12 @@ Polymer({
   behaviors: [OobeI18nBehavior, OobeDialogHostBehavior],
 
   /**
+   * Whether voice match is the first screen of the flow.
+   * @type {boolean}
+   */
+  isFirstScreen: false,
+
+  /**
    * Current recording index.
    * @type {number}
    * @private
@@ -44,11 +50,11 @@ Polymer({
    * @private
    */
   onSkipTap_() {
+    this.$['voice-match-lottie'].setPlay(false);
+    this.$['already-setup-lottie'].setPlay(false);
     chrome.send(
         'login.AssistantOptInFlowScreen.VoiceMatchScreen.userActed',
         ['skip-pressed']);
-    this.$['voice-match-lottie'].setPlay(false);
-    this.$['already-setup-lottie'].setPlay(false);
   },
 
   /**
@@ -146,18 +152,27 @@ Polymer({
     }
 
     window.setTimeout(function() {
+      this.$['voice-match-lottie'].setPlay(false);
+      this.$['already-setup-lottie'].setPlay(false);
       chrome.send(
           'login.AssistantOptInFlowScreen.VoiceMatchScreen.userActed',
           ['voice-match-done']);
-      this.$['voice-match-lottie'].setPlay(false);
-      this.$['already-setup-lottie'].setPlay(false);
-    }, this.doneActionDelayMs_);
+    }.bind(this), this.doneActionDelayMs_);
   },
 
   /**
    * Signal from host to show the screen.
    */
   onShow() {
+    if (this.isFirstScreen) {
+      // If voice match is the first screen, slightly delay showing the content
+      // for the lottie animations to load.
+      this.fire('loading');
+      window.setTimeout(function() {
+        this.fire('loaded');
+      }.bind(this), 100);
+    }
+
     chrome.send('login.AssistantOptInFlowScreen.VoiceMatchScreen.screenShown');
     this.$['voice-match-lottie'].setPlay(true);
     this.$['already-setup-lottie'].setPlay(true);

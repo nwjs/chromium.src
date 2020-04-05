@@ -76,8 +76,7 @@ void HomeButton::OnShelfButtonAboutToRequestFocusFromTabTraversal(
   // *   Going in reverse when the shelf has a back button, which implies that
   //     the widget is trying to loop back from the back button.
   if (GetFocusManager()->GetFocusedView() == this ||
-      (reverse &&
-       shelf()->shelf_widget()->navigation_widget()->GetBackButton())) {
+      (reverse && shelf()->navigation_widget()->GetBackButton())) {
     shelf()->shelf_focus_cycler()->FocusOut(reverse,
                                             SourceView::kShelfNavigationView);
   }
@@ -163,8 +162,10 @@ bool HomeButton::DoesIntersectRect(const views::View* target,
   gfx::Rect button_bounds = target->GetLocalBounds();
   // Increase clickable area for the button to account for clicks around the
   // spacing. This will not intercept events outside of the parent widget.
-  button_bounds.Inset(
-      gfx::Insets(-ShelfConfig::Get()->home_button_edge_spacing()));
+  button_bounds.Inset(-ShelfConfig::Get()->control_button_edge_spacing(
+                          shelf()->IsHorizontalAlignment()),
+                      -ShelfConfig::Get()->control_button_edge_spacing(
+                          !shelf()->IsHorizontalAlignment()));
   return button_bounds.Intersects(rect);
 }
 

@@ -16,20 +16,20 @@ cr.define('settings', function() {
     /**
      * Add an observer to the list of personal data.
      * @param {function(!Array<!settings.AutofillManager.AddressEntry>,
-     *   !Array<!settings.PaymentsManager.CreditCardEntry>):void} listener
+     *   !Array<!settings.CreditCardEntry>):void} listener
      */
     setPersonalDataManagerListener(listener) {}
 
     /**
      * Remove an observer from the list of personal data.
      * @param {function(!Array<!settings.AutofillManager.AddressEntry>,
-     *     !Array<!settings.PaymentsManager.CreditCardEntry>):void} listener
+     *     !Array<!settings.CreditCardEntry>):void} listener
      */
     removePersonalDataManagerListener(listener) {}
 
     /**
      * Request the list of credit cards.
-     * @param {function(!Array<!settings.PaymentsManager.CreditCardEntry>):void}
+     * @param {function(!Array<!settings.CreditCardEntry>):void}
      *     callback
      */
     getCreditCardList(callback) {}
@@ -44,7 +44,7 @@ cr.define('settings', function() {
 
     /**
      * Saves the given credit card.
-     * @param {!settings.PaymentsManager.CreditCardEntry} creditCard
+     * @param {!settings.CreditCardEntry} creditCard
      */
     saveCreditCard(creditCard) {}
 
@@ -62,16 +62,19 @@ cr.define('settings', function() {
      * Enables FIDO authentication for card unmasking.
      */
     setCreditCardFIDOAuthEnabledState(enabled) {}
-  }
 
-  /** @typedef {chrome.autofillPrivate.CreditCardEntry} */
-  PaymentsManager.CreditCardEntry;
+    /**
+     * Requests the list of UPI IDs from personal data.
+     * @param {function(!Array<!string>):void} callback
+     */
+    getUpiIdList(callback) {}
+  }
 
   /**
    * Implementation that accesses the private API.
    * @implements {settings.PaymentsManager}
    */
-  class PaymentsManagerImpl {
+  /* #export */ class PaymentsManagerImpl {
     /** @override */
     setPersonalDataManagerListener(listener) {
       chrome.autofillPrivate.onPersonalDataChanged.addListener(listener);
@@ -116,6 +119,11 @@ cr.define('settings', function() {
     setCreditCardFIDOAuthEnabledState(enabled) {
       chrome.autofillPrivate.setCreditCardFIDOAuthEnabledState(enabled);
     }
+
+    /** @override */
+    getUpiIdList(callback) {
+      chrome.autofillPrivate.getUpiIdList(callback);
+    }
   }
 
   cr.addSingletonGetter(PaymentsManagerImpl);
@@ -131,9 +139,18 @@ cr.define('settings', function() {
     properties: {
       /**
        * An array of all saved credit cards.
-       * @type {!Array<!settings.PaymentsManager.CreditCardEntry>}
+       * @type {!Array<!settings.CreditCardEntry>}
        */
       creditCards: {
+        type: Array,
+        value: () => [],
+      },
+
+      /**
+       * An array of all saved UPI IDs.
+       * @type {!Array<!string>}
+       */
+      upiIds: {
         type: Array,
         value: () => [],
       },
@@ -173,6 +190,17 @@ cr.define('settings', function() {
         },
         readOnly: true,
       },
+
+      /**
+       * True if the privacy settings redesign feature is enabled.
+       * @private
+       */
+      privacySettingsRedesignEnabled_: {
+        type: Boolean,
+        value() {
+          return loadTimeData.getBoolean('privacySettingsRedesignEnabled');
+        }
+      },
     },
 
     listeners: {
@@ -196,7 +224,7 @@ cr.define('settings', function() {
 
     /**
      * @type {?function(!Array<!settings.AutofillManager.AddressEntry>,
-     *     !Array<!settings.PaymentsManager.CreditCardEntry>)}
+     *     !Array<!settings.CreditCardEntry>)}
      * @private
      */
     setPersonalDataListener_: null,
@@ -204,7 +232,7 @@ cr.define('settings', function() {
     /** @override */
     attached() {
       // Create listener function.
-      /** @type {function(!Array<!settings.PaymentsManager.CreditCardEntry>)} */
+      /** @type {function(!Array<!settings.CreditCardEntry>)} */
       const setCreditCardsListener = cardList => {
         this.creditCards = cardList;
       };
@@ -221,10 +249,15 @@ cr.define('settings', function() {
 
       /**
        * @type {function(!Array<!settings.AutofillManager.AddressEntry>,
-       *     !Array<!settings.PaymentsManager.CreditCardEntry>)}
+       *     !Array<!settings.CreditCardEntry>)}
        */
       const setPersonalDataListener = (addressList, cardList) => {
         this.creditCards = cardList;
+      };
+
+      /** @type {function(!Array<!string>)} */
+      const setUpiIdsListener = upiIdList => {
+        this.upiIds = upiIdList;
       };
 
       // Remember the bound reference in order to detach.
@@ -235,6 +268,7 @@ cr.define('settings', function() {
 
       // Request initial data.
       this.paymentsManager_.getCreditCardList(setCreditCardsListener);
+      this.paymentsManager_.getUpiIdList(setUpiIdsListener);
 
       // Listen for changes.
       this.paymentsManager_.setPersonalDataManagerListener(
@@ -249,7 +283,7 @@ cr.define('settings', function() {
       this.paymentsManager_.removePersonalDataManagerListener(
           /**
              @type {function(!Array<!settings.AutofillManager.AddressEntry>,
-                 !Array<!settings.PaymentsManager.CreditCardEntry>)}
+                 !Array<!settings.CreditCardEntry>)}
            */
           (this.setPersonalDataListener_));
     },
@@ -284,7 +318,8 @@ cr.define('settings', function() {
         expirationYear: date.getFullYear().toString(),
       };
       this.showCreditCardDialog_ = true;
-      this.activeDialogAnchor_ = this.$.addCreditCard;
+      this.activeDialogAnchor_ =
+          /** @type {HTMLElement} */ (this.$.addCreditCard);
     },
 
     /** @private */
@@ -350,6 +385,17 @@ cr.define('settings', function() {
     },
 
     /**
+     * Records changes made to the "Allow sites to check if you have payment
+     * methods saved" setting to a histogram.
+     * @private
+     */
+    onCanMakePaymentChange_() {
+      settings.MetricsBrowserProxyImpl.getInstance()
+          .recordSettingsPageHistogram(
+              settings.PrivacyElementInteractions.PAYMENT_METHOD);
+    },
+
+    /**
      * Listens for the save-credit-card event, and calls the private API.
      * @param {!Event} event
      * @private
@@ -378,7 +424,7 @@ cr.define('settings', function() {
     },
 
     /**
-     * @param {!Array<!settings.PaymentsManager.CreditCardEntry>} creditCards
+     * @param {!Array<!settings.CreditCardEntry>} creditCards
      * @param {boolean} creditCardEnabled
      * @return {boolean} Whether to show the migration button.
      * @private

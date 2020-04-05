@@ -52,6 +52,7 @@
 #include "components/bookmarks/common/bookmark_pref_names.h"
 #include "components/dom_distiller/core/dom_distiller_features.h"
 #include "components/feature_engagement/buildflags.h"
+#include "components/omnibox/common/omnibox_features.h"
 #include "components/prefs/pref_service.h"
 #include "components/sessions/core/tab_restore_service.h"
 #include "components/signin/public/base/signin_pref_names.h"
@@ -81,6 +82,7 @@
 #include "chrome/browser/platform_util.h"
 #include "chrome/browser/ui/ash/multi_user/multi_user_context_menu.h"
 #include "chrome/browser/ui/browser_commands_chromeos.h"
+#include "components/session_manager/core/session_manager.h"
 #endif
 
 #if defined(OS_LINUX) && !defined(OS_CHROMEOS)
@@ -214,7 +216,7 @@ bool BrowserCommandController::IsReservedCommandOrKey(
     int command_id,
     const content::NativeWebKeyboardEvent& event) {
   // In Apps mode, no keys are reserved.
-  if (browser_->deprecated_is_app())
+  if (browser_->is_type_app() || browser_->is_type_app_popup())
     return false;
 
 #if defined(OS_CHROMEOS)
@@ -464,7 +466,7 @@ bool BrowserCommandController::ExecuteCommandWithDisposition(
       break;
     case IDC_OPEN_IN_PWA_WINDOW:
       base::RecordAction(base::UserMetricsAction("OpenActiveTabInPwaWindow"));
-      web_app::ReparentWebAppForSecureActiveTab(browser_);
+      web_app::ReparentWebAppForActiveTab(browser_);
       break;
     case IDC_MOVE_TAB_TO_NEW_WINDOW:
       MoveActiveTabToNewWindow(browser_);
@@ -473,6 +475,8 @@ bool BrowserCommandController::ExecuteCommandWithDisposition(
 #if defined(OS_CHROMEOS)
     case IDC_VISIT_DESKTOP_OF_LRU_USER_2:
     case IDC_VISIT_DESKTOP_OF_LRU_USER_3:
+    case IDC_VISIT_DESKTOP_OF_LRU_USER_4:
+    case IDC_VISIT_DESKTOP_OF_LRU_USER_5:
       ExecuteVisitDesktopCommand(id, window()->GetNativeWindow());
       break;
 #endif
@@ -518,7 +522,7 @@ bool BrowserCommandController::ExecuteCommandWithDisposition(
           ->GetForProfile(profile())
           ->OnBookmarkAdded();
 #endif
-      BookmarkCurrentTabAllowingExtensionOverrides(browser_);
+      BookmarkCurrentTab(browser_);
       break;
     case IDC_BOOKMARK_ALL_TABS:
 #if BUILDFLAG(ENABLE_LEGACY_DESKTOP_IN_PRODUCT_HELP)
@@ -679,6 +683,9 @@ bool BrowserCommandController::ExecuteCommandWithDisposition(
 #endif
     case IDC_SHOW_BOOKMARK_BAR:
       ToggleBookmarkBar(browser_);
+      break;
+    case IDC_SHOW_FULL_URLS:
+      ToggleShowFullURLs(browser_);
       break;
     case IDC_PROFILING_ENABLED:
       content::Profiling::Toggle();
@@ -959,8 +966,19 @@ void BrowserCommandController::InitCommandState() {
   command_updater_.UpdateCommandEnabled(IDC_DEBUG_FRAME_TOGGLE, true);
 #if defined(OS_CHROMEOS)
   command_updater_.UpdateCommandEnabled(IDC_MINIMIZE_WINDOW, true);
+  // The VisitDesktop command is only supported for up to 5 logged in users
+  // because that's the max number of user sessions. If that number is increased
+  // the IDC_VISIT_DESKTOP_OF_LRU_USER_ command ids should be updated as well.
+  // crbug.com/940461
+  static_assert(
+      session_manager::kMaximumNumberOfUserSessions <=
+          IDC_VISIT_DESKTOP_OF_LRU_USER_LAST -
+              IDC_VISIT_DESKTOP_OF_LRU_USER_NEXT + 2,
+      "The max number of user sessions exceeds the number of users supported.");
   command_updater_.UpdateCommandEnabled(IDC_VISIT_DESKTOP_OF_LRU_USER_2, true);
   command_updater_.UpdateCommandEnabled(IDC_VISIT_DESKTOP_OF_LRU_USER_3, true);
+  command_updater_.UpdateCommandEnabled(IDC_VISIT_DESKTOP_OF_LRU_USER_4, true);
+  command_updater_.UpdateCommandEnabled(IDC_VISIT_DESKTOP_OF_LRU_USER_5, true);
 #endif
 #if defined(OS_LINUX) && !defined(OS_CHROMEOS)
   command_updater_.UpdateCommandEnabled(IDC_MINIMIZE_WINDOW, true);
@@ -1036,20 +1054,22 @@ void BrowserCommandController::InitCommandState() {
   command_updater_.UpdateCommandEnabled(IDC_SITE_SETTINGS, is_web_app);
   command_updater_.UpdateCommandEnabled(IDC_WEB_APP_MENU_APP_INFO, is_web_app);
 
-  // Window management commands
-  command_updater_.UpdateCommandEnabled(IDC_SELECT_NEXT_TAB, normal_window);
-  command_updater_.UpdateCommandEnabled(IDC_SELECT_PREVIOUS_TAB, normal_window);
-  command_updater_.UpdateCommandEnabled(IDC_MOVE_TAB_NEXT, normal_window);
-  command_updater_.UpdateCommandEnabled(IDC_MOVE_TAB_PREVIOUS, normal_window);
-  command_updater_.UpdateCommandEnabled(IDC_SELECT_TAB_0, normal_window);
-  command_updater_.UpdateCommandEnabled(IDC_SELECT_TAB_1, normal_window);
-  command_updater_.UpdateCommandEnabled(IDC_SELECT_TAB_2, normal_window);
-  command_updater_.UpdateCommandEnabled(IDC_SELECT_TAB_3, normal_window);
-  command_updater_.UpdateCommandEnabled(IDC_SELECT_TAB_4, normal_window);
-  command_updater_.UpdateCommandEnabled(IDC_SELECT_TAB_5, normal_window);
-  command_updater_.UpdateCommandEnabled(IDC_SELECT_TAB_6, normal_window);
-  command_updater_.UpdateCommandEnabled(IDC_SELECT_TAB_7, normal_window);
-  command_updater_.UpdateCommandEnabled(IDC_SELECT_LAST_TAB, normal_window);
+  // Tab management commands
+  const bool supports_tabs =
+      browser_->SupportsWindowFeature(Browser::FEATURE_TABSTRIP);
+  command_updater_.UpdateCommandEnabled(IDC_SELECT_NEXT_TAB, supports_tabs);
+  command_updater_.UpdateCommandEnabled(IDC_SELECT_PREVIOUS_TAB, supports_tabs);
+  command_updater_.UpdateCommandEnabled(IDC_MOVE_TAB_NEXT, supports_tabs);
+  command_updater_.UpdateCommandEnabled(IDC_MOVE_TAB_PREVIOUS, supports_tabs);
+  command_updater_.UpdateCommandEnabled(IDC_SELECT_TAB_0, supports_tabs);
+  command_updater_.UpdateCommandEnabled(IDC_SELECT_TAB_1, supports_tabs);
+  command_updater_.UpdateCommandEnabled(IDC_SELECT_TAB_2, supports_tabs);
+  command_updater_.UpdateCommandEnabled(IDC_SELECT_TAB_3, supports_tabs);
+  command_updater_.UpdateCommandEnabled(IDC_SELECT_TAB_4, supports_tabs);
+  command_updater_.UpdateCommandEnabled(IDC_SELECT_TAB_5, supports_tabs);
+  command_updater_.UpdateCommandEnabled(IDC_SELECT_TAB_6, supports_tabs);
+  command_updater_.UpdateCommandEnabled(IDC_SELECT_TAB_7, supports_tabs);
+  command_updater_.UpdateCommandEnabled(IDC_SELECT_LAST_TAB, supports_tabs);
 
   // These are always enabled; the menu determines their menu item visibility.
   command_updater_.UpdateCommandEnabled(IDC_UPGRADE_DIALOG, true);
@@ -1098,6 +1118,10 @@ void BrowserCommandController::UpdateSharedCommandsForIncognitoAvailability(
       extensions::ExtensionSystem::Get(profile)->extension_service();
   const bool enable_extensions =
       extension_service && extension_service->extensions_enabled();
+
+  command_updater->UpdateCommandEnabled(
+      IDC_SHOW_FULL_URLS,
+      base::FeatureList::IsEnabled(omnibox::kOmniboxContextMenuShowFullUrls));
 
   // Bookmark manager and settings page/subpages are forced to open in normal
   // mode. For this reason we disable these commands when incognito is forced.

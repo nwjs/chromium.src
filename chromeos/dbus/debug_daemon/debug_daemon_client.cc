@@ -27,6 +27,7 @@
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/trace_event/trace_config.h"
 #include "chromeos/dbus/pipe_reader.h"
@@ -53,8 +54,8 @@ const int kBigLogsDBusTimeoutMS = 120 * 1000;
 class PipeReaderWrapper : public base::SupportsWeakPtr<PipeReaderWrapper> {
  public:
   explicit PipeReaderWrapper(DebugDaemonClient::GetLogsCallback callback)
-      : pipe_reader_(base::CreateTaskRunner(
-            {base::ThreadPool(), base::MayBlock(),
+      : pipe_reader_(base::ThreadPool::CreateTaskRunner(
+            {base::MayBlock(),
              base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN})),
         callback_(std::move(callback)) {}
 
@@ -285,7 +286,7 @@ class DebugDaemonClientImpl : public DebugDaemonClient {
       writer.AppendString("all");  // TODO(sleffler) parameterize category list
     } else {
       std::string events;
-      for (const std::string event : trace_config.systrace_events()) {
+      for (const std::string& event : trace_config.systrace_events()) {
         if (!events.empty())
           events += " ";
         events += event;
@@ -704,14 +705,15 @@ class DebugDaemonClientImpl : public DebugDaemonClient {
   void OnUint64Method(DBusMethodCallback<uint64_t> callback,
                       dbus::Response* response) {
     if (!response) {
-      std::move(callback).Run(0);
+      std::move(callback).Run(base::nullopt);
       return;
     }
 
     dbus::MessageReader reader(response);
     uint64_t result;
     if (!reader.PopUint64(&result)) {
-      result = 0;
+      std::move(callback).Run(base::nullopt);
+      return;
     }
 
     std::move(callback).Run(std::move(result));

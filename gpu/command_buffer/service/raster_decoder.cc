@@ -322,6 +322,13 @@ class RasterDecoderImpl final : public RasterDecoder,
                                    unsigned format,
                                    int width,
                                    int height) override;
+  bool ClearCompressedTextureLevel3D(gles2::Texture* texture,
+                                     unsigned target,
+                                     int level,
+                                     unsigned format,
+                                     int width,
+                                     int height,
+                                     int depth) override;
   bool ClearLevel3D(gles2::Texture* texture,
                     unsigned target,
                     int level,
@@ -759,7 +766,8 @@ ContextResult RasterDecoderImpl::Initialize(
   DCHECK_EQ(context.get(), shared_context_state_->context());
 
   // Create GPU Tracer for timing values.
-  gpu_tracer_.reset(new gles2::GPUTracer(this));
+  gpu_tracer_.reset(
+      new gles2::GPUTracer(this, shared_context_state_->GrContextIsGL()));
 
   // Save the loseContextWhenOutOfMemory context creation attribute.
   lose_context_when_out_of_memory_ =
@@ -877,11 +885,15 @@ bool RasterDecoderImpl::MakeCurrent() {
 }
 
 gl::GLContext* RasterDecoderImpl::GetGLContext() {
-  return shared_context_state_->context();
+  return shared_context_state_->GrContextIsGL()
+             ? shared_context_state_->context()
+             : nullptr;
 }
 
 gl::GLSurface* RasterDecoderImpl::GetGLSurface() {
-  return shared_context_state_->surface();
+  return shared_context_state_->GrContextIsGL()
+             ? shared_context_state_->surface()
+             : nullptr;
 }
 
 Capabilities RasterDecoderImpl::GetCapabilities() {
@@ -1233,7 +1245,8 @@ error::Error RasterDecoderImpl::DoCommandsImpl(unsigned int num_commands,
         if (DebugImpl && doing_gpu_trace)
           gpu_tracer_->End(gles2::kTraceDecoder);
 
-        if (DebugImpl && debug() && !WasContextLost()) {
+        if (DebugImpl && shared_context_state_->GrContextIsGL() && debug() &&
+            !WasContextLost()) {
           GLenum error;
           while ((error = api()->glGetErrorFn()) != GL_NO_ERROR) {
             LOG(ERROR) << "[" << logger_.GetLogPrefix() << "] "
@@ -1413,6 +1426,17 @@ bool RasterDecoderImpl::ClearCompressedTextureLevel(gles2::Texture* texture,
                                                     unsigned format,
                                                     int width,
                                                     int height) {
+  NOTREACHED();
+  return false;
+}
+
+bool RasterDecoderImpl::ClearCompressedTextureLevel3D(gles2::Texture* texture,
+                                                      unsigned target,
+                                                      int level,
+                                                      unsigned format,
+                                                      int width,
+                                                      int height,
+                                                      int depth) {
   NOTREACHED();
   return false;
 }
@@ -2490,10 +2514,13 @@ void RasterDecoderImpl::DoEndRasterCHROMIUM() {
 
   raster_canvas_ = nullptr;
 
+  // The DDL pins memory for the recorded ops so it must be kept alive until its
+  // flushed.
+  std::unique_ptr<SkDeferredDisplayList> ddl;
   if (use_ddl_) {
     TRACE_EVENT0("gpu",
                  "RasterDecoderImpl::DoEndRasterCHROMIUM::DetachAndDrawDDL");
-    auto ddl = recorder_->detach();
+    ddl = recorder_->detach();
     recorder_ = nullptr;
     sk_surface_->draw(ddl.get());
   }
@@ -2516,6 +2543,7 @@ void RasterDecoderImpl::DoEndRasterCHROMIUM() {
                                      flush_info);
     DCHECK(result == GrSemaphoresSubmitted::kYes || end_semaphores_.empty());
     end_semaphores_.clear();
+    ddl.reset();
   }
 
   shared_context_state_->UpdateSkiaOwnedMemorySize();
@@ -2569,6 +2597,12 @@ void RasterDecoderImpl::DoCreateTransferCacheEntryINTERNAL(
     LOCAL_SET_GL_ERROR(GL_INVALID_VALUE, "glCreateTransferCacheEntryINTERNAL",
                        "Attempt to use OOP transfer cache with an invalid "
                        "cache entry type.");
+    return;
+  }
+
+  if (entry_type == cc::TransferCacheEntryType::kSkottie && !is_privileged_) {
+    LOCAL_SET_GL_ERROR(GL_INVALID_VALUE, "glCreateTransferCacheEntryINTERNAL",
+                       "Attempt to use skottie on a non privileged channel");
     return;
   }
 

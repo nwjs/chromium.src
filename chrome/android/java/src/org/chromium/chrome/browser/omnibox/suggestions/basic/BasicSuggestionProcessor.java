@@ -5,15 +5,13 @@
 package org.chromium.chrome.browser.omnibox.suggestions.basic;
 
 import android.content.Context;
-import android.graphics.Bitmap;
-import android.support.annotation.DrawableRes;
 import android.text.TextUtils;
+
+import androidx.annotation.DrawableRes;
 
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.favicon.LargeIconBridge;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.omnibox.MatchClassificationStyle;
 import org.chromium.chrome.browser.omnibox.OmniboxSuggestionType;
 import org.chromium.chrome.browser.omnibox.UrlBarEditingTextStateProvider;
@@ -23,7 +21,7 @@ import org.chromium.chrome.browser.omnibox.suggestions.base.BaseSuggestionViewPr
 import org.chromium.chrome.browser.omnibox.suggestions.base.SuggestionDrawableState;
 import org.chromium.chrome.browser.omnibox.suggestions.base.SuggestionSpannable;
 import org.chromium.chrome.browser.omnibox.suggestions.basic.SuggestionViewProperties.SuggestionIcon;
-import org.chromium.ui.base.DeviceFormFactor;
+import org.chromium.chrome.browser.ui.favicon.LargeIconBridge;
 import org.chromium.ui.modelutil.PropertyModel;
 
 import java.util.ArrayList;
@@ -34,7 +32,6 @@ public class BasicSuggestionProcessor extends BaseSuggestionViewProcessor {
     private final Context mContext;
     private final UrlBarEditingTextStateProvider mUrlBarEditingTextProvider;
     private final Supplier<LargeIconBridge> mIconBridgeSupplier;
-    private boolean mEnableSuggestionFavicons;
     private final int mDesiredFaviconWidthPx;
 
     /**
@@ -70,9 +67,6 @@ public class BasicSuggestionProcessor extends BaseSuggestionViewProcessor {
     }
 
     @Override
-    public void onUrlFocusChange(boolean hasFocus) {}
-
-    @Override
     public void recordSuggestionPresented(OmniboxSuggestion suggestion, PropertyModel model) {
         RecordHistogram.recordEnumeratedHistogram("Omnibox.IconOrFaviconShown",
                 model.get(SuggestionViewProperties.SUGGESTION_ICON_TYPE),
@@ -86,26 +80,10 @@ public class BasicSuggestionProcessor extends BaseSuggestionViewProcessor {
                 SuggestionIcon.TOTAL_COUNT);
     }
 
-    /**
-     * Signals that native initialization has completed.
-     */
-    @Override
-    public void onNativeInitialized() {
-        // Experiment: controls presence of certain answer icon types.
-        mEnableSuggestionFavicons =
-                ChromeFeatureList.isEnabled(ChromeFeatureList.OMNIBOX_SHOW_SUGGESTION_FAVICONS);
-    }
-
     /** Decide whether suggestion should receive a refine arrow. */
     @Override
     protected boolean canRefine(OmniboxSuggestion suggestion) {
         final @OmniboxSuggestionType int suggestionType = suggestion.getType();
-
-        if (suggestionType == OmniboxSuggestionType.CLIPBOARD_TEXT
-                || suggestionType == OmniboxSuggestionType.CLIPBOARD_URL
-                || suggestionType == OmniboxSuggestionType.CLIPBOARD_IMAGE) {
-            return false;
-        }
 
         return !mUrlBarEditingTextProvider.getTextWithoutAutocomplete().trim().equalsIgnoreCase(
                 suggestion.getDisplayText());
@@ -120,10 +98,7 @@ public class BasicSuggestionProcessor extends BaseSuggestionViewProcessor {
      */
     private @SuggestionIcon int getSuggestionIconType(OmniboxSuggestion suggestion) {
         if (suggestion.isUrlSuggestion()) {
-            if (suggestion.getType() == OmniboxSuggestionType.CLIPBOARD_TEXT
-                    || suggestion.getType() == OmniboxSuggestionType.CLIPBOARD_IMAGE) {
-                return SuggestionIcon.MAGNIFIER;
-            } else if (suggestion.isStarred()) {
+            if (suggestion.isStarred()) {
                 return SuggestionIcon.BOOKMARK;
             } else {
                 return SuggestionIcon.GLOBE;
@@ -144,11 +119,6 @@ public class BasicSuggestionProcessor extends BaseSuggestionViewProcessor {
     }
 
     private void updateSuggestionIcon(OmniboxSuggestion suggestion, PropertyModel model) {
-        if (!(mEnableSuggestionFavicons
-                    || DeviceFormFactor.isNonMultiDisplayContextOnTablet(mContext))) {
-            return;
-        }
-
         @SuggestionIcon
         int type = getSuggestionIconType(suggestion);
         @DrawableRes
@@ -209,45 +179,12 @@ public class BasicSuggestionProcessor extends BaseSuggestionViewProcessor {
                 getSuggestedQuery(suggestion, suggestion.isUrlSuggestion(), !urlHighlighted);
 
         updateSuggestionIcon(suggestion, model);
-        model.set(SuggestionViewProperties.IS_SEARCH_SUGGESTION,
-                !suggestion.isUrlSuggestion()
-                        || suggestionType == OmniboxSuggestionType.CLIPBOARD_IMAGE
-                        || suggestionType == OmniboxSuggestionType.CLIPBOARD_TEXT);
+        model.set(SuggestionViewProperties.IS_SEARCH_SUGGESTION, !suggestion.isUrlSuggestion());
         model.set(SuggestionViewProperties.TEXT_LINE_1_TEXT, textLine1);
         model.set(SuggestionViewProperties.TEXT_LINE_2_TEXT, textLine2);
-        fetchSuggestionFavicon(model, suggestion.getUrl(), suggestion.getType());
-    }
-
-    /**
-     * Fetch suggestion favicon, if one is available.
-     * Updates icon decoration in supplied |model| if |url| is not null and points to an already
-     * visited website.
-     *
-     * @param model Model representing current suggestion.
-     * @param url Target URL the suggestion points to.
-     * @param type Suggestion type.
-     */
-    private void fetchSuggestionFavicon(
-            PropertyModel model, String url, @OmniboxSuggestionType int type) {
-        if (!mEnableSuggestionFavicons || url == null
-                || type == OmniboxSuggestionType.CLIPBOARD_TEXT) {
-            return;
-        }
-
-        // Include site favicon if we are presenting URL and have favicon available.
-        // TODO(gangwu): Create a separate processor for clipboard suggestions.
-        final LargeIconBridge iconBridge = mIconBridgeSupplier.get();
-        if (iconBridge == null) return;
-
-        iconBridge.getLargeIconForUrl(url, mDesiredFaviconWidthPx,
-                (Bitmap icon, int fallbackColor, boolean isFallbackColorDefault, int iconType) -> {
-                    if (icon == null) return;
-
-                    setSuggestionDrawableState(model,
-                            SuggestionDrawableState.Builder.forBitmap(mContext, icon).build());
-                    model.set(
-                            SuggestionViewProperties.SUGGESTION_ICON_TYPE, SuggestionIcon.FAVICON);
-                });
+        fetchSuggestionFavicon(model, suggestion.getUrl(), mIconBridgeSupplier.get(), () -> {
+            model.set(SuggestionViewProperties.SUGGESTION_ICON_TYPE, SuggestionIcon.FAVICON);
+        });
     }
 
     /**

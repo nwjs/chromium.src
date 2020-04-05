@@ -30,6 +30,8 @@ namespace {
 SharingMessageSender::DelegateType GetSendDelegateType(
     const syncer::DeviceInfo& device,
     const chrome_browser_sharing::SharingMessage& message) {
+#if defined(OS_WIN) || defined(OS_MACOSX) || defined(OS_LINUX) || \
+    defined(OS_CHROMEOS)
   // Messages other than SharedClipboard are always sent via FCM.
   if (message.payload_case() !=
       chrome_browser_sharing::SharingMessage::kSharedClipboardMessage) {
@@ -54,6 +56,11 @@ SharingMessageSender::DelegateType GetSendDelegateType(
   // logic once we wrap up the experiment and e.g. only send messages over a
   // certain size via WebRTC.
   return SharingMessageSender::DelegateType::kWebRtc;
+#else
+  // Only FCM is supported for non desktop OS.
+  return SharingMessageSender::DelegateType::kFCM;
+#endif  // defined(OS_WIN) || defined(OS_MACOSX) || defined(OS_LINUX) ||
+        // defined(OS_CHROMEOS)
 }
 
 }  // namespace
@@ -128,6 +135,24 @@ void SharingService::RegisterSharingHandler(
 void SharingService::UnregisterSharingHandler(
     chrome_browser_sharing::SharingMessage::PayloadCase payload_case) {
   handler_registry_->UnregisterSharingHandler(payload_case);
+}
+
+void SharingService::SetNotificationActionHandler(
+    const std::string& notification_id,
+    NotificationActionCallback callback) {
+  if (callback)
+    notification_action_handlers_[notification_id] = callback;
+  else
+    notification_action_handlers_.erase(notification_id);
+}
+
+SharingService::NotificationActionCallback
+SharingService::GetNotificationActionHandler(
+    const std::string& notification_id) const {
+  auto iter = notification_action_handlers_.find(notification_id);
+  return iter == notification_action_handlers_.end()
+             ? NotificationActionCallback()
+             : iter->second;
 }
 
 SharingDeviceSource* SharingService::GetDeviceSource() const {

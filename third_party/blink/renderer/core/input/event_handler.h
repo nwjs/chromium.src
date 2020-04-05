@@ -47,13 +47,13 @@
 #include "third_party/blink/renderer/core/page/event_with_hit_test_results.h"
 #include "third_party/blink/renderer/core/scroll/scroll_types.h"
 #include "third_party/blink/renderer/core/style/computed_style_constants.h"
-#include "third_party/blink/renderer/platform/cursor.h"
 #include "third_party/blink/renderer/platform/geometry/layout_point.h"
 #include "third_party/blink/renderer/platform/heap/handle.h"
 #include "third_party/blink/renderer/platform/wtf/allocator/allocator.h"
 #include "third_party/blink/renderer/platform/wtf/forward.h"
 #include "third_party/blink/renderer/platform/wtf/hash_map.h"
 #include "third_party/blink/renderer/platform/wtf/hash_traits.h"
+#include "ui/base/cursor/cursor.h"
 
 namespace blink {
 
@@ -81,7 +81,7 @@ class WebMouseWheelEvent;
 class CORE_EXPORT EventHandler final : public GarbageCollected<EventHandler> {
  public:
   explicit EventHandler(LocalFrame&);
-  void Trace(blink::Visitor*);
+  void Trace(Visitor*);
 
   void Clear();
 
@@ -94,10 +94,6 @@ class CORE_EXPORT EventHandler final : public GarbageCollected<EventHandler> {
   // those APIs be more limited or removed.
 
   void StopAutoscroll();
-
-  void MayUpdateHoverWhenContentUnderMouseChanged(
-      MouseEventManager::UpdateHoverReason);
-  void MayUpdateHoverAfterScroll(const FloatRect&);
 
   HitTestResult HitTestResultAtLocation(
       const HitTestLocation&,
@@ -124,10 +120,6 @@ class CORE_EXPORT EventHandler final : public GarbageCollected<EventHandler> {
   // Return whether a mouse cursor update is currently pending.  Used for
   // testing.
   bool CursorUpdatePending();
-
-  // Return whether sending a fake mouse move is currently pending.  Used for
-  // testing.
-  bool FakeMouseMovePending() const;
 
   void SetResizingFrameSet(HTMLFrameSetElement*);
 
@@ -279,35 +271,12 @@ class CORE_EXPORT EventHandler final : public GarbageCollected<EventHandler> {
   bool LongTapShouldInvokeContextMenu();
 
  private:
-  enum NoCursorChangeType { kNoCursorChange };
-
-  class OptionalCursor {
-    STACK_ALLOCATED();
-
-   public:
-    OptionalCursor(NoCursorChangeType) : is_cursor_change_(false) {}
-    OptionalCursor(const Cursor& cursor)
-        : is_cursor_change_(true), cursor_(cursor) {}
-
-    bool IsCursorChange() const { return is_cursor_change_; }
-    const Cursor& GetCursor() const {
-      DCHECK(is_cursor_change_);
-      return cursor_;
-    }
-
-   private:
-    bool is_cursor_change_;
-    Cursor cursor_;
-  };
-
   WebInputEventResult HandleMouseMoveOrLeaveEvent(
       const WebMouseEvent&,
       const Vector<WebMouseEvent>& coalesced_events,
       const Vector<WebMouseEvent>& predicted_events,
       HitTestResult* hovered_node = nullptr,
-      HitTestLocation* hit_test_location = nullptr,
-      bool only_update_scrollbars = false,
-      bool force_leave = false);
+      HitTestLocation* hit_test_location = nullptr);
 
   // Updates the event, location and result to the adjusted target.
   void ApplyTouchAdjustment(WebGestureEvent*, HitTestLocation&, HitTestResult*);
@@ -324,11 +293,11 @@ class CORE_EXPORT EventHandler final : public GarbageCollected<EventHandler> {
   bool IsSelectingLink(const HitTestResult&);
   bool ShouldShowIBeamForNode(const Node*, const HitTestResult&);
   bool ShouldShowResizeForNode(const Node*, const HitTestLocation&);
-  OptionalCursor SelectCursor(const HitTestLocation& location,
-                              const HitTestResult&);
-  OptionalCursor SelectAutoCursor(const HitTestResult&,
-                                  Node*,
-                                  const Cursor& i_beam);
+  base::Optional<ui::Cursor> SelectCursor(const HitTestLocation& location,
+                                          const HitTestResult&);
+  base::Optional<ui::Cursor> SelectAutoCursor(const HitTestResult&,
+                                              Node*,
+                                              const ui::Cursor& i_beam);
 
   void HoverTimerFired(TimerBase*);
   void CursorUpdateTimerFired(TimerBase*);
@@ -401,6 +370,7 @@ class CORE_EXPORT EventHandler final : public GarbageCollected<EventHandler> {
 
   const Member<SelectionController> selection_controller_;
 
+  // TODO(lanwei): Remove the below timers for updating hover and cursor.
   TaskRunnerTimer<EventHandler> hover_timer_;
 
   // TODO(rbyers): Mouse cursor update is page-wide, not per-frame.  Page-wide

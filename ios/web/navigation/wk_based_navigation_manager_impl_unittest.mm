@@ -129,6 +129,7 @@ class WKBasedNavigationManagerTest : public PlatformTest {
 
  private:
   TestBrowserState browser_state_;
+  url::ScopedSchemeRegistryForTests scoped_registry_;
 };
 
 // Tests that GetItemAtIndex() on an empty manager will sync navigation items to
@@ -197,6 +198,24 @@ TEST_F(WKBasedNavigationManagerTest, SyncInGetLastCommittedItem) {
   ASSERT_NE(item, nullptr);
   EXPECT_EQ("http://www.0.com/", item->GetURL().spec());
   EXPECT_FALSE(item->GetTimestamp().is_null());
+}
+
+// Tests that GetLastCommittedItem() creates a default NavigationItem inheriting
+// the UserAgent of the previous items when calling GetLastCommittedItem with
+// the URL of the WebView not being the same as the URL of the current item.
+// This can happpen on some navigation see https://crbug.com/1049094 .
+TEST_F(WKBasedNavigationManagerTest, SyncInGetLastCommittedItemOffSyncWebView) {
+  OCMStub([mock_web_view_ URL])
+      .andReturn([[NSURL alloc] initWithString:@"http://www.0.com"]);
+  [mock_wk_list_ setCurrentURL:@"http://www.1.com"
+                  backListURLs:@[ @"http://www.0.com" ]
+               forwardListURLs:nil];
+  manager_->GetItemAtIndex(0)->SetUserAgentType(UserAgentType::DESKTOP, true);
+
+  NavigationItem* item = manager_->GetLastCommittedItem();
+  ASSERT_NE(item, nullptr);
+  EXPECT_EQ("http://www.1.com/", item->GetURL().spec());
+  EXPECT_EQ(UserAgentType::DESKTOP, item->GetUserAgentType());
 }
 
 // Tests that GetLastCommittedItem() creates a default NavigationItem when the

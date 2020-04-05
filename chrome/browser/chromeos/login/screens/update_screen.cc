@@ -42,6 +42,16 @@ constexpr const base::TimeDelta kShowDelay =
 }  // anonymous namespace
 
 // static
+std::string UpdateScreen::GetResultString(Result result) {
+  switch (result) {
+    case Result::UPDATE_NOT_REQUIRED:
+      return "UpdateNotRequired";
+    case Result::UPDATE_ERROR:
+      return "UpdateError";
+  }
+}
+
+// static
 UpdateScreen* UpdateScreen::Get(ScreenManager* manager) {
   return static_cast<UpdateScreen*>(manager->GetScreen(UpdateView::kScreenId));
 }
@@ -49,7 +59,7 @@ UpdateScreen* UpdateScreen::Get(ScreenManager* manager) {
 UpdateScreen::UpdateScreen(UpdateView* view,
                            ErrorScreen* error_screen,
                            const ScreenExitCallback& exit_callback)
-    : BaseScreen(UpdateView::kScreenId),
+    : BaseScreen(UpdateView::kScreenId, OobeScreenPriority::DEFAULT),
       view_(view),
       error_screen_(error_screen),
       exit_callback_(exit_callback),
@@ -70,7 +80,7 @@ void UpdateScreen::OnViewDestroyed(UpdateView* view) {
     view_ = nullptr;
 }
 
-void UpdateScreen::Show() {
+void UpdateScreen::ShowImpl() {
 #if !BUILDFLAG(GOOGLE_CHROME_BRANDING)
   if (view_) {
     view_->SetCancelUpdateShortcutEnabled(true);
@@ -85,7 +95,7 @@ void UpdateScreen::Show() {
   version_updater_->StartNetworkCheck();
 }
 
-void UpdateScreen::Hide() {
+void UpdateScreen::HideImpl() {
   show_timer_.Stop();
   if (view_)
     view_->Hide();

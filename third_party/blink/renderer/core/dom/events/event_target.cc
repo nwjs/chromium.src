@@ -180,7 +180,7 @@ void CountFiringEventListeners(const Event& event,
   }
   if (CheckTypeThenUseCount(event, event_type_names::kPointerdown,
                             WebFeature::kPointerDownFired, document)) {
-    if (event.IsPointerEvent() &&
+    if (IsA<PointerEvent>(event) &&
         static_cast<const PointerEvent&>(event).pointerType() == "touch") {
       UseCounter::Count(document, WebFeature::kPointerDownFiredForTouch);
     }
@@ -217,7 +217,7 @@ void CountFiringEventListeners(const Event& event,
 
 void RegisterWithScheduler(ExecutionContext* execution_context,
                            const AtomicString& event_type) {
-  if (!execution_context)
+  if (!execution_context || !execution_context->GetScheduler())
     return;
   // TODO(altimin): Ideally we would also support tracking unregistration of
   // event listeners, but we don't do this for performance reasons.
@@ -398,7 +398,7 @@ void EventTarget::SetDefaultAddEventListenerOptions(
                           WebFeature::kSmoothScrollJSInterventionActivated);
 
         executing_window->GetFrame()->Console().AddMessage(
-            ConsoleMessage::Create(
+            MakeGarbageCollected<ConsoleMessage>(
                 mojom::ConsoleMessageSource::kIntervention,
                 mojom::ConsoleMessageLevel::kWarning,
                 "Registering mousewheel event as passive due to "

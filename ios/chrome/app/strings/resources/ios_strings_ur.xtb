@@ -97,6 +97,7 @@
 <translation id="2149973817440762519">بک مارک میں ترمیم کریں</translation>
 <translation id="2179182049312275900">آپ ترتیبات میں کسی بھی وقت مطابقت پذیری کو آن کر سکتے ہیں۔</translation>
 <translation id="2198757192731523470">‏تلاش، اشتہارات اور Google کی دیگر سروسز کو ذاتی نوعیت کا بنانے کے لیے Google آپ کی سرگزشت کا استعمال کر سکتا ہے۔</translation>
+<translation id="2218443599109088993">زوم آؤٹ کریں</translation>
 <translation id="2230173723195178503">ویب صفحہ لوڈ کر دیا گیا ہے</translation>
 <translation id="2239626343334228536">براؤزنگ ڈیٹا صاف ہو رہا ہے...</translation>
 <translation id="2257567812274161158">مطابقت پذیری کام نہیں کر رہی ہے۔</translation>
@@ -159,6 +160,7 @@
 <translation id="2923448633003185837">پیسٹ کریں اور جائیں</translation>
 <translation id="292639812446257861">بغیر پڑھے ہوئے کے بطور نشان زد کریں</translation>
 <translation id="2958718410589002129">پاس ورڈز</translation>
+<translation id="2964349545761222050">فریق ثالث کوکیز کو مسدود کریں</translation>
 <translation id="2969979262385602596">سائن ان کرنے میں ناکام ہوگیا۔ براہ کرم بعد میں دوبارہ کوشش کریں۔</translation>
 <translation id="298306318844797842">ادائیگی کا طریقہ شامل کریں...</translation>
 <translation id="2989805286512600854">نئے ٹیب میں کھولیں</translation>
@@ -178,6 +180,7 @@
 <translation id="3290875554372353449">اکاؤنٹ منتخب کریں</translation>
 <translation id="3311748811247479259">آف</translation>
 <translation id="3324193307694657476">پتہ 2</translation>
+<translation id="3328801116991980348">سائٹ کی معلومات</translation>
 <translation id="3329904751041170572">سرور سے منسلک نہیں ہو سکے۔</translation>
 <translation id="3335947283844343239">بند ٹیب دوبارہ کھولیں</translation>
 <translation id="3371831930909698441">ترجمہ دستیاب ہے۔ اسکرین کے نچلے حصہ کے قریب اختیارات دستیاب ہیں۔</translation>
@@ -300,6 +303,7 @@
 <translation id="4979397965658815378">‏اپنے سبھی آلات پر اپنے بُک مارکس، پاس ورڈز، سرگزشت اور دیگر ترتیبات حاصل کرنے کیلئے اپنے Google اکاؤنٹ کے ساتھ سائن ان کریں</translation>
 <translation id="5005498671520578047">پاس ورڈ کاپی کریں</translation>
 <translation id="5010803260590204777">ویب کو نجی طور پر براؤز کرنے کیلئے ایک پوشیدگی ٹیب کھولیں۔</translation>
+<translation id="5039020240289137291">فریق ثالث کوکیز کو مسدود کرنا</translation>
 <translation id="5039804452771397117">اجازت دیں</translation>
 <translation id="5059136629401106827">ٹھیک ہے</translation>
 <translation id="5062321486222145940">‏Google Drive انسٹال کریں</translation>
@@ -414,9 +418,11 @@ Handoff ترتیبات کے عام سیکشن میں بھی فعال ہونی ض
 <translation id="6434591244308415567">ایک خرابی پیش آ گئی۔ بعد میں دوبارہ کوشش کریں۔</translation>
 <translation id="6445051938772793705">ملک</translation>
 <translation id="6445981559479772097">پیغام بھیج دیا گیا۔</translation>
+<translation id="6447842834002726250">کوکیز</translation>
 <translation id="6464071786529933911">نئے پوشیدگی ٹیب میں کھولیں</translation>
 <translation id="6476800141292307438">صفحہ کا <ph name="LANGUAGE" /> میں ترجمہ کیا جا رہا ہے۔ اسکرین کے نچلے حصے کے قریب اختیارات دستیاب ہیں۔</translation>
 <translation id="6482629121755362506"><ph name="NUMBER_OF_SELECTED_BOOKMARKS" /> آئٹم کو حذف کر دیا گیا</translation>
+<translation id="6561262006871132942">زوم ان کریں</translation>
 <translation id="6610002944194042868">ترجمہ کے اختیارات</translation>
 <translation id="6628106477656132239">میعاد ختم ہونے کی تاریخ غلط ہے</translation>
 <translation id="6638511529934826365">ٹیکسٹ کو زوم کریں…</translation>
@@ -479,7 +485,6 @@ Handoff ترتیبات کے عام سیکشن میں بھی فعال ہونی ض
 <translation id="734758817008927353">کارڈ محفوظ کرنے کے اختیارات</translation>
 <translation id="7348502496356775519">بُک مارک کریں</translation>
 <translation id="7383797227493018512">پڑھنے کی فہرست</translation>
-<translation id="7392048574806661116">سائن آؤٹ کریں اور سنک کردہ ڈیٹا کو صاف کریں</translation>
 <translation id="7400418766976504921">URL</translation>
 <translation id="7409985198648820906"><ph name="UNREAD_COUNT" /> بغیر پڑھے ہوئے مضامین۔</translation>
 <translation id="7425346204213733349">‏آپ کے بُک مارکس، سرگزشت، پاس ورڈز اور دیگر ترتیبات کی تبدیلیوں کی مزید آپ کے Google اکاؤنٹ کے ساتھ مطابقت پذیری نہیں کی جائے گی۔ البتہ آپ کا موجودہ ڈیٹا آپ کے Google اکاؤنٹ میں اسٹور رہے گا۔</translation>
@@ -598,6 +603,7 @@ Handoff ترتیبات کے عام سیکشن میں بھی فعال ہونی ض
 <translation id="9223358826628549784">کریش رپورٹ بھیج دی گئی۔</translation>
 <translation id="952704832371081537">منسوخ کریں</translation>
 <translation id="988141524645182168">دیگر آلات</translation>
+<translation id="989697783705943787">سائٹ کی سیکیورٹی</translation>
 <translation id="989988560359834682">پتہ میں ترمیم کریں</translation>
 <translation id="994757059139821576">مضمون کی تجاویز</translation>
 </translationbundle>

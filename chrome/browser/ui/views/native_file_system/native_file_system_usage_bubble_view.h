@@ -38,7 +38,8 @@ class NativeFileSystemUsageBubbleView : public LocationBarBubbleDelegateView {
  private:
   class FilePathListModel : public ui::TableModel {
    public:
-    FilePathListModel(std::vector<base::FilePath> files,
+    FilePathListModel(const views::View* view,
+                      std::vector<base::FilePath> files,
                       std::vector<base::FilePath> directories);
     ~FilePathListModel() override;
     // ui::TableModel:
@@ -49,6 +50,10 @@ class NativeFileSystemUsageBubbleView : public LocationBarBubbleDelegateView {
     void SetObserver(ui::TableModelObserver*) override;
 
    private:
+    // The model needs access to the view it is in to access the correct theme
+    // for icon colors.
+    const views::View* const owner_;
+
     const std::vector<base::FilePath> files_;
     const std::vector<base::FilePath> directories_;
     DISALLOW_COPY_AND_ASSIGN(FilePathListModel);
@@ -64,12 +69,12 @@ class NativeFileSystemUsageBubbleView : public LocationBarBubbleDelegateView {
   base::string16 GetAccessibleWindowTitle() const override;
   bool ShouldShowCloseButton() const override;
   void Init() override;
-  bool Cancel() override;
-  bool Close() override;
   void WindowClosing() override;
   void CloseBubble() override;
   gfx::Size CalculatePreferredSize() const override;
   void ChildPreferredSizeChanged(views::View* child) override;
+
+  void OnDialogCancelled();
 
   // Singleton instance of the bubble. The bubble can only be shown on the
   // active browser window, so there is no case in which it will be shown
@@ -78,8 +83,8 @@ class NativeFileSystemUsageBubbleView : public LocationBarBubbleDelegateView {
 
   const url::Origin origin_;
   const Usage usage_;
-  FilePathListModel writable_paths_model_;
   FilePathListModel readable_paths_model_;
+  FilePathListModel writable_paths_model_;
 
   DISALLOW_COPY_AND_ASSIGN(NativeFileSystemUsageBubbleView);
 };

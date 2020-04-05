@@ -33,7 +33,6 @@
 #include "services/viz/public/mojom/hit_test/hit_test_region_list.mojom.h"
 #include "third_party/blink/public/common/screen_orientation/web_screen_orientation_type.h"
 #include "third_party/blink/public/platform/web_intrinsic_sizing_info.h"
-#include "third_party/blink/public/web/web_text_direction.h"
 #include "third_party/skia/include/core/SkImageInfo.h"
 #include "ui/accessibility/ax_tree_id_registry.h"
 #include "ui/base/ime/text_input_mode.h"
@@ -124,7 +123,8 @@ class CONTENT_EXPORT RenderWidgetHostViewBase
       base::Optional<bool> destination_is_loaded,
       base::Optional<bool> destination_is_frozen,
       bool show_reason_tab_switching,
-      bool show_reason_unoccluded) final;
+      bool show_reason_unoccluded,
+      bool show_reason_bfcache_restore) final;
 
   // This only needs to be overridden by RenderWidgetHostViewBase subclasses
   // that handle content embedded within other RenderWidgetHostViews.
@@ -233,6 +233,9 @@ class CONTENT_EXPORT RenderWidgetHostViewBase
 
   virtual void GestureEventAck(const blink::WebGestureEvent& event,
                                InputEventAckState ack_result);
+
+  virtual void ChildDidAckGestureEvent(const blink::WebGestureEvent& event,
+                                       InputEventAckState ack_result);
 
   // When key event is not uncosumed in render, browser may want to consume it.
   virtual bool OnUnconsumedKeyboardEventAck(
@@ -584,7 +587,7 @@ class CONTENT_EXPORT RenderWidgetHostViewBase
   float current_device_scale_factor_ = 0;
 
   // The color space of the display the renderer is currently on.
-  gfx::ColorSpace current_display_color_space_;
+  gfx::DisplayColorSpaces current_display_color_spaces_;
 
   // The orientation of the display the renderer is currently on.
   display::Display::Rotation current_display_rotation_ =

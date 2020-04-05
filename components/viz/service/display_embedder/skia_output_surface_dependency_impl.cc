@@ -4,6 +4,7 @@
 
 #include "components/viz/service/display_embedder/skia_output_surface_dependency_impl.h"
 
+#include "base/callback_helpers.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "build/build_config.h"
 #include "components/viz/service/gl/gpu_service_impl.h"
@@ -27,14 +28,6 @@ std::unique_ptr<gpu::SingleTaskSequence>
 SkiaOutputSurfaceDependencyImpl::CreateSequence() {
   return std::make_unique<gpu::SchedulerSequence>(
       gpu_service_impl_->GetGpuScheduler());
-}
-
-bool SkiaOutputSurfaceDependencyImpl::IsUsingVulkan() {
-  return gpu_service_impl_->is_using_vulkan();
-}
-
-bool SkiaOutputSurfaceDependencyImpl::IsUsingDawn() {
-  return gpu_service_impl_->is_using_dawn();
 }
 
 gpu::SharedImageManager*
@@ -70,8 +63,8 @@ DawnContextProvider* SkiaOutputSurfaceDependencyImpl::GetDawnContextProvider() {
   return gpu_service_impl_->dawn_context_provider();
 }
 
-const gpu::GpuPreferences&
-SkiaOutputSurfaceDependencyImpl::GetGpuPreferences() {
+const gpu::GpuPreferences& SkiaOutputSurfaceDependencyImpl::GetGpuPreferences()
+    const {
   return gpu_service_impl_->gpu_preferences();
 }
 
@@ -160,10 +153,11 @@ void SkiaOutputSurfaceDependencyImpl::UnregisterDisplayContext(
 }
 
 void SkiaOutputSurfaceDependencyImpl::DidLoseContext(
-    bool offscreen,
     gpu::error::ContextLostReason reason,
     const GURL& active_url) {
-  gpu_service_impl_->DidLoseContext(offscreen, reason, active_url);
+  // |offscreen| is used to determine if it's compositing context or not to
+  // decide if we need to disable webgl and canvas.
+  gpu_service_impl_->DidLoseContext(/*offscreen=*/false, reason, active_url);
 }
 
 base::TimeDelta

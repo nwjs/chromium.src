@@ -21,7 +21,6 @@
 #include "chrome/browser/extensions/extension_view_host_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/extensions/accelerator_priority.h"
 #include "chrome/browser/ui/extensions/extension_action_platform_delegate.h"
 #include "chrome/browser/ui/extensions/extensions_container.h"
 #include "chrome/browser/ui/extensions/icon_with_badge_image_source.h"
@@ -156,7 +155,8 @@ bool ExtensionActionViewController::IsEnabled(
 
   return extension_action_->GetIsVisible(
              sessions::SessionTabHelper::IdForTab(web_contents).id()) ||
-         HasBeenBlocked(web_contents);
+         GetPageInteractionStatus(web_contents) ==
+             PageInteractionStatus::kPending;
 }
 
 bool ExtensionActionViewController::WantsToRun(
@@ -218,7 +218,16 @@ ui::MenuModel* ExtensionActionViewController::GetContextMenu() {
   return context_menu_model_.get();
 }
 
+void ExtensionActionViewController::OnContextMenuShown() {
+  extensions_container_->OnContextMenuShown(this);
+}
+
 void ExtensionActionViewController::OnContextMenuClosed() {
+  if (base::FeatureList::IsEnabled(features::kExtensionsToolbarMenu)) {
+    extensions_container_->OnContextMenuClosed(this);
+    return;
+  }
+
   if (extensions_container_->GetPoppedOutAction() == this && !IsShowingPopup())
     extensions_container_->UndoPopOut();
 }
@@ -302,25 +311,26 @@ ExtensionActionViewController::GetPageInteractionStatus(
   if (!web_contents)
     return PageInteractionStatus::kNone;
 
-  // We give priority to kPending, because it's the one that's most important
-  // for users to see.
-  if (HasBeenBlocked(web_contents))
-    return PageInteractionStatus::kPending;
-
-  // NOTE(devlin): We could theoretically adjust this to only be considered
-  // active if the extension *did* act on the page, rather than if it *could*.
-  // This is a bit more complex, and it's unclear if this is a better UX, since
-  // it would lead to much less determinism in terms of what extensions look
-  // like on a given host.
   const int tab_id = sessions::SessionTabHelper::IdForTab(web_contents).id();
   const GURL& url = web_contents->GetLastCommittedURL();
-  if (extension_->permissions_data()->GetPageAccess(url, tab_id,
-                                                    /*error=*/nullptr) ==
-          extensions::PermissionsData::PageAccess::kAllowed ||
-      extension_->permissions_data()->GetContentScriptAccess(
-          url, tab_id, /*error=*/nullptr) ==
-          extensions::PermissionsData::PageAccess::kAllowed) {
+  extensions::PermissionsData::PageAccess page_access =
+      extension_->permissions_data()->GetPageAccess(url, tab_id,
+                                                    /*error=*/nullptr);
+  extensions::PermissionsData::PageAccess script_access =
+      extension_->permissions_data()->GetContentScriptAccess(url, tab_id,
+                                                             /*error=*/nullptr);
+  if (page_access == extensions::PermissionsData::PageAccess::kAllowed ||
+      script_access == extensions::PermissionsData::PageAccess::kAllowed) {
     return PageInteractionStatus::kActive;
+  }
+  // TODO(tjudkins): Investigate if we need to check HasBeenBlocked() for this
+  // case. We do know that extensions that have been blocked should always be
+  // marked pending, but those cases should be covered by the withheld page
+  // access checks.
+  if (page_access == extensions::PermissionsData::PageAccess::kWithheld ||
+      script_access == extensions::PermissionsData::PageAccess::kWithheld ||
+      HasBeenBlocked(web_contents)) {
+    return PageInteractionStatus::kPending;
   }
 
   return PageInteractionStatus::kNone;
@@ -437,7 +447,8 @@ void ExtensionActionViewController::OnPopupClosed() {
   popup_host_ = nullptr;
   extensions_container_->SetPopupOwner(nullptr);
   if (extensions_container_->GetPoppedOutAction() == this &&
-      !view_delegate_->IsMenuRunning()) {
+      (base::FeatureList::IsEnabled(features::kExtensionsToolbarMenu) ||
+       !view_delegate_->IsMenuRunning())) {
     extensions_container_->UndoPopOut();
   }
   view_delegate_->OnPopupClosed();
@@ -471,7 +482,7 @@ ExtensionActionViewController::GetIconImageSource(
   // is disabled.
   grayscale =
       interaction_status == PageInteractionStatus::kNone && !action_is_visible;
-  was_blocked = interaction_status == PageInteractionStatus::kPending;
+  was_blocked = HasBeenBlocked(web_contents);
 
   image_source->set_grayscale(grayscale);
   image_source->set_paint_blocked_actions_decoration(was_blocked);

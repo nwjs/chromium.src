@@ -18,6 +18,7 @@
 #include "base/system/sys_info.h"
 #include "base/task/post_task.h"
 #include "base/task/task_traits.h"
+#include "base/task/thread_pool.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "chrome/browser/about_flags.h"
@@ -26,7 +27,6 @@
 #include "chrome/browser/metrics/bluetooth_available_utility.h"
 #include "chrome/browser/metrics/process_memory_metrics_emitter.h"
 #include "chrome/browser/shell_integration.h"
-#include "chrome/browser/vr/service/xr_runtime_manager.h"
 #include "components/flags_ui/pref_service_flags_storage.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
@@ -66,7 +66,6 @@
 #include "base/win/scoped_handle.h"
 #include "base/win/windows_version.h"
 #include "chrome/browser/shell_integration_win.h"
-#include "printing/backend/win_helper.h"
 #endif  // defined(OS_WIN)
 
 namespace {
@@ -236,10 +235,6 @@ void RecordStartupMetrics() {
 
   UMA_HISTOGRAM_BOOLEAN("Windows.HasHighResolutionTimeTicks",
                         base::TimeTicks::IsHighResolution());
-
-  // Metric of interest specifically for Windows 7 printing.
-  UMA_HISTOGRAM_BOOLEAN("Windows.HasOpenXpsSupport",
-                        printing::XPSModule::IsOpenXpsCapable());
 
   // Determine if Applocker is enabled and running. This does not check if
   // Applocker rules are being enforced.
@@ -538,10 +533,6 @@ void RecordIsPinnedToTaskbarHistogram() {
       base::Bind(&OnIsPinnedToTaskbarResult));
 }
 
-void RecordVrStartupHistograms() {
-  vr::XRRuntimeManager::RecordVrStartupHistograms();
-}
-
 class ScHandleTraits {
  public:
   typedef SC_HANDLE Handle;
@@ -615,12 +606,12 @@ void ChromeBrowserMainExtraPartsMetrics::PostBrowserStart() {
                             UMA_LINUX_WINDOW_MANAGER_COUNT);
 #endif
 
-  constexpr base::TaskTraits background_task_traits = {
-      base::ThreadPool(), base::MayBlock(), base::TaskPriority::BEST_EFFORT,
+  constexpr base::TaskTraits kBestEffortTaskTraits = {
+      base::MayBlock(), base::TaskPriority::BEST_EFFORT,
       base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN};
 #if defined(OS_LINUX) && !defined(OS_CHROMEOS)
-  base::PostTask(FROM_HERE, background_task_traits,
-                 base::BindOnce(&RecordLinuxDistro));
+  base::ThreadPool::PostTask(FROM_HERE, kBestEffortTaskTraits,
+                             base::BindOnce(&RecordLinuxDistro));
 #endif
 
 #if defined(USE_OZONE) || defined(USE_X11)
@@ -644,11 +635,11 @@ void ChromeBrowserMainExtraPartsMetrics::PostBrowserStart() {
 #if defined(OS_WIN)
   // RecordStartupMetrics calls into shell_integration::GetDefaultBrowser(),
   // which requires a COM thread on Windows.
-  base::CreateCOMSTATaskRunner(background_task_traits)
+  base::ThreadPool::CreateCOMSTATaskRunner(kBestEffortTaskTraits)
       ->PostTask(FROM_HERE, base::BindOnce(&RecordStartupMetrics));
 #else
-  base::PostTask(FROM_HERE, background_task_traits,
-                 base::BindOnce(&RecordStartupMetrics));
+  base::ThreadPool::PostTask(FROM_HERE, kBestEffortTaskTraits,
+                             base::BindOnce(&RecordStartupMetrics));
 #endif  // defined(OS_WIN)
 
 #if defined(OS_WIN)
@@ -656,16 +647,10 @@ void ChromeBrowserMainExtraPartsMetrics::PostBrowserStart() {
   // breaking some tests, including all of the ProcessMemoryMetricsEmitterTest
   // tests. Figure out why there is a dependency and fix the tests.
   auto background_task_runner =
-      base::CreateSequencedTaskRunner(background_task_traits);
+      base::ThreadPool::CreateSequencedTaskRunner(kBestEffortTaskTraits);
 
   background_task_runner->PostDelayedTask(
       FROM_HERE, base::BindOnce(&RecordIsPinnedToTaskbarHistogram),
-      base::TimeDelta::FromSeconds(45));
-
-  // TODO(billorr): This should eventually be done on all platforms that support
-  // VR.
-  background_task_runner->PostDelayedTask(
-      FROM_HERE, base::BindOnce(&RecordVrStartupHistograms),
       base::TimeDelta::FromSeconds(45));
 #endif  // defined(OS_WIN)
 

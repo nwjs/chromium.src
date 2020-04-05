@@ -4,7 +4,7 @@
 
 package org.chromium.chrome.browser.autofill_assistant;
 
-import android.support.annotation.Nullable;
+import androidx.annotation.Nullable;
 
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -44,7 +44,8 @@ public class AutofillAssistantTestService
                 (ClientSettingsProto) ClientSettingsProto.newBuilder()
                         .setIntegrationTestSettings(
                                 ClientSettingsProto.IntegrationTestSettings.newBuilder()
-                                        .setDisableHeaderAnimations(true))
+                                        .setDisableHeaderAnimations(true)
+                                        .setDisableCarouselChangeAnimations(true))
                         .build());
     }
 

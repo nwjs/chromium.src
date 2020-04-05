@@ -80,9 +80,11 @@ class FakeUpdateClient : public update_client::UpdateClient {
   void RemoveObserver(Observer* observer) override {}
   void Install(const std::string& id,
                CrxDataCallback crx_data_callback,
+               CrxStateChangeCallback crx_state_change_callback,
                update_client::Callback callback) override {}
   void Update(const std::vector<std::string>& ids,
               CrxDataCallback crx_data_callback,
+              CrxStateChangeCallback crx_state_change_callback,
               bool is_foreground,
               update_client::Callback callback) override;
   bool GetCrxUpdateState(
@@ -123,7 +125,7 @@ class FakeUpdateClient : public update_client::UpdateClient {
 
  protected:
   friend class base::RefCounted<FakeUpdateClient>;
-  ~FakeUpdateClient() override {}
+  ~FakeUpdateClient() override = default;
 
   std::vector<base::Optional<update_client::CrxComponent>> data_;
   std::vector<UninstallPing> uninstall_pings_;
@@ -140,6 +142,7 @@ FakeUpdateClient::FakeUpdateClient() : delay_update_(false) {}
 
 void FakeUpdateClient::Update(const std::vector<std::string>& ids,
                               CrxDataCallback crx_data_callback,
+                              CrxStateChangeCallback crx_state_change_callback,
                               bool is_foreground,
                               update_client::Callback callback) {
   data_ = std::move(crx_data_callback).Run(ids);
@@ -212,7 +215,7 @@ class FakeExtensionSystem : public MockExtensionSystem {
   using InstallUpdateCallback = MockExtensionSystem::InstallUpdateCallback;
   explicit FakeExtensionSystem(content::BrowserContext* context)
       : MockExtensionSystem(context) {}
-  ~FakeExtensionSystem() override {}
+  ~FakeExtensionSystem() override = default;
 
   struct InstallUpdateRequest {
     InstallUpdateRequest(const std::string& extension_id,
@@ -256,8 +259,8 @@ class FakeExtensionSystem : public MockExtensionSystem {
 
 class UpdateServiceTest : public ExtensionsTest {
  public:
-  UpdateServiceTest() {}
-  ~UpdateServiceTest() override {}
+  UpdateServiceTest() = default;
+  ~UpdateServiceTest() override = default;
 
   void SetUp() override {
     ExtensionsTest::SetUp();
@@ -365,7 +368,7 @@ class UpdateServiceTest : public ExtensionsTest {
 
     bool done = false;
     installer->Install(
-        new_version_dir.GetPath(), std::string(),
+        new_version_dir.GetPath(), std::string(), nullptr,
         base::BindOnce(
             [](bool* done, const update_client::CrxInstaller::Result& result) {
               *done = true;
@@ -878,8 +881,8 @@ TEST_F(UpdateServiceTest, InProgressUpdate_NoBatchAndBatch) {
 
 class UpdateServiceCanUpdateTest : public UpdateServiceTest {
  public:
-  UpdateServiceCanUpdateTest() {}
-  ~UpdateServiceCanUpdateTest() override {}
+  UpdateServiceCanUpdateTest() = default;
+  ~UpdateServiceCanUpdateTest() override = default;
 
   void SetUp() override {
     UpdateServiceTest::SetUp();

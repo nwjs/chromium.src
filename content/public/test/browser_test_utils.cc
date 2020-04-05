@@ -19,6 +19,7 @@
 #include "base/run_loop.h"
 #include "base/stl_util.h"
 #include "base/strings/pattern.h"
+#include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_piece.h"
 #include "base/strings/stringprintf.h"
@@ -621,7 +622,7 @@ bool NavigateToURL(WebContents* web_contents,
 }
 
 bool NavigateIframeToURL(WebContents* web_contents,
-                         std::string iframe_id,
+                         const std::string& iframe_id,
                          const GURL& url) {
   std::string script = base::StringPrintf(
       "setTimeout(\""
@@ -675,6 +676,15 @@ void ResetTouchAction(RenderWidgetHost* host) {
       ->ForceResetTouchActionForTest();
 }
 
+void RequestMouseLock(RenderWidgetHost* host,
+                      bool user_gesture,
+                      bool privileged,
+                      bool request_unadjusted_movement) {
+  static_cast<RenderWidgetHostImpl*>(host)->RequestMouseLock(
+      user_gesture, privileged, request_unadjusted_movement,
+      /*response=*/base::DoNothing());
+}
+
 void RunUntilInputProcessed(RenderWidgetHost* host) {
   base::RunLoop run_loop;
   RenderWidgetHostImpl::From(host)->WaitForInputProcessed(
@@ -701,8 +711,7 @@ std::string ReferrerPolicyToString(
       return "always";
     case network::mojom::ReferrerPolicy::kNever:
       return "never";
-    case network::mojom::ReferrerPolicy::
-        kNoReferrerWhenDowngradeOriginWhenCrossOrigin:
+    case network::mojom::ReferrerPolicy::kStrictOriginWhenCrossOrigin:
       return "strict-origin-when-cross-origin";
   }
   NOTREACHED();
@@ -727,7 +736,18 @@ bool WaitForLoadStop(WebContents* web_contents) {
     LOG(ERROR) << "WebContents was destroyed during waiting for load stop.";
     return false;
   }
-  return IsLastCommittedEntryOfPageType(web_contents, PAGE_TYPE_NORMAL);
+  bool is_page_normal =
+      IsLastCommittedEntryOfPageType(web_contents, PAGE_TYPE_NORMAL);
+  if (!is_page_normal) {
+    NavigationEntry* last_entry =
+        web_contents->GetController().GetLastCommittedEntry();
+    if (last_entry)
+      LOG(ERROR) << "Http status code = " << last_entry->GetHttpStatusCode()
+                 << ", page type = " << last_entry->GetPageType();
+    else
+      LOG(ERROR) << "No committed entry.";
+  }
+  return is_page_normal;
 }
 
 void PrepContentsForBeforeUnloadTest(WebContents* web_contents,
@@ -955,8 +975,7 @@ void SimulateMouseWheelCtrlZoomEvent(WebContents* web_contents,
                                         ui::EventTimeForNow());
 
   wheel_event.SetPositionInWidget(point.x(), point.y());
-  wheel_event.delta_units =
-      ui::input_types::ScrollGranularity::kScrollByPrecisePixel;
+  wheel_event.delta_units = ui::ScrollGranularity::kScrollByPrecisePixel;
   wheel_event.delta_y =
       (zoom_in ? 1.0 : -1.0) * ui::MouseWheelEvent::kWheelDelta;
   wheel_event.wheel_ticks_y = (zoom_in ? 1.0 : -1.0);
@@ -1495,9 +1514,9 @@ std::string AnnotateAndAdjustJsStackTraces(const std::string& js_error,
 
         size_t max_length = 80 - indent.length();
         if (source_line.length() > max_length) {
-          source_line =
-              source_line.substr(0, max_length - elision_mark.length());
-          elision_mark.AppendToString(&source_line);
+          source_line = base::StrCat(
+              {source_line.substr(0, max_length - elision_mark.length()),
+               elision_mark});
         }
 
         annotated_error << base::JoinString(error_line_parts, ":") << ":"
@@ -1860,7 +1879,7 @@ std::vector<net::CanonicalCookie> GetCanonicalCookies(
   // Allow access to SameSite cookies in tests.
   net::CookieOptions options;
   options.set_same_site_cookie_context(
-      net::CookieOptions::SameSiteCookieContext::SAME_SITE_STRICT);
+      net::CookieOptions::SameSiteCookieContext::MakeInclusive());
   cookie_manager->GetCookieList(
       url, options,
       base::BindOnce(
@@ -2386,6 +2405,10 @@ RenderProcessHostWatcher::~RenderProcessHostWatcher() {
 
 void RenderProcessHostWatcher::Wait() {
   run_loop_.Run();
+
+  DCHECK(allow_renderer_crashes_)
+      << "RenderProcessHostWatcher::Wait() may only be called once";
+  allow_renderer_crashes_.reset();
 }
 
 void RenderProcessHostWatcher::RenderProcessReady(RenderProcessHost* host) {
@@ -2407,6 +2430,86 @@ void RenderProcessHostWatcher::RenderProcessHostDestroyed(
   render_process_host_ = nullptr;
   if (type_ == WATCH_FOR_HOST_DESTRUCTION)
     std::move(quit_closure_).Run();
+}
+
+RenderProcessHostKillWaiter::RenderProcessHostKillWaiter(
+    RenderProcessHost* render_process_host,
+    const std::string& uma_name)
+    : exit_watcher_(render_process_host,
+                    RenderProcessHostWatcher::WATCH_FOR_PROCESS_EXIT),
+      uma_name_(uma_name) {}
+
+base::Optional<int> RenderProcessHostKillWaiter::Wait() {
+  base::Optional<bad_message::BadMessageReason> result;
+
+  // Wait for the renderer kill.
+  exit_watcher_.Wait();
+#if !defined(OS_ANDROID)
+  // Getting termination status on android is not reliable. To avoid flakiness,
+  // we can skip this check and just check bad message. On other platforms we
+  // want to verify that the renderer got killed, rather than exiting normally.
+  if (exit_watcher_.did_exit_normally()) {
+    LOG(ERROR) << "Renderer unexpectedly exited normally.";
+    return result;
+  }
+#endif
+
+  // Find the logged UMA data (if present).
+  std::vector<base::Bucket> uma_samples =
+      histogram_tester_.GetAllSamples(uma_name_);
+  // No UMA will be present if the kill was not triggered by the //content layer
+  // (e.g. if it was triggered by bad_message::ReceivedBadMessage from //chrome
+  // layer or from somewhere in the //components layer).
+  if (uma_samples.empty()) {
+    LOG(ERROR) << "Unexpectedly found no '" << uma_name_ << "' samples.";
+    return result;
+  }
+  const base::Bucket& bucket = uma_samples.back();
+  // Assuming that user of RenderProcessHostKillWatcher makes sure that only one
+  // kill can happen while using the class.
+  DCHECK_EQ(1u, uma_samples.size())
+      << "Multiple renderer kills are unsupported";
+
+  return bucket.min;
+}
+
+RenderProcessHostBadMojoMessageWaiter::RenderProcessHostBadMojoMessageWaiter(
+    RenderProcessHost* render_process_host)
+    : monitored_render_process_id_(render_process_host->GetID()),
+      kill_waiter_(render_process_host,
+                   "Stability.BadMessageTerminated.Content") {
+  // base::Unretained is safe below, because the destructor unregisters the
+  // callback.
+  RenderProcessHostImpl::SetBadMojoMessageCallbackForTesting(
+      base::BindRepeating(
+          &RenderProcessHostBadMojoMessageWaiter::OnBadMojoMessage,
+          base::Unretained(this)));
+}
+
+RenderProcessHostBadMojoMessageWaiter::
+    ~RenderProcessHostBadMojoMessageWaiter() {
+  RenderProcessHostImpl::SetBadMojoMessageCallbackForTesting(
+      RenderProcessHostImpl::BadMojoMessageCallbackForTesting());
+}
+
+base::Optional<std::string> RenderProcessHostBadMojoMessageWaiter::Wait() {
+  base::Optional<int> bad_message_reason = kill_waiter_.Wait();
+  if (!bad_message_reason.has_value())
+    return base::nullopt;
+  if (bad_message_reason.value() != bad_message::RPH_MOJO_PROCESS_ERROR) {
+    LOG(ERROR) << "Unexpected |bad_message_reason|: "
+               << bad_message_reason.value();
+    return base::nullopt;
+  }
+
+  return observed_mojo_error_;
+}
+
+void RenderProcessHostBadMojoMessageWaiter::OnBadMojoMessage(
+    int render_process_id,
+    const std::string& error) {
+  if (render_process_id == monitored_render_process_id_)
+    observed_mojo_error_ = error;
 }
 
 DOMMessageQueue::DOMMessageQueue() {
@@ -3156,17 +3259,6 @@ void PwnMessageHelper::FileSystemWrite(RenderProcessHost* process,
   waiter.WaitForOperationToFinish();
 }
 
-void PwnMessageHelper::LockMouse(RenderProcessHost* process,
-                                 int routing_id,
-                                 bool user_gesture,
-                                 bool privileged,
-                                 bool request_unadjusted_movement) {
-  IPC::IpcSecurityTestUtil::PwnMessageReceived(
-      process->GetChannel(),
-      WidgetHostMsg_LockMouse(routing_id, user_gesture, privileged,
-                              request_unadjusted_movement));
-}
-
 void PwnMessageHelper::OpenURL(RenderProcessHost* process,
                                int routing_id,
                                const GURL& url) {
@@ -3264,7 +3356,7 @@ bool ContextMenuFilter::OnMessageReceived(const IPC::Message& message) {
   if (message.type() == FrameHostMsg_ContextMenu::ID) {
     FrameHostMsg_ContextMenu::Param params;
     FrameHostMsg_ContextMenu::Read(&message, &params);
-    content::ContextMenuParams menu_params = std::get<0>(params);
+    content::UntrustworthyContextMenuParams menu_params = std::get<0>(params);
     base::PostTask(
         FROM_HERE, {content::BrowserThread::UI},
         base::BindOnce(&ContextMenuFilter::OnContextMenu, this, menu_params));
@@ -3278,33 +3370,45 @@ void ContextMenuFilter::Wait() {
   run_loop_ = nullptr;
 }
 
-ContextMenuFilter::~ContextMenuFilter() {}
+ContextMenuFilter::~ContextMenuFilter() = default;
 
 void ContextMenuFilter::OnContextMenu(
-    const content::ContextMenuParams& params) {
+    const content::UntrustworthyContextMenuParams& params) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   last_params_ = params;
   std::move(quit_closure_).Run();
 }
 
-bool UpdateUserActivationStateMsgWaiter::OnMessageReceived(
-    const IPC::Message& message) {
-  IPC_BEGIN_MESSAGE_MAP(UpdateUserActivationStateMsgWaiter, message)
-    IPC_MESSAGE_HANDLER(FrameHostMsg_UpdateUserActivationState,
-                        OnUpdateUserActivationState)
-  IPC_END_MESSAGE_MAP()
-  return false;
+UpdateUserActivationStateInterceptor::UpdateUserActivationStateInterceptor() =
+    default;
+
+UpdateUserActivationStateInterceptor::~UpdateUserActivationStateInterceptor() =
+    default;
+
+void UpdateUserActivationStateInterceptor::Init(
+    content::RenderFrameHost* render_frame_host) {
+  render_frame_host_ = render_frame_host;
+  impl_ = static_cast<RenderFrameHostImpl*>(render_frame_host_)
+              ->local_frame_host_receiver_for_testing()
+              .SwapImplForTesting(this);
 }
 
-void UpdateUserActivationStateMsgWaiter::Wait() {
-  if (!received_)
-    run_loop_.Run();
+void UpdateUserActivationStateInterceptor::set_quit_handler(
+    base::OnceClosure handler) {
+  quit_handler_ = std::move(handler);
 }
 
-void UpdateUserActivationStateMsgWaiter::OnUpdateUserActivationState(
-    blink::mojom::UserActivationUpdateType) {
-  received_ = true;
-  run_loop_.Quit();
+blink::mojom::LocalFrameHost*
+UpdateUserActivationStateInterceptor::GetForwardingInterface() {
+  return impl_;
+}
+
+void UpdateUserActivationStateInterceptor::UpdateUserActivationState(
+    blink::mojom::UserActivationUpdateType update_type) {
+  update_user_activation_state_ = true;
+  if (quit_handler_)
+    std::move(quit_handler_).Run();
+  GetForwardingInterface()->UpdateUserActivationState(update_type);
 }
 
 WebContents* GetEmbedderForGuest(content::WebContents* guest) {

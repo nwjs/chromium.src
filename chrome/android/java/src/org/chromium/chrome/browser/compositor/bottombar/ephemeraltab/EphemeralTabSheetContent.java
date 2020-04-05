@@ -7,8 +7,6 @@ package org.chromium.chrome.browser.compositor.bottombar.ephemeraltab;
 import android.content.Context;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.TransitionDrawable;
-import android.support.annotation.DrawableRes;
-import android.support.annotation.Nullable;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -16,6 +14,9 @@ import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+
+import androidx.annotation.DrawableRes;
+import androidx.annotation.Nullable;
 
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.chrome.R;
@@ -26,12 +27,14 @@ import org.chromium.chrome.browser.widget.bottomsheet.BottomSheetContent;
 import org.chromium.chrome.browser.widget.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.widget.FadingShadow;
 import org.chromium.components.browser_ui.widget.FadingShadowView;
+import org.chromium.components.embedder_support.delegate.WebContentsDelegateAndroid;
 import org.chromium.components.embedder_support.view.ContentView;
 import org.chromium.components.url_formatter.SchemeDisplay;
 import org.chromium.components.url_formatter.UrlFormatter;
 import org.chromium.content_public.browser.RenderCoordinates;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.ui.base.ActivityWindowAndroid;
+import org.chromium.url.GURL;
 
 /**
  * Represents ephemeral tab content and the toolbar, which can be included inside the bottom sheet.
@@ -80,14 +83,16 @@ public class EphemeralTabSheetContent implements BottomSheetContent {
      * Add web contents to the sheet.
      * @param webContents The {@link WebContents} to be displayed.
      * @param contentView The {@link ContentView} associated with the web contents.
+     * @param delegate The {@link WebContentsDelegateAndroid} that handles requests on WebContents.
      */
-    public void attachWebContents(WebContents webContents, ContentView contentView) {
+    public void attachWebContents(
+            WebContents webContents, ContentView contentView, WebContentsDelegateAndroid delegate) {
         mWebContents = webContents;
         mWebContentView = contentView;
         if (mWebContentView.getParent() != null) {
             ((ViewGroup) mWebContentView.getParent()).removeView(mWebContentView);
         }
-        mThinWebView.attachWebContents(mWebContents, mWebContentView);
+        mThinWebView.attachWebContents(mWebContents, mWebContentView, delegate);
     }
 
     /**
@@ -167,7 +172,7 @@ public class EphemeralTabSheetContent implements BottomSheetContent {
     }
 
     /** Sets the ephemeral tab URL. */
-    public void updateURL(String url) {
+    public void updateURL(GURL url) {
         TextView originView = mToolbarView.findViewById(R.id.origin);
         originView.setText(
                 UrlFormatter.formatUrlForSecurityDisplay(url, SchemeDisplay.OMIT_HTTP_AND_HTTPS));
@@ -249,6 +254,12 @@ public class EphemeralTabSheetContent implements BottomSheetContent {
     @Override
     public float getFullHeightRatio() {
         return BottomSheetContent.HeightMode.WRAP_CONTENT;
+    }
+
+    @Override
+    public boolean handleBackPress() {
+        mCloseButtonCallback.run();
+        return true;
     }
 
     @Override

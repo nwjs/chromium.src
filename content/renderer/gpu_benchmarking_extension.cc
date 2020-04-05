@@ -50,6 +50,7 @@
 #include "third_party/blink/public/common/input/web_mouse_event.h"
 #include "third_party/blink/public/common/page/page_visibility_state.h"
 #include "third_party/blink/public/web/blink.h"
+#include "third_party/blink/public/web/web_frame_widget.h"
 #include "third_party/blink/public/web/web_image_cache.h"
 #include "third_party/blink/public/web/web_local_frame.h"
 #include "third_party/blink/public/web/web_print_params.h"
@@ -339,19 +340,14 @@ bool BeginSmoothScroll(GpuBenchmarkingContext* context,
   gesture_params.speed_in_pixels_s = speed_in_pixels_s;
   gesture_params.prevent_fling = prevent_fling;
 
-  if (scroll_by_page) {
-    gesture_params.granularity =
-        ui::input_types::ScrollGranularity::kScrollByPage;
-  } else if (precise_scrolling_deltas) {
-    gesture_params.granularity =
-        ui::input_types::ScrollGranularity::kScrollByPrecisePixel;
-  } else if (scroll_by_percentage) {
-    gesture_params.granularity =
-        ui::input_types::ScrollGranularity::kScrollByPercentage;
-  } else {
-    gesture_params.granularity =
-        ui::input_types::ScrollGranularity::kScrollByPixel;
-  }
+  if (scroll_by_page)
+    gesture_params.granularity = ui::ScrollGranularity::kScrollByPage;
+  else if (precise_scrolling_deltas)
+    gesture_params.granularity = ui::ScrollGranularity::kScrollByPrecisePixel;
+  else if (scroll_by_percentage)
+    gesture_params.granularity = ui::ScrollGranularity::kScrollByPercentage;
+  else
+    gesture_params.granularity = ui::ScrollGranularity::kScrollByPixel;
 
   gesture_params.anchor.SetPoint(start_x, start_y);
 
@@ -493,7 +489,7 @@ static void PrintDocumentTofile(v8::Isolate* isolate,
 }
 
 void OnSwapCompletedHelper(CallbackAndContext* callback_and_context,
-                           blink::WebWidgetClient::SwapResult,
+                           blink::WebSwapResult,
                            base::TimeTicks) {
   RunCallbackHelper(callback_and_context);
 }
@@ -1203,8 +1199,10 @@ bool GpuBenchmarking::AddSwapCompletionEventListener(gin::Arguments* args) {
 
   auto callback_and_context = base::MakeRefCounted<CallbackAndContext>(
       args->isolate(), callback, context.web_frame()->MainWorldScriptContext());
-  context.render_widget()->NotifySwapTime(base::BindOnce(
-      &OnSwapCompletedHelper, base::RetainedRef(callback_and_context)));
+  context.web_frame()->FrameWidget()->NotifySwapAndPresentationTime(
+      base::NullCallback(),
+      base::BindOnce(&OnSwapCompletedHelper,
+                     base::RetainedRef(callback_and_context)));
   return true;
 }
 

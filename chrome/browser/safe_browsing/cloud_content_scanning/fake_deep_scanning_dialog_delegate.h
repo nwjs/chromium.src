@@ -9,6 +9,7 @@
 
 #include "base/callback_forward.h"
 #include "base/files/file_path.h"
+#include "base/memory/weak_ptr.h"
 #include "chrome/browser/safe_browsing/cloud_content_scanning/binary_upload_service.h"
 #include "chrome/browser/safe_browsing/cloud_content_scanning/deep_scanning_dialog_delegate.h"
 #include "components/safe_browsing/core/proto/webprotect.pb.h"
@@ -57,6 +58,10 @@ class FakeDeepScanningDialogDelegate : public DeepScanningDialogDelegate {
       Data data,
       CompletionCallback callback);
 
+  // Sets a delay to have before returning responses. This is used by tests that
+  // need to simulate response taking some time.
+  static void SetResponseDelay(base::TimeDelta delay);
+
   // Returns a deep scanning response that represents a successful scan.
   static DeepScanningClientResponse SuccessfulResponse(
       bool include_dlp = true,
@@ -95,15 +100,17 @@ class FakeDeepScanningDialogDelegate : public DeepScanningDialogDelegate {
   void UploadTextForDeepScanning(
       std::unique_ptr<BinaryUploadService::Request> request) override;
   void UploadFileForDeepScanning(
+      BinaryUploadService::Result result,
       const base::FilePath& path,
       std::unique_ptr<BinaryUploadService::Request> request) override;
-  bool CloseTabModalDialog() override;
 
   static BinaryUploadService::Result result_;
   base::RepeatingClosure delete_closure_;
   StatusCallback status_callback_;
   EncryptionStatusCallback encryption_callback_;
   std::string dm_token_;
+
+  base::WeakPtrFactory<FakeDeepScanningDialogDelegate> weakptr_factory_{this};
 };
 
 }  // namespace safe_browsing

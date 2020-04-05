@@ -22,6 +22,7 @@ class LocationBarView;
 class OmniboxEditModel;
 class OmniboxResultView;
 class OmniboxViewViews;
+class WebUIOmniboxPopupView;
 
 // A view representing the contents of the autocomplete popup.
 class OmniboxPopupContentsView : public views::View,
@@ -72,7 +73,8 @@ class OmniboxPopupContentsView : public views::View,
   // OmniboxPopupView:
   bool IsOpen() const override;
   void InvalidateLine(size_t line) override;
-  void OnSelectionStateChanged(size_t line) override;
+  void OnSelectedLineChanged(size_t old_selected_line,
+                             size_t new_selected_line) override;
   void UpdatePopupAppearance() override;
   void ProvideButtonFocusHint(size_t line) override;
   void OnMatchIconUpdated(size_t match_index) override;
@@ -106,11 +108,10 @@ class OmniboxPopupContentsView : public views::View,
   // the specified point.
   size_t GetIndexForPoint(const gfx::Point& point);
 
-  LocationBarView* location_bar_view() { return location_bar_view_; }
-
   // views::View:
   const char* GetClassName() const override;
 
+  // Our model that contains our business logic.
   std::unique_ptr<OmniboxPopupModel> model_;
 
   // The popup that contains this view.  We create this, but it deletes itself
@@ -122,7 +123,12 @@ class OmniboxPopupContentsView : public views::View,
   // The edit view that invokes us.
   OmniboxViewViews* omnibox_view_;
 
+  // The location bar view that owns |omnibox_view_|.
   LocationBarView* location_bar_view_;
+
+  // The child WebView for the suggestions. This only exists if the
+  // omnibox::kWebUIOmniboxPopup flag is on.
+  WebUIOmniboxPopupView* webui_view_ = nullptr;
 
   DISALLOW_COPY_AND_ASSIGN(OmniboxPopupContentsView);
 };

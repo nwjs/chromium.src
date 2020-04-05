@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/modules/webaudio/audio_context.h"
 
+#include "base/metrics/histogram_functions.h"
 #include "build/build_config.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
 #include "services/metrics/public/cpp/ukm_recorder.h"
@@ -31,7 +32,6 @@
 #include "third_party/blink/renderer/platform/bindings/exception_messages.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/heap/heap.h"
-#include "third_party/blink/renderer/platform/instrumentation/histogram.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 #include "third_party/blink/renderer/platform/scheduler/public/post_cross_thread_task.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
@@ -118,10 +118,8 @@ AudioContext* AudioContext::Create(Document& document,
           audio_context, audio_context->context_id_, g_hardware_context_count);
 #endif
 
-  DEFINE_STATIC_LOCAL(SparseHistogram, max_channel_count_histogram,
-                      ("WebAudio.AudioContext.MaxChannelsAvailable"));
-  max_channel_count_histogram.Sample(
-      audio_context->destination()->maxChannelCount());
+  base::UmaHistogramSparse("WebAudio.AudioContext.MaxChannelsAvailable",
+                           audio_context->destination()->maxChannelCount());
 
   probe::DidCreateAudioContext(&document);
 
@@ -144,13 +142,13 @@ AudioContext::AudioContext(Document& document,
       // kUserGestureRequire policy only applies to cross-origin iframes for Web
       // Audio.
       if (document.GetFrame() &&
-          document.GetFrame()->IsCrossOriginSubframe()) {
-        autoplay_status_ = AutoplayStatus::kAutoplayStatusFailed;
+          document.GetFrame()->IsCrossOriginToMainFrame()) {
+        autoplay_status_ = AutoplayStatus::kFailed;
         user_gesture_required_ = true;
       }
       break;
     case AutoplayPolicy::Type::kDocumentUserActivationRequired:
-      autoplay_status_ = AutoplayStatus::kAutoplayStatusFailed;
+      autoplay_status_ = AutoplayStatus::kFailed;
       user_gesture_required_ = true;
       break;
   }
@@ -196,7 +194,7 @@ AudioContext::~AudioContext() {
 #endif
 }
 
-void AudioContext::Trace(blink::Visitor* visitor) {
+void AudioContext::Trace(Visitor* visitor) {
   visitor->Trace(close_resolver_);
   BaseAudioContext::Trace(visitor);
 }
@@ -487,10 +485,10 @@ void AudioContext::MaybeAllowAutoplayWithUnlockType(AutoplayUnlockType type) {
     return;
 
   DCHECK(!autoplay_status_.has_value() ||
-         autoplay_status_ != AutoplayStatus::kAutoplayStatusSucceeded);
+         autoplay_status_ != AutoplayStatus::kSucceeded);
 
   user_gesture_required_ = false;
-  autoplay_status_ = AutoplayStatus::kAutoplayStatusSucceeded;
+  autoplay_status_ = AutoplayStatus::kSucceeded;
 
   DCHECK(!autoplay_unlock_type_.has_value());
   autoplay_unlock_type_ = type;
@@ -500,7 +498,7 @@ bool AudioContext::IsAllowedToStart() const {
   if (!user_gesture_required_)
     return true;
 
-  Document* document = To<Document>(GetExecutionContext());
+  Document* document = Document::From(GetExecutionContext());
   DCHECK(document);
 
   switch (GetAutoplayPolicy()) {
@@ -509,15 +507,15 @@ bool AudioContext::IsAllowedToStart() const {
       break;
     case AutoplayPolicy::Type::kUserGestureRequired:
       DCHECK(document->GetFrame());
-      DCHECK(document->GetFrame()->IsCrossOriginSubframe());
-      document->AddConsoleMessage(ConsoleMessage::Create(
+      DCHECK(document->GetFrame()->IsCrossOriginToMainFrame());
+      document->AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
           mojom::ConsoleMessageSource::kOther,
           mojom::ConsoleMessageLevel::kWarning,
           "The AudioContext was not allowed to start. It must be resumed (or "
           "created) from a user gesture event handler. https://goo.gl/7K7WLu"));
       break;
     case AutoplayPolicy::Type::kDocumentUserActivationRequired:
-      document->AddConsoleMessage(ConsoleMessage::Create(
+      document->AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
           mojom::ConsoleMessageSource::kOther,
           mojom::ConsoleMessageLevel::kWarning,
           "The AudioContext was not allowed to start. It must be resumed (or "
@@ -535,7 +533,7 @@ void AudioContext::RecordAutoplayMetrics() {
   ukm::UkmRecorder* ukm_recorder = GetDocument()->UkmRecorder();
   DCHECK(ukm_recorder);
   ukm::builders::Media_Autoplay_AudioContext(GetDocument()->UkmSourceID())
-      .SetStatus(autoplay_status_.value())
+      .SetStatus(static_cast<int>(autoplay_status_.value()))
       .SetUnlockType(autoplay_unlock_type_
                          ? static_cast<int>(autoplay_unlock_type_.value())
                          : -1)
@@ -543,43 +541,33 @@ void AudioContext::RecordAutoplayMetrics() {
       .Record(ukm_recorder);
 
   // Record autoplay_status_ value.
-  DEFINE_STATIC_LOCAL(
-      EnumerationHistogram, autoplay_histogram,
-      ("WebAudio.Autoplay", AutoplayStatus::kAutoplayStatusCount));
-  DEFINE_STATIC_LOCAL(
-      EnumerationHistogram, cross_origin_autoplay_histogram,
-      ("WebAudio.Autoplay.CrossOrigin", AutoplayStatus::kAutoplayStatusCount));
-
-  autoplay_histogram.Count(autoplay_status_.value());
+  base::UmaHistogramEnumeration("WebAudio.Autoplay", autoplay_status_.value());
 
   if (GetDocument()->GetFrame() &&
-      GetDocument()->GetFrame()->IsCrossOriginSubframe()) {
-    cross_origin_autoplay_histogram.Count(autoplay_status_.value());
+      GetDocument()->GetFrame()->IsCrossOriginToMainFrame()) {
+    base::UmaHistogramEnumeration("WebAudio.Autoplay.CrossOrigin",
+                                  autoplay_status_.value());
   }
 
   autoplay_status_.reset();
 
   // Record autoplay_unlock_type_ value.
   if (autoplay_unlock_type_.has_value()) {
-    DEFINE_STATIC_LOCAL(EnumerationHistogram, autoplay_unlock_type_histogram,
-                        ("WebAudio.Autoplay.UnlockType",
-                         static_cast<int>(AutoplayUnlockType::kCount)));
-
-    autoplay_unlock_type_histogram.Count(
-        static_cast<int>(autoplay_unlock_type_.value()));
+    base::UmaHistogramEnumeration("WebAudio.Autoplay.UnlockType",
+                                  autoplay_unlock_type_.value());
 
     autoplay_unlock_type_.reset();
   }
 }
 
-void AudioContext::ContextDestroyed(ExecutionContext*) {
+void AudioContext::ContextDestroyed() {
   Uninitialize();
 }
 
 bool AudioContext::HasPendingActivity() const {
   // There's activity if the context is is not closed.  Suspended contexts count
   // as having activity even though they are basically idle with nothing going
-  // on.  However, the can be resumed at any time, so we don't want contexts
+  // on.  However, they can be resumed at any time, so we don't want contexts
   // going away prematurely.
   return (ContextState() != kClosed) && BaseAudioContext::HasPendingActivity();
 }

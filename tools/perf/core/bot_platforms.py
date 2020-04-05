@@ -171,6 +171,8 @@ class PerfSuite(object):
     if isinstance(configs, PerfSuite):
       configs = configs.Frozenset()
     for config in configs:
+      if isinstance(config, str):
+        config = _GetBenchmarkConfig(config)
       if config.name in self._configs:
         raise ValueError('Cannot have duplicate benchmarks/executables.')
       self._configs[config.name] = config
@@ -208,6 +210,9 @@ OFFICIAL_BENCHMARK_CONFIGS = PerfSuite(
 OFFICIAL_BENCHMARK_NAMES = frozenset(
     b.name for b in OFFICIAL_BENCHMARK_CONFIGS.Frozenset())
 
+# TODO(crbug.com/1030840): Stop using these 'OFFICIAL_EXCEPT' suites and instead
+# define each benchmarking config separately as is already done for many of the
+# suites below.
 _OFFICIAL_EXCEPT_DISPLAY_LOCKING = PerfSuite(OFFICIAL_BENCHMARK_CONFIGS).Remove(
     ['blink_perf.display_locking'])
 _OFFICIAL_EXCEPT_JETSTREAM2 = PerfSuite(OFFICIAL_BENCHMARK_CONFIGS).Remove(
@@ -281,7 +286,10 @@ _PERFORMANCE_BROWSER_TESTS = ExecutableConfig(
     ],
     estimated_runtime=67)
 
-_LINUX_BENCHMARK_CONFIGS = _OFFICIAL_EXCEPT_DISPLAY_LOCKING
+_LINUX_BENCHMARK_CONFIGS = PerfSuite(OFFICIAL_BENCHMARK_CONFIGS).Remove([
+    'blink_perf.display_locking',
+    'v8.runtime_stats.top_25',
+])
 _LINUX_EXECUTABLE_CONFIGS = frozenset([
     # TODO(crbug.com/811766): Add views_perftests.
     _PERFORMANCE_BROWSER_TESTS,
@@ -291,35 +299,47 @@ _LINUX_EXECUTABLE_CONFIGS = frozenset([
     _MEDIA_PERFTESTS,
     _BASE_PERFTESTS,
 ])
-_MAC_HIGH_END_BENCHMARK_CONFIGS = _OFFICIAL_EXCEPT_DISPLAY_LOCKING
+_MAC_HIGH_END_BENCHMARK_CONFIGS = PerfSuite(OFFICIAL_BENCHMARK_CONFIGS).Remove([
+    'blink_perf.display_locking',
+    'v8.runtime_stats.top_25',
+])
 _MAC_HIGH_END_EXECUTABLE_CONFIGS = frozenset([
     _DAWN_PERF_TESTS,
     _PERFORMANCE_BROWSER_TESTS,
     _NET_PERFTESTS,
     _MEDIA_PERFTESTS,
-    _BASE_PERFTESTS
+    _BASE_PERFTESTS,
+    _VIEWS_PERFTESTS,
 ])
-_MAC_LOW_END_BENCHMARK_CONFIGS = _OFFICIAL_EXCEPT_JETSTREAM2
+_MAC_LOW_END_BENCHMARK_CONFIGS = PerfSuite(OFFICIAL_BENCHMARK_CONFIGS).Remove([
+    'jetstream2',
+    'v8.runtime_stats.top_25',
+])
 _MAC_LOW_END_EXECUTABLE_CONFIGS = frozenset([
     _PERFORMANCE_BROWSER_TESTS,
     _LOAD_LIBRARY_PERF_TESTS,
 ])
-_WIN_10_BENCHMARK_CONFIGS = _OFFICIAL_EXCEPT_DISPLAY_LOCKING
+_WIN_10_BENCHMARK_CONFIGS = PerfSuite(OFFICIAL_BENCHMARK_CONFIGS).Remove([
+    'blink_perf.display_locking',
+    'v8.runtime_stats.top_25',
+])
 _WIN_10_EXECUTABLE_CONFIGS = frozenset([
     _ANGLE_PERFTESTS, _MEDIA_PERFTESTS, _COMPONENTS_PERFTESTS, _VIEWS_PERFTESTS,
     _BASE_PERFTESTS, _DAWN_PERF_TESTS])
-_WIN_10_LOW_END_BENCHMARK_CONFIGS = _OFFICIAL_EXCEPT_DISPLAY_LOCKING
+_WIN_10_LOW_END_BENCHMARK_CONFIGS = PerfSuite(
+    OFFICIAL_BENCHMARK_CONFIGS).Remove([
+        'blink_perf.display_locking',
+    ])
 _WIN_10_LOW_END_HP_CANDIDATE_BENCHMARK_CONFIGS = PerfSuite(
     [_GetBenchmarkConfig('v8.browsing_desktop')])
-_WIN_7_BENCHMARK_CONFIGS = PerfSuite(
-    _OFFICIAL_EXCEPT_DISPLAY_LOCKING_JETSTREAM2).Remove(['rendering.desktop'])
-_WIN_7_EXECUTABLE_CONFIGS = frozenset([
-    _LOAD_LIBRARY_PERF_TESTS, _COMPONENTS_PERFTESTS, _MEDIA_PERFTESTS])
-_WIN_7_GPU_BENCHMARK_CONFIGS = _OFFICIAL_EXCEPT_DISPLAY_LOCKING_JETSTREAM2
-_WIN_7_GPU_EXECUTABLE_CONFIGS = frozenset([
-    _LOAD_LIBRARY_PERF_TESTS, _ANGLE_PERFTESTS, _MEDIA_PERFTESTS,
-    _PASSTHROUGH_COMMAND_BUFFER_PERFTESTS,
-    _VALIDATING_COMMAND_BUFFER_PERFTESTS])
+_WIN_7_BENCHMARK_CONFIGS = PerfSuite([
+    'loading.desktop',
+]).Abridge([
+    'loading.desktop',
+])
+_WIN_7_GPU_BENCHMARK_CONFIGS = PerfSuite(['rendering.desktop']).Abridge(
+    ['rendering.desktop'])
+_WIN_7_GPU_EXECUTABLE_CONFIGS = frozenset([_ANGLE_PERFTESTS])
 _ANDROID_GO_BENCHMARK_CONFIGS = PerfSuite([
     _GetBenchmarkConfig('system_health.memory_mobile'),
     _GetBenchmarkConfig('system_health.common_mobile'),
@@ -332,35 +352,38 @@ _ANDROID_GO_WEBVIEW_BENCHMARK_CONFIGS = _ANDROID_GO_BENCHMARK_CONFIGS
 # Note that Nexus 5 bot capacity is very low, so we must severely limit
 # the benchmarks that we run on it and abridge large benchmarks in order
 # to run them on it. See crbug.com/1030840 for details.
-_ANDROID_NEXUS_5_BENCHMARK_CONFIGS = PerfSuite(
-    OFFICIAL_BENCHMARK_CONFIGS
-).Remove([
-    'blink_perf.display_locking', 'jetstream2', 'blink_perf.layout'
-]).Abridge([
-    'rendering.mobile',
-    # TODO(crbug.com/1039851): Abridge common_mobile after we make
-    # a better abridged story set for it:
-    #'system_health.common_mobile',
-    'system_health.memory_mobile',
-    'v8.browsing_mobile'
-])
+_ANDROID_NEXUS_5_BENCHMARK_CONFIGS = PerfSuite([
+    'loading.mobile',
+    'startup.mobile',
+    'system_health.common_mobile',
+    'system_health.webview_startup',
+]).Abridge(['loading.mobile', 'startup.mobile', 'system_health.common_mobile'])
 _ANDROID_NEXUS_5_EXECUTABLE_CONFIGS = frozenset([
     _TRACING_PERFTESTS, _COMPONENTS_PERFTESTS, _GPU_PERFTESTS])
-_ANDROID_NEXUS_5X_WEBVIEW_BENCHMARK_CONFIGS = (
-    _OFFICIAL_EXCEPT_DISPLAY_LOCKING_JETSTREAM2)
+_ANDROID_NEXUS_5X_WEBVIEW_BENCHMARK_CONFIGS = PerfSuite(
+    OFFICIAL_BENCHMARK_CONFIGS).Remove([
+        'blink_perf.display_locking',
+        'jetstream2',
+        'v8.browsing_mobile-future',
+    ])
 _ANDROID_PIXEL2_BENCHMARK_CONFIGS = _OFFICIAL_EXCEPT_DISPLAY_LOCKING
 _ANDROID_PIXEL2_EXECUTABLE_CONFIGS = frozenset([
     _COMPONENTS_PERFTESTS, _MEDIA_PERFTESTS])
-_ANDROID_PIXEL2_WEBVIEW_BENCHMARK_CONFIGS = (
-    _OFFICIAL_EXCEPT_DISPLAY_LOCKING_JETSTREAM2)
+_ANDROID_PIXEL2_WEBVIEW_BENCHMARK_CONFIGS = PerfSuite(
+    OFFICIAL_BENCHMARK_CONFIGS).Remove([
+        'blink_perf.display_locking',
+        'jetstream2',
+        'v8.browsing_mobile-future',
+    ])
 _ANDROID_PIXEL2_WEBLAYER_BENCHMARK_CONFIGS = PerfSuite([
     _GetBenchmarkConfig('system_health.common_mobile', True),
     _GetBenchmarkConfig('system_health.memory_mobile', True),
     _GetBenchmarkConfig('startup.mobile')])
 _ANDROID_NEXUS5X_FYI_BENCHMARK_CONFIGS = PerfSuite([
-     # Running a sample benchmark to help testing out the work on
-     # trace_processor_shell: crbug.com/1028612
-    _GetBenchmarkConfig('tracing.tracing_with_background_memory_infra')])
+    # Running a sample benchmark to help testing out the work on
+    # trace_processor_shell: crbug.com/1028612
+    _GetBenchmarkConfig('system_health_infinite_scroll.common_mobile')
+])
 _ANDROID_PIXEL2_AAB_FYI_BENCHMARK_CONFIGS = PerfSuite(
     [_GetBenchmarkConfig('startup.mobile')])
 _ANDROID_PIXEL2_FYI_BENCHMARK_CONFIGS = PerfSuite([
@@ -416,9 +439,7 @@ WIN_10 = PerfPlatform(
     'Windows Intel HD 630 towers, Core i7-7700 3.6 GHz, 16GB RAM,'
     ' Intel Kaby Lake HD Graphics 630', _WIN_10_BENCHMARK_CONFIGS,
     26, 'win', executables=_WIN_10_EXECUTABLE_CONFIGS)
-WIN_7 = PerfPlatform(
-    'Win 7 Perf', 'N/A', _WIN_7_BENCHMARK_CONFIGS,
-    4, 'win', executables=_WIN_7_EXECUTABLE_CONFIGS)
+WIN_7 = PerfPlatform('Win 7 Perf', 'N/A', _WIN_7_BENCHMARK_CONFIGS, 4, 'win')
 WIN_7_GPU = PerfPlatform(
     'Win 7 Nvidia GPU Perf', 'N/A', _WIN_7_GPU_BENCHMARK_CONFIGS,
     4, 'win', executables=_WIN_7_GPU_EXECUTABLE_CONFIGS)
@@ -433,7 +454,7 @@ ANDROID_GO_WEBVIEW = PerfPlatform(
     run_reference_build=False)
 ANDROID_NEXUS_5 = PerfPlatform(
     'Android Nexus5 Perf', 'Android KOT49H', _ANDROID_NEXUS_5_BENCHMARK_CONFIGS,
-    16, 'android', executables=_ANDROID_NEXUS_5_EXECUTABLE_CONFIGS)
+    8, 'android', executables=_ANDROID_NEXUS_5_EXECUTABLE_CONFIGS)
 ANDROID_NEXUS_5X_WEBVIEW = PerfPlatform(
     'Android Nexus5X WebView Perf', 'Android AOSP MOB30K',
     _ANDROID_NEXUS_5X_WEBVIEW_BENCHMARK_CONFIGS, 16, 'android',

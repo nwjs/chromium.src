@@ -57,6 +57,10 @@ class VariationsSeed;
 
 namespace variations {
 
+#if defined(OS_CHROMEOS)
+class DeviceVariationsRestrictionByPolicyApplicator;
+#endif
+
 // If enabled, seed fetches will be retried over HTTP after an HTTPS request
 // fails.
 extern const base::Feature kHttpRetryFeature;
@@ -83,17 +87,6 @@ class VariationsService
 
    protected:
     virtual ~Observer() {}
-  };
-
-  // The values of the ChromeVariations policy. Those should be kept in sync
-  // with the values defined in policy_templates.json!
-  enum class RestrictionPolicyValues {
-    // No restrictions applied by policy. Default value when policy not set.
-    NO_RESTRICTIONS = 0,
-    // Only critical security variations should be applied.
-    CRITICAL_ONLY = 1,
-    // All variations disabled. Disables the variations framework altogether.
-    ALL = 2
   };
 
   ~VariationsService() override;
@@ -440,6 +433,11 @@ class VariationsService
   // When not empty, contains an override for the os name in the variations
   // server url.
   std::string osname_server_param_override_;
+
+#if defined(OS_CHROMEOS)
+  std::unique_ptr<DeviceVariationsRestrictionByPolicyApplicator>
+      device_variations_restrictions_by_policy_applicator_;
+#endif
 
   SEQUENCE_CHECKER(sequence_checker_);
 

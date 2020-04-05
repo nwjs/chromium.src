@@ -71,7 +71,6 @@ class FakeDownloadItem : public download::DownloadItem {
   const GURL& GetTabUrl() const override;
   const GURL& GetTabReferrerUrl() const override;
   const base::Optional<url::Origin>& GetRequestInitiator() const override;
-  const net::NetworkIsolationKey& GetNetworkIsolationKey() const override;
   std::string GetSuggestedFilename() const override;
   std::string GetContentDisposition() const override;
   std::string GetOriginalMimeType() const override;
@@ -118,7 +117,7 @@ class FakeDownloadItem : public download::DownloadItem {
   void ValidateDangerousDownload() override;
   void ValidateMixedContentDownload() override;
   void StealDangerousDownload(bool delete_file_afterward,
-                              const AcquireFileCallback& callback) override;
+                              AcquireFileCallback callback) override;
   void Rename(const base::FilePath& name,
               RenameDownloadCallback callback) override;
   void OnAsyncScanningCompleted(
@@ -184,7 +183,6 @@ class FakeDownloadItem : public download::DownloadItem {
   std::string dummy_string;
   GURL dummy_url;
   base::Optional<url::Origin> dummy_origin;
-  net::NetworkIsolationKey dummy_network_isolation_key;
   base::FilePath dummy_file_path;
 
   DISALLOW_COPY_AND_ASSIGN(FakeDownloadItem);

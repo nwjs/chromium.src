@@ -103,7 +103,7 @@ bool HTMLPortalElement::CheckPortalsEnabledOrWarn() const {
     return true;
 
   // TODO(jbroman): Consider linking to origin trial info if applicable.
-  document.AddConsoleMessage(ConsoleMessage::Create(
+  document.AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
       mojom::blink::ConsoleMessageSource::kRendering,
       mojom::blink::ConsoleMessageLevel::kWarning,
       "An operation was prevented because a <portal> was moved to a document "
@@ -310,11 +310,14 @@ const base::UnguessableToken& HTMLPortalElement::GetToken() const {
   return portal_->GetToken();
 }
 
-HTMLPortalElement::InsertionNotificationRequest HTMLPortalElement::InsertedInto(
+Node::InsertionNotificationRequest HTMLPortalElement::InsertedInto(
     ContainerNode& node) {
   auto result = HTMLFrameOwnerElement::InsertedInto(node);
 
   if (!CheckPortalsEnabledOrWarn())
+    return result;
+
+  if (!SubframeLoadingDisabler::CanLoadFrame(*this))
     return result;
 
   switch (GetGuestContentsEligibility()) {
@@ -322,14 +325,14 @@ HTMLPortalElement::InsertionNotificationRequest HTMLPortalElement::InsertedInto(
       return result;
 
     case GuestContentsEligibility::kNotTopLevel:
-      GetDocument().AddConsoleMessage(ConsoleMessage::Create(
+      GetDocument().AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
           mojom::ConsoleMessageSource::kRendering,
           mojom::ConsoleMessageLevel::kWarning,
           "Cannot use <portal> in a nested browsing context."));
       return result;
 
     case GuestContentsEligibility::kNotHTTPFamily:
-      GetDocument().AddConsoleMessage(ConsoleMessage::Create(
+      GetDocument().AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
           mojom::ConsoleMessageSource::kRendering,
           mojom::ConsoleMessageLevel::kWarning,
           "<portal> use is restricted to the HTTP family."));

@@ -41,11 +41,11 @@ class WebAppBrowserController : public AppBrowserController,
   ~WebAppBrowserController() override;
 
   // AppBrowserController:
-  bool CreatedForInstalledPwa() const override;
   bool HasMinimalUiButtons() const override;
   gfx::ImageSkia GetWindowAppIcon() const override;
   gfx::ImageSkia GetWindowIcon() const override;
   base::Optional<SkColor> GetThemeColor() const override;
+  base::string16 GetTitle() const override;
   std::string GetAppShortName() const override;
   base::string16 GetFormattedUrlOrigin() const override;
   GURL GetAppLaunchURL() const override;
@@ -61,6 +61,11 @@ class WebAppBrowserController : public AppBrowserController,
   void OnAppRegistrarDestroyed() override;
 
   void SetReadIconCallbackForTesting(base::OnceClosure callback);
+
+ protected:
+  // web_app::AppBrowserController:
+  void OnTabInserted(content::WebContents* contents) override;
+  void OnTabRemoved(content::WebContents* contents) override;
 
  private:
   const AppRegistrar& registrar() const;

@@ -14,11 +14,11 @@
 #include "base/stl_util.h"
 #include "cc/layers/layer.h"
 #include "components/viz/common/frame_sinks/copy_output_request.h"
-#include "third_party/blink/public/platform/web_cursor_info.h"
 #include "ui/android/event_forwarder.h"
 #include "ui/android/ui_android_jni_headers/ViewAndroidDelegate_jni.h"
 #include "ui/android/window_android.h"
 #include "ui/base/layout.h"
+#include "ui/base/mojom/cursor_type.mojom-shared.h"
 #include "ui/events/android/drag_event_android.h"
 #include "ui/events/android/event_handler_android.h"
 #include "ui/events/android/gesture_event_android.h"
@@ -396,10 +396,10 @@ void ViewAndroid::OnCursorChanged(int type,
   if (delegate.is_null())
     return;
   JNIEnv* env = base::android::AttachCurrentThread();
-  if (type == static_cast<int>(ui::CursorType::kCustom)) {
+  if (type == static_cast<int>(ui::mojom::CursorType::kCustom)) {
     if (custom_image.drawsNothing()) {
       Java_ViewAndroidDelegate_onCursorChanged(
-          env, delegate, static_cast<int>(ui::CursorType::kPointer));
+          env, delegate, static_cast<int>(ui::mojom::CursorType::kPointer));
       return;
     }
     ScopedJavaLocalRef<jobject> java_bitmap =

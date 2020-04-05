@@ -110,7 +110,7 @@ class DefaultIceTransportAdapterCrossThreadFactory
 }  // namespace
 
 RTCIceTransport* RTCIceTransport::Create(ExecutionContext* context) {
-  LocalFrame* frame = To<Document>(context)->GetFrame();
+  LocalFrame* frame = Document::From(context)->GetFrame();
   scoped_refptr<base::SingleThreadTaskRunner> proxy_thread =
       frame->GetTaskRunner(TaskType::kNetworking);
 
@@ -127,7 +127,7 @@ RTCIceTransport* RTCIceTransport::Create(
     ExecutionContext* context,
     rtc::scoped_refptr<webrtc::IceTransportInterface> ice_transport,
     RTCPeerConnection* peer_connection) {
-  LocalFrame* frame = To<Document>(context)->GetFrame();
+  LocalFrame* frame = Document::From(context)->GetFrame();
   scoped_refptr<base::SingleThreadTaskRunner> proxy_thread =
       frame->GetTaskRunner(TaskType::kNetworking);
 
@@ -158,14 +158,15 @@ RTCIceTransport::RTCIceTransport(
     scoped_refptr<base::SingleThreadTaskRunner> host_thread,
     std::unique_ptr<IceTransportAdapterCrossThreadFactory> adapter_factory,
     RTCPeerConnection* peer_connection)
-    : ContextLifecycleObserver(context), peer_connection_(peer_connection) {
+    : ExecutionContextLifecycleObserver(context),
+      peer_connection_(peer_connection) {
   DCHECK(context);
   DCHECK(proxy_thread);
   DCHECK(host_thread);
   DCHECK(adapter_factory);
   DCHECK(proxy_thread->BelongsToCurrentThread());
 
-  LocalFrame* frame = To<Document>(context)->GetFrame();
+  LocalFrame* frame = Document::From(context)->GetFrame();
   DCHECK(frame);
   proxy_ = std::make_unique<IceTransportProxy>(*frame, std::move(proxy_thread),
                                                std::move(host_thread), this,
@@ -292,13 +293,13 @@ static webrtc::PeerConnectionInterface::IceServer ConvertIceServer(
   webrtc::PeerConnectionInterface::IceServer converted_ice_server;
   // Prefer standardized 'urls' field over deprecated 'url' field.
   Vector<String> url_strings;
-  if (ice_server->hasURLs()) {
+  if (ice_server->hasUrls()) {
     if (ice_server->urls().IsString()) {
       url_strings.push_back(ice_server->urls().GetAsString());
     } else if (ice_server->urls().IsStringSequence()) {
       url_strings = ice_server->urls().GetAsStringSequence();
     }
-  } else if (ice_server->hasURL()) {
+  } else if (ice_server->hasUrl()) {
     url_strings.push_back(ice_server->url());
   }
   for (const String& url_string : url_strings) {
@@ -568,10 +569,10 @@ const AtomicString& RTCIceTransport::InterfaceName() const {
 }
 
 ExecutionContext* RTCIceTransport::GetExecutionContext() const {
-  return ContextLifecycleObserver::GetExecutionContext();
+  return ExecutionContextLifecycleObserver::GetExecutionContext();
 }
 
-void RTCIceTransport::ContextDestroyed(ExecutionContext*) {
+void RTCIceTransport::ContextDestroyed() {
   Close(CloseReason::kContextDestroyed);
 }
 
@@ -581,7 +582,7 @@ bool RTCIceTransport::HasPendingActivity() const {
   return !!proxy_;
 }
 
-void RTCIceTransport::Trace(blink::Visitor* visitor) {
+void RTCIceTransport::Trace(Visitor* visitor) {
   visitor->Trace(local_candidates_);
   visitor->Trace(remote_candidates_);
   visitor->Trace(local_parameters_);
@@ -590,7 +591,7 @@ void RTCIceTransport::Trace(blink::Visitor* visitor) {
   visitor->Trace(consumer_);
   visitor->Trace(peer_connection_);
   EventTargetWithInlineData::Trace(visitor);
-  ContextLifecycleObserver::Trace(visitor);
+  ExecutionContextLifecycleObserver::Trace(visitor);
 }
 
 void RTCIceTransport::Dispose() {

@@ -74,20 +74,13 @@ void InvalidateInlineItems(LayoutObject* object) {
 }  // namespace
 
 void LayoutObjectChildList::DestroyLeftoverChildren() {
-  while (FirstChild()) {
-    // List markers are owned by their enclosing list and so don't get destroyed
-    // by this container.
-    if (FirstChild()->IsListMarkerIncludingNG()) {
-      FirstChild()->Remove();
-      continue;
-    }
-
-    // Destroy any anonymous children remaining in the layout tree, as well as
-    // implicit (shadow) DOM elements like those used in the engine-based text
-    // fields.
-    if (FirstChild()->GetNode())
-      FirstChild()->GetNode()->SetLayoutObject(nullptr);
-    FirstChild()->Destroy();
+  // Destroy any anonymous children remaining in the layout tree, as well as
+  // implicit (shadow) DOM elements like those used in the engine-based text
+  // fields.
+  while (LayoutObject* child = FirstChild()) {
+    if (Node* child_node = child->GetNode())
+      child_node->SetLayoutObject(nullptr);
+    child->Destroy();
   }
 }
 
@@ -107,7 +100,7 @@ LayoutObject* LayoutObjectChildList::RemoveChildNode(
     // issue paint invalidations, so that the area exposed when the child
     // disappears gets paint invalidated properly.
     if (notify_layout_object && old_child->EverHadLayout()) {
-      old_child->SetNeedsLayoutAndPrefWidthsRecalc(
+      old_child->SetNeedsLayoutAndIntrinsicWidthsRecalc(
           layout_invalidation_reason::kRemovedFromLayout);
       if (old_child->IsOutOfFlowPositioned() &&
           RuntimeEnabledFeatures::LayoutNGEnabled())
@@ -251,7 +244,7 @@ void LayoutObjectChildList::InsertChildNode(LayoutObject* owner,
     // actually happens.
   }
 
-  new_child->SetNeedsLayoutAndPrefWidthsRecalc(
+  new_child->SetNeedsLayoutAndIntrinsicWidthsRecalc(
       layout_invalidation_reason::kAddedToLayout);
   if (new_child->IsOutOfFlowPositioned() &&
       RuntimeEnabledFeatures::LayoutNGEnabled())

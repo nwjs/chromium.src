@@ -27,6 +27,7 @@
 #include "components/payments/core/strings_util.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/vector_icons/vector_icons.h"
+#include "third_party/blink/public/mojom/payments/payment_request.mojom.h"
 #include "ui/base/default_style.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
@@ -375,7 +376,7 @@ std::unique_ptr<views::Label> CreateHintLabel(
     const base::string16& text,
     gfx::HorizontalAlignment alignment) {
   std::unique_ptr<views::Label> label = std::make_unique<views::Label>(
-      text, views::style::CONTEXT_LABEL, STYLE_HINT);
+      text, views::style::CONTEXT_LABEL, views::style::STYLE_HINT);
   label->SetHorizontalAlignment(alignment);
   return label;
 }

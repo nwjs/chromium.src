@@ -16,7 +16,6 @@
 namespace smbfs {
 
 namespace {
-constexpr char kMessagePipeName[] = "smbfs-bootstrap";
 constexpr char kMountUrlPrefix[] = "smbfs://";
 constexpr base::TimeDelta kMountTimeout = base::TimeDelta::FromSeconds(20);
 }  // namespace
@@ -93,7 +92,7 @@ void SmbFsMounter::Mount(SmbFsMounter::DoneCallback callback) {
     mojo_fd_pending_ = true;
 
     bootstrap_.Bind(mojo::PendingRemote<mojom::SmbFsBootstrap>(
-        bootstrap_invitation_.AttachMessagePipe(kMessagePipeName),
+        bootstrap_invitation_.AttachMessagePipe(mojom::kBootstrapPipeName),
         mojom::SmbFsBootstrap::Version_));
   }
   bootstrap_.set_disconnect_handler(
@@ -129,9 +128,14 @@ void SmbFsMounter::OnMountDone(
 
   mojom::MountOptionsPtr mount_options = mojom::MountOptions::New();
   mount_options->share_path = share_path_;
+  if (options_.resolved_host.IsIPv4()) {
+    // TODO(crbug.com/1051291): Support IPv6.
+    mount_options->resolved_host = options_.resolved_host;
+  }
   mount_options->username = options_.username;
   mount_options->workgroup = options_.workgroup;
   mount_options->allow_ntlm = options_.allow_ntlm;
+  mount_options->skip_connect = options_.skip_connect;
 
   if (options_.kerberos_options) {
     mojom::KerberosConfigPtr kerberos_config = mojom::KerberosConfig::New();

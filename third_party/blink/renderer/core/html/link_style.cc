@@ -18,7 +18,6 @@
 #include "third_party/blink/renderer/core/loader/resource/css_style_sheet_resource.h"
 #include "third_party/blink/renderer/core/loader/subresource_integrity_helper.h"
 #include "third_party/blink/renderer/platform/heap/heap.h"
-#include "third_party/blink/renderer/platform/instrumentation/histogram.h"
 #include "third_party/blink/renderer/platform/loader/fetch/fetch_parameters.h"
 #include "third_party/blink/renderer/platform/loader/subresource_integrity.h"
 #include "third_party/blink/renderer/platform/network/mime/content_type.h"
@@ -75,7 +74,7 @@ void LinkStyle::NotifyFinished(Resource* resource) {
         cached_style_sheet->IntegrityDisposition();
 
     SubresourceIntegrityHelper::DoReport(
-        GetDocument(), cached_style_sheet->IntegrityReportInfo());
+        *GetExecutionContext(), cached_style_sheet->IntegrityReportInfo());
 
     if (disposition == ResourceIntegrityDisposition::kFailed) {
       loading_ = false;
@@ -96,7 +95,8 @@ void LinkStyle::NotifyFinished(Resource* resource) {
     if (sheet_)
       ClearSheet();
     sheet_ = MakeGarbageCollected<CSSStyleSheet>(parsed_sheet, *owner_);
-    sheet_->SetMediaQueries(MediaQuerySet::Create(owner_->Media()));
+    sheet_->SetMediaQueries(
+        MediaQuerySet::Create(owner_->Media(), GetExecutionContext()));
     if (owner_->IsInDocumentTree())
       SetSheetTitle(owner_->title());
 
@@ -113,7 +113,8 @@ void LinkStyle::NotifyFinished(Resource* resource) {
     ClearSheet();
 
   sheet_ = MakeGarbageCollected<CSSStyleSheet>(style_sheet, *owner_);
-  sheet_->SetMediaQueries(MediaQuerySet::Create(owner_->Media()));
+  sheet_->SetMediaQueries(
+      MediaQuerySet::Create(owner_->Media(), GetExecutionContext()));
   if (owner_->IsInDocumentTree())
     SetSheetTitle(owner_->title());
 
@@ -262,7 +263,8 @@ LinkStyle::LoadReturnValue LinkStyle::LoadStylesheetIfNeeded(
   bool media_query_matches = true;
   LocalFrame* frame = LoadingFrame();
   if (!owner_->Media().IsEmpty() && frame) {
-    scoped_refptr<MediaQuerySet> media = MediaQuerySet::Create(owner_->Media());
+    scoped_refptr<MediaQuerySet> media =
+        MediaQuerySet::Create(owner_->Media(), GetExecutionContext());
     MediaQueryEvaluator evaluator(frame);
     media_query_matches = evaluator.Eval(*media);
   }
@@ -311,7 +313,8 @@ void LinkStyle::Process() {
 
   WTF::TextEncoding charset = GetCharset();
 
-  if (owner_->RelAttribute().GetIconType() != kInvalidIcon &&
+  if (owner_->RelAttribute().GetIconType() !=
+          mojom::blink::FaviconIconType::kInvalid &&
       params.href.IsValid() && !params.href.IsEmpty()) {
     if (!owner_->ShouldLoadLink())
       return;
@@ -320,10 +323,8 @@ void LinkStyle::Process() {
     if (!GetDocument().GetContentSecurityPolicy()->AllowImageFromSource(
             params.href))
       return;
-    if (GetDocument().GetFrame() && GetDocument().GetFrame()->Client()) {
-      GetDocument().GetFrame()->Client()->DispatchDidChangeIcons(
-          owner_->RelAttribute().GetIconType());
-    }
+    if (GetDocument().GetFrame())
+      GetDocument().GetFrame()->UpdateFaviconURL();
   }
 
   if (!sheet_ && !owner_->LoadLink(params))

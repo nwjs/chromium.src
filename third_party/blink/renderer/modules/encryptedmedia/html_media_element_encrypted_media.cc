@@ -37,7 +37,7 @@ class SetMediaKeysHandler : public ScriptPromiseResolver {
   SetMediaKeysHandler(ScriptState*, HTMLMediaElement&, MediaKeys*);
   ~SetMediaKeysHandler() override;
 
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
 
  private:
   void TimerFired(TimerBase*);
@@ -320,7 +320,7 @@ void SetMediaKeysHandler::SetFailed(ExceptionCode code,
   Fail(code, error_message);
 }
 
-void SetMediaKeysHandler::Trace(blink::Visitor* visitor) {
+void SetMediaKeysHandler::Trace(Visitor* visitor) {
   visitor->Trace(element_);
   visitor->Trace(new_media_keys_);
   ScriptPromiseResolver::Trace(visitor);
@@ -421,13 +421,14 @@ void HTMLMediaElementEncryptedMedia::Encrypted(
     // so don't return the initData. However, they still get an event.
     event = CreateEncryptedEvent(media::EmeInitDataType::UNKNOWN, nullptr, 0);
     media_element_->GetExecutionContext()->AddConsoleMessage(
-        ConsoleMessage::Create(mojom::ConsoleMessageSource::kJavaScript,
-                               mojom::ConsoleMessageLevel::kWarning,
-                               "Media element must be CORS-same-origin with "
-                               "the embedding page. If cross-origin, you "
-                               "should use the `crossorigin` attribute and "
-                               "make sure CORS headers on the media data "
-                               "response are CORS-same-origin."));
+        MakeGarbageCollected<ConsoleMessage>(
+            mojom::ConsoleMessageSource::kJavaScript,
+            mojom::ConsoleMessageLevel::kWarning,
+            "Media element must be CORS-same-origin with "
+            "the embedding page. If cross-origin, you "
+            "should use the `crossorigin` attribute and "
+            "make sure CORS headers on the media data "
+            "response are CORS-same-origin."));
   }
 
   event->SetTarget(media_element_);
@@ -472,7 +473,7 @@ HTMLMediaElementEncryptedMedia::ContentDecryptionModule() {
   return media_keys_ ? media_keys_->ContentDecryptionModule() : nullptr;
 }
 
-void HTMLMediaElementEncryptedMedia::Trace(blink::Visitor* visitor) {
+void HTMLMediaElementEncryptedMedia::Trace(Visitor* visitor) {
   visitor->Trace(media_element_);
   visitor->Trace(media_keys_);
   Supplement<HTMLMediaElement>::Trace(visitor);

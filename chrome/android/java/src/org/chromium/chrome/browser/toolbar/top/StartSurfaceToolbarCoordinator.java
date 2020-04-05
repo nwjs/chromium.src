@@ -4,18 +4,18 @@
 
 package org.chromium.chrome.browser.toolbar.top;
 
-import android.graphics.drawable.Drawable;
 import android.view.View;
 import android.view.ViewStub;
 
-import androidx.annotation.StringRes;
-
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.compositor.layouts.OverviewModeBehavior;
+import org.chromium.chrome.browser.identity_disc.IdentityDiscController;
 import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.toolbar.IncognitoStateProvider;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuButtonHelper;
+import org.chromium.chrome.browser.user_education.UserEducationHelper;
+import org.chromium.chrome.features.start_surface.StartSurfaceConfiguration;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
 
@@ -28,14 +28,31 @@ class StartSurfaceToolbarCoordinator {
     private final StartSurfaceToolbarMediator mToolbarMediator;
     private final ViewStub mStub;
     private final PropertyModel mPropertyModel;
+    private PropertyModelChangeProcessor mPropertyModelChangeProcessor;
     private StartSurfaceToolbarView mView;
     private TabModelSelector mTabModelSelector;
     private IncognitoSwitchCoordinator mIncognitoSwitchCoordinator;
 
-    StartSurfaceToolbarCoordinator(ViewStub startSurfaceToolbarStub) {
+    StartSurfaceToolbarCoordinator(ViewStub startSurfaceToolbarStub,
+            IdentityDiscController identityDiscController,
+            UserEducationHelper userEducationHelper) {
         mStub = startSurfaceToolbarStub;
-        mPropertyModel = new PropertyModel(StartSurfaceToolbarProperties.ALL_KEYS);
-        mToolbarMediator = new StartSurfaceToolbarMediator(mPropertyModel);
+        mPropertyModel =
+                new PropertyModel.Builder(StartSurfaceToolbarProperties.ALL_KEYS)
+                        .with(StartSurfaceToolbarProperties.INCOGNITO_SWITCHER_VISIBLE, true)
+                        .with(StartSurfaceToolbarProperties.IN_START_SURFACE_MODE, false)
+                        .with(StartSurfaceToolbarProperties.MENU_IS_VISIBLE, true)
+                        .with(StartSurfaceToolbarProperties.IS_VISIBLE, true)
+                        .build();
+
+        mToolbarMediator = new StartSurfaceToolbarMediator(
+                mPropertyModel, identityDiscController, (iphCommandBuilder) -> {
+                    // TODO(crbug.com/865801): Replace the null check with an assert after fixing or
+                    // removing the ShareButtonControllerTest that necessitated it.
+                    if (mView == null) return;
+                    userEducationHelper.requestShowIPH(
+                            iphCommandBuilder.setAnchorView(mView.getIdentityDiscView()).build());
+                }, StartSurfaceConfiguration.START_SURFACE_HIDE_INCOGNITO_SWITCH.getValue());
     }
 
     /**
@@ -68,6 +85,7 @@ class StartSurfaceToolbarCoordinator {
         mTabModelSelector = selector;
         mToolbarMediator.setTabModelSelector(selector);
     }
+
     /**
      * Called when Start Surface mode is entered or exited.
      * @param inStartSurfaceMode Whether or not start surface mode should be shown or hidden.
@@ -117,43 +135,6 @@ class StartSurfaceToolbarCoordinator {
         mToolbarMediator.setOverviewModeBehavior(overviewModeBehavior);
     }
 
-    /**
-     * Show the identity dics button.
-     * @param onClickListener The {@link OnClickListener} to be called when the button is clicked.
-     * @param image The drawable to display for the button.
-     * @param contentDescriptionResId The resource id of the content description for the button.
-     */
-    void showIdentityDiscButton(View.OnClickListener onClickListener, Drawable image,
-            @StringRes int contentDescriptionResId) {
-        mToolbarMediator.showIdentityDisc(onClickListener, image, contentDescriptionResId);
-    }
-
-    /**
-     * Updates image displayed on identity disc button.
-     * @param image The new image for the button.
-     */
-    void updateIdentityDiscButtonImage(Drawable image) {
-        mToolbarMediator.updateIdentityDiscImage(image);
-    }
-
-    /**
-     * Hide the identity disc button.
-     */
-    void hideIdentityDiscButton() {
-        mToolbarMediator.hideIdentityDisc();
-    }
-
-    /**
-     * Displays in-product help for identity disc button.
-     * @param stringId The id of the string resource for the text that should be shown.
-     * @param accessibilityStringId The id of the string resource of the accessibility text.
-     * @param dismissedCallback The callback that will be called when in-product help is dismissed.
-     */
-    void showIPHOnIdentityDiscButton(@StringRes int stringId, @StringRes int accessibilityStringId,
-            Runnable dismissedCallback) {
-        mToolbarMediator.showIPHOnIdentityDisc(stringId, accessibilityStringId, dismissedCallback);
-    }
-
     void onNativeLibraryReady() {
         mToolbarMediator.onNativeLibraryReady();
     }
@@ -161,7 +142,7 @@ class StartSurfaceToolbarCoordinator {
     private void inflate() {
         mStub.setLayoutResource(R.layout.start_top_toolbar);
         mView = (StartSurfaceToolbarView) mStub.inflate();
-        PropertyModelChangeProcessor.create(
+        mPropertyModelChangeProcessor = PropertyModelChangeProcessor.create(
                 mPropertyModel, mView, StartSurfaceToolbarViewBinder::bind);
 
         if (IncognitoUtils.isIncognitoModeEnabled()) {

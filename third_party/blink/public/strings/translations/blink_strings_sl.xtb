@@ -4,6 +4,7 @@
 <translation id="1018939186200882850">menijski element</translation>
 <translation id="10623998915015855">preklopni gumb</translation>
 <translation id="1088086359088493902">Sekunde</translation>
+<translation id="1142001580032786438">Prikaz izbirnika tedna</translation>
 <translation id="1171774979989969504">Vnesite e-poštni naslov</translation>
 <translation id="1178581264944972037">Prekini</translation>
 <translation id="1188858454923323853">dopolnilno</translation>
@@ -22,6 +23,7 @@
 <translation id="1727886345390570319">skrij meni s podnapisi</translation>
 <translation id="1729654308190250600">Vnesite e-poštni naslov (polje ne sme biti prazno).</translation>
 <translation id="1758486001363313524">Drugo ...</translation>
+<translation id="1787192514241997742">skupni čas: <ph name="REMAINING_TIME" /></translation>
 <translation id="1806710327868736751">pogovorno okno z opozorilom</translation>
 <translation id="1821985195704844674">drevesna mreža</translation>
 <translation id="1822429046913737220">Dopoldne/popoldne</translation>
@@ -100,7 +102,6 @@
 <translation id="4444765639179266822">Videti je, da piše: <ph name="OCR_TEXT" /></translation>
 <translation id="4446524499724042288">vnos v glosarju</translation>
 <translation id="4522570452068850558">Podrobnosti</translation>
-<translation id="4542388879936266156">preostali čas: <ph name="REMAINING_TIME" /></translation>
 <translation id="4597532268155981612">obrazec</translation>
 <translation id="4661075872484491155">drevo</translation>
 <translation id="4664250907885839816">Del po »<ph name="ATSIGN" />« ne sme vsebovati znaka »<ph name="INVALIDCHARACTER" />«.</translation>
@@ -114,7 +115,9 @@
 <translation id="479989351350248267">search</translation>
 <translation id="4812940957355064477">Vnesite številko.</translation>
 <translation id="4912536737030637138">bibliografski vnos</translation>
+<translation id="4915360478455618802">Prikaz izbirnika ure</translation>
 <translation id="492244087561876220">komentar</translation>
+<translation id="4950364064308314478">Prikaz izbirnika lokalnega datuma in ure</translation>
 <translation id="4971739861736909480">Izbran je predmet <ph name="ACCNAME" /></translation>
 <translation id="4975562563186953947">Št. izbranih: <ph name="SELECTED_COUNT" /></translation>
 <translation id="4992066212339426712">Vklopi zvok</translation>
@@ -233,6 +236,7 @@
 <translation id="8284326494547611709">Napisi</translation>
 <translation id="8346634859695247203">razdelek</translation>
 <translation id="835897206747267392">Neveljavna vrednost.</translation>
+<translation id="839593075537728968">Vrednost mora biti med <ph name="MINIMUM_TIME" /> in <ph name="MAXIMUM_TIME" />.</translation>
 <translation id="8403857369060869934">pretečeni čas: <ph name="ELAPSED_TIME" /></translation>
 <translation id="8415319359811155763">del</translation>
 <translation id="8433900881053900389">orodna vrstica</translation>
@@ -249,6 +253,7 @@
 <translation id="860475260694818407">kazalo</translation>
 <translation id="8613126697340063924">upravljanje oddaljenega predvajanja</translation>
 <translation id="862370744433916922">podnaslov</translation>
+<translation id="8634971699417195529">Prikaz izbirnika meseca</translation>
 <translation id="8711688047404765493">izhod</translation>
 <translation id="8750798805984357768">Izberite eno od teh možnosti.</translation>
 <translation id="8808573423886751634">poglavje</translation>

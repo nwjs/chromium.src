@@ -11,7 +11,6 @@
 #include "chrome/browser/browser_process_platform_part.h"
 #include "chrome/browser/extensions/api/settings_private/generated_prefs.h"
 #include "chrome/browser/extensions/api/settings_private/generated_prefs_factory.h"
-#include "chrome/browser/extensions/chrome_extension_function.h"
 #include "chrome/browser/extensions/settings_api_helpers.h"
 #include "chrome/browser/prefs/session_startup_pref.h"
 #include "chrome/browser/profiles/profile.h"
@@ -21,6 +20,7 @@
 #include "components/browsing_data/core/pref_names.h"
 #include "components/component_updater/pref_names.h"
 #include "components/content_settings/core/common/pref_names.h"
+#include "components/dom_distiller/core/pref_names.h"
 #include "components/drive/drive_pref_names.h"
 #include "components/embedder_support/pref_names.h"
 #include "components/language/core/browser/pref_names.h"
@@ -44,6 +44,7 @@
 #include "extensions/common/extension.h"
 
 #if defined(OS_CHROMEOS)
+#include "ash/public/cpp/ambient/ambient_prefs.h"
 #include "ash/public/cpp/ash_pref_names.h"  // nogncheck
 #include "chrome/browser/chromeos/crostini/crostini_pref_names.h"
 #include "chrome/browser/chromeos/guest_os/guest_os_pref_names.h"
@@ -199,6 +200,8 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetWhitelistedKeys() {
   (*s_whitelist)[::prefs::kConfirmToQuitEnabled] =
       settings_api::PrefType::PREF_TYPE_BOOLEAN;
 #endif
+  (*s_whitelist)[dom_distiller::prefs::kOfferReaderMode] =
+      settings_api::PrefType::PREF_TYPE_BOOLEAN;
 
   // On startup.
   (*s_whitelist)[::prefs::kRestoreOnStartup] =
@@ -243,12 +246,20 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetWhitelistedKeys() {
   // Privacy page
   (*s_whitelist)[::prefs::kSigninAllowedOnNextStartup] =
       settings_api::PrefType::PREF_TYPE_BOOLEAN;
+  (*s_whitelist)[::prefs::kDnsOverHttpsMode] =
+      settings_api::PrefType::PREF_TYPE_STRING;
+  (*s_whitelist)[::prefs::kDnsOverHttpsTemplates] =
+      settings_api::PrefType::PREF_TYPE_STRING;
 
-  // Sync and personalization page.
+  // Security page
   (*s_whitelist)[::prefs::kSafeBrowsingEnabled] =
+      settings_api::PrefType::PREF_TYPE_BOOLEAN;
+  (*s_whitelist)[::prefs::kSafeBrowsingEnhanced] =
       settings_api::PrefType::PREF_TYPE_BOOLEAN;
   (*s_whitelist)[::prefs::kSafeBrowsingScoutReportingEnabled] =
       settings_api::PrefType::PREF_TYPE_BOOLEAN;
+
+  // Sync and personalization page.
   (*s_whitelist)[::prefs::kSearchSuggestEnabled] =
       settings_api::PrefType::PREF_TYPE_BOOLEAN;
   (*s_whitelist)
@@ -284,6 +295,8 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetWhitelistedKeys() {
   // Site Settings prefs.
   (*s_whitelist)[::prefs::kBlockThirdPartyCookies] =
       settings_api::PrefType::PREF_TYPE_BOOLEAN;
+  (*s_whitelist)[::prefs::kCookieControlsMode] =
+      settings_api::PrefType::PREF_TYPE_NUMBER;
   (*s_whitelist)[::prefs::kPluginsAlwaysOpenPdfExternally] =
       settings_api::PrefType::PREF_TYPE_BOOLEAN;
   (*s_whitelist)[::prefs::kEnableDRM] =
@@ -419,6 +432,9 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetWhitelistedKeys() {
   (*s_whitelist)[ash::prefs::kAccessibilitySwitchAccessAutoScanSpeedMs] =
       settings_api::PrefType::PREF_TYPE_NUMBER;
   (*s_whitelist)
+      [ash::prefs::kAccessibilityTabletModeShelfNavigationButtonsEnabled] =
+          settings_api::PrefType::PREF_TYPE_BOOLEAN;
+  (*s_whitelist)
       [ash::prefs::kAccessibilitySwitchAccessAutoScanKeyboardSpeedMs] =
           settings_api::PrefType::PREF_TYPE_NUMBER;
   (*s_whitelist)[ash::prefs::kAccessibilityVirtualKeyboardEnabled] =
@@ -439,9 +455,15 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetWhitelistedKeys() {
   // Guest OS
   (*s_whitelist)[crostini::prefs::kCrostiniEnabled] =
       settings_api::PrefType::PREF_TYPE_BOOLEAN;
+  (*s_whitelist)[crostini::prefs::kCrostiniMicSharing] =
+      settings_api::PrefType::PREF_TYPE_BOOLEAN;
+  (*s_whitelist)[crostini::prefs::kCrostiniMicSharingAtLastLaunch] =
+      settings_api::PrefType::PREF_TYPE_BOOLEAN;
   (*s_whitelist)[crostini::prefs::kCrostiniSharedUsbDevices] =
       settings_api::PrefType::PREF_TYPE_LIST;
   (*s_whitelist)[crostini::prefs::kCrostiniContainers] =
+      settings_api::PrefType::PREF_TYPE_LIST;
+  (*s_whitelist)[crostini::prefs::kCrostiniPortForwarding] =
       settings_api::PrefType::PREF_TYPE_LIST;
   (*s_whitelist)[guest_os::prefs::kGuestOSPathsSharedToVms] =
       settings_api::PrefType::PREF_TYPE_DICTIONARY;
@@ -449,10 +471,18 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetWhitelistedKeys() {
   // Plugin Vm
   (*s_whitelist)[plugin_vm::prefs::kPluginVmImageExists] =
       settings_api::PrefType::PREF_TYPE_BOOLEAN;
+  (*s_whitelist)[plugin_vm::prefs::kPluginVmPrintersAllowed] =
+      settings_api::PrefType::PREF_TYPE_BOOLEAN;
 
   // Android Apps.
   (*s_whitelist)[arc::prefs::kArcEnabled] =
       settings_api::PrefType::PREF_TYPE_BOOLEAN;
+
+  // Ambient Mode.
+  (*s_whitelist)[ash::ambient::prefs::kAmbientModeEnabled] =
+      settings_api::PrefType::PREF_TYPE_BOOLEAN;
+  (*s_whitelist)[ash::ambient::prefs::kAmbientModeTopicSource] =
+      settings_api::PrefType::PREF_TYPE_NUMBER;
 
   // Google Assistant.
   (*s_whitelist)[chromeos::assistant::prefs::kAssistantConsentStatus] =
@@ -557,19 +587,27 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetWhitelistedKeys() {
   // Device settings.
   (*s_whitelist)[::prefs::kTapToClickEnabled] =
       settings_api::PrefType::PREF_TYPE_BOOLEAN;
-  (*s_whitelist)[::prefs::kNaturalScroll] =
+  (*s_whitelist)[ash::prefs::kNaturalScroll] =
       settings_api::PrefType::PREF_TYPE_BOOLEAN;
   (*s_whitelist)[::prefs::kTouchpadSensitivity] =
       settings_api::PrefType::PREF_TYPE_NUMBER;
+  (*s_whitelist)[::prefs::kTouchpadScrollSensitivity] =
+      settings_api::PrefType::PREF_TYPE_NUMBER;
   (*s_whitelist)[::prefs::kPrimaryMouseButtonRight] =
       settings_api::PrefType::PREF_TYPE_BOOLEAN;
-  (*s_whitelist)[::prefs::kMouseReverseScroll] =
+  (*s_whitelist)[ash::prefs::kMouseReverseScroll] =
       settings_api::PrefType::PREF_TYPE_BOOLEAN;
   (*s_whitelist)[::prefs::kMouseAcceleration] =
       settings_api::PrefType::PREF_TYPE_BOOLEAN;
+  (*s_whitelist)[::prefs::kMouseScrollAcceleration] =
+      settings_api::PrefType::PREF_TYPE_BOOLEAN;
   (*s_whitelist)[::prefs::kTouchpadAcceleration] =
       settings_api::PrefType::PREF_TYPE_BOOLEAN;
+  (*s_whitelist)[::prefs::kTouchpadScrollAcceleration] =
+      settings_api::PrefType::PREF_TYPE_BOOLEAN;
   (*s_whitelist)[::prefs::kMouseSensitivity] =
+      settings_api::PrefType::PREF_TYPE_NUMBER;
+  (*s_whitelist)[::prefs::kMouseScrollSensitivity] =
       settings_api::PrefType::PREF_TYPE_NUMBER;
   (*s_whitelist)[::prefs::kLanguageRemapSearchKeyTo] =
       settings_api::PrefType::PREF_TYPE_NUMBER;

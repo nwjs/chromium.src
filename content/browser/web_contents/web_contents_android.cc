@@ -48,6 +48,8 @@
 #include "ui/gfx/android/java_bitmap.h"
 #include "ui/gfx/geometry/point.h"
 #include "ui/gfx/geometry/rect.h"
+#include "url/android/gurl_android.h"
+#include "url/gurl.h"
 
 using base::android::AttachCurrentThread;
 using base::android::ConvertJavaStringToUTF8;
@@ -287,11 +289,10 @@ ScopedJavaLocalRef<jstring> WebContentsAndroid::GetTitle(
                                                  web_contents_->GetTitle());
 }
 
-ScopedJavaLocalRef<jstring> WebContentsAndroid::GetVisibleURL(
+ScopedJavaLocalRef<jobject> WebContentsAndroid::GetVisibleURL(
     JNIEnv* env,
     const JavaParamRef<jobject>& obj) const {
-  return base::android::ConvertUTF8ToJavaString(
-      env, web_contents_->GetVisibleURL().spec());
+  return url::GURLAndroid::FromNativeGURL(env, web_contents_->GetVisibleURL());
 }
 
 bool WebContentsAndroid::IsLoading(JNIEnv* env,
@@ -303,6 +304,12 @@ bool WebContentsAndroid::IsLoadingToDifferentDocument(
     JNIEnv* env,
     const JavaParamRef<jobject>& obj) const {
   return web_contents_->IsLoadingToDifferentDocument();
+}
+
+void WebContentsAndroid::DispatchBeforeUnload(JNIEnv* env,
+                                              const JavaParamRef<jobject>& obj,
+                                              bool auto_cancel) {
+  web_contents_->DispatchBeforeUnload(auto_cancel);
 }
 
 void WebContentsAndroid::Stop(JNIEnv* env, const JavaParamRef<jobject>& obj) {
@@ -368,6 +375,10 @@ ScopedJavaLocalRef<jobjectArray> WebContentsAndroid::GetInnerWebContents(
     env->SetObjectArrayElement(array, i, contents_java.obj());
   }
   return ScopedJavaLocalRef<jobjectArray>(env, array);
+}
+
+jint WebContentsAndroid::GetVisibility(JNIEnv* env) {
+  return static_cast<jint>(web_contents_->GetVisibility());
 }
 
 RenderWidgetHostViewAndroid*
@@ -452,6 +463,12 @@ jboolean WebContentsAndroid::FocusLocationBarByDefault(
     JNIEnv* env,
     const JavaParamRef<jobject>& obj) {
   return web_contents_->FocusLocationBarByDefault();
+}
+
+bool WebContentsAndroid::IsFullscreenForCurrentTab(
+    JNIEnv* env,
+    const JavaParamRef<jobject>& obj) {
+  return web_contents_->IsFullscreenForCurrentTab();
 }
 
 void WebContentsAndroid::ExitFullscreen(JNIEnv* env,

@@ -37,6 +37,7 @@
 #include "ash/display/event_transformation_handler.h"
 #include "ash/display/mouse_cursor_event_filter.h"
 #include "ash/display/persistent_window_controller.h"
+#include "ash/display/privacy_screen_controller.h"
 #include "ash/display/projecting_observer.h"
 #include "ash/display/resolution_notification_controller.h"
 #include "ash/display/screen_ash.h"
@@ -45,6 +46,7 @@
 #include "ash/display/window_tree_host_manager.h"
 #include "ash/drag_drop/drag_drop_controller.h"
 #include "ash/events/event_rewriter_controller_impl.h"
+#include "ash/fast_ink/laser/laser_pointer_controller.h"
 #include "ash/focus_cycler.h"
 #include "ash/frame/non_client_frame_view_ash.h"
 #include "ash/frame/snap_controller_impl.h"
@@ -52,11 +54,12 @@
 #include "ash/highlighter/highlighter_controller.h"
 #include "ash/home_screen/home_screen_controller.h"
 #include "ash/host/ash_window_tree_host_init_params.h"
+#include "ash/hud_display/hud_display.h"
 #include "ash/ime/ime_controller_impl.h"
 #include "ash/keyboard/keyboard_controller_impl.h"
 #include "ash/keyboard/ui/keyboard_ui_factory.h"
-#include "ash/laser/laser_pointer_controller.h"
 #include "ash/login/login_screen_controller.h"
+#include "ash/login/parent_access_controller.h"
 #include "ash/login_status.h"
 #include "ash/magnifier/docked_magnifier_controller_impl.h"
 #include "ash/magnifier/magnification_controller.h"
@@ -73,9 +76,11 @@
 #include "ash/public/cpp/shelf_config.h"
 #include "ash/public/cpp/shelf_model.h"
 #include "ash/public/cpp/shell_window_ids.h"
+#include "ash/quick_answers/quick_answers_controller_impl.h"
 #include "ash/root_window_controller.h"
 #include "ash/screenshot_delegate.h"
 #include "ash/session/session_controller_impl.h"
+#include "ash/shelf/contextual_tooltip.h"
 #include "ash/shelf/shelf.h"
 #include "ash/shelf/shelf_controller.h"
 #include "ash/shelf/shelf_window_watcher.h"
@@ -159,6 +164,7 @@
 #include "base/system/sys_info.h"
 #include "base/task/post_task.h"
 #include "base/task/task_traits.h"
+#include "base/task/thread_pool.h"
 #include "base/trace_event/trace_event.h"
 #include "chromeos/constants/chromeos_features.h"
 #include "chromeos/dbus/initialize_dbus_client.h"
@@ -175,6 +181,7 @@
 #include "ui/aura/layout_manager.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_event_dispatcher.h"
+#include "ui/base/mojom/cursor_type.mojom-shared.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/base/ui_base_switches.h"
 #include "ui/base/user_activity/user_activity_detector.h"
@@ -242,8 +249,7 @@ Shell* Shell::instance_ = nullptr;
 Shell* Shell::CreateInstance(ShellInitParams init_params) {
   CHECK(!instance_);
   instance_ = new Shell(std::move(init_params.delegate));
-  instance_->Init(init_params.context_factory,
-                  init_params.context_factory_private, init_params.local_state,
+  instance_->Init(init_params.context_factory, init_params.local_state,
                   std::move(init_params.keyboard_ui_factory),
                   init_params.dbus_bus);
   return instance_;
@@ -414,6 +420,10 @@ void Shell::OnDictationEnded() {
     observer.OnDictationEnded();
 }
 
+bool Shell::IsInTabletMode() const {
+  return tablet_mode_controller()->InTabletMode();
+}
+
 bool Shell::ShouldSaveDisplaySettings() {
   return !(
       screen_orientation_controller_->ignore_display_configuration_updates() ||
@@ -532,6 +542,7 @@ Shell::Shell(std::unique_ptr<ShellDelegate> shell_delegate)
       keyboard_brightness_control_delegate_(
           std::make_unique<KeyboardBrightnessController>()),
       locale_update_controller_(std::make_unique<LocaleUpdateControllerImpl>()),
+      parent_access_controller_(std::make_unique<ParentAccessController>()),
       ash_color_provider_(std::make_unique<AshColorProvider>()),
       session_controller_(std::make_unique<SessionControllerImpl>()),
       shell_delegate_(std::move(shell_delegate)),
@@ -548,9 +559,8 @@ Shell::Shell(std::unique_ptr<ShellDelegate> shell_delegate)
   // Use CONTINUE_ON_SHUTDOWN to avoid blocking shutdown since the data reading
   // could get blocked on certain devices. See https://crbug.com/1023989.
   AccelerometerReader::GetInstance()->Initialize(
-      base::CreateSequencedTaskRunner(
-          {base::ThreadPool(), base::MayBlock(),
-           base::TaskPriority::USER_VISIBLE,
+      base::ThreadPool::CreateSequencedTaskRunner(
+          {base::MayBlock(), base::TaskPriority::USER_VISIBLE,
            base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN}));
 
   login_screen_controller_ =
@@ -579,6 +589,8 @@ Shell::Shell(std::unique_ptr<ShellDelegate> shell_delegate)
 
 Shell::~Shell() {
   TRACE_EVENT0("shutdown", "ash::Shell::Destructor");
+
+  hud_display::HUDDisplayView::Destroy();
 
   for (auto& observer : shell_observers_)
     observer.OnShellDestroying();
@@ -627,6 +639,8 @@ Shell::~Shell() {
 
   screen_orientation_controller_.reset();
   screen_layout_observer_.reset();
+
+  quick_answers_controller_.reset();
 
   // Destroy the virtual keyboard controller before the tablet mode controller
   // since the latters destructor triggers events that the former is listening
@@ -762,6 +776,7 @@ Shell::~Shell() {
   accessibility_focus_ring_controller_.reset();
   policy_recommendation_restorer_.reset();
   ime_controller_.reset();
+  back_gesture_event_handler_.reset();
 
   // Balances the Install() in Initialize().
   views::FocusManagerFactory::Install(nullptr);
@@ -777,6 +792,8 @@ Shell::~Shell() {
   night_light_controller_ = nullptr;
   // Similarly for DockedMagnifierControllerImpl.
   docked_magnifier_controller_ = nullptr;
+  // Similarly for PrivacyScreenController.
+  privacy_screen_controller_ = nullptr;
 
   // Stop observing window activation changes before closing all windows.
   focus_controller_->RemoveObserver(this);
@@ -855,7 +872,6 @@ Shell::~Shell() {
 
 void Shell::Init(
     ui::ContextFactory* context_factory,
-    ui::ContextFactoryPrivate* context_factory_private,
     PrefService* local_state,
     std::unique_ptr<keyboard::KeyboardUIFactory> keyboard_ui_factory,
     scoped_refptr<dbus::Bus> dbus_bus) {
@@ -924,12 +940,14 @@ void Shell::Init(
   aura::Env* env = aura::Env::GetInstance();
   if (context_factory)
     env->set_context_factory(context_factory);
-  if (context_factory_private)
-    env->set_context_factory_private(context_factory_private);
 
   // Night Light depends on the display manager, the display color manager, and
   // aura::Env, so initialize it after all have been initialized.
   night_light_controller_ = std::make_unique<NightLightControllerImpl>();
+
+  // Privacy Screen depends on the display manager, so initialize it after
+  // display manager was properly initialized.
+  privacy_screen_controller_ = std::make_unique<PrivacyScreenController>();
 
   // The WindowModalityController needs to be at the front of the input event
   // pretarget handler list to ensure that it processes input events when modal
@@ -1053,12 +1071,12 @@ void Shell::Init(
   magnification_controller_ = std::make_unique<MagnificationController>();
   mru_window_tracker_ = std::make_unique<MruWindowTracker>();
   assistant_controller_ = std::make_unique<AssistantController>();
+  quick_answers_controller_ = std::make_unique<QuickAnswersControllerImpl>();
 
   // |assistant_controller_| is put before |ambient_controller_| as it will be
   // used by the latter.
   if (chromeos::features::IsAmbientModeEnabled()) {
-    ambient_controller_ =
-        std::make_unique<AmbientController>(assistant_controller_.get());
+    ambient_controller_ = std::make_unique<AmbientController>();
   }
 
   home_screen_controller_ = std::make_unique<HomeScreenController>();
@@ -1126,7 +1144,7 @@ void Shell::Init(
   keyboard_controller_->CreateVirtualKeyboard(std::move(keyboard_ui_factory));
 
   cursor_manager_->HideCursor();  // Hide the mouse cursor on startup.
-  cursor_manager_->SetCursor(ui::CursorType::kPointer);
+  cursor_manager_->SetCursor(ui::mojom::CursorType::kPointer);
 
   peripheral_battery_notifier_ = std::make_unique<PeripheralBatteryNotifier>();
   if (base::FeatureList::IsEnabled(
@@ -1306,6 +1324,10 @@ void Shell::OnFirstSessionStarted() {
   // Enable long press action to toggle spoken feedback with hotrod remote
   // which can't handle shortcuts.
   SpokenFeedbackToggler::SetEnabled(session_controller_->IsRunningInAppMode());
+
+  // Reset user prefs related to contextual tooltips.
+  if (switches::ContextualNudgesResetShownCount())
+    contextual_tooltip::ClearPrefs();
 }
 
 void Shell::OnSessionStateChanged(session_manager::SessionState state) {

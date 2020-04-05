@@ -29,22 +29,17 @@ void WidgetDelegate::SetCanActivate(bool can_activate) {
   can_activate_ = can_activate;
 }
 
-void WidgetDelegate::OnWidgetMove() {
-}
-void WidgetDelegate::OnWidgetResize() {
-}
+void WidgetDelegate::OnWidgetMove() {}
 
-void WidgetDelegate::OnDisplayChanged() {
-}
+void WidgetDelegate::OnWidgetResize() {}
 
-void WidgetDelegate::OnWorkAreaChanged() {
-}
+void WidgetDelegate::OnDisplayChanged() {}
+
+void WidgetDelegate::OnWorkAreaChanged() {}
 
 bool WidgetDelegate::OnCloseRequested(Widget::ClosedReason close_reason) {
   return true;
 }
-
-void WidgetDelegate::OnPaintAsActiveChanged(bool paint_as_active) {}
 
 View* WidgetDelegate::GetInitiallyFocusedView() {
   return nullptr;
@@ -211,7 +206,6 @@ bool WidgetDelegate::ShouldDescendIntoChildForEventHandling(
 ////////////////////////////////////////////////////////////////////////////////
 // WidgetDelegateView:
 
-
 WidgetDelegateView::WidgetDelegateView() {
   // A WidgetDelegate should be deleted on DeleteDelegate.
   set_owned_by_client();
@@ -221,6 +215,14 @@ WidgetDelegateView::~WidgetDelegateView() = default;
 
 void WidgetDelegateView::DeleteDelegate() {
   delete this;
+}
+
+Widget* WidgetDelegateView::GetWidget() {
+  return View::GetWidget();
+}
+
+const Widget* WidgetDelegateView::GetWidget() const {
+  return View::GetWidget();
 }
 
 views::View* WidgetDelegateView::GetContentsView() {

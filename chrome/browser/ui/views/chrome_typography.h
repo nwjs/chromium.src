@@ -55,16 +55,17 @@ enum ChromeTextContext {
 };
 
 enum ChromeTextStyle {
+#if defined(OS_CHROMEOS)
+  CHROME_TEXT_STYLE_START = ash::ASH_TEXT_STYLE_END,
+#else
   CHROME_TEXT_STYLE_START = views::style::VIEWS_TEXT_STYLE_END,
+#endif
 
   // Similar to views::style::STYLE_PRIMARY but with a monospaced typeface.
   STYLE_PRIMARY_MONOSPACED = CHROME_TEXT_STYLE_START,
 
   // Similar to views::style::STYLE_SECONDARY but with a monospaced typeface.
   STYLE_SECONDARY_MONOSPACED,
-
-  // "Hint" text, usually a line that gives context to something more important.
-  STYLE_HINT,
 
   // A solid shade of red.
   STYLE_RED,

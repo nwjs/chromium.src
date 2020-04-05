@@ -65,3 +65,79 @@ but also avoids relying upon `'strict-dynamic'`, via
 [base-uri]: https://w3c.github.io/webappsec-csp/#directive-base-uri
 [script-src]: https://w3c.github.io/webappsec-csp/#directive-script-src
 [csp-is-dead]: https://research.google/pubs/pub45542/
+
+## Trusted Types
+
+[Trusted Types][tt] gives page authors a means to protect their sites against
+cross-site scripting attacks. In order to understand real-world Trusted Types
+usage we obtain the following usage counts:
+
+* General use:`kTrustedTypesEnabled`, `kTrustedTypesEnabledEnforcing`, and
+  `kTrustedTypesEnabledReportOnly`. The first tells us (relative to all page
+  loads) how many pages have any form of Trusted Types enabled, while the other
+  two allow us to determine which percentage of pages run in enforcing or
+  report-only mode (or both).
+
+* Tracking specific features: `kTrustedTypesDefaultPolicyUsed` notes whether a
+  "default" policy has been used. `kTrustedTyoesAllowDuplicates` records
+  whether an 'allow-duplicates' keyword has been used.
+
+* Error tracking: `kTrustedTypesAssignmentError` tracks whether Trusted Types
+  has blocked a string assignment.
+
+[tt]: https://github.com/w3c/webappsec-trusted-types/
+
+## Cross Origin Isolation policies
+
+Cross Origin Isolation policies refer to a number of header based policies that
+developers can send to enforce specific rules about how their content can be
+embedded, opened from, etc. It is also used to gate certain APIs that would be
+otherwise too powerful to use in a post-Spectre world.
+
+[Cross-Origin-Resource-Policy][corp] restricts a resource to only be fetched by
+"same-origin" or "same-site" pages.
+
+* "NetworkService.CrossOriginResourcePolicy.Result" UMA histogram records the
+  result of the CORP check.
+
+  * "success": The CORP check passes successfully.
+  * "same-origin violation": "same-origin" is specified on a cross-origin
+    response.
+  * "same-origin violation with COEP involvement": No CORP header
+    is specified but that is treated as "same-origin" because the initiator
+    context enables Cross-Origin Embedder Policy (see below), and the response
+    comes from cross-origin.
+  * "same-site violation": "same-site" is specified on a cross-site response.
+
+* "NetworkService.CrossOriginResourcePolciy.ReportOnlyResult" UMA histogram
+  records the result of the CORP check, only when a
+  Cross-Origin-Embedder-Policy-Report-Only header is attached to the initiator
+  context. The format is same as
+  "NetworkService.CrossOriginResourcePolicy.Result".
+
+[Cross-Origin-Opener-Policy][coop] is used to restrict the usage of window
+openers. Pages can choose to restrict this relation to same-origin pages with
+similar COOP value, same-origin unless they are opening popups or put no
+restriction by default.
+
+* Explicit values of "same-origin" and "same-origin-allow-popups" are tracked
+  via `kCrossOriginOpenerPolicySameOrigin` and
+  `kCrossOriginOpenerPolicySameOriginAllowPopups` respectively.
+
+[Cross-Origin-Embedder-Policy][coep] is used to restrict the embedding of
+subresources to only those that have explicitly opted in via
+[Cross-Origin-Resource-Policy].
+
+* COEP is simply "require-corp" or nothing and we track uses of the feature via
+  `kCrossOriginEmbedderPolicyRequireCorp`.
+
+Note that some APIs having precise timers or memory measurement are enabled only
+for pages that set COOP to "same-origin" and COEP to "require-corp".
+
+* We track such pages via `kCoopAndCoepIsolated`.
+
+
+[corp]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Cross-Origin_Resource_Policy_(CORP)
+[coep]: https://wicg.github.io/cross-origin-embedder-policy/
+[coop]: https://gist.github.com/annevk/6f2dd8c79c77123f39797f6bdac43f3e
+

@@ -21,7 +21,9 @@
 #include "chromecast/base/chromecast_switches.h"
 #include "chromecast/media/audio/mixer_service/conversions.h"
 #include "chromecast/media/audio/mixer_service/mixer_service.pb.h"
+#include "chromecast/media/cma/backend/mixer/channel_layout.h"
 #include "chromecast/media/cma/backend/mixer/stream_mixer.h"
+#include "chromecast/media/cma/base/decoder_config_adapter.h"
 #include "chromecast/net/io_buffer_pool.h"
 #include "media/audio/audio_device_description.h"
 #include "media/base/audio_buffer.h"
@@ -143,6 +145,15 @@ float* GetAudioData(net::IOBuffer* buffer) {
   return reinterpret_cast<float*>(buffer->data() + kAudioMessageHeaderSize);
 }
 
+::media::ChannelLayout GetChannelLayout(mixer_service::ChannelLayout layout,
+                                        int num_channels) {
+  if (layout == mixer_service::CHANNEL_LAYOUT_NONE) {
+    return mixer::GuessChannelLayout(num_channels);
+  }
+  return DecoderConfigAdapter::ToMediaChannelLayout(
+      ConvertChannelLayout(layout));
+}
+
 }  // namespace
 
 MixerInputConnection::MixerInputConnection(
@@ -158,6 +169,8 @@ MixerInputConnection::MixerInputConnection(
           ::media::AudioTimestampHelper::TimeToFrames(kDefaultFillTime,
                                                       params.sample_rate()))),
       num_channels_(params.num_channels()),
+      channel_layout_(
+          GetChannelLayout(params.channel_layout(), params.num_channels())),
       input_samples_per_second_(params.sample_rate()),
       sample_format_(params.sample_format()),
       primary_(params.stream_type() !=
@@ -166,6 +179,9 @@ MixerInputConnection::MixerInputConnection(
                      ? params.device_id()
                      : ::media::AudioDeviceDescription::kDefaultDeviceId),
       content_type_(mixer_service::ConvertContentType(params.content_type())),
+      focus_type_(params.has_focus_type()
+                      ? mixer_service::ConvertContentType(params.focus_type())
+                      : content_type_),
       playout_channel_(params.channel_selection()),
       io_task_runner_(base::ThreadTaskRunnerHandle::Get()),
       max_queued_frames_(std::max(GetQueueSize(params), algorithm_fill_size_)),
@@ -188,6 +204,7 @@ MixerInputConnection::MixerInputConnection(
 
   LOG(INFO) << "Create " << this << " (" << device_id_
             << "), content type: " << AudioContentTypeToString(content_type_)
+            << ", focus type: " << AudioContentTypeToString(focus_type_)
             << ", fill size: " << fill_size_
             << ", algorithm fill size: " << algorithm_fill_size_
             << ", channel count: " << num_channels_
@@ -266,7 +283,7 @@ bool MixerInputConnection::HandleMetadata(
 }
 
 bool MixerInputConnection::HandleAudioData(char* data,
-                                           int size,
+                                           size_t size,
                                            int64_t timestamp) {
   DCHECK(io_task_runner_->RunsTasksInCurrentSequence());
   if (inactivity_timer_.IsRunning()) {
@@ -330,7 +347,7 @@ bool MixerInputConnection::HandleAudioData(char* data,
 bool MixerInputConnection::HandleAudioBuffer(
     scoped_refptr<net::IOBuffer> buffer,
     char* data,
-    int size,
+    size_t size,
     int64_t timestamp) {
   DCHECK(io_task_runner_->RunsTasksInCurrentSequence());
   if (inactivity_timer_.IsRunning()) {
@@ -442,9 +459,9 @@ void MixerInputConnection::SetMediaPlaybackRate(double rate) {
   rate_shifter_ =
       std::make_unique<::media::AudioRendererAlgorithm>(&media_log_);
   rate_shifter_->Initialize(
-      ::media::AudioParameters(::media::AudioParameters::AUDIO_PCM_LINEAR,
-                               ::media::GuessChannelLayout(num_channels_),
-                               input_samples_per_second_, algorithm_fill_size_),
+      mixer::CreateAudioParameters(
+          ::media::AudioParameters::AUDIO_PCM_LINEAR, channel_layout_,
+          num_channels_, input_samples_per_second_, algorithm_fill_size_),
       false /* is_encrypted */);
   rate_shifter_input_frames_ = rate_shifter_output_frames_ = 0;
 
@@ -492,6 +509,10 @@ size_t MixerInputConnection::num_channels() const {
   return num_channels_;
 }
 
+::media::ChannelLayout MixerInputConnection::channel_layout() const {
+  return channel_layout_;
+}
+
 int MixerInputConnection::sample_rate() const {
   return input_samples_per_second_;
 }
@@ -499,15 +520,23 @@ int MixerInputConnection::sample_rate() const {
 bool MixerInputConnection::primary() {
   return primary_;
 }
+
 const std::string& MixerInputConnection::device_id() {
   return device_id_;
 }
+
 AudioContentType MixerInputConnection::content_type() {
   return content_type_;
 }
+
+AudioContentType MixerInputConnection::focus_type() {
+  return focus_type_;
+}
+
 int MixerInputConnection::desired_read_size() {
   return algorithm_fill_size_;
 }
+
 int MixerInputConnection::playout_channel() {
   return playout_channel_;
 }
@@ -911,9 +940,9 @@ bool MixerInputConnection::FillRateShifted(int needed_frames) {
   while (rate_shifted_offset_ < needed_frames) {
     // Get more data and queue it in the rate shifter.
     auto buffer = ::media::AudioBuffer::CreateBuffer(
-        ::media::SampleFormat::kSampleFormatPlanarF32,
-        ::media::GuessChannelLayout(num_channels_), num_channels_,
-        input_samples_per_second_, algorithm_fill_size_, audio_buffer_pool_);
+        ::media::SampleFormat::kSampleFormatPlanarF32, channel_layout_,
+        num_channels_, input_samples_per_second_, algorithm_fill_size_,
+        audio_buffer_pool_);
     int new_fill = FillAudio(
         algorithm_fill_size_,
         const_cast<float**>(

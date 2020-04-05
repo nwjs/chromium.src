@@ -29,8 +29,8 @@
 #include "ios/chrome/browser/ui/ui_feature_flags.h"
 #import "ios/chrome/browser/ui/util/rtl_geometry.h"
 #import "ios/chrome/browser/ui/util/uikit_ui_util.h"
-#import "ios/chrome/common/colors/semantic_color_names.h"
-#import "ios/chrome/common/ui_util/constraints_ui_util.h"
+#import "ios/chrome/common/ui/colors/semantic_color_names.h"
+#import "ios/chrome/common/ui/util/constraints_ui_util.h"
 #include "ios/chrome/grit/ios_strings.h"
 #include "ios/web/public/thread/web_task_traits.h"
 #include "ios/web/public/thread/web_thread.h"
@@ -312,7 +312,7 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
   return l10n_util::GetNSString(stringID);
 }
 
-#pragma mark - GridTransitionStateProviding properties
+#pragma mark - GridTransitionAnimationLayoutProviding properties
 
 - (BOOL)isSelectedCellVisible {
   if (self.activePage != self.currentPage)
@@ -323,8 +323,7 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
                                    : gridViewController.selectedCellVisible;
 }
 
-- (GridTransitionLayout*)layoutForTransitionContext:
-    (id<UIViewControllerContextTransitioning>)context {
+- (GridTransitionLayout*)transitionLayout {
   GridViewController* gridViewController =
       [self gridViewControllerForPage:self.activePage];
   if (!gridViewController)
@@ -335,13 +334,11 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
   return layout;
 }
 
-- (UIView*)proxyContainerForTransitionContext:
-    (id<UIViewControllerContextTransitioning>)context {
+- (UIView*)animationViewsContainer {
   return self.view;
 }
 
-- (UIView*)proxyPositionForTransitionContext:
-    (id<UIViewControllerContextTransitioning>)context {
+- (UIView*)animationViewsContainerBottomView {
   return self.scrollView;
 }
 
@@ -381,6 +378,7 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
   if (base::FeatureList::IsEnabled(kContainedBVC)) {
     [self.incognitoTabsViewController contentWillAppearAnimated:animated];
     [self.regularTabsViewController contentWillAppearAnimated:animated];
+    self.remoteTabsViewController.preventUpdates = NO;
   }
 }
 
@@ -408,6 +406,7 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
   if (base::FeatureList::IsEnabled(kContainedBVC)) {
     [self.incognitoTabsViewController contentWillDisappear];
     [self.regularTabsViewController contentWillDisappear];
+    self.remoteTabsViewController.preventUpdates = YES;
   }
 }
 
@@ -1079,7 +1078,7 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
   BOOL incognitoContentVisible =
       (self.currentPage == TabGridPageIncognitoTabs &&
        !self.incognitoTabsViewController.gridEmpty);
-  [self.dispatcher setIncognitoContentVisible:incognitoContentVisible];
+  [self.handler setIncognitoContentVisible:incognitoContentVisible];
 }
 
 // Returns the approximate number of grid cells that will be visible on this

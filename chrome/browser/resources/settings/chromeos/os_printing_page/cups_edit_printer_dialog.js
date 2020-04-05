@@ -11,7 +11,6 @@ Polymer({
   is: 'settings-cups-edit-printer-dialog',
 
   behaviors: [
-    CrScrollableBehavior,
     NetworkListenerBehavior,
   ],
 
@@ -256,6 +255,7 @@ Polymer({
               this.onPrinterEditSucceeded_.bind(this),
               this.onPrinterEditFailed_.bind(this));
     }
+    settings.recordSettingChange();
   },
 
   /**

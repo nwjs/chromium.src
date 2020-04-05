@@ -47,6 +47,7 @@
 <translation id="2309047409763057870">Это дополнительная установка Google Chrome. Его нельзя сделать браузером по умолчанию.</translation>
 <translation id="2341767445688917208">Не удалось синхронизировать пароли. Войдите, чтобы исправить эту ошибку.</translation>
 <translation id="2348335408836342058">Для этого сайта Chrome запрашивает доступ к камере и микрофону.</translation>
+<translation id="234869673307233423">Не удается запустить проверку паролей в Chrome. Повторите попытку позже.</translation>
 <translation id="2429317896000329049">Google Chrome не удалось синхронизировать данные, поскольку служба Sync недоступна для вашего домена.</translation>
 <translation id="2467438592969358367">Чтобы экспортировать пароли из Google Chrome, введите пароль своего аккаунта Windows.</translation>
 <translation id="2485422356828889247">Удалить</translation>
@@ -54,17 +55,21 @@
 <translation id="2580411288591421699">Не удается установить версию Google Chrome, аналогичную уже выполняемой. Закройте Google Chrome и повторите попытку.</translation>
 <translation id="2586406160782125153">Данные о работе в браузере будут удалены с устройства. Чтобы восстановить данные позже, войдите в Chrome как <ph name="USER_EMAIL" />.</translation>
 <translation id="2588322182880276190">Логотип Chrome</translation>
+<translation id="2622559029861875898">Не удалось проверить наличие обновлений в Chrome. Проверьте подключение к Интернету.</translation>
 <translation id="2644798301485385923">Chrome OS</translation>
 <translation id="2652691236519827073">Открыть ссылку в новой вкладке браузера Chrome</translation>
 <translation id="2665296953892887393">Отправлять в Google такие данные, как отчеты о сбоях и <ph name="UMA_LINK" />, чтобы помочь улучшить Google Chrome</translation>
 <translation id="2689103672227170538">Расширение изменило стартовую страницу Chrome.</translation>
 <translation id="2765403129283291972">Для этого сайта Chrome запрашивает доступ к микрофону.</translation>
 <translation id="2770231113462710648">Назначить браузером по умолчанию:</translation>
+<translation id="2775140325783767197">Не удается запустить проверку паролей в Chrome. Проверьте подключение к Интернету.</translation>
 <translation id="2799223571221894425">Перезапустить</translation>
 <translation id="2847461019998147611">Отображать Google Chrome на этом языке</translation>
 <translation id="2857540653560290388">Запуск Chrome...</translation>
 <translation id="2871893339301912279">Добро пожаловать в Chrome!</translation>
 <translation id="2888126860611144412">О браузере Chrome</translation>
+<translation id="2929907241665500097">Не удалось обновить Chrome. <ph name="BEGIN_LINK" />Выяснить причины неполадок и устранить их<ph name="END_LINK" /></translation>
+<translation id="2969728957078202736">"<ph name="PAGE_TITLE" />" – вход в сеть – Chrome</translation>
 <translation id="3037838751736561277">Google Chrome работает в фоновом режиме</translation>
 <translation id="3065168410429928842">Вкладка Chrome</translation>
 <translation id="3080151273017101988">Не отключать работающие в фоновом режиме сервисы при закрытии браузера</translation>
@@ -101,8 +106,11 @@
 <translation id="4293420128516039005">Войдите, чтобы синхронизировать данные Chrome на всех устройствах</translation>
 <translation id="4328355335528187361">Google Chrome для разработчиков (mDNS-In)</translation>
 <translation id="4331809312908958774">Chrome OS</translation>
+<translation id="4335235004908507846">Chrome поможет обеспечить защиту от утечки данных, ненадежных расширений и других проблем с безопасностью.</translation>
 <translation id="4343195214584226067">Расширение "<ph name="EXTENSION_NAME" />" установлено</translation>
+<translation id="4384570495110188418">Не удается запустить проверку паролей в Chrome, поскольку вы не вошли в аккаунт.</translation>
 <translation id="4407807842708586359">Google Chrome OS</translation>
+<translation id="4450664632294415862">Chrome – вход в сеть – "<ph name="PAGE_TITLE" />"</translation>
 <translation id="4458462641685292929">Google Chrome выполняет другую операцию. Повторите попытку позже.</translation>
 <translation id="4480040274068703980">Не удалось синхронизировать данные из-за ошибки входа в аккаунт.</translation>
 <translation id="4561051373932531560">В Google Chrome вы можете нажать на любой номер телефона и позвонить на него через Skype!</translation>
@@ -112,6 +120,7 @@
 <translation id="4600710005438004015">Не удалось установить последнюю версию Chrome, в которой добавлены новые функции и обновления системы безопасности.</translation>
 <translation id="4631713731678262610">Спрятать в меню Chrome</translation>
 <translation id="4633000520311261472">Чтобы обеспечить безопасность ваших данных, некоторые расширения Chrome были отключены, так как <ph name="IDS_EXTENSION_WEB_STORE_TITLE" /> не содержит сведений о них, то есть эти компоненты могли быть установлены без вашего ведома.</translation>
+<translation id="4653397506175047429">Не удается запустить проверку всех паролей в Chrome. Повторите попытку через 24 часа.</translation>
 <translation id="4728575227883772061">Установка не удалась из-за неизвестной ошибки. Закройте все окна Google Chrome и повторите попытку снова.</translation>
 <translation id="4750550185319565338">Перезапустите Chrome, чтобы включить плагин "<ph name="PLUGIN_NAME" />"</translation>
 <translation id="4754614261631455953">Google Chrome Canary (mDNS-In)</translation>
@@ -143,7 +152,9 @@
 <translation id="573759479754913123">О Chrome OS</translation>
 <translation id="5795887333006832406"><ph name="PAGE_TITLE" /> – Google Chrome Canary</translation>
 <translation id="5804318322022881572">Не удалось запустить Chrome. Повторите попытку.</translation>
+<translation id="5867197326698922595">Google Chrome пытается изменить пароли</translation>
 <translation id="5895138241574237353">Перезапустить</translation>
+<translation id="5903106910045431592">"<ph name="PAGE_TITLE" />" – вход в сеть</translation>
 <translation id="5940385492829620908">Все веб-страницы, закладки и другие данные Chrome можно найти здесь.</translation>
 <translation id="5941830788786076944">Назначить Google Chrome браузером по умолчанию</translation>
 <translation id="6070348360322141662">В целях повышения безопасности Google Chrome шифрует ваши данные</translation>
@@ -193,12 +204,15 @@
 <translation id="7777080907402804672">Если у изображения нет понятного описания, Chrome попытается его найти. Для создания описаний изображения отправляются в Google. Эту функцию можно отключить в настройках в любое время.</translation>
 <translation id="7781002470561365167">Доступна новая версия Google Chrome.</translation>
 <translation id="7787950393032327779">Скорее всего, профиль используется другим процессом Google Chrome (<ph name="PROCESS_ID" />) на другом компьютере (<ph name="HOST_NAME" />). Во избежание сбоев профиль был заблокирован. Если вы уверены, что профиль не используется другими процессами, разблокируйте его и перезапустите Chrome.</translation>
+<translation id="7801699035218095297">Google Chrome пытается скопировать пароли. Чтобы разрешить это действие, введите свой пароль Windows.</translation>
 <translation id="7808348361785373670">Удалить из Chrome</translation>
 <translation id="7825851276765848807">Не удалось выполнить установку из-за неизвестной ошибки. Скачайте Google Chrome ещё раз.</translation>
 <translation id="7855730255114109580">Последняя версия Google Chrome уже установлена</translation>
 <translation id="7890208801193284374">Если, кроме вас, компьютером пользуется кто-то ещё, например родные или друзья, они тоже смогут настроить Chrome на свой вкус.</translation>
 <translation id="7896673875602241923">Ранее вход в Chrome на этом компьютере выполнялся из аккаунта <ph name="ACCOUNT_EMAIL_LAST" />. Чтобы ваши данные хранились отдельно, создайте новый профиль Chrome.</translation>
+<translation id="7905891027772979035">Не удается запустить проверку расширений в Chrome. Повторите попытку позже.</translation>
 <translation id="7916016681687251387">Не удалось синхронизировать данные. Войдите, чтобы исправить эту ошибку.</translation>
+<translation id="7930071585467473040">Google Chrome пытается скопировать пароли</translation>
 <translation id="7962410387636238736">Google Chrome больше не будет обновляться на этом компьютере, так как поддержка Windows XP и Windows Vista прекращена.</translation>
 <translation id="8008534537613507642">Переустановить Chrome</translation>
 <translation id="8013993649590906847">Если у изображения нет понятного описания, Chrome попытается его найти. Для создания описаний изображения отправляются в Google.</translation>
@@ -221,10 +235,12 @@
 <translation id="870251953148363156">Обновить &amp;Google Chrome</translation>
 <translation id="873133009373065397">Google Chrome не удалось определить или задать браузер по умолчанию</translation>
 <translation id="8823341990149967727">Версия Chrome устарела</translation>
+<translation id="8834965163890861871">Google Chrome пытается изменить пароли. Чтобы разрешить это действие, введите свой пароль Windows.</translation>
 <translation id="884296878221830158">Кроме того, расширение изменило стартовую страницу Chrome и страницу, отображаемую при нажатии кнопки "Главная страница".</translation>
 <translation id="8862326446509486874">У вас нет прав, необходимых для установки на системном уровне. Запустите программу установки еще раз в качестве администратора.</translation>
 <translation id="8914504000324227558">Перезапустить Chrome</translation>
 <translation id="8999208279178790196">{0,plural, =0{Доступно обновление Chrome}=1{Доступно обновление Chrome}one{Обновление Chrome доступно # день}few{Обновление Chrome доступно # дня}many{Обновление Chrome доступно # дней}other{Обновление Chrome доступно # дня}}</translation>
+<translation id="9025321516765676895">Chrome не может проверить пароли, потому что их слишком много.</translation>
 <translation id="9026991721384951619">Не удалось выполнить синхронизацию, так как учетные данные устарели.</translation>
 <translation id="9067395829937117663">Для работы Google Chrome необходима ОС Windows 7 или более поздней версии.</translation>
 <translation id="911206726377975832">Также удалить данные о работе в браузере?</translation>

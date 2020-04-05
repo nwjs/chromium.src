@@ -10,7 +10,12 @@
 #include "base/macros.h"
 #include "base/synchronization/lock.h"
 #include "base/time/time.h"
+#include "build/build_config.h"
 #include "content/common/content_export.h"
+
+#if defined(OS_ANDROID)
+#include "base/android/application_status_listener.h"
+#endif
 
 namespace content {
 namespace responsiveness {
@@ -99,10 +104,19 @@ class CONTENT_EXPORT Calculator {
   JankList& GetExecutionJanksOnUIThread();
   JankList& GetQueueAndExecutionJanksOnUIThread();
 
+#if defined(OS_ANDROID)
+  // Callback invoked when the application state changes.
+  void OnApplicationStateChanged(base::android::ApplicationState state);
+#endif
+
   // This method:
   //   1) Removes all Janks with Jank.end_time < |end_time| from |janks|.
   //   2) Returns all Janks with Jank.start_time < |end_time|.
   JankList TakeJanksOlderThanTime(JankList* janks, base::TimeTicks end_time);
+
+  // Used to generate a unique id when emitting Large Jank trace events
+  int g_num_large_ui_janks_ = 0;
+  int g_num_large_io_janks_ = 0;
 
   // Janks from tasks/events with a long execution time on the UI thread. Should
   // only be accessed via the accessor, which checks that the caller is on the
@@ -113,6 +127,12 @@ class CONTENT_EXPORT Calculator {
   // thread. Should only be accessed via the accessor, which checks that the
   // caller is on the UI thread.
   JankList queue_and_execution_janks_on_ui_thread_;
+
+#if defined(OS_ANDROID)
+  // Stores the current visibility state of the application. Accessed only on
+  // the UI thread.
+  bool is_application_visible_ = false;
+#endif
 
   // We expect there to be low contention and this lock to cause minimal
   // overhead. If performance of this lock proves to be a problem, we can move
@@ -139,6 +159,13 @@ class CONTENT_EXPORT Calculator {
   // Note that the process may be suspended while a task or event is being
   // executed, so a very long execution time should be treated similarly.
   base::TimeTicks most_recent_activity_time_;
+
+#if defined(OS_ANDROID)
+  // Listener for changes in application state, unregisters itself when
+  // destroyed.
+  const std::unique_ptr<base::android::ApplicationStatusListener>
+      application_status_listener_;
+#endif
 
   DISALLOW_COPY_AND_ASSIGN(Calculator);
 };

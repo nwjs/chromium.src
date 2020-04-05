@@ -78,6 +78,10 @@ ACTION_P(EnterPendingDecoderInitStateAction, test) {
   test->EnterPendingDecoderInitState(std::move(arg2));
 }
 
+ACTION_P(AssertNotYetEnded, test) {
+  ASSERT_FALSE(test->ended());
+}
+
 class AudioRendererImplTest : public ::testing::Test, public RendererClient {
  public:
   std::vector<std::unique_ptr<AudioDecoder>> CreateAudioDecoderForTest() {
@@ -85,7 +89,10 @@ class AudioRendererImplTest : public ::testing::Test, public RendererClient {
     if (!enter_pending_decoder_init_) {
       EXPECT_CALL(*decoder, Initialize_(_, _, _, _, _))
           .WillOnce(DoAll(SaveArg<3>(&output_cb_),
-                          RunOnceCallback<2>(expected_init_result_)));
+                          RunOnceCallback<2>(
+                              expected_init_result_
+                                  ? OkStatus()
+                                  : Status(StatusCode::kCodeOnlyForTesting))));
     } else {
       EXPECT_CALL(*decoder, Initialize_(_, _, _, _, _))
           .WillOnce(EnterPendingDecoderInitStateAction(this));
@@ -126,7 +133,9 @@ class AudioRendererImplTest : public ::testing::Test, public RendererClient {
         main_thread_task_runner_, sink_.get(),
         base::BindRepeating(&AudioRendererImplTest::CreateAudioDecoderForTest,
                             base::Unretained(this)),
-        &media_log_));
+        &media_log_,
+        base::BindRepeating(&AudioRendererImplTest::TranscribeAudioCallback,
+                            base::Unretained(this))));
     renderer_->tick_clock_ = &tick_clock_;
     tick_clock_.Advance(base::TimeDelta::FromSeconds(1));
   }
@@ -153,7 +162,9 @@ class AudioRendererImplTest : public ::testing::Test, public RendererClient {
         main_thread_task_runner_, sink_.get(),
         base::BindRepeating(&AudioRendererImplTest::CreateAudioDecoderForTest,
                             base::Unretained(this)),
-        &media_log_));
+        &media_log_,
+        base::BindRepeating(&AudioRendererImplTest::TranscribeAudioCallback,
+                            base::Unretained(this))));
     testing::Mock::VerifyAndClearExpectations(&demuxer_stream_);
     ConfigureDemuxerStream(false);
   }
@@ -167,7 +178,9 @@ class AudioRendererImplTest : public ::testing::Test, public RendererClient {
         main_thread_task_runner_, sink_.get(),
         base::BindRepeating(&AudioRendererImplTest::CreateAudioDecoderForTest,
                             base::Unretained(this)),
-        &media_log_));
+        &media_log_,
+        base::BindRepeating(&AudioRendererImplTest::TranscribeAudioCallback,
+                            base::Unretained(this))));
     testing::Mock::VerifyAndClearExpectations(&demuxer_stream_);
     ConfigureDemuxerStream(true);
   }
@@ -178,7 +191,9 @@ class AudioRendererImplTest : public ::testing::Test, public RendererClient {
         main_thread_task_runner_, mock_sink_.get(),
         base::BindRepeating(&AudioRendererImplTest::CreateAudioDecoderForTest,
                             base::Unretained(this)),
-        &media_log_));
+        &media_log_,
+        base::BindRepeating(&AudioRendererImplTest::TranscribeAudioCallback,
+                            base::Unretained(this))));
     testing::Mock::VerifyAndClearExpectations(&demuxer_stream_);
     ConfigureDemuxerStream(true);
   }
@@ -202,14 +217,17 @@ class AudioRendererImplTest : public ::testing::Test, public RendererClient {
   MOCK_METHOD1(OnVideoFrameRateChange, void(base::Optional<int>));
   MOCK_METHOD1(OnDurationChange, void(base::TimeDelta));
   MOCK_METHOD1(OnRemotePlayStateChange, void(MediaStatus::State state));
+  MOCK_METHOD1(TranscribeAudioCallback,
+               void(scoped_refptr<media::AudioBuffer>));
 
   void InitializeRenderer(DemuxerStream* demuxer_stream,
-                          const PipelineStatusCB& pipeline_status_cb) {
+                          PipelineStatusCallback pipeline_status_cb) {
     EXPECT_CALL(*this, OnWaiting(_)).Times(0);
     EXPECT_CALL(*this, OnVideoNaturalSizeChange(_)).Times(0);
     EXPECT_CALL(*this, OnVideoOpacityChange(_)).Times(0);
     EXPECT_CALL(*this, OnVideoConfigChange(_)).Times(0);
-    renderer_->Initialize(demuxer_stream, nullptr, this, pipeline_status_cb);
+    renderer_->Initialize(demuxer_stream, nullptr, this,
+                          std::move(pipeline_status_cb));
   }
 
   void Initialize() {
@@ -237,7 +255,9 @@ class AudioRendererImplTest : public ::testing::Test, public RendererClient {
         main_thread_task_runner_, sink_.get(),
         base::BindRepeating(&AudioRendererImplTest::CreateAudioDecoderForTest,
                             base::Unretained(this)),
-        &media_log_));
+        &media_log_,
+        base::BindRepeating(&AudioRendererImplTest::TranscribeAudioCallback,
+                            base::Unretained(this))));
 
     Initialize();
   }
@@ -456,7 +476,7 @@ class AudioRendererImplTest : public ::testing::Test, public RendererClient {
   }
 
   OutputFrames frames_buffered() {
-    return OutputFrames(renderer_->algorithm_->frames_buffered());
+    return OutputFrames(renderer_->algorithm_->BufferedFrames());
   }
 
   OutputFrames buffer_playback_threshold() {
@@ -561,7 +581,7 @@ class AudioRendererImplTest : public ::testing::Test, public RendererClient {
   std::unique_ptr<AudioTimestampHelper> next_timestamp_;
 
   // Run during DecodeDecoder() to unblock WaitForPendingRead().
-  base::Closure wait_for_pending_decode_cb_;
+  base::OnceClosure wait_for_pending_decode_cb_;
 
   AudioDecoder::InitCB init_decoder_cb_;
   bool expected_init_result_;
@@ -652,6 +672,14 @@ TEST_F(AudioRendererImplTest, StartTicking) {
   // Drain internal buffer, we should have a pending read.
   EXPECT_TRUE(ConsumeBufferedData(frames_buffered()));
   WaitForPendingRead();
+}
+
+TEST_F(AudioRendererImplTest, TranscribeAudioCallback) {
+  Initialize();
+  EXPECT_CALL(*this, TranscribeAudioCallback(_)).Times(testing::AtLeast(1));
+
+  Preroll();
+  StartTicking();
 }
 
 TEST_F(AudioRendererImplTest, EndOfStream) {
@@ -1131,20 +1159,17 @@ TEST_F(AudioRendererImplTest, RenderingDelayDoesNotOverflow) {
 
 TEST_F(AudioRendererImplTest, ImmediateEndOfStream) {
   Initialize();
-  {
-    SCOPED_TRACE("Preroll()");
-    renderer_->StartPlaying();
-    WaitForPendingRead();
-    EXPECT_CALL(*this, OnBufferingStateChange(BUFFERING_HAVE_ENOUGH,
-                                              BUFFERING_CHANGE_REASON_UNKNOWN));
-    DeliverEndOfStream();
-  }
-  StartTicking();
 
-  // Read a single frame. We shouldn't be able to satisfy it.
-  EXPECT_FALSE(ended());
-  EXPECT_FALSE(ConsumeBufferedData(OutputFrames(1)));
-  base::RunLoop().RunUntilIdle();
+  renderer_->SetMediaTime(base::TimeDelta());
+  renderer_->StartPlaying();
+  WaitForPendingRead();
+
+  // The buffering state change must occur before the ended signal.
+  EXPECT_CALL(*this, OnBufferingStateChange(BUFFERING_HAVE_ENOUGH,
+                                            BUFFERING_CHANGE_REASON_UNKNOWN))
+      .WillOnce(AssertNotYetEnded(this));
+  DeliverEndOfStream();
+
   EXPECT_TRUE(ended());
 }
 

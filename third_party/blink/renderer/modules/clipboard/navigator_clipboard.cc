@@ -22,10 +22,13 @@ Clipboard* NavigatorClipboard::clipboard(ScriptState* script_state,
     ProvideTo(navigator, supplement);
   }
 
+  if (!supplement->GetSupplementable()->GetFrame())
+    return nullptr;
+
   return supplement->clipboard_;
 }
 
-void NavigatorClipboard::Trace(blink::Visitor* visitor) {
+void NavigatorClipboard::Trace(Visitor* visitor) {
   visitor->Trace(clipboard_);
   Supplement<Navigator>::Trace(visitor);
 }
@@ -37,12 +40,8 @@ NavigatorClipboard::NavigatorClipboard(Navigator& navigator)
   if (!GetSupplementable()->GetFrame())
     return;
 
-  SystemClipboard* system_clipboard =
-      GetSupplementable()->GetFrame()->GetSystemClipboard();
   clipboard_ = MakeGarbageCollected<Clipboard>(
-      system_clipboard, GetSupplementable()->GetFrame()
-                            ? GetSupplementable()->GetFrame()->GetDocument()
-                            : nullptr);
+      GetSupplementable()->GetFrame()->GetDocument()->ToExecutionContext());
 }
 
 }  // namespace blink

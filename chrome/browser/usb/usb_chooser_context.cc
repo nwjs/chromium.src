@@ -16,6 +16,7 @@
 #include "base/values.h"
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/usb/usb_blocklist.h"
 #include "chrome/common/pref_names.h"
@@ -131,9 +132,9 @@ void UsbChooserContext::DeviceObserver::OnDeviceRemoved(
 void UsbChooserContext::DeviceObserver::OnDeviceManagerConnectionError() {}
 
 UsbChooserContext::UsbChooserContext(Profile* profile)
-    : ChooserContextBase(profile,
-                         ContentSettingsType::USB_GUARD,
-                         ContentSettingsType::USB_CHOOSER_DATA),
+    : ChooserContextBase(ContentSettingsType::USB_GUARD,
+                         ContentSettingsType::USB_CHOOSER_DATA,
+                         HostContentSettingsMapFactory::GetForProfile(profile)),
       is_incognito_(profile->IsOffTheRecord()) {
 #if defined(OS_CHROMEOS)
   bool is_signin_profile = chromeos::ProfileHelper::IsSigninProfile(profile);
@@ -240,12 +241,12 @@ UsbChooserContext::~UsbChooserContext() {
   OnDeviceManagerConnectionError();
 }
 
-std::vector<std::unique_ptr<ChooserContextBase::Object>>
+std::vector<std::unique_ptr<permissions::ChooserContextBase::Object>>
 UsbChooserContext::GetGrantedObjects(const url::Origin& requesting_origin,
                                      const url::Origin& embedding_origin) {
-  std::vector<std::unique_ptr<ChooserContextBase::Object>> objects =
-      ChooserContextBase::GetGrantedObjects(requesting_origin,
-                                            embedding_origin);
+  std::vector<std::unique_ptr<permissions::ChooserContextBase::Object>>
+      objects = permissions::ChooserContextBase::GetGrantedObjects(
+          requesting_origin, embedding_origin);
 
   if (CanRequestObjectPermission(requesting_origin, embedding_origin)) {
     auto it = ephemeral_devices_.find(
@@ -259,11 +260,12 @@ UsbChooserContext::GetGrantedObjects(const url::Origin& requesting_origin,
         // which always returns after the device list initialization in this
         // class.
         DCHECK(base::Contains(devices_, guid));
-        objects.push_back(std::make_unique<ChooserContextBase::Object>(
-            requesting_origin, embedding_origin,
-            DeviceInfoToValue(*devices_[guid]),
-            content_settings::SettingSource::SETTING_SOURCE_USER,
-            is_incognito_));
+        objects.push_back(
+            std::make_unique<permissions::ChooserContextBase::Object>(
+                requesting_origin, embedding_origin,
+                DeviceInfoToValue(*devices_[guid]),
+                content_settings::SettingSource::SETTING_SOURCE_USER,
+                is_incognito_));
       }
     }
   }
@@ -316,19 +318,20 @@ UsbChooserContext::GetGrantedObjects(const url::Origin& requesting_origin,
         object = DeviceIdsToValue(vendor_id, product_id);
       }
 
-      objects.push_back(std::make_unique<ChooserContextBase::Object>(
-          url_pair.first, url_pair.second, std::move(object),
-          content_settings::SETTING_SOURCE_POLICY, is_incognito_));
+      objects.push_back(
+          std::make_unique<permissions::ChooserContextBase::Object>(
+              url_pair.first, url_pair.second, std::move(object),
+              content_settings::SETTING_SOURCE_POLICY, is_incognito_));
     }
   }
 
   return objects;
 }
 
-std::vector<std::unique_ptr<ChooserContextBase::Object>>
+std::vector<std::unique_ptr<permissions::ChooserContextBase::Object>>
 UsbChooserContext::GetAllGrantedObjects() {
-  std::vector<std::unique_ptr<ChooserContextBase::Object>> objects =
-      ChooserContextBase::GetAllGrantedObjects();
+  std::vector<std::unique_ptr<permissions::ChooserContextBase::Object>>
+      objects = permissions::ChooserContextBase::GetAllGrantedObjects();
 
   for (const auto& map_entry : ephemeral_devices_) {
     const url::Origin& requesting_origin = map_entry.first.first;
@@ -339,10 +342,11 @@ UsbChooserContext::GetAllGrantedObjects() {
 
     for (const std::string& guid : map_entry.second) {
       DCHECK(base::Contains(devices_, guid));
-      objects.push_back(std::make_unique<ChooserContextBase::Object>(
-          requesting_origin, embedding_origin,
-          DeviceInfoToValue(*devices_[guid]),
-          content_settings::SETTING_SOURCE_USER, is_incognito_));
+      objects.push_back(
+          std::make_unique<permissions::ChooserContextBase::Object>(
+              requesting_origin, embedding_origin,
+              DeviceInfoToValue(*devices_[guid]),
+              content_settings::SETTING_SOURCE_USER, is_incognito_));
     }
   }
 
@@ -385,10 +389,11 @@ UsbChooserContext::GetAllGrantedObjects() {
         object = DeviceIdsToValue(vendor_id, product_id);
       }
 
-      objects.push_back(std::make_unique<ChooserContextBase::Object>(
-          url_pair.first, url_pair.second, std::move(object),
-          content_settings::SettingSource::SETTING_SOURCE_POLICY,
-          is_incognito_));
+      objects.push_back(
+          std::make_unique<permissions::ChooserContextBase::Object>(
+              url_pair.first, url_pair.second, std::move(object),
+              content_settings::SettingSource::SETTING_SOURCE_POLICY,
+              is_incognito_));
     }
   }
 
@@ -402,8 +407,8 @@ void UsbChooserContext::RevokeObjectPermission(
   const std::string* guid = object.FindStringKey(kGuidKey);
 
   if (!guid) {
-    ChooserContextBase::RevokeObjectPermission(requesting_origin,
-                                               embedding_origin, object);
+    permissions::ChooserContextBase::RevokeObjectPermission(
+        requesting_origin, embedding_origin, object);
     RecordPermissionRevocation(WEBUSB_PERMISSION_REVOKED);
     return;
   }
@@ -418,6 +423,27 @@ void UsbChooserContext::RevokeObjectPermission(
   }
 
   RecordPermissionRevocation(WEBUSB_PERMISSION_REVOKED_EPHEMERAL);
+}
+
+bool UsbChooserContext::IsValidObject(const base::Value& object) {
+  return object.is_dict() && object.DictSize() == 4 &&
+         object.FindStringKey(kDeviceNameKey) &&
+         object.FindIntKey(kVendorIdKey) && object.FindIntKey(kProductIdKey) &&
+         (object.FindStringKey(kSerialNumberKey) ||
+          object.FindStringKey(kGuidKey));
+}
+
+base::string16 UsbChooserContext::GetObjectDisplayName(
+    const base::Value& object) {
+  const std::string* name = object.FindStringKey(kDeviceNameKey);
+  DCHECK(name);
+  if (!name->empty())
+    return base::UTF8ToUTF16(*name);
+
+  base::Optional<int> vendor_id = object.FindIntKey(kVendorIdKey);
+  base::Optional<int> product_id = object.FindIntKey(kProductIdKey);
+  DCHECK(vendor_id && product_id);
+  return GetDeviceNameFromIds(*vendor_id, *product_id);
 }
 
 void UsbChooserContext::GrantDevicePermission(
@@ -456,8 +482,8 @@ bool UsbChooserContext::HasDevicePermission(
     return true;
   }
 
-  std::vector<std::unique_ptr<ChooserContextBase::Object>> object_list =
-      GetGrantedObjects(requesting_origin, embedding_origin);
+  std::vector<std::unique_ptr<permissions::ChooserContextBase::Object>>
+      object_list = GetGrantedObjects(requesting_origin, embedding_origin);
   for (const auto& object : object_list) {
     const base::Value& device = object->value;
     DCHECK(IsValidObject(device));
@@ -528,27 +554,6 @@ void UsbChooserContext::RemoveObserver(DeviceObserver* observer) {
 
 base::WeakPtr<UsbChooserContext> UsbChooserContext::AsWeakPtr() {
   return weak_factory_.GetWeakPtr();
-}
-
-bool UsbChooserContext::IsValidObject(const base::Value& object) {
-  return object.is_dict() && object.DictSize() == 4 &&
-         object.FindStringKey(kDeviceNameKey) &&
-         object.FindIntKey(kVendorIdKey) && object.FindIntKey(kProductIdKey) &&
-         (object.FindStringKey(kSerialNumberKey) ||
-          object.FindStringKey(kGuidKey));
-}
-
-// static
-std::string UsbChooserContext::GetObjectName(const base::Value& object) {
-  const std::string* name = object.FindStringKey(kDeviceNameKey);
-  DCHECK(name);
-  if (name->empty()) {
-    base::Optional<int> vendor_id = object.FindIntKey(kVendorIdKey);
-    base::Optional<int> product_id = object.FindIntKey(kProductIdKey);
-    DCHECK(vendor_id && product_id);
-    return base::UTF16ToUTF8(GetDeviceNameFromIds(*vendor_id, *product_id));
-  }
-  return *name;
 }
 
 void UsbChooserContext::OnDeviceAdded(

@@ -101,7 +101,7 @@ void ImageElementTiming::NotifyImagePainted(
     it->value.is_painted_ = true;
     NotifyImagePaintedInternal(layout_object->GetNode(), *layout_object,
                                *cached_image, current_paint_chunk_properties,
-                               it->value.load_time_);
+                               it->value.load_time_, nullptr);
   }
 }
 
@@ -110,7 +110,8 @@ void ImageElementTiming::NotifyImagePaintedInternal(
     const LayoutObject& layout_object,
     const ImageResourceContent& cached_image,
     const PropertyTreeState& current_paint_chunk_properties,
-    base::TimeTicks load_time) {
+    base::TimeTicks load_time,
+    const IntRect* image_border) {
   LocalFrame* frame = GetSupplementable()->GetFrame();
   DCHECK(frame == layout_object.GetDocument().GetFrame());
   DCHECK(node);
@@ -138,7 +139,9 @@ void ImageElementTiming::NotifyImagePaintedInternal(
       LayoutObject::ShouldRespectImageOrientation(&layout_object);
 
   FloatRect intersection_rect = ElementTimingUtils::ComputeIntersectionRect(
-      frame, layout_object.FirstFragment().VisualRect(),
+      frame,
+      image_border ? *image_border
+                   : layout_object.FragmentsVisualRectBoundingBox(),
       current_paint_chunk_properties);
   const AtomicString attr =
       element->FastGetAttribute(html_names::kElementtimingAttr);
@@ -164,8 +167,8 @@ void ImageElementTiming::NotifyImagePaintedInternal(
       timing_allow_check = Performance::PassesTimingAllowCheck(
           cached_image.GetResponse(), cached_image.GetResponse(),
           *layout_object.GetDocument().GetSecurityOrigin(),
-          &layout_object.GetDocument(), &response_tainting_not_basic,
-          &tainted_origin_flag);
+          layout_object.GetDocument().ToExecutionContext(),
+          &response_tainting_not_basic, &tainted_origin_flag);
     }
     if (!timing_allow_check) {
       WindowPerformance* performance =
@@ -205,7 +208,8 @@ void ImageElementTiming::NotifyImagePaintedInternal(
 void ImageElementTiming::NotifyBackgroundImagePainted(
     Node* node,
     const StyleFetchedImage* background_image,
-    const PropertyTreeState& current_paint_chunk_properties) {
+    const PropertyTreeState& current_paint_chunk_properties,
+    const IntRect& image_border) {
   DCHECK(node);
   DCHECK(background_image);
 
@@ -231,11 +235,11 @@ void ImageElementTiming::NotifyBackgroundImagePainted(
     info.is_painted_ = true;
     NotifyImagePaintedInternal(layout_object->GetNode(), *layout_object,
                                *cached_image, current_paint_chunk_properties,
-                               it->value);
+                               it->value, &image_border);
   }
 }
 
-void ImageElementTiming::ReportImagePaintSwapTime(WebWidgetClient::SwapResult,
+void ImageElementTiming::ReportImagePaintSwapTime(WebSwapResult,
                                                   base::TimeTicks timestamp) {
   WindowPerformance* performance =
       DOMWindowPerformance::performance(*GetSupplementable());
@@ -256,7 +260,7 @@ void ImageElementTiming::NotifyImageRemoved(const LayoutObject* layout_object,
   images_notified_.erase(std::make_pair(layout_object, image));
 }
 
-void ImageElementTiming::Trace(blink::Visitor* visitor) {
+void ImageElementTiming::Trace(Visitor* visitor) {
   visitor->Trace(element_timings_);
   visitor->Trace(background_image_timestamps_);
   Supplement<LocalDOMWindow>::Trace(visitor);

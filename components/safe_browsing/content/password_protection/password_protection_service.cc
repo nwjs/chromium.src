@@ -102,9 +102,6 @@ void PasswordProtectionService::MaybeStartPasswordFieldOnFocusRequest(
     const std::string& hosted_domain) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   RequestOutcome reason;
-  if (!base::FeatureList::IsEnabled(safe_browsing::kSendOnFocusPing)) {
-    return;
-  }
   if (CanSendPing(LoginReputationClientRequest::UNFAMILIAR_LOGIN_PAGE,
                   main_frame_url,
                   GetPasswordProtectionReusedPasswordAccountType(
@@ -114,7 +111,7 @@ void PasswordProtectionService::MaybeStartPasswordFieldOnFocusRequest(
     StartRequest(web_contents, main_frame_url, password_form_action,
                  password_form_frame_url, /* username */ "",
                  PasswordType::PASSWORD_TYPE_UNKNOWN,
-                 {}, /* matching_domains: not used for this type */
+                 {}, /* matching_reused_credentials: not used for this type */
                  LoginReputationClientRequest::UNFAMILIAR_LOGIN_PAGE, true);
   }
 }
@@ -126,12 +123,10 @@ void PasswordProtectionService::MaybeStartProtectedPasswordEntryRequest(
     const GURL& main_frame_url,
     const std::string& username,
     PasswordType password_type,
-    const std::vector<std::string>& matching_domains,
+    const std::vector<password_manager::MatchingReusedCredential>&
+        matching_reused_credentials,
     bool password_field_exists) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  if (!base::FeatureList::IsEnabled(safe_browsing::kSendPasswordReusePing)) {
-    return;
-  }
   ReusedPasswordAccountType reused_password_account_type =
       GetPasswordProtectionReusedPasswordAccountType(password_type, username);
   RequestOutcome reason;
@@ -150,7 +145,7 @@ void PasswordProtectionService::MaybeStartProtectedPasswordEntryRequest(
 #endif  // defined(FULL_SAFE_BROWSING)
     if (can_send_ping) {
       StartRequest(web_contents, main_frame_url, GURL(), GURL(), username,
-                   password_type, matching_domains,
+                   password_type, matching_reused_credentials,
                    LoginReputationClientRequest::PASSWORD_REUSE_EVENT,
                    password_field_exists);
     } else {
@@ -232,15 +227,17 @@ void PasswordProtectionService::StartRequest(
     const GURL& password_form_frame_url,
     const std::string& username,
     PasswordType password_type,
-    const std::vector<std::string>& matching_domains,
+    const std::vector<password_manager::MatchingReusedCredential>&
+        matching_reused_credentials,
     LoginReputationClientRequest::TriggerType trigger_type,
     bool password_field_exists) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   scoped_refptr<PasswordProtectionRequest> request(
       new PasswordProtectionRequest(
           web_contents, main_frame_url, password_form_action,
-          password_form_frame_url, username, password_type, matching_domains,
-          trigger_type, password_field_exists, this, GetRequestTimeoutInMS()));
+          password_form_frame_url, username, password_type,
+          matching_reused_credentials, trigger_type, password_field_exists,
+          this, GetRequestTimeoutInMS()));
   request->Start();
   pending_requests_.insert(std::move(request));
 }
@@ -335,8 +332,8 @@ void PasswordProtectionService::RequestFinished(
         verdict == LoginReputationClientResponse::PHISHING ||
         verdict == LoginReputationClientResponse::LOW_REPUTATION;
     if (is_unsafe_url) {
-      PersistPhishedSavedPasswordCredential(request->username(),
-                                            request->matching_domains());
+      PersistPhishedSavedPasswordCredential(
+          request->matching_reused_credentials());
     }
   }
 
@@ -392,8 +389,10 @@ void PasswordProtectionService::FillUserPopulation(
     LoginReputationClientRequest* request_proto) {
   ChromeUserPopulation* user_population = request_proto->mutable_population();
   user_population->set_user_population(
-      IsExtendedReporting() ? ChromeUserPopulation::EXTENDED_REPORTING
-                            : ChromeUserPopulation::SAFE_BROWSING);
+      IsEnhancedProtection()
+          ? ChromeUserPopulation::ENHANCED_PROTECTION
+          : IsExtendedReporting() ? ChromeUserPopulation::EXTENDED_REPORTING
+                                  : ChromeUserPopulation::SAFE_BROWSING);
   user_population->set_profile_management_status(
       GetProfileManagementStatus(GetBrowserPolicyConnector()));
   user_population->set_is_history_sync_enabled(IsHistorySyncEnabled());
@@ -579,8 +578,7 @@ bool PasswordProtectionService::IsSupportedPasswordTypeForModalWarning(
 // Android.
 #if defined(OS_ANDROID)
   return false;
-#endif
-
+#else
   if (password_type.account_type() ==
       ReusedPasswordAccountType::NON_GAIA_ENTERPRISE)
     return true;
@@ -592,6 +590,7 @@ bool PasswordProtectionService::IsSupportedPasswordTypeForModalWarning(
   return password_type.is_account_syncing() ||
          base::FeatureList::IsEnabled(
              safe_browsing::kPasswordProtectionForSignedInUsers);
+#endif
 }
 
 #if BUILDFLAG(FULL_SAFE_BROWSING)

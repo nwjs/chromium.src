@@ -23,8 +23,8 @@
 #include "base/path_service.h"
 #include "base/scoped_native_library.h"
 #include "build/build_config.h"
-#include "components/crash/content/app/crash_reporter_client.h"
-#include "components/crash/content/app/crashpad.h"
+#include "components/crash/core/app/crash_reporter_client.h"
+#include "components/crash/core/app/crashpad.h"
 #include "components/version_info/android/channel_getter.h"
 #include "components/version_info/version_info.h"
 #include "components/version_info/version_info_values.h"
@@ -91,6 +91,8 @@ class AwCrashReporterClient : public crash_reporter::CrashReporterClient {
     }
     return true;
   }
+
+  bool ShouldWriteMinidumpToLog() override { return true; }
 
   bool JavaExceptionFilter(
       const base::android::JavaRef<jthrowable>& java_exception) {

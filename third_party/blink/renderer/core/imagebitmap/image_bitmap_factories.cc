@@ -239,7 +239,7 @@ void ImageBitmapFactories::DidFinishLoading(ImageBitmapLoader* loader) {
   pending_loaders_.erase(loader);
 }
 
-void ImageBitmapFactories::Trace(blink::Visitor* visitor) {
+void ImageBitmapFactories::Trace(Visitor* visitor) {
   visitor->Trace(pending_loaders_);
   Supplement<LocalDOMWindow>::Trace(visitor);
   Supplement<WorkerGlobalScope>::Trace(visitor);
@@ -250,7 +250,7 @@ ImageBitmapFactories::ImageBitmapLoader::ImageBitmapLoader(
     base::Optional<IntRect> crop_rect,
     ScriptState* script_state,
     const ImageBitmapOptions* options)
-    : ContextLifecycleObserver(ExecutionContext::From(script_state)),
+    : ExecutionContextLifecycleObserver(ExecutionContext::From(script_state)),
       loader_(std::make_unique<FileReaderLoader>(
           FileReaderLoader::kReadAsArrayBuffer,
           this,
@@ -288,8 +288,7 @@ void ImageBitmapFactories::ImageBitmapLoader::RejectPromise(
   factory_->DidFinishLoading(this);
 }
 
-void ImageBitmapFactories::ImageBitmapLoader::ContextDestroyed(
-    ExecutionContext*) {
+void ImageBitmapFactories::ImageBitmapLoader::ContextDestroyed() {
   if (loader_)
     factory_->DidFinishLoading(this);
   loader_.reset();
@@ -378,8 +377,8 @@ void ImageBitmapFactories::ImageBitmapLoader::ResolvePromiseOnOriginalThread(
   factory_->DidFinishLoading(this);
 }
 
-void ImageBitmapFactories::ImageBitmapLoader::Trace(blink::Visitor* visitor) {
-  ContextLifecycleObserver::Trace(visitor);
+void ImageBitmapFactories::ImageBitmapLoader::Trace(Visitor* visitor) {
+  ExecutionContextLifecycleObserver::Trace(visitor);
   visitor->Trace(factory_);
   visitor->Trace(resolver_);
   visitor->Trace(options_);

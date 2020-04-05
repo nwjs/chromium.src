@@ -408,8 +408,10 @@ void ShellSurfaceBase::SetStartupId(const char* startup_id) {
 }
 
 void ShellSurfaceBase::SetChildAxTreeId(ui::AXTreeID child_ax_tree_id) {
-  child_ax_tree_id_ = child_ax_tree_id;
+  if (child_ax_tree_id_ == child_ax_tree_id)
+    return;
 
+  child_ax_tree_id_ = child_ax_tree_id;
   this->NotifyAccessibilityEvent(ax::mojom::Event::kChildrenChanged, false);
 }
 
@@ -695,6 +697,14 @@ void ShellSurfaceBase::WindowClosing() {
   widget_ = nullptr;
 }
 
+views::Widget* ShellSurfaceBase::GetWidget() {
+  return widget_;
+}
+
+const views::Widget* ShellSurfaceBase::GetWidget() const {
+  return widget_;
+}
+
 views::View* ShellSurfaceBase::GetContentsView() {
   return this;
 }
@@ -863,7 +873,6 @@ void ShellSurfaceBase::CreateShellSurfaceWidget(
     activatable_ = false;
     DisableMovement();
   }
-
   views::Widget::InitParams params;
   params.type = emulate_x11_override_redirect
                     ? views::Widget::InitParams::TYPE_MENU
@@ -1072,10 +1081,6 @@ views::NonClientFrameView* ShellSurfaceBase::CreateNonClientFrameViewInternal(
 
 ////////////////////////////////////////////////////////////////////////////////
 // ShellSurfaceBase, private:
-
-const views::Widget* ShellSurfaceBase::GetWidgetImpl() const {
-  return widget_;
-}
 
 float ShellSurfaceBase::GetScale() const {
   return 1.f;

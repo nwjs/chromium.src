@@ -24,6 +24,7 @@
 #include "base/strings/string_util.h"
 #include "base/system/sys_info.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "base/task_runner_util.h"
 #include "base/timer/elapsed_timer.h"
 #include "base/trace_event/trace_event.h"
@@ -90,7 +91,7 @@ const uint8_t kServerPublicKey[] = {
 const uint32_t kServerPublicKeyVersion = 1;
 
 // For the HTTP date headers, the resolution of the server time is 1 second.
-const base::TimeDelta kServerTimeResolution = base::TimeDelta::FromSeconds(1);
+const uint32_t kServerTimeResolutionInSeconds = 1;
 
 // Whether the VariationsService should fetch the seed for testing.
 bool g_should_fetch_for_testing = false;
@@ -276,6 +277,85 @@ void OnInitialSeedStored() {
 
 }  // namespace
 
+#if defined(OS_CHROMEOS)
+// This is a utility which syncs the policy-managed value of
+// |prefs::kDeviceVariationsRestrictionsByPolicy| into
+// |prefs::kVariationsRestrictionsByPolicy|.
+// TODO(crbug.com/1060224): Remove this workaround and implement a better long
+// term solution.
+class DeviceVariationsRestrictionByPolicyApplicator {
+ public:
+  DeviceVariationsRestrictionByPolicyApplicator(
+      PrefService* policy_pref_service)
+      : policy_pref_service_(policy_pref_service) {
+    DCHECK(policy_pref_service_);
+    const PrefService::PrefInitializationStatus prefs_init_status =
+        policy_pref_service_->GetAllPrefStoresInitializationStatus();
+    if (prefs_init_status == PrefService::INITIALIZATION_STATUS_WAITING) {
+      policy_pref_service_->AddPrefInitObserver(
+          base::BindOnce(&DeviceVariationsRestrictionByPolicyApplicator::
+                             OnPolicyPrefServiceInitialized,
+                         weak_ptr_factory_.GetWeakPtr()));
+      return;
+    }
+    OnPolicyPrefServiceInitialized(prefs_init_status ==
+                                   PrefService::INITIALIZATION_STATUS_SUCCESS);
+  }
+
+  ~DeviceVariationsRestrictionByPolicyApplicator() = default;
+
+  DeviceVariationsRestrictionByPolicyApplicator(
+      const DeviceVariationsRestrictionByPolicyApplicator& other) = delete;
+  DeviceVariationsRestrictionByPolicyApplicator& operator=(
+      const DeviceVariationsRestrictionByPolicyApplicator& other) = delete;
+
+ private:
+  void OnPolicyPrefServiceInitialized(bool successful) {
+    // If PrefService initialization was not successful, another component will
+    // display an error message to the user.
+    if (!successful)
+      return;
+
+    pref_change_registrar_ = std::make_unique<PrefChangeRegistrar>();
+    pref_change_registrar_->Init(policy_pref_service_);
+    pref_change_registrar_->Add(
+        prefs::kDeviceVariationsRestrictionsByPolicy,
+        base::BindRepeating(&DeviceVariationsRestrictionByPolicyApplicator::
+                                OnDevicePolicyChange,
+                            weak_ptr_factory_.GetWeakPtr()));
+    // Also process the initial value.
+    OnDevicePolicyChange();
+  }
+
+  // Observes the changes in prefs::kDeviceVariationsRestrictionsByPolicy,
+  // and saves and retrieve its local state value, then sets
+  // prefs::kVariationsRestrictParameter with that new value. That's to
+  // reflect the changes of chromeos policy into the user policy.
+  // TODO(crbug.com/1060224): Remove that workaround, and make a better long
+  // term solution.
+  void OnDevicePolicyChange() {
+    const std::string& device_policy =
+        prefs::kDeviceVariationsRestrictionsByPolicy;
+    const std::string& user_policy = prefs::kVariationsRestrictionsByPolicy;
+
+    if (policy_pref_service_->IsManagedPreference(device_policy)) {
+      const int device_value = policy_pref_service_->GetInteger(device_policy);
+      policy_pref_service_->SetInteger(user_policy, device_value);
+    } else {
+      policy_pref_service_->ClearPref(user_policy);
+    }
+  }
+
+  PrefService* const policy_pref_service_;
+
+  // Watch the changes of the variations prefs.
+  std::unique_ptr<PrefChangeRegistrar> pref_change_registrar_;
+
+  base::WeakPtrFactory<DeviceVariationsRestrictionByPolicyApplicator>
+      weak_ptr_factory_{this};
+};
+#endif  // defined(OS_CHROMEOS)
+
 VariationsService::VariationsService(
     std::unique_ptr<VariationsServiceClient> client,
     std::unique_ptr<web_resource::ResourceRequestAllowedNotifier> notifier,
@@ -302,10 +382,15 @@ VariationsService::VariationsService(
       last_request_was_http_retry_(false) {
   DCHECK(client_);
   DCHECK(resource_request_allowed_notifier_);
+
+#if defined(OS_CHROMEOS)
+  device_variations_restrictions_by_policy_applicator_ =
+      std::make_unique<DeviceVariationsRestrictionByPolicyApplicator>(
+          policy_pref_service_);
+#endif
 }
 
-VariationsService::~VariationsService() {
-}
+VariationsService::~VariationsService() = default;
 
 void VariationsService::PerformPreMainMessageLoopStartup() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -479,7 +564,11 @@ void VariationsService::RegisterPrefs(PrefRegistrySimple* registry) {
   // allows the admin to restrict the set of variations applied.
   registry->RegisterIntegerPref(
       prefs::kVariationsRestrictionsByPolicy,
-      static_cast<int>(RestrictionPolicyValues::NO_RESTRICTIONS));
+      static_cast<int>(RestrictionPolicy::NO_RESTRICTIONS));
+
+  registry->RegisterIntegerPref(
+      prefs::kDeviceVariationsRestrictionsByPolicy,
+      static_cast<int>(RestrictionPolicy::NO_RESTRICTIONS));
 }
 
 // static
@@ -628,12 +717,11 @@ bool VariationsService::StoreSeed(const std::string& seed_data,
   // activated by this seed. To do this, first get the Chrome version to do a
   // simulation with, which must be done on a background thread, and then do the
   // actual simulation on the UI thread.
-  base::PostTaskAndReplyWithResult(
-      FROM_HERE,
-      {base::ThreadPool(), base::MayBlock(), base::TaskPriority::BEST_EFFORT},
+  base::ThreadPool::PostTaskAndReplyWithResult(
+      FROM_HERE, {base::MayBlock(), base::TaskPriority::BEST_EFFORT},
       client_->GetVersionForSimulationCallback(),
       base::BindOnce(&VariationsService::PerformSimulationWithVersion,
-                     weak_ptr_factory_.GetWeakPtr(), base::Passed(&seed)));
+                     weak_ptr_factory_.GetWeakPtr(), std::move(seed)));
   return true;
 }
 
@@ -795,7 +883,9 @@ void VariationsService::OnSimpleLoaderCompleteOrRedirect(
     const base::TimeTicks now = base::TimeTicks::Now();
     const base::TimeDelta latency = now - last_request_started_time_;
     client_->GetNetworkTimeTracker()->UpdateNetworkTime(
-        response_date, kServerTimeResolution, latency, now);
+        response_date,
+        base::TimeDelta::FromSeconds(kServerTimeResolutionInSeconds), latency,
+        now);
   }
 
   if (response_code == net::HTTP_NOT_MODIFIED) {

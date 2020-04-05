@@ -59,16 +59,6 @@ const base::Feature kThrottleDelayable{"ThrottleDelayable",
 const base::Feature kDelayRequestsOnMultiplexedConnections{
     "DelayRequestsOnMultiplexedConnections", base::FEATURE_ENABLED_BY_DEFAULT};
 
-// Implementation of https://mikewest.github.io/sec-metadata/
-const base::Feature kFetchMetadata{"FetchMetadata",
-                                   base::FEATURE_ENABLED_BY_DEFAULT};
-
-// The `Sec-Fetch-Dest` header is split out from the main "FetchMetadata"
-// feature so we can ship the broader feature without this specifific bit
-// while we continue discussion.
-const base::Feature kFetchMetadataDestination{"FetchMetadataDestination",
-                                              base::FEATURE_ENABLED_BY_DEFAULT};
-
 // When kRequestInitiatorSiteLock is enabled, then CORB, CORP and Sec-Fetch-Site
 // will validate network::ResourceRequest::request_initiator against
 // network::mojom::URLLoaderFactoryParams::request_initiator_site_lock.
@@ -83,7 +73,7 @@ const base::Feature kRequestInitiatorSiteLock{"RequestInitiatorSiteLock",
 // streaming over an active P2P connection.
 const base::Feature kPauseBrowserInitiatedHeavyTrafficForP2P{
     "PauseBrowserInitiatedHeavyTrafficForP2P",
-    base::FEATURE_DISABLED_BY_DEFAULT};
+    base::FEATURE_ENABLED_BY_DEFAULT};
 
 // When kCORBProtectionSniffing is enabled CORB sniffs additional same-origin
 // resources if they look sensitive.
@@ -97,12 +87,25 @@ const base::Feature kProactivelyThrottleLowPriorityRequests{
     "ProactivelyThrottleLowPriorityRequests",
     base::FEATURE_DISABLED_BY_DEFAULT};
 
-// This is for Cross-Origin-Opener-Policy (COOP) and
-// Cross-Origin-Embedder-Policy (COEP).
+// Enables Cross-Origin Opener Policy (COOP).
 // https://gist.github.com/annevk/6f2dd8c79c77123f39797f6bdac43f3e
+// Currently this feature is enabled for all platforms except WebView. It is not
+// possible to distinguish between Android and WebView here, so we enable the
+// feature on Android via finch.
+const base::Feature kCrossOriginOpenerPolicy {
+  "CrossOriginOpenerPolicy",
+#if defined(OS_ANDROID)
+      base::FEATURE_DISABLED_BY_DEFAULT
+#else
+      base::FEATURE_ENABLED_BY_DEFAULT
+#endif
+};
+
+// Enables Cross-Origin Embedder Policy (COEP).
 // https://github.com/mikewest/corpp
-const base::Feature kCrossOriginIsolation{"CrossOriginIsolation",
-                                          base::FEATURE_DISABLED_BY_DEFAULT};
+// Currently this feature is enabled for all platforms except WebView.
+const base::Feature kCrossOriginEmbedderPolicy{
+    "CrossOriginEmbedderPolicy", base::FEATURE_ENABLED_BY_DEFAULT};
 
 // When kBlockNonSecureExternalRequests is enabled, requests initiated from a
 // pubic network may only target a private network if the initiating context
@@ -176,6 +179,23 @@ const base::Feature kEmergencyLegacyCookieAccess{
 const char kEmergencyLegacyCookieAccessParamName[] = "Patterns";
 const base::FeatureParam<std::string> kEmergencyLegacyCookieAccessParam{
     &kEmergencyLegacyCookieAccess, kEmergencyLegacyCookieAccessParamName, ""};
+
+// Controls whether the CORB allowlist [1] is also applied to OOR-CORS (e.g.
+// whether non-allowlisted content scripts are subject to CORS in OOR-CORS
+// mode).  See also: https://crbug.com/920638
+//
+// [1]
+// https://www.chromium.org/Home/chromium-security/extension-content-script-fetches
+const base::Feature kCorbAllowlistAlsoAppliesToOorCors = {
+    "CorbAllowlistAlsoAppliesToOorCors", base::FEATURE_DISABLED_BY_DEFAULT};
+const char kCorbAllowlistAlsoAppliesToOorCorsParamName[] =
+    "AllowlistForCorbAndCors";
+
+// Enables preprocessing requests with the Trust Tokens API Fetch flags set,
+// and handling their responses, according to the protocol.
+// (See https://github.com/WICG/trust-token-api.)
+const base::Feature kTrustTokens{"TrustTokens",
+                                 base::FEATURE_DISABLED_BY_DEFAULT};
 
 bool ShouldEnableOutOfBlinkCorsForTesting() {
   return base::FeatureList::IsEnabled(features::kOutOfBlinkCors);

@@ -60,7 +60,7 @@ const char kFeaturePolicyConsoleWarning[] =
 NavigatorWebMIDI::NavigatorWebMIDI(Navigator& navigator)
     : Supplement<Navigator>(navigator) {}
 
-void NavigatorWebMIDI::Trace(blink::Visitor* visitor) {
+void NavigatorWebMIDI::Trace(Visitor* visitor) {
   Supplement<Navigator>::Trace(visitor);
 }
 
@@ -95,7 +95,7 @@ ScriptPromise NavigatorWebMIDI::requestMIDIAccess(
     return ScriptPromise();
   }
 
-  Document& document = *To<Document>(ExecutionContext::From(script_state));
+  Document& document = *Document::From(ExecutionContext::From(script_state));
   if (options->hasSysex() && options->sysex()) {
     UseCounter::Count(
         document,

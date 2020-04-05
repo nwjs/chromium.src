@@ -15,18 +15,25 @@
 #include "chrome/browser/browser_process_platform_part.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/chrome_device_id_helper.h"
+#include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/webui/signin/inline_login_handler.h"
 #include "chromeos/components/account_manager/account_manager.h"
 #include "chromeos/components/account_manager/account_manager_factory.h"
+#include "chromeos/constants/chromeos_features.h"
+#include "chromeos/dbus/util/version_loader.h"
 #include "components/signin/public/identity_manager/account_info.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "crypto/sha2.h"
+#include "google_apis/gaia/gaia_auth_util.h"
 #include "google_apis/gaia/gaia_urls.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 
 namespace chromeos {
 namespace {
+
+constexpr char kCrosAddAccountFlow[] = "crosAddAccount";
+constexpr char kCrosAddAccountEduFlow[] = "crosAddAccountEdu";
 
 // Returns a base64-encoded hash code of "signin_scoped_device_id:gaia_id".
 std::string GetAccountDeviceId(const std::string& signin_scoped_device_id,
@@ -36,6 +43,27 @@ std::string GetAccountDeviceId(const std::string& signin_scoped_device_id,
       crypto::SHA256HashString(signin_scoped_device_id + ":" + gaia_id),
       &account_device_id);
   return account_device_id;
+}
+
+std::string GetInlineLoginFlowName(Profile* profile, const std::string* email) {
+  DCHECK(profile);
+  if (!profile->IsChild()) {
+    return kCrosAddAccountFlow;
+  }
+
+  std::string primary_account_email =
+      IdentityManagerFactory::GetForProfile(profile)
+          ->GetPrimaryAccountInfo(signin::ConsentLevel::kNotRequired)
+          .email;
+  // If provided email is for primary account - it's a reauthentication, use
+  // normal add account flow.
+  if (email && gaia::AreEmailsSame(primary_account_email, *email)) {
+    return kCrosAddAccountFlow;
+  }
+
+  // Child user is adding/reauthenticating a secondary account.
+  CHECK(features::IsEduCoexistenceEnabled());
+  return kCrosAddAccountEduFlow;
 }
 
 // A helper class for completing the inline login flow. Primarily, it is
@@ -134,12 +162,17 @@ void InlineLoginHandlerChromeOS::SetExtraInitParams(
     base::DictionaryValue& params) {
   const GaiaUrls* const gaia_urls = GaiaUrls::GetInstance();
   params.SetKey("clientId", base::Value(gaia_urls->oauth2_chrome_client_id()));
+  params.SetKey(
+      "platformVersion",
+      base::Value(version_loader::GetVersion(version_loader::VERSION_SHORT)));
 
   const GURL& url = gaia_urls->embedded_setup_chromeos_url(2U);
   params.SetKey("gaiaPath", base::Value(url.path().substr(1)));
 
   params.SetKey("constrained", base::Value("1"));
-  params.SetKey("flow", base::Value("crosAddAccount"));
+  params.SetKey("flow", base::Value(GetInlineLoginFlowName(
+                            Profile::FromWebUI(web_ui()),
+                            params.FindStringKey("email"))));
   params.SetBoolean("dontResizeNonEmbeddedPages", true);
 
   // For in-session login flows, request Gaia to ignore third party SAML IdP SSO
@@ -152,7 +185,7 @@ void InlineLoginHandlerChromeOS::SetExtraInitParams(
 void InlineLoginHandlerChromeOS::HandleAuthExtensionReadyMessage(
     const base::ListValue* args) {
   AllowJavascript();
-  FireWebUIListener("showBackButton");
+  FireWebUIListener("show-back-button");
 }
 
 void InlineLoginHandlerChromeOS::CompleteLogin(const std::string& email,
@@ -162,13 +195,17 @@ void InlineLoginHandlerChromeOS::CompleteLogin(const std::string& email,
                                                bool skip_for_now,
                                                bool trusted,
                                                bool trusted_found,
-                                               bool choose_what_to_sync) {
+                                               bool choose_what_to_sync,
+                                               base::Value edu_login_params) {
   CHECK(!auth_code.empty());
   CHECK(!gaia_id.empty());
   CHECK(!email.empty());
 
   // TODO(sinhak): Do not depend on Profile unnecessarily.
   Profile* profile = Profile::FromWebUI(web_ui());
+
+  // TODO(anastasiian): log parent consent with RAPT:
+  // edu_login_params.FindKey("reAuthProofToken")->GetString();
 
   // TODO(sinhak): Do not depend on Profile unnecessarily. When multiprofile on
   // Chrome OS is released, get rid of |AccountManagerFactory| and get

@@ -21,9 +21,11 @@ import argparse
 import json
 import logging
 import os
+import subprocess
 import sys
 import traceback
 
+import shard_util
 import test_runner
 import wpr_runner
 import xcodebuild_runner
@@ -46,11 +48,86 @@ class Runner():
     if args:
       self.parse_args(args)
 
+  def install_xcode(self, xcode_build_version, mac_toolchain_cmd,
+                    xcode_app_path):
+    """Installs the requested Xcode build version.
+
+    Args:
+      xcode_build_version: (string) Xcode build version to install.
+      mac_toolchain_cmd: (string) Path to mac_toolchain command to install Xcode
+      See https://chromium.googlesource.com/infra/infra/+/master/go/src/infra/cmd/mac_toolchain/
+      xcode_app_path: (string) Path to install the contents of Xcode.app.
+
+    Returns:
+      True if installation was successful. False otherwise.
+    """
+    try:
+      if not mac_toolchain_cmd:
+        raise test_runner.MacToolchainNotFoundError(mac_toolchain_cmd)
+      # Guard against incorrect install paths. On swarming, this path
+      # should be a requested named cache, and it must exist.
+      if not os.path.exists(xcode_app_path):
+        raise test_runner.XcodePathNotFoundError(xcode_app_path)
+
+      subprocess.check_call([
+          mac_toolchain_cmd,
+          'install',
+          '-kind',
+          'ios',
+          '-xcode-version',
+          xcode_build_version.lower(),
+          '-output-dir',
+          xcode_app_path,
+      ])
+      self.xcode_select(xcode_app_path)
+    except subprocess.CalledProcessError as e:
+      # Flush buffers to ensure correct output ordering.
+      sys.stdout.flush()
+      sys.stderr.write('Xcode build version %s failed to install: %s\n' %
+                       (xcode_build_version, e))
+      sys.stderr.flush()
+      return False
+
+    return True
+
+  def xcode_select(self, xcode_app_path):
+    """Switch the default Xcode system-wide to `xcode_app_path`.
+
+    Raises subprocess.CalledProcessError on failure.
+    To be mocked in tests.
+    """
+    subprocess.check_call([
+        'sudo',
+        'xcode-select',
+        '-switch',
+        xcode_app_path,
+    ])
+
   def run(self, args):
     """
     Main coordinating function.
     """
     self.parse_args(args)
+
+    # This logic is run by default before the otool command is invoked such that
+    # otool has the correct Xcode selected for command line dev tools.
+    if not self.install_xcode(self.args.xcode_build_version,
+                              self.args.mac_toolchain_cmd,
+                              self.args.xcode_path):
+      raise test_runner.XcodeVersionNotFoundError(self.args.xcode_build_version)
+
+    # GTEST_SHARD_INDEX and GTEST_TOTAL_SHARDS are additional test environment
+    # variables, set by Swarming, that are only set for a swarming task
+    # shard count is > 1.
+    #
+    # For a given test on a given run, otool should return the same total
+    # counts and thus, should generate the same sublists. With the shard index,
+    # each shard would then know the exact test case to run.
+    gtest_shard_index = os.getenv('GTEST_SHARD_INDEX', 0)
+    gtest_total_shards = os.getenv('GTEST_TOTAL_SHARDS', 0)
+    if gtest_shard_index and gtest_total_shards:
+      self.args.test_cases = shard_util.shard_test_cases(
+          self.args, gtest_shard_index, gtest_total_shards)
 
     summary = {}
     tr = None
@@ -64,16 +141,15 @@ class Runner():
             self.args.app,
             self.args.host_app,
             self.args.iossim,
-            self.args.xcode_build_version,
             self.args.version,
             self.args.platform,
             out_dir=self.args.out_dir,
-            mac_toolchain=self.args.mac_toolchain_cmd,
+            release=self.args.release,
             retries=self.args.retries,
             shards=self.args.shards,
-            xcode_path=self.args.xcode_path,
             test_cases=self.args.test_cases,
             test_args=self.test_args,
+            use_clang_coverage=self.args.use_clang_coverage,
             env_vars=self.args.env_var)
       elif self.args.replay_path != 'NO_PATH':
         tr = wpr_runner.WprProxySimulatorTestRunner(
@@ -84,15 +160,12 @@ class Runner():
             self.args.platform,
             self.args.version,
             self.args.wpr_tools_path,
-            self.args.xcode_build_version,
             self.args.out_dir,
             env_vars=self.args.env_var,
-            mac_toolchain=self.args.mac_toolchain_cmd,
             retries=self.args.retries,
             shards=self.args.shards,
             test_args=self.test_args,
             test_cases=self.args.test_cases,
-            xcode_path=self.args.xcode_path,
             xctest=self.args.xctest,
         )
       elif self.args.iossim and self.args.platform and self.args.version:
@@ -101,42 +174,35 @@ class Runner():
             self.args.iossim,
             self.args.platform,
             self.args.version,
-            self.args.xcode_build_version,
             self.args.out_dir,
             env_vars=self.args.env_var,
-            mac_toolchain=self.args.mac_toolchain_cmd,
             retries=self.args.retries,
             shards=self.args.shards,
             test_args=self.test_args,
             test_cases=self.args.test_cases,
+            use_clang_coverage=self.args.use_clang_coverage,
             wpr_tools_path=self.args.wpr_tools_path,
-            xcode_path=self.args.xcode_path,
             xctest=self.args.xctest,
         )
       elif self.args.xcodebuild_device_runner and self.args.xctest:
         tr = xcodebuild_runner.DeviceXcodeTestRunner(
             app_path=self.args.app,
             host_app_path=self.args.host_app,
-            xcode_build_version=self.args.xcode_build_version,
             out_dir=self.args.out_dir,
-            mac_toolchain=self.args.mac_toolchain_cmd,
+            release=self.args.release,
             retries=self.args.retries,
-            xcode_path=self.args.xcode_path,
             test_cases=self.args.test_cases,
             test_args=self.test_args,
             env_vars=self.args.env_var)
       else:
         tr = test_runner.DeviceTestRunner(
             self.args.app,
-            self.args.xcode_build_version,
             self.args.out_dir,
             env_vars=self.args.env_var,
-            mac_toolchain=self.args.mac_toolchain_cmd,
             restart=self.args.restart,
             retries=self.args.retries,
             test_args=self.test_args,
             test_cases=self.args.test_cases,
-            xcode_path=self.args.xcode_path,
             xctest=self.args.xctest,
         )
 
@@ -160,6 +226,21 @@ class Runner():
         with open(os.path.join(self.args.out_dir, 'full_results.json'),
                   'w') as f:
           json.dump(tr.test_results, f)
+
+        # The value of test-launcher-summary-output is set by the recipe
+        # and passed here via swarming.py. This argument defaults to
+        # ${ISOLATED_OUTDIR}/output.json. out-dir is set to ${ISOLATED_OUTDIR}
+
+        # TODO(crbug.com/1031338) - the content of this output.json will
+        # work with Chromium recipe because we use the noop_merge merge script,
+        # but will require structural changes to support the default gtest
+        # merge script (ref: //testing/merge_scripts/standard_gtest_merge.py)
+        output_json_path = (
+            self.args.test_launcher_summary_output or
+            os.path.join(self.args.out_dir, 'output.json'))
+        with open(output_json_path, 'w') as f:
+          json.dump(tr.test_results, f)
+
       test_runner.defaults_delete('com.apple.CoreSimulator',
                                   'FramebufferServerRendererPolicy')
 
@@ -234,6 +315,12 @@ class Runner():
         help='Platform to simulate.',
         metavar='sim',
     )
+    #TODO(crbug.com/1056887): Implement this arg in infra.
+    parser.add_argument(
+        '--release',
+        help='Indicates if this is a release build.',
+        action='store_true',
+    )
     parser.add_argument(
         '--replay-path',
         help=('Path to a directory containing WPR replay and recipe files, for '
@@ -271,6 +358,11 @@ class Runner():
         metavar='testcase',
     )
     parser.add_argument(
+        '--use-clang-coverage',
+        help='Enable code coverage related steps in test runner scripts.',
+        action='store_true',
+    )
+    parser.add_argument(
         '--use-trusted-cert',
         action='store_true',
         help=('Whether to install a cert to the simulator to allow for local '
@@ -303,13 +395,17 @@ class Runner():
         '--xcodebuild-device-runner',
         help='Run tests using xcodebuild\'s on real device.',
         action='store_true',
-        default=False,
     )
     parser.add_argument(
         '--xctest',
         action='store_true',
         help='Whether or not the given app should be run as an XCTest.',
     )
+    parser.add_argument(
+        '--test-launcher-summary-output',
+        default=None,
+        help='Full path to output.json file. output.json is consumed by both '
+        'collect_task.py and merge scripts.')
 
     def load_from_json(args):
       """
@@ -346,13 +442,12 @@ class Runner():
         parser.error('--xcode-parallelization also requires '
                      'both -p/--platform and -v/--version')
 
-      if args.xcodebuild_device_runner and not (args.platform and args.version):
-        parser.error('--xcodebuild-device-runner also requires '
-                     'both -p/--platform and -v/--version')
-
     args, test_args = parser.parse_known_args(args)
-    validate(args)
     load_from_json(args)
+    validate(args)
+    # TODO(crbug.com/1056820): |app| won't contain "Debug" or "Release" after
+    # recipe migrations.
+    args.release = args.release or (args.app and "Release" in args.app)
     self.args = args
     self.test_args = test_args
 

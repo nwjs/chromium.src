@@ -67,7 +67,7 @@ ScrollingCoordinator::~ScrollingCoordinator() {
   DCHECK(!page_);
 }
 
-void ScrollingCoordinator::Trace(blink::Visitor* visitor) {
+void ScrollingCoordinator::Trace(Visitor* visitor) {
   visitor->Trace(page_);
   visitor->Trace(horizontal_scrollbars_);
   visitor->Trace(vertical_scrollbars_);
@@ -122,7 +122,12 @@ void ScrollingCoordinator::DidChangeScrollbarsHidden(
   // See the above function for the case of null scrollable area.
   if (auto* scrollable =
           ScrollableAreaWithElementIdInAllLocalFrames(element_id)) {
-    scrollable->SetScrollbarsHiddenIfOverlay(hidden);
+    // On Mac, we'll only receive these visibility changes if device emulation
+    // is enabled and we're using the Android ScrollbarController. Make sure we
+    // stop listening when device emulation is turned off since we might still
+    // get a lagging message from the compositor before it finds out.
+    if (scrollable->GetPageScrollbarTheme().BlinkControlsOverlayVisibility())
+      scrollable->SetScrollbarsHiddenIfOverlay(hidden);
   }
 }
 
@@ -340,7 +345,9 @@ void ScrollingCoordinator::ScrollableAreaScrollbarLayerDidChange(
 
     cc::ScrollbarLayerBase* scrollbar_layer =
         GetScrollbarLayer(scrollable_area, orientation);
-    if (!scrollbar_layer) {
+    if (!scrollbar_layer ||
+        scrollbar_layer->is_left_side_vertical_scrollbar() !=
+            scrollable_area->ShouldPlaceVerticalScrollbarOnLeft()) {
       scoped_refptr<cc::ScrollbarLayerBase> new_scrollbar_layer;
       if (scrollbar.IsSolidColor()) {
         DCHECK(scrollbar.IsOverlayScrollbar());
@@ -380,7 +387,7 @@ bool ScrollingCoordinator::UpdateCompositorScrollOffset(
       frame.LocalFrameRoot().View()->GetPaintArtifactCompositor();
   if (!paint_artifact_compositor)
     return false;
-  return paint_artifact_compositor->DirectlyUpdateScrollOffset(
+  return paint_artifact_compositor->DirectlySetScrollOffset(
       scrollable_area.GetScrollElementId(), scrollable_area.ScrollPosition());
 }
 
@@ -404,14 +411,12 @@ void ScrollingCoordinator::ScrollableAreaScrollLayerDidChange(
     IntSize scroll_contents_size =
         PhysicalRect(subpixel_accumulation, contents_size).PixelSnappedSize();
 
-    IntSize container_size = scrollable_area->VisibleContentRect().Size();
-    cc_layer->SetScrollable(gfx::Size(container_size));
-
     // The scrolling contents layer must be at least as large as its clip.
     // The visual viewport is special because the size of its scrolling
     // content depends on the page scale factor. Its scrollable content is
     // the layout viewport which is sized based on the minimum allowed page
     // scale so it actually can be smaller than its clip.
+    IntSize container_size = scrollable_area->VisibleContentRect().Size();
     scroll_contents_size = scroll_contents_size.ExpandedTo(container_size);
 
     // This call has to go through the GraphicsLayer method to preserve

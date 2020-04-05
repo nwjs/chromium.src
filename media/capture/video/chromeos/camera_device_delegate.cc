@@ -732,6 +732,16 @@ void CameraDeviceDelegate::OnConfiguredStreams(
     return;
   }
 
+  bool zero_shutter_lag_enabled = false;
+  for (const auto& stream : updated_config->streams) {
+    if (stream->usage & cros::mojom::GRALLOC_USAGE_ZERO_SHUTTER_LAG_ENABLED) {
+      zero_shutter_lag_enabled = true;
+      break;
+    }
+  }
+  camera_3a_controller_->UpdateZeroShutterLagAvailability(
+      zero_shutter_lag_enabled);
+
   current_blob_resolution_.SetSize(blob_resolution.width(),
                                    blob_resolution.height());
 
@@ -781,7 +791,7 @@ bool CameraDeviceDelegate::IsYUVReprocessingSupported(int* max_width,
         cros::mojom::HalPixelFormat::HAL_PIXEL_FORMAT_BLOB);
 
     size_t idx = 0;
-    while (idx < formats_map.size() && !has_yuv_input_blob_output) {
+    while (idx < formats_map.size()) {
       auto in_format = formats_map[idx++];
       auto out_amount = formats_map[idx++];
       if (in_format != format_yuv) {

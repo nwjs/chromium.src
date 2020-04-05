@@ -59,6 +59,11 @@ ChromeIdentityService* ChromeBrowserProvider::GetChromeIdentityService() {
   return nullptr;
 }
 
+ChromeTrustedVaultService*
+ChromeBrowserProvider::GetChromeTrustedVaultService() {
+  return nullptr;
+}
+
 GeolocationUpdaterProvider*
 ChromeBrowserProvider::GetGeolocationUpdaterProvider() {
   return nullptr;
@@ -99,7 +104,7 @@ AppDistributionProvider* ChromeBrowserProvider::GetAppDistributionProvider()
 }
 
 id<LogoVendor> ChromeBrowserProvider::CreateLogoVendor(
-    ChromeBrowserState* browser_state,
+    Browser* browser,
     web::WebState* web_state) const {
   return nil;
 }

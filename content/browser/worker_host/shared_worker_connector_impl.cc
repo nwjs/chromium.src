@@ -34,8 +34,6 @@ SharedWorkerConnectorImpl::SharedWorkerConnectorImpl(
 
 void SharedWorkerConnectorImpl::Connect(
     blink::mojom::SharedWorkerInfoPtr info,
-    blink::mojom::FetchClientSettingsObjectPtr
-        outside_fetch_client_settings_object,
     mojo::PendingRemote<blink::mojom::SharedWorkerClient> client,
     blink::mojom::SharedWorkerCreationContextType creation_context_type,
     mojo::ScopedMessagePipeHandle message_port,
@@ -46,7 +44,7 @@ void SharedWorkerConnectorImpl::Connect(
   if (!host) {
     mojo::Remote<blink::mojom::SharedWorkerClient> remote_client(
         std::move(client));
-    remote_client->OnScriptLoadFailed();
+    remote_client->OnScriptLoadFailed(/*error_message=*/"");
     return;
   }
   scoped_refptr<network::SharedURLLoaderFactory> blob_url_loader_factory;
@@ -63,7 +61,6 @@ void SharedWorkerConnectorImpl::Connect(
       static_cast<StoragePartitionImpl*>(host->GetStoragePartition())
           ->GetSharedWorkerService();
   service->ConnectToWorker(client_render_frame_host_id_, std::move(info),
-                           std::move(outside_fetch_client_settings_object),
                            std::move(client), creation_context_type,
                            blink::MessagePortChannel(std::move(message_port)),
                            std::move(blob_url_loader_factory));

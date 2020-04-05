@@ -6,7 +6,8 @@ package org.chromium.chrome.browser.password_manager;
 
 import android.content.Context;
 import android.graphics.drawable.Drawable;
-import android.support.v7.content.res.AppCompatResources;
+
+import androidx.appcompat.content.res.AppCompatResources;
 
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.base.annotations.CalledByNative;
@@ -47,7 +48,7 @@ public class AutoSigninSnackbarController implements SnackbarManager.SnackbarCon
         snackbar.setSingleLine(false)
                 .setBackgroundColor(backgroundColor)
                 .setProfileImage(icon)
-                .setTextAppearance(R.style.TextAppearance_WhiteBody);
+                .setTextAppearance(R.style.TextAppearance_TextMedium_Primary_Light);
         snackbarManager.showSnackbar(snackbar);
     }
 

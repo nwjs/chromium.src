@@ -127,7 +127,8 @@ gpu::Mailbox TestSharedImageInterface::CreateSharedImage(
     ResourceFormat format,
     const gfx::Size& size,
     const gfx::ColorSpace& color_space,
-    uint32_t usage) {
+    uint32_t usage,
+    gpu::SurfaceHandle surface_handle) {
   base::AutoLock locked(lock_);
   auto mailbox = gpu::Mailbox::GenerateForSharedImage();
   shared_images_.insert(mailbox);
@@ -346,7 +347,7 @@ TestContextProvider::TestContextProvider(
   context_gl_->set_test_support(support_.get());
   if (!raster_context_) {
     raster_context_ = std::make_unique<gpu::raster::RasterImplementationGLES>(
-        context_gl_.get());
+        context_gl_.get(), support_.get());
   }
   // Just pass nullptr to the ContextCacheController for its task runner.
   // Idle handling is tested directly in ContextCacheController's

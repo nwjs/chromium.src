@@ -172,8 +172,8 @@ IN_PROC_BROWSER_TEST_F(FileSystemChooserBrowserTest, SaveFile_NonExistingFile) {
   EXPECT_EQ(int{file_contents.size()},
             EvalJs(shell(),
                    JsReplace("(async () => {"
-                             "  const w = await self.entry.createWriter();"
-                             "  await w.write(0, new Blob([$1]));"
+                             "  const w = await self.entry.createWritable();"
+                             "  await w.write(new Blob([$1]));"
                              "  await w.close();"
                              "  return (await self.entry.getFile()).size; })()",
                              file_contents)));
@@ -224,7 +224,7 @@ IN_PROC_BROWSER_TEST_F(FileSystemChooserBrowserTest,
       ->SetPermissionContextForTesting(&permission_context);
 
   EXPECT_CALL(permission_context,
-              CanRequestWritePermission(url::Origin::Create(
+              CanObtainWritePermission(url::Origin::Create(
                   embedded_test_server()->GetURL("/title1.html"))))
       .WillOnce(testing::Return(false));
 
@@ -388,7 +388,7 @@ IN_PROC_BROWSER_TEST_F(FileSystemChooserBrowserTest,
       .WillOnce(RunOnceCallback<5>(SensitiveDirectoryResult::kAbort));
 
   EXPECT_CALL(permission_context,
-              CanRequestWritePermission(url::Origin::Create(
+              CanObtainWritePermission(url::Origin::Create(
                   embedded_test_server()->GetURL("/title1.html"))))
       .WillOnce(testing::Return(true));
 
@@ -436,7 +436,7 @@ IN_PROC_BROWSER_TEST_F(FileSystemChooserBrowserTest,
       .WillOnce(RunOnceCallback<5>(SensitiveDirectoryResult::kAbort));
 
   EXPECT_CALL(permission_context,
-              CanRequestWritePermission(url::Origin::Create(
+              CanObtainWritePermission(url::Origin::Create(
                   embedded_test_server()->GetURL("/title1.html"))))
       .WillOnce(testing::Return(true));
 

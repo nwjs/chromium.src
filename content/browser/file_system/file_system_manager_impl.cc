@@ -38,6 +38,7 @@
 #include "storage/common/file_system/file_system_util.h"
 #include "third_party/blink/public/common/features.h"
 #include "url/gurl.h"
+#include "url/origin.h"
 
 using storage::BlobDataBuilder;
 using storage::BlobStorageContext;
@@ -217,7 +218,7 @@ void FileSystemManagerImpl::Open(const url::Origin& origin,
     RecordAction(base::UserMetricsAction("OpenFileSystemPersistent"));
   }
   context_->OpenFileSystem(
-      origin.GetURL(), ToStorageFileSystemType(file_system_type),
+      origin, ToStorageFileSystemType(file_system_type),
       storage::OPEN_FILE_SYSTEM_CREATE_IF_NONEXISTENT,
       base::BindOnce(&FileSystemManagerImpl::DidOpenFileSystem, GetWeakPtr(),
                      std::move(callback)));
@@ -554,28 +555,6 @@ void FileSystemManagerImpl::TruncateSync(const GURL& file_path,
 
   operation_runner()->Truncate(
       url, length,
-      base::BindRepeating(&FileSystemManagerImpl::DidFinish, GetWeakPtr(),
-                          base::Passed(&callback)));
-}
-
-void FileSystemManagerImpl::TouchFile(const GURL& path,
-                                      base::Time last_access_time,
-                                      base::Time last_modified_time,
-                                      TouchFileCallback callback) {
-  DCHECK_CURRENTLY_ON(BrowserThread::IO);
-  FileSystemURL url(context_->CrackURL(path));
-  base::Optional<base::File::Error> opt_error = ValidateFileSystemURL(url);
-  if (opt_error) {
-    std::move(callback).Run(opt_error.value());
-    return;
-  }
-  if (!security_policy_->CanCreateFileSystemFile(process_id_, url)) {
-    std::move(callback).Run(base::File::FILE_ERROR_SECURITY);
-    return;
-  }
-
-  operation_runner()->TouchFile(
-      url, last_access_time, last_modified_time,
       base::BindRepeating(&FileSystemManagerImpl::DidFinish, GetWeakPtr(),
                           base::Passed(&callback)));
 }

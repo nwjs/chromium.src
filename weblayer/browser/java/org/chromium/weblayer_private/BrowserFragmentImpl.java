@@ -44,7 +44,7 @@ public class BrowserFragmentImpl extends RemoteFragmentImpl {
         mContext = new ContextThemeWrapper(
                 ClassLoaderContextWrapperFactory.get(context), R.style.Theme_BrowserUI);
         if (mBrowser != null) { // On first creation, onAttach is called before onCreate
-            mBrowser.onFragmentAttached(mContext, new FragmentWindowAndroid(mContext, this));
+            mBrowser.onFragmentAttached(new FragmentWindowAndroid(mContext, this));
         }
     }
 
@@ -54,10 +54,10 @@ public class BrowserFragmentImpl extends RemoteFragmentImpl {
         super.onCreate(savedInstanceState);
         // onCreate() is only called once
         assert mBrowser == null;
-        mBrowser = new BrowserImpl(mProfile, mPersistenceId, savedInstanceState);
         // onCreate() is always called after onAttach(). onAttach() sets |mContext|.
         assert mContext != null;
-        mBrowser.onFragmentAttached(mContext, new FragmentWindowAndroid(mContext, this));
+        mBrowser = new BrowserImpl(mProfile, mPersistenceId, savedInstanceState,
+                new FragmentWindowAndroid(mContext, this));
     }
 
     @Override
@@ -103,6 +103,30 @@ public class BrowserFragmentImpl extends RemoteFragmentImpl {
         StrictModeWorkaround.apply();
         mBrowser.onSaveInstanceState(outState);
         super.onSaveInstanceState(outState);
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+        mBrowser.onFragmentStart();
+    }
+
+    @Override
+    public void onStop() {
+        super.onStop();
+        mBrowser.onFragmentStop();
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        mBrowser.onFragmentResume();
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        mBrowser.onFragmentPause();
     }
 
     public IBrowserFragment asIBrowserFragment() {

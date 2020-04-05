@@ -21,7 +21,7 @@ import org.chromium.base.test.params.ParameterSet;
 import org.chromium.base.test.params.ParameterizedRunner;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.MinAndroidSdkLevel;
-import org.chromium.chrome.browser.ChromeSwitches;
+import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.vr.rules.ArPlaybackFile;
 import org.chromium.chrome.browser.vr.rules.XrActivityRestriction;
 import org.chromium.chrome.browser.vr.util.ArTestRuleUtils;
@@ -67,10 +67,8 @@ public class WebXrArHitTestTest {
     @XrActivityRestriction({XrActivityRestriction.SupportedActivity.ALL})
     @ArPlaybackFile("chrome/test/data/xr/ar_playback_datasets/floor_short_start_with_plane.mp4")
     public void testHitTestSucceedsWithPlane() {
-        mWebXrArTestFramework.loadUrlAndAwaitInitialization(
-                mWebXrArTestFramework.getEmbeddedServerUrlForHtmlTestFile(
-                        "webxr_test_basic_hittest"),
-                PAGE_LOAD_TIMEOUT_S);
+        mWebXrArTestFramework.loadFileAndAwaitInitialization(
+                "webxr_test_basic_hittest", PAGE_LOAD_TIMEOUT_S);
         mWebXrArTestFramework.enterSessionWithUserGestureOrFail();
         mWebXrArTestFramework.executeStepAndWait("stepStartHitTesting()");
         mWebXrArTestFramework.assertNoJavaScriptErrors();

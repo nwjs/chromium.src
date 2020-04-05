@@ -57,11 +57,11 @@ const base::FeatureParam<int> kEsniDnsMaxAbsoluteAdditionalWaitMilliseconds{
 const base::FeatureParam<int> kEsniDnsMaxRelativeAdditionalWaitPercent{
     &kRequestEsniDnsRecords, "EsniDnsMaxRelativeAdditionalWaitPercent", 5};
 
-const base::Feature kSameSiteByDefaultCookies{
-    "SameSiteByDefaultCookies", base::FEATURE_DISABLED_BY_DEFAULT};
+const base::Feature kSameSiteByDefaultCookies{"SameSiteByDefaultCookies",
+                                              base::FEATURE_ENABLED_BY_DEFAULT};
 
 const base::Feature kCookiesWithoutSameSiteMustBeSecure{
-    "CookiesWithoutSameSiteMustBeSecure", base::FEATURE_DISABLED_BY_DEFAULT};
+    "CookiesWithoutSameSiteMustBeSecure", base::FEATURE_ENABLED_BY_DEFAULT};
 
 const base::Feature kShortLaxAllowUnsafeThreshold{
     "ShortLaxAllowUnsafeThreshold", base::FEATURE_DISABLED_BY_DEFAULT};
@@ -85,6 +85,10 @@ const base::FeatureParam<int>
         &kRecentCreationTimeGrantsLegacyCookieSemantics,
         "RecentCreationTimeGrantsLegacyCookieSemanticsMilliseconds", 0};
 
+const base::Feature kBlockExternalRequestsFromNonSecureInitiators{
+    "BlockExternalRequestsFromNonSecureInitiators",
+    base::FEATURE_DISABLED_BY_DEFAULT};
+
 #if BUILDFLAG(BUILTIN_CERT_VERIFIER_FEATURE_SUPPORTED)
 const base::Feature kCertVerifierBuiltinFeature {
   "CertVerifierBuiltin",
@@ -97,8 +101,7 @@ const base::Feature kCertVerifierBuiltinFeature {
 #endif
 
 const base::Feature kAppendFrameOriginToNetworkIsolationKey{
-    "AppendFrameOriginToNetworkIsolationKey",
-    base::FEATURE_DISABLED_BY_DEFAULT};
+    "AppendFrameOriginToNetworkIsolationKey", base::FEATURE_ENABLED_BY_DEFAULT};
 
 const base::Feature kUseRegistrableDomainInNetworkIsolationKey{
     "UseRegistrableDomainInNetworkIsolationKey",
@@ -109,6 +112,12 @@ const base::Feature kTurnOffStreamingMediaCaching{
 
 const base::Feature kLegacyTLSEnforced{"LegacyTLSEnforced",
                                        base::FEATURE_DISABLED_BY_DEFAULT};
+
+const base::Feature kSchemefulSameSite{"SchemefulSameSite",
+                                       base::FEATURE_DISABLED_BY_DEFAULT};
+
+const base::Feature kTLSLegacyCryptoFallbackForMetrics{
+    "TLSLegacyCryptoFallbackForMetrics", base::FEATURE_ENABLED_BY_DEFAULT};
 
 }  // namespace features
 }  // namespace net

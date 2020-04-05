@@ -93,6 +93,10 @@ const char kArcDisableGmsCoreCache[] = "arc-disable-gms-core-cache";
 // 'en-US,en' as preferred languages.
 const char kArcDisableLocaleSync[] = "arc-disable-locale-sync";
 
+// Used for development of Android app that are included into ARC++ as system
+// default apps in order to be able to install them via adb.
+const char kArcDisableSystemDefaultApps[] = "arc-disable-system-default-apps";
+
 // Flag that disables ARC Play Auto Install flow that installs set of predefined
 // apps silently. Used in autotests to resolve racy conditions.
 const char kArcDisablePlayAutoInstall[] = "arc-disable-play-auto-install";
@@ -242,9 +246,6 @@ const char kDisableWakeOnWifi[] = "disable-wake-on-wifi";
 // Enables starting the ARC instance upon session start.
 const char kEnableArc[] = "enable-arc";
 
-// Enables "hide Skip button" for ARC setup in the OOBE flow.
-const char kEnableArcOobeOptinNoSkip[] = "enable-arc-oobe-optin-no-skip";
-
 // Enables ARC VM.
 const char kEnableArcVm[] = "enable-arcvm";
 
@@ -260,12 +261,17 @@ const char kEnableEncryptionMigration[] = "enable-encryption-migration";
 // Enables sharing assets for installed default apps.
 const char kEnableExtensionAssetsSharing[] = "enable-extension-assets-sharing";
 
-// Enables animated transitions during first-run tutorial.
-// TODO(https://crbug.com/945966): Remove this.
-const char kEnableFirstRunUITransitions[] = "enable-first-run-ui-transitions";
+// Enables the use of Houdini library for ARM binary translation.
+const char kEnableHoudini[] = "enable-houdini";
 
-// Enables the marketing opt-in screen in OOBE.
-const char kEnableMarketingOptInScreen[] = "enable-market-opt-in";
+// Enables the use of Houdini 64-bit library for ARM binary translation.
+const char kEnableHoudini64[] = "enable-houdini64";
+
+// Determines the URL to be used when calling the backend.
+const char kMarketingOptInUrl[] = "marketing-opt-in-url";
+
+// Enables the use of NDK translation library for ARM binary translation.
+const char kEnableNdkTranslation[] = "enable-ndk-translation";
 
 // Enables request of tablet site (via user agent override).
 const char kEnableRequestTabletSite[] = "enable-request-tablet-site";
@@ -421,6 +427,11 @@ const char kNoteTakingAppIds[] = "note-taking-app-ids";
 //   user-image
 const char kOobeForceShowScreen[] = "oobe-force-show-screen";
 
+// Indicates that the first user run flow (sequence of OOBE screens after the
+// first user login) should show tablet mode centric screens, even if the device
+// is not in tablet mode.
+const char kOobeForceTabletFirstRun[] = "oobe-force-tablet-first-run";
+
 // Indicates that a guest session has been started before OOBE completion.
 const char kOobeGuestSession[] = "oobe-guest-session";
 
@@ -447,6 +458,11 @@ const char kRedirectLibassistantLogging[] = "redirect-libassistant-logging";
 
 // The rlz ping delay (in seconds) that overwrites the default value.
 const char kRlzPingDelay[] = "rlz-ping-delay";
+
+// The switch added by session_manager daemon when chrome crashes 3 times or
+// more within the first 60 seconds on start.
+// See BrowserJob::ExportArgv in platform2/login_manager/browser_job.cc.
+const char kSafeMode[] = "safe-mode";
 
 // Password change url for SAML users.
 // TODO(941489): Remove when the bug is fixed.
@@ -494,13 +510,6 @@ const char kTetherHostScansIgnoreWiredConnections[] =
 
 // Shows all Bluetooth devices in UI (System Tray/Settings Page.)
 const char kUnfilteredBluetoothDevices[] = "unfiltered-bluetooth-devices";
-
-// Skips the call to IdentityManager SetPrimaryAccount() on login, using
-// SetUnconsentedPrimaryAccount() instead. This marks the primary account as
-// *not* consented to browser sync, allowing consent to be set later. Used for
-// manual testing, not intended for production. See also
-// chromeos::features::kSplitSettingsSync.
-const char kUseUnconsentedPrimaryAccount[] = "use-unconsented-primary-account";
 
 // Used to tell the policy infrastructure to not let profile initialization
 // complete until policy is manually set by a test. This is used to provide
@@ -557,14 +566,6 @@ bool ShouldShowShelfHoverPreviews() {
   return base::CommandLine::ForCurrentProcess()->HasSwitch(kShelfHoverPreviews);
 }
 
-bool ShouldShowScrollableShelf() {
-  // If we're showing the new shelf design, also enable scrollable shelf.
-  if (ShouldShowShelfHotseat())
-    return true;
-
-  return base::FeatureList::IsEnabled(features::kShelfScrollable);
-}
-
 bool ShouldTetherHostScansIgnoreWiredConnections() {
   return base::CommandLine::ForCurrentProcess()->HasSwitch(
       kTetherHostScansIgnoreWiredConnections);
@@ -594,9 +595,9 @@ bool IsUnfilteredBluetoothDevicesEnabled() {
       kUnfilteredBluetoothDevices);
 }
 
-bool UseUnconsentedPrimaryAccount() {
+bool ShouldOobeUseTabletModeFirstRun() {
   return base::CommandLine::ForCurrentProcess()->HasSwitch(
-      kUseUnconsentedPrimaryAccount);
+      kOobeForceTabletFirstRun);
 }
 
 }  // namespace switches

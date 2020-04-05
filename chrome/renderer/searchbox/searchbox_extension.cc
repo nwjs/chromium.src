@@ -377,6 +377,8 @@ v8::Local<v8::Object> GenerateNtpTheme(v8::Isolate* isolate,
   gin::DataObjectBuilder search_box(isolate);
   search_box.Set("bg", SkColorToArray(isolate, theme.search_box.bg));
   search_box.Set("icon", SkColorToArray(isolate, theme.search_box.icon));
+  search_box.Set("iconSelected",
+                 SkColorToArray(isolate, theme.search_box.icon_selected));
   search_box.Set("placeholder",
                  SkColorToArray(isolate, theme.search_box.placeholder));
   search_box.Set("resultsBg",
@@ -387,10 +389,19 @@ v8::Local<v8::Object> GenerateNtpTheme(v8::Isolate* isolate,
                  SkColorToArray(isolate, theme.search_box.results_bg_selected));
   search_box.Set("resultsDim",
                  SkColorToArray(isolate, theme.search_box.results_dim));
+  search_box.Set(
+      "resultsDimSelected",
+      SkColorToArray(isolate, theme.search_box.results_dim_selected));
   search_box.Set("resultsText",
                  SkColorToArray(isolate, theme.search_box.results_text));
+  search_box.Set(
+      "resultsTextSelected",
+      SkColorToArray(isolate, theme.search_box.results_text_selected));
   search_box.Set("resultsUrl",
                  SkColorToArray(isolate, theme.search_box.results_url));
+  search_box.Set(
+      "resultsUrlSelected",
+      SkColorToArray(isolate, theme.search_box.results_url_selected));
   search_box.Set("text", SkColorToArray(isolate, theme.search_box.text));
   builder.Set("searchBox", search_box.Build());
 
@@ -444,6 +455,7 @@ base::Value CreateAutocompleteMatches(
     dict.SetStringKey("inlineAutocompletion", match->inline_autocompletion);
     dict.SetBoolKey("isSearchType", match->is_search_type);
     dict.SetStringKey("fillIntoEdit", match->fill_into_edit);
+    dict.SetStringKey("iconUrl", match->icon_url);
     dict.SetStringKey("imageDominantColor", match->image_dominant_color);
     dict.SetStringKey("imageUrl", match->image_url);
     dict.SetBoolKey("swapContentsAndDescription",

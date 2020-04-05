@@ -97,7 +97,7 @@ class BackgroundFetchIconLoaderTest : public PageTestBase {
   }
 
   void LoadIcon(const KURL& url,
-                const WebSize& maximum_size,
+                const gfx::Size& maximum_size,
                 base::OnceClosure quit_closure,
                 const String& sizes = "500x500",
                 const String& purpose = "ANY") {
@@ -115,7 +115,9 @@ class BackgroundFetchIconLoaderTest : public PageTestBase {
         maximum_size);
   }
 
-  ExecutionContext* GetContext() const { return &GetDocument(); }
+  ExecutionContext* GetContext() const {
+    return GetDocument().ToExecutionContext();
+  }
 
  protected:
   ScopedTestingPlatformSupport<TestingPlatformSupport> platform_;
@@ -129,7 +131,7 @@ class BackgroundFetchIconLoaderTest : public PageTestBase {
 TEST_F(BackgroundFetchIconLoaderTest, SuccessTest) {
   base::RunLoop run_loop;
 
-  WebSize maximum_size{192, 168};
+  gfx::Size maximum_size{192, 168};
   LoadIcon(KURL(kBackgroundFetchImageLoaderIcon500x500FullPath), maximum_size,
            run_loop.QuitClosure());
 
@@ -189,7 +191,7 @@ TEST_F(BackgroundFetchIconLoaderTest, PickRightIcon) {
 TEST_F(BackgroundFetchIconLoaderTest, EmptySizes) {
   base::RunLoop run_loop;
 
-  WebSize maximum_size{192, 168};
+  gfx::Size maximum_size{192, 168};
   LoadIcon(KURL(kBackgroundFetchImageLoaderIcon500x500FullPath), maximum_size,
            run_loop.QuitClosure(), "", "ANY");
 
@@ -204,7 +206,7 @@ TEST_F(BackgroundFetchIconLoaderTest, EmptySizes) {
 TEST_F(BackgroundFetchIconLoaderTest, EmptyPurpose) {
   base::RunLoop run_loop;
 
-  WebSize maximum_size{192, 168};
+  gfx::Size maximum_size{192, 168};
   LoadIcon(KURL(kBackgroundFetchImageLoaderIcon500x500FullPath), maximum_size,
            run_loop.QuitClosure(), "500X500", "");
 

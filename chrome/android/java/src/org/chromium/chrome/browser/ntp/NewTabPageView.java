@@ -6,15 +6,15 @@ package org.chromium.chrome.browser.ntp;
 
 import android.content.Context;
 import android.graphics.Canvas;
-import android.support.v7.widget.DefaultItemAnimator;
-import android.support.v7.widget.RecyclerView;
-import android.support.v7.widget.RecyclerView.AdapterDataObserver;
-import android.support.v7.widget.RecyclerView.ViewHolder;
 import android.util.AttributeSet;
 import android.view.LayoutInflater;
 import android.widget.FrameLayout;
 
 import androidx.annotation.VisibleForTesting;
+import androidx.recyclerview.widget.DefaultItemAnimator;
+import androidx.recyclerview.widget.RecyclerView;
+import androidx.recyclerview.widget.RecyclerView.AdapterDataObserver;
+import androidx.recyclerview.widget.RecyclerView.ViewHolder;
 
 import org.chromium.base.TraceEvent;
 import org.chromium.chrome.R;
@@ -32,6 +32,7 @@ import org.chromium.chrome.browser.suggestions.SuggestionsUiDelegate;
 import org.chromium.chrome.browser.suggestions.tile.TileGroup;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabImpl;
+import org.chromium.chrome.browser.tab.TabUtils;
 import org.chromium.components.browser_ui.widget.displaystyle.UiConfig;
 import org.chromium.components.browser_ui.widget.displaystyle.ViewResizer;
 import org.chromium.ui.base.ViewUtils;
@@ -125,9 +126,7 @@ public class NewTabPageView extends FrameLayout {
 
         assert manager.getSuggestionsSource() != null;
 
-        // Don't store a direct reference to the activity, because it might change later if the tab
-        // is reparented.
-        Runnable closeContextMenuCallback = () -> ((TabImpl) mTab).getActivity().closeContextMenu();
+        Runnable closeContextMenuCallback = TabUtils.getActivity(tab)::closeContextMenu;
         mContextMenuManager = new ContextMenuManager(mManager.getNavigationDelegate(),
                 mRecyclerView::setTouchEnabled, closeContextMenuCallback,
                 NewTabPage.CONTEXT_MENU_USER_ACTION_PREFIX);
@@ -183,7 +182,7 @@ public class NewTabPageView extends FrameLayout {
             }
         });
 
-        Profile profile = Profile.getLastUsedProfile();
+        Profile profile = Profile.getLastUsedRegularProfile();
         OfflinePageBridge offlinePageBridge =
                 SuggestionsDependencyFactory.getInstance().getOfflinePageBridge(profile);
 

@@ -36,9 +36,6 @@ extern const base::Feature kClearOldNavigationRecordsWorkaround;
 // Used to enable committed interstitials for SSL errors.
 extern const base::Feature kSSLCommittedInterstitials;
 
-// Used to enable using WKWebView.loading for WebState::IsLoading.
-extern const base::Feature kUseWKWebViewLoading;
-
 // Feature flag enabling persistent downloads.
 extern const base::Feature kEnablePersistentDownloads;
 
@@ -55,9 +52,12 @@ extern const base::Feature kUseDefaultUserAgentInWebClient;
 // of properties using hard coded logic.
 extern const base::Feature kPreserveScrollViewProperties;
 
-// Use WKWebView.loading to update WebState::IsLoading.
-// TODO(crbug.com/1006012): Clean up this flag after experiment.
-bool UseWKWebViewLoading();
+// When enabled, display an interstitial on lookalike URL navigations.
+extern const base::Feature kIOSLookalikeUrlNavigationSuggestionsUI;
+
+// Level at which battery power is considered low, and some cosmetic features
+// can be turned off.
+const float kLowBatteryLevelThreshold = 0.2;
 
 }  // namespace features
 }  // namespace web

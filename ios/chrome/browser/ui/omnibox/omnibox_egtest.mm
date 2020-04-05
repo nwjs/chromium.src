@@ -150,7 +150,13 @@ id<GREYMatcher> SearchCopiedTextButton() {
 
 // Tests that the XClientData header is sent when navigating to
 // https://google.com through the omnibox.
-- (void)testXClientData {
+#if defined(CHROME_EARL_GREY_1)
+//  Flaky on EG1.
+#define MAYBE_testXClientData DISABLED_testXClientData
+#else
+#define MAYBE_testXClientData testXClientData
+#endif
+- (void)MAYBE_testXClientData {
   // Rewrite the google URL to localhost URL.
   [OmniboxAppInterface rewriteGoogleURLToLocalhost];
 
@@ -226,7 +232,8 @@ id<GREYMatcher> SearchCopiedTextButton() {
   }
 }
 
-- (void)testCopyPaste {
+// Test is flaky: crbug.com/1056700.
+- (void)DISABLED_testCopyPaste {
   [self openPage1];
 
   // Long pressing should allow copying.
@@ -369,7 +376,8 @@ id<GREYMatcher> SearchCopiedTextButton() {
 // Focus the omnibox and hit "cmd+X". This should remove all text from the
 // omnibox and put it in the clipboard. This had been broken before because of
 // the preedit state complexity. Paste to verify that the URL was indeed copied.
-- (void)testCutInPreedit {
+// TODO(crbug.com/1049603): Re-enable this test.
+- (void)DISABLED_testCutInPreedit {
   [self openPage1];
 
   [ChromeEarlGreyUI focusOmnibox];
@@ -454,10 +462,14 @@ id<GREYMatcher> SearchCopiedTextButton() {
 // it should be displayed. Select & SelectAll buttons should be hidden when the
 // omnibox is empty.
 - (void)testEmptyOmnibox {
+// TODO(crbug.com/1046787): Test is failing for EG1.
+#if defined(CHROME_EARL_GREY_1)
   if (![ChromeEarlGrey isIPadIdiom] &&
       base::ios::IsRunningOnOrLater(13, 3, 0)) {
-    EARL_GREY_TEST_SKIPPED(@"Test disabled on iOS 13.3 iPhone and later.");
+    EARL_GREY_TEST_SKIPPED(@"Test skipped on Earl Grey 1.");
   }
+#endif
+
   // Focus omnibox.
   [self focusFakebox];
   [[EarlGrey selectElementWithMatcher:chrome_test_util::Omnibox()]

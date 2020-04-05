@@ -14,10 +14,10 @@
 #include "chrome/browser/content_settings/chrome_content_settings_utils.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/download/download_permission_request.h"
-#include "chrome/browser/permissions/permission_request_manager.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/tab_contents/tab_util.h"
 #include "components/content_settings/core/browser/content_settings_details.h"
+#include "components/permissions/permission_request_manager.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
@@ -233,8 +233,8 @@ void DownloadRequestLimiter::TabDownloadState::PromptUserForDownload(
   if (is_showing_prompt())
     return;
 
-  PermissionRequestManager* permission_request_manager =
-      PermissionRequestManager::FromWebContents(web_contents_);
+  permissions::PermissionRequestManager* permission_request_manager =
+      permissions::PermissionRequestManager::FromWebContents(web_contents_);
   if (permission_request_manager) {
     permission_request_manager->AddRequest(
         new DownloadPermissionRequest(factory_.GetWeakPtr(), request_origin));
@@ -308,10 +308,10 @@ bool DownloadRequestLimiter::TabDownloadState::is_showing_prompt() const {
 void DownloadRequestLimiter::TabDownloadState::OnUserInteraction() {
   // See PromptUserForDownload(): if there's no PermissionRequestManager, then
   // DOWNLOADS_NOT_ALLOWED is functionally equivalent to PROMPT_BEFORE_DOWNLOAD.
-  bool need_prompt =
-      (PermissionRequestManager::FromWebContents(web_contents()) == nullptr &&
-       status_ == DOWNLOADS_NOT_ALLOWED) ||
-      status_ == PROMPT_BEFORE_DOWNLOAD;
+  bool need_prompt = (permissions::PermissionRequestManager::FromWebContents(
+                          web_contents()) == nullptr &&
+                      status_ == DOWNLOADS_NOT_ALLOWED) ||
+                     status_ == PROMPT_BEFORE_DOWNLOAD;
 
   // If content setting blocks automatic downloads, don't reset the
   // PROMPT_BEFORE_DOWNLOAD status for the current page because doing
@@ -605,10 +605,16 @@ void DownloadRequestLimiter::CanDownloadImpl(
   // settings first to see if the download needs to be blocked.
   GURL initiator = request_initiator ? request_initiator->GetURL()
                                      : originating_contents->GetVisibleURL();
+  // Use the origin of |originating_contents| as a back up, if it is non-opaque.
   url::Origin origin =
-      request_initiator && !request_initiator->opaque()
-          ? request_initiator.value()
-          : url::Origin::Create(originating_contents->GetVisibleURL());
+      url::Origin::Create(originating_contents->GetVisibleURL());
+  // If |request_initiator| has a non-opaque origin or if the origin from
+  // |originating_contents| is opaque, use the origin from |request_initiator|
+  // to make decisions so that it won't impact the download state of
+  // |originating_contents|.
+  if (request_initiator && (!request_initiator->opaque() || origin.opaque()))
+    origin = request_initiator.value();
+
   DownloadStatus status = state->GetDownloadStatus(origin);
 
   bool is_opaque_initiator = request_initiator && request_initiator->opaque();

@@ -8,6 +8,7 @@
 
 #include "ash/public/cpp/assistant/assistant_interface_binder.h"
 #include "ash/public/cpp/network_config_service.h"
+#include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/chromeos/assistant/assistant_util.h"
 #include "chrome/browser/chromeos/profiles/profile_helper.h"
 #include "chrome/browser/profiles/profile_manager.h"
@@ -18,6 +19,7 @@
 #include "chrome/browser/ui/ash/assistant/assistant_setup.h"
 #include "chrome/browser/ui/ash/assistant/assistant_web_view_factory_impl.h"
 #include "chrome/browser/ui/ash/assistant/conversation_starters_client_impl.h"
+#include "chrome/browser/ui/ash/assistant/device_actions_delegate_impl.h"
 #include "chrome/browser/ui/ash/assistant/proactive_suggestions_client_impl.h"
 #include "chromeos/constants/chromeos_features.h"
 #include "chromeos/constants/chromeos_switches.h"
@@ -28,8 +30,10 @@
 #include "content/public/browser/device_service.h"
 #include "content/public/browser/media_session_service.h"
 #include "content/public/browser/network_service_instance.h"
+#include "content/public/browser/notification_registrar.h"
+#include "content/public/browser/notification_service.h"
 #include "content/public/browser/service_process_host.h"
-#include "services/identity/public/mojom/identity_service.mojom.h"
+#include "content/public/common/content_switches.h"
 
 AssistantClientImpl::AssistantClientImpl() {
   auto* session_manager = session_manager::SessionManager::Get();
@@ -37,6 +41,9 @@ AssistantClientImpl::AssistantClientImpl() {
   // Otherwise, it will not get OnUserProfileLoaded notification.
   DCHECK(session_manager->sessions().empty());
   session_manager->AddObserver(this);
+
+  notification_registrar_.Add(this, chrome::NOTIFICATION_APP_TERMINATING,
+                              content::NotificationService::AllSources());
 }
 
 AssistantClientImpl::~AssistantClientImpl() {
@@ -64,10 +71,13 @@ void AssistantClientImpl::MaybeInit(Profile* profile) {
 
   initialized_ = true;
 
+  device_actions_ = std::make_unique<DeviceActions>(
+      std::make_unique<DeviceActionsDelegateImpl>());
+
   auto* service =
       AssistantServiceConnection::GetForProfile(profile_)->service();
   service->Init(client_receiver_.BindNewPipeAndPassRemote(),
-                device_actions_.AddReceiver());
+                device_actions_->AddReceiver());
 
   assistant_image_downloader_ = std::make_unique<AssistantImageDownloader>();
   assistant_setup_ = std::make_unique<AssistantSetup>(service);
@@ -107,14 +117,24 @@ void AssistantClientImpl::BindAssistant(
       std::move(receiver));
 }
 
-void AssistantClientImpl::OnAssistantStatusChanged(
-    ash::mojom::AssistantState new_state) {
-  ash::AssistantState::Get()->NotifyStatusChanged(new_state);
+void AssistantClientImpl::Observe(int type,
+                                  const content::NotificationSource& source,
+                                  const content::NotificationDetails& details) {
+  DCHECK_EQ(chrome::NOTIFICATION_APP_TERMINATING, type);
+  if (!initialized_)
+    return;
+
+  AssistantServiceConnection::GetForProfile(profile_)->service()->Shutdown();
 }
 
 void AssistantClientImpl::RequestAssistantStructure(
     RequestAssistantStructureCallback callback) {
   RequestAssistantStructureForActiveBrowserWindow(std::move(callback));
+}
+
+void AssistantClientImpl::OnAssistantStatusChanged(
+    ash::mojom::AssistantState new_state) {
+  ash::AssistantState::Get()->NotifyStatusChanged(new_state);
 }
 
 void AssistantClientImpl::RequestAssistantController(
@@ -182,13 +202,6 @@ void AssistantClientImpl::RequestAudioDecoderFactory(
           .Pass());
 }
 
-void AssistantClientImpl::RequestIdentityAccessor(
-    mojo::PendingReceiver<identity::mojom::IdentityAccessor> receiver) {
-  identity::mojom::IdentityService* service = profile_->GetIdentityService();
-  if (service)
-    service->BindIdentityAccessor(std::move(receiver));
-}
-
 void AssistantClientImpl::RequestAudioFocusManager(
     mojo::PendingReceiver<media_session::mojom::AudioFocusManager> receiver) {
   content::GetMediaSessionService().BindAudioFocusManager(std::move(receiver));
@@ -228,6 +241,11 @@ void AssistantClientImpl::OnUserProfileLoaded(const AccountId& account_id) {
 }
 
 void AssistantClientImpl::OnUserSessionStarted(bool is_primary_user) {
-  if (is_primary_user && !chromeos::switches::ShouldSkipOobePostLogin())
+  // Disable the handling for browser tests to prevent the Assistant being
+  // enabled unexpectedly.
+  base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
+  if (is_primary_user && !chromeos::switches::ShouldSkipOobePostLogin() &&
+      !command_line->HasSwitch(switches::kBrowserTest)) {
     MaybeStartAssistantOptInFlow();
+  }
 }

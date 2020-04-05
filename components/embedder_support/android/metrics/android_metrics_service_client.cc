@@ -4,13 +4,21 @@
 
 #include "components/embedder_support/android/metrics/android_metrics_service_client.h"
 
+#include <jni.h>
 #include <cstdint>
 
+#include "base/android/jni_android.h"
+#include "base/android/jni_string.h"
+#include "base/base_paths_android.h"
 #include "base/i18n/rtl.h"
 #include "build/build_config.h"
 #include "components/embedder_support/android/metrics/android_metrics_log_uploader.h"
+#include "components/embedder_support/android/metrics/jni/AndroidMetricsServiceClient_jni.h"
+#include "components/metrics/android_metrics_provider.h"
 #include "components/metrics/call_stack_profile_metrics_provider.h"
 #include "components/metrics/cpu_metrics_provider.h"
+#include "components/metrics/drive_metrics_provider.h"
+#include "components/metrics/gpu/gpu_metrics_provider.h"
 #include "components/metrics/metrics_pref_names.h"
 #include "components/metrics/metrics_service.h"
 #include "components/metrics/metrics_state_manager.h"
@@ -18,6 +26,7 @@
 #include "components/metrics/net/network_metrics_provider.h"
 #include "components/metrics/stability_metrics_helper.h"
 #include "components/metrics/ui/screen_info_metrics_provider.h"
+#include "components/metrics/version_utils.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/browser/network_service_instance.h"
 #include "content/public/browser/notification_service.h"
@@ -38,19 +47,18 @@ std::unique_ptr<ClientInfo> LoadClientInfo() {
   return client_info;
 }
 
-bool UintFallsInBottomPercentOfValues(uint32_t value, double fraction) {
-  DCHECK_GT(fraction, 0);
-  DCHECK_LT(fraction, 1.00);
-
-  // Since hashing is ~uniform, the chance that the value falls in the bottom
-  // X% of possible values is X%. UINT32_MAX fits within the range of integers
-  // that can be expressed precisely by a 64-bit double. Casting back to a
-  // uint32_t means we can determine if the value falls within the bottom X%,
-  // within a 1/UINT32_MAX error margin.
-  uint32_t value_threshold =
-      static_cast<uint32_t>(static_cast<double>(UINT32_MAX) * fraction);
-
-  return value < value_threshold;
+// Divides the spectrum of uint32_t values into 1000 ~equal-sized buckets (range
+// [0, 999] inclusive), and returns which bucket |value| falls into. Ex. given
+// 2^30, this would return 250, because 25% of uint32_t values fall below the
+// given value.
+int UintToPerMille(uint32_t value) {
+  // We need to divide by UINT32_MAX+1 (2^32), otherwise the fraction could
+  // evaluate to 1000.
+  uint64_t divisor = 1llu << 32;
+  uint64_t value_per_mille = static_cast<uint64_t>(value) * 1000llu / divisor;
+  DCHECK_GE(value_per_mille, 0llu);
+  DCHECK_LE(value_per_mille, 999llu);
+  return static_cast<int>(value_per_mille);
 }
 
 }  // namespace
@@ -114,17 +122,20 @@ AndroidMetricsServiceClient::CreateMetricsService(
     AndroidMetricsServiceClient* client,
     PrefService* prefs) {
   auto service = std::make_unique<MetricsService>(state_manager, client, prefs);
-  // Although targeted at mobile, the unit tests runs on all platforms and the
-  // chrome os version CHECK fails if we include NetworkMetricsProvider.
-#if !defined(OS_CHROMEOS)
   service->RegisterMetricsProvider(std::make_unique<NetworkMetricsProvider>(
       content::CreateNetworkConnectionTrackerAsyncGetter()));
-#endif  // defined(OS_CHROMEOS)
   service->RegisterMetricsProvider(std::make_unique<CPUMetricsProvider>());
   service->RegisterMetricsProvider(
       std::make_unique<ScreenInfoMetricsProvider>());
   service->RegisterMetricsProvider(
       std::make_unique<CallStackProfileMetricsProvider>());
+  service->RegisterMetricsProvider(
+      std::make_unique<metrics::AndroidMetricsProvider>());
+  service->RegisterMetricsProvider(
+      std::make_unique<metrics::DriveMetricsProvider>(
+          base::DIR_ANDROID_APP_DATA));
+  service->RegisterMetricsProvider(
+      std::make_unique<metrics::GPUMetricsProvider>());
   RegisterAdditionalMetricsProviders(service.get());
   service->InitializeMetricsRecordingState();
   return service;
@@ -204,6 +215,14 @@ bool AndroidMetricsServiceClient::GetBrand(std::string* brand_code) {
   return false;
 }
 
+SystemProfileProto::Channel AndroidMetricsServiceClient::GetChannel() {
+  return AsProtobufChannel(version_info::android::GetChannel());
+}
+
+std::string AndroidMetricsServiceClient::GetVersionString() {
+  return version_info::GetVersionNumber();
+}
+
 void AndroidMetricsServiceClient::CollectFinalMetricsForLog(
     base::OnceClosure done_callback) {
   std::move(done_callback).Run();
@@ -262,15 +281,22 @@ void AndroidMetricsServiceClient::Observe(
   }
 }
 
+int AndroidMetricsServiceClient::GetSampleBucketValue() {
+  return UintToPerMille(base::PersistentHash(metrics_service_->GetClientId()));
+}
+
 bool AndroidMetricsServiceClient::IsInSample() {
   // Called in MaybeStartMetrics(), after |metrics_service_| is created.
   // NOTE IsInSample and IsInPackageNameSample deliberately use the same hash to
   // guarantee we never exceed 10% of total, opted-in clients for PackageNames.
-  return IsInSample(base::PersistentHash(metrics_service_->GetClientId()));
+  return GetSampleBucketValue() < GetSampleRatePerMille();
 }
 
-bool AndroidMetricsServiceClient::IsInSample(uint32_t value) {
-  return UintFallsInBottomPercentOfValues(value, GetSampleRate());
+bool AndroidMetricsServiceClient::CanRecordPackageNameForAppType() {
+  // Check with Java side, to see if it's OK to log the package name for this
+  // type of app (see Java side for the specific requirements).
+  JNIEnv* env = base::android::AttachCurrentThread();
+  return Java_AndroidMetricsServiceClient_canRecordPackageNameForAppType(env);
 }
 
 bool AndroidMetricsServiceClient::IsInPackageNameSample() {
@@ -280,17 +306,24 @@ bool AndroidMetricsServiceClient::IsInPackageNameSample() {
   // percent of clients. We'll actually log package name for less than this,
   // because we also filter out packages for certain types of apps (see
   // CanRecordPackageNameForAppType()).
-  return IsInPackageNameSample(
-      base::PersistentHash(metrics_service_->GetClientId()));
+  return GetSampleBucketValue() < GetPackageNameLimitRatePerMille();
 }
 
-bool AndroidMetricsServiceClient::IsInPackageNameSample(uint32_t value) {
-  return UintFallsInBottomPercentOfValues(value, GetPackageNameLimitRate());
-}
+void AndroidMetricsServiceClient::RegisterAdditionalMetricsProviders(
+    MetricsService* service) {}
 
 std::string AndroidMetricsServiceClient::GetAppPackageName() {
   if (IsInPackageNameSample() && CanRecordPackageNameForAppType())
     return GetAppPackageNameInternal();
+  return std::string();
+}
+
+std::string AndroidMetricsServiceClient::GetAppPackageNameInternal() {
+  JNIEnv* env = base::android::AttachCurrentThread();
+  base::android::ScopedJavaLocalRef<jstring> j_app_name =
+      Java_AndroidMetricsServiceClient_getAppPackageName(env);
+  if (j_app_name)
+    return ConvertJavaStringToUTF8(env, j_app_name);
   return std::string();
 }
 

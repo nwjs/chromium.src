@@ -270,7 +270,7 @@ void HTMLMarqueeElement::ContinueAnimation() {
   if (!ShouldContinue())
     return;
 
-  if (player_ && player_->playState() == "paused") {
+  if (player_ && player_->PlayStateString() == "paused") {
     player_->play();
     return;
   }
@@ -354,10 +354,11 @@ HTMLMarqueeElement::Metrics HTMLMarqueeElement::GetMetrics() {
   }
 
   if (IsHorizontal()) {
-    mover_->style()->setProperty(&GetDocument(), "width", "-webkit-max-content",
-                                 "important", ASSERT_NO_EXCEPTION);
+    mover_->style()->setProperty(GetExecutionContext(), "width",
+                                 "-webkit-max-content", "important",
+                                 ASSERT_NO_EXCEPTION);
   } else {
-    mover_->style()->setProperty(&GetDocument(), "height",
+    mover_->style()->setProperty(GetExecutionContext(), "height",
                                  "-webkit-max-content", "important",
                                  ASSERT_NO_EXCEPTION);
   }

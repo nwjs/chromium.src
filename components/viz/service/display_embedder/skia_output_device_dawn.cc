@@ -32,14 +32,20 @@ constexpr wgpu::TextureUsage kUsage =
 SkiaOutputDeviceDawn::SkiaOutputDeviceDawn(
     DawnContextProvider* context_provider,
     gfx::AcceleratedWidget widget,
+    gfx::SurfaceOrigin origin,
     gpu::MemoryTracker* memory_tracker,
     DidSwapBufferCompleteCallback did_swap_buffer_complete_callback)
-    : SkiaOutputDevice(/*need_swap_semaphore=*/false,
-                       memory_tracker,
-                       did_swap_buffer_complete_callback),
+    : SkiaOutputDevice(memory_tracker, did_swap_buffer_complete_callback),
       context_provider_(context_provider),
       widget_(widget) {
+  capabilities_.output_surface_origin = origin;
+  capabilities_.uses_default_gl_framebuffer = false;
   capabilities_.supports_post_sub_buffer = false;
+
+  capabilities_.sk_color_type = kSurfaceColorType;
+  capabilities_.gr_backend_format =
+      context_provider_->GetGrContext()->defaultBackendFormat(
+          kSurfaceColorType, GrRenderable::kYes);
 }
 
 SkiaOutputDeviceDawn::~SkiaOutputDeviceDawn() = default;
@@ -47,7 +53,7 @@ SkiaOutputDeviceDawn::~SkiaOutputDeviceDawn() = default;
 bool SkiaOutputDeviceDawn::Reshape(const gfx::Size& size,
                                    float device_scale_factor,
                                    const gfx::ColorSpace& color_space,
-                                   bool has_alpha,
+                                   gfx::BufferFormat format,
                                    gfx::OverlayTransform transform) {
   DCHECK_EQ(transform, gfx::OVERLAY_TRANSFORM_NONE);
 
@@ -57,9 +63,9 @@ bool SkiaOutputDeviceDawn::Reshape(const gfx::Size& size,
   CreateSwapChainImplementation();
   wgpu::SwapChainDescriptor desc;
   desc.implementation = reinterpret_cast<int64_t>(&swap_chain_implementation_);
-  wgpu::Instance instance = context_provider_->GetInstance();
-  wgpu::Surface surface = instance.CreateSurface(nullptr);
-  swap_chain_ = context_provider_->GetDevice().CreateSwapChain(surface, &desc);
+  // TODO(sgilhuly): Use a wgpu::Surface in this call once the Surface-based
+  // SwapChain API is ready.
+  swap_chain_ = context_provider_->GetDevice().CreateSwapChain(nullptr, &desc);
   if (!swap_chain_)
     return false;
   swap_chain_.Configure(kSwapChainFormat, kUsage, size_.width(),
@@ -77,7 +83,8 @@ void SkiaOutputDeviceDawn::SwapBuffers(
                     std::move(latency_info));
 }
 
-SkSurface* SkiaOutputDeviceDawn::BeginPaint() {
+SkSurface* SkiaOutputDeviceDawn::BeginPaint(
+    std::vector<GrBackendSemaphore>* end_semaphores) {
   GrDawnRenderTargetInfo info;
   info.fTextureView = swap_chain_.GetCurrentTextureView();
   info.fFormat = kSwapChainFormat;
@@ -85,15 +92,19 @@ SkSurface* SkiaOutputDeviceDawn::BeginPaint() {
   GrBackendRenderTarget backend_target(
       size_.width(), size_.height(), /*sampleCnt=*/0, /*stencilBits=*/0, info);
   DCHECK(backend_target.isValid());
+  // LegacyFontHost will get LCD text and skia figures out what type to use.
+  SkSurfaceProps surface_props(/*flags=*/0,
+                               SkSurfaceProps::kLegacyFontHost_InitType);
   sk_surface_ = SkSurface::MakeFromBackendRenderTarget(
       context_provider_->GetGrContext(), backend_target,
-      !capabilities_.flipped_output_surface ? kTopLeft_GrSurfaceOrigin
-                                            : kBottomLeft_GrSurfaceOrigin,
-      kSurfaceColorType, sk_color_space_, /*surfaceProps=*/nullptr);
+      capabilities_.output_surface_origin == gfx::SurfaceOrigin::kTopLeft
+          ? kTopLeft_GrSurfaceOrigin
+          : kBottomLeft_GrSurfaceOrigin,
+      kSurfaceColorType, sk_color_space_, &surface_props);
   return sk_surface_.get();
 }
 
-void SkiaOutputDeviceDawn::EndPaint(const GrBackendSemaphore& semaphore) {
+void SkiaOutputDeviceDawn::EndPaint() {
   GrFlushInfo flush_info;
   sk_surface_->flush(SkSurface::BackendSurfaceAccess::kPresent, flush_info);
   sk_surface_.reset();

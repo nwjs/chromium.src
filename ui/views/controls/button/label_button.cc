@@ -6,6 +6,7 @@
 
 #include <stddef.h>
 
+#include <algorithm>
 #include <utility>
 
 #include "base/lazy_instance.h"
@@ -93,10 +94,16 @@ void LabelButton::SetTextColor(ButtonState for_state, SkColor color) {
   explicitly_set_colors_[for_state] = true;
 }
 
-void LabelButton::SetEnabledTextColors(SkColor color) {
+void LabelButton::SetEnabledTextColors(base::Optional<SkColor> color) {
   ButtonState states[] = {STATE_NORMAL, STATE_HOVERED, STATE_PRESSED};
+  if (color.has_value()) {
+    for (auto state : states)
+      SetTextColor(state, color.value());
+    return;
+  }
   for (auto state : states)
-    SetTextColor(state, color);
+    explicitly_set_colors_[state] = false;
+  ResetColorsFromNativeTheme();
 }
 
 void LabelButton::SetTextShadows(const gfx::ShadowValues& shadows) {
@@ -314,8 +321,7 @@ void LabelButton::Layout() {
     const int spacing = (image_size.width() > 0 && label_size.width() > 0)
                             ? GetImageLabelSpacing()
                             : 0;
-    const int total_width = image_size.width() + label_size.width() +
-        spacing;
+    const int total_width = image_size.width() + label_size.width() + spacing;
     image_origin.Offset((child_area.width() - total_width) / 2, 0);
   } else if (horizontal_alignment == gfx::ALIGN_RIGHT) {
     image_origin.Offset(child_area.width() - image_size.width(), 0);
@@ -427,27 +433,6 @@ void LabelButton::GetExtraParams(ui::NativeTheme::ExtraParams* params) const {
   params->button.background_color = label_->GetBackgroundColor();
 }
 
-void LabelButton::ResetColorsFromNativeTheme() {
-  const ui::NativeTheme* theme = GetNativeTheme();
-  // Since this is a LabelButton, use the label colors.
-  SkColor colors[STATE_COUNT] = {
-      theme->GetSystemColor(ui::NativeTheme::kColorId_LabelEnabledColor),
-      theme->GetSystemColor(ui::NativeTheme::kColorId_LabelEnabledColor),
-      theme->GetSystemColor(ui::NativeTheme::kColorId_LabelEnabledColor),
-      theme->GetSystemColor(ui::NativeTheme::kColorId_LabelDisabledColor),
-  };
-
-  label_->SetBackground(nullptr);
-  label_->SetAutoColorReadabilityEnabled(false);
-
-  for (size_t state = STATE_NORMAL; state < STATE_COUNT; ++state) {
-    if (!explicitly_set_colors_[state]) {
-      SetTextColor(static_cast<ButtonState>(state), colors[state]);
-      explicitly_set_colors_[state] = false;
-    }
-  }
-}
-
 PropertyEffects LabelButton::UpdateStyleToIndicateDefaultStatus() {
   // Check that a subclass hasn't replaced the Label font. These buttons may
   // never be given default status.
@@ -484,6 +469,7 @@ void LabelButton::OnBlur() {
 }
 
 void LabelButton::OnThemeChanged() {
+  Button::OnThemeChanged();
   ResetColorsFromNativeTheme();
   UpdateThemedBorder();
   ResetLabelEnabledColor();
@@ -527,7 +513,7 @@ void LabelButton::ClearTextIfShrunkDown() {
     // Once the button shrinks down to its preferred size (that disregards the
     // current text), we finish the operation by clearing the text.
     shrinking_down_label_ = false;
-    SetTextInternal(base::string16());
+    SetText(base::string16());
   }
 }
 
@@ -550,6 +536,27 @@ gfx::Size LabelButton::GetUnclampedSizeWithoutLabel() const {
     size.SetToMax(border()->GetMinimumSize());
 
   return size;
+}
+
+void LabelButton::ResetColorsFromNativeTheme() {
+  const ui::NativeTheme* theme = GetNativeTheme();
+  // Since this is a LabelButton, use the label colors.
+  SkColor colors[STATE_COUNT] = {
+      theme->GetSystemColor(ui::NativeTheme::kColorId_LabelEnabledColor),
+      theme->GetSystemColor(ui::NativeTheme::kColorId_LabelEnabledColor),
+      theme->GetSystemColor(ui::NativeTheme::kColorId_LabelEnabledColor),
+      theme->GetSystemColor(ui::NativeTheme::kColorId_LabelDisabledColor),
+  };
+
+  label_->SetBackground(nullptr);
+  label_->SetAutoColorReadabilityEnabled(false);
+
+  for (size_t state = STATE_NORMAL; state < STATE_COUNT; ++state) {
+    if (!explicitly_set_colors_[state]) {
+      SetTextColor(static_cast<ButtonState>(state), colors[state]);
+      explicitly_set_colors_[state] = false;
+    }
+  }
 }
 
 void LabelButton::ResetLabelEnabledColor() {

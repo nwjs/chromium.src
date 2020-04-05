@@ -4,6 +4,7 @@
 
 visibility = [ "//ui/ozone/*" ]
 
+import("//build/config/linux/gtk/gtk.gni")
 import("//build/config/linux/pkg_config.gni")
 import("//testing/libfuzzer/fuzzer_test.gni")
 import("//ui/ozone/platform/wayland/wayland.gni")
@@ -22,6 +23,8 @@ source_set("wayland") {
     "common/wayland_util.h",
     "gpu/drm_render_node_path_finder.cc",
     "gpu/drm_render_node_path_finder.h",
+    "gpu/gl_surface_egl_readback_wayland.cc",
+    "gpu/gl_surface_egl_readback_wayland.h",
     "gpu/gl_surface_wayland.cc",
     "gpu/gl_surface_wayland.h",
     "gpu/wayland_buffer_manager_gpu.cc",
@@ -162,6 +165,17 @@ source_set("wayland") {
     deps += [ "//ui/base/ime/linux" ]
   }
 
+  if (use_gtk) {
+    sources += [
+      "host/gtk_ui_delegate_wayland.cc",
+      "host/gtk_ui_delegate_wayland.h",
+    ]
+    deps += [
+      "//build/config/linux/gtk",
+      "//ui/gtk:gtk_ui_delegate",
+    ]
+  }
+
   defines = [ "OZONE_IMPLEMENTATION" ]
 
   if (use_wayland_gbm) {
@@ -180,6 +194,10 @@ source_set("wayland") {
       "//ui/gfx:memory_buffer",
       "//ui/gfx/linux:gbm",
     ]
+  }
+
+  if (use_bundled_weston) {
+    data_deps = [ "//third_party/weston" ]
   }
 
   configs += [
@@ -303,6 +321,7 @@ source_set("wayland_unittests") {
     "//ui/events/ozone/layout",
     "//ui/gfx/linux:drm",
     "//ui/gfx/linux:gbm",
+    "//ui/gfx/linux:test_support",
     "//ui/ozone:platform",
     "//ui/ozone:test_support",
     "//ui/platform_window/platform_window_handler",

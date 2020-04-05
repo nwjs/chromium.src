@@ -13,13 +13,14 @@
 #include "base/strings/string16.h"
 #include "base/system/sys_info.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "base/time/time.h"
 #include "chrome/browser/chromeos/crostini/ansible/ansible_management_service_factory.h"
 #include "chrome/browser/chromeos/crostini/crostini_features.h"
-#include "chrome/browser/chromeos/crostini/crostini_installer_types.mojom.h"
 #include "chrome/browser/chromeos/crostini/crostini_manager_factory.h"
 #include "chrome/browser/chromeos/crostini/crostini_pref_names.h"
 #include "chrome/browser/chromeos/crostini/crostini_terminal.h"
+#include "chrome/browser/chromeos/crostini/crostini_types.mojom.h"
 #include "chrome/browser/chromeos/crostini/crostini_util.h"
 #include "chrome/browser/chromeos/login/startup_utils.h"
 #include "chrome/browser/chromeos/profiles/profile_helper.h"
@@ -89,8 +90,8 @@ constexpr char kCrostiniAvailableDiskCancel[] = "Crostini.AvailableDiskCancel";
 constexpr char kCrostiniAvailableDiskError[] = "Crostini.AvailableDiskError";
 
 void RecordTimeFromDeviceSetupToInstallMetric() {
-  base::PostTaskAndReplyWithResult(
-      FROM_HERE, {base::ThreadPool(), base::MayBlock()},
+  base::ThreadPool::PostTaskAndReplyWithResult(
+      FROM_HERE, {base::MayBlock()},
       base::BindOnce(&chromeos::StartupUtils::GetTimeSinceOobeFlagFileCreation),
       base::BindOnce([](base::TimeDelta time_from_device_setup) {
         if (time_from_device_setup.is_zero())
@@ -227,8 +228,8 @@ void CrostiniInstaller::Install(CrostiniManager::RestartOptions options,
   container_download_percent_ = 0;
   UpdateState(State::INSTALLING);
 
-  base::PostTaskAndReplyWithResult(
-      FROM_HERE, {base::ThreadPool(), base::MayBlock()},
+  base::ThreadPool::PostTaskAndReplyWithResult(
+      FROM_HERE, {base::MayBlock()},
       base::BindOnce(&base::SysInfo::AmountOfFreeDiskSpace,
                      base::FilePath(crostini::kHomeDirectory)),
       base::BindOnce(&CrostiniInstaller::OnAvailableDiskSpace,
@@ -630,7 +631,7 @@ void CrostiniInstaller::OnCrostiniRestartFinished(CrostiniResult result) {
   restart_id_ = CrostiniManager::kUninitializedRestartId;
 
   if (result != CrostiniResult::SUCCESS) {
-    if (state_ != State::ERROR) {
+    if (state_ != State::ERROR && result != CrostiniResult::RESTART_ABORTED) {
       DCHECK_EQ(state_, State::INSTALLING);
       LOG(ERROR) << "Failed to restart Crostini with error code: "
                  << static_cast<int>(result);

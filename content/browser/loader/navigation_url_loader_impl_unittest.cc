@@ -35,6 +35,7 @@
 #include "content/test/test_navigation_url_loader_delegate.h"
 #include "net/base/load_flags.h"
 #include "net/base/mock_network_change_notifier.h"
+#include "net/proxy_resolution/configured_proxy_resolution_service.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "net/traffic_annotation/network_traffic_annotation_test_helper.h"
 #include "net/url_request/url_request_context.h"
@@ -57,7 +58,7 @@ class TestNavigationLoaderInterceptor : public NavigationLoaderInterceptor {
       : most_recent_resource_request_(most_recent_resource_request) {
     net::URLRequestContextBuilder context_builder;
     context_builder.set_proxy_resolution_service(
-        net::ProxyResolutionService::CreateDirect());
+        net::ConfiguredProxyResolutionService::CreateDirect());
     context_ = context_builder.Build();
     constexpr int child_id = 4;
     constexpr int route_id = 8;
@@ -96,11 +97,11 @@ class TestNavigationLoaderInterceptor : public NavigationLoaderInterceptor {
                        base::Unretained(this)),
         std::move(receiver), 0 /* options */, resource_request,
         std::move(client), TRAFFIC_ANNOTATION_FOR_TESTS, &params,
-        0, /* request_id */
+        /*coep_reporter=*/nullptr, 0, /* request_id */
         0 /* keepalive_request_size */, resource_scheduler_client_,
         nullptr /* keepalive_statistics_recorder */,
         nullptr /* network_usage_accumulator */, nullptr /* header_client */,
-        nullptr /* origin_policy_manager */);
+        nullptr /* origin_policy_manager */, nullptr /* trust_token_helper */);
   }
 
   bool MaybeCreateLoaderForResponse(
@@ -171,6 +172,7 @@ class NavigationURLLoaderImplTest : public testing::Test {
         mojom::BeginNavigationParams::New(
             headers, net::LOAD_NORMAL, false /* skip_service_worker */,
             blink::mojom::RequestContextType::LOCATION,
+            network::mojom::RequestDestination::kDocument,
             blink::WebMixedContentContextType::kBlockable,
             false /* is_form_submission */,
             false /* was_initiated_by_link_click */,
@@ -178,7 +180,8 @@ class NavigationURLLoaderImplTest : public testing::Test {
             std::string() /* searchable_form_encoding */,
             GURL() /* client_side_redirect_url */,
             base::nullopt /* devtools_initiator_info */,
-            false /* attach_same_site_cookie */);
+            false /* attach_same_site_cookie */,
+            nullptr /* trust_token_params */);
 
     auto common_params = CreateCommonNavigationParams();
     common_params->url = url;

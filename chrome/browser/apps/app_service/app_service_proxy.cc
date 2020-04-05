@@ -7,6 +7,7 @@
 #include <utility>
 
 #include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/feature_list.h"
 #include "base/location.h"
 #include "base/threading/thread_task_runner_handle.h"
@@ -22,6 +23,12 @@
 #include "chrome/services/app_service/public/mojom/types.mojom.h"
 #include "content/public/browser/url_data_source.h"
 #include "url/url_constants.h"
+
+#if defined(OS_CHROMEOS)
+#include "chrome/browser/chromeos/child_accounts/time_limits/app_time_limit_interface.h"
+#include "chrome/browser/supervised_user/grit/supervised_user_unscaled_resources.h"
+#include "extensions/common/constants.h"
+#endif
 
 namespace apps {
 
@@ -97,6 +104,7 @@ void AppServiceProxy::ReInitializeForTesting(Profile* profile) {
   // has all of profile state it needs.
   app_service_.reset();
   profile_ = profile;
+  is_using_testing_profile_ = true;
   Initialize();
 }
 
@@ -110,6 +118,8 @@ void AppServiceProxy::Initialize() {
   if (profile_->IsOffTheRecord() && !profile_->IsGuestSession()) {
     return;
   }
+
+  browser_app_launcher_ = std::make_unique<apps::BrowserAppLauncher>(profile_);
 
   app_service_impl_ =
       std::make_unique<apps::AppServiceImpl>(profile_->GetPrefs());
@@ -133,7 +143,8 @@ void AppServiceProxy::Initialize() {
         app_service_, profile_, apps::mojom::AppType::kExtension,
         &instance_registry_);
     if (base::FeatureList::IsEnabled(features::kDesktopPWAsWithoutExtensions)) {
-      web_apps_ = std::make_unique<WebApps>(app_service_, profile_);
+      web_apps_ = std::make_unique<WebApps>(app_service_, profile_,
+                                            &instance_registry_);
     } else {
       extension_web_apps_ = std::make_unique<ExtensionApps>(
           app_service_, profile_, apps::mojom::AppType::kWeb,
@@ -165,7 +176,11 @@ apps::InstanceRegistry& AppServiceProxy::InstanceRegistry() {
 }
 #endif
 
-apps::PreferredApps& AppServiceProxy::PreferredApps() {
+BrowserAppLauncher& AppServiceProxy::BrowserAppLauncher() {
+  return *browser_app_launcher_;
+}
+
+apps::PreferredAppsList& AppServiceProxy::PreferredApps() {
   return preferred_apps_;
 }
 
@@ -194,12 +209,35 @@ void AppServiceProxy::Launch(const std::string& app_id,
   if (app_service_.is_connected()) {
     cache_.ForOneApp(app_id, [this, event_flags, launch_source,
                               display_id](const apps::AppUpdate& update) {
-      if (update.Paused() == apps::mojom::OptionalBool::kTrue) {
+#if defined(OS_CHROMEOS)
+      if (MaybeShowLaunchPreventionDialog(update)) {
         return;
       }
+#endif
       RecordAppLaunch(update.AppId(), launch_source);
       app_service_->Launch(update.AppType(), update.AppId(), event_flags,
                            launch_source, display_id);
+    });
+  }
+}
+
+void AppServiceProxy::LaunchAppWithFiles(
+    const std::string& app_id,
+    apps::mojom::LaunchContainer container,
+    int32_t event_flags,
+    apps::mojom::LaunchSource launch_source,
+    apps::mojom::FilePathsPtr file_paths) {
+  if (app_service_.is_connected()) {
+    cache_.ForOneApp(app_id, [this, container, event_flags, launch_source,
+                              &file_paths](const apps::AppUpdate& update) {
+#if defined(OS_CHROMEOS)
+      if (MaybeShowLaunchPreventionDialog(update)) {
+        return;
+      }
+#endif
+      app_service_->LaunchAppWithFiles(update.AppType(), update.AppId(),
+                                       container, event_flags, launch_source,
+                                       std::move(file_paths));
     });
   }
 }
@@ -212,9 +250,11 @@ void AppServiceProxy::LaunchAppWithIntent(
   if (app_service_.is_connected()) {
     cache_.ForOneApp(app_id, [this, &intent, launch_source,
                               display_id](const apps::AppUpdate& update) {
-      if (update.Paused() == apps::mojom::OptionalBool::kTrue) {
+#if defined(OS_CHROMEOS)
+      if (MaybeShowLaunchPreventionDialog(update)) {
         return;
       }
+#endif
       RecordAppLaunch(update.AppId(), launch_source);
       app_service_->LaunchAppWithIntent(update.AppType(), update.AppId(),
                                         std::move(intent), launch_source,
@@ -244,20 +284,10 @@ void AppServiceProxy::SetPermission(const std::string& app_id,
 
 void AppServiceProxy::Uninstall(const std::string& app_id,
                                 gfx::NativeWindow parent_window) {
-  if (app_service_.is_connected()) {
-    cache_.ForOneApp(
-        app_id, [this, parent_window](const apps::AppUpdate& update) {
-          apps::mojom::IconKeyPtr icon_key = update.IconKey();
-          uninstall_dialogs_.emplace(std::make_unique<UninstallDialog>(
-              profile_, update.AppType(), update.AppId(), update.Name(),
-              std::move(icon_key), this, parent_window,
-              base::BindOnce(&AppServiceProxy::OnUninstallDialogClosed,
-                             weak_ptr_factory_.GetWeakPtr(), update.AppType(),
-                             update.AppId())));
-        });
-  }
+  UninstallImpl(app_id, parent_window, base::DoNothing());
 }
 
+#if defined(OS_CHROMEOS)
 void AppServiceProxy::PauseApps(
     const std::map<std::string, PauseData>& pause_data) {
   if (!app_service_.is_connected()) {
@@ -266,16 +296,28 @@ void AppServiceProxy::PauseApps(
 
   for (auto& data : pause_data) {
     apps::mojom::AppType app_type = cache_.GetAppType(data.first);
-    constexpr bool kPaused = true;
-    UpdatePausedStatus(app_type, data.first, kPaused);
+    if (app_type == apps::mojom::AppType::kUnknown) {
+      continue;
+    }
 
-    if (!data.second.should_show_pause_dialog) {
+    cache_.ForOneApp(data.first, [this](const apps::AppUpdate& update) {
+      if (update.Paused() != apps::mojom::OptionalBool::kTrue) {
+        pending_pause_requests_.MaybeAddApp(update.AppId());
+      }
+    });
+
+    // The app pause dialog can't be loaded for unit tests.
+    if (!data.second.should_show_pause_dialog || is_using_testing_profile_) {
       app_service_->PauseApp(app_type, data.first);
       continue;
     }
 
     cache_.ForOneApp(data.first, [this, &data](const apps::AppUpdate& update) {
-      this->LoadIconForPauseDialog(update, data.second);
+      LoadIconForDialog(
+          update,
+          base::BindOnce(&AppServiceProxy::OnLoadIconForPauseDialog,
+                         weak_ptr_factory_.GetWeakPtr(), update.AppType(),
+                         update.AppId(), update.Name(), data.second));
     });
   }
 }
@@ -287,12 +329,14 @@ void AppServiceProxy::UnpauseApps(const std::set<std::string>& app_ids) {
 
   for (auto& app_id : app_ids) {
     apps::mojom::AppType app_type = cache_.GetAppType(app_id);
-    constexpr bool kPaused = false;
-    UpdatePausedStatus(app_type, app_id, kPaused);
+    if (app_type == apps::mojom::AppType::kUnknown) {
+      continue;
+    }
 
     app_service_->UnpauseApps(app_type, app_id);
   }
 }
+#endif  // OS_CHROMEOS
 
 void AppServiceProxy::GetMenuModel(
     const std::string& app_id,
@@ -345,6 +389,17 @@ void AppServiceProxy::ReInitializeCrostiniForTesting(Profile* profile) {
     crostini_apps_->ReInitializeForTesting(app_service_, profile);
   }
 #endif
+}
+
+void AppServiceProxy::SetDialogCreatedCallbackForTesting(
+    base::OnceClosure callback) {
+  dialog_created_callback_ = std::move(callback);
+}
+
+void AppServiceProxy::UninstallForTesting(const std::string& app_id,
+                                          gfx::NativeWindow parent_window,
+                                          base::OnceClosure callback) {
+  UninstallImpl(app_id, parent_window, std::move(callback));
 }
 
 std::vector<std::string> AppServiceProxy::GetAppIdsForUrl(const GURL& url) {
@@ -450,9 +505,30 @@ void AppServiceProxy::OnPreferredAppRemoved(
   preferred_apps_.DeletePreferredApp(app_id, intent_filter);
 }
 
-void AppServiceProxy::InitializePreferredApps(base::Value preferred_apps) {
-  preferred_apps_.Init(
-      std::make_unique<base::Value>(std::move(preferred_apps)));
+void AppServiceProxy::InitializePreferredApps(
+    PreferredAppsList::PreferredApps preferred_apps) {
+  preferred_apps_.Init(preferred_apps);
+}
+
+void AppServiceProxy::UninstallImpl(const std::string& app_id,
+                                    gfx::NativeWindow parent_window,
+                                    base::OnceClosure callback) {
+  if (!app_service_.is_connected()) {
+    return;
+  }
+
+  cache_.ForOneApp(app_id, [this, parent_window,
+                            &callback](const apps::AppUpdate& update) {
+    apps::mojom::IconKeyPtr icon_key = update.IconKey();
+    auto uninstall_dialog = std::make_unique<UninstallDialog>(
+        profile_, update.AppType(), update.AppId(), update.Name(),
+        std::move(icon_key), this, parent_window,
+        base::BindOnce(&AppServiceProxy::OnUninstallDialogClosed,
+                       weak_ptr_factory_.GetWeakPtr(), update.AppType(),
+                       update.AppId()));
+    uninstall_dialog->SetDialogCreatedCallbackForTesting(std::move(callback));
+    uninstall_dialogs_.emplace(std::move(uninstall_dialog));
+  });
 }
 
 void AppServiceProxy::OnUninstallDialogClosed(
@@ -463,6 +539,8 @@ void AppServiceProxy::OnUninstallDialogClosed(
     bool report_abuse,
     UninstallDialog* uninstall_dialog) {
   if (uninstall) {
+    cache_.ForOneApp(app_id, RecordAppBounce);
+
     app_service_->Uninstall(app_type, app_id, clear_site_data, report_abuse);
   }
 
@@ -472,18 +550,90 @@ void AppServiceProxy::OnUninstallDialogClosed(
   uninstall_dialogs_.erase(it);
 }
 
-void AppServiceProxy::LoadIconForPauseDialog(const apps::AppUpdate& update,
-                                             const PauseData& pause_data) {
+#if defined(OS_CHROMEOS)
+bool AppServiceProxy::MaybeShowLaunchPreventionDialog(
+    const apps::AppUpdate& update) {
+  if (update.AppId() == extension_misc::kChromeAppId) {
+    return false;
+  }
+
+  // Return true, and load the icon for the app block dialog when the app
+  // is blocked by policy.
+  if (update.Readiness() == apps::mojom::Readiness::kDisabledByPolicy) {
+    LoadIconForDialog(
+        update, base::BindOnce(&AppServiceProxy::OnLoadIconForBlockDialog,
+                               weak_ptr_factory_.GetWeakPtr(), update.Name()));
+    return true;
+  }
+
+  // Return true, and load the icon for the app pause dialog when the app
+  // is paused.
+  if (update.Paused() == apps::mojom::OptionalBool::kTrue ||
+      pending_pause_requests_.IsPaused(update.AppId())) {
+    chromeos::app_time::AppTimeLimitInterface* app_limit =
+        chromeos::app_time::AppTimeLimitInterface::Get(profile_);
+    DCHECK(app_limit);
+    auto time_limit =
+        app_limit->GetTimeLimitForApp(update.AppId(), update.AppType());
+    if (!time_limit.has_value()) {
+      NOTREACHED();
+      return true;
+    }
+    PauseData pause_data;
+    pause_data.hours = time_limit.value().InHours();
+    pause_data.minutes = time_limit.value().InMinutes() % 60;
+    LoadIconForDialog(
+        update, base::BindOnce(&AppServiceProxy::OnLoadIconForPauseDialog,
+                               weak_ptr_factory_.GetWeakPtr(), update.AppType(),
+                               update.AppId(), update.Name(), pause_data));
+    return true;
+  }
+
+  // The app is not prevented from launching and we didn't show any dialog.
+  return false;
+}
+
+void AppServiceProxy::LoadIconForDialog(
+    const apps::AppUpdate& update,
+    apps::mojom::Publisher::LoadIconCallback callback) {
   apps::mojom::IconKeyPtr icon_key = update.IconKey();
   constexpr bool kAllowPlaceholderIcon = false;
-  constexpr int32_t kPauseIconSize = 48;
-  LoadIconFromIconKey(
-      update.AppType(), update.AppId(), std::move(icon_key),
-      apps::mojom::IconCompression::kUncompressed, kPauseIconSize,
-      kAllowPlaceholderIcon,
-      base::BindOnce(&AppServiceProxy::OnLoadIconForPauseDialog,
-                     weak_ptr_factory_.GetWeakPtr(), update.AppType(),
-                     update.AppId(), update.Name(), pause_data));
+  constexpr int32_t kIconSize = 48;
+
+  // For browser tests, load the app icon, because there is no family link
+  // logo for browser tests.
+  //
+  // For non_child profile, load the app icon, because the app is blocked by
+  // admin.
+  if (!dialog_created_callback_.is_null() || !profile_->IsChild()) {
+    LoadIconFromIconKey(update.AppType(), update.AppId(), std::move(icon_key),
+                        apps::mojom::IconCompression::kUncompressed, kIconSize,
+                        kAllowPlaceholderIcon, std::move(callback));
+    return;
+  }
+
+  // Load the family link kite logo icon for the app pause dialog or the app
+  // block dialog for the child profile.
+  LoadIconFromResource(apps::mojom::IconCompression::kUncompressed, kIconSize,
+                       IDR_FAMILY_LINK_LOGO, kAllowPlaceholderIcon,
+                       IconEffects::kNone, std::move(callback));
+}
+
+void AppServiceProxy::OnLoadIconForBlockDialog(
+    const std::string& app_name,
+    apps::mojom::IconValuePtr icon_value) {
+  if (icon_value->icon_compression !=
+      apps::mojom::IconCompression::kUncompressed) {
+    return;
+  }
+
+  AppServiceProxy::CreateBlockDialog(app_name, icon_value->uncompressed,
+                                     profile_);
+
+  // For browser tests, call the dialog created callback to stop the run loop.
+  if (!dialog_created_callback_.is_null()) {
+    std::move(dialog_created_callback_).Run();
+  }
 }
 
 void AppServiceProxy::OnLoadIconForPauseDialog(
@@ -499,30 +649,32 @@ void AppServiceProxy::OnLoadIconForPauseDialog(
   }
 
   AppServiceProxy::CreatePauseDialog(
-      app_name, icon_value->uncompressed, pause_data,
+      app_type, app_name, icon_value->uncompressed, pause_data,
       base::BindOnce(&AppServiceProxy::OnPauseDialogClosed,
                      weak_ptr_factory_.GetWeakPtr(), app_type, app_id));
-}
 
-void AppServiceProxy::UpdatePausedStatus(apps::mojom::AppType app_type,
-                                         const std::string& app_id,
-                                         bool paused) {
-  std::vector<apps::mojom::AppPtr> apps;
-  apps::mojom::AppPtr app = apps::mojom::App::New();
-  app->app_type = app_type;
-  app->app_id = app_id;
-  app->paused = (paused) ? apps::mojom::OptionalBool::kTrue
-                         : apps::mojom::OptionalBool::kFalse;
-  apps.push_back(std::move(app));
-  cache_.OnApps(std::move(apps));
+  // For browser tests, call the dialog created callback to stop the run loop.
+  if (!dialog_created_callback_.is_null()) {
+    std::move(dialog_created_callback_).Run();
+  }
 }
 
 void AppServiceProxy::OnPauseDialogClosed(apps::mojom::AppType app_type,
                                           const std::string& app_id) {
   app_service_->PauseApp(app_type, app_id);
 }
+#endif  // OS_CHROMEOS
 
 void AppServiceProxy::OnAppUpdate(const apps::AppUpdate& update) {
+#if defined(OS_CHROMEOS)
+  if ((update.PausedChanged() &&
+       update.Paused() == apps::mojom::OptionalBool::kTrue) ||
+      (update.ReadinessChanged() &&
+       update.Readiness() == apps::mojom::Readiness::kUninstalledByUser)) {
+    pending_pause_requests_.MaybeRemoveApp(update.AppId());
+  }
+#endif  // OS_CHROMEOS
+
   if (!update.ReadinessChanged() ||
       update.Readiness() != apps::mojom::Readiness::kUninstalledByUser) {
     return;

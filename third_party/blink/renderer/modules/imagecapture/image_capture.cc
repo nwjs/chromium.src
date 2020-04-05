@@ -109,14 +109,14 @@ const AtomicString& ImageCapture::InterfaceName() const {
 }
 
 ExecutionContext* ImageCapture::GetExecutionContext() const {
-  return ContextLifecycleObserver::GetExecutionContext();
+  return ExecutionContextLifecycleObserver::GetExecutionContext();
 }
 
 bool ImageCapture::HasPendingActivity() const {
   return GetExecutionContext() && HasEventListeners();
 }
 
-void ImageCapture::ContextDestroyed(ExecutionContext*) {
+void ImageCapture::ContextDestroyed() {
   RemoveAllEventListeners();
   service_requests_.clear();
   DCHECK(!HasEventListeners());
@@ -689,7 +689,7 @@ void ImageCapture::GetMediaTrackSettings(MediaTrackSettings* settings) const {
 }
 
 ImageCapture::ImageCapture(ExecutionContext* context, MediaStreamTrack* track)
-    : ContextLifecycleObserver(context),
+    : ExecutionContextLifecycleObserver(context),
       stream_track_(track),
       capabilities_(MediaTrackCapabilities::Create()),
       settings_(MediaTrackSettings::Create()),
@@ -955,7 +955,7 @@ void ImageCapture::ResolveWithPhotoCapabilities(
   resolver->Resolve(photo_capabilities_);
 }
 
-void ImageCapture::Trace(blink::Visitor* visitor) {
+void ImageCapture::Trace(Visitor* visitor) {
   visitor->Trace(stream_track_);
   visitor->Trace(capabilities_);
   visitor->Trace(settings_);
@@ -964,7 +964,7 @@ void ImageCapture::Trace(blink::Visitor* visitor) {
   visitor->Trace(photo_capabilities_);
   visitor->Trace(service_requests_);
   EventTargetWithInlineData::Trace(visitor);
-  ContextLifecycleObserver::Trace(visitor);
+  ExecutionContextLifecycleObserver::Trace(visitor);
 }
 
 }  // namespace blink

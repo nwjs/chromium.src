@@ -65,7 +65,6 @@ test("components_unittests") {
     "//components/bookmarks/browser:unit_tests",
     "//components/bookmarks/managed:unit_tests",
     "//components/browsing_data/core:unit_tests",
-    "//components/bubble:unit_tests",
     "//components/captive_portal/core:unit_tests",
     "//components/cbor:unit_tests",
     "//components/certificate_matching:unit_tests",
@@ -81,6 +80,7 @@ test("components_unittests") {
     "//components/device_event_log:unit_tests",
     "//components/dom_distiller/core:unit_tests",
     "//components/download:unit_tests",
+    "//components/embedder_support:unit_tests",
     "//components/encrypted_messages:unit_tests",
     "//components/favicon/core:unit_tests",
     "//components/favicon_base:unit_tests",
@@ -89,6 +89,7 @@ test("components_unittests") {
     "//components/filename_generation:unit_tests",
     "//components/flags_ui:unit_tests",
     "//components/games/core:unit_tests",
+    "//components/gc:unit_tests",
     "//components/gcm_driver:unit_tests",
     "//components/gcm_driver/crypto:unit_tests",
     "//components/google/core/common:unit_tests",
@@ -101,6 +102,7 @@ test("components_unittests") {
     "//components/language/core/common:unit_tests",
     "//components/language_usage_metrics:unit_tests",
     "//components/leveldb_proto:unit_tests",
+    "//components/lookalikes:unit_tests",
     "//components/metrics:unit_tests",
     "//components/navigation_metrics:unit_tests",
     "//components/net_log:unit_tests",
@@ -111,6 +113,7 @@ test("components_unittests") {
     "//components/offline_items_collection/core:unit_tests",
     "//components/omnibox/browser:unit_tests",
     "//components/open_from_clipboard:unit_tests",
+    "//components/openscreen_platform:unittests",
     "//components/os_crypt:unit_tests",
     "//components/password_manager/core/browser:unit_tests",
     "//components/password_manager/core/common:unit_tests",
@@ -125,6 +128,7 @@ test("components_unittests") {
     "//components/reading_list/core:unit_tests",
     "//components/safe_search_api:unit_tests",
     "//components/scheduling_metrics:unit_tests",
+    "//components/schema_org:unit_tests",
     "//components/search:unit_tests",
     "//components/search_engines:unit_tests",
     "//components/search_provider_logos:unit_tests",
@@ -214,10 +218,10 @@ test("components_unittests") {
     ]
   } else {  # !iOS
     deps += [
-      "//components/app_modal:unit_tests",
       "//components/autofill/content/browser:unit_tests",
       "//components/autofill/content/renderer:unit_tests",
       "//components/autofill/core/common/mojom:unit_tests",
+      "//components/browsing_data/content:unit_tests",
       "//components/captive_portal/content:unit_tests",
       "//components/cast_certificate:unit_tests",
       "//components/cast_channel:unit_tests",
@@ -234,6 +238,7 @@ test("components_unittests") {
       "//components/gcm_driver/instance_id:unit_tests",
       "//components/history/content/browser:unit_tests",
       "//components/invalidation/impl:unit_tests",
+      "//components/javascript_dialogs:unit_tests",
       "//components/keyed_service/content:unit_tests",
       "//components/language/content/browser:unit_tests",
       "//components/link_header_util:unit_tests",
@@ -247,6 +252,7 @@ test("components_unittests") {
       "//components/page_load_metrics/renderer:unit_tests",
       "//components/paint_preview/browser:unit_tests",
       "//components/paint_preview/common:unit_tests",
+      "//components/paint_preview/player:unit_tests",
       "//components/paint_preview/renderer:unit_tests",
       "//components/password_manager/content/browser:unit_tests",
       "//components/payments/content:unit_tests",
@@ -281,8 +287,8 @@ test("components_unittests") {
 
     if (!is_fuchsia) {
       deps += [
-        "//components/crash/content/app:unit_tests",
         "//components/crash/content/browser:unit_tests",
+        "//components/crash/core/app:unit_tests",
         "//components/data_reduction_proxy/content/common:unit_tests",
         "//components/data_reduction_proxy/core/browser:unit_tests",
         "//components/data_reduction_proxy/core/common:unit_tests",
@@ -312,19 +318,23 @@ test("components_unittests") {
       "//components/crash/android:java",
       "//components/crash/android:unit_tests",
       "//components/download/internal/common:internal_java",
+      "//components/embedder_support/android:native_java_unittests_java",
+      "//components/embedder_support/android/metrics:test_support_java",
       "//components/embedder_support/android/metrics:unit_tests",
       "//components/gcm_driver/instance_id:test_support",
       "//components/gcm_driver/instance_id/android:instance_id_driver_java",
       "//components/gcm_driver/instance_id/android:instance_id_driver_test_support_java",
       "//components/invalidation/impl",
-      "//components/invalidation/impl:java",
       "//components/paint_preview/browser/android:java",
+      "//components/paint_preview/browser/android:unit_tests",
       "//components/paint_preview/player/android:unit_tests",
+      "//components/permissions/android:java",
       "//components/policy/android:policy_java",
       "//components/signin/core/browser",
       "//components/signin/core/browser/android:java",
       "//components/signin/public/android:java",
       "//components/spellcheck/browser/android:java",
+      "//components/url_formatter/android:native_java_unittests_java",
       "//components/variations/android:variations_java",
       "//content/public/android:content_java",
       "//content/public/browser",
@@ -394,6 +404,12 @@ test("components_unittests") {
   if (enable_print_preview) {
     deps += [ "//components/pwg_encoder:unit_tests" ]
   }
+
+  # TODO(crbug/1056278): Enable this on Fuchsia
+  if (safe_browsing_mode != 0 && !is_fuchsia) {
+    deps += [ "//components/safe_browsing/core:file_type_policies_unittest" ]
+  }
+
   if (safe_browsing_mode == 1) {
     deps += [
       "//components/safe_browsing/core:verdict_cache_manager_unittest",
@@ -500,7 +516,9 @@ if (is_android) {
 
   android_resources("components_browsertests_resources") {
     testonly = true
-    resource_dirs = [ "//components/test/android/browsertests_apk/res" ]
+    sources = [
+      "//components/test/android/browsertests_apk/res/layout/test_activity.xml",
+    ]
     custom_package = "org.chromium.components_browsertests_apk"
   }
 }
@@ -544,6 +562,7 @@ if (!is_ios && !is_fuchsia) {
       "//base/test:test_support",
       "//components/autofill/content/browser",
       "//components/autofill/content/renderer",
+      "//components/autofill/content/renderer:test_support",
       "//components/autofill/core/browser",
       "//components/content_settings/core/common",
       "//components/dom_distiller/content/browser",
@@ -556,7 +575,6 @@ if (!is_ios && !is_fuchsia) {
       "//components/security_state/content",
       "//components/security_state/core",
       "//components/strings",
-      "//components/tracing",
       "//components/ukm:test_support",
       "//components/ukm/content",
       "//content/public/browser",
@@ -612,6 +630,7 @@ if (!is_ios && !is_fuchsia) {
         "//components/autofill_assistant/browser:proto",
         "//components/download/internal/common:internal_java",
         "//content/public/test/android:android_test_message_pump_support_java",
+        "//content/shell:content_shell_app",
         "//content/test:android_test_message_pump_support",
         "//testing/android/native_test:native_test_support",
       ]
@@ -650,6 +669,7 @@ if (!is_ios && !is_fuchsia) {
       "omnibox/browser/history_quick_provider_performance_unittest.cc",
       "subresource_filter/core/common/perftests/indexed_ruleset_perftest.cc",
       "test/run_all_perftests.cc",
+      "url_matcher/substring_set_matcher_perftest.cc",
       "visitedlink/test/visitedlink_perftest.cc",
     ]
 
@@ -664,6 +684,7 @@ if (!is_ios && !is_fuchsia) {
       "//components/subresource_filter/core/common",
       "//components/subresource_filter/tools:tools_lib",
       "//components/test:test_support",
+      "//components/url_matcher",
       "//components/visitedlink/browser",
       "//testing/perf",
       "//url",

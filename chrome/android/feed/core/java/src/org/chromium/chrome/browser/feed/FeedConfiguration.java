@@ -26,7 +26,7 @@ public final class FeedConfiguration {
 
     private static final String CARD_MENU_TOOLTIP_ELIGIBLE = "card_menu_tooltip_eligible";
     /** Default value for if card menus should have tooltips enabled. */
-    public static final boolean CARD_MENU_TOOLTIP_ELIGIBLE_DEFAULT = false;
+    public static final boolean CARD_MENU_TOOLTIP_ELIGIBLE_DEFAULT = true;
 
     private static final String CONSUME_SYNTHETIC_TOKENS = "consume_synthetic_tokens_bool";
     /** Default value for whether to consumer synthetic tokens on load. */
@@ -99,7 +99,9 @@ public final class FeedConfiguration {
 
     private static final String MANAGE_INTERESTS_ENABLED = "manage_interests_enabled";
     /** Default value for whether to use menu options to launch interest management page. */
-    public static final boolean MANAGE_INTERESTS_ENABLED_DEFAULT = false;
+    public static final boolean MANAGE_INTERESTS_ENABLED_DEFAULT = true;
+
+    private static final String SEND_FEEDBACK_ENABLED = "send_feedback_enabled";
 
     private static final String MAXIMUM_GC_ATTEMPTS = "maximum_gc_attempts";
     /** Default value for the maximum number of times that the GC task can re-enqueue itself. */
@@ -139,7 +141,7 @@ public final class FeedConfiguration {
 
     private static final String UNDOABLE_ACTIONS_ENABLED = "undoable_actions_enabled";
     /** Default value for if undoable actions should be presented to the user. */
-    public static final boolean UNDOABLE_ACTIONS_ENABLED_DEFAULT = false;
+    public static final boolean UNDOABLE_ACTIONS_ENABLED_DEFAULT = true;
 
     private static final String USE_SECONDARY_PAGE_REQUEST = "use_secondary_page_request";
     /** Default value for pagination behavior. */

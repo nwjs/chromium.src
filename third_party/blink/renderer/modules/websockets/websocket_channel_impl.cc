@@ -57,6 +57,7 @@
 #include "third_party/blink/renderer/core/workers/worker_global_scope.h"
 #include "third_party/blink/renderer/modules/websockets/inspector_websocket_events.h"
 #include "third_party/blink/renderer/modules/websockets/websocket_channel_client.h"
+#include "third_party/blink/renderer/platform/heap/heap.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_fetcher.h"
 #include "third_party/blink/renderer/platform/loader/fetch/unique_identifier.h"
 #include "third_party/blink/renderer/platform/network/network_log.h"
@@ -96,7 +97,7 @@ class WebSocketChannelImpl::BlobLoader final
   void DidFinishLoading() override;
   void DidFail(FileErrorCode) override;
 
-  void Trace(blink::Visitor* visitor) { visitor->Trace(channel_); }
+  void Trace(Visitor* visitor) { visitor->Trace(channel_); }
 
  private:
   Member<WebSocketChannelImpl> channel_;
@@ -112,7 +113,7 @@ class WebSocketChannelImpl::Message final
   // Close message
   Message(uint16_t code, const String& reason);
 
-  void Trace(blink::Visitor* visitor) { visitor->Trace(array_buffer); }
+  void Trace(Visitor* visitor) { visitor->Trace(array_buffer); }
 
   MessageType type;
 
@@ -225,9 +226,9 @@ bool WebSocketChannelImpl::Connect(const KURL& url, const String& protocol) {
     String message =
         "Connecting to a non-secure WebSocket server from a secure origin is "
         "deprecated.";
-    execution_context_->AddConsoleMessage(
-        ConsoleMessage::Create(mojom::ConsoleMessageSource::kJavaScript,
-                               mojom::ConsoleMessageLevel::kWarning, message));
+    execution_context_->AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
+        mojom::ConsoleMessageSource::kJavaScript,
+        mojom::ConsoleMessageLevel::kWarning, message));
   }
 
   url_ = url;
@@ -389,9 +390,9 @@ void WebSocketChannelImpl::Fail(const String& reason,
     location = location_at_construction_->Clone();
   }
 
-  execution_context_->AddConsoleMessage(
-      ConsoleMessage::Create(mojom::ConsoleMessageSource::kJavaScript, level,
-                             message, std::move(location)));
+  execution_context_->AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
+      mojom::ConsoleMessageSource::kJavaScript, level, message,
+      std::move(location)));
   // |reason| is only for logging and should not be provided for scripts,
   // hence close reason must be empty in tearDownFailedConnection.
   TearDownFailedConnection();
@@ -423,12 +424,16 @@ void WebSocketChannelImpl::CancelHandshake() {
 }
 
 void WebSocketChannelImpl::ApplyBackpressure() {
+  NETWORK_DVLOG(1) << this << " ApplyBackpressure";
   backpressure_ = true;
 }
 
 void WebSocketChannelImpl::RemoveBackpressure() {
-  backpressure_ = false;
-  ConsumePendingDataFrames();
+  NETWORK_DVLOG(1) << this << " RemoveBackpressure";
+  if (backpressure_) {
+    backpressure_ = false;
+    ConsumePendingDataFrames();
+  }
 }
 
 void WebSocketChannelImpl::OnOpeningHandshakeStarted(
@@ -451,7 +456,8 @@ void WebSocketChannelImpl::OnConnectionEstablished(
     mojo::PendingReceiver<network::mojom::blink::WebSocketClient>
         client_receiver,
     network::mojom::blink::WebSocketHandshakeResponsePtr response,
-    mojo::ScopedDataPipeConsumerHandle readable) {
+    mojo::ScopedDataPipeConsumerHandle readable,
+    mojo::ScopedDataPipeProducerHandle writable) {
   DCHECK_EQ(GetState(), State::kConnecting);
   const String& protocol = response->selected_protocol;
   const String& extensions = response->extensions;
@@ -479,6 +485,8 @@ void WebSocketChannelImpl::OnConnectionEstablished(
   websocket_.Bind(std::move(websocket),
                   execution_context_->GetTaskRunner(TaskType::kNetworking));
   readable_ = std::move(readable);
+  // TODO(suzukikeita): Implement upload via |writable_| instead of SendFrame.
+  writable_ = std::move(writable);
   const MojoResult mojo_result = readable_watcher_.Watch(
       readable_.get(), MOJO_HANDLE_SIGNAL_READABLE,
       MOJO_WATCH_CONDITION_SATISFIED,
@@ -544,7 +552,7 @@ void WebSocketChannelImpl::OnClosingHandshake() {
   client_->DidStartClosingHandshake();
 }
 
-void WebSocketChannelImpl::Trace(blink::Visitor* visitor) {
+void WebSocketChannelImpl::Trace(Visitor* visitor) {
   visitor->Trace(blob_loader_);
   visitor->Trace(messages_);
   visitor->Trace(client_);

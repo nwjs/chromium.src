@@ -22,7 +22,7 @@
 #include "components/gwp_asan/common/pack_stack_trace.h"
 
 #if defined(OS_ANDROID)
-#include "components/crash/content/app/crashpad.h"  // nogncheck
+#include "components/crash/core/app/crashpad.h"  // nogncheck
 #endif
 
 #if defined(OS_MACOSX)
@@ -347,8 +347,9 @@ bool GuardedPageAllocator::ReserveSlotAndMetadata(
     if (!oom_hit_) {
       if (++consecutive_failed_allocations_ == kOutOfMemoryCount) {
         oom_hit_ = true;
+        size_t allocations = total_allocations_ - kOutOfMemoryCount;
         base::AutoUnlock unlock(lock_);
-        std::move(oom_callback_).Run(total_allocations_ - kOutOfMemoryCount);
+        std::move(oom_callback_).Run(allocations);
       }
     }
     return false;

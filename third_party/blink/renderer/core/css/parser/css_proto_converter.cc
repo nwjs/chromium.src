@@ -38,7 +38,6 @@ const std::string Converter::kPseudoLookupTable[] = {
     "-internal-spatial-navigation-focus",
     "-internal-video-persistent",
     "-internal-video-persistent-ancestor",
-    "-internal-xr-immersive-dom-overlay",
     "-webkit-any-link",
     "-webkit-autofill",
     "-webkit-drag",
@@ -121,6 +120,7 @@ const std::string Converter::kPseudoLookupTable[] = {
     "nth-last-of-type",
     "nth-of-type",
     "slotted",
+    "xr-overlay",
     "INVALID_PSEUDO_VALUE"};
 
 const std::string Converter::kMediaTypeLookupTable[] = {
@@ -956,6 +956,8 @@ const std::string Converter::kValueLookupTable[] = {
     "smooth",
     "jump-start",
     "no-drag",
+    "jis-b5",
+    "jis-b4",
     "INVALID_VALUE",
 };
 

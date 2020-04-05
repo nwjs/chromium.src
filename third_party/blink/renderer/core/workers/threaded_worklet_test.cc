@@ -192,21 +192,22 @@ class ThreadedWorkletMessagingProxyForTest
   ~ThreadedWorkletMessagingProxyForTest() override = default;
 
   void Start() {
-    Document* document = To<Document>(GetExecutionContext());
+    Document* document = Document::From(GetExecutionContext());
     std::unique_ptr<Vector<char>> cached_meta_data = nullptr;
     WorkerClients* worker_clients = nullptr;
     std::unique_ptr<WorkerSettings> worker_settings = nullptr;
     InitializeWorkerThread(
         std::make_unique<GlobalScopeCreationParams>(
-            document->Url(), mojom::ScriptType::kModule,
-            OffMainThreadWorkerScriptFetchOption::kEnabled, "threaded_worklet",
-            document->UserAgent(), nullptr /* web_worker_fetch_context */,
+            document->Url(), mojom::blink::ScriptType::kModule,
+            "threaded_worklet", document->UserAgent(),
+            document->GetFrame()->Loader().UserAgentMetadata(),
+            nullptr /* web_worker_fetch_context */,
             document->GetContentSecurityPolicy()->Headers(),
             document->GetReferrerPolicy(), document->GetSecurityOrigin(),
             document->IsSecureContext(), document->GetHttpsState(),
             worker_clients, nullptr /* content_settings_client */,
             document->GetSecurityContext().AddressSpace(),
-            OriginTrialContext::GetTokens(document).get(),
+            OriginTrialContext::GetTokens(document->ToExecutionContext()).get(),
             base::UnguessableToken::Create(), std::move(worker_settings),
             kV8CacheOptionsDefault,
             MakeGarbageCollected<WorkletModuleResponsesMap>()),
@@ -234,7 +235,7 @@ class ThreadedWorkletTest : public testing::Test {
 
     messaging_proxy_ =
         MakeGarbageCollected<ThreadedWorkletMessagingProxyForTest>(
-            &page_->GetDocument());
+            page_->GetDocument().ToExecutionContext());
     ThreadedWorkletThreadForTest::EnsureSharedBackingThread();
   }
 

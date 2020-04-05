@@ -5,6 +5,8 @@
 #ifndef CC_TEST_FAKE_COMPOSITOR_FRAME_REPORTING_CONTROLLER_H_
 #define CC_TEST_FAKE_COMPOSITOR_FRAME_REPORTING_CONTROLLER_H_
 
+#include <vector>
+
 #include "cc/metrics/compositor_frame_reporting_controller.h"
 
 namespace viz {
@@ -19,15 +21,14 @@ namespace cc {
 class FakeCompositorFrameReportingController
     : public CompositorFrameReportingController {
  public:
-  explicit FakeCompositorFrameReportingController(
-      bool is_single_threaded = false);
+  FakeCompositorFrameReportingController();
 
   FakeCompositorFrameReportingController(
       const FakeCompositorFrameReportingController& controller) = delete;
   FakeCompositorFrameReportingController& operator=(
       const FakeCompositorFrameReportingController& controller) = delete;
 
-  void WillBeginMainFrame(const viz::BeginFrameId& id) override;
+  void WillBeginMainFrame(const viz::BeginFrameArgs& args) override;
   void BeginMainFrameAborted(const viz::BeginFrameId& id) override;
   void WillCommit() override;
   void DidCommit() override;
@@ -36,7 +37,8 @@ class FakeCompositorFrameReportingController
   void DidSubmitCompositorFrame(
       uint32_t frame_token,
       const viz::BeginFrameId& current_frame_id,
-      const viz::BeginFrameId& last_activated_frame_id) override;
+      const viz::BeginFrameId& last_activated_frame_id,
+      EventMetricsSet events_metrics) override;
   void DidPresentCompositorFrame(
       uint32_t frame_token,
       const viz::FrameTimingDetails& details) override;

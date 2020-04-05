@@ -35,7 +35,9 @@
 #include "third_party/blink/renderer/core/dom/shadow_root.h"
 #include "third_party/blink/renderer/core/editing/frame_selection.h"
 #include "third_party/blink/renderer/core/events/before_text_inserted_event.h"
+#include "third_party/blink/renderer/core/events/drag_event.h"
 #include "third_party/blink/renderer/core/events/keyboard_event.h"
+#include "third_party/blink/renderer/core/events/mouse_event.h"
 #include "third_party/blink/renderer/core/events/text_event.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/html/forms/form_data.h"
@@ -232,12 +234,12 @@ void TextFieldInputType::ForwardEvent(Event& event) {
   // input element.
   if (GetElement().GetLayoutObject() &&
       !GetElement().GetForceReattachLayoutTree() &&
-      (event.IsMouseEvent() || event.IsDragEvent() ||
+      (IsA<MouseEvent>(event) || IsA<DragEvent>(event) ||
        event.HasInterface(event_interface_names::kWheelEvent) ||
        event.type() == event_type_names::kBlur ||
        event.type() == event_type_names::kFocus)) {
-    LayoutTextControlSingleLine* layout_text_control =
-        ToLayoutTextControlSingleLine(GetElement().GetLayoutObject());
+    auto* layout_text_control =
+        To<LayoutTextControlSingleLine>(GetElement().GetLayoutObject());
     if (event.type() == event_type_names::kBlur) {
       if (LayoutBox* inner_editor_layout_object =
               GetElement().InnerEditorElement()->GetLayoutBox()) {
@@ -246,8 +248,7 @@ void TextFieldInputType::ForwardEvent(Event& event) {
           if (PaintLayerScrollableArea* inner_scrollable_area =
                   inner_layer->GetScrollableArea()) {
             inner_scrollable_area->SetScrollOffset(
-                ScrollOffset(0, 0),
-                mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
+                ScrollOffset(0, 0), mojom::blink::ScrollType::kProgrammatic);
           }
         }
       }
@@ -273,6 +274,16 @@ bool TextFieldInputType::ShouldSubmitImplicitly(const Event& event) {
           event.HasInterface(event_interface_names::kTextEvent) &&
           To<TextEvent>(event).data() == "\n") ||
          InputTypeView::ShouldSubmitImplicitly(event);
+}
+
+void TextFieldInputType::CustomStyleForLayoutObject(ComputedStyle& style) {
+  // The flag is necessary in order that a text field <input> with non-'visible'
+  // overflow property doesn't change its baseline.
+  style.SetShouldIgnoreOverflowPropertyForInlineBlockBaseline();
+}
+
+bool TextFieldInputType::TypeShouldForceLegacyLayout() const {
+  return true;
 }
 
 LayoutObject* TextFieldInputType::CreateLayoutObject(const ComputedStyle&,
@@ -437,7 +448,8 @@ void TextFieldInputType::HandleBeforeTextInsertedEvent(
   if (GetElement().IsFocused()) {
     // TODO(editing-dev): Use of UpdateStyleAndLayout
     // needs to be audited.  See http://crbug.com/590369 for more details.
-    GetElement().GetDocument().UpdateStyleAndLayout();
+    GetElement().GetDocument().UpdateStyleAndLayout(
+        DocumentUpdateReason::kEditing);
 
     selection_length = GetElement()
                            .GetDocument()
@@ -579,6 +591,10 @@ void TextFieldInputType::SpinButtonDidReleaseMouseCapture(
     SpinButtonElement::EventDispatch event_dispatch) {
   if (event_dispatch == SpinButtonElement::kEventDispatchAllowed)
     GetElement().DispatchFormControlChangeEvent();
+}
+
+String TextFieldInputType::RawValue() const {
+  return GetElement().InnerEditorElement()->innerText();
 }
 
 }  // namespace blink

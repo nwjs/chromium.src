@@ -19,6 +19,8 @@ These builders must pass before a CL may land.
 
 * [android-marshmallow-arm64-rel](https://ci.chromium.org/p/chromium/builders/try/android-marshmallow-arm64-rel) ([definition](https://cs.chromium.org/search?q=package:%5Echromium$+file:/cq.star$+-file:/beta/+-file:/stable/+android-marshmallow-arm64-rel)) ([matching builders](https://cs.chromium.org/search?q=+file:trybots.py+android-marshmallow-arm64-rel))
 
+* [android-pie-arm64-rel](https://ci.chromium.org/p/chromium/builders/try/android-pie-arm64-rel) ([definition](https://cs.chromium.org/search?q=package:%5Echromium$+file:/cq.star$+-file:/beta/+-file:/stable/+android-pie-arm64-rel)) ([matching builders](https://cs.chromium.org/search?q=+file:trybots.py+android-pie-arm64-rel))
+
 * [android_compile_dbg](https://ci.chromium.org/p/chromium/builders/try/android_compile_dbg) ([definition](https://cs.chromium.org/search?q=package:%5Echromium$+file:/cq.star$+-file:/beta/+-file:/stable/+android_compile_dbg)) ([matching builders](https://cs.chromium.org/search?q=+file:trybots.py+android_compile_dbg))
 
 * [android_cronet](https://ci.chromium.org/p/chromium/builders/try/android_cronet) ([definition](https://cs.chromium.org/search?q=package:%5Echromium$+file:/cq.star$+-file:/beta/+-file:/stable/+android_cronet)) ([matching builders](https://cs.chromium.org/search?q=+file:trybots.py+android_cronet))
@@ -32,6 +34,8 @@ These builders must pass before a CL may land.
 * [chromeos-arm-generic-rel](https://ci.chromium.org/p/chromium/builders/try/chromeos-arm-generic-rel) ([definition](https://cs.chromium.org/search?q=package:%5Echromium$+file:/cq.star$+-file:/beta/+-file:/stable/+chromeos-arm-generic-rel)) ([matching builders](https://cs.chromium.org/search?q=+file:trybots.py+chromeos-arm-generic-rel))
 
 * [chromium_presubmit](https://ci.chromium.org/p/chromium/builders/try/chromium_presubmit) ([definition](https://cs.chromium.org/search?q=package:%5Echromium$+file:/cq.star$+-file:/beta/+-file:/stable/+chromium_presubmit)) ([matching builders](https://cs.chromium.org/search?q=+file:trybots.py+chromium_presubmit))
+
+* [fuchsia-x64-cast](https://ci.chromium.org/p/chromium/builders/try/fuchsia-x64-cast) ([definition](https://cs.chromium.org/search?q=package:%5Echromium$+file:/cq.star$+-file:/beta/+-file:/stable/+fuchsia-x64-cast)) ([matching builders](https://cs.chromium.org/search?q=+file:trybots.py+fuchsia-x64-cast))
 
 * [fuchsia_arm64](https://ci.chromium.org/p/chromium/builders/try/fuchsia_arm64) ([definition](https://cs.chromium.org/search?q=package:%5Echromium$+file:/cq.star$+-file:/beta/+-file:/stable/+fuchsia_arm64)) ([matching builders](https://cs.chromium.org/search?q=+file:trybots.py+fuchsia_arm64))
 
@@ -213,11 +217,6 @@ builder.
   Path regular expressions:
   * [`//chromecast/.+`](https://cs.chromium.org/chromium/src/chromecast/)
 
-* [fuchsia-x64-cast](https://ci.chromium.org/p/chromium/builders/try/fuchsia-x64-cast) ([definition](https://cs.chromium.org/search?q=package:%5Echromium$+file:/cq.star$+-file:/beta/+-file:/stable/+fuchsia-x64-cast)) ([matching builders](https://cs.chromium.org/search?q=+file:trybots.py+fuchsia-x64-cast))
-
-  Path regular expressions:
-  * [`//chromecast/.+`](https://cs.chromium.org/chromium/src/chromecast/)
-
 * [ios-simulator-cronet](https://ci.chromium.org/p/chromium/builders/try/ios-simulator-cronet) ([definition](https://cs.chromium.org/search?q=package:%5Echromium$+file:/cq.star$+-file:/beta/+-file:/stable/+ios-simulator-cronet)) ([matching builders](https://cs.chromium.org/search?q=+file:trybots.py+ios-simulator-cronet))
 
   Path regular expressions:
@@ -252,8 +251,7 @@ builder.
   * [`//third_party/blink/renderer/core/paint/.+`](https://cs.chromium.org/chromium/src/third_party/blink/renderer/core/paint/)
   * [`//third_party/blink/renderer/core/svg/.+`](https://cs.chromium.org/chromium/src/third_party/blink/renderer/core/svg/)
   * [`//third_party/blink/renderer/platform/graphics/.+`](https://cs.chromium.org/chromium/src/third_party/blink/renderer/platform/graphics/)
-  * [`//third_party/blink/web_tests/FlagExpectations/composite-after-paint`](https://cs.chromium.org/chromium/src/third_party/blink/web_tests/FlagExpectations/composite-after-paint)
-  * [`//third_party/blink/web_tests/flag-specific/composite-after-paint/.+`](https://cs.chromium.org/chromium/src/third_party/blink/web_tests/flag-specific/composite-after-paint/)
+  * [`//third_party/blink/web_tests/.+`](https://cs.chromium.org/chromium/src/third_party/blink/web_tests/)
 
 * [linux_layout_tests_layout_ng_disabled](https://ci.chromium.org/p/chromium/builders/try/linux_layout_tests_layout_ng_disabled) ([definition](https://cs.chromium.org/search?q=package:%5Echromium$+file:/cq.star$+-file:/beta/+-file:/stable/+linux_layout_tests_layout_ng_disabled)) ([matching builders](https://cs.chromium.org/search?q=+file:trybots.py+linux_layout_tests_layout_ng_disabled))
 
@@ -332,6 +330,12 @@ as required builders.
 
 * [fuchsia-compile-x64-dbg](https://ci.chromium.org/p/chromium/builders/try/fuchsia-compile-x64-dbg) ([definition](https://cs.chromium.org/search?q=package:%5Echromium$+file:/cq.star$+-file:/beta/+-file:/stable/+fuchsia-compile-x64-dbg)) ([matching builders](https://cs.chromium.org/search?q=+file:trybots.py+fuchsia-compile-x64-dbg))
   * Experiment percentage: 50
+
+* [linux-ozone-x11-and-wayland-rel](https://ci.chromium.org/p/chromium/builders/try/linux-ozone-x11-and-wayland-rel) ([definition](https://cs.chromium.org/search?q=package:%5Echromium$+file:/cq.star$+-file:/beta/+-file:/stable/+linux-ozone-x11-and-wayland-rel)) ([matching builders](https://cs.chromium.org/search?q=+file:trybots.py+linux-ozone-x11-and-wayland-rel))
+  * Experiment percentage: 1
+
+* [mac-coverage-rel](https://ci.chromium.org/p/chromium/builders/try/mac-coverage-rel) ([definition](https://cs.chromium.org/search?q=package:%5Echromium$+file:/cq.star$+-file:/beta/+-file:/stable/+mac-coverage-rel)) ([matching builders](https://cs.chromium.org/search?q=+file:trybots.py+mac-coverage-rel))
+  * Experiment percentage: 3
 
 * [win10_chromium_x64_coverage_rel_ng](https://ci.chromium.org/p/chromium/builders/try/win10_chromium_x64_coverage_rel_ng) ([definition](https://cs.chromium.org/search?q=package:%5Echromium$+file:/cq.star$+-file:/beta/+-file:/stable/+win10_chromium_x64_coverage_rel_ng)) ([matching builders](https://cs.chromium.org/search?q=+file:trybots.py+win10_chromium_x64_coverage_rel_ng))
   * Experiment percentage: 3

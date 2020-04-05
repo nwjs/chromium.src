@@ -114,12 +114,6 @@ const char kBreakpadNoDelayInitialUploadDescription[] =
     "disabled, initial upload is delayed until deferred initialization. This "
     "does not affect recovery mode.";
 
-const char kBrowserContainerKeepsContentViewName[] =
-    "Browser Container retains the content view";
-const char kBrowserContainerKeepsContentViewDescription[] =
-    "When enable, the browser container keeps the content view in the view "
-    "hierarchy, to avoid WKWebView from being unloaded from the process.";
-
 const char kClearSyncedDataName[] = "Clear Synced Data on Sign Out";
 const char kClearSyncedDataDescription[] =
     "When enabled users signed in with a non-managed account will be "
@@ -211,11 +205,6 @@ const char kEnableClipboardProviderImageSuggestionsName[] =
 const char kEnableClipboardProviderImageSuggestionsDescription[] =
     "Enable suggesting a search for the image copied to the clipboard";
 
-const char kEnableClipboardProviderTextSuggestionsName[] =
-    "Enable copied text provider";
-const char kEnableClipboardProviderTextSuggestionsDescription[] =
-    "Enable suggesting a search for text copied to the clipboard";
-
 const char kUseJSForErrorPageName[] = "Enable new error page workflow";
 const char kUseJSForErrorPageDescription[] =
     "Use JavaScript for the error pages";
@@ -224,9 +213,10 @@ const char kEnablePersistentDownloadsName[] = "Enable persistent downloads";
 const char kEnablePersistentDownloadsDescription[] =
     "Enables the new, experimental implementation of persistent downloads";
 
-const char kEnableSyncUSSPasswordsName[] = "Enable USS for passwords sync";
-const char kEnableSyncUSSPasswordsDescription[] =
-    "Enables the new, experimental implementation of password sync";
+const char kEnableSyncTrustedVaultName[] =
+    "Enable trusted vault sync passphrase type";
+const char kEnableSyncTrustedVaultDescription[] =
+    "Enables the new, experimental passphrase type for sync data";
 
 const char kEnableSyncUSSNigoriName[] = "Enable USS for sync encryption keys";
 const char kEnableSyncUSSNigoriDescription[] =
@@ -271,6 +261,12 @@ const char kInProductHelpDemoModeDescription[] =
     "an individual promotion causes that promotion but no other promotions to "
     "occur.";
 
+const char kIOSLookalikeUrlNavigationSuggestionsUIName[] =
+    "Lookalike URL Navigation Suggestions UI";
+const char kIOSLookalikeUrlNavigationSuggestionsUIDescription[] =
+    "When enabled, an interstitial will be shown on navigations to lookalike "
+    "URLs.";
+
 const char kLockBottomToolbarName[] = "Lock bottom toolbar";
 const char kLockBottomToolbarDescription[] =
     "When enabled, the bottom toolbar will not get collapsed when scrolling "
@@ -310,22 +306,43 @@ const char kOmniboxOnDeviceHeadSuggestionsDescription[] =
     "Shows Google head non personalized search suggestions provided by a "
     "compact on device model";
 
+const char kOmniboxOnFocusSuggestionsName[] = "Omnibox on-focus suggestions";
+const char kOmniboxOnFocusSuggestionsDescription[] =
+    "Configures Omnibox on-focus suggestions - suggestions displayed on-focus "
+    "before the user has typed any input. This provides overrides for the "
+    "default suggestion locations.";
+
+const char kOpenDownloadsInFilesAppName[] = "Open Downloads in Files.app";
+const char kOpenDownloadsInFilesAppDescription[] =
+    "Allows user to open Files.app after pressing the 'Downloads' button from "
+    "the tools menu or after pressing the 'Open in downloads' button invoked "
+    "by pressing 'Open In...' after download completes.";
+
+const char kPageInfoChromeGuardName[] = "Third-party cookie blocking UI";
+const char kPageInfoChromeGuardDescription[] =
+    "Allows user to manage third-party cookie blocking from the page info";
+
 const char kPageInfoRefactoringName[] = "New design of the page info";
 const char kPageInfoRefactoringDescription[] =
     "Uses the new design for the page security info.";
+
+const char kQRCodeGenerationName[] = "QR Code Generation";
+const char kQRCodeGenerationDescription[] =
+    "Allows the generation of a QR code for a page.";
 
 const char kReloadSadTabName[] = "Reload SadTab automatically";
 const char kReloadSadTabDescription[] =
     "When enabled, the first time the renderer crashes, the page is reloaded "
     "instead of showing the SadTab";
 
+const char kSafeBrowsingAvailableName[] = "Make Safe Browsing available";
+const char kSafeBrowsingAvailableDescription[] =
+    "When enabled, navigation URLs are compared to Safe Browsing blocklists, "
+    "subject to an opt-out preference.";
+
 const char kSaveCardInfobarMessagesUIName[] = "Save Card Infobar Messages UI";
 const char kSaveCardInfobarMessagesUIDescription[] =
     "When enabled, Save Card Infobar uses the new Messages UI.";
-
-const char kSearchIconToggleName[] = "Change the icon for the search button";
-const char kSearchIconToggleDescription[] =
-    "Different icons for the search button.";
 
 const char kSendTabToSelfName[] = "Send tab to self";
 const char kSendTabToSelfDescription[] =
@@ -367,6 +384,11 @@ const char kForceStartupSigninPromoDescription[] =
     "When enabled, the startup sign-in promo is always displayed when starting "
     "Chrome.";
 
+const char kNewSigninArchitectureName[] = "Enable new sign-in architecture";
+const char kNewSigninArchitectureDescription[] =
+    "When enabled uses the new sign-in architecture based on core Bling "
+    "design paradigms.";
+
 const char kSyncDeviceInfoInTransportModeName[] =
     "Enable syncing DeviceInfo in transport-only sync mode.";
 const char kSyncDeviceInfoInTransportModeDescription[] =
@@ -382,32 +404,14 @@ const char kToolbarContainerDescription[] =
     "When enabled, the toolbars and their fullscreen animations will be "
     "managed by the toolbar container coordinator rather than BVC.";
 
-const char kToolbarNewTabButtonName[] =
-    "Enable New Tab button in the bottom toolbar";
-const char kToolbarNewTabButtonDescription[] =
-    "When enabled, the bottom toolbar middle button opens a new tab";
-
 const char kTranslateInfobarMessagesUIName[] =
     "Enable Translate Infobar Messages UI";
 const char kTranslateInfobarMessagesUIDescription[] =
     "When enabled, the Translate Infobar uses the new Messages UI.";
 
-const char kUseDdljsonApiName[] = "Use new ddljson API for Doodles";
-const char kUseDdljsonApiDescription[] =
-    "Enables the new ddljson API to fetch Doodles for the NTP.";
-
-const char kUseWKWebViewLoadingName[] =
-    "Use WKWebView.loading for WebState::IsLoading";
-const char kUseWKWebViewLoadingDescription[] =
-    "Enables using WKWebView.loading for WebState::IsLoading";
-
 const char kWalletServiceUseSandboxName[] = "Use Google Payments sandbox";
 const char kWalletServiceUseSandboxDescription[] =
     "Uses the sandbox service for Google Payments API calls.";
-
-const char kWebClearBrowsingDataName[] = "Web-API for browsing data";
-const char kWebClearBrowsingDataDescription[] =
-    "When enabled the Clear Browsing Data feature is using the web API.";
 
 const char kWebPageTextAccessibilityName[] =
     "Enable text accessibility in web pages";

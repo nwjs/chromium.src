@@ -81,6 +81,14 @@ enum class NGBaselineAlgorithmType {
   kInlineBlock
 };
 
+// Some layout algorithms have multiple layout passes. Between passes they
+// typically have different results which we need to cache separately for
+// performance reasons.
+//
+// This enum gives the caching logic a hint into which cache "slot" it should
+// store a result in.
+enum class NGCacheSlot { kLayout, kMeasure };
+
 // The NGConstraintSpace represents a set of constraints and available space
 // which a layout algorithm may produce a NGFragment within.
 class CORE_EXPORT NGConstraintSpace final {
@@ -377,6 +385,11 @@ class CORE_EXPORT NGConstraintSpace final {
         bitfields_.baseline_algorithm_type);
   }
 
+  // Which cache slot the output layout result should be stored in.
+  NGCacheSlot CacheSlot() const {
+    return static_cast<NGCacheSlot>(bitfields_.cache_slot);
+  }
+
   // Some layout modes “stretch” their children to a fixed size (e.g. flex,
   // grid). These flags represented whether a layout needs to produce a
   // fragment that satisfies a fixed constraint in the inline and block
@@ -545,6 +558,14 @@ class CORE_EXPORT NGConstraintSpace final {
     return HasRareData() ? rare_data_->ClearanceOffset() : LayoutUnit::Min();
   }
 
+  bool ForceTruncateAtLineClamp() const {
+    return HasRareData() ? rare_data_->ForceTruncateAtLineClamp() : true;
+  }
+
+  base::Optional<int> LinesUntilClamp() const {
+    return HasRareData() ? rare_data_->LinesUntilClamp() : base::nullopt;
+  }
+
   // Return true if the two constraint spaces are similar enough that it *may*
   // be possible to skip re-layout. If true is returned, the caller is expected
   // to verify that any constraint space size (available size, percentage size,
@@ -620,9 +641,6 @@ class CORE_EXPORT NGConstraintSpace final {
  private:
   friend class NGConstraintSpaceBuilder;
 
-  explicit NGConstraintSpace(WritingMode writing_mode)
-      : bfc_offset_(), bitfields_(writing_mode) {}
-
   // This struct defines all of the inputs to layout which we consider rare.
   // Primarily this is:
   //  - Percentage resolution sizes which differ from the available size or
@@ -638,6 +656,16 @@ class CORE_EXPORT NGConstraintSpace final {
     USING_FAST_MALLOC(RareData);
 
    public:
+    // |RareData| unions different types of data which are mutually exclusive.
+    // They fall into the following categories:
+    enum DataUnionType {
+      kNone,
+      kBlockData,      // An inflow block which doesn't establish a new FC.
+      kTableCellData,  // A table-cell (display: table-cell).
+      kCustomData,     // A custom layout (display: layout(foo)).
+      kStretchData     // The target inline/block stretch sizes for MathML.
+    };
+
     explicit RareData(const NGBfcOffset bfc_offset)
         : bfc_offset(bfc_offset),
           data_union_type(static_cast<unsigned>(kNone)),
@@ -704,33 +732,6 @@ class CORE_EXPORT NGConstraintSpace final {
       }
     }
 
-    // |RareData| unions different types of data which are mutually exclusive.
-    // They fall into the following categories:
-    enum DataUnionType {
-      kNone,
-      kBlockData,      // An inflow block which doesn't establish a new FC.
-      kTableCellData,  // A table-cell (display: table-cell).
-      kCustomData,     // A custom layout (display: layout(foo)).
-      kStretchData     // The target inline/block stretch sizes for MathML.
-    };
-
-    LogicalSize percentage_resolution_size;
-    LayoutUnit replaced_percentage_resolution_block_size;
-    NGBfcOffset bfc_offset;
-
-    LayoutUnit fragmentainer_block_size = kIndefiniteSize;
-    LayoutUnit fragmentainer_offset_at_bfc;
-
-    unsigned data_union_type : 3;
-
-    unsigned is_restricted_block_size_table_cell : 1;
-    unsigned hide_table_cell_if_empty : 1;
-
-    unsigned block_direction_fragmentation_type : 2;
-    unsigned is_inside_balanced_columns : 1;
-    unsigned is_in_column_bfc : 1;
-    unsigned early_break_appeal : 2;  // NGBreakAppeal
-
     bool MaySkipLayout(const RareData& other) const {
       if (fragmentainer_block_size != other.fragmentainer_block_size ||
           fragmentainer_offset_at_bfc != other.fragmentainer_offset_at_bfc ||
@@ -749,7 +750,7 @@ class CORE_EXPORT NGConstraintSpace final {
         return true;
 
       if (data_union_type == kBlockData)
-        return true;
+        return block_data_.MaySkipLayout(other.block_data_);
 
       if (data_union_type == kTableCellData)
         return table_cell_data_.MaySkipLayout(other.table_cell_data_);
@@ -775,7 +776,7 @@ class CORE_EXPORT NGConstraintSpace final {
         return true;
 
       if (data_union_type == kBlockData)
-        return true;
+        return block_data_.IsInitialForMaySkipLayout();
 
       if (data_union_type == kTableCellData)
         return table_cell_data_.IsInitialForMaySkipLayout();
@@ -823,6 +824,25 @@ class CORE_EXPORT NGConstraintSpace final {
 
     void SetClearanceOffset(LayoutUnit clearance_offset) {
       EnsureBlockData()->clearance_offset = clearance_offset;
+    }
+
+    base::Optional<int> LinesUntilClamp() const {
+      return data_union_type == kBlockData ? block_data_.lines_until_clamp
+                                           : base::nullopt;
+    }
+
+    void SetLinesUntilClamp(int value) {
+      EnsureBlockData()->lines_until_clamp = value;
+    }
+
+    int ForceTruncateAtLineClamp() const {
+      return data_union_type == kBlockData
+                 ? block_data_.force_truncate_at_line_clamp
+                 : true;
+    }
+
+    void SetForceTruncateAtLineClamp(bool value) {
+      EnsureBlockData()->force_truncate_at_line_clamp = value;
     }
 
     NGBoxStrut TableCellBorders() const {
@@ -895,28 +915,45 @@ class CORE_EXPORT NGConstraintSpace final {
           target_stretch_descent_size;
     }
 
+    LogicalSize percentage_resolution_size;
+    LayoutUnit replaced_percentage_resolution_block_size;
+    NGBfcOffset bfc_offset;
+
+    LayoutUnit fragmentainer_block_size = kIndefiniteSize;
+    LayoutUnit fragmentainer_offset_at_bfc;
+
+    unsigned data_union_type : 3;
+
+    unsigned is_restricted_block_size_table_cell : 1;
+    unsigned hide_table_cell_if_empty : 1;
+
+    unsigned block_direction_fragmentation_type : 2;
+    unsigned is_inside_balanced_columns : 1;
+    unsigned is_in_column_bfc : 1;
+    unsigned early_break_appeal : 2;  // NGBreakAppeal
    private:
     struct BlockData {
+      bool MaySkipLayout(const BlockData& other) const {
+        return lines_until_clamp == other.lines_until_clamp &&
+               force_truncate_at_line_clamp ==
+                   other.force_truncate_at_line_clamp;
+      }
+
+      bool IsInitialForMaySkipLayout() const {
+        return !lines_until_clamp.has_value() && force_truncate_at_line_clamp;
+      }
+
       NGMarginStrut margin_strut;
       base::Optional<LayoutUnit> optimistic_bfc_block_offset;
       base::Optional<LayoutUnit> forced_bfc_block_offset;
       LayoutUnit clearance_offset = LayoutUnit::Min();
+      base::Optional<int> lines_until_clamp;
+      // If true and |lines_until_clamp| == 1, then the line should be truncated
+      // regardless of whether there is more text that follows on the line.
+      bool force_truncate_at_line_clamp = true;
     };
 
-    BlockData* EnsureBlockData() {
-      DCHECK(data_union_type == kNone || data_union_type == kBlockData);
-      if (data_union_type != kBlockData) {
-        data_union_type = kBlockData;
-        new (&block_data_) BlockData();
-      }
-      return &block_data_;
-    }
-
     struct TableCellData {
-      NGBoxStrut table_cell_borders;
-      LayoutUnit table_cell_intrinsic_padding_block_start;
-      LayoutUnit table_cell_intrinsic_padding_block_end;
-
       bool MaySkipLayout(const TableCellData& other) const {
         return table_cell_borders == other.table_cell_borders &&
                table_cell_intrinsic_padding_block_start ==
@@ -930,16 +967,11 @@ class CORE_EXPORT NGConstraintSpace final {
                table_cell_intrinsic_padding_block_start == LayoutUnit() &&
                table_cell_intrinsic_padding_block_end == LayoutUnit();
       }
-    };
 
-    TableCellData* EnsureTableCellData() {
-      DCHECK(data_union_type == kNone || data_union_type == kTableCellData);
-      if (data_union_type != kTableCellData) {
-        data_union_type = kTableCellData;
-        new (&table_cell_data_) TableCellData();
-      }
-      return &table_cell_data_;
-    }
+      NGBoxStrut table_cell_borders;
+      LayoutUnit table_cell_intrinsic_padding_block_start;
+      LayoutUnit table_cell_intrinsic_padding_block_end;
+    };
 
     struct CustomData {
       scoped_refptr<SerializedScriptValue> data;
@@ -951,20 +983,7 @@ class CORE_EXPORT NGConstraintSpace final {
       bool IsInitialForMaySkipLayout() const { return !data; }
     };
 
-    CustomData* EnsureCustomData() {
-      DCHECK(data_union_type == kNone || data_union_type == kCustomData);
-      if (data_union_type != kCustomData) {
-        data_union_type = kCustomData;
-        new (&custom_data_) CustomData();
-      }
-      return &custom_data_;
-    }
-
     struct StretchData {
-      LayoutUnit target_stretch_inline_size = kIndefiniteSize;
-      LayoutUnit target_stretch_ascent_size = kIndefiniteSize;
-      LayoutUnit target_stretch_descent_size = kIndefiniteSize;
-
       bool MaySkipLayout(const StretchData& other) const {
         return target_stretch_inline_size == other.target_stretch_inline_size &&
                target_stretch_ascent_size == other.target_stretch_ascent_size &&
@@ -976,7 +995,38 @@ class CORE_EXPORT NGConstraintSpace final {
                target_stretch_ascent_size == kIndefiniteSize &&
                target_stretch_descent_size == kIndefiniteSize;
       }
+
+      LayoutUnit target_stretch_inline_size = kIndefiniteSize;
+      LayoutUnit target_stretch_ascent_size = kIndefiniteSize;
+      LayoutUnit target_stretch_descent_size = kIndefiniteSize;
     };
+
+    BlockData* EnsureBlockData() {
+      DCHECK(data_union_type == kNone || data_union_type == kBlockData);
+      if (data_union_type != kBlockData) {
+        data_union_type = kBlockData;
+        new (&block_data_) BlockData();
+      }
+      return &block_data_;
+    }
+
+    TableCellData* EnsureTableCellData() {
+      DCHECK(data_union_type == kNone || data_union_type == kTableCellData);
+      if (data_union_type != kTableCellData) {
+        data_union_type = kTableCellData;
+        new (&table_cell_data_) TableCellData();
+      }
+      return &table_cell_data_;
+    }
+
+    CustomData* EnsureCustomData() {
+      DCHECK(data_union_type == kNone || data_union_type == kCustomData);
+      if (data_union_type != kCustomData) {
+        data_union_type = kCustomData;
+        new (&custom_data_) CustomData();
+      }
+      return &custom_data_;
+    }
 
     StretchData* EnsureStretchData() {
       DCHECK(data_union_type == kNone || data_union_type == kStretchData);
@@ -1019,6 +1069,7 @@ class CORE_EXPORT NGConstraintSpace final {
           needs_baseline(false),
           baseline_algorithm_type(
               static_cast<unsigned>(NGBaselineAlgorithmType::kFirstLine)),
+          cache_slot(static_cast<unsigned>(NGCacheSlot::kLayout)),
           is_shrink_to_fit(false),
           is_fixed_inline_size(false),
           is_fixed_block_size(false),
@@ -1072,6 +1123,8 @@ class CORE_EXPORT NGConstraintSpace final {
     unsigned needs_baseline : 1;
     unsigned baseline_algorithm_type : 1;
 
+    unsigned cache_slot : 1;
+
     // Size constraints.
     unsigned is_shrink_to_fit : 1;
     unsigned is_fixed_inline_size : 1;
@@ -1083,6 +1136,9 @@ class CORE_EXPORT NGConstraintSpace final {
     unsigned percentage_block_storage : 2;            // NGPercentageStorage
     unsigned replaced_percentage_block_storage : 2;   // NGPercentageStorage
   };
+
+  explicit NGConstraintSpace(WritingMode writing_mode)
+      : bfc_offset_(), bitfields_(writing_mode) {}
 
   inline bool HasRareData() const { return bitfields_.has_rare_data; }
 

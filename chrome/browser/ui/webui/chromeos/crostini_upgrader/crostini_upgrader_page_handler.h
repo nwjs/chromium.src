@@ -33,11 +33,11 @@ class CrostiniUpgraderPageHandler
       mojo::PendingRemote<chromeos::crostini_upgrader::mojom::Page>
           pending_page,
       base::OnceClosure close_dialog_callback,
-      base::OnceClosure launch_closure);
+      base::OnceCallback<void(bool)> launch_callback);
   ~CrostiniUpgraderPageHandler() override;
 
   // chromeos::crostini_upgrader::mojom::PageHandler:
-  void Backup() override;
+  void Backup(bool show_file_chooser) override;
   void StartPrechecks() override;
   void Upgrade() override;
   void Restore() override;
@@ -47,8 +47,9 @@ class CrostiniUpgraderPageHandler
   void Launch() override;
 
   // CrostiniUpgraderUIObserver
+  void OnBackupMaybeStarted(bool did_start) override;
   void OnBackupProgress(int percent) override;
-  void OnBackupSucceeded() override;
+  void OnBackupSucceeded(bool was_cancelled) override;
   void OnBackupFailed() override;
   void PrecheckStatus(chromeos::crostini_upgrader::mojom::UpgradePrecheckStatus
                           status) override;
@@ -68,7 +69,11 @@ class CrostiniUpgraderPageHandler
   mojo::Receiver<chromeos::crostini_upgrader::mojom::PageHandler> receiver_;
   mojo::Remote<chromeos::crostini_upgrader::mojom::Page> page_;
   base::OnceClosure close_dialog_callback_;
-  base::OnceClosure launch_closure_;
+  base::OnceCallback<void(bool)> launch_callback_;
+  // Will we need to restart the container as part of launch_callback?
+  // |restart_required_| is true unless the user cancels before starting the
+  // upgrade.
+  bool restart_required_ = true;
 
   base::WeakPtrFactory<CrostiniUpgraderPageHandler> weak_ptr_factory_{this};
 

@@ -12,7 +12,6 @@
 #include "base/metrics/histogram_macros.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
-#include "services/network/public/cpp/cross_origin_resource_policy.h"
 #include "services/network/public/cpp/features.h"
 #include "services/network/public/mojom/fetch_api.mojom-blink.h"
 #include "third_party/blink/public/mojom/devtools/console_message.mojom-blink.h"
@@ -25,9 +24,11 @@
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/fetch/body_stream_buffer.h"
 #include "third_party/blink/renderer/core/inspector/console_message.h"
+#include "third_party/blink/renderer/modules/service_worker/cross_origin_resource_policy_checker.h"
 #include "third_party/blink/renderer/modules/service_worker/service_worker_global_scope.h"
 #include "third_party/blink/renderer/modules/service_worker/wait_until_observer.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
+#include "third_party/blink/renderer/platform/heap/heap.h"
 #include "third_party/blink/renderer/platform/loader/fetch/bytes_consumer.h"
 #include "v8/include/v8.h"
 
@@ -176,7 +177,7 @@ class FetchLoaderClient final : public GarbageCollected<FetchLoaderClient>,
         std::move(body_stream_), std::move(callback_receiver_));
   }
 
-  void Trace(blink::Visitor* visitor) override {
+  void Trace(Visitor* visitor) override {
     FetchDataLoader::Client::Trace(visitor);
   }
 
@@ -199,10 +200,10 @@ class FetchLoaderClient final : public GarbageCollected<FetchLoaderClient>,
 void FetchRespondWithObserver::OnResponseRejected(
     ServiceWorkerResponseError error) {
   DCHECK(GetExecutionContext());
-  GetExecutionContext()->AddConsoleMessage(
-      ConsoleMessage::Create(mojom::ConsoleMessageSource::kJavaScript,
-                             mojom::ConsoleMessageLevel::kWarning,
-                             GetMessageForResponseError(error, request_url_)));
+  GetExecutionContext()->AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
+      mojom::ConsoleMessageSource::kJavaScript,
+      mojom::ConsoleMessageLevel::kWarning,
+      GetMessageForResponseError(error, request_url_)));
 
   // The default value of FetchAPIResponse's status is 0, which maps to a
   // network error.
@@ -306,14 +307,8 @@ void FetchRespondWithObserver::OnResponseFulfilled(
   // If Cross-Origin-Embedder-Policy is set to require-corp,
   // Cross-Origin-Resource-Policy verification should happen before passing the
   // response to the client.
-  if (base::FeatureList::IsEnabled(network::features::kCrossOriginIsolation)) {
-    base::Optional<std::string> corp_header_value;
-    WTF::String wtf_corp_header_value;
-    if (response->InternalHeaderList()->Get(
-            network::CrossOriginResourcePolicy::kHeaderName,
-            wtf_corp_header_value)) {
-      corp_header_value = wtf_corp_header_value.Utf8();
-    }
+  if (base::FeatureList::IsEnabled(
+          network::features::kCrossOriginEmbedderPolicy)) {
     // The service worker script must be in the same origin with the requestor,
     // which is a client of the service worker.
     //
@@ -321,10 +316,15 @@ void FetchRespondWithObserver::OnResponseFulfilled(
     // Hence we provide |initiator_origin| as |request_initiator_site_lock|.
     auto initiator_origin =
         url::Origin::Create(GURL(service_worker_global_scope->Url()));
-    if (network::CrossOriginResourcePolicy::VerifyByHeaderValue(
-            request_url_, initiator_origin, corp_header_value, request_mode_,
-            initiator_origin, requestor_coep_) !=
-        network::CrossOriginResourcePolicy::VerificationResult::kAllow) {
+    // |corp_checker_| could be nullptr when the request is for a main resource
+    // or the connection to the client which initiated the request is broken.
+    // CORP check isn't needed in both cases because a service worker should be
+    // in the same origin with the main resource, and the response to the broken
+    // connection won't reach to the client.
+    if (corp_checker_ &&
+        corp_checker_->IsBlocked(
+            url::Origin::Create(GURL(service_worker_global_scope->Url())),
+            request_mode_, *response)) {
       OnResponseRejected(ServiceWorkerResponseError::kDisallowedByCorp);
       return;
     }
@@ -390,7 +390,7 @@ void FetchRespondWithObserver::OnNoResponse() {
 FetchRespondWithObserver::FetchRespondWithObserver(
     ExecutionContext* context,
     int fetch_event_id,
-    network::mojom::blink::CrossOriginEmbedderPolicy requestor_coep,
+    base::WeakPtr<CrossOriginResourcePolicyChecker> corp_checker,
     const mojom::blink::FetchAPIRequest& request,
     WaitUntilObserver* observer)
     : RespondWithObserver(context, fetch_event_id, observer),
@@ -399,10 +399,10 @@ FetchRespondWithObserver::FetchRespondWithObserver(
       redirect_mode_(request.redirect_mode),
       frame_type_(request.frame_type),
       request_context_(request.request_context_type),
-      requestor_coep_(requestor_coep),
+      corp_checker_(std::move(corp_checker)),
       task_runner_(context->GetTaskRunner(TaskType::kNetworking)) {}
 
-void FetchRespondWithObserver::Trace(blink::Visitor* visitor) {
+void FetchRespondWithObserver::Trace(Visitor* visitor) {
   RespondWithObserver::Trace(visitor);
 }
 

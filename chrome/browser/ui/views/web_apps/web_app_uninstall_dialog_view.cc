@@ -15,8 +15,8 @@
 #include "chrome/browser/ui/native_window_tracker.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/chrome_typography.h"
-#include "chrome/browser/ui/views/extensions/web_app_info_image_source.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/web_apps/web_app_info_image_source.h"
 #include "chrome/browser/web_applications/components/install_finalizer.h"
 #include "chrome/browser/web_applications/web_app_icon_manager.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
@@ -65,7 +65,7 @@ WebAppUninstallDialogDelegateView::WebAppUninstallDialogDelegateView(
       std::make_unique<WebAppInfoImageSource>(kIconSizeInDip, icon_bitmaps),
       image_size);
 
-  DialogDelegate::set_button_label(
+  DialogDelegate::SetButtonLabel(
       ui::DIALOG_BUTTON_OK,
       l10n_util::GetStringUTF16(IDS_EXTENSION_PROMPT_UNINSTALL_BUTTON));
 
@@ -77,8 +77,9 @@ WebAppUninstallDialogDelegateView::WebAppUninstallDialogDelegateView(
 
   // Add margins for the icon plus the icon-title padding so that the dialog
   // contents align with the title text.
-  set_margins(margins() +
-              gfx::Insets(0, margins().left() + kIconSizeInDip, 0, 0));
+  gfx::Insets insets =
+      layout_provider->GetDialogInsetsForContentType(views::TEXT, views::TEXT);
+  set_margins(insets + gfx::Insets(0, insets.left() + kIconSizeInDip, 0, 0));
 
   base::string16 checkbox_label = l10n_util::GetStringFUTF16(
       IDS_EXTENSION_UNINSTALL_PROMPT_REMOVE_DATA_CHECKBOX,

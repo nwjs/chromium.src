@@ -9,6 +9,7 @@
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/execution_context/window_agent.h"
 #include "third_party/blink/renderer/core/execution_context/window_agent_factory.h"
+#include "third_party/blink/renderer/core/feature_policy/document_policy_parser.h"
 #include "third_party/blink/renderer/core/feature_policy/feature_policy_parser.h"
 #include "third_party/blink/renderer/core/frame/csp/content_security_policy.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
@@ -20,9 +21,41 @@
 #include "third_party/blink/renderer/core/origin_trials/origin_trial_context.h"
 #include "third_party/blink/renderer/core/page/chrome_client.h"
 #include "third_party/blink/renderer/core/page/page.h"
+#include "third_party/blink/renderer/platform/heap/heap.h"
 #include "third_party/blink/renderer/platform/web_test_support.h"
 
 namespace blink {
+namespace {
+
+// Helper function to filter out features that are not in origin trial in
+// ParsedDocumentPolicy.
+DocumentPolicy::ParsedDocumentPolicy FilterByOriginTrial(
+    const DocumentPolicy::ParsedDocumentPolicy& parsed_policy,
+    SecurityContextInit* init) {
+  DocumentPolicy::ParsedDocumentPolicy filtered_policy;
+  for (auto i = parsed_policy.feature_state.begin(),
+            last = parsed_policy.feature_state.end();
+       i != last;) {
+    if (!DisabledByOriginTrial(i->first, init))
+      filtered_policy.feature_state.insert(*i);
+    ++i;
+  }
+  for (auto i = parsed_policy.endpoint_map.begin(),
+            last = parsed_policy.endpoint_map.end();
+       i != last;) {
+    if (!DisabledByOriginTrial(i->first, init))
+      filtered_policy.endpoint_map.insert(*i);
+    ++i;
+  }
+  return filtered_policy;
+}
+
+}  // namespace
+
+// This is the constructor used by RemoteSecurityContext
+SecurityContextInit::SecurityContextInit()
+    : SecurityContextInit(nullptr, nullptr, nullptr) {}
+
 // This constructor is used for non-Document contexts (i.e., workers and tests).
 // This does a simpler check than Documents to set secure_context_mode_. This
 // is only sufficient until there are APIs that are available in workers or
@@ -63,7 +96,7 @@ SecurityContextInit::SecurityContextInit(const DocumentInit& initializer) {
   InitializeFeaturePolicy(initializer);
 
   // Initialize document policy.
-  document_policy_ = initializer.GetDocumentPolicy();
+  InitializeDocumentPolicy(initializer);
 
   // Initialize the agent. Depends on security origin.
   InitializeAgent(initializer);
@@ -82,20 +115,24 @@ bool SecurityContextInit::FeatureEnabled(OriginTrialFeature feature) const {
 }
 
 void SecurityContextInit::ApplyPendingDataToDocument(Document& document) const {
-  if (BindCSPImmediately()) {
-    document.GetContentSecurityPolicy()->BindToDelegate(
-        document.GetContentSecurityPolicyDelegate());
-  }
   for (auto feature : feature_count_)
     UseCounter::Count(document, feature);
   for (auto feature : parsed_feature_policies_)
-    document.FeaturePolicyFeatureObserved(feature);
+    document.ToExecutionContext()->FeaturePolicyFeatureObserved(feature);
   for (const auto& message : feature_policy_parse_messages_) {
-    document.AddConsoleMessage(
-        ConsoleMessage::Create(mojom::ConsoleMessageSource::kSecurity,
-                               mojom::ConsoleMessageLevel::kError,
-                               "Error with Feature-Policy header: " + message));
+    document.AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
+        mojom::ConsoleMessageSource::kSecurity,
+        mojom::ConsoleMessageLevel::kError,
+        "Error with Feature-Policy header: " + message));
   }
+  for (const auto& message : report_only_feature_policy_parse_messages_) {
+    document.AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
+        mojom::blink::ConsoleMessageSource::kSecurity,
+        mojom::blink::ConsoleMessageLevel::kError,
+        "Error with Feature-Policy-Report-Only header: " + message));
+  }
+  if (!report_only_feature_policy_header_.empty())
+    UseCounter::Count(document, WebFeature::kFeaturePolicyReportOnlyHeader);
 }
 
 void SecurityContextInit::InitializeContentSecurityPolicy(
@@ -181,17 +218,18 @@ void SecurityContextInit::InitializeSandboxFlags(
     // Document's URL and origin. Instead, force a Document loaded from a
     // MHTML archive to be sandboxed, providing exceptions only for creating
     // new windows.
-    sandbox_flags_ |=
-        (WebSandboxFlags::kAll &
-         ~(WebSandboxFlags::kPopups |
-           WebSandboxFlags::kPropagatesToAuxiliaryBrowsingContexts));
+    sandbox_flags_ |= (mojom::blink::WebSandboxFlags::kAll &
+                       ~(mojom::blink::WebSandboxFlags::kPopups |
+                         mojom::blink::WebSandboxFlags::
+                             kPropagatesToAuxiliaryBrowsingContexts));
   }
 }
 
 void SecurityContextInit::InitializeOrigin(const DocumentInit& initializer) {
   scoped_refptr<SecurityOrigin> document_origin =
       initializer.GetDocumentOrigin();
-  if ((sandbox_flags_ & WebSandboxFlags::kOrigin) != WebSandboxFlags::kNone) {
+  if ((sandbox_flags_ & mojom::blink::WebSandboxFlags::kOrigin) !=
+      mojom::blink::WebSandboxFlags::kNone) {
     scoped_refptr<SecurityOrigin> sandboxed_origin =
         initializer.OriginToCommit() ? initializer.OriginToCommit()
                                      : document_origin->DeriveNewOpaqueOrigin();
@@ -260,6 +298,23 @@ void SecurityContextInit::InitializeOrigin(const DocumentInit& initializer) {
   }
 }
 
+void SecurityContextInit::InitializeDocumentPolicy(
+    const DocumentInit& initializer) {
+  // Because Document-Policy http header is parsed in DocumentLoader,
+  // when origin trial context is not initialized yet.
+  // Needs to filter out features that are not in origin trial after
+  // we have origin trial information available.
+  document_policy_ = FilterByOriginTrial(initializer.GetDocumentPolicy(), this);
+
+  base::Optional<DocumentPolicy::ParsedDocumentPolicy>
+      report_only_parsed_policy = DocumentPolicyParser::Parse(
+          initializer.ReportOnlyDocumentPolicyHeader());
+  if (report_only_parsed_policy) {
+    report_only_document_policy_ =
+        FilterByOriginTrial(*report_only_parsed_policy, this);
+  }
+}
+
 void SecurityContextInit::InitializeFeaturePolicy(
     const DocumentInit& initializer) {
   initialized_feature_policy_state_ = true;
@@ -278,7 +333,11 @@ void SecurityContextInit::InitializeFeaturePolicy(
       initializer.FeaturePolicyHeader(), security_origin_,
       &feature_policy_parse_messages_, this);
 
-  if (sandbox_flags_ != WebSandboxFlags::kNone &&
+  report_only_feature_policy_header_ = FeaturePolicyParser::ParseHeader(
+      initializer.ReportOnlyFeaturePolicyHeader(), security_origin_,
+      &report_only_feature_policy_parse_messages_, this);
+
+  if (sandbox_flags_ != mojom::blink::WebSandboxFlags::kNone &&
       RuntimeEnabledFeatures::FeaturePolicyForSandboxEnabled()) {
     // The sandbox flags might have come from CSP header or the browser; in
     // such cases the sandbox is not part of the container policy. They are
@@ -297,8 +356,8 @@ void SecurityContextInit::InitializeFeaturePolicy(
   // feature policy is initialized.
   if (RuntimeEnabledFeatures::BlockingFocusWithoutUserActivationEnabled() &&
       frame && frame->Tree().Parent() &&
-      (sandbox_flags_ & WebSandboxFlags::kNavigation) !=
-          WebSandboxFlags::kNone) {
+      (sandbox_flags_ & mojom::blink::WebSandboxFlags::kNavigation) !=
+          mojom::blink::WebSandboxFlags::kNone) {
     // Enforcing the policy for sandbox frames (for context see
     // https://crbug.com/954349).
     DisallowFeatureIfNotPresent(
@@ -310,8 +369,36 @@ void SecurityContextInit::InitializeFeaturePolicy(
     parent_frame_ = frame->Tree().Parent();
 }
 
+std::unique_ptr<FeaturePolicy>
+SecurityContextInit::CreateReportOnlyFeaturePolicy() const {
+  // For non-Document initialization, returns nullptr directly.
+  if (!initialized_feature_policy_state_)
+    return nullptr;
+
+  // If header not present, returns nullptr directly.
+  if (report_only_feature_policy_header_.empty())
+    return nullptr;
+
+  // Report-only feature policy only takes effect when it is stricter than
+  // enforced feature policy, i.e. when enforced feature policy allows a feature
+  // while report-only feature policy do not. In such scenario, a report-only
+  // policy violation report will be generated, but the feature is still allowed
+  // to be used. Since child frames cannot loosen enforced feature policy, there
+  // is no need to inherit parent policy and container policy for report-only
+  // feature policy. For inherited policies, the behavior is dominated by
+  // enforced feature policy.
+  DCHECK(security_origin_);
+  std::unique_ptr<FeaturePolicy> report_only_policy =
+      FeaturePolicy::CreateFromParentPolicy(nullptr /* parent_policy */,
+                                            {} /* container_policy */,
+                                            security_origin_->ToUrlOrigin());
+  report_only_policy->SetHeaderPolicy(report_only_feature_policy_header_);
+  return report_only_policy;
+}
+
 std::unique_ptr<FeaturePolicy> SecurityContextInit::CreateFeaturePolicy()
     const {
+  // For non-Document initialization, returns nullptr directly.
   if (!initialized_feature_policy_state_)
     return nullptr;
 
@@ -341,9 +428,15 @@ std::unique_ptr<FeaturePolicy> SecurityContextInit::CreateFeaturePolicy()
 
 std::unique_ptr<DocumentPolicy> SecurityContextInit::CreateDocumentPolicy()
     const {
-  if (!document_policy_)
-    return nullptr;
-  return DocumentPolicy::CreateWithHeaderPolicy(document_policy_.value());
+  return DocumentPolicy::CreateWithHeaderPolicy(document_policy_);
+}
+
+std::unique_ptr<DocumentPolicy>
+SecurityContextInit::CreateReportOnlyDocumentPolicy() const {
+  return report_only_document_policy_.feature_state.empty()
+             ? nullptr
+             : DocumentPolicy::CreateWithHeaderPolicy(
+                   report_only_document_policy_);
 }
 
 void SecurityContextInit::InitializeSecureContextMode(
@@ -371,7 +464,7 @@ void SecurityContextInit::InitializeSecureContextMode(
     secure_context_mode_ = SecureContextMode::kInsecureContext;
   }
   bool is_secure = secure_context_mode_ == SecureContextMode::kSecureContext;
-  if (GetSandboxFlags() != WebSandboxFlags::kNone) {
+  if (GetSandboxFlags() != mojom::blink::WebSandboxFlags::kNone) {
     feature_count_.insert(
         is_secure ? WebFeature::kSecureContextCheckForSandboxedOriginPassed
                   : WebFeature::kSecureContextCheckForSandboxedOriginFailed);

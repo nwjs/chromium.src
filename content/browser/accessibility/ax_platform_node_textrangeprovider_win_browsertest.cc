@@ -50,7 +50,7 @@ namespace content {
     base::win::ScopedBstr provider_content;                 \
     ASSERT_HRESULT_SUCCEEDED(                               \
         provider->GetText(-1, provider_content.Receive())); \
-    EXPECT_STREQ(expected_content, provider_content);       \
+    EXPECT_STREQ(expected_content, provider_content.Get()); \
   }
 
 #define EXPECT_UIA_MOVE_ENDPOINT_BY_UNIT(text_range_provider, endpoint, unit,  \
@@ -390,8 +390,8 @@ IN_PROC_BROWSER_TEST_F(AXPlatformNodeTextRangeProviderWinBrowserTest,
       <!DOCTYPE html>
       <html>
         <body>
-          <div style="font-size: 16px">
-            <span style="font-size: 12px">Text1</span>
+          <div style="font-size: 16pt">
+            <span style="font-size: 12pt">Text1</span>
             Text2
           </div>
         </body>
@@ -479,6 +479,130 @@ IN_PROC_BROWSER_TEST_F(AXPlatformNodeTextRangeProviderWinBrowserTest,
   value.Reset();
 }
 
+// With a rich text field, the read-only attribute should be determined based on
+// the editable root node's editable state.
+IN_PROC_BROWSER_TEST_F(AXPlatformNodeTextRangeProviderWinBrowserTest,
+                       GetAttributeValueIsReadonlyRichTextField) {
+  LoadInitialAccessibilityTreeFromHtml(std::string(R"HTML(
+      <!DOCTYPE html>
+      <html>
+        <style>
+          .myDiv::before {
+              content: attr(data-placeholder);
+              pointer-events: none;
+          }
+        </style>
+        <body>
+          <div contenteditable="true" data-placeholder="@mention or comment"
+          role="textbox" aria-readonly="false" aria-label="text_field"
+          class="myDiv"><p>3.14</p></div>
+        </body>
+      </html>
+  )HTML"));
+
+  auto* text_field_node = FindNode(ax::mojom::Role::kTextField, "text_field");
+  ASSERT_NE(nullptr, text_field_node);
+  ComPtr<ITextRangeProvider> text_range_provider;
+  GetTextRangeProviderFromTextNode(*text_field_node, &text_range_provider);
+  ASSERT_NE(nullptr, text_range_provider.Get());
+
+  base::win::ScopedVariant value;
+  EXPECT_HRESULT_SUCCEEDED(text_range_provider->GetAttributeValue(
+      UIA_IsReadOnlyAttributeId, value.Receive()));
+  EXPECT_EQ(value.type(), VT_BOOL);
+  EXPECT_EQ(V_BOOL(value.ptr()), VARIANT_FALSE);
+  text_range_provider.Reset();
+  value.Reset();
+}
+
+IN_PROC_BROWSER_TEST_F(AXPlatformNodeTextRangeProviderWinBrowserTest,
+                       DoNotNormalizeRangeWithVisibleCaretOrSelection) {
+  LoadInitialAccessibilityTreeFromHtml(std::string(R"HTML(
+      <!DOCTYPE html>
+      <html>
+        <body>
+          <div aria-value="wrapper">
+            <input type='text' aria-label='input_text'><span
+              style="font-size: 12pt">Text1</span>
+          </div>
+        </body>
+      </html>
+  )HTML"));
+
+  // In order for the test harness to effectively simulate typing in a text
+  // input, first change the value of the text input and then focus it. Only
+  // editing the value won't show the cursor and only focusing will put the
+  // cursor at the beginning of the text input, so both steps are necessary.
+  auto* input_text_node = FindNode(ax::mojom::Role::kTextField, "input_text");
+  ASSERT_NE(nullptr, input_text_node);
+  EXPECT_TRUE(input_text_node->PlatformIsLeaf());
+  EXPECT_EQ(0u, input_text_node->PlatformChildCount());
+
+  AccessibilityNotificationWaiter edit_waiter(shell()->web_contents(),
+                                              ui::kAXModeComplete,
+                                              ax::mojom::Event::kValueChanged);
+  ui::AXActionData edit_data;
+  edit_data.target_node_id = input_text_node->GetId();
+  edit_data.action = ax::mojom::Action::kSetValue;
+  edit_data.value = "test";
+  input_text_node->AccessibilityPerformAction(edit_data);
+  edit_waiter.WaitForNotification();
+
+  AccessibilityNotificationWaiter focus_waiter(
+      shell()->web_contents(), ui::kAXModeComplete, ax::mojom::Event::kFocus);
+  ui::AXActionData focus_data;
+  focus_data.target_node_id = input_text_node->GetId();
+  focus_data.action = ax::mojom::Action::kFocus;
+  input_text_node->AccessibilityPerformAction(focus_data);
+  focus_waiter.WaitForNotification();
+
+  ComPtr<ITextRangeProvider> text_range_provider;
+  GetTextRangeProviderFromTextNode(*input_text_node, &text_range_provider);
+  ASSERT_NE(nullptr, text_range_provider.Get());
+  EXPECT_UIA_TEXTRANGE_EQ(text_range_provider, L"test");
+
+  // Move the first position so that both endpoints are at the end of the text
+  // input. This is where calls to NormalizeTextRange can be problematic.
+  EXPECT_UIA_MOVE_ENDPOINT_BY_UNIT(
+      text_range_provider, TextPatternRangeEndpoint_Start, TextUnit_Character,
+      /*count*/ 4,
+      /*expected_text*/ L"",
+      /*expected_count*/ 4);
+
+  // Clone the original text range so we can keep track if NormalizeEndpoints
+  // causes a change in position.
+  ComPtr<ITextRangeProvider> text_range_provider_clone;
+  text_range_provider->Clone(&text_range_provider_clone);
+
+  // Since both ranges are identical, the result of CompareEndpoints should be
+  // 0.
+  int result = 0;
+  EXPECT_HRESULT_SUCCEEDED(text_range_provider->CompareEndpoints(
+      TextPatternRangeEndpoint_End, text_range_provider_clone.Get(),
+      TextPatternRangeEndpoint_Start, &result));
+  ASSERT_EQ(0, result);
+
+  // Calling GetAttributeValue will call NormalizeTextRange, which shouldn't
+  // change the result of CompareEndpoints below.
+  base::win::ScopedVariant value;
+  EXPECT_HRESULT_SUCCEEDED(text_range_provider->GetAttributeValue(
+      UIA_IsReadOnlyAttributeId, value.Receive()));
+  EXPECT_EQ(value.type(), VT_BOOL);
+  EXPECT_EQ(V_BOOL(value.ptr()), VARIANT_FALSE);
+  value.Reset();
+
+  EXPECT_HRESULT_SUCCEEDED(text_range_provider_clone->GetAttributeValue(
+      UIA_IsReadOnlyAttributeId, value.Receive()));
+  EXPECT_EQ(value.type(), VT_BOOL);
+  EXPECT_EQ(V_BOOL(value.ptr()), VARIANT_FALSE);
+  value.Reset();
+
+  EXPECT_HRESULT_SUCCEEDED(text_range_provider->CompareEndpoints(
+      TextPatternRangeEndpoint_End, text_range_provider_clone.Get(),
+      TextPatternRangeEndpoint_Start, &result));
+  ASSERT_EQ(0, result);
+}
+
 IN_PROC_BROWSER_TEST_F(AXPlatformNodeTextRangeProviderWinBrowserTest,
                        GetBoundingRectangles) {
   LoadInitialAccessibilityTreeFromHtml(std::string(R"HTML(
@@ -516,7 +640,7 @@ IN_PROC_BROWSER_TEST_F(AXPlatformNodeTextRangeProviderWinBrowserTest,
   // between platforms (e.g. title bar height) because the results of
   // |GetBoundingRectangles| are in screen coordinates.
   gfx::Vector2d view_offset =
-      node->manager()->GetViewBounds().OffsetFromOrigin();
+      node->manager()->GetViewBoundsInScreenCoordinates().OffsetFromOrigin();
   std::vector<double> expected_values = {
       8 + view_offset.x(), 16 + view_offset.y(), 49, 17,
       8 + view_offset.x(), 34 + view_offset.y(), 44, 17};
@@ -1600,6 +1724,135 @@ IN_PROC_BROWSER_TEST_F(AXPlatformNodeTextRangeProviderWinBrowserTest,
 }
 
 IN_PROC_BROWSER_TEST_F(AXPlatformNodeTextRangeProviderWinBrowserTest,
+                       MoveEndpointByUnitParagraphWithEmbeddedObject) {
+  LoadInitialAccessibilityTreeFromHtml(
+      R"HTML(<!DOCTYPE html>
+      <html>
+      <head></head>
+      <body>
+        <span>start</span>
+        <svg></svg>
+        <span>end</span>
+      </body>
+      </html>)HTML");
+  BrowserAccessibility* start_node =
+      FindNode(ax::mojom::Role::kStaticText, "start");
+  ASSERT_NE(nullptr, start_node);
+  BrowserAccessibility* end_node =
+      FindNode(ax::mojom::Role::kStaticText, "end");
+  ASSERT_NE(nullptr, end_node);
+
+  std::vector<base::string16> paragraphs = {
+      L"start",
+      kEmbeddedCharacterAsString,
+      L"end",
+  };
+
+  // FORWARD NAVIGATION
+  ComPtr<ITextRangeProvider> text_range_provider;
+  GetTextRangeProviderFromTextNode(*start_node, &text_range_provider);
+  ASSERT_NE(nullptr, text_range_provider.Get());
+  EXPECT_UIA_TEXTRANGE_EQ(text_range_provider, L"start");
+
+  EXPECT_UIA_MOVE_ENDPOINT_BY_UNIT(
+      text_range_provider, TextPatternRangeEndpoint_Start, TextUnit_Paragraph,
+      /*count*/ -1,
+      /*expected_text*/ paragraphs[0].c_str(),
+      /*expected_count*/ 0);
+  EXPECT_UIA_MOVE_ENDPOINT_BY_UNIT(
+      text_range_provider, TextPatternRangeEndpoint_End, TextUnit_Paragraph,
+      /*count*/ -2,
+      /*expected_text*/ L"",
+      /*expected_count*/ -1);
+  EXPECT_UIA_MOVE_ENDPOINT_BY_UNIT(
+      text_range_provider, TextPatternRangeEndpoint_End, TextUnit_Paragraph,
+      /*count*/ 1,
+      /*expected_text*/ paragraphs[0].c_str(),
+      /*expected_count*/ 1);
+  EXPECT_UIA_MOVE_ENDPOINT_BY_UNIT(
+      text_range_provider, TextPatternRangeEndpoint_End, TextUnit_Paragraph,
+      /*count*/ 1,
+      /*expected_text*/ (paragraphs[0] + paragraphs[1]).c_str(),
+      /*expected_count*/ 1);
+  EXPECT_UIA_MOVE_ENDPOINT_BY_UNIT(
+      text_range_provider, TextPatternRangeEndpoint_Start, TextUnit_Paragraph,
+      /*count*/ 1,
+      /*expected_text*/ paragraphs[1].c_str(),
+      /*expected_count*/ 1);
+  EXPECT_UIA_MOVE_ENDPOINT_BY_UNIT(
+      text_range_provider, TextPatternRangeEndpoint_End, TextUnit_Paragraph,
+      /*count*/ 1,
+      /*expected_text*/ (paragraphs[1] + paragraphs[2]).c_str(),
+      /*expected_count*/ 1);
+  EXPECT_UIA_MOVE_ENDPOINT_BY_UNIT(
+      text_range_provider, TextPatternRangeEndpoint_Start, TextUnit_Paragraph,
+      /*count*/ 1,
+      /*expected_text*/ paragraphs[2].c_str(),
+      /*expected_count*/ 1);
+  EXPECT_UIA_MOVE_ENDPOINT_BY_UNIT(
+      text_range_provider, TextPatternRangeEndpoint_End, TextUnit_Paragraph,
+      /*count*/ 1,
+      /*expected_text*/ paragraphs[2].c_str(),
+      /*expected_count*/ 0);
+  EXPECT_UIA_MOVE_ENDPOINT_BY_UNIT(
+      text_range_provider, TextPatternRangeEndpoint_Start, TextUnit_Paragraph,
+      /*count*/ 2,
+      /*expected_text*/ L"",
+      /*expected_count*/ 1);
+
+  // REVERSE NAVIGATION
+  GetTextRangeProviderFromTextNode(*end_node, &text_range_provider);
+  ASSERT_NE(nullptr, text_range_provider.Get());
+  EXPECT_UIA_TEXTRANGE_EQ(text_range_provider, L"end");
+
+  EXPECT_UIA_MOVE_ENDPOINT_BY_UNIT(
+      text_range_provider, TextPatternRangeEndpoint_End, TextUnit_Paragraph,
+      /*count*/ 1,
+      /*expected_text*/ paragraphs[2].c_str(),
+      /*expected_count*/ 0);
+  EXPECT_UIA_MOVE_ENDPOINT_BY_UNIT(
+      text_range_provider, TextPatternRangeEndpoint_Start, TextUnit_Paragraph,
+      /*count*/ 2,
+      /*expected_text*/ L"",
+      /*expected_count*/ 1);
+  EXPECT_UIA_MOVE_ENDPOINT_BY_UNIT(
+      text_range_provider, TextPatternRangeEndpoint_Start, TextUnit_Paragraph,
+      /*count*/ -1,
+      /*expected_text*/ paragraphs[2].c_str(),
+      /*expected_count*/ -1);
+  EXPECT_UIA_MOVE_ENDPOINT_BY_UNIT(
+      text_range_provider, TextPatternRangeEndpoint_Start, TextUnit_Paragraph,
+      /*count*/ -1,
+      /*expected_text*/ (paragraphs[1] + paragraphs[2]).c_str(),
+      /*expected_count*/ -1);
+  EXPECT_UIA_MOVE_ENDPOINT_BY_UNIT(
+      text_range_provider, TextPatternRangeEndpoint_End, TextUnit_Paragraph,
+      /*count*/ -1,
+      /*expected_text*/ paragraphs[1].c_str(),
+      /*expected_count*/ -1);
+  EXPECT_UIA_MOVE_ENDPOINT_BY_UNIT(
+      text_range_provider, TextPatternRangeEndpoint_Start, TextUnit_Paragraph,
+      /*count*/ -1,
+      /*expected_text*/ (paragraphs[0] + paragraphs[1]).c_str(),
+      /*expected_count*/ -1);
+  EXPECT_UIA_MOVE_ENDPOINT_BY_UNIT(
+      text_range_provider, TextPatternRangeEndpoint_End, TextUnit_Paragraph,
+      /*count*/ -1,
+      /*expected_text*/ paragraphs[0].c_str(),
+      /*expected_count*/ -1);
+  EXPECT_UIA_MOVE_ENDPOINT_BY_UNIT(
+      text_range_provider, TextPatternRangeEndpoint_Start, TextUnit_Paragraph,
+      /*count*/ -1,
+      /*expected_text*/ paragraphs[0].c_str(),
+      /*expected_count*/ 0);
+  EXPECT_UIA_MOVE_ENDPOINT_BY_UNIT(
+      text_range_provider, TextPatternRangeEndpoint_End, TextUnit_Paragraph,
+      /*count*/ -2,
+      /*expected_text*/ L"",
+      /*expected_count*/ -1);
+}
+
+IN_PROC_BROWSER_TEST_F(AXPlatformNodeTextRangeProviderWinBrowserTest,
                        IFrameTraversal) {
   LoadInitialAccessibilityTreeFromUrl(embedded_test_server()->GetURL(
       "/accessibility/html/iframe-cross-process.html"));
@@ -1841,7 +2094,7 @@ IN_PROC_BROWSER_TEST_F(AXPlatformNodeTextRangeProviderWinBrowserTest,
 
   ASSERT_HRESULT_SUCCEEDED(
       text_range_provider->ExpandToEnclosingUnit(TextUnit_Format));
-  EXPECT_UIA_TEXTRANGE_EQ(text_range_provider, L"italic\ntext\n");
+  EXPECT_UIA_TEXTRANGE_EQ(text_range_provider, L"italic\ntext");
 }
 
 IN_PROC_BROWSER_TEST_F(AXPlatformNodeTextRangeProviderWinBrowserTest,
@@ -1895,10 +2148,9 @@ IN_PROC_BROWSER_TEST_F(AXPlatformNodeTextRangeProviderWinBrowserTest,
       TextUnit_Word, "<ol><li>item one</li><li>item two</li></ol>",
       {L"1. ", L"item ", L"one", L"2. ", L"item ", L"two"});
 
-  // The following test should be enabled when crbug.com/1015100 is fixed.
-  // AssertMoveByUnitForMarkup(
-  //     TextUnit_Word, "<ul><li>item one</li><li>item two</li></ul>",
-  //     {L"• ", L"item ", L"one", L"• ", L"item ", L"two"});
+  AssertMoveByUnitForMarkup(TextUnit_Word,
+                            "<ul><li>item one</li><li>item two</li></ul>",
+                            {L"• ", L"item ", L"one", L"• ", L"item ", L"two"});
 }
 
 IN_PROC_BROWSER_TEST_F(AXPlatformNodeTextRangeProviderWinBrowserTest,
@@ -1981,11 +2233,10 @@ IN_PROC_BROWSER_TEST_F(AXPlatformNodeTextRangeProviderWinBrowserTest,
                             "a<div style='display:inline-block'>b</div>c",
                             {L"a", L"b\nc"});
 
-  // The following test should be enabled when crbug.com/1015100 is fixed.
-  // AssertMoveByUnitForMarkup(
-  //     TextUnit_Line,
-  //     "<h1>line one</h1><ul><li>line two</li><li>line three</li></ul>",
-  //     {L"line one\n", L"* line two\n", L"* line three"});
+  AssertMoveByUnitForMarkup(
+      TextUnit_Line,
+      "<h1>line one</h1><ul><li>line two</li><li>line three</li></ul>",
+      {L"line one", L"• line two", L"• line three"});
 }
 
 IN_PROC_BROWSER_TEST_F(AXPlatformNodeTextRangeProviderWinBrowserTest,
@@ -2018,13 +2269,14 @@ IN_PROC_BROWSER_TEST_F(AXPlatformNodeTextRangeProviderWinBrowserTest,
         <label for="input1">Some text </label>
         <input id="input1">
         <p> after input</p>
+        <button><div></div></button>
       </div>
     </body>
   </html>)HTML";
 
-  const std::vector<const wchar_t*> words = {L"Some ", L"text ",
-                                             kEmbeddedCharacterAsString.c_str(),
-                                             L"after ", L"input"};
+  const std::vector<const wchar_t*> words = {
+      L"Some ",  L"text ", kEmbeddedCharacterAsString.c_str(),
+      L"after ", L"input", kEmbeddedCharacterAsString.c_str()};
 
   AssertMoveByUnitForMarkup(TextUnit_Word, html_markup, words);
 }
@@ -2062,8 +2314,9 @@ IN_PROC_BROWSER_TEST_F(AXPlatformNodeTextRangeProviderWinBrowserTest,
   ASSERT_HRESULT_SUCCEEDED(
       text_range_provider->GetBoundingRectangles(rectangles.Receive()));
 
-  gfx::Vector2d view_offset =
-      text_before_list->manager()->GetViewBounds().OffsetFromOrigin();
+  gfx::Vector2d view_offset = text_before_list->manager()
+                                  ->GetViewBoundsInScreenCoordinates()
+                                  .OffsetFromOrigin();
   std::vector<double> expected_values = {85 + view_offset.x(),
                                          16 + view_offset.y(), 20, 17};
   EXPECT_UIA_DOUBLE_SAFEARRAY_EQ(rectangles.Get(), expected_values);

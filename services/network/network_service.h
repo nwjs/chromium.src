@@ -38,6 +38,8 @@
 #include "services/network/public/mojom/network_change_manager.mojom.h"
 #include "services/network/public/mojom/network_quality_estimator_manager.mojom.h"
 #include "services/network/public/mojom/network_service.mojom.h"
+#include "services/network/public/mojom/trust_tokens.mojom.h"
+#include "services/network/trust_tokens/trust_token_key_commitments.h"
 #include "services/service_manager/public/cpp/binder_registry.h"
 
 namespace net {
@@ -55,6 +57,7 @@ class CRLSetDistributor;
 class DnsConfigChangeManager;
 class HttpAuthCacheCopier;
 class LegacyTLSConfigDistributor;
+class NetLogProxySink;
 class NetworkContext;
 class NetworkUsageAccumulator;
 
@@ -115,6 +118,9 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkService
   void StartNetLog(base::File file,
                    net::NetLogCaptureMode capture_mode,
                    base::Value constants) override;
+  void AttachNetLogProxy(
+      mojo::PendingRemote<mojom::NetLogProxySource> proxy_source,
+      mojo::PendingReceiver<mojom::NetLogProxySink>) override;
   void SetSSLKeyLogFile(base::File file) override;
   void CreateNetworkContext(
       mojo::PendingReceiver<mojom::NetworkContext> receiver,
@@ -158,7 +164,10 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkService
   void SetEncryptionKey(const std::string& encryption_key) override;
 #endif
   void AddCorbExceptionForPlugin(int32_t process_id) override;
-  void RemoveCorbExceptionForPlugin(int32_t process_id) override;
+  void AddAllowedRequestInitiatorForPlugin(
+      int32_t process_id,
+      const url::Origin& allowed_request_initiator) override;
+  void RemoveSecurityExceptionsForPlugin(int32_t process_id) override;
   void OnMemoryPressure(base::MemoryPressureListener::MemoryPressureLevel
                             memory_pressure_level) override;
   void OnPeerToPeerConnectionsCountChange(uint32_t count) override;
@@ -167,6 +176,10 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkService
 #endif
   void SetEnvironment(
       std::vector<mojom::EnvironmentVariablePtr> environment) override;
+  void SetTrustTokenKeyCommitments(
+      base::flat_map<url::Origin, mojom::TrustTokenKeyCommitmentResultPtr>
+          commitments) override;
+
 #if defined(OS_ANDROID)
   void DumpWithoutCrashing(base::Time dump_request_time) override;
 #endif
@@ -182,6 +195,9 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkService
 
   bool quic_disabled() const { return quic_disabled_; }
   bool HasRawHeadersAccess(int32_t process_id, const GURL& resource_url) const;
+
+  bool IsInitiatorAllowedForPlugin(int process_id,
+                                   const url::Origin& request_initiator);
 
   mojom::NetworkServiceClient* client() {
     return client_.is_bound() ? client_.get() : nullptr;
@@ -225,6 +241,10 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkService
     return split_auth_cache_by_network_isolation_key_;
   }
 
+  const TrustTokenKeyCommitments* trust_token_key_commitments() const {
+    return trust_token_key_commitments_.get();
+  }
+
   static NetworkService* GetNetworkServiceForTesting();
 
  private:
@@ -252,6 +272,8 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkService
   bool initialized_ = false;
 
   net::NetLog* net_log_;
+
+  std::unique_ptr<NetLogProxySink> net_log_proxy_sink_;
 
   std::unique_ptr<net::FileNetLogObserver> file_net_log_observer_;
   net::TraceNetLogObserver trace_net_log_observer_;
@@ -334,7 +356,17 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkService
   // HttpAuthCaches by NetworkIsolationKey.
   bool split_auth_cache_by_network_isolation_key_ = false;
 
+  // Globally-scoped cryptographic state for the Trust Tokens protocol
+  // (https://github.com/wicg/trust-token-api), updated via a Mojo IPC and
+  // provided to NetworkContexts via the getter.
+  std::unique_ptr<TrustTokenKeyCommitments> trust_token_key_commitments_;
+
   std::unique_ptr<DelayedDohProbeActivator> doh_probe_activator_;
+
+  // Map from a renderer process id, to the set of plugin origins embedded by
+  // that renderer process (the renderer will proxy requests from PPAPI - such
+  // requests should have their initiator origin within the set stored here).
+  std::map<int, std::set<url::Origin>> plugin_origins_;
 
   DISALLOW_COPY_AND_ASSIGN(NetworkService);
 };

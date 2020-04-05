@@ -8,6 +8,7 @@
 #include "base/logging.h"
 #include "base/run_loop.h"
 #include "base/stl_util.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "build/build_config.h"
 #include "chrome/test/pixel/browser_skia_gold_pixel_diff.h"
@@ -74,6 +75,11 @@ void TestBrowserDialog::PreShow() {
   UpdateWidgets();
 }
 
+void TestBrowserDialog::ShowAndVerifyUi() {
+  TestBrowserUi::ShowAndVerifyUi();
+  baseline_.clear();
+}
+
 // This returns true if exactly one views widget was shown that is a dialog or
 // has a name matching the test-specified name, and if that window is in the
 // work area (if |should_verify_dialog_bounds_| is true).
@@ -96,6 +102,15 @@ bool TestBrowserDialog::VerifyUi() {
 
   if (added.size() != 1) {
     DLOG(INFO) << "VerifyUi(): Expected 1 added widget; got " << added.size();
+    if (added.size() > 1) {
+      base::string16 widget_title_log =
+          base::ASCIIToUTF16("Added Widgets are: ");
+      for (views::Widget* widget : added) {
+        widget_title_log += widget->widget_delegate()->GetWindowTitle() +
+                            base::ASCIIToUTF16(" ");
+      }
+      DLOG(INFO) << widget_title_log;
+    }
     return false;
   }
 
@@ -104,6 +119,10 @@ bool TestBrowserDialog::VerifyUi() {
 #if !defined(OS_MACOSX)
   if (pixel_diff_) {
     dialog_widget->SetBlockCloseForTesting(true);
+    // Deactivate before taking screenshot. Deactivated dialog pixel outputs
+    // is more predictable than activated dialog.
+    bool is_active = dialog_widget->IsActive();
+    dialog_widget->Deactivate();
     base::ScopedClosureRunner unblock_close(
         base::BindOnce(&views::Widget::SetBlockCloseForTesting,
                        base::Unretained(dialog_widget), false));
@@ -113,13 +132,15 @@ bool TestBrowserDialog::VerifyUi() {
 
     pixel_diff_->Init(dialog_widget, "BrowserUiDialog");
     auto* test_info = testing::UnitTest::GetInstance()->current_test_info();
-    const std::string test_name =
-        base::StrCat({test_info->test_case_name(), "_", test_info->name()});
+    const std::string test_name = base::StrCat(
+        {test_info->test_case_name(), "_", test_info->name(), "_", baseline_});
     if (!pixel_diff_->CompareScreenshot(test_name,
                                         dialog_widget->GetContentsView())) {
       DLOG(INFO) << "VerifyUi(): Pixel compare failed.";
       return false;
     }
+    if (is_active)
+      dialog_widget->Activate();
   }
 #endif  // OS_MACOSX
 

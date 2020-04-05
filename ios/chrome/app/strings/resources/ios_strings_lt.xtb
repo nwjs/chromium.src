@@ -97,6 +97,7 @@
 <translation id="2149973817440762519">Redaguoti žymes</translation>
 <translation id="2179182049312275900">Galite bet kada įjungti sinchronizavimą nustatymuose.</translation>
 <translation id="2198757192731523470">„Google“ gali naudoti jūsų istoriją, kad suasmenintų Paiešką, skelbimus ir kitas „Google“ paslaugas.</translation>
+<translation id="2218443599109088993">Tolinti</translation>
 <translation id="2230173723195178503">TInklalapis įkeltas</translation>
 <translation id="2239626343334228536">Išvalomi naršymo duomenis...</translation>
 <translation id="2257567812274161158">Sinchronizavimas neveikia.</translation>
@@ -159,6 +160,7 @@
 <translation id="2923448633003185837">Įklijuoti ir eiti</translation>
 <translation id="292639812446257861">Pažymėti kaip neskaitytus</translation>
 <translation id="2958718410589002129">Slaptažodžiai</translation>
+<translation id="2964349545761222050">Trečiosios šalies slapukų blokavimas</translation>
 <translation id="2969979262385602596">Nepavyko prisijungti. Bandykite dar kartą vėliau.</translation>
 <translation id="298306318844797842">Pridėti mokėjimo metodą...</translation>
 <translation id="2989805286512600854">Atidaryti naujame skirtuke</translation>
@@ -178,6 +180,7 @@
 <translation id="3290875554372353449">Pasirinkite paskyrą</translation>
 <translation id="3311748811247479259">Išjungta</translation>
 <translation id="3324193307694657476">2 adreso eil.</translation>
+<translation id="3328801116991980348">Svetainės informacija</translation>
 <translation id="3329904751041170572">Nepavyko prisijungti prie serverio.</translation>
 <translation id="3335947283844343239">Iš naujo atidarykite uždarytą skirtuką</translation>
 <translation id="3371831930909698441">Pasiekiamas vertimas. Parinktys pasiekiamos netoli ekrano apačios.</translation>
@@ -300,6 +303,7 @@ Jei norite pakeisti šį nustatymą, <ph name="BEGIN_LINK" />iš naujo nustatyki
 <translation id="4979397965658815378">Prisijunkite naudodami „Google“ paskyrą, kad gautumėte žymes, slaptažodžius, istoriją ir kitus nustatymus visuose įrenginiuose</translation>
 <translation id="5005498671520578047">Kopijuoti slaptažodį</translation>
 <translation id="5010803260590204777">Norėdami naršyti žiniatinklį privačiai, atidarykite inkognito skirtuką.</translation>
+<translation id="5039020240289137291">Trečiosios šalies slapukų blokavimas</translation>
 <translation id="5039804452771397117">Leisti</translation>
 <translation id="5059136629401106827">Gerai</translation>
 <translation id="5062321486222145940">Įdiegti „Google“ diską</translation>
@@ -414,9 +418,11 @@ Be to, reikia įgalinti „Handoff“ nustatymų skiltyje „Bendrieji“, o įr
 <translation id="6434591244308415567">Įvyko klaida. Vėliau bandykite dar kartą.</translation>
 <translation id="6445051938772793705">Šalis</translation>
 <translation id="6445981559479772097">Pran. išsiųstas.</translation>
+<translation id="6447842834002726250">Slapukai</translation>
 <translation id="6464071786529933911">Atid. nauj. ink. skirtuk.</translation>
 <translation id="6476800141292307438">Puslapis verčiamas į <ph name="LANGUAGE" />. Parinktys pasiekiamos netoli ekrano apačios.</translation>
 <translation id="6482629121755362506">Ištrinta elementų: <ph name="NUMBER_OF_SELECTED_BOOKMARKS" /></translation>
+<translation id="6561262006871132942">Artinti</translation>
 <translation id="6610002944194042868">Vertimo parinktys</translation>
 <translation id="6628106477656132239">Netinkama galiojimo laiko pabaigos data</translation>
 <translation id="6638511529934826365">Keisti teksto mastelį…</translation>
@@ -479,7 +485,6 @@ Be to, reikia įgalinti „Handoff“ nustatymų skiltyje „Bendrieji“, o įr
 <translation id="734758817008927353">Kortelės išsaugojimo parinktys</translation>
 <translation id="7348502496356775519">Žymėti</translation>
 <translation id="7383797227493018512">Skaitymo sąrašas</translation>
-<translation id="7392048574806661116">Atsijungti ir išvalyti sinchronizuojamus duomenis</translation>
 <translation id="7400418766976504921">URL adresas</translation>
 <translation id="7409985198648820906">Neskaitytų straipsnių: <ph name="UNREAD_COUNT" />.</translation>
 <translation id="7425346204213733349">Žymių, istorijos, slaptažodžių ir kitų nustatymų pakeitimai nebebus sinchronizuojami su „Google“ paskyra. Tačiau esami duomenys ir toliau bus saugomi „Google“ paskyroje.</translation>
@@ -598,6 +603,7 @@ Be to, reikia įgalinti „Handoff“ nustatymų skiltyje „Bendrieji“, o įr
 <translation id="9223358826628549784">Strigties ataskaita išsiųsta.</translation>
 <translation id="952704832371081537">Atšaukti</translation>
 <translation id="988141524645182168">Kiti įrenginiai</translation>
+<translation id="989697783705943787">Svetainės sauga</translation>
 <translation id="989988560359834682">Adreso redagavimas</translation>
 <translation id="994757059139821576">Straipsnių pasiūlymai</translation>
 </translationbundle>

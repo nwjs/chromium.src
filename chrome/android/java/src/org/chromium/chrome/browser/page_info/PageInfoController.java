@@ -10,7 +10,6 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.net.Uri;
 import android.provider.Settings;
-import android.support.v4.view.ViewCompat;
 import android.text.Spannable;
 import android.text.SpannableString;
 import android.text.SpannableStringBuilder;
@@ -21,6 +20,7 @@ import android.view.Window;
 
 import androidx.annotation.IntDef;
 import androidx.annotation.VisibleForTesting;
+import androidx.core.view.ViewCompat;
 
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.base.annotations.CalledByNative;
@@ -33,20 +33,29 @@ import org.chromium.chrome.browser.instantapps.InstantAppsHandler;
 import org.chromium.chrome.browser.offlinepages.OfflinePageItem;
 import org.chromium.chrome.browser.offlinepages.OfflinePageUtils;
 import org.chromium.chrome.browser.offlinepages.OfflinePageUtils.OfflinePageLoadUrlDelegate;
-import org.chromium.chrome.browser.omnibox.OmniboxUrlEmphasizer;
-import org.chromium.chrome.browser.page_info.PageInfoView.ConnectionInfoParams;
-import org.chromium.chrome.browser.page_info.PageInfoView.PageInfoViewParams;
+import org.chromium.chrome.browser.omnibox.ChromeAutocompleteSchemeClassifier;
 import org.chromium.chrome.browser.previews.PreviewsAndroidBridge;
 import org.chromium.chrome.browser.previews.PreviewsUma;
 import org.chromium.chrome.browser.profiles.Profile;
-import org.chromium.chrome.browser.settings.website.ContentSettingValues;
-import org.chromium.chrome.browser.ssl.SecurityStateModel;
-import org.chromium.chrome.browser.util.UrlUtilities;
+import org.chromium.chrome.browser.site_settings.ContentSettingValues;
+import org.chromium.chrome.browser.site_settings.CookieControlsBridge;
+import org.chromium.chrome.browser.ssl.ChromeSecurityStateModelDelegate;
 import org.chromium.chrome.browser.vr.VrModuleProvider;
+import org.chromium.components.content_settings.CookieControlsEnforcement;
 import org.chromium.components.dom_distiller.core.DomDistillerUrlUtils;
+import org.chromium.components.embedder_support.util.UrlUtilities;
 import org.chromium.components.feature_engagement.EventConstants;
 import org.chromium.components.feature_engagement.Tracker;
+import org.chromium.components.omnibox.OmniboxUrlEmphasizer;
+import org.chromium.components.page_info.CookieControlsStatus;
+import org.chromium.components.page_info.CookieControlsView;
+import org.chromium.components.page_info.PageInfoDialog;
+import org.chromium.components.page_info.PageInfoView;
+import org.chromium.components.page_info.PageInfoView.ConnectionInfoParams;
+import org.chromium.components.page_info.PageInfoView.PageInfoViewParams;
+import org.chromium.components.page_info.SystemSettingsActivityRequiredListener;
 import org.chromium.components.security_state.ConnectionSecurityLevel;
+import org.chromium.components.security_state.SecurityStateModel;
 import org.chromium.components.url_formatter.UrlFormatter;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.WebContentsObserver;
@@ -60,10 +69,10 @@ import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.text.NoUnderlineClickableSpan;
 import org.chromium.ui.text.SpanApplier;
 import org.chromium.ui.text.SpanApplier.SpanInfo;
+import org.chromium.url.URI;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
-import java.net.URI;
 import java.net.URISyntaxException;
 import java.text.DateFormat;
 import java.util.Date;
@@ -71,8 +80,9 @@ import java.util.Date;
 /**
  * Java side of Android implementation of the page info UI.
  */
-public class PageInfoController
-        implements ModalDialogProperties.Controller, SystemSettingsActivityRequiredListener {
+public class PageInfoController implements ModalDialogProperties.Controller,
+                                           SystemSettingsActivityRequiredListener,
+                                           CookieControlsBridge.CookieControlsObserver {
     @IntDef({OpenedFromSource.MENU, OpenedFromSource.TOOLBAR, OpenedFromSource.VR})
     @Retention(RetentionPolicy.SOURCE)
     public @interface OpenedFromSource {
@@ -144,6 +154,9 @@ public class PageInfoController
     // task is pending.
     private Runnable mPendingRunAfterDismissTask;
 
+    // Bridge updating the CookieControlsView when cookie settings change.
+    private CookieControlsBridge mBridge;
+
     /**
      * Creates the PageInfoController, but does not display it. Also initializes the corresponding
      * C++ object and saves a pointer to it.
@@ -155,7 +168,7 @@ public class PageInfoController
      * @param offlinePageState         State of the WebContents showing offline page.
      * @param previewPageState         State of the WebContents showing the preview.
      * @param publisher                The name of the content publisher, if any.
-     * @param offlinePageLoadUrlDelegate      {@link offlinePageLoadUrlDelegate}
+     * @param offlinePageLoadUrlDelegate      {@link OfflinePageLoadUrlDelegate}
      *         defined by the caller.
      */
     protected PageInfoController(ChromeActivity activity, WebContents webContents,
@@ -167,6 +180,7 @@ public class PageInfoController
         mSecurityLevel = securityLevel;
         mOfflinePageState = offlinePageState;
         mPreviewPageState = previewPageState;
+        Profile profile = Profile.fromWebContents(webContents);
         PageInfoViewParams viewParams = new PageInfoViewParams();
 
         if (mOfflinePageState != OfflinePageState.NOT_OFFLINE_PAGE) {
@@ -186,9 +200,9 @@ public class PageInfoController
         // Work out the URL and connection message and status visibility.
         // TODO(crbug.com/1033178): dedupe the DomDistillerUrlUtils#getOriginalUrlFromDistillerUrl()
         // calls.
-        mFullUrl = isShowingOfflinePage()
-                ? offlinePageUrl
-                : DomDistillerUrlUtils.getOriginalUrlFromDistillerUrl(webContents.getVisibleUrl());
+        mFullUrl = isShowingOfflinePage() ? offlinePageUrl
+                                          : DomDistillerUrlUtils.getOriginalUrlFromDistillerUrl(
+                                                  webContents.getVisibleUrlString());
 
         // This can happen if an invalid chrome-distiller:// url was entered.
         if (mFullUrl == null) mFullUrl = "";
@@ -199,15 +213,17 @@ public class PageInfoController
             // Ignore exception since this is for displaying some specific content on page info.
         }
 
-        String displayUrl = UrlFormatter.formatUrlForCopy(mFullUrl);
+        String displayUrl = UrlFormatter.formatUrlForSecurityDisplay(mFullUrl);
         if (isShowingOfflinePage()) {
             displayUrl = UrlUtilities.stripScheme(mFullUrl);
         }
         SpannableStringBuilder displayUrlBuilder = new SpannableStringBuilder(displayUrl);
+        ChromeAutocompleteSchemeClassifier chromeAutocompleteSchemeClassifier =
+                new ChromeAutocompleteSchemeClassifier(profile);
         if (mSecurityLevel == ConnectionSecurityLevel.SECURE) {
             OmniboxUrlEmphasizer.EmphasizeComponentsResponse emphasizeResponse =
                     OmniboxUrlEmphasizer.parseForEmphasizeComponents(
-                            Profile.fromWebContents(webContents), displayUrlBuilder.toString());
+                            displayUrlBuilder.toString(), chromeAutocompleteSchemeClassifier);
             if (emphasizeResponse.schemeLength > 0) {
                 displayUrlBuilder.setSpan(
                         new TextAppearanceSpan(activity, R.style.TextAppearance_RobotoMediumStyle),
@@ -217,11 +233,12 @@ public class PageInfoController
 
         final boolean useDarkColors = !activity.getNightModeStateProvider().isInNightMode();
         OmniboxUrlEmphasizer.emphasizeUrl(displayUrlBuilder, activity.getResources(),
-                Profile.fromWebContents(webContents), mSecurityLevel, mIsInternalPage,
-                useDarkColors, /*emphasizeScheme=*/true);
+                chromeAutocompleteSchemeClassifier, mSecurityLevel, mIsInternalPage, useDarkColors,
+                /*emphasizeScheme=*/true);
         viewParams.url = displayUrlBuilder;
         viewParams.urlOriginLength = OmniboxUrlEmphasizer.getOriginEndIndex(
-                displayUrlBuilder.toString(), Profile.fromWebContents(webContents));
+                displayUrlBuilder.toString(), chromeAutocompleteSchemeClassifier);
+        chromeAutocompleteSchemeClassifier.destroy();
 
         if (SiteSettingsHelper.isSiteSettingsAvailable(webContents)) {
             viewParams.siteSettingsButtonClickCallback = () -> {
@@ -231,8 +248,10 @@ public class PageInfoController
                     SiteSettingsHelper.showSiteSettings(activity, mFullUrl);
                 });
             };
+            viewParams.cookieControlsShown = CookieControlsBridge.isCookieControlsEnabled(profile);
         } else {
             viewParams.siteSettingsButtonShown = false;
+            viewParams.cookieControlsShown = false;
         }
 
         initPreviewUiParams(activity, viewParams);
@@ -270,11 +289,20 @@ public class PageInfoController
 
         mView = new PageInfoView(activity, viewParams);
         if (isSheet(activity)) mView.setBackgroundColor(Color.WHITE);
+        // TODO(crbug.com/1040091): Remove when cookie controls are launched.
+        boolean showTitle = viewParams.cookieControlsShown;
         mPermissionParamsListBuilder = new PermissionParamsListBuilder(
-                activity, mWindowAndroid, mFullUrl, this, mView::setPermissions);
+                activity, mWindowAndroid, mFullUrl, showTitle, this, mView::setPermissions);
 
-        // This needs to come after other member initialization.
         mNativePageInfoController = PageInfoControllerJni.get().init(this, mWebContents);
+        mBridge = new CookieControlsBridge(this, webContents);
+        CookieControlsView.CookieControlsParams cookieControlsParams =
+                new CookieControlsView.CookieControlsParams();
+        cookieControlsParams.onUiClosingCallback = mBridge::onUiClosing;
+        cookieControlsParams.onCheckedChangedCallback =
+                mBridge::setThirdPartyCookieBlockingEnabledForSite;
+        mView.getCookieControlsView().setParams(cookieControlsParams);
+
         mWebContentsObserver = new WebContentsObserver(webContents) {
             @Override
             public void navigationEntryCommitted() {
@@ -313,7 +341,8 @@ public class PageInfoController
      */
     private void initPreviewUiParams(Context context, PageInfoViewParams viewParams) {
         final PreviewsAndroidBridge bridge = PreviewsAndroidBridge.getInstance();
-        viewParams.separatorShown = mPreviewPageState == PreviewPageState.INSECURE_PAGE_PREVIEW;
+        viewParams.previewSeparatorShown =
+                mPreviewPageState == PreviewPageState.INSECURE_PAGE_PREVIEW;
         viewParams.previewUIShown = isShowingPreview();
         if (isShowingPreview()) {
             viewParams.urlTitleShown = false;
@@ -325,7 +354,8 @@ public class PageInfoController
                     bridge.loadOriginal(mWebContents);
                 });
             };
-            final String previewOriginalHost = bridge.getOriginalHost(mWebContents.getVisibleUrl());
+            final String previewOriginalHost =
+                    bridge.getOriginalHost(mWebContents.getVisibleUrlString());
             final String loadOriginalText = context.getString(
                     R.string.page_info_preview_load_original, previewOriginalHost);
             final SpannableString loadOriginalSpan = SpanApplier.applySpans(loadOriginalText,
@@ -541,7 +571,8 @@ public class PageInfoController
             assert false : "Invalid source passed";
         }
 
-        final int securityLevel = SecurityStateModel.getSecurityLevelForWebContents(webContents);
+        final int securityLevel = SecurityStateModel.getSecurityLevelForWebContents(
+                webContents, ChromeSecurityStateModelDelegate.getInstance());
 
         @PreviewPageState
         int previewPageState = PreviewPageState.NOT_PREVIEW;
@@ -552,7 +583,8 @@ public class PageInfoController
                     : PreviewPageState.INSECURE_PAGE_PREVIEW;
 
             PreviewsUma.recordPageInfoOpened(bridge.getPreviewsType(webContents));
-            Tracker tracker = TrackerFactory.getTrackerForProfile(Profile.getLastUsedProfile());
+            Tracker tracker =
+                    TrackerFactory.getTrackerForProfile(Profile.fromWebContents(webContents));
             tracker.notifyEvent(EventConstants.PREVIEWS_VERBOSE_STATUS_OPENED);
         }
 
@@ -583,6 +615,18 @@ public class PageInfoController
         new PageInfoController(activity, webContents, securityLevel, offlinePageUrl,
                 offlinePageCreationDate, offlinePageState, previewPageState, contentPublisher,
                 offlinePageLoadUrlDelegate);
+    }
+
+    @Override
+    public void onCookieBlockingStatusChanged(
+            @CookieControlsStatus int status, @CookieControlsEnforcement int enforcement) {
+        mView.getCookieControlsView().setCookieBlockingStatus(
+                status, enforcement != CookieControlsEnforcement.NO_ENFORCEMENT);
+    }
+
+    @Override
+    public void onBlockedCookiesCountChanged(int blockedCookies) {
+        mView.getCookieControlsView().setBlockedCookiesCount(blockedCookies);
     }
 
     @NativeMethods

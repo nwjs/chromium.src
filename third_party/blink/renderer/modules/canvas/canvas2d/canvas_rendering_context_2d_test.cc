@@ -168,7 +168,7 @@ class CanvasRenderingContext2DTest : public ::testing::Test {
 
   class WrapGradients final : public GarbageCollected<WrapGradients> {
    public:
-    void Trace(blink::Visitor* visitor) {
+    void Trace(Visitor* visitor) {
       visitor->Trace(opaque_gradient_);
       visitor->Trace(alpha_gradient_);
     }
@@ -219,7 +219,7 @@ void CanvasRenderingContext2DTest::SetUp() {
   web_view_helper_ = std::make_unique<frame_test_helpers::WebViewHelper>();
   web_view_helper_->Initialize();
 
-  GetDocument().documentElement()->SetInnerHTMLFromString(String::FromUTF8(
+  GetDocument().documentElement()->setInnerHTML(String::FromUTF8(
       "<body><canvas id='c'></canvas><canvas id='d'></canvas></body>"));
   UpdateAllLifecyclePhasesForTest();
 
@@ -736,13 +736,10 @@ TEST_F(CanvasRenderingContext2DTest,
       size, CanvasColorParams(), kPreferNoAcceleration);
   fake_deaccelerate_surface->SetCanvasResourceHost(&host);
 
-  cc::PaintCanvas* paint_canvas_ptr =
-      fake_deaccelerate_surface->DrawingCanvas();
   FakeCanvas2DLayerBridge* surface_ptr = fake_deaccelerate_surface.get();
 
   EXPECT_CALL(*fake_deaccelerate_surface, DrawFullImage(_)).Times(1);
-  EXPECT_CALL(*fake_deaccelerate_surface,
-              DidRestoreCanvasMatrixClipStack(paint_canvas_ptr))
+  EXPECT_CALL(*fake_deaccelerate_surface, DidRestoreCanvasMatrixClipStack(_))
       .Times(1);
 
   EXPECT_TRUE(CanvasElement().GetCanvas2DLayerBridge()->IsAccelerated());
@@ -1006,16 +1003,16 @@ void TestPutImageDataOnCanvasWithColorSpaceSettings(
   for (size_t i = 0; i < data_length; i++)
     f32_pixels[i] = u8_pixels[i] / 255.0;
 
-  DOMArrayBufferView* data_array = nullptr;
-
-  DOMUint8ClampedArray* data_u8 =
-      DOMUint8ClampedArray::Create(u8_pixels, data_length);
+  NotShared<DOMUint8ClampedArray> data_u8(
+      DOMUint8ClampedArray::Create(u8_pixels, data_length));
   DCHECK(data_u8);
   EXPECT_EQ(data_length, data_u8->lengthAsSizeT());
-  DOMUint16Array* data_u16 = DOMUint16Array::Create(u16_pixels, data_length);
+  NotShared<DOMUint16Array> data_u16(
+      DOMUint16Array::Create(u16_pixels, data_length));
   DCHECK(data_u16);
   EXPECT_EQ(data_length, data_u16->lengthAsSizeT());
-  DOMFloat32Array* data_f32 = DOMFloat32Array::Create(f32_pixels, data_length);
+  NotShared<DOMFloat32Array> data_f32(
+      DOMFloat32Array::Create(f32_pixels, data_length));
   DCHECK(data_f32);
   EXPECT_EQ(data_length, data_f32->lengthAsSizeT());
 
@@ -1034,17 +1031,18 @@ void TestPutImageDataOnCanvasWithColorSpaceSettings(
         ImageData::CanvasColorSpaceName(image_data_color_spaces[i]));
 
     for (unsigned j = 0; j < num_image_data_storage_formats; j++) {
+      NotShared<DOMArrayBufferView> data_array;
       switch (image_data_storage_formats[j]) {
         case kUint8ClampedArrayStorageFormat:
-          data_array = static_cast<DOMArrayBufferView*>(data_u8);
+          data_array = data_u8;
           color_settings->setStorageFormat(kUint8ClampedArrayStorageFormatName);
           break;
         case kUint16ArrayStorageFormat:
-          data_array = static_cast<DOMArrayBufferView*>(data_u16);
+          data_array = data_u16;
           color_settings->setStorageFormat(kUint16ArrayStorageFormatName);
           break;
         case kFloat32ArrayStorageFormat:
-          data_array = static_cast<DOMArrayBufferView*>(data_f32);
+          data_array = data_f32;
           color_settings->setStorageFormat(kFloat32ArrayStorageFormatName);
           break;
         default:
@@ -1143,11 +1141,14 @@ TEST_F(CanvasRenderingContext2DTestAccelerated,
   CreateContext(kNonOpaque);
   IntSize size(300, 300);
   std::unique_ptr<Canvas2DLayerBridge> bridge =
-      MakeBridge(size, Canvas2DLayerBridge::kEnableAcceleration);
+      std::make_unique<Canvas2DLayerBridge>(
+          size, Canvas2DLayerBridge::kEnableAcceleration, CanvasColorParams());
   // Force hibernatation to occur in an immediate task.
   bridge->DontUseIdleSchedulingForTesting();
   CanvasElement().SetResourceProviderForTesting(nullptr, std::move(bridge),
                                                 size);
+  CanvasElement().GetCanvas2DLayerBridge()->SetCanvasResourceHost(
+      canvas_element_);
 
   EXPECT_TRUE(CanvasElement().GetCanvas2DLayerBridge()->IsAccelerated());
   // Take a snapshot to trigger lazy resource provider creation
@@ -1172,7 +1173,8 @@ TEST_F(CanvasRenderingContext2DTestAccelerated,
 
   // The page is hidden so it doesn't make sense to paint, and doing so will
   // DCHECK. Update all other lifecycle phases.
-  GetDocument().View()->UpdateAllLifecyclePhasesExceptPaint();
+  GetDocument().View()->UpdateAllLifecyclePhasesExceptPaint(
+      DocumentUpdateReason::kTest);
   EXPECT_FALSE(layer->NeedsCompositingInputsUpdate());
 
   // Wake up again, which should request a compositing update synchronously.
@@ -1187,12 +1189,14 @@ TEST_F(CanvasRenderingContext2DTestAccelerated,
   CreateContext(kNonOpaque);
   IntSize size(300, 300);
   std::unique_ptr<Canvas2DLayerBridge> bridge =
-      MakeBridge(size, Canvas2DLayerBridge::kEnableAcceleration);
+      std::make_unique<Canvas2DLayerBridge>(
+          size, Canvas2DLayerBridge::kEnableAcceleration, CanvasColorParams());
   // Force hibernatation to occur in an immediate task.
   bridge->DontUseIdleSchedulingForTesting();
   CanvasElement().SetResourceProviderForTesting(nullptr, std::move(bridge),
                                                 size);
-
+  CanvasElement().GetCanvas2DLayerBridge()->SetCanvasResourceHost(
+      canvas_element_);
   EXPECT_TRUE(CanvasElement().GetCanvas2DLayerBridge()->IsAccelerated());
 
   EXPECT_TRUE(CanvasElement().GetLayoutBoxModelObject());

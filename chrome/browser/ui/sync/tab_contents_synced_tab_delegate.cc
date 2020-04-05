@@ -20,7 +20,7 @@
 #include "extensions/buildflags/buildflags.h"
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
-#include "chrome/browser/extensions/tab_helper.h"
+#include "chrome/browser/apps/app_service/launch_utils.h"
 #endif
 
 #if BUILDFLAG(ENABLE_SUPERVISED_USERS)
@@ -54,7 +54,7 @@ bool TabContentsSyncedTabDelegate::IsBeingDestroyed() const {
 
 std::string TabContentsSyncedTabDelegate::GetExtensionAppId() const {
 #if BUILDFLAG(ENABLE_EXTENSIONS)
-  return extensions::TabHelper::FromWebContents(web_contents_)->GetAppId();
+  return apps::GetAppIdForWebContents(web_contents_);
 #else
   return std::string();
 #endif
@@ -130,10 +130,7 @@ TabContentsSyncedTabDelegate::GetBlockedNavigations() const {
 #if BUILDFLAG(ENABLE_SUPERVISED_USERS)
   SupervisedUserNavigationObserver* navigation_observer =
       SupervisedUserNavigationObserver::FromWebContents(web_contents_);
-
-  // TODO(1048643) The check on |navigation_observer| should be a DCHECK.
-  if (!navigation_observer)
-    return nullptr;
+  DCHECK(navigation_observer);
 
   return &navigation_observer->blocked_navigations();
 #else
@@ -148,15 +145,8 @@ bool TabContentsSyncedTabDelegate::ShouldSync(
           GetWindowId()) == nullptr)
     return false;
 
-  if (ProfileIsSupervised()) {
-    const auto* blocked_navigations = GetBlockedNavigations();
-
-    // TODO(1048643) If profile is supervised, |blocked_navigations| should not
-    // be nullptr. This is a work around to check if the crash reported in the
-    // bug was caused by the violation of the invariant.
-    if (blocked_navigations && !blocked_navigations->empty())
-      return true;
-  }
+  if (ProfileIsSupervised() && !GetBlockedNavigations()->empty())
+    return true;
 
   if (IsInitialBlankNavigation())
     return false;  // This deliberately ignores a new pending entry.

@@ -12,12 +12,12 @@
 #include "base/strings/string_split.h"
 #include "net/base/load_flags.h"
 #include "services/network/cors/preflight_controller.h"
-#include "services/network/loader_util.h"
 #include "services/network/public/cpp/cors/cors.h"
 #include "services/network/public/cpp/cors/origin_access_list.h"
 #include "services/network/public/cpp/features.h"
 #include "services/network/public/cpp/header_util.h"
 #include "services/network/public/cpp/request_mode.h"
+#include "services/network/url_loader.h"
 #include "url/url_util.h"
 
 namespace network {
@@ -86,12 +86,14 @@ constexpr const char kTimingAllowOrigin[] = "Timing-Allow-Origin";
 
 CorsURLLoader::CorsURLLoader(
     mojo::PendingReceiver<mojom::URLLoader> loader_receiver,
+    int32_t process_id,
     int32_t routing_id,
     int32_t request_id,
     uint32_t options,
     DeleteCallback delete_callback,
     const ResourceRequest& resource_request,
     bool ignore_isolated_world_origin,
+    bool skip_cors_enabled_scheme_check,
     mojo::PendingRemote<mojom::URLLoaderClient> client,
     const net::MutableNetworkTrafficAnnotationTag& traffic_annotation,
     mojom::URLLoaderFactory* network_loader_factory,
@@ -99,6 +101,7 @@ CorsURLLoader::CorsURLLoader(
     const OriginAccessList* factory_bound_origin_access_list,
     PreflightController* preflight_controller)
     : receiver_(this, std::move(loader_receiver)),
+      process_id_(process_id),
       routing_id_(routing_id),
       request_id_(request_id),
       options_(options),
@@ -109,7 +112,8 @@ CorsURLLoader::CorsURLLoader(
       traffic_annotation_(traffic_annotation),
       origin_access_list_(origin_access_list),
       factory_bound_origin_access_list_(factory_bound_origin_access_list),
-      preflight_controller_(preflight_controller) {
+      preflight_controller_(preflight_controller),
+      skip_cors_enabled_scheme_check_(skip_cors_enabled_scheme_check) {
   if (ignore_isolated_world_origin)
     request_.isolated_world_origin = base::nullopt;
 
@@ -175,8 +179,8 @@ void CorsURLLoader::FollowRedirect(
     }
   }
 
-  LogConcerningRequestHeaders(modified_headers,
-                              true /* added_during_redirect */);
+  network::URLLoader::LogConcerningRequestHeaders(
+      modified_headers, true /* added_during_redirect */);
 
   for (const auto& name : removed_headers) {
     request_.headers.RemoveHeader(name);
@@ -420,7 +424,7 @@ void CorsURLLoader::OnComplete(const URLLoaderCompletionStatus& status) {
 }
 
 void CorsURLLoader::StartRequest() {
-  if (fetch_cors_flag_ &&
+  if (fetch_cors_flag_ && !skip_cors_enabled_scheme_check_ &&
       !base::Contains(url::GetCorsEnabledSchemes(), request_.url.scheme())) {
     HandleComplete(URLLoaderCompletionStatus(
         CorsErrorStatus(mojom::CorsError::kCorsDisabledScheme)));
@@ -482,6 +486,10 @@ void CorsURLLoader::StartRequest() {
     return;
   }
 
+  // Since we're doing a preflight, we won't reuse the original request. Cancel
+  // it now to free up the socket.
+  network_loader_.reset();
+
   preflight_controller_->PerformPreflightCheck(
       base::BindOnce(&CorsURLLoader::StartNetworkRequest,
                      weak_factory_.GetWeakPtr()),
@@ -489,7 +497,7 @@ void CorsURLLoader::StartRequest() {
       PreflightController::WithTrustedHeaderClient(
           options_ & mojom::kURLLoadOptionUseHeaderClient),
       tainted_, net::NetworkTrafficAnnotationTag(traffic_annotation_),
-      network_loader_factory_);
+      network_loader_factory_, process_id_);
 }
 
 void CorsURLLoader::StartNetworkRequest(

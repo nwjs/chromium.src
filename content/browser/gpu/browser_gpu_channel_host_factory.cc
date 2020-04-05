@@ -261,6 +261,15 @@ void BrowserGpuChannelHostFactory::Terminate() {
   instance_ = nullptr;
 }
 
+void BrowserGpuChannelHostFactory::MaybeCloseChannel() {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  if (!gpu_channel_ || !gpu_channel_->HasOneRef())
+    return;
+
+  gpu_channel_->DestroyChannel();
+  gpu_channel_ = nullptr;
+}
+
 void BrowserGpuChannelHostFactory::CloseChannel() {
   if (gpu_channel_) {
     gpu_channel_->DestroyChannel();
@@ -350,13 +359,14 @@ BrowserGpuChannelHostFactory::EstablishGpuChannelSync() {
 #if defined(OS_ANDROID)
   NOTREACHED();
   return nullptr;
-#endif
+#else
   EstablishGpuChannel(gpu::GpuChannelEstablishedCallback());
 
   if (pending_request_.get())
     pending_request_->Wait();
 
   return gpu_channel_;
+#endif
 }
 
 gpu::GpuMemoryBufferManager*

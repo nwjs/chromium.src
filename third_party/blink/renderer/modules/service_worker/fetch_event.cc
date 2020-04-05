@@ -91,7 +91,7 @@ FetchEvent::FetchEvent(ScriptState* script_state,
                            worker_timing_remote,
                        bool navigation_preload_sent)
     : ExtendableEvent(type, initializer, wait_until_observer),
-      ContextClient(ExecutionContext::From(script_state)),
+      ExecutionContextClient(ExecutionContext::From(script_state)),
       observer_(respond_with_observer),
       preload_response_property_(MakeGarbageCollected<PreloadResponseProperty>(
           ExecutionContext::From(script_state))),
@@ -196,7 +196,8 @@ void FetchEvent::OnNavigationPreloadComplete(
   // According to the Resource Timing spec, the initiator type of
   // navigation preload request is "navigation".
   scoped_refptr<ResourceTimingInfo> info = ResourceTimingInfo::Create(
-      "navigation", request_time, request_->GetRequestContextType());
+      "navigation", request_time, request_->GetRequestContextType(),
+      request_->GetRequestDestination());
   info->SetNegativeAllowed(true);
   info->SetLoadResponseEnd(completion_time);
   info->SetInitialURL(request_->url());
@@ -225,13 +226,13 @@ void FetchEvent::addPerformanceEntry(PerformanceMeasure* performance_measure) {
   }
 }
 
-void FetchEvent::Trace(blink::Visitor* visitor) {
+void FetchEvent::Trace(Visitor* visitor) {
   visitor->Trace(observer_);
   visitor->Trace(request_);
   visitor->Trace(preload_response_property_);
   visitor->Trace(body_completion_notifier_);
   ExtendableEvent::Trace(visitor);
-  ContextClient::Trace(visitor);
+  ExecutionContextClient::Trace(visitor);
 }
 
 }  // namespace blink

@@ -25,9 +25,8 @@ class CreditCard;
 class FormStructure;
 class MigratableCreditCard;
 class PersonalDataManager;
-class SmsClient;
 class StrikeDatabase;
-}
+}  // namespace autofill
 
 namespace content {
 class WebContents;
@@ -69,7 +68,6 @@ class AwAutofillClient : public autofill::AutofillClient,
   syncer::SyncService* GetSyncService() override;
   signin::IdentityManager* GetIdentityManager() override;
   autofill::FormDataImporter* GetFormDataImporter() override;
-  autofill::SmsClient* GetSmsClient() override;
   autofill::payments::PaymentsClient* GetPaymentsClient() override;
   autofill::StrikeDatabase* GetStrikeDatabase() override;
   ukm::UkmRecorder* GetUkmRecorder() override;
@@ -129,7 +127,7 @@ class AwAutofillClient : public autofill::AutofillClient,
       const std::vector<base::string16>& values,
       const std::vector<base::string16>& labels) override;
   base::span<const autofill::Suggestion> GetPopupSuggestions() const override;
-  void PinPopupViewUntilUpdate() override;
+  void PinPopupView() override;
   void UpdatePopup(const std::vector<autofill::Suggestion>& suggestions,
                    autofill::PopupType popup_type) override;
   void HideAutofillPopup(autofill::PopupHidingReason reason) override;

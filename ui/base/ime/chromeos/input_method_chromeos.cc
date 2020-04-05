@@ -209,7 +209,9 @@ void InputMethodChromeOS::OnCaretBoundsChanged(const TextInputClient* client) {
 
   chromeos::IMECandidateWindowHandlerInterface* candidate_window =
       ui::IMEBridge::Get()->GetCandidateWindowHandler();
-  if (!candidate_window)
+  chromeos::IMESuggestionWindowHandlerInterface* suggestion_window =
+      ui::IMEBridge::Get()->GetSuggestionWindowHandler();
+  if (!candidate_window && !suggestion_window)
     return;
 
   const gfx::Rect caret_rect = client->GetCaretBounds();
@@ -222,8 +224,10 @@ void InputMethodChromeOS::OnCaretBoundsChanged(const TextInputClient* client) {
   // avoid a bad user experience (the IME window moved to upper left corner).
   if (composition_head.IsEmpty())
     composition_head = caret_rect;
-  candidate_window->SetCursorBounds(caret_rect, composition_head);
-
+  if (candidate_window)
+    candidate_window->SetCursorBounds(caret_rect, composition_head);
+  if (suggestion_window)
+    suggestion_window->SetBounds(caret_rect);
   gfx::Range text_range;
   gfx::Range selection_range;
   base::string16 surrounding_text;
@@ -254,8 +258,7 @@ void InputMethodChromeOS::OnCaretBoundsChanged(const TextInputClient* client) {
   // |surrounding_text| coordinates.
   if (GetEngine()) {
     GetEngine()->SetSurroundingText(
-        base::UTF16ToUTF8(surrounding_text),
-        selection_range.start() - text_range.start(),
+        surrounding_text, selection_range.start() - text_range.start(),
         selection_range.end() - text_range.start(), text_range.start());
   }
 }
@@ -384,6 +387,12 @@ void InputMethodChromeOS::UpdateContextFocusState() {
       ui::IMEBridge::Get()->GetCandidateWindowHandler();
   if (candidate_window)
     candidate_window->FocusStateChanged(IsNonPasswordInputFieldFocused());
+
+  // Propagate focus event to suggestion window handler.
+  chromeos::IMESuggestionWindowHandlerInterface* suggestion_window =
+      ui::IMEBridge::Get()->GetSuggestionWindowHandler();
+  if (suggestion_window)
+    suggestion_window->FocusStateChanged();
 
   ui::IMEEngineHandlerInterface::InputContext context(
       GetTextInputType(), GetTextInputMode(), GetTextInputFlags(),

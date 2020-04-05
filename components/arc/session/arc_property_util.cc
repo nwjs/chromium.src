@@ -44,8 +44,8 @@ constexpr int kAndroidMaxPropertyLength = 91;
 // of the ones in platform2/arc/setup/arc_setup_util.cc. Do not modify the
 // implementation directly here. Instead, modify it in platform2 with proper
 // unit tests, then roll the change into Chromium.
-// TODO(yusukes): Once we stop supporting the container, move the unit tests
-// to Chromium and delete platform2/arc/setup/.
+// TODO(yusukes): Once we stop expanding the properties in arc-setup for the
+// container, remove the code in platform2/arc/setup/.
 
 bool FindProperty(const std::string& line_prefix_to_find,
                   std::string* out_prop,
@@ -107,6 +107,8 @@ bool TruncateAndroidProperty(const std::string& line, std::string* truncated) {
   return true;
 }
 
+// Computes the value of ro.oem.key1 based on the build-time ro.product.board
+// value and the device's region of origin.
 std::string ComputeOEMKey(brillo::CrosConfigInterface* config,
                           const std::string& board) {
   std::string regions;
@@ -254,6 +256,17 @@ bool CrosConfig::GetString(const std::string& path,
   return true;
 }
 
+bool ExpandPropertyContentsForTesting(const std::string& content,
+                                      brillo::CrosConfigInterface* config,
+                                      std::string* expanded_content) {
+  return ExpandPropertyContents(content, config, expanded_content);
+}
+
+bool TruncateAndroidPropertyForTesting(const std::string& line,
+                                       std::string* truncated) {
+  return TruncateAndroidProperty(line, truncated);
+}
+
 bool ExpandPropertyFile(const base::FilePath& input,
                         const base::FilePath& output,
                         CrosConfig* config) {
@@ -269,6 +282,19 @@ bool ExpandPropertyFile(const base::FilePath& input,
       static_cast<int>(expanded.size())) {
     PLOG(ERROR) << "Failed to write to " << output;
     return false;
+  }
+  return true;
+}
+
+bool ExpandPropertyFiles(const base::FilePath& source_path,
+                         const base::FilePath& dest_path) {
+  CrosConfig config;
+  for (const char* file : {"default.prop", "build.prop"}) {
+    if (!ExpandPropertyFile(source_path.Append(file), dest_path.Append(file),
+                            &config)) {
+      LOG(ERROR) << "Failed to expand " << source_path.Append(file);
+      return false;
+    }
   }
   return true;
 }

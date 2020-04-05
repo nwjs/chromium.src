@@ -45,6 +45,10 @@ class ArCore {
   // when the camera image was updated successfully.
   virtual mojom::VRPosePtr Update(bool* camera_updated) = 0;
 
+  // Camera image timestamp. This returns TimeDelta instead of TimeTicks since
+  // ARCore internally uses an arbitrary and unspecified time base.
+  virtual base::TimeDelta GetFrameTimestamp() = 0;
+
   // Return latest estimate for the floor height.
   virtual float GetEstimatedFloorHeight() = 0;
 
@@ -91,8 +95,8 @@ class ArCore {
 
   virtual void UnsubscribeFromHitTest(uint64_t subscription_id) = 0;
 
-  virtual base::Optional<uint64_t> CreateAnchor(const mojom::PosePtr& pose) = 0;
-  virtual base::Optional<uint64_t> CreateAnchor(const mojom::PosePtr& pose,
+  virtual base::Optional<uint64_t> CreateAnchor(const mojom::Pose& pose) = 0;
+  virtual base::Optional<uint64_t> CreateAnchor(const mojom::Pose& pose,
                                                 uint64_t plane_id) = 0;
 
   virtual void DetachAnchor(uint64_t anchor_id) = 0;

@@ -28,6 +28,14 @@ login.createScreen('PasswordChangedScreen', 'password-changed', function() {
     },
 
     /**
+     * Returns default event target element.
+     * @type {Object}
+     */
+    get defaultControl() {
+      return this.gaiaPasswordChanged_;
+    },
+
+    /**
      * Cancels password migration and drops the user back to the login screen.
      */
     cancel() {
@@ -36,6 +44,11 @@ login.createScreen('PasswordChangedScreen', 'password-changed', function() {
             'cancelPasswordChangedFlow',
             [this.gaiaPasswordChanged_.email || '']);
       }
+    },
+
+    /** Initial UI State for screen */
+    getOobeUIInitialState() {
+      return OOBE_UI_STATE.PASSWORD_CHANGED;
     },
 
     onAfterShow(data) {
@@ -55,7 +68,6 @@ login.createScreen('PasswordChangedScreen', 'password-changed', function() {
 
       // We'll get here after the successful online authentication.
       Oobe.showScreen({id: SCREEN_PASSWORD_CHANGED});
-      Oobe.getInstance().setSigninUIState(SIGNIN_UI_STATE.PASSWORD_CHANGED);
     },
 
     /**

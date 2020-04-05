@@ -12,12 +12,12 @@
 #include "third_party/blink/renderer/core/html/html_frame_element_base.h"
 #include "third_party/blink/renderer/core/input/event_handling_util.h"
 #include "third_party/blink/renderer/core/layout/hit_test_location.h"
-#include "third_party/blink/renderer/modules/xr/xr.h"
 #include "third_party/blink/renderer/modules/xr/xr_grip_space.h"
 #include "third_party/blink/renderer/modules/xr/xr_input_source_event.h"
 #include "third_party/blink/renderer/modules/xr/xr_session.h"
 #include "third_party/blink/renderer/modules/xr/xr_session_event.h"
 #include "third_party/blink/renderer/modules/xr/xr_space.h"
+#include "third_party/blink/renderer/modules/xr/xr_system.h"
 #include "third_party/blink/renderer/modules/xr/xr_target_ray_space.h"
 #include "third_party/blink/renderer/modules/xr/xr_utils.h"
 
@@ -307,13 +307,96 @@ void XRInputSource::OnSelect() {
   OnSelectEnd();
 }
 
-void XRInputSource::UpdateSelectState(
+void XRInputSource::OnSqueezeStart() {
+  DVLOG(3) << __func__;
+  // Discard duplicate events and ones after the session has ended.
+  if (state_.primary_squeeze_pressed || session_->ended())
+    return;
+
+  state_.primary_squeeze_pressed = true;
+  state_.squeezing_cancelled = false;
+
+  XRInputSourceEvent* event =
+      CreateInputSourceEvent(event_type_names::kSqueezestart);
+  session_->DispatchEvent(*event);
+
+  if (event->defaultPrevented())
+    state_.squeezing_cancelled = true;
+
+  // Ensure the frame cannot be used outside of the event handler.
+  event->frame()->Deactivate();
+}
+
+void XRInputSource::OnSqueezeEnd() {
+  DVLOG(3) << __func__;
+  // Discard duplicate events and ones after the session has ended.
+  if (!state_.primary_squeeze_pressed || session_->ended())
+    return;
+
+  state_.primary_squeeze_pressed = false;
+
+  LocalFrame* frame = session_->xr()->GetFrame();
+  if (!frame)
+    return;
+
+  DVLOG(3) << __func__ << ": dispatch squeezeend event";
+  XRInputSourceEvent* event =
+      CreateInputSourceEvent(event_type_names::kSqueezeend);
+  session_->DispatchEvent(*event);
+
+  if (event->defaultPrevented())
+    state_.squeezing_cancelled = true;
+
+  // Ensure the frame cannot be used outside of the event handler.
+  event->frame()->Deactivate();
+}
+
+void XRInputSource::OnSqueeze() {
+  DVLOG(3) << __func__;
+  // If a squeeze was fired but we had not previously started the squeezing it
+  // indicates a sub-frame or instantaneous squeeze event, and we should fire a
+  // squeezestart prior to the squeezeend.
+  if (!state_.primary_squeeze_pressed) {
+    OnSqueezeStart();
+  }
+
+  LocalFrame* frame = session_->xr()->GetFrame();
+  LocalFrame::NotifyUserActivation(frame);
+
+  // If SelectStart caused the session to end, we shouldn't try to fire the
+  // select event.
+  if (!state_.squeezing_cancelled && !session_->ended()) {
+    if (!frame)
+      return;
+    DVLOG(3) << __func__ << ": dispatch squeeze event";
+    XRInputSourceEvent* event =
+        CreateInputSourceEvent(event_type_names::kSqueeze);
+    session_->DispatchEvent(*event);
+
+    // Ensure the frame cannot be used outside of the event handler.
+    event->frame()->Deactivate();
+  }
+
+  OnSqueezeEnd();
+}
+
+void XRInputSource::UpdateButtonStates(
     const device::mojom::blink::XRInputSourceStatePtr& new_state) {
   if (!new_state)
     return;
 
+  DVLOG(3) << __func__ << ": state_.is_visible=" << state_.is_visible
+           << ", state_.xr_select_events_suppressed="
+           << state_.xr_select_events_suppressed
+           << ", new_state->primary_input_clicked="
+           << new_state->primary_input_clicked;
+
   if (!state_.is_visible) {
     DVLOG(3) << __func__ << ": input NOT VISIBLE";
+    if (new_state->primary_input_clicked) {
+      DVLOG(3) << __func__ << ": got click while invisible, SUPPRESS end";
+      state_.xr_select_events_suppressed = false;
+    }
     return;
   }
   if (state_.xr_select_events_suppressed) {
@@ -341,11 +424,29 @@ void XRInputSource::UpdateSelectState(
     // usual select event.
     OnSelectEnd();
   }
+
+  // Handle state change of the primary input, which may fire events
+  if (new_state->primary_squeeze_clicked)
+    OnSqueeze();
+
+  if (new_state->primary_squeeze_pressed) {
+    OnSqueezeStart();
+  } else if (state_.primary_squeeze_pressed) {
+    // May get here if the input source was previously pressed but now isn't,
+    // but the input source did not set primary_squeeze_clicked to true. We will
+    // treat this as a cancelled squeezeing, firing the squeezeend event so the
+    // page stays in sync with the controller state but won't fire the
+    // usual squeeze event.
+    OnSqueezeEnd();
+  }
 }
 
 void XRInputSource::ProcessOverlayHitTest(
     Element* overlay_element,
     const device::mojom::blink::XRInputSourceStatePtr& new_state) {
+  DVLOG(3) << __func__ << ": state_.xr_select_events_suppressed="
+           << state_.xr_select_events_suppressed;
+
   DCHECK(overlay_element);
   DCHECK(new_state->overlay_pointer_position);
 
@@ -354,6 +455,7 @@ void XRInputSource::ProcessOverlayHitTest(
   // causes targetRaySpace and gripSpace to return null poses.
   FloatPoint point(new_state->overlay_pointer_position->x(),
                    new_state->overlay_pointer_position->y());
+  DVLOG(3) << __func__ << ": hit test point=" << point;
 
   HitTestRequest::HitTestRequestType hit_type = HitTestRequest::kTouchEvent |
                                                 HitTestRequest::kReadOnly |
@@ -380,7 +482,7 @@ void XRInputSource::ProcessOverlayHitTest(
     if (hit_document) {
       Frame* hit_frame = hit_document->GetFrame();
       DCHECK(hit_frame);
-      if (hit_frame->IsCrossOriginSubframe()) {
+      if (hit_frame->IsCrossOriginToMainFrame()) {
         // Mark the input source as invisible until the primary button is
         // released.
         state_.is_visible = false;
@@ -391,6 +493,11 @@ void XRInputSource::ProcessOverlayHitTest(
           state_.xr_select_events_suppressed = true;
         }
 
+        DVLOG(3)
+            << __func__
+            << ": input source overlaps with cross origin content, is_visible="
+            << state_.is_visible << ", xr_select_events_suppressed="
+            << state_.xr_select_events_suppressed;
         return;
       }
     }
@@ -399,6 +506,12 @@ void XRInputSource::ProcessOverlayHitTest(
   // If we get here, the touch didn't hit a cross origin frame. Set the
   // controller spaces visible.
   state_.is_visible = true;
+
+  // Now that the visibility check has finished, mark non-primary input sources
+  // as suppressed.
+  if (new_state->is_auxiliary) {
+    state_.xr_select_events_suppressed = true;
+  }
 
   // Now check if this is a new primary button press. If yes, send a
   // beforexrselect event to give the application an opportunity to cancel the
@@ -434,6 +547,8 @@ void XRInputSource::ProcessOverlayHitTest(
   // Keep the input source visible, so it's exposed in the input sources array,
   // but don't generate XR select events for the current button sequence.
   state_.xr_select_events_suppressed = default_prevented;
+  DVLOG(3) << __func__ << ": state_.xr_select_events_suppressed="
+           << state_.xr_select_events_suppressed;
 }
 
 void XRInputSource::OnRemoved() {
@@ -451,6 +566,20 @@ void XRInputSource::OnRemoved() {
     event->frame()->Deactivate();
   }
 
+  if (state_.primary_squeeze_pressed) {
+    state_.primary_squeeze_pressed = false;
+
+    XRInputSourceEvent* event =
+        CreateInputSourceEvent(event_type_names::kSqueezeend);
+    session_->DispatchEvent(*event);
+
+    if (event->defaultPrevented())
+      state_.squeezing_cancelled = true;
+
+    // Ensure the frame cannot be used outside of the event handler.
+    event->frame()->Deactivate();
+  }
+
   SetGamepadConnected(false);
 }
 
@@ -460,7 +589,7 @@ XRInputSourceEvent* XRInputSource::CreateInputSourceEvent(
   return XRInputSourceEvent::Create(type, presentation_frame, this);
 }
 
-void XRInputSource::Trace(blink::Visitor* visitor) {
+void XRInputSource::Trace(Visitor* visitor) {
   visitor->Trace(session_);
   visitor->Trace(target_ray_space_);
   visitor->Trace(grip_space_);

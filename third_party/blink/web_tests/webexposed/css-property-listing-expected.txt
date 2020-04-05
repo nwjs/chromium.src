@@ -71,6 +71,7 @@ All changes to this list should go through Blink's feature review process: http:
     animation-name
     animation-play-state
     animation-timing-function
+    aspect-ratio
     backdrop-filter
     backface-visibility
     background-attachment
@@ -147,10 +148,7 @@ All changes to this list should go through Blink's feature review process: http:
     column-span
     column-width
     contain
-    contain-intrinsic-block-size
-    contain-intrinsic-height
-    contain-intrinsic-inline-size
-    contain-intrinsic-width
+    contain-intrinsic-size
     content
     counter-increment
     counter-reset
@@ -234,6 +232,7 @@ All changes to this list should go through Blink's feature review process: http:
     mask
     mask-source-type
     mask-type
+    math-style
     max-block-size
     max-height
     max-inline-size
@@ -283,7 +282,6 @@ All changes to this list should go through Blink's feature review process: http:
     position
     quotes
     r
-    render-subtree
     resize
     right
     rotate
@@ -327,6 +325,7 @@ All changes to this list should go through Blink's feature review process: http:
     stroke-miterlimit
     stroke-opacity
     stroke-width
+    subtree-visibility
     tab-size
     table-layout
     text-align
@@ -552,9 +551,6 @@ All changes to this list should go through Blink's feature review process: http:
     columns
         column-count
         column-width
-    contain-intrinsic-size
-        contain-intrinsic-height
-        contain-intrinsic-width
     flex
         flex-basis
         flex-grow

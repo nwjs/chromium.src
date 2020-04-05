@@ -32,6 +32,8 @@
 #include "base/optional.h"
 #include "cc/layers/picture_layer.h"
 #include "gpu/command_buffer/client/gles2_interface.h"
+#include "third_party/blink/public/mojom/devtools/inspector_issue.mojom-blink.h"
+#include "third_party/blink/public/mojom/favicon/favicon_url.mojom-blink.h"
 #include "third_party/blink/public/mojom/input/focus_type.mojom-blink.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/web_graphics_context_3d_provider.h"
@@ -84,7 +86,10 @@
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
 #include "third_party/blink/renderer/core/frame/performance_monitor.h"
 #include "third_party/blink/renderer/core/frame/remote_dom_window.h"
+#include "third_party/blink/renderer/core/frame/report.h"
+#include "third_party/blink/renderer/core/frame/reporting_context.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
+#include "third_party/blink/renderer/core/frame/test_report_body.h"
 #include "third_party/blink/renderer/core/frame/visual_viewport.h"
 #include "third_party/blink/renderer/core/geometry/dom_point.h"
 #include "third_party/blink/renderer/core/geometry/dom_rect.h"
@@ -107,9 +112,9 @@
 #include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/core/input/event_handler.h"
 #include "third_party/blink/renderer/core/input/keyboard_event_manager.h"
+#include "third_party/blink/renderer/core/inspector/inspector_issue.h"
 #include "third_party/blink/renderer/core/inspector/main_thread_debugger.h"
 #include "third_party/blink/renderer/core/intersection_observer/intersection_observer.h"
-#include "third_party/blink/renderer/core/layout/layout_menu_list.h"
 #include "third_party/blink/renderer/core/layout/layout_object.h"
 #include "third_party/blink/renderer/core/layout/layout_tree_as_text.h"
 #include "third_party/blink/renderer/core/layout/layout_view.h"
@@ -155,12 +160,12 @@
 #include "third_party/blink/renderer/core/testing/static_selection.h"
 #include "third_party/blink/renderer/core/testing/type_conversions.h"
 #include "third_party/blink/renderer/core/testing/union_types_test.h"
+#include "third_party/blink/renderer/core/timezone/timezone_controller.h"
 #include "third_party/blink/renderer/core/typed_arrays/dom_array_buffer.h"
 #include "third_party/blink/renderer/core/workers/worker_thread.h"
 #include "third_party/blink/renderer/platform/bindings/exception_messages.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/bindings/v8_throw_exception.h"
-#include "third_party/blink/renderer/platform/cursor.h"
 #include "third_party/blink/renderer/platform/geometry/int_rect.h"
 #include "third_party/blink/renderer/platform/geometry/layout_rect.h"
 #include "third_party/blink/renderer/platform/graphics/compositing/paint_artifact_compositor.h"
@@ -183,6 +188,8 @@
 #include "third_party/blink/renderer/platform/wtf/dtoa.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_buffer.h"
 #include "third_party/blink/renderer/platform/wtf/text/text_encoding_registry.h"
+#include "ui/base/cursor/cursor.h"
+#include "ui/base/mojom/cursor_type.mojom-blink.h"
 #include "ui/base/ui_base_features.h"
 #include "v8/include/v8.h"
 
@@ -206,7 +213,7 @@ class UseCounterHelperObserverImpl final : public UseCounterHelper::Observer {
     return true;
   }
 
-  void Trace(blink::Visitor* visitor) override {
+  void Trace(Visitor* visitor) override {
     UseCounterHelper::Observer::Trace(visitor);
     visitor->Trace(resolver_);
   }
@@ -221,17 +228,17 @@ class UseCounterHelperObserverImpl final : public UseCounterHelper::Observer {
 
 static base::Optional<DocumentMarker::MarkerType> MarkerTypeFrom(
     const String& marker_type) {
-  if (DeprecatedEqualIgnoringCase(marker_type, "Spelling"))
+  if (EqualIgnoringASCIICase(marker_type, "Spelling"))
     return DocumentMarker::kSpelling;
   if (EqualIgnoringASCIICase(marker_type, "Grammar"))
     return DocumentMarker::kGrammar;
   if (EqualIgnoringASCIICase(marker_type, "TextMatch"))
     return DocumentMarker::kTextMatch;
-  if (DeprecatedEqualIgnoringCase(marker_type, "Composition"))
+  if (EqualIgnoringASCIICase(marker_type, "Composition"))
     return DocumentMarker::kComposition;
-  if (DeprecatedEqualIgnoringCase(marker_type, "ActiveSuggestion"))
+  if (EqualIgnoringASCIICase(marker_type, "ActiveSuggestion"))
     return DocumentMarker::kActiveSuggestion;
-  if (DeprecatedEqualIgnoringCase(marker_type, "Suggestion"))
+  if (EqualIgnoringASCIICase(marker_type, "Suggestion"))
     return DocumentMarker::kSuggestion;
   return base::nullopt;
 }
@@ -291,7 +298,7 @@ void Internals::ResetToConsistentState(Page* page) {
 
   LocalFrame* frame = page->DeprecatedLocalMainFrame();
   frame->View()->LayoutViewport()->SetScrollOffset(
-      ScrollOffset(), mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
+      ScrollOffset(), mojom::blink::ScrollType::kProgrammatic);
   OverrideUserPreferredLanguagesForTesting(Vector<AtomicString>());
   if (page->DeprecatedLocalMainFrame()->GetEditor().IsOverwriteModeEnabled())
     page->DeprecatedLocalMainFrame()->GetEditor().ToggleOverwriteModeEnabled();
@@ -310,7 +317,7 @@ void Internals::ResetToConsistentState(Page* page) {
 
 Internals::Internals(ExecutionContext* context)
     : runtime_flags_(InternalRuntimeFlags::create()),
-      document_(To<Document>(context)) {
+      document_(To<LocalDOMWindow>(context)->document()) {
   document_->Fetcher()->EnableIsPreloadedForTest();
 }
 
@@ -605,10 +612,6 @@ bool Internals::isCompositedAnimation(Animation* animation) {
 
 void Internals::disableCompositedAnimation(Animation* animation) {
   animation->DisableCompositedAnimationForTesting();
-}
-
-void Internals::disableCSSAdditiveAnimations() {
-  RuntimeEnabledFeatures::SetCSSAdditiveAnimationsEnabled(false);
 }
 
 void Internals::advanceImageAnimation(Element* image,
@@ -912,7 +915,7 @@ DOMRectReadOnly* Internals::absoluteCaretBounds(
     return nullptr;
   }
 
-  document_->UpdateStyleAndLayout();
+  document_->UpdateStyleAndLayout(DocumentUpdateReason::kTest);
   return DOMRectReadOnly::FromIntRect(
       GetFrame()->Selection().AbsoluteCaretBounds());
 }
@@ -933,7 +936,7 @@ String Internals::textAffinity() {
 DOMRectReadOnly* Internals::boundingBox(Element* element) {
   DCHECK(element);
 
-  element->GetDocument().UpdateStyleAndLayout();
+  element->GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kTest);
   LayoutObject* layout_object = element->GetLayoutObject();
   if (!layout_object)
     return DOMRectReadOnly::Create(0, 0, 0, 0);
@@ -967,7 +970,7 @@ void Internals::setMarker(Document* document,
     return;
   }
 
-  document->UpdateStyleAndLayout();
+  document->UpdateStyleAndLayout(DocumentUpdateReason::kTest);
   if (type == DocumentMarker::kSpelling)
     document->Markers().AddSpellingMarker(EphemeralRange(range));
   else
@@ -1102,7 +1105,7 @@ void Internals::addTextMatchMarker(const Range* range,
     return;
   }
 
-  range->OwnerDocument().UpdateStyleAndLayout();
+  range->OwnerDocument().UpdateStyleAndLayout(DocumentUpdateReason::kTest);
   range->OwnerDocument().Markers().AddTextMatchMarker(
       EphemeralRange(range), match_status_enum.value());
 
@@ -1144,6 +1147,8 @@ static base::Optional<ImeTextSpanUnderlineStyle> UnderlineStyleFrom(
     return ImeTextSpanUnderlineStyle::kDot;
   if (EqualIgnoringASCIICase(underline_style, "dash"))
     return ImeTextSpanUnderlineStyle::kDash;
+  if (EqualIgnoringASCIICase(underline_style, "squiggle"))
+    return ImeTextSpanUnderlineStyle::kSquiggle;
   return base::nullopt;
 }
 
@@ -1163,7 +1168,7 @@ void addStyleableMarkerHelper(const Range* range,
                                                  Color,
                                                  Color)> create_marker) {
   DCHECK(range);
-  range->OwnerDocument().UpdateStyleAndLayout();
+  range->OwnerDocument().UpdateStyleAndLayout(DocumentUpdateReason::kTest);
 
   base::Optional<ImeTextSpanThickness> thickness =
       ThicknessFrom(thickness_value);
@@ -1320,7 +1325,7 @@ String Internals::viewportAsText(Document* document,
     return String();
   }
 
-  document->UpdateStyleAndLayout();
+  document->UpdateStyleAndLayout(DocumentUpdateReason::kTest);
 
   Page* page = document->GetPage();
 
@@ -1480,7 +1485,7 @@ Range* Internals::rangeFromLocationAndLength(Element* scope,
   DCHECK(scope);
 
   // TextIterator depends on Layout information, make sure layout it up to date.
-  scope->GetDocument().UpdateStyleAndLayout();
+  scope->GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kTest);
 
   return CreateRange(
       PlainTextRange(range_location, range_location + range_length)
@@ -1491,7 +1496,7 @@ unsigned Internals::locationFromRange(Element* scope, const Range* range) {
   DCHECK(scope && range);
   // PlainTextRange depends on Layout information, make sure layout it up to
   // date.
-  scope->GetDocument().UpdateStyleAndLayout();
+  scope->GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kTest);
 
   return PlainTextRange::Create(*scope, *range).Start();
 }
@@ -1500,7 +1505,7 @@ unsigned Internals::lengthFromRange(Element* scope, const Range* range) {
   DCHECK(scope && range);
   // PlainTextRange depends on Layout information, make sure layout it up to
   // date.
-  scope->GetDocument().UpdateStyleAndLayout();
+  scope->GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kTest);
 
   return PlainTextRange::Create(*scope, *range).length();
 }
@@ -1508,7 +1513,7 @@ unsigned Internals::lengthFromRange(Element* scope, const Range* range) {
 String Internals::rangeAsText(const Range* range) {
   DCHECK(range);
   // Clean layout is required by plain text extraction.
-  range->OwnerDocument().UpdateStyleAndLayout();
+  range->OwnerDocument().UpdateStyleAndLayout(DocumentUpdateReason::kTest);
 
   return range->GetText();
 }
@@ -1523,7 +1528,7 @@ void Internals::HitTestRect(HitTestLocation& location,
                             int width,
                             int height,
                             Document* document) {
-  document->UpdateStyleAndLayout();
+  document->UpdateStyleAndLayout(DocumentUpdateReason::kTest);
   EventHandler& event_handler = document->GetFrame()->GetEventHandler();
   PhysicalRect rect{LayoutUnit(x), LayoutUnit(y), LayoutUnit(width),
                     LayoutUnit(height)};
@@ -1737,6 +1742,10 @@ void Internals::setUserPreferredLanguages(const Vector<String>& languages) {
   OverrideUserPreferredLanguagesForTesting(atomic_languages);
 }
 
+void Internals::setSystemTimeZone(const String& timezone) {
+  blink::TimeZoneController::ChangeTimeZoneForTesting(timezone);
+}
+
 unsigned Internals::mediaKeysCount() {
   return InstanceCounters::CounterValue(InstanceCounters::kMediaKeysCounter);
 }
@@ -1744,12 +1753,6 @@ unsigned Internals::mediaKeysCount() {
 unsigned Internals::mediaKeySessionCount() {
   return InstanceCounters::CounterValue(
       InstanceCounters::kMediaKeySessionCounter);
-}
-
-unsigned Internals::contextLifecycleStateObserverObjectCount(
-    Document* document) {
-  DCHECK(document);
-  return document->ContextLifecycleStateObserverCount();
 }
 
 static unsigned EventHandlerCount(
@@ -1963,6 +1966,15 @@ bool Internals::executeCommand(Document* document,
   return frame->GetEditor().ExecuteCommand(name, value);
 }
 
+void Internals::triggerTestInspectorIssue(Document* document) {
+  DCHECK(document);
+  auto info = mojom::blink::InspectorIssueInfo::New(
+      mojom::InspectorIssueCode::kSameSiteCookieIssue,
+      mojom::blink::InspectorIssueDetails::New(),
+      mojom::blink::AffectedResources::New());
+  document->AddInspectorIssue(InspectorIssue::Create(std::move(info)));
+}
+
 AtomicString Internals::htmlNamespace() {
   return html_names::xhtmlNamespaceURI;
 }
@@ -2042,7 +2054,7 @@ bool Internals::hasSpellingMarker(Document* document,
     return false;
   }
 
-  document->UpdateStyleAndLayout();
+  document->UpdateStyleAndLayout(DocumentUpdateReason::kTest);
   return document->GetFrame()->GetSpellChecker().SelectionStartHasMarkerFor(
       DocumentMarker::kSpelling, from, length);
 }
@@ -2057,7 +2069,7 @@ void Internals::replaceMisspelled(Document* document,
     return;
   }
 
-  document->UpdateStyleAndLayout();
+  document->UpdateStyleAndLayout(DocumentUpdateReason::kTest);
   document->GetFrame()->GetSpellChecker().ReplaceMisspelledRange(replacement);
 }
 
@@ -2106,7 +2118,7 @@ bool Internals::hasGrammarMarker(Document* document,
     return false;
   }
 
-  document->UpdateStyleAndLayout();
+  document->UpdateStyleAndLayout(DocumentUpdateReason::kTest);
   return document->GetFrame()->GetSpellChecker().SelectionStartHasMarkerFor(
       DocumentMarker::kGrammar, from, length);
 }
@@ -2321,11 +2333,18 @@ Vector<String> Internals::IconURLs(Document* document,
 }
 
 Vector<String> Internals::shortcutIconURLs(Document* document) const {
-  return IconURLs(document, kFavicon);
+  int icon_types_mask =
+      1 << static_cast<int>(mojom::blink::FaviconIconType::kFavicon);
+  return IconURLs(document, icon_types_mask);
 }
 
 Vector<String> Internals::allIconURLs(Document* document) const {
-  return IconURLs(document, kFavicon | kTouchIcon | kTouchPrecomposedIcon);
+  int icon_types_mask =
+      1 << static_cast<int>(mojom::blink::FaviconIconType::kFavicon) |
+      1 << static_cast<int>(mojom::blink::FaviconIconType::kTouchIcon) |
+      1 << static_cast<int>(
+          mojom::blink::FaviconIconType::kTouchPrecomposedIcon);
+  return IconURLs(document, icon_types_mask);
 }
 
 int Internals::numberOfPages(float page_width,
@@ -2598,7 +2617,7 @@ void Internals::updateLayoutAndRunPostLayoutTasks(
         "The node provided is neither a document nor an IFrame.");
     return;
   }
-  document->UpdateStyleAndLayout();
+  document->UpdateStyleAndLayout(DocumentUpdateReason::kTest);
   if (auto* view = document->View())
     view->FlushAnyPendingPostLayoutTasks();
 }
@@ -2637,7 +2656,7 @@ DOMRectList* Internals::AnnotatedRegions(Document* document,
     return MakeGarbageCollected<DOMRectList>();
   }
 
-  document->UpdateStyleAndLayout();
+  document->UpdateStyleAndLayout(DocumentUpdateReason::kTest);
   document->View()->UpdateDocumentAnnotatedRegions();
   Vector<AnnotatedRegionValue> regions = document->AnnotatedRegions();
 
@@ -2649,109 +2668,110 @@ DOMRectList* Internals::AnnotatedRegions(Document* document,
   return MakeGarbageCollected<DOMRectList>(quads);
 }
 
-static const char* CursorTypeToString(ui::CursorType cursor_type) {
+static const char* CursorTypeToString(
+    ui::mojom::blink::CursorType cursor_type) {
   switch (cursor_type) {
-    case ui::CursorType::kPointer:
+    case ui::mojom::blink::CursorType::kPointer:
       return "Pointer";
-    case ui::CursorType::kCross:
+    case ui::mojom::blink::CursorType::kCross:
       return "Cross";
-    case ui::CursorType::kHand:
+    case ui::mojom::blink::CursorType::kHand:
       return "Hand";
-    case ui::CursorType::kIBeam:
+    case ui::mojom::blink::CursorType::kIBeam:
       return "IBeam";
-    case ui::CursorType::kWait:
+    case ui::mojom::blink::CursorType::kWait:
       return "Wait";
-    case ui::CursorType::kHelp:
+    case ui::mojom::blink::CursorType::kHelp:
       return "Help";
-    case ui::CursorType::kEastResize:
+    case ui::mojom::blink::CursorType::kEastResize:
       return "EastResize";
-    case ui::CursorType::kNorthResize:
+    case ui::mojom::blink::CursorType::kNorthResize:
       return "NorthResize";
-    case ui::CursorType::kNorthEastResize:
+    case ui::mojom::blink::CursorType::kNorthEastResize:
       return "NorthEastResize";
-    case ui::CursorType::kNorthWestResize:
+    case ui::mojom::blink::CursorType::kNorthWestResize:
       return "NorthWestResize";
-    case ui::CursorType::kSouthResize:
+    case ui::mojom::blink::CursorType::kSouthResize:
       return "SouthResize";
-    case ui::CursorType::kSouthEastResize:
+    case ui::mojom::blink::CursorType::kSouthEastResize:
       return "SouthEastResize";
-    case ui::CursorType::kSouthWestResize:
+    case ui::mojom::blink::CursorType::kSouthWestResize:
       return "SouthWestResize";
-    case ui::CursorType::kWestResize:
+    case ui::mojom::blink::CursorType::kWestResize:
       return "WestResize";
-    case ui::CursorType::kNorthSouthResize:
+    case ui::mojom::blink::CursorType::kNorthSouthResize:
       return "NorthSouthResize";
-    case ui::CursorType::kEastWestResize:
+    case ui::mojom::blink::CursorType::kEastWestResize:
       return "EastWestResize";
-    case ui::CursorType::kNorthEastSouthWestResize:
+    case ui::mojom::blink::CursorType::kNorthEastSouthWestResize:
       return "NorthEastSouthWestResize";
-    case ui::CursorType::kNorthWestSouthEastResize:
+    case ui::mojom::blink::CursorType::kNorthWestSouthEastResize:
       return "NorthWestSouthEastResize";
-    case ui::CursorType::kColumnResize:
+    case ui::mojom::blink::CursorType::kColumnResize:
       return "ColumnResize";
-    case ui::CursorType::kRowResize:
+    case ui::mojom::blink::CursorType::kRowResize:
       return "RowResize";
-    case ui::CursorType::kMiddlePanning:
+    case ui::mojom::blink::CursorType::kMiddlePanning:
       return "MiddlePanning";
-    case ui::CursorType::kMiddlePanningVertical:
+    case ui::mojom::blink::CursorType::kMiddlePanningVertical:
       return "MiddlePanningVertical";
-    case ui::CursorType::kMiddlePanningHorizontal:
+    case ui::mojom::blink::CursorType::kMiddlePanningHorizontal:
       return "MiddlePanningHorizontal";
-    case ui::CursorType::kEastPanning:
+    case ui::mojom::blink::CursorType::kEastPanning:
       return "EastPanning";
-    case ui::CursorType::kNorthPanning:
+    case ui::mojom::blink::CursorType::kNorthPanning:
       return "NorthPanning";
-    case ui::CursorType::kNorthEastPanning:
+    case ui::mojom::blink::CursorType::kNorthEastPanning:
       return "NorthEastPanning";
-    case ui::CursorType::kNorthWestPanning:
+    case ui::mojom::blink::CursorType::kNorthWestPanning:
       return "NorthWestPanning";
-    case ui::CursorType::kSouthPanning:
+    case ui::mojom::blink::CursorType::kSouthPanning:
       return "SouthPanning";
-    case ui::CursorType::kSouthEastPanning:
+    case ui::mojom::blink::CursorType::kSouthEastPanning:
       return "SouthEastPanning";
-    case ui::CursorType::kSouthWestPanning:
+    case ui::mojom::blink::CursorType::kSouthWestPanning:
       return "SouthWestPanning";
-    case ui::CursorType::kWestPanning:
+    case ui::mojom::blink::CursorType::kWestPanning:
       return "WestPanning";
-    case ui::CursorType::kMove:
+    case ui::mojom::blink::CursorType::kMove:
       return "Move";
-    case ui::CursorType::kVerticalText:
+    case ui::mojom::blink::CursorType::kVerticalText:
       return "VerticalText";
-    case ui::CursorType::kCell:
+    case ui::mojom::blink::CursorType::kCell:
       return "Cell";
-    case ui::CursorType::kContextMenu:
+    case ui::mojom::blink::CursorType::kContextMenu:
       return "ContextMenu";
-    case ui::CursorType::kAlias:
+    case ui::mojom::blink::CursorType::kAlias:
       return "Alias";
-    case ui::CursorType::kProgress:
+    case ui::mojom::blink::CursorType::kProgress:
       return "Progress";
-    case ui::CursorType::kNoDrop:
+    case ui::mojom::blink::CursorType::kNoDrop:
       return "NoDrop";
-    case ui::CursorType::kCopy:
+    case ui::mojom::blink::CursorType::kCopy:
       return "Copy";
-    case ui::CursorType::kNone:
+    case ui::mojom::blink::CursorType::kNone:
       return "None";
-    case ui::CursorType::kNotAllowed:
+    case ui::mojom::blink::CursorType::kNotAllowed:
       return "NotAllowed";
-    case ui::CursorType::kZoomIn:
+    case ui::mojom::blink::CursorType::kZoomIn:
       return "ZoomIn";
-    case ui::CursorType::kZoomOut:
+    case ui::mojom::blink::CursorType::kZoomOut:
       return "ZoomOut";
-    case ui::CursorType::kGrab:
+    case ui::mojom::blink::CursorType::kGrab:
       return "Grab";
-    case ui::CursorType::kGrabbing:
+    case ui::mojom::blink::CursorType::kGrabbing:
       return "Grabbing";
-    case ui::CursorType::kCustom:
+    case ui::mojom::blink::CursorType::kCustom:
       return "Custom";
-    case ui::CursorType::kNull:
+    case ui::mojom::blink::CursorType::kNull:
       return "Null";
-    case ui::CursorType::kDndNone:
+    case ui::mojom::blink::CursorType::kDndNone:
       return "DragAndDropNone";
-    case ui::CursorType::kDndMove:
+    case ui::mojom::blink::CursorType::kDndMove:
       return "DragAndDropMove";
-    case ui::CursorType::kDndCopy:
+    case ui::mojom::blink::CursorType::kDndCopy:
       return "DragAndDropCopy";
-    case ui::CursorType::kDndLink:
+    case ui::mojom::blink::CursorType::kDndLink:
       return "DragAndDropLink";
   }
 
@@ -2763,26 +2783,28 @@ String Internals::getCurrentCursorInfo() {
   if (!GetFrame())
     return String();
 
-  Cursor cursor =
+  ui::Cursor cursor =
       GetFrame()->GetPage()->GetChromeClient().LastSetCursorForTesting();
 
   StringBuilder result;
   result.Append("type=");
-  result.Append(CursorTypeToString(cursor.GetType()));
-  result.Append(" hotSpot=");
-  result.AppendNumber(cursor.HotSpot().X());
-  result.Append(',');
-  result.AppendNumber(cursor.HotSpot().Y());
-  if (cursor.GetImage()) {
-    IntSize size = cursor.GetImage()->Size();
+  result.Append(CursorTypeToString(cursor.type()));
+  if (cursor.type() == ui::mojom::blink::CursorType::kCustom) {
+    result.Append(" hotSpot=");
+    result.AppendNumber(cursor.custom_hotspot().x());
+    result.Append(',');
+    result.AppendNumber(cursor.custom_hotspot().y());
+
+    SkBitmap bitmap = cursor.custom_bitmap();
+    DCHECK(!bitmap.isNull());
     result.Append(" image=");
-    result.AppendNumber(size.Width());
+    result.AppendNumber(bitmap.width());
     result.Append('x');
-    result.AppendNumber(size.Height());
+    result.AppendNumber(bitmap.height());
   }
-  if (cursor.ImageScaleFactor() != 1) {
+  if (cursor.image_scale_factor() != 1) {
     result.Append(" scale=");
-    result.AppendNumber(cursor.ImageScaleFactor(), 8);
+    result.AppendNumber(cursor.image_scale_factor(), 8);
   }
 
   return result.ToString();
@@ -2795,16 +2817,20 @@ bool Internals::cursorUpdatePending() const {
   return GetFrame()->GetEventHandler().CursorUpdatePending();
 }
 
-bool Internals::fakeMouseMovePending() const {
-  if (!GetFrame())
-    return false;
-
-  return GetFrame()->GetEventHandler().FakeMouseMovePending();
-}
-
 DOMArrayBuffer* Internals::serializeObject(
-    scoped_refptr<SerializedScriptValue> value) const {
-  base::span<const uint8_t> span = value->GetWireData();
+    v8::Isolate* isolate,
+    const ScriptValue& value,
+    ExceptionState& exception_state) const {
+  scoped_refptr<SerializedScriptValue> serialized_value =
+      SerializedScriptValue::Serialize(
+          isolate, value.V8Value(),
+          SerializedScriptValue::SerializeOptions(
+              SerializedScriptValue::kNotForStorage),
+          exception_state);
+  if (exception_state.HadException())
+    return nullptr;
+
+  base::span<const uint8_t> span = serialized_value->GetWireData();
   DOMArrayBuffer* buffer = DOMArrayBuffer::CreateUninitializedOrNull(
       SafeCast<uint32_t>(span.size()), sizeof(uint8_t));
   if (buffer)
@@ -2812,10 +2838,12 @@ DOMArrayBuffer* Internals::serializeObject(
   return buffer;
 }
 
-scoped_refptr<SerializedScriptValue> Internals::deserializeBuffer(
-    DOMArrayBuffer* buffer) const {
-  return SerializedScriptValue::Create(static_cast<const char*>(buffer->Data()),
-                                       buffer->ByteLengthAsSizeT());
+ScriptValue Internals::deserializeBuffer(v8::Isolate* isolate,
+                                         DOMArrayBuffer* buffer) const {
+  scoped_refptr<SerializedScriptValue> serialized_value =
+      SerializedScriptValue::Create(static_cast<const char*>(buffer->Data()),
+                                    buffer->ByteLengthAsSizeT());
+  return ScriptValue(isolate, serialized_value->Deserialize(isolate));
 }
 
 void Internals::forceReload(bool bypass_cache) {
@@ -2927,12 +2955,9 @@ void Internals::forceImageReload(Element* element,
 
 String Internals::selectMenuListText(HTMLSelectElement* select) {
   DCHECK(select);
-  LayoutObject* layout_object = select->GetLayoutObject();
-  if (!layout_object || !layout_object->IsMenuList())
+  if (!select->UsesMenuList())
     return String();
-
-  LayoutMenuList* menu_list = ToLayoutMenuList(layout_object);
-  return menu_list->GetText();
+  return select->InnerElement().innerText();
 }
 
 bool Internals::isSelectPopupVisible(Node* node) {
@@ -3118,7 +3143,7 @@ ScriptPromise Internals::promiseCheckOverload(ScriptState* script_state,
                              V8String(script_state->GetIsolate(), "done"));
 }
 
-void Internals::Trace(blink::Visitor* visitor) {
+void Internals::Trace(Visitor* visitor) {
   visitor->Trace(runtime_flags_);
   visitor->Trace(document_);
   ScriptWrappable::Trace(visitor);
@@ -3163,10 +3188,6 @@ Element* Internals::interestedElement() {
       .GetInterestedElement();
 }
 
-unsigned Internals::countHitRegions(CanvasRenderingContext* context) {
-  return context->HitRegionsCount();
-}
-
 bool Internals::isInCanvasFontCache(Document* document,
                                     const String& font_string) {
   return document->GetCanvasFontCache()->IsInCache(font_string);
@@ -3194,7 +3215,7 @@ String Internals::selectedHTMLForClipboard() {
     return String();
 
   // Selection normalization and markup generation require clean layout.
-  GetFrame()->GetDocument()->UpdateStyleAndLayout();
+  GetFrame()->GetDocument()->UpdateStyleAndLayout(DocumentUpdateReason::kTest);
 
   return GetFrame()->Selection().SelectedHTMLForClipboard();
 }
@@ -3204,7 +3225,7 @@ String Internals::selectedTextForClipboard() {
     return String();
 
   // Clean layout is required for extracting plain text from selection.
-  GetFrame()->GetDocument()->UpdateStyleAndLayout();
+  GetFrame()->GetDocument()->UpdateStyleAndLayout(DocumentUpdateReason::kTest);
 
   return GetFrame()->Selection().SelectedTextForClipboard();
 }
@@ -3225,13 +3246,13 @@ bool Internals::isUseCounted(Document* document, uint32_t feature) {
 bool Internals::isCSSPropertyUseCounted(Document* document,
                                         const String& property_name) {
   return document->IsPropertyCounted(
-      unresolvedCSSPropertyID(document, property_name));
+      unresolvedCSSPropertyID(document->GetExecutionContext(), property_name));
 }
 
 bool Internals::isAnimatedCSSPropertyUseCounted(Document* document,
                                                 const String& property_name) {
   return document->IsAnimatedPropertyCounted(
-      unresolvedCSSPropertyID(document, property_name));
+      unresolvedCSSPropertyID(document->GetExecutionContext(), property_name));
 }
 
 void Internals::clearUseCounter(Document* document, uint32_t feature) {
@@ -3327,7 +3348,7 @@ void Internals::setPseudoClassState(Element* element,
 bool Internals::setScrollbarVisibilityInScrollableArea(Node* node,
                                                        bool visible) {
   if (ScrollableArea* scrollable_area = ScrollableAreaForNode(node)) {
-    scrollable_area->SetScrollbarsHiddenIfOverlay(!visible);
+    scrollable_area->SetScrollbarsHiddenForTesting(!visible);
     scrollable_area->GetScrollAnimator().SetScrollbarsVisibleForTesting(
         visible);
     return scrollable_area->GetPageScrollbarTheme().UsesOverlayScrollbars();
@@ -3489,12 +3510,16 @@ void Internals::ResolveResourcePriority(ScriptPromiseResolver* resolver,
   resolver->Resolve(resource_load_priority);
 }
 
-String Internals::getDocumentAgentId(Document* document) {
+String Internals::getAgentId(DOMWindow* window) {
+  if (!window->IsLocalDOMWindow())
+    return String();
+
   // Sounds like there's no notion of "process ID" in Blink, but the main
   // thread's thread ID serves for that purpose.
   PlatformThreadId process_id = Thread::MainThread()->ThreadId();
 
-  uintptr_t agent_address = reinterpret_cast<uintptr_t>(document->GetAgent());
+  uintptr_t agent_address =
+      reinterpret_cast<uintptr_t>(To<LocalDOMWindow>(window)->GetAgent());
 
   // This serializes a pointer as a decimal number, which is a bit ugly, but
   // it works. Is there any utility to dump a number in a hexadecimal form?
@@ -3508,6 +3533,16 @@ void Internals::useMockOverlayScrollbars() {
 
 bool Internals::overlayScrollbarsEnabled() const {
   return ScrollbarThemeSettings::OverlayScrollbarsEnabled();
+}
+
+void Internals::generateTestReport(const String& message) {
+  // Construct the test report.
+  TestReportBody* body = MakeGarbageCollected<TestReportBody>(message);
+  Report* report =
+      MakeGarbageCollected<Report>("test", document_->Url().GetString(), body);
+
+  // Send the test report to any ReportingObservers.
+  ReportingContext::From(document_->ExecutingWindow())->QueueReport(report);
 }
 
 }  // namespace blink

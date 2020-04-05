@@ -169,25 +169,29 @@
     "includes": [1740],
   },
   "chrome/browser/resources/settings/os_settings_resources.grd": {
-    "structures": [1760],
+    "includes": [1760],
+    "structures": [1780],
   },
   "chrome/browser/resources/settings/settings_resources_vulcanized.grd": {
-    "includes": [1780],
+    "includes": [1800],
   },
   "chrome/browser/resources/settings/settings_resources.grd": {
-    "includes": [1790],
-    "structures": [1800],
+    "includes": [1810],
+    "structures": [1820],
   },
   "chrome/browser/resources/tab_strip/tab_strip_resources.grd": {
-    "structures": [1820],
-    "includes": [1840],
+    "structures": [1840],
+    "includes": [1860],
   },
   "chrome/browser/resources/welcome/welcome_resources.grd": {
-    "includes": [1860],
-    "structures": [1880],
+    "includes": [1880],
+    "structures": [1900],
+  },
+  "chrome/browser/supervised_user/supervised_user_unscaled_resources.grd": {
+    "includes": [1910],
   },
   "chrome/browser/vr/testapp/vr_testapp_resources.grd": {
-    "includes": [1900],
+    "includes": [1930],
   },
   # END chrome/browser section.
 
@@ -196,9 +200,13 @@
     # Big alignment at start of section.
     "META": {"align": 100},
     "includes": [2000],
+    "messages": [2010],
   },
   "chrome/browser/resources/bluetooth_internals/resources.grd": {
     "includes": [2020],
+  },
+  "chrome/browser/resources/gaia_auth_host/gaia_auth_host_resources.grd": {
+    "includes": [2030],
   },
   "chrome/browser/resources/invalidations/invalidations_resources.grd": {
     "includes": [2040],
@@ -291,19 +299,22 @@
   # start with the same id because only one of them is built depending on if
   # src_internal is available. Lower bound for number of resource ids is number
   # of languages (74).
-  "chromeos/components/media_app_ui/resources/app/app/media_app_bundle_resources.grd": {
+  "chromeos/components/media_app_ui/resources/pkg/media_app_bundle_resources.grd": {
     "META": {"sizes": {"includes": [120],}},  # Relies on src-internal.
     "includes": [2580],
   },
   "chromeos/components/media_app_ui/resources/mock/media_app_bundle_mock_resources.grd": {
     "includes": [2580],
   },
-  "chromeos/components/sample_system_web_app_ui/resources/sample_system_web_app_resources.grd": {
+  "chromeos/components/print_management/resources/print_management_resources.grd": {
     "META": {"join": 2},
     "includes": [2600],
   },
-  "chromeos/resources/chromeos_resources.grd": {
+  "chromeos/components/sample_system_web_app_ui/resources/sample_system_web_app_resources.grd": {
     "includes": [2620],
+  },
+  "chromeos/resources/chromeos_resources.grd": {
+    "includes": [2640],
   },
   # END chromeos/ section.
 
@@ -398,6 +409,10 @@
   "ios/chrome/content_widget_extension/strings/ios_content_widget_extension_google_chrome_strings.grd": {
     "messages": [780],
   },
+  "ios/chrome/credential_provider_extension/strings/ios_credential_provider_extension_strings.grd": {
+    "META": {"join": 2},
+    "messages": [800],
+  },
 
   # END ios/ section.
 
@@ -406,7 +421,7 @@
   # App only use one file depending on whether it is iOS or other platform.
   "content/app/resources/content_resources.grd": {
     # Big alignment at start of section.
-    "META": {"join": 3, "align": 100},
+    "META": {"join": 2, "align": 100},
     "structures": [2900],
   },
   "content/content_resources.grd": {
@@ -453,7 +468,7 @@
   "ash/ash_strings.grd": {
     "messages": [3060],
   },
-  "ash/components/ash_components_strings.grd": {
+  "ash/shortcut_viewer/ash_components_strings.grd": {
     "messages": [3080],
   },
   "ash/keyboard/ui/keyboard_resources.grd": {

@@ -127,9 +127,10 @@ struct ShortcutInfo {
   int minimum_splash_image_size_in_px;
   GURL splash_image_url;
   GURL best_primary_icon_url;
-  GURL best_badge_icon_url;
   std::vector<std::string> icon_urls;
   base::Optional<ShareTarget> share_target;
+
+  // Both shortcut item related vectors have the same size.
   std::vector<blink::Manifest::ShortcutItem> shortcut_items;
   std::vector<GURL> best_shortcut_icon_urls;
 };

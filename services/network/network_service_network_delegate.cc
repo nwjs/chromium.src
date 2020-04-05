@@ -11,6 +11,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
 #include "components/domain_reliability/monitor.h"
+#include "net/base/isolation_info.h"
 #include "net/base/load_flags.h"
 #include "net/base/net_errors.h"
 #include "net/url_request/url_request.h"
@@ -104,10 +105,6 @@ int NetworkServiceNetworkDelegate::OnBeforeStartTransaction(
     net::URLRequest* request,
     net::CompletionOnceCallback callback,
     net::HttpRequestHeaders* headers) {
-  if (network_context_->proxy_delegate()) {
-    network_context_->proxy_delegate()->OnBeforeStartTransaction(request,
-                                                                 headers);
-  }
   URLLoader* url_loader = URLLoader::ForRequest(*request);
   if (url_loader)
     return url_loader->OnBeforeStartTransaction(std::move(callback), headers);
@@ -119,17 +116,6 @@ int NetworkServiceNetworkDelegate::OnBeforeStartTransaction(
 #endif  // !defined(OS_IOS)
 
   return net::OK;
-}
-
-void NetworkServiceNetworkDelegate::OnBeforeSendHeaders(
-    net::URLRequest* request,
-    const net::ProxyInfo& proxy_info,
-    const net::ProxyRetryInfoMap& proxy_retry_info,
-    net::HttpRequestHeaders* headers) {
-  if (network_context_->proxy_delegate()) {
-    network_context_->proxy_delegate()->OnBeforeSendHeaders(request, proxy_info,
-                                                            headers);
-  }
 }
 
 int NetworkServiceNetworkDelegate::OnHeadersReceived(
@@ -206,17 +192,18 @@ bool NetworkServiceNetworkDelegate::OnCanGetCookies(
       allowed_from_caller &&
       network_context_->cookie_manager()
           ->cookie_settings()
-          .IsCookieAccessAllowed(
-              request.url(), request.site_for_cookies().RepresentativeUrl(),
-              request.network_isolation_key().GetTopFrameOrigin());
+          .IsCookieAccessAllowed(request.url(),
+                                 request.site_for_cookies().RepresentativeUrl(),
+                                 request.isolation_info()
+                                     .network_isolation_key()
+                                     .GetTopFrameOrigin());
 
   if (!allowed)
     return false;
 
   URLLoader* url_loader = URLLoader::ForRequest(request);
   if (url_loader)
-    return url_loader->AllowCookies(
-        request.url(), request.site_for_cookies().RepresentativeUrl());
+    return url_loader->AllowCookies(request.url(), request.site_for_cookies());
 #if !defined(OS_IOS)
   WebSocket* web_socket = WebSocket::ForRequest(request);
   if (web_socket)
@@ -234,15 +221,14 @@ bool NetworkServiceNetworkDelegate::OnCanSetCookie(
       allowed_from_caller &&
       network_context_->cookie_manager()
           ->cookie_settings()
-          .IsCookieAccessAllowed(
-              request.url(), request.site_for_cookies().RepresentativeUrl(),
-              request.network_isolation_key().GetTopFrameOrigin());
+          .IsCookieAccessAllowed(request.url(),
+                                 request.site_for_cookies().RepresentativeUrl(),
+                                 request.isolation_info().top_frame_origin());
   if (!allowed)
     return false;
   URLLoader* url_loader = URLLoader::ForRequest(request);
   if (url_loader)
-    return url_loader->AllowCookies(
-        request.url(), request.site_for_cookies().RepresentativeUrl());
+    return url_loader->AllowCookies(request.url(), request.site_for_cookies());
 #if !defined(OS_IOS)
   WebSocket* web_socket = WebSocket::ForRequest(request);
   if (web_socket)

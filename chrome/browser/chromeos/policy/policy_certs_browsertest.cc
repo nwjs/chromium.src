@@ -5,6 +5,7 @@
 #include <memory>
 
 #include "base/bind.h"
+#include "base/callback_helpers.h"
 #include "base/command_line.h"
 #include "base/json/json_writer.h"
 #include "base/message_loop/message_loop_current.h"
@@ -579,7 +580,7 @@ class PolicyProvidedCertsPublicSessionTest
     chromeos::WizardController* const wizard_controller =
         chromeos::WizardController::default_controller();
     ASSERT_TRUE(wizard_controller);
-    wizard_controller->SkipToLoginForTesting(chromeos::LoginScreenContext());
+    wizard_controller->SkipToLoginForTesting();
 
     content::WindowedNotificationObserver(
         chrome::NOTIFICATION_LOGIN_OR_LOCK_WEBUI_VISIBLE,

@@ -8,6 +8,7 @@
 #include "ash/ash_export.h"
 #include "ash/public/cpp/shelf_config.h"
 #include "ash/public/cpp/shelf_types.h"
+#include "ash/shelf/hotseat_transition_animator.h"
 #include "ash/shelf/shelf_component.h"
 #include "base/optional.h"
 #include "ui/views/widget/widget.h"
@@ -21,6 +22,7 @@ class FocusCycler;
 class ScrollableShelfView;
 class Shelf;
 class ShelfView;
+class HotseatTransitionAnimator;
 
 // The hotseat widget is part of the shelf and hosts app shortcuts.
 class ASH_EXPORT HotseatWidget : public ShelfComponent,
@@ -36,6 +38,11 @@ class ASH_EXPORT HotseatWidget : public ShelfComponent,
   // Initializes the widget, sets its contents view and basic properties.
   void Initialize(aura::Window* container, Shelf* shelf);
 
+  // Initializes the animation metrics reporter responsible for recording
+  // animation performance during hotseat state changes, and attaches
+  // |delegate_view_| as an observer.
+  void OnHotseatTransitionAnimatorCreated(HotseatTransitionAnimator* animator);
+
   // views::Widget:
   void OnMouseEvent(ui::MouseEvent* event) override;
   void OnGestureEvent(ui::GestureEvent* event) override;
@@ -44,15 +51,8 @@ class ASH_EXPORT HotseatWidget : public ShelfComponent,
   // ShelfConfig::Observer:
   void OnShelfConfigUpdated() override;
 
-  // Whether the overflow menu/bubble is currently being shown.
-  bool IsShowingOverflowBubble() const;
-
   // Whether the widget is in the extended position.
   bool IsExtended() const;
-
-  // Focuses the first or the last app shortcut inside the overflow shelf.
-  // Does nothing if the overflow shelf is not currently shown.
-  void FocusOverflowShelf(bool last_element);
 
   // Finds the first or last focusable app shortcut and focuses it.
   void FocusFirstOrLastFocusableChild(bool last);
@@ -67,10 +67,21 @@ class ASH_EXPORT HotseatWidget : public ShelfComponent,
   // hotseat background.
   void SetTranslucentBackground(const gfx::Rect& background_bounds);
 
+  // Calculates the hotseat y position for |hotseat_target_state| in screen
+  // coordinates.
+  int CalculateHotseatYInScreen(HotseatState hotseat_target_state) const;
+
   // ShelfComponent:
   void CalculateTargetBounds() override;
   gfx::Rect GetTargetBounds() const override;
   void UpdateLayout(bool animate) override;
+  void UpdateTargetBoundsForGesture(int shelf_position) override;
+
+  // TODO(manucornet): Remove this method once all the hotseat layout
+  // code has moved to this class.
+  void set_target_bounds(gfx::Rect target_bounds) {
+    target_bounds_ = target_bounds;
+  }
 
   gfx::Size GetTranslucentBackgroundSize() const;
 
@@ -81,6 +92,12 @@ class ASH_EXPORT HotseatWidget : public ShelfComponent,
 
   ShelfView* GetShelfView();
   const ShelfView* GetShelfView() const;
+
+  // Returns the background blur of the |translucent_background_|, for tests.
+  int GetHotseatBackgroundBlurForTest() const;
+
+  // Returns whether the translucent background is visible, for tests.
+  bool GetIsTranslucentBackgroundVisibleForTest() const;
 
   void SetState(HotseatState state);
   HotseatState state() const { return state_; }
@@ -107,9 +124,11 @@ class ASH_EXPORT HotseatWidget : public ShelfComponent,
   struct LayoutInputs {
     gfx::Rect bounds;
     float opacity = 0.0f;
+    bool is_active_session_state = false;
 
     bool operator==(const LayoutInputs& other) const {
-      return bounds == other.bounds && opacity == other.opacity;
+      return bounds == other.bounds && opacity == other.opacity &&
+             is_active_session_state == other.is_active_session_state;
     }
   };
 
@@ -121,13 +140,13 @@ class ASH_EXPORT HotseatWidget : public ShelfComponent,
   // changed.
   base::Optional<LayoutInputs> layout_inputs_;
 
-  HotseatState state_ = HotseatState::kShown;
+  gfx::Rect target_bounds_;
+  HotseatState state_ = HotseatState::kShownClamshell;
 
   Shelf* shelf_ = nullptr;
 
   // View containing the shelf items within an active user session. Owned by
   // the views hierarchy.
-  ShelfView* shelf_view_ = nullptr;
   ScrollableShelfView* scrollable_shelf_view_ = nullptr;
 
   // The contents view of this widget. Contains |shelf_view_| and the background

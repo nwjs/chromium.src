@@ -55,7 +55,7 @@ void GestureManager::Clear() {
   long_tap_should_invoke_context_menu_ = false;
 }
 
-void GestureManager::Trace(blink::Visitor* visitor) {
+void GestureManager::Trace(Visitor* visitor) {
   visitor->Trace(frame_);
   visitor->Trace(scroll_manager_);
   visitor->Trace(mouse_event_manager_);
@@ -196,7 +196,8 @@ WebInputEventResult GestureManager::HandleGestureTap(
   if (current_hit_test.InnerNode()) {
     LocalFrame& main_frame = frame_->LocalFrameRoot();
     if (!main_frame.View() ||
-        !main_frame.View()->UpdateAllLifecyclePhasesExceptPaint())
+        !main_frame.View()->UpdateAllLifecyclePhasesExceptPaint(
+            DocumentUpdateReason::kHitTest))
       return WebInputEventResult::kNotHandled;
     adjusted_point = frame_view->ConvertFromRootFrame(
         FlooredIntPoint(gesture_event.PositionInRootFrame()));
@@ -258,7 +259,8 @@ WebInputEventResult GestureManager::HandleGestureTap(
   if (current_hit_test.InnerNode()) {
     LocalFrame& main_frame = frame_->LocalFrameRoot();
     if (main_frame.View()) {
-      main_frame.View()->UpdateAllLifecyclePhases(DocumentUpdateReason::kOther);
+      main_frame.View()->UpdateAllLifecyclePhases(
+          DocumentUpdateReason::kHitTest);
     }
     adjusted_point = frame_view->ConvertFromRootFrame(tapped_position);
     current_hit_test = event_handling_util::HitTestResultInFrame(

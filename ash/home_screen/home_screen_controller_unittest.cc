@@ -163,17 +163,17 @@ TEST_P(HomeScreenControllerTest, DraggingHistograms) {
 
   // Create a touch event and drag it twice and verify the histograms are
   // recorded as expected.
-  auto* compositor = CurrentContext()->layer()->GetCompositor();
+  auto* compositor = GetContext()->layer()->GetCompositor();
   auto* generator = GetEventGenerator();
   generator->set_current_screen_location(gfx::Point(200, 1));
   generator->PressTouch();
   generator->MoveTouch(gfx::Point(200, 20));
   compositor->ScheduleFullRedraw();
-  WaitForNextFrameToBePresented(compositor);
+  EXPECT_TRUE(ui::WaitForNextFrameToBePresented(compositor));
   tester.ExpectTotalCount(kHomescreenDragHistogram, drag_enabled ? 1 : 0);
   generator->MoveTouch(gfx::Point(200, 60));
   compositor->ScheduleFullRedraw();
-  WaitForNextFrameToBePresented(compositor);
+  EXPECT_TRUE(ui::WaitForNextFrameToBePresented(compositor));
   generator->ReleaseTouch();
 
   tester.ExpectTotalCount(kHomescreenAnimationHistogram, 0);

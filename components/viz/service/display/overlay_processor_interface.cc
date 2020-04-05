@@ -4,6 +4,7 @@
 
 #include "components/viz/service/display/overlay_processor_interface.h"
 
+#include "base/memory/ptr_util.h"
 #include "base/metrics/histogram_macros.h"
 #include "components/viz/common/display/renderer_settings.h"
 #include "components/viz/common/features.h"
@@ -79,6 +80,7 @@ OverlayProcessorInterface::CreateOverlayProcessor(
     const OutputSurface::Capabilities& capabilities,
     const RendererSettings& renderer_settings,
     gpu::SharedImageManager* shared_image_manager,
+    gpu::MemoryTracker* memory_tracker,
     scoped_refptr<gpu::GpuTaskSchedulerHelper> gpu_task_scheduler,
     gpu::SharedImageInterface* shared_image_interface) {
 #if defined(OS_MACOSX)
@@ -93,8 +95,8 @@ OverlayProcessorInterface::CreateOverlayProcessor(
   enable_dc_overlay &= !capabilities.supports_surfaceless;
   enable_dc_overlay &= capabilities.supports_dc_layers;
   return base::WrapUnique(new OverlayProcessorWin(
-      enable_dc_overlay, std::make_unique<DCLayerOverlayProcessor>(
-                             capabilities, renderer_settings)));
+      enable_dc_overlay,
+      std::make_unique<DCLayerOverlayProcessor>(renderer_settings)));
 #elif defined(USE_OZONE)
   bool overlay_enabled = surface_handle != gpu::kNullSurfaceHandle;
   overlay_enabled &= !renderer_settings.overlay_strategies.empty();
@@ -106,7 +108,7 @@ OverlayProcessorInterface::CreateOverlayProcessor(
         overlay_manager->CreateOverlayCandidates(surface_handle);
   }
 
-  if (features::ShouldUseRealBuffersForPageFlipTest()) {
+  if (overlay_enabled && features::ShouldUseRealBuffersForPageFlipTest()) {
     CHECK(shared_image_interface);
   } else {
     shared_image_interface = nullptr;
@@ -129,11 +131,16 @@ OverlayProcessorInterface::CreateOverlayProcessor(
     // overlay processing for this OutputSurface.
     overlay_enabled &= !capabilities.android_surface_control_feature_enabled;
     return std::make_unique<OverlayProcessorAndroid>(
-        shared_image_manager, gpu_task_scheduler, overlay_enabled);
+        shared_image_manager, memory_tracker, gpu_task_scheduler,
+        overlay_enabled);
   }
 #else  // Default
   return std::make_unique<OverlayProcessorStub>();
 #endif
+}
+
+bool OverlayProcessorInterface::DisableSplittingQuads() const {
+  return false;
 }
 
 OverlayProcessorInterface::OutputSurfaceOverlayPlane
@@ -141,13 +148,15 @@ OverlayProcessorInterface::ProcessOutputSurfaceAsOverlay(
     const gfx::Size& viewport_size,
     const gfx::BufferFormat& buffer_format,
     const gfx::ColorSpace& color_space,
-    bool has_alpha) {
+    bool has_alpha,
+    const gpu::Mailbox& mailbox) {
   OutputSurfaceOverlayPlane overlay_plane;
   overlay_plane.transform = gfx::OverlayTransform::OVERLAY_TRANSFORM_NONE;
   overlay_plane.resource_size = viewport_size;
   overlay_plane.format = buffer_format;
   overlay_plane.color_space = color_space;
   overlay_plane.enable_blending = has_alpha;
+  overlay_plane.mailbox = mailbox;
 
   // Adjust transformation and display_rect based on display rotation.
   overlay_plane.display_rect =

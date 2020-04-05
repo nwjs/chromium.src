@@ -97,6 +97,7 @@
 <translation id="2149973817440762519">Επεξεργασία σελιδοδείκτη</translation>
 <translation id="2179182049312275900">Μπορείτε να ενεργοποιήσετε τον συγχρονισμό ανά πάσα στιγμή στις ρυθμίσεις.</translation>
 <translation id="2198757192731523470">Η Google μπορεί να χρησιμοποιεί το ιστορικό σας για την εξατομίκευση της Αναζήτησης, των διαφημίσεων και άλλων υπηρεσιών Google.</translation>
+<translation id="2218443599109088993">Σμίκρυνση</translation>
 <translation id="2230173723195178503">Η ιστοσελίδα φορτώθηκε</translation>
 <translation id="2239626343334228536">Διαγραφή δεδομένων περιήγησης…</translation>
 <translation id="2257567812274161158">Ο συγχρονισμός δεν λειτουργεί.</translation>
@@ -159,6 +160,7 @@
 <translation id="2923448633003185837">Επικόλληση και μετάβαση</translation>
 <translation id="292639812446257861">Επισ. ως μη αναγνωσμένων</translation>
 <translation id="2958718410589002129">Κωδικοί πρόσβασης</translation>
+<translation id="2964349545761222050">Αποκλεισμός cookie τρίτου μέρους</translation>
 <translation id="2969979262385602596">Αποτυχία σύνδεσης. Δοκιμάστε ξανά αργότερα.</translation>
 <translation id="298306318844797842">Προσθήκη τρόπου πληρωμής…</translation>
 <translation id="2989805286512600854">Άνοιγμα σε Νέα Καρτέλα</translation>
@@ -178,6 +180,7 @@
 <translation id="3290875554372353449">Επιλέξτε λογαριασμό</translation>
 <translation id="3311748811247479259">Ανενεργό</translation>
 <translation id="3324193307694657476">Διεύθυνση 2</translation>
+<translation id="3328801116991980348">Πληροφορίες ιστοτόπου</translation>
 <translation id="3329904751041170572">Δεν ήταν δυνατή η σύνδεση στο διακομιστή.</translation>
 <translation id="3335947283844343239">Εκ Νέου Άνοιγμα Κλεισμένης Καρτέλας</translation>
 <translation id="3371831930909698441">Διατίθεται μετάφραση. Διαθέσιμες επιλογές κοντά στο κάτω μέρος της οθόνης.</translation>
@@ -300,6 +303,7 @@
 <translation id="4979397965658815378">Συνδεθείτε στον Λογαριασμό σας Google για να λάβετε τους σελιδοδείκτες, τους κωδικούς πρόσβασης, το ιστορικό και άλλες ρυθμίσεις σε όλες τις συσκευές σας.</translation>
 <translation id="5005498671520578047">Αντιγραφή κωδικού πρόσβασης</translation>
 <translation id="5010803260590204777">Άνοιγμα καρτέλας ανώνυμης περιήγησης για ιδιωτική περιήγηση στον ιστό</translation>
+<translation id="5039020240289137291">Αποκλεισμός cookie τρίτου μέρους</translation>
 <translation id="5039804452771397117">Επιτρέπεται</translation>
 <translation id="5059136629401106827">ΟΚ</translation>
 <translation id="5062321486222145940">Εγκατάσταση Google Drive</translation>
@@ -415,9 +419,11 @@
 <translation id="6445051938772793705">Χώρα
 </translation>
 <translation id="6445981559479772097">Το μήνυμα εστάλη.</translation>
+<translation id="6447842834002726250">Cookie</translation>
 <translation id="6464071786529933911">Άνοιγ. σε καρτ. αν. περ.</translation>
 <translation id="6476800141292307438">Μετάφραση της σελίδας σε <ph name="LANGUAGE" />. Οι επιλογές είναι διαθέσιμες κοντά στο κάτω μέρος της οθόνης.</translation>
 <translation id="6482629121755362506">Διαγράφηκαν <ph name="NUMBER_OF_SELECTED_BOOKMARKS" /> στοιχεία</translation>
+<translation id="6561262006871132942">Μεγέθυνση</translation>
 <translation id="6610002944194042868">Μετάφραση επιλογών</translation>
 <translation id="6628106477656132239">Μη έγκυρη ημερομηνία λήξης</translation>
 <translation id="6638511529934826365">Εστίαση στο κείμενο…</translation>
@@ -480,7 +486,6 @@
 <translation id="734758817008927353">Επιλογές για την Αποθήκευση κάρτας</translation>
 <translation id="7348502496356775519">Σελιδοδείκτης</translation>
 <translation id="7383797227493018512">Λίστα ανάγνωσης</translation>
-<translation id="7392048574806661116">Αποσύνδεση και διαγραφή συγχρονισμένων δεδομένων</translation>
 <translation id="7400418766976504921">URL</translation>
 <translation id="7409985198648820906"><ph name="UNREAD_COUNT" /> μη αναγνωσμένα άρθρα.</translation>
 <translation id="7425346204213733349">Οι αλλαγές στους σελιδοδείκτες, το ιστορικό, τους κωδικούς πρόσβασης και σε άλλες ρυθμίσεις δεν θα συγχρονίζονται πλέον με το Λογαριασμό σας Google. Ωστόσο, τα υπάρχοντα δεδομένα σας θα παραμείνουν αποθηκευμένα στο Λογαριασμό σας Google.</translation>
@@ -599,6 +604,7 @@
 <translation id="9223358826628549784">Η αναφορά σφάλματος εστάλη.</translation>
 <translation id="952704832371081537">Ακύρωση</translation>
 <translation id="988141524645182168">Άλλες συσκευές</translation>
+<translation id="989697783705943787">Ασφάλεια ιστοτόπου</translation>
 <translation id="989988560359834682">Επεξεργασία διεύθυνσης</translation>
 <translation id="994757059139821576">Προτάσεις για άρθρα</translation>
 </translationbundle>

@@ -20,11 +20,13 @@ import org.chromium.android_webview.AwContents;
 import org.chromium.android_webview.JsReplyProxy;
 import org.chromium.android_webview.WebMessageListener;
 import org.chromium.android_webview.test.TestAwContentsClient.OnReceivedTitleHelper;
+import org.chromium.android_webview.test.util.CommonResources;
 import org.chromium.base.test.util.Feature;
 import org.chromium.content_public.browser.MessagePort;
 import org.chromium.content_public.browser.test.util.TestCallbackHelperContainer.OnPageFinishedHelper;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.net.test.EmbeddedTestServer;
+import org.chromium.net.test.util.TestWebServer;
 
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -45,6 +47,7 @@ public class JsJavaInteractionTest {
             RESOURCE_PATH + "/post_message_repeat.html";
     private static final String POST_MESSAGE_REPLY_HTML =
             RESOURCE_PATH + "/post_message_receives_reply.html";
+    private static final String FILE_URI = "file:///android_asset/asset_file.html";
 
     private static final String HELLO = "Hello";
     private static final String NEW_TITLE = "new_title";
@@ -500,16 +503,19 @@ public class JsJavaInteractionTest {
         Assert.assertTrue(isJsObjectInjectedWhenLoadingUrl("ftp://example.com", JS_OBJECT_NAME_2));
         Assert.assertTrue(isJsObjectInjectedWhenLoadingUrl(null, JS_OBJECT_NAME_2));
 
-        // ftp scheme.
+        // WebView doesn't support ftp with loadUrl() but ftp scheme could happen with
+        // loadDataWithBaseUrl().
         final String jsObjectName3 = JS_OBJECT_NAME + "3";
         addWebMessageListenerOnUiThread(
-                mAwContents, jsObjectName3, new String[] {"ftp://example.com"}, mListener);
-        Assert.assertTrue(isJsObjectInjectedWhenLoadingUrl("ftp://example.com", jsObjectName3));
+                mAwContents, jsObjectName3, new String[] {"ftp://"}, mListener);
+        // ftp is a standard scheme, so the origin will be "ftp://example.com", however we don't
+        // support host rule for ftp://, so it won't do the injection.
+        Assert.assertFalse(isJsObjectInjectedWhenLoadingUrl("ftp://example.com", jsObjectName3));
 
         // file scheme.
         final String jsObjectName4 = JS_OBJECT_NAME + "4";
         addWebMessageListenerOnUiThread(
-                mAwContents, jsObjectName4, new String[] {"file://*"}, mListener);
+                mAwContents, jsObjectName4, new String[] {"file://"}, mListener);
         Assert.assertTrue(isJsObjectInjectedWhenLoadingUrl("file://etc", jsObjectName4));
 
         // Pass an URI instead of origin shouldn't work.
@@ -854,6 +860,127 @@ public class JsJavaInteractionTest {
                         mAwContents, mContentsClient, JS_OBJECT_NAME + ".onmessage"));
 
         Assert.assertTrue(mListener.hasNoMoreOnPostMessage());
+    }
+
+    private void verifyOnPostMessageOriginIsNull() throws Throwable {
+        mActivityTestRule.executeJavaScriptAndWaitForResult(
+                mAwContents, mContentsClient, JS_OBJECT_NAME + ".postMessage('Hello');");
+
+        TestWebMessageListener.Data data = mListener.waitForOnPostMessage();
+
+        Assert.assertEquals("null", data.mSourceOrigin.toString());
+
+        Assert.assertEquals(HELLO, data.mMessage);
+        Assert.assertTrue(data.mIsMainFrame);
+        Assert.assertEquals(0, data.mPorts.length);
+
+        Assert.assertTrue(mListener.hasNoMoreOnPostMessage());
+    }
+
+    @Test
+    @MediumTest
+    @Feature({"AndroidWebView", "JsJavaInteraction"})
+    public void testFileSchemeUrl_setAllowFileAccessFromFile_true() throws Throwable {
+        mAwContents.getSettings().setAllowFileAccessFromFileURLs(true);
+        addWebMessageListenerOnUiThread(mAwContents, JS_OBJECT_NAME, new String[] {"*"}, mListener);
+        mActivityTestRule.loadUrlSync(
+                mAwContents, mContentsClient.getOnPageFinishedHelper(), FILE_URI);
+        Assert.assertEquals("\"file://\"",
+                mActivityTestRule.executeJavaScriptAndWaitForResult(
+                        mAwContents, mContentsClient, "window.origin"));
+
+        verifyOnPostMessageOriginIsNull();
+    }
+
+    @Test
+    @MediumTest
+    @Feature({"AndroidWebView", "JsJavaInteraction"})
+    public void testFileSchemeUrl_setAllowFileAccessFromFile_false() throws Throwable {
+        // The default value is false on JELLY_BEAN and above, but we explicitly set this to
+        // false to readability.
+        mAwContents.getSettings().setAllowFileAccessFromFileURLs(false);
+        addWebMessageListenerOnUiThread(mAwContents, JS_OBJECT_NAME, new String[] {"*"}, mListener);
+        mActivityTestRule.loadUrlSync(
+                mAwContents, mContentsClient.getOnPageFinishedHelper(), FILE_URI);
+        Assert.assertEquals("\"null\"",
+                mActivityTestRule.executeJavaScriptAndWaitForResult(
+                        mAwContents, mContentsClient, "window.origin"));
+
+        verifyOnPostMessageOriginIsNull();
+    }
+
+    @Test
+    @MediumTest
+    @Feature({"AndroidWebView", "JsJavaInteraction"})
+    public void testContentSchemeUrl_setAllowFileAccessFromFileURLs_true() throws Throwable {
+        mAwContents.getSettings().setAllowContentAccess(true);
+        mAwContents.getSettings().setAllowFileAccessFromFileURLs(true);
+        addWebMessageListenerOnUiThread(mAwContents, JS_OBJECT_NAME, new String[] {"*"}, mListener);
+        mActivityTestRule.loadUrlSync(mAwContents, mContentsClient.getOnPageFinishedHelper(),
+                TestContentProvider.createContentUrl("content_access"));
+        Assert.assertEquals("\"content://\"",
+                mActivityTestRule.executeJavaScriptAndWaitForResult(
+                        mAwContents, mContentsClient, "window.origin"));
+
+        verifyOnPostMessageOriginIsNull();
+    }
+
+    @Test
+    @MediumTest
+    @Feature({"AndroidWebView", "JsJavaInteraction"})
+    public void testContentSchemeUrl_setAllowFileAccessFromFileURLs_false() throws Throwable {
+        mAwContents.getSettings().setAllowContentAccess(true);
+        // The default value is false on JELLY_BEAN and above, but we explicitly set this to
+        // false to readability.
+        mAwContents.getSettings().setAllowFileAccessFromFileURLs(false);
+        addWebMessageListenerOnUiThread(mAwContents, JS_OBJECT_NAME, new String[] {"*"}, mListener);
+        mActivityTestRule.loadUrlSync(mAwContents, mContentsClient.getOnPageFinishedHelper(),
+                TestContentProvider.createContentUrl("content_access"));
+        Assert.assertEquals("\"null\"",
+                mActivityTestRule.executeJavaScriptAndWaitForResult(
+                        mAwContents, mContentsClient, "window.origin"));
+
+        verifyOnPostMessageOriginIsNull();
+    }
+
+    @Test
+    @SmallTest
+    @Feature({"AndroidWebView"})
+    public void testWebMessageListenerForPopupWindow() throws Throwable {
+        TestWebServer webServer = TestWebServer.start();
+
+        final String popupPath = "/popup.html";
+        final String parentPageHtml = CommonResources.makeHtmlPageFrom("",
+                "<script>"
+                        + "function tryOpenWindow() {"
+                        + "  var newWindow = window.open('" + popupPath + "');"
+                        + "}</script>");
+
+        final String popupPageHtml =
+                CommonResources.makeHtmlPageFrom("<title>popup</title>", "This is a popup window");
+
+        mActivityTestRule.triggerPopup(mAwContents, mContentsClient, webServer, parentPageHtml,
+                popupPageHtml, popupPath, "tryOpenWindow()");
+        AwActivityTestRule.PopupInfo popupInfo = mActivityTestRule.createPopupContents(mAwContents);
+        TestAwContentsClient popupContentsClient = popupInfo.popupContentsClient;
+        final AwContents popupContents = popupInfo.popupContents;
+
+        // App adds WebMessageListener to the child WebView, e.g. in onCreateWindow().
+        addWebMessageListenerOnUiThread(
+                popupContents, JS_OBJECT_NAME, new String[] {"*"}, mListener);
+
+        mActivityTestRule.loadPopupContents(mAwContents, popupInfo, null);
+
+        // Test if the listener was re-injected.
+        mActivityTestRule.executeJavaScriptAndWaitForResult(
+                popupContents, popupContentsClient, JS_OBJECT_NAME + ".postMessage('Hello');");
+
+        TestWebMessageListener.Data data = mListener.waitForOnPostMessage();
+
+        Assert.assertEquals(HELLO, data.mMessage);
+        Assert.assertTrue(mListener.hasNoMoreOnPostMessage());
+
+        webServer.shutdown();
     }
 
     @Test

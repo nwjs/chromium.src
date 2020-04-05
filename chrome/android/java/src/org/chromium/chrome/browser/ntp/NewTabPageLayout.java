@@ -52,6 +52,7 @@ import org.chromium.chrome.browser.offlinepages.OfflinePageBridge;
 import org.chromium.chrome.browser.omnibox.SearchEngineLogoUtils;
 import org.chromium.chrome.browser.omnibox.voice.AssistantVoiceSearchService;
 import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.query_tiles.QueryTileSection;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
 import org.chromium.chrome.browser.suggestions.SuggestionsConfig;
 import org.chromium.chrome.browser.suggestions.SuggestionsDependencyFactory;
@@ -89,6 +90,7 @@ public class NewTabPageLayout extends LinearLayout implements TileGroup.Observer
     private ImageView mVoiceSearchButton;
     private View mTileGridPlaceholder;
     private View mNoSearchLogoSpacer;
+    private QueryTileSection mQueryTileSection;
 
     @Nullable
     private View mExploreSectionView; // View is null if explore flag is disabled.
@@ -233,7 +235,7 @@ public class NewTabPageLayout extends LinearLayout implements TileGroup.Observer
         mActivity = activity;
         mUiConfig = uiConfig;
 
-        Profile profile = Profile.getLastUsedProfile();
+        Profile profile = Profile.getLastUsedRegularProfile();
         OfflinePageBridge offlinePageBridge =
                 SuggestionsDependencyFactory.getInstance().getOfflinePageBridge(profile);
         TileRenderer tileRenderer =
@@ -244,6 +246,11 @@ public class NewTabPageLayout extends LinearLayout implements TileGroup.Observer
 
         mSiteSectionViewHolder = SiteSection.createViewHolder(getSiteSectionView(), mUiConfig);
         mSiteSectionViewHolder.bindDataSource(mTileGroup, tileRenderer);
+
+        final TextView searchBoxTextView =
+                mSearchBoxContainerView.findViewById(R.id.search_box_text);
+        mQueryTileSection =
+                new QueryTileSection(findViewById(R.id.query_tiles), searchBoxTextView, profile);
 
         int variation = ExploreSitesBridge.getVariation();
         if (ExploreSitesBridge.isExperimental(variation)) {
@@ -876,8 +883,8 @@ public class NewTabPageLayout extends LinearLayout implements TileGroup.Observer
             final int width = mSiteSectionView.getMeasuredWidth() - mTileGridLayoutBleed;
             measureExactly(
                     mSearchBoxContainerView, width, mSearchBoxContainerView.getMeasuredHeight());
-            measureExactly(mSearchProviderLogoView,
-                    width, mSearchProviderLogoView.getMeasuredHeight());
+            measureExactly(
+                    mSearchProviderLogoView, width, mSearchProviderLogoView.getMeasuredHeight());
 
             if (mExploreSectionView != null) {
                 measureExactly(mExploreSectionView, mSiteSectionView.getMeasuredWidth(),
@@ -985,8 +992,8 @@ public class NewTabPageLayout extends LinearLayout implements TileGroup.Observer
             Drawable drawable = mAssistantVoiceSearchService.getCurrentMicDrawable();
             mVoiceSearchButton.setImageDrawable(drawable);
 
-            final @ColorRes int primaryColor =
-                    ChromeColors.getDefaultThemeColor(getResources(), /* isIncognito= */ false);
+            final @ColorRes int primaryColor = ChromeColors.getDefaultThemeColor(
+                    getResources(), /* forceDarkBgColor= */ false);
             ColorStateList colorStateList = mAssistantVoiceSearchService.getMicButtonColorStateList(
                     primaryColor, getContext());
             ApiCompatibilityUtils.setImageTintList(mVoiceSearchButton, colorStateList);

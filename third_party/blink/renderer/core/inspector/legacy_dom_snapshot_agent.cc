@@ -124,7 +124,8 @@ Response LegacyDOMSnapshotAgent::GetSnapshot(
 
   // Look up the CSSPropertyIDs for each entry in |style_filter|.
   for (const String& entry : *style_filter) {
-    CSSPropertyID property_id = cssPropertyID(document, entry);
+    CSSPropertyID property_id =
+        cssPropertyID(document->GetExecutionContext(), entry);
     if (property_id == CSSPropertyID::kInvalid)
       continue;
     css_property_filter_->emplace_back(entry, property_id);
@@ -144,7 +145,7 @@ Response LegacyDOMSnapshotAgent::GetSnapshot(
   computed_styles_map_.reset();
   css_property_filter_.reset();
   paint_order_map_.reset();
-  return Response::OK();
+  return Response::Success();
 }
 
 int LegacyDOMSnapshotAgent::VisitNode(Node* node,

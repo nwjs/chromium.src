@@ -20,6 +20,7 @@
 #include "ios/chrome/browser/crash_report/breakpad_helper.h"
 #import "ios/chrome/browser/crash_report/crash_report_user_application_state.h"
 #import "ios/chrome/browser/crash_report/crash_reporter_breadcrumb_observer.h"
+#import "ios/chrome/browser/ui/util/multi_window_support.h"
 #import "ios/chrome/browser/web/tab_id_tab_helper.h"
 #import "ios/chrome/browser/web_state_list/all_web_state_observation_forwarder.h"
 #import "ios/chrome/browser/web_state_list/web_state_list.h"
@@ -36,6 +37,12 @@
 #if !defined(__has_feature) || !__has_feature(objc_arc)
 #error "This file requires ARC support."
 #endif
+
+namespace breakpad {
+// IMPORTANT: be careful if ever increasing this value, Breakpad reports have an
+// overall size limit
+const int kBreadcrumbsKeyCount = 6;
+}
 
 // WebStateListObserver that allows loaded urls to be sent to the crash server.
 @interface CrashReporterURLObserver
@@ -210,6 +217,11 @@ const NSString* kDocumentMimeType = @"application/pdf";
 }
 
 - (void)observeWebStateList:(WebStateList*)webStateList {
+  if (_allWebStateObservationForwarder && IsMultiwindowSupported()) {
+    // TODO(crbug.com/1060658): enable crash reporting on more than one window.
+    return;
+  }
+
   webStateList->AddObserver(_webStateListObserver.get());
   // CrashReporterURLObserver should only observe one webStateList at a time.
   DCHECK(!_allWebStateObservationForwarder);
@@ -244,7 +256,7 @@ const NSString* kDocumentMimeType = @"application/pdf";
     didChangeActiveWebState:(web::WebState*)newWebState
                 oldWebState:(web::WebState*)oldWebState
                     atIndex:(int)atIndex
-                     reason:(int)reason {
+                     reason:(ActiveWebStateChangeReason)reason {
   if (!newWebState)
     return;
   web::NavigationItem* pendingItem =
@@ -442,6 +454,8 @@ void ClearStateForWebStateList(WebStateList* web_state_list) {
 void MonitorBreadcrumbManager(BreadcrumbManager* breadcrumb_manager) {
   [[CrashReporterBreadcrumbObserver uniqueInstance]
       observeBreadcrumbManager:breadcrumb_manager];
+  [CrashReporterBreadcrumbObserver uniqueInstance].breadcrumbsKeyCount =
+      kBreadcrumbsKeyCount;
 }
 
 void StopMonitoringBreadcrumbManager(BreadcrumbManager* breadcrumb_manager) {

@@ -21,6 +21,7 @@
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/web_contents.h"
+#include "third_party/blink/public/mojom/renderer_preferences.mojom.h"
 #include "url/gurl.h"
 
 namespace {
@@ -54,24 +55,14 @@ Browser* ReparentWebContentsWithBrowserCreateParams(
 
 namespace web_app {
 
-base::Optional<AppId> GetPwaForSecureActiveTab(Browser* browser) {
-  switch (browser->location_bar_model()->GetSecurityLevel()) {
-    case security_state::SECURITY_LEVEL_COUNT:
-      NOTREACHED();
-      FALLTHROUGH;
-    case security_state::NONE:
-    case security_state::WARNING:
-    case security_state::DANGEROUS:
-      return base::nullopt;
-    case security_state::EV_SECURE:
-    case security_state::SECURE:
-    case security_state::SECURE_WITH_POLICY_INSTALLED_CERT:
-      break;
-  }
-  content::WebContents* web_contents =
-      browser->tab_strip_model()->GetActiveWebContents();
+base::Optional<AppId> GetWebAppForActiveTab(Browser* browser) {
   WebAppProvider* provider = WebAppProvider::Get(browser->profile());
   if (!provider)
+    return base::nullopt;
+
+  content::WebContents* web_contents =
+      browser->tab_strip_model()->GetActiveWebContents();
+  if (!web_contents)
     return base::nullopt;
 
   return provider->registrar().FindAppWithUrlInScope(
@@ -98,8 +89,8 @@ void PrunePreScopeNavigationHistory(const GURL& scope,
   }
 }
 
-Browser* ReparentWebAppForSecureActiveTab(Browser* browser) {
-  base::Optional<AppId> app_id = GetPwaForSecureActiveTab(browser);
+Browser* ReparentWebAppForActiveTab(Browser* browser) {
+  base::Optional<AppId> app_id = GetWebAppForActiveTab(browser);
   if (!app_id)
     return nullptr;
   return ReparentWebContentsIntoAppBrowser(
@@ -144,6 +135,20 @@ Browser* ReparentWebContentsForFocusMode(content::WebContents* contents) {
       gfx::Rect(), profile, true /* user_gesture */));
   browser_params.is_focus_mode = true;
   return ReparentWebContentsWithBrowserCreateParams(contents, browser_params);
+}
+
+void SetAppPrefsForWebContents(content::WebContents* web_contents) {
+  web_contents->GetMutableRendererPrefs()->can_accept_load_drops = false;
+  web_contents->SyncRendererPrefs();
+
+  web_contents->NotifyPreferencesChanged();
+}
+
+void ClearAppPrefsForWebContents(content::WebContents* web_contents) {
+  web_contents->GetMutableRendererPrefs()->can_accept_load_drops = true;
+  web_contents->SyncRendererPrefs();
+
+  web_contents->NotifyPreferencesChanged();
 }
 
 }  // namespace web_app

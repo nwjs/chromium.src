@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "base/base64.h"
+#include "base/bind_helpers.h"
 #include "base/command_line.h"
 #include "base/guid.h"
 #include "base/i18n/time_formatting.h"
@@ -92,9 +93,10 @@ class PersonalDataLoadedObserverMock : public PersonalDataManagerObserver {
 
 class PersonalDataManagerMock : public PersonalDataManager {
  public:
-  explicit PersonalDataManagerMock(const std::string& app_locale)
-      : PersonalDataManager(app_locale) {}
-  ~PersonalDataManagerMock() override {}
+  explicit PersonalDataManagerMock(const std::string& app_locale,
+                                   const std::string& variations_country_code)
+      : PersonalDataManager(app_locale, variations_country_code) {}
+  ~PersonalDataManagerMock() override = default;
 
   MOCK_METHOD1(OnValidated, void(const AutofillProfile* profile));
   void OnValidatedPDM(const AutofillProfile* profile) {
@@ -347,7 +349,7 @@ class PersonalDataManagerHelper : public PersonalDataManagerTestBase {
                                 bool use_account_server_storage = false) {
     if (personal_data_)
       personal_data_->Shutdown();
-    personal_data_.reset(new PersonalDataManager("en"));
+    personal_data_.reset(new PersonalDataManager("EN", "US"));
     PersonalDataManagerTestBase::ResetPersonalDataManager(
         user_mode, use_account_server_storage, personal_data_.get());
   }
@@ -366,16 +368,21 @@ class PersonalDataManagerHelper : public PersonalDataManagerTestBase {
     personal_data_->is_autofill_profile_cleanup_pending_ = true;
   }
 
-  void SetUpReferenceProfile() {
+  void SetUpReferenceProfile(const AutofillProfile& profile) {
     ASSERT_EQ(0U, personal_data_->GetProfiles().size());
 
+    AddProfileToPersonalDataManager(profile);
+
+    ASSERT_EQ(1U, personal_data_->GetProfiles().size());
+  }
+
+  AutofillProfile GetDefaultProfile() {
     AutofillProfile profile(base::GenerateGUID(), test::kEmptyOrigin);
     test::SetProfileInfo(&profile, "Marion", "Mitchell", "Morrison",
                          "johnwayne@me.xyz", "Fox", "123 Zoo St", "unit 5",
                          "Hollywood", "CA", "91601", "US", "12345678910");
-    AddProfileToPersonalDataManager(profile);
 
-    ASSERT_EQ(1U, personal_data_->GetProfiles().size());
+    return profile;
   }
 
   // Adds three local cards to the |personal_data_|. The three cards are
@@ -604,7 +611,7 @@ class PersonalDataManagerMockTest : public PersonalDataManagerTestBase,
   void ResetPersonalDataManager(UserMode user_mode) {
     if (personal_data_)
       personal_data_->Shutdown();
-    personal_data_.reset(new PersonalDataManagerMock("en"));
+    personal_data_.reset(new PersonalDataManagerMock("en", std::string()));
     PersonalDataManagerTestBase::ResetPersonalDataManager(
         user_mode, /*use_account_server_storage=*/true, personal_data_.get());
   }
@@ -1331,6 +1338,49 @@ TEST_F(PersonalDataManagerTest, UpdateVerifiedProfilesOrigin) {
   EXPECT_TRUE(profiles2[0]->IsVerified());
 }
 
+// Test that ensure local data is not lost on sign-in.
+TEST_F(PersonalDataManagerTest, KeepExistingLocalDataOnSignIn) {
+  // Set up the experiment flags.
+  base::test::ScopedFeatureList scoped_features;
+  scoped_features.InitWithFeatures(
+      /*enabled_features=*/{features::kAutofillEnableAccountWalletStorage},
+      /*disabled_features=*/{});
+
+// ClearPrimaryAccount is not supported on CrOS.
+#if !defined(OS_CHROMEOS)
+  // Sign out.
+  identity_test_env_.ClearPrimaryAccount();
+  EXPECT_EQ(AutofillSyncSigninState::kSignedOut,
+            personal_data_->GetSyncSigninState());
+#endif
+  EXPECT_EQ(0U, personal_data_->GetCreditCards().size());
+
+  // Add local card.
+  CreditCard local_card;
+  test::SetCreditCardInfo(&local_card, "Freddy Mercury",
+                          "4234567890123463",  // Visa
+                          "08", "2999", "1");
+  local_card.set_guid("00000000-0000-0000-0000-000000000009");
+  local_card.set_record_type(CreditCard::LOCAL_CARD);
+  local_card.set_use_count(5);
+  personal_data_->AddCreditCard(local_card);
+  WaitForOnPersonalDataChanged();
+  EXPECT_EQ(1U, personal_data_->GetCreditCards().size());
+
+  // Sign in.
+  identity_test_env_.SetPrimaryAccount("test@gmail.com");
+  sync_service_.SetIsAuthenticatedAccountPrimary(true);
+  sync_service_.SetActiveDataTypes(
+      syncer::ModelTypeSet(syncer::AUTOFILL_WALLET_DATA));
+  EXPECT_EQ(AutofillSyncSigninState::kSignedInAndSyncFeatureEnabled,
+            personal_data_->GetSyncSigninState());
+  ASSERT_TRUE(TurnOnSyncFeature());
+
+  // Check saved local card should be not lost.
+  EXPECT_EQ(1U, personal_data_->GetCreditCards().size());
+  EXPECT_EQ(0, local_card.Compare(*personal_data_->GetCreditCards()[0]));
+}
+
 // Makes sure that full cards are re-masked when full PAN storage is off.
 TEST_F(PersonalDataManagerTest, RefuseToStoreFullCard) {
 // On Linux this should be disabled automatically. Elsewhere, only if the
@@ -2004,6 +2054,63 @@ TEST_F(PersonalDataManagerTest, DefaultCountryCodeComesFromProfiles) {
   AddProfileToPersonalDataManager(armadillo);
   ResetPersonalDataManager(USER_MODE_NORMAL);
   EXPECT_EQ("MX", personal_data_->GetDefaultCountryCodeForNewAddress());
+}
+
+TEST_F(PersonalDataManagerTest, DefaultCountryCodeComesFromVariations) {
+  base::test::ScopedFeatureList enabled;
+  enabled.InitAndEnableFeature(features::kAutofillUseVariationCountryCode);
+
+  const std::string expected_country_code = "DE";
+  const std::string unepected_country_code = "FR";
+
+  // Normally, the variation country code is passed to the constructor.
+  personal_data_->set_variations_country_code_for_testing(
+      expected_country_code);
+
+  // Verify that there are no profiles set.
+  EXPECT_EQ(0u, personal_data_->GetProfiles().size());
+
+  // Since there are no profiles set, the country code supplied buy variations
+  // should be used get get a default country code.
+  std::string actual_country_code =
+      personal_data_->GetDefaultCountryCodeForNewAddress();
+
+  // Verify the the correct country code was retrieved.
+  EXPECT_EQ(expected_country_code, actual_country_code);
+
+  // Set a new country code.
+  personal_data_->set_variations_country_code_for_testing(
+      unepected_country_code);
+
+  // The default country code retrieved before should have been cached.
+  actual_country_code = personal_data_->GetDefaultCountryCodeForNewAddress();
+
+  // Verify the expectations newly set country code is actually different.
+  EXPECT_NE(expected_country_code, unepected_country_code);
+
+  // Verify that it was actually set.
+  EXPECT_EQ(unepected_country_code,
+            personal_data_->variations_country_code_for_testing());
+
+  // Verify that the retrieved country code is the initial one.
+  EXPECT_EQ(expected_country_code, actual_country_code);
+
+  // Now a profile is set and the correctcaching of the country code is verified
+  // once more.
+  AutofillProfile profile(base::GenerateGUID(), test::kEmptyOrigin);
+  test::SetProfileInfo(&profile, "Marion", "Mitchell", "Morrison",
+                       "johnwayne@me.xyz", "Fox", "123 Zoo St.", "unit 5",
+                       "Hollywood", "CA", "91601", "US", "12345678910");
+  AddProfileToPersonalDataManager(profile);
+
+  // Once more, retrieve the defaultcountry code.
+  actual_country_code = personal_data_->GetDefaultCountryCodeForNewAddress();
+
+  // Verify that the profile was actually set.
+  EXPECT_EQ(1U, personal_data_->GetProfiles().size());
+
+  // Verify that the country code is still the initial one.
+  EXPECT_EQ(actual_country_code, expected_country_code);
 }
 
 TEST_F(PersonalDataManagerTest, UpdateLanguageCodeInProfile) {
@@ -4078,23 +4185,21 @@ TEST_P(SaveImportedProfileTest, SaveImportedProfile) {
   // Set the time to a specific value.
   test_clock.SetNow(kArbitraryTime);
 
-  SetUpReferenceProfile();
-  const std::vector<AutofillProfile*>& initial_profiles =
-      personal_data_->GetProfiles();
+  AutofillProfile original_profile = GetDefaultProfile();
 
   // Apply changes to the original profile (if applicable).
   for (ProfileField change : test_case.changes_to_original) {
-    initial_profiles.front()->SetRawInfo(change.field_type,
-                                         base::UTF8ToUTF16(change.field_value));
+    original_profile.SetRawInfo(change.field_type,
+                                base::UTF8ToUTF16(change.field_value));
   }
+
+  // Initialize PersonalDataManager with the original profile.
+  SetUpReferenceProfile(original_profile);
 
   // Set the time to a bigger value.
   test_clock.SetNow(kSomeLaterTime);
 
-  AutofillProfile profile2(base::GenerateGUID(), test::kEmptyOrigin);
-  test::SetProfileInfo(&profile2, "Marion", "Mitchell", "Morrison",
-                       "johnwayne@me.xyz", "Fox", "123 Zoo St", "unit 5",
-                       "Hollywood", "CA", "91601", "US", "12345678910");
+  AutofillProfile profile2(GetDefaultProfile());
 
   // Apply changes to the second profile (if applicable).
   for (ProfileField change : test_case.changes_to_new) {
@@ -4106,6 +4211,20 @@ TEST_P(SaveImportedProfileTest, SaveImportedProfile) {
 
   const std::vector<AutofillProfile*>& saved_profiles =
       personal_data_->GetProfiles();
+
+  // Get the set of profiles persisted in the db.
+  std::vector<std::unique_ptr<AutofillProfile>> db_profiles;
+  profile_autofill_table_->GetAutofillProfiles(&db_profiles);
+
+  // Expect the profiles held in-memory by PersonalDataManager and the db
+  // profiles to be the same.
+  EXPECT_EQ(db_profiles.size(), saved_profiles.size());
+  for (const auto& it : db_profiles) {
+    AutofillProfile* inmemory_profile =
+        personal_data_->GetProfileByGUID(it->guid());
+    ASSERT_TRUE(inmemory_profile != nullptr);
+    EXPECT_TRUE(it->EqualsIncludingUsageStatsForTesting(*inmemory_profile));
+  }
 
   // If there are no merge changes to verify, make sure that two profiles were
   // saved.
@@ -4433,7 +4552,7 @@ TEST_F(PersonalDataManagerTest, MergeProfile_Frecency) {
   // Merge the imported profile into the existing profiles.
   std::vector<AutofillProfile> profiles;
   std::string guid = AutofillProfileComparator::MergeProfile(
-      imported_profile, &existing_profiles, "US-EN", &profiles);
+      imported_profile, existing_profiles, "US-EN", &profiles);
 
   // The new profile should be merged into the "fox" profile.
   EXPECT_EQ(profile2->guid(), guid);
@@ -4482,18 +4601,19 @@ TEST_F(PersonalDataManagerTest, MAYBE_MergeProfile_UsageStats) {
   // Merge the imported profile into the existing profiles.
   std::vector<AutofillProfile> profiles;
   std::string guid = AutofillProfileComparator::MergeProfile(
-      imported_profile, &existing_profiles, "US-EN", &profiles);
+      imported_profile, existing_profiles, "US-EN", &profiles);
 
   // The new profile should be merged into the existing profile.
   EXPECT_EQ(profile->guid(), guid);
+  EXPECT_EQ(1U, profiles.size());
   // The use count should have be max(4, 1) => 4.
-  EXPECT_EQ(4U, profile->use_count());
+  EXPECT_EQ(4U, profiles[0].use_count());
   // The use date should be the one of the most recent profile, which is
   // kSecondArbitraryTime.
-  EXPECT_EQ(kSomeLaterTime, profile->use_date());
+  EXPECT_EQ(kSomeLaterTime, profiles[0].use_date());
   // Since the merge is considered a modification, the modification_date should
   // be set to kMuchLaterTime.
-  EXPECT_EQ(kMuchLaterTime, profile->modification_date());
+  EXPECT_EQ(kMuchLaterTime, profiles[0].modification_date());
 }
 
 // Tests that DedupeProfiles sets the correct profile guids to
@@ -7836,6 +7956,14 @@ TEST_F(PersonalDataManagerTest, RemoveObserverInOnPersonalDataChanged) {
   WaitForOnPersonalDataChanged();
 
   EXPECT_FALSE(observer.IsConnected()) << "Observer not called";
+}
+
+TEST_F(PersonalDataManagerTest, AddAndGetUpiId) {
+  constexpr char upi_id[] = "vpa@indianbank";
+  personal_data_->AddUpiId(upi_id);
+  WaitOnceForOnPersonalDataChanged();
+  std::vector<std::string> all_upi_ids = personal_data_->GetUpiIds();
+  EXPECT_THAT(all_upi_ids, testing::ElementsAre(upi_id));
 }
 
 }  // namespace autofill

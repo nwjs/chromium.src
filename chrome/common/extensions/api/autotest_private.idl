@@ -87,6 +87,11 @@ namespace autotestPrivate {
     FullscreenSearch
   };
 
+  enum OverviewStateType {
+   Shown,
+   Hidden
+  };
+
   enum MouseButton {
     Left,
     Middle,
@@ -196,22 +201,6 @@ namespace autotestPrivate {
     boolean? managed;
   };
   callback PlayStoreStateCallback = void (PlayStoreState result);
-
-  dictionary HistogramBucket {
-    // Minimum sample value that can be stored in this bucket (i.e. inclusive).
-    long min;
-    // Exclusive maximum value for samples stored this bucket.
-    long max;
-    // Number of samples stored in this bucket.
-    long count;
-  };
-  dictionary Histogram {
-    // Sum of the all entries.
-    double sum;
-    // Buckets containing samples.
-    HistogramBucket[] buckets;
-  };
-  callback HistogramCallback = void (Histogram histogram);
 
   dictionary AssistantQueryResponse {
     // Text response returned from server.
@@ -341,6 +330,14 @@ namespace autotestPrivate {
     ExtensionApp
   };
 
+  // A mapping of HotseatState in ash/public/cpp/shelf_types.h.
+  enum HotseatState {
+    Hidden,
+    ShownClamShell,
+    ShownHomeLauncher,
+    Extended
+  };
+
   // The frame mode of a window. None if the window is framesless.
   enum FrameMode {
     Normal,
@@ -423,6 +420,52 @@ namespace autotestPrivate {
     boolean pressed;
   };
 
+  // Mapped to ScrollableShelfState in ash/public/cpp/shelf_ui_info.h.
+  // [deprecated="Use ShelfState"]
+  dictionary ScrollableShelfState {
+    double? scrollDistance;
+  };
+
+  // Mapped to ShelfState in ash/public/cpp/shelf_ui_info.h.
+  dictionary ShelfState {
+    double? scrollDistance;
+  };
+
+  // Mapped to ScrollableShelfInfo in ash/public/cpp/shelf_ui_info.h.
+  // |targetMainAxisOffset| is set when ShelfState used in query
+  // specifies the scroll distance.
+  dictionary ScrollableShelfInfo {
+    double mainAxisOffset;
+    double pageOffset;
+    double? targetMainAxisOffset;
+    Bounds leftArrowBounds;
+    Bounds rightArrowBounds;
+    boolean isAnimating;
+    boolean isOverflow;
+    Bounds[] iconsBoundsInScreen;
+    boolean isShelfWidgetAnimating;
+  };
+
+  // Mapped to HotseatSwipeDescriptor in ash/public/cpp/shelf_ui_info.h.
+  dictionary HotseatSwipeDescriptor {
+    Location swipeStartLocation;
+    Location swipeEndLocation;
+  };
+
+  // Mapped to HotseatInfo in ash/public/cpp/shelf_ui_info.h.
+  dictionary HotseatInfo {
+    HotseatSwipeDescriptor swipeUp;
+    HotseatState state;
+    boolean isAnimating;
+  };
+
+  // The ui information of shelf components, including hotseat and
+  // scrollable shelf.
+  dictionary ShelfUIInfo {
+    HotseatInfo hotseatInfo;
+    ScrollableShelfInfo scrollableShelfInfo;
+  };
+
   callback GetShelfItemsCallback = void (ShelfItem[] items);
 
   callback GetShelfAutoHideBehaviorCallback = void (DOMString behavior);
@@ -440,6 +483,11 @@ namespace autotestPrivate {
   callback AcceleratorCallback = void (boolean success);
 
   callback DesksCallback = void (boolean success);
+
+  callback GetScrollableShelfInfoForStateCallback = void (
+      ScrollableShelfInfo info);
+
+  callback GetShelfUIInfoForStateCallback = void (ShelfUIInfo info);
 
   dictionary TraceConfig {
     // The recording mode of the trace. Possible options are:
@@ -589,11 +637,6 @@ namespace autotestPrivate {
     // |enabled|: if set, enable the Play Store.
     // |callback|: Called when the operation has completed.
     static void setPlayStoreEnabled(boolean enabled, VoidCallback callback);
-
-    // Get details about a histogram displayed at chrome://histogram.
-    // |name|: Histogram name, e.g. "Accessibility.CrosAutoclick".
-    // |callback|: Invoked with details.
-    static void getHistogram(DOMString name, HistogramCallback callback);
 
     // Get text from ui::Clipboard.
     // |callback|: Called with result.
@@ -762,6 +805,9 @@ namespace autotestPrivate {
     static void setShelfAlignment(DOMString displayId,
         ShelfAlignmentType alignment, VoidCallback callback);
 
+    // Create a pin on shelf for the app specified by |appId|.
+    static void pinShelfIcon(DOMString appId, VoidCallback callback);
+
     // Enter or exit the overview mode.
     // |start|: whether entering to or exiting from the overview mode.
     // |callback|: called after the overview mode switch finishes.
@@ -838,6 +884,13 @@ namespace autotestPrivate {
     static void waitForLauncherState(LauncherStateType launcherState,
                                      VoidCallback callback);
 
+    // Wait until overview has transitioned to |overviewState|, if it is not in
+    // that state.
+    // |overviewState|: the target overview state.
+    // |callback|: called when overview has reached |overviewState|.
+    static void waitForOverviewState(OverviewStateType overviewState,
+                                     VoidCallback callback);
+
     // Creates a new desk if the maximum number of desks has not been reached.
     // |callback|: called to indicate success or failure.
     static void createNewDesk(DesksCallback callback);
@@ -902,6 +955,20 @@ namespace autotestPrivate {
     // |enable|: whether enabled touch mode.
     // |callback|: called when action performed.
     static void setArcTouchMode(boolean enabled, VoidCallback callback);
+
+    // Fetches ui information of scrollable shelf view for the given shelf
+    // state. This function does not change scrollable shelf.
+    // [deprecated="Use getShelfUIInfoForState()"]
+    static void getScrollableShelfInfoForState(
+        ScrollableShelfState state,
+        GetScrollableShelfInfoForStateCallback callback);
+
+    // Fetches UI information of shelf (including scrollable shelf and hotseat)
+    // for the given shelf state. This function does not change any shelf
+    // component.
+    static void getShelfUIInfoForState(
+        ShelfState state,
+        GetShelfUIInfoForStateCallback callback);
   };
 
   interface Events {

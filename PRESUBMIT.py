@@ -79,6 +79,23 @@ _INCLUDE_ORDER_WARNING = (
     'collation (LC_COLLATE=C) and check\nhttps://google.github.io/styleguide/'
     'cppguide.html#Names_and_Order_of_Includes')
 
+# Format: Sequence of tuples containing:
+# * Full import path.
+# * Sequence of strings to show when the pattern matches.
+# * Sequence of path or filename exceptions to this rule
+_BANNED_JAVA_IMPORTS = (
+    (
+      'java.net.URI;',
+      (
+       'Use org.chromium.url.GURL instead of java.net.URI, where possible.',
+      ),
+      (
+        'net/android/javatests/src/org/chromium/net/'
+        'AndroidProxySelectorTest.java',
+        'components/cronet/',
+      ),
+    ),
+)
 
 # Format: Sequence of tuples containing:
 # * String pattern or, if starting with a slash, a regular expression.
@@ -266,7 +283,6 @@ _NOT_CONVERTED_TO_MODERN_BIND_AND_CALLBACK = '|'.join((
   '^chrome/app/',
   '^chrome/browser/',
   '^chrome/chrome_elf/',
-  '^chrome/chrome_watcher/',
   '^chrome/common/',
   '^chrome/installer/',
   '^chrome/renderer/',
@@ -286,14 +302,12 @@ _NOT_CONVERTED_TO_MODERN_BIND_AND_CALLBACK = '|'.join((
   '^components/autofill/',
   '^components/autofill_assistant/',
   '^components/browser_watcher/',
-  '^components/browsing_data/',
   '^components/cast_channel/',
   '^components/chromeos_camera/',
   '^components/component_updater/',
   '^components/content_settings/',
   '^components/cronet/',
   '^components/data_reduction_proxy/',
-  '^components/discardable_memory/',
   '^components/domain_reliability/',
   '^components/dom_distiller/',
   '^components/download/',
@@ -356,7 +370,8 @@ _NOT_CONVERTED_TO_MODERN_BIND_AND_CALLBACK = '|'.join((
   '^components/webdata/',
   '^components/webdata_services/',
   '^device/bluetooth/',
-  '^extensions/',
+  '^extensions/browser/',
+  '^extensions/renderer/',
   '^google_apis/dive/',
   '^google_apis/gcm/',
   '^ios/chrome/',
@@ -365,22 +380,16 @@ _NOT_CONVERTED_TO_MODERN_BIND_AND_CALLBACK = '|'.join((
   '^ios/web/',
   '^ios/web_view/',
   '^ipc/',
-  '^media/audio/',
   '^media/base/',
   '^media/blink/',
-  '^media/capture/',
   '^media/cast/',
   '^media/cdm/',
   '^media/device_monitors/',
-  '^media/ffmpeg/',
   '^media/filters/',
   '^media/formats/',
   '^media/gpu/',
   '^media/mojo/',
-  '^media/muxers/',
-  '^media/remoting/',
   '^media/renderers/',
-  '^media/test/',
   '^net/',
   '^ppapi/proxy/',
   '^ppapi/shared_impl/',
@@ -388,13 +397,9 @@ _NOT_CONVERTED_TO_MODERN_BIND_AND_CALLBACK = '|'.join((
   '^ppapi/thunk/',
   '^remoting/base/',
   '^remoting/client/',
-  '^remoting/codec/',
   '^remoting/host/',
   '^remoting/internal/',
-  '^remoting/ios/',
   '^remoting/protocol/',
-  '^remoting/signaling/',
-  '^remoting/test/',
   '^services/',
   '^third_party/blink/',
   '^tools/clang/base_bind_rewriters/',  # Intentional.
@@ -1094,6 +1099,26 @@ _BANNED_CPP_FUNCTIONS = (
       False,
       (),
     ),
+    (
+      r'/\b(IFACE|STD)METHOD_?\(',
+      (
+        'IFACEMETHOD() and STDMETHOD() make code harder to format and read.',
+        'Instead, always use IFACEMETHODIMP in the declaration.'
+      ),
+      False,
+      [_THIRD_PARTY_EXCEPT_BLINK],  # Not an error in third_party folders.
+    ),
+    (
+      'set_owned_by_client',
+      (
+        'set_owned_by_client is deprecated.',
+        'views::View already owns the child views by default. This introduces ',
+        'a competing ownership model which makes the code difficult to reason ',
+        'about. See http://crbug.com/1044687 for more details.'
+      ),
+      False,
+      (),
+    ),
 )
 
 # Format: Sequence of tuples containing:
@@ -1305,12 +1330,14 @@ _ANDROID_SPECIFIC_PYDEPS_FILES = [
     'build/android/gyp/jacoco_instr.pydeps',
     'build/android/gyp/java_cpp_enum.pydeps',
     'build/android/gyp/java_cpp_strings.pydeps',
+    'build/android/gyp/jetify_jar.pydeps',
     'build/android/gyp/jinja_template.pydeps',
     'build/android/gyp/lint.pydeps',
     'build/android/gyp/main_dex_list.pydeps',
     'build/android/gyp/merge_manifest.pydeps',
     'build/android/gyp/prepare_resources.pydeps',
     'build/android/gyp/proguard.pydeps',
+    'build/android/gyp/turbine.pydeps',
     'build/android/gyp/validate_static_library_dex_references.pydeps',
     'build/android/gyp/write_build_config.pydeps',
     'build/android/gyp/write_native_libraries_java.pydeps',
@@ -1883,6 +1910,33 @@ def _CheckNoBannedFunctions(input_api, output_api):
   if (errors):
     result.append(output_api.PresubmitError(
         'Banned functions were used.\n' + '\n'.join(errors)))
+  return result
+
+
+def _CheckAndroidNoBannedImports(input_api, output_api):
+  """Make sure that banned java imports are not used."""
+  errors = []
+
+  def IsException(path, exceptions):
+    for exception in exceptions:
+      if (path.startswith(exception)):
+        return True
+    return False
+
+  file_filter = lambda f: f.LocalPath().endswith(('.java'))
+  for f in input_api.AffectedFiles(file_filter=file_filter):
+    for line_num, line in f.ChangedContents():
+      for import_name, message, exceptions in _BANNED_JAVA_IMPORTS:
+        if IsException(f.LocalPath(), exceptions):
+          continue;
+        problems = _GetMessageForMatchingType(input_api, f, line_num, line,
+            'import ' + import_name, message)
+        if problems:
+          errors.extend(problems)
+  result = []
+  if (errors):
+    result.append(output_api.PresubmitError(
+        'Banned imports were used.\n' + '\n'.join(errors)))
   return result
 
 
@@ -3215,9 +3269,10 @@ def _CheckAndroidCrLogUsage(input_api, output_api):
   has_some_log_import_pattern = input_api.re.compile(
       r'^import .*\.Log;$', input_api.re.MULTILINE)
   # Extract the tag from lines like `Log.d(TAG, "*");` or `Log.d("TAG", "*");`
-  log_call_pattern = input_api.re.compile(r'^\s*Log\.\w\((?P<tag>\"?\w+\"?)\,')
+  log_call_pattern = input_api.re.compile(r'\bLog\.\w\((?P<tag>\"?\w+)')
   log_decl_pattern = input_api.re.compile(
       r'static final String TAG = "(?P<name>(.*))"')
+  rough_log_decl_pattern = input_api.re.compile(r'\bString TAG\s*=')
 
   REF_MSG = ('See docs/android_logging.md for more info.')
   sources = lambda x: input_api.FilterSourceFile(x, white_list=[r'.*\.java$'],
@@ -3232,13 +3287,14 @@ def _CheckAndroidCrLogUsage(input_api, output_api):
   for f in input_api.AffectedSourceFiles(sources):
     file_content = input_api.ReadFile(f)
     has_modified_logs = False
-
     # Per line checks
     if (cr_log_import_pattern.search(file_content) or
         (class_in_base_pattern.search(file_content) and
             not has_some_log_import_pattern.search(file_content))):
       # Checks to run for files using cr log
       for line_num, line in f.ChangedContents():
+        if rough_log_decl_pattern.search(line):
+          has_modified_logs = True
 
         # Check if the new line is doing some logging
         match = log_call_pattern.search(line)
@@ -4121,6 +4177,7 @@ def _AndroidSpecificOnUploadChecks(input_api, output_api):
   results.extend(_CheckAndroidWebkitImports(input_api, output_api))
   results.extend(_CheckAndroidXmlStyle(input_api, output_api, True))
   results.extend(_CheckNewImagesWarning(input_api, output_api))
+  results.extend(_CheckAndroidNoBannedImports(input_api, output_api))
   return results
 
 def _AndroidSpecificOnCommitChecks(input_api, output_api):
@@ -4196,6 +4253,7 @@ def _CommonChecks(input_api, output_api):
   results.extend(input_api.RunTests(
     input_api.canned_checks.CheckVPythonSpec(input_api, output_api)))
   results.extend(_CheckTranslationScreenshots(input_api, output_api))
+  results.extend(_CheckTranslationExpectations(input_api, output_api))
   results.extend(_CheckCorrectProductNameInMessages(input_api, output_api))
   results.extend(_CheckBuildtoolsRevisionsAreInSync(input_api, output_api))
   results.extend(_CheckForTooLargeFiles(input_api, output_api))
@@ -4707,6 +4765,13 @@ def _CheckTranslationScreenshots(input_api, output_api):
     file_path = f.LocalPath()
     old_id_to_msg_map = {}
     new_id_to_msg_map = {}
+    # Note that this code doesn't check if the file has been deleted. This is
+    # OK because it only uses the old and new file contents and doesn't load
+    # the file via its path.
+    # It's also possible that a file's content refers to a renamed or deleted
+    # file via a <part> tag, such as <part file="now-deleted-file.grdp">. This
+    # is OK as well, because grd_helper ignores <part> tags when loading .grd or
+    # .grdp files.
     if file_path.endswith('.grdp'):
       if f.OldContents():
         old_id_to_msg_map = grd_helper.GetGrdpMessagesFromString(
@@ -4773,3 +4838,48 @@ def _CheckTranslationScreenshots(input_api, output_api):
       sorted(unnecessary_sha1_files)))
 
   return results
+
+
+def _CheckTranslationExpectations(input_api, output_api,
+                                  repo_root=None,
+                                  translation_expectations_path=None,
+                                  grd_files=None):
+  import sys
+  affected_grds = [f for f in input_api.AffectedFiles()
+      if (f.LocalPath().endswith('.grd') or
+          f.LocalPath().endswith('.grdp'))]
+  if not affected_grds:
+    return []
+
+  try:
+    old_sys_path = sys.path
+    sys.path = sys.path + [
+        input_api.os_path.join(
+            input_api.PresubmitLocalPath(), 'tools', 'translation')]
+    from helper import git_helper
+    from helper import translation_helper
+  finally:
+    sys.path = old_sys_path
+
+  # Check that translation expectations can be parsed and we can get a list of
+  # translatable grd files. |repo_root| and |translation_expectations_path| are
+  # only passed by tests.
+  if not repo_root:
+    repo_root = input_api.PresubmitLocalPath()
+  if not translation_expectations_path:
+    translation_expectations_path =  input_api.os_path.join(
+        repo_root, 'tools', 'gritsettings',
+        'translation_expectations.pyl')
+  if not grd_files:
+    grd_files = git_helper.list_grds_in_repository(repo_root)
+
+  try:
+    translation_helper.get_translatable_grds(repo_root, grd_files,
+                                             translation_expectations_path)
+  except Exception as e:
+    return [output_api.PresubmitNotifyResult(
+      'Failed to get a list of translatable grd files. This happens when:\n'
+      ' - One of the modified grd or grdp files cannot be parsed or\n'
+      ' - %s is not updated.\n'
+      'Stack:\n%s' % (translation_expectations_path, str(e)))]
+  return []

@@ -365,11 +365,16 @@ template("create_signed_bundle") {
       code_signing_args += [ "--disable-code-signature" ]
     }
     if (defined(invoker.extra_system_frameworks)) {
-      # All framework in extra_system_frameworks are expected to be
-      # system framework and the path to be already system absolute
-      # so do not use rebase_path here.
+      # All framework in extra_system_frameworks are expected to be system
+      # framework and the path to be already system absolute so do not use
+      # rebase_path here unless ios_enable_relative_sdk_path is trued.
       foreach(_framework, invoker.extra_system_frameworks) {
-        code_signing_args += [ "-F=" + _framework ]
+        if (ios_enable_relative_sdk_path) {
+          _framework_path = rebase_path(_framework, root_build_dir)
+        } else {
+          _framework_path = _framework
+        }
+        code_signing_args += [ "-F=$_framework_path" ]
       }
     }
     if (defined(invoker.partial_info_plist)) {
@@ -628,10 +633,10 @@ template("ios_app_bundle") {
     }
     deps += [ ":$_arch_executable_source" ]
 
-    if (!defined(libs)) {
-      libs = []
+    if (!defined(frameworks)) {
+      frameworks = []
     }
-    libs += [ "UIKit.framework" ]
+    frameworks += [ "UIKit.framework" ]
 
     if (!defined(ldflags)) {
       ldflags = []
@@ -1199,14 +1204,6 @@ template("ios_framework_bundle") {
         get_label_info("$_target_name($default_toolchain)", "target_gen_dir")
 
     _framework_headers_target = _target_name + "_framework_headers"
-    _framework_headers_config = _target_name + "_framework_headers_config"
-    config(_framework_headers_config) {
-      # The link settings are inherited from the framework_bundle config.
-      cflags = [
-        "-F",
-        rebase_path("$_default_toolchain_root_out_dir/.", root_build_dir),
-      ]
-    }
 
     _headers_map_config = _target_name + "_headers_map"
     _header_map_filename =
@@ -1217,6 +1214,11 @@ template("ios_framework_bundle") {
     }
   }
 
+  _framework_headers_config = _target_name + "_framework_headers_config"
+  config(_framework_headers_config) {
+    framework_dirs = [ _default_toolchain_root_out_dir ]
+  }
+
   _arch_shared_library_source = _target_name + "_arch_shared_library_sources"
   _arch_shared_library_target = _target_name + "_arch_shared_library"
   _lipo_shared_library_target = _target_name + "_shared_library"
@@ -1224,15 +1226,8 @@ template("ios_framework_bundle") {
 
   _framework_public_config = _target_name + "_public_config"
   config(_framework_public_config) {
-    # TODO(sdefresne): should we have a framework_dirs similar to lib_dirs
-    # and include_dirs to avoid duplicate values on the command-line.
-    visibility = [ ":${_target_name}_signed_bundle" ]
-    ldflags = [
-      "-F",
-      rebase_path("$_default_toolchain_root_out_dir/.", root_build_dir),
-    ]
-    lib_dirs = [ root_out_dir ]
-    libs = [ "$_output_name.framework" ]
+    configs = [ ":$_framework_headers_config" ]
+    frameworks = [ "$_output_name.framework" ]
   }
 
   source_set(_arch_shared_library_source) {
@@ -1247,16 +1242,14 @@ template("ios_framework_bundle") {
                              "info_plist",
                              "info_plist_target",
                              "output_name",
+                             "public_configs",
                              "visibility",
                            ])
 
     visibility = [ ":$_arch_shared_library_target" ]
 
     if (_has_public_headers) {
-      configs += [
-        ":$_framework_headers_config",
-        ":$_headers_map_config",
-      ]
+      configs += [ ":$_headers_map_config" ]
 
       if (!defined(deps)) {
         deps = []
@@ -1278,6 +1271,7 @@ template("ios_framework_bundle") {
                              "info_plist_target",
                              "output_name",
                              "sources",
+                             "public_configs",
                              "visibility",
                            ])
 
@@ -1698,6 +1692,7 @@ template("ios_xctest_bundle") {
     create_signed_bundle(_target_name) {
       forward_variables_from(invoker,
                              [
+                               "data_deps",
                                "enable_code_signing",
                                "product_type",
                                "xcode_test_application_name",
@@ -1729,10 +1724,14 @@ template("ios_xctest_bundle") {
         # For XCTest, Xcode requires specifying the host application path via
         # both BUNDLE_LOADER and TEST_HOST attributes.
         if (invoker.product_type == _ios_xcode_xctest_bundle_id) {
+          _xcode_app_name = invoker.xcode_test_application_name
+          if (defined(invoker.xcode_test_application_output_name)) {
+            _xcode_app_name = invoker.xcode_test_application_output_name
+          }
+
           BUNDLE_LOADER = "\$(TEST_HOST)"
           TEST_HOST =
-              "\$(BUILT_PRODUCTS_DIR)/${invoker.xcode_test_application_name}" +
-              ".app/${invoker.xcode_test_application_name}"
+              "\$(BUILT_PRODUCTS_DIR)/${_xcode_app_name}.app/${_xcode_app_name}"
         }
       }
 
@@ -1788,10 +1787,17 @@ template("ios_xctest_test") {
   }
 
   ios_xctest_bundle(_xctest_target) {
+    forward_variables_from(invoker, [ "data_deps" ])
     output_name = _xctest_output
     product_type = _ios_xcode_xctest_bundle_id
     host_target = _host_target
-    xcode_test_application_name = _host_output
+
+    # TODO(crbug.com/1056328) The change in output name results in a mismatch
+    # between this value and the ios_app_bundle target name. To mitigate, this
+    # has been modified to _host_target. output_name is set to _host_output
+    # to mitigate the naming.
+    xcode_test_application_name = _host_target
+    xcode_test_application_output_name = _host_output
 
     deps = [ _xctest_module_target ]
   }
@@ -1810,9 +1816,8 @@ template("ios_xctest_test") {
     # Xcode needs the following frameworks installed in the application (and
     # signed) for the XCTest to run, so install them using
     # extra_system_frameworks.
-    _ios_platform_library = "$ios_sdk_platform_path/Developer/Library"
     extra_system_frameworks = [
-      "$_ios_platform_library/Frameworks/XCTest.framework",
+      "$ios_sdk_platform_path/Developer/Library/Frameworks/XCTest.framework",
       "$ios_sdk_platform_path/Developer/Library/PrivateFrameworks/XCTAutomationSupport.framework",
       "$ios_sdk_platform_path/Developer/usr/lib/libXCTestBundleInject.dylib",
     ]
@@ -1899,6 +1904,10 @@ template("ios_xcuitest_test_runner_bundle") {
              "-f=xml1",
              "-o=" + rebase_path(_output_name, root_build_dir),
            ] + rebase_path(sources, root_build_dir)
+
+    if (ios_use_goma_rbe) {
+      deps = [ "//build/config/ios:copy_xctrunner_app" ]
+    }
   }
 
   ios_info_plist(_info_plist_target) {
@@ -1927,13 +1936,18 @@ template("ios_xcuitest_test_runner_bundle") {
     sources = [ "$_xctrunner_path/PkgInfo" ]
 
     outputs = [ "{{bundle_contents_dir}}/PkgInfo" ]
+
+    if (ios_use_goma_rbe) {
+      public_deps = [ "//build/config/ios:copy_xctrunner_app" ]
+    }
   }
 
   _xctest_bundle = invoker.xctest_bundle
   create_signed_bundle(_target_name) {
     testonly = true
 
-    bundle_binary_path = "$_xctrunner_path/XCTRunner"
+    bundle_binary_target = "//build/config/ios:xctest_runner_without_arm64e"
+    bundle_binary_output = "XCTRunner"
     bundle_extension = ".app"
     product_type = "com.apple.product-type.application"
 
@@ -1981,10 +1995,14 @@ template("ios_xcuitest_test") {
          "xcode_test_application_name must be defined for $target_name")
 
   _xcuitest_target = target_name
+  if (defined(invoker.output_name)) {
+    _xcuitest_target = invoker.output_name
+  }
+
   _xcuitest_runner_target = _xcuitest_target + "_runner"
   _xcuitest_module_target = _xcuitest_target + "_module"
 
-  group(_xcuitest_target) {
+  group(target_name) {
     testonly = true
 
     deps = [ ":$_xcuitest_runner_target" ]
@@ -1996,6 +2014,7 @@ template("ios_xcuitest_test") {
                            [
                              "xcode_test_application_name",
                              "xctest_bundle_principal_class",
+                             "data_deps",
                            ])
 
     product_type = _ios_xcode_xcuitest_bundle_id

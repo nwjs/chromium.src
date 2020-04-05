@@ -55,6 +55,9 @@ public class EmptyTabObserver implements TabObserver {
     public void onRestoreStarted(Tab tab) {}
 
     @Override
+    public void onRestoreFailed(Tab tab) {}
+
+    @Override
     public void onFaviconUpdated(Tab tab, Bitmap icon) { }
 
     @Override
@@ -74,9 +77,6 @@ public class EmptyTabObserver implements TabObserver {
 
     @Override
     public void onContextMenuShown(Tab tab, ContextMenu menu) { }
-
-    @Override
-    public void onContextualActionBarVisibilityChanged(Tab tab, boolean visible) { }
 
     @Override
     public void onCloseContents(Tab tab) {}

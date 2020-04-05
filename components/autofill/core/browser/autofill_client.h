@@ -26,6 +26,10 @@
 #include "ui/base/window_open_disposition.h"
 #include "url/gurl.h"
 
+#if !defined(OS_IOS)
+#include "components/autofill/core/browser/payments/internal_authenticator.h"
+#endif
+
 class PrefService;
 
 namespace content {
@@ -65,7 +69,6 @@ class FormStructure;
 class LogManager;
 class MigratableCreditCard;
 class PersonalDataManager;
-class SmsClient;
 class StrikeDatabase;
 enum class WebauthnDialogCallbackType;
 enum class WebauthnDialogState;
@@ -237,10 +240,6 @@ class AutofillClient : public RiskDataLoader {
   // Gets the payments::PaymentsClient instance owned by the client.
   virtual payments::PaymentsClient* GetPaymentsClient() = 0;
 
-  // Gets the SmsClient instance owned by the client. May be null for platforms
-  // that don't support this.
-  virtual SmsClient* GetSmsClient() = 0;
-
   // Gets the StrikeDatabase associated with the client.
   virtual StrikeDatabase* GetStrikeDatabase() = 0;
 
@@ -260,10 +259,22 @@ class AutofillClient : public RiskDataLoader {
   // Returns the current best guess as to the page's display language.
   virtual std::string GetPageLanguage() const;
 
+  // Retrieves the country code of the user from Chrome variation service.
+  // If the variation service is not available, return an empty string.
+  virtual std::string GetVariationConfigCountryCode() const;
+
 #if !defined(OS_ANDROID) && !defined(OS_IOS)
   // Returns the whitelists for virtual cards. Used on desktop platforms only.
   virtual std::vector<std::string> GetMerchantWhitelistForVirtualCards() = 0;
   virtual std::vector<std::string> GetBinRangeWhitelistForVirtualCards() = 0;
+#endif
+
+#if !defined(OS_IOS)
+  // Creates the appropriate implementation of InternalAuthenticator. May be
+  // null for platforms that don't support this, in which case standard CVC
+  // authentication will be used instead.
+  virtual std::unique_ptr<InternalAuthenticator>
+  CreateCreditCardInternalAuthenticator(content::RenderFrameHost* rfh);
 #endif
 
   // Causes the Autofill settings UI to be shown. If |show_credit_card_settings|
@@ -423,9 +434,9 @@ class AutofillClient : public RiskDataLoader {
       const std::vector<base::string16>& values,
       const std::vector<base::string16>& labels) = 0;
 
-  // Informs the client that |UpdatePopup| will be called which enables
-  // keeping the UI alive.
-  virtual void PinPopupViewUntilUpdate() = 0;
+  // Informs the client that the popup needs to be kept alive. Call before
+  // |UpdatePopup| to update the open popup in-place.
+  virtual void PinPopupView() = 0;
 
   // Returns (not elided) suggestions currently held by the UI.
   virtual base::span<const Suggestion> GetPopupSuggestions() const = 0;

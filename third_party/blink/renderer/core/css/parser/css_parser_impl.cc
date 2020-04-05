@@ -638,7 +638,9 @@ StyleRuleImport* CSSParserImpl::ConsumeImportRule(
   }
 
   return MakeGarbageCollected<StyleRuleImport>(
-      uri, MediaQueryParser::ParseMediaQuerySet(prelude),
+      uri,
+      MediaQueryParser::ParseMediaQuerySet(prelude,
+                                           context_->GetExecutionContext()),
       context_->IsOriginClean() ? OriginClean::kTrue : OriginClean::kFalse);
 }
 
@@ -671,7 +673,8 @@ StyleRuleMedia* CSSParserImpl::ConsumeMediaRule(
   if (style_sheet_)
     style_sheet_->SetHasMediaQueries();
 
-  const auto media = MediaQueryParser::ParseMediaQuerySet(prelude);
+  const auto media = MediaQueryParser::ParseMediaQuerySet(
+      prelude, context_->GetExecutionContext());
 
   ConsumeRuleList(block, kRegularRuleList,
                   [&rules](StyleRuleBase* rule) { rules.push_back(rule); });
@@ -686,10 +689,9 @@ StyleRuleSupports* CSSParserImpl::ConsumeSupportsRule(
     const CSSParserTokenRange prelude,
     const RangeOffset& prelude_offset,
     CSSParserTokenStream& block) {
-  CSSSupportsParser::SupportsResult supported =
-      CSSSupportsParser::SupportsCondition(prelude, *this,
-                                           CSSSupportsParser::kForAtRule);
-  if (supported == CSSSupportsParser::kInvalid)
+  CSSSupportsParser::Result supported = CSSSupportsParser::SupportsCondition(
+      prelude, *this, CSSSupportsParser::Mode::kForAtRule);
+  if (supported == CSSSupportsParser::Result::kParseFailure)
     return nullptr;  // Parse error, invalid @supports condition
 
   if (observer_) {
@@ -707,8 +709,9 @@ StyleRuleSupports* CSSParserImpl::ConsumeSupportsRule(
   if (observer_)
     observer_->EndRuleBody(block.Offset());
 
-  return MakeGarbageCollected<StyleRuleSupports>(prelude_serialized, supported,
-                                                 rules);
+  return MakeGarbageCollected<StyleRuleSupports>(
+      prelude_serialized, supported == CSSSupportsParser::Result::kSupported,
+      rules);
 }
 
 StyleRuleViewport* CSSParserImpl::ConsumeViewportRule(
@@ -1007,7 +1010,7 @@ void CSSParserImpl::ConsumeDeclaration(CSSParserTokenRange range,
                                         parsed_properties_);
   } else {
     unresolved_property = lhs.ParseAsUnresolvedCSSPropertyID(
-        context_->GetDocument(), context_->Mode());
+        context_->GetExecutionContext(), context_->Mode());
   }
 
   // @rules other than FontFace still handled with legacy code.

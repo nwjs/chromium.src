@@ -27,7 +27,33 @@ android_resources("content_java_resources") {
     "//ui/android:ui_java_resources",
   ]
   custom_package = "org.chromium.content"
-  resource_dirs = [ "java/res" ]
+  sources = [
+    "java/res/drawable-hdpi/ic_menu_share_holo_light.png",
+    "java/res/drawable-hdpi/ic_search.png",
+    "java/res/drawable-mdpi/ic_menu_share_holo_light.png",
+    "java/res/drawable-mdpi/ic_search.png",
+    "java/res/drawable-xhdpi/ic_menu_share_holo_light.png",
+    "java/res/drawable-xhdpi/ic_search.png",
+    "java/res/drawable-xxhdpi/ic_menu_share_holo_light.png",
+    "java/res/drawable-xxhdpi/ic_search.png",
+    "java/res/drawable-xxxhdpi/ic_menu_share_holo_light.png",
+    "java/res/drawable-xxxhdpi/ic_search.png",
+    "java/res/drawable/floating_popup_background_light.xml",
+    "java/res/layout-land/date_time_picker_dialog.xml",
+    "java/res/layout/date_time_picker_dialog.xml",
+    "java/res/layout/date_time_suggestion.xml",
+    "java/res/layout/multi_field_time_picker_dialog.xml",
+    "java/res/layout/text_edit_suggestion_container.xml",
+    "java/res/layout/text_edit_suggestion_item.xml",
+    "java/res/layout/text_edit_suggestion_list_footer.xml",
+    "java/res/layout/two_field_date_picker.xml",
+    "java/res/menu/select_action_menu.xml",
+    "java/res/values-v17/styles.xml",
+    "java/res/values-v21/styles.xml",
+    "java/res/values/attrs.xml",
+    "java/res/values/dimens.xml",
+    "java/res/values/strings.xml",
+  ]
 }
 
 action("generate_sandboxed_service_srcjar") {
@@ -78,8 +104,8 @@ android_library("content_java") {
     "//services/shape_detection/public/mojom:mojom_java",
     "//skia/public/mojom:mojom_java",
     "//third_party/android_deps:androidx_annotation_annotation_java",
-    "//third_party/android_deps:com_android_support_collections_java",
-    "//third_party/android_deps:com_android_support_support_compat_java",
+    "//third_party/android_deps:androidx_collection_collection_java",
+    "//third_party/android_deps:androidx_core_core_java",
     "//third_party/blink/public:blink_headers_java",
     "//third_party/blink/public/mojom:android_mojo_bindings_java",
     "//third_party/blink/public/mojom:mojom_core_java",
@@ -87,6 +113,7 @@ android_library("content_java") {
     "//third_party/jsr-305:jsr_305_javalib",
     "//ui/android:ui_java",
     "//ui/gfx/geometry/mojom:mojom_java",
+    "//url:gurl_java",
     "//url:origin_java",
   ]
 
@@ -163,6 +190,7 @@ android_library("content_java") {
     "java/src/org/chromium/content/browser/accessibility/KitKatWebContentsAccessibility.java",
     "java/src/org/chromium/content/browser/accessibility/LollipopWebContentsAccessibility.java",
     "java/src/org/chromium/content/browser/accessibility/OWebContentsAccessibility.java",
+    "java/src/org/chromium/content/browser/accessibility/PieWebContentsAccessibility.java",
     "java/src/org/chromium/content/browser/accessibility/WebContentsAccessibilityImpl.java",
     "java/src/org/chromium/content/browser/accessibility/captioning/CaptioningBridgeFactory.java",
     "java/src/org/chromium/content/browser/accessibility/captioning/CaptioningChangeDelegate.java",
@@ -185,7 +213,6 @@ android_library("content_java") {
     "java/src/org/chromium/content/browser/input/ImeAdapterImpl.java",
     "java/src/org/chromium/content/browser/input/ImeUtils.java",
     "java/src/org/chromium/content/browser/input/InputMethodManagerWrapperImpl.java",
-    "java/src/org/chromium/content/browser/input/InputMethodUma.java",
     "java/src/org/chromium/content/browser/input/Range.java",
     "java/src/org/chromium/content/browser/input/SelectPopup.java",
     "java/src/org/chromium/content/browser/input/SelectPopupAdapter.java",
@@ -234,7 +261,8 @@ android_library("content_java") {
     "java/src/org/chromium/content/browser/selection/SmartSelectionClient.java",
     "java/src/org/chromium/content/browser/selection/SmartSelectionMetricsLogger.java",
     "java/src/org/chromium/content/browser/selection/SmartSelectionProvider.java",
-    "java/src/org/chromium/content/browser/sms/SmsReceiver.java",
+    "java/src/org/chromium/content/browser/sms/SmsUserConsentReceiver.java",
+    "java/src/org/chromium/content/browser/sms/SmsVerificationReceiver.java",
     "java/src/org/chromium/content/browser/sms/Wrappers.java",
     "java/src/org/chromium/content/browser/webcontents/WebContentsImpl.java",
     "java/src/org/chromium/content/browser/webcontents/WebContentsObserverProxy.java",
@@ -318,6 +346,8 @@ java_cpp_enum("content_public_android_java_enums_srcjar") {
     "//content/public/browser/browsing_data_remover.h",
     "//content/public/browser/invalidate_type.h",
     "//content/public/browser/navigation_controller.h",
+    "//content/public/browser/visibility.h",
+    "//content/public/browser/xr_consent_prompt_level.h",
     "//content/public/common/browser_controls_state.h",
     "//content/public/common/console_message_level.h",
     "//content/public/common/screen_orientation_values.h",
@@ -379,7 +409,8 @@ generate_jni("content_jni_headers") {
     "java/src/org/chromium/content/browser/input/TextSuggestionHost.java",
     "java/src/org/chromium/content/browser/selection/SelectionPopupControllerImpl.java",
     "java/src/org/chromium/content/browser/selection/SmartSelectionClient.java",
-    "java/src/org/chromium/content/browser/sms/SmsReceiver.java",
+    "java/src/org/chromium/content/browser/sms/SmsUserConsentReceiver.java",
+    "java/src/org/chromium/content/browser/sms/SmsVerificationReceiver.java",
     "java/src/org/chromium/content/browser/webcontents/WebContentsImpl.java",
     "java/src/org/chromium/content/browser/webcontents/WebContentsObserverProxy.java",
     "java/src/org/chromium/content/common/ServiceManagerConnectionImpl.java",
@@ -426,7 +457,7 @@ android_library("content_javatests") {
     "//services/service_manager/public/java:service_manager_java",
     "//services/test/echo/public/mojom:mojom_java",
     "//third_party/android_deps:androidx_annotation_annotation_java",
-    "//third_party/android_deps:com_android_support_collections_java",
+    "//third_party/android_deps:androidx_collection_collection_java",
     "//third_party/android_support_test_runner:rules_java",
     "//third_party/android_support_test_runner:runner_java",
     "//third_party/blink/public:blink_headers_java",
@@ -436,7 +467,9 @@ android_library("content_javatests") {
     "//third_party/junit",
     "//ui/android:ui_java",
     "//ui/android:ui_java_test_support",
+    "//ui/base/mojom:cursor_type_java",
     "//ui/gfx/geometry/mojom:mojom_java",
+    "//url:gurl_java",
   ]
 
   sources = [

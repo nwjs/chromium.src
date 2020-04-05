@@ -180,6 +180,7 @@ Polymer({
       case settings.ContentSettingsTypes.MIDI_DEVICES:
       case settings.ContentSettingsTypes.USB_DEVICES:
       case settings.ContentSettingsTypes.SERIAL_PORTS:
+      case settings.ContentSettingsTypes.BLUETOOTH_DEVICES:
       case settings.ContentSettingsTypes.BLUETOOTH_SCANNING:
       case settings.ContentSettingsTypes.NATIVE_FILE_SYSTEM_WRITE:
       case settings.ContentSettingsTypes.HID_DEVICES:
@@ -258,13 +259,21 @@ Polymer({
     this.controlParams_ = /** @type {chrome.settingsPrivate.PrefObject} */ (
         Object.assign({'value': prefValue}, basePref));
 
-    const subPrefValue =
-        this.category == settings.ContentSettingsTypes.COOKIES &&
-        update.setting == settings.ContentSetting.SESSION_ONLY;
-    // The subControlParams_ must be replaced (rather than just value changes)
-    // so that observers will be notified of the change.
-    this.subControlParams_ = /** @type {chrome.settingsPrivate.PrefObject} */ (
-        Object.assign({'value': subPrefValue}, basePref));
+    if (!!settings.routes.COOKIES &&
+        !loadTimeData.getBoolean('privacySettingsRedesignEnabled')) {
+      assertNotReached(
+          'Cookie specific category logic should be removed when M82 settings' +
+          'redesign solidifies.');
+    } else {
+      const subPrefValue =
+          this.category == settings.ContentSettingsTypes.COOKIES &&
+          update.setting == settings.ContentSetting.SESSION_ONLY;
+      // The subControlParams_ must be replaced (rather than just value changes)
+      // so that observers will be notified of the change.
+      this.subControlParams_ =
+          /** @type {chrome.settingsPrivate.PrefObject} */ (
+              Object.assign({'value': subPrefValue}, basePref));
+    }
   },
 
   /**

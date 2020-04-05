@@ -26,6 +26,7 @@
 #include "chrome/browser/chromeos/arc/auth/arc_background_auth_code_fetcher.h"
 #include "chrome/browser/chromeos/arc/session/arc_service_launcher.h"
 #include "chrome/browser/chromeos/arc/session/arc_session_manager.h"
+#include "chrome/browser/chromeos/arc/test/test_arc_session_manager.h"
 #include "chrome/browser/chromeos/certificate_provider/certificate_provider_service.h"
 #include "chrome/browser/chromeos/certificate_provider/certificate_provider_service_factory.h"
 #include "chrome/browser/chromeos/login/demo_mode/demo_session.h"
@@ -93,7 +94,7 @@ namespace arc {
 
 class FakeAuthInstance : public mojom::AuthInstance {
  public:
-  FakeAuthInstance() {}
+  FakeAuthInstance() = default;
   ~FakeAuthInstance() override = default;
 
   // mojom::AuthInstance:
@@ -205,6 +206,8 @@ class ArcAuthServiceTest : public InProcessBrowserTest {
   }
 
   void SetUpOnMainThread() override {
+    ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
+
     user_manager_enabler_ = std::make_unique<user_manager::ScopedUserManager>(
         std::make_unique<chromeos::FakeChromeUserManager>());
     // Init ArcSessionManager for testing.
@@ -214,10 +217,10 @@ class ArcAuthServiceTest : public InProcessBrowserTest {
     ArcSessionManager::Get()->SetArcSessionRunnerForTesting(
         std::make_unique<ArcSessionRunner>(
             base::BindRepeating(FakeArcSession::Create)));
+    EXPECT_TRUE(ExpandPropertyFilesForTesting(ArcSessionManager::Get(),
+                                              temp_dir_.GetPath()));
 
     chromeos::ProfileHelper::SetAlwaysReturnPrimaryUserForTesting(true);
-
-    ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
   }
 
   void TearDownOnMainThread() override {
@@ -310,9 +313,10 @@ class ArcAuthServiceTest : public InProcessBrowserTest {
         identity_test_environment_adaptor_->identity_test_env();
     identity_test_env->SetAutomaticIssueOfAccessTokens(true);
     if (user_type != user_manager::USER_TYPE_ACTIVE_DIRECTORY) {
-      // Identity service doesn't have a primary account for Active Directory
-      // sessions.
-      identity_test_env->MakePrimaryAccountAvailable(kFakeUserName);
+      // IdentityManager doesn't have a primary account for Active Directory
+      // sessions. Use "unconsented" because ARC doesn't care about browser
+      // sync consent.
+      identity_test_env->MakeUnconsentedPrimaryAccountAvailable(kFakeUserName);
     }
 
     profile()->GetPrefs()->SetBoolean(prefs::kArcSignedIn, true);

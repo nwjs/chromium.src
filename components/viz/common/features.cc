@@ -5,9 +5,9 @@
 #include "components/viz/common/features.h"
 
 #include "base/command_line.h"
-#include "build/build_config.h"
 #include "build/chromecast_buildflags.h"
 #include "components/viz/common/switches.h"
+#include "components/viz/common/viz_utils.h"
 #include "gpu/config/gpu_finch_features.h"
 
 #if defined(OS_ANDROID)
@@ -16,14 +16,8 @@
 
 namespace features {
 
-// Use Skia's readback API instead of GLRendererCopier.
-#if defined(OS_WIN) || defined(OS_LINUX)
 const base::Feature kUseSkiaForGLReadback{"UseSkiaForGLReadback",
                                           base::FEATURE_ENABLED_BY_DEFAULT};
-#else
-const base::Feature kUseSkiaForGLReadback{"UseSkiaForGLReadback",
-                                          base::FEATURE_DISABLED_BY_DEFAULT};
-#endif
 
 // Use the SkiaRenderer.
 #if defined(OS_LINUX) && !(defined(OS_CHROMEOS) || BUILDFLAG(IS_CHROMECAST))
@@ -43,6 +37,13 @@ const base::Feature kRecordSkPicture{"RecordSkPicture",
 const base::Feature kDisableDeJelly{"DisableDeJelly",
                                     base::FEATURE_DISABLED_BY_DEFAULT};
 
+#if defined(OS_ANDROID)
+// When wide color gamut content from the web is encountered, promote our
+// display to wide color gamut if supported.
+const base::Feature kDynamicColorGamut{"DynamicColorGamut",
+                                       base::FEATURE_DISABLED_BY_DEFAULT};
+#endif
+
 // Viz for WebView architecture.
 const base::Feature kVizForWebView{"VizForWebView",
                                    base::FEATURE_DISABLED_BY_DEFAULT};
@@ -57,6 +58,10 @@ const base::Feature kVizFrameSubmissionForWebView{
 const base::Feature kUseRealBuffersForPageFlipTest{
     "UseRealBuffersForPageFlipTest", base::FEATURE_DISABLED_BY_DEFAULT};
 
+// Whether we should split partially occluded quads to reduce overdraw.
+const base::Feature kSplitPartiallyOccludedQuads{
+    "SplitPartiallyOccludedQuads", base::FEATURE_ENABLED_BY_DEFAULT};
+
 const base::Feature kUsePreferredIntervalForVideo{
     "UsePreferredIntervalForVideo", base::FEATURE_DISABLED_BY_DEFAULT};
 
@@ -66,6 +71,10 @@ bool IsVizHitTestingDebugEnabled() {
 }
 
 bool IsUsingSkiaForGLReadback() {
+  // Viz for webview requires Skia Readback.
+  if (IsUsingVizForWebView())
+    return true;
+
   return base::FeatureList::IsEnabled(kUseSkiaForGLReadback);
 }
 
@@ -78,6 +87,10 @@ bool IsUsingSkiaRenderer() {
     return false;
 #endif
 
+  // Viz for webview requires SkiaRenderer.
+  if (IsUsingVizForWebView())
+    return true;
+
   return base::FeatureList::IsEnabled(kUseSkiaRenderer) ||
          base::FeatureList::IsEnabled(kVulkan);
 }
@@ -87,7 +100,19 @@ bool IsRecordingSkPicture() {
          base::FeatureList::IsEnabled(kRecordSkPicture);
 }
 
+#if defined(OS_ANDROID)
+bool IsDynamicColorGamutEnabled() {
+  if (viz::AlwaysUseWideColorGamut())
+    return false;
+  return base::FeatureList::IsEnabled(kDynamicColorGamut);
+}
+#endif
+
 bool IsUsingVizForWebView() {
+  // Viz for WebView requires shared images to be enabled.
+  if (!base::FeatureList::IsEnabled(kEnableSharedImageForWebview))
+    return false;
+
   return base::FeatureList::IsEnabled(kVizForWebView);
 }
 
@@ -106,6 +131,10 @@ bool IsUsingPreferredIntervalForVideo() {
 
 bool ShouldUseRealBuffersForPageFlipTest() {
   return base::FeatureList::IsEnabled(kUseRealBuffersForPageFlipTest);
+}
+
+bool ShouldSplitPartiallyOccludedQuads() {
+  return base::FeatureList::IsEnabled(kSplitPartiallyOccludedQuads);
 }
 
 }  // namespace features

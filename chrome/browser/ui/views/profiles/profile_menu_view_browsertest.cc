@@ -47,6 +47,7 @@
 #include "components/autofill/core/common/autofill_payments_features.h"
 #include "components/prefs/pref_service.h"
 #include "components/signin/public/base/signin_pref_names.h"
+#include "components/signin/public/identity_manager/consent_level.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
 #include "components/sync/driver/sync_service.h"
 #include "components/sync/driver/sync_user_settings.h"
@@ -78,7 +79,8 @@ class UnconsentedPrimaryAccountChecker
   // StatusChangeChecker overrides:
   bool IsExitConditionSatisfied(std::ostream* os) override {
     *os << "Waiting for unconsented primary account";
-    return identity_manager_->HasUnconsentedPrimaryAccount();
+    return identity_manager_->HasPrimaryAccount(
+        signin::ConsentLevel::kNotRequired);
   }
 
   // signin::IdentityManager::Observer overrides:
@@ -512,7 +514,7 @@ PROFILE_MENU_CLICK_TEST(kActionableItems_SyncPaused,
   sync_harness()->EnterSyncPausedStateForPrimaryAccount();
   // Check that the setup was successful.
   ASSERT_TRUE(identity_manager()->HasPrimaryAccount());
-  ASSERT_FALSE(sync_service()->HasDisableReason(
+  ASSERT_TRUE(sync_service()->HasDisableReason(
       syncer::SyncService::DISABLE_REASON_PAUSED));
 
   RunTest();
@@ -532,8 +534,9 @@ constexpr ProfileMenuViewBase::ActionableItem
         // there are no other buttons at the end.
         ProfileMenuViewBase::ActionableItem::kPasswordsButton};
 
+// This test is disabled due to being flaky. See https://crbug.com/1049014.
 PROFILE_MENU_CLICK_TEST(kActionableItems_SigninDisallowed,
-                        ProfileMenuClickTest_SigninDisallowed) {
+                        DISABLED_ProfileMenuClickTest_SigninDisallowed) {
   // Check that the setup was successful.
   ASSERT_FALSE(
       browser()->profile()->GetPrefs()->GetBoolean(prefs::kSigninAllowed));
@@ -542,8 +545,8 @@ PROFILE_MENU_CLICK_TEST(kActionableItems_SigninDisallowed,
 }
 
 // Setup for the above test.
-IN_PROC_BROWSER_TEST_P(ProfileMenuClickTest_SigninDisallowed,
-                       PRE_ProfileMenuClickTest_SigninDisallowed) {
+IN_PROC_BROWSER_TEST_P(DISABLED_ProfileMenuClickTest_SigninDisallowed,
+                       DISABLED_PRE_ProfileMenuClickTest_SigninDisallowed) {
   browser()->profile()->GetPrefs()->SetBoolean(
       prefs::kSigninAllowedOnNextStartup, false);
 }
@@ -565,14 +568,24 @@ constexpr ProfileMenuViewBase::ActionableItem
         // there are no other buttons at the end.
         ProfileMenuViewBase::ActionableItem::kPasswordsButton};
 
-PROFILE_MENU_CLICK_TEST(kActionableItems_WithUnconsentedPrimaryAccount,
-                        ProfileMenuClickTest_WithUnconsentedPrimaryAccount) {
+// TODO(https://crbug.com/1021930) flakey on Linux and Windows.
+#if defined(OS_LINUX) || defined(OS_WIN)
+#define MAYBE_ProfileMenuClickTest_WithUnconsentedPrimaryAccount \
+  DISABLED_ProfileMenuClickTest_WithUnconsentedPrimaryAccount
+#else
+#define MAYBE_ProfileMenuClickTest_WithUnconsentedPrimaryAccount \
+  ProfileMenuClickTest_WithUnconsentedPrimaryAccount
+#endif
+PROFILE_MENU_CLICK_TEST(
+    kActionableItems_WithUnconsentedPrimaryAccount,
+    MAYBE_ProfileMenuClickTest_WithUnconsentedPrimaryAccount) {
   secondary_account_helper::SignInSecondaryAccount(
       browser()->profile(), &test_url_loader_factory_, "user@example.com");
   UnconsentedPrimaryAccountChecker(identity_manager()).Wait();
   // Check that the setup was successful.
   ASSERT_FALSE(identity_manager()->HasPrimaryAccount());
-  ASSERT_TRUE(identity_manager()->HasUnconsentedPrimaryAccount());
+  ASSERT_TRUE(identity_manager()->HasPrimaryAccount(
+      signin::ConsentLevel::kNotRequired));
 
   RunTest();
 

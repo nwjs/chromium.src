@@ -111,7 +111,7 @@ class PresentationConnection::Message final
   Message(scoped_refptr<BlobDataHandle> blob_data_handle)
       : type(kMessageTypeBlob), blob_data_handle(std::move(blob_data_handle)) {}
 
-  void Trace(blink::Visitor* visitor) { visitor->Trace(array_buffer); }
+  void Trace(Visitor* visitor) { visitor->Trace(array_buffer); }
 
   MessageType type;
   String text;
@@ -148,9 +148,7 @@ class PresentationConnection::BlobLoader final
 
   void Cancel() { loader_->Cancel(); }
 
-  void Trace(blink::Visitor* visitor) {
-    visitor->Trace(presentation_connection_);
-  }
+  void Trace(Visitor* visitor) { visitor->Trace(presentation_connection_); }
 
  private:
   Member<PresentationConnection> presentation_connection_;
@@ -160,7 +158,7 @@ class PresentationConnection::BlobLoader final
 PresentationConnection::PresentationConnection(LocalFrame& frame,
                                                const String& id,
                                                const KURL& url)
-    : ContextLifecycleStateObserver(frame.GetDocument()),
+    : ExecutionContextLifecycleStateObserver(frame.GetDocument()),
       id_(id),
       url_(url),
       state_(mojom::blink::PresentationConnectionState::CONNECTING),
@@ -221,7 +219,7 @@ ControllerPresentationConnection* ControllerPresentationConnection::Take(
   DCHECK(resolver);
   DCHECK(request);
 
-  Document* document = To<Document>(resolver->GetExecutionContext());
+  Document* document = Document::From(resolver->GetExecutionContext());
   if (!document->GetFrame())
     return nullptr;
 
@@ -267,7 +265,7 @@ ControllerPresentationConnection::ControllerPresentationConnection(
 
 ControllerPresentationConnection::~ControllerPresentationConnection() {}
 
-void ControllerPresentationConnection::Trace(blink::Visitor* visitor) {
+void ControllerPresentationConnection::Trace(Visitor* visitor) {
   visitor->Trace(controller_);
   PresentationConnection::Trace(visitor);
 }
@@ -377,7 +375,7 @@ void ReceiverPresentationConnection::TerminateInternal() {
     target_connection_->DidChangeState(state_);
 }
 
-void ReceiverPresentationConnection::Trace(blink::Visitor* visitor) {
+void ReceiverPresentationConnection::Trace(Visitor* visitor) {
   visitor->Trace(receiver_);
   PresentationConnection::Trace(visitor);
 }
@@ -387,9 +385,7 @@ const AtomicString& PresentationConnection::InterfaceName() const {
 }
 
 ExecutionContext* PresentationConnection::GetExecutionContext() const {
-  if (!GetFrame())
-    return nullptr;
-  return GetFrame()->GetDocument();
+  return ExecutionContextLifecycleObserver::GetExecutionContext();
 }
 
 void PresentationConnection::AddedEventListener(
@@ -413,7 +409,7 @@ void PresentationConnection::AddedEventListener(
   }
 }
 
-void PresentationConnection::ContextDestroyed(ExecutionContext*) {
+void PresentationConnection::ContextDestroyed() {
   CloseConnection();
 }
 
@@ -431,11 +427,11 @@ void PresentationConnection::CloseConnection() {
   connection_receiver_.reset();
 }
 
-void PresentationConnection::Trace(blink::Visitor* visitor) {
+void PresentationConnection::Trace(Visitor* visitor) {
   visitor->Trace(blob_loader_);
   visitor->Trace(messages_);
   EventTargetWithInlineData::Trace(visitor);
-  ContextLifecycleStateObserver::Trace(visitor);
+  ExecutionContextLifecycleStateObserver::Trace(visitor);
 }
 
 const AtomicString& PresentationConnection::state() const {
@@ -454,7 +450,6 @@ void PresentationConnection::send(const String& message,
 void PresentationConnection::send(DOMArrayBuffer* array_buffer,
                                   ExceptionState& exception_state) {
   DCHECK(array_buffer);
-  DCHECK(array_buffer->Buffer());
   if (!CanSendMessage(exception_state))
     return;
   if (!base::CheckedNumeric<wtf_size_t>(array_buffer->ByteLengthAsSizeT())
@@ -647,7 +642,6 @@ void PresentationConnection::DidFinishLoadingBlob(DOMArrayBuffer* buffer) {
   DCHECK(!messages_.IsEmpty());
   DCHECK_EQ(messages_.front()->type, kMessageTypeBlob);
   DCHECK(buffer);
-  DCHECK(buffer->Buffer());
   if (!base::CheckedNumeric<wtf_size_t>(buffer->ByteLengthAsSizeT())
            .IsValid()) {
     // TODO(crbug.com/1036565): generate error message? The problem is that the

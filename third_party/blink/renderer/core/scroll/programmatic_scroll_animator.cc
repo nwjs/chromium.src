@@ -34,10 +34,9 @@ void ProgrammaticScrollAnimator::ResetAnimationState() {
 
 void ProgrammaticScrollAnimator::NotifyOffsetChanged(
     const ScrollOffset& offset) {
-  mojom::blink::ScrollIntoViewParams::Type scroll_type =
-      is_sequenced_scroll_
-          ? mojom::blink::ScrollIntoViewParams::Type::kSequenced
-          : mojom::blink::ScrollIntoViewParams::Type::kProgrammatic;
+  mojom::blink::ScrollType scroll_type =
+      is_sequenced_scroll_ ? mojom::blink::ScrollType::kSequenced
+                           : mojom::blink::ScrollType::kProgrammatic;
   ScrollOffsetChanged(offset, scroll_type);
 }
 
@@ -203,7 +202,7 @@ void ProgrammaticScrollAnimator::AnimationFinished() {
   }
 }
 
-void ProgrammaticScrollAnimator::Trace(blink::Visitor* visitor) {
+void ProgrammaticScrollAnimator::Trace(Visitor* visitor) {
   visitor->Trace(scrollable_area_);
   ScrollAnimatorCompositorCoordinator::Trace(visitor);
 }

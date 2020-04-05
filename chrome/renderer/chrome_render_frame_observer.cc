@@ -8,9 +8,8 @@
 #include <string.h>
 
 #include <limits>
-#include <string>
+#include <map>
 #include <utility>
-#include <vector>
 
 #include "base/bind.h"
 #include "base/command_line.h"
@@ -19,18 +18,17 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/synchronization/lock.h"
-#include "build/build_config.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_isolated_world_ids.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/open_search_description_document_handler.mojom.h"
 #include "chrome/common/prerender_messages.h"
 #include "chrome/common/render_messages.h"
+#include "chrome/renderer/media/media_feeds.h"
 #include "chrome/renderer/prerender/prerender_helper.h"
 #include "chrome/renderer/web_apps.h"
 #include "components/crash/core/common/crash_key.h"
 #include "components/offline_pages/buildflags/buildflags.h"
-#include "components/safe_browsing/buildflags.h"
 #include "components/translate/content/renderer/translate_agent.h"
 #include "components/web_cache/renderer/web_cache_impl.h"
 #include "content/public/common/bindings_policy.h"
@@ -43,7 +41,6 @@
 #include "services/service_manager/public/cpp/binder_registry.h"
 #include "skia/ext/image_operations.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
-#include "third_party/blink/public/common/associated_interfaces/associated_interface_registry.h"
 #include "third_party/blink/public/platform/web_url_request.h"
 #include "third_party/blink/public/web/web_console_message.h"
 #include "third_party/blink/public/web/web_document.h"
@@ -98,41 +95,9 @@ static const bool kDiscardTransparencyForContextMenu = false;
 
 namespace {
 
-// If the source image is null or occupies less area than
-// |thumbnail_min_area_pixels|, we return the image unmodified.  Otherwise, we
-// scale down the image so that the width and height do not exceed
-// |thumbnail_max_size_pixels|, preserving the original aspect ratio.
-SkBitmap Downscale(const SkBitmap& image,
-                   int thumbnail_min_area_pixels,
-                   const gfx::Size& thumbnail_max_size_pixels) {
-  if (image.isNull())
-    return SkBitmap();
-
-  gfx::Size image_size(image.width(), image.height());
-
-  if (image_size.GetArea() < thumbnail_min_area_pixels)
-    return image;
-
-  if (image_size.width() <= thumbnail_max_size_pixels.width() &&
-      image_size.height() <= thumbnail_max_size_pixels.height())
-    return image;
-
-  gfx::SizeF scaled_size = gfx::SizeF(image_size);
-
-  if (scaled_size.width() > thumbnail_max_size_pixels.width()) {
-    scaled_size.Scale(thumbnail_max_size_pixels.width() / scaled_size.width());
-  }
-
-  if (scaled_size.height() > thumbnail_max_size_pixels.height()) {
-    scaled_size.Scale(
-        thumbnail_max_size_pixels.height() / scaled_size.height());
-  }
-
-  return skia::ImageOperations::Resize(image,
-                                       skia::ImageOperations::RESIZE_GOOD,
-                                       static_cast<int>(scaled_size.width()),
-                                       static_cast<int>(scaled_size.height()));
-}
+const char kGifExtension[] = ".gif";
+const char kPngExtension[] = ".png";
+const char kJpgExtension[] = ".jpg";
 
 #if defined(OS_ANDROID)
 base::Lock& GetFrameHeaderMapLock() {
@@ -156,7 +121,6 @@ ChromeRenderFrameObserver::ChromeRenderFrameObserver(
     web_cache::WebCacheImpl* web_cache_impl)
     : content::RenderFrameObserver(render_frame),
       translate_agent_(nullptr),
-      phishing_classifier_(nullptr),
       web_cache_impl_(web_cache_impl) {
   render_frame->GetAssociatedInterfaceRegistry()->AddInterface(
       base::Bind(&ChromeRenderFrameObserver::OnRenderFrameObserverRequest,
@@ -254,21 +218,36 @@ void ChromeRenderFrameObserver::RequestReloadImageForContextNode() {
   }
 }
 
-void ChromeRenderFrameObserver::RequestThumbnailForContextNode(
+void ChromeRenderFrameObserver::RequestImageForContextNode(
     int32_t thumbnail_min_area_pixels,
     const gfx::Size& thumbnail_max_size_pixels,
     chrome::mojom::ImageFormat image_format,
-    RequestThumbnailForContextNodeCallback callback) {
+    RequestImageForContextNodeCallback callback) {
   WebNode context_node = render_frame()->GetWebFrame()->ContextMenuNode();
-  SkBitmap thumbnail;
+  std::vector<uint8_t> image_data;
   gfx::Size original_size;
-  if (!context_node.IsNull() && context_node.IsElementNode()) {
-    SkBitmap image = context_node.To<WebElement>().ImageContents();
-    original_size = gfx::Size(image.width(), image.height());
-    thumbnail = Downscale(image,
-                          thumbnail_min_area_pixels,
-                          thumbnail_max_size_pixels);
+  std::string image_extension;
+
+  if (context_node.IsNull() || !context_node.IsElementNode()) {
+    std::move(callback).Run(image_data, original_size, image_extension);
+    return;
   }
+
+  WebElement web_element = context_node.To<WebElement>();
+  original_size = web_element.GetImageSize();
+  image_extension = "." + web_element.ImageExtension();
+  if (!NeedsEncodeImage(image_extension, image_format) &&
+      !NeedsDownscale(original_size, thumbnail_min_area_pixels,
+                      thumbnail_max_size_pixels)) {
+    image_data = web_element.CopyOfImageData();
+    std::move(callback).Run(std::move(image_data), original_size,
+                            image_extension);
+    return;
+  }
+
+  SkBitmap image = web_element.ImageContents();
+  SkBitmap thumbnail =
+      Downscale(image, thumbnail_min_area_pixels, thumbnail_max_size_pixels);
 
   SkBitmap bitmap;
   if (thumbnail.colorType() == kN32_SkColorType) {
@@ -280,23 +259,37 @@ void ChromeRenderFrameObserver::RequestThumbnailForContextNode(
     }
   }
 
-  std::vector<uint8_t> thumbnail_data;
   constexpr int kDefaultQuality = 90;
   std::vector<unsigned char> data;
+
+  if (image_format == chrome::mojom::ImageFormat::ORIGINAL) {
+    // ORIGINAL will only fall back to here if the image needs to downscale.
+    // Let's PNG downscale to PNG and JEPG downscale to JPEG.
+    if (image_extension == kPngExtension) {
+      image_format = chrome::mojom::ImageFormat::PNG;
+    } else if (image_extension == kJpgExtension) {
+      image_format = chrome::mojom::ImageFormat::JPEG;
+    }
+  }
 
   switch (image_format) {
     case chrome::mojom::ImageFormat::PNG:
       if (gfx::PNGCodec::EncodeBGRASkBitmap(
               bitmap, kDiscardTransparencyForContextMenu, &data)) {
-        thumbnail_data.swap(data);
+        image_data.swap(data);
+        image_extension = kPngExtension;
       }
       break;
+    case chrome::mojom::ImageFormat::ORIGINAL:
+    // Any format other than PNG and JPEG fall back to here.
     case chrome::mojom::ImageFormat::JPEG:
-      if (gfx::JPEGCodec::Encode(bitmap, kDefaultQuality, &data))
-        thumbnail_data.swap(data);
+      if (gfx::JPEGCodec::Encode(bitmap, kDefaultQuality, &data)) {
+        image_data.swap(data);
+        image_extension = kJpgExtension;
+      }
       break;
   }
-  std::move(callback).Run(thumbnail_data, original_size);
+  std::move(callback).Run(image_data, original_size, image_extension);
 }
 
 void ChromeRenderFrameObserver::GetWebApplicationInfo(
@@ -344,6 +337,11 @@ void ChromeRenderFrameObserver::SetCCTClientHeader(const std::string& header) {
   GetFrameHeaderMap()[routing_id()] = header;
 }
 #endif
+
+void ChromeRenderFrameObserver::GetMediaFeedURL(
+    GetMediaFeedURLCallback callback) {
+  std::move(callback).Run(MediaFeeds::GetMediaFeedURL(render_frame()));
+}
 
 void ChromeRenderFrameObserver::SetClientSidePhishingDetection(
     bool enable_phishing_detection) {
@@ -543,4 +541,72 @@ void ChromeRenderFrameObserver::SetWindowFeatures(
     blink::mojom::WindowFeaturesPtr window_features) {
   render_frame()->GetRenderView()->GetWebView()->SetWindowFeatures(
       content::ConvertMojoWindowFeaturesToWebWindowFeatures(*window_features));
+}
+
+// static
+bool ChromeRenderFrameObserver::NeedsDownscale(
+    const gfx::Size& original_image_size,
+    int32_t requested_image_min_area_pixels,
+    const gfx::Size& requested_image_max_size) {
+  if (original_image_size.GetArea() < requested_image_min_area_pixels)
+    return false;
+  if (original_image_size.width() <= requested_image_max_size.width() &&
+      original_image_size.height() <= requested_image_max_size.height())
+    return false;
+  return true;
+}
+
+// static
+SkBitmap ChromeRenderFrameObserver::Downscale(
+    const SkBitmap& image,
+    int requested_image_min_area_pixels,
+    const gfx::Size& requested_image_max_size) {
+  if (image.isNull())
+    return SkBitmap();
+
+  gfx::Size image_size(image.width(), image.height());
+
+  if (!NeedsDownscale(image_size, requested_image_min_area_pixels,
+                      requested_image_max_size))
+    return image;
+
+  gfx::SizeF scaled_size = gfx::SizeF(image_size);
+
+  if (scaled_size.width() > requested_image_max_size.width()) {
+    scaled_size.Scale(requested_image_max_size.width() / scaled_size.width());
+  }
+
+  if (scaled_size.height() > requested_image_max_size.height()) {
+    scaled_size.Scale(requested_image_max_size.height() / scaled_size.height());
+  }
+
+  return skia::ImageOperations::Resize(image,
+                                       skia::ImageOperations::RESIZE_GOOD,
+                                       static_cast<int>(scaled_size.width()),
+                                       static_cast<int>(scaled_size.height()));
+}
+
+// static
+bool ChromeRenderFrameObserver::NeedsEncodeImage(
+    const std::string& image_extension,
+    chrome::mojom::ImageFormat image_format) {
+  switch (image_format) {
+    case chrome::mojom::ImageFormat::PNG:
+      return !base::EqualsCaseInsensitiveASCII(image_extension, kPngExtension);
+      break;
+    case chrome::mojom::ImageFormat::JPEG:
+      return !base::EqualsCaseInsensitiveASCII(image_extension, kJpgExtension);
+      break;
+    case chrome::mojom::ImageFormat::ORIGINAL:
+      return !base::EqualsCaseInsensitiveASCII(image_extension,
+                                               kGifExtension) &&
+             !base::EqualsCaseInsensitiveASCII(image_extension,
+                                               kJpgExtension) &&
+             !base::EqualsCaseInsensitiveASCII(image_extension, kPngExtension);
+      break;
+  }
+
+  // Should never hit this code since all cases were handled above.
+  NOTREACHED();
+  return true;
 }

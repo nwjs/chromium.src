@@ -13,21 +13,13 @@
 
 namespace web_app {
 
+// Returns the app-specific-launcher filename to be used for |app_name|.
+base::FilePath GetAppSpecificLauncherFilename(const base::string16& app_name);
+
 // Returns the Windows ProgId for the web app with the passed |app_id| in
-// |profile|.
-base::string16 GetProgIdForApp(Profile* profile, const AppId& app_id);
-
-// The name of "Last Browser" file, where UpdateChromeExePath() stores the path
-// of the last Chrome executable to use the containing user-data directory.
-extern const base::FilePath::StringPieceType kLastBrowserFile;
-
-// Writes the current executable path into the "Last Browser" file in
-// |user_data_dir|. This allows Progressive Web Apps in |user_data_dir| to
-// find and launch |user_data_dir|'s corresponding chrome.exe, even if it has
-// moved (e.g. if a user-level install has been replaced by a system-level
-// install), in which case the path will be fixed when the new chrome.exe is
-// launched.
-void UpdateChromeExePath(const base::FilePath& user_data_dir);
+// |profile_path|.
+base::string16 GetProgIdForApp(const base::FilePath& profile_path,
+                               const AppId& app_id);
 
 }  // namespace web_app
 

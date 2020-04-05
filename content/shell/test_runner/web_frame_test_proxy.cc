@@ -4,12 +4,12 @@
 
 #include "content/shell/test_runner/web_frame_test_proxy.h"
 
+#include "content/common/unique_name_helper.h"
 #include "content/public/renderer/render_frame_observer.h"
 #include "content/shell/test_runner/test_interfaces.h"
 #include "content/shell/test_runner/test_runner.h"
 #include "content/shell/test_runner/web_frame_test_client.h"
 #include "content/shell/test_runner/web_test_delegate.h"
-#include "content/shell/test_runner/web_test_interfaces.h"
 #include "content/shell/test_runner/web_view_test_proxy.h"
 #include "third_party/blink/public/web/web_local_frame.h"
 
@@ -46,9 +46,9 @@ class TestRenderFrameObserver : public content::RenderFrameObserver {
       const GURL& url,
       base::Optional<blink::WebNavigationType> navigation_type) override {
     if (test_runner()->ShouldDumpFrameLoadCallbacks()) {
-      WebFrameTestClient::PrintFrameDescription(delegate(),
-                                                render_frame()->GetWebFrame());
-      delegate()->PrintMessage(" - DidStartNavigation\n");
+      std::string description = WebFrameTestClient::PrintFrameDescription(
+          delegate(), render_frame()->GetWebFrame());
+      delegate()->PrintMessage(description + " - DidStartNavigation\n");
     }
 
     if (test_runner()->ShouldDumpUserGestureInFrameLoadCallbacks()) {
@@ -60,50 +60,53 @@ class TestRenderFrameObserver : public content::RenderFrameObserver {
   void ReadyToCommitNavigation(
       blink::WebDocumentLoader* document_loader) override {
     if (test_runner()->ShouldDumpFrameLoadCallbacks()) {
-      WebFrameTestClient::PrintFrameDescription(delegate(),
-                                                render_frame()->GetWebFrame());
-      delegate()->PrintMessage(" - ReadyToCommitNavigation\n");
+      std::string description = WebFrameTestClient::PrintFrameDescription(
+          delegate(), render_frame()->GetWebFrame());
+      delegate()->PrintMessage(description + " - ReadyToCommitNavigation\n");
     }
   }
 
   void DidFailProvisionalLoad() override {
     if (test_runner()->ShouldDumpFrameLoadCallbacks()) {
-      WebFrameTestClient::PrintFrameDescription(delegate(),
-                                                render_frame()->GetWebFrame());
-      delegate()->PrintMessage(" - didFailProvisionalLoadWithError\n");
+      std::string description = WebFrameTestClient::PrintFrameDescription(
+          delegate(), render_frame()->GetWebFrame());
+      delegate()->PrintMessage(description +
+                               " - didFailProvisionalLoadWithError\n");
     }
   }
 
   void DidCommitProvisionalLoad(bool is_same_document_navigation,
                                 ui::PageTransition transition) override {
     if (test_runner()->ShouldDumpFrameLoadCallbacks()) {
-      WebFrameTestClient::PrintFrameDescription(delegate(),
-                                                render_frame()->GetWebFrame());
-      delegate()->PrintMessage(" - didCommitLoadForFrame\n");
+      std::string description = WebFrameTestClient::PrintFrameDescription(
+          delegate(), render_frame()->GetWebFrame());
+      delegate()->PrintMessage(description + " - didCommitLoadForFrame\n");
     }
   }
 
   void DidFinishDocumentLoad() override {
     if (test_runner()->ShouldDumpFrameLoadCallbacks()) {
-      WebFrameTestClient::PrintFrameDescription(delegate(),
-                                                render_frame()->GetWebFrame());
-      delegate()->PrintMessage(" - didFinishDocumentLoadForFrame\n");
+      std::string description = WebFrameTestClient::PrintFrameDescription(
+          delegate(), render_frame()->GetWebFrame());
+      delegate()->PrintMessage(description +
+                               " - didFinishDocumentLoadForFrame\n");
     }
   }
 
   void DidFinishLoad() override {
     if (test_runner()->ShouldDumpFrameLoadCallbacks()) {
-      WebFrameTestClient::PrintFrameDescription(delegate(),
-                                                render_frame()->GetWebFrame());
-      delegate()->PrintMessage(" - didFinishLoadForFrame\n");
+      std::string description = WebFrameTestClient::PrintFrameDescription(
+          delegate(), render_frame()->GetWebFrame());
+      delegate()->PrintMessage(description + " - didFinishLoadForFrame\n");
     }
   }
 
   void DidHandleOnloadEvents() override {
     if (test_runner()->ShouldDumpFrameLoadCallbacks()) {
-      WebFrameTestClient::PrintFrameDescription(delegate(),
-                                                render_frame()->GetWebFrame());
-      delegate()->PrintMessage(" - didHandleOnloadEventsForFrame\n");
+      std::string description = WebFrameTestClient::PrintFrameDescription(
+          delegate(), render_frame()->GetWebFrame());
+      delegate()->PrintMessage(description +
+                               " - didHandleOnloadEventsForFrame\n");
     }
   }
 
@@ -116,15 +119,21 @@ class TestRenderFrameObserver : public content::RenderFrameObserver {
 WebFrameTestProxy::~WebFrameTestProxy() = default;
 
 void WebFrameTestProxy::Initialize(
-    WebTestInterfaces* interfaces,
     content::RenderViewImpl* render_view_for_frame) {
   // The RenderViewImpl will also be a test proxy type.
   auto* view_proxy_for_frame =
       static_cast<WebViewTestProxy*>(render_view_for_frame);
 
+  // Creates a WebLocalFrameClient implementation providing test behavior (i.e.
+  // forwarding javascript console output to the test harness).
   test_client_ =
-      interfaces->CreateWebFrameTestClient(view_proxy_for_frame, this);
+      std::make_unique<WebFrameTestClient>(view_proxy_for_frame, this);
+
   new TestRenderFrameObserver(this, view_proxy_for_frame);  // deletes itself.
+}
+
+std::string WebFrameTestProxy::GetFrameNameForWebTests() {
+  return content::UniqueNameHelper::ExtractStableNameForTesting(unique_name());
 }
 
 void WebFrameTestProxy::UpdateAllLifecyclePhasesAndCompositeForTesting() {
@@ -152,33 +161,6 @@ void WebFrameTestProxy::DidAddMessageToConsole(
                                        stack_trace);
   RenderFrameImpl::DidAddMessageToConsole(message, source_name, source_line,
                                           stack_trace);
-}
-
-void WebFrameTestProxy::DownloadURL(
-    const blink::WebURLRequest& request,
-    network::mojom::RedirectMode cross_origin_redirect_behavior,
-    mojo::ScopedMessagePipeHandle blob_url_token) {
-  test_client_->DownloadURL(request, cross_origin_redirect_behavior,
-                            mojo::ScopedMessagePipeHandle());
-  RenderFrameImpl::DownloadURL(request, cross_origin_redirect_behavior,
-                               std::move(blob_url_token));
-}
-
-void WebFrameTestProxy::DidReceiveTitle(const blink::WebString& title,
-                                        blink::WebTextDirection direction) {
-  test_client_->DidReceiveTitle(title, direction);
-  RenderFrameImpl::DidReceiveTitle(title, direction);
-}
-
-void WebFrameTestProxy::DidChangeIcon(blink::WebIconURL::Type icon_type) {
-  test_client_->DidChangeIcon(icon_type);
-  RenderFrameImpl::DidChangeIcon(icon_type);
-}
-
-void WebFrameTestProxy::DidFailLoad(const blink::WebURLError& error,
-                                    blink::WebHistoryCommitType commit_type) {
-  test_client_->DidFailLoad(error, commit_type);
-  RenderFrameImpl::DidFailLoad(error, commit_type);
 }
 
 void WebFrameTestProxy::DidStartLoading() {

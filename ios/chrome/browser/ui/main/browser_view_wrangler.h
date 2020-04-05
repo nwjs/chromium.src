@@ -7,22 +7,19 @@
 
 #import <UIKit/UIKit.h>
 
+#include "ios/chrome/app/application_mode.h"
 #import "ios/chrome/browser/ui/main/browser_interface_provider.h"
 
 @protocol ApplicationCommands;
-@class BrowserCoordinator;
 @protocol BrowsingDataCommands;
 class ChromeBrowserState;
-@class DeviceSharingManager;
-@protocol WebStateListObserving;
 
-class AppUrlLoadingService;
+namespace {
 
-// Protocol for objects that can handle switching browser state storage.
-@protocol BrowserStateStorageSwitching
-- (void)changeStorageFromBrowserState:(ChromeBrowserState*)oldState
-                       toBrowserState:(ChromeBrowserState*)newState;
-@end
+// Preference key used to store which profile is current.
+NSString* kIncognitoCurrentKey = @"IncognitoActive";
+
+}  // namespace
 
 // Wrangler (a class in need of further refactoring) for handling the creation
 // and ownership of BrowserViewController instances and their associated
@@ -38,14 +35,10 @@ class AppUrlLoadingService;
 // storage associated with the interfaces when the current interface changes;
 // this is handled in the implementation of -setCurrentInterface:.
 - (instancetype)initWithBrowserState:(ChromeBrowserState*)browserState
-                webStateListObserver:(id<WebStateListObserving>)observer
           applicationCommandEndpoint:
               (id<ApplicationCommands>)applicationCommandEndpoint
          browsingDataCommandEndpoint:
              (id<BrowsingDataCommands>)browsingDataCommandEndpoint
-                appURLLoadingService:(AppUrlLoadingService*)appURLLoadingService
-                     storageSwitcher:
-                         (id<BrowserStateStorageSwitching>)storageSwitcher
     NS_DESIGNATED_INITIALIZER;
 
 - (instancetype)init NS_UNAVAILABLE;
@@ -57,20 +50,15 @@ class AppUrlLoadingService;
 // immediately after initialization.
 - (void)createMainBrowser;
 
-// Update the device sharing manager. This should be done after updates to the
-// tab model. This class creates and manages the state of the sharing manager.
-- (void)updateDeviceSharingManager;
-
 // Destroy and rebuild the incognito Browser.
 - (void)destroyAndRebuildIncognitoBrowser;
 
 // Called before the instance is deallocated.
 - (void)shutdown;
 
-@end
+// Switch all global states for the given mode (normal or incognito).
+- (void)switchGlobalStateToMode:(ApplicationMode)mode;
 
-@interface BrowserViewWrangler (Testing)
-@property(nonatomic, readonly) DeviceSharingManager* deviceSharingManager;
 @end
 
 #endif  // IOS_CHROME_BROWSER_UI_MAIN_BROWSER_VIEW_WRANGLER_H_

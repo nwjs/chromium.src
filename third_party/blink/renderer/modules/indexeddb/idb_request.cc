@@ -135,7 +135,7 @@ IDBRequest::IDBRequest(ScriptState* script_state,
                        const Source& source,
                        IDBTransaction* transaction,
                        AsyncTraceState metrics)
-    : ContextLifecycleObserver(ExecutionContext::From(script_state)),
+    : ExecutionContextLifecycleObserver(ExecutionContext::From(script_state)),
       transaction_(transaction),
       isolate_(script_state->GetIsolate()),
       metrics_(std::move(metrics)),
@@ -149,7 +149,7 @@ IDBRequest::~IDBRequest() {
          ready_state_ == kEarlyDeath || !GetExecutionContext());
 }
 
-void IDBRequest::Trace(blink::Visitor* visitor) {
+void IDBRequest::Trace(Visitor* visitor) {
   visitor->Trace(transaction_);
   visitor->Trace(source_);
   visitor->Trace(result_);
@@ -157,7 +157,7 @@ void IDBRequest::Trace(blink::Visitor* visitor) {
   visitor->Trace(event_queue_);
   visitor->Trace(pending_cursor_);
   EventTargetWithInlineData::Trace(visitor);
-  ContextLifecycleObserver::Trace(visitor);
+  ExecutionContextLifecycleObserver::Trace(visitor);
 }
 
 ScriptValue IDBRequest::result(ScriptState* script_state,
@@ -598,7 +598,7 @@ bool IDBRequest::HasPendingActivity() const {
   return has_pending_activity_ && GetExecutionContext();
 }
 
-void IDBRequest::ContextDestroyed(ExecutionContext*) {
+void IDBRequest::ContextDestroyed() {
   if (ready_state_ == PENDING) {
     ready_state_ = kEarlyDeath;
     if (queue_item_)
@@ -624,7 +624,7 @@ const AtomicString& IDBRequest::InterfaceName() const {
 }
 
 ExecutionContext* IDBRequest::GetExecutionContext() const {
-  return ContextLifecycleObserver::GetExecutionContext();
+  return ExecutionContextLifecycleObserver::GetExecutionContext();
 }
 
 DispatchEventResult IDBRequest::DispatchEventInternal(Event& event) {

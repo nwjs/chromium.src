@@ -35,13 +35,12 @@ import org.chromium.base.test.util.FlakyTest;
 import org.chromium.base.test.util.MinAndroidSdkLevel;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
+import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.ntp.IncognitoNewTabPage;
 import org.chromium.chrome.browser.settings.SettingsActivity;
 import org.chromium.chrome.browser.settings.SettingsLauncher;
-import org.chromium.chrome.browser.settings.website.SingleWebsiteSettings;
-import org.chromium.chrome.browser.util.UrlConstants;
+import org.chromium.chrome.browser.site_settings.SingleWebsiteSettings;
 import org.chromium.chrome.browser.vr.mock.MockVrDaydreamApi;
 import org.chromium.chrome.browser.vr.rules.ChromeTabbedActivityVrTestRule;
 import org.chromium.chrome.browser.vr.util.NativeUiUtils;
@@ -51,6 +50,7 @@ import org.chromium.chrome.browser.vr.util.VrBrowserTransitionUtils;
 import org.chromium.chrome.browser.vr.util.VrShellDelegateUtils;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.util.ActivityUtils;
+import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.content_public.browser.test.util.CriteriaHelper;
 import org.chromium.content_public.browser.test.util.DOMUtils;
 import org.chromium.content_public.browser.test.util.JavaScriptUtils;
@@ -162,15 +162,14 @@ public class VrBrowserTransitionTest {
 
     private String testVrEntryIntentInternal() {
         // Send a VR intent, which will open the link in a CTA.
-        final String url =
-                VrBrowserTestFramework.getFileUrlForHtmlTestFile("test_navigation_2d_page");
+        final String url = mVrBrowserTestFramework.getUrlForFile("test_navigation_2d_page");
         VrBrowserTransitionUtils.sendVrLaunchIntent(url);
 
         // Wait until we enter VR and have the correct URL.
         VrBrowserTransitionUtils.waitForVrEntry(POLL_TIMEOUT_LONG_MS);
         CriteriaHelper.pollUiThread(
                 ()
-                        -> { return mTestRule.getWebContents().getVisibleUrl().equals(url); },
+                        -> { return mTestRule.getWebContents().getVisibleUrlString().equals(url); },
                 "Displayed URL does not match URL provided to VR launch intent",
                 POLL_TIMEOUT_LONG_MS, POLL_CHECK_INTERVAL_SHORT_MS);
         return url;
@@ -191,7 +190,8 @@ public class VrBrowserTransitionTest {
         CriteriaHelper.pollUiThread(() -> {
             return !VrShellDelegate.isInVr();
         }, "2D intent did not exit VR", POLL_TIMEOUT_LONG_MS, POLL_CHECK_INTERVAL_SHORT_MS);
-        Assert.assertEquals("URL is incorrect", url, mTestRule.getWebContents().getVisibleUrl());
+        Assert.assertEquals(
+                "URL is incorrect", url, mTestRule.getWebContents().getVisibleUrlString());
     }
 
     /**
@@ -212,9 +212,8 @@ public class VrBrowserTransitionTest {
     @MediumTest
     public void testExitFullscreenAfterExitingVrFromCinemaMode() throws TimeoutException {
         VrBrowserTransitionUtils.forceEnterVrBrowserOrFail(POLL_TIMEOUT_LONG_MS);
-        mVrBrowserTestFramework.loadUrlAndAwaitInitialization(
-                VrBrowserTestFramework.getFileUrlForHtmlTestFile("test_navigation_2d_page"),
-                PAGE_LOAD_TIMEOUT_S);
+        mVrBrowserTestFramework.loadFileAndAwaitInitialization(
+                "test_navigation_2d_page", PAGE_LOAD_TIMEOUT_S);
         DOMUtils.clickNode(mVrBrowserTestFramework.getCurrentWebContents(), "fullscreen",
                 false /* goThroughRootAndroidView */);
         mVrBrowserTestFramework.waitOnJavaScriptStep();
@@ -248,14 +247,12 @@ public class VrBrowserTransitionTest {
     @Restriction(RESTRICTION_TYPE_VIEWER_DAYDREAM_OR_STANDALONE)
     @MediumTest
     public void testExitPresentationWebXrToVrShell() throws IllegalArgumentException {
-        exitPresentationToVrShellImpl(
-                WebXrVrTestFramework.getFileUrlForHtmlTestFile("test_navigation_webxr_page"),
-                mWebXrVrTestFramework);
+        exitPresentationToVrShellImpl("test_navigation_webxr_page", mWebXrVrTestFramework);
     }
 
     private void exitPresentationToVrShellImpl(String url, WebXrVrTestFramework framework) {
         VrBrowserTransitionUtils.forceEnterVrBrowserOrFail(POLL_TIMEOUT_LONG_MS);
-        framework.loadUrlAndAwaitInitialization(url, PAGE_LOAD_TIMEOUT_S);
+        framework.loadFileAndAwaitInitialization(url, PAGE_LOAD_TIMEOUT_S);
         VrShell vrShell = TestVrShellDelegate.getVrShellForTesting();
         float expectedWidth = vrShell.getContentWidthForTesting();
         float expectedHeight = vrShell.getContentHeightForTesting();
@@ -283,25 +280,22 @@ public class VrBrowserTransitionTest {
     @Restriction(RESTRICTION_TYPE_VIEWER_DAYDREAM_OR_STANDALONE)
     @MediumTest
     public void testWebXrReEntryFromVrBrowser() {
-        reEntryFromVrBrowserImpl(WebXrVrTestFramework.getFileUrlForHtmlTestFile(
-                                         "test_webxr_reentry_from_vr_browser"),
-                mWebXrVrTestFramework, false);
+        reEntryFromVrBrowserImpl(
+                "test_webxr_reentry_from_vr_browser", mWebXrVrTestFramework, false);
     }
 
     @Test
     @Restriction(RESTRICTION_TYPE_VIEWER_DAYDREAM_OR_STANDALONE)
     @MediumTest
     public void testWebXrReEntryFromVrBrowserViaEndSession() {
-        reEntryFromVrBrowserImpl(WebXrVrTestFramework.getFileUrlForHtmlTestFile(
-                                         "test_webxr_reentry_from_vr_browser"),
-                mWebXrVrTestFramework, true);
+        reEntryFromVrBrowserImpl("test_webxr_reentry_from_vr_browser", mWebXrVrTestFramework, true);
     }
 
     private void reEntryFromVrBrowserImpl(
             String url, WebXrVrTestFramework framework, boolean useEndSession) {
         VrBrowserTransitionUtils.forceEnterVrBrowserOrFail(POLL_TIMEOUT_LONG_MS);
 
-        framework.loadUrlAndAwaitInitialization(url, PAGE_LOAD_TIMEOUT_S);
+        framework.loadFileAndAwaitInitialization(url, PAGE_LOAD_TIMEOUT_S);
         framework.enterSessionWithUserGestureOrFail();
 
         framework.executeStepAndWait("stepVerifyFirstPresent()");
@@ -437,9 +431,8 @@ public class VrBrowserTransitionTest {
     @Restriction(RESTRICTION_TYPE_VIEWER_DAYDREAM)
     @LargeTest
     public void testExitVrWithPromptDisplayed() {
-        mVrBrowserTestFramework.loadUrlAndAwaitInitialization(
-                VrBrowserTestFramework.getFileUrlForHtmlTestFile("test_navigation_2d_page"),
-                PAGE_LOAD_TIMEOUT_S);
+        mVrBrowserTestFramework.loadFileAndAwaitInitialization(
+                "test_navigation_2d_page", PAGE_LOAD_TIMEOUT_S);
 
         // Test JavaScript dialogs.
         VrBrowserTransitionUtils.forceEnterVrBrowserOrFail(POLL_TIMEOUT_LONG_MS);
@@ -528,11 +521,8 @@ public class VrBrowserTransitionTest {
     @Restriction({RESTRICTION_TYPE_VIEWER_DAYDREAM})
     @MediumTest
     public void testPermissionsPersistWhenEnteringVrBrowser() {
-        // Permissions don't work on file:// URLs, so use a local server.
-        mVrBrowserTestFramework.loadUrlAndAwaitInitialization(
-                mVrBrowserTestFramework.getEmbeddedServerUrlForHtmlTestFile(
-                        "test_permissions_persist_when_entering_vr_browser"),
-                PAGE_LOAD_TIMEOUT_S);
+        mVrBrowserTestFramework.loadFileAndAwaitInitialization(
+                "test_permissions_persist_when_entering_vr_browser", PAGE_LOAD_TIMEOUT_S);
         // Ensure that permission requests initially trigger a prompt.
         Assert.assertTrue("Camera permission would not trigger prompt",
                 mVrBrowserTestFramework.permissionRequestWouldTriggerPrompt("camera"));
@@ -546,10 +536,8 @@ public class VrBrowserTransitionTest {
         PermissionUtils.acceptPermissionPrompt();
         mVrBrowserTestFramework.waitOnJavaScriptStep();
         // Reload the page and ensure that the permissions are still granted.
-        mVrBrowserTestFramework.loadUrlAndAwaitInitialization(
-                mVrBrowserTestFramework.getEmbeddedServerUrlForHtmlTestFile(
-                        "test_permissions_persist_when_entering_vr_browser"),
-                PAGE_LOAD_TIMEOUT_S);
+        mVrBrowserTestFramework.loadFileAndAwaitInitialization(
+                "test_permissions_persist_when_entering_vr_browser", PAGE_LOAD_TIMEOUT_S);
         Assert.assertFalse("Camera permission would trigger prompt after reload",
                 mVrBrowserTestFramework.permissionRequestWouldTriggerPrompt("camera"));
         Assert.assertFalse("Microphone permission would trigger prompt after reload",

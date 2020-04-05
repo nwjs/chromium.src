@@ -126,13 +126,10 @@ mojom::blink::MediaSessionPlaybackState StringToMediaSessionPlaybackState(
 }  // anonymous namespace
 
 MediaSession::MediaSession(ExecutionContext* execution_context)
-    : ContextClient(execution_context),
+    : ExecutionContextClient(execution_context),
       clock_(base::DefaultTickClock::GetInstance()),
-      playback_state_(mojom::blink::MediaSessionPlaybackState::NONE) {}
-
-void MediaSession::Dispose() {
-  client_receiver_.reset();
-}
+      playback_state_(mojom::blink::MediaSessionPlaybackState::NONE),
+      client_receiver_(this, execution_context) {}
 
 void MediaSession::setPlaybackState(const String& playback_state) {
   playback_state_ = StringToMediaSessionPlaybackState(playback_state);
@@ -337,7 +334,7 @@ mojom::blink::MediaSessionService* MediaSession::GetService() {
   if (!GetExecutionContext())
     return nullptr;
 
-  Document* document = To<Document>(GetExecutionContext());
+  Document* document = Document::From(GetExecutionContext());
   LocalFrame* frame = document->GetFrame();
   if (!frame)
     return nullptr;
@@ -356,7 +353,7 @@ mojom::blink::MediaSessionService* MediaSession::GetService() {
 void MediaSession::DidReceiveAction(
     media_session::mojom::blink::MediaSessionAction action,
     mojom::blink::MediaSessionActionDetailsPtr details) {
-  Document* document = To<Document>(GetExecutionContext());
+  Document* document = Document::From(GetExecutionContext());
   LocalFrame::NotifyUserActivation(document ? document->GetFrame() : nullptr);
 
   auto& name = MojomActionToActionName(action);
@@ -373,11 +370,12 @@ void MediaSession::DidReceiveAction(
   iter->value->InvokeAndReportException(this, blink_details);
 }
 
-void MediaSession::Trace(blink::Visitor* visitor) {
+void MediaSession::Trace(Visitor* visitor) {
+  visitor->Trace(client_receiver_);
   visitor->Trace(metadata_);
   visitor->Trace(action_handlers_);
   ScriptWrappable::Trace(visitor);
-  ContextClient::Trace(visitor);
+  ExecutionContextClient::Trace(visitor);
 }
 
 }  // namespace blink

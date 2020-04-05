@@ -16,17 +16,19 @@
 #include "base/i18n/case_conversion.h"
 #include "base/location.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/optional.h"
 #include "base/path_service.h"
 #include "base/strings/string_util.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "base/values.h"
+#include "base/version.h"
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
-#include "chrome/browser/apps/apps_launch.h"
-#include "chrome/browser/apps/launch_service/launch_service.h"
+#include "chrome/browser/apps/app_service/app_service_proxy.h"
+#include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
 #include "chrome/browser/apps/platform_apps/install_chrome_app.h"
+#include "chrome/browser/apps/platform_apps/platform_app_launch.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/custom_handlers/protocol_handler_registry.h"
@@ -63,6 +65,7 @@
 #include "chrome/common/url_constants.h"
 #include "components/prefs/pref_service.h"
 #include "components/services/app_service/public/mojom/types.mojom.h"
+#include "components/version_info/version_info.h"
 #include "content/public/browser/child_process_security_policy.h"
 #include "content/public/browser/dom_storage_context.h"
 #include "content/public/browser/storage_partition.h"
@@ -250,13 +253,13 @@ void RecordLaunchModeHistogram(LaunchMode mode) {
       (mode = GetLaunchModeFast()) == LM_TO_BE_DECIDED) {
     // The mode couldn't be determined with a fast path. Perform a more
     // expensive evaluation out of the critical startup path.
-    base::PostTask(FROM_HERE,
-                   {base::ThreadPool(), base::TaskPriority::BEST_EFFORT,
-                    base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
-                   base::BindOnce([]() {
-                     base::UmaHistogramSparse(kLaunchModesHistogram,
-                                              GetLaunchModeSlow());
-                   }));
+    base::ThreadPool::PostTask(
+        FROM_HERE,
+        {base::TaskPriority::BEST_EFFORT,
+         base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
+        base::BindOnce([]() {
+          base::UmaHistogramSparse(kLaunchModesHistogram, GetLaunchModeSlow());
+        }));
   } else {
     base::UmaHistogramSparse(kLaunchModesHistogram, mode);
   }
@@ -365,10 +368,6 @@ StartupBrowserCreatorImpl::~StartupBrowserCreatorImpl() {
 bool StartupBrowserCreatorImpl::Launch(Profile* profile,
                                        const std::vector<GURL>& urls_to_open,
                                        bool process_startup) {
-  UMA_HISTOGRAM_COUNTS_100(
-      "Startup.BrowserLaunchURLCount",
-      static_cast<base::HistogramBase::Sample>(urls_to_open.size()));
-
   DCHECK(profile);
   profile_ = profile;
 
@@ -404,8 +403,8 @@ bool StartupBrowserCreatorImpl::Launch(Profile* profile,
     std::string app_id = command_line_.GetSwitchValueASCII(switches::kAppId);
     // If |app_id| is a disabled or terminated platform app we handle it
     // specially here, otherwise it will be handled below.
-    if (apps::OpenApplicationWithReenablePrompt(profile, app_id, command_line_,
-                                                cur_dir_)) {
+    if (apps::OpenExtensionApplicationWithReenablePrompt(
+            profile, app_id, command_line_, cur_dir_)) {
       return true;
     }
   }
@@ -453,11 +452,29 @@ bool StartupBrowserCreatorImpl::Launch(Profile* profile,
   }
 
 #if defined(OS_WIN)
-  // TODO(gab): This could now run only during Active Setup (i.e. on explicit
-  // Active Setup versioning and on OS upgrades) instead of every startup.
-  // http://crbug.com/577697
-  if (process_startup)
-    shell_integration::win::MigrateTaskbarPins();
+  if (process_startup) {
+    // Update this number when users should go through a taskbar shortcut
+    // migration again. The last reason to do this was crrev.com/719141 @
+    // 80.0.3978.0.
+    //
+    // Note: If shortcut updates need to be done once after a future OS upgrade,
+    // that should be done by re-versioning Active Setup (see //chrome/installer
+    // and http://crbug.com/577697 for details).
+    const base::Version kLastVersionNeedingMigration({80U, 0U, 3978U, 0U});
+
+    PrefService* local_state = g_browser_process->local_state();
+    if (local_state) {
+      const base::Version last_version_migrated(
+          local_state->GetString(prefs::kShortcutMigrationVersion));
+      if (!last_version_migrated.IsValid() ||
+          last_version_migrated < kLastVersionNeedingMigration) {
+        shell_integration::win::MigrateTaskbarPins(base::BindOnce(
+            &PrefService::SetString, base::Unretained(local_state),
+            prefs::kShortcutMigrationVersion,
+            version_info::GetVersionNumber()));
+      }
+    }
+  }
 #endif  // defined(OS_WIN)
 
   return true;
@@ -564,8 +581,10 @@ bool StartupBrowserCreatorImpl::MaybeLaunchApplication(Profile* profile) {
 
   if (!app_id.empty()) {
     // Opens an empty browser window if the app_id is invalid.
-    apps::LaunchService::Get(profile)->LaunchApplication(
-        app_id, command_line_, cur_dir_, base::BindOnce(&FinalizeWebAppLaunch));
+    apps::AppServiceProxyFactory::GetForProfile(profile)
+        ->BrowserAppLauncher()
+        .LaunchAppWithCallback(app_id, command_line_, cur_dir_,
+                               base::BindOnce(&FinalizeWebAppLaunch));
     return true;
   }
 
@@ -584,7 +603,7 @@ bool StartupBrowserCreatorImpl::MaybeLaunchApplication(Profile* profile) {
     if (policy->IsWebSafeScheme(url.scheme()) ||
         url.SchemeIs(url::kFileScheme)) {
       const content::WebContents* web_contents =
-          apps::OpenAppShortcutWindow(profile, url);
+          apps::OpenExtensionAppShortcutWindow(profile, url);
       if (web_contents) {
         FinalizeWebAppLaunch(
             chrome::FindBrowserWithWebContents(web_contents),
@@ -848,14 +867,20 @@ void StartupBrowserCreatorImpl::AddInfoBarsIfNecessary(
   if (!browser || !profile_ || browser->tab_strip_model()->count() == 0)
     return;
 
-  if (HasPendingUncleanExit(browser->profile()))
-    SessionCrashedBubble::ShowIfNotOffTheRecordProfile(browser);
-
+  // Show the Automation info bar unless it has been disabled by policy.
   bool show_bad_flags_security_warnings = ShouldShowBadFlagsSecurityWarnings();
   if (command_line_.HasSwitch(switches::kEnableAutomation) &&
       show_bad_flags_security_warnings) {
     AutomationInfoBarDelegate::Create();
   }
+
+  // Do not show any other info bars in Kiosk mode, because it's unlikely that
+  // the viewer can act upon or dismiss them.
+  if (command_line_.HasSwitch(switches::kKioskMode))
+    return;
+
+  if (HasPendingUncleanExit(browser->profile()))
+    SessionCrashedBubble::ShowIfNotOffTheRecordProfile(browser);
 
   // The below info bars are only added to the first profile which is launched.
   // Other profiles might be restoring the browsing sessions asynchronously,

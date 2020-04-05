@@ -15,6 +15,7 @@ import androidx.annotation.Nullable;
 import androidx.browser.customtabs.CustomTabsSessionToken;
 import androidx.browser.trusted.sharing.ShareTarget;
 
+import org.chromium.base.IntentUtils;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.chrome.browser.ActivityTabProvider;
 import org.chromium.chrome.browser.ActivityTabProvider.HintlessActivityTabObserver;
@@ -27,6 +28,7 @@ import org.chromium.chrome.browser.browserservices.BrowserServicesActivityTabCon
 import org.chromium.chrome.browser.browserservices.BrowserServicesIntentDataProvider;
 import org.chromium.chrome.browser.compositor.CompositorViewHolder;
 import org.chromium.chrome.browser.customtabs.CustomTabDelegateFactory;
+import org.chromium.chrome.browser.customtabs.CustomTabIntentDataProvider;
 import org.chromium.chrome.browser.customtabs.CustomTabNavigationEventObserver;
 import org.chromium.chrome.browser.customtabs.CustomTabObserver;
 import org.chromium.chrome.browser.customtabs.CustomTabTabPersistencePolicy;
@@ -42,6 +44,7 @@ import org.chromium.chrome.browser.lifecycle.NativeInitObserver;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabAssociatedApp;
+import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabRedirectHandler;
 import org.chromium.chrome.browser.tab_activity_glue.ReparentingDelegateFactory;
@@ -52,7 +55,6 @@ import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorImpl;
 import org.chromium.chrome.browser.tabmodel.TabReparentingParams;
 import org.chromium.chrome.browser.translate.TranslateBridge;
-import org.chromium.chrome.browser.util.IntentUtils;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.common.Referrer;
@@ -275,10 +277,6 @@ public class CustomTabActivityTabController
         if (tab == null) return null;
 
         TabAssociatedApp.from(tab).setAppId(mConnection.getClientPackageNameForSession(mSession));
-        if (mIntentDataProvider.shouldEnableEmbeddedMediaExperience()) {
-            // Configures web preferences for viewing downloaded media.
-            if (tab.getWebContents() != null) tab.getWebContents().notifyRendererPreferenceUpdate();
-        }
         initializeTab(tab);
         return tab;
     }
@@ -316,7 +314,7 @@ public class CustomTabActivityTabController
         assert tab != null;
 
         if (mode != TabCreationMode.RESTORED) {
-            tabModel.addTab(tab, 0, tab.getLaunchType());
+            tabModel.addTab(tab, 0, tab.getLaunchType(), TabCreationState.LIVE_IN_FOREGROUND);
         }
 
         // This cannot be done before because we want to do the reparenting only
@@ -327,7 +325,7 @@ public class CustomTabActivityTabController
             mReparentingTaskProvider.get(tab).finish(
                     ReparentingDelegateFactory.createReparentingTaskDelegate(
                             mActivity.getCompositorViewHolder(), mActivity.getWindowAndroid(),
-                            mActivity.getTabDelegateFactory()),
+                            mCustomTabDelegateFactory.get()),
                     (params == null ? null : params.getFinalizeCallback()));
         }
 
@@ -376,10 +374,6 @@ public class CustomTabActivityTabController
         mConnection.setClientDataHeaderForNewTab(mSession, webContents);
 
         TabAssociatedApp.from(tab).setAppId(mConnection.getClientPackageNameForSession(mSession));
-
-        if (mIntentDataProvider.shouldEnableEmbeddedMediaExperience()) {
-            if (tab.getWebContents() != null) tab.getWebContents().notifyRendererPreferenceUpdate();
-        }
 
         initializeTab(tab);
 
@@ -447,7 +441,7 @@ public class CustomTabActivityTabController
 
     /** Sets the initial background color for the Tab, shown before the page content is ready. */
     private void prepareTabBackground(final Tab tab) {
-        if (!IntentHandler.notSecureIsIntentChromeOrFirstParty(mIntent)) return;
+        if (!CustomTabIntentDataProvider.isTrustedCustomTab(mIntent, mSession)) return;
 
         int backgroundColor = mIntentDataProvider.getInitialBackgroundColor();
         if (backgroundColor == Color.TRANSPARENT) return;

@@ -99,6 +99,11 @@
       depends_on: ["FeaturePolicyForClientHints"],
     },
     {
+      name: "ClientHintUAFullVersion",
+      feature_policy_name: "ch-ua-full-version",
+      depends_on: ["FeaturePolicyForClientHints"],
+    },
+    {
       name: "ClientHintViewportWidth",
       feature_policy_name: "ch-viewport-width",
       depends_on: ["FeaturePolicyForClientHints"],
@@ -140,11 +145,6 @@
       name: "FocusWithoutUserActivation",
       feature_policy_name: "focus-without-user-activation",
       depends_on: ["BlockingFocusWithoutUserActivation"],
-    },
-    {
-      name: "FontDisplay",
-      feature_policy_name: "font-display-late-swap",
-      depends_on: ["ExperimentalProductivityFeatures"],
     },
     {
       name: "FormSubmission",
@@ -216,11 +216,6 @@
       depends_on: ["FeaturePolicyForSandbox"],
     },
     {
-      name: "OversizedImages",
-      feature_policy_name: "oversized-images",
-      depends_on: ["UnoptimizedImagePolicies"],
-    },
-    {
       name: "Payment",
       feature_policy_name: "payment",
       depends_on: ["PaymentRequest"],
@@ -251,6 +246,11 @@
       depends_on: ["WebAuthenticationFeaturePolicy"],
     },
     {
+      name: "ScreenWakeLock",
+      feature_policy_name: "screen-wake-lock",
+      depends_on: ["WakeLock"],
+    },
+    {
       name: "Script",
       feature_policy_name: "scripts",
       depends_on: ["FeaturePolicyForSandbox"],
@@ -275,24 +275,9 @@
       depends_on: ["FeaturePolicyForSandbox"],
     },
     {
-      name: "UnoptimizedLosslessImages",
-      feature_policy_name: "unoptimized-lossless-images",
-      depends_on: ["UnoptimizedImagePolicies"],
-    },
-    {
-      name: "UnoptimizedLosslessImagesStrict",
-      feature_policy_name: "unoptimized-lossless-images-strict",
-      depends_on: ["UnoptimizedImagePolicies"],
-    },
-    {
-      name: "UnoptimizedLossyImages",
-      feature_policy_name: "unoptimized-lossy-images",
-      depends_on: ["UnoptimizedImagePolicies"],
-    },
-    {
-      name: "UnsizedMedia",
-      feature_policy_name: "unsized-media",
-      depends_on: ["UnsizedMediaPolicy"],
+      name: "TrustTokenRedemption",
+      feature_policy_name: "trust-token-redemption",
+      depends_on: ["TrustTokens"],
     },
     {
       name: "Usb",
@@ -303,11 +288,6 @@
       name: "VerticalScroll",
       feature_policy_name: "vertical-scroll",
       depends_on: ["ExperimentalProductivityFeatures"],
-    },
-    {
-      name: "WakeLock",
-      feature_policy_name: "wake-lock",
-      depends_on: ["WakeLock"],
     },
     {
       name: "WebXr",

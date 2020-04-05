@@ -70,12 +70,11 @@ WorkletAnimation* CreateWorkletAnimation(
   DocumentTimelineOrScrollTimeline timeline;
   if (scroll_timeline)
     timeline.SetScrollTimeline(scroll_timeline);
-  scoped_refptr<SerializedScriptValue> options;
+  ScriptValue options;
 
   ScriptState::Scope scope(script_state);
   return WorkletAnimation::Create(script_state, animator_name, effects,
-                                  timeline, std::move(options),
-                                  ASSERT_NO_EXCEPTION);
+                                  timeline, options, ASSERT_NO_EXCEPTION);
 }
 
 base::TimeDelta ToTimeDelta(double milliseconds) {
@@ -182,9 +181,8 @@ TEST_F(WorkletAnimationTest,
   ASSERT_TRUE(scroller->HasOverflowClip());
   PaintLayerScrollableArea* scrollable_area = scroller->GetScrollableArea();
   ASSERT_TRUE(scrollable_area);
-  scrollable_area->SetScrollOffset(
-      ScrollOffset(0, 20),
-      mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
+  scrollable_area->SetScrollOffset(ScrollOffset(0, 20),
+                                   mojom::blink::ScrollType::kProgrammatic);
   ScrollTimelineOptions* options = ScrollTimelineOptions::Create();
   DoubleOrScrollTimelineAutoKeyword time_range =
       DoubleOrScrollTimelineAutoKeyword::FromDouble(100);
@@ -198,16 +196,18 @@ TEST_F(WorkletAnimationTest,
   worklet_animation->play(ASSERT_NO_EXCEPTION);
   worklet_animation->UpdateCompositingState();
 
-  scrollable_area->SetScrollOffset(
-      ScrollOffset(0, 40),
-      mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
+  scrollable_area->SetScrollOffset(ScrollOffset(0, 40),
+                                   mojom::blink::ScrollType::kProgrammatic);
 
+  // Simulate a new animation frame  which allows the timeline to compute new
+  // current time.
+  GetPage().Animator().ServiceScriptedAnimations(base::TimeTicks::Now());
   bool is_null;
   EXPECT_TIME_NEAR(40, worklet_animation->currentTime(is_null));
 
-  scrollable_area->SetScrollOffset(
-      ScrollOffset(0, 70),
-      mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
+  scrollable_area->SetScrollOffset(ScrollOffset(0, 70),
+                                   mojom::blink::ScrollType::kProgrammatic);
+  GetPage().Animator().ServiceScriptedAnimations(base::TimeTicks::Now());
   EXPECT_TIME_NEAR(70, worklet_animation->currentTime(is_null));
 }
 
@@ -297,9 +297,8 @@ TEST_F(WorkletAnimationTest, ScrollTimelineSetPlaybackRate) {
   ASSERT_TRUE(scroller->HasOverflowClip());
   PaintLayerScrollableArea* scrollable_area = scroller->GetScrollableArea();
   ASSERT_TRUE(scrollable_area);
-  scrollable_area->SetScrollOffset(
-      ScrollOffset(0, 20),
-      mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
+  scrollable_area->SetScrollOffset(ScrollOffset(0, 20),
+                                   mojom::blink::ScrollType::kProgrammatic);
   ScrollTimelineOptions* options = ScrollTimelineOptions::Create();
   DoubleOrScrollTimelineAutoKeyword time_range =
       DoubleOrScrollTimelineAutoKeyword::FromDouble(100);
@@ -323,10 +322,11 @@ TEST_F(WorkletAnimationTest, ScrollTimelineSetPlaybackRate) {
   EXPECT_TIME_NEAR(40, worklet_animation->currentTime(is_null));
 
   // Update scroll offset.
-  scrollable_area->SetScrollOffset(
-      ScrollOffset(0, 40),
-      mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
-
+  scrollable_area->SetScrollOffset(ScrollOffset(0, 40),
+                                   mojom::blink::ScrollType::kProgrammatic);
+  // Simulate a new animation frame  which allows the timeline to compute new
+  // current time.
+  GetPage().Animator().ServiceScriptedAnimations(base::TimeTicks::Now());
   // Verify that the current time is updated playback_rate faster than the
   // timeline time.
   EXPECT_TIME_NEAR(40 + 20 * playback_rate,
@@ -370,15 +370,17 @@ TEST_F(WorkletAnimationTest, ScrollTimelineSetPlaybackRateWhilePlaying) {
   worklet_animation->UpdateCompositingState();
 
   // Update scroll offset and playback rate.
-  scrollable_area->SetScrollOffset(
-      ScrollOffset(0, 40),
-      mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
+  scrollable_area->SetScrollOffset(ScrollOffset(0, 40),
+                                   mojom::blink::ScrollType::kProgrammatic);
+  // Simulate a new animation frame  which allows the timeline to compute new
+  // current time.
+  GetPage().Animator().ServiceScriptedAnimations(base::TimeTicks::Now());
   worklet_animation->setPlaybackRate(GetScriptState(), playback_rate);
 
   // Verify the current time after another scroll offset update.
-  scrollable_area->SetScrollOffset(
-      ScrollOffset(0, 80),
-      mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
+  scrollable_area->SetScrollOffset(ScrollOffset(0, 80),
+                                   mojom::blink::ScrollType::kProgrammatic);
+  GetPage().Animator().ServiceScriptedAnimations(base::TimeTicks::Now());
   bool is_null;
   EXPECT_TIME_NEAR(40 + 40 * playback_rate,
                    worklet_animation->currentTime(is_null));
@@ -429,6 +431,9 @@ TEST_F(WorkletAnimationTest, ScrollTimelineNewlyActive) {
   scroller_element->setAttribute(html_names::kStyleAttr,
                                  "overflow:scroll;width:100px;height:100px;");
   UpdateAllLifecyclePhasesForTest();
+  // Simulate a new animation frame  which allows the timeline to compute new
+  // current time.
+  GetPage().Animator().ServiceScriptedAnimations(base::TimeTicks::Now());
   ASSERT_TRUE(scroll_timeline->IsActive());
 
   // As the timeline becomes newly active, start and current time must be
@@ -471,10 +476,11 @@ TEST_F(WorkletAnimationTest, ScrollTimelineNewlyInactive) {
   ASSERT_TRUE(scroller->HasOverflowClip());
   PaintLayerScrollableArea* scrollable_area = scroller->GetScrollableArea();
   ASSERT_TRUE(scrollable_area);
-  scrollable_area->SetScrollOffset(
-      ScrollOffset(0, 40),
-      mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
-
+  scrollable_area->SetScrollOffset(ScrollOffset(0, 40),
+                                   mojom::blink::ScrollType::kProgrammatic);
+  // Simulate a new animation frame  which allows the timeline to compute new
+  // current time.
+  GetPage().Animator().ServiceScriptedAnimations(base::TimeTicks::Now());
   WorkletAnimation* worklet_animation = CreateWorkletAnimation(
       GetScriptState(), element_, animator_name_, scroll_timeline);
 
@@ -497,6 +503,7 @@ TEST_F(WorkletAnimationTest, ScrollTimelineNewlyInactive) {
   scroller_element->setAttribute(html_names::kStyleAttr,
                                  "overflow:visible;width:100px;height:100px;");
   UpdateAllLifecyclePhasesForTest();
+  GetPage().Animator().ServiceScriptedAnimations(base::TimeTicks::Now());
   ASSERT_FALSE(scroll_timeline->IsActive());
 
   // As the timeline becomes newly inactive, start time must be unresolved and
@@ -511,6 +518,7 @@ TEST_F(WorkletAnimationTest, ScrollTimelineNewlyInactive) {
   scroller_element->setAttribute(html_names::kStyleAttr,
                                  "overflow:scroll;width:100px;height:100px;");
   UpdateAllLifecyclePhasesForTest();
+  GetPage().Animator().ServiceScriptedAnimations(base::TimeTicks::Now());
   ASSERT_TRUE(scroll_timeline->IsActive());
 
   // As the timeline becomes newly active, start time must be recalculated and

@@ -87,11 +87,11 @@ class CC_PAINT_EXPORT DisplayItemList
     if (usage_hint_ == kTopLevelDisplayItemList)
       offsets_.push_back(offset);
     const T* op = paint_op_buffer_.push<T>(std::forward<Args>(args)...);
+    if (op->IsDrawOp())
+      has_draw_ops_ = true;
     DCHECK(op->IsValid());
     return offset;
   }
-
-  UsageHint GetUsageHint() const { return usage_hint_; }
 
   // Called by blink::PaintChunksToCcLayer when an effect ends, to update the
   // bounds of a SaveLayer[Alpha]Op which was emitted when the effect started.
@@ -168,7 +168,6 @@ class CC_PAINT_EXPORT DisplayItemList
 
   int NumSlowPaths() const { return paint_op_buffer_.numSlowPaths(); }
   bool HasNonAAPaint() const { return paint_op_buffer_.HasNonAAPaint(); }
-  bool HasText() const { return paint_op_buffer_.HasText(); }
 
   // This gives the total number of PaintOps.
   size_t TotalOpCount() const { return paint_op_buffer_.total_op_count(); }
@@ -199,6 +198,7 @@ class CC_PAINT_EXPORT DisplayItemList
                              int max_ops_to_analyze = 1);
 
   std::string ToString() const;
+  bool has_draw_ops() const { return has_draw_ops_; }
 
  private:
   friend class DisplayItemListTest;
@@ -248,6 +248,7 @@ class CC_PAINT_EXPORT DisplayItemList
 #endif
 
   UsageHint usage_hint_;
+  bool has_draw_ops_ = false;
 
   friend class base::RefCountedThreadSafe<DisplayItemList>;
   FRIEND_TEST_ALL_PREFIXES(DisplayItemListTest, BytesUsed);

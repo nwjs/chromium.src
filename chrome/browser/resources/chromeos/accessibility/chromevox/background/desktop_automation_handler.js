@@ -16,9 +16,7 @@ goog.require('CustomAutomationEvent');
 goog.require('editing.TextEditHandler');
 
 goog.scope(function() {
-const AutomationEvent = chrome.automation.AutomationEvent;
 const AutomationNode = chrome.automation.AutomationNode;
-const Dir = constants.Dir;
 const EventType = chrome.automation.EventType;
 const RoleType = chrome.automation.RoleType;
 const StateType = chrome.automation.StateType;
@@ -56,6 +54,9 @@ DesktopAutomationHandler = class extends BaseAutomationHandler {
     /** @private {number?} */
     this.delayedAttributeOutputId_;
 
+    /** @private {!Date} */
+    this.lastHoverExit_ = new Date();
+
     this.addListener_(EventType.ALERT, this.onAlert);
     this.addListener_(EventType.BLUR, this.onBlur);
     this.addListener_(
@@ -66,12 +67,10 @@ DesktopAutomationHandler = class extends BaseAutomationHandler {
     // Note that live region changes from views are really announcement
     // events. Their target nodes contain no live region semantics and have no
     // relation to live regions which are supported in |LiveRegions|.
-    this.addListener_(EventType.LIVE_REGION_CHANGED, this.onEventFromViews);
+    this.addListener_(EventType.LIVE_REGION_CHANGED, this.onLiveRegionChanged);
 
     this.addListener_(EventType.LOAD_COMPLETE, this.onLoadComplete);
     this.addListener_(EventType.MENU_END, this.onMenuEnd);
-    this.addListener_(
-        EventType.MENU_LIST_ITEM_SELECTED, this.onEventIfSelected);
     this.addListener_(EventType.MENU_START, this.onMenuStart);
     this.addListener_(
         EventType.SCROLL_POSITION_CHANGED, this.onScrollPositionChanged);
@@ -100,61 +99,6 @@ DesktopAutomationHandler = class extends BaseAutomationHandler {
   /** @override */
   willHandleEvent_(evt) {
     return false;
-  }
-
-  /**
-   * Provides all feedback once ChromeVox's focus changes.
-   * @param {!ChromeVoxEvent} evt
-   */
-  onEventDefault(evt) {
-    const node = evt.target;
-    if (!node) {
-      return;
-    }
-
-    // Decide whether to announce and sync this event.
-    const isFocusOnRoot = evt.type == 'focus' && evt.target == evt.target.root;
-    if (!DesktopAutomationHandler.announceActions &&
-        evt.eventFrom == 'action' &&
-        (EventSourceState.get() != EventSourceType.TOUCH_GESTURE ||
-         isFocusOnRoot)) {
-      return;
-    }
-
-    const prevRange = ChromeVoxState.instance.getCurrentRangeWithoutRecovery();
-
-    ChromeVoxState.instance.setCurrentRange(cursors.Range.fromNode(node));
-
-    // Don't output if focused node hasn't changed. Allow focus announcements
-    // when interacting via touch. Touch never sets focus without a double tap.
-    if (prevRange && evt.type == 'focus' &&
-        ChromeVoxState.instance.currentRange.equalsWithoutRecovery(prevRange) &&
-        EventSourceState.get() != EventSourceType.TOUCH_GESTURE) {
-      return;
-    }
-
-    const output = new Output();
-    output.withRichSpeechAndBraille(
-        ChromeVoxState.instance.currentRange, prevRange, evt.type);
-    output.go();
-  }
-
-  /**
-   * @param {!ChromeVoxEvent} evt
-   */
-  onEventFromViews(evt) {
-    if (evt.target.root.role == RoleType.DESKTOP) {
-      this.onEventDefault(evt);
-    }
-  }
-
-  /**
-   * @param {!ChromeVoxEvent} evt
-   */
-  onEventIfSelected(evt) {
-    if (evt.target.selected) {
-      this.onEventDefault(evt);
-    }
   }
 
   /**
@@ -212,7 +156,7 @@ DesktopAutomationHandler = class extends BaseAutomationHandler {
     let targetLeaf = null;
     let targetObject = null;
     while (target && target != target.root) {
-      if (!targetObject && AutomationPredicate.object(target)) {
+      if (!targetObject && AutomationPredicate.touchObject(target)) {
         targetObject = target;
       }
       if (AutomationPredicate.touchLeaf(target)) {
@@ -223,6 +167,19 @@ DesktopAutomationHandler = class extends BaseAutomationHandler {
 
     target = targetLeaf || targetObject;
     if (!target) {
+      // This clears the anchor point in the TouchExplorationController (so
+      // things like double tap won't be directed to the previous target). It
+      // also ensures if a user touch explores back to the previous range, it
+      // will be announced again.
+      ChromeVoxState.instance.setCurrentRange(null);
+
+      // Play a earcon to let the user know they're in the middle of nowhere.
+      if ((new Date() - this.lastHoverExit_) >
+          DesktopAutomationHandler.MIN_HOVER_EXIT_SOUND_DELAY_MS) {
+        ChromeVoxState.instance.nextEarcons_.engine_.onTouchExitAnchor();
+        this.lastHoverExit_ = new Date();
+      }
+      chrome.tts.stop();
       return;
     }
 
@@ -235,6 +192,7 @@ DesktopAutomationHandler = class extends BaseAutomationHandler {
       this.textEditHandler_ = null;
     }
 
+    ChromeVoxState.instance.nextEarcons_.engine_.onTouchEnterAnchor();
     Output.forceModeForNextSpeechUtterance(QueueMode.FLUSH);
     this.onEventDefault(
         new CustomAutomationEvent(evt.type, target, evt.eventFrom));
@@ -338,6 +296,32 @@ DesktopAutomationHandler = class extends BaseAutomationHandler {
 
     // Refresh the handler, if needed, now that ChromeVox focus is up to date.
     this.createTextEditHandlerIfNeeded_(node);
+  }
+
+  /**
+   * @param {!ChromeVoxEvent} evt
+   */
+  onLiveRegionChanged(evt) {
+    if (evt.target.root.role == RoleType.DESKTOP ||
+        evt.target.root.role == RoleType.APPLICATION) {
+      if (evt.target.containerLiveStatus != 'assertive' &&
+          evt.target.containerLiveStatus != 'polite') {
+        return;
+      }
+
+      const output = new Output();
+      if (evt.target.containerLiveStatus == 'assertive') {
+        output.withQueueMode(QueueMode.CATEGORY_FLUSH);
+      } else {
+        output.withQueueMode(QueueMode.QUEUE);
+      }
+
+      output
+          .withRichSpeechAndBraille(
+              cursors.Range.fromNode(evt.target), null, evt.type)
+          .withSpeechCategory(TtsCategory.LIVE)
+          .go();
+    }
   }
 
   /**
@@ -695,6 +679,9 @@ DesktopAutomationHandler.ATTRIBUTE_DELAY_MS = 1500;
  * @type {boolean}
  */
 DesktopAutomationHandler.announceActions = false;
+
+/** @const {number} */
+DesktopAutomationHandler.MIN_HOVER_EXIT_SOUND_DELAY_MS = 500;
 
 
 /**

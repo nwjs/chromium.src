@@ -33,6 +33,7 @@
 
 using base::test::IsJson;
 using base::test::ParseJson;
+using blink::mojom::PresentationConnectionCloseReason;
 using testing::_;
 using testing::AllOf;
 using testing::AnyNumber;
@@ -248,6 +249,35 @@ TEST_F(CastSessionClientImplTest, SendSetVolumeCommandToReceiver) {
           "type": "SET_VOLUME"
         }
       })"));
+}
+
+TEST_F(CastSessionClientImplTest, SendStopSessionCommandToReceiver) {
+  EXPECT_CALL(activity_, StopSessionOnReceiver)
+      .WillOnce([](const std::string& client_id, auto callback) {
+        EXPECT_EQ("theClientId", client_id);
+        std::move(callback).Run(cast_channel::Result::kOk);
+      });
+  client_->OnMessage(
+      blink::mojom::PresentationConnectionMessage::NewMessage(R"({
+        "type": "v2_message",
+        "clientId": "theClientId",
+        "sequenceNumber": 123,
+        "message": {
+          "requestId": 456,
+          "sessionId": "theSessionId",
+          "type": "STOP"
+        }
+      })"));
+}
+
+TEST_F(CastSessionClientImplTest, CloseConnection) {
+  EXPECT_CALL(activity_, CloseConnectionOnReceiver("theClientId"));
+  client_->CloseConnection(PresentationConnectionCloseReason::CLOSED);
+}
+
+TEST_F(CastSessionClientImplTest, DidCloseConnection) {
+  EXPECT_CALL(activity_, CloseConnectionOnReceiver("theClientId"));
+  client_->DidClose(PresentationConnectionCloseReason::WENT_AWAY);
 }
 
 }  // namespace media_router

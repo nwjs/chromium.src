@@ -53,9 +53,6 @@ grit("extensions_renderer_resources") {
     "mojom_root=" + rebase_path(root_gen_dir, root_build_dir),
   ]
 
-  # Files included from ${mojom_root} are generated.
-  source_is_generated = true
-
   deps = [
     "//extensions/common:mojom_js",
     "//extensions/common/api:mojom_js",
@@ -116,6 +113,8 @@ jumbo_static_library("test_support") {
     "renderer/test_extensions_renderer_client.h",
     "test/background_page_watcher.cc",
     "test/background_page_watcher.h",
+    "test/extension_background_page_waiter.cc",
+    "test/extension_background_page_waiter.h",
     "test/extension_test_message_listener.cc",
     "test/extension_test_message_listener.h",
     "test/extension_test_notification_observer.cc",
@@ -244,7 +243,7 @@ test("extensions_browsertests") {
   data = [
     "//extensions/test/data/",
     "//net/tools/testserver/",
-    "//third_party/pywebsocket/src/mod_pywebsocket/",
+    "//third_party/pywebsocket3/src/mod_pywebsocket/",
     "//third_party/tlslite/",
     "$root_out_dir/extensions_shell_and_test.pak",
   ]
@@ -287,13 +286,13 @@ source_set("chrome_extensions_browsertests") {
     "//chrome/browser",
     "//chrome/common/extensions/api",
     "//chrome/renderer",
-    "//components/app_modal",
     "//components/autofill/content/browser:risk_proto",
     "//components/autofill/content/renderer:test_support",
     "//components/captive_portal/core:test_support",
     "//components/dom_distiller/content/browser",
     "//components/dom_distiller/core:test_support",
     "//components/guest_view/browser:test_support",
+    "//components/javascript_dialogs",
     "//components/printing/common",
     "//components/resources",
     "//components/strings",

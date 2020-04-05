@@ -14,12 +14,11 @@ import org.chromium.base.ContextUtils;
 import org.chromium.base.annotations.CalledByNative;
 import org.chromium.base.annotations.JNINamespace;
 import org.chromium.chrome.browser.DeviceConditions;
-import org.chromium.chrome.browser.background_task_scheduler.NativeBackgroundTask;
-import org.chromium.chrome.browser.background_task_scheduler.NativeBackgroundTask.StartBeforeNativeResult;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.offlinepages.OfflinePageBridge;
 import org.chromium.chrome.browser.profiles.Profile;
-import org.chromium.components.background_task_scheduler.BackgroundTask.TaskFinishedCallback;
 import org.chromium.components.background_task_scheduler.BackgroundTaskSchedulerFactory;
+import org.chromium.components.background_task_scheduler.NativeBackgroundTask;
 import org.chromium.components.background_task_scheduler.TaskIds;
 import org.chromium.components.background_task_scheduler.TaskInfo;
 import org.chromium.components.background_task_scheduler.TaskParameters;
@@ -165,7 +164,12 @@ public class OfflineNotificationBackgroundTask extends NativeBackgroundTask {
 
         if (!contentHost.isEmpty()) {
             PrefetchPrefs.setNotificationLastShownTime(getCurrentTimeMillis());
-            PrefetchedPagesNotifier.getInstance().showNotification(contentHost);
+            if (ChromeFeatureList.isEnabled(
+                        ChromeFeatureList.PREFETCH_NOTIFICATION_SCHEDULING_INTEGRATION)) {
+                PrefetchNotificationServiceBridge.getInstance().schedule(contentHost);
+            } else {
+                PrefetchedPagesNotifier.getInstance().showNotification(contentHost);
+            }
         }
 
         // There is either no fresh content, or we just showed a notification - which implies there

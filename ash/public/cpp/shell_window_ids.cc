@@ -11,7 +11,7 @@ namespace ash {
 
 namespace {
 
-constexpr std::array<int, 20> kActivatableContainersIds = {
+constexpr std::array<int, 18> kActivatableContainersIds = {
     kShellWindowId_OverlayContainer,
     kShellWindowId_LockSystemModalContainer,
     kShellWindowId_AccessibilityPanelContainer,
@@ -33,16 +33,14 @@ constexpr std::array<int, 20> kActivatableContainersIds = {
     // to be focused before these elements.
     kShellWindowId_PipContainer,
     kShellWindowId_ShelfContainer,
-    kShellWindowId_ShelfControlContainer,
     kShellWindowId_ShelfBubbleContainer,
-    kShellWindowId_OverviewFocusContainer,
 };
 
 }  // namespace
 
 // Note: this function avoids having a copy of |kActivatableContainersIds| in
 // each translation unit that references it.
-const std::array<int, 20>& GetActivatableShellWindowIds() {
+const std::array<int, 18>& GetActivatableShellWindowIds() {
   return kActivatableContainersIds;
 }
 

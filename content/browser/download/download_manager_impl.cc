@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/callback.h"
 #include "base/debug/alias.h"
 #include "base/files/file_util.h"
@@ -22,9 +23,11 @@
 #include "base/supports_user_data.h"
 #include "base/synchronization/lock.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "build/build_config.h"
 #include "components/download/database/in_progress/download_entry.h"
 #include "components/download/public/common/download_create_info.h"
+#include "components/download/public/common/download_danger_type.h"
 #include "components/download/public/common/download_features.h"
 #include "components/download/public/common/download_file.h"
 #include "components/download/public/common/download_interrupt_reasons.h"
@@ -71,6 +74,7 @@
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #include "net/base/elements_upload_data_stream.h"
 #include "net/base/load_flags.h"
+#include "net/base/registry_controlled_domains/registry_controlled_domain.h"
 #include "net/base/request_priority.h"
 #include "net/base/upload_bytes_element_reader.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
@@ -206,11 +210,10 @@ class DownloadItemFactoryImpl : public download::DownloadItemFactory {
       const base::FilePath& path,
       const GURL& url,
       const std::string& mime_type,
-      const net::NetworkIsolationKey& network_isolation_key,
       download::DownloadJob::CancelRequestCallback cancel_request_callback)
       override {
     return new download::DownloadItemImpl(delegate, download_id, path, url,
-                                          mime_type, network_isolation_key,
+                                          mime_type,
                                           std::move(cancel_request_callback));
   }
 };
@@ -243,7 +246,7 @@ CreatePendingSharedURLLoaderFactory(StoragePartitionImpl* storage_partition,
     // Allow DevTools to potentially inject itself into the proxy pipe.
     should_proxy = devtools_instrumentation::WillCreateURLLoaderFactory(
         static_cast<RenderFrameHostImpl*>(rfh), true, is_download,
-        &maybe_proxy_factory_receiver);
+        &maybe_proxy_factory_receiver, nullptr /* factory_override */);
 
     // Also allow the Content embedder to inject itself if it wants to.
     should_proxy |= GetContentClient()->browser()->WillCreateURLLoaderFactory(
@@ -278,6 +281,32 @@ CreatePendingSharedURLLoaderFactoryFromURLLoaderFactory(
       std::move(factory_remote));
 }
 
+void RecordDownloadOpenerType(RenderFrameHost* current,
+                              RenderFrameHost* opener) {
+  DCHECK(current);
+  DCHECK(opener);
+  if (!opener->GetLastCommittedURL().SchemeIsHTTPOrHTTPS() ||
+      !current->GetLastCommittedURL().SchemeIsHTTPOrHTTPS()) {
+    UMA_HISTOGRAM_ENUMERATION("Download.InitiatedByWindowOpener",
+                              InitiatedByWindowOpenerType::kNonHTTPOrHTTPS);
+    return;
+  }
+  if (opener->GetLastCommittedOrigin() == current->GetLastCommittedOrigin()) {
+    UMA_HISTOGRAM_ENUMERATION("Download.InitiatedByWindowOpener",
+                              InitiatedByWindowOpenerType::kSameOrigin);
+    return;
+  }
+  if (net::registry_controlled_domains::SameDomainOrHost(
+          opener->GetLastCommittedOrigin(), current->GetLastCommittedOrigin(),
+          net::registry_controlled_domains::INCLUDE_PRIVATE_REGISTRIES)) {
+    UMA_HISTOGRAM_ENUMERATION("Download.InitiatedByWindowOpener",
+                              InitiatedByWindowOpenerType::kSameSite);
+    return;
+  }
+  UMA_HISTOGRAM_ENUMERATION("Download.InitiatedByWindowOpener",
+                            InitiatedByWindowOpenerType::kCrossOrigin);
+}
+
 }  // namespace
 
 DownloadManagerImpl::DownloadManagerImpl(BrowserContext* browser_context)
@@ -292,11 +321,8 @@ DownloadManagerImpl::DownloadManagerImpl(BrowserContext* browser_context)
       next_download_id_(download::DownloadItem::kInvalidId),
       is_history_download_id_retrieved_(false),
       should_persist_new_download_(false),
-      cancelled_download_cleared_from_history_(0),
-      interrupted_download_cleared_from_history_(0),
-      disk_access_task_runner_(base::CreateSequencedTaskRunner(
-          {base::ThreadPool(), base::MayBlock(),
-           base::TaskPriority::BEST_EFFORT,
+      disk_access_task_runner_(base::ThreadPool::CreateSequencedTaskRunner(
+          {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
            base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN})) {
   DCHECK(browser_context);
 
@@ -528,8 +554,6 @@ bool DownloadManagerImpl::InterceptDownload(
     DropDownload();
     return true;
   }
-  content::devtools_instrumentation::WillBeginDownload(
-      info.render_process_id, info.render_frame_id, info.url());
   return false;
 }
 
@@ -617,6 +641,7 @@ void DownloadManagerImpl::CreateNewDownloadItemToStart(
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
   download::DownloadItemImpl* download = CreateActiveItem(id, *info);
+  content::devtools_instrumentation::WillBeginDownload(info.get(), download);
   std::move(callback).Run(std::move(info), download,
                           should_persist_new_download_);
   if (download) {
@@ -746,13 +771,8 @@ void DownloadManagerImpl::CreateSavePackageDownloadItemWithId(
   DCHECK_NE(download::DownloadItem::kInvalidId, id);
   DCHECK(!base::Contains(downloads_, id));
 
-  content::RenderFrameHost* rfh =
-      RenderFrameHost::FromID(render_process_id, render_frame_id);
-  net::NetworkIsolationKey network_isolation_key =
-      rfh ? rfh->GetNetworkIsolationKey() : net::NetworkIsolationKey();
-
   download::DownloadItemImpl* download_item = item_factory_->CreateSavePageItem(
-      this, id, main_file_path, page_url, mime_type, network_isolation_key,
+      this, id, main_file_path, page_url, mime_type,
       std::move(cancel_request_callback));
   DownloadItemUtils::AttachInfo(download_item, GetBrowserContext(),
                                 WebContentsImpl::FromRenderFrameHostID(
@@ -848,7 +868,8 @@ void DownloadManagerImpl::InterceptNavigation(
 
   delegate_->CheckDownloadAllowed(
       std::move(web_contents_getter), url, method, std::move(request_initiator),
-      from_download_cross_origin_redirect, std::move(on_download_checks_done));
+      from_download_cross_origin_redirect, false /*content_initiated*/,
+      std::move(on_download_checks_done));
 }
 
 int DownloadManagerImpl::RemoveDownloadsByURLAndTime(
@@ -1051,16 +1072,6 @@ void DownloadManagerImpl::PostInitialization(
     in_progress_manager_->RemoveInProgressDownload(guid);
   }
 
-  if (cancelled_download_cleared_from_history_ > 0) {
-    UMA_HISTOGRAM_COUNTS_1000("Download.CancelledDownloadRemovedFromHistory",
-                              cancelled_download_cleared_from_history_);
-  }
-
-  if (interrupted_download_cleared_from_history_ > 0) {
-    UMA_HISTOGRAM_COUNTS_1000("Download.InterruptedDownloadsRemovedFromHistory",
-                              interrupted_download_cleared_from_history_);
-  }
-
   if (in_progress_downloads_.empty()) {
     OnDownloadManagerInitialized();
   } else {
@@ -1124,7 +1135,9 @@ int DownloadManagerImpl::NonMaliciousInProgressCount() {
         it.second->GetDangerType() !=
             download::DOWNLOAD_DANGER_TYPE_DANGEROUS_HOST &&
         it.second->GetDangerType() !=
-            download::DOWNLOAD_DANGER_TYPE_POTENTIALLY_UNWANTED) {
+            download::DOWNLOAD_DANGER_TYPE_POTENTIALLY_UNWANTED &&
+        it.second->GetDangerType() !=
+            download::DOWNLOAD_DANGER_TYPE_DEEP_SCANNED_OPENED_DANGEROUS) {
       ++count;
     }
   }
@@ -1215,6 +1228,10 @@ void DownloadManagerImpl::InterceptNavigationOnChecksComplete(
     if (entry) {
       tab_url = entry->GetURL();
       tab_referrer_url = entry->GetReferrer().url;
+    }
+    RenderFrameHost* opener = web_contents->GetOpener();
+    if (opener) {
+      RecordDownloadOpenerType(render_frame_host, opener);
     }
   }
   StoragePartitionImpl* storage_partition =
@@ -1374,7 +1391,7 @@ void DownloadManagerImpl::BeginDownloadInternal(
     if (delegate_) {
       delegate_->CheckDownloadAllowed(
           std::move(web_contents_getter), url, method, std::move(initiator),
-          false /* from_download_cross_origin_redirect */,
+          false /* from_download_cross_origin_redirect */, content_initiated,
           std::move(on_can_download_checks_done));
       return;
     }
@@ -1403,14 +1420,11 @@ bool DownloadManagerImpl::ShouldClearDownloadFromDB(
   // the system time can affect this.
   bool expired = base::Time::Now() - start_time >=
                  download::GetExpiredDownloadDeleteTime();
-  if (state == download::DownloadItem::CANCELLED && expired) {
-    ++cancelled_download_cleared_from_history_;
+  if (state == download::DownloadItem::CANCELLED && expired)
     return true;
-  }
 
   if (reason != download::DOWNLOAD_INTERRUPT_REASON_NONE &&
       state == download::DownloadItem::INTERRUPTED && expired) {
-    ++interrupted_download_cleared_from_history_;
     return true;
   }
 

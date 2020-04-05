@@ -113,7 +113,6 @@ class CORE_EXPORT HTMLImageElement final
   void setHeight(unsigned);
   void setWidth(unsigned);
 
-  IntSize GetOverriddenIntrinsicSize() const;
   bool IsDefaultIntrinsicSize() const {
     return is_default_overridden_intrinsic_size_;
   }
@@ -177,6 +176,10 @@ class CORE_EXPORT HTMLImageElement final
   bool IsImagePolicyViolated() {
     return is_legacy_format_or_unoptimized_image_;
   }
+
+  // Keeps track of whether the image comes from an ad.
+  void SetIsAdRelated() { is_ad_related_ = true; }
+  bool IsAdRelated() const override { return is_ad_related_; }
 
  protected:
   // Controls how an image element appears in the layout. See:
@@ -245,21 +248,21 @@ class CORE_EXPORT HTMLImageElement final
   float image_device_pixel_ratio_;
   Member<HTMLSourceElement> source_;
   LayoutDisposition layout_disposition_;
-  unsigned form_was_set_by_parser_ : 1;
-  unsigned element_created_by_parser_ : 1;
-  unsigned is_fallback_image_ : 1;
-  bool is_default_overridden_intrinsic_size_;
+  bool form_was_set_by_parser_ : 1;
+  bool element_created_by_parser_ : 1;
+  bool is_fallback_image_ : 1;
+  bool is_default_overridden_intrinsic_size_ : 1;
   // This flag indicates if the image violates one or more optimized image
   // policies. When any policy is violated, the image should be rendered as a
   // placeholder image.
-  bool is_legacy_format_or_unoptimized_image_;
+  bool is_legacy_format_or_unoptimized_image_ : 1;
 
   network::mojom::ReferrerPolicy referrer_policy_;
 
-  IntSize overridden_intrinsic_size_;
-
   std::unique_ptr<LazyLoadImageObserver::VisibleLoadTimeMetrics>
       visible_load_time_metrics_;
+
+  bool is_ad_related_ = false;
 };
 
 }  // namespace blink

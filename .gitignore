@@ -33,6 +33,7 @@
 .*.sw?
 .DS_Store
 .android
+.ccls-cache
 .cipd
 .classpath
 .code-coverage
@@ -112,6 +113,7 @@ vs-chromium-project.txt
 # Asset files downloaded by gclient runhooks.
 /chrome/browser/resources/vr/assets/google_chrome/*.png
 /chrome/browser/resources/vr/assets/google_chrome/*.wav
+/chrome/browser/sharing/internal
 /chrome/browser/spellchecker/internal
 /chrome/browser/ui/media_router/internal
 /chrome/browser_tests_run.xml
@@ -130,6 +132,7 @@ vs-chromium-project.txt
 /chrome/installer/mini_installer_tests_run.xml
 /chrome/installer_util_strings.xml
 /chrome/interactive_ui_tests_run.xml
+/chrome/services/soda/internal
 /chrome/setup.xml
 /chrome/setup_unittests.xml
 /chrome/sync_integration_tests_run.xml
@@ -171,6 +174,7 @@ vs-chromium-project.txt
 /chromeos/assistant/internal
 /chromeos/components/help_app_ui/resources/app
 /chromeos/components/media_app_ui/resources/app
+/chromeos/components/media_app_ui/resources/pkg
 /chromeos/profiles/chromeos.orderfile.txt
 /chromeos/profiles/*.local.txt
 /chromeos/profiles/*.afdo.prof
@@ -188,6 +192,8 @@ vs-chromium-project.txt
 /components/resources/default_300_percent/google_chrome
 /components/search_engines/prepopulated_engines.xml
 /components/suggestions.xml
+/components/test/data/paint_preview/**/*.pb
+/components/test/data/paint_preview/**/*.skp
 /components/variations.xml
 /components/zucchini/testdata/*.exe
 /content/browser/service_worker/proto.xml

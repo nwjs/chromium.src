@@ -3,7 +3,7 @@
  * found in the LICENSE file. */
 
 #pinKeyboardContainer {
-  margin-top: 36px;
+  margin-top: 30px;
   position: relative;
 }
 
@@ -11,6 +11,7 @@
   --pin-keyboard-pin-input-style: {
     width: 192px;
   };
+  --pin-keyboard-input-letter-spacing: 13px;
   --pin-keyboard-number-color: var(--google-grey-900);
   --cr-icon-button-margin-start: 5px;
 }
@@ -18,7 +19,7 @@
 #errorContainer {
   color: var(--google-red-600);
   font-size: 12px;
-  padding: 1px 0 3px;
+  padding: 4px 0 0;
   text-align: center;
   width: 100%;
 }

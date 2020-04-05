@@ -7,6 +7,7 @@
 #include <utility>
 
 #include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/strings/string16.h"
 #include "base/system/sys_info.h"
 #include "chrome/browser/chromeos/crostini/crostini_installer.h"
@@ -34,6 +35,7 @@ namespace {
 void AddStringResources(content::WebUIDataSource* source) {
   static constexpr webui::LocalizedString kStrings[] = {
       {"next", IDS_CROSTINI_INSTALLER_NEXT_BUTTON},
+      {"back", IDS_CROSTINI_INSTALLER_BACK_BUTTON},
       {"install", IDS_CROSTINI_INSTALLER_INSTALL_BUTTON},
       {"retry", IDS_CROSTINI_INSTALLER_RETRY_BUTTON},
       {"close", IDS_APP_CLOSE},
@@ -73,6 +75,12 @@ void AddStringResources(content::WebUIDataSource* source) {
       {"configureMessage", IDS_CROSTINI_INSTALLER_CONFIGURE_MESSAGE},
       {"diskSizeMessage", IDS_CROSTINI_INSTALLER_DISK_SIZE_MESSAGE},
       {"usernameMessage", IDS_CROSTINI_INSTALLER_USERNAME_MESSAGE},
+      {"usernameInvalidFirstCharacterError",
+       IDS_CROSTINI_INSTALLER_USERNAME_INVALID_FIRST_CHARACTER_ERROR},
+      {"usernameInvalidCharactersError",
+       IDS_CROSTINI_INSTALLER_USERNAME_INVALID_CHARACTERS_ERROR},
+      {"usernameNotAvailableError",
+       IDS_CROSTINI_INSTALLER_USERNAME_NOT_AVAILABLE_ERROR},
   };
   AddLocalizedStringsBulk(source, kStrings);
 
@@ -130,7 +138,7 @@ CrostiniInstallerUI::CrostiniInstallerUI(content::WebUI* web_ui)
                           IDR_CROSTINI_INSTALLER_BROWSER_PROXY_JS);
   source->AddResourcePath("crostini_installer.mojom-lite.js",
                           IDR_CROSTINI_INSTALLER_MOJO_LITE_JS);
-  source->AddResourcePath("crostini_installer_types.mojom-lite.js",
+  source->AddResourcePath("crostini_types.mojom-lite.js",
                           IDR_CROSTINI_INSTALLER_TYPES_MOJO_LITE_JS);
   source->AddResourcePath("test_loader.js", IDR_WEBUI_JS_TEST_LOADER);
   source->AddResourcePath("test_loader.html", IDR_WEBUI_HTML_TEST_LOADER);
@@ -151,8 +159,13 @@ bool CrostiniInstallerUI::can_close() {
 
 void CrostiniInstallerUI::ClickInstallForTesting() {
   web_ui()->GetWebContents()->GetMainFrame()->ExecuteJavaScriptForTests(
-      base::ASCIIToUTF16("document.querySelector('crostini-installer-app')"
-                         ".$$('.action-button').click()"),
+      base::ASCIIToUTF16(
+          "const app = document.querySelector('crostini-installer-app');"
+          // If flag CrostiniUsername or CrostiniDiskResizing is turned on,
+          // there will be a "next" button and we should click it to go to the
+          // config page before clicking "install" button.
+          "app.$$('#next:not([hidden])')?.click();"
+          "app.$.install.click();"),
       base::NullCallback());
 }
 

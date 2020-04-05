@@ -109,6 +109,7 @@
 #endif
 
 #if defined(TOOLKIT_VIEWS)
+#include "chrome/browser/ui/views/tabs/tab.h"
 #include "chrome/test/views/accessibility_checker.h"
 #include "ui/views/views_delegate.h"
 #endif
@@ -123,7 +124,7 @@ class FakeDeviceSyncImplFactory
   ~FakeDeviceSyncImplFactory() override = default;
 
   // chromeos::device_sync::DeviceSyncImpl::Factory:
-  std::unique_ptr<chromeos::device_sync::DeviceSyncBase> BuildInstance(
+  std::unique_ptr<chromeos::device_sync::DeviceSyncBase> CreateInstance(
       signin::IdentityManager* identity_manager,
       gcm::GCMDriver* gcm_driver,
       PrefService* profile_prefs,
@@ -244,6 +245,10 @@ void InProcessBrowserTest::SetUp() {
                                       chrome::kTestUserProfileDir);
     }
   }
+
+  // By default, OS settings are not opened in a browser tab but in settings
+  // app. OS browsertests require OS settings to be opened in a browser tab.
+  SetAllowOsSettingsInTabForTesting(true);
 #endif
 
   SetScreenInstance();
@@ -258,8 +263,8 @@ void InProcessBrowserTest::SetUp() {
 #endif
 
 #if BUILDFLAG(ENABLE_CAPTIVE_PORTAL_DETECTION)
-  CaptivePortalService::set_state_for_testing(
-      CaptivePortalService::DISABLED_FOR_TESTING);
+  captive_portal::CaptivePortalService::set_state_for_testing(
+      captive_portal::CaptivePortalService::DISABLED_FOR_TESTING);
 #endif
 
   chrome_browser_net::NetErrorTabHelper::set_state_for_testing(
@@ -268,7 +273,7 @@ void InProcessBrowserTest::SetUp() {
   google_util::SetMockLinkDoctorBaseURLForTesting();
 
 #if defined(OS_CHROMEOS)
-  chromeos::device_sync::DeviceSyncImpl::Factory::SetInstanceForTesting(
+  chromeos::device_sync::DeviceSyncImpl::Factory::SetFactoryForTesting(
       GetFakeDeviceSyncImplFactory());
 
   // On Chrome OS, access to files via file: scheme is restricted. Enable
@@ -287,6 +292,13 @@ void InProcessBrowserTest::SetUp() {
                                     default_download_dir_.GetPath()));
 
   AfterStartupTaskUtils::DisableScheduleTaskDelayForTesting();
+
+#if defined(TOOLKIT_VIEWS)
+  // Prevent hover cards from appearing when the mouse is over the tab. Tests
+  // don't typically account for this possibly, so it can cause unrelated tests
+  // to fail. See crbug.com/1050012.
+  Tab::SetShowHoverCardOnMouseHoverForTesting(false);
+#endif  // defined(TOOLKIT_VIEWS)
 
   BrowserTestBase::SetUp();
 }
@@ -313,8 +325,7 @@ void InProcessBrowserTest::TearDown() {
 #endif
 
 #if defined(OS_CHROMEOS)
-  chromeos::device_sync::DeviceSyncImpl::Factory::SetInstanceForTesting(
-      nullptr);
+  chromeos::device_sync::DeviceSyncImpl::Factory::SetFactoryForTesting(nullptr);
 #endif
 }
 

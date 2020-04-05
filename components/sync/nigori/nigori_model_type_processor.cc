@@ -8,6 +8,7 @@
 #include "base/threading/sequenced_task_runner_handle.h"
 #include "components/sync/base/client_tag_hash.h"
 #include "components/sync/base/data_type_histogram.h"
+#include "components/sync/base/sync_base_switches.h"
 #include "components/sync/base/time.h"
 #include "components/sync/engine/commit_queue.h"
 #include "components/sync/engine_impl/conflict_resolver.h"
@@ -167,9 +168,6 @@ void NigoriModelTypeProcessor::OnUpdateReceived(
     // of reapplying pending local changes after processing the remote update.
     entity_->RecordForcedUpdate(updates[0]);
     error = bridge_->ApplySyncChanges(std::move(updates[0].entity));
-    UMA_HISTOGRAM_ENUMERATION("Sync.ResolveConflict",
-                              ConflictResolution::kUseRemote,
-                              ConflictResolution::kTypeSize);
     UMA_HISTOGRAM_ENUMERATION("Sync.ResolveSimpleConflict",
                               ConflictResolver::NIGORI_MERGE,
                               ConflictResolver::CONFLICT_RESOLUTION_SIZE);
@@ -220,14 +218,9 @@ void NigoriModelTypeProcessor::OnSyncStopping(
     }
 
     case syncer::CLEAR_METADATA: {
-      // The bridge is responsible for deleting all data and metadata upon
-      // disabling sync.
-      bridge_->ApplyDisableSyncChanges();
+      ClearMetadataAndReset();
       model_ready_to_sync_ = false;
-      entity_.reset();
-      model_type_state_ = sync_pb::ModelTypeState();
-      model_type_state_.mutable_progress_marker()->set_data_type_id(
-          sync_pb::EntitySpecifics::kNigoriFieldNumber);
+
       // The model is still ready to sync (with the same |bridge_|) and same
       // sync metadata.
       ModelReadyToSync(bridge_, NigoriMetadataBatch());
@@ -398,6 +391,11 @@ bool NigoriModelTypeProcessor::IsConnectedForTest() const {
   return IsConnected();
 }
 
+const sync_pb::ModelTypeState&
+NigoriModelTypeProcessor::GetModelTypeStateForTest() {
+  return model_type_state_;
+}
+
 bool NigoriModelTypeProcessor::IsTrackingMetadata() {
   return model_type_state_.initial_sync_done();
 }
@@ -420,11 +418,23 @@ void NigoriModelTypeProcessor::ConnectIfReady() {
     return;
   }
 
-  if (!model_type_state_.has_cache_guid()) {
+  if (base::FeatureList::IsEnabled(
+          switches::kSyncNigoriRemoveMetadataOnCacheGuidMismatch)) {
+    if (model_type_state_.initial_sync_done() &&
+        model_type_state_.cache_guid() != activation_request_.cache_guid) {
+      ClearMetadataAndReset();
+      DCHECK(model_ready_to_sync_);
+    }
+
     model_type_state_.set_cache_guid(activation_request_.cache_guid);
-  } else if (model_type_state_.cache_guid() != activation_request_.cache_guid) {
-    // TODO(mamir): implement error handling in case of cache GUID mismatch.
-    NOTIMPLEMENTED();
+  } else {
+    // Legacy logic.
+    if (!model_type_state_.has_cache_guid()) {
+      model_type_state_.set_cache_guid(activation_request_.cache_guid);
+    } else if (model_type_state_.cache_guid() !=
+               activation_request_.cache_guid) {
+      // Not implemented in legacy codepath.
+    }
   }
 
   // Cache GUID verification earlier above guarantees the user is the same.
@@ -454,6 +464,16 @@ void NigoriModelTypeProcessor::NudgeForCommitIfNeeded() const {
   if (entity_->RequiresCommitRequest()) {
     worker_->NudgeForCommit();
   }
+}
+
+void NigoriModelTypeProcessor::ClearMetadataAndReset() {
+  // The bridge is responsible for deleting all data and metadata upon
+  // disabling sync.
+  bridge_->ApplyDisableSyncChanges();
+  entity_.reset();
+  model_type_state_ = sync_pb::ModelTypeState();
+  model_type_state_.mutable_progress_marker()->set_data_type_id(
+      sync_pb::EntitySpecifics::kNigoriFieldNumber);
 }
 
 }  // namespace syncer

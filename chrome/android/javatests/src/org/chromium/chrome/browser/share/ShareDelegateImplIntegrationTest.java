@@ -18,9 +18,8 @@ import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.MetricsUtils.HistogramDelta;
 import org.chromium.chrome.browser.ActivityTabProvider;
 import org.chromium.chrome.browser.ChromeActivity;
-import org.chromium.chrome.browser.ChromeSwitches;
+import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.share.ShareDelegateImpl.ShareSheetDelegate;
-import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.widget.bottomsheet.BottomSheetController;
 import org.chromium.chrome.test.ChromeActivityTestRule;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
@@ -115,15 +114,14 @@ public class ShareDelegateImplIntegrationTest {
             ShareSheetDelegate delegate = new ShareSheetDelegate() {
                 @Override
                 void share(ShareParams params, BottomSheetController controller,
-                        ActivityTabProvider tabProvider, TabCreatorManager.TabCreator tabCreator) {
+                        ActivityTabProvider tabProvider, long shareStartTime) {
                     paramsRef.set(params);
                     helper.notifyCalled();
                 }
             };
 
             new ShareDelegateImpl(mActivityTestRule.getActivity().getBottomSheetController(),
-                    mActivityTestRule.getActivity().getActivityTabProvider(), delegate,
-                    mActivityTestRule.getActivity().getCurrentTabCreator())
+                    mActivityTestRule.getActivity().getActivityTabProvider(), delegate)
                     .share(mActivityTestRule.getActivity().getActivityTab(), false);
         });
         helper.waitForCallback(0);

@@ -5,12 +5,13 @@
 package org.chromium.chrome.browser.accessibility_tab_switcher;
 
 import android.os.SystemClock;
-import android.support.design.widget.TabLayout;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.filters.MediumTest;
 import android.view.View;
 import android.widget.ListView;
 import android.widget.TextView;
+
+import com.google.android.material.tabs.TabLayout;
 
 import org.junit.Assert;
 import org.junit.Before;
@@ -25,8 +26,8 @@ import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.base.test.util.RetryOnFailure;
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutTab;
+import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.EmptyTabModelObserver;
 import org.chromium.chrome.browser.tabmodel.TabModel;

@@ -4,6 +4,13 @@
 
 #include "content/public/browser/content_browser_client.h"
 
+// content_browser_client.h is a widely included header and its size impacts
+// build time significantly. If you run into this limit, try using forward
+// declarations instead of including more headers. If that is infeasible, adjust
+// the limit. For more info, see
+// https://chromium.googlesource.com/chromium/src/+/HEAD/docs/wmax_tokens.md
+#pragma clang max_tokens_here 820000
+
 #include <utility>
 
 #include "base/feature_list.h"
@@ -30,6 +37,7 @@
 #include "content/public/common/url_utils.h"
 #include "media/audio/audio_manager.h"
 #include "media/media_buildflags.h"
+#include "media/mojo/mojom/media_service.mojom.h"
 #include "mojo/public/cpp/bindings/associated_interface_ptr.h"
 #include "net/ssl/client_cert_identity.h"
 #include "net/ssl/client_cert_store.h"
@@ -81,6 +89,10 @@ bool ContentBrowserClient::AllowGpuLaunchRetryOnIOThread() {
   return true;
 }
 
+bool ContentBrowserClient::CanShutdownGpuProcessNowOnIOThread() {
+  return false;
+}
+
 GURL ContentBrowserClient::GetEffectiveURL(BrowserContext* browser_context,
                                            const GURL& url) {
   DCHECK(browser_context);
@@ -110,7 +122,8 @@ bool ContentBrowserClient::ShouldUseMobileFlingCurve() {
 }
 
 bool ContentBrowserClient::ShouldUseProcessPerSite(
-    BrowserContext* browser_context, const GURL& effective_url) {
+    BrowserContext* browser_context,
+    const GURL& effective_url) {
   DCHECK(browser_context);
   return false;
 }
@@ -180,13 +193,6 @@ bool ContentBrowserClient::CanCommitURL(RenderProcessHost* process_host,
   return true;
 }
 
-bool ContentBrowserClient::IsURLAcceptableForWebUI(
-    BrowserContext* browser_context,
-    const GURL& url) {
-  DCHECK(browser_context);
-  return false;
-}
-
 bool ContentBrowserClient::ShouldStayInParentProcessForNTP(
     const GURL& url,
     SiteInstance* parent_site_instance) {
@@ -203,7 +209,8 @@ bool ContentBrowserClient::MayReuseHost(RenderProcessHost* process_host) {
 }
 
 bool ContentBrowserClient::ShouldTryToUseExistingProcessHost(
-      BrowserContext* browser_context, const GURL& url) {
+    BrowserContext* browser_context,
+    const GURL& url) {
   DCHECK(browser_context);
   return false;
 }
@@ -493,7 +500,7 @@ MediaObserver* ContentBrowserClient::GetMediaObserver() {
   return nullptr;
 }
 
-LockObserver* ContentBrowserClient::GetLockObserver() {
+FeatureObserverClient* ContentBrowserClient::GetFeatureObserverClient() {
   return nullptr;
 }
 
@@ -522,7 +529,7 @@ bool ContentBrowserClient::CanCreateWindow(
 }
 
 SpeechRecognitionManagerDelegate*
-    ContentBrowserClient::CreateSpeechRecognitionManagerDelegate() {
+ContentBrowserClient::CreateSpeechRecognitionManagerDelegate() {
   return nullptr;
 }
 
@@ -554,8 +561,8 @@ base::FilePath ContentBrowserClient::GetGrShaderDiskCacheDirectory() {
   return base::FilePath();
 }
 
-BrowserPpapiHost*
-    ContentBrowserClient::GetExternalBrowserPpapiHost(int plugin_process_id) {
+BrowserPpapiHost* ContentBrowserClient::GetExternalBrowserPpapiHost(
+    int plugin_process_id) {
   return nullptr;
 }
 
@@ -869,6 +876,10 @@ HidDelegate* ContentBrowserClient::GetHidDelegate() {
   return nullptr;
 }
 
+BluetoothDelegate* ContentBrowserClient::GetBluetoothDelegate() {
+  return nullptr;
+}
+
 bool ContentBrowserClient::ShowPaymentHandlerWindow(
     content::BrowserContext* browser_context,
     const GURL& url,
@@ -943,6 +954,10 @@ void ContentBrowserClient::OnNetworkServiceDataUseUpdate(
     int32_t network_traffic_annotation_id_hash,
     int64_t recv_bytes,
     int64_t sent_bytes) {}
+
+base::FilePath ContentBrowserClient::GetSandboxedStorageServiceDataDirectory() {
+  return base::FilePath();
+}
 
 content::PreviewsState ContentBrowserClient::DetermineAllowedPreviews(
     content::PreviewsState initial_state,
@@ -1047,11 +1062,24 @@ void ContentBrowserClient::IsClipboardPasteAllowed(
   std::move(callback).Run(ClipboardPasteAllowed(true));
 }
 
+bool ContentBrowserClient::CanEnterFullscreenWithoutUserActivation() {
+  return false;
+}
+
+void ContentBrowserClient::LogUkmEventForCrossOriginFetchFromContentScript3(
+    const std::string& isolated_world_host) {}
+
 #if BUILDFLAG(ENABLE_PLUGINS)
 bool ContentBrowserClient::ShouldAllowPluginCreation(
     const url::Origin& embedder_origin,
     const content::PepperPluginInfo& plugin_info) {
   return true;
+}
+#endif
+
+#if BUILDFLAG(ENABLE_VR)
+XrIntegrationClient* ContentBrowserClient::GetXrIntegrationClient() {
+  return nullptr;
 }
 #endif
 

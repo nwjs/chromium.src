@@ -13,7 +13,7 @@
 #include "base/task/lazy_thread_pool_task_runner.h"
 #include "build/build_config.h"
 #include "chrome/common/chrome_paths.h"
-#include "components/crash/content/app/crashpad.h"
+#include "components/crash/core/app/crashpad.h"
 
 namespace {
 
@@ -78,7 +78,7 @@ bool GoogleUpdateSettings::SetCollectStatsConsent(bool consented) {
 #if 0
 #if defined(OS_MACOSX)
   crash_reporter::SetUploadConsent(consented);
-#elif defined(OS_LINUX)
+#elif defined(OS_LINUX) && !defined(OS_CHROMEOS)
   if (crash_reporter::IsCrashpadEnabled()) {
     crash_reporter::SetUploadConsent(consented);
   }

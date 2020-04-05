@@ -10,7 +10,9 @@
 #include "base/barrier_closure.h"
 #include "base/bind.h"
 #include "base/bind_helpers.h"
+#include "base/callback_helpers.h"
 #include "base/location.h"
+#include "base/memory/ptr_util.h"
 #include "base/single_thread_task_runner.h"
 #include "base/task/post_task.h"
 #include "base/threading/thread_task_runner_handle.h"
@@ -744,6 +746,8 @@ void BackgroundSyncManager::InitDidGetControllerParameters(
     return;
   }
 
+  network_observer_->Init();
+
   GetDataFromBackend(
       kBackgroundSyncUserDataKey,
       base::BindOnce(&BackgroundSyncManager::InitDidGetDataFromBackend,
@@ -1214,7 +1218,7 @@ BackgroundSyncRegistration* BackgroundSyncManager::LookupActiveRegistration(
 
 void BackgroundSyncManager::StoreRegistrations(
     int64_t sw_registration_id,
-    ServiceWorkerStorage::StatusCallback callback) {
+    ServiceWorkerRegistry::StatusCallback callback) {
   DCHECK_CURRENTLY_ON(ServiceWorkerContext::GetCoreThreadId());
 
   // Serialize the data.
@@ -1411,7 +1415,7 @@ void BackgroundSyncManager::StoreDataInBackend(
     const url::Origin& origin,
     const std::string& backend_key,
     const std::string& data,
-    ServiceWorkerStorage::StatusCallback callback) {
+    ServiceWorkerRegistry::StatusCallback callback) {
   DCHECK_CURRENTLY_ON(ServiceWorkerContext::GetCoreThreadId());
 
   service_worker_context_->StoreRegistrationUserData(

@@ -9,7 +9,6 @@ import androidx.browser.trusted.TrustedWebActivityDisplayMode;
 import androidx.browser.trusted.TrustedWebActivityDisplayMode.ImmersiveMode;
 
 import org.chromium.chrome.browser.browserservices.BrowserServicesIntentDataProvider;
-import org.chromium.chrome.browser.browserservices.Origin;
 import org.chromium.chrome.browser.browserservices.TrustedWebActivityUmaRecorder;
 import org.chromium.chrome.browser.browserservices.trustedwebactivityui.controller.ClientPackageNameProvider;
 import org.chromium.chrome.browser.browserservices.trustedwebactivityui.controller.CurrentPageVerifier;
@@ -32,6 +31,7 @@ import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.lifecycle.InflationObserver;
 import org.chromium.chrome.browser.lifecycle.NativeInitObserver;
+import org.chromium.components.embedder_support.util.Origin;
 
 import javax.inject.Inject;
 
@@ -186,5 +186,18 @@ public class TrustedWebActivityCoordinator implements InflationObserver {
                         mIntentDataProvider.getSession(), null);
             }
         }
+    }
+
+    /** @return The package name of the Trusted Web Activity. */
+    public String getTwaPackage() {
+        return mClientPackageNameProvider.get();
+    }
+
+    /**
+     * @return Whether the app is running in the "Trusted Web Activity" mode, where the
+     *         TWA-specific UI is shown.
+     */
+    public boolean isInTwaMode() {
+        return mInTwaMode;
     }
 }

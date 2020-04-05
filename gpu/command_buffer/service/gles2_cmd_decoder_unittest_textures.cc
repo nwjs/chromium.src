@@ -4020,23 +4020,20 @@ TEST_P(GLES2DecoderManualInitTest, TexImage2DFloatConvertsFormatDesktop) {
                                     GL_LUMINANCE_ALPHA32F_ARB);
 }
 
-TEST_P(GLES2DecoderManualInitTest, TexImage2Dnorm16OnGLES2) {
-  InitState init;
-  init.extensions = "GL_EXT_texture_norm16";
-  init.gl_version = "OpenGL ES 2.0";
-  InitDecoder(init);
-  DoBindTexture(GL_TEXTURE_2D, client_texture_id_, kServiceTextureId);
-  DoTexImage2D(GL_TEXTURE_2D, 0, GL_RED, 16, 17, 0, GL_RED, GL_UNSIGNED_SHORT,
-               0, 0);
-}
-
 TEST_P(GLES2DecoderManualInitTest, TexImage2Dnorm16OnGLES3) {
   InitState init;
   init.extensions = "GL_EXT_texture_norm16";
   init.gl_version = "OpenGL ES 3.0";
+  init.context_type = CONTEXT_TYPE_OPENGLES3;
   InitDecoder(init);
   DoBindTexture(GL_TEXTURE_2D, client_texture_id_, kServiceTextureId);
   DoTexImage2D(GL_TEXTURE_2D, 0, GL_R16_EXT, 16, 17, 0, GL_RED,
+               GL_UNSIGNED_SHORT, 0, 0);
+  DoTexImage2D(GL_TEXTURE_2D, 0, GL_RG16_EXT, 16, 17, 0, GL_RG,
+               GL_UNSIGNED_SHORT, 0, 0);
+  DoTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16_EXT, 16, 17, 0, GL_RGB,
+               GL_UNSIGNED_SHORT, 0, 0);
+  DoTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16_EXT, 16, 17, 0, GL_RGBA,
                GL_UNSIGNED_SHORT, 0, 0);
 }
 
@@ -4158,6 +4155,22 @@ TEST_P(GLES2DecoderCompressedFormatsTest, GetCompressedTextureFormatsASTC) {
   CheckFormats("GL_KHR_texture_compression_astc_ldr", formats, 28);
 }
 
+TEST_P(GLES2DecoderCompressedFormatsTest, GetCompressedTextureFormatsBPTC) {
+  const GLenum formats[] = {GL_COMPRESSED_RGBA_BPTC_UNORM_EXT,
+                            GL_COMPRESSED_SRGB_ALPHA_BPTC_UNORM_EXT,
+                            GL_COMPRESSED_RGB_BPTC_SIGNED_FLOAT_EXT,
+                            GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT_EXT};
+  CheckFormats("GL_EXT_texture_compression_bptc", formats, 4);
+}
+
+TEST_P(GLES2DecoderCompressedFormatsTest, GetCompressedTextureFormatsRGTC) {
+  const GLenum formats[] = {GL_COMPRESSED_RED_RGTC1_EXT,
+                            GL_COMPRESSED_SIGNED_RED_RGTC1_EXT,
+                            GL_COMPRESSED_RED_GREEN_RGTC2_EXT,
+                            GL_COMPRESSED_SIGNED_RED_GREEN_RGTC2_EXT};
+  CheckFormats("GL_EXT_texture_compression_rgtc", formats, 4);
+}
+
 TEST_P(GLES2DecoderManualInitTest, GetNoCompressedTextureFormats) {
   InitState init;
   init.bind_generates_resource = true;
@@ -4204,7 +4217,7 @@ TEST_P(GLES2DecoderManualInitTest, TexStorageInvalidLevels) {
   cmds::TexStorage2DEXT cmd;
   cmd.Init(GL_TEXTURE_RECTANGLE_ARB, 2, GL_RGBA8, 4, 4);
   EXPECT_EQ(error::kNoError, ExecuteCmd(cmd));
-  EXPECT_EQ(GL_INVALID_VALUE, GetGLError());
+  EXPECT_EQ(GL_INVALID_OPERATION, GetGLError());
 }
 
 TEST_P(GLES2DecoderManualInitTest, TexStorageInvalidSize) {

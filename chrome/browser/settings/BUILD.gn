@@ -5,44 +5,34 @@
 import("//build/config/android/rules.gni")
 
 android_library("java") {
-  sources = [
-    "android/java/src/org/chromium/chrome/browser/settings/ManagedPreferenceDelegate.java",
-    "android/java/src/org/chromium/chrome/browser/settings/ManagedPreferencesUtils.java",
-    "android/java/src/org/chromium/chrome/browser/settings/SearchUtils.java",
-    "android/java/src/org/chromium/chrome/browser/settings/SettingsUtils.java",
-    "android/widget/java/src/org/chromium/chrome/browser/settings/ButtonPreference.java",
-    "android/widget/java/src/org/chromium/chrome/browser/settings/ChromeBaseCheckBoxPreference.java",
-    "android/widget/java/src/org/chromium/chrome/browser/settings/ChromeBasePreference.java",
-    "android/widget/java/src/org/chromium/chrome/browser/settings/ChromeImageViewPreference.java",
-    "android/widget/java/src/org/chromium/chrome/browser/settings/ChromeSwitchPreference.java",
-    "android/widget/java/src/org/chromium/chrome/browser/settings/ExpandablePreferenceGroup.java",
-    "android/widget/java/src/org/chromium/chrome/browser/settings/SpinnerPreference.java",
-    "android/widget/java/src/org/chromium/chrome/browser/settings/TextMessagePreference.java",
-  ]
+  sources = [ "android/java/src/org/chromium/chrome/browser/settings/ChromeManagedPreferenceDelegate.java" ]
   deps = [
-    ":java_resources",
-    "//base:base_java",
     "//chrome/browser/preferences:java",
-    "//chrome/browser/util:java",
-    "//third_party/android_deps:android_support_v7_appcompat_java",
-    "//third_party/android_deps:androidx_annotation_annotation_java",
-    "//third_party/android_deps:com_android_support_preference_v7_java",
-
-    # TODO(crbug.com/1017190): Remove the following deps once we stop linting individual targets.
-    "//components/browser_ui/styles/android:java_resources",
-    "//third_party/android_deps:com_android_support_design_java",
-    "//ui/android:ui_java",
+    "//components/browser_ui/settings/android:java",
   ]
 }
 
-android_resources("java_resources") {
-  deps = [
-    "//chrome/browser/ui/android/strings:ui_strings_grd",
-    "//components/browser_ui/styles/android:java_resources",
-    "//third_party/android_deps:com_android_support_design_java",
-    "//third_party/android_deps:com_android_support_preference_v7_java",
-    "//ui/android:ui_java_resources",
+android_library("javatests") {
+  testonly = true
+
+  sources = [
+    "android/java/src/org/chromium/chrome/browser/settings/ChromeBasePreferenceTest.java",
+    "android/java/src/org/chromium/chrome/browser/settings/ChromeImageViewPreferenceTest.java",
+    "android/java/src/org/chromium/chrome/browser/settings/DummySettingsForTest.java",
+    "android/java/src/org/chromium/chrome/browser/settings/ManagedPreferencesUtilsTest.java",
   ]
-  resource_dirs = [ "android/java/res" ]
-  custom_package = "org.chromium.chrome.browser.settings"
+
+  deps = [
+    ":java",
+    "//chrome/android:chrome_java",
+    "//chrome/test/android:chrome_java_test_support",
+    "//content/public/test/android:content_java_test_support",
+    "//third_party/android_deps:android_support_v7_appcompat_java",
+    "//third_party/android_deps:androidx_preference_preference_java",
+    "//third_party/android_support_test_runner:rules_java",
+    "//third_party/android_support_test_runner:runner_java",
+    "//third_party/espresso:espresso_all_java",
+    "//third_party/hamcrest:hamcrest_java",
+    "//third_party/junit",
+  ]
 }

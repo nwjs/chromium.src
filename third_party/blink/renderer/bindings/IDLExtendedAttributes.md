@@ -333,6 +333,18 @@ In the example above, named properties in `HTMLCollection` instances (such as th
 
 The `[LegacyUnenumerableNamedProperties]` extended attribute must be used **only** in interfaces that support named properties.
 
+### [LegacyWindowAlias] _(i)_
+
+Standard: [LegacyWindowAlias](https://heycam.github.io/webidl/#LegacyWindowAlias)
+
+### [LegacyWindowAlias_Measure] _(i)_
+
+Summary: The same as `[Measure]` and `[MeasureAs]` but applied to the property exposed as `[LegacyWindowAlias]`.  Unlike `[Measure]`, you can optionally provide the feature name like `[LegacyWindowAlias_Measure=FeatureName]`.
+
+### [LegacyWindowAlias_RuntimeEnabled] _(i)_
+
+Summary: The same as `[RuntimeEnabled]` but applied to the property exposed as `[LegacyWindowAlias]`.
+
 ### [NamedConstructor] _(i)_
 
 Standard: [NamedConstructor](https://heycam.github.io/webidl/#NamedConstructor)
@@ -352,6 +364,14 @@ Usage: The possible usage is `[NamedConstructor=YYY(...)]`. Just as with constru
 The semantics are the same as `[Constructor]`, except that the name changes: JavaScript can make a DOM object by `new Audio()` instead of by `new HTMLAudioElement()`.
 
 Whether you should allow an interface to have a named constructor or not depends on the spec of each interface.
+
+### [NamedConstructor_CallWith] _(i)_
+
+Summary: The same as `[CallWith]` but applied to the named constructors.
+
+### [NamedConstructor_RaisesException] _(i)_
+
+Summary: The same as `[RaisesException]` but applied to the named constructors.
 
 ### [NewObject] _(m)_
 
@@ -520,6 +540,20 @@ void func([TreatNullAs=Emptytring] DOMString str);
 ```
 
 Implementation: Given `[TreatNullAs=EmptyString]`, a JavaScript null is converted to a Blink empty string, for which `String::IsEmpty()` returns true, but `String::IsNull()` return false.
+
+### [StringContext=TrustedHTML|TrustedScript|TrustedScriptURL] _(t)_
+
+Standard: [TrustedType](https://w3c.github.io/webappsec-trusted-types/dist/spec/#!trustedtypes-extended-attribute)
+
+Summary: Indicate that a DOMString for HTMLs and scripts or USVString for script URLs is to be supplemented with additional Trusted Types enforcement logic.
+
+Usage: Must be specified on a DOMString or a USVString type.
+
+```webidl
+typedef [StringContext=TrustedHTML] DOMString TrustedString;
+attribute TrustedString str;
+void func(TrustedString str);
+```
 
 ### [Unforgeable] _(m,a)_
 
@@ -743,7 +777,7 @@ Summary: They allow you to write bindings code manually as you like: full bindin
 
 Custom bindings are _strongly discouraged_. They are likely to be buggy, a source of security holes, and represent a significant maintenance burden. Before using `[Custom]`, you should doubly consider if you really need custom bindings. You are recommended to modify code generators and add specialized extended attributes or special cases if necessary to avoid using `[Custom]`.
 
-Usage: `[Custom]` can be specified on methods or attributes. `[Custom=CallEpilogue]` can be specified on methods. `[Custom=Getter]` and `[Custom=Setter]` can be specified on attributes. `[Custom=A|B]` can be specified on interfaces, with various values (see below).
+Usage: `[Custom]` can be specified on methods or attributes. `[Custom=Getter]` and `[Custom=Setter]` can be specified on attributes. `[Custom=A|B]` can be specified on interfaces, with various values (see below).
 
 On read only attributes (that are not `[Replaceable]`), `[Custom]` is equivalent to `[Custom=Getter]` (since there is no setter) and `[Custom=Getter]` is preferred.
 
@@ -761,7 +795,6 @@ The bindings generator largely _ignores_ the specified type information of `[Cus
 Before explaining the details, let us clarify the relationship of these IDL attributes.
 
 * `[Custom]` on a method indicates that you can write V8 custom bindings for the method.
-* `[Custom=CallEpilogue]` on a method indicates that the normal code is generated for the method, but with an extra call to an auxiliary custom bindings callback at the end.
 * `[Custom=Getter]` or `[Custom=Setter]` on an attribute means custom bindings for the attribute getter or setter.
 * `[Custom]` on an attribute means custom bindings for both the getter and the setter
 
@@ -770,7 +803,6 @@ Methods:
 ```webidl
 interface XXX {
     [Custom] void func();
-    [Custom=CallEpilogue] void func2();
 };
 ```
 
@@ -778,10 +810,6 @@ You can write custom bindings in third_party/blink/renderer/bindings/{core,modul
 
 ```c++
 void V8XXX::FuncMethodCustom(const v8::FunctionCallbackInfo<v8::Value>& info) {
-  ...;
-}
-
-void V8XXX::Func2MethodEpilogueCustom(const v8::FunctionCallbackInfo<v8::Value>& info, V8XXX* impl) {
   ...;
 }
 ```

@@ -122,22 +122,18 @@ void NGLineBoxFragmentBuilder::AddChildren(ChildList& children) {
 }
 
 void NGLineBoxFragmentBuilder::PropagateChildrenData(ChildList& children) {
-  for (auto& child : children) {
+  for (unsigned index = 0; index < children.size(); ++index) {
+    auto& child = children[index];
     if (child.layout_result) {
       DCHECK(!child.fragment);
-      const NGPhysicalContainerFragment& fragment =
-          child.layout_result->PhysicalFragment();
-      if (fragment.IsFloating()) {
-        // Add positioned floating objects to the fragment tree, not to the
-        // fragment item list. Because they are not necessary for inline
-        // traversals, and leading floating objects are still in the fragment
-        // tree, this helps simplifying painting floats.
-        AddChild(fragment, child.Offset());
-        child.layout_result.reset();
-        continue;
-      }
       PropagateChildData(child.layout_result->PhysicalFragment(),
                          child.Offset());
+
+      // Skip over any children, the information should have already been
+      // propagated into this layout result.
+      if (child.children_count)
+        index += child.children_count - 1;
+
       continue;
     }
     if (child.out_of_flow_positioned_box) {

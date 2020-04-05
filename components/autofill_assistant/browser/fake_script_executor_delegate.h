@@ -69,6 +69,12 @@ class FakeScriptExecutorDelegate : public ScriptExecutorDelegate {
   void AddListener(Listener* listener) override;
   void RemoveListener(Listener* listener) override;
   void SetExpandSheetForPromptAction(bool expand) override;
+  void SetGenericUi(
+      std::unique_ptr<GenericUserInterfaceProto> generic_ui,
+      base::OnceCallback<void(bool,
+                              ProcessedActionStatusProto,
+                              const UserModel*)> end_action_callback) override;
+  void ClearGenericUi() override;
 
   ClientSettings* GetMutableSettings() { return &client_settings_; }
 
@@ -83,6 +89,8 @@ class FakeScriptExecutorDelegate : public ScriptExecutorDelegate {
   void SetTriggerContext(std::unique_ptr<TriggerContext> trigger_context) {
     trigger_context_ = std::move(trigger_context);
   }
+
+  void SetUserModel(UserModel* user_model) { user_model_ = user_model; }
 
   std::vector<AutofillAssistantState> GetStateHistory() {
     return state_history_;
@@ -135,6 +143,7 @@ class FakeScriptExecutorDelegate : public ScriptExecutorDelegate {
   bool expand_or_collapse_updated_ = false;
   bool expand_or_collapse_value_ = false;
   bool expand_sheet_for_prompt_ = true;
+  UserModel* user_model_ = nullptr;
 
   bool require_ui_ = false;
 

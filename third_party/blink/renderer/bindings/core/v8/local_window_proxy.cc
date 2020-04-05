@@ -60,8 +60,8 @@
 #include "third_party/blink/renderer/platform/bindings/v8_private_property.h"
 #include "third_party/blink/renderer/platform/heap/handle.h"
 #include "third_party/blink/renderer/platform/instrumentation/tracing/trace_event.h"
+#include "third_party/blink/renderer/platform/weborigin/reporting_disposition.h"
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
-#include "third_party/blink/renderer/platform/weborigin/security_violation_reporting_policy.h"
 #include "third_party/blink/renderer/platform/wtf/assertions.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_operators.h"
 #include "v8/include/v8.h"
@@ -74,7 +74,7 @@ constexpr char kGlobalProxyLabel[] = "WindowProxy::global_proxy_";
 
 }  // namespace
 
-void LocalWindowProxy::Trace(blink::Visitor* visitor) {
+void LocalWindowProxy::Trace(Visitor* visitor) {
   visitor->Trace(script_state_);
   WindowProxy::Trace(visitor);
 }
@@ -174,22 +174,8 @@ void LocalWindowProxy::Initialize() {
       (world_->IsIsolatedWorld() &&
        IsolatedWorldCSP::Get().HasContentSecurityPolicy(world_->GetWorldId()));
   if (evaluate_csp_for_eval) {
-    // Check that there is a document that can be used to get the
-    // ContentSecurityPolicy;
-    // TODO(clamy): Remove this DumpWithoutCrashing once
-    // https://crbug.com/1037776 is fixed.
-    if (!GetFrame()->GetDocument())
-      base::debug::DumpWithoutCrashing();
-
     ContentSecurityPolicy* csp =
         GetFrame()->GetDocument()->GetContentSecurityPolicyForWorld();
-
-    // Check that the ContentSecurityPolicy returned is not null.
-    // TODO(clamy): Remove this DumpWithoutCrashing once
-    // https://crbug.com/1037776 is fixed.
-    if (!csp)
-      base::debug::DumpWithoutCrashing();
-
     context->AllowCodeGenerationFromStrings(!csp->ShouldCheckEval());
     context->SetErrorMessageForCodeGenerationFromStrings(
         V8String(GetIsolate(), csp->EvalDisabledErrorMessage()));
@@ -229,7 +215,8 @@ void LocalWindowProxy::CreateContext() {
   CHECK(IsMainThread());
 
   v8::ExtensionConfiguration extension_configuration =
-      ScriptController::ExtensionsFor(GetFrame()->GetDocument());
+      ScriptController::ExtensionsFor(
+          GetFrame()->GetDocument()->ToExecutionContext());
 
   v8::Local<v8::Context> context;
   {
@@ -325,9 +312,8 @@ void LocalWindowProxy::SetupWindowPrototypeChain() {
   // The global object, aka window wrapper object.
   v8::Local<v8::Object> window_wrapper =
       global_proxy->GetPrototype().As<v8::Object>();
-  v8::Local<v8::Object> associated_wrapper =
-      AssociateWithWrapper(window, wrapper_type_info, window_wrapper);
-  DCHECK(associated_wrapper == window_wrapper);
+  V8DOMWrapper::SetNativeInfo(GetIsolate(), window_wrapper, wrapper_type_info,
+                              window);
 
   // The prototype object of Window interface.
   v8::Local<v8::Object> window_prototype =

@@ -49,7 +49,6 @@ import org.chromium.base.test.util.Restriction;
 import org.chromium.base.test.util.RetryOnFailure;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeActivity;
-import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.ChromeTabbedActivity2;
 import org.chromium.chrome.browser.compositor.animation.CompositorAnimationHandler;
@@ -63,18 +62,19 @@ import org.chromium.chrome.browser.compositor.bottombar.contextualsearch.Context
 import org.chromium.chrome.browser.compositor.bottombar.contextualsearch.ContextualSearchPanel;
 import org.chromium.chrome.browser.compositor.bottombar.contextualsearch.ContextualSearchQuickActionControl;
 import org.chromium.chrome.browser.contextualsearch.ContextualSearchFakeServer.FakeSlowResolveSearch;
-import org.chromium.chrome.browser.contextualsearch.ContextualSearchFakeServer.MutableResolvedSearchTerm;
 import org.chromium.chrome.browser.contextualsearch.ContextualSearchInternalStateController.InternalState;
 import org.chromium.chrome.browser.contextualsearch.ResolvedSearchTerm.CardTag;
-import org.chromium.chrome.browser.externalnav.ExternalNavigationHandler;
+import org.chromium.chrome.browser.externalnav.ExternalNavigationDelegateImpl;
 import org.chromium.chrome.browser.findinpage.FindToolbar;
 import org.chromium.chrome.browser.firstrun.FirstRunStatus;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.gsa.GSAContextDisplaySelection;
 import org.chromium.chrome.browser.locale.LocaleManager;
 import org.chromium.chrome.browser.omnibox.UrlBar;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tabmodel.EmptyTabModelSelectorObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
@@ -85,6 +85,7 @@ import org.chromium.chrome.test.util.FullscreenTestUtils;
 import org.chromium.chrome.test.util.MenuUtils;
 import org.chromium.chrome.test.util.OmniboxTestUtils;
 import org.chromium.chrome.test.util.browser.Features;
+import org.chromium.components.external_intents.ExternalNavigationHandler;
 import org.chromium.components.navigation_interception.NavigationParams;
 import org.chromium.content_public.browser.SelectionClient;
 import org.chromium.content_public.browser.SelectionPopupController;
@@ -123,6 +124,11 @@ import java.util.concurrent.TimeoutException;
         "disable-features=" + ChromeFeatureList.CONTEXTUAL_SEARCH_ML_TAP_SUPPRESSION})
 @Restriction(RESTRICTION_TYPE_NON_LOW_END_DEVICE)
 @RetryOnFailure
+//
+// NOTE -- THIS WHOLE TEST CLASS IS TEMPORARILY DISABLED:
+//
+@DisabledTest(message = "See https://crbug.com/1058362")
+//
 public class ContextualSearchManagerTest {
     @Rule
     public ChromeActivityTestRule<ChromeActivity> mActivityTestRule =
@@ -507,8 +513,10 @@ public class ContextualSearchManagerTest {
      */
     private void fakeResponse(boolean isNetworkUnavailable, int responseCode,
             String searchTerm, String displayText, String alternateTerm, boolean doPreventPreload) {
-        fakeResponse(new ResolvedSearchTerm(isNetworkUnavailable, responseCode, searchTerm,
-                displayText, alternateTerm, doPreventPreload));
+        fakeResponse(new ResolvedSearchTerm
+                             .Builder(isNetworkUnavailable, responseCode, searchTerm, displayText,
+                                     alternateTerm, doPreventPreload)
+                             .build());
     }
 
     /**
@@ -1306,6 +1314,7 @@ public class ContextualSearchManagerTest {
     @Test
     @SmallTest
     @Feature({"ContextualSearch"})
+    @DisabledTest(message = "crbug.com/1058297")
     public void testTapCausesOneLowPriorityRequest() throws TimeoutException {
         mFakeServer.reset();
         clickWordNode("states");
@@ -1656,7 +1665,7 @@ public class ContextualSearchManagerTest {
         int tabCreatedHelperCallCount = tabCreatedHelper.getCallCount();
         TabModelSelectorObserver observer = new EmptyTabModelSelectorObserver() {
             @Override
-            public void onNewTabCreated(Tab tab) {
+            public void onNewTabCreated(Tab tab, @TabCreationState int creationState) {
                 tabCreatedHelper.notifyCalled();
             }
         };
@@ -2210,7 +2219,8 @@ public class ContextualSearchManagerTest {
     @Feature({"ContextualSearch"})
     public void testExternalNavigationWithUserGesture() {
         final ExternalNavigationHandler externalNavHandler =
-                new ExternalNavigationHandler(mActivityTestRule.getActivity().getActivityTab());
+                new ExternalNavigationHandler(new ExternalNavigationDelegateImpl(
+                        mActivityTestRule.getActivity().getActivityTab()));
         final NavigationParams navigationParams = new NavigationParams(
                 "intent://test/#Intent;scheme=test;package=com.chrome.test;end", "",
                 false /* isPost */, true /* hasUserGesture */, PageTransition.LINK,
@@ -2235,7 +2245,8 @@ public class ContextualSearchManagerTest {
     @Feature({"ContextualSearch"})
     public void testRedirectedExternalNavigationWithUserGesture() {
         final ExternalNavigationHandler externalNavHandler =
-                new ExternalNavigationHandler(mActivityTestRule.getActivity().getActivityTab());
+                new ExternalNavigationHandler(new ExternalNavigationDelegateImpl(
+                        mActivityTestRule.getActivity().getActivityTab()));
 
         final NavigationParams initialNavigationParams = new NavigationParams("http://test.com", "",
                 false /* isPost */, true /* hasUserGesture */, PageTransition.LINK,
@@ -2269,7 +2280,8 @@ public class ContextualSearchManagerTest {
     @Feature({"ContextualSearch"})
     public void testExternalNavigationWithoutUserGesture() {
         final ExternalNavigationHandler externalNavHandler =
-                new ExternalNavigationHandler(mActivityTestRule.getActivity().getActivityTab());
+                new ExternalNavigationHandler(new ExternalNavigationDelegateImpl(
+                        mActivityTestRule.getActivity().getActivityTab()));
         final NavigationParams navigationParams = new NavigationParams(
                 "intent://test/#Intent;scheme=test;package=com.chrome.test;end", "",
                 false /* isPost */, false /* hasUserGesture */, PageTransition.LINK,
@@ -2293,10 +2305,11 @@ public class ContextualSearchManagerTest {
         clickWordNode("intelligence");
         waitForPanelToPeek();
 
-        MutableResolvedSearchTerm resolvedSearchTerm =
-                new ContextualSearchFakeServer.MutableResolvedSearchTerm(
-                        false, 200, "Intelligence", "United States Intelligence");
-        resolvedSearchTerm.setSelectionStartAdjust(-14);
+        ResolvedSearchTerm resolvedSearchTerm =
+                new ResolvedSearchTerm
+                        .Builder(false, 200, "Intelligence", "United States Intelligence")
+                        .setSelectionStartAdjust(-14)
+                        .build();
         fakeResponse(resolvedSearchTerm);
         waitForSelectionToBe("United States Intelligence");
     }
@@ -3009,6 +3022,7 @@ public class ContextualSearchManagerTest {
     @Test
     @SmallTest
     @Feature({"ContextualSearch"})
+    @DisabledTest(message = "crbug.com/1058297")
     public void testAllInternalStatesVisitedResolvingTap()
             throws InterruptedException, TimeoutException {
         // Set up a tracking version of the Internal State Controller.

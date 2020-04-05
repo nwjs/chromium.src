@@ -7,8 +7,6 @@
  * 'settings-basic-page' is the settings page containing the actual settings.
  */
 (function() {
-'use strict';
-
 // <if expr="chromeos">
 const OS_BANNER_INTERACTION_METRIC_NAME =
     'ChromeOS.Settings.OsBannerInteraction';
@@ -32,8 +30,9 @@ Polymer({
   behaviors: [
     settings.MainPageBehavior,
     settings.RouteObserverBehavior,
+    // <if expr="chromeos">
     PrefsBehavior,
-    WebUIListenerBehavior,
+    // </if>
   ],
 
   properties: {
@@ -41,11 +40,6 @@ Polymer({
     prefs: {
       type: Object,
       notify: true,
-    },
-
-    showChangePassword: {
-      type: Boolean,
-      value: false,
     },
 
     /**
@@ -122,10 +116,6 @@ Polymer({
   /** @override */
   attached() {
     this.currentRoute_ = settings.Router.getInstance().getCurrentRoute();
-
-    this.addWebUIListener('change-password-visibility', visibility => {
-      this.showChangePassword = visibility;
-    });
   },
 
   /**
@@ -167,6 +157,16 @@ Polymer({
    */
   showPage_(visibility) {
     return visibility !== false;
+  },
+
+  /**
+   * @param {boolean|undefined} visibility
+   * @return {boolean}
+   * @private
+   */
+  showSafetyCheckPage_: function(visibility) {
+    return loadTimeData.getBoolean('privacySettingsRedesignEnabled') &&
+        this.showPage_(visibility);
   },
 
   /**

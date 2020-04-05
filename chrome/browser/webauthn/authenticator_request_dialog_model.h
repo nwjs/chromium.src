@@ -95,6 +95,9 @@ class AuthenticatorRequestDialogModel {
     kClientPinErrorHardBlock,
     kClientPinErrorAuthenticatorRemoved,
 
+    // Authenticator Internal User Verification
+    kRetryInternalUserVerification,
+
     // Confirm user consent to create a resident credential. Used prior to
     // triggering Windows-native APIs when Windows itself won't show any
     // notice about resident credentials.
@@ -208,6 +211,10 @@ class AuthenticatorRequestDialogModel {
   // Hides the modal Chrome UI dialog and shows the native Windows WebAuthn
   // UI instead.
   void HideDialogAndDispatchToNativeWindowsApi();
+
+  // Displays a resident-key warning if needed and then calls
+  // |HideDialogAndDispatchToNativeWindowsApi|.
+  void StartWinNativeApi();
 
   // StartPhonePairing triggers the display of a QR code for pairing a new
   // phone.
@@ -334,6 +341,10 @@ class AuthenticatorRequestDialogModel {
   // system Touch ID prompt.
   void OnUserConsentDenied();
 
+  // To be called when the user clicks "Cancel" in the native Windows UI.
+  // Returns true if the event was handled.
+  bool OnWinUserCancelled();
+
   // To be called when the Bluetooth adapter powered state changes.
   void OnBluetoothPoweredStateChanged(bool powered);
 
@@ -351,6 +362,10 @@ class AuthenticatorRequestDialogModel {
 
   // OnHavePIN is called when the user enters a PIN in the UI.
   void OnHavePIN(const std::string& pin);
+
+  // Called when the user needs to retry user verification with the number of
+  // |attempts| remaining.
+  void OnRetryUserVerification(int attempts);
 
   // OnResidentCredentialConfirmed is called when a user accepts a dialog
   // confirming that they're happy to create a resident credential.
@@ -381,9 +396,6 @@ class AuthenticatorRequestDialogModel {
   // |responses()|.
   void OnAccountSelected(size_t index);
 
-  // OnSuccess is called when a WebAuthn operation completes successfully.
-  void OnSuccess(AuthenticatorTransport transport);
-
   void SetSelectedAuthenticatorForTesting(AuthenticatorReference authenticator);
 
   ObservableAuthenticatorList& saved_authenticators() {
@@ -404,6 +416,10 @@ class AuthenticatorRequestDialogModel {
     return ephemeral_state_.has_attempted_pin_entry_;
   }
   base::Optional<int> pin_attempts() const { return pin_attempts_; }
+
+  // Flags the authenticator's internal user verification as locked.
+  void set_internal_uv_locked() { uv_attempts_ = 0; }
+  base::Optional<int> uv_attempts() const { return uv_attempts_; }
 
   void RequestAttestationPermission(base::OnceCallback<void(bool)> callback);
 
@@ -432,11 +448,15 @@ class AuthenticatorRequestDialogModel {
       bool has_paired_phones,
       base::Optional<device::QRGeneratorKey> qr_generator_key);
 
+  bool win_native_api_enabled() const {
+    return transport_availability_.has_win_native_api_authenticator;
+  }
+
   bool cable_extension_provided() const { return cable_extension_provided_; }
 
   const std::string& relying_party_id() const { return relying_party_id_; }
 
-  bool request_may_start_over() const { return request_may_start_over_; }
+  bool offer_try_again_in_ui() const { return offer_try_again_in_ui_; }
 
  private:
   // Contains the state that will be reset when calling StartOver(). StartOver()
@@ -497,6 +517,7 @@ class AuthenticatorRequestDialogModel {
 
   base::OnceCallback<void(std::string)> pin_callback_;
   base::Optional<int> pin_attempts_;
+  base::Optional<int> uv_attempts_;
 
   base::OnceCallback<void(bool)> attestation_callback_;
 
@@ -511,10 +532,10 @@ class AuthenticatorRequestDialogModel {
 
   bool incognito_mode_ = false;
 
-  // request_may_start_over_ indicates whether a button to retry the request
+  // offer_try_again_in_ui_ indicates whether a button to retry the request
   // should be included on the dialog sheet shown when encountering certain
   // errors.
-  bool request_may_start_over_ = true;
+  bool offer_try_again_in_ui_ = true;
 
   // cable_extension_provided_ indicates whether the request included a caBLE
   // extension.
@@ -523,9 +544,10 @@ class AuthenticatorRequestDialogModel {
   // phones.
   bool have_paired_phones_ = false;
   base::Optional<device::QRGeneratorKey> qr_generator_key_;
-  // did_cable_broadcast_ is true if a caBLE v1 extension was provided and
-  // BLE adverts were broadcast.
-  bool did_cable_broadcast_ = false;
+  // win_native_api_already_tried_ is true if the Windows-native UI has been
+  // displayed already and the user cancelled it. In this case, we shouldn't
+  // jump straight to showing it again.
+  bool win_native_api_already_tried_ = false;
 
   base::WeakPtrFactory<AuthenticatorRequestDialogModel> weak_factory_{this};
 

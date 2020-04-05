@@ -39,10 +39,11 @@ import org.chromium.chrome.browser.infobar.InfoBarContainer;
 import org.chromium.chrome.browser.init.ChromeBrowserInitializer;
 import org.chromium.chrome.browser.ntp.NewTabPage;
 import org.chromium.chrome.browser.omnibox.UrlBar;
+import org.chromium.chrome.browser.privacy.settings.PrivacyPreferencesManager;
 import org.chromium.chrome.browser.settings.SettingsActivity;
 import org.chromium.chrome.browser.settings.SettingsLauncher;
-import org.chromium.chrome.browser.settings.privacy.PrivacyPreferencesManager;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tabmodel.EmptyTabModelObserver;
@@ -68,7 +69,6 @@ import org.chromium.net.test.EmbeddedTestServerRule;
 import org.chromium.ui.KeyboardVisibilityDelegate;
 import org.chromium.ui.base.PageTransition;
 
-import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Method;
 import java.util.Calendar;
 import java.util.List;
@@ -434,7 +434,8 @@ public class ChromeActivityTestRule<T extends ChromeActivity> extends ActivityTe
 
         ChromeTabUtils.waitForTabPageLoaded(tab, (String) null);
 
-        if (tab != null && NewTabPage.isNTPUrl(tab.getUrl()) && !getActivity().isInOverviewMode()) {
+        if (tab != null && NewTabPage.isNTPUrl(tab.getUrlString())
+                && !getActivity().isInOverviewMode()) {
             NewTabPageTestUtils.waitForNtpLoaded(tab);
         }
 
@@ -465,7 +466,7 @@ public class ChromeActivityTestRule<T extends ChromeActivity> extends ActivityTe
 
         try {
             Method method = getClass().getMethod(mCurrentTestName, (Class[]) null);
-            if (((AnnotatedElement) method).isAnnotationPresent(RenderProcessLimit.class)) {
+            if (method.isAnnotationPresent(RenderProcessLimit.class)) {
                 RenderProcessLimit limit = method.getAnnotation(RenderProcessLimit.class);
                 intent.putExtra(
                         ChromeTabbedActivity.INTENT_EXTRA_TEST_RENDER_PROCESS_LIMIT, limit.value());
@@ -491,7 +492,8 @@ public class ChromeActivityTestRule<T extends ChromeActivity> extends ActivityTe
         TabModel incognitoTabModel = getActivity().getTabModelSelector().getModel(true);
         TabModelObserver observer = new EmptyTabModelObserver() {
             @Override
-            public void didAddTab(Tab tab, @TabLaunchType int type) {
+            public void didAddTab(
+                    Tab tab, @TabLaunchType int type, @TabCreationState int creationState) {
                 createdCallback.notifyCalled();
             }
 

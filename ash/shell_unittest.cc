@@ -38,7 +38,6 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "components/account_id/account_id.h"
-#include "components/prefs/testing_pref_service.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/aura/env.h"
 #include "ui/aura/window.h"
@@ -112,10 +111,6 @@ void ExpectAllContainers() {
       Shell::GetContainer(root_window, kShellWindowId_LockScreenContainer));
   EXPECT_TRUE(Shell::GetContainer(root_window,
                                   kShellWindowId_LockSystemModalContainer));
-  EXPECT_TRUE(
-      Shell::GetContainer(root_window, kShellWindowId_ShelfControlContainer));
-  EXPECT_TRUE(
-      Shell::GetContainer(root_window, kShellWindowId_OverviewFocusContainer));
   EXPECT_TRUE(Shell::GetContainer(root_window, kShellWindowId_MenuContainer));
   EXPECT_TRUE(Shell::GetContainer(root_window,
                                   kShellWindowId_DragImageAndTooltipContainer));
@@ -187,7 +182,7 @@ class ShellTest : public AshTestBase {
   // TODO(jamescook): Convert to AshTestBase::CreateTestWidget().
   views::Widget* CreateTestWindow(views::Widget::InitParams params) {
     views::Widget* widget = new views::Widget;
-    params.context = CurrentContext();
+    params.context = GetContext();
     widget->Init(std::move(params));
     return widget;
   }
@@ -274,7 +269,7 @@ TEST_F(ShellTest, CreateWindowWithPreferredSize) {
   // Don't specify bounds, parent or context.
   params.delegate = new WindowWithPreferredSize;
   views::Widget widget;
-  params.context = CurrentContext();
+  params.context = GetContext();
   widget.Init(std::move(params));
 
   // Widget is centered on secondary display.
@@ -404,7 +399,7 @@ TEST_F(ShellTest, CreateLockScreenModalWindow) {
 
   // Modal dialog without parent, caused crash see crbug.com/226141
   views::Widget* modal_dialog = views::DialogDelegate::CreateDialogWidget(
-      new TestModalDialogDelegate(), CurrentContext(), nullptr);
+      new TestModalDialogDelegate(), GetContext(), nullptr);
 
   modal_dialog->Show();
   EXPECT_FALSE(modal_dialog->GetNativeView()->HasFocus());
@@ -586,15 +581,6 @@ TEST_F(ShellTest2, DontCrashWhenWindowDeleted) {
                                            aura::client::WINDOW_TYPE_UNKNOWN);
   window_->Init(ui::LAYER_NOT_DRAWN);
 }
-
-// Tests the local state code path.
-class ShellLocalStateTest : public AshTestBase {
- public:
-  ShellLocalStateTest() { DisableProvideLocalState(); }
-
- protected:
-  std::unique_ptr<TestingPrefServiceSimple> local_state_;
-};
 
 using ShellLoginTest = NoSessionAshTestBase;
 

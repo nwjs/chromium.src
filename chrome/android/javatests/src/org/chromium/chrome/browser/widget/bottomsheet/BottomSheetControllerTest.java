@@ -5,10 +5,14 @@
 package org.chromium.chrome.browser.widget.bottomsheet;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 import android.support.test.InstrumentationRegistry;
 import android.support.test.filters.MediumTest;
 import android.support.test.filters.SmallTest;
+import android.view.View;
 import android.view.ViewGroup;
 
 import org.junit.Before;
@@ -23,17 +27,17 @@ import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.FlakyTest;
 import org.chromium.base.test.util.Restriction;
-import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
+import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tabmodel.EmptyTabModelObserver;
-import org.chromium.chrome.browser.widget.ScrimView;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
 import org.chromium.chrome.test.util.ChromeTabUtils;
+import org.chromium.components.browser_ui.widget.scrim.ScrimCoordinator;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.ui.test.util.UiRestriction;
@@ -58,7 +62,8 @@ public class BottomSheetControllerTest {
     private TestBottomSheetContent mHighPriorityContent;
     private TestBottomSheetContent mPeekableContent;
     private TestBottomSheetContent mNonPeekableContent;
-    private ScrimView mScrimView;
+    private TestBottomSheetContent mBackInterceptingContent;
+    private ScrimCoordinator mScrimCoordinator;
 
     @Before
     public void setUp() throws Exception {
@@ -69,7 +74,10 @@ public class BottomSheetControllerTest {
             ViewGroup coordinator = activity.findViewById(org.chromium.chrome.R.id.coordinator);
             BottomSheet.setSmallScreenForTesting(false);
 
-            mScrimView = activity.getScrim();
+            mScrimCoordinator = mActivityTestRule.getActivity()
+                                        .getRootUiCoordinatorForTesting()
+                                        .getScrimCoordinatorForTesting();
+            mScrimCoordinator.disableAnimationForTesting(true);
 
             mSheetController = activity.getBottomSheetController();
 
@@ -77,6 +85,10 @@ public class BottomSheetControllerTest {
                     mActivityTestRule.getActivity(), BottomSheetContent.ContentPriority.LOW, false);
             mHighPriorityContent = new TestBottomSheetContent(mActivityTestRule.getActivity(),
                     BottomSheetContent.ContentPriority.HIGH, false);
+
+            mBackInterceptingContent = new TestBottomSheetContent(
+                    mActivityTestRule.getActivity(), BottomSheetContent.ContentPriority.LOW, false);
+            mBackInterceptingContent.setHandleBackPress(true);
 
             mPeekableContent = new TestBottomSheetContent(mActivityTestRule.getActivity());
             mNonPeekableContent = new TestBottomSheetContent(mActivityTestRule.getActivity());
@@ -341,6 +353,38 @@ public class BottomSheetControllerTest {
 
     @Test
     @MediumTest
+    public void testScrim() throws ExecutionException, TimeoutException {
+        requestContentInSheet(mLowPriorityContent, true);
+
+        assertNull("There should currently be no scrim.", mScrimCoordinator.getViewForTesting());
+
+        expandSheet();
+
+        assertEquals("The scrim should be visible.", View.VISIBLE,
+                ((View) mScrimCoordinator.getViewForTesting()).getVisibility());
+
+        ThreadUtils.runOnUiThreadBlocking(() -> mSheetController.collapseSheet(false));
+
+        assertNull("There should be no scrim when the sheet is closed.",
+                mScrimCoordinator.getViewForTesting());
+    }
+
+    @Test
+    @MediumTest
+    public void testCustomScrimLifecycle() throws TimeoutException {
+        TestBottomSheetContent customScrimContent = new TestBottomSheetContent(
+                mActivityTestRule.getActivity(), BottomSheetContent.ContentPriority.LOW, true);
+        customScrimContent.setHasCustomScrimLifecycle(true);
+        requestContentInSheet(customScrimContent, true);
+
+        expandSheet();
+
+        assertEquals("The scrim should not be visible with a custom scrim lifecycle.", null,
+                mScrimCoordinator.getViewForTesting());
+    }
+
+    @Test
+    @MediumTest
     public void testCloseEvent() throws TimeoutException {
         requestContentInSheet(mHighPriorityContent, true);
         expandSheet();
@@ -373,7 +417,8 @@ public class BottomSheetControllerTest {
 
         expandSheet();
 
-        TestThreadUtils.runOnUiThreadBlocking(() -> mScrimView.performClick());
+        TestThreadUtils.runOnUiThreadBlocking(
+                () -> ((View) mScrimCoordinator.getViewForTesting()).callOnClick());
 
         observer.mClosedCallbackHelper.waitForCallback(0);
     }
@@ -441,6 +486,77 @@ public class BottomSheetControllerTest {
 
         assertEquals("The bottom sheet should be at the half state when peek is disabled.",
                 BottomSheetController.SheetState.HALF, mSheetController.getSheetState());
+    }
+
+    @Test
+    @MediumTest
+    public void testHandleBackpress() throws TimeoutException {
+        requestContentInSheet(mBackInterceptingContent, true);
+
+        // Fake a back button press on the controller.
+        ThreadUtils.runOnUiThreadBlocking(() -> {
+            assertEquals("The sheet should be in the peeking state.",
+                    BottomSheetController.SheetState.PEEK, mSheetController.getSheetState());
+            assertTrue("The back event should have been handled by the content.",
+                    mSheetController.handleBackPress());
+            getBottomSheet().endAnimations();
+        });
+    }
+
+    @Test
+    @MediumTest
+    public void testHandleBackpress_sheetOpen() throws TimeoutException {
+        requestContentInSheet(mBackInterceptingContent, true);
+        expandSheet();
+
+        // Fake a back button press on the controller.
+        ThreadUtils.runOnUiThreadBlocking(() -> {
+            assertEquals("The sheet should be in the half state.",
+                    BottomSheetController.SheetState.HALF, mSheetController.getSheetState());
+            assertTrue("The back event should not have been handled by the content.",
+                    mSheetController.handleBackPress());
+            getBottomSheet().endAnimations();
+        });
+
+        assertEquals("The sheet should be at the half state if the content handled the back event.",
+                BottomSheetController.SheetState.HALF, mSheetController.getSheetState());
+    }
+
+    @Test
+    @MediumTest
+    public void testHandleBackpress_noIntercept() throws TimeoutException {
+        mBackInterceptingContent.setHandleBackPress(false);
+        requestContentInSheet(mBackInterceptingContent, true);
+
+        // Fake a back button press on the controller.
+        ThreadUtils.runOnUiThreadBlocking(() -> {
+            assertEquals("The sheet should be in the peeking state.",
+                    BottomSheetController.SheetState.PEEK, mSheetController.getSheetState());
+            assertFalse("The back event should not have been handled by the content.",
+                    mSheetController.handleBackPress());
+        });
+    }
+
+    @Test
+    @MediumTest
+    public void testHandleBackpress_noIntercept_sheetOpen() throws TimeoutException {
+        mBackInterceptingContent.setHandleBackPress(false);
+        requestContentInSheet(mBackInterceptingContent, true);
+        expandSheet();
+
+        // Fake a back button press on the controller.
+        ThreadUtils.runOnUiThreadBlocking(() -> {
+            assertEquals("The sheet should be in the half state.",
+                    BottomSheetController.SheetState.HALF, mSheetController.getSheetState());
+            assertFalse("The back event should not be handled by the content.",
+                    mBackInterceptingContent.handleBackPress());
+            assertTrue("The back event should still be handled by the controller.",
+                    mSheetController.handleBackPress());
+            getBottomSheet().endAnimations();
+        });
+
+        assertEquals("The sheet should be peeking if the content didn't handle the back event.",
+                BottomSheetController.SheetState.PEEK, mSheetController.getSheetState());
     }
 
     /**

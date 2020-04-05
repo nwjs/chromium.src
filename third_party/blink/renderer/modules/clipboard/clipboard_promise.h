@@ -12,7 +12,7 @@
 #include "mojo/public/cpp/bindings/remote.h"
 #include "third_party/blink/public/mojom/permissions/permission.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
-#include "third_party/blink/renderer/core/execution_context/context_lifecycle_observer.h"
+#include "third_party/blink/renderer/core/execution_context/execution_context_lifecycle_observer.h"
 #include "third_party/blink/renderer/core/fileapi/blob.h"
 #include "third_party/blink/renderer/modules/clipboard/clipboard_item.h"
 #include "third_party/blink/renderer/modules/clipboard/clipboard_writer.h"
@@ -20,24 +20,25 @@
 namespace blink {
 
 class ScriptPromiseResolver;
-class SystemClipboard;
+class LocalFrame;
+class ExecutionContext;
 
 class ClipboardPromise final : public GarbageCollected<ClipboardPromise>,
-                               public ContextLifecycleObserver {
+                               public ExecutionContextClient {
   USING_GARBAGE_COLLECTED_MIXIN(ClipboardPromise);
 
  public:
   // Creates promise to execute Clipboard API functions off the main thread.
-  static ScriptPromise CreateForRead(SystemClipboard*, ScriptState*);
-  static ScriptPromise CreateForReadText(SystemClipboard*, ScriptState*);
-  static ScriptPromise CreateForWrite(SystemClipboard*,
+  static ScriptPromise CreateForRead(ExecutionContext*, ScriptState*);
+  static ScriptPromise CreateForReadText(ExecutionContext*, ScriptState*);
+  static ScriptPromise CreateForWrite(ExecutionContext*,
                                       ScriptState*,
                                       const HeapVector<Member<ClipboardItem>>&);
-  static ScriptPromise CreateForWriteText(SystemClipboard*,
+  static ScriptPromise CreateForWriteText(ExecutionContext*,
                                           ScriptState*,
                                           const String&);
 
-  ClipboardPromise(SystemClipboard* system_clipboard, ScriptState*);
+  ClipboardPromise(ExecutionContext*, ScriptState*);
   virtual ~ClipboardPromise();
 
   // Completes current write and starts next write.
@@ -45,9 +46,7 @@ class ClipboardPromise final : public GarbageCollected<ClipboardPromise>,
   // For rejections originating from ClipboardWriter.
   void RejectFromReadOrDecodeFailure();
 
-  void Trace(blink::Visitor*) override;
-
-  SystemClipboard* system_clipboard() { return system_clipboard_; }
+  void Trace(Visitor*) override;
 
  private:
   // Called to begin writing a type.
@@ -72,6 +71,7 @@ class ClipboardPromise final : public GarbageCollected<ClipboardPromise>,
       bool allow_without_sanitization,
       base::OnceCallback<void(::blink::mojom::PermissionStatus)> callback);
 
+  LocalFrame* GetLocalFrame() const;
   scoped_refptr<base::SingleThreadTaskRunner> GetTaskRunner();
 
   Member<ScriptState> script_state_;
@@ -87,9 +87,6 @@ class ClipboardPromise final : public GarbageCollected<ClipboardPromise>,
   bool is_raw_;  // Corresponds to allowWithoutSanitization in ClipboardItem.
   // Index of clipboard representation currently being processed.
   wtf_size_t clipboard_representation_index_;
-
-  // Access to the global system clipboard.  Not owned.
-  Member<SystemClipboard> system_clipboard_;
 
   // Because v8 is thread-hostile, ensures that all interactions with
   // ScriptState and ScriptPromiseResolver occur on the main thread.

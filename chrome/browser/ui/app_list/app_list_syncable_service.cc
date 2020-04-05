@@ -28,7 +28,6 @@
 #include "chrome/browser/ui/app_list/app_list_client_impl.h"
 #include "chrome/browser/ui/app_list/app_list_model_updater.h"
 #include "chrome/browser/ui/app_list/app_service/app_service_app_model_builder.h"
-#include "chrome/browser/ui/app_list/arc/arc_app_item.h"
 #include "chrome/browser/ui/app_list/arc/arc_app_list_prefs.h"
 #include "chrome/browser/ui/app_list/arc/arc_app_utils.h"
 #include "chrome/browser/ui/app_list/chrome_app_list_item.h"
@@ -262,12 +261,6 @@ class AppListSyncableService::ModelUpdaterObserver
     // deleted when the last item is removed (in PruneEmptySyncFolders()).
     if (item->is_folder())
       return;
-
-    if (item->GetItemType() == ArcAppItem::kItemType) {
-      // Don't sync remove changes coming as result of disabling ARC.
-      if (!arc::IsArcPlayStoreEnabledForProfile(owner_->profile()))
-        return;
-    }
 
     owner_->RemoveSyncItem(item->id());
   }
@@ -973,10 +966,7 @@ void AppListSyncableService::StopSyncing(syncer::ModelType type) {
   sync_error_handler_.reset();
 }
 
-syncer::SyncDataList AppListSyncableService::GetAllSyncData(
-    syncer::ModelType type) const {
-  DCHECK_EQ(syncer::APP_LIST, type);
-
+syncer::SyncDataList AppListSyncableService::GetAllSyncDataForTesting() const {
   VLOG(2) << this << ": GetAllSyncData: " << sync_items_.size();
   syncer::SyncDataList list;
   for (auto iter = sync_items_.begin(); iter != sync_items_.end(); ++iter) {

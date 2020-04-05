@@ -20,6 +20,7 @@
 #include "base/feature_list.h"
 #include "base/files/file_util.h"
 #include "base/macros.h"
+#include "base/metrics/histogram_macros.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/sequence_checker.h"
 #include "base/sequenced_task_runner.h"
@@ -27,6 +28,7 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/system/sys_info.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "base/task_runner_util.h"
 #include "base/threading/thread_restrictions.h"
 #include "base/threading/thread_task_runner_handle.h"
@@ -164,14 +166,14 @@ bool DeleteOriginInfoOnDBThread(const url::Origin& origin,
   return database->SetOriginLastEvictionTime(origin, type, now);
 }
 
-bool BootstrapDatabaseOnDBThread(const std::set<url::Origin>* origins,
+bool BootstrapDatabaseOnDBThread(std::set<url::Origin> origins,
                                  QuotaDatabase* database) {
   DCHECK(database);
   if (database->IsOriginDatabaseBootstrapped())
     return true;
 
   // Register existing origins with 0 last time access.
-  if (database->RegisterInitialOriginInfo(*origins, StorageType::kTemporary)) {
+  if (database->RegisterInitialOriginInfo(origins, StorageType::kTemporary)) {
     database->SetOriginDatabaseBootstrapped(true);
     return true;
   }
@@ -504,8 +506,7 @@ class QuotaManager::GetUsageInfoTask : public QuotaTask {
 
  private:
   void AddEntries(StorageType type, UsageTracker* tracker) {
-    std::map<std::string, int64_t> host_usage;
-    tracker->GetCachedHostsUsage(&host_usage);
+    std::map<std::string, int64_t> host_usage = tracker->GetCachedHostsUsage();
     for (const auto& host_usage_pair : host_usage) {
       entries_.emplace_back(host_usage_pair.first, type,
                             host_usage_pair.second);
@@ -890,9 +891,8 @@ QuotaManager::QuotaManager(
       db_disabled_(false),
       eviction_disabled_(false),
       io_thread_(io_thread),
-      db_runner_(base::CreateSequencedTaskRunner(
-          {base::ThreadPool(), base::MayBlock(),
-           base::TaskPriority::USER_VISIBLE,
+      db_runner_(base::ThreadPool::CreateSequencedTaskRunner(
+          {base::MayBlock(), base::TaskPriority::USER_VISIBLE,
            base::TaskShutdownBehavior::BLOCK_SHUTDOWN})),
       get_settings_function_(get_settings_function),
       is_getting_eviction_origin_(false),
@@ -1318,11 +1318,10 @@ void QuotaManager::BootstrapDatabaseForEviction(
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   // The usage cache should be fully populated now so we can
   // seed the database with origins we know about.
-  std::set<url::Origin>* origins = new std::set<url::Origin>;
-  temporary_usage_tracker_->GetCachedOrigins(origins);
+  std::set<url::Origin> origins = temporary_usage_tracker_->GetCachedOrigins();
   PostTaskAndReplyWithResultForDBThread(
       FROM_HERE,
-      base::BindOnce(&BootstrapDatabaseOnDBThread, base::Owned(origins)),
+      base::BindOnce(&BootstrapDatabaseOnDBThread, std::move(origins)),
       base::BindOnce(&QuotaManager::DidBootstrapDatabase,
                      weak_factory_.GetWeakPtr(),
                      std::move(did_get_origin_callback)));
@@ -1360,13 +1359,11 @@ UsageTracker* QuotaManager::GetUsageTracker(StorageType type) const {
   return nullptr;
 }
 
-void QuotaManager::GetCachedOrigins(StorageType type,
-                                    std::set<url::Origin>* origins) {
+std::set<url::Origin> QuotaManager::GetCachedOrigins(StorageType type) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  DCHECK(origins);
   LazyInitialize();
   DCHECK(GetUsageTracker(type));
-  GetUsageTracker(type)->GetCachedOrigins(origins);
+  return GetUsageTracker(type)->GetCachedOrigins();
 }
 
 void QuotaManager::NotifyStorageAccessedInternal(const url::Origin& origin,
@@ -1398,6 +1395,9 @@ void QuotaManager::NotifyStorageModifiedInternal(QuotaClient::ID client_id,
   LazyInitialize();
   DCHECK(GetUsageTracker(type));
   GetUsageTracker(type)->UpdateUsageCache(client_id, origin, delta);
+
+  if (db_disabled_)
+    return;
 
   PostTaskAndReplyWithResultForDBThread(
       FROM_HERE,
@@ -1492,6 +1492,11 @@ void QuotaManager::MaybeRunStoragePressureCallback(const url::Origin& origin,
                                                    int64_t total_space,
                                                    int64_t available_space) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  // TODO(https://crbug.com/1059560): Figure out what 0 total_space means
+  // and how to handle the storage pressure callback in these cases.
+  if (total_space == 0)
+    return;
+
   if (!storage_pressure_callback_) {
     // Quota will hold onto a storage pressure notification if no storage
     // pressure callback is set.
@@ -1501,6 +1506,10 @@ void QuotaManager::MaybeRunStoragePressureCallback(const url::Origin& origin,
   if (100 * (available_space / total_space) < kStoragePressureThresholdRatio) {
     storage_pressure_callback_.Run(std::move(origin));
   }
+}
+
+void QuotaManager::SimulateStoragePressure(const url::Origin origin) {
+  storage_pressure_callback_.Run(origin);
 }
 
 void QuotaManager::SetStoragePressureCallback(
@@ -1538,6 +1547,10 @@ void QuotaManager::DidGetStorageCapacityForHistogram(int64_t usage,
   if (total_space > 0) {
     UMA_HISTOGRAM_PERCENTAGE("Quota.PercentUsedForTemporaryStorage2",
                              static_cast<int>((usage * 100) / total_space));
+    UMA_HISTOGRAM_MBYTES("Quota.AvailableDiskSpace2", available_space);
+    UMA_HISTOGRAM_PERCENTAGE(
+        "Quota.PercentDiskAvailable2",
+        std::min(100, static_cast<int>((available_space * 100 / total_space))));
   }
 
   GetGlobalUsage(
@@ -1561,9 +1574,8 @@ void QuotaManager::DidGetPersistentGlobalUsageForHistogram(
 void QuotaManager::DidDumpOriginInfoTableForHistogram(
     const OriginInfoTableEntries& entries) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  using UsageMap = std::map<url::Origin, int64_t>;
-  UsageMap usage_map;
-  GetUsageTracker(StorageType::kTemporary)->GetCachedOriginsUsage(&usage_map);
+  std::map<url::Origin, int64_t> usage_map =
+      GetUsageTracker(StorageType::kTemporary)->GetCachedOriginsUsage();
   base::Time now = base::Time::Now();
   for (const auto& info : entries) {
     if (info.type != StorageType::kTemporary)

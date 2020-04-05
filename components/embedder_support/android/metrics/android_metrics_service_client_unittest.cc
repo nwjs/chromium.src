@@ -22,16 +22,6 @@
 namespace metrics {
 namespace {
 
-// Scales up a uint32_t in the inverse of how UintFallsInBottomPercentOfValues()
-// makes its judgment. This is useful so tests can use integers, which itself
-// helps to avoid rounding issues.
-uint32_t ScaleValue(uint32_t value) {
-  DCHECK_GE(value, 0u);
-  DCHECK_LE(value, 100u);
-  double rate = static_cast<double>(value) / 100.0;
-  return static_cast<uint32_t>(static_cast<double>(UINT32_MAX) * rate);
-}
-
 // For client ID format, see:
 // https://en.wikipedia.org/wiki/Universally_unique_identifier#Version_4_(random)
 const char kTestClientId[] = "01234567-89ab-40cd-80ef-0123456789ab";
@@ -39,10 +29,10 @@ const char kTestClientId[] = "01234567-89ab-40cd-80ef-0123456789ab";
 class TestClient : public AndroidMetricsServiceClient {
  public:
   TestClient()
-      : sampled_in_rate_(1.00),
-        in_sample_(true),
-        record_package_name_for_app_type_(true),
-        in_package_name_sample_(true) {}
+      : sample_bucket_value_(0),
+        sampled_in_rate_per_mille_(1000),
+        package_name_rate_per_mille_(1000),
+        record_package_name_for_app_type_(true) {}
 
   ~TestClient() override = default;
 
@@ -53,17 +43,30 @@ class TestClient : public AndroidMetricsServiceClient {
     return false;
   }
 
-  void SetSampleRate(double value) { sampled_in_rate_ = value; }
+  void SetSampleRatePerMille(int per_mille) {
+    sampled_in_rate_per_mille_ = per_mille;
+  }
 
-  void SetInSample(bool value) { in_sample_ = value; }
+  void SetInSample(bool value) {
+    sampled_in_rate_per_mille_ = value ? 1000 : 0;
+  }
 
   void SetRecordPackageNameForAppType(bool value) {
     record_package_name_for_app_type_ = value;
   }
 
-  void SetInPackageNameSample(bool value) { in_package_name_sample_ = value; }
+  void SetPackageNameSamplePerMille(int per_mille) {
+    package_name_rate_per_mille_ = per_mille;
+  }
+
+  void SetInPackageNameSample(bool value) {
+    package_name_rate_per_mille_ = value ? 1000 : 0;
+  }
+
+  void SetSampleBucketValue(int per_mille) { sample_bucket_value_ = per_mille; }
 
   // Expose the super class implementation for testing.
+  using AndroidMetricsServiceClient::GetAppPackageNameInternal;
   using AndroidMetricsServiceClient::IsInPackageNameSample;
   using AndroidMetricsServiceClient::IsInSample;
 
@@ -72,32 +75,21 @@ class TestClient : public AndroidMetricsServiceClient {
 
   void OnMetricsStart() override {}
 
-  double GetSampleRate() override { return sampled_in_rate_; }
+  int GetSampleBucketValue() override { return sample_bucket_value_; }
 
-  bool IsInSample() override { return in_sample_; }
+  int GetSampleRatePerMille() override { return sampled_in_rate_per_mille_; }
 
   bool CanRecordPackageNameForAppType() override {
     return record_package_name_for_app_type_;
   }
 
-  bool IsInPackageNameSample() override { return in_package_name_sample_; }
-
   // AndroidMetricsServiceClient:
-  SystemProfileProto::Channel GetChannel() override {
-    return SystemProfileProto::CHANNEL_BETA;
-  }
-
-  std::string GetVersionString() override { return "1.1.1.1"; }
-
   int32_t GetProduct() override {
     return metrics::ChromeUserMetricsExtension::CHROME;
   }
 
-  double GetPackageNameLimitRate() override {
-    // This is slightly under 0.1 to ensure
-    // TestPackageNameLogic_SampleRateAboveTen passes.  There's something odd
-    // with the rounding which causes that test to fail if this is 0.1
-    return 0.0999;
+  int GetPackageNameLimitRatePerMille() override {
+    return package_name_rate_per_mille_;
   }
 
   bool ShouldWakeMetricsService() override {
@@ -107,13 +99,11 @@ class TestClient : public AndroidMetricsServiceClient {
 
   void RegisterAdditionalMetricsProviders(MetricsService* service) override {}
 
-  std::string GetAppPackageNameInternal() override { return "TestPackage"; }
-
  private:
-  double sampled_in_rate_;
-  bool in_sample_;
+  int sample_bucket_value_;
+  int sampled_in_rate_per_mille_;
+  int package_name_rate_per_mille_;
   bool record_package_name_for_app_type_;
-  bool in_package_name_sample_;
   DISALLOW_COPY_AND_ASSIGN(TestClient);
 };
 
@@ -258,60 +248,73 @@ TEST_F(AndroidMetricsServiceClientTest, TestCanUploadPackageName) {
   EXPECT_FALSE(package_name.empty());
 }
 
-TEST_F(AndroidMetricsServiceClientTest,
-       TestPackageNameLogic_SampleRateBelowTen) {
+TEST_F(AndroidMetricsServiceClientTest, TestGetPackageNameInternal) {
   auto prefs = CreateTestPrefs();
   prefs->SetString(metrics::prefs::kMetricsClientID, kTestClientId);
   auto client = CreateAndInitTestClient(prefs.get());
-  double sample_rate = 0.08;
-  client->SetSampleRate(sample_rate);
+  // Make sure GetPackageNameInternal returns a non-empty string.
+  EXPECT_FALSE(client->GetAppPackageNameInternal().empty());
+}
 
-  // When GetSampleRate() <= 0.10, everything in-sample should also be in the
-  // package name sample.
-  for (uint32_t value = 0; value < 8; ++value) {
-    EXPECT_TRUE(client->IsInSample(ScaleValue(value)))
+TEST_F(AndroidMetricsServiceClientTest,
+       TestPackageNameLogic_SampleRateBelowPackageNameRate) {
+  auto prefs = CreateTestPrefs();
+  prefs->SetString(metrics::prefs::kMetricsClientID, kTestClientId);
+  auto client = CreateAndInitTestClient(prefs.get());
+  client->SetSampleRatePerMille(80);
+  client->SetPackageNameSamplePerMille(100);
+
+  // When GetSampleRatePerMille() <= 100, everything in-sample should also be in
+  // the package name sample.
+  for (int value = 0; value < 80; value += 10) {
+    client->SetSampleBucketValue(value);
+    EXPECT_TRUE(client->IsInSample())
         << "Value " << value << " should be in-sample";
-    EXPECT_TRUE(client->IsInPackageNameSample(ScaleValue(value)))
+    EXPECT_TRUE(client->IsInPackageNameSample())
         << "Value " << value << " should be in the package name sample";
   }
   // After this, the only thing we care about is that we're out of sample (the
   // package name logic shouldn't matter at this point, because we won't upload
   // any records).
-  for (uint32_t value = 8; value < 100; ++value) {
-    EXPECT_FALSE(client->IsInSample(ScaleValue(value)))
+  for (int value = 80; value < 1000; value += 10) {
+    client->SetSampleBucketValue(value);
+    EXPECT_FALSE(client->IsInSample())
         << "Value " << value << " should be out of sample";
   }
 }
 
 TEST_F(AndroidMetricsServiceClientTest,
-       TestPackageNameLogic_SampleRateAboveTen) {
+       TestPackageNameLogic_SampleRateAbovePackageNameRate) {
   auto prefs = CreateTestPrefs();
   prefs->SetString(metrics::prefs::kMetricsClientID, kTestClientId);
   auto client = CreateAndInitTestClient(prefs.get());
-  double sample_rate = 0.90;
-  client->SetSampleRate(sample_rate);
+  client->SetSampleRatePerMille(900);
+  client->SetPackageNameSamplePerMille(100);
 
   // When GetSampleRate() > 0.10, only values up to 0.10 should be in the
   // package name sample.
-  for (uint32_t value = 0; value < 10; ++value) {
-    EXPECT_TRUE(client->IsInSample(ScaleValue(value)))
+  for (int value = 0; value < 10; value += 10) {
+    client->SetSampleBucketValue(value);
+    EXPECT_TRUE(client->IsInSample())
         << "Value " << value << " should be in-sample";
-    EXPECT_TRUE(client->IsInPackageNameSample(ScaleValue(value)))
+    EXPECT_TRUE(client->IsInPackageNameSample())
         << "Value " << value << " should be in the package name sample";
   }
   // After this (but until we hit the sample rate), clients should be in sample
   // but not upload the package name.
-  for (uint32_t value = 10; value < 90; ++value) {
-    EXPECT_TRUE(client->IsInSample(ScaleValue(value)))
+  for (int value = 100; value < 900; value += 10) {
+    client->SetSampleBucketValue(value);
+    EXPECT_TRUE(client->IsInSample())
         << "Value " << value << " should be in-sample";
-    EXPECT_FALSE(client->IsInPackageNameSample(ScaleValue(value)))
+    EXPECT_FALSE(client->IsInPackageNameSample())
         << "Value " << value << " should be out of the package name sample";
   }
   // After this, the only thing we care about is that we're out of sample (the
   // package name logic shouldn't matter at this point, because we won't upload
   // any records).
-  for (uint32_t value = 90; value < 100; ++value) {
-    EXPECT_FALSE(client->IsInSample(ScaleValue(value)))
+  for (int value = 900; value < 1000; value += 10) {
+    client->SetSampleBucketValue(value);
+    EXPECT_FALSE(client->IsInSample())
         << "Value " << value << " should be out of sample";
   }
 }

@@ -97,6 +97,7 @@
 <translation id="2149973817440762519">Редактиране на отметката</translation>
 <translation id="2179182049312275900">Можете по всяко време да включите синхронизирането в настройките.</translation>
 <translation id="2198757192731523470">Възможно е да използваме историята ви, за да персонализираме търсенето, рекламите и други услуги на Google.</translation>
+<translation id="2218443599109088993">Отдалечаване</translation>
 <translation id="2230173723195178503">Уеб страницата се зареди</translation>
 <translation id="2239626343334228536">Данните за сърфирането се изчистват...</translation>
 <translation id="2257567812274161158">Синхронизирането не работи.</translation>
@@ -159,6 +160,7 @@
 <translation id="2923448633003185837">Поставяне и старт</translation>
 <translation id="292639812446257861">Означаване като непрочетено</translation>
 <translation id="2958718410589002129">Пароли</translation>
+<translation id="2964349545761222050">Блокиране на „бисквитките“ на трети страни</translation>
 <translation id="2969979262385602596">Влизането не бе успешно. Моля, опитайте пак по-късно.</translation>
 <translation id="298306318844797842">Добавяне на начин на плащане…</translation>
 <translation id="2989805286512600854">Отваряне в нов раздел</translation>
@@ -178,6 +180,7 @@
 <translation id="3290875554372353449">Изберете профил</translation>
 <translation id="3311748811247479259">Изключено</translation>
 <translation id="3324193307694657476">Адрес 2</translation>
+<translation id="3328801116991980348">Информация за сайта</translation>
 <translation id="3329904751041170572">Не можа да се установи връзка със сървъра.</translation>
 <translation id="3335947283844343239">Повторно отваряне на затворения раздел</translation>
 <translation id="3371831930909698441">Налице е превод. Опциите са достъпни в долната част на екрана.</translation>
@@ -300,6 +303,7 @@
 <translation id="4979397965658815378">Влезте с профила си в Google, за да получите своите отметки, пароли, история и други настройки на всичките си устройства</translation>
 <translation id="5005498671520578047">Копиране на паролата</translation>
 <translation id="5010803260590204777">Отворете раздел в режим „инкогнито“, за да сърфирате частно в мрежата.</translation>
+<translation id="5039020240289137291">„Бисквитките“ на трети страни се блокират</translation>
 <translation id="5039804452771397117">Разрешаване</translation>
 <translation id="5059136629401106827">OK</translation>
 <translation id="5062321486222145940">Инсталиране на Google Диск</translation>
@@ -414,9 +418,11 @@
 <translation id="6434591244308415567">Възникна грешка. Опитайте отново по-късно.</translation>
 <translation id="6445051938772793705">Държава</translation>
 <translation id="6445981559479772097">Съобщ. е изпратено.</translation>
+<translation id="6447842834002726250">„Бисквитки“</translation>
 <translation id="6464071786529933911">Отв. в нов раздел „инкогнито“</translation>
 <translation id="6476800141292307438">Страницата се превежда на <ph name="LANGUAGE" />. Опциите са достъпни в долната част на екрана.</translation>
 <translation id="6482629121755362506">Изтрихте <ph name="NUMBER_OF_SELECTED_BOOKMARKS" /> елемента</translation>
+<translation id="6561262006871132942">Приближаване</translation>
 <translation id="6610002944194042868">Опции за превод</translation>
 <translation id="6628106477656132239">Невалидна дата на валидност</translation>
 <translation id="6638511529934826365">Промяна на мащаба на текста…</translation>
@@ -479,7 +485,6 @@
 <translation id="734758817008927353">Опции за запазване на картата</translation>
 <translation id="7348502496356775519">Отметка</translation>
 <translation id="7383797227493018512">Списък за четене</translation>
-<translation id="7392048574806661116">Излизане от профила и изчистване на синхронизираните данни</translation>
 <translation id="7400418766976504921">URL адрес</translation>
 <translation id="7409985198648820906"><ph name="UNREAD_COUNT" /> непрочетени статии.</translation>
 <translation id="7425346204213733349">Промените в отметките, историята, паролите и другите ви настройки вече няма да се синхронизират с профила ви в Google. Съществуващите ви данни обаче ще продължат да се съхраняват в него.</translation>
@@ -598,6 +603,7 @@
 <translation id="9223358826628549784">Сигналите за сривове са изпратени.</translation>
 <translation id="952704832371081537">Отказ</translation>
 <translation id="988141524645182168">Други устройства</translation>
+<translation id="989697783705943787">Сигурност на сайта</translation>
 <translation id="989988560359834682">Редактиране на адреса</translation>
 <translation id="994757059139821576">Предложения за статии</translation>
 </translationbundle>

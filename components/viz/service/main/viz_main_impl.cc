@@ -19,7 +19,6 @@
 #include "components/viz/service/gl/gpu_service_impl.h"
 #include "gpu/command_buffer/common/activity_flags.h"
 #include "gpu/config/gpu_finch_features.h"
-#include "gpu/ipc/gpu_in_process_thread_service.h"
 #include "gpu/ipc/service/gpu_init.h"
 #include "gpu/ipc/service/gpu_watchdog_thread.h"
 #include "media/gpu/buildflags.h"
@@ -100,7 +99,8 @@ VizMainImpl::VizMainImpl(Delegate* delegate,
       gpu_init_->gpu_feature_info(), gpu_init_->gpu_preferences(),
       gpu_init_->gpu_info_for_hardware_gpu(),
       gpu_init_->gpu_feature_info_for_hardware_gpu(),
-      gpu_init_->gpu_extra_info(), gpu_init_->vulkan_implementation(),
+      gpu_init_->gpu_extra_info(), gpu_init_->device_perf_info(),
+      gpu_init_->vulkan_implementation(),
       base::BindOnce(&VizMainImpl::ExitProcess, base::Unretained(this)));
 }
 
@@ -127,10 +127,6 @@ VizMainImpl::~VizMainImpl() {
         dependencies_.ukm_recorder.get());
 }
 
-void VizMainImpl::SetLogMessagesForHost(LogMessages log_messages) {
-  log_messages_ = std::move(log_messages);
-}
-
 void VizMainImpl::BindAssociated(
     mojo::PendingAssociatedReceiver<mojom::VizMain> pending_receiver) {
   receiver_.Bind(std::move(pending_receiver));
@@ -152,11 +148,9 @@ void VizMainImpl::CreateGpuService(
   if (gl::GetGLImplementation() != gl::kGLImplementationDisabled)
     gpu_service_->UpdateGPUInfo();
 
-  for (const LogMessage& log : log_messages_)
-    gpu_host->RecordLogMessage(log.severity, log.header, log.message);
-  log_messages_.clear();
   if (!gpu_init_->init_successful()) {
     LOG(ERROR) << "Exiting GPU process due to errors during initialization";
+    GpuServiceImpl::FlushPreInitializeLogMessages(gpu_host.get());
     gpu_service_.reset();
     gpu_host->DidFailInitialize();
     if (delegate_)
@@ -234,15 +228,12 @@ void VizMainImpl::CreateFrameSinkManagerInternal(
   // the same signature. https://crbug.com/928845
   CHECK(!task_executor_);
   task_executor_ = std::make_unique<gpu::GpuInProcessThreadService>(
-      gpu_thread_task_runner_, gpu_service_->GetGpuScheduler(),
+      this, gpu_thread_task_runner_, gpu_service_->GetGpuScheduler(),
       gpu_service_->sync_point_manager(), gpu_service_->mailbox_manager(),
-      gpu_service_->share_group(), format, gpu_service_->gpu_feature_info(),
+      format, gpu_service_->gpu_feature_info(),
       gpu_service_->gpu_channel_manager()->gpu_preferences(),
       gpu_service_->shared_image_manager(),
-      gpu_service_->gpu_channel_manager()->program_cache(),
-      // Unretained is safe since |gpu_service_| outlives |task_executor_|.
-      base::BindRepeating(&GpuServiceImpl::GetContextState,
-                          base::Unretained(gpu_service_.get())));
+      gpu_service_->gpu_channel_manager()->program_cache());
 
   viz_compositor_thread_runner_->CreateFrameSinkManager(
       std::move(params), task_executor_.get(), gpu_service_.get());
@@ -254,11 +245,16 @@ void VizMainImpl::CreateVizDevTools(mojom::VizDevToolsParamsPtr params) {
 #endif
 }
 
+scoped_refptr<gpu::SharedContextState> VizMainImpl::GetSharedContextState() {
+  return gpu_service_->GetContextState();
+}
+
+scoped_refptr<gl::GLShareGroup> VizMainImpl::GetShareGroup() {
+  return gpu_service_->share_group();
+}
+
 void VizMainImpl::ExitProcess(bool immediately) {
   DCHECK(gpu_thread_task_runner_->BelongsToCurrentThread());
-
-  // Close mojom::VizMain bindings first so the browser can't try to reconnect.
-  receiver_.reset();
 
   if (!gpu_init_->gpu_info().in_process_gpu && immediately) {
     // Atomically shut down GPU process to make it faster and simpler.
@@ -266,10 +262,13 @@ void VizMainImpl::ExitProcess(bool immediately) {
     return;
   }
 
+  // Close mojom::VizMain bindings first so the browser can't try to reconnect.
+  receiver_.reset();
+
   if (viz_compositor_thread_runner_) {
-    // OOP-D requires destroying RootCompositorFrameSinkImpls on the compositor
-    // thread while the GPU thread is still running to avoid deadlock. Quit GPU
-    // thread TaskRunner after cleanup on compositor thread is finished.
+    // Destroy RootCompositorFrameSinkImpls on the compositor while the GPU
+    // thread is still running to avoid deadlock. Quit GPU thread TaskRunner
+    // after cleanup on compositor thread is finished.
     viz_compositor_thread_runner_->CleanupForShutdown(base::BindOnce(
         &Delegate::QuitMainMessageLoop, base::Unretained(delegate_)));
   } else {

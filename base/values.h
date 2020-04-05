@@ -229,9 +229,7 @@ class BASE_EXPORT Value {
   template <typename Predicate>
   size_t EraseListValueIf(Predicate pred) {
     CHECK(is_list());
-    const size_t old_size = list_.size();
-    base::EraseIf(list_, pred);
-    return old_size - list_.size();
+    return base::EraseIf(list_, pred);
   }
 
   // Erases all Values from the list.
@@ -656,7 +654,7 @@ class BASE_EXPORT DictionaryValue : public Value {
   // |out_value| is optional and will only be set if non-NULL.
   // DEPRECATED, use Value::FindBoolPath(path) instead.
   bool GetBoolean(StringPiece path, bool* out_value) const;
-  // DEPRECATED, use Value::FindIntPath(path) isntead.
+  // DEPRECATED, use Value::FindIntPath(path) instead.
   bool GetInteger(StringPiece path, int* out_value) const;
   // Values of both type Type::INTEGER and Type::DOUBLE can be obtained as
   // doubles.
@@ -784,8 +782,8 @@ class BASE_EXPORT DictionaryValue : public Value {
 // This type of Value represents a list of other Value values.
 class BASE_EXPORT ListValue : public Value {
  public:
-  using const_iterator = ListStorage::const_iterator;
-  using iterator = ListStorage::iterator;
+  using const_iterator = ListView::const_iterator;
+  using iterator = ListView::iterator;
 
   // Returns |value| if it is a list, nullptr otherwise.
   static std::unique_ptr<ListValue> From(std::unique_ptr<Value> value);
@@ -910,14 +908,14 @@ class BASE_EXPORT ListValue : public Value {
 
   // Iteration.
   // DEPRECATED, use GetList()::begin() instead.
-  iterator begin() { return list_.begin(); }
+  iterator begin() { return GetList().begin(); }
   // DEPRECATED, use GetList()::end() instead.
-  iterator end() { return list_.end(); }
+  iterator end() { return GetList().end(); }
 
   // DEPRECATED, use GetList()::begin() instead.
-  const_iterator begin() const { return list_.begin(); }
+  const_iterator begin() const { return GetList().begin(); }
   // DEPRECATED, use GetList()::end() instead.
-  const_iterator end() const { return list_.end(); }
+  const_iterator end() const { return GetList().end(); }
 
   // DEPRECATED, use Value::Clone() instead.
   // TODO(crbug.com/646113): Delete this and migrate callsites.

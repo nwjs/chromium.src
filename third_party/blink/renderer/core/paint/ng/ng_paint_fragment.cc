@@ -21,7 +21,6 @@
 #include "third_party/blink/renderer/core/layout/ng/inline/ng_physical_text_fragment.h"
 #include "third_party/blink/renderer/core/layout/ng/layout_ng_block_flow.h"
 #include "third_party/blink/renderer/core/layout/ng/list/layout_ng_list_item.h"
-#include "third_party/blink/renderer/core/layout/ng/list/layout_ng_list_marker.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_block_break_token.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_fragment.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_ink_overflow.h"
@@ -116,7 +115,7 @@ LogicalRect ExpandedSelectionRectForSoftLineBreakIfNeeded(
   if (layout_block_flow && layout_block_flow->ShouldTruncateOverflowingText())
     return rect;
   // Copy from InlineTextBoxPainter::PaintSelection.
-  const LayoutUnit space_width(cursor.CurrentStyle().GetFont().SpaceWidth());
+  const LayoutUnit space_width(cursor.Current().Style().GetFont().SpaceWidth());
   return {rect.offset,
           {rect.size.inline_size + space_width, rect.size.block_size}};
 }
@@ -434,8 +433,8 @@ void NGPaintFragment::PopulateDescendants(CreateContext* parent_context) {
   scoped_refptr<NGPaintFragment>* last_child_ptr = &first_child_;
 
   auto* box_physical_fragment = DynamicTo<NGPhysicalBoxFragment>(fragment);
-  bool children_are_inline =
-      !box_physical_fragment || box_physical_fragment->ChildrenInline();
+  bool is_inline_fc = !box_physical_fragment ||
+                      box_physical_fragment->IsInlineFormattingContext();
 
   for (const NGLink& child_fragment : container.Children()) {
     child_fragment->CheckType();
@@ -446,11 +445,11 @@ void NGPaintFragment::PopulateDescendants(CreateContext* parent_context) {
 
     child_context.populate_children =
         child_fragment->IsContainer() &&
-        !child_fragment->IsBlockFormattingContextRoot();
+        !child_fragment->IsFormattingContextRoot();
     scoped_refptr<NGPaintFragment> child = CreateOrReuse(
         child_fragment.get(), child_fragment.Offset(), &child_context);
 
-    if (children_are_inline) {
+    if (is_inline_fc) {
       DCHECK(!child_fragment->IsOutOfFlowPositioned());
       if (child_fragment->IsText() || child_fragment->IsInlineBox() ||
           child_fragment->IsAtomicInline()) {
@@ -542,7 +541,7 @@ void NGPaintFragment::ClearAssociationWithLayoutObject() {
         fragment.IsColumnBox()) {
       child->ClearAssociationWithLayoutObject();
     } else {
-      DCHECK(fragment.IsText() || fragment.IsBlockFormattingContextRoot());
+      DCHECK(fragment.IsText() || fragment.IsFormattingContextRoot());
       DCHECK(child->Children().IsEmpty());
     }
   }
@@ -645,7 +644,7 @@ PhysicalRect NGPaintFragment::RecalcContentsInkOverflow() const {
 
     // A BFC root establishes a separate NGPaintFragment tree. Re-compute the
     // child tree using its LayoutObject, because it may not be NG.
-    if (child_fragment.IsBlockFormattingContextRoot()) {
+    if (child_fragment.IsFormattingContextRoot()) {
       LayoutBox* layout_box =
           ToLayoutBox(child_fragment.GetMutableLayoutObject());
       layout_box->RecalcVisualOverflow();
@@ -666,7 +665,7 @@ PhysicalRect NGPaintFragment::RecalcContentsInkOverflow() const {
 PhysicalRect NGPaintFragment::RecalcInkOverflow() {
   const NGPhysicalFragment& fragment = PhysicalFragment();
   fragment.CheckCanUpdateInkOverflow();
-  DCHECK(!fragment.IsBlockFormattingContextRoot());
+  DCHECK(!fragment.IsFormattingContextRoot());
 
   // NGPhysicalTextFragment caches ink overflow in layout. No need to recalc nor
   // to store in NGPaintFragment.
@@ -922,17 +921,19 @@ PhysicalRect ComputeLocalSelectionRectForText(
   LogicalRect logical_rect = ComputeLogicalRectFor(selection_rect, cursor);
   // Let LocalRect for line break have a space width to paint line break
   // when it is only character in a line or only selected in a line.
-  if (selection_status.start != selection_status.end && cursor.IsLineBreak() &&
+  if (selection_status.start != selection_status.end &&
+      cursor.Current().IsLineBreak() &&
       // This is for old compatible that old doesn't paint last br in a page.
-      !IsLastBRInPage(*cursor.CurrentLayoutObject())) {
+      !IsLastBRInPage(*cursor.Current().GetLayoutObject())) {
     DCHECK(!logical_rect.size.inline_size);
     logical_rect.size.inline_size =
-        LayoutUnit(cursor.CurrentStyle().GetFont().SpaceWidth());
+        LayoutUnit(cursor.Current().Style().GetFont().SpaceWidth());
   }
   const LogicalRect line_break_extended_rect =
-      cursor.IsLineBreak() ? logical_rect
-                           : ExpandedSelectionRectForSoftLineBreakIfNeeded(
-                                 logical_rect, cursor, selection_status);
+      cursor.Current().IsLineBreak()
+          ? logical_rect
+          : ExpandedSelectionRectForSoftLineBreakIfNeeded(logical_rect, cursor,
+                                                          selection_status);
   const LogicalRect line_height_expanded_rect =
       ExpandSelectionRectToLineHeight(line_break_extended_rect, cursor);
   const PhysicalRect physical_rect =
@@ -944,7 +945,7 @@ PhysicalRect ComputeLocalSelectionRectForText(
 // "ng_selection_painter.cc".
 PhysicalRect ComputeLocalSelectionRectForReplaced(
     const NGInlineCursor& cursor) {
-  DCHECK(cursor.CurrentLayoutObject()->IsLayoutReplaced());
+  DCHECK(cursor.Current().GetLayoutObject()->IsLayoutReplaced());
   const PhysicalRect selection_rect = PhysicalRect({}, cursor.Current().Size());
   LogicalRect logical_rect = ComputeLogicalRectFor(selection_rect, cursor);
   const LogicalRect line_height_expanded_rect =
@@ -1045,7 +1046,9 @@ PositionWithAffinity NGPaintFragment::PositionForPointInInlineFormattingContext(
     const PhysicalOffset& point) const {
   DCHECK(PhysicalFragment().IsBlockFlow());
   DCHECK(PhysicalFragment().IsBox());
-  DCHECK(To<NGPhysicalBoxFragment>(PhysicalFragment()).ChildrenInline());
+  DCHECK(To<NGPhysicalBoxFragment>(PhysicalFragment())
+             .GetLayoutObject()
+             ->ChildrenInline());
 
   const LogicalOffset logical_point = point.ConvertToLogical(
       Style().GetWritingMode(), Style().Direction(), Size(),
@@ -1124,7 +1127,6 @@ PositionWithAffinity NGPaintFragment::PositionForPoint(
     // We current fall back to legacy for block formatting contexts, so we
     // should reach here only for inline formatting contexts.
     // TODO(xiaochengh): Do not fall back.
-    DCHECK(To<NGPhysicalBoxFragment>(PhysicalFragment()).ChildrenInline());
     return PositionForPointInInlineFormattingContext(point);
   }
 
@@ -1138,13 +1140,16 @@ String NGPaintFragment::DebugName() const {
   DCHECK(physical_fragment_);
   const NGPhysicalFragment& physical_fragment = *physical_fragment_;
   if (physical_fragment.IsBox()) {
+    const LayoutObject* layout_object = physical_fragment.GetLayoutObject();
+    if (!layout_object)
+      return "NGPhysicalBoxFragment";
+    // For the root |NGPaintFragment|, return the name of the |LayoutObject| to
+    // ease the transition to |NGFragmentItem|.
+    if (!Parent())
+      return layout_object->DebugName();
     name.Append("NGPhysicalBoxFragment");
-    if (const LayoutObject* layout_object =
-            physical_fragment.GetLayoutObject()) {
-      DCHECK(physical_fragment.IsBox());
-      name.Append(' ');
-      name.Append(layout_object->DebugName());
-    }
+    name.Append(' ');
+    name.Append(layout_object->DebugName());
   } else if (physical_fragment.IsText()) {
     name.Append("NGPhysicalTextFragment '");
     name.Append(To<NGPhysicalTextFragment>(physical_fragment).Text());

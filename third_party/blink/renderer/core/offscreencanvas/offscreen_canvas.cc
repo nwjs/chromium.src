@@ -7,12 +7,15 @@
 #include <memory>
 #include <utility>
 
+#include "base/metrics/histogram_functions.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/renderer/core/css/css_font_selector.h"
 #include "third_party/blink/renderer/core/css/offscreen_font_selector.h"
 #include "third_party/blink/renderer/core/css/style_engine.h"
+#include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/fileapi/blob.h"
+#include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/html/canvas/canvas_async_blob_creator.h"
 #include "third_party/blink/renderer/core/html/canvas/canvas_context_creation_attributes_core.h"
 #include "third_party/blink/renderer/core/html/canvas/canvas_rendering_context.h"
@@ -42,6 +45,27 @@ OffscreenCanvas::OffscreenCanvas(ExecutionContext* context, const IntSize& size)
           CanvasRenderingContextHost::HostType::kOffscreenCanvasHost),
       execution_context_(context),
       size_(size) {
+  // Other code in Blink watches for destruction of the context; be
+  // robust here as well.
+  if (!context->IsContextDestroyed()) {
+    if (context->IsDocument()) {
+      // If this OffscreenCanvas is being created in the context of a
+      // cross-origin iframe, it should prefer to use the low-power GPU.
+      LocalFrame* frame = Document::From(context)->GetFrame();
+      if (!(frame && frame->IsCrossOriginToMainFrame())) {
+        AllowHighPerformancePowerPreference();
+      }
+    } else if (context->IsDedicatedWorkerGlobalScope()) {
+      // Per spec, dedicated workers can only load same-origin top-level
+      // scripts, so grant them access to the high-performance GPU.
+      //
+      // TODO(crbug.com/1050739): refine this logic. If the worker was
+      // spawned from an iframe, keep track of whether that iframe was
+      // itself cross-origin.
+      AllowHighPerformancePowerPreference();
+    }
+  }
+
   UpdateMemoryUsage();
 }
 
@@ -353,35 +377,56 @@ CanvasResourceProvider* OffscreenCanvas::GetOrCreateResourceProvider() {
     }
 
     IntSize surface_size(width(), height());
-    CanvasResourceProvider::ResourceUsage usage;
-    if (can_use_gpu) {
-      if (HasPlaceholderCanvas()) {
-        usage = CanvasResourceProvider::ResourceUsage::
-            kAcceleratedCompositedResourceUsage;
-      } else {
-        usage =
-            CanvasResourceProvider::ResourceUsage::kAcceleratedResourceUsage;
-      }
-    } else {
-      if (HasPlaceholderCanvas()) {
-        usage = CanvasResourceProvider::ResourceUsage::
-            kSoftwareCompositedResourceUsage;
-      } else {
-        usage = CanvasResourceProvider::ResourceUsage::kSoftwareResourceUsage;
-      }
-    }
-
     base::WeakPtr<CanvasResourceDispatcher> dispatcher_weakptr =
         HasPlaceholderCanvas() ? GetOrCreateResourceDispatcher()->GetWeakPtr()
                                : nullptr;
+    std::unique_ptr<CanvasResourceProvider> provider;
+    // kAcceleratedCompositedResourceUsage and kSoftwareCompositedResourceUsage
+    // still need to use the Create method for CanvasResourceProvider.
+    // The former kAcceleratedResourceUsage and kSoftwareResourceUsage have been
+    // replaced by two different constructors (one of sharedImage witt the
+    // fallback to bitmap, and the other one to bitmap)
+    // This is still WIP and more changes will come in upcoming CLs.
+    if (can_use_gpu && HasPlaceholderCanvas()) {
+      provider = CanvasResourceProvider::Create(
+          surface_size,
+          CanvasResourceProvider::ResourceUsage::
+              kAcceleratedCompositedResourceUsage,
+          SharedGpuContext::ContextProviderWrapper(), 0, FilterQuality(),
+          context_->ColorParams(), presentation_mode,
+          std::move(dispatcher_weakptr), false /*is_origin_top_left*/);
+    } else if (!can_use_gpu && HasPlaceholderCanvas()) {
+      provider = CanvasResourceProvider::Create(
+          surface_size,
+          CanvasResourceProvider::ResourceUsage::
+              kSoftwareCompositedResourceUsage,
+          SharedGpuContext::ContextProviderWrapper(), 0, FilterQuality(),
+          context_->ColorParams(), presentation_mode,
+          std::move(dispatcher_weakptr), false /*is_origin_top_left=*/);
+    } else if (can_use_gpu) {
+      provider = CanvasResourceProvider::CreateSharedImageProvider(
+          surface_size, SharedGpuContext::ContextProviderWrapper(),
+          FilterQuality(), context_->ColorParams(),
+          false /*is_origin_top_left*/,
+          CanvasResourceProvider::RasterMode::kGPU,
+          0u /*shared_image_usage_flags*/);
 
-    ReplaceResourceProvider(CanvasResourceProvider::CreateForCanvas(
-        surface_size, usage, SharedGpuContext::ContextProviderWrapper(), 0,
-        FilterQuality(), context_->ColorParams(), presentation_mode,
-        std::move(dispatcher_weakptr), false /* is_origin_top_left */));
+    }  // else will try the BitmapProvider
+
+    if (!provider) {
+      provider = CanvasResourceProvider::CreateBitmapProvider(
+          surface_size, FilterQuality(), context_->ColorParams());
+    }
+
+    ReplaceResourceProvider(std::move(provider));
 
     if (ResourceProvider() && ResourceProvider()->IsValid()) {
+      base::UmaHistogramBoolean("Blink.Canvas.ResourceProviderIsAccelerated",
+                                ResourceProvider()->IsAccelerated());
+      base::UmaHistogramEnumeration("Blink.Canvas.ResourceProviderType",
+                                    ResourceProvider()->GetType());
       ResourceProvider()->Clear();
+      DidDraw();
 
       if (needs_matrix_clip_restore_) {
         needs_matrix_clip_restore_ = false;
@@ -455,7 +500,7 @@ bool OffscreenCanvas::ShouldAccelerate2dContext() const {
 }
 
 FontSelector* OffscreenCanvas::GetFontSelector() {
-  if (auto* document = DynamicTo<Document>(GetExecutionContext())) {
+  if (auto* document = Document::DynamicFrom(GetExecutionContext())) {
     return document->GetStyleEngine().GetFontSelector();
   }
   return To<WorkerGlobalScope>(GetExecutionContext())->GetFontSelector();
@@ -475,7 +520,7 @@ void OffscreenCanvas::UpdateMemoryUsage() {
   memory_usage_ = new_memory_usage;
 }
 
-void OffscreenCanvas::Trace(blink::Visitor* visitor) {
+void OffscreenCanvas::Trace(Visitor* visitor) {
   visitor->Trace(context_);
   visitor->Trace(execution_context_);
   EventTargetWithInlineData::Trace(visitor);

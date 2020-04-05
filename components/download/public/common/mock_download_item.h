@@ -45,7 +45,7 @@ class MockDownloadItem : public DownloadItem {
   MOCK_METHOD0(UpdateObservers, void());
   MOCK_METHOD0(ValidateDangerousDownload, void());
   MOCK_METHOD0(ValidateMixedContentDownload, void());
-  MOCK_METHOD2(StealDangerousDownload, void(bool, const AcquireFileCallback&));
+  MOCK_METHOD2(StealDangerousDownload, void(bool, AcquireFileCallback));
   MOCK_METHOD0(Pause, void());
   MOCK_METHOD1(Resume, void(bool));
   MOCK_METHOD1(Cancel, void(bool));
@@ -71,7 +71,6 @@ class MockDownloadItem : public DownloadItem {
   MOCK_CONST_METHOD0(GetTabUrl, const GURL&());
   MOCK_CONST_METHOD0(GetTabReferrerUrl, const GURL&());
   MOCK_CONST_METHOD0(GetRequestInitiator, const base::Optional<url::Origin>&());
-  MOCK_CONST_METHOD0(GetNetworkIsolationKey, const net::NetworkIsolationKey&());
   MOCK_CONST_METHOD0(GetSuggestedFilename, std::string());
   MOCK_CONST_METHOD0(GetContentDisposition, std::string());
   MOCK_CONST_METHOD0(GetResponseHeaders,

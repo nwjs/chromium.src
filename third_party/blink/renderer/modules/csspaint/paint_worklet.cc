@@ -144,7 +144,7 @@ scoped_refptr<Image> PaintWorklet::Paint(const String& name,
 // static
 const char PaintWorklet::kSupplementName[] = "PaintWorklet";
 
-void PaintWorklet::Trace(blink::Visitor* visitor) {
+void PaintWorklet::Trace(Visitor* visitor) {
   visitor->Trace(pending_generator_registry_);
   visitor->Trace(proxy_client_);
   Worklet::Trace(visitor);
@@ -250,13 +250,13 @@ WorkletGlobalScopeProxy* PaintWorklet::CreateGlobalScope() {
   if (!is_paint_off_thread_ ||
       GetNumberOfGlobalScopes() < kNumGlobalScopesPerThread) {
     return MakeGarbageCollected<PaintWorkletGlobalScopeProxy>(
-        To<Document>(GetExecutionContext())->GetFrame(), ModuleResponsesMap(),
+        Document::From(GetExecutionContext())->GetFrame(), ModuleResponsesMap(),
         GetNumberOfGlobalScopes() + 1);
   }
 
   if (!proxy_client_) {
     proxy_client_ = PaintWorkletProxyClient::Create(
-        To<Document>(GetExecutionContext()), worklet_id_);
+        Document::From(GetExecutionContext()), worklet_id_);
   }
 
   auto* worker_clients = MakeGarbageCollected<WorkerClients>();

@@ -203,7 +203,7 @@ const CSSPropertyID kComputedPropertyArray[] = {
     CSSPropertyID::kCy, CSSPropertyID::kX, CSSPropertyID::kY, CSSPropertyID::kR,
     CSSPropertyID::kRx, CSSPropertyID::kRy, CSSPropertyID::kTranslate,
     CSSPropertyID::kRotate, CSSPropertyID::kScale, CSSPropertyID::kCaretColor,
-    CSSPropertyID::kLineBreak};
+    CSSPropertyID::kLineBreak, CSSPropertyID::kMathStyle};
 
 CSSValueID CssIdentifierForFontSizeKeyword(int keyword_size) {
   DCHECK_NE(keyword_size, 0);
@@ -241,7 +241,7 @@ CSSComputedStyleDeclaration::CSSComputedStyleDeclaration(
     Node* n,
     bool allow_visited_style,
     const String& pseudo_element_name)
-    : CSSStyleDeclaration(n ? &n->GetDocument() : nullptr),
+    : CSSStyleDeclaration(n ? n->GetExecutionContext() : nullptr),
       node_(n),
       pseudo_element_specifier_(
           CSSSelector::ParsePseudoId(pseudo_element_name)),
@@ -279,7 +279,7 @@ CSSComputedStyleDeclaration::GetFontSizeCSSValuePreferringKeyword() const {
   if (!node_)
     return nullptr;
 
-  node_->GetDocument().UpdateStyleAndLayout();
+  node_->GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kEditing);
 
   const ComputedStyle* style =
       node_->EnsureComputedStyle(pseudo_element_specifier_);
@@ -389,7 +389,8 @@ const CSSValue* CSSComputedStyleDeclaration::GetPropertyCSSValue(
         CSSProperty::Get(property_name.Id()).IsLayoutDependentProperty();
     if (is_layout_dependent_property ||
         document.GetStyleEngine().HasViewportDependentMediaQueries()) {
-      owner->GetDocument().UpdateStyleAndLayout();
+      owner->GetDocument().UpdateStyleAndLayout(
+          DocumentUpdateReason::kJavaScript);
       // The style recalc could have caused the styled node to be discarded or
       // replaced if it was a PseudoElement so we need to update it.
       styled_node = StyledNode();
@@ -410,7 +411,8 @@ const CSSValue* CSSComputedStyleDeclaration::GetPropertyCSSValue(
   const ComputedStyle* style = ComputeComputedStyle();
 
   if (property_class.IsLayoutDependent(style, layout_object)) {
-    document.UpdateStyleAndLayoutForNode(styled_node);
+    document.UpdateStyleAndLayoutForNode(styled_node,
+                                         DocumentUpdateReason::kJavaScript);
     styled_node = StyledNode();
     style = ComputeComputedStyle();
     layout_object = StyledLayoutObject();
@@ -464,7 +466,8 @@ bool CSSComputedStyleDeclaration::CssPropertyMatches(
       (property_value.IsPrimitiveValue() ||
        property_value.IsIdentifierValue()) &&
       node_) {
-    node_->GetDocument().UpdateStyleAndLayout();
+    // This is only used by editing code.
+    node_->GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kEditing);
     const ComputedStyle* style =
         node_->EnsureComputedStyle(pseudo_element_specifier_);
     if (style && style->GetFontDescription().KeywordSize()) {
@@ -589,7 +592,7 @@ void CSSComputedStyleDeclaration::SetPropertyInternal(
           "' property is read-only.");
 }
 
-void CSSComputedStyleDeclaration::Trace(blink::Visitor* visitor) {
+void CSSComputedStyleDeclaration::Trace(Visitor* visitor) {
   visitor->Trace(node_);
   CSSStyleDeclaration::Trace(visitor);
 }

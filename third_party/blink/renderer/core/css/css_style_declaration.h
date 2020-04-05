@@ -24,9 +24,10 @@
 #include "base/macros.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/css/css_property_names.h"
-#include "third_party/blink/renderer/core/execution_context/context_lifecycle_observer.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
+#include "third_party/blink/renderer/core/execution_context/execution_context_lifecycle_observer.h"
 #include "third_party/blink/renderer/platform/bindings/script_wrappable.h"
+#include "third_party/blink/renderer/platform/bindings/v8_binding.h"
 #include "third_party/blink/renderer/platform/wtf/forward.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 
@@ -39,7 +40,7 @@ class ExceptionState;
 enum class SecureContextMode;
 
 class CORE_EXPORT CSSStyleDeclaration : public ScriptWrappable,
-                                        public ContextClient {
+                                        public ExecutionContextClient {
   DEFINE_WRAPPERTYPEINFO();
   USING_GARBAGE_COLLECTED_MIXIN(CSSStyleDeclaration);
 
@@ -98,14 +99,15 @@ class CORE_EXPORT CSSStyleDeclaration : public ScriptWrappable,
   // Note: AnonymousNamedSetter() can end up throwing an exception via
   // SetPropertyInternal() even though it does not take an |ExceptionState| as
   // an argument (see bug 829408).
-  bool AnonymousNamedSetter(ScriptState*,
-                            const AtomicString& name,
-                            const String& value);
+  NamedPropertySetterResult AnonymousNamedSetter(ScriptState*,
+                                                 const AtomicString& name,
+                                                 const String& value);
   void NamedPropertyEnumerator(Vector<String>& names, ExceptionState&);
   bool NamedPropertyQuery(const AtomicString&, ExceptionState&);
 
  protected:
-  CSSStyleDeclaration(ExecutionContext* context) : ContextClient(context) {}
+  CSSStyleDeclaration(ExecutionContext* context)
+      : ExecutionContextClient(context) {}
 
  private:
   DISALLOW_COPY_AND_ASSIGN(CSSStyleDeclaration);

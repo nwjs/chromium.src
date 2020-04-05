@@ -25,13 +25,12 @@
 #include "chromeos/services/assistant/assistant_state_proxy.h"
 #include "chromeos/services/assistant/public/mojom/assistant.mojom.h"
 #include "chromeos/services/assistant/public/mojom/settings.mojom.h"
-#include "components/account_id/account_id.h"
+#include "components/signin/public/identity_manager/account_info.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/receiver_set.h"
 #include "mojo/public/cpp/bindings/remote.h"
-#include "services/identity/public/mojom/identity_accessor.mojom.h"
 
 class GoogleServiceAuthError;
 class PrefService;
@@ -48,11 +47,18 @@ namespace power_manager {
 class PowerSupplyProperties;
 }  // namespace power_manager
 
+namespace signin {
+class AccessTokenFetcher;
+struct AccessTokenInfo;
+class IdentityManager;
+}  // namespace signin
+
 namespace chromeos {
 namespace assistant {
 
 class AssistantSettingsManager;
 class ServiceContext;
+class ScopedAshSessionObserver;
 
 // |AssistantManagerService|'s state won't update if it's currently in the
 // process of starting up. This is the delay before we will try to update
@@ -71,6 +77,7 @@ class COMPONENT_EXPORT(ASSISTANT_SERVICE) Service
   Service(mojo::PendingReceiver<mojom::AssistantService> receiver,
           std::unique_ptr<network::PendingSharedURLLoaderFactory>
               pending_url_loader_factory,
+          signin::IdentityManager* identity_manager,
           PrefService* profile_prefs);
   ~Service() override;
 
@@ -86,11 +93,6 @@ class COMPONENT_EXPORT(ASSISTANT_SERVICE) Service
   // itself is created, so we do not have time in our tests to grab a handle
   // to |Service| and set this before it is too late.
   static void OverrideS3ServerUriForTesting(const char* uri);
-
-  void SetIdentityAccessorForTesting(
-      mojo::PendingRemote<identity::mojom::IdentityAccessor> identity_accessor);
-
-  void SetTimerForTesting(std::unique_ptr<base::OneShotTimer> timer);
 
   void SetAssistantManagerServiceForTesting(
       std::unique_ptr<AssistantManagerService> assistant_manager_service);
@@ -108,6 +110,7 @@ class COMPONENT_EXPORT(ASSISTANT_SERVICE) Service
   void BindAssistant(mojo::PendingReceiver<mojom::Assistant> receiver) override;
   void BindSettingsManager(
       mojo::PendingReceiver<mojom::AssistantSettingsManager> receiver) override;
+  void Shutdown() override;
 
   // chromeos::PowerManagerClient::Observer overrides:
   void PowerChanged(const power_manager::PowerSupplyProperties& prop) override;
@@ -138,19 +141,10 @@ class COMPONENT_EXPORT(ASSISTANT_SERVICE) Service
 
   void UpdateAssistantManagerState();
 
-  identity::mojom::IdentityAccessor* GetIdentityAccessor();
-
+  CoreAccountInfo RetrievePrimaryAccountInfo() const;
   void RequestAccessToken();
-
-  void GetUnconsentedPrimaryAccountInfoCallback(
-      const base::Optional<CoreAccountId>& account_id,
-      const base::Optional<std::string>& gaia,
-      const base::Optional<std::string>& email,
-      const identity::AccountState& account_state);
-
-  void GetAccessTokenCallback(const base::Optional<std::string>& token,
-                              base::Time expiration_time,
-                              const GoogleServiceAuthError& error);
+  void GetAccessTokenCallback(GoogleServiceAuthError error,
+                              signin::AccessTokenInfo access_token_info);
   void RetryRefreshToken();
 
   void CreateAssistantManagerService();
@@ -165,6 +159,8 @@ class COMPONENT_EXPORT(ASSISTANT_SERVICE) Service
 
   void UpdateListeningState();
 
+  base::Optional<AssistantManagerService::UserInfo> GetUserInfo() const;
+
   ServiceContext* context() { return context_.get(); }
 
   // Returns the "actual" hotword status. In addition to the hotword pref, this
@@ -175,13 +171,11 @@ class COMPONENT_EXPORT(ASSISTANT_SERVICE) Service
   mojo::Receiver<mojom::AssistantService> receiver_;
   mojo::ReceiverSet<mojom::Assistant> assistant_receivers_;
 
-  bool observing_ash_session_ = false;
   mojo::Remote<mojom::Client> client_;
   mojo::Remote<mojom::DeviceActions> device_actions_;
 
-  mojo::Remote<identity::mojom::IdentityAccessor> identity_accessor_;
-
-  AccountId account_id_;
+  signin::IdentityManager* const identity_manager_;
+  std::unique_ptr<ScopedAshSessionObserver> scoped_ash_session_observer_;
   std::unique_ptr<AssistantManagerService> assistant_manager_service_;
   std::unique_ptr<base::OneShotTimer> token_refresh_timer_;
   int token_refresh_error_backoff_factor = 1;
@@ -190,6 +184,8 @@ class COMPONENT_EXPORT(ASSISTANT_SERVICE) Service
                  chromeos::PowerManagerClient::Observer>
       power_manager_observer_{this};
 
+  // Flag to guard the one-time mojom initialization.
+  bool is_assistant_manager_service_finalized_ = false;
   // Whether the current user session is active.
   bool session_active_ = false;
   // Whether the lock screen is on.
@@ -227,6 +223,8 @@ class COMPONENT_EXPORT(ASSISTANT_SERVICE) Service
   PrefService* const profile_prefs_;
 
   base::CancelableOnceClosure update_assistant_manager_callback_;
+
+  std::unique_ptr<signin::AccessTokenFetcher> access_token_fetcher_;
 
   SEQUENCE_CHECKER(sequence_checker_);
 

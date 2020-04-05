@@ -41,7 +41,7 @@ GetThreadSpecificProvider() {
 BroadcastChannel* BroadcastChannel::Create(ExecutionContext* execution_context,
                                            const String& name,
                                            ExceptionState& exception_state) {
-  Document* document = DynamicTo<Document>(execution_context);
+  Document* document = Document::DynamicFrom(execution_context);
   if (document && document->IsCrossSiteSubframe())
     UseCounter::Count(document, WebFeature::kThirdPartyBroadcastChannel);
 
@@ -97,12 +97,12 @@ bool BroadcastChannel::HasPendingActivity() const {
   return receiver_.is_bound() && HasEventListeners(event_type_names::kMessage);
 }
 
-void BroadcastChannel::ContextDestroyed(ExecutionContext*) {
+void BroadcastChannel::ContextDestroyed() {
   close();
 }
 
-void BroadcastChannel::Trace(blink::Visitor* visitor) {
-  ContextLifecycleObserver::Trace(visitor);
+void BroadcastChannel::Trace(Visitor* visitor) {
+  ExecutionContextLifecycleObserver::Trace(visitor);
   EventTargetWithInlineData::Trace(visitor);
 }
 
@@ -136,7 +136,7 @@ void BroadcastChannel::OnError() {
 
 BroadcastChannel::BroadcastChannel(ExecutionContext* execution_context,
                                    const String& name)
-    : ContextLifecycleObserver(execution_context),
+    : ExecutionContextLifecycleObserver(execution_context),
       origin_(execution_context->GetSecurityOrigin()),
       name_(name),
       feature_handle_for_scheduler_(

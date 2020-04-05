@@ -29,9 +29,6 @@
 #include "components/data_reduction_proxy/core/common/data_reduction_proxy_params.h"
 #include "components/metrics/call_stack_profile_collector.h"
 #include "components/password_manager/content/browser/content_password_manager_driver_factory.h"
-#include "components/rappor/public/rappor_utils.h"
-#include "components/rappor/rappor_recorder_impl.h"
-#include "components/rappor/rappor_service_impl.h"
 #include "components/safe_browsing/buildflags.h"
 #include "components/safe_browsing/content/browser/mojo_safe_browsing_impl.h"
 #include "components/spellcheck/spellcheck_buildflags.h"
@@ -74,24 +71,6 @@
 
 namespace {
 
-void AddDataReductionProxyReceiver(
-    int render_process_id,
-    mojo::PendingReceiver<data_reduction_proxy::mojom::DataReductionProxy>
-        receiver) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  auto* rph = content::RenderProcessHost::FromID(render_process_id);
-  if (!rph)
-    return;
-
-  auto* drp_settings =
-      DataReductionProxyChromeSettingsFactory::GetForBrowserContext(
-          rph->GetBrowserContext());
-  if (!drp_settings)
-    return;
-
-  drp_settings->data_reduction_proxy_service()->Clone(std::move(receiver));
-}
-
 // Helper method for ExposeInterfacesToRenderer() that checks the latest
 // SafeBrowsing pref value on the UI thread before hopping over to the IO
 // thread.
@@ -108,10 +87,9 @@ void MaybeCreateSafeBrowsingForRenderer(
   if (!render_process_host)
     return;
 
-  bool safe_browsing_enabled =
-      Profile::FromBrowserContext(render_process_host->GetBrowserContext())
-          ->GetPrefs()
-          ->GetBoolean(prefs::kSafeBrowsingEnabled);
+  bool safe_browsing_enabled = safe_browsing::IsSafeBrowsingEnabled(
+      *Profile::FromBrowserContext(render_process_host->GetBrowserContext())
+           ->GetPrefs());
   base::CreateSingleThreadTaskRunner({content::BrowserThread::IO})
       ->PostTask(
           FROM_HERE,
@@ -138,11 +116,6 @@ void ChromeContentBrowserClient::ExposeInterfacesToRenderer(
 
   scoped_refptr<base::SingleThreadTaskRunner> ui_task_runner =
       base::CreateSingleThreadTaskRunner({content::BrowserThread::UI});
-#if 0
-  registry->AddInterface(base::Bind(&rappor::RapporRecorderImpl::Create,
-                                    g_browser_process->rappor_service()),
-                         ui_task_runner);
-#endif
   registry->AddInterface(
       base::BindRepeating(&metrics::CallStackProfileCollector::Create));
 
@@ -173,12 +146,6 @@ void ChromeContentBrowserClient::ExposeInterfacesToRenderer(
         ui_task_runner);
   }
 #endif
-
-  if (data_reduction_proxy::params::IsEnabledWithNetworkService()) {
-    registry->AddInterface(base::BindRepeating(&AddDataReductionProxyReceiver,
-                                               render_process_host->GetID()),
-                           ui_task_runner);
-  }
 
 #if defined(OS_WIN)
   // Add the ModuleEventSink interface. This is the interface used by renderer

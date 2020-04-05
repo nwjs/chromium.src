@@ -130,7 +130,7 @@ SearchSuggestionParser::SuggestResult::SuggestResult(
       annotation_(annotation),
       additional_query_params_(additional_query_params),
       image_dominant_color_(image_dominant_color),
-      image_url_(image_url),
+      image_url_(GURL(image_url)),
       should_prefetch_(should_prefetch) {
   match_contents_ = match_contents;
   DCHECK(!match_contents_.empty());
@@ -418,7 +418,9 @@ bool SearchSuggestionParser::ParseSuggestResults(
   // 5th element: Optional key-value pairs from the Suggest server.
   const base::ListValue* types = nullptr;
   const base::ListValue* relevances = nullptr;
+  const base::ListValue* experiment_stats = nullptr;
   const base::ListValue* suggestion_details = nullptr;
+  const base::DictionaryValue* headers = nullptr;
   const base::ListValue* subtype_identifiers = nullptr;
   const base::DictionaryValue* extras = nullptr;
   int prefetch_index = -1;
@@ -437,6 +439,28 @@ bool SearchSuggestionParser::ParseSuggestResults(
     results->field_trial_triggered = false;
     extras->GetBoolean("google:fieldtrialtriggered",
                        &results->field_trial_triggered);
+
+    results->experiment_stats.clear();
+    if (extras->GetList("google:experimentstats", &experiment_stats) &&
+        experiment_stats) {
+      for (size_t index = 0; index < experiment_stats->GetSize(); index++) {
+        const base::Value* experiment_stat = nullptr;
+        if (experiment_stats->Get(index, &experiment_stat) && experiment_stat) {
+          results->experiment_stats.push_back(experiment_stat->Clone());
+        }
+      }
+    }
+
+    const base::DictionaryValue* wrapper_dict = nullptr;
+    if (extras->GetDictionary("google:headertexts", &wrapper_dict) &&
+        wrapper_dict && wrapper_dict->GetDictionary("a", &headers) && headers) {
+      for (const auto& it : headers->DictItems()) {
+        int suggestion_group_id;
+        base::StringToInt(it.first, &suggestion_group_id);
+        results->headers_map[suggestion_group_id] =
+            base::UTF8ToUTF16(it.second.GetString());
+      }
+    }
 
     const base::DictionaryValue* client_data = nullptr;
     if (extras->GetDictionary("google:clientdata", &client_data) && client_data)
@@ -533,6 +557,7 @@ bool SearchSuggestionParser::ParseSuggestResults(
       std::string image_dominant_color;
       std::string image_url;
       std::string additional_query_params;
+      base::Optional<int> suggestion_group_id;
 
       if (suggestion_details) {
         suggestion_details->GetDictionary(index, &suggestion_detail);
@@ -546,6 +571,9 @@ bool SearchSuggestionParser::ParseSuggestResults(
           suggestion_detail->GetString("dc", &image_dominant_color);
           suggestion_detail->GetString("i", &image_url);
           suggestion_detail->GetString("q", &additional_query_params);
+
+          // Suggestion group Id.
+          suggestion_group_id = suggestion_detail->FindIntPath("zl");
 
           // Extract the Answer, if provided.
           const base::DictionaryValue* answer_json = nullptr;
@@ -581,6 +609,11 @@ bool SearchSuggestionParser::ParseSuggestResults(
           relevances != nullptr,
           should_prefetch,
           trimmed_input));
+
+      if (suggestion_group_id) {
+        results->suggest_results.back().set_suggestion_group_id(
+            *suggestion_group_id);
+      }
       if (answer_parsed_successfully)
         results->suggest_results.back().SetAnswer(answer);
     }

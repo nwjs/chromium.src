@@ -333,11 +333,14 @@ void ExtensionFunctionDispatcher::DispatchWithCallbackInternal(
         registry->enabled_extensions().GetHostedAppByURL(params.source_url);
   }
 
-  if (render_frame_host)
+  const GURL* rfh_url =
+      render_frame_host ? &render_frame_host->GetLastCommittedURL() : nullptr;
+  if (render_frame_host) {
     DCHECK_EQ(render_process_id, render_frame_host->GetProcess()->GetID());
+  }
 
   scoped_refptr<ExtensionFunction> function = CreateExtensionFunction(
-      params, extension, render_process_id, *process_map,
+      params, extension, render_process_id, rfh_url, *process_map,
       ExtensionAPI::GetSharedInstance(), browser_context_, callback);
   if (!function.get())
     return;
@@ -355,9 +358,6 @@ void ExtensionFunctionDispatcher::DispatchWithCallbackInternal(
           extension, browser_context_)) {
     function->set_include_incognito_information(true);
   }
-
-  if (!CheckPermissions(function.get(), params, callback))
-    return;
 
   if (!extension) {
     if (function->source_context_type() == Feature::WEBUI_CONTEXT) {
@@ -401,6 +401,12 @@ void ExtensionFunctionDispatcher::DispatchWithCallbackInternal(
     } else {
       base::UmaHistogramSparse("Extensions.Functions.ExtensionCalls",
                                function->histogram_value());
+    }
+
+    if (IsRequestFromServiceWorker(params)) {
+      base::UmaHistogramSparse(
+          "Extensions.Functions.ExtensionServiceWorkerCalls",
+          function->histogram_value());
     }
 
     base::ElapsedTimer timer;
@@ -480,33 +486,23 @@ ExtensionFunctionDispatcher::GetVisibleWebContents() const {
 }
 
 // static
-bool ExtensionFunctionDispatcher::CheckPermissions(
-    ExtensionFunction* function,
-    const ExtensionHostMsg_Request_Params& params,
-    const ExtensionFunction::ResponseCallback& callback) {
-  if (!function->HasPermission()) {
-    LOG(ERROR) << "Permission denied for " << params.name;
-    SendAccessDenied(callback);
-    return false;
-  }
-  return true;
-}
-
-// static
 scoped_refptr<ExtensionFunction>
 ExtensionFunctionDispatcher::CreateExtensionFunction(
     const ExtensionHostMsg_Request_Params& params,
     const Extension* extension,
     int requesting_process_id,
+    const GURL* rfh_url,
     const ProcessMap& process_map,
     ExtensionAPI* api,
     void* profile_id,
     const ExtensionFunction::ResponseCallback& callback) {
+  constexpr char kCreationFailed[] = "Access to extension API denied.";
+
   scoped_refptr<ExtensionFunction> function =
       ExtensionFunctionRegistry::GetInstance().NewFunction(params.name);
   if (!function) {
     LOG(ERROR) << "Unknown Extension API - " << params.name;
-    SendAccessDenied(callback);
+    callback.Run(ExtensionFunction::FAILED, base::ListValue(), kCreationFailed);
     return nullptr;
   }
 
@@ -518,19 +514,16 @@ ExtensionFunctionDispatcher::CreateExtensionFunction(
   function->set_extension(extension);
   function->set_profile_id(profile_id);
   function->set_response_callback(callback);
-  function->set_source_context_type(
-      process_map.GetMostLikelyContextType(extension, requesting_process_id));
+  function->set_source_context_type(process_map.GetMostLikelyContextType(
+      extension, requesting_process_id, rfh_url));
   function->set_source_process_id(requesting_process_id);
+
+  if (!function->HasPermission()) {
+    LOG(ERROR) << "Permission denied for " << params.name;
+    function->RespondWithError(kCreationFailed);
+    return nullptr;
+  }
 
   return function;
 }
-
-// static
-void ExtensionFunctionDispatcher::SendAccessDenied(
-    const ExtensionFunction::ResponseCallback& callback) {
-  base::ListValue empty_list;
-  callback.Run(ExtensionFunction::FAILED, empty_list,
-               "Access to extension API denied.");
-}
-
 }  // namespace extensions

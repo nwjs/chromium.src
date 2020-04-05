@@ -25,6 +25,8 @@
 #include "base/system/sys_info.h"
 #include "base/task/post_task.h"
 #include "base/task/task_traits.h"
+#include "base/task/thread_pool.h"
+#include "base/util/memory_pressure/system_memory_pressure_evaluator_chromeos.h"
 #include "chromeos/constants/chromeos_switches.h"
 #include "chromeos/cryptohome/cryptohome_parameters.h"
 #include "chromeos/system/scheduler_configuration_manager_base.h"
@@ -141,8 +143,8 @@ ArcSessionDelegateImpl::ArcSessionDelegateImpl(
       channel_(channel) {}
 
 void ArcSessionDelegateImpl::CreateSocket(CreateSocketCallback callback) {
-  base::PostTaskAndReplyWithResult(
-      FROM_HERE, {base::ThreadPool(), base::MayBlock()},
+  base::ThreadPool::PostTaskAndReplyWithResult(
+      FROM_HERE, {base::MayBlock()},
       base::BindOnce(&ArcSessionDelegateImpl::CreateSocketInternal),
       std::move(callback));
 }
@@ -162,8 +164,8 @@ base::ScopedFD ArcSessionDelegateImpl::ConnectMojo(
   // For production, |socket_fd| passed from session_manager is either a valid
   // socket or a valid file descriptor (/dev/null). For testing, |socket_fd|
   // might be invalid.
-  base::PostTaskAndReplyWithResult(
-      FROM_HERE, {base::ThreadPool(), base::MayBlock()},
+  base::ThreadPool::PostTaskAndReplyWithResult(
+      FROM_HERE, {base::MayBlock()},
       base::BindOnce(&ArcSessionDelegateImpl::ConnectMojoInternal,
                      std::move(socket_fd), std::move(cancel_fd)),
       base::BindOnce(&ArcSessionDelegateImpl::OnMojoConnected,
@@ -182,8 +184,8 @@ void ArcSessionDelegateImpl::GetLcdDensity(GetLcdDensityCallback callback) {
 
 void ArcSessionDelegateImpl::GetFreeDiskSpace(
     GetFreeDiskSpaceCallback callback) {
-  PostTaskAndReplyWithResult(
-      FROM_HERE, {base::ThreadPool(), base::MayBlock()},
+  base::ThreadPool::PostTaskAndReplyWithResult(
+      FROM_HERE, {base::MayBlock()},
       base::BindOnce(&base::SysInfo::AmountOfFreeDiskSpace,
                      base::FilePath("/home")),
       std::move(callback));
@@ -194,7 +196,7 @@ version_info::Channel ArcSessionDelegateImpl::GetChannel() {
 }
 
 std::unique_ptr<ArcClientAdapter> ArcSessionDelegateImpl::CreateClient() {
-  return ArcClientAdapter::Create(GetChannel());
+  return ArcClientAdapter::Create();
 }
 
 // static
@@ -398,6 +400,10 @@ void ArcSessionImpl::DoStartMiniInstance(size_t num_cores_disabled) {
     }
   }
 
+  params.arc_disable_system_default_app =
+      base::CommandLine::ForCurrentProcess()->HasSwitch(
+          chromeos::switches::kArcDisableSystemDefaultApps);
+
   VLOG(1) << "Starting ARC mini instance with lcd_density="
           << params.lcd_density
           << ", num_cores_disabled=" << params.num_cores_disabled;
@@ -563,6 +569,12 @@ void ArcSessionImpl::OnMojoConnected(
 
   VLOG(0) << "ARC ready.";
   state_ = State::RUNNING_FULL_INSTANCE;
+
+  // Some memory parameters may be changed when ARC is launched, notify the
+  // memory monitor to update these parameters.
+  auto* monitor = util::chromeos::SystemMemoryPressureEvaluator::Get();
+  if (monitor)
+    monitor->UpdateMemoryParameters();
 }
 
 void ArcSessionImpl::Stop() {

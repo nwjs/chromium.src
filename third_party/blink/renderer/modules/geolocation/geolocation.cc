@@ -34,10 +34,10 @@
 #include "third_party/blink/renderer/bindings/core/v8/source_location.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/frame/deprecation.h"
-#include "third_party/blink/renderer/core/frame/hosts_using_features.h"
 #include "third_party/blink/renderer/core/frame/performance_monitor.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/inspector/console_message.h"
+#include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
 #include "third_party/blink/renderer/modules/geolocation/geolocation_coordinates.h"
 #include "third_party/blink/renderer/modules/geolocation/geolocation_error.h"
@@ -92,7 +92,7 @@ static void ReportGeolocationViolation(Document* doc) {
   if (!LocalFrame::HasTransientUserActivation(doc ? doc->GetFrame()
                                                   : nullptr)) {
     PerformanceMonitor::ReportGenericViolation(
-        doc, PerformanceMonitor::kDiscouragedAPIUse,
+        doc->ToExecutionContext(), PerformanceMonitor::kDiscouragedAPIUse,
         "Only request geolocation information in response to a user gesture.",
         base::TimeDelta(), nullptr);
   }
@@ -105,32 +105,32 @@ Geolocation* Geolocation::Create(ExecutionContext* context) {
 }
 
 Geolocation::Geolocation(ExecutionContext* context)
-    : ContextLifecycleObserver(context),
+    : ExecutionContextLifecycleObserver(context),
       PageVisibilityObserver(GetDocument()->GetPage()),
       watchers_(MakeGarbageCollected<GeolocationWatchers>()) {}
 
 Geolocation::~Geolocation() = default;
 
-void Geolocation::Trace(blink::Visitor* visitor) {
+void Geolocation::Trace(Visitor* visitor) {
   visitor->Trace(one_shots_);
   visitor->Trace(watchers_);
   visitor->Trace(one_shots_being_invoked_);
   visitor->Trace(watchers_being_invoked_);
   visitor->Trace(last_position_);
   ScriptWrappable::Trace(visitor);
-  ContextLifecycleObserver::Trace(visitor);
+  ExecutionContextLifecycleObserver::Trace(visitor);
   PageVisibilityObserver::Trace(visitor);
 }
 
 Document* Geolocation::GetDocument() const {
-  return To<Document>(GetExecutionContext());
+  return Document::From(GetExecutionContext());
 }
 
 LocalFrame* Geolocation::GetFrame() const {
   return GetDocument() ? GetDocument()->GetFrame() : nullptr;
 }
 
-void Geolocation::ContextDestroyed(ExecutionContext*) {
+void Geolocation::ContextDestroyed() {
   StopTimers();
   one_shots_.clear();
   watchers_->Clear();
@@ -158,24 +158,18 @@ void Geolocation::RecordOriginTypeAccess() const {
   } else if (GetFrame()
                  ->GetSettings()
                  ->GetAllowGeolocationOnInsecureOrigins()) {
-    // TODO(jww): This should be removed after WebView is fixed so that it
-    // disallows geolocation in insecure contexts.
-    //
-    // See https://crbug.com/603574.
+    // Android WebView allows geolocation in secure contexts for legacy apps.
+    // See https://crbug.com/603574 for details.
     Deprecation::CountDeprecation(
         document, WebFeature::kGeolocationInsecureOriginDeprecatedNotRemoved);
     Deprecation::CountDeprecationCrossOriginIframe(
         *document,
         WebFeature::kGeolocationInsecureOriginIframeDeprecatedNotRemoved);
-    HostsUsingFeatures::CountAnyWorld(
-        *document, HostsUsingFeatures::Feature::kGeolocationInsecureHost);
   } else {
     Deprecation::CountDeprecation(document,
                                   WebFeature::kGeolocationInsecureOrigin);
     Deprecation::CountDeprecationCrossOriginIframe(
         *document, WebFeature::kGeolocationInsecureOriginIframe);
-    HostsUsingFeatures::CountAnyWorld(
-        *document, HostsUsingFeatures::Feature::kGeolocationInsecureHost);
   }
 }
 
@@ -185,7 +179,8 @@ void Geolocation::getCurrentPosition(V8PositionCallback* success_callback,
   if (!GetFrame())
     return;
 
-  probe::BreakableLocation(GetDocument(), "Geolocation.getCurrentPosition");
+  probe::BreakableLocation(GetDocument()->ToExecutionContext(),
+                           "Geolocation.getCurrentPosition");
 
   auto* notifier = MakeGarbageCollected<GeoNotifier>(this, success_callback,
                                                      error_callback, options);
@@ -201,7 +196,8 @@ int Geolocation::watchPosition(V8PositionCallback* success_callback,
   if (!GetFrame())
     return 0;
 
-  probe::BreakableLocation(GetDocument(), "Geolocation.watchPosition");
+  probe::BreakableLocation(GetDocument()->ToExecutionContext(),
+                           "Geolocation.watchPosition");
 
   auto* notifier = MakeGarbageCollected<GeoNotifier>(this, success_callback,
                                                      error_callback, options);

@@ -187,6 +187,15 @@ public interface TabModelSelector {
     void mergeState();
 
     /**
+     * Prevents the TabModelSelector from destroying its tabs to allow for reparenting.
+     *
+     * This is only safe to be called immediately before destruction. After entering reparenting
+     * mode, all the tabs are removed and stored in memory and on disk. The app is recreated right
+     * after, so there should never be a need to "exit" reparenting mode.
+     */
+    void enterReparentingMode();
+
+    /**
      * Destroy all owned {@link TabModel}s and {@link Tab}s referenced by this selector.
      */
     void destroy();

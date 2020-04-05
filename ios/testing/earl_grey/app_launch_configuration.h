@@ -38,8 +38,10 @@ struct AppLaunchConfiguration {
   std::vector<variations::VariationID> variations_enabled;
   // Enabled trigger variations.
   std::vector<variations::VariationID> trigger_variations_enabled;
+  // Additional arguments to be directly forwarded to the app.
+  std::vector<std::string> additional_args;
   // Relaunch policy.
-  RelaunchPolicy relaunch_policy = NoForceRelaunchAndKeepState;
+  RelaunchPolicy relaunch_policy = NoForceRelaunchAndResetState;
 };
 
 #endif  // IOS_TESTING_EARL_GREY_APP_LAUNCH_CONFIGURATION_H_

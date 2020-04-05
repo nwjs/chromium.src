@@ -27,10 +27,10 @@ import org.mockito.MockitoAnnotations;
 
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.homepage.HomepageManager;
 import org.chromium.chrome.browser.homepage.HomepageTestRule;
-import org.chromium.chrome.browser.partnercustomizations.HomepageManager;
+import org.chromium.chrome.browser.homepage.settings.HomepageSettings;
 import org.chromium.chrome.browser.settings.SettingsLauncher;
-import org.chromium.chrome.browser.settings.homepage.HomepageSettings;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.util.browser.Features;
 import org.chromium.chrome.test.util.browser.Features.DisableFeatures;
@@ -126,10 +126,10 @@ public class HomeButtonTest extends DummyUiActivityTestCase {
         MenuItem item_settings = menu.findItem(HomeButton.ID_SETTINGS);
         Assert.assertNotNull("MenuItem 'Edit Homepage' is not added to menu", item_settings);
         Assert.assertEquals(ASSERT_MSG_MENU_ITEM_TEXT, item_settings.getTitle().toString(),
-                getActivity().getResources().getString(R.string.homebutton_context_menu_settings));
+                getActivity().getResources().getString(R.string.options_homepage_edit_title));
 
         // Test click on context menu item
-        onView(withText(R.string.homebutton_context_menu_settings)).perform(click());
+        onView(withText(R.string.options_homepage_edit_title)).perform(click());
         Mockito.verify(mSettingsLauncher)
                 .launchSettingsPage(mHomeButton.getContext(), HomepageSettings.class);
     }

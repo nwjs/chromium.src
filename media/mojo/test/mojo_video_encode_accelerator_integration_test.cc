@@ -6,6 +6,7 @@
 #include <memory>
 
 #include "base/bind.h"
+#include "base/memory/ptr_util.h"
 #include "base/memory/unsafe_shared_memory_region.h"
 #include "base/run_loop.h"
 #include "base/test/gtest_util.h"
@@ -69,7 +70,8 @@ class MojoVideoEncodeAcceleratorIntegrationTest : public ::testing::Test {
     mojo::PendingRemote<mojom::VideoEncodeAccelerator> mojo_vea;
     mojo_vea_receiver_ = mojo::MakeSelfOwnedReceiver(
         std::make_unique<MojoVideoEncodeAcceleratorService>(
-            base::Bind(&CreateAndInitializeFakeVEA), gpu::GpuPreferences()),
+            base::BindRepeating(&CreateAndInitializeFakeVEA),
+            gpu::GpuPreferences()),
         mojo_vea.InitWithNewPipeAndPassReceiver());
 
     mojo_vea_.reset(new MojoVideoEncodeAccelerator(

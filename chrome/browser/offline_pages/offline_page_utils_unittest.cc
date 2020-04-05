@@ -13,10 +13,10 @@
 #include "base/files/file.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
+#include "base/location.h"
 #include "base/optional.h"
 #include "base/run_loop.h"
 #include "base/strings/string16.h"
-#include "base/task/post_task.h"
 #include "base/test/bind_test_util.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/simple_test_clock.h"
@@ -80,7 +80,8 @@ GURL TestPage4Url() {
 
 void RunTasksForDuration(base::TimeDelta delta) {
   base::RunLoop run_loop;
-  base::PostDelayedTask(FROM_HERE, run_loop.QuitClosure(), delta);
+  base::ThreadTaskRunnerHandle::Get()->PostDelayedTask(
+      FROM_HERE, run_loop.QuitClosure(), delta);
   run_loop.Run();
 }
 
@@ -430,9 +431,8 @@ TEST_F(OfflinePageUtilsTest, TestGetCachedOfflinePageSizeNoPageInModel) {
 #if defined(OS_ANDROID)
   // TODO(https://crbug.com/1002762): Fix this test to run in < action_timeout()
   // on the Android bots.
-  const base::RunLoop::ScopedRunTimeoutForTest increased_run_timeout(
-      TestTimeouts::action_max_timeout(),
-      base::MakeExpectedNotRunClosure(FROM_HERE, "RunLoop::Run() timed out."));
+  const base::test::ScopedRunLoopTimeout increased_run_timeout(
+      FROM_HERE, TestTimeouts::action_max_timeout());
 #endif  // defined(OS_ANDROID)
 
   clock()->Advance(base::TimeDelta::FromHours(3));

@@ -358,7 +358,7 @@ void ClipboardOzone::ReadAvailableTypes(ClipboardBuffer buffer,
     if (mime_type == ClipboardFormatType::GetWebCustomDataType().GetName()) {
       auto data = async_clipboard_ozone_->ReadClipboardDataAndWait(
           buffer, ClipboardFormatType::GetWebCustomDataType().GetName());
-      ui::ReadCustomDataTypes(data.data(), data.size(), types);
+      ReadCustomDataTypes(data.data(), data.size(), types);
     } else {
       types->push_back(base::UTF8ToUTF16(mime_type));
     }
@@ -428,16 +428,9 @@ void ClipboardOzone::ReadRTF(ClipboardBuffer buffer,
   result->assign(clipboard_data.begin(), clipboard_data.end());
 }
 
-SkBitmap ClipboardOzone::ReadImage(ClipboardBuffer buffer) const {
-  DCHECK(CalledOnValidThread());
-
-  auto clipboard_data =
-      async_clipboard_ozone_->ReadClipboardDataAndWait(buffer, kMimeTypePNG);
-  SkBitmap bitmap;
-  if (!gfx::PNGCodec::Decode(clipboard_data.data(), clipboard_data.size(),
-                             &bitmap))
-    return {};
-  return SkBitmap(bitmap);
+void ClipboardOzone::ReadImage(ClipboardBuffer buffer,
+                               ReadImageCallback callback) const {
+  std::move(callback).Run(ReadImageInternal(buffer));
 }
 
 void ClipboardOzone::ReadCustomData(ClipboardBuffer buffer,
@@ -447,8 +440,7 @@ void ClipboardOzone::ReadCustomData(ClipboardBuffer buffer,
 
   auto custom_data = async_clipboard_ozone_->ReadClipboardDataAndWait(
       buffer, kMimeTypeWebCustomData);
-  ui::ReadCustomDataForType(custom_data.data(), custom_data.size(), type,
-                            result);
+  ReadCustomDataForType(custom_data.data(), custom_data.size(), type, result);
 }
 
 void ClipboardOzone::ReadBookmark(base::string16* title,
@@ -556,6 +548,18 @@ void ClipboardOzone::WriteData(const ClipboardFormatType& format,
                                size_t data_len) {
   std::vector<uint8_t> data(data_data, data_data + data_len);
   async_clipboard_ozone_->InsertData(std::move(data), format.GetName());
+}
+
+SkBitmap ClipboardOzone::ReadImageInternal(ClipboardBuffer buffer) const {
+  DCHECK(CalledOnValidThread());
+
+  auto clipboard_data =
+      async_clipboard_ozone_->ReadClipboardDataAndWait(buffer, kMimeTypePNG);
+  SkBitmap bitmap;
+  if (!gfx::PNGCodec::Decode(clipboard_data.data(), clipboard_data.size(),
+                             &bitmap))
+    return {};
+  return SkBitmap(bitmap);
 }
 
 }  // namespace ui

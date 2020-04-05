@@ -73,6 +73,7 @@ source_set("generated") {
     "//skia",
     "//third_party/blink/renderer/bindings/core/v8:bindings_core_origin_trial_features",
     "//third_party/blink/renderer/bindings/core/v8:bindings_core_v8_generated",
+    "//third_party/blink/renderer/bindings/core/v8:generated",
     "//third_party/blink/renderer/core/inspector:generated",
     "//third_party/blink/renderer/core/probe:generated",
     "//third_party/iccjpeg",
@@ -94,6 +95,7 @@ source_set("generated") {
 source_set("prerequisites") {
   public_deps = [
     "//services/network/public/cpp:cpp",
+    "//services/network/public/mojom",
     "//services/service_manager/public/cpp",
     "//skia",
     "//third_party/angle:translator",
@@ -111,6 +113,7 @@ source_set("prerequisites") {
     "//third_party/ots",
     "//third_party/snappy",
     "//third_party/zlib",
+    "//ui/base:features",
     "//ui/base/ime/mojom",
     "//ui/display/mojom:mojom_blink",
     "//ui/events:dom_keycode_converter",
@@ -215,22 +218,11 @@ component("core") {
     "//v8",
   ]
   deps = [
+    "//components/paint_preview/common",
     "//third_party/blink/public/common",
     "//third_party/blink/renderer/platform",
     "//third_party/blink/renderer/platform/wtf",
   ]
-
-  if (is_win && is_debug && is_component_build && current_cpu == "x64") {
-    # Incremental linking fails when the .ilk file gets too large.
-    # 64-bit debug builds with full symbols trigger this problem, so we turn
-    # off incremental linking in that configuration.
-    # For fastest builds, use component release builds without debug
-    # information.
-    # VC++ bug filed for 64-bit debug incremental link failures:
-    # https://connect.microsoft.com/VisualStudio/feedback/details/2846790
-    configs -= [ "//build/config/win:default_incremental_linking" ]
-    configs += [ "//build/config/win:no_incremental_linking" ]
-  }
 
   public_configs = [ ":core_include_dirs" ]
 
@@ -255,6 +247,8 @@ jumbo_source_set("testing") {
     ":core",
     ":generated_testing_idls",
     "//third_party/blink/renderer/bindings/core/v8:testing",
+    "//ui/base/cursor",
+    "//ui/base/mojom:cursor_type_blink",
   ]
 
   sources = [
@@ -321,19 +315,6 @@ jumbo_source_set("testing") {
     "timing/internals_profiler.cc",
     "timing/internals_profiler.h",
   ]
-
-  # Compile the sources produced by these IDL file lists.
-  testing_idl_files =
-      webcore_testing_idl_files + core_testing_dictionary_idl_files +
-      generated_webcore_testing_idl_files +
-      webcore_testing_idl_with_modules_dependency_files
-
-  sources += process_file_template(
-          testing_idl_files,
-          [
-            "$bindings_core_v8_output_dir/v8_{{source_name_part}}.cc",
-            "$bindings_core_v8_output_dir/v8_{{source_name_part}}.h",
-          ])
 }
 
 # core_bindings_generated ------------------------------------------------------
@@ -543,19 +524,6 @@ css_properties("make_core_generated_css_property_names") {
   outputs = [
     "$blink_core_output_dir/css/css_property_names.cc",
     "$blink_core_output_dir/css/css_property_names.h",
-  ]
-}
-
-css_properties("make_core_generated_style_cascade_slots") {
-  script = "../build/scripts/core/css/make_style_cascade_slots.py"
-  in_files = []
-  other_inputs = [
-    "../build/scripts/core/css/templates/style_cascade_slots.h.tmpl",
-    "../build/scripts/core/css/templates/style_cascade_slots.cc.tmpl",
-  ]
-  outputs = [
-    "$blink_core_output_dir/css/style_cascade_slots.h",
-    "$blink_core_output_dir/css/style_cascade_slots.cc",
   ]
 }
 
@@ -969,7 +937,6 @@ targets_generating_sources = [
   ":make_core_generated_media_type_names",
   ":make_core_generated_origin_trials",
   ":make_core_generated_performance_entry_names",
-  ":make_core_generated_style_cascade_slots",
   ":make_core_generated_style_property_shorthand",
   ":make_core_generated_svg_element_type_helpers",
   ":make_core_generated_svg_names",
@@ -1085,7 +1052,6 @@ jumbo_source_set("unit_tests") {
     "css/css_uri_value_test.cc",
     "css/css_value_test_helper.h",
     "css/mock_css_paint_image_generator.h",
-    "display_lock/display_lock_budget_test.cc",
     "display_lock/display_lock_context_test.cc",
     "display_lock/display_lock_utilities_test.cc",
     "dom/attr_test.cc",
@@ -1122,11 +1088,12 @@ jumbo_source_set("unit_tests") {
     "editing/finder/text_finder_test.cc",
     "editing/keyboard_test.cc",
     "editing/link_selection_test.cc",
+    "events/message_event_test.cc",
     "events/pointer_event_factory_test.cc",
     "events/touch_event_test.cc",
     "events/web_input_event_conversion_test.cc",
     "execution_context/agent_metrics_collector_test.cc",
-    "execution_context/context_lifecycle_state_observer_test.cc",
+    "execution_context/execution_context_lifecycle_state_observer_test.cc",
     "exported/local_frame_client_impl_test.cc",
     "exported/prerendering_test.cc",
     "exported/web_document_subresource_filter_test.cc",
@@ -1140,6 +1107,7 @@ jumbo_source_set("unit_tests") {
     "exported/web_frame_serializer_test_helper.h",
     "exported/web_frame_test.cc",
     "exported/web_image_test.cc",
+    "exported/web_local_frame_client_test.cc",
     "exported/web_meaningful_layouts_test.cc",
     "exported/web_node_test.cc",
     "exported/web_plugin_container_test.cc",
@@ -1148,6 +1116,7 @@ jumbo_source_set("unit_tests") {
     "exported/web_searchable_form_data_test.cc",
     "exported/web_selector_test.cc",
     "exported/web_view_test.cc",
+    "feature_policy/document_policy_parser_test.cc",
     "feature_policy/feature_policy_test.cc",
     "feature_policy/policy_test.cc",
     "fetch/blob_bytes_consumer_test.cc",
@@ -1194,6 +1163,7 @@ jumbo_source_set("unit_tests") {
     "frame/reporting_context_test.cc",
     "frame/root_frame_viewport_test.cc",
     "frame/rotation_viewport_anchor_test.cc",
+    "frame/sticky_frame_tracker_test.cc",
     "frame/use_counter_helper_test.cc",
     "frame/visual_viewport_test.cc",
     "fullscreen/scoped_allow_fullscreen_test.cc",
@@ -1281,6 +1251,8 @@ jumbo_source_set("unit_tests") {
     "layout/ng/ng_column_layout_algorithm_test.cc",
     "layout/ng/ng_constraint_space_builder_test.cc",
     "layout/ng/ng_fieldset_layout_algorithm_test.cc",
+    "layout/ng/ng_fragment_child_iterator_test.cc",
+    "layout/ng/ng_fragmentation_test.cc",
     "layout/ng/ng_inline_layout_test.cc",
     "layout/ng/ng_layout_result_caching_test.cc",
     "layout/ng/ng_layout_test.h",
@@ -1303,6 +1275,7 @@ jumbo_source_set("unit_tests") {
     "loader/base_fetch_context_test.cc",
     "loader/document_load_timing_test.cc",
     "loader/document_loader_test.cc",
+    "loader/font_preload_manager_test.cc",
     "loader/frame_fetch_context_test.cc",
     "loader/frame_resource_fetcher_properties_test.cc",
     "loader/idleness_detector_test.cc",
@@ -1418,7 +1391,6 @@ jumbo_source_set("unit_tests") {
     "scheduler_integration_tests/virtual_time_test.cc",
     "script/document_modulator_impl_test.cc",
     "script/dynamic_module_resolver_test.cc",
-    "script/layered_api_test.cc",
     "script/mock_script_element_base.h",
     "script/module_map_test.cc",
     "script/module_record_resolver_impl_test.cc",
@@ -1441,6 +1413,8 @@ jumbo_source_set("unit_tests") {
     "style/style_variables_test.cc",
     "style/svg_computed_style_test.cc",
     "svg/animation/priority_queue_test.cc",
+    "svg/animation/smil_time_container_test.cc",
+    "svg/animation/svg_smil_element_test.cc",
     "svg/graphics/svg_image_test.cc",
     "svg/svg_foreign_object_element_test.cc",
     "svg/svg_path_parser_test.cc",
@@ -1485,6 +1459,10 @@ jumbo_source_set("unit_tests") {
     "xml/xpath_functions_test.cc",
   ]
 
+  if (is_debug || dcheck_always_on) {
+    sources += [ "exported/web_disallow_transition_scope_test.cc" ]
+  }
+
   configs += [
     ":blink_core_pch",
     "//third_party/blink/renderer:config",
@@ -1506,6 +1484,8 @@ jumbo_source_set("unit_tests") {
     "//third_party/blink/renderer/core/editing:unit_tests",
     "//third_party/blink/renderer/core/fileapi:unit_tests",
     "//third_party/blink/renderer/core/html:unit_tests",
+    "//ui/base/cursor",
+    "//ui/base/mojom:cursor_type_blink",
   ]
 
   data_deps = [ ":unit_tests_data" ]
@@ -1561,6 +1541,8 @@ jumbo_source_set("unit_test_support") {
   sources = [
     "testing/core_unit_test_helper.cc",
     "testing/core_unit_test_helper.h",
+    "testing/module_test_base.cc",
+    "testing/module_test_base.h",
     "testing/page_test_base.cc",
     "testing/page_test_base.h",
     "testing/scoped_fake_plugin_registry.cc",
@@ -1677,4 +1659,15 @@ fuzzer_test("feature_policy_value_fuzzer") {
   ]
   dict = "//third_party/blink/renderer/core/feature_policy/feature_policy_value.dict"
   seed_corpus = "//third_party/blink/renderer/core/feature_policy/feature_policy_value_corpus"
+}
+
+fuzzer_test("document_policy_fuzzer") {
+  sources = [ "feature_policy/document_policy_fuzzer.cc" ]
+  deps = [
+    "//third_party/blink/renderer/platform:blink_fuzzer_test_support",
+    "//third_party/icu",
+  ]
+  dict = "//third_party/blink/renderer/core/feature_policy/document_policy.dict"
+  seed_corpus =
+      "//third_party/blink/renderer/core/feature_policy/document_policy_corpus"
 }

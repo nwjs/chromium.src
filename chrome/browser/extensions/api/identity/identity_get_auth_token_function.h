@@ -15,8 +15,8 @@
 #include "chrome/browser/extensions/api/identity/gaia_remote_consent_flow.h"
 #include "chrome/browser/extensions/api/identity/gaia_web_auth_flow.h"
 #include "chrome/browser/extensions/api/identity/identity_mint_queue.h"
-#include "chrome/browser/extensions/chrome_extension_function.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
+#include "extensions/browser/extension_function.h"
 #include "extensions/browser/extension_function_histogram_value.h"
 #include "google_apis/gaia/google_service_auth_error.h"
 #include "google_apis/gaia/oauth2_access_token_manager.h"
@@ -46,7 +46,7 @@ namespace extensions {
 // profile will be signed in already, but if it turns out we need a
 // new login token, there is a sign-in flow. If that flow completes
 // successfully, getAuthToken proceeds to the non-interactive flow.
-class IdentityGetAuthTokenFunction : public ChromeAsyncExtensionFunction,
+class IdentityGetAuthTokenFunction : public ExtensionFunction,
                                      public GaiaWebAuthFlow::Delegate,
                                      public GaiaRemoteConsentFlow::Delegate,
                                      public IdentityMintRequestQueue::Request,
@@ -78,10 +78,10 @@ class IdentityGetAuthTokenFunction : public ChromeAsyncExtensionFunction,
                            const std::string& expiration) override;
 
   // GaiaRemoteConsentFlow::Delegate implementation:
-  void OnGaiaRemoteConsentFlowFailure(
+  void OnGaiaRemoteConsentFlowFailed(
       GaiaRemoteConsentFlow::Failure failure) override;
-  void OnGaiaRemoteConsentFlowCompleted(
-      const std::string& consent_result) override;
+  void OnGaiaRemoteConsentFlowApproved(const std::string& consent_result,
+                                       const std::string& gaia_id) override;
 
   // Starts a login access token request.
   virtual void StartTokenKeyAccountAccessTokenRequest();
@@ -113,6 +113,8 @@ class IdentityGetAuthTokenFunction : public ChromeAsyncExtensionFunction,
   // Caller owns the returned instance.
   // Exposed for testing.
   virtual std::unique_ptr<OAuth2MintTokenFlow> CreateMintTokenFlow();
+
+  Profile* GetProfile() const;
 
   // Pending request for an access token from the device account (via
   // DeviceOAuth2TokenService).
@@ -154,11 +156,11 @@ class IdentityGetAuthTokenFunction : public ChromeAsyncExtensionFunction,
       const CoreAccountInfo& primary_account_info) override;
 
   // ExtensionFunction:
-  bool RunAsync() override;
+  ResponseAction Run() override;
 
   // Helpers to report async function results to the caller.
   void StartAsyncRun();
-  void CompleteAsyncRun(bool success);
+  void CompleteAsyncRun(ResponseValue response);
   void CompleteFunctionWithResult(const std::string& access_token);
   void CompleteFunctionWithError(const std::string& error);
 

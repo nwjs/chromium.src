@@ -142,7 +142,7 @@ bool AndroidTelemetryService::CanSendPing(download::DownloadItem* item) {
     return false;
   }
 
-  if (!IsSafeBrowsingEnabled()) {
+  if (!IsSafeBrowsingEnabled(*GetPrefs())) {
     RecordApkDownloadTelemetryOutcome(
         ApkDownloadTelemetryOutcome::NOT_SENT_SAFE_BROWSING_NOT_ENABLED);
     return false;
@@ -154,9 +154,11 @@ bool AndroidTelemetryService::CanSendPing(download::DownloadItem* item) {
     return false;
   }
 
-  if (!IsExtendedReportingEnabled(*GetPrefs())) {
+  bool no_ping_allowed = !IsExtendedReportingEnabled(*GetPrefs());
+
+  if (no_ping_allowed) {
     RecordApkDownloadTelemetryOutcome(
-        ApkDownloadTelemetryOutcome::NOT_SENT_EXTENDED_REPORTING_DISABLED);
+        ApkDownloadTelemetryOutcome::NOT_SENT_UNCONSENTED);
     return false;
   }
 
@@ -165,10 +167,6 @@ bool AndroidTelemetryService::CanSendPing(download::DownloadItem* item) {
 
 const PrefService* AndroidTelemetryService::GetPrefs() {
   return profile_->GetPrefs();
-}
-
-bool AndroidTelemetryService::IsSafeBrowsingEnabled() {
-  return GetPrefs()->GetBoolean(prefs::kSafeBrowsingEnabled);
 }
 
 void AndroidTelemetryService::FillReferrerChain(

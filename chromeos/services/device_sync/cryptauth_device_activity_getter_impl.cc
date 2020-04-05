@@ -21,6 +21,7 @@
 #include "chromeos/services/device_sync/cryptauth_key_bundle.h"
 #include "chromeos/services/device_sync/cryptauth_task_metrics_logger.h"
 #include "chromeos/services/device_sync/device_sync_type_converters.h"
+#include "chromeos/services/device_sync/proto/cryptauth_logging.h"
 
 namespace chromeos {
 
@@ -98,9 +99,9 @@ CryptAuthDeviceActivityGetterImpl::Factory::Create(
     CryptAuthGCMManager* gcm_manager,
     std::unique_ptr<base::OneShotTimer> timer) {
   if (test_factory_)
-    return test_factory_->BuildInstance(client_factory,
-                                        client_app_metadata_provider,
-                                        gcm_manager, std::move(timer));
+    return test_factory_->CreateInstance(client_factory,
+                                         client_app_metadata_provider,
+                                         gcm_manager, std::move(timer));
 
   return base::WrapUnique(new CryptAuthDeviceActivityGetterImpl(
       client_factory, client_app_metadata_provider, gcm_manager,
@@ -199,6 +200,8 @@ void CryptAuthDeviceActivityGetterImpl::OnGetDevicesActivityStatusSuccess(
   RecordGetDevicesActivityStatusMetrics(
       base::TimeTicks::Now() - last_state_change_timestamp_,
       CryptAuthApiCallResult::kSuccess);
+
+  PA_LOG(VERBOSE) << "GetDevicesActivityStatus response:\n" << response;
 
   DeviceActivityStatusResult device_activity_statuses;
 

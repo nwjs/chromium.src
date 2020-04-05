@@ -5,6 +5,9 @@
 #ifndef UI_VIEWS_WIDGET_NATIVE_WIDGET_MAC_H_
 #define UI_VIEWS_WIDGET_NATIVE_WIDGET_MAC_H_
 
+#include <memory>
+#include <string>
+
 #include "base/macros.h"
 #include "ui/base/ime/input_method_delegate.h"
 #include "ui/base/window_open_disposition.h"
@@ -32,7 +35,7 @@ namespace test {
 class HitTestNativeWidgetMac;
 class MockNativeWidgetMac;
 class WidgetTest;
-}
+}  // namespace test
 class NativeWidgetMacNSWindowHost;
 
 class VIEWS_EXPORT NativeWidgetMac : public internal::NativeWidgetPrivate,
@@ -51,6 +54,9 @@ class VIEWS_EXPORT NativeWidgetMac : public internal::NativeWidgetPrivate,
   // Deletes |bridge_| and informs |delegate_| that the native widget is
   // destroyed.
   void WindowDestroyed();
+
+  // Called when the backing NSWindow gains or loses key status.
+  void OnWindowKeyStatusChanged(bool is_key, bool is_content_first_responder);
 
   // The vertical position from which sheets should be anchored, from the top
   // of the content view.
@@ -94,6 +100,8 @@ class VIEWS_EXPORT NativeWidgetMac : public internal::NativeWidgetPrivate,
   bool ShouldUseNativeFrame() const override;
   bool ShouldWindowContentsBeTransparent() const override;
   void FrameTypeChanged() override;
+  Widget* GetWidget() override;
+  const Widget* GetWidget() const override;
   gfx::NativeView GetNativeView() const override;
   gfx::NativeWindow GetNativeWindow() const override;
   Widget* GetTopLevelWidget() override;
@@ -245,9 +253,6 @@ class VIEWS_EXPORT NativeWidgetMac : public internal::NativeWidgetPrivate,
   friend class views::test::WidgetTest;
   class ZoomFocusMonitor;
 
-  // internal::NativeWidgetPrivate:
-  const Widget* GetWidgetImpl() const override;
-
   internal::NativeWidgetDelegate* delegate_;
   std::unique_ptr<NativeWidgetMacNSWindowHost> ns_window_host_;
 
@@ -265,6 +270,8 @@ class VIEWS_EXPORT NativeWidgetMac : public internal::NativeWidgetPrivate,
   FocusManager* focus_manager_ = nullptr;
   std::unique_ptr<ui::InputMethod> input_method_;
   std::unique_ptr<ZoomFocusMonitor> zoom_focus_monitor_;
+  // Held while this widget is active if it's a child.
+  std::unique_ptr<Widget::PaintAsActiveLock> parent_key_lock_;
 
   DISALLOW_COPY_AND_ASSIGN(NativeWidgetMac);
 };

@@ -26,7 +26,10 @@ class ScriptValue;
 // The type names below are named as "IDL" prefix + Web IDL type name.
 // https://heycam.github.io/webidl/#dfn-type-name
 
-// Boolean
+// any
+struct IDLAny final : public IDLBaseHelper<ScriptValue> {};
+
+// boolean
 struct IDLBoolean final : public IDLBaseHelper<bool> {};
 
 // Integer types
@@ -92,11 +95,11 @@ using IDLLongLongEnforceRange =
 using IDLUnsignedLongLongEnforceRange =
     IDLIntegerTypeBase<uint64_t, bindings::IDLIntegerConvMode::kEnforceRange>;
 
-// Float
+// float
 struct IDLFloat final : public IDLBaseHelper<float> {};
 struct IDLUnrestrictedFloat final : public IDLBaseHelper<float> {};
 
-// Double
+// double
 struct IDLDouble final : public IDLBaseHelper<double> {};
 struct IDLUnrestrictedDouble final : public IDLBaseHelper<double> {};
 
@@ -109,6 +112,16 @@ template <V8StringResourceMode Mode>
 struct IDLStringBase final : public IDLBaseHelper<String> {};
 template <V8StringResourceMode Mode>
 struct IDLUSVStringBase final : public IDLBaseHelper<String> {};
+
+template <V8StringResourceMode Mode>
+struct IDLStringStringContextTrustedHTMLBase final
+    : public IDLBaseHelper<String> {};
+template <V8StringResourceMode Mode>
+struct IDLStringStringContextTrustedScriptBase final
+    : public IDLBaseHelper<String> {};
+template <V8StringResourceMode Mode>
+struct IDLUSVStringStringContextTrustedScriptURLBase final
+    : public IDLBaseHelper<String> {};
 
 // Define non-template versions of the above for simplicity.
 using IDLByteString = IDLByteStringBase<V8StringResourceMode::kDefaultMode>;
@@ -126,6 +139,33 @@ using IDLUSVStringOrNull =
 // [TreatNullAs] Strings
 using IDLStringTreatNullAsEmptyString =
     IDLStringBase<V8StringResourceMode::kTreatNullAsEmptyString>;
+
+// [StringContext] Strings
+using IDLStringStringContextTrustedHTML =
+    IDLStringStringContextTrustedHTMLBase<V8StringResourceMode::kDefaultMode>;
+using IDLStringStringContextTrustedScript =
+    IDLStringStringContextTrustedScriptBase<V8StringResourceMode::kDefaultMode>;
+using IDLUSVStringStringContextTrustedScriptURL =
+    IDLUSVStringStringContextTrustedScriptURLBase<
+        V8StringResourceMode::kDefaultMode>;
+using IDLStringStringContextTrustedHTMLOrNull =
+    IDLStringStringContextTrustedHTMLBase<
+        V8StringResourceMode::kTreatNullAndUndefinedAsNullString>;
+using IDLStringStringContextTrustedScriptOrNull =
+    IDLStringStringContextTrustedScriptBase<
+        V8StringResourceMode::kTreatNullAndUndefinedAsNullString>;
+using IDLUSVStringStringContextTrustedScriptURLOrNull =
+    IDLUSVStringStringContextTrustedScriptURLBase<
+        V8StringResourceMode::kTreatNullAndUndefinedAsNullString>;
+using IDLStringStringContextTrustedHTMLTreatNullAsEmptyString =
+    IDLStringStringContextTrustedHTMLBase<
+        V8StringResourceMode::kTreatNullAsEmptyString>;
+using IDLStringStringContextTrustedScriptTreatNullAsEmptyString =
+    IDLStringStringContextTrustedScriptBase<
+        V8StringResourceMode::kTreatNullAsEmptyString>;
+using IDLUSVStringStringContextTrustedScriptURLTreatNullAsEmptyString =
+    IDLUSVStringStringContextTrustedScriptURLBase<
+        V8StringResourceMode::kTreatNullAsEmptyString>;
 
 // Strings for the new bindings generator
 
@@ -149,7 +189,7 @@ using IDLByteStringV2 =
 template <bindings::IDLStringConvMode mode>
 struct IDLStringBaseV2 final : public IDLBaseHelper<String> {};
 using IDLStringV2 = IDLStringBaseV2<bindings::IDLStringConvMode::kDefault>;
-using IDLStringTreatNullAsV2 =
+using IDLStringTreatNullAsEmptyStringV2 =
     IDLStringBaseV2<bindings::IDLStringConvMode::kTreatNullAsEmptyString>;
 
 // USVString
@@ -158,13 +198,43 @@ struct IDLUSVStringBaseV2 final : public IDLBaseHelper<String> {};
 using IDLUSVStringV2 =
     IDLUSVStringBaseV2<bindings::IDLStringConvMode::kDefault>;
 
+// [StringContext=TrustedHTML] DOMString
+template <bindings::IDLStringConvMode mode>
+struct IDLStringStringContextTrustedHTMLBaseV2 final
+    : public IDLBaseHelper<String> {};
+using IDLStringStringContextTrustedHTMLV2 =
+    IDLStringStringContextTrustedHTMLBaseV2<
+        bindings::IDLStringConvMode::kDefault>;
+using IDLStringStringContextTrustedHTMLTreatNullAsEmptyStringV2 =
+    IDLStringStringContextTrustedHTMLBaseV2<
+        bindings::IDLStringConvMode::kTreatNullAsEmptyString>;
+
+// [StringContext=TrustedScript] DOMString
+template <bindings::IDLStringConvMode mode>
+struct IDLStringStringContextTrustedScriptBaseV2 final
+    : public IDLBaseHelper<String> {};
+using IDLStringStringContextTrustedScriptV2 =
+    IDLStringStringContextTrustedScriptBaseV2<
+        bindings::IDLStringConvMode::kDefault>;
+using IDLStringStringContextTrustedScriptTreatNullAsEmptyStringV2 =
+    IDLStringStringContextTrustedScriptBaseV2<
+        bindings::IDLStringConvMode::kTreatNullAsEmptyString>;
+
+// [StringContext=TrustedScriptURL] USVString
+template <bindings::IDLStringConvMode mode>
+struct IDLUSVStringStringContextTrustedScriptURLBaseV2 final
+    : public IDLBaseHelper<String> {};
+using IDLUSVStringStringContextTrustedScriptURLV2 =
+    IDLUSVStringStringContextTrustedScriptURLBaseV2<
+        bindings::IDLStringConvMode::kDefault>;
+
 // object
 struct IDLObject final : public IDLBaseHelper<ScriptValue> {};
 
-// Promise
+// Promise types
 struct IDLPromise final : public IDLBaseHelper<ScriptPromise> {};
 
-// Sequence
+// Sequence types
 template <typename T>
 struct IDLSequence final : public IDLBase {
   using ImplType =
@@ -175,7 +245,7 @@ struct IDLSequence final : public IDLBase {
 template <typename T>
 using IDLArray = IDLSequence<T>;
 
-// Record
+// Record types
 template <typename Key, typename Value>
 struct IDLRecord final : public IDLBase {
   static_assert(std::is_same<typename Key::ImplType, String>::value,
@@ -189,13 +259,13 @@ struct IDLRecord final : public IDLBase {
       std::remove_pointer_t<typename NativeValueTraits<Value>::ImplType>>;
 };
 
-// Nullable
-template <typename InnerType>
+// Nullable types
+template <typename T>
 struct IDLNullable final : public IDLBase {
   using ImplType = std::conditional_t<
-      NativeValueTraits<InnerType>::has_null_value,
-      typename NativeValueTraits<InnerType>::ImplType,
-      base::Optional<typename NativeValueTraits<InnerType>::ImplType>>;
+      NativeValueTraits<T>::has_null_value,
+      typename NativeValueTraits<T>::ImplType,
+      base::Optional<typename NativeValueTraits<T>::ImplType>>;
 };
 
 // Date

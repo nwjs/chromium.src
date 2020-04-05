@@ -5,7 +5,7 @@
 #include "printing/common/metafile_utils.h"
 
 #include "base/time/time.h"
-#include "printing/common/printing_features.h"
+#include "printing/buildflags/buildflags.h"
 #include "third_party/skia/include/core/SkCanvas.h"
 #include "third_party/skia/include/core/SkPicture.h"
 #include "third_party/skia/include/core/SkPictureRecorder.h"
@@ -13,10 +13,26 @@
 #include "third_party/skia/include/docs/SkPDFDocument.h"
 #include "ui/accessibility/ax_node.h"
 #include "ui/accessibility/ax_node_data.h"
+#include "ui/accessibility/ax_role_properties.h"
 #include "ui/accessibility/ax_tree.h"
 #include "ui/accessibility/ax_tree_update.h"
 
 namespace {
+
+#if BUILDFLAG(ENABLE_TAGGED_PDF)
+// Standard attribute owners from PDF 32000-1:2008 spec, section 14.8.5.2
+// (Attribute owners are kind of like "categories" for structure node
+// attributes.)
+const char kPDFTableAttributeOwner[] = "Table";
+
+// Table Attributes from PDF 32000-1:2008 spec, section 14.8.5.7
+const char kPDFTableCellColSpanAttribute[] = "ColSpan";
+const char kPDFTableCellHeadersAttribute[] = "Headers";
+const char kPDFTableCellRowSpanAttribute[] = "RowSpan";
+const char kPDFTableHeaderScopeAttribute[] = "Scope";
+const char kPDFTableHeaderScopeColumn[] = "Column";
+const char kPDFTableHeaderScopeRow[] = "Row";
+#endif  // BUILDFLAG(ENABLE_TAGGED_PDF)
 
 SkTime::DateTime TimeToSkTime(base::Time time) {
   base::Time::Exploded exploded;
@@ -47,6 +63,7 @@ sk_sp<SkPicture> GetEmptyPicture() {
 // have enough data to build a valid tree.
 bool RecursiveBuildStructureTree(const ui::AXNode* ax_node,
                                  SkPDF::StructureElementNode* tag) {
+#if BUILDFLAG(ENABLE_TAGGED_PDF)
   bool valid = false;
 
   tag->fNodeId = ax_node->GetIntAttribute(ax::mojom::IntAttribute::kDOMNodeId);
@@ -80,16 +97,46 @@ bool RecursiveBuildStructureTree(const ui::AXNode* ax_node,
       tag->fType = SkPDF::DocumentStructureType::kTR;
       break;
     case ax::mojom::Role::kColumnHeader:
+      tag->fType = SkPDF::DocumentStructureType::kTH;
+      tag->fAttributes.appendString(kPDFTableAttributeOwner,
+                                    kPDFTableHeaderScopeAttribute,
+                                    kPDFTableHeaderScopeColumn);
+      break;
     case ax::mojom::Role::kRowHeader:
       tag->fType = SkPDF::DocumentStructureType::kTH;
+      tag->fAttributes.appendString(kPDFTableAttributeOwner,
+                                    kPDFTableHeaderScopeAttribute,
+                                    kPDFTableHeaderScopeRow);
       break;
-    case ax::mojom::Role::kCell:
+    case ax::mojom::Role::kCell: {
       tag->fType = SkPDF::DocumentStructureType::kTD;
+
+      // Append an attribute consisting of the string IDs of all of the
+      // header cells that correspond to this table cell.
+      std::vector<ui::AXNode*> header_nodes;
+      ax_node->GetTableCellColHeaders(&header_nodes);
+      ax_node->GetTableCellRowHeaders(&header_nodes);
+      std::vector<SkString> header_id_strs;
+      header_id_strs.reserve(header_nodes.size());
+      for (ui::AXNode* header_node : header_nodes) {
+        int node_id =
+            header_node->GetIntAttribute(ax::mojom::IntAttribute::kDOMNodeId);
+        header_id_strs.push_back(
+            SkString(base::NumberToString(node_id).c_str()));
+      }
+      tag->fAttributes.appendStringArray(kPDFTableAttributeOwner,
+                                         kPDFTableCellHeadersAttribute,
+                                         header_id_strs);
       break;
+    }
     case ax::mojom::Role::kFigure:
-    case ax::mojom::Role::kImage:
+    case ax::mojom::Role::kImage: {
       tag->fType = SkPDF::DocumentStructureType::kFigure;
+      std::string alt =
+          ax_node->GetStringAttribute(ax::mojom::StringAttribute::kName);
+      tag->fAlt = SkString(alt.c_str());
       break;
+    }
     case ax::mojom::Role::kStaticText:
       // Currently we're only marking text content, so we can't generate
       // a nonempty structure tree unless we have at least one kStaticText
@@ -101,27 +148,42 @@ bool RecursiveBuildStructureTree(const ui::AXNode* ax_node,
       tag->fType = SkPDF::DocumentStructureType::kNonStruct;
   }
 
-  tag->fChildCount = ax_node->GetUnignoredChildCount();
-  // Allocated here, cleaned up in DestroyStructureElementNodeTree().
-  SkPDF::StructureElementNode* children =
-      new SkPDF::StructureElementNode[tag->fChildCount];
-  tag->fChildren = children;
-  for (size_t i = 0; i < tag->fChildCount; i++) {
+  if (ui::IsCellOrTableHeader(ax_node->data().role)) {
+    base::Optional<int> row_span = ax_node->GetTableCellRowSpan();
+    if (row_span.has_value()) {
+      tag->fAttributes.appendInt(kPDFTableAttributeOwner,
+                                 kPDFTableCellRowSpanAttribute,
+                                 row_span.value());
+    }
+    base::Optional<int> col_span = ax_node->GetTableCellColSpan();
+    if (col_span.has_value()) {
+      tag->fAttributes.appendInt(kPDFTableAttributeOwner,
+                                 kPDFTableCellColSpanAttribute,
+                                 col_span.value());
+    }
+  }
+
+  std::string lang = ax_node->GetLanguage();
+  std::string parent_lang =
+      ax_node->parent() ? ax_node->parent()->GetLanguage() : "";
+  if (!lang.empty() && lang != parent_lang)
+    tag->fLang = lang.c_str();
+
+  size_t children_count = ax_node->GetUnignoredChildCount();
+  tag->fChildVector.resize(children_count);
+  for (size_t i = 0; i < children_count; i++) {
+    tag->fChildVector[i] = std::make_unique<SkPDF::StructureElementNode>();
     bool success = RecursiveBuildStructureTree(
-        ax_node->GetUnignoredChildAtIndex(i), &children[i]);
+        ax_node->GetUnignoredChildAtIndex(i), tag->fChildVector[i].get());
+
     if (success)
       valid = true;
   }
 
   return valid;
-}
-
-void DestroyStructureElementNodeTree(SkPDF::StructureElementNode* node) {
-  for (size_t i = 0; i < node->fChildCount; i++) {
-    DestroyStructureElementNodeTree(
-        const_cast<SkPDF::StructureElementNode*>(&node->fChildren[i]));
-  }
-  delete[] node->fChildren;
+#else  // BUILDFLAG(ENABLE_TAGGED_PDF)
+  return false;
+#endif
 }
 
 }  // namespace
@@ -147,9 +209,7 @@ sk_sp<SkDocument> MakePdfDocument(const std::string& creator,
       metadata.fStructureElementTreeRoot = &tag_root;
   }
 
-  sk_sp<SkDocument> document = SkPDF::MakeDocument(stream, metadata);
-  DestroyStructureElementNodeTree(&tag_root);
-  return document;
+  return SkPDF::MakeDocument(stream, metadata);
 }
 
 sk_sp<SkData> SerializeOopPicture(SkPicture* pic, void* ctx) {

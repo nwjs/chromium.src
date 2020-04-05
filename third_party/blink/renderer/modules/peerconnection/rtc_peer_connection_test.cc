@@ -379,12 +379,19 @@ static const char* kOfferSdpPlanBMultipleAudioTracks =
 
 class RTCPeerConnectionTest : public testing::Test {
  public:
-  RTCPeerConnection* CreatePC(V8TestingScope& scope,
-                              const String& sdpSemantics = String()) {
+  RTCPeerConnection* CreatePC(
+      V8TestingScope& scope,
+      const String& sdpSemantics = String(),
+      bool force_encoded_audio_insertable_streams = false,
+      bool force_encoded_video_insertable_streams = false) {
     RTCConfiguration* config = RTCConfiguration::Create();
     config->setSdpSemantics(sdpSemantics);
+    config->setForceEncodedAudioInsertableStreams(
+        force_encoded_audio_insertable_streams);
+    config->setForceEncodedVideoInsertableStreams(
+        force_encoded_video_insertable_streams);
     RTCIceServer* ice_server = RTCIceServer::Create();
-    ice_server->setURL("stun:fake.stun.url");
+    ice_server->setUrl("stun:fake.stun.url");
     HeapVector<Member<RTCIceServer>> ice_servers;
     ice_servers.push_back(ice_server);
     config->setIceServers(ice_servers);
@@ -393,7 +400,7 @@ class RTCPeerConnectionTest : public testing::Test {
             &RTCPeerConnectionTest::CreateRTCPeerConnectionHandler,
             base::Unretained(this)));
     return RTCPeerConnection::Create(scope.GetExecutionContext(), config,
-                                     Dictionary(), scope.GetExceptionState());
+                                     scope.GetExceptionState());
   }
 
   virtual std::unique_ptr<RTCPeerConnectionHandlerPlatform>
@@ -420,8 +427,7 @@ class RTCPeerConnectionTest : public testing::Test {
   void AddStream(V8TestingScope& scope,
                  RTCPeerConnection* pc,
                  MediaStream* stream) {
-    pc->addStream(scope.GetScriptState(), stream, Dictionary(),
-                  scope.GetExceptionState());
+    pc->addStream(scope.GetScriptState(), stream, scope.GetExceptionState());
     EXPECT_EQ("", GetExceptionMessage(scope));
   }
 
@@ -644,6 +650,21 @@ TEST_F(RTCPeerConnectionTest, CheckForComplexSdpWithSdpSemanticsUnspecified) {
   ASSERT_FALSE(pc->CheckForComplexSdp(sdp).has_value());
 }
 
+TEST_F(RTCPeerConnectionTest, CheckInsertableStreamsConfig) {
+  for (bool force_encoded_audio_insertable_streams : {true, false}) {
+    for (bool force_encoded_video_insertable_streams : {true, false}) {
+      V8TestingScope scope;
+      Persistent<RTCPeerConnection> pc =
+          CreatePC(scope, String(), force_encoded_audio_insertable_streams,
+                   force_encoded_video_insertable_streams);
+      EXPECT_EQ(pc->force_encoded_audio_insertable_streams(),
+                force_encoded_audio_insertable_streams);
+      EXPECT_EQ(pc->force_encoded_video_insertable_streams(),
+                force_encoded_video_insertable_streams);
+    }
+  }
+}
+
 enum class AsyncOperationAction {
   kLeavePending,
   kResolve,
@@ -793,12 +814,10 @@ class RTCPeerConnectionCallSetupStateTest : public RTCPeerConnectionTest {
     return CallbackType::Create(v8_function);
   }
 
-  Dictionary ToDictionary(V8TestingScope& scope,
-                          const IDLDictionaryBase* value) {
-    return Dictionary(
-        scope.GetIsolate(),
-        ToV8(value, scope.GetContext()->Global(), scope.GetIsolate()),
-        scope.GetExceptionState());
+  ScriptValue ToScriptValue(V8TestingScope& scope, RTCOfferOptions* value) {
+    v8::Isolate* isolate = scope.GetIsolate();
+    return ScriptValue(isolate,
+                       ToV8(value, scope.GetContext()->Global(), isolate));
   }
 
  private:
@@ -900,7 +919,7 @@ TEST_F(RTCPeerConnectionCallSetupStateTest, OffererLegacyApiPath) {
   pc->createOffer(scope.GetScriptState(),
                   CreateEmptyCallback<V8RTCSessionDescriptionCallback>(scope),
                   CreateEmptyCallback<V8RTCPeerConnectionErrorCallback>(scope),
-                  ToDictionary(scope, RTCOfferOptions::Create()),
+                  ToScriptValue(scope, RTCOfferOptions::Create()),
                   scope.GetExceptionState());
   EXPECT_EQ(OffererState::kCreateOfferPending, tracker_->offerer_state());
   EXPECT_EQ(CallSetupState::kStarted, tracker_->GetCallSetupState());
@@ -1018,7 +1037,7 @@ TEST_F(RTCPeerConnectionCallSetupStateTest, AnswererLegacyApiPath) {
   pc->createAnswer(scope.GetScriptState(),
                    CreateEmptyCallback<V8RTCSessionDescriptionCallback>(scope),
                    CreateEmptyCallback<V8RTCPeerConnectionErrorCallback>(scope),
-                   Dictionary() /* media_constraints */);
+                   scope.GetExceptionState());
   EXPECT_EQ(AnswererState::kCreateAnswerPending, tracker_->answerer_state());
   platform_->RunUntilIdle();
   EXPECT_EQ(AnswererState::kCreateAnswerResolved, tracker_->answerer_state());

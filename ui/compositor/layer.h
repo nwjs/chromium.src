@@ -559,7 +559,7 @@ class COMPOSITOR_EXPORT Layer : public LayerAnimationDelegate,
   cc::Layer* GetCcLayer() const override;
   LayerThreadedAnimationDelegate* GetThreadedAnimationDelegate() override;
   LayerAnimatorCollection* GetLayerAnimatorCollection() override;
-  int GetFrameNumber() const override;
+  base::Optional<int> GetFrameNumber() const override;
   float GetRefreshRate() const override;
 
   // Creates a corresponding composited layer for |type_|.
@@ -597,6 +597,10 @@ class COMPOSITOR_EXPORT Layer : public LayerAnimationDelegate,
   // Gets a flattened WeakPtr list of all layers and layer masks in the tree
   // rooted from |this|.
   void GetFlattenedWeakList(std::vector<base::WeakPtr<Layer>>* flattened_list);
+
+  // Same as SetFillsBoundsOpaque but with a reason how it's changed.
+  void SetFillsBoundsOpaquelyWithReason(bool fills_bounds_opaquely,
+                                        PropertyChangeReason reason);
 
   const LayerType type_;
 

@@ -43,6 +43,20 @@ class FontSizeTabHelper : public web::WebStateObserver,
   // Returns whether the user can still zoom out. (I.e., They have not reached
   // the min zoom level.).
   bool CanUserZoomOut() const;
+  // Returns whether the user can reset the zoom level. (I.e., They are not at
+  // the default zoom level.)
+  bool CanUserResetZoom() const;
+
+  // Returns true if the Text Zoom process is currently active.
+  bool IsTextZoomUIActive() const;
+
+  // Marks the Text Zoom process as active or not.  This method does not
+  // directly show or hide the UI.  It simply acts as a marker for whether or
+  // not the UI should be displayed when possible.
+  void SetTextZoomUIActive(bool active);
+
+  // Text zoom is currently only supported on HTML pages.
+  bool CurrentPageSupportsTextZoom() const;
 
   // Remove any stored zoom levels from the provided |PrefService|.
   static void ClearUserZoomPrefs(PrefService* pref_service);
@@ -62,15 +76,21 @@ class FontSizeTabHelper : public web::WebStateObserver,
   // 150%) taking all sources into account (system level and user zoom).
   int GetFontSize() const;
 
+  // Set the zoom level correctly for a new navigation.
+  void NewPageZoom();
+
   PrefService* GetPrefService() const;
 
+  // Returns the new multiplier after zooming in the given direction. Returns
+  // nullopt if it is impossible to zoom in the given direction;
   base::Optional<double> NewMultiplierAfterZoom(Zoom zoom) const;
   // Returns the current user zoom multiplier (i.e. not counting any additional
   // zoom due to the system accessibility settings).
   double GetCurrentUserZoomMultiplier() const;
   void StoreCurrentUserZoomMultiplier(double multiplier);
   std::string GetCurrentUserZoomMultiplierKey() const;
-
+  std::string GetUserZoomMultiplierKeyUrlPart() const;
+  bool IsGoogleCachedAMPPage() const;
   bool tab_helper_has_zoomed_ = false;
 
   // web::WebStateObserver overrides:
@@ -78,12 +98,19 @@ class FontSizeTabHelper : public web::WebStateObserver,
       web::WebState* web_state,
       web::PageLoadCompletionStatus load_completion_status) override;
   void WebStateDestroyed(web::WebState* web_state) override;
+  void DidFinishNavigation(web::WebState* web_state,
+                           web::NavigationContext* context) override;
+  void WebFrameDidBecomeAvailable(web::WebState* web_state,
+                                  web::WebFrame* web_frame) override;
 
   // Observer id returned by registering at NSNotificationCenter.
   id content_size_did_change_observer_ = nil;
 
   // WebState this tab helper is attached to.
   web::WebState* web_state_ = nullptr;
+
+  // Whether the Text Zoom UI is active
+  bool text_zoom_ui_active_ = false;
 
   WEB_STATE_USER_DATA_KEY_DECL();
 

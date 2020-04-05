@@ -69,6 +69,7 @@
 #include "content/shell/browser/shell.h"
 #include "content/test/content_browser_test_utils_internal.h"
 #include "content/test/did_commit_navigation_interceptor.h"
+#include "content/test/render_document_feature.h"
 #include "content/test/test_content_browser_client.h"
 #include "net/dns/mock_host_resolver.h"
 #include "net/test/embedded_test_server/controllable_http_response.h"
@@ -211,10 +212,13 @@ bool IsMainFrameOriginOpaqueAndCompatibleWithURL(Shell* shell,
 
 }  // anonymous namespace
 
-class RenderFrameHostManagerTest : public ContentBrowserTest {
+class RenderFrameHostManagerTest
+    : public ContentBrowserTest,
+      public ::testing::WithParamInterface<std::string> {
  public:
   RenderFrameHostManagerTest() : foo_com_("foo.com") {
     replace_host_.SetHostStr(foo_com_);
+    InitAndEnableRenderDocumentFeature(&feature_list_, GetParam());
   }
 
   void SetUpOnMainThread() override {
@@ -270,10 +274,13 @@ class RenderFrameHostManagerTest : public ContentBrowserTest {
   std::string foo_com_;
   GURL::Replacements replace_host_;
   net::HostPortPair foo_host_port_;
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
 };
 
 // Web pages should not have script access to the unloaded page.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest, NoScriptAccessAfterUnload) {
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest, NoScriptAccessAfterUnload) {
   StartEmbeddedServer();
 
   // Load a page with links that open in a new window.
@@ -355,7 +362,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest, NoScriptAccessAfterUnload) {
 
 // Test for crbug.com/24447.  Following a cross-site link with rel=noreferrer
 // and target=_blank should create a new SiteInstance.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        SwapProcessWithRelNoreferrerAndTargetBlank) {
   StartEmbeddedServer();
 
@@ -399,7 +406,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 }
 
 // Same as above, but for 'noopener'
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        SwapProcessWithRelNoopenerAndTargetBlank) {
   StartEmbeddedServer();
 
@@ -454,7 +461,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 }
 
 // 'noopener' also works from 'window.open'
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        SwapProcessWithWindowOpenAndNoopener) {
   StartEmbeddedServer();
 
@@ -515,7 +522,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 // As of crbug.com/69267, we create a new BrowsingInstance (and SiteInstance)
 // for rel=noreferrer links in new windows, even to same site pages and named
 // targets.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        SwapProcessWithSameSiteRelNoreferrer) {
   StartEmbeddedServer();
 
@@ -561,7 +568,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 }
 
 // Same as above, but for 'noopener'
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        SwapProcessWithSameSiteRelNoopener) {
   StartEmbeddedServer();
 
@@ -610,7 +617,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 // Test for crbug.com/24447.  Following a cross-site link with just
 // target=_blank should not create a new SiteInstance, unless we
 // are running in --site-per-process mode.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        DontSwapProcessWithOnlyTargetBlank) {
   StartEmbeddedServer();
 
@@ -649,7 +656,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 
 // Test for crbug.com/24447.  Following a cross-site link with rel=noreferrer
 // and no target=_blank should not create a new SiteInstance.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        DontSwapProcessWithOnlyRelNoreferrer) {
   StartEmbeddedServer();
 
@@ -688,7 +695,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 }
 
 // Same as above, but for 'noopener'
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        DontSwapProcessWithOnlyRelNoOpener) {
   StartEmbeddedServer();
 
@@ -729,7 +736,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 // Test for crbug.com/116192.  Targeted links should still work after the
 // named target window has swapped processes.
 // Disabled Flaky test - crbug.com/859487
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        DISABLED_AllowTargetedNavigationsAfterSwap) {
   StartEmbeddedServer();
 
@@ -804,7 +811,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 #else
 #define MAYBE_DisownOpener DisownOpener
 #endif
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest, MAYBE_DisownOpener) {
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest, MAYBE_DisownOpener) {
   StartEmbeddedServer();
 
   if (AreDefaultSiteInstancesEnabled()) {
@@ -880,7 +887,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest, MAYBE_DisownOpener) {
 }
 
 // Test that subframes can disown their openers.  http://crbug.com/225528.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest, DisownSubframeOpener) {
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest, DisownSubframeOpener) {
   const GURL frame_url("data:text/html,<iframe name=\"foo\"></iframe>");
   EXPECT_TRUE(NavigateToURL(shell(), frame_url));
 
@@ -904,7 +911,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest, DisownSubframeOpener) {
 
 // Check that window.name is preserved for top frames when they navigate
 // cross-process.  See https://crbug.com/504164.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        PreserveTopFrameWindowNameOnCrossProcessNavigations) {
   StartEmbeddedServer();
   if (AreDefaultSiteInstancesEnabled()) {
@@ -972,7 +979,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 // 4) Post a message from _blank to "foo".
 // 5) Post a message from "foo" to a subframe of opener, which replies back.
 // 6) Post a message from _blank to a subframe of "foo".
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        SupportCrossProcessPostMessage) {
   StartEmbeddedServer();
   if (AreDefaultSiteInstancesEnabled()) {
@@ -1113,7 +1120,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 // 2) Post a message containing a message port from opener to "foo".
 // 3) Post a message from "foo" back to opener via the passed message port.
 // The test will be enabled when the feature implementation lands.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        SupportCrossProcessPostMessageWithMessagePort) {
   StartEmbeddedServer();
   if (AreDefaultSiteInstancesEnabled()) {
@@ -1202,7 +1209,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 
 // Test for crbug.com/116192.  Navigations to a window's opener should
 // still work after a process swap.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        AllowTargetedNavigationsInOpenerAfterSwap) {
   StartEmbeddedServer();
 
@@ -1266,7 +1273,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 // Test that subframes do not crash when sending a postMessage to the top frame
 // from an unload handler while the top frame is being replaced as part of
 // navigating cross-process.  https://crbug.com/475651.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        PostMessageFromSubframeUnloadHandler) {
   StartEmbeddedServer();
 
@@ -1310,7 +1317,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 // Test that opening a new window in the same SiteInstance and then navigating
 // both windows to a different SiteInstance allows the first process to exit.
 // See http://crbug.com/126333.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        ProcessExitWithSwappedOutViews) {
   StartEmbeddedServer();
   if (AreDefaultSiteInstancesEnabled()) {
@@ -1374,7 +1381,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 
 // Test for crbug.com/76666.  A cross-site navigation that fails with a 204
 // error should not make us ignore future renderer-initiated navigations.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest, ClickLinkAfter204Error) {
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest, ClickLinkAfter204Error) {
   StartServer();
 
   // Get the original SiteInstance for later comparison.
@@ -1474,7 +1481,7 @@ class VisibleEntryWaiter : public WebContentsObserver {
 // the same operations as the subsequent tests except DOM modification. This
 // should help catch instances where the subsequent tests incorrectly pass due
 // to a side effect of the test infrastructure.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerSpoofingTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerSpoofingTest,
                        ShowLoadingURLIfNotModified) {
   ASSERT_TRUE(embedded_test_server()->Start());
 
@@ -1522,7 +1529,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerSpoofingTest,
 // initiated navigation in a new tab, until the content of the initial
 // about:blank page is modified by another window.  At that point, we should
 // revert to showing about:blank to prevent a URL spoof.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerSpoofingTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerSpoofingTest,
                        ShowLoadingURLUntilSpoof) {
   ASSERT_TRUE(embedded_test_server()->Start());
 
@@ -1577,7 +1584,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerSpoofingTest,
 // it, to test https://crbug.com/847718.  The reload should not cause the
 // visible entry to stick around after the modification, even though it is
 // triggered in the browser process.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerSpoofingTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerSpoofingTest,
                        ShowLoadingURLUntilSpoofAfterReload) {
   ASSERT_TRUE(embedded_test_server()->Start());
 
@@ -1639,7 +1646,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerSpoofingTest,
 // Note: document.write() implicitly invokes document.open() if the Document has
 // not already been opened, so there's no need to test document.write()
 // separately.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerSpoofingTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerSpoofingTest,
                        ShowLoadingURLUntilDocumentOpenSpoof) {
   ASSERT_TRUE(embedded_test_server()->Start());
 
@@ -1682,7 +1689,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerSpoofingTest,
   EXPECT_FALSE(contents->GetController().GetVisibleEntry());
 }
 
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        WasDiscardedWhenNavigationInterruptsReload) {
   EXPECT_TRUE(embedded_test_server()->Start());
   GURL discarded_url(embedded_test_server()->GetURL("a.com", "/title1.html"));
@@ -1711,7 +1718,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 // speculative RFH is discarded due to a concurrent renderer-initiated
 // navigation.  See https://crbug.com/760342.
 // TODO(https://crbug.com/945194): Disabled due to flaky timeouts.
-IN_PROC_BROWSER_TEST_F(
+IN_PROC_BROWSER_TEST_P(
     RenderFrameHostManagerTest,
     DISABLED_ResetVisibleURLOnCrossProcessNavigationInterrupted) {
   const std::string kVictimPath = "/victim.html";
@@ -1810,7 +1817,7 @@ IN_PROC_BROWSER_TEST_F(
 // navigation to the pending NavigationEntry will not crash if it happens
 // because a new navigation to the same pending NavigationEntry started. This is
 // a regression test for crbug.com/796135.
-IN_PROC_BROWSER_TEST_F(
+IN_PROC_BROWSER_TEST_P(
     RenderFrameHostManagerTest,
     DeleteSpeculativeRFHPendingCommitOfPendingEntryOnInterrupted1) {
   const std::string kOriginalPath = "/original.html";
@@ -1945,7 +1952,7 @@ IN_PROC_BROWSER_TEST_F(
 // is a variant of the previous test, where we destroy the speculative
 // RenderFrameHost to create another speculative RenderFrameHost. This is a
 // regression test for crbug.com/796135.
-IN_PROC_BROWSER_TEST_F(
+IN_PROC_BROWSER_TEST_P(
     RenderFrameHostManagerTest,
     MAYBE_DeleteSpeculativeRFHPendingCommitOfPendingEntryOnInterrupted2) {
   const std::string kOriginalPath = "/original.html";
@@ -2082,7 +2089,7 @@ IN_PROC_BROWSER_TEST_F(
 // initiated navigation in a new tab if it is not the initial navigation.  In
 // this case, the renderer will not notify us of a modification, so we cannot
 // show the pending URL without allowing a spoof.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        DontShowLoadingURLIfNotInitialNav) {
   ASSERT_TRUE(embedded_test_server()->Start());
 
@@ -2122,7 +2129,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 // Test for http://crbug.com/93427.  Ensure that cross-site navigations
 // do not cause back/forward navigations to be considered stale by the
 // renderer.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest, MAYBE_BackForwardNotStale) {
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest, MAYBE_BackForwardNotStale) {
   StartEmbeddedServer();
   EXPECT_TRUE(NavigateToURL(shell(), GURL(url::kAboutBlankURL)));
 
@@ -2230,7 +2237,7 @@ class RenderViewHostDestructionObserver : public WebContentsObserver {
 // delegate_. This test also verifies crbug.com/117420 and crbug.com/143255 to
 // ensure that a separate SiteInstance is created when navigating to view-source
 // URLs, regardless of current URL.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        MAYBE_LeakingRenderViewHosts) {
   StartEmbeddedServer();
 
@@ -2300,7 +2307,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 //    tab's unload handler remove its frame.
 // In older versions of Chrome, this caused an update to the frame tree that
 // resulted in showing an internal page rather than the real page.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        DontPreemptNavigationWithFrameTreeUpdate) {
   StartEmbeddedServer();
 
@@ -2365,7 +2372,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 #else
 #define MAYBE_RendererDebugURLsDontSwap RendererDebugURLsDontSwap
 #endif
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        MAYBE_RendererDebugURLsDontSwap) {
   StartEmbeddedServer();
 
@@ -2381,19 +2388,27 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
   shell()->LoadURL(GURL("javascript:document.title='msg'"));
   ASSERT_EQ(expected_title, title_watcher.WaitAndGetTitle());
 
+  scoped_refptr<SiteInstance> orig_site_instance(
+      shell()->web_contents()->GetSiteInstance());
   // Crash the renderer of the view-source page.
   RenderProcessHostWatcher crash_observer(
       shell()->web_contents(),
       RenderProcessHostWatcher::WATCH_FOR_PROCESS_EXIT);
   EXPECT_TRUE(NavigateToURLAndExpectNoCommit(shell(), GURL(kChromeUICrashURL)));
   crash_observer.Wait();
+
+  // We should not change SiteInstance and BrowsingInstance on navigations to
+  // RendererDebug URLs.
+  auto* new_site_instance = shell()->web_contents()->GetSiteInstance();
+  EXPECT_EQ(orig_site_instance, new_site_instance);
+  EXPECT_TRUE(orig_site_instance->IsRelatedSiteInstance(new_site_instance));
 }
 
 // Ensure that renderer-side debug URLs don't take effect on crashed renderers.
 // Otherwise, we might try to load an unprivileged about:blank page into a
 // WebUI-enabled RenderProcessHost, failing a safety check in InitRenderView.
 // See http://crbug.com/334214.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        IgnoreRendererDebugURLsWhenCrashed) {
   // Visit a WebUI page with bindings.
   GURL webui_url = GURL(std::string(kChromeUIScheme) + "://" +
@@ -2443,7 +2458,7 @@ class RFHMProcessPerTabTest : public RenderFrameHostManagerTest {
 #else
 #define MAYBE_BackFromWebUI BackFromWebUI
 #endif
-IN_PROC_BROWSER_TEST_F(RFHMProcessPerTabTest, MAYBE_BackFromWebUI) {
+IN_PROC_BROWSER_TEST_P(RFHMProcessPerTabTest, MAYBE_BackFromWebUI) {
   StartEmbeddedServer();
   GURL original_url(embedded_test_server()->GetURL("/title2.html"));
   EXPECT_TRUE(NavigateToURL(shell(), original_url));
@@ -2471,7 +2486,7 @@ IN_PROC_BROWSER_TEST_F(RFHMProcessPerTabTest, MAYBE_BackFromWebUI) {
 //  - url1 must require webui bindings;
 //  - navigating to url2 in the site instance of url1 should not swap
 //   browsing instances, but should require a new site instance.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest, WebUIGetsBindings) {
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest, WebUIGetsBindings) {
   GURL url1(std::string(kChromeUIScheme) + "://" +
             std::string(kChromeUIGpuHost));
   GURL url2(std::string(kChromeUIScheme) + "://" +
@@ -2521,7 +2536,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest, WebUIGetsBindings) {
 // The test loads a WebUI page in process-per-tab mode, then navigates to a
 // blank page and then to a regular page. The bug reproduces if blank page is
 // visited in between WebUI and regular page.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        ForceSwapAfterWebUIBindings) {
   base::CommandLine::ForCurrentProcess()->AppendSwitch(
       switches::kProcessPerTab);
@@ -2552,7 +2567,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 // instance is no longer allowed to send JavaScript messages. This is necessary
 // because WebUI currently (and unusually) always sends JavaScript messages to
 // the current main frame, rather than the RFH that owns the WebUI.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        WebUIJavascriptDisallowedAfterUnload) {
   StartEmbeddedServer();
 
@@ -2610,7 +2625,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 // try to select files whose paths cannot be converted to WebStrings.  This
 // check is done in the renderer because it is hard to predict which paths will
 // turn into empty WebStrings, and the behavior varies by platform.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest, DontSelectInvalidFiles) {
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest, DontSelectInvalidFiles) {
   StartServer();
   base::RunLoop run_loop;
 
@@ -2672,7 +2687,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest, DontSelectInvalidFiles) {
 }
 
 // Test for http://crbug.com/262948.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        RestoreFileAccessForHistoryNavigation) {
   StartServer();
   base::RunLoop run_loop;
@@ -2734,7 +2749,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 
 // Same as RenderFrameHostManagerTest.RestoreFileAccessForHistoryNavigation, but
 // replace the cross-origin navigation by a crash, followed by a reload.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        RestoreFileAccessForHistoryNavigationAfterCrash) {
   StartServer();
   base::RunLoop run_loop;
@@ -2822,7 +2837,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 }
 
 // Test for http://crbug.com/441966.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        RestoreSubframeFileAccessForHistoryNavigation) {
   StartServer();
   base::RunLoop run_loop;
@@ -2966,7 +2981,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 
 // Ensures that no RenderFrameHost/RenderViewHost objects are leaked when
 // doing a simple cross-process navigation.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        CleanupOnCrossProcessNavigation) {
   StartEmbeddedServer();
 
@@ -3001,7 +3016,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 
 // Ensure that the opener chain proxies and RVHs are properly reinitialized if
 // a tab crashes and reloads.  See https://crbug.com/505090.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        ReinitializeOpenerChainAfterCrashAndReload) {
   StartEmbeddedServer();
 
@@ -3072,7 +3087,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 // process and the frame's proxies in other processes find out about the new
 // opener.  Open two popups in different processes, set one popup's opener to
 // the other popup, and ensure that the opener is updated in all processes.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest, UpdateOpener) {
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest, UpdateOpener) {
   StartEmbeddedServer();
   if (AreDefaultSiteInstancesEnabled()) {
     // Isolate "foo.com" so we are guaranteed it is placed in a different
@@ -3162,7 +3177,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest, UpdateOpener) {
 // Tests that when a popup is opened, which is then navigated cross-process and
 // back, it can be still accessed through the original window reference in
 // JavaScript. See https://crbug.com/537657
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        PopupKeepsWindowReferenceCrossProcesAndBack) {
   StartEmbeddedServer();
 
@@ -3213,7 +3228,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 // 3. Start a navigation to another page on a.com, but commit is delayed.
 // 4. Go back.
 // See https://crbug.com/541619.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        PopupPendingAndBackToSameSiteInstance) {
   StartEmbeddedServer();
   GURL main_url(embedded_test_server()->GetURL("a.com", "/title1.html"));
@@ -3246,7 +3261,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 // (whose process has been killed/crashed) recreates properly the RenderView and
 // RenderFrameProxy on the renderer side.
 // See https://crbug.com/544271
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        RenderViewInitAfterProcessKill) {
   StartEmbeddedServer();
   EXPECT_TRUE(NavigateToURL(
@@ -3286,7 +3301,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 
 // Ensure that we don't crash the renderer in CreateRenderView if a proxy goes
 // away between unload and the next navigation.  See https://crbug.com/581912.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        CreateRenderViewAfterProcessKillAndClosedProxy) {
   StartEmbeddedServer();
   FrameTreeNode* root = static_cast<WebContentsImpl*>(shell()->web_contents())
@@ -3367,7 +3382,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 
 // Ensure that we don't crash in RenderViewImpl::Init if a proxy is created
 // after unload and before navigation.  See https://crbug.com/544755.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        RenderViewInitAfterNewProxyAndProcessKill) {
   StartEmbeddedServer();
   FrameTreeNode* root = static_cast<WebContentsImpl*>(shell()->web_contents())
@@ -3436,7 +3451,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 // its site occurs before it commits.  Otherwise the renderer process will have
 // two competing pending RenderFrames that both try to swap with the same
 // RenderFrameProxy.  See https://crbug.com/545900.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        ConsecutiveNavigationsToSite) {
   StartEmbeddedServer();
   EXPECT_TRUE(NavigateToURL(
@@ -3481,7 +3496,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 // normally maintain the opener, but loses it due to being placed in a new
 // process and not creating subframe proxies.  The latter might happen when
 // opening the default search provider site.  See https://crbug.com/576204.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        CrossProcessPopupInheritsSandboxFlagsWithNoOpener) {
   StartEmbeddedServer();
   FrameTreeNode* root = static_cast<WebContentsImpl*>(shell()->web_contents())
@@ -3542,7 +3557,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 
 // When two frames are same-origin but cross-process, they should behave as if
 // they are not same-origin and should not crash.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        SameOriginFramesInDifferentProcesses) {
   StartEmbeddedServer();
 
@@ -3601,7 +3616,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 
 // Test coverage for attempts to open subframe links in new windows, to prevent
 // incorrect invariant checks.  See https://crbug.com/605055.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest, CtrlClickSubframeLink) {
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest, CtrlClickSubframeLink) {
   StartEmbeddedServer();
 
   // Load a page with a subframe link.
@@ -3618,7 +3633,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest, CtrlClickSubframeLink) {
 // Ensure that we don't update the wrong NavigationEntry's title after an
 // ignored commit during a cross-process navigation.
 // See https://crbug.com/577449.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        UnloadPushStateOnCrossProcessNavigation) {
   shell()
       ->web_contents()
@@ -3669,7 +3684,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 #define MAYBE_EnsureUniversalAccessFromFileSchemeSucceeds \
   EnsureUniversalAccessFromFileSchemeSucceeds
 #endif
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        MAYBE_EnsureUniversalAccessFromFileSchemeSucceeds) {
   StartEmbeddedServer();
   WebContentsImpl* web_contents =
@@ -3692,7 +3707,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 
 // Ensure that navigating back from a sad tab to an existing process works
 // correctly. See https://crbug.com/591984.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        NavigateBackToExistingProcessFromSadTab) {
   StartEmbeddedServer();
   EXPECT_TRUE(NavigateToURL(
@@ -3736,7 +3751,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 // RenderFrameHost, including when it's pending, current, and pending deletion.
 // This is checked both for main frames and subframes.
 // See https://crbug.com/590035.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest, LastCommittedOrigin) {
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest, LastCommittedOrigin) {
   StartEmbeddedServer();
 
   // Disable the back-forward cache so that documents are always deleted when
@@ -3821,7 +3836,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest, LastCommittedOrigin) {
 // Ensure that loading a page with cross-site coreferencing iframes does not
 // cause an infinite number of nested iframes to be created.
 // See https://crbug.com/650332.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest, CoReferencingFrames) {
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest, CoReferencingFrames) {
   // Load a page with a cross-site coreferencing iframe. "Coreferencing" here
   // refers to two separate pages that contain subframes with URLs to each
   // other.
@@ -3870,7 +3885,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest, CoReferencingFrames) {
 
 // Ensures that nested subframes with the same URL but different fragments can
 // only be nested once.  See https://crbug.com/650332.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        SelfReferencingFragmentFrames) {
   StartEmbeddedServer();
   GURL url(
@@ -3927,7 +3942,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 // an about:blank iframe where the page injects html containing a meta refresh
 // into the iframe.  This test then checks that this does not cause infinite
 // nested iframes to be created.  See https://crbug.com/527367.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        SelfReferencingMetaRefreshFrames) {
   // Load a page with a blank iframe.
   StartEmbeddedServer();
@@ -3961,7 +3976,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 // Ensure that navigating a subframe to the same URL as its parent twice in a
 // row is not blocked by the self-reference check.
 // See https://crbug.com/650332.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        SelfReferencingSameURLRenavigation) {
   StartEmbeddedServer();
   GURL first_url(
@@ -3995,7 +4010,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 
 // Ensures that POST requests bypass self-referential URL checks. See
 // https://crbug.com/710008.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        SelfReferencingFramesWithPOST) {
   StartEmbeddedServer();
   GURL url(embedded_test_server()->GetURL("a.com", "/page_with_iframe.html"));
@@ -4045,7 +4060,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 // Ensures that we don't reset a speculative RFH if a JavaScript URL is loaded
 // while there's an ongoing cross-process navigation. See
 // https://crbug.com/793432.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        JavaScriptLoadDoesntResetSpeculativeRFH) {
   EXPECT_TRUE(embedded_test_server()->Start());
 
@@ -4076,7 +4091,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 // Test that unrelated browsing contexts cannot find each other's windows,
 // even when they end up using the same renderer process (e.g. because of
 // hitting a process limit).  See also https://crbug.com/718489.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        ProcessReuseVsBrowsingInstance) {
   // Set max renderers to 1 to force reusing a renderer process between two
   // unrelated tabs.
@@ -4126,7 +4141,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 // the address bar.  This helps avoid unneeded process sharing and should
 // happen even if the current frame has an opener.  See
 // https://crbug.com/803367.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        BrowserInitiatedNavigationsSwapBrowsingInstance) {
   ASSERT_TRUE(embedded_test_server()->Start());
 
@@ -4243,7 +4258,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 // stay in the same SiteInstance.  This isn't technically required for
 // correctness, but some tests (e.g., testEnsureHotFromScratch from
 // telemetry_unittests) currently depend on this behavior.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        NavigateToAndFromAboutBlank) {
   ASSERT_TRUE(embedded_test_server()->Start());
   GURL foo_url(embedded_test_server()->GetURL("foo.com", "/title1.html"));
@@ -4267,7 +4282,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 // where (1) is renderer-initiated and (2)+(3) are browser-initiated, the last
 // navigation goes back to the first SiteInstance without --site-per-process,
 // and to a new SiteInstance and BrowsingInstance with --site-per-process.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        NavigateToFooThenBarThenAboutBlankThenFoo) {
   ASSERT_TRUE(embedded_test_server()->Start());
   GURL foo_url(embedded_test_server()->GetURL("foo.com", "/title1.html"));
@@ -4309,7 +4324,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 
 // Test to verify that navigations in the main frame, which result in an error
 // page, properly commit the error page in its own dedicated process.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        ErrorPageNavigationInMainFrame) {
   // This test is only valid if error page isolation is enabled.
   if (!SiteIsolationPolicy::IsErrorPageIsolationEnabled(true))
@@ -4390,7 +4405,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 // Test to verify that navigations in subframes, which result in an error
 // page, commit the error page in the same process and not in the dedicated
 // error page process.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        ErrorPageNavigationInChildFrame) {
   StartEmbeddedServer();
   GURL url(embedded_test_server()->GetURL("/page_with_iframe.html"));
@@ -4429,7 +4444,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 // Test to verify that navigations in new window, which result in an error
 // page, commit the error page in the dedicated error page process and not in
 // the one for the destination site.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        ErrorPageNavigationInNewWindow) {
   // This test is only valid if error page isolation is enabled.
   if (!SiteIsolationPolicy::IsErrorPageIsolationEnabled(true))
@@ -4469,7 +4484,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 // Test to verify that windows that are not part of the same
 // BrowsingInstance end up using the same error page process, even though
 // their SiteInstances are not related.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        ErrorPageNavigationInUnrelatedWindows) {
   // This test is only valid if error page isolation is enabled.
   if (!SiteIsolationPolicy::IsErrorPageIsolationEnabled(true))
@@ -4526,7 +4541,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 // Test to verify that reloading an error page once the error condition has
 // cleared up is successful and does not create a new navigation entry.
 // See https://crbug.com/840485.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest, ErrorPageNavigationReload) {
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest, ErrorPageNavigationReload) {
   // This test is only valid if error page isolation is enabled.
   if (!SiteIsolationPolicy::IsErrorPageIsolationEnabled(true))
     return;
@@ -4680,7 +4695,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest, ErrorPageNavigationReload) {
 
 // Version of ErrorPageNavigationReload test that targets a subframe (because
 // subframes are currently [~2019Q1] not subject to error page isolation).
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        ErrorPageNavigationReload_InSubframe_NetworkError) {
   StartEmbeddedServer();
 
@@ -4767,7 +4782,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 
 // Version of ErrorPageNavigationReload test that targets a subframe (because
 // subframes are currently [~2019Q1] not subject to error page isolation).
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        ErrorPageNavigationReload_InSubframe_BlockedByClient) {
   StartEmbeddedServer();
 
@@ -4867,7 +4882,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 // the initial navigation.  The initial purpose of this test was to make sure
 // the corresponding unit test matches the actual product code behavior
 // (e.g. see NavigationControllerTest.Reload_GeneratesNewPage).
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        ReloadRedirectsToDifferentCrossSitePage) {
   // Set-up http server handlers for |start_url|.
   //
@@ -4976,7 +4991,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 
 // Test to verify that navigating away from an error page results in correct
 // change in SiteInstance.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        ErrorPageNavigationAfterError) {
   // This test is only valid if error page isolation is enabled.
   if (!SiteIsolationPolicy::IsErrorPageIsolationEnabled(true))
@@ -5059,7 +5074,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 // Test to verify that when an error page is hit and its process is terminated,
 // a successful reload correctly commits in a different process.
 // See https://crbug.com/866549.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        ErrorPageNavigationReloadWithTerminatedProcess) {
   // This test is only valid if error page isolation is enabled.
   if (!SiteIsolationPolicy::IsErrorPageIsolationEnabled(true))
@@ -5117,7 +5132,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 
 // Test to verify that navigation to existing history entry, which results in
 // an error page, is correctly placed in the error page SiteInstance.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        ErrorPageNavigationHistoryNavigationFailure) {
   // This test is only valid if error page isolation is enabled.
   if (!SiteIsolationPolicy::IsErrorPageIsolationEnabled(true))
@@ -5161,7 +5176,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 // Test to verify that a successful navigation to existing history entry,
 // which initially resulted in an error page, is correctly placed in a
 // SiteInstance different than the error page one.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        ErrorPageNavigationHistoryNavigationSuccess) {
   // This test is only valid if error page isolation is enabled.
   if (!SiteIsolationPolicy::IsErrorPageIsolationEnabled(true))
@@ -5217,7 +5232,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 // Test to verify that navigations to WebUI URL which results in an error
 // commits properly in the error page process and does not give it WebUI
 // bindings.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        ErrorPageNavigationToWebUIResourceWithError) {
   // This test is only valid if error page isolation is enabled.
   if (!SiteIsolationPolicy::IsErrorPageIsolationEnabled(true))
@@ -5254,7 +5269,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 // If a WebUI page leads to an error page and is then reloaded successfully from
 // its NavigationEntry, ensure that WebUI bindings are granted and that we don't
 // crash. See https://crbug.com/1046159.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        ReloadWebUIErrorPageToValidWebUI) {
   // This test is only valid if error page isolation is enabled.
   if (!SiteIsolationPolicy::IsErrorPageIsolationEnabled(true))
@@ -5331,7 +5346,7 @@ class BrowsingInstanceSwapContentBrowserClient
 // Test to verify that reloading of an error page which resulted from a
 // navigation to an URL which requires a BrowsingInstance swap, correcly
 // reloads in the same SiteInstance for the error page.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        ErrorPageNavigationReloadBrowsingInstanceSwap) {
   StartEmbeddedServer();
   GURL url(embedded_test_server()->GetURL("a.com", "/title1.html"));
@@ -5419,15 +5434,19 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
   SetBrowserClientForTesting(old_client);
 }
 
-class RenderFrameHostManagerProactivelySwapBrowsingInstancesTest
+class ProactivelySwapBrowsingInstancesCrossSiteSwapProcessTest
     : public RenderFrameHostManagerTest {
  public:
-  RenderFrameHostManagerProactivelySwapBrowsingInstancesTest() {
-    feature_list_.InitAndEnableFeature(
-        features::kProactivelySwapBrowsingInstance);
+  ProactivelySwapBrowsingInstancesCrossSiteSwapProcessTest() {
+    std::map<std::string, std::string> parameters;
+    parameters[kProactivelySwapBrowsingInstanceLevelParameterName] =
+        "CrossSiteSwapProcess";
+    feature_list_.InitAndEnableFeatureWithParameters(
+        features::kProactivelySwapBrowsingInstance, parameters);
   }
 
-  ~RenderFrameHostManagerProactivelySwapBrowsingInstancesTest() override {}
+  ~ProactivelySwapBrowsingInstancesCrossSiteSwapProcessTest() override =
+      default;
 
  private:
   base::test::ScopedFeatureList feature_list_;
@@ -5435,8 +5454,8 @@ class RenderFrameHostManagerProactivelySwapBrowsingInstancesTest
 
 // Test to ensure that the error page navigation does not change
 // BrowsingInstances when window.open is present.
-IN_PROC_BROWSER_TEST_F(
-    RenderFrameHostManagerProactivelySwapBrowsingInstancesTest,
+IN_PROC_BROWSER_TEST_P(
+    ProactivelySwapBrowsingInstancesCrossSiteSwapProcessTest,
     ErrorPageNavigationWithWindowOpenDoesNotChangeBrowsingInstance) {
   StartEmbeddedServer();
   GURL url(embedded_test_server()->GetURL("/title1.html"));
@@ -5510,9 +5529,8 @@ IN_PROC_BROWSER_TEST_F(
   }
 }
 
-IN_PROC_BROWSER_TEST_F(
-    RenderFrameHostManagerProactivelySwapBrowsingInstancesTest,
-    ReloadShouldNotChangeBrowsingInstance) {
+IN_PROC_BROWSER_TEST_P(ProactivelySwapBrowsingInstancesCrossSiteSwapProcessTest,
+                       ReloadShouldNotChangeBrowsingInstance) {
   StartEmbeddedServer();
   GURL url(embedded_test_server()->GetURL("/title1.html"));
 
@@ -5530,6 +5548,268 @@ IN_PROC_BROWSER_TEST_F(
   // for same-site navigations.
   EXPECT_EQ(site_instance,
             shell()->web_contents()->GetMainFrame()->GetSiteInstance());
+}
+
+class ProactivelySwapBrowsingInstancesCrossSiteReuseProcessTest
+    : public RenderFrameHostManagerTest {
+ public:
+  ProactivelySwapBrowsingInstancesCrossSiteReuseProcessTest() {
+    std::map<std::string, std::string> parameters;
+    parameters[kProactivelySwapBrowsingInstanceLevelParameterName] =
+        "CrossSiteReuseProcess";
+    feature_list_.InitAndEnableFeatureWithParameters(
+        features::kProactivelySwapBrowsingInstance, parameters);
+  }
+
+  ~ProactivelySwapBrowsingInstancesCrossSiteReuseProcessTest() override =
+      default;
+
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    RenderFrameHostManagerTest::SetUpCommandLine(command_line);
+    command_line->AppendSwitch(switches::kDisableSiteIsolation);
+    if (AreAllSitesIsolatedForTesting()) {
+      LOG(WARNING)
+          << "This test should be run without strict site isolation. "
+          << "It's going to fail when  --site-per-process is specified.";
+    }
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+// ProactivelySwapBrowsingInstance makes us swap BrowsingInstances for
+// renderer-initiated navigations, which we normally would've kept in the same
+// BrowsingInstance as before - which means we can keep the old process because
+// we would've continued using that process before anyways.
+IN_PROC_BROWSER_TEST_P(
+    ProactivelySwapBrowsingInstancesCrossSiteReuseProcessTest,
+    RendererInitiatedCrossSiteNavigationReusesProcess) {
+  if (AreAllSitesIsolatedForTesting())
+    return;
+  ASSERT_TRUE(embedded_test_server()->Start());
+  GURL a_url(embedded_test_server()->GetURL("a.com", "/title1.html"));
+  GURL b_url(embedded_test_server()->GetURL("b.com", "/title1.html"));
+  WebContentsImpl* web_contents =
+      static_cast<WebContentsImpl*>(shell()->web_contents());
+
+  // Navigate to A.
+  EXPECT_TRUE(NavigateToURL(shell(), a_url));
+  scoped_refptr<SiteInstanceImpl> a_site_instance =
+      static_cast<SiteInstanceImpl*>(
+          web_contents->GetMainFrame()->GetSiteInstance());
+  // Navigate to B. The navigation is document/renderer initiated.
+  EXPECT_TRUE(NavigateToURLFromRenderer(shell(), b_url));
+  scoped_refptr<SiteInstanceImpl> b_site_instance =
+      static_cast<SiteInstanceImpl*>(
+          web_contents->GetMainFrame()->GetSiteInstance());
+
+  // Check that A and B are in different SiteInstances (both are in default
+  // SiteInstances of different BrowsingInstances) but have the same renderer
+  // process.
+  EXPECT_FALSE(a_site_instance->IsRelatedSiteInstance(b_site_instance.get()));
+  EXPECT_TRUE(a_site_instance->IsDefaultSiteInstance());
+  EXPECT_TRUE(b_site_instance->IsDefaultSiteInstance());
+  EXPECT_EQ(a_site_instance->GetProcess(), b_site_instance->GetProcess());
+}
+
+// Different from renderer-initiated cross-site navigations, browser-initiated
+// cross-site navigations do swap BrowsingInstances and processes without
+// ProactivelySwapBrowsingInstance. Because of that, we shouldn't reuse the
+// process for the new BrowsingInstance.
+IN_PROC_BROWSER_TEST_P(
+    ProactivelySwapBrowsingInstancesCrossSiteReuseProcessTest,
+    BrowserInitiatedCrossSiteNavigationDoesNotReuseProcess) {
+  if (AreAllSitesIsolatedForTesting())
+    return;
+  ASSERT_TRUE(embedded_test_server()->Start());
+  GURL a_url(embedded_test_server()->GetURL("a.com", "/title1.html"));
+  GURL b_url(embedded_test_server()->GetURL("b.com", "/title1.html"));
+  WebContentsImpl* web_contents =
+      static_cast<WebContentsImpl*>(shell()->web_contents());
+
+  // Navigate to A.
+  EXPECT_TRUE(NavigateToURL(shell(), a_url));
+  scoped_refptr<SiteInstanceImpl> a_site_instance =
+      static_cast<SiteInstanceImpl*>(
+          web_contents->GetMainFrame()->GetSiteInstance());
+  // Navigate to B. The navigation is browser initiated.
+  EXPECT_TRUE(NavigateToURL(shell(), b_url));
+  scoped_refptr<SiteInstanceImpl> b_site_instance =
+      static_cast<SiteInstanceImpl*>(
+          web_contents->GetMainFrame()->GetSiteInstance());
+
+  // Check that A and B are in different SiteInstances (both are in default
+  // SiteInstances of different BrowsingInstances) and renderer processes.
+  EXPECT_FALSE(a_site_instance->IsRelatedSiteInstance(b_site_instance.get()));
+  EXPECT_TRUE(a_site_instance->IsDefaultSiteInstance());
+  EXPECT_TRUE(b_site_instance->IsDefaultSiteInstance());
+  EXPECT_NE(a_site_instance->GetProcess(), b_site_instance->GetProcess());
+}
+
+// A test ContentBrowserClient implementation that enforce process-per-site mode
+// if |should_use_process_per_site_| is true. It is used to verify that we don't
+// reuse the current page's renderer process when navigating to sites that uses
+// process-per-site.
+class ProcessPerSiteContentBrowserClient : public TestContentBrowserClient {
+ public:
+  ProcessPerSiteContentBrowserClient() = default;
+
+  void SetShouldUseProcessPerSite(bool should_use_process_per_site) {
+    should_use_process_per_site_ = should_use_process_per_site;
+  }
+
+  bool ShouldUseProcessPerSite(BrowserContext* browser_context,
+                               const GURL& effective_url) override {
+    return should_use_process_per_site_;
+  }
+
+ private:
+  bool should_use_process_per_site_ = false;
+  DISALLOW_COPY_AND_ASSIGN(ProcessPerSiteContentBrowserClient);
+};
+
+// We should not reuse the current process on renderer-initiated navigations to
+// sites that needs to use process-per-site, and should create a new process for
+// the site if there isn't already a process for that site.
+IN_PROC_BROWSER_TEST_P(
+    ProactivelySwapBrowsingInstancesCrossSiteReuseProcessTest,
+    RendererInitiatedCrossSiteNavigationToProcessPerSiteURLCreatesNewProcess) {
+  if (AreAllSitesIsolatedForTesting())
+    return;
+  ASSERT_TRUE(embedded_test_server()->Start());
+  GURL a_url(embedded_test_server()->GetURL("a.com", "/title1.html"));
+  GURL b_url(embedded_test_server()->GetURL("b.com", "/title1.html"));
+  GURL c_url(embedded_test_server()->GetURL("c.com", "/title1.html"));
+  WebContentsImpl* web_contents =
+      static_cast<WebContentsImpl*>(shell()->web_contents());
+  ProcessPerSiteContentBrowserClient content_browser_client;
+  ContentBrowserClient* old_client =
+      SetBrowserClientForTesting(&content_browser_client);
+  // Navigate to A.
+  EXPECT_TRUE(NavigateToURL(shell(), a_url));
+  scoped_refptr<SiteInstanceImpl> a_site_instance =
+      static_cast<SiteInstanceImpl*>(
+          web_contents->GetMainFrame()->GetSiteInstance());
+  RenderProcessHost* original_process = a_site_instance->GetProcess();
+
+  // Navigate to B. The navigation is document/renderer initiated.
+  EXPECT_TRUE(NavigateToURLFromRenderer(shell(), b_url));
+  scoped_refptr<SiteInstanceImpl> b_site_instance =
+      static_cast<SiteInstanceImpl*>(
+          web_contents->GetMainFrame()->GetSiteInstance());
+
+  // Check that A and B are in different SiteInstances (both are in default
+  // SiteInstances of different BrowsingInstances) but have the same renderer
+  // process.
+  EXPECT_FALSE(a_site_instance->IsRelatedSiteInstance(b_site_instance.get()));
+  EXPECT_TRUE(a_site_instance->IsDefaultSiteInstance());
+  EXPECT_TRUE(b_site_instance->IsDefaultSiteInstance());
+  EXPECT_EQ(b_site_instance->GetProcess(), original_process);
+
+  // Make sure we will use process-per-site for C.
+  // Note this is enforcing process-per-site for all sites, which is why we turn
+  // it off right after the navigation to C. We might reconsider after
+  // crbug.com/1062211 is fixed.
+  content_browser_client.SetShouldUseProcessPerSite(true);
+
+  // Navigate to C. The navigation is document/renderer initiated.
+  EXPECT_TRUE(NavigateToURLFromRenderer(shell(), c_url));
+  scoped_refptr<SiteInstanceImpl> c_site_instance =
+      static_cast<SiteInstanceImpl*>(
+          web_contents->GetMainFrame()->GetSiteInstance());
+
+  // Check that B and C are in different SiteInstances (both are in default
+  // SiteInstances of different BrowsingInstances) and renderer processes.
+  EXPECT_FALSE(b_site_instance->IsRelatedSiteInstance(c_site_instance.get()));
+  EXPECT_TRUE(c_site_instance->IsDefaultSiteInstance());
+  EXPECT_NE(c_site_instance->GetProcess(), original_process);
+  // C is using the process for C's site.
+  EXPECT_EQ(c_site_instance->GetProcess(),
+            RenderProcessHostImpl::GetSoleProcessHostForURL(
+                c_site_instance->GetIsolationContext(),
+                c_site_instance->GetSiteURL()));
+
+  // Make sure we will not use process-per-site for B.
+  content_browser_client.SetShouldUseProcessPerSite(false);
+
+  // Navigate to B again. The navigation is document/renderer initiated.
+  EXPECT_TRUE(NavigateToURLFromRenderer(shell(), b_url));
+  scoped_refptr<SiteInstanceImpl> b2_site_instance =
+      static_cast<SiteInstanceImpl*>(
+          web_contents->GetMainFrame()->GetSiteInstance());
+  EXPECT_FALSE(b2_site_instance->IsRelatedSiteInstance(c_site_instance.get()));
+  EXPECT_FALSE(b2_site_instance->IsRelatedSiteInstance(b_site_instance.get()));
+  EXPECT_TRUE(b2_site_instance->IsDefaultSiteInstance());
+  EXPECT_NE(b2_site_instance->GetProcess(), original_process);
+  // B will reuse C's process here, even though C is process-per-site, because
+  // neither of them require a dedicated process.
+  EXPECT_EQ(b2_site_instance->GetProcess(), c_site_instance->GetProcess());
+
+  SetBrowserClientForTesting(old_client);
+}
+
+// We should not reuse the current process on renderer-initiated navigations to
+// sites that needs to use process-per-site, and should use the sole process for
+// that site if it already exists.
+IN_PROC_BROWSER_TEST_P(
+    ProactivelySwapBrowsingInstancesCrossSiteReuseProcessTest,
+    RendererInitiatedCrossSiteNavigationToProcessPerSiteURLUsesProcessForSite) {
+  if (AreAllSitesIsolatedForTesting())
+    return;
+  ASSERT_TRUE(embedded_test_server()->Start());
+  GURL a_url(embedded_test_server()->GetURL("a.com", "/title1.html"));
+  GURL b_url(embedded_test_server()->GetURL("b.com", "/title1.html"));
+  WebContentsImpl* web_contents =
+      static_cast<WebContentsImpl*>(shell()->web_contents());
+  ProcessPerSiteContentBrowserClient content_browser_client;
+  ContentBrowserClient* old_client =
+      SetBrowserClientForTesting(&content_browser_client);
+
+  // Navigate to A.
+  EXPECT_TRUE(NavigateToURL(shell(), a_url));
+  scoped_refptr<SiteInstanceImpl> a_site_instance =
+      static_cast<SiteInstanceImpl*>(
+          web_contents->GetMainFrame()->GetSiteInstance());
+  RenderProcessHost* original_process = a_site_instance->GetProcess();
+
+  // Create a new process and set it as the sole process host for B.
+  scoped_refptr<SiteInstanceImpl> placeholder_b_site_instance =
+      SiteInstanceImpl::CreateForURL(web_contents->GetBrowserContext(), b_url);
+  RenderProcessHost* process_for_b =
+      RenderProcessHostImpl::CreateRenderProcessHost(
+          web_contents->GetBrowserContext(),
+          nullptr /* storage_partition_impl */,
+          placeholder_b_site_instance.get());
+  RenderProcessHostImpl::RegisterSoleProcessHostForSite(
+      process_for_b, placeholder_b_site_instance.get());
+  EXPECT_EQ(process_for_b,
+            RenderProcessHostImpl::GetSoleProcessHostForURL(
+                placeholder_b_site_instance->GetIsolationContext(),
+                placeholder_b_site_instance->GetSiteURL()));
+  // Make sure we will use process-per-site for B.
+  content_browser_client.SetShouldUseProcessPerSite(true);
+
+  // Navigate to B. The navigation is document/renderer initiated.
+  EXPECT_TRUE(NavigateToURLFromRenderer(shell(), b_url));
+  scoped_refptr<SiteInstanceImpl> b_site_instance =
+      static_cast<SiteInstanceImpl*>(
+          web_contents->GetMainFrame()->GetSiteInstance());
+
+  // Check that A and B are in different SiteInstances (both are in default
+  // SiteInstances of different BrowsingInstances) but B should use the sole
+  // process assigned to site B.
+  EXPECT_FALSE(a_site_instance->IsRelatedSiteInstance(b_site_instance.get()));
+  EXPECT_TRUE(a_site_instance->IsDefaultSiteInstance());
+  EXPECT_TRUE(b_site_instance->IsDefaultSiteInstance());
+  EXPECT_NE(b_site_instance->GetProcess(), original_process);
+  EXPECT_EQ(b_site_instance->GetProcess(), process_for_b);
+  EXPECT_EQ(b_site_instance->GetProcess(),
+            RenderProcessHostImpl::GetSoleProcessHostForURL(
+                b_site_instance->GetIsolationContext(),
+                b_site_instance->GetSiteURL()));
+
+  SetBrowserClientForTesting(old_client);
 }
 
 // Helper class to simplify testing of unload handlers.  It allows waiting for
@@ -5635,7 +5915,7 @@ class RenderFrameHostManagerUnloadBrowserTest
 // cross-site, the unload handler in the iframe can use navigator.sendBeacon()
 // to do a termination ping.  See https://crbug.com/852204, where this was
 // broken with site isolation if the iframe was in its own process.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerUnloadBrowserTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerUnloadBrowserTest,
                        SubframeTerminationPing_SendBeacon) {
   // See BackForwardCache::DisableForTestingReason for explanation.
   DisableBackForwardCache(BackForwardCacheImpl::TEST_USES_UNLOAD_EVENT);
@@ -5668,7 +5948,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerUnloadBrowserTest,
 // cross-site, the unload handler in the iframe can use an image load to do a
 // termination ping. See https://crbug.com/852204, where this was broken with
 // site isolation if the iframe was in its own process.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerUnloadBrowserTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerUnloadBrowserTest,
                        SubframeTerminationPing_Image) {
   // See BackForwardCache::DisableForTestingReason for explanation.
   DisableBackForwardCache(BackForwardCacheImpl::TEST_USES_UNLOAD_EVENT);
@@ -5702,7 +5982,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerUnloadBrowserTest,
 // Ensure that when closing a window containing a page with a cross-site
 // iframe, the iframe still runs its unload handler and can do a sendBeacon
 // termination ping.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerUnloadBrowserTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerUnloadBrowserTest,
                        SubframeTerminationPingWhenWindowCloses) {
   EXPECT_TRUE(NavigateToURL(
       shell(), embedded_test_server()->GetURL("a.com", "/title1.html")));
@@ -5742,7 +6022,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerUnloadBrowserTest,
 // Ensure that after a main frame with a cross-site iframe is navigated
 // cross-site, and the iframe had an unload handler which never finishes, the
 // iframe's process eventually exits.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerUnloadBrowserTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerUnloadBrowserTest,
                        SubframeProcessGoesAwayAfterUnloadTimeout) {
   // See BackForwardCache::DisableForTestingReason for explanation.
   DisableBackForwardCache(BackForwardCacheImpl::TEST_USES_UNLOAD_EVENT);
@@ -5781,7 +6061,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerUnloadBrowserTest,
 #define MAYBE_PostMessageToParentWhenSubframeNavigates \
   PostMessageToParentWhenSubframeNavigates
 #endif
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerUnloadBrowserTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerUnloadBrowserTest,
                        MAYBE_PostMessageToParentWhenSubframeNavigates) {
   GURL main_url(embedded_test_server()->GetURL(
       "a.com", "/cross_site_iframe_factory.html?a(b)"));
@@ -5828,7 +6108,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerUnloadBrowserTest,
 // Ensure that when a pending delete RenderFrameHost's process dies, the
 // current RenderFrameHost does not lose its child frames.  See
 // https://crbug.com/867274.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerUnloadBrowserTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerUnloadBrowserTest,
                        PendingDeleteRFHProcessShutdownDoesNotRemoveSubframes) {
   GURL first_url(embedded_test_server()->GetURL("a.com", "/title1.html"));
   EXPECT_TRUE(NavigateToURL(shell(), first_url));
@@ -5925,7 +6205,7 @@ class AssertForegroundHelper {
 // "visible" widget being added to the process. This test discards the spare
 // RenderProcessHost if present, to ensure that it is not used in the
 // cross-process navigation.
-IN_PROC_BROWSER_TEST_F(
+IN_PROC_BROWSER_TEST_P(
     RenderFrameHostManagerTest,
     ForegroundNavigationIsNeverBackgroundedWithoutSpareProcess) {
   StartEmbeddedServer();
@@ -5996,7 +6276,7 @@ IN_PROC_BROWSER_TEST_F(
 
 // Similar to the test above, but verifies the spare RenderProcessHost uses the
 // right priority.
-IN_PROC_BROWSER_TEST_F(
+IN_PROC_BROWSER_TEST_P(
     RenderFrameHostManagerTest,
     ForegroundNavigationIsNeverBackgroundedWithSpareProcess) {
   // This test applies only when spare RenderProcessHost is enabled and in use.
@@ -6106,7 +6386,7 @@ class DontAssignSiteContentBrowserClient : public TestContentBrowserClient {
 // Ensure that coming back to a NavigationEntry with a previously unassigned
 // SiteInstance (which is now used for another site) properly switches processes
 // and SiteInstances.  See https://crbug.com/945399.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        NavigateWithUnassignedSiteInstance) {
   ASSERT_TRUE(embedded_test_server()->Start());
   WebContentsImpl* web_contents =
@@ -6263,7 +6543,7 @@ class CommitMessageDelayer : public DidCommitNavigationInterceptor {
 // meantime.  Such reuse previously led to a renderer kill when the siteless
 // URL later committed; a real-world example of the siteless URL was
 // chrome-native://newtab.  See https://crbug.com/970046.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        NavigationRacesWithCommitInUnassignedSiteInstance) {
   ASSERT_TRUE(embedded_test_server()->Start());
 
@@ -6336,7 +6616,6 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
                                       std::move(did_commit_callback));
 
   // Start the first navigation, which does not assign a site URL.
-  base::HistogramTester histograms;
   shell->LoadURL(siteless_url);
 
   // The navigation should stay in the initial empty SiteInstance, so there
@@ -6374,21 +6653,13 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
   // navigation.
   EXPECT_EQ(foo_process, process2);
 
-  // Ensure we've logged the UMA for disallowing problematic process reuse.
-  // Since IsSuitableHost() is checked multiple times during a particular
-  // navigation, just make sure that this is logged at least once.
-  EXPECT_GE(histograms.GetBucketCount(
-                "SiteIsolation.PendingSitelessNavigationDisallowsProcessReuse",
-                1 /* has_disqualifying_pending_navigation */),
-            1);
-
   SetBrowserClientForTesting(old_client);
 }
 
 // When ProactivelySwapBrowsingInstance is enabled, the browser switch to a new
 // BrowsingInstance on cross-site HTTP(S) main frame navigations, when there are
 // no other windows in the BrowsingInstance.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        ProactivelySwapBrowsingInstance) {
   ASSERT_TRUE(embedded_test_server()->Start());
   GURL a_url(embedded_test_server()->GetURL("a.com", "/title1.html"));
@@ -6404,7 +6675,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
 
   // Navigate to B. The navigation is document initiated. It swaps
   // BrowsingInstance only if  ProactivelySwapBrowsingInstance is enabled.
-  EXPECT_TRUE(ExecJs(shell(), JsReplace("location.href = $1", b_url)));
+  EXPECT_TRUE(NavigateToURLFromRenderer(shell(), b_url));
   WaitForLoadStop(web_contents);
   scoped_refptr<SiteInstance> b_site_instance =
       web_contents->GetMainFrame()->GetSiteInstance();
@@ -6421,7 +6692,7 @@ class RenderFrameHostManagerDefaultProcessTest
     : public RenderFrameHostManagerTest {
  public:
   RenderFrameHostManagerDefaultProcessTest() {
-    scoped_feature_list_.InitAndEnableFeature(
+    feature_list_.InitAndEnableFeature(
         features::kProcessSharingWithStrictSiteInstances);
   }
   ~RenderFrameHostManagerDefaultProcessTest() override {}
@@ -6437,7 +6708,7 @@ class RenderFrameHostManagerDefaultProcessTest
   }
 
  private:
-  base::test::ScopedFeatureList scoped_feature_list_;
+  base::test::ScopedFeatureList feature_list_;
 
   DISALLOW_COPY_AND_ASSIGN(RenderFrameHostManagerDefaultProcessTest);
 };
@@ -6451,7 +6722,7 @@ class RenderFrameHostManagerDefaultProcessTest
 // https://crbug.com/838348.)
 // All navigations should use the default process, and we should not crash.
 // See https://crbug.com/977956.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerDefaultProcessTest,
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerDefaultProcessTest,
                        NavigationRacesWithSitelessCommitInDefaultProcess) {
   // This test is designed to run without strict site isolation.
   if (AreAllSitesIsolatedForTesting())
@@ -6541,4 +6812,177 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerDefaultProcessTest,
   SetBrowserClientForTesting(old_client);
 }
 
+// 1. Navigate to A1(B2, B3(B4), C5)
+// 2. Crash process B
+// 3. Reload B2, creating RFH B6.
+//
+// Along the way, check the RenderFrameProxies.
+IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
+                       CrashFrameReloadAndCheckProxy) {
+  // This test explicitly requires multiple processes to be used. It won't mean
+  // anything without SiteIsolation.
+  if (!AreAllSitesIsolatedForTesting())
+    return;
+
+  // 1. Navigate to A1(B2, B3(B4), C5).
+  StartEmbeddedServer();
+  GURL url(embedded_test_server()->GetURL(
+      "a.com", "/cross_site_iframe_factory.html?a(b,b(b),c)"));
+  EXPECT_TRUE(NavigateToURL(shell(), url));
+
+  WebContentsImpl* web_contents =
+      static_cast<WebContentsImpl*>(shell()->web_contents());
+  RenderFrameHostImpl* a1 = web_contents->GetMainFrame();
+  RenderFrameHostImpl* b2 = a1->child_at(0)->current_frame_host();
+  RenderFrameHostImpl* b3 = a1->child_at(1)->current_frame_host();
+  RenderFrameHostImpl* b4 = b3->child_at(0)->current_frame_host();
+  RenderFrameHostImpl* c5 = a1->child_at(2)->current_frame_host();
+
+  RenderFrameDeletedObserver delete_a1(a1);
+  RenderFrameDeletedObserver delete_b2(b2);
+  RenderFrameDeletedObserver delete_b3(b3);
+  RenderFrameDeletedObserver delete_b4(b4);
+  RenderFrameDeletedObserver delete_c5(c5);
+
+  GURL b2_url = b2->GetLastCommittedURL();
+  int b2_routing_id = b2->routing_id();
+
+  auto proxy_count = [](RenderFrameHostImpl* rfh) {
+    return rfh->frame_tree_node()->render_manager()->GetProxyCount();
+  };
+
+  // There are 3 processes, so every frame has 2 frame proxies.
+  EXPECT_EQ(2u, proxy_count(a1));
+  EXPECT_EQ(2u, proxy_count(b2));
+  EXPECT_EQ(2u, proxy_count(b3));
+  EXPECT_EQ(2u, proxy_count(b4));
+  EXPECT_EQ(2u, proxy_count(c5));
+
+  auto is_proxy_live = [](RenderFrameHostImpl* rfh,
+                          scoped_refptr<SiteInstance> site_instance) {
+    return rfh->frame_tree_node()
+        ->render_manager()
+        ->GetRenderFrameProxyHost(site_instance.get())
+        ->is_render_frame_proxy_live();
+  };
+
+  // Store SiteInstance for later comparison.
+  scoped_refptr<SiteInstance> a_site_instance(a1->GetSiteInstance());
+  scoped_refptr<SiteInstance> b_site_instance(b2->GetSiteInstance());
+  scoped_refptr<SiteInstance> c_site_instance(c5->GetSiteInstance());
+
+  // Check the state of the proxies before the crash:
+  EXPECT_TRUE(is_proxy_live(a1, b_site_instance));
+  EXPECT_TRUE(is_proxy_live(a1, c_site_instance));
+  EXPECT_TRUE(is_proxy_live(b2, a_site_instance));
+  EXPECT_TRUE(is_proxy_live(b2, c_site_instance));
+  EXPECT_TRUE(is_proxy_live(b3, a_site_instance));
+  EXPECT_TRUE(is_proxy_live(b3, c_site_instance));
+  EXPECT_TRUE(is_proxy_live(c5, a_site_instance));
+  EXPECT_TRUE(is_proxy_live(c5, b_site_instance));
+
+  // 2. Crash process B.
+  RenderProcessHost* process = b2->GetProcess();
+  RenderProcessHostWatcher crash_observer(
+      process, RenderProcessHostWatcher::WATCH_FOR_PROCESS_EXIT);
+  process->Shutdown(0);
+  crash_observer.Wait();
+
+  // Only B4 is deleted. B2 and B3 are still there in a "crashed" state.
+  delete_b4.WaitUntilDeleted();
+
+  // B2, B3, B4 RenderFrame are gone.
+  EXPECT_FALSE(delete_a1.deleted());
+  EXPECT_TRUE(delete_b2.deleted());
+  EXPECT_TRUE(delete_b3.deleted());
+  EXPECT_TRUE(delete_b4.deleted());
+  EXPECT_FALSE(delete_c5.deleted());
+
+  // B2 and B3 RenderFrameHost are still there, but B4 is definitely gone.
+  ASSERT_EQ(3u, a1->child_count());
+  EXPECT_EQ(b2, a1->child_at(0)->current_frame_host());
+  EXPECT_EQ(b3, a1->child_at(1)->current_frame_host());
+  ASSERT_EQ(0u, b3->child_count());
+
+  EXPECT_FALSE(a1->must_be_replaced());
+  EXPECT_EQ(b2->must_be_replaced(), CreateNewHostForCrashedFrame());
+  EXPECT_EQ(b3->must_be_replaced(), CreateNewHostForCrashedFrame());
+  EXPECT_FALSE(c5->must_be_replaced());
+
+  EXPECT_EQ(2u, proxy_count(a1));
+  EXPECT_EQ(2u, proxy_count(b2));
+  EXPECT_EQ(2u, proxy_count(b3));
+  EXPECT_EQ(2u, proxy_count(c5));
+
+  // Check the state of the proxies after the crash:
+  EXPECT_FALSE(is_proxy_live(a1, b_site_instance));
+  EXPECT_TRUE(is_proxy_live(a1, c_site_instance));
+  EXPECT_TRUE(is_proxy_live(b2, a_site_instance));
+  EXPECT_TRUE(is_proxy_live(b2, c_site_instance));
+  EXPECT_TRUE(is_proxy_live(b3, a_site_instance));
+  EXPECT_TRUE(is_proxy_live(b3, c_site_instance));
+  EXPECT_TRUE(is_proxy_live(c5, a_site_instance));
+  EXPECT_FALSE(is_proxy_live(c5, b_site_instance));
+
+  // 3. Reload B2, B6 is created.
+  NavigateFrameToURL(b2->frame_tree_node(), b2_url);
+
+  if (CreateNewHostForCrashedFrame()) {
+    // B2 has been replaced
+    EXPECT_NE(b2_routing_id,
+              a1->child_at(0)->current_frame_host()->routing_id());
+  } else {
+    // B2 has not been replaced
+    EXPECT_EQ(b2_routing_id,
+              a1->child_at(0)->current_frame_host()->routing_id());
+  }
+  // B3 hasn't been replaced.
+  EXPECT_EQ(b3, a1->child_at(1)->current_frame_host());
+  RenderFrameHostImpl* b6 = a1->child_at(0)->current_frame_host();
+  EXPECT_EQ(b3->must_be_replaced(), CreateNewHostForCrashedFrame());
+  EXPECT_FALSE(b6->must_be_replaced());
+
+  EXPECT_EQ(a_site_instance, a1->GetSiteInstance());
+  EXPECT_EQ(b_site_instance, b6->GetSiteInstance());
+  EXPECT_EQ(c_site_instance, c5->GetSiteInstance());
+
+  EXPECT_EQ(2u, proxy_count(a1));
+  EXPECT_EQ(2u, proxy_count(b6));
+  EXPECT_EQ(2u, proxy_count(b3));
+  EXPECT_EQ(2u, proxy_count(c5));
+
+  // Check the state of the proxies after the reload.
+  EXPECT_TRUE(is_proxy_live(a1, b_site_instance));
+  EXPECT_TRUE(is_proxy_live(a1, c_site_instance));
+  EXPECT_TRUE(is_proxy_live(b6, a_site_instance));
+  EXPECT_TRUE(is_proxy_live(b6, c_site_instance));
+  EXPECT_TRUE(is_proxy_live(b3, a_site_instance));
+  EXPECT_TRUE(is_proxy_live(b3, c_site_instance));
+  EXPECT_TRUE(is_proxy_live(c5, a_site_instance));
+  EXPECT_TRUE(is_proxy_live(c5, b_site_instance));
+}
+
+INSTANTIATE_TEST_SUITE_P(All,
+                         RenderFrameHostManagerTest,
+                         testing::ValuesIn(RenderDocumentFeatureLevelValues()));
+INSTANTIATE_TEST_SUITE_P(
+    All,
+    ProactivelySwapBrowsingInstancesCrossSiteSwapProcessTest,
+    testing::ValuesIn(RenderDocumentFeatureLevelValues()));
+INSTANTIATE_TEST_SUITE_P(
+    All,
+    ProactivelySwapBrowsingInstancesCrossSiteReuseProcessTest,
+    testing::ValuesIn(RenderDocumentFeatureLevelValues()));
+INSTANTIATE_TEST_SUITE_P(All,
+                         RenderFrameHostManagerUnloadBrowserTest,
+                         testing::ValuesIn(RenderDocumentFeatureLevelValues()));
+INSTANTIATE_TEST_SUITE_P(All,
+                         RenderFrameHostManagerSpoofingTest,
+                         testing::ValuesIn(RenderDocumentFeatureLevelValues()));
+INSTANTIATE_TEST_SUITE_P(All,
+                         RFHMProcessPerTabTest,
+                         testing::ValuesIn(RenderDocumentFeatureLevelValues()));
+INSTANTIATE_TEST_SUITE_P(All,
+                         RenderFrameHostManagerDefaultProcessTest,
+                         testing::ValuesIn(RenderDocumentFeatureLevelValues()));
 }  // namespace content

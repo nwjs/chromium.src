@@ -304,7 +304,7 @@ bool ChromeVirtualKeyboardDelegate::SetDraggableArea(
     const api::virtual_keyboard_private::Bounds& rect) {
   auto* keyboard_client = ChromeKeyboardControllerClient::Get();
   // Since controller will be destroyed when system switch from VK to
-  // physical keyboard, return true to avoid unneccessary exception.
+  // physical keyboard, return true to avoid unnecessary exception.
   if (!keyboard_client->is_keyboard_enabled())
     return true;
 
@@ -385,6 +385,9 @@ void ChromeVirtualKeyboardDelegate::OnHasInputDevices(
       "floatingkeyboarddefault",
       base::FeatureList::IsEnabled(
           chromeos::features::kVirtualKeyboardFloatingDefault)));
+  features->AppendString(GenerateFeatureFlag(
+      "imemozcproto",
+      base::FeatureList::IsEnabled(chromeos::features::kImeMozcProto)));
   // 3 flags below are used to enable IME new APIs on each decoder.
   features->AppendString(GenerateFeatureFlag(
       "fstinputlogic",
@@ -406,6 +409,9 @@ void ChromeVirtualKeyboardDelegate::OnHasInputDevices(
       "resizablefloatingkeyboard",
       base::FeatureList::IsEnabled(
           chromeos::features::kVirtualKeyboardFloatingResizable)));
+  features->AppendString(GenerateFeatureFlag(
+      "assistiveAutoCorrect",
+      base::FeatureList::IsEnabled(chromeos::features::kAssistAutoCorrect)));
   features->AppendString(GenerateFeatureFlag(
       "nativerulebased", base::FeatureList::IsEnabled(
                              chromeos::features::kNativeRuleBasedTyping)));

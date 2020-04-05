@@ -71,9 +71,6 @@ class VIZ_HOST_EXPORT HostFrameSinkManager
   // on |frame_sink_manager_remote_| is lost.
   void SetConnectionLostCallback(base::RepeatingClosure callback);
 
-  // Sets a callback to be notified after Viz sent bad message to Viz host.
-  void SetBadMessageReceivedFromGpuCallback(base::RepeatingClosure callback);
-
   // Registers |frame_sink_id| so that a client can submit CompositorFrames
   // using it. This must be called before creating a CompositorFrameSink or
   // registering FrameSinkId hierarchy.
@@ -98,14 +95,6 @@ class VIZ_HOST_EXPORT HostFrameSinkManager
   // code. If the same client wants to submit CompositorFrames later a new
   // FrameSinkId should be allocated.
   void InvalidateFrameSinkId(const FrameSinkId& frame_sink_id);
-
-  // Tells FrameSinkManger to report when a synchronization event completes via
-  // tracing and UMA and the duration of that event. A synchronization event
-  // occurs when a CompositorFrame submitted to the CompositorFrameSink
-  // specified by |frame_sink_id| activates after having been blocked by
-  // unresolved dependencies.
-  void EnableSynchronizationReporting(const FrameSinkId& frame_sink_id,
-                                      const std::string& reporting_label);
 
   // |debug_label| is used when printing out the surface hierarchy so we know
   // which clients are contributing which surfaces.
@@ -222,10 +211,6 @@ class VIZ_HOST_EXPORT HostFrameSinkManager
     // FirstSurfaceActivation notifications.
     ReportFirstSurfaceActivation report_activation =
         ReportFirstSurfaceActivation::kYes;
-
-    // The label to use whether this client would like reporting for
-    // synchronization events.
-    std::string synchronization_reporting_label;
 
     // The name of the HostFrameSinkClient used for debug purposes.
     std::string debug_label;

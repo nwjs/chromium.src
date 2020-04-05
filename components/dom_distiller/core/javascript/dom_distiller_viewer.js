@@ -128,13 +128,9 @@ class FontSizeSlider {
     this.element = element;
     this.supportedFontSizes = supportedFontSizes;
 
-    this.element.addEventListener('change', (e) => {
+    this.element.addEventListener('input', (e) => {
       document.body.style.fontSize =
           this.supportedFontSizes[e.target.value] + 'px';
-      this.update(e.target.value);
-    });
-
-    this.element.addEventListener('input', (e) => {
       this.update(e.target.value);
     });
 
@@ -156,6 +152,8 @@ class FontSizeSlider {
     this.element.style.setProperty(
         '--fontSizePercent',
         (position / (this.supportedFontSizes.length - 1) * 100) + '%');
+    this.element.setAttribute(
+        'aria-valuetext', this.supportedFontSizes[position] + 'px');
     for (let option = this.tickmarks.firstChild; option != null;
          option = option.nextSibling) {
       const isBeforeThumb = option.value < position;
@@ -444,7 +442,7 @@ $('settings-toggle').addEventListener('click', (e) => {
     dialog.close();
   } else {
     toggle.classList.add('activated');
-    dialog.show();
+    dialog.showModal();
   }
 });
 

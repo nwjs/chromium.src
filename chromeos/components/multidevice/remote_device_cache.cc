@@ -5,7 +5,6 @@
 #include "chromeos/components/multidevice/remote_device_cache.h"
 
 #include "base/memory/ptr_util.h"
-#include "base/no_destructor.h"
 #include "base/stl_util.h"
 #include "chromeos/components/multidevice/logging/logging.h"
 
@@ -17,12 +16,11 @@ namespace multidevice {
 RemoteDeviceCache::Factory* RemoteDeviceCache::Factory::test_factory_ = nullptr;
 
 // static
-RemoteDeviceCache::Factory* RemoteDeviceCache::Factory::Get() {
+std::unique_ptr<RemoteDeviceCache> RemoteDeviceCache::Factory::Create() {
   if (test_factory_)
-    return test_factory_;
+    return test_factory_->CreateInstance();
 
-  static base::NoDestructor<Factory> factory;
-  return factory.get();
+  return base::WrapUnique(new RemoteDeviceCache());
 }
 
 // static
@@ -31,10 +29,6 @@ void RemoteDeviceCache::Factory::SetFactoryForTesting(Factory* test_factory) {
 }
 
 RemoteDeviceCache::Factory::~Factory() = default;
-
-std::unique_ptr<RemoteDeviceCache> RemoteDeviceCache::Factory::BuildInstance() {
-  return base::WrapUnique(new RemoteDeviceCache());
-}
 
 RemoteDeviceCache::RemoteDeviceCache() = default;
 
@@ -72,7 +66,7 @@ void RemoteDeviceCache::SetRemoteDevices(
 
 RemoteDeviceRefList RemoteDeviceCache::GetRemoteDevices() const {
   RemoteDeviceRefList remote_devices;
-  for (const std::shared_ptr<RemoteDevice> device : cached_remote_devices_) {
+  for (const std::shared_ptr<RemoteDevice>& device : cached_remote_devices_) {
     remote_devices.push_back(RemoteDeviceRef(device));
   }
 
@@ -96,7 +90,7 @@ base::Optional<RemoteDeviceRef> RemoteDeviceCache::GetRemoteDevice(
 std::shared_ptr<RemoteDevice> RemoteDeviceCache::GetRemoteDeviceFromCache(
     const base::Optional<std::string>& instance_id,
     const base::Optional<std::string>& legacy_device_id) const {
-  for (const std::shared_ptr<RemoteDevice> cached_device :
+  for (const std::shared_ptr<RemoteDevice>& cached_device :
        cached_remote_devices_) {
     if (instance_id && !instance_id->empty() &&
         cached_device->instance_id == *instance_id) {

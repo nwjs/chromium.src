@@ -9,7 +9,8 @@
           "--browser=android-chrome",
           "--upload-results",
           "--test-shard-map-filename=android-nexus5x-perf-fyi_map.json",
-          "--output-format=histograms"
+          "--output-format=histograms",
+          "--experimental-tbmv3-metrics"
         ],
         "isolate_name": "performance_test_suite",
         "merge": {
@@ -27,13 +28,14 @@
               "device_os_flavor": "google",
               "device_type": "bullhead",
               "os": "Android",
-              "pool": "chrome.tests.perf-fyi"
+              "pool": "chrome.tests.perf-fyi.template"
             }
           ],
           "expiration": 7200,
           "hard_timeout": 21600,
           "ignore_task_failure": false,
           "io_timeout": 21600,
+          "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 3
         },
         "trigger_script": {
@@ -73,13 +75,14 @@
               "device_os_flavor": "google",
               "device_type": "walleye",
               "os": "Android",
-              "pool": "chrome.tests.perf-fyi"
+              "pool": "chrome.tests.perf-fyi.template"
             }
           ],
           "expiration": 7200,
           "hard_timeout": 21600,
           "ignore_task_failure": false,
           "io_timeout": 21600,
+          "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 1
         },
         "trigger_script": {
@@ -120,13 +123,14 @@
               "device_os_flavor": "google",
               "device_type": "walleye",
               "os": "Android",
-              "pool": "chrome.tests.perf-fyi"
+              "pool": "chrome.tests.perf-fyi.template"
             }
           ],
           "expiration": 7200,
           "hard_timeout": 21600,
           "ignore_task_failure": false,
           "io_timeout": 21600,
+          "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 4
         },
         "trigger_script": {
@@ -172,6 +176,7 @@
           "hard_timeout": 21600,
           "ignore_task_failure": false,
           "io_timeout": 21600,
+          "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 4
         },
         "trigger_script": {
@@ -211,13 +216,14 @@
               "gpu": "10de",
               "id": "build186-b7",
               "os": "Ubuntu-14.04",
-              "pool": "chrome.tests.perf-fyi"
+              "pool": "chrome.tests.perf-fyi.template"
             }
           ],
           "expiration": 7200,
           "hard_timeout": 21600,
           "ignore_task_failure": false,
           "io_timeout": 21600,
+          "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 1
         },
         "trigger_script": {
@@ -256,13 +262,14 @@
               "gpu": null,
               "id": "build370-a7",
               "os": "Windows-10",
-              "pool": "chrome.tests.perf-fyi"
+              "pool": "chrome.tests.perf-fyi.template"
             }
           ],
           "expiration": 7200,
           "hard_timeout": 21600,
           "ignore_task_failure": false,
           "io_timeout": 21600,
+          "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 1
         },
         "trigger_script": {

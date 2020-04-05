@@ -11,7 +11,7 @@
 #include "third_party/blink/public/common/frame/sandbox_flags.h"
 #include "third_party/blink/public/mojom/ad_tagging/ad_frame.mojom-shared.h"
 #include "third_party/blink/public/mojom/frame/user_activation_update_types.mojom-shared.h"
-#include "third_party/blink/public/platform/web_insecure_request_policy.h"
+#include "third_party/blink/public/mojom/security_context/insecure_request_policy.mojom-shared.h"
 #include "third_party/blink/public/web/web_frame.h"
 #include "ui/events/types/scroll_types.h"
 #include "v8/include/v8.h"
@@ -30,6 +30,8 @@ class WebLocalFrameClient;
 class WebRemoteFrameClient;
 class WebString;
 class WebView;
+struct FramePolicy;
+struct WebFrameOwnerProperties;
 struct WebRect;
 
 class WebRemoteFrame : public WebFrame {
@@ -94,7 +96,7 @@ class WebRemoteFrame : public WebFrame {
       bool is_potentially_trustworthy_opaque_origin) = 0;
 
   // Set sandbox flags replicated from another process.
-  virtual void SetReplicatedSandboxFlags(WebSandboxFlags) = 0;
+  virtual void SetReplicatedSandboxFlags(mojom::WebSandboxFlags) = 0;
 
   // Set frame |name| replicated from another process.
   virtual void SetReplicatedName(const WebString&) = 0;
@@ -118,7 +120,8 @@ class WebRemoteFrame : public WebFrame {
 
   // Set frame enforcement of insecure request policy replicated from another
   // process.
-  virtual void SetReplicatedInsecureRequestPolicy(WebInsecureRequestPolicy) = 0;
+  virtual void SetReplicatedInsecureRequestPolicy(
+      mojom::InsecureRequestPolicy) = 0;
   virtual void SetReplicatedInsecureNavigationsSet(
       const WebVector<unsigned>&) = 0;
 

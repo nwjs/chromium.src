@@ -9,7 +9,6 @@ import static android.support.test.espresso.action.ViewActions.click;
 import static android.support.test.espresso.assertion.ViewAssertions.doesNotExist;
 import static android.support.test.espresso.assertion.ViewAssertions.matches;
 import static android.support.test.espresso.matcher.ViewMatchers.isDisplayed;
-import static android.support.test.espresso.matcher.ViewMatchers.withEffectiveVisibility;
 import static android.support.test.espresso.matcher.ViewMatchers.withId;
 
 import static org.junit.Assert.assertEquals;
@@ -17,7 +16,6 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import android.support.test.InstrumentationRegistry;
-import android.support.test.espresso.matcher.ViewMatchers;
 import android.support.test.filters.MediumTest;
 
 import org.junit.After;
@@ -28,8 +26,9 @@ import org.junit.runner.RunWith;
 
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
+import org.chromium.chrome.browser.flags.ChromeSwitches;
+import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.signin.IdentityServicesProvider;
 import org.chromium.chrome.browser.signin.SigninPromoController;
 import org.chromium.chrome.browser.sync.SyncTestRule;
@@ -56,6 +55,13 @@ public class BookmarkPersonalizedSigninPromoDismissTest {
         BookmarkPromoHeader.setPrefPersonalizedSigninPromoDeclinedForTests(false);
         SigninPromoController.setSigninPromoImpressionsCountBookmarksForTests(0);
         mSyncTestRule.startMainActivityForSyncTest();
+
+        TestThreadUtils.runOnUiThreadBlocking(() -> {
+            BookmarkModel bookmarkModel = new BookmarkModel(Profile.fromWebContents(
+                    mSyncTestRule.getActivity().getActivityTab().getWebContents()));
+            bookmarkModel.loadFakePartnerBookmarkShimForTesting();
+            BookmarkTestUtil.waitForBookmarkModelLoaded();
+        });
     }
 
     @After
@@ -71,8 +77,7 @@ public class BookmarkPersonalizedSigninPromoDismissTest {
         checkPrePromoStatus();
         onView(withId(R.id.signin_promo_view_container)).check(matches(isDisplayed()));
         onView(withId(R.id.signin_promo_close_button)).perform(click());
-        onView(withId(R.id.signin_promo_view_container))
-                .check(matches(withEffectiveVisibility(ViewMatchers.Visibility.GONE)));
+        onView(withId(R.id.signin_promo_view_container)).check(doesNotExist());
 
         closeBookmarkManager();
         BookmarkTestUtil.showBookmarkManager(mSyncTestRule.getActivity());

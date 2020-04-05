@@ -35,13 +35,12 @@ import org.chromium.android_webview.R;
 import org.chromium.android_webview.VariationsSeedLoader;
 import org.chromium.android_webview.WebViewChromiumRunQueue;
 import org.chromium.android_webview.common.AwResource;
-import org.chromium.android_webview.common.DeveloperModeUtils;
-import org.chromium.android_webview.common.FlagOverrideHelper;
-import org.chromium.android_webview.common.ProductionSupportedFlagList;
+import org.chromium.android_webview.common.AwSwitches;
 import org.chromium.android_webview.gfx.AwDrawFnImpl;
 import org.chromium.base.BuildConfig;
 import org.chromium.base.BuildInfo;
 import org.chromium.base.BundleUtils;
+import org.chromium.base.CommandLine;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.FieldTrialList;
 import org.chromium.base.JNIUtils;
@@ -49,9 +48,6 @@ import org.chromium.base.PathService;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.TraceEvent;
 import org.chromium.base.library_loader.LibraryLoader;
-import org.chromium.base.metrics.CachedMetrics;
-import org.chromium.base.metrics.CachedMetrics.BooleanHistogramSample;
-import org.chromium.base.metrics.CachedMetrics.Count100HistogramSample;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.ScopedSysTraceEvent;
 import org.chromium.base.task.PostTask;
@@ -59,8 +55,6 @@ import org.chromium.base.task.TaskTraits;
 import org.chromium.content_public.browser.UiThreadTaskTraits;
 import org.chromium.net.NetworkChangeNotifier;
 import org.chromium.ui.base.ResourceBundle;
-
-import java.util.Map;
 
 /**
  * Class controlling the Chromium initialization for WebView.
@@ -179,24 +173,6 @@ public class WebViewChromiumAwInit {
             // available when AwFeatureListCreator::SetUpFieldTrials() runs.
             finishVariationsInitLocked();
 
-            String webViewPackageName = AwBrowserProcess.getWebViewPackageName();
-            boolean isDeveloperModeEnabled =
-                    DeveloperModeUtils.isDeveloperModeEnabled(webViewPackageName);
-            final BooleanHistogramSample developerModeSample =
-                    new BooleanHistogramSample("Android.WebView.DevUi.DeveloperModeEnabled");
-            developerModeSample.record(isDeveloperModeEnabled);
-            if (isDeveloperModeEnabled) {
-                FlagOverrideHelper helper =
-                        new FlagOverrideHelper(ProductionSupportedFlagList.sFlagList);
-                Map<String, Boolean> flagOverrides =
-                        DeveloperModeUtils.getFlagOverrides(webViewPackageName);
-                helper.applyFlagOverrides(flagOverrides);
-
-                final Count100HistogramSample flagOverrideSample =
-                        new Count100HistogramSample("Android.WebView.DevUi.ToggledFlagCount");
-                flagOverrideSample.record(flagOverrides.size());
-            }
-
             AwBrowserProcess.start();
             AwBrowserProcess.handleMinidumpsAndSetMetricsConsent(true /* updateMetricsConsent */);
 
@@ -214,10 +190,6 @@ public class WebViewChromiumAwInit {
                     });
 
             mStarted = true;
-
-            // Make sure to record any cached metrics, now that we know that the native
-            // library has been loaded and initialized.
-            CachedMetrics.commitCachedMetrics();
 
             RecordHistogram.recordSparseHistogram("Android.WebView.TargetSdkVersion",
                     context.getApplicationInfo().targetSdkVersion);
@@ -487,14 +459,21 @@ public class WebViewChromiumAwInit {
     // purposes. Check for the app asyncronously because PackageManager is slow.
     private static void maybeLogActiveTrials(final Context ctx) {
         PostTask.postTask(TaskTraits.BEST_EFFORT_MAY_BLOCK, () -> {
+            boolean shouldLog =
+                    CommandLine.getInstance().hasSwitch(AwSwitches.WEBVIEW_VERBOSE_LOGGING);
+
+            // TODO(ntfschr): deprecate log verbosifier and remove support in M84. See
+            // https://crbug.com/988200.
             try {
                 // This must match the package name in:
                 // android_webview/tools/webview_log_verbosifier/AndroidManifest.xml
                 ctx.getPackageManager().getPackageInfo(
                         "org.chromium.webview_log_verbosifier", /*flags=*/0);
+                shouldLog = true;
             } catch (PackageManager.NameNotFoundException e) {
-                return;
             }
+
+            if (!shouldLog) return;
 
             PostTask.postTask(UiThreadTaskTraits.BEST_EFFORT, () -> {
                 // TODO(ntfschr): CommandLine can change at any time. For simplicity, only log it

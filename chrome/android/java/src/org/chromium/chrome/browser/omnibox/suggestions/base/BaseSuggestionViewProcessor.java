@@ -5,17 +5,22 @@
 package org.chromium.chrome.browser.omnibox.suggestions.base;
 
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.graphics.Typeface;
 import android.text.Spannable;
 import android.text.style.StyleSpan;
 
+import androidx.annotation.Nullable;
+
 import org.chromium.chrome.R;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.omnibox.MatchClassificationStyle;
 import org.chromium.chrome.browser.omnibox.suggestions.OmniboxSuggestion;
 import org.chromium.chrome.browser.omnibox.suggestions.OmniboxSuggestion.MatchClassification;
 import org.chromium.chrome.browser.omnibox.suggestions.SuggestionProcessor;
 import org.chromium.chrome.browser.omnibox.suggestions.basic.SuggestionHost;
 import org.chromium.chrome.browser.omnibox.suggestions.basic.SuggestionViewDelegate;
+import org.chromium.chrome.browser.ui.favicon.LargeIconBridge;
 import org.chromium.ui.modelutil.PropertyModel;
 
 import java.util.List;
@@ -26,13 +31,48 @@ import java.util.List;
 public abstract class BaseSuggestionViewProcessor implements SuggestionProcessor {
     private final Context mContext;
     private final SuggestionHost mSuggestionHost;
+    private boolean mEnableCompactSuggestions;
+    private final int mDesiredFaviconWidthPx;
+    private int mSuggestionSizePx;
 
     /**
+     * @param context Current context.
      * @param host A handle to the object using the suggestions.
      */
     public BaseSuggestionViewProcessor(Context context, SuggestionHost host) {
         mContext = context;
         mSuggestionHost = host;
+        mDesiredFaviconWidthPx = mContext.getResources().getDimensionPixelSize(
+                R.dimen.omnibox_suggestion_favicon_size);
+        mSuggestionSizePx = mContext.getResources().getDimensionPixelSize(
+                R.dimen.omnibox_suggestion_comfortable_height);
+    }
+
+    @Override
+    public void onUrlFocusChange(boolean hasFocus) {}
+
+    @Override
+    public void recordSuggestionPresented(OmniboxSuggestion suggestion, PropertyModel model) {}
+
+    @Override
+    public void recordSuggestionUsed(OmniboxSuggestion suggestion, PropertyModel model) {}
+
+    @Override
+    public void onNativeInitialized() {
+        mEnableCompactSuggestions =
+                ChromeFeatureList.isEnabled(ChromeFeatureList.OMNIBOX_COMPACT_SUGGESTIONS);
+        if (mEnableCompactSuggestions) {
+            mSuggestionSizePx = mContext.getResources().getDimensionPixelSize(
+                    R.dimen.omnibox_suggestion_compact_height);
+        }
+    }
+
+    @Override
+    public void onSuggestionsReceived() {}
+
+    @Override
+    public int getMinimumSuggestionViewHeight() {
+        return mSuggestionSizePx;
     }
 
     /**
@@ -67,6 +107,7 @@ public abstract class BaseSuggestionViewProcessor implements SuggestionProcessor
                 mSuggestionHost.createSuggestionViewDelegate(suggestion, position);
 
         model.set(BaseSuggestionViewProperties.SUGGESTION_DELEGATE, delegate);
+        model.set(BaseSuggestionViewProperties.IS_COMPACT, mEnableCompactSuggestions);
 
         if (canRefine(suggestion)) {
             setActionDrawableState(model,
@@ -113,5 +154,32 @@ public abstract class BaseSuggestionViewProcessor implements SuggestionProcessor
             }
         }
         return hasAtLeastOneMatch;
+    }
+
+    /**
+     * Fetch suggestion favicon, if one is available.
+     * Updates icon decoration in supplied |model| if |url| is not null and points to an already
+     * visited website.
+     *
+     * @param model Model representing current suggestion.
+     * @param url Target URL the suggestion points to.
+     * @param iconBridge A {@link LargeIconBridge} supplies site favicons.
+     * @param onIconFetched Optional callback that will be invoked after successful fetch of a
+     *         favicon.
+     */
+    protected void fetchSuggestionFavicon(PropertyModel model, String url,
+            LargeIconBridge iconBridge, @Nullable Runnable onIconFetched) {
+        if (url == null || iconBridge == null) return;
+
+        iconBridge.getLargeIconForStringUrl(url, mDesiredFaviconWidthPx,
+                (Bitmap icon, int fallbackColor, boolean isFallbackColorDefault, int iconType) -> {
+                    if (icon == null) return;
+
+                    setSuggestionDrawableState(model,
+                            SuggestionDrawableState.Builder.forBitmap(mContext, icon).build());
+                    if (onIconFetched != null) {
+                        onIconFetched.run();
+                    }
+                });
     }
 }

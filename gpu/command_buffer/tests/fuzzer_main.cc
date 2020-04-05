@@ -137,6 +137,8 @@ constexpr const char* kExtensions[] = {
     "GL_EXT_shader_texture_lod",
     "GL_EXT_sRGB",
     "GL_EXT_sRGB_write_control",
+    "GL_EXT_texture_compression_bptc",
+    "GL_EXT_texture_compression_rgtc",
     "GL_EXT_texture_compression_dxt1",
     "GL_EXT_texture_compression_s3tc",
     "GL_EXT_texture_compression_s3tc_srgb",
@@ -410,7 +412,7 @@ class CommandBufferSetup {
       mailbox.SetName(name);
       shared_image_factory_->CreateSharedImage(
           mailbox, viz::RGBA_8888, gfx::Size(256, 256),
-          gfx::ColorSpace::CreateSRGB(), usage);
+          gfx::ColorSpace::CreateSRGB(), gfx::kNullAcceleratedWidget, usage);
     }
 
 #if defined(GPU_FUZZER_USE_RASTER_DECODER)
@@ -454,7 +456,9 @@ class CommandBufferSetup {
 
     decoder_->set_max_bucket_size(8 << 20);
 #if !defined(GPU_FUZZER_USE_RASTER_DECODER)
-    context_group->buffer_manager()->set_max_buffer_size(8 << 20);
+    if (context_group->buffer_manager()) {
+        context_group->buffer_manager()->set_max_buffer_size(8 << 20);
+    }
 #endif
     return decoder_->MakeCurrent();
   }

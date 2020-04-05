@@ -91,9 +91,12 @@ class QuicTransportSimpleServerWithThread final {
   std::unique_ptr<base::Thread> io_thread_;
 };
 
-class QuicTransportTest : public ContentBrowserTest {
+class QuicTransportBrowserTest : public ContentBrowserTest {
  public:
-  QuicTransportTest() : server_({}) { server_.Start(); }
+  QuicTransportBrowserTest() : server_({}) {
+    quic::QuicEnableVersion(quic::DefaultVersionForQuicTransport());
+    server_.Start();
+  }
 
   void SetUpCommandLine(base::CommandLine* command_line) override {
     ContentBrowserTest::SetUpCommandLine(command_line);
@@ -103,8 +106,9 @@ class QuicTransportTest : public ContentBrowserTest {
         switches::kOriginToForceQuicOn,
         base::StringPrintf("localhost:%d", server_.server_address().port()));
     command_line->AppendSwitch(switches::kEnableQuic);
-    command_line->AppendSwitchASCII(switches::kQuicVersion,
-                                    base::StringPrintf("h3-25"));
+    command_line->AppendSwitchASCII(
+        switches::kQuicVersion,
+        quic::AlpnForVersion(quic::DefaultVersionForQuicTransport()));
     // The value is calculated from net/data/ssl/certificates/quic-chain.pem.
     command_line->AppendSwitchASCII(
         network::switches::kIgnoreCertificateErrorsSPKIList,
@@ -128,10 +132,11 @@ class QuicTransportTest : public ContentBrowserTest {
   }
 
  protected:
+  QuicFlagSaver flags_;  // Save/restore all QUIC flag values.
   QuicTransportSimpleServerWithThread server_;
 };
 
-IN_PROC_BROWSER_TEST_F(QuicTransportTest, Echo) {
+IN_PROC_BROWSER_TEST_F(QuicTransportBrowserTest, Echo) {
   ASSERT_TRUE(embedded_test_server()->Start());
   ASSERT_TRUE(
       NavigateToURL(shell(), embedded_test_server()->GetURL("/title2.html")));
@@ -170,7 +175,7 @@ IN_PROC_BROWSER_TEST_F(QuicTransportTest, Echo) {
   ASSERT_TRUE(WaitForTitle(ASCIIToUTF16("PASS"), {ASCIIToUTF16("FAIL")}));
 }
 
-IN_PROC_BROWSER_TEST_F(QuicTransportTest, ClientIndicationFailure) {
+IN_PROC_BROWSER_TEST_F(QuicTransportBrowserTest, ClientIndicationFailure) {
   ASSERT_TRUE(embedded_test_server()->Start());
   ASSERT_TRUE(
       NavigateToURL(shell(), embedded_test_server()->GetURL("/title2.html")));
@@ -203,7 +208,7 @@ IN_PROC_BROWSER_TEST_F(QuicTransportTest, ClientIndicationFailure) {
   ASSERT_TRUE(WaitForTitle(ASCIIToUTF16("PASS"), {ASCIIToUTF16("FAIL")}));
 }
 
-IN_PROC_BROWSER_TEST_F(QuicTransportTest, CreateSendStream) {
+IN_PROC_BROWSER_TEST_F(QuicTransportBrowserTest, CreateSendStream) {
   ASSERT_TRUE(embedded_test_server()->Start());
   ASSERT_TRUE(
       NavigateToURL(shell(), embedded_test_server()->GetURL("/title2.html")));
@@ -221,6 +226,57 @@ IN_PROC_BROWSER_TEST_F(QuicTransportTest, CreateSendStream) {
       const writer = sendStream.writable.getWriter();
       await writer.write(new Uint8Array([65, 66, 67]));
       await writer.close();
+    }
+
+    run().then(() => { document.title = 'PASS'; },
+               (e) => { console.log(e); document.title = 'FAIL'; });
+)JS",
+                                  server_.server_address().port())));
+
+  ASSERT_TRUE(WaitForTitle(ASCIIToUTF16("PASS"), {ASCIIToUTF16("FAIL")}));
+}
+
+// Flaky on many platforms (see crbug/1064434).
+IN_PROC_BROWSER_TEST_F(QuicTransportBrowserTest, DISABLED_ReceiveStream) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+  ASSERT_TRUE(
+      NavigateToURL(shell(), embedded_test_server()->GetURL("/title2.html")));
+
+  ASSERT_TRUE(WaitForTitle(ASCIIToUTF16("Title Of Awesomeness")));
+
+  ASSERT_TRUE(ExecuteScript(
+      shell(), base::StringPrintf(R"JS(
+    async function run() {
+      const transport = new QuicTransport('quic-transport://localhost:%d/echo');
+
+      await transport.ready;
+
+      const data = [65, 66, 67];
+
+      const sendStream = await transport.createSendStream();
+      const writer = sendStream.writable.getWriter();
+      await writer.write(new Uint8Array(data));
+      await writer.close();
+
+      const receiveStreamReader = transport.receiveStreams().getReader();
+      const {value: receiveStream, done: streamsDone} =
+          await receiveStreamReader.read();
+      if (streamsDone) {
+        throw new Error('should not be done');
+      }
+      const reader = receiveStream.readable.getReader();
+      const {value: u8array, done: arraysDone} = await reader.read();
+      if (arraysDone) {
+        throw new Error('receiveStream should not be done');
+      }
+      const actual = Array.from(u8array);
+      if (JSON.stringify(actual) !== JSON.stringify(data)) {
+        throw new Error('arrays do not match');
+      }
+      const {done: finalDone} = await reader.read();
+      if (!finalDone) {
+        throw new Error('receiveStream should be done');
+      }
     }
 
     run().then(() => { document.title = 'PASS'; },

@@ -44,9 +44,9 @@ struct TransferableResource;
 
 namespace test_runner {
 
-class WebTestDelegate;
+class TestInterfaces;
 
-// A fake implemention of blink::WebPlugin for testing purposes.
+// A fake implementation of blink::WebPlugin for testing purposes.
 //
 // It uses GL to paint a scene consisiting of a primitive over a background. The
 // primitive and background can be customized using the following plugin
@@ -61,7 +61,7 @@ class WebTestDelegate;
 class TestPlugin : public blink::WebPlugin, public cc::TextureLayerClient {
  public:
   static TestPlugin* Create(const blink::WebPluginParams& params,
-                            WebTestDelegate* delegate,
+                            TestInterfaces* test_interfaces,
                             blink::WebLocalFrame* frame);
   ~TestPlugin() override;
 
@@ -86,7 +86,7 @@ class TestPlugin : public blink::WebPlugin, public cc::TextureLayerClient {
   void UpdateVisibility(bool visibility) override {}
   blink::WebInputEventResult HandleInputEvent(
       const blink::WebCoalescedInputEvent& event,
-      blink::WebCursorInfo& info) override;
+      ui::Cursor* cursor) override;
   bool HandleDragStatusUpdate(blink::WebDragStatus drag_status,
                               const blink::WebDragData& data,
                               blink::WebDragOperationsMask mask,
@@ -106,7 +106,7 @@ class TestPlugin : public blink::WebPlugin, public cc::TextureLayerClient {
 
  private:
   TestPlugin(const blink::WebPluginParams& params,
-             WebTestDelegate* delegate,
+             TestInterfaces* test_interfaces,
              blink::WebLocalFrame* frame);
 
   enum Primitive { PrimitiveNone, PrimitiveTriangle };
@@ -168,7 +168,7 @@ class TestPlugin : public blink::WebPlugin, public cc::TextureLayerClient {
       const gpu::SyncToken& sync_token,
       bool lost);
 
-  WebTestDelegate* delegate_;
+  TestInterfaces* test_interfaces_;
   blink::WebPluginContainer* container_;
   blink::WebLocalFrame* web_local_frame_;
 

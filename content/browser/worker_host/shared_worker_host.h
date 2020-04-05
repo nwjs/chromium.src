@@ -22,6 +22,7 @@
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_process_host_observer.h"
 #include "content/public/browser/shared_worker_instance.h"
+#include "content/public/browser/shared_worker_service.h"
 #include "media/mojo/mojom/video_decode_perf_history.mojom.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
@@ -54,14 +55,14 @@ class ServiceWorkerObjectHost;
 class SharedWorkerContentSettingsProxyImpl;
 class SharedWorkerServiceImpl;
 
-// The SharedWorkerHost is the interface that represents the browser side of
-// the browser <-> worker communication channel. This is owned by
-// SharedWorkerServiceImpl and destroyed when the connection to the worker in
-// the renderer is lost, or the RenderProcessHost of the worker is destroyed.
+// SharedWorkerHost is the browser-side host of a single shared worker running
+// in the renderer. This class is owned by the SharedWorkerServiceImpl of the
+// current BrowserContext.
 class CONTENT_EXPORT SharedWorkerHost : public blink::mojom::SharedWorkerHost,
                                         public RenderProcessHostObserver {
  public:
   SharedWorkerHost(SharedWorkerServiceImpl* service,
+                   SharedWorkerId id,
                    const SharedWorkerInstance& instance,
                    RenderProcessHost* worker_process_host);
   ~SharedWorkerHost() override;
@@ -81,6 +82,10 @@ class CONTENT_EXPORT SharedWorkerHost : public blink::mojom::SharedWorkerHost,
   // |controller| contains information about the service worker controller. Once
   // a ServiceWorker object about the controller is prepared, it is registered
   // to |controller_service_worker_object_host|.
+  //
+  // |outside_fetch_client_settings_object| is used for loading the shared
+  // worker main script by the browser process, sent to the renderer process,
+  // and then used to load the script.
   void Start(
       mojo::PendingRemote<blink::mojom::SharedWorkerFactory> factory,
       blink::mojom::WorkerMainScriptLoadParamsPtr main_script_load_params,
@@ -88,7 +93,9 @@ class CONTENT_EXPORT SharedWorkerHost : public blink::mojom::SharedWorkerHost,
           subresource_loader_factories,
       blink::mojom::ControllerServiceWorkerInfoPtr controller,
       base::WeakPtr<ServiceWorkerObjectHost>
-          controller_service_worker_object_host);
+          controller_service_worker_object_host,
+      blink::mojom::FetchClientSettingsObjectPtr
+          outside_fetch_client_settings_object);
 
   void AllowFileSystem(const GURL& url,
                        base::OnceCallback<void(bool)> callback);
@@ -101,6 +108,8 @@ class CONTENT_EXPORT SharedWorkerHost : public blink::mojom::SharedWorkerHost,
       mojo::PendingReceiver<blink::mojom::AppCacheBackend> receiver);
   void CreateQuicTransportConnector(
       mojo::PendingReceiver<blink::mojom::QuicTransportConnector> receiver);
+  void BindCacheStorage(
+      mojo::PendingReceiver<blink::mojom::CacheStorage> receiver);
 
   // Causes this instance to be deleted, which will terminate the worker. May
   // be done based on a UI action.
@@ -122,7 +131,16 @@ class CONTENT_EXPORT SharedWorkerHost : public blink::mojom::SharedWorkerHost,
   // Returns true if this worker is connected to at least one client.
   bool HasClients() const;
 
+  SharedWorkerId id() const { return id_; }
+
   const SharedWorkerInstance& instance() const { return instance_; }
+
+  const base::UnguessableToken& dev_tools_token() const {
+    DCHECK(started_);
+    return dev_tools_token_;
+  }
+
+  bool started() const { return started_; }
 
   // Signals the remote worker to terminate and returns the mojo::Remote
   // instance so the caller can be notified when the connection is lost. Should
@@ -130,6 +148,8 @@ class CONTENT_EXPORT SharedWorkerHost : public blink::mojom::SharedWorkerHost,
   mojo::Remote<blink::mojom::SharedWorker> TerminateRemoteWorkerForTesting();
 
   base::WeakPtr<SharedWorkerHost> AsWeakPtr();
+
+  void ReportNoBinderForInterface(const std::string& error);
 
  private:
   friend class SharedWorkerHostTest;
@@ -156,7 +176,7 @@ class CONTENT_EXPORT SharedWorkerHost : public blink::mojom::SharedWorkerHost,
   void OnReadyForInspection(
       mojo::PendingRemote<blink::mojom::DevToolsAgent>,
       mojo::PendingReceiver<blink::mojom::DevToolsAgentHost>) override;
-  void OnScriptLoadFailed() override;
+  void OnScriptLoadFailed(const std::string& error_message) override;
   void OnFeatureUsed(blink::mojom::WebFeature feature) override;
 
   // RenderProcessHostObserver:
@@ -179,7 +199,13 @@ class CONTENT_EXPORT SharedWorkerHost : public blink::mojom::SharedWorkerHost,
   mojo::Receiver<blink::mojom::SharedWorkerHost> receiver_{this};
 
   // |service_| owns |this|.
-  SharedWorkerServiceImpl* service_;
+  SharedWorkerServiceImpl* const service_;
+
+  // An identifier for this worker that is unique within a storage partition.
+  SharedWorkerId id_;
+
+  // This holds information used to match a shared worker connection request to
+  // this shared worker.
   SharedWorkerInstance instance_;
   ClientList clients_;
 
@@ -220,6 +246,8 @@ class CONTENT_EXPORT SharedWorkerHost : public blink::mojom::SharedWorkerHost,
   std::unique_ptr<AppCacheNavigationHandle> appcache_handle_;
 
   std::unique_ptr<ServiceWorkerMainResourceHandle> service_worker_handle_;
+
+  base::UnguessableToken dev_tools_token_;
 
   // Indicates if Start() was invoked on this instance.
   bool started_ = false;

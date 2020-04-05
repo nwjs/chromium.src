@@ -15,14 +15,13 @@
 #include "third_party/skia/include/core/SkColorSpace.h"
 #include "third_party/skia/include/core/SkData.h"
 #include "third_party/skia/include/core/SkICC.h"
+#include "ui/gfx/display_color_spaces.h"
 #include "ui/gfx/icc_profile.h"
 #include "ui/gfx/skia_color_space_util.h"
 
 namespace gfx {
 
 namespace {
-
-base::AtomicSequenceNumber g_color_space_id;
 
 static bool IsAlmostZero(float value) {
   return std::abs(value) < std::numeric_limits<float>::epsilon();
@@ -43,7 +42,6 @@ static bool FloatsEqualWithinTolerance(const float* a,
 }  // namespace
 
 // static
-constexpr int ColorSpace::kInvalidId;
 constexpr float ColorSpace::kDefaultSDRWhiteLevel;
 
 ColorSpace::ColorSpace(PrimaryID primaries,
@@ -240,11 +238,6 @@ size_t ColorSpace::TransferParamCount(TransferID transfer) {
   }
 }
 
-// static
-int ColorSpace::GetNextId() {
-  return g_color_space_id.GetNext();
-}
-
 bool ColorSpace::operator==(const ColorSpace& other) const {
   if (primaries_ != other.primaries_ || transfer_ != other.transfer_ ||
       matrix_ != other.matrix_ || range_ != other.range_) {
@@ -263,6 +256,26 @@ bool ColorSpace::operator==(const ColorSpace& other) const {
     }
   }
   return true;
+}
+
+bool ColorSpace::IsWide() const {
+  // These HDR transfer functions are always wide
+  if (transfer_ == TransferID::IEC61966_2_1_HDR ||
+      transfer_ == TransferID::LINEAR_HDR ||
+      transfer_ == TransferID::CUSTOM_HDR)
+    return true;
+
+  if (primaries_ == PrimaryID::BT2020 ||
+      primaries_ == PrimaryID::SMPTEST431_2 ||
+      primaries_ == PrimaryID::SMPTEST432_1 ||
+      primaries_ == PrimaryID::ADOBE_RGB ||
+      primaries_ == PrimaryID::WIDE_GAMUT_COLOR_SPIN ||
+      // TODO(cblume/ccameron): Compute if the custom primaries actually are
+      // wide. For now, assume so.
+      primaries_ == PrimaryID::CUSTOM)
+    return true;
+
+  return false;
 }
 
 bool ColorSpace::IsHDR() const {
@@ -415,7 +428,12 @@ std::string ColorSpace::ToString() const {
     PRINT_ENUM_CASE(TransferID, IEC61966_2_1_HDR)
     PRINT_ENUM_CASE(TransferID, LINEAR_HDR)
     case TransferID::SMPTEST2084:
-      ss << "PQ (SDR white point " << transfer_params_[0] << ")";
+      ss << "PQ (SDR white point ";
+      if (transfer_params_[0] == 0.f)
+        ss << "default " << kDefaultSDRWhiteLevel;
+      else
+        ss << transfer_params_[0];
+      ss << " nits)";
       break;
     case TransferID::CUSTOM: {
       skcms_TransferFunction fn;
@@ -476,6 +494,14 @@ ColorSpace ColorSpace::GetAsFullRangeRGB() const {
   return result;
 }
 
+ContentColorUsage ColorSpace::GetContentColorUsage() const {
+  if (IsHDR())
+    return ContentColorUsage::kHDR;
+  if (IsWide())
+    return ContentColorUsage::kWideColorGamut;
+  return ContentColorUsage::kSRGB;
+}
+
 ColorSpace ColorSpace::GetAsRGB() const {
   ColorSpace result(*this);
   if (IsValid())
@@ -506,12 +532,31 @@ ColorSpace ColorSpace::GetRasterColorSpace() const {
   return *this;
 }
 
-ColorSpace ColorSpace::GetBlendingColorSpace() const {
-  // HDR output on windows requires output have a linear transfer function.
-  // Linear blending breaks the web, so use extended-sRGB for blending.
-  if (IsHDR())
-    return CreateExtendedSRGB();
-  return *this;
+bool ColorSpace::IsSuitableForBlending() const {
+  switch (transfer_) {
+    case TransferID::SMPTEST2084:
+      // PQ is not an acceptable space to do blending in -- blending 0 and 1
+      // evenly will get a result of sRGB 0.259 (instead of 0.5).
+      return false;
+    case TransferID::LINEAR_HDR:
+      // If the color space is nearly-linear, then it is not suitable for
+      // blending -- blending 0 and 1 evenly will get a result of sRGB 0.735
+      // (instead of 0.5).
+      return false;
+    case TransferID::CUSTOM_HDR: {
+      // A gamma close enough to linear is treated as linear.
+      skcms_TransferFunction fn;
+      if (GetTransferFunction(&fn)) {
+        constexpr float kMinGamma = 1.25;
+        if (fn.g < kMinGamma)
+          return false;
+      }
+      break;
+    }
+    default:
+      break;
+  }
+  return true;
 }
 
 ColorSpace ColorSpace::GetWithMatrixAndRange(MatrixID matrix,
@@ -567,11 +612,11 @@ sk_sp<SkColorSpace> ColorSpace::ToSkColorSpace() const {
       transfer_fn = SkNamedTransferFn::kHLG;
       break;
     case TransferID::SMPTEST2084:
-      transfer_fn = SkNamedTransferFn::kPQ;
+      GetPQTransferFunction(&transfer_fn);
       break;
     default:
       if (!GetTransferFunction(&transfer_fn)) {
-        DLOG(ERROR) << "Failed to transfer function for SkColorSpace";
+        DLOG(ERROR) << "Failed to get transfer function for SkColorSpace";
         return nullptr;
       }
       break;
@@ -900,6 +945,23 @@ bool ColorSpace::GetTransferFunction(skcms_TransferFunction* fn) const {
   }
 }
 
+void ColorSpace::GetPQTransferFunction(skcms_TransferFunction* fn) const {
+  DCHECK_EQ(transfer_, TransferID::SMPTEST2084);
+  const float sdr_white_level =
+      transfer_params_[0] == 0.0f ? kDefaultSDRWhiteLevel : transfer_params_[0];
+  // The generic PQ transfer function produces normalized luminance values i.e.
+  // the range 0-1 represents 0-10000 nits for the reference display, but we
+  // want to map 1.0 to |sdr_white_level| nits so we need to scale accordingly.
+  const float w = 10000.0f / sdr_white_level;
+  // Distribute scaling factor W by scaling A and B with X ^ (1/F):
+  // ((A + Bx^C) / (D + Ex^C))^F * W = ((A + Bx^C) / (D + Ex^C) * W^(1/F))^F
+  // See https://crbug.com/1058580#c32 for discussion.
+  *fn = SkNamedTransferFn::kPQ;
+  const float ws = powf(w, 1 / fn->f);
+  fn->a = ws * fn->a;
+  fn->b = ws * fn->b;
+}
+
 bool ColorSpace::GetInverseTransferFunction(skcms_TransferFunction* fn) const {
   if (!GetTransferFunction(fn))
     return false;
@@ -910,7 +972,7 @@ bool ColorSpace::GetInverseTransferFunction(skcms_TransferFunction* fn) const {
 bool ColorSpace::GetPQSDRWhiteLevel(float* sdr_white_level) const {
   if (transfer_ != TransferID::SMPTEST2084)
     return false;
-  if (transfer_params_[0] == 0.f)
+  if (transfer_params_[0] == 0.0f)
     *sdr_white_level = kDefaultSDRWhiteLevel;
   else
     *sdr_white_level = transfer_params_[0];

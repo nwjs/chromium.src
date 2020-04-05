@@ -53,9 +53,7 @@ class TestModuleScriptLoaderClient final
   TestModuleScriptLoaderClient() = default;
   ~TestModuleScriptLoaderClient() override = default;
 
-  void Trace(blink::Visitor* visitor) override {
-    visitor->Trace(module_script_);
-  }
+  void Trace(Visitor* visitor) override { visitor->Trace(module_script_); }
 
   void NotifyNewSingleModuleFinished(ModuleScript* module_script) override {
     was_notify_finished_ = true;
@@ -97,26 +95,27 @@ class ModuleScriptLoaderTestModulator final : public DummyModulator {
   }
 
   ModuleScriptFetcher* CreateModuleScriptFetcher(
-      ModuleScriptCustomFetchType custom_fetch_type) override {
+      ModuleScriptCustomFetchType custom_fetch_type,
+      util::PassKey<ModuleScriptLoader> pass_key) override {
     auto* execution_context = ExecutionContext::From(script_state_);
     if (auto* scope = DynamicTo<WorkletGlobalScope>(execution_context)) {
       EXPECT_EQ(ModuleScriptCustomFetchType::kWorkletAddModule,
                 custom_fetch_type);
       return MakeGarbageCollected<WorkletModuleScriptFetcher>(
-          scope->GetModuleResponsesMap());
+          scope->GetModuleResponsesMap(), pass_key);
     }
     EXPECT_EQ(ModuleScriptCustomFetchType::kNone, custom_fetch_type);
-    return MakeGarbageCollected<DocumentModuleScriptFetcher>();
+    return MakeGarbageCollected<DocumentModuleScriptFetcher>(pass_key);
   }
 
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
 
  private:
   Member<ScriptState> script_state_;
   Vector<ModuleRequest> requests_;
 };
 
-void ModuleScriptLoaderTestModulator::Trace(blink::Visitor* visitor) {
+void ModuleScriptLoaderTestModulator::Trace(Visitor* visitor) {
   visitor->Trace(script_state_);
   DummyModulator::Trace(visitor);
 }
@@ -204,9 +203,8 @@ void ModuleScriptLoaderTest::InitializeForWorklet() {
                           MakeGarbageCollected<TestLoaderFactory>()));
   reporting_proxy_ = std::make_unique<MockWorkerReportingProxy>();
   auto creation_params = std::make_unique<GlobalScopeCreationParams>(
-      url_, mojom::ScriptType::kModule,
-      OffMainThreadWorkerScriptFetchOption::kEnabled, "GlobalScopeName",
-      "UserAgent", nullptr /* web_worker_fetch_context */,
+      url_, mojom::blink::ScriptType::kModule, "GlobalScopeName", "UserAgent",
+      UserAgentMetadata(), nullptr /* web_worker_fetch_context */,
       Vector<CSPHeaderAndType>(), network::mojom::ReferrerPolicy::kDefault,
       security_origin_.get(), true /* is_secure_context */, HttpsState::kModern,
       nullptr /* worker_clients */, nullptr /* content_settings_client */,

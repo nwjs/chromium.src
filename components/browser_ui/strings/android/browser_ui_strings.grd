@@ -150,6 +150,7 @@
     <file lang="sl" path="translations/browser_ui_strings_sl.xtb" />
     <file lang="sq" path="translations/browser_ui_strings_sq.xtb" />
     <file lang="sr" path="translations/browser_ui_strings_sr.xtb" />
+    <file lang="sr-Latn" path="translations/browser_ui_strings_sr-Latn.xtb" />
     <file lang="sv" path="translations/browser_ui_strings_sv.xtb" />
     <file lang="sw" path="translations/browser_ui_strings_sw.xtb" />
     <file lang="ta" path="translations/browser_ui_strings_ta.xtb" />
@@ -326,6 +327,47 @@
       </message>
       <message name="IDS_SELECT_ITEMS" desc="Label shown on toolbar asking user to select items from the list.">
         Select items
+      </message>
+        <message name="IDS_ACCESSIBILITY_SECURITY_BTN_SECURE" desc="Content description for the security icon for pages with a valid certificate. The content description also includes the call to action for opening the page info bubble (Site information).">
+          Connection is secure. Site information
+      </message>
+      <message name="IDS_ACCESSIBILITY_SECURITY_BTN_WARN" desc="Content description for the security icon for pages with insecure passive content. The content description also includes the call to action for opening the page info bubble (Site information).">
+        Your connection to this site is not secure. Site information
+      </message>
+      <message name="IDS_ACCESSIBILITY_SECURITY_BTN_DANGEROUS" desc="Content description for the security icon for dangerous pages. The content description also includes the call to action for opening the page info bubble (Site information).">
+        This page is dangerous. Site information
+      </message>
+
+      <!-- Cookie controls UI -->
+      <message name="IDS_COOKIE_CONTROLS_BLOCKED_COOKIES" desc="Text showing the number of blocked cookies on a site.">
+        {COOKIE_COUNT, plural,
+            =1 {1 cookie blocked}
+            other {# cookies blocked}}
+      </message>
+
+      <!-- Certificate viewer -->
+      <message name="IDS_CERTTITLE" desc="Dialog box title for viewing security certificates. [CHAR-LIMIT=32]">
+        Certificate viewer
+      </message>
+
+      <!-- Settings UI -->
+      <message name="IDS_MANAGED_BY_YOUR_ORGANIZATION" desc="Popup message when the user clicks a UI element that has been disabled by enterprise policy.">
+        This setting is enforced by your administrator.
+      </message>
+      <message name="IDS_MANAGED_BY_YOUR_PARENTS" desc="Popup message when the user clicks a UI element that has been disabled by their parents.">
+        Managed by your parents
+      </message>
+      <message name="IDS_MANAGED_BY_YOUR_PARENT" desc="Popup message when the user clicks a UI element that has been disabled by their parent.">
+        Managed by your parent
+      </message>
+      <message name="IDS_MANAGED_SETTINGS_CANNOT_BE_RESET" desc="Popup message when the user clicks a UI element that resets a list of settings that include managed settings.">
+        Managed settings cannot be reset
+      </message>
+      <message name="IDS_ACCESSIBILITY_EXPANDED_GROUP" desc="The accessibility text to read when the selected widget is expanded.">
+        Expanded - click to collapse.
+      </message>
+      <message name="IDS_ACCESSIBILITY_COLLAPSED_GROUP" desc="The accessibility text to read when the selected widget is collapsed.">
+        Collapsed - click to expand.
       </message>
     </messages>
   </release>

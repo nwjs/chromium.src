@@ -180,8 +180,8 @@ class MODULES_EXPORT CanvasRenderingContext2D final
 
   bool ParseColorOrCurrentColor(Color&, const String& color_string) const final;
 
-  cc::PaintCanvas* DrawingCanvas() const final;
-  cc::PaintCanvas* ExistingDrawingCanvas() const final;
+  cc::PaintCanvas* GetOrCreatePaintCanvas() final;
+  cc::PaintCanvas* GetPaintCanvas() const final;
 
   void DidDraw(const SkIRect& dirty_rect) final;
   scoped_refptr<StaticBitmapImage> GetImage(AccelerationHint) final;
@@ -200,7 +200,7 @@ class MODULES_EXPORT CanvasRenderingContext2D final
 
   void WillDrawImage(CanvasImageSource*) const final;
 
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
 
   CanvasColorParams ColorParamsForTest() const { return ColorParams(); }
 
@@ -269,7 +269,7 @@ class MODULES_EXPORT CanvasRenderingContext2D final
   TaskRunnerTimer<CanvasRenderingContext2D> try_restore_context_event_timer_;
 
   FilterOperations filter_operations_;
-  HashMap<String, Font> fonts_resolved_using_current_style_;
+  HashMap<String, FontDescription> fonts_resolved_using_current_style_;
   bool should_prune_local_font_cache_;
   LinkedHashSet<String> font_lru_list_;
 

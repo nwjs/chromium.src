@@ -16,6 +16,7 @@ import org.chromium.ui.OverscrollRefreshHandler;
 import org.chromium.ui.base.EventForwarder;
 import org.chromium.ui.base.ViewAndroidDelegate;
 import org.chromium.ui.base.WindowAndroid;
+import org.chromium.url.GURL;
 
 import java.util.List;
 
@@ -160,6 +161,12 @@ public interface WebContents extends Parcelable {
     List<? extends WebContents> getInnerWebContents();
 
     /**
+     * @return The WebContents Visibility. See native WebContents::GetVisibility.
+     */
+    @Visibility
+    int getVisibility();
+
+    /**
      * @return The title for the current visible page.
      */
     String getTitle();
@@ -167,7 +174,15 @@ public interface WebContents extends Parcelable {
     /**
      * @return The URL for the current visible page.
      */
-    String getVisibleUrl();
+    GURL getVisibleUrl();
+
+    /**
+     * @return The URL for the current visible page.
+     *
+     * @deprecated Please use {@link #getVisibleUrl} instead.
+     */
+    @Deprecated
+    String getVisibleUrlString();
 
     /**
      * @return The character encoding for the current visible page.
@@ -184,6 +199,14 @@ public interface WebContents extends Parcelable {
      *         document (rather than being a navigation within the same document).
      */
     boolean isLoadingToDifferentDocument();
+
+    /**
+     * Runs the beforeunload handler, if any. The tab will be closed if there's no beforeunload
+     * handler or if the user accepts closing.
+     *
+     * @param autoCancel See C++ WebContents for explanation.
+     */
+    void dispatchBeforeUnload(boolean autoCancel);
 
     /**
      * Stop any pending navigation.
@@ -236,6 +259,11 @@ public interface WebContents extends Parcelable {
      * @param hasFocus Indicates if focus should be set or removed.
      */
     void setFocus(boolean hasFocus);
+
+    /**
+     * @return true if the renderer is in fullscreen mode.
+     */
+    boolean isFullscreenForCurrentTab();
 
     /**
      * Inform WebKit that Fullscreen mode has been exited by the user.

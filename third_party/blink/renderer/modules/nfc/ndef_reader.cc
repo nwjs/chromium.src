@@ -13,6 +13,7 @@
 #include "third_party/blink/renderer/core/dom/abort_signal.h"
 #include "third_party/blink/renderer/core/dom/dom_exception.h"
 #include "third_party/blink/renderer/core/events/error_event.h"
+#include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/modules/event_target_modules.h"
 #include "third_party/blink/renderer/modules/nfc/ndef_message.h"
@@ -21,6 +22,8 @@
 #include "third_party/blink/renderer/modules/nfc/nfc_utils.h"
 #include "third_party/blink/renderer/modules/permissions/permission_utils.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
+#include "third_party/blink/renderer/platform/scheduler/public/frame_scheduler.h"
+#include "third_party/blink/renderer/platform/scheduler/public/scheduling_policy.h"
 #include "third_party/blink/renderer/platform/weborigin/kurl.h"
 
 namespace blink {
@@ -48,11 +51,14 @@ void OnScanRequestCompleted(ScriptPromiseResolver* resolver,
 
 // static
 NDEFReader* NDEFReader::Create(ExecutionContext* context) {
+  context->GetScheduler()->RegisterStickyFeature(
+      SchedulingPolicy::Feature::kWebNfc,
+      {SchedulingPolicy::RecordMetricsForBackForwardCache()});
   return MakeGarbageCollected<NDEFReader>(context);
 }
 
 NDEFReader::NDEFReader(ExecutionContext* context)
-    : ContextLifecycleObserver(context) {
+    : ExecutionContextLifecycleObserver(context) {
   // Call GetNFCProxy to create a proxy. This guarantees no allocation will
   // be needed when calling HasPendingActivity later during gc tracing.
   GetNfcProxy();
@@ -65,7 +71,7 @@ const AtomicString& NDEFReader::InterfaceName() const {
 }
 
 ExecutionContext* NDEFReader::GetExecutionContext() const {
-  return ContextLifecycleObserver::GetExecutionContext();
+  return ExecutionContextLifecycleObserver::GetExecutionContext();
 }
 
 bool NDEFReader::HasPendingActivity() const {
@@ -78,7 +84,7 @@ ScriptPromise NDEFReader::scan(ScriptState* script_state,
                                const NDEFScanOptions* options,
                                ExceptionState& exception_state) {
   ExecutionContext* execution_context = GetExecutionContext();
-  Document* document = To<Document>(execution_context);
+  Document* document = Document::From(execution_context);
   // https://w3c.github.io/web-nfc/#security-policies
   // WebNFC API must be only accessible from top level browsing context.
   if (!execution_context || !document->IsInMainFrame()) {
@@ -157,11 +163,11 @@ void NDEFReader::OnRequestPermission(ScriptPromiseResolver* resolver,
       WTF::Bind(&OnScanRequestCompleted, WrapPersistent(resolver)));
 }
 
-void NDEFReader::Trace(blink::Visitor* visitor) {
+void NDEFReader::Trace(Visitor* visitor) {
   visitor->Trace(resolver_);
   EventTargetWithInlineData::Trace(visitor);
   ActiveScriptWrappable::Trace(visitor);
-  ContextLifecycleObserver::Trace(visitor);
+  ExecutionContextLifecycleObserver::Trace(visitor);
 }
 
 void NDEFReader::OnReading(const String& serial_number,
@@ -190,7 +196,7 @@ void NDEFReader::OnMojoConnectionError() {
   OnError(kNotSupportedOrPermissionDenied);
 }
 
-void NDEFReader::ContextDestroyed(ExecutionContext*) {
+void NDEFReader::ContextDestroyed() {
   // If |resolver_| has already settled this rejection is silently ignored.
   if (resolver_) {
     resolver_->Reject(MakeGarbageCollected<DOMException>(
@@ -209,7 +215,7 @@ void NDEFReader::Abort(ScriptPromiseResolver* resolver) {
 
 NFCProxy* NDEFReader::GetNfcProxy() const {
   DCHECK(GetExecutionContext());
-  return NFCProxy::From(*To<Document>(GetExecutionContext()));
+  return NFCProxy::From(*To<LocalDOMWindow>(GetExecutionContext()));
 }
 
 }  // namespace blink

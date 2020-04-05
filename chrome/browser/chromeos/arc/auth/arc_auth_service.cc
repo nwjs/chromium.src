@@ -39,6 +39,7 @@
 #include "components/arc/session/arc_bridge_service.h"
 #include "components/arc/session/arc_supervision_transition.h"
 #include "components/prefs/pref_service.h"
+#include "components/signin/public/identity_manager/consent_level.h"
 #include "components/user_manager/user_manager.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
@@ -224,8 +225,26 @@ void TriggerAccountManagerMigrationsIfRequired(Profile* profile) {
   migrator->Start();
 }
 
-std::string GetAuthenticatedUsernameUTF8(Profile* profile) {
-  return base::UTF16ToUTF8(signin_ui_util::GetAuthenticatedUsername(profile));
+// See //components/arc/mojom/auth.mojom RequestPrimaryAccount() for the spec.
+// See also go/arc-primary-account.
+std::string GetAccountName(Profile* profile) {
+  switch (GetAccountType(profile)) {
+    case mojom::ChromeAccountType::USER_ACCOUNT:
+    case mojom::ChromeAccountType::CHILD_ACCOUNT:
+      // IdentityManager::GetPrimaryAccountInfo(
+      //    signin::ConsentLevel::kNotRequired).email might be more appropriate
+      // here, but this is what we have done historically.
+      return chromeos::ProfileHelper::Get()
+          ->GetUserByProfile(profile)
+          ->GetDisplayEmail();
+    case mojom::ChromeAccountType::ROBOT_ACCOUNT:
+    case mojom::ChromeAccountType::ACTIVE_DIRECTORY_ACCOUNT:
+    case mojom::ChromeAccountType::OFFLINE_DEMO_ACCOUNT:
+      return std::string();
+    case mojom::ChromeAccountType::UNKNOWN:
+      NOTREACHED();
+      return std::string();
+  }
 }
 
 }  // namespace
@@ -282,8 +301,7 @@ void ArcAuthService::GetGoogleAccountsInArc(
 
 void ArcAuthService::RequestPrimaryAccount(
     RequestPrimaryAccountCallback callback) {
-  std::move(callback).Run(GetAuthenticatedUsernameUTF8(profile_),
-                          GetAccountType(profile_));
+  std::move(callback).Run(GetAccountName(profile_), GetAccountType(profile_));
 }
 
 void ArcAuthService::OnConnectionReady() {
@@ -517,9 +535,15 @@ void ArcAuthService::FetchPrimaryAccountInfo(
           ->SetURLLoaderFactoryForTesting(url_loader_factory_);
     }
   } else {
-    // Optionally retrieve auth code in silent mode.
+    // Optionally retrieve auth code in silent mode. Use the "unconsented"
+    // primary account because this class doesn't care about browser sync
+    // consent.
+    DCHECK(identity_manager_->HasPrimaryAccount(
+        signin::ConsentLevel::kNotRequired));
     auth_code_fetcher = CreateArcBackgroundAuthCodeFetcher(
-        identity_manager_->GetPrimaryAccountId(), initial_signin);
+        identity_manager_->GetPrimaryAccountId(
+            signin::ConsentLevel::kNotRequired),
+        initial_signin);
   }
 
   // Add the request to |pending_token_requests_| first, before starting a token
@@ -541,7 +565,9 @@ void ArcAuthService::IsAccountManagerAvailable(
 void ArcAuthService::HandleAddAccountRequest() {
   DCHECK(chromeos::IsAccountManagerAvailable(profile_));
 
-  chromeos::InlineLoginHandlerDialogChromeOS::Show();
+  chromeos::InlineLoginHandlerDialogChromeOS::Show(
+      std::string() /*email*/,
+      chromeos::InlineLoginHandlerDialogChromeOS::Source::kArc);
 }
 
 void ArcAuthService::HandleRemoveAccountRequest(const std::string& email) {
@@ -554,7 +580,8 @@ void ArcAuthService::HandleRemoveAccountRequest(const std::string& email) {
 void ArcAuthService::HandleUpdateCredentialsRequest(const std::string& email) {
   DCHECK(chromeos::IsAccountManagerAvailable(profile_));
 
-  chromeos::InlineLoginHandlerDialogChromeOS::Show(email);
+  chromeos::InlineLoginHandlerDialogChromeOS::Show(
+      email, chromeos::InlineLoginHandlerDialogChromeOS::Source::kArc);
 }
 
 void ArcAuthService::OnRefreshTokenUpdatedForAccount(
@@ -672,7 +699,7 @@ void ArcAuthService::OnPrimaryAccountAuthCodeFetched(
   DeletePendingTokenRequest(fetcher);
 
   if (success) {
-    const std::string& full_account_id = GetAuthenticatedUsernameUTF8(profile_);
+    const std::string& full_account_id = GetAccountName(profile_);
     std::move(callback).Run(
         mojom::ArcSignInStatus::SUCCESS,
         CreateAccountInfo(!IsArcOptInVerificationDisabled(), auth_code,

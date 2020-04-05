@@ -35,6 +35,7 @@
 #include "ui/aura/layout_manager.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_delegate.h"
+#include "ui/compositor/animation_metrics_reporter.h"
 #include "ui/compositor/layer_tree_owner.h"
 #include "ui/compositor/paint_recorder.h"
 #include "ui/compositor/scoped_layer_animation_settings.h"
@@ -237,7 +238,7 @@ WindowStateType WindowState::GetStateType() const {
 }
 
 bool WindowState::IsMinimized() const {
-  return GetStateType() == WindowStateType::kMinimized;
+  return IsMinimizedWindowStateType(GetStateType());
 }
 
 bool WindowState::IsMaximized() const {
@@ -249,8 +250,7 @@ bool WindowState::IsFullscreen() const {
 }
 
 bool WindowState::IsMaximizedOrFullscreenOrPinned() const {
-  return GetStateType() == WindowStateType::kMaximized ||
-         GetStateType() == WindowStateType::kFullscreen || IsPinned();
+  return IsMaximizedOrFullscreenOrPinnedWindowStateType(GetStateType());
 }
 
 bool WindowState::IsSnapped() const {
@@ -272,8 +272,7 @@ bool WindowState::IsPip() const {
 }
 
 bool WindowState::IsNormalStateType() const {
-  return GetStateType() == WindowStateType::kNormal ||
-         GetStateType() == WindowStateType::kDefault;
+  return IsNormalWindowStateType(GetStateType());
 }
 
 bool WindowState::IsNormalOrSnapped() const {
@@ -653,6 +652,19 @@ void WindowState::UpdateWindowPropertiesFromStateType() {
     base::AutoReset<bool> resetter(&ignore_property_change_, true);
     window_->SetProperty(kWindowPinTypeKey, pin_type);
   }
+
+  if (window_->GetProperty(ash::kWindowManagerManagesOpacityKey)) {
+    const gfx::Size& size = window_->bounds().size();
+    // WindowManager manages the window opacity. Make it opaque unless
+    // the window is in normal state whose frame has rounded corners.
+    if (IsNormalStateType()) {
+      window_->SetTransparent(true);
+      window_->SetOpaqueRegionsForOcclusion({gfx::Rect(size)});
+    } else {
+      window_->SetOpaqueRegionsForOcclusion({});
+      window_->SetTransparent(false);
+    }
+  }
 }
 
 void WindowState::NotifyPreStateTypeChange(
@@ -793,6 +805,9 @@ void WindowState::OnPrePipStateChange(WindowStateType old_window_state_type) {
     }
 
     CollectPipEnterExitMetrics(/*enter=*/true);
+
+    // PIP window shouldn't be tracked in MruWindowTracker.
+    window()->SetProperty(ash::kExcludeInMruKey, true);
   } else if (was_pip) {
     if (widget) {
       widget->widget_delegate()->SetCanActivate(true);
@@ -802,6 +817,7 @@ void WindowState::OnPrePipStateChange(WindowStateType old_window_state_type) {
         window(), ::wm::WINDOW_VISIBILITY_ANIMATION_TYPE_DEFAULT);
 
     CollectPipEnterExitMetrics(/*enter=*/false);
+    window()->ClearProperty(ash::kExcludeInMruKey);
   }
   // PIP uses the snap fraction to place the PIP window at the correct position
   // after screen rotation, system UI area change, etc. Make sure to reset this
@@ -940,6 +956,17 @@ void WindowState::OnWindowDestroying(aura::Window* window) {
 
   current_state_->OnWindowDestroying(this);
   delegate_.reset();
+}
+
+void WindowState::OnWindowBoundsChanged(aura::Window* window,
+                                        const gfx::Rect& old_bounds,
+                                        const gfx::Rect& new_bounds,
+                                        ui::PropertyChangeReason reason) {
+  DCHECK_EQ(this->window(), window);
+  if (window_->transparent() &&
+      window_->type() == aura::client::WINDOW_TYPE_NORMAL) {
+    window_->SetOpaqueRegionsForOcclusion({gfx::Rect(new_bounds.size())});
+  }
 }
 
 }  // namespace ash

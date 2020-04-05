@@ -21,6 +21,7 @@
 #include "ash/ime/ime_controller_impl.h"
 #include "ash/ime/test_ime_controller_client.h"
 #include "ash/keyboard/keyboard_controller_impl.h"
+#include "ash/keyboard/ui/test/keyboard_test_util.h"
 #include "ash/public/cpp/app_list/app_list_config.h"
 #include "ash/public/cpp/ash_features.h"
 #include "ash/public/cpp/presentation_time_recorder.h"
@@ -44,6 +45,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
+#include "base/test/with_feature_override.h"
 #include "chromeos/constants/chromeos_features.h"
 #include "chromeos/constants/chromeos_switches.h"
 #include "ui/compositor/scoped_animation_duration_scale_mode.h"
@@ -55,6 +57,12 @@
 namespace ash {
 
 namespace {
+
+void PressHomeButton() {
+  Shell::Get()->app_list_controller()->ToggleAppList(
+      display::Screen::GetScreen()->GetPrimaryDisplay().id(),
+      AppListShowSource::kShelfButton, base::TimeTicks());
+}
 
 bool IsTabletMode() {
   return Shell::Get()->tablet_mode_controller()->InTabletMode();
@@ -128,6 +136,13 @@ class AppListControllerImplTest : public AshTestBase {
           new AppListItem("app_id" + base::UTF16ToUTF8(base::FormatNumber(i))));
       Shell::Get()->app_list_controller()->GetModel()->AddItem(std::move(item));
     }
+  }
+
+  bool IsAppListBoundsAnimationRunning() {
+    AppListView* app_list_view = GetAppListTestHelper()->GetAppListView();
+    ui::Layer* widget_layer =
+        app_list_view ? app_list_view->GetWidget()->GetLayer() : nullptr;
+    return widget_layer && !widget_layer->GetAnimator()->is_animating();
   }
 
  private:
@@ -279,6 +294,33 @@ TEST_F(AppListControllerImplTest, CheckTabOrderAfterDragIconToShelf) {
   EXPECT_EQ(item3, item2->GetNextFocusableView());
 }
 
+TEST_F(AppListControllerImplTest, PageResetByTimerInTabletMode) {
+  Shell::Get()->tablet_mode_controller()->SetEnabledForTest(true);
+  PopulateItem(30);
+
+  ShowAppListNow();
+
+  AppsGridView* apps_grid_view = GetAppsGridView();
+  apps_grid_view->pagination_model()->SelectPage(1, false /* animate */);
+
+  DismissAppListNow();
+
+  // When timer is not skipped the selected page should not change when app list
+  // is closed.
+  EXPECT_EQ(1, apps_grid_view->pagination_model()->selected_page());
+
+  // Skip the page reset timer to simulate timer exipration.
+  GetAppListView()->SetSkipPageResetTimerForTesting(true);
+
+  ShowAppListNow();
+  EXPECT_EQ(1, apps_grid_view->pagination_model()->selected_page());
+  DismissAppListNow();
+
+  // Once the app list is closed, the page should be reset when the timer is
+  // skipped.
+  EXPECT_EQ(0, apps_grid_view->pagination_model()->selected_page());
+}
+
 // Verifies that in clamshell mode the bounds of AppListView are correct when
 // the AppListView is in PEEKING state and the virtual keyboard is enabled (see
 // https://crbug.com/944233).
@@ -427,6 +469,68 @@ TEST_F(AppListControllerImplTest, CloseNotificationWithAppListShown) {
       0u, message_center::MessageCenter::Get()->GetPopupNotifications().size());
 }
 
+// Verifiy that when showing the launcher, the virtual keyboard dismissed before
+// will not show automatically due to the feature called "transient blur" (see
+// https://crbug.com/1057320).
+TEST_F(AppListControllerImplTest,
+       TransientBlurIsNotTriggeredWhenShowingLauncher) {
+  // Enable animation.
+  ui::ScopedAnimationDurationScaleMode non_zero_duration(
+      ui::ScopedAnimationDurationScaleMode::NORMAL_DURATION);
+
+  // Enable virtual keyboard.
+  KeyboardController* const keyboard_controller =
+      Shell::Get()->keyboard_controller();
+  keyboard_controller->SetEnableFlag(
+      keyboard::KeyboardEnableFlag::kCommandLineEnabled);
+
+  // Create |window1| which contains a textfield as child view.
+  std::unique_ptr<aura::Window> window1 =
+      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 200, 200));
+  auto* widget = views::Widget::GetWidgetForNativeView(window1.get());
+  std::unique_ptr<views::Textfield> text_field =
+      std::make_unique<views::Textfield>();
+
+  // Note that the bounds of |text_field| cannot be too small. Otherwise, it
+  // may not receive the gesture event.
+  text_field->SetBoundsRect(gfx::Rect(0, 0, 100, 100));
+  const auto* text_field_p = text_field.get();
+  widget->GetRootView()->AddChildView(std::move(text_field));
+  wm::ActivateWindow(window1.get());
+  widget->Show();
+
+  // Create |window2|.
+  std::unique_ptr<aura::Window> window2 =
+      AshTestBase::CreateTestWindow(gfx::Rect(200, 0, 200, 200));
+  window2->Show();
+
+  // Tap at the textfield in |window1|. The virtual keyboard should be visible.
+  const gfx::Point tap_point = text_field_p->GetBoundsInScreen().CenterPoint();
+  GetEventGenerator()->GestureTapAt(tap_point);
+  base::RunLoop().RunUntilIdle();
+  ASSERT_TRUE(keyboard::WaitUntilShown());
+
+  // Tap at the center of |window2| to hide the virtual keyboard.
+  GetEventGenerator()->GestureTapAt(window2->GetBoundsInScreen().CenterPoint());
+  base::RunLoop().RunUntilIdle();
+  ASSERT_TRUE(keyboard::WaitUntilHidden());
+
+  // Press the home button to show the launcher. Wait for the animation of
+  // launcher to finish. Note that the launcher does not exist before toggling
+  // the home button.
+  PressHomeButton();
+  const base::TimeDelta delta = base::TimeDelta::FromMilliseconds(200);
+  do {
+    base::RunLoop run_loop;
+    base::ThreadTaskRunnerHandle::Get()->PostDelayedTask(
+        FROM_HERE, run_loop.QuitClosure(), delta);
+    run_loop.Run();
+  } while (IsAppListBoundsAnimationRunning());
+
+  // Expect that the virtual keyboard is invisible when the launcher shows.
+  EXPECT_FALSE(keyboard_controller->IsKeyboardVisible());
+}
+
 // Tests that full screen apps list opens when user touches on or near the
 // expand view arrow. (see https://crbug.com/906858)
 TEST_F(AppListControllerImplTest,
@@ -525,22 +629,12 @@ TEST_F(AppListControllerImplTestWithoutHotseat,
   EXPECT_FALSE(GetExpandArrowViewVisibility());
 }
 
-class HotseatAppListControllerImplTest
-    : public AppListControllerImplTest,
-      public testing::WithParamInterface<bool> {
+class HotseatAppListControllerImplTest : public base::test::WithFeatureOverride,
+                                         public AppListControllerImplTest {
  public:
-  HotseatAppListControllerImplTest() = default;
+  HotseatAppListControllerImplTest()
+      : WithFeatureOverride(chromeos::features::kShelfHotseat) {}
   ~HotseatAppListControllerImplTest() override = default;
-
-  // AshTestBase:
-  void SetUp() override {
-    if (GetParam()) {
-      feature_list_.InitAndEnableFeature(chromeos::features::kShelfHotseat);
-    } else {
-      feature_list_.InitAndDisableFeature(chromeos::features::kShelfHotseat);
-    }
-    AppListControllerImplTest::SetUp();
-  }
 
  private:
   base::test::ScopedFeatureList feature_list_;
@@ -548,9 +642,7 @@ class HotseatAppListControllerImplTest
 };
 
 // Tests with both hotseat disabled and enabled.
-INSTANTIATE_TEST_SUITE_P(All,
-                         HotseatAppListControllerImplTest,
-                         testing::Bool());
+INSTANTIATE_FEATURE_OVERRIDE_TEST_SUITE(HotseatAppListControllerImplTest);
 
 // Verifies that the pinned app should still show after canceling the drag from
 // AppsGridView to Shelf (https://crbug.com/1021768).
@@ -710,7 +802,7 @@ TEST_P(HotseatAppListControllerImplTest,
   EXPECT_FALSE(apps_grid_view_bounds.Intersects(
       shelf->shelf_widget()->GetWindowBoundsInScreen()));
   EXPECT_FALSE(apps_grid_view_bounds.Intersects(
-      shelf->shelf_widget()->hotseat_widget()->GetWindowBoundsInScreen()));
+      shelf->hotseat_widget()->GetWindowBoundsInScreen()));
 
   Shell::Get()->tablet_mode_controller()->SetEnabledForTest(true);
 
@@ -721,7 +813,7 @@ TEST_P(HotseatAppListControllerImplTest,
   EXPECT_FALSE(apps_grid_view_bounds.Intersects(
       shelf->shelf_widget()->GetWindowBoundsInScreen()));
   EXPECT_FALSE(apps_grid_view_bounds.Intersects(
-      shelf->shelf_widget()->hotseat_widget()->GetWindowBoundsInScreen()));
+      shelf->hotseat_widget()->GetWindowBoundsInScreen()));
 }
 
 // The test parameter indicates whether the shelf should auto-hide. In either
@@ -874,6 +966,55 @@ TEST_P(AppListAnimationTest, AppListShowPeekingWhileClosing) {
   ShowAppListNow();
 
   EXPECT_EQ(PeekingHeightTop(), GetAppListTargetTop());
+}
+
+// Tests that how search box opacity is animated when the app list is shown and
+// closed.
+TEST_P(AppListAnimationTest, SearchBoxOpacityDuringShowAndClose) {
+  // Set a transition duration that prevents the app list view from snapping to
+  // the final position.
+  ui::ScopedAnimationDurationScaleMode non_zero_duration_mode(
+      ui::ScopedAnimationDurationScaleMode::NON_ZERO_DURATION);
+
+  ShowAppListNow();
+
+  SearchBoxView* const search_box = GetSearchBoxView();
+
+  // The search box opacity should start  at 0, and animate to 1.
+  EXPECT_EQ(0.0f, search_box->layer()->opacity());
+  EXPECT_EQ(1.0f, search_box->layer()->GetTargetOpacity());
+
+  // If the app list is closed while the animation is still in progress, the
+  // search box opacity should animate from the current opacity.
+  DismissAppListNow();
+
+  EXPECT_EQ(0.0f, search_box->layer()->opacity());
+  EXPECT_EQ(0.0f, search_box->layer()->GetTargetOpacity());
+
+  search_box->layer()->GetAnimator()->StopAnimating();
+
+  // When show again, verify the app list animates from 0 opacity again.
+  ShowAppListNow();
+
+  EXPECT_EQ(0.0f, search_box->layer()->opacity());
+  EXPECT_EQ(1.0f, search_box->layer()->GetTargetOpacity());
+
+  search_box->layer()->GetAnimator()->StopAnimating();
+  EXPECT_EQ(1.0f, search_box->layer()->opacity());
+
+  // Search box opacity animates from the current (full opacity) when closed
+  // from shown state.
+  DismissAppListNow();
+
+  EXPECT_EQ(1.0f, search_box->layer()->opacity());
+  EXPECT_EQ(0.0f, search_box->layer()->GetTargetOpacity());
+
+  // If the app list is show again during close animation, the search box
+  // opacity should animate from the current value.
+  ShowAppListNow();
+
+  EXPECT_EQ(1.0f, search_box->layer()->opacity());
+  EXPECT_EQ(1.0f, search_box->layer()->GetTargetOpacity());
 }
 
 class AppListControllerImplMetricsTest : public AshTestBase {

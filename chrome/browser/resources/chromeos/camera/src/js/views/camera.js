@@ -2,9 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import {browserProxy} from '../browser_proxy/browser_proxy.js';
 import {assert} from '../chrome_util.js';
-import {PhotoConstraintsPreferrer,  // eslint-disable-line no-unused-vars
-        VideoConstraintsPreferrer,  // eslint-disable-line no-unused-vars
+import {
+  PhotoConstraintsPreferrer,  // eslint-disable-line no-unused-vars
+  VideoConstraintsPreferrer,  // eslint-disable-line no-unused-vars
 } from '../device/constraints_preferrer.js';
 // eslint-disable-next-line no-unused-vars
 import {DeviceInfoUpdater} from '../device/device_info_updater.js';
@@ -19,12 +21,17 @@ import {PerfLogger} from '../perf.js';
 import * as sound from '../sound.js';
 import * as state from '../state.js';
 import * as toast from '../toast.js';
-import {Mode} from '../type.js';
+import {
+  Facing,
+  Mode,
+} from '../type.js';
 import * as util from '../util.js';
+
 import {Layout} from './camera/layout.js';
-import {Modes,
-        PhotoResult,  // eslint-disable-line no-unused-vars
-        VideoResult,  // eslint-disable-line no-unused-vars
+import {
+  Modes,
+  PhotoResult,  // eslint-disable-line no-unused-vars
+  VideoResult,  // eslint-disable-line no-unused-vars
 } from './camera/modes.js';
 import {Options} from './camera/options.js';
 import {Preview} from './camera/preview.js';
@@ -132,10 +139,10 @@ export class Camera extends View {
         this.doSaveVideo_.bind(this), playShutterEffect);
 
     /**
-     * @type {?string}
+     * @type {!Facing}
      * @protected
      */
-    this.facingMode_ = null;
+    this.facingMode_ = Facing.UNKNOWN;
 
     /**
      * @type {boolean}
@@ -174,8 +181,8 @@ export class Camera extends View {
         .forEach((btn) => btn.addEventListener('click', () => this.endTake_()));
 
     // Monitor the states to stop camera when locked/minimized.
-    chrome.idle.onStateChanged.addListener((newState) => {
-      this.locked_ = (newState === 'locked');
+    ChromeHelper.getInstance().addOnLockListener((isLocked) => {
+      this.locked_ = isLocked;
       if (this.locked_) {
         this.start();
       }
@@ -256,7 +263,8 @@ export class Camera extends View {
         console.error(e);
       } finally {
         this.take_ = null;
-        state.set(state.State.TAKING, false, {hasError});
+        state.set(
+            state.State.TAKING, false, {hasError, facing: this.facingMode_});
         this.focus();  // Refocus the visible shutter button for ChromeVox.
       }
     })();
@@ -344,6 +352,7 @@ export class Camera extends View {
         return false;
       }
     }
+    state.set(state.State.CAMERA_CONFIGURING, true);
     this.configuring_ = (async () => {
       try {
         if (state.get(state.State.TAKING)) {
@@ -398,7 +407,8 @@ export class Camera extends View {
           await this.preview_.start(stream);
           this.facingMode_ = await this.options_.updateValues(stream);
           await this.modes_.updateModeSelectionUI(deviceId);
-          await this.modes_.updateMode(mode, stream, deviceId, captureR);
+          await this.modes_.updateMode(
+              mode, stream, this.facingMode_, deviceId, captureR);
           nav.close(ViewName.WARNING, 'no-camera');
           return true;
         } catch (e) {
@@ -450,7 +460,7 @@ export class Camera extends View {
               this.activeDeviceId_ = currentId;
               const info = await this.infoUpdater_.getDeviceInfo(currentId);
               if (info !== null) {
-                toast.speak(chrome.i18n.getMessage(
+                toast.speak(browserProxy.getI18nMessage(
                     'status_msg_camera_switched', info.label));
               }
               return;
@@ -460,6 +470,7 @@ export class Camera extends View {
         throw new CameraSuspendedError();
       });
       this.configuring_ = null;
+      state.set(state.State.CAMERA_CONFIGURING, false);
 
       return true;
     } catch (error) {

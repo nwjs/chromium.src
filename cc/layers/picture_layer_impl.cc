@@ -683,13 +683,24 @@ void PictureLayerImpl::UpdateRasterSource(
 
     // If the MSAA sample count has changed, we need to re-raster the complete
     // layer.
-    if (raster_source_ && raster_source_->GetDisplayItemList() &&
-        raster_source->GetDisplayItemList() &&
-        layer_tree_impl()->GetMSAASampleCountForRaster(
-            raster_source_->GetDisplayItemList()) !=
+    if (raster_source_) {
+      const auto& current_display_item_list =
+          raster_source_->GetDisplayItemList();
+      const auto& new_display_item_list = raster_source->GetDisplayItemList();
+      if (current_display_item_list && new_display_item_list) {
+        bool needs_full_invalidation =
             layer_tree_impl()->GetMSAASampleCountForRaster(
-                raster_source->GetDisplayItemList())) {
-      new_invalidation->Union(gfx::Rect(raster_source->GetSize()));
+                current_display_item_list) !=
+            layer_tree_impl()->GetMSAASampleCountForRaster(
+                new_display_item_list);
+        needs_full_invalidation |=
+            current_display_item_list->discardable_image_map()
+                .contains_only_srgb_images() !=
+            new_display_item_list->discardable_image_map()
+                .contains_only_srgb_images();
+        if (needs_full_invalidation)
+          new_invalidation->Union(gfx::Rect(raster_source->GetSize()));
+      }
     }
   }
 
@@ -1702,25 +1713,19 @@ void PictureLayerImpl::InvalidatePaintWorklets(
   }
 }
 
-std::unique_ptr<base::DictionaryValue> PictureLayerImpl::LayerAsJson() const {
-  auto result = LayerImpl::LayerAsJson();
-  auto dictionary = std::make_unique<base::DictionaryValue>();
-  if (raster_source_) {
-    dictionary->SetBoolean("IsSolidColor", raster_source_->IsSolidColor());
-    auto list = std::make_unique<base::ListValue>();
-    list->AppendInteger(raster_source_->GetSize().width());
-    list->AppendInteger(raster_source_->GetSize().height());
-    dictionary->Set("Size", std::move(list));
-    dictionary->SetBoolean("HasRecordings", raster_source_->HasRecordings());
-
-    const auto& display_list = raster_source_->GetDisplayItemList();
-    size_t op_count = display_list ? display_list->TotalOpCount() : 0;
-    size_t bytes_used = display_list ? display_list->BytesUsed() : 0;
-    dictionary->SetInteger("OpCount", op_count);
-    dictionary->SetInteger("BytesUsed", bytes_used);
+gfx::ContentColorUsage PictureLayerImpl::GetContentColorUsage() const {
+  auto display_item_list = raster_source_->GetDisplayItemList();
+  bool contains_only_srgb_images = true;
+  if (display_item_list) {
+    contains_only_srgb_images =
+        display_item_list->discardable_image_map().contains_only_srgb_images();
   }
-  result->Set("RasterSource", std::move(dictionary));
-  return result;
+
+  if (contains_only_srgb_images)
+    return gfx::ContentColorUsage::kSRGB;
+
+  // TODO(cblume) This assumes only wide color gamut and not HDR
+  return gfx::ContentColorUsage::kWideColorGamut;
 }
 
 }  // namespace cc

@@ -213,7 +213,7 @@ RTCDataChannel::RTCDataChannel(
     ExecutionContext* context,
     scoped_refptr<webrtc::DataChannelInterface> channel,
     RTCPeerConnectionHandlerPlatform* peer_connection_handler)
-    : ContextLifecycleObserver(context),
+    : ExecutionContextLifecycleObserver(context),
       state_(webrtc::DataChannelInterface::kConnecting),
       binary_type_(kBinaryTypeArrayBuffer),
       scheduled_event_timer_(context->GetTaskRunner(TaskType::kNetworking),
@@ -268,6 +268,20 @@ bool RTCDataChannel::ordered() const {
   return channel()->ordered();
 }
 
+base::Optional<uint16_t> RTCDataChannel::maxPacketLifeTime() const {
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  if (channel()->maxPacketLifeTime())
+    return *channel()->maxPacketLifeTime();
+  return base::nullopt;
+}
+
+base::Optional<uint16_t> RTCDataChannel::maxRetransmits() const {
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  if (channel()->maxRetransmitsOpt())
+    return *channel()->maxRetransmitsOpt();
+  return base::nullopt;
+}
+
 uint16_t RTCDataChannel::maxPacketLifeTime(bool& is_null) const {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   if (channel()->maxPacketLifeTime()) {
@@ -296,6 +310,13 @@ String RTCDataChannel::protocol() const {
 bool RTCDataChannel::negotiated() const {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   return channel()->negotiated();
+}
+
+base::Optional<uint16_t> RTCDataChannel::id() const {
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  if (channel()->id() == -1)
+    return base::nullopt;
+  return channel()->id();
 }
 
 uint16_t RTCDataChannel::id(bool& is_null) const {
@@ -445,10 +466,10 @@ const AtomicString& RTCDataChannel::InterfaceName() const {
 }
 
 ExecutionContext* RTCDataChannel::GetExecutionContext() const {
-  return ContextLifecycleObserver::GetExecutionContext();
+  return ExecutionContextLifecycleObserver::GetExecutionContext();
 }
 
-void RTCDataChannel::ContextDestroyed(ExecutionContext*) {
+void RTCDataChannel::ContextDestroyed() {
   Dispose();
   stopped_ = true;
   state_ = webrtc::DataChannelInterface::kClosed;
@@ -496,7 +517,7 @@ bool RTCDataChannel::HasPendingActivity() const {
 void RTCDataChannel::Trace(Visitor* visitor) {
   visitor->Trace(scheduled_events_);
   EventTargetWithInlineData::Trace(visitor);
-  ContextLifecycleObserver::Trace(visitor);
+  ExecutionContextLifecycleObserver::Trace(visitor);
 }
 
 void RTCDataChannel::OnStateChange(

@@ -59,6 +59,7 @@ class NigoriModelTypeProcessor : public ModelTypeProcessor,
   bool IsTrackingMetadata() override;
 
   bool IsConnectedForTest() const;
+  const sync_pb::ModelTypeState& GetModelTypeStateForTest();
 
  private:
   // Returns true if the handshake with sync thread is complete.
@@ -69,6 +70,11 @@ class NigoriModelTypeProcessor : public ModelTypeProcessor,
 
   // Nudges worker if there are any local changes to be committed.
   void NudgeForCommitIfNeeded() const;
+
+  // Clears all metadata and directs the bridge to clear the persisted metadata
+  // as well. In addition, it resets the state of the processor and clears
+  // tracking |entity_|.
+  void ClearMetadataAndReset();
 
   // The bridge owns this processor instance so the pointer should never become
   // invalid.

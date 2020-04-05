@@ -28,6 +28,7 @@
 #include "storage/browser/file_system/file_system_operation_context.h"
 #include "storage/browser/file_system/file_system_operation_runner.h"
 #include "storage/common/file_system/file_system_util.h"
+#include "url/origin.h"
 
 using storage::FileSystemContext;
 using storage::FileSystemFileUtil;
@@ -94,7 +95,8 @@ void LocalFileSyncContext::MaybeInitializeFileSystemContext(
       FROM_HERE,
       base::BindOnce(&storage::SandboxFileSystemBackendDelegate::OpenFileSystem,
                      base::Unretained(file_system_context->sandbox_delegate()),
-                     source_url, storage::kFileSystemTypeSyncable,
+                     url::Origin::Create(source_url),
+                     storage::kFileSystemTypeSyncable,
                      storage::OPEN_FILE_SYSTEM_CREATE_IF_NONEXISTENT,
                      std::move(open_filesystem_callback), GURL()));
 }
@@ -379,7 +381,7 @@ void LocalFileSyncContext::DidRemoveExistingEntryForRemoteAddOrUpdate(
             local_path, url_for_sync, std::move(operation_callback));
       } else {
         FileSystemURL dir_url = file_system_context->CreateCrackedFileSystemURL(
-            url_for_sync.origin().GetURL(), url_for_sync.mount_type(),
+            url_for_sync.origin(), url_for_sync.mount_type(),
             storage::VirtualPath::DirName(url_for_sync.virtual_path()));
         file_system_context->operation_runner()->CreateDirectory(
             dir_url, false /* exclusive */, true /* recursive */,

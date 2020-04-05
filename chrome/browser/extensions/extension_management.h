@@ -181,6 +181,9 @@ class ExtensionManagement : public KeyedService {
   bool CheckMinimumVersion(const Extension* extension,
                            std::string* required_version) const;
 
+  // Returns whether the profile associated with this instance is supervised.
+  bool is_child() const { return is_child_; }
+
  private:
   using SettingsIdMap =
       std::unordered_map<ExtensionId,
@@ -212,12 +215,6 @@ class ExtensionManagement : public KeyedService {
 
   // Helper to update |extension_dict| for forced installs.
   void UpdateForcedExtensions(const base::DictionaryValue* extension_dict);
-
-  // Helper to update |settings_by_id_| for forced cloud reporting extension.
-  void UpdateForcedCloudReportingExtension();
-
-  // Returns true if cloud reporting policy is enabled.
-  bool IsCloudReportingPolicyEnabled() const;
 
   // Helper function to access |settings_by_id_| with |id| as key.
   // Adds a new IndividualSettings entry to |settings_by_id_| if none exists for
@@ -252,9 +249,11 @@ class ExtensionManagement : public KeyedService {
   Profile* const profile_ = nullptr;
   PrefService* pref_service_ = nullptr;
   bool is_signin_profile_ = false;
+  bool is_child_ = false;
 
   base::ObserverList<Observer, true>::Unchecked observer_list_;
   PrefChangeRegistrar pref_change_registrar_;
+  PrefChangeRegistrar local_state_pref_change_registrar_;
   std::vector<std::unique_ptr<ManagementPolicy::Provider>> providers_;
 
   DISALLOW_COPY_AND_ASSIGN(ExtensionManagement);

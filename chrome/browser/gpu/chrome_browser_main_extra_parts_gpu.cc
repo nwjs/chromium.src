@@ -16,7 +16,7 @@ const char kGL[] = "GL";
 const char kVulkan[] = "Vulkan";
 }  // namespace
 
-ChromeBrowserMainExtraPartsGpu::ChromeBrowserMainExtraPartsGpu() {}
+ChromeBrowserMainExtraPartsGpu::ChromeBrowserMainExtraPartsGpu() = default;
 
 ChromeBrowserMainExtraPartsGpu::~ChromeBrowserMainExtraPartsGpu() {
   if (features::IsUsingSkiaRenderer())
@@ -30,12 +30,17 @@ void ChromeBrowserMainExtraPartsGpu::PostEarlyInitialization() {
 
 void ChromeBrowserMainExtraPartsGpu::OnGpuInfoUpdate() {
   DCHECK(features::IsUsingSkiaRenderer());
-  ChromeMetricsServiceAccessor::RegisterSyntheticFieldTrial(
-      kTrialName, GetSkiaBackendName());
+  const auto* backend_name = GetSkiaBackendName();
+  if (backend_name) {
+    ChromeMetricsServiceAccessor::RegisterSyntheticFieldTrial(
+        kTrialName, GetSkiaBackendName());
+  }
 }
 
 const char* ChromeBrowserMainExtraPartsGpu::GetSkiaBackendName() const {
   auto* manager = content::GpuDataManager::GetInstance();
+  if (!manager->IsEssentialGpuInfoAvailable())
+    return nullptr;
   if (manager->GetFeatureStatus(gpu::GpuFeatureType::GPU_FEATURE_TYPE_VULKAN) ==
       gpu::GpuFeatureStatus::kGpuFeatureStatusEnabled) {
     return kVulkan;

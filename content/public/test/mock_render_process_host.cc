@@ -451,20 +451,21 @@ void MockRenderProcessHost::LockToOrigin(
 }
 
 void MockRenderProcessHost::BindCacheStorage(
-    network::mojom::CrossOriginEmbedderPolicy,
+    const network::CrossOriginEmbedderPolicy&,
+    mojo::PendingRemote<network::mojom::CrossOriginEmbedderPolicyReporter>,
     const url::Origin& origin,
     mojo::PendingReceiver<blink::mojom::CacheStorage> receiver) {
   cache_storage_receiver_ = std::move(receiver);
 }
 
 void MockRenderProcessHost::BindIndexedDB(
-    int render_frame_id,
     const url::Origin& origin,
     mojo::PendingReceiver<blink::mojom::IDBFactory> receiver) {
   idb_factory_receiver_ = std::move(receiver);
 }
 
-void MockRenderProcessHost::CleanupCorbExceptionForPluginUponDestruction() {}
+void MockRenderProcessHost::
+    CleanupNetworkServicePluginExceptionsUponDestruction() {}
 
 void MockRenderProcessHost::FilterURL(bool empty_allowed, GURL* url) {
   RenderProcessHostImpl::FilterURL(this, empty_allowed, url);

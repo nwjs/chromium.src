@@ -33,6 +33,7 @@
 #include "third_party/blink/renderer/platform/bindings/exception_messages.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/heap/heap.h"
+#include "third_party/blink/renderer/platform/instrumentation/tracing/trace_event.h"
 #include "third_party/blink/renderer/platform/peerconnection/rtc_peer_connection_handler_platform.h"
 #include "third_party/blink/renderer/platform/wtf/uuid.h"
 
@@ -80,6 +81,9 @@ MediaStreamAudioDestinationHandler::~MediaStreamAudioDestinationHandler() {
 }
 
 void MediaStreamAudioDestinationHandler::Process(uint32_t number_of_frames) {
+  TRACE_EVENT0(TRACE_DISABLED_BY_DEFAULT("webaudio.audionode"),
+               "MediaStreamAudioDestinationHandler::Process");
+
   // Conform the input bus into the internal mix bus, which represents
   // MediaStreamDestination's channel count.
 
@@ -206,6 +210,11 @@ MediaStreamAudioDestinationNode* MediaStreamAudioDestinationNode::Create(
     uint32_t number_of_channels,
     ExceptionState& exception_state) {
   DCHECK(IsMainThread());
+
+  // TODO(crbug.com/1055983): Remove this when the execution context validity
+  // check is not required in the AudioNode factory methods.
+  if (!context.CheckExecutionContextAndThrowIfNecessary(exception_state))
+    return nullptr;
 
   return MakeGarbageCollected<MediaStreamAudioDestinationNode>(
       context, number_of_channels);

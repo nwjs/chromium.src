@@ -33,7 +33,11 @@ StyleRuleCSSStyleDeclaration::StyleRuleCSSStyleDeclaration(
     CSSRule* parent_rule)
     : PropertySetCSSStyleDeclaration(
           const_cast<Document*>(CSSStyleSheet::SingleOwnerDocument(
-              parent_rule->parentStyleSheet())),
+              parent_rule->parentStyleSheet()))
+              ? const_cast<Document*>(CSSStyleSheet::SingleOwnerDocument(
+                                          parent_rule->parentStyleSheet()))
+                    ->GetExecutionContext()
+              : nullptr,
           property_set_arg),
       parent_rule_(parent_rule) {}
 
@@ -60,7 +64,7 @@ void StyleRuleCSSStyleDeclaration::Reattach(
   property_set_ = &property_set;
 }
 
-void StyleRuleCSSStyleDeclaration::Trace(blink::Visitor* visitor) {
+void StyleRuleCSSStyleDeclaration::Trace(Visitor* visitor) {
   visitor->Trace(parent_rule_);
   PropertySetCSSStyleDeclaration::Trace(visitor);
 }

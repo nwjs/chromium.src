@@ -10,6 +10,7 @@
 #include "base/callback.h"
 #include "base/task/post_task.h"
 #include "base/task/task_traits.h"
+#include "base/task/thread_pool.h"
 #include "base/values.h"
 #include "components/policy/core/common/configuration_policy_provider.h"
 #include "components/policy/core/common/extension_policy_migrator.h"
@@ -137,7 +138,6 @@ void PolicyTestBase::SetUp() {
 
 void PolicyTestBase::TearDown() {
   task_environment_.RunUntilIdle();
-  ConfigurationPolicyProvider::SetMigrators({});
 }
 
 bool PolicyTestBase::RegisterSchema(const PolicyNamespace& ns,
@@ -206,7 +206,7 @@ void ConfigurationPolicyProviderTest::SetUp() {
 
   provider_.reset(test_harness_->CreateProvider(
       &schema_registry_,
-      base::CreateSequencedTaskRunner({base::ThreadPool(), base::MayBlock()})));
+      base::ThreadPool::CreateSequencedTaskRunner({base::MayBlock()})));
   provider_->Init(&schema_registry_);
   // Some providers do a reload on init. Make sure any notifications generated
   // are fired now.
@@ -343,21 +343,6 @@ TEST_P(ConfigurationPolicyProviderTest, RefreshPolicies) {
            std::make_unique<base::Value>("value"), nullptr);
   EXPECT_TRUE(provider_->policies().Equals(bundle));
   provider_->RemoveObserver(&observer);
-}
-
-class MockPolicyMigrator : public ExtensionPolicyMigrator {
- public:
-  MOCK_METHOD1(Migrate, void(PolicyBundle* bundle));
-};
-
-TEST_P(ConfigurationPolicyProviderTest, AddMigrator) {
-  auto migrator = std::make_unique<MockPolicyMigrator>();
-  EXPECT_CALL(*migrator, Migrate(_));
-  std::vector<std::unique_ptr<ExtensionPolicyMigrator>> migrators;
-  migrators.emplace_back(std::move(migrator));
-  ConfigurationPolicyProvider::SetMigrators(std::move(migrators));
-  provider_->RefreshPolicies();
-  task_environment_.RunUntilIdle();
 }
 
 Configuration3rdPartyPolicyProviderTest::

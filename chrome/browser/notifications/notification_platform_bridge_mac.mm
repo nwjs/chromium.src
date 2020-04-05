@@ -37,7 +37,7 @@
 #import "chrome/browser/ui/cocoa/notifications/notification_response_builder_mac.h"
 #include "chrome/common/buildflags.h"
 #include "chrome/grit/generated_resources.h"
-#include "components/crash/content/app/crashpad.h"
+#include "components/crash/core/app/crashpad.h"
 #include "components/url_formatter/elide_url.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
@@ -114,7 +114,10 @@ void RecordXPCEvent(XPCConnectionEvent event) {
 base::string16 CreateNotificationTitle(
     const message_center::Notification& notification) {
   base::string16 title;
-  if (notification.type() == message_center::NOTIFICATION_TYPE_PROGRESS) {
+  // Show progress percentage if available. We don't support indeterminate
+  // states on macOS native notifications.
+  if (notification.type() == message_center::NOTIFICATION_TYPE_PROGRESS &&
+      notification.progress() >= 0 && notification.progress() <= 100) {
     title += base::FormatPercent(notification.progress());
     title += base::UTF8ToUTF16(" - ");
   }

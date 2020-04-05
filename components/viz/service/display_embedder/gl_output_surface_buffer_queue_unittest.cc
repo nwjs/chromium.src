@@ -54,8 +54,6 @@ class MockBufferQueue : public BufferQueue {
  public:
   MockBufferQueue()
       : BufferQueue(/*sii_=*/nullptr,
-                    /*buffer_format=*/gfx::BufferFormat::RGBA_8888,
-                    /*gpu_memory_buffer_manager=*/nullptr,
                     gpu::kNullSurfaceHandle) {}
   ~MockBufferQueue() override = default;
 
@@ -64,7 +62,10 @@ class MockBufferQueue : public BufferQueue {
   MOCK_METHOD1(SwapBuffers, void(const gfx::Rect&));
   MOCK_METHOD0(PageFlipComplete, void());
   MOCK_METHOD0(FreeAllSurfaces, void());
-  MOCK_METHOD2(Reshape, bool(const gfx::Size&, const gfx::ColorSpace&));
+  MOCK_METHOD3(Reshape,
+               bool(const gfx::Size&,
+                    const gfx::ColorSpace&,
+                    gfx::BufferFormat));
 
   MOCK_METHOD0(DoSetSyncTokenProvider, void());
   void SetSyncTokenProvider(SyncTokenProvider* sync_token_provider) override {
@@ -244,7 +245,7 @@ TEST_F(GLOutputSurfaceBufferQueueTest, HandleSwapNAK) {
   {
     InSequence dummy_sequence;
 
-    EXPECT_CALL(*buffer_queue_, Reshape(_, _)).WillOnce(Return(true));
+    EXPECT_CALL(*buffer_queue_, Reshape(_, _, _)).WillOnce(Return(true));
     EXPECT_CALL(*gles2_interface_, BindFramebuffer(_, Ne(0u)));
 
     // The call to |surface_|->BindFramebuffer() should result in binding the GL
@@ -291,7 +292,7 @@ TEST_F(GLOutputSurfaceBufferQueueTest, HandleSwapNAK) {
   }
 
   surface_->Reshape(kBufferSize, /*device_scale_factor=*/1.0,
-                    gfx::ColorSpace::CreateSRGB(), /*use_alpha=*/true,
+                    gfx::ColorSpace::CreateSRGB(), gfx::BufferFormat::BGRA_8888,
                     /*use_stencil=*/true);
   surface_->BindFramebuffer();
   OutputSurfaceFrame frame;

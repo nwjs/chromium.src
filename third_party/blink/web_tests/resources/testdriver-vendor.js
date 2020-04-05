@@ -97,29 +97,30 @@
           eventSender.mouseUp();
           return;
       }
-      if (keys.length > 1)
-        reject(new Error("No support for a sequence of multiple keys"));
-      let eventSenderKeys = keys;
-      let charCode = keys.charCodeAt(0);
-      // See https://w3c.github.io/webdriver/#keyboard-actions and
-      // EventSender::KeyDown().
-      if (charCode == 0xE004) {
-        eventSenderKeys = "Tab";
-      } else if (charCode == 0xE050) {
-        eventSenderKeys = "ShiftRight";
-      } else if (charCode == 0xE012) {
-        eventSenderKeys = "ArrowLeft";
-      } else if (charCode == 0xE013) {
-        eventSenderKeys = "ArrowUp";
-      } else if (charCode == 0xE014) {
-        eventSenderKeys = "ArrowRight";
-      } else if (charCode == 0xE015) {
-        eventSenderKeys = "ArrowDown";
-      } else if (charCode >= 0xE000 && charCode <= 0xF8FF) {
-        reject(new Error("No support for this code: U+" + charCode.toString(16)));
-      }
       window.requestAnimationFrame(() => {
-        window.eventSender.keyDown(eventSenderKeys);
+        for(var i = 0; i < keys.length; ++i) {
+          let eventSenderKeys = keys[i];
+          let charCode = keys.charCodeAt(i);
+          // See https://w3c.github.io/webdriver/#keyboard-actions and
+          // EventSender::KeyDown().
+          if (charCode == 0xE004) {
+            eventSenderKeys = "Tab";
+          } else if (charCode == 0xE050) {
+            eventSenderKeys = "ShiftRight";
+          } else if (charCode == 0xE012) {
+            eventSenderKeys = "ArrowLeft";
+          } else if (charCode == 0xE013) {
+            eventSenderKeys = "ArrowUp";
+          } else if (charCode == 0xE014) {
+            eventSenderKeys = "ArrowRight";
+          } else if (charCode == 0xE015) {
+            eventSenderKeys = "ArrowDown";
+          } else if (charCode >= 0xE000 && charCode <= 0xF8FF) {
+            reject(new Error("No support for this code: U+" + charCode.toString(16)));
+            return;
+          }
+          window.eventSender.keyDown(eventSenderKeys);
+        }
         resolve();
       });
     });
@@ -132,6 +133,17 @@
         resolve();
       } else {
         reject(new Error("GPU benchmarking is not enabled."));
+      }
+    });
+  };
+
+  window.test_driver_internal.generate_test_report = function(message) {
+    return new Promise(function(resolve, reject) {
+      if (internals) {
+        internals.generateTestReport(message);
+        resolve();
+      } else {
+        reject(new Error("window.internals not enabled."));
       }
     });
   };
@@ -255,8 +267,8 @@
     }))).then(() => {
       virtualAuthenticatorManager_ = new blink.test.mojom.VirtualAuthenticatorManagerRemote;
       Mojo.bindInterface(
-        blink.test.mojom.VirtualAuthenticatorManager.$interfaceName,
-        virtualAuthenticatorManager_.$.bindNewPipeAndPassReceiver().handle, "context", true);
+          blink.test.mojom.VirtualAuthenticatorManager.$interfaceName,
+          virtualAuthenticatorManager_.$.bindNewPipeAndPassReceiver().handle);
       return virtualAuthenticatorManager_;
     });
   }
@@ -322,6 +334,7 @@
     }
     mojoOptions.hasResidentKey = options.hasResidentKey;
     mojoOptions.hasUserVerification = options.hasUserVerification;
+    mojoOptions.isUserPresent = options.isUserConsenting;
 
     let authenticator = (await manager.createAuthenticator(mojoOptions)).authenticator;
     return (await authenticator.getUniqueId()).id;
@@ -394,8 +407,7 @@
     // TODO(https://crbug.com/977612): Chromium currently lacks support for
     // |permission_params.one_realm| and will always consider it is set to false.
     return internals.setPermission(permission_params.descriptor,
-                                   permission_params.state,
-                                   location.origin, location.origin);
+                                   permission_params.state);
   }
 
   // Enable automation so we don't wait for user input on unimplemented APIs

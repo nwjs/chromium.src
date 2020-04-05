@@ -9,8 +9,11 @@
 <translation id="2148716181193084225">Astăzi</translation>
 <translation id="2359808026110333948">Continuă</translation>
 <translation id="2501278716633472235">Înapoi</translation>
+<translation id="2569468611847789653">{COOKIE_COUNT,plural, =1{Un cookie blocat}few{# cookie-uri blocate}other{# de cookie-uri blocate}}</translation>
+<translation id="257931822824936280">Afișare extinsă – dă clic pentru a restrânge.</translation>
 <translation id="2653659639078652383">Trimite</translation>
 <translation id="2704606927547763573">Copiat</translation>
+<translation id="2968755619301702150">Vizualizator de certificate</translation>
 <translation id="3115898365077584848">Afișează informațiile</translation>
 <translation id="3295602654194328831">Ascunde informațiile</translation>
 <translation id="3479552764303398839">Nu acum</translation>
@@ -18,10 +21,14 @@
 <translation id="3987993985790029246">Copiază linkul</translation>
 <translation id="4002066346123236978">Titlu</translation>
 <translation id="4570913071927164677">Detalii</translation>
+<translation id="4645575059429386691">Gestionat de părintele tău</translation>
+<translation id="4883854917563148705">Setările gestionate nu pot fi resetate</translation>
 <translation id="497421865427891073">Înainte</translation>
+<translation id="5100237604440890931">Afișare restrânsă – dă clic pentru a extinde.</translation>
 <translation id="5300589172476337783">Afișează</translation>
 <translation id="5301954838959518834">OK, am înțeles</translation>
 <translation id="5317780077021120954">Salvează</translation>
+<translation id="5391532827096253100">Conexiunea la acest site nu este sigură. Informații despre site</translation>
 <translation id="5556459405103347317">Reîncarcă</translation>
 <translation id="5596627076506792578">Mai multe opțiuni</translation>
 <translation id="5860033963881614850">Dezactivat</translation>
@@ -30,12 +37,14 @@
 <translation id="6040143037577758943">Închide</translation>
 <translation id="6042308850641462728">Mai multe</translation>
 <translation id="6165508094623778733">Află mai multe</translation>
+<translation id="6206551242102657620">Conexiunea este sigură. Informații despre site</translation>
 <translation id="6216432067784365534">Opțiuni pentru <ph name="NAME_OF_LIST_ITEM" /></translation>
 <translation id="6527303717912515753">Trimite</translation>
 <translation id="6746124502594467657">Mutați în jos</translation>
 <translation id="6818926723028410516">Selectează elementele</translation>
 <translation id="6910211073230771657">Șters</translation>
 <translation id="6945221475159498467">Selectează</translation>
+<translation id="6963642900430330478">Această pagină este periculoasă. Informații despre site</translation>
 <translation id="6965382102122355670">OK</translation>
 <translation id="7066151586745993502">{NUM_SELECTED,plural, =1{1 selectat}few{# selectate}other{# selectate}}</translation>
 <translation id="7087918508125750058"><ph name="ITEM_COUNT" /> selectate.  Opțiunile sunt disponibile în partea de sus a ecranului</translation>
@@ -47,10 +56,12 @@
 <translation id="780301667611848630">Nu, mulțumesc</translation>
 <translation id="7846076177841592234">Anulează selecția</translation>
 <translation id="8131740175452115882">Confirmați</translation>
+<translation id="8206354486702514201">Această setare este impusă de administratorul dvs.</translation>
 <translation id="8249310407154411074">Mută la început</translation>
 <translation id="8261506727792406068">Șterge</translation>
 <translation id="8609465669617005112">Mutați mai sus</translation>
 <translation id="8676374126336081632">Șterge textul introdus</translation>
 <translation id="8725066075913043281">Încearcă din nou</translation>
 <translation id="8730621377337864115">Terminat</translation>
+<translation id="9019902583201351841">Gestionat de părinții tăi</translation>
 </translationbundle>

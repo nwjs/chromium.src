@@ -4,6 +4,10 @@
 
 #include "components/viz/common/quads/render_pass_io.h"
 
+#include <string>
+#include <utility>
+#include <vector>
+
 #include "base/base64.h"
 #include "base/bit_cast.h"
 #include "base/containers/span.h"
@@ -1050,6 +1054,8 @@ void RenderPassDrawQuadToDict(const RenderPassDrawQuad* draw_quad,
                      draw_quad->backdrop_filter_quality);
   dict->SetBoolKey("force_anti_aliasing_off",
                    draw_quad->force_anti_aliasing_off);
+  dict->SetBoolKey("can_use_backdrop_filter_cache",
+                   draw_quad->can_use_backdrop_filter_cache);
   DCHECK_GE(1u, draw_quad->resources.count);
 }
 
@@ -1068,10 +1074,9 @@ void StreamVideoDrawQuadToDict(const StreamVideoDrawQuad* draw_quad,
   DCHECK(dict);
   dict->SetKey("uv_top_left", PointFToDict(draw_quad->uv_top_left));
   dict->SetKey("uv_bottom_right", PointFToDict(draw_quad->uv_bottom_right));
-  const size_t kIndex = StreamVideoDrawQuad::kResourceIdIndex;
   DCHECK_EQ(1u, draw_quad->resources.count);
   dict->SetKey("overlay_resource_size_in_pixels",
-               SizeToDict(draw_quad->overlay_resources.size_in_pixels[kIndex]));
+               SizeToDict(draw_quad->overlay_resources.size_in_pixels));
 }
 
 #define MAP_VIDEO_TYPE_TO_STRING(NAME) \
@@ -1117,9 +1122,8 @@ void TextureDrawQuadToDict(const TextureDrawQuad* draw_quad,
       "protected_video_type",
       ProtectedVideoTypeToString(draw_quad->protected_video_type));
   DCHECK_EQ(1u, draw_quad->resources.count);
-  const size_t kIndex = TextureDrawQuad::kResourceIdIndex;
   dict->SetKey("resource_size_in_pixels",
-               SizeToDict(draw_quad->overlay_resources.size_in_pixels[kIndex]));
+               SizeToDict(draw_quad->overlay_resources.size_in_pixels));
 }
 
 void TileDrawQuadToDict(const TileDrawQuad* draw_quad, base::Value* dict) {
@@ -1221,6 +1225,8 @@ bool RenderPassDrawQuadFromDict(const base::Value& dict,
       dict.FindDoubleKey("backdrop_filter_quality");
   base::Optional<bool> force_anti_aliasing_off =
       dict.FindBoolKey("force_anti_aliasing_off");
+  base::Optional<bool> can_use_backdrop_filter_cache =
+      dict.FindBoolKey("can_use_backdrop_filter_cache");
 
   if (!render_pass_id || !mask_uv_rect || !mask_texture_size ||
       !filters_scale || !filters_origin || !tex_coord_rect ||
@@ -1250,7 +1256,9 @@ bool RenderPassDrawQuadFromDict(const base::Value& dict,
       common.shared_quad_state, common.rect, common.visible_rect,
       common.needs_blending, t_render_pass_id, mask_resource_id, t_mask_uv_rect,
       t_mask_texture_size, t_filters_scale, t_filters_origin, t_tex_coord_rect,
-      force_anti_aliasing_off.value(), backdrop_filter_quality.value());
+      force_anti_aliasing_off.value(), backdrop_filter_quality.value(),
+      can_use_backdrop_filter_cache ? can_use_backdrop_filter_cache.value()
+                                    : false);
   return true;
 }
 
@@ -1772,7 +1780,11 @@ base::Value RenderPassToDict(const RenderPass& render_pass) {
                 RRectFToDict(render_pass.backdrop_filter_bounds.value()));
   }
   if (ProcessRenderPassField(kRenderPassColorSpace)) {
-    dict.SetKey("color_space", ColorSpaceToDict(render_pass.color_space));
+    // RenderPasses used to have a color space field, but this was removed in
+    // favor of color usage.
+    // https://crbug.com/1049334
+    gfx::ColorSpace render_pass_color_space = gfx::ColorSpace::CreateSRGB();
+    dict.SetKey("color_space", ColorSpaceToDict(render_pass_color_space));
   }
   if (ProcessRenderPassField(kRenderPassHasTransparentBackground)) {
     dict.SetBoolKey("has_transparent_background",
@@ -1875,7 +1887,11 @@ std::unique_ptr<RenderPass> RenderPassFromDict(const base::Value& dict) {
     if (!color_space)
       return nullptr;
 
-    if (!ColorSpaceFromDict(*color_space, &(pass->color_space)))
+    // RenderPasses used to have a color space field, but this was removed in
+    // favor of color usage.
+    // https://crbug.com/1049334
+    gfx::ColorSpace pass_color_space = gfx::ColorSpace::CreateSRGB();
+    if (!ColorSpaceFromDict(*color_space, &pass_color_space))
       return nullptr;
   }
 

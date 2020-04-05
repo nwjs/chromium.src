@@ -32,6 +32,7 @@
 #include "third_party/blink/renderer/core/timing/performance.h"
 
 #include <algorithm>
+
 #include "base/metrics/histogram_macros.h"
 #include "base/time/default_clock.h"
 #include "base/time/default_tick_clock.h"
@@ -40,7 +41,6 @@
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
 #include "third_party/blink/renderer/bindings/core/v8/string_or_performance_measure_options.h"
-#include "third_party/blink/renderer/bindings/core/v8/v8_measure_memory_options.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_object_builder.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_performance_mark_options.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_performance_measure_options.h"
@@ -68,6 +68,7 @@
 #include "third_party/blink/renderer/core/timing/profiler.h"
 #include "third_party/blink/renderer/core/timing/profiler_group.h"
 #include "third_party/blink/renderer/core/timing/time_clamper.h"
+#include "third_party/blink/renderer/platform/heap/heap.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_load_timing.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_response.h"
@@ -147,16 +148,36 @@ MemoryInfo* Performance::memory() const {
   return nullptr;
 }
 
+namespace {
+
+bool IsMeasureMemoryAvailable(ScriptState* script_state) {
+  // TODO(ulan): We should check for window.crossOriginIsolated when it ships.
+  // Until then we enable the API only for processes locked to a site
+  // similar to the precise mode of the legacy performance.memory API.
+  if (!Platform::Current()->IsLockedToSite()) {
+    return false;
+  }
+  // The window.crossOriginIsolated will be true only for the top-level frame.
+  // Until the flag is available we check for the top-level condition manually.
+  ExecutionContext* execution_context = ExecutionContext::From(script_state);
+  if (!execution_context->IsDocument()) {
+    return false;
+  }
+  LocalFrame* local_frame = Document::From(execution_context)->GetFrame();
+  if (!local_frame || !local_frame->IsMainFrame()) {
+    return false;
+  }
+  return true;
+}
+
+}  // anonymous namespace
+
 ScriptPromise Performance::measureMemory(
     ScriptState* script_state,
-    MeasureMemoryOptions* options,
     ExceptionState& exception_state) const {
-  if (!Platform::Current()->IsLockedToSite()) {
-    // TODO(ulan): We should check for COOP and COEP here when they ship.
-    // Until then we enable the API only for processes locked to a site
-    // similar to the precise mode of the legacy performance.memory API.
+  if (!IsMeasureMemoryAvailable(script_state)) {
     exception_state.ThrowSecurityError(
-        "Cannot measure memory for cross-origin frames");
+        "performance.measureMemory is not available in this context");
     return ScriptPromise();
   }
   v8::Isolate* isolate = script_state->GetIsolate();
@@ -167,11 +188,6 @@ ScriptPromise Performance::measureMemory(
     exception_state.RethrowV8Exception(try_catch.Exception());
     return ScriptPromise();
   }
-  v8::MeasureMemoryMode mode =
-      options && options->hasDetailed() && options->detailed()
-          ? v8::MeasureMemoryMode::kDetailed
-          : v8::MeasureMemoryMode::kSummary;
-
   v8::MeasureMemoryExecution execution =
       RuntimeEnabledFeatures::ForceEagerMeasureMemoryEnabled(
           ExecutionContext::From(script_state))
@@ -179,7 +195,7 @@ ScriptPromise Performance::measureMemory(
           : v8::MeasureMemoryExecution::kDefault;
 
   isolate->MeasureMemory(std::make_unique<MeasureMemoryDelegate>(
-                             isolate, context, promise_resolver, mode),
+                             isolate, context, promise_resolver),
                          execution);
   return ScriptPromise(script_state, promise_resolver->GetPromise());
 }
@@ -233,8 +249,9 @@ PerformanceEntryVector Performance::getEntriesByType(
     PerformanceEntryVector empty_entries;
     String message = "Deprecated API for given entry type.";
     GetExecutionContext()->AddConsoleMessage(
-        ConsoleMessage::Create(mojom::ConsoleMessageSource::kJavaScript,
-                               mojom::ConsoleMessageLevel::kWarning, message));
+        MakeGarbageCollected<ConsoleMessage>(
+            mojom::ConsoleMessageSource::kJavaScript,
+            mojom::ConsoleMessageLevel::kWarning, message));
     return empty_entries;
   }
   return getEntriesByTypeInternal(type);
@@ -320,8 +337,9 @@ PerformanceEntryVector Performance::getEntriesByName(
       !PerformanceEntry::IsValidTimelineEntryType(type)) {
     String message = "Deprecated API for given entry type.";
     GetExecutionContext()->AddConsoleMessage(
-        ConsoleMessage::Create(mojom::ConsoleMessageSource::kJavaScript,
-                               mojom::ConsoleMessageLevel::kWarning, message));
+        MakeGarbageCollected<ConsoleMessage>(
+            mojom::ConsoleMessageSource::kJavaScript,
+            mojom::ConsoleMessageLevel::kWarning, message));
     return entries;
   }
 
@@ -507,6 +525,7 @@ mojom::blink::ResourceTimingInfoPtr Performance::GenerateResourceTiming(
                        : nullptr;
   result->response_end = info.LoadResponseEnd();
   result->context_type = info.ContextType();
+  result->request_destination = info.RequestDestination();
 
   bool response_tainting_not_basic = false;
   bool tainted_origin_flag = false;
@@ -994,7 +1013,7 @@ void Performance::BuildJSONValue(V8ObjectBuilder& builder) const {
   // |memory| is not part of the spec, omitted.
 }
 
-void Performance::Trace(blink::Visitor* visitor) {
+void Performance::Trace(Visitor* visitor) {
   visitor->Trace(resource_timing_buffer_);
   visitor->Trace(resource_timing_secondary_buffer_);
   visitor->Trace(element_timing_buffer_);

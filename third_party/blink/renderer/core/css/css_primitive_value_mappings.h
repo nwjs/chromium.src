@@ -226,6 +226,9 @@ inline CSSIdentifierValue::CSSIdentifierValue(ControlPart e)
     case kNoControlPart:
       value_id_ = CSSValueID::kNone;
       break;
+    case kAutoPart:
+      value_id_ = CSSValueID::kAuto;
+      break;
     case kCheckboxPart:
       value_id_ = CSSValueID::kCheckbox;
       break;
@@ -305,8 +308,10 @@ template <>
 inline ControlPart CSSIdentifierValue::ConvertTo() const {
   if (value_id_ == CSSValueID::kNone)
     return kNoControlPart;
+  if (value_id_ == CSSValueID::kAuto)
+    return kAutoPart;
   return ControlPart(static_cast<int>(value_id_) -
-                     static_cast<int>(CSSValueID::kCheckbox) + 1);
+                     static_cast<int>(CSSValueID::kCheckbox) + kCheckboxPart);
 }
 
 template <>
@@ -1757,16 +1762,16 @@ inline OverflowAlignment CSSIdentifierValue::ConvertTo() const {
 
 template <>
 inline CSSIdentifierValue::CSSIdentifierValue(
-    mojom::blink::ScrollIntoViewParams::Behavior behavior)
+    mojom::blink::ScrollBehavior behavior)
     : CSSValue(kIdentifierClass) {
   switch (behavior) {
-    case mojom::blink::ScrollIntoViewParams::Behavior::kAuto:
+    case mojom::blink::ScrollBehavior::kAuto:
       value_id_ = CSSValueID::kAuto;
       break;
-    case mojom::blink::ScrollIntoViewParams::Behavior::kSmooth:
+    case mojom::blink::ScrollBehavior::kSmooth:
       value_id_ = CSSValueID::kSmooth;
       break;
-    case mojom::blink::ScrollIntoViewParams::Behavior::kInstant:
+    case mojom::blink::ScrollBehavior::kInstant:
       // Behavior 'instant' is only allowed in ScrollOptions arguments passed to
       // CSSOM scroll APIs.
       NOTREACHED();
@@ -1774,18 +1779,17 @@ inline CSSIdentifierValue::CSSIdentifierValue(
 }
 
 template <>
-inline mojom::blink::ScrollIntoViewParams::Behavior
-CSSIdentifierValue::ConvertTo() const {
+inline mojom::blink::ScrollBehavior CSSIdentifierValue::ConvertTo() const {
   switch (GetValueID()) {
     case CSSValueID::kAuto:
-      return mojom::blink::ScrollIntoViewParams::Behavior::kAuto;
+      return mojom::blink::ScrollBehavior::kAuto;
     case CSSValueID::kSmooth:
-      return mojom::blink::ScrollIntoViewParams::Behavior::kSmooth;
+      return mojom::blink::ScrollBehavior::kSmooth;
     default:
       break;
   }
   NOTREACHED();
-  return mojom::blink::ScrollIntoViewParams::Behavior::kAuto;
+  return mojom::blink::ScrollBehavior::kAuto;
 }
 
 template <>
@@ -1953,6 +1957,9 @@ inline CSSIdentifierValue::CSSIdentifierValue(TextUnderlinePosition position)
     case kTextUnderlinePositionAuto:
       value_id_ = CSSValueID::kAuto;
       break;
+    case kTextUnderlinePositionFromFont:
+      value_id_ = CSSValueID::kFromFont;
+      break;
     case kTextUnderlinePositionUnder:
       value_id_ = CSSValueID::kUnder;
       break;
@@ -1970,6 +1977,8 @@ inline TextUnderlinePosition CSSIdentifierValue::ConvertTo() const {
   switch (GetValueID()) {
     case CSSValueID::kAuto:
       return kTextUnderlinePositionAuto;
+    case CSSValueID::kFromFont:
+      return kTextUnderlinePositionFromFont;
     case CSSValueID::kUnder:
       return kTextUnderlinePositionUnder;
     case CSSValueID::kLeft:

@@ -6,6 +6,7 @@
 #define THIRD_PARTY_BLINK_RENDERER_CORE_LAYOUT_NG_NG_BLOCK_LAYOUT_ALGORITHM_H_
 
 #include "base/memory/scoped_refptr.h"
+#include "base/optional.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/layout/ng/exclusions/ng_exclusion_space.h"
 #include "third_party/blink/renderer/core/layout/ng/geometry/ng_margin_strut.h"
@@ -17,6 +18,7 @@
 #include "third_party/blink/renderer/core/layout/ng/ng_layout_algorithm.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_layout_result.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_unpositioned_float.h"
+#include "third_party/blink/renderer/platform/geometry/layout_unit.h"
 
 namespace blink {
 
@@ -57,8 +59,8 @@ class CORE_EXPORT NGBlockLayoutAlgorithm
 
   void SetBoxType(NGPhysicalFragment::NGBoxType type);
 
-  base::Optional<MinMaxSize> ComputeMinMaxSize(
-      const MinMaxSizeInput&) const override;
+  base::Optional<MinMaxSizes> ComputeMinMaxSizes(
+      const MinMaxSizesInput&) const override;
   scoped_refptr<const NGLayoutResult> Layout() override;
 
  private:
@@ -74,10 +76,14 @@ class CORE_EXPORT NGBlockLayoutAlgorithm
   NOINLINE scoped_refptr<const NGLayoutResult> RelayoutAndBreakEarlier(
       const NGEarlyBreak&);
 
+  NOINLINE scoped_refptr<const NGLayoutResult>
+  RelayoutNoForcedTruncateForLineClamp();
+
   inline scoped_refptr<const NGLayoutResult> Layout(
       NGInlineChildLayoutContext* inline_child_layout_context);
 
-  scoped_refptr<const NGLayoutResult> FinishLayout(NGPreviousInflowPosition*);
+  scoped_refptr<const NGLayoutResult> FinishLayout(
+      NGPreviousInflowPosition* previous_inflow_position);
 
   // Return the BFC block offset of this block.
   LayoutUnit BfcBlockOffset() const {
@@ -383,6 +389,18 @@ class CORE_EXPORT NGBlockLayoutAlgorithm
   bool did_break_before_child_ = false;
 
   NGExclusionSpace exclusion_space_;
+
+  // If set, this is the number of lines until a clamp. A value of 1 indicates
+  // the current line should be clamped. This may go negative.
+  base::Optional<int> lines_until_clamp_;
+
+  // If true, truncation is forced at the clamped line regardless of whether
+  // there is more text.
+  bool force_truncate_at_line_clamp_ = true;
+
+  // If set, one of the lines was clamped and this is the intrinsic size at the
+  // time of the clamp.
+  base::Optional<LayoutUnit> intrinsic_block_size_when_clamped_;
 
   // When set, this will specify where to break before or inside.
   const NGEarlyBreak* early_break_ = nullptr;

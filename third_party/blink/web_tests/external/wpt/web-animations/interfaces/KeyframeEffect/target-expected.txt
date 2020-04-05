@@ -18,5 +18,10 @@ FAIL Change target from an existing to a different non-existing pseudo-element b
 FAIL Change target from an existing to a different non-existing pseudo-element by setting pseudoElement. assert_equals: Value of 2nd element (currently targeted) after changing the effect target expected "50px" but got "20px"
 FAIL Change target from a non-existing to a different non-existing pseudo-element by setting target. assert_equals: Value of 2nd element (currently targeted) after changing the effect target expected "50px" but got "20px"
 FAIL Change target from a non-existing to a different non-existing pseudo-element by setting pseudoElement. assert_equals: Value of 2nd element (currently targeted) after changing the effect target expected "50px" but got "20px"
+PASS Changing pseudoElement to a non-null invalid pseudo-selector '' throws a SyntaxError
+PASS Changing pseudoElement to a non-null invalid pseudo-selector 'before' throws a SyntaxError
+PASS Changing pseudoElement to a non-null invalid pseudo-selector ':abc' throws a SyntaxError
+FAIL Changing pseudoElement to a non-null invalid pseudo-selector '::abc' throws a SyntaxError assert_throws_dom: function "() => effect.pseudoElement = pseudo" did not throw
+FAIL Changing pseudoElement to a non-null invalid pseudo-selector '::placeholder' throws a SyntaxError assert_throws_dom: function "() => effect.pseudoElement = pseudo" did not throw
 Harness: the test ran to completion.
 

@@ -9,7 +9,7 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_command_controller.h"
 #include "chrome/browser/ui/views/autofill/payments/local_card_migration_icon_view.h"
-#include "chrome/browser/ui/views/autofill/payments/save_card_icon_view.h"
+#include "chrome/browser/ui/views/autofill/payments/save_payment_icon_view.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/chrome_typography.h"
 #include "chrome/browser/ui/views/page_action/page_action_icon_container.h"
@@ -54,10 +54,10 @@ ToolbarAccountIconContainerView::ToolbarAccountIconContainerView(
   page_action_icon_controller_ = std::make_unique<PageActionIconController>();
   page_action_icon_controller_->Init(params, this);
 
-  avatar_->SetProperty(views::kFlexBehaviorKey,
-                       views::FlexSpecification::ForSizeRule(
-                           views::MinimumFlexSizeRule::kScaleToMinimum,
-                           views::MaximumFlexSizeRule::kPreferred));
+  avatar_->SetProperty(
+      views::kFlexBehaviorKey,
+      views::FlexSpecification(views::MinimumFlexSizeRule::kScaleToMinimum,
+                               views::MaximumFlexSizeRule::kPreferred));
 }
 
 ToolbarAccountIconContainerView::~ToolbarAccountIconContainerView() = default;
@@ -94,15 +94,16 @@ ToolbarAccountIconContainerView::GetWebContentsForPageActionIconView() {
   return browser_->tab_strip_model()->GetActiveWebContents();
 }
 
-std::unique_ptr<views::Border>
-ToolbarAccountIconContainerView::CreatePageActionIconBorder() const {
-  // With this border, the icon will have the same ink drop shape as toolbar
-  // buttons.
-  return views::CreateEmptyBorder(ChromeLayoutProvider::Get()->GetInsetsMetric(
-      views::InsetsMetric::INSETS_LABEL_BUTTON));
+gfx::Insets ToolbarAccountIconContainerView::GetPageActionIconInsets(
+    const PageActionIconView* icon_view) const {
+  // Ideally, the icon should have the same ink drop shape as toolbar buttons.
+  // TODO(crbug.com/1060250): fix actual inkdrop shape.
+  return ChromeLayoutProvider::Get()->GetInsetsMetric(
+      views::InsetsMetric::INSETS_LABEL_BUTTON);
 }
 
 void ToolbarAccountIconContainerView::OnThemeChanged() {
+  ToolbarIconContainerView::OnThemeChanged();
   // Update icon color.
   UpdateAllIcons();
 }

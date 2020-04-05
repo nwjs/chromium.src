@@ -138,7 +138,10 @@ struct StreamingExportStatus {
 };
 
 struct ContainerInfo {
-  ContainerInfo(std::string name, std::string username, std::string homedir);
+  ContainerInfo(std::string name,
+                std::string username,
+                std::string homedir,
+                std::string ipv4_address);
   ~ContainerInfo();
   ContainerInfo(ContainerInfo&&);
   ContainerInfo(const ContainerInfo&);
@@ -149,6 +152,7 @@ struct ContainerInfo {
   std::string username;
   base::FilePath homedir;
   bool sshfs_mounted = false;
+  std::string ipv4_address;
 };
 
 // Return type when getting app icons from within a container.
@@ -190,6 +194,30 @@ enum class CorruptionStates {
   MOUNT_ROLLED_BACK = 1,
   OTHER_CORRUPTION = 2,
   kMaxValue = OTHER_CORRUPTION,
+};
+
+// Dialog types used by CrostiniDialogStatusObserver.
+enum class DialogType {
+  INSTALLER,
+  UPGRADER,
+  REMOVER,
+};
+
+constexpr char kUpgradeDialogEventHistogram[] = "Crostini.UpgradeDialogEvent";
+
+enum class UpgradeDialogEvent {
+  kDialogShown = 0,
+  kUpgradeSuccess = 1,
+  kUpgradeCanceled = 2,
+  kUpgradeFailed = 3,
+  kNotStarted = 4,
+  kDidBackup = 5,
+  kBackupSucceeded = 6,
+  kBackupFailed = 7,
+  kDidRestore = 8,
+  kRestoreSucceeded = 9,
+  kRestoreFailed = 10,
+  kMaxValue = kRestoreFailed,
 };
 
 }  // namespace crostini

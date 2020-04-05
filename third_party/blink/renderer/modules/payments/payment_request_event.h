@@ -10,7 +10,7 @@
 #include "mojo/public/cpp/bindings/remote.h"
 #include "third_party/blink/public/mojom/payments/payment_handler_host.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_value.h"
-#include "third_party/blink/renderer/bindings/modules/v8/v8_payment_address_init.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_address_init.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_payment_request_event_init.h"
 #include "third_party/blink/renderer/modules/event_modules.h"
 #include "third_party/blink/renderer/modules/service_worker/extendable_event.h"
@@ -59,8 +59,11 @@ class MODULES_EXPORT PaymentRequestEvent final : public ExtendableEvent {
   const HeapVector<Member<PaymentDetailsModifier>>& modifiers() const;
   const String& instrumentKey() const;
   const ScriptValue paymentOptions(ScriptState*) const;
+  base::Optional<HeapVector<Member<PaymentShippingOption>>> shippingOptions()
+      const;
+  // TODO(crbug.com/1060971): Remove |is_null| version.
   const HeapVector<Member<PaymentShippingOption>>& shippingOptions(
-      bool& is_null) const;
+      bool& is_null) const;  // DEPRECATED
 
   ScriptPromise openWindow(ScriptState*, const String& url);
   ScriptPromise changePaymentMethod(ScriptState*,
@@ -71,14 +74,14 @@ class MODULES_EXPORT PaymentRequestEvent final : public ExtendableEvent {
                                     const ScriptValue& method_details,
                                     ExceptionState& exception_state);
   ScriptPromise changeShippingAddress(ScriptState*,
-                                      PaymentAddressInit* shippingAddress,
+                                      AddressInit*,
                                       ExceptionState&);
   ScriptPromise changeShippingOption(ScriptState*,
                                      const String& shipping_option_id,
                                      ExceptionState&);
   void respondWith(ScriptState*, ScriptPromise, ExceptionState&);
 
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
 
  private:
   void OnChangePaymentRequestDetailsResponse(

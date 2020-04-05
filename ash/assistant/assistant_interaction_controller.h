@@ -26,6 +26,7 @@ namespace ash {
 
 class AssistantController;
 class AssistantInteractionModelObserver;
+class ProactiveSuggestions;
 enum class AssistantButtonId;
 enum class AssistantQuerySource;
 
@@ -81,8 +82,6 @@ class AssistantInteractionController
   void OnCommittedQueryChanged(const AssistantQuery& assistant_query) override;
 
   // AssistantUiModelObserver:
-  void OnUiModeChanged(AssistantUiMode ui_mode,
-                       bool due_to_interaction) override;
   void OnUiVisibilityChanged(
       AssistantVisibility new_visibility,
       AssistantVisibility old_visibility,
@@ -90,7 +89,6 @@ class AssistantInteractionController
       base::Optional<AssistantExitPoint> exit_point) override;
 
   // HighlighterController::Observer:
-  void OnHighlighterEnabledChanged(HighlighterEnabledState state) override;
   void OnHighlighterSelectionRecognized(const gfx::Rect& rect) override;
 
   // chromeos::assistant::mojom::AssistantInteractionSubscriber:
@@ -102,6 +100,7 @@ class AssistantInteractionController
   void OnSuggestionsResponse(
       std::vector<AssistantSuggestionPtr> response) override;
   void OnTextResponse(const std::string& response) override;
+  void OnTimersResponse(const std::vector<std::string>& timer_ids) override;
   void OnOpenUrlResponse(const GURL& url, bool in_background) override;
   void OnOpenAppResponse(chromeos::assistant::mojom::AndroidAppInfoPtr app_info,
                          OnOpenAppResponseCallback callback) override;
@@ -141,16 +140,17 @@ class AssistantInteractionController
   bool ShouldAttemptWarmerWelcome(AssistantEntryPoint entry_point) const;
   void AttemptWarmerWelcome();
 
-  void StartMetalayerInteraction(const gfx::Rect& region);
   void StartProactiveSuggestionsInteraction(
       scoped_refptr<const ProactiveSuggestions> proactive_suggestions);
-  void StartScreenContextInteraction(AssistantQuerySource query_source);
+  void StartScreenContextInteraction(bool include_assistant_structure,
+                                     const gfx::Rect& region,
+                                     AssistantQuerySource query_source);
 
   void StartVoiceInteraction();
   void StopActiveInteraction(bool cancel_conversation);
 
-  ash::InputModality GetDefaultInputModality() const;
-
+  InputModality GetDefaultInputModality() const;
+  AssistantResponse* GetResponseForActiveInteraction();
   AssistantVisibility GetVisibility() const;
   bool IsVisible() const;
 
@@ -169,6 +169,8 @@ class AssistantInteractionController
   // Might overflow so do not use for super critical things.
   int number_of_times_shown_ = 0;
 
+  base::WeakPtrFactory<AssistantInteractionController>
+      screen_context_request_factory_{this};
   base::WeakPtrFactory<AssistantInteractionController> weak_factory_{this};
 
   DISALLOW_COPY_AND_ASSIGN(AssistantInteractionController);

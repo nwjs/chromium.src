@@ -33,6 +33,7 @@
 #include "services/network/public/cpp/url_loader_completion_status.h"
 #include "services/network/public/mojom/cors.mojom-shared.h"
 #include "services/network/public/mojom/fetch_api.mojom-shared.h"
+#include "services/network/public/mojom/trust_tokens.mojom-shared.h"
 #include "url/ipc/url_param_traits.h"
 #include "url/origin.h"
 
@@ -91,6 +92,9 @@ IPC_ENUM_TRAITS_MAX_VALUE(network::mojom::RequestMode,
 IPC_ENUM_TRAITS_MAX_VALUE(network::mojom::CorsPreflightPolicy,
                           network::mojom::CorsPreflightPolicy::kMaxValue)
 
+IPC_ENUM_TRAITS_MAX_VALUE(network::BlockedByResponseReason,
+                          network::BlockedByResponseReason::kMaxValue)
+
 IPC_STRUCT_TRAITS_BEGIN(network::CorsErrorStatus)
   IPC_STRUCT_TRAITS_MEMBER(cors_error)
   IPC_STRUCT_TRAITS_MEMBER(failed_parameter)
@@ -105,7 +109,9 @@ IPC_STRUCT_TRAITS_BEGIN(network::URLLoaderCompletionStatus)
   IPC_STRUCT_TRAITS_MEMBER(encoded_body_length)
   IPC_STRUCT_TRAITS_MEMBER(decoded_body_length)
   IPC_STRUCT_TRAITS_MEMBER(cors_error_status)
+  IPC_STRUCT_TRAITS_MEMBER(trust_token_operation_status)
   IPC_STRUCT_TRAITS_MEMBER(ssl_info)
+  IPC_STRUCT_TRAITS_MEMBER(blocked_by_response_reason)
   IPC_STRUCT_TRAITS_MEMBER(should_report_corb_blocking)
   IPC_STRUCT_TRAITS_MEMBER(proxy_server)
   IPC_STRUCT_TRAITS_MEMBER(resolve_error_info)
@@ -115,6 +121,9 @@ IPC_STRUCT_TRAITS_END()
 IPC_ENUM_TRAITS_MAX_VALUE(network::mojom::FetchResponseType,
                           network::mojom::FetchResponseType::kMaxValue)
 
+IPC_ENUM_TRAITS_MAX_VALUE(network::mojom::TrustTokenOperationStatus,
+                          network::mojom::TrustTokenOperationStatus::kMaxValue)
+
 IPC_ENUM_TRAITS_MAX_VALUE(network::OriginPolicyState,
                           network::OriginPolicyState::kMaxValue)
 
@@ -122,6 +131,7 @@ IPC_ENUM_TRAITS_MAX_VALUE(network::IsolationOptInHints,
                           network::IsolationOptInHints::ALL_HINTS_ACTIVE)
 
 IPC_STRUCT_TRAITS_BEGIN(network::OriginPolicyContents)
+  IPC_STRUCT_TRAITS_MEMBER(ids)
   IPC_STRUCT_TRAITS_MEMBER(feature_policy)
   IPC_STRUCT_TRAITS_MEMBER(content_security_policies)
   IPC_STRUCT_TRAITS_MEMBER(content_security_policies_report_only)

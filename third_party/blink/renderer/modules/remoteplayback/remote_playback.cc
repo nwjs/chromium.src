@@ -91,7 +91,7 @@ RemotePlayback& RemotePlayback::From(HTMLMediaElement& element) {
 }
 
 RemotePlayback::RemotePlayback(HTMLMediaElement& element)
-    : ContextLifecycleObserver(element.GetExecutionContext()),
+    : ExecutionContextLifecycleObserver(element.GetExecutionContext()),
       RemotePlaybackController(element),
       state_(mojom::blink::PresentationConnectionState::CLOSED),
       availability_(mojom::ScreenAvailability::UNKNOWN),
@@ -103,7 +103,7 @@ const AtomicString& RemotePlayback::InterfaceName() const {
 }
 
 ExecutionContext* RemotePlayback::GetExecutionContext() const {
-  return &media_element_->GetDocument();
+  return ExecutionContextLifecycleObserver::GetExecutionContext();
 }
 
 ScriptPromise RemotePlayback::watchAvailability(
@@ -244,7 +244,7 @@ bool RemotePlayback::HasPendingActivity() const {
          prompt_promise_resolver_;
 }
 
-void RemotePlayback::ContextDestroyed(ExecutionContext*) {
+void RemotePlayback::ContextDestroyed() {
   CleanupConnections();
 }
 
@@ -283,6 +283,9 @@ int RemotePlayback::WatchAvailabilityInternal(
       IsBackgroundAvailabilityMonitoringDisabled()) {
     return kWatchAvailabilityNotSupported;
   }
+
+  if (!GetExecutionContext())
+    return kWatchAvailabilityNotSupported;
 
   int id;
   do {
@@ -598,13 +601,13 @@ void RemotePlayback::MaybeStartListeningForAvailability() {
   is_listening_ = true;
 }
 
-void RemotePlayback::Trace(blink::Visitor* visitor) {
+void RemotePlayback::Trace(Visitor* visitor) {
   visitor->Trace(availability_callbacks_);
   visitor->Trace(prompt_promise_resolver_);
   visitor->Trace(media_element_);
   visitor->Trace(observers_);
   EventTargetWithInlineData::Trace(visitor);
-  ContextLifecycleObserver::Trace(visitor);
+  ExecutionContextLifecycleObserver::Trace(visitor);
   RemotePlaybackController::Trace(visitor);
 }
 

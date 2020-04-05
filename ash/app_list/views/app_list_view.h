@@ -131,15 +131,17 @@ class APP_LIST_EXPORT AppListView : public views::WidgetDelegateView,
   static void SetShortAnimationForTesting(bool enabled);
   static bool ShortAnimationsForTesting();
 
+  // Used for testing, allows the page reset timer to be fired immediately
+  // after starting.
+  static void SetSkipPageResetTimerForTesting(bool enabled);
+
   // Returns the app list transition progress value associated with a app list
   // view state. This matches the values GetAppListTransitionProgress() is
   // expected to return when app list view is exactly in the provided state.
   static float GetTransitionProgressForState(AppListViewState state);
 
   // Initializes the view, only done once per session.
-  void InitView(bool is_tablet_mode,
-                gfx::NativeView parent,
-                base::RepeatingClosure on_bounds_animation_ended_callback);
+  void InitView(bool is_tablet_mode, gfx::NativeView parent);
 
   // Initializes the contents of the view.
   void InitContents(bool is_tablet_mode);
@@ -371,6 +373,10 @@ class APP_LIST_EXPORT AppListView : public views::WidgetDelegateView,
   // Returns true if the Embedded Assistant UI is currently being shown.
   bool IsShowingEmbeddedAssistantUI() const;
 
+  // Starts or stops a timer which will reset the app list to the initial apps
+  // page. Called when the app list's visibility changes.
+  void UpdatePageResetTimer(bool app_list_visibility);
+
  private:
   FRIEND_TEST_ALL_PREFIXES(AppListControllerImplTest,
                            CheckAppListViewBoundsWhenVKeyboardEnabled);
@@ -579,8 +585,9 @@ class APP_LIST_EXPORT AppListView : public views::WidgetDelegateView,
   // instead of the default instance.
   std::unique_ptr<AppListConfig> app_list_config_;
 
-  // Callback which is run when the bounds animation of the widget is ended.
-  base::RepeatingClosure on_bounds_animation_ended_callback_;
+  // A timer which will reset the app list to the initial page. This timer only
+  // goes off when the app list is not visible after a set amount of time.
+  base::OneShotTimer page_reset_timer_;
 
   base::WeakPtrFactory<AppListView> weak_ptr_factory_{this};
 

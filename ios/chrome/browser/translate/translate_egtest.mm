@@ -25,6 +25,7 @@
 #import "ios/chrome/test/earl_grey/chrome_earl_grey_ui.h"
 #import "ios/chrome/test/earl_grey/chrome_matchers.h"
 #import "ios/chrome/test/earl_grey/chrome_test_case.h"
+#include "ios/components/webui/web_ui_url_constants.h"
 #import "ios/testing/earl_grey/earl_grey_test.h"
 #include "ios/web/public/test/http_server/data_response_provider.h"
 #import "ios/web/public/test/http_server/http_server.h"
@@ -1207,10 +1208,8 @@ void TestResponseProvider::GetLanguageResponse(
 
 // Tests that "Never Translate ..." is automatically triggered only for a
 // maximum number of times if refused by the user.
-- (void)testInfobarAutoNeverTranslateMaxTries {
-  // TODO(crbug.com/945118): Re-enable when fixed.
-  EARL_GREY_TEST_DISABLED(@"Test disabled.");
-
+// TODO(crbug.com/945118): Re-enable when fixed.
+- (void)DISABLED_testInfobarAutoNeverTranslateMaxTries {
   // Start the HTTP server.
   std::unique_ptr<web::DataResponseProvider> provider(new TestResponseProvider);
   web::test::SetUpHttpServer(std::move(provider));

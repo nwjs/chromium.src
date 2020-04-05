@@ -17,8 +17,9 @@ goog.require('ChromeTtsBase');
 goog.require('ChromeVox');
 goog.require('goog.i18n.MessageFormat');
 
+goog.require('constants');
 
-var Utterance = class {
+const Utterance = class {
   /**
    * @param {string} textString The string of text to be spoken.
    * @param {Object} properties Speech properties to use for this utterance.
@@ -194,11 +195,19 @@ TtsBackground = class extends ChromeTtsBase {
       properties = {};
     }
 
+    if (textString.length > constants.OBJECT_MAX_CHARCOUNT) {
+      // The text is too long. Try to split the text into multiple chunks based
+      // on line breaks.
+      this.speakSplittingText_(textString, queueMode, properties);
+      return this;
+    }
+
     textString = this.preprocess(textString, properties);
 
-    // TODO(dtseng): Google TTS has bad performance when speaking numbers. This
-    // pattern causes ChromeVox to read numbers as digits rather than words.
-    textString = this.getNumberAsDigits_(textString);
+    // This pref on localStorage gets set by the options page.
+    if (localStorage['numberReadingStyle'] == 'asDigits') {
+      textString = this.getNumberAsDigits_(textString);
+    }
 
     // TODO(dtseng): some TTS engines don't handle strings that don't produce
     // any speech very well. Handle empty and whitespace only strings (including
@@ -240,6 +249,63 @@ TtsBackground = class extends ChromeTtsBase {
     // that phonetic hints are delayed when we process them.
     this.pronouncePhonetically_(originalTextString, properties);
     return this;
+  }
+
+  /**
+   * Split the given textString into smaller chunks and call this.speak() for
+   * each chunks.
+   * @param {string} textString The string of text to be spoken.
+   * @param {QueueMode} queueMode The queue mode to use for speaking.
+   * @param {Object=} properties Speech properties to use for this utterance.
+   * @private
+   */
+  speakSplittingText_(textString, queueMode, properties) {
+    const chunks = TtsBackground.splitUntilSmall(textString, '\n\r ');
+    for (const chunk of chunks) {
+      this.speak(chunk, queueMode, properties);
+      queueMode = QueueMode.QUEUE;
+    }
+  }
+
+  /**
+   * Splits |text| until each substring's length is smaller than or equal to
+   * constants.OBJECT_MAX_CHARCOUNT.
+   * @param {string} text
+   * @param {string} delimiters
+   * @return {!Array<string>}
+   */
+  static splitUntilSmall(text, delimiters) {
+    if (text.length == 0) {
+      return [];
+    }
+
+    if (text.length <= constants.OBJECT_MAX_CHARCOUNT) {
+      return [text];
+    }
+
+    const midIndex = text.length / 2;
+    if (!delimiters) {
+      return TtsBackground
+          .splitUntilSmall(text.substring(0, midIndex), delimiters)
+          .concat(TtsBackground.splitUntilSmall(
+              text.substring(midIndex, text.length), delimiters));
+    }
+
+    const delimiter = delimiters[0];
+    let splitIndex = text.lastIndexOf(delimiter, midIndex);
+    if (splitIndex == -1) {
+      splitIndex = text.indexOf(delimiter, midIndex);
+    }
+
+    if (splitIndex == -1) {
+      delimiters = delimiters.slice(1);
+      return TtsBackground.splitUntilSmall(text, delimiters);
+    }
+
+    return TtsBackground
+        .splitUntilSmall(text.substring(0, splitIndex), delimiters)
+        .concat(TtsBackground.splitUntilSmall(
+            text.substring(splitIndex + 1, text.length), delimiters));
   }
 
   /**
@@ -310,7 +376,7 @@ TtsBackground = class extends ChromeTtsBase {
       delete this.utteranceQueue_[0].properties['delay'];
       this.timeoutId_ = setTimeout(
           () => this.startSpeakingNextItemInQueue_(),
-          TtsBackground.HINT_DELAY_MS_);
+          TtsBackground.hint_delay_ms_);
 
       return;
     }
@@ -511,6 +577,14 @@ TtsBackground = class extends ChromeTtsBase {
     this.capturingTtsEventListeners_.push(listener);
   }
 
+  /** @override */
+  removeCapturingEventListener(listener) {
+    this.capturingTtsEventListeners_ =
+        this.capturingTtsEventListeners_.filter((item) => {
+          return item != listener;
+        });
+  }
+
   /**
    * An error handler passed as a callback to chrome.tts.speak.
    * @param {string} errorMessage Describes the error (set by onEvent).
@@ -605,9 +679,6 @@ TtsBackground = class extends ChromeTtsBase {
    */
   getNumberAsDigits_(text) {
     return text.replace(/\d+/g, function(num) {
-      if (num.length <= 4) {
-        return num;
-      }
       return num.split('').join(' ');
     });
   }
@@ -713,6 +784,7 @@ TtsBackground = class extends ChromeTtsBase {
         case 'settings.tts.speech_rate':
           propertyName = AbstractTts.RATE;
           msg = 'announce_rate';
+          this.setHintDelayMS(/** @type {number} */ (pref.value));
           break;
         case 'settings.tts.speech_pitch':
           propertyName = AbstractTts.PITCH;
@@ -766,16 +838,26 @@ TtsBackground = class extends ChromeTtsBase {
         Msgs.getMsg('announce_tts_default_settings'), QueueMode.FLUSH,
         speechProperties);
   }
+
+  /**
+   * Sets |hint_delay_ms_| given the speech rate.
+   * We want an inverse relationship between the speech rate and the hint delay;
+   * the faster the speech rate, the shorter the delay should be.
+   * Default speech rate (value of 1) should map to a delay of 1000 MS.
+   * @param {number} rate
+   */
+  setHintDelayMS(rate) {
+    TtsBackground.hint_delay_ms_ = 1000 / rate;
+  }
 };
 
 
 /**
- * The amount of time to wait before speaking a hint.
+ * The amount of time, in milliseconds, to wait before speaking a hint.
  * @type {number}
  * @private
- * @const
  */
-TtsBackground.HINT_DELAY_MS_ = 1000;
+TtsBackground.hint_delay_ms_ = 1000;
 
 /**
  * The list of properties allowed to be passed to the chrome.tts.speak API.

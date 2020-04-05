@@ -28,6 +28,7 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/single_thread_task_runner.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "base/task_runner_util.h"
 #include "base/threading/thread.h"
 #include "base/threading/thread_task_runner_handle.h"
@@ -928,7 +929,6 @@ bool HistoryService::Init(
     bool no_db,
     const HistoryDatabaseParams& history_database_params) {
   TRACE_EVENT0("browser,startup", "HistoryService::Init")
-  SCOPED_UMA_HISTOGRAM_TIMER("History.HistoryServiceInitTime");
   DCHECK(thread_checker_.CalledOnValidThread());
 
   // Unit tests can inject |backend_task_runner_| before this is called.
@@ -942,8 +942,8 @@ bool HistoryService::Init(
       }
       backend_task_runner_ = thread_->task_runner();
     } else {
-      backend_task_runner_ = base::CreateSequencedTaskRunner(
-          {base::ThreadPool(), base::MayBlock(), base::WithBaseSyncPrimitives(),
+      backend_task_runner_ = base::ThreadPool::CreateSequencedTaskRunner(
+          {base::MayBlock(), base::WithBaseSyncPrimitives(),
            base::TaskPriority::USER_BLOCKING,
            base::TaskShutdownBehavior::BLOCK_SHUTDOWN});
     }
@@ -965,8 +965,12 @@ bool HistoryService::Init(
       base::BindRepeating(base::IgnoreResult(&HistoryService::ScheduleDBTask),
                           base::Unretained(this)));
 
-  if (visit_delegate_ && !visit_delegate_->Init(this))
+  if (visit_delegate_ && !visit_delegate_->Init(this)) {
+    // This is rare enough that it's worth logging.
+    LOG(WARNING) << "HistoryService::Init() failed by way of "
+                    "VisitDelegate::Init failing";
     return false;
+  }
 
   if (history_client_)
     history_client_->OnHistoryServiceCreated(this);

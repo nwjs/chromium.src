@@ -13,6 +13,7 @@
 #include "ash/focus_cycler.h"
 #include "ash/ime/ime_controller_impl.h"
 #include "ash/login/login_screen_controller.h"
+#include "ash/login/parent_access_controller.h"
 #include "ash/login/ui/bottom_status_indicator.h"
 #include "ash/login/ui/lock_screen.h"
 #include "ash/login/ui/lock_screen_media_controls_view.h"
@@ -24,7 +25,6 @@
 #include "ash/login/ui/login_user_view.h"
 #include "ash/login/ui/non_accessible_view.h"
 #include "ash/login/ui/note_action_launch_button.h"
-#include "ash/login/ui/parent_access_widget.h"
 #include "ash/login/ui/scrollable_users_list_view.h"
 #include "ash/login/ui/system_label_button.h"
 #include "ash/login/ui/views_utils.h"
@@ -324,6 +324,19 @@ LoginBigUserView* LockContentsView::TestApi::opt_secondary_big_view() const {
   return view_->opt_secondary_big_view_;
 }
 
+AccountId LockContentsView::TestApi::focused_user() const {
+  if (view_->CurrentBigUserView()->public_account()) {
+    return view_->CurrentBigUserView()
+        ->public_account()
+        ->current_user()
+        .basic_user_info.account_id;
+  }
+  return view_->CurrentBigUserView()
+      ->auth_user()
+      ->current_user()
+      .basic_user_info.account_id;
+}
+
 ScrollableUsersListView* LockContentsView::TestApi::users_list() const {
   return view_->users_list_;
 }
@@ -374,6 +387,42 @@ LoginExpandedPublicAccountView* LockContentsView::TestApi::expanded_view()
 
 views::View* LockContentsView::TestApi::main_view() const {
   return view_->main_view_;
+}
+
+const std::vector<LockContentsView::UserState>&
+LockContentsView::TestApi::users() const {
+  return view_->users_;
+}
+
+LoginBigUserView* LockContentsView::TestApi::FindUser(
+    const AccountId& account_id) {
+  LoginBigUserView* big_view =
+      view_->TryToFindBigUser(account_id, false /*require_auth_active*/);
+  if (big_view)
+    return big_view;
+  LoginUserView* user_view = view_->TryToFindUserView(account_id);
+  if (!user_view) {
+    DLOG(ERROR) << "Could not find user: " << account_id.Serialize();
+    return nullptr;
+  }
+  LoginUserView::TestApi user_view_api(user_view);
+  user_view_api.OnTap();
+  return view_->TryToFindBigUser(account_id, false /*require_auth_active*/);
+}
+
+bool LockContentsView::TestApi::RemoveUser(const AccountId& account_id) {
+  LoginBigUserView* big_view = FindUser(account_id);
+  if (!big_view)
+    return false;
+  if (!big_view->GetCurrentUser().can_remove)
+    return false;
+  LoginBigUserView::TestApi user_api(big_view);
+  user_api.Remove();
+  return true;
+}
+
+bool LockContentsView::TestApi::IsOobeDialogVisible() const {
+  return view_->oobe_dialog_visible_;
 }
 
 LockContentsView::UserState::UserState(const LoginUserInfo& user_info)
@@ -625,39 +674,12 @@ void LockContentsView::ShowParentAccessDialog() {
   const AccountId account_id =
       CurrentBigUserView()->GetCurrentUser().basic_user_info.account_id;
 
-  DCHECK(!ParentAccessWidget::Get());
-  ParentAccessWidget::Show(
+  Shell::Get()->parent_access_controller()->ShowWidget(
       account_id,
-      base::BindRepeating(&LockContentsView::OnParentAccessValidationFinished,
-                          weak_ptr_factory_.GetWeakPtr(), account_id),
-      ParentAccessRequestReason::kUnlockTimeLimits);
+      base::BindOnce(&LockContentsView::OnParentAccessValidationFinished,
+                     weak_ptr_factory_.GetWeakPtr(), account_id),
+      ParentAccessRequestReason::kUnlockTimeLimits, false, base::Time::Now());
   Shell::Get()->login_screen_controller()->ShowParentAccessButton(false);
-}
-
-void LockContentsView::RequestSecurityTokenPin(
-    SecurityTokenPinRequest request) {
-  // Find which of the current big users, if any, should handle the request.
-  for (auto* big_user : {primary_big_view_, opt_secondary_big_view_}) {
-    if (big_user && big_user->auth_user() &&
-        big_user->GetCurrentUser().basic_user_info.account_id ==
-            request.account_id) {
-      big_user->auth_user()->RequestSecurityTokenPin(std::move(request));
-      return;
-    }
-  }
-  // The PIN request is obsolete.
-  std::move(request.pin_ui_closed_callback).Run();
-}
-
-void LockContentsView::ClearSecurityTokenPinRequest() {
-  // Try both big users - it's safe since at most one PIN request can happen at
-  // a time, and as clearing a non-existing PIN request is a no-op.
-  // Note that if the PIN UI used to be shown in some other big view, then it
-  // had already been closed while switching the view(s).
-  if (primary_big_view_ && primary_big_view_->auth_user())
-    primary_big_view_->auth_user()->ClearSecurityTokenPinRequest();
-  if (opt_secondary_big_view_ && opt_secondary_big_view_->auth_user())
-    opt_secondary_big_view_->auth_user()->ClearSecurityTokenPinRequest();
 }
 
 void LockContentsView::Layout() {
@@ -742,12 +764,18 @@ void LockContentsView::OnUsersChanged(const std::vector<LoginUserInfo>& users) {
     else
       new_users.push_back(UserState(user));
   }
+
+  // Hide gaia signin dialog if it was open due to empty user list and the list
+  // is not empty anymore.
+  const bool hide_gaia_signin = users_.empty() && !new_users.empty() &&
+                                screen_type_ == LockScreen::ScreenType::kLogin;
+
   users_ = std::move(new_users);
 
   // If there are no users, show gaia signin if login.
   if (users.empty() && screen_type_ == LockScreen::ScreenType::kLogin) {
     Shell::Get()->login_screen_controller()->ShowGaiaSignin(
-        false /*can_close*/, EmptyAccountId() /*prefilled_account*/);
+        EmptyAccountId() /*prefilled_account*/);
     return;
   }
 
@@ -780,6 +808,9 @@ void LockContentsView::OnUsersChanged(const std::vector<LoginUserInfo>& users) {
   // Force layout.
   PreferredSizeChanged();
   Layout();
+
+  if (hide_gaia_signin)
+    Shell::Get()->login_screen_controller()->HideGaiaSignin();
 
   // If one of the child views had focus before we deleted them, then this view
   // will get focused. Move focus back to the primary big view.
@@ -869,17 +900,6 @@ void LockContentsView::OnFingerprintStateChanged(const AccountId& account_id,
 
   big_view->auth_user()->SetFingerprintState(user_state->fingerprint_state);
   LayoutAuth(big_view, nullptr /*opt_to_hide*/, animate);
-
-  if (user_state->fingerprint_state ==
-      FingerprintState::DISABLED_FROM_TIMEOUT) {
-    base::string16 error_text = l10n_util::GetStringUTF16(
-        IDS_ASH_LOGIN_FINGERPRINT_UNLOCK_DISABLED_FROM_TIMEOUT);
-
-    auth_error_bubble_->SetAnchorView(big_view->auth_user()->password_view());
-    auth_error_bubble_->SetTextContent(error_text);
-    auth_error_bubble_->SetPersistent(true);
-    auth_error_bubble_->Show();
-  }
 }
 
 void LockContentsView::OnFingerprintAuthResult(const AccountId& account_id,
@@ -1664,11 +1684,8 @@ void LockContentsView::LayoutAuth(LoginBigUserView* to_update,
         }
         if (state->enable_tap_auth)
           to_update_auth |= LoginAuthUserView::AUTH_TAP;
-        if (state->fingerprint_state != FingerprintState::UNAVAILABLE &&
-            state->fingerprint_state !=
-                FingerprintState::DISABLED_FROM_TIMEOUT) {
+        if (state->fingerprint_state != FingerprintState::UNAVAILABLE)
           to_update_auth |= LoginAuthUserView::AUTH_FINGERPRINT;
-        }
 
         // External binary based authentication is only available for unlock.
         if (screen_type_ == LockScreen::ScreenType::kLock &&
@@ -1744,19 +1761,6 @@ void LockContentsView::RemoveUser(bool is_primary) {
 
   // Ask chrome to remove the user.
   Shell::Get()->login_screen_controller()->RemoveUser(user);
-
-  // Display the new user list less |user|.
-  std::vector<LoginUserInfo> new_users;
-  if (!is_primary)
-    new_users.push_back(primary_big_view_->GetCurrentUser());
-  if (is_primary && opt_secondary_big_view_)
-    new_users.push_back(opt_secondary_big_view_->GetCurrentUser());
-  if (users_list_) {
-    for (int i = 0; i < users_list_->user_count(); ++i) {
-      new_users.push_back(users_list_->user_view_at(i)->current_user());
-    }
-  }
-  data_dispatcher_->SetUserList(new_users);
 }
 
 void LockContentsView::OnBigUserChanged() {
@@ -1848,7 +1852,6 @@ void LockContentsView::ShowAuthErrorMessage() {
   if (screen_type_ == LockScreen::ScreenType::kLogin &&
       unlock_attempt_ >= kLoginAttemptsBeforeGaiaDialog) {
     Shell::Get()->login_screen_controller()->ShowGaiaSignin(
-        true /*can_close*/,
         big_view->auth_user()->current_user().basic_user_info.account_id);
     return;
   }

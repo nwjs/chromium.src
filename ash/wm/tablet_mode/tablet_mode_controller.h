@@ -25,6 +25,8 @@
 #include "chromeos/dbus/power/power_manager_client.h"
 #include "ui/aura/window_occlusion_tracker.h"
 #include "ui/compositor/layer_animation_observer.h"
+#include "ui/compositor/layer_observer.h"
+#include "ui/compositor/layer_tree_owner.h"
 #include "ui/events/devices/input_device_event_observer.h"
 #include "ui/gfx/geometry/vector3d_f.h"
 
@@ -70,7 +72,8 @@ class ASH_EXPORT TabletModeController
       public WindowTreeHostManager::Observer,
       public SessionObserver,
       public ui::InputDeviceEventObserver,
-      public ui::LayerAnimationObserver {
+      public ui::LayerAnimationObserver,
+      public ui::LayerObserver {
  public:
   // Enable or disable using a screenshot for testing as it makes the
   // initialization flow async, which makes most tests harder to write.
@@ -157,6 +160,9 @@ class ASH_EXPORT TabletModeController
   void OnLayerAnimationAborted(ui::LayerAnimationSequence* sequence) override;
   void OnLayerAnimationScheduled(ui::LayerAnimationSequence* sequence) override;
 
+  // ui::LayerObserver:
+  void LayerDestroyed(ui::Layer* layer) override;
+
   void increment_app_window_drag_count() { ++app_window_drag_count_; }
   void increment_app_window_drag_in_splitview_count() {
     ++app_window_drag_in_splitview_count_;
@@ -183,7 +189,7 @@ class ASH_EXPORT TabletModeController
   struct TabletModeBehavior {
     bool use_sensor = true;
     bool observe_display_events = true;
-    bool observe_external_pointer_device_events = true;
+    bool observe_pointer_device_events = true;
     bool block_internal_input_device = false;
     bool always_show_overview_button = false;
     bool force_physical_tablet_state = false;
@@ -284,8 +290,10 @@ class ASH_EXPORT TabletModeController
   void TakeScreenshot(aura::Window* top_window);
 
   // Called when a screenshot is taken. Creates |screenshot_widget_| which holds
-  // the screenshot results and stacks it under top window.
+  // the screenshot results and stacks it under top window. |root_window|
+  // specifies on which root window the screen shot is taken.
   void OnScreenshotTaken(base::OnceClosure on_screenshot_taken,
+                         aura::Window* root_window,
                          std::unique_ptr<viz::CopyOutputResult> copy_result);
 
   // Calculates whether the device is currently in a physical tablet state,
@@ -307,6 +315,9 @@ class ASH_EXPORT TabletModeController
   // tablet mode state, false otherwise.
   bool UpdateUiTabletState();
 
+  // Update the shelf's visibility before/after taking screenshot.
+  void UpdateShelfVisibilityForScreenshot(aura::Window* window, bool visible);
+
   // The tablet window manager (if enabled).
   std::unique_ptr<TabletModeWindowManager> tablet_mode_window_manager_;
 
@@ -317,6 +328,11 @@ class ASH_EXPORT TabletModeController
   // Whether we have ever seen accelerometer data. When ChromeOS EC lid angle is
   // present, convertible device cannot see accelerometer data.
   bool have_seen_accelerometer_data_ = false;
+
+  // True if ChromeOS EC lid angle driver is present. In this case Chrome does
+  // not calculate lid angle itself, but will reply on the tablet-mode flag that
+  // EC sends to decide if the device should in tablet mode.
+  bool ec_lid_angle_driver_present_ = false;
 
   // Whether the lid angle can be detected by browser. If it's true, the device
   // is a convertible device (both screen acclerometer and keyboard acclerometer
@@ -369,6 +385,11 @@ class ASH_EXPORT TabletModeController
   // not enter tablet mode if this is true.
   bool has_external_pointing_device_ = false;
 
+  // Tracks if the device has an internal pointing device. The device will not
+  // enter clamshell mode if both |has_internal_pointing_device_| and
+  // |has_external_pointing_device_| are false only for tablet-capable devices.
+  bool has_internal_pointing_device_ = true;
+
   // Set to true temporarily when the tablet mode is enabled/disabled via the
   // developer's keyboard shortcut in order to update the visibility of the
   // overview tray button, even though internal events are not blocked.
@@ -417,6 +438,9 @@ class ASH_EXPORT TabletModeController
   // transition. It's observed to take an action after its animation ends.
   ui::Layer* animating_layer_ = nullptr;
 
+  // The layer that holds the clone of shelf layer while taking a screenshot.
+  std::unique_ptr<ui::LayerTreeOwner> phantom_shelf_layer_;
+
   std::unique_ptr<TabletModeTransitionFpsCounter> fps_counter_;
 
   base::CancelableOnceCallback<void(std::unique_ptr<viz::CopyOutputResult>)>
@@ -428,6 +452,8 @@ class ASH_EXPORT TabletModeController
   // everything in the screen rotation container except the top window. It helps
   // with animation performance because it fully occludes all windows except the
   // animating window for the duration of the animation.
+  // TODO(sammiequon): See if we can move screenshot and tablet mode transition
+  // animation related code into a separate class/file.
   std::unique_ptr<ui::Layer> screenshot_layer_;
 
   base::ObserverList<TabletModeObserver>::Unchecked tablet_mode_observers_;

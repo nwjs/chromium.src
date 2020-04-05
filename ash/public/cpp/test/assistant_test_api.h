@@ -9,6 +9,7 @@
 #include <string>
 
 #include "ash/ash_export.h"
+#include "chromeos/services/assistant/public/cpp/assistant_prefs.h"
 
 namespace aura {
 class Window;
@@ -45,12 +46,21 @@ class ASH_EXPORT AssistantTestApi {
   // This will ensure the new value is propagated to the |AssistantState|.
   virtual void SetAssistantEnabled(bool enabled) = 0;
 
+  // Enables/Disables Assistant in settings.
+  // This will ensure the new value is propagated to the |AssistantState|.
+  virtual void SetScreenContextEnabled(bool enabled) = 0;
+
   virtual void SetTabletMode(bool enable) = 0;
+
+  // Changes the user preference controlling the status of user consent.
+  virtual void SetConsentStatus(chromeos::assistant::prefs::ConsentStatus) = 0;
 
   // Changes the user setting controlling whether the user prefers voice or
   // keyboard (internally called |kAssistantLaunchWithMicOpen|).
   // This will ensure the new value is propagated to the |AssistantState|.
   virtual void SetPreferVoice(bool value) = 0;
+
+  virtual void StartOverview() = 0;
 
   // Returns the interface to get/set Assistant related prefs and states.
   virtual AssistantState* GetAssistantState() = 0;
@@ -90,6 +100,14 @@ class ASH_EXPORT AssistantTestApi {
   // Returns the button to enable text mode.
   // Can only be used after the Assistant UI has been shown at least once.
   virtual views::View* keyboard_input_toggle() = 0;
+
+  // Returns the button to launch Assistant onboarding.
+  // Can only be used after the Assistant UI has been shown at least once.
+  virtual views::View* opt_in_view() = 0;
+
+  // Returns the view containing the suggestion chips.
+  // Can only be used after the Assistant UI has been shown at least once.
+  virtual views::View* suggestion_chip_container() = 0;
 
   // Returns the window containing the Assistant UI.
   // Note that this window is shared for all components of the |AppList|.

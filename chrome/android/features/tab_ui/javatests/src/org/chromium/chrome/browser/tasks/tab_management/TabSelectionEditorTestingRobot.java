@@ -30,10 +30,12 @@ import static org.chromium.chrome.browser.tasks.tab_management.RecyclerViewMatch
 
 import android.os.Build;
 import android.support.test.espresso.NoMatchingRootException;
+import android.support.test.espresso.NoMatchingViewException;
 import android.support.test.espresso.Root;
 import android.support.test.espresso.matcher.BoundedMatcher;
-import android.support.v7.widget.RecyclerView;
 import android.view.View;
+
+import androidx.recyclerview.widget.RecyclerView;
 
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
@@ -133,14 +135,14 @@ public class TabSelectionEditorTestingRobot {
     public final TabSelectionEditorTestingRobot.Action actionRobot;
 
     public TabSelectionEditorTestingRobot() {
-        resultRobot = new TabSelectionEditorTestingRobot.Result();
-        actionRobot = new TabSelectionEditorTestingRobot.Action();
+        resultRobot = new Result();
+        actionRobot = new Action();
     }
 
     /**
      * This Robot is used to perform action within the TabSelectionEditor.
      */
-    public class Action {
+    public static class Action {
         public TabSelectionEditorTestingRobot.Action clickItemAtAdapterPosition(int position) {
             onView(withId(org.chromium.chrome.tab_ui.R.id.tab_list_view))
                     .inRoot(isTabSelectionEditorPopup())
@@ -168,7 +170,7 @@ public class TabSelectionEditorTestingRobot {
     /**
      * This Robot is used to verify result within the TabSelectionEditor.
      */
-    public class Result {
+    public static class Result {
         public TabSelectionEditorTestingRobot.Result verifyTabSelectionEditorIsVisible() {
             onView(withId(org.chromium.chrome.tab_ui.R.id.selectable_list))
                     .inRoot(isTabSelectionEditorPopup())
@@ -181,7 +183,7 @@ public class TabSelectionEditorTestingRobot {
                 onView(withId(org.chromium.chrome.tab_ui.R.id.selectable_list))
                         .inRoot(isTabSelectionEditorPopup())
                         .check(matches(isDisplayed()));
-            } catch (NoMatchingRootException e) {
+            } catch (NoMatchingRootException | NoMatchingViewException e) {
                 return this;
             }
 

@@ -19,6 +19,7 @@
 #import "ios/chrome/browser/ui/bubble/bubble_view_controller_presenter.h"
 #import "ios/chrome/browser/ui/commands/browser_commands.h"
 #import "ios/chrome/browser/ui/commands/command_dispatcher.h"
+#import "ios/chrome/browser/ui/commands/find_in_page_commands.h"
 #import "ios/chrome/browser/ui/commands/popup_menu_commands.h"
 #import "ios/chrome/browser/ui/popup_menu/popup_menu_action_handler.h"
 #import "ios/chrome/browser/ui/popup_menu/popup_menu_constants.h"
@@ -122,14 +123,10 @@ PopupMenuCommandType CommandTypeFromPopupType(PopupMenuType type) {
             fromNamedGuide:kTabSwitcherGuide];
 }
 
-- (void)showSearchButtonPopup {
-  if (base::FeatureList::IsEnabled(kToolbarNewTabButton)) {
-    base::RecordAction(base::UserMetricsAction("MobileToolbarShowNewTabMenu"));
-  } else {
-    base::RecordAction(base::UserMetricsAction("MobileToolbarShowSearchMenu"));
-  }
-  [self presentPopupOfType:PopupMenuTypeSearch
-            fromNamedGuide:kSearchButtonGuide];
+- (void)showNewTabButtonPopup {
+  base::RecordAction(base::UserMetricsAction("MobileToolbarShowNewTabMenu"));
+  [self presentPopupOfType:PopupMenuTypeNewTab
+            fromNamedGuide:kNewTabButtonGuide];
 }
 
 - (void)showTabStripTabGridButtonPopup {
@@ -249,7 +246,8 @@ PopupMenuCommandType CommandTypeFromPopupType(PopupMenuType type) {
   self.actionHandler = [[PopupMenuActionHandler alloc] init];
   self.actionHandler.baseViewController = self.baseViewController;
   self.actionHandler.dispatcher =
-      static_cast<id<ApplicationCommands, BrowserCommands, LoadQueryCommands>>(
+      static_cast<id<ApplicationCommands, BrowserCommands, FindInPageCommands,
+                     LoadQueryCommands, TextZoomCommands>>(
           self.browser->GetCommandDispatcher());
   self.actionHandler.commandHandler = self.mediator;
   tableViewController.delegate = self.actionHandler;

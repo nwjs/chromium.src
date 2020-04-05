@@ -18,6 +18,7 @@
 #include "base/threading/platform_thread.h"
 #include "build/build_config.h"
 #include "components/autofill/core/browser/autofill_field.h"
+#include "components/autofill/core/browser/autofill_type.h"
 #include "components/autofill/core/browser/form_structure.h"
 #include "components/autofill/core/browser/logging/log_manager.h"
 #include "components/autofill/core/common/form_data_predictions.h"
@@ -51,8 +52,10 @@ using autofill::NEW_PASSWORD;
 using autofill::NOT_USERNAME;
 using autofill::PasswordForm;
 using autofill::SINGLE_USERNAME;
+using autofill::UNKNOWN_TYPE;
 using autofill::USERNAME;
 using autofill::mojom::PasswordFormFieldPredictionType;
+using base::NumberToString;
 #if defined(SYNC_PASSWORD_REUSE_DETECTION_ENABLED)
 using password_manager::metrics_util::GaiaPasswordHashChange;
 #endif  // SYNC_PASSWORD_REUSE_DETECTION_ENABLED
@@ -159,7 +162,8 @@ bool HasNewPasswordVote(const FormPredictions& form) {
 // predictions for corresponding fields. Predictions from |field_info_manager|
 // have priority over server predictions.
 void AddLocallySavedPredictions(FieldInfoManager* field_info_manager,
-                                FormPredictions* predictions) {
+                                FormPredictions* predictions,
+                                BrowserSavePasswordProgressLogger* logger) {
   DCHECK(predictions);
   if (!field_info_manager)
     return;
@@ -175,6 +179,13 @@ void AddLocallySavedPredictions(FieldInfoManager* field_info_manager,
       // have data.
       if (field.type != SINGLE_USERNAME && field.type != USERNAME)
         field.type = NOT_USERNAME;
+    }
+    if (logger && local_prediction != UNKNOWN_TYPE) {
+      std::string message =
+          "form signature=" + NumberToString(predictions->form_signature) +
+          " , field signature=" + NumberToString(field.signature) + ", type=" +
+          autofill::AutofillType::ServerFieldTypeToString(local_prediction);
+      logger->LogString(Logger::STRING_LOCALLY_SAVED_PREDICTION, message);
     }
   }
 }
@@ -200,6 +211,7 @@ void PasswordManager::RegisterProfilePrefs(
       user_prefs::PrefRegistrySyncable::SYNCABLE_PRIORITY_PREF);
   registry->RegisterDoublePref(prefs::kLastTimeObsoleteHttpCredentialsRemoved,
                                0.0);
+  registry->RegisterDoublePref(prefs::kLastTimePasswordCheckCompleted, 0.0);
   registry->RegisterIntegerPref(
       prefs::kPasswordManagerOnboardingState,
       static_cast<int>(metrics_util::OnboardingState::kDoNotShow));
@@ -318,6 +330,8 @@ void PasswordManager::DidNavigateMainFrame(bool form_may_be_submitted) {
       break;
     }
   }
+  UMA_HISTOGRAM_COUNTS_1000("PasswordManager.NumFormManagersCleared",
+                            form_managers_.size());
   form_managers_.clear();
 
   TryToFindPredictionsToPossibleUsernameData();
@@ -443,37 +457,14 @@ void PasswordManager::ShowManualFallbackForSaving(PasswordManagerDriver* driver,
         ->set_user_typed_password_on_chrome_sign_in_page();
   }
 
-  if (!client_->GetProfilePasswordStore()->IsAbleToSavePasswords() ||
-      !client_->IsSavingAndFillingEnabled(form_data.url) ||
-      ShouldBlockPasswordForSameOriginButDifferentScheme(form_data.url)) {
-    return;
-  }
-
   auto availability =
       manager ? PasswordManagerMetricsRecorder::FormManagerAvailable::kSuccess
               : PasswordManagerMetricsRecorder::FormManagerAvailable::
                     kMissingManual;
   if (client_ && client_->GetMetricsRecorder())
     client_->GetMetricsRecorder()->RecordFormManagerAvailable(availability);
-  if (!manager)
-    return;
 
-  if (!client_->GetStoreResultFilter()->ShouldSave(
-          *manager->GetSubmittedForm())) {
-    return;
-  }
-
-  // Show the fallback if a prompt or a confirmation bubble should be available.
-  bool has_generated_password = manager->HasGeneratedPassword();
-  if (ShouldPromptUserToSavePassword(*manager) || has_generated_password) {
-    bool is_update = manager->IsPasswordUpdate();
-    manager->GetMetricsRecorder()->RecordShowManualFallbackForSaving(
-        has_generated_password, is_update);
-    client_->ShowManualFallbackForSaving(manager->Clone(),
-                                         has_generated_password, is_update);
-  } else {
-    HideManualFallbackForSaving();
-  }
+  ShowManualFallbackForSavingImpl(manager, form_data);
 }
 
 void PasswordManager::HideManualFallbackForSaving() {
@@ -595,10 +586,6 @@ PasswordFormManager* PasswordManager::ProvisionallySaveForm(
   if (store_password_called_)
     return nullptr;
 
-  // No need to report PasswordManagerMetricsRecorder::EMPTY_PASSWORD, because
-  // PasswordToSave in PasswordFormManager DCHECKs that the password is never
-  // empty.
-
   const GURL& origin = submitted_form.url;
   if (ShouldBlockPasswordForSameOriginButDifferentScheme(origin)) {
     RecordProvisionalSaveFailure(
@@ -689,12 +676,20 @@ void PasswordManager::PresaveGeneratedPassword(
 }
 
 void PasswordManager::UpdateStateOnUserInput(
+    PasswordManagerDriver* driver,
     const base::string16& form_identifier,
     const base::string16& field_identifier,
     const base::string16& field_value) {
   for (std::unique_ptr<PasswordFormManager>& manager : form_managers_) {
     if (manager->UpdateStateOnUserInput(form_identifier, field_identifier,
                                         field_value)) {
+      ProvisionallySaveForm(manager->observed_form(), driver, true);
+      if (manager->is_submitted() && !manager->HasGeneratedPassword()) {
+        ShowManualFallbackForSavingImpl(manager.get(),
+                                        manager->observed_form());
+      } else {
+        HideManualFallbackForSaving();
+      }
       break;
     }
   }
@@ -833,6 +828,9 @@ void PasswordManager::OnPasswordFormsRendered(
 }
 
 void PasswordManager::OnLoginSuccessful() {
+  if (autofill_assistant_mode_ == AutofillAssistantMode::kManuallyCuratedScript)
+    return;
+
   std::unique_ptr<BrowserSavePasswordProgressLogger> logger;
   if (password_manager_util::IsLoggingActive(client_)) {
     logger.reset(
@@ -995,7 +993,8 @@ void PasswordManager::ProcessAutofillPredictions(
     predictions_[form->form_signature()] =
         ConvertToFormPredictions(driver_id, *form);
     AddLocallySavedPredictions(client_->GetFieldInfoManager(),
-                               &predictions_[form->form_signature()]);
+                               &predictions_[form->form_signature()],
+                               logger.get());
   }
 
   // Create form managers for non-password forms if |predictions_| has evidence
@@ -1071,9 +1070,15 @@ void PasswordManager::RecordProvisionalSaveFailure(
 // TODO(https://crbug.com/831123): Implement creating missing
 // PasswordFormManager when PasswordFormManager is gone.
 PasswordFormManager* PasswordManager::GetMatchedManager(
-    const PasswordManagerDriver* driver,
+    PasswordManagerDriver* driver,
     const FormData& form) {
   for (auto& form_manager : form_managers_) {
+// Until support of cross-origin iframes is implemented, there is only one
+// driver on iOS. It needs to be set in order for filling to work.
+#if defined(OS_IOS)
+    if (driver && !form_manager->GetDriver())
+      form_manager->SetDriver(driver->AsWeakPtr());
+#endif
     if (form_manager->DoesManage(form, driver))
       return form_manager.get();
   }
@@ -1118,6 +1123,36 @@ void PasswordManager::TryToFindPredictionsToPossibleUsernameData() {
         return;
       }
     }
+  }
+}
+
+void PasswordManager::ShowManualFallbackForSavingImpl(
+    PasswordFormManager* form_manager,
+    const FormData& form_data) {
+  if (!form_manager || !form_manager->is_submitted())
+    return;
+
+  if (!client_->GetProfilePasswordStore()->IsAbleToSavePasswords() ||
+      !client_->IsSavingAndFillingEnabled(form_data.url) ||
+      ShouldBlockPasswordForSameOriginButDifferentScheme(form_data.url)) {
+    return;
+  }
+
+  if (!client_->GetStoreResultFilter()->ShouldSave(
+          *form_manager->GetSubmittedForm())) {
+    return;
+  }
+
+  // Show the fallback if a prompt or a confirmation bubble should be available.
+  bool has_generated_password = form_manager->HasGeneratedPassword();
+  if (ShouldPromptUserToSavePassword(*form_manager) || has_generated_password) {
+    bool is_update = form_manager->IsPasswordUpdate();
+    form_manager->GetMetricsRecorder()->RecordShowManualFallbackForSaving(
+        has_generated_password, is_update);
+    client_->ShowManualFallbackForSaving(form_manager->Clone(),
+                                         has_generated_password, is_update);
+  } else {
+    HideManualFallbackForSaving();
   }
 }
 

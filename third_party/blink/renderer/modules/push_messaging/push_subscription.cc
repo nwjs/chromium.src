@@ -80,6 +80,13 @@ PushSubscription::PushSubscription(
 
 PushSubscription::~PushSubscription() = default;
 
+base::Optional<DOMTimeStamp> PushSubscription::expirationTime() const {
+  // This attribute reflects the time at which the subscription will expire,
+  // which is not relevant to this implementation yet as subscription refreshes
+  // are not supported.
+  return base::nullopt;
+}
+
 DOMTimeStamp PushSubscription::expirationTime(bool& out_is_null) const {
   // This attribute reflects the time at which the subscription will expire,
   // which is not relevant to this implementation yet as subscription refreshes
@@ -126,7 +133,7 @@ ScriptValue PushSubscription::toJSONForBinding(ScriptState* script_state) {
   return result.GetScriptValue();
 }
 
-void PushSubscription::Trace(blink::Visitor* visitor) {
+void PushSubscription::Trace(Visitor* visitor) {
   visitor->Trace(options_);
   visitor->Trace(p256dh_);
   visitor->Trace(auth_);

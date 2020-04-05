@@ -9,6 +9,7 @@
 
 #include "device/vr/public/mojom/vr_service.mojom-blink-forward.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
+#include "third_party/blink/renderer/platform/bindings/script_state.h"
 #include "third_party/blink/renderer/platform/bindings/script_wrappable.h"
 #include "third_party/blink/renderer/platform/heap/handle.h"
 #include "third_party/blink/renderer/platform/transforms/transformation_matrix.h"
@@ -23,6 +24,7 @@ class XRHitTestSource;
 class XRInputSource;
 class XRPose;
 class XRReferenceSpace;
+class XRRigidTransform;
 class XRSession;
 class XRSpace;
 class XRTransientInputHitTestResult;
@@ -43,7 +45,7 @@ class XRFrame final : public ScriptWrappable {
   XRWorldInformation* worldInformation() const { return world_information_; }
   XRAnchorSet* trackedAnchors() const;
 
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
 
   void Deactivate();
 
@@ -59,6 +61,11 @@ class XRFrame final : public ScriptWrappable {
   getHitTestResultsForTransientInput(
       XRTransientInputHitTestSource* hit_test_source,
       ExceptionState& exception_state);
+
+  ScriptPromise createAnchor(ScriptState* script_state,
+                             XRRigidTransform* initial_pose,
+                             XRSpace* space,
+                             ExceptionState& exception_state);
 
  private:
   std::unique_ptr<TransformationMatrix> GetAdjustedPoseMatrix(XRSpace*) const;

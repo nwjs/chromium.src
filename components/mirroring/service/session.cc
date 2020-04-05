@@ -13,6 +13,7 @@
 #include "base/bind.h"
 #include "base/json/json_writer.h"
 #include "base/logging.h"
+#include "base/memory/unsafe_shared_memory_region.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/rand_util.h"
 #include "base/stl_util.h"
@@ -20,6 +21,7 @@
 #include "base/strings/string_util.h"
 #include "base/system/sys_info.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/time/default_tick_clock.h"
 #include "base/time/time.h"
@@ -40,7 +42,6 @@
 #include "media/gpu/gpu_video_accelerator_util.h"
 #include "media/mojo/clients/mojo_video_encode_accelerator.h"
 #include "media/video/video_encode_accelerator.h"
-#include "mojo/public/cpp/base/shared_memory_utils.h"
 #include "mojo/public/cpp/system/platform_handle.h"
 #include "net/base/ip_endpoint.h"
 #include "services/viz/public/cpp/gpu/gpu.h"
@@ -564,7 +565,7 @@ void Session::CreateVideoEncodeMemory(
   DVLOG(1) << __func__;
 
   base::UnsafeSharedMemoryRegion buf =
-      mojo::CreateUnsafeSharedMemoryRegion(size);
+      base::UnsafeSharedMemoryRegion::Create(size);
 
   if (!buf.IsValid())
     LOG(WARNING) << "Browser failed to allocate shared memory.";
@@ -668,12 +669,12 @@ void Session::OnAnswer(const std::vector<FrameSenderConfig>& audio_configs,
   const bool initially_starting_session =
       !audio_encode_thread_ && !video_encode_thread_;
   if (initially_starting_session) {
-    audio_encode_thread_ = base::CreateSingleThreadTaskRunner(
-        {base::ThreadPool(), base::TaskPriority::USER_BLOCKING,
+    audio_encode_thread_ = base::ThreadPool::CreateSingleThreadTaskRunner(
+        {base::TaskPriority::USER_BLOCKING,
          base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN},
         base::SingleThreadTaskRunnerThreadMode::DEDICATED);
-    video_encode_thread_ = base::CreateSingleThreadTaskRunner(
-        {base::ThreadPool(), base::TaskPriority::USER_BLOCKING,
+    video_encode_thread_ = base::ThreadPool::CreateSingleThreadTaskRunner(
+        {base::TaskPriority::USER_BLOCKING,
          base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN},
         base::SingleThreadTaskRunnerThreadMode::DEDICATED);
   }

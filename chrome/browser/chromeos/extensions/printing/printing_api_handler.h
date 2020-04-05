@@ -68,6 +68,7 @@ class PrintingAPIHandler : public BrowserContextKeyedAPI,
       ExtensionRegistry* extension_registry,
       chromeos::CupsPrintJobManager* print_job_manager,
       chromeos::CupsPrintersManager* printers_manager,
+      std::unique_ptr<PrintJobController> print_job_controller,
       std::unique_ptr<chromeos::PrinterConfigurer> printer_configurer,
       std::unique_ptr<chromeos::CupsWrapper> cups_wrapper);
 
@@ -103,6 +104,9 @@ class PrintingAPIHandler : public BrowserContextKeyedAPI,
   void GetPrinterInfo(const std::string& printer_id,
                       GetPrinterInfoCallback callback);
 
+  void SetPrintJobControllerForTesting(
+      std::unique_ptr<PrintJobController> print_job_controller);
+
  private:
   // Needed for BrowserContextKeyedAPI implementation.
   friend class BrowserContextKeyedAPIFactory<PrintingAPIHandler>;
@@ -113,6 +117,7 @@ class PrintingAPIHandler : public BrowserContextKeyedAPI,
       ExtensionRegistry* extension_registry,
       chromeos::CupsPrintJobManager* print_job_manager,
       chromeos::CupsPrintersManager* printers_manager,
+      std::unique_ptr<PrintJobController> print_job_controller,
       std::unique_ptr<chromeos::PrinterConfigurer> printer_configurer,
       std::unique_ptr<chromeos::CupsWrapper> cups_wrapper);
 
@@ -157,7 +162,7 @@ class PrintingAPIHandler : public BrowserContextKeyedAPI,
 
   chromeos::CupsPrintJobManager* print_job_manager_;
   chromeos::CupsPrintersManager* const printers_manager_;
-  PrintJobController print_job_controller_;
+  std::unique_ptr<PrintJobController> print_job_controller_;
   PrinterCapabilitiesProvider printer_capabilities_provider_;
   std::unique_ptr<chromeos::CupsWrapper> cups_wrapper_;
 

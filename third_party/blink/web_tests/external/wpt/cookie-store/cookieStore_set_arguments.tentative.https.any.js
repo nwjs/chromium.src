@@ -160,7 +160,7 @@ promise_test(async testCase => {
   const currentDomain = currentUrl.hostname;
   const subDomain = `sub.${currentDomain}`;
 
-  await promise_rejects(testCase, new TypeError(), cookieStore.set(
+  await promise_rejects_js(testCase, TypeError, cookieStore.set(
       'cookie-name', 'cookie-value', { domain: subDomain }));
   const cookie = await cookieStore.get('cookie-name');
   assert_equals(cookie, null);
@@ -173,7 +173,7 @@ promise_test(async testCase => {
       'this test assumes that the current hostname does not start with .');
   const domainSuffix = currentDomain.substr(1);
 
-  await promise_rejects(testCase, new TypeError(), cookieStore.set(
+  await promise_rejects_js(testCase, TypeError, cookieStore.set(
       'cookie-name', 'cookie-value', { domain: domainSuffix }));
   const cookie = await cookieStore.get('cookie-name');
   assert_equals(cookie, null);
@@ -258,6 +258,34 @@ promise_test(async testCase => {
   assert_equals(cookies[0].name, 'cookie-name');
   assert_equals(cookies[0].value, 'cookie-new-value');
 }, 'cookieStore.set default path is /');
+
+promise_test(async testCase => {
+  const currentUrl = new URL(self.location.href);
+  const currentPath = currentUrl.pathname;
+  const currentDirectory = currentPath.substr(0, currentPath.lastIndexOf('/'));
+  await cookieStore.delete({ name: 'cookie-name', path: currentDirectory });
+
+  await cookieStore.set(
+      'cookie-name', 'cookie-value', { path: currentDirectory });
+  testCase.add_cleanup(async () => {
+    await cookieStore.delete({ name: 'cookie-name', path: currentDirectory });
+  });
+  const cookie = await cookieStore.get('cookie-name');
+  assert_equals(cookie.name, 'cookie-name');
+  assert_equals(cookie.value, 'cookie-value');
+  assert_equals(cookie.path, currentDirectory + '/');
+}, 'cookieStore.set adds / to path that does not end with /');
+
+promise_test(async testCase => {
+  const currentUrl = new URL(self.location.href);
+  const currentPath = currentUrl.pathname;
+  const currentDirectory =
+      currentPath.substr(0, currentPath.lastIndexOf('/') + 1);
+  const invalidPath = currentDirectory.substr(1);
+
+  await promise_rejects_js(testCase, TypeError, cookieStore.set(
+      'cookie-name', 'cookie-value', { path: invalidPath }));
+}, 'cookieStore.set with path that does not start with /');
 
 promise_test(async testCase => {
   await cookieStore.set('cookie-name', 'old-cookie-value');

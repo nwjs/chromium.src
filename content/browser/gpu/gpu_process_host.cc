@@ -52,6 +52,7 @@
 #include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/gpu_utils.h"
 #include "content/public/common/content_client.h"
+#include "content/public/common/content_features.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/result_codes.h"
 #include "content/public/common/sandboxed_process_launcher_delegate.h"
@@ -150,19 +151,6 @@ int GetForgiveMinutes(gpu::GpuMode gpu_mode) {
              ? kForgiveDisplayCompositorCrashMinutes
              : kForgiveGpuCrashMinutes;
 }
-
-#if !defined(OS_ANDROID)
-// Feature controlling whether or not memory pressure signals will be forwarded
-// to the GPU process.
-const base::Feature kForwardMemoryPressureEventsToGpuProcess{
-  "ForwardMemoryPressureEventsToGpuProcess",
-#if defined(OS_FUCHSIA)
-      base::FEATURE_ENABLED_BY_DEFAULT
-#else
-      base::FEATURE_DISABLED_BY_DEFAULT
-#endif
-};
-#endif
 
 // This matches base::TerminationStatus.
 // These values are persisted to logs. Entries (except MAX_ENUM) should not be
@@ -324,14 +312,14 @@ class GpuSandboxedProcessLauncherDelegate
  public:
   explicit GpuSandboxedProcessLauncherDelegate(
       const base::CommandLine& cmd_line)
+      :
 #if defined(OS_WIN)
-      : cmd_line_(cmd_line),
-        enable_appcontainer_(true)
+        enable_appcontainer_(true),
 #endif
-  {
+        cmd_line_(cmd_line) {
   }
 
-  ~GpuSandboxedProcessLauncherDelegate() override {}
+  ~GpuSandboxedProcessLauncherDelegate() override = default;
 
 #if defined(OS_WIN)
   bool DisableDefaultPolicy() override { return true; }
@@ -424,13 +412,22 @@ class GpuSandboxedProcessLauncherDelegate
   void DisableAppContainer() { enable_appcontainer_ = false; }
 #endif  // OS_WIN
 
+#if BUILDFLAG(USE_ZYGOTE_HANDLE)
+  service_manager::ZygoteHandle GetZygote() override {
+    if (service_manager::IsUnsandboxedSandboxType(GetSandboxType()))
+      return nullptr;
+
+    // The GPU process needs a specialized sandbox, so fork from the unsandboxed
+    // zygote and then apply the actual sandboxes in the forked process.
+    return service_manager::GetUnsandboxedZygote();
+  }
+#endif  // BUILDFLAG(USE_ZYGOTE_HANDLE)
+
   service_manager::SandboxType GetSandboxType() override {
-#if defined(OS_WIN)
     if (cmd_line_.HasSwitch(service_manager::switches::kDisableGpuSandbox)) {
       DVLOG(1) << "GPU sandbox is disabled";
       return service_manager::SandboxType::kNoSandbox;
     }
-#endif
     return service_manager::SandboxType::kGpu;
   }
 
@@ -448,9 +445,10 @@ class GpuSandboxedProcessLauncherDelegate
     return base::win::IsRunningUnderDesktopName(STRING16_LITERAL("winlogon"));
   }
 
-  base::CommandLine cmd_line_;
   bool enable_appcontainer_;
-#endif  // OS_WIN
+#endif
+
+  base::CommandLine cmd_line_;
 };
 
 #if defined(OS_WIN)
@@ -513,8 +511,9 @@ GpuProcessHost* GpuProcessHost::Get(GpuProcessKind kind, bool force_create) {
     return nullptr;
   }
 
-  // Do not launch the unsandboxed GPU process if GPU is disabled
-  if (kind == GPU_PROCESS_KIND_UNSANDBOXED_NO_GL) {
+  // Do not launch the unsandboxed GPU info collection process if GPU is
+  // disabled
+  if (kind == GPU_PROCESS_KIND_INFO_COLLECTION) {
     auto* command_line = base::CommandLine::ForCurrentProcess();
     if (command_line->HasSwitch(switches::kDisableGpu) ||
         command_line->HasSwitch(switches::kSingleProcess) ||
@@ -576,7 +575,7 @@ void GpuProcessHost::CallOnIO(
     bool force_create,
     base::OnceCallback<void(GpuProcessHost*)> callback) {
 #if !defined(OS_WIN)
-  DCHECK_NE(kind, GPU_PROCESS_KIND_UNSANDBOXED_NO_GL);
+  DCHECK_NE(kind, GPU_PROCESS_KIND_INFO_COLLECTION);
 #endif
   base::PostTask(FROM_HERE, {BrowserThread::IO},
                  base::BindOnce(&RunCallbackOnIO, kind, force_create,
@@ -679,8 +678,8 @@ GpuProcessHost::GpuProcessHost(int host_id, GpuProcessKind kind)
     in_process_ = true;
   }
 #if !defined(OS_ANDROID)
-  if (!in_process_ &&
-      base::FeatureList::IsEnabled(kForwardMemoryPressureEventsToGpuProcess)) {
+  if (!in_process_ && base::FeatureList::IsEnabled(
+                          features::kForwardMemoryPressureEventsToGpuProcess)) {
     memory_pressure_listener_ =
         std::make_unique<base::MemoryPressureListener>(base::BindRepeating(
             &GpuProcessHost::OnMemoryPressure, base::Unretained(this)));
@@ -749,7 +748,7 @@ GpuProcessHost::~GpuProcessHost() {
 
       message = "The GPU process ";
     } else {
-      message = "The unsandboxed GPU process ";
+      message = "The info collection GPU process ";
     }
 
     switch (info.status) {
@@ -986,7 +985,7 @@ void GpuProcessHost::DidInitialize(
                     "initialization time was "
                  << gpu_info.initialization_time.InMilliseconds() << " ms";
   }
-  if (kind_ != GPU_PROCESS_KIND_UNSANDBOXED_NO_GL) {
+  if (kind_ != GPU_PROCESS_KIND_INFO_COLLECTION) {
     auto* gpu_data_manager = GpuDataManagerImpl::GetInstance();
     // Update GpuFeatureInfo first, because UpdateGpuInfo() will notify all
     // listeners.
@@ -1018,6 +1017,20 @@ void GpuProcessHost::DidCreateContextSuccessfully() {
   recent_crash_count_ = 0;
 #endif
 }
+
+void GpuProcessHost::MaybeShutdownGpuProcess() {
+  if (!in_process_ &&
+      GetContentClient()->browser()->CanShutdownGpuProcessNowOnIOThread()) {
+    delete this;
+  }
+}
+
+#if defined(OS_WIN)
+void GpuProcessHost::DidUpdateOverlayInfo(
+    const gpu::OverlayInfo& overlay_info) {
+  GpuDataManagerImpl::GetInstance()->UpdateOverlayInfo(overlay_info);
+}
+#endif
 
 void GpuProcessHost::BlockDomainFrom3DAPIs(const GURL& url,
                                            gpu::DomainGuilt guilt) {
@@ -1116,7 +1129,7 @@ bool GpuProcessHost::LaunchGpuProcess() {
   cmd_line->AppendArg(switches::kPrefetchArgumentGpu);
 #endif  // defined(OS_WIN)
 
-  if (kind_ == GPU_PROCESS_KIND_UNSANDBOXED_NO_GL) {
+  if (kind_ == GPU_PROCESS_KIND_INFO_COLLECTION) {
     cmd_line->AppendSwitch(service_manager::switches::kDisableGpuSandbox);
     cmd_line->AppendSwitchASCII(switches::kUseGL,
                                 gl::kGLImplementationDisabledName);

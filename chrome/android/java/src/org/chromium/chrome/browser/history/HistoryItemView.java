@@ -7,25 +7,25 @@ package org.chromium.chrome.browser.history;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
-import android.support.graphics.drawable.VectorDrawableCompat;
-import android.support.v4.view.ViewCompat;
-import android.support.v7.content.res.AppCompatResources;
 import android.util.AttributeSet;
 import android.view.View;
 import android.widget.ImageButton;
 import android.widget.ImageView.ScaleType;
 
 import androidx.annotation.VisibleForTesting;
+import androidx.appcompat.content.res.AppCompatResources;
+import androidx.core.view.ViewCompat;
+import androidx.vectordrawable.graphics.drawable.VectorDrawableCompat;
 
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.favicon.FaviconHelper.DefaultFaviconHelper;
-import org.chromium.chrome.browser.favicon.FaviconUtils;
-import org.chromium.chrome.browser.favicon.IconType;
-import org.chromium.chrome.browser.favicon.LargeIconBridge.LargeIconCallback;
-import org.chromium.chrome.browser.favicon.RoundedIconGenerator;
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.preferences.PrefServiceBridge;
+import org.chromium.chrome.browser.ui.favicon.FaviconHelper.DefaultFaviconHelper;
+import org.chromium.chrome.browser.ui.favicon.FaviconUtils;
+import org.chromium.chrome.browser.ui.favicon.IconType;
+import org.chromium.chrome.browser.ui.favicon.LargeIconBridge.LargeIconCallback;
+import org.chromium.chrome.browser.ui.favicon.RoundedIconGenerator;
 import org.chromium.components.browser_ui.widget.selectable_list.SelectableItemView;
 
 /**
@@ -52,8 +52,8 @@ public class HistoryItemView extends SelectableItemView<HistoryItem> implements 
         mMinIconSize = getResources().getDimensionPixelSize(R.dimen.default_favicon_min_size);
         mDisplayedIconSize = getResources().getDimensionPixelSize(R.dimen.default_favicon_size);
         mIconGenerator = FaviconUtils.createCircularIconGenerator(getResources());
-        mEndPadding = context.getResources().getDimensionPixelSize(
-                R.dimen.selectable_list_layout_row_padding);
+        mEndPadding =
+                context.getResources().getDimensionPixelSize(R.dimen.default_list_row_padding);
 
         mStartIconSelectedColorList =
                 AppCompatResources.getColorStateList(context, R.color.default_icon_color_inverse);
@@ -179,7 +179,7 @@ public class HistoryItemView extends SelectableItemView<HistoryItem> implements 
     private void requestIcon() {
         if (mHistoryManager == null || mHistoryManager.getLargeIconBridge() == null) return;
 
-        mHistoryManager.getLargeIconBridge().getLargeIconForUrl(
+        mHistoryManager.getLargeIconBridge().getLargeIconForStringUrl(
                 getItem().getUrl(), mMinIconSize, this);
     }
 

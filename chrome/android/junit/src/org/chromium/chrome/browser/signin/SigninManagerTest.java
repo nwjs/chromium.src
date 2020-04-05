@@ -10,6 +10,7 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
@@ -82,13 +83,27 @@ public class SigninManagerTest {
         // Pretend Google Play services are available as it is required for the sign-in
         doReturn(false).when(externalAuthUtils).isGooglePlayServicesMissing(any());
 
-        doReturn(null).when(mIdentityManager).getPrimaryAccountId();
+        doReturn(null).when(mIdentityManager).getPrimaryAccountInfo();
         mSigninManager =
                 new SigninManager(0 /* nativeSigninManagerAndroid */, mAccountTrackerService,
                         mIdentityManager, mIdentityMutator, androidSyncSettings, externalAuthUtils);
 
         mAccount = new CoreAccountInfo(
                 new CoreAccountId("gaia-id-user"), "user@domain.com", "gaia-id-user");
+    }
+
+    @Test
+    public void signInFromJava() {
+        doReturn(true).when(mAccountTrackerService).checkAndSeedSystemAccounts();
+        doReturn(mAccount)
+                .when(mIdentityManager)
+                .findExtendedAccountInfoForAccountWithRefreshTokenByEmailAddress(
+                        eq(mAccount.getEmail()));
+
+        mSigninManager.onFirstRunCheckDone();
+        mSigninManager.signIn(SigninAccessPoint.START_PAGE, mAccount, null);
+
+        verify(mNativeMock).fetchAndApplyCloudPolicy(anyLong(), eq(mAccount), any());
     }
 
     @Test
@@ -227,9 +242,10 @@ public class SigninManagerTest {
         doReturn(account)
                 .when(mIdentityManager)
                 .findExtendedAccountInfoForAccountWithRefreshTokenByEmailAddress(any());
+        // TODO(https://crbug.com/1054780): Mock getPrimaryAccountInfo instead.
         doReturn(false).when(mIdentityManager).hasPrimaryAccount();
         doReturn(true).when(mIdentityMutator).setPrimaryAccount(any());
-        doReturn(account.getId()).when(mIdentityManager).getPrimaryAccountId();
+        doReturn(account).when(mIdentityManager).getPrimaryAccountInfo();
         doNothing().when(mIdentityMutator).reloadAllAccountsFromSystemWithPrimaryAccount(any());
 
         mSigninManager.onFirstRunCheckDone(); // Allow sign-in.

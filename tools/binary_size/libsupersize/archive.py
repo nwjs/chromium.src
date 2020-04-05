@@ -18,13 +18,11 @@ import re
 import string
 import subprocess
 import sys
-import tempfile
 import zipfile
 import zlib
 
 import apkanalyzer
 import ar
-import concurrent
 import demangle
 import describe
 import file_format
@@ -34,8 +32,11 @@ import models
 import ninja_parser
 import nm
 import obj_analyzer
+import parallel
 import path_util
 import string_extract
+import zip_util
+
 
 sys.path.insert(1, os.path.join(path_util.SRC_ROOT, 'tools', 'grit'))
 from grit.format import data_pack
@@ -124,12 +125,31 @@ class SectionSizeKnobs(object):
     # Whether to count number of relative relocations instead of binary size
     self.relocations_mode = False
 
+  def ModifyWithArgs(self, args):
+    if args.source_directory:
+      self.src_root = args.source_directory
 
-def _OpenMaybeGz(path):
+    if args.java_only:
+      self.analyze_java = True
+      self.analyze_native = False
+    if args.native_only:
+      self.analyze_java = False
+      self.analyze_native = True
+    if args.no_java:
+      self.analyze_java = False
+    if args.no_native:
+      self.analyze_native = False
+
+    if args.relocations:
+      self.relocations_mode = True
+      self.analyze_java = False
+
+
+def _OpenMaybeGzAsText(path):
   """Calls `gzip.open()` if |path| ends in ".gz", otherwise calls `open()`."""
   if path.endswith('.gz'):
-    return gzip.open(path, 'rb')
-  return open(path, 'rb')
+    return gzip.open(path, 'rt')
+  return open(path, 'rt')
 
 
 def _NormalizeNames(raw_symbols):
@@ -457,16 +477,19 @@ def _CreateMergeStringsReplacements(merge_string_syms,
   ret = []
   STRING_LITERAL_NAME = models.STRING_LITERAL_NAME
   assert len(merge_string_syms) == len(list_of_positions_by_object_path)
-  tups = itertools.izip(merge_string_syms, list_of_positions_by_object_path)
+  tups = zip(merge_string_syms, list_of_positions_by_object_path)
   for merge_sym, positions_by_object_path in tups:
     merge_sym_address = merge_sym.address
     new_symbols = []
     ret.append(new_symbols)
-    for object_path, positions in positions_by_object_path.iteritems():
+    for object_path, positions in positions_by_object_path.items():
       for offset, size in positions:
         address = merge_sym_address + offset
         symbol = models.Symbol(
-            models.SECTION_RODATA, size, address, STRING_LITERAL_NAME,
+            models.SECTION_RODATA,
+            size,
+            address=address,
+            full_name=STRING_LITERAL_NAME,
             object_path=object_path)
         new_symbols.append(symbol)
 
@@ -643,7 +666,7 @@ def _AddNmAliases(raw_symbols, names_by_address):
       num_new_symbols += len(name_list) - 1
 
   if missing_names and logging.getLogger().isEnabledFor(logging.INFO):
-    for address, names in names_by_address.iteritems():
+    for address, names in names_by_address.items():
       for name in names:
         if name in missing_names:
           logging.info('Missing name %s is at address %x instead of [%s]' %
@@ -703,6 +726,11 @@ def _CollectModuleSizes(minimal_apks_path):
   return sizes_by_module
 
 
+def _ExtendSectionRange(section_range_by_name, section_name, delta_size):
+  (prev_address, prev_size) = section_range_by_name.get(section_name, (0, 0))
+  section_range_by_name[section_name] = (prev_address, prev_size + delta_size)
+
+
 def CreateMetadata(map_path, elf_path, apk_path, minimal_apks_path,
                    tool_prefix, output_directory, linker_name):
   """Creates metadata dict.
@@ -760,7 +788,7 @@ def CreateMetadata(map_path, elf_path, apk_path, minimal_apks_path,
         sizes_by_module = _CollectModuleSizes(minimal_apks_path)
         metadata[models.METADATA_APK_FILENAME] = relative_to_out(
             minimal_apks_path)
-        for name, size in sizes_by_module.iteritems():
+        for name, size in sizes_by_module.items():
           key = models.METADATA_APK_SIZE
           if name != 'base':
             key += '-' + name
@@ -816,23 +844,29 @@ def _NameStringLiterals(raw_symbols, elf_path, tool_prefix):
   # Assign ASCII-readable string literals names like "string contents".
   STRING_LENGTH_CUTOFF = 30
 
+  PRINTABLE_TBL = [False] * 256
+  for ch in string.printable:
+    PRINTABLE_TBL[ord(ch)] = True
+
   for sym, name in string_extract.ReadStringLiterals(raw_symbols, elf_path,
                                                      tool_prefix):
     # Newlines and tabs are used as delimiters in file_format.py
     # At this point, names still have a terminating null byte.
-    name = name.translate(None, '\t\n').strip('\00')
-    is_printable = all(c in string.printable for c in name)
-    if not is_printable:
-      sym.full_name = models.STRING_LITERAL_NAME
-    elif len(name) > STRING_LENGTH_CUTOFF:
-      sym.full_name = '"{}[...]"'.format(name[:STRING_LENGTH_CUTOFF])
+    name = name.replace(b'\n', b'').replace(b'\t', b'').strip(b'\00')
+    is_printable = all(PRINTABLE_TBL[c] for c in name)
+    if is_printable:
+      name = name.decode('ascii')
+      if len(name) > STRING_LENGTH_CUTOFF:
+        sym.full_name = '"{}[...]"'.format(name[:STRING_LENGTH_CUTOFF])
+      else:
+        sym.full_name = '"{}"'.format(name)
     else:
-      sym.full_name = '"{}"'.format(name)
+      sym.full_name = models.STRING_LITERAL_NAME
 
 
 def _ParseElfInfo(map_path, elf_path, tool_prefix, track_string_literals,
                   outdir_context=None, linker_name=None):
-  """Adds ELF section sizes and symbols."""
+  """Adds ELF section ranges and symbols."""
   if elf_path:
     # Run nm on the elf file to retrieve the list of symbol names per-address.
     # This list is required because the .map file contains only a single name
@@ -856,8 +890,8 @@ def _ParseElfInfo(map_path, elf_path, tool_prefix, track_string_literals,
       bulk_analyzer.AnalyzePaths(outdir_context.elf_object_paths)
 
   logging.info('Parsing Linker Map')
-  with _OpenMaybeGz(map_path) as map_file:
-    map_section_sizes, raw_symbols, linker_map_extras = (
+  with _OpenMaybeGzAsText(map_path) as map_file:
+    map_section_ranges, raw_symbols, linker_map_extras = (
         linker_map_parser.MapFileParser().Parse(linker_name, map_file))
 
     if outdir_context and outdir_context.thin_archives:
@@ -865,13 +899,16 @@ def _ParseElfInfo(map_path, elf_path, tool_prefix, track_string_literals,
 
   if elf_path:
     logging.debug('Validating section sizes')
-    _, elf_section_sizes = _SectionInfoFromElf(elf_path, tool_prefix)
+    elf_section_ranges = _SectionInfoFromElf(elf_path, tool_prefix)
     differing_elf_section_sizes = {}
     differing_map_section_sizes = {}
-    for k, v in elf_section_sizes.iteritems():
-      if k not in _SECTION_SIZE_BLACKLIST and v != map_section_sizes.get(k):
-        differing_map_section_sizes[k] = map_section_sizes.get(k)
-        differing_elf_section_sizes[k] = v
+    for k, (_, elf_size) in elf_section_ranges.items():
+      if k in _SECTION_SIZE_BLACKLIST:
+        continue
+      (_, map_size) = map_section_ranges.get(k)
+      if map_size != elf_size:
+        differing_map_section_sizes[k] = map_size
+        differing_elf_section_sizes[k] = elf_size
     if differing_map_section_sizes:
       logging.error('ELF file and .map file do not agree on section sizes.')
       logging.error('readelf: %r', differing_elf_section_sizes)
@@ -930,8 +967,7 @@ def _ParseElfInfo(map_path, elf_path, tool_prefix, track_string_literals,
         logging.info('Deconstructing ** merge strings into literals')
         replacements = _CreateMergeStringsReplacements(merge_string_syms,
             list_of_positions_by_object_path)
-        for merge_sym, literal_syms in itertools.izip(
-            merge_string_syms, replacements):
+        for merge_sym, literal_syms in zip(merge_string_syms, replacements):
           # Don't replace if no literals were found.
           if literal_syms:
             # Re-find the symbols since aliases cause their indices to change.
@@ -945,18 +981,22 @@ def _ParseElfInfo(map_path, elf_path, tool_prefix, track_string_literals,
   if elf_path:
     _NameStringLiterals(raw_symbols, elf_path, tool_prefix)
 
-  # If we have an ELF file, use its sizes as the source of truth, since some
+  # If we have an ELF file, use its ranges as the source of truth, since some
   # sections can differ from the .map.
-  return (elf_section_sizes if elf_path else map_section_sizes, raw_symbols,
+  return (elf_section_ranges if elf_path else map_section_ranges, raw_symbols,
           object_paths_by_name)
 
 
 def _ComputePakFileSymbols(
     file_name, contents, res_info, symbols_by_id, compression_ratio=1):
-  id_map = {id(v): k
-            for k, v in sorted(contents.resources.items(), reverse=True)}
-  alias_map = {k: id_map[id(v)] for k, v in contents.resources.iteritems()
-               if id_map[id(v)] != k}
+  id_map = {
+      id(v): k
+      for k, v in sorted(list(contents.resources.items()), reverse=True)
+  }
+  alias_map = {
+      k: id_map[id(v)]
+      for k, v in contents.resources.items() if id_map[id(v)] != k
+  }
   # Longest locale pak is: es-419.pak.
   # Only non-translated .pak files are: resources.pak, chrome_100_percent.pak.
   if len(posixpath.basename(file_name)) <= 10:
@@ -1019,7 +1059,7 @@ class _ResourceSourceMapper(object):
     # We package resources in the res/ folder only in the apk.
     res_info = {
         os.path.join('res', dest): source
-        for dest, source in res_info_without_root.iteritems()
+        for dest, source in res_info_without_root.items()
     }
     res_info.update(self._knobs.apk_other_files)
     return res_info
@@ -1052,7 +1092,7 @@ def _ParsePakInfoFile(pak_info_path):
 
 def _ParsePakSymbols(symbols_by_id, object_paths_by_pak_id):
   raw_symbols = []
-  for resource_id, symbol in symbols_by_id.iteritems():
+  for resource_id, symbol in symbols_by_id.items():
     raw_symbols.append(symbol)
     paths = object_paths_by_pak_id.get(resource_id)
     if not paths:
@@ -1084,10 +1124,10 @@ def _ParsePakSymbols(symbols_by_id, object_paths_by_pak_id):
   return raw_symbols
 
 
-def _ParseApkElfSectionSize(section_sizes, metadata, apk_elf_result):
+def _ParseApkElfSectionRanges(section_ranges, metadata, apk_elf_result):
   if metadata:
     logging.debug('Extracting section sizes from .so within .apk')
-    apk_build_id, _, apk_section_sizes, elf_overhead_size = apk_elf_result.get()
+    apk_build_id, apk_section_ranges, elf_overhead_size = apk_elf_result.get()
     assert apk_build_id == metadata[models.METADATA_ELF_BUILD_ID], (
         'BuildID from apk_elf_result did not match')
 
@@ -1100,18 +1140,19 @@ def _ParseApkElfSectionSize(section_sizes, metadata, apk_elf_result):
       packed_section_name = '.rela.dyn'
 
     if packed_section_name:
-      unpacked_size = section_sizes.get(packed_section_name)
-      if unpacked_size is None:
+      unpacked_range = section_ranges.get(packed_section_name)
+      if unpacked_range is None:
         logging.warning('Packed section not present: %s', packed_section_name)
-      elif unpacked_size != apk_section_sizes.get(packed_section_name):
-        # These sizes are different only when using relocation_packer, which
+      elif unpacked_range != apk_section_ranges.get(packed_section_name):
+        # These ranges are different only when using relocation_packer, which
         # hasn't been used since switching from gold -> lld.
-        apk_section_sizes['%s (unpacked)' % packed_section_name] = unpacked_size
-    return apk_section_sizes, elf_overhead_size
-  return section_sizes, 0
+        apk_section_ranges['%s (unpacked)' %
+                           packed_section_name] = unpacked_range
+    return apk_section_ranges, elf_overhead_size
+  return section_ranges, 0
 
 
-class _ResourcePathDeobfuscator:
+class _ResourcePathDeobfuscator(object):
 
   def __init__(self, pathmap_path):
     self._pathmap = self._LoadResourcesPathmap(pathmap_path)
@@ -1149,7 +1190,7 @@ class _ResourcePathDeobfuscator:
     return path
 
 
-def _ParseApkOtherSymbols(section_sizes, apk_path, apk_so_path,
+def _ParseApkOtherSymbols(section_ranges, apk_path, apk_so_path,
                           resources_pathmap_path, size_info_prefix, knobs):
   res_source_mapper = _ResourceSourceMapper(size_info_prefix, knobs)
   resource_deobfuscator = _ResourcePathDeobfuscator(resources_pathmap_path)
@@ -1183,9 +1224,8 @@ def _ParseApkOtherSymbols(section_sizes, apk_path, apk_so_path,
   zip_overhead_symbol = models.Symbol(
       models.SECTION_OTHER, overhead_size, full_name='Overhead: APK file')
   apk_symbols.append(zip_overhead_symbol)
-  prev = section_sizes.setdefault(models.SECTION_OTHER, 0)
-  section_sizes[models.SECTION_OTHER] = prev + sum(s.size for s in apk_symbols)
-
+  _ExtendSectionRange(section_ranges, models.SECTION_OTHER,
+                      sum(s.size for s in apk_symbols))
   return dex_size, apk_symbols
 
 
@@ -1204,7 +1244,7 @@ def _CreatePakObjectMap(object_paths_by_name):
   return object_paths_by_pak_id
 
 
-def _FindPakSymbolsFromApk(section_sizes, apk_path, size_info_prefix, knobs):
+def _FindPakSymbolsFromApk(section_ranges, apk_path, size_info_prefix, knobs):
   with zipfile.ZipFile(apk_path) as z:
     pak_zip_infos = (f for f in z.infolist() if f.filename.endswith('.pak'))
     pak_info_path = size_info_prefix + '.pak.info'
@@ -1222,8 +1262,7 @@ def _FindPakSymbolsFromApk(section_sizes, apk_path, size_info_prefix, knobs):
       section_name = _ComputePakFileSymbols(
           zip_info.filename, contents,
           res_info, symbols_by_id, compression_ratio=compression_ratio)
-      prev_size = section_sizes.get(section_name, 0)
-      section_sizes[section_name] = prev_size + zip_info.compress_size
+      _ExtendSectionRange(section_ranges, section_name, zip_info.compress_size)
 
     if total_uncompressed_size > 0:
       actual_ratio = (
@@ -1235,26 +1274,27 @@ def _FindPakSymbolsFromApk(section_sizes, apk_path, size_info_prefix, knobs):
   return symbols_by_id
 
 
-def _FindPakSymbolsFromFiles(
-    section_sizes, pak_files, pak_info_path, output_directory):
+def _FindPakSymbolsFromFiles(section_ranges, pak_files, pak_info_path,
+                             output_directory):
   """Uses files from args to find and add pak symbols."""
   res_info = _ParsePakInfoFile(pak_info_path)
   symbols_by_id = {}
   for pak_file_path in pak_files:
-    with open(pak_file_path, 'r') as f:
+    with open(pak_file_path, 'rb') as f:
       contents = data_pack.ReadDataPackFromString(f.read())
     section_name = _ComputePakFileSymbols(
         os.path.relpath(pak_file_path, output_directory), contents, res_info,
         symbols_by_id)
-    prev_size = section_sizes.get(section_name, 0)
-    section_sizes[section_name] = prev_size + os.path.getsize(pak_file_path)
+    _ExtendSectionRange(section_ranges, section_name,
+                        os.path.getsize(pak_file_path))
   return symbols_by_id
 
 
-def _CalculateElfOverhead(section_sizes, elf_path):
+def _CalculateElfOverhead(section_ranges, elf_path):
   if elf_path:
     section_sizes_total_without_bss = sum(
-        s for k, s in section_sizes.iteritems() if k not in models.BSS_SECTIONS)
+        size for k, (address, size) in section_ranges.items()
+        if k not in models.BSS_SECTIONS)
     elf_overhead_size = (
         os.path.getsize(elf_path) - section_sizes_total_without_bss)
     assert elf_overhead_size >= 0, (
@@ -1282,7 +1322,8 @@ def _OverwriteSymbolSizesWithRelocationCount(raw_symbols, tool_prefix,
     symbol.padding = 0
 
   relocs_cmd = [path_util.GetReadElfPath(tool_prefix), '--relocs', elf_path]
-  relro_addresses = subprocess.check_output(relocs_cmd).split('\n')
+  relro_addresses = subprocess.check_output(relocs_cmd).decode('ascii').split(
+      '\n')
   # Grab first column from (sample output) '02de6d5c  00000017 R_ARM_RELATIVE'
   relro_addresses = [
       int(l.split()[0], 16) for l in relro_addresses if 'R_ARM_RELATIVE' in l
@@ -1304,22 +1345,22 @@ def _OverwriteSymbolSizesWithRelocationCount(raw_symbols, tool_prefix,
   raw_symbols[:] = [sym for sym in raw_symbols if sym.size or sym.IsNative()]
 
 
-def _AddUnattributedSectionSymbols(raw_symbols, section_sizes, elf_result):
+def _AddUnattributedSectionSymbols(raw_symbols, section_ranges, elf_result):
   # Create symbols for ELF sections not covered by existing symbols.
   logging.info('Searching for symbol gaps...')
-  section_addresses = elf_result.get()[1]
+  _, section_ranges, _ = elf_result.get()
   last_symbol_ends = collections.defaultdict(int)
   for sym in raw_symbols:
     if sym.end_address > last_symbol_ends[sym.section_name]:
       last_symbol_ends[sym.section_name] = sym.end_address
-  for section_name, last_symbol_end in last_symbol_ends.iteritems():
-    size_from_syms = last_symbol_end - section_addresses[section_name]
-    overhead = section_sizes[section_name] - size_from_syms
+  for section_name, last_symbol_end in last_symbol_ends.items():
+    size_from_syms = last_symbol_end - section_ranges[section_name][0]
+    overhead = section_ranges[section_name][1] - size_from_syms
     assert overhead >= 0, (
         ('End of last symbol (%x) in section %s is %d bytes after the end of '
-         'section from readelf (%x).') %
-        (last_symbol_end, section_name, -overhead,
-         section_sizes[section_name] + section_addresses[section_name]))
+         'section from readelf (%x).') % (last_symbol_end, section_name,
+                                          -overhead,
+                                          sum(section_ranges[section_name])))
     if overhead > 0 and section_name not in models.BSS_SECTIONS:
       raw_symbols.append(
           models.Symbol(
@@ -1330,19 +1371,20 @@ def _AddUnattributedSectionSymbols(raw_symbols, section_sizes, elf_result):
       logging.info('Last symbol in %s does not reach end of section, gap=%d',
                    section_name, overhead)
 
-  for section_name in section_addresses:
+  # Sort keys to ensure consistent order (> 1 sections may have address = 0).
+  for section_name in sorted(section_ranges.keys()):
     # Handle sections that don't appear in |raw_symbols|.
     if section_name not in last_symbol_ends:
-      section_size = section_sizes[section_name]
+      address, section_size = section_ranges[section_name]
       logging.info('All bytes in %s are unattributed, gap=%d', section_name,
                    overhead)
       raw_symbols.append(
           models.Symbol(
               models.SECTION_OTHER,
               section_size,
-              full_name='** ELF Section: {}'.format(section_name)))
-      prev = section_sizes.setdefault(models.SECTION_OTHER, 0)
-      section_sizes[models.SECTION_OTHER] = prev + section_size
+              full_name='** ELF Section: {}'.format(section_name),
+              address=address))
+      _ExtendSectionRange(section_ranges, models.SECTION_OTHER, section_size)
 
 
 def CreateSectionSizesAndSymbols(map_path=None,
@@ -1370,6 +1412,7 @@ def CreateSectionSizesAndSymbols(map_path=None,
     elf_path: Path to the corresponding unstripped ELF file. Used to find symbol
         aliases and inlined functions. Can be None.
     apk_path: Path to the .apk file to measure.
+    mapping_path: Path to the .mapping file for DEX symbol processing.
     resources_pathmap_path: Path to the pathmap file that maps original
         resource paths to shortened resource paths.
     track_string_literals: Whether to break down "** merge string" sections into
@@ -1384,14 +1427,14 @@ def CreateSectionSizesAndSymbols(map_path=None,
 
   Returns:
     A tuple of (section_sizes, raw_symbols).
-    section_sizes is a dict mapping section names to their size
-    raw_symbols is a list of Symbol objects
+    section_ranges is a dict mapping section names to their (address, size).
+    raw_symbols is a list of Symbol objects.
   """
   knobs = knobs or SectionSizeKnobs()
   if apk_path and elf_path:
     # Extraction takes around 1 second, so do it in parallel.
-    apk_elf_result = concurrent.ForkAndCall(
-        _ElfInfoFromApk, (apk_path, apk_so_path, tool_prefix))
+    apk_elf_result = parallel.ForkAndCall(_ElfInfoFromApk,
+                                          (apk_path, apk_so_path, tool_prefix))
 
   outdir_context = None
   source_mapper = None
@@ -1442,7 +1485,7 @@ def CreateSectionSizesAndSymbols(map_path=None,
         thin_archives=thin_archives)
 
   if knobs.analyze_native:
-    section_sizes, raw_symbols, object_paths_by_name = _ParseElfInfo(
+    section_ranges, raw_symbols, object_paths_by_name = _ParseElfInfo(
         map_path,
         elf_path,
         tool_prefix,
@@ -1450,22 +1493,25 @@ def CreateSectionSizesAndSymbols(map_path=None,
         outdir_context=outdir_context,
         linker_name=linker_name)
   else:
-    section_sizes, raw_symbols, object_paths_by_name = {}, [], None
+    section_ranges, raw_symbols, object_paths_by_name = {}, [], None
 
-  elf_overhead_size = _CalculateElfOverhead(section_sizes, elf_path)
+  elf_overhead_size = _CalculateElfOverhead(section_ranges, elf_path)
 
   pak_symbols_by_id = None
   if apk_path and size_info_prefix:
     if elf_path:
-      section_sizes, elf_overhead_size = _ParseApkElfSectionSize(
-          section_sizes, metadata, apk_elf_result)
-      _AddUnattributedSectionSymbols(raw_symbols, section_sizes, apk_elf_result)
+      section_ranges, elf_overhead_size = _ParseApkElfSectionRanges(
+          section_ranges, metadata, apk_elf_result)
+      _AddUnattributedSectionSymbols(raw_symbols, section_ranges,
+                                     apk_elf_result)
 
-    pak_symbols_by_id = _FindPakSymbolsFromApk(
-        section_sizes, apk_path, size_info_prefix, knobs)
+    # Can modify |section_ranges|.
+    pak_symbols_by_id = _FindPakSymbolsFromApk(section_ranges, apk_path,
+                                               size_info_prefix, knobs)
 
+    # Can modify |section_ranges|.
     dex_size, other_symbols = _ParseApkOtherSymbols(
-        section_sizes, apk_path, apk_so_path, resources_pathmap_path,
+        section_ranges, apk_path, apk_so_path, resources_pathmap_path,
         size_info_prefix, knobs)
 
     if knobs.analyze_java:
@@ -1480,14 +1526,14 @@ def CreateSectionSizesAndSymbols(map_path=None,
           round(
               sum(s.pss for s in dex_symbols
                   if s.section_name == models.SECTION_DEX_METHOD)))
-      section_sizes[models.SECTION_DEX_METHOD] = dex_method_size
-      section_sizes[models.SECTION_DEX] = dex_size - dex_method_size
+      section_ranges[models.SECTION_DEX_METHOD] = (0, dex_method_size)
+      section_ranges[models.SECTION_DEX] = (0, dex_size - dex_method_size)
 
       dex_other_size = int(
           round(
               sum(s.pss for s in dex_symbols
                   if s.section_name == models.SECTION_DEX)))
-      unattributed_dex = section_sizes[models.SECTION_DEX] - dex_other_size
+      unattributed_dex = section_ranges[models.SECTION_DEX][1] - dex_other_size
       # Compare against -5 instead of 0 to guard against round-off errors.
       assert unattributed_dex >= -5, ('Dex symbols take up more space than '
                                       'the dex sections have available')
@@ -1501,14 +1547,14 @@ def CreateSectionSizesAndSymbols(map_path=None,
     raw_symbols.extend(other_symbols)
 
   elif pak_files and pak_info_file:
+    # Can modify |section_ranges|.
     pak_symbols_by_id = _FindPakSymbolsFromFiles(
-        section_sizes, pak_files, pak_info_file, output_directory)
+        section_ranges, pak_files, pak_info_file, output_directory)
 
   if elf_path:
     elf_overhead_symbol = models.Symbol(
         models.SECTION_OTHER, elf_overhead_size, full_name='Overhead: ELF file')
-    prev = section_sizes.setdefault(models.SECTION_OTHER, 0)
-    section_sizes[models.SECTION_OTHER] = prev + elf_overhead_size
+    _ExtendSectionRange(section_ranges, models.SECTION_OTHER, elf_overhead_size)
     raw_symbols.append(elf_overhead_symbol)
 
   if pak_symbols_by_id:
@@ -1530,22 +1576,30 @@ def CreateSectionSizesAndSymbols(map_path=None,
   if elf_path and knobs.relocations_mode:
     _OverwriteSymbolSizesWithRelocationCount(raw_symbols, tool_prefix, elf_path)
 
+  section_sizes = {k: size for k, (address, size) in section_ranges.items()}
   return section_sizes, raw_symbols
 
 
-def CreateSizeInfo(section_sizes,
-                   raw_symbols,
-                   metadata=None,
+def CreateSizeInfo(section_sizes_list,
+                   raw_symbols_list,
+                   metadata_list,
                    normalize_names=True):
   """Performs operations on all symbols and creates a SizeInfo object."""
-  file_format.SortSymbols(raw_symbols)
-  file_format.CalculatePadding(raw_symbols)
+  for raw_symbols in raw_symbols_list:
+    file_format.SortSymbols(raw_symbols)
+    file_format.CalculatePadding(raw_symbols)
 
-  # Do not call _NormalizeNames() during archive since that method tends to need
-  # tweaks over time. Calling it only when loading .size files allows for more
-  # flexibility.
-  if normalize_names:
-    _NormalizeNames(raw_symbols)
+    # Do not call _NormalizeNames() during archive since that method tends to
+    # need tweaks over time. Calling it only when loading .size files allows for
+    # more flexibility.
+    if normalize_names:
+      _NormalizeNames(raw_symbols)
+
+  # TODO(huangs): Implement data fusing to compute the following for real.
+  assert len(section_sizes_list) == 1
+  section_sizes = section_sizes_list[0]
+  raw_symbols = raw_symbols_list[0]
+  metadata = metadata_list[0]
 
   return models.SizeInfo(section_sizes, raw_symbols, metadata=metadata)
 
@@ -1561,7 +1615,7 @@ def _DetectGitRevision(directory):
   """
   try:
     git_rev = subprocess.check_output(
-        ['git', '-C', directory, 'rev-parse', 'HEAD'])
+        ['git', '-C', directory, 'rev-parse', 'HEAD']).decode('ascii')
     return git_rev.rstrip()
   except Exception:
     logging.warning('Failed to detect git revision for file metadata.')
@@ -1570,7 +1624,7 @@ def _DetectGitRevision(directory):
 
 def BuildIdFromElf(elf_path, tool_prefix):
   args = [path_util.GetReadElfPath(tool_prefix), '-n', elf_path]
-  stdout = subprocess.check_output(args)
+  stdout = subprocess.check_output(args).decode('ascii')
   match = re.search(r'Build ID: (\w+)', stdout)
   assert match, 'Build ID not found from running: ' + ' '.join(args)
   return match.group(1)
@@ -1578,25 +1632,23 @@ def BuildIdFromElf(elf_path, tool_prefix):
 
 def _SectionInfoFromElf(elf_path, tool_prefix):
   args = [path_util.GetReadElfPath(tool_prefix), '-S', '--wide', elf_path]
-  stdout = subprocess.check_output(args)
-  section_addresses = {}
-  section_sizes = {}
+  stdout = subprocess.check_output(args).decode('ascii')
+  section_ranges = {}
   # Matches  [ 2] .hash HASH 00000000006681f0 0001f0 003154 04   A  3   0  8
   for match in re.finditer(r'\[[\s\d]+\] (\..*)$', stdout, re.MULTILINE):
     items = match.group(1).split()
-    section_addresses[items[0]] = int(items[2], 16)
-    section_sizes[items[0]] = int(items[4], 16)
-  return section_addresses, section_sizes
+    section_ranges[items[0]] = (int(items[2], 16), int(items[4], 16))
+  return section_ranges
 
 
 def _ElfIsMainPartition(elf_path, tool_prefix):
-  _, section_sizes = _SectionInfoFromElf(elf_path, tool_prefix)
-  return models.SECTION_PART_END in section_sizes.keys()
+  section_ranges = _SectionInfoFromElf(elf_path, tool_prefix)
+  return models.SECTION_PART_END in section_ranges.keys()
 
 
 def _ArchFromElf(elf_path, tool_prefix):
   args = [path_util.GetReadElfPath(tool_prefix), '-h', elf_path]
-  stdout = subprocess.check_output(args)
+  stdout = subprocess.check_output(args).decode('ascii')
   machine = re.search('Machine:\s*(.+)', stdout).group(1)
   if machine == 'Intel 80386':
     return 'x86'
@@ -1611,7 +1663,7 @@ def _ArchFromElf(elf_path, tool_prefix):
 
 def _CountRelocationsFromElf(elf_path, tool_prefix):
   args = [path_util.GetObjDumpPath(tool_prefix), '--private-headers', elf_path]
-  stdout = subprocess.check_output(args)
+  stdout = subprocess.check_output(args).decode('ascii')
   relocations = re.search('REL[AR]?COUNT\s*(.+)', stdout).group(1)
   return int(relocations, 16)
 
@@ -1626,24 +1678,21 @@ def _ParseGnArgs(args_path):
       if len(parts) != 2:
         continue
       args[parts[0].strip()] = parts[1].strip()
-  return ["%s=%s" % x for x in sorted(args.iteritems())]
+  return ["%s=%s" % x for x in sorted(args.items())]
 
 
 def _DetectLinkerName(map_path):
-  with _OpenMaybeGz(map_path) as map_file:
+  with _OpenMaybeGzAsText(map_path) as map_file:
     return linker_map_parser.DetectLinkerNameFromMapFile(map_file)
 
 
 def _ElfInfoFromApk(apk_path, apk_so_path, tool_prefix):
-  """Returns a tuple of (build_id, section_sizes, elf_overhead_size)."""
-  with zipfile.ZipFile(apk_path) as apk, \
-       tempfile.NamedTemporaryFile() as f:
-    f.write(apk.read(apk_so_path))
-    f.flush()
-    build_id = BuildIdFromElf(f.name, tool_prefix)
-    section_addresses, section_sizes = _SectionInfoFromElf(f.name, tool_prefix)
-    elf_overhead_size = _CalculateElfOverhead(section_sizes, f.name)
-    return build_id, section_addresses, section_sizes, elf_overhead_size
+  """Returns a tuple of (build_id, section_ranges, elf_overhead_size)."""
+  with zip_util.UnzipToTemp(apk_path, apk_so_path) as temp:
+    build_id = BuildIdFromElf(temp, tool_prefix)
+    section_ranges = _SectionInfoFromElf(temp, tool_prefix)
+    elf_overhead_size = _CalculateElfOverhead(section_ranges, temp)
+    return build_id, section_ranges, elf_overhead_size
 
 
 def _AutoIdentifyInputFile(args):
@@ -1730,30 +1779,59 @@ def AddArguments(parser):
   AddMainPathsArguments(parser)
 
 
-def _DeduceMainPaths(args, parser, extracted_minimal_apk_path=None):
-  """Computes main paths based on input, and deduces them if needed."""
-  elf_path = args.elf_file
-  map_path = args.map_file
-  any_input = args.apk_file or args.minimal_apks_file or elf_path or map_path
-  if not any_input:
-    parser.error('Must pass at least one of --apk-file, --minimal-apks-file, '
-                 '--elf-file, --map-file')
-  output_directory_finder = path_util.OutputDirectoryFinder(
-      value=args.output_directory,
-      any_path_within_output_directory=any_input)
+def _DeduceNativeInfo(tentative_output_dir, apk_path, elf_path, map_path,
+                      on_config_error):
+  apk_so_path = None
+  if apk_path:
+    with zipfile.ZipFile(apk_path) as z:
+      lib_infos = [
+          f for f in z.infolist()
+          if f.filename.endswith('.so') and f.file_size > 0
+      ]
+    assert lib_infos, 'APK has no .so files.'
+    # TODO(agrieve): Add support for multiple .so files, and take into account
+    #     secondary architectures.
+    apk_so_path = max(lib_infos, key=lambda x: x.file_size).filename
+    logging.debug('Sub-apk path=%s', apk_so_path)
+    if not elf_path and tentative_output_dir:
+      elf_path = os.path.join(
+          tentative_output_dir, 'lib.unstripped',
+          os.path.basename(apk_so_path.replace('crazy.', '')))
+      logging.debug('Detected --elf-file=%s', elf_path)
 
-  aab_or_apk = args.apk_file or args.minimal_apks_file
+  if map_path:
+    if not map_path.endswith('.map') and not map_path.endswith('.map.gz'):
+      on_config_error('Expected --map-file to end with .map or .map.gz')
+  elif elf_path:
+    # Look for a .map file named for either the ELF file, or in the
+    # partitioned native library case, the combined ELF file from which the
+    # main library was extracted. Note that we don't yet have |tool_prefix| to
+    # use here, but that's not a problem for this use case.
+    if _ElfIsMainPartition(elf_path, ''):
+      map_path = elf_path.replace('.so', '__combined.so') + '.map'
+    else:
+      map_path = elf_path + '.map'
+    if not os.path.exists(map_path):
+      map_path += '.gz'
+
+  if not os.path.exists(map_path):
+    on_config_error(
+        'Could not find .map(.gz)? file. Ensure you have built with '
+        'is_official_build=true and generate_linker_map=true, or use '
+        '--map-file to point me a linker map file.')
+
+  return elf_path, map_path, apk_so_path
+
+
+def _DeduceAuxPaths(args, apk_prefix):
   mapping_path = args.mapping_file
   resources_pathmap_path = args.resources_pathmap_file
-  if aab_or_apk:
-    # Allow either .minimal.apks or just .apks.
-    aab_or_apk = aab_or_apk.replace('.minimal.apks', '.aab')
-    aab_or_apk = aab_or_apk.replace('.apks', '.aab')
+  if apk_prefix:
     if not mapping_path:
-      mapping_path = aab_or_apk + '.mapping'
+      mapping_path = apk_prefix + '.mapping'
       logging.debug('Detected --mapping-file=%s', mapping_path)
     if not resources_pathmap_path:
-      possible_pathmap_path = aab_or_apk + '.pathmap.txt'
+      possible_pathmap_path = apk_prefix + '.pathmap.txt'
       # This could be pointing to a stale pathmap file if path shortening was
       # previously enabled but is disabled for the current build. However, since
       # current apk/aab will have unshortened paths, looking those paths up in
@@ -1763,152 +1841,147 @@ def _DeduceMainPaths(args, parser, extracted_minimal_apk_path=None):
         resources_pathmap_path = possible_pathmap_path
         logging.debug('Detected --resources-pathmap-file=%s',
                       resources_pathmap_path)
+  return mapping_path, resources_pathmap_path
 
-  apk_path = extracted_minimal_apk_path or args.apk_file
-  apk_so_path = None
-  if apk_path:
-    with zipfile.ZipFile(apk_path) as z:
-      lib_infos = [f for f in z.infolist()
-                   if f.filename.endswith('.so') and f.file_size > 0]
-    assert lib_infos, 'APK has no .so files.'
-    # TODO(agrieve): Add support for multiple .so files, and take into account
-    #     secondary architectures.
-    apk_so_path = max(lib_infos, key=lambda x:x.file_size).filename
-    logging.debug('Sub-apk path=%s', apk_so_path)
-    if not elf_path and output_directory_finder.Tentative():
-      elf_path = os.path.join(
-          output_directory_finder.Tentative(), 'lib.unstripped',
-          os.path.basename(apk_so_path.replace('crazy.', '')))
-      logging.debug('Detected --elf-file=%s', elf_path)
 
-  if map_path:
-    if not map_path.endswith('.map') and not map_path.endswith('.map.gz'):
-      parser.error('Expected --map-file to end with .map or .map.gz')
-  elif elf_path:
-    # Look for a .map file named for either the ELF file, or in the partitioned
-    # native library case, the combined ELF file from which the main library was
-    # extracted. Note that we don't yet have a tool_prefix to use here, but
-    # that's not a problem for this use case.
-    if _ElfIsMainPartition(elf_path, ''):
-      map_path = elf_path.replace('.so', '__combined.so') + '.map'
+def _DeduceMainPaths(args, knobs, on_config_error):
+  """Generates main paths (may be deduced) for each containers given by input.
+
+  Yields:
+    For each container, main paths and other info needed to create size_info.
+  """
+
+  output_directory_finder = path_util.OutputDirectoryFinder(
+      value=args.output_directory,
+      any_path_within_output_directory=args.any_path_within_output_directory)
+
+  def _Inner(apk_prefix, apk_path):
+    """Inner helper for _DeduceMainPaths(), for one container.
+
+    Params:
+      apk_prefix: Prefix used to search for auxiliary .apk related files.
+      apk_path: Path to .apk file that can be opened for processing, but whose
+        filename is unimportant (e.g., can be a temp file).
+    """
+    if apk_prefix:
+      # Allow either .minimal.apks or just .apks.
+      apk_prefix = apk_prefix.replace('.minimal.apks', '.aab')
+      apk_prefix = apk_prefix.replace('.apks', '.aab')
+
+    mapping_path, resources_pathmap_path = _DeduceAuxPaths(args, apk_prefix)
+    linker_name = None
+    tool_prefix = None
+    if knobs.analyze_native:
+      elf_path, map_path, apk_so_path = _DeduceNativeInfo(
+          output_directory_finder.Tentative(), apk_path, args.elf_file,
+          args.map_file, on_config_error)
+      if map_path:
+        linker_name = _DetectLinkerName(map_path)
+        logging.info('Linker name: %s' % linker_name)
+
+        tool_prefix_finder = path_util.ToolPrefixFinder(
+            value=args.tool_prefix,
+            output_directory_finder=output_directory_finder,
+            linker_name=linker_name)
+        tool_prefix = tool_prefix_finder.Finalized()
     else:
-      map_path = elf_path + '.map'
-    if not os.path.exists(map_path):
-      map_path += '.gz'
-    if not os.path.exists(map_path):
-      parser.error('Could not find .map(.gz)? file. Ensure you have built with '
-                   'is_official_build=true and generate_linker_map=true, or '
-                   'use --map-file to point me a linker map file.')
+      # Trust that these values will not be used, and set to None.
+      elf_path = None
+      map_path = None
+      apk_so_path = None
 
-  tool_prefix = None
-  if map_path:
-    linker_name = _DetectLinkerName(map_path)
-    logging.info('Linker name: %s' % linker_name)
+    # TODO(huangs): See if this can be pulled out of _Inner().
+    output_directory = None
+    if not args.no_source_paths:
+      output_directory = output_directory_finder.Finalized()
 
-    tool_prefix_finder = path_util.ToolPrefixFinder(
-        value=args.tool_prefix,
-        output_directory_finder=output_directory_finder,
-        linker_name=linker_name)
-    tool_prefix = tool_prefix_finder.Finalized()
+    size_info_prefix = None
+    if output_directory and apk_prefix:
+      size_info_prefix = os.path.join(output_directory, 'size-info',
+                                      os.path.basename(apk_prefix))
 
-  output_directory = None
-  if not args.no_source_paths:
-    output_directory = output_directory_finder.Finalized()
+    return (output_directory, tool_prefix, apk_path, mapping_path, apk_so_path,
+            elf_path, map_path, resources_pathmap_path, linker_name,
+            size_info_prefix)
 
-  size_info_prefix = None
-  if output_directory and aab_or_apk:
-    size_info_prefix = os.path.join(
-        output_directory, 'size-info', os.path.basename(aab_or_apk))
-
-  return (output_directory, tool_prefix, apk_path, mapping_path, apk_so_path,
-          elf_path, map_path, resources_pathmap_path, linker_name,
-          size_info_prefix)
+  # Process each container.
+  # If needed, extract .apk file to a temp file and process that instead.
+  if args.minimal_apks_file:
+    with zip_util.UnzipToTemp(args.minimal_apks_file, _APKS_MAIN_APK) as temp:
+      yield _Inner(args.minimal_apks_file, temp)
+  else:
+    yield _Inner(args.apk_file, args.apk_file)
 
 
-def Run(args, parser):
+def Run(args, on_config_error):
   if not args.size_file.endswith('.size'):
-    parser.error('size_file must end with .size')
+    on_config_error('size_file must end with .size')
 
   if args.f is not None:
     if not _AutoIdentifyInputFile(args):
-      parser.error('Cannot identify file %s' % args.f)
+      on_config_error('Cannot identify file %s' % args.f)
   if args.apk_file and args.minimal_apks_file:
-    parser.error('Cannot use both --apk-file and --minimal-apks-file.')
+    on_config_error('Cannot use both --apk-file and --minimal-apks-file.')
 
-  if args.minimal_apks_file:
-    # Can't use NamedTemporaryFile() because it uses atexit, which does
-    # not play nice with fork().
-    fd, extracted_minimal_apk_path = tempfile.mkstemp(suffix='.apk')
-    try:
-      logging.debug('Extracting %s', _APKS_MAIN_APK)
-      with zipfile.ZipFile(args.minimal_apks_file) as z:
-        os.write(fd, z.read(_APKS_MAIN_APK))
-      os.close(fd)
-      _RunInternal(args, parser, extracted_minimal_apk_path)
-    finally:
-      os.unlink(extracted_minimal_apk_path)
-  else:
-    _RunInternal(args, parser, None)
+  # Deduce arguments.
+  setattr(args, 'is_bundle', args.minimal_apks_file is not None)
+  any_path = (args.apk_file or args.minimal_apks_file or args.elf_file
+              or args.map_file)
+  if any_path is None:
+    on_config_error(
+        'Must pass at least one of --apk-file, --minimal-apks-file, '
+        '--elf-file, --map-file')
+  setattr(args, 'any_path_within_output_directory', any_path)
 
+  knobs = SectionSizeKnobs(args.is_bundle)
+  knobs.ModifyWithArgs(args)
 
-def _RunInternal(args, parser, extracted_minimal_apk_path):
-  (output_directory, tool_prefix, apk_path, mapping_path, apk_so_path, elf_path,
-   map_path, resources_pathmap_path,
-   linker_name, size_info_prefix) = _DeduceMainPaths(
-       args, parser, extracted_minimal_apk_path)
+  metadata_list = []
+  section_sizes_list = []
+  raw_symbols_list = []
+  # Generate one size info for each container.
+  for (output_directory, tool_prefix, apk_path, mapping_path, apk_so_path,
+       elf_path, map_path, resources_pathmap_path, linker_name,
+       size_info_prefix) in _DeduceMainPaths(args, knobs, on_config_error):
+    # Note that |args.apk_file| is used instead of |apk_path|, since the latter
+    # may be an extracted temporary file.
+    metadata = CreateMetadata(map_path, elf_path, args.apk_file,
+                              args.minimal_apks_file, tool_prefix,
+                              output_directory, linker_name)
+    section_sizes, raw_symbols = CreateSectionSizesAndSymbols(
+        map_path=map_path,
+        tool_prefix=tool_prefix,
+        elf_path=elf_path,
+        apk_path=apk_path,
+        mapping_path=mapping_path,
+        output_directory=output_directory,
+        resources_pathmap_path=resources_pathmap_path,
+        track_string_literals=args.track_string_literals,
+        metadata=metadata,
+        apk_so_path=apk_so_path,
+        pak_files=args.pak_file,
+        pak_info_file=args.pak_info_file,
+        linker_name=linker_name,
+        size_info_prefix=size_info_prefix,
+        knobs=knobs)
 
-  knobs = SectionSizeKnobs(is_bundle=bool(extracted_minimal_apk_path))
-  if args.source_directory:
-    knobs.src_root = args.source_directory
+    metadata_list.append(metadata)
+    section_sizes_list.append(section_sizes)
+    raw_symbols_list.append(raw_symbols)
 
-  if args.java_only:
-    knobs.analyze_java = True
-    knobs.analyze_native = False
-  if args.native_only:
-    knobs.analyze_java = False
-    knobs.analyze_native = True
-  if args.no_java:
-    knobs.analyze_java = False
-  if args.no_native:
-    knobs.analyze_native = False
-
-  if args.relocations:
-    knobs.relocations_mode = True
-    knobs.analyze_java = False
-
-  if not knobs.analyze_native:
-    map_path = None
-    elf_path = None
-    apk_so_path = None
-
-  metadata = CreateMetadata(map_path, elf_path, args.apk_file,
-                            args.minimal_apks_file, tool_prefix,
-                            output_directory, linker_name)
-  section_sizes, raw_symbols = CreateSectionSizesAndSymbols(
-      map_path=map_path,
-      tool_prefix=tool_prefix,
-      elf_path=elf_path,
-      apk_path=apk_path,
-      mapping_path=mapping_path,
-      output_directory=output_directory,
-      resources_pathmap_path=resources_pathmap_path,
-      track_string_literals=args.track_string_literals,
-      metadata=metadata,
-      apk_so_path=apk_so_path,
-      pak_files=args.pak_file,
-      pak_info_file=args.pak_info_file,
-      linker_name=linker_name,
-      size_info_prefix=size_info_prefix,
-      knobs=knobs)
   size_info = CreateSizeInfo(
-      section_sizes, raw_symbols, metadata=metadata, normalize_names=False)
+      section_sizes_list,
+      raw_symbols_list,
+      metadata_list,
+      normalize_names=False)
 
   if logging.getLogger().isEnabledFor(logging.DEBUG):
     for line in describe.DescribeSizeInfoCoverage(size_info):
       logging.debug(line)
   logging.info('Recorded info for %d symbols', len(size_info.raw_symbols))
-  logging.info('Recording metadata: \n  %s',
-               '\n  '.join(describe.DescribeMetadata(size_info.metadata)))
+  logging.info('Recording metadata: \n  %s', '\n  '.join(
+      describe.DescribeMetadata(size_info.metadata)))
+
   logging.info('Saving result to %s', args.size_file)
   file_format.SaveSizeInfo(
       size_info, args.size_file, include_padding=args.include_padding)

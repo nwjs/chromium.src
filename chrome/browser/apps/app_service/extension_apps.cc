@@ -4,7 +4,6 @@
 
 #include "chrome/browser/apps/app_service/extension_apps.h"
 
-#include <memory>
 #include <utility>
 #include <vector>
 
@@ -13,28 +12,31 @@
 #include "ash/public/cpp/multi_user_window_manager.h"
 #include "ash/public/cpp/shelf_types.h"
 #include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/callback.h"
+#include "base/feature_list.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/optional.h"
 #include "base/scoped_observer.h"
+#include "base/stl_util.h"
 #include "base/strings/string16.h"
 #include "base/strings/stringprintf.h"
 #include "chrome/browser/apps/app_service/app_icon_factory.h"
+#include "chrome/browser/apps/app_service/launch_utils.h"
 #include "chrome/browser/apps/app_service/menu_util.h"
-#include "chrome/browser/apps/launch_service/launch_service.h"
 #include "chrome/browser/chromeos/arc/arc_util.h"
-#include "chrome/browser/chromeos/child_accounts/time_limits/web_time_limit_interface.h"
+#include "chrome/browser/chromeos/child_accounts/time_limits/app_time_limit_interface.h"
 #include "chrome/browser/chromeos/crostini/crostini_util.h"
 #include "chrome/browser/chromeos/extensions/gfx_utils.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/extensions/extension_uninstall_dialog.h"
 #include "chrome/browser/extensions/extension_util.h"
 #include "chrome/browser/extensions/launch_util.h"
 #include "chrome/browser/prefs/incognito_mode_prefs.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/app_list/arc/arc_app_utils.h"
 #include "chrome/browser/ui/app_list/extension_app_utils.h"
-#include "chrome/browser/ui/app_list/extension_uninstaller.h"
 #include "chrome/browser/ui/ash/multi_user/multi_user_util.h"
 #include "chrome/browser/ui/ash/multi_user/multi_user_window_manager_helper.h"
 #include "chrome/browser/ui/ash/session_controller_client_impl.h"
@@ -43,9 +45,11 @@
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/extensions/app_launch_params.h"
+#include "chrome/browser/ui/extensions/application_launch.h"
 #include "chrome/browser/ui/extensions/extension_enable_flow.h"
 #include "chrome/browser/ui/extensions/extension_enable_flow_delegate.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/browser/ui/web_applications/web_app_launch_manager.h"
 #include "chrome/browser/web_applications/components/externally_installed_web_app_prefs.h"
 #include "chrome/browser/web_applications/components/web_app_constants.h"
 #include "chrome/browser/web_applications/components/web_app_helpers.h"
@@ -69,6 +73,7 @@
 #include "extensions/browser/app_window/app_window.h"
 #include "extensions/browser/extension_system.h"
 #include "extensions/browser/management_policy.h"
+#include "extensions/browser/ui_util.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/extension_urls.h"
 #include "extensions/common/manifest_handlers/options_page_info.h"
@@ -126,28 +131,13 @@ ash::ShelfLaunchSource ConvertLaunchSource(
     case apps::mojom::LaunchSource::kFromLink:
     case apps::mojom::LaunchSource::kFromOmnibox:
     case apps::mojom::LaunchSource::kFromChromeInternal:
+    case apps::mojom::LaunchSource::kFromKeyboard:
+    case apps::mojom::LaunchSource::kFromOtherApp:
+    case apps::mojom::LaunchSource::kFromMenu:
+    case apps::mojom::LaunchSource::kFromInstalledNotification:
+    case apps::mojom::LaunchSource::kFromTest:
       return ash::LAUNCH_FROM_UNKNOWN;
   }
-}
-
-apps::AppLaunchParams CreateAppLaunchParamsForIntent(
-    const std::string& app_id,
-    const apps::mojom::IntentPtr& intent) {
-  apps::AppLaunchParams params(
-      app_id, apps::mojom::LaunchContainer::kLaunchContainerWindow,
-      WindowOpenDisposition::NEW_FOREGROUND_TAB,
-      apps::mojom::AppLaunchSource::kSourceNone);
-
-  if (intent->scheme.has_value() && intent->host.has_value() &&
-      intent->path.has_value()) {
-    params.source = apps::mojom::AppLaunchSource::kSourceIntentUrl;
-    params.override_url =
-        GURL(intent->scheme.value() + url::kStandardSchemeSeparator +
-             intent->host.value() + intent->path.value());
-    DCHECK(params.override_url.is_valid());
-  }
-
-  return params;
 }
 
 // Get the LaunchId for a given |app_window|. Set launch_id default value to an
@@ -178,9 +168,7 @@ class ExtensionAppsEnableFlow : public ExtensionEnableFlowDelegate {
 
   ~ExtensionAppsEnableFlow() override {}
 
-  using Callback = base::OnceCallback<void()>;
-
-  void Run(Callback callback) {
+  void Run(base::OnceClosure callback) {
     callback_ = std::move(callback);
 
     if (!flow_) {
@@ -205,33 +193,11 @@ class ExtensionAppsEnableFlow : public ExtensionEnableFlowDelegate {
 
   Profile* profile_;
   std::string app_id_;
-  Callback callback_;
+  base::OnceClosure callback_;
   std::unique_ptr<ExtensionEnableFlow> flow_;
 
   DISALLOW_COPY_AND_ASSIGN(ExtensionAppsEnableFlow);
 };
-
-void ExtensionApps::RecordUninstallCanceledAction(Profile* profile,
-                                                  const std::string& app_id) {
-  const extensions::Extension* extension =
-      extensions::ExtensionRegistry::Get(profile)->GetInstalledExtension(
-          app_id);
-  if (!extension) {
-    return;
-  }
-
-  if (extension->from_bookmark()) {
-    UMA_HISTOGRAM_ENUMERATION(
-        "Webapp.UninstallDialogAction",
-        extensions::ExtensionUninstallDialog::CLOSE_ACTION_CANCELED,
-        extensions::ExtensionUninstallDialog::CLOSE_ACTION_LAST);
-  } else {
-    UMA_HISTOGRAM_ENUMERATION(
-        "Extensions.UninstallDialogAction",
-        extensions::ExtensionUninstallDialog::CLOSE_ACTION_CANCELED,
-        extensions::ExtensionUninstallDialog::CLOSE_ACTION_LAST);
-  }
-}
 
 ExtensionApps::ExtensionApps(
     const mojo::Remote<apps::mojom::AppService>& app_service,
@@ -255,6 +221,29 @@ ExtensionApps::~ExtensionApps() {
   if (arc_prefs_) {
     arc_prefs_->RemoveObserver(this);
     arc_prefs_ = nullptr;
+  }
+}
+
+// static
+void ExtensionApps::RecordUninstallCanceledAction(Profile* profile,
+                                                  const std::string& app_id) {
+  const extensions::Extension* extension =
+      extensions::ExtensionRegistry::Get(profile)->GetInstalledExtension(
+          app_id);
+  if (!extension) {
+    return;
+  }
+
+  if (extension->from_bookmark()) {
+    UMA_HISTOGRAM_ENUMERATION(
+        "Webapp.UninstallDialogAction",
+        extensions::ExtensionUninstallDialog::CLOSE_ACTION_CANCELED,
+        extensions::ExtensionUninstallDialog::CLOSE_ACTION_LAST);
+  } else {
+    UMA_HISTOGRAM_ENUMERATION(
+        "Extensions.UninstallDialogAction",
+        extensions::ExtensionUninstallDialog::CLOSE_ACTION_CANCELED,
+        extensions::ExtensionUninstallDialog::CLOSE_ACTION_LAST);
   }
 }
 
@@ -299,6 +288,19 @@ void ExtensionApps::Initialize(
       HostContentSettingsMapFactory::GetForProfile(profile_));
   app_service_ = app_service.get();
 
+  auto* web_app_provider = web_app::WebAppProvider::Get(profile_);
+  if (app_type_ == apps::mojom::AppType::kWeb && web_app_provider) {
+    web_app_provider->system_web_app_manager().on_apps_synchronized().Post(
+        FROM_HERE, base::BindOnce(&ExtensionApps::OnSystemWebAppsInstalled,
+                                  weak_factory_.GetWeakPtr()));
+  }
+
+  if (app_type_ == apps::mojom::AppType::kWeb &&
+      base::FeatureList::IsEnabled(features::kDesktopPWAsUnifiedLaunch)) {
+    web_app_launch_manager_ =
+        std::make_unique<web_app::WebAppLaunchManager>(profile_);
+  }
+
   // Remaining initialization is only relevant to the kExtension app type.
   if (app_type_ != apps::mojom::AppType::kExtension) {
     return;
@@ -330,6 +332,24 @@ bool ExtensionApps::Accepts(const extensions::Extension* extension) {
     default:
       NOTREACHED();
       return false;
+  }
+}
+
+void ExtensionApps::OnSystemWebAppsInstalled() {
+  // This function wouldn't get called unless WebAppProvider existed.
+  const auto& system_web_app_ids = web_app::WebAppProvider::Get(profile_)
+                                       ->system_web_app_manager()
+                                       .GetAppIds();
+  for (const auto& app_id : system_web_app_ids) {
+    const extensions::Extension* extension =
+        extensions::ExtensionRegistry::Get(profile_)->GetInstalledExtension(
+            app_id);
+
+    if (!extension || !Accepts(extension)) {
+      continue;
+    }
+
+    Publish(Convert(extension, apps::mojom::Readiness::kReady));
   }
 }
 
@@ -388,7 +408,10 @@ void ExtensionApps::Launch(const std::string& app_id,
       extensions::ExtensionRegistry::Get(profile_)->GetInstalledExtension(
           app_id);
   if (!extension || !extensions::util::IsAppLaunchable(app_id, profile_) ||
-      RunExtensionEnableFlow(app_id, event_flags, launch_source, display_id)) {
+      RunExtensionEnableFlow(
+          app_id,
+          base::BindOnce(&ExtensionApps::Launch, weak_factory_.GetWeakPtr(),
+                         app_id, event_flags, launch_source, display_id))) {
     return;
   }
 
@@ -410,13 +433,18 @@ void ExtensionApps::Launch(const std::string& app_id,
     case apps::mojom::LaunchSource::kFromLink:
     case apps::mojom::LaunchSource::kFromOmnibox:
     case apps::mojom::LaunchSource::kFromChromeInternal:
+    case apps::mojom::LaunchSource::kFromKeyboard:
+    case apps::mojom::LaunchSource::kFromOtherApp:
+    case apps::mojom::LaunchSource::kFromMenu:
+    case apps::mojom::LaunchSource::kFromInstalledNotification:
+    case apps::mojom::LaunchSource::kFromTest:
       break;
   }
 
   // The app will be created for the currently active profile.
   AppLaunchParams params = CreateAppLaunchParamsWithEventFlags(
-      profile_, extension, event_flags,
-      apps::mojom::AppLaunchSource::kSourceAppLauncher, display_id);
+      profile_, extension, event_flags, GetAppLaunchSource(launch_source),
+      display_id);
   ash::ShelfLaunchSource source = ConvertLaunchSource(launch_source);
   if ((source == ash::LAUNCH_FROM_APP_LIST ||
        source == ash::LAUNCH_FROM_APP_LIST_SEARCH) &&
@@ -430,7 +458,21 @@ void ExtensionApps::Launch(const std::string& app_id,
         extension_url, extension_urls::kWebstoreSourceField, source_value);
   }
 
-  apps::LaunchService::Get(profile_)->OpenApplication(params);
+  LaunchImpl(params);
+}
+
+void ExtensionApps::LaunchAppWithFiles(const std::string& app_id,
+                                       apps::mojom::LaunchContainer container,
+                                       int32_t event_flags,
+                                       apps::mojom::LaunchSource launch_source,
+                                       apps::mojom::FilePathsPtr file_paths) {
+  AppLaunchParams params(
+      app_id, container, ui::DispositionFromEventFlags(event_flags),
+      GetAppLaunchSource(launch_source), display::kDefaultDisplayId);
+  for (const auto& file_path : file_paths->file_paths) {
+    params.launch_files.push_back(file_path);
+  }
+  LaunchImpl(params);
 }
 
 void ExtensionApps::LaunchAppWithIntent(const std::string& app_id,
@@ -441,9 +483,20 @@ void ExtensionApps::LaunchAppWithIntent(const std::string& app_id,
     return;
   }
 
-  AppLaunchParams params = CreateAppLaunchParamsForIntent(app_id, intent);
+  const extensions::Extension* extension =
+      extensions::ExtensionRegistry::Get(profile_)->GetInstalledExtension(
+          app_id);
+  if (!extension || !extensions::util::IsAppLaunchable(app_id, profile_) ||
+      RunExtensionEnableFlow(
+          app_id,
+          base::BindOnce(&ExtensionApps::LaunchAppWithIntent,
+                         weak_factory_.GetWeakPtr(), app_id, std::move(intent),
+                         launch_source, display_id))) {
+    return;
+  }
 
-  apps::LaunchService::Get(profile_)->OpenApplication(params);
+  AppLaunchParams params = CreateAppLaunchParamsForIntent(app_id, intent);
+  LaunchImpl(params);
 }
 
 void ExtensionApps::SetPermission(const std::string& app_id,
@@ -492,17 +545,6 @@ void ExtensionApps::SetPermission(const std::string& app_id,
   host_content_settings_map->SetContentSettingDefaultScope(
       url, url, permission_type, std::string() /* resource identifier */,
       permission_value);
-}
-
-void ExtensionApps::PromptUninstall(const std::string& app_id) {
-  if (!profile_) {
-    return;
-  }
-
-  // ExtensionUninstaller deletes itself when done or aborted.
-  ExtensionUninstaller* uninstaller =
-      new ExtensionUninstaller(profile_, app_id);
-  uninstaller->Run();
 }
 
 void ExtensionApps::Uninstall(const std::string& app_id,
@@ -583,12 +625,15 @@ void ExtensionApps::Uninstall(const std::string& app_id,
 }
 
 void ExtensionApps::PauseApp(const std::string& app_id) {
-  if (paused_apps_.find(app_id) != paused_apps_.end()) {
+  paused_apps_.MaybeAddApp(app_id);
+  constexpr bool kPaused = true;
+  Publish(paused_apps_.GetAppWithPauseStatus(app_type_, app_id, kPaused));
+
+  SetIconEffect(app_id);
+
+  if (instance_registry_->GetWindows(app_id).empty()) {
     return;
   }
-
-  paused_apps_.insert(app_id);
-  SetIconEffect(app_id);
 
   // For Web apps that are opened in app windows, close all tabs to close the
   // opened window, otherwise, show pause information in browsers.
@@ -604,24 +649,23 @@ void ExtensionApps::PauseApp(const std::string& app_id) {
     }
   }
 
-  // For web apps that are open in tabs, PauseApp() should be called with
-  // Chrome's app_id to show pause information in browsers.
+  // For web apps that are opened in tabs, PauseApp() should be
+  // called with Chrome's app_id to show pause information in browsers.
   if (is_web_app) {
     return;
   }
 
-  chromeos::app_time::WebTimeLimitInterface* web_limit =
-      chromeos::app_time::WebTimeLimitInterface::Get(profile_);
-  DCHECK(web_limit);
-  web_limit->PauseWebActivity(app_id);
+  chromeos::app_time::AppTimeLimitInterface* app_limit =
+      chromeos::app_time::AppTimeLimitInterface::Get(profile_);
+  DCHECK(app_limit);
+  app_limit->PauseWebActivity(app_id);
 }
 
 void ExtensionApps::UnpauseApps(const std::string& app_id) {
-  if (paused_apps_.find(app_id) == paused_apps_.end()) {
-    return;
-  }
+  paused_apps_.MaybeRemoveApp(app_id);
+  constexpr bool kPaused = false;
+  Publish(paused_apps_.GetAppWithPauseStatus(app_type_, app_id, kPaused));
 
-  paused_apps_.erase(app_id);
   SetIconEffect(app_id);
 
   for (auto* browser : *BrowserList::GetInstance()) {
@@ -633,10 +677,10 @@ void ExtensionApps::UnpauseApps(const std::string& app_id) {
     }
   }
 
-  chromeos::app_time::WebTimeLimitInterface* web_limit =
-      chromeos::app_time::WebTimeLimitInterface::Get(profile_);
-  DCHECK(web_limit);
-  web_limit->ResumeWebActivity(app_id);
+  chromeos::app_time::AppTimeLimitInterface* app_time =
+      chromeos::app_time::AppTimeLimitInterface::Get(profile_);
+  DCHECK(app_time);
+  app_time->ResumeWebActivity(app_id);
 }
 
 void ExtensionApps::GetMenuModel(const std::string& app_id,
@@ -679,6 +723,11 @@ void ExtensionApps::GetMenuModel(const std::string& app_id,
     AddCommandItem(ash::OPTIONS, IDS_NEW_TAB_APP_OPTIONS, &menu_items);
   }
 
+  if (menu_type == apps::mojom::MenuType::kShelf &&
+      !instance_registry_->GetWindows(app_id).empty()) {
+    AddCommandItem(ash::MENU_CLOSE, IDS_SHELF_CONTEXT_MENU_CLOSE, &menu_items);
+  }
+
   const extensions::ManagementPolicy* policy =
       extensions::ExtensionSystem::Get(profile_)->management_policy();
   DCHECK(policy);
@@ -687,7 +736,7 @@ void ExtensionApps::GetMenuModel(const std::string& app_id,
     AddCommandItem(ash::UNINSTALL, IDS_APP_LIST_UNINSTALL_ITEM, &menu_items);
   }
 
-  if (!is_system_web_app) {
+  if (!is_system_web_app && extension->ShouldDisplayInAppLauncher()) {
     AddCommandItem(ash::SHOW_APP_INFO, IDS_APP_CONTEXT_MENU_SHOW_INFO,
                    &menu_items);
   }
@@ -712,7 +761,8 @@ void ExtensionApps::OpenNativeSettings(const std::string& app_id) {
     chrome::ShowSiteSettings(
         profile_, extensions::AppLaunchInfo::GetFullLaunchURL(extension));
 
-  } else if (extension->ShouldDisplayInExtensionSettings()) {
+  } else if (extensions::ui_util::ShouldDisplayInExtensionSettings(
+                 *extension)) {
     Browser* browser = chrome::FindTabbedBrowser(profile_, false);
     if (!browser) {
       browser = new Browser(Browser::CreateParams(profile_, true));
@@ -725,7 +775,8 @@ void ExtensionApps::OpenNativeSettings(const std::string& app_id) {
 void ExtensionApps::OnPreferredAppSet(
     const std::string& app_id,
     apps::mojom::IntentFilterPtr intent_filter,
-    apps::mojom::IntentPtr intent) {
+    apps::mojom::IntentPtr intent,
+    apps::mojom::ReplacedAppPreferencesPtr replaced_app_preferences) {
   NOTIMPLEMENTED();
 }
 
@@ -930,7 +981,7 @@ void ExtensionApps::OnExtensionUninstalled(
   }
 
   enable_flow_map_.erase(extension->id());
-  paused_apps_.erase(extension->id());
+  paused_apps_.MaybeRemoveApp(extension->id());
 
   // Construct an App with only the information required to identify an
   // uninstallation.
@@ -1024,9 +1075,20 @@ void ExtensionApps::SetShowInFields(apps::mojom::AppPtr& app,
       return;
     }
 
-    if (web_app_provider->system_web_app_manager().IsSystemWebApp(
-            extension->id())) {
+    const auto& system_web_app_manager =
+        web_app_provider->system_web_app_manager();
+    base::Optional<web_app::SystemAppType> system_app_type =
+        system_web_app_manager.GetSystemAppTypeForAppId(app->app_id);
+    if (system_app_type.has_value()) {
       app->show_in_management = apps::mojom::OptionalBool::kFalse;
+      app->show_in_launcher =
+          system_web_app_manager.ShouldShowInLauncher(system_app_type.value())
+              ? apps::mojom::OptionalBool::kTrue
+              : apps::mojom::OptionalBool::kFalse;
+      app->show_in_search =
+          system_web_app_manager.ShouldShowInSearch(system_app_type.value())
+              ? apps::mojom::OptionalBool::kTrue
+              : apps::mojom::OptionalBool::kFalse;
     }
   } else {
     app->show_in_launcher = apps::mojom::OptionalBool::kFalse;
@@ -1169,7 +1231,10 @@ apps::mojom::AppPtr ExtensionApps::Convert(
   app->short_name = extension->short_name();
   app->description = extension->description();
   app->version = extension->GetVersionForDisplay();
-  app->icon_key = icon_key_factory_.MakeIconKey(GetIconEffects(extension));
+
+  bool paused = paused_apps_.IsPaused(extension->id());
+  app->icon_key =
+      icon_key_factory_.MakeIconKey(GetIconEffects(extension, paused));
 
   if (profile_) {
     auto* prefs = extensions::ExtensionPrefs::Get(profile_);
@@ -1179,12 +1244,6 @@ apps::mojom::AppPtr ExtensionApps::Convert(
     }
   }
 
-  // Extensions where |from_bookmark| is true wrap websites and use web
-  // permissions.
-  if (extension->from_bookmark()) {
-    PopulatePermissions(extension, &app->permissions);
-  }
-
   app->install_source = GetInstallSource(profile_, extension);
 
   app->is_platform_app = extension->is_platform_app()
@@ -1192,18 +1251,37 @@ apps::mojom::AppPtr ExtensionApps::Convert(
                              : apps::mojom::OptionalBool::kFalse;
   app->recommendable = apps::mojom::OptionalBool::kTrue;
   app->searchable = apps::mojom::OptionalBool::kTrue;
-  app->paused = apps::mojom::OptionalBool::kFalse;
+  app->paused = paused ? apps::mojom::OptionalBool::kTrue
+                       : apps::mojom::OptionalBool::kFalse;
   SetShowInFields(app, extension, profile_);
 
-  // Get the intent filters for PWAs.
-  if (extension->from_bookmark()) {
-    auto* web_app_provider = web_app::WebAppProvider::Get(profile_);
+  if (!extension->from_bookmark()) {
+    return app;
+  }
 
-    if (web_app_provider) {
-      PopulateIntentFilters(
-          web_app_provider->registrar().GetAppScope(extension->id()),
-          &app->intent_filters);
-    }
+  // Do Bookmark Apps specific setup.
+
+  // Extensions where |from_bookmark| is true wrap websites and use web
+  // permissions.
+  PopulatePermissions(extension, &app->permissions);
+
+  auto* web_app_provider = web_app::WebAppProvider::Get(profile_);
+  if (!web_app_provider) {
+    return app;
+  }
+
+  PopulateIntentFilters(
+      web_app_provider->registrar().GetAppScope(extension->id()),
+      &app->intent_filters);
+
+  const auto& system_web_app_manager =
+      web_app_provider->system_web_app_manager();
+  base::Optional<web_app::SystemAppType> system_app_type =
+      system_web_app_manager.GetSystemAppTypeForAppId(app->app_id);
+  if (system_app_type.has_value()) {
+    app->additional_search_terms =
+        system_web_app_manager.GetAdditionalSearchTerms(
+            system_app_type.value());
   }
 
   return app;
@@ -1219,11 +1297,8 @@ void ExtensionApps::ConvertVector(const extensions::ExtensionSet& extensions,
   }
 }
 
-bool ExtensionApps::RunExtensionEnableFlow(
-    const std::string& app_id,
-    int32_t event_flags,
-    apps::mojom::LaunchSource launch_source,
-    int64_t display_id) {
+bool ExtensionApps::RunExtensionEnableFlow(const std::string& app_id,
+                                           base::OnceClosure callback) {
   if (extensions::util::IsAppLaunchableWithoutEnabling(app_id, profile_)) {
     return false;
   }
@@ -1233,14 +1308,13 @@ bool ExtensionApps::RunExtensionEnableFlow(
         std::make_unique<ExtensionAppsEnableFlow>(profile_, app_id);
   }
 
-  enable_flow_map_[app_id]->Run(
-      base::BindOnce(&ExtensionApps::Launch, weak_factory_.GetWeakPtr(), app_id,
-                     event_flags, launch_source, display_id));
+  enable_flow_map_[app_id]->Run(std::move(callback));
   return true;
 }
 
 IconEffects ExtensionApps::GetIconEffects(
-    const extensions::Extension* extension) {
+    const extensions::Extension* extension,
+    bool paused) {
   IconEffects icon_effects = IconEffects::kNone;
 #if defined(OS_CHROMEOS)
   icon_effects =
@@ -1258,7 +1332,7 @@ IconEffects ExtensionApps::GetIconEffects(
     icon_effects =
         static_cast<IconEffects>(icon_effects | IconEffects::kRoundCorners);
   }
-  if (paused_apps_.find(extension->id()) != paused_apps_.end()) {
+  if (paused) {
     icon_effects =
         static_cast<IconEffects>(icon_effects | IconEffects::kPaused);
   }
@@ -1288,7 +1362,8 @@ void ExtensionApps::SetIconEffect(const std::string& app_id) {
   apps::mojom::AppPtr app = apps::mojom::App::New();
   app->app_type = app_type_;
   app->app_id = app_id;
-  app->icon_key = icon_key_factory_.MakeIconKey(GetIconEffects(extension));
+  app->icon_key = icon_key_factory_.MakeIconKey(
+      GetIconEffects(extension, paused_apps_.IsPaused(app_id)));
   Publish(std::move(app));
 }
 
@@ -1371,6 +1446,21 @@ void ExtensionApps::GetMenuModelForChromeBrowserApp(
                  &menu_items);
 
   std::move(callback).Run(std::move(menu_items));
+}
+
+void ExtensionApps::LaunchImpl(const AppLaunchParams& params) {
+  if (web_app_launch_manager_) {
+    web_app_launch_manager_->OpenApplication(params);
+    return;
+  }
+
+  if (params.container ==
+          apps::mojom::LaunchContainer::kLaunchContainerWindow &&
+      app_type_ == apps::mojom::AppType::kWeb) {
+    web_app::RecordAppWindowLaunch(profile_, params.app_id);
+  }
+
+  ::OpenApplication(profile_, params);
 }
 
 }  // namespace apps

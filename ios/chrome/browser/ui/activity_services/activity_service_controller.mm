@@ -6,6 +6,7 @@
 
 #import <MobileCoreServices/MobileCoreServices.h>
 
+#include "base/feature_list.h"
 #include "base/logging.h"
 #include "base/mac/foundation_util.h"
 #include "base/metrics/user_metrics.h"
@@ -23,6 +24,7 @@
 #import "ios/chrome/browser/ui/activity_services/activities/bookmark_activity.h"
 #import "ios/chrome/browser/ui/activity_services/activities/copy_activity.h"
 #import "ios/chrome/browser/ui/activity_services/activities/find_in_page_activity.h"
+#import "ios/chrome/browser/ui/activity_services/activities/generate_qr_code_activity.h"
 #import "ios/chrome/browser/ui/activity_services/activities/print_activity.h"
 #import "ios/chrome/browser/ui/activity_services/activities/reading_list_activity.h"
 #import "ios/chrome/browser/ui/activity_services/activities/request_desktop_or_mobile_site_activity.h"
@@ -35,7 +37,9 @@
 #import "ios/chrome/browser/ui/activity_services/requirements/activity_service_presentation.h"
 #import "ios/chrome/browser/ui/activity_services/share_protocol.h"
 #import "ios/chrome/browser/ui/activity_services/share_to_data.h"
+#import "ios/chrome/browser/ui/commands/qr_generation_commands.h"
 #import "ios/chrome/browser/ui/commands/snackbar_commands.h"
+#include "ios/chrome/browser/ui/ui_feature_flags.h"
 #include "ios/chrome/browser/ui/util/ui_util.h"
 #import "ios/chrome/browser/ui/util/uikit_ui_util.h"
 #include "ios/chrome/grit/ios_strings.h"
@@ -72,11 +76,13 @@ NSString* const kActivityServicesSnackbarCategory =
 // share to the sharing activities.
 - (NSArray*)activityItemsForData:(ShareToData*)data;
 // Returns an array of UIActivity objects that can handle the given |data|.
-- (NSArray*)applicationActivitiesForData:(ShareToData*)data
-                              dispatcher:(id<BrowserCommands>)dispatcher
-                           bookmarkModel:
-                               (bookmarks::BookmarkModel*)bookmarkModel
-                        canSendTabToSelf:(BOOL)canSendTabToSelf;
+- (NSArray*)
+    applicationActivitiesForData:(ShareToData*)data
+                  commandHandler:(id<BrowserCommands,
+                                     FindInPageCommands,
+                                     QRGenerationCommands>)commandHandler
+                   bookmarkModel:(bookmarks::BookmarkModel*)bookmarkModel
+                canSendTabToSelf:(BOOL)canSendTabToSelf;
 // Processes |extensionItems| returned from App Extension invocation returning
 // the |activityType|. Calls shareDelegate_ with the processed returned items
 // and |result| of activity. Returns whether caller should reset UI.
@@ -126,7 +132,10 @@ NSString* const kActivityServicesSnackbarCategory =
 
 - (void)shareWithData:(ShareToData*)data
             browserState:(ChromeBrowserState*)browserState
-              dispatcher:(id<BrowserCommands, SnackbarCommands>)dispatcher
+              dispatcher:(id<BrowserCommands,
+                             FindInPageCommands,
+                             QRGenerationCommands,
+                             SnackbarCommands>)dispatcher
         passwordProvider:(id<ActivityServicePassword>)passwordProvider
         positionProvider:(id<ActivityServicePositioner>)positionProvider
     presentationProvider:(id<ActivityServicePresentation>)presentationProvider {
@@ -162,14 +171,16 @@ NSString* const kActivityServicesSnackbarCategory =
       initWithActivityItems:[self activityItemsForData:data]
       applicationActivities:[self
                                 applicationActivitiesForData:data
-                                                  dispatcher:dispatcher
+                                              commandHandler:dispatcher
                                                bookmarkModel:bookmarkModel
                                             canSendTabToSelf:canSendTabToSelf]];
 
   // Reading List and Print activities refer to iOS' version of these.
   // Chrome-specific implementations of these two activities are provided
-  // below in applicationActivitiesForData:dispatcher:bookmarkModel: The
-  // "Copy" action is also provided by chrome in order to change its icon.
+  // below in
+  // applicationActivitiesForData:browserCommandHandler:
+  // findInPageHandler:bookmarkModel:
+  // The "Copy" action is also provided by chrome in order to change its icon.
   NSArray* excludedActivityTypes = @[
     UIActivityTypeAddToReadingList, UIActivityTypeCopyToPasteboard,
     UIActivityTypePrint, UIActivityTypeSaveToCameraRoll
@@ -276,11 +287,13 @@ NSString* const kActivityServicesSnackbarCategory =
   return [NSString stringWithFormat:@"%@ \u2022 %@", device_name, active_time];
 }
 
-- (NSArray*)applicationActivitiesForData:(ShareToData*)data
-                              dispatcher:(id<BrowserCommands>)dispatcher
-                           bookmarkModel:
-                               (bookmarks::BookmarkModel*)bookmarkModel
-                        canSendTabToSelf:(BOOL)canSendTabToSelf {
+- (NSArray*)
+    applicationActivitiesForData:(ShareToData*)data
+                  commandHandler:(id<BrowserCommands,
+                                     FindInPageCommands,
+                                     QRGenerationCommands>)commandHandler
+                   bookmarkModel:(bookmarks::BookmarkModel*)bookmarkModel
+                canSendTabToSelf:(BOOL)canSendTabToSelf {
   NSMutableArray* applicationActivities = [NSMutableArray array];
 
   [applicationActivities
@@ -289,14 +302,14 @@ NSString* const kActivityServicesSnackbarCategory =
   if (data.shareURL.SchemeIsHTTPOrHTTPS()) {
     if (canSendTabToSelf) {
       SendTabToSelfActivity* sendTabToSelfActivity =
-          [[SendTabToSelfActivity alloc] initWithDispatcher:dispatcher];
+          [[SendTabToSelfActivity alloc] initWithDispatcher:commandHandler];
       [applicationActivities addObject:sendTabToSelfActivity];
     }
 
     ReadingListActivity* readingListActivity =
         [[ReadingListActivity alloc] initWithURL:data.shareURL
                                            title:data.title
-                                      dispatcher:dispatcher];
+                                      dispatcher:commandHandler];
     [applicationActivities addObject:readingListActivity];
 
     if (bookmarkModel) {
@@ -305,27 +318,35 @@ NSString* const kActivityServicesSnackbarCategory =
       BookmarkActivity* bookmarkActivity =
           [[BookmarkActivity alloc] initWithURL:data.visibleURL
                                      bookmarked:bookmarked
-                                     dispatcher:dispatcher];
+                                     dispatcher:commandHandler];
       [applicationActivities addObject:bookmarkActivity];
+    }
+
+    if (base::FeatureList::IsEnabled(kQRCodeGeneration)) {
+      GenerateQrCodeActivity* generateQrCodeActivity =
+          [[GenerateQrCodeActivity alloc] initWithURL:data.shareURL
+                                                title:data.title
+                                           dispatcher:commandHandler];
+      [applicationActivities addObject:generateQrCodeActivity];
     }
 
     if (data.isPageSearchable) {
       FindInPageActivity* findInPageActivity =
-          [[FindInPageActivity alloc] initWithDispatcher:dispatcher];
+          [[FindInPageActivity alloc] initWithHandler:commandHandler];
       [applicationActivities addObject:findInPageActivity];
     }
 
     if (data.userAgent != web::UserAgentType::NONE) {
       RequestDesktopOrMobileSiteActivity* requestActivity =
           [[RequestDesktopOrMobileSiteActivity alloc]
-              initWithDispatcher:dispatcher
+              initWithDispatcher:commandHandler
                        userAgent:data.userAgent];
       [applicationActivities addObject:requestActivity];
     }
   }
   if (data.isPagePrintable) {
     PrintActivity* printActivity = [[PrintActivity alloc] init];
-    printActivity.dispatcher = dispatcher;
+    printActivity.dispatcher = commandHandler;
     [applicationActivities addObject:printActivity];
   }
   return applicationActivities;

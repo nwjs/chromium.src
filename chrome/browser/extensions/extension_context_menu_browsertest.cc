@@ -21,8 +21,8 @@
 #include "chrome/common/channel_info.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/version_info/channel.h"
+#include "content/public/browser/context_menu_params.h"
 #include "content/public/browser/render_frame_host.h"
-#include "content/public/common/context_menu_params.h"
 #include "content/public/test/browser_test_utils.h"
 #include "extensions/browser/extension_api_frame_id_map.h"
 #include "extensions/browser/extension_registry.h"
@@ -537,16 +537,10 @@ IN_PROC_BROWSER_TEST_P(ExtensionContextMenuLazyTest, LongTitle) {
   ASSERT_TRUE(label.size() <= limit);
 }
 
-// Flaky on Windows debug bots. http://crbug.com/251590
-#if defined(OS_WIN)
-#define MAYBE_TopLevel DISABLED_TopLevel
-#else
-#define MAYBE_TopLevel TopLevel
-#endif
 // Checks that Context Menus are ordered alphabetically by their name when
 // extensions have only one single Context Menu item and by the extension name
 // when multiples Context Menu items are created.
-IN_PROC_BROWSER_TEST_P(ExtensionContextMenuLazyTest, MAYBE_TopLevel) {
+IN_PROC_BROWSER_TEST_P(ExtensionContextMenuLazyTest, TopLevel) {
   // We expect to see the following items in the menu:
   //   An Extension with multiple Context Menus
   //     Context Menu #1

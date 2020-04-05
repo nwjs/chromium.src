@@ -13,7 +13,6 @@
 #include <utility>
 #include <vector>
 
-#include "ash/app_list/app_list_util.h"
 #include "ash/app_list/model/search/search_box_model.h"
 #include "ash/app_list/test/app_list_test_model.h"
 #include "ash/app_list/test/app_list_test_view_delegate.h"
@@ -190,9 +189,7 @@ class AppListViewTest : public views::ViewsTestBase,
   void Initialize(bool is_tablet_mode) {
     delegate_ = std::make_unique<AppListTestViewDelegate>();
     view_ = new AppListView(delegate_.get());
-    view_->InitView(is_tablet_mode, GetContext(),
-                    base::BindRepeating(&UpdateActivationForAppListView, view_,
-                                        is_tablet_mode));
+    view_->InitView(is_tablet_mode, GetContext());
     test_api_.reset(new AppsGridViewTestApi(apps_grid_view()));
     EXPECT_FALSE(view_->GetWidget()->IsVisible());
   }
@@ -263,6 +260,14 @@ class AppListViewTest : public views::ViewsTestBase,
            view_->search_box_view()->GetWidget()->GetWindowBoundsInScreen();
   }
 
+  void SetTextInSearchBox(const std::string& text) {
+    views::Textfield* search_box =
+        view_->app_list_main_view()->search_box_view()->search_box();
+    // Set new text as if it is typed by a user.
+    search_box->SetText(base::string16());
+    search_box->InsertText(base::UTF8ToUTF16(text));
+  }
+
   int ShelfSize() const { return delegate_->GetShelfSize(); }
 
   // Gets the PaginationModel owned by |view_|.
@@ -284,6 +289,12 @@ class AppListViewTest : public views::ViewsTestBase,
 
   PageSwitcher* page_switcher_view() {
     return contents_view()->GetAppsContainerView()->page_switcher();
+  }
+
+  views::View* assistant_page_view() {
+    const int assistant_page_index = contents_view()->GetPageIndexForState(
+        ash::AppListState::kStateEmbeddedAssistant);
+    return contents_view()->GetPageView(assistant_page_index);
   }
 
   gfx::Point GetPointBetweenTwoApps() {
@@ -438,9 +449,7 @@ class AppListViewFocusTest : public views::ViewsTestBase,
             "weather", "Unimportant Title"));
     delegate_ = std::make_unique<AppListTestViewDelegate>();
     view_ = new AppListView(delegate_.get());
-    view_->InitView(false /*is_tablet_mode*/, GetContext(),
-                    base::BindRepeating(&UpdateActivationForAppListView, view_,
-                                        /*is_tablet_mode=*/false));
+    view_->InitView(false /*is_tablet_mode*/, GetContext());
     Show();
     test_api_.reset(new AppsGridViewTestApi(apps_grid_view()));
     suggestions_container_ = contents_view()
@@ -2048,12 +2057,9 @@ TEST_F(AppListViewTest, EscapeKeyPeekingToClosed) {
 // Tests that pressing escape when in half screen changes the state to peeking.
 TEST_F(AppListViewTest, EscapeKeyHalfToPeeking) {
   Initialize(false /*is_tablet_mode*/);
-  views::Textfield* search_box =
-      view_->app_list_main_view()->search_box_view()->search_box();
 
   Show();
-  search_box->SetText(base::string16());
-  search_box->InsertText(base::UTF8ToUTF16("doggie"));
+  SetTextInSearchBox("doggie");
   view_->AcceleratorPressed(ui::Accelerator(ui::VKEY_ESCAPE, ui::EF_NONE));
 
   ASSERT_EQ(ash::AppListViewState::kPeeking, view_->app_list_state());
@@ -2081,7 +2087,7 @@ TEST_F(AppListViewTest, EscapeKeySideShelfFullscreenToClosed) {
   ASSERT_EQ(1, delegate_->dismiss_count());
 }
 
-// Tests that pressing escape when in tablet mode closes the app list.
+// Tests that pressing escape when in tablet mode keeps app list in fullscreen.
 TEST_F(AppListViewTest, EscapeKeyTabletModeStayFullscreen) {
   // Put into fullscreen by using tablet mode.
   Initialize(true /*is_tablet_mode*/);
@@ -2097,11 +2103,8 @@ TEST_F(AppListViewTest, EscapeKeyFullscreenSearchToFullscreen) {
   Initialize(false /*is_tablet_mode*/);
   Show();
   view_->SetState(ash::AppListViewState::kFullscreenAllApps);
-  views::Textfield* search_box =
-      view_->app_list_main_view()->search_box_view()->search_box();
 
-  search_box->SetText(base::string16());
-  search_box->InsertText(base::UTF8ToUTF16("https://youtu.be/dQw4w9WgXcQ"));
+  SetTextInSearchBox("https://youtu.be/dQw4w9WgXcQ");
   view_->AcceleratorPressed(ui::Accelerator(ui::VKEY_ESCAPE, ui::EF_NONE));
 
   ASSERT_EQ(ash::AppListViewState::kFullscreenAllApps, view_->app_list_state());
@@ -2111,12 +2114,9 @@ TEST_F(AppListViewTest, EscapeKeyFullscreenSearchToFullscreen) {
 TEST_F(AppListViewTest, EscapeKeySideShelfSearchToFullscreen) {
   // Put into fullscreen using side-shelf.
   Initialize(false /*is_tablet_mode*/);
-  views::Textfield* search_box =
-      view_->app_list_main_view()->search_box_view()->search_box();
 
   Show(false /*is_tablet_mode*/, true /*is_side_shelf*/);
-  search_box->SetText(base::string16());
-  search_box->InsertText(base::UTF8ToUTF16("kitty"));
+  SetTextInSearchBox("kitty");
   view_->AcceleratorPressed(ui::Accelerator(ui::VKEY_ESCAPE, ui::EF_NONE));
 
   ASSERT_EQ(ash::AppListViewState::kFullscreenAllApps, view_->app_list_state());
@@ -2136,12 +2136,9 @@ TEST_F(AppListViewTest, PopulateAppsCreatesAnotherPage) {
 TEST_F(AppListViewTest, EscapeKeyTabletModeSearchToFullscreen) {
   // Put into fullscreen using tablet mode.
   Initialize(true /*is_tablet_mode*/);
-  views::Textfield* search_box =
-      view_->app_list_main_view()->search_box_view()->search_box();
 
   Show(true /*is_tablet_mode*/);
-  search_box->SetText(base::string16());
-  search_box->InsertText(base::UTF8ToUTF16("yay"));
+  SetTextInSearchBox("yay");
   view_->AcceleratorPressed(ui::Accelerator(ui::VKEY_ESCAPE, ui::EF_NONE));
 
   ASSERT_EQ(ash::AppListViewState::kFullscreenAllApps, view_->app_list_state());
@@ -2653,10 +2650,58 @@ TEST_F(AppListViewTest, BackAction) {
   EXPECT_EQ(0, apps_grid_view()->pagination_model()->selected_page());
 }
 
+// Tests that, in clamshell mode, the current app list page resets to the
+// initial page when app list is closed and re-opened.
+TEST_F(AppListViewTest, InitialPageResetClamshellModeTest) {
+  Initialize(false /*is_tablet_mode*/);
+
+  AppListTestModel* model = delegate_->GetTestModel();
+  const int kAppListItemNum = test_api_->TilesPerPage(0) + 1;
+  model->PopulateApps(kAppListItemNum);
+
+  Show(false /*is_tablet_mode*/);
+  view_->SetState(ash::AppListViewState::kFullscreenAllApps);
+
+  apps_grid_view()->pagination_model()->SelectPage(1, false /* animate */);
+
+  // Close and re-open the app list to ensure the current page doesn't persist.
+  view_->SetState(ash::AppListViewState::kClosed);
+  Show();
+  view_->SetState(ash::AppListViewState::kFullscreenAllApps);
+
+  EXPECT_EQ(0, apps_grid_view()->pagination_model()->selected_page());
+}
+
+// Tests that, in tablet mode, the current app list page doesn't immediately
+// reset to the initial page when app list is closed and re-opened.
+TEST_F(AppListViewTest, PagePersistanceTabletModeTest) {
+  Initialize(true /*is_tablet_mode*/);
+
+  AppListTestModel* model = delegate_->GetTestModel();
+  const int kAppListItemNum = test_api_->TilesPerPage(0) + 1;
+  model->PopulateApps(kAppListItemNum);
+
+  Show(true /*is_tablet_mode*/);
+  EXPECT_EQ(ash::AppListViewState::kFullscreenAllApps, view_->app_list_state());
+
+  apps_grid_view()->pagination_model()->SelectPage(1, false /* animate */);
+
+  // Close and re-open the app list to ensure the current page persists.
+  view_->SetState(ash::AppListViewState::kClosed);
+  Show(true);
+  EXPECT_EQ(ash::AppListViewState::kFullscreenAllApps, view_->app_list_state());
+
+  // The current page should not be reset for the tablet mode app list.
+  EXPECT_EQ(1, apps_grid_view()->pagination_model()->selected_page());
+}
+
 // Tests selecting search result to show embedded Assistant UI.
 TEST_F(AppListViewFocusTest, ShowEmbeddedAssistantUI) {
-  scoped_feature_list_.InitWithFeatures(
-      {app_list_features::kEnableAssistantLauncherUI}, {});
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures(
+      {app_list_features::kEnableAssistantSearch}, {});
+  ASSERT_TRUE(app_list_features::IsAssistantSearchEnabled());
+
   Show();
 
   // Initially the search box is inactive, hitting Enter to activate it.
@@ -2687,35 +2732,26 @@ TEST_F(AppListViewFocusTest, ShowEmbeddedAssistantUI) {
 // Tests that the correct contents is visible in the contents_view upon
 // reshowing. See b/142069648 for the details.
 TEST_F(AppListViewTest, AppsGridVisibilityOnResetForShow) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeatures(
-      {app_list_features::kEnableAssistantLauncherUI}, {});
   Initialize(true /*is_tablet_mode*/);
   Show(true /*is_tablet_mode*/);
 
   contents_view()->ShowEmbeddedAssistantUI(true);
   EXPECT_FALSE(contents_view()->horizontal_page_container()->GetVisible());
   EXPECT_FALSE(contents_view()->search_results_page_view()->GetVisible());
-  const int assistant_page_index = contents_view()->GetPageIndexForState(
-      ash::AppListState::kStateEmbeddedAssistant);
-  EXPECT_TRUE(contents_view()->GetPageView(assistant_page_index)->GetVisible());
+  EXPECT_TRUE(assistant_page_view()->GetVisible());
 
   view_->OnTabletModeChanged(false);
   Show(false /*is_tablet_mode*/);
   EXPECT_TRUE(contents_view()->horizontal_page_container()->GetVisible());
   EXPECT_FALSE(contents_view()->search_results_page_view()->GetVisible());
-  EXPECT_FALSE(
-      contents_view()->GetPageView(assistant_page_index)->GetVisible());
+  EXPECT_FALSE(assistant_page_view()->GetVisible());
 }
 
-// Tests that no answer card view when kEnableAssistantLauncherUI is enabled.
+// Tests that no answer card view when kEnableAssistantSearch is enabled.
 TEST_F(AppListViewTest, NoAnswerCardWhenEmbeddedAssistantUIEnabled) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithFeatures(
-      {app_list_features::kEnableAssistantLauncherUI,
-       app_list_features::kEnableAssistantSearch},
-      {});
-  ASSERT_TRUE(app_list_features::IsAssistantLauncherUIEnabled());
+      {app_list_features::kEnableAssistantSearch}, {});
   ASSERT_TRUE(app_list_features::IsAssistantSearchEnabled());
 
   Initialize(false /*is_tablet_mode*/);
@@ -2724,36 +2760,49 @@ TEST_F(AppListViewTest, NoAnswerCardWhenEmbeddedAssistantUIEnabled) {
   EXPECT_FALSE(contents_view()->search_result_answer_card_view_for_test());
 }
 
-// Tests that pressing escape when in embedded Assistant UI results in showing
-// the search page view.
-TEST_F(AppListViewTest, EscapeKeyEmbeddedAssistantUIToSearch) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeatures(
-      {app_list_features::kEnableAssistantLauncherUI}, {});
-  ASSERT_TRUE(app_list_features::IsAssistantLauncherUIEnabled());
-
+// Tests that pressing escape in embedded Assistant UI returns to fullscreen
+// if the Assistant UI was launched from fullscreen app list.
+TEST_F(AppListViewTest, EscapeKeyInEmbeddedAssistantUIReturnsToAppList) {
   Initialize(false /*is_tablet_mode*/);
   Show();
 
-  // Set search_box_view active.
-  ui::KeyEvent key_event(ui::ET_KEY_PRESSED, ui::VKEY_RETURN, ui::EF_NONE);
-  view_->GetWidget()->OnKeyEvent(&key_event);
-
+  // First we're in the fullscreen app list
+  view_->SetState(ash::AppListViewState::kFullscreenAllApps);
+  // Then we go to search by entering text
+  SetTextInSearchBox("search query");
+  // From there we launch the Assistant UI
   contents_view()->ShowEmbeddedAssistantUI(true);
-  EXPECT_TRUE(contents_view()->IsShowingEmbeddedAssistantUI());
 
+  // We press escape to leave the Assistant UI
   view_->AcceleratorPressed(ui::Accelerator(ui::VKEY_ESCAPE, ui::EF_NONE));
-  EXPECT_TRUE(contents_view()->IsShowingSearchResults());
+
+  // And we should be back in the fullscreen app list
+  EXPECT_FALSE(contents_view()->IsShowingSearchResults());
+  EXPECT_EQ(ash::AppListViewState::kFullscreenAllApps, view_->app_list_state());
+}
+
+// Tests that pressing escape in embedded Assistant UI returns to peeking
+// if the Assistant UI was launched from half screen.
+TEST_F(AppListViewTest, EscapeKeyInEmbeddedAssistantUIReturnsToPeeking) {
+  Initialize(false /*is_tablet_mode*/);
+  Show();
+
+  // Enter half screen search by entering text
+  SetTextInSearchBox("search query");
+  // From there we launch the Assistant UI
+  contents_view()->ShowEmbeddedAssistantUI(true);
+
+  // We press escape to leave the Assistant UI
+  view_->AcceleratorPressed(ui::Accelerator(ui::VKEY_ESCAPE, ui::EF_NONE));
+
+  // And we should be back in the peeking state
+  EXPECT_FALSE(contents_view()->IsShowingSearchResults());
+  EXPECT_EQ(ash::AppListViewState::kPeeking, view_->app_list_state());
 }
 
 // Tests that clicking empty region in AppListview when showing Assistant UI
 // should go back to peeking state.
 TEST_F(AppListViewTest, ClickOutsideEmbeddedAssistantUIToPeeking) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeatures(
-      {app_list_features::kEnableAssistantLauncherUI}, {});
-  ASSERT_TRUE(app_list_features::IsAssistantLauncherUIEnabled());
-
   Initialize(false /*is_tablet_mode*/);
   Show();
 
@@ -2784,11 +2833,6 @@ TEST_F(AppListViewTest, ClickOutsideEmbeddedAssistantUIToPeeking) {
 
 // Tests that expand arrow is not visible when showing embedded Assistant UI.
 TEST_F(AppListViewTest, ExpandArrowNotVisibleInEmbeddedAssistantUI) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeatures(
-      {app_list_features::kEnableAssistantLauncherUI}, {});
-  ASSERT_TRUE(app_list_features::IsAssistantLauncherUIEnabled());
-
   Initialize(false /*is_tablet_mode*/);
   Show();
 
@@ -2803,11 +2847,6 @@ TEST_F(AppListViewTest, ExpandArrowNotVisibleInEmbeddedAssistantUI) {
 
 // Tests that search box is not visible when showing embedded Assistant UI.
 TEST_F(AppListViewTest, SearchBoxViewNotVisibleInEmbeddedAssistantUI) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeatures(
-      {app_list_features::kEnableAssistantLauncherUI}, {});
-  ASSERT_TRUE(app_list_features::IsAssistantLauncherUIEnabled());
-
   Initialize(false /*is_tablet_mode*/);
   Show();
 

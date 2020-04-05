@@ -9,8 +9,6 @@ import android.content.res.ColorStateList;
 import android.content.res.Configuration;
 import android.graphics.drawable.Drawable;
 import android.os.Parcelable;
-import android.support.v4.view.MarginLayoutParamsCompat;
-import android.support.v4.view.ViewCompat;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.util.SparseArray;
@@ -19,6 +17,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.ViewGroup;
+import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
@@ -26,17 +25,19 @@ import android.widget.LinearLayout;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
+import androidx.core.view.MarginLayoutParamsCompat;
+import androidx.core.view.ViewCompat;
 
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.base.CommandLine;
 import org.chromium.base.ObserverList;
-import org.chromium.base.metrics.CachedMetrics.EnumeratedHistogramSample;
+import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ActivityTabProvider;
-import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.WindowDelegate;
 import org.chromium.chrome.browser.externalauth.ExternalAuthUtils;
+import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.gsa.GSAState;
 import org.chromium.chrome.browser.locale.LocaleManager;
 import org.chromium.chrome.browser.native_page.NativePageFactory;
@@ -53,9 +54,10 @@ import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteCoordinatorFa
 import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteDelegate;
 import org.chromium.chrome.browser.omnibox.suggestions.OmniboxSuggestionListEmbedder;
 import org.chromium.chrome.browser.omnibox.voice.AssistantVoiceSearchService;
+import org.chromium.chrome.browser.omnibox.voice.VoiceRecognitionHandler;
+import org.chromium.chrome.browser.privacy.settings.PrivacyPreferencesManager;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
-import org.chromium.chrome.browser.settings.privacy.PrivacyPreferencesManager;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tasks.ReturnToChromeExperimentsUtil;
 import org.chromium.chrome.browser.toolbar.ToolbarDataProvider;
@@ -78,13 +80,11 @@ import java.util.List;
  * This class represents the location bar where the user types in URLs and
  * search terms.
  */
-public class LocationBarLayout
-        extends FrameLayout implements OnClickListener, LocationBar, AutocompleteDelegate,
-                                       FakeboxDelegate, LocationBarVoiceRecognitionHandler.Delegate,
-                                       AssistantVoiceSearchService.Observer {
-    private static final EnumeratedHistogramSample ENUMERATED_FOCUS_REASON =
-            new EnumeratedHistogramSample(
-                    "Android.OmniboxFocusReason", OmniboxFocusReason.NUM_ENTRIES);
+public class LocationBarLayout extends FrameLayout
+        implements OnClickListener, LocationBar, AutocompleteDelegate, FakeboxDelegate,
+                   VoiceRecognitionHandler.Delegate, AssistantVoiceSearchService.Observer {
+    private static final int KEYBOARD_HIDE_DELAY_MS = 150;
+    private static final int KEYBOARD_MODE_CHANGE_DELAY_MS = 300;
 
     protected ImageButton mDeleteButton;
     protected ImageButton mMicButton;
@@ -119,11 +119,14 @@ public class LocationBarLayout
     protected float mUrlFocusChangePercent;
     protected LinearLayout mUrlActionContainer;
 
-    private LocationBarVoiceRecognitionHandler mVoiceRecognitionHandler;
+    private VoiceRecognitionHandler mVoiceRecognitionHandler;
 
     protected CompositeTouchDelegate mCompositeTouchDelegate;
 
     private AssistantVoiceSearchService mAssistantVoiceSearchService;
+    private Runnable mKeyboardResizeModeTask;
+    private Runnable mKeyboardHideTask;
+    private boolean mKeyboardShouldShow;
 
     /**
      * Class to handle input from a hardware keyboard when the focus is on the URL bar. In
@@ -177,28 +180,27 @@ public class LocationBarLayout
         mUrlCoordinator = new UrlBarCoordinator((UrlBar) mUrlBar);
         mUrlCoordinator.setDelegate(this);
 
-        OmniboxSuggestionListEmbedder embedder =
-                new OmniboxSuggestionListEmbedder() {
-                    @Override
-                    public boolean isTablet() {
-                        return mIsTablet;
-                    }
+        OmniboxSuggestionListEmbedder embedder = new OmniboxSuggestionListEmbedder() {
+            @Override
+            public boolean isTablet() {
+                return mIsTablet;
+            }
 
-                    @Override
-                    public WindowDelegate getWindowDelegate() {
-                        return mWindowDelegate;
-                    }
+            @Override
+            public WindowDelegate getWindowDelegate() {
+                return mWindowDelegate;
+            }
 
-                    @Override
-                    public View getAnchorView() {
-                        return getRootView().findViewById(R.id.toolbar);
-                    }
+            @Override
+            public View getAnchorView() {
+                return getRootView().findViewById(R.id.toolbar);
+            }
 
-                    @Override
-                    public View getAlignmentView() {
-                        return mIsTablet ? LocationBarLayout.this : null;
-                    }
-                };
+            @Override
+            public View getAlignmentView() {
+                return mIsTablet ? LocationBarLayout.this : null;
+            }
+        };
         mAutocompleteCoordinator = AutocompleteCoordinatorFactory.createAutocompleteCoordinator(
                 this, this, embedder, mUrlCoordinator);
         addUrlFocusChangeListener(mAutocompleteCoordinator);
@@ -208,7 +210,7 @@ public class LocationBarLayout
 
         mUrlActionContainer = (LinearLayout) findViewById(R.id.url_action_container);
 
-        mVoiceRecognitionHandler = new LocationBarVoiceRecognitionHandler(this);
+        mVoiceRecognitionHandler = new VoiceRecognitionHandler(this);
     }
 
     @Override
@@ -294,14 +296,6 @@ public class LocationBarLayout
     public void setUrlBarFocusable(boolean focusable) {
         if (mUrlCoordinator == null) return;
         mUrlCoordinator.setAllowFocus(focusable);
-    }
-
-    /**
-     * @return The WindowDelegate for the LocationBar. This should be used for all Window related
-     * state queries.
-     */
-    protected WindowDelegate getWindowDelegate() {
-        return mWindowDelegate;
     }
 
     @Override
@@ -410,7 +404,7 @@ public class LocationBarLayout
                 setUrlBarText(mToolbarDataProvider.getUrlBarData(), UrlBar.ScrollType.NO_SCROLL,
                         SelectionState.SELECT_ALL);
             }
-            hideKeyboard();
+            setKeyboardVisibility(false);
         }
     }
 
@@ -464,6 +458,7 @@ public class LocationBarLayout
         updateShouldAnimateIconChanges();
 
         if (mUrlHasFocus) {
+            mKeyboardShouldShow = false;
             if (mNativeInitialized) RecordUserAction.record("FocusLocation");
             UrlBarData urlBarData = mToolbarDataProvider.getUrlBarData();
             if (urlBarData.editingText != null) {
@@ -525,6 +520,7 @@ public class LocationBarLayout
      * @param hasFocus Whether focus was gained.
      */
     protected void handleUrlFocusAnimation(boolean hasFocus) {
+        removeCallbacks(mKeyboardResizeModeTask);
         if (hasFocus) mUrlFocusedWithoutAnimations = false;
         for (UrlFocusChangeListener listener : mUrlFocusChangeListeners) {
             listener.onUrlFocusChange(hasFocus);
@@ -694,8 +690,9 @@ public class LocationBarLayout
     }
 
     @Override
-    public void hideKeyboard() {
-        getWindowAndroid().getKeyboardDelegate().hideKeyboard(mUrlBar);
+    public void setKeyboardVisibility(boolean shouldShow) {
+        mKeyboardShouldShow = shouldShow;
+        setKeyboardVisibilityInternal(false);
     }
 
     @Override
@@ -793,7 +790,7 @@ public class LocationBarLayout
         } else if (v == mMicButton) {
             RecordUserAction.record("MobileOmniboxVoiceSearch");
             mVoiceRecognitionHandler.startVoiceRecognition(
-                    LocationBarVoiceRecognitionHandler.VoiceInteractionSource.OMNIBOX);
+                    VoiceRecognitionHandler.VoiceInteractionSource.OMNIBOX);
         }
     }
 
@@ -865,7 +862,7 @@ public class LocationBarLayout
 
         // Profile may be null if switching to a tab that has not yet been initialized.
         Profile profile = mToolbarDataProvider.getProfile();
-        if (profile != null) mOmniboxPrerender.clear(profile);
+        if (profile != null && mOmniboxPrerender != null) mOmniboxPrerender.clear(profile);
     }
 
     /**
@@ -922,12 +919,12 @@ public class LocationBarLayout
         }
 
         if (currentTab != null
-                && (currentTab.isNativePage() || NewTabPage.isNTPUrl(currentTab.getUrl()))) {
+                && (currentTab.isNativePage() || NewTabPage.isNTPUrl(currentTab.getUrlString()))) {
             NewTabPageUma.recordOmniboxNavigation(url, transition);
             // Passing in an empty string should not do anything unless the user is at the NTP.
             // Since the NTP has no url, pressing enter while clicking on the URL bar should refresh
             // the page as it does when you click and press enter on any other site.
-            if (url.isEmpty()) url = currentTab.getUrl();
+            if (url.isEmpty()) url = currentTab.getUrlString();
         }
 
         // Loads the |url| in a new tab or the current ContentView and gives focus to the
@@ -1010,7 +1007,7 @@ public class LocationBarLayout
             }
         } else {
             assert pastedText == null;
-            hideKeyboard();
+            setKeyboardVisibility(false);
             mUrlBar.clearFocus();
         }
 
@@ -1034,7 +1031,7 @@ public class LocationBarLayout
     }
 
     @Override
-    public LocationBarVoiceRecognitionHandler getLocationBarVoiceRecognitionHandler() {
+    public VoiceRecognitionHandler getVoiceRecognitionHandler() {
         return mVoiceRecognitionHandler;
     }
 
@@ -1114,7 +1111,7 @@ public class LocationBarLayout
         final boolean useDarkColors =
                 !ColorUtils.shouldUseLightForegroundOnBackground(primaryColor);
         ColorStateList colorStateList =
-                ChromeColors.getIconTint(getContext(), !useDarkColors);
+                ChromeColors.getPrimaryIconTint(getContext(), !useDarkColors);
         ApiCompatibilityUtils.setImageTintList(mDeleteButton, colorStateList);
 
         // If the URL changed colors and is not focused, update the URL to account for the new
@@ -1168,7 +1165,8 @@ public class LocationBarLayout
     }
 
     private void recordOmniboxFocusReason(@OmniboxFocusReason int reason) {
-        ENUMERATED_FOCUS_REASON.record(reason);
+        RecordHistogram.recordEnumeratedHistogram(
+                "Android.OmniboxFocusReason", reason, OmniboxFocusReason.NUM_ENTRIES);
     }
 
     @Override
@@ -1183,5 +1181,83 @@ public class LocationBarLayout
         ColorStateList colorStateList =
                 mAssistantVoiceSearchService.getMicButtonColorStateList(primaryColor, getContext());
         ApiCompatibilityUtils.setImageTintList(mMicButton, colorStateList);
+    }
+
+    /**
+     * Handles any actions to be performed after all other actions triggered by the URL focus
+     * change.  This will be called after any animations are performed to transition from one
+     * focus state to the other.
+     * @param hasFocus Whether the URL field has gained focus.
+     */
+    protected void finishUrlFocusChange(boolean hasFocus) {
+        setKeyboardVisibilityInternal(true);
+        setUrlFocusChangeInProgress(false);
+        updateShouldAnimateIconChanges();
+    }
+
+    /**
+     * Controls keyboard visibility.
+     * TODO(https://crbug.com/1060729): This should be relocated to UrlBar component.
+     *
+     * @param shouldDelayHiding When true, keyboard hide operation will be delayed slightly to
+     *         improve the animation smoothness.
+     */
+    private void setKeyboardVisibilityInternal(boolean shouldDelayHiding) {
+        boolean showKeyboard = mUrlHasFocus && mKeyboardShouldShow;
+        // Cancel pending jobs to prevent any possibility of keyboard flicker.
+        if (mKeyboardHideTask != null) {
+            removeCallbacks(mKeyboardHideTask);
+        }
+
+        // Note: due to nature of this mechanism, we may occasionally experience subsequent requests
+        // to show or hide keyboard anyway. This may happen when we schedule keyboard hide, and
+        // receive a second request to hide the keyboard instantly.
+        if (showKeyboard) {
+            setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_PAN, /* delay */ false);
+            getWindowAndroid().getKeyboardDelegate().showKeyboard(mUrlBar);
+        } else {
+            // The animation rendering may not yet be 100% complete and hiding the keyboard makes
+            // the animation quite choppy.
+            // clang-format off
+            mKeyboardHideTask = () -> {
+                getWindowAndroid().getKeyboardDelegate().hideKeyboard(mUrlBar);
+                mKeyboardHideTask = null;
+            };
+            // clang-format on
+            postDelayed(mKeyboardHideTask, shouldDelayHiding ? KEYBOARD_HIDE_DELAY_MS : 0);
+            // Convert the keyboard back to resize mode (delay the change for an arbitrary amount
+            // of time in hopes the keyboard will be completely hidden before making this change).
+            setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE, /* delay */ true);
+        }
+    }
+
+    /**
+     * @param softInputMode The software input resize mode.
+     * @param delay Delay the change in input mode.
+     */
+    private void setSoftInputMode(final int softInputMode, boolean delay) {
+        if (mKeyboardResizeModeTask != null) {
+            removeCallbacks(mKeyboardResizeModeTask);
+            mKeyboardResizeModeTask = null;
+        }
+
+        if (mWindowDelegate == null || mWindowDelegate.getWindowSoftInputMode() == softInputMode) {
+            return;
+        }
+
+        if (delay) {
+            mKeyboardResizeModeTask = () -> {
+                mWindowDelegate.setWindowSoftInputMode(softInputMode);
+                mKeyboardResizeModeTask = null;
+            };
+            postDelayed(mKeyboardResizeModeTask, KEYBOARD_MODE_CHANGE_DELAY_MS);
+        } else {
+            mWindowDelegate.setWindowSoftInputMode(softInputMode);
+        }
+    }
+
+    public void setVoiceRecognitionHandlerForTesting(
+            VoiceRecognitionHandler voiceRecognitionHandler) {
+        mVoiceRecognitionHandler = voiceRecognitionHandler;
     }
 }

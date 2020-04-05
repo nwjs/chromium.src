@@ -46,15 +46,12 @@ class LayoutRect;
 class LineLayoutItem;
 class LocalFrameView;
 
-class CORE_EXPORT AXObjectCache : public GarbageCollected<AXObjectCache>,
-                                  public ContextLifecycleObserver {
-  USING_GARBAGE_COLLECTED_MIXIN(AXObjectCache);
-
+class CORE_EXPORT AXObjectCache : public GarbageCollected<AXObjectCache> {
  public:
   static AXObjectCache* Create(Document&);
 
-  virtual ~AXObjectCache();
-  void Trace(blink::Visitor*) override;
+  virtual ~AXObjectCache() = default;
+  virtual void Trace(Visitor*) {}
 
   virtual void Dispose() = 0;
 
@@ -112,7 +109,7 @@ class CORE_EXPORT AXObjectCache : public GarbageCollected<AXObjectCache>,
       const Element* form_control) = 0;
 
   // Handle any notifications which arrived while layout was dirty.
-  virtual void ProcessUpdatesAfterLayout(Document&) = 0;
+  virtual void ProcessDeferredAccessibilityEvents(Document&) = 0;
 
   // Changes to virtual Accessibility Object Model nodes.
   virtual void HandleAttributeChanged(const QualifiedName& attr_name,
@@ -152,7 +149,7 @@ class CORE_EXPORT AXObjectCache : public GarbageCollected<AXObjectCache>,
 
  private:
   friend class AXObjectCacheBase;
-  AXObjectCache(Document&);
+  AXObjectCache() = default;
 
   static AXObjectCacheCreateFunction create_function_;
   DISALLOW_COPY_AND_ASSIGN(AXObjectCache);

@@ -43,6 +43,22 @@ void OnGetCanonicalUrlForSharing(
 }
 }  // namespace
 
+// static
+RenderFrameHost* RenderFrameHost::FromJavaRenderFrameHost(
+    const JavaRef<jobject>& jrender_frame_host_android) {
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  if (jrender_frame_host_android.is_null())
+    return nullptr;
+
+  RenderFrameHostAndroid* render_frame_host_android =
+      reinterpret_cast<RenderFrameHostAndroid*>(
+          Java_RenderFrameHostImpl_getNativePointer(
+              AttachCurrentThread(), jrender_frame_host_android));
+  if (!render_frame_host_android)
+    return nullptr;
+  return render_frame_host_android->render_frame_host();
+}
+
 RenderFrameHostAndroid::RenderFrameHostAndroid(
     RenderFrameHostImpl* render_frame_host,
     mojo::PendingRemote<service_manager::mojom::InterfaceProvider>
@@ -128,6 +144,24 @@ jboolean RenderFrameHostAndroid::IsProcessBlocked(
     JNIEnv* env,
     const base::android::JavaParamRef<jobject>&) const {
   return render_frame_host_->GetProcess()->IsBlocked();
+}
+
+jint RenderFrameHostAndroid::PerformGetAssertionWebAuthSecurityChecks(
+    JNIEnv* env,
+    const base::android::JavaParamRef<jobject>&,
+    const base::android::JavaParamRef<jstring>& relying_party_id) const {
+  return static_cast<int32_t>(
+      render_frame_host_->PerformGetAssertionWebAuthSecurityChecks(
+          ConvertJavaStringToUTF8(env, relying_party_id)));
+}
+
+jint RenderFrameHostAndroid::PerformMakeCredentialWebAuthSecurityChecks(
+    JNIEnv* env,
+    const base::android::JavaParamRef<jobject>&,
+    const base::android::JavaParamRef<jstring>& relying_party_id) const {
+  return static_cast<int32_t>(
+      render_frame_host_->PerformMakeCredentialWebAuthSecurityChecks(
+          ConvertJavaStringToUTF8(env, relying_party_id)));
 }
 
 }  // namespace content

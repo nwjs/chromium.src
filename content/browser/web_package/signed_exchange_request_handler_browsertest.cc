@@ -51,6 +51,7 @@
 #include "net/cert/cert_verify_result.h"
 #include "net/cert/mock_cert_verifier.h"
 #include "net/dns/mock_host_resolver.h"
+#include "net/http/http_request_headers.h"
 #include "net/test/cert_test_util.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "net/test/embedded_test_server/http_request.h"
@@ -59,7 +60,7 @@
 #include "net/test/url_request/url_request_mock_http_job.h"
 #include "net/url_request/url_request_filter.h"
 #include "net/url_request/url_request_interceptor.h"
-#include "services/network/loader_util.h"
+#include "services/network/public/cpp/constants.h"
 #include "services/network/public/cpp/features.h"
 #include "testing/gmock/include/gmock/gmock-matchers.h"
 #include "third_party/blink/public/common/features.h"
@@ -74,6 +75,7 @@ constexpr char kExpectedSXGEnabledAcceptHeaderForPrefetch[] =
 constexpr char kLoadResultHistogram[] = "SignedExchange.LoadResult2";
 constexpr char kPrefetchResultHistogram[] =
     "SignedExchange.Prefetch.LoadResult2";
+constexpr char kRedirectLoopHistogram[] = "SignedExchange.FallbackRedirectLoop";
 
 class RedirectObserver : public WebContentsObserver {
  public:
@@ -107,6 +109,26 @@ class AssertNavigationHandleFlagObserver : public WebContentsObserver {
 
  private:
   DISALLOW_COPY_AND_ASSIGN(AssertNavigationHandleFlagObserver);
+};
+
+class FinishNavigationObserver : public WebContentsObserver {
+ public:
+  FinishNavigationObserver(WebContents* contents,
+                           base::OnceClosure done_closure)
+      : WebContentsObserver(contents), done_closure_(std::move(done_closure)) {}
+
+  void DidFinishNavigation(NavigationHandle* navigation_handle) override {
+    error_code_ = navigation_handle->GetNetErrorCode();
+    std::move(done_closure_).Run();
+  }
+
+  const base::Optional<net::Error>& error_code() const { return error_code_; }
+
+ private:
+  base::OnceClosure done_closure_;
+  base::Optional<net::Error> error_code_;
+
+  DISALLOW_COPY_AND_ASSIGN(FinishNavigationObserver);
 };
 
 class MockContentBrowserClient final : public ContentBrowserClient {
@@ -780,6 +802,31 @@ IN_PROC_BROWSER_TEST_F(SignedExchangeRequestHandlerDownloadBrowserTest,
 }
 
 IN_PROC_BROWSER_TEST_F(SignedExchangeRequestHandlerDownloadBrowserTest,
+                       DownloadInnerResponse) {
+  InstallMockCert();
+  InstallMockCertChainInterceptor();
+  std::unique_ptr<DownloadObserver> observer =
+      std::make_unique<DownloadObserver>(BrowserContext::GetDownloadManager(
+          shell()->web_contents()->GetBrowserContext()));
+
+  embedded_test_server()->ServeFilesFromSourceDirectory("content/test/data");
+  ASSERT_TRUE(embedded_test_server()->Start());
+  EXPECT_TRUE(
+      NavigateToURL(shell(), embedded_test_server()->GetURL("/empty.html")));
+
+  const std::string load_sxg =
+      "const iframe = document.createElement('iframe');"
+      "iframe.src = './sxg/test.example.org_bad_content_type.sxg';"
+      "document.body.appendChild(iframe);";
+  // Since the inner response has an invalid Content-Type and MIME sniffing
+  // is disabled for Signed Exchange inner response, this should download the
+  // inner response of the exchange.
+  EXPECT_TRUE(ExecuteScript(shell()->web_contents(), load_sxg));
+  observer->WaitUntilDownloadCreated();
+  EXPECT_EQ(GURL("https://test.example.org/test/"), observer->observed_url());
+}
+
+IN_PROC_BROWSER_TEST_F(SignedExchangeRequestHandlerDownloadBrowserTest,
                        DataURLDownload) {
   const GURL sxg_url = GURL("data:application/signed-exchange,");
   std::unique_ptr<DownloadObserver> observer =
@@ -1020,8 +1067,8 @@ class SignedExchangeAcceptHeaderBrowserTest
     https_server_.ServeFilesFromSourceDirectory("content/test/data");
     https_server_.RegisterRequestHandler(
         base::BindRepeating(&self::RedirectResponseHandler));
-    https_server_.RegisterRequestHandler(
-        base::BindRepeating(&self::FallbackSxgResponseHandler));
+    https_server_.RegisterRequestHandler(base::BindRepeating(
+        &self::FallbackSxgResponseHandler, base::Unretained(this)));
     https_server_.RegisterRequestMonitor(
         base::BindRepeating(&self::MonitorRequest, base::Unretained(this)));
     ASSERT_TRUE(https_server_.Start());
@@ -1056,11 +1103,12 @@ class SignedExchangeAcceptHeaderBrowserTest
         *accept_header,
         IsSignedExchangeEnabled() && !is_fallback
             ? (is_navigation
-                   ? std::string(network::kFrameAcceptHeader) +
+                   ? std::string(network::kFrameAcceptHeaderValue) +
                          std::string(kAcceptHeaderSignedExchangeSuffix)
                    : std::string(kExpectedSXGEnabledAcceptHeaderForPrefetch))
-            : (is_navigation ? std::string(network::kFrameAcceptHeader)
-                             : std::string(network::kDefaultAcceptHeader)));
+            : (is_navigation
+                   ? std::string(network::kFrameAcceptHeaderValue)
+                   : std::string(network::kDefaultAcceptHeaderValue)));
   }
 
   void CheckNavigationAcceptHeader(const std::vector<GURL>& urls) {
@@ -1118,14 +1166,18 @@ class SignedExchangeAcceptHeaderBrowserTest
 
   // Responds with a prologue-only signed exchange that triggers a fallback
   // redirect.
-  static std::unique_ptr<net::test_server::HttpResponse>
-  FallbackSxgResponseHandler(const net::test_server::HttpRequest& request) {
+  std::unique_ptr<net::test_server::HttpResponse> FallbackSxgResponseHandler(
+      const net::test_server::HttpRequest& request) {
     const std::string prefix = "/fallback_sxg?";
     if (!base::StartsWith(request.relative_url, prefix,
                           base::CompareCase::SENSITIVE)) {
       return std::unique_ptr<net::test_server::HttpResponse>();
     }
     std::string fallback_url(request.relative_url.substr(prefix.length()));
+    if (fallback_url.empty()) {
+      // If fallback URL is not specified, fallback to itself.
+      fallback_url = https_server_.GetURL(prefix).spec();
+    }
 
     std::unique_ptr<net::test_server::BasicHttpResponse> http_response(
         new net::test_server::BasicHttpResponse);
@@ -1144,7 +1196,7 @@ class SignedExchangeAcceptHeaderBrowserTest
   }
 
   void MonitorRequest(const net::test_server::HttpRequest& request) {
-    const auto it = request.headers.find(std::string(network::kAcceptHeader));
+    const auto it = request.headers.find(net::HttpRequestHeaders::kAccept);
     if (it == request.headers.end())
       return;
     // Note this method is called on the EmbeddedTestServer's background thread.
@@ -1196,6 +1248,25 @@ IN_PROC_BROWSER_TEST_P(SignedExchangeAcceptHeaderBrowserTest,
 }
 
 IN_PROC_BROWSER_TEST_P(SignedExchangeAcceptHeaderBrowserTest,
+                       FallbackRedirectLoop) {
+  if (!IsSignedExchangeEnabled())
+    return;
+
+  const base::HistogramTester histogram_tester;
+  base::RunLoop run_loop;
+  FinishNavigationObserver finish_navigation_observer(shell()->web_contents(),
+                                                      run_loop.QuitClosure());
+  const GURL test_url = https_server_.GetURL("/fallback_sxg?");
+  EXPECT_FALSE(NavigateToURL(shell()->web_contents(), test_url));
+  run_loop.Run();
+  ASSERT_TRUE(finish_navigation_observer.error_code())
+      << "Unexpected navigation success: " << test_url;
+  EXPECT_EQ(net::ERR_TOO_MANY_REDIRECTS,
+            *finish_navigation_observer.error_code());
+  histogram_tester.ExpectUniqueSample(kRedirectLoopHistogram, true, 1);
+}
+
+IN_PROC_BROWSER_TEST_P(SignedExchangeAcceptHeaderBrowserTest,
                        PrefetchEnabledPageEnabledTarget) {
   const GURL target = https_server_.GetURL("/sxg/hello.txt");
   const GURL page_url =
@@ -1223,7 +1294,8 @@ IN_PROC_BROWSER_TEST_P(SignedExchangeAcceptHeaderBrowserTest, ServiceWorker) {
   NavigateAndWaitForTitle(https_server_.GetURL("/sxg/service-worker.html"),
                           "Done");
 
-  const std::string frame_accept = std::string(network::kFrameAcceptHeader);
+  const std::string frame_accept =
+      std::string(network::kFrameAcceptHeaderValue);
   const std::string frame_accept_with_sxg =
       frame_accept + std::string(kAcceptHeaderSignedExchangeSuffix);
   const std::vector<std::string> scopes = {"/sxg/sw-scope-generated/",

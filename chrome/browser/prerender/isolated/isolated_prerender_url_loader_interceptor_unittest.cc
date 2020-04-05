@@ -10,14 +10,15 @@
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/prerender/isolated/isolated_prerender_features.h"
+#include "chrome/browser/prerender/isolated/prefetched_mainframe_response_container.h"
 #include "chrome/browser/prerender/prerender_handle.h"
 #include "chrome/browser/prerender/prerender_manager.h"
 #include "chrome/browser/prerender/prerender_manager_factory.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "components/data_reduction_proxy/core/browser/data_reduction_proxy_settings.h"
 #include "content/public/browser/web_contents.h"
-#include "content/public/common/resource_type.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/public/mojom/loader/resource_load_info.mojom-shared.h"
 #include "url/gurl.h"
 
 namespace {
@@ -42,6 +43,34 @@ GURL TestURL() {
 #else
 #define DISABLE_ASAN(x) x
 #endif
+
+class TestIsolatedPrerenderURLLoaderInterceptor
+    : public IsolatedPrerenderURLLoaderInterceptor {
+ public:
+  explicit TestIsolatedPrerenderURLLoaderInterceptor(int frame_tree_node_id)
+      : IsolatedPrerenderURLLoaderInterceptor(frame_tree_node_id) {}
+  ~TestIsolatedPrerenderURLLoaderInterceptor() override = default;
+
+  void SetHasPrefetchedResponse(const GURL& url, bool has_prefetch) {
+    expected_url_ = url;
+    has_prefetch_ = has_prefetch;
+  }
+
+  std::unique_ptr<PrefetchedMainframeResponseContainer> GetPrefetchedResponse(
+      const GURL& url) override {
+    EXPECT_EQ(expected_url_, url);
+    if (has_prefetch_) {
+      return std::make_unique<PrefetchedMainframeResponseContainer>(
+          net::NetworkIsolationKey(), network::mojom::URLResponseHead::New(),
+          std::make_unique<std::string>("body"));
+    }
+    return nullptr;
+  }
+
+ private:
+  GURL expected_url_;
+  bool has_prefetch_ = false;
+};
 
 class IsolatedPrerenderURLLoaderInterceptorTest
     : public ChromeRenderViewHostTestHarness {
@@ -102,22 +131,16 @@ class IsolatedPrerenderURLLoaderInterceptorTest
 };
 
 TEST_F(IsolatedPrerenderURLLoaderInterceptorTest, DISABLE_ASAN(WantIntercept)) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(features::kIsolatePrerenders);
+  std::unique_ptr<TestIsolatedPrerenderURLLoaderInterceptor> interceptor =
+      std::make_unique<TestIsolatedPrerenderURLLoaderInterceptor>(
+          web_contents()->GetMainFrame()->GetFrameTreeNodeId());
 
-  std::unique_ptr<prerender::PrerenderHandle> handle =
-      StartPrerender(TestURL());
-
-  std::unique_ptr<IsolatedPrerenderURLLoaderInterceptor> interceptor =
-      std::make_unique<IsolatedPrerenderURLLoaderInterceptor>(
-          handle->contents()
-              ->prerender_contents()
-              ->GetMainFrame()
-              ->GetFrameTreeNodeId());
+  interceptor->SetHasPrefetchedResponse(TestURL(), true);
 
   network::ResourceRequest request;
   request.url = TestURL();
-  request.resource_type = static_cast<int>(content::ResourceType::kMainFrame);
+  request.resource_type =
+      static_cast<int>(blink::mojom::ResourceType::kMainFrame);
   request.method = "GET";
 
   interceptor->MaybeCreateLoader(
@@ -131,80 +154,18 @@ TEST_F(IsolatedPrerenderURLLoaderInterceptorTest, DISABLE_ASAN(WantIntercept)) {
   EXPECT_TRUE(was_intercepted().value());
 }
 
-TEST_F(IsolatedPrerenderURLLoaderInterceptorTest, DISABLE_ASAN(FeatureOff)) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndDisableFeature(features::kIsolatePrerenders);
-
-  std::unique_ptr<prerender::PrerenderHandle> handle =
-      StartPrerender(TestURL());
-
-  std::unique_ptr<IsolatedPrerenderURLLoaderInterceptor> interceptor =
-      std::make_unique<IsolatedPrerenderURLLoaderInterceptor>(
-          handle->contents()
-              ->prerender_contents()
-              ->GetMainFrame()
-              ->GetFrameTreeNodeId());
-
-  network::ResourceRequest request;
-  request.url = TestURL();
-  request.resource_type = static_cast<int>(content::ResourceType::kMainFrame);
-  request.method = "GET";
-
-  interceptor->MaybeCreateLoader(
-      request, profile(),
-      base::BindOnce(
-          &IsolatedPrerenderURLLoaderInterceptorTest::HandlerCallback,
-          base::Unretained(this)));
-  WaitForCallback();
-
-  EXPECT_TRUE(was_intercepted().has_value());
-  EXPECT_FALSE(was_intercepted().value());
-}
-
 TEST_F(IsolatedPrerenderURLLoaderInterceptorTest,
-       DISABLE_ASAN(DataSaverDisabled)) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(features::kIsolatePrerenders);
-
-  SetDataSaverEnabled(false);
-
-  std::unique_ptr<prerender::PrerenderHandle> handle =
-      StartPrerender(TestURL());
-
-  std::unique_ptr<IsolatedPrerenderURLLoaderInterceptor> interceptor =
-      std::make_unique<IsolatedPrerenderURLLoaderInterceptor>(
-          handle->contents()
-              ->prerender_contents()
-              ->GetMainFrame()
-              ->GetFrameTreeNodeId());
-
-  network::ResourceRequest request;
-  request.url = TestURL();
-  request.resource_type = static_cast<int>(content::ResourceType::kMainFrame);
-  request.method = "GET";
-
-  interceptor->MaybeCreateLoader(
-      request, profile(),
-      base::BindOnce(
-          &IsolatedPrerenderURLLoaderInterceptorTest::HandlerCallback,
-          base::Unretained(this)));
-  WaitForCallback();
-
-  EXPECT_TRUE(was_intercepted().has_value());
-  EXPECT_FALSE(was_intercepted().value());
-}
-
-TEST_F(IsolatedPrerenderURLLoaderInterceptorTest, DISABLE_ASAN(NotAPrerender)) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(features::kIsolatePrerenders);
-
-  std::unique_ptr<IsolatedPrerenderURLLoaderInterceptor> interceptor =
-      std::make_unique<IsolatedPrerenderURLLoaderInterceptor>(
+       DISABLE_ASAN(DoNotWantIntercept)) {
+  std::unique_ptr<TestIsolatedPrerenderURLLoaderInterceptor> interceptor =
+      std::make_unique<TestIsolatedPrerenderURLLoaderInterceptor>(
           web_contents()->GetMainFrame()->GetFrameTreeNodeId());
 
+  interceptor->SetHasPrefetchedResponse(TestURL(), false);
+
   network::ResourceRequest request;
   request.url = TestURL();
-  request.resource_type = static_cast<int>(content::ResourceType::kMainFrame);
+  request.resource_type =
+      static_cast<int>(blink::mojom::ResourceType::kMainFrame);
   request.method = "GET";
 
   interceptor->MaybeCreateLoader(
@@ -218,25 +179,4 @@ TEST_F(IsolatedPrerenderURLLoaderInterceptorTest, DISABLE_ASAN(NotAPrerender)) {
   EXPECT_FALSE(was_intercepted().value());
 }
 
-TEST_F(IsolatedPrerenderURLLoaderInterceptorTest, DISABLE_ASAN(NotAFrame)) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(features::kIsolatePrerenders);
-
-  std::unique_ptr<IsolatedPrerenderURLLoaderInterceptor> interceptor =
-      std::make_unique<IsolatedPrerenderURLLoaderInterceptor>(1337);
-
-  network::ResourceRequest request;
-  request.url = TestURL();
-  request.resource_type = static_cast<int>(content::ResourceType::kMainFrame);
-  request.method = "GET";
-
-  interceptor->MaybeCreateLoader(
-      request, profile(),
-      base::BindOnce(
-          &IsolatedPrerenderURLLoaderInterceptorTest::HandlerCallback,
-          base::Unretained(this)));
-  WaitForCallback();
-
-  EXPECT_TRUE(was_intercepted().has_value());
-  EXPECT_FALSE(was_intercepted().value());
-}
+// Testing of the probe is done in browsertests.

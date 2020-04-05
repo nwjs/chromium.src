@@ -30,9 +30,17 @@ class DawnClientMemoryTransferService;
 class WebGPUCommandSerializer final : public dawn_wire::CommandSerializer {
  public:
   WebGPUCommandSerializer(
+      DawnDeviceClientID device_client_id,
       WebGPUCmdHelper* helper,
       DawnClientMemoryTransferService* memory_transfer_service);
   ~WebGPUCommandSerializer() override;
+
+  // Send WGPUDeviceProperties to the server side
+  // Note that this function should only be called once for each
+  // WebGPUCommandSerializer object.
+  void RequestDeviceCreation(
+      uint32_t requested_adapter_id,
+      const WGPUDeviceProperties& requested_device_properties);
 
   // dawn_wire::CommandSerializer implementation
   void* GetCmdSpace(size_t size) final;
@@ -40,10 +48,11 @@ class WebGPUCommandSerializer final : public dawn_wire::CommandSerializer {
 
   // For the WebGPUInterface implementation of WebGPUImplementation
   WGPUDevice GetDevice() const;
-  ReservedTexture ReserveTexture(WGPUDevice device);
+  ReservedTexture ReserveTexture();
   bool HandleCommands(const char* commands, size_t command_size);
 
  private:
+  DawnDeviceClientID device_client_id_;
   WebGPUCmdHelper* helper_;
   DawnClientMemoryTransferService* memory_transfer_service_;
 
@@ -139,44 +148,52 @@ class WEBGPU_EXPORT WebGPUImplementation final : public WebGPUInterface,
   // WebGPUInterface implementation
   const DawnProcTable& GetProcs() const override;
   void FlushCommands() override;
-  WGPUDevice GetDefaultDevice() override;
-  ReservedTexture ReserveTexture(WGPUDevice device) override;
+  WGPUDevice GetDevice(DawnDeviceClientID device_client_id) override;
+  ReservedTexture ReserveTexture(DawnDeviceClientID device_client_id) override;
   bool RequestAdapterAsync(
       PowerPreference power_preference,
       base::OnceCallback<void(uint32_t, const WGPUDeviceProperties&)>
           request_adapter_callback) override;
   bool RequestDeviceAsync(
       uint32_t requested_adapter_id,
-      const WGPUDeviceProperties* requested_device_properties,
-      base::OnceCallback<void(bool)> request_device_callback) override;
+      const WGPUDeviceProperties& requested_device_properties,
+      base::OnceCallback<void(bool, DawnDeviceClientID)>
+          request_device_callback) override;
+  void RemoveDevice(DawnDeviceClientID device_client_id) override;
 
  private:
   const char* GetLogPrefix() const { return "webgpu"; }
   void CheckGLError() {}
-  uint32_t NextRequestAdapterSerial();
-  uint32_t NextRequestDeviceSerial();
+  DawnRequestAdapterSerial NextRequestAdapterSerial();
+  DawnDeviceClientID NextDeviceClientID();
 
   WebGPUCmdHelper* helper_;
 #if BUILDFLAG(USE_DAWN)
   std::unique_ptr<DawnClientMemoryTransferService> memory_transfer_service_;
 
-  // TODO(jiawei.shao@intel.com): support multiple WebGPU devices. Each WebGPU
-  // device will corresponds to a unique WebGPUCommandSerializer.
-  std::unique_ptr<WebGPUCommandSerializer> command_serializer_;
+  WebGPUCommandSerializer* GetCommandSerializerWithDeviceClientID(
+      DawnDeviceClientID device_client_id) const;
+  void FlushAllCommandSerializers();
+  void ClearAllCommandSerializers();
+  base::flat_map<DawnDeviceClientID, std::unique_ptr<WebGPUCommandSerializer>>
+      command_serializers_;
 #endif
   DawnProcTable procs_ = {};
 
   LogSettings log_settings_;
 
   base::flat_map<
-      uint32_t,
+      DawnRequestAdapterSerial,
       base::OnceCallback<void(uint32_t, const WGPUDeviceProperties&)>>
       request_adapter_callback_map_;
-  uint32_t request_adapter_serial_ = 0;
+  DawnRequestAdapterSerial request_adapter_serial_ = 0;
 
-  base::flat_map<uint32_t, base::OnceCallback<void(bool)>>
+  base::flat_map<DawnDeviceClientID,
+                 base::OnceCallback<void(bool, DawnDeviceClientID)>>
       request_device_callback_map_;
-  uint32_t request_device_serial_ = 0;
+  DawnDeviceClientID device_client_id_ = 0;
+
+  std::atomic_bool lost_{false};
 
   DISALLOW_COPY_AND_ASSIGN(WebGPUImplementation);
 };

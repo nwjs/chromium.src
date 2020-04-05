@@ -1,4 +1,4 @@
-load('//lib/builders.star', 'builder', 'cpu', 'defaults', 'goma', 'os')
+load('//lib/builders.star', 'builder', 'cpu', 'defaults', 'goma', 'os', 'xcode_cache')
 
 luci.bucket(
     name = 'goma',
@@ -47,7 +47,7 @@ defaults.triggered_by.set(['master-gitiles-trigger'])
 def fyi_goma_canary_builder(*, name, **kwargs):
   return builder(
       name = name,
-      mastername = 'chromium.fyi',
+      mastername = 'chromium.goma.fyi',
       execution_timeout = 10 * time.hour,
       **kwargs
   )
@@ -88,11 +88,6 @@ fyi_goma_canary_builder(
 )
 
 fyi_goma_canary_builder(
-    name = 'Win cl.exe Goma Canary LocalOutputCache',
-    os = os.WINDOWS_DEFAULT,
-)
-
-fyi_goma_canary_builder(
     name = 'Win7 Builder (dbg) Goma Canary',
     os = os.WINDOWS_7,
 )
@@ -100,11 +95,6 @@ fyi_goma_canary_builder(
 fyi_goma_canary_builder(
     name = 'Win7 Builder Goma Canary',
     os = os.WINDOWS_7,
-)
-
-fyi_goma_canary_builder(
-    name = 'WinMSVC64 Goma Canary',
-    os = os.WINDOWS_DEFAULT,
 )
 
 fyi_goma_canary_builder(
@@ -117,15 +107,12 @@ fyi_goma_canary_builder(
 
 fyi_goma_canary_builder(
     name = 'ios-device-goma-canary-clobber',
-    caches = [
-        swarming.cache(
-            name = 'xcode_ios_11a1027',
-            path = 'xcode_ios_11a1027.app',
-        ),
-    ],
+    caches = [xcode_cache.x11c29],
     cores = None,
-    executable = 'recipe:ios/unified_builder_tester',
     os = os.MAC_ANY,
+    properties = {
+      'xcode_build_version': '11c29'
+    }
 )
 
 fyi_goma_canary_builder(
@@ -164,7 +151,7 @@ def fyi_goma_rbe_canary_builder(
       name = name,
       execution_timeout = 10 * time.hour,
       goma_backend = goma_backend,
-      mastername = 'chromium.fyi',
+      mastername = 'chromium.goma.fyi',
       os = os,
       **kwargs
   )
@@ -196,15 +183,12 @@ fyi_goma_rbe_canary_builder(
 
 fyi_goma_rbe_canary_builder(
     name = 'ios-device-goma-rbe-canary-clobber',
-    caches = [
-        swarming.cache(
-            name = 'xcode_ios_11a1027',
-            path = 'xcode_ios_11a1027.app',
-        ),
-    ],
+    caches = [xcode_cache.x11c29],
     cores = None,
-    executable = 'recipe:ios/unified_builder_tester',
     os = os.MAC_ANY,
+    properties = {
+      'xcode_build_version': '11c29'
+    }
 )
 
 fyi_goma_rbe_canary_builder(
@@ -227,7 +211,7 @@ fyi_goma_rbe_canary_builder(
 def fyi_goma_latest_client_builder(*, name, os=os.LINUX_DEFAULT, **kwargs):
   return builder(
       name = name,
-      mastername = 'chromium.fyi',
+      mastername = 'chromium.goma.fyi',
       execution_timeout = 10 * time.hour,
       os = os,
       **kwargs
@@ -266,11 +250,6 @@ fyi_goma_latest_client_builder(
 )
 
 fyi_goma_latest_client_builder(
-    name = 'Win cl.exe Goma Latest Client LocalOutputCache',
-    os = os.WINDOWS_DEFAULT,
-)
-
-fyi_goma_latest_client_builder(
     name = 'Win7 Builder (dbg) Goma Latest Client',
     os = os.WINDOWS_7,
 )
@@ -278,11 +257,6 @@ fyi_goma_latest_client_builder(
 fyi_goma_latest_client_builder(
     name = 'Win7 Builder Goma Latest Client',
     os = os.WINDOWS_7,
-)
-
-fyi_goma_latest_client_builder(
-    name = 'WinMSVC64 Goma Latest Client',
-    os = os.WINDOWS_DEFAULT,
 )
 
 fyi_goma_latest_client_builder(
@@ -295,15 +269,12 @@ fyi_goma_latest_client_builder(
 
 fyi_goma_latest_client_builder(
     name = 'ios-device-goma-latest-clobber',
-    caches = [
-        swarming.cache(
-            name = 'xcode_ios_11a1027',
-            path = 'xcode_ios_11a1027.app',
-        ),
-    ],
+    caches = [xcode_cache.x11c29],
     cores = None,
-    executable = 'recipe:ios/unified_builder_tester',
     os = os.MAC_ANY,
+    properties = {
+      'xcode_build_version': '11c29'
+    }
 )
 
 fyi_goma_latest_client_builder(
@@ -342,7 +313,7 @@ def fyi_goma_rbe_latest_client_builder(
       name = name,
       execution_timeout = 10 * time.hour,
       goma_backend = goma_backend,
-      mastername = 'chromium.fyi',
+      mastername = 'chromium.goma.fyi',
       os = os,
       **kwargs
   )
@@ -388,15 +359,12 @@ fyi_goma_rbe_latest_client_builder(
 
 fyi_goma_rbe_latest_client_builder(
     name = 'ios-device-goma-rbe-latest-clobber',
-    caches = [
-        swarming.cache(
-            name = 'xcode_ios_11a1027',
-            path = 'xcode_ios_11a1027.app',
-        ),
-    ],
+    caches = [xcode_cache.x11c29],
     cores = None,
-    executable = 'recipe:ios/unified_builder_tester',
     os = os.MAC_ANY,
+    properties = {
+      'xcode_build_version': '11c29'
+    }
 )
 
 fyi_goma_rbe_latest_client_builder(
@@ -426,26 +394,6 @@ def goma_builder(*, name, builderless=False, os=os.LINUX_DEFAULT, **kwargs):
   )
 
 goma_builder(
-    name = 'Chromium Android ARM 32-bit Goma RBE Prod',
-    goma_backend = goma.backend.RBE_PROD,
-)
-
-goma_builder(
-    name = 'Chromium Android ARM 32-bit Goma RBE Prod (clobber)',
-    goma_backend = goma.backend.RBE_PROD,
-)
-
-goma_builder(
-    name = 'Chromium Android ARM 32-bit Goma RBE Prod (dbg)',
-    goma_backend = goma.backend.RBE_PROD,
-)
-
-goma_builder(
-    name = 'Chromium Android ARM 32-bit Goma RBE Prod (dbg) (clobber)',
-    goma_backend = goma.backend.RBE_PROD,
-)
-
-goma_builder(
     name = 'Chromium Android ARM 32-bit Goma RBE Staging',
     goma_backend = goma.backend.RBE_STAGING,
 )
@@ -460,26 +408,6 @@ goma_builder(
     name = 'Chromium Android ARM 32-bit Goma RBE ToT (ATS)',
     goma_backend = goma.backend.RBE_TOT,
     goma_enable_ats = True,
-)
-
-goma_builder(
-    name = 'Chromium Linux Goma RBE Prod',
-    goma_backend = goma.backend.RBE_PROD,
-)
-
-goma_builder(
-    name = 'Chromium Linux Goma RBE Prod (clobber)',
-    goma_backend = goma.backend.RBE_PROD,
-)
-
-goma_builder(
-    name = 'Chromium Linux Goma RBE Prod (dbg)',
-    goma_backend = goma.backend.RBE_PROD,
-)
-
-goma_builder(
-    name = 'Chromium Linux Goma RBE Prod (dbg) (clobber)',
-    goma_backend = goma.backend.RBE_PROD,
 )
 
 goma_builder(
@@ -519,18 +447,23 @@ goma_builder(
 )
 
 
-def goma_mac_builder(*, name, **kwargs):
+def goma_mac_builder(*, name, os=os.MAC_DEFAULT, **kwargs):
   return goma_builder(
       name = name,
       cores = 4,
       goma_jobs = goma.jobs.J80,
-      os = os.MAC_DEFAULT,
+      os = os,
       **kwargs
   )
 
 goma_mac_builder(
-    name = 'Chromium Mac Goma RBE Prod',
-    goma_backend = goma.backend.RBE_PROD,
+    name = 'Chromium iOS Goma RBE ToT',
+    caches = [xcode_cache.x11c29],
+    goma_backend = goma.backend.RBE_TOT,
+    os = os.MAC_10_14,
+    properties = {
+      'xcode_build_version': "11c29",
+    }
 )
 
 goma_mac_builder(
@@ -566,26 +499,6 @@ def goma_windows_builder(*, name, goma_enable_ats=True, cores=32, **kwargs):
       os = os.WINDOWS_DEFAULT,
       **kwargs
   )
-
-goma_windows_builder(
-    name = 'Chromium Win Goma RBE Prod',
-    goma_backend = goma.backend.RBE_PROD,
-)
-
-goma_windows_builder(
-    name = 'Chromium Win Goma RBE Prod (clobber)',
-    goma_backend = goma.backend.RBE_PROD,
-)
-
-goma_windows_builder(
-    name = 'Chromium Win Goma RBE Prod (dbg)',
-    goma_backend = goma.backend.RBE_PROD,
-)
-
-goma_windows_builder(
-    name = 'Chromium Win Goma RBE Prod (dbg) (clobber)',
-    goma_backend = goma.backend.RBE_PROD,
-)
 
 goma_windows_builder(
     name = 'Chromium Win Goma RBE Staging',

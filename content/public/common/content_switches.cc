@@ -404,9 +404,6 @@ const char kEnablePluginPlaceholderTesting[] =
 // also applys to workers.
 const char kEnablePreciseMemoryInfo[] = "enable-precise-memory-info";
 
-// Enables PrintBrowser mode, in which everything renders as though printed.
-const char kEnablePrintBrowser[] = "enable-print-browser";
-
 // Enables RGBA_4444 textures.
 const char kEnableRGBA4444Textures[] = "enable-rgba-4444-textures";
 
@@ -461,10 +458,6 @@ const char kEnableViewport[]                = "enable-viewport";
 // Enable the Vtune profiler support.
 const char kEnableVtune[]                   = "enable-vtune-support";
 
-// Enable the Web Authentication Testing API.
-// https://w3c.github.io/webauthn
-const char kEnableWebAuthTestingAPI[] = "enable-web-authentication-testing-api";
-
 // Enable WebGL2 Compute context.
 const char kEnableWebGL2ComputeContext[] = "enable-webgl2-compute-context";
 
@@ -487,11 +480,6 @@ const char kFieldTrialHandle[] = "field-trial-handle";
 // in file URLs. The format is "/alias=/replacement", which would turn
 // file:///alias/some/path.html into file:///replacement/some/path.html.
 const char kFileUrlPathAlias[] = "file-url-path-alias";
-
-// Always use the Skia GPU backend for drawing layer tiles. Only valid with GPU
-// accelerated compositing + impl-side painting. Overrides the
-// kEnableGpuRasterization flag.
-const char kForceGpuRasterization[] = "force-gpu-rasterization";
 
 // Disables OOP rasterization.  Takes precedence over the enable flag.
 const char kDisableOopRasterization[] = "disable-oop-rasterization";
@@ -878,6 +866,16 @@ const char kWebglAntialiasingMode[] = "webgl-antialiasing-mode";
 // Set a default sample count for webgl if msaa is enabled.
 const char kWebglMSAASampleCount[] = "webgl-msaa-sample-count";
 
+// Enables specified backend for the Web OTP API.
+const char kWebOtpBackend[] = "web-otp-backend";
+
+// Enables Sms Verification backend for Web OTP API which requires app hash in
+// SMS body.
+const char kWebOtpBackendSmsVerification[] = "web-otp-backend-sms-verification";
+
+// Enables User Consent backend for Web OTP API.
+const char kWebOtpBackendUserConsent[] = "web-otp-backend-user-consent";
+
 // Disables encryption of RTP Media for WebRTC. When Chrome embeds Content, it
 // ignores this switch on its stable and beta channels.
 const char kDisableWebRtcEncryption[]      = "disable-webrtc-encryption";
@@ -952,6 +950,14 @@ const char kWebXrRuntimeWMR[] = "windows-mixed-reality";
 // from M80 through M84.
 // TODO(937746): Remove this after M84.
 const char kWebComponentsV0Enabled[] = "web-components-v0-enabled";
+
+// This switch allows the FormControlsRefresh feature to be disabled temporarily
+// from M81 through M84.
+// TODO(1034611): Remove this after M84.
+const char kUseLegacyFormControls[] = "use-legacy-form-controls";
+
+// This switch disables the ScrollToTextFragment feature.
+const char kDisableScrollToTextFragment[] = "disable-scroll-to-text-fragment";
 
 #if defined(OS_ANDROID)
 // Disable Media Session API

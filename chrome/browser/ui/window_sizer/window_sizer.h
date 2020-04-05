@@ -38,7 +38,7 @@ class WindowSizer {
   // persistent store or an existing window.
   class StateProvider {
    public:
-    virtual ~StateProvider() {}
+    virtual ~StateProvider() = default;
 
     // Retrieve the persisted bounds of the window. Returns true if there was
     // persisted data to retrieve state information, false otherwise.
@@ -66,18 +66,17 @@ class WindowSizer {
   // value is returned instead. For use only in testing.
   // |show_state| will be overwritten and return the initial visual state of
   // the window to use.
-  bool DetermineWindowBoundsAndShowState(
+  void DetermineWindowBoundsAndShowState(
       const gfx::Rect& specified_bounds,
       gfx::Rect* bounds,
       ui::WindowShowState* show_state) const;
 
   // Determines the size, position and maximized state for the browser window.
-  // See documentation for DetermineWindowBounds above. Normally,
+  // See documentation for DetermineWindowBoundsAndShowState above. Normally,
   // |window_bounds| is calculated by calling GetLastActiveWindowState(). To
   // explicitly specify a particular window to base the bounds on, pass in a
   // non-NULL value for |browser|.
-  static bool GetBrowserWindowBoundsAndShowState(
-      const std::string& app_name,
+  static void GetBrowserWindowBoundsAndShowState(
       const gfx::Rect& specified_bounds,
       const Browser* browser,
       gfx::Rect* window_bounds,
@@ -166,8 +165,9 @@ class WindowSizer {
   void GetTabbedBrowserBoundsAsh(gfx::Rect* bounds,
                                  ui::WindowShowState* show_state) const;
 
-  // Returns the default bounds for a browser window on |display|.
-  static gfx::Rect GetDefaultWindowBoundsAsh(const display::Display& display);
+  // Returns the default bounds for a |browser| window on |display|.
+  static gfx::Rect GetDefaultWindowBoundsAsh(const Browser* browser,
+                                             const display::Display& display);
 #endif
 
   // Determine the default show state for the window - not looking at other

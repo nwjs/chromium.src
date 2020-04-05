@@ -9,6 +9,7 @@
 #include "base/files/file_util.h"
 #include "base/optional.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "chrome/browser/chromeos/crostini/crostini_manager.h"
 #include "chrome/browser/chromeos/crostini/crostini_util.h"
 #include "chrome/browser/chromeos/drive/drive_integration_service.h"
@@ -163,9 +164,8 @@ GuestOsSharePath* GuestOsSharePath::GetForProfile(Profile* profile) {
 
 GuestOsSharePath::GuestOsSharePath(Profile* profile)
     : profile_(profile),
-      file_watcher_task_runner_(
-          base::CreateSequencedTaskRunner({base::ThreadPool(), base::MayBlock(),
-                                           base::TaskPriority::USER_VISIBLE})),
+      file_watcher_task_runner_(base::ThreadPool::CreateSequencedTaskRunner(
+          {base::MayBlock(), base::TaskPriority::USER_VISIBLE})),
       seneschal_callback_(base::BindRepeating(LogErrorResult)) {
   if (auto* vmgr = file_manager::VolumeManager::Get(profile_)) {
     vmgr->AddObserver(this);
@@ -455,9 +455,13 @@ bool GuestOsSharePath::GetAndSetFirstForSession() {
 std::vector<base::FilePath> GuestOsSharePath::GetPersistedSharedPaths(
     const std::string& vm_name) {
   std::vector<base::FilePath> result;
+  // TODO(crbug.com/1057591): Unexpected crashes here.
+  CHECK(profile_);
+  CHECK(profile_->GetPrefs());
   // |shared_paths| format is {'path': ['vm1', vm2']}.
   const base::DictionaryValue* shared_paths =
       profile_->GetPrefs()->GetDictionary(prefs::kGuestOSPathsSharedToVms);
+  CHECK(shared_paths);
   for (const auto& it : shared_paths->DictItems()) {
     base::FilePath path(it.first);
     for (const auto& vm : it.second.GetList()) {
@@ -611,8 +615,8 @@ void GuestOsSharePath::OnFileWatcherDeleted(const base::FilePath& path) {
   const auto volume_list = vmgr->GetVolumeList();
   for (const auto& volume : volume_list) {
     if ((path == volume->mount_path() || volume->mount_path().IsParent(path))) {
-      base::PostTaskAndReplyWithResult(
-          FROM_HERE, {base::ThreadPool(), base::MayBlock()},
+      base::ThreadPool::PostTaskAndReplyWithResult(
+          FROM_HERE, {base::MayBlock()},
           base::BindOnce(&base::PathExists, volume->mount_path()),
           base::BindOnce(&GuestOsSharePath::OnVolumeMountCheck,
                          weak_ptr_factory_.GetWeakPtr(), path));

@@ -10,20 +10,19 @@
 #include "chrome/browser/content_settings/tab_specific_content_settings.h"
 #include "chrome/browser/media/webrtc/media_capture_devices_dispatcher.h"
 #include "chrome/browser/media/webrtc/media_stream_capture_indicator.h"
-#include "chrome/browser/permissions/permission_manager.h"
+#include "chrome/browser/permissions/permission_manager_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/usb/usb_tab_helper.h"
-#include "chrome/browser/vr/metrics/session_metrics_helper.h"
-#include "chrome/browser/vr/service/browser_xr_runtime.h"
-#include "chrome/browser/vr/service/xr_runtime_manager.h"
 #include "chrome/browser/vr/vr_tab_helper.h"
 #include "chrome/browser/vr/win/vr_browser_renderer_thread_win.h"
-#include "chrome/common/chrome_features.h"
+#include "chrome/browser/vr/xr_runtime_manager_statics.h"
+#include "components/permissions/permission_manager.h"
 #include "components/permissions/permission_result.h"
 #include "content/public/browser/device_service.h"
 #include "content/public/browser/navigation_entry.h"
+#include "device/base/features.h"
 #include "device/vr/buildflags/buildflags.h"
 #include "ui/base/l10n/l10n_util.h"
 
@@ -35,7 +34,7 @@ static constexpr base::TimeDelta kPermissionPromptTimeout =
 
 base::TimeDelta GetPermissionPromptTimeout(bool first_time) {
 #if BUILDFLAG(ENABLE_WINDOWS_MR)
-  if (base::FeatureList::IsEnabled(features::kWindowsMixedReality) &&
+  if (base::FeatureList::IsEnabled(device::features::kWindowsMixedReality) &&
       first_time)
     return base::TimeDelta::FromSeconds(10);
 #endif
@@ -129,9 +128,9 @@ VRUiHostImpl::VRUiHostImpl(
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   DVLOG(1) << __func__;
 
-  auto* runtime_manager = XRRuntimeManager::GetInstanceIfCreated();
+  auto* runtime_manager = XRRuntimeManagerStatics::GetInstanceIfCreated();
   DCHECK(runtime_manager != nullptr);
-  BrowserXRRuntime* runtime = runtime_manager->GetRuntime(device_id);
+  content::BrowserXRRuntime* runtime = runtime_manager->GetRuntime(device_id);
   if (runtime) {
     runtime->AddObserver(this);
   }
@@ -151,14 +150,6 @@ VRUiHostImpl::~VRUiHostImpl() {
     SetWebXRWebContents(nullptr);
 }
 
-// static
-std::unique_ptr<VRUiHost> VRUiHostImpl::Create(
-    device::mojom::XRDeviceId device_id,
-    mojo::PendingRemote<device::mojom::XRCompositorHost> compositor) {
-  DVLOG(1) << __func__;
-  return std::make_unique<VRUiHostImpl>(device_id, std::move(compositor));
-}
-
 bool IsValidInfo(device::mojom::VRDisplayInfoPtr& info) {
   // Numeric properties are validated elsewhere, but we expect a stereo headset.
   if (!info)
@@ -174,7 +165,7 @@ void VRUiHostImpl::SetWebXRWebContents(content::WebContents* contents) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
 
   if (!IsValidInfo(info_)) {
-    XRRuntimeManager::ExitImmersivePresentation();
+    XRRuntimeManagerStatics::ExitImmersivePresentation();
     return;
   }
 
@@ -192,26 +183,9 @@ void VRUiHostImpl::SetWebXRWebContents(content::WebContents* contents) {
 
   if (web_contents_ != contents) {
     if (web_contents_) {
-      auto* metrics_helper =
-          SessionMetricsHelper::FromWebContents(web_contents_);
-      metrics_helper->SetWebVREnabled(false);
-      metrics_helper->SetVRActive(false);
-      if (Browser* browser = chrome::FindBrowserWithWebContents(web_contents_))
-        browser->GetBubbleManager()->RemoveBubbleManagerObserver(this);
       DesktopMediaPickerManager::Get()->RemoveObserver(this);
     }
     if (contents) {
-      auto* metrics_helper = SessionMetricsHelper::FromWebContents(contents);
-      if (!metrics_helper) {
-        metrics_helper = SessionMetricsHelper::CreateForWebContents(
-            contents, Mode::kWebXrVrPresentation);
-      } else {
-        metrics_helper->SetWebVREnabled(true);
-        metrics_helper->SetVRActive(true);
-      }
-      metrics_helper->RecordVrStartAction(VrStartAction::kPresentationRequest);
-      if (Browser* browser = chrome::FindBrowserWithWebContents(contents))
-        browser->GetBubbleManager()->AddBubbleManagerObserver(this);
       DesktopMediaPickerManager::Get()->AddObserver(this);
     }
   }
@@ -230,9 +204,9 @@ void VRUiHostImpl::SetWebXRWebContents(content::WebContents* contents) {
 
     PollCapturingState();
 
-    PermissionRequestManager::CreateForWebContents(contents);
+    permissions::PermissionRequestManager::CreateForWebContents(contents);
     permission_request_manager_ =
-        PermissionRequestManager::FromWebContents(contents);
+        permissions::PermissionRequestManager::FromWebContents(contents);
     // Attaching a permission request manager to WebContents can fail, so a
     // DCHECK would be inappropriate here. If it fails, the user won't get
     // notified about permission prompts, but other than that the session would
@@ -270,10 +244,11 @@ void VRUiHostImpl::SetFramesThrottled(bool throttled) {
 void VRUiHostImpl::SetVRDisplayInfo(
     device::mojom::VRDisplayInfoPtr display_info) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
-  DVLOG(1) << __func__;
+  // On Windows this is getting logged every frame, so set to 3.
+  DVLOG(3) << __func__;
 
   if (!IsValidInfo(display_info)) {
-    XRRuntimeManager::ExitImmersivePresentation();
+    XRRuntimeManagerStatics::ExitImmersivePresentation();
     return;
   }
 
@@ -321,17 +296,6 @@ void VRUiHostImpl::OnBubbleAdded() {
 
 void VRUiHostImpl::OnBubbleRemoved() {
   RemoveHeadsetNotificationPrompt();
-}
-
-void VRUiHostImpl::OnBubbleNeverShown(BubbleReference bubble) {}
-
-void VRUiHostImpl::OnBubbleClosed(BubbleReference bubble,
-                                  BubbleCloseReason reason) {
-  RemoveHeadsetNotificationPrompt();
-}
-
-void VRUiHostImpl::OnBubbleShown(BubbleReference bubble) {
-  ShowExternalNotificationPrompt();
 }
 
 void VRUiHostImpl::OnDialogOpened() {
@@ -385,8 +349,9 @@ void VRUiHostImpl::InitCapturingStates() {
   potential_capturing_ = g_default_capturing_state;
 
   DCHECK(web_contents_);
-  PermissionManager* permission_manager = PermissionManager::Get(
-      Profile::FromBrowserContext(web_contents_->GetBrowserContext()));
+  permissions::PermissionManager* permission_manager =
+      PermissionManagerFactory::GetForProfile(
+          Profile::FromBrowserContext(web_contents_->GetBrowserContext()));
   const GURL& origin = web_contents_->GetLastCommittedURL();
   content::RenderFrameHost* rfh = web_contents_->GetMainFrame();
   potential_capturing_.audio_capture_enabled =

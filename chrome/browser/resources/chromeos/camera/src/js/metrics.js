@@ -2,9 +2,17 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import {browserProxy} from './browser_proxy/browser_proxy.js';
+// eslint-disable-next-line no-unused-vars
+import {Intent} from './intent.js';
+// eslint-disable-next-line no-unused-vars
+import {PerfEvent} from './perf.js';
 import * as state from './state.js';
-import {Mode,
-        Resolution,  // eslint-disable-line no-unused-vars
+// eslint-disable-next-line no-unused-vars
+import {Facing} from './type.js';
+import {
+  Mode,
+  Resolution,  // eslint-disable-line no-unused-vars
 } from './type.js';
 
 /**
@@ -26,50 +34,47 @@ analytics.EventBuilder.prototype.dimen = function(i, v) {
 };
 
 /**
- * Promise for Google Analytics tracker.
- * @type {Promise<analytics.Tracker>}
+ * Google Analytics tracker.
+ * @type {?Promise<analytics.Tracker>}
+ */
+let ga = null;
+
+/**
+ * Creates Google Analytics tracker object.
+ * @param {boolean} isTesting
+ * @return {!Promise<analytics.Tracker>}
  * @suppress {checkTypes}
  */
-const ga = (function() {
+function createGA(isTesting) {
   const id = 'UA-134822711-1';
   const service = analytics.getService('chrome-camera-app');
 
   const getConfig = () =>
       new Promise((resolve) => service.getConfig().addCallback(resolve));
-  const checkEnabled = () => {
-    return new Promise((resolve) => {
-      try {
-        chrome.metricsPrivate.getIsCrashReportingEnabled(resolve);
-      } catch (e) {
-        resolve(false);  // Disable reporting by default.
-      }
-    });
-  };
-  const initBuilder = () => {
-    return new Promise((resolve) => {
-             try {
-               chrome.chromeosInfoPrivate.get(
-                   ['board'], (values) => resolve(values['board']));
-             } catch (e) {
-               resolve('');
-             }
-           })
-        .then((board) => {
-          const boardName = /^(x86-)?(\w*)/.exec(board)[0];
-          const match = navigator.appVersion.match(/CrOS\s+\S+\s+([\d.]+)/);
-          const osVer = match ? match[1] : '';
-          base = analytics.EventBuilder.builder()
-                     .dimen(1, boardName)
-                     .dimen(2, osVer);
-        });
+  const initBuilder = async () => {
+    const board = await browserProxy.getBoard();
+    const boardName = /^(x86-)?(\w*)/.exec(board)[0];
+    const match = navigator.appVersion.match(/CrOS\s+\S+\s+([\d.]+)/);
+    const osVer = match ? match[1] : '';
+    base = analytics.EventBuilder.builder().dimen(1, boardName).dimen(2, osVer);
   };
 
-  return Promise.all([getConfig(), checkEnabled(), initBuilder()])
+  return Promise
+      .all([getConfig(), browserProxy.isCrashReportingEnabled(), initBuilder()])
       .then(([config, enabled]) => {
+        enabled = enabled && !isTesting;
         config.setTrackingPermitted(enabled);
         return service.getTracker(id);
       });
-})();
+}
+
+/**
+ * Initializes metrics with parameters.
+ * @param {boolean} isTesting Whether is collecting logs for running testing.
+ */
+export function initMetrics(isTesting) {
+  ga = createGA(isTesting);
+}
 
 /**
  * Returns event builder for the metrics type: launch.
@@ -93,7 +98,7 @@ export const IntentResultType = {
 
 /**
  * Returns event builder for the metrics type: capture.
- * @param {?string} facingMode Camera facing-mode of the capture.
+ * @param {!Facing} facingMode Camera facing-mode of the capture.
  * @param {number} length Length of 1 minute buckets for captured video.
  * @param {!Resolution} resolution Capture resolution.
  * @param {!IntentResultType} intentResult
@@ -119,7 +124,7 @@ function captureType(facingMode, length, resolution, intentResult) {
   const State = state.State;
   return base.category('capture')
       .action(condState(Object.values(Mode)))
-      .label(facingMode || '(not set)')
+      .label(facingMode)
       // Skips 3rd dimension for obsolete 'sound' state.
       .dimen(4, condState([State.MIRROR]))
       .dimen(
@@ -138,19 +143,37 @@ function captureType(facingMode, length, resolution, intentResult) {
 
 /**
  * Returns event builder for the metrics type: perf.
- * @param {string} event The target event type.
+ * @param {PerfEvent} event The target event type.
  * @param {number} duration The duration of the event in ms.
  * @param {Object=} extras Optional information for the event.
  * @return {!analytics.EventBuilder}
  */
 function perfType(event, duration, extras = {}) {
-  const {resolution = ''} = extras;
+  const {resolution = '', facing = ''} = extras;
   return base.category('perf')
       .action(event)
+      .label(facing)
       // Round the duration here since GA expects that the value is an integer.
       // Reference: https://support.google.com/analytics/answer/1033068
       .value(Math.round(duration))
-      .dimen(3, `${resolution}`);
+      .dimen(10, `${resolution}`);
+}
+
+/**
+ * Returns event builder for the metrics type: intent.
+ * @param {!Intent} intent Intent to be logged.
+ * @param {!IntentResultType} intentResult
+ * @return {!analytics.EventBuilder}
+ */
+function intentType(intent, intentResult) {
+  const getBoolValue = (b) => b ? '1' : '0';
+  return base.category('intent')
+      .action(intent.mode)
+      .label(intentResult)
+      .dimen(12, intentResult)
+      .dimen(13, getBoolValue(intent.shouldHandleResult))
+      .dimen(14, getBoolValue(intent.shouldDownScale))
+      .dimen(15, getBoolValue(intent.isSecure));
 }
 
 /**
@@ -161,6 +184,7 @@ export const Type = {
   LAUNCH: launchType,
   CAPTURE: captureType,
   PERF: perfType,
+  INTENT: intentType,
 };
 
 /**
@@ -169,5 +193,9 @@ export const Type = {
  * @param {...*} args Optional rest parameters for logging metrics.
  */
 export function log(type, ...args) {
+  if (ga === null) {
+    console.error('log() should not be called before metrics initialization.');
+    ga = createGA(false);
+  }
   ga.then((tracker) => tracker.send(type(...args)));
 }

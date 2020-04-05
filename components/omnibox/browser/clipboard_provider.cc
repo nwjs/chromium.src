@@ -21,6 +21,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/post_task.h"
 #include "base/task/task_traits.h"
+#include "build/build_config.h"
 #include "components/omnibox/browser/autocomplete_input.h"
 #include "components/omnibox/browser/autocomplete_match.h"
 #include "components/omnibox/browser/autocomplete_provider_client.h"
@@ -279,12 +280,6 @@ base::Optional<AutocompleteMatch> ClipboardProvider::CreateURLMatch(
 
 base::Optional<AutocompleteMatch> ClipboardProvider::CreateTextMatch(
     const AutocompleteInput& input) {
-  // Only try text match if feature is enabled
-  if (!base::FeatureList::IsEnabled(
-          omnibox::kEnableClipboardProviderTextSuggestions)) {
-    return base::nullopt;
-  }
-
   base::Optional<base::string16> optional_text =
       clipboard_content_->GetRecentTextFromClipboard();
   if (!optional_text)
@@ -330,16 +325,6 @@ base::Optional<AutocompleteMatch> ClipboardProvider::CreateTextMatch(
   match.keyword = default_url->keyword();
   match.transition = ui::PAGE_TRANSITION_GENERATED;
 
-  // Some users may be in a counterfactual study arm in which we perform all
-  // necessary work but do not forward the autocomplete matches.
-  bool in_counterfactual_group = base::GetFieldTrialParamByFeatureAsBool(
-      omnibox::kEnableClipboardProviderTextSuggestions,
-      "ClipboardProviderTextSuggestionsCounterfactualArm", false);
-  field_trial_triggered_ = true;
-  field_trial_triggered_in_session_ = true;
-  if (in_counterfactual_group)
-    return base::nullopt;
-
   return match;
 }
 
@@ -350,10 +335,9 @@ bool ClipboardProvider::CreateImageMatch(const AutocompleteInput& input) {
     return false;
   }
 
-  base::Optional<gfx::Image> optional_image =
-      clipboard_content_->GetRecentImageFromClipboard();
-  if (!optional_image)
+  if (!clipboard_content_->HasRecentImageFromClipboard()) {
     return false;
+  }
 
   // Make sure current provider supports image search
   TemplateURLService* url_service = client_->GetTemplateURLService();
@@ -370,6 +354,20 @@ bool ClipboardProvider::CreateImageMatch(const AutocompleteInput& input) {
   // when the match is created).
   base::TimeDelta clipboard_contents_age =
       clipboard_content_->GetClipboardContentAge();
+  clipboard_content_->GetRecentImageFromClipboard(
+      base::BindOnce(&ClipboardProvider::OnReceiveImage,
+                     callback_weak_ptr_factory_.GetWeakPtr(), input,
+                     url_service, clipboard_contents_age));
+  return true;
+}
+
+void ClipboardProvider::OnReceiveImage(
+    const AutocompleteInput& input,
+    TemplateURLService* url_service,
+    base::TimeDelta clipboard_contents_age,
+    base::Optional<gfx::Image> optional_image) {
+  if (!optional_image)
+    return;
   done_ = false;
   PostTaskAndReplyWithResult(
       FROM_HERE,
@@ -378,7 +376,6 @@ bool ClipboardProvider::CreateImageMatch(const AutocompleteInput& input) {
       base::BindOnce(&ClipboardProvider::ConstructImageMatchCallback,
                      callback_weak_ptr_factory_.GetWeakPtr(), input,
                      url_service, clipboard_contents_age));
-  return true;
 }
 
 scoped_refptr<base::RefCountedMemory> ClipboardProvider::EncodeClipboardImage(

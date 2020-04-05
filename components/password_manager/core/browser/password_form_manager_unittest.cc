@@ -273,6 +273,8 @@ class PasswordFormManagerTest : public testing::Test,
                                 public testing::WithParamInterface<bool> {
  public:
   PasswordFormManagerTest() : task_runner_(new TestMockTimeTaskRunner) {
+    form_manager_->set_wait_for_server_predictions_for_filling(true);
+
     GURL origin = GURL("https://accounts.google.com/a/ServiceLoginAuth");
     GURL action = GURL("https://accounts.google.com/a/ServiceLogin");
     GURL psl_origin = GURL("https://myaccounts.google.com/a/ServiceLoginAuth");
@@ -378,6 +380,8 @@ class PasswordFormManagerTest : public testing::Test,
     ON_CALL(mock_autofill_download_manager_,
             StartUploadRequest(_, _, _, _, _, _))
         .WillByDefault(Return(true));
+    ON_CALL(*client_.GetPasswordFeatureManager(), GetDefaultPasswordStore)
+        .WillByDefault(Return(PasswordForm::Store::kProfileStore));
 
     fetcher_.reset(new FakeFormFetcher());
     fetcher_->Fetch();
@@ -2116,9 +2120,15 @@ TEST_P(PasswordFormManagerTest, UsernameFirstFlow) {
   ASSERT_TRUE(form_manager_->ProvisionallySave(submitted_form, &driver_,
                                                &possible_username_data));
 
+#if !defined(OS_ANDROID)
   // Check that a username is chosen from |possible_username_data|.
   EXPECT_EQ(possible_username,
             form_manager_->GetPendingCredentials().username_value);
+#else
+  // Local heuristics on Android for username first flow are not supported, so
+  // the username should not be taken from the username form.
+  EXPECT_TRUE(form_manager_->GetPendingCredentials().username_value.empty());
+#endif  // !defined(OS_ANDROID)
 }
 
 // Tests that username is not taken when a possible username is not valid.
@@ -2241,8 +2251,10 @@ TEST_P(PasswordFormManagerTest, PossibleUsernameServerPredictions) {
   }
 }
 
+#if !defined(OS_ANDROID)
 // Tests that data from FieldInfoManager is taken into consideration for
 // offering username on username first flow.
+// Local heuristics on Android for username first flow is not supported.
 TEST_P(PasswordFormManagerTest, PossibleUsernameFieldManager) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeature(features::kUsernameFirstFlow);
@@ -2295,6 +2307,7 @@ TEST_P(PasswordFormManagerTest, PossibleUsernameFieldManager) {
     Mock::VerifyAndClearExpectations(&client_);
   }
 }
+#endif  //  !defined(OS_ANDROID)
 
 // Tests that the a form with the username field but without a password field is
 // not provisionally saved.
@@ -2734,7 +2747,9 @@ TEST_F(PasswordFormManagerTestWithMockedSaver, HTTPAuthAlreadySaved) {
   form_manager_->Save();
 }
 
+#if !defined(OS_ANDROID)
 // Tests that username is taken during username first flow.
+// Local heuristics on Android for username first flow is not supported.
 TEST_F(PasswordFormManagerTestWithMockedSaver, UsernameFirstFlow) {
   TestMockTimeTaskRunner::ScopedContext scoped_context(task_runner_.get());
   base::test::ScopedFeatureList feature_list;
@@ -2754,6 +2769,7 @@ TEST_F(PasswordFormManagerTestWithMockedSaver, UsernameFirstFlow) {
   ASSERT_TRUE(form_manager_->ProvisionallySave(submitted_form, &driver_,
                                                &possible_username_data));
 }
+#endif  // !defined(OS_ANDROID)
 
 // Tests that username is not taken when a possible username is not valid.
 TEST_F(PasswordFormManagerTestWithMockedSaver,

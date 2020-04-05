@@ -676,6 +676,48 @@ IN_PROC_BROWSER_TEST_F(CastWebContentsBrowserTest, LoadCanceledByApp) {
   run_loop->Run();
 }
 
+IN_PROC_BROWSER_TEST_F(CastWebContentsBrowserTest, LocationRedirectLifecycle) {
+  auto run_loop = std::make_unique<base::RunLoop>();
+  auto quit_closure = [&run_loop]() {
+    if (run_loop->running()) {
+      run_loop->QuitWhenIdle();
+    }
+  };
+
+  // ===========================================================================
+  // Test: When the app redirects to another url via window.location. Another
+  // navigation will be committed. LOADING -> LOADED -> LOADING -> LOADED state
+  // trasition is expected.
+  // ===========================================================================
+  embedded_test_server()->ServeFilesFromSourceDirectory(GetTestDataPath());
+  StartTestServer();
+
+  {
+    InSequence seq;
+    EXPECT_CALL(
+        mock_cast_wc_observer_,
+        OnPageStateChanged(CheckPageState(
+            cast_web_contents_.get(), CastWebContents::PageState::LOADING)));
+    EXPECT_CALL(
+        mock_cast_wc_observer_,
+        OnPageStateChanged(CheckPageState(cast_web_contents_.get(),
+                                          CastWebContents::PageState::LOADED)));
+    EXPECT_CALL(
+        mock_cast_wc_observer_,
+        OnPageStateChanged(CheckPageState(
+            cast_web_contents_.get(), CastWebContents::PageState::LOADING)));
+    EXPECT_CALL(
+        mock_cast_wc_observer_,
+        OnPageStateChanged(CheckPageState(cast_web_contents_.get(),
+                                          CastWebContents::PageState::LOADED)))
+        .WillOnce(InvokeWithoutArgs(quit_closure));
+  }
+
+  cast_web_contents_->LoadUrl(
+      embedded_test_server()->GetURL("/location_redirect.html"));
+  run_loop->Run();
+}
+
 IN_PROC_BROWSER_TEST_F(CastWebContentsBrowserTest, NotifyMissingResource) {
   auto run_loop = std::make_unique<base::RunLoop>();
   auto quit_closure = [&run_loop]() {
@@ -1099,6 +1141,59 @@ IN_PROC_BROWSER_TEST_F(CastWebContentsBrowserTest,
     cast_web_contents_->LoadUrl(GURL(url::kAboutBlankURL));
     run_loop.Run();
   }
+}
+
+IN_PROC_BROWSER_TEST_F(CastWebContentsBrowserTest, ExecuteJavaScript) {
+  // Start test server for hosting test HTML pages.
+  embedded_test_server()->ServeFilesFromSourceDirectory(GetTestDataPath());
+  StartTestServer();
+  auto run_loop = std::make_unique<base::RunLoop>();
+  auto quit_closure = [&run_loop]() {
+    if (run_loop->running()) {
+      run_loop->QuitWhenIdle();
+    }
+  };
+
+  // ===========================================================================
+  // Test: Set a value using ExecuteJavaScript with empty callback, and then use
+  // ExecuteJavaScript with callback to retrieve that value.
+  // ===========================================================================
+  constexpr char kSoyMilkJsonStringLiteral[] = "\"SoyMilk\"";
+
+  // Load page with title "hello":
+  GURL gurl{embedded_test_server()->GetURL("/title1.html")};
+  {
+    InSequence seq;
+    EXPECT_CALL(
+        mock_cast_wc_observer_,
+        OnPageStateChanged(CheckPageState(
+            cast_web_contents_.get(), CastWebContents::PageState::LOADING)));
+    EXPECT_CALL(
+        mock_cast_wc_observer_,
+        OnPageStateChanged(CheckPageState(cast_web_contents_.get(),
+                                          CastWebContents::PageState::LOADED)))
+        .WillOnce(InvokeWithoutArgs(quit_closure));
+  }
+  cast_web_contents_->LoadUrl(gurl);
+  run_loop->Run();
+
+  // Execute with empty callback.
+  cast_web_contents_->ExecuteJavaScript(
+      base::UTF8ToUTF16(
+          base::StringPrintf("const the_var = %s;", kSoyMilkJsonStringLiteral)),
+      base::DoNothing());
+
+  // Execute a script snippet to return the variable's value.
+  base::RunLoop run_loop2;
+  cast_web_contents_->ExecuteJavaScript(
+      base::UTF8ToUTF16("the_var;"),
+      base::BindLambdaForTesting([&](base::Value result_value) {
+        std::string result_json;
+        ASSERT_TRUE(base::JSONWriter::Write(result_value, &result_json));
+        EXPECT_EQ(result_json, kSoyMilkJsonStringLiteral);
+        run_loop2.Quit();
+      }));
+  run_loop2.Run();
 }
 
 }  // namespace chromecast

@@ -20,8 +20,9 @@ class CachedMetadata;
 class ResourceResponse;
 class WebProcessMemoryDump;
 
-// A callback for sending the serialized data of cached metadata back to the
-// platform.
+// A callback for sending the serialized data of cached metadata to the
+// persistent storage.
+// TODO(pasko): rename this class to CachedMetadataPersister.
 class PLATFORM_EXPORT CachedMetadataSender {
   USING_FAST_MALLOC(CachedMetadataSender);
 
@@ -46,9 +47,19 @@ PLATFORM_EXPORT bool ShouldUseIsolatedCodeCache(mojom::RequestContextType,
 // Handler class for caching operations.
 class CachedMetadataHandler : public GarbageCollected<CachedMetadataHandler> {
  public:
-  enum CacheType {
-    kSendToPlatform,  // send cache data to blink::Platform::CacheMetadata
-    kCacheLocally     // cache only in objects of this class
+  enum ClearCacheType {
+    // Clears the in-memory cache, but doesn't update persistent storage. The
+    // old cached metadata is considered invalid.
+    kClearLocally,
+
+    // Discards the in-memory cache for memory reduction, preventing any further
+    // uses or updates. The cached metadata will no longer be available, but
+    // should not be considered invalid.
+    kDiscardLocally,
+
+    // Clears the metadata in both memory and persistent storage via
+    // blink::Platform::CacheMetadata.
+    kClearPersistentStorage
   };
 
   // Enum for marking serialized cached metadatas so that the deserializers
@@ -60,10 +71,11 @@ class CachedMetadataHandler : public GarbageCollected<CachedMetadataHandler> {
   };
 
   virtual ~CachedMetadataHandler() = default;
-  virtual void Trace(blink::Visitor* visitor) {}
+  virtual void Trace(Visitor* visitor) {}
 
-  // Reset existing metadata, to allow setting new data.
-  virtual void ClearCachedMetadata(CacheType) = 0;
+  // Reset existing metadata. Subclasses can ignore setting new metadata after
+  // clearing with |kDiscardLocally| to save memory.
+  virtual void ClearCachedMetadata(ClearCacheType) = 0;
 
   // Returns the encoding to which the cache is specific.
   virtual String Encoding() const = 0;

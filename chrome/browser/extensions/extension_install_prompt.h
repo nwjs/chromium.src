@@ -18,8 +18,8 @@
 #include "base/memory/weak_ptr.h"
 #include "base/strings/string16.h"
 #include "base/threading/thread_checker.h"
-#include "build/build_config.h"
 #include "chrome/browser/extensions/install_prompt_permissions.h"
+#include "chrome/common/buildflags.h"
 #include "extensions/common/permissions/permission_message.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/gfx/image/image.h"
@@ -68,18 +68,16 @@ class ExtensionInstallPrompt {
     DELEGATED_PERMISSIONS_PROMPT = 10,
     // DELEGATED_BUNDLE_PERMISSIONS_PROMPT_DEPRECATED = 11,
     WEBSTORE_WIDGET_PROMPT = 12,
-    NUM_PROMPT_TYPES = 13,
+    EXTENSION_REQUEST_PROMPT = 13,
+    EXTENSION_PENDING_REQUEST_PROMPT = 14,
+    NUM_PROMPT_TYPES = 15,
+    // WAIT! Are you adding a new prompt type? Does it *install an extension*?
+    // If not, please create a new dialog, rather than adding more functionality
+    // to this class - it's already too full.
   };
 
   // The last prompt type to display; only used for testing.
   static PromptType g_last_prompt_type_for_tests;
-
-  // Enumeration for permissions and retained files details.
-  enum DetailsType {
-    PERMISSIONS_DETAILS = 0,
-    RETAINED_FILES_DETAILS,
-    RETAINED_DEVICES_DETAILS,
-  };
 
   // Extra information needed to display an installation or uninstallation
   // prompt. Gets populated with raw data and exposes getters for formatted
@@ -93,9 +91,6 @@ class ExtensionInstallPrompt {
     void AddPermissionSet(const extensions::PermissionSet& permissions);
     void AddPermissionMessages(
         const extensions::PermissionMessages& permissions);
-    void SetIsShowingDetails(DetailsType type,
-                             size_t index,
-                             bool is_showing_details);
     void SetWebstoreData(const std::string& localized_user_count,
                          bool show_user_count,
                          double average_rating,
@@ -113,6 +108,16 @@ class ExtensionInstallPrompt {
     base::string16 GetRetainedFilesHeading() const;
     base::string16 GetRetainedDevicesHeading() const;
 
+#if BUILDFLAG(ENABLE_SUPERVISED_USERS)
+    void set_requires_parent_permission(bool requires_parent_permission) {
+      requires_parent_permission_ = requires_parent_permission;
+    }
+
+    bool requires_parent_permission() const {
+      return requires_parent_permission_;
+    }
+#endif
+
     bool ShouldShowPermissions() const;
     bool ShouldDisplayWithholdingUI() const;
 
@@ -128,10 +133,8 @@ class ExtensionInstallPrompt {
     base::string16 GetRatingCount() const;
     base::string16 GetUserCount() const;
     size_t GetPermissionCount() const;
-    size_t GetPermissionsDetailsCount() const;
     base::string16 GetPermission(size_t index) const;
     base::string16 GetPermissionsDetails(size_t index) const;
-    bool GetIsShowingDetails(DetailsType type, size_t index) const;
     size_t GetRetainedFileCount() const;
     base::string16 GetRetainedFile(size_t index) const;
     size_t GetRetainedDeviceCount() const;
@@ -167,11 +170,7 @@ class ExtensionInstallPrompt {
     bool has_webstore_data() const { return has_webstore_data_; }
 
    private:
-    friend class base::RefCountedThreadSafe<Prompt>;
-
     bool ShouldDisplayRevokeButton() const;
-
-    bool ShouldDisplayRevokeFilesButton() const;
 
     const PromptType type_;
 
@@ -179,10 +178,12 @@ class ExtensionInstallPrompt {
     // permissions if only additional ones are being requested)
     extensions::InstallPromptPermissions prompt_permissions_;
 
-    bool is_requesting_host_permissions_;
+#if BUILDFLAG(ENABLE_SUPERVISED_USERS)
+    // True if the current user is a child.
+    bool requires_parent_permission_ = false;
+#endif
 
-    bool is_showing_details_for_retained_files_;
-    bool is_showing_details_for_retained_devices_;
+    bool is_requesting_host_permissions_;
 
     // The extension being installed.
     const extensions::Extension* extension_;

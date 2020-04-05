@@ -21,6 +21,7 @@ class TickClock;
 }
 
 namespace blink {
+class WebInputEventAttribution;
 class WebMouseWheelEvent;
 class WebTouchEvent;
 }  // namespace blink
@@ -77,7 +78,8 @@ class InputHandlerProxy : public cc::InputHandlerClient,
       base::OnceCallback<void(EventDisposition,
                               WebScopedInputEvent WebInputEvent,
                               const LatencyInfo&,
-                              std::unique_ptr<ui::DidOverscrollParams>)>;
+                              std::unique_ptr<ui::DidOverscrollParams>,
+                              const blink::WebInputEventAttribution&)>;
   void HandleInputEventWithLatencyInfo(WebScopedInputEvent event,
                                        const LatencyInfo& latency_info,
                                        EventDispositionCallback callback);
@@ -87,14 +89,11 @@ class InputHandlerProxy : public cc::InputHandlerClient,
       const cc::InputHandlerPointerResult& pointer_result,
       const LatencyInfo& latency_info,
       const base::TimeTicks now);
-  // TODO(arakeri): Update tests in input_handler_proxy_unittests to call
-  // HandleInputEventWithLatencyInfo instead of directly calling
-  // RouteToTypeSpecificHandler. Once that is done, make
-  // RouteToTypeSpecificHandler private. WIP CL: https://crrev.com/c/2001288
-  EventDisposition RouteToTypeSpecificHandler(
-      const blink::WebInputEvent& event,
-      EventWithCallback* event_with_callback = nullptr,
-      const LatencyInfo& original_latency_info = LatencyInfo());
+
+  // Attempts to perform attribution of the given WebInputEvent to a target
+  // frame. Intended for simple impl-side hit testing.
+  blink::WebInputEventAttribution PerformEventAttribution(
+      const blink::WebInputEvent& event);
 
   // cc::InputHandlerClient implementation.
   void WillShutdown() override;
@@ -128,7 +127,7 @@ class InputHandlerProxy : public cc::InputHandlerClient,
   void RequestAnimationForSnapFling() override;
 
   bool gesture_scroll_on_impl_thread_for_testing() const {
-    return gesture_scroll_on_impl_thread_;
+    return handling_gesture_on_impl_thread_;
   }
 
  protected:
@@ -152,11 +151,14 @@ class InputHandlerProxy : public cc::InputHandlerClient,
   EventDisposition HandleGestureScrollBegin(
       const blink::WebGestureEvent& event);
   EventDisposition HandleGestureScrollUpdate(
-      const blink::WebGestureEvent& event);
+      const blink::WebGestureEvent& event,
+      const blink::WebInputEventAttribution& original_attribution);
   EventDisposition HandleGestureScrollEnd(const blink::WebGestureEvent& event);
   EventDisposition HandleTouchStart(const blink::WebTouchEvent& event);
   EventDisposition HandleTouchMove(const blink::WebTouchEvent& event);
   EventDisposition HandleTouchEnd(const blink::WebTouchEvent& event);
+
+  void InputHandlerScrollEnd();
 
   // Request a frame of animation from the InputHandler or
   // SynchronousInputHandler. They can provide that by calling Animate().
@@ -186,15 +188,20 @@ class InputHandlerProxy : public cc::InputHandlerClient,
       bool* is_touching_scrolling_layer,
       cc::TouchAction* white_listed_touch_action);
 
+  EventDisposition RouteToTypeSpecificHandler(
+      EventWithCallback* event_with_callback,
+      const LatencyInfo& original_latency_info,
+      const blink::WebInputEventAttribution& original_attribution);
+
   InputHandlerProxyClient* client_;
   cc::InputHandler* input_handler_;
 
   SynchronousInputHandler* synchronous_input_handler_;
 
-#if DCHECK_IS_ON()
-  bool expect_scroll_update_end_;
-#endif
-  bool gesture_scroll_on_impl_thread_;
+  // This should be true when a pinch is in progress. The sequence of events is
+  // as follows: GSB GPB GSU GPU ... GPE GSE.
+  bool handling_gesture_on_impl_thread_;
+
   bool gesture_pinch_in_progress_ = false;
   bool in_inertial_scrolling_ = false;
   bool scroll_sequence_ignored_;
@@ -218,7 +225,10 @@ class InputHandlerProxy : public cc::InputHandlerClient,
   std::unique_ptr<DidOverscrollParams> current_overscroll_params_;
 
   std::unique_ptr<CompositorThreadEventQueue> compositor_event_queue_;
-  bool has_ongoing_compositor_scroll_or_pinch_;
+
+  // Set only when the compositor input handler is handling a gesture. Tells
+  // which source device is currently performing a gesture based scroll.
+  base::Optional<blink::WebGestureDevice> currently_active_gesture_device_;
 
   // Tracks whether the first scroll update gesture event has been seen after a
   // scroll begin. This is set/reset when scroll gestures are processed in

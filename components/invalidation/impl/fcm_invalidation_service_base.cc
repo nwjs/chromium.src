@@ -14,7 +14,7 @@
 #include "components/invalidation/impl/fcm_network_handler.h"
 #include "components/invalidation/impl/invalidation_prefs.h"
 #include "components/invalidation/public/invalidator_state.h"
-#include "components/invalidation/public/object_id_invalidation_map.h"
+#include "components/invalidation/public/topic_data.h"
 #include "components/invalidation/public/topic_invalidation_map.h"
 #include "components/prefs/scoped_user_pref_update.h"
 
@@ -83,17 +83,24 @@ void FCMInvalidationServiceBase::RegisterInvalidationHandler(
   logger_.OnRegistration(handler->GetOwnerName());
 }
 
-bool FCMInvalidationServiceBase::UpdateRegisteredInvalidationIds(
+bool FCMInvalidationServiceBase::UpdateInterestedTopics(
     syncer::InvalidationHandler* handler,
-    const syncer::ObjectIdSet& ids) {
+    const syncer::TopicSet& legacy_topic_set) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   update_was_requested_ = true;
-  DVLOG(2) << "Registering ids: " << ids.size();
-  syncer::Topics topics = ConvertIdsToTopics(ids, handler);
-  if (!invalidator_registrar_.UpdateRegisteredTopics(handler, topics))
+  DVLOG(2) << "Subscribing to topics: " << legacy_topic_set.size();
+  std::set<TopicData> topic_set;
+  for (const auto& topic_name : legacy_topic_set) {
+    topic_set.insert(TopicData(topic_name, handler->IsPublicTopic(topic_name)));
+  }
+  // TODO(crbug.com/1054404): UpdateRegisteredTopics() should be renamed to
+  // clarify that it actually updates whether topics need subscription (aka
+  // interested).
+  if (!invalidator_registrar_.UpdateRegisteredTopics(handler, topic_set)) {
     return false;
+  }
   DoUpdateSubscribedTopicsIfNeeded();
-  logger_.OnUpdateTopics(invalidator_registrar_.GetHandlerNameToTopicsMap());
+  logger_.OnUpdatedTopics(invalidator_registrar_.GetHandlerNameToTopicsMap());
   return true;
 }
 
@@ -140,8 +147,7 @@ void FCMInvalidationServiceBase::OnInvalidate(
     const syncer::TopicInvalidationMap& invalidation_map) {
   invalidator_registrar_.DispatchInvalidationsToHandlers(invalidation_map);
 
-  logger_.OnInvalidation(
-      ConvertTopicInvalidationMapToObjectIdInvalidationMap(invalidation_map));
+  logger_.OnInvalidation(invalidation_map);
 }
 
 void FCMInvalidationServiceBase::OnInvalidatorStateChange(
@@ -247,16 +253,16 @@ void FCMInvalidationServiceBase::PopulateClientID() {
   instance_id::InstanceID* instance_id =
       instance_id_driver_->GetInstanceID(GetApplicationName());
   instance_id->GetID(
-      base::Bind(&FCMInvalidationServiceBase::OnInstanceIDReceived,
-                 base::Unretained(this)));
+      base::BindOnce(&FCMInvalidationServiceBase::OnInstanceIDReceived,
+                     base::Unretained(this)));
 }
 
 void FCMInvalidationServiceBase::ResetClientID() {
   instance_id::InstanceID* instance_id =
       instance_id_driver_->GetInstanceID(GetApplicationName());
   instance_id->DeleteID(
-      base::Bind(&FCMInvalidationServiceBase::OnDeleteInstanceIDCompleted,
-                 base::Unretained(this)));
+      base::BindOnce(&FCMInvalidationServiceBase::OnDeleteInstanceIDCompleted,
+                     base::Unretained(this)));
 
   // Immediately clear our cached values (before we get confirmation of the
   // deletion), since they shouldn't be used anymore. Lower layers are the

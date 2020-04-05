@@ -8,6 +8,7 @@
 #include "base/memory/ptr_util.h"
 #include "ios/chrome/browser/infobars/infobar_ios.h"
 #import "ios/chrome/browser/infobars/overlays/infobar_banner_overlay_request_cancel_handler.h"
+#import "ios/chrome/browser/infobars/overlays/infobar_modal_completion_notifier.h"
 #import "ios/chrome/browser/infobars/overlays/infobar_overlay_request_cancel_handler.h"
 #import "ios/chrome/browser/infobars/overlays/infobar_overlay_request_factory.h"
 #import "ios/chrome/browser/overlays/public/common/infobars/infobar_overlay_request_config.h"
@@ -36,7 +37,10 @@ void InfobarOverlayRequestInserter::CreateForWebState(
 InfobarOverlayRequestInserter::InfobarOverlayRequestInserter(
     web::WebState* web_state,
     std::unique_ptr<InfobarOverlayRequestFactory> factory)
-    : web_state_(web_state), request_factory_(std::move(factory)) {
+    : web_state_(web_state),
+      modal_completion_notifier_(
+          std::make_unique<InfobarModalCompletionNotifier>(web_state_)),
+      request_factory_(std::move(factory)) {
   DCHECK(web_state_);
   DCHECK(request_factory_);
   // Populate |queues_| with the request queues at the appropriate modalities.
@@ -63,7 +67,10 @@ void InfobarOverlayRequestInserter::InsertOverlayRequest(
   // Create the request and its cancel handler.
   std::unique_ptr<OverlayRequest> request =
       request_factory_->CreateInfobarRequest(infobar, type);
-  DCHECK(request.get());
+  // TODO(crbug.com/1030357): Replace early return with a DCHECK once all
+  // infobars have been converted to use OverlayPresenter.
+  if (!request)
+    return;
   DCHECK_EQ(static_cast<InfoBarIOS*>(infobar),
             request->GetConfig<InfobarOverlayRequestConfig>()->infobar());
   OverlayRequestQueue* queue = queues_.at(type);
@@ -72,7 +79,7 @@ void InfobarOverlayRequestInserter::InsertOverlayRequest(
     case InfobarOverlayType::kBanner:
       cancel_handler =
           std::make_unique<InfobarBannerOverlayRequestCancelHandler>(
-              request.get(), queue, this);
+              request.get(), queue, this, modal_completion_notifier_.get());
       break;
     case InfobarOverlayType::kDetailSheet:
     case InfobarOverlayType::kModal:

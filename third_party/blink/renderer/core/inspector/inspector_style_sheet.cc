@@ -898,7 +898,7 @@ String InspectorStyle::ShorthandValue(const String& shorthand_property) {
   return builder.ToString();
 }
 
-void InspectorStyle::Trace(blink::Visitor* visitor) {
+void InspectorStyle::Trace(Visitor* visitor) {
   visitor->Trace(style_);
   visitor->Trace(parent_style_sheet_);
   visitor->Trace(source_data_);
@@ -973,7 +973,7 @@ InspectorStyleSheet::InspectorStyleSheet(
 
 InspectorStyleSheet::~InspectorStyleSheet() = default;
 
-void InspectorStyleSheet::Trace(blink::Visitor* visitor) {
+void InspectorStyleSheet::Trace(Visitor* visitor) {
   visitor->Trace(resource_container_);
   visitor->Trace(network_agent_);
   visitor->Trace(page_style_sheet_);
@@ -997,8 +997,7 @@ String InspectorStyleSheet::FinalURL() {
 bool InspectorStyleSheet::SetText(const String& text,
                                   ExceptionState& exception_state) {
   InnerSetText(text, true);
-  page_style_sheet_->SetText(text, true /* allow_import_rules */,
-                             exception_state);
+  page_style_sheet_->SetText(text, true /* allow_import_rules */, nullptr);
   OnStyleSheetTextChanged();
   return true;
 }
@@ -1033,7 +1032,8 @@ CSSStyleRule* InspectorStyleSheet::SetRuleSelector(
   }
 
   CSSStyleRule* style_rule = InspectorCSSAgent::AsCSSStyleRule(rule);
-  style_rule->setSelectorText(page_style_sheet_->OwnerDocument(), text);
+  style_rule->setSelectorText(
+      page_style_sheet_->OwnerDocument()->GetExecutionContext(), text);
 
   ReplaceText(source_data->rule_header_range, text, new_range, old_text);
   OnStyleSheetTextChanged();
@@ -1112,7 +1112,8 @@ CSSRule* InspectorStyleSheet::SetStyleText(const SourceRange& range,
     style = style_rule->style();
   else
     style = To<CSSKeyframeRule>(rule)->style();
-  style->setCSSText(page_style_sheet_->OwnerDocument(), text, exception_state);
+  style->setCSSText(page_style_sheet_->OwnerDocument()->GetExecutionContext(),
+                    text, exception_state);
 
   ReplaceText(source_data->rule_body_range, text, new_range, old_text);
   OnStyleSheetTextChanged();
@@ -1150,7 +1151,8 @@ CSSMediaRule* InspectorStyleSheet::SetMediaRuleText(
   }
 
   CSSMediaRule* media_rule = InspectorCSSAgent::AsCSSMediaRule(rule);
-  media_rule->media()->setMediaText(text);
+  media_rule->media()->setMediaText(
+      page_style_sheet_->OwnerDocument()->GetExecutionContext(), text);
 
   ReplaceText(source_data->rule_header_range, text, new_range, old_text);
   OnStyleSheetTextChanged();
@@ -1206,8 +1208,9 @@ CSSStyleRule* InspectorStyleSheet::InsertCSSOMRuleInMediaRule(
       break;
   }
 
-  media_rule->insertRule(page_style_sheet_->OwnerDocument(), rule_text, index,
-                         exception_state);
+  media_rule->insertRule(
+      page_style_sheet_->OwnerDocument()->GetExecutionContext(), rule_text,
+      index, exception_state);
   CSSRule* rule = media_rule->Item(index);
   CSSStyleRule* style_rule = InspectorCSSAgent::AsCSSStyleRule(rule);
   if (!style_rule) {
@@ -1988,7 +1991,7 @@ const String& InspectorStyleSheetForInlineStyle::ElementStyleText() {
   return element_->getAttribute("style").GetString();
 }
 
-void InspectorStyleSheetForInlineStyle::Trace(blink::Visitor* visitor) {
+void InspectorStyleSheetForInlineStyle::Trace(Visitor* visitor) {
   visitor->Trace(element_);
   visitor->Trace(inspector_style_);
   InspectorStyleSheetBase::Trace(visitor);

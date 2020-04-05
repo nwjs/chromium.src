@@ -40,8 +40,7 @@ ServiceWorkerInstalledScriptLoader::ServiceWorkerInstalledScriptLoader(
   // In this case, the main script info would not yet have been set, so set it
   // here.
   if (request_url == version_for_main_script_http_response_info->script_url() &&
-      !version_for_main_script_http_response_info
-           ->GetMainScriptHttpResponseInfo()) {
+      !version_for_main_script_http_response_info->GetMainScriptResponse()) {
     version_for_main_script_http_response_info_ =
         std::move(version_for_main_script_http_response_info);
   }
@@ -75,8 +74,8 @@ void ServiceWorkerInstalledScriptLoader::OnStarted(
   DCHECK(info);
 
   if (version_for_main_script_http_response_info_) {
-    version_for_main_script_http_response_info_->SetMainScriptHttpResponseInfo(
-        *info);
+    version_for_main_script_http_response_info_->SetMainScriptResponse(
+        std::make_unique<ServiceWorkerVersion::MainScriptResponse>(*info));
   }
 
   auto response = ServiceWorkerUtils::CreateResourceResponseHeadAndMetadata(

@@ -16,6 +16,23 @@ let CrostiniSharedPath;
 let CrostiniSharedUsbDevice;
 
 /**
+ * @typedef {{label: string,
+ *            port_number: number,
+ *            active: boolean,
+ *            protocol_type: number}}
+ */
+let CrostiniPortSetting;
+
+/**
+ * @typedef {{succeeded: boolean,
+ *            canResize: boolean,
+ *            isUserChosenSize: boolean,
+ *            defaultIndex: number,
+ *            ticks: !Array}}
+ */
+let CrostiniDiskInfo;
+
+/**
  * @fileoverview A helper object used by the "Linux Apps" (Crostini) section
  * to install and uninstall Crostini.
  */
@@ -48,6 +65,7 @@ cr.define('settings', function() {
     /**
      * @param {string} vmName VM to stop sharing path with.
      * @param {string} path Path to stop sharing.
+     * @return {!Promise<boolean>} Result of unsharing.
      */
     removeCrostiniSharedPath(vmName, path) {}
 
@@ -84,6 +102,54 @@ cr.define('settings', function() {
 
     /** Show the container upgrade UI. */
     requestCrostiniContainerUpgradeView() {}
+
+    /**
+     * Request chrome send a crostini-upgrader-status-changed event with the
+     * current upgrader dialog status
+     */
+    requestCrostiniUpgraderDialogStatus() {}
+
+    /**
+     * Request chrome send a crostini-container-upgrade-available-changed event
+     * with the availability of an upgrade for the container.
+     */
+    requestCrostiniContainerUpgradeAvailable() {}
+
+    /**
+     * @param {string} vmName Name of vm to add port forwarding for.
+     * @param {string} containerName Name of container to add port forwarding
+     *     for.
+     * @param {string} portNumber Port number to start forwarding.
+     * @param {number} protocolIndex Protocol index for this port forward: {TCP
+     *     = 0, UDP = 1}
+     * @param {string} label Label for this port.
+     */
+    addCrostiniPortForward(
+        vmName, containerName, portNumber, protocolIndex, label) {}
+
+    /**
+     * @param {string} vmName Name of the VM to get disk info for.
+     * @return {!Promise<CrostiniDiskInfo>} The requested information.
+     */
+    getCrostiniDiskInfo(vmName) {}
+
+    /**
+     * Resizes a preallocated user-chosen-size Crostini VM disk to the requested
+     * size.
+     * @param {string} vmName Name of the VM to resize.
+     * @param {number} newSizeBytes Size in bytes to resize to.
+     * @return {!Promise<boolean>} Whether resizing succeeded(true) or failed.
+     */
+    resizeCrostiniDisk(vmName, newSizeBytes) {}
+
+    /**
+     * Checks if a proposed change to mic sharing requires Crostini to be
+     * restarted for it to take effect.
+     * @param {boolean} proposedValue Reflects what mic sharing is being set
+     *     to.
+     * @return {!Promise<boolean>} Whether Crostini requires a restart or not.
+     */
+    checkCrostiniMicSharingStatus(proposedValue) {}
   }
 
   /** @implements {settings.CrostiniBrowserProxy} */
@@ -115,7 +181,7 @@ cr.define('settings', function() {
 
     /** @override */
     removeCrostiniSharedPath(vmName, path) {
-      chrome.send('removeCrostiniSharedPath', [vmName, path]);
+      return cr.sendWithPromise('removeCrostiniSharedPath', vmName, path);
     }
 
     /** @override */
@@ -157,12 +223,46 @@ cr.define('settings', function() {
     requestCrostiniContainerUpgradeView() {
       chrome.send('requestCrostiniContainerUpgradeView');
     }
+
+    /** @override */
+    requestCrostiniUpgraderDialogStatus() {
+      chrome.send('requestCrostiniUpgraderDialogStatus');
+    }
+
+    /** @override */
+    requestCrostiniContainerUpgradeAvailable() {
+      chrome.send('requestCrostiniContainerUpgradeAvailable');
+    }
+
+    /** @override */
+    addCrostiniPortForward(
+        vmName, containerName, portNumber, protocolIndex, label) {
+      return cr.sendWithPromise(
+          'addCrostiniPortForward', vmName, containerName, portNumber,
+          protocolIndex, label);
+    }
+
+    /** @override */
+    getCrostiniDiskInfo(vmName) {
+      return cr.sendWithPromise('getCrostiniDiskInfo', vmName);
+    }
+
+    /** @override */
+    resizeCrostiniDisk(vmName, newSizeBytes) {
+      return cr.sendWithPromise('resizeCrostiniDisk', vmName, newSizeBytes);
+    }
+
+    /** @override */
+    checkCrostiniMicSharingStatus(proposedValue) {
+      return cr.sendWithPromise('checkCrostiniMicSharingStatus', proposedValue);
+    }
   }
 
   // The singleton instance_ can be replaced with a test version of this wrapper
   // during testing.
   cr.addSingletonGetter(CrostiniBrowserProxyImpl);
 
+  // #cr_define_end
   return {
     CrostiniBrowserProxy: CrostiniBrowserProxy,
     CrostiniBrowserProxyImpl: CrostiniBrowserProxyImpl,

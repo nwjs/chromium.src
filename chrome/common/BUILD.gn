@@ -5,6 +5,7 @@
 import("//build/buildflag_header.gni")
 import("//build/config/chrome_build.gni")  # For branding_file_path.
 import("//build/util/process_version.gni")
+import("//chrome/browser/downgrade/buildflags.gni")
 import("//chrome/common/features.gni")
 import("//components/nacl/features.gni")
 import("//components/offline_pages/buildflags/features.gni")
@@ -40,6 +41,7 @@ buildflag_header("buildflags") {
     "ENABLE_BACKGROUND_CONTENTS=$enable_background_contents",
     "ENABLE_BASIC_PRINT_DIALOG=$enable_basic_print_dialog",
     "ENABLE_CLICK_TO_CALL=$enable_click_to_call",
+    "ENABLE_DOWNGRADE_PROCESSING=$enable_downgrade_processing",
     "ENABLE_HANGOUT_SERVICES_EXTENSION=$enable_hangout_services_extension",
     "ENABLE_ONE_CLICK_SIGNIN=$enable_one_click_signin",
     "ENABLE_NATIVE_NOTIFICATIONS=$enable_native_notifications",
@@ -105,6 +107,8 @@ static_library("common") {
     "chrome_descriptors.h",
     "chrome_isolated_world_ids.h",
     "chrome_result_codes.h",
+    "chrome_ui_features_prefs.cc",
+    "chrome_ui_features_prefs.h",
     "client_hints/client_hints.cc",
     "client_hints/client_hints.h",
     "common_message_generator.cc",
@@ -195,6 +199,7 @@ static_library("common") {
     "//chrome/common:constants",
     "//chrome/common/net",
     "//chrome/common/profiler",
+    "//chrome/common/qr_code_generator",
     "//chrome/installer/util:with_no_strings",
     "//components/cast_certificate",
     "//components/cdm/common",
@@ -264,7 +269,7 @@ static_library("common") {
 
   deps = [
     "//build:branding_buildflags",
-    "//components/crash/content/app",
+    "//components/crash/core/app",
     "//components/google/core/common",
     "//components/metrics:call_stack_profile_builder",
     "//components/page_load_metrics/common:common",
@@ -332,8 +337,6 @@ static_library("common") {
       "extensions/manifest_handlers/settings_overrides_handler.h",
       "extensions/manifest_handlers/theme_handler.cc",
       "extensions/manifest_handlers/theme_handler.h",
-      "extensions/manifest_handlers/ui_overrides_handler.cc",
-      "extensions/manifest_handlers/ui_overrides_handler.h",
       "extensions/permissions/chrome_api_permissions.cc",
       "extensions/permissions/chrome_api_permissions.h",
       "extensions/permissions/chrome_permission_message_provider.cc",
@@ -433,7 +436,7 @@ static_library("common") {
     deps += [
       "//chrome/chrome_elf:chrome_elf_main_include",
       "//chrome/common/win:eventlog_messages",
-      "//components/crash/content/app:crash_export_thunk_include",
+      "//components/crash/core/app:crash_export_thunk_include",
     ]
 
     public_deps += [
@@ -650,20 +653,6 @@ static_library("constants") {
   }
 }
 
-if (is_win) {
-  source_set("metrics_constants_util_win") {
-    sources = [
-      "metrics_constants_util_win.cc",
-      "metrics_constants_util_win.h",
-    ]
-
-    deps = [
-      "//base",
-      "//chrome/install_static:install_static_util",
-    ]
-  }
-}
-
 # Use a static library here because many test binaries depend on this but don't
 # require many files from it. This makes linking more efficient.
 static_library("test_support") {
@@ -726,7 +715,7 @@ mojom("mojo_bindings") {
     "network_easter_egg.mojom",
     "open_search_description_document_handler.mojom",
     "plugin.mojom",
-    "prerender.mojom",
+    "prerender_canceler.mojom",
     "renderer_configuration.mojom",
     "sync_encryption_keys_extension.mojom",
   ]

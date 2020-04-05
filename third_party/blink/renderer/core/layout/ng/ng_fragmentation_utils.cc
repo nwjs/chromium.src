@@ -164,10 +164,19 @@ NGBreakAppeal CalculateBreakAppealInside(const NGConstraintSpace& space,
 }
 
 void SetupFragmentation(const NGConstraintSpace& parent_space,
+                        const NGLayoutInputNode& child,
                         LayoutUnit fragmentainer_offset_delta,
                         NGConstraintSpaceBuilder* builder,
                         bool is_new_fc) {
   DCHECK(parent_space.HasBlockFragmentation());
+
+  // If the child is truly unbreakable, it won't participate in block
+  // fragmentation. If it's too tall to fit, it will either overflow the
+  // fragmentainer or get brutally sliced into pieces (without looking for
+  // allowed breakpoints, since there are none, by definition), depending on
+  // fragmentation type (multicol vs. printing).
+  if (child.IsMonolithic())
+    return;
 
   builder->SetFragmentainerBlockSize(parent_space.FragmentainerBlockSize());
   builder->SetFragmentainerOffsetAtBfc(parent_space.FragmentainerOffsetAtBfc() +
@@ -179,11 +188,20 @@ void SetupFragmentation(const NGConstraintSpace& parent_space,
 }
 
 void FinishFragmentation(const NGConstraintSpace& space,
+                         const NGBlockBreakToken* previous_break_token,
                          LayoutUnit block_size,
                          LayoutUnit intrinsic_block_size,
-                         LayoutUnit previously_consumed_block_size,
                          LayoutUnit space_left,
                          NGBoxFragmentBuilder* builder) {
+  LayoutUnit previously_consumed_block_size;
+  unsigned sequence_number = 0;
+  if (previous_break_token && !previous_break_token->IsBreakBefore()) {
+    previously_consumed_block_size = previous_break_token->ConsumedBlockSize();
+    sequence_number = previous_break_token->SequenceNumber() + 1;
+    builder->SetIsFirstForNode(false);
+  }
+  builder->SetSequenceNumber(sequence_number);
+
   if (builder->DidBreak()) {
     // One of our children broke. Even if we fit within the remaining space, we
     // need to prepare a break token.

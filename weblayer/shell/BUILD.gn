@@ -3,7 +3,6 @@
 # found in the LICENSE file.
 
 import("//build/config/features.gni")
-import("//build/config/jumbo.gni")
 import("//build/config/sanitizers/sanitizers.gni")
 import("//build/config/ui.gni")
 import("//build/config/win/console_app.gni")
@@ -15,7 +14,7 @@ if (is_android) {
   import("//build/config/android/config.gni")
 }
 
-jumbo_static_library("weblayer_shell_lib") {
+static_library("weblayer_shell_lib") {
   testonly = true
   sources = [
     "app/shell_main_params.cc",
@@ -95,6 +94,7 @@ jumbo_static_library("weblayer_shell_lib") {
     if (toolkit_views) {
       sources += [ "browser/shell_views.cc" ]
       deps += [
+        "//ui/native_theme",
         "//ui/resources",
         "//ui/views:test_support",
         "//ui/views/controls/webview",
@@ -236,7 +236,6 @@ if (is_android) {
       "//base",
       "//build/win:default_exe_manifest",
       "//net",
-      "//weblayer:weblayer_lib",
     ]
 
     data_deps = [
@@ -246,11 +245,6 @@ if (is_android) {
 
     if (is_win) {
       deps += [ "//sandbox" ]
-
-      # This is a large module that can't do incremental linking in some cases.
-      configs -= [ "//build/config/win:default_incremental_linking" ]
-      configs +=
-          [ "//build/config/win:default_large_module_incremental_linking" ]
       if (win_console_app) {
         defines += [ "WIN_CONSOLE_APP" ]
       } else {

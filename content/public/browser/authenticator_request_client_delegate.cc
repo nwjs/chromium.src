@@ -100,9 +100,9 @@ AuthenticatorRequestClientDelegate::GetTouchIdAuthenticatorConfig() {
 }
 #endif  // defined(OS_MACOSX)
 
-bool AuthenticatorRequestClientDelegate::
-    IsUserVerifyingPlatformAuthenticatorAvailable() {
-  return false;
+base::Optional<bool> AuthenticatorRequestClientDelegate::
+    IsUserVerifyingPlatformAuthenticatorAvailableOverride() {
+  return base::nullopt;
 }
 
 device::FidoDiscoveryFactory*
@@ -179,6 +179,11 @@ void AuthenticatorRequestClientDelegate::CollectPIN(
 void AuthenticatorRequestClientDelegate::FinishCollectToken() {
   NOTREACHED();
 }
+
+void AuthenticatorRequestClientDelegate::OnRetryUserVerification(int attempts) {
+}
+
+void AuthenticatorRequestClientDelegate::OnInternalUserVerificationLocked() {}
 
 void AuthenticatorRequestClientDelegate::CustomizeDiscoveryFactory(
     device::FidoDiscoveryFactory* discovery_factory) {}

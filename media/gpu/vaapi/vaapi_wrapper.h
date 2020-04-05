@@ -252,13 +252,6 @@ class MEDIA_GPU_EXPORT VaapiWrapper
       const gfx::Size& size,
       const base::Optional<gfx::Size>& visible_size = base::nullopt);
 
-  // Creates a self-releasing VASurface from |frame|. The created VASurface
-  // doesn't have the ownership of |frame|, while it shares the ownership of the
-  // underlying buffer represented by |frame|. In other words, the buffer is
-  // alive at least until both |frame| and the created VASurface are destroyed.
-  scoped_refptr<VASurface> CreateVASurfaceForVideoFrame(
-      const VideoFrame* frame);
-
   // Creates a self-releasing VASurface from |pixmap|. The created VASurface
   // shares the ownership of the underlying buffer represented by |pixmap|. The
   // ownership of the surface is transferred to the caller. A caller can destroy
@@ -443,6 +436,9 @@ class MEDIA_GPU_EXPORT VaapiWrapper
   // Created in CreateContext() or CreateContextAndSurfaces() and valid until
   // DestroyContext() or DestroyContextAndSurfaces().
   VAContextID va_context_id_;
+
+  //Entrypoint configured for the corresponding context
+  VAEntrypoint va_entrypoint_;
 
   // Data queued up for HW codec, to be committed on next execution.
   std::vector<VABufferID> pending_slice_bufs_;

@@ -106,6 +106,10 @@ class DEVICE_BLUETOOTH_EXPORT BluetoothAdapterClient : public BluezDBusClient {
     // Local Device ID information in Linux kernel modalias format. Read-only.
     dbus::Property<std::string> modalias;
 
+    // Flag to enable usage of kernel suspend notifier.
+    // TODO(b/149795111): Remove once feature is default behavior in stable.
+    dbus::Property<bool> use_kernel_suspend_notifier;
+
     Properties(dbus::ObjectProxy* object_proxy,
                const std::string& interface_name,
                const PropertyChangedCallback& callback);
@@ -220,11 +224,6 @@ class DEVICE_BLUETOOTH_EXPORT BluetoothAdapterClient : public BluezDBusClient {
                                    uint32_t handle,
                                    base::OnceClosure callback,
                                    ErrorCallback error_callback) = 0;
-
-  virtual void SetLongTermKeys(
-      const dbus::ObjectPath& object_path,
-      const std::vector<std::vector<uint8_t>>& long_term_keys,
-      ErrorCallback error_callback) = 0;
 
   // Creates the instance.
   static BluetoothAdapterClient* Create();

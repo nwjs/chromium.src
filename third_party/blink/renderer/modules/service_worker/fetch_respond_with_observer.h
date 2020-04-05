@@ -5,7 +5,7 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_MODULES_SERVICE_WORKER_FETCH_RESPOND_WITH_OBSERVER_H_
 #define THIRD_PARTY_BLINK_RENDERER_MODULES_SERVICE_WORKER_FETCH_RESPOND_WITH_OBSERVER_H_
 
-#include "services/network/public/mojom/cross_origin_embedder_policy.mojom-blink-forward.h"
+#include "services/network/public/cpp/cross_origin_embedder_policy.h"
 #include "services/network/public/mojom/fetch_api.mojom-blink-forward.h"
 #include "third_party/blink/public/platform/web_url_request.h"
 #include "third_party/blink/renderer/modules/modules_export.h"
@@ -15,6 +15,7 @@
 
 namespace blink {
 
+class CrossOriginResourcePolicyChecker;
 class ExecutionContext;
 class ScriptValue;
 class WaitUntilObserver;
@@ -29,11 +30,12 @@ class FetchAPIRequest;
 // notifies the client.
 class MODULES_EXPORT FetchRespondWithObserver : public RespondWithObserver {
  public:
-  FetchRespondWithObserver(ExecutionContext*,
-                           int fetch_event_id,
-                           network::mojom::blink::CrossOriginEmbedderPolicy,
-                           const mojom::blink::FetchAPIRequest&,
-                           WaitUntilObserver*);
+  FetchRespondWithObserver(
+      ExecutionContext*,
+      int fetch_event_id,
+      base::WeakPtr<CrossOriginResourcePolicyChecker> corp_checker,
+      const mojom::blink::FetchAPIRequest&,
+      WaitUntilObserver*);
   ~FetchRespondWithObserver() override = default;
 
   void OnResponseRejected(mojom::ServiceWorkerResponseError) override;
@@ -44,7 +46,7 @@ class MODULES_EXPORT FetchRespondWithObserver : public RespondWithObserver {
                            const char* property_name) override;
   void OnNoResponse() override;
 
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
 
  private:
   const KURL request_url_;
@@ -52,7 +54,7 @@ class MODULES_EXPORT FetchRespondWithObserver : public RespondWithObserver {
   const network::mojom::RedirectMode redirect_mode_;
   const mojom::RequestContextFrameType frame_type_;
   const mojom::RequestContextType request_context_;
-  const network::mojom::blink::CrossOriginEmbedderPolicy requestor_coep_;
+  base::WeakPtr<CrossOriginResourcePolicyChecker> corp_checker_;
   scoped_refptr<base::SingleThreadTaskRunner> task_runner_;
 };
 

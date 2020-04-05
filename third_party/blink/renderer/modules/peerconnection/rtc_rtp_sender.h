@@ -25,9 +25,15 @@ class ExceptionState;
 class MediaStreamTrack;
 class RTCDtlsTransport;
 class RTCDTMFSender;
+class RTCEncodedAudioUnderlyingSink;
+class RTCEncodedAudioUnderlyingSource;
+class RTCEncodedVideoUnderlyingSink;
+class RTCEncodedVideoUnderlyingSource;
+class RTCInsertableStreams;
 class RTCPeerConnection;
 class RTCRtpCapabilities;
 class RTCRtpTransceiver;
+class RTCInsertableStreams;
 
 webrtc::RtpEncodingParameters ToRtpEncodingParameters(
     const RTCRtpEncodingParameters*);
@@ -47,7 +53,9 @@ class RTCRtpSender final : public ScriptWrappable {
                std::unique_ptr<RTCRtpSenderPlatform>,
                String kind,
                MediaStreamTrack*,
-               MediaStreamVector streams);
+               MediaStreamVector streams,
+               bool force_encoded_audio_insertable_streams,
+               bool force_encoded_video_insertable_streams);
 
   MediaStreamTrack* track();
   RTCDtlsTransport* transport();
@@ -59,6 +67,10 @@ class RTCRtpSender final : public ScriptWrappable {
   ScriptPromise setParameters(ScriptState*, const RTCRtpSendParameters*);
   ScriptPromise getStats(ScriptState*);
   void setStreams(HeapVector<Member<MediaStream>> streams, ExceptionState&);
+  RTCInsertableStreams* createEncodedAudioStreams(ScriptState*,
+                                                  ExceptionState&);
+  RTCInsertableStreams* createEncodedVideoStreams(ScriptState*,
+                                                  ExceptionState&);
 
   RTCRtpSenderPlatform* web_sender();
   // Sets the track. This must be called when the |RTCRtpSenderPlatform| has its
@@ -71,9 +83,21 @@ class RTCRtpSender final : public ScriptWrappable {
   void set_transceiver(RTCRtpTransceiver*);
   void set_transport(RTCDtlsTransport*);
 
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
 
  private:
+  void RegisterEncodedAudioStreamCallback();
+  void UnregisterEncodedAudioStreamCallback();
+  void InitializeEncodedAudioStreams(ScriptState*);
+  void OnAudioFrameFromEncoder(
+      std::unique_ptr<webrtc::TransformableFrameInterface> frame);
+
+  void RegisterEncodedVideoStreamCallback();
+  void UnregisterEncodedVideoStreamCallback();
+  void InitializeEncodedVideoStreams(ScriptState*);
+  void OnVideoFrameFromEncoder(
+      std::unique_ptr<webrtc::TransformableVideoFrameInterface> frame);
+
   Member<RTCPeerConnection> pc_;
   std::unique_ptr<RTCRtpSenderPlatform> sender_;
   // The spec says that "kind" should be looked up in transceiver, but keeping
@@ -85,6 +109,18 @@ class RTCRtpSender final : public ScriptWrappable {
   MediaStreamVector streams_;
   Member<RTCRtpSendParameters> last_returned_parameters_;
   Member<RTCRtpTransceiver> transceiver_;
+
+  // Insertable Streams audio support
+  bool force_encoded_audio_insertable_streams_;
+  Member<RTCEncodedAudioUnderlyingSource> audio_from_encoder_underlying_source_;
+  Member<RTCEncodedAudioUnderlyingSink> audio_to_packetizer_underlying_sink_;
+  Member<RTCInsertableStreams> encoded_audio_streams_;
+
+  // Insertable Streams video support
+  bool force_encoded_video_insertable_streams_;
+  Member<RTCEncodedVideoUnderlyingSource> video_from_encoder_underlying_source_;
+  Member<RTCEncodedVideoUnderlyingSink> video_to_packetizer_underlying_sink_;
+  Member<RTCInsertableStreams> encoded_video_streams_;
 };
 
 }  // namespace blink

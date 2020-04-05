@@ -15,6 +15,7 @@ animationIterationCount
 animationName
 animationPlayState
 animationTimingFunction
+aspectRatio
 backdropFilter
 backfaceVisibility
 background
@@ -119,11 +120,7 @@ columnSpan
 columnWidth
 columns
 contain
-containIntrinsicBlockSize
-containIntrinsicHeight
-containIntrinsicInlineSize
 containIntrinsicSize
-containIntrinsicWidth
 content
 counterIncrement
 counterReset
@@ -235,6 +232,7 @@ markerStart
 mask
 maskSourceType
 maskType
+mathStyle
 maxBlockSize
 maxHeight
 maxInlineSize
@@ -302,7 +300,6 @@ position
 quotes
 r
 removeProperty
-renderSubtree
 resize
 right
 rotate
@@ -354,6 +351,7 @@ strokeLinejoin
 strokeMiterlimit
 strokeOpacity
 strokeWidth
+subtreeVisibility
 tabSize
 tableLayout
 textAlign

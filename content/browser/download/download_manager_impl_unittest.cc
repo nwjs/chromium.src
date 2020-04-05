@@ -15,6 +15,7 @@
 #include <utility>
 
 #include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/guid.h"
 #include "base/macros.h"
@@ -170,7 +171,6 @@ class MockDownloadItemFactory
       const base::FilePath& path,
       const GURL& url,
       const std::string& mime_type,
-      const net::NetworkIsolationKey& network_isolation_key,
       download::DownloadJob::CancelRequestCallback cancel_request_callback)
       override;
 
@@ -319,7 +319,6 @@ download::DownloadItemImpl* MockDownloadItemFactory::CreateSavePageItem(
     const base::FilePath& path,
     const GURL& url,
     const std::string& mime_type,
-    const net::NetworkIsolationKey& network_isolation_key,
     download::DownloadJob::CancelRequestCallback cancel_request_callback) {
   DCHECK(items_.find(download_id) == items_.end());
 

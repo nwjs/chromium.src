@@ -30,6 +30,7 @@
 #include "chrome/browser/defaults.h"
 #include "chrome/browser/themes/theme_properties.h"
 #include "chrome/browser/ui/layout_constants.h"
+#include "chrome/browser/ui/tabs/tab_group_theme.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_types.h"
 #include "chrome/browser/ui/ui_features.h"
@@ -52,6 +53,7 @@
 #include "chrome/browser/ui/views/tabs/tab_strip_observer.h"
 #include "chrome/browser/ui/views/tabs/tab_style_views.h"
 #include "chrome/browser/ui/views/touch_uma/touch_uma.h"
+#include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/grit/theme_resources.h"
 #include "components/tab_groups/tab_group_color.h"
@@ -63,11 +65,11 @@
 #include "third_party/skia/include/pathops/SkPathOps.h"
 #include "ui/accessibility/ax_node_data.h"
 #include "ui/base/clipboard/clipboard.h"
-#include "ui/base/default_theme_provider.h"
 #include "ui/base/dragdrop/drag_drop_types.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/models/list_selection_model.h"
 #include "ui/base/resource/resource_bundle.h"
+#include "ui/base/theme_provider.h"
 #include "ui/display/display.h"
 #include "ui/display/screen.h"
 #include "ui/gfx/animation/throb_animation.h"
@@ -99,8 +101,6 @@
 #if defined(USE_AURA)
 #include "ui/aura/window.h"
 #endif
-
-using MD = ui::MaterialDesignController;
 
 namespace {
 
@@ -267,7 +267,8 @@ TabDragController::EventSource EventSourceFromEvent(
 }
 
 int GetStackableTabWidth() {
-  return TabStyle::GetTabOverlap() + (MD::touch_ui() ? 136 : 102);
+  return TabStyle::GetTabOverlap() +
+         (ui::TouchUiController::Get()->touch_ui() ? 136 : 102);
 }
 
 }  // namespace
@@ -652,7 +653,8 @@ class TabStrip::TabDragContextImpl : public TabDragContext {
 
   void StartedDragging(const std::vector<TabSlotView*>& views) override {
     // Let the controller know that the user started dragging tabs.
-    tab_strip_->controller_->OnStartedDragging();
+    tab_strip_->controller_->OnStartedDragging(
+        views.size() == static_cast<size_t>(tab_strip_->GetModelCount()));
 
     // Hide the new tab button immediately if we didn't originate the drag.
     if (!drag_controller_)
@@ -935,7 +937,6 @@ TabStrip::TabStrip(std::unique_ptr<TabStripController> controller)
       drag_context_(std::make_unique<TabDragContextImpl>(this)) {
   Init();
   SetEventTargeter(std::make_unique<views::ViewTargeter>(this));
-  md_observer_.Add(MD::GetInstance());
 }
 
 TabStrip::~TabStrip() {
@@ -1062,7 +1063,7 @@ bool TabStrip::TabHasNetworkError(int tab_index) const {
 }
 
 base::Optional<TabAlertState> TabStrip::GetTabAlertState(int tab_index) const {
-  return tab_at(tab_index)->data().alert_state;
+  return Tab::GetAlertStateToShow(tab_at(tab_index)->data().alert_state);
 }
 
 void TabStrip::UpdateLoadingAnimations(const base::TimeDelta& elapsed_time) {
@@ -1555,8 +1556,20 @@ void TabStrip::SelectTab(Tab* tab, const ui::Event& event) {
   int model_index = GetModelIndexOf(tab);
 
   if (IsValidModelIndex(model_index)) {
-    if (tab->group().has_value() && !tab->IsActive())
-      base::RecordAction(base::UserMetricsAction("TabGroups_SwitchGroupedTab"));
+    if (!tab->IsActive()) {
+      int current_selection = selected_tabs_.active();
+      base::UmaHistogramSparse("Tabs.DesktopTabOffsetOfSwitch",
+                               current_selection - model_index);
+      base::UmaHistogramSparse("Tabs.DesktopTabOffsetFromLeftOfSwitch",
+                               model_index);
+      base::UmaHistogramSparse("Tabs.DesktopTabOffsetFromRightOfSwitch",
+                               GetModelCount() - model_index - 1);
+
+      if (tab->group().has_value()) {
+        base::RecordAction(
+            base::UserMetricsAction("TabGroups_SwitchGroupedTab"));
+      }
+    }
 
     // Report histogram metrics for the number of tab hover cards seen before
     // a tab is selected by mouse press.
@@ -1629,7 +1642,7 @@ void TabStrip::CloseTab(Tab* tab, CloseTabSource source) {
   UpdateHoverCard(nullptr);
   if (tab->group().has_value())
     base::RecordAction(base::UserMetricsAction("CloseGroupedTab"));
-  controller_->CloseTab(model_index, source);
+  controller_->CloseTab(model_index);
 }
 
 void TabStrip::ShiftTabLeft(Tab* tab) {
@@ -1842,6 +1855,11 @@ void TabStrip::UpdateHoverCard(Tab* tab) {
     hover_card_->FadeOutToHide();
 }
 
+bool TabStrip::ShowDomainInHoverCard(const Tab* tab) const {
+  const auto* app_controller = controller_->GetBrowser()->app_controller();
+  return !app_controller || !app_controller->is_for_system_web_app();
+}
+
 bool TabStrip::HoverCardIsShowingForTab(Tab* tab) {
   if (!base::FeatureList::IsEnabled(features::kTabHoverCards))
     return false;
@@ -1893,28 +1911,18 @@ SkColor TabStrip::GetTabBackgroundColor(
   if (!tp)
     return SK_ColorBLACK;
 
-  if (active == TabActive::kActive)
-    return tp->GetColor(ThemeProperties::COLOR_TOOLBAR);
+  constexpr int kColorIds[2][2] = {
+      {ThemeProperties::COLOR_TAB_BACKGROUND_INACTIVE_FRAME_INACTIVE,
+       ThemeProperties::COLOR_TAB_BACKGROUND_INACTIVE_FRAME_ACTIVE},
+      {ThemeProperties::COLOR_TAB_BACKGROUND_ACTIVE_FRAME_INACTIVE,
+       ThemeProperties::COLOR_TAB_BACKGROUND_ACTIVE_FRAME_ACTIVE}};
 
-  bool is_active_frame;
-  if (active_state == BrowserFrameActiveState::kUseCurrent)
-    is_active_frame = ShouldPaintAsActiveFrame();
-  else
-    is_active_frame = active_state == BrowserFrameActiveState::kActive;
-
-  const int color_id = is_active_frame
-                           ? ThemeProperties::COLOR_BACKGROUND_TAB
-                           : ThemeProperties::COLOR_BACKGROUND_TAB_INACTIVE;
-  // When the background tab color has not been customized, use the actual frame
-  // color instead of COLOR_BACKGROUND_TAB.
-  const SkColor frame = controller_->GetFrameColor(active_state);
-  const SkColor background =
-      tp->HasCustomColor(color_id)
-          ? tp->GetColor(color_id)
-          : color_utils::HSLShift(
-                frame, tp->GetTint(ThemeProperties::TINT_BACKGROUND_TAB));
-
-  return color_utils::GetResultingPaintColor(background, frame);
+  using State = BrowserFrameActiveState;
+  const bool tab_active = active == TabActive::kActive;
+  const bool frame_active =
+      (active_state == State::kActive) ||
+      ((active_state == State::kUseCurrent) && ShouldPaintAsActiveFrame());
+  return tp->GetColor(kColorIds[tab_active][frame_active]);
 }
 
 SkColor TabStrip::GetTabForegroundColor(TabActive active,
@@ -1923,27 +1931,31 @@ SkColor TabStrip::GetTabForegroundColor(TabActive active,
   if (!tp)
     return SK_ColorBLACK;
 
-  const bool is_active_frame = ShouldPaintAsActiveFrame();
+  constexpr int kColorIds[2][2] = {
+      {ThemeProperties::COLOR_TAB_FOREGROUND_INACTIVE_FRAME_INACTIVE,
+       ThemeProperties::COLOR_TAB_FOREGROUND_INACTIVE_FRAME_ACTIVE},
+      {ThemeProperties::COLOR_TAB_FOREGROUND_ACTIVE_FRAME_INACTIVE,
+       ThemeProperties::COLOR_TAB_FOREGROUND_ACTIVE_FRAME_ACTIVE}};
 
-  // This color varies based on the tab and frame active states.
-  int color_id = ThemeProperties::COLOR_TAB_TEXT;
-  if (active != TabActive::kActive) {
-    color_id = is_active_frame
-                   ? ThemeProperties::COLOR_BACKGROUND_TAB_TEXT
-                   : ThemeProperties::COLOR_BACKGROUND_TAB_TEXT_INACTIVE;
-  }
+  const bool tab_active = active == TabActive::kActive;
+  const bool frame_active = ShouldPaintAsActiveFrame();
+  const int color_id = kColorIds[tab_active][frame_active];
+
   SkColor color = tp->GetColor(color_id);
   if (tp->HasCustomColor(color_id))
     return color;
-  if ((color_id == ThemeProperties::COLOR_BACKGROUND_TAB_TEXT_INACTIVE) &&
-      tp->HasCustomColor(ThemeProperties::COLOR_BACKGROUND_TAB_TEXT)) {
+  if ((color_id ==
+       ThemeProperties::COLOR_TAB_FOREGROUND_INACTIVE_FRAME_INACTIVE) &&
+      tp->HasCustomColor(
+          ThemeProperties::COLOR_TAB_FOREGROUND_INACTIVE_FRAME_ACTIVE)) {
     // If a custom theme sets a background tab text color for active but not
     // inactive windows, generate the inactive color by blending the active one
     // at 75% as we do in the default theme.
-    color = tp->GetColor(ThemeProperties::COLOR_BACKGROUND_TAB_TEXT);
+    color = tp->GetColor(
+        ThemeProperties::COLOR_TAB_FOREGROUND_INACTIVE_FRAME_ACTIVE);
   }
 
-  if (!is_active_frame)
+  if (!frame_active)
     color = color_utils::AlphaBlend(color, background_color, 0.75f);
 
   // To minimize any readability cost of custom system frame colors, try to make
@@ -1953,12 +1965,11 @@ SkColor TabStrip::GetTabForegroundColor(TabActive active,
   // colors when no system colors are involved, except for the inactive tab/
   // inactive frame case, which has been raised from 4.48 to 4.5 to meet
   // accessibility guidelines.
-  constexpr float kContrast[2][2] = {{5.0f,     // Active tab, inactive frame
-                                      10.46f},  // Active tab, active frame
-                                     {4.5f,     // Inactive tab, inactive frame
-                                      7.98f}};  // Inactive tab, active frame
-  const float contrast =
-      kContrast[active == TabActive::kActive ? 0 : 1][is_active_frame];
+  constexpr float kContrast[2][2] = {{4.5f,      // Inactive tab, inactive frame
+                                      7.98f},    // Inactive tab, active frame
+                                     {5.0f,      // Active tab, inactive frame
+                                      10.46f}};  // Active tab, active frame
+  const float contrast = kContrast[tab_active][frame_active];
   return color_utils::BlendForMinContrast(color, background_color, target,
                                           contrast)
       .color;
@@ -2016,43 +2027,10 @@ tab_groups::TabGroupColorId TabStrip::GetGroupColorId(
 
 SkColor TabStrip::GetPaintedGroupColor(
     const tab_groups::TabGroupColorId& color_id) const {
-  const tab_groups::TabGroupColor color_data =
-      tab_groups::GetTabGroupColorSet().at(color_id);
-
-  const SkColor background = GetTabBackgroundColor(
-      TabActive::kInactive, BrowserFrameActiveState::kUseCurrent);
-
-  return color_utils::IsDark(background) ? color_data.dark_theme_color
-                                         : color_data.light_theme_color;
+  return GetThemeProvider()->GetColor(
+      GetTabGroupTabStripColorId(color_id, ShouldPaintAsActiveFrame()));
 }
 
-void TabStrip::SetVisualDataForGroup(
-    const tab_groups::TabGroupId& group,
-    const tab_groups::TabGroupVisualData& visual_data) {
-  controller_->SetVisualDataForGroup(group, visual_data);
-}
-
-void TabStrip::CloseAllTabsInGroup(const tab_groups::TabGroupId& group) {
-  UpdateHoverCard(nullptr);
-
-  std::vector<int> tabs = controller_->ListTabsInGroup(group);
-  for (int i = tabs.size() - 1; i >= 0; i--) {
-    controller_->CloseTab(tabs[i], CLOSE_TAB_FROM_MOUSE);
-  }
-}
-
-void TabStrip::UngroupAllTabsInGroup(const tab_groups::TabGroupId& group) {
-  UpdateHoverCard(nullptr);
-  controller_->UngroupAllTabsInGroup(group);
-}
-
-void TabStrip::AddNewTabInGroup(const tab_groups::TabGroupId& group) {
-  controller_->AddNewTabInGroup(group);
-}
-
-const Browser* TabStrip::GetBrowser() {
-  return controller_->GetBrowser();
-}
 ///////////////////////////////////////////////////////////////////////////////
 // TabStrip, views::AccessiblePaneView overrides:
 
@@ -2269,6 +2247,7 @@ views::View* TabStrip::GetTooltipHandlerForPoint(const gfx::Point& point) {
 }
 
 void TabStrip::OnThemeChanged() {
+  views::AccessiblePaneView::OnThemeChanged();
   FrameColorsChanged();
 }
 
@@ -2736,11 +2715,10 @@ int TabStrip::GetViewInsertionIndex(Tab* tab,
     return 0;
 
   // If to_model_index is beyond the end of the tab strip, then the tab is newly
-  // added to the end of the tab strip. In that case we can just return the last
-  // TabSlotView view index, which should be at the sum of the number of tabs
-  // and groups.
+  // added to the end of the tab strip. In that case we can just return one
+  // beyond the view index of the last existing tab.
   if (to_model_index >= tab_count())
-    return tab_count() + group_views_.size();
+    return (tab_count() ? GetIndexOf(tab_at(tab_count() - 1)) + 1 : 0);
 
   // If there is no from_model_index, then the tab is newly added in the middle
   // of the tab strip. In that case we treat it as coming from the end of the
@@ -2754,6 +2732,9 @@ int TabStrip::GetViewInsertionIndex(Tab* tab,
   // anchor on the last known view index at the given to_model_index.
   Tab* other_tab = tab_at(to_model_index);
   int other_view_index = GetIndexOf(other_tab);
+
+  if (other_view_index <= 0)
+    return 0;
 
   // When moving to the right, just use the anchor index because the tab will
   // replace that position in both the model and the view. This happens because
@@ -3335,7 +3316,14 @@ Tab* TabStrip::FindTabHitByPoint(const gfx::Point& point) {
 }
 
 void TabStrip::SwapLayoutIfNecessary() {
-  bool needs_touch = NeedsTouchLayout();
+  // TODO(crbug.com/1053707): Tab groups is disabled with stacked tabs to
+  // prevent crashes during development. This will not impact users unless tab
+  // groups are manually enabled.
+  // Tab groups should only be rolled out on devices where
+  // features::kWebUITabStrip is enabled which is mutually exclusive with
+  // stacked tabs.
+  bool needs_touch =
+      NeedsTouchLayout() && !base::FeatureList::IsEnabled(features::kTabGroups);
   bool using_touch = touch_layout_ != nullptr;
   if (needs_touch == using_touch)
     return;

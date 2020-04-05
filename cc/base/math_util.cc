@@ -72,17 +72,14 @@ static void homogenousLimitAtZero(SkScalar a1,
                                   float* limit) {
   // This is the tolerance for detecting an eyepoint-aligned edge.
   static const float kStationaryPointEplison = 0.00001f;
-  // This needs to be big enough to not be the limit of clipping, but not so
-  // big that using it as a size destroys the offset in a rect.
-  static const float kInfiniteCoordinate = 1000000.0f;
 
   if (std::abs(a1 * w2 / w1 / a2 - 1.0f) > kStationaryPointEplison) {
     // We are going to explode towards an infity, but we choose the one that
     // corresponds to the one on the positive side of w.
     if (((1.0f - t) * a1 + t * a2) > 0) {
-      *limit = kInfiniteCoordinate;
+      *limit = HomogeneousCoordinate::kInfiniteCoordinate;
     } else {
-      *limit = -kInfiniteCoordinate;
+      *limit = -HomogeneousCoordinate::kInfiniteCoordinate;
     }
   } else {
     *limit = a1 / w1;  // (== a2 / w2) && == (1.0f - t) * a1 / w1 + t * a2 / w2
@@ -632,22 +629,6 @@ gfx::Vector2dF MathUtil::ProjectVector(const gfx::Vector2dF& source,
                         projected_length * destination.y());
 }
 
-std::unique_ptr<base::Value> MathUtil::AsValue(const gfx::Size& s) {
-  std::unique_ptr<base::DictionaryValue> res(new base::DictionaryValue());
-  res->SetDouble("width", s.width());
-  res->SetDouble("height", s.height());
-  return std::move(res);
-}
-
-std::unique_ptr<base::Value> MathUtil::AsValue(const gfx::Rect& r) {
-  std::unique_ptr<base::ListValue> res(new base::ListValue());
-  res->AppendInteger(r.x());
-  res->AppendInteger(r.y());
-  res->AppendInteger(r.width());
-  res->AppendInteger(r.height());
-  return std::move(res);
-}
-
 bool MathUtil::FromValue(const base::Value* raw_value, gfx::Rect* out_rect) {
   const base::ListValue* value = nullptr;
   if (!raw_value->GetAsList(&value))
@@ -667,13 +648,6 @@ bool MathUtil::FromValue(const base::Value* raw_value, gfx::Rect* out_rect) {
 
   *out_rect = gfx::Rect(x, y, w, h);
   return true;
-}
-
-std::unique_ptr<base::Value> MathUtil::AsValue(const gfx::PointF& pt) {
-  std::unique_ptr<base::ListValue> res(new base::ListValue());
-  res->AppendDouble(pt.x());
-  res->AppendDouble(pt.y());
-  return std::move(res);
 }
 
 void MathUtil::AddToTracedValue(const char* name,

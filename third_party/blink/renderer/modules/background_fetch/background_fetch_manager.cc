@@ -159,7 +159,7 @@ scoped_refptr<BlobDataHandle> ExtractBlobHandle(
 
 BackgroundFetchManager::BackgroundFetchManager(
     ServiceWorkerRegistration* registration)
-    : ContextLifecycleObserver(registration->GetExecutionContext()),
+    : ExecutionContextLifecycleObserver(registration->GetExecutionContext()),
       registration_(registration) {
   DCHECK(registration);
   bridge_ = BackgroundFetchBridge::From(registration_);
@@ -559,15 +559,15 @@ void BackgroundFetchManager::DidGetDeveloperIds(
   NOTREACHED();
 }
 
-void BackgroundFetchManager::Trace(blink::Visitor* visitor) {
+void BackgroundFetchManager::Trace(Visitor* visitor) {
   visitor->Trace(registration_);
   visitor->Trace(bridge_);
   visitor->Trace(loaders_);
-  ContextLifecycleObserver::Trace(visitor);
+  ExecutionContextLifecycleObserver::Trace(visitor);
   ScriptWrappable::Trace(visitor);
 }
 
-void BackgroundFetchManager::ContextDestroyed(ExecutionContext* context) {
+void BackgroundFetchManager::ContextDestroyed() {
   for (const auto& loader : loaders_) {
     if (loader)
       loader->Stop();

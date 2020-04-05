@@ -49,14 +49,14 @@ class CORE_EXPORT TextFragmentAnchor final : public FragmentAnchor,
 
   void Installed() override;
 
-  void DidScroll(mojom::blink::ScrollIntoViewParams::Type type) override;
+  void DidScroll(mojom::blink::ScrollType type) override;
 
   void PerformPreRafActions() override;
 
   // Removes text match highlights if any highlight is in view.
   bool Dismiss() override;
 
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
 
   // TextFragmentFinder::Client interface
   void DidFindMatch(const EphemeralRangeInFlatTree& range) override;

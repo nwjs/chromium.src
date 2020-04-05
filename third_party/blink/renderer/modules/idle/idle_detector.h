@@ -13,7 +13,7 @@
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_idle_options.h"
 #include "third_party/blink/renderer/core/dom/events/event_target.h"
-#include "third_party/blink/renderer/core/execution_context/context_lifecycle_observer.h"
+#include "third_party/blink/renderer/core/execution_context/execution_context_lifecycle_observer.h"
 #include "third_party/blink/renderer/modules/event_modules.h"
 #include "third_party/blink/renderer/modules/event_target_modules.h"
 #include "third_party/blink/renderer/modules/idle/idle_state.h"
@@ -26,7 +26,7 @@ class ExceptionState;
 
 class IdleDetector final : public EventTargetWithInlineData,
                            public ActiveScriptWrappable<IdleDetector>,
-                           public ContextClient,
+                           public ExecutionContextClient,
                            public mojom::blink::IdleMonitor {
   USING_GARBAGE_COLLECTED_MIXIN(IdleDetector);
   DEFINE_WRAPPERTYPEINFO();
@@ -63,7 +63,7 @@ class IdleDetector final : public EventTargetWithInlineData,
   // causes an event to be dispatched.
   void Update(mojom::blink::IdleStatePtr state) override;
 
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
 
  private:
   Member<blink::IdleState> state_;

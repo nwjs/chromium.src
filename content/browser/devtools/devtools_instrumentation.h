@@ -28,7 +28,13 @@ class UnguessableToken;
 namespace net {
 class SSLInfo;
 class X509Certificate;
+struct CookieWithStatus;
 }  // namespace net
+
+namespace download {
+struct DownloadCreateInfo;
+class DownloadItem;
+}  // namespace download
 
 namespace content {
 class SignedExchangeEnvelope;
@@ -53,13 +59,13 @@ bool WillCreateURLLoaderFactory(
     bool is_navigation,
     bool is_download,
     mojo::PendingReceiver<network::mojom::URLLoaderFactory>*
-        loader_factory_receiver);
+        loader_factory_receiver,
+    network::mojom::URLLoaderFactoryOverridePtr* factory_override);
 
 bool WillCreateURLLoaderFactoryForServiceWorker(
     RenderProcessHost* rph,
     int routing_id,
-    mojo::PendingReceiver<network::mojom::URLLoaderFactory>*
-        loader_factory_receiver);
+    network::mojom::URLLoaderFactoryOverridePtr* factory_override);
 
 bool WillCreateURLLoaderFactory(
     RenderFrameHostImpl* rfh,
@@ -76,9 +82,8 @@ void OnNavigationRequestFailed(
     const NavigationRequest& nav_request,
     const network::URLLoaderCompletionStatus& status);
 
-void WillBeginDownload(int render_process_id,
-                       int render_frame_id,
-                       const GURL& url);
+void WillBeginDownload(download::DownloadCreateInfo* info,
+                       download::DownloadItem* item);
 
 void OnSignedExchangeReceived(
     FrameTreeNode* frame_tree_node,
@@ -119,9 +124,26 @@ void OnResponseReceivedExtraInfo(
     const net::CookieAndLineStatusList& response_cookie_list,
     const std::vector<network::mojom::HttpRawHeaderPairPtr>& response_headers,
     const base::Optional<std::string>& response_headers_text);
+void OnCorsPreflightRequest(int32_t process_id,
+                            int32_t render_frame_id,
+                            const base::UnguessableToken& devtools_request_id,
+                            const network::ResourceRequest& request,
+                            const GURL& signed_exchange_url);
+void OnCorsPreflightResponse(int32_t process_id,
+                             int32_t render_frame_id,
+                             const base::UnguessableToken& devtools_request_id,
+                             const GURL& url,
+                             network::mojom::URLResponseHeadPtr head);
+void OnCorsPreflightRequestCompleted(
+    int32_t process_id,
+    int32_t render_frame_id,
+    const base::UnguessableToken& devtools_request_id,
+    const network::URLLoaderCompletionStatus& status);
 
 std::vector<std::unique_ptr<NavigationThrottle>> CreateNavigationThrottles(
     NavigationHandle* navigation_handle);
+
+bool ShouldWaitForDebuggerInWindowOpen();
 
 // Asks any interested agents to handle the given certificate error. Returns
 // |true| if the error was handled, |false| otherwise.
@@ -136,6 +158,10 @@ void PortalAttached(RenderFrameHostImpl* render_frame_host_impl);
 void PortalDetached(RenderFrameHostImpl* render_frame_host_impl);
 void PortalActivated(RenderFrameHostImpl* render_frame_host_impl);
 
+void ReportSameSiteCookieIssue(RenderFrameHostImpl* render_frame_host_impl,
+                               const net::CookieWithStatus& excluded_cookie,
+                               const GURL& url,
+                               const GURL& site_for_cookies);
 }  // namespace devtools_instrumentation
 
 }  // namespace content

@@ -97,6 +97,7 @@
 <translation id="2149973817440762519">Uredi oznaku</translation>
 <translation id="2179182049312275900">Sinhronizaciju uvijek možete uključiti u postavkama.</translation>
 <translation id="2198757192731523470">Google može koristiti vašu historiju za personalizaciju Pretraživanja, oglasa i drugih Googleovih usluga.</translation>
+<translation id="2218443599109088993">Umanji</translation>
 <translation id="2230173723195178503">Web lokacija je učitana</translation>
 <translation id="2239626343334228536">Brisanje podataka pregledanja...</translation>
 <translation id="2257567812274161158">Sinhronizacija ne funkcionira.</translation>
@@ -159,6 +160,7 @@
 <translation id="2923448633003185837">Zalijepi i kreni</translation>
 <translation id="292639812446257861">Označi kao nepročitano</translation>
 <translation id="2958718410589002129">Lozinke</translation>
+<translation id="2964349545761222050">Blokiraj kolačiće trećih strana</translation>
 <translation id="2969979262385602596">Prijava nije uspjela. Pokušajte ponovo kasnije.</translation>
 <translation id="298306318844797842">Dodajte način plaćanja...</translation>
 <translation id="2989805286512600854">Otvori u novoj kartici</translation>
@@ -178,6 +180,7 @@
 <translation id="3290875554372353449">Odaberite račun</translation>
 <translation id="3311748811247479259">Isključeno</translation>
 <translation id="3324193307694657476">2. red za adresu</translation>
+<translation id="3328801116991980348">Informacije o web lokaciji</translation>
 <translation id="3329904751041170572">Povezivanje s poslužiteljem nije moguće.</translation>
 <translation id="3335947283844343239">Ponovo otvori zatvorenu karticu</translation>
 <translation id="3371831930909698441">Dostupan je Prevodilac. Opcije su dostupne pri dnu ekrana.</translation>
@@ -300,6 +303,7 @@ Da biste promijenili tu postavku, <ph name="BEGIN_LINK" />poništite sinkronizac
 <translation id="4979397965658815378">Prijavite se na svoj Google račun da dobijete oznake, lozinke, historiju i ostale postavke na svim svojim uređajima.</translation>
 <translation id="5005498671520578047">Kopiranje lozinke</translation>
 <translation id="5010803260590204777">Otvorite anonimnu karticu za privatno pregledanje weba.</translation>
+<translation id="5039020240289137291">Blokiranje kolačića treće strane</translation>
 <translation id="5039804452771397117">Dozvoli</translation>
 <translation id="5059136629401106827">UREDU</translation>
 <translation id="5062321486222145940">Instaliraj Google Disk</translation>
@@ -414,9 +418,11 @@ Vaši podaci su šifrirani sinhroniziranim pristupnim izrazom <ph name="TIME" />
 <translation id="6434591244308415567">Došlo je do greške. Pokušajte ponovo kasnije.</translation>
 <translation id="6445051938772793705">Država</translation>
 <translation id="6445981559479772097">Poruka je poslana.</translation>
+<translation id="6447842834002726250">Kolačići</translation>
 <translation id="6464071786529933911">Otvori u novoj anonimnoj kartici</translation>
 <translation id="6476800141292307438">Prevođenje stranice na <ph name="LANGUAGE" /> jezik. Opcije su dostupne pri dnu ekrana.</translation>
 <translation id="6482629121755362506">Broj izbrisanih stavki je <ph name="NUMBER_OF_SELECTED_BOOKMARKS" /></translation>
+<translation id="6561262006871132942">Uvećaj</translation>
 <translation id="6610002944194042868">Opcije za prevođenje</translation>
 <translation id="6628106477656132239">Nevažeći datum isteka</translation>
 <translation id="6638511529934826365">Zumiraj tekst…</translation>
@@ -479,7 +485,6 @@ Vaši podaci su šifrirani sinhroniziranim pristupnim izrazom <ph name="TIME" />
 <translation id="734758817008927353">Opcije za čuvanje kartice</translation>
 <translation id="7348502496356775519">Označi</translation>
 <translation id="7383797227493018512">Lista za čitanje</translation>
-<translation id="7392048574806661116">Odjavite se i obrišite sinhronizirane podatke</translation>
 <translation id="7400418766976504921">URL</translation>
 <translation id="7409985198648820906">Broj nepročitanih članaka: <ph name="UNREAD_COUNT" />.</translation>
 <translation id="7425346204213733349">Promjene vaših oznaka, historije, lozinki i drugih postavki neće se više sinhronizirati s vašim Google računom. Međutim, vaši postojeći podaci će ostati pohranjeni na vašem Google računu.</translation>
@@ -598,6 +603,7 @@ Vaši podaci su šifrirani sinhroniziranim pristupnim izrazom <ph name="TIME" />
 <translation id="9223358826628549784">Izvještaj o padovima aplikacije je poslan.</translation>
 <translation id="952704832371081537">Otkaži</translation>
 <translation id="988141524645182168">Drugi uređaji</translation>
+<translation id="989697783705943787">Sigurnost web lokacije</translation>
 <translation id="989988560359834682">Uređivanje adrese</translation>
 <translation id="994757059139821576">Predloženi članci</translation>
 </translationbundle>

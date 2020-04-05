@@ -9,6 +9,7 @@
 #include "chrome/browser/extensions/api/safe_browsing_private/safe_browsing_private_event_router.h"
 #include "chrome/browser/extensions/api/safe_browsing_private/safe_browsing_private_event_router_factory.h"
 #include "chrome/browser/safe_browsing/cloud_content_scanning/binary_upload_service.h"
+#include "components/safe_browsing/core/proto/webprotect.pb.h"
 
 namespace safe_browsing {
 
@@ -50,25 +51,61 @@ void MaybeReportDeepScanningVerdict(Profile* profile,
                        return (c >= '0' && c <= '9') ||
                               (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f');
                      }));
-  if (result == BinaryUploadService::Result::FILE_TOO_LARGE) {
+  std::string unscanned_reason;
+  switch (result) {
+    case BinaryUploadService::Result::SUCCESS:
+    case BinaryUploadService::Result::UNAUTHORIZED:
+      // Don't report an unscanned file event on these results.
+      break;
+
+    case BinaryUploadService::Result::FILE_TOO_LARGE:
+      unscanned_reason = "fileTooLarge";
+      break;
+    case BinaryUploadService::Result::TIMEOUT:
+      unscanned_reason = "scanTimedOut";
+      break;
+    case BinaryUploadService::Result::FILE_ENCRYPTED:
+      unscanned_reason = "filePasswordProtected";
+      break;
+    case BinaryUploadService::Result::UNKNOWN:
+      unscanned_reason = "unknownError";
+      break;
+    case BinaryUploadService::Result::UPLOAD_FAILURE:
+      unscanned_reason = "uploadFailure";
+      break;
+    case BinaryUploadService::Result::FAILED_TO_GET_TOKEN:
+      unscanned_reason = "failedToGetToken";
+      break;
+    case BinaryUploadService::Result::UNSUPPORTED_FILE_TYPE:
+      unscanned_reason = "unsupportedFileType";
+  }
+
+  if (!unscanned_reason.empty()) {
     extensions::SafeBrowsingPrivateEventRouterFactory::GetForProfile(profile)
         ->OnUnscannedFileEvent(url, file_name, download_digest_sha256,
-                               mime_type, trigger, "fileTooLarge",
-                               content_size);
-  } else if (result == BinaryUploadService::Result::TIMEOUT) {
-    extensions::SafeBrowsingPrivateEventRouterFactory::GetForProfile(profile)
-        ->OnUnscannedFileEvent(url, file_name, download_digest_sha256,
-                               mime_type, trigger, "scanTimedOut",
-                               content_size);
-  } else if (result == BinaryUploadService::Result::FILE_ENCRYPTED) {
-    extensions::SafeBrowsingPrivateEventRouterFactory::GetForProfile(profile)
-        ->OnUnscannedFileEvent(url, file_name, download_digest_sha256,
-                               mime_type, trigger, "filePasswordProtected",
+                               mime_type, trigger, unscanned_reason,
                                content_size);
   }
 
   if (result != BinaryUploadService::Result::SUCCESS)
     return;
+
+  if (response.has_malware_scan_verdict() &&
+      response.malware_scan_verdict().verdict() ==
+          MalwareDeepScanningVerdict::SCAN_FAILURE) {
+    extensions::SafeBrowsingPrivateEventRouterFactory::GetForProfile(profile)
+        ->OnUnscannedFileEvent(url, file_name, download_digest_sha256,
+                               mime_type, trigger, "malwareScanFailed",
+                               content_size);
+  }
+
+  if (response.has_dlp_scan_verdict() &&
+      response.dlp_scan_verdict().status() != DlpDeepScanningVerdict::SUCCESS) {
+    extensions::SafeBrowsingPrivateEventRouterFactory::GetForProfile(profile)
+        ->OnUnscannedFileEvent(url, file_name, download_digest_sha256,
+                               mime_type, trigger, "dlpScanFailed",
+                               content_size);
+  }
 
   if (response.malware_scan_verdict().verdict() ==
           MalwareDeepScanningVerdict::UWS ||
@@ -92,6 +129,23 @@ void MaybeReportDeepScanningVerdict(Profile* profile,
   }
 }
 
+void ReportSensitiveDataWarningBypass(Profile* profile,
+                                      const GURL& url,
+                                      const std::string& file_name,
+                                      const std::string& download_digest_sha256,
+                                      const std::string& mime_type,
+                                      const std::string& trigger,
+                                      const int64_t content_size) {
+  DCHECK(std::all_of(download_digest_sha256.begin(),
+                     download_digest_sha256.end(), [](const char& c) {
+                       return (c >= '0' && c <= '9') ||
+                              (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f');
+                     }));
+  extensions::SafeBrowsingPrivateEventRouterFactory::GetForProfile(profile)
+      ->OnSensitiveDataWarningBypassed(url, file_name, download_digest_sha256,
+                                       mime_type, trigger, content_size);
+}
+
 std::string DeepScanAccessPointToString(DeepScanAccessPoint access_point) {
   switch (access_point) {
     case DeepScanAccessPoint::DOWNLOAD:
@@ -112,6 +166,9 @@ void RecordDeepScanMetrics(DeepScanAccessPoint access_point,
                            int64_t total_bytes,
                            const BinaryUploadService::Result& result,
                            const DeepScanningClientResponse& response) {
+  // Don't record UMA metrics for this result.
+  if (result == BinaryUploadService::Result::UNAUTHORIZED)
+    return;
   bool dlp_verdict_success = response.has_dlp_scan_verdict()
                                  ? response.dlp_scan_verdict().status() ==
                                        DlpDeepScanningVerdict::SUCCESS
@@ -122,36 +179,7 @@ void RecordDeepScanMetrics(DeepScanAccessPoint access_point,
                 MalwareDeepScanningVerdict::VERDICT_UNSPECIFIED
           : true;
   bool success = dlp_verdict_success && malware_verdict_success;
-  std::string result_value;
-  switch (result) {
-    case BinaryUploadService::Result::SUCCESS:
-      if (success)
-        result_value = "Success";
-      else
-        result_value = "FailedToGetVerdict";
-      break;
-    case BinaryUploadService::Result::UPLOAD_FAILURE:
-      result_value = "UploadFailure";
-      break;
-    case BinaryUploadService::Result::TIMEOUT:
-      result_value = "Timeout";
-      break;
-    case BinaryUploadService::Result::FILE_TOO_LARGE:
-      result_value = "FileTooLarge";
-      break;
-    case BinaryUploadService::Result::FAILED_TO_GET_TOKEN:
-      result_value = "FailedToGetToken";
-      break;
-    case BinaryUploadService::Result::UNKNOWN:
-      result_value = "Unknown";
-      break;
-    case BinaryUploadService::Result::UNAUTHORIZED:
-      // Don't record UMA metrics for this result.
-      return;
-    case BinaryUploadService::Result::FILE_ENCRYPTED:
-      result_value = "FileEncrypted";
-      break;
-  }
+  std::string result_value = BinaryUploadServiceResultToString(result, success);
 
   // Update |success| so non-SUCCESS results don't log the bytes/sec metric.
   success &= (result == BinaryUploadService::Result::SUCCESS);
@@ -238,4 +266,62 @@ bool FileTypeSupported(bool for_malware_scan,
 
   return false;
 }
+
+DeepScanningClientResponse SimpleDeepScanningClientResponseForTesting(
+    base::Optional<bool> dlp_success,
+    base::Optional<bool> malware_success) {
+  DeepScanningClientResponse response;
+
+  if (dlp_success.has_value()) {
+    response.mutable_dlp_scan_verdict()->set_status(
+        DlpDeepScanningVerdict::SUCCESS);
+    if (!dlp_success.value()) {
+      DlpDeepScanningVerdict::TriggeredRule* rule =
+          response.mutable_dlp_scan_verdict()->add_triggered_rules();
+      rule->set_rule_name("rule");
+      rule->set_action(DlpDeepScanningVerdict::TriggeredRule::BLOCK);
+    }
+  }
+
+  if (malware_success.has_value()) {
+    if (malware_success.value()) {
+      response.mutable_malware_scan_verdict()->set_verdict(
+          MalwareDeepScanningVerdict::CLEAN);
+    } else {
+      response.mutable_malware_scan_verdict()->set_verdict(
+          MalwareDeepScanningVerdict::MALWARE);
+    }
+  }
+
+  return response;
+}
+
+std::string BinaryUploadServiceResultToString(
+    const BinaryUploadService::Result& result,
+    bool success) {
+  switch (result) {
+    case BinaryUploadService::Result::SUCCESS:
+      if (success)
+        return "Success";
+      else
+        return "FailedToGetVerdict";
+    case BinaryUploadService::Result::UPLOAD_FAILURE:
+      return "UploadFailure";
+    case BinaryUploadService::Result::TIMEOUT:
+      return "Timeout";
+    case BinaryUploadService::Result::FILE_TOO_LARGE:
+      return "FileTooLarge";
+    case BinaryUploadService::Result::FAILED_TO_GET_TOKEN:
+      return "FailedToGetToken";
+    case BinaryUploadService::Result::UNKNOWN:
+      return "Unknown";
+    case BinaryUploadService::Result::UNAUTHORIZED:
+      return "";
+    case BinaryUploadService::Result::FILE_ENCRYPTED:
+      return "FileEncrypted";
+    case BinaryUploadService::Result::UNSUPPORTED_FILE_TYPE:
+      return "UnsupportedFileType";
+  }
+}
+
 }  // namespace safe_browsing

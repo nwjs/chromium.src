@@ -97,6 +97,7 @@
 <translation id="2149973817440762519">Рэдагаваць закладку</translation>
 <translation id="2179182049312275900">Сінхранізацыю можна ўключыць у любы момант у наладах.</translation>
 <translation id="2198757192731523470">Google можа выкарыстоўваць вашу гісторыю, каб персаналізаваць пошук, паказ рэкламы і іншыя сэрвісы Google.</translation>
+<translation id="2218443599109088993">Паменшыць</translation>
 <translation id="2230173723195178503">Вэб-старонка загружана</translation>
 <translation id="2239626343334228536">Ідзе ачыстка даных прагляду...</translation>
 <translation id="2257567812274161158">Сінхранізацыя не працуе.</translation>
@@ -159,6 +160,7 @@
 <translation id="2923448633003185837">Уставіць і перайсці</translation>
 <translation id="292639812446257861">Пазначыць як непрачытаныя</translation>
 <translation id="2958718410589002129">Паролі</translation>
+<translation id="2964349545761222050">Блакіраваць староннія файлы cookie</translation>
 <translation id="2969979262385602596">Не ўдалося ўвайсці. Паўтарыце спробу пазней.</translation>
 <translation id="298306318844797842">Дадаць спосаб аплаты...</translation>
 <translation id="2989805286512600854">Адкрыць у новай укладцы</translation>
@@ -178,6 +180,7 @@
 <translation id="3290875554372353449">Выберыце ўлік. запіс</translation>
 <translation id="3311748811247479259">Выключана</translation>
 <translation id="3324193307694657476">Радок адраса 2</translation>
+<translation id="3328801116991980348">Звесткі пра сайт</translation>
 <translation id="3329904751041170572">Не ўдалося падключыцца да сервера.</translation>
 <translation id="3335947283844343239">Паўторна адкрыць закрытыя ўкладкі</translation>
 <translation id="3371831930909698441">Пераклад гатовы. Параметры знаходзяцца ў ніжняй частцы экрана.</translation>
@@ -300,6 +303,7 @@
 <translation id="4979397965658815378">Каб закладкі, паролі, гісторыя і іншыя налады былі даступнымі на ўсіх вашых прыладах, увайдзіце ва Уліковы запіс Google</translation>
 <translation id="5005498671520578047">Капіраваць пароль</translation>
 <translation id="5010803260590204777">Для прыватнага прагляду вэб-сайтаў адкрыйце ўкладку інкогніта.</translation>
+<translation id="5039020240289137291">Блакіроўка старонніх файлаў cookie</translation>
 <translation id="5039804452771397117">Дазволіць</translation>
 <translation id="5059136629401106827">OK</translation>
 <translation id="5062321486222145940">Усталяваць Google Дыск</translation>
@@ -414,9 +418,11 @@
 <translation id="6434591244308415567">Адбылася памылка. Паўтарыце спробу пазней.</translation>
 <translation id="6445051938772793705">Краіна</translation>
 <translation id="6445981559479772097">Паведамленне адпраўлена.</translation>
+<translation id="6447842834002726250">Файлы cookie</translation>
 <translation id="6464071786529933911">Адкрыць у новай укладцы інкогніта</translation>
 <translation id="6476800141292307438">Старонка перакладаецца на мову "<ph name="LANGUAGE" />". Параметры знаходзяцца ў ніжняй частцы экрана.</translation>
 <translation id="6482629121755362506">Выдалена элементаў: <ph name="NUMBER_OF_SELECTED_BOOKMARKS" /></translation>
+<translation id="6561262006871132942">Павялічыць</translation>
 <translation id="6610002944194042868">Параметры перакладу</translation>
 <translation id="6628106477656132239">Несапраўдны тэрмін дзеяння</translation>
 <translation id="6638511529934826365">Змяніць памер тэксту…</translation>
@@ -479,7 +485,6 @@
 <translation id="734758817008927353">Параметры захавання карткі</translation>
 <translation id="7348502496356775519">Дадаць у закладкі</translation>
 <translation id="7383797227493018512">Спіс для чытання</translation>
-<translation id="7392048574806661116">Выйсці і выдаліць сінхранізаваныя даныя</translation>
 <translation id="7400418766976504921">URL-адрас</translation>
 <translation id="7409985198648820906">Непрачытаных артыкулаў: <ph name="UNREAD_COUNT" />.</translation>
 <translation id="7425346204213733349">Змены ў закладках, гісторыі, паролях і іншых наладах больш не будуць сінхранізавацца з Уліковым запісам Google. Але існуючыя даныя застануцца ва Уліковым запісе Google.</translation>
@@ -598,6 +603,7 @@
 <translation id="9223358826628549784">Справаздача аб збоях адпраўлена.</translation>
 <translation id="952704832371081537">Скасаваць</translation>
 <translation id="988141524645182168">Іншыя прылады</translation>
+<translation id="989697783705943787">Бяспека сайта</translation>
 <translation id="989988560359834682">Рэдагаваць адрас</translation>
 <translation id="994757059139821576">Прапановы артыкулаў</translation>
 </translationbundle>

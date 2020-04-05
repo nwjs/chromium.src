@@ -25,6 +25,7 @@
 #include "components/signin/internal/identity_manager/primary_account_policy_manager_impl.h"
 #include "components/signin/public/base/test_signin_client.h"
 #include "components/signin/public/identity_manager/accounts_mutator.h"
+#include "components/signin/public/identity_manager/consent_level.h"
 #include "components/signin/public/identity_manager/device_accounts_synchronizer.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
@@ -252,6 +253,11 @@ CoreAccountInfo IdentityTestEnvironment::SetPrimaryAccount(
   return signin::SetPrimaryAccount(identity_manager(), email);
 }
 
+CoreAccountInfo IdentityTestEnvironment::SetUnconsentedPrimaryAccount(
+    const std::string& email) {
+  return signin::SetUnconsentedPrimaryAccount(identity_manager(), email);
+}
+
 void IdentityTestEnvironment::SetRefreshTokenForPrimaryAccount() {
   signin::SetRefreshTokenForPrimaryAccount(identity_manager());
 }
@@ -271,7 +277,7 @@ AccountInfo IdentityTestEnvironment::MakePrimaryAccountAvailable(
 
 AccountInfo IdentityTestEnvironment::MakeUnconsentedPrimaryAccountAvailable(
     const std::string& email) {
-  DCHECK(!identity_manager()->HasUnconsentedPrimaryAccount());
+  DCHECK(!identity_manager()->HasPrimaryAccount(ConsentLevel::kNotRequired));
 #if defined(OS_CHROMEOS)
   // Chrome OS sets the unconsented primary account during login and does not
   // allow signout.
@@ -287,9 +293,10 @@ AccountInfo IdentityTestEnvironment::MakeUnconsentedPrimaryAccountAvailable(
       MakeAccountAvailableWithCookies(email, GetTestGaiaIdForEmail(email));
   base::RunLoop().RunUntilIdle();
 #endif
-  DCHECK(identity_manager()->HasUnconsentedPrimaryAccount());
-  DCHECK_EQ(email,
-            identity_manager()->GetUnconsentedPrimaryAccountInfo().email);
+  DCHECK(identity_manager()->HasPrimaryAccount(ConsentLevel::kNotRequired));
+  DCHECK_EQ(email, identity_manager()
+                       ->GetPrimaryAccountInfo(ConsentLevel::kNotRequired)
+                       .email);
   return account_info;
 }
 
@@ -374,7 +381,7 @@ void IdentityTestEnvironment::
         const std::string& token,
         const base::Time& expiration,
         const std::string& id_token,
-        const identity::ScopeSet& scopes) {
+        const ScopeSet& scopes) {
   WaitForAccessTokenRequestIfNecessary(base::nullopt);
   fake_token_service()->IssueTokenForScope(
       scopes,
@@ -415,7 +422,7 @@ IdentityTestEnvironment::AccessTokenRequestState::operator=(
 void IdentityTestEnvironment::OnAccessTokenRequested(
     const CoreAccountId& account_id,
     const std::string& consumer_id,
-    const identity::ScopeSet& scopes) {
+    const ScopeSet& scopes) {
   // Post a task to handle this access token request in order to support the
   // case where the access token request is handled synchronously in the
   // production code, in which case this callback could be coming in ahead

@@ -65,6 +65,7 @@ class ElementRareData;
 class ExceptionState;
 class FloatQuad;
 class FloatSize;
+class HTMLTemplateElement;
 class Image;
 class InputDeviceCapabilities;
 class Locale;
@@ -76,17 +77,13 @@ class PseudoElement;
 class PseudoElementStyleRequest;
 class ResizeObservation;
 class ResizeObserver;
-class ScriptPromise;
 class ScrollIntoViewOptions;
 class ScrollIntoViewOptionsOrBoolean;
 class ScrollToOptions;
 class ShadowRoot;
 class ShadowRootInit;
 class SpaceSplitString;
-class StringOrTrustedHTML;
 class StringOrTrustedHTMLOrTrustedScriptOrTrustedScriptURL;
-class StringOrTrustedScript;
-class StringOrTrustedScriptURL;
 class StylePropertyMap;
 class StylePropertyMapReadOnly;
 class V0CustomElementDefinition;
@@ -95,7 +92,6 @@ enum class CSSPropertyID;
 enum class CSSValueID;
 enum class DisplayLockActivationReason;
 enum class DisplayLockLifecycleTarget;
-enum class DisplayLockContextCreateMethod;
 
 using ScrollOffset = FloatSize;
 
@@ -117,6 +113,8 @@ enum class ElementFlags {
 };
 
 enum class ShadowRootType;
+enum class FocusDelegation;
+enum class SlotAssignmentMode;
 
 enum class SelectionBehaviorOnFocus {
   kReset,
@@ -197,6 +195,8 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   int GetIntegralAttribute(const QualifiedName& attribute_name) const;
   int GetIntegralAttribute(const QualifiedName& attribute_name,
                            int default_value) const;
+  unsigned int GetUnsignedIntegralAttribute(
+      const QualifiedName& attribute_name) const;
   void SetIntegralAttribute(const QualifiedName& attribute_name, int value);
   void SetUnsignedIntegralAttribute(const QualifiedName& attribute_name,
                                     unsigned value,
@@ -217,10 +217,17 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   bool HasExplicitlySetAttrAssociatedElements(const QualifiedName& name);
   Element* GetElementAttribute(const QualifiedName& name);
   void SetElementAttribute(const QualifiedName&, Element*);
-  HeapVector<Member<Element>> GetElementArrayAttribute(
+  base::Optional<HeapVector<Member<Element>>> GetElementArrayAttribute(
+      const QualifiedName& name);
+  // TODO(crbug.com/1060971): Remove |is_null| version.
+  HeapVector<Member<Element>> GetElementArrayAttribute(  // DEPRECATED
       const QualifiedName& name,
       bool& is_null);
-  void SetElementArrayAttribute(const QualifiedName&,
+  void SetElementArrayAttribute(
+      const QualifiedName&,
+      const base::Optional<HeapVector<Member<Element>>>&);
+  // TODO(crbug.com/1060971): Remove |is_null| version.
+  void SetElementArrayAttribute(const QualifiedName&,  // DEPRECATED
                                 HeapVector<Member<Element>>,
                                 bool is_null);
 
@@ -250,8 +257,7 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
 
   void setAttribute(const AtomicString& name,
                     const AtomicString& value,
-                    ExceptionState&);
-  void setAttribute(const AtomicString& name, const AtomicString& value);
+                    ExceptionState& = ASSERT_NO_EXCEPTION);
 
   // Trusted Types variant for explicit setAttribute() use.
   void setAttribute(const AtomicString&,
@@ -261,20 +267,7 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   // Returns attributes that should be checked against Trusted Types
   virtual const AttrNameToTrustedType& GetCheckedAttributeTypes() const;
 
-  // Trusted Type HTML variant
-  void setAttribute(const QualifiedName&,
-                    const StringOrTrustedHTML&,
-                    ExceptionState&);
-
-  // Trusted Type Script variant
-  void setAttribute(const QualifiedName&,
-                    const StringOrTrustedScript&,
-                    ExceptionState&);
-
-  // Trusted Type ScriptURL variant
-  void setAttribute(const QualifiedName&,
-                    const StringOrTrustedScriptURL&,
-                    ExceptionState&);
+  void setAttribute(const QualifiedName&, const String&, ExceptionState&);
 
   static bool ParseAttributeName(QualifiedName&,
                                  const AtomicString& namespace_uri,
@@ -548,6 +541,8 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   void RecalcStyleForTraversalRootAncestor();
   void RebuildLayoutTreeForTraversalRootAncestor() {
     RebuildFirstLetterLayoutTree();
+    WhitespaceAttacher whitespace_attacher;
+    RebuildMarkerLayoutTree(whitespace_attacher);
   }
   bool NeedsRebuildLayoutTree(
       const WhitespaceAttacher& whitespace_attacher) const {
@@ -571,6 +566,11 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   // createShadowRoot() is used without any parameters from JavaScript.
   ShadowRoot* createShadowRoot(ExceptionState&);
   ShadowRoot* attachShadow(const ShadowRootInit*, ExceptionState&);
+
+  void AttachDeclarativeShadowRoot(HTMLTemplateElement*,
+                                   ShadowRootType,
+                                   FocusDelegation,
+                                   SlotAssignmentMode);
 
   ShadowRoot& CreateV0ShadowRootForTesting() {
     return CreateShadowRootInternal();
@@ -651,8 +651,6 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   KURL HrefURL() const;
 
   KURL GetURLAttribute(const QualifiedName&) const;
-  void GetURLAttribute(const QualifiedName&, StringOrTrustedScriptURL&) const;
-  void FastGetAttribute(const QualifiedName&, StringOrTrustedHTML&) const;
 
   KURL GetNonEmptyURLAttribute(const QualifiedName&) const;
 
@@ -708,11 +706,6 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   // The implementation of |innerText()| is found in "element_inner_text.cc".
   String innerText();
   String outerText();
-  String InnerHTMLAsString() const;
-  String OuterHTMLAsString() const;
-  void SetInnerHTMLFromString(const String& html, ExceptionState&);
-  void SetInnerHTMLFromString(const String& html);
-  void SetOuterHTMLFromString(const String& html, ExceptionState&);
 
   Element* insertAdjacentElement(const String& where,
                                  Element* new_child,
@@ -724,16 +717,11 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
                           const String& html,
                           ExceptionState&);
 
-  // TrustedTypes variants of the above.
-  // TODO(mkwst): Write a spec for these bits. https://crbug.com/739170
-  void innerHTML(StringOrTrustedHTML&) const;
-  void outerHTML(StringOrTrustedHTML&) const;
-  void setInnerHTML(const StringOrTrustedHTML&, ExceptionState&);
-  void setInnerHTML(const StringOrTrustedHTML&);
-  void setOuterHTML(const StringOrTrustedHTML&, ExceptionState&);
-  void insertAdjacentHTML(const String& where,
-                          const StringOrTrustedHTML&,
-                          ExceptionState&);
+  String innerHTML() const;
+  String outerHTML() const;
+  void setInnerHTML(const String&, ExceptionState& = ASSERT_NO_EXCEPTION);
+  String getInnerHTML(bool include_shadow_roots) const;
+  void setOuterHTML(const String&, ExceptionState& = ASSERT_NO_EXCEPTION);
 
   void setPointerCapture(PointerId poinetr_id, ExceptionState&);
   void releasePointerCapture(PointerId pointer_id, ExceptionState&);
@@ -768,6 +756,7 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   PseudoElement* GetPseudoElement(PseudoId) const;
   LayoutObject* PseudoElementLayoutObject(PseudoId) const;
 
+  bool PseudoElementStylesDependOnFontMetrics() const;
   const ComputedStyle* CachedStyleForPseudoElement(
       const PseudoElementStyleRequest&);
   scoped_refptr<ComputedStyle> StyleForPseudoElement(
@@ -870,7 +859,9 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   }
   void SetIsInTopLayer(bool);
 
-  void requestPointerLock(const PointerLockOptions*);
+  ScriptValue requestPointerLock(ScriptState* script_state,
+                                 const PointerLockOptions* options,
+                                 ExceptionState& exception_state);
 
   bool IsSpellCheckingEnabled() const;
 
@@ -935,14 +926,9 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   ResizeObserverData() const;
   HeapHashMap<Member<ResizeObserver>, Member<ResizeObservation>>&
   EnsureResizeObserverData();
-  void SetNeedsResizeObserverUpdate();
 
   DisplayLockContext* GetDisplayLockContext() const;
-  DisplayLockContext& EnsureDisplayLockContext(DisplayLockContextCreateMethod);
-
-  // Display locking IDL implementation
-  ScriptPromise updateRendering(ScriptState*);
-  void resetSubtreeRendered();
+  DisplayLockContext& EnsureDisplayLockContext();
 
   bool StyleRecalcBlockedByDisplayLock(DisplayLockLifecycleTarget) const;
 
@@ -953,6 +939,10 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
 
   virtual void SetActive(bool active);
   virtual void SetHovered(bool hovered);
+
+  // Classes overriding this method can return true when an element has
+  // been determined to be from an ad. Returns false by default.
+  virtual bool IsAdRelated() const { return false; }
 
  protected:
   const ElementData* GetElementData() const { return element_data_.Get(); }
@@ -1010,6 +1000,17 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
 
   virtual void ParserDidSetAttributes() {}
 
+  // The "nonce" attribute is hidden when:
+  // 1) The Content-Security-Policy is delivered from the HTTP headers.
+  // 2) The Element is part of the active document.
+  // See https://github.com/whatwg/html/pull/2373
+  //
+  // This applies to the element of the HTML and SVG namespaces.
+  //
+  // This function clears the "nonce" attribute whenever conditions (1) and (2)
+  // are met.
+  void HideNonce();
+
  private:
   void ScrollLayoutBoxBy(const ScrollToOptions*);
   void ScrollLayoutBoxTo(const ScrollToOptions*);
@@ -1056,6 +1057,7 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
 
   void RebuildPseudoElementLayoutTree(PseudoId, WhitespaceAttacher&);
   void RebuildFirstLetterLayoutTree();
+  void RebuildMarkerLayoutTree(WhitespaceAttacher&);
   void RebuildShadowRootLayoutTree(WhitespaceAttacher&);
   inline void CheckForEmptyStyleChange(const Node* node_before_change,
                                        const Node* node_after_change);
@@ -1340,15 +1342,10 @@ inline UniqueElementData& Element::EnsureUniqueElementData() {
   return To<UniqueElementData>(*element_data_);
 }
 
-inline void Element::InvalidateStyleAttribute() {
-  DCHECK(GetElementData());
-  GetElementData()->style_attribute_is_dirty_ = true;
-}
-
 inline const CSSPropertyValueSet* Element::PresentationAttributeStyle() {
   if (!GetElementData())
     return nullptr;
-  if (GetElementData()->presentation_attribute_style_is_dirty_)
+  if (GetElementData()->presentation_attribute_style_is_dirty())
     UpdatePresentationAttributeStyle();
   // Need to call elementData() again since updatePresentationAttributeStyle()
   // might swap it with a UniqueElementData.

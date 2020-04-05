@@ -50,7 +50,7 @@ class CaptureServiceReceiver::Socket : public SmallMessageSocket::Delegate {
   void OnSendUnblocked() override;
   void OnError(int error) override;
   void OnEndOfStream() override;
-  bool OnMessage(char* data, int size) override;
+  bool OnMessage(char* data, size_t size) override;
 
   bool SendRequest();
   void OnInactivityTimeout();
@@ -94,7 +94,7 @@ CaptureServiceReceiver::Socket::~Socket() = default;
 
 bool CaptureServiceReceiver::Socket::SendRequest() {
   capture_service::PacketInfo info;
-  info.has_audio = false;
+  info.message_type = capture_service::MessageType::kAck;
   info.stream_info.stream_type = stream_type_;
   info.stream_info.sample_rate = sample_rate_;
   info.stream_info.num_channels = audio_bus_->channels();
@@ -136,16 +136,13 @@ void CaptureServiceReceiver::Socket::OnEndOfStream() {
   ReportErrorAndStop();
 }
 
-bool CaptureServiceReceiver::Socket::OnMessage(char* data, int size) {
-  // TODO(https://crbug.com/982014): Remove the DCHECK once using unsigned
-  // |size|.
-  DCHECK_GT(size, 0);
+bool CaptureServiceReceiver::Socket::OnMessage(char* data, size_t size) {
   capture_service::PacketInfo info;
   if (!capture_service::ReadHeader(data, size, &info)) {
     ReportErrorAndStop();
     return false;
   }
-  if (!info.has_audio) {
+  if (info.message_type != capture_service::MessageType::kAudio) {
     LOG(WARNING) << "Received non-audio message, ignored.";
     return true;
   }

@@ -49,9 +49,10 @@ class Extension;
 //   2. Relative unix path: Some underlying parts of content-verification
 //      require uniform separator, we use '/' as separator so it is effectively
 //      unix style. Note that this is a reversible transformation.
-//   3. Canonicalized relative_path: Canonicalized paths are used as keys of
-//      maps within VerifiedContents and ComputedHashes. This takes care of OS
-//      specific file access issues:
+//   3. content_verifier_utils::CanonicalRelativePath:
+//      Canonicalized relative paths are used as keys of maps within
+//      VerifiedContents and ComputedHashes. This takes care of OS specific file
+//      access issues:
 //      - windows/mac is case insensitive while accessing files.
 //      - windows ignores (.| )+ suffixes in filename while accessing a file.
 //      Canonicalization consists of normalizing the separators, lower casing
@@ -63,8 +64,9 @@ class ContentVerifier : public base::RefCountedThreadSafe<ContentVerifier>,
  public:
   class TestObserver {
    public:
-    virtual void OnFetchComplete(const std::string& extension_id,
-                                 bool success) = 0;
+    virtual void OnFetchComplete(
+        const scoped_refptr<const ContentHash>& content_hash,
+        bool did_hash_mismatch) = 0;
   };
 
   static void SetObserverForTests(TestObserver* observer);
@@ -133,8 +135,12 @@ class ContentVerifier : public base::RefCountedThreadSafe<ContentVerifier>,
   static base::FilePath NormalizeRelativePathForTesting(
       const base::FilePath& path);
 
+  bool ShouldVerifyAnyPathsForTesting(
+      const std::string& extension_id,
+      const base::FilePath& extension_root,
+      const std::set<base::FilePath>& relative_unix_paths);
+
  private:
-  friend class ContentVerifierTest;
   friend class base::RefCountedThreadSafe<ContentVerifier>;
   friend class HashHelper;
   ~ContentVerifier() override;

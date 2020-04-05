@@ -4,7 +4,6 @@
 
 import("//build/config/android/rules.gni")
 import("//build/config/locales.gni")
-import("//ui/android/features.gni")
 
 android_library("java") {
   sources = [
@@ -21,7 +20,6 @@ android_library("java") {
     ":jni_headers",
     "//base:base_java",
     "//base:jni_java",
-    "//components/embedder_support/android:content_view_java",
     "//content/public/android:content_java",
     "//ui/android:ui_java",
   ]
@@ -29,7 +27,10 @@ android_library("java") {
 
 android_resources("java_resources") {
   custom_package = "org.chromium.components.find_in_page"
-  resource_dirs = [ "java/res" ]
+  sources = [
+    "java/res/values/colors.xml",
+    "java/res/values/dimens.xml",
+  ]
 
   deps = [ "//ui/android:ui_java_resources" ]
 }

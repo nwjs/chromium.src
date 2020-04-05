@@ -4,22 +4,30 @@
 
 package org.chromium.chrome.browser.tabbed_mode;
 
+import android.os.Handler;
+
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
+import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.base.Callback;
 import org.chromium.base.TraceEvent;
 import org.chromium.base.supplier.ObservableSupplier;
+import org.chromium.base.supplier.ObservableSupplierImpl;
+import org.chromium.base.supplier.Supplier;
 import org.chromium.base.task.PostTask;
+import org.chromium.chrome.R;
+import org.chromium.chrome.browser.ActivityTabProvider;
 import org.chromium.chrome.browser.AppHooks;
 import org.chromium.chrome.browser.ChromeActivity;
+import org.chromium.chrome.browser.compositor.bottombar.ephemeraltab.EphemeralTabCoordinator;
 import org.chromium.chrome.browser.compositor.layouts.LayoutManager;
 import org.chromium.chrome.browser.datareduction.DataReductionPromoScreen;
 import org.chromium.chrome.browser.firstrun.FirstRunStatus;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
-import org.chromium.chrome.browser.flags.FeatureUtilities;
 import org.chromium.chrome.browser.fullscreen.ChromeFullscreenManager;
 import org.chromium.chrome.browser.gesturenav.HistoryNavigationCoordinator;
+import org.chromium.chrome.browser.history.HistoryManagerUtils;
 import org.chromium.chrome.browser.language.LanguageAskPrompt;
 import org.chromium.chrome.browser.lifecycle.NativeInitObserver;
 import org.chromium.chrome.browser.locale.LocaleManager;
@@ -30,7 +38,10 @@ import org.chromium.chrome.browser.preferences.SharedPreferencesManager;
 import org.chromium.chrome.browser.share.ShareDelegate;
 import org.chromium.chrome.browser.signin.SigninPromoUtil;
 import org.chromium.chrome.browser.status_indicator.StatusIndicatorCoordinator;
+import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tasks.tab_management.TabUiFeatureUtilities;
 import org.chromium.chrome.browser.toolbar.ToolbarButtonInProductHelpController;
+import org.chromium.chrome.browser.toolbar.bottom.BottomToolbarConfiguration;
 import org.chromium.chrome.browser.ui.ImmersiveModeManager;
 import org.chromium.chrome.browser.ui.RootUiCoordinator;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuHandler;
@@ -46,6 +57,9 @@ import org.chromium.ui.base.WindowAndroid;
 public class TabbedRootUiCoordinator extends RootUiCoordinator implements NativeInitObserver {
     private static boolean sEnableStatusIndicatorForTests;
 
+    private static final int STATUS_INDICATOR_WAIT_BEFORE_HIDE_DURATION_MS = 2000;
+
+    private final ObservableSupplierImpl<EphemeralTabCoordinator> mEphemeralTabCoordinatorSupplier;
     private @Nullable ImmersiveModeManager mImmersiveModeManager;
     private TabbedSystemUiCoordinator mSystemUiCoordinator;
     private @Nullable EmptyBackgroundViewWrapper mEmptyBackgroundViewWrapper;
@@ -63,12 +77,17 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator implements Native
      *         changes.
      * @param intentWithEffect Whether or not {@code activity} was launched with an
      *         intent to open a single tab.
+     * @param shareDelegateSupplier
+     * @param tabProvider The {@link ActivityTabProvider} to get current tab of the activity.
      */
     public TabbedRootUiCoordinator(ChromeActivity activity,
             Callback<Boolean> onOmniboxFocusChangedListener, boolean intentWithEffect,
-            ObservableSupplier<ShareDelegate> shareDelegateSupplier) {
-        super(activity, onOmniboxFocusChangedListener, shareDelegateSupplier);
+            ObservableSupplier<ShareDelegate> shareDelegateSupplier,
+            ActivityTabProvider tabProvider,
+            ObservableSupplierImpl<EphemeralTabCoordinator> ephemeralTabCoordinatorSupplier) {
+        super(activity, onOmniboxFocusChangedListener, shareDelegateSupplier, tabProvider);
         mIntentWithEffect = intentWithEffect;
+        mEphemeralTabCoordinatorSupplier = ephemeralTabCoordinatorSupplier;
     }
 
     @Override
@@ -79,6 +98,8 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator implements Native
 
         if (mStatusIndicatorCoordinator != null) {
             mStatusIndicatorCoordinator.removeObserver(mStatusIndicatorObserver);
+            mStatusIndicatorCoordinator.removeObserver(mActivity.getStatusBarColorController());
+            mStatusIndicatorCoordinator.destroy();
         }
 
         if (mToolbarButtonInProductHelpController != null) {
@@ -103,6 +124,13 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator implements Native
         }
     }
 
+    @Override
+    protected void onFindToolbarShown() {
+        super.onFindToolbarShown();
+        EphemeralTabCoordinator coordinator = mEphemeralTabCoordinatorSupplier.get();
+        if (coordinator != null && coordinator.isOpened()) coordinator.close();
+    }
+
     /**
      * @return The toolbar button IPH controller for the tabbed UI this coordinator controls.
      * TODO(pnoland, https://crbug.com/865801): remove this in favor of wiring it directly.
@@ -124,6 +152,13 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator implements Native
             mEmptyBackgroundViewWrapper.initialize();
         }
 
+        if (EphemeralTabCoordinator.isSupported()) {
+            mEphemeralTabCoordinatorSupplier.set(new EphemeralTabCoordinator(mActivity,
+                    mActivity.getWindowAndroid(), mActivity.getWindow().getDecorView(),
+                    mActivity.getActivityTabProvider(), mActivity::getCurrentTabCreator,
+                    mActivity.getBottomSheetController(), () -> !mActivity.isCustomTab()));
+        }
+
         PostTask.postTask(UiThreadTaskTraits.DEFAULT, this::initializeIPH);
     }
 
@@ -134,17 +169,26 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator implements Native
         super.onLayoutManagerAvailable(layoutManager);
 
         initStatusIndicatorCoordinator(layoutManager);
+
+        // clang-format off
         HistoryNavigationCoordinator.create(mActivity.getLifecycleDispatcher(),
                 mActivity.getCompositorViewHolder(), mActivity.getActivityTabProvider(),
-                mActivity.getInsetObserverView());
+                mActivity.getInsetObserverView(),
+                mActivity::backShouldCloseTab,
+                mActivity::onBackPressed,
+                tab -> HistoryManagerUtils.showHistoryManager(mActivity, tab),
+                mActivity.getResources().getString(R.string.show_full_history),
+                () -> mActivity.isActivityFinishingOrDestroyed() ? null
+                                                                 : getBottomSheetController());
+        // clang-format on
     }
 
     @Override
     protected void initializeToolbar() {
         super.initializeToolbar();
         if (!mActivity.isTablet()
-                && (FeatureUtilities.isBottomToolbarEnabled()
-                        || FeatureUtilities.isTabGroupsAndroidEnabled())) {
+                && (BottomToolbarConfiguration.isBottomToolbarEnabled()
+                        || TabUiFeatureUtilities.isTabGroupsAndroidEnabled())) {
             getToolbarManager().enableBottomToolbar();
         }
     }
@@ -153,8 +197,9 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator implements Native
 
     private void initializeIPH() {
         WindowAndroid window = mActivity.getWindowAndroid();
-        mToolbarButtonInProductHelpController = new ToolbarButtonInProductHelpController(
-                mActivity, mAppMenuCoordinator, mActivity.getLifecycleDispatcher());
+        mToolbarButtonInProductHelpController =
+                new ToolbarButtonInProductHelpController(mActivity, mAppMenuCoordinator,
+                        mActivity.getLifecycleDispatcher(), mActivity.getActivityTabProvider());
         if (!triggerPromo()) {
             mToolbarButtonInProductHelpController.showColdStartIPH();
         }
@@ -170,18 +215,30 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator implements Native
         }
 
         final ChromeFullscreenManager fullscreenManager = mActivity.getFullscreenManager();
+        Supplier<Boolean> canAnimateBrowserControls = () -> {
+            final Tab tab = mActivity.getActivityTabProvider().get();
+            return tab != null && tab.isUserInteractable() && !tab.isNativePage();
+        };
+        mToolbarManager.setCanAnimateNativeBrowserControlsSupplier(canAnimateBrowserControls);
         mStatusIndicatorCoordinator = new StatusIndicatorCoordinator(mActivity,
-                mActivity.getCompositorViewHolder().getResourceManager(), fullscreenManager);
+                mActivity.getCompositorViewHolder().getResourceManager(), fullscreenManager,
+                mActivity.getStatusBarColorController()::getStatusBarColorWithoutStatusIndicator,
+                canAnimateBrowserControls);
         layoutManager.setStatusIndicatorSceneOverlay(mStatusIndicatorCoordinator.getSceneLayer());
-        mStatusIndicatorObserver = (indicatorHeight -> {
-            final int resourceId = mActivity.getControlContainerHeightResource();
-            final int topControlsNewHeight =
-                    mActivity.getResources().getDimensionPixelSize(resourceId) + indicatorHeight;
-            fullscreenManager.setAnimateBrowserControlsHeightChanges(true);
-            fullscreenManager.setTopControlsHeight(topControlsNewHeight, indicatorHeight);
-            fullscreenManager.setAnimateBrowserControlsHeightChanges(false);
-        });
+        mStatusIndicatorObserver = new StatusIndicatorCoordinator.StatusIndicatorObserver() {
+            @Override
+            public void onStatusIndicatorHeightChanged(int indicatorHeight) {
+                final int resourceId = mActivity.getControlContainerHeightResource();
+                final int topControlsNewHeight =
+                        mActivity.getResources().getDimensionPixelSize(resourceId)
+                        + indicatorHeight;
+                fullscreenManager.setAnimateBrowserControlsHeightChanges(true);
+                fullscreenManager.setTopControlsHeight(topControlsNewHeight, indicatorHeight);
+                fullscreenManager.setAnimateBrowserControlsHeightChanges(false);
+            }
+        };
         mStatusIndicatorCoordinator.addObserver(mStatusIndicatorObserver);
+        mStatusIndicatorCoordinator.addObserver(mActivity.getStatusBarColorController());
 
         // Don't listen to the ConnectivityDetector if the feature is disabled.
         if (!ChromeFeatureList.isEnabled(ChromeFeatureList.OFFLINE_INDICATOR_V2)) {
@@ -191,9 +248,30 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator implements Native
         mConnectivityDetector = new ConnectivityDetector((state) -> {
             final boolean offline = state != ConnectivityDetector.ConnectionState.VALIDATED;
             if (offline) {
-                mStatusIndicatorCoordinator.show();
+                final int backgroundColor = ApiCompatibilityUtils.getColor(
+                        mActivity.getResources(), R.color.offline_indicator_offline_color);
+                final int textColor = ApiCompatibilityUtils.getColor(
+                        mActivity.getResources(), R.color.default_text_color_light);
+                final int iconTint = ApiCompatibilityUtils.getColor(
+                        mActivity.getResources(), R.color.default_icon_color_light);
+                mStatusIndicatorCoordinator.show(
+                        mActivity.getString(R.string.offline_indicator_v2_offline_text), null,
+                        backgroundColor, textColor, iconTint);
             } else {
-                mStatusIndicatorCoordinator.hide();
+                final int backgroundColor = ApiCompatibilityUtils.getColor(
+                        mActivity.getResources(), R.color.offline_indicator_back_online_color);
+                final int textColor = ApiCompatibilityUtils.getColor(
+                        mActivity.getResources(), R.color.default_text_color_inverse);
+                final int iconTint = ApiCompatibilityUtils.getColor(
+                        mActivity.getResources(), R.color.default_icon_color_inverse);
+                Runnable hide = () -> {
+                    final Handler handler = new Handler();
+                    handler.postDelayed(() -> mStatusIndicatorCoordinator.hide(),
+                            STATUS_INDICATOR_WAIT_BEFORE_HIDE_DURATION_MS);
+                };
+                mStatusIndicatorCoordinator.updateContent(
+                        mActivity.getString(R.string.offline_indicator_v2_back_online_text), null,
+                        backgroundColor, textColor, iconTint, hide);
             }
         });
     }

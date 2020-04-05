@@ -55,7 +55,10 @@
 #include "chrome/grit/generated_resources.h"
 #include "chrome/grit/theme_resources.h"
 #include "components/bookmarks/common/bookmark_pref_names.h"
+#include "components/dom_distiller/content/browser/distillable_page_utils.h"
+#include "components/dom_distiller/content/browser/uma_helper.h"
 #include "components/dom_distiller/core/dom_distiller_features.h"
+#include "components/dom_distiller/core/url_utils.h"
 #include "components/prefs/pref_service.h"
 #include "components/signin/public/base/signin_metrics.h"
 #include "components/strings/grit/components_strings.h"
@@ -420,6 +423,17 @@ void AppMenuModel::LogMenuMetrics(int command_id) {
                                    delta);
       }
       LogMenuAction(MENU_ACTION_DISTILL_PAGE);
+      if (dom_distiller::url_utils::IsDistilledPage(
+              browser()
+                  ->tab_strip_model()
+                  ->GetActiveWebContents()
+                  ->GetLastCommittedURL())) {
+        dom_distiller::UMAHelper::RecordReaderModeExit(
+            dom_distiller::UMAHelper::ReaderModeEntryPoint::kMenuOption);
+      } else {
+        dom_distiller::UMAHelper::RecordReaderModeEntry(
+            dom_distiller::UMAHelper::ReaderModeEntryPoint::kMenuOption);
+      }
       break;
     case IDC_SAVE_PAGE:
       if (!uma_action_recorded_)
@@ -684,12 +698,6 @@ bool AppMenuModel::IsCommandIdVisible(int command_id) const {
       return app_menu_icon_controller_->GetTypeAndSeverity().type ==
              AppMenuIconController::IconType::UPGRADE_NOTIFICATION;
     }
-#if !defined(OS_LINUX) || defined(USE_AURA)
-    case IDC_BOOKMARK_THIS_TAB:
-      return !chrome::ShouldRemoveBookmarkThisTabUI(browser_->profile());
-    case IDC_BOOKMARK_ALL_TABS:
-      return !chrome::ShouldRemoveBookmarkAllTabsUI(browser_->profile());
-#endif
     default:
       return true;
   }
@@ -780,7 +788,7 @@ void AppMenuModel::Build() {
           GetInstallPWAAppMenuItemName(browser_)) {
     AddItem(IDC_INSTALL_PWA, *name);
   } else if (base::Optional<web_app::AppId> app_id =
-                 web_app::GetPwaForSecureActiveTab(browser_)) {
+                 web_app::GetWebAppForActiveTab(browser_)) {
     auto* provider = web_app::WebAppProvider::Get(browser_->profile());
     const base::string16 short_name =
         base::UTF8ToUTF16(provider->registrar().GetAppShortName(*app_id));
@@ -790,8 +798,26 @@ void AppMenuModel::Build() {
             l10n_util::GetStringFUTF16(IDS_OPEN_IN_APP_WINDOW, truncated_name));
   }
 
-  if (dom_distiller::IsDomDistillerEnabled())
-    AddItemWithStringId(IDC_DISTILL_PAGE, IDS_DISTILL_PAGE);
+  if (dom_distiller::IsDomDistillerEnabled() &&
+      browser()->tab_strip_model()->GetActiveWebContents()) {
+    // Only show the reader mode toggle when it will do something.
+    if (dom_distiller::url_utils::IsDistilledPage(
+            browser()
+                ->tab_strip_model()
+                ->GetActiveWebContents()
+                ->GetLastCommittedURL())) {
+      // Show the menu option if we are on a distilled page.
+      AddItemWithStringId(IDC_DISTILL_PAGE, IDS_DISTILL_PAGE);
+    } else if (dom_distiller::ShowReaderModeOption(
+                   browser_->profile()->GetPrefs())) {
+      // Show the menu option if the page is distillable.
+      base::Optional<dom_distiller::DistillabilityResult> distillability =
+          dom_distiller::GetLatestResult(
+              browser()->tab_strip_model()->GetActiveWebContents());
+      if (distillability && distillability.value().is_distillable)
+        AddItemWithStringId(IDC_DISTILL_PAGE, IDS_DISTILL_PAGE);
+    }
+  }
 
 #if defined(OS_CHROMEOS)
   // Always show this option if we're in tablet mode on Chrome OS.

@@ -21,6 +21,7 @@
 #include "ui/gfx/paint_vector_icon.h"
 #include "ui/gfx/skia_paint_util.h"
 #include "ui/views/view.h"
+#include "ui/wm/core/window_animations.h"
 
 namespace ash {
 
@@ -40,10 +41,13 @@ constexpr SkColor kArrowColorAfterActivated = gfx::kGoogleGrey100;
 constexpr int kBackgroundRadius = 20;
 const SkColor kBackgroundColorBeforeActivated = SK_ColorWHITE;
 const SkColor kBackgroundColorAfterActivated = gfx::kGoogleBlue600;
-// Y offset of the background shadow.
-const int kBgShadowOffsetY = 2;
-const int kBgShadowBlurRadius = 8;
-const SkColor kBgShadowColor = SkColorSetA(SK_ColorBLACK, 0x4D);
+// The background shadow for the circle.
+constexpr int kBackNudgeShadowOffsetY1 = 1;
+constexpr int kBackNudgeShadowBlurRadius1 = 2;
+constexpr SkColor kBackNudgeShadowColor1 = SkColorSetA(SK_ColorBLACK, 0x4D);
+constexpr int kBackNudgeShadowOffsetY2 = 2;
+constexpr int kBackNudgeShadowBlurRadius2 = 6;
+constexpr SkColor kBackNudgeShadowColor2 = SkColorSetA(SK_ColorBLACK, 0x26);
 
 // Radius of the ripple while x-axis movement of the affordance achieves
 // |kDistanceForFullRadius|.
@@ -90,10 +94,11 @@ constexpr float kMaxYMovement = 8.f;
 class AffordanceView : public views::View {
  public:
   AffordanceView() {
-    SetPaintToLayer(ui::LAYER_TEXTURED);
+    SetPaintToLayer();
     layer()->SetFillsBoundsOpaquely(false);
   }
-
+  AffordanceView(AffordanceView&) = delete;
+  AffordanceView& operator=(AffordanceView&) = delete;
   ~AffordanceView() override = default;
 
   // Schedule painting on given |affordance_progress|, |complete_progress| and
@@ -147,10 +152,14 @@ class AffordanceView : public views::View {
     cc::PaintFlags bg_flags;
     bg_flags.setAntiAlias(true);
     bg_flags.setStyle(cc::PaintFlags::kFill_Style);
-    gfx::ShadowValues shadow;
-    shadow.emplace_back(gfx::Vector2d(0, kBgShadowOffsetY), kBgShadowBlurRadius,
-                        kBgShadowColor);
-    bg_flags.setLooper(gfx::CreateShadowDrawLooper(shadow));
+    gfx::ShadowValues shadows;
+    shadows.push_back(
+        gfx::ShadowValue(gfx::Vector2d(0, kBackNudgeShadowOffsetY1),
+                         kBackNudgeShadowBlurRadius1, kBackNudgeShadowColor1));
+    shadows.push_back(
+        gfx::ShadowValue(gfx::Vector2d(0, kBackNudgeShadowOffsetY2),
+                         kBackNudgeShadowBlurRadius2, kBackNudgeShadowColor2));
+    bg_flags.setLooper(gfx::CreateShadowDrawLooper(shadows));
     bg_flags.setColor(is_activated ? kBackgroundColorAfterActivated
                                    : kBackgroundColorBeforeActivated);
     canvas->DrawCircle(center_point, kBackgroundRadius, bg_flags);
@@ -174,8 +183,6 @@ class AffordanceView : public views::View {
   float complete_progress_ = 0.f;
   BackGestureAffordance::State state_ = BackGestureAffordance::State::DRAGGING;
   float x_offset_ = 0;
-
-  DISALLOW_COPY_AND_ASSIGN(AffordanceView);
 };
 
 gfx::Rect GetSplitViewDividerBoundsInScreen(const gfx::Point& location) {
@@ -299,9 +306,14 @@ void BackGestureAffordance::CreateAffordanceWidget(const gfx::Point& location) {
   params.name = "BackGestureAffordance";
   params.activatable = views::Widget::InitParams::ACTIVATABLE_NO;
   params.parent = window_util::GetRootWindowAt(location)->GetChildById(
-      kShellWindowId_AlwaysOnTopContainer);
+      kShellWindowId_OverlayContainer);
+
   affordance_widget_->Init(std::move(params));
   affordance_widget_->SetContentsView(new AffordanceView());
+  // We've got our own custom show/hide animation, so the default is unneeded.
+  ::wm::SetWindowVisibilityAnimationTransition(
+      affordance_widget_->GetNativeWindow(), ::wm::ANIMATE_NONE);
+
   const gfx::Rect widget_bounds =
       GetAffordanceBounds(location, dragged_from_splitview_divider_);
   affordance_widget_->SetBounds(widget_bounds);

@@ -77,7 +77,7 @@ class MODULES_EXPORT MediaRecorderHandler final
                     OnMediaCapabilitiesEncodingInfoCallback cb);
   String ActualMimeType();
 
-  void Trace(blink::Visitor*);
+  void Trace(Visitor*);
 
  private:
   friend class MediaRecorderHandlerTest;
@@ -144,6 +144,7 @@ class MODULES_EXPORT MediaRecorderHandler final
   // The last seen video codec of the last received encoded video frame.
   base::Optional<media::VideoCodec> last_seen_codec_;
 
+  bool invalidated_ = false;
   bool recording_;
   // The MediaStream being recorded.
   Member<MediaStreamDescriptor> media_stream_;

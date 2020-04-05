@@ -14,7 +14,6 @@
 #include "base/strings/string16.h"
 #include "base/time/time.h"
 #include "components/omnibox/browser/autocomplete_controller.h"
-#include "components/omnibox/browser/autocomplete_controller_delegate.h"
 #include "components/omnibox/browser/autocomplete_input.h"
 #include "components/omnibox/browser/autocomplete_match.h"
 #include "components/omnibox/browser/omnibox_controller.h"
@@ -215,6 +214,10 @@ class OmniboxEditModel {
       WindowOpenDisposition disposition,
       base::TimeTicks match_selection_timestamp = base::TimeTicks());
 
+  // Executes the |pedal| associated with given match.
+  void ExecutePedal(const AutocompleteMatch& match,
+                    base::TimeTicks match_selection_timestamp);
+
   // Asks the browser to load |match|. |index| is only used for logging, and
   // can be kNoMatch if the popup was closed, or if none of the suggestions
   // in the popup were used (in the unusual no-default-match case). In that
@@ -346,6 +349,10 @@ class OmniboxEditModel {
   // Called when the user presses up or down.  |count| is a repeat count,
   // negative for moving up, positive for moving down. Virtual for testing.
   virtual void OnUpOrDownKeyPressed(int count);
+
+  // If no query is in progress, starts working on an autocomplete query.
+  // Returns true if started; false otherwise.
+  bool MaybeStartQueryForPopup();
 
   // Called when any relevant data changes.  This rolls together several
   // separate pieces of data into one call so we can update all the UI
@@ -479,11 +486,6 @@ class OmniboxEditModel {
   // change). If the caret visibility changes, we call ApplyCaretVisibility() on
   // the view.
   void SetFocusState(OmniboxFocusState state, OmniboxFocusChangeReason reason);
-
-  // Calculates the new selected line based on |count|, how many
-  // suggestions are currently in the results, and any features
-  // that are enabled.
-  size_t GetNewSelectedLine(int count);
 
   // NOTE: |client_| must outlive |omnibox_controller_|, as the latter has a
   // reference to the former.

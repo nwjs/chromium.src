@@ -80,15 +80,25 @@ GlobalErrorBubbleView::GlobalErrorBubbleView(
   // error_ is a WeakPtr, but it's always non-null during construction.
   DCHECK(error_);
 
-  DialogDelegate::set_default_button(error_->GetDefaultDialogButton());
-  DialogDelegate::set_buttons(
+  DialogDelegate::SetDefaultButton(error_->GetDefaultDialogButton());
+  DialogDelegate::SetButtons(
       !error_->GetBubbleViewCancelButtonLabel().empty()
           ? (ui::DIALOG_BUTTON_OK | ui::DIALOG_BUTTON_CANCEL)
           : ui::DIALOG_BUTTON_OK);
-  DialogDelegate::set_button_label(ui::DIALOG_BUTTON_OK,
+  DialogDelegate::SetButtonLabel(ui::DIALOG_BUTTON_OK,
                                    error_->GetBubbleViewAcceptButtonLabel());
-  DialogDelegate::set_button_label(ui::DIALOG_BUTTON_CANCEL,
+  DialogDelegate::SetButtonLabel(ui::DIALOG_BUTTON_CANCEL,
                                    error_->GetBubbleViewCancelButtonLabel());
+
+  // Note that error is already a WeakPtr, so these callbacks will simply do
+  // nothing if they are invoked after its destruction.
+  DialogDelegate::SetAcceptCallback(base::BindOnce(
+      &GlobalErrorWithStandardBubble::BubbleViewAcceptButtonPressed, error,
+      base::Unretained(browser_)));
+  DialogDelegate::SetCancelCallback(base::BindOnce(
+      &GlobalErrorWithStandardBubble::BubbleViewCancelButtonPressed, error,
+      base::Unretained(browser_)));
+
   if (!error_->GetBubbleViewDetailsButtonLabel().empty()) {
     DialogDelegate::SetExtraView(views::MdTextButton::CreateSecondaryUiButton(
         this, error_->GetBubbleViewDetailsButtonLabel()));
@@ -108,19 +118,6 @@ base::string16 GlobalErrorBubbleView::GetWindowTitle() const {
   if (!error_)
     return base::string16();
   return error_->GetBubbleViewTitle();
-}
-
-gfx::ImageSkia GlobalErrorBubbleView::GetWindowIcon() {
-  gfx::Image image;
-  if (error_) {
-    image = error_->GetBubbleViewIcon();
-    DCHECK(!image.IsEmpty());
-  }
-  return *image.ToImageSkia();
-}
-
-bool GlobalErrorBubbleView::ShouldShowWindowIcon() const {
-  return ChromeLayoutProvider::Get()->ShouldShowWindowIcon();
 }
 
 void GlobalErrorBubbleView::WindowClosing() {
@@ -175,23 +172,6 @@ void GlobalErrorBubbleView::OnDialogInitialized() {
         ok_button, base::BindOnce(&GlobalErrorBubbleView::SizeToContents,
                                   base::Unretained(this)));
   }
-}
-
-bool GlobalErrorBubbleView::Cancel() {
-  if (error_)
-    error_->BubbleViewCancelButtonPressed(browser_);
-  return true;
-}
-
-bool GlobalErrorBubbleView::Accept() {
-  if (error_)
-    error_->BubbleViewAcceptButtonPressed(browser_);
-  return true;
-}
-
-bool GlobalErrorBubbleView::Close() {
-  // Don't fall through to either Cancel() or Accept().
-  return true;
 }
 
 void GlobalErrorBubbleView::CloseBubbleView() {

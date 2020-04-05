@@ -72,6 +72,10 @@ _namespace_rewrites = {}
 # ui/webui/resources/html/cr/ui/focus_outline_manager.html is encountered.
 _auto_imports = {}
 
+# Populated from command line arguments. Specifies a list of HTML imports to
+# ignore when converting HTML imports to JS modules.
+_ignore_imports = []
+
 _chrome_redirects = {
     'chrome://resources/polymer/v1_0/': POLYMER_V1_DIR,
     'chrome://resources/html/': 'ui/webui/resources/html/',
@@ -188,8 +192,12 @@ def _generate_js_imports(html_file):
         imports_end_index = i
 
         # Convert HTML import URL to equivalent JS import URL.
-        dep = Dependency(html_file, match.group(1)).to_js_import(_auto_imports)
-        output.append(dep)
+        dep = Dependency(html_file, match.group(1))
+        js_import = dep.to_js_import(_auto_imports)
+        if dep.html_path_normalized in _ignore_imports:
+          output.append('// ' + js_import)
+        else:
+          output.append(js_import)
 
       elif imports_found:
         if re.search(r'^\s*</?if', line):
@@ -242,6 +250,12 @@ def _extract_template(html_file, html_type):
           assert re.match(r'\s*</template>', lines[i - 2])
           assert re.match(r'\s*<script ', lines[i - 1])
           end_line = i - 3;
+
+    # If an opening <dom-module> tag was found, check that a closing one was
+    # found as well.
+    if start_line != - 1:
+      assert end_line != -1
+
     return _add_template_markers('\n' + ''.join(lines[start_line:end_line + 1]))
 
   if html_type == 'style-module':
@@ -343,6 +357,9 @@ def _process_dom_module(js_file, html_file):
   # Replace export annotations with 'export'.
   EXPORT_LINE_REGEX = '/* #export */'
 
+  # Ignore lines with an ignore annotation.
+  IGNORE_LINE_REGEX = '\s*/\* #ignore \*/(\S|\s)*'
+
   with io.open(js_file, encoding='utf-8') as f:
     lines = f.readlines()
 
@@ -384,6 +401,9 @@ def _process_dom_module(js_file, html_file):
       assert cr_define_found, 'Found cr_define_end without cr.define()'
       cr_define_end_line = i
       break
+
+    if re.match(IGNORE_LINE_REGEX, line):
+      line = ''
 
     line = _rewrite_namespaces(line)
     lines[i] = line
@@ -469,6 +489,7 @@ def main(argv):
   parser.add_argument('--js_file', required=True)
   parser.add_argument('--html_file', required=True)
   parser.add_argument('--namespace_rewrites', required=False, nargs="*")
+  parser.add_argument('--ignore_imports', required=False, nargs="*")
   parser.add_argument('--auto_imports', required=False, nargs="*")
   parser.add_argument(
       '--html_type', choices=['dom-module', 'style-module', 'custom-style',
@@ -488,6 +509,10 @@ def main(argv):
       path, imports = entry.split('|')
       _auto_imports[path] = imports.split(',')
 
+  # Extract ignored imports from arguments.
+  if args.ignore_imports:
+    global _ignore_imports
+    _ignore_imports = args.ignore_imports
 
   in_folder = os.path.normpath(os.path.join(_CWD, args.in_folder))
   out_folder = os.path.normpath(os.path.join(_CWD, args.out_folder))

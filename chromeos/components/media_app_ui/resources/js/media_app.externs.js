@@ -10,7 +10,7 @@
  */
 
 /** @const */
-var mediaApp = {};
+const mediaApp = {};
 
 /**
  * Wraps an HTML File object (or a mock, or media loaded through another means).
@@ -52,6 +52,23 @@ mediaApp.AbstractFile.prototype.mimeType;
 mediaApp.AbstractFile.prototype.overwriteOriginal;
 
 /**
+ * A function that will delete the original file. Returns a promise that
+ * resolves to an enum value (see DeleteResult in message_types) reflecting the
+ * result of the deletion (SUCCESS, FILE_MOVED), rejected if the deletion fails.
+ * @type {function(): Promise<number>|undefined}
+ */
+mediaApp.AbstractFile.prototype.deleteOriginalFile;
+
+/**
+ * A function that will rename the original file. Returns a promise that
+ * resolves to an enum value (see RenameResult in message_types) reflecting the
+ * result of the deletion (SUCCESS, FILE_EXISTS), rejected if the
+ * rename fails.
+ * @type {function(string): Promise<number>|undefined}
+ */
+mediaApp.AbstractFile.prototype.renameOriginalFile;
+
+/**
  * Wraps an HTML FileList object.
  * @record
  * @struct
@@ -66,6 +83,21 @@ mediaApp.AbstractFileList.prototype.length;
 mediaApp.AbstractFileList.prototype.item = function(index) {};
 
 /**
+ * The delegate which exposes open source privileged WebUi functions to
+ * MediaApp.
+ * @record
+ * @struct
+ */
+mediaApp.ClientApiDelegate = function() {};
+/**
+ * Opens up the built-in chrome feedback dialog.
+ * @return {!Promise<?string>} Promise which resolves when the request has been
+ *     acknowledged, if the dialog could not be opened the promise resolves with
+ *     an error message, resolves with null otherwise.
+ */
+mediaApp.ClientApiDelegate.prototype.openFeedbackDialog = function() {};
+
+/**
  * The client Api for interacting with the media app instance.
  * @record
  * @struct
@@ -77,12 +109,45 @@ mediaApp.ClientApi = function() {};
  * @return {!Promise<undefined>}
  */
 mediaApp.ClientApi.prototype.loadFiles = function(files) {};
+/**
+ * Sets the delegate through which MediaApp can access open-source privileged
+ * WebUI methods.
+ * @param {?mediaApp.ClientApiDelegate} delegate
+ */
+mediaApp.ClientApi.prototype.setDelegate = function(delegate) {};
 
 /**
- * The message structure sent to the guest over postMessage.
- * @typedef{{buffer: ArrayBuffer, type: string, handle: (Object|undefined)}}
+ * The message structure sent to the guest over postMessage. The presence of
+ * a particular field determines the instruction being given to the guest.
+ *
+ * @record
+ * @struct
  */
-mediaApp.MessageEventData;
+mediaApp.MessageEventData = function() {};
+/**
+ * File data to load. TODO(b/144865801): Remove this (obsolete).
+ *
+ * @type {!ArrayBuffer|undefined}
+ */
+mediaApp.MessageEventData.prototype.buffer;
+/**
+ * MIME type of the data in `buffer`.
+ *
+ * @type {string|undefined}
+ */
+mediaApp.MessageEventData.prototype.type;
+/**
+ * An object that uniquely identifies a FileSystemFileHandle in the host.
+ *
+ * @type {!Object|undefined}
+ */
+mediaApp.MessageEventData.prototype.handle;
+/**
+ * A File to load.
+ *
+ * @type {!File|undefined}
+ */
+mediaApp.MessageEventData.prototype.file;
 
 /**
  * Launch data that can be read by the app when it first loads.

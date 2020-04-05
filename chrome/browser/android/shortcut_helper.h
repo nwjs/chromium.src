@@ -32,8 +32,7 @@ class ShortcutHelper {
   static std::unique_ptr<ShortcutInfo> CreateShortcutInfo(
       const GURL& manifest_url,
       const blink::Manifest& manifest,
-      const GURL& primary_icon_url,
-      const GURL& badge_icon_url);
+      const GURL& primary_icon_url);
 
   // Adds a shortcut to the launcher using a SkBitmap. The type of shortcut
   // added depends on the properties in |info|.
@@ -59,9 +58,6 @@ class ShortcutHelper {
   // Returns the minimum size for an image displayed on a web app's splash
   // screen.
   static int GetMinimumSplashImageSizeInPx();
-
-  // Returns the ideal size for a badge icon of a WebAPK.
-  static int GetIdealBadgeIconSizeInPx();
 
   // Returns the ideal size for an adaptive launcher icon of a WebAPK
   static int GetIdealAdaptiveLauncherIconSizeInPx();

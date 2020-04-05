@@ -46,8 +46,8 @@ class UserClassifier {
   };
 
   // The provided |pref_service| may be nullptr in unit-tests.
-  UserClassifier(PrefService* pref_service, base::Clock* clock);
-  ~UserClassifier();
+  UserClassifier(PrefService* pref_service, const base::Clock* clock);
+  virtual ~UserClassifier();
 
   // Registers profile prefs for all rates. Called from pref_names.cc.
   static void RegisterProfilePrefs(PrefRegistrySimple* registry);
@@ -61,7 +61,8 @@ class UserClassifier {
   double GetEstimatedAvgTime(Event event) const;
 
   // Return the classification of the current user.
-  UserClass GetUserClass() const;
+  // Virtual for testing.
+  virtual UserClass GetUserClass() const;
   std::string GetUserClassDescriptionForDebugging() const;
 
   // Resets the classification (emulates a fresh upgrade / install).
@@ -86,7 +87,7 @@ class UserClassifier {
   void ClearRate(Event event);
 
   PrefService* pref_service_;
-  base::Clock* clock_;
+  const base::Clock* clock_;
 
   DISALLOW_COPY_AND_ASSIGN(UserClassifier);
 };

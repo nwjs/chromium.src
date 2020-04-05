@@ -93,7 +93,7 @@ Scrollbar::Scrollbar(ScrollableArea* scrollable_area,
 
 Scrollbar::~Scrollbar() = default;
 
-void Scrollbar::Trace(blink::Visitor* visitor) {
+void Scrollbar::Trace(Visitor* visitor) {
   visitor->Trace(scrollable_area_);
   visitor->Trace(chrome_client_);
   visitor->Trace(style_source_);
@@ -142,8 +142,7 @@ int Scrollbar::Maximum() const {
                                               : max_offset.Height();
 }
 
-void Scrollbar::OffsetDidChange(
-    mojom::blink::ScrollIntoViewParams::Type scroll_type) {
+void Scrollbar::OffsetDidChange(mojom::blink::ScrollType scroll_type) {
   DCHECK(scrollable_area_);
 
   float position = ScrollableAreaCurrentPos();
@@ -162,7 +161,7 @@ void Scrollbar::OffsetDidChange(
   // Don't update the pressed position if scroll anchoring takes place as
   // otherwise the next thumb movement will undo anchoring.
   if (pressed_part_ == kThumbPart &&
-      scroll_type != mojom::blink::ScrollIntoViewParams::Type::kAnchoring) {
+      scroll_type != mojom::blink::ScrollType::kAnchoring) {
     SetPressedPos(pressed_pos_ + GetTheme().ThumbPosition(*this) -
                   old_thumb_position);
   }
@@ -266,8 +265,11 @@ ScrollGranularity Scrollbar::PressedPartScrollGranularity() {
   if (pressed_part_ == kBackButtonStartPart ||
       pressed_part_ == kBackButtonEndPart ||
       pressed_part_ == kForwardButtonStartPart ||
-      pressed_part_ == kForwardButtonEndPart)
-    return ScrollGranularity::kScrollByLine;
+      pressed_part_ == kForwardButtonEndPart) {
+    return RuntimeEnabledFeatures::PercentBasedScrollingEnabled()
+               ? ScrollGranularity::kScrollByPercentage
+               : ScrollGranularity::kScrollByLine;
+  }
   return ScrollGranularity::kScrollByPage;
 }
 
@@ -597,8 +599,10 @@ void Scrollbar::MouseDown(const WebMouseEvent& evt) {
 
 void Scrollbar::InjectScrollGestureForPressedPart(
     WebInputEvent::Type gesture_type) {
-  ScrollOffset delta = ToScrollDelta(PressedPartScrollDirectionPhysical(), 1);
   ScrollGranularity granularity = PressedPartScrollGranularity();
+  ScrollOffset delta =
+      ToScrollDelta(PressedPartScrollDirectionPhysical(),
+                    ScrollableArea::DirectionBasedScrollDelta(granularity));
   InjectScrollGesture(gesture_type, delta, granularity);
 }
 
@@ -683,9 +687,9 @@ bool Scrollbar::DeltaWillScroll(ScrollOffset delta) const {
   return clamped_offset != current_offset;
 }
 
-void Scrollbar::SetScrollbarsHiddenIfOverlay(bool hidden) {
+void Scrollbar::SetScrollbarsHiddenFromExternalAnimator(bool hidden) {
   if (scrollable_area_)
-    scrollable_area_->SetScrollbarsHiddenIfOverlay(hidden);
+    scrollable_area_->SetScrollbarsHiddenFromExternalAnimator(hidden);
 }
 
 void Scrollbar::SetEnabled(bool e) {

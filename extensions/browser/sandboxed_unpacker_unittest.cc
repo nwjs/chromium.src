@@ -6,6 +6,7 @@
 
 #include "base/base64.h"
 #include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/command_line.h"
 #include "base/files/file_util.h"
 #include "base/memory/ref_counted.h"
@@ -129,7 +130,7 @@ class MockSandboxedUnpackerClient : public SandboxedUnpackerClient {
       std::unique_ptr<base::DictionaryValue> original_manifest,
       const Extension* extension,
       const SkBitmap& install_icon,
-      const base::Optional<int>& dnr_ruleset_checksum) override {
+      declarative_net_request::RulesetChecksums ruleset_checksums) override {
     temp_dir_ = temp_dir;
     std::move(quit_closure_).Run();
   }

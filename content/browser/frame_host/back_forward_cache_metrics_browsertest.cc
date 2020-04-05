@@ -2,6 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/bind.h"
+#include "base/run_loop.h"
+#include "base/task/post_task.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "components/ukm/test_ukm_recorder.h"
@@ -9,6 +12,7 @@
 #include "content/browser/frame_host/back_forward_cache_metrics.h"
 #include "content/browser/frame_host/navigation_controller_impl.h"
 #include "content/browser/web_contents/web_contents_impl.h"
+#include "content/public/browser/browser_thread.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
@@ -33,10 +37,6 @@ namespace {
 constexpr uint64_t kPageShowFeature = static_cast<uint64_t>(
     blink::scheduler::WebSchedulerTrackedFeature::kPageShowEventListener);
 
-constexpr uint64_t kHasScriptableFramesInMultipleTabsFeature =
-    static_cast<uint64_t>(blink::scheduler::WebSchedulerTrackedFeature::
-                              kHasScriptableFramesInMultipleTabs);
-
 constexpr uint64_t kRequestedGeolocationPermissionFeature =
     static_cast<uint64_t>(blink::scheduler::WebSchedulerTrackedFeature::
                               kRequestedGeolocationPermission);
@@ -50,10 +50,14 @@ ukm::SourceId ToSourceId(int64_t navigation_id) {
 // which are related to the document finishing loading).
 // We ignore them to make tests easier to read and write.
 constexpr uint64_t kFeaturesToIgnoreMask =
-    1 << static_cast<size_t>(
+    1ull << static_cast<size_t>(
         blink::scheduler::WebSchedulerTrackedFeature::kDocumentLoaded) |
-    1 << static_cast<size_t>(blink::scheduler::WebSchedulerTrackedFeature::
-                                 kOutstandingNetworkRequest);
+    1ull << static_cast<size_t>(blink::scheduler::WebSchedulerTrackedFeature::
+                                    kOutstandingNetworkRequestFetch) |
+    1ull << static_cast<size_t>(blink::scheduler::WebSchedulerTrackedFeature::
+                                    kOutstandingNetworkRequestXHR) |
+    1ull << static_cast<size_t>(blink::scheduler::WebSchedulerTrackedFeature::
+                                    kOutstandingNetworkRequestOthers);
 
 using UkmMetrics = ukm::TestUkmRecorder::HumanReadableUkmMetrics;
 using UkmEntry = ukm::TestUkmRecorder::HumanReadableUkmEntry;
@@ -78,6 +82,18 @@ class BackForwardCacheMetricsBrowserTest : public ContentBrowserTest,
 
   WebContentsImpl* web_contents() const {
     return static_cast<WebContentsImpl*>(shell()->web_contents());
+  }
+
+  void GiveItSomeTime() {
+    base::RunLoop run_loop;
+    base::ThreadTaskRunnerHandle::Get()->PostDelayedTask(
+        FROM_HERE, run_loop.QuitClosure(),
+        base::TimeDelta::FromMilliseconds(200));
+    run_loop.Run();
+  }
+
+  RenderFrameHostImpl* current_frame_host() {
+    return web_contents()->GetFrameTree()->root()->current_frame_host();
   }
 
   void DidStartNavigation(NavigationHandle* navigation_handle) override {
@@ -154,7 +170,8 @@ IN_PROC_BROWSER_TEST_F(BackForwardCacheMetricsBrowserTest, UKM) {
   // ukm::SourceId id8 = ToSourceId(navigation_ids_[7]);
   ukm::SourceId id9 = ToSourceId(navigation_ids_[8]);
 
-  std::string last_navigation_id = "LastCommittedSourceIdForTheSameDocument";
+  std::string last_navigation_id =
+      "LastCommittedCrossDocumentNavigationSourceIdForTheSameDocument";
 
   // First back-forward navigation (#6) navigates back to navigation #3, but it
   // is the subframe navigation, so the corresponding main frame navigation is
@@ -261,7 +278,8 @@ IN_PROC_BROWSER_TEST_F(BackForwardCacheMetricsBrowserTest, CloneAndGoBack) {
   ukm::SourceId id5 = ToSourceId(navigation_ids_[4]);
   ukm::SourceId id6 = ToSourceId(navigation_ids_[5]);
 
-  std::string last_navigation_id = "LastCommittedSourceIdForTheSameDocument";
+  std::string last_navigation_id =
+      "LastCommittedCrossDocumentNavigationSourceIdForTheSameDocument";
 
   // First two new navigations happen in the original tab.
   // The third navigation reloads the tab for the cloned WebContents.
@@ -271,6 +289,138 @@ IN_PROC_BROWSER_TEST_F(BackForwardCacheMetricsBrowserTest, CloneAndGoBack) {
   EXPECT_THAT(recorder.GetEntries("HistoryNavigation", {last_navigation_id}),
               testing::ElementsAre(UkmEntry{id5, {{last_navigation_id, id3}}},
                                    UkmEntry{id6, {{last_navigation_id, id4}}}));
+}
+
+// Confirms that UKMs are not recorded on reloading.
+IN_PROC_BROWSER_TEST_F(BackForwardCacheMetricsBrowserTest, Reload) {
+  ukm::TestAutoSetUkmRecorder recorder;
+
+  const GURL url1(embedded_test_server()->GetURL("a.com", "/title1.html"));
+  const GURL url2(embedded_test_server()->GetURL("b.com", "/title1.html"));
+
+  EXPECT_TRUE(NavigateToURL(shell(), url1));
+  EXPECT_TRUE(NavigateToURL(shell(), url2));
+
+  web_contents()->GetController().GoBack();
+  EXPECT_TRUE(WaitForLoadStop(shell()->web_contents()));
+
+  web_contents()->GetController().Reload(ReloadType::NORMAL, false);
+  EXPECT_TRUE(WaitForLoadStop(shell()->web_contents()));
+
+  EXPECT_TRUE(NavigateToURL(shell(), url2));
+  web_contents()->GetController().GoBack();
+  EXPECT_TRUE(WaitForLoadStop(shell()->web_contents()));
+
+  ASSERT_EQ(navigation_ids_.size(), static_cast<size_t>(6));
+  ukm::SourceId id1 = ToSourceId(navigation_ids_[0]);
+  // ukm::SourceId id2 = ToSourceId(navigation_ids_[1]);
+  ukm::SourceId id3 = ToSourceId(navigation_ids_[2]);
+  ukm::SourceId id4 = ToSourceId(navigation_ids_[3]);
+  // ukm::SourceId id5 = ToSourceId(navigation_ids_[4]);
+  ukm::SourceId id6 = ToSourceId(navigation_ids_[5]);
+
+  // The last navigation is for reloading, and the UKM is not recorded for this
+  // navigation. This also checks relaoding makes a different navigation ID.
+  std::string last_navigation_id =
+      "LastCommittedCrossDocumentNavigationSourceIdForTheSameDocument";
+  EXPECT_THAT(recorder.GetEntries("HistoryNavigation", {last_navigation_id}),
+              testing::ElementsAre(UkmEntry{id3, {{last_navigation_id, id1}}},
+                                   UkmEntry{id6, {{last_navigation_id, id4}}}));
+}
+
+IN_PROC_BROWSER_TEST_F(BackForwardCacheMetricsBrowserTest,
+                       SameDocumentNavigationAndGoBackImmediately) {
+  ukm::TestAutoSetUkmRecorder recorder;
+
+  const GURL url1(embedded_test_server()->GetURL("a.com", "/title1.html"));
+  const GURL url1_foo(
+      embedded_test_server()->GetURL("a.com", "/title1.html#foo"));
+
+  EXPECT_TRUE(NavigateToURL(shell(), url1));
+  EXPECT_TRUE(NavigateToURL(shell(), url1_foo));
+
+  web_contents()->GetController().GoBack();
+  EXPECT_TRUE(WaitForLoadStop(shell()->web_contents()));
+
+  ASSERT_EQ(navigation_ids_.size(), static_cast<size_t>(3));
+  std::string last_navigation_id =
+      "LastCommittedCrossDocumentNavigationSourceIdForTheSameDocument";
+  // Ensure that UKMs are not recorded for the same-document history
+  // navigations.
+  EXPECT_THAT(recorder.GetEntries("HistoryNavigation", {last_navigation_id}),
+              testing::ElementsAre());
+}
+
+IN_PROC_BROWSER_TEST_F(BackForwardCacheMetricsBrowserTest,
+                       GoBackToSameDocumentNavigationEntry) {
+  ukm::TestAutoSetUkmRecorder recorder;
+
+  const GURL url1(embedded_test_server()->GetURL("a.com", "/title1.html"));
+  const GURL url1_foo(
+      embedded_test_server()->GetURL("a.com", "/title1.html#foo"));
+  const GURL url2(embedded_test_server()->GetURL("b.com", "/title1.html"));
+
+  EXPECT_TRUE(NavigateToURL(shell(), url1));
+  EXPECT_TRUE(NavigateToURL(shell(), url1_foo));
+  EXPECT_TRUE(NavigateToURL(shell(), url2));
+
+  web_contents()->GetController().GoBack();
+  EXPECT_TRUE(WaitForLoadStop(shell()->web_contents()));
+
+  ASSERT_EQ(navigation_ids_.size(), static_cast<size_t>(4));
+  ukm::SourceId id1 = ToSourceId(navigation_ids_[0]);
+  // ukm::SourceId id2 = ToSourceId(navigation_ids_[1]);
+  // ukm::SourceId id3 = ToSourceId(navigation_ids_[2]);
+  ukm::SourceId id4 = ToSourceId(navigation_ids_[3]);
+
+  std::string last_navigation_id =
+      "LastCommittedCrossDocumentNavigationSourceIdForTheSameDocument";
+
+  // The second navigation is a same-document navigation for the page loaded by
+  // the first navigation. The third navigation is a regular navigation. The
+  // fourth navigation goes back.
+  //
+  // The back-forward navigation (#4) goes back to the navigation entry created
+  // by the same-document navigation (#2), so we expect the id corresponding to
+  // the previous non-same-document navigation (#1).
+  EXPECT_THAT(recorder.GetEntries("HistoryNavigation", {last_navigation_id}),
+              testing::ElementsAre(UkmEntry{id4, {{last_navigation_id, id1}}}));
+}
+
+IN_PROC_BROWSER_TEST_F(BackForwardCacheMetricsBrowserTest,
+                       GoBackToSameDocumentNavigationEntry2) {
+  ukm::TestAutoSetUkmRecorder recorder;
+
+  const GURL url1(embedded_test_server()->GetURL("a.com", "/title1.html"));
+  const GURL url1_foo(
+      embedded_test_server()->GetURL("a.com", "/title1.html#foo"));
+  const GURL url2(embedded_test_server()->GetURL("b.com", "/title1.html"));
+
+  EXPECT_TRUE(NavigateToURL(shell(), url1));
+  EXPECT_TRUE(NavigateToURL(shell(), url1_foo));
+  EXPECT_TRUE(NavigateToURL(shell(), url2));
+
+  web_contents()->GetController().GoToOffset(-2);
+  EXPECT_TRUE(WaitForLoadStop(shell()->web_contents()));
+
+  ASSERT_EQ(navigation_ids_.size(), static_cast<size_t>(4));
+  ukm::SourceId id1 = ToSourceId(navigation_ids_[0]);
+  // ukm::SourceId id2 = ToSourceId(navigation_ids_[1]);
+  // ukm::SourceId id3 = ToSourceId(navigation_ids_[2]);
+  ukm::SourceId id4 = ToSourceId(navigation_ids_[3]);
+
+  std::string last_navigation_id =
+      "LastCommittedCrossDocumentNavigationSourceIdForTheSameDocument";
+
+  // The second navigation is a same-document navigation for the page loaded by
+  // the first navigation. The third navigation is a regular navigation. The
+  // fourth navigation goes back.
+  //
+  // The back-forward navigation (#4) goes back to navigation #1, skipping a
+  // navigation entry generated by same-document navigation (#2). Ensure that
+  // the recorded id belongs to the navigation #1, not #2.
+  EXPECT_THAT(recorder.GetEntries("HistoryNavigation", {last_navigation_id}),
+              testing::ElementsAre(UkmEntry{id4, {{last_navigation_id, id1}}}));
 }
 
 namespace {
@@ -496,118 +646,6 @@ IN_PROC_BROWSER_TEST_F(BackForwardCacheMetricsBrowserTest, MAYBE_SharedWorker) {
                 ~kFeaturesToIgnoreMask,
             1ull << static_cast<uint32_t>(
                 blink::scheduler::WebSchedulerTrackedFeature::kSharedWorker));
-}
-
-IN_PROC_BROWSER_TEST_F(BackForwardCacheMetricsBrowserTest,
-                       WindowOpen_SameOrigin) {
-  ukm::TestAutoSetUkmRecorder recorder;
-
-  const GURL url1(embedded_test_server()->GetURL("/title1.html"));
-  const GURL url2(embedded_test_server()->GetURL("/title2.html"));
-
-  EXPECT_TRUE(NavigateToURL(shell(), url1));
-
-  ShellAddedObserver observer;
-  EXPECT_TRUE(ExecJs(shell(), JsReplace("window.open($1, '_blank');", url2)));
-  Shell* shell2 = observer.GetShell();
-  EXPECT_TRUE(WaitForLoadStop(shell2->web_contents()));
-
-  EXPECT_TRUE(NavigateToURL(shell(), url2));
-
-  {
-    // We emit metrics when we navigate back to the previously visited page,
-    // so navigate back to trigger the metrics.
-    TestNavigationObserver navigation_observer(shell()->web_contents());
-    shell()->GoBackOrForward(-1);
-    navigation_observer.WaitForNavigationFinished();
-  }
-
-  ASSERT_EQ(navigation_ids_.size(), static_cast<size_t>(3));
-  // ukm::SourceId id1 = ToSourceId(navigation_ids_[0]);
-  // ukm::SourceId id2 = ToSourceId(navigation_ids_[1]);
-  ukm::SourceId id3 = ToSourceId(navigation_ids_[2]);
-
-  EXPECT_THAT(GetFeatureUsageMetrics(&recorder),
-              testing::ElementsAre(FeatureUsage{
-                  id3, 1 << kHasScriptableFramesInMultipleTabsFeature, 0, 0}));
-}
-
-IN_PROC_BROWSER_TEST_F(BackForwardCacheMetricsBrowserTest,
-                       WindowOpen_CrossOrigin) {
-  ukm::TestAutoSetUkmRecorder recorder;
-
-  const GURL url1(embedded_test_server()->GetURL("/title1.html"));
-  const GURL url2(embedded_test_server()->GetURL("/title2.html"));
-  const GURL url3(
-      embedded_test_server()->GetURL("/cross-site/bar.com/title3.html"));
-
-  EXPECT_TRUE(NavigateToURL(shell(), url1));
-
-  ShellAddedObserver observer;
-  EXPECT_TRUE(ExecJs(shell(), JsReplace("window.open($1, '_blank');", url3)));
-
-  Shell* shell2 = observer.GetShell();
-  EXPECT_TRUE(WaitForLoadStop(shell2->web_contents()));
-
-  EXPECT_TRUE(NavigateToURL(shell(), url2));
-
-  {
-    // We emit metrics when we navigate back to the previously visited page,
-    // so navigate back to trigger the metrics.
-    TestNavigationObserver navigation_observer(shell()->web_contents());
-    shell()->GoBackOrForward(-1);
-    navigation_observer.WaitForNavigationFinished();
-  }
-
-  ASSERT_EQ(navigation_ids_.size(), static_cast<size_t>(3));
-  // ukm::SourceId id1 = ToSourceId(navigation_ids_[0]);
-  // ukm::SourceId id2 = ToSourceId(navigation_ids_[1]);
-  ukm::SourceId id3 = ToSourceId(navigation_ids_[2]);
-
-  // TODO(altimin): For now we don't distinguish between same-origin and
-  // cross-origin window.opens. We might want to revisit this in the future.
-  EXPECT_THAT(GetFeatureUsageMetrics(&recorder),
-              testing::ElementsAre(FeatureUsage{
-                  id3, 1 << kHasScriptableFramesInMultipleTabsFeature, 0, 0}));
-}
-
-IN_PROC_BROWSER_TEST_F(BackForwardCacheMetricsBrowserTest,
-                       WindowOpen_SameOrigin_Openee) {
-  ukm::TestAutoSetUkmRecorder recorder;
-
-  const GURL url1(embedded_test_server()->GetURL("/title1.html"));
-  const GURL url2(embedded_test_server()->GetURL("/title2.html"));
-  const GURL url3(embedded_test_server()->GetURL("/title3.html"));
-
-  EXPECT_TRUE(NavigateToURL(shell(), url1));
-
-  ShellAddedObserver observer;
-  EXPECT_TRUE(ExecJs(shell(), JsReplace("window.open($1, '_blank');", url2)));
-  Shell* shell2 = observer.GetShell();
-  EXPECT_TRUE(WaitForLoadStop(shell2->web_contents()));
-
-  Observe(shell2->web_contents());
-
-  // Navigate the second shell and ensure that the openee doesn't get cached
-  // too.
-  EXPECT_TRUE(NavigateToURL(shell2, url3));
-
-  {
-    // We emit metrics when we navigate back to the previously visited page,
-    // so navigate back to trigger the metrics.
-    TestNavigationObserver navigation_observer(shell2->web_contents());
-    shell2->GoBackOrForward(-1);
-    navigation_observer.WaitForNavigationFinished();
-  }
-
-  ASSERT_EQ(navigation_ids_.size(), static_cast<size_t>(3));
-  // ukm::SourceId id1 = ToSourceId(navigation_ids_[0]);
-  // ukm::SourceId id2 = ToSourceId(navigation_ids_[1]);
-  ukm::SourceId id3 = ToSourceId(navigation_ids_[2]);
-
-  EXPECT_THAT(GetFeatureUsageMetrics(&recorder),
-              testing::ElementsAre(FeatureUsage{
-                  id3, 1 << kHasScriptableFramesInMultipleTabsFeature, 0, 0}));
 }
 
 IN_PROC_BROWSER_TEST_F(BackForwardCacheMetricsBrowserTest, Geolocation) {
@@ -843,6 +881,45 @@ IN_PROC_BROWSER_TEST_F(BackForwardCacheEnabledMetricsBrowserTest,
               static_cast<int>(
                   ReloadsAfterHistoryNavigation::kServedFromBackForwardCache),
               2)));
+}
+
+IN_PROC_BROWSER_TEST_F(BackForwardCacheEnabledMetricsBrowserTest,
+                       RestoreNavigationToNextPaint) {
+  base::HistogramTester histogram_tester;
+  const char kRestoreNavigationToNextPaintTimeHistogram[] =
+      "BackForwardCache.Restore.NavigationToFirstPaint";
+
+  GURL url1(embedded_test_server()->GetURL("a.com", "/title1.html"));
+  GURL url2(embedded_test_server()->GetURL("b.com", "/title2.html"));
+
+  EXPECT_THAT(histogram_tester.GetAllSamples(
+                  kRestoreNavigationToNextPaintTimeHistogram),
+              testing::IsEmpty());
+
+  // 1) Navigate to url1.
+  EXPECT_TRUE(NavigateToURL(shell(), url1));
+  RenderFrameHostImpl* rfh_a = current_frame_host();
+  RenderFrameDeletedObserver delete_observer_rfh_a(rfh_a);
+
+  // 2) Navigate to url2.
+  EXPECT_TRUE(NavigateToURL(shell(), url2));
+  EXPECT_FALSE(delete_observer_rfh_a.deleted());
+  EXPECT_TRUE(rfh_a->is_in_back_forward_cache());
+
+  // 3) Go back to url1 and check if the metrics are recorded. Make sure the
+  // page is restored from cache.
+  shell()->web_contents()->GetController().GoBack();
+  EXPECT_TRUE(WaitForLoadStop(shell()->web_contents()));
+  EXPECT_EQ(rfh_a, current_frame_host());
+  EXPECT_EQ(shell()->web_contents()->GetVisibility(), Visibility::VISIBLE);
+
+  // Verify if the NavigationToFirstPaint metric was recorded on restore.
+  do {
+    FetchHistogramsFromChildProcesses();
+    GiveItSomeTime();
+  } while (
+      histogram_tester.GetAllSamples(kRestoreNavigationToNextPaintTimeHistogram)
+          .empty());
 }
 
 }  // namespace content

@@ -117,8 +117,6 @@ class APP_LIST_EXPORT ContentsView : public views::View,
   void ShowEmbeddedAssistantUI(bool show);
   bool IsShowingEmbeddedAssistantUI() const;
 
-  void FocusEmbeddedAssistantPage();
-
   void ShowFolderContent(AppListFolderItem* folder);
 
   // Sets the active launcher page and animates the pages into place.
@@ -322,9 +320,6 @@ class APP_LIST_EXPORT ContentsView : public views::View,
 
   // The page that was showing before ShowSearchResults(true) was invoked.
   int page_before_search_ = 0;
-
-  // The page that was showing before ShowEmbeddedAssistantUi(true) was invoked.
-  int page_before_assistant_ = 0;
 
   // Manages the pagination for the launcher pages.
   PaginationModel pagination_model_{this};

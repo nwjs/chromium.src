@@ -216,17 +216,16 @@ void IntentPickerBubbleView::CloseBubble() {
   LocationBarBubbleDelegateView::CloseBubble();
 }
 
-bool IntentPickerBubbleView::Accept() {
+void IntentPickerBubbleView::OnDialogAccepted() {
   bool should_persist = remember_selection_checkbox_ &&
                         remember_selection_checkbox_->GetChecked();
   RunCallbackAndCloseBubble(app_info_[selected_app_tag_].launch_name,
                             app_info_[selected_app_tag_].type,
                             apps::IntentPickerCloseReason::OPEN_APP,
                             should_persist);
-  return true;
 }
 
-bool IntentPickerBubbleView::Cancel() {
+void IntentPickerBubbleView::OnDialogCancelled() {
   const char* launch_name =
 #if defined(OS_CHROMEOS)
       arc::ArcIntentHelperBridge::kArcIntentHelperPackageName;
@@ -238,16 +237,14 @@ bool IntentPickerBubbleView::Cancel() {
   RunCallbackAndCloseBubble(launch_name, apps::PickerEntryType::kUnknown,
                             apps::IntentPickerCloseReason::STAY_IN_CHROME,
                             should_persist);
-  return true;
 }
 
-bool IntentPickerBubbleView::Close() {
+void IntentPickerBubbleView::OnDialogClosed() {
   // Whenever closing the bubble without pressing |Just once| or |Always| we
   // need to report back that the user didn't select anything.
   RunCallbackAndCloseBubble(kInvalidLaunchName, apps::PickerEntryType::kUnknown,
                             apps::IntentPickerCloseReason::DIALOG_DEACTIVATED,
                             false);
-  return true;
 }
 
 bool IntentPickerBubbleView::ShouldShowCloseButton() const {
@@ -283,18 +280,24 @@ IntentPickerBubbleView::IntentPickerBubbleView(
       icon_view_(icon_view),
       icon_type_(icon_type),
       initiating_origin_(initiating_origin) {
-  DialogDelegate::set_buttons(
+  DialogDelegate::SetButtons(
       show_stay_in_chrome_ ? (ui::DIALOG_BUTTON_OK | ui::DIALOG_BUTTON_CANCEL)
                            : ui::DIALOG_BUTTON_OK);
-  DialogDelegate::set_button_label(
+  DialogDelegate::SetButtonLabel(
       ui::DIALOG_BUTTON_OK,
       l10n_util::GetStringUTF16(
           icon_type_ == PageActionIconType::kClickToCall
               ? IDS_BROWSER_SHARING_CLICK_TO_CALL_DIALOG_CALL_BUTTON_LABEL
               : IDS_INTENT_PICKER_BUBBLE_VIEW_OPEN));
-  DialogDelegate::set_button_label(
+  DialogDelegate::SetButtonLabel(
       ui::DIALOG_BUTTON_CANCEL,
       l10n_util::GetStringUTF16(IDS_INTENT_PICKER_BUBBLE_VIEW_STAY_IN_CHROME));
+  DialogDelegate::SetAcceptCallback(base::Bind(
+      &IntentPickerBubbleView::OnDialogAccepted, base::Unretained(this)));
+  DialogDelegate::SetCancelCallback(base::Bind(
+      &IntentPickerBubbleView::OnDialogCancelled, base::Unretained(this)));
+  DialogDelegate::SetCloseCallback(base::Bind(
+      &IntentPickerBubbleView::OnDialogClosed, base::Unretained(this)));
 
   // Click to call bubbles need to be closed after navigation if the main frame
   // origin changed. Other intent picker bubbles will be handled in

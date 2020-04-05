@@ -18,13 +18,13 @@
 #include "chrome/browser/media/webrtc/media_capture_devices_dispatcher.h"
 #include "chrome/browser/media/webrtc/media_stream_capture_indicator.h"
 #include "chrome/browser/media/webrtc/media_stream_device_permissions.h"
-#include "chrome/browser/permissions/permission_manager.h"
-#include "chrome/browser/permissions/permission_request_manager.h"
-#include "chrome/browser/permissions/permission_uma_util.h"
+#include "chrome/browser/permissions/permission_manager_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/pref_names.h"
 #include "components/content_settings/core/common/content_settings_pattern.h"
+#include "components/permissions/permission_manager.h"
 #include "components/permissions/permission_result.h"
+#include "components/permissions/permission_uma_util.h"
 #include "components/permissions/permission_util.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/scoped_user_pref_update.h"
@@ -39,8 +39,6 @@
 
 #if defined(OS_ANDROID)
 #include "chrome/browser/android/android_theme_resources.h"
-#include "chrome/browser/android/preferences/website_preference_bridge.h"
-#include "chrome/browser/permissions/permission_dialog_delegate.h"
 #include "chrome/browser/permissions/permission_update_infobar_delegate_android.h"
 #include "ui/android/window_android.h"
 #else  // !defined(OS_ANDROID)
@@ -128,7 +126,8 @@ void MediaStreamDevicesController::RequestPermissions(
       Profile::FromBrowserContext(web_contents->GetBrowserContext());
   std::vector<ContentSettingsType> content_settings_types;
 
-  PermissionManager* permission_manager = PermissionManager::Get(profile);
+  permissions::PermissionManager* permission_manager =
+      PermissionManagerFactory::GetForProfile(profile);
   bool will_prompt_for_audio = false;
   bool will_prompt_for_video = false;
 
@@ -171,7 +170,7 @@ void MediaStreamDevicesController::RequestPermissions(
   permission_manager->RequestPermissions(
       content_settings_types, rfh, request.security_origin,
       request.user_gesture,
-      base::Bind(
+      base::BindOnce(
           &MediaStreamDevicesController::RequestAndroidPermissionsIfNeeded,
           web_contents, base::Passed(&controller), will_prompt_for_audio,
           will_prompt_for_video));
@@ -221,7 +220,7 @@ void MediaStreamDevicesController::RequestAndroidPermissionsIfNeeded(
       PermissionUpdateInfoBarDelegate::Create(
           web_contents, content_settings_types,
           base::BindOnce(&MediaStreamDevicesController::AndroidOSPromptAnswered,
-                         base::Passed(&controller), responses));
+                         std::move(controller), responses));
       return;
     case ShowPermissionInfoBarState::CANNOT_SHOW_PERMISSION_INFOBAR: {
       std::vector<ContentSetting> blocked_responses(responses.size(),
@@ -518,7 +517,7 @@ void MediaStreamDevicesController::UpdateTabSpecificContentSettings(
   }
 
   content_settings_->OnMediaStreamPermissionSet(
-      PermissionManager::Get(profile_)->GetCanonicalOrigin(
+      PermissionManagerFactory::GetForProfile(profile_)->GetCanonicalOrigin(
           ContentSettingsType::MEDIASTREAM_CAMERA, request_.security_origin,
           web_contents_->GetLastCommittedURL()),
       microphone_camera_state, selected_audio_device, selected_video_device,
@@ -573,7 +572,7 @@ bool MediaStreamDevicesController::IsUserAcceptAllowed(
     return false;
 
   std::vector<std::string> android_permissions;
-  WebsitePreferenceBridge::GetAndroidPermissionsForContentSetting(
+  permissions::PermissionUtil::GetAndroidPermissionsForContentSetting(
       content_type, &android_permissions);
   for (const auto& android_permission : android_permissions) {
     if (!window_android->HasPermission(android_permission) &&
@@ -598,8 +597,9 @@ bool MediaStreamDevicesController::PermissionIsBlockedForReason(
   content::RenderFrameHost* rfh = content::RenderFrameHost::FromID(
       request_.render_process_id, request_.render_frame_id);
   permissions::PermissionResult result =
-      PermissionManager::Get(profile_)->GetPermissionStatusForFrame(
-          content_type, rfh, request_.security_origin);
+      PermissionManagerFactory::GetForProfile(profile_)
+          ->GetPermissionStatusForFrame(content_type, rfh,
+                                        request_.security_origin);
   if (result.source == reason) {
     DCHECK_EQ(CONTENT_SETTING_BLOCK, result.content_setting);
     return true;

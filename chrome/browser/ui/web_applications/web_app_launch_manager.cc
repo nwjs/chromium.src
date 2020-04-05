@@ -7,6 +7,7 @@
 #include "base/metrics/histogram_macros.h"
 #include "chrome/browser/app_mode/app_mode_utils.h"
 #include "chrome/browser/apps/app_service/app_launch_params.h"
+#include "chrome/browser/apps/app_service/launch_utils.h"
 #include "chrome/browser/banners/app_banner_settings_helper.h"
 #include "chrome/browser/engagement/site_engagement_service.h"
 #include "chrome/browser/ui/browser.h"
@@ -16,6 +17,7 @@
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/web_applications/system_web_app_ui_utils.h"
+#include "chrome/browser/ui/web_applications/web_app_launch_utils.h"
 #include "chrome/browser/web_applications/components/file_handler_manager.h"
 #include "chrome/browser/web_applications/components/web_app_constants.h"
 #include "chrome/browser/web_applications/components/web_app_helpers.h"
@@ -61,12 +63,18 @@ void SetTabHelperAppId(content::WebContents* web_contents,
 }  // namespace
 
 Browser* CreateWebApplicationWindow(Profile* profile,
-                                    const std::string& app_id) {
+                                    const std::string& app_id,
+                                    WindowOpenDisposition disposition) {
   std::string app_name = GenerateApplicationNameFromAppId(app_id);
   gfx::Rect initial_bounds;
-  auto browser_params = Browser::CreateParams::CreateForApp(
-      app_name, /*trusted_source=*/true, initial_bounds, profile,
-      /*user_gesture=*/true);
+  Browser::CreateParams browser_params =
+      disposition == WindowOpenDisposition::NEW_POPUP
+          ? Browser::CreateParams::CreateForAppPopup(
+                app_name, /*trusted_source=*/true, initial_bounds, profile,
+                /*user_gesture=*/true)
+          : Browser::CreateParams::CreateForApp(
+                app_name, /*trusted_source=*/true, initial_bounds, profile,
+                /*user_gesture=*/true);
   browser_params.initial_show_state = DetermineWindowShowState();
   return new Browser(browser_params);
 }
@@ -80,10 +88,12 @@ content::WebContents* NavigateWebApplicationWindow(
   nav_params.disposition = disposition;
   Navigate(&nav_params);
 
-  content::WebContents* web_contents =
+  content::WebContents* const web_contents =
       nav_params.navigated_or_inserted_contents;
 
   SetTabHelperAppId(web_contents, app_id);
+  web_app::SetAppPrefsForWebContents(web_contents);
+
   return web_contents;
 }
 
@@ -134,7 +144,8 @@ content::WebContents* WebAppLaunchManager::OpenApplication(
                                             /*user_gesture=*/true));
     }
   } else {
-    browser = CreateWebApplicationWindow(profile(), params.app_id);
+    browser = CreateWebApplicationWindow(profile(), params.app_id,
+                                         params.disposition);
   }
 
   content::WebContents* web_contents;
@@ -209,8 +220,7 @@ void WebAppLaunchManager::LaunchApplication(
       apps::mojom::AppLaunchSource::kSourceCommandLine);
   params.command_line = command_line;
   params.current_directory = current_directory;
-  params.launch_files =
-      apps::LaunchManager::GetLaunchFilesFromCommandLine(command_line);
+  params.launch_files = apps::GetLaunchFilesFromCommandLine(command_line);
 
   // Wait for the web applications database to load.
   // If the profile and WebAppLaunchManager are destroyed,
@@ -238,7 +248,7 @@ void WebAppLaunchManager::LaunchWebApplication(
     DCHECK(browser);
   } else {
     // Open an empty browser window as the app_id is invalid.
-    browser = CreateNewTabBrowser();
+    browser = apps::CreateBrowserWithNewTabPage(profile());
     params.container = apps::mojom::LaunchContainer::kLaunchContainerNone;
   }
   std::move(callback).Run(browser, params.container);

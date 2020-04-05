@@ -36,9 +36,7 @@ const int kMinVisibleWidth = 30;
 // and persistent state from the browser window and the user's profile.
 class DefaultStateProvider : public WindowSizer::StateProvider {
  public:
-  DefaultStateProvider(const std::string& app_name, const Browser* browser)
-      : app_name_(app_name), browser_(browser) {
-  }
+  explicit DefaultStateProvider(const Browser* browser) : browser_(browser) {}
 
   // Overridden from WindowSizer::StateProvider:
   bool GetPersistentState(gfx::Rect* bounds,
@@ -94,7 +92,7 @@ class DefaultStateProvider : public WindowSizer::StateProvider {
       ui::WindowShowState* show_state) const override {
     DCHECK(show_state);
     // Applications are always restored with the same position.
-    if (!app_name_.empty())
+    if (browser_ && browser_->deprecated_is_app())
       return false;
 
     // If a reference browser is set, use its window. Otherwise find last
@@ -152,16 +150,14 @@ WindowSizer::WindowSizer(std::unique_ptr<StateProvider> state_provider,
 WindowSizer::~WindowSizer() = default;
 
 // static
-bool WindowSizer::GetBrowserWindowBoundsAndShowState(
-    const std::string& app_name,
+void WindowSizer::GetBrowserWindowBoundsAndShowState(
     const gfx::Rect& specified_bounds,
     const Browser* browser,
     gfx::Rect* window_bounds,
     ui::WindowShowState* show_state) {
-  std::unique_ptr<StateProvider> state_provider(
-      new DefaultStateProvider(app_name, browser));
+  auto state_provider = std::make_unique<DefaultStateProvider>(browser);
   const WindowSizer sizer(std::move(state_provider), browser);
-  return sizer.DetermineWindowBoundsAndShowState(specified_bounds,
+  sizer.DetermineWindowBoundsAndShowState(specified_bounds,
                                           window_bounds,
                                           show_state);
 }
@@ -169,7 +165,7 @@ bool WindowSizer::GetBrowserWindowBoundsAndShowState(
 ///////////////////////////////////////////////////////////////////////////////
 // WindowSizer, private:
 
-bool WindowSizer::DetermineWindowBoundsAndShowState(
+void WindowSizer::DetermineWindowBoundsAndShowState(
     const gfx::Rect& specified_bounds,
     gfx::Rect* bounds,
     ui::WindowShowState* show_state) const {
@@ -182,29 +178,21 @@ bool WindowSizer::DetermineWindowBoundsAndShowState(
 #if defined(OS_CHROMEOS)
   // See if ash should decide the window placement.
   if (GetBrowserBoundsAsh(bounds, show_state))
-    return false;
+    return;
 #endif
 
-  // In upstream, non empty case is only used in chrome tests, so we ignore it.
-  // In NW, the non empty value is the API parameter passed by browser->override_bounds()
-  // Use this strategy as the central place to determine window size
-  // priority: saved > API parameter > default in manifest > default value
-  if (true || bounds->IsEmpty()) {
+  if (bounds->IsEmpty()) {
     // See if there's last active window's placement information.
     if (GetLastActiveWindowBounds(bounds, show_state))
-      return false;
-    gfx::Rect saved;
+      return;
     // See if there's saved placement information.
-    if (GetSavedWindowBounds(&saved, show_state)) {
-      *bounds = saved;
-      return true;
-    }
-    if (!bounds->IsEmpty())
-      return false;
+    if (GetSavedWindowBounds(bounds, show_state))
+      return;
+
     // No saved placement, figure out some sensible default size based on
     // the user's screen size.
     GetDefaultWindowBounds(GetDisplayForNewWindow(), bounds);
-    return false;
+    return;
   }
 
   // In case that there was a bound given we need to make sure that it is
@@ -217,7 +205,6 @@ bool WindowSizer::DetermineWindowBoundsAndShowState(
       display::Screen::GetScreen()->GetDisplayMatching(*bounds).work_area();
   // Resize so that it fits.
   bounds->AdjustToFit(work_area);
-  return false;
 }
 
 bool WindowSizer::GetLastActiveWindowBounds(
@@ -254,9 +241,8 @@ void WindowSizer::GetDefaultWindowBounds(const display::Display& display,
                                          gfx::Rect* default_bounds) const {
   DCHECK(default_bounds);
 #if defined(OS_CHROMEOS)
-  *default_bounds = GetDefaultWindowBoundsAsh(display);
-  return;
-#endif
+  *default_bounds = GetDefaultWindowBoundsAsh(browser_, display);
+#else
   gfx::Rect work_area = display.work_area();
 
   int default_width = 800;
@@ -300,6 +286,7 @@ void WindowSizer::GetDefaultWindowBounds(const display::Display& display,
   default_bounds->SetRect(kWindowTilePixels + work_area.x(),
                           kWindowTilePixels + work_area.y(),
                           default_width, default_height);
+#endif
 }
 
 void WindowSizer::AdjustBoundsToBeVisibleOnDisplay(

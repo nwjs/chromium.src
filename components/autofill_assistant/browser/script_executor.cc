@@ -88,7 +88,11 @@ ScriptExecutor::Result::~Result() = default;
 
 void ScriptExecutor::Run(const UserData* user_data,
                          RunScriptCallback callback) {
+#ifdef NDEBUG
+  VLOG(2) << "Starting script";
+#else
   DVLOG(2) << "Starting script " << script_path_;
+#endif
   (*scripts_state_)[script_path_] = SCRIPT_STATUS_RUNNING;
 
   DCHECK(user_data);
@@ -99,7 +103,7 @@ void ScriptExecutor::Run(const UserData* user_data,
   callback_ = std::move(callback);
   DCHECK(delegate_->GetService());
 
-  DVLOG(2) << "GetActions for " << delegate_->GetCurrentURL().host();
+  VLOG(2) << "GetActions for " << delegate_->GetCurrentURL().host();
   delegate_->GetService()->GetActions(
       script_path_, delegate_->GetDeeplinkURL(),
       MergedTriggerContext(
@@ -356,9 +360,10 @@ void ScriptExecutor::RetrieveElementFormAndFieldData(
 
 void ScriptExecutor::SelectOption(
     const Selector& selector,
-    const std::string& selected_option,
+    const std::string& value,
+    DropdownSelectStrategy select_strategy,
     base::OnceCallback<void(const ClientStatus&)> callback) {
-  delegate_->GetWebController()->SelectOption(selector, selected_option,
+  delegate_->GetWebController()->SelectOption(selector, value, select_strategy,
                                               std::move(callback));
 }
 
@@ -587,9 +592,21 @@ void ScriptExecutor::RequireUI() {
   delegate_->RequireUI();
 }
 
+void ScriptExecutor::SetGenericUi(
+    std::unique_ptr<GenericUserInterfaceProto> generic_ui,
+    base::OnceCallback<void(bool, ProcessedActionStatusProto, const UserModel*)>
+        end_action_callback) {
+  delegate_->SetGenericUi(std::move(generic_ui),
+                          std::move(end_action_callback));
+}
+
+void ScriptExecutor::ClearGenericUi() {
+  delegate_->ClearGenericUi();
+}
+
 void ScriptExecutor::OnGetActions(bool result, const std::string& response) {
   bool success = result && ProcessNextActionResponse(response);
-  DVLOG(2) << __func__ << " result=" << result;
+  VLOG(2) << __func__ << " result=" << result;
   if (should_stop_script_) {
     // The last action forced the script to stop. Sending the result of the
     // action is considered best effort in this situation. Report a successful
@@ -674,7 +691,7 @@ void ScriptExecutor::ProcessNextAction() {
   // we could have more |processed_actions| than |actions_|.
   if (actions_.size() <= processed_actions_.size()) {
     DCHECK_EQ(actions_.size(), processed_actions_.size());
-    DVLOG(2) << __func__ << ", get more actions";
+    VLOG(2) << __func__ << ", get more actions";
     GetNextActions();
     return;
   }
@@ -694,7 +711,7 @@ void ScriptExecutor::ProcessNextAction() {
 }
 
 void ScriptExecutor::ProcessAction(Action* action) {
-  DVLOG(2) << "Begin action: " << *action;
+  VLOG(2) << "Begin action: " << *action;
 
   current_action_data_ = CurrentActionData();
   current_action_data_.navigation_info.set_has_error(
@@ -734,8 +751,8 @@ void ScriptExecutor::OnProcessedAction(
           processed_action.status());
       processed_action.set_status(ProcessedActionStatusProto::NAVIGATION_ERROR);
     }
-    DVLOG(1) << "Action failed: " << processed_action.status()
-             << ", get more actions";
+    VLOG(1) << "Action failed: " << processed_action.status()
+            << ", get more actions";
     // Report error immediately, interrupting action processing.
     GetNextActions();
     return;

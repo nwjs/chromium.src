@@ -83,12 +83,12 @@
 
 #if defined(OS_CHROMEOS)
 #include "chrome/browser/chromeos/account_manager/account_manager_util.h"
-#include "chrome/browser/chromeos/settings/device_oauth2_token_service.h"
-#include "chrome/browser/chromeos/settings/device_oauth2_token_service_factory.h"
+#include "chrome/browser/device_identity/device_oauth2_token_service.h"
+#include "chrome/browser/device_identity/device_oauth2_token_service_factory.h"
 #include "chrome/browser/ui/settings_window_manager_chromeos.h"
 #include "chrome/browser/ui/webui/signin/inline_login_handler_dialog_chromeos.h"
 #include "chromeos/printing/printer_configuration.h"
-#include "services/identity/public/cpp/scope_set.h"
+#include "components/signin/public/identity_manager/scope_set.h"
 #endif
 
 using content::RenderFrameHost;
@@ -529,15 +529,12 @@ class PrintPreviewHandler::AccessTokenService
   void RequestToken(base::OnceCallback<void(const std::string&)> callback) {
     // There can only be one pending request at a time. See
     // cloud_print_interface_js.js.
-    const identity::ScopeSet scopes{cloud_devices::kCloudPrintAuthScope};
+    const signin::ScopeSet scopes{cloud_devices::kCloudPrintAuthScope};
     DCHECK(!device_request_callback_);
 
-    chromeos::DeviceOAuth2TokenService* token_service =
-        chromeos::DeviceOAuth2TokenServiceFactory::Get();
-    CoreAccountId account_id = token_service->GetRobotAccountId();
-
-    device_request_ =
-        token_service->StartAccessTokenRequest(account_id, scopes, this);
+    DeviceOAuth2TokenService* token_service =
+        DeviceOAuth2TokenServiceFactory::Get();
+    device_request_ = token_service->StartAccessTokenRequest(scopes, this);
     device_request_callback_ = std::move(callback);
   }
 
@@ -1372,7 +1369,7 @@ void PrintPreviewHandler::OnAccountsInCookieUpdated(
   base::Value account_list(base::Value::Type::LIST);
   const std::vector<gaia::ListedAccount>& accounts =
       accounts_in_cookie_jar_info.signed_in_accounts;
-  for (const auto account : accounts) {
+  for (const auto& account : accounts) {
     account_list.Append(account.email);
   }
   FireWebUIListener("user-accounts-updated", std::move(account_list));

@@ -88,16 +88,16 @@ bool SoftwareRenderer::CanPartialSwap() {
 
 void SoftwareRenderer::BeginDrawingFrame() {
   TRACE_EVENT0("viz", "SoftwareRenderer::BeginDrawingFrame");
-  root_canvas_ = output_device_->BeginPaint(current_frame()->root_damage_rect);
 }
 
 void SoftwareRenderer::FinishDrawingFrame() {
   TRACE_EVENT0("viz", "SoftwareRenderer::FinishDrawingFrame");
   current_framebuffer_canvas_.reset();
   current_canvas_ = nullptr;
-  root_canvas_ = nullptr;
 
-  output_device_->EndPaint();
+  if (root_canvas_)
+    output_device_->EndPaint();
+  root_canvas_ = nullptr;
 }
 
 void SoftwareRenderer::SwapBuffers(SwapFrameData swap_frame_data) {
@@ -124,7 +124,12 @@ void SoftwareRenderer::EnsureScissorTestDisabled() {
 
 void SoftwareRenderer::BindFramebufferToOutputSurface() {
   DCHECK(!output_surface_->HasExternalStencilTest());
+  DCHECK(!root_canvas_);
+
   current_framebuffer_canvas_.reset();
+  root_canvas_ = output_device_->BeginPaint(current_frame()->root_damage_rect);
+  if (!root_canvas_)
+    output_device_->EndPaint();
   current_canvas_ = root_canvas_;
 }
 
@@ -582,7 +587,7 @@ void SoftwareRenderer::CopyDrawnRenderPass(
     const copy_output::RenderPassGeometry& geometry,
     std::unique_ptr<CopyOutputRequest> request) {
   sk_sp<SkColorSpace> color_space =
-      current_frame()->current_render_pass->color_space.ToSkColorSpace();
+      CurrentRenderPassColorSpace().ToSkColorSpace();
   DCHECK(color_space);
 
   SkBitmap bitmap;

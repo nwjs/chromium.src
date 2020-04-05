@@ -64,7 +64,6 @@ AssistantOptInFlowScreenHandler::~AssistantOptInFlowScreenHandler() {
 
 void AssistantOptInFlowScreenHandler::DeclareLocalizedValues(
     ::login::LocalizedValuesBuilder* builder) {
-  builder->Add("locale", g_browser_process->GetApplicationLocale());
   builder->Add("assistantLogo", IDS_ASSISTANT_LOGO);
   builder->Add("assistantOptinLoading", IDS_ASSISTANT_OPT_IN_LOADING);
   builder->Add("assistantOptinLoadErrorTitle",
@@ -274,6 +273,12 @@ void AssistantOptInFlowScreenHandler::OnDialogClosed() {
     ProfileManager::GetActiveUserProfile()->GetPrefs()->SetBoolean(
         assistant::prefs::kAssistantHotwordEnabled, false);
   }
+}
+
+void AssistantOptInFlowScreenHandler::OnAssistantSettingsEnabled(bool enabled) {
+  // Close the opt-in screen is the Assistant is disabled.
+  if (!enabled)
+    HandleFlowFinished();
 }
 
 void AssistantOptInFlowScreenHandler::OnAssistantStatusChanged(
@@ -579,7 +584,7 @@ void AssistantOptInFlowScreenHandler::HandleFlowFinished() {
   UMA_HISTOGRAM_EXACT_LINEAR("Assistant.OptInFlow.LoadingTimeoutCount",
                              loading_timeout_counter_, 10);
   if (screen_)
-    screen_->OnUserAction(kFlowFinished);
+    screen_->HandleUserAction(kFlowFinished);
   else
     CallJS("login.AssistantOptInFlowScreen.closeDialog");
 }

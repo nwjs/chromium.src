@@ -17,9 +17,16 @@ jumbo_component("cpp") {
   output_name = "network_cpp"
 
   sources = [
+    "constants.cc",
     "constants.h",
-    "content_security_policy.cc",
-    "content_security_policy.h",
+    "content_security_policy/content_security_policy.cc",
+    "content_security_policy/content_security_policy.h",
+    "content_security_policy/csp_context.cc",
+    "content_security_policy/csp_context.h",
+    "content_security_policy/csp_source.cc",
+    "content_security_policy/csp_source.h",
+    "content_security_policy/csp_source_list.cc",
+    "content_security_policy/csp_source_list.h",
     "cors/cors.cc",
     "cors/cors.h",
     "cors/origin_access_entry.cc",
@@ -134,8 +141,13 @@ jumbo_component("cpp_base") {
   output_name = "network_cpp_base"
 
   sources = [
+    "blocked_by_response_reason.h",
     "cors/cors_error_status.cc",
     "cors/cors_error_status.h",
+    "cross_origin_embedder_policy.cc",
+    "cross_origin_embedder_policy.h",
+    "cross_origin_embedder_policy_mojom_traits.cc",
+    "cross_origin_embedder_policy_mojom_traits.h",
     "data_element.cc",
     "data_element.h",
     "http_raw_request_response_info.cc",
@@ -154,6 +166,8 @@ jumbo_component("cpp_base") {
     "network_ipc_param_traits.h",
     "network_isolation_key_mojom_traits.cc",
     "network_isolation_key_mojom_traits.h",
+    "optional_trust_token_params.cc",
+    "optional_trust_token_params.h",
     "origin_policy.cc",
     "origin_policy.h",
     "p2p_param_traits.cc",
@@ -190,6 +204,7 @@ jumbo_component("cpp_base") {
     ":ip_address_mojom_support",
     "//services/network/public/mojom:data_pipe_interfaces",
     "//services/network/public/mojom:mutable_network_traffic_annotation_interface",
+    "//services/network/public/mojom:trust_tokens_interface",
     "//url/ipc:url_ipc",
     "//url/mojom:url_mojom_gurl",
     "//url/mojom:url_mojom_origin",
@@ -214,7 +229,9 @@ source_set("tests") {
   testonly = true
 
   sources = [
-    "content_security_policy_unittest.cc",
+    "content_security_policy/content_security_policy_unittest.cc",
+    "content_security_policy/csp_context_unittest.cc",
+    "content_security_policy/csp_source_list_unittest.cc",
     "cookie_manager_mojom_traits_unittest.cc",
     "cors/cors_unittest.cc",
     "cors/origin_access_entry_unittest.cc",
@@ -234,10 +251,12 @@ source_set("tests") {
     "is_potentially_trustworthy_unittest.cc",
     "mutable_network_traffic_annotation_tag_mojom_traits_unittest.cc",
     "mutable_partial_network_traffic_annotation_tag_mojom_traits_unittest.cc",
+    "net_log_mojom_traits_unittest.cc",
     "network_connection_tracker_unittest.cc",
     "network_isolation_key_mojom_traits_unittest.cc",
     "network_mojom_traits_unittest.cc",
     "network_quality_tracker_unittest.cc",
+    "optional_trust_token_params_unittest.cc",
     "proxy_config_mojom_traits_unittest.cc",
     "simple_url_loader_unittest.cc",
     "site_for_cookies_mojom_traits_unittest.cc",

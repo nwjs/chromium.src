@@ -13,7 +13,6 @@
 #import "ios/chrome/test/earl_grey/chrome_earl_grey.h"
 #import "ios/chrome/test/earl_grey/chrome_test_case_app_interface.h"
 #import "ios/testing/earl_grey/app_launch_manager.h"
-#import "ios/testing/earl_grey/coverage_utils.h"
 #import "ios/testing/earl_grey/earl_grey_test.h"
 #import "ios/web/public/test/http_server/http_server.h"
 #include "net/test/embedded_test_server/default_handlers.h"
@@ -234,7 +233,7 @@ GREY_STUB_CLASS_IN_APP_MAIN_QUEUE(ChromeTestCaseAppInterface)
   ResetAuthentication();
 
   // Reset any remaining sign-in state from previous tests.
-  [ChromeEarlGrey signOutAndClearAccounts];
+  [ChromeEarlGrey signOutAndClearIdentities];
   [ChromeEarlGrey openNewTab];
   _executedTestMethodSetUp = YES;
 }
@@ -250,7 +249,7 @@ GREY_STUB_CLASS_IN_APP_MAIN_QUEUE(ChromeTestCaseAppInterface)
   }
 
   // Clear any remaining test accounts and signed in users.
-  [ChromeEarlGrey signOutAndClearAccounts];
+  [ChromeEarlGrey signOutAndClearIdentities];
 
   // Re-start anything that was disabled this test, so it is running when the
   // next test starts.
@@ -327,7 +326,7 @@ GREY_STUB_CLASS_IN_APP_MAIN_QUEUE(ChromeTestCaseAppInterface)
 + (void)disableMockAuthentication {
   // Make sure local data is cleared, before disabling mock authentication,
   // where data may be sent to real servers.
-  [ChromeEarlGrey signOutAndClearAccounts];
+  [ChromeEarlGrey signOutAndClearIdentities];
   [ChromeEarlGrey tearDownFakeSyncServer];
   TearDownMockAuthentication();
 }
@@ -396,8 +395,6 @@ GREY_STUB_CLASS_IN_APP_MAIN_QUEUE(ChromeTestCaseAppInterface)
   GREYAssertTrue([ChromeEarlGrey isCustomWebKitLoadedIfRequested],
                  @"Unable to load custom WebKit");
 
-  [CoverageUtils configureCoverageReportPath];
-
   [[self class] startHTTPServer];
   [[self class] enableMockAuthentication];
 
@@ -410,8 +407,6 @@ GREY_STUB_CLASS_IN_APP_MAIN_QUEUE(ChromeTestCaseAppInterface)
   // Enforce the assumption that the tests are runing in portrait.
   [ChromeEarlGrey rotateDeviceToOrientation:UIDeviceOrientationPortrait
                                       error:nil];
-
-  [CoverageUtils configureCoverageReportPath];
 }
 
 // Resets the variables tracking app state.
@@ -458,7 +453,7 @@ GREY_STUB_CLASS_IN_APP_MAIN_QUEUE(ChromeTestCaseAppInterface)
       ResetAuthentication();
 
       // Reset any remaining sign-in state from previous tests.
-      [ChromeEarlGrey signOutAndClearAccounts];
+      [ChromeEarlGrey signOutAndClearIdentities];
       [ChromeEarlGrey openNewTab];
     }
   }

@@ -338,6 +338,10 @@ void MultipleFieldsTemporalInputTypeView::DidEndChooser() {
   GetElement().EnqueueChangeEvent();
 }
 
+String MultipleFieldsTemporalInputTypeView::AriaRoleForPickerIndicator() const {
+  return input_type_->AriaRoleForPickerIndicator();
+}
+
 MultipleFieldsTemporalInputTypeView::MultipleFieldsTemporalInputTypeView(
     HTMLInputElement& element,
     BaseTemporalInputType& input_type)
@@ -361,25 +365,17 @@ void MultipleFieldsTemporalInputTypeView::Blur() {
   ClosePopupView();
 }
 
-scoped_refptr<ComputedStyle>
-MultipleFieldsTemporalInputTypeView::CustomStyleForLayoutObject(
-    scoped_refptr<ComputedStyle> original_style) {
-  EDisplay original_display = original_style->Display();
+void MultipleFieldsTemporalInputTypeView::CustomStyleForLayoutObject(
+    ComputedStyle& style) {
+  EDisplay original_display = style.Display();
   EDisplay new_display = original_display;
   if (original_display == EDisplay::kInline ||
       original_display == EDisplay::kInlineBlock)
     new_display = EDisplay::kInlineFlex;
   else if (original_display == EDisplay::kBlock)
     new_display = EDisplay::kFlex;
-  TextDirection content_direction = ComputedTextDirection();
-  if (original_style->Direction() == content_direction &&
-      original_display == new_display)
-    return original_style;
-
-  scoped_refptr<ComputedStyle> style = ComputedStyle::Clone(*original_style);
-  style->SetDirection(content_direction);
-  style->SetDisplay(new_display);
-  return style;
+  style.SetDisplay(new_display);
+  style.SetDirection(ComputedTextDirection());
 }
 
 void MultipleFieldsTemporalInputTypeView::CreateShadowSubtree() {
@@ -700,8 +696,8 @@ AXObject* MultipleFieldsTemporalInputTypeView::PopupRootAXObject() {
   return nullptr;
 }
 
-bool MultipleFieldsTemporalInputTypeView::TypeShouldForceLegacyLayout() const {
-  return false;
+String MultipleFieldsTemporalInputTypeView::RawValue() const {
+  return GetDateTimeEditElement()->innerText();
 }
 
 }  // namespace blink

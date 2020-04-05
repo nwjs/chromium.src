@@ -63,7 +63,7 @@ class WaitUntilObserver::ThenFunction final : public ScriptFunction {
         resolve_type_(type),
         callback_(std::move(callback)) {}
 
-  void Trace(blink::Visitor* visitor) override {
+  void Trace(Visitor* visitor) override {
     visitor->Trace(observer_);
     ScriptFunction::Trace(visitor);
   }
@@ -189,7 +189,7 @@ bool WaitUntilObserver::IsDispatchingEvent() const {
 WaitUntilObserver::WaitUntilObserver(ExecutionContext* context,
                                      EventType type,
                                      int event_id)
-    : ContextClient(context),
+    : ExecutionContextClient(context),
       type_(type),
       event_id_(event_id),
       consume_window_interaction_timer_(
@@ -334,8 +334,8 @@ void WaitUntilObserver::ConsumeWindowInteraction(TimerBase*) {
     context->ConsumeWindowInteraction();
 }
 
-void WaitUntilObserver::Trace(blink::Visitor* visitor) {
-  ContextClient::Trace(visitor);
+void WaitUntilObserver::Trace(Visitor* visitor) {
+  ExecutionContextClient::Trace(visitor);
 }
 
 }  // namespace blink

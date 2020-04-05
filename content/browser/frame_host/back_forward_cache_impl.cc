@@ -17,6 +17,7 @@
 #include "content/browser/renderer_host/render_view_host_impl.h"
 #include "content/common/content_navigation_policy.h"
 #include "content/common/page_messages.h"
+#include "content/public/browser/visibility.h"
 #include "net/http/http_request_headers.h"
 #include "net/http/http_status_code.h"
 #include "third_party/blink/public/common/scheduler/web_scheduler_tracked_feature.h"
@@ -71,12 +72,16 @@ const base::FeatureParam<ChildProcessImportance> kChildProcessImportanceParam{
 #endif
 
 bool IsServiceWorkerSupported() {
+  if (!DeviceHasEnoughMemoryForBackForwardCache())
+    return false;
   static constexpr base::FeatureParam<bool> service_worker_supported(
       &features::kBackForwardCache, "service_worker_supported", false);
   return service_worker_supported.Get();
 }
 
 bool IsGeolocationSupported() {
+  if (!DeviceHasEnoughMemoryForBackForwardCache())
+    return false;
   static constexpr base::FeatureParam<bool> geolocation_supported(
       &features::kBackForwardCache, "geolocation_supported",
 #if defined(OS_ANDROID)
@@ -94,6 +99,8 @@ bool IsGeolocationSupported() {
 // calls and force all pages to be cached. Should be used only for local testing
 // and debugging -- things will break when this param is used.
 bool ShouldIgnoreBlocklists() {
+  if (!DeviceHasEnoughMemoryForBackForwardCache())
+    return false;
   static constexpr base::FeatureParam<bool> should_ignore_blocklists(
       &features::kBackForwardCache, "should_ignore_blocklists", false);
   return should_ignore_blocklists.Get();
@@ -107,11 +114,13 @@ uint64_t GetDisallowedFeatures(RenderFrameHostImpl* rfh) {
       FeatureToBit(WebSchedulerTrackedFeature::kWebRTC) |
       FeatureToBit(WebSchedulerTrackedFeature::kContainsPlugins) |
       FeatureToBit(WebSchedulerTrackedFeature::kDedicatedWorkerOrWorklet) |
-      FeatureToBit(WebSchedulerTrackedFeature::kOutstandingNetworkRequest) |
+      FeatureToBit(
+          WebSchedulerTrackedFeature::kOutstandingNetworkRequestOthers) |
+      FeatureToBit(
+          WebSchedulerTrackedFeature::kOutstandingNetworkRequestFetch) |
+      FeatureToBit(WebSchedulerTrackedFeature::kOutstandingNetworkRequestXHR) |
       FeatureToBit(
           WebSchedulerTrackedFeature::kOutstandingIndexedDBTransaction) |
-      FeatureToBit(
-          WebSchedulerTrackedFeature::kHasScriptableFramesInMultipleTabs) |
       FeatureToBit(
           WebSchedulerTrackedFeature::kRequestedNotificationsPermission) |
       FeatureToBit(WebSchedulerTrackedFeature::kRequestedMIDIPermission) |
@@ -132,7 +141,9 @@ uint64_t GetDisallowedFeatures(RenderFrameHostImpl* rfh) {
       FeatureToBit(WebSchedulerTrackedFeature::kWebXR) |
       FeatureToBit(WebSchedulerTrackedFeature::kWebLocks) |
       FeatureToBit(WebSchedulerTrackedFeature::kWebHID) |
-      FeatureToBit(WebSchedulerTrackedFeature::kWakeLock);
+      FeatureToBit(WebSchedulerTrackedFeature::kWakeLock) |
+      FeatureToBit(WebSchedulerTrackedFeature::kWebShare) |
+      FeatureToBit(WebSchedulerTrackedFeature::kWebFileSystem);
 
   uint64_t result = kAlwaysDisallowedFeatures;
 
@@ -208,6 +219,21 @@ void RestoreBrowserControlsState(RenderFrameHostImpl* cached_rfh) {
         BrowserControlsState::BROWSER_CONTROLS_STATE_HIDDEN,
         // Do not animate as we want this to happen "instantaneously"
         false);
+  }
+}
+
+void RequestRecordTimeToVisible(RenderFrameHostImpl* rfh,
+                                base::TimeTicks navigation_start) {
+  // Make sure we record only when the frame is not in hidden state to avoid
+  // cases like page navigating back with window.history.back(), while being
+  // hidden.
+  if (rfh->delegate()->GetVisibility() != Visibility::HIDDEN) {
+    rfh->GetView()->SetRecordContentToVisibleTimeRequest(
+        navigation_start, base::Optional<bool>() /* destination_is_loaded */,
+        base::Optional<bool>() /* destination_is_frozen */,
+        false /* show_reason_tab_switching */,
+        false /* show_reason_unoccluded */,
+        true /* show_reason_bfcache_restore */);
   }
 }
 
@@ -391,7 +417,8 @@ void BackForwardCacheImpl::StoreEntry(
 }
 
 std::unique_ptr<BackForwardCacheImpl::Entry> BackForwardCacheImpl::RestoreEntry(
-    int navigation_entry_id) {
+    int navigation_entry_id,
+    base::TimeTicks navigation_start) {
   TRACE_EVENT0("navigation", "BackForwardCache::RestoreEntry");
   // Select the RenderFrameHostImpl matching the navigation entry.
   auto matching_entry = std::find_if(
@@ -409,8 +436,12 @@ std::unique_ptr<BackForwardCacheImpl::Entry> BackForwardCacheImpl::RestoreEntry(
           ->render_frame_host->is_evicted_from_back_forward_cache())
     return nullptr;
 
+  // Capture the navigation start timestamp to dispatch to the page when the
+  // entry is restored.
+  (*matching_entry)->restore_navigation_start = navigation_start;
   std::unique_ptr<Entry> entry = std::move(*matching_entry);
   entries_.erase(matching_entry);
+  RequestRecordTimeToVisible(entry->render_frame_host.get(), navigation_start);
   entry->render_frame_host->LeaveBackForwardCache();
 
   RestoreBrowserControlsState(entry->render_frame_host.get());

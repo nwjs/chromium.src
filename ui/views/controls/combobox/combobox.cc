@@ -4,7 +4,9 @@
 
 #include "ui/views/controls/combobox/combobox.h"
 
+#include <algorithm>
 #include <memory>
+#include <utility>
 
 #include "base/bind.h"
 #include "base/logging.h"
@@ -47,11 +49,8 @@ namespace {
 constexpr int kNoSelection = -1;
 
 SkColor GetTextColorForEnableState(const Combobox& combobox, bool enabled) {
-  SkColor color =
-      style::GetColor(combobox, style::CONTEXT_TEXTFIELD, style::STYLE_PRIMARY);
-  if (!enabled)
-    color = SkColorSetA(color, gfx::kDisabledControlAlpha);
-  return color;
+  const int style = enabled ? style::STYLE_PRIMARY : style::STYLE_DISABLED;
+  return style::GetColor(combobox, style::CONTEXT_TEXTFIELD, style);
 }
 
 // The transparent button which holds a button state but is not rendered.
@@ -305,6 +304,7 @@ void Combobox::SetInvalid(bool invalid) {
 }
 
 void Combobox::OnThemeChanged() {
+  View::OnThemeChanged();
   SetBackground(
       CreateBackgroundFromPainter(Painter::CreateSolidRoundRectPainter(
           GetNativeTheme()->GetSystemColor(
@@ -328,8 +328,8 @@ void Combobox::SetSelectedRow(int row) {
 }
 
 base::string16 Combobox::GetTextForRow(int row) {
-  return model()->IsItemSeparatorAt(row) ? base::string16() :
-                                           model()->GetItemAt(row);
+  return model()->IsItemSeparatorAt(row) ? base::string16()
+                                         : model()->GetItemAt(row);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

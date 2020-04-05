@@ -18,8 +18,8 @@
 namespace blink {
 
 IntersectionObserverController::IntersectionObserverController(
-    Document* document)
-    : ContextClient(document) {}
+    ExecutionContext* context)
+    : ExecutionContextClient(context) {}
 
 IntersectionObserverController::~IntersectionObserverController() = default;
 
@@ -62,7 +62,7 @@ void IntersectionObserverController::DeliverNotifications(
 
 bool IntersectionObserverController::ComputeIntersections(unsigned flags) {
   needs_occlusion_tracking_ = false;
-  if (Document* document = To<Document>(GetExecutionContext())) {
+  if (GetExecutionContext()) {
     TRACE_EVENT0("blink",
                  "IntersectionObserverController::"
                  "computeIntersections");
@@ -145,7 +145,7 @@ void IntersectionObserverController::Trace(Visitor* visitor) {
   visitor->Trace(tracked_explicit_root_observers_);
   visitor->Trace(tracked_implicit_root_observations_);
   visitor->Trace(pending_intersection_observers_);
-  ContextClient::Trace(visitor);
+  ExecutionContextClient::Trace(visitor);
 }
 
 }  // namespace blink

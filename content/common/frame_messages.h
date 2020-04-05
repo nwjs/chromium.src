@@ -18,35 +18,34 @@
 #include "base/optional.h"
 #include "build/build_config.h"
 #include "cc/input/touch_action.h"
-#include "cc/trees/render_frame_metadata.h"
 #include "components/viz/common/surfaces/surface_id.h"
 #include "components/viz/common/surfaces/surface_info.h"
 #include "content/common/buildflags.h"
 #include "content/common/content_export.h"
 #include "content/common/content_param_traits.h"
-#include "content/common/content_security_policy/csp_context.h"
 #include "content/common/frame_delete_intention.h"
-#include "content/common/frame_message_structs.h"
-#include "content/common/frame_owner_properties.h"
 #include "content/common/frame_replication_state.h"
 #include "content/common/frame_visual_properties.h"
 #include "content/common/navigation_gesture.h"
 #include "content/common/navigation_params.h"
 #include "content/common/savable_subframe.h"
 #include "content/public/common/common_param_traits.h"
-#include "content/public/common/context_menu_params.h"
-#include "content/public/common/favicon_url.h"
 #include "content/public/common/frame_navigate_params.h"
+#include "content/public/common/navigation_policy.h"
 #include "content/public/common/page_state.h"
 #include "content/public/common/previews_state.h"
 #include "content/public/common/referrer.h"
 #include "content/public/common/screen_info.h"
 #include "content/public/common/stop_find_action.h"
 #include "content/public/common/three_d_api_types.h"
+#include "content/public/common/untrustworthy_context_menu_params.h"
+#include "ipc/ipc_channel_handle.h"
 #include "ipc/ipc_message_macros.h"
 #include "ipc/ipc_platform_file.h"
 #include "mojo/public/cpp/system/message_pipe.h"
 #include "ppapi/buildflags/buildflags.h"
+#include "services/network/public/mojom/content_security_policy.mojom.h"
+#include "services/network/public/mojom/fetch_api.mojom-shared.h"
 #include "third_party/blink/public/common/feature_policy/feature_policy.h"
 #include "third_party/blink/public/common/frame/frame_owner_element_type.h"
 #include "third_party/blink/public/common/frame/frame_policy.h"
@@ -55,15 +54,20 @@
 #include "third_party/blink/public/common/navigation/triggering_event_info.h"
 #include "third_party/blink/public/mojom/choosers/file_chooser.mojom.h"
 #include "third_party/blink/public/mojom/devtools/console_message.mojom.h"
-#include "third_party/blink/public/mojom/feature_policy/feature_policy.mojom.h"
+#include "third_party/blink/public/mojom/favicon/favicon_url.mojom.h"
+#include "third_party/blink/public/mojom/feature_policy/document_policy_feature.mojom.h"
+#include "third_party/blink/public/mojom/feature_policy/policy_disposition.mojom.h"
 #include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom.h"
 #include "third_party/blink/public/mojom/frame/blocked_navigation_types.mojom.h"
+#include "third_party/blink/public/mojom/frame/frame_owner_properties.mojom.h"
 #include "third_party/blink/public/mojom/frame/lifecycle.mojom.h"
 #include "third_party/blink/public/mojom/frame/user_activation_update_types.mojom.h"
 #include "third_party/blink/public/mojom/input/focus_type.mojom.h"
+#include "third_party/blink/public/mojom/loader/resource_load_info.mojom-shared.h"
+#include "third_party/blink/public/mojom/scroll/scrollbar_mode.mojom.h"
+#include "third_party/blink/public/mojom/security_context/insecure_request_policy.mojom.h"
 #include "third_party/blink/public/mojom/web_feature/web_feature.mojom.h"
 #include "third_party/blink/public/platform/viewport_intersection_state.h"
-#include "third_party/blink/public/platform/web_insecure_request_policy.h"
 #include "third_party/blink/public/platform/web_intrinsic_sizing_info.h"
 #include "third_party/blink/public/web/web_frame_owner_properties.h"
 #include "third_party/blink/public/web/web_tree_scope_type.h"
@@ -106,14 +110,11 @@ IPC_ENUM_TRAITS_MAX_VALUE(blink::ContextMenuDataInputFieldType,
                           blink::ContextMenuDataInputFieldType::kMaxValue)
 IPC_ENUM_TRAITS_MAX_VALUE(blink::mojom::FocusType,
                           blink::mojom::FocusType::kMaxValue)
-IPC_ENUM_TRAITS_MAX_VALUE(
-    blink::WebFrameOwnerProperties::ScrollingMode,
-    blink::WebFrameOwnerProperties::ScrollingMode::kMaxValue)
+IPC_ENUM_TRAITS_MAX_VALUE(blink::mojom::ScrollbarMode,
+                          blink::mojom::ScrollbarMode::kMaxValue)
 IPC_ENUM_TRAITS_MAX_VALUE(content::StopFindAction,
                           content::STOP_FIND_ACTION_LAST)
-IPC_ENUM_TRAITS_MAX_VALUE(content::FaviconURL::IconType,
-                          content::FaviconURL::IconType::kMax)
-IPC_ENUM_TRAITS(blink::WebSandboxFlags)  // Bitmask.
+IPC_ENUM_TRAITS(blink::mojom::WebSandboxFlags)  // Bitmask
 IPC_ENUM_TRAITS_MAX_VALUE(blink::WebTreeScopeType,
                           blink::WebTreeScopeType::kMaxValue)
 IPC_ENUM_TRAITS_MAX_VALUE(ui::MenuSourceType, ui::MENU_SOURCE_TYPE_LAST)
@@ -121,12 +122,14 @@ IPC_ENUM_TRAITS_MAX_VALUE(network::mojom::CSPDirectiveName,
                           network::mojom::CSPDirectiveName::kMaxValue)
 IPC_ENUM_TRAITS_MAX_VALUE(blink::mojom::FeaturePolicyFeature,
                           blink::mojom::FeaturePolicyFeature::kMaxValue)
+IPC_ENUM_TRAITS_MAX_VALUE(blink::mojom::DocumentPolicyFeature,
+                          blink::mojom::DocumentPolicyFeature::kMaxValue)
 IPC_ENUM_TRAITS_MAX_VALUE(blink::TriggeringEventInfo,
                           blink::TriggeringEventInfo::kMaxValue)
 IPC_ENUM_TRAITS_MAX_VALUE(blink::mojom::UserActivationUpdateType,
                           blink::mojom::UserActivationUpdateType::kMaxValue)
-IPC_ENUM_TRAITS_MAX_VALUE(blink::mojom::FeaturePolicyDisposition,
-                          blink::mojom::FeaturePolicyDisposition::kMaxValue)
+IPC_ENUM_TRAITS_MAX_VALUE(blink::mojom::PolicyDisposition,
+                          blink::mojom::PolicyDisposition::kMaxValue)
 IPC_ENUM_TRAITS_MAX_VALUE(blink::mojom::FrameVisibility,
                           blink::mojom::FrameVisibility::kMaxValue)
 IPC_ENUM_TRAITS_MIN_MAX_VALUE(blink::FrameOcclusionState,
@@ -134,6 +137,10 @@ IPC_ENUM_TRAITS_MIN_MAX_VALUE(blink::FrameOcclusionState,
                               blink::FrameOcclusionState::kMaxValue)
 IPC_ENUM_TRAITS_MAX_VALUE(blink::mojom::WebFeature,
                           blink::mojom::WebFeature::kMaxValue)
+IPC_ENUM_TRAITS_MAX_VALUE(network::mojom::RequestDestination,
+                          network::mojom::RequestDestination::kMaxValue)
+IPC_ENUM_TRAITS_MAX_VALUE(blink::mojom::InsecureRequestPolicy,
+                          blink::mojom::InsecureRequestPolicy::kMaxValue)
 
 IPC_STRUCT_TRAITS_BEGIN(content::NavigationDownloadPolicy)
   IPC_STRUCT_TRAITS_MEMBER(observed_types)
@@ -153,7 +160,7 @@ IPC_STRUCT_TRAITS_BEGIN(blink::WebIntrinsicSizingInfo)
   IPC_STRUCT_TRAITS_MEMBER(has_height)
 IPC_STRUCT_TRAITS_END()
 
-IPC_STRUCT_TRAITS_BEGIN(content::ContextMenuParams)
+IPC_STRUCT_TRAITS_BEGIN(content::UntrustworthyContextMenuParams)
   IPC_STRUCT_TRAITS_MEMBER(media_type)
   IPC_STRUCT_TRAITS_MEMBER(x)
   IPC_STRUCT_TRAITS_MEMBER(y)
@@ -163,8 +170,6 @@ IPC_STRUCT_TRAITS_BEGIN(content::ContextMenuParams)
   IPC_STRUCT_TRAITS_MEMBER(src_url)
   IPC_STRUCT_TRAITS_MEMBER(has_image_contents)
   IPC_STRUCT_TRAITS_MEMBER(properties)
-  IPC_STRUCT_TRAITS_MEMBER(page_url)
-  IPC_STRUCT_TRAITS_MEMBER(frame_url)
   IPC_STRUCT_TRAITS_MEMBER(media_flags)
   IPC_STRUCT_TRAITS_MEMBER(selection_text)
   IPC_STRUCT_TRAITS_MEMBER(title_text)
@@ -195,15 +200,9 @@ IPC_STRUCT_TRAITS_BEGIN(content::CustomContextMenuContext)
   IPC_STRUCT_TRAITS_MEMBER(link_followed)
 IPC_STRUCT_TRAITS_END()
 
-IPC_STRUCT_TRAITS_BEGIN(content::FaviconURL)
-  IPC_STRUCT_TRAITS_MEMBER(icon_url)
-  IPC_STRUCT_TRAITS_MEMBER(icon_type)
-  IPC_STRUCT_TRAITS_MEMBER(icon_sizes)
-IPC_STRUCT_TRAITS_END()
-
-IPC_STRUCT_TRAITS_BEGIN(content::FrameOwnerProperties)
+IPC_STRUCT_TRAITS_BEGIN(blink::mojom::FrameOwnerProperties)
   IPC_STRUCT_TRAITS_MEMBER(name)
-  IPC_STRUCT_TRAITS_MEMBER(scrolling_mode)
+  IPC_STRUCT_TRAITS_MEMBER(scrollbar_mode)
   IPC_STRUCT_TRAITS_MEMBER(margin_width)
   IPC_STRUCT_TRAITS_MEMBER(margin_height)
   IPC_STRUCT_TRAITS_MEMBER(allow_fullscreen)
@@ -217,26 +216,16 @@ IPC_STRUCT_TRAITS_END()
 IPC_STRUCT_TRAITS_BEGIN(content::FrameVisualProperties)
   IPC_STRUCT_TRAITS_MEMBER(screen_info)
   IPC_STRUCT_TRAITS_MEMBER(auto_resize_enabled)
+  IPC_STRUCT_TRAITS_MEMBER(visible_viewport_size)
   IPC_STRUCT_TRAITS_MEMBER(min_size_for_auto_resize)
   IPC_STRUCT_TRAITS_MEMBER(max_size_for_auto_resize)
-  IPC_STRUCT_TRAITS_MEMBER(screen_space_rect)
-  IPC_STRUCT_TRAITS_MEMBER(local_frame_size)
-  IPC_STRUCT_TRAITS_MEMBER(compositor_viewport)
   IPC_STRUCT_TRAITS_MEMBER(capture_sequence_number)
   IPC_STRUCT_TRAITS_MEMBER(zoom_level)
   IPC_STRUCT_TRAITS_MEMBER(page_scale_factor)
   IPC_STRUCT_TRAITS_MEMBER(is_pinch_gesture_active)
-  IPC_STRUCT_TRAITS_MEMBER(local_surface_id_allocation)
-IPC_STRUCT_TRAITS_END()
-
-IPC_STRUCT_TRAITS_BEGIN(cc::RenderFrameMetadata)
-  IPC_STRUCT_TRAITS_MEMBER(is_scroll_offset_at_top)
-  IPC_STRUCT_TRAITS_MEMBER(root_background_color)
-  IPC_STRUCT_TRAITS_MEMBER(root_scroll_offset)
-  IPC_STRUCT_TRAITS_MEMBER(selection)
-  IPC_STRUCT_TRAITS_MEMBER(is_mobile_optimized)
-  IPC_STRUCT_TRAITS_MEMBER(device_scale_factor)
-  IPC_STRUCT_TRAITS_MEMBER(viewport_size_in_pixels)
+  IPC_STRUCT_TRAITS_MEMBER(screen_space_rect)
+  IPC_STRUCT_TRAITS_MEMBER(local_frame_size)
+  IPC_STRUCT_TRAITS_MEMBER(compositor_viewport)
   IPC_STRUCT_TRAITS_MEMBER(local_surface_id_allocation)
 IPC_STRUCT_TRAITS_END()
 
@@ -245,6 +234,7 @@ IPC_STRUCT_TRAITS_BEGIN(blink::FramePolicy)
   IPC_STRUCT_TRAITS_MEMBER(container_policy)
   IPC_STRUCT_TRAITS_MEMBER(required_document_policy)
   IPC_STRUCT_TRAITS_MEMBER(allowed_to_download)
+  IPC_STRUCT_TRAITS_MEMBER(disallow_document_access)
 IPC_STRUCT_TRAITS_END()
 
 IPC_STRUCT_TRAITS_BEGIN(blink::ViewportIntersectionState)
@@ -253,6 +243,9 @@ IPC_STRUCT_TRAITS_BEGIN(blink::ViewportIntersectionState)
   IPC_STRUCT_TRAITS_MEMBER(main_frame_document_intersection)
   IPC_STRUCT_TRAITS_MEMBER(compositor_visible_rect)
   IPC_STRUCT_TRAITS_MEMBER(occlusion_state)
+  IPC_STRUCT_TRAITS_MEMBER(main_frame_viewport_size)
+  IPC_STRUCT_TRAITS_MEMBER(main_frame_scroll_offset)
+  IPC_STRUCT_TRAITS_MEMBER(can_skip_sticky_frame_tracking)
 IPC_STRUCT_TRAITS_END()
 
 IPC_STRUCT_TRAITS_BEGIN(content::FrameNavigateParams)
@@ -333,7 +326,8 @@ IPC_STRUCT_BEGIN_WITH_PARENT(FrameHostMsg_DidCommitProvisionalLoad_Params,
   IPC_STRUCT_MEMBER(url::Origin, origin)
 
   // The insecure request policy the document for the load is enforcing.
-  IPC_STRUCT_MEMBER(blink::WebInsecureRequestPolicy, insecure_request_policy)
+  IPC_STRUCT_MEMBER(blink::mojom::InsecureRequestPolicy,
+                    insecure_request_policy)
 
   // The upgrade insecure navigations set the document for the load is
   // enforcing.
@@ -373,10 +367,10 @@ IPC_STRUCT_BEGIN(FrameMsg_PostMessage_Params)
       scoped_refptr<base::RefCountedData<blink::TransferableMessage>>, message)
 IPC_STRUCT_END()
 
-IPC_STRUCT_TRAITS_BEGIN(content::SourceLocation)
+IPC_STRUCT_TRAITS_BEGIN(network::mojom::SourceLocation)
   IPC_STRUCT_TRAITS_MEMBER(url)
-  IPC_STRUCT_TRAITS_MEMBER(line_number)
-  IPC_STRUCT_TRAITS_MEMBER(column_number)
+  IPC_STRUCT_TRAITS_MEMBER(line)
+  IPC_STRUCT_TRAITS_MEMBER(column)
 IPC_STRUCT_TRAITS_END()
 
 IPC_STRUCT_TRAITS_BEGIN(blink::ParsedFeaturePolicyDeclaration)
@@ -423,42 +417,6 @@ IPC_STRUCT_BEGIN(FrameHostMsg_OpenURL_Params)
   IPC_STRUCT_MEMBER(content::NavigationDownloadPolicy, download_policy)
 IPC_STRUCT_END()
 
-IPC_STRUCT_BEGIN(FrameHostMsg_DownloadUrl_Params)
-  IPC_STRUCT_MEMBER(GURL, url)
-  IPC_STRUCT_MEMBER(content::Referrer, referrer)
-  IPC_STRUCT_MEMBER(url::Origin, initiator_origin)
-  IPC_STRUCT_MEMBER(base::string16, suggested_name)
-  IPC_STRUCT_MEMBER(network::mojom::RedirectMode, cross_origin_redirects)
-  IPC_STRUCT_MEMBER(mojo::MessagePipeHandle, blob_url_token)
-  IPC_STRUCT_MEMBER(mojo::MessagePipeHandle, data_url_blob)
-IPC_STRUCT_END()
-
-IPC_STRUCT_BEGIN(FrameMsg_TextTrackSettings_Params)
-  // Text tracks on/off state
-  IPC_STRUCT_MEMBER(bool, text_tracks_enabled)
-
-  // Background color of the text track.
-  IPC_STRUCT_MEMBER(std::string, text_track_background_color)
-
-  // Font family of the text track text.
-  IPC_STRUCT_MEMBER(std::string, text_track_font_family)
-
-  // Font style of the text track text.
-  IPC_STRUCT_MEMBER(std::string, text_track_font_style)
-
-  // Font variant of the text track text.
-  IPC_STRUCT_MEMBER(std::string, text_track_font_variant)
-
-  // Color of the text track text.
-  IPC_STRUCT_MEMBER(std::string, text_track_text_color)
-
-  // Text shadow (edge style) of the text track text.
-  IPC_STRUCT_MEMBER(std::string, text_track_text_shadow)
-
-  // Size of the text track text.
-  IPC_STRUCT_MEMBER(std::string, text_track_text_size)
-IPC_STRUCT_END()
-
 IPC_STRUCT_TRAITS_BEGIN(content::SavableSubframe)
   IPC_STRUCT_TRAITS_MEMBER(original_url)
   IPC_STRUCT_TRAITS_MEMBER(routing_id)
@@ -471,7 +429,7 @@ IPC_STRUCT_BEGIN(FrameHostMsg_CreateChildFrame_Params)
   IPC_STRUCT_MEMBER(std::string, frame_unique_name)
   IPC_STRUCT_MEMBER(bool, is_created_by_script)
   IPC_STRUCT_MEMBER(blink::FramePolicy, frame_policy)
-  IPC_STRUCT_MEMBER(content::FrameOwnerProperties, frame_owner_properties)
+  IPC_STRUCT_MEMBER(blink::mojom::FrameOwnerProperties, frame_owner_properties)
   IPC_STRUCT_MEMBER(blink::FrameOwnerElementType, frame_owner_element_type)
 IPC_STRUCT_END()
 
@@ -488,26 +446,14 @@ IPC_STRUCT_TRAITS_BEGIN(network::mojom::ContentSecurityPolicyHeader)
   IPC_STRUCT_TRAITS_MEMBER(source)
 IPC_STRUCT_TRAITS_END()
 
-IPC_STRUCT_TRAITS_BEGIN(content::CSPViolationParams)
-  IPC_STRUCT_TRAITS_MEMBER(directive)
-  IPC_STRUCT_TRAITS_MEMBER(effective_directive)
-  IPC_STRUCT_TRAITS_MEMBER(console_message)
-  IPC_STRUCT_TRAITS_MEMBER(blocked_url)
-  IPC_STRUCT_TRAITS_MEMBER(report_endpoints)
-  IPC_STRUCT_TRAITS_MEMBER(use_reporting_api)
-  IPC_STRUCT_TRAITS_MEMBER(header)
-  IPC_STRUCT_TRAITS_MEMBER(disposition)
-  IPC_STRUCT_TRAITS_MEMBER(after_redirect)
-  IPC_STRUCT_TRAITS_MEMBER(source_location)
-IPC_STRUCT_TRAITS_END()
-
 IPC_STRUCT_BEGIN(FrameMsg_MixedContentFound_Params)
   IPC_STRUCT_MEMBER(GURL, main_resource_url)
   IPC_STRUCT_MEMBER(GURL, mixed_content_url)
   IPC_STRUCT_MEMBER(blink::mojom::RequestContextType, request_context_type)
+  IPC_STRUCT_MEMBER(network::mojom::RequestDestination, request_destination)
   IPC_STRUCT_MEMBER(bool, was_allowed)
   IPC_STRUCT_MEMBER(bool, had_redirect)
-  IPC_STRUCT_MEMBER(content::SourceLocation, source_location)
+  IPC_STRUCT_MEMBER(network::mojom::SourceLocation, source_location)
 IPC_STRUCT_END()
 
 #if BUILDFLAG(USE_EXTERNAL_POPUP_MENU)
@@ -550,10 +496,6 @@ IPC_STRUCT_TRAITS_END()
 // -----------------------------------------------------------------------------
 // Messages sent from the browser to the renderer.
 
-// Notifies the embedding frame that the process rendering the child frame's
-// contents has terminated.
-IPC_MESSAGE_ROUTED0(FrameMsg_ChildFrameProcessGone)
-
 // Sent in response to a FrameHostMsg_ContextMenu to let the renderer know that
 // the menu has been closed.
 IPC_MESSAGE_ROUTED1(FrameMsg_ContextMenuClosed,
@@ -588,55 +530,11 @@ IPC_MESSAGE_ROUTED0(FrameMsg_Stop)
 // Tells the renderer to reload the frame.
 IPC_MESSAGE_ROUTED0(FrameMsg_Reload)
 
-// Change the accessibility mode in the renderer process.
-IPC_MESSAGE_ROUTED1(FrameMsg_SetAccessibilityMode, ui::AXMode)
-
-// Notifies the frame that its parent has changed the frame's sandbox flags or
-// container policy.
-IPC_MESSAGE_ROUTED1(FrameMsg_DidUpdateFramePolicy, blink::FramePolicy)
-
-// Sent to a frame proxy after navigation, when the active sandbox flags on its
-// real frame have been updated by a CSP header which sets sandbox flags, or
-// when the feature policy header has been set.
-IPC_MESSAGE_ROUTED2(FrameMsg_DidSetFramePolicyHeaders,
-                    blink::WebSandboxFlags,
-                    blink::ParsedFeaturePolicy)
-
 // Update a proxy's window.name property.  Used when the frame's name is
 // changed in another process.
 IPC_MESSAGE_ROUTED2(FrameMsg_DidUpdateName,
                     std::string /* name */,
                     std::string /* unique_name */)
-
-// Update a proxy's replicated enforcement of insecure request policy.
-// Used when the frame's policy is changed in another process.
-IPC_MESSAGE_ROUTED1(FrameMsg_EnforceInsecureRequestPolicy,
-                    blink::WebInsecureRequestPolicy)
-
-// Notifies RenderFrameProxy that its associated RenderWidgetHostView has
-// changed.
-IPC_MESSAGE_ROUTED1(FrameMsg_ViewChanged,
-                    content::FrameMsg_ViewChanged_Params /* params */)
-
-// Send to the RenderFrame to set text tracks state and style settings.
-// Sent for top-level frames.
-IPC_MESSAGE_ROUTED1(FrameMsg_SetTextTrackSettings,
-                    FrameMsg_TextTrackSettings_Params /* params */)
-
-// Informs the parent renderer that the child has completed an autoresize
-// transaction and should update with the provided viz::LocalSurfaceId.
-IPC_MESSAGE_ROUTED1(FrameMsg_DidUpdateVisualProperties,
-                    cc::RenderFrameMetadata /* metadata */)
-
-// Requests a viz::LocalSurfaceId to enable auto-resize mode from the parent
-// renderer.
-IPC_MESSAGE_ROUTED2(FrameMsg_EnableAutoResize,
-                    gfx::Size /* min_size */,
-                    gfx::Size /* max_size */)
-
-// Requests a viz::LocalSurfaceId to disable auto-resize-mode from the parent
-// renderer.
-IPC_MESSAGE_ROUTED0(FrameMsg_DisableAutoResize)
 
 #if BUILDFLAG(USE_EXTERNAL_POPUP_MENU)
 #if defined(OS_MACOSX)
@@ -660,9 +558,6 @@ IPC_MESSAGE_ROUTED3(FrameMsg_GetSerializedHtmlWithLocalLinks,
                     FrameMsg_GetSerializedHtmlWithLocalLinks_FrameRoutingIdMap,
                     bool /* save_with_empty_url */)
 
-IPC_MESSAGE_ROUTED1(FrameMsg_SetFrameOwnerProperties,
-                    content::FrameOwnerProperties /* frame_owner_properties */)
-
 // Request to continue running the sequential focus navigation algorithm in
 // this frame.  |source_routing_id| identifies the frame that issued this
 // request.  This message is sent when pressing <tab> or <shift-tab> needs to
@@ -670,10 +565,6 @@ IPC_MESSAGE_ROUTED1(FrameMsg_SetFrameOwnerProperties,
 IPC_MESSAGE_ROUTED2(FrameMsg_AdvanceFocus,
                     blink::mojom::FocusType /* type */,
                     int32_t /* source_routing_id */)
-
-// Notify the renderer of our overlay routing token.
-IPC_MESSAGE_ROUTED1(FrameMsg_SetOverlayRoutingToken,
-                    base::UnguessableToken /* routing_token */)
 
 #if BUILDFLAG(ENABLE_PLUGINS)
 // Notifies the renderer of updates to the Plugin Power Saver origin whitelist.
@@ -727,13 +618,6 @@ IPC_MESSAGE_ROUTED1(FrameHostMsg_UpdateState, content::PageState /* state */)
 // Requests that the given URL be opened in the specified manner.
 IPC_MESSAGE_ROUTED1(FrameHostMsg_OpenURL, FrameHostMsg_OpenURL_Params)
 
-// Notifies the browser that a frame finished loading.
-IPC_MESSAGE_ROUTED1(FrameHostMsg_DidFinishLoad,
-                    GURL /* validated_url */)
-
-// Initiates a download based on user actions like 'ALT+click'.
-IPC_MESSAGE_ROUTED1(FrameHostMsg_DownloadUrl, FrameHostMsg_DownloadUrl_Params)
-
 // Sent when the RenderFrame or RenderFrameProxy either updates its opener to
 // another frame identified by |opener_routing_id|, or, if |opener_routing_id|
 // is MSG_ROUTING_NONE, the frame disowns its opener for the lifetime of the
@@ -749,15 +633,10 @@ IPC_MESSAGE_ROUTED2(
 
 // Notifies the browser that frame owner properties have changed for a subframe
 // of this frame.
-IPC_MESSAGE_ROUTED2(FrameHostMsg_DidChangeFrameOwnerProperties,
-                    int32_t /* subframe_routing_id */,
-                    content::FrameOwnerProperties /* frame_owner_properties */)
-
-// Changes the title for the page in the UI when the page is navigated or the
-// title changes. Sent for top-level frames.
-IPC_MESSAGE_ROUTED2(FrameHostMsg_UpdateTitle,
-                    base::string16 /* title */,
-                    blink::WebTextDirection /* title direction */)
+IPC_MESSAGE_ROUTED2(
+    FrameHostMsg_DidChangeFrameOwnerProperties,
+    int32_t /* subframe_routing_id */,
+    blink::mojom::FrameOwnerProperties /* frame_owner_properties */)
 
 // Following message is used to communicate the values received by the
 // callback binding the JS to Cpp.
@@ -766,23 +645,6 @@ IPC_MESSAGE_ROUTED2(FrameHostMsg_UpdateTitle,
 // listener in Cpp. (DomAutomationController)
 IPC_MESSAGE_ROUTED1(FrameHostMsg_DomOperationResponse,
                     std::string  /* json_string */)
-
-// Sent by the renderer process to check whether client 3D APIs
-// (Pepper 3D, WebGL) are explicitly blocked.
-IPC_SYNC_MESSAGE_CONTROL3_1(FrameHostMsg_Are3DAPIsBlocked,
-                            int /* render_frame_id */,
-                            GURL /* top_origin_url */,
-                            content::ThreeDAPIType /* requester */,
-                            bool /* blocked */)
-
-// Message sent from renderer to the browser when focus changes inside the
-// frame. The first parameter says whether the newly focused element needs
-// keyboard input (true for textfields, text areas and content editable divs).
-// The second parameter is the node bounds relative to local root's
-// RenderWidgetHostView.
-IPC_MESSAGE_ROUTED2(FrameHostMsg_FocusedNodeChanged,
-                    bool /* is_editable_node */,
-                    gfx::Rect /* node_bounds */)
 
 #if BUILDFLAG(ENABLE_PLUGINS)
 // Notification sent from a renderer to the browser that a Pepper plugin
@@ -940,28 +802,6 @@ IPC_MESSAGE_ROUTED2(FrameHostMsg_SynchronizeVisualProperties,
 IPC_MESSAGE_ROUTED1(FrameHostMsg_UpdateViewportIntersection,
                     blink::ViewportIntersectionState /* intersection_state */)
 
-// Sent by a RenderFrameProxy to the browser signaling that the renderer
-// has determined the DOM subtree it represents is inert and should no
-// longer process input events. Also see WidgetMsg_SetIsInert.
-//
-// https://html.spec.whatwg.org/multipage/interaction.html#inert
-IPC_MESSAGE_ROUTED1(FrameHostMsg_SetIsInert, bool /* inert */)
-
-// Toggles render throttling on a remote frame. |is_throttled| indicates
-// whether the current frame should be throttled based on its viewport
-// visibility, and |subtree_throttled| indicates that an ancestor frame has
-// been throttled, so all descendant frames also should be throttled.
-IPC_MESSAGE_ROUTED2(FrameHostMsg_UpdateRenderThrottlingStatus,
-                    bool /* is_throttled */,
-                    bool /* subtree_throttled */)
-
-// Indicates that the user activation state in the current frame has been
-// updated, so the replicated states need to be synced (in the browser process
-// as well as in all other renderer processes).
-IPC_MESSAGE_ROUTED1(
-    FrameHostMsg_UpdateUserActivationState,
-    blink::mojom::UserActivationUpdateType /* type of state update */)
-
 // Transfers user activation state from the source frame to the current frame.
 IPC_MESSAGE_ROUTED1(FrameMsg_TransferUserActivationFrom,
                     int /* source_routing_id */)
@@ -970,7 +810,8 @@ IPC_MESSAGE_ROUTED1(FrameMsg_TransferUserActivationFrom,
 // content area, and a context menu should be shown for it. The params
 // object contains information about the node(s) that were selected when the
 // user right clicked.
-IPC_MESSAGE_ROUTED1(FrameHostMsg_ContextMenu, content::ContextMenuParams)
+IPC_MESSAGE_ROUTED1(FrameHostMsg_ContextMenu,
+                    content::UntrustworthyContextMenuParams)
 
 // Notification that the text selection has changed.
 // Note: The second parameter is the character based offset of the
@@ -997,7 +838,7 @@ IPC_MESSAGE_ROUTED4(FrameHostMsg_DidLoadResourceFromMemoryCache,
                     GURL /* url */,
                     std::string /* http method */,
                     std::string /* mime type */,
-                    content::ResourceType /* resource type */)
+                    network::mojom::RequestDestination)
 
 // Sent as a response to FrameMsg_VisualStateRequest.
 // The message is delivered using RenderWidget::QueueMessage.
@@ -1045,14 +886,6 @@ IPC_MESSAGE_ROUTED2(FrameHostMsg_SerializedHtmlWithLocalLinksResponse,
 IPC_MESSAGE_ROUTED2(FrameHostMsg_AdvanceFocus,
                     blink::mojom::FocusType /* type */,
                     int32_t /* source_routing_id */)
-
-// Request that the host send its overlay routing token for this render frame
-// via SetOverlayRoutingToken.
-IPC_MESSAGE_ROUTED0(FrameHostMsg_RequestOverlayRoutingToken)
-
-// Notification that the urls for the favicon of a site has been determined.
-IPC_MESSAGE_ROUTED1(FrameHostMsg_UpdateFaviconURL,
-                    std::vector<content::FaviconURL> /* candidates */)
 
 // A message from HTML-based UI.  When (trusted) Javascript calls
 // send(message, args), this message is sent to the browser.

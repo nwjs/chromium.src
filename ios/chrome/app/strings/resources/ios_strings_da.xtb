@@ -81,7 +81,7 @@
 <translation id="1923342640370224680">Den seneste time</translation>
 <translation id="1941314575388338491">Tryk to gange for at kopiere.</translation>
 <translation id="1952172573699511566">Websites viser tekst på dit foretrukne sprog, når det er muligt.</translation>
-<translation id="1952728750904661634">Log ind med en mangerstyret konto</translation>
+<translation id="1952728750904661634">Log ind med en managerstyret konto</translation>
 <translation id="1974060860693918893">Avanceret</translation>
 <translation id="1989112275319619282">Gennemse</translation>
 <translation id="2015722694326466240">Angiv en adgangskode på din enhed, før du kan se adgangskoder.</translation>
@@ -97,6 +97,7 @@
 <translation id="2149973817440762519">Rediger bogmærke</translation>
 <translation id="2179182049312275900">Du kan til enhver tid aktivere synkronisering i indstillingerne.</translation>
 <translation id="2198757192731523470">Google kan bruge din historik til at tilpasse Søgning, annoncer og andre Google-tjenester.</translation>
+<translation id="2218443599109088993">Zoom ud</translation>
 <translation id="2230173723195178503">Websiden er indlæst</translation>
 <translation id="2239626343334228536">Browserdata ryddes...</translation>
 <translation id="2257567812274161158">Der kunne ikke synkroniseres.</translation>
@@ -159,6 +160,7 @@
 <translation id="2923448633003185837">Indsæt og fortsæt</translation>
 <translation id="292639812446257861">Markér som ulæst</translation>
 <translation id="2958718410589002129">Adgangskoder</translation>
+<translation id="2964349545761222050">Bloker cookies fra tredjeparter</translation>
 <translation id="2969979262385602596">Login mislykkedes. Prøv igen senere.</translation>
 <translation id="298306318844797842">Tilføj betalingsmetode...</translation>
 <translation id="2989805286512600854">Åbn på ny fane</translation>
@@ -178,6 +180,7 @@
 <translation id="3290875554372353449">Vælg en konto</translation>
 <translation id="3311748811247479259">Fra</translation>
 <translation id="3324193307694657476">Adresse 2</translation>
+<translation id="3328801116991980348">Webstedoplysninger</translation>
 <translation id="3329904751041170572">Der kunne ikke oprettes forbindelse til serveren.</translation>
 <translation id="3335947283844343239">Åbn lukket fane igen</translation>
 <translation id="3371831930909698441">Oversættelse er tilgængelig. Du finder indstillingerne nederst på skærmen.</translation>
@@ -300,6 +303,7 @@ Hvis du vil ændre denne indstilling, skal du <ph name="BEGIN_LINK" />nulstille 
 <translation id="4979397965658815378">Log ind med din Google-konto for at få adgang til dine bogmærker, dine adgangskoder, din historik og andre indstillinger på alle dine enheder.</translation>
 <translation id="5005498671520578047">Kopiér adgangskode</translation>
 <translation id="5010803260590204777">Åbn en inkognitofane for at søge på nettet uden at blive registreret.</translation>
+<translation id="5039020240289137291">Blokerer cookies fra tredjeparter</translation>
 <translation id="5039804452771397117">Tillad</translation>
 <translation id="5059136629401106827">OK</translation>
 <translation id="5062321486222145940">Installer Google Drev</translation>
@@ -414,9 +418,11 @@ Dine data blev krypteret med din adgangssætning til synkronisering d. <ph name=
 <translation id="6434591244308415567">Der opstod en fejl. Prøv igen senere.</translation>
 <translation id="6445051938772793705">Land</translation>
 <translation id="6445981559479772097">Beskeden er sendt.</translation>
+<translation id="6447842834002726250">Cookies</translation>
 <translation id="6464071786529933911">Åbn på ny inkognitofane</translation>
 <translation id="6476800141292307438">Siden oversættes til <ph name="LANGUAGE" />. Valgmulighederne findes nederst på skærmen.</translation>
 <translation id="6482629121755362506"><ph name="NUMBER_OF_SELECTED_BOOKMARKS" /> bogmærker blev slettet</translation>
+<translation id="6561262006871132942">Zoom ind</translation>
 <translation id="6610002944194042868">Valgmuligheder for oversættelse</translation>
 <translation id="6628106477656132239">Udløbsdatoen er ugyldig</translation>
 <translation id="6638511529934826365">Zoom ind/ud på tekst…</translation>
@@ -479,7 +485,6 @@ Dine data blev krypteret med din adgangssætning til synkronisering d. <ph name=
 <translation id="734758817008927353">Valgmuligheder for at gemme kort</translation>
 <translation id="7348502496356775519">Tilføj bogmærke</translation>
 <translation id="7383797227493018512">Læseliste</translation>
-<translation id="7392048574806661116">Log ud, og ryd synkroniserede data</translation>
 <translation id="7400418766976504921">Webadresse</translation>
 <translation id="7409985198648820906"><ph name="UNREAD_COUNT" /> ulæste artikler.</translation>
 <translation id="7425346204213733349">Ændringer af dine bogmærker, din historik, dine adgangskoder og andre indstillinger synkroniseres ikke længere til din Google-konto. Dine eksisterende data er dog stadig gemt på din Google-konto.</translation>
@@ -598,6 +603,7 @@ Dine data blev krypteret med din adgangssætning til synkronisering d. <ph name=
 <translation id="9223358826628549784">Der er sendt en nedbrudsrapport.</translation>
 <translation id="952704832371081537">Annuller</translation>
 <translation id="988141524645182168">Andre enheder</translation>
+<translation id="989697783705943787">Sikkerhed på websitet</translation>
 <translation id="989988560359834682">Rediger adresse</translation>
 <translation id="994757059139821576">Artikelforslag</translation>
 </translationbundle>

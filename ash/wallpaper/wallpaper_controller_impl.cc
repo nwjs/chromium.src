@@ -34,6 +34,7 @@
 #include "base/files/file_enumerator.h"
 #include "base/files/file_util.h"
 #include "base/logging.h"
+#include "base/memory/ptr_util.h"
 #include "base/memory/ref_counted_memory.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/no_destructor.h"
@@ -41,6 +42,7 @@
 #include "base/sequenced_task_runner.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "base/task_runner_util.h"
 #include "base/values.h"
 #include "chromeos/constants/chromeos_switches.h"
@@ -286,8 +288,7 @@ void OnWallpaperDataRead(LoadedCallback callback,
                          bool read_is_successful) {
   if (!read_is_successful) {
     base::ThreadTaskRunnerHandle::Get()->PostTask(
-        FROM_HERE,
-        base::BindOnce(std::move(callback), base::Passed(gfx::ImageSkia())));
+        FROM_HERE, base::BindOnce(std::move(callback), gfx::ImageSkia()));
     return;
   }
   // This image was once encoded to JPEG by |ResizeAndEncodeImage|.
@@ -479,9 +480,8 @@ const char WallpaperControllerImpl::kOriginalWallpaperSubDir[] = "original";
 WallpaperControllerImpl::WallpaperControllerImpl(PrefService* local_state)
     : color_profiles_(GetProminentColorProfiles()),
       wallpaper_reload_delay_(kWallpaperReloadDelay),
-      sequenced_task_runner_(base::CreateSequencedTaskRunner(
-          {base::ThreadPool(), base::MayBlock(),
-           base::TaskPriority::USER_VISIBLE,
+      sequenced_task_runner_(base::ThreadPool::CreateSequencedTaskRunner(
+          {base::MayBlock(), base::TaskPriority::USER_VISIBLE,
            base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN})),
       local_state_(local_state) {
   DCHECK(!g_instance_);
@@ -645,6 +645,9 @@ void WallpaperControllerImpl::ShowWallpaperImage(const gfx::ImageSkia& image,
   // (WALLPAPER_LAYOUT_TILE also serves this purpose.)
   if (image.width() == 1 && image.height() == 1)
     info.layout = WALLPAPER_LAYOUT_STRETCH;
+
+  if (info.type == WallpaperType::ONE_SHOT)
+    info.one_shot_wallpaper = image.DeepCopy();
 
   VLOG(1) << "SetWallpaper: image_id=" << WallpaperResizer::GetImageId(image)
           << " layout=" << info.layout;
@@ -1208,6 +1211,7 @@ void WallpaperControllerImpl::ShowAlwaysOnTopWallpaper(
   const WallpaperInfo info = {
       std::string(), WallpaperLayout::WALLPAPER_LAYOUT_CENTER_CROPPED,
       WallpaperType::ONE_SHOT, base::Time::Now().LocalMidnight()};
+  ReparentWallpaper(GetWallpaperContainerId(locked_));
   ReadAndDecodeWallpaper(
       base::BindOnce(&WallpaperControllerImpl::OnAlwaysOnTopWallpaperDecoded,
                      weak_factory_.GetWeakPtr(), info),
@@ -1221,6 +1225,9 @@ void WallpaperControllerImpl::RemoveAlwaysOnTopWallpaper() {
   }
   is_always_on_top_wallpaper_ = false;
   reload_always_on_top_wallpaper_callback_.Reset();
+  ReparentWallpaper(GetWallpaperContainerId(locked_));
+  // Forget current wallpaper data.
+  current_wallpaper_.reset();
   ReloadWallpaper(/*clear_cache=*/false);
 }
 
@@ -1345,8 +1352,8 @@ void WallpaperControllerImpl::OnDisplayConfigurationChanged() {
     GetInternalDisplayCompositorLock();
     timer_.Start(
         FROM_HERE, wallpaper_reload_delay_,
-        base::BindRepeating(&WallpaperControllerImpl::ReloadWallpaper,
-                            weak_factory_.GetWeakPtr(), /*clear_cache=*/false));
+        base::BindOnce(&WallpaperControllerImpl::ReloadWallpaper,
+                       weak_factory_.GetWeakPtr(), /*clear_cache=*/false));
   }
 }
 
@@ -1438,6 +1445,10 @@ void WallpaperControllerImpl::CreateEmptyWallpaperForTesting() {
   current_wallpaper_.reset();
   wallpaper_mode_ = WALLPAPER_IMAGE;
   UpdateWallpaperForAllRootWindows(/*lock_state_changed=*/false);
+}
+
+void WallpaperControllerImpl::ReloadWallpaperForTesting(bool clear_cache) {
+  ReloadWallpaper(clear_cache);
 }
 
 void WallpaperControllerImpl::UpdateWallpaperForRootWindow(
@@ -1538,9 +1549,9 @@ void WallpaperControllerImpl::RemoveUserWallpaperImpl(
   wallpaper_path = GetCustomWallpaperDir(kOriginalWallpaperSubDir);
   files_to_remove.push_back(wallpaper_path.Append(wallpaper_files_id));
 
-  base::PostTask(
+  base::ThreadPool::PostTask(
       FROM_HERE,
-      {base::ThreadPool(), base::MayBlock(), base::TaskPriority::BEST_EFFORT,
+      {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
        base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
       base::BindOnce(&DeleteWallpaperInList, std::move(files_to_remove)));
 }
@@ -1642,7 +1653,7 @@ void WallpaperControllerImpl::ReadAndDecodeWallpaper(
       task_runner.get(), FROM_HERE,
       base::BindOnce(&base::ReadFileToString, file_path, data),
       base::BindOnce(&OnWallpaperDataRead, std::move(callback),
-                     base::Passed(base::WrapUnique(data))));
+                     base::WrapUnique(data)));
 }
 
 bool WallpaperControllerImpl::InitializeUserWallpaperInfo(
@@ -1847,9 +1858,8 @@ void WallpaperControllerImpl::SaveAndSetWallpaper(
     // Block shutdown on this task. Otherwise, we may lose the custom wallpaper
     // that the user selected.
     scoped_refptr<base::SequencedTaskRunner> blocking_task_runner =
-        base::CreateSequencedTaskRunner(
-            {base::ThreadPool(), base::MayBlock(),
-             base::TaskPriority::USER_BLOCKING,
+        base::ThreadPool::CreateSequencedTaskRunner(
+            {base::MayBlock(), base::TaskPriority::USER_BLOCKING,
              base::TaskShutdownBehavior::BLOCK_SHUTDOWN});
     blocking_task_runner->PostTask(
         FROM_HERE, base::BindOnce(&SaveCustomWallpaper, wallpaper_files_id,
@@ -1886,6 +1896,11 @@ void WallpaperControllerImpl::OnWallpaperDecoded(const AccountId& account_id,
 }
 
 void WallpaperControllerImpl::ReloadWallpaper(bool clear_cache) {
+  const bool was_one_shot_wallpaper = IsOneShotWallpaper();
+  const gfx::ImageSkia one_shot_wallpaper =
+      was_one_shot_wallpaper
+          ? current_wallpaper_->wallpaper_info().one_shot_wallpaper
+          : gfx::ImageSkia();
   current_wallpaper_.reset();
   if (clear_cache)
     wallpaper_cache_map_.clear();
@@ -1896,6 +1911,8 @@ void WallpaperControllerImpl::ReloadWallpaper(bool clear_cache) {
     reload_preview_wallpaper_callback_.Run();
   else if (current_user_.is_valid())
     ShowUserWallpaper(current_user_);
+  else if (was_one_shot_wallpaper)
+    ShowOneShotWallpaper(one_shot_wallpaper);
   else
     ShowSigninWallpaper();
 }
@@ -2033,9 +2050,8 @@ bool WallpaperControllerImpl::ShouldSetDevicePolicyWallpaper() const {
 void WallpaperControllerImpl::SetDevicePolicyWallpaper() {
   DCHECK(ShouldSetDevicePolicyWallpaper());
   ReadAndDecodeWallpaper(
-      base::BindRepeating(
-          &WallpaperControllerImpl::OnDevicePolicyWallpaperDecoded,
-          weak_factory_.GetWeakPtr()),
+      base::BindOnce(&WallpaperControllerImpl::OnDevicePolicyWallpaperDecoded,
+                     weak_factory_.GetWeakPtr()),
       sequenced_task_runner_.get(), device_policy_wallpaper_path_);
 }
 

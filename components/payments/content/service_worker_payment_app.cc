@@ -10,10 +10,12 @@
 
 #include "base/bind.h"
 #include "base/bind_helpers.h"
+#include "base/feature_list.h"
 #include "base/stl_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "components/payments/content/payment_event_response_util.h"
 #include "components/payments/content/payment_request_converter.h"
+#include "components/payments/core/features.h"
 #include "components/payments/core/method_strings.h"
 #include "components/payments/core/payment_request_delegate.h"
 #include "content/public/browser/browser_context.h"
@@ -180,6 +182,8 @@ ServiceWorkerPaymentApp::CreateCanMakePaymentEventData() {
 
   event_data->top_origin = top_origin_;
   event_data->payment_request_origin = frame_origin_;
+  if (base::FeatureList::IsEnabled(::features::kWebPaymentsMinimalUI))
+    event_data->currency = spec_->details().total->amount->currency;
 
   DCHECK(spec_->details().modifiers);
   for (const auto& modifier : *spec_->details().modifiers) {
@@ -210,10 +214,10 @@ void ServiceWorkerPaymentApp::OnCanMakePaymentEventSkipped(
 
 void ServiceWorkerPaymentApp::OnCanMakePaymentEventResponded(
     ValidateCanMakePaymentCallback callback,
-    bool result) {
+    mojom::CanMakePaymentResponsePtr response) {
   // |can_make_payment| is true as long as there is a matching payment handler.
   can_make_payment_result_ = true;
-  has_enrolled_instrument_result_ = result;
+  has_enrolled_instrument_result_ = response->can_make_payment;
   base::ThreadTaskRunnerHandle::Get()->PostTask(
       FROM_HERE,
       base::BindOnce(std::move(callback), this, can_make_payment_result_));
@@ -394,7 +398,7 @@ base::string16 ServiceWorkerPaymentApp::GetMissingInfoLabel() const {
   return base::string16();
 }
 
-bool ServiceWorkerPaymentApp::IsValidForCanMakePayment() const {
+bool ServiceWorkerPaymentApp::HasEnrolledInstrument() const {
   // This app should not be used when can_make_payment_result_ is false, so this
   // interface should not be invoked.
   DCHECK(can_make_payment_result_);
@@ -525,6 +529,21 @@ bool ServiceWorkerPaymentApp::HandlesPayerPhone() const {
 void ServiceWorkerPaymentApp::OnPaymentAppIdentity(const url::Origin& origin,
                                                    int64_t registration_id) {
   identity_callback_.Run(origin, registration_id);
+}
+
+ukm::SourceId ServiceWorkerPaymentApp::UkmSourceId() {
+  if (ukm_source_id_ == ukm::kInvalidSourceId) {
+    GURL sw_scope = needs_installation_
+                        ? GURL(installable_web_app_info_->sw_scope)
+                        : stored_payment_app_info_->scope;
+    // At this point we know that the payment handler window is open for this
+    // app since this getter is called for the invoked app inside the
+    // PaymentRequest::OnPaymentHandlerOpenWindowCalled function.
+    ukm_source_id_ =
+        content::PaymentAppProvider::GetInstance()
+            ->GetSourceIdForPaymentAppFromScope(sw_scope.GetOrigin());
+  }
+  return ukm_source_id_;
 }
 
 }  // namespace payments

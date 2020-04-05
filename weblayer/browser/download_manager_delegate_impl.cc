@@ -6,13 +6,17 @@
 
 #include "base/files/file_util.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "base/threading/sequenced_task_runner_handle.h"
+#include "build/build_config.h"
 #include "components/download/public/common/download_item.h"
+#include "components/prefs/pref_service.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/download_item_utils.h"
 #include "content/public/browser/download_manager.h"
 #include "net/base/filename_util.h"
 #include "weblayer/browser/browser_context_impl.h"
+#include "weblayer/browser/browser_process.h"
 #include "weblayer/browser/download_impl.h"
 #include "weblayer/browser/download_manager_delegate_impl.h"
 #include "weblayer/browser/profile_impl.h"
@@ -44,14 +48,36 @@ void GenerateFilename(
 
 }  // namespace
 
+const char kDownloadNextIDPref[] = "weblayer_download_next_id";
+
 DownloadManagerDelegateImpl::DownloadManagerDelegateImpl(
     content::DownloadManager* download_manager)
     : download_manager_(download_manager) {
   download_manager_->AddObserver(this);
+
+  // WebLayer doesn't use a history DB as the in-progress database maintained by
+  // the download component is enough. However the download code still depends
+  // this notification. TODO(jam): update download code to handle this.
+  download_manager_->PostInitialization(
+      content::DownloadManager::DOWNLOAD_INITIALIZATION_DEPENDENCY_HISTORY_DB);
 }
 
 DownloadManagerDelegateImpl::~DownloadManagerDelegateImpl() {
   download_manager_->RemoveObserver(this);
+  // Match the AddObserver calls added in OnDownloadCreated to avoid UaF.
+  download::SimpleDownloadManager::DownloadVector downloads;
+  download_manager_->GetAllDownloads(&downloads);
+  for (auto* download : downloads)
+    download->RemoveObserver(this);
+}
+
+void DownloadManagerDelegateImpl::GetNextId(
+    content::DownloadIdCallback callback) {
+  // Need to return a unique id, even across crashes, to avoid notification
+  // intents with different data (e.g. notification GUID) getting dup'd. This is
+  // also persisted in the on-disk download database to support resumption.
+  auto* local_state = BrowserProcess::GetInstance()->GetLocalState();
+  std::move(callback).Run(local_state->GetInteger(kDownloadNextIDPref));
 }
 
 bool DownloadManagerDelegateImpl::DetermineDownloadTarget(
@@ -75,15 +101,14 @@ bool DownloadManagerDelegateImpl::DetermineDownloadTarget(
   base::FilePath default_download_path;
   GetSaveDir(browser_context, nullptr, &default_download_path);
 
-  base::PostTask(FROM_HERE,
-                 {base::ThreadPool(), base::MayBlock(),
-                  base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN,
-                  base::TaskPriority::USER_VISIBLE},
-                 base::BindOnce(GenerateFilename, item->GetURL(),
-                                item->GetContentDisposition(),
-                                item->GetSuggestedFilename(),
-                                item->GetMimeType(), default_download_path,
-                                std::move(filename_determined_callback)));
+  base::ThreadPool::PostTask(
+      FROM_HERE,
+      {base::MayBlock(), base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN,
+       base::TaskPriority::USER_VISIBLE},
+      base::BindOnce(
+          GenerateFilename, item->GetURL(), item->GetContentDisposition(),
+          item->GetSuggestedFilename(), item->GetMimeType(),
+          default_download_path, std::move(filename_determined_callback)));
   return true;
 }
 
@@ -122,6 +147,7 @@ void DownloadManagerDelegateImpl::CheckDownloadAllowed(
     const std::string& request_method,
     base::Optional<url::Origin> request_initiator,
     bool from_download_cross_origin_redirect,
+    bool content_initiated,
     content::CheckDownloadAllowedCallback check_download_allowed_cb) {
   // If there's no DownloadDelegate, the download is simply dropped.
   auto* delegate = GetDelegate(web_contents_getter.Run());
@@ -141,6 +167,24 @@ void DownloadManagerDelegateImpl::OnDownloadCreated(
   // Create a DownloadImpl which will be owned by |item|.
   DownloadImpl::Create(item);
 
+  auto* local_state = BrowserProcess::GetInstance()->GetLocalState();
+  int next_id = local_state->GetInteger(kDownloadNextIDPref);
+  if (item->GetId() >= static_cast<uint32_t>(next_id)) {
+    next_id = item->GetId();
+    // Reset the counter when it gets close to max value of unsigned 32 bit
+    // integer since that's what the download system persists.
+    if (++next_id == (std::numeric_limits<uint32_t>::max() / 2) - 1)
+      next_id = 0;
+    local_state->SetInteger(kDownloadNextIDPref, next_id);
+  }
+
+  if (item->GetLastReason() == download::DOWNLOAD_INTERRUPT_REASON_CRASH &&
+      item->CanResume() &&
+      // Don't automatically resume downloads which were previously paused.
+      !item->IsPaused()) {
+    DownloadImpl::Get(item)->Resume();
+  }
+
   auto* delegate = GetDelegate(item);
   if (delegate)
     delegate->DownloadStarted(DownloadImpl::Get(item));
@@ -150,6 +194,13 @@ void DownloadManagerDelegateImpl::OnDownloadDropped(
     content::DownloadManager* manager) {
   if (download_dropped_callback_)
     download_dropped_callback_.Run();
+}
+
+void DownloadManagerDelegateImpl::OnManagerInitialized() {
+  auto* browser_context_impl =
+      static_cast<BrowserContextImpl*>(download_manager_->GetBrowserContext());
+  auto* profile = browser_context_impl->profile_impl();
+  profile->DownloadsInitialized();
 }
 
 void DownloadManagerDelegateImpl::OnDownloadUpdated(
@@ -201,17 +252,22 @@ DownloadDelegate* DownloadManagerDelegateImpl::GetDelegate(
   if (!web_contents)
     return nullptr;
 
-  auto* tab = TabImpl::FromWebContents(web_contents);
-  if (!tab)
+  return GetDelegate(web_contents->GetBrowserContext());
+}
+
+DownloadDelegate* DownloadManagerDelegateImpl::GetDelegate(
+    content::BrowserContext* browser_context) {
+  auto* profile = ProfileImpl::FromBrowserContext(browser_context);
+  if (!profile)
     return nullptr;
 
-  return tab->download_delegate();
+  return profile->download_delegate();
 }
 
 DownloadDelegate* DownloadManagerDelegateImpl::GetDelegate(
     download::DownloadItem* item) {
-  auto* web_contents = content::DownloadItemUtils::GetWebContents(item);
-  return GetDelegate(web_contents);
+  auto* browser_context = content::DownloadItemUtils::GetBrowserContext(item);
+  return GetDelegate(browser_context);
 }
 
 }  // namespace weblayer

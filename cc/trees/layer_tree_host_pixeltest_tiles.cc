@@ -36,7 +36,16 @@ class LayerTreeHostTilesPixelTest
     : public LayerTreePixelTest,
       public ::testing::WithParamInterface<TilesTestConfig> {
  protected:
-  LayerTreeHostTilesPixelTest() : LayerTreePixelTest(renderer_type()) {}
+  LayerTreeHostTilesPixelTest() : LayerTreePixelTest(renderer_type()) {
+    switch (raster_mode()) {
+      case GPU:
+      case GPU_LOW_BIT_DEPTH:
+        set_gpu_rasterization();
+        break;
+      default:
+        break;
+    }
+  }
 
   RendererType renderer_type() const { return GetParam().renderer_type; }
 
@@ -47,14 +56,8 @@ class LayerTreeHostTilesPixelTest
     switch (raster_mode()) {
       case ONE_COPY:
         settings->use_zero_copy = false;
-        settings->gpu_rasterization_disabled = true;
-        settings->gpu_rasterization_forced = false;
-        break;
-      case GPU:
-        settings->gpu_rasterization_forced = true;
         break;
       case GPU_LOW_BIT_DEPTH:
-        settings->gpu_rasterization_forced = true;
         settings->use_rgba_4444 = true;
         settings->unpremultiply_and_dither_low_bit_depth_tiles = true;
         break;
@@ -178,14 +181,16 @@ class LayerTreeHostTilesTestPartialInvalidation
 
 std::vector<TilesTestConfig> const kTestCases = {
     {LayerTreeTest::RENDERER_SOFTWARE, BITMAP},
+#if !defined(GL_NOT_ON_PLATFORM)
     {LayerTreeTest::RENDERER_GL, ONE_COPY},
     {LayerTreeTest::RENDERER_GL, GPU},
     {LayerTreeTest::RENDERER_SKIA_GL, ONE_COPY},
     {LayerTreeTest::RENDERER_SKIA_GL, GPU},
+#endif  // !defined(GL_NOT_ON_PLATFORM)
 #if defined(ENABLE_CC_VULKAN_TESTS)
     {LayerTreeTest::RENDERER_SKIA_VK, ONE_COPY},
     {LayerTreeTest::RENDERER_SKIA_VK, GPU},
-#endif
+#endif  // defined(ENABLE_CC_VULKAN_TESTS)
 };
 
 INSTANTIATE_TEST_SUITE_P(All,
@@ -206,11 +211,13 @@ TEST_P(LayerTreeHostTilesTestPartialInvalidation, FullRaster) {
 }
 
 std::vector<TilesTestConfig> const kTestCasesMultiThread = {
+#if !defined(GL_NOT_ON_PLATFORM)
     {LayerTreeTest::RENDERER_GL, ONE_COPY},
     {LayerTreeTest::RENDERER_SKIA_GL, ONE_COPY},
+#endif  // !defined(GL_NOT_ON_PLATFORM)
 #if defined(ENABLE_CC_VULKAN_TESTS)
     {LayerTreeTest::RENDERER_SKIA_VK, ONE_COPY},
-#endif
+#endif  // defined(ENABLE_CC_VULKAN_TESTS)
 };
 
 using LayerTreeHostTilesTestPartialInvalidationMultiThread =
@@ -248,12 +255,14 @@ using LayerTreeHostTilesTestPartialInvalidationLowBitDepth =
 // This test doesn't work on Vulkan because on our hardware we can't render to
 // RGBA4444 format using either SwiftShader or native Vulkan. See
 // crbug.com/987278 for details
+#if !defined(GL_NOT_ON_PLATFORM)
 INSTANTIATE_TEST_SUITE_P(
     All,
     LayerTreeHostTilesTestPartialInvalidationLowBitDepth,
     ::testing::Values(
-        TilesTestConfig{LayerTreeTest::RENDERER_GL, GPU_LOW_BIT_DEPTH},
-        TilesTestConfig{LayerTreeTest::RENDERER_SKIA_GL, GPU_LOW_BIT_DEPTH}));
+        TilesTestConfig{LayerTreeTest::RENDERER_SKIA_GL, GPU_LOW_BIT_DEPTH},
+        TilesTestConfig{LayerTreeTest::RENDERER_GL, GPU_LOW_BIT_DEPTH}));
+#endif  // !defined(GL_NOT_ON_PLATFORM)
 
 TEST_P(LayerTreeHostTilesTestPartialInvalidationLowBitDepth, PartialRaster) {
   use_partial_raster_ = true;

@@ -192,6 +192,28 @@ mojom_component("mojom") {
     "//mojo/public/mojom/base",
   ]
 
+  cpp_typemaps = [
+    {
+      types = [
+        {
+          mojom = "IPC.mojom.Message"
+          cpp = "::IPC::MessageView"
+          move_only = true
+        },
+      ]
+      traits_headers = [ "//ipc/message_mojom_traits.h" ]
+      traits_sources = [
+        "//ipc/message_mojom_traits.cc",
+        "//ipc/message_view.cc",
+        "//ipc/message_view.h",
+      ]
+      traits_public_deps = [
+        "//ipc:message_support",
+        "//mojo/public/cpp/base:shared_typemap_traits",
+      ]
+    },
+  ]
+
   # Don't generate a variant sources since we depend on generated internal
   # bindings types and we don't generate or build variants of those.
   disable_variants = true

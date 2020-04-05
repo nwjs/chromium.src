@@ -6,6 +6,7 @@
 
 #include <memory>
 
+#include "base/optional.h"
 #include "base/test/bind_test_util.h"
 #include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
@@ -46,6 +47,8 @@
 #include "third_party/blink/renderer/platform/keyboard_codes.h"
 #include "third_party/blink/renderer/platform/testing/runtime_enabled_features_test_helpers.h"
 #include "third_party/blink/renderer/platform/testing/unit_test_helpers.h"
+#include "ui/base/cursor/cursor.h"
+#include "ui/base/mojom/cursor_type.mojom-blink.h"
 #include "ui/events/keycodes/dom/dom_code.h"
 #include "ui/events/keycodes/dom/dom_key.h"
 
@@ -188,8 +191,7 @@ void EventHandlerTest::SetUp() {
 }
 
 void EventHandlerTest::SetHtmlInnerHTML(const char* html_content) {
-  GetDocument().documentElement()->SetInnerHTMLFromString(
-      String::FromUTF8(html_content));
+  GetDocument().documentElement()->setInnerHTML(String::FromUTF8(html_content));
   UpdateAllLifecyclePhasesForTest();
 }
 
@@ -218,8 +220,7 @@ TEST_F(EventHandlerTest, dragSelectionAfterScroll) {
 
   LocalFrameView* frame_view = GetDocument().View();
   frame_view->LayoutViewport()->SetScrollOffset(
-      ScrollOffset(0, 400),
-      mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
+      ScrollOffset(0, 400), mojom::blink::ScrollType::kProgrammatic);
 
   WebMouseEvent mouse_down_event(WebInputEvent::kMouseDown, gfx::PointF(0, 0),
                                  gfx::PointF(100, 200),
@@ -626,9 +627,10 @@ TEST_F(EventHandlerTest, AnchorTextCannotStartSelection) {
                 .GetFrame()
                 ->GetEventHandler()
                 .SelectCursor(location, result)
-                .GetCursor()
-                .GetType(),
-            ui::CursorType::kHand);  // A hand signals ability to navigate.
+                .value()
+                .type(),
+            ui::mojom::blink::CursorType::kHand);  // A hand signals ability to
+                                                   // navigate.
 }
 
 TEST_F(EventHandlerTest, EditableAnchorTextCanStartSelection) {
@@ -645,13 +647,14 @@ TEST_F(EventHandlerTest, EditableAnchorTextCanStartSelection) {
   EXPECT_TRUE(
       GetDocument().GetFrame()->GetEventHandler().ShouldShowIBeamForNode(
           text, result));
-  EXPECT_EQ(GetDocument()
-                .GetFrame()
-                ->GetEventHandler()
-                .SelectCursor(location, result)
-                .GetCursor()
-                .GetType(),
-            ui::CursorType::kIBeam);  // An I-beam signals editability.
+  EXPECT_EQ(
+      GetDocument()
+          .GetFrame()
+          ->GetEventHandler()
+          .SelectCursor(location, result)
+          .value()
+          .type(),
+      ui::mojom::blink::CursorType::kIBeam);  // An I-beam signals editability.
 }
 
 TEST_F(EventHandlerTest, CursorForVerticalResizableTextArea) {
@@ -668,10 +671,10 @@ TEST_F(EventHandlerTest, CursorForVerticalResizableTextArea) {
                 .GetFrame()
                 ->GetEventHandler()
                 .SelectCursor(location, result)
-                .GetCursor()
-                .GetType(),
+                .value()
+                .type(),
             // A north-south resize signals vertical resizability.
-            ui::CursorType::kNorthSouthResize);
+            ui::mojom::blink::CursorType::kNorthSouthResize);
 }
 
 TEST_F(EventHandlerTest, CursorForHorizontalResizableTextArea) {
@@ -688,10 +691,10 @@ TEST_F(EventHandlerTest, CursorForHorizontalResizableTextArea) {
                 .GetFrame()
                 ->GetEventHandler()
                 .SelectCursor(location, result)
-                .GetCursor()
-                .GetType(),
+                .value()
+                .type(),
             // An east-west resize signals horizontal resizability.
-            ui::CursorType::kEastWestResize);
+            ui::mojom::blink::CursorType::kEastWestResize);
 }
 
 TEST_F(EventHandlerTest, CursorForResizableTextArea) {
@@ -708,11 +711,11 @@ TEST_F(EventHandlerTest, CursorForResizableTextArea) {
                 .GetFrame()
                 ->GetEventHandler()
                 .SelectCursor(location, result)
-                .GetCursor()
-                .GetType(),
+                .value()
+                .type(),
             // An south-east resize signals both horizontal and
             // vertical resizability.
-            ui::CursorType::kSouthEastResize);
+            ui::mojom::blink::CursorType::kSouthEastResize);
 }
 
 TEST_F(EventHandlerTest, CursorForRtlResizableTextArea) {
@@ -730,11 +733,11 @@ TEST_F(EventHandlerTest, CursorForRtlResizableTextArea) {
                 .GetFrame()
                 ->GetEventHandler()
                 .SelectCursor(location, result)
-                .GetCursor()
-                .GetType(),
+                .value()
+                .type(),
             // An south-west resize signals both horizontal and
             // vertical resizability when direction is RTL.
-            ui::CursorType::kSouthWestResize);
+            ui::mojom::blink::CursorType::kSouthWestResize);
 }
 
 TEST_F(EventHandlerTest, CursorForInlineVerticalWritingMode) {
@@ -754,9 +757,9 @@ TEST_F(EventHandlerTest, CursorForInlineVerticalWritingMode) {
                 .GetFrame()
                 ->GetEventHandler()
                 .SelectCursor(location, result)
-                .GetCursor()
-                .GetType(),
-            ui::CursorType::kSouthEastResize);
+                .value()
+                .type(),
+            ui::mojom::blink::CursorType::kSouthEastResize);
 }
 
 TEST_F(EventHandlerTest, CursorForBlockVerticalWritingMode) {
@@ -776,9 +779,9 @@ TEST_F(EventHandlerTest, CursorForBlockVerticalWritingMode) {
                 .GetFrame()
                 ->GetEventHandler()
                 .SelectCursor(location, result)
-                .GetCursor()
-                .GetType(),
-            ui::CursorType::kSouthEastResize);
+                .value()
+                .type(),
+            ui::mojom::blink::CursorType::kSouthEastResize);
 }
 
 TEST_F(EventHandlerTest, implicitSend) {
@@ -805,11 +808,11 @@ TEST_F(EventHandlerTest, sendContextMenuEventWithHover) {
       "<div>foo</div>");
   GetDocument().GetSettings()->SetScriptEnabled(true);
   Element* script = GetDocument().CreateRawElement(html_names::kScriptTag);
-  script->SetInnerHTMLFromString(
+  script->setInnerHTML(
       "document.addEventListener('contextmenu', event => "
       "event.preventDefault());");
   GetDocument().body()->AppendChild(script);
-  GetDocument().UpdateStyleAndLayout();
+  GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kTest);
   GetDocument().GetFrame()->Selection().SetSelectionAndEndTyping(
       SelectionInDOMTree::Builder()
           .Collapse(Position(GetDocument().body(), 0))
@@ -1134,7 +1137,7 @@ class EventHandlerLatencyTest : public PageTestBase {
   }
 
   void SetHtmlInnerHTML(const char* html_content) {
-    GetDocument().documentElement()->SetInnerHTMLFromString(
+    GetDocument().documentElement()->setInnerHTML(
         String::FromUTF8(html_content));
     UpdateAllLifecyclePhasesForTest();
   }
@@ -1532,7 +1535,8 @@ TEST_F(EventHandlerSimTest, MouseLeaveIFrameResets) {
       GetDocument().GetFrame()->GetEventHandler().IsMousePositionUnknown());
   auto* child_frame =
       To<HTMLIFrameElement>(GetDocument().getElementById("frame"));
-  child_frame->contentDocument()->UpdateStyleAndLayout();
+  child_frame->contentDocument()->UpdateStyleAndLayout(
+      DocumentUpdateReason::kTest);
   EXPECT_TRUE(GetDocument().GetFrame()->Tree().FirstChild());
   EXPECT_FALSE(To<LocalFrame>(GetDocument().GetFrame()->Tree().FirstChild())
                    ->GetEventHandler()
@@ -1591,11 +1595,11 @@ TEST_F(EventHandlerSimTest, CursorStyleBeforeStartDragging) {
   mouse_move_event.SetFrameScale(1);
   GetDocument().GetFrame()->GetEventHandler().HandleMouseMoveEvent(
       mouse_move_event, Vector<WebMouseEvent>(), Vector<WebMouseEvent>());
-  EXPECT_EQ(ui::CursorType::kHelp, GetDocument()
-                                       .GetFrame()
-                                       ->GetChromeClient()
-                                       .LastSetCursorForTesting()
-                                       .GetType());
+  EXPECT_EQ(ui::mojom::blink::CursorType::kHelp, GetDocument()
+                                                     .GetFrame()
+                                                     ->GetChromeClient()
+                                                     .LastSetCursorForTesting()
+                                                     .type());
 }
 
 // Ensure that tap on element in iframe should apply active state.
@@ -1665,7 +1669,6 @@ TEST_F(EventHandlerSimTest, TapActiveInFrame) {
 // Test that the hover is updated at the next begin frame after the compositor
 // scroll ends.
 TEST_F(EventHandlerSimTest, TestUpdateHoverAfterCompositorScrollAtBeginFrame) {
-  ScopedUpdateHoverAtBeginFrameForTest scoped_feature(true);
   WebView().MainFrameWidget()->Resize(WebSize(800, 600));
   SimRequest request("https://example.com/test.html", "text/html");
   LoadURL("https://example.com/test.html");
@@ -1715,7 +1718,7 @@ TEST_F(EventHandlerSimTest, TestUpdateHoverAfterCompositorScrollAtBeginFrame) {
   // true in WebViewImpl.
   LocalFrameView* frame_view = GetDocument().View();
   frame_view->LayoutViewport()->DidScroll(FloatPoint(0, 500));
-  WebView().MainFrameWidget()->ApplyViewportChanges(
+  WebView().MainFrameWidget()->ApplyViewportChangesForTesting(
       {gfx::ScrollOffset(), gfx::Vector2dF(), 1.0f, false, 0, 0,
        cc::BrowserControlsState::kBoth, true});
   ASSERT_EQ(500, frame_view->LayoutViewport()->GetScrollOffset().Height());
@@ -1733,7 +1736,6 @@ TEST_F(EventHandlerSimTest, TestUpdateHoverAfterCompositorScrollAtBeginFrame) {
 // Test that the hover is updated at the next begin frame after the main thread
 // scroll ends.
 TEST_F(EventHandlerSimTest, TestUpdateHoverAfterMainThreadScrollAtBeginFrame) {
-  ScopedUpdateHoverAtBeginFrameForTest scoped_feature(true);
   WebView().MainFrameWidget()->Resize(WebSize(800, 600));
   SimRequest request("https://example.com/test.html", "text/html");
   LoadURL("https://example.com/test.html");
@@ -1802,7 +1804,6 @@ TEST_F(EventHandlerSimTest, TestUpdateHoverAfterMainThreadScrollAtBeginFrame) {
 // scroll ends in an iframe.
 TEST_F(EventHandlerSimTest,
        TestUpdateHoverAfterMainThreadScrollInIFrameAtBeginFrame) {
-  ScopedUpdateHoverAtBeginFrameForTest scoped_feature(true);
   WebView().MainFrameWidget()->Resize(WebSize(800, 600));
   SimRequest main_resource("https://example.com/test.html", "text/html");
   SimRequest frame_resource("https://example.com/iframe.html", "text/html");
@@ -1873,7 +1874,6 @@ TEST_F(EventHandlerSimTest,
 // Test that the hover is updated at the next begin frame after the smooth JS
 // scroll ends.
 TEST_F(EventHandlerSimTest, TestUpdateHoverAfterJSScrollAtBeginFrame) {
-  ScopedUpdateHoverAtBeginFrameForTest scoped_feature(true);
   WebView().MainFrameWidget()->Resize(WebSize(800, 500));
   SimRequest request("https://example.com/test.html", "text/html");
   LoadURL("https://example.com/test.html");
@@ -1906,9 +1906,8 @@ TEST_F(EventHandlerSimTest, TestUpdateHoverAfterJSScrollAtBeginFrame) {
       GetDocument().GetLayoutView()->GetScrollableArea();
   bool finished = false;
   scrollable_area->SetScrollOffset(
-      ScrollOffset(0, 1000),
-      mojom::blink::ScrollIntoViewParams::Type::kProgrammatic,
-      mojom::blink::ScrollIntoViewParams::Behavior::kSmooth,
+      ScrollOffset(0, 1000), mojom::blink::ScrollType::kProgrammatic,
+      mojom::blink::ScrollBehavior::kSmooth,
       ScrollableArea::ScrollCallback(
           base::BindOnce([](bool* finished) { *finished = true; }, &finished)));
   Compositor().BeginFrame();
@@ -1938,7 +1937,6 @@ TEST_F(EventHandlerSimTest, TestUpdateHoverAfterJSScrollAtBeginFrame) {
 // thread scroll snap animation finishes.
 TEST_F(EventHandlerSimTest,
        TestUpdateHoverAfterMainThreadScrollSnapAtBeginFrame) {
-  ScopedUpdateHoverAtBeginFrameForTest scoped_feature(true);
   WebView().MainFrameWidget()->Resize(WebSize(800, 600));
   SimRequest request("https://example.com/test.html", "text/html");
   LoadURL("https://example.com/test.html");
@@ -2021,7 +2019,6 @@ TEST_F(EventHandlerSimTest,
 
 TEST_F(EventHandlerSimTest,
        TestUpdateHoverAfterMainThreadScrollAtSnapPointAtBeginFrame) {
-  ScopedUpdateHoverAtBeginFrameForTest scoped_feature(true);
   WebView().MainFrameWidget()->Resize(WebSize(800, 600));
   SimRequest request("https://example.com/test.html", "text/html");
   LoadURL("https://example.com/test.html");
@@ -2125,9 +2122,9 @@ TEST_F(EventHandlerSimTest, LargeCustomCursorIntersectsViewport) {
     GetDocument().GetFrame()->GetEventHandler().HandleMouseMoveEvent(
         mouse_move_event, Vector<WebMouseEvent>(), Vector<WebMouseEvent>());
 
-    const Cursor& cursor =
+    const ui::Cursor& cursor =
         GetDocument().GetFrame()->GetChromeClient().LastSetCursorForTesting();
-    EXPECT_EQ(ui::CursorType::kCustom, cursor.GetType());
+    EXPECT_EQ(ui::mojom::blink::CursorType::kCustom, cursor.type());
   }
 
   // Now, move the cursor so that it intersects the visual viewport. The cursor
@@ -2141,9 +2138,9 @@ TEST_F(EventHandlerSimTest, LargeCustomCursorIntersectsViewport) {
     GetDocument().GetFrame()->GetEventHandler().HandleMouseMoveEvent(
         mouse_move_event, Vector<WebMouseEvent>(), Vector<WebMouseEvent>());
 
-    const Cursor& cursor =
+    const ui::Cursor& cursor =
         GetDocument().GetFrame()->GetChromeClient().LastSetCursorForTesting();
-    EXPECT_EQ(ui::CursorType::kPointer, cursor.GetType());
+    EXPECT_EQ(ui::mojom::blink::CursorType::kPointer, cursor.type());
   }
 }
 
@@ -2184,9 +2181,9 @@ TEST_F(EventHandlerSimTest, SmallCustomCursorIntersectsViewport) {
     GetDocument().GetFrame()->GetEventHandler().HandleMouseMoveEvent(
         mouse_move_event, Vector<WebMouseEvent>(), Vector<WebMouseEvent>());
 
-    const Cursor& cursor =
+    const ui::Cursor& cursor =
         GetDocument().GetFrame()->GetChromeClient().LastSetCursorForTesting();
-    EXPECT_EQ(ui::CursorType::kCustom, cursor.GetType());
+    EXPECT_EQ(ui::mojom::blink::CursorType::kCustom, cursor.type());
   }
 
   // Now, move the cursor so that it intersects the visual viewport. The cursor
@@ -2201,9 +2198,9 @@ TEST_F(EventHandlerSimTest, SmallCustomCursorIntersectsViewport) {
     GetDocument().GetFrame()->GetEventHandler().HandleMouseMoveEvent(
         mouse_move_event, Vector<WebMouseEvent>(), Vector<WebMouseEvent>());
 
-    const Cursor& cursor =
+    const ui::Cursor& cursor =
         GetDocument().GetFrame()->GetChromeClient().LastSetCursorForTesting();
-    EXPECT_EQ(ui::CursorType::kCustom, cursor.GetType());
+    EXPECT_EQ(ui::mojom::blink::CursorType::kCustom, cursor.type());
   }
 }
 
@@ -2566,7 +2563,7 @@ TEST_F(EventHandlerSimTest, ElementTargetedGestureScroll) {
   // Remove the scroller, update layout, and ensure the same gestures
   // don't crash or scroll the layout viewport.
   scroller->remove();
-  GetDocument().UpdateStyleAndLayout();
+  GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kTest);
   GetDocument().GetFrame()->GetEventHandler().HandleGestureEvent(
       gesture_scroll_begin);
   GetDocument().GetFrame()->GetEventHandler().HandleGestureEvent(

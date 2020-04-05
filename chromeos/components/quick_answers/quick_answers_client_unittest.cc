@@ -12,6 +12,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "chromeos/components/quick_answers/quick_answers_model.h"
+#include "chromeos/components/quick_answers/test/test_helpers.h"
 #include "chromeos/constants/chromeos_features.h"
 #include "services/data_decoder/public/cpp/test_support/in_process_data_decoder.h"
 #include "services/network/test/test_url_loader_factory.h"
@@ -20,21 +21,33 @@
 
 namespace chromeos {
 namespace quick_answers {
+
 namespace {
 
-class MockQuickAnswersDelegate
-    : public QuickAnswersClient::QuickAnswersDelegate {
+class TestResultLoader : public ResultLoader {
  public:
-  MockQuickAnswersDelegate() = default;
+  TestResultLoader(network::mojom::URLLoaderFactory* url_loader_factory,
+                   ResultLoaderDelegate* delegate)
+      : ResultLoader(url_loader_factory, delegate) {}
+  // ResultLoader:
+  GURL BuildRequestUrl(const std::string& selected_text) const override {
+    return GURL();
+  }
+  void ProcessResponse(std::unique_ptr<std::string> response_body,
+                       ResponseParserCallback complete_callback) override {}
+};
 
-  MockQuickAnswersDelegate(const MockQuickAnswersDelegate&) = delete;
-  MockQuickAnswersDelegate& operator=(const MockQuickAnswersDelegate&) = delete;
+class MockResultLoader : public TestResultLoader {
+ public:
+  MockResultLoader(network::mojom::URLLoaderFactory* url_loader_factory,
+                   ResultLoaderDelegate* delegate)
+      : TestResultLoader(url_loader_factory, delegate) {}
 
-  // QuickAnswersClient::QuickAnswersDelegate:
-  MOCK_METHOD1(OnQuickAnswerReceived, void(std::unique_ptr<QuickAnswer>));
-  MOCK_METHOD1(OnRequestPreprocessFinish, void(const QuickAnswersRequest&));
-  MOCK_METHOD1(OnEligibilityChanged, void(bool));
-  MOCK_METHOD0(OnNetworkError, void());
+  MockResultLoader(const MockResultLoader&) = delete;
+  MockResultLoader& operator=(const MockResultLoader&) = delete;
+
+  // TestResultLoader:
+  MOCK_METHOD1(Fetch, void(const std::string&));
 };
 
 }  // namespace
@@ -46,6 +59,7 @@ class QuickAnswersClientTest : public testing::Test {
   QuickAnswersClientTest(const QuickAnswersClientTest&) = delete;
   QuickAnswersClientTest& operator=(const QuickAnswersClientTest&) = delete;
 
+  // Testing::Test:
   void SetUp() override {
     assistant_state_ = std::make_unique<ash::AssistantState>();
     mock_delegate_ = std::make_unique<MockQuickAnswersDelegate>();
@@ -53,9 +67,15 @@ class QuickAnswersClientTest : public testing::Test {
     client_ = std::make_unique<QuickAnswersClient>(&test_url_loader_factory_,
                                                    assistant_state_.get(),
                                                    mock_delegate_.get());
+
+    result_loader_factory_callback_ = base::BindRepeating(
+        &QuickAnswersClientTest::CreateResultLoader, base::Unretained(this));
   }
 
-  void TearDown() override { client_.reset(); }
+  void TearDown() override {
+    QuickAnswersClient::SetResultLoaderFactoryForTesting(nullptr);
+    client_.reset();
+  }
 
  protected:
   void NotifyAssistantStateChange(
@@ -69,11 +89,18 @@ class QuickAnswersClientTest : public testing::Test {
     client_->OnLocaleChanged(locale);
   }
 
+  std::unique_ptr<ResultLoader> CreateResultLoader() {
+    return std::move(mock_result_loader_);
+  }
+
   std::unique_ptr<QuickAnswersClient> client_;
   std::unique_ptr<MockQuickAnswersDelegate> mock_delegate_;
+  std::unique_ptr<MockResultLoader> mock_result_loader_;
   std::unique_ptr<ash::AssistantState> assistant_state_;
   base::test::SingleThreadTaskEnvironment task_environment_;
   network::TestURLLoaderFactory test_url_loader_factory_;
+  QuickAnswersClient::ResultLoaderFactoryCallback
+      result_loader_factory_callback_;
 };
 
 TEST_F(QuickAnswersClientTest, FeatureEligible) {
@@ -187,7 +214,28 @@ TEST_F(QuickAnswersClientTest, NetworkError) {
 
   client_->OnNetworkError();
 }
-// TODO(b/144800297): Add more unit tests for sending request.
+
+TEST_F(QuickAnswersClientTest, SendRequest) {
+  std::unique_ptr<QuickAnswersRequest> quick_answers_request =
+      std::make_unique<QuickAnswersRequest>();
+  quick_answers_request->selected_text = "sel";
+
+  mock_result_loader_ =
+      std::make_unique<MockResultLoader>(&test_url_loader_factory_, nullptr);
+  EXPECT_CALL(*mock_result_loader_, Fetch(::testing::Eq("sel")));
+  QuickAnswersClient::SetResultLoaderFactoryForTesting(
+      &result_loader_factory_callback_);
+  EXPECT_CALL(*mock_delegate_,
+              OnRequestPreprocessFinish(
+                  QuickAnswersRequestEqual(*quick_answers_request)));
+  client_->SendRequest(*quick_answers_request);
+
+  std::unique_ptr<QuickAnswer> quick_answer = std::make_unique<QuickAnswer>();
+  quick_answer->primary_answer = "answer";
+  EXPECT_CALL(*mock_delegate_,
+              OnQuickAnswerReceived(QuickAnswerEqual(&(*quick_answer))));
+  client_->OnQuickAnswerReceived(std::move(quick_answer));
+}
 
 }  // namespace quick_answers
 }  // namespace chromeos

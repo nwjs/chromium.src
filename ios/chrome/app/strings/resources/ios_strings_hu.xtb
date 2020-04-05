@@ -97,6 +97,7 @@
 <translation id="2149973817440762519">Könyvjelző szerkesztése</translation>
 <translation id="2179182049312275900">A szinkronizálás bármikor bekapcsolható a beállításokban.</translation>
 <translation id="2198757192731523470">A Google felhasználhatja az Ön előzményeit a Keresés, a hirdetések és más Google-szolgáltatások személyre szabására.</translation>
+<translation id="2218443599109088993">Kicsinyítés</translation>
 <translation id="2230173723195178503">A weboldal betöltött</translation>
 <translation id="2239626343334228536">Böngészési adatok törlése…</translation>
 <translation id="2257567812274161158">A szinkronizálás nem működik.</translation>
@@ -159,6 +160,7 @@
 <translation id="2923448633003185837">Beillesztés és ugrás</translation>
 <translation id="292639812446257861">Megjelölés olvasatlanként</translation>
 <translation id="2958718410589002129">Jelszavak</translation>
+<translation id="2964349545761222050">Harmadik féltől származó cookie-k letiltása</translation>
 <translation id="2969979262385602596">Nem sikerült bejelentkezni. Kérjük, próbálja újra később.</translation>
 <translation id="298306318844797842">Fizetési mód hozzáadása…</translation>
 <translation id="2989805286512600854">Megnyitás új lapon</translation>
@@ -178,6 +180,7 @@
 <translation id="3290875554372353449">Válasszon fiókot</translation>
 <translation id="3311748811247479259">Ki</translation>
 <translation id="3324193307694657476">Cím 2. sora</translation>
+<translation id="3328801116991980348">Webhelyadatok</translation>
 <translation id="3329904751041170572">Nem lehet kapcsolódni a szerverhez.</translation>
 <translation id="3335947283844343239">Bezárt lap megnyitása</translation>
 <translation id="3371831930909698441">Rendelkezésre áll fordítás. A beállítások a képernyő alsó részén találhatók.</translation>
@@ -300,6 +303,7 @@ A beállítás módosításához <ph name="BEGIN_LINK" />állítsa vissza a szin
 <translation id="4979397965658815378">Jelentkezzen be Google-fiókjába, így könyvjelzőit, előzményeit, jelszavait és más beállításait az összes eszközén elérheti.</translation>
 <translation id="5005498671520578047">Jelszó másolása</translation>
 <translation id="5010803260590204777">Nyisson meg egy inkognitólapot a privát böngészéshez.</translation>
+<translation id="5039020240289137291">Harmadik féltől származó cookie-k letiltása</translation>
 <translation id="5039804452771397117">Engedélyezés</translation>
 <translation id="5059136629401106827">OK</translation>
 <translation id="5062321486222145940">Google Drive telepítése</translation>
@@ -414,9 +418,11 @@ Adatainak titkosítása megtörtént összetett szinkronizálási jelszavával a
 <translation id="6434591244308415567">Hiba történt, próbálja újra később.</translation>
 <translation id="6445051938772793705">Ország</translation>
 <translation id="6445981559479772097">Üzenet elküldve.</translation>
+<translation id="6447842834002726250">Cookie-k</translation>
 <translation id="6464071786529933911">Megnyitás új inkognitólapon</translation>
 <translation id="6476800141292307438">Az oldal lefordítása <ph name="LANGUAGE" /> nyelvre. A képernyő alján láthatók a rendelkezésre álló lehetőségek.</translation>
 <translation id="6482629121755362506"><ph name="NUMBER_OF_SELECTED_BOOKMARKS" /> elem törölve</translation>
+<translation id="6561262006871132942">Nagyítás</translation>
 <translation id="6610002944194042868">Fordítási beállítások</translation>
 <translation id="6628106477656132239">Érvénytelen lejárati dátum</translation>
 <translation id="6638511529934826365">Szöveg felnagyítása…</translation>
@@ -479,7 +485,6 @@ Adatainak titkosítása megtörtént összetett szinkronizálási jelszavával a
 <translation id="734758817008927353">A kártya mentésével kapcsolatos beállítások</translation>
 <translation id="7348502496356775519">Felvétel a könyvjelzők közé</translation>
 <translation id="7383797227493018512">Olvasási lista</translation>
-<translation id="7392048574806661116">Kijelentkezés és a szinkronizált adatok törlése</translation>
 <translation id="7400418766976504921">URL</translation>
 <translation id="7409985198648820906"><ph name="UNREAD_COUNT" /> olvasatlan cikk.</translation>
 <translation id="7425346204213733349">Könyvjelzői, előzményei, jelszavai és más beállításai a továbbiakban már nem lesznek szinkronizálva Google-fiókjával. Meglévő adatait azonban továbbra is tárolni fogja a fiók.</translation>
@@ -598,6 +603,7 @@ Adatainak titkosítása megtörtént összetett szinkronizálási jelszavával a
 <translation id="9223358826628549784">Hibajelentés elküldve.</translation>
 <translation id="952704832371081537">Mégse</translation>
 <translation id="988141524645182168">Egyéb eszközök</translation>
+<translation id="989697783705943787">Webhelybiztonság</translation>
 <translation id="989988560359834682">Cím szerkesztése</translation>
 <translation id="994757059139821576">Javasolt cikkek</translation>
 </translationbundle>

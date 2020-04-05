@@ -70,6 +70,16 @@ Polymer({
     });
   },
 
+  /**
+   * @param {string} name
+   * @param {string} profileName
+   * @return {string}
+   * @private
+   */
+  getProfileDisplayName_(name, profileName) {
+    return profileName ? `${name} - ${profileName}` : name;
+  },
+
   /** @private */
   prefsChanged_() {
     if (this.selected_ == undefined || this.prefs == undefined) {
@@ -121,7 +131,8 @@ Polymer({
 
   /** @private */
   onActionButtonTap_() {
-    const checkboxes = this.shadowRoot.querySelectorAll('settings-checkbox');
+    const checkboxes = /** @type {!NodeList<!SettingsCheckboxElement>} */ (
+        this.shadowRoot.querySelectorAll('settings-checkbox'));
     if (this.isImportFromFileSelected_()) {
       this.browserProxy_.importFromBookmarksFile();
     } else {

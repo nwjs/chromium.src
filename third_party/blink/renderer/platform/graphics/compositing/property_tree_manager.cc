@@ -107,9 +107,9 @@ static void SetTransformTreePageScaleFactor(
 }
 
 bool PropertyTreeManager::DirectlyUpdateCompositedOpacityValue(
-    cc::PropertyTrees* property_trees,
     cc::LayerTreeHost& host,
     const EffectPaintPropertyNode& effect) {
+  auto* property_trees = host.property_trees();
   auto* cc_effect = property_trees->effect_tree.Node(
       effect.CcNodeId(property_trees->sequence_number));
   if (!cc_effect)
@@ -128,7 +128,6 @@ bool PropertyTreeManager::DirectlyUpdateCompositedOpacityValue(
 }
 
 bool PropertyTreeManager::DirectlyUpdateScrollOffsetTransform(
-    cc::PropertyTrees* property_trees,
     cc::LayerTreeHost& host,
     const TransformPaintPropertyNode& transform) {
   auto* scroll_node = transform.ScrollNode();
@@ -136,6 +135,7 @@ bool PropertyTreeManager::DirectlyUpdateScrollOffsetTransform(
   if (!scroll_node)
     return false;
 
+  auto* property_trees = host.property_trees();
   auto* cc_scroll_node = property_trees->scroll_tree.Node(
       scroll_node->CcNodeId(property_trees->sequence_number));
   if (!cc_scroll_node)
@@ -149,24 +149,22 @@ bool PropertyTreeManager::DirectlyUpdateScrollOffsetTransform(
   DCHECK(!cc_transform->is_currently_animating);
 
   UpdateCcTransformLocalMatrix(*cc_transform, transform);
-  property_trees->scroll_tree.SetScrollOffset(
-      scroll_node->GetCompositorElementId(), cc_transform->scroll_offset);
-
+  DirectlySetScrollOffset(host, scroll_node->GetCompositorElementId(),
+                          cc_transform->scroll_offset);
   cc_transform->transform_changed = true;
   property_trees->transform_tree.set_needs_update(true);
-  property_trees->scroll_tree.set_needs_update(true);
   host.SetNeedsCommit();
   return true;
 }
 
 bool PropertyTreeManager::DirectlyUpdateTransform(
-    cc::PropertyTrees* property_trees,
     cc::LayerTreeHost& host,
     const TransformPaintPropertyNode& transform) {
   // If we have a ScrollNode, we should be using
   // DirectlyUpdateScrollOffsetTransform().
   DCHECK(!transform.ScrollNode());
 
+  auto* property_trees = host.property_trees();
   auto* cc_transform = property_trees->transform_tree.Node(
       transform.CcNodeId(property_trees->sequence_number));
   if (!cc_transform)
@@ -186,11 +184,11 @@ bool PropertyTreeManager::DirectlyUpdateTransform(
 }
 
 bool PropertyTreeManager::DirectlyUpdatePageScaleTransform(
-    cc::PropertyTrees* property_trees,
     cc::LayerTreeHost& host,
     const TransformPaintPropertyNode& transform) {
   DCHECK(!transform.ScrollNode());
 
+  auto* property_trees = host.property_trees();
   auto* cc_transform = property_trees->transform_tree.Node(
       transform.CcNodeId(property_trees->sequence_number));
   if (!cc_transform)
@@ -203,6 +201,19 @@ bool PropertyTreeManager::DirectlyUpdatePageScaleTransform(
   property_trees->transform_tree.set_needs_update(true);
   host.SetNeedsCommit();
   return true;
+}
+
+// static
+void PropertyTreeManager::DirectlySetScrollOffset(
+    cc::LayerTreeHost& host,
+    CompositorElementId element_id,
+    const gfx::ScrollOffset& scroll_offset) {
+  auto* property_trees = host.property_trees();
+  if (property_trees->scroll_tree.SetScrollOffset(element_id, scroll_offset)) {
+    if (auto* layer = host.LayerByElementId(element_id))
+      layer->SetNeedsPushProperties();
+    host.SetNeedsCommit();
+  }
 }
 
 cc::TransformTree& PropertyTreeManager::GetTransformTree() {
@@ -500,7 +511,7 @@ int PropertyTreeManager::EnsureCompositorClipNode(
 
   cc::ClipNode& compositor_node = *GetClipTree().Node(id);
 
-  compositor_node.clip = clip_node.ClipRect().Rect();
+  compositor_node.clip = clip_node.PixelSnappedClipRect().Rect();
   compositor_node.transform_id =
       EnsureCompositorTransformNode(clip_node.LocalTransformSpace());
   compositor_node.clip_type = cc::ClipNode::ClipType::APPLIES_LOCAL_CLIP;
@@ -554,13 +565,10 @@ void PropertyTreeManager::CreateCompositorScrollNode(
 
   compositor_node.transform_id = scroll_offset_translation.id;
 
-  // TODO(pdr): Set the scroll node's non_fast_scrolling_region value.
-
   scroll_node.SetCcNodeId(new_sequence_number_, id);
 
   GetScrollTree().SetScrollOffset(compositor_element_id,
                                   scroll_offset_translation.scroll_offset);
-  GetScrollTree().set_needs_update(true);
 }
 
 int PropertyTreeManager::EnsureCompositorScrollNode(
@@ -759,7 +767,7 @@ static bool IsNodeOnAncestorChain(const ClipPaintPropertyNode& find,
 
 bool PropertyTreeManager::EffectStateMayBe2dAxisMisalignedToRenderSurface(
     EffectState& state,
-    size_t index) {
+    wtf_size_t index) {
   if (state.may_be_2d_axis_misaligned_to_render_surface ==
       EffectState::kUnknown) {
     // The root effect has render surface, so it's always kAligned.
@@ -789,7 +797,7 @@ bool PropertyTreeManager::CurrentEffectMayBe2dAxisMisalignedToRenderSurface() {
 PropertyTreeManager::CcEffectType PropertyTreeManager::SyntheticEffectType(
     const ClipPaintPropertyNode& clip) {
   unsigned effect_type = CcEffectType::kEffect;
-  if (clip.ClipRect().IsRounded() || clip.ClipPath())
+  if (clip.PixelSnappedClipRect().IsRounded() || clip.ClipPath())
     effect_type |= CcEffectType::kSyntheticForNonTrivialClip;
 
   // Cc requires that a rectangluar clip is 2d-axis-aligned with the render
@@ -830,7 +838,7 @@ bool PropertyTreeManager::SupportsShaderBasedRoundedCorner(
     return size.Width() == size.Height();
   };
 
-  const FloatRoundedRect::Radii& radii = clip.ClipRect().GetRadii();
+  const FloatRoundedRect::Radii& radii = clip.PixelSnappedClipRect().GetRadii();
   if (!WidthAndHeightAreTheSame(radii.TopLeft()) ||
       !WidthAndHeightAreTheSame(radii.TopRight()) ||
       !WidthAndHeightAreTheSame(radii.BottomRight()) ||
@@ -949,7 +957,7 @@ PropertyTreeManager::SynthesizeCcEffectsForClipsIfNeeded(
   if (pending_clips.IsEmpty())
     return backdrop_effect_state;
 
-  for (size_t i = pending_clips.size(); i--;) {
+  for (auto i = pending_clips.size(); i--;) {
     const auto& pending_clip = pending_clips[i];
 
     // For a non-trivial clip, the synthetic effect is an isolation to enclose
@@ -967,7 +975,7 @@ PropertyTreeManager::SynthesizeCcEffectsForClipsIfNeeded(
       if (SupportsShaderBasedRoundedCorner(*pending_clip.clip,
                                            pending_clip.type, next_effect)) {
         synthetic_effect.rounded_corner_bounds =
-            gfx::RRectF(pending_clip.clip->ClipRect());
+            gfx::RRectF(pending_clip.clip->PixelSnappedClipRect());
         synthetic_effect.is_fast_rounded_corner = true;
 
         // Nested rounded corner clips need to force render surfaces for
@@ -985,7 +993,7 @@ PropertyTreeManager::SynthesizeCcEffectsForClipsIfNeeded(
         }
       } else {
         synthetic_effect.render_surface_reason =
-            pending_clip.clip->ClipRect().IsRounded()
+            pending_clip.clip->PixelSnappedClipRect().IsRounded()
                 ? cc::RenderSurfaceReason::kRoundedCorner
                 : cc::RenderSurfaceReason::kClipPath;
       }
@@ -1041,11 +1049,20 @@ void PropertyTreeManager::BuildEffectNodesRecursively(
   BuildEffectNodesRecursively(*next_effect.Parent());
   DCHECK_EQ(&next_effect.Parent()->Unalias(), current_.effect);
 
-#if DCHECK_IS_ON()
-  DCHECK(!GetEffectTree().Node(next_effect.CcNodeId(new_sequence_number_)))
-      << "Malformed paint artifact. Paint chunks under the same effect should "
-         "be contiguous.";
-#endif
+  bool has_multiple_groups = false;
+  if (GetEffectTree().Node(next_effect.CcNodeId(new_sequence_number_))) {
+    if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled()) {
+      // TODO(crbug.com/1064341): We have to allow one blink effect node to
+      // apply to multiple groups in block fragments (multicol, etc.) due to
+      // the current FragmentClip implementation. This can only be fixed by
+      // LayoutNG block fragments. For now we'll create multiple cc effect
+      // nodes in the case.
+      has_multiple_groups = true;
+    } else {
+      NOTREACHED() << "Malformed paint artifact. Paint chunks under the same"
+                      " effect should be contiguous.";
+    }
+  }
 
   auto backdrop_effect_state = kNoBackdropEffect;
   int output_clip_id = 0;
@@ -1072,14 +1089,16 @@ void PropertyTreeManager::BuildEffectNodesRecursively(
   int effect_node_id =
       GetEffectTree().Insert(cc::EffectNode(), current_.effect_id);
   auto& effect_node = *GetEffectTree().Node(effect_node_id);
-  next_effect.SetCcNodeId(new_sequence_number_, effect_node_id);
+
+  if (!has_multiple_groups)
+    next_effect.SetCcNodeId(new_sequence_number_, effect_node_id);
 
   PopulateCcEffectNode(effect_node, next_effect, output_clip_id,
                        backdrop_effect_state);
 
   CompositorElementId compositor_element_id =
       next_effect.GetCompositorElementId();
-  if (compositor_element_id) {
+  if (compositor_element_id && !has_multiple_groups) {
     DCHECK(!property_trees_.element_id_to_effect_node_index.contains(
         compositor_element_id));
     property_trees_.element_id_to_effect_node_index[compositor_element_id] =

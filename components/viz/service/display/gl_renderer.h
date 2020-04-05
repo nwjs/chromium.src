@@ -223,6 +223,7 @@ class VIZ_SERVICE_EXPORT GLRenderer : public DirectRenderer {
   // Allocates and returns a texture id that contains a copy of the contents
   // of the current RenderPass being drawn.
   uint32_t GetBackdropTexture(const gfx::Rect& window_rect,
+                              float scale,
                               GLenum* internal_format);
 
   static bool ShouldApplyBackdropFilters(
@@ -353,7 +354,7 @@ class VIZ_SERVICE_EXPORT GLRenderer : public DirectRenderer {
   void ProcessOverdrawFeedback(int surface_area, unsigned query);
   bool OverdrawTracingEnabled();
 
-  ResourceFormat BackbufferFormat() const;
+  ResourceFormat CurrentRenderPassResourceFormat() const;
 
   // A map from RenderPass id to the texture used to draw the RenderPass from.
   base::flat_map<RenderPassId, ScopedRenderPassTexture> render_pass_textures_;

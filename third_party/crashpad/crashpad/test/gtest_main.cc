@@ -22,7 +22,7 @@
 #endif  // CRASHPAD_TEST_LAUNCHER_GMOCK
 
 #if defined(OS_IOS)
-#include "test/gtest_runner_ios.h"
+#include "test/ios/google_test_setup.h"
 #endif
 
 #if defined(OS_WIN)
@@ -73,6 +73,8 @@ int main(int argc, char* argv[]) {
   // runner.
   const bool use_chromium_test_launcher =
       !crashpad::test::WinChildProcess::IsChildProcess();
+#elif defined(OS_ANDROID)
+  constexpr bool use_chromium_test_launcher = false;
 #else  // OS_WIN
   constexpr bool use_chromium_test_launcher = true;
 #endif  // OS_WIN

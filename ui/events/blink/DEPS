@@ -3,12 +3,15 @@ include_rules = [
   "+cc/input/main_thread_scrolling_reason.h",
   "+cc/input/overscroll_behavior.h",
   "+cc/input/scroll_elasticity_helper.h",
+  "+cc/input/scroll_input_type.h",
   "+cc/input/snap_fling_controller.h",
+  "+cc/metrics/event_metrics.h",
   "+cc/trees/swap_promise_monitor.h",
 
   "+third_party/blink/public/common/input/web_gesture_device.h",
   "+third_party/blink/public/common/input/web_gesture_event.h",
   "+third_party/blink/public/common/input/web_input_event.h",
+  "+third_party/blink/public/common/input/web_input_event_attribution.h",
   "+third_party/blink/public/common/input/web_keyboard_event.h",
   "+third_party/blink/public/common/input/web_mouse_event.h",
   "+third_party/blink/public/common/input/web_mouse_wheel_event.h",
@@ -21,4 +24,6 @@ include_rules = [
   "+ui/gfx/geometry",
 
   "+third_party/one_euro_filter/src/one_euro_filter.h",
+
+  "+services/tracing/public/cpp",
 ]

@@ -10,6 +10,8 @@ source_set("browser") {
   sources = [
     "compositor_utils.cc",
     "compositor_utils.h",
+    "directory_key.cc",
+    "directory_key.h",
     "file_manager.cc",
     "file_manager.h",
     "hit_tester.cc",
@@ -31,19 +33,18 @@ source_set("browser") {
     "//components/discardable_memory/service",
     "//components/keyed_service/core",
     "//components/strings:components_strings_grit",
+    "//components/ukm/content",
     "//content/public/browser",
     "//mojo/public/cpp/base",
     "//mojo/public/cpp/bindings",
+    "//services/metrics/public/cpp:metrics_cpp",
+    "//services/metrics/public/cpp:ukm_builders",
     "//third_party/blink/public:blink_headers",
     "//third_party/blink/public/common",
     "//third_party/zlib/google:zip",
     "//ui/gfx/geometry",
     "//url",
   ]
-
-  if (is_android) {
-    deps += [ ":jni_headers" ]
-  }
 
   public_deps = [
     "//components/paint_preview/common",
@@ -54,22 +55,19 @@ source_set("browser") {
   ]
 }
 
-if (is_android) {
-  generate_jni("jni_headers") {
-    sources = [ "android/java/src/org/chromium/components/paintpreview/browser/PaintPreviewBaseService.java" ]
-  }
-}
-
 source_set("test_support") {
   testonly = true
   sources = [
     "paint_preview_base_service_test_factory.cc",
     "paint_preview_base_service_test_factory.h",
+    "test_paint_preview_policy.cc",
+    "test_paint_preview_policy.h",
   ]
 
   deps = [
     "//base",
     "//components/keyed_service/core",
+    "//content/public/browser",
   ]
 
   public_deps = [ ":browser" ]

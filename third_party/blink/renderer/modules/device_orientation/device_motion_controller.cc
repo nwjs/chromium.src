@@ -8,7 +8,6 @@
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/frame/deprecation.h"
-#include "third_party/blink/renderer/core/frame/hosts_using_features.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/modules/device_orientation/device_motion_data.h"
 #include "third_party/blink/renderer/modules/device_orientation/device_motion_event.h"
@@ -62,11 +61,6 @@ void DeviceMotionController::DidAddEventListener(
   UseCounter::Count(GetDocument(), WebFeature::kDeviceMotionSecureOrigin);
 
   if (!has_event_listener_) {
-    if (!IsSameSecurityOriginAsMainFrame()) {
-      Platform::Current()->RecordRapporURL(
-          "DeviceSensors.DeviceMotionCrossOrigin", WebURL(GetDocument().Url()));
-    }
-
     if (!CheckPolicyFeatures(
             {mojom::blink::FeaturePolicyFeature::kAccelerometer,
              mojom::blink::FeaturePolicyFeature::kGyroscope})) {
@@ -119,7 +113,7 @@ const AtomicString& DeviceMotionController::EventTypeName() const {
   return event_type_names::kDevicemotion;
 }
 
-void DeviceMotionController::Trace(blink::Visitor* visitor) {
+void DeviceMotionController::Trace(Visitor* visitor) {
   DeviceSingleWindowEventController::Trace(visitor);
   visitor->Trace(motion_event_pump_);
   Supplement<Document>::Trace(visitor);

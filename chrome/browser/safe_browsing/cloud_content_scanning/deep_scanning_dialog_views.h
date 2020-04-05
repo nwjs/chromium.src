@@ -11,6 +11,7 @@
 #include "base/time/time.h"
 #include "chrome/browser/safe_browsing/cloud_content_scanning/deep_scanning_dialog_delegate.h"
 #include "chrome/browser/safe_browsing/cloud_content_scanning/deep_scanning_utils.h"
+#include "content/public/browser/web_contents_observer.h"
 #include "ui/views/animation/bounds_animator.h"
 #include "ui/views/controls/label.h"
 #include "ui/views/window/dialog_delegate.h"
@@ -25,16 +26,21 @@ class ImageSkia;
 
 namespace views {
 class ImageView;
+class Label;
 class Throbber;
 class Widget;
 }  // namespace views
 
 namespace safe_browsing {
 class DeepScanningTopImageView;
+class DeepScanningSideIconImageView;
+class DeepScanningSideIconSpinnerView;
+class DeepScanningMessageView;
 
 // Dialog shown for Deep Scanning to offer the possibility of cancelling the
 // upload to the user.
-class DeepScanningDialogViews : public views::DialogDelegate {
+class DeepScanningDialogViews : public views::DialogDelegate,
+                                public content::WebContentsObserver {
  public:
   // Enum used to represent what the dialog is currently showing.
   enum class DeepScanningDialogStatus {
@@ -51,7 +57,56 @@ class DeepScanningDialogViews : public views::DialogDelegate {
     // and that the user may not proceed with their upload, drag-and-drop or
     // paste.
     FAILURE,
+
+    // The dialog is shown with a message indicating that the scan was a
+    // failure, but that the user may proceed with their upload, drag-and-drop
+    // or paste if they want to.
+    WARNING,
   };
+
+  // TestObserver should be implemented by tests that need to track when certain
+  // DeepScanningDialogViews functions are called. The test can add itself as an
+  // observer by using SetObserverForTesting.
+  class TestObserver {
+   public:
+    virtual ~TestObserver() {}
+
+    // Called at the end of DeepScanningDialogViews's constructor. |views| is a
+    // pointer to the newly constructed DeepScanningDialogViews and should be
+    // kept in memory by the test in order to validate its state.
+    virtual void ConstructorCalled(DeepScanningDialogViews* views) {}
+
+    // Called at the end of DeepScanningDialogViews::Show. |timestamp| is the
+    // time used by DeepScanningDialogViews to decide whether the pending state
+    // has been shown for long enough. The test can keep this time in memory and
+    // validate the pending time was sufficient in DialogUpdated.
+    virtual void ViewsFirstShown(DeepScanningDialogViews* views,
+                                 base::TimeTicks timestamp) {}
+
+    // Called at the end of DeepScanningDialogViews::UpdateDialog. |result| is
+    // the value that UpdatedDialog used to transition from the pending state to
+    // the success/failure/warning state.
+    virtual void DialogUpdated(
+        DeepScanningDialogViews* views,
+        DeepScanningDialogDelegate::DeepScanningFinalResult result) {}
+
+    // Called at the end of DeepScanningDialogViews's destructor. |views| is a
+    // pointer to the DeepScanningDialogViews being destructed. It can be used
+    // to compare it to the pointer obtained from ConstructorCalled to ensure
+    // which view is being destroyed.
+    virtual void DestructorCalled(DeepScanningDialogViews* views) {}
+  };
+
+  static void SetObserverForTesting(TestObserver* observer);
+
+  static void SetInitialUIDelayForTesting(base::TimeDelta delta);
+  static void SetMinimumPendingDialogTimeForTesting(base::TimeDelta delta);
+  static void SetSuccessDialogTimeoutForTesting(base::TimeDelta delta);
+
+  static base::TimeDelta GetInitialUIDelay();
+  static base::TimeDelta GetMinimumPendingDialogTime();
+  static base::TimeDelta GetSuccessDialogTimeout();
+
   DeepScanningDialogViews(std::unique_ptr<DeepScanningDialogDelegate> delegate,
                           content::WebContents* web_contents,
                           DeepScanAccessPoint access_point,
@@ -59,18 +114,19 @@ class DeepScanningDialogViews : public views::DialogDelegate {
 
   // views::DialogDelegate:
   base::string16 GetWindowTitle() const override;
-  bool Cancel() override;
   bool ShouldShowCloseButton() const override;
   views::View* GetContentsView() override;
+  views::Widget* GetWidget() override;
+  const views::Widget* GetWidget() const override;
   void DeleteDelegate() override;
   ui::ModalType GetModalType() const override;
 
-  // Updates the dialog with the result, and simply delete it from memory if it
-  // nothing should be shown.
-  void ShowResult(bool success);
+  // content::WebContentsObserver:
+  void WebContentsDestroyed() override;
 
-  // Returns the appropriate top image depending on |dialog_status_|.
-  const gfx::ImageSkia* GetTopImage() const;
+  // Updates the dialog with the result, and simply delete it from memory if
+  // nothing should be shown.
+  void ShowResult(DeepScanningDialogDelegate::DeepScanningFinalResult result);
 
   // Accessors to simplify |dialog_status_| checking.
   inline bool is_success() const {
@@ -81,17 +137,33 @@ class DeepScanningDialogViews : public views::DialogDelegate {
     return dialog_status_ == DeepScanningDialogStatus::FAILURE;
   }
 
-  inline bool is_result() const { return is_success() || is_failure(); }
+  inline bool is_warning() const {
+    return dialog_status_ == DeepScanningDialogStatus::WARNING;
+  }
+
+  inline bool is_result() const { return !is_pending(); }
 
   inline bool is_pending() const {
     return dialog_status_ == DeepScanningDialogStatus::PENDING;
   }
 
+  // Returns the side image's logo color depending on |dialog_status_|.
+  SkColor GetSideImageLogoColor() const;
+
+  // Returns the side image's background circle color depending on
+  // |dialog_status_|.
+  SkColor GetSideImageBackgroundColor() const;
+
+  // Returns the appropriate top image depending on |dialog_status_|.
+  const gfx::ImageSkia* GetTopImage() const;
+
+  // Accessors used to validate the views in tests.
+  views::ImageView* GetTopImageForTesting() const;
+  views::Throbber* GetSideIconSpinnerForTesting() const;
+  views::Label* GetMessageForTesting() const;
+
  private:
   ~DeepScanningDialogViews() override;
-
-  // views::DialogDelegate:
-  const views::Widget* GetWidgetImpl() const override;
 
   // Update the UI depending on |dialog_status_|.
   void UpdateDialog();
@@ -108,11 +180,11 @@ class DeepScanningDialogViews : public views::DialogDelegate {
   // Returns the appropriate dialog message depending on |dialog_status_|.
   base::string16 GetDialogMessage() const;
 
-  // Returns the side image's background circle color.
-  SkColor GetSideImageBackgroundColor() const;
-
-  // Returns the appropriate dialog message depending on |dialog_status_|.
+  // Returns the text for the Cancel button depending on |dialog_status_|.
   base::string16 GetCancelButtonText() const;
+
+  // Returns the text for the Ok button for the warning case.
+  base::string16 GetBypassWarningButtonText() const;
 
   // Returns the appropriate paste top image ID depending on |dialog_status_|.
   int GetPasteImageId(bool use_dark) const;
@@ -128,8 +200,15 @@ class DeepScanningDialogViews : public views::DialogDelegate {
   // |is_file_scan_|.
   int GetFailureMessageId() const;
 
+  // Returns the appropriate warning message ID depending on |access_point_| and
+  // |is_file_scan_|.
+  int GetWarningMessageId() const;
+
   // Show the dialog. Sets |shown_| to true.
   void Show();
+
+  void AcceptButtonCallback();
+  void CancelButtonCallback();
 
   std::unique_ptr<DeepScanningDialogDelegate> delegate_;
 
@@ -137,12 +216,10 @@ class DeepScanningDialogViews : public views::DialogDelegate {
 
   // Views above the buttons. |contents_view_| owns every other view.
   std::unique_ptr<views::View> contents_view_;
-  DeepScanningTopImageView* image_;
-  views::ImageView* side_icon_image_;
-  views::Throbber* side_icon_spinner_;
-  views::Label* message_;
-
-  views::Widget* widget_;
+  DeepScanningTopImageView* image_ = nullptr;
+  DeepScanningSideIconImageView* side_icon_image_ = nullptr;
+  DeepScanningSideIconSpinnerView* side_icon_spinner_ = nullptr;
+  DeepScanningMessageView* message_ = nullptr;
 
   bool shown_ = false;
 
@@ -150,6 +227,10 @@ class DeepScanningDialogViews : public views::DialogDelegate {
 
   // Used to show the appropriate dialog depending on the scan's status.
   DeepScanningDialogStatus dialog_status_ = DeepScanningDialogStatus::PENDING;
+
+  // Used to show the appropriate message.
+  DeepScanningDialogDelegate::DeepScanningFinalResult final_result_ =
+      DeepScanningDialogDelegate::DeepScanningFinalResult::SUCCESS;
 
   // Used to animate dialog height changes.
   std::unique_ptr<views::BoundsAnimator> bounds_animator_;

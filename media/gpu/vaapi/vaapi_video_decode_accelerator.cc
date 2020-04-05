@@ -10,6 +10,7 @@
 #include <memory>
 
 #include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/cpu.h"
 #include "base/files/scoped_file.h"
 #include "base/logging.h"
@@ -27,12 +28,14 @@
 #include "media/base/bind_to_current_loop.h"
 #include "media/base/format_utils.h"
 #include "media/base/unaligned_shared_memory.h"
+#include "media/base/video_util.h"
 #include "media/gpu/accelerated_video_decoder.h"
 #include "media/gpu/h264_decoder.h"
 #include "media/gpu/macros.h"
 #include "media/gpu/vaapi/h264_vaapi_video_decoder_delegate.h"
 #include "media/gpu/vaapi/vaapi_common.h"
 #include "media/gpu/vaapi/vaapi_picture.h"
+#include "media/gpu/vaapi/vaapi_utils.h"
 #include "media/gpu/vaapi/vp8_vaapi_video_decoder_delegate.h"
 #include "media/gpu/vaapi/vp9_vaapi_video_decoder_delegate.h"
 #include "media/gpu/vp8_decoder.h"
@@ -76,19 +79,6 @@ bool IsGeminiLakeOrLater() {
   return is_geminilake_or_later;
 }
 
-// Returns the size of a rectangle whose upper left corner is at the origin (0,
-// 0) and whose bottom right corner is the same as that of |rect|. This is
-// useful to get the size of a buffer that contains the visible rectangle plus
-// the non-visible area above and to the left of the visible rectangle.
-//
-// An example to illustrate: suppose the visible rectangle of a decoded frame is
-// 10,10,100,100. The size of this rectangle is 90x90. However, we need to
-// create a texture of size 100x100 because the client will want to sample from
-// the texture starting with uv coordinates corresponding to 10,10.
-gfx::Size GetRectSizeFromOrigin(const gfx::Rect& rect) {
-  return gfx::Size(rect.bottom_right().x(), rect.bottom_right().y());
-}
-
 }  // namespace
 
 #define RETURN_AND_NOTIFY_ON_FAILURE(result, log, error_code, ret) \
@@ -126,24 +116,6 @@ class VaapiVideoDecodeAccelerator::InputBuffer {
   base::OnceCallback<void(int32_t id)> release_cb_;
 
   DISALLOW_COPY_AND_ASSIGN(InputBuffer);
-};
-
-class VaapiVideoDecodeAccelerator::ScopedVASurfaceID {
- public:
-  using ReleaseCB = base::OnceCallback<void(VASurfaceID)>;
-
-  ScopedVASurfaceID(VASurfaceID va_surface_id, ReleaseCB release_cb)
-      : va_surface_id_(va_surface_id), release_cb_(std::move(release_cb)) {}
-  ~ScopedVASurfaceID() { std::move(release_cb_).Run(va_surface_id_); }
-
-  ScopedVASurfaceID& operator=(const ScopedVASurfaceID&) = delete;
-  ScopedVASurfaceID(const ScopedVASurfaceID&) = delete;
-
-  VASurfaceID va_surface_id() const { return va_surface_id_; }
-
- private:
-  const VASurfaceID va_surface_id_;
-  ReleaseCB release_cb_;
 };
 
 void VaapiVideoDecodeAccelerator::NotifyError(Error error) {
@@ -624,41 +596,20 @@ void VaapiVideoDecodeAccelerator::TryFinishSurfaceSetChange() {
   }
   pictures_.clear();
 
-  // In ALLOCATE mode, we are responsible for allocating storage for the result
-  // of the decode. However, the client is responsible for creating the GL
-  // texture to which we'll attach the decoded image. The decoder needs the
-  // buffer to be of size = |requested_pic_size_|, but for the purposes of
-  // working with a graphics API (e.g., GL), the client does not need to know
-  // about the non-visible area on the bottom or the right of the frame. For
-  // example, for a 360p H.264 video with a visible rectangle of 0,0,640x360,
-  // the coded size is 640x368, but the GL texture that the client uses should
-  // be only 640x360.
-  //
-  // In IMPORT mode, the client is responsible for allocating storage for the
-  // decoder to work with, so in that case, we must request the full coded size
-  // and the client is responsible for importing the decoded image into a
-  // graphics API correctly.
-  const gfx::Size pic_size_to_request_from_client =
-      (output_mode_ == Config::OutputMode::ALLOCATE)
-          ? GetRectSizeFromOrigin(requested_visible_rect_)
-          : requested_pic_size_;
-  DCHECK(gfx::Rect(requested_pic_size_)
-             .Contains(gfx::Rect(pic_size_to_request_from_client)));
-
   // And ask for a new set as requested.
-  VLOGF(2) << "Requesting " << requested_num_pics_ << " pictures of size: "
-           << pic_size_to_request_from_client.ToString();
+  VLOGF(2) << "Requesting " << requested_num_pics_
+           << " pictures of size: " << requested_pic_size_.ToString()
+           << " and visible rectangle = " << requested_visible_rect_.ToString();
 
   const base::Optional<VideoPixelFormat> format =
       GfxBufferFormatToVideoPixelFormat(
           vaapi_picture_factory_->GetBufferFormat());
   CHECK(format);
   task_runner_->PostTask(
-      FROM_HERE,
-      base::BindOnce(&Client::ProvidePictureBuffersWithVisibleRect, client_,
-                     requested_num_pics_, *format, 1,
-                     pic_size_to_request_from_client, requested_visible_rect_,
-                     vaapi_picture_factory_->GetGLTextureTarget()));
+      FROM_HERE, base::BindOnce(&Client::ProvidePictureBuffersWithVisibleRect,
+                                client_, requested_num_pics_, *format, 1,
+                                requested_pic_size_, requested_visible_rect_,
+                                vaapi_picture_factory_->GetGLTextureTarget()));
   // |client_| may respond via AssignPictureBuffers().
 }
 
@@ -1045,8 +996,8 @@ void VaapiVideoDecodeAccelerator::Cleanup() {
 
   // Call DismissPictureBuffer() to notify |client_| that the picture buffers
   // are no longer used and thus |client_| shall release them. If |client_| has
-  // been destroyed, DismissPictureBuffer() on all picture buffers are executed
-  // on the |client_| destruction.
+  // been invalidated in NotifyError(),|client_| will be destroyed shortly. The
+  // destruction should release all the PictureBuffers.
   if (client_) {
     for (const auto& id_and_picture : pictures_)
       client_->DismissPictureBuffer(id_and_picture.first);
@@ -1128,8 +1079,8 @@ scoped_refptr<VASurface> VaapiVideoDecodeAccelerator::CreateSurface() {
   DCHECK_NE(VA_INVALID_ID, va_surface_format_);
   DCHECK(!awaiting_va_surfaces_recycle_);
   if (buffer_allocation_mode_ != BufferAllocationMode::kNone) {
-    auto va_surface = std::move(available_va_surfaces_.front());
-    const VASurfaceID id = va_surface->va_surface_id();
+    auto va_surface_id = std::move(available_va_surfaces_.front());
+    const VASurfaceID id = va_surface_id->id();
     available_va_surfaces_.pop_front();
 
     TRACE_COUNTER_ID2("media,gpu", "Vaapi VASurfaceIDs", this, "used",
@@ -1141,7 +1092,7 @@ scoped_refptr<VASurface> VaapiVideoDecodeAccelerator::CreateSurface() {
 
     return new VASurface(
         id, requested_pic_size_, va_surface_format_,
-        base::BindOnce(va_surface_recycle_cb_, std::move(va_surface)));
+        base::BindOnce(va_surface_recycle_cb_, std::move(va_surface_id)));
   }
 
   // Find the first |available_va_surfaces_| id such that the associated
@@ -1149,7 +1100,7 @@ scoped_refptr<VASurface> VaapiVideoDecodeAccelerator::CreateSurface() {
   // we will quickly find an available |va_surface_id|.
   for (auto it = available_va_surfaces_.begin();
        it != available_va_surfaces_.end(); ++it) {
-    const VASurfaceID va_surface_id = (*it)->va_surface_id();
+    const VASurfaceID va_surface_id = (*it)->id();
     for (const auto& id_and_picture : pictures_) {
       if (id_and_picture.second->va_surface_id() == va_surface_id &&
           base::Contains(available_picture_buffers_, id_and_picture.first)) {

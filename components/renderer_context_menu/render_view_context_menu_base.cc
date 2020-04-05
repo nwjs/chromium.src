@@ -10,6 +10,7 @@
 
 #include "base/command_line.h"
 #include "base/logging.h"
+#include "base/memory/ptr_util.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_view_host.h"
@@ -413,6 +414,9 @@ void RenderViewContextMenuBase::MenuClosed(ui::SimpleMenuModel* source) {
 
   source_web_contents_->SetShowingContextMenu(false);
   source_web_contents_->NotifyContextMenuClosed(params_.custom_context);
+  for (auto& observer : observers_) {
+    observer.OnMenuClosed();
+  }
 }
 
 RenderFrameHost* RenderViewContextMenuBase::GetRenderFrameHost() {

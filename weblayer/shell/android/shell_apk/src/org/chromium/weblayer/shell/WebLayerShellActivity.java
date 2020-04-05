@@ -4,6 +4,8 @@
 
 package org.chromium.weblayer.shell;
 
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
@@ -13,14 +15,14 @@ import android.support.v4.app.FragmentActivity;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentTransaction;
 import android.text.TextUtils;
+import android.view.ContextMenu;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
+import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup.LayoutParams;
 import android.view.WindowManager;
-import android.view.inputmethod.EditorInfo;
-import android.view.inputmethod.InputMethodManager;
 import android.webkit.ValueCallback;
 import android.widget.EditText;
 import android.widget.ImageButton;
@@ -28,14 +30,14 @@ import android.widget.LinearLayout;
 import android.widget.PopupMenu;
 import android.widget.ProgressBar;
 import android.widget.TextView;
-import android.widget.TextView.OnEditorActionListener;
+import android.widget.ViewSwitcher;
 
 import org.chromium.weblayer.Browser;
+import org.chromium.weblayer.ContextMenuParams;
 import org.chromium.weblayer.DownloadCallback;
 import org.chromium.weblayer.ErrorPageCallback;
 import org.chromium.weblayer.FindInPageCallback;
 import org.chromium.weblayer.FullscreenCallback;
-import org.chromium.weblayer.Navigation;
 import org.chromium.weblayer.NavigationCallback;
 import org.chromium.weblayer.NavigationController;
 import org.chromium.weblayer.NewTabCallback;
@@ -45,6 +47,7 @@ import org.chromium.weblayer.Tab;
 import org.chromium.weblayer.TabCallback;
 import org.chromium.weblayer.TabListCallback;
 import org.chromium.weblayer.UnsupportedVersionException;
+import org.chromium.weblayer.UrlBarOptions;
 import org.chromium.weblayer.WebLayer;
 
 import java.util.ArrayList;
@@ -54,13 +57,72 @@ import java.util.List;
  * Activity for managing the Demo Shell.
  */
 public class WebLayerShellActivity extends FragmentActivity {
+    private static class ContextMenuCreator
+            implements View.OnCreateContextMenuListener, MenuItem.OnMenuItemClickListener {
+        private static final int MENU_ID_COPY_LINK_URI = 1;
+        private static final int MENU_ID_COPY_LINK_TEXT = 2;
+
+        private ContextMenuParams mParams;
+        private Context mContext;
+
+        public ContextMenuCreator(ContextMenuParams params) {
+            mParams = params;
+        }
+
+        @Override
+        public void onCreateContextMenu(
+                ContextMenu menu, View v, ContextMenu.ContextMenuInfo menuInfo) {
+            mContext = v.getContext();
+            menu.add(mParams.pageUri.toString());
+            if (mParams.linkUri != null) {
+                MenuItem copyLinkUriItem =
+                        menu.add(Menu.NONE, MENU_ID_COPY_LINK_URI, Menu.NONE, "Copy link address");
+                copyLinkUriItem.setOnMenuItemClickListener(this);
+            }
+            if (!TextUtils.isEmpty(mParams.linkText)) {
+                MenuItem copyLinkTextItem =
+                        menu.add(Menu.NONE, MENU_ID_COPY_LINK_TEXT, Menu.NONE, "Copy link text");
+                copyLinkTextItem.setOnMenuItemClickListener(this);
+            }
+            if (!TextUtils.isEmpty(mParams.titleOrAltText)) {
+                TextView altTextView = new TextView(mContext);
+                altTextView.setText(mParams.titleOrAltText);
+                menu.setHeaderView(altTextView);
+            }
+            v.setOnCreateContextMenuListener(null);
+        }
+
+        @Override
+        public boolean onMenuItemClick(MenuItem item) {
+            ClipboardManager clipboard =
+                    (ClipboardManager) mContext.getSystemService(Context.CLIPBOARD_SERVICE);
+            switch (item.getItemId()) {
+                case MENU_ID_COPY_LINK_URI:
+                    clipboard.setPrimaryClip(
+                            ClipData.newPlainText("link address", mParams.linkUri.toString()));
+                    break;
+                case MENU_ID_COPY_LINK_TEXT:
+                    clipboard.setPrimaryClip(ClipData.newPlainText("link text", mParams.linkText));
+                    break;
+                default:
+                    break;
+            }
+            return true;
+        }
+    }
+
     private static final String TAG = "WebLayerShell";
     private static final String KEY_MAIN_VIEW_ID = "mainViewId";
+    private static final float DEFAULT_TEXT_SIZE = 15.0F;
+    private static final int EDITABLE_URL_TEXT_VIEW = 0;
+    private static final int NONEDITABLE_URL_TEXT_VIEW = 1;
 
     private Profile mProfile;
     private Browser mBrowser;
-    private EditText mUrlView;
     private ImageButton mMenuButton;
+    private ViewSwitcher mUrlViewContainer;
+    private EditText mEditUrlView;
+    // private View mNonEditUrlView;
     private ProgressBar mLoadProgressBar;
     private View mMainView;
     private int mMainViewId;
@@ -92,57 +154,43 @@ public class WebLayerShellActivity extends FragmentActivity {
 
         mTopContentsContainer =
                 LayoutInflater.from(this).inflate(R.layout.shell_browser_controls, null);
+        mUrlViewContainer = mTopContentsContainer.findViewById(R.id.url_view_container);
 
-        mUrlView = mTopContentsContainer.findViewById(R.id.url_view);
-        // Make the view transparent. Note that setBackgroundColor() applies a color filter to the
-        // background drawable rather than replacing it, and thus does not affect layout.
-        mUrlView.setBackgroundColor(0);
-        mUrlView.setOnEditorActionListener(new OnEditorActionListener() {
-            @Override
-            public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
-                if ((actionId != EditorInfo.IME_ACTION_GO)
-                        && (event == null || event.getKeyCode() != KeyEvent.KEYCODE_ENTER
-                                || event.getAction() != KeyEvent.ACTION_DOWN)) {
-                    return false;
-                }
-                loadUrl(mUrlView.getText().toString());
-                mUrlView.clearFocus();
-                InputMethodManager imm =
-                        (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
-                imm.hideSoftInputFromWindow(mUrlView.getWindowToken(), 0);
-                return true;
-            }
+        mEditUrlView = mUrlViewContainer.findViewById(R.id.editable_url_view);
+        mEditUrlView.setOnEditorActionListener((TextView v, int actionId, KeyEvent event) -> {
+            loadUrl(mEditUrlView.getText().toString());
+            mEditUrlView.clearFocus();
+            return true;
         });
+        mUrlViewContainer.setDisplayedChild(EDITABLE_URL_TEXT_VIEW);
 
         mMenuButton = mTopContentsContainer.findViewById(R.id.menu_button);
-        mMenuButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                PopupMenu popup = new PopupMenu(WebLayerShellActivity.this, v);
-                popup.getMenuInflater().inflate(R.menu.app_menu, popup.getMenu());
-                popup.setOnMenuItemClickListener(new PopupMenu.OnMenuItemClickListener() {
-                    @Override
-                    public boolean onMenuItemClick(MenuItem item) {
-                        if (item.getItemId() == R.id.find_begin_menu_id) {
-                            // TODO(estade): add a UI for FIP. For now, just search for "cat", or go
-                            // to the next result if a search has already been initiated.
-                            mBrowser.getActiveTab().getFindInPageController().setFindInPageCallback(
-                                    new FindInPageCallback() {});
-                            mBrowser.getActiveTab().getFindInPageController().find("cat", true);
-                            return true;
-                        }
+        mMenuButton.setOnClickListener(v -> {
+            PopupMenu popup = new PopupMenu(WebLayerShellActivity.this, v);
+            popup.getMenuInflater().inflate(R.menu.app_menu, popup.getMenu());
+            popup.setOnMenuItemClickListener(item -> {
+                if (item.getItemId() == R.id.reload_menu_id) {
+                    mBrowser.getActiveTab().getNavigationController().reload();
+                    return true;
+                }
 
-                        if (item.getItemId() == R.id.find_end_menu_id) {
-                            mBrowser.getActiveTab().getFindInPageController().setFindInPageCallback(
-                                    null);
-                            return true;
-                        }
+                if (item.getItemId() == R.id.find_begin_menu_id) {
+                    // TODO(estade): add a UI for FIP. For now, just search for "cat", or go
+                    // to the next result if a search has already been initiated.
+                    mBrowser.getActiveTab().getFindInPageController().setFindInPageCallback(
+                            new FindInPageCallback() {});
+                    mBrowser.getActiveTab().getFindInPageController().find("cat", true);
+                    return true;
+                }
 
-                        return false;
-                    }
-                });
-                popup.show();
-            }
+                if (item.getItemId() == R.id.find_end_menu_id) {
+                    mBrowser.getActiveTab().getFindInPageController().setFindInPageCallback(null);
+                    return true;
+                }
+
+                return false;
+            });
+            popup.show();
         });
 
         mLoadProgressBar = mTopContentsContainer.findViewById(R.id.progress_bar);
@@ -162,6 +210,7 @@ public class WebLayerShellActivity extends FragmentActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        mUrlViewContainer.reset();
         if (mTabListCallback != null) {
             mBrowser.unregisterTabListCallback(mTabListCallback);
             mTabListCallback = null;
@@ -181,35 +230,33 @@ public class WebLayerShellActivity extends FragmentActivity {
         // when the shell is rotated in the foreground).
         fragment.setRetainInstance(true);
         mBrowser = Browser.fromFragment(fragment);
+        mProfile = mBrowser.getProfile();
+        setTabCallbacks(mBrowser.getActiveTab(), fragment);
+
+        mBrowser.setTopView(mTopContentsContainer);
         mTabListCallback = new TabListCallback() {
             @Override
             public void onActiveTabChanged(Tab activeTab) {
-                String currentDisplayUrl = getCurrentDisplayUrl();
-                if (currentDisplayUrl != null) {
-                    mUrlView.setText(currentDisplayUrl);
-                }
+                mUrlViewContainer.setDisplayedChild(NONEDITABLE_URL_TEXT_VIEW);
             }
         };
         mBrowser.registerTabListCallback(mTabListCallback);
-        setTabCallbacks(mBrowser.getActiveTab(), fragment);
-        mProfile = mBrowser.getProfile();
+        View nonEditUrlView = mBrowser.getUrlBarController().createUrlBarView(
+                UrlBarOptions.builder().setTextSizeSP(DEFAULT_TEXT_SIZE).build());
+        nonEditUrlView.setOnClickListener(
+                v -> { mUrlViewContainer.setDisplayedChild(EDITABLE_URL_TEXT_VIEW); });
+        mUrlViewContainer.removeViewAt(NONEDITABLE_URL_TEXT_VIEW);
+        mUrlViewContainer.addView(nonEditUrlView, NONEDITABLE_URL_TEXT_VIEW);
+        mUrlViewContainer.setDisplayedChild(NONEDITABLE_URL_TEXT_VIEW);
 
-        mBrowser.setTopView(mTopContentsContainer);
-
-        // If there is already a url loaded in the current tab just display it in the top bar;
-        // otherwise load the startup url.
-        String currentDisplayUrl = getCurrentDisplayUrl();
-
-        if (currentDisplayUrl != null) {
-            mUrlView.setText(currentDisplayUrl);
-
-        } else {
-            String startupUrl = getUrlFromIntent(getIntent());
-            if (TextUtils.isEmpty(startupUrl)) {
-                startupUrl = "https://google.com";
-            }
-            loadUrl(startupUrl);
+        if (getCurrentDisplayUrl() != null) {
+            return;
         }
+        String startupUrl = getUrlFromIntent(getIntent());
+        if (TextUtils.isEmpty(startupUrl)) {
+            startupUrl = "https://google.com";
+        }
+        loadUrl(startupUrl);
     }
 
     /* Returns the Url for the current tab as a String, or null if there is no
@@ -232,7 +279,6 @@ public class WebLayerShellActivity extends FragmentActivity {
             @Override
             public void onNewTab(Tab newTab, @NewTabType int type) {
                 setTabCallbacks(newTab, fragment);
-                mBrowser.getActiveTab().getFindInPageController().setFindInPageCallback(null);
                 mPreviousTabList.add(mBrowser.getActiveTab());
                 mBrowser.setActiveTab(newTab);
             }
@@ -281,15 +327,22 @@ public class WebLayerShellActivity extends FragmentActivity {
         tab.registerTabCallback(new TabCallback() {
             @Override
             public void onVisibleUriChanged(Uri uri) {
-                mUrlView.setText(uri.toString());
+                mUrlViewContainer.setDisplayedChild(NONEDITABLE_URL_TEXT_VIEW);
+            }
+
+            @Override
+            public void onTabModalStateChanged(boolean isTabModalShowing) {
+                mMenuButton.setEnabled(!isTabModalShowing);
+            }
+
+            @Override
+            public void showContextMenu(ContextMenuParams params) {
+                View weblayerView = getSupportFragmentManager().getFragments().get(0).getView();
+                weblayerView.setOnCreateContextMenuListener(new ContextMenuCreator(params));
+                weblayerView.showContextMenu();
             }
         });
         tab.getNavigationController().registerNavigationCallback(new NavigationCallback() {
-            @Override
-            public void onNavigationStarted(Navigation navigation) {
-                mBrowser.getActiveTab().getFindInPageController().setFindInPageCallback(null);
-            }
-
             @Override
             public void onLoadStateChanged(boolean isLoading, boolean toDifferentDocument) {
                 mLoadProgressBar.setVisibility(
@@ -301,7 +354,7 @@ public class WebLayerShellActivity extends FragmentActivity {
                 mLoadProgressBar.setProgress((int) Math.round(100 * progress));
             }
         });
-        tab.setDownloadCallback(new DownloadCallback() {
+        mProfile.setDownloadCallback(new DownloadCallback() {
             @Override
             public boolean onInterceptDownload(Uri uri, String userAgent, String contentDisposition,
                     String mimetype, long contentLength) {
@@ -358,7 +411,6 @@ public class WebLayerShellActivity extends FragmentActivity {
 
     public void loadUrl(String url) {
         mBrowser.getActiveTab().getNavigationController().navigate(Uri.parse(sanitizeUrl(url)));
-        mUrlView.clearFocus();
     }
 
     private static String getUrlFromIntent(Intent intent) {
@@ -386,17 +438,18 @@ public class WebLayerShellActivity extends FragmentActivity {
 
     @Override
     public void onBackPressed() {
-        if (mExitFullscreenRunnable != null) {
-            mExitFullscreenRunnable.run();
-            return;
-        }
         if (mBrowser != null) {
-            NavigationController controller = mBrowser.getActiveTab().getNavigationController();
+            Tab activeTab = mBrowser.getActiveTab();
+
+            if (activeTab.dismissTransientUi()) return;
+
+            NavigationController controller = activeTab.getNavigationController();
             if (controller.canGoBack()) {
                 controller.goBack();
                 return;
-            } else if (!mPreviousTabList.isEmpty()) {
-                closeTab(mBrowser.getActiveTab());
+            }
+            if (!mPreviousTabList.isEmpty()) {
+                activeTab.dispatchBeforeUnloadAndClose();
                 return;
             }
         }

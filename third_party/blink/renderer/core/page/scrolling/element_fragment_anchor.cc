@@ -157,8 +157,7 @@ void ElementFragmentAnchor::Installed() {
   needs_invoke_ = true;
 }
 
-void ElementFragmentAnchor::DidScroll(
-    mojom::blink::ScrollIntoViewParams::Type type) {
+void ElementFragmentAnchor::DidScroll(mojom::blink::ScrollType type) {
   if (!IsExplicitScrollType(type))
     return;
 
@@ -169,7 +168,7 @@ void ElementFragmentAnchor::DidScroll(
   needs_invoke_ = false;
 }
 
-void ElementFragmentAnchor::Trace(blink::Visitor* visitor) {
+void ElementFragmentAnchor::Trace(Visitor* visitor) {
   visitor->Trace(anchor_node_);
   visitor->Trace(frame_);
   FragmentAnchor::Trace(visitor);

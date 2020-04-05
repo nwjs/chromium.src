@@ -54,6 +54,7 @@
 #include "chrome/browser/prefs/browser_prefs.h"
 #include "chrome/browser/ui/app_icon_loader.h"
 #include "chrome/browser/ui/app_list/app_list_syncable_service_factory.h"
+#include "chrome/browser/ui/app_list/arc/arc_app_icon.h"
 #include "chrome/browser/ui/app_list/arc/arc_app_list_prefs.h"
 #include "chrome/browser/ui/app_list/arc/arc_app_test.h"
 #include "chrome/browser/ui/app_list/arc/arc_app_utils.h"
@@ -136,6 +137,7 @@
 #include "ui/display/screen.h"
 #include "ui/events/base_event_utils.h"
 #include "ui/events/event_constants.h"
+#include "ui/events/types/event_type.h"
 #include "ui/gfx/image/image_skia_operations.h"
 #include "ui/gfx/image/image_unittest_util.h"
 #include "ui/views/widget/widget.h"
@@ -335,8 +337,7 @@ class ChromeLauncherControllerTest : public BrowserWithTestWindowTest {
 
     app_list_syncable_service_ =
         app_list::AppListSyncableServiceFactory::GetForProfile(profile());
-    StartAppSyncService(
-        app_list_syncable_service_->GetAllSyncData(syncer::APP_LIST));
+    StartAppSyncService(app_list_syncable_service_->GetAllSyncDataForTesting());
 
     std::string error;
     extension_chrome_ = Extension::Create(base::FilePath(), Manifest::UNPACKED,
@@ -772,7 +773,7 @@ class ChromeLauncherControllerTest : public BrowserWithTestWindowTest {
             result += "Platform_App";
           } else if (app == arc_support_host_->id()) {
             result += "Play Store";
-          } else if (app == crostini::kCrostiniTerminalId) {
+          } else if (app == crostini::GetTerminalId()) {
             result += "Terminal";
           } else if (app == web_app_->id()) {
             result += "WebApp";
@@ -849,7 +850,7 @@ class ChromeLauncherControllerTest : public BrowserWithTestWindowTest {
   views::Widget* CreateArcWindow(const std::string& window_app_id) {
     views::Widget::InitParams params(views::Widget::InitParams::TYPE_WINDOW);
     params.bounds = gfx::Rect(5, 5, 20, 20);
-    params.context = ash_test_helper()->CurrentContext();
+    params.context = GetContext();
     views::Widget* widget = new views::Widget();
     widget->Init(std::move(params));
     // Set ARC id before showing the window to be recognized in
@@ -1058,7 +1059,7 @@ class WebContentsDestroyedWatcher : public content::WebContentsObserver {
   explicit WebContentsDestroyedWatcher(content::WebContents* web_contents)
       : content::WebContentsObserver(web_contents),
         message_loop_runner_(new content::MessageLoopRunner) {
-    EXPECT_TRUE(web_contents != NULL);
+    EXPECT_TRUE(web_contents != nullptr);
   }
   ~WebContentsDestroyedWatcher() override {}
 
@@ -1441,7 +1442,7 @@ TEST_F(ChromeLauncherControllerWithArcTest, ArcAppPinCrossPlatformWorkflow) {
   // Persist pin state, we don't have active pin for ARC apps yet, but pin
   // model should have it.
   syncer::SyncDataList copy_sync_list =
-      app_list_syncable_service_->GetAllSyncData(syncer::APP_LIST);
+      app_list_syncable_service_->GetAllSyncDataForTesting();
 
   ResetLauncherController();
   SendPinChanges(syncer::SyncChangeList(), true);
@@ -1474,7 +1475,7 @@ TEST_F(ChromeLauncherControllerWithArcTest, ArcAppPinCrossPlatformWorkflow) {
             GetPinnedAppStatus());
 
   app_service_test().WaitForAppService();
-  copy_sync_list = app_list_syncable_service_->GetAllSyncData(syncer::APP_LIST);
+  copy_sync_list = app_list_syncable_service_->GetAllSyncDataForTesting();
 
   ResetLauncherController();
   ResetPinModel();
@@ -2991,7 +2992,7 @@ TEST_F(ChromeLauncherControllerTest, Policy) {
 
   // Removing |extension1_| from the policy should not be reflected in the
   // launcher and pin will exist.
-  policy_value.Remove(0, NULL);
+  policy_value.Remove(0, nullptr);
   profile()->GetTestingPrefService()->SetManagedPref(
       prefs::kPolicyPinnedLauncherApps, policy_value.CreateDeepCopy());
   EXPECT_EQ("Chrome, App1, App2", GetPinnedAppStatus());
@@ -4450,7 +4451,7 @@ TEST_F(ChromeLauncherControllerTest, SyncOffLocalUpdate) {
   EXPECT_EQ("Chrome, App1, App2", GetPinnedAppStatus());
 
   syncer::SyncDataList copy_sync_list =
-      app_list_syncable_service_->GetAllSyncData(syncer::APP_LIST);
+      app_list_syncable_service_->GetAllSyncDataForTesting();
 
   app_list_syncable_service_->StopSyncing(syncer::APP_LIST);
   RecreateLauncherController()->Init();
@@ -4707,7 +4708,7 @@ TEST_F(ChromeLauncherControllerTest, CrostiniTerminalPinUnpin) {
 
   // Load pinned Terminal from prefs without Crostini UI being allowed
   syncer::SyncChangeList sync_list;
-  InsertAddPinChange(&sync_list, 1, crostini::kCrostiniTerminalId);
+  InsertAddPinChange(&sync_list, 1, crostini::GetTerminalId());
   SendPinChanges(sync_list, true);
   EXPECT_EQ("Chrome", GetPinnedAppStatus());
 
@@ -4720,11 +4721,11 @@ TEST_F(ChromeLauncherControllerTest, CrostiniTerminalPinUnpin) {
   EXPECT_EQ("Chrome, Terminal", GetPinnedAppStatus());
 
   // Unpin the Terminal
-  launcher_controller_->UnpinAppWithID(crostini::kCrostiniTerminalId);
+  launcher_controller_->UnpinAppWithID(crostini::GetTerminalId());
   EXPECT_EQ("Chrome", GetPinnedAppStatus());
 
   // Pin Terminal again.
-  launcher_controller_->PinAppWithID(crostini::kCrostiniTerminalId);
+  launcher_controller_->PinAppWithID(crostini::GetTerminalId());
   EXPECT_EQ("Chrome, Terminal", GetPinnedAppStatus());
 }
 

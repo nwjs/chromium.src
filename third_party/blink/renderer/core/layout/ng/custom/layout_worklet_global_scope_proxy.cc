@@ -9,6 +9,7 @@
 #include "third_party/blink/renderer/bindings/core/v8/script_source_code.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_binding_for_core.h"
 #include "third_party/blink/renderer/core/dom/document.h"
+#include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame_client.h"
 #include "third_party/blink/renderer/core/loader/worker_fetch_context.h"
@@ -40,16 +41,16 @@ LayoutWorkletGlobalScopeProxy::LayoutWorkletGlobalScopeProxy(
       StringView("LayoutWorklet #") + String::Number(global_scope_number);
 
   auto creation_params = std::make_unique<GlobalScopeCreationParams>(false, std::string(),
-      document->Url(), mojom::ScriptType::kModule,
-      OffMainThreadWorkerScriptFetchOption::kEnabled, global_scope_name,
-      document->UserAgent(), frame->Client()->CreateWorkerFetchContext(),
+      document->Url(), mojom::blink::ScriptType::kModule, global_scope_name,
+      document->UserAgent(), frame->Client()->UserAgentMetadata(),
+      frame->Client()->CreateWorkerFetchContext(),
       document->GetContentSecurityPolicy()->Headers(),
       document->GetReferrerPolicy(), document->GetSecurityOrigin(),
       document->IsSecureContext(), document->GetHttpsState(),
       nullptr /* worker_clients */,
       frame->Client()->CreateWorkerContentSettingsClient(),
       document->GetSecurityContext().AddressSpace(),
-      OriginTrialContext::GetTokens(document).get(),
+      OriginTrialContext::GetTokens(frame->DomWindow()).get(),
       base::UnguessableToken::Create(), nullptr /* worker_settings */,
       kV8CacheOptionsDefault, module_responses_map,
       mojo::NullRemote() /* browser_interface_broker */,
@@ -93,7 +94,7 @@ CSSLayoutDefinition* LayoutWorkletGlobalScopeProxy::FindDefinition(
   return global_scope_->FindDefinition(name);
 }
 
-void LayoutWorkletGlobalScopeProxy::Trace(blink::Visitor* visitor) {
+void LayoutWorkletGlobalScopeProxy::Trace(Visitor* visitor) {
   visitor->Trace(global_scope_);
 }
 

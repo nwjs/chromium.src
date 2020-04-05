@@ -56,7 +56,12 @@ OutputSurfaceProviderWebview::OutputSurfaceProviderWebview() {
 
   InitializeContext();
 }
-OutputSurfaceProviderWebview::~OutputSurfaceProviderWebview() = default;
+OutputSurfaceProviderWebview::~OutputSurfaceProviderWebview() {
+  // We must to destroy |gl_surface_| before |shared_context_state_|, so we will
+  // still have context. NOTE: |shared_context_state_| holds ref to surface, but
+  // it loses it before context.
+  gl_surface_.reset();
+}
 
 void OutputSurfaceProviderWebview::InitializeContext() {
   DCHECK(!gl_surface_) << "InitializeContext() called twice";
@@ -94,9 +99,19 @@ void OutputSurfaceProviderWebview::InitializeContext() {
           GpuServiceWebView::GetInstance()->gpu_preferences(),
           std::move(feature_info));
     }
+
+    // As most of the GPU resources used for compositing are created on Chrome
+    // side this affects only validation inside Skia. The workaround effectively
+    // clamps max frame buffer size that comes from Android. As we don't control
+    // frame buffer size using this workaround leads to not drawing anything on
+    // screen.
+    // TODO(vasilyt): Remove this once it handles on Skia side.
+    gpu::GpuDriverBugWorkarounds workarounds_for_skia = workarounds;
+    workarounds_for_skia.max_texture_size_limit_4096 = false;
+
     shared_context_state_->InitializeGrContext(
-        GpuServiceWebView::GetInstance()->gpu_preferences(), workarounds,
-        nullptr /* gr_shader_cache */);
+        GpuServiceWebView::GetInstance()->gpu_preferences(),
+        workarounds_for_skia, nullptr /* gr_shader_cache */);
   }
 }
 

@@ -444,7 +444,9 @@ TEST(ChromeContentBrowserClientTest, UserAgentStringFrozen) {
   {
     ChromeContentBrowserClient content_browser_client;
     std::string buffer = content_browser_client.GetUserAgent();
-    EXPECT_EQ(buffer, content::frozen_user_agent_strings::kAndroid);
+    EXPECT_EQ(buffer, base::StringPrintf(
+                          content::frozen_user_agent_strings::kAndroid,
+                          version_info::GetMajorVersionNumber().c_str()));
   }
 
   // Verify the mobile user agent string is returned when using a mobile user
@@ -454,13 +456,17 @@ TEST(ChromeContentBrowserClientTest, UserAgentStringFrozen) {
   {
     ChromeContentBrowserClient content_browser_client;
     std::string buffer = content_browser_client.GetUserAgent();
-    EXPECT_EQ(buffer, content::frozen_user_agent_strings::kAndroidMobile);
+    EXPECT_EQ(buffer, base::StringPrintf(
+                          content::frozen_user_agent_strings::kAndroidMobile,
+                          version_info::GetMajorVersionNumber().c_str()));
   }
 #else
   {
     ChromeContentBrowserClient content_browser_client;
     std::string buffer = content_browser_client.GetUserAgent();
-    EXPECT_EQ(buffer, content::frozen_user_agent_strings::kDesktop);
+    EXPECT_EQ(buffer, base::StringPrintf(
+                          content::frozen_user_agent_strings::kDesktop,
+                          version_info::GetMajorVersionNumber().c_str()));
   }
 #endif
 }
@@ -573,10 +579,10 @@ TEST_F(ChromeContentBrowserClientCaptivePortalBrowserTest,
   bool invoked_url_factory = false;
   cp_rph_factory_.SetupForTracking(&invoked_url_factory,
                                    true /* expected_disable_secure_dns */);
-  CaptivePortalTabHelper::CreateForWebContents(
+  captive_portal::CaptivePortalTabHelper::CreateForWebContents(
       web_contents(), CaptivePortalServiceFactory::GetForProfile(profile()),
       base::Callback<void(void)>());
-  CaptivePortalTabHelper::FromWebContents(web_contents())
+  captive_portal::CaptivePortalTabHelper::FromWebContents(web_contents())
       ->set_is_captive_portal_window();
   NavigateAndCommit(GURL("https://www.google.com"), ui::PAGE_TRANSITION_LINK);
   EXPECT_TRUE(invoked_url_factory);

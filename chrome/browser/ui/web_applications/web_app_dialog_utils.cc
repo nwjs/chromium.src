@@ -25,6 +25,7 @@
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/web_application_info.h"
+#include "content/public/browser/navigation_entry.h"
 
 namespace web_app {
 
@@ -44,9 +45,8 @@ void WebAppInstallDialogCallback(
                                  std::move(web_app_info),
                                  std::move(web_app_acceptance_callback));
   } else {
-    chrome::ShowBookmarkAppDialog(initiator_web_contents,
-                                  std::move(web_app_info),
-                                  std::move(web_app_acceptance_callback));
+    chrome::ShowWebAppDialog(initiator_web_contents, std::move(web_app_info),
+                             std::move(web_app_acceptance_callback));
   }
 }
 
@@ -71,6 +71,10 @@ bool CanCreateWebApp(const Browser* browser) {
       browser->tab_strip_model()->GetActiveWebContents();
   if (!WebAppProvider::GetForWebContents(web_contents))
     return false;
+  content::NavigationEntry* entry =
+      web_contents->GetController().GetLastCommittedEntry();
+  bool is_error_page =
+      entry && entry->GetPageType() == content::PAGE_TYPE_ERROR;
   Profile* web_contents_profile =
       Profile::FromBrowserContext(web_contents->GetBrowserContext());
   banners::AppBannerManager* app_banner_manager =
@@ -80,7 +84,7 @@ bool CanCreateWebApp(const Browser* browser) {
 
   return AreWebAppsUserInstallable(web_contents_profile) &&
          IsValidWebAppUrl(web_contents->GetLastCommittedURL()) &&
-         !externally_installed;
+         !is_error_page && !externally_installed;
 }
 
 bool CanPopOutWebApp(Profile* profile) {

@@ -65,8 +65,7 @@ TEST_F(ElementTest,
 
   // Insert a new <div> above the sticky. This will dirty layout and invalidate
   // the sticky constraints.
-  writer->SetInnerHTMLFromString(
-      "<div style='height: 100px; width: 700px;'></div>");
+  writer->setInnerHTML("<div style='height: 100px; width: 700px;'></div>");
   EXPECT_EQ(DocumentLifecycle::kVisualUpdatePending,
             document.Lifecycle().GetState());
 
@@ -110,8 +109,7 @@ TEST_F(ElementTest, OffsetTopAndLeftCorrectForStickyElementsAfterInsertion) {
 
   // Insert a new <div> above the sticky. This will dirty layout and invalidate
   // the sticky constraints.
-  writer->SetInnerHTMLFromString(
-      "<div style='height: 100px; width: 700px;'></div>");
+  writer->setInnerHTML("<div style='height: 100px; width: 700px;'></div>");
   EXPECT_EQ(DocumentLifecycle::kVisualUpdatePending,
             document.Lifecycle().GetState());
 
@@ -125,8 +123,7 @@ TEST_F(ElementTest, OffsetTopAndLeftCorrectForStickyElementsAfterInsertion) {
                    ->NeedsCompositingInputsUpdate());
 
   // Dirty layout again, since |OffsetTop| will have cleaned it.
-  writer->SetInnerHTMLFromString(
-      "<div style='height: 100px; width: 700px;'></div>");
+  writer->setInnerHTML("<div style='height: 100px; width: 700px;'></div>");
   EXPECT_EQ(DocumentLifecycle::kVisualUpdatePending,
             document.Lifecycle().GetState());
 
@@ -168,8 +165,7 @@ TEST_F(ElementTest, BoundsInViewportCorrectForStickyElementsAfterInsertion) {
 
   // Insert a new <div> above the sticky. This will dirty layout and invalidate
   // the sticky constraints.
-  writer->SetInnerHTMLFromString(
-      "<div style='height: 100px; width: 700px;'></div>");
+  writer->setInnerHTML("<div style='height: 100px; width: 700px;'></div>");
   EXPECT_EQ(DocumentLifecycle::kVisualUpdatePending,
             document.Lifecycle().GetState());
 
@@ -489,7 +485,7 @@ class ScriptOnDestroyPlugin : public GarbageCollected<ScriptOnDestroyPlugin>,
   void UpdateFocus(bool, mojom::blink::FocusType) override {}
   void UpdateVisibility(bool) override {}
   WebInputEventResult HandleInputEvent(const WebCoalescedInputEvent&,
-                                       WebCursorInfo&) override {
+                                       ui::Cursor*) override {
     return {};
   }
   void DidReceiveResponse(const WebURLResponse&) override {}
@@ -497,7 +493,7 @@ class ScriptOnDestroyPlugin : public GarbageCollected<ScriptOnDestroyPlugin>,
   void DidFinishLoading() override {}
   void DidFailLoading(const WebURLError&) override {}
 
-  void Trace(blink::Visitor*) {}
+  void Trace(Visitor*) {}
 
   bool DestroyCalled() const { return destroy_called_; }
 

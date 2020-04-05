@@ -123,30 +123,30 @@ class StartSurfaceMediator
     private ChromeFullscreenManager mFullScreenManager;
     private ChromeFullscreenManager.FullscreenListener mFullScreenListener;
     private ActivityStateChecker mActivityStateChecker;
+    private boolean mExcludeMVTiles;
 
     StartSurfaceMediator(TabSwitcher.Controller controller, TabModelSelector tabModelSelector,
             @Nullable PropertyModel propertyModel,
             @Nullable ExploreSurfaceCoordinator.FeedSurfaceCreator feedSurfaceCreator,
             @Nullable SecondaryTasksSurfaceInitializer secondaryTasksSurfaceInitializer,
-            @SurfaceMode int surfaceMode, @Nullable FakeboxDelegate fakeboxDelegate,
-            NightModeStateProvider nightModeStateProvider,
-            ChromeFullscreenManager fullscreenManager, ActivityStateChecker activityStateChecker) {
+            @SurfaceMode int surfaceMode, NightModeStateProvider nightModeStateProvider,
+            ChromeFullscreenManager fullscreenManager, ActivityStateChecker activityStateChecker,
+            boolean excludeMVTiles) {
         mController = controller;
         mTabModelSelector = tabModelSelector;
         mPropertyModel = propertyModel;
         mFeedSurfaceCreator = feedSurfaceCreator;
         mSecondaryTasksSurfaceInitializer = secondaryTasksSurfaceInitializer;
         mSurfaceMode = surfaceMode;
-        mFakeboxDelegate = fakeboxDelegate;
         mNightModeStateProvider = nightModeStateProvider;
         mFullScreenManager = fullscreenManager;
         mActivityStateChecker = activityStateChecker;
+        mExcludeMVTiles = excludeMVTiles;
 
         if (mPropertyModel != null) {
             assert mSurfaceMode == SurfaceMode.SINGLE_PANE || mSurfaceMode == SurfaceMode.TWO_PANES
                     || mSurfaceMode == SurfaceMode.TASKS_ONLY
                     || mSurfaceMode == SurfaceMode.OMNIBOX_ONLY;
-            assert mFakeboxDelegate != null;
 
             mIsIncognito = mTabModelSelector.isIncognitoSelected();
 
@@ -204,31 +204,36 @@ class StartSurfaceMediator
                             setTabCarouselVisibility(true);
                         }
                     }
-                };
 
-                mFullScreenListener = new ChromeFullscreenManager.FullscreenListener() {
                     @Override
-                    public void onBottomControlsHeightChanged(
-                            int bottomControlsHeight, int bottomControlsMinHeight) {
-                        // Only pad single pane home page since tabs grid has already been
-                        // padded for the bottom bar.
-                        if (mOverviewModeState == OverviewModeState.SHOWN_HOMEPAGE) {
-                            mPropertyModel.set(BOTTOM_BAR_HEIGHT, bottomControlsHeight);
+                    public void restoreCompleted() {
+                        if (!(mPropertyModel.get(IS_SHOWING_OVERVIEW)
+                                    && mOverviewModeState == OverviewModeState.SHOWN_HOMEPAGE)) {
+                            return;
                         }
+                        setTabCarouselVisibility(
+                                mTabModelSelector.getModel(false).getCount() > 0 && !mIsIncognito);
                     }
                 };
             }
 
-            // Initialize
-            // Note that isVoiceSearchEnabled will return false in incognito mode.
-            mPropertyModel.set(IS_VOICE_RECOGNITION_BUTTON_VISIBLE,
-                    mFakeboxDelegate.getLocationBarVoiceRecognitionHandler()
-                            .isVoiceSearchEnabled());
+            mFullScreenListener = new ChromeFullscreenManager.FullscreenListener() {
+                @Override
+                public void onTopControlsHeightChanged(
+                        int topControlsHeight, int topControlsMinHeight) {
+                    mPropertyModel.set(TOP_BAR_HEIGHT, topControlsHeight);
+                }
 
-            int toolbarHeight =
-                    ContextUtils.getApplicationContext().getResources().getDimensionPixelSize(
-                            R.dimen.toolbar_height_no_shadow);
-            mPropertyModel.set(TOP_BAR_HEIGHT, toolbarHeight);
+                @Override
+                public void onBottomControlsHeightChanged(
+                        int bottomControlsHeight, int bottomControlsMinHeight) {
+                    // Only pad single pane home page since tabs grid has already been
+                    // padded for the bottom bar.
+                    if (mOverviewModeState == OverviewModeState.SHOWN_HOMEPAGE) {
+                        mPropertyModel.set(BOTTOM_BAR_HEIGHT, bottomControlsHeight);
+                    }
+                }
+            };
 
             mUrlFocusChangeListener = new UrlFocusChangeListener() {
                 @Override
@@ -248,6 +253,18 @@ class StartSurfaceMediator
         mController.addOverviewModeObserver(this);
         mPreviousOverviewModeState = OverviewModeState.NOT_SHOWN;
         mOverviewModeState = OverviewModeState.NOT_SHOWN;
+    }
+
+    public void initWithNative(@Nullable FakeboxDelegate fakeboxDelegate) {
+        mFakeboxDelegate = fakeboxDelegate;
+        if (mPropertyModel != null) {
+            assert mFakeboxDelegate != null;
+
+            // Initialize
+            // Note that isVoiceSearchEnabled will return false in incognito mode.
+            mPropertyModel.set(IS_VOICE_RECOGNITION_BUTTON_VISIBLE,
+                    mFakeboxDelegate.getVoiceRecognitionHandler().isVoiceSearchEnabled());
+        }
     }
 
     void setSecondaryTasksSurfacePropertyModel(PropertyModel propertyModel) {
@@ -429,6 +446,8 @@ class StartSurfaceMediator
             if (mFullScreenListener != null) {
                 mFullScreenManager.addListener(mFullScreenListener);
             }
+
+            mPropertyModel.set(TOP_BAR_HEIGHT, mFullScreenManager.getTopControlsHeight());
 
             mPropertyModel.set(IS_SHOWING_OVERVIEW, true);
             mFakeboxDelegate.addUrlFocusChangeListener(mUrlFocusChangeListener);
@@ -627,7 +646,7 @@ class StartSurfaceMediator
     }
 
     private void setMVTilesVisibility(boolean isVisible) {
-        if (isVisible == mPropertyModel.get(MV_TILES_VISIBLE)) return;
+        if (mExcludeMVTiles || isVisible == mPropertyModel.get(MV_TILES_VISIBLE)) return;
         mPropertyModel.set(MV_TILES_VISIBLE, isVisible);
     }
 
@@ -635,14 +654,13 @@ class StartSurfaceMediator
         if (mPropertyModel == null) return;
         mPropertyModel.set(IS_FAKE_SEARCH_BOX_VISIBLE, isVisible);
 
-        // This is because LocationBarVoiceRecognitionHandler monitors incognito mode and returns
+        // This is because VoiceRecognitionHandler monitors incognito mode and returns
         // false in incognito mode. However, when switching incognito mode, this class is notified
-        // earlier than the LocationBarVoiceRecognitionHandler, so isVoiceSearchEnabled returns
+        // earlier than the VoiceRecognitionHandler, so isVoiceSearchEnabled returns
         // incorrect state if check synchronously.
         ThreadUtils.postOnUiThread(() -> {
             mPropertyModel.set(IS_VOICE_RECOGNITION_BUTTON_VISIBLE,
-                    mFakeboxDelegate.getLocationBarVoiceRecognitionHandler()
-                            .isVoiceSearchEnabled());
+                    mFakeboxDelegate.getVoiceRecognitionHandler().isVoiceSearchEnabled());
         });
     }
 

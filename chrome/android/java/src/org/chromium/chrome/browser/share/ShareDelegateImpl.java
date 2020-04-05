@@ -24,10 +24,10 @@ import org.chromium.chrome.browser.share.qrcode.QrCodeShareActivity;
 import org.chromium.chrome.browser.tab.SadTab;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabImpl;
-import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
+import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.util.ChromeFileProvider;
-import org.chromium.chrome.browser.util.UrlConstants;
 import org.chromium.chrome.browser.widget.bottomsheet.BottomSheetController;
+import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.components.ui_metrics.CanonicalURLResult;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.net.GURLUtils;
@@ -45,7 +45,7 @@ public class ShareDelegateImpl implements ShareDelegate {
     private final BottomSheetController mBottomSheetController;
     private final ShareSheetDelegate mDelegate;
     private final ActivityTabProvider mActivityTabProvider;
-    private final TabCreatorManager.TabCreator mTabCreator;
+    private long mShareStartTime;
 
     private static boolean sScreenshotCaptureSkippedForTesting;
 
@@ -57,22 +57,26 @@ public class ShareDelegateImpl implements ShareDelegate {
      * @param tabCreator The TabCreator for the current selected {@link TabModel}.
      */
     public ShareDelegateImpl(BottomSheetController controller, ActivityTabProvider tabProvider,
-            ShareSheetDelegate delegate, TabCreatorManager.TabCreator tabCreator) {
+            ShareSheetDelegate delegate) {
         mBottomSheetController = controller;
         mDelegate = delegate;
         mActivityTabProvider = tabProvider;
-        mTabCreator = tabCreator;
     }
 
     // ShareDelegate implementation.
     @Override
     public void share(ShareParams params) {
-        mDelegate.share(params, mBottomSheetController, mActivityTabProvider, mTabCreator);
+        if (mShareStartTime == 0L) {
+            mShareStartTime = System.currentTimeMillis();
+        }
+        mDelegate.share(params, mBottomSheetController, mActivityTabProvider, mShareStartTime);
+        mShareStartTime = 0;
     }
 
     // ShareDelegate implementation.
     @Override
     public void share(Tab currentTab, boolean shareDirectly) {
+        mShareStartTime = System.currentTimeMillis();
         onShareSelected(currentTab.getWindowAndroid().getActivity().get(), currentTab,
                 shareDirectly, currentTab.isIncognito());
     }
@@ -128,7 +132,7 @@ public class ShareDelegateImpl implements ShareDelegate {
                 if (shouldFetchCanonicalUrl(currentTab)) {
                     WebContents webContents = currentTab.getWebContents();
                     String title = currentTab.getTitle();
-                    String visibleUrl = currentTab.getUrl();
+                    String visibleUrl = currentTab.getUrlString();
                     webContents.getMainFrame().getCanonicalUrlForSharing(new Callback<String>() {
                         @Override
                         public void onResult(String result) {
@@ -140,7 +144,7 @@ public class ShareDelegateImpl implements ShareDelegate {
                     });
                 } else {
                     triggerShareWithCanonicalUrlResolved(window, currentTab.getWebContents(),
-                            currentTab.getTitle(), currentTab.getUrl(), null, shareDirectly,
+                            currentTab.getTitle(), currentTab.getUrlString(), null, shareDirectly,
                             isIncognito);
                 }
             }
@@ -177,7 +181,7 @@ public class ShareDelegateImpl implements ShareDelegate {
         if (sScreenshotCaptureSkippedForTesting) {
             callback.onResult(null);
         } else {
-            ShareHelper.captureScreenshotForContents(webContents, 0, 0, callback);
+            ShareImageFileUtils.captureScreenshotForContents(webContents, 0, 0, callback);
         }
     }
 
@@ -186,7 +190,7 @@ public class ShareDelegateImpl implements ShareDelegate {
         WebContents webContents = currentTab.getWebContents();
         if (webContents == null) return false;
         if (webContents.getMainFrame() == null) return false;
-        String url = currentTab.getUrl();
+        String url = currentTab.getUrlString();
         if (TextUtils.isEmpty(url)) return false;
         if (currentTab.isShowingErrorPage() || ((TabImpl) currentTab).isShowingInterstitialPage()
                 || SadTab.isShowing(currentTab)) {
@@ -254,16 +258,16 @@ public class ShareDelegateImpl implements ShareDelegate {
          * Trigger the share action for the specified params.
          */
         void share(ShareParams params, BottomSheetController controller,
-                ActivityTabProvider tabProvider, TabCreatorManager.TabCreator tabCreator) {
+                ActivityTabProvider tabProvider, long shareStartTime) {
             if (params.shareDirectly()) {
                 ShareHelper.shareDirectly(params);
             } else if (ChromeFeatureList.isEnabled(ChromeFeatureList.CHROME_SHARING_HUB)) {
                 ShareSheetCoordinator coordinator =
-                        new ShareSheetCoordinator(controller, tabProvider, tabCreator,
+                        new ShareSheetCoordinator(controller, tabProvider,
                                 new ShareSheetPropertyModelBuilder(controller,
                                         ContextUtils.getApplicationContext().getPackageManager()));
                 // TODO(crbug/1009124): open custom share sheet.
-                coordinator.showShareSheet(params);
+                coordinator.showShareSheet(params, shareStartTime);
             } else {
                 ShareHelper.showDefaultShareUi(params);
             }

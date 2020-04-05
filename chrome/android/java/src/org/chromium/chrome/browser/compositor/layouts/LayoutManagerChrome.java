@@ -14,7 +14,6 @@ import org.chromium.base.ObserverList;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.chrome.browser.accessibility_tab_switcher.OverviewListLayout;
 import org.chromium.chrome.browser.compositor.TitleCache;
-import org.chromium.chrome.browser.compositor.bottombar.OverlayPanel.StateChangeReason;
 import org.chromium.chrome.browser.compositor.layouts.components.LayoutTab;
 import org.chromium.chrome.browser.compositor.layouts.components.VirtualView;
 import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
@@ -26,7 +25,6 @@ import org.chromium.chrome.browser.compositor.overlays.SceneOverlay;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutHelperManager;
 import org.chromium.chrome.browser.contextualsearch.ContextualSearchManagementDelegate;
 import org.chromium.chrome.browser.device.DeviceClassManager;
-import org.chromium.chrome.browser.flags.FeatureUtilities;
 import org.chromium.chrome.browser.fullscreen.FullscreenManager;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabLaunchType;
@@ -35,7 +33,9 @@ import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
 import org.chromium.chrome.browser.tasks.tab_management.TabManagementDelegate;
 import org.chromium.chrome.browser.tasks.tab_management.TabManagementModuleProvider;
+import org.chromium.chrome.browser.tasks.tab_management.TabUiFeatureUtilities;
 import org.chromium.chrome.browser.toolbar.ToolbarManager;
+import org.chromium.chrome.browser.toolbar.bottom.BottomToolbarConfiguration;
 import org.chromium.chrome.browser.util.AccessibilityUtil;
 import org.chromium.chrome.features.start_surface.StartSurface;
 import org.chromium.ui.resources.dynamics.DynamicResourceLoader;
@@ -46,7 +46,8 @@ import java.util.List;
  * A {@link Layout} controller for the more complicated Chrome browser.  This is currently a
  * superset of {@link LayoutManager}.
  */
-public class LayoutManagerChrome extends LayoutManager implements OverviewModeController {
+public class LayoutManagerChrome
+        extends LayoutManager implements OverviewModeController, AccessibilityUtil.Observer {
     // Layouts
     /** An {@link Layout} that should be used as the accessibility tab switcher. */
     protected OverviewListLayout mOverviewListLayout;
@@ -67,6 +68,9 @@ public class LayoutManagerChrome extends LayoutManager implements OverviewModeCo
     private boolean mCreatingNtp;
     private final ObserverList<OverviewModeObserver> mOverviewModeObservers;
 
+    /** Whether to create an overview Layout when LayoutManagerChrome is created. */
+    private boolean mCreateOverviewLayout;
+
     /**
      * Creates the {@link LayoutManagerChrome} instance.
      * @param host         A {@link LayoutManagerHost} instance.
@@ -84,12 +88,9 @@ public class LayoutManagerChrome extends LayoutManager implements OverviewModeCo
         // Build Event Filter Handlers
         mToolbarSwipeHandler = createToolbarSwipeHandler(/* supportSwipeDown = */ true);
 
-        // Build Layouts
-        mOverviewListLayout = new OverviewListLayout(context, this, renderHost);
-        mToolbarSwipeLayout = new ToolbarSwipeLayout(context, this, renderHost);
         if (createOverviewLayout) {
             if (startSurface != null) {
-                assert FeatureUtilities.isGridTabSwitcherEnabled();
+                assert TabUiFeatureUtilities.isGridTabSwitcherEnabled();
                 TabManagementDelegate tabManagementDelegate =
                         TabManagementModuleProvider.getDelegate();
                 assert tabManagementDelegate != null;
@@ -106,7 +107,7 @@ public class LayoutManagerChrome extends LayoutManager implements OverviewModeCo
                 mOverviewLayout = tabManagementDelegate.createStartSurfaceLayout(
                         context, this, renderHost, startSurface);
             } else {
-                mOverviewLayout = new StackLayout(context, this, renderHost);
+                mCreateOverviewLayout = true;
             }
         }
     }
@@ -139,6 +140,17 @@ public class LayoutManagerChrome extends LayoutManager implements OverviewModeCo
             TabContentManager content, ViewGroup androidContentContainer,
             ContextualSearchManagementDelegate contextualSearchDelegate,
             DynamicResourceLoader dynamicResourceLoader) {
+        Context context = mHost.getContext();
+        LayoutRenderHost renderHost = mHost.getLayoutRenderHost();
+
+        // Build Layouts
+        mOverviewListLayout = new OverviewListLayout(context, this, renderHost);
+        mToolbarSwipeLayout = new ToolbarSwipeLayout(context, this, renderHost);
+
+        if (mCreateOverviewLayout) {
+            mOverviewLayout = new StackLayout(context, this, renderHost);
+        }
+
         super.init(selector, creator, content, androidContentContainer, contextualSearchDelegate,
                 dynamicResourceLoader);
 
@@ -149,7 +161,16 @@ public class LayoutManagerChrome extends LayoutManager implements OverviewModeCo
         mToolbarSwipeLayout.setTabModelSelector(selector, content);
         mOverviewListLayout.setTabModelSelector(selector, content);
         if (mOverviewLayout != null) {
+            mOverviewLayout.onFinishNativeInitialization();
             mOverviewLayout.setTabModelSelector(selector, content);
+        }
+    }
+
+    @Override
+    public void setTabModelSelector(TabModelSelector selector) {
+        super.setTabModelSelector(selector);
+        if (mOverviewLayout != null) {
+            mOverviewLayout.setTabModelSelector(selector, null);
         }
     }
 
@@ -158,7 +179,7 @@ public class LayoutManagerChrome extends LayoutManager implements OverviewModeCo
      * @param manager The {@link ToolbarManager} for accessing toolbar textures.
      */
     public void setToolbarManager(ToolbarManager manager) {
-        if (FeatureUtilities.isBottomToolbarEnabled()) {
+        if (BottomToolbarConfiguration.isBottomToolbarEnabled()) {
             manager.getBottomToolbarCoordinator().setToolbarSwipeLayout(mToolbarSwipeLayout);
         }
     }
@@ -172,8 +193,12 @@ public class LayoutManagerChrome extends LayoutManager implements OverviewModeCo
             mOverviewLayout.destroy();
             mOverviewLayout = null;
         }
-        mOverviewListLayout.destroy();
-        mToolbarSwipeLayout.destroy();
+        if (mOverviewLayout != null) {
+            mOverviewListLayout.destroy();
+        }
+        if (mToolbarSwipeLayout != null) {
+            mToolbarSwipeLayout.destroy();
+        }
     }
 
     @Override
@@ -227,9 +252,6 @@ public class LayoutManagerChrome extends LayoutManager implements OverviewModeCo
         if (isOverviewLayout(layoutBeingShown) || layoutBeingShown == mToolbarSwipeLayout) {
             if (mContextualSearchDelegate != null) {
                 mContextualSearchDelegate.dismissContextualSearchBar();
-            }
-            if (getEphemeralTabPanel() != null) {
-                getEphemeralTabPanel().closePanel(StateChangeReason.UNKNOWN, false);
             }
         }
 
@@ -416,6 +438,13 @@ public class LayoutManagerChrome extends LayoutManager implements OverviewModeCo
     @Override
     public void removeOverviewModeObserver(OverviewModeObserver listener) {
         mOverviewModeObservers.removeObserver(listener);
+    }
+
+    // AccessibilityUtil.Observer
+
+    @Override
+    public void onAccessibilityModeChanged(boolean enabled) {
+        setEnableAnimations(DeviceClassManager.enableAnimations());
     }
 
     /**

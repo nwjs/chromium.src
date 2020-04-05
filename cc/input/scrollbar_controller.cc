@@ -78,7 +78,21 @@ InputHandlerPointerResult ScrollbarController::HandlePointerDown(
   if (!(layer_impl && layer_impl->ToScrollbarLayer()))
     return InputHandlerPointerResult();
 
+  // If the scrollbar layer has faded out (eg: Overlay scrollbars), don't
+  // initiate a scroll.
   const ScrollbarLayerImplBase* scrollbar = layer_impl->ToScrollbarLayer();
+  if (scrollbar->OverlayScrollbarOpacity() == 0.f)
+    return InputHandlerPointerResult();
+
+  // If the scroll_node has a main_thread_scrolling_reason, don't initiate a
+  // scroll.
+  const ScrollNode* target_node =
+      layer_tree_host_impl_->active_tree()
+          ->property_trees()
+          ->scroll_tree.FindNodeFromElementId(scrollbar->scroll_element_id());
+  if (target_node->main_thread_scrolling_reasons)
+    return InputHandlerPointerResult();
+
   captured_scrollbar_metadata_ = CapturedScrollbarMetadata();
   captured_scrollbar_metadata_->scroll_element_id =
       scrollbar->scroll_element_id();
@@ -187,18 +201,18 @@ bool ScrollbarController::SnapToDragOrigin(
          pointer_location > gutter_max_bound;
 }
 
-ui::input_types::ScrollGranularity ScrollbarController::Granularity(
+ui::ScrollGranularity ScrollbarController::Granularity(
     const ScrollbarPart scrollbar_part,
     const bool shift_modifier) {
   const bool shift_click_on_scrollbar_track =
       shift_modifier && (scrollbar_part == ScrollbarPart::FORWARD_TRACK ||
                          scrollbar_part == ScrollbarPart::BACK_TRACK);
   if (shift_click_on_scrollbar_track || scrollbar_part == ScrollbarPart::THUMB)
-    return ui::input_types::ScrollGranularity::kScrollByPrecisePixel;
+    return ui::ScrollGranularity::kScrollByPrecisePixel;
 
   // TODO(arakeri): This needs to be updated to kLine once cc implements
   // handling it. crbug.com/959441
-  return ui::input_types::ScrollGranularity::kScrollByPixel;
+  return ui::ScrollGranularity::kScrollByPixel;
 }
 
 float ScrollbarController::GetScrollDeltaForAbsoluteJump(
@@ -324,30 +338,33 @@ InputHandlerPointerResult ScrollbarController::HandlePointerMove(
   if (drag_processed_for_current_frame_)
     return scroll_result;
 
-  const ScrollNode* currently_scrolling_node =
-      layer_tree_host_impl_->CurrentlyScrollingNode();
+  // When initiating a thumb drag, a pointerdown and a pointermove can both
+  // arrive a the ScrollbarController in succession before a GSB would have
+  // been dispatched. So, querying LayerTreeHostImpl::CurrentlyScrollingNode()
+  // can potentially be null. Hence, a better way to look the target_node to be
+  // scrolled is by using ScrollbarLayerImplBase::scroll_element_id().
+  const ScrollNode* target_node =
+      layer_tree_host_impl_->active_tree()
+          ->property_trees()
+          ->scroll_tree.FindNodeFromElementId(scrollbar->scroll_element_id());
 
-  // Thumb drag needs a scroll_node. Clear the thumb drag state and exit if it
-  // is unset.
-  if (currently_scrolling_node == nullptr) {
-    drag_state_ = base::nullopt;
-    return scroll_result;
-  }
+  // If a scrollbar exists, it should always have an ElementId pointing to a
+  // valid ScrollNode.
+  DCHECK(target_node);
 
   // If scroll_offset can't be consumed, there's no point in continuing on.
   const gfx::ScrollOffset scroll_offset(
       GetScrollOffsetForDragPosition(scrollbar, position_in_widget));
   const gfx::Vector2dF clamped_scroll_offset(
       layer_tree_host_impl_->ComputeScrollDelta(
-          *currently_scrolling_node, ScrollOffsetToVector2dF(scroll_offset)));
+          *target_node, ScrollOffsetToVector2dF(scroll_offset)));
 
   if (clamped_scroll_offset.IsZero())
     return scroll_result;
 
   // Thumb drags have more granularity and are purely dependent on the pointer
   // movement. Hence we use kPrecisePixel when dragging the thumb.
-  scroll_result.scroll_units =
-      ui::input_types::ScrollGranularity::kScrollByPrecisePixel;
+  scroll_result.scroll_units = ui::ScrollGranularity::kScrollByPrecisePixel;
   scroll_result.scroll_offset = gfx::ScrollOffset(clamped_scroll_offset);
   drag_processed_for_current_frame_ = true;
 
@@ -403,17 +420,10 @@ float ScrollbarController::GetScrollerToScrollbarRatio(
       scrollbar->orientation() == ScrollbarOrientation::VERTICAL
           ? thumb_rect.height()
           : thumb_rect.width();
+  int viewport_length = GetViewportLength(scrollbar);
 
-  const LayerImpl* owner_scroll_layer =
-      layer_tree_host_impl_->active_tree()->ScrollableLayerByElementId(
-          scrollbar->scroll_element_id());
-  const float viewport_length =
-      scrollbar->orientation() == ScrollbarOrientation::VERTICAL
-          ? owner_scroll_layer->scroll_container_bounds().height()
-          : (owner_scroll_layer->scroll_container_bounds().width());
-
-  return ((scroll_layer_length - viewport_length) /
-          (scrollbar_track_length - scrollbar_thumb_length));
+  return (scroll_layer_length - viewport_length) /
+         (scrollbar_track_length - scrollbar_thumb_length);
 }
 
 void ScrollbarController::ResetState() {
@@ -556,7 +566,7 @@ void ScrollbarController::StartAutoScrollAnimation(
                                      : AutoScrollDirection::AUTOSCROLL_FORWARD;
 
   layer_tree_host_impl_->AutoScrollAnimationCreate(
-      scroll_node, target_offset_vector, std::abs(velocity));
+      *scroll_node, target_offset_vector, std::abs(velocity));
 }
 
 // Performs hit test and prepares scroll deltas that will be used by GSE.
@@ -597,13 +607,26 @@ LayerImpl* ScrollbarController::GetLayerHitByPoint(
   return layer_impl;
 }
 
+int ScrollbarController::GetViewportLength(
+    const ScrollbarLayerImplBase* scrollbar) const {
+  const ScrollNode* scroll_node =
+      layer_tree_host_impl_->active_tree()
+          ->property_trees()
+          ->scroll_tree.FindNodeFromElementId(scrollbar->scroll_element_id());
+  DCHECK(scroll_node);
+  return scrollbar->orientation() == ScrollbarOrientation::VERTICAL
+             ? scroll_node->container_bounds.height()
+             : scroll_node->container_bounds.width();
+}
+
 int ScrollbarController::GetScrollDeltaForScrollbarPart(
     const ScrollbarLayerImplBase* scrollbar,
     const ScrollbarPart scrollbar_part,
     const bool shift_modifier) {
   int scroll_delta = 0;
-  int viewport_length = 0;
-  LayerImpl* owner_scroll_layer = nullptr;
+  if (layer_tree_host_impl_->settings().percent_based_scrolling) {
+    // TODO(arakeri): Implement percent based deltas.
+  }
 
   switch (scrollbar_part) {
     case ScrollbarPart::BACK_BUTTON:
@@ -611,20 +634,15 @@ int ScrollbarController::GetScrollDeltaForScrollbarPart(
       scroll_delta = kPixelsPerLineStep * ScreenSpaceScaleFactor();
       break;
     case ScrollbarPart::BACK_TRACK:
-    case ScrollbarPart::FORWARD_TRACK:
+    case ScrollbarPart::FORWARD_TRACK: {
       if (shift_modifier) {
         scroll_delta = GetScrollDeltaForAbsoluteJump(scrollbar);
         break;
       }
-      owner_scroll_layer =
-          layer_tree_host_impl_->active_tree()->ScrollableLayerByElementId(
-              scrollbar->scroll_element_id());
-      viewport_length =
-          scrollbar->orientation() == ScrollbarOrientation::VERTICAL
-              ? owner_scroll_layer->scroll_container_bounds().height()
-              : (owner_scroll_layer->scroll_container_bounds().width());
-      scroll_delta = viewport_length * kMinFractionToStepWhenPaging;
+      scroll_delta =
+          GetViewportLength(scrollbar) * kMinFractionToStepWhenPaging;
       break;
+    }
     default:
       scroll_delta = 0;
   }

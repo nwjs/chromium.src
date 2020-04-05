@@ -21,8 +21,7 @@ ServiceWorkerScriptCachedMetadataHandler::
     // In that case, set |cached_metadata_| to this incoming metadata. In
     // contrast, SetCachedMetadata() is called when there is new metadata to be
     // cached. In that case, |cached_metadata_| is set to the metadata and
-    // additionally it is sent back to the "platform" via ServiceWorkerHost if
-    // |type| is kSendToPlatform.
+    // additionally it is sent back to the persistent storage as well.
     cached_metadata_ =
         CachedMetadata::CreateFromSerializedData(std::move(*meta_data));
   }
@@ -31,7 +30,7 @@ ServiceWorkerScriptCachedMetadataHandler::
 ServiceWorkerScriptCachedMetadataHandler::
     ~ServiceWorkerScriptCachedMetadataHandler() = default;
 
-void ServiceWorkerScriptCachedMetadataHandler::Trace(blink::Visitor* visitor) {
+void ServiceWorkerScriptCachedMetadataHandler::Trace(Visitor* visitor) {
   visitor->Trace(global_scope_);
   CachedMetadataHandler::Trace(visitor);
 }
@@ -48,9 +47,9 @@ void ServiceWorkerScriptCachedMetadataHandler::SetCachedMetadata(
 }
 
 void ServiceWorkerScriptCachedMetadataHandler::ClearCachedMetadata(
-    CacheType type) {
+    ClearCacheType type) {
   cached_metadata_ = nullptr;
-  if (type != kSendToPlatform)
+  if (type != kClearPersistentStorage)
     return;
   global_scope_->GetServiceWorkerHost()->ClearCachedMetadata(script_url_);
 }

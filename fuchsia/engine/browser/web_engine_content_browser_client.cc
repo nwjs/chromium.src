@@ -15,6 +15,7 @@
 #include "content/public/browser/network_service_instance.h"
 #include "content/public/common/user_agent.h"
 #include "content/public/common/web_preferences.h"
+#include "fuchsia/base/fuchsia_dir_scheme.h"
 #include "fuchsia/engine/browser/url_request_rewrite_rules_manager.h"
 #include "fuchsia/engine/browser/web_engine_browser_context.h"
 #include "fuchsia/engine/browser/web_engine_browser_interface_binders.h"
@@ -57,10 +58,9 @@ class DevToolsManagerDelegate : public content::DevToolsManagerDelegate {
 
 WebEngineContentBrowserClient::WebEngineContentBrowserClient(
     fidl::InterfaceRequest<fuchsia::web::Context> request)
-    : request_(std::move(request)) {
-  allow_insecure_content_ = base::CommandLine::ForCurrentProcess()->HasSwitch(
-      switches::kAllowRunningInsecureContent);
-}
+    : request_(std::move(request)),
+      allow_insecure_content_(base::CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kAllowRunningInsecureContent)) {}
 
 WebEngineContentBrowserClient::~WebEngineContentBrowserClient() = default;
 
@@ -107,15 +107,15 @@ void WebEngineContentBrowserClient::OverrideWebkitPrefs(
   if (allow_insecure_content_)
     web_prefs->allow_running_insecure_content = true;
 
-  // Allow videos to autoplay.
-  // TODO(crbug.com/1033272): Provide a FIDL API to configure AutoplayPolicy.
+  // Allow media to autoplay.
+  // TODO(crbug.com/1067101): Provide a FIDL API to configure AutoplayPolicy.
   web_prefs->autoplay_policy = content::AutoplayPolicy::kNoUserGestureRequired;
 }
 
 void WebEngineContentBrowserClient::RegisterBrowserInterfaceBindersForFrame(
     content::RenderFrameHost* render_frame_host,
     service_manager::BinderMapWithContext<content::RenderFrameHost*>* map) {
-  PopulateFuchsiaFrameBinders(map, &cdm_service_);
+  PopulateFuchsiaFrameBinders(map, &media_resource_provider_service_);
 }
 
 void WebEngineContentBrowserClient::
@@ -124,7 +124,7 @@ void WebEngineContentBrowserClient::
         NonNetworkURLLoaderFactoryMap* factories) {
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kContentDirectories)) {
-    (*factories)[WebEngineContentClient::kFuchsiaContentDirectoryScheme] =
+    (*factories)[cr_fuchsia::kFuchsiaDirScheme] =
         std::make_unique<ContentDirectoryLoaderFactory>();
   }
 }
@@ -136,7 +136,7 @@ void WebEngineContentBrowserClient::
         NonNetworkURLLoaderFactoryMap* factories) {
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kContentDirectories)) {
-    (*factories)[WebEngineContentClient::kFuchsiaContentDirectoryScheme] =
+    (*factories)[cr_fuchsia::kFuchsiaDirScheme] =
         std::make_unique<ContentDirectoryLoaderFactory>();
   }
 }

@@ -9,6 +9,8 @@ import sys
 from aemu_target import AemuTarget
 from device_target import DeviceTarget
 from qemu_target import QemuTarget
+from common import GetHostArchFromPlatform
+
 
 def AddCommonArgs(arg_parser):
   """Adds command line arguments to |arg_parser| for options which are shared
@@ -28,12 +30,16 @@ def AddCommonArgs(arg_parser):
       help='Name of the package to execute, defined in ' + 'package metadata.')
 
   common_args = arg_parser.add_argument_group('common', 'Common arguments')
-  common_args.add_argument('--output-directory',
-                           type=os.path.realpath, required=True,
-                           help=('Path to the directory in which build files '
-                                 'are located (must include build type).'))
-  common_args.add_argument('--target-cpu', required=True,
-                           help='GN target_cpu setting for the build.')
+  common_args.add_argument(
+      '--output-directory',
+      type=os.path.realpath,
+      default=None,
+      help=('Path to the directory in which build files are located. '))
+  common_args.add_argument(
+      '--target-cpu',
+      default=GetHostArchFromPlatform(),
+      help=('GN target_cpu setting for the build. Defaults to the same '
+            'architecture as host cpu.'))
   common_args.add_argument('--target-staging-path',
                            help='target path under which to stage packages '
                            'during deployment.', default='/data')
@@ -78,10 +84,11 @@ def AddCommonArgs(arg_parser):
   common_args.add_argument('--memory', type=int, default=2048,
                            help='Sets the RAM size (MB) if launching in a VM'),
   common_args.add_argument(
-      '--no-kvm',
-      action='store_true',
-      default=False,
-      help='Disable KVM virtualization.')
+      '--allow-no-kvm',
+      action='store_false',
+      dest='require_kvm',
+      default=True,
+      help='Do not require KVM acceleration for emulators.')
   common_args.add_argument(
       '--os_check', choices=['check', 'update', 'ignore'],
       default='update',
@@ -120,7 +127,7 @@ def ConfigureLogging(args):
       logging.DEBUG if args.verbose else logging.WARN)
 
 
-def GetDeploymentTargetForArgs(args, require_kvm=False):
+def GetDeploymentTargetForArgs(args):
   """Constructs a deployment target object using parameters taken from
   command line arguments."""
   if args.system_log_file == '-':
@@ -130,9 +137,13 @@ def GetDeploymentTargetForArgs(args, require_kvm=False):
   else:
     system_log_file = None
 
-  # Allow fuchsia to run on qemu if device not explicitly chosen.
+  # Allow fuchsia to run on emulator if device not explicitly chosen.
+  # AEMU is the default emulator for x64 Fuchsia, and QEMU for others.
   if not args.device:
-    args.device = 'qemu'
+    if args.target_cpu == 'x64':
+      args.device = 'aemu'
+    else:
+      args.device = 'qemu'
 
   target_args = { 'output_dir':args.output_directory,
                   'target_cpu':args.target_cpu,
@@ -146,10 +157,12 @@ def GetDeploymentTargetForArgs(args, require_kvm=False):
                          'os_check':args.os_check })
     return DeviceTarget(**target_args)
   else:
-    target_args.update({ 'cpu_cores':args.qemu_cpu_cores,
-                         'require_kvm':not args.no_kvm,
-                         'emu_type':args.device,
-                         'ram_size_mb':args.memory })
+    target_args.update({
+        'cpu_cores': args.qemu_cpu_cores,
+        'require_kvm': args.require_kvm,
+        'emu_type': args.device,
+        'ram_size_mb': args.memory
+    })
     if args.device == 'qemu':
       return QemuTarget(**target_args)
     else:

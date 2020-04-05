@@ -19,6 +19,29 @@ constexpr bool kExposeLayoutTableAsDataTable = false;
 
 }  // namespace
 
+bool HasPresentationalChildren(const ax::mojom::Role role) {
+  // See http://www.w3.org/TR/core-aam-1.1/#exclude_elements2.
+  if (IsImage(role))
+    return true;
+
+  switch (role) {
+    case ax::mojom::Role::kButton:
+    case ax::mojom::Role::kCheckBox:
+    case ax::mojom::Role::kMath:
+    case ax::mojom::Role::kMenuItemCheckBox:
+    case ax::mojom::Role::kMenuItemRadio:
+    case ax::mojom::Role::kMenuListOption:
+    case ax::mojom::Role::kProgressIndicator:
+    case ax::mojom::Role::kScrollBar:
+    case ax::mojom::Role::kSlider:
+    case ax::mojom::Role::kSwitch:
+    case ax::mojom::Role::kTab:
+      return true;
+    default:
+      return false;
+  }
+}
+
 bool IsAlert(const ax::mojom::Role role) {
   switch (role) {
     case ax::mojom::Role::kAlert:
@@ -177,6 +200,15 @@ bool IsDialog(const ax::mojom::Role role) {
   }
 }
 
+bool IsForm(const ax::mojom::Role role) {
+  switch (role) {
+    case ax::mojom::Role::kForm:
+      return true;
+    default:
+      return false;
+  }
+}
+
 bool IsFormatBoundary(const ax::mojom::Role role) {
   return IsControl(role) || IsHeading(role) || IsImageOrVideo(role);
 }
@@ -197,6 +229,16 @@ bool IsHeadingOrTableHeader(const ax::mojom::Role role) {
     case ax::mojom::Role::kDocSubtitle:
     case ax::mojom::Role::kHeading:
     case ax::mojom::Role::kRowHeader:
+      return true;
+    default:
+      return false;
+  }
+}
+
+bool IsIframe(ax::mojom::Role role) {
+  switch (role) {
+    case ax::mojom::Role::kIframe:
+    case ax::mojom::Role::kIframePresentational:
       return true;
     default:
       return false;
@@ -538,14 +580,7 @@ bool IsStructure(const ax::mojom::Role role) {
 }
 
 bool IsTableColumn(ax::mojom::Role role) {
-  switch (role) {
-    case ax::mojom::Role::kColumn:
-      return true;
-    case ax::mojom::Role::kLayoutTableColumn:
-      return kExposeLayoutTableAsDataTable;
-    default:
-      return false;
-  }
+  return role == ax::mojom::Role::kColumn;
 }
 
 bool IsTableHeader(ax::mojom::Role role) {
@@ -610,6 +645,19 @@ bool SupportsExpandCollapse(const ax::mojom::Role role) {
     case ax::mojom::Role::kComboBoxMenuButton:
     case ax::mojom::Role::kDisclosureTriangle:
     case ax::mojom::Role::kTextFieldWithComboBox:
+    case ax::mojom::Role::kTreeItem:
+      return true;
+    default:
+      return false;
+  }
+}
+
+bool SupportsHierarchicalLevel(const ax::mojom::Role role) {
+  switch (role) {
+    case ax::mojom::Role::kComment:
+    case ax::mojom::Role::kListItem:
+    case ax::mojom::Role::kRow:
+    case ax::mojom::Role::kTabList:
     case ax::mojom::Role::kTreeItem:
       return true;
     default:

@@ -197,6 +197,20 @@ uint32_t CaptionButtonMask(uint32_t mask) {
   return caption_button_icon_mask;
 }
 
+void MaybeApplyCTSHack(int layout_mode,
+                       const gfx::Size& size_in_pixel,
+                       gfx::Insets* insets_in_client_pixel,
+                       gfx::Insets* stable_insets_in_client_pixel) {
+  constexpr int kBadBottomInsets = 90;
+  if (layout_mode == ZCR_REMOTE_SHELL_V1_LAYOUT_MODE_TABLET &&
+      size_in_pixel.width() == 3000 && size_in_pixel.height() == 2000 &&
+      stable_insets_in_client_pixel->bottom() == kBadBottomInsets) {
+    stable_insets_in_client_pixel->set_bottom(kBadBottomInsets + 1);
+    if (insets_in_client_pixel->bottom() == kBadBottomInsets)
+      insets_in_client_pixel->set_bottom(kBadBottomInsets + 1);
+  }
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // remote_surface_interface:
 
@@ -573,6 +587,24 @@ void remote_surface_unset_pip_original_window(wl_client* client,
   widget->GetNativeWindow()->SetProperty(ash::kPipOriginalWindowKey, false);
 }
 
+void remote_surface_set_system_gesture_exclusion(wl_client* client,
+                                                 wl_resource* resource,
+                                                 wl_resource* region_resource) {
+  auto* widget = GetUserDataAs<ShellSurfaceBase>(resource)->GetWidget();
+  if (!widget) {
+    LOG(ERROR) << "no widget found for setting system gesture exclusion";
+    return;
+  }
+
+  if (region_resource) {
+    widget->GetNativeWindow()->SetProperty(
+        ash::kSystemGestureExclusionKey,
+        new SkRegion(*GetUserDataAs<SkRegion>(region_resource)));
+  } else {
+    widget->GetNativeWindow()->ClearProperty(ash::kSystemGestureExclusionKey);
+  }
+}
+
 const struct zcr_remote_surface_v1_interface remote_surface_implementation = {
     remote_surface_destroy,
     remote_surface_set_app_id,
@@ -621,7 +653,8 @@ const struct zcr_remote_surface_v1_interface remote_surface_implementation = {
     remote_surface_unblock_ime,
     remote_surface_set_accessibility_id,
     remote_surface_set_pip_original_window,
-    remote_surface_unset_pip_original_window};
+    remote_surface_unset_pip_original_window,
+    remote_surface_set_system_gesture_exclusion};
 
 ////////////////////////////////////////////////////////////////////////////////
 // notification_surface_interface:
@@ -870,6 +903,10 @@ class WaylandRemoteShell : public ash::TabletModeObserver,
             GetWorkAreaInsetsInClientPixel(display, default_dsf,
                                            size_in_client_pixel,
                                            GetStableWorkArea(display));
+
+        // TODO(b/148977363): Fix the issue and remove the hack.
+        MaybeApplyCTSHack(layout_mode_, size_in_pixel, &insets_in_client_pixel,
+                          &stable_insets_in_client_pixel);
 
         int systemui_visibility =
             shelf_layout_manager->visibility_state() == ash::SHELF_AUTO_HIDE

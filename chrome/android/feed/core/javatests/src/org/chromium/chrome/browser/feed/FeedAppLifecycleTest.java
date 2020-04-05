@@ -28,25 +28,26 @@ import org.chromium.base.task.PostTask;
 import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Feature;
-import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.DeferredStartupHandler;
 import org.chromium.chrome.browser.feed.FeedAppLifecycle.AppLifecycleEvent;
 import org.chromium.chrome.browser.feed.library.api.client.lifecycle.AppLifecycleListener;
 import org.chromium.chrome.browser.feed.library.api.host.network.NetworkClient;
+import org.chromium.chrome.browser.feed.library.common.time.testing.FakeClock;
 import org.chromium.chrome.browser.feed.library.hostimpl.storage.testing.InMemoryContentStorage;
 import org.chromium.chrome.browser.feed.library.hostimpl.storage.testing.InMemoryJournalStorage;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.init.ChromeBrowserInitializer;
 import org.chromium.chrome.browser.multiwindow.MultiWindowTestHelper;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.preferences.PrefServiceBridge;
 import org.chromium.chrome.browser.profiles.Profile;
-import org.chromium.chrome.browser.util.UrlConstants;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
 import org.chromium.chrome.test.util.browser.Features.EnableFeatures;
+import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.UiThreadTaskTraits;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
@@ -105,13 +106,14 @@ public class FeedAppLifecycleTest {
 
         TestThreadUtils.runOnUiThreadBlocking(() -> {
             ChromeBrowserInitializer.getInstance().handleSynchronousStartup();
-            Profile profile = Profile.getLastUsedProfile().getOriginalProfile();
+            Profile profile = Profile.getLastUsedRegularProfile();
             mLifecycleBridge = new FeedLifecycleBridge(profile);
             mAppLifecycle =
                     new FeedAppLifecycle(mAppLifecycleListener, mLifecycleBridge, mFeedScheduler);
             FeedProcessScopeFactory.createFeedProcessScopeForTesting(mFeedScheduler, mNetworkClient,
-                    mOfflineIndicator, mAppLifecycle, new FeedLoggingBridge(profile),
-                    new InMemoryContentStorage(), new InMemoryJournalStorage());
+                    mOfflineIndicator, mAppLifecycle,
+                    new FeedLoggingBridge(profile, new FakeClock()), new InMemoryContentStorage(),
+                    new InMemoryJournalStorage());
         });
 
         mActivityTestRule.startMainActivityOnBlankPage();

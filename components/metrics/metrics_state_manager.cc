@@ -22,7 +22,6 @@
 #include "components/metrics/cloned_install_detector.h"
 #include "components/metrics/enabled_state_provider.h"
 #include "components/metrics/entropy_state.h"
-#include "components/metrics/machine_id_provider.h"
 #include "components/metrics/metrics_log.h"
 #include "components/metrics/metrics_pref_names.h"
 #include "components/metrics/metrics_provider.h"
@@ -51,6 +50,10 @@ int64_t ReadInstallDate(PrefService* local_state) {
   return local_state->GetInt64(prefs::kInstallDate);
 }
 
+std::string ReadClientId(PrefService* local_state) {
+  return local_state->GetString(prefs::kMetricsClientID);
+}
+
 // Round a timestamp measured in seconds since epoch to one with a granularity
 // of an hour. This can be used before uploaded potentially sensitive
 // timestamps.
@@ -70,10 +73,12 @@ class MetricsStateMetricsProvider : public MetricsProvider {
       PrefService* local_state,
       bool metrics_ids_were_reset,
       std::string previous_client_id,
+      std::string initial_client_id,
       ClonedInstallDetector const& cloned_install_detector)
       : local_state_(local_state),
         metrics_ids_were_reset_(metrics_ids_were_reset),
         previous_client_id_(std::move(previous_client_id)),
+        initial_client_id_(std::move(initial_client_id)),
         cloned_install_detector_(cloned_install_detector) {}
 
   // MetricsProvider:
@@ -83,6 +88,15 @@ class MetricsStateMetricsProvider : public MetricsProvider {
         RoundSecondsToHour(ReadEnabledDate(local_state_)));
     system_profile->set_install_date(
         RoundSecondsToHour(ReadInstallDate(local_state_)));
+
+    // Client id in the log shouldn't be different than the |local_state_| one
+    // except when the client disabled UMA before we populate this field to the
+    // log. If that's the case, the client id in the |local_state_| should be
+    // empty and we should set |client_id_was_used_for_trial_assignment| to
+    // false.
+    std::string client_id = ReadClientId(local_state_);
+    system_profile->set_client_id_was_used_for_trial_assignment(
+        !client_id.empty() && client_id == initial_client_id_);
   }
 
   void ProvidePreviousSessionData(
@@ -111,6 +125,9 @@ class MetricsStateMetricsProvider : public MetricsProvider {
   const bool metrics_ids_were_reset_;
   // |previous_client_id_| is set only (if known) when |metrics_ids_were_reset_|
   const std::string previous_client_id_;
+  // The client id that was used to randomize field trials. An empty string if
+  // the low entropy source was used to do randomization.
+  const std::string initial_client_id_;
   const ClonedInstallDetector& cloned_install_detector_;
 
   DISALLOW_COPY_AND_ASSIGN(MetricsStateMetricsProvider);
@@ -172,6 +189,10 @@ MetricsStateManager::MetricsStateManager(
   }
 #endif  // !defined(OS_WIN)
 
+  // The |initial_client_id_| should only be set if UMA is enabled or there's a
+  // provisional client id.
+  initial_client_id_ =
+      (client_id_.empty() ? provisional_client_id_ : client_id_);
   DCHECK(!instance_exists_);
   instance_exists_ = true;
 }
@@ -184,7 +205,7 @@ MetricsStateManager::~MetricsStateManager() {
 std::unique_ptr<MetricsProvider> MetricsStateManager::GetProvider() {
   return std::make_unique<MetricsStateMetricsProvider>(
       local_state_, metrics_ids_were_reset_, previous_client_id_,
-      cloned_install_detector_);
+      initial_client_id_, cloned_install_detector_);
 }
 
 bool MetricsStateManager::IsMetricsReportingEnabled() {
@@ -208,8 +229,7 @@ void MetricsStateManager::ForceClientIdCreation() {
              switches::kMetricsRecordingOnly));
 #endif
   {
-    std::string client_id_from_prefs =
-        local_state_->GetString(prefs::kMetricsClientID);
+    std::string client_id_from_prefs = ReadClientId(local_state_);
     // If client id in prefs matches the cached copy, return early.
     if (!client_id_from_prefs.empty() && client_id_from_prefs == client_id_)
       return;
@@ -273,9 +293,6 @@ void MetricsStateManager::ForceClientIdCreation() {
 }
 
 void MetricsStateManager::CheckForClonedInstall() {
-  if (!MachineIdProvider::HasId())
-    return;
-
   cloned_install_detector_.CheckForClonedInstall(local_state_);
 }
 
@@ -285,8 +302,10 @@ bool MetricsStateManager::ShouldResetClientIdsOnClonedInstall() {
 
 std::unique_ptr<const base::FieldTrial::EntropyProvider>
 MetricsStateManager::CreateDefaultEntropyProvider() {
-  if (enabled_state_provider_->IsConsentGiven() ||
-      !provisional_client_id_.empty()) {
+  // Note: the |initial_client_id_| should not be empty iff we have client's
+  // consent on enabling UMA on startup or we have the |provisional_client_id_|
+  // for the first run.
+  if (!initial_client_id_.empty()) {
     UpdateEntropySourceReturnedValue(ENTROPY_SOURCE_HIGH);
     return std::make_unique<variations::SHA1EntropyProvider>(
         GetHighEntropySource());
@@ -351,14 +370,11 @@ std::unique_ptr<ClientInfo> MetricsStateManager::LoadClientInfo() {
 }
 
 std::string MetricsStateManager::GetHighEntropySource() {
-  // This should only be called if UMA is enabled or there's a provisional
-  // client id. If UMA is enabled, then the constructor should have loaded
-  // |client_id_|. The user shouldn't be able to enable UMA between the
-  // constructor and calling this, because field trial setup happens at Chrome
-  // initialization. Only one of these is expected to hold a value.
-  DCHECK(client_id_.empty() != provisional_client_id_.empty());
-  return entropy_state_.GetHighEntropySource(client_id_,
-                                             provisional_client_id_);
+  // This should only be called if the |initial_client_id_| is not empty. The
+  // user shouldn't be able to enable UMA between the constructor and calling
+  // this, because field trial setup happens at Chrome initialization.
+  DCHECK(!initial_client_id_.empty());
+  return entropy_state_.GetHighEntropySource(initial_client_id_);
 }
 
 int MetricsStateManager::GetLowEntropySource() {
@@ -383,7 +399,7 @@ void MetricsStateManager::ResetMetricsIDsIfNecessary() {
   if (!ShouldResetClientIdsOnClonedInstall())
     return;
   metrics_ids_were_reset_ = true;
-  previous_client_id_ = local_state_->GetString(prefs::kMetricsClientID);
+  previous_client_id_ = ReadClientId(local_state_);
 
   UMA_HISTOGRAM_BOOLEAN("UMA.MetricsIDsReset", true);
 

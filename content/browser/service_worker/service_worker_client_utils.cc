@@ -10,6 +10,7 @@
 #include <utility>
 
 #include "base/bind.h"
+#include "base/callback_helpers.h"
 #include "base/location.h"
 #include "base/macros.h"
 #include "base/single_thread_task_runner.h"
@@ -315,7 +316,7 @@ void NavigateClientOnUI(const GURL& url,
 }
 
 void AddWindowClient(
-    ServiceWorkerContainerHost* container_host,
+    const ServiceWorkerContainerHost* container_host,
     std::vector<std::tuple<int, int, base::TimeTicks, std::string>>*
         client_info) {
   DCHECK_CURRENTLY_ON(ServiceWorkerContext::GetCoreThreadId());
@@ -331,7 +332,7 @@ void AddWindowClient(
 }
 
 void AddNonWindowClient(
-    ServiceWorkerContainerHost* container_host,
+    const ServiceWorkerContainerHost* container_host,
     blink::mojom::ServiceWorkerClientType client_type,
     std::vector<blink::mojom::ServiceWorkerClientInfoPtr>* out_clients) {
   DCHECK_CURRENTLY_ON(ServiceWorkerContext::GetCoreThreadId());
@@ -431,7 +432,7 @@ void GetNonWindowClients(
     std::vector<blink::mojom::ServiceWorkerClientInfoPtr> clients) {
   DCHECK_CURRENTLY_ON(ServiceWorkerContext::GetCoreThreadId());
   if (!options->include_uncontrolled) {
-    for (auto& controllee : controller->controllee_map())
+    for (const auto& controllee : controller->controllee_map())
       AddNonWindowClient(controllee.second, options->client_type, &clients);
   } else if (controller->context()) {
     GURL origin = controller->script_url().GetOrigin();
@@ -472,7 +473,7 @@ void GetWindowClients(
 
   std::vector<std::tuple<int, int, base::TimeTicks, std::string>> clients_info;
   if (!options->include_uncontrolled) {
-    for (auto& controllee : controller->controllee_map())
+    for (const auto& controllee : controller->controllee_map())
       AddWindowClient(controllee.second, &clients_info);
   } else if (controller->context()) {
     GURL origin = controller->script_url().GetOrigin();

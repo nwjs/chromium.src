@@ -31,7 +31,7 @@
 #include "base/single_thread_task_runner.h"
 #include "base/threading/thread_checker.h"
 #include "third_party/blink/renderer/bindings/core/v8/active_script_wrappable.h"
-#include "third_party/blink/renderer/core/execution_context/context_lifecycle_observer.h"
+#include "third_party/blink/renderer/core/execution_context/execution_context_lifecycle_observer.h"
 #include "third_party/blink/renderer/core/typed_arrays/array_buffer_view_helpers.h"
 #include "third_party/blink/renderer/modules/event_target_modules.h"
 #include "third_party/blink/renderer/platform/heap/handle.h"
@@ -49,7 +49,7 @@ class RTCPeerConnectionHandlerPlatform;
 class MODULES_EXPORT RTCDataChannel final
     : public EventTargetWithInlineData,
       public ActiveScriptWrappable<RTCDataChannel>,
-      public ContextLifecycleObserver {
+      public ExecutionContextLifecycleObserver {
   USING_GARBAGE_COLLECTED_MIXIN(RTCDataChannel);
   DEFINE_WRAPPERTYPEINFO();
   USING_PRE_FINALIZER(RTCDataChannel, Dispose);
@@ -66,11 +66,16 @@ class MODULES_EXPORT RTCDataChannel final
   bool reliable() const;
 
   bool ordered() const;
-  uint16_t maxPacketLifeTime(bool&) const;
-  uint16_t maxRetransmits(bool&) const;
+  base::Optional<uint16_t> maxPacketLifeTime() const;
+  base::Optional<uint16_t> maxRetransmits() const;
+  // TODO(crbug.com/1060971): Remove |is_null| version.
+  uint16_t maxPacketLifeTime(bool&) const;  // DEPRECATED
+  uint16_t maxRetransmits(bool&) const;     // DEPRECATED
   String protocol() const;
   bool negotiated() const;
-  uint16_t id(bool& is_null) const;
+  base::Optional<uint16_t> id() const;
+  // TODO(crbug.com/1060971): Remove |is_null| version.
+  uint16_t id(bool& is_null) const;  // DEPRECATED
   String readyState() const;
   unsigned bufferedAmount() const;
 
@@ -98,13 +103,13 @@ class MODULES_EXPORT RTCDataChannel final
   const AtomicString& InterfaceName() const override;
   ExecutionContext* GetExecutionContext() const override;
 
-  // ContextLifecycleObserver
-  void ContextDestroyed(ExecutionContext*) override;
+  // ExecutionContextLifecycleObserver
+  void ContextDestroyed() override;
 
   // ScriptWrappable
   bool HasPendingActivity() const override;
 
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
 
  private:
   friend class Observer;

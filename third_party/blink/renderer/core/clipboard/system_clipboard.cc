@@ -152,6 +152,12 @@ SkBitmap SystemClipboard::ReadImage(mojom::ClipboardBuffer buffer) {
   return image;
 }
 
+String SystemClipboard::ReadImageAsImageMarkup(
+    mojom::blink::ClipboardBuffer buffer) {
+  SkBitmap bitmap = ReadImage(buffer);
+  return BitmapToImageMarkup(bitmap);
+}
+
 void SystemClipboard::WriteImageWithTag(Image* image,
                                                 const KURL& url,
                                                 const String& title) {
@@ -184,11 +190,6 @@ void SystemClipboard::WriteImage(const SkBitmap& bitmap) {
   clipboard_->WriteImage(bitmap);
 }
 
-void SystemClipboard::WriteRawData(const String& type,
-                                   mojo_base::BigBuffer data) {
-  clipboard_->WriteRawData(type, std::move(data));
-}
-
 String SystemClipboard::ReadCustomData(const String& type) {
   if (!IsValidBufferType(buffer_))
     return String();
@@ -214,11 +215,11 @@ void SystemClipboard::WriteDataObject(DataObject* data_object) {
   WebDragData data = data_object->ToWebDragData();
   for (const WebDragData::Item& item : data.Items()) {
     if (item.storage_type == WebDragData::Item::kStorageTypeString) {
-      if (item.string_type == blink::kMimeTypeTextPlain) {
+      if (item.string_type == kMimeTypeTextPlain) {
         clipboard_->WriteText(NonNullString(item.string_data));
-      } else if (item.string_type == blink::kMimeTypeTextHTML) {
+      } else if (item.string_type == kMimeTypeTextHTML) {
         clipboard_->WriteHtml(NonNullString(item.string_data), KURL());
-      } else if (item.string_type != blink::kMimeTypeDownloadURL) {
+      } else if (item.string_type != kMimeTypeDownloadURL) {
         custom_data.insert(item.string_type, NonNullString(item.string_data));
       }
     }

@@ -21,7 +21,7 @@ export class ChromeHelper {
      * An interface remote that is used to communicate with Chrome.
      * @type {!chromeosCamera.mojom.CameraAppHelperRemote}
      */
-    this.remote_ = chromeosCamera.mojom.CameraAppHelper.getRemote(true);
+    this.remote_ = chromeosCamera.mojom.CameraAppHelper.getRemote();
   }
 
   /**
@@ -122,6 +122,25 @@ export class ChromeHelper {
     const ret = this.remote_.handleCameraResult(
         intentId, arc.mojom.CameraIntentAction.CLEAR_DATA, []);
     await this.checkReturn_('clearData()', ret);
+  }
+
+  /**
+   * Adds listener for screen locked event.
+   * @param {function(boolean)} callback Callback for screen locked status
+   *     changed. Called with the latest status of whether screen is locked.
+   */
+  async addOnLockListener(callback) {
+    const monitorCallbackRouter = new blink.mojom.IdleMonitorCallbackRouter();
+    monitorCallbackRouter.update.addListener((newState) => {
+      callback(newState.screen === blink.mojom.ScreenIdleState.kLocked);
+    });
+
+    const idleManager = blink.mojom.IdleManager.getRemote();
+    // Set a large threshold since we don't care about user idle.
+    const threshold = {microseconds: 86400000000};
+    const {state} = await idleManager.addMonitor(
+        threshold, monitorCallbackRouter.$.bindNewPipeAndPassRemote());
+    callback(state.screen === blink.mojom.ScreenIdleState.kLocked);
   }
 
   /**

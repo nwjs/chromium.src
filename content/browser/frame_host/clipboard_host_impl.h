@@ -11,12 +11,12 @@
 #include <vector>
 
 #include "base/macros.h"
+#include "base/memory/weak_ptr.h"
 #include "base/optional.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "content/browser/frame_host/render_frame_host_impl.h"
 #include "content/common/content_export.h"
-#include "mojo/public/cpp/base/big_buffer.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "third_party/blink/public/mojom/clipboard/clipboard.mojom.h"
 #include "ui/base/clipboard/clipboard.h"
@@ -140,9 +140,6 @@ class CONTENT_EXPORT ClipboardHostImpl : public blink::mojom::ClipboardHost {
                          IsFormatAvailableCallback callback) override;
   void ReadAvailableTypes(ui::ClipboardBuffer clipboard_buffer,
                           ReadAvailableTypesCallback callback) override;
-  void ReadAvailablePlatformSpecificFormatNames(
-      ui::ClipboardBuffer clipboard_buffer,
-      ReadAvailablePlatformSpecificFormatNamesCallback callback) override;
   void ReadText(ui::ClipboardBuffer clipboard_buffer,
                 ReadTextCallback callback) override;
   void ReadHtml(ui::ClipboardBuffer clipboard_buffer,
@@ -159,7 +156,6 @@ class CONTENT_EXPORT ClipboardHostImpl : public blink::mojom::ClipboardHost {
   void WriteSmartPasteMarker() override;
   void WriteCustomData(
       const base::flat_map<base::string16, base::string16>& data) override;
-  void WriteRawData(const base::string16&, mojo_base::BigBuffer) override;
   void WriteBookmark(const std::string& url,
                      const base::string16& title) override;
   void WriteImage(const SkBitmap& bitmap) override;
@@ -168,17 +164,16 @@ class CONTENT_EXPORT ClipboardHostImpl : public blink::mojom::ClipboardHost {
   void WriteStringToFindPboard(const base::string16& text) override;
 #endif
 
-  // Check Raw Permission in M81 and M80 using a more simple strategy, to make
-  // for a safer backport. This should only return false on calls made by
-  // compromised renderers.
-  bool HasRawPermission();
-
   // Called by PerformPasteIfAllowed() when an is allowed request is needed.
   // Virtual to be overridden in tests.
   virtual void StartIsPasteAllowedRequest(
       uint64_t seqno,
       const ui::ClipboardFormatType& data_type,
       std::string data);
+
+  void OnReadImage(ui::ClipboardBuffer clipboard_buffer,
+                   ReadImageCallback callback,
+                   const SkBitmap& bitmap);
 
   mojo::Receiver<blink::mojom::ClipboardHost> receiver_;
   ui::Clipboard* const clipboard_;  // Not owned
@@ -189,6 +184,8 @@ class CONTENT_EXPORT ClipboardHostImpl : public blink::mojom::ClipboardHost {
   // Outstanding is allowed requests per clipboard contents.  Maps a clipboard
   // sequence number to an outstanding request.
   std::map<uint64_t, IsPasteAllowedRequest> is_allowed_requests_;
+
+  base::WeakPtrFactory<ClipboardHostImpl> weak_ptr_factory_{this};
 };
 
 }  // namespace content

@@ -4,7 +4,7 @@
 
 #include "third_party/blink/renderer/core/fetch/fetch_response_data.h"
 
-#include "services/network/public/cpp/content_security_policy.h"
+#include "services/network/public/cpp/content_security_policy/content_security_policy.h"
 #include "services/network/public/cpp/features.h"
 #include "services/network/public/mojom/content_security_policy.mojom-blink.h"
 #include "third_party/blink/public/mojom/fetch/fetch_api_response.mojom-blink.h"
@@ -49,29 +49,28 @@ blink::CSPDirectiveName ConvertToBlink(CSPDirectiveName name) {
   return static_cast<blink::CSPDirectiveName>(name);
 }
 
-blink::CSPDirectivePtr ConvertToBlink(CSPDirectivePtr csp) {
-  return blink::CSPDirective::New(ConvertToBlink(csp->name),
-                                  ConvertToBlink(std::move(csp->source_list)));
-}
-
 blink::ContentSecurityPolicyHeaderPtr ConvertToBlink(
     ContentSecurityPolicyHeaderPtr header) {
   return blink::ContentSecurityPolicyHeader::New(
       String::FromUTF8(header->header_value), header->type, header->source);
 }
 
-blink::ContentSecurityPolicyPtr ConvertToBlink(ContentSecurityPolicyPtr csp) {
-  WTF::Vector<blink::CSPDirectivePtr> directives;
-  for (auto& directive : csp->directives)
-    directives.push_back(ConvertToBlink(std::move(directive)));
+blink::ContentSecurityPolicyPtr ConvertToBlink(
+    ContentSecurityPolicyPtr policy_in) {
+  auto policy = blink::ContentSecurityPolicy::New();
 
-  WTF::Vector<WTF::String> report_endpoints;
-  for (auto& endpoint : csp->report_endpoints)
-    report_endpoints.push_back(String::FromUTF8(endpoint));
+  policy->header = ConvertToBlink(std::move(policy_in->header));
+  policy->use_reporting_api = policy_in->use_reporting_api;
 
-  return blink::ContentSecurityPolicy::New(
-      std::move(directives), ConvertToBlink(std::move(csp->header)),
-      csp->use_reporting_api, std::move(report_endpoints));
+  for (auto& directive : policy_in->directives) {
+    policy->directives.insert(ConvertToBlink(directive.first),
+                              ConvertToBlink(std::move(directive.second)));
+  }
+
+  for (auto& endpoint : policy_in->report_endpoints)
+    policy->report_endpoints.push_back(String::FromUTF8(endpoint));
+
+  return policy;
 }
 
 WTF::Vector<blink::ContentSecurityPolicyPtr> ConvertToBlink(
@@ -339,25 +338,22 @@ mojom::blink::FetchAPIResponsePtr FetchResponseData::PopulateFetchAPIResponse(
   if (base::FeatureList::IsEnabled(
           network::features::kOutOfBlinkFrameAncestors)) {
     String content_security_policy_header;
+    std::vector<network::mojom::ContentSecurityPolicyPtr> policies;
     if (HeaderList()->Get("content-security-policy",
                           content_security_policy_header)) {
-      network::ContentSecurityPolicy policy;
-      policy.Parse(
-          request_url, network::mojom::ContentSecurityPolicyType::kEnforce,
-          StringUTF8Adaptor(content_security_policy_header).AsStringPiece());
-      response->content_security_policy =
-          ConvertToBlink(policy.TakeContentSecurityPolicy());
+      network::AddContentSecurityPolicyFromHeaders(
+          StringUTF8Adaptor(content_security_policy_header).AsStringPiece(),
+          network::mojom::ContentSecurityPolicyType::kEnforce, request_url,
+          &policies);
     }
     if (HeaderList()->Get("content-security-policy-report-only",
                           content_security_policy_header)) {
-      network::ContentSecurityPolicy policy;
-      policy.Parse(
-          request_url, network::mojom::ContentSecurityPolicyType::kReport,
-          StringUTF8Adaptor(content_security_policy_header).AsStringPiece());
-      auto blink_policies = ConvertToBlink(policy.TakeContentSecurityPolicy());
-      for (auto& policy : blink_policies)
-        response->content_security_policy.push_back(std::move(policy));
+      network::AddContentSecurityPolicyFromHeaders(
+          StringUTF8Adaptor(content_security_policy_header).AsStringPiece(),
+          network::mojom::ContentSecurityPolicyType::kReport, request_url,
+          &policies);
     }
+    response->content_security_policy = ConvertToBlink(std::move(policies));
   }
   return response;
 }
@@ -385,7 +381,7 @@ void FetchResponseData::ReplaceBodyStreamBuffer(BodyStreamBuffer* buffer) {
   }
 }
 
-void FetchResponseData::Trace(blink::Visitor* visitor) {
+void FetchResponseData::Trace(Visitor* visitor) {
   visitor->Trace(header_list_);
   visitor->Trace(internal_response_);
   visitor->Trace(buffer_);

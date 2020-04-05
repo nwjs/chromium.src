@@ -54,7 +54,6 @@ class AppBannerManager : public content::WebContentsObserver,
  public:
   class Observer : public base::CheckedObserver {
    public:
-    virtual void OnAppBannerManagerChanged(AppBannerManager* new_manager) = 0;
     virtual void OnInstallableWebAppStatusUpdated() = 0;
   };
 
@@ -165,11 +164,6 @@ class AppBannerManager : public content::WebContentsObserver,
   void RemoveObserver(Observer* observer);
 
   virtual base::WeakPtr<AppBannerManager> GetWeakPtr() = 0;
-
-  // Used by test subclasses that replace the existing AppBannerManager
-  // instance. The observer list must be transferred over to avoid dangling
-  // pointers in the observers.
-  void MigrateObserverListForTesting(content::WebContents* web_contents);
 
   // Returns whether the site can call "event.prompt()" to prompt the user to
   // install the site.
@@ -305,6 +299,8 @@ class AppBannerManager : public content::WebContentsObserver,
   State state() const { return state_; }
   bool IsRunning() const;
 
+  void SetInstallableWebAppCheckResult(InstallableWebAppCheckResult result);
+
   // The URL for which the banner check is being conducted.
   GURL validated_url_;
 
@@ -358,8 +354,6 @@ class AppBannerManager : public content::WebContentsObserver,
 
   // Returns a status code based on the current state, to log when terminating.
   InstallableStatusCode TerminationCode() const;
-
-  void SetInstallableWebAppCheckResult(InstallableWebAppCheckResult result);
 
   // Fetches the data required to display a banner for the current page.
   InstallableManager* manager_;

@@ -14,10 +14,9 @@ import org.chromium.base.annotations.CalledByNative;
 import org.chromium.base.annotations.JNINamespace;
 import org.chromium.base.annotations.NativeMethods;
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.ResourceId;
+import org.chromium.chrome.browser.autofill.settings.AutofillEditorBase;
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.preferences.PrefServiceBridge;
-import org.chromium.chrome.browser.settings.autofill.AutofillEditorBase;
 import org.chromium.content_public.browser.WebContents;
 
 import java.util.ArrayList;
@@ -375,11 +374,10 @@ public class PersonalDataManager {
         @CalledByNative("CreditCard")
         public static CreditCard create(String guid, String origin, boolean isLocal,
                 boolean isCached, String name, String number, String obfuscatedNumber, String month,
-                String year, String basicCardIssuerNetwork, int enumeratedIconId,
-                String billingAddressId, String serverId) {
+                String year, String basicCardIssuerNetwork, int iconId, String billingAddressId,
+                String serverId) {
             return new CreditCard(guid, origin, isLocal, isCached, name, number, obfuscatedNumber,
-                    month, year, basicCardIssuerNetwork,
-                    ResourceId.mapToDrawableId(enumeratedIconId), billingAddressId, serverId);
+                    month, year, basicCardIssuerNetwork, iconId, billingAddressId, serverId);
         }
 
         public CreditCard(String guid, String origin, boolean isLocal, boolean isCached,
@@ -948,6 +946,15 @@ public class PersonalDataManager {
     }
 
     /**
+     * @return Whether FIDO authentication is available.
+     */
+    public boolean isFidoAuthenticationAvailable() {
+        return isAutofillCreditCardEnabled()
+                && PersonalDataManagerJni.get().isFidoAuthenticationAvailable(
+                        mPersonalDataManagerAndroid);
+    }
+
+    /**
      * @return Whether the Autofill feature for Profiles (addresses) is enabled.
      */
     public static boolean isAutofillProfileEnabled() {
@@ -975,6 +982,25 @@ public class PersonalDataManager {
      */
     public static void setAutofillCreditCardEnabled(boolean enable) {
         PrefServiceBridge.getInstance().setBoolean(Pref.AUTOFILL_CREDIT_CARD_ENABLED, enable);
+    }
+
+    /**
+     * @return Whether the Autofill feature for FIDO authentication is enabled.
+     */
+    public static boolean isAutofillCreditCardFidoAuthEnabled() {
+        return PrefServiceBridge.getInstance().getBoolean(
+                Pref.AUTOFILL_CREDIT_CARD_FIDO_AUTH_ENABLED);
+    }
+
+    /**
+     * Enables or disables the Autofill feature for FIDO authentication.
+     * We are trying to align this pref with the server's source of truth, but any mismatches
+     * between this pref and the server should imply the user's intention to opt in/out.
+     * @param enable True to enable credit card FIDO authentication, false otherwise.
+     */
+    public static void setAutofillCreditCardFidoAuthEnabled(boolean enable) {
+        PrefServiceBridge.getInstance().setBoolean(
+                Pref.AUTOFILL_CREDIT_CARD_FIDO_AUTH_ENABLED, enable);
     }
 
     /**
@@ -1110,6 +1136,7 @@ public class PersonalDataManager {
                 GetSubKeysRequestDelegate delegate);
         boolean hasProfiles(long nativePersonalDataManagerAndroid);
         boolean hasCreditCards(long nativePersonalDataManagerAndroid);
+        boolean isFidoAuthenticationAvailable(long nativePersonalDataManagerAndroid);
         boolean isAutofillManaged();
         boolean isAutofillProfileManaged();
         boolean isAutofillCreditCardManaged();

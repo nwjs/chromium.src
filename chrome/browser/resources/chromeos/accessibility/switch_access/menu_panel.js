@@ -9,18 +9,6 @@
 class Panel {
   constructor() {
     /**
-     * The menu manager.
-     * @private {MenuManager}
-     */
-    this.menuManager_;
-
-    /**
-     * Reference to Switch Access.
-     * @private {SwitchAccessInterface}
-     */
-    this.switchAccess_;
-
-    /**
      * Reference to the menu panel element.
      * @private {Element}
      */
@@ -64,8 +52,13 @@ class Panel {
    * reference to this object for communication.
    */
   connectToBackground() {
-    this.switchAccess_ = chrome.extension.getBackgroundPage().switchAccess;
-    this.menuManager_ = this.switchAccess_.connectMenuPanel(this);
+    window.switchAccess = chrome.extension.getBackgroundPage().switchAccess;
+    window.switchAccess.connectMenuPanel(this);
+  }
+
+  /** Sets the menu manager to the given object. */
+  set menuManager(menuManager) {
+    MenuManager.instance = menuManager;
   }
 
   /**
@@ -77,7 +70,7 @@ class Panel {
   setupButton_(button) {
     const action = button.id;
     button.addEventListener('click', function(action) {
-      this.menuManager_.performAction(action);
+      MenuManager.instance.performAction(action);
     }.bind(this, action));
   }
 
@@ -162,7 +155,7 @@ class Panel {
    * @private
    */
   updatePositionAttributes_(buttonOrder, menuId) {
-    this.menuManager_.exit();
+    MenuManager.exit();
     for (let pos = 0; pos < buttonOrder.length; pos++) {
       const buttonPosition = pos;
       const button = document.getElementById(buttonOrder[pos]);
@@ -235,7 +228,7 @@ class Panel {
 
     let rowHeight;
 
-    if (this.switchAccess_.improvedTextInputEnabled()) {
+    if (window.switchAccess.improvedTextInputEnabled()) {
       rowHeight = 85;
       const actions = document.getElementsByClassName('action');
       for (const action of actions) {

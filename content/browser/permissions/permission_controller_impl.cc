@@ -46,6 +46,9 @@ PermissionToSchedulingFeature(PermissionType permission_name) {
     case PermissionType::PERIODIC_BACKGROUND_SYNC:
       return blink::scheduler::WebSchedulerTrackedFeature::
           kRequestedBackgroundWorkPermission;
+    case PermissionType::STORAGE_ACCESS_GRANT:
+      return blink::scheduler::WebSchedulerTrackedFeature::
+          kRequestedStorageAccessGrant;
     case PermissionType::PROTECTED_MEDIA_IDENTIFIER:
     case PermissionType::DURABLE_STORAGE:
     case PermissionType::FLASH:
@@ -185,8 +188,8 @@ void PermissionControllerImpl::NotifyChangedSubscriptions(
 
 PermissionControllerImpl::OverrideStatus
 PermissionControllerImpl::SetOverrideForDevTools(
-    const url::Origin& origin,
-    const PermissionType& permission,
+    const base::Optional<url::Origin>& origin,
+    PermissionType permission,
     const blink::mojom::PermissionStatus& status) {
   PermissionControllerDelegate* delegate =
       browser_context_->GetPermissionControllerDelegate();
@@ -194,8 +197,8 @@ PermissionControllerImpl::SetOverrideForDevTools(
       !delegate->IsPermissionOverridableByDevTools(permission, origin)) {
     return OverrideStatus::kOverrideNotSet;
   }
-  const auto old_statuses = GetSubscriptionsStatuses(origin.GetURL());
-
+  const auto old_statuses = GetSubscriptionsStatuses(
+      origin ? base::make_optional(origin->GetURL()) : base::nullopt);
   devtools_permission_overrides_.Set(origin, permission, status);
   NotifyChangedSubscriptions(old_statuses);
 
@@ -205,16 +208,19 @@ PermissionControllerImpl::SetOverrideForDevTools(
 
 PermissionControllerImpl::OverrideStatus
 PermissionControllerImpl::GrantOverridesForDevTools(
-    const url::Origin& origin,
+    const base::Optional<url::Origin>& origin,
     const std::vector<PermissionType>& permissions) {
   PermissionControllerDelegate* delegate =
       browser_context_->GetPermissionControllerDelegate();
-  if (delegate)
-    for (const auto permission : permissions)
+  if (delegate) {
+    for (const auto permission : permissions) {
       if (!delegate->IsPermissionOverridableByDevTools(permission, origin))
         return OverrideStatus::kOverrideNotSet;
+    }
+  }
 
-  const auto old_statuses = GetSubscriptionsStatuses(origin.GetURL());
+  const auto old_statuses = GetSubscriptionsStatuses(
+      origin ? base::make_optional(origin->GetURL()) : base::nullopt);
   devtools_permission_overrides_.GrantPermissions(origin, permissions);
   // If any statuses changed because they lose overrides or the new overrides
   // modify their previous state (overridden or not), subscribers must be
@@ -240,7 +246,7 @@ void PermissionControllerImpl::ResetOverridesForDevTools() {
 }
 
 void PermissionControllerImpl::UpdateDelegateOverridesForDevTools(
-    const url::Origin& origin) {
+    const base::Optional<url::Origin>& origin) {
   PermissionControllerDelegate* delegate =
       browser_context_->GetPermissionControllerDelegate();
   if (!delegate)

@@ -14,6 +14,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/time/time.h"
 #include "chrome/browser/sync/sync_ui_util.h"
+#include "chrome/browser/sync/test/integration/cookie_helper.h"
 #include "chrome/browser/sync/test/integration/encryption_helper.h"
 #include "chrome/browser/sync/test/integration/passwords_helper.h"
 #include "chrome/browser/sync/test/integration/profile_sync_service_harness.h"
@@ -21,6 +22,7 @@
 #include "chrome/browser/sync/test/integration/status_change_checker.h"
 #include "chrome/browser/sync/test/integration/sync_test.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/sync/base/time.h"
@@ -32,18 +34,15 @@
 #include "crypto/ec_private_key.h"
 #include "google_apis/gaia/gaia_switches.h"
 #include "testing/gmock/include/gmock/gmock.h"
+#include "url/url_constants.h"
 
 namespace {
 
 using encryption_helper::GetServerNigori;
+using encryption_helper::KeyParams;
 using encryption_helper::SetNigoriInFakeServer;
 using testing::NotNull;
 using testing::SizeIs;
-
-struct KeyParams {
-  syncer::KeyDerivationParams derivation_params;
-  std::string password;
-};
 
 MATCHER_P(IsDataEncryptedWith, key_params, "") {
   const sync_pb::EncryptedData& encrypted_data = arg;
@@ -82,14 +81,18 @@ MATCHER_P4(StatusLabelsMatch,
 
 GURL GetTrustedVaultRetrievalURL(
     const net::test_server::EmbeddedTestServer& test_server,
-    const std::string& encryption_key) {
+    const std::vector<uint8_t>& encryption_key) {
   const char kGaiaId[] = "gaia_id_for_user_gmail.com";
+  // encryption_keys_retrieval.html would populate encryption key to sync
+  // service upon loading. Key is provided as part of URL and needs to be
+  // encoded with Base64, because |encryption_key| is binary.
+  const std::string base64_encoded_key = base::Base64Encode(encryption_key);
   return test_server.GetURL(
       base::StringPrintf("/sync/encryption_keys_retrieval.html?%s#%s", kGaiaId,
-                         encryption_key.c_str()));
+                         base64_encoded_key.c_str()));
 }
 
-KeyParams KeystoreKeyParams(const std::vector<uint8_t>& key) {
+KeyParams Pbkdf2KeyParams(const std::vector<uint8_t>& key) {
   return {syncer::KeyDerivationParams::CreateForPbkdf2(),
           base::Base64Encode(key)};
 }
@@ -147,7 +150,7 @@ sync_pb::NigoriSpecifics BuildKeystoreNigoriSpecifics(
 }
 
 sync_pb::NigoriSpecifics BuildTrustedVaultNigoriSpecifics(
-    const std::vector<std::string>& trusted_vault_keys) {
+    const std::vector<std::vector<uint8_t>>& trusted_vault_keys) {
   sync_pb::NigoriSpecifics specifics;
   specifics.set_passphrase_type(
       sync_pb::NigoriSpecifics::TRUSTED_VAULT_PASSPHRASE);
@@ -155,12 +158,10 @@ sync_pb::NigoriSpecifics BuildTrustedVaultNigoriSpecifics(
 
   std::unique_ptr<syncer::CryptographerImpl> cryptographer =
       syncer::CryptographerImpl::CreateEmpty();
-  for (const std::string& trusted_vault_key : trusted_vault_keys) {
-    std::string encoded_key;
-    base::Base64Encode(trusted_vault_key, &encoded_key);
-
+  for (const std::vector<uint8_t>& trusted_vault_key : trusted_vault_keys) {
     const std::string key_name = cryptographer->EmplaceKey(
-        encoded_key, syncer::KeyDerivationParams::CreateForPbkdf2());
+        base::Base64Encode(trusted_vault_key),
+        syncer::KeyDerivationParams::CreateForPbkdf2());
     cryptographer->SelectDefaultEncryptionKey(key_name);
   }
 
@@ -168,6 +169,35 @@ sync_pb::NigoriSpecifics BuildTrustedVaultNigoriSpecifics(
                                      specifics.mutable_encryption_keybag()));
   return specifics;
 }
+
+// Used to wait until a tab closes.
+class TabClosedChecker : public StatusChangeChecker,
+                         public content::WebContentsObserver {
+ public:
+  explicit TabClosedChecker(content::WebContents* web_contents)
+      : WebContentsObserver(web_contents) {
+    DCHECK(web_contents);
+  }
+
+  ~TabClosedChecker() override = default;
+
+  // StatusChangeChecker overrides.
+  bool IsExitConditionSatisfied(std::ostream* os) override {
+    *os << "Waiting for the tab to be closed";
+    return closed_;
+  }
+
+  // content::WebContentsObserver overrides.
+  void WebContentsDestroyed() override {
+    closed_ = true;
+    CheckExitCondition();
+  }
+
+ private:
+  bool closed_ = false;
+
+  DISALLOW_COPY_AND_ASSIGN(TabClosedChecker);
+};
 
 // Used to wait until a page's title changes to a certain value (useful to
 // detect Javascript events).
@@ -181,7 +211,7 @@ class PageTitleChecker : public StatusChangeChecker,
     DCHECK(web_contents);
   }
 
-  ~PageTitleChecker() override {}
+  ~PageTitleChecker() override = default;
 
   // StatusChangeChecker overrides.
   bool IsExitConditionSatisfied(std::ostream* os) override {
@@ -203,39 +233,13 @@ class PageTitleChecker : public StatusChangeChecker,
   DISALLOW_COPY_AND_ASSIGN(PageTitleChecker);
 };
 
-class PasswordsDataTypeActiveChecker : public SingleClientStatusChangeChecker {
- public:
-  explicit PasswordsDataTypeActiveChecker(syncer::ProfileSyncService* service)
-      : SingleClientStatusChangeChecker(service) {}
-  ~PasswordsDataTypeActiveChecker() override {}
-
-  // StatusChangeChecker implementation.
-  bool IsExitConditionSatisfied(std::ostream* os) override {
-    *os << "Waiting for PASSWORDS to become active";
-    return service()->GetActiveDataTypes().Has(syncer::PASSWORDS);
-  }
-
- private:
-  DISALLOW_COPY_AND_ASSIGN(PasswordsDataTypeActiveChecker);
-};
-
 class SingleClientNigoriSyncTestWithUssTests
     : public SyncTest,
       public testing::WithParamInterface<bool> {
  public:
   SingleClientNigoriSyncTestWithUssTests() : SyncTest(SINGLE_CLIENT) {
-    if (GetParam()) {
-      // USS Nigori requires USS implementations to be enabled for all
-      // datatypes.
-      override_features_.InitWithFeatures(
-          /*enabled_features=*/{switches::kSyncUSSPasswords,
-                                switches::kSyncUSSNigori},
-          /*disabled_features=*/{});
-    } else {
-      // We test Directory Nigori with default values of USS feature flags of
-      // other datatypes.
-      override_features_.InitAndDisableFeature(switches::kSyncUSSNigori);
-    }
+    override_features_.InitWithFeatureState(switches::kSyncUSSNigori,
+                                            GetParam());
   }
 
   ~SingleClientNigoriSyncTestWithUssTests() override = default;
@@ -271,14 +275,8 @@ class SingleClientNigoriSyncTestWithNotAwaitQuiescence
 class SingleClientKeystoreKeysMigrationSyncTest : public SyncTest {
  public:
   SingleClientKeystoreKeysMigrationSyncTest() : SyncTest(SINGLE_CLIENT) {
-    if (content::IsPreTest()) {
-      override_features_.InitAndDisableFeature(switches::kSyncUSSNigori);
-    } else {
-      override_features_.InitWithFeatures(
-          /*enabled_features=*/{switches::kSyncUSSPasswords,
-                                switches::kSyncUSSNigori},
-          /*disabled_features=*/{});
-    }
+    override_features_.InitWithFeatureState(switches::kSyncUSSNigori,
+                                            !content::IsPreTest());
   }
 
   ~SingleClientKeystoreKeysMigrationSyncTest() override = default;
@@ -300,7 +298,7 @@ IN_PROC_BROWSER_TEST_P(SingleClientNigoriSyncTestWithUssTests,
       GetFakeServer()->GetKeystoreKeys();
   ASSERT_TRUE(keystore_keys.size() == 1);
   EXPECT_THAT(specifics.encryption_keybag(),
-              IsDataEncryptedWith(KeystoreKeyParams(keystore_keys.back())));
+              IsDataEncryptedWith(Pbkdf2KeyParams(keystore_keys.back())));
   EXPECT_EQ(specifics.passphrase_type(),
             sync_pb::NigoriSpecifics::KEYSTORE_PASSPHRASE);
   EXPECT_TRUE(specifics.keybag_is_frozen());
@@ -343,7 +341,7 @@ IN_PROC_BROWSER_TEST_P(SingleClientNigoriSyncTestWithUssTests,
   const std::vector<std::vector<uint8_t>>& keystore_keys =
       GetFakeServer()->GetKeystoreKeys();
   ASSERT_THAT(keystore_keys, SizeIs(1));
-  const KeyParams kKeystoreKeyParams = KeystoreKeyParams(keystore_keys.back());
+  const KeyParams kKeystoreKeyParams = Pbkdf2KeyParams(keystore_keys.back());
   SetNigoriInFakeServer(GetFakeServer(),
                         BuildKeystoreNigoriSpecifics(
                             /*keybag_keys_params=*/{kKeystoreKeyParams},
@@ -368,7 +366,7 @@ IN_PROC_BROWSER_TEST_P(SingleClientNigoriSyncTestWithUssTests,
   const std::vector<std::vector<uint8_t>>& keystore_keys =
       GetFakeServer()->GetKeystoreKeys();
   ASSERT_THAT(keystore_keys, SizeIs(1));
-  const KeyParams kKeystoreKeyParams = KeystoreKeyParams(keystore_keys.back());
+  const KeyParams kKeystoreKeyParams = Pbkdf2KeyParams(keystore_keys.back());
   const KeyParams kDefaultKeyParams = {
       syncer::KeyDerivationParams::CreateForPbkdf2(), "password"};
   SetNigoriInFakeServer(
@@ -394,7 +392,7 @@ IN_PROC_BROWSER_TEST_P(SingleClientNigoriSyncTestWithUssTests,
   const std::vector<std::vector<uint8_t>>& keystore_keys =
       GetFakeServer()->GetKeystoreKeys();
   ASSERT_THAT(keystore_keys, SizeIs(2));
-  const KeyParams new_keystore_key_params = KeystoreKeyParams(keystore_keys[1]);
+  const KeyParams new_keystore_key_params = Pbkdf2KeyParams(keystore_keys[1]);
   const std::string expected_key_bag_key_name =
       ComputeKeyName(new_keystore_key_params);
   EXPECT_TRUE(ServerNigoriKeyNameChecker(expected_key_bag_key_name,
@@ -407,7 +405,7 @@ IN_PROC_BROWSER_TEST_P(SingleClientNigoriSyncTestWithUssTests,
   const std::vector<std::vector<uint8_t>>& keystore_keys =
       GetFakeServer()->GetKeystoreKeys();
   ASSERT_THAT(keystore_keys, SizeIs(1));
-  const KeyParams kKeystoreKeyParams = KeystoreKeyParams(keystore_keys.back());
+  const KeyParams kKeystoreKeyParams = Pbkdf2KeyParams(keystore_keys.back());
   SetNigoriInFakeServer(GetFakeServer(),
                         BuildKeystoreNigoriSpecifics(
                             /*keybag_keys_params=*/{kKeystoreKeyParams},
@@ -449,8 +447,7 @@ IN_PROC_BROWSER_TEST_P(
   // key used in NigoriSpecifics.
   std::vector<uint8_t> corrupted_keystore_key = keystore_keys[0];
   corrupted_keystore_key.push_back(42u);
-  const KeyParams kKeystoreKeyParams =
-      KeystoreKeyParams(corrupted_keystore_key);
+  const KeyParams kKeystoreKeyParams = Pbkdf2KeyParams(corrupted_keystore_key);
   const KeyParams kDefaultKeyParams = {
       syncer::KeyDerivationParams::CreateForPbkdf2(), "password"};
   SetNigoriInFakeServer(
@@ -529,7 +526,7 @@ IN_PROC_BROWSER_TEST_F(SingleClientKeystoreKeysMigrationSyncTest,
   const std::vector<std::vector<uint8_t>>& keystore_keys =
       GetFakeServer()->GetKeystoreKeys();
   ASSERT_THAT(keystore_keys, SizeIs(1));
-  const KeyParams kKeystoreKeyParams = KeystoreKeyParams(keystore_keys.back());
+  const KeyParams kKeystoreKeyParams = Pbkdf2KeyParams(keystore_keys.back());
 
   const autofill::PasswordForm password_form =
       passwords_helper::CreateTestPasswordForm(0);
@@ -545,10 +542,8 @@ class SingleClientNigoriWithWebApiTest : public SyncTest {
     // USS Nigori requires USS implementations to be enabled for all
     // datatypes.
     override_features_.InitWithFeatures(
-        /*enabled_features=*/{switches::kSyncUSSPasswords,
-                              switches::kSyncUSSNigori,
-                              switches::kSyncSupportTrustedVaultPassphrase,
-                              features::kSyncEncryptionKeysWebApi},
+        /*enabled_features=*/{switches::kSyncUSSNigori,
+                              switches::kSyncSupportTrustedVaultPassphrase},
         /*disabled_features=*/{});
   }
   ~SingleClientNigoriWithWebApiTest() override = default;
@@ -574,7 +569,7 @@ class SingleClientNigoriWithWebApiTest : public SyncTest {
 
 IN_PROC_BROWSER_TEST_F(SingleClientNigoriWithWebApiTest,
                        ShouldAcceptEncryptionKeysFromTheWebWhileSignedIn) {
-  const std::string kTestEncryptionKey = "testpassphrase1";
+  const std::vector<uint8_t> kTestEncryptionKey = {1, 2, 3, 4};
 
   const GURL retrieval_url =
       GetTrustedVaultRetrievalURL(*embedded_test_server(), kTestEncryptionKey);
@@ -609,6 +604,11 @@ IN_PROC_BROWSER_TEST_F(SingleClientNigoriWithWebApiTest,
                                 IDS_SYNC_STATUS_NEEDS_KEYS_BUTTON,
                                 sync_ui_util::RETRIEVE_TRUSTED_VAULT_KEYS));
 
+  // There needs to be an existing tab for the second tab (the retrieval flow)
+  // to be closeable via javascript.
+  chrome::AddTabAt(GetBrowser(0), GURL(url::kAboutBlankURL), /*index=*/0,
+                   /*foreground=*/true);
+
   // Mimic opening a web page where the user can interact with the retrieval
   // flow.
   sync_ui_util::OpenTabForSyncKeyRetrievalWithURLForTesting(GetBrowser(0),
@@ -616,14 +616,12 @@ IN_PROC_BROWSER_TEST_F(SingleClientNigoriWithWebApiTest,
   ASSERT_THAT(GetBrowser(0)->tab_strip_model()->GetActiveWebContents(),
               NotNull());
 
-  // Wait until the title changes to "OK" via Javascript, which indicates
-  // completion.
-  PageTitleChecker title_checker(
-      /*expected_title=*/"OK",
-      GetBrowser(0)->tab_strip_model()->GetActiveWebContents());
-  EXPECT_TRUE(title_checker.Wait());
+  // Wait until the page closes, which indicates successful completion.
+  EXPECT_TRUE(
+      TabClosedChecker(GetBrowser(0)->tab_strip_model()->GetActiveWebContents())
+          .Wait());
 
-  EXPECT_TRUE(PasswordsDataTypeActiveChecker(GetSyncService(0)).Wait());
+  EXPECT_TRUE(PasswordSyncActiveChecker(GetSyncService(0)).Wait());
   EXPECT_FALSE(GetSyncService(0)
                    ->GetUserSettings()
                    ->IsTrustedVaultKeyRequiredForPreferredDataTypes());
@@ -636,11 +634,16 @@ IN_PROC_BROWSER_TEST_F(SingleClientNigoriWithWebApiTest,
 
 IN_PROC_BROWSER_TEST_F(SingleClientNigoriWithWebApiTest,
                        PRE_ShouldAcceptEncryptionKeysFromTheWebBeforeSignIn) {
-  const std::string kTestEncryptionKey = "testpassphrase1";
+  const std::vector<uint8_t> kTestEncryptionKey = {1, 2, 3, 4};
   const GURL retrieval_url =
       GetTrustedVaultRetrievalURL(*embedded_test_server(), kTestEncryptionKey);
 
   ASSERT_TRUE(SetupClients());
+
+  // There needs to be an existing tab for the second tab (the retrieval flow)
+  // to be closeable via javascript.
+  chrome::AddTabAt(GetBrowser(0), GURL(url::kAboutBlankURL), /*index=*/0,
+                   /*foreground=*/true);
 
   // Mimic opening a web page where the user can interact with the retrieval
   // flow, while the user is signed out.
@@ -649,17 +652,15 @@ IN_PROC_BROWSER_TEST_F(SingleClientNigoriWithWebApiTest,
   ASSERT_THAT(GetBrowser(0)->tab_strip_model()->GetActiveWebContents(),
               NotNull());
 
-  // Wait until the title changes to "OK" via Javascript, which indicates
-  // completion.
-  PageTitleChecker title_checker(
-      /*expected_title=*/"OK",
-      GetBrowser(0)->tab_strip_model()->GetActiveWebContents());
-  EXPECT_TRUE(title_checker.Wait());
+  // Wait until the page closes, which indicates successful completion.
+  EXPECT_TRUE(
+      TabClosedChecker(GetBrowser(0)->tab_strip_model()->GetActiveWebContents())
+          .Wait());
 }
 
 IN_PROC_BROWSER_TEST_F(SingleClientNigoriWithWebApiTest,
                        ShouldAcceptEncryptionKeysFromTheWebBeforeSignIn) {
-  const std::string kTestEncryptionKey = "testpassphrase1";
+  const std::vector<uint8_t> kTestEncryptionKey = {1, 2, 3, 4};
 
   // Mimic the account being already using a trusted vault passphrase.
   encryption_helper::SetNigoriInFakeServer(
@@ -675,6 +676,199 @@ IN_PROC_BROWSER_TEST_F(SingleClientNigoriWithWebApiTest,
                    ->IsTrustedVaultKeyRequiredForPreferredDataTypes());
   EXPECT_TRUE(GetSyncService(0)->GetActiveDataTypes().Has(syncer::PASSWORDS));
   EXPECT_FALSE(sync_ui_util::ShouldShowSyncKeysMissingError(GetSyncService(0)));
+}
+
+IN_PROC_BROWSER_TEST_F(
+    SingleClientNigoriWithWebApiTest,
+    PRE_ShouldClearEncryptionKeysFromTheWebWhenSigninCookiesCleared) {
+  const std::vector<uint8_t> kTestEncryptionKey = {1, 2, 3, 4};
+  const GURL retrieval_url =
+      GetTrustedVaultRetrievalURL(*embedded_test_server(), kTestEncryptionKey);
+
+  ASSERT_TRUE(SetupClients());
+
+  // Explicitly add signin cookie (normally it would be done during the keys
+  // retrieval or before it).
+  cookie_helper::AddSigninCookie(GetProfile(0));
+
+  // There needs to be an existing tab for the second tab (the retrieval flow)
+  // to be closeable via javascript.
+  chrome::AddTabAt(GetBrowser(0), GURL(url::kAboutBlankURL), /*index=*/0,
+                   /*foreground=*/true);
+
+  TrustedVaultKeysChangedStateChecker keys_fetched_checker(GetSyncService(0));
+  // Mimic opening a web page where the user can interact with the retrieval
+  // flow, while the user is signed out.
+  sync_ui_util::OpenTabForSyncKeyRetrievalWithURLForTesting(GetBrowser(0),
+                                                            retrieval_url);
+  ASSERT_THAT(GetBrowser(0)->tab_strip_model()->GetActiveWebContents(),
+              NotNull());
+
+  // Wait until the page closes, which indicates successful completion.
+  EXPECT_TRUE(
+      TabClosedChecker(GetBrowser(0)->tab_strip_model()->GetActiveWebContents())
+          .Wait());
+  EXPECT_TRUE(keys_fetched_checker.Wait());
+
+  // Mimic signin cookie clearing.
+  TrustedVaultKeysChangedStateChecker keys_cleared_checker(GetSyncService(0));
+  cookie_helper::DeleteSigninCookies(GetProfile(0));
+  EXPECT_TRUE(keys_cleared_checker.Wait());
+}
+
+IN_PROC_BROWSER_TEST_F(
+    SingleClientNigoriWithWebApiTest,
+    ShouldClearEncryptionKeysFromTheWebWhenSigninCookiesCleared) {
+  const std::vector<uint8_t> kTestEncryptionKey = {1, 2, 3, 4};
+
+  // Mimic the account being already using a trusted vault passphrase.
+  encryption_helper::SetNigoriInFakeServer(
+      GetFakeServer(), BuildTrustedVaultNigoriSpecifics({kTestEncryptionKey}));
+
+  // Sign in and start sync.
+  ASSERT_TRUE(SetupSync());
+
+  EXPECT_TRUE(GetSyncService(0)
+                  ->GetUserSettings()
+                  ->IsTrustedVaultKeyRequiredForPreferredDataTypes());
+  EXPECT_FALSE(GetSyncService(0)->GetActiveDataTypes().Has(syncer::PASSWORDS));
+  EXPECT_TRUE(sync_ui_util::ShouldShowSyncKeysMissingError(GetSyncService(0)));
+}
+
+IN_PROC_BROWSER_TEST_F(
+    SingleClientNigoriWithWebApiTest,
+    ShouldRemotelyTransitFromTrustedVaultToKeystorePassphrase) {
+  const std::vector<uint8_t> kTestEncryptionKey = {1, 2, 3, 4};
+
+  const GURL retrieval_url =
+      GetTrustedVaultRetrievalURL(*embedded_test_server(), kTestEncryptionKey);
+
+  // Mimic the account being already using a trusted vault passphrase.
+  encryption_helper::SetNigoriInFakeServer(
+      GetFakeServer(), BuildTrustedVaultNigoriSpecifics({kTestEncryptionKey}));
+
+  ASSERT_TRUE(SetupSync());
+  ASSERT_TRUE(GetSyncService(0)
+                  ->GetUserSettings()
+                  ->IsTrustedVaultKeyRequiredForPreferredDataTypes());
+  ASSERT_FALSE(GetSyncService(0)->GetActiveDataTypes().Has(syncer::PASSWORDS));
+  ASSERT_TRUE(sync_ui_util::ShouldShowSyncKeysMissingError(GetSyncService(0)));
+
+  // There needs to be an existing tab for the second tab (the retrieval flow)
+  // to be closeable via javascript.
+  chrome::AddTabAt(GetBrowser(0), GURL(url::kAboutBlankURL), /*index=*/0,
+                   /*foreground=*/true);
+
+  // Mimic opening a web page where the user can interact with the retrieval
+  // flow.
+  sync_ui_util::OpenTabForSyncKeyRetrievalWithURLForTesting(GetBrowser(0),
+                                                            retrieval_url);
+  ASSERT_THAT(GetBrowser(0)->tab_strip_model()->GetActiveWebContents(),
+              NotNull());
+
+  // Wait until the page closes, which indicates successful completion.
+  EXPECT_TRUE(
+      TabClosedChecker(GetBrowser(0)->tab_strip_model()->GetActiveWebContents())
+          .Wait());
+
+  // Mimic remote transition to keystore passphrase.
+  const std::vector<std::vector<uint8_t>>& keystore_keys =
+      GetFakeServer()->GetKeystoreKeys();
+  ASSERT_THAT(keystore_keys, SizeIs(1));
+  const KeyParams kKeystoreKeyParams = Pbkdf2KeyParams(keystore_keys.back());
+  const KeyParams kTrustedVaultKeyParams = Pbkdf2KeyParams(kTestEncryptionKey);
+  SetNigoriInFakeServer(
+      GetFakeServer(),
+      BuildKeystoreNigoriSpecifics(
+          /*keybag_keys_params=*/{kTrustedVaultKeyParams, kKeystoreKeyParams},
+          /*keystore_decryptor_params*/ {kKeystoreKeyParams},
+          /*keystore_key_params=*/kKeystoreKeyParams));
+
+  // Ensure that client can decrypt with both |kTrustedVaultKeyParams| and
+  // |kKeystoreKeyParams|.
+  const autofill::PasswordForm password_form1 =
+      passwords_helper::CreateTestPasswordForm(1);
+  const autofill::PasswordForm password_form2 =
+      passwords_helper::CreateTestPasswordForm(2);
+
+  passwords_helper::InjectEncryptedServerPassword(
+      password_form1, kKeystoreKeyParams.password,
+      kKeystoreKeyParams.derivation_params, GetFakeServer());
+  passwords_helper::InjectEncryptedServerPassword(
+      password_form2, kTrustedVaultKeyParams.password,
+      kTrustedVaultKeyParams.derivation_params, GetFakeServer());
+
+  EXPECT_TRUE(PasswordFormsChecker(0, {password_form1, password_form2}).Wait());
+}
+
+IN_PROC_BROWSER_TEST_F(
+    SingleClientNigoriWithWebApiTest,
+    ShouldRemotelyTransitFromTrustedVaultToCustomPassphrase) {
+  const std::vector<uint8_t> kTestEncryptionKey = {1, 2, 3, 4};
+
+  const GURL retrieval_url =
+      GetTrustedVaultRetrievalURL(*embedded_test_server(), kTestEncryptionKey);
+
+  // Mimic the account being already using a trusted vault passphrase.
+  encryption_helper::SetNigoriInFakeServer(
+      GetFakeServer(), BuildTrustedVaultNigoriSpecifics({kTestEncryptionKey}));
+
+  ASSERT_TRUE(SetupSync());
+  ASSERT_TRUE(GetSyncService(0)
+                  ->GetUserSettings()
+                  ->IsTrustedVaultKeyRequiredForPreferredDataTypes());
+  ASSERT_FALSE(GetSyncService(0)->GetActiveDataTypes().Has(syncer::PASSWORDS));
+  ASSERT_TRUE(sync_ui_util::ShouldShowSyncKeysMissingError(GetSyncService(0)));
+
+  // There needs to be an existing tab for the second tab (the retrieval flow)
+  // to be closeable via javascript.
+  chrome::AddTabAt(GetBrowser(0), GURL(url::kAboutBlankURL), /*index=*/0,
+                   /*foreground=*/true);
+
+  // Mimic opening a web page where the user can interact with the retrieval
+  // flow.
+  sync_ui_util::OpenTabForSyncKeyRetrievalWithURLForTesting(GetBrowser(0),
+                                                            retrieval_url);
+  ASSERT_THAT(GetBrowser(0)->tab_strip_model()->GetActiveWebContents(),
+              NotNull());
+
+  // Wait until the page closes, which indicates successful completion.
+  EXPECT_TRUE(
+      TabClosedChecker(GetBrowser(0)->tab_strip_model()->GetActiveWebContents())
+          .Wait());
+
+  // Mimic remote transition to custom passphrase.
+  const KeyParams kCustomPassphraseKeyParams = {
+      syncer::KeyDerivationParams::CreateForPbkdf2(), "passphrase"};
+  const KeyParams kTrustedVaultKeyParams = Pbkdf2KeyParams(kTestEncryptionKey);
+  SetNigoriInFakeServer(GetFakeServer(),
+                        CreateCustomPassphraseNigori(kCustomPassphraseKeyParams,
+                                                     kTrustedVaultKeyParams));
+
+  EXPECT_TRUE(
+      PassphraseRequiredStateChecker(GetSyncService(1), /*desired_state=*/true)
+          .Wait());
+  EXPECT_TRUE(GetSyncService(1)->GetUserSettings()->SetDecryptionPassphrase(
+      kCustomPassphraseKeyParams.password));
+  EXPECT_TRUE(
+      PassphraseRequiredStateChecker(GetSyncService(1), /*desired_state=*/false)
+          .Wait());
+
+  // Ensure that client can decrypt with both |kTrustedVaultKeyParams| and
+  // |kCustomPassphraseKeyParams|.
+  const autofill::PasswordForm password_form1 =
+      passwords_helper::CreateTestPasswordForm(1);
+  const autofill::PasswordForm password_form2 =
+      passwords_helper::CreateTestPasswordForm(2);
+
+  passwords_helper::InjectEncryptedServerPassword(
+      password_form1, kCustomPassphraseKeyParams.password,
+      kCustomPassphraseKeyParams.derivation_params, GetFakeServer());
+  passwords_helper::InjectEncryptedServerPassword(
+      password_form2, kTrustedVaultKeyParams.password,
+      kTrustedVaultKeyParams.derivation_params, GetFakeServer());
+
+  EXPECT_TRUE(PasswordFormsChecker(0, {password_form1, password_form2}).Wait());
 }
 
 // Same as SingleClientNigoriWithWebApiTest but does NOT override
@@ -695,7 +889,7 @@ class SingleClientNigoriWithWebApiFromUntrustedOriginTest
 
 IN_PROC_BROWSER_TEST_F(SingleClientNigoriWithWebApiFromUntrustedOriginTest,
                        ShouldNotExposeJavascriptApi) {
-  const std::string kTestEncryptionKey = "testpassphrase1";
+  const std::vector<uint8_t> kTestEncryptionKey = {1, 2, 3, 4};
 
   const GURL retrieval_url =
       GetTrustedVaultRetrievalURL(*embedded_test_server(), kTestEncryptionKey);
@@ -709,7 +903,12 @@ IN_PROC_BROWSER_TEST_F(SingleClientNigoriWithWebApiFromUntrustedOriginTest,
                                                   /*desired_state=*/true)
                   .Wait());
 
-  // Mimic opening a web page where the user can interact with the retrival
+  // There needs to be an existing tab for the second tab (the retrieval flow)
+  // to be closeable via javascript.
+  chrome::AddTabAt(GetBrowser(0), GURL(url::kAboutBlankURL), /*index=*/0,
+                   /*foreground=*/true);
+
+  // Mimic opening a web page where the user can interact with the retrieval
   // flow.
   sync_ui_util::OpenTabForSyncKeyRetrievalWithURLForTesting(GetBrowser(0),
                                                             retrieval_url);

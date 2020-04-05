@@ -34,17 +34,20 @@ class TestLoginScreen : public ash::LoginScreen {
   void EnableShutdownButton(bool enable) override;
   void ShowGuestButtonInOobe(bool show) override;
   void ShowParentAccessButton(bool show) override;
-  void ShowParentAccessWidget(
-      const AccountId& child_account_id,
-      base::RepeatingCallback<void(bool success)> callback,
-      ash::ParentAccessRequestReason reason,
-      bool extra_dimmer,
-      base::Time validation_time) override;
+  void ShowParentAccessWidget(const AccountId& child_account_id,
+                              base::OnceCallback<void(bool success)> callback,
+                              ash::ParentAccessRequestReason reason,
+                              bool extra_dimmer,
+                              base::Time validation_time) override;
   void SetAllowLoginAsGuest(bool allow_guest) override;
   std::unique_ptr<ash::ScopedGuestButtonBlocker> GetScopedGuestButtonBlocker()
       override;
   void RequestSecurityTokenPin(ash::SecurityTokenPinRequest request) override;
   void ClearSecurityTokenPinRequest() override;
+  bool SetLoginShelfGestureHandler(const base::string16& nudge_text,
+                                   const base::RepeatingClosure& fling_callback,
+                                   base::OnceClosure exit_callback) override;
+  void ClearLoginShelfGestureHandler() override;
 
  private:
   TestLoginScreenModel test_screen_model_;

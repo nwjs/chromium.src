@@ -6,7 +6,6 @@ package org.chromium.chrome.browser.toolbar;
 
 import android.content.Context;
 import android.content.res.ColorStateList;
-import android.support.v4.content.ContextCompat;
 import android.util.AttributeSet;
 import android.view.ContextMenu;
 import android.view.ContextMenu.ContextMenuInfo;
@@ -16,6 +15,7 @@ import android.view.View;
 import android.view.View.OnCreateContextMenuListener;
 
 import androidx.annotation.VisibleForTesting;
+import androidx.core.content.ContextCompat;
 
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.chrome.R;
@@ -27,13 +27,13 @@ import org.chromium.chrome.browser.compositor.layouts.EmptyOverviewModeObserver;
 import org.chromium.chrome.browser.compositor.layouts.OverviewModeBehavior;
 import org.chromium.chrome.browser.compositor.layouts.OverviewModeState;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
-import org.chromium.chrome.browser.flags.FeatureUtilities;
+import org.chromium.chrome.browser.homepage.HomepageManager;
 import org.chromium.chrome.browser.homepage.HomepagePolicyManager;
+import org.chromium.chrome.browser.homepage.settings.HomepageSettings;
 import org.chromium.chrome.browser.ntp.NewTabPage;
-import org.chromium.chrome.browser.partnercustomizations.HomepageManager;
 import org.chromium.chrome.browser.settings.SettingsLauncher;
-import org.chromium.chrome.browser.settings.homepage.HomepageSettings;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.toolbar.bottom.BottomToolbarConfiguration;
 import org.chromium.ui.widget.ChromeImageButton;
 
 /**
@@ -128,7 +128,7 @@ public class HomeButton extends ChromeImageButton
         if (!ChromeFeatureList.isInitialized()) return;
 
         if (isHomepageSettingsUIConversionEnabled()) {
-            menu.add(Menu.NONE, ID_SETTINGS, Menu.NONE, R.string.homebutton_context_menu_settings)
+            menu.add(Menu.NONE, ID_SETTINGS, Menu.NONE, R.string.options_homepage_edit_title)
                     .setOnMenuItemClickListener(this);
         } else {
             menu.add(Menu.NONE, ID_REMOVE, Menu.NONE, R.string.remove)
@@ -210,7 +210,7 @@ public class HomeButton extends ChromeImageButton
      *         change is likely.
      */
     private boolean isTabNTP(Tab tab) {
-        return tab != null && NewTabPage.isNTPUrl(tab.getUrl());
+        return tab != null && NewTabPage.isNTPUrl(tab.getUrlString());
     }
 
     /**
@@ -227,7 +227,7 @@ public class HomeButton extends ChromeImageButton
     }
 
     private void updateContextMenuListener() {
-        if (!FeatureUtilities.isBottomToolbarEnabled() && !isManagedByPolicy()) {
+        if (!BottomToolbarConfiguration.isBottomToolbarEnabled() && !isManagedByPolicy()) {
             setOnCreateContextMenuListener(this);
         } else {
             setOnCreateContextMenuListener(null);

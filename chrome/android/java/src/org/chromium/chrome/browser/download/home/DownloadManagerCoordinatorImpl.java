@@ -17,6 +17,7 @@ import org.chromium.base.DiscardableReferencePool;
 import org.chromium.base.ObserverList;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.supplier.ObservableSupplier;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.download.home.filter.Filters;
 import org.chromium.chrome.browser.download.home.filter.Filters.FilterType;
 import org.chromium.chrome.browser.download.home.list.DateOrderedListCoordinator;
@@ -25,7 +26,6 @@ import org.chromium.chrome.browser.download.home.list.ListItem;
 import org.chromium.chrome.browser.download.home.snackbars.DeleteUndoCoordinator;
 import org.chromium.chrome.browser.download.home.toolbar.ToolbarCoordinator;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
-import org.chromium.chrome.download.R;
 import org.chromium.components.browser_ui.widget.selectable_list.SelectionDelegate;
 import org.chromium.components.feature_engagement.Tracker;
 import org.chromium.components.offline_items_collection.OfflineContentProvider;
@@ -82,8 +82,8 @@ class DownloadManagerCoordinatorImpl
      */
     private void initializeView() {
         mMainView = new FrameLayout(mActivity);
-        mMainView.setBackgroundColor(ApiCompatibilityUtils.getColor(
-                mActivity.getResources(), R.color.modern_primary_color));
+        mMainView.setBackgroundColor(
+                ApiCompatibilityUtils.getColor(mActivity.getResources(), R.color.default_bg_color));
 
         FrameLayout.LayoutParams listParams = new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT);

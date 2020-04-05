@@ -31,6 +31,7 @@
 #import "ios/chrome/browser/ui/commands/command_dispatcher.h"
 #import "ios/chrome/browser/ui/commands/load_query_commands.h"
 #import "ios/chrome/browser/ui/fullscreen/fullscreen_controller.h"
+#import "ios/chrome/browser/ui/fullscreen/fullscreen_features.h"
 #import "ios/chrome/browser/ui/fullscreen/fullscreen_ui_updater.h"
 #import "ios/chrome/browser/ui/infobars/infobar_feature.h"
 #import "ios/chrome/browser/ui/location_bar/location_bar_constants.h"
@@ -45,9 +46,8 @@
 #include "ios/chrome/browser/ui/omnibox/web_omnibox_edit_controller_impl.h"
 #import "ios/chrome/browser/ui/toolbar/toolbar_coordinator_delegate.h"
 #import "ios/chrome/browser/ui/util/pasteboard_util.h"
+#import "ios/chrome/browser/url_loading/url_loading_browser_agent.h"
 #import "ios/chrome/browser/url_loading/url_loading_params.h"
-#import "ios/chrome/browser/url_loading/url_loading_service.h"
-#import "ios/chrome/browser/url_loading/url_loading_service_factory.h"
 #import "ios/chrome/browser/url_loading/url_loading_util.h"
 #import "ios/chrome/browser/web/web_navigation_util.h"
 #import "ios/chrome/browser/web_state_list/web_state_list.h"
@@ -123,15 +123,15 @@ const int kLocationAuthorizationStatusCount = 5;
 }
 
 - (void)start {
-  DCHECK(self.commandDispatcher);
   DCHECK(self.browser);
 
   if (self.started)
     return;
 
-  [self.commandDispatcher startDispatchingToTarget:self
-                                       forProtocol:@protocol(OmniboxFocuser)];
-  [self.commandDispatcher
+  [self.browser->GetCommandDispatcher()
+      startDispatchingToTarget:self
+                   forProtocol:@protocol(OmniboxCommands)];
+  [self.browser->GetCommandDispatcher()
       startDispatchingToTarget:self
                    forProtocol:@protocol(LoadQueryCommands)];
 
@@ -140,9 +140,12 @@ const int kLocationAuthorizationStatusCount = 5;
   self.viewController = [[LocationBarViewController alloc] init];
   self.viewController.incognito = isIncognito;
   self.viewController.delegate = self;
+  // TODO(crbug.com/1045047): Use HandlerForProtocol after commands protocol
+  // clean up.
   self.viewController.dispatcher =
       static_cast<id<ActivityServiceCommands, BrowserCommands,
-                     ApplicationCommands, LoadQueryCommands>>(self.dispatcher);
+                     ApplicationCommands, LoadQueryCommands>>(
+          self.browser->GetCommandDispatcher());
   self.viewController.voiceSearchEnabled = ios::GetChromeBrowserProvider()
                                                ->GetVoiceSearchProvider()
                                                ->IsVoiceSearchEnabled();
@@ -150,10 +153,10 @@ const int kLocationAuthorizationStatusCount = 5;
   _editController = std::make_unique<WebOmniboxEditControllerImpl>(self);
   _editController->SetURLLoader(self);
 
-  self.omniboxCoordinator = [[OmniboxCoordinator alloc] init];
+  self.omniboxCoordinator =
+      [[OmniboxCoordinator alloc] initWithBaseViewController:nil
+                                                     browser:self.browser];
   self.omniboxCoordinator.editController = _editController.get();
-  self.omniboxCoordinator.browserState = self.browserState;
-  self.omniboxCoordinator.dispatcher = self.dispatcher;
   [self.omniboxCoordinator start];
 
   [self.omniboxCoordinator.managedViewController
@@ -168,8 +171,6 @@ const int kLocationAuthorizationStatusCount = 5;
 
   self.omniboxPopupCoordinator = [self.omniboxCoordinator
       createPopupCoordinator:self.popupPresenterDelegate];
-  self.omniboxPopupCoordinator.dispatcher = self.dispatcher;
-  self.omniboxPopupCoordinator.webStateList = self.webStateList;
   [self.omniboxPopupCoordinator start];
 
   // Create button factory that wil be used by the ViewController to get
@@ -184,12 +185,19 @@ const int kLocationAuthorizationStatusCount = 5;
   // Create BadgeMediator and set the viewController as its consumer.
   self.badgeMediator = [[BadgeMediator alloc] initWithBrowser:self.browser];
   self.badgeMediator.consumer = self.badgeViewController;
+  // TODO(crbug.com/1045047): Use HandlerForProtocol after commands protocol
+  // clean up.
   self.badgeMediator.dispatcher =
       static_cast<id<InfobarCommands, BrowserCoordinatorCommands>>(
-          self.dispatcher);
+          self.browser->GetCommandDispatcher());
   buttonFactory.delegate = self.badgeMediator;
-  FullscreenController* fullscreenController =
-      FullscreenController::FromBrowserState(self.browserState);
+  FullscreenController* fullscreenController;
+  if (fullscreen::features::ShouldScopeFullscreenControllerToBrowser()) {
+    fullscreenController = FullscreenController::FromBrowser(self.browser);
+  } else {
+    fullscreenController =
+        FullscreenController::FromBrowserState(self.browserState);
+  }
   _badgeFullscreenUIUpdater = std::make_unique<FullscreenUIUpdater>(
       fullscreenController, self.badgeViewController);
 
@@ -211,7 +219,7 @@ const int kLocationAuthorizationStatusCount = 5;
 - (void)stop {
   if (!self.started)
     return;
-  [self.commandDispatcher stopDispatchingToTarget:self];
+  [self.browser->GetCommandDispatcher() stopDispatchingToTarget:self];
   // The popup has to be destroyed before the location bar.
   [self.omniboxPopupCoordinator stop];
   [self.omniboxCoordinator stop];
@@ -290,8 +298,7 @@ const int kLocationAuthorizationStatusCount = 5;
     web_params.extra_headers = [combinedExtraHeaders copy];
     UrlLoadParams params = UrlLoadParams::InCurrentTab(web_params);
     params.disposition = disposition;
-    UrlLoadingServiceFactory::GetForBrowserState(self.browserState)
-        ->Load(params);
+    UrlLoadingBrowserAgent::FromBrowser(self.browser)->Load(params);
 
     if (google_util::IsGoogleSearchUrl(url)) {
       UMA_HISTOGRAM_ENUMERATION(
@@ -303,21 +310,7 @@ const int kLocationAuthorizationStatusCount = 5;
   [self cancelOmniboxEdit];
 }
 
-#pragma mark - OmniboxFocuser
-
-- (void)focusOmniboxFromSearchButton {
-  // TODO(crbug.com/931284): Temporary workaround for intermediate broken state
-  // in the NTP.  Remove this once crbug.com/899827 is fixed.
-  if (self.webState) {
-    NewTabPageTabHelper* NTPHelper =
-        NewTabPageTabHelper::FromWebState(self.webState);
-    if (NTPHelper && NTPHelper->IsActive() && NTPHelper->IgnoreLoadRequests()) {
-      return;
-    }
-  }
-  [self.omniboxCoordinator setNextFocusSourceAsSearchButton];
-  [self focusOmnibox];
-}
+#pragma mark - OmniboxCommands
 
 - (void)focusOmniboxFromFakebox {
   [self.omniboxCoordinator focusOmnibox];
@@ -457,8 +450,7 @@ const int kLocationAuthorizationStatusCount = 5;
     UrlLoadParams params = UrlLoadParams::InCurrentTab(searchURL);
     params.web_params.transition_type = ui::PageTransitionFromInt(
         ui::PAGE_TRANSITION_LINK | ui::PAGE_TRANSITION_FROM_ADDRESS_BAR);
-    UrlLoadingServiceFactory::GetForBrowserState(self.browserState)
-        ->Load(params);
+    UrlLoadingBrowserAgent::FromBrowser(self.browser)->Load(params);
   }
 }
 

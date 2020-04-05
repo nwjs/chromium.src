@@ -23,12 +23,12 @@
 #include "mojo/public/cpp/bindings/message.h"
 #include "net/base/load_flags.h"
 #include "net/http/http_request_headers.h"
+#include "net/proxy_resolution/configured_proxy_resolution_service.h"
 #include "net/traffic_annotation/network_traffic_annotation_test_helper.h"
 #include "net/url_request/url_request.h"
 #include "net/url_request/url_request_context.h"
 #include "net/url_request/url_request_context_builder.h"
 #include "services/network/cors/cors_url_loader_factory.h"
-#include "services/network/loader_util.h"
 #include "services/network/network_context.h"
 #include "services/network/network_service.h"
 #include "services/network/public/cpp/features.h"
@@ -39,6 +39,7 @@
 #include "services/network/resource_scheduler/resource_scheduler.h"
 #include "services/network/resource_scheduler/resource_scheduler_client.h"
 #include "services/network/test/test_url_loader_client.h"
+#include "services/network/url_loader.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -148,7 +149,7 @@ class CorsURLLoaderTest : public testing::Test {
       : task_environment_(base::test::TaskEnvironment::MainThreadType::IO) {
     net::URLRequestContextBuilder context_builder;
     context_builder.set_proxy_resolution_service(
-        net::ProxyResolutionService::CreateDirect());
+        net::ConfiguredProxyResolutionService::CreateDirect());
     url_request_context_ = context_builder.Build();
   }
 
@@ -328,7 +329,8 @@ class CorsURLLoaderTest : public testing::Test {
   void ResetFactory(base::Optional<url::Origin> initiator,
                     uint32_t process_id,
                     bool is_trusted,
-                    bool ignore_isolated_world_origin) {
+                    bool ignore_isolated_world_origin,
+                    bool skip_cors_enabled_scheme_check) {
     test_url_loader_factory_ = std::make_unique<TestURLLoaderFactory>();
     test_url_loader_factory_receiver_ =
         std::make_unique<mojo::Receiver<mojom::URLLoaderFactory>>(
@@ -337,12 +339,15 @@ class CorsURLLoaderTest : public testing::Test {
     auto factory_params = network::mojom::URLLoaderFactoryParams::New();
     if (initiator) {
       factory_params->request_initiator_site_lock = *initiator;
-      factory_params->factory_bound_access_patterns =
-          network::mojom::CorsOriginAccessPatterns::New();
-      factory_params->factory_bound_access_patterns->source_origin = *initiator;
-      for (const auto& item : factory_bound_allow_patterns_) {
-        factory_params->factory_bound_access_patterns->allow_patterns.push_back(
-            item.Clone());
+      if (!initiator->opaque()) {
+        factory_params->factory_bound_access_patterns =
+            network::mojom::CorsOriginAccessPatterns::New();
+        factory_params->factory_bound_access_patterns->source_origin =
+            *initiator;
+        for (const auto& item : factory_bound_allow_patterns_) {
+          factory_params->factory_bound_access_patterns->allow_patterns
+              .push_back(item.Clone());
+        }
       }
     }
     factory_params->is_trusted = is_trusted;
@@ -352,6 +357,8 @@ class CorsURLLoaderTest : public testing::Test {
     factory_params->factory_override = mojom::URLLoaderFactoryOverride::New();
     factory_params->factory_override->overriding_factory =
         test_url_loader_factory_receiver_->BindNewPipeAndPassRemote();
+    factory_params->factory_override->skip_cors_enabled_scheme_check =
+        skip_cors_enabled_scheme_check;
     auto resource_scheduler_client =
         base::MakeRefCounted<ResourceSchedulerClient>(
             process_id, ++last_issued_route_id, &resource_scheduler_,
@@ -368,7 +375,8 @@ class CorsURLLoaderTest : public testing::Test {
                     uint32_t process_id) {
     auto params = network::mojom::URLLoaderFactoryParams::New();
     ResetFactory(initiator, process_id, params->is_trusted,
-                 params->ignore_isolated_world_origin);
+                 params->ignore_isolated_world_origin,
+                 false /* skip_cors_enabled_scheme_check */);
   }
 
   NetworkContext* network_context() { return network_context_.get(); }
@@ -690,6 +698,57 @@ TEST_F(CorsURLLoaderTest,
   ASSERT_TRUE(client().completion_status().cors_error_status);
   EXPECT_EQ(mojom::CorsError::kAllowOriginMismatch,
             client().completion_status().cors_error_status->cors_error);
+}
+
+TEST_F(CorsURLLoaderTest, CorsEnabledSameCustomSchemeRequest) {
+  // Custom scheme should not be permitted by default.
+  const GURL origin("my-scheme://foo/index.html");
+  const GURL url("my-scheme://bar/baz.png");
+  CreateLoaderAndStart(origin, url, mojom::RequestMode::kCors);
+  RunUntilComplete();
+
+  EXPECT_FALSE(IsNetworkLoaderStarted());
+  EXPECT_FALSE(client().has_received_redirect());
+  EXPECT_FALSE(client().has_received_response());
+  EXPECT_EQ(net::ERR_FAILED, client().completion_status().error_code);
+  ASSERT_TRUE(client().completion_status().cors_error_status);
+  EXPECT_EQ(mojom::CorsError::kCorsDisabledScheme,
+            client().completion_status().cors_error_status->cors_error);
+
+  // Scheme check can be skipped via the factory params.
+  auto params = network::mojom::URLLoaderFactoryParams::New();
+  ResetFactory(url::Origin::Create(origin), mojom::kBrowserProcessId,
+               params->is_trusted, params->ignore_isolated_world_origin,
+               true /* skip_cors_enabled_scheme_check */);
+
+  // "Access-Control-Allow-Origin: *" accepts the custom scheme.
+  CreateLoaderAndStart(origin, url, mojom::RequestMode::kCors);
+  RunUntilCreateLoaderAndStartCalled();
+
+  NotifyLoaderClientOnReceiveResponse({"Access-Control-Allow-Origin: *"});
+  NotifyLoaderClientOnComplete(net::OK);
+
+  RunUntilComplete();
+
+  EXPECT_TRUE(IsNetworkLoaderStarted());
+  EXPECT_FALSE(client().has_received_redirect());
+  EXPECT_TRUE(client().has_received_response());
+  EXPECT_EQ(net::OK, client().completion_status().error_code);
+
+  // "Access-Control-Allow-Origin: null" accepts the custom scheme as a custom
+  // scheme is an opaque origin.
+  CreateLoaderAndStart(origin, url, mojom::RequestMode::kCors);
+  RunUntilCreateLoaderAndStartCalled();
+
+  NotifyLoaderClientOnReceiveResponse({"Access-Control-Allow-Origin: null"});
+  NotifyLoaderClientOnComplete(net::OK);
+
+  RunUntilComplete();
+
+  EXPECT_TRUE(IsNetworkLoaderStarted());
+  EXPECT_FALSE(client().has_received_redirect());
+  EXPECT_TRUE(client().has_received_response());
+  EXPECT_EQ(net::OK, client().completion_status().error_code);
 }
 
 TEST_F(CorsURLLoaderTest, StripUsernameAndPassword) {
@@ -1280,7 +1339,8 @@ TEST_F(CorsURLLoaderTest, OriginAccessList_IsolatedWorldOrigin) {
   const GURL url("http://other.com/foo.png");
 
   ResetFactory(main_world_origin, kRendererProcessId, false /* trusted */,
-               false /* ignore_isolated_world_origin */);
+               false /* ignore_isolated_world_origin */,
+               false /* skip_cors_enabled_scheme_check */);
 
   AddAllowListEntryForOrigin(isolated_world_origin, url.scheme(), url.host(),
                              mojom::CorsDomainMatchMode::kDisallowSubdomains);
@@ -1323,7 +1383,8 @@ TEST_F(CorsURLLoaderTest, OriginAccessList_IsolatedWorldOrigin_Redirect) {
   const GURL new_url("http://other.com/bar.png");
 
   ResetFactory(main_world_origin, kRendererProcessId, false /* trusted */,
-               false /* ignore_isolated_world_origin */);
+               false /* ignore_isolated_world_origin */,
+               false /* skip_cors_enabled_scheme_check */);
 
   AddAllowListEntryForOrigin(isolated_world_origin, url.scheme(), url.host(),
                              mojom::CorsDomainMatchMode::kDisallowSubdomains);
@@ -1376,7 +1437,8 @@ TEST_F(CorsURLLoaderTest, OriginAccessList_IsolatedWorldOriginIgnored) {
   const GURL url("http://other.com/foo.png");
 
   ResetFactory(main_world_origin, kRendererProcessId, false /* trusted */,
-               true /* ignore_isolated_world_origin */);
+               true /* ignore_isolated_world_origin */,
+               false /* skip_cors_enabled_scheme_check */);
 
   AddAllowListEntryForOrigin(isolated_world_origin, url.scheme(), url.host(),
                              mojom::CorsDomainMatchMode::kDisallowSubdomains);
@@ -1840,6 +1902,7 @@ TEST_F(CorsURLLoaderTest, NoConcerningRequestHeadersLoggedCorrectly) {
 }
 
 TEST_F(CorsURLLoaderTest, ConcerningRequestHeadersLoggedCorrectly) {
+  using ConcerningHeaderId = URLLoader::ConcerningHeaderId;
   base::HistogramTester histograms;
 
   ResourceRequest request;
@@ -2012,7 +2075,8 @@ TEST_F(CorsURLLoaderTest, TrustedParamsWithUntrustedFactoryFailsBeforeCORS) {
   for (bool is_trusted : {false, true}) {
     bool ignore_isolated_world_origin = true;  // This is the default.
     ResetFactory(base::nullopt, kRendererProcessId, is_trusted,
-                 ignore_isolated_world_origin);
+                 ignore_isolated_world_origin,
+                 false /* skip_cors_enabled_scheme_check */);
 
     BadMessageTestHelper bad_message_helper;
 
@@ -2059,7 +2123,8 @@ TEST_F(CorsURLLoaderTest, TrustedParamsWithUntrustedFactoryFailsBeforeCORS) {
 // NetworkIsolationKey, CorsURLLoaderFactory does not reject the request.
 TEST_F(CorsURLLoaderTest, RestrictedPrefetchSucceedsWithNIK) {
   ResetFactory(base::nullopt, kRendererProcessId, true /* is_trusted */,
-               true /* ignore_isolated_world_origin */);
+               true /* ignore_isolated_world_origin */,
+               false /* skip_cors_enabled_scheme_check */);
 
   BadMessageTestHelper bad_message_helper;
 
@@ -2099,7 +2164,8 @@ TEST_F(CorsURLLoaderTest, RestrictedPrefetchSucceedsWithNIK) {
 // make use of their TrustedParams' |network_isolation_key|.
 TEST_F(CorsURLLoaderTest, RestrictedPrefetchFailsWithoutNIK) {
   ResetFactory(base::nullopt, kRendererProcessId, true /* is_trusted */,
-               true /* ignore_isolated_world_origin */);
+               true /* ignore_isolated_world_origin */,
+               false /* skip_cors_enabled_scheme_check */);
 
   BadMessageTestHelper bad_message_helper;
 

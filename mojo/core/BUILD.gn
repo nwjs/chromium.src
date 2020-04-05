@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import("//build/config/compiler/compiler.gni")
 import("//build/config/nacl/config.gni")
 import("//testing/libfuzzer/fuzzer_test.gni")
 import("//testing/test.gni")
@@ -114,7 +115,7 @@ template("core_impl_source_set") {
     if (is_fuchsia) {
       sources += [ "channel_fuchsia.cc" ]
 
-      public_deps += [ "//third_party/fuchsia-sdk/sdk:fdio" ]
+      public_deps += [ "//third_party/fuchsia-sdk/sdk/pkg/fdio" ]
     }
 
     if (is_posix && !is_mac) {
@@ -164,6 +165,10 @@ template("core_impl_source_set") {
     }
 
     configs += [ "//build/config/compiler:noshadowing" ]
+    if (!is_debug && !optimize_for_size) {
+      configs -= [ "//build/config/compiler:default_optimization" ]
+      configs += [ "//build/config/compiler:optimize_max" ]
+    }
   }
 }
 

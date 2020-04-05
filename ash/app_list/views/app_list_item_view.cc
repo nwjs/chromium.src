@@ -71,7 +71,8 @@ constexpr SkColor kFolderGridTitleColor = SK_ColorBLACK;
 constexpr SkColor kFolderGridFocusRingColor = gfx::kGoogleBlue600;
 
 // The color of an item selected via right-click context menu.
-constexpr SkColor kContextSelection = SkColorSetA(gfx::kGoogleGrey100, 31);
+constexpr SkColor kContextSelection =
+    SkColorSetA(SK_ColorWHITE, 41);  // 16% opacity
 
 // The color of an item selected via right-click context menu in a folder.
 constexpr SkColor kContextSelectionFolder =
@@ -291,6 +292,7 @@ AppListItemView::AppListItemView(AppsGridView* apps_grid_view,
 AppListItemView::~AppListItemView() {
   if (item_weak_)
     item_weak_->RemoveObserver(this);
+  StopObservingImplicitAnimations();
 }
 
 void AppListItemView::SetIcon(const gfx::ImageSkia& icon) {
@@ -299,13 +301,19 @@ void AppListItemView::SetIcon(const gfx::ImageSkia& icon) {
     icon_->SetImage(nullptr);
     if (icon_shadow_)
       icon_shadow_->SetImage(nullptr);
+    icon_image_ = gfx::ImageSkia();
     return;
   }
+  icon_image_ = icon;
+
+  gfx::Size icon_bounds = is_folder_
+                              ? GetAppListConfig().folder_unclipped_icon_size()
+                              : GetAppListConfig().grid_icon_size();
+
+  icon_bounds = gfx::ScaleToRoundedSize(icon_bounds, icon_scale_);
 
   gfx::ImageSkia resized = gfx::ImageSkiaOperations::CreateResizedImage(
-      icon, skia::ImageOperations::RESIZE_BEST,
-      is_folder_ ? GetAppListConfig().folder_unclipped_icon_size()
-                 : GetAppListConfig().grid_icon_size());
+      icon, skia::ImageOperations::RESIZE_BEST, icon_bounds);
   icon_->SetImage(resized);
 
   if (icon_shadow_) {
@@ -338,22 +346,23 @@ void AppListItemView::SetUIState(UIState ui_state) {
   if (ui_state_ == ui_state)
     return;
 
-  ui_state_ = ui_state;
-
-  switch (ui_state_) {
+  switch (ui_state) {
     case UI_STATE_NORMAL:
       title_->SetVisible(!is_installing_);
       progress_bar_->SetVisible(is_installing_);
-      ScaleAppIcon(false);
+      if (ui_state_ == UI_STATE_DRAGGING)
+        ScaleAppIcon(false);
       break;
     case UI_STATE_DRAGGING:
       title_->SetVisible(false);
       progress_bar_->SetVisible(false);
-      ScaleAppIcon(true);
+      if (ui_state_ == UI_STATE_NORMAL)
+        ScaleAppIcon(true);
       break;
     case UI_STATE_DROPPING_IN_FOLDER:
       break;
   }
+  ui_state_ = ui_state;
 
   SchedulePaint();
 }
@@ -361,17 +370,53 @@ void AppListItemView::SetUIState(UIState ui_state) {
 void AppListItemView::ScaleAppIcon(bool scale_up) {
   if (!layer())
     return;
-  const gfx::Rect bounds(layer()->bounds().size());
-  gfx::Transform transform =
-      gfx::GetScaleTransform(bounds.CenterPoint(), kDragDropAppIconScale);
+  if (!is_folder_) {
+    if (scale_up) {
+      icon_scale_ = kDragDropAppIconScale;
+      SetIcon(icon_image_);
+      layer()->SetTransform(gfx::GetScaleTransform(
+          GetContentsBounds().CenterPoint(), 1 / kDragDropAppIconScale));
+    } else if (apps_grid_view_->IsDraggedView(this)) {
+      // If a drag view has been created for this icon, the item transition to
+      // target bounds is handled by the apps grid view bounds animator. At the
+      // end of that animation, the layer will be destroyed, causing the
+      // animation observer to get canceled. For this case, we need to scale
+      // down the icon immediately, with no animation.
+      icon_scale_ = 1.0f;
+      SetIcon(icon_image_);
+      layer()->SetTransform(gfx::Transform());
+    }
+  }
 
   ui::ScopedLayerAnimationSettings settings(layer()->GetAnimator());
   settings.SetTransitionDuration(
       base::TimeDelta::FromMilliseconds((kDragDropAppIconScaleTransitionInMs)));
-  if (scale_up)
-    layer()->SetTransform(transform);
-  else
-    layer()->SetTransform(gfx::Transform());
+  if (scale_up) {
+    if (is_folder_) {
+      const gfx::Rect bounds(layer()->bounds().size());
+      gfx::Transform transform =
+          gfx::GetScaleTransform(bounds.CenterPoint(), kDragDropAppIconScale);
+      layer()->SetTransform(transform);
+    } else {
+      layer()->SetTransform(gfx::Transform());
+    }
+  } else {
+    if (is_folder_) {
+      layer()->SetTransform(gfx::Transform());
+    } else if (!apps_grid_view_->IsDraggedView(this)) {
+      // To avoid poor quality icons, update icon image with the correct scale
+      // after the transform animation is completed.
+      settings.AddObserver(this);
+      layer()->SetTransform(gfx::GetScaleTransform(
+          GetContentsBounds().CenterPoint(), 1 / kDragDropAppIconScale));
+    }
+  }
+}
+
+void AppListItemView::OnImplicitAnimationsCompleted() {
+  icon_scale_ = 1.0f;
+  SetIcon(icon_image_);
+  layer()->SetTransform(gfx::Transform());
 }
 
 void AppListItemView::SetTouchDragging(bool touch_dragging) {
@@ -630,12 +675,12 @@ void AppListItemView::Layout() {
     return;
 
   const gfx::Rect icon_bounds = GetIconBoundsForTargetViewBounds(
-      GetAppListConfig(), rect, icon_->GetImage().size());
+      GetAppListConfig(), rect, icon_->GetImage().size(), icon_scale_);
   icon_->SetBoundsRect(icon_bounds);
 
   if (icon_shadow_) {
     const gfx::Rect icon_shadow_bounds = GetIconBoundsForTargetViewBounds(
-        GetAppListConfig(), rect, icon_shadow_->size());
+        GetAppListConfig(), rect, icon_shadow_->size(), icon_scale_);
     icon_shadow_->SetBoundsRect(icon_shadow_bounds);
   }
 
@@ -917,9 +962,10 @@ void AppListItemView::SetDragUIState() {
 gfx::Rect AppListItemView::GetIconBoundsForTargetViewBounds(
     const AppListConfig& config,
     const gfx::Rect& target_bounds,
-    const gfx::Size& icon_size) {
+    const gfx::Size& icon_size,
+    const float icon_scale) {
   gfx::Rect rect(target_bounds);
-  rect.Inset(0, 0, 0, config.grid_icon_bottom_padding());
+  rect.Inset(0, 0, 0, config.grid_icon_bottom_padding() * icon_scale);
   rect.ClampToCenteredSize(icon_size);
   return rect;
 }

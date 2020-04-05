@@ -43,7 +43,7 @@ class HTMLVideoElementPersistentTest : public PageTestBase {
     clients.chrome_client = chrome_client_.Get();
 
     PageTestBase::SetupPageWithClients(&clients);
-    GetDocument().body()->SetInnerHTMLFromString(
+    GetDocument().body()->setInnerHTML(
         "<body><div><video></video></div></body>");
   }
 
@@ -62,7 +62,8 @@ class HTMLVideoElementPersistentTest : public PageTestBase {
   FullscreenMockChromeClient& GetMockChromeClient() { return *chrome_client_; }
 
   void SimulateDidEnterFullscreen() {
-    Fullscreen::DidEnterFullscreen(GetDocument());
+    Fullscreen::DidResolveEnterFullscreenRequest(GetDocument(),
+                                                 true /* granted */);
   }
 
   void SimulateDidExitFullscreen() {

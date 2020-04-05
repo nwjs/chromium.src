@@ -10,6 +10,7 @@
 #include "base/macros.h"
 #include "base/no_destructor.h"
 #include "build/build_config.h"
+#include "chrome/services/soda/soda_service_impl.h"
 #include "components/paint_preview/buildflags/buildflags.h"
 #include "components/safe_browsing/buildflags.h"
 #include "components/services/patch/file_patcher_impl.h"
@@ -18,8 +19,8 @@
 #include "components/services/unzip/unzipper_impl.h"
 #include "content/public/common/content_features.h"
 #include "content/public/utility/utility_thread.h"
-#include "device/vr/buildflags/buildflags.h"
 #include "extensions/buildflags/buildflags.h"
+#include "media/mojo/mojom/soda_service.mojom.h"
 #include "mojo/public/cpp/bindings/service_factory.h"
 #include "printing/buildflags/buildflags.h"
 
@@ -33,10 +34,11 @@
 
 #if !defined(OS_ANDROID)
 #include "chrome/common/importer/profile_import.mojom.h"
+#include "chrome/services/qrcode_generator/public/mojom/qrcode_generator.mojom.h"  // nogncheck
+#include "chrome/services/qrcode_generator/qrcode_generator_service_impl.h"  // nogncheck
 #include "chrome/services/sharing/public/mojom/sharing.mojom.h"
 #include "chrome/services/sharing/sharing_impl.h"
 #include "chrome/utility/importer/profile_import_impl.h"
-#include "components/mirroring/service/features.h"
 #include "components/mirroring/service/mirroring_service.h"
 #include "services/proxy_resolver/proxy_resolver_factory_impl.h"  // nogncheck
 #include "services/proxy_resolver/public/mojom/proxy_resolver.mojom.h"
@@ -59,11 +61,6 @@
 #if BUILDFLAG(ENABLE_EXTENSIONS) || defined(OS_ANDROID)
 #include "chrome/services/media_gallery_util/media_parser_factory.h"
 #include "chrome/services/media_gallery_util/public/mojom/media_parser.mojom.h"
-#endif
-
-#if BUILDFLAG(ENABLE_VR) && !defined(OS_ANDROID)
-#include "chrome/services/isolated_xr_device/xr_device_service.h"  // nogncheck
-#include "device/vr/public/mojom/isolated_xr_service.mojom.h"      // nogncheck
 #endif
 
 #if BUILDFLAG(ENABLE_PRINT_PREVIEW) || \
@@ -100,6 +97,10 @@ auto RunUnzipper(mojo::PendingReceiver<unzip::mojom::Unzipper> receiver) {
   return std::make_unique<unzip::UnzipperImpl>(std::move(receiver));
 }
 
+auto RunSodaService(mojo::PendingReceiver<media::mojom::SodaService> receiver) {
+  return std::make_unique<soda::SodaServiceImpl>(std::move(receiver));
+}
+
 #if defined(OS_WIN)
 auto RunQuarantineService(
     mojo::PendingReceiver<quarantine::mojom::Quarantine> receiver) {
@@ -125,9 +126,15 @@ auto RunProfileImporter(
   return std::make_unique<ProfileImportImpl>(std::move(receiver));
 }
 
+auto RunQRCodeGeneratorService(
+    mojo::PendingReceiver<qrcode_generator::mojom::QRCodeGeneratorService>
+        receiver) {
+  return std::make_unique<qrcode_generator::QRCodeGeneratorServiceImpl>(
+      std::move(receiver));
+}
+
 auto RunMirroringService(
     mojo::PendingReceiver<mirroring::mojom::MirroringService> receiver) {
-  DCHECK(base::FeatureList::IsEnabled(mirroring::features::kMirroringService));
   return std::make_unique<mirroring::MirroringService>(
       std::move(receiver), content::UtilityThread::Get()->GetIOTaskRunner());
 }
@@ -164,13 +171,6 @@ auto RunMediaParserFactory(
   return std::make_unique<MediaParserFactory>(std::move(receiver));
 }
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS) || defined(OS_ANDROID)
-
-#if BUILDFLAG(ENABLE_VR) && !defined(OS_ANDROID)
-auto RunXrDeviceService(
-    mojo::PendingReceiver<device::mojom::XRDeviceService> receiver) {
-  return std::make_unique<device::XrDeviceService>(std::move(receiver));
-}
-#endif
 
 #if BUILDFLAG(ENABLE_PRINT_PREVIEW) || \
     (BUILDFLAG(ENABLE_PRINTING) && defined(OS_WIN))
@@ -235,10 +235,12 @@ mojo::ServiceFactory* GetMainThreadServiceFactory() {
   // clang-format off
   static base::NoDestructor<mojo::ServiceFactory> factory {
     RunFilePatcher,
+    RunSodaService,
     RunUnzipper,
 
 #if !defined(OS_ANDROID)
     RunProfileImporter,
+    RunQRCodeGeneratorService,
     RunMirroringService,
     RunSharing,
 #endif
@@ -263,10 +265,6 @@ mojo::ServiceFactory* GetMainThreadServiceFactory() {
 
 #if BUILDFLAG(ENABLE_EXTENSIONS) || defined(OS_ANDROID)
     RunMediaParserFactory,
-#endif
-
-#if BUILDFLAG(ENABLE_VR) && !defined(OS_ANDROID)
-    RunXrDeviceService,
 #endif
 
 #if BUILDFLAG(ENABLE_PRINT_PREVIEW) || \

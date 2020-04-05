@@ -7,15 +7,16 @@ package org.chromium.chrome.browser.tasks.tab_management;
 import android.content.Context;
 import android.content.res.ColorStateList;
 import android.graphics.Rect;
-import android.support.annotation.ColorInt;
-import android.support.v7.content.res.AppCompatResources;
 import android.view.View;
 
+import androidx.annotation.ColorInt;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.content.res.AppCompatResources;
 
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.EmptyTabModelSelectorObserver;
 import org.chromium.chrome.browser.tabmodel.TabModel;
@@ -116,7 +117,7 @@ class TabSelectionEditorMediator
 
         mTabModelObserver = new TabModelSelectorTabModelObserver(mTabModelSelector) {
             @Override
-            public void didAddTab(Tab tab, int type) {
+            public void didAddTab(Tab tab, int type, @TabCreationState int creationState) {
                 // When tab is added due to multi-window close or moving between multiple windows,
                 // force hiding the selection editor.
                 if (type == TabLaunchType.FROM_RESTORE || type == TabLaunchType.FROM_REPARENTING) {
@@ -139,7 +140,7 @@ class TabSelectionEditorMediator
                 boolean isIncognito = newModel.isIncognito();
                 @ColorInt
                 int primaryColor = ApiCompatibilityUtils.getColor(mContext.getResources(),
-                        isIncognito ? R.color.dark_primary_color : R.color.modern_primary_color);
+                        isIncognito ? R.color.default_bg_color_dark : R.color.default_bg_color);
                 // TODO(995876): Update color modern_blue_300 to active_color_dark when the
                 // associated bug is landed.
                 @ColorInt
@@ -148,8 +149,8 @@ class TabSelectionEditorMediator
                 ColorStateList toolbarTintColorList = AppCompatResources.getColorStateList(mContext,
                         isIncognito ? R.color.dark_text_color_list
                                     : R.color.default_text_color_inverse_list);
-                int textAppearance = isIncognito ? R.style.TextAppearance_Headline_Primary_Black
-                                                 : R.style.TextAppearance_Headline_Inverse;
+                int textAppearance = isIncognito ? R.style.TextAppearance_Headline_Primary_Dark
+                                                 : R.style.TextAppearance_Headline_Primary_Inverse;
 
                 mModel.set(TabSelectionEditorProperties.PRIMARY_COLOR, primaryColor);
                 mModel.set(TabSelectionEditorProperties.TOOLBAR_BACKGROUND_COLOR,

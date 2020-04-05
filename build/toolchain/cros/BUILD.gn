@@ -15,6 +15,14 @@ template("cros_toolchain") {
   gcc_toolchain(target_name) {
     forward_variables_from(invoker, "*")
 
+    # CrOS's target toolchain wrapper prefers to invoke gomacc itself, so pass
+    # it the gomacc path via cmd-line arg. Otherwise, for both CrOS's host
+    # wrapper (used in the ebuild) and Chrome's clang (used in Simple Chrome),
+    # prepend gomacc like normal.
+    if (use_goma && toolchain_args.needs_gomacc_path_arg) {
+      extra_cppflags += " --gomacc-path $goma_dir/gomacc"
+    }
+
     # Relativize path if compiler is specified such that not to lookup from $PATH
     # and cc/cxx does not contain additional flags.
     if (cc != get_path_info(cc, "file") && string_replace(cc, " ", "") == cc) {
@@ -53,6 +61,7 @@ cros_toolchain("target") {
 
   toolchain_args = {
     cc_wrapper = ""
+    needs_gomacc_path_arg = true
     clang_use_chrome_plugins = false
     current_cpu = target_cpu
     current_os = "chromeos"
@@ -60,6 +69,7 @@ cros_toolchain("target") {
     use_debug_fission = use_debug_fission
     use_gold = use_gold
     use_sysroot = use_sysroot
+    sysroot = target_sysroot
   }
 }
 
@@ -86,6 +96,7 @@ cros_toolchain("nacl_bootstrap") {
 
   toolchain_args = {
     cc_wrapper = ""
+    needs_gomacc_path_arg = true
     clang_use_chrome_plugins = false
     current_cpu = target_cpu
     current_os = "chromeos"
@@ -116,11 +127,13 @@ cros_toolchain("host") {
 
   toolchain_args = {
     cc_wrapper = ""
+    needs_gomacc_path_arg = false
     clang_use_chrome_plugins = false
     is_clang = cros_host_is_clang
     current_cpu = host_cpu
     current_os = "linux"
     use_sysroot = use_sysroot
+    sysroot = cros_host_sysroot
   }
 }
 
@@ -144,6 +157,7 @@ cros_toolchain("v8_snapshot") {
 
   toolchain_args = {
     cc_wrapper = ""
+    needs_gomacc_path_arg = false
     clang_use_chrome_plugins = false
     is_clang = cros_v8_snapshot_is_clang
     if (target_cpu == "x86" || target_cpu == "arm" || target_cpu == "mipsel") {
@@ -154,5 +168,6 @@ cros_toolchain("v8_snapshot") {
     v8_current_cpu = v8_target_cpu
     current_os = "linux"
     use_sysroot = use_sysroot
+    sysroot = cros_v8_snapshot_sysroot
   }
 }

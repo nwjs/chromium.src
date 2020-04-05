@@ -5,6 +5,7 @@
 #include "content/public/browser/download_manager_delegate.h"
 
 #include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "components/download/public/common/download_item.h"
 
@@ -59,6 +60,7 @@ void DownloadManagerDelegate::CheckDownloadAllowed(
     const std::string& request_method,
     base::Optional<url::Origin> request_initiator,
     bool from_download_cross_origin_redirect,
+    bool content_initiated,
     CheckDownloadAllowedCallback check_download_allowed_cb) {
   // TODO: once hook up delegate callback, make sure sync run of it doesn't
   // crash and test it

@@ -22,6 +22,7 @@
 #include <memory>
 #include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/core/layout/svg/layout_svg_resource_container.h"
+#include "third_party/blink/renderer/core/layout/svg/layout_svg_resource_paint_server.h"
 #include "third_party/blink/renderer/core/layout/svg/svg_resources.h"
 #include "third_party/blink/renderer/core/layout/svg/svg_resources_cycle_solver.h"
 #include "third_party/blink/renderer/core/svg/svg_document_extensions.h"
@@ -51,9 +52,9 @@ SVGResources* SVGResourcesCache::AddResourcesFromLayoutObject(
   HashSet<LayoutSVGResourceContainer*> resource_set;
   resources->BuildSetOfResources(resource_set);
 
-  SVGResourcesCycleSolver solver(object);
+  SVGResourcesCycleSolver solver;
   for (auto* resource_container : resource_set) {
-    if (solver.FindCycle(resource_container))
+    if (resource_container->FindCycle(solver))
       resources->ClearReferencesTo(resource_container);
   }
   return resources;
@@ -88,14 +89,22 @@ void SVGResourcesCache::ClientLayoutChanged(LayoutObject& object) {
   SVGResources* resources = CachedResourcesForLayoutObject(object);
   if (!resources)
     return;
-
   // Invalidate the resources if either the LayoutObject itself changed,
   // or we have filter resources, which could depend on the layout of children.
   if (!object.SelfNeedsLayout() && !resources->Filter())
     return;
-  SVGResourceClient* client = SVGResources::GetClient(object);
-  if (InvalidationModeMask invalidation_flags =
-          resources->RemoveClientFromCache(*client)) {
+  SVGElementResourceClient* client = SVGResources::GetClient(object);
+  InvalidationModeMask invalidation_flags =
+      resources->RemoveClientFromCacheAffectingObjectBounds(*client);
+  if (LayoutSVGResourcePaintServer* fill = resources->Fill()) {
+    fill->RemoveClientFromCache(*client);
+    invalidation_flags |= SVGResourceClient::kPaintInvalidation;
+  }
+  if (LayoutSVGResourcePaintServer* stroke = resources->Stroke()) {
+    stroke->RemoveClientFromCache(*client);
+    invalidation_flags |= SVGResourceClient::kPaintInvalidation;
+  }
+  if (invalidation_flags) {
     LayoutSVGResourceContainer::MarkClientForInvalidation(object,
                                                           invalidation_flags);
   }
@@ -127,11 +136,8 @@ void SVGResourcesCache::ClientStyleChanged(LayoutObject& layout_object,
   if (!diff.HasDifference() || !layout_object.Parent())
     return;
 
-  // In this case the proper SVGFE*Element will decide whether the modified CSS
-  // properties require
-  // a relayout or paintInvalidation.
-  if (layout_object.IsSVGResourceFilterPrimitive() && !diff.NeedsLayout())
-    return;
+  // LayoutObjects for SVGFE*Element should not be calling this function.
+  DCHECK(!layout_object.IsSVGFilterPrimitive());
 
   // Dynamic changes of CSS properties like 'clip-path' may require us to
   // recompute the associated resources for a LayoutObject.
@@ -156,7 +162,7 @@ void SVGResourcesCache::ClientStyleChanged(LayoutObject& layout_object,
   // If this layoutObject is the child of ResourceContainer and it require
   // repainting that changes of CSS properties such as 'visibility',
   // request repainting.
-  needs_layout |= diff.NeedsFullPaintInvalidation() &&
+  needs_layout |= diff.NeedsPaintInvalidation() &&
                   IsLayoutObjectOfResourceContainer(layout_object);
 
   LayoutSVGResourceContainer::MarkForLayoutAndParentResourceInvalidation(
@@ -185,8 +191,7 @@ void SVGResourcesCache::ResourceReferenceChanged(LayoutObject& layout_object) {
       layout_object, true);
 }
 
-void SVGResourcesCache::ClientWasAddedToTree(LayoutObject& layout_object,
-                                             const ComputedStyle& new_style) {
+void SVGResourcesCache::ClientWasAddedToTree(LayoutObject& layout_object) {
   if (!layout_object.GetNode())
     return;
   LayoutSVGResourceContainer::MarkForLayoutAndParentResourceInvalidation(
@@ -195,7 +200,8 @@ void SVGResourcesCache::ClientWasAddedToTree(LayoutObject& layout_object,
   if (!LayoutObjectCanHaveResources(layout_object))
     return;
   SVGResourcesCache& cache = ResourcesCache(layout_object.GetDocument());
-  if (cache.AddResourcesFromLayoutObject(layout_object, new_style))
+  if (cache.AddResourcesFromLayoutObject(layout_object,
+                                         layout_object.StyleRef()))
     layout_object.SetNeedsPaintPropertyUpdate();
 }
 

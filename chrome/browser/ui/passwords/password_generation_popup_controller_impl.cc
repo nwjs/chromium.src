@@ -8,6 +8,8 @@
 #include <stddef.h>
 
 #include <algorithm>
+#include <utility>
+#include <vector>
 
 #include "base/bind.h"
 #include "base/i18n/rtl.h"
@@ -296,25 +298,8 @@ void PasswordGenerationPopupControllerImpl::ViewDestroyed() {
   Hide(PopupHidingReason::kViewDestroyed);
 }
 
-void PasswordGenerationPopupControllerImpl::SetSelectionAtPoint(
-    const gfx::Point& point) {
-  // The view handles mouse events itself.
-}
-
-bool PasswordGenerationPopupControllerImpl::AcceptSelectedLine() {
-  if (!password_selected_)
-    return false;
-
-  PasswordAccepted();
-  return true;
-}
-
 void PasswordGenerationPopupControllerImpl::SelectionCleared() {
   PasswordSelected(false);
-}
-
-bool PasswordGenerationPopupControllerImpl::HasSelection() const {
-  return password_selected();
 }
 
 void PasswordGenerationPopupControllerImpl::SetSelected() {
@@ -325,11 +310,6 @@ gfx::NativeView PasswordGenerationPopupControllerImpl::container_view() const {
   return controller_common_.container_view;
 }
 
-gfx::Rect PasswordGenerationPopupControllerImpl::popup_bounds() const {
-  NOTREACHED();
-  return gfx::Rect();
-}
-
 const gfx::RectF& PasswordGenerationPopupControllerImpl::element_bounds()
     const {
   return controller_common_.element_bounds;
@@ -338,21 +318,6 @@ const gfx::RectF& PasswordGenerationPopupControllerImpl::element_bounds()
 bool PasswordGenerationPopupControllerImpl::IsRTL() const {
   return base::i18n::IsRTL();
 }
-
-const std::vector<autofill::Suggestion>
-PasswordGenerationPopupControllerImpl::GetSuggestions() {
-  return std::vector<autofill::Suggestion>();
-}
-
-#if !defined(OS_ANDROID)
-int PasswordGenerationPopupControllerImpl::GetElidedValueWidthForRow(int row) {
-  return 0;
-}
-
-int PasswordGenerationPopupControllerImpl::GetElidedLabelWidthForRow(int row) {
-  return 0;
-}
-#endif
 
 PasswordGenerationPopupController::GenerationUIState
 PasswordGenerationPopupControllerImpl::state() const {

@@ -10,6 +10,7 @@
 #include "base/command_line.h"
 #include "base/logging.h"
 #include "base/numerics/ranges.h"
+#include "build/build_config.h"
 #include "cc/paint/paint_flags.h"
 #include "cc/paint/paint_shader.h"
 #include "third_party/skia/include/core/SkPath.h"
@@ -37,9 +38,6 @@ const int kCheckboxAndRadioHeight = 13;
 // These sizes match the sizes in Chromium Win.
 const int kSliderThumbWidth = 11;
 const int kSliderThumbHeight = 21;
-
-const int kDefaultScrollbarWidth = 15;
-const int kDefaultScrollbarButtonLength = 14;
 
 // Color constant pairs for light/default and dark color-schemes below.
 constexpr SkColor kThumbActiveColor[2] = {SkColorSetRGB(0xF4, 0xF4, 0xF4),
@@ -354,13 +352,12 @@ gfx::Rect NativeThemeBase::GetNinePatchAperture(Part part) const {
   return gfx::Rect();
 }
 
-NativeThemeBase::NativeThemeBase()
-    : scrollbar_width_(kDefaultScrollbarWidth),
-      scrollbar_button_length_(kDefaultScrollbarButtonLength) {
-}
+NativeThemeBase::NativeThemeBase() : NativeThemeBase(false) {}
 
-NativeThemeBase::~NativeThemeBase() {
-}
+NativeThemeBase::NativeThemeBase(bool should_only_use_dark_colors)
+    : NativeTheme(should_only_use_dark_colors) {}
+
+NativeThemeBase::~NativeThemeBase() = default;
 
 void NativeThemeBase::PaintArrowButton(
     cc::PaintCanvas* canvas,
@@ -691,7 +688,7 @@ SkRect NativeThemeBase::PaintCheckboxRadioCommon(
     // No other browser seems to support non-square widget, so accidentally
     // having non-square sizes is common (eg. amazon and webkit dev tools).
     if (skrect.width() != skrect.height()) {
-      SkScalar size = SkMinScalar(skrect.width(), skrect.height());
+      SkScalar size = std::min(skrect.width(), skrect.height());
       skrect.inset((skrect.width() - size) / 2, (skrect.height() - size) / 2);
     }
 
@@ -747,7 +744,7 @@ SkRect NativeThemeBase::PaintCheckboxRadioCommon(
   // No other browser seems to support non-square widget, so accidentally
   // having non-square sizes is common (eg. amazon and webkit dev tools).
   if (skrect.width() != skrect.height()) {
-    SkScalar size = SkMinScalar(skrect.width(), skrect.height());
+    SkScalar size = std::min(skrect.width(), skrect.height());
     skrect.inset((skrect.width() - size) / 2, (skrect.height() - size) / 2);
   }
 
@@ -1570,8 +1567,13 @@ SkColor NativeThemeBase::ControlsBackgroundColorForState(
 
 SkColor NativeThemeBase::GetControlColor(ControlColorId color_id,
                                          ColorScheme color_scheme) const {
-  if (UsesHighContrastColors())
+#if defined(OS_WIN)
+  if (UsesHighContrastColors() && features::IsForcedColorsEnabled())
     return GetHighContrastControlColor(color_id, color_scheme);
+#endif
+
+  if(color_scheme == ColorScheme::kDark)
+    return GetDarkModeControlColor(color_id);
 
   switch (color_id) {
     case kBorder:
@@ -1617,6 +1619,52 @@ SkColor NativeThemeBase::GetControlColor(ControlColorId color_id,
     case kAutoCompleteBackground:
       return SkColorSetRGB(0xE8, 0xF0, 0xFE);
   }
+  NOTREACHED();
+  return gfx::kPlaceholderColor;
+}
+
+SkColor NativeThemeBase::GetDarkModeControlColor(
+    ControlColorId color_id) const {
+    switch (color_id) {
+    case kAccent:
+      return SkColorSetRGB(0xC3, 0xC3, 0xC3);
+    case kHoveredAccent:
+      return SkColorSetRGB(0xD8, 0xD8, 0xD8);
+    case kPressedAccent:
+      return SkColorSetRGB(0xB9, 0xB9, 0xB9);
+    case kDisabledAccent:
+      return SkColorSetARGB(0x4D, 0xC3, 0xC3, 0xC3);
+    case kProgressValue:
+      return SkColorSetRGB(0x63, 0xAD, 0xE5);
+    case kFill:
+    case kLightenLayer:
+    case kAutoCompleteBackground:
+    case kBackground:
+      return SkColorSetRGB(0x3B, 0x3B, 0x3B);
+    case kBorder:
+    case kSlider:
+      return SkColorSetRGB(0xC3, 0xC3, 0xC3);
+    case kHoveredSlider:
+      return SkColorSetRGB(0xD8, 0xD8, 0xD8);
+    case kPressedSlider:
+      return SkColorSetRGB(0xB9, 0xB9, 0xB9);
+    case kDisabledSlider:
+      return SkColorSetRGB(0x70, 0x70, 0x70);
+    case kDisabledBackground:
+      return SkColorSetARGB(0x4D, 0x3B, 0x3B, 0x3B);
+    case kHoveredBorder:
+      return SkColorSetRGB(0xEA, 0xEA, 0xEA);
+    case kPressedBorder:
+      return SkColorSetRGB(0xAC, 0xAC, 0xAC);
+    case kDisabledBorder:
+      return SkColorSetARGB(0x4D ,0xC3, 0xC3, 0xC3);
+    case kHoveredFill:
+      return SkColorSetRGB(0x54, 0x54, 0x54);
+    case kPressedFill:
+      return SkColorSetRGB(0x45, 0x45, 0x45);
+    case kDisabledFill:
+      return SkColorSetARGB(0x4D, 0x3B, 0x3B, 0x3B);
+    }
   NOTREACHED();
   return gfx::kPlaceholderColor;
 }

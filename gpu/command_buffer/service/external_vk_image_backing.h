@@ -11,6 +11,8 @@
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/shared_memory_mapping.h"
 #include "base/optional.h"
+#include "base/util/type_safety/pass_key.h"
+#include "build/build_config.h"
 #include "components/viz/common/gpu/vulkan_context_provider.h"
 #include "gpu/command_buffer/common/shared_image_usage.h"
 #include "gpu/command_buffer/service/shared_context_state.h"
@@ -23,6 +25,12 @@
 namespace gpu {
 
 class VulkanCommandPool;
+class VulkanImage;
+
+struct VulkanImageUsageCache {
+  // Maximal usage flags for VK_IMAGE_TILING_OPTIMAL each ResourceFormat.
+  VkImageUsageFlags optimal_tiling_usage[viz::RESOURCE_FORMAT_MAX + 1];
+};
 
 class ExternalVkImageBacking final : public ClearTrackingSharedImageBacking {
  public:
@@ -34,6 +42,7 @@ class ExternalVkImageBacking final : public ClearTrackingSharedImageBacking {
       const gfx::Size& size,
       const gfx::ColorSpace& color_space,
       uint32_t usage,
+      const VulkanImageUsageCache* image_usage_cache,
       base::span<const uint8_t> pixel_data,
       bool using_gmb = false);
 
@@ -45,12 +54,24 @@ class ExternalVkImageBacking final : public ClearTrackingSharedImageBacking {
       gfx::BufferFormat buffer_format,
       const gfx::Size& size,
       const gfx::ColorSpace& color_space,
-      uint32_t usage);
+      uint32_t usage,
+      const VulkanImageUsageCache* image_usage_cache);
+
+  ExternalVkImageBacking(util::PassKey<ExternalVkImageBacking>,
+                         const Mailbox& mailbox,
+                         viz::ResourceFormat format,
+                         const gfx::Size& size,
+                         const gfx::ColorSpace& color_space,
+                         uint32_t usage,
+                         SharedContextState* context_state,
+                         std::unique_ptr<VulkanImage> image,
+                         VulkanCommandPool* command_pool);
 
   ~ExternalVkImageBacking() override;
 
   SharedContextState* context_state() const { return context_state_; }
   const GrBackendTexture& backend_texture() const { return backend_texture_; }
+  VulkanImage* image() const { return image_.get(); }
   const scoped_refptr<gles2::TexturePassthrough>& GetTexturePassthrough()
       const {
     return texture_passthrough_;
@@ -95,6 +116,18 @@ class ExternalVkImageBacking final : public ClearTrackingSharedImageBacking {
   bool ProduceLegacyMailbox(MailboxManager* mailbox_manager) override;
 
  protected:
+  static std::unique_ptr<ExternalVkImageBacking> CreateInternal(
+      SharedContextState* context_state,
+      VulkanCommandPool* command_pool,
+      const Mailbox& mailbox,
+      viz::ResourceFormat format,
+      const gfx::Size& size,
+      const gfx::ColorSpace& color_space,
+      uint32_t usage,
+      const VulkanImageUsageCache* image_usage_cache,
+      base::span<const uint8_t> pixel_data,
+      bool using_gmb);
+
   void UpdateContent(uint32_t content_flags);
   bool BeginAccessInternal(bool readonly,
                            std::vector<SemaphoreHandle>* semaphore_handles);
@@ -117,22 +150,8 @@ class ExternalVkImageBacking final : public ClearTrackingSharedImageBacking {
       scoped_refptr<SharedContextState> context_state) override;
 
  private:
-  ExternalVkImageBacking(const Mailbox& mailbox,
-                         viz::ResourceFormat format,
-                         const gfx::Size& size,
-                         const gfx::ColorSpace& color_space,
-                         uint32_t usage,
-                         SharedContextState* context_state,
-                         VkImage image,
-                         VkDeviceMemory memory,
-                         size_t memory_size,
-                         VkFormat vk_format,
-                         VulkanCommandPool* command_pool,
-                         const GrVkYcbcrConversionInfo& ycbcr_info,
-                         base::Optional<WGPUTextureFormat> wgpu_format,
-                         base::Optional<uint32_t> memory_type_index);
 
-#ifdef OS_LINUX
+#if defined(OS_LINUX) || defined(OS_ANDROID)
   // Extract file descriptor from image
   int GetMemoryFd(const GrVkImageInfo& image_info);
 #endif
@@ -153,6 +172,7 @@ class ExternalVkImageBacking final : public ClearTrackingSharedImageBacking {
   void CopyPixelsFromShmToGLTexture();
 
   SharedContextState* const context_state_;
+  std::unique_ptr<VulkanImage> image_;
   GrBackendTexture backend_texture_;
   VulkanCommandPool* const command_pool_;
 
@@ -175,9 +195,6 @@ class ExternalVkImageBacking final : public ClearTrackingSharedImageBacking {
     kInGLTexture = 1 << 2,
   };
   uint32_t latest_content_ = 0;
-
-  base::Optional<WGPUTextureFormat> wgpu_format_;
-  base::Optional<uint32_t> memory_type_index_;
 
   DISALLOW_COPY_AND_ASSIGN(ExternalVkImageBacking);
 };

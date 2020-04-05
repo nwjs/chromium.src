@@ -3,7 +3,6 @@
 // found in the LICENSE file.
 
 (function() {
-'use strict';
 
 /**
  * This is the absolute difference maintained between standard and
@@ -93,6 +92,14 @@ Polymer({
               settings.routes.FONTS.path, '#customize-fonts-subpage-trigger');
         }
         return map;
+      },
+    },
+
+    /** @private */
+    showReaderModeOption_: {
+      type: Boolean,
+      value() {
+        return loadTimeData.getBoolean('showReaderModeOption');
       },
     },
   },

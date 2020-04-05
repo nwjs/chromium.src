@@ -10,10 +10,10 @@
 
     <style name="Base.V17.Theme.Chromium" parent="Theme.BrowserUI">
         <!-- Window Properties -->
-        <item name="android:windowBackground">@color/modern_primary_color</item>
+        <item name="android:windowBackground">@color/default_bg_color</item>
 
         <!-- Action bar color -->
-        <item name="colorPrimary">@color/modern_primary_color</item>
+        <item name="colorPrimary">@color/default_bg_color</item>
 
         <!-- Status bar color -->
         <item name="android:statusBarColor" tools:targetApi="21">@android:color/black</item>
@@ -246,7 +246,7 @@
 
     <!-- Manage Space Activity styles -->
     <style name="ManageSpaceActionBarModern" parent="SettingsActionBarModern">
-        <item name="titleTextStyle">@style/TextAppearance.WhiteHeadline</item>
+        <item name="titleTextStyle">@style/TextAppearance.Headline.Primary.Light</item>
     </style>
     <style name="ManageSpaceActivityButton">
       <item name="android:layout_width">wrap_content</item>
@@ -453,7 +453,7 @@
         parent="TextAppearance.PaymentsUiSectionDescriptiveTextEndAligned">
         <item name="android:textColor">@color/explanation_text_color</item>
     </style>
-    <style name="TextAppearance.EditorDialogSectionAddButton" parent="TextAppearance.BlueLink2">
+    <style name="TextAppearance.EditorDialogSectionAddButton" parent="TextAppearance.TextMedium.Blue">
         <item name="android:textAllCaps">true</item>
     </style>
     <style name="TextAppearance.PaymentRequestHeaderTitle"
@@ -491,7 +491,7 @@
         <item name="tabMaxWidth">0dp</item>
         <item name="tabTextColor">@color/default_text_color_secondary</item>
         <item name="tabSelectedTextColor">@color/tab_layout_selected_tab_color</item>
-        <item name="android:background">@color/modern_primary_color</item>
+        <item name="android:background">@color/default_bg_color</item>
     </style>
 
     <!-- Misc styles -->
@@ -504,12 +504,12 @@
         <item name="android:paddingStart">4dp</item>
         <item name="android:scaleType">center</item>
         <item name="android:layout_gravity">end</item>
-        <item name="tint">@color/standard_mode_tint</item>
+        <item name="tint">@color/default_icon_color_tint_list</item>
     </style>
     <style name="ModernToolbar" parent="Widget.AppCompat.Toolbar">
         <item name="titleTextAppearance">@style/TextAppearance.Headline.Primary</item>
         <item name="windowActionBarOverlay">true</item>
-        <item name="android:background">@color/modern_primary_color</item>
+        <item name="android:background">@color/default_bg_color</item>
     </style>
     <style name="ToolbarButton">
         <item name="android:background">?attr/selectableItemBackground</item>
@@ -581,7 +581,6 @@
     <style name="SigninButtonBorderlessRegular" parent="@style/TextButton">
         <item name="android:paddingStart">0dp</item>
         <item name="android:paddingEnd">0dp</item>
-        <item name="android:textAppearance">@style/TextAppearance.BlueLink2</item>
     </style>
     <style name="NavigationPopupDialog" parent="Widget.AppCompat.Light.ListPopupWindow" />
 
@@ -626,7 +625,7 @@
     <!-- Bookmarks -->
     <style name="TextAppearance.BookmarkEditFolderName"
         parent="@style/TextAppearance.AppCompat.Medium">
-        <item name="android:textColor">@color/standard_mode_tint</item>
+        <item name="android:textColor">@color/default_icon_color_tint_list</item>
     </style>
 
     <!-- Download Home -->
@@ -653,7 +652,7 @@
         <item name="android:textAppearance">
             @style/TextAppearance.DataUsageBreakdownColumnLabel</item>
     </style>
-    <style name="TextAppearance.DataUsageBreakdownSavedColumnLabel" parent="@style/TextAppearance.BlueButtonText2">
+    <style name="TextAppearance.DataUsageBreakdownSavedColumnLabel" parent="@style/TextAppearance.Button.Text.Blue">
         <item name="android:textAllCaps">false</item>
     </style>
     <style name="DataUsageBreakdownSavedColumnLabel" parent="DataUsageBreakdownColumnLabel">
@@ -668,7 +667,7 @@
         <item name="android:textAppearance">@style/TextAppearance.TextSmall.Secondary</item>
     </style>
     <style name="DataUsageBreakdownSavedColumnItem" parent="DataUsageBreakdownColumnItem">
-        <item name="android:textAppearance">@style/TextAppearance.BlueLink3</item>
+        <item name="android:textAppearance">@style/TextAppearance.TextSmall.Blue</item>
     </style>
     <style name="TextAppearance.DataReductionHeadline" parent="TextAppearance.Headline.Primary">
         <item name="android:textColor">@color/default_text_color_link</item>
@@ -722,7 +721,7 @@
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">wrap_content</item>
     </style>
-    <style name="TextAppearance.PasswordEntryName" parent="TextAppearance.BlueButtonText2">
+    <style name="TextAppearance.PasswordEntryName" parent="TextAppearance.Button.Text.Blue">
         <item name="android:textAllCaps">false</item>
     </style>
 
@@ -751,7 +750,7 @@
     <style name="OmniboxSuggestionIconButton">
         <item name="android:background">?attr/selectableItemBackground</item>
         <item name="android:layout_width">@dimen/min_touch_target_size</item>
-        <item name="android:layout_height">@dimen/omnibox_suggestion_edit_url_min_height</item>
+        <item name="android:layout_height">@dimen/omnibox_suggestion_comfortable_height</item>
         <item name="tint">@color/default_icon_color</item>
     </style>
 

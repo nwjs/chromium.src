@@ -71,8 +71,6 @@ ScriptPromise NativeFileSystemFileHandle::createWritable(
     ScriptState* script_state,
     const FileSystemCreateWriterOptions* options,
     ExceptionState& exception_state) {
-  DCHECK(RuntimeEnabledFeatures::WritableFileStreamEnabled());
-
   if (!mojo_ptr_) {
     exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError, "");
     return ScriptPromise();
@@ -139,7 +137,7 @@ NativeFileSystemFileHandle::Transfer() {
   return result;
 }
 
-void NativeFileSystemFileHandle::ContextDestroyed(ExecutionContext*) {
+void NativeFileSystemFileHandle::ContextDestroyed() {
   mojo_ptr_.reset();
 }
 
@@ -167,6 +165,22 @@ void NativeFileSystemFileHandle::RequestPermissionImpl(
   }
 
   mojo_ptr_->RequestPermission(writable, std::move(callback));
+}
+
+void NativeFileSystemFileHandle::IsSameEntryImpl(
+    mojo::PendingRemote<mojom::blink::NativeFileSystemTransferToken> other,
+    base::OnceCallback<void(mojom::blink::NativeFileSystemErrorPtr, bool)>
+        callback) {
+  if (!mojo_ptr_) {
+    std::move(callback).Run(
+        mojom::blink::NativeFileSystemError::New(
+            mojom::blink::NativeFileSystemStatus::kInvalidState,
+            base::File::Error::FILE_ERROR_FAILED, "Context Destroyed"),
+        false);
+    return;
+  }
+
+  mojo_ptr_->IsSameEntry(std::move(other), std::move(callback));
 }
 
 }  // namespace blink

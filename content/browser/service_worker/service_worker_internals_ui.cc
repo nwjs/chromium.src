@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "base/bind.h"
+#include "base/callback_helpers.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/task/post_task.h"
 #include "base/values.h"
@@ -631,7 +632,8 @@ void ServiceWorkerInternalsUI::UnregisterWithScope(
   // ServiceWorkerContextWrapper::UnregisterServiceWorker doesn't work here
   // because that reduces a status code to boolean.
   context->context()->UnregisterServiceWorker(
-      scope, base::AdaptCallbackForRepeating(std::move(callback)));
+      scope, /*is_immediate=*/false,
+      base::AdaptCallbackForRepeating(std::move(callback)));
 }
 
 }  // namespace content

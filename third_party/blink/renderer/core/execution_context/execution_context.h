@@ -38,15 +38,17 @@
 #include "services/network/public/mojom/referrer_policy.mojom-blink-forward.h"
 #include "third_party/blink/public/mojom/feature_policy/feature_policy.mojom-blink-forward.h"
 #include "third_party/blink/public/mojom/feature_policy/feature_policy_feature.mojom-blink-forward.h"
+#include "third_party/blink/public/mojom/feature_policy/policy_disposition.mojom-blink-forward.h"
 #include "third_party/blink/public/mojom/frame/lifecycle.mojom-blink-forward.h"
 #include "third_party/blink/renderer/bindings/core/v8/sanitize_script_errors.h"
 #include "third_party/blink/renderer/core/core_export.h"
-#include "third_party/blink/renderer/core/execution_context/context_lifecycle_notifier.h"
-#include "third_party/blink/renderer/core/execution_context/context_lifecycle_observer.h"
+#include "third_party/blink/renderer/core/execution_context/execution_context_lifecycle_observer.h"
 #include "third_party/blink/renderer/core/execution_context/security_context.h"
 #include "third_party/blink/renderer/core/feature_policy/feature_policy_parser_delegate.h"
 #include "third_party/blink/renderer/core/frame/dom_timer_coordinator.h"
+#include "third_party/blink/renderer/platform/context_lifecycle_notifier.h"
 #include "third_party/blink/renderer/platform/heap/handle.h"
+#include "third_party/blink/renderer/platform/heap_observer_list.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 #include "third_party/blink/renderer/platform/loader/fetch/console_logger.h"
 #include "third_party/blink/renderer/platform/loader/fetch/https_state.h"
@@ -57,10 +59,6 @@
 
 namespace base {
 class SingleThreadTaskRunner;
-}
-
-namespace service_manager {
-class InterfaceProvider;
 }
 
 namespace blink {
@@ -80,11 +78,9 @@ class LocalDOMWindow;
 class OriginTrialContext;
 class PublicURLManager;
 class ResourceFetcher;
-class SecurityContextInit;
 class SecurityOrigin;
 class ScriptState;
 class TrustedTypePolicyFactory;
-enum class WebSandboxFlags;
 
 enum class TaskType : unsigned char;
 
@@ -93,11 +89,9 @@ enum ReasonForCallingCanExecuteScripts {
   kNotAboutToExecuteScript
 };
 
-enum class SecureContextMode { kInsecureContext, kSecureContext };
-
 // An environment in which script can execute. This class exposes the common
 // properties of script execution environments on the web (i.e, common between
-// script executing in a document and script executing in a worker), such as:
+// script executing in a window and script executing in a worker), such as:
 //
 // - a base URL for the resolution of relative URLs
 // - a security context that defines the privileges associated with the
@@ -108,24 +102,24 @@ enum class SecureContextMode { kInsecureContext, kSecureContext };
 //   been closed permanently
 // - a console logging facility for debugging
 //
-// Typically, the ExecutionContext is an instance of Document or of
+// Typically, the ExecutionContext is an instance of LocalDOMWindow or of
 // WorkerOrWorkletGlobalScope.
 //
 // Note that this is distinct from the notion of a ScriptState or v8::Context,
 // which are associated with a single script context (with a single global
 // object). For example, there are separate JavaScript globals for "main world"
 // script written by a web author and an "isolated world" content script written
-// by an extension developer, but these share an ExecutionContext (the document)
+// by an extension developer, but these share an ExecutionContext (the window)
 // in common.
-class CORE_EXPORT ExecutionContext : public ContextLifecycleNotifier,
-                                     public Supplementable<ExecutionContext>,
+class CORE_EXPORT ExecutionContext : public Supplementable<ExecutionContext>,
+                                     public ContextLifecycleNotifier,
                                      public ConsoleLogger,
                                      public UseCounter,
                                      public FeaturePolicyParserDelegate {
   MERGE_GARBAGE_COLLECTED_MIXINS();
 
  public:
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
 
   static ExecutionContext* From(const ScriptState*);
   static ExecutionContext* From(v8::Local<v8::Context>);
@@ -161,8 +155,8 @@ class CORE_EXPORT ExecutionContext : public ContextLifecycleNotifier,
 
   ContentSecurityPolicy* GetContentSecurityPolicy() const;
 
-  WebSandboxFlags GetSandboxFlags() const;
-  bool IsSandboxed(WebSandboxFlags mask) const;
+  mojom::blink::WebSandboxFlags GetSandboxFlags() const;
+  bool IsSandboxed(mojom::blink::WebSandboxFlags mask) const;
 
   // Returns the content security policy to be used based on the current
   // JavaScript world we are in.
@@ -193,10 +187,8 @@ class CORE_EXPORT ExecutionContext : public ContextLifecycleNotifier,
 
   virtual ResourceFetcher* Fetcher() const = 0;
 
-  SecurityContext& GetSecurityContext() { return security_context_; }
-  const SecurityContext& GetSecurityContext() const {
-    return security_context_;
-  }
+  virtual SecurityContext& GetSecurityContext() = 0;
+  virtual const SecurityContext& GetSecurityContext() const = 0;
 
   // https://tc39.github.io/ecma262/#sec-agent-clusters
   // TODO(dtapuska): Remove this virtual once all execution_contexts
@@ -221,7 +213,7 @@ class CORE_EXPORT ExecutionContext : public ContextLifecycleNotifier,
   virtual void RemoveURLFromMemoryCache(const KURL&);
 
   void SetLifecycleState(mojom::FrameLifecycleState);
-  void NotifyContextDestroyed() override;
+  void NotifyContextDestroyed();
 
   using ConsoleLogger::AddConsoleMessage;
 
@@ -250,15 +242,12 @@ class CORE_EXPORT ExecutionContext : public ContextLifecycleNotifier,
   // Decides whether this context is privileged, as described in
   // https://w3c.github.io/webappsec-secure-contexts/#is-settings-object-contextually-secure.
   SecureContextMode GetSecureContextMode() const {
-    return secure_context_mode_;
+    return GetSecurityContext().GetSecureContextMode();
   }
   bool IsSecureContext() const {
-    return secure_context_mode_ == SecureContextMode::kSecureContext;
+    return GetSecureContextMode() == SecureContextMode::kSecureContext;
   }
   bool IsSecureContext(String& error_message) const;
-  void SetSecureContextModeForTesting(SecureContextMode mode) {
-    secure_context_mode_ = mode;
-  }
 
   // Returns a referrer to be used in the "Determine request's Referrer"
   // algorithm defined in the Referrer Policy spec.
@@ -282,11 +271,6 @@ class CORE_EXPORT ExecutionContext : public ContextLifecycleNotifier,
 
   virtual CoreProbeSink* GetProbeSink() { return nullptr; }
 
-  // DEPRECATED. Please use GetBrowserInterfaceBroker() instead.
-  virtual service_manager::InterfaceProvider* GetInterfaceProvider() {
-    return nullptr;
-  }
-
   virtual BrowserInterfaceBrokerProxy& GetBrowserInterfaceBroker() = 0;
 
   virtual FrameOrWorkerScheduler* GetScheduler() = 0;
@@ -294,12 +278,12 @@ class CORE_EXPORT ExecutionContext : public ContextLifecycleNotifier,
       TaskType) = 0;
 
   v8::Isolate* GetIsolate() const { return isolate_; }
-  Agent* GetAgent() const { return agent_; }
+  Agent* GetAgent() const { return GetSecurityContext().GetAgent(); }
 
   v8::MicrotaskQueue* GetMicrotaskQueue() const;
 
   OriginTrialContext* GetOriginTrialContext() const {
-    return origin_trial_context_;
+    return GetSecurityContext().GetOriginTrialContext();
   }
 
   virtual TrustedTypePolicyFactory* GetTrustedTypes() const { return nullptr; }
@@ -327,18 +311,46 @@ class CORE_EXPORT ExecutionContext : public ContextLifecycleNotifier,
       ReportOptions report_on_failure = ReportOptions::kDoNotReport,
       const String& message = g_empty_string,
       const String& source_file = g_empty_string) const;
+  bool IsFeatureEnabled(
+      mojom::blink::DocumentPolicyFeature,
+      ReportOptions report_option = ReportOptions::kDoNotReport,
+      const String& message = g_empty_string,
+      const String& source_file = g_empty_string) const;
+  bool IsFeatureEnabled(
+      mojom::blink::DocumentPolicyFeature,
+      PolicyValue threshold_value,
+      ReportOptions report_option = ReportOptions::kDoNotReport,
+      const String& message = g_empty_string,
+      const String& source_file = g_empty_string) const;
+
   virtual void CountPotentialFeaturePolicyViolation(
       mojom::blink::FeaturePolicyFeature) const {}
+
+  // Report policy violations is delegated to Document because in order
+  // to both remain const qualified and output console message, needs
+  // to call |frame_->Console().AddMessage()| directly.
   virtual void ReportFeaturePolicyViolation(
       mojom::blink::FeaturePolicyFeature,
-      mojom::FeaturePolicyDisposition,
+      mojom::blink::PolicyDisposition,
+      const String& message = g_empty_string,
+      const String& source_file = g_empty_string) const {}
+  virtual void ReportDocumentPolicyViolation(
+      mojom::blink::DocumentPolicyFeature,
+      mojom::blink::PolicyDisposition,
       const String& message = g_empty_string,
       const String& source_file = g_empty_string) const {}
 
   String addressSpaceForBindings() const;
 
+  void AddContextLifecycleObserver(ContextLifecycleObserver*) override;
+  void RemoveContextLifecycleObserver(ContextLifecycleObserver*) override;
+  HeapObserverList<ContextLifecycleObserver>& ContextLifecycleObserverList() {
+    return context_lifecycle_observer_list_;
+  }
+  unsigned ContextLifecycleStateObserverCountForTesting() const;
+
  protected:
-  ExecutionContext(v8::Isolate* isolate, const SecurityContextInit&);
+  explicit ExecutionContext(v8::Isolate* isolate);
   ~ExecutionContext() override;
 
  private:
@@ -346,13 +358,16 @@ class CORE_EXPORT ExecutionContext : public ContextLifecycleNotifier,
   void AddConsoleMessageImpl(mojom::ConsoleMessageSource,
                              mojom::ConsoleMessageLevel,
                              const String& message,
-                             bool discard_duplicates) final;
+                             bool discard_duplicates) override;
   virtual void AddConsoleMessageImpl(ConsoleMessage*,
                                      bool discard_duplicates) = 0;
 
-  v8::Isolate* const isolate_;
+  // Temporary method to record when the result of calling IsFeatureEnabled
+  // would change under the proposal in https://crbug.com/937131.
+  void FeaturePolicyPotentialBehaviourChangeObserved(
+      mojom::blink::FeaturePolicyFeature feature) const;
 
-  SecurityContext security_context_;
+  v8::Isolate* const isolate_;
 
   bool DispatchErrorEventInternal(ErrorEvent*, SanitizeScriptErrors);
 
@@ -368,11 +383,9 @@ class CORE_EXPORT ExecutionContext : public ContextLifecycleNotifier,
 
   const Member<ContentSecurityPolicyDelegate> csp_delegate_;
 
-  Member<Agent> agent_;
-
-  Member<OriginTrialContext> origin_trial_context_;
-
   DOMTimerCoordinator timers_;
+
+  HeapObserverList<ContextLifecycleObserver> context_lifecycle_observer_list_;
 
   // Counter that keeps track of how many window interaction calls are allowed
   // for this ExecutionContext. Callers are expected to call
@@ -387,7 +400,10 @@ class CORE_EXPORT ExecutionContext : public ContextLifecycleNotifier,
   // The size of this vector is 0 until FeaturePolicyFeatureObserved is called.
   Vector<bool> parsed_feature_policies_;
 
-  SecureContextMode secure_context_mode_;
+  // Tracks which feature policy features have been logged in this execution
+  // context as to the FeaturePolicyProposalWouldChangeBehaviour
+  // histogram, in order not to overcount.
+  mutable Vector<bool> feature_policy_behaviour_change_counted_;
 
   DISALLOW_COPY_AND_ASSIGN(ExecutionContext);
 };

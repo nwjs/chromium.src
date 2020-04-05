@@ -30,7 +30,7 @@ NativeFileSystemWriter::NativeFileSystemWriter(
     ExecutionContext* context,
     mojo::PendingRemote<mojom::blink::NativeFileSystemFileWriter>
         writer_pending_remote)
-    : ContextLifecycleObserver(context),
+    : ExecutionContextLifecycleObserver(context),
       writer_remote_(std::move(writer_pending_remote)) {
   DCHECK(writer_remote_);
 }
@@ -237,7 +237,7 @@ ScriptPromise NativeFileSystemWriter::close(ScriptState* script_state,
 
 void NativeFileSystemWriter::Trace(Visitor* visitor) {
   ScriptWrappable::Trace(visitor);
-  ContextLifecycleObserver::Trace(visitor);
+  ExecutionContextLifecycleObserver::Trace(visitor);
   visitor->Trace(file_);
   visitor->Trace(pending_operation_);
   visitor->Trace(stream_loader_);
@@ -269,7 +269,7 @@ void NativeFileSystemWriter::CloseComplete(
   writer_remote_.reset();
 }
 
-void NativeFileSystemWriter::ContextDestroyed(ExecutionContext*) {
+void NativeFileSystemWriter::ContextDestroyed() {
   writer_remote_.reset();
 }
 

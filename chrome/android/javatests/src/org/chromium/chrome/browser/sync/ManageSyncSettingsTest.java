@@ -6,14 +6,16 @@ package org.chromium.chrome.browser.sync;
 
 import android.app.Dialog;
 import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.MediumTest;
 import android.support.test.filters.SmallTest;
-import android.support.v4.app.FragmentTransaction;
-import android.support.v7.app.AlertDialog;
-import android.support.v7.preference.CheckBoxPreference;
-import android.support.v7.preference.Preference;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
+
+import androidx.appcompat.app.AlertDialog;
+import androidx.fragment.app.FragmentTransaction;
+import androidx.preference.CheckBoxPreference;
+import androidx.preference.Preference;
 
 import org.junit.After;
 import org.junit.Assert;
@@ -22,21 +24,20 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import org.chromium.base.test.util.CommandLineFlags;
-import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.FlakyTest;
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.autofill.PersonalDataManager;
-import org.chromium.chrome.browser.settings.ChromeSwitchPreference;
+import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.settings.SettingsActivity;
-import org.chromium.chrome.browser.settings.sync.ManageSyncSettings;
+import org.chromium.chrome.browser.sync.settings.ManageSyncSettings;
 import org.chromium.chrome.browser.sync.ui.PassphraseCreationDialogFragment;
 import org.chromium.chrome.browser.sync.ui.PassphraseDialogFragment;
 import org.chromium.chrome.browser.sync.ui.PassphraseTypeDialogFragment;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.util.ActivityUtils;
 import org.chromium.chrome.test.util.browser.sync.SyncTestUtil;
+import org.chromium.components.browser_ui.settings.ChromeSwitchPreference;
 import org.chromium.components.sync.ModelType;
 import org.chromium.components.sync.PassphraseType;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
@@ -202,9 +203,8 @@ public class ManageSyncSettingsTest {
         assertPaymentsIntegrationEnabled(true);
     }
 
-    @DisabledTest(message = "crbug.com/994726")
     @Test
-    @SmallTest
+    @MediumTest
     @Feature({"Sync"})
     public void testPaymentsIntegrationCheckboxClearsServerAutofillCreditCards() {
         mSyncTestRule.setUpTestAccountAndSignIn();
@@ -332,41 +332,6 @@ public class ManageSyncSettingsTest {
         // No crash means we passed.
     }
 
-    /**
-     * Test that triggering OnPassphraseAccepted dismisses PassphraseDialogFragment.
-     */
-    @Test
-    @SmallTest
-    @Feature({"Sync"})
-    @DisabledTest(message = "https://crbug.com/986243")
-    public void testPassphraseDialogDismissed() {
-        final FakeProfileSyncService pss = overrideProfileSyncService();
-
-        mSyncTestRule.setUpTestAccountAndSignIn();
-        SyncTestUtil.waitForSyncActive();
-        // Trigger PassphraseDialogFragment to be shown when taping on Encryption.
-        pss.setPassphraseRequiredForPreferredDataTypes(true);
-
-        final ManageSyncSettings fragment = startManageSyncPreferences();
-        Preference encryption = getEncryption(fragment);
-        clickPreference(encryption);
-
-        final PassphraseDialogFragment passphraseFragment = getPassphraseDialogFragment();
-        Assert.assertTrue(passphraseFragment.isAdded());
-
-        // Simulate OnPassphraseAccepted from external event by setting PassphraseRequired to false
-        // and triggering syncStateChanged().
-        // PassphraseDialogFragment should be dismissed.
-        pss.setPassphraseRequiredForPreferredDataTypes(false);
-        TestThreadUtils.runOnUiThreadBlocking(() -> {
-            pss.syncStateChanged();
-            fragment.getFragmentManager().executePendingTransactions();
-            Assert.assertNull("PassphraseDialogFragment should be dismissed.",
-                    mSettingsActivity.getFragmentManager().findFragmentByTag(
-                            ManageSyncSettings.FRAGMENT_ENTER_PASSPHRASE));
-        });
-    }
-
     @Test
     @SmallTest
     @Feature({"Sync"})
@@ -430,15 +395,6 @@ public class ManageSyncSettingsTest {
         setText(confirmPassphrase, "foo");
         clickButton(okButton);
         Assert.assertFalse(pcdf.isResumed());
-    }
-
-    private FakeProfileSyncService overrideProfileSyncService() {
-        return TestThreadUtils.runOnUiThreadBlockingNoException(() -> {
-            // PSS has to be constructed on the UI thread.
-            FakeProfileSyncService fakeProfileSyncService = new FakeProfileSyncService();
-            ProfileSyncService.overrideForTests(fakeProfileSyncService);
-            return fakeProfileSyncService;
-        });
     }
 
     private ManageSyncSettings startManageSyncPreferences() {

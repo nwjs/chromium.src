@@ -47,7 +47,7 @@ class CONTENT_EXPORT BrowserAccessibilityManagerWin
   void UserIsReloading() override;
   BrowserAccessibility* GetFocus() const override;
   bool CanFireEvents() const override;
-  gfx::Rect GetViewBounds() override;
+  gfx::Rect GetViewBoundsInScreenCoordinates() const override;
 
   void FireFocusEvent(BrowserAccessibility* node) override;
   void FireBlinkEvent(ax::mojom::Event event_type,
@@ -80,6 +80,7 @@ class CONTENT_EXPORT BrowserAccessibilityManagerWin
  protected:
   // AXTreeObserver methods.
   void OnSubtreeWillBeDeleted(ui::AXTree* tree, ui::AXNode* node) override;
+  void OnNodeWillBeDeleted(ui::AXTree* tree, ui::AXNode* node) override;
   void OnAtomicUpdateFinished(
       ui::AXTree* tree,
       bool root_changed,

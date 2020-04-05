@@ -50,8 +50,17 @@ class WebAppControllerBrowserTestBase
   // Launches the app as a window and returns the browser.
   Browser* LaunchWebAppBrowser(const AppId&);
 
+  // Launches the app, waits for the app url to load.
+  Browser* LaunchWebAppBrowserAndWait(const AppId&);
+
   // Launches the app as a tab and returns the browser.
   Browser* LaunchBrowserForWebAppInTab(const AppId&);
+
+  // Returns whether the installable check passed.
+  static bool NavigateAndAwaitInstallabilityCheck(Browser* browser,
+                                                  const GURL& url);
+
+  Browser* NavigateInNewWindowAndAwaitInstallabilityCheck(const GURL&);
 
   base::Optional<AppId> FindAppWithUrlInScope(const GURL& url);
 
@@ -75,6 +84,7 @@ class WebAppControllerBrowserTest : public WebAppControllerBrowserTestBase {
   net::EmbeddedTestServer* https_server() { return &https_server_; }
 
   GURL GetInstallableAppURL();
+  static const char* GetInstallableAppName();
 
   // ExtensionBrowserTest:
   void SetUpInProcessBrowserTestFixture() override;

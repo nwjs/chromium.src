@@ -13,12 +13,10 @@
 #include "chrome/browser/apps/app_service/app_service_proxy.h"
 #include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
 #include "chrome/browser/chromeos/accessibility/accessibility_manager.h"
-#include "chrome/browser/chromeos/crostini/crostini_registry_service.h"
-#include "chrome/browser/chromeos/crostini/crostini_registry_service_factory.h"
+#include "chrome/browser/chromeos/crostini/crostini_shelf_utils.h"
 #include "chrome/browser/chromeos/crostini/crostini_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/app_list/arc/arc_app_utils.h"
-#include "chrome/browser/ui/app_list/extension_uninstaller.h"
 #include "chrome/browser/ui/app_list/internal_app/internal_app_metadata.h"
 #include "chrome/browser/ui/ash/launcher/app_service/app_service_shelf_context_menu.h"
 #include "chrome/browser/ui/ash/launcher/arc_shelf_context_menu.h"
@@ -26,9 +24,11 @@
 #include "chrome/browser/ui/ash/launcher/chrome_launcher_controller_util.h"
 #include "chrome/browser/ui/ash/launcher/crostini_shelf_context_menu.h"
 #include "chrome/browser/ui/ash/launcher/extension_shelf_context_menu.h"
+#include "chrome/browser/ui/ash/launcher/extension_uninstaller.h"
 #include "chrome/browser/ui/ash/launcher/internal_app_shelf_context_menu.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/grit/generated_resources.h"
+#include "components/vector_icons/vector_icons.h"
 #include "ui/display/types/display_constants.h"
 #include "ui/gfx/paint_vector_icon.h"
 #include "ui/views/vector_icons.h"
@@ -39,7 +39,17 @@ void UninstallApp(Profile* profile, const std::string& app_id) {
   apps::AppServiceProxy* proxy =
       apps::AppServiceProxyFactory::GetForProfile(profile);
   DCHECK(proxy);
-  proxy->Uninstall(app_id, nullptr /* parent_window */);
+  if (proxy->AppRegistryCache().GetAppType(app_id) !=
+      apps::mojom::AppType::kUnknown) {
+    proxy->Uninstall(app_id, nullptr /* parent_window */);
+    return;
+  }
+
+  // Runs the extension uninstall flow for for extensions. ExtensionUninstall
+  // deletes itself when done or aborted.
+  ExtensionUninstaller* extension_uninstaller =
+      new ExtensionUninstaller(profile, app_id, nullptr /* parent_window */);
+  extension_uninstaller->Run();
   return;
 }
 
@@ -55,8 +65,22 @@ std::unique_ptr<ShelfContextMenu> ShelfContextMenu::Create(
   DCHECK(!item->id.IsNull());
 
   if (base::FeatureList::IsEnabled(features::kAppServiceContextMenu)) {
-    return std::make_unique<AppServiceShelfContextMenu>(controller, item,
-                                                        display_id);
+    apps::AppServiceProxy* proxy =
+        apps::AppServiceProxyFactory::GetForProfile(controller->profile());
+
+    // AppServiceShelfContextMenu supports context menus for apps registered in
+    // AppService, Arc shortcuts and Crostini apps with the prefix "crostini:".
+    if (proxy && (proxy->AppRegistryCache().GetAppType(item->id.app_id) !=
+                      apps::mojom::AppType::kUnknown ||
+                  crostini::IsUnmatchedCrostiniShelfAppId(item->id.app_id) ||
+                  arc::IsArcItem(controller->profile(), item->id.app_id))) {
+      return std::make_unique<AppServiceShelfContextMenu>(controller, item,
+                                                          display_id);
+    }
+
+    // Create an ExtensionShelfContextMenu for other items.
+    return std::make_unique<ExtensionShelfContextMenu>(controller, item,
+                                                       display_id);
   }
 
   // Create an ArcShelfContextMenu if the item is an ARC app.
@@ -64,11 +88,7 @@ std::unique_ptr<ShelfContextMenu> ShelfContextMenu::Create(
     return std::make_unique<ArcShelfContextMenu>(controller, item, display_id);
 
   // Use CrostiniShelfContextMenu for crostini apps and Terminal System App.
-  crostini::CrostiniRegistryService* crostini_registry_service =
-      crostini::CrostiniRegistryServiceFactory::GetForProfile(
-          controller->profile());
-  if ((crostini_registry_service &&
-       crostini_registry_service->IsCrostiniShelfAppId(item->id.app_id)) ||
+  if (crostini::IsCrostiniShelfAppId(controller->profile(), item->id.app_id) ||
       item->id.app_id == crostini::kCrostiniTerminalSystemAppId) {
     return std::make_unique<CrostiniShelfContextMenu>(controller, item,
                                                       display_id);
@@ -199,6 +219,8 @@ const gfx::VectorIcon& ShelfContextMenu::GetCommandIdVectorIcon(
       return views::kInfoIcon;
     case ash::UNINSTALL:
       return views::kUninstallIcon;
+    case ash::SETTINGS:
+      return vector_icons::kSettingsIcon;
     case ash::MENU_PIN:
       return controller_->IsPinned(item_.id) ? views::kUnpinIcon
                                              : views::kPinIcon;

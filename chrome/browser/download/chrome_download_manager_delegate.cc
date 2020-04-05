@@ -21,6 +21,7 @@
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "base/task_runner.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
@@ -52,7 +53,6 @@
 #include "chrome/common/net/safe_search_util.h"
 #include "chrome/common/pdf_util.h"
 #include "chrome/common/pref_names.h"
-#include "chrome/common/safe_browsing/file_type_policies.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/download/public/common/download_danger_type.h"
 #include "components/download/public/common/download_features.h"
@@ -63,6 +63,7 @@
 #include "components/prefs/pref_member.h"
 #include "components/prefs/pref_service.h"
 #include "components/safe_browsing/buildflags.h"
+#include "components/safe_browsing/core/file_type_policies.h"
 #include "components/services/quarantine/public/mojom/quarantine.mojom.h"
 #include "components/services/quarantine/quarantine_impl.h"
 #include "content/public/browser/browser_task_traits.h"
@@ -686,16 +687,13 @@ void ChromeDownloadManagerDelegate::OpenDownload(DownloadItem* download) {
 
 #if defined(OS_ANDROID)
   DownloadUtils::OpenDownload(download, DownloadOpenSource::kUnknown);
-  return;
-#endif
-
+#else
   if (!DownloadItemModel(download).ShouldPreferOpeningInBrowser()) {
     RecordDownloadOpenMethod(DOWNLOAD_OPEN_METHOD_DEFAULT_PLATFORM);
     OpenDownloadUsingPlatformHandler(download);
     return;
   }
 
-#if !defined(OS_ANDROID)
   content::WebContents* web_contents =
       content::DownloadItemUtils::GetWebContents(download);
   Browser* browser =
@@ -717,9 +715,6 @@ void ChromeDownloadManagerDelegate::OpenDownload(DownloadItem* download) {
     browser->OpenURL(params);
 
   RecordDownloadOpenMethod(DOWNLOAD_OPEN_METHOD_DEFAULT_BROWSER);
-#else   // OS_ANDROID
-  // ShouldPreferOpeningInBrowser() should never be true on Android.
-  NOTREACHED();
 #endif  // OS_ANDROID
 }
 
@@ -789,7 +784,8 @@ void ChromeDownloadManagerDelegate::GetMixedContentStatus(
     const base::FilePath& virtual_path,
     const GetMixedContentStatusCallback& callback) {
   DCHECK(download);
-  callback.Run(GetMixedContentStatusForDownload(virtual_path, download));
+  callback.Run(
+      GetMixedContentStatusForDownload(profile_, virtual_path, download));
 }
 
 void ChromeDownloadManagerDelegate::NotifyExtensions(
@@ -1095,9 +1091,9 @@ void ChromeDownloadManagerDelegate::GetFileMimeType(
     const base::FilePath& path,
     const GetFileMimeTypeCallback& callback) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  base::PostTaskAndReplyWithResult(
-      FROM_HERE, {base::ThreadPool(), base::MayBlock()},
-      base::BindOnce(&GetMimeType, path), base::BindOnce(callback));
+  base::ThreadPool::PostTaskAndReplyWithResult(
+      FROM_HERE, {base::MayBlock()}, base::BindOnce(&GetMimeType, path),
+      base::BindOnce(callback));
 }
 
 #if BUILDFLAG(FULL_SAFE_BROWSING)
@@ -1183,6 +1179,10 @@ void ChromeDownloadManagerDelegate::CheckClientDownloadDone(
       case safe_browsing::DownloadCheckResult::PROMPT_FOR_SCANNING:
         danger_type = download::DOWNLOAD_DANGER_TYPE_PROMPT_FOR_SCANNING;
         is_pending_scanning = true;
+        break;
+      case safe_browsing::DownloadCheckResult::BLOCKED_UNSUPPORTED_FILE_TYPE:
+        danger_type =
+            download::DOWNLOAD_DANGER_TYPE_BLOCKED_UNSUPPORTED_FILETYPE;
         break;
     }
     DCHECK_NE(danger_type,
@@ -1314,53 +1314,11 @@ bool ChromeDownloadManagerDelegate::ShouldBlockFile(
   if (IsDangerTypeBlocked(danger_type))
     return true;
 
-  if (item &&
-      base::FeatureList::IsEnabled(features::kDisallowUnsafeHttpDownloads)) {
-    // Check field trial for an override of the default unsafe mime-type.
-    const std::string kDefaultUnsafeMimeType = "application/";
-    std::string field_trial_arg = base::GetFieldTrialParamValueByFeature(
-        features::kDisallowUnsafeHttpDownloads,
-        features::kDisallowUnsafeHttpDownloadsParamName);
-    std::vector<base::StringPiece> unsafe_mime_types = base::SplitStringPiece(
-        field_trial_arg, ",", base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY);
-    if (unsafe_mime_types.empty())
-      unsafe_mime_types.push_back(kDefaultUnsafeMimeType);
-
-    bool is_final_origin_secure = content::IsOriginSecure(item->GetURL());
-    bool is_redirect_chain_secure = true;
-    for (const auto& url : item->GetUrlChain()) {
-      if (!content::IsOriginSecure(url)) {
-        is_redirect_chain_secure = false;
-        break;
-      }
-    }
-
-    if (!(is_final_origin_secure && is_redirect_chain_secure)) {
-      bool is_unsafe_download = false;
-      for (const auto& prefix : unsafe_mime_types) {
-        if (base::StartsWith(item->GetMimeType(), prefix,
-                             base::CompareCase::INSENSITIVE_ASCII)) {
-          is_unsafe_download = true;
-          break;
-        }
-      }
-      if (is_unsafe_download) {
-        content::WebContents* web_contents =
-            content::DownloadItemUtils::GetWebContents(item);
-        if (web_contents) {
-          web_contents->GetMainFrame()->AddMessageToConsole(
-              blink::mojom::ConsoleMessageLevel::kWarning,
-              base::StringPrintf(
-                  "The download of %s has been blocked. Either the final "
-                  "download origin or one of the origins in the redirect "
-                  "chain leading to the download was insecure. Downloading "
-                  "unsafe file types over HTTP is deprecated.",
-                  item->GetURL().spec().c_str()));
-        }
-        return true;
-      }
-    }
-  }
+  // TODO(crbug/1061111): Move this into IsDangerTypeBlocked once the UX is
+  // ready.
+  if (danger_type ==
+      download::DOWNLOAD_DANGER_TYPE_BLOCKED_UNSUPPORTED_FILETYPE)
+    return true;
 
   switch (download_restriction) {
     case (DownloadPrefs::DownloadRestriction::NONE):
@@ -1411,6 +1369,7 @@ void ChromeDownloadManagerDelegate::CheckDownloadAllowed(
     const std::string& request_method,
     base::Optional<url::Origin> request_initiator,
     bool from_download_cross_origin_redirect,
+    bool content_initiated,
     content::CheckDownloadAllowedCallback check_download_allowed_cb) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   CanDownloadCallback cb = base::BindOnce(

@@ -6,7 +6,6 @@ source_set("public") {
   configs += [ "//build/config/compiler:enable_arc" ]
   sources = [
     "fakebox_focuser.h",
-    "omnibox_focuser.h",
     "side_swipe_toolbar_interacting.h",
     "side_swipe_toolbar_snapshot_providing.h",
     "toolbar_coordinating.h",
@@ -21,6 +20,7 @@ source_set("public") {
     "//ios/chrome/browser/ui/fullscreen:ui",
     "//ios/chrome/browser/ui/ntp",
     "//ios/chrome/browser/ui/util",
+    "//ios/components/ui_util",
     "//ios/public/provider/chrome/browser/voice",
   ]
   public_deps = [ ":constants" ]

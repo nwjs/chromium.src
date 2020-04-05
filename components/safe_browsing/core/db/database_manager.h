@@ -23,17 +23,17 @@
 #include "components/safe_browsing/core/db/v4_protocol_manager_util.h"
 #include "url/gurl.h"
 
-namespace content {
+namespace blink {
+namespace mojom {
 enum class ResourceType;
-}
+}  // namespace mojom
+}  // namespace blink
 
 namespace network {
 class SharedURLLoaderFactory;
 }  // namespace network
 
 namespace safe_browsing {
-
-class RealTimeUrlLookupService;
 
 // Value returned by some functions that check an allowlist and may or may not
 // have an immediate answer.
@@ -115,6 +115,7 @@ class SafeBrowsingDatabaseManager
   // Called on the IO thread to cancel a pending check if the result is no
   // longer needed.  Also called after the result has been handled. Api checks
   // are handled separately. To cancel an API check use CancelApiCheck.
+  // If |client| doesn't exist anymore, ignore this call.
   virtual void CancelCheck(Client* client) = 0;
 
   //
@@ -123,7 +124,7 @@ class SafeBrowsingDatabaseManager
 
   // Returns true if this resource type should be checked.
   virtual bool CanCheckResourceType(
-      content::ResourceType resource_type) const = 0;
+      blink::mojom::ResourceType resource_type) const = 0;
 
   // Returns true if the url's scheme can be checked.
   virtual bool CanCheckUrl(const GURL& url) const = 0;
@@ -270,27 +271,12 @@ class SafeBrowsingDatabaseManager
   // method at the bottom of it.
   virtual void StopOnIOThread(bool shutdown);
 
-  // TODO(crbug.com/1041912): Add tests for this method.
-  // Called to notify operations on the io_thread. This is called when any
-  // profile will be destroyed.
-  void OnProfileWillBeDestroyedOnIOThread(
-      scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory);
-
-  // Instantiates and initializes |rt_url_lookup_service_|.
-  void SetupRealTimeUrlLookupService(
-      scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory);
-
-  // Reset |rt_url_lookup_service_|.
-  void ResetRealTimeUrlLookupService();
-
-  RealTimeUrlLookupService* GetRealTimeUrlLookupService();
-
  protected:
   // Bundled client info for an API abuse hash prefix check.
   class SafeBrowsingApiCheck {
    public:
     SafeBrowsingApiCheck(const GURL& url, Client* client);
-    ~SafeBrowsingApiCheck();
+    ~SafeBrowsingApiCheck() = default;
 
     const GURL& url() const { return url_; }
     Client* client() const { return client_; }
@@ -361,10 +347,6 @@ class SafeBrowsingDatabaseManager
   // Returns an iterator to the pending API check with the given |client|.
   ApiCheckSet::iterator FindClientApiCheck(Client* client);
 
-  // This object gets refreshed when any active profile is destroyed. The old
-  // object is release and will delete itself when there is no pending request
-  // left.
-  std::unique_ptr<RealTimeUrlLookupService> rt_url_lookup_service_;
 };  // class SafeBrowsingDatabaseManager
 
 }  // namespace safe_browsing

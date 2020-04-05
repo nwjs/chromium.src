@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+// #import {loadTimeData} from 'chrome://resources/js/load_time_data.m.js';
+// #import {Router, Route} from './router.m.js';
+// #import {pageVisibility} from './page_visibility.m.js';
+// #import {SettingsRoutes} from './settings_routes.m.js';
+
 cr.define('settings', function() {
   /**
    * Add all of the child routes that originate from the privacy route,
@@ -9,13 +14,23 @@ cr.define('settings', function() {
    * @param {!SettingsRoutes} r
    */
   function addPrivacyChildRoutes(r) {
-    r.CERTIFICATES = r.PRIVACY.createChild('/certificates');
     r.SITE_SETTINGS = r.PRIVACY.createChild('/content');
-    if (loadTimeData.getBoolean('enableSecurityKeysSubpage')) {
-      r.SECURITY_KEYS = r.PRIVACY.createChild('/securityKeys');
-    }
     if (loadTimeData.getBoolean('privacySettingsRedesignEnabled')) {
       r.SECURITY = r.PRIVACY.createChild('/security');
+      r.COOKIES = r.PRIVACY.createChild('/cookies');
+    }
+
+    // <if expr="use_nss_certs">
+    r.CERTIFICATES = loadTimeData.getBoolean('privacySettingsRedesignEnabled') ?
+        r.SECURITY.createChild('/certificates') :
+        r.PRIVACY.createChild('/certificates');
+    // </if>
+
+    if (loadTimeData.getBoolean('enableSecurityKeysSubpage')) {
+      r.SECURITY_KEYS =
+          loadTimeData.getBoolean('privacySettingsRedesignEnabled') ?
+          r.SECURITY.createChild('/securityKeys') :
+          r.PRIVACY.createChild('/securityKeys');
     }
 
     r.SITE_SETTINGS_ALL = r.SITE_SETTINGS.createChild('all');
@@ -60,6 +75,10 @@ cr.define('settings', function() {
     r.SITE_SETTINGS_MIDI_DEVICES = r.SITE_SETTINGS.createChild('midiDevices');
     r.SITE_SETTINGS_USB_DEVICES = r.SITE_SETTINGS.createChild('usbDevices');
     r.SITE_SETTINGS_SERIAL_PORTS = r.SITE_SETTINGS.createChild('serialPorts');
+    if (loadTimeData.getBoolean('enableWebBluetoothNewPermissionsBackend')) {
+      r.SITE_SETTINGS_BLUETOOTH_DEVICES =
+          r.SITE_SETTINGS.createChild('bluetoothDevices');
+    }
     r.SITE_SETTINGS_ZOOM_LEVELS = r.SITE_SETTINGS.createChild('zoomLevels');
     r.SITE_SETTINGS_PDF_DOCUMENTS = r.SITE_SETTINGS.createChild('pdfDocuments');
     r.SITE_SETTINGS_PROTECTED_CONTENT =
@@ -87,8 +106,7 @@ cr.define('settings', function() {
    * @return {!SettingsRoutes}
    */
   function createBrowserSettingsRoutes() {
-    /** @type {!SettingsRoutes} */
-    const r = {};
+    const r = /** @type {!SettingsRoutes} */ ({});
 
     // Root pages.
     r.BASIC = new settings.Route('/');
@@ -104,25 +122,30 @@ cr.define('settings', function() {
       r.SYNC_ADVANCED = r.SYNC.createChild('/syncSetup/advanced');
     }
 
-    const pageVisibility = settings.pageVisibility || {};
+    const visibility = settings.pageVisibility || {};
 
     // <if expr="not chromeos">
     r.IMPORT_DATA = r.BASIC.createChild('/importData');
     r.IMPORT_DATA.isNavigableDialog = true;
 
-    if (pageVisibility.people !== false) {
+    if (visibility.people !== false) {
       r.MANAGE_PROFILE = r.PEOPLE.createChild('/manageProfile');
     }
     // </if>
 
-    if (pageVisibility.appearance !== false) {
+    if (visibility.appearance !== false) {
       r.APPEARANCE = r.BASIC.createSection('/appearance', 'appearance');
       r.FONTS = r.APPEARANCE.createChild('/fonts');
     }
 
-    if (pageVisibility.autofill !== false) {
+    if (visibility.autofill !== false) {
       r.AUTOFILL = r.BASIC.createSection('/autofill', 'autofill');
       r.PASSWORDS = r.AUTOFILL.createChild('/passwords');
+
+      if (loadTimeData.getBoolean('enablePasswordCheck')) {
+        r.CHECK_PASSWORDS = r.PASSWORDS.createChild('check');
+      }
+
       r.PAYMENTS = r.AUTOFILL.createChild('/payments');
       r.ADDRESSES = r.AUTOFILL.createChild('/addresses');
     }
@@ -130,25 +153,29 @@ cr.define('settings', function() {
     r.CLEAR_BROWSER_DATA = r.BASIC.createChild('/clearBrowserData');
     r.CLEAR_BROWSER_DATA.isNavigableDialog = true;
 
-    if (pageVisibility.privacy !== false) {
+    if (visibility.privacy !== false) {
       r.PRIVACY = r.BASIC.createSection('/privacy', 'privacy');
       addPrivacyChildRoutes(r);
+
+      if (loadTimeData.getBoolean('privacySettingsRedesignEnabled')) {
+        r.SAFETY_CHECK = r.BASIC.createSection('/safetyCheck', 'safetyCheck');
+      }
     }
 
-    if (pageVisibility.defaultBrowser !== false) {
+    if (visibility.defaultBrowser !== false) {
       r.DEFAULT_BROWSER =
           r.BASIC.createSection('/defaultBrowser', 'defaultBrowser');
     }
 
     r.SEARCH_ENGINES = r.SEARCH.createChild('/searchEngines');
 
-    if (pageVisibility.onStartup !== false) {
+    if (visibility.onStartup !== false) {
       r.ON_STARTUP = r.BASIC.createSection('/onStartup', 'onStartup');
       r.STARTUP_PAGES = r.ON_STARTUP.createChild('/startupPages');
     }
 
     // Advanced Routes
-    if (pageVisibility.advancedSettings !== false) {
+    if (visibility.advancedSettings !== false) {
       r.ADVANCED = new settings.Route('/advanced');
 
       r.LANGUAGES = r.ADVANCED.createSection('/languages', 'languages');
@@ -156,7 +183,7 @@ cr.define('settings', function() {
       r.EDIT_DICTIONARY = r.LANGUAGES.createChild('/editDictionary');
       // </if>
 
-      if (pageVisibility.downloads !== false) {
+      if (visibility.downloads !== false) {
         r.DOWNLOADS = r.ADVANCED.createSection('/downloads', 'downloads');
       }
 
@@ -179,7 +206,7 @@ cr.define('settings', function() {
       r.SYSTEM = r.ADVANCED.createSection('/system', 'system');
       // </if>
 
-      if (pageVisibility.reset !== false) {
+      if (visibility.reset !== false) {
         r.RESET = r.ADVANCED.createSection('/reset', 'reset');
         r.RESET_DIALOG = r.ADVANCED.createChild('/resetProfileSettings');
         r.RESET_DIALOG.isNavigableDialog = true;
@@ -211,15 +238,14 @@ cr.define('settings', function() {
     // On pop state, do not push the state onto the window.history again.
     const routerInstance = settings.Router.getInstance();
     routerInstance.setCurrentRoute(
-        /** @type {!settings.Route} */ (
-            routerInstance.getRouteForPath(window.location.pathname) ||
-            routerInstance.getRoutes().BASIC),
+        routerInstance.getRouteForPath(window.location.pathname) ||
+            routerInstance.getRoutes().BASIC,
         new URLSearchParams(window.location.search), true);
   });
 
   // TODO(dpapad): Change to 'get routes() {}' in export when we fix a bug in
   // ChromePass that limits the syntax of what can be returned from cr.define().
-  const routes = /** @type {!SettingsRoutes} */ (
+  /* #export */ const routes = /** @type {!SettingsRoutes} */ (
       settings.Router.getInstance().getRoutes());
 
   // #cr_define_end

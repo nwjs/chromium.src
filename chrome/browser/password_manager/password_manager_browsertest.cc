@@ -24,6 +24,7 @@
 #include "chrome/browser/password_manager/chrome_password_manager_client.h"
 #include "chrome/browser/password_manager/password_manager_test_base.h"
 #include "chrome/browser/password_manager/password_store_factory.h"
+#include "chrome/browser/password_manager/password_store_signin_notifier_impl.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/autofill/autofill_popup_controller_impl.h"
 #include "chrome/browser/ui/autofill/chrome_autofill_client.h"
@@ -438,6 +439,23 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
   observer.Wait();
   EXPECT_TRUE(prompt_observer->IsSavePromptShownAutomatically());
 }
+
+#if defined(OS_WIN) || defined(OS_MACOSX) || \
+    (defined(OS_LINUX) && !defined(OS_CHROMEOS))
+IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
+                       SignOutWithUnsyncedPasswords) {
+  std::vector<autofill::PasswordForm> credentials(1);
+  credentials[0].username_value = base::ASCIIToUTF16("unsynced_login");
+  credentials[0].password_value = base::ASCIIToUTF16("unsynced_password");
+  // TODO(crbug.com/1060132): Stop triggering the notifier directly once the
+  // full flow is available.
+  PasswordStoreSigninNotifierImpl notifier(browser()->profile());
+  notifier.NotifyUISignoutWillDeleteCredentials(credentials);
+  EXPECT_EQ(ManagePasswordsUIController::FromWebContents(WebContents())
+                ->GetUnsyncedCredentials(),
+            credentials);
+}
+#endif
 
 IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest, PromptForDynamicForm) {
   // Adding a PSL matching form is a workaround explained later.
@@ -2463,10 +2481,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest, ChangePwd1AccountStored) {
   EXPECT_TRUE(prompt_observer->IsUpdatePromptShownAutomatically());
 
   // We emulate that the user clicks "Update" button.
-  const autofill::PasswordForm& pending_credentials =
-      ManagePasswordsUIController::FromWebContents(WebContents())
-          ->GetPendingPassword();
-  prompt_observer->AcceptUpdatePrompt(pending_credentials);
+  prompt_observer->AcceptUpdatePrompt();
 
   WaitForPasswordStore();
   CheckThatCredentialsStored("temp", "new_pw");
@@ -2515,9 +2530,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTestWithAutofillDisabled,
   // expected.
   EXPECT_TRUE(prompt_observer->IsUpdatePromptShownAutomatically());
 
-  const autofill::PasswordForm stored_form =
-      password_store->stored_passwords().begin()->second[0];
-  prompt_observer->AcceptUpdatePrompt(stored_form);
+  prompt_observer->AcceptUpdatePrompt();
   WaitForPasswordStore();
   CheckThatCredentialsStored("temp", "new_pw");
 }
@@ -2631,9 +2644,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
   observer.Wait();
   EXPECT_TRUE(prompt_observer->IsUpdatePromptShownAutomatically());
 
-  const autofill::PasswordForm stored_form =
-      password_store->stored_passwords().begin()->second[0];
-  prompt_observer->AcceptUpdatePrompt(stored_form);
+  prompt_observer->AcceptUpdatePrompt();
   WaitForPasswordStore();
   CheckThatCredentialsStored("temp", "new_pw");
 }
@@ -3146,9 +3157,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
   // The new password "new_pw" is used, so update prompt is expected.
   EXPECT_TRUE(prompt_observer->IsUpdatePromptShownAutomatically());
 
-  const autofill::PasswordForm stored_form =
-      password_store->stored_passwords().begin()->second[0];
-  prompt_observer->AcceptUpdatePrompt(stored_form);
+  prompt_observer->AcceptUpdatePrompt();
 
   WaitForPasswordStore();
   CheckThatCredentialsStored("temp", "new_pw");
@@ -3800,9 +3809,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
   EXPECT_TRUE(prompt_observer->IsUpdatePromptShownAutomatically());
 
   // Check that the password is updated correctly if the user clicks Update.
-  const autofill::PasswordForm& stored_form =
-      password_store->stored_passwords().begin()->second[0];
-  prompt_observer->AcceptUpdatePrompt(stored_form);
+  prompt_observer->AcceptUpdatePrompt();
 
   WaitForPasswordStore();
   // The stored credential has been updated with the new password.
@@ -3908,8 +3915,8 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
   controller = autofill_client->popup_controller_for_testing().get();
   ASSERT_TRUE(controller);
   EXPECT_EQ(2, controller->GetLineCount());
-  EXPECT_EQ(base::ASCIIToUTF16("user"), controller->GetElidedValueAt(0));
-  EXPECT_NE(base::ASCIIToUTF16("admin"), controller->GetElidedValueAt(1));
+  EXPECT_EQ(base::ASCIIToUTF16("user"), controller->GetSuggestionValueAt(0));
+  EXPECT_NE(base::ASCIIToUTF16("admin"), controller->GetSuggestionValueAt(1));
 
   // The username_field should get re-filled with "user" instead of "admin".
   WaitForElementValue("username_field", "user");

@@ -22,11 +22,15 @@ import org.chromium.chrome.browser.lifecycle.Destroyable;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabObserver;
+import org.chromium.chrome.browser.ui.TabObscuringHandler;
 import org.chromium.chrome.browser.vr.VrModuleProvider;
-import org.chromium.chrome.browser.widget.ScrimView;
 import org.chromium.chrome.browser.widget.ScrimView.ScrimObserver;
 import org.chromium.chrome.browser.widget.ScrimView.ScrimParams;
+import org.chromium.components.browser_ui.widget.scrim.ScrimCoordinator;
+import org.chromium.components.browser_ui.widget.scrim.ScrimProperties;
 import org.chromium.ui.KeyboardVisibilityDelegate;
+import org.chromium.ui.modelutil.PropertyModel;
+import org.chromium.ui.util.TokenHolder;
 import org.chromium.ui.vr.VrModeObserver;
 
 import java.lang.annotation.Retention;
@@ -43,31 +47,6 @@ import java.util.PriorityQueue;
  * content was actually shown (see full doc on method).
  */
 public class BottomSheetController implements Destroyable {
-    /**
-     * An interface to pass around the ability to set a view that is obscuring all tabs on the
-     * activity.
-     */
-    public interface ObscuringAllTabsDelegate {
-        /**
-         * Add a view to the set of views that obscure the content of all tabs for
-         * accessibility. As long as this set is nonempty, all tabs should be
-         * hidden from the accessibility tree.
-         *
-         * @param view The view that obscures the contents of all tabs.
-         */
-        void addViewObscuringAllTabs(View view);
-
-        /**
-         * Remove a view that previously obscured the content of all tabs.
-         *
-         * @param view The view that no longer obscures the contents of all tabs.
-         */
-        void removeViewObscuringAllTabs(View view);
-
-        /** @return Whether or not any views obscure all tabs. */
-        boolean isViewObscuringAllTabs();
-    }
-
     /**
      * The base duration of the settling animation of the sheet. 218 ms is a spec for material
      * design (this is the minimum time a user is guaranteed to pay attention to something).
@@ -132,9 +111,6 @@ public class BottomSheetController implements Destroyable {
     /** The offset of the toolbar shadow from the top that remains empty. */
     private int mShadowTopOffset;
 
-    /** The parameters that control how the scrim behaves while the sheet is open. */
-    private ScrimParams mScrimParams;
-
     /** A handle to the {@link BottomSheet} that this class controls. */
     private BottomSheet mBottomSheet;
 
@@ -168,6 +144,9 @@ public class BottomSheetController implements Destroyable {
      */
     private List<BottomSheetObserver> mPendingSheetObservers;
 
+    /** A token held while the bottom sheet is obscuring all visible tabs. */
+    private int mTabObscuringToken;
+
     /**
      * Build a new controller of the bottom sheet.
      * @param lifecycleDispatcher The {@link ActivityLifecycleDispatcher} for the {@code activity}.
@@ -179,7 +158,7 @@ public class BottomSheetController implements Destroyable {
      * @param fullscreenManager A fullscreen manager for access to browser controls offsets.
      */
     public BottomSheetController(final ActivityLifecycleDispatcher lifecycleDispatcher,
-            final ActivityTabProvider activityTabProvider, final Supplier<ScrimView> scrim,
+            final ActivityTabProvider activityTabProvider, final Supplier<ScrimCoordinator> scrim,
             Supplier<View> bottomSheetViewSupplier, Supplier<OverlayPanelManager> overlayManager,
             ChromeFullscreenManager fullscreenManager, Window window,
             KeyboardVisibilityDelegate keyboardDelegate) {
@@ -187,6 +166,7 @@ public class BottomSheetController implements Destroyable {
         mOverlayPanelManager = overlayManager;
         mFullscreenManager = fullscreenManager;
         mPendingSheetObservers = new ArrayList<>();
+        mTabObscuringToken = TokenHolder.INVALID_TOKEN;
 
         mPendingSheetObservers.add(new EmptyBottomSheetObserver() {
             /** The token used to enable browser controls persistence. */
@@ -261,8 +241,8 @@ public class BottomSheetController implements Destroyable {
      * @param bottomSheetViewSupplier A means of creating the bottom sheet.
      */
     private void initializeSheet(final ActivityLifecycleDispatcher lifecycleDispatcher,
-            final Supplier<ScrimView> scrim, Supplier<View> bottomSheetViewSupplier, Window window,
-            KeyboardVisibilityDelegate keyboardDelegate) {
+            final Supplier<ScrimCoordinator> scrim, Supplier<View> bottomSheetViewSupplier,
+            Window window, KeyboardVisibilityDelegate keyboardDelegate) {
         mBottomSheet = (BottomSheet) bottomSheetViewSupplier.get();
         mBottomSheet.init(window, keyboardDelegate);
         mToolbarShadowHeight = mBottomSheet.getResources().getDimensionPixelOffset(
@@ -324,20 +304,31 @@ public class BottomSheetController implements Destroyable {
             }
         });
 
-        ScrimObserver scrimObserver = new ScrimObserver() {
-            @Override
-            public void onScrimClick() {
-                if (!mBottomSheet.isSheetOpen()) return;
-                mBottomSheet.setSheetState(
-                        mBottomSheet.getMinSwipableSheetState(), true, StateChangeReason.TAP_SCRIM);
-            }
-
-            @Override
-            public void onScrimVisibilityChanged(boolean visible) {}
-        };
-        mScrimParams = new ScrimParams(mBottomSheet, false, true, 0, scrimObserver);
+        PropertyModel scrimProperties =
+                new PropertyModel.Builder(ScrimProperties.REQUIRED_KEYS)
+                        .with(ScrimProperties.TOP_MARGIN, 0)
+                        .with(ScrimProperties.AFFECTS_STATUS_BAR, true)
+                        .with(ScrimProperties.ANCHOR_VIEW, mBottomSheet)
+                        .with(ScrimProperties.SHOW_IN_FRONT_OF_ANCHOR_VIEW, false)
+                        .with(ScrimProperties.CLICK_DELEGATE,
+                                () -> {
+                                    if (!mBottomSheet.isSheetOpen()) return;
+                                    mBottomSheet.setSheetState(
+                                            mBottomSheet.getMinSwipableSheetState(), true,
+                                            StateChangeReason.TAP_SCRIM);
+                                })
+                        .build();
 
         mBottomSheet.addObserver(new EmptyBottomSheetObserver() {
+            /**
+             * Whether the scrim was shown for the last content.
+             * TODO(mdjones): We should try to make sure the content in the sheet is not nulled
+             *                prior to the close event occurring; sheets that don't have a peek
+             *                state make this difficult since the sheet needs to be hidden before it
+             *                is closed.
+             */
+            private boolean mScrimShown;
+
             @Override
             public void onSheetOpened(@StateChangeReason int reason) {
                 if (mBottomSheet.getCurrentSheetContent() != null
@@ -345,33 +336,40 @@ public class BottomSheetController implements Destroyable {
                     return;
                 }
 
-                scrim.get().showScrim(mScrimParams);
-                scrim.get().setViewAlpha(0);
+                scrim.get().showScrim(scrimProperties);
+                mScrimShown = true;
             }
 
             @Override
             public void onSheetClosed(@StateChangeReason int reason) {
-                if (mBottomSheet.getCurrentSheetContent() != null
-                        && mBottomSheet.getCurrentSheetContent().hasCustomScrimLifecycle()) {
-                    return;
+                // Hide the scrim if the current content doesn't have a custom scrim lifecycle.
+                if (mScrimShown) {
+                    scrim.get().hideScrim(true);
+                    mScrimShown = false;
                 }
 
-                scrim.get().hideScrim(true);
-
-                // If the sheet is closed, it is an opportunity for another content to try to
-                // take its place if it is a higher priority.
-                BottomSheetContent content = mBottomSheet.getCurrentSheetContent();
-                BottomSheetContent nextContent = mContentQueue.peek();
-                if (content != null && nextContent != null
-                        && nextContent.getPriority() < content.getPriority()) {
-                    mContentQueue.add(content);
-                    mBottomSheet.setSheetState(SheetState.HIDDEN, true);
+                // Try to swap contents unless the sheet's content has a custom lifecycle.
+                if (mBottomSheet.getCurrentSheetContent() != null
+                        && !mBottomSheet.getCurrentSheetContent().hasCustomLifecycle()) {
+                    // If the sheet is closed, it is an opportunity for another content to try to
+                    // take its place if it is a higher priority.
+                    BottomSheetContent content = mBottomSheet.getCurrentSheetContent();
+                    BottomSheetContent nextContent = mContentQueue.peek();
+                    if (content != null && nextContent != null
+                            && nextContent.getPriority() < content.getPriority()) {
+                        mContentQueue.add(content);
+                        mBottomSheet.setSheetState(SheetState.HIDDEN, true);
+                    }
                 }
             }
 
             @Override
             public void onSheetStateChanged(@SheetState int state) {
-                if (state != SheetState.HIDDEN || mIsSuppressed) return;
+                // If hiding request is in progress, destroy the current sheet content being hidden
+                // even when it is in suppressed state. See https://crbug.com/1057966.
+                if (state != SheetState.HIDDEN || (!mIsProcessingHideRequest && mIsSuppressed)) {
+                    return;
+                }
                 if (mBottomSheet.getCurrentSheetContent() != null) {
                     mBottomSheet.getCurrentSheetContent().destroy();
                 }
@@ -407,12 +405,23 @@ public class BottomSheetController implements Destroyable {
     }
 
     /**
-     * Handle a back press event. If the sheet is open it will be closed.
-     * @return True if the sheet handled the back press.
+     * Handle a back press event. By default this will return the bottom sheet to it's minimum /
+     * peeking state if it is open. However, the sheet's content has the opportunity to intercept
+     * this event and block the default behavior {@see BottomSheetContent#handleBackPress()}.
+     * @return {@code true} if the sheet or content handled the back press.
      */
     public boolean handleBackPress() {
-        if (mBottomSheet == null || !mBottomSheet.isSheetOpen()) return false;
+        // If suppressed (therefore invisible), users are likely to expect for Chrome
+        // browser, not the bottom sheet, to react. Do not consume the event.
+        if (mBottomSheet == null || mIsSuppressed) return false;
 
+        // Give the sheet the opportunity to handle the back press itself before falling to the
+        // default "close" behavior.
+        if (getCurrentSheetContent() != null && getCurrentSheetContent().handleBackPress()) {
+            return true;
+        }
+
+        if (!mBottomSheet.isSheetOpen()) return false;
         int sheetState = mBottomSheet.getMinSwipableSheetState();
         mBottomSheet.setSheetState(sheetState, true, StateChangeReason.BACK_PRESS);
         return true;
@@ -465,14 +474,16 @@ public class BottomSheetController implements Destroyable {
 
     /**
      * Set whether the bottom sheet is obscuring all tabs.
-     * @param delegate A delegate that provides the functionality of obscuring all tabs.
+     * @param obscuringHandler A handler that provides the functionality of obscuring all tabs.
      * @param isObscuring Whether the bottom sheet is considered to be obscuring.
      */
-    public void setIsObscuringAllTabs(ObscuringAllTabsDelegate delegate, boolean isObscuring) {
+    public void setIsObscuringAllTabs(TabObscuringHandler obscuringHandler, boolean isObscuring) {
         if (isObscuring) {
-            delegate.addViewObscuringAllTabs(mBottomSheet);
+            assert mTabObscuringToken == TokenHolder.INVALID_TOKEN;
+            mTabObscuringToken = obscuringHandler.obscureAllTabs();
         } else {
-            delegate.removeViewObscuringAllTabs(mBottomSheet);
+            obscuringHandler.unobscureAllTabs(mTabObscuringToken);
+            mTabObscuringToken = TokenHolder.INVALID_TOKEN;
         }
     }
 

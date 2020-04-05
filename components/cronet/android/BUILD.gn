@@ -50,7 +50,7 @@ generate_jni("cronet_jni_headers") {
 generate_jni_registration("cronet_jni_registration") {
   targets = [ ":cronet_impl_native_base_java" ]
   header_output = _jni_registration_header
-  sources_blacklist = [
+  sources_exclusions = [
     "//base/android/java/src/org/chromium/base/library_loader/LibraryLoader.java",
     "//base/android/java/src/org/chromium/base/library_loader/LibraryPrefetcher.java",
     "//base/android/java/src/org/chromium/base/process_launcher/ChildProcessService.java",
@@ -194,8 +194,9 @@ source_set("cronet_static") {
 }
 
 config("hide_all_but_jni_onload_and_cronet") {
-  ldflags = [ "-Wl,--version-script=" + rebase_path(
-                  "//components/cronet/android/android_only_jni_onload_and_cronet_exports.lst") ]
+  ldflags = [ "-Wl,--version-script=" +
+              rebase_path("android_only_jni_onload_and_cronet_exports.lst",
+                          root_out_dir) ]
 }
 
 _cronet_shared_lib_name = "cronet.$chrome_version_full"
@@ -418,7 +419,12 @@ java_group("cronet_impl_all_java") {
 }
 
 android_resources("cronet_sample_apk_resources") {
-  resource_dirs = [ "sample/res" ]
+  sources = [
+    "sample/res/layout/activity_main.xml",
+    "sample/res/layout/dialog_url.xml",
+    "sample/res/values/dimens.xml",
+    "sample/res/values/strings.xml",
+  ]
   android_manifest = "sample/AndroidManifest.xml"
   deps = [ "//third_party/android_deps:android_support_v7_appcompat_java" ]
 }
@@ -434,6 +440,7 @@ android_library("cronet_sample_apk_java") {
     ":package_api_java",
     ":package_impl_native_java",
     "//third_party/android_deps:android_support_v7_appcompat_java",
+    "//third_party/android_deps:androidx_annotation_annotation_java",
   ]
 }
 
@@ -515,6 +522,7 @@ java_prebuilt("package_impl_native_java") {
     "//third_party/android_deps:android_support_v4_java",
     "//third_party/jsr-305:jsr_305_javalib",
   ]
+  jar_excluded_patterns = [ "androidx/*/R*" ]
 }
 
 android_java_prebuilt("package_impl_util_java") {
@@ -654,11 +662,11 @@ jar_src("jar_cronet_impl_util_java_source") {
 _jar_excluded_patterns = [
   # Excludes Android support libraries crbug.com/832770.
   "android/*",
+  "androidx/*",
   "*/library_loader/*.class",
   "*/multidex/*.class",
   "*/process_launcher/*.class",
   "*/SysUtils*.class",
-  "*/CachedMetrics*.class",
   "org/chromium/base/memory/MemoryPressureMonitor*.class",
 ]
 
@@ -742,7 +750,12 @@ if (!is_component_build) {
   # targets which are common between the "instrumentation test apk" and the
   # "tested apk" are removed from the "instrumentation test apk".
   android_resources("cronet_sample_test_apk_resources") {
-    resource_dirs = [ "sample/res" ]
+    sources = [
+      "sample/res/layout/activity_main.xml",
+      "sample/res/layout/dialog_url.xml",
+      "sample/res/values/dimens.xml",
+      "sample/res/values/strings.xml",
+    ]
     android_manifest = "sample/javatests/AndroidManifest.xml"
   }
 
@@ -805,6 +818,8 @@ if (!is_component_build) {
       "test/quic_test_server.cc",
       "test/test_upload_data_stream_handler.cc",
       "test/test_upload_data_stream_handler.h",
+      "test/url_request_intercepting_job_factory.cc",
+      "test/url_request_intercepting_job_factory.h",
     ]
 
     deps = [
@@ -831,9 +846,10 @@ if (!is_component_build) {
   android_resources("cronet_test_apk_resources") {
     testonly = true
     custom_package = "org.chromium.net"
-    resource_dirs = [
-      "test/res",
-      "test/smoketests/res/native",
+    sources = [
+      "test/res/values/strings.xml",
+      "test/res/xml/network_security_config.xml",
+      "test/smoketests/res/native/values/strings.xml",
     ]
   }
 
@@ -1047,7 +1063,10 @@ if (!is_component_build) {
   android_resources("cronet_smoketests_platform_only_apk_resources") {
     testonly = true
     custom_package = "org.chromium.net"
-    resource_dirs = [ "test/smoketests/res/platform_only" ]
+    sources = [
+      "test/smoketests/res/platform_only/values/strings.xml",
+      "test/smoketests/res/platform_only/xml/network_security_config.xml",
+    ]
   }
 
   instrumentation_test_apk(
@@ -1074,7 +1093,6 @@ if (!is_component_build) {
       "//third_party/netty4:netty_all_java",
     ]
 
-    enable_multidex = false
     if (!is_java_debug) {
       proguard_enabled = true
 
@@ -1108,7 +1126,7 @@ if (!is_component_build) {
       "//third_party/netty4:netty_all_java",
     ]
 
-    enable_multidex = false
+    enable_multidex = true
     if (!is_java_debug) {
       proguard_enabled = true
       proguard_configs = [

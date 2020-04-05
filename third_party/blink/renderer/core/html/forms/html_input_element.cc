@@ -49,6 +49,7 @@
 #include "third_party/blink/renderer/core/events/before_text_inserted_event.h"
 #include "third_party/blink/renderer/core/events/keyboard_event.h"
 #include "third_party/blink/renderer/core/events/mouse_event.h"
+#include "third_party/blink/renderer/core/fileapi/file_list.h"
 #include "third_party/blink/renderer/core/frame/deprecation.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
@@ -71,7 +72,6 @@
 #include "third_party/blink/renderer/core/layout/layout_object.h"
 #include "third_party/blink/renderer/core/page/chrome_client.h"
 #include "third_party/blink/renderer/core/page/page.h"
-#include "third_party/blink/renderer/core/scroll/scroll_into_view_params_type_converters.h"
 #include "third_party/blink/renderer/platform/bindings/exception_messages.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/bindings/to_v8.h"
@@ -322,11 +322,13 @@ void HTMLInputElement::UpdateFocusAppearanceWithOptions(
     // TODO(tkent): scrollRectToVisible is a workaround of a bug of
     // FrameSelection::revealSelection().  It doesn't scroll correctly in a
     // case of RangeSelection. crbug.com/443061.
-    GetDocument().EnsurePaintLocationDataValidForNode(this);
+    GetDocument().EnsurePaintLocationDataValidForNode(
+        this, DocumentUpdateReason::kFocus);
     if (!options->preventScroll()) {
       if (GetLayoutObject()) {
-        GetLayoutObject()->ScrollRectToVisible(BoundingBoxForScrollIntoView(),
-                                               CreateScrollIntoViewParams());
+        GetLayoutObject()->ScrollRectToVisible(
+            BoundingBoxForScrollIntoView(),
+            ScrollAlignment::CreateScrollIntoViewParams());
       }
       if (GetDocument().GetFrame())
         GetDocument().GetFrame()->Selection().RevealSelection();
@@ -607,6 +609,20 @@ bool HTMLInputElement::CanStartSelection() const {
   return TextControlElement::CanStartSelection();
 }
 
+base::Optional<uint32_t> HTMLInputElement::selectionStartForBinding(
+    ExceptionState& exception_state) const {
+  if (!input_type_->SupportsSelectionAPI())
+    return base::nullopt;
+  return TextControlElement::selectionStart();
+}
+
+base::Optional<uint32_t> HTMLInputElement::selectionEndForBinding(
+    ExceptionState& exception_state) const {
+  if (!input_type_->SupportsSelectionAPI())
+    return base::nullopt;
+  return TextControlElement::selectionEnd();
+}
+
 unsigned HTMLInputElement::selectionStartForBinding(
     bool& is_null,
     ExceptionState& exception_state) const {
@@ -633,6 +649,32 @@ String HTMLInputElement::selectionDirectionForBinding(
     return String();
   }
   return TextControlElement::selectionDirection();
+}
+
+void HTMLInputElement::setSelectionStartForBinding(
+    base::Optional<uint32_t> start,
+    ExceptionState& exception_state) {
+  if (!input_type_->SupportsSelectionAPI()) {
+    exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
+                                      "The input element's type ('" +
+                                          input_type_->FormControlType() +
+                                          "') does not support selection.");
+    return;
+  }
+  TextControlElement::setSelectionStart(start.value_or(0));
+}
+
+void HTMLInputElement::setSelectionEndForBinding(
+    base::Optional<uint32_t> end,
+    ExceptionState& exception_state) {
+  if (!input_type_->SupportsSelectionAPI()) {
+    exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
+                                      "The input element's type ('" +
+                                          input_type_->FormControlType() +
+                                          "') does not support selection.");
+    return;
+  }
+  TextControlElement::setSelectionEnd(end.value_or(0));
 }
 
 void HTMLInputElement::setSelectionStartForBinding(
@@ -812,7 +854,7 @@ void HTMLInputElement::ParseAttribute(
       size_ = size;
       if (GetLayoutObject()) {
         GetLayoutObject()
-            ->SetNeedsLayoutAndPrefWidthsRecalcAndFullPaintInvalidation(
+            ->SetNeedsLayoutAndIntrinsicWidthsRecalcAndFullPaintInvalidation(
                 layout_invalidation_reason::kAttributeChanged);
       }
     }
@@ -976,12 +1018,13 @@ bool HTMLInputElement::HasBeenPasswordField() const {
 }
 
 void HTMLInputElement::DispatchChangeEventIfNeeded() {
-  if (input_type_->ShouldSendChangeEventAfterCheckedChanged())
+  if (isConnected() && input_type_->ShouldSendChangeEventAfterCheckedChanged())
     DispatchChangeEvent();
 }
 
 void HTMLInputElement::DispatchInputAndChangeEventIfNeeded() {
-  if (input_type_->ShouldSendChangeEventAfterCheckedChanged()) {
+  if (isConnected() &&
+      input_type_->ShouldSendChangeEventAfterCheckedChanged()) {
     DispatchInputEvent();
     DispatchChangeEvent();
   }
@@ -1085,6 +1128,10 @@ String HTMLInputElement::value() const {
   return g_empty_string;
 }
 
+String HTMLInputElement::rawValue() const {
+  return input_type_view_->RawValue();
+}
+
 String HTMLInputElement::ValueOrDefaultLabel() const {
   String value = this->value();
   if (!value.IsNull())
@@ -1166,23 +1213,6 @@ void HTMLInputElement::setValue(const String& value,
 
   if (value_changed)
     NotifyFormStateChanged();
-
-  if (isConnected()) {
-    if (AXObjectCache* cache = GetDocument().ExistingAXObjectCache()) {
-      auto* page = GetDocument().GetPage();
-      auto* view = GetDocument().View();
-      // Run the document lifecycle to ensure AX notifications fire,
-      // even if the value didn't change.
-      if (page && view) {
-        // TODO(aboxhall): add a lifecycle phase for accessibility updates.
-        if (!view->CanThrottleRendering())
-          page->Animator().ScheduleVisualUpdate(GetDocument().GetFrame());
-
-        GetDocument().Lifecycle().EnsureStateAtMost(
-            DocumentLifecycle::kVisualUpdatePending);
-      }
-    }
-  }
 }
 
 void HTMLInputElement::SetNonAttributeValue(const String& sanitized_value) {
@@ -1294,12 +1324,12 @@ EventDispatchHandlingState* HTMLInputElement::PreDispatchEventHandler(
   }
   if (event.type() != event_type_names::kClick)
     return nullptr;
-  if (!event.IsMouseEvent() ||
-      ToMouseEvent(event).button() !=
+
+  auto* mouse_event = DynamicTo<MouseEvent>(event);
+  if (!mouse_event ||
+      mouse_event->button() !=
           static_cast<int16_t>(WebPointerProperties::Button::kLeft))
     return nullptr;
-  if (formOwner() && CanBeSuccessfulSubmitButton())
-    formOwner()->WillActivateSubmitButton(this);
   return input_type_view_->WillDispatchClick();
 }
 
@@ -1312,29 +1342,19 @@ void HTMLInputElement::PostDispatchEventHandler(
                                      *static_cast<ClickHandlingState*>(state));
 }
 
-void HTMLInputElement::DidPreventDefault(const Event& event) {
-  if (auto* form = formOwner())
-    form->DidActivateSubmitButton(this);
-}
-
-void HTMLInputElement::DefaultEventHandler(Event& event) {
-  DefaultEventHandlerInternal(event);
-
-  if (event.type() == event_type_names::kDOMActivate && formOwner())
-    formOwner()->DidActivateSubmitButton(this);
-}
-
-void HTMLInputElement::DefaultEventHandlerInternal(Event& evt) {
-  if (evt.IsMouseEvent() && evt.type() == event_type_names::kClick &&
-      ToMouseEvent(evt).button() ==
+void HTMLInputElement::DefaultEventHandler(Event& evt) {
+  auto* mouse_event = DynamicTo<MouseEvent>(evt);
+  if (mouse_event && evt.type() == event_type_names::kClick &&
+      mouse_event->button() ==
           static_cast<int16_t>(WebPointerProperties::Button::kLeft)) {
-    input_type_view_->HandleClickEvent(ToMouseEvent(evt));
+    input_type_view_->HandleClickEvent(To<MouseEvent>(evt));
     if (evt.DefaultHandled())
       return;
   }
 
-  if (evt.IsKeyboardEvent() && evt.type() == event_type_names::kKeydown) {
-    input_type_view_->HandleKeydownEvent(ToKeyboardEvent(evt));
+  auto* keyboad_event = DynamicTo<KeyboardEvent>(evt);
+  if (keyboad_event && evt.type() == event_type_names::kKeydown) {
+    input_type_view_->HandleKeydownEvent(*keyboad_event);
     if (evt.DefaultHandled())
       return;
   }
@@ -1365,14 +1385,14 @@ void HTMLInputElement::DefaultEventHandlerInternal(Event& evt) {
 
   // Use key press event here since sending simulated mouse events
   // on key down blocks the proper sending of the key press event.
-  if (evt.IsKeyboardEvent() && evt.type() == event_type_names::kKeypress) {
-    input_type_view_->HandleKeypressEvent(ToKeyboardEvent(evt));
+  if (keyboad_event && evt.type() == event_type_names::kKeypress) {
+    input_type_view_->HandleKeypressEvent(*keyboad_event);
     if (evt.DefaultHandled())
       return;
   }
 
-  if (evt.IsKeyboardEvent() && evt.type() == event_type_names::kKeyup) {
-    input_type_view_->HandleKeyupEvent(ToKeyboardEvent(evt));
+  if (keyboad_event && evt.type() == event_type_names::kKeyup) {
+    input_type_view_->HandleKeyupEvent(*keyboad_event);
     if (evt.DefaultHandled())
       return;
   }
@@ -1406,8 +1426,8 @@ void HTMLInputElement::DefaultEventHandlerInternal(Event& evt) {
         static_cast<BeforeTextInsertedEvent&>(evt));
   }
 
-  if (evt.IsMouseEvent() && evt.type() == event_type_names::kMousedown) {
-    input_type_view_->HandleMouseDownEvent(ToMouseEvent(evt));
+  if (mouse_event && evt.type() == event_type_names::kMousedown) {
+    input_type_view_->HandleMouseDownEvent(*mouse_event);
     if (evt.DefaultHandled())
       return;
   }
@@ -1802,6 +1822,10 @@ String HTMLInputElement::FileStatusText() const {
   return input_type_view_->FileStatusText();
 }
 
+bool HTMLInputElement::ShouldApplyMiddleEllipsis() const {
+  return files() && files()->length() <= 1;
+}
+
 bool HTMLInputElement::ShouldAppearIndeterminate() const {
   return input_type_->ShouldAppearIndeterminate();
 }
@@ -1989,8 +2013,9 @@ bool HTMLInputElement::IsInteractiveContent() const {
 }
 
 scoped_refptr<ComputedStyle> HTMLInputElement::CustomStyleForLayoutObject() {
-  return input_type_view_->CustomStyleForLayoutObject(
-      OriginalStyleForLayoutObject());
+  scoped_refptr<ComputedStyle> style = OriginalStyleForLayoutObject();
+  input_type_view_->CustomStyleForLayoutObject(*style);
+  return style;
 }
 
 void HTMLInputElement::DidRecalcStyle(const StyleRecalcChange change) {

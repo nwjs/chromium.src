@@ -97,6 +97,7 @@
 <translation id="2149973817440762519">Modifica Preferito</translation>
 <translation id="2179182049312275900">Puoi attivare la sincronizzazione in qualsiasi momento nelle impostazioni.</translation>
 <translation id="2198757192731523470">Google può utilizzare la tua cronologia per personalizzare la Ricerca, gli annunci e altri servizi Google.</translation>
+<translation id="2218443599109088993">Diminuisci lo zoom</translation>
 <translation id="2230173723195178503">Pagina web caricata</translation>
 <translation id="2239626343334228536">Cancellazione dati di navigazione…</translation>
 <translation id="2257567812274161158">La sincronizzazione non funziona.</translation>
@@ -159,6 +160,7 @@
 <translation id="2923448633003185837">Incolla e vai</translation>
 <translation id="292639812446257861">Segna come da leggere</translation>
 <translation id="2958718410589002129">Password</translation>
+<translation id="2964349545761222050">Blocca cookie di terze parti</translation>
 <translation id="2969979262385602596">Impossibile accedere. Riprova più tardi.</translation>
 <translation id="298306318844797842">Aggiungi il metodo di pagamento…</translation>
 <translation id="2989805286512600854">Apri in un'altra scheda</translation>
@@ -178,6 +180,7 @@
 <translation id="3290875554372353449">Scegli un account</translation>
 <translation id="3311748811247479259">Off</translation>
 <translation id="3324193307694657476">Indirizzo 2</translation>
+<translation id="3328801116991980348">Informazioni sito</translation>
 <translation id="3329904751041170572">Connessione al server non riuscita.</translation>
 <translation id="3335947283844343239">Riapri scheda chiusa</translation>
 <translation id="3371831930909698441">Traduttore disponibile. Opzioni disponibili nella parte inferiore dello schermo.</translation>
@@ -300,6 +303,7 @@ Per cambiare questa impostazione, <ph name="BEGIN_LINK" />reimposta la sincroniz
 <translation id="4979397965658815378">Accedi con il tuo Account Google per avere preferiti, password, cronologia e altre impostazioni su tutti i tuoi dispositivi</translation>
 <translation id="5005498671520578047">Copia password</translation>
 <translation id="5010803260590204777">Apri una scheda di navigazione in incognito per navigare sul Web in privato.</translation>
+<translation id="5039020240289137291">Blocco dei cookie di terze parti</translation>
 <translation id="5039804452771397117">Consenti</translation>
 <translation id="5059136629401106827">OK</translation>
 <translation id="5062321486222145940">Installa Google Drive</translation>
@@ -414,9 +418,11 @@ I tuoi dati sono stati criptati con la tua passphrase di sincronizzazione in dat
 <translation id="6434591244308415567">Si è verificato un errore. Riprova più tardi.</translation>
 <translation id="6445051938772793705">Paese</translation>
 <translation id="6445981559479772097">Messaggio inviato.</translation>
+<translation id="6447842834002726250">Cookie</translation>
 <translation id="6464071786529933911">Apri in nuova scheda in incognito</translation>
 <translation id="6476800141292307438">Traduzione della pagina in <ph name="LANGUAGE" />. Opzioni disponibili nella parte inferiore dello schermo.</translation>
 <translation id="6482629121755362506"><ph name="NUMBER_OF_SELECTED_BOOKMARKS" /> elementi eliminati</translation>
+<translation id="6561262006871132942">Aumenta lo zoom</translation>
 <translation id="6610002944194042868">Opzioni di Traduttore</translation>
 <translation id="6628106477656132239">Data di scadenza non valida</translation>
 <translation id="6638511529934826365">Zoom del testo…</translation>
@@ -479,7 +485,6 @@ I tuoi dati sono stati criptati con la tua passphrase di sincronizzazione in dat
 <translation id="734758817008927353">Opzioni per salvare la carta</translation>
 <translation id="7348502496356775519">Aggiungi ai preferiti</translation>
 <translation id="7383797227493018512">Elenco di lettura</translation>
-<translation id="7392048574806661116">Esci e cancella i dati sincronizzati</translation>
 <translation id="7400418766976504921">URL</translation>
 <translation id="7409985198648820906"><ph name="UNREAD_COUNT" /> articoli da leggere.</translation>
 <translation id="7425346204213733349">Le modifiche ai preferiti, alla cronologia, alle password e ad altre impostazioni non verranno più sincronizzate con il tuo Account Google. Tuttavia, i dati esistenti rimarranno memorizzati.</translation>
@@ -598,6 +603,7 @@ I tuoi dati sono stati criptati con la tua passphrase di sincronizzazione in dat
 <translation id="9223358826628549784">Rapporto sugli arresti anomali inviato.</translation>
 <translation id="952704832371081537">Annulla</translation>
 <translation id="988141524645182168">Altri dispositivi</translation>
+<translation id="989697783705943787">Sicurezza del sito</translation>
 <translation id="989988560359834682">Modifica indirizzo</translation>
 <translation id="994757059139821576">Suggerimenti di articoli</translation>
 </translationbundle>

@@ -6,6 +6,7 @@
 
 #include <utility>
 
+#include "base/bind_helpers.h"
 #include "base/logging.h"
 #include "base/macros.h"
 #include "base/metrics/histogram_macros.h"
@@ -28,8 +29,8 @@
 #include "ui/base/ime/mock_ime_input_context_handler.h"
 #include "ui/base/ime/text_input_flags.h"
 #include "ui/events/base_event_utils.h"
-#include "ui/events/event_constants.h"
 #include "ui/events/keycodes/dom/dom_code.h"
+#include "ui/events/types/event_type.h"
 #include "ui/gfx/geometry/rect.h"
 
 using input_method::InputMethodEngineBase;
@@ -113,7 +114,7 @@ class TestObserver : public InputMethodEngineBase::Observer {
   void OnMenuItemActivated(const std::string& engine_id,
                            const std::string& menu_id) override {}
   void OnSurroundingTextChanged(const std::string& engine_id,
-                                const std::string& text,
+                                const base::string16& text,
                                 int cursor_pos,
                                 int anchor_pos,
                                 int offset) override {}

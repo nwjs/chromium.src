@@ -4,6 +4,12 @@
 
 #include "chrome/browser/performance_manager/persistence/site_data/site_data_cache_facade.h"
 
+#include <memory>
+#include <set>
+#include <string>
+#include <utility>
+#include <vector>
+
 #include "base/auto_reset.h"
 #include "base/callback.h"
 #include "base/run_loop.h"
@@ -93,7 +99,7 @@ class SiteDataCacheFacadeTest : public testing::TestWithPerformanceManager {
 
   void SetUp() override {
     testing::TestWithPerformanceManager::SetUp();
-    PerformanceManagerImpl::GetInstance()->CallOnGraphImpl(
+    PerformanceManagerImpl::CallOnGraphImpl(
         FROM_HERE,
         base::BindOnce(
             [](std::unique_ptr<SiteDataCacheFactory> site_data_cache_factory,
@@ -120,9 +126,8 @@ class SiteDataCacheFacadeTest : public testing::TestWithPerformanceManager {
     base::RunLoop run_loop;
     auto quit_closure = run_loop.QuitClosure();
     auto browser_context_id = profile()->UniqueId();
-    PerformanceManagerImpl::GetInstance()->CallOnGraphImpl(
-        FROM_HERE,
-        base::BindLambdaForTesting([&](performance_manager::GraphImpl* graph) {
+    PerformanceManagerImpl::CallOnGraphImpl(
+        FROM_HERE, base::BindLambdaForTesting([&]() {
           auto mock_cache =
               std::make_unique<MockSiteDataCache>(browser_context_id);
           mock_cache_raw = mock_cache.get();

@@ -10,35 +10,36 @@ import static org.chromium.chrome.browser.toolbar.top.StartSurfaceToolbarPropert
 import static org.chromium.chrome.browser.toolbar.top.StartSurfaceToolbarProperties.IDENTITY_DISC_CLICK_HANDLER;
 import static org.chromium.chrome.browser.toolbar.top.StartSurfaceToolbarProperties.IDENTITY_DISC_DESCRIPTION;
 import static org.chromium.chrome.browser.toolbar.top.StartSurfaceToolbarProperties.IDENTITY_DISC_IMAGE;
-import static org.chromium.chrome.browser.toolbar.top.StartSurfaceToolbarProperties.IDENTITY_DISC_IPH;
 import static org.chromium.chrome.browser.toolbar.top.StartSurfaceToolbarProperties.IDENTITY_DISC_IS_VISIBLE;
 import static org.chromium.chrome.browser.toolbar.top.StartSurfaceToolbarProperties.INCOGNITO_STATE_PROVIDER;
 import static org.chromium.chrome.browser.toolbar.top.StartSurfaceToolbarProperties.INCOGNITO_SWITCHER_VISIBLE;
+import static org.chromium.chrome.browser.toolbar.top.StartSurfaceToolbarProperties.IN_START_SURFACE_MODE;
 import static org.chromium.chrome.browser.toolbar.top.StartSurfaceToolbarProperties.IS_INCOGNITO;
 import static org.chromium.chrome.browser.toolbar.top.StartSurfaceToolbarProperties.IS_VISIBLE;
 import static org.chromium.chrome.browser.toolbar.top.StartSurfaceToolbarProperties.LOGO_IS_VISIBLE;
-import static org.chromium.chrome.browser.toolbar.top.StartSurfaceToolbarProperties.MENU_IS_VISIBLE;
 import static org.chromium.chrome.browser.toolbar.top.StartSurfaceToolbarProperties.NEW_TAB_BUTTON_AT_LEFT;
 import static org.chromium.chrome.browser.toolbar.top.StartSurfaceToolbarProperties.NEW_TAB_BUTTON_IS_VISIBLE;
 import static org.chromium.chrome.browser.toolbar.top.StartSurfaceToolbarProperties.NEW_TAB_CLICK_HANDLER;
 
-import android.graphics.drawable.Drawable;
 import android.view.View;
 
-import androidx.annotation.StringRes;
+import androidx.annotation.VisibleForTesting;
 
+import org.chromium.base.Callback;
 import org.chromium.chrome.browser.compositor.layouts.EmptyOverviewModeObserver;
 import org.chromium.chrome.browser.compositor.layouts.OverviewModeBehavior;
 import org.chromium.chrome.browser.compositor.layouts.OverviewModeBehavior.OverviewModeObserver;
 import org.chromium.chrome.browser.compositor.layouts.OverviewModeState;
+import org.chromium.chrome.browser.identity_disc.IdentityDiscController;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
 import org.chromium.chrome.browser.tabmodel.EmptyTabModelSelectorObserver;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorObserver;
+import org.chromium.chrome.browser.toolbar.ButtonData;
 import org.chromium.chrome.browser.toolbar.IncognitoStateProvider;
-import org.chromium.chrome.browser.toolbar.top.StartSurfaceToolbarProperties.IPHContainer;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuButtonHelper;
+import org.chromium.chrome.browser.user_education.IPHCommandBuilder;
 import org.chromium.chrome.browser.util.AccessibilityUtil;
 import org.chromium.components.search_engines.TemplateUrlService.TemplateUrlServiceObserver;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -46,6 +47,10 @@ import org.chromium.ui.modelutil.PropertyModel;
 /** The mediator implements interacts between the views and the caller. */
 class StartSurfaceToolbarMediator {
     private final PropertyModel mPropertyModel;
+    private final IdentityDiscController mIdentityDiscController;
+    private final Callback<IPHCommandBuilder> mShowIPHCallback;
+    private final boolean mHideIncognitoSwitchWhenNoTabs;
+
     private TabModelSelector mTabModelSelector;
     private TemplateUrlServiceObserver mTemplateUrlObserver;
     private TabModelSelectorObserver mTabModelSelectorObserver;
@@ -54,12 +59,15 @@ class StartSurfaceToolbarMediator {
     @OverviewModeState
     private int mOverviewModeState;
     private boolean mIsGoogleSearchEngine;
-    private boolean mEnableIdentityDisc;
 
-    StartSurfaceToolbarMediator(PropertyModel model) {
+    StartSurfaceToolbarMediator(PropertyModel model, IdentityDiscController identityDiscController,
+            Callback<IPHCommandBuilder> showIPHCallback, boolean hideIncognitoSwitchWhenNoTabs) {
         mPropertyModel = model;
-        mPropertyModel.set(MENU_IS_VISIBLE, true);
         mOverviewModeState = OverviewModeState.NOT_SHOWN;
+        mIdentityDiscController = identityDiscController;
+        mIdentityDiscController.addObserver(this::identityDiscStateChanged);
+        mShowIPHCallback = showIPHCallback;
+        mHideIncognitoSwitchWhenNoTabs = hideIncognitoSwitchWhenNoTabs;
     }
 
     void onNativeLibraryReady() {
@@ -105,15 +113,16 @@ class StartSurfaceToolbarMediator {
                 @Override
                 public void onTabModelSelected(TabModel newModel, TabModel oldModel) {
                     mPropertyModel.set(IS_INCOGNITO, mTabModelSelector.isIncognitoSelected());
-                    updateIdentityDiscVisibility();
-                    if (mOverviewModeState == OverviewModeState.SHOWN_TABSWITCHER_OMNIBOX_ONLY) {
+                    updateIdentityDisc(
+                            mIdentityDiscController.getForStartSurface(mOverviewModeState));
+                    if (mHideIncognitoSwitchWhenNoTabs) {
                         mPropertyModel.set(INCOGNITO_SWITCHER_VISIBLE, hasIncognitoTabs());
                     }
                 }
             };
         }
         mPropertyModel.set(IS_INCOGNITO, mTabModelSelector.isIncognitoSelected());
-        updateIdentityDiscVisibility();
+        updateIdentityDisc(mIdentityDiscController.getForStartSurface(mOverviewModeState));
         mTabModelSelector.addObserver(mTabModelSelectorObserver);
     }
 
@@ -124,20 +133,19 @@ class StartSurfaceToolbarMediator {
         for (int i = 0; i < incognitoTabModel.getCount(); i++) {
             if (!incognitoTabModel.getTabAt(i).isClosing()) return true;
         }
-        assert !mTabModelSelector.isIncognitoSelected();
         return false;
     }
 
     void setStartSurfaceMode(boolean inStartSurfaceMode) {
-        mPropertyModel.set(IS_VISIBLE, inStartSurfaceMode);
-    }
-
-    void setIncognitoStateProvider(IncognitoStateProvider provider) {
-        mPropertyModel.set(INCOGNITO_STATE_PROVIDER, provider);
+        mPropertyModel.set(IN_START_SURFACE_MODE, inStartSurfaceMode);
     }
 
     void setStartSurfaceToolbarVisibility(boolean shouldShowStartSurfaceToolbar) {
         mPropertyModel.set(IS_VISIBLE, shouldShowStartSurfaceToolbar);
+    }
+
+    void setIncognitoStateProvider(IncognitoStateProvider provider) {
+        mPropertyModel.set(INCOGNITO_STATE_PROVIDER, provider);
     }
 
     void onAccessibilityStatusChanged(boolean enabled) {
@@ -159,12 +167,15 @@ class StartSurfaceToolbarMediator {
                     mOverviewModeState = overviewModeState;
                     updateNewTabButtonVisibility();
                     updateLogoVisibility(mIsGoogleSearchEngine);
-                    updateIdentityDiscVisibility();
+                    updateIdentityDisc(
+                            mIdentityDiscController.getForStartSurface(mOverviewModeState));
                 }
                 @Override
                 public void onOverviewModeStartedShowing(boolean showToolbar) {
-                    if (mOverviewModeState == OverviewModeState.SHOWN_TABSWITCHER_OMNIBOX_ONLY) {
+                    if (mHideIncognitoSwitchWhenNoTabs) {
                         mPropertyModel.set(INCOGNITO_SWITCHER_VISIBLE, hasIncognitoTabs());
+                    }
+                    if (mOverviewModeState == OverviewModeState.SHOWN_TABSWITCHER_OMNIBOX_ONLY) {
                         mPropertyModel.set(NEW_TAB_BUTTON_AT_LEFT, true);
                     }
                 }
@@ -193,32 +204,27 @@ class StartSurfaceToolbarMediator {
         mPropertyModel.set(LOGO_IS_VISIBLE, shouldShowLogo);
     }
 
-    void showIdentityDisc(View.OnClickListener onClickListener, Drawable image,
-            @StringRes int contentDescriptionResId) {
-        mEnableIdentityDisc = true;
-        mPropertyModel.set(IDENTITY_DISC_CLICK_HANDLER, onClickListener);
-        mPropertyModel.set(IDENTITY_DISC_IMAGE, image);
-        mPropertyModel.set(IDENTITY_DISC_DESCRIPTION, contentDescriptionResId);
-        updateIdentityDiscVisibility();
+    @VisibleForTesting
+    void identityDiscStateChanged(boolean canShowHint) {
+        // If the identity disc wants to be hidden and is hidden, there's nothing we need to do.
+        if (!canShowHint && !mPropertyModel.get(IDENTITY_DISC_IS_VISIBLE)) return;
+        updateIdentityDisc(mIdentityDiscController.getForStartSurface(mOverviewModeState));
     }
 
-    void updateIdentityDiscImage(Drawable image) {
-        mPropertyModel.set(IDENTITY_DISC_IMAGE, image);
-    }
-
-    void hideIdentityDisc() {
-        mEnableIdentityDisc = false;
-        mPropertyModel.set(IDENTITY_DISC_IS_VISIBLE, false);
-    }
-
-    void showIPHOnIdentityDisc(@StringRes int stringId, @StringRes int accessibilityStringId,
-            Runnable dismissedCallback) {
-        // Only show IPH if IdentityDisc is actually visible, otherwise dismiss.
-        if (mPropertyModel.get(IDENTITY_DISC_IS_VISIBLE)) {
-            mPropertyModel.set(IDENTITY_DISC_IPH,
-                    new IPHContainer(stringId, accessibilityStringId, dismissedCallback));
-        } else if (dismissedCallback != null) {
-            dismissedCallback.run();
+    @VisibleForTesting
+    void updateIdentityDisc(ButtonData buttonData) {
+        boolean shouldShow = buttonData.canShow && !mTabModelSelector.isIncognitoSelected();
+        if (shouldShow) {
+            mPropertyModel.set(IDENTITY_DISC_CLICK_HANDLER, buttonData.onClickListener);
+            // Take a defensive copy of the Drawable, since Drawables aren't immutable, and another
+            // view mutating our drawable could cause it to display incorrectly.
+            mPropertyModel.set(
+                    IDENTITY_DISC_IMAGE, buttonData.drawable.getConstantState().newDrawable());
+            mPropertyModel.set(IDENTITY_DISC_DESCRIPTION, buttonData.contentDescriptionResId);
+            mPropertyModel.set(IDENTITY_DISC_IS_VISIBLE, true);
+            mShowIPHCallback.onResult(buttonData.iphCommandBuilder);
+        } else {
+            mPropertyModel.set(IDENTITY_DISC_IS_VISIBLE, false);
         }
     }
 
@@ -230,11 +236,5 @@ class StartSurfaceToolbarMediator {
                 || mOverviewModeState == OverviewModeState.SHOWN_TABSWITCHER_OMNIBOX_ONLY
                 || AccessibilityUtil.isAccessibilityEnabled();
         mPropertyModel.set(NEW_TAB_BUTTON_IS_VISIBLE, isShownTabswitcherState);
-    }
-
-    private void updateIdentityDiscVisibility() {
-        mPropertyModel.set(IDENTITY_DISC_IS_VISIBLE,
-                mOverviewModeState == OverviewModeState.SHOWN_HOMEPAGE && mEnableIdentityDisc
-                        && !mTabModelSelector.isIncognitoSelected());
     }
 }

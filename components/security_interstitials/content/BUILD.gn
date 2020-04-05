@@ -24,6 +24,8 @@ static_library("security_interstitial_page") {
     "common_name_mismatch_handler.h",
     "connection_help_ui.cc",
     "connection_help_ui.h",
+    "content_metrics_helper.cc",
+    "content_metrics_helper.h",
     "known_interception_disclosure_ui.cc",
     "known_interception_disclosure_ui.h",
     "legacy_tls_blocking_page.cc",
@@ -52,10 +54,14 @@ static_library("security_interstitial_page") {
     "ssl_error_handler.h",
     "ssl_error_navigation_throttle.cc",
     "ssl_error_navigation_throttle.h",
+    "stateful_ssl_host_state_delegate.cc",
+    "stateful_ssl_host_state_delegate.h",
     "unsafe_resource_util.cc",
     "unsafe_resource_util.h",
     "urls.cc",
     "urls.h",
+    "utils.cc",
+    "utils.h",
   ]
 
   public_deps = [
@@ -68,7 +74,12 @@ static_library("security_interstitial_page") {
     "//base",
     "//build:branding_buildflags",
     "//components/captive_portal/core",
+    "//components/content_settings/core/browser",
+    "//components/content_settings/core/common",
+    "//components/history/core/browser",
+    "//components/keyed_service/core",
     "//components/network_time",
+    "//components/pref_registry",
     "//components/prefs:prefs",
     "//components/resources",
     "//components/safe_browsing/core/common:safe_browsing_prefs",
@@ -89,6 +100,10 @@ static_library("security_interstitial_page") {
   ]
 
   if (enable_captive_portal_detection) {
+    sources += [
+      "captive_portal_metrics_recorder.cc",
+      "captive_portal_metrics_recorder.h",
+    ]
     deps += [ "//components/captive_portal/content" ]
   }
 
@@ -115,6 +130,7 @@ source_set("unit_tests") {
     "certificate_error_report_unittest.cc",
     "security_interstitial_tab_helper_unittest.cc",
     "ssl_error_assistant_unittest.cc",
+    "ssl_error_handler_unittest.cc",
     "ssl_error_navigation_throttle_unittest.cc",
   ]
 
@@ -123,6 +139,10 @@ source_set("unit_tests") {
     ":security_interstitial_page",
     "//base",
     "//base/test:test_support",
+    "//components/captive_portal/content",
+    "//components/captive_portal/core:test_support",
+    "//components/embedder_support",
+    "//components/network_time",
     "//components/network_time:network_time_test_support",
     "//components/prefs:test_support",
     "//components/security_interstitials/core:core",

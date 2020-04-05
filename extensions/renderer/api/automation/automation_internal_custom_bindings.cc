@@ -16,6 +16,7 @@
 #include "base/bind.h"
 #include "base/i18n/string_search.h"
 #include "base/macros.h"
+#include "base/memory/ptr_util.h"
 #include "base/strings/utf_offset_string_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/threading/thread_task_runner_handle.h"
@@ -28,6 +29,7 @@
 #include "extensions/common/manifest.h"
 #include "extensions/common/manifest_handlers/automation.h"
 #include "extensions/common/manifest_handlers/background_info.h"
+#include "extensions/renderer/api/automation/automation_position.h"
 #include "extensions/renderer/native_extension_bindings_system.h"
 #include "extensions/renderer/script_context.h"
 #include "gin/converter.h"
@@ -597,6 +599,7 @@ void AutomationInternalCustomBindings::AddRoutes() {
   ROUTE_FUNCTION(GetFocus);
   ROUTE_FUNCTION(GetHtmlAttributes);
   ROUTE_FUNCTION(GetState);
+  ROUTE_FUNCTION(CreateAutomationPosition);
 #undef ROUTE_FUNCTION
 
   // Bindings that take a Tree ID and return a property of the tree.
@@ -1855,6 +1858,36 @@ void AutomationInternalCustomBindings::GetState(
               true);
 
   args.GetReturnValue().Set(state.Build());
+}
+
+void AutomationInternalCustomBindings::CreateAutomationPosition(
+    const v8::FunctionCallbackInfo<v8::Value>& args) {
+  v8::Isolate* isolate = GetIsolate();
+  if (args.Length() < 4 || !args[0]->IsString() /* tree id */ ||
+      !args[1]->IsInt32() /* node id */ || !args[2]->IsInt32() /* offset */ ||
+      !args[3]->IsBoolean() /* is upstream affinity */) {
+    ThrowInvalidArgumentsException(this);
+  }
+
+  ui::AXTreeID tree_id =
+      ui::AXTreeID::FromString(*v8::String::Utf8Value(isolate, args[0]));
+  int node_id = args[1]->Int32Value(context()->v8_context()).ToChecked();
+
+  AutomationAXTreeWrapper* tree_wrapper =
+      GetAutomationAXTreeWrapperFromTreeID(tree_id);
+  if (!tree_wrapper)
+    return;
+
+  ui::AXNode* node = tree_wrapper->tree()->GetFromId(node_id);
+  if (!node)
+    return;
+
+  int offset = args[2]->Int32Value(context()->v8_context()).ToChecked();
+  bool is_upstream = args[3]->BooleanValue(isolate);
+
+  gin::Handle<AutomationPosition> handle = gin::CreateHandle(
+      isolate, new AutomationPosition(*node, offset, is_upstream));
+  args.GetReturnValue().Set(handle.ToV8().As<v8::Object>());
 }
 
 void AutomationInternalCustomBindings::UpdateOverallTreeChangeObserverFilter() {

@@ -14,6 +14,7 @@
 #include "ash/system/model/system_tray_model.h"
 #include "ash/wallpaper/wallpaper_controller_impl.h"
 #include "ash/wm/tablet_mode/tablet_mode_controller.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/scoped_observer.h"
 #include "chromeos/constants/chromeos_switches.h"
 #include "ui/gfx/color_analysis.h"
@@ -24,24 +25,44 @@ namespace ash {
 
 namespace {
 
+// Used in as a value in histogram to record the reason shelf navigation buttons
+// are shown in tablet mode.
+// The values assigned to enum items should not be changed/reassigned.
+constexpr int kControlButtonsShownForShelfNavigationButtonsSetting = 1;
+constexpr int kControlButtonsShownForSpokenFeedback = 1 << 1;
+constexpr int kControlButtonsShownForSwitchAccess = 1 << 2;
+constexpr int kControlButtonsShownForAutoclick = 1 << 3;
+constexpr int kControlButtonsShownReasonCount = 1 << 4;
+
 // When any edge of the primary display is less than or equal to this threshold,
 // dense shelf will be active.
 const int kDenseShelfScreenSizeThreshold = 600;
 
-// Returns whether tablet mode is currently active.
-bool IsTabletMode() {
-  return Shell::Get()->tablet_mode_controller() &&
-         Shell::Get()->tablet_mode_controller()->InTabletMode();
-}
-
-// Whether the the shelf control buttons must be shown for accessibility
-// reasons.
-bool ShelfControlsForcedShownForAccessibility() {
+// Records the histogram value tracking the reason shelf control buttons are
+// shown in tablet mode.
+void RecordReasonForShowingShelfControls() {
   AccessibilityControllerImpl* accessibility_controller =
       Shell::Get()->accessibility_controller();
-  return accessibility_controller->spoken_feedback_enabled() ||
-         accessibility_controller->autoclick_enabled() ||
-         accessibility_controller->switch_access_enabled();
+  int buttons_shown_reason_mask = 0;
+
+  if (accessibility_controller
+          ->tablet_mode_shelf_navigation_buttons_enabled()) {
+    buttons_shown_reason_mask |=
+        kControlButtonsShownForShelfNavigationButtonsSetting;
+  }
+
+  if (accessibility_controller->spoken_feedback_enabled())
+    buttons_shown_reason_mask |= kControlButtonsShownForSpokenFeedback;
+
+  if (accessibility_controller->switch_access_enabled())
+    buttons_shown_reason_mask |= kControlButtonsShownForSwitchAccess;
+
+  if (accessibility_controller->autoclick_enabled())
+    buttons_shown_reason_mask |= kControlButtonsShownForAutoclick;
+
+  base::UmaHistogramExactLinear(
+      "Ash.Shelf.NavigationButtonsInTabletMode.ReasonShown",
+      buttons_shown_reason_mask, kControlButtonsShownReasonCount);
 }
 
 }  // namespace
@@ -75,7 +96,8 @@ class ShelfConfig::ShelfAccessibilityObserver : public AccessibilityObserver {
 };
 
 ShelfConfig::ShelfConfig()
-    : is_dense_(false),
+    : in_tablet_mode_(false),
+      is_dense_(false),
       shelf_controls_shown_(true),
       is_virtual_keyboard_shown_(false),
       is_app_list_visible_(false),
@@ -180,6 +202,15 @@ void ShelfConfig::OnAppListVisibilityWillChange(bool shown,
   UpdateConfig(shown /*app_list_visible*/);
 }
 
+bool ShelfConfig::ShelfControlsForcedShownForAccessibility() const {
+  auto* accessibility_controller = Shell::Get()->accessibility_controller();
+  return accessibility_controller->spoken_feedback_enabled() ||
+         accessibility_controller->autoclick_enabled() ||
+         accessibility_controller->switch_access_enabled() ||
+         accessibility_controller
+             ->tablet_mode_shelf_navigation_buttons_enabled();
+}
+
 int ShelfConfig::shelf_size() const {
   return GetShelfSize(false /*ignore_in_app_state*/);
 }
@@ -193,10 +224,19 @@ int ShelfConfig::system_shelf_size() const {
 }
 
 int ShelfConfig::hotseat_size() const {
-  if (!chromeos::switches::ShouldShowShelfHotseat() || !IsTabletMode()) {
+  if (!chromeos::switches::ShouldShowShelfHotseat() ||
+      !Shell::Get()->IsInTabletMode()) {
     return shelf_size();
   }
   return is_dense_ ? 48 : 56;
+}
+
+int ShelfConfig::shelf_drag_handle_centering_size() const {
+  const session_manager::SessionState session_state =
+      Shell::Get()->session_controller()->GetSessionState();
+  return session_state == session_manager::SessionState::ACTIVE
+             ? in_app_shelf_size()
+             : 28;
 }
 
 int ShelfConfig::hotseat_bottom_padding() const {
@@ -219,7 +259,7 @@ int ShelfConfig::control_size() const {
   if (!chromeos::switches::ShouldShowShelfHotseat())
     return 40;
 
-  if (!IsTabletMode())
+  if (!Shell::Get()->IsInTabletMode())
     return 36;
 
   return is_dense_ ? 36 : 40;
@@ -227,16 +267,15 @@ int ShelfConfig::control_size() const {
 
 int ShelfConfig::control_border_radius() const {
   return (chromeos::switches::ShouldShowShelfHotseat() && is_in_app() &&
-          IsTabletMode())
+          Shell::Get()->IsInTabletMode())
              ? control_size() / 2 - in_app_control_button_height_inset_
              : control_size() / 2;
 }
 
-int ShelfConfig::overflow_button_margin() const {
-  return (button_size() - control_size()) / 2;
-}
+int ShelfConfig::control_button_edge_spacing(bool is_primary_axis_edge) const {
+  if (is_primary_axis_edge)
+    return Shell::Get()->IsInTabletMode() ? 8 : 6;
 
-int ShelfConfig::home_button_edge_spacing() const {
   return (shelf_size() - control_size()) / 2;
 }
 
@@ -270,23 +309,34 @@ void ShelfConfig::UpdateConfig(bool app_list_visible) {
   const gfx::Rect screen_size =
       display::Screen::GetScreen()->GetPrimaryDisplay().bounds();
 
-  const bool in_tablet_mode = IsTabletMode();
+  const bool in_tablet_mode = Shell::Get()->IsInTabletMode();
   const bool new_is_dense =
       chromeos::switches::ShouldShowShelfHotseat() &&
       (!in_tablet_mode ||
        (screen_size.width() <= kDenseShelfScreenSizeThreshold ||
         screen_size.height() <= kDenseShelfScreenSizeThreshold));
 
-  // TODO(http::crbug.com/1008956): Add a user preference that would allow the
-  // user or a policy to override this behavior.
+  const bool can_hide_shelf_controls =
+      in_tablet_mode && features::IsHideShelfControlsInTabletModeEnabled();
   const bool new_shelf_controls_shown =
-      !(in_tablet_mode && features::IsHideShelfControlsInTabletModeEnabled()) ||
-      ShelfControlsForcedShownForAccessibility();
+      !can_hide_shelf_controls || ShelfControlsForcedShownForAccessibility();
+  // Record reason to show shelf control buttons only if tablet mode changes, or
+  // if the buttons visibility state changes
+  if (can_hide_shelf_controls && new_shelf_controls_shown &&
+      (!in_tablet_mode_ || !shelf_controls_shown_)) {
+    RecordReasonForShowingShelfControls();
+  }
 
+  // TODO(https://crbug.com/1058205): Test this behavior.
+  // If the virtual keyboard is shown, the back button and in-app shelf should
+  // be shown so users can exit the keyboard. SystemTrayModel may be null in
+  // tests.
   const bool virtual_keyboard_shown =
       Shell::Get()->system_tray_model()
           ? Shell::Get()->system_tray_model()->virtual_keyboard()->visible()
           : false;
+
+  in_tablet_mode_ = in_tablet_mode;
 
   if (new_is_dense == is_dense_ &&
       shelf_controls_shown_ == new_shelf_controls_shown &&
@@ -309,7 +359,7 @@ int ShelfConfig::GetShelfSize(bool ignore_in_app_state) const {
     return 56;
 
   // In clamshell mode, the shelf always has the same size.
-  if (!IsTabletMode())
+  if (!Shell::Get()->IsInTabletMode())
     return 48;
 
   if (!ignore_in_app_state && is_in_app())
@@ -322,7 +372,8 @@ SkColor ShelfConfig::GetShelfControlButtonColor() const {
   const session_manager::SessionState session_state =
       Shell::Get()->session_controller()->GetSessionState();
 
-  if (chromeos::switches::ShouldShowShelfHotseat() && IsTabletMode() &&
+  if (chromeos::switches::ShouldShowShelfHotseat() &&
+      Shell::Get()->IsInTabletMode() &&
       session_state == session_manager::SessionState::ACTIVE) {
     return is_in_app() ? SK_ColorTRANSPARENT : GetDefaultShelfColor();
   } else if (session_state == session_manager::SessionState::OOBE) {
@@ -336,10 +387,7 @@ SkColor ShelfConfig::GetShelfWithAppListColor() const {
 }
 
 SkColor ShelfConfig::GetMaximizedShelfColor() const {
-  // Using 0xFF causes clipping on the overlay candidate content, which prevent
-  // HW overlay, probably due to a bug in compositor. Fix it and use 0xFF.
-  // crbug.com/901538
-  return SkColorSetA(GetDefaultShelfColor(), 254);  // ~100% opacity
+  return SkColorSetA(GetDefaultShelfColor(), 0xFF);  // 100% opacity
 }
 
 SkColor ShelfConfig::GetThemedColorFromWallpaper(SkColor base_color) const {
@@ -364,17 +412,18 @@ SkColor ShelfConfig::GetThemedColorFromWallpaper(SkColor base_color) const {
 
 SkColor ShelfConfig::GetDefaultShelfColor() const {
   if (!features::IsBackgroundBlurEnabled()) {
-    return AshColorProvider::Get()->GetBaseLayerColor(
-        AshColorProvider::BaseLayerType::kTransparent90,
-        AshColorProvider::AshColorMode::kDark);
+    return GetThemedColorFromWallpaper(
+        AshColorProvider::Get()->GetBaseLayerColor(
+            AshColorProvider::BaseLayerType::kTransparent90,
+            AshColorProvider::AshColorMode::kDark));
   }
 
   AshColorProvider::BaseLayerType layer_type;
   if (!chromeos::switches::ShouldShowShelfHotseat()) {
-    layer_type = IsTabletMode()
+    layer_type = Shell::Get()->IsInTabletMode()
                      ? AshColorProvider::BaseLayerType::kTransparent60
                      : AshColorProvider::BaseLayerType::kTransparent80;
-  } else if (IsTabletMode()) {
+  } else if (Shell::Get()->IsInTabletMode()) {
     layer_type = is_in_app() ? AshColorProvider::BaseLayerType::kTransparent90
                              : AshColorProvider::BaseLayerType::kTransparent60;
   } else {
@@ -389,17 +438,24 @@ SkColor ShelfConfig::GetDefaultShelfColor() const {
 
 int ShelfConfig::GetShelfControlButtonBlurRadius() const {
   if (features::IsBackgroundBlurEnabled() &&
-      chromeos::switches::ShouldShowShelfHotseat() && IsTabletMode() &&
-      !is_in_app()) {
+      chromeos::switches::ShouldShowShelfHotseat() &&
+      Shell::Get()->IsInTabletMode() && !is_in_app()) {
     return shelf_blur_radius_;
   }
   return 0;
 }
 
 int ShelfConfig::GetAppIconEndPadding() const {
-  return (chromeos::switches::ShouldShowShelfHotseat() && IsTabletMode())
-             ? app_icon_end_padding_
-             : 0;
+  return chromeos::switches::ShouldShowShelfHotseat() ? app_icon_end_padding_
+                                                      : 0;
+}
+
+int ShelfConfig::GetShelfItemRippleSize() const {
+  return button_size() + 2 * scrollable_shelf_ripple_padding();
+}
+
+int ShelfConfig::GetHotseatFullDragAmount() const {
+  return shelf_size() + hotseat_bottom_padding() + hotseat_size();
 }
 
 base::TimeDelta ShelfConfig::DimAnimationDuration() const {
@@ -408,6 +464,14 @@ base::TimeDelta ShelfConfig::DimAnimationDuration() const {
 
 gfx::Tween::Type ShelfConfig::DimAnimationTween() const {
   return gfx::Tween::LINEAR;
+}
+
+gfx::Size ShelfConfig::DragHandleSize() const {
+  const session_manager::SessionState session_state =
+      Shell::Get()->session_controller()->GetSessionState();
+  return session_state == session_manager::SessionState::ACTIVE
+             ? gfx::Size(80, 4)
+             : gfx::Size(120, 4);
 }
 
 void ShelfConfig::UpdateConfigForAccessibilityState() {

@@ -17,7 +17,7 @@ namespace signin {
 PrimaryAccountAccessTokenFetcher::PrimaryAccountAccessTokenFetcher(
     const std::string& oauth_consumer_name,
     IdentityManager* identity_manager,
-    const identity::ScopeSet& scopes,
+    const ScopeSet& scopes,
     AccessTokenFetcher::TokenCallback callback,
     Mode mode,
     ConsentLevel consent)
@@ -42,9 +42,7 @@ PrimaryAccountAccessTokenFetcher::PrimaryAccountAccessTokenFetcher(
 PrimaryAccountAccessTokenFetcher::~PrimaryAccountAccessTokenFetcher() = default;
 
 CoreAccountId PrimaryAccountAccessTokenFetcher::GetAccountId() const {
-  return consent_ == ConsentLevel::kSync
-             ? identity_manager_->GetPrimaryAccountId()
-             : identity_manager_->GetUnconsentedPrimaryAccountId();
+  return identity_manager_->GetPrimaryAccountId(consent_);
 }
 
 bool PrimaryAccountAccessTokenFetcher::AreCredentialsAvailable() const {

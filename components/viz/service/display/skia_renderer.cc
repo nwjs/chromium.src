@@ -559,11 +559,9 @@ SkiaRenderer::ScopedSkImageBuilder::ScopedSkImageBuilder(
     lock_.emplace(resource_provider, resource_id, alpha_type, origin);
     sk_image_ = lock_->sk_image();
   } else {
-    float sdr_scale_factor = skia_renderer->current_frame()->sdr_white_level /
-                             gfx::ColorSpace::kDefaultSDRWhiteLevel;
     auto* image_context =
         skia_renderer->lock_set_for_external_use_->LockResource(
-            resource_id, /*video_plane=*/false, sdr_scale_factor);
+            resource_id, /*is_video_plane=*/false);
     // |ImageContext::image| provides thread safety: (a) this ImageContext is
     // only accessed by GPU thread after |image| is set and (b) the fields of
     // ImageContext that are accessed by both compositor and GPU thread are no
@@ -583,8 +581,7 @@ class SkiaRenderer::ScopedYUVSkImageBuilder {
  public:
   ScopedYUVSkImageBuilder(SkiaRenderer* skia_renderer,
                           const YUVVideoDrawQuad* quad,
-                          sk_sp<SkColorSpace> dst_color_space,
-                          bool has_color_conversion_filter) {
+                          sk_sp<SkColorSpace> dst_color_space) {
     DCHECK(skia_renderer->is_using_ddl());
     DCHECK(IsTextureResource(skia_renderer->resource_provider_,
                              quad->y_plane_resource_id()));
@@ -596,14 +593,6 @@ class SkiaRenderer::ScopedYUVSkImageBuilder {
            IsTextureResource(skia_renderer->resource_provider_,
                              quad->a_plane_resource_id()));
 
-    SkYUVColorSpace yuv_color_space;
-    if (has_color_conversion_filter) {
-      yuv_color_space = kIdentity_SkYUVColorSpace;
-    } else {
-      yuv_color_space = kRec601_SkYUVColorSpace;
-      quad->video_color_space.ToSkYUVColorSpace(&yuv_color_space);
-    }
-
     const bool is_i420 =
         quad->u_plane_resource_id() != quad->v_plane_resource_id();
     const bool has_alpha = quad->a_plane_resource_id() != kInvalidResourceId;
@@ -613,25 +602,26 @@ class SkiaRenderer::ScopedYUVSkImageBuilder {
     // Skia API ignores the color space information on the individual planes.
     // Dropping them here avoids some LOG spam.
     auto* y_context = skia_renderer->lock_set_for_external_use_->LockResource(
-        quad->y_plane_resource_id(), true /* is_video_plane */);
+        quad->y_plane_resource_id(), /*is_video_plane=*/true);
     contexts.push_back(std::move(y_context));
     auto* u_context = skia_renderer->lock_set_for_external_use_->LockResource(
-        quad->u_plane_resource_id(), true /* is_video_plane */);
+        quad->u_plane_resource_id(), /*is_video_plane=*/true);
     contexts.push_back(std::move(u_context));
     if (is_i420) {
       auto* v_context = skia_renderer->lock_set_for_external_use_->LockResource(
-          quad->v_plane_resource_id(), true /* is_video_plane */);
+          quad->v_plane_resource_id(), /*is_video_plane=*/true);
       contexts.push_back(std::move(v_context));
     }
 
     if (has_alpha) {
       auto* a_context = skia_renderer->lock_set_for_external_use_->LockResource(
-          quad->a_plane_resource_id(), true /* is_video_plane */);
+          quad->a_plane_resource_id(), /*is_video_plane=*/true);
       contexts.push_back(std::move(a_context));
     }
 
+    // Note: YUV to RGB and color conversion is handled by a color filter.
     sk_image_ = skia_renderer->skia_output_surface_->MakePromiseSkImageFromYUV(
-        std::move(contexts), yuv_color_space, dst_color_space, has_alpha);
+        std::move(contexts), dst_color_space, has_alpha);
     LOG_IF(ERROR, !sk_image_) << "Failed to create the promise sk yuva image.";
   }
 
@@ -1101,18 +1091,32 @@ void SkiaRenderer::PrepareCanvasForRPDQ(const DrawRPDQParams& rpdq_params,
     gfx::Rect crop_rect =
         gfx::ToEnclosingRect(rpdq_params.backdrop_filter_bounds->rect());
     SkIRect sk_crop_rect = gfx::RectToSkIRect(crop_rect);
-    // Offsetting (0,0) does nothing to the actual image, but is the most
-    // convenient way to embed the crop rect into the filter DAG.
-    // TODO(michaelludwig) - Remove this once Skia doesn't always auto-expand
-    sk_sp<SkImageFilter> crop =
-        SkImageFilters::Offset(0.0f, 0.0f, nullptr, &sk_crop_rect);
-    backdrop_filter = SkImageFilters::Compose(
-        crop, SkImageFilters::Compose(std::move(backdrop_filter), crop));
-    // Update whether or not a post-filter clear is needed (crop didn't
-    // completely match bounds)
-    post_backdrop_filter_clear_needed |=
-        backdrop_bounds_type != gfx::RRectF::Type::kRect ||
-        gfx::RectF(crop_rect) != rpdq_params.backdrop_filter_bounds->rect();
+
+    SkIRect sk_src_rect = backdrop_filter->filterBounds(
+        sk_crop_rect, SkMatrix::I(), SkImageFilter::kReverse_MapDirection,
+        &sk_crop_rect);
+    if (sk_crop_rect == sk_src_rect) {
+      // The backdrop filter does not "move" pixels, i.e. a pixel's value only
+      // depends on its (x,y) and prior color. Avoid cropping the input in this
+      // case since composing a crop rect into the filter DAG forces Skia to
+      // map the backdrop content into the local space, which can introduce
+      // filtering artifacts: crbug.com/1044032. Instead just post-filter
+      // clearing will achieve the same cropping of the output at higher quality
+      post_backdrop_filter_clear_needed = true;
+    } else {
+      // Offsetting (0,0) does nothing to the actual image, but is the most
+      // convenient way to embed the crop rect into the filter DAG.
+      // TODO(michaelludwig) - Remove this once Skia doesn't always auto-expand
+      sk_sp<SkImageFilter> crop =
+          SkImageFilters::Offset(0.0f, 0.0f, nullptr, &sk_crop_rect);
+      backdrop_filter = SkImageFilters::Compose(
+          crop, SkImageFilters::Compose(std::move(backdrop_filter), crop));
+      // Update whether or not a post-filter clear is needed (crop didn't
+      // completely match bounds)
+      post_backdrop_filter_clear_needed |=
+          backdrop_bounds_type != gfx::RRectF::Type::kRect ||
+          gfx::RectF(crop_rect) != rpdq_params.backdrop_filter_bounds->rect();
+    }
   }
 
   SkRect bounds = gfx::RectFToSkRect(rpdq_params.bypass_clip.has_value()
@@ -1644,6 +1648,7 @@ void SkiaRenderer::FlushBatchedQuads() {
   SkPaint paint;
   paint.setFilterQuality(batched_quad_state_.filter_quality);
   paint.setBlendMode(batched_quad_state_.blend_mode);
+
   current_canvas_->experimental_DrawEdgeAAImageSet(
       &batched_quads_.front(), batched_quads_.size(),
       batched_draw_regions_.data(), &batched_cdt_matrices_.front(), &paint,
@@ -1678,29 +1683,14 @@ void SkiaRenderer::DrawColoredQuad(SkColor color,
   // PrepareCanvasForRPDQ will have updated params->opacity and blend_mode to
   // account for the layer applying those effects.
   color = SkColorSetA(color, params->opacity * SkColorGetA(color));
+
   const SkPoint* draw_region =
       params->draw_region.has_value() ? params->draw_region->points : nullptr;
 
-  SkColor4f color4f = SkColor4f::FromColor(color);
-  float sdr_white_level = current_frame()->sdr_white_level;
-  if (sdr_white_level != gfx::ColorSpace::kDefaultSDRWhiteLevel) {
-    // SkColor is always sRGB. Use skcms to linearize, scale, and re-encode
-    const float scale_factor =
-        sdr_white_level / gfx::ColorSpace::kDefaultSDRWhiteLevel;
-    const auto* srgb_to_linear = skcms_sRGB_TransferFunction();
-    const auto* linear_to_srgb = skcms_sRGB_Inverse_TransferFunction();
-
-    for (int c = 0; c < 3; ++c) {
-      color4f[c] = skcms_TransferFunction_eval(
-          linear_to_srgb, scale_factor * skcms_TransferFunction_eval(
-                                             srgb_to_linear, color4f[c]));
-    }
-  }
-
   current_canvas_->experimental_DrawEdgeAAQuad(
       gfx::RectFToSkRect(params->visible_rect), draw_region,
-      static_cast<SkCanvas::QuadAAFlags>(params->aa_flags), color4f,
-      params->blend_mode);
+      static_cast<SkCanvas::QuadAAFlags>(params->aa_flags),
+      SkColor4f::FromColor(color), params->blend_mode);
 }
 
 void SkiaRenderer::DrawSingleImage(const SkImage* image,
@@ -1774,6 +1764,7 @@ void SkiaRenderer::DrawDebugBorderQuad(const DebugBorderDrawQuad* quad,
   paint.setStyle(SkPaint::kStroke_Style);
   paint.setStrokeJoin(SkPaint::kMiter_Join);
   paint.setStrokeWidth(quad->width);
+
   current_canvas_->drawPath(path, paint);
 }
 
@@ -2068,8 +2059,7 @@ void SkiaRenderer::DrawYUVVideoQuad(const YUVVideoDrawQuad* quad,
   // color space we lie and say the SkImage destination color space is always
   // the same as the rest of the frame. Otherwise the two color space
   // adjustments combined will produce the wrong result.
-  const gfx::ColorSpace& frame_color_space =
-      current_frame()->current_render_pass->color_space;
+  const gfx::ColorSpace& frame_color_space = CurrentRenderPassColorSpace();
   gfx::ColorSpace dst_color_space = frame_color_space;
 
 #if defined(OS_WIN)
@@ -2087,13 +2077,8 @@ void SkiaRenderer::DrawYUVVideoQuad(const YUVVideoDrawQuad* quad,
   }
 #endif
 
-  sk_sp<SkColorFilter> color_filter =
-      GetColorFilter(src_color_space, dst_color_space, quad->resource_offset,
-                     quad->resource_multiplier);
-
   DCHECK(resource_provider_);
-  ScopedYUVSkImageBuilder builder(
-      this, quad, frame_color_space.ToSkColorSpace(), !!color_filter);
+  ScopedYUVSkImageBuilder builder(this, quad, dst_color_space.ToSkColorSpace());
   const SkImage* image = builder.sk_image();
   if (!image)
     return;
@@ -2101,13 +2086,17 @@ void SkiaRenderer::DrawYUVVideoQuad(const YUVVideoDrawQuad* quad,
   params->vis_tex_coords = cc::MathUtil::ScaleRectProportional(
       quad->ya_tex_coord_rect, gfx::RectF(quad->rect), params->visible_rect);
 
-  SkPaint paint = params->paint();
-  if (color_filter)
-    paint.setColorFilter(color_filter);
-
   // Use provided, unclipped texture coordinates as the content area, which will
   // force coord clamping unless the geometry was clipped, or they span the
   // entire YUV image.
+  SkPaint paint = params->paint();
+
+  sk_sp<SkColorFilter> color_filter =
+      GetColorFilter(src_color_space, dst_color_space, quad->resource_offset,
+                     quad->resource_multiplier);
+  DCHECK(!paint.getColorFilter());
+  paint.setColorFilter(color_filter);
+
   DrawSingleImage(image, quad->ya_tex_coord_rect, rpdq_params, &paint, params);
 }
 
@@ -2127,10 +2116,11 @@ void SkiaRenderer::ScheduleOverlays() {
     return;
 
 #if defined(OS_ANDROID)
-#if DCHECK_IS_ON()
-  if (!output_surface_->capabilities().supports_surfaceless)
-    DCHECK_EQ(current_frame()->overlay_list.size(), 1u);
-#endif
+  // For Android, only SurfaceControl uses this code path. Android classic has
+  // switched over to OverlayProcessor.
+  // TODO(weiliangc): Remove this when Android SurfaceControl switches to
+  // OverlayProcessor as well.
+  DCHECK(output_surface_->capabilities().supports_surfaceless);
   auto& locks = pending_overlay_locks_.back();
   std::vector<gpu::SyncToken> sync_tokens;
   for (auto& overlay : current_frame()->overlay_list) {
@@ -2185,13 +2175,10 @@ sk_sp<SkColorFilter> SkiaRenderer::GetColorFilter(const gfx::ColorSpace& src,
                                                   const gfx::ColorSpace& dst,
                                                   float resource_offset,
                                                   float resource_multiplier) {
-  gfx::ColorSpace adjusted_src = src;
-  float sdr_white_level = current_frame()->sdr_white_level;
-  if (src.IsValid() && !src.IsHDR() &&
-      sdr_white_level != gfx::ColorSpace::kDefaultSDRWhiteLevel) {
-    adjusted_src = src.GetScaledColorSpace(
-        sdr_white_level / gfx::ColorSpace::kDefaultSDRWhiteLevel);
-  }
+  // If the input color space is PQ, and it did not specify a white level,
+  // override it with the frame's white level.
+  gfx::ColorSpace adjusted_src = src.GetWithPQSDRWhiteLevel(
+      current_frame()->display_color_spaces.GetSDRWhiteLevel());
 
   sk_sp<SkRuntimeEffect>& effect = color_filter_cache_[dst][adjusted_src];
   if (!effect) {
@@ -2463,7 +2450,7 @@ void SkiaRenderer::CopyDrawnRenderPass(
         render_pass_id = render_pass->id;
       }
       skia_output_surface_->CopyOutput(render_pass_id, geometry,
-                                       render_pass->color_space,
+                                       CurrentRenderPassColorSpace(),
                                        std::move(request));
       break;
     }
@@ -2584,15 +2571,14 @@ void SkiaRenderer::AllocateRenderPassResourceIfNeeded(
       render_pass_backings_.emplace(
           render_pass_id,
           RenderPassBacking(requirements.size, requirements.generate_mipmap,
-                            current_frame()->current_render_pass->color_space));
+                            CurrentRenderPassColorSpace()));
       return;
     }
   }
   render_pass_backings_.emplace(
-      render_pass_id,
-      RenderPassBacking(gr_context, caps, requirements.size,
-                        requirements.generate_mipmap,
-                        current_frame()->current_render_pass->color_space));
+      render_pass_id, RenderPassBacking(gr_context, caps, requirements.size,
+                                        requirements.generate_mipmap,
+                                        CurrentRenderPassColorSpace()));
 }
 
 SkiaRenderer::RenderPassBacking::RenderPassBacking(

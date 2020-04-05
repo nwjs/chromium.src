@@ -27,6 +27,9 @@ import org.mockito.MockitoAnnotations;
 
 import org.chromium.base.Callback;
 import org.chromium.base.test.DisableNativeTestRule;
+import org.chromium.base.test.util.JniMocker;
+import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.profiles.ProfileJni;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelFilterProvider;
@@ -45,6 +48,7 @@ import java.util.List;
 /**
  * Unit tests for {@link TabSuggestionMessageService}.
  */
+@SuppressWarnings({"ResultOfMethodCallIgnored", "ArraysAsListWithZeroOrOneArgument"})
 @RunWith(LocalRobolectricTestRunner.class)
 public class TabSuggestionMessageServiceUnitTest {
     private static final int TAB1_ID = 456;
@@ -69,6 +73,11 @@ public class TabSuggestionMessageServiceUnitTest {
 
     private TabSuggestionMessageService mMessageService;
 
+    @Rule
+    public JniMocker mocker = new JniMocker();
+    @Mock
+    public Profile.Natives mMockProfileNatives;
+
     @Mock
     Context mContext;
     @Mock
@@ -89,11 +98,12 @@ public class TabSuggestionMessageServiceUnitTest {
     public void setUp() {
         // After setUp there are three tabs in TabModel.
         MockitoAnnotations.initMocks(this);
+        mocker.mock(ProfileJni.TEST_HOOKS, mMockProfileNatives);
 
         // Set up Tabs.
-        mTab1 = TabUiUnitTestUtils.prepareTab(TAB1_ID, TAB1_ROOT_ID);
-        mTab2 = TabUiUnitTestUtils.prepareTab(TAB2_ID, TAB2_ROOT_ID);
-        mTab3 = TabUiUnitTestUtils.prepareTab(TAB3_ID, TAB3_ROOT_ID);
+        mTab1 = TabUiUnitTestUtils.prepareTab(TAB1_ID, TAB1_ROOT_ID, "");
+        mTab2 = TabUiUnitTestUtils.prepareTab(TAB2_ID, TAB2_ROOT_ID, "");
+        mTab3 = TabUiUnitTestUtils.prepareTab(TAB3_ID, TAB3_ROOT_ID, "");
 
         // Set up TabModelSelector.
         doReturn(mTabModel).when(mTabModelSelector).getCurrentModel();

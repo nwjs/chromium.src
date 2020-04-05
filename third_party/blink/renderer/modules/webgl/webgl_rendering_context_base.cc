@@ -56,6 +56,7 @@
 #include "third_party/blink/renderer/core/layout/layout_box.h"
 #include "third_party/blink/renderer/core/origin_trials/origin_trials.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
+#include "third_party/blink/renderer/core/svg/graphics/svg_image.h"
 #include "third_party/blink/renderer/core/typed_arrays/array_buffer/array_buffer_contents.h"
 #include "third_party/blink/renderer/core/typed_arrays/array_buffer_view_helpers.h"
 #include "third_party/blink/renderer/core/typed_arrays/dom_array_buffer.h"
@@ -770,16 +771,22 @@ scoped_refptr<StaticBitmapImage> WebGLRenderingContextBase::GetImage(
   // Since we are grabbing a snapshot that is not for compositing, we use a
   // custom resource provider. This avoids consuming compositing-specific
   // resources (e.g. GpuMemoryBuffer)
+  auto color_params = ColorParams();
   std::unique_ptr<CanvasResourceProvider> resource_provider =
-      CanvasResourceProvider::Create(
-          size,
-          CanvasResourceProvider::ResourceUsage::kAcceleratedResourceUsage,
-          SharedGpuContext::ContextProviderWrapper(), 0,
-          GetDrawingBuffer()->FilterQuality(), ColorParams(),
-          CanvasResourceProvider::kDefaultPresentationMode,
-          nullptr /* canvas_resource_dispatcher */, is_origin_top_left_);
+      CanvasResourceProvider::CreateSharedImageProvider(
+          size, SharedGpuContext::ContextProviderWrapper(),
+          GetDrawingBuffer()->FilterQuality(), color_params,
+          is_origin_top_left_, CanvasResourceProvider::RasterMode::kGPU,
+          0u /*shared_image_usage_flags*/);
+  // todo(bug 1035589) Check if this cpu fallback is really needed here
+  if (!resource_provider || !resource_provider->IsValid()) {
+    resource_provider = CanvasResourceProvider::CreateBitmapProvider(
+        size, GetDrawingBuffer()->FilterQuality(), color_params);
+  }
+
   if (!resource_provider || !resource_provider->IsValid())
     return nullptr;
+
   if (!CopyRenderingResultsFromDrawingBuffer(resource_provider.get(),
                                              kBackBuffer)) {
     // copyRenderingResultsFromDrawingBuffer is expected to always succeed
@@ -1405,11 +1412,11 @@ void WebGLRenderingContextBase::DidDraw() {
 }
 
 bool WebGLRenderingContextBase::PushFrame() {
-  int width = GetDrawingBuffer()->Size().Width();
-  int height = GetDrawingBuffer()->Size().Height();
   int submitted_frame = false;
   if (PaintRenderingResultsToCanvas(kBackBuffer)) {
     if (Host()->GetOrCreateCanvasResourceProvider(kPreferAcceleration)) {
+      int width = GetDrawingBuffer()->Size().Width();
+      int height = GetDrawingBuffer()->Size().Height();
       submitted_frame =
           Host()->PushFrame(Host()->ResourceProvider()->ProduceCanvasResource(),
                             SkIRect::MakeWH(width, height));
@@ -1559,8 +1566,7 @@ void WebGLRenderingContextBase::SetIsInHiddenPage(bool hidden) {
     GetDrawingBuffer()->SetIsInHiddenPage(hidden);
 
   if (!hidden && isContextLost() && restore_allowed_ &&
-      auto_recovery_method_ == kAuto) {
-    DCHECK(!restore_timer_.IsActive());
+      auto_recovery_method_ == kAuto && !restore_timer_.IsActive()) {
     restore_timer_.StartOneShot(base::TimeDelta(), FROM_HERE);
   }
 }
@@ -5206,7 +5212,7 @@ void WebGLRenderingContextBase::TexImageHelperHTMLImageElement(
     return;
 
   scoped_refptr<Image> image_for_render = image->CachedImage()->GetImage();
-  if (image_for_render && image_for_render->IsSVGImage()) {
+  if (IsA<SVGImage>(image_for_render.get())) {
     if (canvas()) {
       UseCounter::Count(canvas()->GetDocument(), WebFeature::kSVGInWebGL);
     }
@@ -5457,14 +5463,15 @@ void WebGLRenderingContextBase::TexImageHelperCanvasRenderingContextHost(
   // Still not clear whether we will take the accelerated upload path
   // at this point; it depends on what came back from
   // CanUseTexImageViaGPU, for example.
+  auto* static_bitmap_image = DynamicTo<StaticBitmapImage>(image.get());
   upload_via_gpu &= source_canvas_webgl_context ||
-                    (image->IsStaticBitmapImage() && image->IsTextureBacked());
+                    (static_bitmap_image && image->IsTextureBacked());
 
   if (upload_via_gpu) {
     AcceleratedStaticBitmapImage* accel_image = nullptr;
     if (image) {
-      accel_image = static_cast<AcceleratedStaticBitmapImage*>(
-          ToStaticBitmapImage(image.get()));
+      accel_image =
+          static_cast<AcceleratedStaticBitmapImage*>(static_bitmap_image);
     }
 
     // The GPU-GPU copy path uses the Y-up coordinate system.
@@ -6052,7 +6059,7 @@ void WebGLRenderingContextBase::uniform1f(const WebGLUniformLocation* location,
 }
 
 void WebGLRenderingContextBase::uniform1fv(const WebGLUniformLocation* location,
-                                           const FlexibleFloat32ArrayView& v) {
+                                           const FlexibleFloat32Array& v) {
   if (isContextLost() || !ValidateUniformParameters("uniform1fv", location, v,
                                                     1, 0, v.lengthAsSizeT()))
     return;
@@ -6087,7 +6094,7 @@ void WebGLRenderingContextBase::uniform1i(const WebGLUniformLocation* location,
 }
 
 void WebGLRenderingContextBase::uniform1iv(const WebGLUniformLocation* location,
-                                           const FlexibleInt32ArrayView& v) {
+                                           const FlexibleInt32Array& v) {
   if (isContextLost() || !ValidateUniformParameters("uniform1iv", location, v,
                                                     1, 0, v.lengthAsSizeT()))
     return;
@@ -6123,7 +6130,7 @@ void WebGLRenderingContextBase::uniform2f(const WebGLUniformLocation* location,
 }
 
 void WebGLRenderingContextBase::uniform2fv(const WebGLUniformLocation* location,
-                                           const FlexibleFloat32ArrayView& v) {
+                                           const FlexibleFloat32Array& v) {
   if (isContextLost() || !ValidateUniformParameters("uniform2fv", location, v,
                                                     2, 0, v.lengthAsSizeT()))
     return;
@@ -6159,7 +6166,7 @@ void WebGLRenderingContextBase::uniform2i(const WebGLUniformLocation* location,
 }
 
 void WebGLRenderingContextBase::uniform2iv(const WebGLUniformLocation* location,
-                                           const FlexibleInt32ArrayView& v) {
+                                           const FlexibleInt32Array& v) {
   if (isContextLost() || !ValidateUniformParameters("uniform2iv", location, v,
                                                     2, 0, v.lengthAsSizeT()))
     return;
@@ -6196,7 +6203,7 @@ void WebGLRenderingContextBase::uniform3f(const WebGLUniformLocation* location,
 }
 
 void WebGLRenderingContextBase::uniform3fv(const WebGLUniformLocation* location,
-                                           const FlexibleFloat32ArrayView& v) {
+                                           const FlexibleFloat32Array& v) {
   if (isContextLost() || !ValidateUniformParameters("uniform3fv", location, v,
                                                     3, 0, v.lengthAsSizeT()))
     return;
@@ -6233,7 +6240,7 @@ void WebGLRenderingContextBase::uniform3i(const WebGLUniformLocation* location,
 }
 
 void WebGLRenderingContextBase::uniform3iv(const WebGLUniformLocation* location,
-                                           const FlexibleInt32ArrayView& v) {
+                                           const FlexibleInt32Array& v) {
   if (isContextLost() || !ValidateUniformParameters("uniform3iv", location, v,
                                                     3, 0, v.lengthAsSizeT()))
     return;
@@ -6271,7 +6278,7 @@ void WebGLRenderingContextBase::uniform4f(const WebGLUniformLocation* location,
 }
 
 void WebGLRenderingContextBase::uniform4fv(const WebGLUniformLocation* location,
-                                           const FlexibleFloat32ArrayView& v) {
+                                           const FlexibleFloat32Array& v) {
   if (isContextLost() || !ValidateUniformParameters("uniform4fv", location, v,
                                                     4, 0, v.lengthAsSizeT()))
     return;
@@ -6309,7 +6316,7 @@ void WebGLRenderingContextBase::uniform4i(const WebGLUniformLocation* location,
 }
 
 void WebGLRenderingContextBase::uniform4iv(const WebGLUniformLocation* location,
-                                           const FlexibleInt32ArrayView& v) {
+                                           const FlexibleInt32Array& v) {
   if (isContextLost() || !ValidateUniformParameters("uniform4iv", location, v,
                                                     4, 0, v.lengthAsSizeT()))
     return;
@@ -7606,9 +7613,9 @@ void WebGLRenderingContextBase::PrintGLErrorToConsole(const String& message) {
 void WebGLRenderingContextBase::PrintWarningToConsole(const String& message) {
   blink::ExecutionContext* context = Host()->GetTopExecutionContext();
   if (context && !context->IsContextDestroyed()) {
-    context->AddConsoleMessage(
-        ConsoleMessage::Create(mojom::ConsoleMessageSource::kRendering,
-                               mojom::ConsoleMessageLevel::kWarning, message));
+    context->AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
+        mojom::ConsoleMessageSource::kRendering,
+        mojom::ConsoleMessageLevel::kWarning, message));
   }
 }
 
@@ -7974,7 +7981,10 @@ void WebGLRenderingContextBase::MaybeRestoreContext(TimerBase*) {
     LocalFrame* frame = canvas()->GetDocument().GetFrame();
     if (!frame)
       return;
-    if (frame->Client()->ShouldBlockWebGL())
+
+    bool blocked = false;
+    frame->GetLocalFrameHostRemote().Are3DAPIsBlocked(&blocked);
+    if (blocked)
       return;
 
     Settings* settings = frame->GetSettings();
@@ -8070,15 +8080,12 @@ CanvasResourceProvider* WebGLRenderingContextBase::
     return resource_provider;
   }
 
-  // TODO(fserb): why is this software?
-  std::unique_ptr<CanvasResourceProvider> temp(CanvasResourceProvider::Create(
-      size, CanvasResourceProvider::ResourceUsage::kSoftwareResourceUsage,
-      nullptr,  // context_provider_wrapper
-      0,        // msaa_sample_count,
-      kLow_SkFilterQuality,
-      CanvasColorParams(),  // TODO: should this use the canvas's colorspace?
-      CanvasResourceProvider::kDefaultPresentationMode,
-      nullptr));  // canvas_resource_dispatcher
+  // TODO(fserb): why is this a BITMAP?
+  std::unique_ptr<CanvasResourceProvider> temp(
+      CanvasResourceProvider::CreateBitmapProvider(
+          size, kLow_SkFilterQuality,
+          CanvasColorParams()));  // TODO: should this use the canvas's
+
   if (!temp)
     return nullptr;
   i = std::min(resource_providers_.size() - 1, i);
@@ -8254,7 +8261,7 @@ void WebGLRenderingContextBase::TextureUnitState::Trace(
   visitor->Trace(texture_video_image_binding_);
 }
 
-void WebGLRenderingContextBase::Trace(blink::Visitor* visitor) {
+void WebGLRenderingContextBase::Trace(Visitor* visitor) {
   visitor->Trace(context_group_);
   visitor->Trace(bound_array_buffer_);
   visitor->Trace(default_vertex_array_object_);

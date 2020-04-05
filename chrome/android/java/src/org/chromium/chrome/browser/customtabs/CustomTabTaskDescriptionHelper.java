@@ -20,16 +20,17 @@ import org.chromium.chrome.browser.customtabs.content.CustomTabActivityTabProvid
 import org.chromium.chrome.browser.customtabs.content.TabObserverRegistrar;
 import org.chromium.chrome.browser.customtabs.content.TabObserverRegistrar.CustomTabTabObserver;
 import org.chromium.chrome.browser.dependency_injection.ActivityScope;
-import org.chromium.chrome.browser.favicon.FaviconHelper;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.lifecycle.Destroyable;
 import org.chromium.chrome.browser.lifecycle.NativeInitObserver;
-import org.chromium.chrome.browser.ssl.SecurityStateModel;
+import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.ssl.ChromeSecurityStateModelDelegate;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tab.TabImpl;
 import org.chromium.chrome.browser.tab.TabThemeColorHelper;
-import org.chromium.chrome.browser.util.UrlUtilities;
+import org.chromium.chrome.browser.ui.favicon.FaviconHelper;
 import org.chromium.chrome.browser.webapps.WebappExtras;
+import org.chromium.components.embedder_support.util.UrlUtilities;
+import org.chromium.components.security_state.SecurityStateModel;
 import org.chromium.content_public.browser.NavigationHandle;
 import org.chromium.ui.util.ColorUtils;
 
@@ -179,7 +180,9 @@ public class CustomTabTaskDescriptionHelper implements NativeInitObserver, Destr
                 }
 
                 private boolean hasSecurityWarningOrError(Tab tab) {
-                    return SecurityStateModel.isContentDangerous(tab.getWebContents());
+                    boolean isContentDangerous = SecurityStateModel.isContentDangerous(
+                            tab.getWebContents(), ChromeSecurityStateModelDelegate.getInstance());
+                    return isContentDangerous;
                 }
             };
             mTabObserverRegistrar.registerActivityTabObserver(mIconTabObserver);
@@ -227,7 +230,7 @@ public class CustomTabTaskDescriptionHelper implements NativeInitObserver, Destr
         if (currentTab == null) return null;
 
         String label = currentTab.getTitle();
-        String domain = UrlUtilities.getDomainAndRegistry(currentTab.getUrl(), false);
+        String domain = UrlUtilities.getDomainAndRegistry(currentTab.getUrlString(), false);
         if (TextUtils.isEmpty(label)) {
             label = domain;
         }
@@ -245,7 +248,7 @@ public class CustomTabTaskDescriptionHelper implements NativeInitObserver, Destr
 
         Bitmap bitmap = null;
         if (!currentTab.isIncognito()) {
-            bitmap = mIconGenerator.getBitmap(currentTab.getUrl(), mLargestFavicon);
+            bitmap = mIconGenerator.getBitmap(currentTab.getUrlString(), mLargestFavicon);
         }
         return bitmap;
     }
@@ -265,11 +268,13 @@ public class CustomTabTaskDescriptionHelper implements NativeInitObserver, Destr
         Tab currentTab = mTabProvider.getTab();
         if (currentTab == null) return;
 
-        final String currentUrl = currentTab.getUrl();
+        final String currentUrl = currentTab.getUrlString();
         mFaviconHelper.getLocalFaviconImageForURL(
-                ((TabImpl) currentTab).getProfile(), currentTab.getUrl(), 0, (image, iconUrl) -> {
+                Profile.fromWebContents(currentTab.getWebContents()), currentTab.getUrlString(), 0,
+                (image, iconUrl) -> {
                     if (mTabProvider.getTab() == null
-                            || !TextUtils.equals(currentUrl, mTabProvider.getTab().getUrl())) {
+                            || !TextUtils.equals(
+                                    currentUrl, mTabProvider.getTab().getUrlString())) {
                         return;
                     }
 

@@ -14,11 +14,11 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.StrictMode;
 import android.os.SystemClock;
-import android.support.v4.app.ActivityOptionsCompat;
 import android.text.TextUtils;
 
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
+import androidx.core.app.ActivityOptionsCompat;
 
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.task.PostTask;
@@ -159,32 +159,31 @@ public class CustomTabActivityNavigationController implements StartStopWithNativ
      * (see {@link CustomTabObserver}).
      */
     public void navigate(final LoadUrlParams params, long timeStamp) {
-        assert mIntentDataProvider.getWebappExtras() == null;
-
         Tab tab = mTabProvider.getTab();
         if (tab == null) {
             assert false;
             return;
         }
 
-        mCustomTabObserver.get().trackNextPageLoadFromTimestamp(tab, timeStamp);
+        // TODO(pkotwicz): Figure out whether we want to record these metrics for WebAPKs.
+        if (mIntentDataProvider.getWebappExtras() == null) {
+            mCustomTabObserver.get().trackNextPageLoadFromTimestamp(tab, timeStamp);
+        }
 
         IntentHandler.addReferrerAndHeaders(params, mIntentDataProvider.getIntent());
         if (params.getReferrer() == null) {
             params.setReferrer(mConnection.getReferrerForSession(mIntentDataProvider.getSession()));
         }
 
-        // Launching a TWA would count as a TOPLEVEL transition since it opens up an app-like
-        // experience, and should count towards site engagement scores. This matches WebAPK
-        // behaviour. CCTs on the other hand still count as LINK transitions.
+        // Launching a TWA, WebAPK or a standalone-mode homescreen shortcut counts as a TOPLEVEL
+        // transition since it opens up an app-like experience, and should count towards site
+        // engagement scores. CCTs on the other hand still count as LINK transitions.
         int transition;
-        if (mIntentDataProvider.isTrustedWebActivity()) {
-          transition = PageTransition.AUTO_TOPLEVEL | PageTransition.FROM_API;
-        } else if (mIntentDataProvider.isOpenedByWebApk()) {
-          transition = PageTransition.LINK;
-          params.setHasUserGesture(true);
+        if (mIntentDataProvider.isTrustedWebActivity()
+                || mIntentDataProvider.isWebappOrWebApkActivity()) {
+            transition = PageTransition.AUTO_TOPLEVEL | PageTransition.FROM_API;
         } else {
-          transition = PageTransition.LINK | PageTransition.FROM_API;
+            transition = PageTransition.LINK | PageTransition.FROM_API;
         }
 
         params.setTransitionType(IntentHandler.getTransitionTypeFromIntent(
@@ -247,7 +246,7 @@ public class CustomTabActivityNavigationController implements StartStopWithNativ
         Tab tab = mTabProvider.getTab();
         if (tab == null) return false;
 
-        String url = tab.getUrl();
+        String url = tab.getUrlString();
         if (DomDistillerUrlUtils.isDistilledPage(url)) {
             url = DomDistillerUrlUtils.getOriginalUrlFromDistillerUrl(url);
         }

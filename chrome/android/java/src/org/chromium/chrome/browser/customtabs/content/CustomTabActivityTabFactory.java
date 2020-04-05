@@ -9,6 +9,7 @@ import android.util.Pair;
 
 import androidx.annotation.Nullable;
 
+import org.chromium.base.IntentUtils;
 import org.chromium.chrome.browser.ChromeActivity;
 import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.browserservices.BrowserServicesIntentDataProvider;
@@ -23,7 +24,6 @@ import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.ChromeTabCreator;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorImpl;
-import org.chromium.chrome.browser.util.IntentUtils;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.ui.base.ActivityWindowAndroid;
 
@@ -87,7 +87,7 @@ public class CustomTabActivityTabFactory {
 
     private ChromeTabCreator createTabCreator(boolean incognito) {
         return new ChromeTabCreator(mActivity, mActivityWindowAndroid.get(), mStartupTabPreloader,
-                mCustomTabDelegateFactory::get, incognito);
+                mCustomTabDelegateFactory::get, incognito, null);
     }
 
     /** Creates a new tab for a Custom Tab activity */

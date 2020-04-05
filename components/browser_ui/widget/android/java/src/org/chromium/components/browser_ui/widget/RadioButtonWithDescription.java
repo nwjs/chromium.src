@@ -11,6 +11,7 @@ import android.os.Parcelable;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.util.SparseArray;
+import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -88,6 +89,14 @@ public class RadioButtonWithDescription extends RelativeLayout implements OnClic
                 getPaddingEnd() == 0 ? lateralPadding : getPaddingEnd(),
                 getPaddingBottom() == 0 ? verticalPadding : getPaddingBottom());
 
+        // Set the background if not specified in xml
+        if (getBackground() == null) {
+            TypedValue background = new TypedValue();
+            getContext().getTheme().resolveAttribute(
+                    android.R.attr.selectableItemBackground, background, true);
+            setBackgroundResource(background.resourceId);
+        }
+
         // We want RadioButtonWithDescription to handle the clicks itself.
         setOnClickListener(this);
         // Make it focusable for navigation via key events (tab/up/down keys)
@@ -157,12 +166,6 @@ public class RadioButtonWithDescription extends RelativeLayout implements OnClic
 
     @Override
     public void onClick(View v) {
-        if (mGroup != null) {
-            for (RadioButtonWithDescription button : mGroup) {
-                button.setChecked(false);
-            }
-        }
-
         setChecked(true);
 
         if (mButtonCheckedStateChangedListener != null) {
@@ -214,14 +217,38 @@ public class RadioButtonWithDescription extends RelativeLayout implements OnClic
     }
 
     /**
-     * Sets the checked status.
+     * Sets the checked status, and retain focus on RadioButtonWithDescription after radio button if
+     * it is checked.
+     *
+     * If the radio button is inside a radio button group and going to be checked, the rest of the
+     * radio buttons in the group will be set to unchecked.
+     *
+     * @param checked Whether this radio button will be checked.
      */
     public void setChecked(boolean checked) {
-        mRadioButton.setChecked(checked);
+        setCheckedWithNoFocusChange(checked);
         // Retain focus on RadioButtonWithDescription after radio button is checked.
         // Otherwise focus is lost. This is required for Bluetooth keyboard navigation.
         // See: crbug.com/936143
         if (checked) requestFocus();
+    }
+
+    /**
+     * Set the checked status for this radio button without updating the focus.
+     *
+     * If the radio button is inside a radio button group and going to be checked, the rest of the
+     * radio buttons in the group will be set to unchecked by #setChecked(false).
+     *
+     * In most cases, caller should use {@link #setChecked(boolean)} to handle the focus as well.
+     * @param checked Whether this radio button will be checked.
+     */
+    protected void setCheckedWithNoFocusChange(boolean checked) {
+        if (mGroup != null && checked) {
+            for (RadioButtonWithDescription button : mGroup) {
+                if (button != this) button.setChecked(false);
+            }
+        }
+        mRadioButton.setChecked(checked);
     }
 
     public void setOnCheckedChangeListener(ButtonCheckedStateChangedListener listener) {

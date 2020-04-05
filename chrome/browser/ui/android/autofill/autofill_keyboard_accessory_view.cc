@@ -13,7 +13,7 @@
 #include "chrome/browser/android/resource_mapper.h"
 #include "chrome/browser/ui/android/view_android_helper.h"
 #include "chrome/browser/ui/autofill/autofill_popup_controller.h"
-#include "chrome/browser/ui/autofill/autofill_popup_layout_model.h"
+#include "chrome/browser/ui/autofill/autofill_popup_controller_utils.h"
 #include "components/autofill/core/browser/ui/suggestion.h"
 #include "ui/android/view_android.h"
 #include "ui/android/window_android.h"
@@ -67,14 +67,14 @@ void AutofillKeyboardAccessoryView::Show() {
     const Suggestion& suggestion = controller_->GetSuggestionAt(i);
     int android_icon_id = 0;
     if (!suggestion.icon.empty()) {
-      android_icon_id = ResourceMapper::MapFromChromiumId(
-          controller_->layout_model().GetIconResourceID(suggestion.icon));
+      android_icon_id = ResourceMapper::MapToJavaDrawableId(
+          GetIconResourceID(suggestion.icon));
     }
 
     Java_AutofillKeyboardAccessoryViewBridge_addToAutofillSuggestionArray(
         env, data_array, position++,
-        ConvertUTF16ToJavaString(env, controller_->GetElidedValueAt(i)),
-        ConvertUTF16ToJavaString(env, controller_->GetElidedLabelAt(i)),
+        ConvertUTF16ToJavaString(env, controller_->GetSuggestionValueAt(i)),
+        ConvertUTF16ToJavaString(env, controller_->GetSuggestionLabelAt(i)),
         android_icon_id, suggestion.frontend_id,
         controller_->GetRemovalConfirmationText(i, nullptr, nullptr));
   }

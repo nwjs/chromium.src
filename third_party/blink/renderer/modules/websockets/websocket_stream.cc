@@ -8,6 +8,7 @@
 #include <string>
 #include <utility>
 
+#include "third_party/blink/renderer/bindings/core/v8/native_value_traits_impl.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_array_buffer.h"
@@ -429,7 +430,7 @@ WebSocketStream* WebSocketStream::CreateInternal(
 
 WebSocketStream::WebSocketStream(ExecutionContext* execution_context,
                                  ScriptState* script_state)
-    : ContextLifecycleObserver(execution_context),
+    : ExecutionContextLifecycleObserver(execution_context),
       script_state_(script_state),
       connection_resolver_(
           MakeGarbageCollected<ScriptPromiseResolver>(script_state)),
@@ -484,7 +485,7 @@ void WebSocketStream::DidConnect(const String& subprotocol,
   connection->setExtensions(extensions);
   source_ = MakeGarbageCollected<UnderlyingSource>(script_state_, this);
   auto* readable = ReadableStream::CreateWithCountQueueingStrategy(
-      script_state_, source_, 0);
+      script_state_, source_, 1);
   sink_ = MakeGarbageCollected<UnderlyingSink>(this);
   auto* writable =
       WritableStream::CreateWithCountQueueingStrategy(script_state_, sink_, 1);
@@ -569,7 +570,7 @@ void WebSocketStream::DidClose(
   }
 }
 
-void WebSocketStream::ContextDestroyed(ExecutionContext*) {
+void WebSocketStream::ContextDestroyed() {
   DVLOG(1) << "WebSocketStream " << this << " ContextDestroyed()";
   if (channel_) {
     if (common_.GetState() == WebSocketCommon::kOpen) {
@@ -596,7 +597,7 @@ void WebSocketStream::Trace(Visitor* visitor) {
   visitor->Trace(source_);
   visitor->Trace(sink_);
   ScriptWrappable::Trace(visitor);
-  ContextLifecycleObserver::Trace(visitor);
+  ExecutionContextLifecycleObserver::Trace(visitor);
   WebSocketChannelClient::Trace(visitor);
 }
 
@@ -665,10 +666,9 @@ void WebSocketStream::CloseMaybeWithReason(ScriptValue maybe_reason) {
   // Exceptions thrown here are ignored.
   ExceptionState exception_state(script_state_->GetIsolate(),
                                  ExceptionState::kUnknownContext, "", "");
-  WebSocketCloseInfo* info = MakeGarbageCollected<WebSocketCloseInfo>();
-  V8WebSocketCloseInfo::ToImpl(script_state_->GetIsolate(),
-                               maybe_reason.V8Value(), info, exception_state);
-  if (info->hasCode() && !exception_state.HadException()) {
+  WebSocketCloseInfo* info = NativeValueTraits<WebSocketCloseInfo>::NativeValue(
+      script_state_->GetIsolate(), maybe_reason.V8Value(), exception_state);
+  if (!exception_state.HadException() && info->hasCode()) {
     CloseInternal(info->code(), info->reason(), exception_state);
     if (!exception_state.HadException())
       return;

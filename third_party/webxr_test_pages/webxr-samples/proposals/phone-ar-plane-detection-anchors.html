@@ -347,12 +347,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       // Creates new anchor for object and places it there.
-      function addARObjectAt(session, frame, plane, pose, space) {
+      function addARObjectAt(frame, plane, pose, space) {
         console.debug("Creating anchor", pose, space);
         if(plane != null) {
           plane.createAnchor(pose, space).then(onCreateAnchor);
         } else {
-          session.createAnchor(pose, space).then(onCreateAnchor);
+          frame.createAnchor(pose, space).then(onCreateAnchor);
         }
       }
 
@@ -361,16 +361,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           // If we're using the reticle then we've already got a mesh positioned
           // at the latest hit point and we should just use it's matrix to save
           // an unnecessary requestHitTest call.
-          addARObjectAt(event.frame.session,
-                        event.frame,
+          addARObjectAt(event.frame,
                         arObject.plane,
                         new XRRigidTransform(arObject.hitPoint),
                         arObject.space);
         } else {
           if(!event.frame.worldInformation.detectedPlanes) {
             console.log("No planes detected, placing an anchor at origin.");
-            addARObjectAt(event.frame.session,
-                          event.frame,
+            addARObjectAt(event.frame,
                           null,
                           new XRRigidTransform({x : 0, y : 0, z : 0, w : 1}),
                           xrRefSpace);
@@ -392,15 +390,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
             if (hitTestFiltered.length) {
               let hitResult = hitTestFiltered[0];
-              addARObjectAt(event.frame.session,
-                            event.frame,
+              addARObjectAt(event.frame,
                             hitResult.plane,
                             new XRRigidTransform(hitResult.point_on_plane),
                             hitResult.plane.planeSpace);
             } else {
               console.log("Missed everything, placing an anchor at origin.");
-              addARObjectAt(event.frame.session,
-                            event.frame,
+              addARObjectAt(event.frame,
                             null,
                             new XRRigidTransform({x : 0, y : 0, z : 0, w: 1}),
                             xrRefSpace);
@@ -482,7 +478,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       // Called every time a XRSession requests that a new frame be drawn.
       async function onXRFrame(t, frame) {
         let session = frame.session;
-
         session.requestAnimationFrame(onXRFrame);
 
         if (debugSources) debugSources.update(frame, xrRefSpace);
@@ -531,10 +526,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           });
 
           tracked_anchors.forEach(anchor => {
-            if(t == anchor.lastChangedTime) {
-              anchor.context.sceneObject.matrix = frame.getPose(anchor.anchorSpace, xrRefSpace).transform.matrix;
-              anchor.context.sceneObject.visible = true;
-            }
+            anchor.context.sceneObject.matrix = frame.getPose(anchor.anchorSpace, xrRefSpace).transform.matrix;
+            anchor.context.sceneObject.visible = true;
           });
 
           all_previous_anchors = tracked_anchors;

@@ -241,13 +241,6 @@ std::unique_ptr<base::Value> AsValue(const SkRegion& region) {
   return std::move(val);
 }
 
-std::unique_ptr<base::Value> AsValue(const SkBitmap& bitmap) {
-  std::unique_ptr<base::DictionaryValue> val(new base::DictionaryValue());
-  val->Set("size", AsValue(SkSize::Make(bitmap.width(), bitmap.height())));
-
-  return std::move(val);
-}
-
 std::unique_ptr<base::Value> AsValue(const SkImage& image) {
   std::unique_ptr<base::DictionaryValue> val(new base::DictionaryValue());
   val->Set("size", AsValue(SkSize::Make(image.width(), image.height())));
@@ -578,32 +571,6 @@ void BenchmarkingCanvas::onDrawPicture(const SkPicture* picture,
   INHERITED::onDrawPicture(picture, matrix, op.paint());
 }
 
-void BenchmarkingCanvas::onDrawBitmap(const SkBitmap& bitmap,
-                                      SkScalar left,
-                                      SkScalar top,
-                                      const SkPaint* paint) {
-  AutoOp op(this, "DrawBitmap", paint);
-  op.addParam("bitmap", AsValue(bitmap));
-  op.addParam("left", AsValue(left));
-  op.addParam("top", AsValue(top));
-
-  INHERITED::onDrawBitmap(bitmap, left, top, op.paint());
-}
-
-void BenchmarkingCanvas::onDrawBitmapRect(const SkBitmap& bitmap,
-                                          const SkRect* src,
-                                          const SkRect& dst,
-                                          const SkPaint* paint,
-                                          SrcRectConstraint constraint) {
-  AutoOp op(this, "DrawBitmapRect", paint);
-  op.addParam("bitmap", AsValue(bitmap));
-  if (src)
-    op.addParam("src", AsValue(*src));
-  op.addParam("dst", AsValue(dst));
-
-  INHERITED::onDrawBitmapRect(bitmap, src, dst, op.paint(), constraint);
-}
-
 void BenchmarkingCanvas::onDrawImage(const SkImage* image,
                                      SkScalar left,
                                      SkScalar top,
@@ -628,18 +595,6 @@ void BenchmarkingCanvas::onDrawImageRect(const SkImage* image, const SkRect* src
   op.addParam("dst", AsValue(dst));
 
   INHERITED::onDrawImageRect(image, src, dst, op.paint(), constraint);
-}
-
-void BenchmarkingCanvas::onDrawBitmapNine(const SkBitmap& bitmap,
-                                          const SkIRect& center,
-                                          const SkRect& dst,
-                                          const SkPaint* paint) {
-  AutoOp op(this, "DrawBitmapNine", paint);
-  op.addParam("bitmap", AsValue(bitmap));
-  op.addParam("center", AsValue(SkRect::Make(center)));
-  op.addParam("dst", AsValue(dst));
-
-  INHERITED::onDrawBitmapNine(bitmap, center, dst, op.paint());
 }
 
 void BenchmarkingCanvas::onDrawTextBlob(const SkTextBlob* blob, SkScalar x, SkScalar y,

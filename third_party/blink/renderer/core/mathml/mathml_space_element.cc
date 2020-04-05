@@ -12,6 +12,14 @@ namespace blink {
 MathMLSpaceElement::MathMLSpaceElement(Document& doc)
     : MathMLElement(mathml_names::kMspaceTag, doc) {}
 
+void MathMLSpaceElement::AddMathBaselineIfNeeded(
+    ComputedStyle& style,
+    const CSSToLengthConversionData& conversion_data) {
+  if (auto length_or_percentage_value = AddMathLengthToComputedStyle(
+          style, conversion_data, mathml_names::kHeightAttr))
+    style.SetMathBaseline(std::move(*length_or_percentage_value));
+}
+
 bool MathMLSpaceElement::IsPresentationAttribute(
     const QualifiedName& name) const {
   if (name == mathml_names::kWidthAttr || name == mathml_names::kHeightAttr ||
@@ -40,9 +48,6 @@ void MathMLSpaceElement::CollectStyleForPresentationAttribute(
     } else {
       AddPropertyToPresentationAttributeStyle(style, CSSPropertyID::kHeight,
                                               value);
-    }
-    if (name == mathml_names::kHeightAttr) {
-      SetInlineStyleProperty(CSSPropertyID::kVerticalAlign, value, false);
     }
   } else {
     MathMLElement::CollectStyleForPresentationAttribute(name, value, style);

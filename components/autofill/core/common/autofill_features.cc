@@ -48,7 +48,15 @@ const base::Feature kAutofillCreditCardAssist{
 // Controls whether we download server credit cards to the ephemeral
 // account-based storage when sync the transport is enabled.
 const base::Feature kAutofillEnableAccountWalletStorage{
-    "AutofillEnableAccountWalletStorage", base::FEATURE_DISABLED_BY_DEFAULT};
+  "AutofillEnableAccountWalletStorage",
+#if defined(OS_CHROMEOS) || defined(OS_ANDROID) || defined(OS_IOS)
+      // Wallet transport is only currently available on Win/Mac/Linux.
+      // (Somehow, swapping this check makes iOS unhappy?)
+      base::FEATURE_DISABLED_BY_DEFAULT
+#else
+      base::FEATURE_ENABLED_BY_DEFAULT
+#endif
+};
 
 // Controls whether we use COMPANY as part of Autofill
 const base::Feature kAutofillEnableCompanyName{
@@ -190,12 +198,12 @@ const base::Feature kAutofillUseImprovedLabelDisambiguation{
     "AutofillUseImprovedLabelDisambiguation",
     base::FEATURE_DISABLED_BY_DEFAULT};
 
-// Server predictions for CVC fields are used if the feature is enabled.
-const base::Feature kAutofillUseServerCVCPrediction{
-    "AutofillUseServerCVCPrediction", base::FEATURE_ENABLED_BY_DEFAULT};
-
-const base::Feature kAutofillSmsReceiver{"AutofillSmsReceiver",
-                                         base::FEATURE_DISABLED_BY_DEFAULT};
+// Controls whether or not autofill utilizes the country code from the Chrome
+// variation service. The country code is used for determining the address
+// requirements for address profile creation and as source for a default country
+// used in a new address profile.
+const base::Feature kAutofillUseVariationCountryCode{
+    "AutofillUseVariationCountryCode", base::FEATURE_DISABLED_BY_DEFAULT};
 
 #if defined(OS_ANDROID)
 // Controls whether the Autofill manual fallback for Addresses and Payments is

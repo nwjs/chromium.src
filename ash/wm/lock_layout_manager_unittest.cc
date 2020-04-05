@@ -35,13 +35,12 @@ class LoginTestWidgetDelegate : public views::WidgetDelegate {
 
   // views::WidgetDelegate:
   void DeleteDelegate() override { delete this; }
+  views::Widget* GetWidget() override { return widget_; }
+  const views::Widget* GetWidget() const override { return widget_; }
   bool CanActivate() const override { return true; }
   bool ShouldAdvanceFocusToTopLevelWidget() const override { return true; }
 
  private:
-  // views::WidgetDelegate:
-  const views::Widget* GetWidgetImpl() const override { return widget_; }
-
   views::Widget* widget_;
 
   DISALLOW_COPY_AND_ASSIGN(LoginTestWidgetDelegate);
@@ -71,7 +70,7 @@ class LockLayoutManagerTest : public AshTestBase {
     views::Widget* widget = new views::Widget;
     if (use_delegate)
       params.delegate = new LoginTestWidgetDelegate(widget);
-    params.context = CurrentContext();
+    params.context = GetContext();
     widget->Init(std::move(params));
     widget->Show();
     aura::Window* window = widget->GetNativeView();

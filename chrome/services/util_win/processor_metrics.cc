@@ -35,7 +35,7 @@ void RecordHypervStatusFromWMI(const ComPtr<IWbemServices>& services) {
 
   ComPtr<IEnumWbemClassObject> enumerator_computer_system;
   HRESULT hr =
-      services->ExecQuery(ScopedBstr(L"WQL"), ScopedBstr(kQueryProcessor),
+      services->ExecQuery(ScopedBstr(L"WQL").Get(), ScopedBstr(kQueryProcessor).Get(),
                           WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY,
                           nullptr, &enumerator_computer_system);
   if (FAILED(hr) || !enumerator_computer_system.Get())
@@ -65,7 +65,7 @@ void RecordProcessorMetricsFromWMI(const ComPtr<IWbemServices>& services) {
 
   ComPtr<IEnumWbemClassObject> enumerator_processor;
   HRESULT hr =
-      services->ExecQuery(ScopedBstr(L"WQL"), ScopedBstr(kQueryProcessor),
+      services->ExecQuery(ScopedBstr(L"WQL").Get(), ScopedBstr(kQueryProcessor).Get(),
                           WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY,
                           nullptr, &enumerator_processor);
   if (FAILED(hr) || !enumerator_processor.Get())

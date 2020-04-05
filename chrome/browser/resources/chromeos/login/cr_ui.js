@@ -159,6 +159,8 @@ cr.define('cr.ui', function() {
   Oobe.showUserPods = function() {
     $('pod-row').maybePreselectPod();
     Oobe.showScreen({id: SCREEN_ACCOUNT_PICKER});
+    if (Oobe.getInstance().showingViewsLogin)
+      return;
     Oobe.resetSigninUI(true);
   };
 
@@ -267,7 +269,7 @@ cr.define('cr.ui', function() {
     }
 
     Oobe.disableSigninUI();
-    chrome.send('skipToLoginForTesting', [username]);
+    chrome.send('skipToLoginForTesting');
 
     if (!enterpriseEnroll) {
       chrome.send('completeLogin', [gaia_id, username, password, false]);

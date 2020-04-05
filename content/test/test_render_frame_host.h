@@ -24,6 +24,7 @@
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "third_party/blink/public/mojom/bluetooth/web_bluetooth.mojom-forward.h"
+#include "third_party/blink/public/mojom/security_context/insecure_request_policy.mojom-forward.h"
 #include "ui/base/page_transition_types.h"
 
 namespace net {
@@ -54,8 +55,7 @@ class TestRenderFrameHost : public RenderFrameHostImpl,
                       RenderFrameHostDelegate* delegate,
                       FrameTree* frame_tree,
                       FrameTreeNode* frame_tree_node,
-                      int32_t routing_id,
-                      int32_t widget_routing_id);
+                      int32_t routing_id);
   ~TestRenderFrameHost() override;
 
   // RenderFrameHostImpl overrides (same values, but in Test*/Mock* types)
@@ -79,7 +79,7 @@ class TestRenderFrameHost : public RenderFrameHostImpl,
                                   bool did_create_new_entry,
                                   const GURL& url,
                                   ui::PageTransition transition);
-  void SendBeforeUnloadACK(bool proceed) override;
+  void SimulateBeforeUnloadCompleted(bool proceed) override;
   void SimulateUnloadACK() override;
   void SimulateFeaturePolicyHeader(
       blink::mojom::FeaturePolicyFeature feature,
@@ -120,7 +120,8 @@ class TestRenderFrameHost : public RenderFrameHostImpl,
 
   void DidChangeOpener(int opener_routing_id);
 
-  void DidEnforceInsecureRequestPolicy(blink::WebInsecureRequestPolicy policy);
+  void DidEnforceInsecureRequestPolicy(
+      blink::mojom::InsecureRequestPolicy policy);
 
   // If set, navigations will appear to have cleared the history list in the
   // RenderFrame
@@ -132,8 +133,8 @@ class TestRenderFrameHost : public RenderFrameHostImpl,
 
   // Advances the RenderFrameHost (and through it the RenderFrameHostManager) to
   // a state where a new navigation can be committed by a renderer. This
-  // simulates a BeforeUnload ACK from the renderer, and the interaction with
-  // the IO thread up until the response is ready to commit.
+  // simulates a BeforeUnload completion callback from the renderer, and the
+  // interaction with the IO thread up until the response is ready to commit.
   void PrepareForCommit();
 
   // Like PrepareForCommit, but with the socket address when needed.
@@ -159,7 +160,7 @@ class TestRenderFrameHost : public RenderFrameHostImpl,
       bool same_document);
 
   // Send a message with the sandbox flags and feature policy
-  void SendFramePolicy(blink::WebSandboxFlags sandbox_flags,
+  void SendFramePolicy(blink::mojom::WebSandboxFlags sandbox_flags,
                        const blink::ParsedFeaturePolicy& fp_header,
                        const blink::DocumentPolicy::FeatureState& dp_header);
 
@@ -205,6 +206,9 @@ class TestRenderFrameHost : public RenderFrameHostImpl,
   // Simulates RenderFrameHost finishing loading and dispatching all relevant
   // callbacks.
   void SimulateLoadingCompleted(LoadingScenario loading_scenario);
+
+  // Expose CreateNewFullscreenWidget for tests.
+  using RenderFrameHostImpl::CreateNewFullscreenWidget;
 
  protected:
   void SendCommitNavigation(

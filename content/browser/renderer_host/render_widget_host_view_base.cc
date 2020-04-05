@@ -369,6 +369,10 @@ void RenderWidgetHostViewBase::GestureEventAck(
     InputEventAckState ack_result) {
 }
 
+void RenderWidgetHostViewBase::ChildDidAckGestureEvent(
+    const blink::WebGestureEvent& event,
+    InputEventAckState ack_result) {}
+
 bool RenderWidgetHostViewBase::OnUnconsumedKeyboardEventAck(
     const NativeWebKeyboardEventWithLatencyInfo& event) {
   return false;
@@ -504,14 +508,14 @@ bool RenderWidgetHostViewBase::HasDisplayPropertyChanged(gfx::NativeView view) {
   if (current_display_area_ == display.work_area() &&
       current_device_scale_factor_ == display.device_scale_factor() &&
       current_display_rotation_ == display.rotation() &&
-      current_display_color_space_ == display.color_space()) {
+      current_display_color_spaces_ == display.color_spaces()) {
     return false;
   }
 
   current_display_area_ = display.work_area();
   current_device_scale_factor_ = display.device_scale_factor();
   current_display_rotation_ = display.rotation();
-  current_display_color_space_ = display.color_space();
+  current_display_color_spaces_ = display.color_spaces();
   return true;
 }
 
@@ -531,10 +535,6 @@ void RenderWidgetHostViewBase::EnableAutoResize(const gfx::Size& min_size,
 void RenderWidgetHostViewBase::DisableAutoResize(const gfx::Size& new_size) {
   if (!new_size.IsEmpty())
     SetSize(new_size);
-  // This clears the cached value in the WebContents, so that OOPIFs will
-  // stop using it.
-  if (host()->delegate())
-    host()->delegate()->ResetAutoResizeSize();
   host()->SetAutoResize(false, gfx::Size(), gfx::Size());
   host()->SynchronizeVisualProperties();
 }
@@ -767,16 +767,19 @@ void RenderWidgetHostViewBase::SetRecordContentToVisibleTimeRequest(
     base::Optional<bool> destination_is_loaded,
     base::Optional<bool> destination_is_frozen,
     bool show_reason_tab_switching,
-    bool show_reason_unoccluded) {
+    bool show_reason_unoccluded,
+    bool show_reason_bfcache_restore) {
   if (last_record_tab_switch_time_request_.has_value()) {
     last_record_tab_switch_time_request_.value().UpdateRequest(
         RecordContentToVisibleTimeRequest(
             start_time, destination_is_loaded, destination_is_frozen,
-            show_reason_tab_switching, show_reason_unoccluded));
+            show_reason_tab_switching, show_reason_unoccluded,
+            show_reason_bfcache_restore));
   } else {
     last_record_tab_switch_time_request_.emplace(
         start_time, destination_is_loaded, destination_is_frozen,
-        show_reason_tab_switching, show_reason_unoccluded);
+        show_reason_tab_switching, show_reason_unoccluded,
+        show_reason_bfcache_restore);
   }
 }
 

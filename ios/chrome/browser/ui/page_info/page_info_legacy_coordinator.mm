@@ -19,11 +19,8 @@
 #import "ios/chrome/browser/ui/fullscreen/chrome_coordinator+fullscreen_disabling.h"
 #import "ios/chrome/browser/ui/page_info/legacy_page_info_view_controller.h"
 #import "ios/chrome/browser/ui/page_info/page_info_constants.h"
-#import "ios/chrome/browser/ui/page_info/page_info_mediator.h"
+#import "ios/chrome/browser/ui/page_info/page_info_site_security_mediator.h"
 #import "ios/chrome/browser/ui/page_info/requirements/page_info_presentation.h"
-#import "ios/chrome/browser/url_loading/url_loading_params.h"
-#import "ios/chrome/browser/url_loading/url_loading_service.h"
-#import "ios/chrome/browser/url_loading/url_loading_service_factory.h"
 #import "ios/chrome/browser/web_state_list/web_state_list.h"
 #include "ios/web/public/navigation/navigation_item.h"
 #include "ios/web/public/navigation/navigation_manager.h"
@@ -83,10 +80,10 @@
   bool presentingOfflinePage =
       OfflinePageTabHelper::FromWebState(webState)->presenting_offline_page();
 
-  PageInfoConfig* config =
-      [PageInfoMediator configurationForURL:navItem->GetURL()
-                                  SSLStatus:navItem->GetSSL()
-                                offlinePage:presentingOfflinePage];
+  PageInfoSiteSecurityDescription* config =
+      [PageInfoSiteSecurityMediator configurationForURL:navItem->GetURL()
+                                              SSLStatus:navItem->GetSSL()
+                                            offlinePage:presentingOfflinePage];
 
   CGPoint originPresentationCoordinates = [self.presentationProvider
       convertToPresentationCoordinatesForOrigin:self.originPoint];

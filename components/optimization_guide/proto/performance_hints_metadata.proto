@@ -5,6 +5,8 @@
 syntax = "proto2";
 
 option optimize_for = LITE_RUNTIME;
+option java_package = "org.chromium.components.optimization_guide.proto";
+option java_outer_classname = "PerformanceHintsMetadataProto";
 
 package optimization_guide.proto;
 
@@ -15,6 +17,8 @@ enum PerformanceClass {
   PERFORMANCE_SLOW = 1;
   // Historic performance for the associated key is relatively fast.
   PERFORMANCE_FAST = 2;
+  // Historic performance for the associated key is neither slow nor fast.
+  PERFORMANCE_NORMAL = 3;
 }
 
 message PerformanceHint {

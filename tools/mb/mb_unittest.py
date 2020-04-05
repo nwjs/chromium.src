@@ -15,8 +15,10 @@ import StringIO
 import sys
 import unittest
 
-sys.path.insert(0, os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), '..'))
+sys.path.insert(
+    0,
+    os.path.abspath(
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')))
 
 from mb import mb
 
@@ -140,7 +142,62 @@ TEST_CONFIG = """\
       'fake_args_bot': '//build/args/bots/fake_master/fake_args_bot.gn',
       'fake_multi_phase': { 'phase_1': 'phase_1', 'phase_2': 'phase_2'},
       'fake_args_file': 'args_file_goma',
+      'fake_ios_error': 'ios_error',
     },
+  },
+  'configs': {
+    'args_file_goma': ['args_file', 'goma'],
+    'cros_chrome_sdk': ['cros_chrome_sdk'],
+    'rel_bot': ['rel', 'goma', 'fake_feature1'],
+    'debug_goma': ['debug', 'goma'],
+    'phase_1': ['phase_1'],
+    'phase_2': ['phase_2'],
+    'ios_error': ['error'],
+  },
+  'mixins': {
+    'cros_chrome_sdk': {
+      'cros_passthrough': True,
+    },
+    'error': {
+      'gn_args': 'error',
+    },
+    'fake_feature1': {
+      'gn_args': 'enable_doom_melon=true',
+    },
+    'goma': {
+      'gn_args': 'use_goma=true',
+    },
+    'args_file': {
+      'args_file': '//build/args/fake.gn',
+    },
+    'phase_1': {
+      'gn_args': 'phase=1',
+    },
+    'phase_2': {
+      'gn_args': 'phase=2',
+    },
+    'rel': {
+      'gn_args': 'is_debug=false',
+    },
+    'debug': {
+      'gn_args': 'is_debug=true',
+    },
+  },
+}
+"""
+
+TEST_CONFIG_BUCKET = """\
+{
+  'public_artifact_builders': {},
+  'buckets': {
+    'ci': {
+      'fake_builder': 'rel_bot',
+      'fake_debug_builder': 'debug_goma',
+      'fake_simplechrome_builder': 'cros_chrome_sdk',
+      'fake_args_bot': '//build/args/bots/fake_master/fake_args_bot.gn',
+      'fake_multi_phase': { 'phase_1': 'phase_1', 'phase_2': 'phase_2'},
+      'fake_args_file': 'args_file_goma',
+    }
   },
   'configs': {
     'args_file_goma': ['args_file', 'goma'],
@@ -179,14 +236,16 @@ TEST_CONFIG = """\
 }
 """
 
-TEST_CONFIG_BUCKET = """\
+# Same as previous config but with fake_debug_builder
+# and fake_simplechrome_builder configs swapped
+TEST_CONFIG_BUCKET_2 = """\
 {
   'public_artifact_builders': {},
   'buckets': {
     'ci': {
       'fake_builder': 'rel_bot',
-      'fake_debug_builder': 'debug_goma',
-      'fake_simplechrome_builder': 'cros_chrome_sdk',
+      'fake_debug_builder': 'cros_chrome_sdk',
+      'fake_simplechrome_builder': 'debug_goma',
       'fake_args_bot': '//build/args/bots/fake_master/fake_args_bot.gn',
       'fake_multi_phase': { 'phase_1': 'phase_1', 'phase_2': 'phase_2'},
       'fake_args_file': 'args_file_goma',
@@ -420,7 +479,6 @@ class UnitTest(unittest.TestCase):
       actual_ret = mbw.Main(args)
     finally:
       os.environ = prev_env
-
     self.assertEqual(actual_ret, ret)
     if out is not None:
       self.assertEqual(mbw.out, out)
@@ -502,7 +560,7 @@ class UnitTest(unittest.TestCase):
     self.assertEqual(['all', 'foo_unittests'], out['compile_targets'])
 
   def test_analyze_handles_way_too_many_results(self):
-    too_many_files = ', '.join(['"//foo:foo%d"' % i for i in xrange(4 * 1024)])
+    too_many_files = ', '.join(['"//foo:foo%d"' % i for i in xrange(40 * 1024)])
     files = {'/tmp/in.json': '''{\
                "files": ["foo/foo_unittest.cc"],
                "test_targets": ["foo_unittests"],
@@ -825,26 +883,31 @@ class UnitTest(unittest.TestCase):
 
   def test_run_swarmed(self):
     files = {
-      '/fake_src/testing/buildbot/gn_isolate_map.pyl': (
-          "{'base_unittests': {"
-          "  'label': '//base:base_unittests',"
-          "  'type': 'raw',"
-          "  'args': [],"
-          "}}\n"
-      ),
-      '/fake_src/out/Default/base_unittests.runtime_deps': (
-          "base_unittests\n"
-      ),
+        '/fake_src/testing/buildbot/gn_isolate_map.pyl':
+        ("{'base_unittests': {"
+         "  'label': '//base:base_unittests',"
+         "  'type': 'raw',"
+         "  'args': [],"
+         "}}\n"),
+        '/fake_src/out/Default/base_unittests.runtime_deps':
+        ("base_unittests\n"),
+        '/fake_src/out/Default/base_unittests.archive.json':
+        ("{\"base_unittests\":\"fake_hash\"}"),
+        '/fake_src/third_party/depot_tools/cipd_manifest.txt':
+        ("# vpython\n"
+         "/some/vpython/pkg  git_revision:deadbeef\n"),
     }
 
-    def run_stub(cmd, **_kwargs):
-      if 'isolate.py' in cmd[1]:
-        return 0, 'fake_hash base_unittests', ''
-      else:
-        return 0, '', ''
-
     mbw = self.fake_mbw(files=files)
-    mbw.Run = run_stub
+    original_impl = mbw.ToSrcRelPath
+
+    def to_src_rel_path_stub(path):
+      if path.endswith('base_unittests.archive.json'):
+        return 'base_unittests.archive.json'
+      return original_impl(path)
+
+    mbw.ToSrcRelPath = to_src_rel_path_stub
+
     self.check(['run', '-s', '-c', 'debug_goma', '//out/Default',
                 'base_unittests'], mbw=mbw, ret=0)
     self.check(['run', '-s', '-c', 'debug_goma', '-d', 'os', 'Win7',
@@ -945,6 +1008,12 @@ class UnitTest(unittest.TestCase):
     mbw = self.fake_mbw()
     self.check(['validate'], mbw=mbw, ret=0)
 
+  def test_validate_inconsistent(self):
+    mbw = self.fake_mbw()
+    mbw.files[mbw.default_config_bucket] = TEST_CONFIG_BUCKET_2
+    self.check(['validate'], mbw=mbw, ret=1)
+    self.assertIn('mb_config_buckets.pyl doesn\'t match', mbw.out)
+
   def test_bad_validate(self):
     mbw = self.fake_mbw()
     mbw.files[mbw.default_config_master] = TEST_BAD_CONFIG
@@ -1003,6 +1072,67 @@ class UnitTest(unittest.TestCase):
     self.check(['run', '//out/Default', 'base_unittests'], mbw=mbw, ret=0)
     self.assertIn(['autoninja.bat', '-C', 'out\\Default', 'base_unittests'],
                   mbw.calls)
+
+  def test_ios_error_config_with_ios_json(self):
+    """Ensures that ios_error config finds the correct iOS JSON file for args"""
+    files = {
+        '/fake_src/ios/build/bots/fake_master/fake_ios_error.json':
+        ('{"gn_args": ["is_debug=true"]}\n')
+    }
+    mbw = self.fake_mbw(files)
+    self.check(['lookup', '-m', 'fake_master', '-b', 'fake_ios_error'],
+               mbw=mbw,
+               ret=0,
+               out=('\n'
+                    'Writing """\\\n'
+                    'is_debug = true\n'
+                    '""" to _path_/args.gn.\n\n'
+                    '/fake_src/buildtools/linux64/gn gen _path_\n'))
+
+  def test_bot_definition_in_ios_json_only(self):
+    """Ensures that logic checks iOS JSON file for args
+
+    When builder definition is not present, ensure that ios/build/bots/ is
+    checked.
+    """
+    files = {
+        '/fake_src/ios/build/bots/fake_master/fake_ios_bot.json':
+        ('{"gn_args": ["is_debug=true"]}\n')
+    }
+    mbw = self.fake_mbw(files)
+    self.check(['lookup', '-m', 'fake_master', '-b', 'fake_ios_bot'],
+               mbw=mbw,
+               ret=0,
+               out=('\n'
+                    'Writing """\\\n'
+                    'is_debug = true\n'
+                    '""" to _path_/args.gn.\n\n'
+                    '/fake_src/buildtools/linux64/gn gen _path_\n'))
+
+  def test_ios_error_config_missing_json_definition(self):
+    """Ensures MBErr is thrown
+
+    Expect MBErr with 'No iOS definition ...' for iOS bots when the bot config
+    is ios_error, but there is no iOS JSON definition for it.
+    """
+    mbw = self.fake_mbw()
+    self.check(['lookup', '-m', 'fake_master', '-b', 'fake_ios_error'],
+               mbw=mbw,
+               ret=1)
+    self.assertIn('MBErr: No iOS definition was found.', mbw.out)
+
+  def test_bot_missing_definition(self):
+    """Ensures builder missing MBErr is thrown
+
+    Expect the original MBErr to be thrown for iOS bots when the bot definition
+    doesn't exist at all.
+    """
+    mbw = self.fake_mbw()
+    self.check(['lookup', '-m', 'fake_master', '-b', 'random_bot'],
+               mbw=mbw,
+               ret=1)
+    self.assertIn('MBErr: Builder name "random_bot"  not found under masters',
+                  mbw.out)
 
 
 if __name__ == '__main__':

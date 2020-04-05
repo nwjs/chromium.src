@@ -12,9 +12,6 @@ import android.os.Build;
 import android.os.SystemClock;
 import android.support.test.annotation.UiThreadTest;
 import android.support.test.filters.SmallTest;
-import android.support.v4.content.ContextCompat;
-import android.support.v7.widget.GridLayoutManager;
-import android.support.v7.widget.RecyclerView;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.LayoutInflater;
@@ -25,6 +22,11 @@ import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.PopupWindow;
 
+import androidx.core.content.ContextCompat;
+import androidx.recyclerview.widget.GridLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+
+import org.hamcrest.Matchers;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -33,6 +35,7 @@ import org.chromium.chrome.browser.toolbar.ToolbarColors;
 import org.chromium.chrome.browser.widget.ScrimView;
 import org.chromium.chrome.tab_ui.R;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
+import org.chromium.content_public.browser.test.util.Criteria;
 import org.chromium.content_public.browser.test.util.CriteriaHelper;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -228,8 +231,8 @@ public class TabGridPanelViewBinderTest extends DummyUiActivityTestCase {
             Assert.assertNotNull(mTabGridDialogParent.getCurrentDialogAnimatorForTesting());
         }
         Assert.assertTrue(mTabGridDialogParent.getPopupWindowForTesting().isShowing());
-        CriteriaHelper.pollUiThread(
-                () -> mTabGridDialogParent.getCurrentDialogAnimatorForTesting() == null);
+        CriteriaHelper.pollUiThread(Criteria.checkThat(
+                mTabGridDialogParent::getCurrentDialogAnimatorForTesting, Matchers.nullValue()));
 
         TestThreadUtils.runOnUiThreadBlocking(
                 () -> mModel.set(TabGridPanelProperties.IS_DIALOG_VISIBLE, false));
@@ -238,8 +241,8 @@ public class TabGridPanelViewBinderTest extends DummyUiActivityTestCase {
             Assert.assertNotNull(mTabGridDialogParent.getCurrentDialogAnimatorForTesting());
             Assert.assertTrue(mTabGridDialogParent.getPopupWindowForTesting().isShowing());
         }
-        CriteriaHelper.pollUiThread(
-                () -> mTabGridDialogParent.getCurrentDialogAnimatorForTesting() == null);
+        CriteriaHelper.pollUiThread(Criteria.checkThat(
+                mTabGridDialogParent::getCurrentDialogAnimatorForTesting, Matchers.nullValue()));
         Assert.assertFalse(mTabGridDialogParent.getPopupWindowForTesting().isShowing());
     }
 
@@ -345,8 +348,8 @@ public class TabGridPanelViewBinderTest extends DummyUiActivityTestCase {
     @SmallTest
     @UiThreadTest
     public void testSetUngroupbarTextAppearance() {
-        int normalStyleId = R.style.TextAppearance_BlueTitle2;
-        int incognitoStyleId = R.style.TextAppearance_BlueTitle2Incognito;
+        int normalStyleId = R.style.TextAppearance_TextMediumThick_Blue;
+        int incognitoStyleId = R.style.TextAppearance_TextMediumThick_Blue_Light;
         // Default setup is in normal mode.
         Assert.assertEquals(
                 normalStyleId, mTabGridDialogParent.getUngroupBarTextAppearanceForTesting());

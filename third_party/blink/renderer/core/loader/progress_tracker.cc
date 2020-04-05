@@ -67,7 +67,7 @@ ProgressTracker::ProgressTracker(LocalFrame* frame)
 
 ProgressTracker::~ProgressTracker() = default;
 
-void ProgressTracker::Trace(blink::Visitor* visitor) {
+void ProgressTracker::Trace(Visitor* visitor) {
   visitor->Trace(frame_);
 }
 
@@ -112,6 +112,7 @@ void ProgressTracker::ProgressCompleted() {
   SendFinalProgress();
   Reset();
   GetLocalFrameClient()->DidStopLoading();
+  frame_->UpdateFaviconURL();
   probe::FrameStoppedLoading(frame_);
 }
 

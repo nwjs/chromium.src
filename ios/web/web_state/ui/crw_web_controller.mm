@@ -34,7 +34,6 @@
 #import "ios/web/navigation/navigation_context_impl.h"
 #import "ios/web/navigation/wk_back_forward_list_item_holder.h"
 #import "ios/web/navigation/wk_navigation_util.h"
-#import "ios/web/public/deprecated/crw_context_menu_delegate.h"
 #include "ios/web/public/js_messaging/web_frame_util.h"
 #import "ios/web/public/ui/crw_web_view_scroll_view_proxy.h"
 #import "ios/web/public/ui/page_display_state.h"
@@ -43,6 +42,7 @@
 #import "ios/web/security/crw_ssl_status_updater.h"
 #import "ios/web/web_state/page_viewport_state.h"
 #import "ios/web/web_state/ui/crw_context_menu_controller.h"
+#import "ios/web/web_state/ui/crw_context_menu_delegate.h"
 #import "ios/web/web_state/ui/crw_swipe_recognizer_provider.h"
 #import "ios/web/web_state/ui/crw_web_controller_container_view.h"
 #import "ios/web/web_state/ui/crw_web_request_controller.h"
@@ -186,11 +186,6 @@ NSString* const kScriptMessageName = @"crwebinvoke";
 // Note that this method is expensive, so it should always be cached locally if
 // it's needed multiple times in a method.
 @property(nonatomic, readonly) GURL currentURL;
-
-// User agent type of the transient item if any, the pending item if a
-// navigation is in progress or the last committed item otherwise.
-// Returns MOBILE, the default type, if navigation manager is nullptr or empty.
-@property(nonatomic, readonly) web::UserAgentType userAgentType;
 
 @property(nonatomic, readonly) web::WebState* webState;
 // WebStateImpl instance associated with this CRWWebController, web controller
@@ -494,11 +489,6 @@ typedef void (^ViewportStateCompletion)(const web::PageViewportState*);
   return [self currentURLWithTrustLevel:&trustLevel];
 }
 
-- (web::UserAgentType)userAgentType {
-  web::NavigationItem* item = self.currentNavItem;
-  return item ? item->GetUserAgentType() : web::UserAgentType::MOBILE;
-}
-
 - (WebState*)webState {
   return _webStateImpl;
 }
@@ -730,6 +720,10 @@ typedef void (^ViewportStateCompletion)(const web::PageViewportState*);
   }
 }
 
+- (void)setVisible:(BOOL)visible {
+  _visible = visible;
+}
+
 - (void)wasShown {
   self.visible = YES;
 }
@@ -761,9 +755,6 @@ typedef void (^ViewportStateCompletion)(const web::PageViewportState*);
               ui::PageTransition::PAGE_TRANSITION_FORWARD_BACK),
           type == web::NavigationInitiationType::RENDERER_INITIATED);
   context->SetIsSameDocument(true);
-  if (!web::features::UseWKWebViewLoading()) {
-    self.webStateImpl->SetIsLoading(true);
-  }
   self.webStateImpl->OnNavigationStarted(context.get());
   [self setDocumentURL:URL context:context.get()];
   context->SetHasCommitted(true);
@@ -806,9 +797,6 @@ typedef void (^ViewportStateCompletion)(const web::PageViewportState*);
     // navigations.
     context->SetIsSameDocument(true);
   } else {
-    if (!web::features::UseWKWebViewLoading()) {
-      self.webStateImpl->SetIsLoading(true);
-    }
     self.navigationHandler.navigationState = web::WKNavigationState::REQUESTED;
   }
 
@@ -1407,9 +1395,21 @@ typedef void (^ViewportStateCompletion)(const web::PageViewportState*);
 - (WKWebView*)webViewWithConfiguration:(WKWebViewConfiguration*)config {
   // Do not attach the context menu controller immediately as the JavaScript
   // delegate must be specified.
-  return web::BuildWKWebView(CGRectZero, config,
-                             self.webStateImpl->GetBrowserState(),
-                             [self userAgentType]);
+  web::UserAgentType defaultUserAgent =
+      base::FeatureList::IsEnabled(
+          web::features::kUseDefaultUserAgentInWebClient)
+          ? web::UserAgentType::AUTOMATIC
+          : web::UserAgentType::MOBILE;
+  web::NavigationItem* item = self.currentNavItem;
+  web::UserAgentType userAgentType =
+      item ? item->GetUserAgentType() : defaultUserAgent;
+  if (userAgentType == web::UserAgentType::AUTOMATIC) {
+    userAgentType =
+        web::GetWebClient()->GetDefaultUserAgent(_containerView, GURL());
+  }
+
+  return web::BuildWKWebView(
+      CGRectZero, config, self.webStateImpl->GetBrowserState(), userAgentType);
 }
 
 // Wraps the web view in a CRWWebViewContentView and adds it to the container

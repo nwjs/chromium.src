@@ -7,11 +7,15 @@
 #include "base/files/file_path.h"
 #include "base/task/post_task.h"
 #include "base/task/task_traits.h"
+#include "base/task/thread_pool.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/file_util_service.h"
+#include "chrome/browser/safe_browsing/cloud_content_scanning/deep_scanning_utils.h"
 #include "chrome/services/file_util/public/cpp/sandboxed_rar_analyzer.h"
 #include "chrome/services/file_util/public/cpp/sandboxed_zip_analyzer.h"
 #include "components/download/public/common/download_item.h"
+#include "components/prefs/pref_service.h"
+#include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 
@@ -25,6 +29,9 @@ std::string GetFileContentsBlocking(base::FilePath path) {
     return "";
 
   int64_t file_size = file.GetLength();
+  if (static_cast<size_t>(file_size) > BinaryUploadService::kMaxUploadSizeBytes)
+    return "";
+
   std::string contents;
   contents.resize(file_size);
 
@@ -73,6 +80,18 @@ void DownloadItemRequest::GetRequestData(DataCallback callback) {
     return;
   }
 
+  bool malware = deep_scanning_request().has_malware_scan_request();
+  bool dlp = deep_scanning_request().has_dlp_scan_request();
+  if (item_ && (malware || dlp) &&
+      !FileTypeSupported(malware, dlp, item_->GetTargetFilePath())) {
+    base::SequencedTaskRunnerHandle::Get()->PostTask(
+        FROM_HERE,
+        base::BindOnce(std::move(callback),
+                       BinaryUploadService::Result::UNSUPPORTED_FILE_TYPE,
+                       Data()));
+    return;
+  }
+
   if (is_data_valid_) {
     RunPendingGetFileContentsCallback(std::move(callback));
     return;
@@ -112,9 +131,8 @@ void DownloadItemRequest::OnDownloadDestroyed(
 }
 
 void DownloadItemRequest::ReadFile() {
-  base::PostTaskAndReplyWithResult(
-      FROM_HERE,
-      {base::ThreadPool(), base::TaskPriority::USER_VISIBLE, base::MayBlock()},
+  base::ThreadPool::PostTaskAndReplyWithResult(
+      FROM_HERE, {base::TaskPriority::USER_VISIBLE, base::MayBlock()},
       base::BindOnce(&GetFileContentsBlocking, item_->GetFullPath()),
       base::BindOnce(&DownloadItemRequest::OnGotFileContents,
                      weakptr_factory_.GetWeakPtr()));

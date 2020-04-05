@@ -45,14 +45,14 @@ class MockLoginDisplayHost : public LoginDisplayHost {
   }
 
   MOCK_METHOD0(CancelUserAdding, void(void));
-  MOCK_METHOD1(StartSignInScreen, void(const LoginScreenContext&));
+  MOCK_METHOD0(StartSignInScreen, void(void));
   MOCK_METHOD0(OnPreferencesChanged, void(void));
   MOCK_METHOD0(PrewarmAuthentication, void(void));
   MOCK_METHOD3(StartAppLaunch, void(const std::string&, bool, bool));
   MOCK_METHOD0(StartDemoAppLaunch, void(void));
   MOCK_METHOD1(StartArcKiosk, void(const AccountId&));
   MOCK_METHOD1(StartWebKiosk, void(const AccountId&));
-  MOCK_METHOD2(ShowGaiaDialog, void(bool, const AccountId&));
+  MOCK_METHOD1(ShowGaiaDialog, void(const AccountId&));
   MOCK_METHOD0(HideOobeDialog, void());
   MOCK_METHOD1(UpdateOobeDialogState, void(ash::OobeDialogState state));
   MOCK_METHOD0(GetUsers, const user_manager::UserList(void));

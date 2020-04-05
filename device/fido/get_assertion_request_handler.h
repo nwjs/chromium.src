@@ -88,20 +88,25 @@ class COMPONENT_EXPORT(DEVICE_FIDO) GetAssertionRequestHandler
       FidoAuthenticator* authenticator,
       CtapDeviceResponseCode response_code,
       base::Optional<AuthenticatorGetAssertionResponse> response);
-  void HandleTouch(FidoAuthenticator* authenticator);
-  void HandleAuthenticatorMissingUV(FidoAuthenticator* authenticator);
-  void OnRetriesResponse(CtapDeviceResponseCode status,
-                         base::Optional<pin::RetriesResponse> response);
+  void CollectPINThenSendRequest(FidoAuthenticator* authenticator);
+  void StartPINFallbackForInternalUv(FidoAuthenticator* authenticator);
+  void TerminateUnsatisfiableRequestPostTouch(FidoAuthenticator* authenticator);
+  void OnPinRetriesResponse(CtapDeviceResponseCode status,
+                            base::Optional<pin::RetriesResponse> response);
   void OnHavePIN(std::string pin);
   void OnHavePINToken(CtapDeviceResponseCode status,
                       base::Optional<pin::TokenResponse> response);
+  void OnUvRetriesResponse(CtapDeviceResponseCode status,
+                           base::Optional<pin::RetriesResponse> response);
   void OnHaveUvToken(FidoAuthenticator* authenticator,
                      CtapDeviceResponseCode status,
                      base::Optional<pin::TokenResponse> response);
+  void DispatchRequestWithToken(pin::TokenResponse token);
 
   CompletionCallback completion_callback_;
   State state_ = State::kWaitingForTouch;
   CtapGetAssertionRequest request_;
+  base::Optional<AndroidClientDataExtensionInput> android_client_data_ext_;
   // If true, and if at the time the request is dispatched to the first
   // authenticator no other authenticators are available, the request handler
   // will skip the initial touch that is usually required to select a PIN

@@ -14,13 +14,13 @@
 #include "base/files/file_util.h"
 #import "base/ios/crb_protocol_observers.h"
 #include "base/logging.h"
-#include "base/mac/scoped_nsobject.h"
 #include "base/path_service.h"
 #include "base/sequence_checker.h"
 #include "base/sequenced_task_runner.h"
 #include "base/stl_util.h"
 #include "base/strings/sys_string_conversions.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "base/task_runner_util.h"
 #include "base/threading/scoped_blocking_call.h"
 #import "ios/chrome/browser/snapshots/snapshot_cache_observer.h"
@@ -284,9 +284,8 @@ void ConvertAndSaveGreyImage(NSString* session_id,
     _cacheDirectory = cacheDirectory;
     _snapshotsScale = snapshotsScale;
 
-    _taskRunner =
-        base::CreateSequencedTaskRunner({base::ThreadPool(), base::MayBlock(),
-                                         base::TaskPriority::USER_VISIBLE});
+    _taskRunner = base::ThreadPool::CreateSequencedTaskRunner(
+        {base::MayBlock(), base::TaskPriority::USER_VISIBLE});
 
     _observers = [SnapshotCacheObservers observers];
     _markedIDs = [[NSMutableSet alloc] init];
@@ -353,13 +352,12 @@ void ConvertAndSaveGreyImage(NSString* session_id,
 
   __weak SnapshotLRUCache* weakLRUCache = _lruCache;
   base::PostTaskAndReplyWithResult(
-      _taskRunner.get(), FROM_HERE,
-      base::BindOnce(^base::scoped_nsobject<UIImage>() {
+      _taskRunner.get(), FROM_HERE, base::BindOnce(^UIImage*() {
         // Retrieve the image on a high priority thread.
-        return base::scoped_nsobject<UIImage>(ReadImageForSessionFromDisk(
-            sessionID, IMAGE_TYPE_COLOR, snapshotsScale, cacheDirectory));
+        return ReadImageForSessionFromDisk(sessionID, IMAGE_TYPE_COLOR,
+                                           snapshotsScale, cacheDirectory);
       }),
-      base::BindOnce(^(base::scoped_nsobject<UIImage> image) {
+      base::BindOnce(^(UIImage* image) {
         if (image)
           [weakLRUCache setObject:image forKey:sessionID];
         callback(image);
@@ -543,8 +541,7 @@ void ConvertAndSaveGreyImage(NSString* session_id,
 
   __weak SnapshotCache* weakSelf = self;
   base::PostTaskAndReplyWithResult(
-      _taskRunner.get(), FROM_HERE,
-      base::BindOnce(^base::scoped_nsobject<UIImage>() {
+      _taskRunner.get(), FROM_HERE, base::BindOnce(^UIImage*() {
         // If the image is not in the cache, load it from disk.
         UIImage* localImage = image;
         if (!localImage) {
@@ -553,9 +550,9 @@ void ConvertAndSaveGreyImage(NSString* session_id,
         }
         if (localImage)
           localImage = GreyImage(localImage);
-        return base::scoped_nsobject<UIImage>(localImage);
+        return localImage;
       }),
-      base::BindOnce(^(base::scoped_nsobject<UIImage> greyImage) {
+      base::BindOnce(^(UIImage* greyImage) {
         [weakSelf saveGreyImage:greyImage forKey:sessionID];
       }));
 }
@@ -620,13 +617,12 @@ void ConvertAndSaveGreyImage(NSString* session_id,
 
   __weak SnapshotCache* weakSelf = self;
   base::PostTaskAndReplyWithResult(
-      _taskRunner.get(), FROM_HERE,
-      base::BindOnce(^base::scoped_nsobject<UIImage>() {
+      _taskRunner.get(), FROM_HERE, base::BindOnce(^UIImage*() {
         // Retrieve the image on a high priority thread.
-        return base::scoped_nsobject<UIImage>(ReadImageForSessionFromDisk(
-            sessionID, IMAGE_TYPE_GREYSCALE, snapshotsScale, cacheDirectory));
+        return ReadImageForSessionFromDisk(sessionID, IMAGE_TYPE_GREYSCALE,
+                                           snapshotsScale, cacheDirectory);
       }),
-      base::BindOnce(^(base::scoped_nsobject<UIImage> image) {
+      base::BindOnce(^(UIImage* image) {
         if (image) {
           callback(image);
           return;

@@ -229,8 +229,8 @@ class MODULES_EXPORT BaseRenderingContext2D : public GarbageCollectedMixin,
   virtual bool ParseColorOrCurrentColor(Color&,
                                         const String& color_string) const = 0;
 
-  virtual cc::PaintCanvas* DrawingCanvas() const = 0;
-  virtual cc::PaintCanvas* ExistingDrawingCanvas() const = 0;
+  virtual cc::PaintCanvas* GetOrCreatePaintCanvas() = 0;
+  virtual cc::PaintCanvas* GetPaintCanvas() const = 0;
 
   virtual void DidDraw(const SkIRect& dirty_rect) = 0;
 
@@ -239,7 +239,7 @@ class MODULES_EXPORT BaseRenderingContext2D : public GarbageCollectedMixin,
   virtual void SnapshotStateForFilter() = 0;
 
   void ValidateStateStack() const {
-    ValidateStateStackWithCanvas(ExistingDrawingCanvas());
+    ValidateStateStackWithCanvas(GetPaintCanvas());
   }
   virtual void ValidateStateStackWithCanvas(const cc::PaintCanvas*) const = 0;
 
@@ -264,7 +264,7 @@ class MODULES_EXPORT BaseRenderingContext2D : public GarbageCollectedMixin,
   String textBaseline() const;
   void setTextBaseline(const String&);
 
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
 
   enum DrawCallType {
     kStrokePath = 0,
@@ -366,8 +366,6 @@ class MODULES_EXPORT BaseRenderingContext2D : public GarbageCollectedMixin,
   HeapVector<Member<CanvasRenderingContext2DState>> state_stack_;
   AntiAliasingMode clip_antialiasing_;
 
-  mutable UsageCounters usage_counters_;
-
   virtual void FinalizeFrame() {}
 
   float GetFontBaseline(const SimpleFontData&) const;
@@ -382,7 +380,7 @@ class MODULES_EXPORT BaseRenderingContext2D : public GarbageCollectedMixin,
   virtual void DisableAcceleration() {}
 
   virtual bool IsPaint2D() const { return false; }
-  virtual void WillOverwriteCanvas() {}
+  virtual void WillOverwriteCanvas() = 0;
 
  private:
   void RealizeSaves();
@@ -458,18 +456,19 @@ void BaseRenderingContext2D::Draw(
     return;
 
   SkIRect clip_bounds;
-  if (!DrawingCanvas() || !DrawingCanvas()->getDeviceClipBounds(&clip_bounds))
+  cc::PaintCanvas* paint_canvas = GetOrCreatePaintCanvas();
+  if (!paint_canvas || !paint_canvas->getDeviceClipBounds(&clip_bounds))
     return;
 
   if (IsFullCanvasCompositeMode(GetState().GlobalComposite()) ||
       StateHasFilter()) {
-    CompositedDraw(draw_func, DrawingCanvas(), paint_type, image_type);
+    CompositedDraw(draw_func, GetPaintCanvas(), paint_type, image_type);
     DidDraw(clip_bounds);
   } else if (GetState().GlobalComposite() == SkBlendMode::kSrc) {
     ClearCanvas();  // takes care of checkOverdraw()
     const PaintFlags* flags =
         GetState().GetFlags(paint_type, kDrawForegroundOnly, image_type);
-    draw_func(DrawingCanvas(), flags);
+    draw_func(GetPaintCanvas(), flags);
     DidDraw(clip_bounds);
   } else {
     SkIRect dirty_rect;
@@ -479,7 +478,7 @@ void BaseRenderingContext2D::Draw(
       if (paint_type != CanvasRenderingContext2DState::kStrokePaintType &&
           draw_covers_clip_bounds(clip_bounds))
         CheckOverdraw(bounds, flags, image_type, kClipFill);
-      draw_func(DrawingCanvas(), flags);
+      draw_func(GetPaintCanvas(), flags);
       DidDraw(dirty_rect);
     }
   }
@@ -496,7 +495,7 @@ void BaseRenderingContext2D::CompositedDraw(
   SkMatrix ctm = c->getTotalMatrix();
   c->setMatrix(SkMatrix::I());
   PaintFlags composite_flags;
-  composite_flags.setBlendMode((SkBlendMode)GetState().GlobalComposite());
+  composite_flags.setBlendMode(GetState().GlobalComposite());
   if (GetState().ShouldDrawShadows()) {
     // unroll into two independently composited passes if drawing shadows
     PaintFlags shadow_flags =
@@ -506,10 +505,13 @@ void BaseRenderingContext2D::CompositedDraw(
     if (filter) {
       PaintFlags foreground_flags =
           *GetState().GetFlags(paint_type, kDrawForegroundOnly, image_type);
-      foreground_flags.setImageFilter(sk_make_sp<ComposePaintFilter>(
+      shadow_flags.setImageFilter(sk_make_sp<ComposePaintFilter>(
           sk_make_sp<ComposePaintFilter>(foreground_flags.getImageFilter(),
                                          shadow_flags.getImageFilter()),
           filter));
+      // Saving the shadow layer before setting the matrix, so the shadow offset
+      // does not get modified by the transformation matrix
+      c->saveLayer(nullptr, &shadow_flags);
       c->setMatrix(ctm);
       draw_func(c, &foreground_flags);
     } else {

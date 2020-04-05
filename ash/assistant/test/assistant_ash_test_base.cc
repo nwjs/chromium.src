@@ -9,13 +9,18 @@
 
 #include "ash/app_list/app_list_controller_impl.h"
 #include "ash/assistant/assistant_controller.h"
+#include "ash/assistant/test/test_assistant_client.h"
+#include "ash/assistant/test/test_assistant_setup.h"
 #include "ash/assistant/test/test_assistant_web_view_factory.h"
+#include "ash/assistant/ui/main_stage/suggestion_chip_view.h"
 #include "ash/keyboard/ui/keyboard_ui_controller.h"
 #include "ash/keyboard/ui/test/keyboard_test_util.h"
-#include "ash/public/cpp/app_list/app_list_features.h"
+#include "ash/public/cpp/assistant/assistant_state.h"
 #include "ash/public/cpp/test/assistant_test_api.h"
 #include "ash/shell.h"
+#include "ash/test/ash_test_helper.h"
 #include "base/run_loop.h"
+#include "base/test/task_environment.h"
 
 namespace ash {
 
@@ -54,18 +59,54 @@ void PressHomeButton() {
       AppListShowSource::kShelfButton, base::TimeTicks::Now());
 }
 
+// Collects all child views of the given templated type.
+// This includes direct and indirect children.
+// For this class to work, _ChildView must:
+//      * Inherit from |views::View|.
+//      * Have a static variable called |kClassName|.
+//      * Return |_ChildView::kClassName| from its GetClassName() method.
+template <class _ChildView>
+class ChildViewCollector {
+ public:
+  using Views = std::vector<_ChildView*>;
+
+  explicit ChildViewCollector(const views::View* parent) : parent_(parent) {}
+
+  Views Get() {
+    Views result;
+    for (views::View* child : parent_->children())
+      Get(child, &result);
+    return result;
+  }
+
+ private:
+  void Get(views::View* view, Views* result) {
+    if (view->GetClassName() == _ChildView::kClassName)
+      result->push_back(static_cast<_ChildView*>(view));
+    for (views::View* child : view->children())
+      Get(child, result);
+  }
+
+  const views::View* parent_;
+};
+
 }  // namespace
 
 AssistantAshTestBase::AssistantAshTestBase()
-    : test_api_(AssistantTestApi::Create()),
-      test_web_view_factory_(std::make_unique<TestAssistantWebViewFactory>()) {}
+    : AssistantAshTestBase(
+          base::test::TaskEnvironment::TimeSource::SYSTEM_TIME) {}
+
+AssistantAshTestBase::AssistantAshTestBase(
+    base::test::TaskEnvironment::TimeSource time)
+    : AshTestBase(time),
+      test_api_(AssistantTestApi::Create()),
+      test_setup_(std::make_unique<TestAssistantSetup>()),
+      test_web_view_factory_(std::make_unique<TestAssistantWebViewFactory>()),
+      assistant_client_(std::make_unique<TestAssistantClient>()) {}
 
 AssistantAshTestBase::~AssistantAshTestBase() = default;
 
 void AssistantAshTestBase::SetUp() {
-  scoped_feature_list_.InitAndEnableFeature(
-      app_list_features::kEnableAssistantLauncherUI);
-
   AshTestBase::SetUp();
 
   // Make the display big enough to hold the app list.
@@ -73,6 +114,16 @@ void AssistantAshTestBase::SetUp() {
 
   // Enable Assistant in settings.
   test_api_->SetAssistantEnabled(true);
+
+  // Enable screen context in settings.
+  test_api_->SetScreenContextEnabled(true);
+
+  // Set AssistantAllowedState to ALLOWED.
+  test_api_->GetAssistantState()->NotifyFeatureAllowed(
+      mojom::AssistantAllowedState::ALLOWED);
+
+  // Set user consent so the suggestion chips are displayed.
+  SetConsentStatus(ConsentStatus::kActivityControlAccepted);
 
   // Cache controller.
   controller_ = Shell::Get()->assistant_controller();
@@ -93,7 +144,6 @@ void AssistantAshTestBase::TearDown() {
   widgets_.clear();
   DisableKeyboard();
   AshTestBase::TearDown();
-  scoped_feature_list_.Reset();
 }
 
 void AssistantAshTestBase::ShowAssistantUi(AssistantEntryPoint entry_point) {
@@ -125,8 +175,16 @@ void AssistantAshTestBase::SetTabletMode(bool enable) {
   test_api_->SetTabletMode(enable);
 }
 
+void AssistantAshTestBase::SetConsentStatus(ConsentStatus consent_status) {
+  test_api_->SetConsentStatus(consent_status);
+}
+
 void AssistantAshTestBase::SetPreferVoice(bool prefer_voice) {
   test_api_->SetPreferVoice(prefer_voice);
+}
+
+void AssistantAshTestBase::StartOverview() {
+  test_api_->StartOverview();
 }
 
 bool AssistantAshTestBase::IsVisible() {
@@ -152,29 +210,15 @@ views::View* AssistantAshTestBase::root_view() {
   return result;
 }
 
-void AssistantAshTestBase::MockAssistantInteractionWithResponse(
-    const std::string& response_text) {
-  MockAssistantInteractionWithQueryAndResponse(/*query=*/"input text",
-                                               response_text);
-}
-
-void AssistantAshTestBase::MockAssistantInteractionWithQueryAndResponse(
-    const std::string& query,
-    const std::string& response_text) {
-  SendQueryThroughTextField(query);
-  auto response = std::make_unique<InteractionResponse>();
-  response->AddTextResponse(response_text)
-      ->AddResolution(InteractionResponse::Resolution::kNormal);
-  assistant_service()->SetInteractionResponse(std::move(response));
-
-  base::RunLoop().RunUntilIdle();
+MockedAssistantInteraction AssistantAshTestBase::MockTextInteraction() {
+  return MockedAssistantInteraction(test_api_.get(), assistant_service());
 }
 
 void AssistantAshTestBase::SendQueryThroughTextField(const std::string& query) {
   test_api_->SendTextQuery(query);
 }
 
-void AssistantAshTestBase::TapOnAndWait(views::View* view) {
+void AssistantAshTestBase::TapOnAndWait(const views::View* view) {
   CheckCanProcessEvents(view);
   TapAndWait(GetPointInside(view));
 }
@@ -185,8 +229,11 @@ void AssistantAshTestBase::TapAndWait(gfx::Point position) {
   base::RunLoop().RunUntilIdle();
 }
 
-void AssistantAshTestBase::ClickOnAndWait(views::View* view) {
-  CheckCanProcessEvents(view);
+void AssistantAshTestBase::ClickOnAndWait(
+    const views::View* view,
+    bool check_if_view_can_process_events) {
+  if (check_if_view_can_process_events)
+    CheckCanProcessEvents(view);
   GetEventGenerator()->MoveMouseTo(GetPointInside(view));
   GetEventGenerator()->ClickLeftButton();
 
@@ -238,6 +285,20 @@ views::View* AssistantAshTestBase::voice_input_toggle() {
 
 views::View* AssistantAshTestBase::keyboard_input_toggle() {
   return test_api_->keyboard_input_toggle();
+}
+
+views::View* AssistantAshTestBase::opt_in_view() {
+  return test_api_->opt_in_view();
+}
+
+views::View* AssistantAshTestBase::suggestion_chip_container() {
+  return test_api_->suggestion_chip_container();
+}
+
+std::vector<ash::SuggestionChipView*>
+AssistantAshTestBase::GetSuggestionChips() {
+  const views::View* container = suggestion_chip_container();
+  return ChildViewCollector<ash::SuggestionChipView>{container}.Get();
 }
 
 void AssistantAshTestBase::ShowKeyboard() {

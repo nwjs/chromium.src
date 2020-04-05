@@ -21,7 +21,7 @@ class FakePageHandler extends TestBrowserProxy {
 
   /** @override */
   install(diskSize, username) {
-    this.methodCalled('install');
+    this.methodCalled('install', [diskSize, username]);
   }
 
   /** @override */
@@ -89,6 +89,10 @@ suite('<crostini-installer-app>', () => {
     return app.$$('.cancel-button');
   };
 
+  const clickNext = async () => {
+    await clickButton(app.$.next);
+  };
+
   const clickInstall = async () => {
     await clickButton(getInstallButton());
   };
@@ -101,7 +105,19 @@ suite('<crostini-installer-app>', () => {
     expectFalse(app.$$('#prompt-message').hidden);
     expectEquals(fakeBrowserProxy.handler.getCallCount('install'), 0);
 
+    await clickNext();
+    expectFalse(app.$$('#configure-message').hidden);
+    await clickCancel();  // Back to the prompt page.
+    expectFalse(app.$$('#prompt-message').hidden);
+
+    await clickNext();
+    expectFalse(app.$$('#configure-message').hidden);
     await clickInstall();
+    await fakeBrowserProxy.handler.whenCalled('install').then(
+        ([diskSize, username]) => {
+          assertEquals(
+              username, loadTimeData.getString('defaultContainerUsername'));
+        });
     expectFalse(app.$$('#installing-message').hidden);
     expectEquals(fakeBrowserProxy.handler.getCallCount('install'), 1);
     expectTrue(getInstallButton().hidden);
@@ -121,7 +137,52 @@ suite('<crostini-installer-app>', () => {
     expectEquals(fakeBrowserProxy.handler.getCallCount('close'), 1);
   });
 
+  test('configUsername', async () => {
+    await clickNext();
+
+    expectEquals(
+        app.$.username.value,
+        loadTimeData.getString('defaultContainerUsername'));
+
+    // Test invalid usernames
+    const invalidUsernames = [
+      'root',   // Unavailable.
+      '0abcd',  // Invalid first character.
+      'aBcd',   // Invalid (uppercase) character.
+    ];
+
+    for (const username of invalidUsernames) {
+      app.$.username.value = username;
+
+      await flushTasks();
+      expectTrue(app.$.username.invalid);
+      expectTrue(!!app.$.username.errorMessage);
+      expectTrue(app.$.install.disabled);
+    }
+
+    // Test the empty username. The username field should not show an error, but
+    // we want the install button to be disabled.
+    app.$.username.value = '';
+    await flushTasks();
+    expectFalse(app.$.username.invalid);
+    expectFalse(!!app.$.username.errorMessage);
+    expectTrue(app.$.install.disabled);
+
+    // Test a valid username
+    const validUsername = 'totally-valid_username';
+    app.$.username.value = validUsername;
+    await flushTasks();
+    expectFalse(app.$.username.invalid);
+    clickInstall();
+    await fakeBrowserProxy.handler.whenCalled('install').then(
+        ([diskSize, username]) => {
+          assertEquals(username, validUsername);
+        });
+    expectEquals(fakeBrowserProxy.handler.getCallCount('install'), 1);
+  });
+
   test('errorCancel', async () => {
+    await clickNext();
     await clickInstall();
     fakeBrowserProxy.page.onInstallFinished(InstallerError.kErrorOffline);
     await flushTasks();
@@ -137,6 +198,7 @@ suite('<crostini-installer-app>', () => {
   });
 
   test('errorRetry', async () => {
+    await clickNext();
     await clickInstall();
     fakeBrowserProxy.page.onInstallFinished(InstallerError.kErrorOffline);
     await flushTasks();
@@ -157,6 +219,7 @@ suite('<crostini-installer-app>', () => {
   });
 
   test('cancelAfterStart', async () => {
+    await clickNext();
     await clickInstall();
     await clickCancel();
     expectEquals(fakeBrowserProxy.handler.getCallCount('cancel'), 1);

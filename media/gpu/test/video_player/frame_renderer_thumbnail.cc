@@ -10,7 +10,8 @@
 #include "base/memory/ptr_util.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "build/build_config.h"
-#include "media/gpu/test/video_decode_accelerator_unittest_helpers.h"
+#include "media/gpu/test/video_test_helpers.h"
+#include "testing/gtest/include/gtest/gtest.h"
 #include "ui/gfx/codec/png_codec.h"
 #include "ui/gl/gl_context.h"
 #include "ui/gl/gl_surface_egl.h"
@@ -206,6 +207,12 @@ void FrameRendererThumbnail::RenderFrame(
 
   if (thumbnails_texture_id_ == 0u)
     InitializeThumbnailImageTask();
+
+  if (video_frame->visible_rect().size().IsEmpty()) {
+    // This occurs in bitstream buffer in webrtc scenario.
+    DLOG(WARNING) << "Skipping rendering, because visible_rect is empty";
+    return;
+  }
 
   // Find the texture associated with the video frame's mailbox.
   const gpu::MailboxHolder& mailbox_holder = video_frame->mailbox_holder(0);
@@ -486,7 +493,7 @@ void FrameRendererThumbnail::ValidateThumbnailTask(bool* success,
   *success = base::Contains(thumbnail_checksums_, md5_string);
 
   // If validation failed, write the thumbnail image to disk.
-  if (!success)
+  if (!(*success))
     SaveThumbnailTask();
 
   done->Signal();

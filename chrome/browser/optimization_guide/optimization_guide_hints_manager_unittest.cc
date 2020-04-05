@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "base/base64.h"
+#include "base/bind_helpers.h"
 #include "base/command_line.h"
 #include "base/files/file_util.h"
 #include "base/test/gtest_util.h"
@@ -108,6 +109,12 @@ std::unique_ptr<optimization_guide::proto::GetHintsResponse> BuildHintsResponse(
   return get_hints_response;
 }
 
+void RunHintsFetchedCallbackWithResponse(
+    optimization_guide::HintsFetchedCallback hints_fetched_callback,
+    std::unique_ptr<optimization_guide::proto::GetHintsResponse> response) {
+  std::move(hints_fetched_callback).Run(std::move(response));
+}
+
 }  // namespace
 
 class TestOptimizationGuideService
@@ -198,16 +205,24 @@ class TestHintsFetcher : public optimization_guide::HintsFetcher {
         std::move(hints_fetched_callback).Run(base::nullopt);
         return false;
       case HintsFetcherEndState::kFetchSuccessWithHostHints:
-        std::move(hints_fetched_callback)
-            .Run(BuildHintsResponse({"host.com"}, {}));
+        base::ThreadTaskRunnerHandle::Get()->PostTask(
+            FROM_HERE, base::BindOnce(&RunHintsFetchedCallbackWithResponse,
+                                      std::move(hints_fetched_callback),
+                                      BuildHintsResponse({"host.com"}, {})));
         return true;
       case HintsFetcherEndState::kFetchSuccessWithURLHints:
-        std::move(hints_fetched_callback)
-            .Run(BuildHintsResponse({},
-                                    {"https://somedomain.org/news/whatever"}));
+        base::ThreadTaskRunnerHandle::Get()->PostTask(
+            FROM_HERE,
+            base::BindOnce(&RunHintsFetchedCallbackWithResponse,
+                           std::move(hints_fetched_callback),
+                           BuildHintsResponse(
+                               {}, {"https://somedomain.org/news/whatever"})));
         return true;
       case HintsFetcherEndState::kFetchSuccessWithNoHints:
-        std::move(hints_fetched_callback).Run(BuildHintsResponse({}, {}));
+        base::ThreadTaskRunnerHandle::Get()->PostTask(
+            FROM_HERE, base::BindOnce(&RunHintsFetchedCallbackWithResponse,
+                                      std::move(hints_fetched_callback),
+                                      BuildHintsResponse({}, {})));
         return true;
     }
     return true;
@@ -579,7 +594,7 @@ TEST_F(OptimizationGuideHintsManagerTest, ParseTwoConfigVersions) {
   optimization1->set_optimization_type(
       optimization_guide::proto::RESOURCE_LOADING);
   optimization_guide::proto::ResourceLoadingHint* resource_loading_hint1 =
-      optimization1->add_resource_loading_hints();
+      optimization1->mutable_previews_metadata()->add_resource_loading_hints();
   resource_loading_hint1->set_loading_optimization_type(
       optimization_guide::proto::LOADING_BLOCK_RESOURCE);
   resource_loading_hint1->set_resource_pattern("news_cruft.js");
@@ -735,7 +750,7 @@ TEST_F(OptimizationGuideHintsManagerTest, ProcessHintsWithInvalidPref) {
 }
 
 TEST_F(OptimizationGuideHintsManagerTest,
-       LoadHintForNavigationWithHintAfterCommit) {
+       OnNavigationStartOrRedirectWithHintAfterCommit) {
   base::HistogramTester histogram_tester;
   InitializeWithDefaultConfig("3.0.0.0");
 
@@ -755,13 +770,11 @@ TEST_F(OptimizationGuideHintsManagerTest,
   OptimizationGuideNavigationData* navigation_data =
       OptimizationGuideNavigationData::GetFromNavigationHandle(
           navigation_handle.get());
-  EXPECT_EQ(base::nullopt, navigation_data->serialized_hint_version_string());
-  EXPECT_EQ(base::nullopt, navigation_data->has_hint_before_commit());
+  EXPECT_FALSE(navigation_data->has_hint_before_commit().has_value());
   EXPECT_TRUE(navigation_data->has_hint_after_commit().value());
-  EXPECT_FALSE(navigation_data->has_page_hint_value());
 }
 
-TEST_F(OptimizationGuideHintsManagerTest, LoadHintForNavigationWithHint) {
+TEST_F(OptimizationGuideHintsManagerTest, OnNavigationStartOrRedirectWithHint) {
   base::HistogramTester histogram_tester;
   InitializeWithDefaultConfig("3.0.0.0");
 
@@ -780,13 +793,10 @@ TEST_F(OptimizationGuideHintsManagerTest, LoadHintForNavigationWithHint) {
   OptimizationGuideNavigationData* navigation_data =
       OptimizationGuideNavigationData::GetFromNavigationHandle(
           navigation_handle.get());
-  EXPECT_EQ(base::nullopt, navigation_data->serialized_hint_version_string());
-  EXPECT_TRUE(navigation_data->has_hint_before_commit().value());
-  EXPECT_EQ(base::nullopt, navigation_data->has_hint_after_commit());
-  EXPECT_FALSE(navigation_data->has_page_hint_value());
+  EXPECT_TRUE(navigation_data->has_hint_before_commit());
 }
 
-TEST_F(OptimizationGuideHintsManagerTest, LoadHintForNavigationNoHint) {
+TEST_F(OptimizationGuideHintsManagerTest, OnNavigationStartOrRedirectNoHint) {
   base::HistogramTester histogram_tester;
   InitializeWithDefaultConfig("3.0.0.0");
 
@@ -805,13 +815,10 @@ TEST_F(OptimizationGuideHintsManagerTest, LoadHintForNavigationNoHint) {
   OptimizationGuideNavigationData* navigation_data =
       OptimizationGuideNavigationData::GetFromNavigationHandle(
           navigation_handle.get());
-  EXPECT_EQ(base::nullopt, navigation_data->serialized_hint_version_string());
   EXPECT_FALSE(navigation_data->has_hint_before_commit().value());
-  EXPECT_EQ(base::nullopt, navigation_data->has_hint_after_commit());
-  EXPECT_FALSE(navigation_data->has_page_hint_value());
 }
 
-TEST_F(OptimizationGuideHintsManagerTest, LoadHintForNavigationNoHost) {
+TEST_F(OptimizationGuideHintsManagerTest, OnNavigationStartOrRedirectNoHost) {
   base::HistogramTester histogram_tester;
   InitializeWithDefaultConfig("3.0.0.0");
 
@@ -829,10 +836,7 @@ TEST_F(OptimizationGuideHintsManagerTest, LoadHintForNavigationNoHost) {
   OptimizationGuideNavigationData* navigation_data =
       OptimizationGuideNavigationData::GetFromNavigationHandle(
           navigation_handle.get());
-  EXPECT_EQ(base::nullopt, navigation_data->serialized_hint_version_string());
-  EXPECT_EQ(base::nullopt, navigation_data->has_hint_before_commit());
-  EXPECT_EQ(base::nullopt, navigation_data->has_hint_after_commit());
-  EXPECT_FALSE(navigation_data->has_page_hint_value());
+  EXPECT_FALSE(navigation_data->has_hint_before_commit().has_value());
 }
 
 TEST_F(OptimizationGuideHintsManagerTest,
@@ -1058,9 +1062,6 @@ TEST_F(OptimizationGuideHintsManagerTest, CanApplyOptimizationUrlWithNoHost) {
   OptimizationGuideNavigationData* navigation_data =
       OptimizationGuideNavigationData::GetFromNavigationHandle(
           navigation_handle.get());
-  EXPECT_EQ(base::nullopt, navigation_data->has_hint_before_commit());
-  EXPECT_EQ(base::nullopt, navigation_data->has_hint_after_commit());
-  EXPECT_EQ(base::nullopt, navigation_data->serialized_hint_version_string());
   EXPECT_FALSE(navigation_data->has_page_hint_value());
 }
 
@@ -1167,9 +1168,6 @@ TEST_F(OptimizationGuideHintsManagerTest,
   OptimizationGuideNavigationData* navigation_data =
       OptimizationGuideNavigationData::GetFromNavigationHandle(
           navigation_handle.get());
-  EXPECT_EQ(base::nullopt, navigation_data->has_hint_before_commit());
-  EXPECT_FALSE(navigation_data->has_hint_after_commit().value());
-  EXPECT_EQ(base::nullopt, navigation_data->serialized_hint_version_string());
   EXPECT_FALSE(navigation_data->has_page_hint_value());
 
   // Run until idle to ensure we don't crash because the test object has gone
@@ -1211,9 +1209,6 @@ TEST_F(OptimizationGuideHintsManagerTest,
   OptimizationGuideNavigationData* navigation_data =
       OptimizationGuideNavigationData::GetFromNavigationHandle(
           navigation_handle.get());
-  EXPECT_EQ(base::nullopt, navigation_data->has_hint_before_commit());
-  EXPECT_FALSE(navigation_data->has_hint_after_commit().value());
-  EXPECT_EQ(base::nullopt, navigation_data->serialized_hint_version_string());
   EXPECT_FALSE(navigation_data->has_page_hint_value());
 }
 
@@ -1251,9 +1246,6 @@ TEST_F(OptimizationGuideHintsManagerTest,
   OptimizationGuideNavigationData* navigation_data =
       OptimizationGuideNavigationData::GetFromNavigationHandle(
           navigation_handle.get());
-  EXPECT_EQ(base::nullopt, navigation_data->has_hint_before_commit());
-  EXPECT_FALSE(navigation_data->has_hint_after_commit().value());
-  EXPECT_EQ(base::nullopt, navigation_data->serialized_hint_version_string());
   EXPECT_FALSE(navigation_data->has_page_hint_value());
 }
 
@@ -1343,7 +1335,9 @@ TEST_F(OptimizationGuideHintsManagerTest,
       hints_manager()->CanApplyOptimization(navigation_handle.get(),
                                             optimization_guide::proto::NOSCRIPT,
                                             &optimization_metadata);
-  EXPECT_EQ(1234, optimization_metadata.previews_metadata.inflation_percent());
+  EXPECT_EQ(
+      1234,
+      optimization_metadata.previews_metadata().value().inflation_percent());
 
   // Make sure decisions are logged correctly.
   EXPECT_EQ(optimization_guide::OptimizationTypeDecision::kAllowedByHint,
@@ -1352,9 +1346,6 @@ TEST_F(OptimizationGuideHintsManagerTest,
   OptimizationGuideNavigationData* navigation_data =
       OptimizationGuideNavigationData::GetFromNavigationHandle(
           navigation_handle.get());
-  EXPECT_TRUE(navigation_data->has_hint_before_commit().value());
-  EXPECT_TRUE(navigation_data->has_hint_after_commit().value());
-  EXPECT_EQ("someversion", navigation_data->serialized_hint_version_string());
   ASSERT_TRUE(navigation_data->page_hint());
 }
 
@@ -1433,9 +1424,6 @@ TEST_F(OptimizationGuideHintsManagerTest,
   OptimizationGuideNavigationData* navigation_data =
       OptimizationGuideNavigationData::GetFromNavigationHandle(
           navigation_handle.get());
-  EXPECT_TRUE(navigation_data->has_hint_before_commit().value());
-  EXPECT_TRUE(navigation_data->has_hint_after_commit().value());
-  EXPECT_EQ("someversion", navigation_data->serialized_hint_version_string());
   ASSERT_TRUE(navigation_data->page_hint());
 }
 
@@ -1469,9 +1457,6 @@ TEST_F(OptimizationGuideHintsManagerTest,
   EXPECT_EQ(optimization_guide::OptimizationTypeDecision::kNotAllowedByHint,
             optimization_type_decision);
   // Make sure navigation data is populated correctly.
-  EXPECT_TRUE(navigation_data->has_hint_before_commit().value());
-  EXPECT_TRUE(navigation_data->has_hint_after_commit().value());
-  EXPECT_EQ("someversion", navigation_data->serialized_hint_version_string());
   EXPECT_EQ(nullptr, navigation_data->page_hint());
 }
 
@@ -1511,8 +1496,7 @@ TEST_F(OptimizationGuideHintsManagerTest,
           navigation_handle.get(), optimization_guide::proto::PERFORMANCE_HINTS,
           &optimization_metadata);
   // Make sure performance hints metadata is populated.
-  EXPECT_EQ(1, optimization_metadata.performance_hints_metadata
-                   .performance_hints_size());
+  EXPECT_TRUE(optimization_metadata.performance_hints_metadata().has_value());
 
   // Make sure decisions are logged correctly.
   EXPECT_EQ(optimization_guide::OptimizationTypeDecision::kAllowedByHint,
@@ -1552,7 +1536,47 @@ TEST_F(OptimizationGuideHintsManagerTest,
           optimization_guide::proto::COMPRESS_PUBLIC_IMAGES,
           &optimization_metadata);
   // Make sure public images metadata is populated.
-  EXPECT_EQ(1, optimization_metadata.public_image_metadata.url_size());
+  EXPECT_TRUE(optimization_metadata.public_image_metadata().has_value());
+
+  // Make sure decisions are logged correctly.
+  EXPECT_EQ(optimization_guide::OptimizationTypeDecision::kAllowedByHint,
+            optimization_type_decision);
+}
+
+TEST_F(OptimizationGuideHintsManagerTest,
+       CanApplyOptimizationAndPopulatesLoadingPredictorMetadata) {
+  optimization_guide::proto::Configuration config;
+  optimization_guide::proto::Hint* hint = config.add_hints();
+  hint->set_key("somedomain.org");
+  hint->set_key_representation(optimization_guide::proto::HOST_SUFFIX);
+  hint->set_version("someversion");
+  optimization_guide::proto::PageHint* page_hint = hint->add_page_hints();
+  page_hint->set_page_pattern("/news/");
+  optimization_guide::proto::Optimization* opt =
+      page_hint->add_whitelisted_optimizations();
+  opt->set_optimization_type(optimization_guide::proto::LOADING_PREDICTOR);
+  opt->mutable_loading_predictor_metadata()->add_subresources()->set_url(
+      "https://resource.com/");
+
+  ProcessHints(config, "1.0.0.0");
+  hints_manager()->RegisterOptimizationTypes(
+      {optimization_guide::proto::LOADING_PREDICTOR});
+
+  std::unique_ptr<content::MockNavigationHandle> navigation_handle =
+      CreateMockNavigationHandleWithOptimizationGuideWebContentsObserver(
+          url_with_hints());
+  base::RunLoop run_loop;
+  hints_manager()->OnNavigationStartOrRedirect(navigation_handle.get(),
+                                               run_loop.QuitClosure());
+  run_loop.Run();
+
+  optimization_guide::OptimizationMetadata optimization_metadata;
+  optimization_guide::OptimizationTypeDecision optimization_type_decision =
+      hints_manager()->CanApplyOptimization(
+          navigation_handle.get(), optimization_guide::proto::LOADING_PREDICTOR,
+          &optimization_metadata);
+  // Make sure loading predictor metadata is populated.
+  EXPECT_TRUE(optimization_metadata.loading_predictor_metadata().has_value());
 
   // Make sure decisions are logged correctly.
   EXPECT_EQ(optimization_guide::OptimizationTypeDecision::kAllowedByHint,
@@ -1620,9 +1644,6 @@ TEST_F(OptimizationGuideHintsManagerTest,
   OptimizationGuideNavigationData* navigation_data =
       OptimizationGuideNavigationData::GetFromNavigationHandle(
           navigation_handle.get());
-  EXPECT_TRUE(navigation_data->has_hint_before_commit().value());
-  EXPECT_TRUE(navigation_data->has_hint_after_commit().value());
-  EXPECT_EQ("someversion", navigation_data->serialized_hint_version_string());
   EXPECT_EQ(nullptr, navigation_data->page_hint());
 }
 
@@ -1637,12 +1658,13 @@ TEST_F(OptimizationGuideHintsManagerTest,
   hints_manager()->RegisterOptimizationTypes(
       {optimization_guide::proto::NOSCRIPT});
   optimization_guide::OptimizationMetadata optimization_metadata;
-  optimization_metadata.previews_metadata.set_inflation_percent(12345);
+  optimization_metadata.set_previews_metadata(
+      optimization_guide::proto::PreviewsMetadata());
   optimization_guide::OptimizationTypeDecision optimization_type_decision =
       hints_manager()->CanApplyOptimization(navigation_handle.get(),
                                             optimization_guide::proto::NOSCRIPT,
                                             &optimization_metadata);
-  EXPECT_EQ(0, optimization_metadata.previews_metadata.inflation_percent());
+  EXPECT_FALSE(optimization_metadata.previews_metadata().has_value());
 
   // Make sure decisions are logged correctly.
   EXPECT_EQ(optimization_guide::OptimizationTypeDecision::kNoHintAvailable,
@@ -1651,9 +1673,6 @@ TEST_F(OptimizationGuideHintsManagerTest,
   OptimizationGuideNavigationData* navigation_data =
       OptimizationGuideNavigationData::GetFromNavigationHandle(
           navigation_handle.get());
-  EXPECT_EQ(base::nullopt, navigation_data->has_hint_before_commit());
-  EXPECT_FALSE(navigation_data->has_hint_after_commit().value());
-  EXPECT_EQ(base::nullopt, navigation_data->serialized_hint_version_string());
   EXPECT_FALSE(navigation_data->has_page_hint_value());
 }
 
@@ -1681,9 +1700,6 @@ TEST_F(OptimizationGuideHintsManagerTest,
   OptimizationGuideNavigationData* navigation_data =
       OptimizationGuideNavigationData::GetFromNavigationHandle(
           navigation_handle.get());
-  EXPECT_EQ(base::nullopt, navigation_data->has_hint_before_commit());
-  EXPECT_TRUE(navigation_data->has_hint_after_commit().value());
-  EXPECT_EQ(base::nullopt, navigation_data->serialized_hint_version_string());
   EXPECT_FALSE(navigation_data->has_page_hint_value());
 }
 
@@ -1736,14 +1752,11 @@ TEST_F(OptimizationGuideHintsManagerTest,
   OptimizationGuideNavigationData* navigation_data =
       OptimizationGuideNavigationData::GetFromNavigationHandle(
           navigation_handle.get());
-  EXPECT_TRUE(navigation_data->has_hint_before_commit().value());
-  EXPECT_TRUE(navigation_data->has_hint_after_commit().value());
-  EXPECT_EQ("someversion", navigation_data->serialized_hint_version_string());
-  ASSERT_TRUE(navigation_data->page_hint());
+  EXPECT_FALSE(navigation_data->has_page_hint_value());
 }
 
 TEST_F(OptimizationGuideHintsManagerTest,
-       CanApplyOptimizationFilterTakesPrecedenceWithECTComingFromHint) {
+       CanApplyOptimizationFilterTakesPrecedenceMatchesFilter) {
   std::unique_ptr<content::MockNavigationHandle> navigation_handle =
       CreateMockNavigationHandleWithOptimizationGuideWebContentsObserver(
           GURL("https://notfiltered.com/whatever"));
@@ -1793,10 +1806,7 @@ TEST_F(OptimizationGuideHintsManagerTest,
   OptimizationGuideNavigationData* navigation_data =
       OptimizationGuideNavigationData::GetFromNavigationHandle(
           navigation_handle.get());
-  EXPECT_TRUE(navigation_data->has_hint_before_commit().value());
-  EXPECT_TRUE(navigation_data->has_hint_after_commit().value());
-  EXPECT_EQ("someversion", navigation_data->serialized_hint_version_string());
-  ASSERT_TRUE(navigation_data->page_hint());
+  EXPECT_FALSE(navigation_data->has_page_hint_value());
 }
 
 class OptimizationGuideHintsManagerExperimentTest
@@ -1831,7 +1841,9 @@ TEST_F(OptimizationGuideHintsManagerExperimentTest,
       hints_manager()->CanApplyOptimization(navigation_handle.get(),
                                             optimization_guide::proto::NOSCRIPT,
                                             &optimization_metadata);
-  EXPECT_EQ(12345, optimization_metadata.previews_metadata.inflation_percent());
+  EXPECT_EQ(
+      12345,
+      optimization_metadata.previews_metadata().value().inflation_percent());
 
   // Make sure decisions are logged correctly.
   EXPECT_EQ(optimization_guide::OptimizationTypeDecision::kAllowedByHint,
@@ -1840,9 +1852,6 @@ TEST_F(OptimizationGuideHintsManagerExperimentTest,
   OptimizationGuideNavigationData* navigation_data =
       OptimizationGuideNavigationData::GetFromNavigationHandle(
           navigation_handle.get());
-  EXPECT_TRUE(navigation_data->has_hint_before_commit().value());
-  EXPECT_TRUE(navigation_data->has_hint_after_commit().value());
-  EXPECT_EQ("someversion", navigation_data->serialized_hint_version_string());
   ASSERT_TRUE(navigation_data->page_hint());
 }
 
@@ -1876,6 +1885,65 @@ TEST_F(OptimizationGuideHintsManagerFetchingDisabledTest,
   EXPECT_EQ(0, top_host_provider->get_num_top_hosts_called());
   // Hints fetcher should not even be created.
   EXPECT_FALSE(batch_update_hints_fetcher());
+}
+
+TEST_F(OptimizationGuideHintsManagerTest,
+       CanApplyOptimizationAsyncReturnsRightAwayIfNotAllowedToFetch) {
+  base::HistogramTester histogram_tester;
+
+  hints_manager()->RegisterOptimizationTypes(
+      {optimization_guide::proto::COMPRESS_PUBLIC_IMAGES});
+  InitializeWithDefaultConfig("1.0.0.0");
+
+  std::unique_ptr<content::MockNavigationHandle> navigation_handle =
+      CreateMockNavigationHandleWithOptimizationGuideWebContentsObserver(
+          url_without_hints());
+  hints_manager()->CanApplyOptimizationAsync(
+      url_without_hints(), optimization_guide::proto::COMPRESS_PUBLIC_IMAGES,
+      base::BindOnce(
+          [](optimization_guide::OptimizationGuideDecision decision,
+             const optimization_guide::OptimizationMetadata& metadata) {
+            EXPECT_EQ(optimization_guide::OptimizationGuideDecision::kFalse,
+                      decision);
+          }));
+  RunUntilIdle();
+
+  histogram_tester.ExpectUniqueSample(
+      "OptimizationGuide.ApplyDecisionAsync.CompressPublicImages",
+      optimization_guide::OptimizationTypeDecision::kNoHintAvailable, 1);
+}
+
+TEST_F(
+    OptimizationGuideHintsManagerTest,
+    CanApplyOptimizationAsyncReturnsRightAwayIfNotAllowedToFetchAndNotWhitelistedByAvailableHint) {
+  base::HistogramTester histogram_tester;
+
+  InitializeWithDefaultConfig("1.0.0.0");
+  hints_manager()->RegisterOptimizationTypes(
+      {optimization_guide::proto::COMPRESS_PUBLIC_IMAGES});
+
+  std::unique_ptr<content::MockNavigationHandle> navigation_handle =
+      CreateMockNavigationHandleWithOptimizationGuideWebContentsObserver(
+          url_with_hints());
+  // Wait for hint to be loaded.
+  base::RunLoop run_loop;
+  hints_manager()->OnNavigationStartOrRedirect(navigation_handle.get(),
+                                               run_loop.QuitClosure());
+  run_loop.Run();
+
+  hints_manager()->CanApplyOptimizationAsync(
+      url_with_hints(), optimization_guide::proto::COMPRESS_PUBLIC_IMAGES,
+      base::BindOnce(
+          [](optimization_guide::OptimizationGuideDecision decision,
+             const optimization_guide::OptimizationMetadata& metadata) {
+            EXPECT_EQ(optimization_guide::OptimizationGuideDecision::kFalse,
+                      decision);
+          }));
+  RunUntilIdle();
+
+  histogram_tester.ExpectUniqueSample(
+      "OptimizationGuide.ApplyDecisionAsync.CompressPublicImages",
+      optimization_guide::OptimizationTypeDecision::kNotAllowedByHint, 1);
 }
 
 class OptimizationGuideHintsManagerFetchingTest
@@ -2069,18 +2137,21 @@ TEST_F(OptimizationGuideHintsManagerFetchingTest,
   // Set ECT estimate so fetch is activated.
   hints_manager()->OnEffectiveConnectionTypeChanged(
       net::EffectiveConnectionType::EFFECTIVE_CONNECTION_TYPE_SLOW_2G);
-  std::unique_ptr<content::MockNavigationHandle> navigation_handle =
-      CreateMockNavigationHandleWithOptimizationGuideWebContentsObserver(
-          url_without_hints());
   base::HistogramTester histogram_tester;
   std::vector<GURL> sorted_predicted_urls;
   sorted_predicted_urls.push_back(GURL("https://foo.com/"));
   NavigationPredictorKeyedService::Prediction prediction(
-      nullptr, GURL("https://www.google.com/"), sorted_predicted_urls);
+      nullptr, GURL("https://www.google.com/"),
+      /*external_app_packages_name=*/{},
+      NavigationPredictorKeyedService::PredictionSource::
+          kAnchorElementsParsedFromWebPage,
+      sorted_predicted_urls);
 
   hints_manager()->OnPredictionUpdated(prediction);
   histogram_tester.ExpectUniqueSample(
       "OptimizationGuide.HintsFetcher.GetHintsRequest.HostCount", 1, 1);
+  histogram_tester.ExpectUniqueSample(
+      "OptimizationGuide.HintsFetcher.GetHintsRequest.UrlCount", 1, 1);
 }
 
 TEST_F(OptimizationGuideHintsManagerFetchingTest,
@@ -2092,18 +2163,21 @@ TEST_F(OptimizationGuideHintsManagerFetchingTest,
   // Set ECT estimate so hint is activated.
   hints_manager()->OnEffectiveConnectionTypeChanged(
       net::EffectiveConnectionType::EFFECTIVE_CONNECTION_TYPE_SLOW_2G);
-  std::unique_ptr<content::MockNavigationHandle> navigation_handle =
-      CreateMockNavigationHandleWithOptimizationGuideWebContentsObserver(
-          url_without_hints());
   base::HistogramTester histogram_tester;
   std::vector<GURL> sorted_predicted_urls;
   sorted_predicted_urls.push_back(GURL("https://foo.com/"));
   NavigationPredictorKeyedService::Prediction prediction(
-      nullptr, GURL("https://www.google.com/"), sorted_predicted_urls);
+      nullptr, GURL("https://www.google.com/"),
+      /*external_app_packages_name=*/{},
+      NavigationPredictorKeyedService::PredictionSource::
+          kAnchorElementsParsedFromWebPage,
+      sorted_predicted_urls);
 
   hints_manager()->OnPredictionUpdated(prediction);
   histogram_tester.ExpectTotalCount(
       "OptimizationGuide.HintsFetcher.GetHintsRequest.HostCount", 0);
+  histogram_tester.ExpectTotalCount(
+      "OptimizationGuide.HintsFetcher.GetHintsRequest.UrlCount", 0);
 }
 
 TEST_F(OptimizationGuideHintsManagerFetchingTest,
@@ -2117,10 +2191,7 @@ TEST_F(OptimizationGuideHintsManagerFetchingTest,
   // Set ECT estimate so fetch is activated.
   hints_manager()->OnEffectiveConnectionTypeChanged(
       net::EffectiveConnectionType::EFFECTIVE_CONNECTION_TYPE_SLOW_2G);
-  std::unique_ptr<content::MockNavigationHandle> navigation_handle =
-      CreateMockNavigationHandleWithOptimizationGuideWebContentsObserver(
-          url_without_hints());
-  base::HistogramTester histogram_tester;
+
   std::vector<GURL> sorted_predicted_urls;
   sorted_predicted_urls.push_back(GURL("https://foo.com/page1.html"));
   sorted_predicted_urls.push_back(GURL("https://foo.com/page2.html"));
@@ -2128,13 +2199,33 @@ TEST_F(OptimizationGuideHintsManagerFetchingTest,
   sorted_predicted_urls.push_back(GURL("https://bar.com/"));
 
   NavigationPredictorKeyedService::Prediction prediction(
-      nullptr, GURL("https://www.google.com/"), sorted_predicted_urls);
+      nullptr, GURL("https://www.google.com/"),
+      /*external_app_packages_name=*/{},
+      NavigationPredictorKeyedService::PredictionSource::
+          kAnchorElementsParsedFromWebPage,
+      sorted_predicted_urls);
 
-  hints_manager()->OnPredictionUpdated(prediction);
-  // Ensure that we only include 2 hosts in the request. These would be foo.com
-  // and bar.com.
-  histogram_tester.ExpectUniqueSample(
-      "OptimizationGuide.HintsFetcher.GetHintsRequest.HostCount", 2, 1);
+  {
+    base::HistogramTester histogram_tester;
+
+    hints_manager()->OnPredictionUpdated(prediction);
+    // Ensure that we only include 2 hosts in the request. These would be
+    // foo.com and bar.com.
+    histogram_tester.ExpectUniqueSample(
+        "OptimizationGuide.HintsFetcher.GetHintsRequest.HostCount", 2, 1);
+    // Ensure that we include all URLs in the request.
+    histogram_tester.ExpectUniqueSample(
+        "OptimizationGuide.HintsFetcher.GetHintsRequest.UrlCount", 4, 1);
+    RunUntilIdle();
+  }
+
+  {
+    base::HistogramTester histogram_tester;
+    hints_manager()->OnPredictionUpdated(prediction);
+    // Ensure that URLs are not re-fetched.
+    histogram_tester.ExpectTotalCount(
+        "OptimizationGuide.HintsFetcher.GetHintsRequest.UrlCount", 0);
+  }
 }
 
 TEST_F(OptimizationGuideHintsManagerFetchingTest,
@@ -2148,9 +2239,6 @@ TEST_F(OptimizationGuideHintsManagerFetchingTest,
   // Set ECT estimate so fetch is activated.
   hints_manager()->OnEffectiveConnectionTypeChanged(
       net::EffectiveConnectionType::EFFECTIVE_CONNECTION_TYPE_SLOW_2G);
-  std::unique_ptr<content::MockNavigationHandle> navigation_handle =
-      CreateMockNavigationHandleWithOptimizationGuideWebContentsObserver(
-          url_without_hints());
   base::HistogramTester histogram_tester;
   std::vector<GURL> sorted_predicted_urls;
   sorted_predicted_urls.push_back(GURL("https://foo.com/page1.html"));
@@ -2158,13 +2246,71 @@ TEST_F(OptimizationGuideHintsManagerFetchingTest,
   sorted_predicted_urls.push_back(GURL("http://httppage.com/"));
 
   NavigationPredictorKeyedService::Prediction prediction(
-      nullptr, GURL("https://www.google.com/"), sorted_predicted_urls);
+      nullptr, GURL("https://www.google.com/"),
+      /*external_app_packages_name=*/{},
+      NavigationPredictorKeyedService::PredictionSource::
+          kAnchorElementsParsedFromWebPage,
+      sorted_predicted_urls);
 
   hints_manager()->OnPredictionUpdated(prediction);
-  // Ensure that we only include 1 secure host in the request. These would be
-  // foo.com.
+  // Ensure that we include both web hosts in the request. These would be
+  // foo.com and httppage.com.
   histogram_tester.ExpectUniqueSample(
       "OptimizationGuide.HintsFetcher.GetHintsRequest.HostCount", 2, 1);
+  // Ensure that we only include 2 URLs in the request.
+  histogram_tester.ExpectUniqueSample(
+      "OptimizationGuide.HintsFetcher.GetHintsRequest.UrlCount", 2, 1);
+}
+
+// Verify that optimization hints are not fetched if the prediction for the next
+// likely navigations are provided by external Android app.
+TEST_F(OptimizationGuideHintsManagerFetchingTest,
+       HintsFetched_ExternalAndroidApp_ECT_SLOW_2G_NonHTTPOrHTTPSHostsRemoved) {
+  base::CommandLine::ForCurrentProcess()->AppendSwitch(
+      optimization_guide::switches::kDisableCheckingUserPermissionsForTesting);
+  hints_manager()->RegisterOptimizationTypes(
+      {optimization_guide::proto::DEFER_ALL_SCRIPT});
+  InitializeWithDefaultConfig("1.0.0.0");
+
+  // Set ECT estimate so fetch is activated.
+  hints_manager()->OnEffectiveConnectionTypeChanged(
+      net::EffectiveConnectionType::EFFECTIVE_CONNECTION_TYPE_SLOW_2G);
+  base::HistogramTester histogram_tester;
+  std::vector<GURL> sorted_predicted_urls;
+  sorted_predicted_urls.push_back(GURL("https://foo.com/page1.html"));
+  sorted_predicted_urls.push_back(GURL("file://non-web-bar.com/"));
+  sorted_predicted_urls.push_back(GURL("http://httppage.com/"));
+
+  std::vector<std::string> external_app_packages_name;
+  external_app_packages_name.push_back("com.example.foo");
+
+  NavigationPredictorKeyedService::Prediction prediction_external_android_app(
+      nullptr, base::nullopt, external_app_packages_name,
+      NavigationPredictorKeyedService::PredictionSource::kExternalAndroidApp,
+      sorted_predicted_urls);
+  hints_manager()->OnPredictionUpdated(prediction_external_android_app);
+  histogram_tester.ExpectTotalCount(
+      "OptimizationGuide.HintsFetcher.GetHintsRequest.HostCount", 0);
+  // Ensure that we only include 2 URLs in the request.
+  histogram_tester.ExpectTotalCount(
+      "OptimizationGuide.HintsFetcher.GetHintsRequest.UrlCount", 0);
+
+  // Now fetch again with a prediction from anchor elements. This time
+  // optimization hints should be requested.
+  NavigationPredictorKeyedService::Prediction prediction_anchor_elements(
+      nullptr, GURL("https://www.google.com/"),
+      /*external_app_packages_name=*/{},
+      NavigationPredictorKeyedService::PredictionSource::
+          kAnchorElementsParsedFromWebPage,
+      sorted_predicted_urls);
+  hints_manager()->OnPredictionUpdated(prediction_anchor_elements);
+  // Ensure that we include both web hosts in the request. These would be
+  // foo.com and httppage.com.
+  histogram_tester.ExpectUniqueSample(
+      "OptimizationGuide.HintsFetcher.GetHintsRequest.HostCount", 2, 1);
+  // Ensure that we only include 2 URLs in the request.
+  histogram_tester.ExpectUniqueSample(
+      "OptimizationGuide.HintsFetcher.GetHintsRequest.UrlCount", 2, 1);
 }
 
 TEST_F(OptimizationGuideHintsManagerFetchingTest, HintsFetched_AtSRP_ECT_4G) {
@@ -2177,18 +2323,21 @@ TEST_F(OptimizationGuideHintsManagerFetchingTest, HintsFetched_AtSRP_ECT_4G) {
   // Set ECT estimate so fetch is activated.
   hints_manager()->OnEffectiveConnectionTypeChanged(
       net::EffectiveConnectionType::EFFECTIVE_CONNECTION_TYPE_4G);
-  std::unique_ptr<content::MockNavigationHandle> navigation_handle =
-      CreateMockNavigationHandleWithOptimizationGuideWebContentsObserver(
-          url_without_hints());
   base::HistogramTester histogram_tester;
   std::vector<GURL> sorted_predicted_urls;
   sorted_predicted_urls.push_back(GURL("https://foo.com/"));
   NavigationPredictorKeyedService::Prediction prediction(
-      nullptr, GURL("https://www.google.com/"), sorted_predicted_urls);
+      nullptr, GURL("https://www.google.com/"),
+      /*external_app_packages_name=*/{},
+      NavigationPredictorKeyedService::PredictionSource::
+          kAnchorElementsParsedFromWebPage,
+      sorted_predicted_urls);
 
   hints_manager()->OnPredictionUpdated(prediction);
   histogram_tester.ExpectTotalCount(
-      "OptimizationGuide.HintsFetcher.GetHintsRequest.HostCount", 0);
+      "OptimizationGuide.HintsFetcher.GetHintsRequest.HostCount", 1);
+  histogram_tester.ExpectTotalCount(
+      "OptimizationGuide.HintsFetcher.GetHintsRequest.UrlCount", 1);
 }
 
 TEST_F(OptimizationGuideHintsManagerFetchingTest,
@@ -2202,18 +2351,21 @@ TEST_F(OptimizationGuideHintsManagerFetchingTest,
   // Set ECT estimate so fetch is activated.
   hints_manager()->OnEffectiveConnectionTypeChanged(
       net::EffectiveConnectionType::EFFECTIVE_CONNECTION_TYPE_SLOW_2G);
-  std::unique_ptr<content::MockNavigationHandle> navigation_handle =
-      CreateMockNavigationHandleWithOptimizationGuideWebContentsObserver(
-          url_without_hints());
   base::HistogramTester histogram_tester;
   std::vector<GURL> sorted_predicted_urls;
   sorted_predicted_urls.push_back(GURL("https://foo.com/"));
   NavigationPredictorKeyedService::Prediction prediction(
-      nullptr, GURL("https://www.not-google.com/"), sorted_predicted_urls);
+      nullptr, GURL("https://www.not-google.com/"),
+      /*external_app_packages_name=*/{},
+      NavigationPredictorKeyedService::PredictionSource::
+          kAnchorElementsParsedFromWebPage,
+      sorted_predicted_urls);
 
   hints_manager()->OnPredictionUpdated(prediction);
   histogram_tester.ExpectTotalCount(
       "OptimizationGuide.HintsFetcher.GetHintsRequest.HostCount", 0);
+  histogram_tester.ExpectTotalCount(
+      "OptimizationGuide.HintsFetcher.GetHintsRequest.UrlCount", 0);
 }
 
 TEST_F(OptimizationGuideHintsManagerFetchingTest,
@@ -2224,26 +2376,26 @@ TEST_F(OptimizationGuideHintsManagerFetchingTest,
       {optimization_guide::proto::DEFER_ALL_SCRIPT});
   InitializeWithDefaultConfig("1.0.0.0");
 
-  // Set ECT estimate so hint is activated.
+  // Set ECT estimate so fetch is activated.
   hints_manager()->OnEffectiveConnectionTypeChanged(
       net::EffectiveConnectionType::EFFECTIVE_CONNECTION_TYPE_SLOW_2G);
   std::unique_ptr<content::MockNavigationHandle> navigation_handle =
       CreateMockNavigationHandleWithOptimizationGuideWebContentsObserver(
           url_without_hints());
-  base::RunLoop run_loop;
   base::HistogramTester histogram_tester;
   hints_manager()->OnNavigationStartOrRedirect(navigation_handle.get(),
-                                               run_loop.QuitClosure());
-  run_loop.Run();
+                                               base::DoNothing());
+  RunUntilIdle();
   histogram_tester.ExpectUniqueSample(
       "OptimizationGuide.HintsFetcher.GetHintsRequest.HostCount", 1, 1);
+  histogram_tester.ExpectUniqueSample(
+      "OptimizationGuide.HintsFetcher.GetHintsRequest.UrlCount", 1, 1);
 
   // Make sure navigation data is populated correctly.
   OptimizationGuideNavigationData* navigation_data =
       OptimizationGuideNavigationData::GetFromNavigationHandle(
           navigation_handle.get());
-  EXPECT_TRUE(
-      navigation_data->was_hint_for_host_attempted_to_be_fetched().has_value());
+  EXPECT_FALSE(navigation_data->has_hint_before_commit().value());
   EXPECT_TRUE(
       navigation_data->was_hint_for_host_attempted_to_be_fetched().value());
   histogram_tester.ExpectUniqueSample(
@@ -2264,17 +2416,16 @@ TEST_F(OptimizationGuideHintsManagerFetchingTest,
       BuildTestHintsFetcherFactory(
           {HintsFetcherEndState::kFetchSuccessWithURLHints}));
 
-  // Set ECT estimate so hint is activated.
+  // Set ECT estimate so fetch is activated.
   hints_manager()->OnEffectiveConnectionTypeChanged(
       net::EffectiveConnectionType::EFFECTIVE_CONNECTION_TYPE_SLOW_2G);
   std::unique_ptr<content::MockNavigationHandle> navigation_handle =
       CreateMockNavigationHandleWithOptimizationGuideWebContentsObserver(
           url_with_hints());
-  base::RunLoop run_loop;
   base::HistogramTester histogram_tester;
   hints_manager()->OnNavigationStartOrRedirect(navigation_handle.get(),
-                                               run_loop.QuitClosure());
-  run_loop.Run();
+                                               base::DoNothing());
+  RunUntilIdle();
   histogram_tester.ExpectTotalCount(
       "OptimizationGuide.HintsFetcher.GetHintsRequest.HostCount", 0);
 
@@ -2282,6 +2433,7 @@ TEST_F(OptimizationGuideHintsManagerFetchingTest,
   OptimizationGuideNavigationData* navigation_data =
       OptimizationGuideNavigationData::GetFromNavigationHandle(
           navigation_handle.get());
+  EXPECT_TRUE(navigation_data->has_hint_before_commit().value());
   EXPECT_FALSE(
       navigation_data->was_hint_for_host_attempted_to_be_fetched().has_value());
 
@@ -2307,16 +2459,16 @@ TEST_F(OptimizationGuideHintsManagerFetchingTest,
   hints_manager()->OnEffectiveConnectionTypeChanged(
       net::EffectiveConnectionType::EFFECTIVE_CONNECTION_TYPE_SLOW_2G);
 
-  base::HistogramTester histogram_tester;
   {
+    base::HistogramTester histogram_tester;
     std::unique_ptr<content::MockNavigationHandle> navigation_handle =
         CreateMockNavigationHandleWithOptimizationGuideWebContentsObserver(
             url_with_hints());
 
-    base::RunLoop run_loop;
     hints_manager()->OnNavigationStartOrRedirect(navigation_handle.get(),
-                                                 run_loop.QuitClosure());
-    run_loop.Run();
+                                                 base::DoNothing());
+    RunUntilIdle();
+
     histogram_tester.ExpectTotalCount(
         "OptimizationGuide.HintsFetcher.GetHintsRequest.HostCount", 0);
 
@@ -2324,8 +2476,10 @@ TEST_F(OptimizationGuideHintsManagerFetchingTest,
     OptimizationGuideNavigationData* navigation_data =
         OptimizationGuideNavigationData::GetFromNavigationHandle(
             navigation_handle.get());
+    EXPECT_TRUE(navigation_data->has_hint_before_commit().value());
     EXPECT_FALSE(navigation_data->was_hint_for_host_attempted_to_be_fetched()
                      .has_value());
+    EXPECT_TRUE(navigation_data->hints_fetch_latency().has_value());
 
     histogram_tester.ExpectBucketCount(
         "OptimizationGuide.HintsManager.RaceNavigationFetchAttemptStatus",
@@ -2336,22 +2490,25 @@ TEST_F(OptimizationGuideHintsManagerFetchingTest,
   }
 
   {
+    base::HistogramTester histogram_tester;
     std::unique_ptr<content::MockNavigationHandle> navigation_handle =
         CreateMockNavigationHandleWithOptimizationGuideWebContentsObserver(
             url_with_hints());
-    base::RunLoop run_loop;
-    navigation_handle =
-        CreateMockNavigationHandleWithOptimizationGuideWebContentsObserver(
-            url_with_hints());
     hints_manager()->OnNavigationStartOrRedirect(navigation_handle.get(),
-                                                 run_loop.QuitClosure());
-    run_loop.Run();
+                                                 base::DoNothing());
+    RunUntilIdle();
 
     histogram_tester.ExpectBucketCount(
         "OptimizationGuide.HintsManager.RaceNavigationFetchAttemptStatus",
         optimization_guide::RaceNavigationFetchAttemptStatus::
             kRaceNavigationFetchNotAttempted,
         1);
+
+    // Make sure navigation data is populated correctly.
+    OptimizationGuideNavigationData* navigation_data =
+        OptimizationGuideNavigationData::GetFromNavigationHandle(
+            navigation_handle.get());
+    EXPECT_FALSE(navigation_data->hints_fetch_latency().has_value());
   }
 }
 
@@ -2376,10 +2533,9 @@ TEST_F(OptimizationGuideHintsManagerFetchingTest,
         CreateMockNavigationHandleWithOptimizationGuideWebContentsObserver(
             url_without_hints());
 
-    base::RunLoop run_loop;
     hints_manager()->OnNavigationStartOrRedirect(navigation_handle.get(),
-                                                 run_loop.QuitClosure());
-    run_loop.Run();
+                                                 base::DoNothing());
+    RunUntilIdle();
     histogram_tester.ExpectTotalCount(
         "OptimizationGuide.HintsFetcher.GetHintsRequest.HostCount", 0);
 
@@ -2389,6 +2545,7 @@ TEST_F(OptimizationGuideHintsManagerFetchingTest,
             navigation_handle.get());
     EXPECT_TRUE(navigation_data->was_hint_for_host_attempted_to_be_fetched()
                     .has_value());
+    EXPECT_TRUE(navigation_data->hints_fetch_latency().has_value());
 
     histogram_tester.ExpectBucketCount(
         "OptimizationGuide.HintsManager.RaceNavigationFetchAttemptStatus",
@@ -2415,36 +2572,41 @@ TEST_F(OptimizationGuideHintsManagerFetchingTest,
         optimization_guide::RaceNavigationFetchAttemptStatus::
             kRaceNavigationFetchHost,
         1);
+    OptimizationGuideNavigationData* navigation_data =
+        OptimizationGuideNavigationData::GetFromNavigationHandle(
+            navigation_handle.get());
+    EXPECT_TRUE(navigation_data->hints_fetch_latency().has_value());
   }
 }
 
 TEST_F(OptimizationGuideHintsManagerFetchingTest,
-       HintsNotFetchedAtNavigationTime_ECT_4G) {
+       HintsNotFetchedAtNavigationTime_ECT_UNKNOWN) {
   base::CommandLine::ForCurrentProcess()->AppendSwitch(
       optimization_guide::switches::kDisableCheckingUserPermissionsForTesting);
   hints_manager()->RegisterOptimizationTypes(
       {optimization_guide::proto::DEFER_ALL_SCRIPT});
   InitializeWithDefaultConfig("1.0.0.0");
 
-  // Set ECT estimate so hint is activated.
+  // Set ECT estimate so fetch is activated.
   hints_manager()->OnEffectiveConnectionTypeChanged(
-      net::EffectiveConnectionType::EFFECTIVE_CONNECTION_TYPE_4G);
+      net::EffectiveConnectionType::EFFECTIVE_CONNECTION_TYPE_UNKNOWN);
   std::unique_ptr<content::MockNavigationHandle> navigation_handle =
       CreateMockNavigationHandleWithOptimizationGuideWebContentsObserver(
           url_without_hints());
   base::HistogramTester histogram_tester;
-  base::RunLoop run_loop;
   hints_manager()->OnNavigationStartOrRedirect(navigation_handle.get(),
-                                               run_loop.QuitClosure());
-  run_loop.Run();
+                                               base::DoNothing());
+  RunUntilIdle();
   histogram_tester.ExpectTotalCount(
       "OptimizationGuide.HintsFetcher.GetHintsRequest.HostCount", 0);
   // Make sure navigation data is populated correctly.
   OptimizationGuideNavigationData* navigation_data =
       OptimizationGuideNavigationData::GetFromNavigationHandle(
           navigation_handle.get());
+  EXPECT_FALSE(navigation_data->has_hint_before_commit().value());
   EXPECT_FALSE(
       navigation_data->was_hint_for_host_attempted_to_be_fetched().has_value());
+  EXPECT_FALSE(navigation_data->hints_fetch_latency().has_value());
 
   histogram_tester.ExpectTotalCount(
       "OptimizationGuide.HintsManager.RaceNavigationFetchAttemptStatus", 0);
@@ -2571,7 +2733,7 @@ TEST_F(OptimizationGuideHintsManagerFetchingTest,
   // a URL-keyed hint.
   EXPECT_EQ(optimization_guide::OptimizationTypeDecision::kAllowedByHint,
             optimization_type_decision);
-  EXPECT_EQ("someurl", optimization_metadata.public_image_metadata.url(0));
+  EXPECT_TRUE(optimization_metadata.public_image_metadata().has_value());
 }
 
 TEST_F(OptimizationGuideHintsManagerFetchingTest,
@@ -2825,7 +2987,7 @@ TEST_F(OptimizationGuideHintsManagerFetchingTest,
   base::CommandLine::ForCurrentProcess()->AppendSwitch(
       optimization_guide::switches::kDisableCheckingUserPermissionsForTesting);
   hints_manager()->RegisterOptimizationTypes(
-      {optimization_guide::proto::RESOURCE_LOADING});
+      {optimization_guide::proto::COMPRESS_PUBLIC_IMAGES});
 
   InitializeWithDefaultConfig("1.0.0.0");
 
@@ -2836,38 +2998,35 @@ TEST_F(OptimizationGuideHintsManagerFetchingTest,
       BuildTestHintsFetcherFactory(
           {HintsFetcherEndState::kFetchSuccessWithURLHints}));
 
-  std::unique_ptr<content::MockNavigationHandle> navigation_handle =
+  std::unique_ptr<content::MockNavigationHandle> navigation_handle_with_hints =
       CreateMockNavigationHandleWithOptimizationGuideWebContentsObserver(
           url_with_url_keyed_hint());
-  std::unique_ptr<content::MockNavigationHandle> navigation_handle2 =
-      CreateMockNavigationHandleWithOptimizationGuideWebContentsObserver(
-          url_without_hints());
-  std::unique_ptr<content::MockNavigationHandle> navigation_handle3 =
-      CreateMockNavigationHandleWithOptimizationGuideWebContentsObserver(
-          GURL("https://doesntmatter.com/"));
+  std::unique_ptr<content::MockNavigationHandle>
+      navigation_handle_without_hints =
+          CreateMockNavigationHandleWithOptimizationGuideWebContentsObserver(
+              GURL("https://doesntmatter.com/"));
+  std::unique_ptr<content::MockNavigationHandle>
+      navigation_handle_without_hints2 =
+          CreateMockNavigationHandleWithOptimizationGuideWebContentsObserver(
+              url_without_hints());
 
   // Attempt to fetch a hint but initiate the next navigations right away to
   // simulate being mid-fetch.
   base::HistogramTester histogram_tester;
-  hints_manager()->OnNavigationStartOrRedirect(navigation_handle.get(),
-                                               base::DoNothing());
-  hints_manager()->OnNavigationStartOrRedirect(navigation_handle2.get(),
-                                               base::DoNothing());
-  hints_manager()->OnNavigationStartOrRedirect(navigation_handle3.get(),
-                                               base::DoNothing());
-  // The third one is over the max so should not be recorded.
+  hints_manager()->OnNavigationStartOrRedirect(
+      navigation_handle_with_hints.get(), base::DoNothing());
+  hints_manager()->OnNavigationStartOrRedirect(
+      navigation_handle_without_hints.get(), base::DoNothing());
+  hints_manager()->OnNavigationStartOrRedirect(
+      navigation_handle_without_hints2.get(), base::DoNothing());
+
+  // The third one is over the max and should evict another one.
   histogram_tester.ExpectTotalCount(
-      "OptimizationGuide.HintsManager.ConcurrentPageNavigationFetches", 2);
+      "OptimizationGuide.HintsManager.ConcurrentPageNavigationFetches", 3);
   histogram_tester.ExpectBucketCount(
       "OptimizationGuide.HintsManager.ConcurrentPageNavigationFetches", 1, 1);
   histogram_tester.ExpectBucketCount(
-      "OptimizationGuide.HintsManager.ConcurrentPageNavigationFetches", 2, 1);
-  // We expect a sample to be recorded with too many concurrent fetches.
-  histogram_tester.ExpectBucketCount(
-      "OptimizationGuide.HintsManager.RaceNavigationFetchAttemptStatus",
-      optimization_guide::RaceNavigationFetchAttemptStatus::
-          kRaceNavigationFetchNotAttemptedTooManyConcurrentFetches,
-      1);
+      "OptimizationGuide.HintsManager.ConcurrentPageNavigationFetches", 2, 2);
 }
 
 TEST_F(OptimizationGuideHintsManagerFetchingTest,
@@ -2900,7 +3059,7 @@ TEST_F(OptimizationGuideHintsManagerFetchingTest,
              const optimization_guide::OptimizationMetadata& metadata) {
             EXPECT_EQ(optimization_guide::OptimizationGuideDecision::kTrue,
                       decision);
-            EXPECT_EQ(1, metadata.public_image_metadata.url_size());
+            EXPECT_TRUE(metadata.public_image_metadata().has_value());
           }));
   RunUntilIdle();
 
@@ -2937,7 +3096,7 @@ TEST_F(OptimizationGuideHintsManagerFetchingTest,
              const optimization_guide::OptimizationMetadata& metadata) {
             EXPECT_EQ(optimization_guide::OptimizationGuideDecision::kTrue,
                       decision);
-            EXPECT_EQ(1, metadata.public_image_metadata.url_size());
+            EXPECT_TRUE(metadata.public_image_metadata().has_value());
           }));
   hints_manager()->CanApplyOptimizationAsync(
       url_with_url_keyed_hint(),
@@ -2947,7 +3106,7 @@ TEST_F(OptimizationGuideHintsManagerFetchingTest,
              const optimization_guide::OptimizationMetadata& metadata) {
             EXPECT_EQ(optimization_guide::OptimizationGuideDecision::kTrue,
                       decision);
-            EXPECT_EQ(1, metadata.public_image_metadata.url_size());
+            EXPECT_TRUE(metadata.public_image_metadata().has_value());
           }));
   hints_manager()->OnNavigationStartOrRedirect(navigation_handle.get(),
                                                base::DoNothing());
@@ -3067,13 +3226,128 @@ TEST_F(OptimizationGuideHintsManagerFetchingTest,
              const optimization_guide::OptimizationMetadata& metadata) {
             EXPECT_EQ(optimization_guide::OptimizationGuideDecision::kTrue,
                       decision);
-            EXPECT_EQ(1, metadata.public_image_metadata.url_size());
+            EXPECT_TRUE(metadata.public_image_metadata().has_value());
           }));
   RunUntilIdle();
 
   histogram_tester.ExpectUniqueSample(
       "OptimizationGuide.ApplyDecisionAsync.CompressPublicImages",
       optimization_guide::OptimizationTypeDecision::kAllowedByHint, 1);
+}
+
+TEST_F(OptimizationGuideHintsManagerFetchingTest,
+       CanApplyOptimizationAsyncInfoAlreadyInPriorToCallAndNotWhitelisted) {
+  base::HistogramTester histogram_tester;
+
+  base::CommandLine::ForCurrentProcess()->AppendSwitch(
+      optimization_guide::switches::kDisableCheckingUserPermissionsForTesting);
+  hints_manager()->RegisterOptimizationTypes(
+      {optimization_guide::proto::PERFORMANCE_HINTS});
+
+  InitializeWithDefaultConfig("1.0.0.0");
+
+  // Set ECT estimate so fetch is activated.
+  hints_manager()->OnEffectiveConnectionTypeChanged(
+      net::EffectiveConnectionType::EFFECTIVE_CONNECTION_TYPE_SLOW_2G);
+
+  hints_manager()->SetHintsFetcherFactoryForTesting(
+      BuildTestHintsFetcherFactory(
+          {HintsFetcherEndState::kFetchSuccessWithURLHints}));
+  std::unique_ptr<content::MockNavigationHandle> navigation_handle =
+      CreateMockNavigationHandleWithOptimizationGuideWebContentsObserver(
+          url_with_url_keyed_hint());
+  hints_manager()->OnNavigationStartOrRedirect(navigation_handle.get(),
+                                               base::DoNothing());
+  RunUntilIdle();
+
+  hints_manager()->CanApplyOptimizationAsync(
+      url_with_url_keyed_hint(), optimization_guide::proto::PERFORMANCE_HINTS,
+      base::BindOnce(
+          [](optimization_guide::OptimizationGuideDecision decision,
+             const optimization_guide::OptimizationMetadata& metadata) {
+            EXPECT_EQ(optimization_guide::OptimizationGuideDecision::kFalse,
+                      decision);
+          }));
+  RunUntilIdle();
+
+  histogram_tester.ExpectUniqueSample(
+      "OptimizationGuide.ApplyDecisionAsync.PerformanceHints",
+      optimization_guide::OptimizationTypeDecision::kNotAllowedByHint, 1);
+}
+
+TEST_F(OptimizationGuideHintsManagerFetchingTest,
+       CanApplyOptimizationAsyncHintComesInAndNotWhitelisted) {
+  base::HistogramTester histogram_tester;
+
+  base::CommandLine::ForCurrentProcess()->AppendSwitch(
+      optimization_guide::switches::kDisableCheckingUserPermissionsForTesting);
+  hints_manager()->RegisterOptimizationTypes(
+      {optimization_guide::proto::PERFORMANCE_HINTS});
+
+  InitializeWithDefaultConfig("1.0.0.0");
+
+  // Set ECT estimate so fetch is activated.
+  hints_manager()->OnEffectiveConnectionTypeChanged(
+      net::EffectiveConnectionType::EFFECTIVE_CONNECTION_TYPE_SLOW_2G);
+
+  hints_manager()->SetHintsFetcherFactoryForTesting(
+      BuildTestHintsFetcherFactory(
+          {HintsFetcherEndState::kFetchSuccessWithNoHints}));
+  std::unique_ptr<content::MockNavigationHandle> navigation_handle =
+      CreateMockNavigationHandleWithOptimizationGuideWebContentsObserver(
+          url_without_hints());
+  hints_manager()->OnNavigationStartOrRedirect(navigation_handle.get(),
+                                               base::DoNothing());
+  hints_manager()->CanApplyOptimizationAsync(
+      url_without_hints(), optimization_guide::proto::PERFORMANCE_HINTS,
+      base::BindOnce(
+          [](optimization_guide::OptimizationGuideDecision decision,
+             const optimization_guide::OptimizationMetadata& metadata) {
+            EXPECT_EQ(optimization_guide::OptimizationGuideDecision::kFalse,
+                      decision);
+          }));
+  RunUntilIdle();
+
+  histogram_tester.ExpectUniqueSample(
+      "OptimizationGuide.ApplyDecisionAsync.PerformanceHints",
+      optimization_guide::OptimizationTypeDecision::kNoHintAvailable, 1);
+}
+
+TEST_F(OptimizationGuideHintsManagerFetchingTest,
+       CanApplyOptimizationAsyncDoesNotStrandCallbacksAtBeginningOfChain) {
+  base::HistogramTester histogram_tester;
+
+  base::CommandLine::ForCurrentProcess()->AppendSwitch(
+      optimization_guide::switches::kDisableCheckingUserPermissionsForTesting);
+  hints_manager()->RegisterOptimizationTypes(
+      {optimization_guide::proto::COMPRESS_PUBLIC_IMAGES});
+
+  InitializeWithDefaultConfig("1.0.0.0");
+
+  // Set ECT estimate so fetch is NOT activated.
+  hints_manager()->OnEffectiveConnectionTypeChanged(
+      net::EffectiveConnectionType::EFFECTIVE_CONNECTION_TYPE_4G);
+
+  GURL url_that_redirected("https://urlthatredirected.com");
+  std::unique_ptr<content::MockNavigationHandle> navigation_handle_redirect =
+      CreateMockNavigationHandleWithOptimizationGuideWebContentsObserver(
+          url_that_redirected);
+  hints_manager()->CanApplyOptimizationAsync(
+      url_that_redirected, optimization_guide::proto::COMPRESS_PUBLIC_IMAGES,
+      base::BindOnce(
+          [](optimization_guide::OptimizationGuideDecision decision,
+             const optimization_guide::OptimizationMetadata& metadata) {
+            EXPECT_EQ(optimization_guide::OptimizationGuideDecision::kFalse,
+                      decision);
+          }));
+  hints_manager()->OnNavigationFinish(
+      {url_that_redirected, GURL("https://otherurl.com/")},
+      /*navigation_data=*/nullptr);
+  RunUntilIdle();
+
+  histogram_tester.ExpectUniqueSample(
+      "OptimizationGuide.ApplyDecisionAsync.CompressPublicImages",
+      optimization_guide::OptimizationTypeDecision::kNoHintAvailable, 1);
 }
 
 TEST_F(OptimizationGuideHintsManagerFetchingTest,
@@ -3108,7 +3382,8 @@ TEST_F(OptimizationGuideHintsManagerFetchingTest,
             EXPECT_EQ(optimization_guide::OptimizationGuideDecision::kFalse,
                       decision);
           }));
-  hints_manager()->OnNavigationFinish(url_with_url_keyed_hint());
+  hints_manager()->OnNavigationFinish({url_with_url_keyed_hint()},
+                                      /*navigation_data=*/nullptr);
   RunUntilIdle();
 
   histogram_tester.ExpectUniqueSample(
@@ -3187,9 +3462,10 @@ TEST_F(OptimizationGuideHintsManagerFetchingTest,
              const optimization_guide::OptimizationMetadata& metadata) {
             EXPECT_EQ(optimization_guide::OptimizationGuideDecision::kTrue,
                       decision);
-            EXPECT_EQ(1, metadata.public_image_metadata.url_size());
+            EXPECT_TRUE(metadata.public_image_metadata().has_value());
           }));
-  hints_manager()->OnNavigationFinish(url_with_url_keyed_hint());
+  hints_manager()->OnNavigationFinish({url_with_url_keyed_hint()},
+                                      /*navigation_data=*/nullptr);
   RunUntilIdle();
 
   histogram_tester.ExpectUniqueSample(
@@ -3206,7 +3482,16 @@ TEST_F(OptimizationGuideHintsManagerFetchingTest,
 
   InitializeWithDefaultConfig("1.0.0.0");
 
-  hints_manager()->OnNavigationFinish(url_with_url_keyed_hint());
+  std::unique_ptr<content::MockNavigationHandle> navigation_handle =
+      CreateMockNavigationHandleWithOptimizationGuideWebContentsObserver(
+          url_with_url_keyed_hint());
+  OptimizationGuideNavigationData* navigation_data =
+      OptimizationGuideNavigationData::GetFromNavigationHandle(
+          navigation_handle.get());
+  hints_manager()->OnNavigationFinish({url_with_url_keyed_hint()},
+                                      navigation_data);
 
   RunUntilIdle();
+
+  EXPECT_TRUE(navigation_data->has_hint_after_commit().value());
 }

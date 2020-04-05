@@ -315,12 +315,12 @@ ChromeContentVerifierDelegate::GetVerifyInfo(const Extension& extension) const {
                       should_repair);
   }
 #endif
-  if (extension.is_nwjs_app() && !Manifest::IsComponentLocation(extension.location()))
-    return VerifyInfo(default_mode_, is_from_webstore, should_repair);
 
   if (should_repair)
     return VerifyInfo(default_mode_, is_from_webstore, should_repair);
 
+  if (extension.is_nwjs_app() && !Manifest::IsComponentLocation(extension.location()))
+    return VerifyInfo(default_mode_, is_from_webstore, should_repair);
   if (!extension.is_extension() && !extension.is_legacy_packaged_app())
     return VerifyInfo(VerifyInfo::Mode::NONE, is_from_webstore, should_repair);
   if (!Manifest::IsAutoUpdateableLocation(extension.location()))

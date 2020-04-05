@@ -9,6 +9,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/devtools/devtools_window_testing.h"
+#include "chrome/browser/pdf/pdf_extension_test_util.h"
 #include "chrome/browser/task_manager/providers/task.h"
 #include "chrome/browser/task_manager/task_manager_browsertest_util.h"
 #include "chrome/browser/task_manager/task_manager_tester.h"
@@ -121,38 +122,6 @@ IN_PROC_BROWSER_TEST_F(PortalBrowserTest, HttpBasicAuthenticationInPortal) {
   base::string16 expected_title = base::ASCIIToUTF16("basicuser/secret");
   content::TitleWatcher title_watcher(portal_contents, expected_title);
   EXPECT_EQ(expected_title, title_watcher.WaitAndGetTitle());
-}
-
-IN_PROC_BROWSER_TEST_F(PortalBrowserTest, FocusTransfersAcrossActivation) {
-  ASSERT_TRUE(embedded_test_server()->Start());
-  GURL url(embedded_test_server()->GetURL("/portal/activate.html"));
-  ui_test_utils::NavigateToURL(browser(), url);
-
-  WebContents* contents = browser()->tab_strip_model()->GetActiveWebContents();
-  EXPECT_EQ(true, content::EvalJs(contents, "loadPromise"));
-  EXPECT_TRUE(content::ExecJs(contents,
-                              "var blurPromise = new Promise(r => {"
-                              "  window.onblur = () => r(true)"
-                              "})"));
-  EXPECT_TRUE(content::ExecJs(contents,
-                              "var button = document.createElement('button');"
-                              "document.body.appendChild(button);"
-                              "button.focus();"
-                              "var buttonBlurPromise = new Promise(r => {"
-                              "  button.onblur = () => r(true)"
-                              "});"));
-  WebContents* portal_contents = contents->GetInnerWebContents()[0];
-  EXPECT_TRUE(content::ExecJs(portal_contents,
-                              "var focusPromise = new Promise(r => {"
-                              "  window.onfocus = () => r(true)"
-                              "})"));
-
-  // Activate the portal, and then check if the predecessor contents lost focus,
-  // and the portal contents got focus.
-  EXPECT_EQ(true, content::EvalJs(contents, "activate()"));
-  EXPECT_EQ(true, content::EvalJs(contents, "blurPromise"));
-  EXPECT_EQ(true, content::EvalJs(contents, "buttonBlurPromise"));
-  EXPECT_EQ(true, content::EvalJs(portal_contents, "focusPromise"));
 }
 
 namespace {
@@ -270,4 +239,27 @@ IN_PROC_BROWSER_TEST_F(PortalBrowserTest, TaskManagerOrderingOfDependentRows) {
   task_manager::browsertest_util::WaitForTaskManagerRows(
       kNumTabs * kPortalsPerTab, expected_portal_title);
   EXPECT_THAT(GetRendererTaskTitles(tester.get()), expected_titles);
+}
+
+IN_PROC_BROWSER_TEST_F(PortalBrowserTest, PdfViewerLoadsInPortal) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+  GURL url(embedded_test_server()->GetURL("/title1.html"));
+  ui_test_utils::NavigateToURL(browser(), url);
+  WebContents* contents = browser()->tab_strip_model()->GetActiveWebContents();
+
+  ASSERT_EQ(true,
+            content::EvalJs(contents,
+                            "new Promise((resolve) => {\n"
+                            "  let portal = document.createElement('portal');\n"
+                            "  portal.src = '/pdf/test.pdf';\n"
+                            "  portal.onload = () => { resolve(true); }\n"
+                            "  document.body.appendChild(portal);\n"
+                            "});"));
+
+  std::vector<WebContents*> inner_web_contents =
+      contents->GetInnerWebContents();
+  ASSERT_EQ(1u, inner_web_contents.size());
+  WebContents* portal_contents = inner_web_contents[0];
+
+  EXPECT_TRUE(pdf_extension_test_util::EnsurePDFHasLoaded(portal_contents));
 }

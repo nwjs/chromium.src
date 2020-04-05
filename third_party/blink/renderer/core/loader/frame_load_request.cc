@@ -45,7 +45,8 @@ FrameLoadRequest::FrameLoadRequest(Document* origin_document,
                                    const ResourceRequest& resource_request)
     : origin_document_(origin_document),
       should_send_referrer_(kMaybeSendReferrer) {
-  resource_request_.CopyFrom(resource_request);
+  resource_request_.CopyHeadFrom(resource_request);
+  resource_request_.SetHttpBody(resource_request.HttpBody());
   resource_request_.SetMode(network::mojom::RequestMode::kNavigate);
   resource_request_.SetCredentialsMode(
       network::mojom::CredentialsMode::kInclude);
@@ -55,8 +56,8 @@ FrameLoadRequest::FrameLoadRequest(Document* origin_document,
     SetInputStartTime(input_event->TimeStamp());
 
   should_check_main_world_content_security_policy_ =
-      origin_document &&
-              ContentSecurityPolicy::ShouldBypassMainWorld(origin_document)
+      origin_document && ContentSecurityPolicy::ShouldBypassMainWorld(
+                             origin_document->ToExecutionContext())
           ? network::mojom::CSPDisposition::DO_NOT_CHECK
           : network::mojom::CSPDisposition::CHECK;
 
@@ -75,6 +76,12 @@ FrameLoadRequest::FrameLoadRequest(Document* origin_document,
     SetReferrerForRequest(origin_document_, resource_request_);
   }
 }
+
+FrameLoadRequest::FrameLoadRequest(
+    Document* origin_document,
+    const ResourceRequestHead& resource_request_head)
+    : FrameLoadRequest(origin_document,
+                       ResourceRequest(resource_request_head)) {}
 
 ClientRedirectPolicy FrameLoadRequest::ClientRedirect() const {
   // Form submissions and anchor clicks have not historically been reported

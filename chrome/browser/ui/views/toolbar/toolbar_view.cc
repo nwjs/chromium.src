@@ -72,7 +72,6 @@
 #include "media/base/media_switches.h"
 #include "ui/accessibility/ax_node_data.h"
 #include "ui/base/l10n/l10n_util.h"
-#include "ui/base/material_design/material_design_controller.h"
 #include "ui/base/theme_provider.h"
 #include "ui/base/window_open_disposition.h"
 #include "ui/compositor/layer.h"
@@ -96,7 +95,9 @@
 #include "chrome/browser/ui/views/critical_notification_bubble_view.h"
 #endif
 
-#if !defined(OS_CHROMEOS)
+#if defined(OS_CHROMEOS)
+#include "chromeos/constants/chromeos_features.h"
+#else
 #include "chrome/browser/signin/signin_global_error_factory.h"
 #include "chrome/browser/ui/bookmarks/bookmark_bubble_sign_in_delegate.h"
 #include "chrome/browser/ui/views/outdated_upgrade_bubble_view.h"
@@ -113,6 +114,11 @@ namespace {
 
 // Gets the display mode for a given browser.
 ToolbarView::DisplayMode GetDisplayMode(Browser* browser) {
+#if defined(OS_CHROMEOS)
+  if (browser->is_type_custom_tab())
+    return ToolbarView::DisplayMode::CUSTOM_TAB;
+#endif
+
   // Checked in this order because even tabbed PWAs use the CUSTOM_TAB
   // display mode.
   if (web_app::AppBrowserController::IsForWebAppBrowser(browser))
@@ -147,7 +153,6 @@ ToolbarView::ToolbarView(Browser* browser, BrowserView* browser_view)
   chrome::AddCommandObserver(browser_, IDC_SHOW_AVATAR_MENU, this);
 
   UpgradeDetector::GetInstance()->AddObserver(this);
-  md_observer_.Add(ui::MaterialDesignController::GetInstance());
 
   if (display_mode_ == DisplayMode::NORMAL)
     SetBackground(std::make_unique<TopContainerBackground>(browser_view));
@@ -219,6 +224,13 @@ void ToolbarView::Init() {
   std::unique_ptr<ToolbarAccountIconContainerView>
       toolbar_account_icon_container;
   bool show_avatar_toolbar_button = true;
+#if defined(OS_CHROMEOS)
+  if (!base::FeatureList::IsEnabled(chromeos::features::kAvatarToolbarButton)) {
+    // ChromeOS only badges Incognito and Guest icons in the browser window.
+    show_avatar_toolbar_button = browser_->profile()->IsOffTheRecord() ||
+                                 browser_->profile()->IsGuestSession();
+  }
+#endif
   if (base::FeatureList::IsEnabled(
           autofill::features::kAutofillEnableToolbarStatusChip)) {
     // The avatar button is contained inside the page-action container and
@@ -226,12 +238,6 @@ void ToolbarView::Init() {
     show_avatar_toolbar_button = false;
     toolbar_account_icon_container =
         std::make_unique<ToolbarAccountIconContainerView>(browser_);
-  } else {
-#if defined(OS_CHROMEOS)
-    // ChromeOS only badges Incognito and Guest icons in the browser window.
-    show_avatar_toolbar_button = browser_->profile()->IsOffTheRecord() ||
-                                 browser_->profile()->IsGuestSession();
-#endif
   }
 
   std::unique_ptr<AvatarToolbarButton> avatar;
@@ -622,6 +628,7 @@ void ToolbarView::Layout() {
 }
 
 void ToolbarView::OnThemeChanged() {
+  views::AccessiblePaneView::OnThemeChanged();
   if (!initialized_)
     return;
 
@@ -667,28 +674,6 @@ bool ToolbarView::SetPaneFocusAndFocusDefault() {
   return true;
 }
 
-// ui::MaterialDesignControllerObserver:
-void ToolbarView::OnTouchUiChanged() {
-  if (display_mode_ == DisplayMode::NORMAL) {
-    // Update the internal margins for touch layout.
-    // TODO(dfried): I think we can do better than this by making the touch UI
-    // code cleaner.
-    const int default_margin = GetLayoutConstant(TOOLBAR_ELEMENT_PADDING);
-    const int location_bar_margin = GetLayoutConstant(TOOLBAR_STANDARD_SPACING);
-    layout_manager_->SetDefault(views::kMarginsKey,
-                                gfx::Insets(0, default_margin));
-    location_bar_->SetProperty(views::kMarginsKey,
-                               gfx::Insets(0, location_bar_margin));
-    if (browser_actions_) {
-      browser_actions_->SetProperty(views::kInternalPaddingKey,
-                                    gfx::Insets(0, location_bar_margin));
-    }
-
-    LoadImages();
-    PreferredSizeChanged();
-  }
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 // ToolbarView, private:
 
@@ -697,14 +682,12 @@ void ToolbarView::InitLayout() {
   // TODO(dfried): rename this constant.
   const int location_bar_margin = GetLayoutConstant(TOOLBAR_STANDARD_SPACING);
   const views::FlexSpecification account_container_flex_rule =
-      views::FlexSpecification::ForSizeRule(
-          views::MinimumFlexSizeRule::kScaleToMinimum,
-          views::MaximumFlexSizeRule::kPreferred)
+      views::FlexSpecification(views::MinimumFlexSizeRule::kScaleToMinimum,
+                               views::MaximumFlexSizeRule::kPreferred)
           .WithOrder(1);
   const views::FlexSpecification location_bar_flex_rule =
-      views::FlexSpecification::ForSizeRule(
-          views::MinimumFlexSizeRule::kScaleToMinimum,
-          views::MaximumFlexSizeRule::kUnbounded)
+      views::FlexSpecification(views::MinimumFlexSizeRule::kScaleToMinimum,
+                               views::MaximumFlexSizeRule::kUnbounded)
           .WithOrder(2);
   constexpr int kExtensionsFlexOrder = 3;
 
@@ -721,8 +704,7 @@ void ToolbarView::InitLayout() {
 
   if (browser_actions_) {
     const views::FlexSpecification browser_actions_flex_rule =
-        views::FlexSpecification::ForCustomRule(
-            BrowserActionsContainer::GetFlexRule())
+        views::FlexSpecification(BrowserActionsContainer::GetFlexRule())
             .WithOrder(kExtensionsFlexOrder);
 
     browser_actions_->SetProperty(views::kFlexBehaviorKey,
@@ -732,7 +714,7 @@ void ToolbarView::InitLayout() {
                                   gfx::Insets(0, location_bar_margin));
   } else if (extensions_container_) {
     const views::FlexSpecification extensions_flex_rule =
-        views::FlexSpecification::ForCustomRule(
+        views::FlexSpecification(
             extensions_container_->animating_layout_manager()
                 ->GetDefaultFlexRule())
             .WithOrder(kExtensionsFlexOrder);
@@ -785,12 +767,24 @@ void ToolbarView::UpdateTypeAndSeverity(
   app_menu_button_->SetTypeAndSeverity(type_and_severity);
 }
 
-const ui::ThemeProvider* ToolbarView::GetViewThemeProvider() const {
-  return GetThemeProvider();
-}
-
-ui::NativeTheme* ToolbarView::GetViewNativeTheme() {
-  return GetNativeTheme();
+SkColor ToolbarView::GetDefaultColorForSeverity(
+    AppMenuIconController::Severity severity) const {
+  ui::NativeTheme::ColorId color_id;
+  switch (severity) {
+    case AppMenuIconController::Severity::NONE:
+      return GetThemeProvider()->GetColor(
+          ThemeProperties::COLOR_TOOLBAR_BUTTON_ICON);
+    case AppMenuIconController::Severity::LOW:
+      color_id = ui::NativeTheme::kColorId_AlertSeverityLow;
+      break;
+    case AppMenuIconController::Severity::MEDIUM:
+      color_id = ui::NativeTheme::kColorId_AlertSeverityMedium;
+      break;
+    case AppMenuIconController::Severity::HIGH:
+      color_id = ui::NativeTheme::kColorId_AlertSeverityHigh;
+      break;
+  }
+  return GetNativeTheme()->GetSystemColor(color_id);
 }
 
 // ToolbarButtonProvider:
@@ -801,6 +795,11 @@ BrowserActionsContainer* ToolbarView::GetBrowserActionsContainer() {
 
 ExtensionsToolbarContainer* ToolbarView::GetExtensionsToolbarContainer() {
   return extensions_container_;
+}
+
+gfx::Size ToolbarView::GetToolbarButtonSize() const {
+  const int size = GetLayoutConstant(LayoutConstant::TOOLBAR_BUTTON_HEIGHT);
+  return gfx::Size(size, size);
 }
 
 views::View* ToolbarView::GetDefaultExtensionDialogAnchorView() {
@@ -825,7 +824,7 @@ AppMenuButton* ToolbarView::GetAppMenuButton() {
   return app_menu_button_;
 }
 
-gfx::Rect ToolbarView::GetFindBarBoundingBox(int contents_bottom) const {
+gfx::Rect ToolbarView::GetFindBarBoundingBox(int contents_bottom) {
   if (!browser_->SupportsWindowFeature(Browser::FEATURE_LOCATIONBAR))
     return gfx::Rect();
 
@@ -897,38 +896,24 @@ views::View* ToolbarView::GetViewForDrop() {
 void ToolbarView::LoadImages() {
   DCHECK_EQ(display_mode_, DisplayMode::NORMAL);
 
-  const ui::ThemeProvider* tp = GetThemeProvider();
-
-  const SkColor normal_color =
-      tp->GetColor(ThemeProperties::COLOR_TOOLBAR_BUTTON_ICON);
-  const SkColor disabled_color =
-      tp->GetColor(ThemeProperties::COLOR_TOOLBAR_BUTTON_ICON_INACTIVE);
-
   if (browser_actions_) {
-    browser_actions_->SetSeparatorColor(
-        tp->GetColor(ThemeProperties::COLOR_TOOLBAR_VERTICAL_SEPARATOR));
+    browser_actions_->SetSeparatorColor(GetThemeProvider()->GetColor(
+        ThemeProperties::COLOR_TOOLBAR_VERTICAL_SEPARATOR));
   }
 
-  const bool touch_ui = ui::MaterialDesignController::touch_ui();
+  const bool touch_ui = ui::TouchUiController::Get()->touch_ui();
 
   const gfx::VectorIcon& back_image =
       touch_ui ? kBackArrowTouchIcon : vector_icons::kBackArrowIcon;
-  back_->SetImage(views::Button::STATE_NORMAL,
-                  gfx::CreateVectorIcon(back_image, normal_color));
-  back_->SetImage(views::Button::STATE_DISABLED,
-                  gfx::CreateVectorIcon(back_image, disabled_color));
+  back_->UpdateIconsWithStandardColors(back_image);
 
   const gfx::VectorIcon& forward_image =
       touch_ui ? kForwardArrowTouchIcon : vector_icons::kForwardArrowIcon;
-  forward_->SetImage(views::Button::STATE_NORMAL,
-                     gfx::CreateVectorIcon(forward_image, normal_color));
-  forward_->SetImage(views::Button::STATE_DISABLED,
-                     gfx::CreateVectorIcon(forward_image, disabled_color));
+  forward_->UpdateIconsWithStandardColors(forward_image);
 
   const gfx::VectorIcon& home_image =
       touch_ui ? kNavigateHomeTouchIcon : kNavigateHomeIcon;
-  home_->SetImage(views::Button::STATE_NORMAL,
-                  gfx::CreateVectorIcon(home_image, normal_color));
+  home_->UpdateIconsWithStandardColors(home_image);
 
   if (extensions_container_)
     extensions_container_->UpdateAllIcons();
@@ -951,8 +936,6 @@ void ToolbarView::LoadImages() {
     toolbar_account_icon_container_->UpdateAllIcons();
 
   app_menu_button_->UpdateIcon();
-
-  reload_->SetColors(normal_color, disabled_color);
 }
 
 void ToolbarView::ShowCriticalNotification() {
@@ -979,4 +962,25 @@ void ToolbarView::UpdateHomeButtonVisibility() {
   const bool show_home_button =
       show_home_button_.GetValue() || browser_->deprecated_is_app();
   home_->SetVisible(show_home_button);
+}
+
+void ToolbarView::OnTouchUiChanged() {
+  if (display_mode_ == DisplayMode::NORMAL) {
+    // Update the internal margins for touch layout.
+    // TODO(dfried): I think we can do better than this by making the touch UI
+    // code cleaner.
+    const int default_margin = GetLayoutConstant(TOOLBAR_ELEMENT_PADDING);
+    const int location_bar_margin = GetLayoutConstant(TOOLBAR_STANDARD_SPACING);
+    layout_manager_->SetDefault(views::kMarginsKey,
+                                gfx::Insets(0, default_margin));
+    location_bar_->SetProperty(views::kMarginsKey,
+                               gfx::Insets(0, location_bar_margin));
+    if (browser_actions_) {
+      browser_actions_->SetProperty(views::kInternalPaddingKey,
+                                    gfx::Insets(0, location_bar_margin));
+    }
+
+    LoadImages();
+    PreferredSizeChanged();
+  }
 }

@@ -18,6 +18,7 @@
 #include "chrome/browser/ui/webui/chromeos/login/core_oobe_handler.h"
 #include "chrome/browser/ui/webui/chromeos/login/network_state_informer.h"
 #include "chrome/browser/ui/webui/chromeos/login/saml_challenge_key_handler.h"
+#include "chromeos/components/security_token_pin/constants.h"
 #include "chromeos/network/portal_detector/network_portal_detector.h"
 #include "components/user_manager/user_type.h"
 #include "net/base/net_errors.h"
@@ -124,9 +125,9 @@ class GaiaScreenHandler : public BaseScreenHandler,
   // SecurityTokenPinDialogHost:
   void ShowSecurityTokenPinDialog(
       const std::string& caller_extension_name,
-      SecurityTokenPinCodeType code_type,
+      security_token_pin::CodeType code_type,
       bool enable_user_input,
-      SecurityTokenPinErrorLabel error_label,
+      security_token_pin::ErrorLabel error_label,
       int attempts_left,
       const base::Optional<AccountId>& authenticating_user_account_id,
       SecurityTokenPinEnteredCallback pin_entered_callback,
@@ -228,12 +229,10 @@ class GaiaScreenHandler : public BaseScreenHandler,
   void HandleIdentifierEntered(const std::string& account_identifier);
 
   void HandleAuthExtensionLoaded();
-  void HandleHideOobeDialog();
   void HandleShowAddUser(const base::ListValue* args);
   void HandleGetIsSamlUserPasswordless(const std::string& callback_id,
                                        const std::string& typed_email,
                                        const std::string& gaia_id);
-  void HandleUpdateSigninUIState(int state);
 
   // Allows WebUI to control the login shelf's guest button visibility during
   // OOBE.
@@ -447,6 +446,9 @@ class GaiaScreenHandler : public BaseScreenHandler,
   // Is non-empty iff the dialog is active.
   SecurityTokenPinDialogClosedCallback
       security_token_pin_dialog_closed_callback_;
+  // Whether the PIN dialog shown during the current authentication attempt was
+  // canceled by the user.
+  bool was_security_token_pin_canceled_ = false;
 
   // Handler for |samlChallengeMachineKey| request.
   std::unique_ptr<SamlChallengeKeyHandler> saml_challenge_key_handler_;

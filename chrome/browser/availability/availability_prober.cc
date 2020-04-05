@@ -10,6 +10,7 @@
 
 #include "base/base64.h"
 #include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/guid.h"
 #include "base/metrics/histogram.h"
 #include "base/metrics/histogram_functions.h"
@@ -64,6 +65,8 @@ std::string NameForClient(AvailabilityProber::ClientName name) {
       return "Litepages";
     case AvailabilityProber::ClientName::kLitepagesOriginCheck:
       return "LitepagesOriginCheck";
+    case AvailabilityProber::ClientName::kIsolatedPrerenderOriginCheck:
+      return "IsolatedPrerenderOriginCheck";
   }
   NOTREACHED();
   return std::string();

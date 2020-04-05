@@ -19,12 +19,14 @@ import org.chromium.content_public.browser.NavigationController;
 import org.chromium.content_public.browser.RenderFrameHost;
 import org.chromium.content_public.browser.RenderWidgetHostView;
 import org.chromium.content_public.browser.ViewEventSink;
+import org.chromium.content_public.browser.Visibility;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.WebContentsObserver;
 import org.chromium.ui.OverscrollRefreshHandler;
 import org.chromium.ui.base.EventForwarder;
 import org.chromium.ui.base.ViewAndroidDelegate;
 import org.chromium.ui.base.WindowAndroid;
+import org.chromium.url.GURL;
 
 import java.util.Collections;
 import java.util.List;
@@ -100,12 +102,22 @@ public class MockWebContents implements WebContents {
     }
 
     @Override
+    public @Visibility int getVisibility() {
+        return Visibility.VISIBLE;
+    }
+
+    @Override
     public String getTitle() {
         return null;
     }
 
     @Override
-    public String getVisibleUrl() {
+    public GURL getVisibleUrl() {
+        return null;
+    }
+
+    @Override
+    public String getVisibleUrlString() {
         return null;
     }
 
@@ -123,6 +135,9 @@ public class MockWebContents implements WebContents {
     public boolean isLoadingToDifferentDocument() {
         return false;
     }
+
+    @Override
+    public void dispatchBeforeUnload(boolean autoCancel) {}
 
     @Override
     public void stop() {}
@@ -154,6 +169,11 @@ public class MockWebContents implements WebContents {
 
     @Override
     public void setFocus(boolean hasFocus) {}
+
+    @Override
+    public boolean isFullscreenForCurrentTab() {
+        return false;
+    }
 
     @Override
     public void exitFullscreen() {}

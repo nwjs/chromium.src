@@ -5,6 +5,7 @@
 #include "chrome/common/url_constants.h"
 
 #include "build/branding_buildflags.h"
+#include "chrome/common/webui_url_constants.h"
 
 namespace chrome {
 
@@ -34,6 +35,9 @@ const char kChooserUsbOverviewURL[] =
 
 const char kChromeBetaForumURL[] =
     "https://support.google.com/chrome/?p=beta_forum";
+
+const char kChromeFixUpdateProblems[] =
+    "https://support.google.com/chrome?p=fix_chrome_updates";
 
 // TODO: replace w/link after marketing provides it.
 const char kChromeReleaseNotesURL[] =
@@ -89,6 +93,9 @@ const char kChromeSearchRemoteNtpHost[] = "remote-ntp";
 
 const char kChromeSearchScheme[] = "chrome-search";
 
+const char kChromeUIUntrustedNewTabPageUrl[] =
+    "chrome-untrusted://new-tab-page/";
+
 const char kChromiumProjectURL[] = "https://www.chromium.org/";
 
 const char kCloudPrintLearnMoreURL[] =
@@ -113,6 +120,9 @@ const char kCloudPrintCertificateErrorLearnMoreURL[] =
 
 const char kContentSettingsExceptionsLearnMoreURL[] =
     "https://support.google.com/chrome/?p=settings_manage_exceptions";
+
+const char kCookiesSettingsHelpCenterURL[] =
+    "https://support.google.com/chrome?p=cpn_cookies";
 
 const char kCrashReasonURL[] =
 #if defined(OS_CHROMEOS)
@@ -146,6 +156,9 @@ const char kExtensionControlledSettingLearnMoreURL[] =
 
 const char kExtensionInvalidRequestURL[] = "chrome-extension://invalid/";
 
+const char kFlashDeprecationLearnMoreURL[] =
+    "https://blog.chromium.org/2017/07/so-long-and-thanks-for-all-flash.html";
+
 const char kGoogleAccountActivityControlsURL[] =
     "https://myaccount.google.com/activitycontrols/search";
 
@@ -161,8 +174,6 @@ const char kLearnMoreReportingURL[] =
 
 const char kLegacySupervisedUserManagementDisplayURL[] =
     "www.chrome.com/manage";
-const char kLegacySupervisedUserManagementURL[] =
-    "https://www.chrome.com/manage";
 
 const char kManagedUiLearnMoreUrl[] =
 #if defined(OS_CHROMEOS)
@@ -189,6 +200,15 @@ const char kPageInfoHelpCenterURL[] =
     "https://support.google.com/chromebook/?p=ui_security_indicator";
 #else
     "https://support.google.com/chrome/?p=ui_security_indicator";
+#endif
+
+const char kPasswordCheckLearnMoreURL[] =
+#if defined(OS_CHROMEOS)
+    "https://support.google.com/chromebook/"
+    "?p=settings_password#leak_detection_privacy";
+#else
+    "https://support.google.com/chrome/"
+    "?p=settings_password#leak_detection_privacy";
 #endif
 
 const char kPasswordManagerLearnMoreURL[] =
@@ -225,14 +245,14 @@ const char kRemoveNonCWSExtensionURL[] =
 const char kResetProfileSettingsLearnMoreURL[] =
     "https://support.google.com/chrome/?p=ui_reset_settings";
 
+const char kSafeBrowsingHelpCenterURL[] =
+    "https://support.google.com/chrome?p=cpn_safe_browsing";
+
 const char kSafetyTipHelpCenterURL[] =
     "https://support.google.com/chrome/?p=safety_tip";
 
 const char kSettingsSearchHelpURL[] =
     "https://support.google.com/chrome/?p=settings_search_help";
-
-const char kSymantecSupportUrl[] =
-    "https://support.google.com/chrome?p=symantec#-202";
 
 const char kSyncAndGoogleServicesLearnMoreURL[] =
     "https://support.google.com/chrome?p=syncgoogleservices";
@@ -257,6 +277,9 @@ const char kUpgradeHelpCenterBaseURL[] =
     "https://support.google.com/installer/?product="
     "{8A69D345-D564-463c-AFF1-A69D9E530F96}&error=";
 
+const char kWhoIsMyAdministratorHelpURL[] =
+    "https://support.google.com/chrome?p=your_administrator";
+
 #if defined(OS_ANDROID)
 const char kAndroidAppScheme[] = "android-app";
 #endif
@@ -275,8 +298,14 @@ const char kEnhancedPlaybackNotificationLearnMoreURL[] =
 const char kAccountManagerLearnMoreURL[] =
     "https://support.google.com/chromebook/?p=google_accounts";
 
+const char kAccountRecoveryURL[] =
+    "https://accounts.google.com/signin/recovery";
+
 const char kAndroidAppsLearnMoreURL[] =
     "https://support.google.com/chromebook/?p=playapps";
+
+const char kArcAdbSideloadingLearnMoreURL[] =
+    "https://support.google.com/chromebook/?p=develop_android_apps";
 
 const char kArcExternalStorageLearnMoreURL[] =
     "https://support.google.com/chromebook?p=open_files";
@@ -294,8 +323,14 @@ const char kChromeOSAssetPath[] = "/usr/share/chromeos-assets/";
 const char kChromeOSCreditsPath[] =
     "/opt/google/chrome/resources/about_os_credits.html";
 
+const char kChromeOSGestureEducationHelpURL[] =
+    "https://support.google.com/chromebook?p=tablet_mode_gestures";
+
 const char kChromePaletteHelpURL[] =
     "https://support.google.com/chromebook?p=stylus_help";
+
+const char kClassroomSigninLearnMoreURL[] =
+    "https://support.google.com/edu/classroom/answer/6072460";
 
 const char kCrosScheme[] = "cros";
 
@@ -352,7 +387,10 @@ const char kNaturalScrollHelpURL[] =
 const char kOemEulaURLPath[] = "oem";
 
 const char kOnlineEulaURLPath[] =
-    "https://www.google.com/intl/%s/chrome/eula_text.html";
+    "https://policies.google.com/terms/embedded?hl=%s";
+
+const char kAdditionalToSOnlineURLPath[] =
+    "https://www.google.com/intl/%s/chrome/terms/";
 
 const char kOsSettingsSearchHelpURL[] =
     "https://support.google.com/chromebook/?p=settings_search_help";
@@ -365,6 +403,9 @@ const char kTimeZoneSettingsLearnMoreURL[] =
 
 const char kSmbSharesLearnMoreURL[] =
     "https://support.google.com/chromebook?p=network_file_shares";
+
+const char kTabletModeGesturesLearnMoreURL[] =
+    "https://support.google.com/chromebook?p=tablet_mode_gestures";
 #endif  // defined(OS_CHROMEOS)
 
 #if defined(OS_MACOSX)

@@ -5,37 +5,23 @@
 #include "gpu/command_buffer/service/shared_image_representation_d3d.h"
 
 #include "components/viz/common/resources/resource_format_utils.h"
+#include "gpu/command_buffer/common/shared_image_usage.h"
 #include "gpu/command_buffer/service/shared_image_backing_d3d.h"
 
 namespace gpu {
-
-SharedImageRepresentationGLTextureD3D::SharedImageRepresentationGLTextureD3D(
-    SharedImageManager* manager,
-    SharedImageBacking* backing,
-    MemoryTypeTracker* tracker,
-    gles2::Texture* texture)
-    : SharedImageRepresentationGLTexture(manager, backing, tracker),
-      texture_(texture) {}
-
-gles2::Texture* SharedImageRepresentationGLTextureD3D::GetTexture() {
-  return texture_;
-}
-
-SharedImageRepresentationGLTextureD3D::
-    ~SharedImageRepresentationGLTextureD3D() = default;
 
 SharedImageRepresentationGLTexturePassthroughD3D::
     SharedImageRepresentationGLTexturePassthroughD3D(
         SharedImageManager* manager,
         SharedImageBacking* backing,
         MemoryTypeTracker* tracker,
-        scoped_refptr<gles2::TexturePassthrough> texture_passthrough)
+        scoped_refptr<gles2::TexturePassthrough> texture)
     : SharedImageRepresentationGLTexturePassthrough(manager, backing, tracker),
-      texture_passthrough_(std::move(texture_passthrough)) {}
+      texture_(std::move(texture)) {}
 
 const scoped_refptr<gles2::TexturePassthrough>&
 SharedImageRepresentationGLTexturePassthroughD3D::GetTexturePassthrough() {
-  return texture_passthrough_;
+  return texture_;
 }
 
 SharedImageRepresentationGLTexturePassthroughD3D::
@@ -93,30 +79,30 @@ WGPUTexture SharedImageRepresentationDawnD3D::BeginAccess(
     return nullptr;
   }
 
-  WGPUTextureDescriptor desc;
-  desc.nextInChain = nullptr;
-  desc.format = wgpu_format;
-  desc.usage = usage;
-  desc.dimension = WGPUTextureDimension_2D;
-  desc.size = {size().width(), size().height(), 1};
-  desc.arrayLayerCount = 1;
-  desc.mipLevelCount = 1;
-  desc.sampleCount = 1;
+  WGPUTextureDescriptor texture_descriptor;
+  texture_descriptor.nextInChain = nullptr;
+  texture_descriptor.format = wgpu_format;
+  texture_descriptor.usage = usage;
+  texture_descriptor.dimension = WGPUTextureDimension_2D;
+  texture_descriptor.size = {size().width(), size().height(), 1};
+  texture_descriptor.arrayLayerCount = 1;
+  texture_descriptor.mipLevelCount = 1;
+  texture_descriptor.sampleCount = 1;
 
-  texture_ = dawn_native::d3d12::WrapSharedHandle(device_, &desc, shared_handle,
-                                                  shared_mutex_acquire_key);
+  dawn_native::d3d12::ExternalImageDescriptorDXGISharedHandle descriptor;
+  descriptor.cTextureDescriptor = &texture_descriptor;
+  descriptor.isCleared = IsCleared();
+  descriptor.sharedHandle = shared_handle;
+  descriptor.acquireMutexKey = shared_mutex_acquire_key;
+  descriptor.isSwapChainTexture =
+      (d3d_image_backing->usage() &
+       SHARED_IMAGE_USAGE_WEBGPU_SWAP_CHAIN_TEXTURE);
+
+  texture_ = dawn_native::d3d12::WrapSharedHandle(device_, &descriptor);
   if (texture_) {
     // Keep a reference to the texture so that it stays valid (its content
     // might be destroyed).
     dawn_procs_.textureReference(texture_);
-
-    // Assume that the user of this representation will write to the texture
-    // so set the cleared flag so that other representations don't overwrite
-    // the result.
-    // TODO(cwallez@chromium.org): This is incorrect and allows reading
-    // uninitialized data. When !IsCleared we should tell dawn_native to
-    // consider the texture lazy-cleared. crbug.com/1036080
-    SetCleared();
   } else {
     d3d_image_backing->EndAccessD3D12();
   }
@@ -132,8 +118,9 @@ void SharedImageRepresentationDawnD3D::EndAccess() {
   SharedImageBackingD3D* d3d_image_backing =
       static_cast<SharedImageBackingD3D*>(backing());
 
-  // TODO(cwallez@chromium.org): query dawn_native to know if the texture was
-  // cleared and set IsCleared appropriately.
+  if (dawn_native::IsTextureSubresourceInitialized(texture_, 0, 1, 0, 1)) {
+    SetCleared();
+  }
 
   // All further operations on the textures are errors (they would be racy
   // with other backings).

@@ -608,8 +608,9 @@ GLES2DecoderPassthroughImpl::EmulatedDefaultFramebuffer::
 std::unique_ptr<GLES2DecoderPassthroughImpl::EmulatedColorBuffer>
 GLES2DecoderPassthroughImpl::EmulatedDefaultFramebuffer::SetColorBuffer(
     std::unique_ptr<EmulatedColorBuffer> new_color_buffer) {
-  DCHECK(color_texture != nullptr && new_color_buffer != nullptr);
-  DCHECK(color_texture->size == new_color_buffer->size);
+  DCHECK(color_texture != nullptr);
+  DCHECK(new_color_buffer != nullptr);
+  DCHECK_EQ(color_texture->size, new_color_buffer->size);
   std::unique_ptr<EmulatedColorBuffer> old_buffer(std::move(color_texture));
   color_texture = std::move(new_color_buffer);
 
@@ -627,7 +628,7 @@ GLES2DecoderPassthroughImpl::EmulatedDefaultFramebuffer::SetColorBuffer(
 void GLES2DecoderPassthroughImpl::EmulatedDefaultFramebuffer::Blit(
     EmulatedColorBuffer* target) {
   DCHECK(target != nullptr);
-  DCHECK(target->size == size);
+  DCHECK_EQ(target->size, size);
 
   ScopedFramebufferBindingReset scoped_fbo_reset(
       api, supports_separate_fbo_bindings);
@@ -1322,6 +1323,10 @@ void GLES2DecoderPassthroughImpl::Destroy(bool have_context) {
     group_ = nullptr;
   }
 
+  if (have_context) {
+    api()->glDebugMessageCallbackFn(nullptr, nullptr);
+  }
+
   if (context_.get()) {
     context_->ReleaseCurrent(nullptr);
     context_ = nullptr;
@@ -1448,7 +1453,7 @@ bool GLES2DecoderPassthroughImpl::ResizeOffscreenFramebuffer(
   // Destroy all the available color textures, they should not be the same size
   // as the back buffer
   for (auto& available_color_texture : available_color_textures_) {
-    DCHECK(available_color_texture->size != size);
+    DCHECK_NE(available_color_texture->size, size);
     available_color_texture->Destroy(true);
   }
   available_color_textures_.clear();
@@ -1566,7 +1571,7 @@ gpu::Capabilities GLES2DecoderPassthroughImpl::GetCapabilities() {
   caps.image_ycbcr_420v_disabled_for_video_frames =
       group_->gpu_preferences()
           .disable_biplanar_gpu_memory_buffers_for_video_frames;
-  caps.image_xr30 = feature_info_->feature_flags().chromium_image_xr30;
+  caps.image_ar30 = feature_info_->feature_flags().chromium_image_ar30;
   caps.image_ab30 = feature_info_->feature_flags().chromium_image_ab30;
   caps.image_ycbcr_p010 =
       feature_info_->feature_flags().chromium_image_ycbcr_p010;
@@ -1584,7 +1589,8 @@ gpu::Capabilities GLES2DecoderPassthroughImpl::GetCapabilities() {
   caps.post_sub_buffer = surface_->SupportsPostSubBuffer();
   caps.swap_buffers_with_bounds = surface_->SupportsSwapBuffersWithBounds();
   caps.surfaceless = !offscreen_ && surface_->IsSurfaceless();
-  caps.flips_vertically = !offscreen_ && surface_->FlipsVertically();
+  caps.surface_origin =
+      !offscreen_ ? surface_->GetOrigin() : gfx::SurfaceOrigin::kBottomLeft;
   caps.msaa_is_slow = feature_info_->workarounds().msaa_is_slow;
   caps.avoid_stencil_buffers =
       feature_info_->workarounds().avoid_stencil_buffers;
@@ -1592,7 +1598,6 @@ gpu::Capabilities GLES2DecoderPassthroughImpl::GetCapabilities() {
       feature_info_->feature_flags().ext_multisample_compatibility;
   caps.dc_layers = !offscreen_ && surface_->SupportsDCLayers();
   caps.commit_overlay_planes = surface_->SupportsCommitOverlayPlanes();
-  caps.use_dc_overlays_for_video = surface_->UseOverlaysForVideo();
   caps.protected_video_swap_chain = surface_->SupportsProtectedVideo();
   caps.gpu_vsync = surface_->SupportsGpuVSync();
 #if defined(OS_WIN)
@@ -1769,6 +1774,17 @@ bool GLES2DecoderPassthroughImpl::ClearCompressedTextureLevel(Texture* texture,
                                                               unsigned format,
                                                               int width,
                                                               int height) {
+  return true;
+}
+
+bool GLES2DecoderPassthroughImpl::ClearCompressedTextureLevel3D(
+    Texture* texture,
+    unsigned target,
+    int level,
+    unsigned format,
+    int width,
+    int height,
+    int depth) {
   return true;
 }
 
@@ -2020,13 +2036,6 @@ void GLES2DecoderPassthroughImpl::InitializeFeatureInfo(
   if (image_factory && image_factory->SupportsCreateAnonymousImage()) {
     feature_info_->EnableCHROMIUMTextureStorageImage();
   }
-}
-
-void* GLES2DecoderPassthroughImpl::GetScratchMemory(size_t size) {
-  if (scratch_memory_.size() < size) {
-    scratch_memory_.resize(size, 0);
-  }
-  return scratch_memory_.data();
 }
 
 template <typename T>
@@ -2513,7 +2522,7 @@ void GLES2DecoderPassthroughImpl::ReadBackBuffersIntoShadowCopies(
     if (!resources_->buffer_id_map.GetServiceID(client_id, &service_id)) {
       // Buffer no longer exists, this shadow update should have been removed by
       // DoDeleteBuffers
-      DCHECK(false);
+      NOTREACHED();
       continue;
     }
 

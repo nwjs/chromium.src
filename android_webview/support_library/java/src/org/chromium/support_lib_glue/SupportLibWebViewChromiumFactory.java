@@ -18,7 +18,7 @@ import com.android.webview.chromium.WebViewChromiumAwInit;
 import com.android.webview.chromium.WebkitToSharedGlueConverter;
 
 import org.chromium.android_webview.AwDebug;
-import org.chromium.base.metrics.CachedMetrics.EnumeratedHistogramSample;
+import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.support_lib_boundary.StaticsBoundaryInterface;
 import org.chromium.support_lib_boundary.WebViewProviderFactoryBoundaryInterface;
 import org.chromium.support_lib_boundary.util.BoundaryInterfaceReflectionUtil;
@@ -76,8 +76,8 @@ class SupportLibWebViewChromiumFactory implements WebViewProviderFactoryBoundary
                     Features.WEB_VIEW_RENDERER_CLIENT_BASIC_USAGE,
                     Features.MULTI_PROCESS_QUERY,
                     Features.FORCE_DARK,
-                    Features.FORCE_DARK_BEHAVIOR + Features.DEV_SUFFIX,
-                    Features.WEB_MESSAGE_LISTENER + Features.DEV_SUFFIX,
+                    Features.FORCE_DARK_BEHAVIOR,
+                    Features.WEB_MESSAGE_LISTENER,
                     Features.SET_SUPPORT_LIBRARY_VERSION + Features.DEV_SUFFIX,
             };
 
@@ -192,11 +192,9 @@ class SupportLibWebViewChromiumFactory implements WebViewProviderFactoryBoundary
     }
     // clang-format on
 
-    private static final EnumeratedHistogramSample sApiCallSample =
-            new EnumeratedHistogramSample("Android.WebView.AndroidX.ApiCall", ApiCall.COUNT);
-
     public static void recordApiCall(@ApiCall int apiCall) {
-        sApiCallSample.record(apiCall);
+        RecordHistogram.recordEnumeratedHistogram(
+                "Android.WebView.AndroidX.ApiCall", apiCall, ApiCall.COUNT);
     }
 
     // Initialization guarded by mAwInit.getLock()

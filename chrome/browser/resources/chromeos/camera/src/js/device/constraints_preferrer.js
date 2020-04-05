@@ -4,8 +4,11 @@
 
 import {browserProxy} from '../browser_proxy/browser_proxy.js';
 import * as state from '../state.js';
-import {Mode, Resolution,
-        ResolutionList,  // eslint-disable-line no-unused-vars
+import {
+  Facing,
+  Mode,
+  Resolution,
+  ResolutionList,  // eslint-disable-line no-unused-vars
 } from '../type.js';
 // eslint-disable-next-line no-unused-vars
 import {Camera3DeviceInfo} from './camera3_device_info.js';
@@ -80,7 +83,7 @@ export class ConstraintsPreferrer {
   restoreResolutionPreference_(key) {
     // TODO(inker): Return promise and await it to assure preferences are loaded
     // before any access.
-    browserProxy.localStorageGet({[key]: {}}, (values) => {
+    browserProxy.localStorageGet({[key]: {}}).then((values) => {
       this.prefResolution_ = {};
       for (const [deviceId, {width, height}] of Object.entries(values[key])) {
         this.prefResolution_[deviceId] = new Resolution(width, height);
@@ -119,10 +122,11 @@ export class ConstraintsPreferrer {
    * settings.
    * @param {string} deviceId Device id of video device to be updated.
    * @param {!MediaStream} stream Currently active preview stream.
+   * @param {!Facing} facing Camera facing of video device to be updated.
    * @param {!Resolution} resolution Resolution to be updated to.
    * @abstract
    */
-  updateValues(deviceId, stream, resolution) {}
+  updateValues(deviceId, stream, facing, resolution) {}
 
   /**
    * Gets all available candidates for capturing under this controller and its
@@ -234,9 +238,8 @@ export class VideoConstraintsPreferrer extends ConstraintsPreferrer {
    * @private
    */
   restoreFpsPreference_() {
-    browserProxy.localStorageGet(
-        {deviceVideoFps: {}},
-        (values) => this.prefFpses_ = values.deviceVideoFps);
+    browserProxy.localStorageGet({deviceVideoFps: {}})
+        .then((values) => this.prefFpses_ = values.deviceVideoFps);
   }
 
   /**
@@ -322,7 +325,7 @@ export class VideoConstraintsPreferrer extends ConstraintsPreferrer {
   /**
    * @override
    */
-  updateValues(deviceId, stream, resolution) {
+  updateValues(deviceId, stream, facing, resolution) {
     this.deviceId_ = deviceId;
     this.resolution_ = resolution;
     this.prefResolution_[deviceId] = this.resolution_;
@@ -334,7 +337,11 @@ export class VideoConstraintsPreferrer extends ConstraintsPreferrer {
     const supportedConstFpses =
         this.constFpsInfo_[deviceId][this.resolution_].filter(
             (fps) => SUPPORTED_CONSTANT_FPS.includes(fps));
-    state.set(state.State.MULTI_FPS, supportedConstFpses.length > 1);
+    // Only enable multi fps UI on external camera.
+    // See https://crbug.com/1059191 for details.
+    state.set(
+        state.State.MULTI_FPS,
+        facing === Facing.EXTERNAL && supportedConstFpses.length > 1);
   }
 
   /**
@@ -409,7 +416,7 @@ export class VideoConstraintsPreferrer extends ConstraintsPreferrer {
       audio: {echoCancellation: false},
       video: {
         deviceId: {exact: deviceId},
-        frameRate: fps ? {exact: fps} : {min: 24},
+        frameRate: fps ? {exact: fps} : {min: 20, ideal: 30},
         width,
         height,
       },
@@ -475,7 +482,7 @@ export class PhotoConstraintsPreferrer extends ConstraintsPreferrer {
   /**
    * @override
    */
-  updateValues(deviceId, stream, resolution) {
+  updateValues(deviceId, stream, facing, resolution) {
     this.deviceId_ = deviceId;
     this.prefResolution_[deviceId] = resolution;
     this.saveResolutionPreference_('devicePhotoResolution');

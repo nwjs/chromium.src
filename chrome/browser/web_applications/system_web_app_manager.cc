@@ -5,6 +5,7 @@
 #include "chrome/browser/web_applications/system_web_app_manager.h"
 
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -18,6 +19,7 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/web_applications/components/app_registrar.h"
+#include "chrome/browser/web_applications/components/file_handler_manager.h"
 #include "chrome/browser/web_applications/components/web_app_constants.h"
 #include "chrome/browser/web_applications/components/web_app_install_utils.h"
 #include "chrome/browser/web_applications/components/web_app_ui_manager.h"
@@ -25,23 +27,52 @@
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/webui_url_constants.h"
+#include "chrome/grit/generated_resources.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/pref_service.h"
 #include "components/version_info/version_info.h"
+#include "content/public/browser/navigation_handle.h"
+#include "content/public/browser/url_data_source.h"
 #include "content/public/common/content_switches.h"
+#include "content/public/common/url_constants.h"
+#include "ui/base/l10n/l10n_util.h"
 
 #if defined(OS_CHROMEOS)
 #include "ash/public/cpp/app_list/internal_app_id_constants.h"
 #include "chrome/browser/chromeos/extensions/default_web_app_ids.h"
+#include "chrome/browser/chromeos/web_applications/terminal_source.h"
 #include "chromeos/components/help_app_ui/url_constants.h"
 #include "chromeos/components/media_app_ui/url_constants.h"
 #include "chromeos/constants/chromeos_features.h"
+#include "chromeos/strings/grit/chromeos_strings.h"
 #include "extensions/common/constants.h"
 #endif  // defined(OS_CHROMEOS)
 
 namespace web_app {
 
 namespace {
+
+// Copy the origin trial name from runtime_enabled_features.json5, to avoid
+// complex dependencies.
+const char kFileHandlingOriginTrial[] = "FileHandling";
+
+// Use #if defined to avoid compiler error on unused function.
+#if defined(OS_CHROMEOS)
+
+// A convenience method to create OriginTrialsMap. Note, we only support simple
+// cases for chrome:// and chrome-untrusted:// URLs. We don't support complex
+// cases such as about:blank (which inherits origins from the embedding frame).
+url::Origin GetOrigin(const char* url) {
+  GURL gurl = GURL(url);
+  DCHECK(gurl.is_valid());
+
+  url::Origin origin = url::Origin::Create(gurl);
+  DCHECK(!origin.opaque());
+
+  return origin;
+}
+
+#endif  // OS_CHROMEOS
 
 base::flat_map<SystemAppType, SystemAppInfo> CreateSystemWebApps() {
   base::flat_map<SystemAppType, SystemAppInfo> infos;
@@ -75,24 +106,48 @@ base::flat_map<SystemAppType, SystemAppInfo> CreateSystemWebApps() {
   if (SystemWebAppManager::IsAppEnabled(SystemAppType::TERMINAL)) {
     infos.emplace(
         SystemAppType::TERMINAL,
-        SystemAppInfo("Terminal", GURL("chrome://terminal/html/pwa.html")));
+        SystemAppInfo("Terminal",
+                      GURL("chrome-untrusted://terminal/html/pwa.html")));
     infos.at(SystemAppType::TERMINAL).single_window = false;
   }
 
   if (SystemWebAppManager::IsAppEnabled(SystemAppType::HELP)) {
     infos.emplace(SystemAppType::HELP,
                   SystemAppInfo("Help", GURL("chrome://help-app/pwa.html")));
+    infos.at(SystemAppType::HELP).additional_search_terms = {
+        IDS_GENIUS_APP_NAME, IDS_HELP_APP_PERKS, IDS_HELP_APP_OFFERS};
   }
 
   if (SystemWebAppManager::IsAppEnabled(SystemAppType::MEDIA)) {
     infos.emplace(SystemAppType::MEDIA,
                   SystemAppInfo("Media", GURL("chrome://media-app/pwa.html")));
+    infos.at(SystemAppType::MEDIA).include_launch_directory = true;
+    infos.at(SystemAppType::MEDIA).show_in_launcher = false;
+    infos.at(SystemAppType::MEDIA).show_in_search = false;
+    infos.at(SystemAppType::MEDIA).enabled_origin_trials =
+        OriginTrialsMap({{GetOrigin("chrome://media-app"),
+                          {"FileHandling", "NativeFileSystem2"}}});
+  }
+
+  if (SystemWebAppManager::IsAppEnabled(SystemAppType::PRINT_MANAGEMENT)) {
+    infos.emplace(
+        std::piecewise_construct,
+        std::forward_as_tuple(SystemAppType::PRINT_MANAGEMENT),
+        std::forward_as_tuple("PrintManagement",
+                              GURL("chrome://print-management/pwa.html")));
+    infos.at(SystemAppType::PRINT_MANAGEMENT).show_in_launcher = false;
   }
 
 #if !defined(OFFICIAL_BUILD)
   infos.emplace(
       SystemAppType::SAMPLE,
       SystemAppInfo("Sample", GURL("chrome://sample-system-web-app/pwa.html")));
+  // Frobulate is the name for Sample Origin Trial API, and has no impact on the
+  // Web App's functionality. Here we use it to demonstrate how to enable origin
+  // trials for a System Web App.
+  infos.at(SystemAppType::SAMPLE).enabled_origin_trials = OriginTrialsMap(
+      {{GetOrigin("chrome://sample-system-web-app"), {"Frobulate"}},
+       {GetOrigin("chrome-untrusted://sample-system-web-app"), {"Frobulate"}}});
 #endif  // !defined(OFFICIAL_BUILD)
 
 #endif  // OS_CHROMEOS
@@ -103,7 +158,8 @@ base::flat_map<SystemAppType, SystemAppInfo> CreateSystemWebApps() {
 ExternalInstallOptions CreateInstallOptionsForSystemApp(
     const SystemAppInfo& info,
     bool force_update) {
-  DCHECK_EQ(content::kChromeUIScheme, info.install_url.scheme());
+  DCHECK(info.install_url.scheme() == content::kChromeUIScheme ||
+         info.install_url.scheme() == content::kChromeUIUntrustedScheme);
 
   ExternalInstallOptions install_options(
       info.install_url, DisplayMode::kStandalone,
@@ -114,6 +170,11 @@ ExternalInstallOptions CreateInstallOptionsForSystemApp(
   install_options.bypass_service_worker_check = true;
   install_options.force_reinstall = force_update;
   install_options.uninstall_and_replace = info.uninstall_and_replace;
+
+  const auto& search_terms = info.additional_search_terms;
+  std::transform(search_terms.begin(), search_terms.end(),
+                 std::back_inserter(install_options.additional_search_terms),
+                 [](int term) { return l10n_util::GetStringUTF8(term); });
   return install_options;
 }
 
@@ -148,6 +209,9 @@ bool SystemWebAppManager::IsAppEnabled(SystemAppType type) {
       return base::FeatureList::IsEnabled(chromeos::features::kMediaApp);
     case SystemAppType::HELP:
       return base::FeatureList::IsEnabled(chromeos::features::kHelpAppV2);
+    case SystemAppType::PRINT_MANAGEMENT:
+      return base::FeatureList::IsEnabled(
+          chromeos::features::kPrintJobManagementApp);
 #if !defined(OFFICIAL_BUILD)
     case SystemAppType::SAMPLE:
       NOTREACHED();
@@ -159,11 +223,12 @@ bool SystemWebAppManager::IsAppEnabled(SystemAppType type) {
 #endif  // OS_CHROMEOS
 }
 SystemWebAppManager::SystemWebAppManager(Profile* profile)
-    : on_apps_synchronized_(new base::OneShotEvent()),
+    : profile_(profile),
+      on_apps_synchronized_(new base::OneShotEvent()),
       install_result_per_profile_histogram_name_(
           std::string(kInstallResultHistogramName) + ".Profiles." +
           GetProfileCategoryForLogging(profile)),
-      pref_service_(profile->GetPrefs()) {
+      pref_service_(profile_->GetPrefs()) {
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(
           ::switches::kTestType)) {
     // Always update in tests, and return early to avoid populating with real
@@ -188,16 +253,44 @@ void SystemWebAppManager::Shutdown() {
   shutting_down_ = true;
 }
 
-void SystemWebAppManager::SetSubsystems(PendingAppManager* pending_app_manager,
-                                        AppRegistrar* registrar,
-                                        WebAppUiManager* ui_manager) {
+void SystemWebAppManager::SetSubsystems(
+    PendingAppManager* pending_app_manager,
+    AppRegistrar* registrar,
+    WebAppUiManager* ui_manager,
+    FileHandlerManager* file_handler_manager) {
   pending_app_manager_ = pending_app_manager;
   registrar_ = registrar;
   ui_manager_ = ui_manager;
+  file_handler_manager_ = file_handler_manager;
 }
 
 void SystemWebAppManager::Start() {
   const base::TimeTicks install_start_time = base::TimeTicks::Now();
+
+#if DCHECK_IS_ON()
+  // Check Origin Trials are defined correctly.
+  for (const auto& type_and_app_info : system_app_infos_) {
+    for (const auto& origin_to_trial_names :
+         type_and_app_info.second.enabled_origin_trials) {
+      // Only allow force enabled origin trials on chrome:// and
+      // chrome-untrusted:// URLs.
+      const auto& scheme = origin_to_trial_names.first.scheme();
+      DCHECK(scheme == content::kChromeUIScheme ||
+             scheme == content::kChromeUIUntrustedScheme);
+    }
+  }
+
+  // TODO(https://crbug.com/1043843): Find some ways to validate supplied origin
+  // trial names. Ideally, construct them from some static const char*.
+#endif  // DCHECK_IS_ON()
+
+#if defined(OS_CHROMEOS)
+  if (SystemWebAppManager::IsAppEnabled(SystemAppType::TERMINAL)) {
+    // We need to set up the terminal data source before installing it.
+    content::URLDataSource::Add(profile_,
+                                std::make_unique<TerminalSource>(profile_));
+  }
+#endif  // defined(OS_CHROMEOS)
 
   std::vector<ExternalInstallOptions> install_options_list;
   if (IsEnabled()) {
@@ -243,9 +336,16 @@ base::Optional<SystemAppType> SystemWebAppManager::GetSystemAppTypeForAppId(
   return it->second;
 }
 
+std::vector<AppId> SystemWebAppManager::GetAppIds() const {
+  std::vector<AppId> app_ids;
+  for (const auto& app_id_to_app_type : app_id_to_app_type_) {
+    app_ids.push_back(app_id_to_app_type.first);
+  }
+  return app_ids;
+}
+
 bool SystemWebAppManager::IsSystemWebApp(const AppId& app_id) const {
-  return registrar_->HasExternalAppWithInstallSource(
-      app_id, ExternalInstallSource::kSystemInstalled);
+  return app_id_to_app_type_.contains(app_id);
 }
 
 bool SystemWebAppManager::IsSingleWindow(SystemAppType type) const {
@@ -262,6 +362,73 @@ bool SystemWebAppManager::AppShouldReceiveLaunchDirectory(
   if (it == system_app_infos_.end())
     return false;
   return it->second.include_launch_directory;
+}
+
+const std::vector<std::string>* SystemWebAppManager::GetEnabledOriginTrials(
+    const SystemAppType type,
+    const GURL& url) {
+  const auto& origin_to_origin_trials =
+      system_app_infos_.at(type).enabled_origin_trials;
+  auto iter_trials = origin_to_origin_trials.find(url::Origin::Create(url));
+  if (iter_trials == origin_to_origin_trials.end())
+    return nullptr;
+
+  return &iter_trials->second;
+}
+
+bool SystemWebAppManager::AppHasFileHandlingOriginTrial(SystemAppType type) {
+  const auto& info = system_app_infos_.at(type);
+  const std::vector<std::string>* trials =
+      GetEnabledOriginTrials(type, info.install_url);
+  return trials && base::Contains(*trials, kFileHandlingOriginTrial);
+}
+
+void SystemWebAppManager::OnReadyToCommitNavigation(
+    const AppId& app_id,
+    content::NavigationHandle* navigation_handle) {
+  // No need to setup origin trials for intra-document navigation.
+  if (navigation_handle->IsSameDocument())
+    return;
+
+  const base::Optional<SystemAppType> type = GetSystemAppTypeForAppId(app_id);
+  // This function should only be called when an navigation happens inside a
+  // System App. So the |app_id| should always have a valid associated System
+  // App type.
+  DCHECK(type.has_value());
+
+  const std::vector<std::string>* trials =
+      GetEnabledOriginTrials(type.value(), navigation_handle->GetURL());
+  if (trials)
+    navigation_handle->ForceEnableOriginTrials(*trials);
+}
+
+std::vector<std::string> SystemWebAppManager::GetAdditionalSearchTerms(
+    SystemAppType type) const {
+  auto it = system_app_infos_.find(type);
+  if (it == system_app_infos_.end())
+    return {};
+
+  const auto& search_terms = it->second.additional_search_terms;
+
+  std::vector<std::string> search_terms_strings;
+  std::transform(search_terms.begin(), search_terms.end(),
+                 std::back_inserter(search_terms_strings),
+                 [](int term) { return l10n_util::GetStringUTF8(term); });
+  return search_terms_strings;
+}
+
+bool SystemWebAppManager::ShouldShowInLauncher(SystemAppType type) const {
+  auto it = system_app_infos_.find(type);
+  if (it == system_app_infos_.end())
+    return false;
+  return it->second.show_in_launcher;
+}
+
+bool SystemWebAppManager::ShouldShowInSearch(SystemAppType type) const {
+  auto it = system_app_infos_.find(type);
+  if (it == system_app_infos_.end())
+    return false;
+  return it->second.show_in_search;
 }
 
 gfx::Size SystemWebAppManager::GetMinimumWindowSize(const AppId& app_id) const {
@@ -322,7 +489,7 @@ void SystemWebAppManager::RecordSystemWebAppInstallMetrics(
             : url_and_result.second);
 
   // Record per-app result.
-  for (const auto type_and_app_info : system_app_infos_) {
+  for (const auto& type_and_app_info : system_app_infos_) {
     const GURL& install_url = type_and_app_info.second.install_url;
     const auto url_and_result = install_results.find(install_url);
     if (url_and_result != install_results.cend()) {
@@ -338,7 +505,7 @@ void SystemWebAppManager::RecordSystemWebAppInstallMetrics(
   }
 
   // Record per-profile result.
-  for (const auto url_and_result : install_results) {
+  for (const auto& url_and_result : install_results) {
     base::UmaHistogramEnumeration(
         install_result_per_profile_histogram_name_,
         shutting_down_
@@ -351,6 +518,23 @@ void SystemWebAppManager::OnAppsSynchronized(
     const base::TimeTicks& install_start_time,
     std::map<GURL, InstallResultCode> install_results,
     std::map<GURL, bool> uninstall_results) {
+  // TODO(crbug.com/1053371): Clean up File Handler install. We install SWA file
+  // handlers here, because the code that registers file handlers for regular
+  // Web Apps, does not run when for apps installed in the background.
+  for (const auto& it : system_app_infos_) {
+    const SystemAppType& type = it.first;
+    base::Optional<AppId> app_id = GetAppIdForSystemApp(type);
+    if (!app_id)
+      continue;
+
+    if (AppHasFileHandlingOriginTrial(type)) {
+      file_handler_manager_->ForceEnableFileHandlingOriginTrial(app_id.value());
+    } else {
+      file_handler_manager_->DisableForceEnabledFileHandlingOriginTrial(
+          app_id.value());
+    }
+  }
+
   const base::TimeDelta install_duration =
       install_start_time - base::TimeTicks::Now();
 

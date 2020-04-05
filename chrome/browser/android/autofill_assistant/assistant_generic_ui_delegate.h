@@ -9,16 +9,31 @@
 
 namespace autofill_assistant {
 class UiControllerAndroid;
-// Delegate class for the generic UI.
+// Delegate class for the generic UI. Receives events from the Java UI and
+// forwards them to the ui controller.
 class AssistantGenericUiDelegate {
  public:
   explicit AssistantGenericUiDelegate(UiControllerAndroid* ui_controller);
   ~AssistantGenericUiDelegate();
 
-  void OnViewClicked(JNIEnv* env,
-                     const base::android::JavaParamRef<jobject>& jcaller,
-                     const base::android::JavaParamRef<jstring>& jidentifier,
-                     const base::android::JavaParamRef<jobject>& jvalue);
+  // A view was clicked in the UI. |jview_identifier| is the corresponding view
+  // identifier.
+  void OnViewClicked(
+      JNIEnv* env,
+      const base::android::JavaParamRef<jobject>& jcaller,
+      const base::android::JavaParamRef<jstring>& jview_identifier);
+
+  // A value was changed on the Java side. Native should update the model.
+  void OnValueChanged(
+      JNIEnv* env,
+      const base::android::JavaParamRef<jobject>& jcaller,
+      const base::android::JavaParamRef<jstring>& jmodel_identifier,
+      const base::android::JavaParamRef<jobject>& jvalue);
+
+  // A text link was clicked.
+  void OnTextLinkClicked(JNIEnv* env,
+                         const base::android::JavaParamRef<jobject>& jcaller,
+                         jint jlink);
 
   base::android::ScopedJavaGlobalRef<jobject> GetJavaObject();
 

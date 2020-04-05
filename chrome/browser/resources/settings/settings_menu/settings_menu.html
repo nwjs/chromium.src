@@ -4,10 +4,13 @@
 <link rel="import" href="chrome://resources/cr_elements/cr_icons_css.html">
 <link rel="import" href="chrome://resources/cr_elements/icons.html">
 <link rel="import" href="chrome://resources/html/assert.html">
+<link rel="import" href="chrome://resources/html/load_time_data.html">
 <link rel="import" href="chrome://resources/polymer/v1_0/iron-collapse/iron-collapse.html">
 <link rel="import" href="chrome://resources/polymer/v1_0/iron-icon/iron-icon.html">
 <link rel="import" href="chrome://resources/polymer/v1_0/iron-selector/iron-selector.html">
+<link rel="import" href="../i18n_setup.html">
 <link rel="import" href="../icons.html">
+<link rel="import" href="../page_visibility.html">
 <link rel="import" href="../route.html">
 <link rel="import" href="../router.html">
 <link rel="import" href="../settings_shared_css.html">
@@ -18,12 +21,18 @@
       :host {
         box-sizing: border-box;
         display: block;
-        padding-bottom: 2px;
+        padding-bottom: 5px; /* Prevents focus outlines from being cropped. */
         padding-top: 8px;
       }
 
       :host * {
         -webkit-tap-highlight-color: transparent;
+      }
+
+      #topMenu {
+        display: flex;
+        flex-direction: column;
+        min-width: fit-content;
       }
 
       a[href],
@@ -87,8 +96,9 @@
 
       #advancedButton > iron-icon,
       #extensionsLink > .cr-icon {
-        @apply --cr-icon-height-width;
+        height: var(--cr-icon-size);
         margin-inline-end: 14px;  /* 16px - 2px from margin for outline. */
+        width: var(--cr-icon-size);
       }
 
       #menuSeparator {
@@ -116,6 +126,14 @@
         <iron-icon icon="settings:assignment"></iron-icon>
         $i18n{autofillPageTitle}
       </a>
+      <template is="dom-if" if="[[privacySettingsRedesignEnabled_]]" restamp>
+        <a href="/safetyCheck" hidden="[[!pageVisibility.privacy]]"
+            id="safetyCheck">
+          <!-- TODO(crbug.com/1010001) Replace with safety check icon. -->
+          <iron-icon icon="settings20:safety-check"></iron-icon>
+          $i18n{safetyCheckSectionTitle}
+        </a>
+      </template>
       <a href="/privacy" hidden="[[!pageVisibility.privacy]]">
         <iron-icon icon="cr:security"></iron-icon>
         $i18n{privacyPageTitle}

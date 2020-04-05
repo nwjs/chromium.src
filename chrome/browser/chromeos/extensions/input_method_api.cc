@@ -64,8 +64,8 @@ namespace OnImeMenuItemsChanged =
     extensions::api::input_method_private::OnImeMenuItemsChanged;
 namespace GetSurroundingText =
     extensions::api::input_method_private::GetSurroundingText;
-namespace GetSetting = extensions::api::input_method_private::GetSetting;
-namespace SetSetting = extensions::api::input_method_private::SetSetting;
+namespace GetSettings = extensions::api::input_method_private::GetSettings;
+namespace SetSettings = extensions::api::input_method_private::SetSettings;
 namespace SetCompositionRange =
     extensions::api::input_method_private::SetCompositionRange;
 namespace SetSelectionRange =
@@ -81,6 +81,8 @@ namespace {
 const char kXkbPrefix[] = "xkb:";
 const char kErrorFailToShowInputView[] =
     "Unable to show the input view window because the keyboard is not enabled.";
+const char kErrorFailToHideInputView[] =
+    "Unable to hide the input view window because the keyboard is not enabled.";
 const char kErrorRouterNotAvailable[] = "The router is not available.";
 const char kErrorInvalidInputMethod[] = "Input method not found.";
 const char kErrorSpellCheckNotAvailable[] =
@@ -265,6 +267,17 @@ InputMethodPrivateShowInputViewFunction::Run() {
 }
 
 ExtensionFunction::ResponseAction
+InputMethodPrivateHideInputViewFunction::Run() {
+  auto* keyboard_client = ChromeKeyboardControllerClient::Get();
+  if (!keyboard_client->is_keyboard_enabled()) {
+    return RespondNow(Error(kErrorFailToHideInputView));
+  }
+
+  keyboard_client->HideKeyboard(ash::HideReason::kUser);
+  return RespondNow(NoArguments());
+}
+
+ExtensionFunction::ResponseAction
 InputMethodPrivateOpenOptionsPageFunction::Run() {
   std::unique_ptr<OpenOptionsPage::Params> params(
       OpenOptionsPage::Params::Create(*args_));
@@ -347,29 +360,28 @@ InputMethodPrivateGetSurroundingTextFunction::Run() {
   return RespondNow(OneArgument(std::move(ret)));
 }
 
-ExtensionFunction::ResponseAction InputMethodPrivateGetSettingFunction::Run() {
-  const auto params = GetSetting::Params::Create(*args_);
+ExtensionFunction::ResponseAction InputMethodPrivateGetSettingsFunction::Run() {
+  const auto params = GetSettings::Params::Create(*args_);
   EXTENSION_FUNCTION_VALIDATE(params.get());
 
   const base::DictionaryValue* inputMethods =
       Profile::FromBrowserContext(browser_context())
           ->GetPrefs()
           ->GetDictionary(prefs::kLanguageInputMethodSpecificSettings);
-  const base::Value* result =
-      inputMethods->FindPath({params->engine_id, params->key});
+  const base::Value* result = inputMethods->FindPath(params->engine_id);
   return RespondNow(
       OneArgument(result ? std::make_unique<base::Value>(result->Clone())
                          : std::make_unique<base::Value>()));
 }
 
-ExtensionFunction::ResponseAction InputMethodPrivateSetSettingFunction::Run() {
-  const auto params = SetSetting::Params::Create(*args_);
+ExtensionFunction::ResponseAction InputMethodPrivateSetSettingsFunction::Run() {
+  const auto params = SetSettings::Params::Create(*args_);
   EXTENSION_FUNCTION_VALIDATE(params.get());
 
   DictionaryPrefUpdate update(
       Profile::FromBrowserContext(browser_context())->GetPrefs(),
       prefs::kLanguageInputMethodSpecificSettings);
-  update->SetPath({params->engine_id, params->key}, params->value->Clone());
+  update->SetPath(params->engine_id, params->settings.ToValue()->Clone());
 
   // The router will only send the event to extensions that are listening.
   extensions::EventRouter* router =
@@ -378,8 +390,7 @@ ExtensionFunction::ResponseAction InputMethodPrivateSetSettingFunction::Run() {
     auto event = std::make_unique<extensions::Event>(
         extensions::events::INPUT_METHOD_PRIVATE_ON_SETTINGS_CHANGED,
         OnSettingsChanged::kEventName,
-        OnSettingsChanged::Create(params->engine_id, params->key,
-                                  params->value->Clone()),
+        OnSettingsChanged::Create(params->engine_id, params->settings),
         context_);
     router->BroadcastEvent(std::move(event));
   }

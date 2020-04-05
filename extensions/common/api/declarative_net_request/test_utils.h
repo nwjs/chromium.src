@@ -11,12 +11,11 @@
 
 #include "base/files/file_path.h"
 #include "base/optional.h"
+#include "base/values.h"
 #include "extensions/common/url_pattern.h"
 
 namespace base {
 class DictionaryValue;
-class ListValue;
-class Value;
 }  // namespace base
 
 namespace extensions {
@@ -137,48 +136,63 @@ struct TestRule : public DictionarySource {
 // Helper function to build a generic TestRule.
 TestRule CreateGenericRule();
 
+// Bitmasks to configure the extension under test.
+enum ConfigFlag {
+  kConfig_None = 0,
+
+  // Whether a background script ("background.js") will be persisted for the
+  // extension. Clients can listen in to the "ready" message from the background
+  // page to detect its loading.
+  kConfig_HasBackgroundScript = 1 << 0,
+
+  // Whether the extension has the declarativeNetRequestFeedback permission.
+  kConfig_HasFeedbackPermission = 1 << 1,
+
+  // Whether the extension has the activeTab permission.
+  kConfig_HasActiveTab = 1 << 2,
+};
+
+// Describes a single extension ruleset.
+struct TestRulesetInfo {
+  // File path relative to the extension directory.
+  std::string relative_file_path;
+
+  // The base::Value corresponding to the rules in the ruleset.
+  base::Value rules_value;
+};
+
 // Helper to build an extension manifest which uses the
 // kDeclarativeNetRequestKey manifest key. |hosts| specifies the host
-// permissions to grant. If |has_background_script| is true, the manifest
-// returned will have "background.js" as its background script. If
-// |has_feedback_permission| is true, the extension will have the
-// declarativeNetRequestFeedback permission.
+// permissions to grant. |flags| is a bitmask of ConfigFlag to configure the
+// extension. Should be used when the extension has a single static ruleset.
 std::unique_ptr<base::DictionaryValue> CreateManifest(
     const std::string& json_rules_filename,
     const std::vector<std::string>& hosts = {},
-    bool has_background_script = false,
-    bool has_feedback_permission = false,
-    bool has_active_tab_permission = false);
+    unsigned flags = ConfigFlag::kConfig_None);
 
 // Returns a ListValue corresponding to a vector of strings.
 std::unique_ptr<base::ListValue> ToListValue(
     const std::vector<std::string>& vec);
 
-// Writes the declarative |rules| in the given |extension_dir| together with the
-// manifest file. |hosts| specifies the host permissions, the extensions should
-// have. If |has_background_script| is true, a background script
-// ("background.js") will also be persisted for the extension. Clients can
-// listen in to the "ready" message from the background page to detect its
-// loading. If |has_feedback_permission| is true, the extension will have the
-// declarativeNetRequestFeedback permission.
-void WriteManifestAndRuleset(
-    const base::FilePath& extension_dir,
-    const base::FilePath::CharType* json_rules_filepath,
-    const std::string& json_rules_filename,
-    const std::vector<TestRule>& rules,
-    const std::vector<std::string>& hosts,
-    bool has_background_script = false,
-    bool has_feedback_permission = false,
-    bool has_active_tab_permission = false);
-void WriteManifestAndRuleset(
-    const base::FilePath& extension_dir,
-    const base::FilePath::CharType* json_rules_filepath,
-    const std::string& json_rules_filename,
-    const base::Value& rules,
-    const std::vector<std::string>& hosts,
-    bool has_background_script = false,
-    bool has_feedback_permission = false,
-    bool has_active_tab_permission = false);
+// Returns a ListValue corresponding to a vector of TestRules.
+std::unique_ptr<base::ListValue> ToListValue(
+    const std::vector<TestRule>& rules);
+
+// Writes the rulesets specified in |ruleset_info| in the given |extension_dir|
+// together with the manifest file. |hosts| specifies the host permissions, the
+// extensions should have. |flags| is a bitmask of ConfigFlag to configure the
+// extension.
+void WriteManifestAndRulesets(const base::FilePath& extension_dir,
+                              const std::vector<TestRulesetInfo>& ruleset_info,
+                              const std::vector<std::string>& hosts,
+                              unsigned flags = ConfigFlag::kConfig_None);
+
+// Specialization of WriteManifestAndRulesets above for an extension with a
+// single static ruleset.
+void WriteManifestAndRuleset(const base::FilePath& extension_dir,
+                             const TestRulesetInfo& ruleset_info,
+                             const std::vector<std::string>& hosts,
+                             unsigned flags = ConfigFlag::kConfig_None);
 
 }  // namespace declarative_net_request
 }  // namespace extensions

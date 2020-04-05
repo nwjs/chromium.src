@@ -33,24 +33,17 @@ class PluginVmInstallerView : public views::BubbleDialogDelegateView,
   gfx::Size CalculatePreferredSize() const override;
 
   // plugin_vm::PluginVmImageDownload::Observer implementation.
-  void OnVmExists() override;
-  void OnDlcDownloadProgressUpdated(double progress,
-                                    base::TimeDelta elapsed_time) override;
+  void OnProgressUpdated(double fraction_complete) override;
+  void OnCheckedDiskSpace(bool low_disk_space) override;
   void OnDlcDownloadCompleted() override;
-  void OnDlcDownloadCancelled() override;
+  void OnExistingVmCheckCompleted(bool has_vm) override;
   void OnDownloadProgressUpdated(uint64_t bytes_downloaded,
-                                 int64_t content_length,
-                                 base::TimeDelta elapsed_time) override;
+                                 int64_t content_length) override;
   void OnDownloadCompleted() override;
-  void OnDownloadCancelled() override;
-  void OnDownloadFailed(
-      plugin_vm::PluginVmInstaller::FailureReason reason) override;
-  void OnImportProgressUpdated(int percent_completed,
-                               base::TimeDelta elapsed_time) override;
+  void OnCreated() override;
   void OnImported() override;
-  void OnImportCancelled() override;
-  void OnImportFailed(
-      plugin_vm::PluginVmInstaller::FailureReason reason) override;
+  void OnError(plugin_vm::PluginVmInstaller::FailureReason reason) override;
+  void OnCancelFinished() override;
 
   // Public for testing purposes.
   base::string16 GetBigMessage() const;
@@ -60,12 +53,17 @@ class PluginVmInstallerView : public views::BubbleDialogDelegateView,
       base::OnceCallback<void(bool success)> callback);
 
  private:
+  // TODO(crbug.com/1063748): Re-use PluginVmInstaller::InstallingState.
   enum class State {
-    STARTING,         // View was just created, installation hasn't yet started
+    STARTING,  // View was just created, installation hasn't yet started
+    CHECKING_DISK_SPACE,  // Checking there is available free disk space.
+    LOW_DISK_SPACE,   // Prompt user to continue or abort due to low disk space.
     DOWNLOADING_DLC,  // PluginVm DLC downloading and installing in progress.
-    DOWNLOADING,      // PluginVm image downloading is in progress.
-    IMPORTING,        // Downloaded PluginVm image importing is in progress.
-    FINISHED,         // PluginVm environment setting has been finished.
+    CHECKING_VMS,     // Checking for existing VMs.
+    DOWNLOADING,      // Image download (ISO or VM) is in progress.
+    IMPORTING,        // Downloaded image is being imported.
+    CREATED,          // A brand new VM has been created using ISO image.
+    IMPORTED,         // Downloaded VM image has been imported successfully.
     ERROR,            // Something unexpected happened.
   };
 
@@ -80,10 +78,6 @@ class PluginVmInstallerView : public views::BubbleDialogDelegateView,
 
   base::string16 GetDownloadProgressMessage(uint64_t downlaoded_bytes,
                                             int64_t content_length) const;
-  // Updates the progress bar and shows a time left message if available.
-  void UpdateOperationProgress(double units_processed,
-                               double total_units,
-                               base::TimeDelta elapsed_time) const;
   void SetBigMessageLabel();
   void SetMessageLabel();
   void SetBigImage();
@@ -96,7 +90,6 @@ class PluginVmInstallerView : public views::BubbleDialogDelegateView,
   views::Label* message_label_ = nullptr;
   views::ProgressBar* progress_bar_ = nullptr;
   views::Label* download_progress_message_label_ = nullptr;
-  views::Label* time_left_message_label_ = nullptr;
   views::ImageView* big_image_ = nullptr;
   base::TimeTicks setup_start_tick_;
 

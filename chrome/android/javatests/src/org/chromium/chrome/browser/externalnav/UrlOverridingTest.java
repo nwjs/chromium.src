@@ -29,15 +29,16 @@ import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.RetryOnFailure;
 import org.chromium.chrome.browser.ChromeActivity;
-import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.document.ChromeLauncherActivity;
-import org.chromium.chrome.browser.externalnav.ExternalNavigationHandler.OverrideUrlLoadingResult;
+import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.InterceptNavigationDelegateImpl;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tabmodel.EmptyTabModelSelectorObserver;
 import org.chromium.chrome.test.ChromeActivityTestRule;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
+import org.chromium.components.external_intents.ExternalNavigationHandler.OverrideUrlLoadingResult;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.NavigationHandle;
 import org.chromium.content_public.browser.test.util.Criteria;
@@ -173,7 +174,8 @@ public class UrlOverridingTest {
             mActivityTestRule.getActivity().getTabModelSelector().addObserver(
                     new EmptyTabModelSelectorObserver() {
                         @Override
-                        public void onNewTabCreated(Tab newTab) {
+                        public void onNewTabCreated(
+                                Tab newTab, @TabCreationState int creationState) {
                             newTabCallback.notifyCalled();
                             newTab.addObserver(new TestTabObserver(
                                     finishCallback, failCallback, destroyedCallback));
@@ -266,10 +268,10 @@ public class UrlOverridingTest {
                                         == delegate.getLastOverrideUrlLoadingResultForTests())) {
                             return false;
                         }
-                        updateFailureReason("Expected: " + expectedFinalUrl + " actual: "
-                                + tab.getUrl());
+                        updateFailureReason(
+                                "Expected: " + expectedFinalUrl + " actual: " + tab.getUrlString());
                         return expectedFinalUrl == null
-                                || TextUtils.equals(expectedFinalUrl, tab.getUrl());
+                                || TextUtils.equals(expectedFinalUrl, tab.getUrlString());
                     }
                 });
 

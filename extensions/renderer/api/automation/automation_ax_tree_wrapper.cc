@@ -7,7 +7,6 @@
 #include "extensions/common/extension_messages.h"
 #include "extensions/renderer/api/automation/automation_internal_custom_bindings.h"
 #include "ui/accessibility/ax_language_detection.h"
-#include "ui/accessibility/ax_node.h"
 #include "ui/accessibility/ax_node_position.h"
 #include "ui/accessibility/ax_tree_manager_map.h"
 
@@ -224,6 +223,7 @@ api::automation::EventType ToAutomationEvent(
     case ui::AXEventGenerator::Event::MULTISELECTABLE_STATE_CHANGED:
     case ui::AXEventGenerator::Event::OTHER_ATTRIBUTE_CHANGED:
     case ui::AXEventGenerator::Event::PLACEHOLDER_CHANGED:
+    case ui::AXEventGenerator::Event::PORTAL_ACTIVATED:
     case ui::AXEventGenerator::Event::POSITION_IN_SET_CHANGED:
     case ui::AXEventGenerator::Event::READONLY_CHANGED:
     case ui::AXEventGenerator::Event::REQUIRED_STATE_CHANGED:
@@ -399,43 +399,41 @@ bool AutomationAXTreeWrapper::IsInFocusChain(int32_t node_id) {
   if (IsDesktopTree())
     return true;
 
-  AutomationAXTreeWrapper* child_of_ancestor = this;
-  AutomationAXTreeWrapper* ancestor = nullptr;
-  while ((ancestor =
-              GetParentOfTreeId(child_of_ancestor->tree()->data().tree_id))) {
+  AutomationAXTreeWrapper* descendant = this;
+  ui::AXTreeID descendant_tree_id = GetTreeID();
+  AutomationAXTreeWrapper* ancestor = descendant;
+  bool found = true;
+  while ((ancestor = GetParentOfTreeId(ancestor->tree()->data().tree_id))) {
     int32_t focus_id = ancestor->tree()->data().focus_id;
     ui::AXNode* focus = ancestor->tree()->GetFromId(focus_id);
     if (!focus)
       return false;
 
-    const ui::AXTreeID& child_tree_id =
-        child_of_ancestor->tree()->data().tree_id;
-
-    // Either the focused node points to the child tree, or the ancestor tree
-    // points to the child tree via the focused tree id. Exit early if both are
-    // not true.
+    // Surprisingly, an ancestor frame can "skip" a child frame to point to a
+    // descendant granchild, so we have to scan upwards.
     if (ui::AXTreeID::FromString(focus->GetStringAttribute(
-            ax::mojom::StringAttribute::kChildTreeId)) != child_tree_id &&
-        ancestor->tree()->data().focused_tree_id != child_tree_id)
-      return false;
+            ax::mojom::StringAttribute::kChildTreeId)) != descendant_tree_id &&
+        ancestor->tree()->data().focused_tree_id != descendant_tree_id) {
+      found = false;
+      continue;
+    }
+
+    found = true;
 
     if (ancestor->IsDesktopTree())
       return true;
 
-    child_of_ancestor = ancestor;
+    descendant_tree_id = ancestor->GetTreeID();
   }
 
-  // The only way we end up here is if the tree is detached from any desktop.
-  // This can occur in tabs-only mode.
-  return true;
+  // We can end up here if the tree is detached from any desktop.  This can
+  // occur in tabs-only mode. This is also the codepath for frames with inner
+  // focus, but which are not focused by ancestor frames.
+  return found;
 }
 
 ui::AXTree::Selection AutomationAXTreeWrapper::GetUnignoredSelection() {
-  // As there is no Tree Manager, this is necessary for AXPositions to work.
-  ui::AXNodePosition::SetTree(tree());
-  ui::AXTree::Selection unignored_selection = tree()->GetUnignoredSelection();
-  ui::AXNodePosition::SetTree(nullptr);
-  return unignored_selection;
+  return tree()->GetUnignoredSelection();
 }
 
 ui::AXNode* AutomationAXTreeWrapper::GetUnignoredNodeFromId(int32_t id) {
@@ -613,13 +611,15 @@ bool AutomationAXTreeWrapper::IsEventTypeHandledByAXEventGenerator(
 
 ui::AXNode* AutomationAXTreeWrapper::GetNodeFromTree(
     const ui::AXTreeID tree_id,
-    const int32_t node_id) const {
+    const ui::AXNode::AXID node_id) const {
   AutomationAXTreeWrapper* tree_wrapper =
       owner_->GetAutomationAXTreeWrapperFromTreeID(tree_id);
-  if (!tree_wrapper)
-    return nullptr;
+  return tree_wrapper ? tree_wrapper->GetNodeFromTree(node_id) : nullptr;
+}
 
-  return tree_wrapper->tree()->GetFromId(node_id);
+ui::AXNode* AutomationAXTreeWrapper::GetNodeFromTree(
+    const ui::AXNode::AXID node_id) const {
+  return tree_.GetFromId(node_id);
 }
 
 ui::AXTreeID AutomationAXTreeWrapper::GetTreeID() const {
@@ -628,10 +628,7 @@ ui::AXTreeID AutomationAXTreeWrapper::GetTreeID() const {
 
 ui::AXTreeID AutomationAXTreeWrapper::GetParentTreeID() const {
   AutomationAXTreeWrapper* parent_tree = GetParentOfTreeId(tree_id_);
-  if (!parent_tree)
-    return ui::AXTreeID();  // Unknown AXTreeID.
-
-  return parent_tree->GetTreeID();
+  return parent_tree ? parent_tree->GetTreeID() : ui::AXTreeIDUnknown();
 }
 
 ui::AXNode* AutomationAXTreeWrapper::GetRootAsAXNode() const {

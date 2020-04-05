@@ -6,7 +6,6 @@
 
 #import <Foundation/Foundation.h>
 
-#include "base/mac/scoped_block.h"
 #include "base/strings/sys_string_conversions.h"
 #include "google_apis/gaia/gaia_auth_util.h"
 #include "ios/public/provider/chrome/browser/chrome_browser_provider.h"
@@ -129,7 +128,14 @@ ChromeIdentityInteractionManager*
 FakeChromeIdentityService::CreateChromeIdentityInteractionManager(
     ChromeBrowserState* browser_state,
     id<ChromeIdentityInteractionManagerDelegate> delegate) const {
-  ChromeIdentityInteractionManager* manager =
+  return CreateFakeChromeIdentityInteractionManager(browser_state, delegate);
+}
+
+FakeChromeIdentityInteractionManager*
+FakeChromeIdentityService::CreateFakeChromeIdentityInteractionManager(
+    ChromeBrowserState* browser_state,
+    id<ChromeIdentityInteractionManagerDelegate> delegate) const {
+  FakeChromeIdentityInteractionManager* manager =
       [[FakeChromeIdentityInteractionManager alloc] init];
   manager.delegate = delegate;
   return manager;

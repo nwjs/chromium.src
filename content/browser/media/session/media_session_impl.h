@@ -28,6 +28,7 @@
 #include "mojo/public/cpp/bindings/receiver_set.h"
 #include "mojo/public/cpp/bindings/remote_set.h"
 #include "services/media_session/public/mojom/audio_focus.mojom.h"
+#include "third_party/blink/public/mojom/favicon/favicon_url.mojom.h"
 #include "third_party/blink/public/mojom/mediasession/media_session.mojom.h"
 
 #if defined(OS_ANDROID)
@@ -137,7 +138,8 @@ class MediaSessionImpl : public MediaSession,
   void OnWebContentsFocused(RenderWidgetHost*) override;
   void OnWebContentsLostFocus(RenderWidgetHost*) override;
   void TitleWasSet(NavigationEntry* entry) override;
-  void DidUpdateFaviconURL(const std::vector<FaviconURL>& candidates) override;
+  void DidUpdateFaviconURL(
+      const std::vector<blink::mojom::FaviconURLPtr>& candidates) override;
   void MediaPictureInPictureChanged(bool is_picture_in_picture) override;
 
   // MediaSessionService-related methods
@@ -388,6 +390,16 @@ class MediaSessionImpl : public MediaSession,
   // to blink::MediaSession corresponding to the current routed service.
   void DidReceiveAction(media_session::mojom::MediaSessionAction action,
                         blink::mojom::MediaSessionActionDetailsPtr details);
+
+  // Returns the media audio video state. This is whether the players associated
+  // with the media session are audio-only or have audio and video. If we have
+  // a |routed_service_| then we limit to players on that frame because this
+  // should align with the metadata.
+  media_session::mojom::MediaAudioVideoState GetMediaAudioVideoState();
+
+  // Calls the callback with each |PlayerIdentifier| for every player associated
+  // with this media session.
+  void ForAllPlayers(base::RepeatingCallback<void(const PlayerIdentifier&)>);
 
   // A set of actions supported by |routed_service_| and the current media
   // session.

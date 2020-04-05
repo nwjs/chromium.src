@@ -5,10 +5,10 @@
 package org.chromium.chrome.browser.bookmarks;
 
 import android.os.SystemClock;
-import android.support.annotation.Nullable;
 import android.text.TextUtils;
 import android.util.Pair;
 
+import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.ContextUtils;
@@ -381,18 +381,6 @@ public class BookmarkBridge {
         assert mIsNativeBookmarkModelLoaded;
         return BookmarkBridgeJni.get().getBookmarkByID(
                 mNativeBookmarkBridge, BookmarkBridge.this, id.getId(), id.getType());
-    }
-
-    /**
-     * @return All the permanent nodes.
-     */
-    public List<BookmarkId> getPermanentNodeIDs() {
-        ThreadUtils.assertOnUiThread();
-        assert mIsNativeBookmarkModelLoaded;
-        List<BookmarkId> result = new ArrayList<BookmarkId>();
-        BookmarkBridgeJni.get().getPermanentNodeIDs(
-                mNativeBookmarkBridge, BookmarkBridge.this, result);
-        return result;
     }
 
     /**
@@ -1006,8 +994,6 @@ public class BookmarkBridge {
         long getBookmarkIdForWebContents(WebContents webContents, boolean onlyEditable);
         BookmarkItem getBookmarkByID(
                 long nativeBookmarkBridge, BookmarkBridge caller, long id, int type);
-        void getPermanentNodeIDs(
-                long nativeBookmarkBridge, BookmarkBridge caller, List<BookmarkId> bookmarksList);
         void getTopLevelFolderParentIDs(
                 long nativeBookmarkBridge, BookmarkBridge caller, List<BookmarkId> bookmarksList);
         void getTopLevelFolderIDs(long nativeBookmarkBridge, BookmarkBridge caller,

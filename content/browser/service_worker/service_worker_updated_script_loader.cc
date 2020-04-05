@@ -8,9 +8,11 @@
 #include <vector>
 
 #include "base/bind.h"
+#include "base/memory/ptr_util.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/task/post_task.h"
-#include "content/browser/appcache/appcache_response.h"
+#include "content/browser/appcache/appcache_disk_cache_ops.h"
+#include "content/browser/loader/url_loader_throttles.h"
 #include "content/browser/service_worker/service_worker_cache_writer.h"
 #include "content/browser/service_worker/service_worker_consts.h"
 #include "content/browser/service_worker/service_worker_context_core.h"
@@ -99,7 +101,7 @@ void ServiceWorkerUpdatedScriptLoader::ThrottlingURLLoaderCoreWrapper::
   base::RepeatingCallback<WebContents*()> wc_getter =
       base::BindRepeating([]() -> WebContents* { return nullptr; });
   std::vector<std::unique_ptr<blink::URLLoaderThrottle>> throttles =
-      GetContentClient()->browser()->CreateURLLoaderThrottles(
+      CreateContentBrowserURLLoaderThrottles(
           resource_request, browser_context, std::move(wc_getter),
           /*navigation_ui_data=*/nullptr, RenderFrameHost::kNoFrameTreeNodeId);
 
@@ -181,7 +183,8 @@ ServiceWorkerUpdatedScriptLoader::ServiceWorkerUpdatedScriptLoader(
     mojo::PendingRemote<network::mojom::URLLoaderClient> client,
     scoped_refptr<ServiceWorkerVersion> version)
     : request_url_(original_request.url),
-      resource_type_(static_cast<ResourceType>(original_request.resource_type)),
+      resource_type_(static_cast<blink::mojom::ResourceType>(
+          original_request.resource_type)),
       options_(options),
       version_(std::move(version)),
       network_watcher_(FROM_HERE,
@@ -338,8 +341,9 @@ int ServiceWorkerUpdatedScriptLoader::WillWriteInfo(
   const net::HttpResponseInfo* info = response_info->http_info.get();
   DCHECK(info);
 
-  if (resource_type_ == ResourceType::kServiceWorker) {
-    version_->SetMainScriptHttpResponseInfo(*info);
+  if (resource_type_ == blink::mojom::ResourceType::kServiceWorker) {
+    version_->SetMainScriptResponse(
+        std::make_unique<ServiceWorkerVersion::MainScriptResponse>(*info));
   }
 
   auto response = ServiceWorkerUtils::CreateResourceResponseHeadAndMetadata(
@@ -479,9 +483,9 @@ void ServiceWorkerUpdatedScriptLoader::CheckVersionStatusBeforeLoad() {
   // defines importScripts() works only on the initial script evaluation and the
   // install event. Update this check once importScripts() is fixed.
   // (https://crbug.com/719052)
-  DCHECK((resource_type_ == ResourceType::kServiceWorker &&
+  DCHECK((resource_type_ == blink::mojom::ResourceType::kServiceWorker &&
           version_->status() == ServiceWorkerVersion::NEW) ||
-         (resource_type_ == ResourceType::kScript &&
+         (resource_type_ == blink::mojom::ResourceType::kScript &&
           version_->status() != ServiceWorkerVersion::REDUNDANT));
 }
 #endif  // DCHECK_IS_ON()

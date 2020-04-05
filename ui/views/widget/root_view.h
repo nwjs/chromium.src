@@ -5,6 +5,7 @@
 #ifndef UI_VIEWS_WIDGET_ROOT_VIEW_H_
 #define UI_VIEWS_WIDGET_ROOT_VIEW_H_
 
+#include <memory>
 #include <string>
 
 #include "base/macros.h"
@@ -20,7 +21,7 @@ namespace views {
 namespace test {
 class ViewTargeterTest;
 class WidgetTest;
-}
+}  // namespace test
 
 class RootViewTargeter;
 class Widget;
@@ -34,19 +35,19 @@ class PreEventDispatchHandler;
 ////////////////////////////////////////////////////////////////////////////////
 // RootView class
 //
-//  The RootView is the root of a View hierarchy. A RootView is attached to a
-//  Widget. The Widget is responsible for receiving events from the host
-//  environment, converting them to views-compatible events and then forwarding
-//  them to the RootView for propagation into the View hierarchy.
+// The RootView is the root of a View hierarchy. A RootView is attached to a
+// Widget. The Widget is responsible for receiving events from the host
+// environment, converting them to views-compatible events and then forwarding
+// them to the RootView for propagation into the View hierarchy.
 //
-//  A RootView can have only one child, called its "Contents View" which is
-//  sized to fill the bounds of the RootView (and hence the client area of the
-//  Widget). Call SetContentsView() after the associated Widget has been
-//  initialized to attach the contents view to the RootView.
-//  TODO(beng): Enforce no other callers to AddChildView/tree functions by
-//              overriding those methods as private here.
-//  TODO(beng): Clean up API further, make Widget a friend.
-//  TODO(sky): We don't really want to export this class.
+// A RootView can have only one child, called its "Contents View" which is
+// sized to fill the bounds of the RootView (and hence the client area of the
+// Widget). Call SetContentsView() after the associated Widget has been
+// initialized to attach the contents view to the RootView.
+// TODO(beng): Enforce no other callers to AddChildView/tree functions by
+//             overriding those methods as private here.
+// TODO(beng): Clean up API further, make Widget a friend.
+// TODO(sky): We don't really want to export this class.
 //
 class VIEWS_EXPORT RootView : public View,
                               public ViewTargeterDelegate,
@@ -110,6 +111,8 @@ class VIEWS_EXPORT RootView : public View,
   void OnEventProcessingFinished(ui::Event* event) override;
 
   // View:
+  const Widget* GetWidget() const override;
+  Widget* GetWidget() override;
   bool IsDrawn() const override;
   bool OnMousePressed(const ui::MouseEvent& event) override;
   bool OnMouseDragged(const ui::MouseEvent& event) override;
@@ -172,9 +175,6 @@ class VIEWS_EXPORT RootView : public View,
 
   //////////////////////////////////////////////////////////////////////////////
   // Tree operations -----------------------------------------------------------
-
-  // View:
-  const Widget* GetWidgetImpl() const override;
 
   // The host Widget
   Widget* widget_;

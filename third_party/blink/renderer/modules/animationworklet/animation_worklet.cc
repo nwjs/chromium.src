@@ -41,7 +41,7 @@ WorkletGlobalScopeProxy* AnimationWorklet::CreateGlobalScope() {
     // initialization can move to the constructor. Currently, initialization
     // in the constructor leads to test failures as the document frame has not
     // been initialized at the time of the constructor call.
-    Document* document = To<Document>(GetExecutionContext());
+    Document* document = Document::From(GetExecutionContext());
     proxy_client_ =
         AnimationWorkletProxyClient::FromDocument(document, worklet_id_);
   }
@@ -62,7 +62,7 @@ WorkletAnimationId AnimationWorklet::NextWorkletAnimationId() {
   return WorkletAnimationId(worklet_id_, ++last_animation_id_);
 }
 
-void AnimationWorklet::Trace(blink::Visitor* visitor) {
+void AnimationWorklet::Trace(Visitor* visitor) {
   Worklet::Trace(visitor);
   visitor->Trace(proxy_client_);
 }

@@ -88,14 +88,13 @@ class Local;
 }
 
 namespace viz {
-class ContextProvider;
+class RasterContextProvider;
 }
 
 namespace blink {
 
 class BrowserInterfaceBrokerProxy;
 class ThreadSafeBrowserInterfaceBrokerProxy;
-class InterfaceProvider;
 class Thread;
 struct ThreadCreationParams;
 class WebAudioBus;
@@ -432,13 +431,6 @@ class BLINK_PLATFORM_EXPORT Platform {
   // TODO(kinuko,toyoshim): Deprecate this one. (crbug.com/751425)
   virtual WebURLLoaderMockFactory* GetURLLoaderMockFactory() { return nullptr; }
 
-  // Record to a RAPPOR privacy-preserving metric, see:
-  // https://www.chromium.org/developers/design-documents/rappor.
-  // RecordRappor records a sample string, while RecordRapporURL records the
-  // eTLD+1 of a url.
-  virtual void RecordRappor(const char* metric, const WebString& sample) {}
-  virtual void RecordRapporURL(const char* metric, const blink::WebURL& url) {}
-
   // Record a UMA sequence action.  The UserMetricsAction construction must
   // be on a single line for extract_actions.py to find it.  Please see
   // that script for more details.  Intended use is:
@@ -534,7 +526,7 @@ class BLINK_PLATFORM_EXPORT Platform {
     return nullptr;
   }
 
-  virtual viz::ContextProvider* SharedMainThreadContextProvider() {
+  virtual viz::RasterContextProvider* SharedMainThreadContextProvider() {
     return nullptr;
   }
 
@@ -637,10 +629,6 @@ class BLINK_PLATFORM_EXPORT Platform {
   virtual WebCrypto* Crypto() { return nullptr; }
 
   // Mojo ---------------------------------------------------------------
-
-  // DEPRECATED: Use |GetBrowserInterfaceBroker()| instead. The same
-  // interfaces are reachable through either method.
-  virtual InterfaceProvider* GetInterfaceProvider();
 
   // Callable from any thread. Asks the browser to bind an interface receiver on
   // behalf of this renderer.

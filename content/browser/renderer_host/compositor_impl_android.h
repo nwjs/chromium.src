@@ -112,7 +112,7 @@ class CONTENT_EXPORT CompositorImpl
   void DidBeginMainFrame() override {}
   void WillUpdateLayers() override {}
   void DidUpdateLayers() override;
-  void BeginMainFrame(const viz::BeginFrameArgs& args) override {}
+  void BeginMainFrame(const viz::BeginFrameArgs& args) override;
   void OnDeferMainFrameUpdatesChanged(bool) override {}
   void OnDeferCommitsChanged(bool) override {}
   void BeginMainFrameNotExpectedSoon() override {}
@@ -130,7 +130,7 @@ class CONTENT_EXPORT CompositorImpl
   void DidInitializeLayerTreeFrameSink() override;
   void DidFailToInitializeLayerTreeFrameSink() override;
   void WillCommit() override {}
-  void DidCommit() override;
+  void DidCommit(base::TimeTicks) override;
   void DidCommitAndDrawFrame() override {}
   void DidReceiveCompositorFrameAck() override;
   void DidCompletePageScaleAnimation() override {}
@@ -138,7 +138,9 @@ class CONTENT_EXPORT CompositorImpl
       uint32_t frame_token,
       const gfx::PresentationFeedback& feedback) override {}
   void RecordStartOfFrameMetrics() override {}
-  void RecordEndOfFrameMetrics(base::TimeTicks frame_begin_time) override {}
+  void RecordEndOfFrameMetrics(
+      base::TimeTicks frame_begin_time,
+      cc::ActiveFrameSequenceTrackers trackers) override {}
   std::unique_ptr<cc::BeginMainFrameMetrics> GetBeginMainFrameMetrics()
       override;
 
@@ -265,6 +267,8 @@ class CONTENT_EXPORT CompositorImpl
       swap_completed_with_size_for_testing_;
 
   size_t num_of_consecutive_surface_failures_ = 0u;
+
+  base::TimeTicks latest_frame_time_;
 
   base::WeakPtrFactory<CompositorImpl> weak_factory_{this};
 

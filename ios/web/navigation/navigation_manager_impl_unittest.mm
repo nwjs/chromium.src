@@ -103,6 +103,14 @@ class MockNavigationManagerDelegate : public NavigationManagerDelegate {
   WebState* web_state_ = nullptr;
 };
 
+// Data holder for the informations to be restored in the items.
+struct ItemInfoToBeRestored {
+  GURL url;
+  UserAgentType user_agent;
+  bool user_agent_inherited;
+  PageDisplayState display_state;
+};
+
 }  // namespace
 
 // Test fixture for NavigationManagerImpl testing.
@@ -153,6 +161,9 @@ class NavigationManagerTest : public PlatformTest {
   TestWebState web_state_;
   MockNavigationManagerDelegate delegate_;
   std::unique_ptr<NavigationManagerImpl> manager_;
+
+ private:
+  url::ScopedSchemeRegistryForTests scoped_registry_;
 };
 
 // Tests state of an empty navigation manager.
@@ -517,84 +528,6 @@ TEST_F(NavigationManagerTest, OffsetsWithoutPendingIndex) {
   ASSERT_EQ(4, navigation_manager()->GetLastCommittedItemIndex());
 }
 
-// Tests offsets with pending transient entries (specifically going back and
-// forward from a pending navigation entry that is added to the middle of the
-// navigation stack).
-TEST_F(NavigationManagerTest, OffsetsWithPendingTransientEntry) {
-  // This test directly manipulates the WKBackForwardListItem mocks stored in
-  // mock_wk_list_ so that the associated NavigationItem objects are retained
-  // throughout the test case.
-  WKBackForwardListItem* wk_item0 =
-      [CRWFakeBackForwardList itemWithURLString:@"http://www.url.com/0"];
-  WKBackForwardListItem* wk_item1 =
-      [CRWFakeBackForwardList itemWithURLString:@"http://www.url.com/1"];
-  WKBackForwardListItem* wk_item2 =
-      [CRWFakeBackForwardList itemWithURLString:@"http://www.url.com/2"];
-
-  // Create a transient item in the middle of the navigation stack and go back
-  // to it (pending index is 1, current index is 2).
-  navigation_manager()->AddPendingItem(
-      GURL("http://www.url.com/0"), Referrer(), ui::PAGE_TRANSITION_LINK,
-      web::NavigationInitiationType::BROWSER_INITIATED,
-      web::NavigationManager::UserAgentOverrideOption::INHERIT);
-
-  mock_wk_list_.currentItem = wk_item0;
-  mock_wk_list_.backList = nil;
-  mock_wk_list_.forwardList = nil;
-  navigation_manager()->CommitPendingItem();
-
-  navigation_manager()->AddPendingItem(
-      GURL("http://www.url.com/1"), Referrer(), ui::PAGE_TRANSITION_LINK,
-      web::NavigationInitiationType::BROWSER_INITIATED,
-      web::NavigationManager::UserAgentOverrideOption::INHERIT);
-
-  mock_wk_list_.currentItem = wk_item1;
-  mock_wk_list_.backList = @[ wk_item0 ];
-  navigation_manager()->CommitPendingItem();
-
-  navigation_manager()->AddPendingItem(
-      GURL("http://www.url.com/2"), Referrer(), ui::PAGE_TRANSITION_LINK,
-      web::NavigationInitiationType::BROWSER_INITIATED,
-      web::NavigationManager::UserAgentOverrideOption::INHERIT);
-
-  mock_wk_list_.currentItem = wk_item2;
-  mock_wk_list_.backList = @[ wk_item0, wk_item1 ];
-  navigation_manager()->CommitPendingItem();
-
-  // Under back-forward navigation, both WKBackForwardList and WKWebView.URL are
-  // updated before |didStartProvisionalNavigation| callback, which calls
-  // AddPendingItem. Simulate this behavior.
-  OCMExpect([mock_web_view_ URL])
-      .andReturn([NSURL URLWithString:@"http://www.url.com/1"]);
-  mock_wk_list_.currentItem = wk_item1;
-  mock_wk_list_.backList = @[ wk_item0 ];
-  mock_wk_list_.forwardList = @[ wk_item2 ];
-  navigation_manager()->AddPendingItem(
-      GURL("http://www.url.com/1"), Referrer(), ui::PAGE_TRANSITION_LINK,
-      web::NavigationInitiationType::BROWSER_INITIATED,
-      web::NavigationManager::UserAgentOverrideOption::INHERIT);
-  navigation_manager()->AddTransientItem(GURL("http://www.url.com/1"));
-
-  ASSERT_EQ(3, navigation_manager()->GetItemCount());
-  ASSERT_EQ(2, navigation_manager()->GetLastCommittedItemIndex());
-  ASSERT_EQ(1, navigation_manager()->GetPendingItemIndex());
-  EXPECT_EQ(2, navigation_manager()->GetIndexForOffset(1));
-  EXPECT_EQ(0, navigation_manager()->GetIndexForOffset(-1));
-
-  // TODO(crbug.com/734150): Investigate why this test still fails for the new
-  // navigation manager.
-  return;
-
-  // Now go forward to that middle transient item (pending index is 1,
-  // current index is 0).
-  SimulateGoToIndex(0);
-  EXPECT_EQ(3, navigation_manager()->GetItemCount());
-  EXPECT_EQ(0, navigation_manager()->GetLastCommittedItemIndex());
-  EXPECT_EQ(1, navigation_manager()->GetPendingItemIndex());
-  EXPECT_EQ(2, navigation_manager()->GetIndexForOffset(1));
-  EXPECT_EQ(0, navigation_manager()->GetIndexForOffset(-1));
-}
-
 // Tests that when given a pending item, adding a new pending item replaces the
 // existing pending item if their URLs are different.
 TEST_F(NavigationManagerTest, ReplacePendingItemIfDiffernetURL) {
@@ -848,34 +781,6 @@ TEST_F(NavigationManagerTest, AddSameUrlPendingItemIfFormSubmission) {
   EXPECT_TRUE(ui::PageTransitionCoreTypeIs(
       navigation_manager()->GetPendingItem()->GetTransitionType(),
       ui::PAGE_TRANSITION_FORM_SUBMIT));
-  EXPECT_EQ(1, navigation_manager()->GetItemCount());
-}
-
-// Tests that when the last committed item exists, adding a pending item with
-// the same URL fails if both the new item and the last committed item are form
-// submissions.
-// TODO(crbug.com/734150): Enable this test when form submission check is
-// implemented.
-TEST_F(NavigationManagerTest,
-       DISABLED_NotAddSameUrlPendingItemIfDuplicateFormSubmission) {
-  GURL existing_url = GURL("http://www.existing.com");
-  navigation_manager()->AddPendingItem(
-      existing_url, Referrer(), ui::PAGE_TRANSITION_FORM_SUBMIT,
-      web::NavigationInitiationType::BROWSER_INITIATED,
-      web::NavigationManager::UserAgentOverrideOption::INHERIT);
-
-  [mock_wk_list_ setCurrentURL:@"http://www.existing.com"];
-  navigation_manager()->CommitPendingItem();
-
-  ASSERT_TRUE(navigation_manager()->GetLastCommittedItem());
-  EXPECT_FALSE(navigation_manager()->GetPendingItem());
-  EXPECT_EQ(1, navigation_manager()->GetItemCount());
-
-  navigation_manager()->AddPendingItem(
-      existing_url, Referrer(), ui::PAGE_TRANSITION_FORM_SUBMIT,
-      web::NavigationInitiationType::BROWSER_INITIATED,
-      web::NavigationManager::UserAgentOverrideOption::INHERIT);
-  EXPECT_FALSE(navigation_manager()->GetPendingItem());
   EXPECT_EQ(1, navigation_manager()->GetItemCount());
 }
 
@@ -1561,7 +1466,7 @@ TEST_F(NavigationManagerTest, ReloadWithUserAgentType) {
   navigation_manager()->GetPendingItem()->SetVirtualURL(virtual_url);
   [mock_wk_list_ setCurrentURL:@"http://www.1.com"];
   navigation_manager()->CommitPendingItem();
-  OCMExpect([mock_web_view_ URL])
+  OCMStub([mock_web_view_ URL])
       .andReturn([[NSURL alloc] initWithString:@"http://www.1.com"]);
 
   EXPECT_CALL(navigation_manager_delegate(), RecordPageStateInNavigationItem());
@@ -1821,12 +1726,22 @@ TEST_F(NavigationManagerTest, TestBackwardForwardItems) {
 
 // Tests that Restore() creates the correct navigation state.
 TEST_F(NavigationManagerTest, Restore) {
-  GURL urls[3] = {GURL("http://www.url.com/0"), GURL("http://www.url.com/1"),
-                  GURL("http://www.url.com/2")};
+  ItemInfoToBeRestored restore_information[3];
+  restore_information[0] = {GURL("http://www.url.com/0"), UserAgentType::MOBILE,
+                            true, PageDisplayState()};
+  restore_information[1] = {GURL("http://www.url.com/1"),
+                            UserAgentType::DESKTOP, true, PageDisplayState()};
+  restore_information[2] = {GURL("http://www.url.com/2"),
+                            UserAgentType::DESKTOP, false, PageDisplayState()};
+
   std::vector<std::unique_ptr<NavigationItem>> items;
-  for (size_t index = 0; index < base::size(urls); ++index) {
+  for (size_t index = 0; index < base::size(restore_information); ++index) {
     items.push_back(NavigationItem::Create());
-    items.back()->SetURL(urls[index]);
+    items.back()->SetURL(restore_information[index].url);
+    items.back()->SetUserAgentType(
+        restore_information[index].user_agent,
+        restore_information[index].user_agent_inherited);
+    items.back()->SetPageDisplayState(restore_information[index].display_state);
   }
 
   // Call Restore() and check that the NavigationItems are in the correct order
@@ -1835,6 +1750,7 @@ TEST_F(NavigationManagerTest, Restore) {
   navigation_manager()->Restore(1, std::move(items));
   __block bool restore_done = false;
   navigation_manager()->AddRestoreCompletionCallback(base::BindOnce(^{
+    navigation_manager()->CommitPendingItem();
     restore_done = true;
   }));
 
@@ -1854,7 +1770,7 @@ TEST_F(NavigationManagerTest, Restore) {
   navigation_manager()->OnNavigationStarted(pending_url);
 
   // Simulate the end effect of loading the restore session URL in web view.
-  pending_item->SetURL(urls[1]);
+  pending_item->SetURL(restore_information[1].url);
   [mock_wk_list_ setCurrentURL:@"http://www.url.com/1"
                   backListURLs:@[ @"http://www.url.com/0" ]
                forwardListURLs:@[ @"http://www.url.com/2" ]];
@@ -1867,10 +1783,29 @@ TEST_F(NavigationManagerTest, Restore) {
   EXPECT_FALSE(navigation_manager()->IsRestoreSessionInProgress());
   ASSERT_EQ(3, navigation_manager()->GetItemCount());
   EXPECT_EQ(1, navigation_manager()->GetLastCommittedItemIndex());
-  EXPECT_EQ(urls[1], navigation_manager()->GetLastCommittedItem()->GetURL());
+  EXPECT_EQ(restore_information[1].url,
+            navigation_manager()->GetLastCommittedItem()->GetURL());
 
-  for (size_t i = 0; i < base::size(urls); ++i) {
-    EXPECT_EQ(urls[i], navigation_manager()->GetItemAtIndex(i)->GetURL());
+  for (size_t i = 0; i < base::size(restore_information); ++i) {
+    NavigationItem* navigation_item = navigation_manager()->GetItemAtIndex(i);
+    EXPECT_EQ(restore_information[i].url, navigation_item->GetURL());
+    EXPECT_EQ(restore_information[i].user_agent,
+              navigation_item->GetUserAgentType());
+    if (restore_information[i].user_agent_inherited) {
+      EXPECT_EQ(restore_information[i].user_agent,
+                navigation_item->GetUserAgentForInheritance());
+    } else {
+      if (base::FeatureList::IsEnabled(
+              features::kUseDefaultUserAgentInWebClient)) {
+        EXPECT_EQ(UserAgentType::AUTOMATIC,
+                  navigation_item->GetUserAgentForInheritance());
+      } else {
+        EXPECT_EQ(UserAgentType::MOBILE,
+                  navigation_item->GetUserAgentForInheritance());
+      }
+    }
+    EXPECT_EQ(restore_information[i].display_state,
+              navigation_item->GetPageDisplayState());
   }
 
   histogram_tester_.ExpectTotalCount(kRestoreNavigationItemCount, 1);
@@ -2039,7 +1974,7 @@ TEST_F(NavigationManagerTest, PendingItemIsNotVisibleIfNotNewNavigation) {
   navigation_manager()->CommitPendingItem();
 
   // Move pending item back to index 0.
-  OCMExpect([mock_web_view_ URL])
+  OCMStub([mock_web_view_ URL])
       .andReturn([NSURL URLWithString:@"http://www.url.com/0"]);
   [mock_wk_list_ setCurrentURL:@"http://www.url.com/0"
                   backListURLs:nil
@@ -2053,10 +1988,10 @@ TEST_F(NavigationManagerTest, PendingItemIsNotVisibleIfNotNewNavigation) {
 
   delegate_.SetWebState(&web_state_);
   web_state_.SetLoading(true);
-  OCMExpect([mock_web_view_ URL])
+  OCMStub([mock_web_view_ URL])
       .andReturn([[NSURL alloc] initWithString:@"http://www.url.com/0"]);
   ASSERT_TRUE(navigation_manager()->GetVisibleItem());
-  OCMExpect([mock_web_view_ URL])
+  OCMStub([mock_web_view_ URL])
       .andReturn([[NSURL alloc] initWithString:@"http://www.url.com/0"]);
   EXPECT_EQ("http://www.url.com/1",
             navigation_manager()->GetVisibleItem()->GetURL().spec());
@@ -2079,10 +2014,10 @@ TEST_F(NavigationManagerTest, VisibleItemDefaultsToLastCommittedItem) {
       web::NavigationInitiationType::RENDERER_INITIATED,
       web::NavigationManager::UserAgentOverrideOption::INHERIT);
 
-  OCMExpect([mock_web_view_ URL])
+  OCMStub([mock_web_view_ URL])
       .andReturn([[NSURL alloc] initWithString:@"http://www.url.com/0"]);
   ASSERT_TRUE(navigation_manager()->GetVisibleItem());
-  OCMExpect([mock_web_view_ URL])
+  OCMStub([mock_web_view_ URL])
       .andReturn([[NSURL alloc] initWithString:@"http://www.url.com/0"]);
   EXPECT_EQ("http://www.url.com/0",
             navigation_manager()->GetVisibleItem()->GetURL().spec());

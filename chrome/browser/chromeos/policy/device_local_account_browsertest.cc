@@ -40,7 +40,9 @@
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/values.h"
 #include "chrome/browser/apps/app_service/app_launch_params.h"
-#include "chrome/browser/apps/launch_service/launch_service.h"
+#include "chrome/browser/apps/app_service/app_service_proxy.h"
+#include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
+#include "chrome/browser/apps/app_service/launch_utils.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_process_platform_part.h"
 #include "chrome/browser/chrome_notification_types.h"
@@ -151,6 +153,7 @@
 #include "extensions/browser/test_extension_registry_observer.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/extension.h"
+#include "extensions/common/extension_builder.h"
 #include "net/base/url_util.h"
 #include "net/http/http_status_code.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
@@ -166,13 +169,14 @@
 #include "ui/base/ime/chromeos/input_method_util.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/window_open_disposition.h"
+#include "ui/display/display.h"
+#include "ui/display/screen.h"
 #include "ui/gfx/image/image_skia.h"
 #include "ui/views/widget/widget.h"
 #include "url/gurl.h"
 
 namespace em = enterprise_management;
 
-using chromeos::LoginScreenContext;
 using chromeos::test::GetOobeElementPath;
 using testing::_;
 using testing::InvokeWithoutArgs;
@@ -209,9 +213,6 @@ const char kHostedAppVersion[] = "1.0.0.0";
 const char kGoodExtensionID[] = "ldnnhddmnhbkjipkidpdiheffobcpfmf";
 const char kGoodExtensionCRXPath[] = "extensions/good.crx";
 const char kGoodExtensionVersion[] = "1.0";
-// Chrome RDP extension
-const char kPublicSessionWhitelistedExtensionID[] =
-    "cbkkbcmdlboombapidmoeolnmdacpkch";
 const char kPackagedAppCRXPath[] = "extensions/platform_apps/app_window_2.crx";
 const char kShowManagedStorageID[] = "ongnjlefhnoajpbodoldndkbkdgfomlp";
 const char kShowManagedStorageCRXPath[] = "extensions/show_managed_storage.crx";
@@ -775,7 +776,7 @@ class DeviceLocalAccountTest : public DevicePolicyCrosBrowserTest,
     chromeos::LoginDisplayHost* host =
         chromeos::LoginDisplayHost::default_host();
     ASSERT_TRUE(host);
-    host->StartSignInScreen(LoginScreenContext());
+    host->StartSignInScreen();
     chromeos::ExistingUserController* controller =
         chromeos::ExistingUserController::current_controller();
     ASSERT_TRUE(controller);
@@ -1158,7 +1159,8 @@ IN_PROC_BROWSER_TEST_F(DeviceLocalAccountTest, StartSession) {
   Profile* profile = GetProfileForTest();
   ASSERT_TRUE(profile);
   EXPECT_FALSE(
-      IdentityManagerFactory::GetForProfile(profile)->HasPrimaryAccount());
+      IdentityManagerFactory::GetForProfile(profile)->HasPrimaryAccount(
+          signin::ConsentLevel::kNotRequired));
 }
 
 IN_PROC_BROWSER_TEST_F(DeviceLocalAccountTest, FullscreenAllowed) {
@@ -1701,10 +1703,17 @@ IN_PROC_BROWSER_TEST_F(DeviceLocalAccountTest, LastWindowClosedLogoutReminder) {
 
   // Start the platform app, causing it to open a window.
   run_loop_.reset(new base::RunLoop);
-  apps::LaunchService::Get(profile)->OpenApplication(apps::AppLaunchParams(
-      app->id(), apps::mojom::LaunchContainer::kLaunchContainerNone,
-      WindowOpenDisposition::NEW_WINDOW,
-      apps::mojom::AppLaunchSource::kSourceTest));
+  apps::AppServiceProxy* proxy =
+      apps::AppServiceProxyFactory::GetForProfile(profile);
+  proxy->FlushMojoCallsForTesting();
+  proxy->Launch(
+      app->id(),
+      apps::GetEventFlags(apps::mojom::LaunchContainer::kLaunchContainerWindow,
+                          WindowOpenDisposition::NEW_WINDOW,
+                          false /* preferred_containner */),
+      apps::mojom::LaunchSource::kFromChromeInternal,
+      display::Screen::GetScreen()->GetPrimaryDisplay().id());
+  proxy->FlushMojoCallsForTesting();
   run_loop_->Run();
   EXPECT_EQ(1U, app_window_registry->app_windows().size());
 
@@ -2507,6 +2516,10 @@ class ManagedSessionsTest : public DeviceLocalAccountTest {
         kGoodExtensionID, kGoodExtensionVersion,
         embedded_test_server()->GetURL(std::string("/") +
                                        kGoodExtensionCRXPath));
+    testing_update_manifest_provider->AddUpdate(
+        kShowManagedStorageID, kShowManagedStorageVersion,
+        embedded_test_server()->GetURL(std::string("/") +
+                                       kShowManagedStorageCRXPath));
     embedded_test_server()->RegisterRequestHandler(
         base::BindRepeating(&TestingUpdateManifestProvider::HandleRequest,
                             testing_update_manifest_provider));
@@ -2533,7 +2546,7 @@ class ManagedSessionsTest : public DeviceLocalAccountTest {
   void AddForceInstalledExtension() { AddExtension(kGoodExtensionID); }
 
   void AddForceInstalledWhitelistedExtension() {
-    AddExtension(kPublicSessionWhitelistedExtensionID);
+    AddExtension(kShowManagedStorageID);
   }
 
   void WaitForCertificateUpdate() {
@@ -2604,6 +2617,16 @@ IN_PROC_BROWSER_TEST_F(ManagedSessionsTest, ManagedSessionsEnabledNonRisky) {
       chromeos::ChromeUserManager::Get()->IsManagedSessionEnabledForUser(
           *user));
 
+  // Management disclosure warning is shown in the beginning, because
+  // kManagedSessionUseFullLoginWarning pref is set to true in the beginning.
+  ASSERT_TRUE(
+      chromeos::ChromeUserManager::Get()->IsFullManagementDisclosureNeeded(
+          broker));
+
+  ASSERT_NO_FATAL_FAILURE(StartLogin(std::string(), std::string()));
+  WaitForSessionStart();
+
+  // After the login, kManagedSessionUseFullLoginWarning pref is updated.
   // Check that management disclosure warning is not shown when managed sessions
   // are enabled, but policy settings are not risky.
   ASSERT_FALSE(
@@ -2634,6 +2657,20 @@ IN_PROC_BROWSER_TEST_F(ManagedSessionsTest, ForceInstalledExtension) {
       chromeos::ChromeUserManager::Get()->IsManagedSessionEnabledForUser(
           *user));
 
+  // Management disclosure warning is shown in the beginning, because
+  // kManagedSessionUseFullLoginWarning pref is set to true in the beginning.
+  ASSERT_TRUE(
+      chromeos::ChromeUserManager::Get()->IsFullManagementDisclosureNeeded(
+          broker));
+
+  ExtensionInstallObserver install_observer(kGoodExtensionID);
+
+  ASSERT_NO_FATAL_FAILURE(StartLogin(std::string(), std::string()));
+  WaitForSessionStart();
+
+  install_observer.Wait();
+
+  // After the login, kManagedSessionUseFullLoginWarning pref is updated.
   // Check that force-installed extension activates managed session mode for
   // device-local users.
   EXPECT_TRUE(
@@ -2664,6 +2701,20 @@ IN_PROC_BROWSER_TEST_F(ManagedSessionsTest, WhitelistedExtension) {
       chromeos::ChromeUserManager::Get()->IsManagedSessionEnabledForUser(
           *user));
 
+  // Management disclosure warning is shown in the beginning, because
+  // kManagedSessionUseFullLoginWarning pref is set to true in the beginning.
+  ASSERT_TRUE(
+      chromeos::ChromeUserManager::Get()->IsFullManagementDisclosureNeeded(
+          broker));
+
+  ExtensionInstallObserver install_observer(kShowManagedStorageID);
+
+  ASSERT_NO_FATAL_FAILURE(StartLogin(std::string(), std::string()));
+  WaitForSessionStart();
+
+  install_observer.Wait();
+
+  // After the login, kManagedSessionUseFullLoginWarning pref is updated.
   // Check that white-listed extension is not considered risky and doesn't
   // activate managed session mode.
   EXPECT_FALSE(

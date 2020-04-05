@@ -81,10 +81,10 @@ SafeBrowsingService::CreateURLLoaderThrottle(
           },
           base::Unretained(this)),
       wc_getter, frame_tree_node_id,
-      // cache_manager and identity_manager are used to perform real time url
-      // check, which is gated by UKM opted in. Since WebLayer currently doesn't
-      // support UKM, this feature is not enabled.
-      /*cache_manager*/ nullptr, /*identity_manager*/ nullptr);
+      // rt_lookup_service are used to
+      // perform real time url check, which is gated by UKM opted in. Since
+      // WebLayer currently doesn't support UKM, this feature is not enabled.
+      /*rt_lookup_service*/ nullptr);
 }
 
 std::unique_ptr<content::NavigationThrottle>

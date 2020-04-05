@@ -14,9 +14,9 @@
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/resource_context.h"
 #include "content/public/browser/web_contents.h"
-#include "content/public/common/resource_type.h"
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #include "net/base/load_flags.h"
+#include "third_party/blink/public/mojom/loader/resource_load_info.mojom-shared.h"
 
 namespace safe_browsing {
 namespace {
@@ -127,7 +127,7 @@ void MojoSafeBrowsingImpl::CreateCheckerAndCheck(
     const std::string& method,
     const net::HttpRequestHeaders& headers,
     int32_t load_flags,
-    content::ResourceType resource_type,
+    blink::mojom::ResourceType resource_type,
     bool has_user_gesture,
     bool originated_from_service_worker,
     CreateCheckerAndCheckCallback callback) {
@@ -148,16 +148,16 @@ void MojoSafeBrowsingImpl::CreateCheckerAndCheck(
   }
 
   // This is not called for frame resources, and real time URL checks currently
-  // only support frame resources. If we extend real time URL checks to support
-  // non-main frames, we will need to provide the user preferences, cache
-  // manager and identity_manager regarding real time lookup here.
+  // only support main frame resources. If we extend real time URL checks to
+  // support non-main frames, we will need to provide the user preferences,
+  // url_lookup_service regarding real time lookup here.
   auto checker_impl = std::make_unique<SafeBrowsingUrlCheckerImpl>(
       headers, static_cast<int>(load_flags), resource_type, has_user_gesture,
       delegate_,
       base::BindRepeating(&GetWebContentsFromID, render_process_id_,
                           static_cast<int>(render_frame_id)),
-      /*real_time_lookup_enabled=*/false, /*cache_manager=*/nullptr,
-      /*identity_manager=*/nullptr);
+      /*real_time_lookup_enabled=*/false, /*enhanced_protection_enabled=*/false,
+      /*url_lookup_service=*/nullptr);
 
   checker_impl->CheckUrl(
       url, method,

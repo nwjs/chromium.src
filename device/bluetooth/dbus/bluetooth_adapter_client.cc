@@ -182,6 +182,8 @@ BluetoothAdapterClient::Properties::Properties(
   RegisterProperty(bluetooth_adapter::kDiscoveringProperty, &discovering);
   RegisterProperty(bluetooth_adapter::kUUIDsProperty, &uuids);
   RegisterProperty(bluetooth_adapter::kModaliasProperty, &modalias);
+  RegisterProperty(bluetooth_adapter::kUseSuspendNotifierProperty,
+                   &use_kernel_suspend_notifier);
 }
 
 BluetoothAdapterClient::Properties::~Properties() = default;
@@ -490,36 +492,6 @@ class BluetoothAdapterClientImpl : public BluetoothAdapterClient,
         &method_call, dbus::ObjectProxy::TIMEOUT_USE_DEFAULT,
         base::BindOnce(&BluetoothAdapterClientImpl::OnSuccess,
                        weak_ptr_factory_.GetWeakPtr(), std::move(callback)),
-        base::BindOnce(&BluetoothAdapterClientImpl::OnError,
-                       weak_ptr_factory_.GetWeakPtr(),
-                       std::move(error_callback)));
-  }
-
-  // BluetoothAdapterClient override.
-  void SetLongTermKeys(const dbus::ObjectPath& object_path,
-                       const std::vector<std::vector<uint8_t>>& long_term_keys,
-                       ErrorCallback error_callback) override {
-    // TODO(crbug.com/942089): Use real constant once its available in
-    // //third_party/.
-    dbus::MethodCall method_call(bluetooth_adapter::kBluetoothAdapterInterface,
-                                 "SetLongTermKeys");
-
-    dbus::MessageWriter writer(&method_call);
-    dbus::MessageWriter array_writer(&method_call);
-    writer.OpenArray("ay", &array_writer);
-    for (auto key : long_term_keys)
-      array_writer.AppendArrayOfBytes(key.data(), key.size());
-    writer.CloseContainer(&array_writer);
-
-    dbus::ObjectProxy* object_proxy =
-        object_manager_->GetObjectProxy(object_path);
-    if (!object_proxy) {
-      std::move(error_callback).Run(kUnknownAdapterError, "");
-      return;
-    }
-
-    object_proxy->CallMethodWithErrorCallback(
-        &method_call, dbus::ObjectProxy::TIMEOUT_USE_DEFAULT, base::DoNothing(),
         base::BindOnce(&BluetoothAdapterClientImpl::OnError,
                        weak_ptr_factory_.GetWeakPtr(),
                        std::move(error_callback)));

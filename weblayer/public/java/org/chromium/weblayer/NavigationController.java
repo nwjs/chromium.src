@@ -20,7 +20,7 @@ import org.chromium.weblayer_private.interfaces.StrictModeWorkaround;
 /**
  * Provides methods to control navigation, along with maintaining the current list of navigations.
  */
-public final class NavigationController {
+public class NavigationController {
     private INavigationController mNavigationController;
     private final ObserverList<NavigationCallback> mCallbacks;
 
@@ -35,7 +35,8 @@ public final class NavigationController {
         return navigationController;
     }
 
-    private NavigationController() {
+    // Constructor protected for test mocking.
+    protected NavigationController() {
         mCallbacks = new ObserverList<NavigationCallback>();
     }
 
@@ -48,8 +49,35 @@ public final class NavigationController {
         }
     }
 
-    public void goBack() {
+    /**
+     * Navigates to the given URI, replacing the current navigation entry rather than appending.
+     *
+     * @param uri the destination URI.
+     *
+     * @since 82
+     */
+    public void replace(@NonNull Uri uri) {
         ThreadCheck.ensureOnUiThread();
+        if (WebLayer.getSupportedMajorVersionInternal() < 82) {
+            throw new UnsupportedOperationException();
+        }
+        try {
+            mNavigationController.replace(uri.toString());
+        } catch (RemoteException e) {
+            throw new APICallException(e);
+        }
+    }
+
+    /**
+     * Navigates to the previous navigation.
+     *
+     * @throws IndexOutOfBoundsException If {@link #canGoBack} returns false.
+     */
+    public void goBack() throws IndexOutOfBoundsException {
+        ThreadCheck.ensureOnUiThread();
+        if (!canGoBack()) {
+            throw new IndexOutOfBoundsException();
+        }
         try {
             mNavigationController.goBack();
         } catch (RemoteException e) {
@@ -57,8 +85,16 @@ public final class NavigationController {
         }
     }
 
-    public void goForward() {
+    /**
+     * Navigates to the next navigation.
+     *
+     * @throws IndexOutOfBoundsException If {@link #canGoForward} returns false.
+     */
+    public void goForward() throws IndexOutOfBoundsException {
         ThreadCheck.ensureOnUiThread();
+        if (!canGoForward()) {
+            throw new IndexOutOfBoundsException();
+        }
         try {
             mNavigationController.goForward();
         } catch (RemoteException e) {
@@ -66,6 +102,11 @@ public final class NavigationController {
         }
     }
 
+    /**
+     * Returns true if there is a navigation before the current one.
+     *
+     * @return Whether there is a navigation before the current one.
+     */
     public boolean canGoBack() {
         ThreadCheck.ensureOnUiThread();
         try {
@@ -75,6 +116,11 @@ public final class NavigationController {
         }
     }
 
+    /**
+     * Returns true if there is a navigation after the current one.
+     *
+     * @return Whether there is a navigation after the current one.
+     */
     public boolean canGoForward() {
         ThreadCheck.ensureOnUiThread();
         try {
@@ -85,13 +131,20 @@ public final class NavigationController {
     }
 
     /**
+     * Navigates to the entry at {@link index}.
+     *
+     * @throws IndexOutOfBoundsException If index is not between 0 and {@link
+     *         getNavigationListCurrentIndex}.
+     * @throws IndexOutOfBoundsException
+     *
      * @since 81
      */
-    public void goToIndex(int index) {
+    public void goToIndex(int index) throws IndexOutOfBoundsException {
         ThreadCheck.ensureOnUiThread();
         if (WebLayer.getSupportedMajorVersionInternal() < 81) {
             throw new UnsupportedOperationException();
         }
+        checkNavigationIndex(index);
         try {
             mNavigationController.goToIndex(index);
         } catch (RemoteException e) {
@@ -99,6 +152,9 @@ public final class NavigationController {
         }
     }
 
+    /**
+     * Reloads the current entry. Does nothing if there are no navigations.
+     */
     public void reload() {
         ThreadCheck.ensureOnUiThread();
         try {
@@ -108,6 +164,9 @@ public final class NavigationController {
         }
     }
 
+    /**
+     * Stops in progress loading. Does nothing if not in the process of loading.
+     */
     public void stop() {
         ThreadCheck.ensureOnUiThread();
         try {
@@ -117,6 +176,11 @@ public final class NavigationController {
         }
     }
 
+    /**
+     * Returns the number of navigations entries.
+     *
+     * @return The number of navigation entries, 0 if empty.
+     */
     public int getNavigationListSize() {
         ThreadCheck.ensureOnUiThread();
         try {
@@ -126,6 +190,11 @@ public final class NavigationController {
         }
     }
 
+    /**
+     * Returns the index of the current navigation, -1 if there are no navigations.
+     *
+     * @return The index of the current navigation.
+     */
     public int getNavigationListCurrentIndex() {
         ThreadCheck.ensureOnUiThread();
         try {
@@ -135,8 +204,15 @@ public final class NavigationController {
         }
     }
 
+    /**
+     * Returns the uri to display for the navigation at index.
+     *
+     * @param index The index of the navigation.
+     * @throws IndexOutOfBoundsException If index is not between 0 and {@link
+     *         getNavigationListCurrentIndex}.
+     */
     @NonNull
-    public Uri getNavigationEntryDisplayUri(int index) {
+    public Uri getNavigationEntryDisplayUri(int index) throws IndexOutOfBoundsException {
         ThreadCheck.ensureOnUiThread();
         try {
             return Uri.parse(mNavigationController.getNavigationEntryDisplayUri(index));
@@ -145,15 +221,26 @@ public final class NavigationController {
         }
     }
 
+    private void checkNavigationIndex(int index) throws IndexOutOfBoundsException {
+        if (index < 0 || index >= getNavigationListSize()) {
+            throw new IndexOutOfBoundsException();
+        }
+    }
+
     /**
+     * Returns the title of the navigation entry at the supplied index.
+     *
+     * @throws IndexOutOfBoundsException If index is not between 0 and {@link
+     *         getNavigationListCurrentIndex}.
      * @since 81
      */
     @NonNull
-    public String getNavigationEntryTitle(int index) {
+    public String getNavigationEntryTitle(int index) throws IndexOutOfBoundsException {
         ThreadCheck.ensureOnUiThread();
         if (WebLayer.getSupportedMajorVersionInternal() < 81) {
             throw new UnsupportedOperationException();
         }
+        checkNavigationIndex(index);
         try {
             return mNavigationController.getNavigationEntryTitle(index);
         } catch (RemoteException e) {

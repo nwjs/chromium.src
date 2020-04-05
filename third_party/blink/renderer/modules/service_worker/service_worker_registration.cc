@@ -9,7 +9,9 @@
 #include "base/memory/ptr_util.h"
 #include "mojo/public/cpp/bindings/pending_associated_receiver.h"
 #include "mojo/public/cpp/bindings/pending_associated_remote.h"
+#include "third_party/blink/public/common/security_context/insecure_request_policy.h"
 #include "third_party/blink/public/mojom/loader/fetch_client_settings_object.mojom-blink.h"
+#include "third_party/blink/public/mojom/security_context/insecure_request_policy.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_navigation_preload_state.h"
 #include "third_party/blink/renderer/core/dom/dom_exception.h"
@@ -129,14 +131,14 @@ ServiceWorkerRegistration* ServiceWorkerRegistration::Take(
     ScriptPromiseResolver* resolver,
     WebServiceWorkerRegistrationObjectInfo info) {
   return ServiceWorkerContainer::From(
-             To<Document>(resolver->GetExecutionContext()))
+             Document::From(resolver->GetExecutionContext()))
       ->GetOrCreateServiceWorkerRegistration(std::move(info));
 }
 
 ServiceWorkerRegistration::ServiceWorkerRegistration(
     ExecutionContext* execution_context,
     WebServiceWorkerRegistrationObjectInfo info)
-    : ContextLifecycleObserver(execution_context),
+    : ExecutionContextLifecycleObserver(execution_context),
       registration_id_(info.registration_id),
       scope_(std::move(info.scope)),
       stopped_(false) {
@@ -148,7 +150,7 @@ ServiceWorkerRegistration::ServiceWorkerRegistration(
 ServiceWorkerRegistration::ServiceWorkerRegistration(
     ExecutionContext* execution_context,
     mojom::blink::ServiceWorkerRegistrationObjectInfoPtr info)
-    : ContextLifecycleObserver(execution_context),
+    : ExecutionContextLifecycleObserver(execution_context),
       registration_id_(info->registration_id),
       scope_(std::move(info->scope)),
       stopped_(false) {
@@ -277,8 +279,9 @@ ScriptPromise ServiceWorkerRegistration::update(
   auto mojom_settings_object = mojom::blink::FetchClientSettingsObject::New(
       settings_object.GetReferrerPolicy(),
       KURL(settings_object.GetOutgoingReferrer()),
-      settings_object.GetInsecureRequestsPolicy() &
-              blink::kUpgradeInsecureRequests
+      (settings_object.GetInsecureRequestsPolicy() &
+       mojom::blink::InsecureRequestPolicy::kUpgradeInsecureRequests) !=
+              mojom::blink::InsecureRequestPolicy::kLeaveInsecureRequestsAlone
           ? blink::mojom::InsecureRequestsPolicy::kUpgrade
           : blink::mojom::InsecureRequestsPolicy::kDoNotUpgrade);
 
@@ -311,17 +314,17 @@ void ServiceWorkerRegistration::Dispose() {
   receiver_.reset();
 }
 
-void ServiceWorkerRegistration::Trace(blink::Visitor* visitor) {
+void ServiceWorkerRegistration::Trace(Visitor* visitor) {
   visitor->Trace(installing_);
   visitor->Trace(waiting_);
   visitor->Trace(active_);
   visitor->Trace(navigation_preload_);
   EventTargetWithInlineData::Trace(visitor);
-  ContextLifecycleObserver::Trace(visitor);
+  ExecutionContextLifecycleObserver::Trace(visitor);
   Supplementable<ServiceWorkerRegistration>::Trace(visitor);
 }
 
-void ServiceWorkerRegistration::ContextDestroyed(ExecutionContext*) {
+void ServiceWorkerRegistration::ContextDestroyed() {
   if (stopped_)
     return;
   stopped_ = true;

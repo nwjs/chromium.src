@@ -84,6 +84,7 @@ class FakeTabController : public TabController {
   void OnMouseEventInTab(views::View* source,
                          const ui::MouseEvent& event) override {}
   void UpdateHoverCard(Tab* tab) override {}
+  bool ShowDomainInHoverCard(const Tab* tab) const override { return true; }
   bool HoverCardIsShowingForTab(Tab* tab) override { return false; }
   int GetBackgroundOffset() const override { return 0; }
   bool ShouldPaintAsActiveFrame() const override { return true; }
@@ -134,18 +135,6 @@ class FakeTabController : public TabController {
       const tab_groups::TabGroupColorId& color_id) const override {
     return SkColor();
   }
-
-  void SetVisualDataForGroup(
-      const tab_groups::TabGroupId& group,
-      const tab_groups::TabGroupVisualData& visual_data) override {}
-
-  void CloseAllTabsInGroup(const tab_groups::TabGroupId& group) override {}
-
-  void UngroupAllTabsInGroup(const tab_groups::TabGroupId& group) override {}
-
-  void AddNewTabInGroup(const tab_groups::TabGroupId& group) override {}
-
-  const Browser* GetBrowser() override { return nullptr; }
 
   void SetTabColors(SkColor bg_color_active,
                     SkColor fg_color_active,
@@ -208,7 +197,7 @@ class TabTest : public ChromeViewsTestBase {
     // Tab size and TabRendererData state.
     if (tab.data_.pinned) {
       EXPECT_EQ(1, VisibleIconCount(tab));
-      if (tab.data_.alert_state) {
+      if (tab.data_.alert_state.size()) {
         EXPECT_FALSE(tab.showing_icon_);
         EXPECT_TRUE(tab.showing_alert_indicator_);
       } else {
@@ -225,7 +214,7 @@ class TabTest : public ChromeViewsTestBase {
           EXPECT_FALSE(tab.showing_alert_indicator_);
           break;
         case 2:
-          if (tab.data_.alert_state) {
+          if (tab.data_.alert_state.size()) {
             EXPECT_FALSE(tab.showing_icon_);
             EXPECT_TRUE(tab.showing_alert_indicator_);
           } else {
@@ -235,14 +224,14 @@ class TabTest : public ChromeViewsTestBase {
           break;
         default:
           EXPECT_EQ(3, VisibleIconCount(tab));
-          EXPECT_TRUE(tab.data_.alert_state);
+          EXPECT_FALSE(tab.data_.alert_state.empty());
           break;
       }
     } else {  // Tab not active and not pinned tab.
       switch (VisibleIconCount(tab)) {
         case 1:
           EXPECT_FALSE(tab.showing_close_button_);
-          if (!tab.data_.alert_state) {
+          if (tab.data_.alert_state.empty()) {
             EXPECT_FALSE(tab.showing_alert_indicator_);
             EXPECT_TRUE(tab.showing_icon_);
           } else {
@@ -252,14 +241,14 @@ class TabTest : public ChromeViewsTestBase {
           break;
         case 2:
           EXPECT_TRUE(tab.showing_icon_);
-          if (tab.data_.alert_state)
+          if (tab.data_.alert_state.size())
             EXPECT_TRUE(tab.showing_alert_indicator_);
           else
             EXPECT_FALSE(tab.showing_alert_indicator_);
           break;
         default:
           EXPECT_EQ(3, VisibleIconCount(tab));
-          EXPECT_TRUE(tab.data_.alert_state);
+          EXPECT_FALSE(tab.data_.alert_state.empty());
       }
     }
 
@@ -340,14 +329,6 @@ class TabTest : public ChromeViewsTestBase {
 
   void SetupFakeClock(TabIcon* icon) { icon->clock_ = &fake_clock_; }
 
- protected:
-  void InitWidget(Widget* widget) {
-    Widget::InitParams params(CreateParams(Widget::InitParams::TYPE_WINDOW));
-    params.ownership = Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET;
-    params.bounds.SetRect(10, 20, 300, 400);
-    widget->Init(std::move(params));
-  }
-
  private:
   static gfx::Rect GetAlertIndicatorBounds(const Tab& tab) {
     if (!tab.alert_indicator_) {
@@ -377,13 +358,7 @@ class AlertIndicatorTest : public ChromeViewsTestBase {
     parent_.AddChildView(tab_strip_);
     parent_.set_owned_by_client();
 
-    widget_ = std::make_unique<views::Widget>();
-    views::Widget::InitParams init_params =
-        CreateParams(views::Widget::InitParams::TYPE_POPUP);
-    init_params.ownership =
-        views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET;
-    init_params.bounds = gfx::Rect(0, 0, 400, 400);
-    widget_->Init(std::move(init_params));
+    widget_ = CreateTestWidget();
     widget_->SetContentsView(&parent_);
   }
 
@@ -420,12 +395,11 @@ class AlertIndicatorTest : public ChromeViewsTestBase {
 };
 
 TEST_F(TabTest, HitTestTopPixel) {
-  Widget widget;
-  InitWidget(&widget);
+  std::unique_ptr<views::Widget> widget = CreateTestWidget();
 
   FakeTabController tab_controller;
   Tab tab(&tab_controller);
-  widget.GetContentsView()->AddChildView(&tab);
+  widget->SetContentsView(&tab);
   tab.SizeToPreferredSize();
 
   // Tabs are slanted, so a click halfway down the left edge won't hit it.
@@ -439,7 +413,7 @@ TEST_F(TabTest, HitTestTopPixel) {
 
   // Make sure top edge clicks still select the tab when the window is
   // maximized.
-  widget.Maximize();
+  widget->Maximize();
   EXPECT_TRUE(tab.HitTestPoint(gfx::Point(middle_x, 0)));
 
   // But clicks in the area above the slanted sides should still miss.
@@ -456,12 +430,11 @@ TEST_F(TabTest, LayoutAndVisibilityOfElements) {
       TabAlertState::PIP_PLAYING,
   };
 
-  Widget widget;
-  InitWidget(&widget);
+  std::unique_ptr<views::Widget> widget = CreateTestWidget();
 
   FakeTabController controller;
   Tab tab(&controller);
-  widget.GetContentsView()->AddChildView(&tab);
+  widget->SetContentsView(&tab);
 
   SkBitmap bitmap;
   bitmap.allocN32Pixels(16, 16);
@@ -482,7 +455,10 @@ TEST_F(TabTest, LayoutAndVisibilityOfElements) {
 
         data.pinned = is_pinned_tab;
         controller.set_active_tab(is_active_tab);
-        data.alert_state = alert_state;
+        if (alert_state)
+          data.alert_state = {alert_state.value()};
+        else
+          data.alert_state.clear();
         tab.SetData(data);
         StopFadeAnimationIfNecessary(tab);
 
@@ -513,12 +489,11 @@ TEST_F(TabTest, TooltipProvidedByTab) {
   // tooltips are then disabled.
   if (base::FeatureList::IsEnabled(features::kTabHoverCards))
     return;
-  Widget widget;
-  InitWidget(&widget);
+  std::unique_ptr<views::Widget> widget = CreateTestWidget();
 
   FakeTabController controller;
   Tab tab(&controller);
-  widget.GetContentsView()->AddChildView(&tab);
+  widget->SetContentsView(&tab);
   tab.SizeToPreferredSize();
 
   SkBitmap bitmap;
@@ -535,16 +510,18 @@ TEST_F(TabTest, TooltipProvidedByTab) {
   // should include a description of the alert state when the indicator is
   // present.
   for (int i = 0; i < 2; ++i) {
-    data.alert_state = (i == 0 ? base::Optional<TabAlertState>()
-                               : TabAlertState::AUDIO_PLAYING);
+    data.alert_state =
+        (i == 0 ? std::vector<TabAlertState>()
+                : std::vector<TabAlertState>({TabAlertState::AUDIO_PLAYING}));
+    const auto alert_state_to_show = Tab::GetAlertStateToShow(data.alert_state);
     SCOPED_TRACE(::testing::Message()
                  << "Tab with alert indicator state "
-                 << (data.alert_state
-                         ? static_cast<int>(data.alert_state.value())
+                 << (alert_state_to_show
+                         ? static_cast<int>(alert_state_to_show.value())
                          : -1));
     tab.SetData(data);
     const base::string16 expected_tooltip =
-        Tab::GetTooltipText(data.title, data.alert_state);
+        Tab::GetTooltipText(data.title, alert_state_to_show);
 
     for (auto j = tab.children().begin(); j != tab.children().end(); ++j) {
       if (!strcmp((*j)->GetClassName(), "TabCloseButton"))
@@ -586,11 +563,10 @@ TEST_F(TabTest, CloseButtonLayout) {
 // Regression test for http://crbug.com/609701. Ensure TabCloseButton does not
 // get focus on right click.
 TEST_F(TabTest, CloseButtonFocus) {
-  Widget widget;
-  InitWidget(&widget);
+  std::unique_ptr<views::Widget> widget = CreateTestWidget();
   FakeTabController tab_controller;
   Tab tab(&tab_controller);
-  widget.GetContentsView()->AddChildView(&tab);
+  widget->SetContentsView(&tab);
 
   views::ImageButton* tab_close_button = GetCloseButton(tab);
 
@@ -606,12 +582,11 @@ TEST_F(TabTest, CloseButtonFocus) {
 // Tests expected changes to the ThrobberView state when the WebContents loading
 // state changes or the animation timer (usually in BrowserView) triggers.
 TEST_F(TabTest, LayeredThrobber) {
-  Widget widget;
-  InitWidget(&widget);
+  std::unique_ptr<views::Widget> widget = CreateTestWidget();
 
   FakeTabController tab_controller;
   Tab tab(&tab_controller);
-  widget.GetContentsView()->AddChildView(&tab);
+  widget->SetContentsView(&tab);
   tab.SizeToPreferredSize();
 
   TabIcon* icon = GetTabIcon(tab);
@@ -714,33 +689,31 @@ TEST_F(TabTest, TitleHiddenWhenSmall) {
 }
 
 TEST_F(TabTest, FaviconDoesntMoveWhenShowingAlertIndicator) {
-  Widget widget;
-  InitWidget(&widget);
+  std::unique_ptr<views::Widget> widget = CreateTestWidget();
 
   for (bool is_active_tab : {false, true}) {
     FakeTabController controller;
     controller.set_active_tab(is_active_tab);
     Tab tab(&controller);
-    widget.GetContentsView()->AddChildView(&tab);
+    widget->SetContentsView(&tab);
     tab.SizeToPreferredSize();
 
     views::View* icon = GetTabIcon(tab);
     int icon_x = icon->x();
     TabRendererData data;
-    data.alert_state = TabAlertState::AUDIO_PLAYING;
+    data.alert_state = {TabAlertState::AUDIO_PLAYING};
     tab.SetData(data);
     EXPECT_EQ(icon_x, icon->x());
   }
 }
 
 TEST_F(TabTest, SmallTabsHideCloseButton) {
-  Widget widget;
-  InitWidget(&widget);
+  std::unique_ptr<views::Widget> widget = CreateTestWidget();
 
   FakeTabController controller;
   controller.set_active_tab(false);
   Tab tab(&controller);
-  widget.GetContentsView()->AddChildView(&tab);
+  widget->SetContentsView(&tab);
   const int width = tab.tab_style()->GetContentsInsets().width() +
                     Tab::kMinimumContentsWidthForCloseButtons;
   tab.SetBounds(0, 0, width, 50);
@@ -757,13 +730,12 @@ TEST_F(TabTest, SmallTabsHideCloseButton) {
 }
 
 TEST_F(TabTest, ExtraLeftPaddingNotShownOnSmallActiveTab) {
-  Widget widget;
-  InitWidget(&widget);
+  std::unique_ptr<views::Widget> widget = CreateTestWidget();
 
   FakeTabController controller;
   controller.set_active_tab(true);
   Tab tab(&controller);
-  widget.GetContentsView()->AddChildView(&tab);
+  widget->SetContentsView(&tab);
   tab.SetBounds(0, 0, 200, 50);
   const views::View* close = GetCloseButton(tab);
   EXPECT_TRUE(close->GetVisible());
@@ -778,12 +750,11 @@ TEST_F(TabTest, ExtraLeftPaddingNotShownOnSmallActiveTab) {
 }
 
 TEST_F(TabTest, ExtraLeftPaddingShownOnSiteWithoutFavicon) {
-  Widget widget;
-  InitWidget(&widget);
+  std::unique_ptr<views::Widget> widget = CreateTestWidget();
 
   FakeTabController controller;
   Tab tab(&controller);
-  widget.GetContentsView()->AddChildView(&tab);
+  widget->SetContentsView(&tab);
 
   tab.SizeToPreferredSize();
   const views::View* icon = GetTabIcon(tab);
@@ -800,15 +771,14 @@ TEST_F(TabTest, ExtraLeftPaddingShownOnSiteWithoutFavicon) {
 }
 
 TEST_F(TabTest, ExtraAlertPaddingNotShownOnSmallActiveTab) {
-  Widget widget;
-  InitWidget(&widget);
+  std::unique_ptr<views::Widget> widget = CreateTestWidget();
 
   FakeTabController controller;
   controller.set_active_tab(true);
   Tab tab(&controller);
-  widget.GetContentsView()->AddChildView(&tab);
+  widget->SetContentsView(&tab);
   TabRendererData data;
-  data.alert_state = TabAlertState::AUDIO_PLAYING;
+  data.alert_state = {TabAlertState::AUDIO_PLAYING};
   tab.SetData(data);
 
   tab.SetBounds(0, 0, 200, 50);
@@ -847,11 +817,10 @@ TEST_F(TabTest, TitleTextHasSufficientContrast) {
 
   // Create a tab inside a Widget, so it has a theme provider, so the call to
   // UpdateForegroundColors() below doesn't no-op.
-  Widget widget;
-  InitWidget(&widget);
+  std::unique_ptr<views::Widget> widget = CreateTestWidget();
   FakeTabController controller;
   Tab tab(&controller);
-  widget.GetContentsView()->AddChildView(&tab);
+  widget->SetContentsView(&tab);
 
   for (const auto& colors : color_schemes) {
     controller.SetTabColors(colors.bg_active, colors.fg_active,
@@ -881,7 +850,7 @@ TEST_F(AlertIndicatorTest, ShowsAndHidesAlertIndicator) {
   EXPECT_FALSE(showing_close_button(media_tab));
 
   TabRendererData start_media;
-  start_media.alert_state = TabAlertState::AUDIO_PLAYING;
+  start_media.alert_state = {TabAlertState::AUDIO_PLAYING};
   start_media.pinned = media_tab->data().pinned;
   media_tab->SetData(std::move(start_media));
 
@@ -891,7 +860,6 @@ TEST_F(AlertIndicatorTest, ShowsAndHidesAlertIndicator) {
   EXPECT_FALSE(showing_close_button(media_tab));
 
   TabRendererData stop_media;
-  stop_media.alert_state = base::nullopt;
   stop_media.pinned = media_tab->data().pinned;
   media_tab->SetData(std::move(stop_media));
 

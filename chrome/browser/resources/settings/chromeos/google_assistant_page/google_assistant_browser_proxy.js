@@ -34,9 +34,7 @@ cr.define('settings', function() {
 
     /** @override */
     syncVoiceModelStatus() {
-      if (loadTimeData.getBoolean('voiceMatchEnabled')) {
-        chrome.send('syncVoiceModelStatus');
-      }
+      chrome.send('syncVoiceModelStatus');
     }
   }
 
@@ -44,6 +42,7 @@ cr.define('settings', function() {
   // during testing.
   cr.addSingletonGetter(GoogleAssistantBrowserProxyImpl);
 
+  // #cr_define_end
   return {
     GoogleAssistantBrowserProxy: GoogleAssistantBrowserProxy,
     GoogleAssistantBrowserProxyImpl: GoogleAssistantBrowserProxyImpl,

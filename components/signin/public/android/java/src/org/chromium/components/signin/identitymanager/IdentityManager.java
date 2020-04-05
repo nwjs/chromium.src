@@ -5,16 +5,15 @@
 package org.chromium.components.signin.identitymanager;
 
 import android.accounts.Account;
-import android.support.annotation.MainThread;
-import android.support.annotation.Nullable;
 
+import androidx.annotation.MainThread;
+import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.ObserverList;
 import org.chromium.base.annotations.CalledByNative;
 import org.chromium.base.annotations.NativeMethods;
 import org.chromium.components.signin.AccountManagerFacade;
-import org.chromium.components.signin.base.CoreAccountId;
 import org.chromium.components.signin.base.CoreAccountInfo;
 
 /**
@@ -137,15 +136,6 @@ public class IdentityManager {
     }
 
     /**
-     * Provides access to the account ID of the user's primary account. Returns null if no such info
-     * is available.
-     */
-    public @Nullable CoreAccountId getPrimaryAccountId() {
-        CoreAccountInfo primaryAccountInfo = getPrimaryAccountInfo();
-        return primaryAccountInfo == null ? null : primaryAccountInfo.getId();
-    }
-
-    /**
      * Looks up and returns information for account with given |email_address|. If the account
      * cannot be found, return a null value.
      */
@@ -224,11 +214,12 @@ public class IdentityManager {
     }
 
     @NativeMethods
-    interface Natives {
-        public @Nullable CoreAccountInfo getPrimaryAccountInfo(long nativeIdentityManager);
-        public @Nullable CoreAccountInfo
-        findExtendedAccountInfoForAccountWithRefreshTokenByEmailAddress(
+    public interface Natives {
+        @Nullable
+        CoreAccountInfo getPrimaryAccountInfo(long nativeIdentityManager);
+        @Nullable
+        CoreAccountInfo findExtendedAccountInfoForAccountWithRefreshTokenByEmailAddress(
                 long nativeIdentityManager, String email);
-        public CoreAccountInfo[] getAccountsWithRefreshTokens(long nativeIdentityManager);
+        CoreAccountInfo[] getAccountsWithRefreshTokens(long nativeIdentityManager);
     }
 }

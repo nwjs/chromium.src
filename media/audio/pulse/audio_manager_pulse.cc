@@ -140,7 +140,8 @@ AudioOutputStream* AudioManagerPulse::MakeLinearOutputStream(
     const AudioParameters& params,
     const LogCallback& log_callback) {
   DCHECK_EQ(AudioParameters::AUDIO_PCM_LINEAR, params.format());
-  return MakeOutputStream(params, AudioDeviceDescription::kDefaultDeviceId);
+  return MakeOutputStream(params, AudioDeviceDescription::kDefaultDeviceId,
+                          log_callback);
 }
 
 AudioOutputStream* AudioManagerPulse::MakeLowLatencyOutputStream(
@@ -148,9 +149,10 @@ AudioOutputStream* AudioManagerPulse::MakeLowLatencyOutputStream(
     const std::string& device_id,
     const LogCallback& log_callback) {
   DCHECK_EQ(AudioParameters::AUDIO_PCM_LOW_LATENCY, params.format());
-  return MakeOutputStream(params, device_id.empty()
-                                      ? AudioDeviceDescription::kDefaultDeviceId
-                                      : device_id);
+  return MakeOutputStream(
+      params,
+      device_id.empty() ? AudioDeviceDescription::kDefaultDeviceId : device_id,
+      log_callback);
 }
 
 AudioInputStream* AudioManagerPulse::MakeLinearInputStream(
@@ -158,7 +160,7 @@ AudioInputStream* AudioManagerPulse::MakeLinearInputStream(
     const std::string& device_id,
     const LogCallback& log_callback) {
   DCHECK_EQ(AudioParameters::AUDIO_PCM_LINEAR, params.format());
-  return MakeInputStream(params, device_id);
+  return MakeInputStream(params, device_id, log_callback);
 }
 
 AudioInputStream* AudioManagerPulse::MakeLowLatencyInputStream(
@@ -166,7 +168,7 @@ AudioInputStream* AudioManagerPulse::MakeLowLatencyInputStream(
     const std::string& device_id,
     const LogCallback& log_callback) {
   DCHECK_EQ(AudioParameters::AUDIO_PCM_LOW_LATENCY, params.format());
-  return MakeInputStream(params, device_id);
+  return MakeInputStream(params, device_id, log_callback);
 }
 
 std::string AudioManagerPulse::GetDefaultInputDeviceID() {
@@ -243,15 +245,19 @@ AudioParameters AudioManagerPulse::GetPreferredOutputStreamParameters(
 
 AudioOutputStream* AudioManagerPulse::MakeOutputStream(
     const AudioParameters& params,
-    const std::string& device_id) {
+    const std::string& device_id,
+    LogCallback log_callback) {
   DCHECK(!device_id.empty());
-  return new PulseAudioOutputStream(params, device_id, this);
+  return new PulseAudioOutputStream(params, device_id, this,
+                                    std::move(log_callback));
 }
 
 AudioInputStream* AudioManagerPulse::MakeInputStream(
-    const AudioParameters& params, const std::string& device_id) {
-  return new PulseAudioInputStream(this, device_id, params,
-                                   input_mainloop_, input_context_);
+    const AudioParameters& params,
+    const std::string& device_id,
+    LogCallback log_callback) {
+  return new PulseAudioInputStream(this, device_id, params, input_mainloop_,
+                                   input_context_, std::move(log_callback));
 }
 
 void AudioManagerPulse::UpdateNativeAudioHardwareInfo() {

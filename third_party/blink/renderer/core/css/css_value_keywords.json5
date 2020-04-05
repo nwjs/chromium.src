@@ -145,7 +145,6 @@
     "fantasy",
     "monospace",
     "-webkit-body",
-    "-webkit-pictograph",
 
     //
     // font-display
@@ -477,6 +476,8 @@
     "-webkit-isolate",
     "-webkit-isolate-override",
     "-webkit-plaintext",
+    "jis-b5",
+    "jis-b4",
     "landscape",
     "ledger",
     "legal",
@@ -503,6 +504,12 @@
     "underline",
     "wavy",
     "-webkit-nowrap",
+
+    //
+    // math-style
+    //
+    // inline
+    "display",
 
     // CSS3 Values
     // box-align
@@ -615,6 +622,13 @@
     //
     // auto
     // none
+
+    // text-underline-position
+    // auto
+    "from-font",
+    // under
+    // left
+    // right
 
     //
     // word-break
@@ -1207,13 +1221,15 @@
     // none
     "back-button",
 
-    // render-subtree
-    "invisible",
-    "skip-activation",
-    "skip-viewport-activation",
+    // subtree-visibility
+    "hidden-matchable",
 
     // -internal-empty-line-height
     // none
     "fabricated",
+
+    // @supports selector(...)
+    // https://drafts.csswg.org/css-conditional-4/#typedef-supports-selector-fn
+    "selector",
   ],
 }

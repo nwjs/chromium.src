@@ -11,7 +11,7 @@ cr.define('settings', function() {
    * in chrome/browser/ui/webui/site_settings_helper.cc
    * @enum {string}
    */
-  const ContentSettingsTypes = {
+  /* #export */ const ContentSettingsTypes = {
     COOKIES: 'cookies',
     IMAGES: 'images',
     JAVASCRIPT: 'javascript',
@@ -29,6 +29,7 @@ cr.define('settings', function() {
     MIDI_DEVICES: 'midi-sysex',
     USB_DEVICES: 'usb-devices',
     SERIAL_PORTS: 'serial-ports',
+    BLUETOOTH_DEVICES: 'bluetooth-devices',
     ZOOM_LEVELS: 'zoom-levels',
     PROTECTED_CONTENT: 'protected-content',
     ADS: 'ads',
@@ -49,7 +50,7 @@ cr.define('settings', function() {
    * components/content_settings/core/common/content_settings.h
    * @enum {string}
    */
-  const ContentSetting = {
+  /* #export */ const ContentSetting = {
     DEFAULT: 'default',
     ALLOW: 'allow',
     BLOCK: 'block',
@@ -64,11 +65,24 @@ cr.define('settings', function() {
    * chrome/browser/ui/webui/site_settings_helper.cc
    * @enum {string}
    */
-  const ChooserType = {
+  /* #export */ const ChooserType = {
     NONE: '',
     USB_DEVICES: 'usb-devices-data',
     SERIAL_PORTS: 'serial-ports-data',
     HID_DEVICES: 'hid-devices-data',
+    BLUETOOTH_DEVICES: 'bluetooth-devices-data',
+  };
+
+  /**
+   * Possible preference settings for the profile.cookie_controls_mode pref.
+   * This should be kept in sync with the |CookieControlsMode| enum in
+   * components/content_settings/core/browser/cookie_settings.h
+   * @enum {number}
+   */
+  /* #export */ const CookieControlsMode = {
+    DISABLED: 0,
+    ENABLED: 1,
+    INCOGNITO_ONLY: 2,
   };
 
   /**
@@ -77,7 +91,7 @@ cr.define('settings', function() {
    * chrome/browser/ui/webui/site_settings_helper.h
    * @enum {string}
    */
-  const SiteSettingSource = {
+  /* #export */ const SiteSettingSource = {
     ADS_FILTER_BLACKLIST: 'ads-filter-blacklist',
     DEFAULT: 'default',
     // This source is for the Protected Media Identifier / Protected Content
@@ -101,29 +115,56 @@ cr.define('settings', function() {
    * An invalid subtype value.
    * @type {string}
    */
-  const INVALID_CATEGORY_SUBTYPE = '';
+  /* #export */ const INVALID_CATEGORY_SUBTYPE = '';
 
   /**
-   * Contains the possible record action types.
+   * Contains the record action types logged before M82.
    * This should be kept in sync with the |AllSitesAction| enum in
    * chrome/browser/ui/webui/settings/site_settings_handler.cc
    * @enum {number}
    */
-  const AllSitesAction = {
+  /* #export */ const AllSitesAction = {
     LOAD_PAGE: 0,
     RESET_PERMISSIONS: 1,
     CLEAR_DATA: 2,
     ENTER_SITE_DETAILS: 3,
   };
 
+
+  /**
+   * Contains the possible record action types.
+   * This should be kept in sync with the |AllSitesAction2| enum in
+   * chrome/browser/ui/webui/settings/site_settings_handler.cc
+   * @enum {number}
+   */
+  /* #export */ const AllSitesAction2 = {
+    LOAD_PAGE: 0,
+    RESET_SITE_GROUP_PERMISSIONS: 1,
+    RESET_ORIGIN_PERMISSIONS: 2,
+    CLEAR_ALL_DATA: 3,
+    CLEAR_SITE_GROUP_DATA: 4,
+    CLEAR_ORIGIN_DATA: 5,
+    ENTER_SITE_DETAILS: 6,
+  };
+
   /**
    * Contains the possible sort methods.
    * @enum {string}
    */
-  const SortMethod = {
+  /* #export */ const SortMethod = {
     NAME: 'name',
     MOST_VISITED: 'most-visited',
     STORAGE: 'data-stored',
+  };
+
+  /**
+   * Contains types of dialogs on the AllSites page,
+   * used for logging userActions.
+   * @enum {string}
+   */
+  /* #export */ const ALL_SITES_DIALOG = {
+    CLEAR_DATA: 'ClearData',
+    RESET_PERMISSIONS: 'ResetPermissions',
   };
 
   /**
@@ -131,15 +172,18 @@ cr.define('settings', function() {
    * match for SiteExceptions.
    * @type {string}
    */
-  const SITE_EXCEPTION_WILDCARD = '*';
+  /* #export */ const SITE_EXCEPTION_WILDCARD = '*';
 
   // #cr_define_end
   return {
     ALL_SITES,
+    ALL_SITES_DIALOG,
     AllSitesAction,
+    AllSitesAction2,
     ChooserType,
     ContentSetting,
     ContentSettingsTypes,
+    CookieControlsMode,
     INVALID_CATEGORY_SUBTYPE,
     SITE_EXCEPTION_WILDCARD,
     SiteSettingSource,

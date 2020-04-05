@@ -57,8 +57,9 @@ import org.chromium.chrome.browser.infobar.InfoBarIdentifier;
 import org.chromium.chrome.browser.infobar.SimpleConfirmInfoBarBuilder;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.SharedPreferencesManager;
+import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tab.TabImpl;
+import org.chromium.chrome.browser.tab.TabUtils;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.webapps.WebappActivity;
 import org.chromium.content_public.browser.ScreenOrientationDelegate;
@@ -236,14 +237,6 @@ public class VrShellDelegate
             setVrModeEnabled(sInstance.mActivity, true);
             if (VrDelegate.DEBUG_LOGS) Log.i(TAG, "VrBroadcastReceiver onReceive");
 
-            if (!sInstance.mRequestedWebVr && !sInstance.mStartedFromVrIntent) {
-                // If we didn't request WebVR then we're not coming from a request present call.
-                // If we didn't set mStartedFromVrIntent this isn't an intent from another app.
-                // Therefore we can assume this was triggered by NFC.
-                VrShellDelegateJni.get().recordVrStartAction(
-                        sInstance.mNativeVrShellDelegate, VrStartAction.HEADSET_ACTIVATION);
-            }
-
             // We add a black overlay view so that we can show black while the VR UI is loading.
             if (!sInstance.mInVr) {
                 VrModuleProvider.getDelegate().addBlackOverlayViewForActivity(sInstance.mActivity);
@@ -336,6 +329,7 @@ public class VrShellDelegate
      * Called when the native library is first available.
      */
     public static void onNativeLibraryAvailable() {
+        VrModule.ensureNativeLoaded();
         VrModuleProvider.registerJni();
         VrShellDelegateJni.get().onLibraryAvailable();
     }
@@ -794,14 +788,13 @@ public class VrShellDelegate
     private static void startFeedback(Tab tab) {
         // TODO(ymalik): This call will connect to the Google Services api which can be slow. Can we
         // connect to it beforehand when we know that we'll be prompting for feedback?
-        HelpAndFeedback.getInstance().showFeedback(((TabImpl) tab).getActivity(),
-                ((TabImpl) tab).getProfile(), tab.getUrl(),
+        HelpAndFeedback.getInstance().showFeedback(TabUtils.getActivity(tab),
+                Profile.fromWebContents(tab.getWebContents()), tab.getUrlString(),
                 ContextUtils.getApplicationContext().getPackageName() + "." + FEEDBACK_REPORT_TYPE);
     }
 
     private static void promptForFeedback(final Tab tab) {
         if (tab == null) return;
-        final ChromeActivity activity = ((TabImpl) tab).getActivity();
         SimpleConfirmInfoBarBuilder.Listener listener = new SimpleConfirmInfoBarBuilder.Listener() {
             @Override
             public void onInfoBarDismissed() {}
@@ -829,7 +822,7 @@ public class VrShellDelegate
                         org.chromium.chrome.vr.R.string.vr_shell_feedback_infobar_description),
                 ContextUtils.getApplicationContext().getString(
                         org.chromium.chrome.vr.R.string.vr_shell_feedback_infobar_feedback_button),
-                activity.getString(R.string.no_thanks), null /* linkText */,
+                tab.getContext().getString(R.string.no_thanks), null /* linkText */,
                 true /* autoExpire  */);
     }
 
@@ -1153,11 +1146,6 @@ public class VrShellDelegate
         if (!isVrBrowsingSupported(mActivity)) {
             onVrIntentUnsupported();
             return;
-        }
-
-        if (!mInVr) {
-            VrShellDelegateJni.get().recordVrStartAction(
-                    mNativeVrShellDelegate, VrStartAction.INTENT_LAUNCH);
         }
 
         mStartedFromVrIntent = true;
@@ -1899,7 +1887,6 @@ public class VrShellDelegate
         long init(VrShellDelegate caller);
         void onLibraryAvailable();
         void setPresentResult(long nativeVrShellDelegate, VrShellDelegate caller, boolean result);
-        void recordVrStartAction(long nativeVrShellDelegate, int startAction);
         void onPause(long nativeVrShellDelegate, VrShellDelegate caller);
         void onResume(long nativeVrShellDelegate, VrShellDelegate caller);
         void destroy(long nativeVrShellDelegate, VrShellDelegate caller);

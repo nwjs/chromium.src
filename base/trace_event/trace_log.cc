@@ -6,7 +6,9 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <memory>
+#include <unordered_set>
 #include <utility>
 
 #include "base/base_switches.h"
@@ -28,6 +30,7 @@
 #include "base/strings/stringprintf.h"
 #include "base/system/sys_info.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "base/threading/platform_thread.h"
 #include "base/threading/sequenced_task_runner_handle.h"
 #include "base/threading/thread_id_name_manager.h"
@@ -189,10 +192,12 @@ class TraceLog::OptionalAutoLock {
       lock_->Release();
   }
 
-  void EnsureAcquired() {
+  void EnsureAcquired() EXCLUSIVE_LOCK_FUNCTION(lock_) {
     if (!locked_) {
       lock_->Acquire();
       locked_ = true;
+    } else {
+      lock_->AssertAcquired();
     }
   }
 
@@ -1004,12 +1009,13 @@ void TraceLog::FinishFlush(int generation, bool discard_events) {
   }
 
   if (use_worker_thread_) {
-    base::PostTask(FROM_HERE,
-                   {ThreadPool(), MayBlock(), TaskPriority::BEST_EFFORT,
-                    TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
-                   BindOnce(&TraceLog::ConvertTraceEventsToTraceFormat,
-                            std::move(previous_logged_events),
-                            flush_output_callback, argument_filter_predicate));
+    base::ThreadPool::PostTask(
+        FROM_HERE,
+        {MayBlock(), TaskPriority::BEST_EFFORT,
+         TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
+        BindOnce(&TraceLog::ConvertTraceEventsToTraceFormat,
+                 std::move(previous_logged_events), flush_output_callback,
+                 argument_filter_predicate));
     return;
   }
 
@@ -1220,7 +1226,7 @@ TraceEventHandle TraceLog::AddTraceEventWithThreadIdAndTimestamp(
     int thread_id,
     const TimeTicks& timestamp,
     TraceArguments* args,
-    unsigned int flags) {
+    unsigned int flags) NO_THREAD_SAFETY_ANALYSIS {
   TraceEventHandle handle = {0, 0, 0};
   if (!ShouldAddAfterUpdatingState(phase, category_group_enabled, name, id,
                                    thread_id, args)) {
@@ -1297,6 +1303,7 @@ TraceEventHandle TraceLog::AddTraceEventWithThreadIdAndTimestamp(
       trace_event = AddEventToThreadSharedChunkWhileLocked(&handle, true);
     }
 
+    // NO_THREAD_SAFETY_ANALYSIS: Conditional locking above.
     if (trace_event) {
       if (filtered_trace_event) {
         *trace_event = std::move(*filtered_trace_event);
@@ -1603,7 +1610,8 @@ TraceEvent* TraceLog::GetEventByHandle(TraceEventHandle handle) {
 }
 
 TraceEvent* TraceLog::GetEventByHandleInternal(TraceEventHandle handle,
-                                               OptionalAutoLock* lock) {
+                                               OptionalAutoLock* lock)
+    NO_THREAD_SAFETY_ANALYSIS {
   if (!handle.chunk_seq)
     return nullptr;
 
@@ -1620,6 +1628,7 @@ TraceEvent* TraceLog::GetEventByHandleInternal(TraceEventHandle handle,
 
   // The event has been out-of-control of the thread local buffer.
   // Try to get the event from the main buffer with a lock.
+  // NO_THREAD_SAFETY_ANALYSIS: runtime-dependent locking here.
   if (lock)
     lock->EnsureAcquired();
 

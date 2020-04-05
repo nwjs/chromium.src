@@ -35,11 +35,6 @@ const base::Feature kEnableOverwritingPlaceholderUsernames{
 const base::Feature kEnablePasswordsAccountStorage = {
     "EnablePasswordsAccountStorage", base::FEATURE_DISABLED_BY_DEFAULT};
 
-// Provides the UI to save Gaia-account-scoped passwords. Relies on the feature
-// "EnablePasswordsAccountStorage" to be active.
-const base::Feature kEnablePasswordsAccountStorageSavingUi = {
-    "EnablePasswordsAccountStorageSavingUi", base::FEATURE_DISABLED_BY_DEFAULT};
-
 const base::Feature KEnablePasswordGenerationForClearTextFields = {
     "EnablePasswordGenerationForClearTextFields",
     base::FEATURE_DISABLED_BY_DEFAULT};
@@ -53,9 +48,13 @@ const base::Feature kFillOnAccountSelect = {"fill-on-account-select",
 const base::Feature kGooglePasswordManager = {
     "google-password-manager", base::FEATURE_DISABLED_BY_DEFAULT};
 
-// Enables storing leaked credentials in the database.
-const base::Feature kLeakHistory = {"PasswordLeakHistory",
-                                    base::FEATURE_DISABLED_BY_DEFAULT};
+// Enables password change flow from leaked password dialog.
+const base::Feature kPasswordChange = {"PasswordChange",
+                                       base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Enables the bulk Password Check feature for signed in users.
+const base::Feature kPasswordCheck = {"PasswordCheck",
+                                      base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Enables editing saved passwords for Android.
 const base::Feature kPasswordEditingAndroid = {
@@ -70,11 +69,6 @@ const base::Feature kPasswordImport = {"PasswordImport",
 const base::Feature kPasswordManagerOnboardingAndroid = {
     "PasswordManagerOnboardingAndroid", base::FEATURE_DISABLED_BY_DEFAULT};
 
-// Controls whether the password bubble on desktop contains an illustration and
-// which illustration.
-const base::Feature kPasswordSaveIllustration = {
-    "SavePasswordIllustration", base::FEATURE_DISABLED_BY_DEFAULT};
-
 // Enables showing UI which allows users to easily revert their choice to
 // never save passwords on a certain website.
 const base::Feature kRecoverFromNeverSaveAndroid = {
@@ -82,7 +76,7 @@ const base::Feature kRecoverFromNeverSaveAndroid = {
 
 // Enables support of filling and saving on username first flow.
 const base::Feature kUsernameFirstFlow = {"UsernameFirstFlow",
-                                          base::FEATURE_DISABLED_BY_DEFAULT};
+                                          base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Field trial identifier for password generation requirements.
 const char kGenerationRequirementsFieldTrial[] =

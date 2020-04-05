@@ -68,28 +68,23 @@ class AutofillKeyboardAccessoryAdapter : public AutofillPopupView,
   void AcceptSuggestion(int index) override;
   int GetLineCount() const override;
   const autofill::Suggestion& GetSuggestionAt(int row) const override;
-  const base::string16& GetElidedValueAt(int row) const override;
-  const base::string16& GetElidedLabelAt(int row) const override;
+  const base::string16& GetSuggestionValueAt(int row) const override;
+  const base::string16& GetSuggestionLabelAt(int row) const override;
   bool GetRemovalConfirmationText(int index,
                                   base::string16* title,
                                   base::string16* body) override;
   bool RemoveSuggestion(int index) override;
   void SetSelectedLine(base::Optional<int> selected_line) override;
   base::Optional<int> selected_line() const override;
-  const AutofillPopupLayoutModel& layout_model() const override;
+  PopupType GetPopupType() const override;
 
-  // AutofillPopupViewDelegate implementation
   void Hide(PopupHidingReason reason) override;
   void ViewDestroyed() override;
-  void SetSelectionAtPoint(const gfx::Point& point) override;
-  bool AcceptSelectedLine() override;
   void SelectionCleared() override;
-  bool HasSelection() const override;
-  gfx::Rect popup_bounds() const override;
   gfx::NativeView container_view() const override;
   const gfx::RectF& element_bounds() const override;
   bool IsRTL() const override;
-  const std::vector<autofill::Suggestion> GetSuggestions() override;
+  std::vector<Suggestion> GetSuggestions() const override;
 
   void OnDeletionConfirmed(int index);
 

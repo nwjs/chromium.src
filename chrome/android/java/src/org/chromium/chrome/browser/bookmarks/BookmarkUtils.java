@@ -15,6 +15,7 @@ import android.text.TextUtils;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.BuildInfo;
+import org.chromium.base.IntentUtils;
 import org.chromium.base.Log;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.metrics.RecordHistogram;
@@ -28,15 +29,13 @@ import org.chromium.chrome.browser.document.ChromeLauncherActivity;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.SharedPreferencesManager;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tab.TabImpl;
 import org.chromium.chrome.browser.ui.messages.snackbar.Snackbar;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager.SnackbarController;
-import org.chromium.chrome.browser.util.IntentUtils;
-import org.chromium.chrome.browser.util.UrlConstants;
 import org.chromium.components.bookmarks.BookmarkId;
 import org.chromium.components.bookmarks.BookmarkType;
 import org.chromium.components.browser_ui.widget.TintedDrawable;
+import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.base.PageTransition;
 
@@ -70,8 +69,8 @@ public class BookmarkUtils {
             return bookmarkId;
         }
 
-        BookmarkId bookmarkId = addBookmarkInternal(
-                activity, bookmarkModel, tab.getTitle(), ((TabImpl) tab).getOriginalUrl());
+        BookmarkId bookmarkId =
+                addBookmarkInternal(activity, bookmarkModel, tab.getTitle(), tab.getOriginalUrl());
 
         Snackbar snackbar = null;
         if (bookmarkId == null) {
@@ -289,7 +288,7 @@ public class BookmarkUtils {
      * @return The tint used on the bookmark folder icon.
      */
     public static int getFolderIconTint() {
-        return R.color.standard_mode_tint;
+        return R.color.default_icon_color_tint_list;
     }
 
     private static void openUrl(Activity activity, String url, ComponentName componentName) {

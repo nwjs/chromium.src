@@ -40,8 +40,6 @@ fast/harness/results.html [ Skip ]
 [ Linux ] editing/input/emacs-ctrl-o.html [ Skip ]
 [ Win ] fast/events/inputevents/inputevent-yank.html [ Skip ]
 [ Linux ] fast/events/inputevents/inputevent-yank.html [ Skip ]
-[ Win ] virtual/mouseevent_fractional/fast/events/inputevents/inputevent-yank.html [ Skip ]
-[ Linux ] virtual/mouseevent_fractional/fast/events/inputevents/inputevent-yank.html [ Skip ]
 
 # Chrome Mac doesn't support Ctrl+Up/Down key-bindings.
 [ Mac ] editing/input/ctrl-up-down.html [ Skip ]
@@ -50,8 +48,6 @@ fast/harness/results.html [ Skip ]
 # this test will always fail.
 [ Linux ] fast/events/option-tab.html [ Skip ]
 [ Win ] fast/events/option-tab.html [ Skip ]
-[ Linux ] virtual/mouseevent_fractional/fast/events/option-tab.html [ Skip ]
-[ Win ] virtual/mouseevent_fractional/fast/events/option-tab.html [ Skip ]
 
 # This test only applies to overlay scrollbar platforms.
 [ Win ] fast/dom/partial-layout-overlay-scrollbars.html [ Skip ]
@@ -78,10 +74,6 @@ fast/harness/results.html [ Skip ]
 [ Mac ] fast/forms/calendar-picker/month-open-picker-with-f4-key.html [ Skip ]
 [ Mac ] fast/forms/calendar-picker/week-open-picker-with-f4-key.html [ Skip ]
 
-# These tests are specific to Windows.
-crbug.com/1012590 [ Mac ] fast/overflow/rtl-scrollbar-drag-origin.html [ Skip ]
-crbug.com/1012590 [ Linux ] fast/overflow/rtl-scrollbar-drag-origin.html [ Skip ]
-
 # Mac does not have menu key.
 [ Mac ] editing/spelling/spelling-on-context-menu-key.html [ Skip ]
 [ Mac ] fast/events/context-menu-key-shift-f10-modifiers.html [ Skip ]
@@ -91,13 +83,6 @@ crbug.com/1012590 [ Linux ] fast/overflow/rtl-scrollbar-drag-origin.html [ Skip 
 [ Mac ] fast/events/menu-key-context-menu-position.html [ Skip ]
 [ Mac ] fast/events/menu-key-context-menu-reveal-focus.html [ Skip ]
 [ Mac ] fast/events/menu-key-context-menu.html [ Skip ]
-[ Mac ] virtual/mouseevent_fractional/fast/events/context-menu-key-shift-f10-modifiers.html [ Skip ]
-[ Mac ] virtual/mouseevent_fractional/fast/events/context-menu-key-shift-f10-prevent-default.html [ Skip ]
-[ Mac ] virtual/mouseevent_fractional/fast/events/contextmenu-follows-focus.html [ Skip ]
-[ Mac ] virtual/mouseevent_fractional/fast/events/menu-key-context-menu-document.html [ Skip ]
-[ Mac ] virtual/mouseevent_fractional/fast/events/menu-key-context-menu-position.html [ Skip ]
-[ Mac ] virtual/mouseevent_fractional/fast/events/menu-key-context-menu-reveal-focus.html [ Skip ]
-[ Mac ] virtual/mouseevent_fractional/fast/events/menu-key-context-menu.html [ Skip ]
 
 # Thumb snapping is not supported on Linux and Mac.
 [ Linux ] fast/scrolling/scrollbars/scrollbar-thumb-snapping.html [ Skip ]
@@ -108,6 +93,8 @@ crbug.com/1012590 [ Linux ] fast/overflow/rtl-scrollbar-drag-origin.html [ Skip 
 [ Mac ] virtual/scroll_customization/fast/scrolling/scrollbars/scrollbar-thumb-snapping.html [ Skip ]
 [ Linux ] virtual/threaded-prefer-compositing/fast/scrolling/scrollbars/scrollbar-thumb-snapping.html [ Skip ]
 [ Mac ] virtual/threaded-prefer-compositing/fast/scrolling/scrollbars/scrollbar-thumb-snapping.html [ Skip ]
+[ Linux ] virtual/percent-based-scrolling/fast/scrolling/scrollbars/scrollbar-thumb-snapping.html [ Skip ]
+[ Mac ] virtual/percent-based-scrolling/fast/scrolling/scrollbars/scrollbar-thumb-snapping.html [ Skip ]
 
 
 # These tests are specific to Linux.
@@ -425,6 +412,11 @@ external/wpt/encrypted-media/clearkey-events-session-closed-event.https.html [ S
 external/wpt/encrypted-media/clearkey-update-non-ascii-input.https.html [ Skip ]
 external/wpt/media-source/mediasource-invalid-codec.html [ Skip ]
 
+# The hyphen character renders slightly differently from U+002D HYPHEN-MINUS.
+[ Mac10.10 ] external/wpt/css/css-text/hyphens/hyphens-manual-011.html [ Skip ]
+[ Mac10.10 ] external/wpt/css/css-text/hyphens/hyphens-manual-012.html [ Skip ]
+[ Mac10.10 ] external/wpt/css/css-text/hyphens/hyphens-manual-013.html [ Skip ]
+
 # CSS Text features that are not planned to implement.
 external/wpt/css/css-text/parsing/word-boundary-detection-computed.html [ Skip ]
 external/wpt/css/css-text/parsing/word-boundary-detection-invalid.html [ Skip ]
@@ -458,6 +450,13 @@ external/wpt/css/css-text/line-breaking/line-breaking-replaced-003.html [ Skip ]
 
 # Undefined behavior without any implementations.
 external/wpt/css/css-text/white-space/seg-break-transformation-019.html [ Skip ]
+
+# No browsers implemented the spec behavior, not web compatible, no consensus.
+# https://github.com/w3c/csswg-drafts/issues/1518
+external/wpt/css/css-text/letter-spacing/letter-spacing-bidi-003.xht [ Skip ]
+external/wpt/css/css-text/letter-spacing/letter-spacing-bidi-004.xht [ Skip ]
+external/wpt/css/css-text/letter-spacing/letter-spacing-bidi-005.xht [ Skip ]
+external/wpt/css/css-text/letter-spacing/letter-spacing-nesting-003.xht [ Skip ]
 
 external/wpt/css/CSS2/linebox/inline-formatting-context-010b.xht [ Skip ]
 external/wpt/css/CSS2/normal-flow/inline-block-replaced-height-008.xht [ Skip ]
@@ -1432,6 +1431,10 @@ external/wpt/clipboard-apis/async-navigator-clipboard-basics.https.html [ Skip ]
 external/wpt/clipboard-apis/async-raw-write-read.tentative.https.html [ Skip ]
 external/wpt/clipboard-apis/async-write-blobs-read-blobs-manual.https.html [ Skip ]
 external/wpt/clipboard-apis/async-write-image-read-image-manual.https.html [ Skip ]
+external/wpt/clipboard-apis/detached-iframe/read-on-detaching-iframe-manual.https.html [ Skip ]
+external/wpt/clipboard-apis/detached-iframe/write-on-detaching-iframe-manual.https.html [ Skip ]
+external/wpt/clipboard-apis/detached-iframe/write-read-on-detached-iframe-manual.https.html [ Skip ]
+external/wpt/clipboard-apis/detached-iframe/writeText-readText-on-detached-iframe-manual.https.html [ Skip ]
 external/wpt/clipboard-apis/events/copy-event-manual.html [ Skip ]
 external/wpt/clipboard-apis/events/cut-event-manual.html [ Skip ]
 external/wpt/clipboard-apis/events/paste-event-manual.html [ Skip ]
@@ -1949,9 +1952,6 @@ virtual/feature-policy-permissions/external/wpt/mediacapture-streams/MediaStream
 virtual/feature-policy-permissions/external/wpt/mediacapture-streams/MediaStreamTrack-end-manual.https.html [ Skip ]
 virtual/audio-service/external/wpt/mediacapture-streams/MediaStream-MediaElement-preload-none-manual.https.html [ Skip ]
 virtual/audio-service/external/wpt/mediacapture-streams/MediaStreamTrack-end-manual.https.html [ Skip ]
-virtual/omt-service-worker-startup/external/wpt/service-workers/service-worker/fetch-event-is-history-backward-navigation-manual.https.html [ Skip ]
-virtual/omt-service-worker-startup/external/wpt/service-workers/service-worker/fetch-event-is-history-forward-navigation-manual.https.html [ Skip ]
-virtual/omt-service-worker-startup/external/wpt/service-workers/service-worker/fetch-event-is-reload-navigation-manual.https.html [ Skip ]
 virtual/omt-worker-fetch/external/wpt/service-workers/service-worker/fetch-event-is-history-backward-navigation-manual.https.html [ Skip ]
 virtual/omt-worker-fetch/external/wpt/service-workers/service-worker/fetch-event-is-history-forward-navigation-manual.https.html [ Skip ]
 virtual/omt-worker-fetch/external/wpt/service-workers/service-worker/fetch-event-is-reload-navigation-manual.https.html [ Skip ]
@@ -1963,9 +1963,6 @@ virtual/cache-storage-sequence/external/wpt/service-workers/service-worker/fetch
 virtual/cache-storage-eager-reading/external/wpt/service-workers/service-worker/fetch-event-is-history-backward-navigation-manual.https.html [ Skip ]
 virtual/cache-storage-eager-reading/external/wpt/service-workers/service-worker/fetch-event-is-history-forward-navigation-manual.https.html [ Skip ]
 virtual/cache-storage-eager-reading/external/wpt/service-workers/service-worker/fetch-event-is-reload-navigation-manual.https.html [ Skip ]
-virtual/cache-storage-high-priority-match/external/wpt/service-workers/service-worker/fetch-event-is-history-backward-navigation-manual.https.html [ Skip ]
-virtual/cache-storage-high-priority-match/external/wpt/service-workers/service-worker/fetch-event-is-history-forward-navigation-manual.https.html [ Skip ]
-virtual/cache-storage-high-priority-match/external/wpt/service-workers/service-worker/fetch-event-is-reload-navigation-manual.https.html [ Skip ]
 virtual/speech-with-unified-autoplay/external/wpt/speech-api/SpeechRecognition-abort-manual.https.html [ Skip ]
 virtual/speech-with-unified-autoplay/external/wpt/speech-api/SpeechRecognition-onerror-manual.https.html [ Skip ]
 virtual/speech-with-unified-autoplay/external/wpt/speech-api/SpeechRecognition-onresult-manual.https.html [ Skip ]
@@ -2063,7 +2060,6 @@ crbug.com/946022 [ Win7 ] paint/invalidation/window-resize/* [ Skip ]
 
 # We don't plan to support this use-case in the near future.
 crbug.com/940797 external/wpt/signed-exchange/appcache/sxg-served-from-appcache.tentative.https.html [ Skip ]
-crbug.com/940797 virtual/sxg-with-network-service/external/wpt/signed-exchange/appcache/sxg-served-from-appcache.tentative.https.html [ Skip ]
 crbug.com/940797 virtual/sxg-subresource/external/wpt/signed-exchange/appcache/sxg-served-from-appcache.tentative.https.html [ Skip ]
 crbug.com/940797 virtual/split-http-cache/external/wpt/signed-exchange/appcache/sxg-served-from-appcache.tentative.https.html [ Skip ]
 

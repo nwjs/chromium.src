@@ -84,7 +84,7 @@ void FilterAndResizeImagesForMaximalSize(
     const WTF::Vector<SkBitmap>& unfiltered,
     uint32_t max_image_size,
     WTF::Vector<SkBitmap>* images,
-    WTF::Vector<blink::WebSize>* original_image_sizes) {
+    WTF::Vector<gfx::Size>* original_image_sizes) {
   images->clear();
   original_image_sizes->clear();
 
@@ -147,7 +147,8 @@ void ImageDownloaderImpl::ProvideTo(LocalFrame& frame) {
 
 ImageDownloaderImpl::ImageDownloaderImpl(LocalFrame& frame)
     : Supplement<LocalFrame>(frame),
-      ContextLifecycleObserver(frame.GetDocument()->GetExecutionContext()) {
+      ExecutionContextLifecycleObserver(
+          frame.GetDocument()->GetExecutionContext()) {
   frame.GetInterfaceRegistry()->AddInterface(WTF::BindRepeating(
       &ImageDownloaderImpl::CreateMojoService, WrapWeakPersistent(this)));
 }
@@ -196,7 +197,7 @@ void ImageDownloaderImpl::DidDownloadImage(
     int32_t http_status_code,
     const WTF::Vector<SkBitmap>& images) {
   WTF::Vector<SkBitmap> result_images;
-  WTF::Vector<WebSize> result_original_image_sizes;
+  WTF::Vector<gfx::Size> result_original_image_sizes;
   FilterAndResizeImagesForMaximalSize(images, max_image_size, &result_images,
                                       &result_original_image_sizes);
 
@@ -253,10 +254,10 @@ void ImageDownloaderImpl::DidFetchImage(
 
 void ImageDownloaderImpl::Trace(Visitor* visitor) {
   Supplement<LocalFrame>::Trace(visitor);
-  ContextLifecycleObserver::Trace(visitor);
+  ExecutionContextLifecycleObserver::Trace(visitor);
 }
 
-void ImageDownloaderImpl::ContextDestroyed(ExecutionContext*) {
+void ImageDownloaderImpl::ContextDestroyed() {
   for (const auto& fetcher : image_fetchers_) {
     // Will run callbacks with an empty image vector.
     fetcher->Dispose();

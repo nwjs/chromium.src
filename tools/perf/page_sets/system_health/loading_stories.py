@@ -46,8 +46,7 @@ class LoadGoogleStory2018(_LoadingStory):
 class LoadBaiduStory2018(_LoadingStory):
   NAME = 'load:search:baidu:2018'
   URL = 'https://www.baidu.com/s?word=google'
-  TAGS = [story_tags.INTERNATIONAL, story_tags.HEALTH_CHECK,
-          story_tags.YEAR_2018]
+  TAGS = [story_tags.INTERNATIONAL, story_tags.YEAR_2018]
 
 
 class LoadYahooStory2018(_LoadingStory):
@@ -89,8 +88,7 @@ class LoadTaobaoMobileStory2019(_LoadingStory):
   NAME = 'load:search:taobao:2019'
   URL = 'http://m.intl.taobao.com/'
   SUPPORTED_PLATFORMS = platforms.MOBILE_ONLY
-  TAGS = [story_tags.INTERNATIONAL, story_tags.HEALTH_CHECK,
-          story_tags.YEAR_2019]
+  TAGS = [story_tags.INTERNATIONAL, story_tags.YEAR_2019]
 
 
 class LoadYandexStory2018(_LoadingStory):
@@ -102,7 +100,7 @@ class LoadYandexStory2018(_LoadingStory):
 class LoadEbayStory2018(_LoadingStory):
   NAME = 'load:search:ebay:2018'
   URL = 'https://www.ebay.com/sch/i.html?_nkw=headphones'
-  TAGS = [story_tags.HEALTH_CHECK, story_tags.YEAR_2018]
+  TAGS = [story_tags.YEAR_2018]
 
 
 ################################################################################
@@ -124,13 +122,15 @@ class LoadVkDesktopStory2018(_LoadingStory):
   NAME = 'load:social:vk:2018'
   URL = 'https://vk.com/sbeatles'
   SUPPORTED_PLATFORMS = platforms.DESKTOP_ONLY
-  TAGS = [story_tags.INTERNATIONAL, story_tags.YEAR_2018]
+  TAGS = [
+      story_tags.HEALTH_CHECK, story_tags.INTERNATIONAL, story_tags.YEAR_2018
+  ]
 
 
 class LoadInstagramDesktopStory2018(_LoadingStory):
   NAME = 'load:social:instagram:2018'
   URL = 'https://www.instagram.com/selenagomez/'
-  TAGS = [story_tags.YEAR_2018]
+  TAGS = [story_tags.HEALTH_CHECK, story_tags.YEAR_2018]
   SUPPORTED_PLATFORMS = platforms.DESKTOP_ONLY
 
 
@@ -169,7 +169,9 @@ class LoadBbcMobileStory2019(_LoadingStory):
 class LoadCnnStory2018(_LoadingStory):
   NAME = 'load:news:cnn:2018'
   URL = 'https://edition.cnn.com'
-  TAGS = [story_tags.JAVASCRIPT_HEAVY, story_tags.YEAR_2018]
+  TAGS = [
+      story_tags.HEALTH_CHECK, story_tags.JAVASCRIPT_HEAVY, story_tags.YEAR_2018
+  ]
 
 
 class LoadFlipboardDesktopStory(_LoadingStory):
@@ -197,7 +199,7 @@ class LoadNytimesMobileStory2019(_LoadingStory):
   NAME = 'load:news:nytimes:2019'
   URL = 'http://mobile.nytimes.com'
   SUPPORTED_PLATFORMS = platforms.MOBILE_ONLY
-  TAGS = [story_tags.HEALTH_CHECK, story_tags.YEAR_2019]
+  TAGS = [story_tags.YEAR_2019]
 
 
 class LoadQqMobileStory2019(_LoadingStory):
@@ -225,14 +227,14 @@ class LoadRedditMobileStory2019(_LoadingStory):
   NAME = 'load:news:reddit:2019'
   URL = 'https://www.reddit.com/r/news/top/?sort=top&t=week'
   SUPPORTED_PLATFORMS = platforms.MOBILE_ONLY
-  TAGS = [story_tags.HEALTH_CHECK, story_tags.YEAR_2019]
+  TAGS = [story_tags.YEAR_2019]
 
 
 class LoadWashingtonPostMobileStory2019(_LoadingStory):
   NAME = 'load:news:washingtonpost:2019'
   URL = 'https://www.washingtonpost.com/pwa'
   SUPPORTED_PLATFORMS = platforms.MOBILE_ONLY
-  TAGS = [story_tags.HEALTH_CHECK, story_tags.YEAR_2019]
+  TAGS = [story_tags.YEAR_2019]
   _CONTINUE_FREE_BUTTON_SELECTOR = '.continue-btn.button.free'
   _ACCEPT_GDPR_SELECTOR = '.agree-ckb'
   _CONTINUE_TO_SITE_SELECTOR = '.continue-btn.button.accept-consent'
@@ -265,8 +267,7 @@ class LoadIrctcStory2019(_LoadingStory):
   NAME = 'load:news:irctc:2019'
   URL = 'https://www.irctc.co.in'
   SUPPORTED_PLATFORMS = platforms.MOBILE_ONLY
-  TAGS = [story_tags.EMERGING_MARKET, story_tags.HEALTH_CHECK,
-          story_tags.YEAR_2019]
+  TAGS = [story_tags.EMERGING_MARKET, story_tags.YEAR_2019]
 
   def _Login(self, action_runner):
     # There is an error on replay that pops up the first time. If we
@@ -284,8 +285,9 @@ class LoadYouTubeStory2018(_LoadingStory):
   # No way to disable autoplay on desktop.
   NAME = 'load:media:youtube:2018'
   URL = 'https://www.youtube.com/watch?v=QGfhS1hfTWw&autoplay=false'
-  TAGS = [story_tags.EMERGING_MARKET, story_tags.HEALTH_CHECK,
-          story_tags.YEAR_2018]
+  TAGS = [
+      story_tags.HEALTH_CHECK, story_tags.EMERGING_MARKET, story_tags.YEAR_2018
+  ]
 
 
 class LoadDailymotionStory2019(_LoadingStory):
@@ -297,7 +299,7 @@ class LoadDailymotionStory2019(_LoadingStory):
 class LoadGoogleImagesStory2018(_LoadingStory):
   NAME = 'load:media:google_images:2018'
   URL = 'https://www.google.co.uk/search?tbm=isch&q=love'
-  TAGS = [story_tags.HEALTH_CHECK, story_tags.YEAR_2018]
+  TAGS = [story_tags.YEAR_2018]
 
 
 class LoadSoundCloudStory2018(_LoadingStory):
@@ -317,7 +319,7 @@ class Load9GagDesktopStory(_LoadingStory):
 class LoadImgurStory2018(_LoadingStory):
   NAME = 'load:media:imgur:2018'
   URL = 'http://imgur.com/gallery/5UlBN'
-  TAGS = [story_tags.HEALTH_CHECK, story_tags.YEAR_2018]
+  TAGS = [story_tags.YEAR_2018]
 
 
 class LoadFlickrStory2018(_LoadingStory):
@@ -354,7 +356,7 @@ class LoadDocsStory2019(_LoadingStory):
   NAME = 'load:tools:docs:2019'
   URL = (
       'https://docs.google.com/document/d/1GvzDP-tTLmJ0myRhUAfTYWs3ZUFilUICg8psNHyccwQ/edit?usp=sharing')
-  TAGS = [story_tags.HEALTH_CHECK, story_tags.YEAR_2019]
+  TAGS = [story_tags.YEAR_2019]
 
 
 class _LoadGmailBaseStory(_LoadingStory):
@@ -381,7 +383,7 @@ class LoadGmailStory2019(_LoadingStory):
   NAME = 'load:tools:gmail:2019'
   # Needs to be http and not https.
   URL = 'http://mail.google.com/'
-  TAGS = [story_tags.YEAR_2019]
+  TAGS = [story_tags.HEALTH_CHECK, story_tags.YEAR_2019]
   SKIP_LOGIN = False
 
   def _Login(self, action_runner):
@@ -418,7 +420,7 @@ class LoadStackOverflowStory2018(_LoadingStory):
   NAME = 'load:tools:stackoverflow:2018'
   URL = (
       'https://stackoverflow.com/questions/36827659/compiling-an-application-for-use-in-highly-radioactive-environments')
-  TAGS = [story_tags.HEALTH_CHECK, story_tags.YEAR_2018]
+  TAGS = [story_tags.YEAR_2018]
 
 
 class LoadDropboxStory2019(_LoadingStory):
@@ -436,7 +438,9 @@ class LoadDropboxStory2019(_LoadingStory):
 class LoadWeatherStory2019(_LoadingStory):
   NAME = 'load:tools:weather:2019'
   URL = 'https://weather.com/en-GB/weather/today/l/USCA0286:1:US'
-  TAGS = [story_tags.JAVASCRIPT_HEAVY, story_tags.YEAR_2019]
+  TAGS = [
+      story_tags.HEALTH_CHECK, story_tags.JAVASCRIPT_HEAVY, story_tags.YEAR_2019
+  ]
 
 
 class LoadDriveStory2019(_LoadingStory):
@@ -458,21 +462,21 @@ class LoadBubblesStory2019(_LoadingStory):
   NAME = 'load:games:bubbles:2019'
   URL = (
       'https://games.cdn.famobi.com/html5games/s/smarty-bubbles/v010/?fg_domain=play.famobi.com&fg_uid=d8f24956-dc91-4902-9096-a46cb1353b6f&fg_pid=4638e320-4444-4514-81c4-d80a8c662371&fg_beat=620')
-  TAGS = [story_tags.HEALTH_CHECK, story_tags.YEAR_2019]
+  TAGS = [story_tags.YEAR_2019]
 
 
 class LoadLazorsStory(_LoadingStory):
   NAME = 'load:games:lazors'
   # Using "https://" hangs and shows "This site can't be reached".
   URL = 'http://www8.games.mobi/games/html5/lazors/lazors.html'
-  TAGS = [story_tags.HEALTH_CHECK, story_tags.YEAR_2016]
+  TAGS = [story_tags.YEAR_2016]
 
 
 class LoadSpyChaseStory2018(_LoadingStory):
   NAME = 'load:games:spychase:2018'
   # Using "https://" shows "Your connection is not private".
   URL = 'http://playstar.mobi/games/spychase/index.php'
-  TAGS = [story_tags.HEALTH_CHECK, story_tags.YEAR_2018]
+  TAGS = [story_tags.YEAR_2018]
 
   def _DidLoadDocument(self, action_runner):
     # The background of the game canvas is set when the "Tap screen to play"

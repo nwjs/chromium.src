@@ -289,12 +289,16 @@ void DriverGL::InitializeDynamicBindings(const GLVersionInfo* ver,
       gfx::HasExtension(extensions, "GL_ANGLE_framebuffer_multisample");
   ext.b_GL_ANGLE_instanced_arrays =
       gfx::HasExtension(extensions, "GL_ANGLE_instanced_arrays");
+  ext.b_GL_ANGLE_memory_object_fuchsia =
+      gfx::HasExtension(extensions, "GL_ANGLE_memory_object_fuchsia");
   ext.b_GL_ANGLE_multi_draw =
       gfx::HasExtension(extensions, "GL_ANGLE_multi_draw");
   ext.b_GL_ANGLE_request_extension =
       gfx::HasExtension(extensions, "GL_ANGLE_request_extension");
   ext.b_GL_ANGLE_robust_client_memory =
       gfx::HasExtension(extensions, "GL_ANGLE_robust_client_memory");
+  ext.b_GL_ANGLE_semaphore_fuchsia =
+      gfx::HasExtension(extensions, "GL_ANGLE_semaphore_fuchsia");
   ext.b_GL_ANGLE_texture_external_update =
       gfx::HasExtension(extensions, "GL_ANGLE_texture_external_update");
   ext.b_GL_ANGLE_translated_shader_source =
@@ -811,6 +815,12 @@ void DriverGL::InitializeDynamicBindings(const GLVersionInfo* ver,
     fn.glDeleteFramebuffersEXTFn =
         reinterpret_cast<glDeleteFramebuffersEXTProc>(
             GetGLProcAddress("glDeleteFramebuffersEXT"));
+  }
+
+  if (ext.b_GL_EXT_memory_object) {
+    fn.glDeleteMemoryObjectsEXTFn =
+        reinterpret_cast<glDeleteMemoryObjectsEXTProc>(
+            GetGLProcAddress("glDeleteMemoryObjectsEXT"));
   }
 
   if (ext.b_GL_NV_path_rendering) {
@@ -1823,9 +1833,21 @@ void DriverGL::InitializeDynamicBindings(const GLVersionInfo* ver,
         GetGLProcAddress("glImportMemoryFdEXT"));
   }
 
+  if (ext.b_GL_ANGLE_memory_object_fuchsia) {
+    fn.glImportMemoryZirconHandleANGLEFn =
+        reinterpret_cast<glImportMemoryZirconHandleANGLEProc>(
+            GetGLProcAddress("glImportMemoryZirconHandleANGLE"));
+  }
+
   if (ext.b_GL_EXT_semaphore_fd) {
     fn.glImportSemaphoreFdEXTFn = reinterpret_cast<glImportSemaphoreFdEXTProc>(
         GetGLProcAddress("glImportSemaphoreFdEXT"));
+  }
+
+  if (ext.b_GL_ANGLE_semaphore_fuchsia) {
+    fn.glImportSemaphoreZirconHandleANGLEFn =
+        reinterpret_cast<glImportSemaphoreZirconHandleANGLEProc>(
+            GetGLProcAddress("glImportSemaphoreZirconHandleANGLE"));
   }
 
   if (ext.b_GL_EXT_debug_marker) {
@@ -1991,6 +2013,12 @@ void DriverGL::InitializeDynamicBindings(const GLVersionInfo* ver,
   } else if (ext.b_GL_EXT_shader_image_load_store) {
     fn.glMemoryBarrierEXTFn = reinterpret_cast<glMemoryBarrierEXTProc>(
         GetGLProcAddress("glMemoryBarrierEXT"));
+  }
+
+  if (ext.b_GL_EXT_memory_object) {
+    fn.glMemoryObjectParameterivEXTFn =
+        reinterpret_cast<glMemoryObjectParameterivEXTProc>(
+            GetGLProcAddress("glMemoryObjectParameterivEXT"));
   }
 
   if (ver->IsAtLeastGLES(3u, 2u) || ver->IsAtLeastGL(4u, 0u)) {
@@ -3451,6 +3479,11 @@ void GLApiBase::glDeleteFramebuffersEXTFn(GLsizei n,
   driver_->fn.glDeleteFramebuffersEXTFn(n, framebuffers);
 }
 
+void GLApiBase::glDeleteMemoryObjectsEXTFn(GLsizei n,
+                                           const GLuint* memoryObjects) {
+  driver_->fn.glDeleteMemoryObjectsEXTFn(n, memoryObjects);
+}
+
 void GLApiBase::glDeletePathsNVFn(GLuint path, GLsizei range) {
   driver_->fn.glDeletePathsNVFn(path, range);
 }
@@ -4666,10 +4699,25 @@ void GLApiBase::glImportMemoryFdEXTFn(GLuint memory,
   driver_->fn.glImportMemoryFdEXTFn(memory, size, handleType, fd);
 }
 
+void GLApiBase::glImportMemoryZirconHandleANGLEFn(GLuint memory,
+                                                  GLuint64 size,
+                                                  GLenum handleType,
+                                                  GLuint handle) {
+  driver_->fn.glImportMemoryZirconHandleANGLEFn(memory, size, handleType,
+                                                handle);
+}
+
 void GLApiBase::glImportSemaphoreFdEXTFn(GLuint semaphore,
                                          GLenum handleType,
                                          GLint fd) {
   driver_->fn.glImportSemaphoreFdEXTFn(semaphore, handleType, fd);
+}
+
+void GLApiBase::glImportSemaphoreZirconHandleANGLEFn(GLuint semaphore,
+                                                     GLenum handleType,
+                                                     GLuint handle) {
+  driver_->fn.glImportSemaphoreZirconHandleANGLEFn(semaphore, handleType,
+                                                   handle);
 }
 
 void GLApiBase::glInsertEventMarkerEXTFn(GLsizei length, const char* marker) {
@@ -4802,6 +4850,12 @@ void GLApiBase::glMemoryBarrierByRegionFn(GLbitfield barriers) {
 
 void GLApiBase::glMemoryBarrierEXTFn(GLbitfield barriers) {
   driver_->fn.glMemoryBarrierEXTFn(barriers);
+}
+
+void GLApiBase::glMemoryObjectParameterivEXTFn(GLuint memoryObject,
+                                               GLenum pname,
+                                               const GLint* param) {
+  driver_->fn.glMemoryObjectParameterivEXTFn(memoryObject, pname, param);
 }
 
 void GLApiBase::glMinSampleShadingFn(GLfloat value) {
@@ -6799,6 +6853,12 @@ void TraceGLApi::glDeleteFramebuffersEXTFn(GLsizei n,
   gl_api_->glDeleteFramebuffersEXTFn(n, framebuffers);
 }
 
+void TraceGLApi::glDeleteMemoryObjectsEXTFn(GLsizei n,
+                                            const GLuint* memoryObjects) {
+  TRACE_EVENT_BINARY_EFFICIENT0("gpu", "TraceGLAPI::glDeleteMemoryObjectsEXT")
+  gl_api_->glDeleteMemoryObjectsEXTFn(n, memoryObjects);
+}
+
 void TraceGLApi::glDeletePathsNVFn(GLuint path, GLsizei range) {
   TRACE_EVENT_BINARY_EFFICIENT0("gpu", "TraceGLAPI::glDeletePathsNV")
   gl_api_->glDeletePathsNVFn(path, range);
@@ -8244,11 +8304,28 @@ void TraceGLApi::glImportMemoryFdEXTFn(GLuint memory,
   gl_api_->glImportMemoryFdEXTFn(memory, size, handleType, fd);
 }
 
+void TraceGLApi::glImportMemoryZirconHandleANGLEFn(GLuint memory,
+                                                   GLuint64 size,
+                                                   GLenum handleType,
+                                                   GLuint handle) {
+  TRACE_EVENT_BINARY_EFFICIENT0("gpu",
+                                "TraceGLAPI::glImportMemoryZirconHandleANGLE")
+  gl_api_->glImportMemoryZirconHandleANGLEFn(memory, size, handleType, handle);
+}
+
 void TraceGLApi::glImportSemaphoreFdEXTFn(GLuint semaphore,
                                           GLenum handleType,
                                           GLint fd) {
   TRACE_EVENT_BINARY_EFFICIENT0("gpu", "TraceGLAPI::glImportSemaphoreFdEXT")
   gl_api_->glImportSemaphoreFdEXTFn(semaphore, handleType, fd);
+}
+
+void TraceGLApi::glImportSemaphoreZirconHandleANGLEFn(GLuint semaphore,
+                                                      GLenum handleType,
+                                                      GLuint handle) {
+  TRACE_EVENT_BINARY_EFFICIENT0(
+      "gpu", "TraceGLAPI::glImportSemaphoreZirconHandleANGLE")
+  gl_api_->glImportSemaphoreZirconHandleANGLEFn(semaphore, handleType, handle);
 }
 
 void TraceGLApi::glInsertEventMarkerEXTFn(GLsizei length, const char* marker) {
@@ -8412,6 +8489,14 @@ void TraceGLApi::glMemoryBarrierByRegionFn(GLbitfield barriers) {
 void TraceGLApi::glMemoryBarrierEXTFn(GLbitfield barriers) {
   TRACE_EVENT_BINARY_EFFICIENT0("gpu", "TraceGLAPI::glMemoryBarrierEXT")
   gl_api_->glMemoryBarrierEXTFn(barriers);
+}
+
+void TraceGLApi::glMemoryObjectParameterivEXTFn(GLuint memoryObject,
+                                                GLenum pname,
+                                                const GLint* param) {
+  TRACE_EVENT_BINARY_EFFICIENT0("gpu",
+                                "TraceGLAPI::glMemoryObjectParameterivEXT")
+  gl_api_->glMemoryObjectParameterivEXTFn(memoryObject, pname, param);
 }
 
 void TraceGLApi::glMinSampleShadingFn(GLfloat value) {
@@ -10831,6 +10916,14 @@ void LogGLApi::glDeleteFramebuffersEXTFn(GLsizei n,
   gl_api_->glDeleteFramebuffersEXTFn(n, framebuffers);
 }
 
+void LogGLApi::glDeleteMemoryObjectsEXTFn(GLsizei n,
+                                          const GLuint* memoryObjects) {
+  GL_SERVICE_LOG("glDeleteMemoryObjectsEXT"
+                 << "(" << n << ", " << static_cast<const void*>(memoryObjects)
+                 << ")");
+  gl_api_->glDeleteMemoryObjectsEXTFn(n, memoryObjects);
+}
+
 void LogGLApi::glDeletePathsNVFn(GLuint path, GLsizei range) {
   GL_SERVICE_LOG("glDeletePathsNV"
                  << "(" << path << ", " << range << ")");
@@ -12724,6 +12817,17 @@ void LogGLApi::glImportMemoryFdEXTFn(GLuint memory,
   gl_api_->glImportMemoryFdEXTFn(memory, size, handleType, fd);
 }
 
+void LogGLApi::glImportMemoryZirconHandleANGLEFn(GLuint memory,
+                                                 GLuint64 size,
+                                                 GLenum handleType,
+                                                 GLuint handle) {
+  GL_SERVICE_LOG("glImportMemoryZirconHandleANGLE"
+                 << "(" << memory << ", " << size << ", "
+                 << GLEnums::GetStringEnum(handleType) << ", " << handle
+                 << ")");
+  gl_api_->glImportMemoryZirconHandleANGLEFn(memory, size, handleType, handle);
+}
+
 void LogGLApi::glImportSemaphoreFdEXTFn(GLuint semaphore,
                                         GLenum handleType,
                                         GLint fd) {
@@ -12731,6 +12835,16 @@ void LogGLApi::glImportSemaphoreFdEXTFn(GLuint semaphore,
                  << "(" << semaphore << ", "
                  << GLEnums::GetStringEnum(handleType) << ", " << fd << ")");
   gl_api_->glImportSemaphoreFdEXTFn(semaphore, handleType, fd);
+}
+
+void LogGLApi::glImportSemaphoreZirconHandleANGLEFn(GLuint semaphore,
+                                                    GLenum handleType,
+                                                    GLuint handle) {
+  GL_SERVICE_LOG("glImportSemaphoreZirconHandleANGLE"
+                 << "(" << semaphore << ", "
+                 << GLEnums::GetStringEnum(handleType) << ", " << handle
+                 << ")");
+  gl_api_->glImportSemaphoreZirconHandleANGLEFn(semaphore, handleType, handle);
 }
 
 void LogGLApi::glInsertEventMarkerEXTFn(GLsizei length, const char* marker) {
@@ -12969,6 +13083,15 @@ void LogGLApi::glMemoryBarrierEXTFn(GLbitfield barriers) {
   GL_SERVICE_LOG("glMemoryBarrierEXT"
                  << "(" << barriers << ")");
   gl_api_->glMemoryBarrierEXTFn(barriers);
+}
+
+void LogGLApi::glMemoryObjectParameterivEXTFn(GLuint memoryObject,
+                                              GLenum pname,
+                                              const GLint* param) {
+  GL_SERVICE_LOG("glMemoryObjectParameterivEXT"
+                 << "(" << memoryObject << ", " << GLEnums::GetStringEnum(pname)
+                 << ", " << static_cast<const void*>(param) << ")");
+  gl_api_->glMemoryObjectParameterivEXTFn(memoryObject, pname, param);
 }
 
 void LogGLApi::glMinSampleShadingFn(GLfloat value) {
@@ -15544,6 +15667,11 @@ void NoContextGLApi::glDeleteFramebuffersEXTFn(GLsizei n,
   NoContextHelper("glDeleteFramebuffersEXT");
 }
 
+void NoContextGLApi::glDeleteMemoryObjectsEXTFn(GLsizei n,
+                                                const GLuint* memoryObjects) {
+  NoContextHelper("glDeleteMemoryObjectsEXT");
+}
+
 void NoContextGLApi::glDeletePathsNVFn(GLuint path, GLsizei range) {
   NoContextHelper("glDeletePathsNV");
 }
@@ -16732,10 +16860,23 @@ void NoContextGLApi::glImportMemoryFdEXTFn(GLuint memory,
   NoContextHelper("glImportMemoryFdEXT");
 }
 
+void NoContextGLApi::glImportMemoryZirconHandleANGLEFn(GLuint memory,
+                                                       GLuint64 size,
+                                                       GLenum handleType,
+                                                       GLuint handle) {
+  NoContextHelper("glImportMemoryZirconHandleANGLE");
+}
+
 void NoContextGLApi::glImportSemaphoreFdEXTFn(GLuint semaphore,
                                               GLenum handleType,
                                               GLint fd) {
   NoContextHelper("glImportSemaphoreFdEXT");
+}
+
+void NoContextGLApi::glImportSemaphoreZirconHandleANGLEFn(GLuint semaphore,
+                                                          GLenum handleType,
+                                                          GLuint handle) {
+  NoContextHelper("glImportSemaphoreZirconHandleANGLE");
 }
 
 void NoContextGLApi::glInsertEventMarkerEXTFn(GLsizei length,
@@ -16887,6 +17028,12 @@ void NoContextGLApi::glMemoryBarrierByRegionFn(GLbitfield barriers) {
 
 void NoContextGLApi::glMemoryBarrierEXTFn(GLbitfield barriers) {
   NoContextHelper("glMemoryBarrierEXT");
+}
+
+void NoContextGLApi::glMemoryObjectParameterivEXTFn(GLuint memoryObject,
+                                                    GLenum pname,
+                                                    const GLint* param) {
+  NoContextHelper("glMemoryObjectParameterivEXT");
 }
 
 void NoContextGLApi::glMinSampleShadingFn(GLfloat value) {

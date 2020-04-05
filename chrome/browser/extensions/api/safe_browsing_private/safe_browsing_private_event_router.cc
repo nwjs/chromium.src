@@ -4,6 +4,7 @@
 
 #include "chrome/browser/extensions/api/safe_browsing_private/safe_browsing_private_event_router.h"
 
+#include "base/bind_helpers.h"
 #include "build/build_config.h"
 
 #include <utility>
@@ -17,6 +18,7 @@
 #include "base/time/time.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chrome_content_browser_client.h"
+#include "chrome/browser/safe_browsing/cloud_content_scanning/binary_upload_service_factory.h"
 #include "components/safe_browsing/content/web_ui/safe_browsing_ui.h"
 #if defined(OS_CHROMEOS)
 #include "chrome/browser/browser_process_platform_part_chromeos.h"
@@ -658,6 +660,12 @@ void SafeBrowsingPrivateEventRouter::SetCloudPolicyClientForTesting(
   client_ = client;
 }
 
+void SafeBrowsingPrivateEventRouter::SetBinaryUploadServiceForTesting(
+    safe_browsing::BinaryUploadService* binary_upload_service) {
+  DCHECK_EQ(nullptr, binary_upload_service_);
+  binary_upload_service_ = binary_upload_service;
+}
+
 void SafeBrowsingPrivateEventRouter::InitRealtimeReportingClient() {
   // If already initialized, do nothing.
   if (client_) {
@@ -692,7 +700,7 @@ void SafeBrowsingPrivateEventRouter::InitRealtimeReportingClient() {
 
   if (g_browser_process) {
     binary_upload_service_ =
-        g_browser_process->safe_browsing_service()->GetBinaryUploadService(
+        safe_browsing::BinaryUploadServiceFactory::GetForProfile(
             Profile::FromBrowserContext(context_));
     IfAuthorized(base::BindOnce(
         &SafeBrowsingPrivateEventRouter::InitRealtimeReportingClientCallback,

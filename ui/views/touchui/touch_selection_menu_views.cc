@@ -41,7 +41,7 @@ TouchSelectionMenuViews::TouchSelectionMenuViews(
   DCHECK(owner_);
   DCHECK(client_);
 
-  DialogDelegate::set_buttons(ui::DIALOG_BUTTON_NONE);
+  DialogDelegate::SetButtons(ui::DIALOG_BUTTON_NONE);
   set_shadow(BubbleBorder::SMALL_SHADOW);
   set_parent_window(context);
   constexpr gfx::Insets kMenuMargins = gfx::Insets(1);
@@ -155,9 +155,9 @@ void TouchSelectionMenuViews::OnPaint(gfx::Canvas* canvas) {
   for (auto i = children().cbegin(); i != std::prev(children().cend()); ++i) {
     const View* child = *i;
     int x = child->bounds().right() + kSpacingBetweenButtons / 2;
-    constexpr SkColor kButtonSeparatorColor = SkColorSetA(SK_ColorBLACK, 13);
     canvas->FillRect(gfx::Rect(x, 0, 1, child->height()),
-                     kButtonSeparatorColor);
+                     GetNativeTheme()->GetSystemColor(
+                         ui::NativeTheme::kColorId_SeparatorColor));
   }
 }
 

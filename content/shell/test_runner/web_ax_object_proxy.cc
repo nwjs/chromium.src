@@ -226,8 +226,6 @@ std::string RoleToString(ax::mojom::Role role) {
       return result.append("LayoutTable");
     case ax::mojom::Role::kLayoutTableCell:
       return result.append("LayoutTableCell");
-    case ax::mojom::Role::kLayoutTableColumn:
-      return result.append("LayoutTableColumn");
     case ax::mojom::Role::kLayoutTableRow:
       return result.append("LayoutTableRow");
     case ax::mojom::Role::kLegend:
@@ -1752,9 +1750,6 @@ bool WebAXObjectProxy::IsPressActionSupported() {
 v8::Local<v8::Object> WebAXObjectProxy::ParentElement() {
   accessibility_object_.UpdateLayoutAndCheckValidity();
   blink::WebAXObject parent_object = accessibility_object_.ParentObject();
-  while (!parent_object.IsNull() &&
-         !parent_object.AccessibilityIsIncludedInTree())
-    parent_object = parent_object.ParentObject();
   return factory_->GetOrCreate(parent_object);
 }
 

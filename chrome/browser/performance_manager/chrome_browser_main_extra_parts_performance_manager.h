@@ -19,14 +19,16 @@
 class Profile;
 
 namespace content {
-class LockObserver;
+class FeatureObserverClient;
 }
 
 namespace performance_manager {
 class BrowserChildProcessWatcher;
 class Graph;
 class PageLiveStateDecoratorHelper;
+class PageLoadTrackerDecoratorHelper;
 class PerformanceManager;
+class PerformanceManagerFeatureObserverClient;
 class PerformanceManagerRegistry;
 }  // namespace performance_manager
 
@@ -43,11 +45,11 @@ class ChromeBrowserMainExtraPartsPerformanceManager
   // Returns the only instance of this class.
   static ChromeBrowserMainExtraPartsPerformanceManager* GetInstance();
 
-  // Returns the LockObserver that should be exposed to //content to allow the
-  // performance manager to track usage of locks in frames. Valid to call from
-  // any thread, but external synchronization is needed to make sure that the
-  // performance manager is available.
-  content::LockObserver* GetLockObserver();
+  // Returns the FeatureObserverClient that should be exposed to //content to
+  // allow the performance manager to track usage of features in frames. Valid
+  // to call from any thread, but external synchronization is needed to make
+  // sure that the performance manager is available.
+  content::FeatureObserverClient* GetFeatureObserverClient();
 
  private:
   static void CreatePoliciesAndDecorators(performance_manager::Graph* graph);
@@ -66,19 +68,22 @@ class ChromeBrowserMainExtraPartsPerformanceManager
   std::unique_ptr<performance_manager::PerformanceManager> performance_manager_;
   std::unique_ptr<performance_manager::PerformanceManagerRegistry> registry_;
 
-  // This must be alive at least until the end of base::ThreadPool shutdown,
-  // because it can be accessed by IndexedDB which runs on a base::ThreadPool
-  // sequence.
-  const std::unique_ptr<content::LockObserver> lock_observer_;
+  const std::unique_ptr<
+      performance_manager::PerformanceManagerFeatureObserverClient>
+      feature_observer_client_;
 
   std::unique_ptr<performance_manager::BrowserChildProcessWatcher>
       browser_child_process_watcher_;
 
   ScopedObserver<Profile, ProfileObserver> observed_profiles_{this};
 
-  // Needed to properly maintain some of the PageLiveStateDecorator' properties.
+  // Needed to maintain some of the PageLiveStateDecorator' properties.
   std::unique_ptr<performance_manager::PageLiveStateDecoratorHelper>
       page_live_state_data_helper_;
+
+  // Needed to maintain the PageNode::IsLoading() property.
+  std::unique_ptr<performance_manager::PageLoadTrackerDecoratorHelper>
+      page_load_tracker_decorator_helper_;
 
   DISALLOW_COPY_AND_ASSIGN(ChromeBrowserMainExtraPartsPerformanceManager);
 };

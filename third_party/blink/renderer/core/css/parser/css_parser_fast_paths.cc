@@ -643,6 +643,10 @@ bool CSSParserFastPaths::IsValidKeywordPropertyAndValue(
     case CSSPropertyID::kMaskType:
       return value_id == CSSValueID::kLuminance ||
              value_id == CSSValueID::kAlpha;
+    case CSSPropertyID::kMathStyle:
+      DCHECK(RuntimeEnabledFeatures::CSSMathStyleEnabled());
+      return value_id == CSSValueID::kInline ||
+             value_id == CSSValueID::kDisplay;
     case CSSPropertyID::kObjectFit:
       return value_id == CSSValueID::kFill ||
              value_id == CSSValueID::kContain ||
@@ -792,7 +796,7 @@ bool CSSParserFastPaths::IsValidKeywordPropertyAndValue(
     case CSSPropertyID::kWebkitAppearance:
       return (value_id >= CSSValueID::kCheckbox &&
               value_id <= CSSValueID::kTextarea) ||
-             value_id == CSSValueID::kNone;
+             value_id == CSSValueID::kNone || value_id == CSSValueID::kAuto;
     case CSSPropertyID::kBackfaceVisibility:
       return value_id == CSSValueID::kVisible ||
              value_id == CSSValueID::kHidden;
@@ -1004,6 +1008,7 @@ bool CSSParserFastPaths::IsKeywordPropertyID(CSSPropertyID property_id) {
     case CSSPropertyID::kListStylePosition:
     case CSSPropertyID::kListStyleType:
     case CSSPropertyID::kMaskType:
+    case CSSPropertyID::kMathStyle:
     case CSSPropertyID::kObjectFit:
     case CSSPropertyID::kOutlineStyle:
     case CSSPropertyID::kOverflowAnchor:

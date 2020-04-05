@@ -137,8 +137,8 @@ void AppServiceAppWindowArcTracker::OnTaskCreated(
   state = static_cast<apps::InstanceState>(
       state | apps::InstanceState::kStarted | apps::InstanceState::kRunning);
   app_service_controller_->app_service_instance_helper()->OnInstances(
-      task_id_to_arc_app_window_info_[task_id]->app_shelf_id().ToString(),
-      window, std::string(), state);
+      task_id_to_arc_app_window_info_[task_id]->app_shelf_id().app_id(), window,
+      std::string(), state);
   arc_window_candidates_.erase(window);
 }
 
@@ -349,7 +349,8 @@ void AppServiceAppWindowArcTracker::AttachControllerToTask(int task_id) {
 
   const ash::ShelfID shelf_id(app_shelf_id.ToString());
   std::unique_ptr<AppServiceAppWindowLauncherItemController> controller =
-      std::make_unique<AppServiceAppWindowLauncherItemController>(shelf_id);
+      std::make_unique<AppServiceAppWindowLauncherItemController>(
+          shelf_id, app_service_controller_);
   AppServiceAppWindowLauncherItemController* item_controller = controller.get();
 
   if (!app_service_controller_->owner()->GetItem(shelf_id)) {

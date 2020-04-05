@@ -22,6 +22,7 @@
 #include "chromeos/disks/mount_point.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "mojo/public/cpp/system/invitation.h"
+#include "net/base/ip_address.h"
 
 namespace smbfs {
 
@@ -50,6 +51,9 @@ class COMPONENT_EXPORT(SMBFS) SmbFsMounter {
     MountOptions(const MountOptions&);
     ~MountOptions();
 
+    // Resolved IP address for share's hostname.
+    net::IPAddress resolved_host;
+
     // Authentication options.
     std::string username;
     std::string workgroup;
@@ -58,6 +62,9 @@ class COMPONENT_EXPORT(SMBFS) SmbFsMounter {
 
     // Allow NTLM authentication to be used.
     bool allow_ntlm = false;
+
+    // Skip attempting to connect to the share.
+    bool skip_connect = false;
   };
 
   SmbFsMounter(const std::string& share_path,

@@ -22,15 +22,14 @@ extern const base::Feature kEditPasswordsInDesktopSettings;
 extern const base::Feature kDeleteCorruptedPasswords;
 extern const base::Feature kEnableOverwritingPlaceholderUsernames;
 extern const base::Feature kEnablePasswordsAccountStorage;
-extern const base::Feature kEnablePasswordsAccountStorageSavingUi;
 extern const base::Feature KEnablePasswordGenerationForClearTextFields;
 extern const base::Feature kFillOnAccountSelect;
 extern const base::Feature kGooglePasswordManager;
-extern const base::Feature kLeakHistory;
+extern const base::Feature kPasswordChange;
+extern const base::Feature kPasswordCheck;
 extern const base::Feature kPasswordEditingAndroid;
 extern const base::Feature kPasswordImport;
 extern const base::Feature kPasswordManagerOnboardingAndroid;
-extern const base::Feature kPasswordSaveIllustration;
 extern const base::Feature kRecoverFromNeverSaveAndroid;
 extern const base::Feature kUsernameFirstFlow;
 

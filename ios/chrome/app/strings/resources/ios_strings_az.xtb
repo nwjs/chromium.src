@@ -97,6 +97,7 @@
 <translation id="2149973817440762519">Əlfəcinə düzəliş edin</translation>
 <translation id="2179182049312275900">Sinxronizasiyanı istənilən vaxt ayarlarda aktiv edə bilərsiniz.</translation>
 <translation id="2198757192731523470">Google axtarış, reklam və digər Google xidmətlərini fərdiləşdirmək üçün tarixçənizi istifadə edə bilər.</translation>
+<translation id="2218443599109088993">Kiçildin</translation>
 <translation id="2230173723195178503">Veb səhifə yükləndi</translation>
 <translation id="2239626343334228536">Brauzinq datası silinir...</translation>
 <translation id="2257567812274161158">Sinxronlaşdırma işləmir.</translation>
@@ -159,6 +160,7 @@
 <translation id="2923448633003185837">Yerləşdirin və Keçin</translation>
 <translation id="292639812446257861">Oxunmamış Kimi Qeyd Edin</translation>
 <translation id="2958718410589002129">Parollar</translation>
+<translation id="2964349545761222050">Üçüncü Tərəf Kukiləri Bloklayın</translation>
 <translation id="2969979262385602596">Hesaba daxil olmaq uğursuz oldu. Lütfən, daha sonra yenidən cəhd edin.</translation>
 <translation id="298306318844797842">Ödəniş metodu əlavə edin...</translation>
 <translation id="2989805286512600854">Yeni Paneldə açın</translation>
@@ -178,6 +180,7 @@
 <translation id="3290875554372353449">Hesab seçin</translation>
 <translation id="3311748811247479259">Deaktiv</translation>
 <translation id="3324193307694657476">Ünvan 2</translation>
+<translation id="3328801116991980348">Sayt haqqında</translation>
 <translation id="3329904751041170572">Server qoşulmaq mümkün olması.</translation>
 <translation id="3335947283844343239">Bağlanmış Paneli yenidən açın</translation>
 <translation id="3371831930909698441">Tərcümə əlçatandır. Seçimlər ekranın aşağı hissəsində əlçatandır.</translation>
@@ -300,6 +303,7 @@ Ayarı dəyişmək üçün <ph name="BEGIN_LINK" />sinxronizasiyanı sıfırlay�
 <translation id="4979397965658815378">Bütün cihazlarınızda əlfəcin, tarixçə, parol və digər ayarları əldə etmək üçün Google Hesabınız ilə daxil olun.</translation>
 <translation id="5005498671520578047">Parolu kopyalayın</translation>
 <translation id="5010803260590204777">Vebə özəl olaraq baxmaq üçün gizli panel açın.</translation>
+<translation id="5039020240289137291">Üçüncü tərəf kukilər bloklanır</translation>
 <translation id="5039804452771397117">İcazə verin</translation>
 <translation id="5059136629401106827">OK</translation>
 <translation id="5062321486222145940">Google Diski quraşdırın</translation>
@@ -414,9 +418,11 @@ Datanız <ph name="TIME" /> tarixində sinxronizasiya parol sözü ilə şifrəl
 <translation id="6434591244308415567">Xəta baş verdi. Yenidən cəhd edin.</translation>
 <translation id="6445051938772793705">Ölkə</translation>
 <translation id="6445981559479772097">Mesaj göndərildi.</translation>
+<translation id="6447842834002726250">Kukilər</translation>
 <translation id="6464071786529933911">Yeni Gizli Paneldə açın</translation>
 <translation id="6476800141292307438">Səhifə <ph name="LANGUAGE" /> dilinə tərcümə edilir. Seçimlər ekranın aşağı hissəsində əlçatandır.</translation>
 <translation id="6482629121755362506"><ph name="NUMBER_OF_SELECTED_BOOKMARKS" /> element silindi</translation>
+<translation id="6561262006871132942">Böyüdün</translation>
 <translation id="6610002944194042868">Tərcümə Seçimləri</translation>
 <translation id="6628106477656132239">Yanlış bitmə tarixi</translation>
 <translation id="6638511529934826365">Mətni Böyüdün…</translation>
@@ -479,7 +485,6 @@ Datanız <ph name="TIME" /> tarixində sinxronizasiya parol sözü ilə şifrəl
 <translation id="734758817008927353">Kartı Yadda Saxlamaq seçimləri</translation>
 <translation id="7348502496356775519">Əlfəcin</translation>
 <translation id="7383797227493018512">Oxu Siyahısı</translation>
-<translation id="7392048574806661116">Çıxış edin və sinxronlaşdırılmış datanı silin</translation>
 <translation id="7400418766976504921">URL</translation>
 <translation id="7409985198648820906"><ph name="UNREAD_COUNT" /> oxunmamış məqalə.</translation>
 <translation id="7425346204213733349">Əlfəcin, tarixçə, parol və digər ayarlarınızdakı dəyişikliklər artıq Google Hesabınıza sinxronizasiya olunmayacaq. Buna baxmayaraq, mövcud datanız Google hesabınızın yaddaşında qalacaq.</translation>
@@ -598,6 +603,7 @@ Datanız <ph name="TIME" /> tarixində sinxronizasiya parol sözü ilə şifrəl
 <translation id="9223358826628549784">Xəta hesabatı göndərildi.</translation>
 <translation id="952704832371081537">Ləğv edin</translation>
 <translation id="988141524645182168">Digər Cihazlar</translation>
+<translation id="989697783705943787">Sayt təhlükəsizliyi</translation>
 <translation id="989988560359834682">Ünvana Düzəliş edin</translation>
 <translation id="994757059139821576">Məqalə Təklifləri</translation>
 </translationbundle>

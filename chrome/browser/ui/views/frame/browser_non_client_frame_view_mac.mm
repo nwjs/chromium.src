@@ -12,7 +12,7 @@
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/browser/ui/cocoa/fullscreen/fullscreen_menubar_tracker.h"
-#include "chrome/browser/ui/cocoa/fullscreen/fullscreen_toolbar_controller_views.h"
+#include "chrome/browser/ui/cocoa/fullscreen/fullscreen_toolbar_controller.h"
 #include "chrome/browser/ui/exclusive_access/fullscreen_controller.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/view_ids.h"
@@ -61,15 +61,14 @@ BrowserNonClientFrameViewMac::BrowserNonClientFrameViewMac(
                           base::Unretained(this), true));
   if (!base::FeatureList::IsEnabled(features::kImmersiveFullscreen)) {
     fullscreen_toolbar_controller_.reset(
-        [[FullscreenToolbarControllerViews alloc]
-            initWithBrowserView:browser_view]);
+        [[FullscreenToolbarController alloc] initWithBrowserView:browser_view]);
     [fullscreen_toolbar_controller_
         setToolbarStyle:GetUserPreferredToolbarStyle(
                             *show_fullscreen_toolbar_)];
   }
 
   if (browser_view->IsBrowserTypeWebApp()) {
-    if (browser_view->browser()->app_controller()->HasTitlebarToolbar()) {
+    if (browser_view->browser()->app_controller()) {
       set_web_app_frame_toolbar(AddChildView(
           std::make_unique<WebAppFrameToolbarView>(frame, browser_view)));
     }
@@ -77,10 +76,11 @@ BrowserNonClientFrameViewMac::BrowserNonClientFrameViewMac(
     // The window title appears above the web app frame toolbar (if present),
     // which surrounds the title with minimal-ui buttons on the left,
     // and other controls (such as the app menu button) on the right.
-    DCHECK(browser_view->ShouldShowWindowTitle());
-    window_title_ = AddChildView(
-        std::make_unique<views::Label>(browser_view->GetWindowTitle()));
-    window_title_->SetID(VIEW_ID_WINDOW_TITLE);
+    if (browser_view->ShouldShowWindowTitle()) {
+      window_title_ = AddChildView(
+          std::make_unique<views::Label>(browser_view->GetWindowTitle()));
+      window_title_->SetID(VIEW_ID_WINDOW_TITLE);
+    }
   }
 }
 
@@ -304,7 +304,7 @@ gfx::Size BrowserNonClientFrameViewMac::GetMinimumSize() const {
   // certain height, which empirically seems to be related to their *minimum*
   // width rather than their current width. This 4:3 ratio was chosen
   // empirically because it looks decent for both tabbed and untabbed browsers.
-  //client_size.SetToMax(gfx::Size(0, (client_size.width() * 3) / 4));
+  client_size.SetToMax(gfx::Size(0, (client_size.width() * 3) / 4));
 
   return client_size;
 }

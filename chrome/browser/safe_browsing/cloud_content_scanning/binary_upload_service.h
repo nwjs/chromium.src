@@ -19,6 +19,7 @@
 #include "base/timer/timer.h"
 #include "chrome/browser/safe_browsing/cloud_content_scanning/binary_fcm_service.h"
 #include "chrome/browser/safe_browsing/cloud_content_scanning/multipart_uploader.h"
+#include "components/keyed_service/core/keyed_service.h"
 #include "components/safe_browsing/core/proto/webprotect.pb.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 
@@ -28,7 +29,7 @@ namespace safe_browsing {
 
 // This class encapsulates the process of uploading a file for deep scanning,
 // and asynchronously retrieving a verdict.
-class BinaryUploadService {
+class BinaryUploadService : public KeyedService {
  public:
   // The maximum size of data that can be uploaded via this service.
   constexpr static size_t kMaxUploadSizeBytes = 50 * 1024 * 1024;  // 50 MB
@@ -43,7 +44,7 @@ class BinaryUploadService {
       scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
       Profile* profile,
       std::unique_ptr<BinaryFCMService> binary_fcm_service);
-  virtual ~BinaryUploadService();
+  ~BinaryUploadService() override;
 
   // These values are persisted to logs. Entries should not be renumbered and
   // numeric values should never be reused.
@@ -72,7 +73,10 @@ class BinaryUploadService {
     // Some or all parts of the file are encrypted.
     FILE_ENCRYPTED = 7,
 
-    kMaxValue = FILE_ENCRYPTED,
+    // The file's type is not supported and the file was not uploaded.
+    UNSUPPORTED_FILE_TYPE = 8,
+
+    kMaxValue = UNSUPPORTED_FILE_TYPE,
   };
 
   // Callbacks used to pass along the results of scanning. The response protos
@@ -96,7 +100,17 @@ class BinaryUploadService {
     // Structure of data returned in the callback to GetRequestData().
     struct Data {
       Data();
+
+      // The data content.
       std::string contents;
+
+      // The SHA256 of the data.
+      std::string hash;
+
+      // The size of the data. This can differ from |contents.size()| when the
+      // file is too large for deep scanning. This field will contain the true
+      // size.
+      uint64_t size = 0;
     };
 
     // Asynchronously returns the file contents to upload.
@@ -123,6 +137,7 @@ class BinaryUploadService {
     void set_dm_token(const std::string& token);
     void set_request_token(const std::string& token);
     void set_filename(const std::string& filename);
+    void set_digest(const std::string& digest);
 
     // Finish the request, with the given |result| and |response| from the
     // server.
@@ -160,7 +175,7 @@ class BinaryUploadService {
   // Upload the given file contents for deep scanning. The results will be
   // returned asynchronously by calling |request|'s |callback|. This must be
   // called on the UI thread.
-  void UploadForDeepScanning(std::unique_ptr<Request> request);
+  virtual void UploadForDeepScanning(std::unique_ptr<Request> request);
 
   void OnGetInstanceID(Request* request, const std::string& token);
 

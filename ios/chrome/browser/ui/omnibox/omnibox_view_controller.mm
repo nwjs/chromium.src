@@ -4,6 +4,7 @@
 
 #import "ios/chrome/browser/ui/omnibox/omnibox_view_controller.h"
 
+#include "base/bind.h"
 #include "base/metrics/user_metrics.h"
 #include "base/metrics/user_metrics_action.h"
 #include "base/strings/sys_string_conversions.h"
@@ -12,17 +13,17 @@
 #include "components/strings/grit/components_strings.h"
 #import "ios/chrome/browser/ui/commands/browser_commands.h"
 #import "ios/chrome/browser/ui/commands/load_query_commands.h"
+#import "ios/chrome/browser/ui/commands/omnibox_commands.h"
 #import "ios/chrome/browser/ui/omnibox/omnibox_constants.h"
 #import "ios/chrome/browser/ui/omnibox/omnibox_container_view.h"
 #include "ios/chrome/browser/ui/omnibox/omnibox_text_change_delegate.h"
 #import "ios/chrome/browser/ui/omnibox/omnibox_text_field_delegate.h"
-#import "ios/chrome/browser/ui/toolbar/public/omnibox_focuser.h"
 #import "ios/chrome/browser/ui/toolbar/public/toolbar_constants.h"
 #include "ios/chrome/browser/ui/ui_feature_flags.h"
 #include "ios/chrome/browser/ui/util/ui_util.h"
 #include "ios/chrome/browser/ui/util/uikit_ui_util.h"
-#import "ios/chrome/common/colors/dynamic_color_util.h"
-#import "ios/chrome/common/colors/semantic_color_names.h"
+#import "ios/chrome/common/ui/colors/dynamic_color_util.h"
+#import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #include "ios/chrome/grit/ios_strings.h"
 #include "ui/base/l10n/l10n_util.h"
 
@@ -221,15 +222,13 @@ const CGFloat kClearButtonSize = 28.0f;
   return YES;
 }
 
-// When editing, forward the message on to |_textChangeDelegate|.
+// Record the metrics as needed.
 - (void)textFieldDidEndEditing:(UITextField*)textField
                         reason:(UITextFieldDidEndEditingReason)reason {
   if (!self.omniboxInteractedWhileFocused) {
     RecordAction(
         UserMetricsAction("Mobile_FocusedDefocusedOmnibox_WithNoAction"));
   }
-  DCHECK(_textChangeDelegate);
-  _textChangeDelegate->EndEditing();
 }
 
 - (BOOL)textFieldShouldClear:(UITextField*)textField {
@@ -382,7 +381,7 @@ const CGFloat kClearButtonSize = 28.0f;
     ClipboardRecentContent* clipboardRecentContent =
         ClipboardRecentContent::GetInstance();
     if (self.searchByImageEnabled &&
-        clipboardRecentContent->GetRecentImageFromClipboard().has_value()) {
+        clipboardRecentContent->HasRecentImageFromClipboard()) {
       return action == @selector(searchCopiedImage:);
     }
     if (clipboardRecentContent->GetRecentURLFromClipboard().has_value()) {
@@ -400,12 +399,13 @@ const CGFloat kClearButtonSize = 28.0f;
   RecordAction(
       UserMetricsAction("Mobile.OmniboxContextMenu.SearchCopiedImage"));
   self.omniboxInteractedWhileFocused = YES;
-  if (base::Optional<gfx::Image> optionalImage =
-          ClipboardRecentContent::GetInstance()
-              ->GetRecentImageFromClipboard()) {
-    UIImage* image = optionalImage.value().ToUIImage();
-    [self.dispatcher searchByImage:image];
-    [self.dispatcher cancelOmniboxEdit];
+  if (ClipboardRecentContent::GetInstance()->HasRecentImageFromClipboard()) {
+    ClipboardRecentContent::GetInstance()->GetRecentImageFromClipboard(
+        base::BindOnce(^(base::Optional<gfx::Image> optionalImage) {
+          UIImage* image = optionalImage.value().ToUIImage();
+          [self.dispatcher searchByImage:image];
+          [self.dispatcher cancelOmniboxEdit];
+        }));
   }
 }
 

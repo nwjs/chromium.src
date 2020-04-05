@@ -4,6 +4,9 @@
 
 #include "ui/views/controls/button/label_button.h"
 
+#include <algorithm>
+#include <utility>
+
 #include "base/command_line.h"
 #include "base/macros.h"
 #include "base/memory/ptr_util.h"
@@ -11,8 +14,6 @@
 #include "build/build_config.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/accessibility/ax_node_data.h"
-#include "ui/base/material_design/material_design_controller.h"
-#include "ui/base/test/material_design_controller_test_api.h"
 #include "ui/base/ui_base_switches.h"
 #include "ui/events/test/event_generator.h"
 #include "ui/gfx/canvas.h"
@@ -22,6 +23,7 @@
 #include "ui/gfx/geometry/vector2d.h"
 #include "ui/gfx/text_utils.h"
 #include "ui/native_theme/native_theme.h"
+#include "ui/native_theme/native_theme_base.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/animation/test/ink_drop_host_view_test_api.h"
 #include "ui/views/animation/test/test_ink_drop.h"
@@ -43,6 +45,24 @@ gfx::ImageSkia CreateTestImage(int width, int height) {
   return gfx::ImageSkia::CreateFrom1xBitmap(bitmap);
 }
 
+// A test theme that always returns a fixed color.
+class TestNativeTheme : public ui::NativeThemeBase {
+ public:
+  static constexpr SkColor kSystemColor = SK_ColorRED;
+
+  TestNativeTheme() = default;
+  TestNativeTheme(const TestNativeTheme&) = delete;
+  TestNativeTheme& operator=(const TestNativeTheme&) = delete;
+
+  // NativeThemeBase:
+  SkColor GetSystemColor(ColorId color_id,
+                         ColorScheme color_scheme) const override {
+    return kSystemColor;
+  }
+};
+
+constexpr SkColor TestNativeTheme::kSystemColor;
+
 }  // namespace
 
 namespace views {
@@ -54,9 +74,9 @@ class TestLabelButton : public LabelButton {
                            int button_context = style::CONTEXT_BUTTON)
       : LabelButton(nullptr, text, button_context) {}
 
-  using LabelButton::label;
   using LabelButton::image;
-  using LabelButton::ResetColorsFromNativeTheme;
+  using LabelButton::label;
+  using LabelButton::OnThemeChanged;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(TestLabelButton);
@@ -604,10 +624,11 @@ TEST_F(LabelButtonTest, HighlightedButtonStyle) {
   EXPECT_EQ(themed_normal_text_color_, button_->label()->GetEnabledColor());
 }
 
-// Ensure the label gets the correct enabled color after
-// LabelButton::ResetColorsFromNativeTheme() is invoked.
-TEST_F(LabelButtonTest, ResetColorsFromNativeTheme) {
-  ASSERT_FALSE(color_utils::IsInvertedColorScheme());
+// Ensure the label resets the enabled color after LabelButton::OnThemeChanged()
+// is invoked.
+TEST_F(LabelButtonTest, OnThemeChanged) {
+  ASSERT_NE(button_->GetNativeTheme()->GetHighContrastColorScheme(),
+            ui::NativeTheme::HighContrastColorScheme::kDark);
   ASSERT_NE(button_->label()->GetBackgroundColor(), SK_ColorBLACK);
   EXPECT_EQ(themed_normal_text_color_, button_->label()->GetEnabledColor());
 
@@ -615,8 +636,35 @@ TEST_F(LabelButtonTest, ResetColorsFromNativeTheme) {
   button_->label()->SetAutoColorReadabilityEnabled(true);
   EXPECT_NE(themed_normal_text_color_, button_->label()->GetEnabledColor());
 
-  button_->ResetColorsFromNativeTheme();
+  button_->OnThemeChanged();
   EXPECT_EQ(themed_normal_text_color_, button_->label()->GetEnabledColor());
+}
+
+TEST_F(LabelButtonTest, SetEnabledTextColorsResetsToThemeColors) {
+  constexpr SkColor kReplacementColor = SK_ColorCYAN;
+
+  // This test doesn't make sense if any used colors are equal.
+  EXPECT_NE(themed_normal_text_color_, kReplacementColor);
+  EXPECT_NE(themed_normal_text_color_, TestNativeTheme::kSystemColor);
+  EXPECT_NE(kReplacementColor, TestNativeTheme::kSystemColor);
+
+  // Initially the test should have the normal colors.
+  EXPECT_EQ(themed_normal_text_color_, button_->label()->GetEnabledColor());
+
+  // Setting the enabled text colors should replace the label's enabled color.
+  button_->SetEnabledTextColors(kReplacementColor);
+  EXPECT_EQ(kReplacementColor, button_->label()->GetEnabledColor());
+
+  // Replace the theme. This should not replace the enabled text color as it's
+  // been manually overridden above.
+  TestNativeTheme test_theme;
+  button_->SetNativeThemeForTesting(&test_theme);
+  EXPECT_EQ(kReplacementColor, button_->label()->GetEnabledColor());
+
+  // Removing the enabled text color restore colors from the new theme, not
+  // the original colors used before the theme changed.
+  button_->SetEnabledTextColors(base::nullopt);
+  EXPECT_EQ(TestNativeTheme::kSystemColor, button_->label()->GetEnabledColor());
 }
 
 // Test fixture for a LabelButton that has an ink drop configured.

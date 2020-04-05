@@ -30,7 +30,7 @@ bool FrameView::CanThrottleRenderingForPropagation() const {
     return false;
   Frame& frame = GetFrame();
   LayoutEmbeddedContent* owner = frame.OwnerLayoutObject();
-  return !owner && frame.IsCrossOriginSubframe();
+  return !owner && frame.IsCrossOriginToMainFrame();
 }
 
 bool FrameView::DisplayLockedInParentFrame() {
@@ -42,15 +42,18 @@ bool FrameView::DisplayLockedInParentFrame() {
   return owner && DisplayLockUtilities::NearestLockedInclusiveAncestor(*owner);
 }
 
-void FrameView::UpdateViewportIntersection(unsigned flags,
+bool FrameView::UpdateViewportIntersection(unsigned flags,
                                            bool needs_occlusion_tracking) {
+  bool can_skip_sticky_frame_tracking =
+      flags & IntersectionObservation::kCanSkipStickyFrameTracking;
+
   if (!(flags & IntersectionObservation::kImplicitRootObserversNeedUpdate))
-    return;
+    return can_skip_sticky_frame_tracking;
   // This should only run in child frames.
   Frame& frame = GetFrame();
   HTMLFrameOwnerElement* owner_element = frame.DeprecatedLocalOwner();
   if (!owner_element)
-    return;
+    return can_skip_sticky_frame_tracking;
   Document& owner_document = owner_element->GetDocument();
   IntPoint viewport_offset;
   IntRect viewport_intersection, mainframe_document_intersection;
@@ -103,12 +106,31 @@ void FrameView::UpdateViewportIntersection(unsigned flags,
     PhysicalOffset content_box_offset =
         owner_layout_object->PhysicalContentBoxOffset();
 
-    if (NeedsViewportOffset()) {
+    if (NeedsViewportOffset() || !can_skip_sticky_frame_tracking) {
       viewport_offset =
           RoundedIntPoint(owner_layout_object->LocalToAbsolutePoint(
               content_box_offset,
               kTraverseDocumentBoundaries | kApplyRemoteRootFrameOffset));
+      if (!can_skip_sticky_frame_tracking) {
+        // If the frame is small, skip tracking this frame and its subframes.
+        if (frame.GetMainFrameViewportSize().IsEmpty() ||
+            !StickyFrameTracker::IsLarge(
+                frame.GetMainFrameViewportSize(),
+                new_rect_in_parent.PixelSnappedSize())) {
+          can_skip_sticky_frame_tracking = true;
+        }
+        // If the frame is a large sticky ad, record a use counter and skip
+        // tracking its subframes; otherwise continue tracking its subframes.
+        else if (frame.IsAdSubframe() &&
+                 GetStickyFrameTracker()->UpdateStickyStatus(
+                     frame.GetMainFrameScrollOffset(), viewport_offset)) {
+          UseCounter::Count(owner_element->GetDocument(),
+                            WebFeature::kLargeStickyAd);
+          can_skip_sticky_frame_tracking = true;
+        }
+      }
     }
+
     // Generate matrix to transform from the space of the containing document
     // to the space of the iframe's contents.
     TransformState parent_frame_to_iframe_content_transform(
@@ -137,31 +159,25 @@ void FrameView::UpdateViewportIntersection(unsigned flags,
       }
     }
 
-    PhysicalRect mainframe_intersection_rect;
-    if (!geometry.UnclippedIntersectionRect().IsEmpty()) {
-      mainframe_intersection_rect = PhysicalRect::EnclosingRect(
-          matrix.ProjectQuad(FloatRect(geometry.UnclippedIntersectionRect()))
-              .BoundingBox());
-
-      if (mainframe_intersection_rect.IsEmpty()) {
-        mainframe_document_intersection = IntRect(
-            FlooredIntPoint(mainframe_intersection_rect.offset), IntSize());
-      } else {
-        mainframe_document_intersection =
-            EnclosingIntRect(mainframe_intersection_rect);
-      }
-    }
+    mainframe_document_intersection =
+        EnclosingIntRect(geometry.UnclippedIntersectionRect());
   } else if (occlusion_state == FrameOcclusionState::kGuaranteedNotOccluded) {
     // If the parent LocalFrameView is throttled and out-of-date, then we can't
     // get any useful information.
     occlusion_state = FrameOcclusionState::kUnknown;
   }
 
-  SetViewportIntersection({viewport_offset, viewport_intersection,
-                           mainframe_document_intersection, WebRect(),
-                           occlusion_state});
+  SetViewportIntersection(
+      {viewport_offset, viewport_intersection, mainframe_document_intersection,
+       WebRect(), occlusion_state, frame.GetMainFrameViewportSize(),
+       frame.GetMainFrameScrollOffset(), can_skip_sticky_frame_tracking});
 
   UpdateFrameVisibility(!viewport_intersection.IsEmpty());
+
+  if (ShouldReportMainFrameIntersection()) {
+    GetFrame().Client()->OnMainFrameDocumentIntersectionChanged(
+        mainframe_document_intersection);
+  }
 
   // We don't throttle 0x0 or display:none iframes, because in practice they are
   // sometimes used to drive UI logic.
@@ -174,6 +190,7 @@ void FrameView::UpdateViewportIntersection(unsigned flags,
         parent_frame->View()->CanThrottleRenderingForPropagation();
   }
   UpdateRenderThrottlingStatus(hidden_for_throttling, subtree_throttled);
+  return can_skip_sticky_frame_tracking;
 }
 
 void FrameView::UpdateFrameVisibility(bool intersects_viewport) {
@@ -227,6 +244,12 @@ bool FrameView::RectInParentIsStable(
   if (!parent)
     return true;
   return parent->RectInParentIsStable(event_timestamp);
+}
+
+StickyFrameTracker* FrameView::GetStickyFrameTracker() {
+  if (!sticky_frame_tracker_)
+    sticky_frame_tracker_ = std::make_unique<StickyFrameTracker>();
+  return sticky_frame_tracker_.get();
 }
 
 }  // namespace blink

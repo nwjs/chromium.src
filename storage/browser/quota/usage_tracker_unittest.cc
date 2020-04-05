@@ -4,6 +4,7 @@
 
 #include <stdint.h>
 
+#include <utility>
 #include <vector>
 
 #include "base/bind.h"
@@ -20,11 +21,8 @@
 
 using blink::mojom::QuotaStatusCode;
 using blink::mojom::StorageType;
-using storage::QuotaClient;
-using storage::SpecialStoragePolicy;
-using storage::UsageTracker;
 
-namespace content {
+namespace storage {
 
 namespace {
 
@@ -94,6 +92,11 @@ class MockQuotaClient : public QuotaClient {
     origin_usage_map_.erase(origin);
     base::ThreadTaskRunnerHandle::Get()->PostTask(
         FROM_HERE, base::BindOnce(std::move(callback), QuotaStatusCode::kOk));
+  }
+
+  void PerformStorageCleanup(blink::mojom::StorageType type,
+                             base::OnceClosure callback) override {
+    std::move(callback).Run();
   }
 
   bool DoesSupport(StorageType type) const override {
@@ -205,7 +208,7 @@ class UsageTrackerTest : public testing::Test {
   void GrantUnlimitedStoragePolicy(const url::Origin& origin) {
     if (!storage_policy_->IsStorageUnlimited(origin.GetURL())) {
       storage_policy_->AddUnlimited(origin.GetURL());
-      storage_policy_->NotifyGranted(origin.GetURL(),
+      storage_policy_->NotifyGranted(origin,
                                      SpecialStoragePolicy::STORAGE_UNLIMITED);
     }
   }
@@ -213,7 +216,7 @@ class UsageTrackerTest : public testing::Test {
   void RevokeUnlimitedStoragePolicy(const url::Origin& origin) {
     if (storage_policy_->IsStorageUnlimited(origin.GetURL())) {
       storage_policy_->RemoveUnlimited(origin.GetURL());
-      storage_policy_->NotifyRevoked(origin.GetURL(),
+      storage_policy_->NotifyRevoked(origin,
                                      SpecialStoragePolicy::STORAGE_UNLIMITED);
     }
   }
@@ -386,5 +389,4 @@ TEST_F(UsageTrackerTest, LimitedGlobalUsageTest) {
   EXPECT_EQ(2 + 32, unlimited_usage);
 }
 
-
-}  // namespace content
+}  // namespace storage

@@ -18,6 +18,7 @@
 #include "base/numerics/safe_conversions.h"
 #include "base/sequence_checker.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/trace_event/trace_event.h"
 #include "gpu/ipc/common/gpu_memory_buffer_support.h"
@@ -167,12 +168,21 @@ void VaapiJpegEncodeAccelerator::Encoder::EncodeWithDmaBufTask(
     va_format_ = va_format;
     input_size_ = input_size;
   }
+  DCHECK(input_frame);
+  scoped_refptr<gfx::NativePixmap> pixmap =
+      CreateNativePixmapDmaBuf(input_frame.get());
+  if (!pixmap) {
+    VLOGF(1) << "Failed to create NativePixmap from VideoFrame";
+    notify_error_cb_.Run(task_id, PLATFORM_FAILURE);
+    return;
+  }
 
   // We need to explicitly blit the bound input surface here to make sure the
   // input we sent to VAAPI encoder is in tiled NV12 format since implicit
   // tiling logic is not contained in every driver.
   auto input_surface =
-      vpp_vaapi_wrapper_->CreateVASurfaceForVideoFrame(input_frame.get());
+      vpp_vaapi_wrapper_->CreateVASurfaceForPixmap(std::move(pixmap));
+
   if (!input_surface) {
     VLOGF(1) << "Failed to create input va surface";
     notify_error_cb_.Run(task_id, PLATFORM_FAILURE);
@@ -462,9 +472,8 @@ VaapiJpegEncodeAccelerator::Initialize(
     return PLATFORM_FAILURE;
   }
 
-  encoder_task_runner_ =
-      base::CreateSingleThreadTaskRunner({base::ThreadPool(), base::MayBlock(),
-                                          base::TaskPriority::USER_BLOCKING});
+  encoder_task_runner_ = base::ThreadPool::CreateSingleThreadTaskRunner(
+      {base::MayBlock(), base::TaskPriority::USER_BLOCKING});
   if (!encoder_task_runner_) {
     VLOGF(1) << "Failed to create encoder task runner.";
     return THREAD_CREATION_FAILED;

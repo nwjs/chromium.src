@@ -77,9 +77,26 @@ class CORE_EXPORT NGFragmentItem : public DisplayItemClient {
   bool IsContainer() const { return Type() == kBox || Type() == kLine; }
   bool IsInlineBox() const;
   bool IsAtomicInline() const;
+  bool IsFloating() const;
   bool IsEmptyLineBox() const;
   bool IsHiddenForPaint() const { return is_hidden_for_paint_; }
   bool IsListMarker() const;
+
+  // Return true if this is the first fragment generated from a node.
+  bool IsFirstForNode() const {
+    DCHECK(Type() != kLine);
+    DCHECK(!IsInlineBox() || BoxFragment());
+    return is_first_for_node_;
+  }
+
+  // Return true if this is the last fragment generated from a node.
+  bool IsLastForNode() const {
+    // TODO(layout-dev): This doesn't work if the LayoutObject continues in a
+    // next fragmentainer (we get a false negative here then).
+    DCHECK(Type() != kLine);
+    DCHECK(!IsInlineBox() || BoxFragment());
+    return !DeltaToNextForSameLayoutObject();
+  }
 
   NGStyleVariant StyleVariant() const {
     return static_cast<NGStyleVariant>(style_variant_);
@@ -102,7 +119,7 @@ class CORE_EXPORT NGFragmentItem : public DisplayItemClient {
   }
   Node* GetNode() const { return layout_object_->GetNode(); }
   Node* NodeForHitTest() const { return layout_object_->NodeForHitTest(); }
-  bool HasSameParent(const NGFragmentItem& other) const;
+  bool IsSiblingOf(const NGFragmentItem& other) const;
 
   wtf_size_t DeltaToNextForSameLayoutObject() const {
     return delta_to_next_for_same_layout_object_;
@@ -259,6 +276,10 @@ class CORE_EXPORT NGFragmentItem : public DisplayItemClient {
     return TextType() == NGTextType::kSymbolMarker;
   }
 
+  bool IsFormattingContextRoot() const {
+    return BoxFragment() && !IsInlineBox();
+  }
+
   const ShapeResultView* TextShapeResult() const;
   NGTextOffset TextOffset() const;
   unsigned StartOffset() const { return TextOffset().start; }
@@ -350,6 +371,8 @@ class CORE_EXPORT NGFragmentItem : public DisplayItemClient {
 
   // Used only when |IsText()| to avoid re-computing ink overflow.
   unsigned ink_overflow_computed_ : 1;
+
+  unsigned is_first_for_node_ : 1;
 };
 
 }  // namespace blink

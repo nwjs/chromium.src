@@ -13,6 +13,7 @@
 #include "third_party/blink/renderer/core/testing/mock_clipboard_host.h"
 #include "third_party/blink/renderer/core/testing/scoped_mock_overlay_scrollbars.h"
 #include "third_party/blink/renderer/platform/testing/testing_platform_support_with_mock_scheduler.h"
+#include "third_party/blink/renderer/platform/wtf/hash_map.h"
 
 namespace base {
 class TickClock;
@@ -38,12 +39,13 @@ class PageTestBase : public testing::Test, public ScopedMockOverlayScrollbars {
 
     // Installs a mock clipboard in the given interface provider.
     // This is called automatically from the ctor that takes an
-    // |interface_provider| argument.
+    // |interface_broker| argument.
     void Install(blink::BrowserInterfaceBrokerProxy& interface_broker);
 
    private:
     void BindClipboardHost(mojo::ScopedMessagePipeHandle handle);
 
+    blink::BrowserInterfaceBrokerProxy* interface_broker_ = nullptr;
     MockClipboardHost host_;
   };
 
@@ -73,8 +75,7 @@ class PageTestBase : public testing::Test, public ScopedMockOverlayScrollbars {
   // Navigate to |url| providing an empty response but
   // URL and security origin of the Document will be set to |url|.
   void NavigateTo(const KURL& url,
-                  const String& feature_policy_header = String(),
-                  const String& csp_header = String());
+                  const WTF::HashMap<String, String>& headers = {});
 
   Document& GetDocument() const;
   Page& GetPage() const;

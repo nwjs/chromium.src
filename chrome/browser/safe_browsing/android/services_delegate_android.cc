@@ -66,6 +66,7 @@ void ServicesDelegateAndroid::SetDatabaseManagerForTest(
 
 void ServicesDelegateAndroid::ShutdownServices() {
   telemetry_service_.reset();
+  ServicesDelegate::ShutdownServices();
 }
 
 void ServicesDelegateAndroid::RefreshState(bool enable) {}
@@ -88,10 +89,6 @@ ClientSideDetectionService* ServicesDelegateAndroid::GetCsdService() {
   return nullptr;
 }
 
-DownloadProtectionService* ServicesDelegateAndroid::GetDownloadService() {
-  return nullptr;
-}
-
 void ServicesDelegateAndroid::StartOnIOThread(
     scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
     const V4ProtocolConfig& v4_config) {
@@ -100,11 +97,6 @@ void ServicesDelegateAndroid::StartOnIOThread(
 
 void ServicesDelegateAndroid::StopOnIOThread(bool shutdown) {
   database_manager_->StopOnIOThread(shutdown);
-}
-
-void ServicesDelegateAndroid::OnProfileWillBeDestroyedOnIOThread(
-    scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory) {
-  database_manager_->OnProfileWillBeDestroyedOnIOThread(url_loader_factory);
 }
 
 void ServicesDelegateAndroid::CreateTelemetryService(Profile* profile) {
@@ -123,14 +115,6 @@ void ServicesDelegateAndroid::RemoveTelemetryService(Profile* profile) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   if (telemetry_service_ && telemetry_service_->profile() == profile)
     telemetry_service_.reset();
-}
-
-void ServicesDelegateAndroid::CreateBinaryUploadService(Profile* profile) {}
-void ServicesDelegateAndroid::RemoveBinaryUploadService(Profile* profile) {}
-BinaryUploadService* ServicesDelegateAndroid::GetBinaryUploadService(
-    Profile* profile) const {
-  NOTIMPLEMENTED();
-  return nullptr;
 }
 
 std::string ServicesDelegateAndroid::GetSafetyNetId() const {

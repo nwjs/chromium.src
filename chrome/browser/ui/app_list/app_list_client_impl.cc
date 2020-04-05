@@ -15,6 +15,7 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/metrics/user_metrics.h"
+#include "base/strings/strcat.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
@@ -25,6 +26,7 @@
 #include "chrome/browser/ui/app_list/app_sync_ui_state_watcher.h"
 #include "chrome/browser/ui/app_list/search/app_result.h"
 #include "chrome/browser/ui/app_list/search/chrome_search_result.h"
+#include "chrome/browser/ui/app_list/search/cros_action_history/cros_action_recorder.h"
 #include "chrome/browser/ui/app_list/search/search_controller.h"
 #include "chrome/browser/ui/app_list/search/search_controller_factory.h"
 #include "chrome/browser/ui/app_list/search/search_resource_manager.h"
@@ -112,6 +114,7 @@ void AppListClientImpl::OpenSearchResult(const std::string& result_id,
       app_list::RankingItemTypeFromSearchResult(*result);
   app_launch_data.launch_type = launch_type;
   app_launch_data.launched_from = launched_from;
+  app_launch_data.suggestion_index = suggestion_index;
 
   if (launch_type == ash::AppListLaunchType::kAppSearchResult &&
       launched_from == ash::AppListLaunchedFrom::kLaunchedFromSearchBox &&
@@ -303,6 +306,14 @@ void AppListClientImpl::OnSearchResultVisibilityChanged(const std::string& id,
     return;
   }
   result->OnVisibilityChanged(visibility);
+}
+
+void AppListClientImpl::OnQuickSettingsChanged(
+    const std::string& setting_name,
+    const std::vector<std::pair<std::string, int>>& values) {
+  // CrOS action recorder.
+  app_list::CrOSActionRecorder::GetCrosActionRecorder()->RecordAction(
+      {base::StrCat({"SettingsChanged-", setting_name})}, values);
 }
 
 void AppListClientImpl::ActiveUserChanged(user_manager::User* active_user) {

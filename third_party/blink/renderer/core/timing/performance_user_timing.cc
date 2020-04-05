@@ -26,6 +26,7 @@
 #include "third_party/blink/renderer/core/timing/performance_user_timing.h"
 
 #include "third_party/blink/renderer/bindings/core/v8/v8_performance_mark_options.h"
+#include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/timing/performance_mark.h"
 #include "third_party/blink/renderer/core/timing/performance_measure.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
@@ -64,36 +65,7 @@ PerformanceMark* UserTiming::CreatePerformanceMark(
     const AtomicString& mark_name,
     PerformanceMarkOptions* mark_options,
     ExceptionState& exception_state) {
-  DOMHighResTimeStamp start = 0.0;
-  if (mark_options && mark_options->hasStartTime()) {
-    start = mark_options->startTime();
-    if (start < 0.0) {
-      exception_state.ThrowTypeError("'" + mark_name +
-                                     "' cannot have a negative start time.");
-      return nullptr;
-    }
-  } else {
-    start = performance_->now();
-  }
-
-  ScriptValue detail = ScriptValue::CreateNull(script_state->GetIsolate());
-  if (mark_options)
-    detail = mark_options->detail();
-
-  bool is_worker_global_scope =
-      performance_->GetExecutionContext() &&
-      performance_->GetExecutionContext()->IsWorkerGlobalScope();
-  if (!is_worker_global_scope &&
-      PerformanceTiming::GetAttributeMapping().Contains(mark_name)) {
-    exception_state.ThrowDOMException(
-        DOMExceptionCode::kSyntaxError,
-        "'" + mark_name +
-            "' is part of the PerformanceTiming interface, and "
-            "cannot be used as a mark name.");
-    return nullptr;
-  }
-
-  return PerformanceMark::Create(script_state, mark_name, start, detail,
+  return PerformanceMark::Create(script_state, mark_name, mark_options,
                                  exception_state);
 }
 
@@ -114,8 +86,11 @@ void UserTiming::ClearMarks(const AtomicString& mark_name) {
 
 double UserTiming::FindExistingMarkStartTime(const AtomicString& mark_name,
                                              ExceptionState& exception_state) {
-  if (marks_map_.Contains(mark_name))
-    return marks_map_.at(mark_name).back()->startTime();
+  PerformanceEntryMap::const_iterator existing_marks =
+      marks_map_.find(mark_name);
+  if (existing_marks != marks_map_.end()) {
+    return existing_marks->value.back()->startTime();
+  }
 
   PerformanceTiming::PerformanceTimingGetter timing_function =
       PerformanceTiming::GetAttributeMapping().at(mark_name);
@@ -268,7 +243,7 @@ PerformanceEntryVector UserTiming::GetMeasures(const AtomicString& name) const {
   return GetEntrySequenceByName(measures_map_, name);
 }
 
-void UserTiming::Trace(blink::Visitor* visitor) {
+void UserTiming::Trace(Visitor* visitor) {
   visitor->Trace(performance_);
   visitor->Trace(marks_map_);
   visitor->Trace(measures_map_);

@@ -11,11 +11,14 @@
 #include "base/sequenced_task_runner.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/test/test_utils.h"
+#include "crypto/rsa_private_key.h"
+#include "extensions/browser/content_hash_reader.h"
 #include "extensions/browser/content_verifier.h"
 #include "extensions/browser/content_verifier/content_hash.h"
 #include "extensions/browser/content_verifier_delegate.h"
 #include "extensions/browser/content_verify_job.h"
 #include "extensions/common/extension_id.h"
+#include "extensions/test/test_extension_dir.h"
 
 namespace extensions {
 
@@ -30,17 +33,25 @@ class TestContentVerifySingleJobObserver {
                                      const base::FilePath& relative_path);
   ~TestContentVerifySingleJobObserver();
 
+  TestContentVerifySingleJobObserver(
+      const TestContentVerifySingleJobObserver&) = delete;
+  TestContentVerifySingleJobObserver& operator=(
+      const TestContentVerifySingleJobObserver&) = delete;
+
   // Waits for a ContentVerifyJob to finish and returns job's status.
   ContentVerifyJob::FailureReason WaitForJobFinished() WARN_UNUSED_RESULT;
 
   // Waits for ContentVerifyJob to finish the attempt to read content hashes.
-  void WaitForOnHashesReady();
+  ContentHashReader::InitStatus WaitForOnHashesReady();
 
  private:
   class ObserverClient : public ContentVerifyJob::TestObserver {
    public:
     ObserverClient(const ExtensionId& extension_id,
                    const base::FilePath& relative_path);
+
+    ObserverClient(const ObserverClient&) = delete;
+    ObserverClient& operator=(const ObserverClient&) = delete;
 
     // ContentVerifyJob::TestObserver:
     void JobStarted(const ExtensionId& extension_id,
@@ -50,17 +61,19 @@ class TestContentVerifySingleJobObserver {
                      ContentVerifyJob::FailureReason reason) override;
     void OnHashesReady(const ExtensionId& extension_id,
                        const base::FilePath& relative_path,
-                       bool success) override;
+                       const ContentHashReader& hash_reader) override;
 
     // Passed methods from ContentVerifySingleJobObserver:
     ContentVerifyJob::FailureReason WaitForJobFinished() WARN_UNUSED_RESULT;
-    void WaitForOnHashesReady();
+    ContentHashReader::InitStatus WaitForOnHashesReady();
 
    private:
     ~ObserverClient() override;
 
-    ObserverClient(const ObserverClient&) = delete;
-    ObserverClient& operator=(const ObserverClient&) = delete;
+    void OnHashesReadyOnCreationThread(
+        const ExtensionId& extension_id,
+        const base::FilePath& relative_path,
+        ContentHashReader::InitStatus content_hash_status);
 
     content::BrowserThread::ID creation_thread_;
 
@@ -71,12 +84,8 @@ class TestContentVerifySingleJobObserver {
     base::FilePath relative_path_;
     base::Optional<ContentVerifyJob::FailureReason> failure_reason_;
     bool seen_on_hashes_ready_ = false;
+    ContentHashReader::InitStatus hashes_status_;
   };
-
-  TestContentVerifySingleJobObserver(
-      const TestContentVerifySingleJobObserver&) = delete;
-  TestContentVerifySingleJobObserver& operator=(
-      const TestContentVerifySingleJobObserver&) = delete;
 
   scoped_refptr<ObserverClient> client_;
 };
@@ -86,6 +95,10 @@ class TestContentVerifyJobObserver {
  public:
   TestContentVerifyJobObserver();
   ~TestContentVerifyJobObserver();
+
+  TestContentVerifyJobObserver(const TestContentVerifyJobObserver&) = delete;
+  TestContentVerifyJobObserver& operator=(const TestContentVerifyJobObserver&) =
+      delete;
 
   enum class Result { SUCCESS, FAILURE };
 
@@ -103,6 +116,9 @@ class TestContentVerifyJobObserver {
    public:
     ObserverClient();
 
+    ObserverClient(const ObserverClient&) = delete;
+    ObserverClient& operator=(const ObserverClient&) = delete;
+
     // ContentVerifyJob::TestObserver:
     void JobStarted(const ExtensionId& extension_id,
                     const base::FilePath& relative_path) override {}
@@ -111,7 +127,7 @@ class TestContentVerifyJobObserver {
                      ContentVerifyJob::FailureReason failure_reason) override;
     void OnHashesReady(const ExtensionId& extension_id,
                        const base::FilePath& relative_path,
-                       bool success) override {}
+                       const ContentHashReader& hash_reader) override {}
 
     // Passed methods from TestContentVerifyJobObserver:
     void ExpectJobResult(const ExtensionId& extension_id,
@@ -134,18 +150,11 @@ class TestContentVerifyJobObserver {
 
     ~ObserverClient() override;
 
-    ObserverClient(const ObserverClient&) = delete;
-    ObserverClient& operator=(const ObserverClient&) = delete;
-
     std::list<ExpectedResult> expectations_;
     content::BrowserThread::ID creation_thread_;
     // Accessed on |creation_thread_|.
     base::OnceClosure job_quit_closure_;
   };
-
-  TestContentVerifyJobObserver(const TestContentVerifyJobObserver&) = delete;
-  TestContentVerifyJobObserver& operator=(const TestContentVerifyJobObserver&) =
-      delete;
 
   scoped_refptr<ObserverClient> client_;
 };
@@ -185,19 +194,25 @@ class VerifierObserver : public ContentVerifier::TestObserver {
   VerifierObserver();
   virtual ~VerifierObserver();
 
-  const std::set<ExtensionId>& completed_fetches() {
-    return completed_fetches_;
+  const std::set<base::FilePath>& hash_mismatch_unix_paths() {
+    DCHECK(content_hash_);
+    return content_hash_->hash_mismatch_unix_paths();
   }
+  bool did_hash_mismatch() const { return did_hash_mismatch_; }
 
-  // Returns when we've seen OnFetchComplete for |extension_id|.
-  void WaitForFetchComplete(const ExtensionId& extension_id);
+  // Ensures that |extension_id| has seen OnFetchComplete, waits for it to
+  // complete if it hasn't already.
+  void EnsureFetchCompleted(const ExtensionId& extension_id);
 
   // ContentVerifier::TestObserver
-  void OnFetchComplete(const ExtensionId& extension_id, bool success) override;
+  void OnFetchComplete(const scoped_refptr<const ContentHash>& content_hash,
+                       bool did_hash_mismatch) override;
 
  private:
   std::set<ExtensionId> completed_fetches_;
   ExtensionId id_to_wait_for_;
+  scoped_refptr<const ContentHash> content_hash_;
+  bool did_hash_mismatch_ = true;
 
   // Created and accessed on |creation_thread_|.
   scoped_refptr<content::MessageLoopRunner> loop_runner_;
@@ -247,6 +262,51 @@ class ContentHashWaiter {
 };
 
 namespace content_verifier_test_utils {
+
+// Helper class to create directory with extension files, including signed
+// hashes for content verification.
+class TestExtensionBuilder {
+ public:
+  TestExtensionBuilder();
+  ~TestExtensionBuilder();
+
+  TestExtensionBuilder(const TestExtensionBuilder&) = delete;
+  TestExtensionBuilder& operator=(const TestExtensionBuilder&) = delete;
+
+  void WriteManifest();
+
+  void WriteResource(base::FilePath::StringType relative_path,
+                     std::string contents);
+
+  void WriteComputedHashes();
+
+  void WriteVerifiedContents();
+
+  std::vector<uint8_t> GetTestContentVerifierPublicKey();
+
+  base::FilePath extension_path() const {
+    return extension_dir_.UnpackedPath();
+  }
+  const ExtensionId& extension_id() const { return extension_id_; }
+
+ private:
+  struct ExtensionResource {
+    ExtensionResource(base::FilePath relative_path, std::string contents)
+        : relative_path(std::move(relative_path)),
+          contents(std::move(contents)) {}
+
+    base::FilePath relative_path;
+    std::string contents;
+  };
+
+  std::unique_ptr<base::Value> CreateVerifiedContents();
+
+  std::unique_ptr<crypto::RSAPrivateKey> test_content_verifier_key_;
+  ExtensionId extension_id_;
+  std::vector<ExtensionResource> extension_resources_;
+
+  TestExtensionDir extension_dir_;
+};
 
 // Unzips the extension source from |extension_zip| into |unzip_dir|
 // directory and loads it. Returns the resulting Extension object.

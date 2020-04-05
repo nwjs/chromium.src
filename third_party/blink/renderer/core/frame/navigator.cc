@@ -38,7 +38,8 @@
 namespace blink {
 
 Navigator::Navigator(LocalFrame* frame)
-    : NavigatorLanguage(frame ? frame->GetDocument() : nullptr),
+    : NavigatorLanguage(frame ? frame->GetDocument()->ToExecutionContext()
+                              : nullptr),
       DOMWindowClient(frame) {}
 
 String Navigator::productSub() const {
@@ -82,7 +83,12 @@ UserAgentMetadata Navigator::GetUserAgentMetadata() const {
   if (!GetFrame() || !GetFrame()->GetPage())
     return blink::UserAgentMetadata();
 
-  return GetFrame()->Loader().UserAgentMetadata();
+  base::Optional<UserAgentMetadata> maybe_ua_metadata =
+      GetFrame()->Loader().UserAgentMetadata();
+  if (maybe_ua_metadata.has_value())
+    return maybe_ua_metadata.value();
+  else
+    return blink::UserAgentMetadata();
 }
 
 bool Navigator::cookieEnabled() const {
@@ -108,11 +114,18 @@ String Navigator::GetAcceptLanguages() {
   return accept_languages;
 }
 
-void Navigator::Trace(blink::Visitor* visitor) {
+void Navigator::Trace(Visitor* visitor) {
   ScriptWrappable::Trace(visitor);
   NavigatorLanguage::Trace(visitor);
   DOMWindowClient::Trace(visitor);
   Supplementable<Navigator>::Trace(visitor);
+}
+
+ExecutionContext* Navigator::GetUAExecutionContext() const {
+  if (GetFrame() && GetFrame()->GetDocument()) {
+    return GetFrame()->GetDocument()->GetExecutionContext();
+  }
+  return nullptr;
 }
 
 }  // namespace blink

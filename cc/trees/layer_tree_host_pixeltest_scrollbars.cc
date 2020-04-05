@@ -41,12 +41,9 @@ class LayerTreeHostScrollbarsPixelTest
 
 class PaintedScrollbar : public FakeScrollbar {
  public:
-  explicit PaintedScrollbar(const gfx::Size& size)
-      : FakeScrollbar(/*paint*/ true,
-                      /*has_thumb*/ false,
-                      HORIZONTAL,
-                      /*is_left_side_vertical_scrollbar*/ false,
-                      /*is_overlay*/ false) {
+  explicit PaintedScrollbar(const gfx::Size& size) {
+    set_should_paint(true);
+    set_has_thumb(false);
     set_track_rect(gfx::Rect(size));
   }
 
@@ -76,17 +73,21 @@ class PaintedScrollbar : public FakeScrollbar {
   SkColor color_ = SK_ColorGREEN;
 };
 
+#if !defined(GL_NOT_ON_PLATFORM) || defined(ENABLE_CC_VULKAN_TESTS)
 LayerTreeTest::RendererType const kRendererTypes[] = {
+#if !defined(GL_NOT_ON_PLATFORM)
     LayerTreeTest::RENDERER_GL,
     LayerTreeTest::RENDERER_SKIA_GL,
+#endif  // !defined(GL_NOT_ON_PLATFORM)
 #if defined(ENABLE_CC_VULKAN_TESTS)
     LayerTreeTest::RENDERER_SKIA_VK,
-#endif
+#endif  // defined(ENABLE_CC_VULKAN_TESTS)
 };
 
 INSTANTIATE_TEST_SUITE_P(All,
                          LayerTreeHostScrollbarsPixelTest,
                          ::testing::ValuesIn(kRendererTypes));
+#endif  //  !defined(GL_NOT_ON_PLATFORM) || defined(ENABLE_CC_VULKAN_TESTS)
 
 TEST_P(LayerTreeHostScrollbarsPixelTest, NoScale) {
   scoped_refptr<SolidColorLayer> background =
@@ -161,6 +162,7 @@ TEST_P(LayerTreeHostScrollbarsPixelTest, MAYBE_HugeTransformScale) {
   background->AddChild(layer);
 
   auto context = base::MakeRefCounted<viz::TestInProcessContextProvider>(
+      /*enable_gpu_rasterization=*/false,
       /*enable_oop_rasterization=*/false,
       /*support_locking=*/false);
   gpu::ContextResult result = context->BindToCurrentThread();
@@ -208,12 +210,11 @@ class LayerTreeHostOverlayScrollbarsPixelTest
 
 class PaintedOverlayScrollbar : public FakeScrollbar {
  public:
-  PaintedOverlayScrollbar()
-      : FakeScrollbar(/*paint*/ true,
-                      /*has_thumb*/ true,
-                      VERTICAL,
-                      /*is_left_side_vertical_scrollbar*/ false,
-                      /*is_overlay*/ true) {
+  PaintedOverlayScrollbar() {
+    set_should_paint(true);
+    set_has_thumb(true);
+    set_orientation(VERTICAL);
+    set_is_overlay(true);
     set_thumb_size(gfx::Size(15, 50));
     set_track_rect(gfx::Rect(0, 0, 15, 400));
   }
@@ -255,9 +256,11 @@ class PaintedOverlayScrollbar : public FakeScrollbar {
   ~PaintedOverlayScrollbar() override = default;
 };
 
+#if !defined(GL_NOT_ON_PLATFORM) || defined(ENABLE_CC_VULKAN_TESTS)
 INSTANTIATE_TEST_SUITE_P(All,
                          LayerTreeHostOverlayScrollbarsPixelTest,
                          ::testing::ValuesIn(kRendererTypes));
+#endif  //  !defined(GL_NOT_ON_PLATFORM) || defined(ENABLE_CC_VULKAN_TESTS)
 
 // Simulate increasing the thickness of a painted overlay scrollbar. Ensure that
 // the scrollbar border remains crisp.

@@ -18,7 +18,7 @@
 #include "net/base/completion_repeating_callback.h"
 #include "storage/browser/quota/quota_client.h"
 #include "storage/browser/quota/quota_task.h"
-#include "third_party/blink/public/mojom/quota/quota_types.mojom.h"
+#include "third_party/blink/public/mojom/quota/quota_types.mojom-forward.h"
 #include "url/origin.h"
 
 namespace content {
@@ -52,6 +52,8 @@ class AppCacheQuotaClient : public storage::QuotaClient {
   void DeleteOriginData(const url::Origin& origin,
                         blink::mojom::StorageType type,
                         DeletionCallback callback) override;
+  void PerformStorageCleanup(blink::mojom::StorageType type,
+                             base::OnceClosure callback) override;
   bool DoesSupport(blink::mojom::StorageType type) const override;
 
  private:

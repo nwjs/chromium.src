@@ -6,6 +6,7 @@
 
 #include <memory>
 
+#include "base/bind.h"
 #include "base/task/post_task.h"
 #include "cc/paint/paint_flags.h"
 #include "chrome/browser/safe_browsing/cloud_content_scanning/deep_scanning_utils.h"
@@ -40,29 +41,21 @@ namespace safe_browsing {
 
 namespace {
 
-constexpr base::TimeDelta kInitialUIDelay =
-    base::TimeDelta::FromMilliseconds(200);
-
-constexpr base::TimeDelta kMinimumPendingDialogTime =
-    base::TimeDelta::FromSeconds(2);
-
-constexpr base::TimeDelta kSuccessDialogTimeout =
-    base::TimeDelta::FromSeconds(1);
-
 constexpr base::TimeDelta kResizeAnimationDuration =
     base::TimeDelta::FromMilliseconds(100);
 
-constexpr SkColor kScanSuccessColor = gfx::kGoogleGreen500;
-constexpr SkColor kScanFailureColor = gfx::kGoogleRed500;
-
-constexpr SkColor kScanPendingSideImageColor = gfx::kGoogleBlue400;
-constexpr SkColor kScanDoneSideImageColor = SkColorSetRGB(0xFF, 0xFF, 0xFF);
-
 constexpr int kSideImageSize = 24;
+constexpr int kLineHeight = 20;
 
 constexpr gfx::Insets kSideImageInsets = gfx::Insets(8, 8, 8, 8);
 constexpr gfx::Insets kMessageAndIconRowInsets = gfx::Insets(0, 32, 0, 48);
 constexpr int kSideIconBetweenChildSpacing = 16;
+
+// These time values are non-const in order to be overridden in test so they
+// complete faster.
+base::TimeDelta initial_ui_delay_ = base::TimeDelta::FromMilliseconds(200);
+base::TimeDelta minimum_pending_dialog_time_ = base::TimeDelta::FromSeconds(2);
+base::TimeDelta success_dialog_timeout_ = base::TimeDelta::FromSeconds(1);
 
 // A simple background class to show a colored circle behind the side icon once
 // the scanning is done.
@@ -82,29 +75,121 @@ class CircleBackground : public views::Background {
   }
 };
 
+SkColor GetBackgroundColor(const views::Widget* widget) {
+  return widget->GetNativeTheme()->GetSystemColor(
+      ui::NativeTheme::kColorId_DialogBackground);
+}
+
+DeepScanningDialogViews::TestObserver* observer_for_testing = nullptr;
+
 }  // namespace
 
-// An image class used for the image at the top of the dialog.
-class DeepScanningTopImageView : public views::ImageView {
- public:
-  explicit DeepScanningTopImageView(DeepScanningDialogViews* dialog)
-      : dialog_(dialog) {}
+// View classes used to override OnThemeChanged and update the sub-views to the
+// new theme.
 
-  void Update() { SetImage(dialog_->GetTopImage()); }
+class DeepScanningBaseView {
+ public:
+  explicit DeepScanningBaseView(DeepScanningDialogViews* dialog)
+      : dialog_(dialog) {}
+  DeepScanningDialogViews* dialog() { return dialog_; }
 
  protected:
-  void OnThemeChanged() override { Update(); }
-
- private:
   DeepScanningDialogViews* dialog_;
 };
+
+class DeepScanningTopImageView : public DeepScanningBaseView,
+                                 public views::ImageView {
+ public:
+  using DeepScanningBaseView::DeepScanningBaseView;
+
+  void Update() { SetImage(dialog()->GetTopImage()); }
+
+ protected:
+  void OnThemeChanged() override {
+    views::ImageView::OnThemeChanged();
+    Update();
+  }
+};
+
+class DeepScanningSideIconImageView : public DeepScanningBaseView,
+                                      public views::ImageView {
+ public:
+  using DeepScanningBaseView::DeepScanningBaseView;
+
+  void Update() {
+    SetImage(gfx::CreateVectorIcon(vector_icons::kBusinessIcon, kSideImageSize,
+                                   dialog()->GetSideImageLogoColor()));
+    if (dialog()->is_result()) {
+      SetBackground(std::make_unique<CircleBackground>(
+          dialog()->GetSideImageBackgroundColor()));
+    }
+  }
+
+ protected:
+  void OnThemeChanged() override {
+    views::ImageView::OnThemeChanged();
+    Update();
+  }
+};
+
+class DeepScanningSideIconSpinnerView : public DeepScanningBaseView,
+                                        public views::Throbber {
+ public:
+  using DeepScanningBaseView::DeepScanningBaseView;
+
+  void Update() {
+    if (dialog()->is_result()) {
+      parent()->RemoveChildView(this);
+      delete this;
+    }
+  }
+
+ protected:
+  void OnThemeChanged() override {
+    views::Throbber::OnThemeChanged();
+    Update();
+  }
+};
+
+class DeepScanningMessageView : public DeepScanningBaseView,
+                                public views::Label {
+ public:
+  using DeepScanningBaseView::DeepScanningBaseView;
+
+  void Update() {
+    if (dialog()->is_failure() || dialog()->is_warning())
+      SetEnabledColor(dialog()->GetSideImageBackgroundColor());
+  }
+
+ protected:
+  void OnThemeChanged() override {
+    views::Label::OnThemeChanged();
+    Update();
+  }
+};
+
+// static
+base::TimeDelta DeepScanningDialogViews::GetInitialUIDelay() {
+  return initial_ui_delay_;
+}
+
+// static
+base::TimeDelta DeepScanningDialogViews::GetMinimumPendingDialogTime() {
+  return minimum_pending_dialog_time_;
+}
+
+// static
+base::TimeDelta DeepScanningDialogViews::GetSuccessDialogTimeout() {
+  return success_dialog_timeout_;
+}
 
 DeepScanningDialogViews::DeepScanningDialogViews(
     std::unique_ptr<DeepScanningDialogDelegate> delegate,
     content::WebContents* web_contents,
     DeepScanAccessPoint access_point,
     bool is_file_scan)
-    : delegate_(std::move(delegate)),
+    : content::WebContentsObserver(web_contents),
+      delegate_(std::move(delegate)),
       web_contents_(web_contents),
       access_point_(std::move(access_point)),
       is_file_scan_(is_file_scan) {
@@ -112,16 +197,25 @@ DeepScanningDialogViews::DeepScanningDialogViews(
   base::PostDelayedTask(FROM_HERE, {content::BrowserThread::UI},
                         base::BindOnce(&DeepScanningDialogViews::Show,
                                        weak_ptr_factory_.GetWeakPtr()),
-                        kInitialUIDelay);
+                        GetInitialUIDelay());
+
+  if (observer_for_testing)
+    observer_for_testing->ConstructorCalled(this);
 }
 
 base::string16 DeepScanningDialogViews::GetWindowTitle() const {
   return base::string16();
 }
 
-bool DeepScanningDialogViews::Cancel() {
-  delegate_->Cancel();
-  return true;
+void DeepScanningDialogViews::AcceptButtonCallback() {
+  DCHECK(delegate_);
+  DCHECK(is_warning());
+  delegate_->BypassWarnings();
+}
+
+void DeepScanningDialogViews::CancelButtonCallback() {
+  if (delegate_)
+    delegate_->Cancel(is_warning());
 }
 
 bool DeepScanningDialogViews::ShouldShowCloseButton() const {
@@ -132,6 +226,14 @@ views::View* DeepScanningDialogViews::GetContentsView() {
   return contents_view_.get();
 }
 
+views::Widget* DeepScanningDialogViews::GetWidget() {
+  return contents_view_->GetWidget();
+}
+
+const views::Widget* DeepScanningDialogViews::GetWidget() const {
+  return contents_view_->GetWidget();
+}
+
 void DeepScanningDialogViews::DeleteDelegate() {
   delete this;
 }
@@ -140,63 +242,75 @@ ui::ModalType DeepScanningDialogViews::GetModalType() const {
   return ui::MODAL_TYPE_CHILD;
 }
 
-void DeepScanningDialogViews::ShowResult(bool success) {
-  DCHECK(is_pending());
-  dialog_status_ = success ? DeepScanningDialogStatus::SUCCESS
-                           : DeepScanningDialogStatus::FAILURE;
+void DeepScanningDialogViews::WebContentsDestroyed() {
+  // If |web_contents_| is destroyed, then the scan results don't matter so the
+  // delegate can be destroyed as well.
+  delegate_.reset(nullptr);
+  CancelDialog();
+}
 
-  // Cleanup if the pending dialog wasn't shown and the verdict is safe.
-  if (!shown_ && success) {
-    delete this;
-    return;
+void DeepScanningDialogViews::ShowResult(
+    DeepScanningDialogDelegate::DeepScanningFinalResult result) {
+  DCHECK(is_pending());
+  final_result_ = result;
+  switch (final_result_) {
+    case DeepScanningDialogDelegate::DeepScanningFinalResult::ENCRYPTED_FILES:
+    case DeepScanningDialogDelegate::DeepScanningFinalResult::LARGE_FILES:
+    case DeepScanningDialogDelegate::DeepScanningFinalResult::FAILURE:
+      dialog_status_ = DeepScanningDialogStatus::FAILURE;
+      break;
+    case DeepScanningDialogDelegate::DeepScanningFinalResult::SUCCESS:
+      dialog_status_ = DeepScanningDialogStatus::SUCCESS;
+      break;
+    case DeepScanningDialogDelegate::DeepScanningFinalResult::WARNING:
+      dialog_status_ = DeepScanningDialogStatus::WARNING;
+      break;
   }
 
   // Do nothing if the pending dialog wasn't shown, the delayed |Show| callback
-  // will show the negative result later.
-  if (!shown_ && !success)
+  // will show the negative result later if that's the verdict.
+  if (!shown_) {
+    // Cleanup if the pending dialog wasn't shown and the verdict is safe.
+    if (is_success())
+      delete this;
     return;
+  }
 
   // Update the pending dialog only after it has been shown for a minimum amount
   // of time.
   base::TimeDelta time_shown = base::TimeTicks::Now() - first_shown_timestamp_;
-  if (time_shown >= kMinimumPendingDialogTime) {
+  if (time_shown >= GetMinimumPendingDialogTime()) {
     UpdateDialog();
   } else {
     base::PostDelayedTask(FROM_HERE, {content::BrowserThread::UI},
                           base::BindOnce(&DeepScanningDialogViews::UpdateDialog,
                                          weak_ptr_factory_.GetWeakPtr()),
-                          kMinimumPendingDialogTime - time_shown);
+                          GetMinimumPendingDialogTime() - time_shown);
   }
 }
 
-DeepScanningDialogViews::~DeepScanningDialogViews() = default;
-
-const views::Widget* DeepScanningDialogViews::GetWidgetImpl() const {
-  return contents_view_->GetWidget();
+DeepScanningDialogViews::~DeepScanningDialogViews() {
+  if (observer_for_testing)
+    observer_for_testing->DestructorCalled(this);
 }
 
 void DeepScanningDialogViews::UpdateDialog() {
   DCHECK(shown_);
+  views::Widget* widget = GetWidget();
+  DCHECK(widget);
   DCHECK(is_result());
+
+  // Update the style of the dialog to reflect the new state.
+  message_->Update();
+  image_->Update();
+  side_icon_image_->Update();
+  side_icon_spinner_->Update();
+  side_icon_spinner_ = nullptr;
 
   // Update the buttons.
   SetupButtons();
 
-  // Update the top image.
-  image_->Update();
-
-  // Update the side icon by changing its image color, adding a background and
-  // removing the spinner.
-  side_icon_image_->SetImage(gfx::CreateVectorIcon(
-      vector_icons::kBusinessIcon, kSideImageSize, kScanDoneSideImageColor));
-  side_icon_image_->SetBackground(
-      std::make_unique<CircleBackground>(GetSideImageBackgroundColor()));
-  side_icon_spinner_->parent()->RemoveChildView(side_icon_spinner_);
-  delete side_icon_spinner_;
-
-  // Update the message. Change the text color only if the scan was negative.
-  if (is_failure())
-    message_->SetEnabledColor(kScanFailureColor);
+  // Update the message's text.
   message_->SetText(GetDialogMessage());
 
   // Resize the dialog's height. This is needed since the button might be
@@ -209,22 +323,32 @@ void DeepScanningDialogViews::UpdateDialog() {
 
   // Update the dialog.
   DialogDelegate::DialogModelChanged();
-  widget_->ScheduleLayout();
+  widget->ScheduleLayout();
 
   // Schedule the dialog to close itself in the success case.
   if (is_success()) {
     base::PostDelayedTask(FROM_HERE, {content::BrowserThread::UI},
                           base::BindOnce(&DialogDelegate::CancelDialog,
                                          weak_ptr_factory_.GetWeakPtr()),
-                          kSuccessDialogTimeout);
+                          GetSuccessDialogTimeout());
   }
+
+  if (observer_for_testing)
+    observer_for_testing->DialogUpdated(this, final_result_);
+
+  // Cancel the dialog as it is updated in tests in the failure dialog case.
+  // This is necessary to terminate tests that end when the dialog is closed.
+  if (observer_for_testing && is_failure())
+    CancelDialog();
 }
 
 void DeepScanningDialogViews::Resize(int height_to_add) {
   // Only resize if the dialog is updated to show a result.
   DCHECK(is_result());
+  views::Widget* widget = GetWidget();
+  DCHECK(widget);
 
-  gfx::Rect dialog_rect = widget_->GetContentsView()->GetContentsBounds();
+  gfx::Rect dialog_rect = widget->GetContentsView()->GetContentsBounds();
   int new_height = dialog_rect.height();
 
   // Remove the button row's height if it's removed in the success case.
@@ -243,12 +367,12 @@ void DeepScanningDialogViews::Resize(int height_to_add) {
 
   // Setup the animation.
   bounds_animator_ =
-      std::make_unique<views::BoundsAnimator>(widget_->GetRootView());
+      std::make_unique<views::BoundsAnimator>(widget->GetRootView());
   bounds_animator_->SetAnimationDuration(kResizeAnimationDuration);
 
-  DCHECK(widget_->GetRootView());
-  DCHECK_EQ(widget_->GetRootView()->children().size(), 1ul);
-  views::View* view_to_resize = widget_->GetRootView()->children()[0];
+  DCHECK(widget->GetRootView());
+  DCHECK_EQ(widget->GetRootView()->children().size(), 1u);
+  views::View* view_to_resize = widget->GetRootView()->children()[0];
 
   // Start the animation.
   bounds_animator_->AnimateViewTo(view_to_resize, dialog_rect);
@@ -256,21 +380,42 @@ void DeepScanningDialogViews::Resize(int height_to_add) {
   // Change the widget's size.
   gfx::Size new_size = view_to_resize->size();
   new_size.set_height(new_height);
-  widget_->SetSize(new_size);
+  widget->SetSize(new_size);
 }
 
 void DeepScanningDialogViews::SetupButtons() {
   // TODO(domfc): Add "Learn more" button on scan failure.
-  if (is_pending() || is_failure()) {
-    DialogDelegate::set_buttons(ui::DIALOG_BUTTON_CANCEL);
-    DialogDelegate::set_button_label(ui::DIALOG_BUTTON_CANCEL,
-                                     GetCancelButtonText());
-    DialogDelegate::set_default_button(ui::DIALOG_BUTTON_NONE);
-  } else {
-    DialogDelegate::set_buttons(ui::DIALOG_BUTTON_NONE);
-  }
+  if (is_warning()) {
+    // Include the Ok and Cancel buttons if there is a bypassable warning.
+    DialogDelegate::SetButtons(ui::DIALOG_BUTTON_CANCEL |
+                                ui::DIALOG_BUTTON_OK);
+    DialogDelegate::SetDefaultButton(ui::DIALOG_BUTTON_CANCEL);
 
-  // TODO(domfc): Add "Learn more" button setup for scan failures.
+    DialogDelegate::SetButtonLabel(ui::DIALOG_BUTTON_CANCEL,
+                                     GetCancelButtonText());
+    DialogDelegate::SetCancelCallback(
+        base::BindOnce(&DeepScanningDialogViews::CancelButtonCallback,
+                       weak_ptr_factory_.GetWeakPtr()));
+
+    DialogDelegate::SetButtonLabel(ui::DIALOG_BUTTON_OK,
+                                     GetBypassWarningButtonText());
+    DialogDelegate::SetAcceptCallback(
+        base::BindOnce(&DeepScanningDialogViews::AcceptButtonCallback,
+                       weak_ptr_factory_.GetWeakPtr()));
+  } else if (is_failure() || is_pending()) {
+    // Include the Cancel button when the scan is pending or failing.
+    DialogDelegate::SetButtons(ui::DIALOG_BUTTON_CANCEL);
+    DialogDelegate::SetDefaultButton(ui::DIALOG_BUTTON_NONE);
+
+    DialogDelegate::SetButtonLabel(ui::DIALOG_BUTTON_CANCEL,
+                                     GetCancelButtonText());
+    DialogDelegate::SetCancelCallback(
+        base::BindOnce(&DeepScanningDialogViews::CancelButtonCallback,
+                       weak_ptr_factory_.GetWeakPtr()));
+  } else {
+    // Include no buttons otherwise.
+    DialogDelegate::SetButtons(ui::DIALOG_BUTTON_NONE);
+  }
 }
 
 base::string16 DeepScanningDialogViews::GetDialogMessage() const {
@@ -285,21 +430,44 @@ base::string16 DeepScanningDialogViews::GetDialogMessage() const {
     case DeepScanningDialogStatus::SUCCESS:
       text_id = IDS_DEEP_SCANNING_DIALOG_SUCCESS_MESSAGE;
       break;
+    case DeepScanningDialogStatus::WARNING:
+      text_id = GetWarningMessageId();
+      break;
   }
   return l10n_util::GetStringUTF16(text_id);
 }
 
 base::string16 DeepScanningDialogViews::GetCancelButtonText() const {
-  if (is_pending()) {
-    return l10n_util::GetStringUTF16(
-        IDS_DEEP_SCANNING_DIALOG_CANCEL_UPLOAD_BUTTON);
+  int text_id;
+  switch (dialog_status_) {
+    case DeepScanningDialogStatus::SUCCESS:
+      NOTREACHED();
+      FALLTHROUGH;
+    case DeepScanningDialogStatus::PENDING:
+      text_id = IDS_DEEP_SCANNING_DIALOG_CANCEL_UPLOAD_BUTTON;
+      break;
+    case DeepScanningDialogStatus::FAILURE:
+      text_id = IDS_CLOSE;
+      break;
+    case DeepScanningDialogStatus::WARNING:
+      text_id = IDS_DEEP_SCANNING_DIALOG_CANCEL_WARNING_BUTTON;
+      break;
   }
-  DCHECK(!is_success());
-  return l10n_util::GetStringUTF16(IDS_CLOSE);
+  return l10n_util::GetStringUTF16(text_id);
+}
+
+base::string16 DeepScanningDialogViews::GetBypassWarningButtonText() const {
+  DCHECK(is_warning());
+  return l10n_util::GetStringUTF16(IDS_DEEP_SCANNING_DIALOG_PROCEED_BUTTON);
 }
 
 void DeepScanningDialogViews::Show() {
   DCHECK(!shown_);
+
+  // The only state that cannot be shown immediately is SUCCESS, the dialog
+  // doesn't appear in that case.
+  DCHECK(!is_success());
+
   shown_ = true;
   first_shown_timestamp_ = base::TimeTicks::Now();
 
@@ -342,7 +510,9 @@ void DeepScanningDialogViews::Show() {
   icon_and_message_row->AddChildView(CreateSideIcon());
 
   // Add the message.
-  auto label = std::make_unique<views::Label>(GetDialogMessage());
+  auto label = std::make_unique<DeepScanningMessageView>(this);
+  label->SetText(GetDialogMessage());
+  label->SetLineHeight(kLineHeight);
   label->SetMultiLine(true);
   label->SetVerticalAlignment(gfx::ALIGN_MIDDLE);
   label->SetHorizontalAlignment(gfx::ALIGN_LEFT);
@@ -353,35 +523,39 @@ void DeepScanningDialogViews::Show() {
   // Add padding to distance the message from the button(s).
   layout->AddPaddingRow(views::GridLayout::kFixedSize, 10);
 
-  widget_ = constrained_window::ShowWebModalDialogViews(this, web_contents_);
+  constrained_window::ShowWebModalDialogViews(this, web_contents_);
+
+  if (observer_for_testing)
+    observer_for_testing->ViewsFirstShown(this, first_shown_timestamp_);
+
+  // Cancel the dialog as it is shown in tests if the failure dialog is shown
+  // immediately.
+  if (observer_for_testing && is_failure())
+    CancelDialog();
 }
 
 std::unique_ptr<views::View> DeepScanningDialogViews::CreateSideIcon() {
   // The side icon is created either:
   // - When the pending dialog is shown
   // - When the response was fast enough that the failure dialog is shown first
-  DCHECK(is_pending() || !is_success());
+  DCHECK(!is_success());
 
   // The icon left of the text has the appearance of a blue "Enterprise" logo
   // with a spinner when the scan is pending.
   auto icon = std::make_unique<views::View>();
   icon->SetLayoutManager(std::make_unique<views::FillLayout>());
 
-  auto side_image = std::make_unique<views::ImageView>();
+  auto side_image = std::make_unique<DeepScanningSideIconImageView>(this);
   side_image->SetImage(gfx::CreateVectorIcon(
-      vector_icons::kBusinessIcon, kSideImageSize,
-      is_result() ? kScanDoneSideImageColor : kScanPendingSideImageColor));
+      gfx::IconDescription(vector_icons::kBusinessIcon, kSideImageSize)));
   side_image->SetBorder(views::CreateEmptyBorder(kSideImageInsets));
   side_icon_image_ = icon->AddChildView(std::move(side_image));
 
-  // Add a spinner if the scan result is pending, otherwise add a background.
+  // Add a spinner if the scan result is pending.
   if (is_pending()) {
-    auto spinner = std::make_unique<views::Throbber>();
+    auto spinner = std::make_unique<DeepScanningSideIconSpinnerView>(this);
     spinner->Start();
     side_icon_spinner_ = icon->AddChildView(std::move(spinner));
-  } else {
-    side_icon_image_->SetBackground(
-        std::make_unique<CircleBackground>(GetSideImageBackgroundColor()));
   }
 
   return icon;
@@ -389,7 +563,12 @@ std::unique_ptr<views::View> DeepScanningDialogViews::CreateSideIcon() {
 
 SkColor DeepScanningDialogViews::GetSideImageBackgroundColor() const {
   DCHECK(is_result());
-  return is_success() ? kScanSuccessColor : kScanFailureColor;
+  const views::Widget* widget = GetWidget();
+  DCHECK(widget);
+  ui::NativeTheme::ColorId color_id =
+      is_success() ? ui::NativeTheme::kColorId_AlertSeverityLow
+                   : ui::NativeTheme::kColorId_AlertSeverityHigh;
+  return widget->GetNativeTheme()->GetSystemColor(color_id);
 }
 
 int DeepScanningDialogViews::GetPasteImageId(bool use_dark) const {
@@ -428,6 +607,17 @@ int DeepScanningDialogViews::GetPendingMessageId() const {
 
 int DeepScanningDialogViews::GetFailureMessageId() const {
   DCHECK(is_failure());
+
+  if (final_result_ ==
+      DeepScanningDialogDelegate::DeepScanningFinalResult::LARGE_FILES) {
+    return IDS_DEEP_SCANNING_DIALOG_LARGE_FILE_FAILURE_MESSAGE;
+  }
+
+  if (final_result_ ==
+      DeepScanningDialogDelegate::DeepScanningFinalResult::ENCRYPTED_FILES) {
+    return IDS_DEEP_SCANNING_DIALOG_ENCRYPTED_FILE_FAILURE_MESSAGE;
+  }
+
   switch (access_point_) {
     case DeepScanAccessPoint::DOWNLOAD:
       // This dialog should not appear on the download path. If it somehow does,
@@ -444,9 +634,26 @@ int DeepScanningDialogViews::GetFailureMessageId() const {
   }
 }
 
+int DeepScanningDialogViews::GetWarningMessageId() const {
+  DCHECK(is_warning());
+  switch (access_point_) {
+    case DeepScanAccessPoint::DOWNLOAD:
+      // This dialog should not appear on the download path. If it somehow does,
+      // treat it as an upload.
+      NOTREACHED();
+      FALLTHROUGH;
+    case DeepScanAccessPoint::UPLOAD:
+      return IDS_DEEP_SCANNING_DIALOG_UPLOAD_WARNING_MESSAGE;
+    case DeepScanAccessPoint::PASTE:
+      return IDS_DEEP_SCANNING_DIALOG_PASTE_WARNING_MESSAGE;
+    case DeepScanAccessPoint::DRAG_AND_DROP:
+      return is_file_scan_ ? IDS_DEEP_SCANNING_DIALOG_DRAG_FILES_WARNING_MESSAGE
+                           : IDS_DEEP_SCANNING_DIALOG_DRAG_DATA_WARNING_MESSAGE;
+  }
+}
+
 const gfx::ImageSkia* DeepScanningDialogViews::GetTopImage() const {
-  const bool use_dark =
-      color_utils::IsDark(GetBubbleFrameView()->GetBackgroundColor());
+  const bool use_dark = color_utils::IsDark(GetBackgroundColor(GetWidget()));
   const bool treat_as_text_paste =
       access_point_ == DeepScanAccessPoint::PASTE ||
       (access_point_ == DeepScanAccessPoint::DRAG_AND_DROP && !is_file_scan_);
@@ -455,6 +662,58 @@ const gfx::ImageSkia* DeepScanningDialogViews::GetTopImage() const {
                                      : GetUploadImageId(use_dark);
 
   return ui::ResourceBundle::GetSharedInstance().GetImageSkiaNamed(image_id);
+}
+
+SkColor DeepScanningDialogViews::GetSideImageLogoColor() const {
+  const views::Widget* widget = GetWidget();
+  DCHECK(widget);
+  switch (dialog_status_) {
+    case DeepScanningDialogStatus::PENDING:
+      // Match the spinner in the pending state.
+      return widget->GetNativeTheme()->GetSystemColor(
+          ui::NativeTheme::kColorId_ThrobberSpinningColor);
+    case DeepScanningDialogStatus::SUCCESS:
+    case DeepScanningDialogStatus::FAILURE:
+    case DeepScanningDialogStatus::WARNING:
+      // In a result state the background will have the result's color, so the
+      // logo should have the same color as the background.
+      return GetBackgroundColor(widget);
+  }
+}
+
+// static
+void DeepScanningDialogViews::SetInitialUIDelayForTesting(
+    base::TimeDelta delta) {
+  initial_ui_delay_ = delta;
+}
+
+// static
+void DeepScanningDialogViews::SetMinimumPendingDialogTimeForTesting(
+    base::TimeDelta delta) {
+  minimum_pending_dialog_time_ = delta;
+}
+
+// static
+void DeepScanningDialogViews::SetSuccessDialogTimeoutForTesting(
+    base::TimeDelta delta) {
+  success_dialog_timeout_ = delta;
+}
+
+// static
+void DeepScanningDialogViews::SetObserverForTesting(TestObserver* observer) {
+  observer_for_testing = observer;
+}
+
+views::ImageView* DeepScanningDialogViews::GetTopImageForTesting() const {
+  return image_;
+}
+
+views::Throbber* DeepScanningDialogViews::GetSideIconSpinnerForTesting() const {
+  return side_icon_spinner_;
+}
+
+views::Label* DeepScanningDialogViews::GetMessageForTesting() const {
+  return message_;
 }
 
 }  // namespace safe_browsing

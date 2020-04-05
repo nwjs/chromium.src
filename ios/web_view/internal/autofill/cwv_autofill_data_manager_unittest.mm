@@ -58,8 +58,7 @@ class CWVAutofillDataManagerTest : public PlatformTest {
     personal_data_manager_->SetAutofillWalletImportEnabled(true);
 
     password_store_ = new password_manager::TestPasswordStore();
-    password_store_->Init(base::RepeatingCallback<void(syncer::ModelType)>(),
-                          nullptr);
+    password_store_->Init(nullptr);
 
     autofill_data_manager_ = [[CWVAutofillDataManager alloc]
         initWithPersonalDataManager:personal_data_manager_.get()
@@ -248,7 +247,8 @@ TEST_F(CWVAutofillDataManagerTest, ReturnPassword) {
   password_store_->AddLogin(test_password);
   NSArray<CWVPassword*>* fetched_passwords = FetchPasswords();
   EXPECT_EQ(1ul, fetched_passwords.count);
-  EXPECT_EQ(test_password, *[fetched_passwords[0] internalPasswordForm]);
+  EXPECT_THAT(test_password, password_manager::MatchesFormExceptStore(
+                                 *[fetched_passwords[0] internalPasswordForm]));
 }
 
 // Tests CWVAutofillDataManager properly deletes passwords.

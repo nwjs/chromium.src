@@ -69,7 +69,7 @@ float Slider::GetValue() const {
 }
 
 void Slider::SetValue(float value) {
-  SetValueInternal(value, VALUE_CHANGED_BY_API);
+  SetValueInternal(value, SliderChangeReason::kByApi);
 }
 
 bool Slider::GetEnableAccessibilityEvents() const {
@@ -88,7 +88,7 @@ void Slider::SetRenderingStyle(RenderingStyle style) {
   SchedulePaint();
 }
 
-float Slider::GetAnimatingValue() const{
+float Slider::GetAnimatingValue() const {
   return move_animation_ && move_animation_->is_animating()
              ? move_animation_->CurrentValueBetween(initial_animating_value_,
                                                     value_)
@@ -165,9 +165,7 @@ void Slider::PrepareForMove(const int new_x) {
   float value = GetAnimatingValue();
 
   const int thumb_x = value * (content.width() - kThumbWidth);
-  const int candidate_x = (base::i18n::IsRTL() ?
-      width() - (new_x - inset.left()) :
-      new_x - inset.left()) - thumb_x;
+  const int candidate_x = GetMirroredXInView(new_x - inset.left()) - thumb_x;
   if (candidate_x >= 0 && candidate_x < kThumbWidth)
     initial_button_offset_ = candidate_x;
   else
@@ -182,7 +180,7 @@ void Slider::MoveButtonTo(const gfx::Point& point) {
                    : point.x() - inset.left() - initial_button_offset_;
   SetValueInternal(
       static_cast<float>(amount) / (width() - inset.width() - kThumbWidth),
-      VALUE_CHANGED_BY_USER);
+      SliderChangeReason::kByUser);
 }
 
 void Slider::OnSliderDragStarted() {
@@ -242,7 +240,7 @@ bool Slider::OnKeyPressed(const ui::KeyEvent& event) {
       return false;
   }
   SetValueInternal(value_ + direction * keyboard_increment_,
-                   VALUE_CHANGED_BY_USER);
+                   SliderChangeReason::kByUser);
   return true;
 }
 

@@ -102,7 +102,11 @@ FetchRequestData* FetchRequestData::Create(
         nullptr /* AbortSignal */));
   }
 
-  request->SetContext(fetch_api_request.request_context_type);
+  // Context is always set to FETCH later, so we don't copy it
+  // from fetch_api_request here.
+  // TODO(crbug.com/1045925): Remove this comment too when
+  // we deprecate SetContext.
+
   request->SetDestination(fetch_api_request.destination);
   request->SetReferrerString(AtomicString(Referrer::NoReferrer()));
   if (fetch_api_request.referrer) {
@@ -148,6 +152,7 @@ FetchRequestData* FetchRequestData::CloneExceptBody() {
   request->keepalive_ = keepalive_;
   request->is_history_navigation_ = is_history_navigation_;
   request->window_id_ = window_id_;
+  request->trust_token_params_ = trust_token_params_;
   return request;
 }
 
@@ -203,7 +208,7 @@ FetchRequestData::FetchRequestData()
       priority_(ResourceLoadPriority::kUnresolved),
       keepalive_(false) {}
 
-void FetchRequestData::Trace(blink::Visitor* visitor) {
+void FetchRequestData::Trace(Visitor* visitor) {
   visitor->Trace(buffer_);
   visitor->Trace(header_list_);
 }

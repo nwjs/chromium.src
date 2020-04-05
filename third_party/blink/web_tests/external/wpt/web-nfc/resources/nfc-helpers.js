@@ -18,6 +18,8 @@ let loadChromiumResources = Promise.resolve().then(() => {
   [
     '/gen/layout_test_data/mojo/public/js/mojo_bindings.js',
     '/gen/services/device/public/mojom/nfc.mojom.js',
+    '/resources/testdriver.js',
+    '/resources/testdriver-vendor.js',
     '/resources/chromium/nfc-mock.js',
   ].forEach(path => {
     let script = document.createElement('script');
@@ -192,7 +194,8 @@ function assertWebNDEFMessagesEqual(message, expectedMessage) {
     assert_equals(record.recordType, expectedRecord.recordType);
     assert_equals(record.mediaType, expectedRecord.mediaType);
     assert_equals(record.id, expectedRecord.id);
-
+    assert_equals(record.encoding, expectedRecord.encoding);
+    assert_equals(record.lang, expectedRecord.lang);
     // Compares record data
     assert_array_equals(new Uint8Array(record.data),
           new Uint8Array(expectedRecord.data));

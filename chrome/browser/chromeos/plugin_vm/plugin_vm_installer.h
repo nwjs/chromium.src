@@ -10,7 +10,6 @@
 
 #include "base/macros.h"
 #include "base/memory/weak_ptr.h"
-#include "base/time/time.h"
 #include "chromeos/dbus/concierge/concierge_service.pb.h"
 #include "chromeos/dbus/concierge_client.h"
 #include "chromeos/dbus/dlcservice/dlcservice_client.h"
@@ -39,8 +38,8 @@ class PluginVmDriveImageDownloadService;
 class PluginVmInstaller : public KeyedService,
                           public chromeos::ConciergeClient::DiskImageObserver {
  public:
-  // FailureReasons values can be shown to the user. Do not reorder or renumber
-  // these values without careful consideration.
+  // FailureReasons values are logged to UMA and shown to users. Do not change
+  // or re-use enum values.
   enum class FailureReason {
     // LOGIC_ERROR = 0,
     SIGNAL_NOT_CONNECTED = 1,
@@ -58,33 +57,59 @@ class PluginVmInstaller : public KeyedService,
     COULD_NOT_OPEN_IMAGE = 13,
     INVALID_IMPORT_RESPONSE = 14,
     IMAGE_IMPORT_FAILED = 15,
-    DLC_DOWNLOAD_FAILED = 16,
+    // DLC_DOWNLOAD_FAILED = 16,
     // DLC_DOWNLOAD_NOT_STARTED = 17,
+    DLC_INTERNAL = 18,
+    DLC_UNSUPPORTED = 19,
+    DLC_BUSY = 20,
+    DLC_NEED_REBOOT = 21,
+    DLC_NEED_SPACE = 22,
+    INSUFFICIENT_DISK_SPACE = 23,
+
+    kMaxValue = INSUFFICIENT_DISK_SPACE,
   };
 
+  enum class InstallingState {
+    kInactive,
+    kCheckingDiskSpace,
+    kPausedLowDiskSpace,
+    kDownloadingDlc,
+    kCheckingForExistingVm,
+    kDownloadingImage,
+    kImporting,
+  };
+
+  static constexpr int64_t kMinimumFreeDiskSpace = 16LL * 1024 * 1024 * 1024;
+  static constexpr int64_t kRecommendedFreeDiskSpace =
+      32LL * 1024 * 1024 * 1024;
+
   // Observer class for the PluginVm image related events.
+  // TODO(timloh): Merge OnFooFailed functions as the failure reason is enough
+  // to distinguish where we failed.
   class Observer {
    public:
     virtual ~Observer() = default;
 
-    // If a VM already exists, we call this and abort the installation process.
-    virtual void OnVmExists() = 0;
+    virtual void OnProgressUpdated(double fraction_complete) = 0;
 
-    virtual void OnDlcDownloadProgressUpdated(double progress,
-                                              base::TimeDelta elapsed_time) = 0;
+    // If |low_disk_space| is true, the device doesn't have the recommended
+    // amount of free disk space and the install will pause until Continue() or
+    // Cancel() is called.
+    virtual void OnCheckedDiskSpace(bool low_disk_space) = 0;
+
     virtual void OnDlcDownloadCompleted() = 0;
-    virtual void OnDlcDownloadCancelled() = 0;
+
+    // If |has_vm| is true, the install is done.
+    virtual void OnExistingVmCheckCompleted(bool has_vm) = 0;
+
     virtual void OnDownloadProgressUpdated(uint64_t bytes_downloaded,
-                                           int64_t content_length,
-                                           base::TimeDelta elapsed_time) = 0;
+                                           int64_t content_length) = 0;
     virtual void OnDownloadCompleted() = 0;
-    virtual void OnDownloadCancelled() = 0;
-    virtual void OnDownloadFailed(FailureReason reason) = 0;
-    virtual void OnImportProgressUpdated(int percent_completed,
-                                         base::TimeDelta elapsed_time) = 0;
+    virtual void OnCreated() = 0;
     virtual void OnImported() = 0;
-    virtual void OnImportCancelled() = 0;
-    virtual void OnImportFailed(FailureReason reason) = 0;
+    virtual void OnError(FailureReason reason) = 0;
+
+    virtual void OnCancelFinished() = 0;
   };
 
   explicit PluginVmInstaller(Profile* profile);
@@ -94,6 +119,8 @@ class PluginVmInstaller : public KeyedService,
 
   // Start the installation. Progress updates will be sent to the observer.
   void Start();
+  // Continue the installation if it was paused due to low disk space.
+  void Continue();
   // Cancel the installation.
   void Cancel();
 
@@ -123,68 +150,70 @@ class PluginVmInstaller : public KeyedService,
   // Public for testing purposes.
   bool VerifyDownload(const std::string& downloaded_archive_hash);
 
+  void SetFreeDiskSpaceForTesting(int64_t bytes) {
+    free_disk_space_for_testing_ = bytes;
+  }
   void SetDownloadServiceForTesting(
       download::DownloadService* download_service);
-  void SetDownloadedPluginVmImageArchiveForTesting(
-      const base::FilePath& downloaded_plugin_vm_image_archive);
+  void SetDownloadedImageForTesting(const base::FilePath& downloaded_image);
   void SetDriveDownloadServiceForTesting(
       std::unique_ptr<PluginVmDriveImageDownloadService>
           drive_download_service);
   std::string GetCurrentDownloadGuidForTesting();
 
  private:
-  void OnUpdateVmState(bool default_vm_exists);
+  void OnAvailableDiskSpace(int64_t bytes);
   void StartDlcDownload();
+  void OnUpdateVmState(bool default_vm_exists);
+  void OnUpdateVmStateFailed();
   void StartDownload();
+  void DetectImageType();
   void StartImport();
 
-  // DLC(s) cannot be currently cancelled when initiated, so this will cause
-  // progress and completed install callbacks to be blocked to the observer if
-  // there is an install taking place.
-  void CancelDlcDownload();
+  void UpdateProgress(double state_progress);
+
   // Cancels the download of PluginVm image finishing the image processing.
   // Downloaded PluginVm image archive is being deleted.
   void CancelDownload();
   // Makes a call to concierge to cancel the import.
   void CancelImport();
+  // Reset state and call observers.
+  void CancelFinished();
+
+  void InstallFailed(FailureReason reason);
+  // Reset state, callers also need to call the appropriate observer functions.
+  void InstallFinished();
 
   enum class State {
-    NOT_STARTED,
-    DOWNLOADING_DLC,
-    DOWNLOAD_DLC_CANCELLED,
-    DOWNLOADING,
-    DOWNLOAD_CANCELLED,
-    IMPORTING,
-    IMPORT_CANCELLED,
-    // TODO(timloh): We treat these all the same as NOT_STARTED. Consider
-    // merging these together.
-    CONFIGURED,
-    DOWNLOAD_DLC_FAILED,
-    DOWNLOAD_FAILED,
-    IMPORT_FAILED,
+    kIdle,
+    kInstalling,
+    kCancelling,
   };
 
   Profile* profile_ = nullptr;
   Observer* observer_ = nullptr;
   download::DownloadService* download_service_ = nullptr;
-  State state_ = State::NOT_STARTED;
+  State state_ = State::kIdle;
+  InstallingState installing_state_ = InstallingState::kInactive;
   std::string current_download_guid_;
-  base::FilePath downloaded_plugin_vm_image_archive_;
-  dlcservice::DlcModuleList dlc_module_list_;
+  base::FilePath downloaded_image_;
   // Used to identify our running import with concierge:
   std::string current_import_command_uuid_;
   // -1 when is not yet determined.
-  int64_t downloaded_plugin_vm_image_size_ = -1;
-  base::TimeTicks dlc_download_start_tick_;
-  base::TimeTicks download_start_tick_;
-  base::TimeTicks import_start_tick_;
+  int64_t downloaded_image_size_ = -1;
+  bool creating_new_vm_ = false;
+  double progress_ = 0;
   std::unique_ptr<PluginVmDriveImageDownloadService> drive_download_service_;
   bool using_drive_download_service_ = false;
+
+  // -1 indicates not set
+  int64_t free_disk_space_for_testing_ = -1;
 
   ~PluginVmInstaller() override;
 
   // Get string representation of state for logging purposes.
-  std::string GetStateName(State state);
+  static std::string GetStateName(State state);
+  static std::string GetInstallingStateName(InstallingState state);
 
   GURL GetPluginVmImageDownloadUrl();
   download::DownloadParams GetDownloadParams(const GURL& url);
@@ -192,10 +221,9 @@ class PluginVmInstaller : public KeyedService,
   void OnStartDownload(const std::string& download_guid,
                        download::DownloadParams::StartResult start_result);
 
-  // Callback when PluginVm dispatcher is started (together with supporting
-  // services such as concierge). This will then make the call to concierge's
-  // ImportDiskImage.
-  void OnPluginVmDispatcherStarted(bool success);
+  // Callback when image type has been detected. This will make call to
+  // concierge's ImportDiskImage.
+  void OnImageTypeDetected();
 
   // Callback which is called once we know if concierge is available.
   void OnConciergeAvailable(bool success);
@@ -203,12 +231,14 @@ class PluginVmInstaller : public KeyedService,
   // Ran as a blocking task preparing the FD for the ImportDiskImage call.
   base::Optional<base::ScopedFD> PrepareFD();
 
-  // Callback when the FD is prepared. Makes the call to ImportDiskImage.
+  // Callback when the FD is prepared. Makes the call to CreateDiskImage or
+  // ImportDiskImage, depending on whether we are trying to create a new VM
+  // from an ISO, or import prepared VM image.
   void OnFDPrepared(base::Optional<base::ScopedFD> maybeFd);
 
-  // Callback for the concierge DiskImageImport call.
-  void OnImportDiskImage(
-      base::Optional<vm_tools::concierge::ImportDiskImageResponse> reply);
+  // Callback for the concierge CreateDiskImage/ImportDiskImage calls.
+  template <typename ReplyType>
+  void OnImportDiskImage(base::Optional<ReplyType> reply);
 
   // After we get a signal that the import is finished successfully, we
   // make one final call to concierge's DiskImageStatus method to get a
@@ -231,8 +261,8 @@ class PluginVmInstaller : public KeyedService,
   void OnImportDiskImageCancelled(
       base::Optional<vm_tools::concierge::CancelDiskImageResponse> reply);
 
-  void RemoveTemporaryPluginVmImageArchiveIfExists();
-  void OnTemporaryPluginVmImageArchiveRemoved(bool success);
+  void RemoveTemporaryImageIfExists();
+  void OnTemporaryImageRemoved(bool success);
 
   base::WeakPtrFactory<PluginVmInstaller> weak_ptr_factory_{this};
 

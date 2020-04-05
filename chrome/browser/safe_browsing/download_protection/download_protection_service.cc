@@ -12,6 +12,7 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/task/post_task.h"
 #include "base/task/task_traits.h"
+#include "base/task/thread_pool.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/extensions/api/safe_browsing_private/safe_browsing_private_event_router.h"
 #include "chrome/browser/extensions/api/safe_browsing_private/safe_browsing_private_event_router_factory.h"
@@ -19,6 +20,7 @@
 #include "chrome/browser/safe_browsing/advanced_protection_status_manager.h"
 #include "chrome/browser/safe_browsing/advanced_protection_status_manager_factory.h"
 #include "chrome/browser/safe_browsing/cloud_content_scanning/binary_upload_service.h"
+#include "chrome/browser/safe_browsing/cloud_content_scanning/binary_upload_service_factory.h"
 #include "chrome/browser/safe_browsing/download_protection/check_client_download_request.h"
 #include "chrome/browser/safe_browsing/download_protection/check_native_file_system_write_request.h"
 #include "chrome/browser/safe_browsing/download_protection/deep_scanning_request.h"
@@ -115,13 +117,11 @@ DownloadProtectionService::DownloadProtectionService(
     SafeBrowsingService* sb_service)
     : sb_service_(sb_service),
       navigation_observer_manager_(nullptr),
-      url_loader_factory_(sb_service ? sb_service->GetURLLoaderFactory()
-                                     : nullptr),
       enabled_(false),
       binary_feature_extractor_(new BinaryFeatureExtractor()),
       download_request_timeout_ms_(kDownloadRequestTimeoutMs),
       feedback_service_(new DownloadFeedbackService(
-          url_loader_factory_,
+          sb_service_ ? sb_service_->GetURLLoaderFactory() : nullptr,
           base::CreateSequencedTaskRunner({base::ThreadPool(), base::MayBlock(),
                                            base::TaskPriority::BEST_EFFORT})
               .get())),
@@ -198,7 +198,7 @@ bool DownloadProtectionService::MaybeCheckClientDownload(
   Profile* profile = Profile::FromBrowserContext(
       content::DownloadItemUtils::GetBrowserContext(item));
   bool safe_browsing_enabled =
-      profile && profile->GetPrefs()->GetBoolean(prefs::kSafeBrowsingEnabled);
+      profile && IsSafeBrowsingEnabled(*profile->GetPrefs());
   bool deep_scanning_enabled =
       DeepScanningRequest::ShouldUploadItemByPolicy(item);
 
@@ -209,7 +209,8 @@ bool DownloadProtectionService::MaybeCheckClientDownload(
 
   if (deep_scanning_enabled) {
     UploadForDeepScanning(item, std::move(callback),
-                          DeepScanningRequest::DeepScanTrigger::TRIGGER_POLICY);
+                          DeepScanningRequest::DeepScanTrigger::TRIGGER_POLICY,
+                          DeepScanningRequest::AllScans());
     return true;
   }
 
@@ -244,7 +245,7 @@ bool DownloadProtectionService::MaybeCheckDownloadUrl(
     CheckDownloadCallback callback) {
   Profile* profile = Profile::FromBrowserContext(
       content::DownloadItemUtils::GetBrowserContext(item));
-  if (profile && profile->GetPrefs()->GetBoolean(prefs::kSafeBrowsingEnabled)) {
+  if (profile && IsSafeBrowsingEnabled(*profile->GetPrefs())) {
     CheckDownloadUrl(item, std::move(callback));
     return true;
   }
@@ -410,7 +411,7 @@ void DownloadProtectionService::MaybeSendDangerousDownloadOpenedReport(
   content::BrowserContext* browser_context =
       content::DownloadItemUtils::GetBrowserContext(item);
   Profile* profile = Profile::FromBrowserContext(browser_context);
-  if (!profile || !profile->GetPrefs()->GetBoolean(prefs::kSafeBrowsingEnabled))
+  if (!profile || !IsSafeBrowsingEnabled(*profile->GetPrefs()))
     return;
 
   // When users are in incognito mode, no report will be sent and no
@@ -421,7 +422,7 @@ void DownloadProtectionService::MaybeSendDangerousDownloadOpenedReport(
   OnDangerousDownloadOpened(item, profile);
   if (sb_service_ &&
       !token.empty() &&  // Only dangerous downloads have token stored.
-      profile && IsExtendedReportingEnabled(*profile->GetPrefs())) {
+      profile && (IsExtendedReportingEnabled(*profile->GetPrefs()))) {
     safe_browsing::ClientSafeBrowsingReportRequest report;
     report.set_url(item->GetURL().spec());
     report.set_type(safe_browsing::ClientSafeBrowsingReportRequest::
@@ -585,8 +586,9 @@ bool DownloadProtectionService::MaybeBeginFeedbackForDownload(
     download::DownloadItem* download,
     DownloadCommands::Command download_command) {
   PrefService* prefs = profile->GetPrefs();
-  if (!profile->IsOffTheRecord() && ExtendedReportingPrefExists(*prefs) &&
-      IsExtendedReportingEnabled(*prefs)) {
+  bool is_extended_reporting =
+      ExtendedReportingPrefExists(*prefs) && IsExtendedReportingEnabled(*prefs);
+  if (!profile->IsOffTheRecord() && is_extended_reporting) {
     feedback_service_->BeginFeedbackForDownload(download, download_command);
     return true;
   }
@@ -608,6 +610,13 @@ void DownloadProtectionService::UploadForDeepScanning(
   insertion_result.first->second->Start();
 }
 
+scoped_refptr<network::SharedURLLoaderFactory>
+DownloadProtectionService::GetURLLoaderFactory(
+    content::BrowserContext* browser_context) {
+  return sb_service_->GetURLLoaderFactory(
+      Profile::FromBrowserContext(browser_context));
+}
+
 void DownloadProtectionService::RequestFinished(DeepScanningRequest* request) {
   auto it = deep_scanning_requests_.find(request);
   DCHECK(it != deep_scanning_requests_.end());
@@ -616,7 +625,7 @@ void DownloadProtectionService::RequestFinished(DeepScanningRequest* request) {
 
 BinaryUploadService* DownloadProtectionService::GetBinaryUploadService(
     Profile* profile) {
-  return sb_service_->GetBinaryUploadService(profile);
+  return BinaryUploadServiceFactory::GetForProfile(profile);
 }
 
 }  // namespace safe_browsing

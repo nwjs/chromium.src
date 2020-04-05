@@ -5,9 +5,11 @@
 #include "chrome/browser/ui/views/native_file_system/native_file_system_permission_view.h"
 
 #include "base/files/file_path.h"
+#include "base/memory/ptr_util.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/chrome_typography.h"
 #include "chrome/browser/ui/views/native_file_system/native_file_system_ui_helpers.h"
+#include "chrome/common/chrome_features.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/constrained_window/constrained_window_views.h"
 #include "components/permissions/permission_util.h"
@@ -19,16 +21,74 @@
 #include "ui/views/controls/label.h"
 #include "ui/views/layout/box_layout.h"
 
+namespace {
+using AccessType = NativeFileSystemPermissionRequestManager::Access;
+
+int GetMessageText(const NativeFileSystemPermissionView::Request& request) {
+  if (!base::FeatureList::IsEnabled(
+          features::kNativeFileSystemOriginScopedPermissions)) {
+    // With tab scoped permission model this dialog is only used for write
+    // access.
+    return request.is_directory
+               ? IDS_NATIVE_FILE_SYSTEM_WRITE_PERMISSION_DIRECTORY_TEXT
+               : IDS_NATIVE_FILE_SYSTEM_WRITE_PERMISSION_FILE_TEXT;
+  }
+
+  switch (request.access) {
+    case AccessType::kRead:
+      return request.is_directory
+                 ? IDS_NATIVE_FILE_SYSTEM_ORIGIN_SCOPED_READ_PERMISSION_DIRECTORY_TEXT
+                 : IDS_NATIVE_FILE_SYSTEM_ORIGIN_SCOPED_READ_PERMISSION_FILE_TEXT;
+    case AccessType::kWrite:
+    case AccessType::kReadWrite:
+      // Only difference between write and read-write access dialog is in button
+      // label and dialog title.
+      return request.is_directory
+                 ? IDS_NATIVE_FILE_SYSTEM_ORIGIN_SCOPED_WRITE_PERMISSION_DIRECTORY_TEXT
+                 : IDS_NATIVE_FILE_SYSTEM_ORIGIN_SCOPED_WRITE_PERMISSION_FILE_TEXT;
+  }
+  NOTREACHED();
+}
+
+int GetButtonLabel(const NativeFileSystemPermissionView::Request& request) {
+  switch (request.access) {
+    case AccessType::kRead:
+      return request.is_directory
+                 ? IDS_NATIVE_FILE_SYSTEM_VIEW_DIRECTORY_PERMISSION_ALLOW_TEXT
+                 : IDS_NATIVE_FILE_SYSTEM_VIEW_FILE_PERMISSION_ALLOW_TEXT;
+    case AccessType::kWrite:
+      return IDS_NATIVE_FILE_SYSTEM_WRITE_PERMISSION_ALLOW_TEXT;
+    case AccessType::kReadWrite:
+      return request.is_directory
+                 ? IDS_NATIVE_FILE_SYSTEM_EDIT_DIRECTORY_PERMISSION_ALLOW_TEXT
+                 : IDS_NATIVE_FILE_SYSTEM_EDIT_FILE_PERMISSION_ALLOW_TEXT;
+  }
+  NOTREACHED();
+}
+
+}  // namespace
+
 NativeFileSystemPermissionView::NativeFileSystemPermissionView(
-    const url::Origin& origin,
-    const base::FilePath& path,
-    bool is_directory,
+    const Request& request,
     base::OnceCallback<void(permissions::PermissionAction result)> callback)
-    : path_(path), callback_(std::move(callback)) {
-  DialogDelegate::set_button_label(
+    : request_(request), callback_(std::move(callback)) {
+  DialogDelegate::SetButtonLabel(
       ui::DIALOG_BUTTON_OK,
-      l10n_util::GetStringUTF16(
-          IDS_NATIVE_FILE_SYSTEM_WRITE_PERMISSION_ALLOW_TEXT));
+      l10n_util::GetStringUTF16(GetButtonLabel(request_)));
+
+  auto run_callback = [](NativeFileSystemPermissionView* dialog,
+                         permissions::PermissionAction result) {
+    std::move(dialog->callback_).Run(result);
+  };
+  DialogDelegate::SetAcceptCallback(
+      base::BindOnce(run_callback, base::Unretained(this),
+                     permissions::PermissionAction::GRANTED));
+  DialogDelegate::SetCancelCallback(
+      base::BindOnce(run_callback, base::Unretained(this),
+                     permissions::PermissionAction::DISMISSED));
+  DialogDelegate::SetCloseCallback(
+      base::BindOnce(run_callback, base::Unretained(this),
+                     permissions::PermissionAction::DISMISSED));
 
   const views::LayoutProvider* provider = ChromeLayoutProvider::Get();
   SetLayoutManager(std::make_unique<views::BoxLayout>(
@@ -37,9 +97,9 @@ NativeFileSystemPermissionView::NativeFileSystemPermissionView(
       provider->GetDistanceMetric(views::DISTANCE_RELATED_CONTROL_VERTICAL)));
 
   AddChildView(native_file_system_ui_helper::CreateOriginPathLabel(
-      is_directory ? IDS_NATIVE_FILE_SYSTEM_WRITE_PERMISSION_DIRECTORY_TEXT
-                   : IDS_NATIVE_FILE_SYSTEM_WRITE_PERMISSION_FILE_TEXT,
-      origin, path, CONTEXT_BODY_TEXT_SMALL, /*show_emphasis=*/true));
+      GetMessageText(request_), request_.origin, request_.path,
+      CONTEXT_BODY_TEXT_SMALL,
+      /*show_emphasis=*/true));
 }
 
 NativeFileSystemPermissionView::~NativeFileSystemPermissionView() {
@@ -49,35 +109,45 @@ NativeFileSystemPermissionView::~NativeFileSystemPermissionView() {
 }
 
 views::Widget* NativeFileSystemPermissionView::ShowDialog(
-    const url::Origin& origin,
-    const base::FilePath& path,
-    bool is_directory,
+    const Request& request,
     base::OnceCallback<void(permissions::PermissionAction result)> callback,
     content::WebContents* web_contents) {
-  auto delegate = base::WrapUnique(new NativeFileSystemPermissionView(
-      origin, path, is_directory, std::move(callback)));
+  auto delegate = base::WrapUnique(
+      new NativeFileSystemPermissionView(request, std::move(callback)));
   return constrained_window::ShowWebModalDialogViews(delegate.release(),
                                                      web_contents);
 }
 
 base::string16 NativeFileSystemPermissionView::GetWindowTitle() const {
-  return l10n_util::GetStringFUTF16(
-      IDS_NATIVE_FILE_SYSTEM_WRITE_PERMISSION_TITLE,
-      path_.BaseName().LossyDisplayName());
+  switch (request_.access) {
+    case AccessType::kRead:
+      if (request_.is_directory) {
+        return l10n_util::GetStringUTF16(
+            IDS_NATIVE_FILE_SYSTEM_READ_DIRECTORY_PERMISSION_TITLE);
+      } else {
+        return l10n_util::GetStringFUTF16(
+            IDS_NATIVE_FILE_SYSTEM_READ_FILE_PERMISSION_TITLE,
+            request_.path.BaseName().LossyDisplayName());
+      }
+    case AccessType::kWrite:
+      return l10n_util::GetStringFUTF16(
+          IDS_NATIVE_FILE_SYSTEM_WRITE_PERMISSION_TITLE,
+          request_.path.BaseName().LossyDisplayName());
+    case AccessType::kReadWrite:
+      if (request_.is_directory) {
+        return l10n_util::GetStringUTF16(
+            IDS_NATIVE_FILE_SYSTEM_EDIT_DIRECTORY_PERMISSION_TITLE);
+      } else {
+        return l10n_util::GetStringFUTF16(
+            IDS_NATIVE_FILE_SYSTEM_EDIT_FILE_PERMISSION_TITLE,
+            request_.path.BaseName().LossyDisplayName());
+      }
+  }
+  NOTREACHED();
 }
 
 bool NativeFileSystemPermissionView::ShouldShowCloseButton() const {
   return false;
-}
-
-bool NativeFileSystemPermissionView::Accept() {
-  std::move(callback_).Run(permissions::PermissionAction::GRANTED);
-  return true;
-}
-
-bool NativeFileSystemPermissionView::Cancel() {
-  std::move(callback_).Run(permissions::PermissionAction::DISMISSED);
-  return true;
 }
 
 gfx::Size NativeFileSystemPermissionView::CalculatePreferredSize() const {
@@ -96,11 +166,9 @@ views::View* NativeFileSystemPermissionView::GetInitiallyFocusedView() {
 }
 
 void ShowNativeFileSystemPermissionDialog(
-    const url::Origin& origin,
-    const base::FilePath& path,
-    bool is_directory,
+    const NativeFileSystemPermissionView::Request& request,
     base::OnceCallback<void(permissions::PermissionAction result)> callback,
     content::WebContents* web_contents) {
-  NativeFileSystemPermissionView::ShowDialog(origin, path, is_directory,
-                                             std::move(callback), web_contents);
+  NativeFileSystemPermissionView::ShowDialog(request, std::move(callback),
+                                             web_contents);
 }

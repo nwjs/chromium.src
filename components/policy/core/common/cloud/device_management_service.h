@@ -166,7 +166,8 @@ class POLICY_EXPORT DeviceManagementService {
       TYPE_ACTIVE_DIRECTORY_ENROLL_PLAY_USER = 14,
       TYPE_ACTIVE_DIRECTORY_PLAY_ACTIVITY = 15,
       /* TYPE_REQUEST_LICENSE_TYPES = 16, */
-      TYPE_UPLOAD_APP_INSTALL_REPORT = 17,
+      /*Deprecated, CloudPolicyClient no longer uses it.
+        TYPE_UPLOAD_APP_INSTALL_REPORT = 17,*/
       TYPE_TOKEN_ENROLLMENT = 18,
       TYPE_CHROME_DESKTOP_REPORT = 19,
       TYPE_INITIAL_ENROLLMENT_STATE_RETRIEVAL = 20,
@@ -174,9 +175,10 @@ class POLICY_EXPORT DeviceManagementService {
       TYPE_UPLOAD_REAL_TIME_REPORT = 22,
       TYPE_REQUEST_SAML_URL = 23,
       TYPE_CHROME_OS_USER_REPORT = 24,
+      TYPE_CERT_PROVISIONING_REQUEST = 25,
     };
 
-    // The set of HTTP query parmaters of the request.
+    // The set of HTTP query parameters of the request.
     using ParameterMap = std::map<std::string, std::string>;
 
     // Convert the job type into a string.

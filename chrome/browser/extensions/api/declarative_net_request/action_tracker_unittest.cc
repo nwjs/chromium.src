@@ -11,7 +11,6 @@
 #include "base/time/time.h"
 #include "chrome/browser/extensions/api/declarative_net_request/dnr_test_base.h"
 #include "chrome/browser/extensions/chrome_test_extension_loader.h"
-#include "content/public/common/resource_type.h"
 #include "extensions/browser/api/web_request/web_request_info.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_util.h"
@@ -20,6 +19,7 @@
 #include "extensions/common/api/declarative_net_request/test_utils.h"
 #include "extensions/common/constants.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/public/mojom/loader/resource_load_info.mojom-shared.h"
 #include "url/gurl.h"
 
 namespace extensions {
@@ -30,8 +30,6 @@ namespace dnr_api = api::declarative_net_request;
 namespace {
 
 constexpr char kJSONRulesFilename[] = "rules_file.json";
-const base::FilePath::CharType kJSONRulesetFilepath[] =
-    FILE_PATH_LITERAL("rules_file.json");
 
 constexpr int64_t kNavigationId = 1;
 
@@ -49,22 +47,18 @@ class ActionTrackerTest : public DNRTestBase {
  protected:
   using RequestActionType = RequestAction::Type;
 
-  // Helper to load an extension. |has_feedback_permission| specifies whether
-  // the extension will have the declarativeNetRequestFeedback permission.
-  void LoadExtension(const std::string& extension_dirname,
-                     bool has_feedback_permission,
-                     bool has_active_tab_permission) {
+  // Helper to load an extension. |flags| is a bitmask of ConfigFlag to
+  // configure the extension.
+  void LoadExtension(const std::string& extension_dirname, unsigned flags) {
     base::FilePath extension_dir =
         temp_dir().GetPath().AppendASCII(extension_dirname);
 
     // Create extension directory.
     ASSERT_TRUE(base::CreateDirectory(extension_dir));
+    TestRulesetInfo info = {kJSONRulesFilename, base::ListValue()};
     WriteManifestAndRuleset(
-        extension_dir, kJSONRulesetFilepath, kJSONRulesFilename,
-        std::vector<TestRule>(),
-        std::vector<std::string>({URLPattern::kAllUrlsPattern}),
-        false /* has_background_script */, has_feedback_permission,
-        has_active_tab_permission);
+        extension_dir, info,
+        std::vector<std::string>({URLPattern::kAllUrlsPattern}), flags);
 
     last_loaded_extension_ =
         CreateExtensionLoader()->LoadExtension(extension_dir);
@@ -82,9 +76,10 @@ class ActionTrackerTest : public DNRTestBase {
   }
 
   // Returns renderer-initiated request params for the given |url|.
-  WebRequestInfoInitParams GetRequestParamsForURL(base::StringPiece url,
-                                                  content::ResourceType type,
-                                                  int tab_id) {
+  WebRequestInfoInitParams GetRequestParamsForURL(
+      base::StringPiece url,
+      blink::mojom::ResourceType type,
+      int tab_id) {
     const int kRendererId = 1;
     WebRequestInfoInitParams info;
     info.url = GURL(url);
@@ -92,7 +87,7 @@ class ActionTrackerTest : public DNRTestBase {
     info.render_process_id = kRendererId;
     info.frame_data.tab_id = tab_id;
 
-    if (type == content::ResourceType::kMainFrame) {
+    if (type == blink::mojom::ResourceType::kMainFrame) {
       info.navigation_id = kNavigationId;
       info.is_navigation_request = true;
     }
@@ -115,33 +110,30 @@ class ActionTrackerTest : public DNRTestBase {
 // declarativeNetRequestFeedback or activeTab permission.
 TEST_P(ActionTrackerTest, GetMatchedRulesNoPermission) {
   // Load an extension with the declarativeNetRequestFeedback permission.
-  ASSERT_NO_FATAL_FAILURE(LoadExtension("test_extension",
-                                        true /* has_feedback_permission */,
-                                        false /* has_active_tab_permission */));
+  ASSERT_NO_FATAL_FAILURE(LoadExtension(
+      "test_extension", ConfigFlag::kConfig_HasFeedbackPermission));
   const Extension* extension_1 = last_loaded_extension();
 
   // Load an extension without the declarativeNetRequestFeedback permission.
-  ASSERT_NO_FATAL_FAILURE(LoadExtension("test_extension_2",
-                                        false /* has_feedback_permission */,
-                                        false /* has_active_tab_permission */));
+  ASSERT_NO_FATAL_FAILURE(
+      LoadExtension("test_extension_2", ConfigFlag::kConfig_None));
   const Extension* extension_2 = last_loaded_extension();
 
   // Load an extension without the declarativeNetRequestFeedback permission but
   // with the activeTab permission.
-  ASSERT_NO_FATAL_FAILURE(LoadExtension("test_extension_3",
-                                        false /* has_feedback_permission */,
-                                        true /* has_active_tab_permission */));
+  ASSERT_NO_FATAL_FAILURE(
+      LoadExtension("test_extension_3", ConfigFlag::kConfig_HasActiveTab));
   const Extension* extension_3 = last_loaded_extension();
 
   const int tab_id = 1;
 
   // Record a rule match for a main-frame navigation request.
   WebRequestInfo request_1(GetRequestParamsForURL(
-      "http://one.com", content::ResourceType::kMainFrame, tab_id));
+      "http://one.com", blink::mojom::ResourceType::kMainFrame, tab_id));
 
   // Record a rule match for a non-navigation request.
   WebRequestInfo request_2(GetRequestParamsForURL(
-      "http://one.com", content::ResourceType::kSubResource, tab_id));
+      "http://one.com", blink::mojom::ResourceType::kSubResource, tab_id));
 
   // Assume a rule is matched for |request_1| and |request_2| for all three
   // extensions.
@@ -189,16 +181,15 @@ TEST_P(ActionTrackerTest, GetMatchedRulesLifespan) {
   action_tracker()->SetClockForTests(&clock_);
 
   // Load an extension with the declarativeNetRequestFeedback permission.
-  ASSERT_NO_FATAL_FAILURE(LoadExtension("test_extension",
-                                        true /* has_feedback_permission */,
-                                        false /* has_active_tab_permission */));
+  ASSERT_NO_FATAL_FAILURE(LoadExtension(
+      "test_extension", ConfigFlag::kConfig_HasFeedbackPermission));
   const Extension* extension_1 = last_loaded_extension();
 
   const int tab_id = 1;
 
   // Record a rule match for a non-navigation request.
   WebRequestInfo request_1(GetRequestParamsForURL(
-      "http://one.com", content::ResourceType::kSubResource, tab_id));
+      "http://one.com", blink::mojom::ResourceType::kSubResource, tab_id));
   action_tracker()->OnRuleMatched(CreateRequestAction(extension_1->id()),
                                   request_1);
 
@@ -270,14 +261,13 @@ TEST_P(ActionTrackerTest, RulesClearedOnTimer) {
   action_tracker()->SetTimerForTest(std::move(mock_trim_timer));
 
   // Load an extension with the declarativeNetRequestFeedback permission.
-  ASSERT_NO_FATAL_FAILURE(LoadExtension("test_extension",
-                                        true /* has_feedback_permission */,
-                                        false /* has_active_tab_permission */));
+  ASSERT_NO_FATAL_FAILURE(LoadExtension(
+      "test_extension", ConfigFlag::kConfig_HasFeedbackPermission));
   const Extension* extension_1 = last_loaded_extension();
 
   // Record a rule match for |extension_1| for the unknown tab.
   WebRequestInfo request_1(GetRequestParamsForURL(
-      "http://one.com", content::ResourceType::kSubResource,
+      "http://one.com", blink::mojom::ResourceType::kSubResource,
       extension_misc::kUnknownTabId));
   action_tracker()->OnRuleMatched(CreateRequestAction(extension_1->id()),
                                   request_1);

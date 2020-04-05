@@ -12,6 +12,7 @@
 #include "base/command_line.h"
 #include "base/metrics/histogram_macros.h"
 #include "build/build_config.h"
+#include "cc/metrics/event_metrics.h"
 #include "cc/paint/element_id.h"
 #include "cc/trees/latency_info_swap_promise_monitor.h"
 #include "components/viz/common/surfaces/frame_sink_id.h"
@@ -19,14 +20,16 @@
 #include "content/public/common/content_switches.h"
 #include "content/public/common/input_event_ack_state.h"
 #include "content/public/renderer/render_frame.h"
-#include "content/renderer/compositor/layer_tree_view.h"
 #include "content/renderer/ime_event_guard.h"
 #include "content/renderer/input/render_widget_input_handler_delegate.h"
 #include "content/renderer/render_frame_proxy.h"
 #include "content/renderer/render_thread_impl.h"
 #include "content/renderer/render_widget.h"
+#include "services/tracing/public/cpp/perfetto/flow_event_utils.h"
+#include "services/tracing/public/cpp/perfetto/macros.h"
 #include "third_party/blink/public/common/input/web_gesture_device.h"
 #include "third_party/blink/public/common/input/web_gesture_event.h"
+#include "third_party/blink/public/common/input/web_input_event_attribution.h"
 #include "third_party/blink/public/common/input/web_keyboard_event.h"
 #include "third_party/blink/public/common/input/web_mouse_wheel_event.h"
 #include "third_party/blink/public/common/input/web_pointer_event.h"
@@ -36,6 +39,7 @@
 #include "third_party/blink/public/web/web_frame_widget.h"
 #include "third_party/blink/public/web/web_local_frame.h"
 #include "third_party/blink/public/web/web_node.h"
+#include "ui/events/blink/blink_event_util.h"
 #include "ui/events/blink/event_with_callback.h"
 #include "ui/events/blink/web_input_event_traits.h"
 #include "ui/gfx/geometry/dip_util.h"
@@ -55,6 +59,8 @@ using blink::WebMouseWheelEvent;
 using blink::WebPointerEvent;
 using blink::WebTouchEvent;
 using blink::WebTouchPoint;
+using perfetto::protos::pbzero::ChromeLatencyInfo;
+using perfetto::protos::pbzero::TrackEvent;
 using ui::DidOverscrollParams;
 
 namespace content {
@@ -251,24 +257,23 @@ RenderWidgetInputHandler::RenderWidgetInputHandler(
   delegate->SetInputHandler(this);
 }
 
-RenderWidgetInputHandler::~RenderWidgetInputHandler() {}
+RenderWidgetInputHandler::~RenderWidgetInputHandler() = default;
 
-viz::FrameSinkId RenderWidgetInputHandler::GetFrameSinkIdAtPoint(
-    const gfx::PointF& point,
-    gfx::PointF* local_point) {
-  // This method must only be called on a local root, which is guaranteed to
-  // have a WebWidget.
-  // TODO(https://crbug.com/995981): Eventually we should be able to remove this
-  // DCHECK, since RenderWidget's lifetime [and thus this instance's] will be
-  // synchronized with the WebWidget.
-  DCHECK(widget_->GetWebWidget());
+blink::WebHitTestResult RenderWidgetInputHandler::GetHitTestResultAtPoint(
+    const gfx::PointF& point) {
   gfx::PointF point_in_pixel(point);
   if (widget_->compositor_deps()->IsUseZoomForDSFEnabled()) {
     point_in_pixel = gfx::ConvertPointToPixel(
         widget_->GetOriginalScreenInfo().device_scale_factor, point_in_pixel);
   }
-  blink::WebHitTestResult result =
-      widget_->GetWebWidget()->HitTestResultAt(ToRoundedPoint(point_in_pixel));
+  return widget_->GetWebWidget()->HitTestResultAt(
+      ToRoundedPoint(point_in_pixel));
+}
+
+viz::FrameSinkId RenderWidgetInputHandler::GetFrameSinkIdAtPoint(
+    const gfx::PointF& point,
+    gfx::PointF* local_point) {
+  blink::WebHitTestResult result = GetHitTestResultAtPoint(point);
 
   blink::WebNode result_node = result.GetNode();
   *local_point = gfx::PointF(point);
@@ -350,10 +355,15 @@ void RenderWidgetInputHandler::HandleInputEvent(
   TRACE_EVENT1("renderer,benchmark,rail",
                "RenderWidgetInputHandler::OnHandleInputEvent", "event",
                WebInputEvent::GetName(input_event.GetType()));
-  TRACE_EVENT_WITH_FLOW1("input,benchmark", "LatencyInfo.Flow",
-                         TRACE_ID_GLOBAL(latency_info.trace_id()),
-                         TRACE_EVENT_FLAG_FLOW_IN | TRACE_EVENT_FLAG_FLOW_OUT,
-                         "step", "HandleInputEventMain");
+  TRACE_EVENT("input,benchmark", "LatencyInfo.Flow",
+              [&latency_info](perfetto::EventContext ctx) {
+                ChromeLatencyInfo* info =
+                    ctx.event()->set_chrome_latency_info();
+                info->set_trace_id(latency_info.trace_id());
+                info->set_step(ChromeLatencyInfo::STEP_HANDLE_INPUT_EVENT_MAIN);
+                tracing::FillFlowEvent(ctx, TrackEvent::LegacyEvent::FLOW_INOUT,
+                                       latency_info.trace_id());
+              });
 
   // If we don't have a high res timer, these metrics won't be accurate enough
   // to be worth collecting. Note that this does introduce some sampling bias.
@@ -366,6 +376,11 @@ void RenderWidgetInputHandler::HandleInputEvent(
   cc::LatencyInfoSwapPromiseMonitor swap_promise_monitor(
       &swap_latency_info, widget_->layer_tree_host()->GetSwapPromiseManager(),
       nullptr);
+  auto scoped_event_metrics_monitor =
+      widget_->layer_tree_host()->GetScopedEventMetricsMonitor(
+          {ui::WebEventTypeToEventType(input_event.GetType()),
+           input_event.TimeStamp(),
+           ui::GetScrollInputTypeForEvent(input_event)});
 
   bool prevent_default = false;
   bool show_virtual_keyboard_for_mouse = false;
@@ -431,7 +446,7 @@ void RenderWidgetInputHandler::HandleInputEvent(
     suppress_next_char_events_ = false;
     if (processed == WebInputEventResult::kNotHandled &&
         widget_->GetWebWidget()) {
-      if (!widget_->GetWebWidget()->IsPepperWidget() &&
+      if (delegate_->SupportsBufferedTouchEvents() &&
           WebInputEvent::IsTouchEventType(input_event.GetType()))
         processed = HandleTouchEvent(coalesced_event);
       else
@@ -450,6 +465,11 @@ void RenderWidgetInputHandler::HandleInputEvent(
       return;
     }
   }
+
+  // Handling |input_event| is finished and further down, we might start
+  // handling injected scroll events. So, stop monitoring EventMetrics for
+  // |input_event| to avoid nested monitors.
+  scoped_event_metrics_monitor = nullptr;
 
   LogAllPassiveEventListenersUma(input_event, processed, latency_info);
 
@@ -559,7 +579,7 @@ void RenderWidgetInputHandler::DidOverscrollFromBlink(
 void RenderWidgetInputHandler::InjectGestureScrollEvent(
     blink::WebGestureDevice device,
     const gfx::Vector2dF& delta,
-    ui::input_types::ScrollGranularity granularity,
+    ui::ScrollGranularity granularity,
     cc::ElementId scrollable_area_element_id,
     WebInputEvent::Type injected_type) {
   DCHECK(ui::IsGestureScroll(injected_type));
@@ -598,11 +618,14 @@ void RenderWidgetInputHandler::InjectGestureScrollEvent(
 
     ui::LatencyInfo latency_info;
     ui::WebScopedInputEvent web_scoped_gesture_event(gesture_event.release());
+    // TODO(acomminos): If/when we add support for gesture event attribution on
+    //                  the impl thread, have the caller provide attribution.
+    blink::WebInputEventAttribution attribution;
 
     widget_->GetInputEventQueue()->HandleEvent(
         std::move(web_scoped_gesture_event), latency_info,
         DISPATCH_TYPE_NON_BLOCKING, INPUT_EVENT_ACK_STATE_NOT_CONSUMED,
-        HandledEventCallback());
+        attribution, HandledEventCallback());
   }
 }
 
@@ -675,8 +698,13 @@ void RenderWidgetInputHandler::HandleInjectedScrollGestures(
       cc::LatencyInfoSwapPromiseMonitor swap_promise_monitor(
           &scrollbar_latency_info,
           widget_->layer_tree_host()->GetSwapPromiseManager(), nullptr);
+      auto scoped_event_metrics_monitor =
+          widget_->layer_tree_host()->GetScopedEventMetricsMonitor(
+              {ui::WebEventTypeToEventType(gesture_event->GetType()),
+               gesture_event->TimeStamp(),
+               ui::GetScrollInputTypeForEvent(*gesture_event)});
       widget_->GetWebWidget()->HandleInputEvent(
-          blink::WebCoalescedInputEvent(*gesture_event.get()));
+          blink::WebCoalescedInputEvent(*gesture_event));
     }
   }
 }

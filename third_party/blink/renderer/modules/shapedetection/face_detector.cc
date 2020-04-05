@@ -9,6 +9,7 @@
 #include "services/shape_detection/public/mojom/facedetection_provider.mojom-blink.h"
 #include "third_party/blink/public/common/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/platform/platform.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_detected_face.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_face_detector_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_landmark.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_point_2d.h"
@@ -17,7 +18,6 @@
 #include "third_party/blink/renderer/core/geometry/dom_rect.h"
 #include "third_party/blink/renderer/core/html/canvas/canvas_image_source.h"
 #include "third_party/blink/renderer/core/workers/worker_thread.h"
-#include "third_party/blink/renderer/modules/shapedetection/detected_face.h"
 #include "third_party/blink/renderer/modules/shapedetection/shape_detection_type_converter.h"
 #include "third_party/blink/renderer/platform/heap/heap.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
@@ -31,7 +31,7 @@ FaceDetector* FaceDetector::Create(ExecutionContext* context,
 
 FaceDetector::FaceDetector(ExecutionContext* context,
                            const FaceDetectorOptions* options)
-    : ShapeDetector() {
+    : face_service_(context) {
   auto face_detector_options =
       shape_detection::mojom::blink::FaceDetectorOptions::New();
   face_detector_options->max_detected_faces = options->maxDetectedFaces();
@@ -54,7 +54,7 @@ FaceDetector::FaceDetector(ExecutionContext* context,
 ScriptPromise FaceDetector::DoDetect(ScriptPromiseResolver* resolver,
                                      SkBitmap bitmap) {
   ScriptPromise promise = resolver->Promise();
-  if (!face_service_) {
+  if (!face_service_.is_bound()) {
     resolver->Reject(MakeGarbageCollected<DOMException>(
         DOMExceptionCode::kNotSupportedError,
         "Face detection service unavailable."));
@@ -93,11 +93,12 @@ void FaceDetector::OnDetectFaces(
       landmarks.push_back(web_landmark);
     }
 
-    detected_faces.push_back(MakeGarbageCollected<DetectedFace>(
-        DOMRectReadOnly::Create(face->bounding_box.x, face->bounding_box.y,
-                                face->bounding_box.width,
-                                face->bounding_box.height),
-        landmarks));
+    DetectedFace* detected_face = DetectedFace::Create();
+    detected_face->setBoundingBox(DOMRectReadOnly::Create(
+        face->bounding_box.x(), face->bounding_box.y(),
+        face->bounding_box.width(), face->bounding_box.height()));
+    detected_face->setLandmarks(landmarks);
+    detected_faces.push_back(detected_face);
   }
 
   resolver->Resolve(detected_faces);
@@ -113,8 +114,9 @@ void FaceDetector::OnFaceServiceConnectionError() {
   face_service_.reset();
 }
 
-void FaceDetector::Trace(blink::Visitor* visitor) {
+void FaceDetector::Trace(Visitor* visitor) {
   ShapeDetector::Trace(visitor);
+  visitor->Trace(face_service_);
   visitor->Trace(face_service_requests_);
 }
 

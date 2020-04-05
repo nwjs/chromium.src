@@ -5,7 +5,7 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_CORE_INTERSECTION_OBSERVER_INTERSECTION_OBSERVER_CONTROLLER_H_
 #define THIRD_PARTY_BLINK_RENDERER_CORE_INTERSECTION_OBSERVER_INTERSECTION_OBSERVER_CONTROLLER_H_
 
-#include "third_party/blink/renderer/core/execution_context/context_lifecycle_observer.h"
+#include "third_party/blink/renderer/core/execution_context/execution_context_lifecycle_observer.h"
 #include "third_party/blink/renderer/core/intersection_observer/intersection_observer.h"
 #include "third_party/blink/renderer/platform/bindings/name_client.h"
 #include "third_party/blink/renderer/platform/heap/handle.h"
@@ -16,16 +16,16 @@
 
 namespace blink {
 
-class Document;
+class ExecutionContext;
 
 class IntersectionObserverController
     : public GarbageCollected<IntersectionObserverController>,
-      public ContextClient,
+      public ExecutionContextClient,
       public NameClient {
   USING_GARBAGE_COLLECTED_MIXIN(IntersectionObserverController);
 
  public:
-  explicit IntersectionObserverController(Document*);
+  explicit IntersectionObserverController(ExecutionContext*);
   virtual ~IntersectionObserverController();
 
   void ScheduleIntersectionObserverForDelivery(IntersectionObserver&);
@@ -50,7 +50,7 @@ class IntersectionObserverController
 
   bool NeedsOcclusionTracking() const { return needs_occlusion_tracking_; }
 
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
   const char* NameInHeapSnapshot() const override {
     return "IntersectionObserverController";
   }

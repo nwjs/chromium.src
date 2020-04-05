@@ -29,12 +29,12 @@ class PageNodeImpl
  public:
   static constexpr NodeTypeEnum Type() { return NodeTypeEnum::kPage; }
 
-  PageNodeImpl(GraphImpl* graph,
-               const WebContentsProxy& contents_proxy,
+  PageNodeImpl(const WebContentsProxy& contents_proxy,
                const std::string& browser_context_id,
                const GURL& visible_url,
                bool is_visible,
-               bool is_audible);
+               bool is_audible,
+               base::TimeTicks visibility_change_time);
   ~PageNodeImpl() override;
 
   // Returns the web contents associated with this page node. It is valid to
@@ -53,13 +53,6 @@ class PageNodeImpl
                                       int64_t navigation_id,
                                       const GURL& url,
                                       const std::string& contents_mime_type);
-
-  // Returns the average CPU usage that can be attributed to this page over the
-  // last measurement period. CPU usage is expressed as the average percentage
-  // of cores occupied over the last measurement interval. One core fully
-  // occupied would be 100, while two cores at 5% each would be 10.
-  // TODO(chrisha): Make this 1.0 for 100%, and 0.1 for 10%.
-  double GetCPUUsage() const;
 
   // Returns 0 if no navigation has happened, otherwise returns the time since
   // the last navigation commit.
@@ -87,27 +80,19 @@ class PageNodeImpl
   bool is_holding_indexeddb_lock() const;
   const base::flat_set<FrameNodeImpl*>& main_frame_nodes() const;
   base::TimeTicks usage_estimate_time() const;
-  base::TimeDelta cumulative_cpu_usage_estimate() const;
   uint64_t private_footprint_kb_estimate() const;
-  bool page_almost_idle() const;
   const GURL& main_frame_url() const;
   int64_t navigation_id() const;
   const std::string& contents_mime_type() const;
   bool had_form_interaction() const;
 
   void set_usage_estimate_time(base::TimeTicks usage_estimate_time);
-  void set_cumulative_cpu_usage_estimate(
-      base::TimeDelta cumulative_cpu_usage_estimate);
   void set_private_footprint_kb_estimate(
       uint64_t private_footprint_kb_estimate);
   void set_has_nonempty_beforeunload(bool has_nonempty_beforeunload);
 
   void SetLifecycleStateForTesting(LifecycleState lifecycle_state) {
     SetLifecycleState(lifecycle_state);
-  }
-
-  void SetPageAlmostIdleForTesting(bool page_almost_idle) {
-    SetPageAlmostIdle(page_almost_idle);
   }
 
   void SetIsHoldingWebLockForTesting(bool is_holding_weblock) {
@@ -126,11 +111,10 @@ class PageNodeImpl
   friend class FrameNodeImpl;
   friend class PageAggregatorAccess;
   friend class FrozenFrameAggregatorAccess;
-  friend class PageAlmostIdleAccess;
+  friend class PageLoadTrackerAccess;
 
-  // PageNode implementation:
+  // PageNode implementation.
   const std::string& GetBrowserContextID() const override;
-  bool IsPageAlmostIdle() const override;
   bool IsVisible() const override;
   base::TimeDelta GetTimeSinceLastVisibilityChange() const override;
   bool IsAudible() const override;
@@ -151,10 +135,11 @@ class PageNodeImpl
 
   void AddFrame(FrameNodeImpl* frame_node);
   void RemoveFrame(FrameNodeImpl* frame_node);
-  void JoinGraph() override;
-  void LeaveGraph() override;
 
-  void SetPageAlmostIdle(bool page_almost_idle);
+  // NodeBase:
+  void OnJoiningGraph() override;
+  void OnBeforeLeavingGraph() override;
+
   void SetLifecycleState(LifecycleState lifecycle_state);
   void SetOriginTrialFreezePolicy(InterventionPolicy policy);
   void SetIsHoldingWebLock(bool is_holding_weblock);
@@ -181,14 +166,6 @@ class PageNodeImpl
 
   // The time the most recent resource usage estimate applies to.
   base::TimeTicks usage_estimate_time_;
-
-  // The most current CPU usage estimate. Note that this estimate is most
-  // generously described as "piecewise linear", as it attributes the CPU
-  // cost incurred since the last measurement was made equally to pages
-  // hosted by a process. If, e.g. a frame has come into existence and vanished
-  // from a given process between measurements, the entire cost to that frame
-  // will be mis-attributed to other frames hosted in that process.
-  base::TimeDelta cumulative_cpu_usage_estimate_;
 
   // The most current memory footprint estimate.
   uint64_t private_footprint_kb_estimate_ = 0;
@@ -217,11 +194,6 @@ class PageNodeImpl
   // The unique ID of the browser context that this page belongs to.
   const std::string browser_context_id_;
 
-  // Page almost idle state. This is the output that is driven by the
-  // PageAlmostIdleDecorator.
-  ObservedProperty::
-      NotifiesOnlyOnChanges<bool, &PageNodeObserver::OnPageAlmostIdleChanged>
-          page_almost_idle_{false};
   // Whether or not the page is visible. Driven by browser instrumentation.
   // Initialized on construction.
   ObservedProperty::NotifiesOnlyOnChanges<bool,
@@ -272,8 +244,8 @@ class PageNodeImpl
       &PageNodeObserver::OnHadFormInteractionChanged>
       had_form_interaction_{false};
 
-  // Storage for PageAlmostIdle user data.
-  std::unique_ptr<NodeAttachedData> page_almost_idle_data_;
+  // Storage for PageLoadTracker user data.
+  std::unique_ptr<NodeAttachedData> page_load_tracker_data_;
 
   // Inline storage for FrozenFrameAggregator user data.
   InternalNodeAttachedDataStorage<sizeof(uintptr_t) + 8> frozen_frame_data_;

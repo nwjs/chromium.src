@@ -168,13 +168,12 @@ def unit_test_list():
               actual_text=None, expected_text=None,
               actual_image=None, expected_image=None,
               actual_checksum=None)
-    tests.add('failures/unexpected/text-mismatch-overlay.html',
-              actual_text='"paintInvalidations": [\nfail',
-              expected_text='"paintInvalidations": [\npass')
-    tests.add('failures/unexpected/no-text-baseline.html',
-              actual_text='"paintInvalidations": [\nfail', expected_text=None)
-    tests.add('failures/unexpected/no-text-generated.html',
-              actual_text=None, expected_text='"paintInvalidations": [\npass')
+    tests.add(
+        'failures/unexpected/text-mismatch-overlay.html',
+        actual_text='"invalidations": [\nfail',
+        expected_text='"invalidations": [\npass')
+    tests.add('failures/unexpected/no-text-baseline.html', actual_text='"invalidations": [\nfail', expected_text=None)
+    tests.add('failures/unexpected/no-text-generated.html', actual_text=None, expected_text='"invalidations": [\npass')
     tests.add('failures/expected/keyboard.html', keyboard=True)
     tests.add('failures/expected/newlines_leading.html',
               expected_text='\nfoo\n', actual_text='foo\n')
@@ -474,6 +473,12 @@ class TestPort(Port):
                 self._filesystem.write_binary_file(sample_file, 'crash sample file')
                 sample_files[cp[0]] = sample_file
         return sample_files
+
+    def _flag_specific_expectations_path(self):
+        flags = [f[2:] for f in self._specified_additional_driver_flags()]
+        if not flags:
+            return None
+        return self._filesystem.join(self.web_tests_dir(), 'FlagExpectations', flags[0])
 
     def look_for_new_crash_logs(self, crashed_processes, start_time):
         del start_time

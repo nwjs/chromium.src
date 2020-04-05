@@ -2,9 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "components/keep_alive_registry/keep_alive_registry.h"
-#include "components/keep_alive_registry/keep_alive_types.h"
-
 #include "chrome/browser/lifetime/application_lifetime.h"
 
 #include <memory>
@@ -185,9 +182,6 @@ void AttemptExitInternal(bool try_to_quit_application) {
 void CloseAllBrowsersAndQuit(bool force, bool user_force) {
   browser_shutdown::SetTryingToQuit(true);
   CloseAllBrowsers(force, user_force);
-  // trigger BrowserProcessImpl::Unpin()
-  KeepAliveRegistry::GetInstance()->Register(KeepAliveOrigin::APP_CONTROLLER, KeepAliveRestartOption::ENABLED);
-  KeepAliveRegistry::GetInstance()->Unregister(KeepAliveOrigin::APP_CONTROLLER, KeepAliveRestartOption::ENABLED);
 }
 
 void ShutdownIfNoBrowsers() {

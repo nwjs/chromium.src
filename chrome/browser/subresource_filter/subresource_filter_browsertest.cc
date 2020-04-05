@@ -658,6 +658,155 @@ IN_PROC_BROWSER_TEST_F(SubresourceFilterBrowserTest,
   observer.Wait();
 }
 
+// Test that resources in frames with an aborted initial load due to a doc.write
+// are still disallowed.
+IN_PROC_BROWSER_TEST_F(SubresourceFilterBrowserTest,
+                       FrameWithDocWriteAbortedLoad_ResourceStillDisallowed) {
+  ASSERT_NO_FATAL_FAILURE(
+      SetRulesetWithRules({testing::CreateSuffixRule("ad=true")}));
+
+  // Block disallowed resources.
+  Configuration config(subresource_filter::mojom::ActivationLevel::kEnabled,
+                       subresource_filter::ActivationScope::ALL_SITES);
+  ResetConfiguration(std::move(config));
+
+  // Watches for title set by onload and onerror callbacks of tested resource
+  content::TitleWatcher title_watcher(web_contents(),
+                                      base::ASCIIToUTF16("failed"));
+  title_watcher.AlsoWaitForTitle(base::ASCIIToUTF16("loaded"));
+
+  ui_test_utils::NavigateToURL(
+      browser(),
+      embedded_test_server()->GetURL(
+          "/subresource_filter/docwrite_loads_disallowed_resource.html"));
+
+  // Check the load was blocked.
+  EXPECT_EQ(base::ASCIIToUTF16("failed"), title_watcher.WaitAndGetTitle());
+}
+
+// Test that resources in frames with an aborted initial load due to a
+// window.stop are still disallowed.
+IN_PROC_BROWSER_TEST_F(SubresourceFilterBrowserTest,
+                       FrameWithWindowStopAbortedLoad_ResourceStillDisallowed) {
+  ASSERT_NO_FATAL_FAILURE(
+      SetRulesetWithRules({testing::CreateSuffixRule("ad=true")}));
+
+  // Block disallowed resources.
+  Configuration config(subresource_filter::mojom::ActivationLevel::kEnabled,
+                       subresource_filter::ActivationScope::ALL_SITES);
+  ResetConfiguration(std::move(config));
+
+  // Watches for title set by onload and onerror callbacks of tested resource
+  content::TitleWatcher title_watcher(web_contents(),
+                                      base::ASCIIToUTF16("failed"));
+  title_watcher.AlsoWaitForTitle(base::ASCIIToUTF16("loaded"));
+
+  ui_test_utils::NavigateToURL(
+      browser(),
+      embedded_test_server()->GetURL(
+          "/subresource_filter/window_stop_loads_disallowed_resource.html"));
+
+  // Check the load was blocked.
+  EXPECT_EQ(base::ASCIIToUTF16("failed"), title_watcher.WaitAndGetTitle());
+}
+
+// Test that a frame with an aborted initial load due to a frame deletion does
+// not cause a crash.
+IN_PROC_BROWSER_TEST_F(SubresourceFilterBrowserTest,
+                       FrameDeletedDuringLoad_DoesNotCrash) {
+  // Watches for title set by end of frame deletion script.
+  content::TitleWatcher title_watcher(web_contents(),
+                                      base::ASCIIToUTF16("done"));
+  ui_test_utils::NavigateToURL(
+      browser(), embedded_test_server()->GetURL(
+                     "/subresource_filter/delete_loading_frame.html"));
+
+  // Wait for the script to complete.
+  EXPECT_EQ(base::ASCIIToUTF16("done"), title_watcher.WaitAndGetTitle());
+}
+
+// Test that an allowed resource in the child of a frame with its initial load
+// aborted due to a doc.write is not blocked.
+IN_PROC_BROWSER_TEST_F(
+    SubresourceFilterBrowserTest,
+    ChildOfFrameWithAbortedLoadLoadsAllowedResource_ResourceLoaded) {
+  ASSERT_NO_FATAL_FAILURE(
+      SetRulesetWithRules({testing::CreateSuffixRule("ad=true")}));
+
+  // Block disallowed resources.
+  Configuration config(subresource_filter::mojom::ActivationLevel::kEnabled,
+                       subresource_filter::ActivationScope::ALL_SITES);
+  ResetConfiguration(std::move(config));
+
+  // Watches for title set by onload and onerror callbacks of tested resource.
+  content::TitleWatcher title_watcher(web_contents(),
+                                      base::ASCIIToUTF16("failed"));
+  title_watcher.AlsoWaitForTitle(base::ASCIIToUTF16("loaded"));
+
+  ui_test_utils::NavigateToURL(
+      browser(),
+      embedded_test_server()->GetURL("/subresource_filter/"
+                                     "docwrite_creates_subframe.html"));
+
+  content::RenderFrameHost* frame = FindFrameByName("grandchild");
+
+  EXPECT_TRUE(ExecJs(frame, R"SCRIPT(
+      let image = document.createElement('img');
+      image.src = 'pixel.png';
+      image.onload = function() {
+        top.document.title='loaded';
+      };
+      image.onerror = function() {
+        top.document.title='failed';
+      };
+      document.body.appendChild(image);
+  )SCRIPT"));
+
+  // Check the load wasn't blocked.
+  EXPECT_EQ(base::ASCIIToUTF16("loaded"), title_watcher.WaitAndGetTitle());
+}
+
+// Test that a disallowed resource in the child of a frame with its initial load
+// aborted due to a doc.write is blocked.
+IN_PROC_BROWSER_TEST_F(
+    SubresourceFilterBrowserTest,
+    ChildOfFrameWithAbortedLoadLoadsDisallowedResource_ResourceBlocked) {
+  ASSERT_NO_FATAL_FAILURE(
+      SetRulesetWithRules({testing::CreateSuffixRule("ad=true")}));
+
+  // Block disallowed resources.
+  Configuration config(subresource_filter::mojom::ActivationLevel::kEnabled,
+                       subresource_filter::ActivationScope::ALL_SITES);
+  ResetConfiguration(std::move(config));
+
+  // Watches for title set by onload and onerror callbacks of tested resource.
+  content::TitleWatcher title_watcher(web_contents(),
+                                      base::ASCIIToUTF16("failed"));
+  title_watcher.AlsoWaitForTitle(base::ASCIIToUTF16("loaded"));
+
+  ui_test_utils::NavigateToURL(
+      browser(),
+      embedded_test_server()->GetURL("/subresource_filter/"
+                                     "docwrite_creates_subframe.html"));
+
+  content::RenderFrameHost* frame = FindFrameByName("grandchild");
+
+  EXPECT_TRUE(ExecJs(frame, R"SCRIPT(
+      let image = document.createElement('img');
+      image.src = 'pixel.png?ad=true';
+      image.onload = function() {
+        top.document.title='loaded';
+      };
+      image.onerror = function() {
+        top.document.title='failed';
+      };
+      document.body.appendChild(image);
+  )SCRIPT"));
+
+  // Check the load was blocked.
+  EXPECT_EQ(base::ASCIIToUTF16("failed"), title_watcher.WaitAndGetTitle());
+}
+
 // Tests checking how histograms are recorded. ---------------------------------
 
 namespace {
@@ -789,6 +938,34 @@ IN_PROC_BROWSER_TEST_F(SubresourceFilterBrowserTest,
   tester.ExpectTotalCount(kActivationDecision, 2);
   tester.ExpectBucketCount(kActivationDecision,
                            static_cast<int>(ActivationDecision::ACTIVATED), 2);
+}
+
+// If no ruleset is available, the VerifiedRulesetDealer considers it a
+// "invalid" or "corrupt" case, and any VerifiedRuleset::Handle's vended from it
+// will be useless for their entire lifetime.
+//
+// At first glance, this will be a problem, since the throttle manager attempts
+// to keep its handle in scope for as long as possible (to avoid un-mapping and
+// re-mapping the underlying file).
+//
+// However, in reality the throttle manager is robust to this. After every
+// navigation we destroy the handle if it is "no longer in use". Since a corrupt
+// or invalid ruleset will never be "in use" (i.e. activate any frame), we
+// destroy the handle after every navigation / frame destruction.
+IN_PROC_BROWSER_TEST_F(SubresourceFilterBrowserTest,
+                       NewRulesetSameTab_ActivatesSuccessfully) {
+  GURL a_url(embedded_test_server()->GetURL(
+      "a.com", "/subresource_filter/frame_cross_site_set.html"));
+  ConfigureAsPhishingURL(a_url);
+  ui_test_utils::NavigateToURL(browser(), a_url);
+  ExpectParsedScriptElementLoadedStatusInFrames(
+      std::vector<const char*>{"b", "d"}, {true, true});
+
+  ASSERT_NO_FATAL_FAILURE(
+      SetRulesetToDisallowURLsWithPathSuffix("included_script.js"));
+  ui_test_utils::NavigateToURL(browser(), a_url);
+  ExpectParsedScriptElementLoadedStatusInFrames(
+      std::vector<const char*>{"b", "d"}, {false, false});
 }
 
 }  // namespace subresource_filter

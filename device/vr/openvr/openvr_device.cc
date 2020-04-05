@@ -9,9 +9,9 @@
 #include <utility>
 
 #include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/macros.h"
 #include "base/memory/ptr_util.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/numerics/math_constants.h"
 #include "build/build_config.h"
 #include "device/vr/openvr/openvr_render_loop.h"
@@ -22,13 +22,6 @@
 #include "ui/gfx/geometry/angle_conversions.h"
 
 namespace device {
-
-void OpenVRDevice::RecordRuntimeAvailability() {
-  XrRuntimeAvailable runtime = XrRuntimeAvailable::NONE;
-  if (vr::VR_IsRuntimeInstalled())
-    runtime = XrRuntimeAvailable::OPENVR;
-  UMA_HISTOGRAM_ENUMERATION("XR.RuntimeAvailable", runtime);
-}
 
 namespace {
 

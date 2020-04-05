@@ -26,6 +26,7 @@
 #include "ui/events/event_constants.h"
 #include "ui/events/keycodes/dom/dom_code.h"
 #include "ui/events/test/event_generator.h"
+#include "ui/events/types/event_type.h"
 
 namespace exo {
 namespace {

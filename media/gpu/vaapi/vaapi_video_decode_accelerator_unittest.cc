@@ -7,6 +7,7 @@
 #include "base/bind.h"
 #include "base/memory/ptr_util.h"
 #include "base/run_loop.h"
+#include "base/test/gmock_callback_support.h"
 #include "base/test/task_environment.h"
 #include "media/gpu/accelerated_video_decoder.h"
 #include "media/gpu/vaapi/vaapi_picture.h"
@@ -15,6 +16,7 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
+using base::test::RunClosure;
 using ::testing::_;
 using ::testing::DoAll;
 using ::testing::Invoke;
@@ -26,10 +28,6 @@ using ::testing::WithArg;
 namespace media {
 
 namespace {
-
-ACTION_P(RunClosure, closure) {
-  closure.Run();
-}
 
 struct TestParams {
   VideoCodecProfile video_codec;
@@ -365,7 +363,7 @@ class VaapiVideoDecodeAcceleratorTest : public TestWithParam<TestParams>,
   }
 
   // VideoDecodeAccelerator::Client methods.
-  MOCK_METHOD1(NotifyInitializationComplete, void(bool));
+  MOCK_METHOD1(NotifyInitializationComplete, void(Status));
   MOCK_METHOD5(
       ProvidePictureBuffers,
       void(uint32_t, VideoPixelFormat, uint32_t, const gfx::Size&, uint32_t));

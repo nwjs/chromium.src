@@ -6,7 +6,6 @@
 
 #include "ash/public/cpp/shelf_item_delegate.h"
 #include "ash/public/cpp/shelf_model.h"
-#include "base/json/json_reader.h"
 #include "chrome/browser/chromeos/login/users/mock_user_manager.h"
 #include "chrome/browser/chromeos/plugin_vm/plugin_vm_pref_names.h"
 #include "chrome/browser/chromeos/plugin_vm/plugin_vm_util.h"
@@ -15,7 +14,6 @@
 #include "chrome/browser/ui/ash/launcher/chrome_launcher_controller.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/test/base/testing_profile.h"
-#include "chromeos/constants/chromeos_switches.h"
 #include "components/account_id/account_id.h"
 #include "components/prefs/pref_service.h"
 #include "components/prefs/scoped_user_pref_update.h"
@@ -28,11 +26,8 @@ namespace {
 
 const char kDiskImageImportCommandUuid[] = "3922722bd7394acf85bf4d5a330d4a47";
 const char kPluginVmLicenseKey[] = "LICENSE_KEY";
-const char kPluginVmImageHash[] =
-    "842841a4c75a55ad050d686f4ea5f77e83ae059877fe9b6946aa63d3d057ed32";
 const char kDomain[] = "example.com";
 const char kDeviceId[] = "device_id";
-const char kPluginVmImageUrl[] = "https://example.com/plugin_vm_image";
 
 // For adding a fake shelf item without requiring opening an actual window.
 class FakeShelfItemDelegate : public ash::ShelfItemDelegate {
@@ -108,12 +103,6 @@ void PluginVmTestHelper::SetPolicyRequirementsToAllowPluginVm() {
       chromeos::kPluginVmAllowed, true);
   testing_profile_->ScopedCrosSettingsTestHelper()->SetString(
       chromeos::kPluginVmLicenseKey, kPluginVmLicenseKey);
-
-  DictionaryPrefUpdate update(testing_profile_->GetPrefs(),
-                              plugin_vm::prefs::kPluginVmImage);
-  base::DictionaryValue* plugin_vm_image = update.Get();
-  plugin_vm_image->SetKey("url", base::Value(kPluginVmImageUrl));
-  plugin_vm_image->SetKey("hash", base::Value(kPluginVmImageHash));
 }
 
 void PluginVmTestHelper::SetUserRequirementsToAllowPluginVm() {
@@ -132,11 +121,6 @@ void PluginVmTestHelper::EnablePluginVmFeature() {
   scoped_feature_list_.InitAndEnableFeature(features::kPluginVm);
 }
 
-void PluginVmTestHelper::EnableDevMode() {
-  base::CommandLine::ForCurrentProcess()->AppendSwitch(
-      chromeos::switches::kSystemDevMode);
-}
-
 void PluginVmTestHelper::EnterpriseEnrollDevice() {
   testing_profile_->ScopedCrosSettingsTestHelper()
       ->InstallAttributes()
@@ -149,14 +133,6 @@ void PluginVmTestHelper::AllowPluginVm() {
   EnablePluginVmFeature();
   EnterpriseEnrollDevice();
   SetPolicyRequirementsToAllowPluginVm();
-  ASSERT_TRUE(IsPluginVmAllowedForProfile(testing_profile_));
-}
-
-void PluginVmTestHelper::AllowPluginVmForManualTesting() {
-  ASSERT_FALSE(IsPluginVmAllowedForProfile(testing_profile_));
-  SetUserRequirementsToAllowPluginVm();
-  EnablePluginVmFeature();
-  EnableDevMode();
   ASSERT_TRUE(IsPluginVmAllowedForProfile(testing_profile_));
 }
 

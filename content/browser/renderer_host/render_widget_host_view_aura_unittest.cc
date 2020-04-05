@@ -22,6 +22,7 @@
 #include "base/test/null_task_runner.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_timeouts.h"
+#include "base/test/with_feature_override.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
@@ -56,11 +57,11 @@
 #include "content/common/text_input_state.h"
 #include "content/common/view_messages.h"
 #include "content/common/widget_messages.h"
+#include "content/public/browser/context_menu_params.h"
 #include "content/public/browser/keyboard_event_processing_result.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents_view_delegate.h"
 #include "content/public/common/content_features.h"
-#include "content/public/common/context_menu_params.h"
 #include "content/public/test/mock_render_process_host.h"
 #include "content/public/test/test_browser_context.h"
 #include "content/test/mock_render_widget_host_delegate.h"
@@ -76,7 +77,6 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/aura/client/aura_constants.h"
-#include "ui/aura/client/screen_position_client.h"
 #include "ui/aura/client/window_parenting_client.h"
 #include "ui/aura/env.h"
 #include "ui/aura/layout_manager.h"
@@ -89,6 +89,7 @@
 #include "ui/aura/window.h"
 #include "ui/aura/window_event_dispatcher.h"
 #include "ui/aura/window_observer.h"
+#include "ui/aura/window_tree_host.h"
 #include "ui/base/clipboard/clipboard.h"
 #include "ui/base/ime/init/input_method_factory.h"
 #include "ui/base/ime/input_method.h"
@@ -114,8 +115,6 @@
 #include "ui/events/test/event_generator.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/selection_bound.h"
-#include "ui/wm/core/default_activation_client.h"
-#include "ui/wm/core/default_screen_position_client.h"
 #include "ui/wm/core/window_util.h"
 
 #if defined(OS_CHROMEOS)
@@ -493,27 +492,25 @@ class RenderWidgetHostViewAuraTest : public testing::Test {
   void SetUpEnvironment() {
     ImageTransportFactory::SetFactory(
         std::make_unique<TestImageTransportFactory>());
-    aura_test_helper_.reset(new aura::test::AuraTestHelper());
-    aura_test_helper_->SetUp(
-        ImageTransportFactory::GetInstance()->GetContextFactory(),
-        ImageTransportFactory::GetInstance()->GetContextFactoryPrivate());
-    new wm::DefaultActivationClient(aura_test_helper_->root_window());
+    aura_test_helper_ = std::make_unique<aura::test::AuraTestHelper>(
+        ImageTransportFactory::GetInstance()->GetContextFactory());
+    aura_test_helper_->SetUp();
 
-    browser_context_.reset(new TestBrowserContext);
+    browser_context_ = std::make_unique<TestBrowserContext>();
     process_host_ = new MockRenderProcessHost(browser_context_.get());
     process_host_->Init();
 
     sink_ = &process_host_->sink();
 
     int32_t routing_id = process_host_->GetNextRoutingID();
-    delegates_.push_back(base::WrapUnique(new MockRenderWidgetHostDelegate));
+    delegates_.push_back(std::make_unique<MockRenderWidgetHostDelegate>());
     parent_host_ = MockRenderWidgetHostImpl::Create(delegates_.back().get(),
                                                     process_host_, routing_id);
     delegates_.back()->set_widget_host(parent_host_);
     parent_view_ = new RenderWidgetHostViewAura(parent_host_);
     parent_view_->InitAsChild(nullptr);
     aura::client::ParentWindowWithContext(parent_view_->GetNativeView(),
-                                          aura_test_helper_->root_window(),
+                                          aura_test_helper_->GetContext(),
                                           gfx::Rect());
     view_ = CreateView();
     widget_host_ = static_cast<MockRenderWidgetHostImpl*>(view_->host());
@@ -739,8 +736,8 @@ class RenderWidgetHostViewAuraOverscrollTest
                           WebMouseWheelEvent::Phase phase) {
     WebMouseWheelEvent wheel_event = SyntheticWebMouseWheelEventBuilder::Build(
         0, 0, dX, dY, modifiers,
-        precise ? ui::input_types::ScrollGranularity::kScrollByPrecisePixel
-                : ui::input_types::ScrollGranularity::kScrollByPixel);
+        precise ? ui::ScrollGranularity::kScrollByPrecisePixel
+                : ui::ScrollGranularity::kScrollByPixel);
     wheel_event.phase = phase;
     widget_host_->ForwardWheelEvent(wheel_event);
     base::RunLoop().RunUntilIdle();
@@ -1002,12 +999,6 @@ TEST_F(RenderWidgetHostViewAuraTest, FocusFullscreen) {
 // Checks that a popup is positioned correctly relative to its parent using
 // screen coordinates.
 TEST_F(RenderWidgetHostViewAuraTest, PositionChildPopup) {
-  wm::DefaultScreenPositionClient screen_position_client;
-
-  aura::Window* window = parent_view_->GetNativeView();
-  aura::Window* root = window->GetRootWindow();
-  aura::client::SetScreenPositionClient(root, &screen_position_client);
-
   parent_view_->SetBounds(gfx::Rect(10, 10, 800, 600));
   gfx::Rect bounds_in_screen = parent_view_->GetViewBounds();
   int horiz = bounds_in_screen.width() / 4;
@@ -1030,12 +1021,11 @@ TEST_F(RenderWidgetHostViewAuraTest, PositionChildPopup) {
   EXPECT_EQ(final_bounds_in_screen.ToString(), bounds_in_screen.ToString());
 
   // Verify that setting the size does not alter the origin.
+  aura::Window* window = parent_view_->GetNativeView();
   gfx::Point original_origin = window->bounds().origin();
   view_->SetSize(gfx::Size(120, 120));
   gfx::Point new_origin = window->bounds().origin();
   EXPECT_EQ(original_origin.ToString(), new_origin.ToString());
-
-  aura::client::SetScreenPositionClient(root, nullptr);
 }
 
 // Checks that moving parent sends new screen bounds.
@@ -1057,6 +1047,9 @@ TEST_F(RenderWidgetHostViewAuraTest, ParentMovementUpdatesScreenRect) {
   parent2->AddChild(view_->GetNativeView());
 
   root->SetBounds(gfx::Rect(0, 0, 800, 600));
+  // NOTE: Window::SetBounds() takes parent coordinates but
+  // RenderWidgetHostView::SetBounds() takes screen coordinates.  So |view_| is
+  // positioned at |parent2|'s origin.
   parent1->SetBounds(gfx::Rect(1, 1, 300, 300));
   parent2->SetBounds(gfx::Rect(2, 2, 200, 200));
   view_->SetBounds(gfx::Rect(3, 3, 100, 100));
@@ -1078,7 +1071,7 @@ TEST_F(RenderWidgetHostViewAuraTest, ParentMovementUpdatesScreenRect) {
             msg->type());
   WidgetMsg_UpdateScreenRects::Param params;
   WidgetMsg_UpdateScreenRects::Read(msg, &params);
-  EXPECT_EQ(gfx::Rect(24, 24, 100, 100), std::get<0>(params));
+  EXPECT_EQ(gfx::Rect(21, 21, 100, 100), std::get<0>(params));
   EXPECT_EQ(gfx::Rect(1, 1, 300, 300), std::get<1>(params));
   sink_->ClearMessages();
   widget_host_->OnMessageReceived(
@@ -1092,7 +1085,7 @@ TEST_F(RenderWidgetHostViewAuraTest, ParentMovementUpdatesScreenRect) {
   ASSERT_EQ(static_cast<uint32_t>(WidgetMsg_UpdateScreenRects::ID),
             msg->type());
   WidgetMsg_UpdateScreenRects::Read(msg, &params);
-  EXPECT_EQ(gfx::Rect(33, 33, 100, 100), std::get<0>(params));
+  EXPECT_EQ(gfx::Rect(30, 30, 100, 100), std::get<0>(params));
   EXPECT_EQ(gfx::Rect(10, 10, 300, 300), std::get<1>(params));
   sink_->ClearMessages();
   widget_host_->OnMessageReceived(
@@ -2522,7 +2515,7 @@ TEST_F(RenderWidgetHostViewAuraTest, CompositorViewportPixelSizeWithScale) {
   // Device scale factor changes to 2, so the physical pixel sizes should
   // change, while the DIP sizes do not.
 
-  aura_test_helper_->test_screen()->SetDeviceScaleFactor(2.0f);
+  aura_test_helper_->GetTestScreen()->SetDeviceScaleFactor(2.0f);
   // Physical pixel size.
   EXPECT_EQ(gfx::Size(200, 200), view_->GetCompositorViewportPixelSize());
   // Update to the renderer.
@@ -2549,7 +2542,7 @@ TEST_F(RenderWidgetHostViewAuraTest, CompositorViewportPixelSizeWithScale) {
   }
   sink_->ClearMessages();
 
-  aura_test_helper_->test_screen()->SetDeviceScaleFactor(1.0f);
+  aura_test_helper_->GetTestScreen()->SetDeviceScaleFactor(1.0f);
 
   // Physical pixel size.
   EXPECT_EQ(gfx::Size(100, 100), view_->GetCompositorViewportPixelSize());
@@ -2625,7 +2618,7 @@ TEST_F(RenderWidgetHostViewAuraTest, AutoResizeWithScale) {
 
   // Changing the device scale factor updates the renderer.
   sink_->ClearMessages();
-  aura_test_helper_->test_screen()->SetDeviceScaleFactor(2.0f);
+  aura_test_helper_->GetTestScreen()->SetDeviceScaleFactor(2.0f);
 
   // Update to the renderer.
   // TODO(samans): There should be only one message in the sink, but some
@@ -2830,7 +2823,7 @@ TEST_F(RenderWidgetHostViewAuraTest, ConflictingAllocationsResolve) {
   }
 
   // Cause a conflicting viz::LocalSurfaceId allocation
-  aura_test_helper_->test_screen()->SetDeviceScaleFactor(2.0f);
+  aura_test_helper_->GetTestScreen()->SetDeviceScaleFactor(2.0f);
   viz::LocalSurfaceIdAllocation merged_local_surface_id_allocation(
       view_->GetLocalSurfaceIdAllocation());
   EXPECT_NE(local_surface_id_allocation1, merged_local_surface_id_allocation);
@@ -3135,7 +3128,7 @@ TEST_F(RenderWidgetHostViewAuraTest, DeviceScaleFactorChanges) {
   EXPECT_EQ(nullptr, view_->window_->layer()->GetOldestAcceptableFallback());
 
   // Resizing should update the primary SurfaceId.
-  aura_test_helper_->test_screen()->SetDeviceScaleFactor(2.0f);
+  aura_test_helper_->GetTestScreen()->SetDeviceScaleFactor(2.0f);
   viz::SurfaceId new_surface_id = *view_->window_->layer()->GetSurfaceId();
   EXPECT_NE(new_surface_id, initial_surface_id);
   EXPECT_EQ(gfx::Size(300, 300), view_->window_->layer()->bounds().size());
@@ -4840,12 +4833,9 @@ TEST_F(RenderWidgetHostViewAuraTest, VirtualKeyboardFocusEnsureCaretInRect) {
   // TODO (oshima): Test that overscroll occurs.
 
   view_->InitAsChild(nullptr);
-  aura::client::ParentWindowWithContext(
-      view_->GetNativeView(), parent_view_->GetNativeView()->GetRootWindow(),
-      gfx::Rect());
   aura::Window* root_window = parent_view_->GetNativeView()->GetRootWindow();
-  wm::DefaultScreenPositionClient screen_position_client;
-  aura::client::SetScreenPositionClient(root_window, &screen_position_client);
+  aura::client::ParentWindowWithContext(view_->GetNativeView(), root_window,
+                                        gfx::Rect());
 
   const gfx::Rect orig_view_bounds = gfx::Rect(0, 300, 400, 200);
   const gfx::Rect shifted_view_bounds = gfx::Rect(0, 200, 400, 200);
@@ -4873,8 +4863,6 @@ TEST_F(RenderWidgetHostViewAuraTest, VirtualKeyboardFocusEnsureCaretInRect) {
 
   // Window should be restored.
   EXPECT_EQ(view_->GetNativeView()->bounds(), orig_view_bounds);
-
-  aura::client::SetScreenPositionClient(root_window, nullptr);
 }
 #endif  // defined(OS_CHROMEOS)
 
@@ -5182,18 +5170,11 @@ TEST_F(RenderWidgetHostViewAuraTest, ForwardMouseEvent) {
 }
 
 class TouchpadRenderWidgetHostViewAuraTest
-    : public RenderWidgetHostViewAuraTest,
-      public testing::WithParamInterface<bool> {
+    : public base::test::WithFeatureOverride,
+      public RenderWidgetHostViewAuraTest {
  public:
-  TouchpadRenderWidgetHostViewAuraTest() {
-    if (GetParam()) {
-      scoped_feature_list_.InitAndEnableFeature(
-          features::kTouchpadAsyncPinchEvents);
-    } else {
-      scoped_feature_list_.InitAndDisableFeature(
-          features::kTouchpadAsyncPinchEvents);
-    }
-  }
+  TouchpadRenderWidgetHostViewAuraTest()
+      : WithFeatureOverride(features::kTouchpadAsyncPinchEvents) {}
   ~TouchpadRenderWidgetHostViewAuraTest() override = default;
 
  private:
@@ -5201,9 +5182,7 @@ class TouchpadRenderWidgetHostViewAuraTest
   DISALLOW_COPY_AND_ASSIGN(TouchpadRenderWidgetHostViewAuraTest);
 };
 
-INSTANTIATE_TEST_SUITE_P(All,
-                         TouchpadRenderWidgetHostViewAuraTest,
-                         testing::Bool());
+INSTANTIATE_FEATURE_OVERRIDE_TEST_SUITE(TouchpadRenderWidgetHostViewAuraTest);
 
 // Test that we elide touchpad pinch gesture steams consisting of only begin
 // and end events.
@@ -5939,8 +5918,8 @@ class InputMethodStateAuraTest : public InputMethodAuraTestBase {
 TEST_F(InputMethodStateAuraTest, GetCaretBounds) {
   WidgetHostMsg_SelectionBounds_Params params;
   params.is_anchor_first = true;
-  params.anchor_dir = blink::kWebTextDirectionLeftToRight;
-  params.focus_dir = blink::kWebTextDirectionLeftToRight;
+  params.anchor_dir = base::i18n::LEFT_TO_RIGHT;
+  params.focus_dir = base::i18n::LEFT_TO_RIGHT;
   params.anchor_rect = gfx::Rect(0, 0, 10, 10);
   for (auto index : active_view_sequence_) {
     ActivateViewForTextInputManager(views_[index], ui::TEXT_INPUT_TYPE_TEXT);
@@ -6275,8 +6254,8 @@ TEST_F(RenderWidgetHostViewAuraInputMethodTest, OnCaretBoundsChanged) {
 
   WidgetHostMsg_SelectionBounds_Params params;
   params.is_anchor_first = true;
-  params.anchor_dir = blink::kWebTextDirectionLeftToRight;
-  params.focus_dir = blink::kWebTextDirectionLeftToRight;
+  params.anchor_dir = base::i18n::LEFT_TO_RIGHT;
+  params.focus_dir = base::i18n::LEFT_TO_RIGHT;
   params.anchor_rect = gfx::Rect(0, 0, 10, 10);
   params.focus_rect = gfx::Rect(10, 10, 10, 10);
   parent_view_->SelectionBoundsChanged(params);
@@ -6419,6 +6398,14 @@ TEST_F(RenderWidgetHostViewAuraKeyboardTest,
   parent_view_->DetachFromInputMethod();
   EXPECT_EQ(parent_view_->keyboard_observer_.get(), nullptr);
   EXPECT_EQ(keyboard_controller_observer_count(), 0u);
+}
+
+TEST_F(RenderWidgetHostViewAuraKeyboardTest, KeyboardObserverForPenInput) {
+  // Show virtual keyboard for pen inputs.
+  parent_view_->SetLastPointerType(ui::EventPointerType::POINTER_TYPE_PEN);
+  ActivateViewForTextInputManager(parent_view_, ui::TEXT_INPUT_TYPE_TEXT);
+  EXPECT_NE(parent_view_->keyboard_observer_.get(), nullptr);
+  EXPECT_EQ(keyboard_controller_observer_count(), 1u);
 }
 
 #endif  // defined(OS_WIN)

@@ -21,6 +21,7 @@ import org.chromium.base.LocaleUtils;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.chrome.browser.accessibility.FontSizePrefs;
+import org.chromium.chrome.browser.browsing_data.BrowsingDataBridge;
 import org.chromium.chrome.browser.browsing_data.BrowsingDataType;
 import org.chromium.chrome.browser.browsing_data.TimePeriod;
 import org.chromium.chrome.browser.metrics.UmaUtils;
@@ -33,8 +34,7 @@ import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.preferences.PrefServiceBridge;
 import org.chromium.chrome.browser.preferences.SharedPreferencesManager;
 import org.chromium.chrome.browser.profiles.ProfileManagerUtils;
-import org.chromium.chrome.browser.settings.privacy.BrowsingDataBridge;
-import org.chromium.chrome.browser.share.ShareHelper;
+import org.chromium.chrome.browser.share.ShareImageFileUtils;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.translate.TranslateBridge;
 import org.chromium.ui.base.ResourceBundle;
@@ -181,7 +181,7 @@ public class ChromeActivitySessionTracker {
         if (ApplicationStatus.isEveryActivityDestroyed()) {
             // These will all be re-initialized when a new Activity starts / upon next use.
             PartnerBrowserCustomizations.destroy();
-            ShareHelper.clearSharedImages();
+            ShareImageFileUtils.clearSharedImages();
         }
     }
 

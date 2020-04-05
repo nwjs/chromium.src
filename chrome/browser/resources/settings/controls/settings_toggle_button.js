@@ -23,6 +23,11 @@ Polymer({
       type: Boolean,
       reflectToAttribute: true,
     },
+
+    learnMoreUrl: {
+      type: String,
+      reflectToAttribute: true,
+    },
   },
 
   listeners: {
@@ -82,6 +87,15 @@ Polymer({
     this.checked = !this.checked;
     this.notifyChangedByUserInteraction();
     this.fire('change');
+  },
+
+  /**
+   * @param {!CustomEvent<boolean>} e
+   * @private
+   */
+  onLearnMoreClicked_(e) {
+    e.stopPropagation();
+    this.fire('learn-more-clicked');
   },
 
   /**

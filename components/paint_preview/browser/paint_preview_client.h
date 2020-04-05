@@ -27,6 +27,9 @@ namespace paint_preview {
 // Client responsible for making requests to the mojom::PaintPreviewService. A
 // client coordinates between multiple frames and handles capture and
 // aggreagation of data from both the main frame and subframes.
+//
+// Should be created and accessed from the UI thread as WebContentsUserData
+// requires this behavior.
 class PaintPreviewClient
     : public content::WebContentsUserData<PaintPreviewClient>,
       public content::WebContentsObserver {
@@ -56,6 +59,8 @@ class PaintPreviewClient
   };
 
   ~PaintPreviewClient() override;
+
+  // IMPORTANT: The Capture* methods must be called on the UI thread!
 
   // Captures a paint preview corresponding to the content of
   // |render_frame_host|. This will work for capturing entire documents if
@@ -95,6 +100,12 @@ class PaintPreviewClient
 
     // URL of the root frame.
     GURL root_url;
+
+    // UKM Source ID of the WebContent.
+    ukm::SourceId source_id;
+
+    // Main frame capture time.
+    base::TimeDelta main_frame_blink_recording_time;
 
     // Callback that is invoked on completion of data.
     PaintPreviewCallback callback;
@@ -150,11 +161,12 @@ class PaintPreviewClient
   // |render_frame_host| using |params| to configure the request. |frame_guid|
   // is the GUID associated with the frame. |path| is file path associated with
   // the File stored in |result| (base::File isn't aware of its file path).
-  void RequestCaptureOnUIThread(const PaintPreviewParams& params,
-                                const base::UnguessableToken& frame_guid,
-                                content::RenderFrameHost* render_frame_host,
-                                const base::FilePath& path,
-                                CreateResult result);
+  void RequestCaptureOnUIThread(
+      const PaintPreviewParams& params,
+      const base::UnguessableToken& frame_guid,
+      const content::GlobalFrameRoutingId& render_frame_id,
+      const base::FilePath& path,
+      CreateResult result);
 
   // Handles recording the frame and updating client state when capture is
   // complete.
@@ -163,7 +175,7 @@ class PaintPreviewClient
       const base::UnguessableToken& frame_guid,
       bool is_main_frame,
       const base::FilePath& filename,
-      content::RenderFrameHost* render_frame_host,
+      const content::GlobalFrameRoutingId& render_frame_id,
       mojom::PaintPreviewStatus status,
       mojom::PaintPreviewCaptureResponsePtr response);
 
@@ -178,7 +190,7 @@ class PaintPreviewClient
       const base::UnguessableToken& frame_guid,
       bool is_main_frame,
       const base::FilePath& filename,
-      content::RenderFrameHost* render_frame_host,
+      const content::GlobalFrameRoutingId& render_frame_id,
       mojom::PaintPreviewCaptureResponsePtr response);
 
   // Handles finishing the capture once all frames are received.

@@ -11,21 +11,23 @@
 #include "third_party/blink/renderer/core/workers/installed_scripts_manager.h"
 #include "third_party/blink/renderer/core/workers/worker_global_scope.h"
 #include "third_party/blink/renderer/core/workers/worker_thread.h"
+#include "third_party/blink/renderer/platform/heap/heap.h"
 #include "third_party/blink/renderer/platform/network/mime/mime_type_registry.h"
 #include "third_party/blink/renderer/platform/weborigin/security_policy.h"
 
 namespace blink {
 
 InstalledServiceWorkerModuleScriptFetcher::
-    InstalledServiceWorkerModuleScriptFetcher(WorkerGlobalScope* global_scope)
-    : global_scope_(global_scope) {
+    InstalledServiceWorkerModuleScriptFetcher(
+        WorkerGlobalScope* global_scope,
+        util::PassKey<ModuleScriptLoader> pass_key)
+    : ModuleScriptFetcher(pass_key), global_scope_(global_scope) {
   DCHECK(global_scope_->IsServiceWorkerGlobalScope());
 }
 
 void InstalledServiceWorkerModuleScriptFetcher::Fetch(
     FetchParameters& fetch_params,
     ResourceFetcher*,
-    const Modulator* modulator_for_built_in_modules,
     ModuleGraphLevel level,
     ModuleScriptFetcher::Client* client) {
   DCHECK(global_scope_->IsContextThread());
@@ -38,7 +40,7 @@ void InstalledServiceWorkerModuleScriptFetcher::Fetch(
 
   if (!script_data) {
     HeapVector<Member<ConsoleMessage>> error_messages;
-    error_messages.push_back(ConsoleMessage::CreateForRequest(
+    error_messages.push_back(MakeGarbageCollected<ConsoleMessage>(
         mojom::ConsoleMessageSource::kJavaScript,
         mojom::ConsoleMessageLevel::kError,
         "Failed to load the script unexpectedly",
@@ -91,7 +93,7 @@ void InstalledServiceWorkerModuleScriptFetcher::Fetch(
     // If we reach here, we know we received an incompatible mime type from the
     // network
     HeapVector<Member<ConsoleMessage>> error_messages;
-    error_messages.push_back(ConsoleMessage::CreateForRequest(
+    error_messages.push_back(MakeGarbageCollected<ConsoleMessage>(
         mojom::ConsoleMessageSource::kJavaScript,
         mojom::ConsoleMessageLevel::kError,
         "Failed to load the script unexpectedly",
@@ -108,7 +110,7 @@ void InstalledServiceWorkerModuleScriptFetcher::Fetch(
   client->NotifyFetchFinished(params, HeapVector<Member<ConsoleMessage>>());
 }
 
-void InstalledServiceWorkerModuleScriptFetcher::Trace(blink::Visitor* visitor) {
+void InstalledServiceWorkerModuleScriptFetcher::Trace(Visitor* visitor) {
   ModuleScriptFetcher::Trace(visitor);
   visitor->Trace(global_scope_);
 }

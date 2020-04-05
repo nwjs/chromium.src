@@ -23,12 +23,12 @@ import androidx.browser.customtabs.TrustedWebUtils;
 import androidx.browser.trusted.TrustedWebActivityIntentBuilder;
 import androidx.browser.trusted.splashscreens.SplashScreenParamKey;
 
+import org.chromium.base.IntentUtils;
 import org.chromium.chrome.browser.browserservices.BrowserServicesIntentDataProvider;
 import org.chromium.chrome.browser.customtabs.TranslucentCustomTabActivity;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.lifecycle.InflationObserver;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.util.IntentUtils;
 import org.chromium.chrome.browser.webapps.SplashController;
 import org.chromium.chrome.browser.webapps.SplashDelegate;
 import org.chromium.chrome.browser.webapps.SplashscreenObserver;
@@ -46,7 +46,7 @@ import javax.inject.Inject;
  * - TWA client app verifies conditions for showing splash screen. If the checks pass, it shows the
  * splash screen immediately.
  * - The client passes the URI to a file with the splash image to
- * {@link android.support.customtabs.CustomTabsService}. The image is decoded and put into
+ * {@link androidx.browser.customtabs.CustomTabsService}. The image is decoded and put into
  * {@link SplashImageHolder}.
  * - The client then launches a TWA, at which point the Bitmap is already available.
  * - ChromeLauncherActivity calls {@link #handleIntent}, which starts

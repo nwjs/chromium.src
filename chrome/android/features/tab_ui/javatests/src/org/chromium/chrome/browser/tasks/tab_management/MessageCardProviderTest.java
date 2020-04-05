@@ -15,23 +15,24 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.when;
 
 import android.support.test.filters.SmallTest;
-import android.support.v7.widget.GridLayoutManager;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 
-import org.junit.After;
+import androidx.recyclerview.widget.GridLayoutManager;
+
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestRule;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
-import org.chromium.chrome.browser.tab.TabFeatureUtilities;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.tab_ui.R;
 import org.chromium.chrome.test.util.browser.Features;
 import org.chromium.content_public.browser.test.util.CriteriaHelper;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
+import org.chromium.ui.modelutil.LayoutViewBuilder;
 import org.chromium.ui.modelutil.MVCListAdapter;
 import org.chromium.ui.modelutil.SimpleRecyclerViewAdapter;
 import org.chromium.ui.test.util.DummyUiActivityTestCase;
@@ -42,8 +43,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * Integration tests for TabGridMessageCardProvider component.
  */
+@Features.DisableFeatures(ChromeFeatureList.TAB_TO_GTS_ANIMATION)
 public class MessageCardProviderTest extends DummyUiActivityTestCase {
-    static final int SUGGESTED_TAB_COUNT = 2;
+    private static final int SUGGESTED_TAB_COUNT = 2;
 
     @Rule
     public TestRule mProcessor = new Features.JUnitProcessor();
@@ -97,7 +99,6 @@ public class MessageCardProviderTest extends DummyUiActivityTestCase {
     public void setUpTest() throws Exception {
         super.setUpTest();
         MockitoAnnotations.initMocks(this);
-        TabFeatureUtilities.setIsTabToGtsAnimationEnabledForTesting(false);
         // TODO(meiliang): Replace with TabSwitcher instead when ready to integrate with
         // TabSwitcher.
         ViewGroup view = new FrameLayout(getActivity());
@@ -111,10 +112,9 @@ public class MessageCardProviderTest extends DummyUiActivityTestCase {
             mRecyclerView.setVisibilityListener(mRecyclerViewVisibilityListener);
             mRecyclerView.setVisibility(View.INVISIBLE);
 
-            mAdapter.registerType(TabProperties.UiType.MESSAGE, () -> {
-                return (ViewGroup) getActivity().getLayoutInflater().inflate(
-                        R.layout.tab_grid_message_card_item, mRecyclerView, false);
-            }, MessageCardViewBinder::bind);
+            mAdapter.registerType(TabProperties.UiType.MESSAGE,
+                    new LayoutViewBuilder(R.layout.tab_grid_message_card_item),
+                    MessageCardViewBinder::bind);
 
             GridLayoutManager layoutManager = new GridLayoutManager(mRecyclerView.getContext(), 2);
             layoutManager.setSpanSizeLookup(new GridLayoutManager.SpanSizeLookup() {
@@ -137,20 +137,15 @@ public class MessageCardProviderTest extends DummyUiActivityTestCase {
         mCoordinator.subscribeMessageService(mSuggestionService);
     }
 
-    @After
-    public void tearDown() {
-        TabFeatureUtilities.setIsTabToGtsAnimationEnabledForTesting(null);
-    }
-
     @Test
     @SmallTest
     public void testShowingTabSuggestionMessage() {
         when(mTabSuggestionMessageData.getSize()).thenReturn(SUGGESTED_TAB_COUNT);
         mSuggestionService.sendAvailabilityNotification(mTabSuggestionMessageData);
 
-        TestThreadUtils.runOnUiThreadBlocking(() -> { mRecyclerView.startShowing(false); });
+        TestThreadUtils.runOnUiThreadBlocking(() -> mRecyclerView.startShowing(false));
 
-        CriteriaHelper.pollInstrumentationThread(
+        CriteriaHelper.pollUiThread(
                 () -> mRecyclerView.getVisibility() == View.VISIBLE && mFinishedShowing.get());
 
         onView(withId(R.id.tab_grid_message_item)).check(matches(isDisplayed()));
@@ -165,9 +160,9 @@ public class MessageCardProviderTest extends DummyUiActivityTestCase {
                 .thenReturn(() -> reviewed.set(true));
         mSuggestionService.sendAvailabilityNotification(mTabSuggestionMessageData);
 
-        TestThreadUtils.runOnUiThreadBlocking(() -> { mRecyclerView.startShowing(false); });
+        TestThreadUtils.runOnUiThreadBlocking(() -> mRecyclerView.startShowing(false));
 
-        CriteriaHelper.pollInstrumentationThread(
+        CriteriaHelper.pollUiThread(
                 () -> mRecyclerView.getVisibility() == View.VISIBLE && mFinishedShowing.get());
 
         onView(withId(R.id.tab_grid_message_item)).check(matches(isDisplayed()));
@@ -186,9 +181,9 @@ public class MessageCardProviderTest extends DummyUiActivityTestCase {
                 .thenReturn((type) -> dismissed.set(true));
         mSuggestionService.sendAvailabilityNotification(mTabSuggestionMessageData);
 
-        TestThreadUtils.runOnUiThreadBlocking(() -> { mRecyclerView.startShowing(false); });
+        TestThreadUtils.runOnUiThreadBlocking(() -> mRecyclerView.startShowing(false));
 
-        CriteriaHelper.pollInstrumentationThread(
+        CriteriaHelper.pollUiThread(
                 () -> mRecyclerView.getVisibility() == View.VISIBLE && mFinishedShowing.get());
 
         onView(withId(R.id.tab_grid_message_item)).check(matches(isDisplayed()));

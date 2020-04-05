@@ -101,9 +101,7 @@ void BrowserCloseManager::CheckForDownloadsInProgress() {
 #if defined(OS_MACOSX)
   // Mac has its own in-progress downloads prompt in app_controller_mac.mm.
   CloseBrowsers();
-  return;
-#endif
-
+#else
   int download_count =
       DownloadCoreService::NonMaliciousDownloadCountAllProfiles();
   if (download_count == 0) {
@@ -114,6 +112,7 @@ void BrowserCloseManager::CheckForDownloadsInProgress() {
   ConfirmCloseWithPendingDownloads(
       download_count,
       base::Bind(&BrowserCloseManager::OnReportDownloadsCancellable, this));
+#endif
 }
 
 void BrowserCloseManager::ConfirmCloseWithPendingDownloads(

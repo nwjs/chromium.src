@@ -14,11 +14,13 @@ namespace blink {
 void ThreadHeapStatsCollector::IncreaseCompactionFreedSize(size_t bytes) {
   DCHECK(is_started_);
   current_.compaction_freed_bytes += bytes;
+  current_.compaction_recorded_events = true;
 }
 
 void ThreadHeapStatsCollector::IncreaseCompactionFreedPages(size_t pages) {
   DCHECK(is_started_);
   current_.compaction_freed_pages += pages;
+  current_.compaction_recorded_events = true;
 }
 
 void ThreadHeapStatsCollector::IncreaseAllocatedObjectSize(size_t bytes) {
@@ -100,11 +102,14 @@ void ThreadHeapStatsCollector::IncreaseCollectedWrapperCount(size_t count) {
   collected_wrapper_count_ += count;
 }
 
-void ThreadHeapStatsCollector::NotifyMarkingStarted(BlinkGC::GCReason reason) {
+void ThreadHeapStatsCollector::NotifyMarkingStarted(
+    BlinkGC::CollectionType collection_type,
+    BlinkGC::GCReason reason) {
   DCHECK(!is_started_);
   DCHECK(current_.marking_time().is_zero());
   is_started_ = true;
   current_.reason = reason;
+  current_.collection_type = collection_type;
 }
 
 void ThreadHeapStatsCollector::NotifyMarkingCompleted(size_t marked_bytes) {

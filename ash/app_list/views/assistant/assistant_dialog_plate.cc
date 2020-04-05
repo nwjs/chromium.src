@@ -4,12 +4,12 @@
 
 #include "ash/app_list/views/assistant/assistant_dialog_plate.h"
 
+#include "ash/assistant/model/assistant_interaction_model.h"
 #include "ash/assistant/model/assistant_ui_model.h"
 #include "ash/assistant/ui/assistant_ui_constants.h"
 #include "ash/assistant/ui/assistant_view_delegate.h"
 #include "ash/assistant/ui/assistant_view_ids.h"
 #include "ash/assistant/ui/base/assistant_button.h"
-#include "ash/assistant/ui/dialog_plate/dialog_plate.h"
 #include "ash/assistant/ui/dialog_plate/mic_view.h"
 #include "ash/assistant/ui/logo_view/logo_view.h"
 #include "ash/assistant/util/animation_util.h"
@@ -240,15 +240,14 @@ void AssistantDialogPlate::OnInputModalityChanged(
       animation_observer_->SetActive();
       break;
     }
-    case InputModality::kStylus:
-      // |InputModality::kStylus| is not used for the embedded UI.
-      NOTREACHED();
-      break;
   }
 }
 
 void AssistantDialogPlate::OnCommittedQueryChanged(
     const AssistantQuery& committed_query) {
+  // Whenever a query is submitted we return the focus to the dialog plate.
+  RequestFocus();
+
   DCHECK(query_history_iterator_);
   query_history_iterator_->ResetToLast();
 }
@@ -283,10 +282,6 @@ views::View* AssistantDialogPlate::FindFirstFocusableView() {
       return textfield_;
     case InputModality::kVoice:
       return animated_voice_input_toggle_;
-    case InputModality::kStylus:
-      // |InputModality::kStylus| is not used for the embedded UI.
-      NOTREACHED();
-      return nullptr;
   }
 }
 
@@ -444,10 +439,6 @@ void AssistantDialogPlate::UpdateModalityVisibility() {
       break;
     case InputModality::kVoice:
       voice_layout_container_->SetVisible(true);
-      break;
-    case InputModality::kStylus:
-      // |InputModality::kStylus| is not used for the embedded UI.
-      NOTREACHED();
       break;
   }
 }

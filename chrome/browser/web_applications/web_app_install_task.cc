@@ -27,6 +27,7 @@
 #include "chrome/browser/web_applications/components/web_app_url_loader.h"
 #include "chrome/browser/web_applications/components/web_app_utils.h"
 #include "chrome/common/web_application_info.h"
+#include "components/performance_manager/embedder/performance_manager_registry.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/web_contents.h"
 #include "third_party/blink/public/common/manifest/manifest.h"
@@ -193,8 +194,7 @@ void WebAppInstallTask::InstallWebAppFromInfo(
   CheckInstallPreconditions();
 
   FilterAndResizeIconsGenerateMissing(web_application_info.get(),
-                                      /*icons_map*/ nullptr,
-                                      /*is_for_sync*/ false);
+                                      /*icons_map*/ nullptr);
 
   install_source_ = install_source;
   background_installation_ = true;
@@ -304,6 +304,11 @@ std::unique_ptr<content::WebContents> WebAppInstallTask::CreateWebContents(
   InstallableManager::CreateForWebContents(web_contents.get());
   SecurityStateTabHelper::CreateForWebContents(web_contents.get());
   favicon::CreateContentFaviconDriverForWebContents(web_contents.get());
+  if (auto* performance_manager_registry =
+          performance_manager::PerformanceManagerRegistry::GetInstance()) {
+    performance_manager_registry->CreatePageNodeForWebContents(
+        web_contents.get());
+  }
 
   return web_contents;
 }
@@ -450,6 +455,14 @@ void WebAppInstallTask::OnGetWebApplicationInfo(
     // redirected. Will be overridden by manifest values if present.
     DCHECK(install_params_->fallback_start_url.is_valid());
     web_app_info->app_url = install_params_->fallback_start_url;
+
+    // If `additional_search_terms` was a manifest property, it would be
+    // sanitized while parsing the manifest. Since it's not, we sanitize it
+    // here.
+    for (std::string& search_term : install_params_->additional_search_terms) {
+      if (!search_term.empty())
+        web_app_info->additional_search_terms.push_back(std::move(search_term));
+    }
   }
 
   data_retriever_->CheckInstallabilityAndRetrieveManifest(
@@ -613,9 +626,7 @@ void WebAppInstallTask::OnIconsRetrieved(
   DCHECK(web_app_info);
 
   // Installing from sync should not change icon links.
-  FilterAndResizeIconsGenerateMissing(
-      web_app_info.get(), &icons_map,
-      /*is_for_sync=*/install_source_ == WebappInstallSource::SYNC);
+  FilterAndResizeIconsGenerateMissing(web_app_info.get(), &icons_map);
 
   InstallFinalizer::FinalizeOptions options;
   options.install_source = install_source_;
@@ -639,8 +650,7 @@ void WebAppInstallTask::OnIconsRetrievedShowDialog(
   // The old BookmarkApp Sync System uses |WebAppInstallTask::OnIconsRetrieved|.
   // The new WebApp USS System has no sync wars and it doesn't need to preserve
   // icons. |is_for_sync| is always false for USS.
-  FilterAndResizeIconsGenerateMissing(web_app_info.get(), &icons_map,
-                                      /*is_for_sync=*/false);
+  FilterAndResizeIconsGenerateMissing(web_app_info.get(), &icons_map);
 
   if (background_installation_) {
     DCHECK(!dialog_callback_);
@@ -665,8 +675,7 @@ void WebAppInstallTask::OnIconsRetrievedFinalizeUpdate(
   DCHECK(web_app_info);
 
   // TODO(crbug.com/926083): Abort update if icons fail to download.
-  FilterAndResizeIconsGenerateMissing(web_app_info.get(), &icons_map,
-                                      /*is_for_sync=*/false);
+  FilterAndResizeIconsGenerateMissing(web_app_info.get(), &icons_map);
 
   install_finalizer_->FinalizeUpdate(
       *web_app_info, base::BindOnce(&WebAppInstallTask::OnInstallFinalized,

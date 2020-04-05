@@ -8,8 +8,6 @@ import android.app.Activity;
 import android.content.res.Resources;
 import android.graphics.Canvas;
 import android.graphics.Color;
-import android.os.SystemClock;
-import android.support.v4.view.ViewCompat;
 import android.view.ContextMenu;
 import android.view.ContextMenu.ContextMenuInfo;
 import android.view.LayoutInflater;
@@ -17,16 +15,17 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ExpandableListView;
 
+import androidx.core.view.ViewCompat;
+
 import org.chromium.base.ActivityState;
 import org.chromium.base.ApplicationStatus;
-import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeActivity;
 import org.chromium.chrome.browser.compositor.layouts.content.InvalidationAwareThumbnailProvider;
 import org.chromium.chrome.browser.fullscreen.ChromeFullscreenManager;
 import org.chromium.chrome.browser.ui.native_page.NativePage;
 import org.chromium.chrome.browser.ui.native_page.NativePageHost;
-import org.chromium.chrome.browser.util.UrlConstants;
+import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.base.ViewUtils;
 
@@ -66,13 +65,6 @@ public class RecentTabsPage
      * Whether {@link #mView} is attached to the application window.
      */
     private boolean mIsAttachedToWindow;
-
-    /**
-     * The time, whichever is most recent, that the page:
-     * - Moved to the foreground
-     * - Became visible
-     */
-    private long mForegroundTimeMs;
 
     /**
      * Constructor returns an instance of RecentTabsPage.
@@ -131,11 +123,7 @@ public class RecentTabsPage
 
         mInForeground = inForeground;
         if (mInForeground) {
-            mForegroundTimeMs = SystemClock.elapsedRealtime();
             mRecentTabsManager.recordRecentTabMetrics();
-        } else {
-            RecordHistogram.recordLongTimesHistogram("NewTabPage.RecentTabsPage.TimeVisibleAndroid",
-                    SystemClock.elapsedRealtime() - mForegroundTimeMs);
         }
     }
 
@@ -307,14 +295,20 @@ public class RecentTabsPage
             int bottomOffset, int bottomControlsMinHeightOffset, boolean needsAnimate) {}
 
     @Override
-    public void onToggleOverlayVideoMode(boolean enabled) {}
-
-    @Override
     public void onBottomControlsHeightChanged(
             int bottomControlsHeight, int bottomControlsMinHeight) {
+        updatePadding();
+    }
+
+    @Override
+    public void onTopControlsHeightChanged(int topControlsHeight, int topControlsMinHeight) {
+        updatePadding();
+    }
+
+    private void updatePadding() {
         final View recentTabsRoot = mView.findViewById(R.id.recent_tabs_root);
         ViewCompat.setPaddingRelative(recentTabsRoot, ViewCompat.getPaddingStart(recentTabsRoot),
                 mFullscreenManager.getTopControlsHeight(), ViewCompat.getPaddingEnd(recentTabsRoot),
-                bottomControlsHeight);
+                mFullscreenManager.getBottomControlsHeight());
     }
 }

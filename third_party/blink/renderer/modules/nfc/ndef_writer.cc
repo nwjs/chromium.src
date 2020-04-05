@@ -12,6 +12,7 @@
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ndef_write_options.h"
 #include "third_party/blink/renderer/core/dom/abort_signal.h"
 #include "third_party/blink/renderer/core/dom/dom_exception.h"
+#include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/modules/nfc/ndef_message.h"
 #include "third_party/blink/renderer/modules/nfc/nfc_type_converters.h"
@@ -19,6 +20,8 @@
 #include "third_party/blink/renderer/modules/permissions/permission_utils.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
+#include "third_party/blink/renderer/platform/scheduler/public/frame_scheduler.h"
+#include "third_party/blink/renderer/platform/scheduler/public/scheduling_policy.h"
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
 
 namespace blink {
@@ -29,16 +32,20 @@ using mojom::blink::PermissionStatus;
 
 // static
 NDEFWriter* NDEFWriter::Create(ExecutionContext* context) {
+  context->GetScheduler()->RegisterStickyFeature(
+      blink::SchedulingPolicy::Feature::kWebNfc,
+      {blink::SchedulingPolicy::RecordMetricsForBackForwardCache()});
   return MakeGarbageCollected<NDEFWriter>(context);
 }
 
-NDEFWriter::NDEFWriter(ExecutionContext* context) : ContextClient(context) {}
+NDEFWriter::NDEFWriter(ExecutionContext* context)
+    : ExecutionContextClient(context) {}
 
-void NDEFWriter::Trace(blink::Visitor* visitor) {
+void NDEFWriter::Trace(Visitor* visitor) {
   visitor->Trace(nfc_proxy_);
   visitor->Trace(requests_);
   ScriptWrappable::Trace(visitor);
-  ContextClient::Trace(visitor);
+  ExecutionContextClient::Trace(visitor);
 }
 
 // https://w3c.github.io/web-nfc/#writing-content
@@ -48,7 +55,7 @@ ScriptPromise NDEFWriter::write(ScriptState* script_state,
                                 const NDEFWriteOptions* options,
                                 ExceptionState& exception_state) {
   ExecutionContext* execution_context = GetExecutionContext();
-  Document* document = To<Document>(execution_context);
+  Document* document = Document::From(execution_context);
   // https://w3c.github.io/web-nfc/#security-policies
   // WebNFC API must be only accessible from top level browsing context.
   if (!execution_context || !document->IsInMainFrame()) {
@@ -76,14 +83,6 @@ ScriptPromise NDEFWriter::write(ScriptState* script_state,
 
   auto message = device::mojom::blink::NDEFMessage::From(ndef_message);
   DCHECK(message);
-
-  if (GetNDEFMessageSize(*message) >
-      device::mojom::blink::NDEFMessage::kMaxSize) {
-    exception_state.ThrowDOMException(
-        DOMExceptionCode::kNotSupportedError,
-        "NDEFMessage exceeds maximum supported size.");
-    return ScriptPromise();
-  }
 
   auto* resolver = MakeGarbageCollected<ScriptPromiseResolver>(script_state);
   requests_.insert(resolver);
@@ -159,7 +158,7 @@ void NDEFWriter::InitNfcProxyIfNeeded() {
   if (nfc_proxy_)
     return;
 
-  nfc_proxy_ = NFCProxy::From(*To<Document>(GetExecutionContext()));
+  nfc_proxy_ = NFCProxy::From(*To<LocalDOMWindow>(GetExecutionContext()));
   DCHECK(nfc_proxy_);
 
   // Add the writer to proxy's writer list for mojo connection error

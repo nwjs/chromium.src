@@ -21,11 +21,12 @@
 #import "ios/chrome/browser/ui/recent_tabs/recent_tabs_mediator.h"
 #import "ios/chrome/browser/ui/recent_tabs/recent_tabs_presentation_delegate.h"
 #import "ios/chrome/browser/ui/recent_tabs/recent_tabs_table_view_controller.h"
+#import "ios/chrome/browser/ui/tab_grid/legacy_tab_grid_transition_handler.h"
 #import "ios/chrome/browser/ui/tab_grid/tab_grid_adaptor.h"
 #import "ios/chrome/browser/ui/tab_grid/tab_grid_mediator.h"
 #import "ios/chrome/browser/ui/tab_grid/tab_grid_paging.h"
-#import "ios/chrome/browser/ui/tab_grid/tab_grid_transition_handler.h"
 #import "ios/chrome/browser/ui/tab_grid/tab_grid_view_controller.h"
+#import "ios/chrome/browser/ui/tab_grid/transitions/tab_grid_transition_handler.h"
 #include "ios/chrome/browser/ui/ui_feature_flags.h"
 #import "ios/chrome/browser/url_loading/url_loading_params.h"
 #import "ios/chrome/browser/web_state_list/web_state_list.h"
@@ -51,6 +52,9 @@
 // controller will present this.
 @property(nonatomic, strong) BVCContainerViewController* bvcContainer;
 // Transitioning delegate for the view controller.
+@property(nonatomic, strong)
+    LegacyTabGridTransitionHandler* legacyTransitionHandler;
+// Handler for the transitions between the TabGrid and the Browser.
 @property(nonatomic, strong) TabGridTransitionHandler* transitionHandler;
 // Mediator for regular Tabs.
 @property(nonatomic, strong) TabGridMediator* regularTabsMediator;
@@ -60,6 +64,8 @@
 @property(nonatomic, strong) RecentTabsMediator* remoteTabsMediator;
 // Coordinator for history, which can be started from recent tabs.
 @property(nonatomic, strong) HistoryCoordinator* historyCoordinator;
+// YES if the TabViewController has never been shown yet.
+@property(nonatomic, assign) BOOL firstPresentation;
 @end
 
 @implementation TabGridCoordinator
@@ -142,12 +148,12 @@
 - (void)start {
   TabGridViewController* baseViewController =
       [[TabGridViewController alloc] init];
-  baseViewController.dispatcher =
-      static_cast<id<ApplicationCommands>>(self.dispatcher);
-  self.transitionHandler = [[TabGridTransitionHandler alloc] init];
-  self.transitionHandler.provider = baseViewController;
+  baseViewController.handler =
+      HandlerForProtocol(self.dispatcher, ApplicationCommands);
+  self.legacyTransitionHandler = [[LegacyTabGridTransitionHandler alloc] init];
+  self.legacyTransitionHandler.provider = baseViewController;
   baseViewController.modalPresentationStyle = UIModalPresentationCustom;
-  baseViewController.transitioningDelegate = self.transitionHandler;
+  baseViewController.transitioningDelegate = self.legacyTransitionHandler;
   baseViewController.tabPresentationDelegate = self;
   _baseViewController = baseViewController;
 
@@ -178,8 +184,7 @@
 
   // TODO(crbug.com/845192) : Remove RecentTabsTableViewController dependency on
   // ChromeBrowserState so that we don't need to expose the view controller.
-  baseViewController.remoteTabsViewController.browserState =
-      regularBrowserState;
+  baseViewController.remoteTabsViewController.browser = self.regularBrowser;
   self.remoteTabsMediator = [[RecentTabsMediator alloc] init];
   self.remoteTabsMediator.browserState = regularBrowserState;
   self.remoteTabsMediator.consumer = baseViewController.remoteTabsConsumer;
@@ -197,20 +202,23 @@
       UrlLoadStrategy::ALWAYS_NEW_FOREGROUND_TAB;
   baseViewController.remoteTabsViewController.restoredTabDisposition =
       WindowOpenDisposition::NEW_FOREGROUND_TAB;
-  baseViewController.remoteTabsViewController.webStateList =
-      regularWebStateList;
   baseViewController.remoteTabsViewController.presentationDelegate = self;
 
-  // Insert the launch screen view in front of this view to hide it until after
-  // launch. This should happen before |baseViewController| is made the window's
-  // root view controller.
-  NSBundle* mainBundle = base::mac::FrameworkBundle();
-  NSArray* topObjects =
-      [mainBundle loadNibNamed:@"LaunchScreen" owner:self options:nil];
-  UIViewController* launchScreenController =
-      base::mac::ObjCCastStrict<UIViewController>([topObjects lastObject]);
-  self.launchMaskView = launchScreenController.view;
-  [baseViewController.view addSubview:self.launchMaskView];
+  if (!base::FeatureList::IsEnabled(kContainedBVC)) {
+    // Insert the launch screen view in front of this view to hide it until
+    // after launch. This should happen before |baseViewController| is made the
+    // window's root view controller.
+    NSBundle* mainBundle = base::mac::FrameworkBundle();
+    NSArray* topObjects = [mainBundle loadNibNamed:@"LaunchScreen"
+                                             owner:self
+                                           options:nil];
+    UIViewController* launchScreenController =
+        base::mac::ObjCCastStrict<UIViewController>([topObjects lastObject]);
+    self.launchMaskView = launchScreenController.view;
+    [baseViewController.view addSubview:self.launchMaskView];
+  } else {
+    self.firstPresentation = YES;
+  }
 
   // TODO(crbug.com/850387) : Currently, consumer calls from the mediator
   // prematurely loads the view in |RecentTabsTableViewController|. Fix this so
@@ -230,6 +238,10 @@
 }
 
 - (void)stop {
+  // The TabGridViewController may still message its application commands
+  // handler after this coordinator has stopped; make this action a no-op by
+  // setting the handler to nil.
+  self.baseViewController.handler = nil;
   [self.dispatcher stopDispatchingForProtocol:@protocol(ApplicationCommands)];
   [self.dispatcher
       stopDispatchingForProtocol:@protocol(ApplicationSettingsCommands)];
@@ -280,25 +292,33 @@
   // It's also expected that |tabSwitcher| will be |self.tabSwitcher|, but that
   // may not be worth a DCHECK?
 
+  BOOL animated = !self.animationsDisabledForTesting;
+
   // If a BVC is currently being presented, dismiss it.  This will trigger any
   // necessary animations.
   if (self.bvcContainer) {
     if (base::FeatureList::IsEnabled(kContainedBVC)) {
-      [self.baseViewController contentWillAppearAnimated:NO];
-      [self.bvcContainer willMoveToParentViewController:nil];
-      self.baseViewController.childViewControllerForStatusBarStyle = nil;
+      // This is done with a dispatch to make sure that the view isn't added to
+      // the view hierarchy right away, as it is not the expectations of the
+      // API.
+      dispatch_async(dispatch_get_main_queue(), ^{
+        [self.baseViewController contentWillAppearAnimated:animated];
+        self.baseViewController.childViewControllerForStatusBarStyle = nil;
 
-      // TODO(crbug.com/1038034): This should be part of the animation block.
-      [self.baseViewController setNeedsStatusBarAppearanceUpdate];
-
-      [self.bvcContainer.view removeFromSuperview];
-      [self.bvcContainer removeFromParentViewController];
-      self.bvcContainer = nil;
-      [self.baseViewController contentDidAppear];
+        self.transitionHandler = [[TabGridTransitionHandler alloc]
+            initWithLayoutProvider:self.baseViewController];
+        self.transitionHandler.animationDisabled = !animated;
+        [self.transitionHandler
+            transitionFromBrowser:self.bvcContainer
+                        toTabGrid:self.baseViewController
+                   withCompletion:^{
+                     self.bvcContainer = nil;
+                     [self.baseViewController contentDidAppear];
+                   }];
+      });
     } else {
-      self.bvcContainer.transitioningDelegate = self.transitionHandler;
+      self.bvcContainer.transitioningDelegate = self.legacyTransitionHandler;
       self.bvcContainer = nil;
-      BOOL animated = !self.animationsDisabledForTesting;
       [self.baseViewController dismissViewControllerAnimated:animated
                                                   completion:nil];
     }
@@ -327,10 +347,10 @@
   self.bvcContainer = [[BVCContainerViewController alloc] init];
   self.bvcContainer.modalPresentationStyle = UIModalPresentationFullScreen;
   self.bvcContainer.currentBVC = viewController;
-  self.bvcContainer.transitioningDelegate = self.transitionHandler;
+  self.bvcContainer.transitioningDelegate = self.legacyTransitionHandler;
   BOOL animated = !self.animationsDisabledForTesting;
-  // Never animate if the launch mask is in place.
-  if (self.launchMaskView)
+  // Never animate the first time.
+  if (self.launchMaskView || self.firstPresentation)
     animated = NO;
 
   // Extened |completion| to signal the tab switcher delegate
@@ -345,22 +365,24 @@
     }
     [self.launchMaskView removeFromSuperview];
     self.launchMaskView = nil;
+    self.firstPresentation = NO;
   };
 
   if (base::FeatureList::IsEnabled(kContainedBVC)) {
-    [self.baseViewController addChildViewController:self.bvcContainer];
     self.baseViewController.childViewControllerForStatusBarStyle =
         self.bvcContainer.currentBVC;
 
     [self.adaptor.tabGridViewController contentWillDisappearAnimated:animated];
-    self.bvcContainer.view.frame = self.baseViewController.view.bounds;
-    [self.baseViewController.view addSubview:self.bvcContainer.view];
 
-    // TODO(crbug.com/1038034): This should be part of the animation block.
-    [self.baseViewController setNeedsStatusBarAppearanceUpdate];
+    self.transitionHandler = [[TabGridTransitionHandler alloc]
+        initWithLayoutProvider:self.baseViewController];
+    self.transitionHandler.animationDisabled = !animated;
+    [self.transitionHandler transitionFromTabGrid:self.baseViewController
+                                        toBrowser:self.bvcContainer
+                                   withCompletion:^{
+                                     extendedCompletion();
+                                   }];
 
-    [self.bvcContainer didMoveToParentViewController:self.baseViewController];
-    extendedCompletion();
   } else {
     [self.baseViewController presentViewController:self.bvcContainer
                                           animated:animated
@@ -406,13 +428,10 @@
   // |loadStrategy| to YES to ALWAYS_NEW_FOREGROUND_TAB.
   self.historyCoordinator = [[HistoryCoordinator alloc]
       initWithBaseViewController:self.baseViewController
-                    browserState:self.regularBrowser->GetBrowserState()];
+                         browser:self.regularBrowser];
   self.historyCoordinator.loadStrategy =
       UrlLoadStrategy::ALWAYS_NEW_FOREGROUND_TAB;
   self.historyCoordinator.presentationDelegate = self;
-  self.historyCoordinator.dispatcher =
-      static_cast<id<ApplicationCommands, BrowsingDataCommands>>(
-          self.dispatcher);
   [self.historyCoordinator start];
 }
 

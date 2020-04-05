@@ -13,6 +13,7 @@
 #include "base/memory/ref_counted.h"
 #include "base/run_loop.h"
 #include "base/test/gmock_callback_support.h"
+#include "base/test/gmock_move_support.h"
 #include "base/test/task_environment.h"
 #include "base/time/time.h"
 #include "media/base/mock_filters.h"
@@ -30,34 +31,24 @@ using ::testing::Return;
 using ::testing::SaveArg;
 using ::testing::StrictMock;
 
-namespace {
-
-// Like SaveArg, but for an argument that needs to be moved.
-ACTION_TEMPLATE(MoveArg,
-                HAS_1_TEMPLATE_PARAMS(int, k),
-                AND_1_VALUE_PARAMS(pointer)) {
-  *pointer = std::move(::std::get<k>(args));
-}
-
-}  // namespace
-
 namespace media {
 
 class PipelineControllerTest : public ::testing::Test, public Pipeline::Client {
  public:
   PipelineControllerTest()
       : pipeline_(new StrictMock<MockPipeline>()),
-        pipeline_controller_(std::unique_ptr<Pipeline>(pipeline_),
-                             base::Bind(&PipelineControllerTest::OnSeeked,
-                                        base::Unretained(this)),
-                             base::Bind(&PipelineControllerTest::OnSuspended,
-                                        base::Unretained(this)),
-                             base::Bind(&PipelineControllerTest::OnBeforeResume,
-                                        base::Unretained(this)),
-                             base::Bind(&PipelineControllerTest::OnResumed,
-                                        base::Unretained(this)),
-                             base::Bind(&PipelineControllerTest::OnError,
-                                        base::Unretained(this))) {}
+        pipeline_controller_(
+            std::unique_ptr<Pipeline>(pipeline_),
+            base::BindRepeating(&PipelineControllerTest::OnSeeked,
+                                base::Unretained(this)),
+            base::BindRepeating(&PipelineControllerTest::OnSuspended,
+                                base::Unretained(this)),
+            base::BindRepeating(&PipelineControllerTest::OnBeforeResume,
+                                base::Unretained(this)),
+            base::BindRepeating(&PipelineControllerTest::OnResumed,
+                                base::Unretained(this)),
+            base::BindRepeating(&PipelineControllerTest::OnError,
+                                base::Unretained(this))) {}
 
   ~PipelineControllerTest() override = default;
 

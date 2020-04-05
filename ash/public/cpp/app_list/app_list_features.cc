@@ -30,7 +30,7 @@ const base::Feature kEnableZeroStateAppsRanker{
 const base::Feature kEnableQueryBasedMixedTypesRanker{
     "EnableQueryBasedMixedTypesRanker", base::FEATURE_DISABLED_BY_DEFAULT};
 const base::Feature kEnableZeroStateMixedTypesRanker{
-    "EnableZeroStateMixedTypesRanker", base::FEATURE_DISABLED_BY_DEFAULT};
+    "EnableZeroStateMixedTypesRanker", base::FEATURE_ENABLED_BY_DEFAULT};
 const base::Feature kEnableAppReinstallZeroState{
     "EnableAppReinstallZeroState", base::FEATURE_DISABLED_BY_DEFAULT};
 const base::Feature kEnableSuggestedFiles{"EnableSuggestedFiles",
@@ -41,8 +41,6 @@ const base::Feature kEnableSuggestedFiles{"EnableSuggestedFiles",
 // Assistant search.
 const base::Feature kEnableAssistantSearch{"EnableEmbeddedAssistantUI",
                                            base::FEATURE_DISABLED_BY_DEFAULT};
-const base::Feature kEnableAssistantLauncherUI{
-    "EnableAssistantLauncherUI", base::FEATURE_ENABLED_BY_DEFAULT};
 
 const base::Feature kEnableAppGridGhost{"EnableAppGridGhost",
                                         base::FEATURE_DISABLED_BY_DEFAULT};
@@ -56,12 +54,14 @@ const base::Feature kScalableAppList{"ScalableAppList",
                                      base::FEATURE_ENABLED_BY_DEFAULT};
 const base::Feature kEnableFuzzyAppSearch{"EnableFuzzyAppSearch",
                                           base::FEATURE_ENABLED_BY_DEFAULT};
+const base::Feature kEnableExactMatchForNonLatinLocale{
+    "EnableExactMatchForNonLatinLocale", base::FEATURE_ENABLED_BY_DEFAULT};
 const base::Feature kEnableAggregatedMlSearchRanking{
     "EnableAggregatedMlSearchRanking", base::FEATURE_DISABLED_BY_DEFAULT};
 
 bool IsAnswerCardEnabled() {
   // Not using local static variable to allow tests to change this value.
-  // Do not show answer card if the embedded Assistant UI is enabled.
+  // Do not show answer card if Assistant search is enabled.
   return base::FeatureList::IsEnabled(kEnableAnswerCard) &&
          !IsAssistantSearchEnabled();
 }
@@ -115,11 +115,6 @@ bool IsAssistantSearchEnabled() {
   return base::FeatureList::IsEnabled(kEnableAssistantSearch);
 }
 
-bool IsAssistantLauncherUIEnabled() {
-  return IsAssistantSearchEnabled() ||
-         base::FeatureList::IsEnabled(kEnableAssistantLauncherUI);
-}
-
 bool IsAppGridGhostEnabled() {
   return base::FeatureList::IsEnabled(kEnableAppGridGhost);
 }
@@ -138,6 +133,10 @@ bool IsScalableAppListEnabled() {
 
 bool IsFuzzyAppSearchEnabled() {
   return base::FeatureList::IsEnabled(kEnableFuzzyAppSearch);
+}
+
+bool IsExactMatchForNonLatinLocaleEnabled() {
+  return base::FeatureList::IsEnabled(kEnableExactMatchForNonLatinLocale);
 }
 
 bool IsAggregatedMlSearchRankingEnabled() {

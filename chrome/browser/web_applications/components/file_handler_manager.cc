@@ -4,13 +4,39 @@
 
 #include "chrome/browser/web_applications/components/file_handler_manager.h"
 
+#include "base/bind.h"
 #include "base/feature_list.h"
+#include "base/task/post_task.h"
+#include "base/time/time.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/web_applications/components/web_app_file_handler_registration.h"
 #include "chrome/browser/web_applications/components/web_app_prefs_utils.h"
+#include "content/public/browser/browser_task_traits.h"
+#include "content/public/browser/browser_thread.h"
+#include "content/public/browser/web_contents.h"
+#include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "third_party/blink/public/common/features.h"
+#include "third_party/blink/public/mojom/web_launch/file_handling_expiry.mojom.h"
 
 namespace web_app {
+
+namespace {
+// Use a large double that can be safely saved in prefs, and be  safely
+// represented in JS timestamp (milliseconds from epoch). base::Time::Max() does
+// not work here, it returns +Infinity (which is invalid and can not be
+// represented in JSON).
+//
+// This value is `floor((2^53 - 1) / 1000)` because base::Time::FromDoubleT()
+// accepts time offset in seconds. In reality, it means 287396-10-12 08:58:59
+// UTC, which is a long distant future (long after File Handling goes out of
+// origin trial or be deprecated).
+//
+// Do not change this value, because it is persisted to disk.
+const double kMaxOriginTrialExpiryTime = 9007199254740;
+}  // namespace
+
+bool FileHandlerManager::disable_automatic_file_handler_cleanup_for_testing_ =
+    false;
 
 FileHandlerManager::FileHandlerManager(Profile* profile)
     : profile_(profile), registrar_observer_(this) {}
@@ -25,10 +51,30 @@ void FileHandlerManager::Start() {
   DCHECK(registrar_);
 
   registrar_observer_.Add(registrar_);
+
+  if (!FileHandlerManager::
+          disable_automatic_file_handler_cleanup_for_testing_) {
+    base::PostTask(
+        FROM_HERE,
+        {content::BrowserThread::UI, base::TaskPriority::BEST_EFFORT},
+        base::BindOnce(
+            base::IgnoreResult(&FileHandlerManager::CleanupAfterOriginTrials),
+            weak_ptr_factory_.GetWeakPtr()));
+  }
 }
 
 void FileHandlerManager::DisableOsIntegrationForTesting() {
   disable_os_integration_for_testing_ = true;
+}
+
+int FileHandlerManager::TriggerFileHandlerCleanupForTesting() {
+  return CleanupAfterOriginTrials();
+}
+
+void FileHandlerManager::SetOnFileHandlingExpiryUpdatedForTesting(
+    base::RepeatingCallback<void()> on_file_handling_expiry_updated) {
+  on_file_handling_expiry_updated_for_testing_ =
+      on_file_handling_expiry_updated;
 }
 
 void FileHandlerManager::EnableAndRegisterOsFileHandlers(const AppId& app_id) {
@@ -44,16 +90,9 @@ void FileHandlerManager::EnableAndRegisterOsFileHandlers(const AppId& app_id) {
   }
 
   std::string app_name = registrar_->GetAppShortName(app_id);
-  const std::vector<apps::FileHandlerInfo>* file_handlers =
-      GetAllFileHandlers(app_id);
-  if (!file_handlers)
-    return;
-  std::set<std::string> file_extensions =
-      GetFileExtensionsFromFileHandlers(*file_handlers);
-  std::set<std::string> mime_types =
-      GetMimeTypesFromFileHandlers(*file_handlers);
-  RegisterFileHandlersWithOs(app_id, app_name, profile(), file_extensions,
-                             mime_types);
+  const apps::FileHandlers* file_handlers = GetAllFileHandlers(app_id);
+  if (file_handlers)
+    RegisterFileHandlersWithOs(app_id, app_name, profile(), *file_handlers);
 }
 
 void FileHandlerManager::DisableAndUnregisterOsFileHandlers(
@@ -69,8 +108,40 @@ void FileHandlerManager::DisableAndUnregisterOsFileHandlers(
   UnregisterFileHandlersWithOs(app_id, profile());
 }
 
-const std::vector<apps::FileHandlerInfo>*
-FileHandlerManager::GetEnabledFileHandlers(const AppId& app_id) {
+void FileHandlerManager::UpdateFileHandlingOriginTrialExpiry(
+    content::WebContents* web_contents,
+    const AppId& app_id) {
+  mojo::AssociatedRemote<blink::mojom::FileHandlingExpiry> expiry_service;
+  web_contents->GetMainFrame()->GetRemoteAssociatedInterfaces()->GetInterface(
+      &expiry_service);
+  DCHECK(expiry_service);
+
+  auto* raw = expiry_service.get();
+
+  // Here we need to pass the |expiry_service| Mojom remote interface, so it is
+  // not destroyed before we get a reply.
+  raw->RequestOriginTrialExpiryTime(base::BindOnce(
+      &FileHandlerManager::OnOriginTrialExpiryTimeReceived,
+      weak_ptr_factory_.GetWeakPtr(), std::move(expiry_service), app_id));
+}
+
+void FileHandlerManager::ForceEnableFileHandlingOriginTrial(
+    const AppId& app_id) {
+  UpdateFileHandlersForOriginTrialExpiryTime(
+      app_id, base::Time::FromDoubleT(kMaxOriginTrialExpiryTime));
+}
+
+void FileHandlerManager::DisableForceEnabledFileHandlingOriginTrial(
+    const AppId& app_id) {
+  double pref_expiry_time = GetDoubleWebAppPref(
+      profile()->GetPrefs(), app_id, kFileHandlingOriginTrialExpiryTime);
+  if (pref_expiry_time == kMaxOriginTrialExpiryTime) {
+    UpdateFileHandlersForOriginTrialExpiryTime(app_id, base::Time());
+  }
+}
+
+const apps::FileHandlers* FileHandlerManager::GetEnabledFileHandlers(
+    const AppId& app_id) {
   if (AreFileHandlersEnabled(app_id) && IsFileHandlingAPIAvailable(app_id))
     return GetAllFileHandlers(app_id);
 
@@ -78,11 +149,66 @@ FileHandlerManager::GetEnabledFileHandlers(const AppId& app_id) {
 }
 
 bool FileHandlerManager::IsFileHandlingAPIAvailable(const AppId& app_id) {
-  return base::FeatureList::IsEnabled(blink::features::kFileHandlingAPI);
+  return base::FeatureList::IsEnabled(blink::features::kFileHandlingAPI) ||
+         base::Time::FromDoubleT(GetDoubleWebAppPref(
+             profile()->GetPrefs(), app_id,
+             kFileHandlingOriginTrialExpiryTime)) >= base::Time::Now();
 }
 
 bool FileHandlerManager::AreFileHandlersEnabled(const AppId& app_id) const {
   return GetBoolWebAppPref(profile()->GetPrefs(), app_id, kFileHandlersEnabled);
+}
+
+void FileHandlerManager::OnOriginTrialExpiryTimeReceived(
+    mojo::AssociatedRemote<blink::mojom::FileHandlingExpiry> /*interface*/,
+    const AppId& app_id,
+    base::Time expiry_time) {
+  UpdateFileHandlersForOriginTrialExpiryTime(app_id, expiry_time);
+}
+
+void FileHandlerManager::UpdateFileHandlersForOriginTrialExpiryTime(
+    const AppId& app_id,
+    const base::Time& expiry_time) {
+  web_app::UpdateDoubleWebAppPref(profile_->GetPrefs(), app_id,
+                                  kFileHandlingOriginTrialExpiryTime,
+                                  expiry_time.ToDoubleT());
+  // Only enable/disable file handlers if the state is changing, as
+  // enabling/disabling is a potentially expensive operation (it may involve
+  // creating an app shim, and will almost certainly involve IO).
+  const bool file_handlers_enabled = AreFileHandlersEnabled(app_id);
+
+  // If the trial is valid, ensure the file handlers are enabled.
+  // Otherwise disable them.
+  if (IsFileHandlingAPIAvailable(app_id)) {
+    if (!file_handlers_enabled)
+      EnableAndRegisterOsFileHandlers(app_id);
+  } else if (file_handlers_enabled) {
+    DisableAndUnregisterOsFileHandlers(app_id);
+  }
+
+  if (on_file_handling_expiry_updated_for_testing_)
+    on_file_handling_expiry_updated_for_testing_.Run();
+}
+
+void FileHandlerManager::DisableAutomaticFileHandlerCleanupForTesting() {
+  disable_automatic_file_handler_cleanup_for_testing_ = true;
+}
+
+int FileHandlerManager::CleanupAfterOriginTrials() {
+  int cleaned_up_count = 0;
+  for (const AppId& app_id : registrar_->GetAppIds()) {
+    if (!AreFileHandlersEnabled(app_id))
+      continue;
+
+    if (IsFileHandlingAPIAvailable(app_id))
+      continue;
+
+    // If the trial has expired, unregister handlers.
+    DisableAndUnregisterOsFileHandlers(app_id);
+    cleaned_up_count++;
+  }
+
+  return cleaned_up_count;
 }
 
 void FileHandlerManager::OnWebAppUninstalled(const AppId& app_id) {
@@ -103,55 +229,35 @@ const base::Optional<GURL> FileHandlerManager::GetMatchingFileHandlerURL(
   if (!IsFileHandlingAPIAvailable(app_id))
     return base::nullopt;
 
-  const std::vector<apps::FileHandlerInfo>* file_handlers =
-      GetAllFileHandlers(app_id);
+  const apps::FileHandlers* file_handlers = GetAllFileHandlers(app_id);
   if (!file_handlers || launch_files.empty())
     return base::nullopt;
 
-  // Leading `.` for each file extension must be removed to match those given by
-  // FileHandlerInfo.extensions below.
-  std::set<std::string> file_extensions;
+  std::set<std::string> launch_file_extensions;
   for (const auto& file_path : launch_files) {
-    std::string extension =
+    std::string file_extension =
         base::FilePath(file_path.Extension()).AsUTF8Unsafe();
-    if (extension.length() <= 1)
+    if (file_extension.length() <= 1)
       return base::nullopt;
-    file_extensions.insert(extension.substr(1));
+    launch_file_extensions.insert(file_extension);
   }
 
   for (const auto& file_handler : *file_handlers) {
-    bool all_extensions_supported = true;
-    for (const auto& extension : file_extensions) {
-      if (!file_handler.extensions.count(extension)) {
-        all_extensions_supported = false;
+    bool all_launch_file_extensions_supported = true;
+    std::set<std::string> supported_file_extensions =
+        apps::GetFileExtensionsFromFileHandlers({file_handler});
+    for (const auto& file_extension : launch_file_extensions) {
+      if (!supported_file_extensions.count(file_extension)) {
+        all_launch_file_extensions_supported = false;
         break;
       }
     }
-    if (all_extensions_supported)
-      return GURL(file_handler.id);
+
+    if (all_launch_file_extensions_supported)
+      return file_handler.action;
   }
 
   return base::nullopt;
-}
-
-std::set<std::string> GetFileExtensionsFromFileHandlers(
-    const std::vector<apps::FileHandlerInfo>& file_handlers) {
-  std::set<std::string> file_extensions;
-  for (const auto& file_handler : file_handlers) {
-    for (const auto& file_ext : file_handler.extensions)
-      file_extensions.insert(file_ext);
-  }
-  return file_extensions;
-}
-
-std::set<std::string> GetMimeTypesFromFileHandlers(
-    const std::vector<apps::FileHandlerInfo>& file_handlers) {
-  std::set<std::string> mime_types;
-  for (const auto& file_handler : file_handlers) {
-    for (const auto& mime_type : file_handler.types)
-      mime_types.insert(mime_type);
-  }
-  return mime_types;
 }
 
 }  // namespace web_app

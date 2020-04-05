@@ -3,6 +3,7 @@
     "features": [
       "config-data"
     ],
+    "$comment": "Not all services are passed to WebEngine, see cast_runner.cc",
     "services": [
       "chromium.cast.ApplicationConfigManager",
       "fuchsia.accessibility.semantics.SemanticsManager",
@@ -15,6 +16,7 @@
       "fuchsia.media.drm.PlayReady",
       "fuchsia.media.drm.Widevine",
       "fuchsia.mediacodec.CodecFactory",
+      "fuchsia.memorypressure.Provider",
       "fuchsia.net.NameLookup",
       "fuchsia.netstack.Netstack",
       "fuchsia.posix.socket.Provider",

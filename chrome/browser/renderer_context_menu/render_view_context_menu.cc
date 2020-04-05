@@ -37,7 +37,6 @@
 #include "chrome/browser/data_reduction_proxy/data_reduction_proxy_chrome_settings_factory.h"
 #include "chrome/browser/devtools/devtools_window.h"
 #include "chrome/browser/download/download_stats.h"
-#include "chrome/browser/extensions/extension_util.h"
 #include "chrome/browser/language/language_model_manager_factory.h"
 #include "chrome/browser/media/router/media_router_dialog_controller.h"
 #include "chrome/browser/media/router/media_router_feature.h"
@@ -80,7 +79,9 @@
 #include "chrome/browser/ui/tab_contents/core_tab_helper.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/webui/history/foreign_session_handler.h"
+#include "chrome/browser/web_applications/components/app_registrar.h"
 #include "chrome/browser/web_applications/components/web_app_helpers.h"
+#include "chrome/browser/web_applications/components/web_app_provider_base.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_render_frame.mojom.h"
@@ -145,7 +146,6 @@
 #include "third_party/blink/public/common/context_menu_data/edit_flags.h"
 #include "third_party/blink/public/common/context_menu_data/input_field_type.h"
 #include "third_party/blink/public/common/context_menu_data/media_type.h"
-#include "third_party/blink/public/common/plugin/plugin_action.h"
 #include "third_party/blink/public/mojom/frame/media_player_action.mojom.h"
 #include "third_party/blink/public/public_buildflags.h"
 #include "third_party/metrics_proto/omnibox_input_type.pb.h"
@@ -206,7 +206,6 @@
 using base::UserMetricsAction;
 using blink::ContextMenuDataEditFlags;
 using blink::ContextMenuDataMediaType;
-using blink::PluginAction;
 using blink::WebContextMenuData;
 using blink::WebString;
 using blink::WebURL;
@@ -529,18 +528,6 @@ void AddAvatarToLastMenuItem(const gfx::Image& icon,
 }
 #endif  // !defined(OS_CHROMEOS)
 
-// Adds Google icon to the last added menu item. Used for Google-powered
-// services like translate and search.
-void AddGoogleIconToLastMenuItem(ui::SimpleMenuModel* menu) {
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-  if (base::FeatureList::IsEnabled(features::kGoogleBrandedContextMenu)) {
-    menu->SetIcon(
-        menu->GetItemCount() - 1,
-        ui::ResourceBundle::GetSharedInstance().GetImageNamed(IDR_GOOGLE_ICON));
-  }
-#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
-}
-
 void OnProfileCreated(const GURL& link_url,
                       const content::Referrer& referrer,
                       Profile* profile,
@@ -578,19 +565,12 @@ bool RenderViewContextMenu::IsDevToolsURL(const GURL& url) {
 // static
 void RenderViewContextMenu::AddSpellCheckServiceItem(ui::SimpleMenuModel* menu,
                                                      bool is_checked) {
-  // When the Google branding experiment is enabled, we want to show an icon
-  // next to this item, but we can't show icons on check items.  So when the
-  // item is enabled show it as checked, and otherwise add it as a normal item
-  // (instead of a check item) so that, if necessary, we can add the Google
-  // icon.  (If the experiment is off, there's no harm in adding this as a
-  // normal item, as it will look identical to an unchecked check item.)
   if (is_checked) {
     menu->AddCheckItemWithStringId(IDC_CONTENT_CONTEXT_SPELLING_TOGGLE,
                                    IDS_CONTENT_CONTEXT_SPELLING_ASK_GOOGLE);
   } else {
     menu->AddItemWithStringId(IDC_CONTENT_CONTEXT_SPELLING_TOGGLE,
                               IDS_CONTENT_CONTEXT_SPELLING_ASK_GOOGLE);
-    AddGoogleIconToLastMenuItem(menu);
   }
 }
 
@@ -1379,27 +1359,32 @@ void RenderViewContextMenu::AppendSmartSelectionActionItems() {
 }
 
 void RenderViewContextMenu::AppendOpenInBookmarkAppLinkItems() {
-  const Extension* pwa = extensions::util::GetInstalledPwaForUrl(
-      browser_context_, params_.link_url);
-  if (!pwa)
+  Profile* const profile = Profile::FromBrowserContext(browser_context_);
+
+  base::Optional<web_app::AppId> app_id =
+      web_app::FindInstalledAppWithUrlInScope(profile, params_.link_url);
+  if (!app_id)
     return;
 
   int open_in_app_string_id;
   const Browser* browser = GetBrowser();
   if (browser && browser->app_name() ==
-                     web_app::GenerateApplicationNameFromAppId(pwa->id())) {
+                     web_app::GenerateApplicationNameFromAppId(*app_id)) {
     open_in_app_string_id = IDS_CONTENT_CONTEXT_OPENLINKBOOKMARKAPP_SAMEAPP;
   } else {
     open_in_app_string_id = IDS_CONTENT_CONTEXT_OPENLINKBOOKMARKAPP;
   }
 
+  auto* provider = web_app::WebAppProviderBase::GetProviderBase(profile);
   menu_model_.AddItem(
       IDC_CONTENT_CONTEXT_OPENLINKBOOKMARKAPP,
-      l10n_util::GetStringFUTF16(open_in_app_string_id,
-                                 base::UTF8ToUTF16(pwa->short_name())));
+      l10n_util::GetStringFUTF16(
+          open_in_app_string_id,
+          base::UTF8ToUTF16(provider->registrar().GetAppShortName(*app_id))));
 
   MenuManager* menu_manager = MenuManager::Get(browser_context_);
-  gfx::Image icon = menu_manager->GetIconForExtension(pwa->id());
+  // TODO(crbug.com/1052707): Use AppIconManager to read PWA icons.
+  gfx::Image icon = menu_manager->GetIconForExtension(*app_id);
   menu_model_.SetIcon(menu_model_.GetItemCount() - 1, icon);
 }
 
@@ -1434,8 +1419,6 @@ void RenderViewContextMenu::AppendSearchWebForImageItems() {
       IDC_CONTENT_CONTEXT_SEARCHWEBFORIMAGE,
       l10n_util::GetStringFUTF16(IDS_CONTENT_CONTEXT_SEARCHWEBFORIMAGE,
                                  provider->short_name()));
-  if (provider->image_url_ref().HasGoogleBaseURLs(service->search_terms_data()))
-    AddGoogleIconToLastMenuItem(&menu_model_);
 }
 
 void RenderViewContextMenu::AppendAudioItems() {
@@ -1594,7 +1577,6 @@ void RenderViewContextMenu::AppendPageItems() {
       menu_model_.AddItem(
           IDC_CONTENT_CONTEXT_TRANSLATE,
           l10n_util::GetStringFUTF16(IDS_CONTENT_CONTEXT_TRANSLATE, language));
-      AddGoogleIconToLastMenuItem(&menu_model_);
     }
   }
 #endif
@@ -1687,12 +1669,6 @@ void RenderViewContextMenu::AppendSearchProvider() {
         l10n_util::GetStringFUTF16(IDS_CONTENT_CONTEXT_SEARCHWEBFOR,
                                    default_provider->short_name(),
                                    printable_selection_text));
-    TemplateURLService* service =
-        TemplateURLServiceFactory::GetForProfile(GetProfile());
-    if (default_provider->url_ref().HasGoogleBaseURLs(
-            service->search_terms_data())) {
-      AddGoogleIconToLastMenuItem(&menu_model_);
-    }
   } else {
     if ((selection_navigation_url_ != params_.link_url) &&
         ChildProcessSecurityPolicy::GetInstance()->IsWebSafeScheme(
@@ -2501,7 +2477,6 @@ void RenderViewContextMenu::AddAccessibilityLabelsServiceItem(bool is_checked) {
         l10n_util::GetStringUTF16(
             IDS_CONTENT_CONTEXT_ACCESSIBILITY_LABELS_MENU_OPTION),
         &accessibility_labels_submenu_model_);
-    AddGoogleIconToLastMenuItem(&menu_model_);
   }
 }
 
@@ -2735,15 +2710,16 @@ bool RenderViewContextMenu::IsOpenLinkOTREnabled() const {
 }
 
 void RenderViewContextMenu::ExecOpenBookmarkApp() {
-  const Extension* pwa = extensions::util::GetInstalledPwaForUrl(
-      browser_context_, params_.link_url);
-  // |pwa| could be null if it has been uninstalled since the user
+  base::Optional<web_app::AppId> app_id =
+      web_app::FindInstalledAppWithUrlInScope(
+          Profile::FromBrowserContext(browser_context_), params_.link_url);
+  // |app_id| could be nullopt if it has been uninstalled since the user
   // opened the context menu.
-  if (!pwa)
+  if (!app_id)
     return;
 
   apps::AppLaunchParams launch_params(
-      pwa->id(), apps::mojom::LaunchContainer::kLaunchContainerWindow,
+      *app_id, apps::mojom::LaunchContainer::kLaunchContainerWindow,
       WindowOpenDisposition::CURRENT_TAB,
       apps::mojom::AppLaunchSource::kSourceContextMenu);
   launch_params.override_url = params_.link_url;
@@ -2791,8 +2767,7 @@ void RenderViewContextMenu::ExecOpenLinkInProfile(int profile_index) {
   profiles::SwitchToProfile(
       profile_path, false,
       base::Bind(OnProfileCreated, params_.link_url,
-                 CreateReferrer(params_.link_url, params_)),
-      ProfileMetrics::SWITCH_PROFILE_CONTEXT_MENU);
+                 CreateReferrer(params_.link_url, params_)));
 }
 
 void RenderViewContextMenu::ExecInspectElement() {
@@ -2843,8 +2818,7 @@ void RenderViewContextMenu::ExecSaveLinkAs() {
   auto dl_params = std::make_unique<DownloadUrlParameters>(
       url, render_frame_host->GetProcess()->GetID(),
       render_frame_host->GetRenderViewHost()->GetRoutingID(),
-      render_frame_host->GetRoutingID(), traffic_annotation,
-      render_frame_host->GetNetworkIsolationKey());
+      render_frame_host->GetRoutingID(), traffic_annotation);
   content::Referrer referrer = CreateReferrer(url, params_);
   dl_params->set_referrer(referrer.url);
   dl_params->set_referrer_policy(
@@ -2971,14 +2945,14 @@ void RenderViewContextMenu::ExecControls() {
 void RenderViewContextMenu::ExecRotateCW() {
   base::RecordAction(UserMetricsAction("PluginContextMenu_RotateClockwise"));
   PluginActionAt(gfx::Point(params_.x, params_.y),
-                 PluginAction(PluginAction::kRotate90Clockwise, true));
+                 blink::mojom::PluginActionType::kRotate90Clockwise);
 }
 
 void RenderViewContextMenu::ExecRotateCCW() {
   base::RecordAction(
       UserMetricsAction("PluginContextMenu_RotateCounterclockwise"));
   PluginActionAt(gfx::Point(params_.x, params_.y),
-                 PluginAction(PluginAction::kRotate90Counterclockwise, true));
+                 blink::mojom::PluginActionType::kRotate90Counterclockwise);
 }
 
 void RenderViewContextMenu::ExecReloadPackagedApp() {
@@ -3112,10 +3086,11 @@ void RenderViewContextMenu::MediaPlayerActionAt(
     frame_host->ExecuteMediaPlayerActionAtLocation(location, action);
 }
 
-void RenderViewContextMenu::PluginActionAt(const gfx::Point& location,
-                                           const PluginAction& action) {
-  source_web_contents_->GetRenderViewHost()->
-      ExecutePluginActionAtLocation(location, action);
+void RenderViewContextMenu::PluginActionAt(
+    const gfx::Point& location,
+    blink::mojom::PluginActionType plugin_action) {
+  source_web_contents_->GetRenderViewHost()->ExecutePluginActionAtLocation(
+      location, plugin_action);
 }
 
 Browser* RenderViewContextMenu::GetBrowser() const {

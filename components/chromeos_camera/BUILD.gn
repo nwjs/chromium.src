@@ -159,6 +159,7 @@ if (use_v4l2_codec || use_vaapi) {
       "//media/gpu/chromeos:video_frame_mapper",
       "//media/gpu/test:helpers",
       "//media/gpu/test:local_gpu_memory_buffer_manager",
+      "//media/gpu/test:test_helpers",
       "//media/parsers",
       "//mojo/core/embedder",
       "//testing/gtest",
@@ -174,7 +175,7 @@ if (use_v4l2_codec || use_vaapi) {
     configs += [ "//third_party/libyuv:libyuv_config" ]
     sources = [ "jpeg_encode_accelerator_unittest.cc" ]
     if (use_vaapi) {
-      deps += [ "//media/gpu/vaapi" ]
+      deps += [ "//media/gpu/vaapi:common" ]
     }
 
     # TODO(crbug.com/1029942): consider removing use_x11 support here. This is
@@ -210,6 +211,7 @@ test("jpeg_decode_accelerator_unittest") {
     "//media/gpu:buildflags",
     "//media/gpu/test:helpers",
     "//media/gpu/test:local_gpu_memory_buffer_manager",
+    "//media/gpu/test:test_helpers",
     "//media/parsers",
     "//mojo/core/embedder",
     "//testing/gtest",
@@ -225,7 +227,7 @@ test("jpeg_decode_accelerator_unittest") {
   sources = [ "mjpeg_decode_accelerator_unittest.cc" ]
   data = [ "//media/test/data/peach_pi-1280x720.jpg" ]
   if (use_vaapi) {
-    deps += [ "//media/gpu/vaapi" ]
+    deps += [ "//media/gpu/vaapi:common" ]
   }
 
   # TODO(crbug.com/1029942): consider removing use_x11 support here. This is no

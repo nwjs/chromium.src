@@ -13,12 +13,13 @@ import android.content.Intent;
 import android.content.res.Resources;
 import android.net.Uri;
 import android.provider.Browser;
-import android.support.v4.app.NotificationCompat;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.app.NotificationCompat;
 
 import org.chromium.base.ContextUtils;
+import org.chromium.base.IntentUtils;
 import org.chromium.base.annotations.CalledByNative;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.IntentHandler;
@@ -40,7 +41,6 @@ import org.chromium.chrome.browser.notifications.channels.ChannelDefinitions;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.send_tab_to_self.SendTabToSelfMetrics.SendTabToSelfShareNotificationInteraction;
 import org.chromium.chrome.browser.send_tab_to_self.SendTabToSelfMetrics.SendTabToSelfShareNotificationInteraction.InteractionType;
-import org.chromium.chrome.browser.util.IntentUtils;
 
 /**
  * Manages all SendTabToSelf related notifications for Android. This includes displaying, handling
@@ -63,21 +63,22 @@ public class NotificationManager {
                     final String action = intent.getAction();
                     final String guid =
                             IntentUtils.safeGetStringExtra(intent, NOTIFICATION_GUID_EXTRA);
+                    // If this feature ever supports incognito mode, we need to modify
+                    // this method to obtain the current profile, rather than the last-used
+                    // regular profile.
+                    final Profile profile = Profile.getLastUsedRegularProfile();
                     switch (action) {
                         case NOTIFICATION_ACTION_TAP:
                             openUrl(intent.getData());
                             hideNotification(guid, InteractionType.OPENED);
-                            SendTabToSelfAndroidBridge.deleteEntry(
-                                    Profile.getLastUsedProfile(), guid);
+                            SendTabToSelfAndroidBridge.deleteEntry(profile, guid);
                             break;
                         case NOTIFICATION_ACTION_DISMISS:
                             hideNotification(guid, InteractionType.DISMISSED);
-                            SendTabToSelfAndroidBridge.dismissEntry(
-                                    Profile.getLastUsedProfile(), guid);
+                            SendTabToSelfAndroidBridge.dismissEntry(profile, guid);
                             break;
                         case NOTIFICATION_ACTION_TIMEOUT:
-                            SendTabToSelfAndroidBridge.dismissEntry(
-                                    Profile.getLastUsedProfile(), guid);
+                            SendTabToSelfAndroidBridge.dismissEntry(profile, guid);
                             break;
                     }
                 }

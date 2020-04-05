@@ -4,6 +4,9 @@
 
 #include "chrome/browser/sharing/click_to_call/click_to_call_utils.h"
 
+#include <algorithm>
+#include <cctype>
+
 #include "base/metrics/histogram_functions.h"
 #include "base/optional.h"
 #include "base/strings/string_util.h"
@@ -29,6 +32,11 @@ namespace {
 // into account numbers with country code and spaces '+99 0 999 999 9999' when
 // reducing the max length.
 constexpr int kSelectionTextMaxLength = 30;
+
+// Upper bound on digits in selected text to reduce false positives. This
+// matches the maximum number of digits in phone numbers according to E.164 and
+// showed a good tradeoff between false negatives vs. false positives.
+constexpr int kSelectionTextMaxDigits = 15;
 
 bool IsClickToCallEnabled(content::BrowserContext* browser_context) {
   // Check Chrome enterprise policy for Click to Call.
@@ -57,26 +65,23 @@ base::Optional<std::string> ExtractPhoneNumberForClickToCall(
   if (selection_text.size() > kSelectionTextMaxLength)
     return base::nullopt;
 
+  int digits = std::count_if(selection_text.begin(), selection_text.end(),
+                             [](char c) { return std::isdigit(c); });
+  if (digits > kSelectionTextMaxDigits)
+    return base::nullopt;
+
   if (!IsClickToCallEnabled(browser_context))
     return base::nullopt;
 
-  LogPhoneNumberDetectionMetrics(selection_text, /*sent_to_device=*/false);
-
-  if (base::FeatureList::IsEnabled(kClickToCallDetectionV2)) {
-    return ExtractPhoneNumber(selection_text,
-                              PhoneNumberRegexVariant::kLowConfidenceModified);
-  }
-
-  return ExtractPhoneNumber(selection_text, PhoneNumberRegexVariant::kSimple);
+  return ExtractPhoneNumber(selection_text);
 }
 
 base::Optional<std::string> ExtractPhoneNumber(
-    const std::string& selection_text,
-    PhoneNumberRegexVariant regex_variant) {
-  ScopedUmaHistogramMicrosecondsTimer scoped_uma_timer(regex_variant);
+    const std::string& selection_text) {
+  ScopedUmaHistogramMicrosecondsTimer scoped_uma_timer;
   std::string parsed_number;
 
-  const re2::RE2& regex = GetPhoneNumberRegex(regex_variant);
+  const re2::RE2& regex = GetPhoneNumberRegex();
   if (!re2::RE2::PartialMatch(selection_text, regex, &parsed_number))
     return base::nullopt;
 

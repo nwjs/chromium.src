@@ -56,7 +56,7 @@ source_set("autofill") {
     "//ios/chrome/browser/ui/table_view/cells",
     "//ios/chrome/browser/ui/table_view/cells:cells_constants",
     "//ios/chrome/browser/ui/util",
-    "//ios/chrome/common/colors",
+    "//ios/chrome/common/ui/colors",
     "//ui/base",
   ]
 }
@@ -149,6 +149,7 @@ source_set("eg2_tests") {
     ":constants",
     ":feature_flags",
     "//base",
+    "//components/autofill/core/browser:test_support",
     "//components/strings:components_strings_grit",
     "//ios/chrome/app/strings",
     "//ios/chrome/browser/ui/autofill:eg_test_support+eg2",

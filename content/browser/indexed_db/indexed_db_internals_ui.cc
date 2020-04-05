@@ -12,9 +12,9 @@
 #include "base/files/file_util.h"
 #include "base/macros.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "base/threading/platform_thread.h"
 #include "base/values.h"
-#include "content/browser/indexed_db/indexed_db_context_impl.h"
 #include "content/grit/dev_ui_content_resources.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_task_traits.h"
@@ -313,9 +313,9 @@ void FileDeleter::OnDownloadUpdated(download::DownloadItem* item) {
 }
 
 FileDeleter::~FileDeleter() {
-  base::PostTask(
+  base::ThreadPool::PostTask(
       FROM_HERE,
-      {base::ThreadPool(), base::MayBlock(), base::TaskPriority::BEST_EFFORT,
+      {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
        base::TaskShutdownBehavior::BLOCK_SHUTDOWN},
       base::BindOnce(base::IgnoreResult(&base::DeleteFile),
                      std::move(temp_dir_), true));

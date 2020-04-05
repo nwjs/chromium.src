@@ -97,7 +97,8 @@ void DynamicsCompressorHandler::Process(uint32_t frames_to_process) {
   dynamics_compressor_->SetParameterValue(DynamicsCompressor::kParamRelease,
                                           release);
 
-  dynamics_compressor_->Process(Input(0).Bus(), output_bus, frames_to_process);
+  scoped_refptr<AudioBus> input_bus = Input(0).Bus();
+  dynamics_compressor_->Process(input_bus.get(), output_bus, frames_to_process);
 
   float reduction =
       dynamics_compressor_->ParameterValue(DynamicsCompressor::kParamReduction);
@@ -272,7 +273,7 @@ DynamicsCompressorNode* DynamicsCompressorNode::Create(
   return node;
 }
 
-void DynamicsCompressorNode::Trace(blink::Visitor* visitor) {
+void DynamicsCompressorNode::Trace(Visitor* visitor) {
   visitor->Trace(threshold_);
   visitor->Trace(knee_);
   visitor->Trace(ratio_);

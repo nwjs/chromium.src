@@ -45,7 +45,7 @@ class FakeBaseTabStripController : public TabStripController {
   void ToggleSelected(int index) override;
   void AddSelectionFromAnchorTo(int index) override;
   bool BeforeCloseTab(int index, CloseTabSource source) override;
-  void CloseTab(int index, CloseTabSource source) override;
+  void CloseTab(int index) override;
   void MoveTab(int from_index, int to_index) override;
   void MoveGroup(const tab_groups::TabGroupId&, int to_index) override;
   void ShowContextMenuForTab(Tab* tab,
@@ -56,7 +56,7 @@ class FakeBaseTabStripController : public TabStripController {
   void CreateNewTab() override;
   void CreateNewTabWithLocation(const base::string16& loc) override;
   void StackedLayoutMaybeChanged() override;
-  void OnStartedDragging() override;
+  void OnStartedDragging(bool dragging_window) override;
   void OnStoppedDragging() override;
   void OnKeyboardFocusedTabChanged(base::Optional<int> index) override;
   base::string16 GetGroupTitle(
@@ -70,8 +70,6 @@ class FakeBaseTabStripController : public TabStripController {
       const tab_groups::TabGroupVisualData& visual_data) override;
   std::vector<int> ListTabsInGroup(
       const tab_groups::TabGroupId& group) const override;
-  void UngroupAllTabsInGroup(const tab_groups::TabGroupId& group) override;
-  void AddNewTabInGroup(const tab_groups::TabGroupId& group) override;
   void AddTabToGroup(int model_index,
                      const tab_groups::TabGroupId& group) override;
   void RemoveTabFromGroup(int model_index) override;

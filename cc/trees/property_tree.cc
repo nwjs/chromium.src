@@ -1183,6 +1183,8 @@ void ScrollTree::CopyCompleteTreeState(const ScrollTree& other) {
 #endif
 
 ScrollNode* ScrollTree::FindNodeFromElementId(ElementId id) {
+  if (!id)
+    return nullptr;
   auto iterator = property_trees()->element_id_to_scroll_node_index.find(id);
   if (iterator == property_trees()->element_id_to_scroll_node_index.end())
     return nullptr;
@@ -1191,6 +1193,8 @@ ScrollNode* ScrollTree::FindNodeFromElementId(ElementId id) {
 }
 
 const ScrollNode* ScrollTree::FindNodeFromElementId(ElementId id) const {
+  if (!id)
+    return nullptr;
   auto iterator = property_trees()->element_id_to_scroll_node_index.find(id);
   if (iterator == property_trees()->element_id_to_scroll_node_index.end())
     return nullptr;
@@ -1342,11 +1346,11 @@ const SyncedScrollOffset* ScrollTree::GetSyncedScrollOffset(
 }
 
 gfx::Vector2dF ScrollTree::ClampScrollToMaxScrollOffset(
-    ScrollNode* node,
+    const ScrollNode& node,
     LayerTreeImpl* layer_tree_impl) {
-  gfx::ScrollOffset old_offset = current_scroll_offset(node->element_id);
+  gfx::ScrollOffset old_offset = current_scroll_offset(node.element_id);
   gfx::ScrollOffset clamped_offset =
-      ClampScrollOffsetToLimits(old_offset, *node);
+      ClampScrollOffsetToLimits(old_offset, node);
   gfx::Vector2dF delta = clamped_offset.DeltaFrom(old_offset);
   if (!delta.IsZero())
     ScrollBy(node, delta, layer_tree_impl);
@@ -1610,20 +1614,20 @@ const gfx::ScrollOffset ScrollTree::GetScrollOffsetDeltaForTesting(
     return gfx::ScrollOffset();
 }
 
-gfx::Vector2dF ScrollTree::ScrollBy(ScrollNode* scroll_node,
+gfx::Vector2dF ScrollTree::ScrollBy(const ScrollNode& scroll_node,
                                     const gfx::Vector2dF& scroll,
                                     LayerTreeImpl* layer_tree_impl) {
   gfx::ScrollOffset adjusted_scroll(scroll);
-  if (!scroll_node->user_scrollable_horizontal)
+  if (!scroll_node.user_scrollable_horizontal)
     adjusted_scroll.set_x(0);
-  if (!scroll_node->user_scrollable_vertical)
+  if (!scroll_node.user_scrollable_vertical)
     adjusted_scroll.set_y(0);
-  DCHECK(scroll_node->scrollable);
-  gfx::ScrollOffset old_offset = current_scroll_offset(scroll_node->element_id);
+  DCHECK(scroll_node.scrollable);
+  gfx::ScrollOffset old_offset = current_scroll_offset(scroll_node.element_id);
   gfx::ScrollOffset new_offset =
-      ClampScrollOffsetToLimits(old_offset + adjusted_scroll, *scroll_node);
-  if (SetScrollOffset(scroll_node->element_id, new_offset))
-    layer_tree_impl->DidUpdateScrollOffset(scroll_node->element_id);
+      ClampScrollOffsetToLimits(old_offset + adjusted_scroll, scroll_node);
+  if (SetScrollOffset(scroll_node.element_id, new_offset))
+    layer_tree_impl->DidUpdateScrollOffset(scroll_node.element_id);
 
   gfx::ScrollOffset unscrolled =
       old_offset + gfx::ScrollOffset(scroll) - new_offset;
@@ -2147,6 +2151,8 @@ ClipRectData* PropertyTrees::FetchClipRectFromCache(int clip_id,
 }
 
 bool PropertyTrees::HasElement(ElementId element_id) const {
+  if (!element_id)
+    return false;
   return element_id_to_effect_node_index.contains(element_id) ||
          element_id_to_scroll_node_index.contains(element_id) ||
          element_id_to_transform_node_index.contains(element_id);

@@ -125,6 +125,17 @@ class COMPONENT_EXPORT(DEVICE_FIDO) VirtualCtap2Device
   base::WeakPtr<FidoDevice> GetWeakPtr() override;
 
  private:
+  // CheckUserVerification implements the first, common steps of
+  // makeCredential and getAssertion from the CTAP2 spec.
+  base::Optional<CtapDeviceResponseCode> CheckUserVerification(
+      bool is_make_credential,
+      const AuthenticatorSupportedOptions& options,
+      const base::Optional<std::vector<uint8_t>>& pin_auth,
+      const base::Optional<uint8_t>& pin_protocol,
+      base::span<const uint8_t> pin_token,
+      base::span<const uint8_t> client_data_hash,
+      UserVerificationRequirement user_verification,
+      bool* out_user_verified);
   base::Optional<CtapDeviceResponseCode> OnMakeCredential(
       base::span<const uint8_t> request,
       std::vector<uint8_t>* response);
@@ -133,8 +144,9 @@ class COMPONENT_EXPORT(DEVICE_FIDO) VirtualCtap2Device
       std::vector<uint8_t>* response);
   CtapDeviceResponseCode OnGetNextAssertion(base::span<const uint8_t> request,
                                             std::vector<uint8_t>* response);
-  CtapDeviceResponseCode OnPINCommand(base::span<const uint8_t> request,
-                                      std::vector<uint8_t>* response);
+  base::Optional<CtapDeviceResponseCode> OnPINCommand(
+      base::span<const uint8_t> request,
+      std::vector<uint8_t>* response);
   CtapDeviceResponseCode OnCredentialManagement(
       base::span<const uint8_t> request,
       std::vector<uint8_t>* response);
@@ -164,22 +176,6 @@ class COMPONENT_EXPORT(DEVICE_FIDO) VirtualCtap2Device
 
   DISALLOW_COPY_AND_ASSIGN(VirtualCtap2Device);
 };
-
-// Decodes a CBOR-encoded CTAP2 authenticatorMakeCredential request message. The
-// request's client_data_json() value will be empty, and the hashed client data
-// is returned separately.
-COMPONENT_EXPORT(DEVICE_FIDO)
-base::Optional<std::pair<CtapMakeCredentialRequest,
-                         CtapMakeCredentialRequest::ClientDataHash>>
-ParseCtapMakeCredentialRequest(const cbor::Value::MapValue& request_map);
-
-// Decodes a CBOR-encoded CTAP2 authenticatorGetAssertion request message. The
-// request's client_data_json() value will be empty, and the hashed client data
-// is returned separately.
-COMPONENT_EXPORT(DEVICE_FIDO)
-base::Optional<
-    std::pair<CtapGetAssertionRequest, CtapGetAssertionRequest::ClientDataHash>>
-ParseCtapGetAssertionRequest(const cbor::Value::MapValue& request_map);
 
 }  // namespace device
 

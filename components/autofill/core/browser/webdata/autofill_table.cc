@@ -490,6 +490,9 @@ bool AutofillTable::MigrateToVersion(int version,
     case 83:
       *update_compatible_version = true;
       return MigrateToVersion83RemoveServerCardTypeColumn();
+    case 84:
+      *update_compatible_version = false;
+      return MigrateToVersion84AddNicknameColumn();
   }
   return true;
 }
@@ -1222,7 +1225,8 @@ bool AutofillTable::GetServerCreditCards(
       "exp_month,"                    // 8
       "exp_year,"                     // 9
       "metadata.billing_address_id,"  // 10
-      "bank_name "                    // 11
+      "bank_name,"                    // 11
+      "nickname "                     // 12
       "FROM masked_credit_cards masked "
       "LEFT OUTER JOIN unmasked_credit_cards USING (id) "
       "LEFT OUTER JOIN server_card_metadata metadata USING (id)"));
@@ -1265,6 +1269,7 @@ bool AutofillTable::GetServerCreditCards(
     card->SetRawInfo(CREDIT_CARD_EXP_4_DIGIT_YEAR, s.ColumnString16(index++));
     card->set_billing_address_id(s.ColumnString(index++));
     card->set_bank_name(s.ColumnString(index++));
+    card->set_nickname(s.ColumnString16(index++));
     credit_cards->push_back(std::move(card));
   }
   return s.Succeeded();
@@ -1522,8 +1527,9 @@ void AutofillTable::SetServerCardsData(
                               "last_four,"     // 4
                               "exp_month,"     // 5
                               "exp_year,"      // 6
-                              "bank_name)"     // 7
-                              "VALUES (?,?,?,?,?,?,?,?)"));
+                              "bank_name,"     // 7
+                              "nickname)"      // 8
+                              "VALUES (?,?,?,?,?,?,?,?,?)"));
   int index;
   for (const CreditCard& card : credit_cards) {
     DCHECK_EQ(CreditCard::MASKED_SERVER_CARD, card.record_type());
@@ -1538,6 +1544,7 @@ void AutofillTable::SetServerCardsData(
     masked_insert.BindString16(index++,
                                card.GetRawInfo(CREDIT_CARD_EXP_4_DIGIT_YEAR));
     masked_insert.BindString(index++, card.bank_name());
+    masked_insert.BindString16(index++, card.nickname());
     masked_insert.Run();
     masked_insert.Reset(true);
   }
@@ -1718,6 +1725,17 @@ bool AutofillTable::InsertUpiId(const std::string& upi_id) {
   transaction.Commit();
 
   return db_->GetLastChangeCount() > 0;
+}
+
+std::vector<std::string> AutofillTable::GetAllUpiIds() {
+  sql::Statement select_upi_id_statement(
+      db_->GetUniqueStatement("SELECT vpa FROM payments_upi_vpa"));
+
+  std::vector<std::string> upi_ids;
+  while (select_upi_id_statement.Step()) {
+    upi_ids.push_back(select_upi_id_statement.ColumnString(0));
+  }
+  return upi_ids;
 }
 
 bool AutofillTable::ClearAllServerData() {
@@ -2758,6 +2776,13 @@ bool AutofillTable::MigrateToVersion83RemoveServerCardTypeColumn() {
          transaction.Commit();
 }
 
+bool AutofillTable::MigrateToVersion84AddNicknameColumn() {
+  // Add the nickname column to the masked_credit_cards table.
+  return db_->DoesColumnExist("masked_credit_cards", "nickname") ||
+         db_->Execute(
+             "ALTER TABLE masked_credit_cards ADD COLUMN nickname VARCHAR");
+}
+
 bool AutofillTable::AddFormFieldValuesTime(
     const std::vector<FormFieldData>& elements,
     std::vector<AutofillChange>* changes,
@@ -2923,8 +2948,9 @@ void AutofillTable::AddMaskedCreditCards(
                               "last_four,"     // 4
                               "exp_month,"     // 5
                               "exp_year,"      // 6
-                              "bank_name)"     // 7
-                              "VALUES (?,?,?,?,?,?,?,?)"));
+                              "bank_name,"     // 7
+                              "nickname)"      // 8
+                              "VALUES (?,?,?,?,?,?,?,?,?)"));
   int index;
   for (const CreditCard& card : credit_cards) {
     DCHECK_EQ(CreditCard::MASKED_SERVER_CARD, card.record_type());
@@ -2939,6 +2965,7 @@ void AutofillTable::AddMaskedCreditCards(
     masked_insert.BindString16(index++,
                                card.GetRawInfo(CREDIT_CARD_EXP_4_DIGIT_YEAR));
     masked_insert.BindString(index++, card.bank_name());
+    masked_insert.BindString16(index++, card.nickname());
     masked_insert.Run();
     masked_insert.Reset(true);
 
@@ -3110,7 +3137,8 @@ bool AutofillTable::InitMaskedCreditCardsTable() {
                       "last_four VARCHAR,"
                       "exp_month INTEGER DEFAULT 0,"
                       "exp_year INTEGER DEFAULT 0, "
-                      "bank_name VARCHAR)")) {
+                      "bank_name VARCHAR, "
+                      "nickname VARCHAR)")) {
       NOTREACHED();
       return false;
     }

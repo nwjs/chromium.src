@@ -4,6 +4,7 @@
 
 #include <chrome/browser/chromeos/login/web_kiosk_controller.h>
 
+#include "base/bind_helpers.h"
 #include "base/syslog_logging.h"
 #include "chrome/browser/chromeos/app_mode/kiosk_app_launch_error.h"
 #include "chrome/browser/chromeos/app_mode/kiosk_app_manager_base.h"
@@ -67,7 +68,10 @@ KioskAppManagerBase::App WebKioskController::GetAppData() {
   const WebKioskAppData* app =
       WebKioskAppManager::Get()->GetAppByAccountId(account_id_);
   DCHECK(app);
-  return KioskAppManagerBase::App(*app);
+
+  auto data = KioskAppManagerBase::App(*app);
+  data.url = app->install_url();
+  return data;
 }
 
 void WebKioskController::OnTimerFire() {

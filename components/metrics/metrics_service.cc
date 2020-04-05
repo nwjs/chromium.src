@@ -453,6 +453,18 @@ void MetricsService::PushExternalLog(const std::string& log) {
   log_store()->StoreLog(log, MetricsLog::ONGOING_LOG);
 }
 
+bool MetricsService::StageCurrentLogForTest() {
+  CloseCurrentLog();
+
+  MetricsLogStore* const log_store = reporting_service_.metrics_log_store();
+  log_store->StageNextLog();
+  if (!log_store->has_staged_log())
+    return false;
+
+  OpenNewLog();
+  return true;
+}
+
 //------------------------------------------------------------------------------
 // private methods
 //------------------------------------------------------------------------------
@@ -541,8 +553,9 @@ void MetricsService::InitializeMetricsState() {
   IncrementLongPrefsValue(prefs::kUninstallLaunchCount);
 }
 
-void MetricsService::OnUserAction(const std::string& action) {
-  log_manager_.current_log()->RecordUserAction(action);
+void MetricsService::OnUserAction(const std::string& action,
+                                  base::TimeTicks action_time) {
+  log_manager_.current_log()->RecordUserAction(action, action_time);
   HandleIdleSinceLastTransmission(false);
 }
 

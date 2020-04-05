@@ -25,7 +25,7 @@
 #if defined(OS_ANDROID)
 #include "chrome/browser/infobars/infobar_service.h"
 #else
-#include "chrome/browser/permissions/permission_request_manager.h"
+#include "components/permissions/permission_request_manager.h"
 #endif
 
 namespace {
@@ -77,7 +77,7 @@ class MidiSysexPermissionContextTests : public ChromeRenderViewHostTestHarness {
 #if defined(OS_ANDROID)
     InfoBarService::CreateForWebContents(web_contents());
 #else
-    PermissionRequestManager::CreateForWebContents(web_contents());
+    permissions::PermissionRequestManager::CreateForWebContents(web_contents());
 #endif
   }
 
@@ -95,8 +95,8 @@ TEST_F(MidiSysexPermissionContextTests, TestInsecureRequestingUrl) {
       web_contents()->GetMainFrame()->GetRoutingID(), -1);
   permission_context.RequestPermission(
       web_contents(), id, url, true,
-      base::Bind(&TestPermissionContext::TrackPermissionDecision,
-                 base::Unretained(&permission_context)));
+      base::BindOnce(&TestPermissionContext::TrackPermissionDecision,
+                     base::Unretained(&permission_context)));
 
   EXPECT_TRUE(permission_context.permission_set());
   EXPECT_FALSE(permission_context.permission_granted());

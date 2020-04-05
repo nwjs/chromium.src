@@ -38,7 +38,7 @@
 #include "third_party/blink/public/platform/web_coalesced_input_event.h"
 #include "third_party/blink/public/web/web_plugin_container.h"
 #include "third_party/blink/renderer/core/core_export.h"
-#include "third_party/blink/renderer/core/execution_context/context_lifecycle_observer.h"
+#include "third_party/blink/renderer/core/execution_context/execution_context_lifecycle_observer.h"
 #include "third_party/blink/renderer/core/frame/embedded_content_view.h"
 #include "third_party/blink/renderer/platform/heap/handle.h"
 #include "third_party/blink/renderer/platform/wtf/casting.h"
@@ -71,7 +71,7 @@ class CORE_EXPORT WebPluginContainerImpl final
     : public GarbageCollected<WebPluginContainerImpl>,
       public EmbeddedContentView,
       public WebPluginContainer,
-      public ContextClient {
+      public ExecutionContextClient {
   USING_GARBAGE_COLLECTED_MIXIN(WebPluginContainerImpl);
   USING_PRE_FINALIZER(WebPluginContainerImpl, PreFinalize);
 
@@ -124,7 +124,6 @@ class CORE_EXPORT WebPluginContainerImpl final
   void EnqueueMessageEvent(const WebDOMMessageEvent&) override;
   void Invalidate() override;
   void InvalidateRect(const WebRect&) override;
-  void ScrollRect(const WebRect&) override;
   void ScheduleAnimation() override;
   void ReportGeometry() override;
   v8::Local<v8::Object> V8ObjectForElement() override;
@@ -187,7 +186,7 @@ class CORE_EXPORT WebPluginContainerImpl final
   void DidFinishLoading();
   void DidFailLoading(const ResourceError&);
 
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
   // USING_PRE_FINALIZER does not allow for virtual dispatch from the finalizer
   // method. Here we call Dispose() which does the correct virtual dispatch.
   void PreFinalize() { Dispose(); }

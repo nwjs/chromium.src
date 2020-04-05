@@ -65,7 +65,7 @@ namespace {
 bool IsCacheStorageAllowed(ScriptState* script_state) {
   ExecutionContext* context = ExecutionContext::From(script_state);
 
-  if (auto* document = DynamicTo<Document>(context)) {
+  if (auto* document = Document::DynamicFrom(context)) {
     LocalFrame* frame = document->GetFrame();
     if (!frame)
       return false;
@@ -138,8 +138,7 @@ ScriptPromise CacheStorage::open(ScriptState* script_state,
                   resolver->Resolve();
                   break;
                 default:
-                  resolver->Reject(
-                      CacheStorageError::CreateException(result->get_status()));
+                  RejectCacheStorageWithError(resolver, result->get_status());
                   break;
               }
             } else {
@@ -211,7 +210,7 @@ ScriptPromise CacheStorage::has(ScriptState* script_state,
                 resolver->Resolve(false);
                 break;
               default:
-                resolver->Reject(CacheStorageError::CreateException(result));
+                RejectCacheStorageWithError(resolver, result);
                 break;
             }
           },
@@ -273,7 +272,7 @@ ScriptPromise CacheStorage::Delete(ScriptState* script_state,
                 resolver->Resolve(false);
                 break;
               default:
-                resolver->Reject(CacheStorageError::CreateException(result));
+                RejectCacheStorageWithError(resolver, result);
                 break;
             }
           },
@@ -423,8 +422,7 @@ ScriptPromise CacheStorage::MatchImpl(ScriptState* script_state,
                   resolver->Resolve();
                   break;
                 default:
-                  resolver->Reject(
-                      CacheStorageError::CreateException(result->get_status()));
+                  RejectCacheStorageWithError(resolver, result->get_status());
                   break;
               }
             } else {
@@ -459,7 +457,7 @@ ScriptPromise CacheStorage::MatchImpl(ScriptState* script_state,
 
 CacheStorage::CacheStorage(ExecutionContext* context,
                            GlobalFetch::ScopedFetcher* fetcher)
-    : ContextLifecycleObserver(context),
+    : ExecutionContextLifecycleObserver(context),
       scoped_fetcher_(fetcher),
       blob_client_list_(MakeGarbageCollected<CacheStorageBlobClientList>()),
       ever_used_(false) {
@@ -496,11 +494,11 @@ bool CacheStorage::HasPendingActivity() const {
   return ever_used_;
 }
 
-void CacheStorage::Trace(blink::Visitor* visitor) {
+void CacheStorage::Trace(Visitor* visitor) {
   visitor->Trace(scoped_fetcher_);
   visitor->Trace(blob_client_list_);
   ScriptWrappable::Trace(visitor);
-  ContextLifecycleObserver::Trace(visitor);
+  ExecutionContextLifecycleObserver::Trace(visitor);
 }
 
 bool CacheStorage::IsAllowed(ScriptState* script_state) {
@@ -511,7 +509,7 @@ bool CacheStorage::IsAllowed(ScriptState* script_state) {
   return allowed_.value();
 }
 
-void CacheStorage::ContextDestroyed(ExecutionContext*) {
+void CacheStorage::ContextDestroyed() {
   cache_storage_remote_.reset();
 }
 

@@ -30,6 +30,7 @@
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/events/mouse_event.h"
 #include "third_party/blink/renderer/platform/geometry/float_point.h"
+#include "third_party/blink/renderer/platform/wtf/casting.h"
 
 namespace blink {
 
@@ -39,7 +40,7 @@ class CORE_EXPORT WheelEvent final : public MouseEvent {
   DEFINE_WRAPPERTYPEINFO();
 
  public:
-  enum { kTickMultiplier = 120 };
+  constexpr static int kTickMultiplier = 120;
 
   enum DeltaMode { kDomDeltaPixel = 0, kDomDeltaLine, kDomDeltaPage };
 
@@ -90,7 +91,7 @@ class CORE_EXPORT WheelEvent final : public MouseEvent {
   // So we need to override its parent's DispatchEvent.
   DispatchEventResult DispatchEvent(EventDispatcher&) override;
 
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
 
  private:
   IntPoint wheel_delta_;
@@ -101,7 +102,10 @@ class CORE_EXPORT WheelEvent final : public MouseEvent {
   WebMouseWheelEvent native_event_;
 };
 
-DEFINE_EVENT_TYPE_CASTS(WheelEvent);
+template <>
+struct DowncastTraits<WheelEvent> {
+  static bool AllowFrom(const Event& event) { return event.IsWheelEvent(); }
+};
 
 }  // namespace blink
 

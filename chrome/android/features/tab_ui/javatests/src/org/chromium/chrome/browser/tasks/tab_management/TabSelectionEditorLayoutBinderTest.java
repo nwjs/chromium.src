@@ -9,16 +9,17 @@ import static junit.framework.Assert.assertFalse;
 import static junit.framework.Assert.assertTrue;
 
 import android.graphics.Rect;
-import android.support.annotation.NonNull;
 import android.support.test.annotation.UiThreadTest;
 import android.support.test.filters.MediumTest;
 import android.support.test.filters.SmallTest;
-import android.support.v7.widget.RecyclerView;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+
+import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.RecyclerView;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -39,6 +40,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * Tests for {@link TabSelectionEditorLayoutBinder}.
  */
+@SuppressWarnings("ArraysAsListWithZeroOrOneArgument")
 @RunWith(ChromeJUnit4ClassRunner.class)
 public class TabSelectionEditorLayoutBinderTest extends DummyUiActivityTestCase {
     private TabSelectionEditorLayout mEditorLayoutView;
@@ -59,6 +61,7 @@ public class TabSelectionEditorLayoutBinderTest extends DummyUiActivityTestCase 
                     (TabSelectionEditorLayout) getActivity().getLayoutInflater().inflate(
                             R.layout.tab_selection_editor_layout, null);
             mEditorLayoutView.initialize(mParentView, null, new RecyclerView.Adapter() {
+                @SuppressWarnings("ConstantConditions")
                 @NonNull
                 @Override
                 public RecyclerView.ViewHolder onCreateViewHolder(
@@ -74,9 +77,10 @@ public class TabSelectionEditorLayoutBinderTest extends DummyUiActivityTestCase 
                     return 0;
                 }
             }, mSelectionDelegate);
+
+            mMCP = PropertyModelChangeProcessor.create(
+                    mModel, mEditorLayoutView, TabSelectionEditorLayoutBinder::bind);
         });
-        mMCP = PropertyModelChangeProcessor.create(
-                mModel, mEditorLayoutView, TabSelectionEditorLayoutBinder::bind);
     }
 
     @Override
@@ -103,7 +107,7 @@ public class TabSelectionEditorLayoutBinderTest extends DummyUiActivityTestCase 
     public void testBindActionButtonClickListener() {
         AtomicBoolean actionButtonClicked = new AtomicBoolean(false);
         mModel.set(TabSelectionEditorProperties.TOOLBAR_ACTION_BUTTON_LISTENER,
-                v -> { actionButtonClicked.set(true); });
+                v -> actionButtonClicked.set(true));
         mEditorLayoutView.findViewById(R.id.action_button).performClick();
         assertTrue(actionButtonClicked.get());
     }

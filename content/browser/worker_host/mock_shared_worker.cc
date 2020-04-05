@@ -93,7 +93,9 @@ bool MockSharedWorkerFactory::CheckReceivedCreateSharedWorker(
 
 void MockSharedWorkerFactory::CreateSharedWorker(
     blink::mojom::SharedWorkerInfoPtr info,
+    const url::Origin& constructor_origin,
     const std::string& user_agent,
+    const blink::UserAgentMetadata& ua_metadata,
     bool pause_on_start,
     const base::UnguessableToken& devtools_worker_token,
     blink::mojom::RendererPreferencesPtr renderer_preferences,
@@ -190,7 +192,8 @@ void MockSharedWorkerClient::OnConnected(
     on_connected_features_.insert(feature);
 }
 
-void MockSharedWorkerClient::OnScriptLoadFailed() {
+void MockSharedWorkerClient::OnScriptLoadFailed(
+    const std::string& error_message) {
   DCHECK(!on_script_load_failed_);
   on_script_load_failed_ = true;
 }

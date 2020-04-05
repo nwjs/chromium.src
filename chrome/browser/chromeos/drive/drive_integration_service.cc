@@ -20,6 +20,7 @@
 #include "base/strings/stringprintf.h"
 #include "base/system/sys_info.h"
 #include "base/task/post_task.h"
+#include "base/task/thread_pool.h"
 #include "base/task_runner_util.h"
 #include "base/time/default_clock.h"
 #include "base/timer/timer.h"
@@ -48,6 +49,7 @@
 #include "components/metrics/metrics_pref_names.h"
 #include "components/prefs/pref_change_registrar.h"
 #include "components/prefs/pref_service.h"
+#include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/user_manager/user.h"
 #include "components/version_info/version_info.h"
 #include "content/public/browser/browser_context.h"
@@ -60,7 +62,6 @@
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
 #include "services/device/public/mojom/wake_lock_provider.mojom.h"
-#include "services/identity/public/mojom/identity_service.mojom.h"
 #include "services/network/public/cpp/network_connection_tracker.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "services/service_manager/public/cpp/connector.h"
@@ -456,12 +457,8 @@ class DriveIntegrationService::DriveFsHolder
     return profile_->GetURLLoaderFactory();
   }
 
-  void BindIdentityAccessor(
-      mojo::PendingReceiver<identity::mojom::IdentityAccessor> receiver)
-      override {
-    auto* service = profile_->GetIdentityService();
-    if (service)
-      service->BindIdentityAccessor(std::move(receiver));
+  signin::IdentityManager* GetIdentityManager() override {
+    return IdentityManagerFactory::GetForProfile(profile_);
   }
 
   const AccountId& GetAccountId() override {
@@ -561,8 +558,8 @@ DriveIntegrationService::DriveIntegrationService(
   DCHECK(profile && !profile->IsOffTheRecord());
 
   logger_ = std::make_unique<EventLogger>();
-  blocking_task_runner_ = base::CreateSequencedTaskRunner(
-      {base::ThreadPool(), base::MayBlock(), base::TaskPriority::USER_BLOCKING,
+  blocking_task_runner_ = base::ThreadPool::CreateSequencedTaskRunner(
+      {base::MayBlock(), base::TaskPriority::USER_BLOCKING,
        base::WithBaseSyncPrimitives()});
 
   if (preference_watcher_)

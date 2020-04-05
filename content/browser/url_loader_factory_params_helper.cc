@@ -16,6 +16,7 @@
 #include "content/public/common/content_switches.h"
 #include "content/public/common/url_constants.h"
 #include "content/public/common/web_preferences.h"
+#include "services/network/public/mojom/cross_origin_embedder_policy.mojom.h"
 #include "services/network/public/mojom/network_context.mojom.h"
 
 namespace content {
@@ -37,10 +38,13 @@ network::mojom::URLLoaderFactoryParamsPtr CreateParams(
     RenderProcessHost* process,
     const url::Origin& origin,
     const base::Optional<url::Origin>& request_initiator_site_lock,
+    const base::Optional<url::Origin>& top_frame_origin,
     bool is_trusted,
     const base::Optional<base::UnguessableToken>& top_frame_token,
     const base::Optional<net::NetworkIsolationKey>& network_isolation_key,
-    network::mojom::CrossOriginEmbedderPolicy cross_origin_embedder_policy,
+    network::mojom::ClientSecurityStatePtr client_security_state,
+    mojo::PendingRemote<network::mojom::CrossOriginEmbedderPolicyReporter>
+        coep_reporter,
     bool allow_universal_access_from_file_urls,
     bool is_for_isolated_world) {
   DCHECK(process);
@@ -55,6 +59,7 @@ network::mojom::URLLoaderFactoryParamsPtr CreateParams(
 
   params->process_id = process->GetID();
   params->request_initiator_site_lock = request_initiator_site_lock;
+  params->top_frame_origin = top_frame_origin;
 
   params->is_trusted = is_trusted;
   params->top_frame_id = top_frame_token;
@@ -63,7 +68,8 @@ network::mojom::URLLoaderFactoryParamsPtr CreateParams(
   params->disable_web_security =
       base::CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kDisableWebSecurity);
-  params->cross_origin_embedder_policy = cross_origin_embedder_policy;
+  params->client_security_state = std::move(client_security_state);
+  params->coep_reporter = std::move(coep_reporter);
 
   if (params->disable_web_security) {
     // --disable-web-security also disables Cross-Origin Read Blocking (CORB).
@@ -93,20 +99,26 @@ network::mojom::URLLoaderFactoryParamsPtr CreateParams(
 
 // static
 network::mojom::URLLoaderFactoryParamsPtr
-URLLoaderFactoryParamsHelper::CreateForFrame(RenderFrameHostImpl* frame,
-                                             const url::Origin& frame_origin,
-                                             RenderProcessHost* process) {
-  return CreateParams(process,
-                      frame_origin,  // origin
-                      frame_origin,  // request_initiator_site_lock
-                      false,         // is_trusted
-                      frame->GetTopFrameToken(),
-                      frame->GetNetworkIsolationKey(),
-                      frame->cross_origin_embedder_policy(),
-                      frame->GetRenderViewHost()
-                          ->GetWebkitPreferences()
-                          .allow_universal_access_from_file_urls,
-                      false);  // is_for_isolated_world
+URLLoaderFactoryParamsHelper::CreateForFrame(
+    RenderFrameHostImpl* frame,
+    const url::Origin& frame_origin,
+    network::mojom::ClientSecurityStatePtr client_security_state,
+    mojo::PendingRemote<network::mojom::CrossOriginEmbedderPolicyReporter>
+        coep_reporter,
+    RenderProcessHost* process) {
+  return CreateParams(
+      process,
+      frame_origin,  // origin
+      frame_origin,  // request_initiator_site_lock
+      // top_frame_origin
+      frame->ComputeTopFrameOrigin(frame_origin),
+      false,  // is_trusted
+      frame->GetTopFrameToken(), frame->GetNetworkIsolationKey(),
+      std::move(client_security_state), std::move(coep_reporter),
+      frame->GetRenderViewHost()
+          ->GetWebkitPreferences()
+          .allow_universal_access_from_file_urls,
+      false);  // is_for_isolated_world
 }
 
 // static
@@ -114,14 +126,17 @@ network::mojom::URLLoaderFactoryParamsPtr
 URLLoaderFactoryParamsHelper::CreateForIsolatedWorld(
     RenderFrameHostImpl* frame,
     const url::Origin& isolated_world_origin,
-    const url::Origin& main_world_origin) {
+    const url::Origin& main_world_origin,
+    network::mojom::ClientSecurityStatePtr client_security_state) {
   return CreateParams(frame->GetProcess(),
                       isolated_world_origin,  // origin
                       main_world_origin,      // request_initiator_site_lock
+                      base::nullopt,          // top_frame_origin
                       false,                  // is_trusted
                       frame->GetTopFrameToken(),
                       frame->GetNetworkIsolationKey(),
-                      frame->cross_origin_embedder_policy(),
+                      std::move(client_security_state),
+                      mojo::NullRemote(),  // coep_reporter
                       frame->GetRenderViewHost()
                           ->GetWebkitPreferences()
                           .allow_universal_access_from_file_urls,
@@ -129,7 +144,9 @@ URLLoaderFactoryParamsHelper::CreateForIsolatedWorld(
 }
 
 network::mojom::URLLoaderFactoryParamsPtr
-URLLoaderFactoryParamsHelper::CreateForPrefetch(RenderFrameHostImpl* frame) {
+URLLoaderFactoryParamsHelper::CreateForPrefetch(
+    RenderFrameHostImpl* frame,
+    network::mojom::ClientSecurityStatePtr client_security_state) {
   // The factory client |is_trusted| to control the |network_isolation_key| in
   // each separate request (rather than forcing the client to use the key
   // specified in URLLoaderFactoryParams).
@@ -137,10 +154,13 @@ URLLoaderFactoryParamsHelper::CreateForPrefetch(RenderFrameHostImpl* frame) {
   return CreateParams(frame->GetProcess(),
                       frame_origin,  // origin
                       frame_origin,  // request_initiator_site_lock
-                      true,          // is_trusted
+                      // top_frame_origin
+                      frame->ComputeTopFrameOrigin(frame_origin),
+                      true,  // is_trusted
                       frame->GetTopFrameToken(),
                       base::nullopt,  // network_isolation_key
-                      frame->cross_origin_embedder_policy(),
+                      std::move(client_security_state),
+                      mojo::NullRemote(),  // coep_reporter
                       frame->GetRenderViewHost()
                           ->GetWebkitPreferences()
                           .allow_universal_access_from_file_urls,
@@ -152,14 +172,18 @@ network::mojom::URLLoaderFactoryParamsPtr
 URLLoaderFactoryParamsHelper::CreateForWorker(
     RenderProcessHost* process,
     const url::Origin& request_initiator,
-    const net::NetworkIsolationKey& network_isolation_key) {
+    const net::NetworkIsolationKey& network_isolation_key,
+    mojo::PendingRemote<network::mojom::CrossOriginEmbedderPolicyReporter>
+        coep_reporter) {
   return CreateParams(process,
                       request_initiator,  // origin
                       request_initiator,  // request_initiator_site_lock
+                      base::nullopt,      // top_frame_origin
                       false,              // is_trusted
                       base::nullopt,      // top_frame_token
                       network_isolation_key,
-                      network::mojom::CrossOriginEmbedderPolicy::kNone,
+                      nullptr,  // client_security_state
+                      std::move(coep_reporter),
                       false,   // allow_universal_access_from_file_urls
                       false);  // is_for_isolated_world
 }
@@ -191,11 +215,13 @@ URLLoaderFactoryParamsHelper::CreateForRendererProcess(
       process,
       url::Origin(),                // origin
       request_initiator_site_lock,  // request_initiator_site_lock
+      base::nullopt,                // top_frame_origin
       false,                        // is_trusted
       top_frame_token, network_isolation_key,
-      network::mojom::CrossOriginEmbedderPolicy::kNone,
-      false,   // allow_universal_access_from_file_urls
-      false);  // is_for_isolated_world
+      nullptr,             // client_security_state
+      mojo::NullRemote(),  // coep_reporter
+      false,               // allow_universal_access_from_file_urls
+      false);              // is_for_isolated_world
 }
 
 }  // namespace content

@@ -19,11 +19,11 @@
 #include "ios/chrome/browser/browser_state/chrome_browser_state.h"
 #include "ios/chrome/browser/browser_state/chrome_browser_state_manager.h"
 #include "ios/chrome/browser/infobars/infobar_manager_impl.h"
+#import "ios/chrome/browser/main/browser.h"
 #import "ios/chrome/browser/metrics/previous_session_info.h"
 #import "ios/chrome/browser/metrics/previous_session_info_private.h"
 #import "ios/chrome/browser/ui/browser_view/browser_view_controller.h"
 #import "ios/chrome/browser/ui/main/bvc_container_view_controller.h"
-#import "ios/chrome/browser/ui/tab_grid/view_controller_swapping.h"
 #include "ios/chrome/browser/ui/util/ui_util.h"
 #import "ios/chrome/test/app/tab_test_util.h"
 #import "ios/web/public/navigation/navigation_context.h"
@@ -78,10 +78,6 @@ MainController* GetMainController() {
   return [MainApplicationDelegate sharedMainController];
 }
 
-DeviceSharingManager* GetDeviceSharingManager() {
-  return [GetMainController() deviceSharingManager];
-}
-
 ChromeBrowserState* GetOriginalBrowserState() {
   return GetBrowserState(false);
 }
@@ -91,22 +87,15 @@ ChromeBrowserState* GetCurrentIncognitoBrowserState() {
 }
 
 id<BrowserCommands> BrowserCommandDispatcherForMainBVC() {
-  BrowserViewController* mainBVC =
-      GetMainController().interfaceProvider.mainInterface.bvc;
-  return mainBVC.dispatcher;
+  Browser* mainBrowser =
+      GetMainController().interfaceProvider.mainInterface.browser;
+  return static_cast<id<BrowserCommands>>(mainBrowser->GetCommandDispatcher());
 }
 
 UIViewController* GetActiveViewController() {
   UIWindow* main_window = [[UIApplication sharedApplication] keyWindow];
   DCHECK([main_window isKindOfClass:[ChromeOverlayWindow class]]);
   UIViewController* main_view_controller = main_window.rootViewController;
-  if ([main_view_controller
-          conformsToProtocol:@protocol(ViewControllerSwapping)]) {
-    // This is either the stack_view or the iPad tab_switcher, in which case it
-    // is best to call |-activeViewController|.
-    return [static_cast<id<ViewControllerSwapping>>(main_view_controller)
-        activeViewController];
-  }
 
   // The active view controller is either the TabGridViewController or its
   // presented BVC. The BVC is itself contained inside of a
@@ -125,11 +114,10 @@ UIViewController* GetActiveViewController() {
   return active_view_controller;
 }
 
-id<ApplicationCommands, BrowserCommands>
-DispatcherForActiveBrowserViewController() {
-  UIViewController* vc = GetActiveViewController();
-  BrowserViewController* bvc = base::mac::ObjCCast<BrowserViewController>(vc);
-  return bvc.dispatcher;
+id<ApplicationCommands, BrowserCommands> HandlerForActiveBrowser() {
+  return static_cast<id<ApplicationCommands, BrowserCommands>>(
+      GetMainController()
+          .interfaceProvider.currentInterface.browser->GetCommandDispatcher());
 }
 
 void RemoveAllInfoBars() {

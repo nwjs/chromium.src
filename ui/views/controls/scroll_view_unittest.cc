@@ -4,10 +4,12 @@
 
 #include "ui/views/controls/scroll_view.h"
 
+#include <algorithm>
 #include <memory>
 #include <utility>
 
 #include "base/macros.h"
+#include "base/optional.h"
 #include "base/run_loop.h"
 #include "base/test/icu_test_util.h"
 #include "base/test/scoped_feature_list.h"
@@ -278,9 +280,7 @@ class WidgetScrollViewTest : public test::WidgetTest,
   WidgetScrollViewTest() = default;
 
   // Call this before adding the ScrollView to test with overlay scrollbars.
-  void SetUseOverlayScrollers() {
-    use_overlay_scrollers_ = true;
-  }
+  void SetUseOverlayScrollers() { use_overlay_scrollers_ = true; }
 
   // Adds a ScrollView with the given |contents_view| and does layout.
   ScrollView* AddScrollViewWithContents(std::unique_ptr<View> contents,
@@ -947,8 +947,8 @@ TEST_F(ScrollViewTest, ChildWithLayerTest) {
   // should be true.
   EXPECT_TRUE(test_api.contents_viewport()->layer()->fills_bounds_opaquely());
 
-  // Setting a transparent color should make fills opaquely false.
-  scroll_view_->SetBackgroundColor(SK_ColorTRANSPARENT);
+  // Setting a base::nullopt color should make fills opaquely false.
+  scroll_view_->SetBackgroundColor(base::nullopt);
   EXPECT_FALSE(test_api.contents_viewport()->layer()->fills_bounds_opaquely());
 
   child->DestroyLayer();

@@ -18,6 +18,7 @@ interface ITab {
 
   INavigationController createNavigationController(in INavigationControllerClient client) = 1;
 
+  // Deprecated, use Profile.setDownloadCallbackClient.
   void setDownloadCallbackClient(IDownloadCallbackClient client) = 2;
 
   void setErrorPageCallbackClient(IErrorPageCallbackClient client) = 3;
@@ -35,4 +36,12 @@ interface ITab {
 
   boolean setFindInPageCallbackClient(IFindInPageCallbackClient client) = 8;
   void findInPage(in String searchText, boolean forward) = 9;
+
+  // And and removed in 82; superseded by dismissTransientUi().
+  // void dismissTabModalOverlay() = 10;
+  void dispatchBeforeUnloadAndClose() = 11;
+
+  boolean dismissTransientUi() = 12;
+
+  String getGuid() = 13;
 }

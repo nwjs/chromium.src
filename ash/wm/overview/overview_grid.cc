@@ -22,6 +22,7 @@
 #include "ash/shell.h"
 #include "ash/wallpaper/wallpaper_controller_impl.h"
 #include "ash/wm/desks/desk_mini_view.h"
+#include "ash/wm/desks/desk_name_view.h"
 #include "ash/wm/desks/desks_bar_view.h"
 #include "ash/wm/desks/desks_util.h"
 #include "ash/wm/mru_window_tracker.h"
@@ -94,6 +95,8 @@ constexpr char kOverviewEnterSingleClamshellHistogram[] =
     "Ash.Overview.AnimationSmoothness.Enter.SingleClamshellMode";
 constexpr char kOverviewEnterTabletHistogram[] =
     "Ash.Overview.AnimationSmoothness.Enter.TabletMode";
+constexpr char kOverviewEnterMinimizedTabletHistogram[] =
+    "Ash.Overview.AnimationSmoothness.Enter.MinimizedTabletMode";
 constexpr char kOverviewEnterSplitViewHistogram[] =
     "Ash.Overview.AnimationSmoothness.Enter.SplitView";
 
@@ -103,6 +106,8 @@ constexpr char kOverviewExitSingleClamshellHistogram[] =
     "Ash.Overview.AnimationSmoothness.Exit.SingleClamshellMode";
 constexpr char kOverviewExitTabletHistogram[] =
     "Ash.Overview.AnimationSmoothness.Exit.TabletMode";
+constexpr char kOverviewExitMinimizedTabletHistogram[] =
+    "Ash.Overview.AnimationSmoothness.Exit.MinimizedTabletMode";
 constexpr char kOverviewExitSplitViewHistogram[] =
     "Ash.Overview.AnimationSmoothness.Exit.SplitView";
 
@@ -116,15 +121,18 @@ constexpr char kOverviewScrollMaxLatencyHistogram[] =
 template <const char* clamshell_single_name,
           const char* clamshell_multi_name,
           const char* tablet_name,
-          const char* splitview_name>
+          const char* splitview_name,
+          const char* tablet_minimized_name>
 class OverviewFpsCounter : public FpsCounter {
  public:
   OverviewFpsCounter(ui::Compositor* compositor,
                      bool in_split_view,
-                     bool single_animation_in_clamshell)
+                     bool single_animation_in_clamshell,
+                     bool minimized_in_tablet)
       : FpsCounter(compositor),
         in_split_view_(in_split_view),
-        single_animation_in_clamshell_(single_animation_in_clamshell) {}
+        single_animation_in_clamshell_(single_animation_in_clamshell),
+        minimized_in_tablet_(minimized_in_tablet) {}
   ~OverviewFpsCounter() override {
     int smoothness = ComputeSmoothness();
     if (smoothness < 0)
@@ -133,8 +141,14 @@ class OverviewFpsCounter : public FpsCounter {
       UMA_HISTOGRAM_PERCENTAGE_IN_CLAMSHELL(clamshell_single_name, smoothness);
     else
       UMA_HISTOGRAM_PERCENTAGE_IN_CLAMSHELL(clamshell_multi_name, smoothness);
-    UMA_HISTOGRAM_PERCENTAGE_IN_TABLET_NON_SPLITVIEW(in_split_view_,
-                                                     tablet_name, smoothness);
+
+    if (minimized_in_tablet_) {
+      UMA_HISTOGRAM_PERCENTAGE_IN_TABLET_NON_SPLITVIEW(
+          in_split_view_, tablet_minimized_name, smoothness);
+    } else {
+      UMA_HISTOGRAM_PERCENTAGE_IN_TABLET_NON_SPLITVIEW(in_split_view_,
+                                                       tablet_name, smoothness);
+    }
     UMA_HISTOGRAM_PERCENTAGE_IN_SPLITVIEW(in_split_view_, splitview_name,
                                           smoothness);
   }
@@ -145,6 +159,9 @@ class OverviewFpsCounter : public FpsCounter {
   // True if only top window animates upon enter/exit overview in clamshell.
   bool single_animation_in_clamshell_;
 
+  // True if all windows are minimized in tablet.
+  bool minimized_in_tablet_;
+
   DISALLOW_COPY_AND_ASSIGN(OverviewFpsCounter);
 };
 
@@ -152,19 +169,25 @@ using OverviewEnterFpsCounter =
     OverviewFpsCounter<kOverviewEnterSingleClamshellHistogram,
                        kOverviewEnterClamshellHistogram,
                        kOverviewEnterTabletHistogram,
-                       kOverviewEnterSplitViewHistogram>;
+                       kOverviewEnterSplitViewHistogram,
+                       kOverviewEnterMinimizedTabletHistogram>;
 using OverviewExitFpsCounter =
     OverviewFpsCounter<kOverviewExitSingleClamshellHistogram,
                        kOverviewExitClamshellHistogram,
                        kOverviewExitTabletHistogram,
-                       kOverviewExitSplitViewHistogram>;
+                       kOverviewExitSplitViewHistogram,
+                       kOverviewExitMinimizedTabletHistogram>;
 
 class ShutdownAnimationFpsCounterObserver : public OverviewObserver {
  public:
   ShutdownAnimationFpsCounterObserver(ui::Compositor* compositor,
                                       bool in_split_view,
-                                      bool single_animation)
-      : fps_counter_(compositor, in_split_view, single_animation) {
+                                      bool single_animation,
+                                      bool minimized_in_tablet)
+      : fps_counter_(compositor,
+                     in_split_view,
+                     single_animation,
+                     minimized_in_tablet) {
     Shell::Get()->overview_controller()->AddObserver(this);
   }
   ~ShutdownAnimationFpsCounterObserver() override {
@@ -235,12 +258,6 @@ gfx::Insets GetGridInsets(const gfx::Rect& grid_bounds) {
 
   return gfx::Insets(std::max(0, vertical_inset - kWindowMargin),
                      std::max(0, horizontal_inset - kWindowMargin));
-}
-
-// Returns the given |widget|'s bounds in its native window's root coordinates.
-gfx::Rect GetWidgetBoundsInRoot(views::Widget* widget) {
-  auto* window = widget->GetNativeWindow();
-  return window->GetBoundsInRootWindow();
 }
 
 bool ShouldExcludeItemFromGridLayout(
@@ -376,10 +393,12 @@ void OverviewGrid::Shutdown() {
       SplitViewController::Get(root_window_)->InSplitViewMode();
   // OverviewGrid in splitscreen does not include the window to be activated.
   if (!window_list_.empty() || in_split_view) {
+    bool minimized_in_tablet = overview_session_->enter_exit_overview_type() ==
+                               OverviewEnterExitType::kFadeOutExit;
     // The following instance self-destructs when shutdown animation ends.
     new ShutdownAnimationFpsCounterObserver(
         root_window_->layer()->GetCompositor(), in_split_view,
-        single_animation_in_clamshell);
+        single_animation_in_clamshell, minimized_in_tablet);
   }
 
   while (!window_list_.empty()) {
@@ -408,11 +427,11 @@ void OverviewGrid::PrepareForOverview() {
 void OverviewGrid::PositionWindows(
     bool animate,
     const base::flat_set<OverviewItem*>& ignored_items,
-    OverviewSession::OverviewTransition transition) {
+    OverviewTransition transition) {
   if (!overview_session_ || suspend_reposition_ || window_list_.empty())
     return;
 
-  DCHECK_NE(transition, OverviewSession::OverviewTransition::kExit);
+  DCHECK_NE(transition, OverviewTransition::kExit);
 
   std::vector<gfx::RectF> rects =
       ShouldUseTabletModeGridLayout() &&
@@ -421,7 +440,7 @@ void OverviewGrid::PositionWindows(
           ? GetWindowRectsForTabletModeLayout(ignored_items)
           : GetWindowRects(ignored_items);
 
-  if (transition == OverviewSession::OverviewTransition::kEnter) {
+  if (transition == OverviewTransition::kEnter) {
     CalculateWindowListAnimationStates(/*selected_item=*/nullptr, transition,
                                        rects);
   }
@@ -430,19 +449,19 @@ void OverviewGrid::PositionWindows(
   // position items in |ignored_items|.
   OverviewAnimationType animation_type = OVERVIEW_ANIMATION_NONE;
   switch (transition) {
-    case OverviewSession::OverviewTransition::kEnter: {
+    case OverviewTransition::kEnter: {
       const bool entering_from_home =
           overview_session_->enter_exit_overview_type() ==
-          OverviewSession::EnterExitOverviewType::kFadeInEnter;
+          OverviewEnterExitType::kFadeInEnter;
       animation_type = entering_from_home
                            ? OVERVIEW_ANIMATION_ENTER_FROM_HOME_LAUNCHER
                            : OVERVIEW_ANIMATION_LAYOUT_OVERVIEW_ITEMS_ON_ENTER;
       break;
     }
-    case OverviewSession::OverviewTransition::kInOverview:
+    case OverviewTransition::kInOverview:
       animation_type = OVERVIEW_ANIMATION_LAYOUT_OVERVIEW_ITEMS_IN_OVERVIEW;
       break;
-    case OverviewSession::OverviewTransition::kExit:
+    case OverviewTransition::kExit:
       NOTREACHED();
   }
 
@@ -451,7 +470,7 @@ void OverviewGrid::PositionWindows(
   std::vector<OverviewAnimationType> animation_types(rects.size());
 
   const bool can_do_spawn_animation =
-      animate && transition == OverviewSession::OverviewTransition::kInOverview;
+      animate && transition == OverviewTransition::kInOverview;
 
   for (size_t i = 0; i < window_list_.size(); ++i) {
     OverviewItem* window_item = window_list_[i].get();
@@ -464,10 +483,10 @@ void OverviewGrid::PositionWindows(
     bool should_animate_item = animate;
     // If we're in entering overview process, not all window items in the grid
     // might need animation even if the grid needs animation.
-    if (animate && transition == OverviewSession::OverviewTransition::kEnter)
+    if (animate && transition == OverviewTransition::kEnter)
       should_animate_item = window_item->should_animate_when_entering();
 
-    if (animate && transition == OverviewSession::OverviewTransition::kEnter) {
+    if (animate && transition == OverviewTransition::kEnter) {
       if (window_item->should_animate_when_entering() &&
           !has_non_cover_animating) {
         has_non_cover_animating |=
@@ -483,15 +502,17 @@ void OverviewGrid::PositionWindows(
         should_animate_item ? animation_type : OVERVIEW_ANIMATION_NONE;
   }
 
-  if (animate && transition == OverviewSession::OverviewTransition::kEnter &&
+  if (animate && transition == OverviewTransition::kEnter &&
       !window_list_.empty()) {
     bool single_animation_in_clamshell =
         animate_count == 1 && !has_non_cover_animating &&
         !Shell::Get()->tablet_mode_controller()->InTabletMode();
+    bool minimized_in_tablet = overview_session_->enter_exit_overview_type() ==
+                               OverviewEnterExitType::kFadeInEnter;
     fps_counter_ = std::make_unique<OverviewEnterFpsCounter>(
         window_list_[0]->GetWindow()->layer()->GetCompositor(),
         SplitViewController::Get(root_window_)->InSplitViewMode(),
-        single_animation_in_clamshell);
+        single_animation_in_clamshell, minimized_in_tablet);
   }
 
   // Apply the animation after creating fps_counter_ so that unit test
@@ -604,10 +625,10 @@ void OverviewGrid::RemoveItem(OverviewItem* overview_item,
     // update the grid bounds if the window being dragged from the top or shelf,
     // the former being handled in TabletModeWindowDragDelegate's destructor.
     base::flat_set<OverviewItem*> ignored_items;
-    if (overview_session_->window_drag_controller() &&
-        overview_session_->window_drag_controller()->item()) {
-      ignored_items.insert(overview_session_->window_drag_controller()->item());
-    }
+    OverviewItem* dragged_item =
+        overview_session_->GetCurrentDraggedOverviewItem();
+    if (dragged_item)
+      ignored_items.insert(dragged_item);
     const gfx::Rect grid_bounds = GetGridBoundsInScreen(
         root_window_,
         split_view_drag_indicators_
@@ -707,7 +728,18 @@ bool OverviewGrid::MaybeUpdateDesksWidgetBounds() {
     return false;
 
   const gfx::Rect desks_widget_bounds = GetDesksWidgetBounds();
-  if (desks_widget_bounds != GetWidgetBoundsInRoot(desks_widget_.get())) {
+  if (desks_widget_bounds != desks_widget_->GetWindowBoundsInScreen()) {
+    // Note that the desks widget window is placed on the active desk container,
+    // which has the kUsesScreenCoordinatesKey property set to true, and hence
+    // we use the screen coordinates when positioning the desks widget.
+    //
+    // On certain display zooms, the requested |desks_widget_bounds| may differ
+    // than the current screen bounds of the desks widget by 1dp, but internally
+    // it will end up being the same and therefore a layout may not be
+    // triggered. This can cause mini views not to show up at all. We must
+    // guarantee that a layout will always occur by invalidating the layout.
+    // See https://crbug.com/1056371 for more details.
+    desks_bar_view_->InvalidateLayout();
     desks_widget_->SetBounds(desks_widget_bounds);
     return true;
   }
@@ -728,6 +760,7 @@ void OverviewGrid::UpdateDropTargetBackgroundVisibility(
 }
 
 void OverviewGrid::OnSelectorItemDragStarted(OverviewItem* item) {
+  CommitDeskNameChanges();
   for (auto& overview_mode_item : window_list_)
     overview_mode_item->OnSelectorItemDragStarted(item);
 }
@@ -922,9 +955,10 @@ void OverviewGrid::OnSplitViewStateChanged(
   SetBoundsAndUpdatePositions(GetGridBoundsInScreen(root_window_),
                               /*ignored_items=*/{}, /*animate=*/false);
 
-  // Activate the overview focus window, to match the behavior of entering
-  // overview mode in the beginning.
-  wm::ActivateWindow(overview_session_->GetOverviewFocusWindow());
+  // If split view mode was ended, then activate the overview focus window, to
+  // match the behavior of entering overview mode in the beginning.
+  if (state == SplitViewController::State::kNoSnap)
+    wm::ActivateWindow(overview_session_->GetOverviewFocusWindow());
 }
 
 void OverviewGrid::OnSplitViewDividerPositionChanged() {
@@ -977,9 +1011,9 @@ void OverviewGrid::OnStartingAnimationComplete(bool canceled) {
 
 void OverviewGrid::CalculateWindowListAnimationStates(
     OverviewItem* selected_item,
-    OverviewSession::OverviewTransition transition,
+    OverviewTransition transition,
     const std::vector<gfx::RectF>& target_bounds) {
-  using OverviewTransition = OverviewSession::OverviewTransition;
+  using OverviewTransition = OverviewTransition;
 
   // Sanity checks to enforce assumptions used in later codes.
   switch (transition) {
@@ -1105,9 +1139,9 @@ void OverviewGrid::CalculateWindowListAnimationStates(
       occluded_region.op(src_bounds, SkRegion::kUnion_Op);
 
     const bool should_animate = !(src_occluded && dst_occluded);
-    if (transition == OverviewSession::OverviewTransition::kEnter)
+    if (transition == OverviewTransition::kEnter)
       items[i]->set_should_animate_when_entering(should_animate);
-    else if (transition == OverviewSession::OverviewTransition::kExit)
+    else if (transition == OverviewTransition::kExit)
       items[i]->set_should_animate_when_exiting(should_animate);
   }
 }
@@ -1327,9 +1361,10 @@ gfx::Rect OverviewGrid::GetGridEffectiveBounds() const {
     return bounds_;
 
   gfx::Rect effective_bounds = bounds_;
-  effective_bounds.Inset(
-      0, DesksBarView::GetBarHeightForWidth(desks_bar_view_, bounds_.width()),
-      0, 0);
+  effective_bounds.Inset(0,
+                         DesksBarView::GetBarHeightForWidth(
+                             root_window_, desks_bar_view_, bounds_.width()),
+                         0, 0);
   return effective_bounds;
 }
 
@@ -1370,7 +1405,7 @@ bool OverviewGrid::MaybeDropItemOnDeskMiniView(
       return false;
 
     return desks_controller->MoveWindowFromActiveDeskTo(
-        dragged_window, target_desk,
+        dragged_window, target_desk, root_window_,
         DesksMoveWindowFromActiveDeskSource::kDragAndDrop);
   }
 
@@ -1454,8 +1489,7 @@ int OverviewGrid::CalculateWidthAndMaybeSetUnclippedBounds(OverviewItem* item,
   const gfx::Size item_size(0, height);
   gfx::SizeF target_size = item->GetTargetBoundsInScreen().size();
   float scale = item->GetItemScale(item_size);
-  ScopedOverviewTransformWindow::GridWindowFillMode grid_fill_mode =
-      item->GetWindowDimensionsType();
+  OverviewGridWindowFillMode grid_fill_mode = item->GetWindowDimensionsType();
 
   // The drop target, unlike the other windows has its bounds set directly, so
   // |GetTargetBoundsInScreen()| won't return the value we want. Instead, get
@@ -1503,10 +1537,10 @@ int OverviewGrid::CalculateWidthAndMaybeSetUnclippedBounds(OverviewItem* item,
   int width = std::max(
       1, gfx::ToFlooredInt(target_size.width() * scale) + 2 * kWindowMargin);
   switch (grid_fill_mode) {
-    case ScopedOverviewTransformWindow::GridWindowFillMode::kLetterBoxed:
+    case OverviewGridWindowFillMode::kLetterBoxed:
       width = kExtremeWindowRatioThreshold * height;
       break;
-    case ScopedOverviewTransformWindow::GridWindowFillMode::kPillarBoxed:
+    case OverviewGridWindowFillMode::kPillarBoxed:
       width = height / kExtremeWindowRatioThreshold;
       break;
     default:
@@ -1572,6 +1606,17 @@ void OverviewGrid::OnDesksChanged() {
     desks_bar_view_->Layout();
 }
 
+bool OverviewGrid::IsDeskNameBeingModified() const {
+  return desks_bar_view_ && desks_bar_view_->IsDeskNameBeingModified();
+}
+
+void OverviewGrid::CommitDeskNameChanges() {
+  // The desks bar widget may not be ready, since it is created asynchronously
+  // later when the entering overview animations finish.
+  if (desks_widget_)
+    DeskNameView::CommitChanges(desks_widget_.get());
+}
+
 void OverviewGrid::MaybeInitDesksWidget() {
   if (!desks_util::ShouldDesksBarBeCreated() || desks_widget_)
     return;
@@ -1588,6 +1633,11 @@ void OverviewGrid::MaybeInitDesksWidget() {
   desks_bar_view_->Init();
 
   desks_widget_->Show();
+
+  // TODO(afakhry): Check if we need to keep this as the bottom-most window in
+  // the container.
+  auto* window = desks_widget_->GetNativeWindow();
+  window->parent()->StackChildAtBottom(window);
 }
 
 std::vector<gfx::RectF> OverviewGrid::GetWindowRects(
@@ -1838,12 +1888,14 @@ size_t OverviewGrid::GetOverviewItemIndex(OverviewItem* item) const {
 }
 
 size_t OverviewGrid::FindInsertionIndex(const aura::Window* window) {
-  DCHECK(!GetDropTarget());
   size_t index = 0u;
   for (aura::Window* mru_window :
        Shell::Get()->mru_window_tracker()->BuildMruWindowList(kActiveDesk)) {
-    if (index == window_list_.size() || mru_window == window)
+    if (index == size() ||
+        IsDropTargetWindow(window_list_[index]->GetWindow()) ||
+        mru_window == window) {
       return index;
+    }
     // As we iterate over the whole MRU window list, the windows in this grid
     // will be encountered in the same order, but possibly with other windows in
     // between. Ignore those other windows, and only increment |index| when we
@@ -1883,17 +1935,14 @@ void OverviewGrid::AddDraggedWindowIntoOverviewOnDragEnd(
     dragged_window->ClearProperty(kCanAttachToAnotherWindowKey);
   }
 
-  overview_session_->AddItem(dragged_window, /*reposition=*/false,
-                             /*animate=*/false);
+  overview_session_->AddItemInMruOrder(dragged_window, /*reposition=*/false,
+                                       /*animate=*/false, /*restack=*/true);
 }
 
-// Returns the desks widget bounds in root, given the screen bounds of the
-// overview grid.
 gfx::Rect OverviewGrid::GetDesksWidgetBounds() const {
-  gfx::Rect desks_widget_root_bounds = bounds_;
-  ::wm::ConvertRectFromScreen(root_window_, &desks_widget_root_bounds);
-  desks_widget_root_bounds.set_height(DesksBarView::GetBarHeightForWidth(
-      desks_bar_view_, desks_widget_root_bounds.width()));
+  gfx::Rect desks_widget_screen_bounds = bounds_;
+  desks_widget_screen_bounds.set_height(DesksBarView::GetBarHeightForWidth(
+      root_window_, desks_bar_view_, desks_widget_screen_bounds.width()));
   // Shift the widget down to make room for the splitview indicator guidance
   // when it's shown at the top of the screen and no other windows are snapped.
   if (split_view_drag_indicators_ &&
@@ -1901,12 +1950,12 @@ gfx::Rect OverviewGrid::GetDesksWidgetBounds() const {
           SplitViewDragIndicators::WindowDraggingState::kFromOverview &&
       !SplitViewController::IsLayoutHorizontal() &&
       !SplitViewController::Get(root_window_)->InSplitViewMode()) {
-    desks_widget_root_bounds.Offset(
+    desks_widget_screen_bounds.Offset(
         0, split_view_drag_indicators_->GetLeftHighlightViewBounds().height() +
                2 * kHighlightScreenEdgePaddingDp);
   }
 
-  return screen_util::SnapBoundsToDisplayEdge(desks_widget_root_bounds,
+  return screen_util::SnapBoundsToDisplayEdge(desks_widget_screen_bounds,
                                               root_window_);
 }
 

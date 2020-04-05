@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#pragma clang diagnostic ignored "-Wunused-function"
 #include "services/network/network_context.h"
 
 #include <memory>
@@ -18,6 +19,7 @@
 #include "base/containers/unique_ptr_adapters.h"
 #include "base/feature_list.h"
 #include "base/logging.h"
+#include "base/memory/ptr_util.h"
 #include "base/memory/ref_counted.h"
 #include "base/message_loop/message_loop_current.h"
 #include "base/metrics/histogram_functions.h"
@@ -28,6 +30,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/post_task.h"
 #include "base/task/task_traits.h"
+#include "base/task/thread_pool.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "build/build_config.h"
 #include "build/chromecast_buildflags.h"
@@ -40,6 +43,7 @@
 #include "components/prefs/pref_service.h"
 #include "components/prefs/pref_service_factory.h"
 #include "crypto/sha2.h"
+#include "net/base/features.h"
 #include "net/base/load_flags.h"
 #include "net/base/net_errors.h"
 #include "net/base/network_delegate.h"
@@ -62,6 +66,7 @@
 #include "net/http/http_request_headers.h"
 #include "net/http/http_server_properties.h"
 #include "net/http/http_transaction_factory.h"
+#include "net/proxy_resolution/configured_proxy_resolution_service.h"
 #include "net/proxy_resolution/proxy_config.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
 #include "net/url_request/report_sender.h"
@@ -84,6 +89,7 @@
 #include "services/network/proxy_config_service_mojo.h"
 #include "services/network/proxy_lookup_request.h"
 #include "services/network/proxy_resolving_socket_factory_mojo.h"
+#include "services/network/public/cpp/content_security_policy/content_security_policy.h"
 #include "services/network/public/cpp/features.h"
 #include "services/network/public/cpp/network_switches.h"
 #include "services/network/quic_transport.h"
@@ -95,6 +101,10 @@
 #include "services/network/throttling/network_conditions.h"
 #include "services/network/throttling/throttling_controller.h"
 #include "services/network/throttling/throttling_network_transaction_factory.h"
+#include "services/network/trust_tokens/pending_trust_token_store.h"
+#include "services/network/trust_tokens/sqlite_trust_token_persister.h"
+#include "services/network/trust_tokens/trust_token_parameterization.h"
+#include "services/network/trust_tokens/trust_token_store.h"
 #include "services/network/url_loader.h"
 #include "services/network/url_request_context_builder_mojo.h"
 
@@ -331,6 +341,21 @@ std::string HashesToBase64String(const net::HashValueVector& hashes) {
   return str;
 }
 
+#if BUILDFLAG(BUILTIN_CERT_VERIFIER_FEATURE_SUPPORTED)
+bool UsingBuiltinCertVerifier(
+    mojom::NetworkContextParams::CertVerifierImpl mode) {
+  switch (mode) {
+    case mojom::NetworkContextParams::CertVerifierImpl::kDefault:
+      return base::FeatureList::IsEnabled(
+          net::features::kCertVerifierBuiltinFeature);
+    case mojom::NetworkContextParams::CertVerifierImpl::kBuiltin:
+      return true;
+    case mojom::NetworkContextParams::CertVerifierImpl::kSystem:
+      return false;
+  }
+}
+#endif
+
 }  // namespace
 
 constexpr uint32_t NetworkContext::kMaxOutstandingRequestsPerProcess;
@@ -354,7 +379,8 @@ NetworkContext::NetworkContext(
 #endif
       receiver_(this, std::move(receiver)),
       cors_preflight_controller_(
-          params_->cors_extra_safelisted_request_header_names) {
+          params_->cors_extra_safelisted_request_header_names,
+          network_service) {
   url_request_context_owner_ = MakeURLRequestContext();
   url_request_context_ = url_request_context_owner_.url_request_context.get();
 
@@ -401,7 +427,7 @@ NetworkContext::NetworkContext(
       socket_factory_(
           std::make_unique<SocketFactory>(url_request_context_->net_log(),
                                           url_request_context)),
-      cors_preflight_controller_(std::vector<std::string>()) {
+      cors_preflight_controller_(std::vector<std::string>(), network_service) {
   // May be nullptr in tests.
   if (network_service_)
     network_service_->RegisterNetworkContext(this);
@@ -488,14 +514,6 @@ void NetworkContext::CreateURLLoaderFactory(
 void NetworkContext::ActivateDohProbes() {
   DCHECK(url_request_context_->host_resolver());
 
-  // DoH probes are global rather than per-context, so they should be run just
-  // for the primary context.
-  //
-  // TODO(crbug.com/1022059): Trigger per-context DoH probes for all
-  // NetworkContext.
-  if (!IsPrimaryNetworkContext())
-    return;
-
   doh_probes_request_.reset();
   doh_probes_request_ =
       url_request_context_->host_resolver()->CreateDohProbeRequest();
@@ -521,7 +539,13 @@ void NetworkContext::CreateURLLoaderFactory(
 }
 
 void NetworkContext::ResetURLLoaderFactories() {
+  // Move all factories to a temporary vector so ClearBindings() does not
+  // invalidate the iterator if the factory gets deleted.
+  std::vector<cors::CorsURLLoaderFactory*> factories;
+  factories.reserve(url_loader_factories_.size());
   for (const auto& factory : url_loader_factories_)
+    factories.push_back(factory.get());
+  for (auto* factory : factories)
     factory->ClearBindings();
 }
 
@@ -680,7 +704,9 @@ void NetworkContext::ClearHttpAuthCache(base::Time start_time,
   DCHECK(http_session);
 
   http_session->http_auth_cache()->ClearEntriesAddedSince(start_time);
-  http_session->CloseAllConnections();
+  // TODO(mmenke): Use another error code for this, as ERR_ABORTED has somewhat
+  // magical handling with respect to navigations.
+  http_session->CloseAllConnections(net::ERR_ABORTED, "Clearing auth cache");
 
   std::move(callback).Run();
 }
@@ -869,7 +895,10 @@ void NetworkContext::CloseAllConnections(CloseAllConnectionsCallback callback) {
       url_request_context_->http_transaction_factory()->GetSession();
   DCHECK(http_session);
 
-  http_session->CloseAllConnections();
+  // TODO(mmenke): Use another error code for this, as ERR_ABORTED has somewhat
+  // magical handling with respect to navigations.
+  http_session->CloseAllConnections(net::ERR_ABORTED,
+                                    "Embedder closing all connections");
 
   std::move(callback).Run();
 }
@@ -880,7 +909,7 @@ void NetworkContext::CloseIdleConnections(
       url_request_context_->http_transaction_factory()->GetSession();
   DCHECK(http_session);
 
-  http_session->CloseIdleConnections();
+  http_session->CloseIdleConnections("Embedder closing idle connections");
 
   std::move(callback).Run();
 }
@@ -1119,7 +1148,18 @@ void NetworkContext::LookUpProxyForURL(
 
 void NetworkContext::ForceReloadProxyConfig(
     ForceReloadProxyConfigCallback callback) {
-  url_request_context()->proxy_resolution_service()->ForceReloadProxyConfig();
+  net::ConfiguredProxyResolutionService* configured_proxy_resolution_service =
+      nullptr;
+  if (url_request_context()
+          ->proxy_resolution_service()
+          ->CastToConfiguredProxyResolutionService(
+              &configured_proxy_resolution_service)) {
+    configured_proxy_resolution_service->ForceReloadProxyConfig();
+  } else {
+    LOG(WARNING)
+        << "NetworkContext::ForceReloadProxyConfig() had no effect, as the "
+           "underlying ProxyResolutionService does not support that concept.";
+  }
   std::move(callback).Run();
 }
 
@@ -1251,6 +1291,15 @@ void NetworkContext::VerifyCertForSignedExchange(
 
   if (result != net::ERR_IO_PENDING)
     OnCertVerifyForSignedExchangeComplete(cert_verify_id, result);
+}
+
+void NetworkContext::ParseContentSecurityPolicy(
+    const GURL& base_url,
+    const scoped_refptr<net::HttpResponseHeaders>& headers,
+    ParseContentSecurityPolicyCallback callback) {
+  std::vector<mojom::ContentSecurityPolicyPtr> policy;
+  AddContentSecurityPolicyFromHeaders(*headers, base_url, &policy);
+  std::move(callback).Run(std::move(policy));
 }
 
 void NetworkContext::NotifyExternalCacheHit(
@@ -1706,7 +1755,7 @@ URLRequestContextOwner NetworkContext::MakeURLRequestContext() {
       cert_verifier = std::make_unique<net::CachingCertVerifier>(
           std::make_unique<net::CoalescingCertVerifier>(
               std::make_unique<net::MultiThreadedCertVerifier>(
-                  params_->use_builtin_cert_verifier
+                  UsingBuiltinCertVerifier(params_->use_builtin_cert_verifier)
                       ? net::CertVerifyProc::CreateBuiltinVerifyProc(
                             cert_net_fetcher_)
                       : net::CertVerifyProc::CreateSystemVerifyProc(
@@ -1761,9 +1810,8 @@ URLRequestContextOwner NetworkContext::MakeURLRequestContext() {
     scoped_refptr<base::SequencedTaskRunner> client_task_runner =
         base::ThreadTaskRunnerHandle::Get();
     scoped_refptr<base::SequencedTaskRunner> background_task_runner =
-        base::CreateSequencedTaskRunner(
-            {base::ThreadPool(), base::MayBlock(),
-             net::GetCookieStoreBackgroundSequencePriority(),
+        base::ThreadPool::CreateSequencedTaskRunner(
+            {base::MayBlock(), net::GetCookieStoreBackgroundSequencePriority(),
              base::TaskShutdownBehavior::BLOCK_SHUTDOWN});
 
     net::CookieCryptoDelegate* crypto_delegate = nullptr;
@@ -1794,6 +1842,22 @@ URLRequestContextOwner NetworkContext::MakeURLRequestContext() {
   } else {
     DCHECK(!params_->restore_old_session_cookies);
     DCHECK(!params_->persist_session_cookies);
+  }
+
+  if (base::FeatureList::IsEnabled(features::kTrustTokens)) {
+    trust_token_store_ = std::make_unique<PendingTrustTokenStore>();
+
+    if (params_->trust_token_path) {
+      SQLiteTrustTokenPersister::CreateForFilePath(
+          base::ThreadPool::CreateSequencedTaskRunner(
+              {base::MayBlock(), kTrustTokenDatabaseTaskPriority,
+               base::TaskShutdownBehavior::BLOCK_SHUTDOWN}),
+          *params_->trust_token_path, kTrustTokenWriteBufferingWindow,
+          base::BindOnce(&NetworkContext::FinishConstructingTrustTokenStore,
+                         weak_factory_.GetWeakPtr()));
+    } else {
+      trust_token_store_->OnStoreReady(TrustTokenStore::CreateInMemory());
+    }
   }
 
   std::unique_ptr<net::StaticHttpUserAgentSettings> user_agent_settings =
@@ -1860,12 +1924,11 @@ URLRequestContextOwner NetworkContext::MakeURLRequestContext() {
 
   std::unique_ptr<PrefService> pref_service;
   if (params_->http_server_properties_path) {
-    scoped_refptr<JsonPrefStore> json_pref_store(
-        new JsonPrefStore(*params_->http_server_properties_path, nullptr,
-                          base::CreateSequencedTaskRunner(
-                              {base::ThreadPool(), base::MayBlock(),
-                               base::TaskShutdownBehavior::BLOCK_SHUTDOWN,
-                               base::TaskPriority::BEST_EFFORT})));
+    scoped_refptr<JsonPrefStore> json_pref_store(new JsonPrefStore(
+        *params_->http_server_properties_path, nullptr,
+        base::ThreadPool::CreateSequencedTaskRunner(
+            {base::MayBlock(), base::TaskShutdownBehavior::BLOCK_SHUTDOWN,
+             base::TaskPriority::BEST_EFFORT})));
     PrefServiceFactory pref_service_factory;
     pref_service_factory.set_user_prefs(json_pref_store);
     pref_service_factory.set_async(true);
@@ -1917,8 +1980,8 @@ URLRequestContextOwner NetworkContext::MakeURLRequestContext() {
     scoped_refptr<base::SequencedTaskRunner> client_task_runner =
         base::ThreadTaskRunnerHandle::Get();
     scoped_refptr<base::SequencedTaskRunner> background_task_runner =
-        base::CreateSequencedTaskRunner(
-            {base::ThreadPool(), base::MayBlock(),
+        base::ThreadPool::CreateSequencedTaskRunner(
+            {base::MayBlock(),
              net::GetReportingAndNelStoreBackgroundSequencePriority(),
              base::TaskShutdownBehavior::BLOCK_SHUTDOWN});
     std::unique_ptr<net::SQLitePersistentReportingAndNelStore> sqlite_store(
@@ -2279,7 +2342,7 @@ void NetworkContext::TrustAnchorUsed() {
 scoped_refptr<net::CertVerifyProc> NetworkContext::CreateCertVerifyProcForUser(
     scoped_refptr<net::CertNetFetcher> net_fetcher,
     crypto::ScopedPK11Slot user_public_slot) {
-  if (params_->use_builtin_cert_verifier) {
+  if (UsingBuiltinCertVerifier(params_->use_builtin_cert_verifier)) {
     return net::CreateCertVerifyProcBuiltin(
         std::move(net_fetcher),
         std::make_unique<SystemTrustStoreProviderChromeOS>(
@@ -2292,7 +2355,7 @@ scoped_refptr<net::CertVerifyProc> NetworkContext::CreateCertVerifyProcForUser(
 scoped_refptr<net::CertVerifyProc>
 NetworkContext::CreateCertVerifyProcWithoutUserSlots(
     scoped_refptr<net::CertNetFetcher> net_fetcher) {
-  if (params_->use_builtin_cert_verifier) {
+  if (UsingBuiltinCertVerifier(params_->use_builtin_cert_verifier)) {
     return net::CreateCertVerifyProcBuiltin(
         std::move(net_fetcher),
         std::make_unique<SystemTrustStoreProviderChromeOS>());
@@ -2322,6 +2385,12 @@ void NetworkContext::InitializeCorsParams() {
       cors_enabled_ = false;
       break;
   }
+}
+
+void NetworkContext::FinishConstructingTrustTokenStore(
+    std::unique_ptr<SQLiteTrustTokenPersister> persister) {
+  trust_token_store_->OnStoreReady(
+      std::make_unique<TrustTokenStore>(std::move(persister)));
 }
 
 void NetworkContext::GetOriginPolicyManager(

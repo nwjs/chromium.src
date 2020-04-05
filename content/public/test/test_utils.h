@@ -10,7 +10,6 @@
 #include "base/callback.h"
 #include "base/macros.h"
 #include "base/memory/ref_counted.h"
-#include "base/memory/weak_ptr.h"
 #include "base/run_loop.h"
 #include "base/threading/thread_checker.h"
 #include "build/build_config.h"
@@ -101,9 +100,6 @@ bool AreDefaultSiteInstancesEnabled();
 // the test; the flag will be read on the first real navigation.
 void IsolateAllSitesForTesting(base::CommandLine* command_line);
 
-// Resets the internal secure schemes/origins whitelist.
-void ResetSchemesAndOriginsWhitelist();
-
 // Returns a GURL constructed from the WebUI scheme and the given host.
 GURL GetWebUIURL(const std::string& host);
 
@@ -118,6 +114,9 @@ std::string GetWebUIURLString(const std::string& host);
 // WebContents. The caller should be careful when retaining the pointer, as the
 // inner WebContents will be deleted if the frame it's attached to goes away.
 WebContents* CreateAndAttachInnerContents(RenderFrameHost* rfh);
+
+// Spins a run loop until IsDocumentOnLoadCompletedInMainFrame() is true.
+void AwaitDocumentOnLoadCompleted(WebContents* web_contents);
 
 // Helper class to Run and Quit the message loop. Run and Quit can only happen
 // once per instance. Make a new instance for each use. Calling Quit after Run
@@ -290,8 +289,7 @@ class InProcessUtilityThreadHelper : public BrowserChildProcessObserver {
   void BrowserChildProcessHostDisconnected(
       const ChildProcessData& data) override;
 
-  base::OnceClosure quit_closure_;
-  base::WeakPtrFactory<InProcessUtilityThreadHelper> weak_ptr_factory_{this};
+  base::Optional<base::RunLoop> run_loop_;
 
   DISALLOW_COPY_AND_ASSIGN(InProcessUtilityThreadHelper);
 };
